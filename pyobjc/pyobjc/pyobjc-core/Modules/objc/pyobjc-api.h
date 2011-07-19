@@ -21,22 +21,11 @@
 
 #import <Foundation/Foundation.h>
 
+#include "pyobjc-compat.h"
 
 
 
 
-#ifndef PyObjC_COMPAT_H
-#if (PY_VERSION_HEX < 0x02050000)
-typedef int Py_ssize_t;
-#define PY_FORMAT_SIZE_T ""
-#define Py_ARG_SIZE_T "n"
-#define PY_SSIZE_T_MAX INT_MAX
-
-#else
-
-#define Py_ARG_SIZE_T "i"
-#endif
-#endif
 
 #import <Foundation/NSException.h>
 
@@ -166,8 +155,9 @@ struct PyObjC_WeakLink {
  * - Version 16 adds PyObjC_PerformWeaklinking
  * - Version 17 introduces Py_ssize_t support
  * - Version 18 introduces several API incompatibilities
+ * - Version 19 removes some old junk
  */
-#define PYOBJC_API_VERSION 18
+#define PYOBJC_API_VERSION 19
 
 #define PYOBJC_API_NAME "__C_API__"
 
@@ -292,21 +282,6 @@ struct pyobjc_api {
 	/* PyObjCObject_IsUninitialized */
 	int (*obj_is_uninitialized)(PyObject*);
 
-	/* PyObjCObject_Convert */
-	int (*pyobjcobject_convert)(PyObject*,void*);
-
-	/* PyObjCSelector_Convert */
-	int (*pyobjcselector_convert)(PyObject*,void*);
-
-	/* PyObjCClass_Convert */
-	int (*pyobjcclass_convert)(PyObject*,void*);
-
-	/* PyObjC_ConvertBOOL */
-	int (*pyobjc_convertbool)(PyObject*,void*);
-
-	/* PyObjC_ConvertChar */
-	int (*pyobjc_convertchar)(PyObject*,void*);
-
 	/* PyObjCObject_New */
 	PyObject* (*pyobjc_object_new)(id, int , int);
 
@@ -328,6 +303,11 @@ struct pyobjc_api {
 	int (*dep_c_array_count)(const char* type, Py_ssize_t count, BOOL strict, PyObject* value, void* datum);
 
 	PyObject* (*varlistnew)(const char* tp, void* array);
+
+	int (*is_ascii_string)(PyObject* unicode_string, const char* ascii_string);
+	int (*is_ascii_prefix)(PyObject* unicode_string, const char* ascii_string, size_t n);
+
+	int (*pyobjcobject_convert)(PyObject*,void*);
 };
 
 #ifndef PYOBJC_BUILD
@@ -335,6 +315,9 @@ struct pyobjc_api {
 #ifndef PYOBJC_METHOD_STUB_IMPL
 static struct pyobjc_api*	PyObjC_API;
 #endif /* PYOBJC_METHOD_STUB_IMPL */
+
+#define PyObjC_is_ascii_string (PyObjC_API->is_ascii_string)
+#define PyObjC_is_ascii_prefix (PyObjC_API->is_ascii_prefix)
 
 #define PyObjCObject_Check(obj) PyObject_TypeCheck(obj, PyObjC_API->object_type)
 #define PyObjCClass_Check(obj)  PyObject_TypeCheck(obj, PyObjC_API->class_type)
@@ -375,11 +358,6 @@ static struct pyobjc_api*	PyObjC_API;
 #define PyObjCIMP_GetIMP   (PyObjC_API->imp_get_imp)
 #define PyObjCIMP_GetSelector   (PyObjC_API->imp_get_sel)
 #define PyObjCObject_IsUninitialized (PyObjC_API->obj_is_uninitialized)
-#define PyObjCObject_Convert (PyObjC_API->pyobjcobject_convert)
-#define PyObjCSelector_Convert (PyObjC_API->pyobjcselector_convert)
-#define PyObjCClass_Convert (PyObjC_API->pyobjcselector_convert)
-#define PyObjC_ConvertBOOL (PyObjC_API->pyobjc_convertbool)
-#define PyObjC_ConvertChar (PyObjC_API->pyobjc_convertchar)
 #define PyObjCObject_New (PyObjC_API->pyobjc_object_new)
 #define PyObjCCreateOpaquePointerType (PyObjC_API->pointer_type_new)
 #define PyObjCObject_NewTransient (PyObjC_API->newtransient)
@@ -389,17 +367,40 @@ static struct pyobjc_api*	PyObjC_API;
 #define PyObjC_NULL		  (*(PyObjC_API->pyobjc_null))
 #define PyObjC_DepythonifyCArray  (PyObjC_API->dep_c_array_count)
 #define PyObjC_VarList_New  (PyObjC_API->varlistnew)
+#define PyObjCObject_Convert (PyObjC_API->pyobjcobject_convert)
+
+typedef void (*PyObjC_Function_Pointer)(void);
+
+typedef struct PyObjC_function_map {
+    const char* 		name;
+    PyObjC_Function_Pointer     function;
+} PyObjC_function_map;
+
 
 
 #ifndef PYOBJC_METHOD_STUB_IMPL
 
-static int
+static inline PyObject*
+PyObjC_CreateInlineTab(PyObjC_function_map* map)
+{
+#if PY_MAJOR_VERSION == 2 && PY_MINOR_VERSION < 7
+	return PyCObject_FromVoidPtr(map, NULL);
+#else
+	return PyCapsule_New(map, "objc.__inline__", NULL);
+#endif
+}
+
+static inline int
 PyObjC_ImportAPI(PyObject* calling_module)
 {
 	PyObject* m;
 	PyObject* d;
 	PyObject* api_obj;
+#if PY_MAJOR_VERSION == 2
 	PyObject* name = PyString_FromString("objc");
+#else
+	PyObject* name = PyUnicode_FromString("objc");
+#endif
 	
 	m = PyImport_Import(name);
 	Py_DECREF(name);
@@ -420,7 +421,11 @@ PyObjC_ImportAPI(PyObject* calling_module)
 			"No C_API in objc module");
 		return -1;
 	}
+#if PY_MAJOR_VERSION == 2 && PY_VERSION_MAJOR < 7
 	PyObjC_API = PyCObject_AsVoidPtr(api_obj);
+#else
+	PyObjC_API = PyCapsule_GetPointer(api_obj, "objc." PYOBJC_API_NAME);
+#endif
 	if (PyObjC_API == NULL) {
 		return 0;
 	}
@@ -453,5 +458,51 @@ PyObjC_ImportAPI(PyObject* calling_module)
 extern struct pyobjc_api	objc_api;
 
 #endif /* !PYOBJC_BUILD */
+
+/*
+ * Helper macros to simplify module init functions.
+ */
+#define PyObjC__STR(x) #x
+#define PyObjC_STR(x) PyObjC__STR(x)
+
+#if PY_MAJOR_VERSION == 3
+
+#define PyObjC_INITERROR() return NULL
+#define PyObjC_INITDONE() return m
+
+
+#define PyObjC_MODULE_INIT(name) \
+	static struct PyModuleDef mod_module = { \
+		PyModuleDef_HEAD_INIT, \
+	 	PyObjC_STR(name), \
+		NULL, \
+		0, \
+		mod_methods, \
+		NULL, \
+		NULL, \
+		NULL, \
+		NULL \
+	}; \
+	\
+	PyObject* PyInit_##name(void); \
+	PyObject* PyInit_##name(void)
+
+#define PyObjC_MODULE_CREATE(name) \
+	PyModule_Create(&mod_module);
+
+#else
+
+#define PyObjC_INITERROR() return
+#define PyObjC_INITDONE() return
+
+#define PyObjC_MODULE_INIT(name) \
+	void init##name(void); \
+	void init##name(void)
+
+#define PyObjC_MODULE_CREATE(name) \
+	Py_InitModule4(PyObjC_STR(name), mod_methods, \
+			NULL, NULL, PYTHON_API_VERSION);
+
+#endif
 
 #endif /*  PyObjC_API_H */

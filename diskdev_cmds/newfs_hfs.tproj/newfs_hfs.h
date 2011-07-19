@@ -198,6 +198,7 @@ enum {
 	kMakeStandardHFS   = 0x04,
 	kMakeCaseSensitive = 0x08,
 	kUseAccessPerms    = 0x10,
+	kMakeContentProtect= 0x20,
 };
 
 
@@ -226,10 +227,6 @@ struct hfsparams {
 	mode_t		mask;
 };
 typedef struct hfsparams hfsparams_t;
-
-
-extern int make_hfs(const DriveInfo *driveInfo, hfsparams_t *defaults,
-				uint32_t *totalSectors, uint32_t *sectorOffset);
 
 extern int make_hfsplus(const DriveInfo *driveInfo, hfsparams_t *defaults);
 

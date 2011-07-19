@@ -33,12 +33,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 
-#ifdef __linux__
-#include <linux/udp.h>
-#endif
-#if defined(__NetBSD__) || defined (__FreeBSD__)
 #include <netinet/udp.h>
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -191,7 +186,6 @@ natt_compare_addr_hash (struct ph1handle *iph1, vchar_t *natd_received,
   if (iph1->rmconf->nat_traversal == NATT_FORCE)
     return verified;
 
-#ifdef __APPLE__
 	/* old APPLE version sends natd payload in the wrong order */
   if (iph1->natt_options->version == VENDORID_NATT_APPLE) {
 	  if (natd_seq == 0) {
@@ -203,7 +197,6 @@ natt_compare_addr_hash (struct ph1handle *iph1, vchar_t *natd_received,
 		flag = NAT_DETECTED_ME;
 	  }
 	} else
-#endif
 	{
 		if (natd_seq == 0) {
 			natd_computed = natt_hash_addr (iph1, iph1->local);
@@ -247,18 +240,6 @@ natt_fill_options (struct ph1natt_options *opts, int version)
   opts->version = version;
 
   switch (version) {
-#ifndef __APPLE__
-    case VENDORID_NATT_00:
-    case VENDORID_NATT_01:
-      opts->float_port = 0; /* No port floating for those drafts */
-      opts->payload_nat_d = ISAKMP_NPTYPE_NATD_DRAFT;
-      opts->payload_nat_oa = ISAKMP_NPTYPE_NATOA_DRAFT;
-      opts->mode_udp_tunnel = IPSECDOI_ATTR_ENC_MODE_UDPTUNNEL_DRAFT;
-      opts->mode_udp_transport = IPSECDOI_ATTR_ENC_MODE_UDPTRNS_DRAFT;
-      opts->encaps_type = UDP_ENCAP_ESPINUDP_NON_IKE;
-		break;
-#endif
-
     case VENDORID_NATT_02:
     case VENDORID_NATT_02_N:
     case VENDORID_NATT_03:
@@ -274,7 +255,6 @@ natt_fill_options (struct ph1natt_options *opts, int version)
     case VENDORID_NATT_06:
     case VENDORID_NATT_07:
     case VENDORID_NATT_08:
-#ifdef __APPLE__
 	case VENDORID_NATT_APPLE:
       opts->float_port = lcconf->port_isakmp_natt;
       opts->payload_nat_d = ISAKMP_NPTYPE_NATD_BADDRAFT;
@@ -283,7 +263,6 @@ natt_fill_options (struct ph1natt_options *opts, int version)
       opts->mode_udp_transport = IPSECDOI_ATTR_ENC_MODE_UDPTRNS_RFC;
       opts->encaps_type = UDP_ENCAP_ESPINUDP;
       break;
-#endif
     case VENDORID_NATT_RFC:
       opts->float_port = lcconf->port_isakmp_natt;
       opts->payload_nat_d = ISAKMP_NPTYPE_NATD_RFC;
@@ -468,9 +447,6 @@ natt_float_ports (struct ph1handle *iph1)
 		return;
 	if (! iph1->natt_options->float_port){
 		/* Drafts 00 / 01, just schedule keepalive */
-#ifndef __APPLE__
-		natt_keepalive_add_ph1 (iph1);
-#endif
 		return;
 	}
 	
@@ -487,10 +463,6 @@ natt_float_ports (struct ph1handle *iph1)
 	iph1->natt_flags |= NAT_PORTS_CHANGED | NAT_ADD_NON_ESP_MARKER;
 
 	ike_session_ikev1_float_ports(iph1);
-
-#ifndef __APPLE__
-	natt_keepalive_add_ph1 (iph1);
-#endif
 }
 
 void
@@ -517,133 +489,6 @@ natt_handle_vendorid (struct ph1handle *iph1, int vid_numeric)
     if (natt_fill_options (iph1->natt_options, vid_numeric) == 0)
       iph1->natt_flags |= NAT_ANNOUNCED;
 }
-
-#ifndef __APPLE__
-/* NAT keepalive functions */
-static void
-natt_keepalive_send (void *param)
-{
-  struct natt_ka_addrs	*ka, *next = NULL;
-  char keepalive_packet[] = { 0xff };
-  size_t len;
-  int s;
-
-  for (ka = TAILQ_FIRST(&ka_tree); ka; ka = next) {
-    next = TAILQ_NEXT(ka, chain);
-    
-    s = getsockmyaddr(ka->src);
-    if (s == -1) {
-      TAILQ_REMOVE (&ka_tree, ka, chain);
-      racoon_free (ka);
-      continue;
-    }
-    plog (LLV_DEBUG, LOCATION, NULL, "KA: %s\n", 
-	  saddr2str_fromto("%s->%s", ka->src, ka->dst));
-    len = sendfromto(s, keepalive_packet, sizeof (keepalive_packet),
-		     ka->src, ka->dst, 1);
-    if (len == -1)
-      plog(LLV_ERROR, LOCATION, NULL, "KA: sendfromto failed: %s\n",
-	   strerror (errno));
-  }
-  
-  sched_new (lcconf->natt_ka_interval, natt_keepalive_send, NULL);
-}
-
-void
-natt_keepalive_init (void)
-{
-  TAILQ_INIT(&ka_tree);
-
-  /* To disable sending KAs set natt_ka_interval=0 */
-  if (lcconf->natt_ka_interval > 0)
-    sched_new (lcconf->natt_ka_interval, natt_keepalive_send, NULL);
-}
-
-int
-natt_keepalive_add (struct sockaddr *src, struct sockaddr *dst)
-{
-  struct natt_ka_addrs *ka = NULL, *new_addr;
-  
-  TAILQ_FOREACH (ka, &ka_tree, chain) {
-    if (cmpsaddrstrict(ka->src, src) == 0 && 
-	cmpsaddrstrict(ka->dst, dst) == 0) {
-      ka->in_use++;
-      plog (LLV_INFO, LOCATION, NULL, "KA found: %s (in_use=%u)\n",
-	    saddr2str_fromto("%s->%s", src, dst), ka->in_use);
-      return 0;
-    }
-  }
-
-  plog (LLV_INFO, LOCATION, NULL, "KA list add: %s\n", saddr2str_fromto("%s->%s", src, dst));
-
-  new_addr = (struct natt_ka_addrs *)racoon_malloc(sizeof(*new_addr));
-  if (! new_addr) {
-    plog (LLV_ERROR, LOCATION, NULL, "Can't allocate new KA list item\n");
-    return -1;
-  }
-
-  if ((new_addr->src = dupsaddr(src)) == NULL) {
-	racoon_free(new_addr);
-    	plog (LLV_ERROR, LOCATION, NULL, "Can't allocate new KA list item\n");
-	return -1;
-  }
-  if ((new_addr->dst = dupsaddr(dst)) == NULL) {
-	racoon_free(new_addr);
-    	plog (LLV_ERROR, LOCATION, NULL, "Can't allocate new KA list item\n");
-	return -1;
-  }
-  new_addr->in_use = 1;
-  TAILQ_INSERT_TAIL(&ka_tree, new_addr, chain);
-
-  return 0;
-}
-
-int
-natt_keepalive_add_ph1 (struct ph1handle *iph1)
-{
-  int ret = 0;
-  
-  /* Should only the NATed host send keepalives?
-     If yes, add '(iph1->natt_flags & NAT_DETECTED_ME)'
-     to the following condition. */
-  if (iph1->natt_flags & NAT_DETECTED &&
-      ! (iph1->natt_flags & NAT_KA_QUEUED)) {
-    ret = natt_keepalive_add (iph1->local, iph1->remote);
-    if (ret == 0)
-      iph1->natt_flags |= NAT_KA_QUEUED;
-  }
-
-  return ret;
-}
-
-void
-natt_keepalive_remove (struct sockaddr *src, struct sockaddr *dst)
-{
-  struct natt_ka_addrs *ka, *next = NULL;
-
-  plog (LLV_INFO, LOCATION, NULL, "KA remove: %s\n", saddr2str_fromto("%s->%s", src, dst));
-
-  for (ka = TAILQ_FIRST(&ka_tree); ka; ka = next) {
-    next = TAILQ_NEXT(ka, chain);
- 
-    plog (LLV_DEBUG, LOCATION, NULL, "KA tree dump: %s (in_use=%u)\n",
-	  saddr2str_fromto("%s->%s", src, dst), ka->in_use);
-
-    if (cmpsaddrstrict(ka->src, src) == 0 && 
-	cmpsaddrstrict(ka->dst, dst) == 0 &&
-	-- ka->in_use <= 0) {
-
-      plog (LLV_DEBUG, LOCATION, NULL, "KA removing this one...\n");
-
-      TAILQ_REMOVE (&ka_tree, ka, chain);
-      racoon_free (ka);
-      /* Should we break here? Every pair of addresses should 
-         be inserted only once, but who knows :-) Lets traverse 
-	 the whole list... */
-    }
-  }
-}
-#endif /* __APPLE__ */
 
 static struct remoteconf *
 natt_enabled_in_rmconf_stub (struct remoteconf *rmconf, void *data)

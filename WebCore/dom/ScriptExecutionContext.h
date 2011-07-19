@@ -20,40 +20,50 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
 #ifndef ScriptExecutionContext_h
 #define ScriptExecutionContext_h
 
-#include "Console.h"
+#include "ActiveDOMObject.h"
+#include "ConsoleTypes.h"
 #include "KURL.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/Noncopyable.h>
+#include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/text/StringHash.h>
+
+#if USE(JSC)
+#include <runtime/JSGlobalData.h>
+#endif
 
 namespace WebCore {
 
-    class ActiveDOMObject;
+    class Blob;
+    class DOMTimer;
+    class DOMURL;
+    class EventListener;
+    class EventTarget;
+    class MessagePort;
+    class ScriptCallStack;
+    class SecurityOrigin;
+
 #if ENABLE(DATABASE)
     class Database;
     class DatabaseTaskSynchronizer;
     class DatabaseThread;
 #endif
-    class DOMTimer;
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
     class FileThread;
-#endif
-    class MessagePort;
-    class SecurityOrigin;
-    class ScriptString;
-    class String;
-#if ENABLE(INSPECTOR)
-    class InspectorController;
 #endif
 
     class ScriptExecutionContext {
@@ -65,18 +75,16 @@ namespace WebCore {
         virtual bool isWorkerContext() const { return false; }
 
 #if ENABLE(DATABASE)
-        virtual bool isDatabaseReadOnly() const = 0;
+        virtual bool allowDatabaseAccess() const = 0;
         virtual void databaseExceededQuota(const String& name) = 0;
         DatabaseThread* databaseThread();
         void setHasOpenDatabases() { m_hasOpenDatabases = true; }
         bool hasOpenDatabases() const { return m_hasOpenDatabases; }
-        void addOpenDatabase(Database*);
-        void removeOpenDatabase(Database*);
         // When the database cleanup is done, cleanupSync will be signalled.
         void stopDatabases(DatabaseTaskSynchronizer*);
 #endif
         virtual bool isContextThread() const = 0;
-        virtual bool isJSExecutionTerminated() const = 0;
+        virtual bool isJSExecutionForbidden() const = 0;
 
         const KURL& url() const { return virtualURL(); }
         KURL completeURL(const String& url) const { return virtualCompleteURL(url); }
@@ -84,24 +92,25 @@ namespace WebCore {
         virtual String userAgent(const KURL&) const = 0;
 
         SecurityOrigin* securityOrigin() const { return m_securityOrigin.get(); }
-#if ENABLE(INSPECTOR)
-        virtual InspectorController* inspectorController() const { return 0; }
-#endif
 
-        virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL) = 0;
-        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL) = 0;
-        
+        bool sanitizeScriptError(String& errorMessage, int& lineNumber, String& sourceURL);
+        void reportException(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
+        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>) = 0;
+
         // Active objects are not garbage collected even if inaccessible, e.g. because their activity may result in callbacks being invoked.
         bool canSuspendActiveDOMObjects();
         // Active objects can be asked to suspend even if canSuspendActiveDOMObjects() returns 'false' -
         // step-by-step JS debugging is one example.
-        void suspendActiveDOMObjects();
+        void suspendActiveDOMObjects(ActiveDOMObject::ReasonForSuspension);
         void resumeActiveDOMObjects();
         void stopActiveDOMObjects();
         void createdActiveDOMObject(ActiveDOMObject*, void* upcastPointer);
         void destroyedActiveDOMObject(ActiveDOMObject*);
         typedef const HashMap<ActiveDOMObject*, void*> ActiveDOMObjectsMap;
         ActiveDOMObjectsMap& activeDOMObjects() const { return m_activeDOMObjects; }
+
+        virtual void suspendScriptedAnimationControllerCallbacks() { }
+        virtual void resumeScriptedAnimationControllerCallbacks() { }
 
         // MessagePort is conceptually a kind of ActiveDOMObject, but it needs to be tracked separately for message dispatch.
         void processMessagePortMessagesSoon();
@@ -110,11 +119,18 @@ namespace WebCore {
         void destroyedMessagePort(MessagePort*);
         const HashSet<MessagePort*>& messagePorts() const { return m_messagePorts; }
 
+#if ENABLE(BLOB)
+        void createdDomUrl(DOMURL*);
+        void destroyedDomUrl(DOMURL*);
+        const HashSet<DOMURL*>& domUrls() const { return m_domUrls; }
+#endif
         void ref() { refScriptExecutionContext(); }
         void deref() { derefScriptExecutionContext(); }
 
-        class Task : public Noncopyable {
+        class Task {
+            WTF_MAKE_NONCOPYABLE(Task); WTF_MAKE_FAST_ALLOCATED;
         public:
+            Task() { }
             virtual ~Task();
             virtual void performTask(ScriptExecutionContext*) = 0;
             // Certain tasks get marked specially so that they aren't discarded, and are executed, when the context is shutting down its message queue.
@@ -127,14 +143,23 @@ namespace WebCore {
         void removeTimeout(int timeoutId);
         DOMTimer* findTimeout(int timeoutId);
 
+#if ENABLE(BLOB)
+        KURL createPublicBlobURL(Blob*);
+        void revokePublicBlobURL(const KURL&);
+#endif
+
 #if USE(JSC)
         JSC::JSGlobalData* globalData();
 #endif
 
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
         FileThread* fileThread();
         void stopFileThread();
 #endif
+
+        // Interval is in seconds.
+        void adjustMinimumTimerInterval(double oldMinimumTimerInterval);
+        virtual double minimumTimerInterval() const;
 
     protected:
         // Explicitly override the security origin for this script context.
@@ -146,25 +171,41 @@ namespace WebCore {
         virtual const KURL& virtualURL() const = 0;
         virtual KURL virtualCompleteURL(const String&) const = 0;
 
+        virtual EventTarget* errorEventTarget() = 0;
+        virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>) = 0;
+        bool dispatchErrorEvent(const String& errorMessage, int lineNumber, const String& sourceURL);
+
+        void closeMessagePorts();
+
         RefPtr<SecurityOrigin> m_securityOrigin;
 
         HashSet<MessagePort*> m_messagePorts;
 
         HashMap<ActiveDOMObject*, void*> m_activeDOMObjects;
+        bool m_iteratingActiveDOMObjects;
+        bool m_inDestructor;
 
-        HashMap<int, DOMTimer*> m_timeouts;
+        typedef HashMap<int, DOMTimer*> TimeoutMap;
+        TimeoutMap m_timeouts;
+
+#if ENABLE(BLOB)
+        HashSet<String> m_publicBlobURLs;
+        HashSet<DOMURL*> m_domUrls;
+#endif
 
         virtual void refScriptExecutionContext() = 0;
         virtual void derefScriptExecutionContext() = 0;
 
+        bool m_inDispatchErrorEvent;
+        class PendingException;
+        OwnPtr<Vector<OwnPtr<PendingException> > > m_pendingExceptions;
+
 #if ENABLE(DATABASE)
         RefPtr<DatabaseThread> m_databaseThread;
         bool m_hasOpenDatabases; // This never changes back to false, even after the database thread is closed.
-        typedef HashSet<Database* > DatabaseSet;
-        OwnPtr<DatabaseSet> m_openDatabaseSet;
 #endif
 
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
         RefPtr<FileThread> m_fileThread;
 #endif
     };

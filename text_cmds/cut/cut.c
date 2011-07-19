@@ -53,6 +53,7 @@ __FBSDID("$FreeBSD: src/usr.bin/cut/cut.c,v 1.30 2004/11/05 10:45:23 tjr Exp $")
 #include <string.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <sysexits.h>
 
 int	bflag;
 int	cflag;
@@ -140,15 +141,21 @@ main(int argc, char *argv[])
 	rval = 0;
 	if (*argv)
 		for (; *argv; ++argv) {
-			if (strcmp(*argv, "-") == 0)
+			if (strcmp(*argv, "-") == 0) {
 				rval |= fcn(stdin, "stdin");
-			else {
+				if (ferror(stdin)) {
+					errx(EX_IOERR, "Error reading stdin");
+				}
+			} else {
 				if (!(fp = fopen(*argv, "r"))) {
 					warn("%s", *argv);
 					rval = 1;
 					continue;
 				}
 				fcn(fp, *argv);
+				if (ferror(fp)) {
+					errx(EX_IOERR, "Error reading %s", *argv);
+				}
 				(void)fclose(fp);
 			}
 		}

@@ -1,17 +1,26 @@
---- #YAML:1.0
+---
 name: DateTime-Format-ISO8601
-version: 0.0402
-author: ~
-abstract: ~
+version: 0.07
+author:
+  - 'Joshua Hoblitt <jhoblitt@cpan.org>'
+abstract: Parses ISO8601 formats
 license: perl
+resources:
+  license: http://dev.perl.org/licenses/
 requires:
   DateTime: 0.18
   DateTime::Format::Builder: 0.77
 recommends:
   File::Find::Rule: 0.24
+  Test::Distribution: 1.22
   Test::Pod: 0.95
+configure_requires:
+  Module::Build: 0.35
 provides:
   DateTime::Format::ISO8601:
     file: lib/DateTime/Format/ISO8601.pm
-    version: 0.0402
-generated_by: Module::Build version 0.25
+    version: 0.07
+generated_by: Module::Build version 0.35
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4

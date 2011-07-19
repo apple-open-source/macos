@@ -32,7 +32,7 @@
 
 #define super IOService
 
-OSDefineMetaClassAndStructors( IOHIDInterface, super )
+OSDefineMetaClassAndStructors( IOHIDInterface, IOService )
 
 // RESERVED IOHIDInterface CLASS VARIABLES
 // Defined here to avoid conflicts from within header file
@@ -148,6 +148,14 @@ bool IOHIDInterface::start( IOService * provider )
     registerService();
     
     return true;
+}
+
+//====================================================================================================
+// IOHIDInterface::stop
+//====================================================================================================
+void IOHIDInterface::stop( IOService * provider )
+{
+    super::stop(provider);
 }
     
 //---------------------------------------------------------------------------

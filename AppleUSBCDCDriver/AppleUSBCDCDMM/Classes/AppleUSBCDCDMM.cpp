@@ -94,13 +94,13 @@ void AppleUSBCDCDMM::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
     switch (Dir)
     {
         case kDataIn:
-            Log( "AppleUSBCDCDMM: USBLogData - Read Complete, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            Log( "AppleUSBCDCDMM: USBLogData - Read Complete, address = %8p, size = %8d\n", (void *)buf, (UInt)Count );
             break;
         case kDataOut:
-            Log( "AppleUSBCDCDMM: USBLogData - Write, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            Log( "AppleUSBCDCDMM: USBLogData - Write, address = %8p, size = %8d\n", (void *)buf, (UInt)Count );
             break;
         case kDataOther:
-            Log( "AppleUSBCDCDMM: USBLogData - Other, address = %8x, size = %8d\n", (UInt)buf, (UInt)Count );
+            Log( "AppleUSBCDCDMM: USBLogData - Other, address = %8p, size = %8d\n", (void *)buf, (UInt)Count );
             break;
     }
 
@@ -148,7 +148,7 @@ void AppleUSBCDCDMM::USBLogData(UInt8 Dir, SInt32 Count, char *buf)
                 LocBuf[Aspnt++] = wchr;
             }
         }
-        LocBuf[(llen + Asciistart) + 1] = 0x00;
+        LocBuf[Aspnt] = 0x00;
 		
 		Log("%s\n", LocBuf);
 #if USE_IOL
@@ -253,7 +253,7 @@ QueueStatus AppleUSBCDCDMM::InitQueue(CirQueue *Queue, UInt8 *Buffer, size_t Siz
     Queue->LastChar	= Buffer;
     Queue->InQueue	= 0;
 
-    IOSleep(1);
+//    IOSleep(1);
 	
     return queueNoError ;
 	
@@ -796,7 +796,7 @@ bool AppleUSBCDCDMM::start(IOService *provider)
     
     initStructure();
     
-    XTRACE(this, 0, provider, "start - provider.");
+    XTRACE(this, 0, 0, "start");
     
     if(!super::start(provider))
     {
@@ -1139,7 +1139,7 @@ bool AppleUSBCDCDMM::createSerialStream()
     unsigned char		rname[20];
     const char			*suffix = (const char *)&rname;
 	
-    XTRACE(this, 0, pNub, "createSerialStream");
+    XTRACEP(this, 0, pNub, "createSerialStream");
     if (!pNub)
     {
         return false;
@@ -1194,7 +1194,7 @@ IOReturn AppleUSBCDCDMM::acquirePort(bool sleep, void *refCon)
 {
     IOReturn                ret;
     
-    XTRACE(this, refCon, sleep, "acquirePort");
+    XTRACEP(this, refCon, 0, "acquirePort");
 	
 		// Check for being acquired after stop has been issued and before start
 		
@@ -1326,6 +1326,11 @@ IOReturn AppleUSBCDCDMM::releasePort(void *refCon)
     retain();
     ret = fCommandGate->runAction(releasePortAction);
     release();
+    
+        // Clear any sleeping threads
+    
+    fPort.WatchStateMask = 0;
+    fCommandGate->commandWakeup((void *)&fPort.State);
         
     return ret;
 
@@ -1752,12 +1757,21 @@ IOReturn AppleUSBCDCDMM::watchStateGated(UInt32 *state, UInt32 *pMask)
             if (ret == THREAD_TIMED_OUT)
             {
                 ret = kIOReturnTimeout;
+                release();
                 break;
             } else {
                 if (ret == THREAD_INTERRUPTED)
                 {
                     ret = kIOReturnAborted;
+                    release();
                     break;
+                } else {
+                    if (fTerminate || fStopping)	// Make sure we not terminated or stopping
+					{
+						ret = kIOReturnOffline;
+						release();
+						break;
+					}
                 }
             }
             release();
@@ -1774,7 +1788,7 @@ IOReturn AppleUSBCDCDMM::watchStateGated(UInt32 *state, UInt32 *pMask)
         *state &= EXTERNAL_MASK;
     }
 	
-    XTRACE(this, ret, 0, "watchState - Exit");
+    XTRACE(this, ret, 0, "watchStateGated - Exit");
     
     return ret;
 	
@@ -2248,7 +2262,7 @@ IOReturn AppleUSBCDCDMM::enqueueEvent(UInt32 event, UInt32 data, bool sleep, voi
     }
     
     retain();
-    ret = fCommandGate->runAction(executeEventAction, (void *)event, (void *)data);
+    ret = fCommandGate->runAction(executeEventAction, (void *)&event, (void *)&data);
     release();
 
     return ret;
@@ -2967,7 +2981,7 @@ bool AppleUSBCDCDMM::allocateResources()
         XTRACE(this, 0, 0, "allocateResources - no interrrupt pipe.");
         return false;
     }
-    XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fIntPipe, "allocateResources - interrupt pipe.");
+    XTRACEP(this, epReq.maxPacketSize << 16 |epReq.interval, 0, "allocateResources - interrupt pipe.");
 	fIntBufferSize = epReq.maxPacketSize;
 
         // Allocate Memory Descriptor Pointer with memory for the Interrupt pipe:
@@ -2980,7 +2994,7 @@ bool AppleUSBCDCDMM::allocateResources()
     }
 
     fIntPipeBuffer = (UInt8*)fIntPipeMDP->getBytesNoCopy();
-    XTRACE(this, 0, fIntPipeBuffer, "allocateResources - comm buffer");
+    XTRACEP(this, 0, fIntPipeBuffer, "allocateResources - comm buffer");
 	
 		// Now the input and output buffers
 	
@@ -3008,7 +3022,7 @@ bool AppleUSBCDCDMM::allocateResources()
         return false;
     }
     
-    XTRACE(this, 0, fPort.TX.Start, "allocateResources - TX ring buffer");
+    XTRACEP(this, 0, fPort.TX.Start, "allocateResources - TX ring buffer");
     
     if (!allocateRingBuffer(&fPort.RX, fPort.RXStats.BufferSize)) 
     {
@@ -3016,7 +3030,7 @@ bool AppleUSBCDCDMM::allocateResources()
         return false;
     }
     
-    XTRACE(this, 0, fPort.RX.Start, "allocateResources - RX ring buffer");
+    XTRACEP(this, 0, fPort.RX.Start, "allocateResources - RX ring buffer");
 
 		// Read the interrupt pipe
 		
@@ -3116,7 +3130,7 @@ void AppleUSBCDCDMM::releaseResources()
 
 void AppleUSBCDCDMM::freeRingBuffer(CirQueue *Queue)
 {
-    XTRACE(this, 0, Queue, "freeRingBuffer");
+    XTRACEP(this, 0, Queue, "freeRingBuffer");
 
     if (Queue)
     {
@@ -3214,7 +3228,7 @@ IOReturn AppleUSBCDCDMM::message(UInt32 type, IOService *provider, void *argumen
 					fReadDead = false;
 				}
 			}
-            break;
+            return kIOReturnSuccess;
         case kIOUSBMessageHubResumePort:
             XTRACE(this, 0, type, "message - kIOUSBMessageHubResumePort");
             break;
@@ -3230,12 +3244,12 @@ IOReturn AppleUSBCDCDMM::message(UInt32 type, IOService *provider, void *argumen
 					fReadDead = false;
 				}
 			}
-            break;
+            return kIOReturnSuccess;
         default:
             XTRACE(this, 0, type, "message - unknown message"); 
             break;
     }
     
-    return kIOReturnUnsupported;
+    return super::message(type, provider, argument);
     
 }/* end message */

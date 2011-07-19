@@ -262,7 +262,8 @@ int ppp_comp_deregister(ppp_comp_ref *compref)
 ----------------------------------------------------------------------------- */
 int ppp_comp_setcompressor(struct ppp_if *wan, struct ppp_option_data *odp)
 {
-    int 			error = 0, nb;
+    int 			error = 0;
+	u_int32_t		nb;
     struct ppp_comp *cp;
     u_char 			ccp_option[CCP_MAX_OPTION_LENGTH];
     user_addr_t		ptr;

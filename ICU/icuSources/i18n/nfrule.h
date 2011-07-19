@@ -68,7 +68,8 @@ public:
                   ParsePosition& pos, 
                   UBool isFractional, 
                   double upperBound,
-                  Formattable& result) const;
+                  Formattable& result,
+                  UBool isDecimFmtParseable=TRUE) const;
 
     UBool shouldRollBack(double number) const;
 

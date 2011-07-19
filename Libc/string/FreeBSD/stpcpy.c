@@ -33,12 +33,12 @@
 static char sccsid[] = "@(#)strcpy.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/stpcpy.c,v 1.1 2002/10/03 19:39:20 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/stpcpy.c,v 1.2 2009/02/28 06:05:37 das Exp $");
 
 #include <string.h>
 
 char *
-stpcpy(char * to, const char * from)
+stpcpy(char * __restrict to, const char * __restrict from)
 {
 
 	for (; (*to = *from); ++from, ++to);

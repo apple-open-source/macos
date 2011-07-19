@@ -7,7 +7,7 @@
 # See the file license.terms.
 
 package require Tcl 8
-package provide log 1.2.1
+package provide log 1.3
 
 # ### ### ### ######### ######### #########
 
@@ -158,6 +158,9 @@ namespace eval ::log {
     #
     # 0 - messages with with level are written out.
     # 1 - messages with this level are suppressed.
+
+    # Note: This initialization is partially overridden via
+    # 'log::lvSuppressLE' at the bottom of this file.
 
     variable  suppressed
     array set suppressed {
@@ -839,7 +842,8 @@ proc ::log::Puts {level text} {
 	return
     }
 
-    puts $chan "$level$fill($level) $text"
+    puts  $chan "$level$fill($level) $text"
+    flush $chan
     return
 }
 

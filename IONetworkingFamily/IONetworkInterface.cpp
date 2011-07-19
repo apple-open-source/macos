@@ -97,8 +97,8 @@ OSMetaClassDefineReservedUnused( IONetworkInterface, 15);
 #define _driverStats			_reserved->driverStats
 #define _lastDriverStats		_reserved->lastDriverStats
 #define _detachLock				_reserved->detachLock
-#define _remote_NMI_pattern                     _reserved->remote_NMI_pattern
-#define _remote_NMI_len                         _reserved->remote_NMI_len
+#define _remote_NMI_pattern     _reserved->remote_NMI_pattern
+#define _remote_NMI_len         _reserved->remote_NMI_len
 
 #define kIONetworkControllerProperties  "IONetworkControllerProperties"
 #define kRemoteNMI                      "remote_nmi"
@@ -285,9 +285,9 @@ void IONetworkInterface::free()
 		if( _detachLock )
 			IOLockFree( _detachLock);
 
-                if (_remote_NMI_pattern) {
-                    IOFree(_remote_NMI_pattern, _remote_NMI_len);
-               }
+        if (_remote_NMI_pattern) {
+            IOFree(_remote_NMI_pattern, _remote_NMI_len);
+        }
 
         IODelete( _reserved, ExpansionData, 1 );
         _reserved = 0;
@@ -371,6 +371,15 @@ static UInt32 getIfnetHardwareAssistValue( IONetworkController * ctr )
         {
             hwassist |= ( IFNET_CSUM_SUM16 | IFNET_CSUM_TCP | IFNET_CSUM_UDP );
         }
+
+        if ( input & output & IONetworkController::kChecksumTCPIPv6 )
+        {
+            hwassist |= IFNET_CSUM_TCPIPV6;
+        }
+        if ( input & output & IONetworkController::kChecksumUDPIPv6 )
+        {
+            hwassist |= IFNET_CSUM_UDPIPV6;
+        }        
     }
     while ( false );
 
@@ -786,7 +795,6 @@ UInt32 IONetworkInterface::inputPacket(mbuf_t pkt,
        } 
     }
 
-
     // Increment input byte count. (accumulate until DLIL_INPUT is called)
 	_inputDeltas.bytes_in += mbuf_pkthdr_len(pkt);
 	
@@ -1011,11 +1019,15 @@ SInt32 IONetworkInterface::syncSIOCGIFMEDIA(IONetworkController * ctr,
         mediumDict = ctr->copyMediumDictionary();  // creates a copy
         if (mediumDict == 0)
         {
+            error = EOPNOTSUPP;
             break;  // unable to allocate memory, or no medium dictionary.
         }
 
         if ((mediumCount = mediumDict->getCount()) == 0)
+        {
+            error = EOPNOTSUPP;
             break;  // no medium in the medium dictionary
+        }
 
         if (maxCount == 0)
             break;  //  caller is only probing for support and media count.
@@ -1282,9 +1294,9 @@ int IONetworkInterface::output_shim(ifnet_t ifn, mbuf_t m)
         return EINVAL;
     }
 
-    if ( (mbuf_flags(m) & M_PKTHDR) == 0 )
+    if ( (mbuf_flags(m) & MBUF_PKTHDR) == 0 )
     {
-        DLOG("IONetworkInterface: M_PKTHDR bit not set\n");
+        DLOG("IONetworkInterface: MBUF_PKTHDR bit not set\n");
         mbuf_freem(m);
         return EINVAL;
     }
@@ -1914,48 +1926,56 @@ OSMetaClassDefineReservedUsed(IONetworkInterface, 0);
 IOReturn IONetworkInterface::attachToDataLinkLayer( IOOptionBits options,
                                                     void *       parameter )
 {
-    ifnet_init_params iparams;
-	struct sockaddr_dl *ll_addr;
-	char buffer[2*sizeof(struct sockaddr_dl)];
-	UInt32 asize;
-	IOReturn ret = kIOReturnInternalError;
+    ifnet_init_params   iparams;
+	struct sockaddr_dl *ll_addr = 0;
+	char                buffer[2*sizeof(struct sockaddr_dl)];
+	UInt32              asize;
+    OSObject            *prop;
+	IOReturn            ret = kIOReturnInternalError;
 
 	memset(&iparams, 0, sizeof(iparams));
 	initIfnetParams(&iparams);
 
-	if(ifnet_allocate( &iparams, &_backingIfnet))
+	if (ifnet_allocate( &iparams, &_backingIfnet))
 		return kIOReturnNoMemory;
-
 
 	ifnet_set_offload (_backingIfnet, getIfnetHardwareAssistValue( getController() ));		
 
-	// prepare the link-layer address structure	
-	memset(buffer, 0, sizeof(buffer));
-	ll_addr = (struct sockaddr_dl *)buffer;
-	asize = sizeof(buffer) - offsetof(struct sockaddr_dl, sdl_data);
+    prop = getController()->copyProperty(kIOMACAddress);
+    if (prop)
+    {
+		OSData *hardAddr = OSDynamicCast(OSData, prop);
 
-	do{
-		OSData *hardAddr;
-		hardAddr = OSDynamicCast(OSData, getController()->getProperty(kIOMACAddress));
-		if(hardAddr == NULL || hardAddr->getLength() > asize)
-			continue;
-		
-		asize = hardAddr->getLength();
-		bcopy(hardAddr->getBytesNoCopy(), ll_addr->sdl_data, asize);
-		ll_addr->sdl_len = offsetof(struct sockaddr_dl, sdl_data) + asize;
-		ll_addr->sdl_family = AF_LINK;
-		ll_addr->sdl_alen = asize;
-		_syncToBackingIfnet();
+        memset(buffer, 0, sizeof(buffer));
+        ll_addr = (struct sockaddr_dl *)buffer;
 
-		if(ifnet_attach(_backingIfnet, ll_addr) == 0)
-			return kIOReturnSuccess;
-	}while(false);
+        asize = sizeof(buffer) - offsetof(struct sockaddr_dl, sdl_data);
+        if (hardAddr && (hardAddr->getLength() <= asize))
+        {
+            asize = hardAddr->getLength();
+            bcopy(hardAddr->getBytesNoCopy(), ll_addr->sdl_data, asize);
+            ll_addr->sdl_len = offsetof(struct sockaddr_dl, sdl_data) + asize;
+            ll_addr->sdl_family = AF_LINK;
+            ll_addr->sdl_alen = asize;
+        }
+        prop->release();
+    }
+    
+    _syncToBackingIfnet();
 
+    if ((!ll_addr || (ll_addr->sdl_alen != 0)) &&
+        (ifnet_attach(_backingIfnet, ll_addr) == 0))
+    {
+        ret = kIOReturnSuccess;
+    }
+    else
+    {
+        // error condition, clean up
+        ifnet_release(_backingIfnet);
+        _backingIfnet = NULL;
+    }
 
-	//error condition, clean up.
-	ifnet_release(_backingIfnet);
-	_backingIfnet = NULL;
-	return ret;
+    return ret;
 }
 
 //---------------------------------------------------------------------------

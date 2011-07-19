@@ -66,7 +66,7 @@ macho_seek_result macho_find_symbol(
     struct nlist_64       * syms_address_64;
     const void            * string_list;
     char                  * symbol_name;
-    unsigned int            sym_offset;
+    unsigned int            symtab_offset;
     unsigned int            str_offset;
     unsigned int            num_syms;
     unsigned int            syms_bytes;
@@ -88,18 +88,18 @@ macho_seek_result macho_find_symbol(
         sixtyfourbit = 1;
     }
 
-    sym_offset = CondSwapInt32(swap, symtab->symoff);
+    symtab_offset = CondSwapInt32(swap, symtab->symoff);
     str_offset = CondSwapInt32(swap, symtab->stroff);
     num_syms   = CondSwapInt32(swap, symtab->nsyms);
 
-    syms_address = (struct nlist *)(file_start + sym_offset);
-    syms_address_64 = (struct nlist_64 *)(file_start + sym_offset);
+    syms_address = (struct nlist *)(file_start + symtab_offset);
+    syms_address_64 = (struct nlist_64 *)(file_start + symtab_offset);
 
     string_list = file_start + str_offset;
     if (sixtyfourbit) {
-        syms_bytes = num_syms * sizeof(struct nlist);
-    } else {
         syms_bytes = num_syms * sizeof(struct nlist_64);
+    } else {
+        syms_bytes = num_syms * sizeof(struct nlist);
     }
 
     if ((char *)syms_address + syms_bytes > (char *)file_end) {
@@ -188,23 +188,15 @@ macho_seek_result macho_find_symbol(
   
                 case N_ABS:
                     result = macho_seek_result_found_no_value;
-#if 0
-// I don't know how to calculate the offset for this and there
-// may not be a value anyhow.
-                    if (symbol_address) {
-                        *symbol_address = file_start;
-                        *symbol_address += n_value;
-                    }
-#endif
                     goto finish;
                     break;
   
-#if 0
-// don't know how to do this one yet
+              /* We don't chase indirect symbols as they can be external.
+               */
                 case N_INDR:
+                    result = macho_seek_result_found_no_value;
                     goto finish;
                     break;
-#endif
     
                 default:
                     goto finish;
@@ -291,6 +283,53 @@ static macho_seek_result __macho_lc_is_symtab(
     }
 
 finish:
+    return result;
+}
+
+/*******************************************************************************
+* macho_find_uuid()
+*
+* Returns a pointer to the UUID bytes.
+*******************************************************************************/
+struct _uuid_scan {
+    unsigned int   uuid_size;
+    char         * uuid;
+};
+
+macho_seek_result __uuid_callback(
+    struct load_command * load_command,
+    const void * file_end,
+    uint8_t swap __unused,
+    void * user_data)
+{
+    struct _uuid_scan * uuid_stuff = (struct _uuid_scan *)user_data;
+    if (load_command->cmd == LC_UUID) {
+        struct uuid_command * uuid_command = (struct uuid_command *)load_command;
+        if (((void *)load_command + load_command->cmdsize) > file_end) {
+            return macho_seek_result_error;
+        }
+        uuid_stuff->uuid_size = sizeof(uuid_command->uuid);
+        uuid_stuff->uuid = (char *)uuid_command->uuid;
+        return macho_seek_result_found;
+    }
+    return macho_seek_result_not_found;
+}
+
+macho_seek_result macho_find_uuid(
+    const void * file_start,
+    const void * file_end,
+    char       * uuid)
+{
+    macho_seek_result  result;
+    struct _uuid_scan seek_uuid;
+
+    result = macho_scan_load_commands(
+        file_start, file_end,
+        __uuid_callback, (const void **)&seek_uuid);
+    if (result == macho_seek_result_found && uuid) {
+        *uuid = seek_uuid.uuid;
+    }
+
     return result;
 }
 
@@ -828,7 +867,7 @@ struct section * macho_get_section_by_name(
     u_int i = 0;
     
     if (mach_header->magic != MH_MAGIC) goto finish;
-    
+
     segment = macho_get_segment_by_name(mach_header, segname);
     if (!segment) goto finish;
     
@@ -876,5 +915,86 @@ struct section_64 * macho_get_section_by_name_64(
     
 finish:
     return section;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+boolean_t macho_remove_linkedit(u_char *macho, u_long *linkedit_size)
+{
+    boolean_t result = FALSE;
+    struct mach_header *mach_hdr;
+    struct mach_header_64 *mach_hdr64;
+    u_char *src, *dst;
+    uint32_t ncmds, cmdsize;
+    boolean_t swap = FALSE;
+    u_int i;
+
+    swap = macho_swap(macho);
+
+    mach_hdr = (struct mach_header *) macho;
+    mach_hdr64 = (struct mach_header_64 *) macho;
+
+    /* Find the start of the load commands */
+
+    if (mach_hdr->magic == MH_MAGIC) {
+        src = dst = macho + sizeof(*mach_hdr);
+        ncmds = mach_hdr->ncmds;
+    } else if (mach_hdr->magic == MH_MAGIC_64) {
+        src = dst = macho + sizeof(*mach_hdr64);
+        ncmds = mach_hdr64->ncmds;
+    } else {
+        goto finish;
+    }
+
+    /* Remove any LINKEDIT-related load commands */
+
+    for (i = 0; i < ncmds; ++i, src += cmdsize) {
+        struct load_command * lc = (struct load_command *) src;
+        struct segment_command *seg = (struct segment_command *) src;
+        struct segment_command_64 *seg64 = (struct segment_command_64 *) src;
+        boolean_t strip = FALSE;
+
+        cmdsize = lc->cmdsize;
+
+        /* We delete the LINKEDIT segment and any symtab load commands */
+
+        switch (lc->cmd) {
+        case LC_SEGMENT:
+            if (!strncmp(seg->segname, SEG_LINKEDIT, sizeof(SEG_LINKEDIT) - 1)) {
+                strip = TRUE;
+                *linkedit_size = seg->vmsize;
+            }
+            break;
+        case LC_SEGMENT_64:
+            if (!strncmp(seg64->segname, SEG_LINKEDIT, sizeof(SEG_LINKEDIT) - 1)) {
+                strip = TRUE;
+                *linkedit_size = seg64->vmsize;
+            }
+            break;
+        case LC_SYMTAB:
+        case LC_DYSYMTAB:
+            strip = TRUE;
+            break;
+        }
+
+        if (strip) {
+            if (mach_hdr->magic == MH_MAGIC) {
+                mach_hdr->ncmds--;
+                mach_hdr->sizeofcmds -= cmdsize;
+            } else {
+                mach_hdr64->ncmds--;
+                mach_hdr64->sizeofcmds -= cmdsize;
+            }
+            bzero(src, lc->cmdsize);
+        } else {
+            memmove(dst, src, cmdsize);
+            dst += cmdsize;
+        }
+    }
+
+    result = TRUE;
+finish:
+    if (swap) macho_unswap(macho);
+    return result;
 }
 

@@ -54,6 +54,9 @@ static char *rcsid = "$Id: dproc.c,v 1.6 2008/10/21 16:15:16 abe Exp $";
 #define	THREADS_INCR	(sizeof(uint64_t) * 32)	/* Threads space increment */
 #endif	/* DARWINV>=900 */
 
+#ifdef	PROC_PIDLISTFILEPORTS
+#define	FILEPORTS_INCR	(sizeof(struct proc_fileportinfo) * 32)	/* Fileports space increment */
+#endif	/* PROC_PIDLISTFILEPORTS */
 
 /*
  * Local static variables
@@ -70,6 +73,11 @@ static int NbThreads = 0;			/* Threads bytes allocated */
 static uint64_t *Threads = (uint64_t *)NULL;	/* Thread buffer */
 #endif	/* DARWINV>=900 */
 
+#ifdef	PROC_PIDLISTFILEPORTS
+static struct proc_fileportinfo *Fps = (struct proc_fileportinfo *)NULL;
+						/* fileport buffer */
+static int NbFps = 0;				/* bytes allocated to fileports */
+#endif	/* PROC_PIDLISTFILEPORTS */
 
 /*
  * Local structure definitions
@@ -94,6 +102,9 @@ _PROTOTYPE(static void process_text,(int pid));
 _PROTOTYPE(static void process_threads,(int pid, uint32_t n));
 #endif	/* DARWINV>=900 */
 
+#ifdef	PROC_PIDLISTFILEPORTS
+_PROTOTYPE(static void process_fileports,(int pid, int ckscko));
+#endif	/* PROC_PIDLISTFILEPORTS */
 
 /*
  * enter_vn_text() -- enter vnode information text reference
@@ -288,7 +299,7 @@ gather_proc_info()
 		continue;
 	    nb = proc_pidinfo(pid, PROC_PIDTASKALLINFO, 0, &tai, sizeof(tai));
 	    if (nb <= 0) {
-		if (errno == ESRCH)
+		if ((errno == EPERM) || (errno == ESRCH))
 		    continue;
 		if (!Fwarn) {
 		    (void) fprintf(stderr, "%s: PID %d information error: %s\n",
@@ -416,6 +427,14 @@ gather_proc_info()
 	 */
 	    if (!ckscko)
 		(void) process_text(pid);
+
+#ifdef	PROC_PIDLISTFILEPORTS
+	/*
+	 * Loop through the fileports
+	 */
+	    (void) process_fileports(pid, ckscko);
+#endif	/* PROC_PIDLISTFILEPORTS */
+
 	/*
 	 * Loop through the file descriptors.
 	 */
@@ -552,6 +571,121 @@ process_fds(pid, n, ckscko)
 }
 
 
+#ifdef	PROC_PIDLISTFILEPORTS
+/*
+ * process_fileports() -- process fileports
+ */
+
+static void
+process_fileports(pid, ckscko)
+	int pid;			/* PID of interest */
+	int ckscko;			/* check socket files only */
+{
+	int ef, i, isock, nb = 0, nf;
+	struct proc_fileportinfo *fpi;
+
+/*
+ * Get fileport information for the process.
+ */
+	for (ef = 0; !ef;) {
+	    nb = proc_pidinfo(pid, PROC_PIDLISTFILEPORTS, 0, Fps, NbFps);
+	    if (nb == 0) {
+
+		/*
+		 * Quit if no fileport information
+		 */
+		return;
+	    } else if (nb < 0) {
+		if (errno == ESRCH) {
+
+		/*
+		 * Quit if no fileport information is available for the process.
+		 */
+		    return;
+		}
+	    /*
+	     * Make a dummy file entry with an error message in its NAME column.
+	     */
+		alloc_lfile(" err", -1);
+		(void) snpf(Namech, Namechl, "FILEPORT info error: %s", strerror(errno));
+		Namech[Namechl - 1] = '\0';
+		enter_nm(Namech);
+		if (Lf->sf)
+		    link_lfile();
+	    }
+
+	    if ((nb + sizeof(struct proc_fileportinfo)) < NbFps) {
+
+    	    /*
+	     * There is room in the buffer for at least one more fileport.
+	     */
+		ef = 1;
+	    } else {
+		if (Fps && ((nb = proc_pidinfo(pid, PROC_PIDLISTFILEPORTS, 0, NULL, 0)) <= 0)) {
+		    (void) fprintf(stderr, "%s: can't get fileport byte count: %s\n",
+					Pn, strerror(errno));
+		    Exit(1);
+		}
+
+		/*
+		 * The fileport buffer must be enlarged.
+		 */
+		while (nb > NbFps) {
+		    NbFps += FILEPORTS_INCR;
+		}
+		if (!Fps)
+		    Fps = (struct proc_fileportinfo *)malloc((MALLOC_S)NbFps);
+		else
+		    Fps = (struct proc_fileportinfo *)realloc((MALLOC_P *)Fps, (MALLOC_S)NbFps);
+	    }
+	}
+
+/*
+ * Loop through the fileports.
+ */
+	nf = (int)(nb / sizeof(struct proc_fileportinfo));
+	for (i = 0; i < nf; i++) {
+	    fpi = &Fps[i];
+	/*
+	 * fileport reported as "fp." with "(fileport=0xXXXX)" in the Name column
+	 */
+	    alloc_lfile(" fp.", -1);
+	    Lf->fileport = fpi->proc_fileport;
+	/*
+	 * Process the file by its type.
+	 */
+	    isock = 0;
+	    switch (fpi->proc_fdtype) {
+	    case PROX_FDTYPE_PIPE:
+		if (!ckscko)
+		    (void) process_fileport_pipe(pid, fpi->proc_fileport);
+		break;
+	    case PROX_FDTYPE_SOCKET:
+		(void) process_fileport_socket(pid, fpi->proc_fileport);
+		isock = 1;
+		break;
+	    case PROX_FDTYPE_PSHM:
+		(void) process_fileport_pshm(pid, fpi->proc_fileport);
+		break;
+	    case PROX_FDTYPE_VNODE:
+		(void) process_fileport_vnode(pid, fpi->proc_fileport);
+		break;
+	    default:
+		(void) snpf(Namech, Namechl - 1, "unknown file type: %d",
+		    fpi->proc_fileport);
+		Namech[Namechl - 1] = '\0';
+		(void) enter_nm(Namech);
+		break;
+	    }
+	    if (Lf->sf) {
+		if (!ckscko || isock)
+		    link_lfile();
+	    }
+	}
+}
+#endif	/* PROC_PIDLISTFILEPORTS */
+
+
 /*
  * process_text() -- process text information
  */
@@ -630,7 +764,7 @@ process_threads(pid, n)
 		Threads = (uint64_t *)malloc((MALLOC_S)NbThreads);
 	    else
 		Threads = (uint64_t *)realloc((MALLOC_P *)Threads,
-					       (MALLOC_S)NbThreads);
+					      (MALLOC_S)NbThreads);
 	    if (!Threads) {
 		(void) fprintf(stderr,
 		    "%s: can't allocate space for %d Threads\n", Pn,

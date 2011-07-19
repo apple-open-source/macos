@@ -1,37 +1,36 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-                  2008 Eric Seidel <eric@webkit.org>
-                  2008 Dirk Schulze <krit@webkit.org>
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2008 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGRadialGradientElement.h"
 
+#include "Attribute.h"
 #include "FloatConversion.h"
 #include "FloatPoint.h"
-#include "MappedAttribute.h"
 #include "RadialGradientAttributes.h"
 #include "RenderSVGResourceRadialGradient.h"
-#include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGStopElement.h"
 #include "SVGTransform.h"
@@ -40,8 +39,15 @@
 
 namespace WebCore {
 
-SVGRadialGradientElement::SVGRadialGradientElement(const QualifiedName& tagName, Document* doc)
-    : SVGGradientElement(tagName, doc)
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGRadialGradientElement, SVGNames::cxAttr, Cx, cx)
+DEFINE_ANIMATED_LENGTH(SVGRadialGradientElement, SVGNames::cyAttr, Cy, cy)
+DEFINE_ANIMATED_LENGTH(SVGRadialGradientElement, SVGNames::rAttr, R, r)
+DEFINE_ANIMATED_LENGTH(SVGRadialGradientElement, SVGNames::fxAttr, Fx, fx)
+DEFINE_ANIMATED_LENGTH(SVGRadialGradientElement, SVGNames::fyAttr, Fy, fy)
+
+inline SVGRadialGradientElement::SVGRadialGradientElement(const QualifiedName& tagName, Document* document)
+    : SVGGradientElement(tagName, document)
     , m_cx(LengthModeWidth, "50%")
     , m_cy(LengthModeHeight, "50%")
     , m_r(LengthModeOther, "50%")
@@ -49,13 +55,15 @@ SVGRadialGradientElement::SVGRadialGradientElement(const QualifiedName& tagName,
     , m_fy(LengthModeHeight)
 {
     // Spec: If the cx/cy/r attribute is not specified, the effect is as if a value of "50%" were specified.
+    ASSERT(hasTagName(SVGNames::radialGradientTag));
 }
 
-SVGRadialGradientElement::~SVGRadialGradientElement()
+PassRefPtr<SVGRadialGradientElement> SVGRadialGradientElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGRadialGradientElement(tagName, document));
 }
 
-void SVGRadialGradientElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGRadialGradientElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::cxAttr)
         setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));
@@ -81,8 +89,15 @@ void SVGRadialGradientElement::svgAttributeChanged(const QualifiedName& attrName
         || attrName == SVGNames::cyAttr
         || attrName == SVGNames::fxAttr
         || attrName == SVGNames::fyAttr
-        || attrName == SVGNames::rAttr)
-        invalidateResourceClients();
+        || attrName == SVGNames::rAttr) {
+        updateRelativeLengthsInformation();
+        
+        RenderObject* object = renderer();
+        if (!object)
+            return;
+
+        object->setNeedsLayout(true);
+    }
 }
 
 void SVGRadialGradientElement::synchronizeProperty(const QualifiedName& attrName)
@@ -110,14 +125,31 @@ void SVGRadialGradientElement::synchronizeProperty(const QualifiedName& attrName
         synchronizeR();
 }
 
+AttributeToPropertyTypeMap& SVGRadialGradientElement::attributeToPropertyTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGRadialGradientElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGGradientElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::cxAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::cyAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::rAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::fxAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::fyAttr, AnimatedLength);
+}
+
 RenderObject* SVGRadialGradientElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderSVGResourceRadialGradient(this);
 }
 
-RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties()
+void SVGRadialGradientElement::collectGradientAttributes(RadialGradientAttributes& attributes)
 {
-    RadialGradientAttributes attributes;
     HashSet<SVGGradientElement*> processedGradients;
 
     bool isRadial = true;
@@ -130,8 +162,11 @@ RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties()
         if (!attributes.hasBoundingBoxMode() && current->hasAttribute(SVGNames::gradientUnitsAttr))
             attributes.setBoundingBoxMode(current->gradientUnits() == SVGUnitTypes::SVG_UNIT_TYPE_OBJECTBOUNDINGBOX);
 
-        if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr))
-            attributes.setGradientTransform(current->gradientTransform()->consolidate().matrix());
+        if (!attributes.hasGradientTransform() && current->hasAttribute(SVGNames::gradientTransformAttr)) {
+            AffineTransform transform;
+            current->gradientTransform().concatenate(transform);
+            attributes.setGradientTransform(transform);
+        }
 
         if (!attributes.hasStops()) {
             const Vector<Gradient::ColorStop>& stops(current->buildStops());
@@ -161,13 +196,15 @@ RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties()
         processedGradients.add(current);
 
         // Respect xlink:href, take attributes from referenced element
-        Node* refNode = ownerDocument()->getElementById(SVGURIReference::getTarget(current->href()));
+        Node* refNode = treeScope()->getElementById(SVGURIReference::getTarget(current->href()));
         if (refNode && (refNode->hasTagName(SVGNames::radialGradientTag) || refNode->hasTagName(SVGNames::linearGradientTag))) {
             current = static_cast<SVGGradientElement*>(refNode);
 
             // Cycle detection
-            if (processedGradients.contains(current))
-                return RadialGradientAttributes();
+            if (processedGradients.contains(current)) {
+                current = 0;
+                break;
+            }
 
             isRadial = current->hasTagName(SVGNames::radialGradientTag);
         } else
@@ -180,8 +217,6 @@ RadialGradientAttributes SVGRadialGradientElement::collectGradientProperties()
 
     if (!attributes.hasFy())
         attributes.setFy(attributes.cy());
-
-    return attributes;
 }
 
 void SVGRadialGradientElement::calculateFocalCenterPointsAndRadius(const RadialGradientAttributes& attributes, FloatPoint& focalPoint, FloatPoint& centerPoint, float& radius)
@@ -212,6 +247,15 @@ void SVGRadialGradientElement::calculateFocalCenterPointsAndRadius(const RadialG
         deltaY = sinf(angle) * radiusMax;
         focalPoint = FloatPoint(deltaX + centerPoint.x(), deltaY + centerPoint.y());
     }
+}
+
+bool SVGRadialGradientElement::selfHasRelativeLengths() const
+{
+    return cy().isRelative()
+        || cy().isRelative()
+        || r().isRelative()
+        || fx().isRelative()
+        || fy().isRelative();
 }
 
 }

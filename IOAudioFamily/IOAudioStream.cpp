@@ -908,8 +908,8 @@ IOReturn IOAudioStream::setProperties(OSObject *properties)
                 if (key && key->isEqualTo(kIOAudioStreamFormatKey)) {
                     OSDictionary *formatDict = OSDynamicCast(OSDictionary, props->getObject(key));
                     if (formatDict) {
-                        assert(commandGate);
-                        result = commandGate->runAction(setFormatAction, formatDict);
+                        assert(workLoop);													// <rdar://8568040,8691669>
+						result = workLoop->runAction(_setFormatAction, this, formatDict);	// <rdar://8568040,8691669>
                     }
                 }
             }
@@ -1044,6 +1044,25 @@ const IOAudioStreamFormat *IOAudioStream::getFormat()
     return &format;
 }
 
+// <rdar://8568040,8691669>
+IOReturn IOAudioStream::_setFormatAction(OSObject *target, void *arg0, void *arg1, void *arg2, void *arg3)
+{
+    IOReturn result = kIOReturnBadArgument;
+    
+    if (target) {
+        IOAudioStream *stream = OSDynamicCast(IOAudioStream, target);
+        if (stream) {
+            if (stream->commandGate) {
+                result = stream->commandGate->runAction(setFormatAction, arg0, arg1, arg2, arg3);
+            } else {
+                result = kIOReturnError;
+            }
+        }
+    }
+    
+    return result;
+}
+
 IOReturn IOAudioStream::setFormatAction(OSObject *owner, void *arg1, void *arg2, void *arg3, void *arg4)
 {
     IOReturn result = kIOReturnBadArgument;
@@ -1120,6 +1139,13 @@ void IOAudioStream::clearAvailableFormats()
     setProperty(kIOAudioStreamAvailableFormatsKey, availableFormatDictionaries);
 	
     oldAvailableFormats->release();
+
+	//	<rdar://9059646> Clean up the available formats array.
+	if (availableFormats && (numAvailableFormats > 0)) {
+		IOFreeAligned(availableFormats, numAvailableFormats * sizeof(IOAudioStreamFormatDesc));
+	}
+	availableFormats = NULL;
+	numAvailableFormats = 0;
 }
 
 bool IOAudioStream::validateFormat(IOAudioStreamFormat *streamFormat, IOAudioStreamFormatDesc *formatDesc)
@@ -1360,7 +1386,13 @@ IOReturn IOAudioStream::readInputSamples(IOAudioClientBuffer *clientBuffer, UInt
 
 			if ((result == kIOReturnSuccess) && (numWrappedFrames > 0)) {
 				numReadFrames = numWrappedFrames;
+				if (format.fIsMixable) {	// <rdar://8572755>
+					// Use float format to compute offset for destination buffer
                 result = audioEngine->convertInputSamplesVBR(sampleBuffer, &((float *)clientBuffer->sourceBuffer)[(numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels], 0, numReadFrames, &format, this);
+				} else {
+					// Use native format to compute offset for destination buffer
+					result = audioEngine->convertInputSamplesVBR(sampleBuffer, ((UInt8 *)clientBuffer->sourceBuffer) + ((numSampleFramesPerBuffer - firstSampleFrame) * format.fNumChannels * (format.fBitWidth / 8)), 0, numReadFrames, &format, this);
+				}
 				reserved->mSampleFramesReadByEngine += numReadFrames;
             }
         }

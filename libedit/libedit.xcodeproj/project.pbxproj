@@ -15,7 +15,6 @@
 			);
 			dependencies = (
 				4C61598A104F1E9000BF0A10 /* PBXTargetDependency */,
-				4C6159FA105061A700BF0A10 /* PBXTargetDependency */,
 			);
 			name = all;
 			productName = all;
@@ -137,6 +136,18 @@
 		4C615A12105061E200BF0A10 /* help.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6159A3104F203600BF0A10 /* help.h */; };
 		4C615A13105061E200BF0A10 /* vi.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6159A4104F203600BF0A10 /* vi.h */; };
 		4C615A14105061E200BF0A10 /* fcns.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C6159B7104F20F500BF0A10 /* fcns.h */; };
+		B1140F2B1188EEBE00188080 /* historyn.c in Sources */ = {isa = PBXBuildFile; fileRef = B1140F291188EEBE00188080 /* historyn.c */; };
+		B1140F2C1188EEBE00188080 /* tokenizern.c in Sources */ = {isa = PBXBuildFile; fileRef = B1140F2A1188EEBE00188080 /* tokenizern.c */; };
+		B1140F2D1188EEBE00188080 /* historyn.c in Sources */ = {isa = PBXBuildFile; fileRef = B1140F291188EEBE00188080 /* historyn.c */; };
+		B1140F2E1188EEBE00188080 /* tokenizern.c in Sources */ = {isa = PBXBuildFile; fileRef = B1140F2A1188EEBE00188080 /* tokenizern.c */; };
+		B18111981188D65A00EC8250 /* chartype.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111941188D65A00EC8250 /* chartype.c */; };
+		B18111991188D65A00EC8250 /* chartype.h in Headers */ = {isa = PBXBuildFile; fileRef = B18111951188D65A00EC8250 /* chartype.h */; };
+		B181119A1188D65A00EC8250 /* eln.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111961188D65A00EC8250 /* eln.c */; };
+		B181119B1188D65A00EC8250 /* wcsdup.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111971188D65A00EC8250 /* wcsdup.c */; };
+		B181119C1188D65A00EC8250 /* chartype.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111941188D65A00EC8250 /* chartype.c */; };
+		B181119D1188D65A00EC8250 /* chartype.h in Headers */ = {isa = PBXBuildFile; fileRef = B18111951188D65A00EC8250 /* chartype.h */; };
+		B181119E1188D65A00EC8250 /* eln.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111961188D65A00EC8250 /* eln.c */; };
+		B181119F1188D65A00EC8250 /* wcsdup.c in Sources */ = {isa = PBXBuildFile; fileRef = B18111971188D65A00EC8250 /* wcsdup.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -146,27 +157,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = D2AAC0620554660B00DB518D;
 			remoteInfo = libedit;
-		};
-		4C6159C61050606B00BF0A10 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C6159C31050604600BF0A10;
-			remoteInfo = "make lists";
-		};
-		4C6159D21050614900BF0A10 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C6159C31050604600BF0A10;
-			remoteInfo = "make lists";
-		};
-		4C6159F9105061A700BF0A10 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 4C6159CE1050614000BF0A10;
-			remoteInfo = "libedit-static";
 		};
 /* End PBXContainerItemProxy section */
 
@@ -228,7 +218,15 @@
 		4C6159B7104F20F500BF0A10 /* fcns.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = fcns.h; path = local/fcns.h; sourceTree = "<group>"; };
 		4C6159BC104F212400BF0A10 /* libncurses.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libncurses.dylib; path = /usr/lib/libncurses.dylib; sourceTree = "<absolute>"; };
 		4C6159CF1050614000BF0A10 /* libedit.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libedit.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		D2AAC0630554660B00DB518D /* libedit.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libedit.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1140F291188EEBE00188080 /* historyn.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = historyn.c; path = local/historyn.c; sourceTree = "<group>"; };
+		B1140F2A1188EEBE00188080 /* tokenizern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = tokenizern.c; path = local/tokenizern.c; sourceTree = "<group>"; };
+		B18111941188D65A00EC8250 /* chartype.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = chartype.c; path = src/chartype.c; sourceTree = "<group>"; };
+		B18111951188D65A00EC8250 /* chartype.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = chartype.h; path = src/chartype.h; sourceTree = "<group>"; };
+		B18111961188D65A00EC8250 /* eln.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = eln.c; path = src/eln.c; sourceTree = "<group>"; };
+		B18111971188D65A00EC8250 /* wcsdup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = wcsdup.c; path = src/wcsdup.c; sourceTree = "<group>"; };
+		C903168F128A23B400BD42C3 /* install_misc.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = install_misc.sh; sourceTree = "<group>"; };
+		C9031690128A23B400BD42C3 /* make_lists.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = make_lists.sh; sourceTree = "<group>"; };
+		D2AAC0630554660B00DB518D /* libedit.3.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libedit.3.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -257,6 +255,7 @@
 				4C61597F104F15A900BF0A10 /* local */,
 				08FB7795FE84155DC02AAC07 /* Source */,
 				1AB674ADFE9D54B511CA2CBB /* Products */,
+				C903168E128A23B400BD42C3 /* xcodescripts */,
 			);
 			name = libedit;
 			sourceTree = "<group>";
@@ -266,11 +265,14 @@
 			children = (
 				4C615922104F157800BF0A10 /* chared.c */,
 				4C615923104F157800BF0A10 /* chared.h */,
+				B18111941188D65A00EC8250 /* chartype.c */,
+				B18111951188D65A00EC8250 /* chartype.h */,
 				4C615924104F157800BF0A10 /* common.c */,
 				4C615925104F157800BF0A10 /* editline */,
 				4C615927104F157800BF0A10 /* el_term.h */,
 				4C615928104F157800BF0A10 /* el.c */,
 				4C615929104F157800BF0A10 /* el.h */,
+				B18111961188D65A00EC8250 /* eln.c */,
 				4C61592A104F157800BF0A10 /* emacs.c */,
 				4C61592B104F157800BF0A10 /* fgetln.c */,
 				4C61592C104F157800BF0A10 /* filecomplete.c */,
@@ -311,6 +313,7 @@
 				4C61594F104F157800BF0A10 /* vi.c */,
 				4C615950104F157800BF0A10 /* vis.c */,
 				4C615951104F157800BF0A10 /* vis.h */,
+				B18111971188D65A00EC8250 /* wcsdup.c */,
 			);
 			name = Source;
 			sourceTree = "<group>";
@@ -318,7 +321,7 @@
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D2AAC0630554660B00DB518D /* libedit.2.dylib */,
+				D2AAC0630554660B00DB518D /* libedit.3.dylib */,
 				4C6159CF1050614000BF0A10 /* libedit.a */,
 			);
 			name = Products;
@@ -342,10 +345,21 @@
 				4C6159A1104F203600BF0A10 /* fcns.c */,
 				4C6159A2104F203600BF0A10 /* help.c */,
 				4C6159A3104F203600BF0A10 /* help.h */,
+				B1140F291188EEBE00188080 /* historyn.c */,
+				B1140F2A1188EEBE00188080 /* tokenizern.c */,
 				4C6159A4104F203600BF0A10 /* vi.h */,
 				4C615980104F15C700BF0A10 /* config.h */,
 			);
 			name = local;
+			sourceTree = "<group>";
+		};
+		C903168E128A23B400BD42C3 /* xcodescripts */ = {
+			isa = PBXGroup;
+			children = (
+				C903168F128A23B400BD42C3 /* install_misc.sh */,
+				C9031690128A23B400BD42C3 /* make_lists.sh */,
+			);
+			path = xcodescripts;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -379,6 +393,7 @@
 				4C615A12105061E200BF0A10 /* help.h in Headers */,
 				4C615A13105061E200BF0A10 /* vi.h in Headers */,
 				4C615A14105061E200BF0A10 /* fcns.h in Headers */,
+				B181119D1188D65A00EC8250 /* chartype.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,6 +425,7 @@
 				4C6159A9104F203600BF0A10 /* help.h in Headers */,
 				4C6159AA104F203600BF0A10 /* vi.h in Headers */,
 				4C6159B8104F20F500BF0A10 /* fcns.h in Headers */,
+				B18111991188D65A00EC8250 /* chartype.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -427,7 +443,6 @@
 			buildRules = (
 			);
 			dependencies = (
-				4C6159D31050614900BF0A10 /* PBXTargetDependency */,
 			);
 			name = "libedit-static";
 			productName = "libedit-static";
@@ -445,11 +460,10 @@
 			buildRules = (
 			);
 			dependencies = (
-				4C6159C71050606B00BF0A10 /* PBXTargetDependency */,
 			);
 			name = libedit;
 			productName = libedit;
-			productReference = D2AAC0630554660B00DB518D /* libedit.2.dylib */;
+			productReference = D2AAC0630554660B00DB518D /* libedit.3.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
@@ -459,7 +473,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "libedit" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* libedit */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -484,7 +505,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "set -x\ncd local\nS=$SRCROOT/src\nsh $S/makelist -h $S/vi.c >vi.h\nsh $S/makelist -h $S/emacs.c >emacs.h\nsh $S/makelist -h $S/common.c >common.h\nsh $S/makelist -bh $S/vi.c $S/emacs.c $S/common.c >help.h\nsh $S/makelist -fc vi.h emacs.h common.h >fcns.c\nsh $S/makelist -fh vi.h emacs.h common.h >fcns.h\nsh $S/makelist -bc $S/vi.c $S/emacs.c $S/common.c >help.c\n";
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/make_lists.sh";
 		};
 		4C615A221050668A00BF0A10 /* install misc */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -497,8 +518,8 @@
 			outputPaths = (
 			);
 			runOnlyForDeploymentPostprocessing = 1;
-			shellPath = /bin/zsh;
-			shellScript = "set -ex\n\nmkdir -p $DSTROOT/usr/lib/pkgconfig $DSTROOT/usr/local/lib\n# -- libedit.la gets mastered out, so lets try not installing it at all and verify it has no impact\n# on other projects building (it shouldn't)\n# install -g $INSTALL_GROUP -o $INSTALL_OWNER $SRCROOT/local/libedit.la $DSTROOT/usr/local/lib\ninstall -g $ALTERNATE_GROUP -o $ALTERNATE_OWNER -m $ALTERNATE_MODE $SRCROOT/local/libedit.pc $DSTROOT/usr/lib/pkgconfig\nforeach l (libedit.2.11.dylib libedit.dylib libreadline.dylib) do\n\tln -s libedit.2.dylib $DSTROOT/usr/lib/$l\ndone\nln -s libedit.a $DSTROOT/usr/local/lib/libreadline.a\n\nmkdir -p $DSTROOT/usr/include/readline $DSTROOT/usr/include/editline\ninstall -g $ALTERNATE_GROUP -o $ALTERNATE_OWNER -m $ALTERNATE_MODE $SRCROOT/src/histedit.h $DSTROOT/usr/include\ninstall -g $ALTERNATE_GROUP -o $ALTERNATE_OWNER -m $ALTERNATE_MODE $SRCROOT/src/editline/readline.h $DSTROOT/usr/include/editline\nforeach h (readline.h history.h) do\n\tln -s ../editline/readline.h $DSTROOT/usr/include/readline/$h\ndone\n\nmkdir -p $DSTROOT/usr/share/man/man{3,5}\ngzip -9 <$SRCROOT/doc/editrc.5 >$DSTROOT/usr/share/man/man5/editrc.5.gz \ngzip -9 <$SRCROOT/doc/editline.3 >$DSTROOT/usr/share/man/man3/editline.3.gz\nforeach m (el_deletestr.3.gz el_end.3.gz el_get.3.gz el_getc.3.gz el_gets.3.gz el_history.3.gz el_history_end.3.gz el_history_init.3.gz el_init.3.gz el_insertstr.3.gz el_line.3.gz el_parse.3.gz el_push.3.gz el_reset.3.gz el_resize.3.gz el_set.3.gz el_source.3.gz el_tok_end.3.gz el_tok_init.3.gz el_tok_line.3.gz el_tok_reset.3.gz el_tok_str.3.gz) do\n\tln -s editline.3.gz $DSTROOT/usr/share/man/man3/$m\ndone\n\nmkdir -p $DSTROOT/usr/local/OpenSource{Licenses,Versions}\ninstall -g $ALTERNATE_GROUP -o $ALTERNATE_OWNER -m a=r $SRCROOT/local/libedit.plist $DSTROOT/usr/local/OpenSourceVersions\n/usr/bin/sed -e '1,2d' -e '/^$/,$d' $SRCROOT/src/el.c >$DSTROOT/usr/local/OpenSourceLicenses/libedit.txt\n\n";
+			shellPath = /bin/sh;
+			shellScript = "\"$PROJECT_DIR\"/xcodescripts/install_misc.sh\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -534,6 +555,11 @@
 				4C6159EC1050615B00BF0A10 /* vis.c in Sources */,
 				4C6159ED1050615B00BF0A10 /* fcns.c in Sources */,
 				4C6159EE1050615B00BF0A10 /* help.c in Sources */,
+				B181119C1188D65A00EC8250 /* chartype.c in Sources */,
+				B181119E1188D65A00EC8250 /* eln.c in Sources */,
+				B181119F1188D65A00EC8250 /* wcsdup.c in Sources */,
+				B1140F2D1188EEBE00188080 /* historyn.c in Sources */,
+				B1140F2E1188EEBE00188080 /* tokenizern.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -568,6 +594,11 @@
 				4C61597B104F157800BF0A10 /* vis.c in Sources */,
 				4C6159A7104F203600BF0A10 /* fcns.c in Sources */,
 				4C6159A8104F203600BF0A10 /* help.c in Sources */,
+				B18111981188D65A00EC8250 /* chartype.c in Sources */,
+				B181119A1188D65A00EC8250 /* eln.c in Sources */,
+				B181119B1188D65A00EC8250 /* wcsdup.c in Sources */,
+				B1140F2B1188EEBE00188080 /* historyn.c in Sources */,
+				B1140F2C1188EEBE00188080 /* tokenizern.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -579,21 +610,6 @@
 			target = D2AAC0620554660B00DB518D /* libedit */;
 			targetProxy = 4C615989104F1E9000BF0A10 /* PBXContainerItemProxy */;
 		};
-		4C6159C71050606B00BF0A10 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C6159C31050604600BF0A10 /* make lists */;
-			targetProxy = 4C6159C61050606B00BF0A10 /* PBXContainerItemProxy */;
-		};
-		4C6159D31050614900BF0A10 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C6159C31050604600BF0A10 /* make lists */;
-			targetProxy = 4C6159D21050614900BF0A10 /* PBXContainerItemProxy */;
-		};
-		4C6159FA105061A700BF0A10 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 4C6159CE1050614000BF0A10 /* libedit-static */;
-			targetProxy = 4C6159F9105061A700BF0A10 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
@@ -602,12 +618,17 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 2;
-				DYLIB_CURRENT_VERSION = 2.11;
+				DYLIB_CURRENT_VERSION = 3.0;
 				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_BUILTIN_FUNCTIONS = YES;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/lib;
-				PRODUCT_NAME = edit.2;
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
+				PRODUCT_NAME = edit.3;
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
+				USER_HEADER_SEARCH_PATHS = src;
 			};
 			name = Release;
 		};
@@ -649,10 +670,13 @@
 		4C6159D11050614000BF0A10 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_ENABLE_PASCAL_STRINGS = NO;
 				INSTALL_PATH = /usr/local/lib;
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/local/lib";
 				PRODUCT_NAME = edit;
 				STRIP_INSTALLED_PRODUCT = YES;
 				STRIP_STYLE = "non-global";
+				USER_HEADER_SEARCH_PATHS = src;
 			};
 			name = Release;
 		};

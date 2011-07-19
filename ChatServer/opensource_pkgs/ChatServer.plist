@@ -1,0 +1,87 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>jabberd2</string>
+        <key>OpenSourceVersion</key>
+        <string>2.2.13</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://jabberd2.xiaoka.com/</string>
+        <key>OpenSourceURL</key>
+        <string>http://codex.xiaoka.com/pub/jabberd2/releases/jabberd-2.2.13.tar.bz2</string>
+        <key>OpenSourceSHA1</key>
+        <string>31bc6babbf5105dbb2927f46d6033c98aaa99371</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-02-24</string>
+        <key>OpenSourceModifications</key>
+        <array>
+            <string>A number of patches to add functionality and customize for OS X Server deployment</string>
+            <string>apple_patch/pre_configure/jabberd2</string>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>GPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ChatServer_jabberd.txt</string>
+</dict>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>libidn</string>
+        <key>OpenSourceVersion</key>
+        <string>0.6.14</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.gnu.org/software/libidn/</string>
+        <key>OpenSourceURL</key>
+        <string>http://josefsson.org/libidn/releases/libidn-0.6.14.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>2aec09195949c4d90e03207cb10abec07a85d751</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-05-15</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>LGPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ChatServer_libidn.txt</string>
+</dict>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>udns</string>
+        <key>OpenSourceVersion</key>
+        <string>0.0.9</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.corpit.ru/mjt/udns.html</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.corpit.ru/mjt/udns/udns_0.0.9.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>9792ac12619d23d3086f960561428238c41a25e0</string>
+        <key>OpenSourceImportDate</key>
+        <string>2009-11-04</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>LGPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ChatServer_udns.txt</string>
+</dict>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Proxy65</string>
+        <key>OpenSourceVersion</key>
+        <string>1.2.0</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://code.google.com/p/proxy65/</string>
+        <key>OpenSourceURL</key>
+        <string>http://code.google.com/p/proxy65/downloads/detail?name=Proxy65-1.2.0.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>b06cd72317147569b0dae18ee925228f6566e29d</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-05-24</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>ChatServer_proxy65.txt</string>
+</dict>
+</array>
+</plist>

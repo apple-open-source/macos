@@ -541,7 +541,7 @@ rad_continue_send_request(struct rad_handle *h, int selected, int *fd,
 
 	if (selected) {
 		struct sockaddr_in from;
-		int fromlen;
+		uint32_t fromlen;
 
 		fromlen = sizeof from;
 		h->resp_len = recvfrom(h->fd, h->response,
@@ -676,6 +676,7 @@ int
 rad_get_attr(struct rad_handle *h, const void **value, size_t *len)
 {
 	int type;
+	size_t tmp_len;
 
 	if (h->resp_pos >= h->resp_len)
 		return 0;
@@ -684,7 +685,12 @@ rad_get_attr(struct rad_handle *h, const void **value, size_t *len)
 		return -1;
 	}
 	type = h->response[h->resp_pos++];
-	*len = h->response[h->resp_pos++] - 2;
+	tmp_len = h->response[h->resp_pos++];
+	if (tmp_len < 2) {
+		generr(h, "Malformed attribute in response");
+		return -1;
+	}
+	*len = tmp_len - 2;
 	if (h->resp_pos + (int)*len > h->resp_len) {
 		generr(h, "Malformed attribute in response");
 		return -1;
@@ -1212,7 +1218,11 @@ rad_demangle_mppe_key(struct rad_handle *h, const void *mangled,
 	Clen = mlen - SALT_LEN;
 	S = rad_server_secret(h);    /* We need the RADIUS secret */
 	Slen = strlen(S);
-	P = alloca(Clen);        /* We derive our plaintext */
+	P = calloc(Clen, 1);        /* We derive our plaintext */
+	if (!P) {
+		generr(h, "Cannot obtain the RADIUS MPPE plaintext buffer");
+		return NULL;
+	}
 
 	MD5Init(&Context);
 	MD5Update(&Context, S, Slen);
@@ -1245,19 +1255,24 @@ rad_demangle_mppe_key(struct rad_handle *h, const void *mangled,
 	if (*len > mlen - 1) {
 		generr(h, "Mangled data seems to be garbage %zu %zu",
 		    *len, mlen-1);
+		free(P);
 		return NULL;
 	}
 
 	if (*len > MPPE_KEY_LEN * 2) {
 		generr(h, "Key to long (%zu) for me max. %d",
 		    *len, MPPE_KEY_LEN * 2);
+		free(P);
 		return NULL;
 	}
 	demangled = malloc(*len);
-	if (!demangled)
+	if (!demangled) {
+		free(P);
 		return NULL;
+	}
 
 	memcpy(demangled, P + 1, *len);
+	free(P);
 	return demangled;
 }
 

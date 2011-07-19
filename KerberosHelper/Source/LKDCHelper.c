@@ -46,7 +46,7 @@
 kern_return_t
 do_LKDCHelperExit (__unused mach_port_t port, audit_token_t token)
 {
-	if (!authorized(&token))
+	if (!authorized(token))
 		goto fin;
 	helplog(ASL_LEVEL_NOTICE, "Idle exit");
 	exit(0);
@@ -63,7 +63,7 @@ do_LKDCDumpStatus (__unused mach_port_t port, int logLevel, audit_token_t token)
 
 	LKDCLogEnter ();
 
-	if (!authorized(&token))
+	if (!authorized(token))
 		goto fin;
 
 	savedLogLevel = LKDCLogLevel;
@@ -85,7 +85,7 @@ do_LKDCSetLogLevel (__unused mach_port_t port, int logLevel, audit_token_t token
 	
 	LKDCLogEnter ();
 	
-	if (!authorized(&token))
+	if (!authorized(token))
 		goto fin;
 	
 	LKDCLogLevel = logLevel;
@@ -142,7 +142,7 @@ do_LKDCDiscoverRealm (__unused mach_port_t port,
 
 	LKDCLogEnter ();
 
-	if (!authorized(&token)) {
+	if (!authorized(token)) {
 		error = kLKDCHelperNotAuthorized;
 		goto fin;
 	}
@@ -179,7 +179,7 @@ do_LKDCFindKDCForRealm (__unused mach_port_t port,
 
 	LKDCLogEnter ();
 
-	if (!authorized(&token)) {
+	if (!authorized(token)) {
 		error = kLKDCHelperNotAuthorized;
 		goto fin;
 	}

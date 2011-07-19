@@ -1,31 +1,33 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-                  2009 Dirk Schulze <krit@webkit.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
+#include "Attribute.h"
 #include "FilterEffect.h"
-#include "MappedAttribute.h"
+#include "RenderSVGResourceFilterPrimitive.h"
+#include "SVGFilterBuilder.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 #include "SVGStyledElement.h"
@@ -33,8 +35,15 @@
 
 namespace WebCore {
 
-SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const QualifiedName& tagName, Document* doc)
-    : SVGStyledElement(tagName, doc)
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGFilterPrimitiveStandardAttributes, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_STRING(SVGFilterPrimitiveStandardAttributes, SVGNames::resultAttr, Result, result)
+
+SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const QualifiedName& tagName, Document* document)
+    : SVGStyledElement(tagName, document)
     , m_x(LengthModeWidth, "0%")
     , m_y(LengthModeHeight, "0%")
     , m_width(LengthModeWidth, "100%")
@@ -44,11 +53,7 @@ SVGFilterPrimitiveStandardAttributes::SVGFilterPrimitiveStandardAttributes(const
     // Spec: If the width/height attribute is not specified, the effect is as if a value of "100%" were specified.
 }
 
-SVGFilterPrimitiveStandardAttributes::~SVGFilterPrimitiveStandardAttributes()
-{
-}
-
-void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(MappedAttribute* attr)
+void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(Attribute* attr)
 {
     const AtomicString& value = attr->value();
     if (attr->name() == SVGNames::xAttr)
@@ -63,6 +68,25 @@ void SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(MappedAttribute*
         setResultBaseValue(value);
     else
         return SVGStyledElement::parseMappedAttribute(attr);
+}
+
+bool SVGFilterPrimitiveStandardAttributes::setFilterEffectAttribute(FilterEffect*, const QualifiedName&)
+{
+    // When all filters support this method, it will be changed to a pure virtual method.
+    ASSERT_NOT_REACHED();
+    return false;
+}
+
+void SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGStyledElement::svgAttributeChanged(attrName);
+
+    if (attrName == SVGNames::xAttr
+        || attrName == SVGNames::yAttr
+        || attrName == SVGNames::widthAttr
+        || attrName == SVGNames::heightAttr
+        || attrName == SVGNames::resultAttr)
+        invalidate();
 }
 
 void SVGFilterPrimitiveStandardAttributes::synchronizeProperty(const QualifiedName& attrName)
@@ -88,6 +112,14 @@ void SVGFilterPrimitiveStandardAttributes::synchronizeProperty(const QualifiedNa
         synchronizeHeight();
     else if (attrName == SVGNames::resultAttr)
         synchronizeResult();
+}
+
+void SVGFilterPrimitiveStandardAttributes::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+{
+    SVGStyledElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+
+    if (!changedByParser)
+        invalidate();
 }
 
 void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(bool primitiveBoundingBoxMode, FilterEffect* filterEffect) const
@@ -118,6 +150,30 @@ void SVGFilterPrimitiveStandardAttributes::setStandardAttributes(bool primitiveB
                                height().value(this));
 
     filterEffect->setEffectBoundaries(effectBBox);
+}
+
+void SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    SVGStyledElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::resultAttr, AnimatedString);
+}
+
+RenderObject* SVGFilterPrimitiveStandardAttributes::createRenderer(RenderArena* arena, RenderStyle*)
+{
+    return new (arena) RenderSVGResourceFilterPrimitive(this);
+}
+
+bool SVGFilterPrimitiveStandardAttributes::rendererIsNeeded(RenderStyle* style)
+{
+    if (parentNode() && (parentNode()->hasTagName(SVGNames::filterTag)))
+        return SVGStyledElement::rendererIsNeeded(style);
+
+    return false;
 }
 
 }

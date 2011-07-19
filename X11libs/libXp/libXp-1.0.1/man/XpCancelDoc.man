@@ -1,0 +1,100 @@
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004, Oracle and/or its affiliates. All rights reserved.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpCancelDoc 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpCancelDoc \-  Cancels a print document.
+.SH SYNOPSIS
+.B void XpCancelDoc
+(
+.I display,
+.I discard
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      Bool \fIdiscard\fP\^;
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I discard
+When TRUE, specifies that all XPPrintNotify events with a detail of 
+XPEndPageNotify or 
+XPEndDocNotify should be discarded.     
+.if n .ti +5n
+.if t .ti +.5i
+.SH DESCRIPTION
+.LP
+XpCancelDoc cancels an in-progress document. If the job was started with 
+output_mode XPGetData 
+then the data stream to 
+XpGetDocumentData is interrupted; no further data for the current document will 
+be generated 
+but data for subsequent documents can be 
+generated. For many page description languages such arbitrary termination may 
+invalidate the 
+output.
+
+If the job was started with output_mode XPSpool then depending on the driver and 
+spooler 
+implementation the entire document may be 
+canceled or a partial document may be generated.
+
+If 
+.I discard 
+is True all XPPrintNotify events with a detail field of XPEndPageNotify or 
+XPEndDocNotify are discarded before XpCancelDoc 
+returns.
+
+For clients selecting XPPrintMask (see XpSelectInput), the event XPPrintNotify 
+will be 
+generated with its detail field set to 
+XPEndDocNotify.
+.SH DIAGNOSTICS
+.TP 15
+.SM XPBadContext
+A valid print context-id has not been set prior to making this call.
+.TP 15
+.SM XPBadSequence
+The function was not called in the proper order with respect to the other X 
+Print Service 
+Extension calls (example, XpEndDoc prior to 
+XpStartDoc).
+.SH "SEE ALSO"
+.BR XpEndDoc (3Xp),
+.BR XpGetDocumentData (3Xp),
+.BR XpSelectInput (3Xp),
+.BR XpStartDoc (3Xp)

@@ -77,10 +77,10 @@ openpam_dynamic(const char *path)
 	if (asprintf(&vpath, "%s%s.%d", prefix, path, LIB_MAJ) < 0)
 		goto buf_err;
 	if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-		openpam_log(PAM_LOG_DEBUG, "%s: %s", vpath, dlerror());
+		openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerror());
 		*strrchr(vpath, '.') = '\0';
 		if ((dlh = dlopen(vpath, RTLD_NOW)) == NULL) {
-			openpam_log(PAM_LOG_DEBUG, "%s: %s", vpath, dlerror());
+			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s", vpath, dlerror());
 			FREE(vpath);
 			FREE(module);
 			return (NULL);
@@ -93,7 +93,7 @@ openpam_dynamic(const char *path)
 	for (i = 0; i < PAM_NUM_PRIMITIVES; ++i) {
 		module->func[i] = (pam_func_t)dlsym(dlh, _pam_sm_func_name[i]);
 		if (module->func[i] == NULL)
-			openpam_log(PAM_LOG_DEBUG, "%s: %s(): %s",
+			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s(): %s",
 			    path, _pam_sm_func_name[i], dlerror());
 	}
 	return (module);

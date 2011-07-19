@@ -3,7 +3,7 @@
 [copyright {2004 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Mathematical and numerical constants}]
-
+[category  Mathematics]
 [require Tcl [opt 8.3]]
 [require math::constants [opt 1.0.1]]
 

@@ -15,22 +15,13 @@
 #define ENABLE_DPD 1
 
 /* IKE fragmentation support */
-#undef ENABLE_FRAG
+#define ENABLE_FRAG 1
 
 /* Hybrid authentication support */
 #define ENABLE_HYBRID 1
 
 /* Enable NAT-Traversal */
 #define ENABLE_NATT 1
-
-#ifndef __APPLE__
-/* our kernel does not have support for versions 00 or 01 */
-/* Enable NAT-Traversal draft 00 */
-#undef ENABLE_NATT_00
-
-/* Enable NAT-Traversal draft 01 */
-#undef ENABLE_NATT_01
-#endif /* __APPLE__ */
 
 /* Enable NAT-Traversal draft 02 */
 #define ENABLE_NATT_02 1
@@ -135,6 +126,13 @@
 
 #define HAVE_GETIFADDRS 1
 
+#if TARGET_OS_EMBEDDED
+#undef HAVE_OPENSSL
+#else
+#define HAVE_OPENSSL 1
+#endif
+
+#ifdef HAVE_OPENSSL
 /* Define to 1 if you have the <openssl/aes.h> header file. */
 #define HAVE_OPENSSL_AES_H 1
 
@@ -146,6 +144,7 @@
 
 /* Define to 1 if you have the <openssl/rc5.h> header file. */
 #define HAVE_OPENSSL_RC5_H 1
+#endif
 
 /* Define to 1 if you have the `pam_start' function. */
 #if TARGET_OS_EMBEDDED
@@ -237,6 +236,7 @@
 
 /* Use advanced IPv6 API */
 #define INET6_ADVAPI 1
+#define __APPLE_USE_RFC_3542 1
 
 /* Name of package */
 #undef PACKAGE
@@ -290,6 +290,4 @@
 /* Define to `unsigned' if <sys/types.h> does not define. */
 #undef size_t
 
-#ifdef __APPLE__
 #define USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS 1
-#endif

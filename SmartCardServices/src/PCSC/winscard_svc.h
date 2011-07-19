@@ -33,7 +33,7 @@
  *  David Corcoran <corcoran@linuxnet.com>
  *  Damien Sauveron <damien.sauveron@labri.fr>
  *
- * $Id: winscard_svc.h 1421 2005-04-12 12:09:21Z rousseau $
+ * $Id: winscard_svc.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

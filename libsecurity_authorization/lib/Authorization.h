@@ -36,6 +36,7 @@
 #else
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #endif
+#include <Availability.h>
 
 #include <stdio.h>
 
@@ -314,7 +315,34 @@ OSStatus AuthorizationCopyRights(AuthorizationRef authorization,
 	AuthorizationFlags flags,
 	AuthorizationRights **authorizedRights);
 
+	
+#ifdef __BLOCKS__
+	
+/*!
+	@typedef AuthorizationAsyncCallback
+	Callback block passed to AuthorizationCopyRightsAsync.
 
+	@param err (output) The result of the AuthorizationCopyRights call.
+	@param blockAuthorizedRights (output) The authorizedRights from the AuthorizationCopyRights call to be deallocated by calling AuthorizationFreeItemSet() when it is no longer needed.
+*/
+typedef void (^AuthorizationAsyncCallback)(OSStatus err, AuthorizationRights *blockAuthorizedRights);
+
+/*!
+	@function AuthorizationCopyRightsAsync
+	An asynchronous version of AuthorizationCopyRights.
+
+	@param callbackBlock (input) The callback block to be called upon completion.
+*/
+void AuthorizationCopyRightsAsync(AuthorizationRef authorization,
+	const AuthorizationRights *rights,
+	const AuthorizationEnvironment *environment,
+	AuthorizationFlags flags,
+	AuthorizationAsyncCallback callbackBlock);
+
+	
+#endif /* __BLOCKS__ */	
+	
+	
 /*!
 	@function AuthorizationCopyInfo
 	Returns sideband information (e.g. access credentials) obtained from a call to AuthorizationCreate.  The format of this data depends of the tag specified.
@@ -362,11 +390,7 @@ OSStatus AuthorizationMakeExternalForm(AuthorizationRef authorization,
 
 /*!
 	@function AuthorizationCreateFromExternalForm
-	Turn an Authorization into an external "byte blob" form so it can be
-	transmitted to another process.
-	Note that *storing* the external form somewhere will probably not do what
-	you want, since authorizations are bounded by sessions, processes, and possibly
-	time limits. This is for online transmission of authorizations.
+	Internalize the external "byte blob" form of an authorization reference.
 	
 	@param extForm Pointer to an AuthorizationExternalForm value.
 	@param authorization Will be filled with a valid AuthorizationRef on success.
@@ -407,12 +431,16 @@ OSStatus AuthorizationFreeItemSet(AuthorizationItemSet *set);
 	a bidirectional pipe to communicate with the tool. The tool will have
 	this pipe as its standard I/O channels (stdin/stdout). If NULL, do not
 	establish a communications pipe.
+
+ 	@discussion This function has been deprecated and should no longer be used.
+ 	Use a launchd-launched helper tool and/or the Service Mangement framework
+ 	for this functionality.
  */
 OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	const char *pathToTool,
 	AuthorizationFlags options,
 	char * const *arguments,
-	FILE **communicationsPipe);
+	FILE **communicationsPipe) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
 
 
 /*!
@@ -422,9 +450,13 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	While AuthorizationExecuteWithPrivileges already verified the authorization to
 	launch your tool, the tool may want to avail itself of any additional pre-authorizations
 	the caller may have obtained through that reference.
+ 
+	@discussion This function has been deprecated and should no longer be used.
+	Use a launchd-launched helper tool and/or the Service Mangement framework
+	for this functionality.
  */
 OSStatus AuthorizationCopyPrivilegedReference(AuthorizationRef *authorization,
-	AuthorizationFlags flags);
+	AuthorizationFlags flags) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_7,__IPHONE_NA,__IPHONE_NA);
 
 
 #if defined(__cplusplus)

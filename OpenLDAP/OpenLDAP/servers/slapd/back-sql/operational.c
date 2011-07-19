@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/operational.c,v 1.21.2.5 2008/02/11 23:26:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/operational.c,v 1.21.2.8 2010/04/19 16:53:04 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -70,7 +70,7 @@ backsql_operational_entryUUID( backsql_info *bi, backsql_entryID *id )
 Attribute *
 backsql_operational_entryCSN( Operation *op )
 {
-	char		csnbuf[ LDAP_LUTIL_CSNSTR_BUFSIZE ];
+	char		csnbuf[ LDAP_PVT_CSNSTR_BUFSIZE ];
 	struct berval	entryCSN;
 	Attribute	*a;
 

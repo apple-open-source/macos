@@ -1,0 +1,36 @@
+--- lib/hostthre.c.orig	2011-03-09 18:37:28.000000000 -0800
++++ lib/hostthre.c	2011-03-09 18:46:50.000000000 -0800
+@@ -214,9 +214,7 @@
+   rc = Curl_getaddrinfo_ex(tsd->hostname, service, &tsd->hints, &tsd->res);
+ 
+   if (rc != 0) {
+-    tsd->sock_error = SOCKERRNO;
+-    if (tsd->sock_error == 0)
+-      tsd->sock_error = ENOMEM;
++    tsd->sock_error = rc;
+   }
+ 
+   Curl_mutex_acquire(tsd->mtx);
+@@ -377,11 +375,11 @@
+     /* a name was not resolved */
+     if (conn->bits.httpproxy) {
+       failf(data, "Could not resolve proxy: %s; %s",
+-            conn->async.hostname, Curl_strerror(conn, conn->async.status));
++            conn->async.hostname, gai_strerror(conn->async.status));
+       rc = CURLE_COULDNT_RESOLVE_PROXY;
+     } else {
+       failf(data, "Could not resolve host: %s; %s",
+-            conn->async.hostname, Curl_strerror(conn, conn->async.status));
++            conn->async.hostname, gai_strerror(conn->async.status));
+       rc = CURLE_COULDNT_RESOLVE_HOST;
+     }
+   }
+@@ -423,7 +421,7 @@
+ 
+     if(!conn->async.dns) {
+       failf(data, "Could not resolve host: %s; %s",
+-            conn->host.name, Curl_strerror(conn, conn->async.status));
++            conn->host.name, gai_strerror(conn->async.status));
+       return CURLE_COULDNT_RESOLVE_HOST;
+     }
+     *entry = conn->async.dns;

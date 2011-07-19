@@ -6,6 +6,11 @@ use make_dbictest_db;
 
 my $dump_path = './t/_dump';
 
+local $SIG{__WARN__} = sub {
+    warn $_[0] unless $_[0] =~
+        /really_erase_my_files|Dumping manual schema|Schema dump completed/;
+};
+
 {
     package DBICTest::Schema::1;
     use base qw/ DBIx::Class::Schema::Loader /;

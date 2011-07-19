@@ -1,2 +1,6 @@
 .PATH: ${.CURDIR}/arm/gen
-MDSRCS+= icacheinval.s
+MDSRCS += \
+	cpu_number.s \
+	icacheinval.s
+
+DYLDSRCS += icacheinval.s

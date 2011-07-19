@@ -36,12 +36,13 @@ namespace WebCore {
 
     // Runtime object support code for JSHTMLAppletElement, JSHTMLEmbedElement and JSHTMLObjectElement.
     JSC::Bindings::Instance* pluginInstance(Node*);
+    JSC::JSObject* pluginScriptObject(JSC::ExecState* exec, JSHTMLElement* jsHTMLElement);
 
     JSC::JSValue runtimeObjectPropertyGetter(JSC::ExecState*, JSC::JSValue, const JSC::Identifier&);
     bool runtimeObjectCustomGetOwnPropertySlot(JSC::ExecState*, const JSC::Identifier&, JSC::PropertySlot&, JSHTMLElement*);
     bool runtimeObjectCustomGetOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&, JSHTMLElement*);
-    bool runtimeObjectCustomPut(JSC::ExecState*, const JSC::Identifier&, JSC::JSValue, HTMLElement*, JSC::PutPropertySlot&);
-    JSC::CallType runtimeObjectGetCallData(HTMLElement*, JSC::CallData&);
+    bool runtimeObjectCustomPut(JSC::ExecState*, const JSC::Identifier&, JSC::JSValue, JSHTMLElement*, JSC::PutPropertySlot&);
+    JSC::CallType runtimeObjectGetCallData(JSHTMLElement*, JSC::CallData&);
 
 } // namespace WebCore
 

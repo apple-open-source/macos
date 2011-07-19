@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.8 2009/01/15 18:53:52 rdivacky Exp $");
 
 #include "xlocale_private.h"
 
@@ -47,6 +47,7 @@ fputws_l(const wchar_t * __restrict ws, FILE * __restrict fp, locale_t loc)
 	char buf[BUFSIZ];
 	struct __suio uio;
 	struct __siov iov;
+	const wchar_t *wsp = ws;
 	size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
 	    size_t, size_t, mbstate_t * __restrict, locale_t);
 
@@ -60,14 +61,14 @@ fputws_l(const wchar_t * __restrict ws, FILE * __restrict fp, locale_t loc)
 	uio.uio_iovcnt = 1;
 	iov.iov_base = buf;
 	do {
-		nbytes = __wcsnrtombs(buf, &ws, SIZE_T_MAX, sizeof(buf),
-		    &fp->_extra->mbstate, loc);
+		nbytes = __wcsnrtombs(buf, &wsp, SIZE_T_MAX, sizeof(buf),
+		    &fp->_mbstate, loc);
 		if (nbytes == (size_t)-1)
 			goto error;
 		iov.iov_len = uio.uio_resid = nbytes;
 		if (__sfvwrite(fp, &uio) != 0)
 			goto error;
-	} while (ws != NULL);
+	} while (wsp != NULL);
 	FUNLOCKFILE(fp);
 	return (0);
 

@@ -16,6 +16,26 @@
 
 #include <tk.h>
 
+#ifdef TKIMGAPI
+#   undef TCL_STORAGE_CLASS
+#   define TCL_STORAGE_CLASS DLLEXPORT
+#else
+#   define TKIMGAPI extern
+#   undef USE_TKIMG_STUBS
+#   define USE_TKIMG_STUBS 1
+#endif
+
+EXTERN int Tkimg_Init(Tcl_Interp *interp);
+EXTERN int Tkimg_SafeInit(Tcl_Interp *interp);
+
+typedef struct tkimg_MFile {
+	Tcl_DString *buffer; /* pointer to dynamical string */
+	char *data; /* mmencoded source string */
+	int c; /* bits left over from previous char */
+	int state; /* decoder state (0-4 or IMG_DONE) */
+	int length; /* length of physical line already written */
+} tkimg_MFile;
+
 /* !BEGIN!: Do not edit below this line. */
 
 /*
@@ -23,35 +43,38 @@
  */
 
 /* 0 */
-EXTERN Tcl_Channel	tkimg_OpenFileChannel(Tcl_Interp * interp,
-				const char * fileName, int permissions);
+TKIMGAPI Tcl_Channel	tkimg_OpenFileChannel(Tcl_Interp *interp,
+				const char *fileName, int permissions);
 /* 1 */
-EXTERN int		tkimg_ReadInit(Tcl_Obj * data, int c,
-				tkimg_MFile * handle);
+TKIMGAPI int		tkimg_ReadInit(Tcl_Obj *data, int c,
+				tkimg_MFile *handle);
 /* 2 */
-EXTERN void		tkimg_WriteInit(Tcl_DString * buffer,
-				tkimg_MFile * handle);
+TKIMGAPI void		tkimg_WriteInit(Tcl_DString *buffer,
+				tkimg_MFile *handle);
 /* 3 */
-EXTERN int		tkimg_Getc(tkimg_MFile * handle);
+TKIMGAPI int		tkimg_Getc(tkimg_MFile *handle);
 /* 4 */
-EXTERN int		tkimg_Read(tkimg_MFile * handle, char * dst,
-				int count);
+TKIMGAPI int		tkimg_Read(tkimg_MFile *handle, char *dst, int count);
 /* 5 */
-EXTERN int		tkimg_Putc(int c, tkimg_MFile * handle);
+TKIMGAPI int		tkimg_Putc(int c, tkimg_MFile *handle);
 /* 6 */
-EXTERN int		tkimg_Write(tkimg_MFile * handle, const char * src,
+TKIMGAPI int		tkimg_Write(tkimg_MFile *handle, const char *src,
 				int count);
 /* 7 */
-EXTERN void		tkimg_ReadBuffer(int onOff);
+TKIMGAPI void		tkimg_ReadBuffer(int onOff);
 /* Slot 8 is reserved */
 /* Slot 9 is reserved */
 /* 10 */
-EXTERN int		tkimg_PhotoPutBlock(Tcl_Interp * interp,
+TKIMGAPI int		tkimg_PhotoPutBlock(Tcl_Interp *interp,
 				Tk_PhotoHandle handle,
-				Tk_PhotoImageBlock * blockPtr, int x, int y,
+				Tk_PhotoImageBlock *blockPtr, int x, int y,
 				int width, int height, int flags);
-/* Slot 11 is reserved */
-/* Slot 12 is reserved */
+/* 11 */
+TKIMGAPI int		tkimg_PhotoExpand(Tcl_Interp *interp,
+				Tk_PhotoHandle handle, int width, int height);
+/* 12 */
+TKIMGAPI int		tkimg_PhotoSetSize(Tcl_Interp *interp,
+				Tk_PhotoHandle handle, int width, int height);
 /* Slot 13 is reserved */
 /* Slot 14 is reserved */
 /* Slot 15 is reserved */
@@ -60,19 +83,18 @@ EXTERN int		tkimg_PhotoPutBlock(Tcl_Interp * interp,
 /* Slot 18 is reserved */
 /* Slot 19 is reserved */
 /* 20 */
-EXTERN void		tkimg_FixChanMatchProc(Tcl_Interp ** interp,
-				Tcl_Channel * chan, const char ** file,
-				Tcl_Obj ** format, int ** width,
-				int ** height);
+TKIMGAPI void		tkimg_FixChanMatchProc(Tcl_Interp **interp,
+				Tcl_Channel *chan, const char **file,
+				Tcl_Obj **format, int **width, int **height);
 /* 21 */
-EXTERN void		tkimg_FixObjMatchProc(Tcl_Interp ** interp,
-				Tcl_Obj ** data, Tcl_Obj ** format,
-				int ** width, int ** height);
+TKIMGAPI void		tkimg_FixObjMatchProc(Tcl_Interp **interp,
+				Tcl_Obj **data, Tcl_Obj **format,
+				int **width, int **height);
 /* 22 */
-EXTERN void		tkimg_FixStringWriteProc(Tcl_DString * data,
-				Tcl_Interp ** interp, Tcl_DString ** dataPtr,
-				Tcl_Obj ** format,
-				Tk_PhotoImageBlock ** blockPtr);
+TKIMGAPI void		tkimg_FixStringWriteProc(Tcl_DString *data,
+				Tcl_Interp **interp, Tcl_DString **dataPtr,
+				Tcl_Obj **format,
+				Tk_PhotoImageBlock **blockPtr);
 /* Slot 23 is reserved */
 /* Slot 24 is reserved */
 /* Slot 25 is reserved */
@@ -81,109 +103,92 @@ EXTERN void		tkimg_FixStringWriteProc(Tcl_DString * data,
 /* Slot 28 is reserved */
 /* Slot 29 is reserved */
 /* 30 */
-EXTERN const char *	tkimg_GetStringFromObj(Tcl_Obj * objPtr,
-				int * lengthPtr);
+TKIMGAPI const char *	tkimg_GetStringFromObj(Tcl_Obj *objPtr,
+				int *lengthPtr);
 /* 31 */
-EXTERN unsigned char *	tkimg_GetByteArrayFromObj(Tcl_Obj * objPtr,
-				int * lengthPtr);
+TKIMGAPI unsigned char * tkimg_GetByteArrayFromObj(Tcl_Obj *objPtr,
+				int *lengthPtr);
 /* 32 */
-EXTERN int		tkimg_ListObjGetElements(Tcl_Interp * interp,
-				Tcl_Obj * objPtr, int * argc,
-				Tcl_Obj *** argv);
+TKIMGAPI int		tkimg_ListObjGetElements(Tcl_Interp *interp,
+				Tcl_Obj *objPtr, int *argc, Tcl_Obj ***argv);
 
 typedef struct TkimgStubs {
     int magic;
     const struct TkimgStubHooks *hooks;
 
-    Tcl_Channel (*tkimg_OpenFileChannel) (Tcl_Interp * interp, const char * fileName, int permissions); /* 0 */
-    int (*tkimg_ReadInit) (Tcl_Obj * data, int c, tkimg_MFile * handle); /* 1 */
-    void (*tkimg_WriteInit) (Tcl_DString * buffer, tkimg_MFile * handle); /* 2 */
-    int (*tkimg_Getc) (tkimg_MFile * handle); /* 3 */
-    int (*tkimg_Read) (tkimg_MFile * handle, char * dst, int count); /* 4 */
-    int (*tkimg_Putc) (int c, tkimg_MFile * handle); /* 5 */
-    int (*tkimg_Write) (tkimg_MFile * handle, const char * src, int count); /* 6 */
-    void (*tkimg_ReadBuffer) (int onOff); /* 7 */
-    void *reserved8;
-    void *reserved9;
-    int (*tkimg_PhotoPutBlock) (Tcl_Interp * interp, Tk_PhotoHandle handle, Tk_PhotoImageBlock * blockPtr, int x, int y, int width, int height, int flags); /* 10 */
-    void *reserved11;
-    void *reserved12;
-    void *reserved13;
-    void *reserved14;
-    void *reserved15;
-    void *reserved16;
-    void *reserved17;
-    void *reserved18;
-    void *reserved19;
-    void (*tkimg_FixChanMatchProc) (Tcl_Interp ** interp, Tcl_Channel * chan, const char ** file, Tcl_Obj ** format, int ** width, int ** height); /* 20 */
-    void (*tkimg_FixObjMatchProc) (Tcl_Interp ** interp, Tcl_Obj ** data, Tcl_Obj ** format, int ** width, int ** height); /* 21 */
-    void (*tkimg_FixStringWriteProc) (Tcl_DString * data, Tcl_Interp ** interp, Tcl_DString ** dataPtr, Tcl_Obj ** format, Tk_PhotoImageBlock ** blockPtr); /* 22 */
-    void *reserved23;
-    void *reserved24;
-    void *reserved25;
-    void *reserved26;
-    void *reserved27;
-    void *reserved28;
-    void *reserved29;
-    const char * (*tkimg_GetStringFromObj) (Tcl_Obj * objPtr, int * lengthPtr); /* 30 */
-    unsigned char * (*tkimg_GetByteArrayFromObj) (Tcl_Obj * objPtr, int * lengthPtr); /* 31 */
-    int (*tkimg_ListObjGetElements) (Tcl_Interp * interp, Tcl_Obj * objPtr, int * argc, Tcl_Obj *** argv); /* 32 */
+    Tcl_Channel (*tkimg_OpenFileChannelPtr) (Tcl_Interp *interp, const char *fileName, int permissions); /* 0 */
+    int (*tkimg_ReadInitPtr) (Tcl_Obj *data, int c, tkimg_MFile *handle); /* 1 */
+    void (*tkimg_WriteInitPtr) (Tcl_DString *buffer, tkimg_MFile *handle); /* 2 */
+    int (*tkimg_GetcPtr) (tkimg_MFile *handle); /* 3 */
+    int (*tkimg_ReadPtr) (tkimg_MFile *handle, char *dst, int count); /* 4 */
+    int (*tkimg_PutcPtr) (int c, tkimg_MFile *handle); /* 5 */
+    int (*tkimg_WritePtr) (tkimg_MFile *handle, const char *src, int count); /* 6 */
+    void (*tkimg_ReadBufferPtr) (int onOff); /* 7 */
+    void (*reserved8)(void);
+    void (*reserved9)(void);
+    int (*tkimg_PhotoPutBlockPtr) (Tcl_Interp *interp, Tk_PhotoHandle handle, Tk_PhotoImageBlock *blockPtr, int x, int y, int width, int height, int flags); /* 10 */
+    int (*tkimg_PhotoExpandPtr) (Tcl_Interp *interp, Tk_PhotoHandle handle, int width, int height); /* 11 */
+    int (*tkimg_PhotoSetSizePtr) (Tcl_Interp *interp, Tk_PhotoHandle handle, int width, int height); /* 12 */
+    void (*reserved13)(void);
+    void (*reserved14)(void);
+    void (*reserved15)(void);
+    void (*reserved16)(void);
+    void (*reserved17)(void);
+    void (*reserved18)(void);
+    void (*reserved19)(void);
+    void (*tkimg_FixChanMatchProcPtr) (Tcl_Interp **interp, Tcl_Channel *chan, const char **file, Tcl_Obj **format, int **width, int **height); /* 20 */
+    void (*tkimg_FixObjMatchProcPtr) (Tcl_Interp **interp, Tcl_Obj **data, Tcl_Obj **format, int **width, int **height); /* 21 */
+    void (*tkimg_FixStringWriteProcPtr) (Tcl_DString *data, Tcl_Interp **interp, Tcl_DString **dataPtr, Tcl_Obj **format, Tk_PhotoImageBlock **blockPtr); /* 22 */
+    void (*reserved23)(void);
+    void (*reserved24)(void);
+    void (*reserved25)(void);
+    void (*reserved26)(void);
+    void (*reserved27)(void);
+    void (*reserved28)(void);
+    void (*reserved29)(void);
+    const char * (*tkimg_GetStringFromObjPtr) (Tcl_Obj *objPtr, int *lengthPtr); /* 30 */
+    unsigned char * (*tkimg_GetByteArrayFromObjPtr) (Tcl_Obj *objPtr, int *lengthPtr); /* 31 */
+    int (*tkimg_ListObjGetElementsPtr) (Tcl_Interp *interp, Tcl_Obj *objPtr, int *argc, Tcl_Obj ***argv); /* 32 */
 } TkimgStubs;
 
 #ifdef __cplusplus
 extern "C" {
 #endif
-extern const TkimgStubs *tkimgStubsPtr;
+TKIMGAPI const TkimgStubs *tkimgStubsPtr;
 #ifdef __cplusplus
 }
 #endif
 
-#if defined(USE_TKIMG_STUBS) && !defined(USE_TKIMG_STUB_PROCS)
+#if defined(USE_TKIMG_STUBS)
 
 /*
  * Inline function declarations:
  */
 
-#ifndef tkimg_OpenFileChannel
 #define tkimg_OpenFileChannel \
-	(tkimgStubsPtr->tkimg_OpenFileChannel) /* 0 */
-#endif
-#ifndef tkimg_ReadInit
+	(tkimgStubsPtr->tkimg_OpenFileChannelPtr) /* 0 */
 #define tkimg_ReadInit \
-	(tkimgStubsPtr->tkimg_ReadInit) /* 1 */
-#endif
-#ifndef tkimg_WriteInit
+	(tkimgStubsPtr->tkimg_ReadInitPtr) /* 1 */
 #define tkimg_WriteInit \
-	(tkimgStubsPtr->tkimg_WriteInit) /* 2 */
-#endif
-#ifndef tkimg_Getc
+	(tkimgStubsPtr->tkimg_WriteInitPtr) /* 2 */
 #define tkimg_Getc \
-	(tkimgStubsPtr->tkimg_Getc) /* 3 */
-#endif
-#ifndef tkimg_Read
+	(tkimgStubsPtr->tkimg_GetcPtr) /* 3 */
 #define tkimg_Read \
-	(tkimgStubsPtr->tkimg_Read) /* 4 */
-#endif
-#ifndef tkimg_Putc
+	(tkimgStubsPtr->tkimg_ReadPtr) /* 4 */
 #define tkimg_Putc \
-	(tkimgStubsPtr->tkimg_Putc) /* 5 */
-#endif
-#ifndef tkimg_Write
+	(tkimgStubsPtr->tkimg_PutcPtr) /* 5 */
 #define tkimg_Write \
-	(tkimgStubsPtr->tkimg_Write) /* 6 */
-#endif
-#ifndef tkimg_ReadBuffer
+	(tkimgStubsPtr->tkimg_WritePtr) /* 6 */
 #define tkimg_ReadBuffer \
-	(tkimgStubsPtr->tkimg_ReadBuffer) /* 7 */
-#endif
+	(tkimgStubsPtr->tkimg_ReadBufferPtr) /* 7 */
 /* Slot 8 is reserved */
 /* Slot 9 is reserved */
-#ifndef tkimg_PhotoPutBlock
 #define tkimg_PhotoPutBlock \
-	(tkimgStubsPtr->tkimg_PhotoPutBlock) /* 10 */
-#endif
-/* Slot 11 is reserved */
-/* Slot 12 is reserved */
+	(tkimgStubsPtr->tkimg_PhotoPutBlockPtr) /* 10 */
+#define tkimg_PhotoExpand \
+	(tkimgStubsPtr->tkimg_PhotoExpandPtr) /* 11 */
+#define tkimg_PhotoSetSize \
+	(tkimgStubsPtr->tkimg_PhotoSetSizePtr) /* 12 */
 /* Slot 13 is reserved */
 /* Slot 14 is reserved */
 /* Slot 15 is reserved */
@@ -191,18 +196,12 @@ extern const TkimgStubs *tkimgStubsPtr;
 /* Slot 17 is reserved */
 /* Slot 18 is reserved */
 /* Slot 19 is reserved */
-#ifndef tkimg_FixChanMatchProc
 #define tkimg_FixChanMatchProc \
-	(tkimgStubsPtr->tkimg_FixChanMatchProc) /* 20 */
-#endif
-#ifndef tkimg_FixObjMatchProc
+	(tkimgStubsPtr->tkimg_FixChanMatchProcPtr) /* 20 */
 #define tkimg_FixObjMatchProc \
-	(tkimgStubsPtr->tkimg_FixObjMatchProc) /* 21 */
-#endif
-#ifndef tkimg_FixStringWriteProc
+	(tkimgStubsPtr->tkimg_FixObjMatchProcPtr) /* 21 */
 #define tkimg_FixStringWriteProc \
-	(tkimgStubsPtr->tkimg_FixStringWriteProc) /* 22 */
-#endif
+	(tkimgStubsPtr->tkimg_FixStringWriteProcPtr) /* 22 */
 /* Slot 23 is reserved */
 /* Slot 24 is reserved */
 /* Slot 25 is reserved */
@@ -210,22 +209,18 @@ extern const TkimgStubs *tkimgStubsPtr;
 /* Slot 27 is reserved */
 /* Slot 28 is reserved */
 /* Slot 29 is reserved */
-#ifndef tkimg_GetStringFromObj
 #define tkimg_GetStringFromObj \
-	(tkimgStubsPtr->tkimg_GetStringFromObj) /* 30 */
-#endif
-#ifndef tkimg_GetByteArrayFromObj
+	(tkimgStubsPtr->tkimg_GetStringFromObjPtr) /* 30 */
 #define tkimg_GetByteArrayFromObj \
-	(tkimgStubsPtr->tkimg_GetByteArrayFromObj) /* 31 */
-#endif
-#ifndef tkimg_ListObjGetElements
+	(tkimgStubsPtr->tkimg_GetByteArrayFromObjPtr) /* 31 */
 #define tkimg_ListObjGetElements \
-	(tkimgStubsPtr->tkimg_ListObjGetElements) /* 32 */
-#endif
+	(tkimgStubsPtr->tkimg_ListObjGetElementsPtr) /* 32 */
 
-#endif /* defined(USE_TKIMG_STUBS) && !defined(USE_TKIMG_STUB_PROCS) */
+#endif /* defined(USE_TKIMG_STUBS) */
 
 /* !END!: Do not edit above this line. */
 
-#endif /* _TKIMGDECLS */
+#undef TCL_STORAGE_CLASS
+#define TCL_STORAGE_CLASS DLLIMPORT
 
+#endif /* _TKIMGDECLS */

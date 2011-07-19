@@ -20,10 +20,9 @@
 #include "config.h"
 #include "webkitgeolocationpolicydecision.h"
 
-#include "webkitprivate.h"
 #include "Geolocation.h"
+#include "webkitgeolocationpolicydecisionprivate.h"
 
-using namespace WebKit;
 using namespace WebCore;
 
 /**
@@ -43,8 +42,6 @@ struct _WebKitGeolocationPolicyDecisionPrivate {
     Geolocation* geolocation;
 };
 
-#define WEBKIT_GEOLOCATION_POLICY_DECISION_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_GEOLOCATION_POLICY_DECISION, WebKitGeolocationPolicyDecisionPrivate))
-
 static void webkit_geolocation_policy_decision_class_init(WebKitGeolocationPolicyDecisionClass* decisionClass)
 {
     g_type_class_add_private(decisionClass, sizeof(WebKitGeolocationPolicyDecisionPrivate));
@@ -52,7 +49,7 @@ static void webkit_geolocation_policy_decision_class_init(WebKitGeolocationPolic
 
 static void webkit_geolocation_policy_decision_init(WebKitGeolocationPolicyDecision* decision)
 {
-    decision->priv = WEBKIT_GEOLOCATION_POLICY_DECISION_GET_PRIVATE(decision);
+    decision->priv = G_TYPE_INSTANCE_GET_PRIVATE(decision, WEBKIT_TYPE_GEOLOCATION_POLICY_DECISION, WebKitGeolocationPolicyDecisionPrivate);
 }
 
 WebKitGeolocationPolicyDecision* webkit_geolocation_policy_decision_new(WebKitWebFrame* frame, Geolocation* geolocation)

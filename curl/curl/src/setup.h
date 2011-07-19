@@ -1,5 +1,5 @@
-#ifndef __SRC_CURL_SETUP_H
-#define __SRC_CURL_SETUP_H
+#ifndef HEADER_CURL_SRC_SETUP_H
+#define HEADER_CURL_SRC_SETUP_H
 /***************************************************************************
  *                                  _   _ ____  _
  *  Project                     ___| | | |  _ \| |
@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: setup.h,v 1.62 2009-10-27 16:56:20 yangtse Exp $
  ***************************************************************************/
 
 #define CURL_NO_OLDIES
@@ -69,6 +68,17 @@
 #endif /* HAVE_CONFIG_H */
 
 /*
+ * AIX 4.3 and newer needs _THREAD_SAFE defined to build
+ * proper reentrant code. Others may also need it.
+ */
+
+#ifdef NEED_THREAD_SAFE
+#  ifndef _THREAD_SAFE
+#    define _THREAD_SAFE
+#  endif
+#endif
+
+/*
  * Tru64 needs _REENTRANT set for a few function prototypes and
  * things to appear in the system header files. Unixware needs it
  * to build proper reentrant code. Others may also need it.
@@ -80,10 +90,10 @@
 #  endif
 #endif
 
-/* 
+/*
  * Include header files for windows builds before redefining anything.
- * Use this preproessor block only to include or exclude windows.h, 
- * winsock2.h, ws2tcpip.h or winsock.h. Any other windows thing belongs 
+ * Use this preproessor block only to include or exclude windows.h,
+ * winsock2.h, ws2tcpip.h or winsock.h. Any other windows thing belongs
  * to any other further and independent block.  Under Cygwin things work
  * just as under linux (e.g. <sys/socket.h>) and the winsock headers should
  * never be included when __CYGWIN__ is defined.  configure script takes
@@ -197,6 +207,11 @@ int fileno( FILE *stream);
 #define strdup(ptr) curlx_strdup(ptr)
 #endif
 
+/* Define S_ISREG if not defined by system headers, f.e. MSVC */
+#if !defined(S_ISREG) && defined(S_IFMT) && defined(S_IFREG)
+#define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
+#endif
+
 /*
  * Include macros and defines that should only be processed once.
  */
@@ -205,4 +220,4 @@ int fileno( FILE *stream);
 #include "setup_once.h"
 #endif
 
-#endif /* __SRC_CURL_SETUP_H */
+#endif /* HEADER_CURL_SRC_SETUP_H */

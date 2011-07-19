@@ -1,12 +1,9 @@
 /*
- * "$Id: snmp-private.h 1126 2009-01-14 22:42:04Z msweet $"
+ * "$Id: snmp-private.h 1995 2010-03-24 16:25:12Z msweet $"
  *
- *   SNMP definitions for the Common UNIX Printing System (CUPS).
+ *   Private SNMP definitions for CUPS.
  *
- *   This API is PRIVATE and subject to change.  No third-party applications
- *   should use the SNMP API defined in this file.
- *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 2006-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -18,15 +15,15 @@
  *   This file is subject to the Apple OS-Developed Software exception.
  */
 
-#ifndef _CUPS_SNMP_H_
-#  define _CUPS_SNMP_H_
+#ifndef _CUPS_SNMP_PRIVATE_H_
+#  define _CUPS_SNMP_PRIVATE_H_
 
 
 /*
  * Include necessary headers.
  */
 
-#include "http.h"
+#include <cups/http.h>
 
 
 /*
@@ -140,9 +137,9 @@ extern int		_cupsSNMPWrite(int fd, http_addr_t *address, int version,
 #  ifdef __cplusplus
 }
 #  endif /* __cplusplus */
-#endif /* !_CUPS_SNMP_H_ */
+#endif /* !_CUPS_SNMP_PRIVATE_H_ */
 
 
 /*
- * End of "$Id: snmp-private.h 1126 2009-01-14 22:42:04Z msweet $".
+ * End of "$Id: snmp-private.h 1995 2010-03-24 16:25:12Z msweet $".
  */

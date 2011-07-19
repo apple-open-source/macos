@@ -24,42 +24,45 @@
 #ifndef InternalFunction_h
 #define InternalFunction_h
 
-#include "JSObject.h"
+#include "JSObjectWithGlobalObject.h"
 #include "Identifier.h"
 
 namespace JSC {
 
     class FunctionPrototype;
 
-    class InternalFunction : public JSObject {
+    class InternalFunction : public JSObjectWithGlobalObject {
     public:
-        virtual const ClassInfo* classInfo() const; 
-        static JS_EXPORTDATA const ClassInfo info;
+        static JS_EXPORTDATA const ClassInfo s_info;
 
         const UString& name(ExecState*);
         const UString displayName(ExecState*);
         const UString calculatedDisplayName(ExecState*);
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) 
         { 
-            return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+            return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
     protected:
         static const unsigned StructureFlags = ImplementsHasInstance | JSObject::StructureFlags;
 
-        InternalFunction(NonNullPassRefPtr<Structure> structure) : JSObject(structure) { }
-        InternalFunction(JSGlobalData*, NonNullPassRefPtr<Structure>, const Identifier&);
+        // Only used to allow us to determine the JSFunction vptr
+        InternalFunction(VPtrStealingHackType);
+
+        InternalFunction(JSGlobalData*, JSGlobalObject*, Structure*, const Identifier&);
 
     private:
         virtual CallType getCallData(CallData&) = 0;
+
+        virtual void vtableAnchor();
     };
 
     InternalFunction* asInternalFunction(JSValue);
 
     inline InternalFunction* asInternalFunction(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&InternalFunction::info));
+        ASSERT(asObject(value)->inherits(&InternalFunction::s_info));
         return static_cast<InternalFunction*>(asObject(value));
     }
 

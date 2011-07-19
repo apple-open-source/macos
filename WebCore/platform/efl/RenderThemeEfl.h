@@ -30,11 +30,15 @@
 #ifndef RenderThemeEfl_h
 #define RenderThemeEfl_h
 
+#if ENABLE(VIDEO)
+#include "MediaControlElements.h"
+#endif
 #include "RenderTheme.h"
 
-#include <Ecore_Evas.h>
-#include <Evas.h>
 #include <cairo.h>
+
+typedef struct _Ecore_Evas Ecore_Evas;
+typedef struct _Evas_Object Evas_Object;
 
 namespace WebCore {
 
@@ -44,11 +48,22 @@ enum FormType { // KEEP IN SYNC WITH edjeGroupFromFormType()
     TextField,
     CheckBox,
     ComboBox,
+#if ENABLE(PROGRESS_TAG)
+    ProgressBar,
+#endif
     SearchField,
     SearchFieldDecoration,
     SearchFieldResultsButton,
     SearchFieldResultsDecoration,
     SearchFieldCancelButton,
+    SliderVertical,
+    SliderHorizontal,
+#if ENABLE(VIDEO)
+    PlayPauseButton,
+    MuteUnMuteButton,
+    SeekForwardButton,
+    SeekBackwardButton,
+#endif
     FormTypeLast
 };
 
@@ -95,53 +110,90 @@ public:
     void setEntryTextColor(int foreR, int foreG, int foreB, int foreA, int backR, int backG, int backB, int backA);
     void setSearchTextColor(int foreR, int foreG, int foreB, int foreA, int backR, int backG, int backB, int backA);
 
-    void adjustSizeConstraints(RenderStyle* style, FormType type) const;
+    void adjustSizeConstraints(RenderStyle*, FormType) const;
 
 
     // System fonts.
     virtual void systemFont(int propId, FontDescription&) const;
 
     virtual void adjustCheckboxStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintCheckbox(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintCheckbox(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustRadioStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintRadio(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintRadio(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustTextFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustTextAreaStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMenuList(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
+
+    virtual void adjustSliderTrackStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+
+    virtual void adjustSliderThumbStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+
+    static void setDefaultFontSize(int fontsize);
+
+#if ENABLE(PROGRESS_TAG)
+    virtual void adjustProgressBarStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintProgressBar(RenderObject*, const PaintInfo&, const IntRect&);
+#endif
+
+#if ENABLE(VIDEO)
+    virtual String extraMediaControlsStyleSheet();
+    virtual String formatMediaControlsCurrentTime(float currentTime, float duration) const;
+
+    virtual bool paintMediaFullscreenButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaCurrentTime(RenderObject*, const PaintInfo&, const IntRect&);
+#endif
+
+protected:
+    static float defaultFontSize;
 
 private:
     void createCanvas();
     void createEdje();
     void applyEdjeColors();
     void applyPartDescriptions();
-    const char* edjeGroupFromFormType(FormType type) const;
-    void applyEdjeStateFromForm(Evas_Object* o, ControlStates states);
-    bool paintThemePart(RenderObject* o, FormType type, const RenderObject::PaintInfo& i, const IntRect& rect);
+    const char* edjeGroupFromFormType(FormType) const;
+    void applyEdjeStateFromForm(Evas_Object*, ControlStates);
+    bool paintThemePart(RenderObject*, FormType, const PaintInfo&, const IntRect&);
+
+#if ENABLE(VIDEO)
+    bool emitMediaButtonSignal(FormType, MediaControlElementType, const IntRect&);
+#endif
 
     Page* m_page;
     Color m_activeSelectionBackgroundColor;
@@ -157,6 +209,11 @@ private:
     Color m_entryTextForegroundColor;
     Color m_searchTextBackgroundColor;
     Color m_searchTextForegroundColor;
+#if ENABLE(VIDEO)
+    Color m_panelColor;
+    Color m_sliderColor;
+    const int m_mediaSliderHeight;
+#endif
     Ecore_Evas* m_canvas;
     Evas_Object* m_edje;
 
@@ -166,8 +223,8 @@ private:
         LengthSize max;
         LengthBox padding;
     };
-    void applyPartDescriptionFallback(struct ThemePartDesc* desc);
-    void applyPartDescription(Evas_Object* o, struct ThemePartDesc* desc);
+    void applyPartDescriptionFallback(struct ThemePartDesc*);
+    void applyPartDescription(Evas_Object*, struct ThemePartDesc*);
 
     struct ThemePartCacheEntry {
         FormType type;
@@ -184,16 +241,16 @@ private:
     Vector<struct ThemePartCacheEntry *> m_partCache;
 
     // get (use, create or replace) entry from cache
-    struct ThemePartCacheEntry* cacheThemePartGet(FormType type, const IntSize& size);
+    struct ThemePartCacheEntry* cacheThemePartGet(FormType, const IntSize&);
     // flush cache, deleting all entries
     void cacheThemePartFlush();
 
     // internal, used by cacheThemePartGet()
-    bool themePartCacheEntryReset(struct ThemePartCacheEntry* ce, FormType type);
-    bool themePartCacheEntrySurfaceCreate(struct ThemePartCacheEntry* ce);
-    struct ThemePartCacheEntry* cacheThemePartNew(FormType type, const IntSize& size);
-    struct ThemePartCacheEntry* cacheThemePartReset(FormType type, struct ThemePartCacheEntry* ce);
-    struct ThemePartCacheEntry* cacheThemePartResizeAndReset(FormType type, const IntSize& size, struct ThemePartCacheEntry* ce);
+    bool themePartCacheEntryReset(struct ThemePartCacheEntry*, FormType);
+    bool themePartCacheEntrySurfaceCreate(struct ThemePartCacheEntry*);
+    struct ThemePartCacheEntry* cacheThemePartNew(FormType, const IntSize&);
+    struct ThemePartCacheEntry* cacheThemePartReset(FormType, struct ThemePartCacheEntry*);
+    struct ThemePartCacheEntry* cacheThemePartResizeAndReset(FormType, const IntSize&, struct ThemePartCacheEntry*);
 
 };
 }

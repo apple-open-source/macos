@@ -56,51 +56,34 @@ static char *rcsid = "$Id: dsock.c,v 1.5 2008/10/21 16:15:16 abe Exp $";
  * process_socket() -- process socket file
  */
 
-void
-process_socket(pid, fd)
-	int pid;			/* PID */
-	int32_t fd;			/* FD */
+static void
+process_socket_common(si)
+	struct socket_fdinfo *si;
 {
 	unsigned char *fa = (unsigned char *)NULL;
-	int fam, fp, lp, nb, unl;
+	int fam, fp, lp, unl;
 	unsigned char *la = (unsigned char *)NULL;
-	struct socket_fdinfo si;
+
 /*
  * Enter basic socket values.
  */
 	(void) snpf(Lf->type, sizeof(Lf->type), "sock");
 	Lf->inp_ty = 2;
 /*
- * Get socket information.
- */
-	nb = proc_pidfdinfo(pid, fd, PROC_PIDFDSOCKETINFO, &si, sizeof(si));
-	if (nb <= 0) {
-	    (void) err2nm("socket");
-	    return;
-	} else if (nb < sizeof(si)) {
-	    (void) fprintf(stderr,
-		"%s: PID %d, FD %d: proc_pidfdinfo(PROC_PIDFDSOCKETINFO);\n",
-		Pn, pid, fd);
-	    (void) fprintf(stderr,
-		"      too few bytes; expected %ld, got %d\n",
-		sizeof(si), nb);
-	    Exit(1);
-	}
-/*
  * Enter basic file information.
  */
-	enter_file_info(&si.pfi);
+	enter_file_info(&si->pfi);
 /*
  * Enable size or offset display.
  */
 	if (Fsize) {
 	    if (Lf->access == 'r')
-		Lf->sz = (SZOFFTYPE)si.psi.soi_rcv.sbi_cc;
+		Lf->sz = (SZOFFTYPE)si->psi.soi_rcv.sbi_cc;
 	    else if (Lf->access == 'w')
-		Lf->sz = (SZOFFTYPE)si.psi.soi_snd.sbi_cc;
+		Lf->sz = (SZOFFTYPE)si->psi.soi_snd.sbi_cc;
 	    else
-		Lf->sz = (SZOFFTYPE)(si.psi.soi_rcv.sbi_cc
-		       +	     si.psi.soi_snd.sbi_cc);
+		Lf->sz = (SZOFFTYPE)(si->psi.soi_rcv.sbi_cc
+		       +	     si->psi.soi_snd.sbi_cc);
 	    Lf->sz_def = 1;
 	} else
 	    Lf->off_def = 1;
@@ -109,8 +92,8 @@ process_socket(pid, fd)
 /*
  * Enter send and receive queue sizes.
  */
-	Lf->lts.rq = si.psi.soi_rcv.sbi_cc;
-	Lf->lts.sq = si.psi.soi_snd.sbi_cc;
+	Lf->lts.rq = si->psi.soi_rcv.sbi_cc;
+	Lf->lts.sq = si->psi.soi_snd.sbi_cc;
 	Lf->lts.rqs = Lf->lts.sqs = (unsigned char)1;
 #endif	/* defined(HASTCPTPIQ) */
 
@@ -118,13 +101,13 @@ process_socket(pid, fd)
 /*
  * Enter socket options.
  */
-	Lf->lts.ltm = (unsigned int)(si.psi.soi_linger & 0xffff);
-	Lf->lts.opt = (unsigned int)(si.psi.soi_options & 0xffff);
-	Lf->lts.pqlen = (unsigned int)si.psi.soi_incqlen;
-	Lf->lts.qlen = (unsigned int)si.psi.soi_qlen;
-	Lf->lts.qlim = (unsigned int)si.psi.soi_qlimit;
-	Lf->lts.rbsz = (unsigned long)si.psi.soi_rcv.sbi_mbmax;
-	Lf->lts.sbsz = (unsigned long)si.psi.soi_snd.sbi_mbmax;
+	Lf->lts.ltm = (unsigned int)(si->psi.soi_linger & 0xffff);
+	Lf->lts.opt = (unsigned int)(si->psi.soi_options & 0xffff);
+	Lf->lts.pqlen = (unsigned int)si->psi.soi_incqlen;
+	Lf->lts.qlen = (unsigned int)si->psi.soi_qlen;
+	Lf->lts.qlim = (unsigned int)si->psi.soi_qlimit;
+	Lf->lts.rbsz = (unsigned long)si->psi.soi_rcv.sbi_mbmax;
+	Lf->lts.sbsz = (unsigned long)si->psi.soi_snd.sbi_mbmax;
 	Lf->lts.pqlens = Lf->lts.qlens = Lf->lts.qlims = Lf->lts.rbszs
 		       = Lf->lts.sbszs = (unsigned char)1;
 #endif	/* defined(HASSOOPT) */
@@ -133,13 +116,13 @@ process_socket(pid, fd)
 /*
  * Enter socket state.
  */
-	Lf->lts.ss = (unsigned int)si.psi.soi_state;
+	Lf->lts.ss = (unsigned int)si->psi.soi_state;
 #endif	/* defined(HASSOSTATE) */
 
 /*
  * Process socket by its associated domain family.
  */
-	switch ((fam = si.psi.soi_family)) {
+	switch ((fam = si->psi.soi_family)) {
 	case AF_INET:
 	case AF_INET6:
 
@@ -148,16 +131,16 @@ process_socket(pid, fd)
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type),
 			(fam == AF_INET) ? "IPv4" : "IPv6");
-	    if ((si.psi.soi_kind != SOCKINFO_IN) &&
-		(si.psi.soi_kind != SOCKINFO_TCP))
+	    if ((si->psi.soi_kind != SOCKINFO_IN) &&
+		(si->psi.soi_kind != SOCKINFO_TCP))
 	    {
 		break;
 	    }
 	/*
 	 * Process TCP state inclusions and exclusions, as required.
 	 */
-	    if ((si.psi.soi_kind == SOCKINFO_TCP) && (TcpStXn || TcpStIn)) {
-		int tsnx = (int)si.psi.soi_proto.pri_tcp.tcpsi_state
+	    if ((si->psi.soi_kind == SOCKINFO_TCP) && (TcpStXn || TcpStIn)) {
+		int tsnx = (int)si->psi.soi_proto.pri_tcp.tcpsi_state
 			 + TcpStOff;
 
 		if ((tsnx >= 0) && (tsnx < TcpNstates)) {
@@ -187,37 +170,37 @@ process_socket(pid, fd)
 		)
 		    Lf->sf |= SELNET;
 	    }
-	    printiproto(si.psi.soi_protocol);
-	    if ((si.psi.soi_kind == SOCKINFO_TCP)
-	    &&  si.psi.soi_proto.pri_tcp.tcpsi_tp)
+	    printiproto(si->psi.soi_protocol);
+	    if ((si->psi.soi_kind == SOCKINFO_TCP)
+	    &&  si->psi.soi_proto.pri_tcp.tcpsi_tp)
 	    {
-		enter_dev_ch(print_kptr((KA_T)si.psi.soi_proto.pri_tcp.tcpsi_tp,
+		enter_dev_ch(print_kptr((KA_T)si->psi.soi_proto.pri_tcp.tcpsi_tp,
 					(char *)NULL, 0));
 	    } else
-		enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
+		enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
 	    if (fam == AF_INET) {
 
 	    /*
 	     * Enter IPv4 address information.
 	     */
-		if (si.psi.soi_kind == SOCKINFO_TCP) {
+		if (si->psi.soi_kind == SOCKINFO_TCP) {
 
 		/*
 		 * Enter information for a TCP socket.
 		 */
-		    la = (unsigned char *)&si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_46.i46a_addr4;
-		    lp = (int)ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport);
-		    fa = (unsigned char *)&si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_46.i46a_addr4;
-		    fp = (int)ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
+		    la = (unsigned char *)&si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_46.i46a_addr4;
+		    lp = (int)ntohs(si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport);
+		    fa = (unsigned char *)&si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_46.i46a_addr4;
+		    fp = (int)ntohs(si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
 		} else {
 
 		/*
 		 * Enter information for a non-TCP socket.
 		 */
-		    la = (unsigned char *)&si.psi.soi_proto.pri_in.insi_laddr.ina_46.i46a_addr4;
-		    lp = (int)ntohs(si.psi.soi_proto.pri_in.insi_lport);
-		    fa = (unsigned char *)&si.psi.soi_proto.pri_in.insi_faddr.ina_46.i46a_addr4;
-		    fp = (int)ntohs(si.psi.soi_proto.pri_in.insi_fport);
+		    la = (unsigned char *)&si->psi.soi_proto.pri_in.insi_laddr.ina_46.i46a_addr4;
+		    lp = (int)ntohs(si->psi.soi_proto.pri_in.insi_lport);
+		    fa = (unsigned char *)&si->psi.soi_proto.pri_in.insi_faddr.ina_46.i46a_addr4;
+		    fp = (int)ntohs(si->psi.soi_proto.pri_in.insi_fport);
 		}
 		if ((fa && (*fa == INADDR_ANY)) && !fp) {
 		    fa = (unsigned char *)NULL;
@@ -228,32 +211,37 @@ process_socket(pid, fd)
 	    /*
 	     * Enter IPv6 address information
 	     */
-		if (si.psi.soi_kind == SOCKINFO_TCP)
+		int v4mapped = 0;
+
+		if (si->psi.soi_kind == SOCKINFO_TCP)
 		{
 
 		/*
 		 * Enter TCP socket information.
 		 */
-		    la = (unsigned char *)&si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_6;
-		    lp = (int)ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport);
-		    fa = (unsigned char *)&si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_6;
-		    fp = (int)ntohs(si.psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
+		    la = (unsigned char *)&si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_laddr.ina_6;
+		    lp = (int)ntohs(si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_lport);
+		    fa = (unsigned char *)&si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_faddr.ina_6;
+		    fp = (int)ntohs(si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_fport);
+		    if ((si->psi.soi_proto.pri_tcp.tcpsi_ini.insi_vflag & INI_IPV4) != 0)
+			v4mapped = 1;
 		} else {
 
 		/*
 		 * Enter non-TCP socket information.
 		 */
-		    la = (unsigned char *)&si.psi.soi_proto.pri_in.insi_laddr.ina_6;
-		    lp = (int)ntohs(si.psi.soi_proto.pri_in.insi_lport);
-		    fa = (unsigned char *)&si.psi.soi_proto.pri_in.insi_faddr.ina_6;
-		    fp = (int)ntohs(si.psi.soi_proto.pri_in.insi_fport);
+		    la = (unsigned char *)&si->psi.soi_proto.pri_in.insi_laddr.ina_6;
+		    lp = (int)ntohs(si->psi.soi_proto.pri_in.insi_lport);
+		    fa = (unsigned char *)&si->psi.soi_proto.pri_in.insi_faddr.ina_6;
+		    fp = (int)ntohs(si->psi.soi_proto.pri_in.insi_fport);
+		    if ((si->psi.soi_proto.pri_in.insi_vflag & INI_IPV4) != 0)
+			v4mapped = 1;
 		}
 		if (IN6_IS_ADDR_UNSPECIFIED((struct in6_addr *)fa) && !fp) {
 		    fa = (unsigned char *)NULL;
 		    fp = 0;
 		}
-		if ((la && IN6_IS_ADDR_V4MAPPED((struct in6_addr *)la))
-		||  (fa && IN6_IS_ADDR_V4MAPPED((struct in6_addr *)fa))) {
+		if (v4mapped) {
 
 		/*
 		 * Adjust IPv4 addresses mapped in IPv6 addresses.
@@ -270,25 +258,25 @@ process_socket(pid, fd)
 	 */
 	    if (fa || la)
 		(void) ent_inaddr(la, lp, fa, fp, fam);
-	    if (si.psi.soi_kind == SOCKINFO_TCP) {
+	    if (si->psi.soi_kind == SOCKINFO_TCP) {
 
 	    /*
 	     * Enter a TCP socket definition and its state.
 	     */
 		Lf->lts.type = 0;
-		Lf->lts.state.i = (int)si.psi.soi_proto.pri_tcp.tcpsi_state;
+		Lf->lts.state.i = (int)si->psi.soi_proto.pri_tcp.tcpsi_state;
 	    /*
 	     * Enter TCP options.
 	     */
 
 #if	defined(HASSOOPT)
-		Lf->lts.kai = (unsigned int)si.psi.soi_proto.pri_tcp.tcpsi_timer[TCPT_KEEP];
+		Lf->lts.kai = (unsigned int)si->psi.soi_proto.pri_tcp.tcpsi_timer[TCPT_KEEP];
 #endif	/* defined(HASSOOPT) */
 
 #if	defined(HASTCPOPT)
-		Lf->lts.mss = (unsigned long)si.psi.soi_proto.pri_tcp.tcpsi_mss;
+		Lf->lts.mss = (unsigned long)si->psi.soi_proto.pri_tcp.tcpsi_mss;
 		Lf->lts.msss = (unsigned char)1;
-		Lf->lts.topt = (unsigned int)si.psi.soi_proto.pri_tcp.tcpsi_flags;
+		Lf->lts.topt = (unsigned int)si->psi.soi_proto.pri_tcp.tcpsi_flags;
 #endif	/* defined(HASTCPOPT) */
 
 	    }
@@ -299,43 +287,43 @@ process_socket(pid, fd)
 	 * Process a UNIX domain socket.
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "unix");
-	    if (si.psi.soi_kind != SOCKINFO_UN)
+	    if (si->psi.soi_kind != SOCKINFO_UN)
 		break;
 	    if (Funix)
 		Lf->sf |= SELUNX;
-	    enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
+	    enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
 	/*
 	 * Enter information on a UNIX domain socket that has no address bound
 	 * to it, although it may be connected to another UNIX domain socket
 	 * as a pipe.
 	 */
-	    if (si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family != AF_UNIX)
+	    if (si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family != AF_UNIX)
 	    {
-		if (si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family
+		if (si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family
 		==  AF_UNSPEC)
 		{
-		    if (si.psi.soi_proto.pri_un.unsi_conn_pcb) {
+		    if (si->psi.soi_proto.pri_un.unsi_conn_pcb) {
 			    (void) snpf(Namech, Namechl, "->%s",
-				print_kptr((KA_T)si.psi.soi_proto.pri_un.unsi_conn_pcb, (char *)NULL, 0));
+				print_kptr((KA_T)si->psi.soi_proto.pri_un.unsi_conn_pcb, (char *)NULL, 0));
 		    } else
 			(void) snpf(Namech, Namechl, "->(none)");
 		} else
 		    (void) snpf(Namech, Namechl, "unknown sun_family (%d)",
-			si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family);
+			si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_family);
 		break;
 	    }
-	    if (si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]) {
-		unl = si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_len - offsetof(struct sockaddr_un, sun_path);
-		if ((unl < 0) || (unl >= sizeof(si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path)))
-		    unl = sizeof(si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path) - 1;
-		si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[unl] = '\0';
-		if (si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]
+	    if (si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]) {
+		unl = si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_len - offsetof(struct sockaddr_un, sun_path);
+		if ((unl < 0) || (unl >= sizeof(si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path)))
+		    unl = sizeof(si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path) - 1;
+		si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[unl] = '\0';
+		if (si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]
 		&&  Sfile
-		&&  is_file_named(si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path, 0))
+		&&  is_file_named(si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path, 0))
 		    Lf->sf |= SELNM;
-		if (si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]
+		if (si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path[0]
 		&&  !Namech[0])
-		    (void) snpf(Namech, Namechl, "%s", si.psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path);
+		    (void) snpf(Namech, Namechl, "%s", si->psi.soi_proto.pri_un.unsi_addr.ua_sun.sun_path);
 	    } else
 		(void) snpf(Namech, Namechl, "no address");
 	    break;
@@ -354,13 +342,13 @@ process_socket(pid, fd)
 	 * Process an NDRV domain socket.
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "ndrv");
-	    if (si.psi.soi_kind != SOCKINFO_NDRV)
+	    if (si->psi.soi_kind != SOCKINFO_NDRV)
 		break;
-	    enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
-	    si.psi.soi_proto.pri_ndrv.ndrvsi_if_name[sizeof(si.psi.soi_proto.pri_ndrv.ndrvsi_if_name) - 1] = '\0';
+	    enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
+	    si->psi.soi_proto.pri_ndrv.ndrvsi_if_name[sizeof(si->psi.soi_proto.pri_ndrv.ndrvsi_if_name) - 1] = '\0';
 	    (void) snpf(Namech, Namechl, "-> %s%d",
-			si.psi.soi_proto.pri_ndrv.ndrvsi_if_name,
-			si.psi.soi_proto.pri_ndrv.ndrvsi_if_unit);
+			si->psi.soi_proto.pri_ndrv.ndrvsi_if_name,
+			si->psi.soi_proto.pri_ndrv.ndrvsi_if_unit);
 	    break;
 	case pseudo_AF_KEY:
 
@@ -368,7 +356,7 @@ process_socket(pid, fd)
 	 * Process an [internal] key-management function socket.
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "key");
-	    enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
+	    enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
 	    break;
 	case AF_SYSTEM:
 
@@ -376,13 +364,13 @@ process_socket(pid, fd)
 	 * Process a SYSTEM domain socket.
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "systm");
-	    if (si.psi.soi_kind != SOCKINFO_KERN_EVENT)
+	    if (si->psi.soi_kind != SOCKINFO_KERN_EVENT)
 		break;
-	    enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
+	    enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
 	    (void) snpf(Namech, Namechl, "[%x:%x:%x]",
-			si.psi.soi_proto.pri_kern_event.kesi_vendor_code_filter,
-			si.psi.soi_proto.pri_kern_event.kesi_class_filter,
-			si.psi.soi_proto.pri_kern_event.kesi_subclass_filter);
+			si->psi.soi_proto.pri_kern_event.kesi_vendor_code_filter,
+			si->psi.soi_proto.pri_kern_event.kesi_class_filter,
+			si->psi.soi_proto.pri_kern_event.kesi_subclass_filter);
 	    break;
 	case AF_PPP:
 
@@ -390,7 +378,7 @@ process_socket(pid, fd)
 	 * Process a PPP domain socket.
 	 */
 	    (void) snpf(Lf->type, sizeof(Lf->type), "ppp");
-	    enter_dev_ch(print_kptr((KA_T)si.psi.soi_pcb, (char *)NULL, 0));
+	    enter_dev_ch(print_kptr((KA_T)si->psi.soi_pcb, (char *)NULL, 0));
 	    break;
 	default:
 	    printunkaf(fam, 1);
@@ -401,3 +389,61 @@ process_socket(pid, fd)
 	if (Namech[0])
 	    enter_nm(Namech);
 }
+
+
+void
+process_socket(pid, fd)
+	int pid;			/* PID */
+	int32_t fd;			/* FD */
+{
+	int nb;
+	struct socket_fdinfo si;
+/*
+ * Get socket information.
+ */
+	nb = proc_pidfdinfo(pid, fd, PROC_PIDFDSOCKETINFO, &si, sizeof(si));
+	if (nb <= 0) {
+	    (void) err2nm("socket");
+	    return;
+	} else if (nb < sizeof(si)) {
+	    (void) fprintf(stderr,
+		"%s: PID %d, FD %d: proc_pidfdinfo(PROC_PIDFDSOCKETINFO);\n",
+		Pn, pid, fd);
+	    (void) fprintf(stderr,
+		"      too few bytes; expected %ld, got %d\n",
+		sizeof(si), nb);
+	    Exit(1);
+	}
+
+	process_socket_common(&si);
+}
+
+
+#ifdef	PROC_PIDLISTFILEPORTS
+void
+process_fileport_socket(pid, fp)
+	int pid;			/* PID */
+	uint32_t fp;			/* FILEPORT */
+{
+	int nb;
+	struct socket_fdinfo si;
+/*
+ * Get socket information.
+ */
+	nb = proc_pidfileportinfo(pid, fp, PROC_PIDFILEPORTSOCKETINFO, &si, sizeof(si));
+	if (nb <= 0) {
+	    (void) err2nm("socket");
+	    return;
+	} else if (nb < sizeof(si)) {
+	    (void) fprintf(stderr,
+		"%s: PID %d, FILEPORT %u: proc_pidfileportinfo(PROC_PIDFILEPORTSOCKETINFO);\n",
+		Pn, pid, fp);
+	    (void) fprintf(stderr,
+		"      too few bytes; expected %ld, got %d\n",
+		sizeof(si), nb);
+	    Exit(1);
+	}
+
+	process_socket_common(&si);
+}
+#endif	/* PROC_PIDLISTFILEPORTS */

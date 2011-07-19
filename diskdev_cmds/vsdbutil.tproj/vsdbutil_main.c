@@ -243,6 +243,7 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	int nodev;
 	int noexec;
 	int readonly;
+	int protect;
 	char mountline[255];
 
 	result = statfs(path, &mntstat);
@@ -255,8 +256,9 @@ UpdateMountStatus(const char *path, u_int32_t volstatus) {
 	nodev = mntstat.f_flags & MNT_NODEV;
 	noexec = mntstat.f_flags & MNT_NOEXEC;
 	readonly = mntstat.f_flags & MNT_RDONLY;
+	protect = mntstat.f_flags & MNT_CPROTECT;
 
-	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"");
+	snprintf(mountline, sizeof(mountline), "%s%s%s%s%s%s", (volstatus & VOLUME_USEPERMISSIONS) ? "perm" : "noperm",(nosuid)?",nosuid":"",(nodev)?",nodev":"",(noexec)?",noexec":"",(readonly)?",rdonly":"", (protect)?",protect":"");
 
 	pid = fork();
 	if (pid == 0) {

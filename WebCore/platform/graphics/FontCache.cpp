@@ -34,10 +34,11 @@
 #include "FontFallbackList.h"
 #include "FontPlatformData.h"
 #include "FontSelector.h"
-#include "StringHash.h"
+#include "GlyphPageTreeNode.h"
 #include <wtf/HashMap.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringHash.h>
 
 using namespace WTF;
 
@@ -50,18 +51,25 @@ FontCache* fontCache()
 }
 
 FontCache::FontCache()
+    : m_purgePreventCount(0)
 {
 }
 
-struct FontPlatformDataCacheKey : FastAllocBase {
+struct FontPlatformDataCacheKey {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
     FontPlatformDataCacheKey(const AtomicString& family = AtomicString(), unsigned size = 0, unsigned weight = 0, bool italic = false,
-                             bool isPrinterFont = false, FontRenderingMode renderingMode = NormalRenderingMode)
-        : m_family(family)
-        , m_size(size)
+                             bool isPrinterFont = false, FontRenderingMode renderingMode = NormalRenderingMode, FontOrientation orientation = Horizontal,
+                             TextOrientation textOrientation = TextOrientationVerticalRight, FontWidthVariant widthVariant = RegularWidth)
+        : m_size(size)
         , m_weight(weight)
+        , m_family(family)
         , m_italic(italic)
         , m_printerFont(isPrinterFont)
         , m_renderingMode(renderingMode)
+        , m_orientation(orientation)
+        , m_textOrientation(textOrientation)
+        , m_widthVariant(widthVariant)
     {
     }
 
@@ -72,15 +80,18 @@ struct FontPlatformDataCacheKey : FastAllocBase {
     {
         return equalIgnoringCase(m_family, other.m_family) && m_size == other.m_size && 
                m_weight == other.m_weight && m_italic == other.m_italic && m_printerFont == other.m_printerFont &&
-               m_renderingMode == other.m_renderingMode;
+               m_renderingMode == other.m_renderingMode && m_orientation == other.m_orientation && m_textOrientation == other.m_textOrientation && m_widthVariant == other.m_widthVariant;
     }
 
-    AtomicString m_family;
     unsigned m_size;
     unsigned m_weight;
+    AtomicString m_family;
     bool m_italic;
     bool m_printerFont;
     FontRenderingMode m_renderingMode;
+    FontOrientation m_orientation;
+    TextOrientation m_textOrientation;
+    FontWidthVariant m_widthVariant;
 
 private:
     static unsigned hashTableDeletedSize() { return 0xFFFFFFFFU; }
@@ -88,13 +99,14 @@ private:
 
 inline unsigned computeHash(const FontPlatformDataCacheKey& fontKey)
 {
-    unsigned hashCodes[4] = {
+    unsigned hashCodes[5] = {
         CaseFoldingHash::hash(fontKey.m_family),
         fontKey.m_size,
         fontKey.m_weight,
-        static_cast<unsigned>(fontKey.m_italic) << 2 | static_cast<unsigned>(fontKey.m_printerFont) << 1 | static_cast<unsigned>(fontKey.m_renderingMode)
+        fontKey.m_widthVariant,
+        static_cast<unsigned>(fontKey.m_textOrientation) << 4 | static_cast<unsigned>(fontKey.m_orientation) << 3 | static_cast<unsigned>(fontKey.m_italic) << 2 | static_cast<unsigned>(fontKey.m_printerFont) << 1 | static_cast<unsigned>(fontKey.m_renderingMode)
     };
-    return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
+    return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
 }
 
 struct FontPlatformDataCacheKeyHash {
@@ -111,22 +123,7 @@ struct FontPlatformDataCacheKeyHash {
     static const bool safeToCompareToEmptyOrDeleted = true;
 };
 
-struct FontPlatformDataCacheKeyTraits : WTF::GenericHashTraits<FontPlatformDataCacheKey> {
-    static const bool emptyValueIsZero = true;
-    static const FontPlatformDataCacheKey& emptyValue()
-    {
-        DEFINE_STATIC_LOCAL(FontPlatformDataCacheKey, key, (nullAtom));
-        return key;
-    }
-    static void constructDeletedValue(FontPlatformDataCacheKey& slot)
-    {
-        new (&slot) FontPlatformDataCacheKey(HashTableDeletedValue);
-    }
-    static bool isDeletedValue(const FontPlatformDataCacheKey& value)
-    {
-        return value.isHashTableDeletedValue();
-    }
-};
+struct FontPlatformDataCacheKeyTraits : WTF::SimpleClassHashTraits<FontPlatformDataCacheKey> { };
 
 typedef HashMap<FontPlatformDataCacheKey, FontPlatformData*, FontPlatformDataCacheKeyHash, FontPlatformDataCacheKeyTraits> FontPlatformDataCache;
 
@@ -191,7 +188,8 @@ FontPlatformData* FontCache::getCachedFontPlatformData(const FontDescription& fo
     }
 
     FontPlatformDataCacheKey key(familyName, fontDescription.computedPixelSize(), fontDescription.weight(), fontDescription.italic(),
-                                 fontDescription.usePrinterFont(), fontDescription.renderingMode());
+                                 fontDescription.usePrinterFont(), fontDescription.renderingMode(), fontDescription.orientation(),
+                                 fontDescription.textOrientation(), fontDescription.widthVariant());
     FontPlatformData* result = 0;
     bool foundResult;
     FontPlatformDataCache::iterator it = gFontPlatformDataCache->find(key);
@@ -253,38 +251,54 @@ typedef HashMap<FontPlatformData, pair<SimpleFontData*, unsigned>, FontDataCache
 
 static FontDataCache* gFontDataCache = 0;
 
-const int cMaxInactiveFontData = 120;  // Pretty Low Threshold
-const float cTargetInactiveFontData = 100;
+const int cMaxInactiveFontData = 50; // Pretty Low Threshold
+const int cTargetInactiveFontData = 30;
 static ListHashSet<const SimpleFontData*>* gInactiveFontData = 0;
 
-SimpleFontData* FontCache::getCachedFontData(const FontDescription& fontDescription, const AtomicString& family, bool checkingAlternateName)
+SimpleFontData* FontCache::getCachedFontData(const FontDescription& fontDescription, const AtomicString& family, bool checkingAlternateName, ShouldRetain shouldRetain)
 {
     FontPlatformData* platformData = getCachedFontPlatformData(fontDescription, family, checkingAlternateName);
     if (!platformData)
         return 0;
 
-    return getCachedFontData(platformData);
+    return getCachedFontData(platformData, shouldRetain);
 }
 
-SimpleFontData* FontCache::getCachedFontData(const FontPlatformData* platformData)
+SimpleFontData* FontCache::getCachedFontData(const FontPlatformData* platformData, ShouldRetain shouldRetain)
 {
     if (!platformData)
         return 0;
+
+#if !ASSERT_DISABLED
+    if (shouldRetain == DoNotRetain)
+        ASSERT(m_purgePreventCount);
+#endif
 
     if (!gFontDataCache) {
         gFontDataCache = new FontDataCache;
         gInactiveFontData = new ListHashSet<const SimpleFontData*>;
     }
-    
+
     FontDataCache::iterator result = gFontDataCache->find(*platformData);
     if (result == gFontDataCache->end()) {
-        pair<SimpleFontData*, unsigned> newValue(new SimpleFontData(*platformData), 1);
+        pair<SimpleFontData*, unsigned> newValue(new SimpleFontData(*platformData), shouldRetain == Retain ? 1 : 0);
         gFontDataCache->set(*platformData, newValue);
+        if (shouldRetain == DoNotRetain)
+            gInactiveFontData->add(newValue.first);
         return newValue.first;
     }
-    if (!result.get()->second.second++) {
+
+    if (!result.get()->second.second) {
         ASSERT(gInactiveFontData->contains(result.get()->second.first));
         gInactiveFontData->remove(result.get()->second.first);
+    }
+
+    if (shouldRetain == Retain)
+        result.get()->second.second++;
+    else if (!result.get()->second.second) {
+        // If shouldRetain is DoNotRetain and count is 0, we want to remove the fontData from 
+        // gInactiveFontData (above) and re-add here to update LRU position.
+        gInactiveFontData->add(result.get()->second.first);
     }
 
     return result.get()->second.first;
@@ -298,16 +312,20 @@ void FontCache::releaseFontData(const SimpleFontData* fontData)
     FontDataCache::iterator it = gFontDataCache->find(fontData->platformData());
     ASSERT(it != gFontDataCache->end());
 
-    if (!--it->second.second) {
+    ASSERT(it->second.second);
+    if (!--it->second.second)
         gInactiveFontData->add(fontData);
-        if (gInactiveFontData->size() > cMaxInactiveFontData)
-            purgeInactiveFontData(gInactiveFontData->size() - cTargetInactiveFontData);
-    }
+}
+
+void FontCache::purgeInactiveFontDataIfNeeded()
+{
+    if (gInactiveFontData && !m_purgePreventCount && gInactiveFontData->size() > cMaxInactiveFontData)
+        purgeInactiveFontData(gInactiveFontData->size() - cTargetInactiveFontData);
 }
 
 void FontCache::purgeInactiveFontData(int count)
 {
-    if (!gInactiveFontData)
+    if (!gInactiveFontData || m_purgePreventCount)
         return;
 
     static bool isPurging;  // Guard against reentry when e.g. a deleted FontData releases its small caps FontData.

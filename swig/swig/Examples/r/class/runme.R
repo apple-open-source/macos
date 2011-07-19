@@ -1,8 +1,8 @@
-# This file illustrates the shadow-class C++ interface generated
+# This file illustrates the proxy class C++ interface generated
 # by SWIG.
 
-dyn.load('example_wrap.so')
-source('example_wrap.R')
+dyn.load(paste("example", .Platform$dynlib.ext, sep=""))
+source("example.R")
 cacheMetaData(1)
 
 # ----- Object creation -----

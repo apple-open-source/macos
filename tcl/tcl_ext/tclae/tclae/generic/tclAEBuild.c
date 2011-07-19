@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEBuild.c"
  *                                    created: 8/16/1999 {1:05:41 AM} 
- *                                last update: 2/4/04 {10:48:01 AM} 
+ *                                last update: 7/26/10 {1:51:05 AM} 
  *  Author: Pete Keleher
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
@@ -275,7 +275,11 @@ Tclae_SendCmd(
 				break;
 			
 			case 'z':
+#if __LP64__
+                                result = Tcl_GetIntFromObj(interp, objv[++j], &transactionID);
+#else                                
 				result = Tcl_GetLongFromObj(interp, objv[++j], &transactionID);
+#endif // __LP64__                                
 				if (result != TCL_OK) {
 					return TCL_ERROR;
 				}
@@ -450,7 +454,9 @@ appleEventReplyFilter (EventRecord *event, long returnID, long transID, const AE
 static Boolean 
 AbortInQueue(void)
 {
+#if !TARGET_API_MAC_CARBON // jeg 25/97/10: 64bization
 	EvQElPtr	queueEntryPtr;
+#endif
 	Boolean		result;
 	Boolean		foreground;
 	OSErr		err;

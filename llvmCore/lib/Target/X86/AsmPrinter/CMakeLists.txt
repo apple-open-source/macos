@@ -1,11 +1,9 @@
 include_directories( ${CMAKE_CURRENT_BINARY_DIR}/.. ${CMAKE_CURRENT_SOURCE_DIR}/.. )
 
-add_partially_linked_object(LLVMX86AsmPrinter
-  X86ATTAsmPrinter.cpp
+add_llvm_library(LLVMX86AsmPrinter
+  X86ATTInstPrinter.cpp
   X86AsmPrinter.cpp
-  X86IntelAsmPrinter.cpp
+  X86IntelInstPrinter.cpp
+  X86MCInstLower.cpp
   )
-
-target_name_of_partially_linked_object(LLVMX86CodeGen n)
-
-add_dependencies(LLVMX86AsmPrinter ${n})
+add_dependencies(LLVMX86AsmPrinter X86CodeGenTable_gen)

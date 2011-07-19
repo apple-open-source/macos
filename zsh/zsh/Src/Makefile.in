@@ -109,7 +109,7 @@ rm-modobjs-tmp:
 
 @CONFIG_MK@
 
-Makemod prep: $(CONFIG_INCS) $(dir_top)/config.modules
+Makemod: $(CONFIG_INCS) $(dir_top)/config.modules
 	@case $(sdir_top) in \
 	    /*) top_srcdir=$(sdir_top) ;; \
 	    *) top_srcdir=$(subdir)/$(sdir_top) ;; \
@@ -119,6 +119,7 @@ Makemod prep: $(CONFIG_INCS) $(dir_top)/config.modules
 	    '$$top_srcdir/$(subdir)/mkmakemod.sh $(subdir) Makemod'; \
 	cd $(dir_top) && \
 	    $(SHELL) $$top_srcdir/$(subdir)/mkmakemod.sh $(subdir) Makemod
+prep: Makemod
 	@$(MAKE) -f Makemod $(MAKEDEFS) prep || rm -f Makemod
 .PHONY: prep
 
@@ -220,7 +221,10 @@ mostlyclean-modules clean-modules distclean-modules realclean-modules:
 
 install.modules uninstall.modules \
 modobjs modules headers proto $(MAIN_OBJS) zsh.export: Makemod
+	@if [ ! -f Builtins/Makefile.in ]; then \
+	   $(MAKE) prep; \
+	fi
 	@$(MAKE) -f Makemod $(MAKEDEFS) $@
-.PHONY: install.modules uninstall.modules
+.PHONY: headers proto
 
 $(MAIN_OBJS): $(sdir)/zsh.h

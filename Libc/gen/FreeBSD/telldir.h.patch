@@ -1,5 +1,5 @@
---- telldir.h.orig	2007-01-24 14:10:41.000000000 -0800
-+++ telldir.h	2007-01-25 01:18:29.000000000 -0800
+--- telldir.h.orig	2009-11-08 13:57:20.000000000 -0800
++++ telldir.h	2009-11-08 13:57:11.000000000 -0800
 @@ -46,7 +46,11 @@
  struct ddloc {
  	LIST_ENTRY(ddloc) loc_lqe; /* entry in list */
@@ -12,7 +12,7 @@
  	long	loc_loc;	/* offset of entry in buffer */
  };
  
-@@ -57,10 +61,17 @@
+@@ -57,10 +61,17 @@ struct ddloc {
  struct _telldir {
  	LIST_HEAD(, ddloc) td_locq; /* list of locations */
  	long	td_loccnt;	/* index of entry for sequential readdir's */
@@ -21,11 +21,11 @@
 +#endif /* __DARWIN_64_BIT_INO_T */
  };
  
--struct dirent	*_readdir_unlocked(DIR *);
+-struct dirent	*_readdir_unlocked(DIR *, int);
 +#if __DARWIN_64_BIT_INO_T
 +size_t		__getdirentries64(int fd, void *buf, size_t bufsize, __darwin_off_t *basep);
 +#endif /* __DARWIN_64_BIT_INO_T */
-+struct dirent	*_readdir_unlocked(DIR *) __DARWIN_INODE64(_readdir_unlocked);
++struct dirent	*_readdir_unlocked(DIR *, int) __DARWIN_INODE64(_readdir_unlocked);
  void 		_reclaim_telldir(DIR *);
 -void 		_seekdir(DIR *, long);
 +void 		_seekdir(DIR *, long) __DARWIN_ALIAS_I(_seekdir);

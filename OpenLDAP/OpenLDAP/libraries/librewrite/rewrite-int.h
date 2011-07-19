@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/rewrite-int.h,v 1.20.2.3 2008/02/11 23:26:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/rewrite-int.h,v 1.20.2.6 2010/04/13 20:23:08 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -38,6 +38,13 @@
 #include <avl.h>
 
 #include <rewrite.h>
+
+#define malloc(x)	ber_memalloc(x)
+#define calloc(x,y)	ber_memcalloc(x,y)
+#define realloc(x,y)	ber_memrealloc(x,y)
+#define free(x)	ber_memfree(x)
+#undef strdup
+#define	strdup(x)	ber_strdup(x)
 
 /* Uncomment to use ldap pvt threads */
 #define USE_REWRITE_LDAP_PVT_THREADS

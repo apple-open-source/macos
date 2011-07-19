@@ -9,7 +9,7 @@
  * Copyright (C) 1999-2000.  The University of Chicago
  * See the file LICENSE for information on usage and redistribution.
  *
- * $Header: /cvsroot/swig/SWIG/Source/DOH/dohint.h,v 1.7 2006/11/01 23:54:50 wsfulton Exp $
+ * $Id: dohint.h 9607 2006-12-05 22:11:40Z beazley $
  * ----------------------------------------------------------------------------- */
 
 #ifndef _DOHINT_H

@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,9 +39,8 @@
 #include <stdlib.h>
 #include <unistd.h>
 #include <TargetConditionals.h>
-#if TARGET_OS_EMBEDDED
 #include <Security/SecItem.h>
-#else /* TARGET_OS_EMBEDDED */
+#if ! TARGET_OS_EMBEDDED
 #include <Security/SecIdentitySearch.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
@@ -56,6 +55,7 @@
 #include <Security/certextensions.h>
 #include <Security/cssmtype.h>
 #include <Security/x509defs.h>
+#include <Security/SecCertificateOIDs.h>
 #endif /* TARGET_OS_EMBEDDED */
 #include <Security/SecIdentity.h>
 #include <Security/SecCertificate.h>
@@ -75,41 +75,11 @@
 #define kEAPSecIdentityHandleTypeCertificateData	CFSTR("CertificateData")
 #define kEAPSecIdentityHandleData		CFSTR("IdentityHandleData")
 
-#if TARGET_OS_EMBEDDED
-Boolean
-EAPSecCertificateEqual(SecCertificateRef cert1, SecCertificateRef cert2)
-{
-    CFDataRef		cert1_data = NULL;
-    CFDataRef		cert2_data = NULL;
-    Boolean		equal = FALSE;
-
-    cert1_data = SecCertificateCopyData(cert1);
-    if (cert1_data == NULL) {
-	goto done;
-    }
-    cert2_data = SecCertificateCopyData(cert2);
-    if (cert2_data == NULL) {
-	goto done;
-    }
-    equal = CFEqual(cert1_data, cert2_data);
- done:
-    my_CFRelease(&cert1_data);
-    my_CFRelease(&cert2_data);
-    return (equal);
-}
-
 static __inline__ SecCertificateRef
 _EAPCFDataCreateSecCertificate(CFDataRef data_cf)
 {
     return (SecCertificateCreateWithData(NULL, data_cf));
 }
-
-static __inline__ CFDataRef
-_EAPSecCertificateCreateCFData(SecCertificateRef cert)
-{
-    return (SecCertificateCopyData(cert));
-}
-
 
 OSStatus
 EAPSecIdentityListCreate(CFArrayRef * ret_array)
@@ -139,117 +109,6 @@ EAPSecIdentityListCreate(CFArrayRef * ret_array)
     }
     return (status);
 }
-
-#else /* TARGET_OS_EMBEDDED */
-
-Boolean
-EAPSecCertificateEqual(SecCertificateRef cert1, SecCertificateRef cert2)
-{
-    CSSM_DATA		cert1_data;
-    CSSM_DATA		cert2_data;
-    OSStatus		status;
-
-    status = SecCertificateGetData(cert1, &cert1_data);
-    if (status != noErr) {
-	return (FALSE);
-    }
-    status = SecCertificateGetData(cert2, &cert2_data);
-    if (status != noErr) {
-	return (FALSE);
-    }
-    if (cert1_data.Length != cert2_data.Length) {
-	return (FALSE);
-    }
-    return (!bcmp(cert1_data.Data, cert2_data.Data, cert1_data.Length));
-}
-
-/*
- * Function: _EAPCFDataCreateSecCertificate
- * Purpose:
- *   Creates a SecCertificateRef from a CFDataRef.
- */
-static SecCertificateRef
-_EAPCFDataCreateSecCertificate(CFDataRef data_cf)
-{
-    SecCertificateRef	cert = NULL;
-    CSSM_DATA		data;
-    OSStatus 		status;
-
-    if (data_cf == NULL) {
-	goto done;
-    }
-    data.Length = CFDataGetLength(data_cf);
-    data.Data = (uint8 *)CFDataGetBytePtr(data_cf);
-    status = SecCertificateCreateFromData(&data, 
-					  CSSM_CERT_X_509v3, 
-					  CSSM_CERT_ENCODING_DER, &cert);
-    if (status != noErr) {
-	fprintf(stderr, "SecCertificateCreateFromData failed, %d", (int)status);
-    }
- done:
-    return (cert);
-}
-
-/*
- * Function: _EAPSecCertificateCreateCFData
- * Purpose:
- *   Creates a CFDataRef from a SecCertificateRef.
- */
-static CFDataRef
-_EAPSecCertificateCreateCFData(SecCertificateRef cert)
-{
-    CSSM_DATA		cert_data;
-    CFDataRef		data = NULL;
-    OSStatus 		status;
-
-    status = SecCertificateGetData(cert, &cert_data);
-    if (status != noErr) {
-	goto done;
-    }
-    data = CFDataCreate(NULL, cert_data.Data, cert_data.Length);
- done:
-    return (data);
-}
-
-OSStatus
-EAPSecIdentityListCreate(CFArrayRef * ret_array)
-{
-    CFMutableArrayRef		array;
-    SecIdentityRef		identity = NULL;
-    SecIdentitySearchRef 	search = NULL;
-    OSStatus			status = noErr;
-
-    *ret_array = NULL;
-    status = SecIdentitySearchCreate(NULL, CSSM_KEYUSE_SIGN, &search);
-    if (status != noErr) {
-	fprintf(stderr, "SecIdentitySearchCreate failed, %s (%d)\n", 
-		EAPSecurityErrorString(status), (int)status);
-	return (status);
-    }
-    array = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-    while (TRUE) {
-	status = SecIdentitySearchCopyNext(search, &identity);
-	if (status != noErr) {
-	    if (status != errSecItemNotFound) {
-		fprintf(stderr, "SecIdentitySearchCopyNext failed, %s (%d)\n",
-			EAPSecurityErrorString(status), (int)status);
-	    }
-	    break; /* out of while */
-	}
-	CFArrayAppendValue(array, identity);
-	my_CFRelease(&identity);
-    }
-    my_CFRelease(&search);
-    if (CFArrayGetCount(array) == 0) {
-	my_CFRelease(&array);
-    }
-    else {
-	status = noErr;
-    }
-    *ret_array = array;
-    return (status);
-}
-#endif /* TARGET_OS_EMBEDDED */
 
 /* 
  * Function: IdentityCreateFromDictionary
@@ -326,7 +185,7 @@ IdentityCreateFromDictionary(CFDictionaryRef dict,
 		    EAPSecurityErrorString(status), (int)status);
 	    break;
 	}
-	if (EAPSecCertificateEqual(cert_to_match, this_cert)) {
+	if (CFEqual(cert_to_match, this_cert)) {
 	    /* found a match */
 	    CFRetain(identity);
 	    *ret_identity = identity;
@@ -420,8 +279,8 @@ EAPSecIdentityHandleCreateSecIdentity(EAPSecIdentityHandleRef cert_id,
 }
 
 static OSStatus
-_EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity, 
-					   CFArrayRef * ret_chain)
+EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity, 
+					  CFArrayRef * ret_chain)
 {
     SecCertificateRef		cert;
     CFArrayRef 			certs;
@@ -458,7 +317,6 @@ _EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
 	fprintf(stderr, "SecTrustEvaluate returned %s (%d)\n",
 		EAPSecurityErrorString(status), (int)status);
     }
-#if TARGET_OS_EMBEDDED
     {
 	CFMutableArrayRef	array;
 	int			count = SecTrustGetCertificateCount(trust);
@@ -477,28 +335,50 @@ _EAPSecIdentityCreateCertificateTrustChain(SecIdentityRef identity,
 	}
 	*ret_chain = array;
     }
-#else /* TARGET_OS_EMBEDDED */
-    {
-	CSSM_TP_APPLE_EVIDENCE_INFO * 	ignored;
-	CFArrayRef 			status_chain = NULL;
-
-	status = SecTrustGetResult(trust, &trust_result, 
-				   &status_chain, &ignored);
-	if (status != noErr) {
-	    fprintf(stderr, "SecTrustGetResult failed: %s (%d)\n",
-		    EAPSecurityErrorString(status), (int)status);
-	    my_CFRelease(&status_chain);	/* just in case */
-	    goto done;
-	}
-	else {
-	    *ret_chain = status_chain;
-	}
-    }
-#endif /* TARGET_OS_EMBEDDED */
 
  done:
     my_CFRelease(&trust);
     my_CFRelease(&policy);
+    return (status);
+}
+
+/*
+ * Function: EAPSecIdentityCreateTrustChain
+ *
+ * Purpose:
+ *   Turns an SecIdentityRef into the array required by
+ *   SSLSetCertificates().  See the <Security/SecureTransport.h> for more
+ *   information.
+ *
+ * Returns:
+ *   noErr and *ret_array != NULL on success, non-noErr otherwise.
+ */
+OSStatus
+EAPSecIdentityCreateTrustChain(SecIdentityRef identity, CFArrayRef * ret_array)
+{
+    CFMutableArrayRef		array = NULL;
+    int				count;
+    OSStatus			status;
+    CFArrayRef			trust_chain = NULL;
+
+    *ret_array = NULL;
+    status = EAPSecIdentityCreateCertificateTrustChain(identity,
+						       &trust_chain);
+    if (status != noErr) {
+	fprintf(stderr, 
+		"EAPSecIdentityCreateCertificateTrustChain failed: %s (%d)\n",
+		EAPSecurityErrorString(status), (int)status);
+	goto done;
+    }
+
+    count = CFArrayGetCount(trust_chain);
+    array = CFArrayCreateMutableCopy(NULL, count, trust_chain);
+    /* array[0] contains the identity's cert, replace it with the identity */
+    CFArraySetValueAtIndex(array, 0, identity);
+    *ret_array = array;
+
+ done:
+    my_CFRelease(&trust_chain);
     return (status);
 }
 
@@ -517,34 +397,17 @@ OSStatus
 EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef cert_id,
 						CFArrayRef * ret_array)
 {
-    CFMutableArrayRef		array = NULL;
-    int				count;
     SecIdentityRef		identity = NULL;
     OSStatus			status;
-    CFArrayRef			trust_chain = NULL;
 
     *ret_array = NULL;
     status = EAPSecIdentityHandleCreateSecIdentity(cert_id, &identity);
     if (status != noErr) {
 	goto done;
     }
-    status = _EAPSecIdentityCreateCertificateTrustChain(identity,
-							&trust_chain);
-    if (status != noErr) {
-	fprintf(stderr, 
-		"_EAPSecIdentityCreateCertificateTrustChain failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
-	goto done;
-    }
-
-    count = CFArrayGetCount(trust_chain);
-    array = CFArrayCreateMutableCopy(NULL, count, trust_chain);
-    /* array[0] contains the identity's cert, replace it with the identity */
-    CFArraySetValueAtIndex(array, 0, identity);
-    *ret_array = array;
+    status = EAPSecIdentityCreateTrustChain(identity, ret_array);
 
  done:
-    my_CFRelease(&trust_chain);
     my_CFRelease(&identity);
     return (status);
 }
@@ -636,7 +499,7 @@ EAPSecCertificateArrayCreateCFDataArray(CFArrayRef certs)
 	if (cert == NULL) {
 	    continue;
 	}
-	data = _EAPSecCertificateCreateCFData(cert);
+	data = SecCertificateCopyData(cert);
 	if (data == NULL) {
 	    continue;
 	}
@@ -687,31 +550,6 @@ isA_SecCertificate(CFTypeRef obj)
     return (isA_CFType(obj, SecCertificateGetTypeID()));
 }
 
-
-Boolean
-EAPSecCertificateListEqual(CFArrayRef list1, CFArrayRef list2)
-{
-    int		count1 = 0;
-    int		count2 = 0;
-    int		i;
-
-    count1 = CFArrayGetCount(list1);
-    count2 = CFArrayGetCount(list2);
-    if (count1 != count2) {
-	return (FALSE);
-    }
-    for (i = 0; i < count1; i++) {
-	SecCertificateRef	cert1;
-	SecCertificateRef	cert2;
-
-	cert1 = (SecCertificateRef)CFArrayGetValueAtIndex(list1, i);
-	cert2 = (SecCertificateRef)CFArrayGetValueAtIndex(list2, i);
-	if (EAPSecCertificateEqual(cert1, cert2) == FALSE) {
-	    return (FALSE);
-	}
-    }
-    return (TRUE);
-}
 
 #if TARGET_OS_EMBEDDED
 typedef CFArrayRef (*cert_names_func_t)(SecCertificateRef cert);
@@ -789,463 +627,90 @@ EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert)
 
 #else /* TARGET_OS_EMBEDDED */
 
-/**
- ** Certificate attributes:
- ** The following code is transcribed from SFCertificateData.m.  Once
- ** SecCertificateRef's give us what we need, we can remove this code.
- **/
-#define MS_OID						OID_DOD, 0x01, 0x04, 0x01, 0x82, 0x37
-#define MS_OID_LEN					2 + 5
-#define MS_ENROLLMENT_OID			MS_OID, 0x14
-#define MS_ENROLLMENT_LEN			MS_OID_LEN + 1
-#define MS_PRINCIPAL_NAME			MS_ENROLLMENT_OID, 0x02, 0x03
-#define MS_PRINCIPAL_NAME_LEN		MS_ENROLLMENT_LEN + 2
-static const uint8 	OID_MS_NTPrincipalName[] = {MS_PRINCIPAL_NAME};
-const CSSM_OID	CSSMOID_MS_NTPrincipalName	 = {MS_PRINCIPAL_NAME_LEN, (uint8 *)OID_MS_NTPrincipalName};
-
-typedef struct {
-    uint32	ID;				/* Identifier */
-    uint32	tag;			/* Tag */
-    uint32	length;			/* Data length */
-    bool	indefinite;		/* Item has indefinite length */
-    uint32	headerSize;		/* Size of tag+length */
-    uint32	header[ 16 ];	/* Tag+length data */
-} ASN1Item;
-// ASN.1 stuff
-#define TAG_MASK	0x1F	/* Bits 5 - 1 */
-#define EOC			0x00	/* 0: End-of-contents octets */
-#define LEN_XTND	0x80	/* Indefinite or long form */
-#define LEN_MASK	0x7F	/* Bits 7 - 1 */
-
-// ---------------------------------------------------------------------------
-//	getASN1ItemInfo
-// ---------------------------------------------------------------------------
-// Given a pointer to an ASN.1-encoded object and a pointer to an ASN1Item
-// struct, fill out that struct with tag and length information.
-// inObjectLen prevents reading past the end of the object being parsed.
-// Returns TRUE if successful, FALSE if not.
-
-static bool 
-getASN1ItemInfo (uint8 *inObject, int inObjectLen, ASN1Item *item)
-{
-    uint32 tag, length, index = 0;
-    uint8 *p = inObject;
-    uint8 *q = inObject+inObjectLen;
-	
-    if (!p || !item || inObjectLen < 2) return(false);
-
-    memset( item, 0, sizeof( ASN1Item ) );
-    item->indefinite = FALSE;
-    tag = item->header[ index++ ] = *p++;
-    item->ID = tag & ~TAG_MASK;
-    tag &= TAG_MASK;
-    if( tag == TAG_MASK ) /* long tag encoded as sequence of 7-bit values */
-	{
-	    uint32 value;
-	    tag = 0;
-	    do 
-		{
-		    value = *p++;
-		    tag = ( tag << 7 ) | ( value & 0x7F );
-		    item->header[ index++ ] = value;
-		}
-	    while ((value & LEN_XTND) && (p < q) && (*p != EOC));
-	}
-    item->tag = tag;
-    if ((!(p < q)) || (*p == EOC)) return(false);
-	
-    length = item->header[ index++ ] = *p++;
-    if (!(p < q)) return(false);
-    item->headerSize = index;
-    if ( length & LEN_XTND )
-	{
-	    uint32 i;
-
-	    length &= LEN_MASK;
-	    if( length > 4 )
-		{
-		    /* Object length field is greater than 4 bytes?! */
-		    return(false);
-		}
-	    item->headerSize += length;
-	    item->length = 0;
-	    if ( !length )
-		item->indefinite = true;
-	    for ( i = 0; i < length; i++ )
-		{
-		    uint32 ch;
-		    if (!(p < q)) return(false);
-		    ch = *p++;
-
-		    item->length = ( item->length << 8 ) | ch;
-		    item->header[ i + index ] = ch;
-		}
-	}
-    else	/* standard 1-byte length field */
-	{
-	    item->length = length;
-	    if ((q-p) < length) return(false);
-	}
-
-    return(true);
-}
-
-static CSSM_BOOL compareCssmData(
-				 const CSSM_DATA *d1,
-				 const CSSM_DATA *d2)
-{	
-    if (d1->Length != d2->Length) {
-	return CSSM_FALSE;
-    }
-    if(memcmp(d1->Data, d2->Data, d1->Length)) {
-	return CSSM_FALSE;
-    }
-    return CSSM_TRUE;	
-}
-
-static CSSM_BOOL compareOids(
-			     const CSSM_OID *oid1,
-			     const CSSM_OID *oid2)
-{
-    if((oid1 == NULL) || (oid2 == NULL)) {
-	return CSSM_FALSE;
-    }	
-    if(oid1->Length != oid2->Length) {
-	return CSSM_FALSE;
-    }
-    if(memcmp(oid1->Data, oid2->Data, oid1->Length)) {
-	return CSSM_FALSE;
-    }
-    else {
-	return CSSM_TRUE;
-    }
-}
-
-static bool
-extension_common_valid(const CSSM_DATA * value, bool expect_parsed)
-{
-    CSSM_X509_EXTENSION *cssmExt = (CSSM_X509_EXTENSION *)value->Data;
-
-    if (value->Length != sizeof(CSSM_X509_EXTENSION)) {
-	return (false);
-    }
-    switch (cssmExt->format) {
-    case CSSM_X509_DATAFORMAT_ENCODED:
-	if (expect_parsed) {
-	    return (false);
-	}
-	/* we don't use the value.tagAndValue field yet */
-	if (cssmExt->BERvalue.Data == NULL
-	    || 0 /* cssmExt->value.tagAndValue == NULL */) {
-	    return (false);
-	}
-	break;
-    case CSSM_X509_DATAFORMAT_PARSED:
-	if (!expect_parsed) {
-	    return (false);
-	}
-	if ((cssmExt->BERvalue.Data == NULL)
-	    || (cssmExt->value.parsedValue == NULL)) {
-	    return (false);
-	}
-	break;
-    case CSSM_X509_DATAFORMAT_PAIR:
-	/* we don't use the value.valuePair field yet */
-	if (cssmExt->BERvalue.Data == NULL
-	    || 0 /* cssmExt->value.valuePair == NULL */) {
-	    return (false);
-	}
-	break;
-    default:
-	return (false);
-	break;
-    }
-    return (true);
-}
-
-static CFStringRef
-myCFStringCreateWithDerData(CFAllocatorRef alloc, 
-			    CSSM_BER_TAG tag_type, const CSSM_DATA * value)
-{
-    CFStringEncoding	encoding = kCFStringEncodingInvalidId;
-    CFStringRef		str = NULL;
-
-    switch (tag_type) {
-    case BER_TAG_PRINTABLE_STRING:
-    case BER_TAG_IA5_STRING:
-	encoding = kCFStringEncodingASCII;
-	break;
-    case BER_TAG_PKIX_UTF8_STRING:
-    case BER_TAG_GENERAL_STRING:
-    case BER_TAG_PKIX_UNIVERSAL_STRING:
-	encoding = kCFStringEncodingUTF8;
-	break;
-    case BER_TAG_T61_STRING:
-    case BER_TAG_VIDEOTEX_STRING:
-    case BER_TAG_ISO646_STRING:
-	encoding = kCFStringEncodingISOLatin1;
-	break;
-    case BER_TAG_PKIX_BMP_STRING:
-	encoding = kCFStringEncodingUnicode;
-    default:
-	break;
-    }
-    if (encoding != kCFStringEncodingInvalidId) {
-	str = CFStringCreateWithBytes(alloc, value->Data,
-				      (CFIndex)value->Length, encoding, true);
-    }
-    return (str);
-}
-
-static CFStringRef
-myCFStringCreateFromPrintableBERSequence(CFAllocatorRef alloc, 
-					 const CSSM_DATA * value)
-{
-    char *	eos;
-    ASN1Item 	item;
-    CSSM_DATA 	item_data = *value;
-    CFStringRef ret_str = NULL;
-
-    /* determine end-of-sequence based on initial tag */
-    if (!getASN1ItemInfo(item_data.Data, item_data.Length, &item)) {
-	return (NULL);
-    }
-    eos = (char *)(item_data.Data + (UInt32)item.headerSize + item.length);
-    while (getASN1ItemInfo(item_data.Data, item_data.Length, &item)) {
-	if (((char *)item_data.Data + (UInt32)item.headerSize + item.length) 
-	    > eos) {
-	    break;
-	}
-	item_data.Data += item.headerSize;
-	item_data.Length = item.length;
-	switch (item.tag) {
-	case BER_TAG_UNKNOWN:
-	case BER_TAG_SEQUENCE:
-	case BER_TAG_SET:
-	    /* skip constructed object lengths */
-	    break;
-	case BER_TAG_PKIX_UTF8_STRING:
-	case BER_TAG_NUMERIC_STRING:
-	case BER_TAG_PRINTABLE_STRING:
-	case BER_TAG_T61_STRING:
-	case BER_TAG_VIDEOTEX_STRING:
-	case BER_TAG_IA5_STRING:
-	case BER_TAG_GRAPHIC_STRING:
-	case BER_TAG_ISO646_STRING:
-	case BER_TAG_GENERAL_STRING:
-	case BER_TAG_PKIX_UNIVERSAL_STRING:
-	    ret_str = myCFStringCreateWithDerData(alloc, item.tag, &item_data);
-	    goto done;
-	default:
-	    item_data.Data += item_data.Length;
-	    break;
-	}
-    }
- done:
-    return (ret_str);
-}
-
 static void
-parse_subject_struct(CFMutableDictionaryRef dict, const CSSM_DATA * d)
+dictSetValue(CFMutableDictionaryRef dict, CFStringRef key, CFTypeRef val)
 {
-    CSSM_X509_RDN_PTR    	rdnp;
-    int				r;
-    CSSM_X509_NAME_PTR 		name = (CSSM_X509_NAME_PTR)d->Data;
-
-    if ((name == NULL) || (d->Length != sizeof(CSSM_X509_NAME))) {
-	return;
+    if (isA_CFArray(val) != NULL && CFArrayGetCount(val) > 0) {
+	val = CFArrayGetValueAtIndex(val, 0);
     }
-	
-    for (r = 0; r < name->numberOfRDNs; r++) {
-	int				p;
-
-	rdnp = &name->RelativeDistinguishedName[r];
-	for (p = 0; p < rdnp->numberOfPairs; p++) {
-	    CFStringRef			key = NULL;
-	    CSSM_X509_TYPE_VALUE_PAIR *	ptvp;
-	    CFStringRef			value;
-
-	    ptvp = &rdnp->AttributeTypeAndValue[p];
-	    if (compareOids(&ptvp->type, &CSSMOID_CommonName)) {
-		key = kEAPSecCertificateAttributeCommonName;
-	    }
-	    else if (compareOids(&ptvp->type, &CSSMOID_EmailAddress)) {
-		key = kEAPSecCertificateAttributeEmailAddress;
-	    }
-	    else {
-		continue;
-	    }
-	    value = myCFStringCreateWithDerData(NULL, ptvp->valueType,
-						&ptvp->value);
-	    if (value != NULL) {
-		CFStringRef	current;
-
-		current = CFDictionaryGetValue(dict, key);
-		if (current == NULL) {
-		    CFDictionarySetValue(dict, key, value);
-		}
-		CFRelease(value);
-	    }
-	}
+    if (isA_CFString(val) != NULL) {
+	CFDictionarySetValue(dict, key, val);
     }
-    return;
-}
-
-static void
-parse_subject_alt_name(CFMutableDictionaryRef dict, const CSSM_DATA * d)
-{
-    CSSM_X509_EXTENSION * 	cssmExt = (CSSM_X509_EXTENSION *)d->Data;
-    int				i;
-    CE_GeneralName *		name;
-    CE_OtherName * 		other;
-    CE_GeneralNames *		san;
-
-    if (extension_common_valid(d, true) == false) {
-	return;
-    }
-    san = (CE_GeneralNames *)cssmExt->value.parsedValue;
-    for (i = 0; i < san->numNames; i++) {
-	CFStringRef	key = NULL;
-	CFStringRef	value = NULL;
-	CSSM_OID 	tmp_oid = { 0, nil };
-	CSSM_DATA 	tmp_value = { 0, nil };
-
-
-	name = &san->generalName[i];
-	switch (name->nameType) {
-	case GNT_RFC822Name:
-	    key = kEAPSecCertificateAttributeRFC822Name;
-	    value = CFStringCreateWithBytes(NULL, name->name.Data, 
-					    name->name.Length,
-					    kCFStringEncodingASCII, 0);
-	    break;
-	case GNT_OtherName:
-	    other = (CE_OtherName *)(name->name.Data);
-	    /* work-around for 3722123 */
-	    if (other != NULL) {
-		tmp_oid = other->typeId;
-		tmp_value = other->value;
-	    }
-	    if (tmp_oid.Data && tmp_value.Data == NULL) {
-		uint32 	unparsed_len = tmp_oid.Length;
-		uint8 	header_len = 2;
-		if (unparsed_len > header_len)	{
-		    uint8 oid_len = tmp_oid.Data[1];
-		    if (unparsed_len > (oid_len + header_len)) {
-			tmp_oid.Length = oid_len;
-			tmp_oid.Data 
-			    = (uint8*)(tmp_oid.Data + (uint32)header_len);
-			tmp_value.Length 
-			    = unparsed_len - (oid_len + header_len);
-			tmp_value.Data 
-			    = (uint8*)(tmp_oid.Data + (uint32)tmp_oid.Length);
-		    }
-		}
-	    }
-	    if (compareOids(&tmp_oid, &CSSMOID_MS_NTPrincipalName)) {
-		key = kEAPSecCertificateAttributeNTPrincipalName;
-		value = myCFStringCreateFromPrintableBERSequence(NULL,
-								 &tmp_value);
-		break;
-	    }
-	    break;
-	default:
-	    break;
-	}
-	if (key != NULL && value != NULL) {
-	    CFStringRef	current;
-
-	    current = CFDictionaryGetValue(dict, key);
-	    if (current == NULL) {
-		CFDictionarySetValue(dict, key, value);
-	    }
-	}
-	if (value != NULL) {
-	    CFRelease(value);
-	}
-    }
-    return;
 }
 
 CFDictionaryRef
 EAPSecCertificateCopyAttributesDictionary(const SecCertificateRef cert)
 {
-    CSSM_DATA		cert_data;
-    CSSM_CL_HANDLE	clh;
-    CSSM_RETURN 	crtn;
-    CFMutableDictionaryRef dict = NULL;
-    CSSM_DATA_PTR	issuer = NULL;
-    CSSM_FIELD_PTR	fields;
-    int			i;
-    bool		is_root = false;
-    uint32		n_fields;
-    CSSM_DATA_PTR	subject = NULL;
-    CSSM_DATA_PTR	subject_alt = NULL;
-    CSSM_DATA_PTR	subject_struct = NULL;
+    CFDictionaryRef		cert_values;
+    CFArrayRef			cert_keys;
+    CFMutableDictionaryRef 	dict = NULL;
+    CFArrayRef			email_addresses;
+    CFDictionaryRef		entry;
+    int				i;
+    CFTypeRef			value;
+    const void *		values[] = {
+	kSecOIDSubjectAltName,
+	kSecOIDCommonName,
+    };
+    int				values_count = (sizeof(values)
+						/ sizeof(values[0]));
+    
+    cert_keys = CFArrayCreate(NULL, values, values_count,
+			      &kCFTypeArrayCallBacks);
 
-    (void)SecCertificateGetCLHandle(cert, &clh);
-    (void)SecCertificateGetData(cert, &cert_data);
-    crtn = CSSM_CL_CertGetAllFields(clh, &cert_data, &n_fields, &fields);
-    if (crtn) {
-	fprintf(stderr, "CSSM_CL_CertGetAllFields failed %d\n",
-		(int)crtn);
-	goto done;
+    cert_values = SecCertificateCopyValues(cert, cert_keys, NULL);
+    CFRelease(cert_keys);
+    if (cert_values == NULL) {
+	return (NULL);
     }
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    for (i = 0; i < n_fields; i++) {
-	if (compareOids(&fields[i].FieldOid, 
-			&CSSMOID_X509V1IssuerName)) {
-	    issuer = &fields[i].FieldValue;
-	}
-	else if (compareOids(&fields[i].FieldOid, 
-			     &CSSMOID_X509V1SubjectName)) {
-	    subject = &fields[i].FieldValue;
-	}
-	else if (compareOids(&fields[i].FieldOid, 
-			     &CSSMOID_SubjectAltName)) {
-	    subject_alt = &fields[i].FieldValue;
-	}
-	else if (compareOids(&fields[i].FieldOid, 
-			     &CSSMOID_X509V1SubjectNameCStruct)) {
-	    subject_struct = &fields[i].FieldValue;
-	}
-    }
 
-    is_root = (issuer != NULL) && (subject != NULL)
-	&& (issuer->Data != NULL) && (subject->Data != NULL)
-	&& (issuer->Data != subject->Data)
-	&& compareCssmData(subject, issuer);
-    if (is_root) {
-	CSSM_RETURN 	crtn;
-
-	/* verify that the cert is self-signed [3949265] */
-	crtn = CSSM_CL_CertVerify(clh, CSSM_INVALID_HANDLE, 
-				  &cert_data, &cert_data, NULL, 0);
-	if (crtn != CSSM_OK) {
-	    is_root = false;
+    /* get the common name */
+    entry = CFDictionaryGetValue(cert_values, kSecOIDCommonName);
+    if (entry != NULL) {
+	value = CFDictionaryGetValue(entry, kSecPropertyKeyValue);
+	if (value != NULL) {
+	    dictSetValue(dict, kEAPSecCertificateAttributeCommonName, value);
 	}
     }
-    if (is_root) {
-	CFDictionarySetValue(dict, kEAPSecCertificateAttributeIsRoot,
-			     kCFBooleanTrue);
+    
+    /* get the NTPrincipalName */
+    entry = CFDictionaryGetValue(cert_values, kSecOIDSubjectAltName);
+    value = NULL;
+    if (entry != NULL) {
+	value = CFDictionaryGetValue(entry, kSecPropertyKeyValue);
     }
-    if (subject_alt != NULL) {
-	parse_subject_alt_name(dict, subject_alt);
+    if (isA_CFArray(value) != NULL) {
+	int		count = CFArrayGetCount(value);
+
+	for (i = 0; i < count; i++) {
+	    CFStringRef	label;
+	    CFDictionaryRef	subj_alt = CFArrayGetValueAtIndex(value, i);
+	    CFTypeRef	this_val;
+	    
+	    label = CFDictionaryGetValue(subj_alt, kSecPropertyKeyLabel);
+	    this_val = CFDictionaryGetValue(subj_alt, kSecPropertyKeyValue);
+	    if (label == NULL || this_val == NULL) {
+		continue;
+	    }
+	    /* NT Principal Name */
+	    if (CFEqual(label, kSecOIDMS_NTPrincipalName)) {
+		CFDictionaryAddValue(dict,
+				     kEAPSecCertificateAttributeNTPrincipalName,
+				     this_val);
+	    }
+	}
     }
-    if (subject_struct != NULL) {
-	parse_subject_struct(dict, subject_struct);
+    email_addresses = NULL;
+    SecCertificateCopyEmailAddresses(cert, &email_addresses);
+    if (email_addresses != NULL) {
+	dictSetValue(dict, kEAPSecCertificateAttributeRFC822Name,
+		     email_addresses);
+	CFRelease(email_addresses);
     }
-    /* free memory */
-    if (fields != NULL) {
-	crtn = CSSM_CL_FreeFields(clh, n_fields, &fields);
-    }
-    if (CFDictionaryGetCount(dict) == 0) {
-	CFRelease(dict);
-	dict = NULL;
-    }
- done:
+    CFRelease(cert_values);
     return (dict);
 }
 #endif /* TARGET_OS_EMBEDDED */
@@ -1701,7 +1166,7 @@ main()
     count = CFArrayGetCount(list);
     for (i = 0; i < count; i++) {
 	EAPSecIdentityHandleRef h;
-	SecIdentityRef		ident = CFArrayGetValueAtIndex(list, i);
+	SecIdentityRef		ident = (SecIdentityRef)CFArrayGetValueAtIndex(list, i);
 
 	h = EAPSecIdentityHandleCreate(ident);
 	status = EAPSecIdentityHandleCreateSecIdentityTrustChain(h,

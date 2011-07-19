@@ -70,6 +70,9 @@ static char *rcsid = "$Id: getrpcport.c,v 1.3 2002/02/19 20:36:23 epeyton Exp $"
 int
 getrpcport(host, prognum, versnum, proto)
 	char *host;
+	int prognum;
+	int versnum;
+	int proto;
 {
 	struct sockaddr_in addr;
 	struct hostent *hp;

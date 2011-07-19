@@ -12,9 +12,6 @@
 /* Define to 1 if using `alloca.c'. */
 /* #undef C_ALLOCA */
 
-/* Define to 1 to enable debugging information. */
-/* #undef DEBUG */
-
 /* Define to 1 if you have `alloca', as a function or macro. */
 #define HAVE_ALLOCA 1
 
@@ -172,6 +169,9 @@
 /* Define to 1 if you have the <vfork.h> header file. */
 /* #undef HAVE_VFORK_H */
 
+/* Define to 1 if you have the `wcsdup' function. */
+#define HAVE_WCSDUP 1
+
 /* Define to 1 if `fork' works. */
 #define HAVE_WORKING_FORK 1
 
@@ -187,7 +187,7 @@
 #define LT_OBJDIR ".libs/"
 
 /* Name of package */
-#define PACKAGE "libedit-20090902"
+#define PACKAGE "libedit-20100424"
 
 /* Define to the address where bug reports for this package should be sent. */
 #define PACKAGE_BUGREPORT ""
@@ -196,13 +196,16 @@
 #define PACKAGE_NAME "libedit"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "libedit 2.11"
+#define PACKAGE_STRING "libedit 3.0"
 
 /* Define to the one symbol short name of this package. */
-#define PACKAGE_TARNAME "libedit-20090902"
+#define PACKAGE_TARNAME "libedit-20100424"
+
+/* Define to the home page for this package. */
+#define PACKAGE_URL ""
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "2.11"
+#define PACKAGE_VERSION "3.0"
 
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
@@ -218,11 +221,43 @@
 /* Define to 1 if you have the ANSI C header files. */
 #define STDC_HEADERS 1
 
-/* Version number of package */
-#define VERSION "2.11"
+/* Enable extensions on AIX 3, Interix.  */
+#ifndef _ALL_SOURCE
+# define _ALL_SOURCE 1
+#endif
+/* Enable GNU extensions on systems that have them.  */
+#ifndef _GNU_SOURCE
+# define _GNU_SOURCE 1
+#endif
+/* Enable threading extensions on Solaris.  */
+#ifndef _POSIX_PTHREAD_SEMANTICS
+# define _POSIX_PTHREAD_SEMANTICS 1
+#endif
+/* Enable extensions on HP NonStop.  */
+#ifndef _TANDEM_SOURCE
+# define _TANDEM_SOURCE 1
+#endif
+/* Enable general extensions on Solaris.  */
+#ifndef __EXTENSIONS__
+# define __EXTENSIONS__ 1
+#endif
 
-/* Solaris's term.h does horrid things. */
-/* #undef _SUNOS */
+
+/* Version number of package */
+#define VERSION "3.0"
+
+/* Define to 1 if you want wide-character code */
+#define WIDECHAR 1
+
+/* Define to 1 if on MINIX. */
+/* #undef _MINIX */
+
+/* Define to 2 if the system does not provide POSIX.1 features except with
+   this defined. */
+/* #undef _POSIX_1_SOURCE */
+
+/* Define to 1 if you need to in order for `stat' and other things to work. */
+/* #undef _POSIX_SOURCE */
 
 /* Define to empty if `const' does not conform to ANSI C. */
 /* #undef const */
@@ -237,7 +272,8 @@
 /* #undef vfork */
 
 
-#include <sys.h>
+#include "sys.h"
 #define SCCSID
 /* #undef LIBC_SCCS */
+#define lint
 

@@ -32,6 +32,7 @@
 #include "WebSearchableFormData.h"
 
 #include "Document.h"
+#include "DocumentLoader.h"
 #include "FormDataBuilder.h"
 #include "FormDataList.h"
 #include "Frame.h"
@@ -46,6 +47,7 @@
 #include "WebFormElement.h"
 
 using namespace WebCore;
+using namespace HTMLNames;
 
 namespace {
 
@@ -61,8 +63,7 @@ void GetFormEncoding(const HTMLFormElement* form, TextEncoding* encoding)
         if (encoding->isValid())
             return;
     }
-    const Frame* frame = form->document()->frame();
-    *encoding = frame ? TextEncoding(frame->loader()->writer()->encoding()) : Latin1Encoding();
+    *encoding = TextEncoding(form->document()->loader()->writer()->encoding());
 }
 
 // Returns true if the submit request results in an HTTP URL.
@@ -77,8 +78,11 @@ bool IsHTTPFormSubmit(const HTMLFormElement* form)
 HTMLFormControlElement* GetButtonToActivate(HTMLFormElement* form)
 {
     HTMLFormControlElement* firstSubmitButton = 0;
-    for (Vector<HTMLFormControlElement*>::const_iterator i(form->formElements.begin()); i != form->formElements.end(); ++i) {
-      HTMLFormControlElement* formElement = *i;
+    // FIXME: Consider refactoring this code so that we don't call form->associatedElements() twice.
+    for (Vector<FormAssociatedElement*>::const_iterator i(form->associatedElements().begin()); i != form->associatedElements().end(); ++i) {
+      if (!(*i)->isFormControlElement())
+          continue;
+      HTMLFormControlElement* formElement = static_cast<HTMLFormControlElement*>(*i);
       if (formElement->isActivatedSubmit())
           // There's a button that is already activated for submit, return 0.
           return 0;
@@ -125,13 +129,13 @@ bool IsSelectInDefaultState(const HTMLSelectElement* select)
 // Returns true if the form element is in its default state, false otherwise.
 // The default state is the state of the form element on initial load of the
 // page, and varies depending upon the form element. For example, a checkbox is
-// in its default state if the checked state matches the defaultChecked state.
+// in its default state if the checked state matches the state of the checked attribute.
 bool IsInDefaultState(const HTMLFormControlElement* formElement)
 {
     if (formElement->hasTagName(HTMLNames::inputTag)) {
         const HTMLInputElement* inputElement = static_cast<const HTMLInputElement*>(formElement);
-        if (inputElement->inputType() == HTMLInputElement::CHECKBOX || inputElement->inputType() == HTMLInputElement::RADIO)
-            return inputElement->checked() == inputElement->defaultChecked();
+        if (inputElement->isCheckbox() || inputElement->isRadioButton())
+            return inputElement->checked() == inputElement->hasAttribute(checkedAttr);
     } else if (formElement->hasTagName(HTMLNames::selectTag))
         return IsSelectInDefaultState(static_cast<const HTMLSelectElement*>(formElement));
     return true;
@@ -154,8 +158,11 @@ bool HasSuitableTextElement(const HTMLFormElement* form, Vector<char>* encodedSt
     *encodingName = encoding.name();
 
     HTMLInputElement* textElement = 0;
-    for (Vector<HTMLFormControlElement*>::const_iterator i(form->formElements.begin()); i != form->formElements.end(); ++i) {
-        HTMLFormControlElement* formElement = *i;
+    // FIXME: Consider refactoring this code so that we don't call form->associatedElements() twice.
+    for (Vector<FormAssociatedElement*>::const_iterator i(form->associatedElements().begin()); i != form->associatedElements().end(); ++i) {
+        if (!(*i)->isFormControlElement())
+            continue;
+        HTMLFormControlElement* formElement = static_cast<HTMLFormControlElement*>(*i);
         if (formElement->disabled() || formElement->name().isNull())
             continue;
 
@@ -164,29 +171,27 @@ bool HasSuitableTextElement(const HTMLFormElement* form, Vector<char>* encodedSt
 
         bool isTextElement = false;
         if (formElement->hasTagName(HTMLNames::inputTag)) {
-            switch (static_cast<const HTMLInputElement*>(formElement)->inputType()) {
-            case HTMLInputElement::TEXT:
-            case HTMLInputElement::ISINDEX:
-                isTextElement = true;
-                break;
-            case HTMLInputElement::PASSWORD:
-                // Don't store passwords! This is most likely an https anyway.
-                // Fall through.
-            case HTMLInputElement::FILE:
+            const HTMLInputElement* input = static_cast<const HTMLInputElement*>(formElement);
+            if (input->isFileUpload()) {
                 // Too big, don't try to index this.
                 return 0;
-            default:
-                // All other input types are indexable.
-                break;
             }
+
+            if (input->isPasswordField()) {
+                // Don't store passwords! This is most likely an https anyway.
+                return 0;
+            }
+
+            if (input->isTextField())
+                isTextElement = true;
       }
 
       FormDataList dataList(encoding);
       if (!formElement->appendFormData(dataList, false))
           continue;
 
-      const Vector<FormDataList::Item>& itemList = dataList.list();
-      if (isTextElement && !itemList.isEmpty()) {
+      const Vector<FormDataList::Item>& items = dataList.items();
+      if (isTextElement && !items.isEmpty()) {
           if (textElement) {
               // The auto-complete bar only knows how to fill in one value.
               // This form has multiple fields; don't treat it as searchable.
@@ -194,7 +199,7 @@ bool HasSuitableTextElement(const HTMLFormElement* form, Vector<char>* encodedSt
           }
           textElement = static_cast<HTMLInputElement*>(formElement);
       }
-      for (Vector<FormDataList::Item>::const_iterator j(itemList.begin()); j != itemList.end(); ++j) {
+      for (Vector<FormDataList::Item>::const_iterator j(items.begin()); j != items.end(); ++j) {
           // Handle ISINDEX / <input name=isindex> specially, but only if it's
           // the first entry.
           if (!encodedString->isEmpty() || j->data() != "isindex") {

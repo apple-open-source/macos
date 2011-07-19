@@ -115,7 +115,7 @@ extern int __math_errhandling ( void );
 *                                                                               *
 *                              Inquiry macros                                   *
 *                                                                               *
-*   fpclassify      Returns one of the FP_Å values.                             *
+*   fpclassify      Returns one of the FP_* values.                             *
 *   isnormal        Non-zero if and only if the argument x is normalized.       *
 *   isfinite        Non-zero if and only if the argument x is finite.           *
 *   isnan           Non-zero if and only if the argument x is a NaN.            *
@@ -456,6 +456,23 @@ extern long double fmal(long double, long double, long double);
 
 
 #if !defined(_ANSI_SOURCE)
+
+/* 
+ * set X_TLOSS = pi*2**52, which is possibly defined in <values.h>
+ * (one may replace the following line by "#include <values.h>")
+ */
+
+#define X_TLOSS		1.41484755040568800000e+16 
+
+/* The bessel functions are available in iPhone OS 3.2 and later. */
+#include <Availability.h>
+
+extern double j0 ( double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
+extern double j1 ( double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
+extern double jn ( int, double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
+extern double y0 ( double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
+extern double y1 ( double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
+extern double yn ( int, double ) __OSX_AVAILABLE_STARTING(__MAC_10_0,__IPHONE_3_2); 
 
 extern double scalb ( double, double ); 
 extern int signgam;     /* required for unix 2003 */

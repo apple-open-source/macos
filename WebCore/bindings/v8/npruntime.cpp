@@ -35,6 +35,8 @@
 #include <wtf/HashSet.h>
 #include <wtf/Assertions.h>
 
+using namespace WebCore;
+
 // FIXME: Consider removing locks if we're singlethreaded already.
 // The static initializer here should work okay, but we want to avoid
 // static initialization in general.
@@ -294,7 +296,6 @@ NPObject* _NPN_RetainObject(NPObject* npObject)
 void _NPN_DeallocateObject(NPObject* npObject)
 {
     ASSERT(npObject);
-    ASSERT(npObject->referenceCount >= 0);
 
     if (npObject) {
         // NPObjects that remain in pure C++ may never have wrappers.

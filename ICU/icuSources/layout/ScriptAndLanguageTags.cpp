@@ -1,11 +1,11 @@
 /*
  *
- * (C) Copyright IBM Corp. 1998-2008. All Rights Reserved.
+ * (C) Copyright IBM Corp. 1998-2010. All Rights Reserved.
  *
  * WARNING: THIS FILE IS MACHINE GENERATED. DO NOT HAND EDIT IT UNLESS
  * YOU REALLY KNOW WHAT YOU'RE DOING.
  *
- * Generated on: 04/24/2008 10:19:13 AM HST
+ * Generated on: 10/26/2010 02:53:33 PM PDT
  */
 
 #include "LETypes.h"
@@ -16,7 +16,7 @@ U_NAMESPACE_BEGIN
 
 const LETag OpenTypeLayoutEngine::scriptTags[] = {
     zyyyScriptTag, /* 'zyyy' (COMMON) */
-    qaaiScriptTag, /* 'qaai' (INHERITED) */
+    zinhScriptTag, /* 'zinh' (INHERITED) */
     arabScriptTag, /* 'arab' (ARABIC) */
     armnScriptTag, /* 'armn' (ARMENIAN) */
     bengScriptTag, /* 'beng' (BENGALI) */
@@ -78,32 +78,32 @@ const LETag OpenTypeLayoutEngine::scriptTags[] = {
     tfngScriptTag, /* 'tfng' (TIFINAGH) */
     xpeoScriptTag, /* 'xpeo' (OLD_PERSIAN) */
     baliScriptTag, /* 'bali' (BALINESE) */
-    batkScriptTag, /* 'batk' (BATK) */
+    batkScriptTag, /* 'batk' (BATAK) */
     blisScriptTag, /* 'blis' (BLIS) */
-    brahScriptTag, /* 'brah' (BRAH) */
+    brahScriptTag, /* 'brah' (BRAHMI) */
     chamScriptTag, /* 'cham' (CHAM) */
     cirtScriptTag, /* 'cirt' (CIRT) */
     cyrsScriptTag, /* 'cyrs' (CYRS) */
     egydScriptTag, /* 'egyd' (EGYD) */
     egyhScriptTag, /* 'egyh' (EGYH) */
-    egypScriptTag, /* 'egyp' (EGYP) */
+    egypScriptTag, /* 'egyp' (EGYPTIAN_HIEROGLYPHS) */
     geokScriptTag, /* 'geok' (GEOK) */
     hansScriptTag, /* 'hans' (HANS) */
     hantScriptTag, /* 'hant' (HANT) */
     hmngScriptTag, /* 'hmng' (HMNG) */
     hungScriptTag, /* 'hung' (HUNG) */
     indsScriptTag, /* 'inds' (INDS) */
-    javaScriptTag, /* 'java' (JAVA) */
+    javaScriptTag, /* 'java' (JAVANESE) */
     kaliScriptTag, /* 'kali' (KAYAH_LI) */
     latfScriptTag, /* 'latf' (LATF) */
     latgScriptTag, /* 'latg' (LATG) */
     lepcScriptTag, /* 'lepc' (LEPCHA) */
     linaScriptTag, /* 'lina' (LINA) */
-    mandScriptTag, /* 'mand' (MAND) */
+    mandScriptTag, /* 'mand' (MANDAIC) */
     mayaScriptTag, /* 'maya' (MAYA) */
     meroScriptTag, /* 'mero' (MERO) */
     nkooScriptTag, /* 'nko ' (NKO) */
-    orkhScriptTag, /* 'orkh' (ORKH) */
+    orkhScriptTag, /* 'orkh' (OLD_TURKIC) */
     permScriptTag, /* 'perm' (PERM) */
     phagScriptTag, /* 'phag' (PHAGS_PA) */
     phnxScriptTag, /* 'phnx' (PHOENICIAN) */
@@ -121,7 +121,7 @@ const LETag OpenTypeLayoutEngine::scriptTags[] = {
     zzzzScriptTag, /* 'zzzz' (UNKNOWN) */
     cariScriptTag, /* 'cari' (CARIAN) */
     jpanScriptTag, /* 'jpan' (JPAN) */
-    lanaScriptTag, /* 'lana' (LANA) */
+    lanaScriptTag, /* 'lana' (TAI_THAM) */
     lyciScriptTag, /* 'lyci' (LYCIAN) */
     lydiScriptTag, /* 'lydi' (LYDIAN) */
     olckScriptTag, /* 'olck' (OL_CHIKI) */
@@ -130,21 +130,38 @@ const LETag OpenTypeLayoutEngine::scriptTags[] = {
     sgnwScriptTag, /* 'sgnw' (SGNW) */
     sundScriptTag, /* 'sund' (SUNDANESE) */
     moonScriptTag, /* 'moon' (MOON) */
-    mteiScriptTag, /* 'mtei' (MTEI) */
-    armiScriptTag, /* 'armi' (ARMI) */
-    avstScriptTag, /* 'avst' (AVST) */
+    mteiScriptTag, /* 'mtei' (MEETEI_MAYEK) */
+    armiScriptTag, /* 'armi' (IMPERIAL_ARAMAIC) */
+    avstScriptTag, /* 'avst' (AVESTAN) */
     cakmScriptTag, /* 'cakm' (CAKM) */
     koreScriptTag, /* 'kore' (KORE) */
-    kthiScriptTag, /* 'kthi' (KTHI) */
+    kthiScriptTag, /* 'kthi' (KAITHI) */
     maniScriptTag, /* 'mani' (MANI) */
-    phliScriptTag, /* 'phli' (PHLI) */
+    phliScriptTag, /* 'phli' (INSCRIPTIONAL_PAHLAVI) */
     phlpScriptTag, /* 'phlp' (PHLP) */
     phlvScriptTag, /* 'phlv' (PHLV) */
-    prtiScriptTag, /* 'prti' (PRTI) */
-    samrScriptTag, /* 'samr' (SAMR) */
-    tavtScriptTag, /* 'tavt' (TAVT) */
+    prtiScriptTag, /* 'prti' (INSCRIPTIONAL_PARTHIAN) */
+    samrScriptTag, /* 'samr' (SAMARITAN) */
+    tavtScriptTag, /* 'tavt' (TAI_VIET) */
     zmthScriptTag, /* 'zmth' (ZMTH) */
-    zsymScriptTag  /* 'zsym' (ZSYM) */
+    zsymScriptTag, /* 'zsym' (ZSYM) */
+    bamuScriptTag, /* 'bamu' (BAMUM) */
+    lisuScriptTag, /* 'lisu' (LISU) */
+    nkgbScriptTag, /* 'nkgb' (NKGB) */
+    sarbScriptTag, /* 'sarb' (OLD_SOUTH_ARABIAN) */
+    bassScriptTag, /* 'bass' (BASS) */
+    duplScriptTag, /* 'dupl' (DUPL) */
+    elbaScriptTag, /* 'elba' (ELBA) */
+    granScriptTag, /* 'gran' (GRAN) */
+    kpelScriptTag, /* 'kpel' (KPEL) */
+    lomaScriptTag, /* 'loma' (LOMA) */
+    mendScriptTag, /* 'mend' (MEND) */
+    mercScriptTag, /* 'merc' (MERC) */
+    narbScriptTag, /* 'narb' (NARB) */
+    nbatScriptTag, /* 'nbat' (NBAT) */
+    palmScriptTag, /* 'palm' (PALM) */
+    sindScriptTag, /* 'sind' (SIND) */
+    waraScriptTag  /* 'wara' (WARA) */
 };
 
 const LETag OpenTypeLayoutEngine::languageTags[] = {

@@ -1,55 +1,46 @@
---- vsnprintf.c.orig	2003-07-24 12:42:14.000000000 -0700
-+++ vsnprintf.c	2005-02-23 16:54:44.000000000 -0800
-@@ -40,6 +40,8 @@
+--- vsnprintf.c.orig	2009-11-30 16:15:30.000000000 -0800
++++ vsnprintf.c	2009-12-03 15:20:43.000000000 -0800
+@@ -36,19 +36,25 @@ static char sccsid[] = "@(#)vsnprintf.c	
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vsnprintf.c,v 1.22 2003/07/02 07:08:44 jkh Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsnprintf.c,v 1.24 2008/04/17 22:17:54 jhb Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <limits.h>
  #include <stdio.h>
  #include "local.h"
-@@ -72,7 +74,42 @@
- 	f._bf._size = f._w = n;
- 	f._extra = &ext;
- 	INITEXTRA(&f);
--	ret = __vfprintf(&f, fmt, ap);
-+	ret = __vfprintf(&f, __current_locale(), fmt, ap);
-+	if (on > 0)
-+		*f._p = '\0';
-+	return (ret);
-+}
-+
-+int
-+vsnprintf_l(char * __restrict str, size_t n, locale_t loc,
-+    const char * __restrict fmt, __va_list ap)
-+{
-+	size_t on;
-+	int ret;
-+	char dummy[2];
-+	FILE f;
+ 
+ int
+-vsnprintf(char * __restrict str, size_t n, const char * __restrict fmt,
++vsnprintf_l(char * __restrict str, size_t n, locale_t loc, const char * __restrict fmt,
+     __va_list ap)
+ {
+ 	size_t on;
+ 	int ret;
+ 	char dummy[2];
+ 	FILE f;
 +	struct __sFILEX ext;
-+
-+	NORMALIZE_LOCALE(loc);
-+	on = n;
-+	if (n != 0)
-+		n--;
-+	if (n > INT_MAX)
-+		n = INT_MAX;
-+	/* Stdio internals do not deal correctly with zero length buffer */
-+	if (n == 0) {
-+		if (on > 0)
-+	  		*str = '\0';
-+		str = dummy;
-+		n = 1;
-+	}
-+	f._file = -1;
-+	f._flags = __SWR | __SSTR;
-+	f._bf._base = f._p = (unsigned char *)str;
-+	f._bf._size = f._w = n;
 +	f._extra = &ext;
 +	INITEXTRA(&f);
+ 
++	NORMALIZE_LOCALE(loc);
+ 	on = n;
+ 	if (n != 0)
+ 		n--;
+@@ -67,8 +73,15 @@ vsnprintf(char * __restrict str, size_t 
+ 	f._bf._size = f._w = n;
+ 	f._orientation = 0;
+ 	memset(&f._mbstate, 0, sizeof(mbstate_t));
+-	ret = __vfprintf(&f, fmt, ap);
 +	ret = __vfprintf(&f, loc, fmt, ap);
  	if (on > 0)
  		*f._p = '\0';
  	return (ret);
+ }
++
++int
++vsnprintf(char * __restrict str, size_t n, const char * __restrict fmt,
++    __va_list ap)
++{
++	return vsnprintf_l(str, n, __current_locale(), fmt, ap);
++}

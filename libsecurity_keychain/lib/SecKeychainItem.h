@@ -298,8 +298,10 @@ OSStatus SecKeychainItemCopyFromPersistentReference(CFDataRef persistentItemRef,
     @param keyItemRef A keychain item reference.
     @param dldbHandle On return, a CSSM_DL_DB_HANDLE for the keychain database containing the given item. The handle is valid until the keychain reference is released.
     @result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This API is deprecated for 10.7. It should no longer be needed.
 */
-OSStatus SecKeychainItemGetDLDBHandle(SecKeychainItemRef keyItemRef, CSSM_DL_DB_HANDLE *dldbHandle);
+OSStatus SecKeychainItemGetDLDBHandle(SecKeychainItemRef keyItemRef, CSSM_DL_DB_HANDLE *dldbHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecKeychainItemGetUniqueRecordID
@@ -307,8 +309,10 @@ OSStatus SecKeychainItemGetDLDBHandle(SecKeychainItemRef keyItemRef, CSSM_DL_DB_
 	@param itemRef A keychain item reference.
     @param uniqueRecordID On return, a pointer to a CSSM_DB_UNIQUE_RECORD structure for the given item. The unique record is valid until the item reference is released.
     @result A result code. See "Security Error Codes" (SecBase.h).
+	@discussion This API is deprecated for 10.7. It should no longer be needed.
 */
-OSStatus SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID);
+OSStatus SecKeychainItemGetUniqueRecordID(SecKeychainItemRef itemRef, const CSSM_DB_UNIQUE_RECORD **uniqueRecordID)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #pragma mark ---- Keychain Item Access Management ----
 /*!

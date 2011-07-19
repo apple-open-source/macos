@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: easy.c,v 1.145 2009-10-27 16:38:42 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -288,6 +287,13 @@ CURLcode curl_global_init(long flags)
   }
 #endif
 
+#if defined(USE_LIBSSH2) && defined(HAVE_LIBSSH2_INIT)
+  if(libssh2_init(0)) {
+    DEBUGF(fprintf(stderr, "Error: libssh2_init failed\n"));
+    return CURLE_FAILED_INIT;
+  }
+#endif
+
   init_flags  = flags;
 
   /* Preset pseudo-random number sequence. */
@@ -354,6 +360,10 @@ void curl_global_cleanup(void)
 
 #ifdef __AMIGA__
   amiga_cleanup();
+#endif
+
+#if defined(USE_LIBSSH2) && defined(HAVE_LIBSSH2_EXIT)
+  (void)libssh2_exit();
 #endif
 
   init_flags  = 0;
@@ -616,124 +626,117 @@ CURLcode curl_easy_getinfo(CURL *curl, CURLINFO info, ...)
  */
 CURL *curl_easy_duphandle(CURL *incurl)
 {
-  bool fail = TRUE;
   struct SessionHandle *data=(struct SessionHandle *)incurl;
 
-  struct SessionHandle *outcurl = calloc(sizeof(struct SessionHandle), 1);
-
+  struct SessionHandle *outcurl = calloc(1, sizeof(struct SessionHandle));
   if(NULL == outcurl)
-    return NULL; /* failure */
+    goto fail;
 
-  do {
+  /*
+   * We setup a few buffers we need. We should probably make them
+   * get setup on-demand in the code, as that would probably decrease
+   * the likeliness of us forgetting to init a buffer here in the future.
+   */
+  outcurl->state.headerbuff = malloc(HEADERSIZE);
+  if(!outcurl->state.headerbuff)
+    goto fail;
+  outcurl->state.headersize = HEADERSIZE;
 
-    /*
-     * We setup a few buffers we need. We should probably make them
-     * get setup on-demand in the code, as that would probably decrease
-     * the likeliness of us forgetting to init a buffer here in the future.
-     */
-    outcurl->state.headerbuff = malloc(HEADERSIZE);
-    if(!outcurl->state.headerbuff) {
-      break;
-    }
-    outcurl->state.headersize=HEADERSIZE;
+  /* copy all userdefined values */
+  if(Curl_dupset(outcurl, data) != CURLE_OK)
+    goto fail;
 
-    /* copy all userdefined values */
-    if(Curl_dupset(outcurl, data) != CURLE_OK)
-      break;
+  /* the connection cache is setup on demand */
+  outcurl->state.connc = NULL;
 
-    /* the connection cache is setup on demand */
-    outcurl->state.connc = NULL;
+  outcurl->state.lastconnect = -1;
 
-    outcurl->state.lastconnect = -1;
-
-    outcurl->progress.flags    = data->progress.flags;
-    outcurl->progress.callback = data->progress.callback;
+  outcurl->progress.flags    = data->progress.flags;
+  outcurl->progress.callback = data->progress.callback;
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
-    if(data->cookies) {
-      /* If cookies are enabled in the parent handle, we enable them
-         in the clone as well! */
-      outcurl->cookies = Curl_cookie_init(data,
-                                          data->cookies->filename,
-                                          outcurl->cookies,
-                                          data->set.cookiesession);
-      if(!outcurl->cookies) {
-        break;
-      }
-    }
+  if(data->cookies) {
+    /* If cookies are enabled in the parent handle, we enable them
+       in the clone as well! */
+    outcurl->cookies = Curl_cookie_init(data,
+                                        data->cookies->filename,
+                                        outcurl->cookies,
+                                        data->set.cookiesession);
+    if(!outcurl->cookies)
+      goto fail;
+  }
 #endif   /* CURL_DISABLE_HTTP */
 
-    /* duplicate all values in 'change' */
+  /* duplicate all values in 'change' */
 
 #if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
-    if(data->change.cookielist) {
-      outcurl->change.cookielist =
-        Curl_slist_duplicate(data->change.cookielist);
-
-      if (!outcurl->change.cookielist)
-        break;
-    }
+  if(data->change.cookielist) {
+    outcurl->change.cookielist =
+      Curl_slist_duplicate(data->change.cookielist);
+    if(!outcurl->change.cookielist)
+      goto fail;
+  }
 #endif   /* CURL_DISABLE_HTTP */
 
-    if(data->change.url) {
-      outcurl->change.url = strdup(data->change.url);
-      if(!outcurl->change.url)
-        break;
-      outcurl->change.url_alloc = TRUE;
-    }
+  if(data->change.url) {
+    outcurl->change.url = strdup(data->change.url);
+    if(!outcurl->change.url)
+      goto fail;
+    outcurl->change.url_alloc = TRUE;
+  }
 
-    if(data->change.referer) {
-      outcurl->change.referer = strdup(data->change.referer);
-      if(!outcurl->change.referer)
-        break;
-      outcurl->change.referer_alloc = TRUE;
-    }
+  if(data->change.referer) {
+    outcurl->change.referer = strdup(data->change.referer);
+    if(!outcurl->change.referer)
+      goto fail;
+    outcurl->change.referer_alloc = TRUE;
+  }
 
 #ifdef USE_ARES
-    /* If we use ares, we setup a new ares channel for the new handle */
-    if(ARES_SUCCESS != ares_init(&outcurl->state.areschannel))
-      break;
+  /* If we use ares, we clone the ares channel for the new handle */
+  if(ARES_SUCCESS != ares_dup(&outcurl->state.areschannel,
+                              data->state.areschannel))
+    goto fail;
 #endif
 
 #if defined(CURL_DOES_CONVERSIONS) && defined(HAVE_ICONV)
-    outcurl->inbound_cd = iconv_open(CURL_ICONV_CODESET_OF_HOST,
-                                     CURL_ICONV_CODESET_OF_NETWORK);
-    outcurl->outbound_cd = iconv_open(CURL_ICONV_CODESET_OF_NETWORK,
-                                      CURL_ICONV_CODESET_OF_HOST);
-    outcurl->utf8_cd = iconv_open(CURL_ICONV_CODESET_OF_HOST,
-                                  CURL_ICONV_CODESET_FOR_UTF8);
+  outcurl->inbound_cd = iconv_open(CURL_ICONV_CODESET_OF_HOST,
+                                   CURL_ICONV_CODESET_OF_NETWORK);
+  outcurl->outbound_cd = iconv_open(CURL_ICONV_CODESET_OF_NETWORK,
+                                    CURL_ICONV_CODESET_OF_HOST);
+  outcurl->utf8_cd = iconv_open(CURL_ICONV_CODESET_OF_HOST,
+                                CURL_ICONV_CODESET_FOR_UTF8);
 #endif
 
-    Curl_easy_initHandleData(outcurl);
+  Curl_easy_initHandleData(outcurl);
 
-    outcurl->magic = CURLEASY_MAGIC_NUMBER;
+  outcurl->magic = CURLEASY_MAGIC_NUMBER;
 
-    fail = FALSE; /* we reach this point and thus we are OK */
-
-  } while(0);
-
-  if(fail) {
-    if(outcurl) {
-      if(outcurl->state.connc &&
-         (outcurl->state.connc->type == CONNCACHE_PRIVATE))
-        Curl_rm_connc(outcurl->state.connc);
-      if(outcurl->state.headerbuff)
-        free(outcurl->state.headerbuff);
-#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
-      if(outcurl->change.cookielist)
-        curl_slist_free_all(outcurl->change.cookielist);
-#endif
-      if(outcurl->change.url)
-        free(outcurl->change.url);
-      if(outcurl->change.referer)
-        free(outcurl->change.referer);
-      Curl_freeset(outcurl);
-      free(outcurl); /* free the memory again */
-      outcurl = NULL;
-    }
-  }
+  /* we reach this point and thus we are OK */
 
   return outcurl;
+
+  fail:
+
+  if(outcurl) {
+    if(outcurl->state.connc &&
+       (outcurl->state.connc->type == CONNCACHE_PRIVATE))
+      Curl_rm_connc(outcurl->state.connc);
+    if(outcurl->state.headerbuff)
+      free(outcurl->state.headerbuff);
+#if !defined(CURL_DISABLE_HTTP) && !defined(CURL_DISABLE_COOKIES)
+    if(outcurl->change.cookielist)
+      curl_slist_free_all(outcurl->change.cookielist);
+#endif
+    if(outcurl->change.url)
+      free(outcurl->change.url);
+    if(outcurl->change.referer)
+      free(outcurl->change.referer);
+    Curl_freeset(outcurl);
+    free(outcurl);
+  }
+
+  return NULL;
 }
 
 /*
@@ -882,11 +885,12 @@ CURLcode Curl_convert_to_network(struct SessionHandle *data,
     rc = data->set.convtonetwork(buffer, length);
     if(rc != CURLE_OK) {
       failf(data,
-            "CURLOPT_CONV_TO_NETWORK_FUNCTION callback returned %i: %s",
-            rc, curl_easy_strerror(rc));
+            "CURLOPT_CONV_TO_NETWORK_FUNCTION callback returned %d: %s",
+            (int)rc, curl_easy_strerror(rc));
     }
     return(rc);
-  } else {
+  }
+  else {
 #ifdef HAVE_ICONV
     /* do the translation ourselves */
     char *input_ptr, *output_ptr;
@@ -942,8 +946,8 @@ CURLcode Curl_convert_from_network(struct SessionHandle *data,
     rc = data->set.convfromnetwork(buffer, length);
     if(rc != CURLE_OK) {
       failf(data,
-            "CURLOPT_CONV_FROM_NETWORK_FUNCTION callback returned %i: %s",
-            rc, curl_easy_strerror(rc));
+            "CURLOPT_CONV_FROM_NETWORK_FUNCTION callback returned %d: %s",
+            (int)rc, curl_easy_strerror(rc));
     }
     return(rc);
   }
@@ -1003,11 +1007,12 @@ CURLcode Curl_convert_from_utf8(struct SessionHandle *data,
     rc = data->set.convfromutf8(buffer, length);
     if(rc != CURLE_OK) {
       failf(data,
-            "CURLOPT_CONV_FROM_UTF8_FUNCTION callback returned %i: %s",
-            rc, curl_easy_strerror(rc));
+            "CURLOPT_CONV_FROM_UTF8_FUNCTION callback returned %d: %s",
+            (int)rc, curl_easy_strerror(rc));
     }
     return(rc);
-  } else {
+  }
+  else {
 #ifdef HAVE_ICONV
     /* do the translation ourselves */
     const char *input_ptr;
@@ -1060,9 +1065,6 @@ static CURLcode easy_connection(struct SessionHandle *data,
                                 curl_socket_t *sfd,
                                 struct connectdata **connp)
 {
-  CURLcode ret;
-  long sockfd;
-
   if(data == NULL)
     return CURLE_BAD_FUNCTION_ARGUMENT;
 
@@ -1072,17 +1074,12 @@ static CURLcode easy_connection(struct SessionHandle *data,
     return CURLE_UNSUPPORTED_PROTOCOL;
   }
 
-  ret = Curl_getconnectinfo(data, &sockfd, connp);
-  if(ret != CURLE_OK)
-    return ret;
+  *sfd = Curl_getconnectinfo(data, connp);
 
-  if(sockfd == -1) {
+  if(*sfd == CURL_SOCKET_BAD) {
     failf(data, "Failed to get recent socket");
     return CURLE_UNSUPPORTED_PROTOCOL;
   }
-
-  *sfd = (curl_socket_t)sockfd; /* we know that this is actually a socket
-                                   descriptor so the typecast is fine here */
 
   return CURLE_OK;
 }
@@ -1096,7 +1093,6 @@ CURLcode curl_easy_recv(CURL *curl, void *buffer, size_t buflen, size_t *n)
 {
   curl_socket_t sfd;
   CURLcode ret;
-  int ret1;
   ssize_t n1;
   struct connectdata *c;
   struct SessionHandle *data = (struct SessionHandle *)curl;
@@ -1106,13 +1102,10 @@ CURLcode curl_easy_recv(CURL *curl, void *buffer, size_t buflen, size_t *n)
     return ret;
 
   *n = 0;
-  ret1 = Curl_read(c, sfd, buffer, buflen, &n1);
+  ret = Curl_read(c, sfd, buffer, buflen, &n1);
 
-  if(ret1 == -1)
-    return CURLE_AGAIN;
-
-  if(ret1 != CURLE_OK)
-    return (CURLcode)ret1;
+  if(ret != CURLE_OK)
+    return ret;
 
   *n = (size_t)n1;
 

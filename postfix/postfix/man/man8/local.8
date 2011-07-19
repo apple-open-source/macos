@@ -320,10 +320,6 @@ or to the alias \fIname\fR, to the destinations listed in
 ~\fIname\fR/.\fBforward\fR+\fIfoo\fR or in ~\fIname\fR/.\fBforward\fR,
 to the mailbox owned by the user \fIname\fR, or it is sent back as
 undeliverable.
-
-In all cases the \fBlocal\fR(8) daemon prepends an optional
-`\fBDelivered-To:\fR header line with the final recipient
-address.
 .SH "DELIVERY RIGHTS"
 .na
 .nf
@@ -419,6 +415,10 @@ expanding aliases or .forward files.
 Available in Postfix version 2.5.3 and later:
 .IP "\fBstrict_mailbox_ownership (yes)\fR"
 Defer delivery when a mailbox file is not owned by its recipient.
+.IP "\fBreset_owner_alias (no)\fR"
+Reset the \fBlocal\fR(8) delivery agent's idea of the owner-alias
+attribute, when delivering mail to a child alias that does not have
+its own owner alias.
 .SH "DELIVERY METHOD CONTROLS"
 .na
 .nf
@@ -577,11 +577,11 @@ The location of the Postfix top-level queue directory.
 .IP "\fBrecipient_delimiter (empty)\fR"
 The separator between user names and address extensions (user+foo).
 .IP "\fBrequire_home_directory (no)\fR"
-Whether or not a \fBlocal\fR(8) recipient's home directory must exist
+Require that a \fBlocal\fR(8) recipient's home directory exists
 before mail delivery is attempted.
 .IP "\fBsyslog_facility (mail)\fR"
 The syslog facility of Postfix logging.
-.IP "\fBsyslog_name (postfix)\fR"
+.IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 The mail system name that is prepended to the process name in syslog
 records, so that "smtpd" becomes, for example, "postfix/smtpd".
 .SH "FILES"

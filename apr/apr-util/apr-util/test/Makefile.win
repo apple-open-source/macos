@@ -157,11 +157,11 @@ PATH=$(OUTDIR);..\$(OUTDIR);..\ldap\$(OUTDIR);..\dbd\$(OUTDIR);$(API_PATH)\$(OUT
 APR_ICONV1_PATH=$(API_PATH)\$(OUTDIR)\iconv
 
 check: $(PROGRAMS) $(OTHER_PROGRAMS)
+	echo Testing dbd sqlite2 && $(OUTDIR)\dbd.exe sqlite2 || echo Failed
+	echo Testing dbd sqlite3 && $(OUTDIR)\dbd.exe sqlite3 || echo Failed
 	@for %p in ($(PROGRAMS)) do @( \
 	    echo Testing %p && %p -v || echo %p failed \
 	)
-	echo Testing dbd sqlite2 && $(OUTDIR)\dbd.exe sqlite2 || echo Failed
-	echo Testing dbd sqlite3 && $(OUTDIR)\dbd.exe sqlite3 || echo Failed
 
 checkall: check
 

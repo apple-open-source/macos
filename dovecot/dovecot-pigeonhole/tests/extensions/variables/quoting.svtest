@@ -1,0 +1,36 @@
+require "vnd.dovecot.testsuite";
+
+require "variables";
+require "encoded-character";
+
+test "Encodings - RFC examples" {
+	set "s" "$";
+	set "foo" "bar";
+
+	# "${fo\o}"  => ${foo}  => the expansion of variable foo.
+	if not string :is "${fo\o}" "bar" {
+		test_fail "failed 'the expansion of variable foo (${s}{fo\\o})'";
+	}
+
+	# "${fo\\o}" => ${fo\o} => illegal identifier => left verbatim.      
+	if not string :is "${fo\\o}" "${s}{fo\\o}" {
+		test_fail "failed 'illegal identifier => left verbatim'";
+	}
+
+	# "\${foo}"  => ${foo}  => the expansion of variable foo.
+	if not string "\${foo}" "bar" {
+		test_fail "failed 'the expansion of variable foo (\\${s}{foo})'";
+	}
+
+	# "\\${foo}" => \${foo} => a backslash character followed by the
+	#                          expansion of variable foo.
+	if not string "\\${foo}" "\\bar" {
+		test_fail "failed 'a backslash character followed by expansion of variable foo";
+	}
+
+	set "name" "Ethelbert";
+	if not string "dear${hex:20 24 7b 4e}ame}" "dear Ethelbert" {
+		test_fail "failed 'dear Ethelbert' example";
+    }
+}
+

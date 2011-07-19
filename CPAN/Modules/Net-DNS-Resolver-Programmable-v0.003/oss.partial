@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2010-03-25</string>
+        <key>OpenSourceProject</key>
+        <string>Net-DNS-Resolver-Programmable</string>
+        <key>OpenSourceVersion</key>
+        <string>v0.003</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/J/JM/JMEHNLE/net-dns-resolver-programmable/Net-DNS-Resolver-Programmable-v0.003.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

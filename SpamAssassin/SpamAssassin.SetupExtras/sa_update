@@ -1,0 +1,14 @@
+#!/bin/bash
+#
+# update SpamAssassin rules using the sa-update tool
+#  check for gpg and use it if it exists
+
+gpg -h > /dev/null 2>&1
+if [ $? -eq 0 ]; then
+  logger "sa-update updated SpamAssassin rules"
+  /usr/bin/sa-update
+else
+  logger "gpg not found; sa-update updated SpamAssassin rules with --nogpg option"
+  /usr/bin/sa-update --nogpg
+fi
+

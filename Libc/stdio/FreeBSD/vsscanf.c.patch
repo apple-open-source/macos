@@ -1,41 +1,46 @@
---- vsscanf.c.orig	2003-05-20 15:22:44.000000000 -0700
-+++ vsscanf.c	2005-02-23 16:57:18.000000000 -0800
-@@ -40,6 +40,8 @@
+--- vsscanf.c.orig	2011-03-01 17:54:44.000000000 -0800
++++ vsscanf.c	2011-03-01 18:03:46.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)vsscanf.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.12 2002/10/12 16:13:41 mike Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsscanf.c,v 1.14 2008/04/17 22:17:54 jhb Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <stdio.h>
  #include <string.h>
  #include "local.h"
-@@ -76,5 +78,28 @@
+@@ -55,12 +57,16 @@ eofread(cookie, buf, len)
+ }
+ 
+ int
+-vsscanf(str, fmt, ap)
++vsscanf_l(str, loc, fmt, ap)
+ 	const char * __restrict str;
++	locale_t loc;
+ 	const char * __restrict fmt;
+ 	__va_list ap;
+ {
+ 	FILE f;
++	struct __sFILEX ext;
++	f._extra = &ext;
++	INITEXTRA(&f);
+ 
+ 	f._file = -1;
+ 	f._flags = __SRD;
+@@ -71,5 +77,15 @@ vsscanf(str, fmt, ap)
  	f._lb._base = NULL;
- 	f._extra = &ext;
- 	INITEXTRA(&f);
+ 	f._orientation = 0;
+ 	memset(&f._mbstate, 0, sizeof(mbstate_t));
 -	return (__svfscanf(&f, fmt, ap));
-+	return (__svfscanf_l(&f, __current_locale(), fmt, ap));
-+}
++	return (__svfscanf_l(&f, loc, fmt, ap));
+ }
 +
 +int
-+vsscanf_l(str, loc, fmt, ap)
++vsscanf(str, fmt, ap)
 +	const char * __restrict str;
-+	locale_t loc;
 +	const char * __restrict fmt;
 +	__va_list ap;
 +{
-+	FILE f;
-+	struct __sFILEX ext;
++	return vsscanf_l(str, __current_locale(), fmt, ap);
++}
 +
-+	NORMALIZE_LOCALE(loc);
-+	f._file = -1;
-+	f._flags = __SRD;
-+	f._bf._base = f._p = (unsigned char *)str;
-+	f._bf._size = f._r = strlen(str);
-+	f._read = eofread;
-+	f._ub._base = NULL;
-+	f._lb._base = NULL;
-+	f._extra = &ext;
-+	INITEXTRA(&f);
-+	return (__svfscanf_l(&f, loc, fmt, ap));
- }

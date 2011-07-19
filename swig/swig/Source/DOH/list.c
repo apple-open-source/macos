@@ -9,7 +9,7 @@
  * See the file LICENSE for information on usage and redistribution.	
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_list_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/list.c,v 1.9 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_list_c[] = "$Id: list.c 10926 2008-11-11 22:17:40Z wsfulton $";
 
 #include "dohint.h"
 
@@ -345,7 +345,7 @@ DohObjInfo DohListType = {
 
 #define MAXLISTITEMS 8
 
-DOH *DohNewList() {
+DOH *DohNewList(void) {
   List *l;
   int i;
   l = (List *) DohMalloc(sizeof(List));

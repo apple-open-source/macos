@@ -1,9 +1,10 @@
 /*
- *  data.c
- *  libclosure
+ * data.c
+ * libclosure
  *
- *  Created by Blaine Garst on 4/3/08.
- *  Copyright 2008 Apple, Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
  *
  */
 

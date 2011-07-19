@@ -1,8 +1,8 @@
 #
 #   irb/extend-command.rb - irb extend command 
 #   	$Release Version: 0.9.5$
-#   	$Revision: 16857 $
-#   	$Date: 2008-06-06 17:05:24 +0900 (Fri, 06 Jun 2008) $
+#   	$Revision: 25814 $
+#   	$Date: 2009-11-17 15:51:29 +0900 (Tue, 17 Nov 2009) $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -126,9 +126,14 @@ module IRB
 	eval %[
 	  def #{cmd_name}(*opts, &b)
 	    require "#{load_file}"
+	    arity = ExtendCommand::#{cmd_class}.instance_method(:execute).arity
+	    args = (1..arity.abs).map {|i| "arg" + i.to_s }
+	    args << "*opts" if arity < 0
+	    args << "&block"
+	    args = args.join(", ")
 	    eval %[
-	      def #{cmd_name}(*opts, &b)
-		ExtendCommand::#{cmd_class}.execute(irb_context, *opts, &b)
+	      def #{cmd_name}(\#{args})
+		ExtendCommand::#{cmd_class}.execute(irb_context, \#{args})
 	      end
 	    ]
 	    send :#{cmd_name}, *opts, &b

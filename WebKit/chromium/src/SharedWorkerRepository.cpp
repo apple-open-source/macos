@@ -36,7 +36,7 @@
 
 #include "Event.h"
 #include "EventNames.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "MessagePortChannel.h"
 #include "PlatformMessagePortChannel.h"
 #include "ScriptExecutionContext.h"
@@ -72,6 +72,7 @@ public:
         , m_port(port)
         , m_scriptLoader(ResourceRequestBase::TargetIsSharedWorker)
         , m_loading(false)
+        , m_responseAppCacheID(0)
     {
     }
 
@@ -81,6 +82,7 @@ public:
 
 private:
     // WorkerScriptLoaderClient callback
+    virtual void didReceiveResponse(const ResourceResponse&);
     virtual void notifyFinished();
 
     virtual void connected();
@@ -96,6 +98,7 @@ private:
     OwnPtr<MessagePortChannel> m_port;
     WorkerScriptLoader m_scriptLoader;
     bool m_loading;
+    long long m_responseAppCacheID;
 };
 
 static Vector<SharedWorkerScriptLoader*>& pendingLoaders()
@@ -148,18 +151,20 @@ static WebMessagePortChannel* getWebPort(PassOwnPtr<MessagePortChannel> port)
     return webPort;
 }
 
+void SharedWorkerScriptLoader::didReceiveResponse(const ResourceResponse& response)
+{
+    m_responseAppCacheID = response.appCacheID();
+}
+
 void SharedWorkerScriptLoader::notifyFinished()
 {
     if (m_scriptLoader.failed()) {
         m_worker->dispatchEvent(Event::create(eventNames().errorEvent, false, true));
         delete this;
     } else {
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = m_worker->scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(m_scriptLoader.identifier(), m_scriptLoader.script());
-#endif
+        InspectorInstrumentation::scriptImported(m_worker->scriptExecutionContext(), m_scriptLoader.identifier(), m_scriptLoader.script());
         // Pass the script off to the worker, then send a connect event.
-        m_webWorker->startWorkerContext(m_url, m_name, m_worker->scriptExecutionContext()->userAgent(m_url), m_scriptLoader.script());
+        m_webWorker->startWorkerContext(m_url, m_name, m_worker->scriptExecutionContext()->userAgent(m_url), m_scriptLoader.script(), m_responseAppCacheID);
         sendConnect();
     }
 }
@@ -199,7 +204,7 @@ void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr
     Document* document = static_cast<Document*>(worker->scriptExecutionContext());
     WebFrameImpl* webFrame = WebFrameImpl::fromFrame(document->frame());
     OwnPtr<WebSharedWorker> webWorker;
-    webWorker = webFrame->client()->createSharedWorker(webFrame, url, name, getId(document));
+    webWorker = adoptPtr(webFrame->client()->createSharedWorker(webFrame, url, name, getId(document)));
 
     if (!webWorker) {
         // Existing worker does not match this url, so return an error back to the caller.
@@ -212,7 +217,7 @@ void SharedWorkerRepository::connect(PassRefPtr<SharedWorker> worker, PassOwnPtr
 
     // The loader object manages its own lifecycle (and the lifecycles of the two worker objects).
     // It will free itself once loading is completed.
-    SharedWorkerScriptLoader* loader = new SharedWorkerScriptLoader(worker, url, name, port.release(), webWorker.release());
+    SharedWorkerScriptLoader* loader = new SharedWorkerScriptLoader(worker, url, name, port, webWorker.release());
     loader->load();
 }
 

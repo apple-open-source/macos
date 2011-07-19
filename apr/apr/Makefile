@@ -5,20 +5,19 @@ GnuAfterInstall       = install-plist post-install munge-build-files
 Extra_Configure_Flags = --with-installbuilddir=\$${prefix}/share/apr-1/build-1 \
                         --enable-dso=dlfcn
 Extra_Environment     = apr_lock_method="USE_FLOCK_SERIALIZE" \
-                        ac_cv_func_kqueue="no" \
-                        ac_cv_func_poll="no"
+                        ac_cv_func_kqueue="yes" \
+                        ac_cv_func_poll="yes"
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Target = install
 
 post-install:
-	$(CP) $(DSTROOT)/usr/lib/libapr-1.0.3.8.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libapr-1.0.3.8.dylib
+	$(CP) $(DSTROOT)/usr/lib/libapr-1.0.dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libapr-1.0.dylib
 	$(RM) $(DSTROOT)/usr/lib/apr.exp
 	$(RM) $(DSTROOT)/usr/lib/libapr-1.la
-	$(MKDIR) $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libapr-1.a $(DSTROOT)/usr/local/lib
+	$(RM) $(DSTROOT)/usr/lib/libapr-1.a
 
 munge-build-files:
 	ed - $(DSTROOT)/usr/share/apr-1/build-1/apr_rules.mk < $(SRCROOT)/files/fix-apr_rules.mk.ed
@@ -26,7 +25,7 @@ munge-build-files:
 
 # Automatic Extract & Patch
 AEP_Project    = apr
-AEP_Version    = 1.3.8
+AEP_Version    = 1.4.2
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -40,7 +39,6 @@ install_source::
 	for patchfile in $(AEP_Patches); do \
 		(cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
 	done
-	cd $(SRCROOT)/$(Project) && build/gen-build.py
 
 ConfigStamp2 = $(ConfigStamp)2
 
@@ -50,11 +48,8 @@ $(ConfigStamp2): $(ConfigStamp)
 	$(_v) ed - $(OBJROOT)/include/apr.h < $(SRCROOT)/files/fix-apr.h.ed
 	$(_v) ed - $(OBJROOT)/include/arch/unix/apr_private.h < $(SRCROOT)/files/fix-apr_private.h.ed
 
-OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 install-plist:
-	$(MKDIR) $(OSV)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt

@@ -140,6 +140,10 @@ test "BasicStats-1.11" "Basic statistics - missing data - pvar" -match almostzer
 # could fail with uniform data (the difference of two almost equal
 # values became a small negative number)
 #
+# Further extension: more stable computation if the values are very
+# close together. Due to this change the variance should be independent
+# of the mean, however large (up to a point)
+#
 test "BasicStats-2.1" "Basic statistics - uniform data caused sqrt domain error" -body {
   set values [list]
   set count 0
@@ -150,6 +154,19 @@ test "BasicStats-2.1" "Basic statistics - uniform data caused sqrt domain error"
   }
   set count
 } -result 20 ;# We can finish the loop
+
+test "BasicStats-2.2" "Basic statistics - large almost identical values" -match glob -body {
+  catch {
+     set data [list 100001 100002 100003 100004]
+     set result_large [::math::statistics::BasicStats all $data]
+
+     set data [list 1 2 3 4]
+     set result_small [::math::statistics::BasicStats all $data]
+
+     matchTolerant [lrange $result_small 3 end] [lrange $result_large 3 end]
+  } msg
+  set msg
+} -result 1
 
 #
 # Histograms

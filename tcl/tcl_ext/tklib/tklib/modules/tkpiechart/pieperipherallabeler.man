@@ -18,7 +18,7 @@ Returns an option value for the specified piePeripheralLabeler object.
 [list_end]
 
 [section OPTIONS]
-[list_begin opt]
+[list_begin options]
 [opt_def -font value]
 Specifies a font for the slice labels. If not specified, the default font is system dependent.
 [opt_def -justify value]
@@ -34,8 +34,8 @@ Specifies a string of maximum width for slice values (placed around the pie next
 
 [section TAGS]
 The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
-[list_begin bullet]
-  [bullet]piePeripheralLabeler(piePeripheralLabelerObject)
+[list_begin itemized]
+  [item]piePeripheralLabeler(piePeripheralLabelerObject)
 [list_end]
 
 [see_also pie pieBoxLabeler canvasLabel]

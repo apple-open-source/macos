@@ -1,0 +1,189 @@
+ManageSieve Troubleshooting
+===========================
+
+Like Dovecot itself, *the ManageSieve service always logs a detailed error
+message* if something goes wrong at the server (refer to <Dovecot Logging>
+[Logging.txt] for more details): the logs are the first place to look if you
+suspect something is wrong. To get additional debug messages in your log file,
+you should set 'mail_debug=yes' in dovecot.conf (inside 'protocol managesieve
+{...}'if you want to enable this for managesieve only).
+
+If the client commits protocol violations or sends invalid scripts, an error
+response is provided to the client which is not necessarily logged on the
+server. A goodManageSieve client presents such error messages to the user.
+
+Manual Login and Script Upload
+------------------------------
+
+If you fail to login or upload scripts to the server, it is not necessarily
+caused by Dovecot or your configuration. It is often best to test
+yourManageSieve server manually first. This also provides you with the direct
+error messages from the server without intermission of your client. If you do
+not use TLS, you can connect using a simple 'telnet' or 'netcat' connection to
+the configured port. Otherwise you must use a TLS-capable text protocol client
+like 'gnutls-cli' as described below. Upon connection, the server presents the
+initial greeting with its capabilities:
+
+---%<-------------------------------------------------------------------------
+"IMPLEMENTATION" "dovecot"
+"SASL" "PLAIN"
+"SIEVE" "comparator-i;ascii-numeric fileinto reject vacation imapflags notify
+include envelope body relational regex subaddress copy"
+"STARTTLS"
+OK "Dovecot ready."
+---%<-------------------------------------------------------------------------
+
+Note that the reported 'STARTTLS' capability means that the server accepts TLS,
+but, since you are using telnet/netcat, you cannot use this (refer to Manual
+TLS Login below). The 'SASL' capability lists the available SASL authentication
+mechanisms. If this list is empty and 'STARTTLS' is available, it probably
+means that the server forces you to initiate TLS first (as dictated by
+''disable_plaintext_auth=yes'' in dovecot.conf).
+
+Now you need to log in. Although potentially multiple SASL mechanisms are
+available, only 'PLAIN' is described here. Authentication is performed using
+theManageSieve 'AUTHENTICATE' command. This command typically looks as follows
+when the 'PLAIN' mechanism is used:
+
+---%<-------------------------------------------------------------------------
+AUTHENTICATE "PLAIN" "<base64-encoded credentials>"
+---%<-------------------------------------------------------------------------
+
+The credentials are the base64-encoded version of the string
+'"\0<username>\0<password"' (in which '\0' represents the ASCII NUL character).
+Generating this is cumbersome and a bit daunting for the novice user, so for
+convenience a simple Perl script is provided to generate the 'AUTHENTICATE'
+command for you. It is available here
+[http://www.rename-it.nl/dovecot/utilities/sieve-auth-command.pl] and used as
+follows:
+
+---%<-------------------------------------------------------------------------
+sieve-auth-command.pl <username> <password>
+---%<-------------------------------------------------------------------------
+
+The command is written to stdout and you can paste this to your protocol
+session, e.g.:
+
+---%<-------------------------------------------------------------------------
+AUTHENTICATE "PLAIN" "AHVzZXJuYW1lAHBhc3N3b3Jk"
+OK "Logged in."
+---%<-------------------------------------------------------------------------
+
+Now that you are logged in, you can upload a script. This is done using the
+'PUTSCRIPT' command. Its first argument is the name for the script and its
+second argument is a string literal. A string literal starts with a length
+specification ''{<bytes>+}'' followed by a newline. Thereafter the server
+expects '<bytes>' bytes of script data. The following uploads a trivial 6 byte
+long sieve script that keeps every message (6th byte is the newline character):
+
+---%<-------------------------------------------------------------------------
+PUTSCRIPT "hutsefluts" {6+}
+keep;
+OK "Putscript completed."
+---%<-------------------------------------------------------------------------
+
+Upon successful upload, you should find a file called 'hutsefluts.sieve' in
+your 'sieve_storage' directory. The script should also be listed by the server
+as follows when the 'LISTSCRIPTS' command is issued:
+
+---%<-------------------------------------------------------------------------
+LISTSCRIPTS
+"hutsefluts"
+OK "Listscripts completed."
+---%<-------------------------------------------------------------------------
+
+You can check whether your script is uploaded correctly by downloading it using
+the 'GETSCRIPT' command. This command accepts the name of the downloaded script
+as its only parameter:
+
+---%<-------------------------------------------------------------------------
+GETSCRIPT "hutsefluts"
+{6}
+keep;
+OK "Getscript completed."
+---%<-------------------------------------------------------------------------
+
+To let the Sieve plugin use your newly uploaded script, you must activate it
+using the 'SETACTIVE' command (only one script can be active at any time). The
+active script is indicated 'ACTIVE' in the 'LISTSCRIPTS' output, e.g.:
+
+---%<-------------------------------------------------------------------------
+SETACTIVE "hutsefluts"
+OK "Setactive completed."
+LISTSCRIPTS
+"hutsefluts" ACTIVE
+OK "Listscripts completed.
+---%<-------------------------------------------------------------------------
+
+The symbolic link configured with the 'sieve' setting should now point to the
+activated script in the 'sieve_storage' directory. If no script is active, this
+symbolic link is absent.
+
+Manual TLS Login
+----------------
+
+When TLS needs to be used during manual testing, 'gnutls-cli' provides the
+means to do so. This command-line utility is part of the GNUTLS distribution
+and on most systems this should be easy to install. It is used to connect
+toManageSieve as follows:
+
+---%<-------------------------------------------------------------------------
+gnutls-cli --starttls -p <port> <host>
+---%<-------------------------------------------------------------------------
+
+This starts the client in plain text mode first. As shown in the previous
+section, the server presents a greeting with all capabilities of the server. If
+'STARTTLS' is listed, you can issue the 'STARTTLS' command as follows:
+
+---%<-------------------------------------------------------------------------
+STARTTLS
+OK "Begin TLS negotiation now."
+---%<-------------------------------------------------------------------------
+
+If an OK response is given by the server you can press 'Ctrl-D' to make
+'gnutls-cli' start the TLS negotiation. Upon pressing 'Ctrl-D', 'gnutls-cli'
+will show information on the negotiated TLS session and finally the first
+response of the server is shown:
+
+---%<-------------------------------------------------------------------------
+"IMPLEMENTATION" "dovecot"
+"SASL" "PLAIN"
+"SIEVE" "comparator-i;ascii-numeric fileinto reject vacation imapflags notify
+include envelope body relational regex subaddress copy"
+OK "TLS negotiation successful."
+---%<-------------------------------------------------------------------------
+
+Hereafter, you can continue to authenticate and upload a script as described in
+the previous section.
+
+Client Problems
+---------------
+
+If manual efforts to upload a script are successful, but your client still
+fails, you need to obtain a view on what the client communicates with the
+server. A common method is to sniff the client protocol session using a tool
+like 'ngrep'. However, this will not work when TLS is active. If the problem is
+not specific to TLS, you are advised to temporarily turn off TLS and sniff the
+plain text protocol. If TLS is part of the issue, you can use Dovecot's
+<rawlog> [Debugging.Rawlog.txt] facility to see what is going on if the client
+is logged in. If the authentication is the problem, there is no real nice way
+to obtain a transcript of the protocol. One way is to run managesieve from
+inetd, wrapping it into a script that writes the protocol messages somewhere
+(*FIXME*: This needs some checking and explanation). Alternatively, if
+possible, the client can be altered to write its protocol messages somewhere.
+
+Refer to the <ManageSieve Clients page> [Pigeonhole.ManageSieve.Clients.txt]
+for information on known client problems.
+
+Known Server Issues and Protocol Deviations
+-------------------------------------------
+
+ * The ANONYMOUS authentication mechanism is currently not supported and
+   explicitly denied.
+
+*NOTE*: If you add new issues to this list, notify the author or send an e-mail
+to the Dovecot mailing list [http://dovecot.org/mailinglists.html]. In any
+case, you must make sure that the issue is properly explained and that the
+author can contact you for more information.
+
+(This file was created from the wiki on 2011-05-11 04:42)

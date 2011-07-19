@@ -1,0 +1,17 @@
+MDA (LDA)
+=========
+
+An MDA is a _M_ail _D_elivery _A_gent.
+ An LDA is a _L_ocal _D_elivery _A_gent.
+ These two terms are synonyms.
+
+An MDA is being passed messages from an <MTA.txt> and delivers it to a real or
+virtual mailbox.
+
+Common choices include:
+
+ * <maildrop.txt>
+ * procmail [http://www.procmail.org/] (appears to be unmaintained)
+ * <Dovecot's `deliver` LDA> [LDA.txt]
+
+(This file was created from the wiki on 2011-05-11 04:42)

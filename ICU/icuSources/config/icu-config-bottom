@@ -1,9 +1,10 @@
 ## -*-sh-*-
 ## BEGIN of icu-config-bottom.
-## Copyright (c) 2002-2007, International Business Machines Corporation and
+## Copyright (c) 2002-2010, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
-ICUUC_FILE=${libdir}/${ICULIBS_COMMON_LIB_NAME}
+ICUUC_FILE="${libdir}/${ICULIBS_COMMON_LIB_NAME}"
+ICUUC_FILE_A="${libdir}/${ICULIBS_COMMON_LIB_NAME_A}"
     
 #  echo ENABLE RPATH $ENABLE_RPATH and RPATHLDFLAGS=${RPATH_LDFLAGS}
 if [ "x$PKGDATA_MODE" = "x" ]; then
@@ -18,6 +19,7 @@ ME=`basename "$0"`
 
 allflags()
 {
+    echo "  --noverify             Don't verify that ICU is actually installed."
     echo "  --bindir               Print binary directory path (bin)"
     echo "  --cc                   Print C compiler used [CC]"
     echo "  --cflags               Print C compiler flags [CFLAGS]"
@@ -58,9 +60,10 @@ allflags()
     echo "  --sysconfdir           Print system config (etc) path"
     echo "  --unicode-version      Print version of Unicode data used in ICU ($UNICODE_VERSION)"
     echo "  --version              Print ICU version ($VERSION)"
-    echo "  --incfile              Print path to Makefile.inc (for -O option of pkgdata)"
+    echo "  --incfile              Print path to Makefile.inc"
+    echo "  --incpkgdatafile       Print path to pkgdata.inc (for -O option of pkgdata)"
     echo "  --install              Print path to install-sh"
-    echo "  --mkinstalldirs              Print path to mkinstalldirs"
+    echo "  --mkinstalldirs        Print path to mkinstalldirs"
 }
 
 ## Print the normal usage message
@@ -91,11 +94,12 @@ usage()
 ## Check the sanity of current variables
 sanity()
 {
-    if [ ! -f ${ICUUC_FILE} ];
+    if [ ! -f "${ICUUC_FILE}" -a ! -f "${ICUUC_FILE_A}" ] && [ ${IGNORE_ICUUC_FILE_CHECK} = "no" ] && [ ${SANITY} = "sane" ];
     then
 	echo "### $ME: Can't find ${ICUUC_FILE} - ICU prefix is wrong."  1>&2
-	echo "###      Try the --prefix= or --exec-prefix= options " 1>&2
-	echo "###      or --detect-prefix"
+	echo "###      Try the --prefix= option " 1>&2
+	echo "###      or --detect-prefix" 1>&2
+        echo "###      (If you want to disable this check, use  the --noverify option)" 1>&2
 	echo "### $ME: Exitting." 1>&2
 	exit 2
     fi
@@ -108,11 +112,37 @@ if [ $# -lt 1 ]; then
     exit 1
 fi
 
+# For certain options (e.g. --detect-prefix) don't check for icuuc library file.
+
+IGNORE_ICUUC_FILE_CHECK="no";
+
+SANITY="sane"
+
+case "$1" in
+--noverify)
+    SANITY="nosanity"
+    shift
+    ;;
+esac
+
+case "$1" in 
+*prefix*)
+    IGNORE_ICUUC_FILE_CHECK="yes"
+    ;;
+esac
 
 # Load our variables from autoconf
 # ALWAYS load twice because of dependencies
 loaddefs
 loaddefs
+
+if [ $# -gt 0 -a $1 = "--selfcheck" ];
+then
+	echo "passed"
+	exit 
+	# EXIT for self check
+fi
+
 sanity
 
 while [ $# -gt 0 ];
@@ -123,13 +153,18 @@ do
     case "$arg" in
 
         # undocumented.
-	--debug)
+        --debug)
 	    set -x
 	    ;;
-
-        --so)
-            echo $SO
+        
+        --noverify)
+            echo "### $ME: Error: --noverify must be the first argument." 1>&2
+            exit 1
             ;;
+            
+    --so)
+        echo $SO
+        ;;
 
 	--bindir)
 	    echo $bindir
@@ -179,84 +214,83 @@ do
 	    ;;
 
 	--cflags)
-	    echo $CFLAGS
+	    echo $ECHO_N "${CFLAGS} ${ECHO_C}"
 	    ;;
 	    
 	--cc)
-	    echo $CC
+	    echo $ECHO_N "${CC} ${ECHO_C}"
 	    ;;
 	    
 	--cxx)
-	    echo $CXX
+	    echo $ECHO_N "${CXX} ${ECHO_C}"
 	    ;;
 
 	--cxxflags)
-	    echo $CXXFLAGS
+	    echo $ECHO_N "${CXXFLAGS} ${ECHO_C}"
 	    ;;
 
 	--cppflags)
 	    # Don't echo the -I. - it's unneeded.
-	    echo $CPPFLAGS | sed -e 's/-I. //'
+	    echo $ECHO_N "${CPPFLAGS} ${ECHO_C}" | sed -e 's/-I. //'
 	    ;;
 
 	--cppflags-searchpath)
-	    echo -I${prefix}/include
+	    echo $ECHO_N "-I${prefix}/include ${ECHO_C}"
 	    ;;
 
 	--cppflags-dynamic)
-	    echo $SHAREDLIBCPPFLAGS
+	    echo $ECHO_N "${SHAREDLIBCPPFLAGS} ${ECHO_C}"
 	    ;;
 
 	--cxxflags-dynamic)
-	    echo $SHAREDLIBCXXFLAGS
+	    echo $ECHO_N "${SHAREDLIBCXXFLAGS} ${ECHO_C}"
 	    ;;
 
 	--cflags-dynamic)
-	    echo $SHAREDLIBCFLAGS
+	    echo $ECHO_N "${SHAREDLIBCFLAGS} ${ECHO_C}"
 	    ;;
 
 	--ldflags-system)
-	    echo $LIBS
+	    echo $ECHO_N "${LIBS} ${ECHO_C}"
 	    ;;
 
 	--ldflags)
-	    echo $LDFLAGS $ICULIBS $LIBS 
+	    echo $ECHO_N "${LDFLAGS} ${ICULIBS} ${LIBS} ${ECHO_C}"
 # $RPATH_LDFLAGS
 	    ;;
 
 	--ldflags-libsonly)
-	    echo $ICULIBS_I18N $ICULIBS_COMMON $ICULIBS_DATA 
+	    echo $ECHO_N "${ICULIBS_I18N} ${ICULIBS_COMMON} ${ICULIBS_DATA} ${ECHO_C}"
 	    ;;
 
 	--ldflags-icuio)
-	    echo $ICULIBS_ICUIO
+	    echo $ECHO_N " ${ICULIBS_ICUIO} ${ECHO_C}"
 	    ;;
 
 	--ldflags-obsolete)
-	    echo $ICULIBS_OBSOLETE
+	    echo $ECHO_N "${ICULIBS_OBSOLETE} ${ECHO_C}"
 	    ;;
 
 	--ldflags-toolutil)
-	    echo $ICULIBS_TOOLUTIL
+	    echo $ECHO_N " ${ICULIBS_TOOLUTIL} ${ECHO_C}"
 	    ;;
 
 	--ldflags-layout)
-	    echo $ICULIBS_LAYOUT $ICULIBS_LAYOUTEX
+	    echo $ECHO_N "${ICULIBS_LAYOUT} ${ICULIBS_LAYOUTEX} ${ECHO_C}"
 	    ;;
 
 	--ldflags-searchpath)
-	    echo -L${libdir}
+	    echo $ECHO_N "-L${libdir} ${ECHO_C}"
 	    ;;
 
 	--detect-prefix)
 	    HERE=`echo $0 | sed -e "s/$ME//g"`
-	    if [ -f $HERE/../lib/${ICULIBS_COMMON_LIB_NAME} ]; then
-		prefix=$HERE/..
+	    if [ -f "${HERE}/../lib/${ICULIBS_COMMON_LIB_NAME}" -o -f  "${HERE}/../lib/${ICULIBS_COMMON_LIB_NAME_A}"  ]; then
+		prefix="${HERE}/.."
 		echo "## Using --prefix=${prefix}" 1>&2
 	    fi
 	    loaddefs
 	    loaddefs
-	    sanity
 	    ;;
 
 	--exec-prefix)
@@ -271,7 +305,6 @@ do
 	    prefix=$var
 	    loaddefs
 	    loaddefs
-	    sanity
 	    ;;
 
 	--sysconfdir)
@@ -283,44 +316,48 @@ do
 	    ;;
 
 	--shared-datadir)
-	    echo $datadir
+	    echo $ECHO_N "${datadir} ${ECHO_C}"
 	    ;;
 
         --incfile)
-	    echo $pkglibdir/Makefile.inc
+	    echo $ECHO_N "${pkglibdir}/Makefile.inc ${ECHO_C}"
+	    ;;
+
+	--incpkgdatafile)
+	    echo $ECHO_N "${pkglibdir}/pkgdata.inc ${ECHO_C}"
 	    ;;
 
 	--icudata)
-	    echo $ICUDATA_NAME
+	    echo $ECHO_N "${ICUDATA_NAME} ${ECHO_C}"
 	    ;;
 
 	--icudata-mode)
-	    echo $PKGDATA_MODE
+	    echo $ECHO_N "${PKGDATA_MODE} ${ECHO_C}"
 	    ;;
 
 	--icudata-install-dir)
-            echo $ICUPKGDATA_DIR
+        echo $ECHO_N "${ICUPKGDATA_DIR} ${ECHO_C}"
 	    ;;
 	    
 	--icudatadir)
-	    echo $ICUDATA_DIR
+	    echo $ECHO_N "${ICUDATA_DIR} ${ECHO_C}"
 	    ;;
 
 	--shlib-c)
-	    echo $SHLIB_c
+	    echo $ECHO_N "${SHLIB_c} ${ECHO_C}"
 	    ;;
 
 	--shlib-cc)
-	    echo $SHLIB_cc
+	    echo $ECHO_N "${SHLIB_cc} ${ECHO_C}"
 	    ;;
 
 	--version)
-            echo $VERSION
-            ;;
+        echo $ECHO_N $VERSION
+        ;;
 
-        --unicode-version)
-            echo $UNICODE_VERSION
-            ;;
+    --unicode-version)
+        echo $ECHO_N $UNICODE_VERSION
+        ;;
 
 	--help)
 	    usage
@@ -351,8 +388,14 @@ do
             ;;
     esac
     shift
+    
+    # Reset the ignore icuuc file check flag
+    if [ $IGNORE_ICUUC_FILE_CHECK = "yes" ]; then
+        IGNORE_ICUUC_FILE_CHECK="no"
+        sanity
+    fi
 done
-
+echo
 # Check once before we quit (will check last used prefix)
 sanity
 ## END of icu-config-bottom

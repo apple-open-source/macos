@@ -20,7 +20,7 @@
 namespace llvm {
 
 //===----------------------------------------------------------------------===//
-//                          FixedNumOperands Trait Class
+//                          FixedNumOperand Trait Class
 //===----------------------------------------------------------------------===//
 
 /// FixedNumOperandTraits - determine the allocation regime of the Use array
@@ -44,19 +44,21 @@ struct FixedNumOperandTraits {
   };
   template <class U>
   struct Layout {
-    struct overlay : prefix, U {
+    struct overlay : public prefix, public U {
       overlay(); // DO NOT IMPLEMENT
     };
   };
-  static inline void *allocate(unsigned); // FIXME
 };
 
 //===----------------------------------------------------------------------===//
-//                          OptionalOperands Trait Class
+//                          OptionalOperand Trait Class
 //===----------------------------------------------------------------------===//
 
+/// OptionalOperandTraits - when the number of operands may change at runtime.
+/// Naturally it may only decrease, because the allocations may not change.
+
 template <unsigned ARITY = 1>
-struct OptionalOperandTraits : FixedNumOperandTraits<ARITY> {
+struct OptionalOperandTraits : public FixedNumOperandTraits<ARITY> {
   static unsigned operands(const User *U) {
     return U->getNumOperands();
   }
@@ -81,7 +83,6 @@ struct VariadicOperandTraits {
   static unsigned operands(const User *U) {
     return U->getNumOperands();
   }
-  static inline void *allocate(unsigned); // FIXME
 };
 
 //===----------------------------------------------------------------------===//
@@ -109,7 +110,6 @@ struct HungoffOperandTraits {
   static unsigned operands(const User *U) {
     return U->getNumOperands();
   }
-  static inline void *allocate(unsigned); // FIXME
 };
 
 /// Macro for generating in-class operand accessor declarations.

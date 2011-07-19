@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -56,7 +56,7 @@
 
 
 
-#include <rpcsvc/sm_inter.h>
+#include "sm_inter.h"
 
 /* ------------------------------------------------------------------------- */
 /*
@@ -160,7 +160,10 @@ typedef struct {
  */
 struct nfs_conf_statd {
 	int port;
+	int send_using_tcp;
 	int simu_crash_allowed;
+	int tcp;
+	int udp;
 	int verbose;
 };
 
@@ -202,6 +205,7 @@ extern int notify_hosts(void);
 extern int do_unnotify_host(const char * /* hostname */ );
 extern int list_hosts(int /* mode */ );
 extern void sync_file(void);
+extern int getaddresslist(const char * /* hostname */, struct addrinfo ** /* list */);
 extern int sm_check_hostname(struct svc_req * req, char *arg);
 pid_t get_statd_pid(void);
 pid_t get_statd_notify_pid(void);

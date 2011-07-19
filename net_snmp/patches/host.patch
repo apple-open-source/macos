@@ -1,25 +1,3 @@
-diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host.h APPLE/agent/mibgroup/host.h
---- SVN/agent/mibgroup/host.h
-+++ APPLE/agent/mibgroup/host.h
-@@ -13,8 +13,17 @@
- 	config_require(host/hr_disk)
- 	config_require(host/hr_partition)
- 	config_require(host/hr_filesys)
--	config_require(host/hr_swrun)
-+#ifndef NETSNMP_INCLUDE_HRSWINST_REWRITES
- 	config_require(host/hr_swinst)
-+#else
-+	config_require(host/hrSWInstalledTable)
-+#endif
-+#ifndef NETSNMP_INCLUDE_HRSWRUN_REWRITES
-+	config_require(host/hr_swrun)
-+#else
-+	config_require(host/hrSWRunTable)
-+	config_require(host/hrSWRunPerfTable)
-+#endif
- 
- /* add the host resources mib to the default mibs to load */
- config_add_mib(HOST-RESOURCES-MIB)
 diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/agent/mibgroup/host/data_access/Makefile.test APPLE/agent/mibgroup/host/data_access/Makefile.test
 --- SVN/agent/mibgroup/host/data_access/Makefile.test
 +++ APPLE/agent/mibgroup/host/data_access/Makefile.test

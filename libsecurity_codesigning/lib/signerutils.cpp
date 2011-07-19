@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,14 +75,14 @@ void DetachedBlobWriter::flush()
 //
 // ArchEditor
 //
-ArchEditor::ArchEditor(Universal &code, uint32_t attrs /* = 0 */)
+ArchEditor::ArchEditor(Universal &code, CodeDirectory::HashAlgorithm hashType, uint32_t attrs)
 	: DiskRep::Writer(attrs)
 {
 	Universal::Architectures archList;
 	code.architectures(archList);
 	for (Universal::Architectures::const_iterator it = archList.begin();
 			it != archList.end(); ++it)
-		architecture[*it] = new Arch(*it);
+		architecture[*it] = new Arch(*it, hashType);
 }
 
 
@@ -96,6 +96,11 @@ ArchEditor::~ArchEditor()
 //
 // BlobEditor
 //
+BlobEditor::BlobEditor(Universal &fat, SecCodeSigner::Signer &s)
+	: ArchEditor(fat, s.digestAlgorithm(), 0), signer(s)
+{ }
+
+
 void BlobEditor::component(CodeDirectory::SpecialSlot slot, CFDataRef data)
 {
 	mGlobal.component(slot, data);
@@ -124,9 +129,13 @@ void BlobEditor::commit()
 // "drill up" the Mach-O binary for insertion of Code Signing signature data.
 // After the tool succeeds, we open the new file and are ready to write it.
 //
-MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, std::string srcPath)
-	: ArchEditor(code, w->attributes()), writer(w), sourcePath(srcPath), tempPath(srcPath + ".cstemp"),
-	  mNewCode(NULL), mTempMayExist(false)
+MachOEditor::MachOEditor(DiskRep::Writer *w, Universal &code, CodeDirectory::HashAlgorithm hashType, std::string srcPath)
+	: ArchEditor(code, hashType, w->attributes()),
+	  writer(w),
+	  sourcePath(srcPath),
+	  tempPath(srcPath + ".cstemp"),
+	  mNewCode(NULL),
+	  mTempMayExist(false)
 {
 	if (const char *path = getenv(helperOverride)) {
 		mHelperPath = path;
@@ -190,7 +199,7 @@ void MachOEditor::parentAction()
 		code->validateDirectory();
 		code->validateExecutable();
 		code->validateResources();
-		code->validateRequirements((const Requirement *)appleReq, errSecCSReqFailed);
+		code->validateRequirement((const Requirement *)appleReq, errSecCSReqFailed);
 	}
 }
 
@@ -281,7 +290,14 @@ void MachOEditor::commit()
 		UidGuard guard;
 		if (!guard.seteuid(0))
 			guard.seteuid(st.st_uid);
+		
+		// copy metadata from original file...
 		copy(sourcePath.c_str(), NULL, COPYFILE_SECURITY | COPYFILE_METADATA);
+		
+		// ... but explicitly update the timestamps since we did change the file
+		char buf;
+		mFd.read(&buf, sizeof(buf), 0);
+		mFd.write(&buf, sizeof(buf), 0);
 
 		// move the new file into place
 		UnixError::check(::rename(tempPath.c_str(), sourcePath.c_str()));

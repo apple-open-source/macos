@@ -5,7 +5,7 @@ using char_stringsNamespace;
 public class char_strings_runme {
 
   private static string CPLUSPLUS_MSG = "A message from the deep dark world of C++, where anything is possible.";
-  private static string OTHERLAND_MSG = "Little message from the the safe world.";
+  private static string OTHERLAND_MSG = "Little message from the safe world.";
 
   public static void Main() {
 
@@ -116,6 +116,29 @@ public class char_strings_runme {
     for (i=0; i<count; i++) {
       if (char_strings.global_const_char_array2 != CPLUSPLUS_MSG)
         throw new Exception("Test variables 6 failed, iteration " + i);
+    }
+
+    // char *& tests
+    for (i=0; i<count; i++) {
+      String str = char_strings.GetCharPointerRef();
+      if (str != CPLUSPLUS_MSG)
+        throw new Exception("Test char pointer ref get failed, iteration " + i);
+    }
+
+    for (i=0; i<count; i++) {
+      if (!char_strings.SetCharPointerRef(OTHERLAND_MSG + i, i))
+        throw new Exception("Test char pointer ref set failed, iteration " + i);
+    }
+
+    for (i=0; i<count; i++) {
+      String str = char_strings.GetConstCharPointerRef();
+      if (str != CPLUSPLUS_MSG)
+        throw new Exception("Test const char pointer ref get failed, iteration " + i);
+    }
+
+    for (i=0; i<count; i++) {
+      if (!char_strings.SetConstCharPointerRef(OTHERLAND_MSG + i, i))
+        throw new Exception("Test const char pointer ref set failed, iteration " + i);
     }
   }
 }

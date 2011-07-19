@@ -26,6 +26,7 @@
 #include "config.h"
 #include "JSNodeFilter.h"
 
+#include "JSDOMWindowBase.h"
 #include "JSNode.h"
 #include "JSNodeFilterCondition.h"
 #include "NodeFilter.h"
@@ -35,18 +36,23 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSNodeFilter::markChildren(MarkStack& markStack)
+void JSNodeFilter::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
-    impl()->markAggregate(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
+    visitor.addOpaqueRoot(impl());
 }
 
-PassRefPtr<NodeFilter> toNodeFilter(JSValue value)
+PassRefPtr<NodeFilter> toNodeFilter(JSGlobalData& globalData, JSValue value)
 {
     if (value.inherits(&JSNodeFilter::s_info))
         return static_cast<JSNodeFilter*>(asObject(value))->impl();
 
-    return NodeFilter::create(JSNodeFilterCondition::create(value));
+    RefPtr<NodeFilter> result = NodeFilter::create();
+    result->setCondition(JSNodeFilterCondition::create(globalData, result.get(), value));
+    return result.release();
 }
 
 } // namespace WebCore

@@ -1,6 +1,6 @@
---- atol.3.orig	2007-04-08 18:49:34.000000000 -0700
-+++ atol.3	2007-04-08 19:21:38.000000000 -0700
-@@ -40,7 +40,8 @@
+--- atol.3.orig	2010-02-08 16:26:10.000000000 -0800
++++ atol.3	2010-02-13 21:01:28.000000000 -0800
+@@ -36,7 +36,8 @@
  .Dt ATOL 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert
  .Tn ASCII
  string to
-@@ -53,14 +54,19 @@
+@@ -49,14 +50,19 @@ integer
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft long
@@ -33,7 +33,7 @@
  to
  .Vt long
  integer
-@@ -68,12 +74,12 @@
+@@ -64,12 +70,12 @@ representation.
  .Pp
  It is equivalent to:
  .Pp
@@ -48,11 +48,12 @@
  to
  .Vt "long long"
  integer
-@@ -81,7 +87,19 @@
+@@ -77,8 +83,28 @@ representation.
  .Pp
  It is equivalent to:
  .Pp
 -.Dl "strtoll(nptr, (char **)NULL, 10);"
+-.Sh COMPATIBILITY
 +.Dl "strtoll(str, (char **)NULL, 10);"
 +.Pp
 +While the
@@ -66,10 +67,19 @@
 +functions may be passed locales directly. See
 +.Xr xlocale 3
 +for more information.
- .Sh ERRORS
- The functions
- .Fn atol
-@@ -96,7 +114,8 @@
++.Sh IMPLEMENTATION NOTES
++The
++.Fn atol ,
++.Fn atoll ,
++.Fn atol_l ,
++and
++.Fn atoll_l
++functions are thread-safe and async-cancel-safe.
++.Pp
+ The
+ .Fx
+ implementations of the
+@@ -121,7 +147,8 @@ on an error.
  .Xr atoi 3 ,
  .Xr strtod 3 ,
  .Xr strtol 3 ,

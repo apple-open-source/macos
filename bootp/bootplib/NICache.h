@@ -1,7 +1,5 @@
-#ifndef _S_NICACHE_H
-#define _S_NICACHE_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +25,9 @@
  * NICache.h
  * - netinfo cache routines
  */
+
+#ifndef _S_NICACHE_H
+#define _S_NICACHE_H
 
 #include "netinfo.h"
 #include "dynarray.h"
@@ -55,4 +56,4 @@ typedef struct PLCache PLCache_t;
 
 typedef boolean_t NICacheFunc_t(void * arg, struct in_addr iaddr);
 
-#endif _S_NICACHE_H
+#endif /* _S_NICACHE_H */

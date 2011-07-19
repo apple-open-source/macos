@@ -105,7 +105,8 @@ SecKeychainCreate(const char *pathName, UInt32 passwordLength, const void *passw
 		KCThrowParamErrIf_(!password);
 		keychain->create(passwordLength, password);
 	}
-	RequiredParam(keychainRef)=keychain->handle(true);
+
+	RequiredParam(keychainRef)=keychain->handle();
 
 	END_SECAPI
 }
@@ -119,7 +120,7 @@ SecKeychainDelete(SecKeychainRef keychainOrArray)
 	KCThrowIf_(!keychainOrArray, errSecInvalidKeychain);
 	StorageManager::KeychainList keychains;
 	globals().storageManager.optionalSearchList(keychainOrArray, keychains);
-	
+
 	globals().storageManager.remove(keychains, true);
 
 	END_SECAPI
@@ -522,17 +523,16 @@ SecKeychainAddInternetPassword(SecKeychainRef keychainRef, UInt32 serverNameLeng
         {
             MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
         }
-
-		keychain->add(item);
-
-		if (itemRef)
-			*itemRef = item->handle();
     }
     catch(...)
     {
         keychain = globals().storageManager.defaultKeychainUI(item);
-		throw;
     }
+
+    keychain->add(item);
+
+    if (itemRef)
+		*itemRef = item->handle();
 
     END_SECAPI
 }
@@ -618,6 +618,7 @@ SecKeychainAddGenericPassword(SecKeychainRef keychainRef, UInt32 serviceNameLeng
 
 	KCThrowParamErrIf_(passwordLength!=0 && passwordData==NULL);
 	// @@@ Get real itemClass
+
 	Item item(kSecGenericPasswordItemClass, 'aapl', passwordLength, passwordData, false);
 
 	if (serviceName && serviceNameLength)
@@ -651,16 +652,15 @@ SecKeychainAddGenericPassword(SecKeychainRef keychainRef, UInt32 serviceNameLeng
         {
             MacOSError::throwMe(errSecNoSuchKeychain);	// Might be deleted or not available at this time.
         }
-	
-		keychain->add(item);
-		if (itemRef)
-			*itemRef = item->handle();
-	}
+    }
     catch(...)
     {
         keychain = globals().storageManager.defaultKeychainUI(item);
-		throw;
     }
+
+	keychain->add(item);
+	if (itemRef)
+		*itemRef = item->handle();
 
     END_SECAPI
 }

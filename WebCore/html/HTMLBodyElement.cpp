@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann (hausmann@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +24,7 @@
 #include "config.h"
 #include "HTMLBodyElement.h"
 
+#include "Attribute.h"
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
@@ -32,7 +33,8 @@
 #include "FrameView.h"
 #include "HTMLFrameElementBase.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
+#include "HTMLParserIdioms.h"
+#include "Page.h"
 #include "ScriptEventListener.h"
 
 namespace WebCore {
@@ -43,6 +45,16 @@ HTMLBodyElement::HTMLBodyElement(const QualifiedName& tagName, Document* documen
     : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(bodyTag));
+}
+
+PassRefPtr<HTMLBodyElement> HTMLBodyElement::create(Document* document)
+{
+    return adoptRef(new HTMLBodyElement(bodyTag, document));
+}
+
+PassRefPtr<HTMLBodyElement> HTMLBodyElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLBodyElement(tagName, document));
 }
 
 HTMLBodyElement::~HTMLBodyElement()
@@ -58,7 +70,7 @@ void HTMLBodyElement::createLinkDecl()
     m_linkDecl = CSSMutableStyleDeclaration::create();
     m_linkDecl->setParent(document()->elementSheet());
     m_linkDecl->setNode(this);
-    m_linkDecl->setStrictParsing(!document()->inCompatMode());
+    m_linkDecl->setStrictParsing(!document()->inQuirksMode());
 }
 
 bool HTMLBodyElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -82,10 +94,10 @@ bool HTMLBodyElement::mapToEntry(const QualifiedName& attrName, MappedAttributeE
     return HTMLElement::mapToEntry(attrName, result);
 }
 
-void HTMLBodyElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLBodyElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == backgroundAttr) {
-        String url = deprecatedParseURL(attr->value());
+        String url = stripLeadingAndTrailingHTMLSpaces(attr->value());
         if (!url.isEmpty())
             addCSSImageProperty(attr, CSSPropertyBackgroundImage, document()->completeURL(url).string());
     } else if (attr->name() == marginwidthAttr || attr->name() == leftmarginAttr) {
@@ -155,6 +167,8 @@ void HTMLBodyElement::parseMappedAttribute(MappedAttribute *attr)
         document()->setWindowAttributeEventListener(eventNames().resizeEvent, createAttributeEventListener(document()->frame(), attr));
     else if (attr->name() == onscrollAttr)
         document()->setWindowAttributeEventListener(eventNames().scrollEvent, createAttributeEventListener(document()->frame(), attr));
+    else if (attr->name() == onselectionchangeAttr)
+        document()->setAttributeEventListener(eventNames().selectionchangeEvent, createAttributeEventListener(document()->frame(), attr));
     else if (attr->name() == onstorageAttr)
         document()->setWindowAttributeEventListener(eventNames().storageEvent, createAttributeEventListener(document()->frame(), attr));
     else if (attr->name() == ononlineAttr)
@@ -173,10 +187,10 @@ void HTMLBodyElement::insertedIntoDocument()
     Element* ownerElement = document()->ownerElement();
     if (ownerElement && (ownerElement->hasTagName(frameTag) || ownerElement->hasTagName(iframeTag))) {
         HTMLFrameElementBase* ownerFrameElement = static_cast<HTMLFrameElementBase*>(ownerElement);
-        int marginWidth = ownerFrameElement->getMarginWidth();
+        int marginWidth = ownerFrameElement->marginWidth();
         if (marginWidth != -1)
             setAttribute(marginwidthAttr, String::number(marginWidth));
-        int marginHeight = ownerFrameElement->getMarginHeight();
+        int marginHeight = ownerFrameElement->marginHeight();
         if (marginHeight != -1)
             setAttribute(marginheightAttr, String::number(marginHeight));
     }
@@ -185,11 +199,19 @@ void HTMLBodyElement::insertedIntoDocument()
     // But without it we hang during WebKit tests; need to fix that and remove this.
     if (FrameView* view = document()->view())
         view->scheduleRelayout();
+
+    if (document() && document()->page())
+        document()->page()->updateViewportArguments();
 }
 
 bool HTMLBodyElement::isURLAttribute(Attribute *attr) const
 {
     return attr->name() == backgroundAttr;
+}
+
+bool HTMLBodyElement::supportsFocus() const
+{
+    return rendererIsEditable() || HTMLElement::supportsFocus();
 }
 
 String HTMLBodyElement::aLink() const
@@ -242,9 +264,10 @@ void HTMLBodyElement::setVLink(const String& value)
     setAttribute(vlinkAttr, value);
 }
 
-static int adjustForZoom(int value, FrameView* frameView)
+static int adjustForZoom(int value, Document* document)
 {
-    float zoomFactor = frameView->frame()->zoomFactor();
+    Frame* frame = document->frame();
+    float zoomFactor = frame->pageZoomFactor() * frame->pageScaleFactor();
     if (zoomFactor == 1)
         return value;
     // Needed because of truncation (rather than rounding) when scaling up.
@@ -256,57 +279,63 @@ static int adjustForZoom(int value, FrameView* frameView)
 int HTMLBodyElement::scrollLeft() const
 {
     // Update the document's layout.
-    Document* doc = document();
-    doc->updateLayoutIgnorePendingStylesheets();
-    FrameView* view = doc->view();
-    return view ? adjustForZoom(view->scrollX(), view) : 0;
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    return view ? adjustForZoom(view->scrollX(), document) : 0;
 }
 
 void HTMLBodyElement::setScrollLeft(int scrollLeft)
 {
-    FrameView* sview = ownerDocument()->view();
-    if (sview) {
-        // Update the document's layout
-        document()->updateLayoutIgnorePendingStylesheets();
-        sview->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * sview->frame()->zoomFactor()), sview->scrollY()));
-    }    
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    Frame* frame = document->frame();
+    if (!frame)
+        return;
+    FrameView* view = frame->view();
+    if (!view)
+        return;
+    view->setScrollPosition(IntPoint(static_cast<int>(scrollLeft * frame->pageZoomFactor() * frame->pageScaleFactor()), view->scrollY()));
 }
 
 int HTMLBodyElement::scrollTop() const
 {
     // Update the document's layout.
-    Document* doc = document();
-    doc->updateLayoutIgnorePendingStylesheets();
-    FrameView* view = doc->view();
-    return view ? adjustForZoom(view->scrollY(), view) : 0;
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    return view ? adjustForZoom(view->scrollY(), document) : 0;
 }
 
 void HTMLBodyElement::setScrollTop(int scrollTop)
 {
-    FrameView* sview = ownerDocument()->view();
-    if (sview) {
-        // Update the document's layout
-        document()->updateLayoutIgnorePendingStylesheets();
-        sview->setScrollPosition(IntPoint(sview->scrollX(), static_cast<int>(scrollTop * sview->frame()->zoomFactor())));
-    }        
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    Frame* frame = document->frame();
+    if (!frame)
+        return;
+    FrameView* view = frame->view();
+    if (!view)
+        return;
+    view->setScrollPosition(IntPoint(view->scrollX(), static_cast<int>(scrollTop * frame->pageZoomFactor() * frame->pageScaleFactor())));
 }
 
 int HTMLBodyElement::scrollHeight() const
 {
     // Update the document's layout.
-    Document* doc = document();
-    doc->updateLayoutIgnorePendingStylesheets();
-    FrameView* view = doc->view();
-    return view ? adjustForZoom(view->contentsHeight(), view) : 0;    
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    return view ? adjustForZoom(view->contentsHeight(), document) : 0;    
 }
 
 int HTMLBodyElement::scrollWidth() const
 {
     // Update the document's layout.
-    Document* doc = document();
-    doc->updateLayoutIgnorePendingStylesheets();
-    FrameView* view = doc->view();
-    return view ? adjustForZoom(view->contentsWidth(), view) : 0;    
+    Document* document = this->document();
+    document->updateLayoutIgnorePendingStylesheets();
+    FrameView* view = document->view();
+    return view ? adjustForZoom(view->contentsWidth(), document) : 0;    
 }
 
 void HTMLBodyElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

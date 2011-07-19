@@ -698,6 +698,7 @@ private:
 	queue_head_t				fResendTaskList;
 	bool						fAllowResends;
 	bool						fResendThreadScheduled;
+	bool						fMultiPathSupport;
 	
 	IOSCSIParallelInterfaceController *	fController;
 	

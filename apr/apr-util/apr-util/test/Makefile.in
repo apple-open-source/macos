@@ -12,7 +12,7 @@ VPATH = @srcdir@
 
 INCLUDES = @APRUTIL_PRIV_INCLUDES@ @APR_INCLUDES@ @APRUTIL_INCLUDES@
 
-STDTEST_PORTABLE = testall dbd
+STDTEST_PORTABLE = dbd testall
 
 TESTS = teststrmatch.lo testuri.lo testuuid.lo testbuckets.lo testpass.lo \
 	testmd4.lo testmd5.lo testldap.lo testdate.lo testdbm.lo testdbd.lo \
@@ -59,7 +59,7 @@ dbd: $(OBJECTS_dbd)
 check: $(TESTALL_COMPONENTS) $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE)
 	teststatus=0; \
 	progfailed=""; \
-	for prog in $(STDTEST_PORTABLE) $(STDTEST_NONPORTABLE); do \
+	for prog in $(STDTEST_NONPORTABLE) $(STDTEST_PORTABLE); do \
 	        if test "$$prog" = 'dbd'; then \
 			for driver in none @apu_dbd_tests@; do \
 				if test "$$driver" != 'none'; then \

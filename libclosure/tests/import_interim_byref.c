@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  import_interim_byref.c
  *  Examples
  *

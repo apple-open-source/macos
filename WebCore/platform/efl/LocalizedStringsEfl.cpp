@@ -53,6 +53,11 @@ String resetButtonDefaultLabel()
     return String::fromUTF8("Reset");
 }
 
+String defaultDetailsSummaryText()
+{
+    return String::fromUTF8("Details");
+}
+
 String searchableIndexIntroduction()
 {
     return String::fromUTF8("_Searchable Index");
@@ -70,37 +75,87 @@ String fileButtonNoFileSelectedLabel()
 
 String contextMenuItemTagOpenLinkInNewWindow()
 {
-    return String::fromUTF8("Open Link in New _Window");
+    return String::fromUTF8("Open Link in New Window");
 }
 
 String contextMenuItemTagDownloadLinkToDisk()
 {
-    return String::fromUTF8("_Download Linked File");
+    return String::fromUTF8("Download Linked File");
 }
 
 String contextMenuItemTagCopyLinkToClipboard()
 {
-    return String::fromUTF8("Copy Link Loc_ation");
+    return String::fromUTF8("Copy Link Location");
 }
 
 String contextMenuItemTagOpenImageInNewWindow()
 {
-    return String::fromUTF8("Open _Image in New Window");
+    return String::fromUTF8("Open Image in New Window");
 }
 
 String contextMenuItemTagDownloadImageToDisk()
 {
-    return String::fromUTF8("Sa_ve Image As");
+    return String::fromUTF8("Save Image As");
 }
 
 String contextMenuItemTagCopyImageToClipboard()
 {
-    return String::fromUTF8("Cop_y Image");
+    return String::fromUTF8("Copy Image");
+}
+
+String contextMenuItemTagOpenVideoInNewWindow()
+{
+    return String::fromUTF8("Open Video in New Window");
+}
+
+String contextMenuItemTagOpenAudioInNewWindow()
+{
+    return String::fromUTF8("Open Audio in New Window");
+}
+
+String contextMenuItemTagCopyVideoLinkToClipboard()
+{
+    return String::fromUTF8("Copy Video Link Location");
+}
+
+String contextMenuItemTagCopyAudioLinkToClipboard()
+{
+    return String::fromUTF8("Copy Audio Link Location");
+}
+
+String contextMenuItemTagToggleMediaControls()
+{
+    return String::fromUTF8("Toggle Media Controls");
+}
+
+String contextMenuItemTagToggleMediaLoop()
+{
+    return String::fromUTF8("Toggle Media Loop Playback");
+}
+
+String contextMenuItemTagEnterVideoFullscreen()
+{
+    return String::fromUTF8("Switch Video to Fullscreen");
+}
+
+String contextMenuItemTagMediaPlay()
+{
+    return String::fromUTF8("Play");
+}
+
+String contextMenuItemTagMediaPause()
+{
+    return String::fromUTF8("Pause");
+}
+
+String contextMenuItemTagMediaMute()
+{
+    return String::fromUTF8("Mute");
 }
 
 String contextMenuItemTagOpenFrameInNewWindow()
 {
-    return String::fromUTF8("Open _Frame in New Window");
+    return String::fromUTF8("Open Frame in New Window");
 }
 
 String contextMenuItemTagCopy()
@@ -117,29 +172,29 @@ String contextMenuItemTagDelete()
 
 String contextMenuItemTagSelectAll()
 {
-    static String stockLabel = String::fromUTF8("Select _All");
+    static String stockLabel = String::fromUTF8("Select All");
     return stockLabel;
 }
 
 String contextMenuItemTagUnicode()
 {
-    return String::fromUTF8("_Insert Unicode Control Character");
+    return String::fromUTF8("Insert Unicode Control Character");
 }
 
 String contextMenuItemTagInputMethods()
 {
-    return String::fromUTF8("Input _Methods");
+    return String::fromUTF8("Input Methods");
 }
 
 String contextMenuItemTagGoBack()
 {
-    static String stockLabel = String::fromUTF8("Go_Back");
+    static String stockLabel = String::fromUTF8("Go Back");
     return stockLabel;
 }
 
 String contextMenuItemTagGoForward()
 {
-    static String stockLabel = String::fromUTF8("Go_Forward");
+    static String stockLabel = String::fromUTF8("Go Forward");
     return stockLabel;
 }
 
@@ -151,7 +206,7 @@ String contextMenuItemTagStop()
 
 String contextMenuItemTagReload()
 {
-    return String::fromUTF8("_Reload");
+    return String::fromUTF8("Reload");
 }
 
 String contextMenuItemTagCut()
@@ -173,37 +228,37 @@ String contextMenuItemTagNoGuessesFound()
 
 String contextMenuItemTagIgnoreSpelling()
 {
-    return String::fromUTF8("_Ignore Spelling");
+    return String::fromUTF8("Ignore Spelling");
 }
 
 String contextMenuItemTagLearnSpelling()
 {
-    return String::fromUTF8("_Learn Spelling");
+    return String::fromUTF8("Learn Spelling");
 }
 
 String contextMenuItemTagSearchWeb()
 {
-    return String::fromUTF8("_Search the Web");
+    return String::fromUTF8("Search the Web");
 }
 
-String contextMenuItemTagLookUpInDictionary()
+String contextMenuItemTagLookUpInDictionary(const String&)
 {
-    return String::fromUTF8("_Look Up in Dictionary");
+    return String::fromUTF8("Look Up in Dictionary");
 }
 
 String contextMenuItemTagOpenLink()
 {
-    return String::fromUTF8("_Open Link");
+    return String::fromUTF8("Open Link");
 }
 
 String contextMenuItemTagIgnoreGrammar()
 {
-    return String::fromUTF8("Ignore _Grammar");
+    return String::fromUTF8("Ignore Grammar");
 }
 
 String contextMenuItemTagSpellingMenu()
 {
-    return String::fromUTF8("Spelling and _Grammar");
+    return String::fromUTF8("Spelling and Grammar");
 }
 
 String contextMenuItemTagShowSpellingPanel(bool show)
@@ -213,7 +268,7 @@ String contextMenuItemTagShowSpellingPanel(bool show)
 
 String contextMenuItemTagCheckSpelling()
 {
-    return String::fromUTF8("_Check Document Now");
+    return String::fromUTF8("Check Document Now");
 }
 
 String contextMenuItemTagCheckSpellingWhileTyping()
@@ -223,12 +278,12 @@ String contextMenuItemTagCheckSpellingWhileTyping()
 
 String contextMenuItemTagCheckGrammarWithSpelling()
 {
-    return String::fromUTF8("Check _Grammar With Spelling");
+    return String::fromUTF8("Check Grammar With Spelling");
 }
 
 String contextMenuItemTagFontMenu()
 {
-    return String::fromUTF8("_Font");
+    return String::fromUTF8("Font");
 }
 
 String contextMenuItemTagBold()
@@ -251,12 +306,12 @@ String contextMenuItemTagUnderline()
 
 String contextMenuItemTagOutline()
 {
-    return String::fromUTF8("_Outline");
+    return String::fromUTF8("Outline");
 }
 
 String contextMenuItemTagInspectElement()
 {
-    return String::fromUTF8("Inspect _Element");
+    return String::fromUTF8("Inspect Element");
 }
 
 String contextMenuItemTagRightToLeft()
@@ -296,7 +351,7 @@ String searchMenuRecentSearchesText()
 
 String searchMenuClearRecentSearchesText()
 {
-    return String::fromUTF8("_Clear recent searches");
+    return String::fromUTF8("Clear recent searches");
 }
 
 String AXDefinitionListTermText()
@@ -350,6 +405,26 @@ String imageTitle(const String& filename, const IntSize& size)
     return String();
 }
 
+#if ENABLE(VIDEO)
+String localizedMediaControlElementString(const String& name)
+{
+    notImplemented();
+    return String();
+}
+
+String localizedMediaControlElementHelpText(const String& name)
+{
+    notImplemented();
+    return String();
+}
+
+String localizedMediaTimeDescription(float time)
+{
+    notImplemented();
+    return String();
+}
+#endif
+
 String mediaElementLoadingStateText()
 {
     return String::fromUTF8("Loading...");
@@ -365,22 +440,22 @@ String validationMessagePatternMismatchText()
     return String::fromUTF8("pattern mismatch");
 }
 
-String validationMessageRangeOverflowText()
+String validationMessageRangeOverflowText(const String&)
 {
     return String::fromUTF8("range overflow");
 }
 
-String validationMessageRangeUnderflowText()
+String validationMessageRangeUnderflowText(const String&)
 {
     return String::fromUTF8("range underflow");
 }
 
-String validationMessageStepMismatchText()
+String validationMessageStepMismatchText(const String&, const String&)
 {
     return String::fromUTF8("step mismatch");
 }
 
-String validationMessageTooLongText()
+String validationMessageTooLongText(int, int)
 {
     return String::fromUTF8("too long");
 }
@@ -390,9 +465,59 @@ String validationMessageTypeMismatchText()
     return String::fromUTF8("type mismatch");
 }
 
+String validationMessageTypeMismatchForEmailText()
+{
+    return String::fromUTF8("type mismatch");
+}
+
+String validationMessageTypeMismatchForMultipleEmailText()
+{
+    return String::fromUTF8("type mismatch");
+}
+
+String validationMessageTypeMismatchForURLText()
+{
+    return String::fromUTF8("type mismatch");
+}
+
 String validationMessageValueMissingText()
 {
     return String::fromUTF8("value missing");
+}
+
+String validationMessageValueMissingForCheckboxText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForMultipleFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForRadioText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForSelectText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String missingPluginText()
+{
+    return String::fromUTF8("missing plugin");
 }
 
 String AXMenuListPopupActionVerb()
@@ -405,14 +530,14 @@ String AXMenuListActionVerb()
     return String();
 }
 
-String missingPluginText()
+String multipleFileUploadText(unsigned numberOfFiles)
 {
-    return String::fromUTF8("Missing Plug-in");
+    return String::number(numberOfFiles) + String::fromUTF8(" files");
 }
 
 String crashedPluginText()
 {
-    return String::fromUTF8("Plug-in Crashed");
+    return String::fromUTF8("plugin crashed");
 }
 
 }

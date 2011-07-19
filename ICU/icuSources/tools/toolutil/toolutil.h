@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2008, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -21,6 +21,33 @@
 
 #include "unicode/utypes.h"
 
+#ifdef XP_CPLUSPLUS
+
+#include "unicode/errorcode.h"
+
+U_NAMESPACE_BEGIN
+
+/**
+ * ErrorCode subclass for use in ICU command-line tools.
+ * The destructor calls handleFailure() which calls exit(errorCode) when isFailure().
+ */
+class U_TOOLUTIL_API IcuToolErrorCode : public ErrorCode {
+public:
+    /**
+     * @param loc A short string describing where the IcuToolErrorCode is used.
+     */
+    IcuToolErrorCode(const char *loc) : location(loc) {}
+    virtual ~IcuToolErrorCode();
+protected:
+    virtual void handleFailure() const;
+private:
+    const char *location;
+};
+
+U_NAMESPACE_END
+
+#endif
+
 /*
  * For Windows, a path/filename may be the short (8.3) version
  * of the "real", long one. In this case, the short one
@@ -39,15 +66,32 @@
 U_CAPI const char * U_EXPORT2
 getLongPathname(const char *pathname);
 
-/*
+/**
  * Find the basename at the end of a pathname, i.e., the part
  * after the last file separator, and return a pointer
  * to this part of the pathname.
  * If the pathname only contains a basename and no file separator,
  * then the pathname pointer itself is returned.
- */
+ **/
 U_CAPI const char * U_EXPORT2
 findBasename(const char *filename);
+
+/**
+ * Find the directory name of a pathname, that is, everything
+ * up to but not including the last file separator. 
+ *
+ * If successful, copies the directory name into the output buffer along with
+ * a terminating NULL. 
+ *
+ * If there isn't a directory name in the path, it returns the current directory string ('.').
+ * @param path the full pathname to inspect. 
+ * @param buffer the output buffer
+ * @param bufLen the output buffer length
+ * @param status error code- may return U_BUFFER_OVERFLOW_ERROR if bufLen is too small.
+ * @return If successful, a pointer to the output buffer. If failure or bufLen is too small, NULL.
+ **/
+U_CAPI const char * U_EXPORT2
+findDirname(const char *path, char *buffer, int32_t bufLen, UErrorCode* status);
 
 /*
  * Return the current year in the Gregorian calendar. Used for copyright generation.
@@ -56,12 +100,25 @@ U_CAPI int32_t U_EXPORT2
 getCurrentYear(void);
 
 /*
- * Creates a diretory with pathname.
+ * Creates a directory with pathname.
  *
  * @param status Set to an error code when mkdir failed.
  */
 U_CAPI void U_EXPORT2
 uprv_mkdir(const char *pathname, UErrorCode *status);
+
+/**
+ * Return the modification date for the specified file or directory.
+ * Return value is undefined if there was an error.
+ */
+/*U_CAPI UDate U_EXPORT2
+uprv_getModificationDate(const char *pathname, UErrorCode *status);
+*/
+/*
+ * Returns the modification
+ *
+ * @param status Set to an error code when mkdir failed.
+ */
 
 /*
  * UToolMemory is used for generic, custom memory management.

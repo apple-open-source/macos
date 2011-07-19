@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEInit.c"
  *                                    created: 8/20/99 {9:31:59 AM} 
- *                                last update: 2/6/04 {11:54:18 PM} 
+ *                                last update: 7/25/10 {12:16:15 PM} 
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
  *    mail: Alpha Cabal
@@ -54,7 +54,7 @@ int
 Tclae_Init(Tcl_Interp *interp)
 {
     OSErr		err;
-    long		attr;
+    SInt32		attr;
     
     //Check for AppleEvents
     err = Gestalt(gestaltAppleEventsAttr, &attr);

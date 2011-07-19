@@ -37,11 +37,11 @@
 static char sccsid[] = "@(#)mskanji.c	1.0 (Phase One) 5/5/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.16 2004/05/14 15:40:47 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.18 2007/10/13 16:28:22 ache Exp $");
 
 #include "xlocale_private.h"
 
-#include <sys/param.h>
+#include <sys/types.h>
 #include <errno.h>
 #include <runetype.h>
 #include <stdlib.h>
@@ -49,11 +49,11 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/mskanji.c,v 1.16 2004/05/14 15:40:47 tjr
 #include <wchar.h>
 #include "mblocal.h"
 
-__private_extern__ int	_MSKanji_init(struct __xlocale_st_runelocale *);
-static size_t	_MSKanji_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict, locale_t);
+static size_t	_MSKanji_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict, locale_t);
 static int	_MSKanji_mbsinit(const mbstate_t *, locale_t);
-static size_t	_MSKanji_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+static size_t	_MSKanji_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict, locale_t);
 
 typedef struct {
 	wchar_t	ch;
@@ -67,11 +67,12 @@ _MSKanji_init(struct __xlocale_st_runelocale *xrl)
 	xrl->__wcrtomb = _MSKanji_wcrtomb;
 	xrl->__mbsinit = _MSKanji_mbsinit;
 	xrl->__mb_cur_max = 2;
+	xrl->__mb_sb_limit = 256;
 	return (0);
 }
 
 static int
-_MSKanji_mbsinit(const mbstate_t *ps, locale_t loc)
+_MSKanji_mbsinit(const mbstate_t *ps, locale_t loc __unused)
 {
 
 	return (ps == NULL || ((const _MSKanjiState *)ps)->ch == 0);
@@ -79,7 +80,7 @@ _MSKanji_mbsinit(const mbstate_t *ps, locale_t loc)
 
 static size_t
 _MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
-    mbstate_t * __restrict ps, locale_t loc)
+    mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_MSKanjiState *ms;
 	wchar_t wc;
@@ -136,7 +137,7 @@ _MSKanji_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 }
 
 static size_t
-_MSKanji_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+_MSKanji_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_MSKanjiState *ms;
 	int len, i;

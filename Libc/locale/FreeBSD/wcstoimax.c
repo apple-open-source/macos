@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@ static char sccsid[] = "from @(#)strtol.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 __FBSDID("FreeBSD: src/lib/libc/stdlib/strtoimax.c,v 1.8 2002/09/06 11:23:59 tjr Exp ");
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcstoimax.c,v 1.2 2003/01/01 18:48:43 schweikh Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcstoimax.c,v 1.3 2007/01/09 00:28:01 imp Exp $");
 
 #include <errno.h>
 #include <inttypes.h>

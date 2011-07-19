@@ -23,6 +23,7 @@
 #import "cls_objcid.h"
 #import "objc_compat.h"
 #import "OverrideMixin.h"
+#import "internal_macros.h"
 
 #define OSX_MODULE_NAME "OSX"
 
@@ -91,7 +92,7 @@ osx_mf_objc_class_method_add(VALUE mdl, VALUE kls, VALUE method_name, VALUE clas
 {
   Class a_class;
   SEL a_sel;
-  char *kls_name;
+  const char *kls_name;
   BOOL direct_override;
 
   method_name = rb_obj_as_string(method_name);
@@ -306,9 +307,10 @@ ocid_get_rbobj (id ocid)
 {
   VALUE result = Qnil;
 
-  @try {  
-    if (([ocid isProxy] && [ocid isRBObject])
-        || [ocid respondsToSelector:@selector(__rbobj__)])
+  @try {
+    if (!IS_UNDOPROXY(ocid)
+        && (([ocid isProxy] && [ocid isRBObject])
+        || [ocid respondsToSelector:@selector(__rbobj__)]))
       result = [ocid __rbobj__];
   } 
   @catch (id exception) {}
@@ -396,6 +398,11 @@ void initialize_mdl_osxobjc()
 		  rb_obj_freeze(rb_str_new2(RUBYCOCOA_RELEASE_DATE)));
   rb_define_const(mOSX, "RUBYCOCOA_SVN_REVISION", 
 		  rb_obj_freeze(rb_str_new2(RUBYCOCOA_SVN_REVISION)));
+#if __LP64__
+  rb_define_const(mOSX, "RUBYCOCOA_BUILD_LP64", Qtrue);
+#else
+  rb_define_const(mOSX, "RUBYCOCOA_BUILD_LP64", Qfalse);
+#endif
 
   char *p = framework_resources_path();
   rb_define_const(mOSX, "RUBYCOCOA_RESOURCES_PATH",

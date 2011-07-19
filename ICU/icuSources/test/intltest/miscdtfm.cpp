@@ -1,5 +1,5 @@
 /***********************************************************************
- * Copyright (c) 1997-2007, International Business Machines Corporation
+ * Copyright (c) 1997-2010, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -43,7 +43,7 @@ UBool
 DateFormatMiscTests::failure(UErrorCode status, const char* msg)
 {
     if(U_FAILURE(status)) {
-        errln(UnicodeString("FAIL: ") + msg + " failed, error " + u_errorName(status));
+        errcheckln(status, UnicodeString("FAIL: ") + msg + " failed, error " + u_errorName(status));
         return TRUE;
     }
 
@@ -113,7 +113,10 @@ DateFormatMiscTests::test4097450()
     UErrorCode status = U_ZERO_ERROR;
     SimpleDateFormat *formatter;
     SimpleDateFormat *resultFormatter = new SimpleDateFormat((UnicodeString)"yyyy", status);
-    failure(status, "new SimpleDateFormat");
+    if (U_FAILURE(status)) {
+        dataerrln("Fail new SimpleDateFormat: %s", u_errorName(status));
+        return;
+    }
 
     logln("Format\tSource\tResult");
     logln("-------\t-------\t-------");
@@ -321,13 +324,13 @@ DateFormatMiscTests::test4117335()
     UErrorCode status = U_ZERO_ERROR;
     DateFormatSymbols *symbols = new DateFormatSymbols(Locale::getJapan(), status);
     if(U_FAILURE(status)) {
-      errln("Failure creating DateFormatSymbols, %s", u_errorName(status));
+      errcheckln(status, "Failure creating DateFormatSymbols, %s", u_errorName(status));
       delete symbols;
       return;
     }
     failure(status, "new DateFormatSymbols");
     int32_t eraCount = 0;
-    const UnicodeString *eras = symbols->getEras(eraCount);
+    const UnicodeString *eras = symbols->getEraNames(eraCount);
     
     logln(UnicodeString("BC = ") + eras[0]);
     if (eras[0] != bc) {

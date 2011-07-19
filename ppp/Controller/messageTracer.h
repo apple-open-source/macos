@@ -23,6 +23,8 @@
 #ifndef _MESSAGETRACER_H
 #define _MESSAGETRACER_H
 
+#import	 <asl.h>
+
 #define CONSTSTR(str) (const char *)str
 
 #define L2TPVPN_CONNECTION_ESTABLISHED_DOMAIN                           CONSTSTR("com.apple.Networking.vpn.disconnect.l2tpipsec")
@@ -38,7 +40,22 @@
 #define PPPSERIALVPN_CONNECTION_NOTESTABLISHED_DOMAIN                   CONSTSTR("com.apple.Networking.vpn.connect.pppserial")
 #define PLAINPPPVPN_CONNECTION_NOTESTABLISHED_DOMAIN                    CONSTSTR("com.apple.Networking.vpn.connect.ppp")
 
-#ifdef TARGET_EMBEDDED_OS
+#define IPSECASLDOMAIN                                                  CONSTSTR("com.apple.Networking.vpn.asl.ipsec")
+#define IPSECASLKEY                                                     CONSTSTR("IPSEC")
+
+#if 1 //TARGET_OS_EMBEDDED
+#define IPSECLOGASLMSG(format, args...) syslog(LOG_NOTICE, format, ##args);
+#else
+#define IPSECLOGASLMSG(format, args...) do {						       		\
+						aslmsg m = asl_new(ASL_TYPE_MSG);			\
+						asl_set(m, ASL_KEY_FACILITY, IPSECASLDOMAIN);		\
+						asl_set(m, ASL_KEY_MSG, IPSECASLKEY);			\
+						asl_log(NULL, m, ASL_LEVEL_NOTICE, format, ##args);	\
+						asl_free(m);						\
+					} while(0)
+#endif
+
+#if TARGET_OS_EMBEDDED
 #define SESSIONTRACERSTOP(service)                                      
 #define SESSIONTRACERESTABLISHED(service)                               
 #else

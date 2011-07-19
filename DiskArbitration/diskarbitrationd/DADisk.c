@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,15 +204,11 @@ static void __DADiskMatch( const void * key, const void * value, void * context 
 
     if ( disk )
     {
-        CFTypeRef compare;
-        
-        compare = CFDictionaryGetValue( disk->_description, key );
-
-        if ( CFEqual( key, CFSTR( kIOPropertyMatchKey ) ) )
+        if ( CFEqual( key, kDADiskDescriptionMediaMatchKey ) )
         {
             boolean_t match = FALSE;
 
-            IOServiceMatchPropertyTable( disk->_media, compare, &match );
+            IOServiceMatchPropertyTable( disk->_media, value, &match );
 
             if ( match == FALSE )
             {
@@ -221,6 +217,10 @@ static void __DADiskMatch( const void * key, const void * value, void * context 
         }
         else
         {
+            CFTypeRef compare;
+        
+            compare = CFDictionaryGetValue( disk->_description, key );
+
             if ( compare == NULL || CFEqual( value, compare ) == FALSE )
             {
                 *( ( void * * ) context ) = NULL;
@@ -275,8 +275,8 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
     status = CFStringGetCString( object, name, sizeof( name ), kCFStringEncodingUTF8 );
     if ( status == FALSE )  goto DADiskCreateFromIOMediaErr;
 
-    strcpy( path, _PATH_DEV );
-    strcat( path, name );
+    strlcpy( path, _PATH_DEV, sizeof( path ) );
+    strlcat( path, name,      sizeof( path ) );
 
     disk = __DADiskCreate( allocator, path );
     if ( disk == NULL )  goto DADiskCreateFromIOMediaErr;
@@ -286,9 +286,9 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
 
     disk->_devicePath[0] = strdup( path );
 
-    strcpy( path, _PATH_DEV );
-    strcat( path, "r" );
-    strcat( path, name );
+    strlcpy( path, _PATH_DEV, sizeof( path ) );
+    strlcat( path, "r",       sizeof( path ) );
+    strlcat( path, name,      sizeof( path ) );
 
     disk->_devicePath[1] = strdup( path );
 
@@ -916,14 +916,14 @@ DADiskRef DADiskCreateFromIOMedia( CFAllocatorRef allocator, io_service_t media 
         {
             if ( CFStringGetCString( object, name, sizeof( name ), kCFStringEncodingUTF8 ) )
             {
-                strcpy( path, _PATH_DEV );
-                strcat( path, name );
+                strlcpy( path, _PATH_DEV, sizeof( path ) );
+                strlcat( path, name,      sizeof( path ) );
 
                 disk->_deviceLink[0] = strdup( path );
 
-                strcpy( path, _PATH_DEV );
-                strcat( path, "r" );
-                strcat( path, name );
+                strlcpy( path, _PATH_DEV, sizeof( path ) );
+                strlcat( path, "r",       sizeof( path ) );
+                strlcat( path, name,      sizeof( path ) );
 
                 disk->_deviceLink[1] = strdup( path );
             }

@@ -1,15 +1,21 @@
-#include <stdio.h>
-
-/* CONFIG rdar://6310599
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
  */
 
-int main(int argc, char *argv[])
+// TEST_CONFIG
+// rdar://6310599
+
+#include <stdio.h>
+#include "test.h"
+
+int main()
 {
  	__block int flags;
  	__block void *isa;
  	
- 	^{ flags=1; isa = (void *)isa; };
-        printf("%s: success\n", argv[0]);
- 	return 0;
+ 	(void)^{ flags=1; isa = (void *)isa; };
+        succeed(__FILE__);
 }
 

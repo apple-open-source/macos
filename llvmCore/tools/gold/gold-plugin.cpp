@@ -12,12 +12,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Config/config.h"
 #include "plugin-api.h"
 
 #include "llvm-c/lto.h"
 
 #include "llvm/Support/raw_ostream.h"
+#include "llvm/System/Errno.h"
 #include "llvm/System/Path.h"
+#include "llvm/System/Program.h"
 
 #include <cerrno>
 #include <cstdlib>
@@ -43,8 +46,6 @@ namespace {
   int api_version = 0;
   int gold_version = 0;
 
-  bool generate_api_file = false;
-
   struct claimed_file {
     lto_module_t M;
     void *handle;
@@ -56,10 +57,50 @@ namespace {
   std::vector<sys::Path> Cleanup;
 }
 
-ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
-                                 int *claimed);
-ld_plugin_status all_symbols_read_hook(void);
-ld_plugin_status cleanup_hook(void);
+namespace options {
+  static bool generate_api_file = false;
+  static std::string bc_path;
+  static const char *as_path = NULL;
+  // Additional options to pass into the code generator.
+  // Note: This array will contain all plugin options which are not claimed 
+  // as plugin exclusive to pass to the code generator.
+  // For example, "generate-api-file" and "as"options are for the plugin 
+  // use only and will not be passed.
+  static std::vector<std::string> extra;
+
+  static void process_plugin_option(const char* opt)
+  {
+    if (opt == NULL)
+      return;
+
+    if (strcmp("generate-api-file", opt) == 0) {
+      generate_api_file = true;
+    } else if (strncmp("as=", opt, 3) == 0) {
+      if (as_path) {
+        (*message)(LDPL_WARNING, "Path to as specified twice. "
+                   "Discarding %s", opt);
+      } else {
+        as_path = strdup(opt + 3);
+      }
+    } else if(llvm::StringRef(opt).startswith("also-emit-llvm=")) {
+      const char *path = opt + strlen("also-emit-llvm=");
+      if (bc_path != "") {
+        (*message)(LDPL_WARNING, "Path to the output IL file specified twice. "
+                   "Discarding %s", opt);
+      } else {
+        bc_path = path;
+      }
+    } else {
+      // Save this option to pass to the code generator.
+      extra.push_back(std::string(opt));
+    }
+  }
+}
+
+static ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
+                                        int *claimed);
+static ld_plugin_status all_symbols_read_hook(void);
+static ld_plugin_status cleanup_hook(void);
 
 extern "C" ld_plugin_status onload(ld_plugin_tv *tv);
 ld_plugin_status onload(ld_plugin_tv *tv) {
@@ -99,11 +140,7 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
         //output_type = LTO_CODEGEN_PIC_MODEL_DYNAMIC_NO_PIC;
         break;
       case LDPT_OPTION:
-        if (strcmp("generate-api-file", tv->tv_u.tv_string) == 0) {
-          generate_api_file = true;
-        } else {
-          (*message)(LDPL_WARNING, "Ignoring flag %s", tv->tv_u.tv_string);
-        }
+        options::process_plugin_option(tv->tv_u.tv_string);
         break;
       case LDPT_REGISTER_CLAIM_FILE_HOOK: {
         ld_plugin_register_claim_file callback;
@@ -164,8 +201,8 @@ ld_plugin_status onload(ld_plugin_tv *tv) {
 /// claim_file_hook - called by gold to see whether this file is one that
 /// our plugin can handle. We'll try to open it and register all the symbols
 /// with add_symbol if possible.
-ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
-                                 int *claimed) {
+static ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
+                                        int *claimed) {
   void *buf = NULL;
   if (file->offset) {
     // Gold has found what might be IR part-way inside of a file, such as
@@ -174,7 +211,7 @@ ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
       (*message)(LDPL_ERROR,
                  "Failed to seek to archive member of %s at offset %d: %s\n", 
                  file->name,
-                 file->offset, strerror(errno));
+                 file->offset, sys::StrError(errno).c_str());
       return LDPS_ERR;
     }
     buf = malloc(file->filesize);
@@ -189,7 +226,7 @@ ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
                  "Failed to read archive member of %s at offset %d: %s\n",
                  file->name,
                  file->offset,
-                 strerror(errno));
+                 sys::StrError(errno).c_str());
       free(buf);
       return LDPS_ERR;
     }
@@ -288,7 +325,7 @@ ld_plugin_status claim_file_hook(const ld_plugin_input_file *file,
 /// At this point, we use get_symbols to see if any of our definitions have
 /// been overridden by a native object file. Then, perform optimization and
 /// codegen.
-ld_plugin_status all_symbols_read_hook(void) {
+static ld_plugin_status all_symbols_read_hook(void) {
   lto_code_gen_t cg = lto_codegen_create();
 
   for (std::list<claimed_file>::iterator I = Modules.begin(),
@@ -296,7 +333,7 @@ ld_plugin_status all_symbols_read_hook(void) {
     lto_codegen_add_module(cg, I->M);
 
   std::ofstream api_file;
-  if (generate_api_file) {
+  if (options::generate_api_file) {
     api_file.open("apifile.txt", std::ofstream::out | std::ofstream::trunc);
     if (!api_file.is_open()) {
       (*message)(LDPL_FATAL, "Unable to open apifile.txt for writing.");
@@ -312,19 +349,17 @@ ld_plugin_status all_symbols_read_hook(void) {
          E = Modules.end(); I != E; ++I) {
       (*get_symbols)(I->handle, I->syms.size(), &I->syms[0]);
       for (unsigned i = 0, e = I->syms.size(); i != e; i++) {
-        if (I->syms[i].resolution == LDPR_PREVAILING_DEF ||
-            (I->syms[i].def == LDPK_COMMON &&
-             I->syms[i].resolution == LDPR_RESOLVED_IR)) {
+        if (I->syms[i].resolution == LDPR_PREVAILING_DEF) {
           lto_codegen_add_must_preserve_symbol(cg, I->syms[i].name);
           anySymbolsPreserved = true;
 
-          if (generate_api_file)
+          if (options::generate_api_file)
             api_file << I->syms[i].name << "\n";
         }
       }
     }
 
-    if (generate_api_file)
+    if (options::generate_api_file)
       api_file.close();
 
     if (!anySymbolsPreserved) {
@@ -336,7 +371,23 @@ ld_plugin_status all_symbols_read_hook(void) {
 
   lto_codegen_set_pic_model(cg, output_type);
   lto_codegen_set_debug_model(cg, LTO_DEBUG_MODEL_DWARF);
+  if (options::as_path) {
+    sys::Path p = sys::Program::FindProgramByName(options::as_path);
+    lto_codegen_set_assembler_path(cg, p.c_str());
+  }
+  // Pass through extra options to the code generator.
+  if (!options::extra.empty()) {
+    for (std::vector<std::string>::iterator it = options::extra.begin();
+         it != options::extra.end(); ++it) {
+      lto_codegen_debug_options(cg, (*it).c_str());
+    }
+  }
 
+  if (options::bc_path != "") {
+    bool err = lto_codegen_write_merged_modules(cg, options::bc_path.c_str());
+    if (err)
+      (*message)(LDPL_FATAL, "Failed to write the output file.");
+  }
   size_t bufsize = 0;
   const char *buffer = static_cast<const char *>(lto_codegen_compile(cg,
                                                                      &bufsize));
@@ -348,8 +399,9 @@ ld_plugin_status all_symbols_read_hook(void) {
     (*message)(LDPL_ERROR, "%s", ErrMsg.c_str());
     return LDPS_ERR;
   }
-  raw_fd_ostream *objFile = new raw_fd_ostream(uniqueObjPath.c_str(), true,
-                                               ErrMsg);
+  raw_fd_ostream *objFile =
+    new raw_fd_ostream(uniqueObjPath.c_str(), ErrMsg,
+                       raw_fd_ostream::F_Binary);
   if (!ErrMsg.empty()) {
     delete objFile;
     (*message)(LDPL_ERROR, "%s", ErrMsg.c_str());
@@ -372,7 +424,7 @@ ld_plugin_status all_symbols_read_hook(void) {
   return LDPS_OK;
 }
 
-ld_plugin_status cleanup_hook(void) {
+static ld_plugin_status cleanup_hook(void) {
   std::string ErrMsg;
 
   for (int i = 0, e = Cleanup.size(); i != e; ++i)

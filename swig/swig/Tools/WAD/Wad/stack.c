@@ -26,7 +26,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/stack.c,v 1.24 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: stack.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* -----------------------------------------------------------------------------
  * new_frame()

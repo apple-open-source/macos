@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -252,7 +252,6 @@ typedef UInt32 IOMediaState;
 #include <IOKit/storage/IOBlockStorageDevice.h>
 #include <IOKit/storage/IOMedia.h>
 #include <IOKit/storage/IOStorage.h>
-#include <kern/thread_call.h>
 
 /*!
  * @class IOBlockStorageDriver
@@ -344,7 +343,11 @@ protected:
 
     struct ExpansionData
     {
-        bool           mediaDirtied;
+#ifdef __LP64__
+        UInt64         reserved0000;
+#else /* !__LP64__ */
+        UInt32         reserved0000;
+#endif /* !__LP64__ */
         UInt64         maxReadBlockTransfer;
         UInt64         maxWriteBlockTransfer;
         IONotifier *   powerEventNotifier;
@@ -362,8 +365,6 @@ protected:
     };
     ExpansionData * _expansionData;
 
-    #define _mediaDirtied                    \
-              IOBlockStorageDriver::_expansionData->mediaDirtied
     #define _maxReadBlockTransfer            \
               IOBlockStorageDriver::_expansionData->maxReadBlockTransfer
     #define _maxWriteBlockTransfer           \
@@ -475,6 +476,8 @@ protected:
     };
 
     static const UInt8 kBlockTypeStandard = 0x00;
+
+    using IOService::open;
 
     /*
      * Free all of this object's outstanding resources.
@@ -725,29 +728,9 @@ protected:
 
     virtual bool handleStart(IOService * provider);
 
-    /*!
-     * @function handleYield
-     * @discussion
-     * Stop the block storage driver.
-     *
-     * This method is called as a result of a kIOMessageServiceIsRequestingClose
-     * provider message.  The argument is passed in as-is from the message.  The
-     * options are unused.
-     *
-     * This is where the driver should clean up its state in preparation for
-     * removal from the system.
-     *
-     * Note that this method is called from within the yield() routine.
-     *
-     * This method is called with the arbitration lock held.
-     * @param provider
-     * This object's provider.
-     */
-
     virtual bool handleYield(IOService *  provider,
                              IOOptionBits options  = 0,
-                             void *       argument = 0);
-
+                             void *       argument = 0) __attribute__ ((deprecated));
 
     /*!
      * @function getMediaBlockSize
@@ -761,6 +744,7 @@ protected:
 
 public:
 
+    using IOStorage::open;
     using IOStorage::read;
     using IOStorage::write;
 
@@ -788,17 +772,13 @@ public:
 
     virtual void stop(IOService * provider);
 
-    /*
-     * This method is called as a result of a kIOMessageServiceIsRequestingClose
-     * provider message.  The argument is passed in as-is from the message.  The
-     * options are unused.
-     *
-     * This method's implementation is not typically overridden.
-     */
+    virtual bool didTerminate(IOService *  provider,
+                              IOOptionBits options,
+                              bool *       defer);
 
     virtual bool yield(IOService *  provider,
                        IOOptionBits options  = 0,
-                       void *       argument = 0);
+                       void *       argument = 0) __attribute__ ((deprecated));
 
     /*!
      * @function read
@@ -910,6 +890,53 @@ public:
                            UInt32            options = 0);
 
     /*!
+     * @function lockPhysicalExtents
+     * @discussion
+     * Lock the contents of the storage object against relocation temporarily,
+     * for the purpose of getting physical extents.
+     * @param client
+     * Client requesting the operation.
+     * @result
+     * Returns true if the lock was successful, false otherwise.
+     */
+
+    virtual bool lockPhysicalExtents(IOService * client);
+
+    /*!
+     * @function copyPhysicalExtent
+     * @discussion
+     * Convert the specified byte offset into a physical byte offset, relative
+     * to a physical storage object.  This call should only be made within the
+     * context of lockPhysicalExtents().
+     * @param client
+     * Client requesting the operation.
+     * @param byteStart
+     * Starting byte offset for the operation.  Returns a physical byte offset,
+     * relative to the physical storage object, on success.
+     * @param byteCount
+     * Size of the operation.  Returns the actual number of bytes which can be
+     * transferred, relative to the physical storage object, on success. 
+     * @result
+     * A reference to the physical storage object, which should be released by
+     * the caller, or a null on error.
+     */
+
+    virtual IOStorage * copyPhysicalExtent(IOService * client,
+                                           UInt64 *    byteStart,
+                                           UInt64 *    byteCount);
+
+    /*!
+     * @function unlockPhysicalExtents
+     * @discussion
+     * Unlock the contents of the storage object for relocation again.  This
+     * call must balance a successful call to lockPhysicalExtents().
+     * @param client
+     * Client requesting the operation.
+     */
+
+    virtual void unlockPhysicalExtents(IOService * client);
+
+    /*!
      * @function ejectMedia
      * @discussion
      * Eject the media from the device.  The driver is responsible for tearing
@@ -934,31 +961,9 @@ public:
 
     virtual IOReturn formatMedia(UInt64 byteCapacity);
 
-    /*!
-     * @function lockMedia
-     * @discussion
-     * Lock or unlock the ejectable media in the device, that is, prevent
-     * it from manual ejection or allow its manual ejection.
-     * @param lock
-     * Pass true to lock the media, otherwise pass false to unlock the media.
-     * @result
-     * An IOReturn code.
-     */
+    virtual IOReturn lockMedia(bool lock) __attribute__ ((deprecated));
 
-    virtual IOReturn lockMedia(bool lock);
-
-    /*!
-     * @function pollMedia
-     * @discussion
-     * Poll for the presence of media in the device.  The driver is responsible
-     * for tearing down the media object it created should the media have been
-     * removed since the last poll, and vice-versa, creating the media object
-     * should new media have arrived since the last poll.
-     * @result
-     * An IOReturn code.
-     */
-
-    virtual IOReturn pollMedia();
+    virtual IOReturn pollMedia() __attribute__ ((deprecated));
 
     /*!
      * @function isMediaEjectable
@@ -982,28 +987,17 @@ public:
     virtual bool isMediaRemovable() const;
 #endif /* __LP64__ */
 
-    /*!
-     * @function isMediaPollExpensive
-     * @discussion
-     * Ask the driver whether a pollMedia() would be an expensive operation,
-     * that is, one that requires the device to spin up or delay for a while.
-     * @result
-     * Returns true if polling the media is expensive, false otherwise.
-     */
+    virtual bool isMediaPollExpensive() const __attribute__ ((deprecated));
 
-    virtual bool isMediaPollExpensive() const;
+    virtual bool isMediaPollRequired() const __attribute__ ((deprecated));
 
     /*!
-     * @function isMediaPollRequired
+     * @function isMediaWritable
      * @discussion
-     * Ask the driver whether the block storage device requires polling,  which is
-     * typically required for devices without the ability to asynchronously detect
-     * the arrival or departure of the media.
+     * Ask the driver whether the media is writable.
      * @result
-     * Returns true if polling the media is required, false otherwise.
+     * Returns true if the media is writable, false otherwise.
      */
-
-    virtual bool isMediaPollRequired() const;
 
     virtual bool isMediaWritable() const;
 
@@ -1096,7 +1090,16 @@ public:
 protected:
 
     IOLock *      _deblockRequestWriteLock;
-    thread_call_t _pollerCall;
+
+#ifdef __LP64__
+    UInt64        _reserved1024;
+#else /* !__LP64__ */
+    UInt32        _reserved1024;
+#endif /* !__LP64__ */
+
+    static void breakUpRequestExecute(void * parameter, void * target);
+
+    static void deblockRequestExecute(void * parameter, void * target);
 
     /*
      * This is the completion routine for the broken up breaker sub-requests.
@@ -1131,24 +1134,9 @@ protected:
                                          IOReturn status,
                                          UInt64   actualByteCount);
 
-    /*
-     * Schedule the poller mechanism.
-     */
+    virtual void schedulePoller() __attribute__ ((deprecated));
 
-    virtual void schedulePoller();
-
-    /*
-     * Unschedule the poller mechanism.
-     */
-
-    virtual void unschedulePoller();
-
-    /*
-     * This method is the timeout handler for the poller mechanism.  It polls
-     * for media and reschedules another timeout if there are still no opens.
-     */
-
-    static void poller(void *, void *);
+    virtual void unschedulePoller() __attribute__ ((deprecated));
 
     /*
      * This method is the power event handler for restarts and shutdowns.
@@ -1177,21 +1165,9 @@ protected:
      */
     bool		_ejectable;		/* software-ejectable */
 
-    /*!
-     * @var _lockable
-     * True if the media can be locked in the device under software control.
-     */
-    bool		_lockable;		/* software lockable in device */
-    /*!
-     * @var _pollIsRequired
-     * True if we must poll to detect media insertion or removal.
-     */
-    bool		_pollIsRequired;
-    /*!
-     * @var _pollIsExpensive
-     * True if polling is expensive; False if not.
-     */
-    bool		_pollIsExpensive;
+    UInt16		_reserved1104;
+
+    UInt32		_openAssertions;
 
     /* Media info and states: */
 
@@ -1200,38 +1176,35 @@ protected:
      * A pointer to the media object we have instantiated (if any).
      */
     IOMedia *		_mediaObject;
+
     /*!
      * @var _mediaType
      * Type of the media (can be used to differentiate between the
      * different types of CD media, DVD media, etc).
      */
     UInt32		_mediaType;
-    /*!
-     * @var _mediaPresent
-     * True if media is present in the device; False if not.
-     */
-    bool		_mediaPresent;		/* media is present and ready */
+
+    UInt8		_reserved1248;
+
     /*!
      * @var _writeProtected
      * True if the media is write-protected; False if not.
      */
     bool		_writeProtected;
-    
-private:
 
-    /*!
-     * @var _mediaStateLock
-     * A lock used to protect during media checks.
-     */
-    IOLock *		_mediaStateLock;
-
-protected:
+    UInt16		_reserved1264;
+#ifdef __LP64__
+    UInt64		_reserved1280;
+#else /* !__LP64__ */
+    UInt32		_reserved1280;
+#endif /* !__LP64__ */
 
     /*!
      * @var _mediaBlockSize
      * The block size of the media, in bytes.
      */
     UInt64		_mediaBlockSize;
+
     /*!
      * @var _maxBlockNumber
      * The maximum allowable block number for the media, zero-based.

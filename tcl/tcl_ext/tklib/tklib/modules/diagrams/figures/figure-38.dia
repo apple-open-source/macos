@@ -1,0 +1,12 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set P [block {
+    box "foo"; ellipse "bar"
+}]
+set Q [block {
+    block {
+	box "baz"; ellipse "quxx"
+    }
+    text "random text";
+}]
+arrow from [2nd last block]

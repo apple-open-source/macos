@@ -1,6 +1,6 @@
 package DBI::Gofer::Transport::stream;
 
-#   $Id: stream.pm 10087 2007-10-16 12:42:37Z timbo $
+#   $Id: stream.pm 12536 2009-02-24 22:37:09Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -15,7 +15,7 @@ use DBI::Gofer::Execute;
 
 use base qw(DBI::Gofer::Transport::pipeone Exporter);
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10087 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 12536 $ =~ /(\d+)/o);
 
 our @EXPORT = qw(run_stdio_hex);
 
@@ -46,7 +46,7 @@ sub run_stdio_hex {
 
         # there's no way to access the stats currently
         # so this just serves as a basic test and illustration of update_stats()
-        $executor->update_stats($request, $response, $frozen_request, $frozen_response, $time_received);
+        $executor->update_stats($request, $response, $frozen_request, $frozen_response, $time_received, 1);
     }
     DBI->trace_msg("$0 ending (pid $$)\n");
 }

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/back-meta.h,v 1.64.2.10 2008/07/10 00:28:39 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-meta/back-meta.h,v 1.64.2.17 2010/04/15 22:22:28 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * Portions Copyright 1999-2003 Howard Chu.
  * All rights reserved.
@@ -117,7 +117,8 @@ ldap_back_map_attrs(
 	struct ldapmap *at_map,
 	AttributeName *a,
 	int remap,
-	char ***mapped_attrs );
+	char ***mapped_attrs,
+	void *memctx );
 
 extern int ldap_back_map_config(
 	struct ldapmap	*oc_map,
@@ -132,7 +133,8 @@ ldap_back_filter_map_rewrite(
 	dncookie	*dc,
 	Filter		*f,
 	struct berval	*fstr,
-	int		remap );
+	int		remap,
+	void		*memctx );
 
 /* suffix massaging by means of librewrite */
 #ifdef ENABLE_REWRITE
@@ -146,7 +148,8 @@ suffix_massage_config( struct rewrite_info *info,
 extern int
 ldap_back_referral_result_rewrite(
 	dncookie	*dc,
-	BerVarray	a_vals );
+	BerVarray	a_vals,
+	void		*memctx );
 extern int
 ldap_dnattr_rewrite(
 	dncookie	*dc,
@@ -221,14 +224,16 @@ typedef struct metasingleconn_t {
 } metasingleconn_t;
 
 typedef struct metaconn_t {
-	Connection		*mc_conn;
-#define	lc_conn			mc_conn
-	unsigned		mc_refcnt;
-
-	time_t			mc_create_time;
-	time_t			mc_time;
+	ldapconn_base_t		lc_base;
+#define	mc_base			lc_base
+#define	mc_conn			mc_base.lcb_conn
+#define	mc_local_ndn		mc_base.lcb_local_ndn
+#define	mc_refcnt		mc_base.lcb_refcnt
+#define	mc_create_time		mc_base.lcb_create_time
+#define	mc_time			mc_base.lcb_time
 	
-	struct berval          	mc_local_ndn;
+	LDAP_TAILQ_ENTRY(metaconn_t)	mc_q;
+
 	/* NOTE: msc_mscflags is used to recycle the #define
 	 * in metasingleconn_t */
 	unsigned		msc_mscflags;
@@ -242,8 +247,6 @@ typedef struct metaconn_t {
 #define META_BOUND_ALL		(-2)
 
 	struct metainfo_t	*mc_info;
-
-	LDAP_TAILQ_ENTRY(metaconn_t)	mc_q;
 
 	/* supersedes the connection stuff */
 	metasingleconn_t	mc_conns[ 1 ];
@@ -301,6 +304,14 @@ typedef struct metatarget_t {
 #define	META_BACK_TGT_ISSET(mt,f)		( ( (mt)->mt_flags & (f) ) == (f) )
 #define	META_BACK_TGT_ISMASK(mt,m,f)		( ( (mt)->mt_flags & (m) ) == (f) )
 
+#define META_BACK_TGT_SAVECRED(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_SAVECRED )
+
+#define META_BACK_TGT_USE_TLS(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_USE_TLS )
+#define META_BACK_TGT_PROPAGATE_TLS(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_PROPAGATE_TLS )
+#define META_BACK_TGT_TLS_CRITICAL(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_TLS_CRITICAL )
+
+#define META_BACK_TGT_CHASE_REFERRALS(mt)	META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_CHASE_REFERRALS )
+
 #define	META_BACK_TGT_T_F(mt)			META_BACK_TGT_ISMASK( (mt), LDAP_BACK_F_T_F_MASK, LDAP_BACK_F_T_F )
 #define	META_BACK_TGT_T_F_DISCOVER(mt)		META_BACK_TGT_ISMASK( (mt), LDAP_BACK_F_T_F_MASK2, LDAP_BACK_F_T_F_DISCOVER )
 
@@ -316,6 +327,9 @@ typedef struct metatarget_t {
 #endif /* SLAP_CONTROL_X_SESSION_TRACKING */
 
 #define	META_BACK_TGT_NOREFS(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_NOREFS )
+#define	META_BACK_TGT_NOUNDEFFILTER(mt)		META_BACK_TGT_ISSET( (mt), LDAP_BACK_F_NOUNDEFFILTER )
+
+	slap_mask_t		mt_rep_flags;
 
 	int			mt_version;
 	time_t			mt_network_timeout;
@@ -374,13 +388,13 @@ typedef struct metainfo_t {
 	unsigned		mi_flags;
 #define	li_flags		mi_flags
 /* uses flags as defined in <back-ldap/back-ldap.h> */
-#define	META_BACK_F_ONERR_STOP		(0x00100000U)
-#define	META_BACK_F_ONERR_REPORT	(0x00200000U)
+#define	META_BACK_F_ONERR_STOP		(0x01000000U)
+#define	META_BACK_F_ONERR_REPORT	(0x02000000U)
 #define	META_BACK_F_ONERR_MASK		(META_BACK_F_ONERR_STOP|META_BACK_F_ONERR_REPORT)
-#define	META_BACK_F_DEFER_ROOTDN_BIND	(0x00400000U)
-#define	META_BACK_F_PROXYAUTHZ_ALWAYS	(0x00800000U)	/* users always proxyauthz */
-#define	META_BACK_F_PROXYAUTHZ_ANON	(0x01000000U)	/* anonymous always proxyauthz */
-#define	META_BACK_F_PROXYAUTHZ_NOANON	(0x02000000U)	/* anonymous remains anonymous */
+#define	META_BACK_F_DEFER_ROOTDN_BIND	(0x04000000U)
+#define	META_BACK_F_PROXYAUTHZ_ALWAYS	(0x08000000U)	/* users always proxyauthz */
+#define	META_BACK_F_PROXYAUTHZ_ANON	(0x10000000U)	/* anonymous always proxyauthz */
+#define	META_BACK_F_PROXYAUTHZ_NOANON	(0x20000000U)	/* anonymous remains anonymous */
 
 #define	META_BACK_ONERR_STOP(mi)	LDAP_BACK_ISSET( (mi), META_BACK_F_ONERR_STOP )
 #define	META_BACK_ONERR_REPORT(mi)	LDAP_BACK_ISSET( (mi), META_BACK_F_ONERR_REPORT )

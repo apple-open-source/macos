@@ -185,7 +185,7 @@ AC_DEFUN([APR_FIND_APU], [
     fi
     dnl if we have not found anything yet and have bundled source, use that
     if test "$apu_found" = "no" && test -d "$1"; then
-      apu_temp_abs_srcdir="`cd $1 && pwd`"
+      apu_temp_abs_srcdir="`cd \"$1\" && pwd`"
       apu_found="reconfig"
       apu_bundled_major="`sed -n '/#define.*APU_MAJOR_VERSION/s/^[^0-9]*\([0-9]*\).*$/\1/p' \"$1/include/apu_version.h\"`"
       case $apu_bundled_major in

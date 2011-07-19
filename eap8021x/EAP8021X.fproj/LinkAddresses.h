@@ -59,4 +59,4 @@ LinkAddresses_element(LinkAddressesRef list, int i);
 extern void
 sockaddr_dl_print(struct sockaddr_dl * dl_p);
 
-#endif _EAP8021X_LINKADDRESSES_H
+#endif /* _EAP8021X_LINKADDRESSES_H */

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2003-2006, International Business Machines Corporation and
+ * Copyright (c) 2003-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -47,7 +47,7 @@ static int32_t gMutexFailures = 0;
 
 #define TEST_STATUS(status, expected) \
 if (status != expected) { \
-log_err("FAIL at  %s:%d. Actual status = \"%s\";  Expected status = \"%s\"\n", \
+log_err_status(status, "FAIL at  %s:%d. Actual status = \"%s\";  Expected status = \"%s\"\n", \
   __FILE__, __LINE__, u_errorName(status), u_errorName(expected)); gMutexFailures++; }
 
 
@@ -301,7 +301,7 @@ static void TestMutexFunctions() {
 
     /* u_setMutexFunctions() should work with null or non-null context pointer */
     status = U_ZERO_ERROR;
-    u_setMutexFunctions(&gContext, myMutexInit, myMutexDestroy, myMutexLock, myMutexUnlock, &status);
+    u_setMutexFunctions(NULL, myMutexInit, myMutexDestroy, myMutexLock, myMutexUnlock, &status);
     TEST_STATUS(status, U_ZERO_ERROR);
     u_setMutexFunctions(&gContext, myMutexInit, myMutexDestroy, myMutexLock, myMutexUnlock, &status);
     TEST_STATUS(status, U_ZERO_ERROR);
@@ -318,6 +318,14 @@ static void TestMutexFunctions() {
     /* Doing ICU operations should cause allocations to come through our test mutexes */
     gBlockCount = 0;
     status = U_ZERO_ERROR;
+    /*
+     * Note: If we get assertion failures here because
+     * uresbund.c:resbMutex's fMagic is wrong, check if ures_flushCache() did
+     * flush and delete the cache. If it fails to empty the cache, it will not
+     * delete it and ures_cleanup() will not destroy resbMutex.
+     * That would leave a mutex from the default implementation which does not
+     * pass this test implementation's assertions.
+     */
     rb = ures_open(NULL, "es", &status);
     TEST_STATUS(status, U_ZERO_ERROR);
     TEST_ASSERT(gTotalMutexesInitialized > 0);

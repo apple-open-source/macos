@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1999-2008, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
  *  ucnv.h:
@@ -49,6 +49,7 @@
 
 #include "unicode/ucnv_err.h"
 #include "unicode/uenum.h"
+#include "unicode/localpointer.h"
 
 #ifndef __USET_H__
 
@@ -232,7 +233,10 @@ U_CDECL_END
 
 /**
  * Converter option for specifying a version selector (0..9) for some converters.
- * For example, ucnv_open("UTF-7,version=1", &errorCode);
+ * For example, 
+ * \code
+ *   ucnv_open("UTF-7,version=1", &errorCode);
+ * \endcode
  * See convrtrs.txt.
  *
  * @see ucnv_open
@@ -519,6 +523,25 @@ ucnv_safeClone(const UConverter *cnv,
  */
 U_STABLE void  U_EXPORT2
 ucnv_close(UConverter * converter);
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUConverterPointer
+ * "Smart pointer" class, closes a UConverter via ucnv_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUConverterPointer, UConverter, ucnv_close);
+
+U_NAMESPACE_END
+
+#endif
 
 /**
  * Fills in the output parameter, subChars, with the substitution characters
@@ -870,7 +893,7 @@ ucnv_getStarters(const UConverter* converter,
 typedef enum UConverterUnicodeSet {
     /** Select the set of roundtrippable Unicode code points. @stable ICU 2.6 */
     UCNV_ROUNDTRIP_SET,
-    /** Select the set of Unicode code points with roundtrip or fallback mappings. @draft ICU 4.0 */
+    /** Select the set of Unicode code points with roundtrip or fallback mappings. @stable ICU 4.0 */
     UCNV_ROUNDTRIP_AND_FALLBACK_SET,
     /** Number of UConverterUnicodeSet selectors. @stable ICU 2.6 */
     UCNV_SET_COUNT
@@ -1363,7 +1386,7 @@ ucnv_getNextUChar(UConverter * converter,
  *         length=strlen(s);
  *     }
  *     target=u8;
- *     ucnv_convertEx(cnv, utf8Cnv,
+ *     ucnv_convertEx(utf8Cnv, cnv,
  *                    &target, u8+capacity,
  *                    &s, s+length,
  *                    NULL, NULL, NULL, NULL,
@@ -1787,6 +1810,9 @@ ucnv_getCanonicalName(const char *alias, const char *standard, UErrorCode *pErro
  * It is faster if you pass a NULL argument to ucnv_open the
  * default converter.
  *
+ * If U_CHARSET_IS_UTF8 is defined to 1 in utypes.h then this function
+ * always returns "UTF-8".
+ *
  * @return returns the current default converter name.
  *         Storage owned by the library
  * @see ucnv_setDefaultName
@@ -1802,6 +1828,10 @@ ucnv_getDefaultName(void);
  * should be called during application initialization. Most of the time, the
  * results from ucnv_getDefaultName() or ucnv_open with a NULL string argument
  * is sufficient for your application.
+ *
+ * If U_CHARSET_IS_UTF8 is defined to 1 in utypes.h then this function
+ * does nothing.
+ *
  * @param name the converter name to be the default (must be known by ICU).
  * @see ucnv_getDefaultName
  * @system

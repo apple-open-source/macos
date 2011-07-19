@@ -1,22 +1,23 @@
 /*
-    Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ * Copyright (C) 2011 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -40,15 +41,16 @@ namespace WebCore {
 static WTF::RefCountedLeakCounter instanceCounter("WebCoreSVGElementInstance");
 #endif
 
-SVGElementInstance::SVGElementInstance(SVGUseElement* useElement, PassRefPtr<SVGElement> originalElement)
-    : m_useElement(useElement)
+SVGElementInstance::SVGElementInstance(SVGUseElement* correspondingUseElement, SVGUseElement* directUseElement, PassRefPtr<SVGElement> originalElement)
+    : m_correspondingUseElement(correspondingUseElement)
+    , m_directUseElement(directUseElement)
     , m_element(originalElement)
     , m_previousSibling(0)
     , m_nextSibling(0)
     , m_firstChild(0)
     , m_lastChild(0)
 {
-    ASSERT(m_useElement);
+    ASSERT(m_correspondingUseElement);
     ASSERT(m_element);
 
     // Register as instance for passed element.
@@ -131,19 +133,13 @@ void SVGElementInstance::removeAllEventListeners()
     m_element->removeAllEventListeners();
 }
 
-bool SVGElementInstance::dispatchEvent(PassRefPtr<Event> prpEvent)
+bool SVGElementInstance::dispatchEvent(PassRefPtr<Event> event)
 {
-    RefPtr<EventTarget> protect = this;
-    RefPtr<Event> event = prpEvent;
-
-    event->setTarget(this);
-
     SVGElement* element = shadowTreeElement();
     if (!element)
         return false;
 
-    RefPtr<FrameView> view = element->document()->view();
-    return element->dispatchGenericEvent(event.release());
+    return element->dispatchEvent(event);
 }
 
 EventTargetData* SVGElementInstance::eventTargetData()

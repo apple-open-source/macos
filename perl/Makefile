@@ -3,10 +3,11 @@
 ##---------------------------------------------------------------------
 Project = perl
 VERSIONERDIR = /usr/local/versioner
-DEFAULT = 5.10
-VERSIONS = 5.10 5.8
-ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
-VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(SRCROOT)/versioner -framework CoreFoundation
+DEFAULT = 5.12
+VERSIONS = 5.10 5.12
+OTHERVERSIONS = $(filter-out $(DEFAULT),$(VERSIONS))
+ORDEREDVERS := $(DEFAULT) $(OTHERVERSIONS)
+VERSIONERFLAGS = -std=gnu99 -Wall -DFORCE_TWO_NUMBER_VERSIONS -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(SRCROOT)/versioner -framework CoreFoundation
 
 RSYNC = rsync -rlpt
 PWD = $(shell pwd)
@@ -43,21 +44,24 @@ export RC_ProjectName = $(Project)
 endif
 ##---------------------------------------------------------------------
 # 6320578 - when the default gcc compiler version changes, the recorded
-# compiler options for compiler python was originally built with may be
+# compiler options for compiler perl was originally built with may be
 # incompatible.  So we force perl to use a version-specific name for the
 # compiler, which will be recorded, and used in all subsequent extension
 # (and other) builds.
+#
+# 7215115 - for now, we assume cc is a symbolic link to the version-specific
+# name of the compiler.  If/when this changes, this fix will have to be redone.
 ##---------------------------------------------------------------------
-export WITH_GCC = gcc-$(shell gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/')
+export WITH_GCC = $(shell test -L /usr/bin/cc && basename `readlink /usr/bin/cc` || gcc-`gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
 
-# define environment variables for each major version to the full version
-# number (e.g., export ENV_VERSION5.x = 5.x.y)
+# define environment variables for each the default and alternate versions
+# (ENV_VERSION_DEFAULT and ENV_VERSION_ALT).  Only 2 versions are currently supported.
 define VERSION_template
- ifeq "$$(shell [ ! -e $$(SRCROOT)/$(1)/GNUmakefile ] || echo YES)" "YES"
- export ENV_VERSION$(subst .,_,$(1)) = $$(shell sed -n '/^VERSION = /s///p' $$(SRCROOT)/$(1)/GNUmakefile)
- endif
+ export ENV_VERSION$(if $(filter $(DEFAULT),$(1)),_DEFAULT,_ALT) = $(1)
 endef
 $(foreach vers,$(VERSIONS),$(eval $(call VERSION_template,$(vers))))
+
+ARCHFLAGS := $(shell perl -e 'printf "-arch %s\n", join(" -arch ", split(" ", $$ENV{RC_ARCHS}));')
 
 FIX = $(SRCROOT)/fix
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
@@ -84,6 +88,7 @@ build::
 		OBJROOT="$(OBJROOT)/$$vers" \
 		DSTROOT="$(OBJROOT)/$$vers/DSTROOT" \
 		SYMROOT="$(SYMROOT)/$$vers" \
+		ARCHFLAGS='$(ARCHFLAGS)' \
 		RC_ARCHS='$(RC_ARCHS)' \
 		PERLVERSION=$$vers >> "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		touch "$(OBJROOT)/$$vers/.ok" && \
@@ -95,8 +100,7 @@ build::
 	(cd $(FIX) && rsync -pt $(VERSIONERFIX) $(DSTROOT)$(VERSIONERDIR)/$(Project)/fix) && \
 	echo DEFAULT = $(DEFAULT) > $(DSTROOT)$(VERSIONVERSIONS) && \
 	for vers in $(VERSIONS); do \
-	    v=`sed -n '/^VERSION = /s///p' $(SRCROOT)/$$vers/GNUmakefile` && \
-	    echo $$v >> $(DSTROOT)$(VERSIONVERSIONS) && \
+	    echo $$vers >> $(DSTROOT)$(VERSIONVERSIONS) && \
 	    cat $(SYMROOT)/$$vers/LOG && \
 	    rm -f $(SYMROOT)/$$vers/LOG || exit 1; \
 	done && \
@@ -106,6 +110,14 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
+
+installsrc: custominstallsrc
+
+custominstallsrc:
+	@set -x && \
+	for vers in $(VERSIONS); do \
+	    make -C "$(SRCROOT)/$$vers" custominstallsrc SRCROOT="$(SRCROOT)/$$vers" || exit 1; \
+	done
 
 merge: mergebegin mergedefault mergeversions mergeplist mergebin mergeman
 
@@ -131,24 +143,23 @@ $(OBJROOT)/wrappers:
 	@set -x && \
 	touch $(OBJROOT)/wrappers && \
 	for vers in $(ORDEREDVERS); do \
-	    v=`sed -n '/^VERSION = /s///p' $(SRCROOT)/$$vers/GNUmakefile` && \
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEBIN) && \
 	    for f in *; do \
 		if file $$f | head -1 | fgrep -q script; then \
-		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$v&/"` && \
+		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
-		    sed "s/@VERSION@/$$v/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
+		    sed "s/@VERSION@/$$vers/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
 		    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
 			ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
 		    fi; \
-		elif echo $$f | grep -q "[^0-9]$$v"; then \
+		elif echo $$f | grep -q "[^0-9]$$vers"; then \
 		    true; \
 		else \
 		    echo $$f >> $(OBJROOT)/wrappers && \
-		    if [ -e $$f$$v ]; then \
-			ditto $$f$$v $(DSTROOT)$(MERGEBIN)/$$f$$v; \
+		    if [ -e $$f$$vers ]; then \
+			ditto $$f$$vers $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
 		    else \
-			ditto $$f $(DSTROOT)$(MERGEBIN)/$$f$$v; \
+			ditto $$f $(DSTROOT)$(MERGEBIN)/$$f$$vers; \
 		    fi \
 		fi || exit 1; \
 	    done || exit 1; \
@@ -157,14 +168,13 @@ $(OBJROOT)/wrappers:
 
 $(DSTROOT)$(VERSIONHEADER):
 	@set -x && ( \
-	    printf '#define DEFAULTVERSION "%s"\n' `sed -n '/^VERSION = /s///p' $(SRCROOT)/$(DEFAULT)/GNUmakefile` && \
+	    printf '#define DEFAULTVERSION "%s"\n' $(DEFAULT) && \
 	    echo '#define NVERSIONS (sizeof(versions) / sizeof(const char *))' && \
 	    echo '#define PROJECT "$(Project)"' && \
 	    printf '#define UPROJECT "%s"\n' `echo $(Project) | tr a-z A-Z` && \
 	    echo 'static const char *versions[] = {' && \
 	    touch $(OBJROOT)/versions && \
 	    for v in $(VERSIONS); do \
-		v=`sed -n '/^VERSION = /s///p' $(SRCROOT)/$$v/GNUmakefile` && \
 		echo $$v >> $(OBJROOT)/versions || exit 1; \
 	    done && \
 	    for v in `sort -u $(OBJROOT)/versions`; do \
@@ -183,12 +193,11 @@ mergeman: domergeman customman listman
 domergeman:
 	@set -x && \
 	for vers in $(ORDEREDVERS); do \
-	    v=`sed -n '/^VERSION = /s///p' $(SRCROOT)/$$vers/GNUmakefile` && \
 	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEMAN) && \
 	    for d in man*; do \
 		cd $$d && \
 		for f in *.gz; do \
-		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$v&/"` && \
+		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$vers&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
 		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
 			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
@@ -201,7 +210,9 @@ domergeman:
 CUSTOMTEMP = .temp.1
 customman: $(OBJROOT)/wrappers
 	@set -x && \
-	cp -f $(FIX)/$(Project).1 $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP) && \
+	sed -e 's/@VERSION_DEFAULT@/$(ENV_VERSION_DEFAULT)/g' \
+	    -e 's/@VERSION_ALT@/$(ENV_VERSION_ALT)/g' \
+	    $(FIX)/$(Project).1 > $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP) && \
 	gzip $(DSTROOT)$(MERGEMAN)/man1/$(CUSTOMTEMP) && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
 	    rm -f $(DSTROOT)$(MERGEMAN)/man1/$$w.1.gz && \

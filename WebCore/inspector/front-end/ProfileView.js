@@ -81,8 +81,10 @@ WebInspector.CPUProfileView = function(profile)
     this.profile = profile;
 
     var self = this;
-    function profileCallback(profile)
+    function profileCallback(error, profile)
     {
+        if (error)
+            return;
         self.profile.head = profile.head;
         self._assignParentsInProfile();
       
@@ -94,8 +96,7 @@ WebInspector.CPUProfileView = function(profile)
         self._updatePercentButton();
     }
 
-    var callId = WebInspector.Callback.wrap(profileCallback);
-    InspectorBackend.getProfile(callId, this.profile.uid);
+    ProfilerAgent.getProfile(this.profile.typeId, this.profile.uid, profileCallback);
 }
 
 WebInspector.CPUProfileView.prototype = {
@@ -594,9 +595,9 @@ WebInspector.CPUProfileType.prototype = {
         this._recording = !this._recording;
 
         if (this._recording)
-            InspectorBackend.startProfiling();
+            ProfilerAgent.start();
         else
-            InspectorBackend.stopProfiling();
+            ProfilerAgent.stop();
     },
 
     get welcomeMessage()
@@ -611,7 +612,7 @@ WebInspector.CPUProfileType.prototype = {
 
     createSidebarTreeElementForProfile: function(profile)
     {
-        return new WebInspector.ProfileSidebarTreeElement(profile);
+        return new WebInspector.ProfileSidebarTreeElement(profile, WebInspector.UIString("Profile %d"), "profile-sidebar-tree-item");
     },
 
     createView: function(profile)

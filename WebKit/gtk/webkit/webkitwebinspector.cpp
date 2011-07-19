@@ -22,17 +22,23 @@
 #include "config.h"
 #include "webkitwebinspector.h"
 
+#include "DumpRenderTreeSupportGtk.h"
 #include "FocusController.h"
 #include "Frame.h"
-#include <glib/gi18n-lib.h>
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "InspectorClientGtk.h"
+#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "IntPoint.h"
 #include "Page.h"
+#include "RenderLayer.h"
 #include "RenderView.h"
+#include "webkit/WebKitDOMNodePrivate.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
-#include "webkitprivate.h"
+#include "webkitwebinspectorprivate.h"
+#include <glib/gi18n-lib.h>
 
 /**
  * SECTION:webkitwebinspector
@@ -95,8 +101,6 @@ struct _WebKitWebInspectorPrivate {
     gchar* inspected_uri;
 };
 
-#define WEBKIT_WEB_INSPECTOR_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_INSPECTOR, WebKitWebInspectorPrivate))
-
 static void webkit_web_inspector_finalize(GObject* object);
 
 static void webkit_web_inspector_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec);
@@ -126,7 +130,6 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      * WebKitWebInspector::inspect-web-view:
      * @web_inspector: the object on which the signal is emitted
      * @web_view: the #WebKitWebView which will be inspected
-     * @return: a newly allocated #WebKitWebView or %NULL
      *
      * Emitted when the user activates the 'inspect' context menu item
      * to inspect a web view. The application which is interested in
@@ -136,6 +139,8 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
      * You don't need to handle the reference count of the
      * #WebKitWebView instance you create; the widget to which you add
      * it will do that.
+     *
+     * Return value: (transfer none): a newly allocated #WebKitWebView or %NULL
      *
      * Since: 1.0.3
      */
@@ -322,7 +327,7 @@ static void webkit_web_inspector_class_init(WebKitWebInspectorClass* klass)
 
 static void webkit_web_inspector_init(WebKitWebInspector* web_inspector)
 {
-    web_inspector->priv = WEBKIT_WEB_INSPECTOR_GET_PRIVATE(web_inspector);
+    web_inspector->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_inspector, WEBKIT_TYPE_WEB_INSPECTOR, WebKitWebInspectorPrivate);
 }
 
 static void webkit_web_inspector_finalize(GObject* object)
@@ -393,7 +398,7 @@ static void webkit_web_inspector_get_property(GObject* object, guint prop_id, GV
 #endif
         break;
     case PROP_TIMELINE_PROFILING_ENABLED:
-        g_value_set_boolean(value, priv->page->inspectorController()->timelineAgent() != 0);
+        g_value_set_boolean(value, priv->page->inspectorController()->timelineProfilerEnabled());
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -425,8 +430,8 @@ void webkit_web_inspector_set_web_view(WebKitWebInspector *web_inspector, WebKit
  * that this method may return %NULL if the user hasn't inspected
  * anything.
  *
- * Returns: the #WebKitWebView instance that is used to render the
- * inspector or %NULL if it is not yet created.
+ * Returns: (transfer none): the #WebKitWebView instance that is used
+ * to render the inspector or %NULL if it is not yet created.
  *
  * Since: 1.0.3
  **/
@@ -475,7 +480,7 @@ webkit_web_inspector_set_inspector_client(WebKitWebInspector* web_inspector, Web
 
 /**
  * webkit_web_inspector_show:
- * @web_inspector: the #WebKitWebInspector that will be shown
+ * @webInspector: the #WebKitWebInspector that will be shown
  *
  * Causes the Web Inspector to be shown.
  *
@@ -494,6 +499,23 @@ void webkit_web_inspector_show(WebKitWebInspector* webInspector)
         return;
 
     priv->page->inspectorController()->show();
+}
+
+/**
+ * webkit_web_inspector_inspect_node:
+ * @web_inspector: the #WebKitWebInspector that will do the inspection
+ * @node: the #WebKitDOMNode to inspect
+ *
+ * Causes the Web Inspector to inspect the given node.
+ *
+ * Since: 1.3.7
+ */
+void webkit_web_inspector_inspect_node(WebKitWebInspector* webInspector, WebKitDOMNode* node)
+{
+    g_return_if_fail(WEBKIT_IS_WEB_INSPECTOR(webInspector));
+    g_return_if_fail(WEBKIT_DOM_IS_NODE(node));
+
+    webInspector->priv->page->inspectorController()->inspect(core(node));
 }
 
 /**
@@ -536,7 +558,7 @@ void webkit_web_inspector_inspect_coordinates(WebKitWebInspector* webInspector, 
 
 /**
  * webkit_web_inspector_close:
- * @web_inspector: the #WebKitWebInspector that will be closed
+ * @webInspector: the #WebKitWebInspector that will be closed
  *
  * Causes the Web Inspector to be closed.
  *
@@ -558,3 +580,42 @@ void webkit_web_inspector_execute_script(WebKitWebInspector* webInspector, long 
     WebKitWebInspectorPrivate* priv = webInspector->priv;
     priv->page->inspectorController()->evaluateForTestInFrontend(callId, script);
 }
+
+#ifdef HAVE_GSETTINGS
+static bool isSchemaAvailable(const char* schemaID)
+{
+    const char* const* availableSchemas = g_settings_list_schemas();
+    char* const* iter = const_cast<char* const*>(availableSchemas);
+
+    while (*iter) {
+        if (g_str_equal(schemaID, *iter))
+            return true;
+        iter++;
+    }
+
+    return false;
+}
+
+GSettings* inspectorGSettings()
+{
+    static GSettings* settings = 0;
+    if (settings)
+        return settings;
+
+    // Unfortunately GSettings will abort the process execution if the schema is not
+    // installed, which is the case for when running tests, or even the introspection dump
+    // at build time, so check if we have the schema before trying to initialize it.
+    const gchar* schemaID = "org.webkitgtk-"WEBKITGTK_API_VERSION_STRING".inspector";
+    if (!isSchemaAvailable(schemaID)) {
+
+        // This warning is very common on the build bots, which hides valid warnings.
+        // Skip printing it if we are running inside DumpRenderTree.
+        if (!DumpRenderTreeSupportGtk::dumpRenderTreeModeEnabled())
+            g_warning("GSettings schema not found - settings will not be used or saved.");
+        return 0;
+    }
+
+    settings = g_settings_new(schemaID);
+    return settings;
+}
+#endif

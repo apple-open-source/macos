@@ -3,8 +3,8 @@
 /*
  * bytecode.re
  *
- * $Author: kojima1 $
- * $Date: 2007/03/09 23:41:58 $
+ * $Author: why $
+ * $Date: 2005-09-20 13:21:06 +0800 (二, 20  9 2005) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */

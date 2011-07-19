@@ -4,36 +4,53 @@ include $(VERS).inc
 
 # These variables cause installation into the Extras directory, adds RC_CFLAGS
 # to the compile and linking arguments, and sets DESTDIR to DSTROOT
-PERL = $(DSTROOT)/System/Library/Perl
-VERSION := $(shell perl -e 'printf "%vd", $$^V')
-ARCHLIB := $(shell perl -MConfig -e 'print $$Config::Config{archname}')
-EXTRAS = $(PERL)/Extras
-EXTRASPERL = $(EXTRAS)/$(VERSION)
-installarchlib := $(subst Perl,Perl/Extras,$(shell perl -MConfig -e 'print $$Config::Config{installarchlib}'))
+installarchlib := $(shell perl -MConfig -e 'print $$Config::Config{installextrasarch}')
 installbin := $(shell perl -MConfig -e 'print $$Config::Config{installbin}')
-installprivlib := $(subst Perl,Perl/Extras,$(shell perl -MConfig -e 'print $$Config::Config{installprivlib}'))
+installprivlib := $(shell perl -MConfig -e 'print $$Config::Config{installextraslib}')
+EXTRASARCH := $(DSTROOT)/$(shell perl -MConfig -e 'print $$Config::Config{extrasarch}')
+EXTRASLIB := $(DSTROOT)/$(shell perl -MConfig -e 'print $$Config::Config{extraslib}')
 PLARGS := INSTALLDIRS=perl INSTALLARCHLIB='$(installarchlib)' INSTALLPRIVLIB='$(installprivlib)' INSTALLBIN='$(installbin)' INSTALLSCRIPT='$(installbin)'
+PLBARGS := --installdirs core --install_path arch='$(installarchlib)' --install_path lib='$(installprivlib)' --install_path bin='$(installbin)' --install_path script='$(installbin)'
 make := $(SRCROOT)/make.pl
 MAKEARGS := DESTDIR=$(DSTROOT)
-SLP = $(PERL)/$(VERSION)
-export PERL5LIB := $(EXTRASPERL)
+BUILDARGS := --destdir $(DSTROOT)
+export PERL5LIB := $(EXTRASLIB)
 export NO_PERL_PREPENDTOPATH := 1
 
 no_target:
 	@set -x && for i in $(PROJECTS); do \
+	    echo "===== $$i =====" && \
+	    $(make) -C Modules/$$i unpack installarchlib="$(installarchlib)" \
+		installprivlib="$(installprivlib)" PLARGS="$(PLARGS)" \
+		PLBARGS="$(PLBARGS)" BUILDARGS="$(BUILDARGS)"\
+		MAKEARGS="$(MAKEARGS)" && \
 	    $(make) -C Modules/$$i installarchlib="$(installarchlib)" \
 		installprivlib="$(installprivlib)" PLARGS="$(PLARGS)" \
+		PLBARGS="$(PLBARGS)" BUILDARGS="$(BUILDARGS)"\
 		MAKEARGS="$(MAKEARGS)" || exit 1; \
 	done
 
 install:
 	@set -x && for i in $(PROJECTS); do \
+	    echo "===== $$i =====" && \
+	    $(make) -C Modules/$$i unpack installarchlib="$(installarchlib)" \
+		installprivlib="$(installprivlib)" PLARGS="$(PLARGS)" \
+		PLBARGS="$(PLBARGS)" BUILDARGS="$(BUILDARGS)"\
+		MAKEARGS="$(MAKEARGS)" && \
 	    $(make) -C Modules/$$i install installarchlib="$(installarchlib)" \
 		installprivlib="$(installprivlib)" PLARGS="$(PLARGS)" \
+		PLBARGS="$(PLBARGS)" BUILDARGS="$(BUILDARGS)"\
 		MAKEARGS="$(MAKEARGS)" || exit 1; \
 	done
 	@echo ================ post-install fixups ================
-	rm -f $(EXTRASPERL)/$(ARCHLIB)/perllocal.pod
-	find $(EXTRASPERL)/$(ARCHLIB)/auto -name \*.bundle -print -exec strip -x {} \;
-	find $(EXTRASPERL)/$(ARCHLIB)/auto -name .packlist -print -delete
+	@set -x && \
+	cd $(EXTRASARCH)/auto && \
+	for b in `find . -name \*.bundle | sed 's,^\./,,'`; do \
+	    rsync -R $$b $(SYMROOT) && \
+	    dsymutil $(SYMROOT)/$$b && \
+	    strip -x $$b || exit 1; \
+	done
+	rm -f $(EXTRASARCH)/perllocal.pod
+	find $(EXTRASARCH)/auto -name \*.bundle -print -exec strip -x {} \;
+	find $(EXTRASARCH)/auto -name .packlist -print -delete
 	/Developer/Makefiles/bin/compress-man-pages.pl "$(DSTROOT)/usr/share/man"

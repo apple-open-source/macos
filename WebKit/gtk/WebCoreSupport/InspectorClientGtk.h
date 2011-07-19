@@ -29,22 +29,28 @@
 #ifndef InspectorClientGtk_h
 #define InspectorClientGtk_h
 
+#include "GOwnPtr.h"
 #include "InspectorClient.h"
 #include "InspectorFrontendClientLocal.h"
 #include "webkitwebview.h"
 #include "webkitwebinspector.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
     class Node;
     class Page;
-    class String;
 }
 
 namespace WebKit {
 
+    class InspectorFrontendClient;
+
     class InspectorClient : public WebCore::InspectorClient {
     public:
         InspectorClient(WebKitWebView* webView);
+        ~InspectorClient();
+
+        void disconnectFrontendClient() { m_frontendClient = 0; }
 
         virtual void inspectorDestroyed();
 
@@ -53,32 +59,40 @@ namespace WebKit {
         virtual void highlight(WebCore::Node*);
         virtual void hideHighlight();
 
-        virtual void populateSetting(const WebCore::String& key, WebCore::String* value);
-        virtual void storeSetting(const WebCore::String& key, const WebCore::String& value);
+        virtual bool sendMessageToFrontend(const WTF::String&);
+
+        void releaseFrontendPage();
+        const char* inspectorFilesPath();
 
     private:
         WebKitWebView* m_inspectedWebView;
+        WebCore::Page* m_frontendPage;
+        InspectorFrontendClient* m_frontendClient;
+        GOwnPtr<gchar> m_inspectorFilesPath;
     };
 
     class InspectorFrontendClient : public WebCore::InspectorFrontendClientLocal {
     public:
-        InspectorFrontendClient(WebKitWebView* inspectedWebView, WebKitWebView* inspectorWebView, WebKitWebInspector* webInspector, WebCore::Page* inspectorPage);
+        InspectorFrontendClient(WebKitWebView* inspectedWebView, WebKitWebView* inspectorWebView, WebKitWebInspector* webInspector, WebCore::Page* inspectorPage, InspectorClient* inspectorClient);
 
-        void destroyInspectorWindow();
+        void disconnectInspectorClient() { m_inspectorClient = 0; }
 
-        virtual WebCore::String localizedStringsURL();
+        void destroyInspectorWindow(bool notifyInspectorController);
 
-        virtual WebCore::String hiddenPanels();
+        virtual WTF::String localizedStringsURL();
+
+        virtual WTF::String hiddenPanels();
 
         virtual void bringToFront();
         virtual void closeWindow();
+        virtual void disconnectFromBackend();
 
         virtual void attachWindow();
         virtual void detachWindow();
 
         virtual void setAttachedWindowHeight(unsigned height);
 
-        virtual void inspectedURLChanged(const WebCore::String& newURL);
+        virtual void inspectedURLChanged(const WTF::String& newURL);
 
     private:
         virtual ~InspectorFrontendClient();
@@ -86,6 +100,7 @@ namespace WebKit {
         WebKitWebView* m_inspectorWebView;
         WebKitWebView* m_inspectedWebView;
         WebKitWebInspector* m_webInspector;
+        InspectorClient* m_inspectorClient;
     };
 }
 

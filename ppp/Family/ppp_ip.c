@@ -44,7 +44,6 @@ Includes
 
 #include <net/if.h>
 #include <net/kpi_protocol.h>
-#include <machine/spl.h>
 
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -159,10 +158,8 @@ called from dlil when an ioctl is sent to the interface
 errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
 									 u_long command, void* argument)
 {
-    struct ifaddr 	*ifa = (struct ifaddr *)argument;
-    //struct in_ifaddr 	*ia = (struct in_ifaddr *)data;
     struct ppp_if		*wan = (struct ppp_if *)ifnet_softc(ifp);
-    struct sockaddr_in  *addr = (struct sockaddr_in *)ifa->ifa_addr;
+    struct sockaddr_in  addr, dstaddr;
     int 		error = 0;
     
     switch (command) {
@@ -171,20 +168,32 @@ errno_t ppp_ip_ioctl(ifnet_t ifp, protocol_family_t protocol,
         case SIOCAIFADDR:
             LOGDBG(ifp, ("ppp_ip_ioctl: cmd = SIOCSIFADDR/SIOCAIFADDR\n"));
 
+	    error = ifaddr_address(argument, (struct sockaddr *)&addr, sizeof (addr));
+	    if (error != 0) {
+                error = EAFNOSUPPORT;
+                break;
+	    }
+
             // only an IPv4 address should arrive here
-            if (ifa->ifa_addr->sa_family != AF_INET) {
+            if (addr.sin_family != AF_INET) {
                 error = EAFNOSUPPORT;
                 break;
             }
-                            
-            wan->ip_src.s_addr = addr->sin_addr.s_addr;
-            /* 
-                XXX very dirty...
-                in.c doesn't pass the destination address to dlil
-                but it happens to be the next address in the in_aliasreq
-            */
-            addr++;
-            wan->ip_dst.s_addr = addr->sin_addr.s_addr;
+
+	    error = ifaddr_dstaddress(argument, (struct sockaddr *)&dstaddr, sizeof (dstaddr));
+	    if (error != 0) {
+                error = EAFNOSUPPORT;
+                break;
+	    }
+
+            // only an IPv4 address should arrive here
+            if (dstaddr.sin_family != AF_INET) {
+                error = EAFNOSUPPORT;
+                break;
+            }
+
+            wan->ip_src.s_addr = addr.sin_addr.s_addr;
+            wan->ip_dst.s_addr = dstaddr.sin_addr.s_addr;
             break;
 
         default :
@@ -206,10 +215,6 @@ errno_t ppp_ip_input(ifnet_t ifp, protocol_family_t protocol,
 {
     
     LOGMBUF("ppp_ip_input", packet);
-
-    if (ipflow_fastforward((struct mbuf *)packet)) {
-        return 0;
-    }
 
 	if (proto_input(PF_INET, packet))
 		mbuf_freem(packet);

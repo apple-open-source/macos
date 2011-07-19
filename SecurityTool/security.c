@@ -59,9 +59,11 @@
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <dispatch/dispatch.h>
 
 #include <CoreFoundation/CFRunLoop.h>
 #include <Security/SecBasePriv.h>
+#include <Security/SecKeychainPriv.h>
 #include <security_asn1/secerr.h>
 
 /* Maximum length of an input line in interactive mode. */
@@ -329,7 +331,7 @@ const command commands[] =
 		"[-p policy] [-s string] [-v] [keychain...]\n"
 		"    -p  Specify policy to evaluate (multiple -p options are allowed)\n"
 		"        Supported policies: basic, ssl-client, ssl-server, smime, eap,\n"
-		"        ipsec, ichat, codesigning, sys-default, sys-kerberos-kdc, macappstore\n"
+		"        ipsec, ichat, codesigning, sys-default, sys-kerberos-kdc, macappstore, appleID\n"
 		"    -s  Specify optional policy-specific string (e.g. DNS hostname for SSL,\n"
 		"        or RFC822 email address for S/MIME)\n"
 		"    -v  Show valid identities only (default is to show all identities)\n"
@@ -509,7 +511,8 @@ const command commands[] =
 	  "    -c certFile         Certificate to verify. Can be specified multiple times, leaf first.\n"
 	  "    -r rootCertFile     Root Certificate. Can be specified multiple times.\n"
 	  "    -p policy           Verify Policy (basic, ssl, smime, codeSign, IPSec, iChat, swUpdate\n"
-	  "                              pkgSign, pkinitClient, pkinitServer, eap, macappstore); default is basic.\n"
+	  "                              pkgSign, pkinitClient, pkinitServer, eap, macappstore, appleID);"
+	  "								default is basic.\n"
 	  "    -k keychain         Keychain. Can be called multiple times. Default is default search list.\n"
 	  "    -n                  No keychain search list.\n"
 	  "    -L                  Local certificates only (do not try to fetch missing CA certs from net).\n"
@@ -542,7 +545,9 @@ const command commands[] =
 	  "read <right-name>\n"
 	  "       authorizationdb remove <right-name>\n"
 	  "       authorizationdb write <right-name> [allow|deny|<rulename>]\n"
-	  "If no rulename is specified, write will read a plist from stdin.",
+	  "If no rulename is specified, write will read a plist from stdin.\n"
+	  "       authorizationdb merge source [destination]\n"
+	  "If no destination path is specified, merge will merge to /etc/authorization.",
 	  "Make changes to the authorization policy database." },
 
 	{ "execute-with-privileges" , execute_with_privileges,
@@ -844,6 +849,7 @@ main(int argc, char * const *argv)
 	int do_leaks = 0;
 	int ch;
 
+
 	/* Remember my name. */
 	prog_name = strrchr(argv[0], '/');
 	prog_name = prog_name ? prog_name + 1 : argv[0];
@@ -851,7 +857,7 @@ main(int argc, char * const *argv)
 	/* Do getopt stuff for global options. */
 	optind = 1;
 	optreset = 1;
-	while ((ch = getopt(argc, argv, "hilp:qv")) != -1)
+	while ((ch = getopt(argc, argv, "hilp:qvR")) != -1)
 	{
 		switch  (ch)
 		{
@@ -873,6 +879,11 @@ main(int argc, char * const *argv)
 			break;
 		case 'v':
 			do_verbose = 1;
+			break;
+		case 'R':
+			// "Recovery mode", do NOT ask security-checksystem to run when using keychain APIs
+			// NOTE: this is a hidden option (not in the usage message)
+                SecKeychainSystemKeychainCheckWouldDeadlock();
 			break;
 		case '?':
 		default:

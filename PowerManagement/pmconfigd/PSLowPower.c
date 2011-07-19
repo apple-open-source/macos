@@ -29,6 +29,8 @@
  *
  */
 
+#if !TARGET_OS_EMBEDDED
+
 #include <sys/syslog.h>
 #include <syslog.h>
 
@@ -39,10 +41,6 @@
 // Data structure to track UPS shutdown thresholds
 #define     kHaltEnabled        0
 #define     kHaltValue          1
-
-#ifndef kIOPSCommandStartupDelayKey
-#define kIOPSCommandStartupDelayKey           "Startup Delay"
-#endif
 
 typedef struct  {
     int     haltafter[2];
@@ -314,19 +312,20 @@ _doPowerEmergencyShutdown(CFNumberRef ups_id)
     static int      _alreadyShuttingDown = 0;
     CFDictionaryRef _ESSettings = NULL;
     char            *shutdown_argv[2];
-    pid_t           shutdown_pid;
     CFNumberRef     auto_restart;
     IOReturn        error;
     bool            upsRestart = false;
     int             restart_setting;
     
-    if(_alreadyShuttingDown) return;
+    if(_alreadyShuttingDown) 
+        return;
     _alreadyShuttingDown = 1;
     
     syslog(LOG_INFO, "Performing emergency UPS low power shutdown now");
 
     _ESSettings = PMSettings_CopyActivePMSettings();
-    if(!_ESSettings) goto shutdown;
+    if(!_ESSettings) 
+        goto shutdown;
     
     auto_restart = isA_CFNumber(CFDictionaryGetValue(_ESSettings, CFSTR(kIOPMRestartOnPowerLossKey)));
     if(auto_restart) {
@@ -386,7 +385,7 @@ shutdown:
     } else {
         shutdown_argv[1] = NULL; 
     }
-    shutdown_pid = _SCDPluginExecCommand(0, 0, 0, 0, 
+    _SCDPluginExecCommand(0, 0, 0, 0, 
                         "/usr/libexec/upsshutdown", shutdown_argv);
 }
 
@@ -427,10 +426,10 @@ _upsCommand(CFNumberRef whichUPS, CFStringRef command, int arg)
     return kIOReturnSuccess;
 #else
     CFMutableDictionaryRef      command_dict;
-    IOReturn                    ret = kIOReturnSuccess;
+    IOReturn                    ret = kIOReturnNoMemory;
     mach_port_t                 bootstrap_port = MACH_PORT_NULL;
     mach_port_t                 connect = MACH_PORT_NULL;
-    CFNumberRef                 minutes;
+    CFNumberRef                 minutes = NULL;
     int                         _id;
 
     if (!IOUPSMIGServerIsRunning(&bootstrap_port, &connect))
@@ -438,21 +437,29 @@ _upsCommand(CFNumberRef whichUPS, CFStringRef command, int arg)
         return kIOReturnNoDevice;
     }
     
-    if(whichUPS) CFNumberGetValue(whichUPS, kCFNumberIntType, &_id);
-    else _id = 0;
+    if(whichUPS) 
+        CFNumberGetValue(whichUPS, kCFNumberIntType, &_id);
+    else 
+        _id = 0;
 
     command_dict = CFDictionaryCreateMutable(kCFAllocatorDefault, 
         0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if(!command_dict) return kIOReturnNoMemory;
+    if(!command_dict) 
+        goto exit;
 
     minutes = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &arg);
-    if(!minutes) return kIOReturnNoMemory;
+    if(!minutes) 
+        goto exit;
         
     CFDictionarySetValue(command_dict, command, minutes);
-    CFRelease(minutes);
     
     ret = IOUPSSendCommand(connect, _id, command_dict);
-    CFRelease(command_dict);
+
+exit:
+    if (minutes)
+        CFRelease(minutes);
+    if (command_dict)
+        CFRelease(command_dict);
 
     return ret;
 #endif
@@ -491,20 +498,19 @@ _weManageUPSPower(void)
 {
     static CFStringRef                  ups_claimed = NULL;
     SCDynamicStoreRef                   ds_ref = NULL;
-    CFTypeRef		                    temp;
+    CFTypeRef                           temp;
     bool                                ret_val = true;
 
     if(!ups_claimed) {
         ups_claimed = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@"), kSCDynamicStoreDomainState, CFSTR(kIOPSUPSManagementClaimed));
     }
-    
-    ds_ref = _getSharedPMDynamicStore();
 
     // Check for existence of "UPS Management claimed" key in SCDynamicStore
     if( ups_claimed && ds_ref &&
-        (temp = isA_CFBoolean(SCDynamicStoreCopyValue(ds_ref, ups_claimed))) ) 
+        (temp = SCDynamicStoreCopyValue(_getSharedPMDynamicStore(), ups_claimed)) ) 
     {
-        if(kCFBooleanTrue == temp) ret_val = false;
+        if(kCFBooleanTrue == temp) 
+            ret_val = false;
         CFRelease(temp);
     }
     return ret_val;
@@ -603,3 +609,4 @@ _secondsSpentOnUPSPower(void)
 
 
 
+#endif /* TARGET_OS_EMBEDDED */

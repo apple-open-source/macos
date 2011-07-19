@@ -27,15 +27,15 @@
 #include "config.h"
 #include "TextCodecMac.h"
 
-#include "CharacterNames.h"
 #include "CharsetData.h"
 #include "PlatformString.h"
 #include "ThreadGlobalData.h"
 #include <wtf/Assertions.h>
-#include <wtf/text/CString.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/Threading.h>
+#include <wtf/text/CString.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 
@@ -67,7 +67,7 @@ void TextCodecMac::registerEncodingNames(EncodingNameRegistrar registrar)
 
 static PassOwnPtr<TextCodec> newTextCodecMac(const TextEncoding&, const void* additionalData)
 {
-    return new TextCodecMac(*static_cast<const TECTextEncodingID*>(additionalData));
+    return adoptPtr(new TextCodecMac(*static_cast<const TECTextEncodingID*>(additionalData)));
 }
 
 void TextCodecMac::registerCodecs(TextCodecRegistrar registrar)

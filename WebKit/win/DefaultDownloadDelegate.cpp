@@ -30,13 +30,13 @@
 #include "WebKit.h"
 #include "WebKitLogging.h"
 #include "WebMutableURLRequest.h"
+#include <WebCore/COMPtr.h>
+#include <wtf/text/CString.h>
 
 #include <shlobj.h>
-#include <tchar.h>
+#include <wchar.h>
 
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 
@@ -108,7 +108,7 @@ HRESULT STDMETHODCALLTYPE DefaultDownloadDelegate::decideDestinationWithSuggeste
 {
     LOG(Download, "DefaultDownloadDelegate %p - decideDestinationWithSuggestedFilename %s", download, String(filename, SysStringLen(filename)).ascii().data());
 
-    TCHAR pathChars[MAX_PATH];
+    WCHAR pathChars[MAX_PATH];
     if (FAILED(SHGetFolderPath(0, CSIDL_DESKTOPDIRECTORY  | CSIDL_FLAG_CREATE, 0, 0, pathChars))) {
         if (FAILED(download->setDestination(filename, true))) {
             LOG_ERROR("Failed to set destination on file");
@@ -117,14 +117,14 @@ HRESULT STDMETHODCALLTYPE DefaultDownloadDelegate::decideDestinationWithSuggeste
         return S_OK;
     }
 
-    size_t fullLength = _tcslen(pathChars) + SysStringLen(filename) + 2;
+    size_t fullLength = wcslen(pathChars) + SysStringLen(filename) + 2;
     BSTR full = SysAllocStringLen(0, (UINT)fullLength);
     if (!full)
         return E_OUTOFMEMORY;
 
-    _tcscpy_s(full, fullLength, pathChars);
-    _tcscat_s(full, fullLength, _T("\\"));
-    _tcscat_s(full, fullLength, filename);
+    wcscpy_s(full, fullLength, pathChars);
+    wcscat_s(full, fullLength, L"\\");
+    wcscat_s(full, fullLength, filename);
     BString fullPath;
     fullPath.adoptBSTR(full);
 

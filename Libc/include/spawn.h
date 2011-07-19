@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,8 @@
 #include <sys/cdefs.h> 
 #include <_types.h>
 #include <sys/spawn.h>	/* shared types */
+
+#include <Availability.h>
 
 /*
  * [SPN] Inclusion of the <spawn.h> header may make visible symbols defined
@@ -69,36 +71,36 @@ int	posix_spawn(pid_t * __restrict, const char * __restrict,
 		const posix_spawn_file_actions_t *,
 		const posix_spawnattr_t * __restrict,
 		char *const __argv[ __restrict],
-		char *const __envp[ __restrict]);
+		char *const __envp[ __restrict]) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnp(pid_t * __restrict, const char * __restrict,
 		const posix_spawn_file_actions_t *,
 		const posix_spawnattr_t * __restrict,
 		char *const __argv[ __restrict],
-		char *const __envp[ __restrict]);
-int	posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *, int);
+		char *const __envp[ __restrict]) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *, int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *, int,
-		int);
+		int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawn_file_actions_addopen(
 		posix_spawn_file_actions_t * __restrict, int,
-		const char * __restrict, int, mode_t);
-int	posix_spawn_file_actions_destroy(posix_spawn_file_actions_t *);
-int	posix_spawn_file_actions_init(posix_spawn_file_actions_t *);
-int	posix_spawnattr_destroy(posix_spawnattr_t *);
+		const char * __restrict, int, mode_t) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawn_file_actions_destroy(posix_spawn_file_actions_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawn_file_actions_init(posix_spawn_file_actions_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawnattr_destroy(posix_spawnattr_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_getsigdefault(const posix_spawnattr_t * __restrict,
-		sigset_t * __restrict);
+		sigset_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_getflags(const posix_spawnattr_t * __restrict,
-		short * __restrict);
+		short * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_getpgroup(const posix_spawnattr_t * __restrict,
-		pid_t * __restrict);
+		pid_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_getsigmask(const posix_spawnattr_t * __restrict,
-		sigset_t * __restrict);
-int	posix_spawnattr_init(posix_spawnattr_t *);
+		sigset_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawnattr_init(posix_spawnattr_t *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_setsigdefault(posix_spawnattr_t * __restrict,
-		const sigset_t * __restrict);
-int	posix_spawnattr_setflags(posix_spawnattr_t *, short);
-int	posix_spawnattr_setpgroup(posix_spawnattr_t *, pid_t);
+		const sigset_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawnattr_setflags(posix_spawnattr_t *, short) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawnattr_setpgroup(posix_spawnattr_t *, pid_t) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_setsigmask(posix_spawnattr_t * __restrict,
-		const sigset_t * __restrict);
+		const sigset_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 #if 0	/* _POSIX_PRIORITY_SCHEDULING [PS] : not supported */
 int	posix_spawnattr_setschedparam(posix_spawnattr_t * __restrict,
@@ -128,16 +130,19 @@ typedef __darwin_size_t		size_t;
 __BEGIN_DECLS
 
 int	posix_spawnattr_getbinpref_np(const posix_spawnattr_t * __restrict,
-		size_t, cpu_type_t *__restrict, size_t *__restrict);
+		size_t, cpu_type_t *__restrict, size_t *__restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_setauditsessionport_np(posix_spawnattr_t *__restrict,
-		mach_port_t);
+		mach_port_t) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 int	posix_spawnattr_setbinpref_np(posix_spawnattr_t * __restrict,
-		size_t, cpu_type_t *__restrict, size_t *__restrict);
+		size_t, cpu_type_t *__restrict, size_t *__restrict) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_setexceptionports_np(posix_spawnattr_t *__restrict,
 		exception_mask_t, mach_port_t,
-		exception_behavior_t, thread_state_flavor_t);
+		exception_behavior_t, thread_state_flavor_t) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 int	posix_spawnattr_setspecialport_np(posix_spawnattr_t *__restrict,
-		mach_port_t, int);
+		mach_port_t, int) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int	posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *,
+		int) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+
 __END_DECLS
 
 #endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */

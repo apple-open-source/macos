@@ -91,15 +91,16 @@ void Tile::invalidate(const IntRect& dirtyRect)
     *m_dirtyRegion += tileDirtyRect;
 }
     
-void Tile::updateBackBuffer()
+Vector<IntRect> Tile::updateBackBuffer()
 {
     if (m_buffer && !isDirty())
-        return;
+        return Vector<IntRect>();
 
     if (!m_backBuffer) {
-        if (!m_buffer)
+        if (!m_buffer) {
             m_backBuffer = new QPixmap(m_backingStore->m_tileSize.width(), m_backingStore->m_tileSize.height());
-        else {
+            m_backBuffer->fill(m_backingStore->m_client->tiledBackingStoreBackgroundColor());
+        } else {
             // Currently all buffers are updated synchronously at the same time so there is no real need
             // to have separate back and front buffers. Just use the existing buffer.
             m_backBuffer = m_buffer;
@@ -114,15 +115,19 @@ void Tile::updateBackBuffer()
     GraphicsContext context(&painter);
     context.translate(-m_rect.x(), -m_rect.y());
 
+    Vector<IntRect> updatedRects;
     int size = dirtyRects.size();
     for (int n = 0; n < size; ++n)  {
         context.save();
         IntRect rect = dirtyRects[n];
+        updatedRects.append(rect);
         context.clip(FloatRect(rect));
         context.scale(FloatSize(m_backingStore->m_contentsScale, m_backingStore->m_contentsScale));
         m_backingStore->m_client->tiledBackingStorePaint(&context, m_backingStore->mapToContents(rect));
         context.restore();
     }
+
+    return updatedRects;
 }
 
 void Tile::swapBackBufferToFront()

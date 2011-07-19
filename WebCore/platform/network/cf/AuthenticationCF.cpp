@@ -26,10 +26,16 @@
 #include "config.h"
 #include "AuthenticationCF.h"
 
+#if USE(CFNETWORK)
+
 #include "AuthenticationChallenge.h"
 #include "AuthenticationClient.h"
 #include "Credential.h"
 #include "ProtectionSpace.h"
+
+// This header must come before all other CFNetwork headers to work around a CFNetwork bug. It can
+// be removed entirely once <rdar://problem/9042114> is fixed.
+#include <CFNetwork/CFURLConnectionPriv.h>
 
 #include <CFNetwork/CFURLAuthChallengePriv.h>
 #include <CFNetwork/CFURLCredentialPriv.h>
@@ -60,6 +66,11 @@ AuthenticationChallenge::AuthenticationChallenge(CFURLAuthChallengeRef cfChallen
     , m_authenticationClient(authenticationClient)
     , m_cfChallenge(cfChallenge)
 {
+}
+
+AuthenticationClient* AuthenticationChallenge::authenticationClient() const
+{
+    return m_authenticationClient.get();
 }
 
 bool AuthenticationChallenge::platformCompare(const AuthenticationChallenge& a, const AuthenticationChallenge& b)
@@ -164,6 +175,14 @@ CFURLProtectionSpaceRef createCF(const ProtectionSpace& coreSpace)
     case ProtectionSpaceAuthenticationSchemeNegotiate:
         scheme = kCFURLProtectionSpaceAuthenticationSchemeNegotiate;
         break;
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    case ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested:
+        scheme = kCFURLProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested;
+        break;
+    case ProtectionSpaceAuthenticationSchemeClientCertificateRequested:
+        scheme = kCFURLProtectionSpaceAuthenticationSchemeClientCertificateRequested;
+        break;
+#endif
     default:
         ASSERT_NOT_REACHED();
     }
@@ -252,6 +271,14 @@ ProtectionSpace core(CFURLProtectionSpaceRef cfSpace)
     case kCFURLProtectionSpaceAuthenticationSchemeNegotiate:
         scheme = ProtectionSpaceAuthenticationSchemeNegotiate;
         break;
+#if USE(PROTECTION_SPACE_AUTH_CALLBACK)
+    case kCFURLProtectionSpaceAuthenticationSchemeClientCertificateRequested:
+        scheme = ProtectionSpaceAuthenticationSchemeClientCertificateRequested;
+        break;
+    case kCFURLProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested:
+        scheme = ProtectionSpaceAuthenticationSchemeServerTrustEvaluationRequested;
+        break;
+#endif
     default:
         scheme = ProtectionSpaceAuthenticationSchemeUnknown;
         ASSERT_NOT_REACHED();
@@ -265,3 +292,5 @@ ProtectionSpace core(CFURLProtectionSpaceRef cfSpace)
 }
 
 };
+
+#endif // USE(CFNETWORK)

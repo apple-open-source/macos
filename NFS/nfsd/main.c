@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -87,8 +87,8 @@
 #include <launch.h>
 
 #include <netinet/in.h>
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/rpcb.h>
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 
@@ -133,8 +133,12 @@ struct nfs_conf_server config;
 char exportsfilepath[MAXPATHLEN];
 volatile int gothup, gotterm;
 int checkexports = 0, log_to_stderr = 0;
+int nfsudpport = 0, nfstcpport = 0;
+int nfsudp6port = 0, nfstcp6port = 0;
 int mountudpport = 0, mounttcpport = 0;
-time_t recheckexports = 0;
+int mountudp6port = 0, mounttcp6port = 0;
+time_t recheckexports_until = 0;
+int recheckexports = 0;
 
 DNSServiceRef nfs_dns_service;
 
@@ -501,11 +505,11 @@ main(int argc, char *argv[], __unused char *envp[])
 	rquotad_stop();
 
 	/* clean up */
-	alarm(1); /* XXX 5028243 in case pmap_unset() gets hung up during shutdown */
-	pmap_unset(RPCPROG_NFS, 2);
-	pmap_unset(RPCPROG_NFS, 3);
-	pmap_unset(RPCPROG_MNT, 1);
-	pmap_unset(RPCPROG_MNT, 3);
+	alarm(1); /* XXX 5028243 in case rpcb_unset() gets hung up during shutdown */
+	rpcb_unset(NULL, RPCPROG_NFS, 2);
+	rpcb_unset(NULL, RPCPROG_NFS, 3);
+	rpcb_unset(NULL, RPCPROG_MNT, 1);
+	rpcb_unset(NULL, RPCPROG_MNT, 3);
 	if (nfs_dns_service)
 		DNSServiceRefDeallocate(nfs_dns_service);
 
@@ -567,23 +571,29 @@ config_read(struct nfs_conf_server *conf)
 		} else if (!strcmp(key, "nfs.server.bonjour.local_domain_only")) {
 			conf->bonjour_local_domain_only = val;
 		} else if (!strcmp(key, "nfs.server.export_hash_size")) {
-			conf->export_hash_size = val;
+			if (value && val)
+				conf->export_hash_size = val;
 		} else if (!strcmp(key, "nfs.server.fsevents")) {
 			conf->fsevents = val;
 		} else if (!strcmp(key, "nfs.server.mount.port")) {
-			conf->mount_port = val;
+			if (value && val)
+				conf->mount_port = val;
 		} else if (!strcmp(key, "nfs.server.mount.regular_files")) {
 			conf->mount_regular_files = val;
 		} else if (!strcmp(key, "nfs.server.mount.require_resv_port")) {
 			conf->mount_require_resv_port = val;
 		} else if (!strcmp(key, "nfs.server.nfsd_threads")) {
-			conf->nfsd_threads = val;
+			if (value && val)
+				conf->nfsd_threads = val;
 		} else if (!strcmp(key, "nfs.server.port")) {
-			conf->port = val;
+			if (value && val)
+				conf->port = val;
 		} else if (!strcmp(key, "nfs.server.reqcache_size")) {
-			conf->reqcache_size = val;
+			if (value && val)
+				conf->reqcache_size = val;
 		} else if (!strcmp(key, "nfs.server.request_queue_length")) {
-			conf->request_queue_length = val;
+			if (value && val)
+				conf->request_queue_length = val;
 		} else if (!strcmp(key, "nfs.server.require_resv_port")) {
 			conf->require_resv_port = val;
 		} else if (!strcmp(key, "nfs.server.tcp")) {
@@ -595,9 +605,11 @@ config_read(struct nfs_conf_server *conf)
 		} else if (!strcmp(key, "nfs.server.verbose")) {
 			conf->verbose = val;
 		} else if (!strcmp(key, "nfs.server.wg_delay")) {
-			conf->wg_delay = val;
+			if (value && val)
+				conf->wg_delay = val;
 		} else if (!strcmp(key, "nfs.server.wg_delay_v3")) {
-			conf->wg_delay_v3 = val;
+			if (value && val)
+				conf->wg_delay_v3 = val;
 		} else {
 			DEBUG(1, "ignoring unknown config value: %4ld %s=%s", linenum, key, value ? value : "");
 		}
@@ -658,12 +670,12 @@ config_loop(void)
 	while (!gotterm) {
 
 		DEBUG(1, "config_loop: waiting...");
-		rv = kevent(kq, NULL, 0, &ke, 1, ((recheckexports > 0) ? &ts : NULL));
+		rv = kevent(kq, NULL, 0, &ke, 1, (recheckexports ? &ts : NULL));
 		if ((rv > 0) && !(ke.flags & EV_ERROR) && (ke.fflags & (VQ_MOUNT|VQ_UNMOUNT))) {
 			log(LOG_INFO, "mount list changed: 0x%x", ke.fflags);
 			gotmount = check_for_mount_changes();
 		}
-		if (recheckexports > 0)  {	/* make sure we check the exports again */
+		if (recheckexports)  {	/* make sure we check the exports again */
 			if (!gotmount)
 				log(LOG_INFO, "rechecking exports");
 			gotmount = 1;
@@ -898,31 +910,103 @@ do_lockd_shutdown(void)
 static void
 register_services(void)
 {
-	/* register NFS/MOUNT services with portmap */
+	struct sockaddr_storage ss, ss6;
+	struct sockaddr *sa = (struct sockaddr*)&ss;
+	struct sockaddr *sa6 = (struct sockaddr*)&ss6;
+	struct sockaddr_in *sin = (struct sockaddr_in*)&ss;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&ss6;
+	int errcnt;
+
+	sin->sin_family = AF_INET;
+	sin->sin_addr.s_addr = INADDR_ANY;
+	sin->sin_len = sizeof(*sin);
+	sin6->sin6_family = AF_INET6;
+	sin6->sin6_addr = in6addr_any;
+	sin6->sin6_len = sizeof(*sin6);
 
 	/* nfsd */
-	pmap_unset(RPCPROG_NFS, 2);
-	pmap_unset(RPCPROG_NFS, 3);
-	if (config.udp &&
-	    (!pmap_set(RPCPROG_NFS, 2, IPPROTO_UDP, config.port) ||
-	     !pmap_set(RPCPROG_NFS, 3, IPPROTO_UDP, config.port)))
-		log(LOG_ERR, "can't register NFS/UDP service.");
-	if (config.tcp &&
-	    (!pmap_set(RPCPROG_NFS, 2, IPPROTO_TCP, config.port) ||
-	     !pmap_set(RPCPROG_NFS, 3, IPPROTO_TCP, config.port)))
-		log(LOG_ERR, "can't register NFS/TCP service.");
+	rpcb_unset(NULL, RPCPROG_NFS, 2);
+	rpcb_unset(NULL, RPCPROG_NFS, 3);
+	if (config.udp) {
+		errcnt = 0;
+		if (nfsudpport) {
+			sin->sin_port = htons(nfsudpport);
+			if (!rpcb_set("udp", RPCPROG_NFS, 2, sa))
+				errcnt++;
+			if (!rpcb_set("udp", RPCPROG_NFS, 3, sa))
+				errcnt++;
+		}
+		if (nfsudp6port) {
+			sin6->sin6_port = htons(nfsudp6port);
+			if (!rpcb_set("udp6", RPCPROG_NFS, 2, sa6))
+				errcnt++;
+			if (!rpcb_set("udp6", RPCPROG_NFS, 3, sa6))
+				errcnt++;
+		}
+		if (errcnt)
+			log(LOG_ERR, "couldn't register NFS/UDP service.");
+	}
+	if (config.tcp) {
+		errcnt = 0;
+		if (nfstcpport) {
+			sin->sin_port = htons(nfstcpport);
+			if (!rpcb_set("tcp", RPCPROG_NFS, 2, sa))
+				errcnt++;
+			if (!rpcb_set("tcp", RPCPROG_NFS, 3, sa))
+				errcnt++;
+		}
+		if (nfstcp6port) {
+			sin6->sin6_port = htons(nfstcp6port);
+			if (!rpcb_set("tcp6", RPCPROG_NFS, 2, sa6))
+				errcnt++;
+			if (!rpcb_set("tcp6", RPCPROG_NFS, 3, sa6))
+				errcnt++;
+		}
+		if (errcnt)
+			log(LOG_ERR, "couldn't register NFS/TCP service.");
+	}
 
 	/* mountd */
-	pmap_unset(RPCPROG_MNT, 1);
-	pmap_unset(RPCPROG_MNT, 3);
-	if (config.udp &&
-	    (!pmap_set(RPCPROG_MNT, 1, IPPROTO_UDP, mountudpport) ||
-	     !pmap_set(RPCPROG_MNT, 3, IPPROTO_UDP, mountudpport)))
-		log(LOG_ERR, "can't register MOUNT/UDP service.");
-	if (config.tcp &&
-	    (!pmap_set(RPCPROG_MNT, 1, IPPROTO_TCP, mounttcpport) ||
-	     !pmap_set(RPCPROG_MNT, 3, IPPROTO_TCP, mounttcpport)))
-		log(LOG_ERR, "can't register MOUNT/TCP service.");
+	rpcb_unset(NULL, RPCPROG_MNT, 1);
+	rpcb_unset(NULL, RPCPROG_MNT, 3);
+	if (config.udp) {
+		errcnt = 0;
+		if (mountudpport) {
+			sin->sin_port = htons(mountudpport);
+			if (!rpcb_set("udp", RPCPROG_MNT, 1, sa))
+				errcnt++;
+			if (!rpcb_set("udp", RPCPROG_MNT, 3, sa))
+				errcnt++;
+		}
+		if (mountudp6port) {
+			sin6->sin6_port = htons(mountudp6port);
+			if (!rpcb_set("udp6", RPCPROG_MNT, 1, sa6))
+				errcnt++;
+			if (!rpcb_set("udp6", RPCPROG_MNT, 3, sa6))
+				errcnt++;
+		}
+		if (errcnt)
+			log(LOG_ERR, "couldn't register MOUNT/UDP service.");
+	}
+	if (config.tcp) {
+		errcnt = 0;
+		if (mounttcpport) {
+			sin->sin_port = htons(mounttcpport);
+			if (!rpcb_set("tcp", RPCPROG_MNT, 1, sa))
+				errcnt++;
+			if (!rpcb_set("tcp", RPCPROG_MNT, 3, sa))
+				errcnt++;
+		}
+		if (mounttcp6port) {
+			sin6->sin6_port = htons(mounttcp6port);
+			if (!rpcb_set("tcp6", RPCPROG_MNT, 1, sa6))
+				errcnt++;
+			if (!rpcb_set("tcp6", RPCPROG_MNT, 3, sa6))
+				errcnt++;
+		}
+		if (errcnt)
+			log(LOG_ERR, "couldn't register MOUNT/TCP service.");
+	}
 
 	/* Register NFS exports with service discovery mechanism(s). */
 
@@ -978,7 +1062,7 @@ get_pid(const char *path)
 	struct flock lock;
 
 	if ((fd = open(path, O_RDONLY)) < 0) {
-		DEBUG(3, "%s: %s (%d)", path, strerror(errno), errno);
+		DEBUG(5, "%s: %s (%d)", path, strerror(errno), errno);
 		return (0);
 	}
 	len = sizeof(pidbuf) - 1;
@@ -1165,8 +1249,8 @@ safe_exec(char *const argv[], int silent)
 
 	if (silent) {
 		psfileactp = &psfileact;
-		if (posix_spawn_file_actions_init(psfileactp)) {
-			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(errno), errno);
+		if ((status = posix_spawn_file_actions_init(psfileactp))) {
+			log(LOG_ERR, "spawn init of %s failed: %s (%d)", argv[0], strerror(status), status);
 			return (1);
 		}
 		posix_spawn_file_actions_addopen(psfileactp, STDIN_FILENO, "/dev/null", O_RDONLY, 0);
@@ -1177,7 +1261,7 @@ safe_exec(char *const argv[], int silent)
 	if (psfileactp)
 		posix_spawn_file_actions_destroy(psfileactp);
 	if (status) {
-		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(errno), errno);
+		log(LOG_ERR, "spawn of %s failed: %s (%d)", argv[0], strerror(status), status);
 		return (1);
 	}
 	while ((waitpid(pid, &status, 0) == -1) && (errno == EINTR))

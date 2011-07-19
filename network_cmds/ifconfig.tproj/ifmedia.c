@@ -402,7 +402,7 @@ static struct ifmedia_description ifm_subtype_ieee80211_option_descriptions[] =
 
 #ifdef notdef
 static struct ifmedia_description ifm_subtype_ieee80211_aliases[] =
-    IFM_SUBTYPE_IEEE80211_ALIASES;
+IFM_SUBTYPE_IEEE80211_ALIASES;
 
 struct ifmedia_description ifm_subtype_ieee80211_mode_descriptions[] =
     IFM_SUBTYPE_IEEE80211_MODE_DESCRIPTIONS;

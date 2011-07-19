@@ -1,7 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
  * (C) 2002-2003 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2002, 2005, 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2002, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,7 +23,7 @@
 #include "CSSImportRule.h"
 
 #include "CachedCSSStyleSheet.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
@@ -65,9 +65,9 @@ void CSSImportRule::setCSSStyleSheet(const String& href, const KURL& baseURL, co
     CSSStyleSheet* parent = parentStyleSheet();
     bool strict = !parent || parent->useStrictParsing();
     bool enforceMIMEType = strict;
-    bool needsSiteSpecificQuirks = parent && parent->doc() && parent->doc()->settings() && parent->doc()->settings()->needsSiteSpecificQuirks();
+    bool needsSiteSpecificQuirks = parent && parent->document() && parent->document()->settings() && parent->document()->settings()->needsSiteSpecificQuirks();
 
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     if (enforceMIMEType && needsSiteSpecificQuirks) {
         // Covers both http and https, with or without "www."
         if (baseURL.string().contains("mcafee.com/japan/", false))
@@ -78,7 +78,7 @@ void CSSImportRule::setCSSStyleSheet(const String& href, const KURL& baseURL, co
     String sheetText = sheet->sheetText(enforceMIMEType, &validMIMEType);
     m_styleSheet->parseString(sheetText, strict);
 
-    if (!parent || !parent->doc() || !parent->doc()->securityOrigin()->canRequest(baseURL))
+    if (!parent || !parent->document() || !parent->document()->securityOrigin()->canRequest(baseURL))
         crossOriginCSS = true;
 
     if (crossOriginCSS && !validMIMEType && !m_styleSheet->hasSyntacticallyValidCSSHeader())
@@ -112,11 +112,11 @@ bool CSSImportRule::isLoading() const
 void CSSImportRule::insertedIntoParent()
 {
     CSSStyleSheet* parentSheet = parentStyleSheet();
-    if (!parentSheet)
+    if (!parentSheet || !parentSheet->document())
         return;
 
-    DocLoader* docLoader = parentSheet->doc()->docLoader();
-    if (!docLoader)
+    CachedResourceLoader* cachedResourceLoader = parentSheet->document()->cachedResourceLoader();
+    if (!cachedResourceLoader)
         return;
 
     String absHref = m_strHref;
@@ -135,15 +135,15 @@ void CSSImportRule::insertedIntoParent()
     }
 
     if (parentSheet->isUserStyleSheet())
-        m_cachedSheet = docLoader->requestUserCSSStyleSheet(absHref, parentSheet->charset());
+        m_cachedSheet = cachedResourceLoader->requestUserCSSStyleSheet(absHref, parentSheet->charset());
     else
-        m_cachedSheet = docLoader->requestCSSStyleSheet(absHref, parentSheet->charset());
+        m_cachedSheet = cachedResourceLoader->requestCSSStyleSheet(absHref, parentSheet->charset());
     if (m_cachedSheet) {
         // if the import rule is issued dynamically, the sheet may be
         // removed from the pending sheet count, so let the doc know
         // the sheet being imported is pending.
         if (parentSheet && parentSheet->loadCompleted() && root == parentSheet)
-            parentSheet->doc()->addPendingSheet();
+            parentSheet->document()->addPendingSheet();
         m_loading = true;
         m_cachedSheet->addClient(this);
     }

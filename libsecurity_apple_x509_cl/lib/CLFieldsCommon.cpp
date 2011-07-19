@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -101,7 +101,19 @@ static const NssExtenInfo nssExtenInfo[] = {
 	  kSecAsn1GeneralizedTimeTemplate },
 	{ CSSMOID_QC_Statements,
 	  sizeof(NSS_QC_Statements),
-	  kSecAsn1QC_StatementsTemplate }
+	  kSecAsn1QC_StatementsTemplate },
+	{ CSSMOID_NameConstraints,
+	  sizeof(NSS_NameConstraints),
+	  kSecAsn1NameConstraintsTemplate },
+	{ CSSMOID_PolicyMappings,
+	  sizeof(NSS_PolicyMappings),
+	  kSecAsn1PolicyMappingsTemplate },
+	{ CSSMOID_PolicyConstraints,
+	  sizeof(NSS_PolicyConstraints),
+	  kSecAsn1PolicyConstraintsTemplate },
+	{ CSSMOID_InhibitAnyPolicy,
+	  sizeof(CSSM_DATA),
+	  kSecAsn1IntegerTemplate },
 };
 
 #define NUM_NSS_EXTEN_INFOS	(sizeof(nssExtenInfo) / sizeof(nssExtenInfo[0]))

@@ -1,7 +1,7 @@
-:: $OpenLDAP: pkg/ldap/build/mkvers.bat,v 1.7.2.3 2008/02/11 23:26:37 kurt Exp $
+:: $OpenLDAP: pkg/ldap/build/mkvers.bat,v 1.7.2.5 2010/04/13 20:22:21 kurt Exp $
 :: This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ::
-:: Copyright 1998-2008 The OpenLDAP Foundation.
+:: Copyright 1998-2010 The OpenLDAP Foundation.
 :: All rights reserved.
 ::
 :: Redistribution and use in source and binary forms, with or without

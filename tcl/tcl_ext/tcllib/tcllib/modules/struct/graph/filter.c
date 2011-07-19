@@ -362,7 +362,7 @@ filter_mode_a_adj (GCC* gx, NARES* l, int nc, Tcl_Obj* const* nv, G* g)
 
     ASSERT(j <= gx->n, "Overrun");
 
-    if (j < (gx->n-1)) {
+    if (j < gx->n) {
 	for (i=0; i < nc; i++) {
 	    ASSERT_BOUNDS(i, nc);
 	    n = gn_get_node (g, nv[i], NULL, NULL);

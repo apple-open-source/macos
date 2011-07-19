@@ -1,0 +1,29 @@
+require "vnd.dovecot.testsuite";
+
+require "include";
+require "variables";
+
+global ["value1", "value2"];
+set "value1" "Works";
+set "value2" "fine.";
+
+global ["value3", "value4"];
+set "value3" "Yeah";
+set "value4" "it does.";
+
+include "variables-included1";
+include "variables-included2";
+include "variables-included3";
+
+global "result";
+
+test "Basic" {
+	if not string :is "${result}" "Works fine. Yeah it does." {
+		test_fail "invalid result: ${result}";
+	}
+
+	if string :is "${result}" "nonsense" {
+		test_fail "string test succeeds inappropriately";
+	}
+}
+

@@ -1,8 +1,8 @@
 /* dn.c - routines for dealing with distinguished names */
-/* $OpenLDAP: pkg/ldap/servers/slapd/dn.c,v 1.182.2.8 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/dn.c,v 1.182.2.16 2010/06/10 17:48:06 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -220,10 +220,7 @@ rdnValidate(
 /*
  * AVA sorting inside a RDN
  *
- * rule: sort attributeTypes in alphabetical order; in case of multiple
- * occurrences of the same attributeType, sort values in byte order
- * (use memcmp, which implies alphabetical order in case of IA5 value;
- * this should guarantee the repeatability of the operation).
+ * Rule: sort attributeTypes in alphabetical order.
  *
  * Note: the sorting can be slightly improved by sorting first
  * by attribute type length, then by alphabetical order.
@@ -250,21 +247,8 @@ AVA_Sort( LDAPRDN rdn, int nAVAs )
 			ava_j = rdn[ j ];
 			a = strcmp( ava_i->la_attr.bv_val, ava_j->la_attr.bv_val );
 
-			if ( a == 0 ) {
-				int		d;
-
-				d = ava_i->la_value.bv_len - ava_j->la_value.bv_len;
-
-				a = memcmp( ava_i->la_value.bv_val, 
-						ava_j->la_value.bv_val,
-						d <= 0 ? ava_i->la_value.bv_len 
-							: ava_j->la_value.bv_len );
-
-				if ( a == 0 ) {
-					a = d;
-				}
-			}
-			/* Duplicates are not allowed */
+			/* RFC4512 does not allow multiple AVAs
+			 * with the same attribute type in RDN (ITS#5968) */
 			if ( a == 0 )
 				return LDAP_INVALID_DN_SYNTAX;
 
@@ -325,7 +309,6 @@ LDAPRDN_rewrite( LDAPRDN rdn, unsigned flags, void *ctx )
 		} else if( ad->ad_type->sat_flags & SLAP_AT_ORDERED_VAL ) {
 			return LDAP_INVALID_SYNTAX;
 
-			/* AVA is binary encoded, don't muck with it */
 		} else if( flags & SLAP_LDAPDN_PRETTY ) {
 			transf = ad->ad_type->sat_syntax->ssyn_pretty;
 			if( !transf ) {
@@ -1079,7 +1062,7 @@ dn_rdnlen(
 
 	p = ber_bvchr( dn_in, ',' );
 
-	return p ? p - dn_in->bv_val : dn_in->bv_len;
+	return p ? (ber_len_t) (p - dn_in->bv_val) : dn_in->bv_len;
 }
 
 
@@ -1213,6 +1196,70 @@ dnIsSuffix(
 
 	/* compare */
 	return( strcmp( dn->bv_val + d, suffix->bv_val ) == 0 );
+}
+
+/*
+ * In place; assumes:
+ * - ndn is normalized
+ * - nbase is normalized
+ * - dnIsSuffix( ndn, nbase ) == TRUE
+ * - LDAP_SCOPE_DEFAULT == LDAP_SCOPE_SUBTREE
+ */
+int
+dnIsWithinScope( struct berval *ndn, struct berval *nbase, int scope )
+{
+	assert( ndn != NULL );
+	assert( nbase != NULL );
+	assert( !BER_BVISNULL( ndn ) );
+	assert( !BER_BVISNULL( nbase ) );
+
+	switch ( scope ) {
+	case LDAP_SCOPE_DEFAULT:
+	case LDAP_SCOPE_SUBTREE:
+		break;
+
+	case LDAP_SCOPE_BASE:
+		if ( ndn->bv_len != nbase->bv_len ) {
+			return 0;
+		}
+		break;
+
+	case LDAP_SCOPE_ONELEVEL: {
+		struct berval pndn;
+		dnParent( ndn, &pndn );
+		if ( pndn.bv_len != nbase->bv_len ) {
+			return 0;
+		}
+		} break;
+
+	case LDAP_SCOPE_SUBORDINATE:
+		if ( ndn->bv_len == nbase->bv_len ) {
+			return 0;
+		}
+		break;
+
+	/* unknown scope */
+	default:
+		return -1;
+	}
+
+	return 1;
+}
+
+/*
+ * In place; assumes:
+ * - ndn is normalized
+ * - nbase is normalized
+ * - LDAP_SCOPE_DEFAULT == LDAP_SCOPE_SUBTREE
+ */
+int
+dnIsSuffixScope( struct berval *ndn, struct berval *nbase, int scope )
+{
+	if ( !dnIsSuffix( ndn, nbase ) ) {
+		return 0;
+	}
+
+	return dnIsWithinScope( ndn, nbase, scope );
 }
 
 int

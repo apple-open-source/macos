@@ -3,7 +3,7 @@
 # Class name: Typedef
 # Synopsis: Holds typedef info parsed by headerDoc
 #
-# Last Updated: $Date: 2009/03/30 19:38:52 $
+# Last Updated: $Date: 2011/02/18 19:02:59 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,9 +27,31 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         Deprecated <code>Regen</code> class package file.
+#     @discussion
+#         This file contains the <code>Regen</code> class.  This class
+#         is vestigial code, part of a long-abandoned
+#         project to provide conversion of XML markup
+#         back into HeaderDoc comments.
+#
+#         See the class documentation below for more details.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+# */
+
+# /*!
+#     @abstract
+#         Deprecated
+#     @discussion
+#         Vestigial code, part of a long-abandoned
+#         project to provide conversion of XML markup
+#         back into HeaderDoc comments.
+# */
 package HeaderDoc::Regen;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash linesFromFile);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
@@ -37,18 +59,20 @@ use XML::Twig;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::Regen::VERSION = '$Revision: 1.3 $';
 
-sub stringFromFile
-{
-    my $name = shift;
-    my @strings = &linesFromFile($name);
-    my $ret = "";
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Regen::VERSION = '$Revision: 1298084579 $';
 
-    foreach my $string (@strings) { $ret .= $string; }
-    return $ret;
-}
-
+# /*!
+#     @abstract
+#         Vestigial code.
+#  */
 sub regenerate
 {
     my $self = shift;
@@ -65,7 +89,12 @@ sub regenerate
     # } else {
 	# print STDERR "found $xmlfile\n";
     }
-    my $xml_string = stringFromFile($xmlfile);
+    my $temp = $/;
+    $/ = undef;
+    open(XMLFILE, "<$xmlfile");
+    my $xml_string = <XMLFILE>;
+    close(XMLFILE);
+    $/ = $temp;
     # print STDERR "XS: $xml_string\n";
     my $twig = XML::Twig->new(keep_encoding => 1, keep_spaces => 1);
     $twig->parse($xml_string);

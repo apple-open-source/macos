@@ -1,12 +1,7 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 #if MAC_OS_X_VERSION_10_5 <= MAC_OS_X_VERSION_MAX_ALLOWED
 
 static void* 
-mod_retain(void* info) 
+mod_filedescr_retain(void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -15,7 +10,7 @@ mod_retain(void* info)
 }
 
 static void
-mod_release(void* info)
+mod_filedescr_release(void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -26,8 +21,8 @@ mod_release(void* info)
 static CFFileDescriptorContext mod_CFFileDescriptorContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_filedescr_retain,
+	mod_filedescr_release,
 	NULL
 };
 
@@ -120,15 +115,15 @@ mod_CFFileDescriptorGetContext(
 	PyObject* args)
 {
 	PyObject* py_f;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFFileDescriptorRef f;
 	CFFileDescriptorContext context;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_f, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_f, &py_context)) {
 		return NULL;
 	}
 
-	if (py_context != NULL &&  py_context != Py_None) {
+	if (py_context != Py_None) {
 		PyErr_SetString(PyExc_ValueError, "invalid context");
 		return NULL;
 	}
@@ -156,7 +151,7 @@ mod_CFFileDescriptorGetContext(
 		return NULL;
 	}
 
-	if (context.retain != mod_retain) {
+	if (context.retain != mod_filedescr_retain) {
 		PyErr_SetString(PyExc_ValueError, 
 			"retrieved context is not supported");
 		return NULL;
@@ -167,29 +162,16 @@ mod_CFFileDescriptorGetContext(
 }
 #endif
 
-static PyMethodDef mod_methods[] = {
-#if MAC_OS_X_VERSION_10_5 <= MAC_OS_X_VERSION_MAX_ALLOWED
-        {
-		"CFFileDescriptorCreate",
-		(PyCFunction)mod_CFFileDescriptorCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_FILEDESCRIPTOR_METHODS		\
+        {		\
+		"CFFileDescriptorCreate",		\
+		(PyCFunction)mod_CFFileDescriptorCreate,		\
+		METH_VARARGS,		\
+		NULL		\
+	},		\
+        {		\
+		"CFFileDescriptorGetContext",		\
+		(PyCFunction)mod_CFFileDescriptorGetContext,		\
+		METH_VARARGS,		\
+		NULL		\
 	},
-        {
-		"CFFileDescriptorGetContext",
-		(PyCFunction)mod_CFFileDescriptorGetContext,
-		METH_VARARGS,
-		NULL
-	},
-#endif
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFFileDescriptor(void);
-void init_CFFileDescriptor(void)
-{
-	PyObject* m = Py_InitModule4("_CFFileDescriptor", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

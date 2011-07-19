@@ -60,16 +60,26 @@ RCSID("$Id$")
 
 struct main_config_t mainconfig;
 char *request_log_file = NULL;
-char *debug_log_file = NULL;
 char *debug_condition = NULL;
+
+typedef struct cached_config_t {
+	struct cached_config_t *next;
+	time_t		created;
+	CONF_SECTION	*cs;
+} cached_config_t;
+
+static cached_config_t	*cs_cache = NULL;
 
 /*
  *	Temporary local variables for parsing the configuration
  *	file.
  */
-#ifndef __MINGW32__
-uid_t server_uid;
-static gid_t server_gid;
+#ifdef HAVE_SETUID
+/*
+ *	Systems that have set/getresuid also have setuid.
+ */
+static uid_t server_uid = 0;
+static gid_t server_gid = 0;
 static const char *uid_name = NULL;
 static const char *gid_name = NULL;
 #endif
@@ -162,17 +172,16 @@ static const CONF_PARSER logdest_config[] = {
 	{ "destination",  PW_TYPE_STRING_PTR, 0, &radlog_dest, "files" },
 	{ "syslog_facility",  PW_TYPE_STRING_PTR, 0, &syslog_facility, Stringify(0) },
 
-	{ "file", PW_TYPE_STRING_PTR, -1, &mainconfig.log_file, "${logdir}/radius.log" },
-	{ "requests", PW_TYPE_STRING_PTR, -1, &request_log_file, NULL },
-	{ "debug_file", PW_TYPE_STRING_PTR, -1, &debug_log_file, NULL },
+	{ "file", PW_TYPE_STRING_PTR, 0, &mainconfig.log_file, "${logdir}/radius.log" },
+	{ "requests", PW_TYPE_STRING_PTR, 0, &request_log_file, NULL },
 	{ NULL, -1, 0, NULL, NULL }
 };
 
 
 static const CONF_PARSER serverdest_config[] = {
 	{ "log", PW_TYPE_SUBSECTION, 0, NULL, (const void *) logdest_config },
-	{ "log_file", PW_TYPE_STRING_PTR, -1, &mainconfig.log_file, NULL },
-	{ "log_destination", PW_TYPE_STRING_PTR, -1, &radlog_dest, NULL },
+	{ "log_file", PW_TYPE_STRING_PTR, 0, &mainconfig.log_file, NULL },
+	{ "log_destination", PW_TYPE_STRING_PTR, 0, &radlog_dest, NULL },
 	{ NULL, -1, 0, NULL, NULL }
 };
 
@@ -180,9 +189,11 @@ static const CONF_PARSER serverdest_config[] = {
 static const CONF_PARSER log_config_nodest[] = {
 	{ "stripped_names", PW_TYPE_BOOLEAN, 0, &log_stripped_names,"no" },
 
-	{ "auth", PW_TYPE_BOOLEAN, -1, &mainconfig.log_auth, "no" },
+	{ "auth", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth, "no" },
 	{ "auth_badpass", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth_badpass, "no" },
 	{ "auth_goodpass", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth_goodpass, "no" },
+	{ "msg_badpass", PW_TYPE_STRING_PTR, 0, &mainconfig.auth_badpass_msg, NULL},
+	{ "msg_goodpass", PW_TYPE_STRING_PTR, 0, &mainconfig.auth_goodpass_msg, NULL},
 
 	{ NULL, -1, 0, NULL, NULL }
 };
@@ -211,8 +222,6 @@ static const CONF_PARSER server_config[] = {
 #ifdef DELETE_BLOCKED_REQUESTS
 	{ "delete_blocked_requests", PW_TYPE_INTEGER, 0, &mainconfig.kill_unresponsive_children, Stringify(FALSE) },
 #endif
-	{ "allow_core_dumps", PW_TYPE_BOOLEAN, 0, &allow_core_dumps, "no" },
-
 	{ "pidfile", PW_TYPE_STRING_PTR, 0, &mainconfig.pid_file, "${run_dir}/radiusd.pid"},
 	{ "checkrad", PW_TYPE_STRING_PTR, 0, &mainconfig.checkrad, "${sbindir}/checkrad" },
 
@@ -231,7 +240,7 @@ static const CONF_PARSER server_config[] = {
 	 *	DON'T exist in radiusd.conf, then the previously parsed
 	 *	values for "log { foo = bar}" will be used.
 	 */
-	{ "log_auth", PW_TYPE_BOOLEAN, -1, &mainconfig.log_auth, NULL },
+	{ "log_auth", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth, NULL },
 	{ "log_auth_badpass", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth_badpass, NULL },
 	{ "log_auth_goodpass", PW_TYPE_BOOLEAN, 0, &mainconfig.log_auth_goodpass, NULL },
 	{ "log_stripped_names", PW_TYPE_BOOLEAN, 0, &log_stripped_names, NULL },
@@ -240,6 +249,19 @@ static const CONF_PARSER server_config[] = {
 
 	{ NULL, -1, 0, NULL, NULL }
 };
+
+static const CONF_PARSER bootstrap_config[] = {
+#ifdef HAVE_SETUID
+	{ "user",  PW_TYPE_STRING_PTR, 0, &uid_name, NULL },
+	{ "group",  PW_TYPE_STRING_PTR, 0, &gid_name, NULL },
+#endif
+	{ "chroot",  PW_TYPE_STRING_PTR, 0, &chroot_dir, NULL },
+	{ "allow_core_dumps", PW_TYPE_BOOLEAN, 0, &allow_core_dumps, "no" },
+
+	{ NULL, -1, 0, NULL, NULL }
+};
+
+
 
 #define MAX_ARGV (256)
 
@@ -402,9 +424,153 @@ static int r_mkdir(const char *part)
 	return(0);
 }
 
+#ifdef HAVE_SYS_RESOURCE_H
+static struct rlimit core_limits;
+#endif
 
-#ifndef __MINGW32__
-int did_setuid = FALSE;
+static void fr_set_dumpable(void)
+{
+	/*
+	 *	If configured, turn core dumps off.
+	 */
+	if (!allow_core_dumps) {
+#ifdef HAVE_SYS_RESOURCE_H
+		struct rlimit no_core;
+
+
+		no_core.rlim_cur = 0;
+		no_core.rlim_max = 0;
+		
+		if (setrlimit(RLIMIT_CORE, &no_core) < 0) {
+			radlog(L_ERR, "Failed disabling core dumps: %s",
+			       strerror(errno));
+		}
+#endif
+		return;
+	}
+
+	/*
+	 *	Set or re-set the dumpable flag.
+	 */
+#ifdef HAVE_SYS_PRCTL_H
+#ifdef PR_SET_DUMPABLE
+	if (prctl(PR_SET_DUMPABLE, 1) < 0) {
+		radlog(L_ERR,"Cannot re-enable core dumps: prctl(PR_SET_DUMPABLE) failed: '%s'",
+		       strerror(errno));
+	}
+#endif
+#endif
+
+	/*
+	 *	Reset the core dump limits to their original value.
+	 */
+#ifdef HAVE_SYS_RESOURCE_H
+	if (setrlimit(RLIMIT_CORE, &core_limits) < 0) {
+		radlog(L_ERR, "Cannot update core dump limit: %s",
+		       strerror(errno));
+	}
+#endif
+}
+
+#ifdef HAVE_SETUID
+static int doing_setuid = FALSE;
+
+#if defined(HAVE_SETRESUID) && defined (HAVE_GETRESUID)
+void fr_suid_up(void)
+{
+	uid_t ruid, euid, suid;
+	
+	if (getresuid(&ruid, &euid, &suid) < 0) {
+		radlog(L_ERR, "Failed getting saved UID's");
+		_exit(1);
+	}
+
+	if (setresuid(-1, suid, -1) < 0) {
+		radlog(L_ERR, "Failed switching to privileged user");
+		_exit(1);
+	}
+
+	if (geteuid() != suid) {
+		radlog(L_ERR, "Switched to unknown UID");
+		_exit(1);
+	}
+}
+
+void fr_suid_down(void)
+{
+	if (!doing_setuid) return;
+
+	if (setresuid(-1, server_uid, geteuid()) < 0) {
+		fprintf(stderr, "%s: Failed switching to uid %s: %s\n",
+			progname, uid_name, strerror(errno));
+		_exit(1);
+	}
+		
+	if (geteuid() != server_uid) {
+		fprintf(stderr, "%s: Failed switching uid: UID is incorrect\n",
+			progname);
+		_exit(1);
+	}
+
+	fr_set_dumpable();
+}
+
+void fr_suid_down_permanent(void)
+{
+	if (!doing_setuid) return;
+
+	if (setresuid(server_uid, server_uid, server_uid) < 0) {
+		radlog(L_ERR, "Failed in permanent switch to uid %s: %s",
+		       uid_name, strerror(errno));
+		_exit(1);
+	}
+
+	if (geteuid() != server_uid) {
+		radlog(L_ERR, "Switched to unknown uid");
+		_exit(1);
+	}
+
+	fr_set_dumpable();
+}
+#else
+/*
+ *	Much less secure...
+ */
+void fr_suid_up(void)
+{
+}
+void fr_suid_down(void)
+{
+	if (!uid_name) return;
+
+	if (setuid(server_uid) < 0) {
+		fprintf(stderr, "%s: Failed switching to uid %s: %s\n",
+			progname, uid_name, strerror(errno));
+		_exit(1);
+	}
+
+	fr_set_dumpable();
+}
+void fr_suid_down_permanent(void)
+{
+	fr_set_dumpable();
+}
+#endif /* HAVE_SETRESUID && HAVE_GETRESUID */
+#else  /* HAVE_SETUID */
+void fr_suid_up(void)
+{
+}
+void fr_suid_down(void)
+{
+	fr_set_dumpable();
+}
+void fr_suid_down_permanent(void)
+{
+	fr_set_dumpable();
+}
+#endif /* HAVE_SETUID */
+ 
+#ifdef HAVE_SETUID
 
 /*
  *  Do chroot, if requested.
@@ -413,10 +579,16 @@ int did_setuid = FALSE;
  */
 static int switch_users(CONF_SECTION *cs)
 {
-	CONF_PAIR *cp;
-
 #ifdef HAVE_SYS_RESOURCE_H
-	struct rlimit core_limits;
+	/*
+	 *	Get the current maximum for core files.  Do this
+	 *	before anything else so as to ensure it's properly
+	 *	initialized.
+	 */
+	if (getrlimit(RLIMIT_CORE, &core_limits) < 0) {
+		radlog(L_ERR, "Failed to get current core limit:  %s", strerror(errno));
+		return 0;
+	}
 #endif
 
 	/*
@@ -425,14 +597,17 @@ static int switch_users(CONF_SECTION *cs)
 	 */
 	if (debug_flag && (getuid() != 0)) return 1;
 
+	if (cf_section_parse(cs, NULL, bootstrap_config) < 0) {
+		fprintf(stderr, "radiusd: Error: Failed to parse user/group information.\n");
+		return 0;
+	}
+
+
 #ifdef HAVE_GRP_H
 	/*  Set GID.  */
-	cp = cf_pair_find(cs, "group");
-	if (cp) gid_name = cf_pair_value(cp);
 	if (gid_name) {
 		struct group *gr;
 
-		DEBUG2("group = %s", gid_name);
 		gr = getgrnam(gid_name);
 		if (gr == NULL) {
 			fprintf(stderr, "%s: Cannot get ID for group %s: %s\n",
@@ -447,35 +622,35 @@ static int switch_users(CONF_SECTION *cs)
 
 #ifdef HAVE_PWD_H
 	/*  Set UID.  */
-	cp = cf_pair_find(cs, "user");
-	if (cp) uid_name = cf_pair_value(cp);
 	if (uid_name) {
 		struct passwd *pw;
 		
-		DEBUG2("user = %s", uid_name);
 		pw = getpwnam(uid_name);
 		if (pw == NULL) {
 			fprintf(stderr, "%s: Cannot get passwd entry for user %s: %s\n",
 				progname, uid_name, strerror(errno));
 			return 0;
 		}
-		server_uid = pw->pw_uid;
+
+		if (getuid() == pw->pw_uid) {
+			uid_name = NULL;
+		} else {
+
+			server_uid = pw->pw_uid;
 #ifdef HAVE_INITGROUPS
-		if (initgroups(uid_name, server_gid) < 0) {
-			fprintf(stderr, "%s: Cannot initialize supplementary group list for user %s: %s\n",
-				progname, uid_name, strerror(errno));
-			return 0;
-		}
+			if (initgroups(uid_name, server_gid) < 0) {
+				fprintf(stderr, "%s: Cannot initialize supplementary group list for user %s: %s\n",
+					progname, uid_name, strerror(errno));
+				return 0;
+			}
 #endif
+		}
 	} else {
 		server_uid = getuid();
 	}
 #endif
 
-	cp = cf_pair_find(cs, "chroot");
-	if (cp) chroot_dir = cf_pair_value(cp);
 	if (chroot_dir) {
-		DEBUG2("chroot = %s", chroot_dir);
 		if (chroot(chroot_dir) < 0) {
 			fprintf(stderr, "%s: Failed to perform chroot %s: %s",
 				progname, chroot_dir, strerror(errno));
@@ -497,7 +672,6 @@ static int switch_users(CONF_SECTION *cs)
 		 *	things needed inside of the chroot are the
 		 *	logging directories.
 		 */
-		radlog(L_INFO, "performing chroot to %s\n", chroot_dir);
 	}
 
 #ifdef HAVE_GRP_H
@@ -509,130 +683,52 @@ static int switch_users(CONF_SECTION *cs)
 	}
 #endif
 
-#ifdef HAVE_PWD_H
-	if (uid_name) {
-
-#ifndef HAVE_SETRESUID
-/*
- *	Fake out setresuid with something that's close.
- */
-#define setresuid(_a, _b, _c) setuid(_b)
-#endif
-
-		if (setresuid(-1, server_uid, geteuid()) < 0) {
-			fprintf(stderr, "%s: Failed switching uid: %s\n",
-				progname, strerror(errno));
-			return 0;
-		}
+#ifdef HAVE_SETUID
+	/*
+	 *	Just before losing root permissions, ensure that the
+	 *	log files have the correct owner && group.
+	 *
+	 *	We have to do this because the log file MAY have been
+	 *	specified on the command-line.
+	 */
+	if (uid_name || gid_name) {
+		if ((mainconfig.radlog_dest == RADLOG_FILES) &&
+		    (mainconfig.radlog_fd < 0)) {
+			mainconfig.radlog_fd = open(mainconfig.log_file,
+						    O_WRONLY | O_APPEND | O_CREAT, 0640);
+			if (mainconfig.radlog_fd < 0) {
+				fprintf(stderr, "radiusd: Failed to open log file %s: %s\n", mainconfig.log_file, strerror(errno));
+				return 0;
+			}
 		
-		if (geteuid() != server_uid) {
-			fprintf(stderr, "%s: Failed switching uid: UID is incorrect\n",
-				progname);
-			return 0;
+			if (chown(mainconfig.log_file, server_uid, server_gid) < 0) {
+				fprintf(stderr, "%s: Cannot change ownership of log file %s: %s\n", 
+					progname, mainconfig.log_file, strerror(errno));
+				return 0;
+			}
 		}
-	}
+	}		
 
-	/*
-	 *	Now core dumps are disabled on most secure systems.
-	 */
-	did_setuid = TRUE;
-#endif
+	if (uid_name) {
+		doing_setuid = TRUE;
 
-	/*
-	 *	Double check that we can write to the log directory.
-	 *
-	 *	If we can't, don't start, as we can't log any errors!
-	 */
-	if ((mainconfig.radlog_dest == RADLOG_FILES) &&
-	    (mainconfig.log_file != NULL)) {
-		int fd = open(mainconfig.log_file,
-			      O_WRONLY | O_APPEND | O_CREAT, 0640);
-		if (fd < 0) {
-			fprintf(stderr, "%s: Cannot write to log file %s: %s\n",
-				progname, mainconfig.log_file, strerror(errno));
-			return 0;
-		}
-		close(fd);
-
-		/*
-		 *	After this it's safe to call radlog(), as it's going
-		 *	to the right place.
-		 */
-	}
-
-#ifdef HAVE_SYS_RESOURCE_H
-	/*  Get the current maximum for core files.  */
-	if (getrlimit(RLIMIT_CORE, &core_limits) < 0) {
-		radlog(L_ERR, "Failed to get current core limit:  %s", strerror(errno));
-		return 0;
+		fr_suid_down();
 	}
 #endif
 
 	/*
-	 *	Core dumps are allowed if we're in debug mode, OR
-	 *	we've allowed them, OR we did a setuid (which turns
-	 *	core dumps off).
-	 *
-	 *	Otherwise, disable core dumps for security.
-	 *	
+	 *	This also clears the dumpable flag if core dumps
+	 *	aren't allowed.
 	 */
-	if (!(debug_flag || allow_core_dumps || did_setuid)) {
-#ifdef HAVE_SYS_RESOURCE_H
-		struct rlimit no_core;
+	fr_set_dumpable();
 
-		no_core.rlim_cur = 0;
-		no_core.rlim_max = 0;
-
-		if (setrlimit(RLIMIT_CORE, &no_core) < 0) {
-			radlog(L_ERR, "Failed disabling core dumps: %s",
-			       strerror(errno));
-			return 0;
-		}
-#endif
-
-		/*
-		 *	Otherwise, re-enable core dumps if we're
-		 *	running as a daemon, AND core dumps are
-		 *	allowed, AND we changed UID's.
-		 */
-	} else if ((debug_flag == 0) && allow_core_dumps && did_setuid) {
-		/*
-		 *	Set the dumpable flag.
-		 */
-#ifdef HAVE_SYS_PRCTL_H
-#ifdef PR_SET_DUMPABLE
-		if (prctl(PR_SET_DUMPABLE, 1) < 0) {
-			radlog(L_ERR,"Cannot enable core dumps: prctl(PR_SET_DUMPABLE) failed: '%s'",
-			       strerror(errno));
-		}
-#endif
-#endif
-
-		/*
-		 *	Reset the core dump limits again, just to
-		 *	double check that they haven't changed.
-		 */
-#ifdef HAVE_SYS_RESOURCE_H
-		if (setrlimit(RLIMIT_CORE, &core_limits) < 0) {
-			radlog(L_ERR, "Cannot update core dump limit: %s",
-					strerror(errno));
-			return 0;
-		}
-#endif
-
+	if (allow_core_dumps) {
 		radlog(L_INFO, "Core dumps are enabled.");
 	}
-	/*
-	 *	Else we're debugging (so core dumps are enabled)
-	 *	OR we're not debugging, AND "allow_core_dumps == FALSE",
-	 *	OR we're not debugging, AND core dumps are allowed,
-	 *	   BUT we didn't call setuid, so we haven't changed the
-	 *	   core dump capabilities inherited from the parent shell.
-	 */
 
 	return 1;
 }
-#endif
+#endif	/* HAVE_SETUID */
 
 
 static const FR_NAME_NUMBER str2dest[] = {
@@ -653,11 +749,16 @@ static const FR_NAME_NUMBER str2dest[] = {
 int read_mainconfig(int reload)
 {
 	const char *p = NULL;
-	static int old_debug_level = -1;
 	CONF_PAIR *cp;
 	CONF_SECTION *cs;
 	struct stat statbuf;
+	cached_config_t *cc;
 	char buffer[1024];
+
+	if (reload != 0) {
+		radlog(L_ERR, "Reload is not implemented");
+		return -1;
+	}
 
 	if (stat(radius_dir, &statbuf) < 0) {
 		radlog(L_ERR, "Errors reading %s: %s",
@@ -681,11 +782,7 @@ int read_mainconfig(int reload)
 	}
 #endif
 
-	if (!reload) {
-		radlog(L_INFO, "Starting - reading configuration files ...");
-	} else {
-		radlog(L_INFO, "Reloading - reading configuration files...");
-	}
+	radlog(L_INFO, "Starting - reading configuration files ...");
 
 	/* Read the configuration file */
 	snprintf(buffer, sizeof(buffer), "%.200s/%.50s.conf",
@@ -738,15 +835,46 @@ int read_mainconfig(int reload)
 				cf_section_free(&cs);
 				return -1;
 			}
+
+#ifdef HAVE_SYSLOG_H
+			/*
+			 *	Call openlog only once, when the
+			 *	program starts.
+			 */
+			openlog(progname, LOG_PID, mainconfig.syslog_facility);
+#endif
+
+		} else if (mainconfig.radlog_dest == RADLOG_FILES) {
+			if (!mainconfig.log_file) {
+				fprintf(stderr, "radiusd: Error: Specified \"files\" as a log destination, but no log filename was given!\n");
+				cf_section_free(&cs);
+				return -1;
+			}
 		}
 	}
 
-#ifndef __MINGW32__
+#ifdef HAVE_SETUID
 	/*
-	 *	We should really switch users earlier in the process.
+	 *	Switch users as early as possible.
 	 */
 	if (!switch_users(cs)) exit(1);
 #endif
+
+	/*
+	 *	Open the log file AFTER switching uid / gid.  If we
+	 *	did switch uid/gid, then the code in switch_users()
+	 *	took care of setting the file permissions correctly.
+	 */
+	if ((mainconfig.radlog_dest == RADLOG_FILES) &&
+	    (mainconfig.radlog_fd < 0)) {
+		mainconfig.radlog_fd = open(mainconfig.log_file,
+					    O_WRONLY | O_APPEND | O_CREAT, 0640);
+		if (mainconfig.radlog_fd < 0) {
+			fprintf(stderr, "radiusd: Failed to open log file %s: %s\n", mainconfig.log_file, strerror(errno));
+			cf_section_free(&cs);
+			return -1;
+		}
+	}
 
 	/* Initialize the dictionary */
 	cp = cf_pair_find(cs, "dictionary");
@@ -775,13 +903,13 @@ int read_mainconfig(int reload)
 	cf_section_free(&mainconfig.config);
 	mainconfig.config = cs;
 
-	if (!clients_parse_section(cs)) {
+	DEBUG2("%s: #### Loading Realms and Home Servers ####", mainconfig.name);
+	if (!realms_init(cs)) {
 		return -1;
 	}
 
-	DEBUG2("%s: #### Loading Realms and Home Servers ####", mainconfig.name);
-
-	if (!realms_init(cs)) {
+	DEBUG2("%s: #### Loading Clients ####", mainconfig.name);
+	if (!clients_parse_section(cs)) {
 		return -1;
 	}
 
@@ -792,25 +920,14 @@ int read_mainconfig(int reload)
 	xlat_register("client", xlat_client, NULL);
 
 	/*
-	 *	Reload: change debug flag if it's changed in the
-	 *	configuration file.
+	 *	Starting the server, WITHOUT "-x" on the
+	 *	command-line: use whatever is in the config
+	 *	file.
 	 */
-	if (reload) {
-		if (mainconfig.debug_level != old_debug_level) {
-			debug_flag = mainconfig.debug_level;
-		}
-
-	} else if (debug_flag == 0) {
-
-		/*
-		 *	Starting the server, WITHOUT "-x" on the
-		 *	command-line: use whatever's in the config
-		 *	file.
-		 */
+	if (debug_flag == 0) {
 		debug_flag = mainconfig.debug_level;
 	}
 	fr_debug_flag = debug_flag;
-	old_debug_level = mainconfig.debug_level;
 
 	/*
 	 *  Go update our behaviour, based on the configuration
@@ -828,7 +945,6 @@ int read_mainconfig(int reload)
 
 	/*  Reload the modules.  */
 	if (setup_modules(reload, mainconfig.config) < 0) {
-		radlog(L_ERR, "Errors initializing modules");
 		return -1;
 	}
 
@@ -840,6 +956,13 @@ int read_mainconfig(int reload)
 		}
 	}
 
+	cc = rad_malloc(sizeof(*cc));
+	memset(cc, 0, sizeof(*cc));
+
+	cc->cs = cs;
+	rad_assert(cs_cache == NULL);
+	cs_cache = cc;
+
 	return 0;
 }
 
@@ -848,14 +971,101 @@ int read_mainconfig(int reload)
  */
 int free_mainconfig(void)
 {
+	cached_config_t *cc, *next;
+
+	virtual_servers_free(0);
+
+	/*
+	 *	Free all of the cached configurations.
+	 */
+	for (cc = cs_cache; cc != NULL; cc = next) {
+		next = cc->next;
+		cf_section_free(&cc->cs);
+		free(cc);
+	}
+
 	/*
 	 *	Clean up the configuration data
 	 *	structures.
 	 */
-	cf_section_free(&mainconfig.config);
 	realms_free();
 	listen_free(&mainconfig.listen);
 	dict_free();
 
 	return 0;
+}
+
+void hup_mainconfig(void)
+{
+	cached_config_t *cc;
+	CONF_SECTION *cs;
+	char buffer[1024];
+
+	radlog(L_INFO, "HUP - Re-reading configuration files");
+
+	/* Read the configuration file */
+	snprintf(buffer, sizeof(buffer), "%.200s/%.50s.conf",
+		 radius_dir, mainconfig.name);
+	if ((cs = cf_file_read(buffer)) == NULL) {
+		radlog(L_ERR, "Failed to re-read %s", buffer);
+		return;
+	}
+
+	cc = rad_malloc(sizeof(*cc));
+	memset(cc, 0, sizeof(*cc));
+
+	/*
+	 *	Save the current configuration.  Note that we do NOT
+	 *	free older ones.  We should probably do so at some
+	 *	point.  Doing so will require us to mark which modules
+	 *	are still in use, and which aren't.  Modules that
+	 *	can't be HUPed always use the original configuration.
+	 *	Modules that can be HUPed use one of the newer
+	 *	configurations.
+	 */
+	cc->created = time(NULL);
+	cc->cs = cs;
+	cc->next = cs_cache;
+	cs_cache = cc;
+
+	/*
+	 *	Re-open the log file.  If we can't, then keep logging
+	 *	to the old log file.
+	 *
+	 *	The "open log file" code is here rather than in log.c,
+	 *	because it makes that function MUCH simpler.
+	 */
+	if (mainconfig.radlog_dest == RADLOG_FILES) {
+		int fd, old_fd;
+		
+		fd = open(mainconfig.log_file,
+			  O_WRONLY | O_APPEND | O_CREAT, 0640);
+		if (fd >= 0) {
+			/*
+			 *	Atomic swap. We'd like to keep the old
+			 *	FD around so that callers don't
+			 *	suddenly find the FD closed, and the
+			 *	writes go nowhere.  But that's hard to
+			 *	do.  So... we have the case where a
+			 *	log message *might* be lost on HUP.
+			 */
+			old_fd = mainconfig.radlog_fd;
+			mainconfig.radlog_fd = fd;
+			close(old_fd);
+		}
+	}
+
+	radlog(L_INFO, "HUP - loading modules");
+
+	/*
+	 *	Prefer the new module configuration.
+	 */
+	module_hup(cf_section_sub_find(cs, "modules"));
+
+	/*
+	 *	Load new servers BEFORE freeing old ones.
+	 */
+	virtual_servers_load(cs);
+
+	virtual_servers_free(cc->created - mainconfig.max_request_time * 4);
 }

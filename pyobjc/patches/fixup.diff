@@ -1,22 +1,11 @@
---- pyobjc-core/setup.py.orig	2009-06-23 15:35:45.000000000 -0700
-+++ pyobjc-core/setup.py	2009-06-24 00:20:43.000000000 -0700
-@@ -317,7 +317,7 @@
+--- pyobjc-core/setup.py.orig	2010-07-24 07:41:14.000000000 -0700
++++ pyobjc-core/setup.py	2010-07-28 11:01:51.000000000 -0700
+@@ -433,7 +433,7 @@
      platforms = [ 'MacOS X' ],
      ext_modules = ExtensionList,
-     packages = [ 'objc', 'PyObjCTools' ], 
+     packages = [ 'objc', 'PyObjCTools', ], 
 -    namespace_packages = ['PyObjCTools'],
 +    #namespace_packages = ['PyObjCTools'],
      package_dir = { '': 'Lib', 'PyObjCTest': 'PyObjCTest' },
      extra_path = "PyObjC",
-     cmdclass = {'build_ext': pyobjc_build_ext, 'install_lib': pyobjc_install_lib },
---- pyobjc-core/Modules/objc/corefoundation.m.orig	2009-06-23 15:35:44.000000000 -0700
-+++ pyobjc-core/Modules/objc/corefoundation.m	2009-06-24 00:23:05.000000000 -0700
-@@ -250,7 +250,7 @@
- 	PyObject* rval = NULL;
- 	PyObject* v = PyDict_GetItemString(PyObjC_TypeStr2CFTypeID, typestr);
- 	if (v == NULL) {
--		PyErr_SetString(PyExc_ValueError, "Unknown typestr");
-+		PyErr_Format(PyExc_ValueError, "Unknown typestr: %s", typestr);
- 		return NULL;
- 	}
- 	CFTypeID typeid;
+     cmdclass = {'build_ext': pyobjc_build_ext, 'install_lib': pyobjc_install_lib, 'build_py': oc_build_py, 'test': oc_test, 'egg_info':egg_info },

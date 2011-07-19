@@ -32,7 +32,7 @@
 #include "file.h"
 
 #ifndef	lint
-FILE_RCSID("@(#)$File: file.c,v 1.131 2009/02/13 18:48:05 christos Exp $")
+FILE_RCSID("@(#)$File: file.c,v 1.136 2009/12/06 23:18:04 rrt Exp $")
 #endif	/* lint */
 
 #include "magic.h"
@@ -63,14 +63,12 @@ FILE_RCSID("@(#)$File: file.c,v 1.131 2009/02/13 18:48:05 christos Exp $")
 
 #if defined(HAVE_GETOPT_H) && defined(HAVE_STRUCT_OPTION)
 #include <getopt.h>
-#else
-#include "mygetopt.h"
-#endif
 #ifndef HAVE_GETOPT_LONG
 int getopt_long(int argc, char * const *argv, const char *optstring, const struct option *longopts, int *longindex);
 #endif
-
-#include <netinet/in.h>		/* for byte swapping */
+#else
+#include "mygetopt.h"
+#endif
 
 #include "patchlevel.h"
 
@@ -81,13 +79,13 @@ int getopt_long(int argc, char * const *argv, const char *optstring, const struc
 #endif
 
 #ifdef S_IFLNK
-#define SYMLINKFLAG "Lh"
+#define FILE_FLAGS "-bchikLNnprsvz0"
 #else
-#define SYMLINKFLAG ""
+#define FILE_FLAGS "-bcikNnprsvz0"
 #endif
 
-# define USAGE   "Usage: %s [-bcdik" SYMLINKFLAG "nNrsvz0] [-e test] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
-# define USAGE03 "Usage: %s [-bcdDiIk" SYMLINKFLAG "nNrsvz0] [-e test] [-f namefile] [-F separator] [-m magicfiles] [-M magicfiles] file...\n       %s -C -m magicfiles\n"
+# define USAGE   "Usage: %s [" FILE_FLAGS "] [-e test] [-f namefile] [-F separator] [-m magicfiles] file...\n       %s -C -m magicfiles\n"
+# define USAGE03 "Usage: %s [" FILE_FLAGS "] [-e test] [-f namefile] [-F separator] [-m magicfiles] [-M magicfiles] file...\n       %s -C -m magicfiles\n"
 
 #ifndef MAXPATHLEN
 #define	MAXPATHLEN	1024
@@ -99,7 +97,6 @@ private int 		/* Global command-line options 		*/
 	nobuffer = 0,   /* Do not buffer stdout 		*/
 	nulsep = 0;	/* Append '\0' to the separator		*/
 
-private const char *default_magicfile = MAGIC;
 private const char *separator = ":";	/* Default field separator	*/
 private const struct option long_options[] = {
 #define OPT(shortname, longname, opt, doc)      \
@@ -152,14 +149,12 @@ main(int argc, char *argv[])
 	size_t i;
 	int action = 0, didsomefiles = 0, errflg = 0;
 	int flags = 0, e = 0;
-	char *usermagic;
 	struct magic_set *magic = NULL;
-	char magicpath[2 * MAXPATHLEN + 2];
 	int longindex;
 	int dflag = 0; /* POSIX 'd' option -- use default magic file */
 	int Mflag = 0;
 	int unix03 = COMPAT_MODE("bin/file", "unix2003");
-	const char *magicfile;		/* where the magic is	*/
+	const char *magicfile = NULL;		/* where the magic is	*/
 
 	/* makes islower etc work for other langs */
 	(void)setlocale(LC_CTYPE, "");
@@ -173,10 +168,6 @@ main(int argc, char *argv[])
 		progname++;
 	else
 		progname = argv[0];
-
-	magicfile = default_magicfile;
-	if ((usermagic = getenv("MAGIC")) != NULL)
-		magicfile = usermagic;
 
 #ifdef S_IFLNK
 	flags |= (unix03 || getenv("POSIXLY_CORRECT")) ? (MAGIC_SYMLINK) : 0;
@@ -258,16 +249,16 @@ main(int argc, char *argv[])
 		case 'M':
 			++Mflag;
 		case 'm':
-			if (magicfile != default_magicfile && magicfile != usermagic) {
-				char *newmagicfile = malloc(strlen(magicfile) + strlen(separator) + strlen(optarg) + 1);
-				strcpy(newmagicfile, magicfile);
-				strcat(newmagicfile, separator);
-				strcat(newmagicfile, optarg);
-				magicfile = newmagicfile;
-				break;
-			}
-			magicfile = optarg;
-			break;
+		{
+			if (magicfile == NULL)
+				magicfile = magic_getpath(magicfile, action);
+			char *newmagicfile = malloc(strlen(magicfile) + strlen(separator) + strlen(optarg) + 1);
+			strcpy(newmagicfile, magicfile);
+			strcat(newmagicfile, separator);
+			strcat(newmagicfile, optarg);
+			magicfile = newmagicfile;
+		}
+		break;
 		case 'n':
 			++nobuffer;
 			break;
@@ -286,6 +277,8 @@ main(int argc, char *argv[])
 			flags |= MAGIC_DEVICES;
 			break;
 		case 'v':
+			if (magicfile == NULL) 
+				magicfile = magic_getpath(magicfile, action);
 			(void)fprintf(stderr, "%s-%d.%.2d\n", progname,
 				       FILE_VERSION_MAJOR, patchlevel);
 			(void)fprintf(stderr, "magic file from %s\n",
@@ -325,8 +318,6 @@ main(int argc, char *argv[])
 		 * Don't try to check/compile ~/.magic unless we explicitly
 		 * ask for it.
 		 */
-		if (magicfile == magicpath)
-			magicfile = default_magicfile;
 		magic = magic_open(flags|MAGIC_CHECK);
 		if (magic == NULL) {
 			(void)fprintf(stderr, "%s: %s\n", progname,

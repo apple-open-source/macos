@@ -74,7 +74,7 @@ struct IOHIDReportHandler
 
 #define super IOHIDEventService
 
-OSDefineMetaClassAndStructors( IOHIDEventDriver, super )
+OSDefineMetaClassAndStructors( IOHIDEventDriver, IOHIDEventService )
 
 //====================================================================================================
 // IOHIDEventDriver::init

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +27,7 @@
 #include "codesign.h"
 #include <Security/CSCommonPriv.h>
 #include <Security/SecCodePriv.h>
+#include <security_utilities/cfmunge.h>
 #include <security_codesigning/codedirectory.h>		// strictly for the data format
 
 using namespace UnixPlusPlus;
@@ -46,9 +47,9 @@ static string flagForm(uint32_t flags);
 void dump(const char *target)
 {
 	// get the code object (static or dynamic)
-	CFRef<SecStaticCodeRef> codeRef = codePath(target);	// dynamic input
+	CFRef<SecStaticCodeRef> codeRef = dynamicCodePath(target);	// dynamic input
 	if (!codeRef)
-		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags, &codeRef.aref()));
+		codeRef = staticCodePath(target, architecture, bundleVersion);
 	if (detached)
 		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
 			MacOSError::check(SecCodeSetDetachedSignature(codeRef, dsig, kSecCSDefaultFlags));
@@ -60,6 +61,7 @@ void dump(const char *target)
 		Info() : CFDictionary(errSecCSInternalError) { }
 		const std::string string(CFStringRef key) { return cfString(get<CFStringRef>(key)); }
 		const std::string url(CFStringRef key) { return cfString(get<CFURLRef>(key)); }
+		uint32_t number(CFStringRef key) { return cfNumber(get<CFNumberRef>(key)); }
 		using CFDictionary::get;	// ... and all the others
 	};
 	Info api;
@@ -86,7 +88,15 @@ void dump(const char *target)
 		(const CodeDirectory *)CFDataGetBytePtr(api.get<CFDataRef>(kSecCodeInfoCodeDirectory));
 	note(1, "CodeDirectory v=%x size=%d flags=%s hashes=%d+%d location=%s",
 		int(dir->version), dir->length(), flagForm(dir->flags).c_str(),
-		int(dir->nCodeSlots), int(dir->nSpecialSlots), api.string(kSecCodeInfoSource).c_str());
+		int(dir->nCodeSlots), int(dir->nSpecialSlots),
+		api.string(kSecCodeInfoSource).c_str());
+	if (verbose > 2) {
+		uint32_t hashType = api.number(kSecCodeInfoDigestAlgorithm);
+		if (const HashType *type = findHashType(hashType))
+			note(3, "Hash type=%s size=%d", type->name, type->size);
+		else
+			note(3, "Hash UNKNOWN type=%d", hashType);
+	}
 
 	if (const CodeDirectory::Scatter *scatter = dir->scatterVector()) {
 		const CodeDirectory::Scatter *end = scatter;
@@ -148,6 +158,19 @@ void dump(const char *target)
 			= CFDictionaryRef(CFDictionaryGetValue(resources, CFSTR("files")));
 		note(1, "Sealed Resources rules=%d files=%d",
 			CFDictionaryGetCount(rules), CFDictionaryGetCount(files));
+		if (resourceRules) {
+			FILE *output;
+			if (!strcmp(resourceRules, "-")) {
+				output = stdout;
+			} else if (!(output = fopen(resourceRules, "w"))) {
+				perror(resourceRules);
+				exit(exitFailure);
+			}
+			CFRef<CFDataRef> rulesData = makeCFData(CFTemp<CFDictionaryRef>("{rules=%O}", rules).get());
+			fwrite(CFDataGetBytePtr(rulesData), CFDataGetLength(rulesData), 1, output);
+			if (output != stdout)
+				fclose(output);
+		}
 	} else
 		note(1, "Sealed Resources=none");
 	
@@ -182,8 +205,16 @@ void dump(const char *target)
 			note(1, "Internal requirements=none");
 	}
 
-	if (entitlements)
-		writeData(CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements)), entitlements, "a");
+	if (entitlements) {
+		CFDataRef data = CFDataRef(CFDictionaryGetValue(api, kSecCodeInfoEntitlements));
+		if (entitlements[0] == ':') {
+			static const unsigned headerSize = sizeof(BlobCore);
+			CFRef<CFDataRef> cleanData = CFDataCreateWithBytesNoCopy(NULL, CFDataGetBytePtr(data) + headerSize, CFDataGetLength(data) - headerSize, kCFAllocatorNull);
+			writeData(cleanData, entitlements+1, "a");
+		} else {
+			writeData(data, entitlements, "a");
+		}
+	}
 
 	if (modifiedFiles)
 		writeFileList(CFArrayRef(CFDictionaryGetValue(api, kSecCodeInfoChangedFiles)), modifiedFiles, "a");

@@ -2,7 +2,7 @@ Project    = httpd
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-Version    = 2.2.17
+Version    = 2.2.19
 Sources    = $(SRCROOT)/$(Project)
 
 Patch_List = patch-config.layout \
@@ -17,7 +17,10 @@ Patch_List = patch-config.layout \
              apachectl.diff \
              PR-5432464.diff \
              PR-4764662.diff \
-             PR-7652362-ulimit.diff
+             PR-6182207.diff \
+             PR-7484748-EALREADY.diff \
+             PR-7652362-ulimit.diff \
+             PR-6223104.diff
 
 Configure_Flags = --prefix=/usr \
                   --enable-layout=Darwin \
@@ -33,7 +36,8 @@ Configure_Flags = --prefix=/usr \
                   --enable-proxy-http \
                   --enable-disk-cache
 
-Post_Install_Targets = module-setup module-disable post-install strip-modules
+Post_Install_Targets = module-setup module-disable recopy-httpd-conf \
+                       post-install strip-modules webpromotion
 
 # Extract the source.
 install_source::
@@ -45,10 +49,12 @@ install_source::
 	done
 
 build::
+	cd WebSharing && xcodebuild
 	cd $(BuildDirectory) && $(Sources)/configure $(Configure_Flags)
 	cd $(BuildDirectory) && make EXTRA_CFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=2"
 
 install::
+	cd WebSharing && xcodebuild install DSTROOT=$(DSTROOT)
 	cd $(BuildDirectory) && make install DESTDIR=$(DSTROOT)
 	$(_v) $(MAKE) $(Post_Install_Targets)
 	$(_v) $(MAKE) compress_man_pages
@@ -75,10 +81,21 @@ module-setup:
 	done
 	$(RM) $(DSTROOT)$(SYSCONFDIR)/httpd.conf.bak
 
+webpromotion:
+	cp webpromotion.rb $(SYMROOT)
+	cd $(SYMROOT); macrubyc --arch i386 --arch x86_64 webpromotion.rb -o webpromotion
+	cd $(SYMROOT); /usr/bin/dsymutil -o webpromotion.dSYM webpromotion
+	mkdir -p $(DSTROOT)/usr/sbin
+	cd $(SYMROOT); strip -S webpromotion -o $(DSTROOT)/usr/sbin/webpromotion
+	chmod 755 $(DSTROOT)/usr/sbin/webpromotion
+
 # 4831254
 module-disable:
-	sed -e '/unique_id_module/s/^/#/' < $(DSTROOT)$(SYSCONFDIR)/httpd.conf > $(DSTROOT)$(SYSCONFDIR)/httpd.conf.new
-	mv $(DSTROOT)$(SYSCONFDIR)/httpd.conf.new $(DSTROOT)$(SYSCONFDIR)/httpd.conf
+	sed -i '' -e '/unique_id_module/s/^/#/' $(DSTROOT)$(SYSCONFDIR)/httpd.conf
+
+# 6927748: This needs to run after we're done processing httpd.conf (and anything in extra)
+recopy-httpd-conf:
+	cp $(DSTROOT)$(SYSCONFDIR)/httpd.conf $(DSTROOT)$(SYSCONFDIR)/original/httpd.conf
 
 post-install:
 	$(MKDIR) $(DSTROOT)$(SYSCONFDIR)/users
@@ -91,6 +108,9 @@ post-install:
 	$(CHOWN) -R $(Install_User):$(Install_Group) \
 		$(DSTROOT)/usr/share/httpd \
 		$(DSTROOT)/usr/share/man
+	$(RM) $(DSTROOT)/private/etc/apache2/httpd.conf
+	$(INSTALL_FILE) $(SRCROOT)/httpd.conf $(DSTROOT)/private/etc/apache2/httpd.conf
+	$(INSTALL_FILE) $(SRCROOT)/httpd.conf $(DSTROOT)/private/etc/apache2/httpd.conf.default
 	$(MV) $(DSTROOT)/Library/WebServer/Documents/index.html $(DSTROOT)/Library/WebServer/Documents/index.html.en
 	$(INSTALL_FILE) $(SRCROOT)/PoweredByMacOSX*.gif $(DSTROOT)/Library/WebServer/Documents
 	$(MKDIR) $(DSTROOT)/System/Library/LaunchDaemons

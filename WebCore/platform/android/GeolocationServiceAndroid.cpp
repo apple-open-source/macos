@@ -47,7 +47,7 @@ namespace WebCore {
 // exist simultaneously, the corresponsing Java GeolocationService objects all
 // register with the platform location service. It is the platform service that
 // handles making sure that updates are passed to all Geolocation objects.
-GeolocationService* GeolocationServiceAndroid::create(GeolocationServiceClient* client)
+PassOwnPtr<GeolocationService> GeolocationServiceAndroid::create(GeolocationServiceClient* client)
 {
     return new GeolocationServiceAndroid(client);
 }
@@ -171,9 +171,9 @@ bool GeolocationServiceAndroid::isPositionMoreAccurate(Geoposition* position1, G
 bool GeolocationServiceAndroid::isPositionMoreTimely(Geoposition* position1, Geoposition* position2)
 {
     ASSERT(position1 && position2);
-    DOMTimeStamp currentTimeMillis = WTF::currentTime() * 1000.0;
-    DOMTimeStamp maximumAgeMillis = 10 * 60 * 1000;  // 10 minutes
-    return currentTimeMillis - position1->timestamp() > maximumAgeMillis;
+    DOMTimeStamp currentTime = convertSecondsToDOMTimeStamp(WTF::currentTime());
+    DOMTimeStamp maximumAge = convertSecondsToDOMTimeStamp(10 * 60); // 10 minutes
+    return currentTime - position1->timestamp() > maximumAge;
 }
 
 } // namespace WebCore

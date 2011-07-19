@@ -32,7 +32,9 @@
 _pthread_self:
 #ifdef _ARM_ARCH_6
 	mrc	p15, 0, r0, c13, c0, 3
+	bic	r0, r0, #3
 #else
 	mov	r0, r9
 #endif
+	ldr	r0, [r0, #0]
 	bx	lr

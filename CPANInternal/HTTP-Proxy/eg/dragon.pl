@@ -2,7 +2,7 @@
 use HTTP::Proxy;
 use HTTP::Proxy::HeaderFilter::simple;
 use HTTP::Proxy::BodyFilter::simple;
-use HTTP::Proxy::BodyFilter::tags;
+use HTTP::Proxy::BodyFilter::complete;
 use MIME::Base64;
 use Fcntl ':flock';
 use strict;
@@ -30,31 +30,16 @@ $proxy->push_filter(
         }
     ),
     # count games
-    response => HTTP::Proxy::BodyFilter::tags->new,
+    response => HTTP::Proxy::BodyFilter::complete->new(),
     response => HTTP::Proxy::BodyFilter::simple->new(
-        begin  => sub { $seen_title = 0; },
         filter => sub {
              my ( $self, $dataref, $message, $protocol, $buffer ) = @_;
-             # pass everything until <TITLE> (included)
-             if( !$seen_title ) {
-                 if( $$dataref =~ /<TITLE>/ ) {
-                     $seen_title++;
-                     $$dataref =~ s/(.*<TITLE>)(.*)/$1/s;
-                     $$buffer .= $2;
-                 }
-                 return;
-             }
-             # store the rest of the page
-             if( defined $buffer ) {
-                 $$buffer = $$dataref;
-                 $$dataref = '';
-             }
+             next if ! $$dataref;
+
              # count the games and change the title
-             else {
-                 my $n = 0; $n++ while $$dataref =~ /game\.php\?gid=\d+/g;
-                 my $s = $n > 1 ? "s" : ""; $n ||= "No";
-                 $$dataref =~ s!.*</TITLE>!Go - $n game$s pending</TITLE>!s;
-             };
+             my $n = 0; $n++ while $$dataref =~ /game\.php\?gid=\d+/g;
+             my $s = $n > 1 ? "s" : ""; $n ||= "No";
+             $$dataref =~ s!<TITLE>.*?</TITLE>!<TITLE>$n go game$s pending</TITLE>!s;
         },
     ),
 );
@@ -65,7 +50,7 @@ $proxy->push_filter(
 $proxy->push_filter(
     host     => 'www.dragongoserver.net',
     path     => '^/game.php',
-    response => HTTP::Proxy::BodyFilter::tags->new,
+    response => HTTP::Proxy::BodyFilter::complete->new(),
     response => HTTP::Proxy::BodyFilter::simple->new(
       sub { 
           my $msg = '&msg=yes';

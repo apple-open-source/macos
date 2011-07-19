@@ -21,7 +21,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #ifndef ResourceRequest_h
@@ -30,7 +30,19 @@
 #include "ResourceRequestBase.h"
 
 #include <wtf/RetainPtr.h>
+#if USE(CFNETWORK)
 typedef const struct _CFURLRequest* CFURLRequestRef;
+#else
+#ifdef __OBJC__
+@class NSURLRequest;
+#else
+class NSURLRequest;
+#endif
+#endif
+
+#if USE(CFURLSTORAGESESSIONS)
+typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+#endif
 
 namespace WebCore {
 
@@ -57,19 +69,51 @@ namespace WebCore {
         {
         }
         
+#if USE(CFNETWORK)
         ResourceRequest(CFURLRequestRef cfRequest)
             : ResourceRequestBase()
             , m_cfRequest(cfRequest) { }
-        
-        CFURLRequestRef cfURLRequest() const;       
+
+        CFURLRequestRef cfURLRequest() const;
+#else
+        ResourceRequest(NSURLRequest* nsRequest)
+            : ResourceRequestBase()
+            , m_nsRequest(nsRequest) { }
+
+        void applyWebArchiveHackForMail();
+        NSURLRequest* nsURLRequest() const;
+#endif
+
+#if USE(CFURLSTORAGESESSIONS)
+        void setStorageSession(CFURLStorageSessionRef);
+#endif
+
+        static bool httpPipeliningEnabled();
+        static void setHTTPPipeliningEnabled(bool);
+
+#if PLATFORM(MAC)
+        static bool useQuickLookResourceCachingQuirks();
+#endif
 
     private:
         friend class ResourceRequestBase;
 
         void doUpdatePlatformRequest();
         void doUpdateResourceRequest();
-        
-        RetainPtr<CFURLRequestRef> m_cfRequest;      
+
+        PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const { return data; }
+        void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>) { }
+
+#if USE(CFNETWORK)
+        RetainPtr<CFURLRequestRef> m_cfRequest;
+#else
+        RetainPtr<NSURLRequest> m_nsRequest;
+#endif
+
+        static bool s_httpPipeliningEnabled;
+    };
+
+    struct CrossThreadResourceRequestData : public CrossThreadResourceRequestDataBase {
     };
 
 } // namespace WebCore

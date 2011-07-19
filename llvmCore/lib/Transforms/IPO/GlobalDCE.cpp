@@ -20,9 +20,8 @@
 #include "llvm/Constants.h"
 #include "llvm/Module.h"
 #include "llvm/Pass.h"
+#include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/Statistic.h"
-#include "llvm/Support/Compiler.h"
-#include <set>
 using namespace llvm;
 
 STATISTIC(NumAliases  , "Number of global aliases removed");
@@ -30,7 +29,7 @@ STATISTIC(NumFunctions, "Number of functions removed");
 STATISTIC(NumVariables, "Number of global variables removed");
 
 namespace {
-  struct VISIBILITY_HIDDEN GlobalDCE : public ModulePass {
+  struct GlobalDCE : public ModulePass {
     static char ID; // Pass identification, replacement for typeid
     GlobalDCE() : ModulePass(&ID) {}
 
@@ -40,14 +39,13 @@ namespace {
     bool runOnModule(Module &M);
 
   private:
-    std::set<GlobalValue*> AliveGlobals;
+    SmallPtrSet<GlobalValue*, 32> AliveGlobals;
 
     /// GlobalIsNeeded - mark the specific global value as needed, and
     /// recursively mark anything that it uses as also needed.
     void GlobalIsNeeded(GlobalValue *GV);
     void MarkUsedGlobalsAsNeeded(Constant *C);
 
-    bool SafeToDestroyConstant(Constant* C);
     bool RemoveUnusedGlobalValue(GlobalValue &GV);
   };
 }
@@ -59,12 +57,13 @@ ModulePass *llvm::createGlobalDCEPass() { return new GlobalDCE(); }
 
 bool GlobalDCE::runOnModule(Module &M) {
   bool Changed = false;
+  
   // Loop over the module, adding globals which are obviously necessary.
   for (Module::iterator I = M.begin(), E = M.end(); I != E; ++I) {
     Changed |= RemoveUnusedGlobalValue(*I);
     // Functions with external linkage are needed if they have a body
     if (!I->hasLocalLinkage() && !I->hasLinkOnceLinkage() &&
-        !I->isDeclaration())
+        !I->isDeclaration() && !I->hasAvailableExternallyLinkage())
       GlobalIsNeeded(I);
   }
 
@@ -74,7 +73,7 @@ bool GlobalDCE::runOnModule(Module &M) {
     // Externally visible & appending globals are needed, if they have an
     // initializer.
     if (!I->hasLocalLinkage() && !I->hasLinkOnceLinkage() &&
-        !I->isDeclaration())
+        !I->isDeclaration() && !I->hasAvailableExternallyLinkage())
       GlobalIsNeeded(I);
   }
 
@@ -92,7 +91,8 @@ bool GlobalDCE::runOnModule(Module &M) {
 
   // The first pass is to drop initializers of global variables which are dead.
   std::vector<GlobalVariable*> DeadGlobalVars;   // Keep track of dead globals
-  for (Module::global_iterator I = M.global_begin(), E = M.global_end(); I != E; ++I)
+  for (Module::global_iterator I = M.global_begin(), E = M.global_end();
+       I != E; ++I)
     if (!AliveGlobals.count(I)) {
       DeadGlobalVars.push_back(I);         // Keep track of dead globals
       I->setInitializer(0);
@@ -148,20 +148,17 @@ bool GlobalDCE::runOnModule(Module &M) {
 
   // Make sure that all memory is released
   AliveGlobals.clear();
+
   return Changed;
 }
 
 /// GlobalIsNeeded - the specific global value as needed, and
 /// recursively mark anything that it uses as also needed.
 void GlobalDCE::GlobalIsNeeded(GlobalValue *G) {
-  std::set<GlobalValue*>::iterator I = AliveGlobals.find(G);
-
   // If the global is already in the set, no need to reprocess it.
-  if (I != AliveGlobals.end()) return;
-
-  // Otherwise insert it now, so we do not infinitely recurse
-  AliveGlobals.insert(I, G);
-
+  if (!AliveGlobals.insert(G))
+    return;
+  
   if (GlobalVariable *GV = dyn_cast<GlobalVariable>(G)) {
     // If this is a global variable, we must make sure to add any global values
     // referenced by the initializer to the alive set.
@@ -176,11 +173,9 @@ void GlobalDCE::GlobalIsNeeded(GlobalValue *G) {
     // operands.  Any operands of these types must be processed to ensure that
     // any globals used will be marked as needed.
     Function *F = cast<Function>(G);
-    // For all basic blocks...
+
     for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB)
-      // For all instructions...
       for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ++I)
-        // For all operands...
         for (User::op_iterator U = I->op_begin(), E = I->op_end(); U != E; ++U)
           if (GlobalValue *GV = dyn_cast<GlobalValue>(*U))
             GlobalIsNeeded(GV);
@@ -191,13 +186,13 @@ void GlobalDCE::GlobalIsNeeded(GlobalValue *G) {
 
 void GlobalDCE::MarkUsedGlobalsAsNeeded(Constant *C) {
   if (GlobalValue *GV = dyn_cast<GlobalValue>(C))
-    GlobalIsNeeded(GV);
-  else {
-    // Loop over all of the operands of the constant, adding any globals they
-    // use to the list of needed globals.
-    for (User::op_iterator I = C->op_begin(), E = C->op_end(); I != E; ++I)
-      MarkUsedGlobalsAsNeeded(cast<Constant>(*I));
-  }
+    return GlobalIsNeeded(GV);
+  
+  // Loop over all of the operands of the constant, adding any globals they
+  // use to the list of needed globals.
+  for (User::op_iterator I = C->op_begin(), E = C->op_end(); I != E; ++I)
+    if (Constant *OpC = dyn_cast<Constant>(*I))
+      MarkUsedGlobalsAsNeeded(OpC);
 }
 
 // RemoveUnusedGlobalValue - Loop over all of the uses of the specified
@@ -210,18 +205,4 @@ bool GlobalDCE::RemoveUnusedGlobalValue(GlobalValue &GV) {
   if (GV.use_empty()) return false;
   GV.removeDeadConstantUsers();
   return GV.use_empty();
-}
-
-// SafeToDestroyConstant - It is safe to destroy a constant iff it is only used
-// by constants itself.  Note that constants cannot be cyclic, so this test is
-// pretty easy to implement recursively.
-//
-bool GlobalDCE::SafeToDestroyConstant(Constant *C) {
-  for (Value::use_iterator I = C->use_begin(), E = C->use_end(); I != E; ++I)
-    if (Constant *User = dyn_cast<Constant>(*I)) {
-      if (!SafeToDestroyConstant(User)) return false;
-    } else {
-      return false;
-    }
-  return true;
 }

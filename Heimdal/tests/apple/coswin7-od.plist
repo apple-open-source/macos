@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>mount</key>
+	<dict>
+		<key>password</key>
+		<string>smbtest</string>
+		<key>user</key>
+		<string>smbtest</string>
+		<key>share-name</key>
+		<string>smbtest</string>
+	</dict>
+	<key>windows-machine</key>
+	<dict>
+		<key>host</key>
+		<string>coswin7.apple.com</string>
+		<key>password</key>
+		<string>Foobar1</string>
+		<key>user</key>
+		<string>COS\ktestuser</string>
+	</dict>
+</dict>
+</plist>

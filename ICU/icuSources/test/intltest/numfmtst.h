@@ -1,9 +1,9 @@
-/********************************************************************
- * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
- * others. All Rights Reserved.
- ********************************************************************/
- 
+/************************************************************************
+ * COPYRIGHT:
+ * Copyright (c) 1997-2010, International Business Machines Corporation
+ * and others. All Rights Reserved.
+ ************************************************************************/
+
 #ifndef _NUMBERFORMATTEST_
 #define _NUMBERFORMATTEST_
 
@@ -12,7 +12,7 @@
 #if !UCONFIG_NO_FORMATTING
 
 #include "unicode/numfmt.h"
-#include "unicode/decimfmt.h" 
+#include "unicode/decimfmt.h"
 #include "caltztst.h"
 
 /**
@@ -26,7 +26,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     /**
      * Test APIs (to increase code coverage)
-     */   
+     */
     void TestAPI(void);
 
     void TestCoverage(void);
@@ -51,7 +51,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
      * API coverage for DigitList
      **/
     //void TestDigitList(void);
-    
+
     /**
      * Test localized currency patterns.
      */
@@ -92,9 +92,9 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestSecondaryGrouping(void);
 
     void TestWhiteSpaceParsing(void);
-        
+
     void TestComplexCurrency(void);
-        
+
     void TestPad(void);
     void TestPatterns2(void);
 
@@ -116,7 +116,7 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestPerMill(void);
 
     void TestIllegalPatterns(void);
-    
+
     void TestCases(void);
 
     void TestJB3832(void);
@@ -126,20 +126,45 @@ class NumberFormatTest: public CalendarTimeZoneTest {
     void TestHostClone(void);
 
     void TestCurrencyFormat(void);
-    
+
     /* Port of ICU4J rounding test. */
     void TestRounding(void);
 
     void TestNonpositiveMultiplier(void);
-	
-	void TestLenientParse(void);
-	void TestSpaceParsing(void);
-	
+
+    void TestNumberingSystems();
+
+
+    void TestSpaceParsing();
+    void TestMultiCurrencySign();
+    void TestCurrencyFormatForMixParsing();
+    void TestDecimalFormatCurrencyParse();
+    void TestCurrencyIsoPluralFormat();
+    void TestCurrencyParsing();
+    void TestParseCurrencyInUCurr();
+    void TestFormatAttributes();
+    void TestFieldPositionIterator();
+
+    void TestLenientParse();
+
+    void TestDecimal();
+    void TestCurrencyFractionDigits();
+
+    void TestExponentParse();
+
  private:
 
     static UBool equalValue(const Formattable& a, const Formattable& b);
 
+    void expectPositions(FieldPositionIterator& iter, int32_t *values, int32_t tupleCount,
+                         const UnicodeString& str);
+
+    void expectPosition(FieldPosition& pos, int32_t id, int32_t start, int32_t limit,
+                        const UnicodeString& str);
+
     void expect2(NumberFormat& fmt, const Formattable& n, const UnicodeString& str);
+
+    void expect3(NumberFormat& fmt, const Formattable& n, const UnicodeString& str);
 
     void expect2(NumberFormat& fmt, const Formattable& n, const char* str) {
         expect2(fmt, n, UnicodeString(str, ""));
@@ -206,6 +231,11 @@ class NumberFormatTest: public CalendarTimeZoneTest {
         expectPad(fmt, pat, pos, 0, (UChar)0);
     }
 
+    void expect_rbnf(NumberFormat& fmt, const UnicodeString& str, const Formattable& n);
+
+    void expect_rbnf(NumberFormat& fmt, const Formattable& n,
+                const UnicodeString& exp, UBool rt=TRUE);
+
     // internal utility routine
     static UnicodeString& escape(UnicodeString& s);
 
@@ -213,13 +243,13 @@ class NumberFormatTest: public CalendarTimeZoneTest {
 
     // internal subtest used by TestRounding487
     void roundingTest(NumberFormat& nf, double x, int32_t maxFractionDigits, const char* expected);
-    
+
     // internal rounding checking for TestRounding
     void checkRounding(DecimalFormat* df, double base, int iterations, double increment);
-    
+
     double checkRound(DecimalFormat* df, double iValue, double lastParsed);
 };
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
- 
+
 #endif // _NUMBERFORMATTEST_

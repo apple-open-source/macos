@@ -1,0 +1,24 @@
+Index: src/memline.c
+===================================================================
+--- src/memline.c	(revision 57762)
++++ src/memline.c	(working copy)
+@@ -1662,7 +1662,8 @@
+ 	}
+ 	else
+ 	    MSG(_("Recovery completed. Buffer contents equals file contents."));
+-	MSG_PUTS(_("\nYou may want to delete the .swp file now.\n\n"));
++	if (vim_strchr(p_cpo, CPO_PRESERVE) == NULL)
++	    MSG_PUTS(_("\nYou may want to delete the .swp file now.\n\n"));
+ 	cmdline_row = msg_row;
+     }
+ #ifdef FEAT_CRYPT
+@@ -1681,7 +1682,8 @@
+     {
+ 	if (hp != NULL)
+ 	    mf_put(mfp, hp, FALSE, FALSE);
+-	mf_close(mfp, FALSE);	    /* will also vim_free(mfp->mf_fname) */
++	/* PR-3936063: In POSIX preserve mode, delete the file after recovery */
++	mf_close(mfp, (vim_strchr(p_cpo, CPO_PRESERVE) != NULL));    /* will also vim_free(mfp->mf_fname) */
+     }
+     if (buf != NULL)
+     {

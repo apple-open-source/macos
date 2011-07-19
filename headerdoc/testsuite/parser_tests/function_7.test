@@ -1,0 +1,516 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$45|extern const struct foo *function_test_7();
+
+$37|/*!
+ * @function function_test_7
+ */
+$0|$6615|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_7.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_7.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{constKeywordFound} => 1
+$parserState->{curvarstars} => *
+$parserState->{externC} => 0
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => function_test_7
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => foo
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 5
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preExternCcurline} => 
+$parserState->{preExternCdeclaration} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} =>  extern
+$parserState->{returntype} =>  extern const struct foo *function_test_7(
+
+$parserState->{rollbackState} => REF(OBJID)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => function_test_7
+$parserState->{sodtype} => extern const struct foo *
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => struct
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: function
+namelist: function_test_7
+posstypes: function method
+value: 
+returntype: extern const struct foo *
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---extern
++--- 
++---const
++--- 
++---struct
++--- 
++---foo
++--- 
++---*
++---function_test_7
++---(
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function 7
+APIUID: //test_ref/doc/header/function_7.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: function_test_7
+    APIUID: //test_ref/c/func/function_test_7
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: "extern const struct foo *"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: function_test_7 (HeaderDoc::Function)
++---extern
++--- 
++---const
++--- 
++---struct
++--- 
++---foo
++--- 
++---*
++---function_test_7
++---(
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: function_test_7 (HeaderDoc::Function)
+	<span class="keyword">extern</span> <span class="keyword">const</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/struct/foo //test_ref/c/intf/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="type">foo</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/function_test_7 //test_ref/c/clm/function_test_7 //test_ref/c/intfcm/function_test_7 //test_ref/c/intfm/function_test_7 //test_ref/c/func/function_test_7 //test_ref/c/ftmplt/function_test_7 //test_ref/c/defn/function_test_7 //test_ref/c/macro/function_test_7 //test_ref/doc/anysymbol/function_test_7" machineGenerated="true" --><span class="function">function_test_7</span><!-- /a -->();  
+END OF OBJECT
+
+
+
+$6615|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 1
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/function_7.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/function_7.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{constKeywordFound} => 1
+$parserState->{curvarstars} => *
+$parserState->{externC} => 0
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => function_test_7
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => foo
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 5
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preExternCcurline} => 
+$parserState->{preExternCdeclaration} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} =>  extern
+$parserState->{returntype} =>  extern const struct foo *function_test_7(
+
+$parserState->{rollbackState} => REF(OBJID)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => function_test_7
+$parserState->{sodtype} => extern const struct foo *
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => struct
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: function
+namelist: function_test_7
+posstypes: function method
+value: 
+returntype: extern const struct foo *
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---extern
++--- 
++---const
++--- 
++---struct
++--- 
++---foo
++--- 
++---*
++---function_test_7
++---(
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: function 7
+APIUID: //test_ref/doc/header/function_7.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: function_test_7
+    APIUID: //test_ref/c/func/function_test_7
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: "extern const struct foo *"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: function_test_7 (HeaderDoc::Function)
++---extern
++--- 
++---const
++--- 
++---struct
++--- 
++---foo
++--- 
++---*
++---function_test_7
++---(
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: function_test_7 (HeaderDoc::Function)
+	<span class="keyword">extern</span> <span class="keyword">const</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/struct/foo //test_ref/c/intf/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="type">foo</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/instm/function_test_7 //test_ref/c/clm/function_test_7 //test_ref/c/intfcm/function_test_7 //test_ref/c/intfm/function_test_7 //test_ref/c/func/function_test_7 //test_ref/c/ftmplt/function_test_7 //test_ref/c/defn/function_test_7 //test_ref/c/macro/function_test_7 //test_ref/doc/anysymbol/function_test_7" machineGenerated="true" --><span class="function">function_test_7</span><!-- /a -->();  
+END OF OBJECT
+
+
+
+_$92|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/function_7.test$1|C$10|function 7$1|C$6|parser

@@ -64,4 +64,4 @@ typedef int32_t EAPClientStatus;
 
 typedef int32_t EAPClientDomainSpecificError;
 
-#endif _EAP8021X_EAPCLIENTTYPES_H
+#endif /* _EAP8021X_EAPCLIENTTYPES_H */

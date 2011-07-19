@@ -41,8 +41,8 @@ static void affineTransformDecompose(const AffineTransform& matrix, double sr[9]
     AffineTransform m(matrix);
 
     // Compute scaling factors
-    double sx = sqrt(m.a() * m.a() + m.b() * m.b());
-    double sy = sqrt(m.c() * m.c() + m.d() * m.d());
+    double sx = matrix.xScale();
+    double sy = matrix.yScale();
 
     // Compute cross product of transformed unit vectors. If negative,
     // one axis was flipped.
@@ -119,6 +119,16 @@ bool AffineTransform::isIdentity() const
          && m_transform[4] == 0 && m_transform[5] == 0);
 }
 
+double AffineTransform::xScale() const
+{
+    return sqrt(m_transform[0] * m_transform[0] + m_transform[1] * m_transform[1]);
+}
+
+double AffineTransform::yScale() const
+{
+    return sqrt(m_transform[2] * m_transform[2] + m_transform[3] * m_transform[3]);
+}
+
 double AffineTransform::det() const
 {
     return m_transform[0] * m_transform[3] - m_transform[1] * m_transform[2];
@@ -154,12 +164,10 @@ AffineTransform AffineTransform::inverse() const
     return result;
 }
 
-AffineTransform& AffineTransform::multiply(const AffineTransform& other)
-{
-    return (*this) *= other;
-}
 
-AffineTransform& AffineTransform::multLeft(const AffineTransform& other)
+// Multiplies this AffineTransform by the provided AffineTransform - i.e.
+// this = this * other;
+AffineTransform& AffineTransform::multiply(const AffineTransform& other)
 {
     AffineTransform trans;
     
@@ -182,7 +190,7 @@ AffineTransform& AffineTransform::rotate(double a)
     double sinAngle = sin(a);
     AffineTransform rot(cosAngle, sinAngle, -sinAngle, cosAngle, 0, 0);
 
-    multLeft(rot);
+    multiply(rot);
     return *this;
 }
 
@@ -211,14 +219,6 @@ AffineTransform& AffineTransform::translate(double tx, double ty)
         
     m_transform[4] += tx * m_transform[0] + ty * m_transform[2];
     m_transform[5] += tx * m_transform[1] + ty * m_transform[3];
-    return *this;
-}
-
-// *this = translation * *this
-AffineTransform& AffineTransform::translateRight(double tx, double ty)
-{
-    m_transform[4] += tx;
-    m_transform[5] += ty;
     return *this;
 }
 
@@ -316,9 +316,9 @@ FloatRect AffineTransform::mapRect(const FloatRect& rect) const
 
     FloatQuad result;
     result.setP1(mapPoint(rect.location()));
-    result.setP2(mapPoint(FloatPoint(rect.right(), rect.y())));
-    result.setP3(mapPoint(FloatPoint(rect.right(), rect.bottom())));
-    result.setP4(mapPoint(FloatPoint(rect.x(), rect.bottom())));
+    result.setP2(mapPoint(FloatPoint(rect.maxX(), rect.y())));
+    result.setP3(mapPoint(FloatPoint(rect.maxX(), rect.maxY())));
+    result.setP4(mapPoint(FloatPoint(rect.x(), rect.maxY())));
     return result.boundingBox();
 }
 

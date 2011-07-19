@@ -1,0 +1,37 @@
+<!-- shared entity definitions for the Xorg documentation -->
+
+<!-- X Window System katamari version string -->
+<!-- since we don't do micro (7.x.y) releases of the katamari, *relvers
+	are now the same as *fullrelvers -->
+<!ENTITY majorvers 	 "7">
+<!ENTITY reldate 	 "December 2010">
+<!ENTITY relvers 	 "7.6">
+<!ENTITY fullrelvers 	 "7.6">
+<!ENTITY prevrelvers 	 "7.5">
+<!ENTITY prevfullrelvers "7.5">
+<!ENTITY nextrelvers 	 "7.7">
+<!ENTITY nextfullrelvers "7.7">
+<!ENTITY nextfullreldate "2011">
+
+<!ENTITY whichfullrel 	 "seventh">
+<!ENTITY rcnum 		 "0">
+
+<!-- These should be set according to which snapshot/release this is -->
+<!ENTITY % firstsnap 'IGNORE'>
+<!ENTITY % latersnap 'IGNORE'>
+<!ENTITY % snapshot 'IGNORE'>
+<!ENTITY % notsnapshot 'INCLUDE'>
+<!ENTITY % relcandidate 'IGNORE'>
+<!ENTITY % release 'INCLUDE'>
+<!ENTITY % firstrel 'IGNORE'>
+<!ENTITY % earlyrel 'IGNORE'>
+<!ENTITY % laterrel 'INCLUDE'>
+<!ENTITY % majorrel 'IGNORE'>
+<!ENTITY % minorrel 'INCLUDE'>
+<!ENTITY % fullrel 'IGNORE'>
+<!ENTITY % fullbinaries 'INCLUDE'>
+<!ENTITY % updaterel 'IGNORE'>
+<!ENTITY % prevrelwasupdate 'IGNORE'>
+
+<!-- Set this to INCLUDE when references to the RELNOTES are to be included -->
+<!ENTITY % haverelnotes 'INCLUDE'>

@@ -1,5 +1,5 @@
 #!/bin/sh
-# Copyright (c) 1999-2008, International Business Machines Corporation and
+# Copyright (c) 1999-2010, International Business Machines Corporation and
 # others. All Rights Reserved.
 
 # runConfigureICU: This script will run the "configure" script for the appropriate platform
@@ -125,7 +125,13 @@ case $platform in
         THE_OS=AIX
         THE_COMP="xlC_r"
         CC=`which xlc_r`; export CC
+        if [ ! -x $CC ]; then
+           echo "ERROR: xlc_r was not found, please check the PATH to make sure it is correct."; exit 1
+        fi
         CXX=`which xlC_r`; export CXX
+        if [ ! -x $CXX ]; then
+           echo "ERROR: xlC_r was not found, please check the PATH to make sure it is correct."; exit 1
+        fi
         RELEASE_CFLAGS="-O2 -qmaxmem=-1"
         RELEASE_CXXFLAGS="-O2 -qmaxmem=-1"
         ;;
@@ -134,6 +140,8 @@ case $platform in
         THE_COMP="the GNU C++"
         CC=gcc; export CC
         CXX=g++; export CXX
+        DEBUG_CFLAGS='-g -O0'
+        DEBUG_CXFLAGS='-g -O0'
         ;;
     Solaris)
         THE_OS=SOLARIS
@@ -173,6 +181,7 @@ case $platform in
         THE_COMP="the iCC C++"
         CC=/usr/bin/icc; export CC
         CXX=/usr/bin/icc; export CXX
+        CPP="$CC -c -qpponly"; export CPP
         MAKE=/usr/bin/gmake; export MAKE
         RELEASE_CFLAGS='-O4'
         RELEASE_CXXFLAGS='-O4'
@@ -187,11 +196,21 @@ case $platform in
         ;;
     Linux/ICC)
         THE_OS="Linux"
-        THE_COMP="Intel ICC 9.0"
         CC=`which icc`; export CC
         CXX=`which icpc`; export CXX
+	ICC_VER=`${CC} -v 2>&1`
         RELEASE_CFLAGS='-O'
         RELEASE_CXXFLAGS='-O'
+        export CFLAGS="-fp-model precise"
+        export CXXFLAGS="-fp-model precise"
+	if [ "${ICC_VER}" = "Version 9.0 " ]; then
+		RELEASE_CFLAGS=''
+		RELEASE_CXXFLAGS=''
+		export CFLAGS="${CFLAGS} -O0"
+		export CXXFLAGS="${CXXFLAGS} -O0"
+		echo "ICC 9.0 does not work with optimization- disabling optimizations"
+	fi
+        THE_COMP="Intel ${ICC_VER}"
         ;;
     Linux/VA)
         THE_OS="Linux"
@@ -206,6 +225,8 @@ case $platform in
         THE_COMP="the GNU C++"
         CC=gcc; export CC
         CXX=g++; export CXX
+        DEBUG_CFLAGS='-g -O0'
+        DEBUG_CXFLAGS='-g -O0'
         ;;
     Cygwin)
         THE_OS="Cygwin"
@@ -218,10 +239,10 @@ case $platform in
         THE_COMP="Microsoft Visual C++"
         CC=cl; export CC
         CXX=cl; export CXX
-        RELEASE_CFLAGS='/O2 /Ob2 /Op'
-        RELEASE_CXXFLAGS='/O2 /Ob2 /Op'
-        DEBUG_CFLAGS='/Zi'
-        DEBUG_CXXFLAGS='/Zi'
+        RELEASE_CFLAGS='/Gy /MD'
+        RELEASE_CXXFLAGS='/Gy /MD'
+        DEBUG_CFLAGS='/Zi /MDd'
+        DEBUG_CXXFLAGS='/Zi /MDd'
         DEBUG_LDFLAGS='/DEBUG'
         ;;
     Cygwin/MSVC2005)
@@ -229,10 +250,10 @@ case $platform in
         THE_COMP="Microsoft Visual C++ 2005"
         CC=cl; export CC
         CXX=cl; export CXX
-        RELEASE_CFLAGS='/O2 /Ob2'
-        RELEASE_CXXFLAGS='/O2 /Ob2'
-        DEBUG_CFLAGS='/Zi'
-        DEBUG_CXXFLAGS='/Zi'
+        RELEASE_CFLAGS='/Gy /MD'
+        RELEASE_CXXFLAGS='/Gy /MD'
+        DEBUG_CFLAGS='/Zi /MDd'
+        DEBUG_CXXFLAGS='/Zi /MDd'
         DEBUG_LDFLAGS='/DEBUG'
         ;;
     Cygwin/ICL)
@@ -252,12 +273,16 @@ case $platform in
         THE_COMP="the GNU C++"
         RELEASE_CFLAGS='-O2'
         RELEASE_CXXFLAGS='-O2'
+        DEBUG_CFLAGS='-g -O0'
+        DEBUG_CXXFLAGS='-g -O0'
         ;;
     *BSD)
         THE_OS="BSD"
         THE_COMP="the GNU C++"
         CC=gcc; export CC
         CXX=g++; export CXX
+        DEBUG_CFLAGS='-g -O0'
+        DEBUG_CXFLAGS='-g -O0'
         ;;
     TRU64V5.1/CXX)
         THE_OS="OSF1"
@@ -284,13 +309,13 @@ case $platform in
         THE_COMP="z/OS 1.2 C/C++"
         CC=cc; export CC
         CXX=cxx; export CXX
-        export COMPILE_LINK_ENVVAR='_CXX_CVERSION=0x41020000 _C89_CVERSION=0x41020000 _CC_CVERSION=0x41020000 _CXX_PVERSION=0x41020000 _C89_PVERSION=0x41020000 _CC_PVERSION=0x41020000'
+        export COMPILE_LINK_ENVVAR='_CXX_CICC_VER}=0x41020000 _C89_CVERSION=0x41020000 _CC_CVERSION=0x41020000 _CXX_PVERSION=0x41020000 _C89_PVERSION=0x41020000 _CC_PVERSION=0x41020000'
         export _CXX_CVERSION=0x41020000 _C89_CVERSION=0x41020000 _CC_CVERSION=0x41020000 _CXX_PVERSION=0x41020000 _C89_PVERSION=0x41020000 _CC_PVERSION=0x41020000
         export LDFLAGS="-Wl,'compat=pm3'"
         export CFLAGS="-Wc,'target(zOSV1R2)'"
         export CXXFLAGS="-Wc,'target(zOSV1R2)'"
-        export RELEASE_CFLAGS="-2 -Wc,'inline(auto,noreport,500,4000)'"
-        export RELEASE_CXXFLAGS="-2 -Wc,'inline(auto,noreport,500,4000)'"
+        RELEASE_CFLAGS="-2 -Wc,'inline(auto,noreport,500,4000)'"
+        RELEASE_CXXFLAGS="-2 -Wc,'inline(auto,noreport,500,4000)'"
         ;;
     *)
         >&2 echo "$me: unrecognized platform \"$platform\" (use --help for help)"
@@ -318,7 +343,7 @@ then
     then
         case $CXX in
             g++|*/g++|*-g++-*|*/*-g++-*)
-                RELEASE_CXXFLAGS=-O
+                RELEASE_CXXFLAGS=-O3
                 ;;
         esac
     fi
@@ -354,10 +379,16 @@ export LDFLAGS
 
 # Run configure
 
+echo "export CPP=$CPP CC=$CC CXX=$CXX CPPFLAGS=$CPPFLAGS CFLAGS=$CFLAGS CXXFLAGS=$CXXFLAGS LDFLAGS=$LDFLAGS MAKE=$MAKE"
 echo "Running ./configure $OPTS $@ for $THE_OS using $THE_COMP compiler"
 echo
-$configure $OPTS $@
-echo
-echo If the result of the above commands looks okay to you, go to the directory
-echo source in the ICU distribution to build ICU. Please remember that ICU needs
-echo GNU make to build properly...
+if $configure $OPTS $@
+then
+	echo
+	echo If the result of the above commands looks okay to you, go to the directory
+	echo source in the ICU distribution to build ICU. Please remember that ICU needs
+	echo GNU make to build properly...
+else
+	echo $0: ./configure failed
+	exit 1
+fi

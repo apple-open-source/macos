@@ -1,0 +1,72 @@
+Authentication Mechanisms
+=========================
+
+Plaintext authentication
+------------------------
+
+The simplest authentication mechanism is PLAIN. The client simply sends the
+password unencrypted to Dovecot. All clients support the PLAIN mechanism, but
+obviously there's the problem that anyone listening on the network can steal
+the password. For that reason (and some others) other mechanisms were
+implemented.
+
+Today however many people use <SSL/TLS> [SSL.txt], and there's no problem with
+sending unencrypted password inside SSL secured connections. So if you're using
+SSL, you probably don't need to bother worrying about anything else than the
+PLAIN mechanism.
+
+Another plaintext mechanism is LOGIN. It's typically used only by SMTP servers
+to let Outlook clients perform SMTP authentication. Note that LOGIN mechanism
+is not the same as IMAP's LOGIN command. The LOGIN command is internally
+handled using PLAIN mechanism.
+
+Non-plaintext authentication
+----------------------------
+
+Non-plaintext mechanisms have been designed to be safe to use even without
+<SSL/TLS> [SSL.txt] encryption. Because of how they have been designed, they
+require access to the plaintext password or their own special hashed version of
+it. This means that it's impossible to use non-plaintext mechanisms with
+commonly used DES or MD5 password hashes.
+
+If you want to use more than one non-plaintext mechanism, the passwords must be
+stored as plaintext so that Dovecot is able to generate the required special
+hashes for all the different mechanisms. If you want to use only one
+non-plaintext mechanism, you can store the passwords using the mechanism's own
+<password scheme> [Authentication.PasswordSchemes.txt].
+
+With <success/failure password databases> [PasswordDatabase.txt] (e.g. PAM)
+it's not possible to use non-plaintext mechanisms at all, because they only
+support verifying a known plaintext password.
+
+Dovecot supports the following non-plaintext mechanisms:
+
+ * <CRAM-MD5.txt>: Protects the password in transit against eavesdroppers.
+   Somewhat good support in clients.
+ * <DIGEST-MD5> [Authentication.Mechanisms.DigestMD5.txt]: Somewhat stronger
+   cryptographically than CRAM-MD5, but clients rarely support it.
+ * APOP: This is a POP3-specific authentication. Similiar to CRAM-MD5, but
+   requires storing password in plaintext.
+ * <NTLM> [Authentication.Mechanisms.NTLM.txt]: Mechanism created by Microsoft
+   and supported by their clients.
+    * Optionally supported <using Samba's winbind>
+      [Authentication.Mechanisms.Winbind.txt].
+ * <GSS-SPNEGO> [Authentication.Mechanisms.Winbind.txt]: Similar to NTLM.
+ * <GSSAPI> [Authentication.Kerberos.txt]: Kerberos v5 support.
+ * RPA: Compuserve RPA authentication mechanism. Similar to DIGEST-MD5, but
+   client support is rare.
+ * ANONYMOUS: Support for logging in anonymously. This may be useful if you're
+   intending to provide publically accessible IMAP archive.
+ * OTP and SKEY: One time password mechanisms.
+ * EXTERNAL: EXTERNAL SASL mechanism.
+
+Configuration
+-------------
+
+By default only PLAIN mechanism is enabled. To use more, set:
+
+---%<-------------------------------------------------------------------------
+auth_mechanisms = plain login cram-md5
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

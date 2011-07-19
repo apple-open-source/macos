@@ -1,3 +1,9 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
+set scriptDir [file dirname [info script]]
+
 ########################################################################
 # BigFloat for Tcl
 # Copyright (C) 2003-2005  ARNOLD Stephane
@@ -44,6 +50,8 @@
 # terms specified in this license.
 #
 ########################################################################
+
+package require Tk
 
 package require math::bigfloat
 namespace import ::math::bigfloat::*
@@ -248,7 +256,7 @@ proc ShowFile {filename buttonText} {
 
 proc _help {args} {
     # display some help
-    ShowFile bigfloat.help Close
+    ShowFile [file join $::scriptDir bigfloat.help] Close
 }
 
 proc _del {} {

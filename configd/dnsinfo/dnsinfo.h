@@ -35,6 +35,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#define	DNSINFO_VERSION		20091104
+
 #define DEFAULT_SEARCH_ORDER    200000   /* search order for the "default" resolver domain name */
 
 #define	DNS_PTR(type, name)				\
@@ -68,16 +70,23 @@ typedef struct {
 	DNS_PTR(char *,			options);	/* options */
 	DNS_VAR(uint32_t,		timeout);	/* timeout */
 	DNS_VAR(uint32_t,		search_order);	/* search_order */
-	DNS_VAR(uint32_t,		reserved[8]);
+	DNS_VAR(uint32_t,		if_index);
+	DNS_VAR(uint32_t,		flags);
+	DNS_VAR(uint32_t,		reserved[6]);
 } dns_resolver_t;
 #pragma pack()
 
 
+#define DNS_RESOLVER_FLAGS_SCOPED	1
+
+
 #pragma pack(4)
 typedef struct {
-	DNS_VAR(int32_t,		n_resolver);	/* resolver configurations */
+	DNS_VAR(int32_t,		n_resolver);		/* resolver configurations */
 	DNS_PTR(dns_resolver_t **,	resolver);
-	DNS_VAR(uint32_t,		reserved[8]);
+	DNS_VAR(int32_t,		n_scoped_resolver);	/* "scoped" resolver configurations */
+	DNS_PTR(dns_resolver_t **,	scoped_resolver);
+	DNS_VAR(uint32_t,		reserved[5]);
 } dns_config_t;
 #pragma pack()
 

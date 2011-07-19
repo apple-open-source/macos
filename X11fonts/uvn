@@ -132,23 +132,22 @@ proc find_distfile {} {
 }
 
 proc extract_sources {path {suffix ""}} {
-	set precmd {}
-	set cmd {tar xf -}
+	set cmd {tar -xf -}
 	switch -glob -- $path {
-		*.tar {}
-		*.tar.Z { set precmd {uncompress - |} }
-		*.tar.gz -
-		*.tgz { set precmd {gzip -cd - |} }
-		*.tar.bz2 -
-		*.tbz2 { set precmd {bzip2 -cd - |} }
-		default { return -code error "unsupported archive format: $path" }
+		*.tar     { set cmd {tar -xf -} }
+		*.tar.Z   { set cmd {tar -xZf -} }
+		*.tar.gz  { set cmd {tar -xzf -} }
+		*.tgz     { set cmd {tar -xzf -} }
+		*.tar.bz2 { set cmd {tar -xjf -} }
+		*.tbz2    { set cmd {tar -xjf -} }
+		default   { return -code error "unsupported archive format: $path" }
 	}
 
 	### Validate temp ###
 
 	file mkdir $uvn::var/extract
-	eval DEBUG $precmd $cmd -C $uvn::var/extract < $path
-	eval exec -- $precmd $cmd -C $uvn::var/extract < $path
+	eval DEBUG $cmd -C $uvn::var/extract < $path
+	eval exec -- $cmd -C $uvn::var/extract < $path
 	set files [glob $uvn::var/extract/*]
 	if {[llength $files] == 0} {
 		return -code error "archive is empty: $path"

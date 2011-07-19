@@ -11,9 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/Instruction.h"
 #include "llvm/Type.h"
 #include "llvm/Instructions.h"
-#include "llvm/Function.h"
+#include "llvm/Constants.h"
+#include "llvm/Module.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/LeakDetector.h"
 using namespace llvm;
@@ -47,6 +49,8 @@ Instruction::Instruction(const Type *ty, unsigned it, Use *Ops, unsigned NumOps,
 // Out of line virtual method, so the vtable, etc has a home.
 Instruction::~Instruction() {
   assert(Parent == 0 && "Instruction still linked in the program!");
+  if (hasMetadata())
+    removeAllMetadata();
 }
 
 
@@ -95,14 +99,18 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case Ret:    return "ret";
   case Br:     return "br";
   case Switch: return "switch";
+  case IndirectBr: return "indirectbr";
   case Invoke: return "invoke";
   case Unwind: return "unwind";
   case Unreachable: return "unreachable";
 
   // Standard binary operators...
   case Add: return "add";
+  case FAdd: return "fadd";
   case Sub: return "sub";
+  case FSub: return "fsub";
   case Mul: return "mul";
+  case FMul: return "fmul";
   case UDiv: return "udiv";
   case SDiv: return "sdiv";
   case FDiv: return "fdiv";
@@ -116,8 +124,6 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   case Xor: return "xor";
 
   // Memory instructions...
-  case Malloc:        return "malloc";
-  case Free:          return "free";
   case Alloca:        return "alloca";
   case Load:          return "load";
   case Store:         return "store";
@@ -140,8 +146,6 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
   // Other instructions...
   case ICmp:           return "icmp";
   case FCmp:           return "fcmp";
-  case VICmp:          return "vicmp";
-  case VFCmp:          return "vfcmp";
   case PHI:            return "phi";
   case Select:         return "select";
   case Call:           return "call";
@@ -165,6 +169,14 @@ const char *Instruction::getOpcodeName(unsigned OpCode) {
 /// identical to the current one.  This means that all operands match and any
 /// extra information (e.g. load is volatile) agree.
 bool Instruction::isIdenticalTo(const Instruction *I) const {
+  return isIdenticalToWhenDefined(I) &&
+         SubclassOptionalData == I->SubclassOptionalData;
+}
+
+/// isIdenticalToWhenDefined - This is like isIdenticalTo, except that it
+/// ignores the SubclassOptionalData flags, which specify conditions
+/// under which the instruction's result is undefined.
+bool Instruction::isIdenticalToWhenDefined(const Instruction *I) const {
   if (getOpcode() != I->getOpcode() ||
       getNumOperands() != I->getNumOperands() ||
       getType() != I->getType())
@@ -215,9 +227,12 @@ bool Instruction::isIdenticalTo(const Instruction *I) const {
 }
 
 // isSameOperationAs
+// This should be kept in sync with isEquivalentOperation in
+// lib/Transforms/IPO/MergeFunctions.cpp.
 bool Instruction::isSameOperationAs(const Instruction *I) const {
-  if (getOpcode() != I->getOpcode() || getType() != I->getType() ||
-      getNumOperands() != I->getNumOperands())
+  if (getOpcode() != I->getOpcode() ||
+      getNumOperands() != I->getNumOperands() ||
+      getType() != I->getType())
     return false;
 
   // We have two instructions of identical opcode and #operands.  Check to see
@@ -268,7 +283,7 @@ bool Instruction::isSameOperationAs(const Instruction *I) const {
 /// specified block.  Note that PHI nodes are considered to evaluate their
 /// operands in the corresponding predecessor block.
 bool Instruction::isUsedOutsideOfBlock(const BasicBlock *BB) const {
-  for (use_const_iterator UI = use_begin(), E = use_end(); UI != E; ++UI) {
+  for (const_use_iterator UI = use_begin(), E = use_end(); UI != E; ++UI) {
     // PHI nodes uses values in the corresponding predecessor block.  For other
     // instructions, just check to see whether the parent of the use matches up.
     const PHINode *PN = dyn_cast<PHINode>(*UI);
@@ -277,11 +292,11 @@ bool Instruction::isUsedOutsideOfBlock(const BasicBlock *BB) const {
         return true;
       continue;
     }
-    
+
     if (PN->getIncomingBlock(UI) != BB)
       return true;
   }
-  return false;    
+  return false;
 }
 
 /// mayReadFromMemory - Return true if this instruction may read memory.
@@ -289,7 +304,6 @@ bool Instruction::isUsedOutsideOfBlock(const BasicBlock *BB) const {
 bool Instruction::mayReadFromMemory() const {
   switch (getOpcode()) {
   default: return false;
-  case Instruction::Free:
   case Instruction::VAArg:
   case Instruction::Load:
     return true;
@@ -307,7 +321,6 @@ bool Instruction::mayReadFromMemory() const {
 bool Instruction::mayWriteToMemory() const {
   switch (getOpcode()) {
   default: return false;
-  case Instruction::Free:
   case Instruction::Store:
   case Instruction::VAArg:
     return true;
@@ -320,21 +333,23 @@ bool Instruction::mayWriteToMemory() const {
   }
 }
 
+/// mayThrow - Return true if this instruction may throw an exception.
+///
+bool Instruction::mayThrow() const {
+  if (const CallInst *CI = dyn_cast<CallInst>(this))
+    return !CI->doesNotThrow();
+  return false;
+}
+
 /// isAssociative - Return true if the instruction is associative:
 ///
-///   Associative operators satisfy:  x op (y op z) === (x op y) op z)
+///   Associative operators satisfy:  x op (y op z) === (x op y) op z
 ///
-/// In LLVM, the Add, Mul, And, Or, and Xor operators are associative, when not
-/// applied to floating point types.
+/// In LLVM, the Add, Mul, And, Or, and Xor operators are associative.
 ///
 bool Instruction::isAssociative(unsigned Opcode, const Type *Ty) {
-  if (Opcode == And || Opcode == Or || Opcode == Xor)
-    return true;
-
-  // Add/Mul reassociate unless they are FP or FP vectors.
-  if (Opcode == Add || Opcode == Mul)
-    return !Ty->isFPOrFPVector();
-  return 0;
+  return Opcode == And || Opcode == Or || Opcode == Xor ||
+         Opcode == Add || Opcode == Mul;
 }
 
 /// isCommutative - Return true if the instruction is commutative:
@@ -347,7 +362,9 @@ bool Instruction::isAssociative(unsigned Opcode, const Type *Ty) {
 bool Instruction::isCommutative(unsigned op) {
   switch (op) {
   case Add:
+  case FAdd:
   case Mul:
+  case FMul:
   case And:
   case Or:
   case Xor:
@@ -357,23 +374,71 @@ bool Instruction::isCommutative(unsigned op) {
   }
 }
 
-/// isTrapping - Return true if the instruction may trap.
-///
-bool Instruction::isTrapping(unsigned op) {
-  switch(op) {
-  case UDiv:
-  case SDiv:
-  case FDiv:
-  case URem:
-  case SRem:
-  case FRem:
-  case Load:
-  case Store:
-  case Call:
-  case Invoke:
-  case VAArg:
-    return true;
+bool Instruction::isSafeToSpeculativelyExecute() const {
+  for (unsigned i = 0, e = getNumOperands(); i != e; ++i)
+    if (Constant *C = dyn_cast<Constant>(getOperand(i)))
+      if (C->canTrap())
+        return false;
+
+  switch (getOpcode()) {
   default:
+    return true;
+  case UDiv:
+  case URem: {
+    // x / y is undefined if y == 0, but calcuations like x / 3 are safe.
+    ConstantInt *Op = dyn_cast<ConstantInt>(getOperand(1));
+    return Op && !Op->isNullValue();
+  }
+  case SDiv:
+  case SRem: {
+    // x / y is undefined if y == 0, and might be undefined if y == -1,
+    // but calcuations like x / 3 are safe.
+    ConstantInt *Op = dyn_cast<ConstantInt>(getOperand(1));
+    return Op && !Op->isNullValue() && !Op->isAllOnesValue();
+  }
+  case Load: {
+    if (cast<LoadInst>(this)->isVolatile())
+      return false;
+    // Note that it is not safe to speculate into a malloc'd region because
+    // malloc may return null.
+    if (isa<AllocaInst>(getOperand(0)))
+      return true;
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(getOperand(0)))
+      return !GV->hasExternalWeakLinkage();
+    // FIXME: Handle cases involving GEPs.  We have to be careful because
+    // a load of a out-of-bounds GEP has undefined behavior.
     return false;
   }
+  case Call:
+    return false; // The called function could have undefined behavior or
+                  // side-effects.
+                  // FIXME: We should special-case some intrinsics (bswap,
+                  // overflow-checking arithmetic, etc.)
+  case VAArg:
+  case Alloca:
+  case Invoke:
+  case PHI:
+  case Store:
+  case Ret:
+  case Br:
+  case Switch:
+  case Unwind:
+  case Unreachable:
+    return false; // Misc instructions which have effects
+  }
+}
+
+Instruction *Instruction::clone() const {
+  Instruction *New = clone_impl();
+  New->SubclassOptionalData = SubclassOptionalData;
+  if (!hasMetadata())
+    return New;
+  
+  // Otherwise, enumerate and copy over metadata from the old instruction to the
+  // new one.
+  SmallVector<std::pair<unsigned, MDNode*>, 4> TheMDs;
+  getAllMetadata(TheMDs);
+  for (unsigned i = 0, e = TheMDs.size(); i != e; ++i)
+    New->setMetadata(TheMDs[i].first, TheMDs[i].second);
+  return New;
 }

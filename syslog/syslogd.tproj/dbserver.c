@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,15 +38,17 @@
 #include <bsm/libbsm.h>
 #include <errno.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <sys/event.h>
 #include <servers/bootstrap.h>
 #include <pthread.h>
 #include <notify.h>
 #include <sys/time.h>
 #include <asl.h>
-#include <asl_ipc.h>
-#include <asl_ipc_server.h>
+#include "asl_ipc.h"
+#include "asl_ipcServer.h"
 #include <asl_core.h>
+#include <asl_store.h>
 #include "daemon.h"
 
 #define forever for(;;)
@@ -68,6 +70,11 @@ extern uint32_t bb_convert(const char *name);
 
 static task_name_t *client_tasks = NULL;
 static uint32_t client_tasks_count = 0;
+
+static int *direct_watch = NULL;
+/* N.B. ports are in network byte order */
+static uint16_t *direct_watch_port = NULL;
+static uint32_t direct_watch_count = 0;
 
 typedef union
 {
@@ -105,7 +112,7 @@ db_asl_open()
 		if (stat(PATH_ASL_STORE, &sb) == 0)
 		{
 			/* must be a directory */
-			if ((sb.st_mode & S_IFDIR) == 0)
+			if (!S_ISDIR(sb.st_mode))
 			{
 				asldebug("error: %s is not a directory", PATH_ASL_STORE);
 				return;
@@ -178,7 +185,7 @@ db_asl_open()
 void
 output_worker()
 {
-	asl_msg_t **work;
+	aslmsg *work;
 	uint32_t i, count;
 	mach_msg_empty_send_t *empty;
 	kern_return_t kstatus;
@@ -191,7 +198,7 @@ output_worker()
 		count = 0;
 
 		/* blocks until work is available */
-		work = asl_work_dequeue(&count);
+		work = work_dequeue(&count);
 
 		if (work == NULL)
 		{
@@ -207,7 +214,7 @@ output_worker()
 		for (i = 0; i < count; i++)
 		{
 			asl_message_match_and_log(work[i]);
-			asl_msg_release(work[i]);
+			asl_free(work[i]);
 		}
 
 		free(work);
@@ -224,7 +231,113 @@ output_worker()
 		empty->header.msgh_size = sizeof(mach_msg_empty_send_t);
 		empty->header.msgh_id = SEND_NOTIFICATION;
 
-		kstatus = mach_msg(&(empty->header), MACH_SEND_MSG | MACH_SEND_TIMEOUT, empty->header.msgh_size, 0, MACH_PORT_NULL, 2, MACH_PORT_NULL);
+		kstatus = mach_msg(&(empty->header), MACH_SEND_MSG | MACH_SEND_TIMEOUT, empty->header.msgh_size, 0, MACH_PORT_NULL, 100, MACH_PORT_NULL);
+	}
+}
+
+void
+send_to_direct_watchers(asl_msg_t *msg)
+{
+	uint32_t i, j, nlen, outlen, cleanup, total_sent;
+	ssize_t sent;
+	char *out;
+
+#ifdef LOCKDOWN
+	if (global.lockdown_session_fd >= 0)
+	{
+		/* PurpleConsole eats newlines */
+		out = asl_format_message(msg, ASL_MSG_FMT_STD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &outlen);
+		if ((write(global.lockdown_session_fd, "\n", 1) < 0) || 
+			(write(global.lockdown_session_fd, out, outlen) < 0) ||
+			(write(global.lockdown_session_fd, "\n", 1) < 0))
+		{
+			close(global.lockdown_session_fd);
+			global.lockdown_session_fd = -1;
+			global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+		}
+
+		free(out);
+	}
+#endif
+
+	if (direct_watch_count == 0) return;
+
+	cleanup = 0;
+	out = asl_msg_to_string(msg, &outlen);
+
+	if (out == NULL) return;
+
+	nlen = htonl(outlen);
+	for (i = 0; i < direct_watch_count; i++)
+	{
+		sent = send(direct_watch[i], &nlen, sizeof(nlen), 0);
+		if (sent < sizeof(nlen))
+		{
+			/* bail out if we can't send 4 bytes */
+			close(direct_watch[i]);
+			direct_watch[i] = -1;
+			cleanup = 1;
+		}
+		else
+		{
+			total_sent = 0;
+			while (total_sent < outlen)
+			{
+				sent = send(direct_watch[i], out + total_sent, outlen - total_sent, 0);
+				if (sent < 0)
+				{
+					close(direct_watch[i]);
+					direct_watch[i] = -1;
+					cleanup = 1;
+					break;
+				}
+
+				total_sent += sent;
+			}
+		}
+	}
+
+	free(out);
+
+	if (cleanup == 0) return;
+
+	j = 0;
+	for (i = 0; i < direct_watch_count; i++)
+	{
+		if (direct_watch[i] >= 0)
+		{
+			if (j != i)
+			{
+				direct_watch[j] = direct_watch[i];
+				direct_watch_port[j] = direct_watch_port[i];
+				j++;
+			}
+		}
+	}
+
+	direct_watch_count = j;
+	if (direct_watch_count == 0)
+	{
+		free(direct_watch);
+		direct_watch = NULL;
+
+		free(direct_watch_port);
+		direct_watch_port = NULL;
+	}
+	else
+	{
+		direct_watch = reallocf(direct_watch, direct_watch_count * sizeof(int));
+		direct_watch_port = reallocf(direct_watch_port, direct_watch_count * sizeof(uint16_t));
+		if ((direct_watch == NULL) || (direct_watch_port == NULL))
+		{
+			free(direct_watch);
+			direct_watch = NULL;
+
+			free(direct_watch_port);
+			direct_watch_port = NULL;
+
+			direct_watch_count = 0;
+		}
 	}
 }
 
@@ -232,10 +345,12 @@ output_worker()
  * Called from asl_action.c to save messgaes to the ASL data store
  */
 void
-db_save_message(asl_msg_t *msg)
+db_save_message(aslmsg msg)
 {
 	uint64_t msgid;
 	uint32_t status;
+
+	send_to_direct_watchers((asl_msg_t *)msg);
 
 	pthread_mutex_lock(&db_lock);
 
@@ -316,18 +431,14 @@ db_save_message(asl_msg_t *msg)
 		}
 	}
 
-
 	pthread_mutex_unlock(&db_lock);
-
 }
 
 void
-disaster_message(asl_msg_t *msg)
+disaster_message(aslmsg msg)
 {
 	uint64_t msgid;
 	uint32_t status;
-
-	global.disaster_occurred = 1;
 
 	msgid = 0;
 
@@ -395,14 +506,28 @@ register_session(task_name_t task_name, pid_t pid)
 	uint32_t i;
 
 	if (task_name == MACH_PORT_NULL) return;
-	if (global.dead_session_port == MACH_PORT_NULL) return;
 
-	for (i = 0; i < client_tasks_count; i++) if (task_name == client_tasks[i]) return;
+	if (global.dead_session_port == MACH_PORT_NULL)
+	{
+		mach_port_deallocate(mach_task_self(), task_name);
+		return;
+	}
+
+	for (i = 0; i < client_tasks_count; i++) if (task_name == client_tasks[i])
+	{
+		mach_port_deallocate(mach_task_self(), task_name);
+		return;
+	}
 
 	if (client_tasks_count == 0) client_tasks = (task_name_t *)calloc(1, sizeof(task_name_t));
 	else client_tasks = (task_name_t *)reallocf(client_tasks, (client_tasks_count + 1) * sizeof(task_name_t));
 
-	if (client_tasks == NULL) return;
+	if (client_tasks == NULL)
+	{
+		mach_port_deallocate(mach_task_self(), task_name);
+		return;
+	}
+
 	client_tasks[client_tasks_count] = task_name;
 	client_tasks_count++;
 
@@ -438,8 +563,126 @@ cancel_session(task_name_t task_name)
 	}
 
 	asldebug("cancel_session: %u\n", (unsigned int)task_name);
-	mach_port_destroy(mach_task_self(), task_name);
+
+	/* we hold a send right or dead name right for the task name port */
+	mach_port_deallocate(mach_task_self(), task_name);
 	asl_client_count_decrement();
+}
+
+static uint32_t
+register_direct_watch(uint16_t port)
+{
+	uint32_t i;
+	int sock, flags;
+	struct sockaddr_in address;
+
+	if (port == 0) return ASL_STATUS_FAILED;
+
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	if (sock < 0) return ASL_STATUS_FAILED;
+
+	address.sin_family = AF_INET;
+	/* port must be sent in network byte order */
+	address.sin_port = port;
+	address.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+
+	if (connect(sock, (struct sockaddr*)&address, sizeof(address)) != 0) return ASL_STATUS_FAILED;
+
+	i = 1;
+	setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, &i, sizeof(i));
+
+	i = 1;
+	setsockopt(sock, IPPROTO_TCP, TCP_NODELAY, &i, sizeof(i));
+
+	/* make socket non-blocking */
+	flags = fcntl(sock, F_GETFL, 0);
+	if (flags == -1) flags = 0;
+	fcntl(sock, F_SETFL, flags | O_NONBLOCK);
+
+	if (direct_watch_count == 0)
+	{
+		direct_watch = (int *)calloc(1, sizeof(int));
+		direct_watch_port = (uint16_t *)calloc(1, sizeof(uint16_t));
+	}
+	else
+	{
+		direct_watch = (int *)reallocf(direct_watch, (direct_watch_count + 1) * sizeof(int));
+		direct_watch_port = (uint16_t *)reallocf(direct_watch_port, (direct_watch_count + 1) * sizeof(uint16_t));
+	}
+
+	if ((direct_watch == NULL) || (direct_watch_port == NULL))
+	{
+		close(sock);
+
+		free(direct_watch);
+		direct_watch = NULL;
+
+		free(direct_watch_port);
+		direct_watch_port = NULL;
+
+		direct_watch_count = 0;
+		global.watchers_active = 0;
+		if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+
+		return ASL_STATUS_FAILED;
+	}
+
+	direct_watch[direct_watch_count] = sock;
+	direct_watch_port[direct_watch_count] = port;
+	direct_watch_count++;
+	global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+
+	return ASL_STATUS_OK;
+}
+
+static void
+cancel_direct_watch(uint16_t port)
+{
+	uint32_t i;
+
+	for (i = 0; (i < direct_watch_count) && (port != direct_watch_port[i]); i++);
+
+	if (i >= direct_watch_count) return;
+
+	if (direct_watch_count == 1)
+	{
+		free(direct_watch);
+		direct_watch = NULL;
+
+		free(direct_watch_port);
+		direct_watch_port = NULL;
+
+		direct_watch_count = 0;
+		global.watchers_active = 0;
+		if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+	}
+	else
+	{
+		for (i++; i < direct_watch_count; i++)
+		{
+			direct_watch[i-1] = direct_watch[i];
+			direct_watch_port[i-1] = direct_watch_port[i];
+		}
+
+		direct_watch_count--;
+		global.watchers_active = direct_watch_count + ((global.lockdown_session_fd < 0) ? 0 : 1);
+
+		direct_watch = (int *)reallocf(direct_watch, direct_watch_count * sizeof(int));
+		direct_watch_port = (uint16_t *)reallocf(direct_watch_port, direct_watch_count * sizeof(uint16_t));
+
+		if ((direct_watch == NULL) || (direct_watch_port == NULL))
+		{
+			free(direct_watch);
+			direct_watch = NULL;
+
+			free(direct_watch_port);
+			direct_watch_port = NULL;
+
+			direct_watch_count = 0;
+			global.watchers_active = 0;
+			if (global.lockdown_session_fd >= 0) global.watchers_active = 1;
+		}
+	}
 }
 
 /*
@@ -522,6 +765,9 @@ database_server()
 		{
 			deadname = (mach_dead_name_notification_t *)request;
 			cancel_session(deadname->not_port);
+
+			/* dead name notification includes a dead name right - release it here */
+			mach_port_deallocate(mach_task_self(), deadname->not_port);
 			free(request);
 			continue;
 		}
@@ -530,7 +776,8 @@ database_server()
 		kstatus = mach_msg(&(reply->head), sbits, reply->head.msgh_size, 0, MACH_PORT_NULL, 10, MACH_PORT_NULL);
 		if (kstatus == MACH_SEND_INVALID_DEST)
 		{
-			mach_port_destroy(mach_task_self(), request->head.msgh_remote_port);
+			/* release send right for the port */
+			mach_port_deallocate(mach_task_self(), request->head.msgh_remote_port);
 		}
 
 		free(request);
@@ -560,8 +807,16 @@ __asl_server_query
 	kern_return_t kstatus;
 
 	*status = ASL_STATUS_OK;
+
+	if ((request != NULL) && (request[requestCnt - 1] != '\0'))
+	{
+		*status = ASL_STATUS_INVALID_ARG;
+		vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
+		return KERN_SUCCESS;
+	}
+
 	query = asl_list_from_string(request);
-	vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
+	if (request != NULL) vm_deallocate(mach_task_self(), (vm_address_t)request, requestCnt);
 	res = NULL;
 
 	*status = db_query(query, &res, startid, count, flags, lastid, token->val[0], token->val[1]);
@@ -642,7 +897,7 @@ __asl_server_message
 	audit_token_t token
 )
 {
-	asl_msg_t *m;
+	aslmsg msg;
 	char tmp[64];
 	uid_t uid;
 	gid_t gid;
@@ -650,10 +905,23 @@ __asl_server_message
 	kern_return_t kstatus;
 	mach_port_name_t client;
 
+	if (message == NULL)
+	{
+		return KERN_SUCCESS;
+	}
+
+	if (message[messageCnt - 1] != '\0')
+	{
+		vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+		return KERN_SUCCESS;
+	}
+
 	asldebug("__asl_server_message: %s\n", (message == NULL) ? "NULL" : message);
 
-	m = asl_msg_from_string(message);
+	msg = (aslmsg)asl_msg_from_string(message);
 	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+
+	if (msg == NULL) return KERN_SUCCESS;
 
 	uid = (uid_t)-1;
 	gid = (gid_t)-1;
@@ -664,19 +932,160 @@ __asl_server_message
 	kstatus = task_name_for_pid(mach_task_self(), pid, &client);
 	if (kstatus == KERN_SUCCESS) register_session(client, pid);
 
-	if (m == NULL) return KERN_SUCCESS;
-
 	snprintf(tmp, sizeof(tmp), "%d", uid);
-	asl_set(m, ASL_KEY_UID, tmp);
+	asl_set(msg, ASL_KEY_UID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", gid);
-	asl_set(m, ASL_KEY_GID, tmp);
+	asl_set(msg, ASL_KEY_GID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", pid);
-	asl_set(m, ASL_KEY_PID, tmp);
+	asl_set(msg, ASL_KEY_PID, tmp);
 
 	/* verify and enqueue for processing */
-	asl_enqueue_message(SOURCE_ASL_MESSAGE, NULL, m);
+	asl_enqueue_message(SOURCE_ASL_MESSAGE, NULL, msg);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+__asl_server_create_aux_link
+(
+	mach_port_t server,
+	caddr_t message,
+	mach_msg_type_number_t messageCnt,
+	mach_port_t *fileport,
+	caddr_t *newurl,
+	mach_msg_type_number_t *newurlCnt,
+	int *status,
+	audit_token_t token
+)
+{
+	aslmsg msg;
+	char tmp[64];
+	uid_t uid;
+	gid_t gid;
+	pid_t pid;
+	kern_return_t kstatus;
+	mach_port_name_t client;
+	char *url, *vmbuffer;
+	int fd;
+
+	*status = ASL_STATUS_OK;
+
+	if (message == NULL)
+	{
+		*status = ASL_STATUS_INVALID_ARG;
+		return KERN_SUCCESS;
+	}
+
+	if (message[messageCnt - 1] != '\0')
+	{
+		*status = ASL_STATUS_INVALID_ARG;
+		vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+		return KERN_SUCCESS;
+	}
+
+	asldebug("__asl_server_create_aux_link: %s\n", (message == NULL) ? "NULL" : message);
+
+	if ((global.dbtype & DB_TYPE_FILE) == 0)
+	{
+		*status = ASL_STATUS_INVALID_STORE;
+		return KERN_SUCCESS;
+	}
+
+	*fileport = MACH_PORT_NULL;
+
+	msg = (aslmsg)asl_msg_from_string(message);
+	vm_deallocate(mach_task_self(), (vm_address_t)message, messageCnt);
+
+	if (msg == NULL) return KERN_SUCCESS;
+
+	uid = (uid_t)-1;
+	gid = (gid_t)-1;
+	pid = (gid_t)-1;
+	audit_token_to_au32(token, NULL, &uid, &gid, NULL, NULL, &pid, NULL, NULL);
+
+	client = MACH_PORT_NULL;
+	kstatus = task_name_for_pid(mach_task_self(), pid, &client);
+	if (kstatus == KERN_SUCCESS) register_session(client, pid);
+
+	snprintf(tmp, sizeof(tmp), "%d", uid);
+	asl_set(msg, ASL_KEY_UID, tmp);
+
+	snprintf(tmp, sizeof(tmp), "%d", gid);
+	asl_set(msg, ASL_KEY_GID, tmp);
+
+	snprintf(tmp, sizeof(tmp), "%d", pid);
+	asl_set(msg, ASL_KEY_PID, tmp);
+
+	/* create a file for the client */
+	*status = asl_store_open_aux(global.file_db, msg, &fd, &url);
+	asl_free(msg);
+	if (*status != ASL_STATUS_OK) return KERN_SUCCESS;
+	if (url == NULL)
+	{
+		if (fd >= 0) close(fd);
+		*status = ASL_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	if (fileport_makeport(fd, (fileport_t *)fileport) < 0)
+	{
+		close(fd);
+		free(url);
+		*status = ASL_STATUS_FAILED;
+		return KERN_SUCCESS;
+	}
+
+	close(fd);
+
+	*newurlCnt = strlen(url) + 1;
+
+	kstatus = vm_allocate(mach_task_self(), (vm_address_t *)&vmbuffer, *newurlCnt, TRUE);
+	if (kstatus != KERN_SUCCESS)
+	{
+		free(url);
+		return kstatus;
+	}
+
+	memmove(vmbuffer, url, *newurlCnt);
+	free(url);
+	
+	*newurl = vmbuffer;	
+	
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+__asl_server_register_direct_watch
+(
+	mach_port_t server,
+	int port,
+	audit_token_t token
+)
+{
+	uint16_t p16 = port;
+
+	asldebug("__asl_server_register_direct_watch: %hu\n", ntohs(p16));
+
+	register_direct_watch(p16);
+
+	return KERN_SUCCESS;
+}
+
+kern_return_t
+__asl_server_cancel_direct_watch
+(
+	mach_port_t server,
+	int port,
+	audit_token_t token
+)
+{
+	uint16_t p16 = port;
+
+	asldebug("__asl_server_cancel_direct_watch: %hu\n", ntohs(p16));
+
+	cancel_direct_watch(p16);
 
 	return KERN_SUCCESS;
 }

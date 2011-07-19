@@ -204,7 +204,7 @@ static void             done(void);
 static void             error(const char *);
 static int              findsym(const char *);
 static void             flushline(bool);
-static Linetype         getline(void);
+static Linetype         ud_getline(void);
 static Linetype         ifeval(const char **);
 static void             ignoreoff(void);
 static void             ignoreon(void);
@@ -503,7 +503,7 @@ process(void)
 
 	for (;;) {
 		linenum++;
-		lineval = getline();
+		lineval = ud_getline();
 		trans_table[ifstate[depth]][lineval]();
 		debug("process %s -> %s depth %d",
 		    linetype_name[lineval],
@@ -517,7 +517,7 @@ process(void)
  * help from skipcomment().
  */
 static Linetype
-getline(void)
+ud_getline(void)
 {
 	const char *cp;
 	int cursym;

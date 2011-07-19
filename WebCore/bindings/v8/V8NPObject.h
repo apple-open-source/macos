@@ -34,10 +34,12 @@
 #if PLATFORM(CHROMIUM)
 #include <bindings/npruntime.h>
 #else
-#include "npruntime.h"
+#include "npruntime_internal.h"
 #endif
 
 #include <v8.h>
+
+namespace WebCore {
 
 // These functions can be replaced by normal JS operation.
 // Getters
@@ -64,5 +66,7 @@ v8::Local<v8::Object> createV8ObjectForNPObject(NPObject*, NPObject* root);
 // function, the persistent handle to the wrapper will be gone, and the wrapped NPObject will be removed so that it
 // cannot be referred to.
 void forgetV8ObjectForNPObject(NPObject*);
+
+} // namespace WebCore
 
 #endif // V8NPObject_h

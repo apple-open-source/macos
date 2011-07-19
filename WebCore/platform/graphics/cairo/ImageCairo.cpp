@@ -28,14 +28,18 @@
 #include "config.h"
 #include "BitmapImage.h"
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
 
 #include "AffineTransform.h"
+#include "CairoUtilities.h"
 #include "Color.h"
+#include "ContextShadow.h"
 #include "FloatRect.h"
 #include "GraphicsContext.h"
+#include "PlatformContextCairo.h"
 #include "ImageBuffer.h"
 #include "ImageObserver.h"
+#include "RefPtrCairo.h"
 #include <cairo.h>
 #include <math.h>
 #include <wtf/OwnPtr.h>
@@ -109,9 +113,6 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         return;
     }
 
-    IntSize selfSize = size();
-
-    cairo_t* cr = context->platformContext();
     context->save();
 
     // Set the compositing operation.
@@ -119,50 +120,7 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
         context->setCompositeOperation(CompositeCopy);
     else
         context->setCompositeOperation(op);
-
-    // If we're drawing a sub portion of the image or scaling then create
-    // a pattern transformation on the image and draw the transformed pattern.
-    // Test using example site at http://www.meyerweb.com/eric/css/edge/complexspiral/demo.html
-    cairo_pattern_t* pattern = cairo_pattern_create_for_surface(image);
-
-    cairo_pattern_set_extend(pattern, CAIRO_EXTEND_PAD);
-
-    float scaleX = srcRect.width() / dstRect.width();
-    float scaleY = srcRect.height() / dstRect.height();
-    cairo_matrix_t matrix = { scaleX, 0, 0, scaleY, srcRect.x(), srcRect.y() };
-    cairo_pattern_set_matrix(pattern, &matrix);
-
-    // Draw the shadow
-#if ENABLE(FILTERS)
-    IntSize shadowSize;
-    int shadowBlur;
-    Color shadowColor;
-    if (context->getShadow(shadowSize, shadowBlur, shadowColor)) {
-        IntSize shadowBufferSize;
-        FloatRect shadowRect;
-        float kernelSize (0.0);
-        GraphicsContext::calculateShadowBufferDimensions(shadowBufferSize, shadowRect, kernelSize, dstRect, shadowSize, shadowBlur);
-        shadowColor = colorWithOverrideAlpha(shadowColor.rgb(), (shadowColor.alpha() *  context->getAlpha()) / 255.f);
-
-        //draw shadow into a new ImageBuffer
-        OwnPtr<ImageBuffer> shadowBuffer = ImageBuffer::create(shadowBufferSize);
-        cairo_t* shadowContext = shadowBuffer->context()->platformContext();
-        cairo_set_source(shadowContext, pattern);
-        cairo_translate(shadowContext, -dstRect.x(), -dstRect.y());
-        cairo_rectangle(shadowContext, 0, 0, dstRect.width(), dstRect.height());
-        cairo_fill(shadowContext);
-
-        context->createPlatformShadow(shadowBuffer.release(), shadowColor, shadowRect, kernelSize);
-    }
-#endif
-
-    // Draw the image.
-    cairo_translate(cr, dstRect.x(), dstRect.y());
-    cairo_set_source(cr, pattern);
-    cairo_pattern_destroy(pattern);
-    cairo_rectangle(cr, 0, 0, dstRect.width(), dstRect.height());
-    cairo_clip(cr);
-    cairo_paint_with_alpha(cr, context->getAlpha());
+    context->platformContext()->drawSurfaceToContext(image, dstRect, srcRect, context);
 
     context->restore();
 
@@ -171,49 +129,14 @@ void BitmapImage::draw(GraphicsContext* context, const FloatRect& dst, const Flo
 }
 
 void Image::drawPattern(GraphicsContext* context, const FloatRect& tileRect, const AffineTransform& patternTransform,
-                        const FloatPoint& phase, ColorSpace, CompositeOperator op, const FloatRect& destRect)
+                        const FloatPoint& phase, ColorSpace colorSpace, CompositeOperator op, const FloatRect& destRect)
 {
     cairo_surface_t* image = nativeImageForCurrentFrame();
     if (!image) // If it's too early we won't have an image yet.
         return;
 
-    // Avoid NaN
-    if (!isfinite(phase.x()) || !isfinite(phase.y()))
-       return;
-
-    cairo_t* cr = context->platformContext();
-    context->save();
-
-    IntRect imageSize = enclosingIntRect(tileRect);
-    OwnPtr<ImageBuffer> imageSurface = ImageBuffer::create(imageSize.size());
-
-    if (!imageSurface)
-        return;
-
-    if (tileRect.size() != size()) {
-        cairo_t* clippedImageContext = imageSurface->context()->platformContext();
-        cairo_set_source_surface(clippedImageContext, image, -tileRect.x(), -tileRect.y());
-        cairo_paint(clippedImageContext);
-        image = imageSurface->image()->nativeImageForCurrentFrame();
-    }
-
-    cairo_pattern_t* pattern = cairo_pattern_create_for_surface(image);
-    cairo_pattern_set_extend(pattern, CAIRO_EXTEND_REPEAT);
-
-    cairo_matrix_t pattern_matrix = cairo_matrix_t(patternTransform);
-    cairo_matrix_t phase_matrix = {1, 0, 0, 1, phase.x() + tileRect.x() * patternTransform.a(), phase.y() + tileRect.y() * patternTransform.d()};
-    cairo_matrix_t combined;
-    cairo_matrix_multiply(&combined, &pattern_matrix, &phase_matrix);
-    cairo_matrix_invert(&combined);
-    cairo_pattern_set_matrix(pattern, &combined);
-
-    context->setCompositeOperation(op);
-    cairo_set_source(cr, pattern);
-    cairo_pattern_destroy(pattern);
-    cairo_rectangle(cr, destRect.x(), destRect.y(), destRect.width(), destRect.height());
-    cairo_fill(cr);
-
-    context->restore();
+    cairo_t* cr = context->platformContext()->cr();
+    drawPatternToCairoContext(cr, image, size(), tileRect, patternTransform, phase, toCairoOperator(op), destRect);
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -247,4 +170,4 @@ void BitmapImage::checkForSolidColor()
 
 }
 
-#endif // PLATFORM(CAIRO)
+#endif // USE(CAIRO)

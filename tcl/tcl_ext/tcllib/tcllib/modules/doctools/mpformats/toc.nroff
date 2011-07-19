@@ -1,6 +1,6 @@
 # -*- tcl -*-
 #
-# $Id: toc.nroff,v 1.6 2005/09/28 04:51:19 andreas_kupries Exp $
+# $Id: toc.nroff,v 1.7 2009/01/30 04:56:47 andreas_kupries Exp $
 #
 # Engine to convert a doctoc document into nroff.
 #
@@ -51,7 +51,7 @@ proc fmt_toc_begin     {label title}      {
 	set hdr [nr_comment $prec]\n
     }
     append  hdr [nr_comment [c_provenance]]\n
-    append  hdr [nr_include man.macros]\n
+    append  hdr [nr_read man.macros]\n
     append  hdr [nr_title "\"[string trimleft $label :]\" n"]\n
     append  hdr [nr_bolds]\n
     append  hdr [nr_section CONTENTS]\n

@@ -1,6 +1,6 @@
---- killpg.2	2003-05-20 15:20:40.000000000 -0700
-+++ killpg.2.edit	2006-07-12 10:52:21.000000000 -0700
-@@ -41,7 +41,6 @@
+--- killpg.2.orig	2009-11-06 10:36:38.000000000 -0800
++++ killpg.2	2009-11-06 10:41:32.000000000 -0800
+@@ -37,7 +37,6 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
@@ -8,7 +8,7 @@
  .In signal.h
  .Ft int
  .Fn killpg "pid_t pgrp" "int sig"
-@@ -80,21 +79,29 @@
+@@ -76,21 +75,29 @@ The
  .Fa sig
  argument
  is not a valid signal number.

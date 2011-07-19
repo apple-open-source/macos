@@ -1,5 +1,5 @@
---- endutxent.3.orig	2007-04-08 18:49:40.000000000 -0700
-+++ endutxent.3	2007-04-08 19:03:43.000000000 -0700
+--- endutxent.3.orig	2009-04-03 22:48:14.000000000 -0700
++++ endutxent.3	2009-04-04 18:16:44.000000000 -0700
 @@ -34,7 +34,7 @@
  .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  .\" POSSIBILITY OF SUCH DAMAGE.
@@ -124,11 +124,11 @@
 +.El
 +.Ss Other extensions to the standards
 +The
-+.Fa ut_tv
++.Fa ut_type
 +value may also be OR-ed with the following masks:
 +.Bl -tag -width XXXX -compact -offset indent
 +.It Dv UTMPX_AUTOFILL_MASK
-+Depending on the
++Depending on the main part of
 +.Fa ut_type
 +value, other fields are automatically filled in (as specified in the
 +meaningful fields table above).

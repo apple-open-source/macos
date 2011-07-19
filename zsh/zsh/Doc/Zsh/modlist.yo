@@ -1,4 +1,7 @@
 startitem()
+item(tt(zsh/attr))(
+Builtins for manipulating extended attributes (xattr).
+)
 item(tt(zsh/cap))(
 Builtins for manipulating POSIX.1e (POSIX.6) capability (privilege) sets.
 )
@@ -96,7 +99,10 @@ styles.
 )
 enditem()
 includefile(Zsh/modmenu.yo)
-texinode(The zsh/cap Module)(The zsh/clone Module)()(Zsh Modules)
+texinode(The zsh/attr Module)(The zsh/cap Module)()(Zsh Modules)
+sect(The zsh/attr Module)
+includefile(Zsh/mod_attr.yo)
+texinode(The zsh/cap Module)(The zsh/clone Module)(The zsh/attr Module)(Zsh Modules)
 sect(The zsh/cap Module)
 includefile(Zsh/mod_cap.yo)
 texinode(The zsh/clone Module)(The zsh/compctl Module)(The zsh/cap Module)(Zsh Modules)

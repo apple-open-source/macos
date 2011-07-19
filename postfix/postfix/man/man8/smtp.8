@@ -184,7 +184,10 @@ Lookup tables, indexed by the remote SMTP server address, with
 per-destination workarounds for CISCO PIX firewall bugs.
 .IP "\fBsmtp_quote_rfc821_envelope (yes)\fR"
 Quote addresses in SMTP MAIL FROM and RCPT TO commands as required
-by RFC 821.
+by RFC 2821.
+.IP "\fBsmtp_reply_filter (empty)\fR"
+A mechanism to transform replies from remote SMTP servers one
+line at a time.
 .IP "\fBsmtp_skip_5xx_greeting (yes)\fR"
 Skip SMTP servers that greet with a 5XX status code (go away, do
 not try again later).
@@ -245,6 +248,14 @@ Restricted \fBnested_header_checks\fR(5) tables for the Postfix SMTP
 client.
 .IP "\fBsmtp_body_checks (empty)\fR"
 Restricted \fBbody_checks\fR(5) tables for the Postfix SMTP client.
+.PP
+Available in Postfix version 2.6 and later:
+.IP "\fBtcp_windowsize (0)\fR"
+An optional workaround for routers that break TCP window scaling.
+.PP
+Available in Postfix version 2.8 and later:
+.IP "\fBsmtp_dns_resolver_options (empty)\fR"
+DNS Resolver options for the Postfix SMTP client.
 .SH "MIME PROCESSING CONTROLS"
 .na
 .nf
@@ -333,8 +344,8 @@ client uses for TLS encrypted SMTP sessions.
 Time limit for Postfix SMTP client write and read operations
 during TLS startup and shutdown handshake procedures.
 .IP "\fBsmtp_tls_CAfile (empty)\fR"
-The file with the certificate of the certification authority
-(CA) that issued the Postfix SMTP client certificate.
+A file containing CA certificates of root CAs trusted to sign
+either remote SMTP server certificates or intermediate CA certificates.
 .IP "\fBsmtp_tls_CApath (empty)\fR"
 Directory with PEM format certificate authority certificates
 that the Postfix SMTP client uses to verify a remote SMTP server
@@ -414,6 +425,28 @@ fingerprint).
 .IP "\fBsmtp_tls_fingerprint_digest (md5)\fR"
 The message digest algorithm used to construct remote SMTP server
 certificate fingerprints.
+.PP
+Available in Postfix version 2.6 and later:
+.IP "\fBsmtp_tls_protocols (!SSLv2)\fR"
+List of TLS protocols that the Postfix SMTP client will exclude or
+include with opportunistic TLS encryption.
+.IP "\fBsmtp_tls_ciphers (export)\fR"
+The minimum TLS cipher grade that the Postfix SMTP client
+will use with opportunistic TLS encryption.
+.IP "\fBsmtp_tls_eccert_file (empty)\fR"
+File with the Postfix SMTP client ECDSA certificate in PEM format.
+.IP "\fBsmtp_tls_eckey_file ($smtp_tls_eccert_file)\fR"
+File with the Postfix SMTP client ECDSA private key in PEM format.
+.PP
+Available in Postfix version 2.7 and later:
+.IP "\fBsmtp_tls_block_early_mail_reply (no)\fR"
+Try to detect a mail hijacking attack based on a TLS protocol
+vulnerability (CVE-2009-3555), where an attacker prepends malicious
+HELO, MAIL, RCPT, DATA commands to a Postfix SMTP client TLS session.
+.PP
+Available in Postfix version 2.8 and later:
+.IP "\fBtls_disable_workarounds (see 'postconf -d' output)\fR"
+List or bit-mask of OpenSSL bug work-arounds to disable.
 .SH "OBSOLETE STARTTLS CONTROLS"
 .na
 .nf
@@ -447,7 +480,7 @@ cipher list.
 The maximal number of parallel deliveries to the same destination
 via the smtp message delivery transport.
 .IP "\fBsmtp_destination_recipient_limit ($default_destination_recipient_limit)\fR"
-The maximal number of recipients per delivery via the smtp
+The maximal number of recipients per message for the smtp
 message delivery transport.
 .IP "\fBsmtp_connect_timeout (30s)\fR"
 The SMTP client time limit for completing a TCP connection, or
@@ -564,6 +597,10 @@ or accepting connections.
 .IP "\fBipc_timeout (3600s)\fR"
 The time limit for sending or receiving information over an internal
 communication channel.
+.IP "\fBlmtp_assume_final (no)\fR"
+When an LMTP server announces no DSN support, assume that the
+server performs final delivery, and send "delivered" delivery status
+notifications instead of "relayed".
 .IP "\fBlmtp_tcp_port (24)\fR"
 The default TCP port that the Postfix LMTP client connects to.
 .IP "\fBmax_idle (100s)\fR"
@@ -579,6 +616,10 @@ The process name of a Postfix command or daemon process.
 .IP "\fBproxy_interfaces (empty)\fR"
 The network interface addresses that this mail system receives mail
 on by way of a proxy or network address translation unit.
+.IP "\fBsmtp_address_preference (ipv6)\fR"
+The address type ("ipv6", "ipv4" or "any") that the Postfix
+SMTP client will try first, when a destination has IPv6 and IPv4
+addresses with equal MX preference.
 .IP "\fBsmtp_bind_address (empty)\fR"
 An optional numerical network address that the Postfix SMTP client
 should bind to when making an IPv4 connection.
@@ -590,13 +631,13 @@ The hostname to send in the SMTP EHLO or HELO command.
 .IP "\fBlmtp_lhlo_name ($myhostname)\fR"
 The hostname to send in the LMTP LHLO command.
 .IP "\fBsmtp_host_lookup (dns)\fR"
-What mechanisms when the Postfix SMTP client uses to look up a host's IP
+What mechanisms the Postfix SMTP client uses to look up a host's IP
 address.
 .IP "\fBsmtp_randomize_addresses (yes)\fR"
 Randomize the order of equal-preference MX host addresses.
 .IP "\fBsyslog_facility (mail)\fR"
 The syslog facility of Postfix logging.
-.IP "\fBsyslog_name (postfix)\fR"
+.IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 The mail system name that is prepended to the process name in syslog
 records, so that "smtpd" becomes, for example, "postfix/smtpd".
 .PP

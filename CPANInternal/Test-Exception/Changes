@@ -1,5 +1,33 @@
 Revision history for Perl extension Test::Exception:
 
+0.29
+    -   Same as 0.28_01 - Many thanks to Ricardo Signes for doing all the work
+        getting this release out
+
+0.28_01
+    -   Patch to fix code with Sub::Uplevel again.  Many thanks to David Golden
+
+0.27
+    -   Patch to fix my broken code with the now working Sub::Uplevel. Many
+        thanks to David Golden
+
+0.26
+    -   Added some more exposition on the usage of dies_ok() and lives_ok() for 
+        those who found them confusing. Also reordered presentation of docs so
+        more specific throws_ok() comes first.
+    -   Some misc. documentation tweaks.
+    -   Added some tests for RT#24678, but not actually fixed them yet
+        (thanks to Joshua ben Jore & David Golden). They skip for now.
+    -   Tests should now pass on Strawberry/Vanilla Perl (thanks Nadim Khemir
+        & Chris Dolan)
+    -   Added comment in docs about T::E not catching exit() in eval() blocks 
+        (thanks Peter Scott)
+    -   Updated Test::* & Sub::Uplevel version dependencies to something modern
+
+0.25
+    -   Updated Test::Simple dependency to make sure it is in sync with
+        the latest T::B::T (thanks David Cantrell)
+
 0.24
     -   Fixed a bunch of spelling mistakes in the POD
     -   Added an (optional) spelling test in t/developer

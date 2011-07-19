@@ -144,15 +144,18 @@ bool MediaQueryEvaluator::eval(const MediaList* mediaList, CSSStyleSelector* sty
     for (size_t i = 0; i < queries.size() && !result; ++i) {
         MediaQuery* query = queries.at(i);
 
+        if (query->ignored())
+            continue;
+
         if (mediaTypeMatch(query->mediaType())) {
-            const Vector<MediaQueryExp*>* exps = query->expressions();
+            const Vector<OwnPtr<MediaQueryExp> >* exps = query->expressions();
             // iterate through expressions, stop if any of them eval to false
             // (AND semantics)
             size_t j = 0;
             for (; j < exps->size(); ++j) {
-                bool exprResult = eval(exps->at(j));
+                bool exprResult = eval(exps->at(j).get());
                 if (styleSelector && exps->at(j)->isViewportDependent())
-                    styleSelector->addViewportDependentMediaQueryResult(exps->at(j), exprResult);
+                    styleSelector->addViewportDependentMediaQueryResult(exps->at(j).get(), exprResult);
                 if (!exprResult)
                     break;
             }
@@ -477,7 +480,7 @@ static bool transform_3dMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* f
     bool threeDEnabled = false;
 #if USE(ACCELERATED_COMPOSITING)
     if (RenderView* view = frame->contentRenderer())
-        threeDEnabled = view->compositor()->hasAcceleratedCompositing();
+        threeDEnabled = view->compositor()->canRender3DTransforms();
 #endif
 
     returnValueIfNoParameter = threeDEnabled;
@@ -495,28 +498,13 @@ static bool transform_3dMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* f
     return returnValueIfNoParameter;
 }
 
-#if ENABLE(WIDGETS_10_SUPPORT)
 static bool view_modeMediaFeatureEval(CSSValue* value, RenderStyle*, Frame* frame, MediaFeaturePrefix op)
 {
-    if (value) {
-        String mode = static_cast<CSSPrimitiveValue*>(value)->getStringValue();
-        if (ChromeClient* client = frame->page()->chrome()->client()) {
-            if (mode == "windowed" && client->isWindowed())
-                return true;
-            if (mode == "floating" && client->isFloating())
-                return true;
-            if (mode == "fullscreen" && client->isFullscreen())
-                return true;
-            if (mode == "maximized" && client->isMaximized())
-                return true;
-            if (mode == "minimized" && client->isMinimized())
-                return true;
-            return false;
-        }
-    }
-    return true;
+    UNUSED_PARAM(op);
+    if (!value)
+        return true;
+    return Page::stringToViewMode(static_cast<CSSPrimitiveValue*>(value)->getStringValue()) == frame->page()->viewMode();
 }
-#endif
 
 static void createFunctionMap()
 {

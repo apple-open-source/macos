@@ -1,7 +1,7 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$46|@interface EmptyObjCClassBeta : NSObject
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$46|@interface EmptyObjCClassBeta : NSObject
 @end
 $66|/*! A class with no variables, methods, or instance variables. */
-$0|$6794|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$6840|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -96,7 +96,7 @@ $parserState->{sodtypeclasstoken} => interface
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 2
 $parserState->{storeDec} => 
-$parserState->{typestring} => EmptyObjCClassBeta
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -175,8 +175,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -209,17 +209,19 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 4</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_4.test" target="_top" machineGenerated="true">ObjC class 4</a></p>
+
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
 +---@
@@ -240,12 +242,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/econst/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/clconst/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> @@end 
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta //test_ref/doc/anysymbol/EmptyObjCClassBeta" machineGenerated="true" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> @@end 
 END OF OBJECT
 
 
 
-$6794|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$6840|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -340,7 +342,7 @@ $parserState->{sodtypeclasstoken} => interface
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 2
 $parserState->{storeDec} => 
-$parserState->{typestring} => EmptyObjCClassBeta
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -419,8 +421,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -453,17 +455,19 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 4</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_4.test" target="_top" machineGenerated="true">ObjC class 4</a></p>
+
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
 +---@
@@ -484,497 +488,9 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/econst/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/clconst/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> @@end 
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta //test_ref/doc/anysymbol/EmptyObjCClassBeta" machineGenerated="true" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> @@end 
 END OF OBJECT
 
 
 
-_$40|testsuite/parser_tests/ObjC_class_4.test$1|C$12|ObjC class 4$6794|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/ObjC_class_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} =>  
-$parserState->{classIsObjC} => 1
-$parserState->{classtype} => @interface
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => end
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occSuper} => NSObject
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => interface
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => @interface EmptyObjCClassBeta : NSObject
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => class
-$parserState->{sodname} => end
-$parserState->{sodtype} =>  EmptyObjCClassBeta NSObject
-$parserState->{sodtypeclasstoken} => interface
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 2
-$parserState->{storeDec} => 
-$parserState->{typestring} => EmptyObjCClassBeta
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
-typelist: @interface
-namelist: EmptyObjCClassBeta
-posstypes: NSObject
-value: 
-returntype: EmptyObjCClassBeta NSObject
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---@
-+---interface
-|   +--- 
-|   +---EmptyObjCClassBeta
-|   +--- 
-|   +---:
-|   +--- 
-|   +---NSObject
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: ObjC class 4
-APIUID: //test_ref/doc/header/ObjC_class_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::ObjCClass
-    NAME: EmptyObjCClassBeta
-    APIUID: 
-    ABSTRACT: ""
-    DISCUSSION: "<p>A class with no variables, methods, or instance variables. "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::ObjCClass"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 4</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-+---@
-+---interface
-|   +--- 
-|   +---EmptyObjCClassBeta
-|   +--- 
-|   +---:
-|   +--- 
-|   +---NSObject
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/econst/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/clconst/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> @@end 
-END OF OBJECT
-
-
-
-$6794|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/ObjC_class_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} =>  
-$parserState->{classIsObjC} => 1
-$parserState->{classtype} => @interface
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 2
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => end
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occSuper} => NSObject
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => interface
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => @interface EmptyObjCClassBeta : NSObject
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => class
-$parserState->{sodname} => end
-$parserState->{sodtype} =>  EmptyObjCClassBeta NSObject
-$parserState->{sodtypeclasstoken} => interface
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 2
-$parserState->{storeDec} => 
-$parserState->{typestring} => EmptyObjCClassBeta
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 2
-typelist: @interface
-namelist: EmptyObjCClassBeta
-posstypes: NSObject
-value: 
-returntype: EmptyObjCClassBeta NSObject
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---@
-+---interface
-|   +--- 
-|   +---EmptyObjCClassBeta
-|   +--- 
-|   +---:
-|   +--- 
-|   +---NSObject
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: ObjC class 4
-APIUID: //test_ref/doc/header/ObjC_class_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::ObjCClass
-    NAME: EmptyObjCClassBeta
-    APIUID: 
-    ABSTRACT: ""
-    DISCUSSION: "<p>A class with no variables, methods, or instance variables. "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::ObjCClass"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Superclass:</b> <!-- a logicalPath="//test_ref/occ/cl/NSObject" -->NSObject<!-- /a --><br>
-<b>Declared In:</b> <a href="../../index.html" target="_top">ObjC class 4</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-+---@
-+---interface
-|   +--- 
-|   +---EmptyObjCClassBeta
-|   +--- 
-|   +---:
-|   +--- 
-|   +---NSObject
-|   +---[ NEWLINE ]
-|   +---@
-|   +---@end
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: EmptyObjCClassBeta (HeaderDoc::ObjCClass)
-	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/econst/interface //test_ref/occ/struct/interface //test_ref/occ/clconst/interface //test_ref/occ/intf/interface" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/EmptyObjCClassBeta //test_ref/occ/tdef/EmptyObjCClassBeta //test_ref/occ/tag/EmptyObjCClassBeta //test_ref/occ/econst/EmptyObjCClassBeta //test_ref/occ/struct/EmptyObjCClassBeta //test_ref/occ/clconst/EmptyObjCClassBeta //test_ref/occ/intf/EmptyObjCClassBeta" --><span class="type">EmptyObjCClassBeta</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/econst/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/clconst/NSObject //test_ref/occ/intf/NSObject" --><span class="type">NSObject</span><!-- /a --> @@end 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/ObjC_class_4.test$1|C$12|ObjC class 4$1|C$6|parser

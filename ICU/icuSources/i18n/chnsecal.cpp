@@ -291,7 +291,7 @@ int32_t ChineseCalendar::handleComputeMonthStart(int32_t eyear, int32_t month, U
     // modify the extended year value accordingly.
     if (month < 0 || month > 11) {
         double m = month;
-        eyear += (int32_t)Math::floorDivide(m, 12.0, m);
+        eyear += (int32_t)ClockMath::floorDivide(m, 12.0, m);
         month = (int32_t)m;
     }
 
@@ -446,7 +446,7 @@ double ChineseCalendar::daysToMillis(double days) {
  * @return days after January 1, 1970 0:00 Asia/Shanghai
  */
 double ChineseCalendar::millisToDays(double millis) {
-    return Math::floorDivide(millis + CHINA_OFFSET, kOneDay);
+    return ClockMath::floorDivide(millis + CHINA_OFFSET, kOneDay);
 }
 
 //------------------------------------------------------------------
@@ -662,7 +662,7 @@ void ChineseCalendar::computeChineseFields(int32_t days, int32_t gyear, int32_t 
 
         // 0->0,60  1->1,1  60->1,60  61->2,1  etc.
         int32_t yearOfCycle;
-        int32_t cycle = Math::floorDivide(year - 1, 60, yearOfCycle);
+        int32_t cycle = ClockMath::floorDivide(year - 1, 60, yearOfCycle);
         internalSet(UCAL_ERA, cycle + 1);
         internalSet(UCAL_YEAR, yearOfCycle + 1);
 
@@ -837,27 +837,24 @@ ChineseCalendar::initializeSystemDefaultCentury()
     // initialize systemDefaultCentury and systemDefaultCenturyYear based
     // on the current time.  They'll be set to 80 years before
     // the current time.
-    // No point in locking as it should be idempotent.
-    if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
+    UErrorCode status = U_ZERO_ERROR;
+    ChineseCalendar calendar(Locale("@calendar=chinese"),status);
+    if (U_SUCCESS(status))
     {
-        UErrorCode status = U_ZERO_ERROR;
-        ChineseCalendar calendar(Locale("@calendar=chinese"),status);
-        if (U_SUCCESS(status))
+        calendar.setTime(Calendar::getNow(), status);
+        calendar.add(UCAL_YEAR, -80, status);
+        UDate    newStart =  calendar.getTime(status);
+        int32_t  newYear  =  calendar.get(UCAL_YEAR, status);
+        umtx_lock(NULL);
+        if (fgSystemDefaultCenturyStart == fgSystemDefaultCentury)
         {
-            calendar.setTime(Calendar::getNow(), status);
-            calendar.add(UCAL_YEAR, -80, status);
-            UDate    newStart =  calendar.getTime(status);
-            int32_t  newYear  =  calendar.get(UCAL_YEAR, status);
-            {
-                umtx_lock(NULL);
-                fgSystemDefaultCenturyStart = newStart;
-                fgSystemDefaultCenturyStartYear = newYear;
-                umtx_unlock(NULL);
-            }
+            fgSystemDefaultCenturyStartYear = newYear;
+            fgSystemDefaultCenturyStart = newStart;
         }
-        // We have no recourse upon failure unless we want to propagate the failure
-        // out.
+        umtx_unlock(NULL);
     }
+    // We have no recourse upon failure unless we want to propagate the failure
+    // out.
 }
 
 UOBJECT_DEFINE_RTTI_IMPLEMENTATION(ChineseCalendar)

@@ -28,7 +28,7 @@ require utf8;
 } unless defined &utf8::is_utf8;
 
 $DBI::PurePerl = $ENV{DBI_PUREPERL} || 1;
-$DBI::PurePerl::VERSION = sprintf("2.%06d", q$Revision: 10002 $ =~ /(\d+)/o);
+$DBI::PurePerl::VERSION = sprintf("2.%06d", q$Revision: 11372 $ =~ /(\d+)/o);
 
 $DBI::neat_maxlen ||= 400;
 
@@ -361,15 +361,15 @@ sub  _install_method {
 			($err eq "0") ? "warning" : "failed", $errstr;
 
 		if ($h->{'ShowErrorStatement'} and my $Statement = $h->{Statement}) {
-		    $msg .= ' for [``' . $Statement . "''";
+		    $msg .= ' [for Statement "' . $Statement;
 		    if (my $ParamValues = $h->FETCH('ParamValues')) {
-			my $pv_idx = 0;
-			$msg .= " with params: ";
-			while ( my($k,$v) = each %$ParamValues ) {
-			    $msg .= sprintf "%s%s=%s", ($pv_idx++==0) ? "" : ", ", $k, DBI::neat($v);
-			}
+			$msg .= '" with ParamValues: ';
+			$msg .= DBI::_concat_hash_sorted($ParamValues, "=", ", ", 1, undef);
+                        $msg .= "]";
 		    }
-		    $msg .= "]";
+                    else {
+                        $msg .= '"]';
+                    }
 		}
 		if ($err eq "0") { # is 'warning' (not info)
 		    carp $msg if $pw;
@@ -637,6 +637,7 @@ sub hash {
         croak("bad hash type $type");
     }
 }
+
 sub looks_like_number {
     my @new = ();
     for my $thing(@_) {
@@ -663,6 +664,7 @@ sub neat {
 	$v = substr($v,0,$maxlen-5);
 	$v .= '...';
     }
+    $v =~ s/[^[:print:]]/./g;
     return "$quote$v$quote";
 }
 
@@ -671,6 +673,47 @@ sub dbi_time {
 }
 
 sub DBI::st::TIEHASH { bless $_[1] => $_[0] };
+
+sub _concat_hash_sorted {
+    my ( $hash_ref, $kv_separator, $pair_separator, $use_neat, $num_sort ) = @_;
+    # $num_sort: 0=lexical, 1=numeric, undef=try to guess
+
+    return undef unless defined $hash_ref;
+    die "hash is not a hash reference" unless ref $hash_ref eq 'HASH';
+    my $keys = _get_sorted_hash_keys($hash_ref, $num_sort);
+    my $string = '';
+    for my $key (@$keys) {
+        $string .= $pair_separator if length $string > 0;
+        my $value = $hash_ref->{$key};
+        if ($use_neat) {
+            $value = DBI::neat($value, 0);
+        }
+        else {
+            $value = (defined $value) ? "'$value'" : 'undef';
+        }
+        $string .= $key . $kv_separator . $value;
+    }
+    return $string;
+}
+
+sub _get_sorted_hash_keys {
+    my ($hash_ref, $num_sort) = @_;
+    if (not defined $num_sort) {
+        my $sort_guess = 1;
+        $sort_guess = (not looks_like_number($_)) ? 0 : $sort_guess
+            for keys %$hash_ref;
+        $num_sort = $sort_guess;
+    }
+    
+    my @keys = keys %$hash_ref;
+    no warnings 'numeric';
+    my @sorted = ($num_sort)
+        ? sort { $a <=> $b or $a cmp $b } @keys
+        : sort    @keys;
+    return \@sorted;
+}
+
+
 
 package
 	DBI::var;
@@ -879,6 +922,13 @@ sub rows {
     return -1; # always returns -1 here, see DBD::_::st::rows below
 }
 sub DESTROY {
+}
+
+package
+	DBD::_::dr;
+
+sub dbixs_revision {
+    return 0;
 }
 
 package

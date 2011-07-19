@@ -270,7 +270,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 	    printf( "[findcalls] %s: 0x%x to 0x%x\n" ,
 		    parentp -> name , p_lowpc , p_highpc );
 	}
-#   endif DEBUG
+#   endif /* DEBUG */
     for (   instructp = textspace + p_lowpc ;
 	    instructp < textspace + p_highpc ;
 	    instructp += length ) {
@@ -284,7 +284,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 		if ( debug & CALLSDEBUG ) {
 		    printf( "[findcalls]\t0x%x:calls" , instructp - textspace );
 		}
-#	    endif DEBUG
+#	    endif /* DEBUG */
 	    firstmode = operandmode( (struct modebyte *) (instructp+length) );
 	    switch ( firstmode ) {
 		case literal:
@@ -300,7 +300,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 		    printf( "\tfirst operand is %s", operandname( firstmode ) );
 		    printf( "\tsecond operand is %s\n" , operandname( mode ) );
 		}
-#	    endif DEBUG
+#	    endif /* DEBUG */
 	    switch ( mode ) {
 		case regdef:
 		case bytedispdef:
@@ -340,7 +340,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 				printf( " childp->value 0x%x\n" ,
 					childp -> value );
 			    }
-#			endif DEBUG
+#			endif /* DEBUG */
 			if ( childp -> value == destpc ) {
 				/*
 				 *	a hit
@@ -367,7 +367,7 @@ findcalls( parentp , p_lowpc , p_highpc )
 			if ( debug & CALLSDEBUG ) {
 			    printf( "[findcalls]\tbut it's a botch\n" );
 			}
-#		    endif DEBUG
+#		    endif /* DEBUG */
 		    length = 1;
 		    continue;
 	    }

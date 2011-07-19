@@ -260,6 +260,9 @@ get_pty(int master, int *retfd)
 
     if (master) {
 	strcpy(name, "/dev/ptyxx");
+#if defined(__BEOS__) || defined(__HAIKU__)
+	name[7] = '/';
+#endif
 
 	for (p1 = char1; *p1; p1++) {
 	    name[8] = *p1;
@@ -393,11 +396,17 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 	setsparam("TTY", ztrdup(ttystrname));
 
 	opts[INTERACTIVE] = 0;
-	execode(prog, 1, 0);
+	execode(prog, 1, 0, "zpty");
 	stopmsg = 2;
 	zexit(lastval, 0);
     }
     master = movefd(master);
+    if (master == -1) {
+	zerrnam(nam, "cannot duplicate fd %d: %e", master, errno);
+	scriptname = oscriptname;
+	ineval = oineval;
+	return 1;
+    }
 
     p = (Ptycmd) zalloc(sizeof(*p));
 
@@ -420,6 +429,7 @@ newptycmd(char *nam, char *pname, char **args, int echo, int nblock)
 
     scriptname = oscriptname;
     ineval = oineval;
+
     return 0;
 }
 
@@ -482,9 +492,9 @@ checkptycmd(Ptycmd cmd)
 }
 
 static int
-ptyread(char *nam, Ptycmd cmd, char **args, int noblock)
+ptyread(char *nam, Ptycmd cmd, char **args, int noblock, int mustmatch)
 {
-    int blen, used, seen = 0, ret = 0;
+    int blen, used, seen = 0, ret = 0, matchok = 0;
     char *buf;
     Patprog prog = NULL;
 
@@ -576,7 +586,7 @@ ptyread(char *nam, Ptycmd cmd, char **args, int noblock)
 	    seen = 1;
 	    if (++used == blen) {
 		if (!*args) {
-		    write(1, buf, used);
+		    write_loop(1, buf, used);
 		    used = 0;
 		} else {
 		    buf = hrealloc(buf, blen, blen << 1);
@@ -586,10 +596,24 @@ ptyread(char *nam, Ptycmd cmd, char **args, int noblock)
 	}
 	buf[used] = '\0';
 
-	if (!prog && (ret <= 0 || (*args && buf[used - 1] == '\n')))
-	    break;
+	if (!prog) {
+	    if (ret <= 0 || (*args && buf[used - 1] == '\n'))
+		break;
+	} else {
+	    if (ret < 0
+#ifdef EWOULDBLOCK
+		&& errno != EWOULDBLOCK
+#else
+#ifdef EAGAIN
+		&& errno != EAGAIN
+#endif
+#endif
+		)
+		break;
+	}
     } while (!(errflag || breaks || retflag || contflag) &&
-	     used < READ_MAX && !(prog && ret && pattry(prog, buf)));
+	     used < READ_MAX &&
+	     !(prog && ret && (matchok = pattry(prog, buf))));
 
     if (prog && ret < 0 &&
 #ifdef EWOULDBLOCK
@@ -608,9 +632,11 @@ ptyread(char *nam, Ptycmd cmd, char **args, int noblock)
     if (*args)
 	setsparam(*args, ztrdup(metafy(buf, used, META_HREALLOC)));
     else if (used)
-	write(1, buf, used);
+	write_loop(1, buf, used);
 
-    return (seen ? 0 : cmd->fin + 1);
+    if (seen && (!prog || matchok || !mustmatch))
+	return 0;
+    return cmd->fin + 1;
 }
 
 static int
@@ -676,16 +702,19 @@ static int
 bin_zpty(char *nam, char **args, Options ops, UNUSED(int func))
 {
     if ((OPT_ISSET(ops,'r') && OPT_ISSET(ops,'w')) ||
-	((OPT_ISSET(ops,'r') || OPT_ISSET(ops,'w')) && 
+	((OPT_ISSET(ops,'r') || OPT_ISSET(ops,'w')) &&
 	 (OPT_ISSET(ops,'d') || OPT_ISSET(ops,'e') ||
 	  OPT_ISSET(ops,'b') || OPT_ISSET(ops,'L'))) ||
-	(OPT_ISSET(ops,'w') && OPT_ISSET(ops,'t')) ||
+	(OPT_ISSET(ops,'w') && (OPT_ISSET(ops,'t') || OPT_ISSET(ops,'m'))) ||
 	(OPT_ISSET(ops,'n') && (OPT_ISSET(ops,'b') || OPT_ISSET(ops,'e') ||
 				OPT_ISSET(ops,'r') || OPT_ISSET(ops,'t') ||
-				OPT_ISSET(ops,'d') || OPT_ISSET(ops,'L'))) ||
+				OPT_ISSET(ops,'d') || OPT_ISSET(ops,'L') ||
+				OPT_ISSET(ops,'m'))) ||
 	(OPT_ISSET(ops,'d') && (OPT_ISSET(ops,'b') || OPT_ISSET(ops,'e') ||
-				OPT_ISSET(ops,'L') || OPT_ISSET(ops,'t'))) ||
-	(OPT_ISSET(ops,'L') && (OPT_ISSET(ops,'b') || OPT_ISSET(ops,'e')))) {
+				OPT_ISSET(ops,'L') || OPT_ISSET(ops,'t') ||
+				OPT_ISSET(ops,'m'))) ||
+	(OPT_ISSET(ops,'L') && (OPT_ISSET(ops,'b') || OPT_ISSET(ops,'e') ||
+				OPT_ISSET(ops,'m')))) {
 	zwarnnam(nam, "illegal option combination");
 	return 1;
     }
@@ -703,7 +732,8 @@ bin_zpty(char *nam, char **args, Options ops, UNUSED(int func))
 	    return 2;
 
 	return (OPT_ISSET(ops,'r') ?
-		ptyread(nam, p, args + 1, OPT_ISSET(ops,'t')) :
+		ptyread(nam, p, args + 1, OPT_ISSET(ops,'t'),
+			OPT_ISSET(ops, 'm')) :
 		ptywrite(p, args + 1, OPT_ISSET(ops,'n')));
     } else if (OPT_ISSET(ops,'d')) {
 	Ptycmd p;
@@ -777,7 +807,7 @@ ptyhook(UNUSED(Hookdef d), UNUSED(void *dummy))
 
 
 static struct builtin bintab[] = {
-    BUILTIN("zpty", 0, bin_zpty, 0, -1, 0, "ebdrwLnt", NULL),
+    BUILTIN("zpty", 0, bin_zpty, 0, -1, 0, "ebdmrwLnt", NULL),
 };
 
 static struct features module_features = {

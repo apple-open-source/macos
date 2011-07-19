@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -147,7 +147,7 @@ static void __DASessionDeallocate( CFTypeRef object )
 
     if ( session->_source2 )
     {
-        dispatch_cancel( session->_source2 );
+        dispatch_source_cancel( session->_source2 );
 
         dispatch_release( session->_source2 );
     }
@@ -241,22 +241,21 @@ __private_extern__ void _DASessionCallback( CFMachPortRef port, void * message, 
     }
 }
 
-__private_extern__ void _DASessionCallback2( void * context, dispatch_source_t source )
+__private_extern__ void _DASessionCancelCallback( void * context )
 {
     DASessionRef session = context;
 
-    if ( dispatch_source_get_error( source, NULL ) )
-    {
-        CFRelease( session );
-    }
-    else
-    {
-        mach_msg_empty_rcv_t message;
+    CFRelease( session );
+}
 
-        mach_msg( ( void * ) &message, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof( message ), dispatch_source_get_handle( source ), 0, MACH_PORT_NULL );
+__private_extern__ void _DASessionEventCallback( void * context )
+{
+    mach_msg_empty_rcv_t message;
+    DASessionRef         session = context;
 
-        _DASessionCallback( NULL, NULL, 0, session );
-    }
+    mach_msg( ( void * ) &message, MACH_RCV_MSG | MACH_RCV_TIMEOUT, 0, sizeof( message ), CFMachPortGetPort( session->_client ), 0, MACH_PORT_NULL );
+
+    _DASessionCallback( NULL, NULL, 0, session );
 }
 
 __private_extern__ AuthorizationRef _DASessionGetAuthorization( DASessionRef session )
@@ -508,7 +507,7 @@ DASessionRef DASessionCreate( CFAllocatorRef allocator )
              * Obtain the Disk Arbitration master port.
              */
 
-            status = bootstrap_look_up2( bootstrapPort, _kDAServiceName, &masterPort, 0, BOOTSTRAP_PRIVILEGED_SERVER );
+            status = bootstrap_look_up2( bootstrapPort, _kDADaemonName, &masterPort, 0, BOOTSTRAP_PRIVILEGED_SERVER );
 
             mach_port_deallocate( mach_task_self( ), bootstrapPort );
 
@@ -569,7 +568,7 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
 {
     if ( session->_source2 )
     {
-        dispatch_cancel( session->_source2 );
+        dispatch_source_cancel( session->_source2 );
 
         dispatch_release( session->_source2 );
 
@@ -584,16 +583,21 @@ void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue )
 
         if ( session->_client )
         {
-            CFRetain( session );
+            session->_source2 = dispatch_source_create( DISPATCH_SOURCE_TYPE_MACH_RECV, CFMachPortGetPort( session->_client ), 0, queue );
 
-            session->_source2 = dispatch_source_machport_create_f( CFMachPortGetPort( session->_client ),
-                                                                   DISPATCH_MACHPORT_RECV,
-                                                                   NULL,
-                                                                   queue,
-                                                                   session,
-                                                                   _DASessionCallback2 );
+            if ( session->_source2 )
+            {
+                CFRetain( session );
 
-            if ( session->_source2 == NULL )
+                dispatch_set_context( session->_source2, session );
+
+                dispatch_source_set_cancel_handler_f( session->_source2, _DASessionCancelCallback );
+
+                dispatch_source_set_event_handler_f( session->_source2, _DASessionEventCallback );
+
+                dispatch_resume( session->_source2 );
+            }
+            else
             {
                 _DASessionUnscheduleFromRunLoop( session );
             }

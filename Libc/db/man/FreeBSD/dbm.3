@@ -13,11 +13,9 @@
 .\" OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
 .\" SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc/db/man/dbm.3,v 1.8 2003/09/08 19:57:13 ru Exp $
+.\" $FreeBSD: src/lib/libc/db/man/dbm.3,v 1.10 2009/01/30 15:28:35 gabor Exp $
 .\"
-.\" Note: The date here should be updated whenever a non-trivial
-.\" change is made to the manual page.
-.Dd July 7, 1999
+.Dd April 16, 2006
 .Dt DBM 3
 .Os
 .Sh NAME
@@ -104,7 +102,7 @@ is a typical value for
 is a typical value for
 .Fa mode .
 .Dv O_WRONLY
-is treated as O_RDWR in
+is not allowed in
 .Fa flags .
 The pointer returned by
 .Fn dbm_open
@@ -124,10 +122,6 @@ The
 .Fn dbm_close db
 function
 closes the database.
-The
-.Fn dbm_close
-function
-normally returns zero.
 .Pp
 The
 .Fn dbm_store db key data flags

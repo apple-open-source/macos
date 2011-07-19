@@ -104,7 +104,7 @@ find_identity(CFTypeRef keychainOrArray,
 		} else {
 			// copy certificate name
 			CFStringRef nameRef = NULL;
-			if (SecCertificateCopyCommonName(cert, &nameRef) != noErr) {
+			if ((SecCertificateCopyCommonName(cert, &nameRef) != noErr) || nameRef == NULL) {
 				safe_CFRelease(&cert);
 				safe_CFRelease(&candidate);
 				continue; // no name, so no match is possible
@@ -330,6 +330,9 @@ do_identity_search_with_policy(CFTypeRef keychainOrArray,
 	else if (compareOids(oidPtr, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT)) {
 		policyName = "Mac App Store Receipt";
 	}
+	else if (compareOids(oidPtr, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
+		policyName = "AppleID Sharing";
+	}
 	
 	// set the policy's value, if there is one (this is specific to certain policies)
 	if (policy && policyValue)
@@ -437,8 +440,9 @@ do_find_identities(CFTypeRef keychainOrArray, const char *name, unsigned int pol
 		do_system_identity_search(kSecIdentityDomainDefault);
 	if (policyFlags & (1 << 9))
 		do_system_identity_search(kSecIdentityDomainKerberosKDC);	
-
-	if (policyFlags & (1 << 11))	// 10 RFE
+	if (policyFlags & (1 << 10))
+		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_TP_APPLEID_SHARING, CSSM_KEYUSE_SIGN, FALSE, validOnly);
+	if (policyFlags & (1 << 11))
 		do_identity_search_with_policy(keychainOrArray, name, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT, CSSM_KEYUSE_SIGN, TRUE, validOnly);
 
 	return result;
@@ -486,6 +490,8 @@ keychain_find_identity(int argc, char * const *argv)
 						policyFlags |= 1 << 8;
 					else if (!strcmp(optarg, "sys-kerberos-kdc"))
 						policyFlags |= 1 << 9;
+					else if (!strcmp(optarg, "appleID"))
+						policyFlags |= 1 << 10;
 					else if (!strcmp(optarg, "macappstore"))
 						policyFlags |= 1 << 11;
 					else {

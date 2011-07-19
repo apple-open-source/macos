@@ -24,10 +24,10 @@ diff -aur php-5.3.3/Zend/zend_multibyte.c php/Zend/zend_multibyte.c
 
  	/* utf-16 or utf-32? */
  	p = script;
-diff -aur php-5.3.3/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
---- php-5.3.3/ext/phar/Makefile.frag	2010-06-16 11:30:35.000000000 -0700
-+++ php/ext/phar/Makefile.frag	2010-10-06 20:23:44.000000000 -0700
-@@ -19,7 +19,7 @@
+diff -aur php-5.3.6/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
+--- php-5.3.6/ext/phar/Makefile.frag	2011-02-25 01:32:17.000000000 -0800 
++++ php/ext/phar/Makefile.frag	2011-03-18 14:07:34.000000000 -0700
+@@ -18,7 +18,7 @@
  	else \
  		$(top_srcdir)/build/shtool echo -n -- "$(PHP_EXECUTABLE)"; \
  	fi;`
@@ -36,7 +36,7 @@ diff -aur php-5.3.3/ext/phar/Makefile.frag php/ext/phar/Makefile.frag
  
  $(builddir)/phar/phar.inc: $(srcdir)/phar/phar.inc
  	-@test -d $(builddir)/phar || mkdir $(builddir)/phar
-@@ -27,14 +27,14 @@
+@@ -26,14 +26,14 @@
  
  $(builddir)/phar.php: $(srcdir)/build_precommand.php $(srcdir)/phar/*.inc $(srcdir)/phar/*.php $(SAPI_CLI_PATH)
  	-@echo "Generating phar.php"

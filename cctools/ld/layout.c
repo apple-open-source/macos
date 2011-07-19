@@ -429,7 +429,7 @@ layout_rld_symfile(void)
 						sizeof(struct symtab_command);
 	output_symtab_info.symtab_command.nsyms = nmerged_symbols;
 	output_symtab_info.symtab_command.strsize =
-	    round(merged_string_size + STRING_SIZE_OFFSET,
+	    rnd(merged_string_size + STRING_SIZE_OFFSET,
 		  sizeof(unsigned long));
 	output_symtab_info.output_strpad =
 	    output_symtab_info.symtab_command.strsize -
@@ -746,7 +746,7 @@ layout_segments(void)
 			     + nlocal_symbols
 			     - nmerged_symbols_referenced_only_from_dylibs) *
 			    sizeof(struct nlist) +
-			    round(merged_string_size +
+			    rnd(merged_string_size +
 				  local_string_size +
 				  STRING_SIZE_OFFSET,
 				  sizeof(unsigned long));
@@ -760,7 +760,7 @@ layout_segments(void)
 			    output_hints_info.twolevel_hints_command.nhints *
 			    sizeof(struct twolevel_hint);
 		    linkedit_segment.sg.vmsize =
-				round(linkedit_segment.sg.filesize, segalign);
+				rnd(linkedit_segment.sg.filesize, segalign);
 		    /* place this last in the merged segment list */
 		    p = &merged_segments;
 		    while(*p){
@@ -813,7 +813,7 @@ layout_segments(void)
 		    pagezero_segment.prot_set = TRUE;
 		    strcpy(pagezero_segment.sg.segname, SEG_PAGEZERO);
 		    if(pagezero_size != 0)
-			pagezero_segment.sg.vmsize = round(pagezero_size,
+			pagezero_segment.sg.vmsize = rnd(pagezero_size,
 							   segalign);
 		    else
 			pagezero_segment.sg.vmsize = segalign;
@@ -1127,7 +1127,7 @@ layout_segments(void)
 		+ nlocal_symbols
 		- nmerged_symbols_referenced_only_from_dylibs;
 	    output_symtab_info.symtab_command.strsize =
-		round(merged_string_size +
+		rnd(merged_string_size +
 		      local_string_size +
 		      STRING_SIZE_OFFSET,
 		      sizeof(unsigned long));
@@ -1353,7 +1353,7 @@ layout_segments(void)
 	    headers_size = segalign;
 	}
 	else if(filetype == MH_DYLINKER){
-	    headers_size = round(headers_size, segalign);
+	    headers_size = rnd(headers_size, segalign);
 	}
 
 	/*
@@ -1378,16 +1378,16 @@ layout_segments(void)
 				  (unsigned int)(1 << ms->s.align),
 				  ms->s.segname, ms->s.sectname,
 				  (unsigned int)segalign);
-			size = round(size, 1 << ms->s.align);
+			size = rnd(size, 1 << ms->s.align);
 			if((unsigned long)(1 << ms->s.align) > max_first_align)
 			    max_first_align = 1 << ms->s.align;
 			size += ms->s.size;
 			content = &(ms->next);
 		    }
 		    if(errors == 0){
-			pad = ((round(size + round(headers_size,
+			pad = ((rnd(size + rnd(headers_size,
 				      max_first_align), segalign) -
-			       (size + round(headers_size, max_first_align))) /
+			       (size + rnd(headers_size, max_first_align))) /
 				 max_first_align) * max_first_align;
 			if(pad > headerpad)
 			    headerpad = pad;
@@ -1427,7 +1427,7 @@ layout_segments(void)
 			      ms->s.sectname, (unsigned int)segalign);
 		    if((unsigned long)(1 << ms->s.align) > max_align)
 			max_align = 1 << ms->s.align;
-		    addr = round(addr, 1 << ms->s.align);
+		    addr = rnd(addr, 1 << ms->s.align);
 		    ms->s.addr = addr;
 		    addr += ms->s.size;
 		    content = &(ms->next);
@@ -1435,7 +1435,7 @@ layout_segments(void)
 		if(msg == &object_segment)
 		    msg->sg.filesize = addr;
 		else
-		    msg->sg.filesize = round(addr, segalign);
+		    msg->sg.filesize = rnd(addr, segalign);
 		zerofill = &(msg->zerofill_sections);
 		while(*zerofill){
 		    ms = *zerofill;
@@ -1446,7 +1446,7 @@ layout_segments(void)
 			      ms->s.sectname, (unsigned int)segalign);
 		    if((unsigned long)(1 << ms->s.align) > max_align)
 			max_align = 1 << ms->s.align;
-		    addr = round(addr, 1 << ms->s.align);
+		    addr = rnd(addr, 1 << ms->s.align);
 		    ms->s.addr = addr;
 		    addr += ms->s.size;
 		    zerofill = &(ms->next);
@@ -1454,7 +1454,7 @@ layout_segments(void)
 		if(msg == &object_segment)
 		    msg->sg.vmsize = addr;
 		else
-		    msg->sg.vmsize = round(addr, segalign);
+		    msg->sg.vmsize = rnd(addr, segalign);
 	    }
 	    p = &(msg->next);
 	}
@@ -1468,7 +1468,7 @@ layout_segments(void)
 	 */
 	output_size = 0;
 
-	headers_size = round(headers_size, max_align);
+	headers_size = rnd(headers_size, max_align);
 	output_size = headers_size;
 	if(first_msg != NULL)
 	    output_size += first_msg->sg.vmsize;
@@ -1666,7 +1666,7 @@ layout_segments(void)
 	 * sizeof(long) so the offset must be rounded to this as the sections
 	 * and segments may not be rounded to this.
 	 */
-	offset = round(offset, sizeof(long));
+	offset = rnd(offset, sizeof(long));
 #ifdef RLD
 	/*
 	 * For RLD if there is any symbol table it is written past the size

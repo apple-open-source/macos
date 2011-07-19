@@ -1,8 +1,8 @@
 /* entry.c - routines for dealing with entries */
-/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.148.2.7 2008/02/11 23:43:39 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/entry.c,v 1.148.2.14 2010/04/16 15:03:36 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -725,13 +725,14 @@ ber_len_t entry_flatsize(Entry *e, int norm)
  */
 int entry_encode(Entry *e, struct berval *bv)
 {
-	ber_len_t len, dnlen, ndnlen;
-	int i, nattrs, nvals;
+	ber_len_t len, dnlen, ndnlen, i;
+	int nattrs, nvals;
 	Attribute *a;
 	unsigned char *ptr;
 
 	Debug( LDAP_DEBUG_TRACE, "=> entry_encode(0x%08lx): %s\n",
 		(long) e->e_id, e->e_dn, 0 );
+
 	dnlen = e->e_name.bv_len;
 	ndnlen = e->e_nname.bv_len;
 
@@ -782,6 +783,10 @@ int entry_encode(Entry *e, struct berval *bv)
 			}
 		}
 	}
+
+	Debug( LDAP_DEBUG_TRACE, "<= entry_encode(0x%08lx): %s\n",
+		(long) e->e_id, e->e_dn, 0 );
+
 	return 0;
 }
 
@@ -813,6 +818,35 @@ int entry_header(EntryHeader *eh)
 	}
 	eh->data = (char *)ptr;
 	return LDAP_SUCCESS;
+}
+
+int
+entry_decode_dn( EntryHeader *eh, struct berval *dn, struct berval *ndn )
+{
+	int i;
+	unsigned char *ptr = (unsigned char *)eh->bv.bv_val;
+
+	assert( dn != NULL || ndn != NULL );
+
+	ptr = (unsigned char *)eh->data;
+	i = entry_getlen(&ptr);
+	if ( dn != NULL ) {
+		dn->bv_val = (char *) ptr;
+		dn->bv_len = i;
+	}
+
+	if ( ndn != NULL ) {
+		ptr += i + 1;
+		i = entry_getlen(&ptr);
+		ndn->bv_val = (char *) ptr;
+		ndn->bv_len = i;
+	}
+
+	Debug( LDAP_DEBUG_TRACE,
+		"entry_decode_dn: \"%s\"\n",
+		dn ? dn->bv_val : ndn->bv_val, 0, 0 );
+
+	return 0;
 }
 
 #ifdef SLAP_ZONE_ALLOC
@@ -931,19 +965,27 @@ int entry_decode(EntryHeader *eh, Entry **e)
 	return 0;
 }
 
-Entry *entry_dup( Entry *e )
+Entry *
+entry_dup2( Entry *dest, Entry *source )
 {
-	Entry *ret;
+	assert( dest != NULL );
+	assert( source != NULL );
 
-	ret = entry_alloc();
+	assert( dest->e_private == NULL );
 
-	ret->e_id = e->e_id;
-	ber_dupbv( &ret->e_name, &e->e_name );
-	ber_dupbv( &ret->e_nname, &e->e_nname );
-	ret->e_attrs = attrs_dup( e->e_attrs );
-	ret->e_ocflags = e->e_ocflags;
+	dest->e_id = source->e_id;
+	ber_dupbv( &dest->e_name, &source->e_name );
+	ber_dupbv( &dest->e_nname, &source->e_nname );
+	dest->e_attrs = attrs_dup( source->e_attrs );
+	dest->e_ocflags = source->e_ocflags;
 
-	return ret;
+	return dest;
+}
+
+Entry *
+entry_dup( Entry *e )
+{
+	return entry_dup2( entry_alloc(), e );
 }
 
 #if 1

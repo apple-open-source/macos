@@ -25,15 +25,22 @@
  * 01 April 	2002 	ryepez		added support for scroll acceleration
  */
 
+#if 0
+#define DEBUG_ASSERT_COMPONENT_NAME_STRING  "IOHIPointing"
+#define DEBUG_ASSERT_PRODUCTION_CODE        0
+#endif
+
+#include <AssertMacros.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/assert.h>
 #include <IOKit/hidsystem/IOHIPointing.h>
-#include <IOKit/hidsystem/IOHIDParameter.h>
 #include <IOKit/pwr_mgt/RootDomain.h>
 #include <libkern/OSByteOrder.h>
 #include "IOHIDSystem.h"
 #include "IOHIDPointingDevice.h"
 #include "IOHIDevicePrivateKeys.h"
+#include "IOHIDParameter.h"
+#include "IOFixed64.h"
 #include "ev_private.h"
 
 #ifndef abs
@@ -101,6 +108,8 @@
 
 #define _scrollWheelInfo                    _reserved->scrollWheelInfo
 #define _scrollPointerInfo                  _reserved->scrollPointerInfo
+#define _paraAccelParams                    _reserved->paraAccelParams
+#define _paraAccelSecondaryParams           _reserved->paraAccelSecondaryParams
 
 #define _scrollFixedDeltaAxis1              _reserved->scrollFixedDeltaAxis1
 #define _scrollFixedDeltaAxis2              _reserved->scrollFixedDeltaAxis2
@@ -172,9 +181,62 @@ struct ScrollAccelInfo
 };
 typedef ScrollAccelInfo ScrollAccelInfo;
         
+struct IOHIPointing__PAParameters
+{
+    IOFixed64   deviceMickysDivider;
+    IOFixed64   cursorSpeedMultiplier;
+    IOFixed64   accelIndex;
+    IOFixed64   gain[4];
+    IOFixed64   tangent[2];
+};
+
+struct IOHIPointing__PASecondaryParameters
+{
+    int         firstTangent;
+    IOFixed64   m0; // m1 == m0
+    IOFixed64   b0; // no b1
+    IOFixed64   y0;
+    IOFixed64   y1;
+    IOFixed64   m_root;
+    IOFixed64   b_root;
+};
 
 static bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixed crsrScale, void ** scaleSegments, IOItemCount * scaleSegCount);
 static void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * axis2p, IOFixed *axis2Fractp);
+static IOFixed64 OSObjectToIOFixed64(OSObject *in);
+static bool PACurvesFillParamsFromDict(OSDictionary *parameters, const IOFixed64 devScale, const IOFixed64 crsrScale, IOHIPointing__PAParameters &outParams);
+static bool PACurvesSetupAccelParams (OSArray *parametricCurves, IOFixed64 desired, IOFixed64 devScale, IOFixed64 crsrScale, IOHIPointing__PAParameters &primaryParams, IOHIPointing__PASecondaryParameters &secondaryParams);
+static IOFixed64 PACurvesGetAccelerationMultiplier(const IOFixed64 device_speed_mickeys, const IOHIPointing__PAParameters &params, const IOHIPointing__PASecondaryParameters &secondaryParams);
+static OSDictionary* PACurvesDebugDictionary(IOHIPointing__PAParameters &primaryParams, IOHIPointing__PASecondaryParameters &secondaryParams);
+
+
+struct IOHIPointing::ExpansionData
+{ 
+    UInt32      scrollType;
+    
+    ScrollAccelInfo * scrollWheelInfo;
+    ScrollAccelInfo * scrollPointerInfo;
+    IOHIPointing__PAParameters *paraAccelParams;
+    IOHIPointing__PASecondaryParameters *paraAccelSecondaryParams;
+    
+    IOFixed		scrollFixedDeltaAxis1;
+    IOFixed		scrollFixedDeltaAxis2;
+    IOFixed		scrollFixedDeltaAxis3;
+    SInt32		scrollPointDeltaAxis1;
+    SInt32		scrollPointDeltaAxis2;
+    SInt32		scrollPointDeltaAxis3;
+    UInt32      scrollButtonMask;
+    
+    // Added to post events to the HID Manager
+    IOHIDPointingDevice	* hidPointingNub;
+    IOService   * openClient;
+    
+    UInt32      accelerateMode;
+    UInt32      scrollZoomMask;
+    bool		isSeized;
+    bool        lastScrollWasZoom;
+    bool        scrollOff;
+};
 
 #define super IOHIDevice
 OSDefineMetaClassAndStructors(IOHIPointing, IOHIDevice);
@@ -270,7 +332,7 @@ bool IOHIPointing::start(IOService * provider)
 
   OSNumber * number;
 
-    if (number = OSDynamicCast(OSNumber, getProperty(kIOHIDScrollMouseButtonKey)))
+    if ((number = OSDynamicCast(OSNumber, getProperty(kIOHIDScrollMouseButtonKey))))
 	{
 		UInt32 value = number->unsigned32BitValue();
         
@@ -320,9 +382,21 @@ void IOHIPointing::free()
             if(_scrollWheelInfo->axis[type].scaleSegments && _scrollWheelInfo->axis[type].scaleSegCount)
                 IODelete( _scrollWheelInfo->axis[type].scaleSegments, CursorDeviceSegment, _scrollWheelInfo->axis[type].scaleSegCount );
         }
-
+        
         IOFree(_scrollWheelInfo, sizeof(ScrollAccelInfo));
         _scrollWheelInfo = 0;
+    }
+    
+    if ( _paraAccelParams )
+    {
+        IOFree(_paraAccelParams, sizeof(IOHIPointing__PAParameters));
+        _paraAccelParams = 0;
+    }
+    
+    if ( _paraAccelSecondaryParams )
+    {
+        IOFree(_paraAccelSecondaryParams, sizeof(IOHIPointing__PASecondaryParameters));
+        _paraAccelSecondaryParams = 0;
     }
     
     if ( _scrollPointerInfo )
@@ -370,7 +444,7 @@ bool IOHIPointing::open(IOService *                client,
 
 bool IOHIPointing::open(IOService *			client,
                       IOOptionBits			options,
-                      void *				refcon,
+                      void *				refcon __unused,
                       RelativePointerEventCallback	rpeCallback,
                       AbsolutePointerEventCallback	apeCallback,
                       ScrollWheelEventCallback		sweCallback)
@@ -590,7 +664,44 @@ void IOHIPointing::scalePointer(int * dxp, int * dyp)
 // Preconditions:
 // *	_deviceLock should be held on entry
 {
-    ScaleAxes(_scaleSegments, dxp, &_fractX, dyp, &_fractY);
+    if (_paraAccelParams && _paraAccelSecondaryParams) {
+        IOFixed64 deltaX;
+        IOFixed64 deltaY;
+        IOFixed64 fractX;
+        IOFixed64 fractY;
+        IOFixed64 mag;
+        deltaX.fromInt(*dxp);
+        deltaY.fromInt(*dyp);
+        fractX.fromFixed(_fractX);
+        fractY.fromFixed(_fractY);
+        mag.fromInt(llsqrt((deltaX * deltaX + deltaY * deltaY).as64()));
+        
+        IOFixed64 mult = PACurvesGetAccelerationMultiplier(mag, *_paraAccelParams, *_paraAccelSecondaryParams);
+        deltaX *= mult;
+        deltaY *= mult;
+        deltaX += fractX;
+        deltaY += fractY;
+        
+        *dxp = deltaX.as32();
+        *dyp = deltaY.as32();
+        
+        _fractX = deltaX.asFixed();
+        _fractY = deltaY.asFixed();
+        
+        // sign extend fractional part
+        if( deltaX < 0LL )
+            _fractX |= 0xffff0000;
+        else
+            _fractX &= 0x0000ffff;
+        
+        if( deltaY < 0LL)
+            _fractY |= 0xffff0000;
+        else
+            _fractY &= 0x0000ffff;
+    }
+    else {
+        ScaleAxes(_scaleSegments, dxp, &_fractX, dyp, &_fractY);
+    }
 }
 
 /*
@@ -624,15 +735,68 @@ static SInt32 Interpolate(  SInt32 x1, SInt32 y1,
 
 void IOHIPointing::setupForAcceleration( IOFixed desired )
 {
-    IOFixed     devScale    = IOFixedDivide( resolution(), FRAME_RATE );
-    IOFixed     crsrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
-    OSData *  table         = copyAccelerationTable();
+    OSArray         *parametricAccelerationCurves = OSDynamicCast( OSArray, getProperty(kHIDTrackingAccelParametricCurvesKey, gIOServicePlane) );
+    IOFixed         devScale    = IOFixedDivide( resolution(), FRAME_RATE );
+    IOFixed         crsrScale   = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
+    bool            useParametric = false;
+    
+//  IOLog("%s %d: got %08x and %p\n", __PRETTY_FUNCTION__, __LINE__, desired, parametricAccelerationCurves); 
+    if (!parametricAccelerationCurves)
+        parametricAccelerationCurves = OSDynamicCast( OSArray, getProperty(kHIDAccelParametricCurvesKey, gIOServicePlane) );
+    // Try to set up the parametric acceleration data
+    if (parametricAccelerationCurves) {
+        if ( !_paraAccelParams )
+        {
+            _paraAccelParams = (IOHIPointing__PAParameters*)IOMalloc(sizeof(IOHIPointing__PAParameters));
+        }
+        if ( !_paraAccelSecondaryParams )
+        {
+            _paraAccelSecondaryParams = (IOHIPointing__PASecondaryParameters*)IOMalloc(sizeof(IOHIPointing__PASecondaryParameters));
+        }
 
-    if (SetupAcceleration (table, desired, devScale, crsrScale, &_scaleSegments, &_scaleSegCount))
-    {
-        _acceleration = desired;
-        _fractX = _fractY = 0;
+//      IOLog("%s %d: have %p and %p\n", __PRETTY_FUNCTION__, __LINE__, _paraAccelParams, _paraAccelSecondaryParams); 
         
+        if (_paraAccelParams && _paraAccelSecondaryParams) {
+            IOFixed64 desired64;
+            IOFixed64 devScale64;
+            IOFixed64 crsrScale64;
+            
+        //  IOLog("%s: Calling PACurvesSetupAccelParams with %08x, %08x, %08x\n", __PRETTY_FUNCTION__, desired, devScale, crsrScale);
+            
+            useParametric = PACurvesSetupAccelParams(parametricAccelerationCurves, 
+                                                      desired64.fromFixed(desired), 
+                                                      devScale64.fromFixed(devScale), 
+                                                      crsrScale64.fromFixed(crsrScale),
+                                                      *_paraAccelParams,
+                                                      *_paraAccelSecondaryParams);
+            if (useParametric && getProperty(kHIDAccelParametricCurvesDebugKey, gIOServicePlane)) {
+                OSDictionary *debugInfo = PACurvesDebugDictionary(*_paraAccelParams, *_paraAccelSecondaryParams);
+                if (debugInfo) {
+                    setProperty(kHIDAccelParametricCurvesDebugKey, debugInfo);
+                    debugInfo->release();
+                }
+            }
+        }
+    }
+    
+//  IOLog("%s %d: %s parametric\n", __PRETTY_FUNCTION__, __LINE__, useParametric ? "using" : "NOT using"); 
+
+    // If that fails, fall back to classic acceleration
+    if (!useParametric) {
+        OSData *  table         = copyAccelerationTable();
+        
+        if (_paraAccelParams)
+            IOFree(_paraAccelParams, sizeof(IOHIPointing__PAParameters));
+        if (_paraAccelSecondaryParams)
+            IOFree(_paraAccelSecondaryParams, sizeof(IOHIPointing__PASecondaryParameters));
+        _paraAccelParams = NULL;
+        _paraAccelSecondaryParams = NULL;
+        
+        if (SetupAcceleration (table, desired, devScale, crsrScale, &_scaleSegments, &_scaleSegCount))
+        {
+            _acceleration = desired;
+            _fractX = _fractY = 0;
+        }
         if (table) table->release();
     }
 }
@@ -641,7 +805,7 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
 {
     IOFixed     devScale    = 0;
     IOFixed     scrScale    = 0;
-    IOFixed     resolution  = 0;
+    IOFixed     res         = 0;
     IOFixed     reportRate  = scrollReportRate();
     OSData *    accelTable  = NULL;  
     UInt32      type        = 0;
@@ -650,12 +814,12 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
     _scrollPointerInfo->rateMultiplier  = IOFixedDivide(reportRate, FRAME_RATE);
 
     for ( type=kAccelTypeY; type<=kAccelTypeZ; type++) {
-        resolution = scrollResolutionForType(type);
-        if ( resolution ) {
+        res = scrollResolutionForType(type);
+        if ( res ) {
             accelTable = copyScrollAccelerationTableForType(type);
-            
+
             // Setup pixel scroll wheel acceleration table
-            devScale = IOFixedDivide( resolution, reportRate );
+            devScale = IOFixedDivide( res, reportRate );
             scrScale = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
             
             if (SetupAcceleration (accelTable, desired, devScale, scrScale, &(_scrollWheelInfo->axis[type].scaleSegments), &(_scrollWheelInfo->axis[type].scaleSegCount)))
@@ -664,18 +828,18 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
                 clock_get_uptime(&(_scrollWheelInfo->axis[type].lastEventTime));
             }
             
-            _scrollWheelInfo->axis[type].isHighResScroll       = resolution > (SCROLL_DEFAULT_RESOLUTION * 2);
-            _scrollWheelInfo->axis[type].consumeClearThreshold = (IOFixedDivide(resolution, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
+            _scrollWheelInfo->axis[type].isHighResScroll       = res > (SCROLL_DEFAULT_RESOLUTION * 2);
+            _scrollWheelInfo->axis[type].consumeClearThreshold = (IOFixedDivide(res, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
             _scrollWheelInfo->axis[type].consumeCountThreshold = _scrollWheelInfo->axis[type].consumeClearThreshold * SCROLL_CONSUME_COUNT_MULTIPLIER;
             
             bzero(&(_scrollWheelInfo->axis[type].consumeState), sizeof(ScaleConsumeState));
             
             // Grab the pointer resolution
-            resolution = this->resolution();
+            res = this->resolution();
             reportRate = FRAME_RATE;
             
             // Setup pixel pointer drag/scroll acceleration table
-            devScale = IOFixedDivide( resolution, reportRate );
+            devScale = IOFixedDivide( res, reportRate );
             scrScale = IOFixedDivide( SCREEN_RESOLUTION, FRAME_RATE );
 
             if (SetupAcceleration (accelTable, desired, devScale, scrScale, &(_scrollPointerInfo->axis[type].scaleSegments), &(_scrollPointerInfo->axis[type].scaleSegCount)))
@@ -684,8 +848,8 @@ void IOHIPointing::setupScrollForAcceleration( IOFixed desired )
                 clock_get_uptime(&(_scrollPointerInfo->axis[type].lastEventTime));
             }
                     
-            _scrollPointerInfo->axis[type].isHighResScroll       = resolution > (SCROLL_DEFAULT_RESOLUTION * 2);
-            _scrollPointerInfo->axis[type].consumeClearThreshold = (IOFixedDivide(resolution, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
+            _scrollPointerInfo->axis[type].isHighResScroll       = res > (SCROLL_DEFAULT_RESOLUTION * 2);
+            _scrollPointerInfo->axis[type].consumeClearThreshold = (IOFixedDivide(res, SCROLL_CONSUME_RESOLUTION) >> 16) * 2;
             _scrollPointerInfo->axis[type].consumeCountThreshold = _scrollPointerInfo->axis[type].consumeClearThreshold * SCROLL_CONSUME_COUNT_MULTIPLIER;
 
             bzero(&(_scrollPointerInfo->axis[type].consumeState), sizeof(ScaleConsumeState));
@@ -1006,7 +1170,9 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
         }
         
         for (UInt32 type=kAccelTypeY; type<=kAccelTypeZ; type++ ) {
-            directionChange[type]       = (((info->axis[type].lastValue < 0) && (*(pDeltaAxis[type]) >= 0)) || ((info->axis[type].lastValue >= 0) && (*(pDeltaAxis[type]) < 0)));
+            directionChange[type]       = ((info->axis[type].lastValue == 0) ||
+                                           ((info->axis[type].lastValue < 0) && (*(pDeltaAxis[type]) > 0)) || 
+                                           ((info->axis[type].lastValue > 0) && (*(pDeltaAxis[type]) < 0)));
             info->axis[type].lastValue  = *(pDeltaAxis[type]);
             
             if ( info->axis[type].scaleSegments )
@@ -1049,7 +1215,7 @@ void IOHIPointing::dispatchScrollWheelEventWithAccelInfo(
                     info->axis[type].consumeState.consumeCount += abs(info->axis[type].lastValue);
 
                     if (*(pScrollFixedDeltaAxis[type]) &&
-                       ((abs(info->axis[type].lastValue) >= info->axis[type].consumeClearThreshold) ||
+                       ((abs(info->axis[type].lastValue) >= (SInt32)info->axis[type].consumeClearThreshold) ||
                         (info->axis[type].consumeState.consumeCount >= info->axis[type].consumeCountThreshold)))
                     {                                        
                         *(pScrollFixedDeltaAxis[type]) = info->axis[type].consumeState.consumeAccum;
@@ -1173,17 +1339,14 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
     // use same mechanism as pointer accel setup
     if( scrollAccelKey && 
         ((number = OSDynamicCast( OSNumber, dict->getObject(scrollAccelKey))) || 
-         (data = OSDynamicCast( OSData, dict->getObject(scrollAccelKey))))) 
-    {
+         (data = OSDynamicCast( OSData, dict->getObject(scrollAccelKey))))) {
         value = (number) ? number->unsigned32BitValue() : 
                             *((UInt32 *) (data->getBytesNoCopy()));
         setupScrollForAcceleration( value );
         updated = true;
     } 
-    else if( (number = OSDynamicCast( OSNumber,
-		dict->getObject(kIOHIDScrollAccelerationKey))) ||
-             (data = OSDynamicCast( OSData,
-		dict->getObject(kIOHIDScrollAccelerationKey)))) {
+    else if((number = OSDynamicCast( OSNumber, dict->getObject(kIOHIDScrollAccelerationKey))) ||
+            (data = OSDynamicCast( OSData, dict->getObject(kIOHIDScrollAccelerationKey)))) {
 
         value = (number) ? number->unsigned32BitValue() : 
                             *((UInt32 *) (data->getBytesNoCopy()));
@@ -1201,7 +1364,6 @@ IOReturn IOHIPointing::setParamProperties( OSDictionary * dict )
             else
                 dict->setObject( scrollAccelKey, number );
         }
-
     }
 
     DEVICE_UNLOCK;
@@ -1302,9 +1464,9 @@ IOFixed IOHIPointing::resolution()
 // which should prevent any accel from being applied.
 IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 {
-    IOFixed     resolution  = 0;
+    IOFixed     res         = 0;
     OSNumber * 	number      = NULL;
-    char *      key         = NULL;
+    const char *key         = NULL;
     
     switch ( type ) {
         case kAccelTypeY:
@@ -1327,9 +1489,9 @@ IOFixed	IOHIPointing::scrollResolutionForType(SInt32 type)
 		number = OSDynamicCast( OSNumber, getProperty(kIOHIDScrollResolutionKey) );
 
 	if( number )
-		resolution = number->unsigned32BitValue();
+		res = number->unsigned32BitValue();
         
-    return( resolution );
+    return( res );
 }
 
 // RY: Added this method to obtain the report rate
@@ -1383,7 +1545,7 @@ OSData * IOHIPointing::copyScrollAccelerationTable()
 OSData * IOHIPointing::copyScrollAccelerationTableForType(SInt32 type)
 {
     OSData *    data    = NULL;
-    char *      key     = NULL;
+    const char *key     = NULL;
     
     switch ( type ) {
         case kAccelTypeY:
@@ -1395,16 +1557,15 @@ OSData * IOHIPointing::copyScrollAccelerationTableForType(SInt32 type)
         case kAccelTypeZ:
             key = kIOHIDScrollAccelerationTableZKey;
             break;
-        default:
-            key = kIOHIDScrollAccelerationTableKey;
-            break;
     }
     
-    data = OSDynamicCast( OSData, getProperty( key ));
-    if( !data)
+    if ( key )
+        data = OSDynamicCast( OSData, getProperty( key ));
+
+    if ( !data )
 		data = OSDynamicCast( OSData, getProperty( kIOHIDScrollAccelerationTableKey ));
 
-	if( data)
+	if ( data )
 		data->retain();
 	else
 		data = copyAccelerationTable();
@@ -1471,7 +1632,6 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
                         CursorDeviceSegment, *scaleSegCount );
         *scaleSegments = NULL;
         *scaleSegCount = 0;
-        data->release();
         return false;
     }
 	
@@ -1641,6 +1801,224 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
     
     return true;
 }
+
+IOFixed64 OSObjectToIOFixed64(OSObject *in)
+{
+    OSNumber *num = OSDynamicCast(OSNumber, in);
+    IOFixed64 result;
+    if (num) {
+        result.fromFixed(num->unsigned32BitValue());
+    }
+    return result;
+}
+
+bool
+PACurvesFillParamsFromDict(OSDictionary *parameters, 
+                           const IOFixed64 devScale, 
+                           const IOFixed64 crsrScale, 
+                           IOHIPointing__PAParameters &outParams)
+{
+    require(parameters, exit_early);
+    
+    outParams.deviceMickysDivider = devScale;
+    outParams.cursorSpeedMultiplier = crsrScale;
+
+    outParams.accelIndex = OSObjectToIOFixed64(parameters->getObject(kHIDAccelIndexKey));
+
+    outParams.gain[0] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelGainLinearKey));
+    outParams.gain[1] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelGainParabolicKey));
+    outParams.gain[2] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelGainCubicKey));
+    outParams.gain[3] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelGainQuarticKey));
+    
+    outParams.tangent[0] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelTangentSpeedLinearKey));
+    outParams.tangent[1] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelTangentSpeedParabolicRootKey));
+//    outParams.tangent[2] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelTangentSpeedCubicRootKey));
+//    outParams.tangent[3] = OSObjectToIOFixed64(parameters->getObject(kHIDAccelTangentSpeedQuarticRootKey));
+    
+    return ((outParams.gain[0] != 0LL) || 
+            (outParams.gain[1] != 0LL) || 
+            (outParams.gain[2] != 0LL) || 
+            (outParams.gain[3] != 0LL));
+    
+exit_early:
+    return false;
+}
+
+bool 
+PACurvesSetupAccelParams (OSArray *parametricCurves, 
+                          IOFixed64 desired, 
+                          IOFixed64 devScale, 
+                          IOFixed64 crsrScale, 
+                          IOHIPointing__PAParameters &primaryParams,
+                          IOHIPointing__PASecondaryParameters &secondaryParams)
+{
+    bool                    success = false;
+    OSCollectionIterator    *itr = NULL;
+    OSDictionary            *dict = NULL;
+    
+    IOHIPointing__PAParameters high_curve_params;
+    IOHIPointing__PAParameters low_curve_params;
+
+//  IOLog("%s %d: Called with %08x, %08x, %08x\n", __PRETTY_FUNCTION__, __LINE__, desired.asFixed(), devScale.asFixed(), crsrScale.asFixed());
+
+    require(parametricCurves, exit_early);
+    require(crsrScale > 0LL, exit_early);
+    require(devScale > 0LL, exit_early);
+    require(desired > 0LL, exit_early);
+
+    itr = OSCollectionIterator::withCollection(parametricCurves);
+    require(itr, exit_early);
+    
+    while (!success) {
+        itr->reset();
+        dict = OSDynamicCast(OSDictionary, itr->getNextObject());
+        require(PACurvesFillParamsFromDict(dict, devScale, crsrScale, low_curve_params),
+                exit_early);
+       
+        while (!success && (NULL != dict)) {
+            if (!PACurvesFillParamsFromDict(dict, devScale, crsrScale, high_curve_params)) {
+                break;
+            }
+            if (desired <= high_curve_params.accelIndex) {
+                success = true;
+            }
+            else {
+                low_curve_params = high_curve_params;
+            }
+            dict = OSDynamicCast(OSDictionary, itr->getNextObject());
+        }
+        
+        require(success || !itr->isValid(), exit_early);
+    };
+    
+    if ( high_curve_params.accelIndex > low_curve_params.accelIndex ) {
+        IOFixed64   ratio = (desired - low_curve_params.accelIndex) / (high_curve_params.accelIndex - low_curve_params.accelIndex);
+        int         index;
+        
+//      IOLog("%s %d: Using %08x, %08x, %08x\n", __PRETTY_FUNCTION__, __LINE__, high_curve_params.accelIndex.asFixed(), low_curve_params.accelIndex.asFixed(), ratio.asFixed());
+              
+        primaryParams.deviceMickysDivider   = high_curve_params.deviceMickysDivider;
+        primaryParams.cursorSpeedMultiplier = high_curve_params.cursorSpeedMultiplier;
+        primaryParams.accelIndex            = desired;
+        
+        for (index = 0; index < 4; index++) {
+            primaryParams.gain[index] = low_curve_params.gain[index] + (high_curve_params.gain[index] - low_curve_params.gain[index]) * ratio;
+            if (primaryParams.gain[index] < 0LL)
+                primaryParams.gain[index].fromFixed(0);
+        }
+        for (index = 0; index < 2; index++) {
+            primaryParams.tangent[index] = low_curve_params.tangent[index] + (high_curve_params.tangent[index] - low_curve_params.tangent[index]) * ratio;
+            if (primaryParams.tangent[index] < 0LL)
+                primaryParams.tangent[index].fromFixed(0);
+        }
+    }
+    else {
+        primaryParams = high_curve_params;
+    }
+    
+    success = ((primaryParams.gain[0] != 0LL) || 
+               (primaryParams.gain[1] != 0LL) || 
+               (primaryParams.gain[2] != 0LL) || 
+               (primaryParams.gain[3] != 0LL));
+    
+    // calculate secondary values
+    bzero(&secondaryParams, sizeof(secondaryParams));
+    if ((primaryParams.tangent[1] > 0LL) && (primaryParams.tangent[1] < primaryParams.tangent[0]))
+        secondaryParams.firstTangent = 1;
+    
+    if (secondaryParams.firstTangent == 0) {
+        secondaryParams.y0 = IOQuarticFunction(primaryParams.tangent[0], primaryParams.gain);
+        secondaryParams.m0 = IOQuarticDerivative(primaryParams.tangent[0], primaryParams.gain);
+        secondaryParams.b0 = secondaryParams.y0 - secondaryParams.m0 * primaryParams.tangent[0];
+        secondaryParams.y1 = secondaryParams.m0 * primaryParams.tangent[1] + secondaryParams.b0;
+    }
+    else {
+		secondaryParams.y1 = IOQuarticFunction( primaryParams.tangent[1], primaryParams.gain ); 
+		secondaryParams.m0 = IOQuarticDerivative( primaryParams.tangent[1], primaryParams.gain ); 
+    }
+    
+    secondaryParams.m_root = secondaryParams.m0 * secondaryParams.y1 * 2LL;
+    secondaryParams.b_root = exponent(secondaryParams.y1, 2) - secondaryParams.m_root * primaryParams.tangent[1];
+
+exit_early:
+    if (itr) {
+        itr->release();
+    }
+    
+    return success;
+}
+
+OSDictionary*
+PACurvesDebugDictionary(IOHIPointing__PAParameters &primaryParams,
+                        IOHIPointing__PASecondaryParameters &secondaryParams)
+{
+    OSDictionary    *result = OSDictionary::withCapacity(20);
+
+    require(result, exit_early);
+    
+#define ADD_NUMBER_FOR(X) \
+    do { \
+        OSNumber *value = OSNumber::withNumber(X.as64(), 64); \
+        if (value) { \
+            result->setObject(#X, value); \
+            value->release(); \
+        } \
+    } \
+    while (0)
+    
+    ADD_NUMBER_FOR(primaryParams.deviceMickysDivider);
+    ADD_NUMBER_FOR(primaryParams.cursorSpeedMultiplier);
+    ADD_NUMBER_FOR(primaryParams.accelIndex);
+    ADD_NUMBER_FOR(primaryParams.gain[0]);
+    ADD_NUMBER_FOR(primaryParams.gain[1]);
+    ADD_NUMBER_FOR(primaryParams.gain[2]);
+    ADD_NUMBER_FOR(primaryParams.gain[3]);
+    ADD_NUMBER_FOR(primaryParams.tangent[0]);
+    ADD_NUMBER_FOR(primaryParams.tangent[1]);
+    
+    ADD_NUMBER_FOR(secondaryParams.m0);    
+    ADD_NUMBER_FOR(secondaryParams.b0);
+    ADD_NUMBER_FOR(secondaryParams.y0);
+    ADD_NUMBER_FOR(secondaryParams.y1);
+    ADD_NUMBER_FOR(secondaryParams.m_root);
+    ADD_NUMBER_FOR(secondaryParams.b_root);
+
+#undef ADD_NUMBER_FOR
+    
+exit_early:    
+    return result;
+}
+
+IOFixed64 
+PACurvesGetAccelerationMultiplier(const IOFixed64 device_speed_mickeys, 
+                                  const IOHIPointing__PAParameters &params, 
+                                  const IOHIPointing__PASecondaryParameters &secondaryParams)
+{
+    IOFixed64 result; // defaults to zero
+    
+    if ((device_speed_mickeys > result) && (params.deviceMickysDivider != result)) {
+		IOFixed64 standardized_speed = device_speed_mickeys / params.deviceMickysDivider;
+		IOFixed64 accelerated_speed;
+        if ((params.tangent[secondaryParams.firstTangent] != 0LL) && (standardized_speed <= params.tangent[secondaryParams.firstTangent])) {
+            accelerated_speed = IOQuarticFunction(standardized_speed, params.gain);
+        }
+        else {
+            if ((secondaryParams.firstTangent == 0) && (params.tangent[1] != 0LL) && (standardized_speed <= params.tangent[1])) {
+                accelerated_speed = secondaryParams.m0 * standardized_speed + secondaryParams.b0;
+            }
+            else {
+                accelerated_speed.fromInt(llsqrt(((secondaryParams.m_root * device_speed_mickeys) + secondaryParams.b_root).as64()));
+            }
+        }
+		IOFixed64 accelerated_pixels = accelerated_speed * params.cursorSpeedMultiplier;
+		result = accelerated_pixels / device_speed_mickeys;
+    }
+    else {
+        result.fromFixed(1);
+    }
+    
+    return result;
+}
 	
 // RY: This function contains the original portions of 
 // scalePointer.  This was separated out to accomidate 
@@ -1648,7 +2026,6 @@ bool SetupAcceleration (OSData * data, IOFixed desired, IOFixed devScale, IOFixe
 void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * axis2p, IOFixed *axis2Fractp)
 {
     SInt32			dx, dy;
-    SInt32			absDx, absDy;
     SInt32			mag;
     IOFixed			scale;
     CursorDeviceSegment	*	segment;
@@ -1658,17 +2035,12 @@ void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * 
 
     dx = (*axis1p) << 16;
     dy = (*axis2p) << 16;
-    absDx = abs(dx);
-    absDy = abs(dy);
 
-    if( absDx > absDy)
-	mag = (absDx + (absDy / 2));
-    else
-	mag = (absDy + (absDx / 2));
-
-    if( !mag)
+    // mag is (x^2 + y^2)^0.5 and converted to fixed point
+    mag = (lsqrt(*axis1p * *axis1p + *axis2p * *axis2p)) << 16;
+    if (mag == 0)
         return;
-
+    
     // scale
     for(
         segment = (CursorDeviceSegment *) scaleSegments;
@@ -1678,7 +2050,6 @@ void ScaleAxes (void * scaleSegments, int * axis1p, IOFixed *axis1Fractp, int * 
     scale = IOFixedDivide(
             segment->intercept + IOFixedMultiply( mag, segment->slope ),
             mag );
-    
     
     dx = IOFixedMultiply( dx, scale );
     dy = IOFixedMultiply( dy, scale );

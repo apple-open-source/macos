@@ -33,10 +33,9 @@
 
 #include "DOMWindow.h"
 #include "FloatRect.h"
-#include "InspectorController.h"
 #include "NotImplemented.h"
 #include "Page.h"
-#include "Settings.h"
+#include "WebDevToolsAgentImpl.h"
 #include "WebRect.h"
 #include "WebURL.h"
 #include "WebURLRequest.h"
@@ -60,99 +59,44 @@ InspectorClientImpl::~InspectorClientImpl()
 
 void InspectorClientImpl::inspectorDestroyed()
 {
-    // Our lifetime is bound to the WebViewImpl.
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->inspectorDestroyed();
 }
 
-void InspectorClientImpl::openInspectorFrontend(InspectorController*)
+void InspectorClientImpl::openInspectorFrontend(InspectorController* controller)
 {
-}
-
-static void invalidateNodeBoundingRect(WebViewImpl* webView)
-{
-    // FIXME: Is it important to just invalidate the rect of the node region
-    // given that this is not on a critical codepath?  In order to do so, we'd
-    // have to take scrolling into account.
-    const WebSize& size = webView->size();
-    WebRect damagedRect(0, 0, size.width, size.height);
-    if (webView->client())
-        webView->client()->didInvalidateRect(damagedRect);
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->openInspectorFrontend(controller);
 }
 
 void InspectorClientImpl::highlight(Node* node)
 {
-    // InspectorController does the actually tracking of the highlighted node
-    // and the drawing of the highlight. Here we just make sure to invalidate
-    // the rects of the old and new nodes.
-    hideHighlight();
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->highlight(node);
 }
 
 void InspectorClientImpl::hideHighlight()
 {
-    // FIXME: able to invalidate a smaller rect.
-    invalidateNodeBoundingRect(m_inspectedWebView);
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->hideHighlight();
 }
 
-void InspectorClientImpl::populateSetting(const String& key, String* value)
+bool InspectorClientImpl::sendMessageToFrontend(const WTF::String& message)
 {
-    loadSettings();
-    if (m_settings->contains(key))
-        *value = m_settings->get(key);
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        return agent->sendMessageToFrontend(message);
+    return false;
 }
 
-void InspectorClientImpl::storeSetting(const String& key, const String& value)
+void InspectorClientImpl::updateInspectorStateCookie(const WTF::String& inspectorState)
 {
-    loadSettings();
-    m_settings->set(key, value);
-    saveSettings();
+    if (WebDevToolsAgentImpl* agent = devToolsAgent())
+        agent->updateInspectorStateCookie(inspectorState);
 }
 
-void InspectorClientImpl::loadSettings()
+WebDevToolsAgentImpl* InspectorClientImpl::devToolsAgent()
 {
-    if (m_settings)
-        return;
-
-    m_settings.set(new SettingsMap);
-    String data = m_inspectedWebView->inspectorSettings();
-    if (data.isEmpty())
-        return;
-
-    Vector<String> entries;
-    data.split("\n", entries);
-    for (Vector<String>::iterator it = entries.begin(); it != entries.end(); ++it) {
-        Vector<String> tokens;
-        it->split(":", tokens);
-        if (tokens.size() < 3)
-            continue;
-
-        String name = decodeURLEscapeSequences(tokens[0]);
-        String type = tokens[1];
-        String value = tokens[2];
-        for (size_t i = 3; i < tokens.size(); ++i)
-            value += ":" + tokens[i];
-
-        if (type == "string")
-            value = decodeURLEscapeSequences(value);
-
-        m_settings->set(name, value);
-    }
-}
-
-void InspectorClientImpl::saveSettings()
-{
-    String data;
-    for (SettingsMap::iterator it = m_settings->begin(); it != m_settings->end(); ++it) {
-        String name = encodeWithURLEscapeSequences(it->first);
-        String value = it->second;
-        String entry = String::format(
-            "%s:string:%s",
-            name.utf8().data(),
-            encodeWithURLEscapeSequences(value).utf8().data());
-        data.append(entry);
-        data.append("\n");
-    }
-    m_inspectedWebView->setInspectorSettings(data);
-    if (m_inspectedWebView->client())
-        m_inspectedWebView->client()->didUpdateInspectorSettings();
+    return static_cast<WebDevToolsAgentImpl*>(m_inspectedWebView->devToolsAgent());
 }
 
 } // namespace WebKit

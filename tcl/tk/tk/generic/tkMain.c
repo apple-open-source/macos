@@ -16,16 +16,8 @@
  * RCS: @(#) $Id$
  */
 
-#include <ctype.h>
-#include <stdio.h>
-#include <string.h>
 #include "tclInt.h"
 #include "tkInt.h"
-#ifdef NO_STDLIB_H
-#   include "../compat/stdlib.h"
-#else
-#   include <stdlib.h>
-#endif
 #ifdef __WIN32__
 #include "tkWinInt.h"
 #endif
@@ -110,7 +102,7 @@ Tk_MainEx(
      * only an issue when Tk is loaded dynamically.
      */
 
-    if (Tcl_InitStubs(interp, TCL_VERSION, 1) == NULL) {
+    if (Tcl_InitStubs(interp, TCL_VERSION, 0) == NULL) {
 	abort();
     }
 

@@ -246,3 +246,77 @@ const SecAsn1Template kSecAsn1QC_StatementsTemplate[] = {
 		kSecAsn1QC_StatementTemplate, 
 		sizeof(NSS_QC_Statements) }
 };
+
+/*
+ * NameConstraints templates
+ */
+const SecAsn1Template kSecAsn1GeneralSubtreeTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+	  0, NULL, sizeof(NSS_GeneralSubtree) },
+	{ SEC_ASN1_SEQUENCE,
+	  offsetof(NSS_GeneralSubtree,base), 
+	  kSecAsn1GeneralNamesTemplate },	
+	{ SEC_ASN1_INTEGER,
+	  offsetof(NSS_GeneralSubtree,minimum) },
+	{ SEC_ASN1_INTEGER | SEC_ASN1_OPTIONAL,
+	  offsetof(NSS_GeneralSubtree,maximum) },
+    { 0, }
+};
+
+const SecAsn1Template kSecAsn1GeneralSubtreesTemplate[] = {
+	{ SEC_ASN1_SEQUENCE_OF,
+	  offsetof(NSS_GeneralSubtrees,subtrees),
+	  kSecAsn1GeneralSubtreeTemplate },
+	{ 0 }
+};
+
+const SecAsn1Template kSecAsn1NameConstraintsTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+	  0, NULL, sizeof(NSS_NameConstraints) },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
+	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 0,
+	  offsetof(NSS_NameConstraints,permittedSubtrees), 
+	  kSecAsn1GeneralSubtreesTemplate },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
+	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 1,
+	  offsetof(NSS_NameConstraints,excludedSubtrees), 
+	  kSecAsn1GeneralSubtreesTemplate },
+	{ 0 }
+};
+
+/*
+ * PolicyMappings templates
+ */
+const SecAsn1Template kSecAsn1PolicyMappingTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+		0, NULL, sizeof(NSS_PolicyMapping) },
+    { SEC_ASN1_OBJECT_ID,  
+		offsetof(NSS_PolicyMapping,issuerDomainPolicy) },
+    { SEC_ASN1_OBJECT_ID,  
+		offsetof(NSS_PolicyMapping,subjectDomainPolicy) },
+	{ 0 }
+};
+
+const SecAsn1Template kSecAsn1PolicyMappingsTemplate[] = {
+	{ SEC_ASN1_SEQUENCE_OF,
+	  offsetof(NSS_PolicyMappings,policyMappings),
+	  kSecAsn1PolicyMappingTemplate },
+	{ 0 }
+};
+
+/*
+ * PolicyConstraints templates
+ */
+const SecAsn1Template kSecAsn1PolicyConstraintsTemplate[] = {
+    { SEC_ASN1_SEQUENCE,
+	  0, NULL, sizeof(NSS_PolicyConstraints) },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
+	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 0,
+	  offsetof(NSS_PolicyConstraints,requireExplicitPolicy) },
+	{ SEC_ASN1_OPTIONAL | SEC_ASN1_CONTEXT_SPECIFIC |
+	  SEC_ASN1_CONSTRUCTED | SEC_ASN1_EXPLICIT | 1,
+	  offsetof(NSS_PolicyConstraints,inhibitPolicyMapping) },
+	{ 0 }
+};
+
+

@@ -1,7 +1,7 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
+AC_REVISION($Id: configure.in 287 2010-07-07 11:54:54Z nijtmans $)
 
 #--------------------------------------------------------------------
 # Configure script for package 'tkimgpng', as distributed at November 20, 2001.
@@ -10,7 +10,7 @@ AC_REVISION($Id: configure.in 166 2008-11-13 21:10:08Z nijtmans $)
 
 AC_INIT([tkimgpng],[1.4])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../tclconfig)
 
@@ -85,7 +85,7 @@ TEA_ADD_CFLAGS([-DZLIBTCL_VERSION=\\\"\${zlibtcl_VERSION}\\\"])
 TEA_ADD_STUB_SOURCES([])
 TEA_ADD_TCL_SOURCES([])
 
-PUP="`echo ${PACKAGE}| tr 'a-z' 'A-Z'`"
+PUP="`echo ${PACKAGE_NAME}| tr 'a-z' 'A-Z'`"
 
 sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
 	-e	"s/@CPACKAGE@/${CPACKAGE}/"		\
@@ -107,13 +107,9 @@ sed < "`${CYGPATH} ${srcdir}/../init.c`" > "init.c"	\
 
 TEA_PUBLIC_TCL_HEADERS
 TEA_PUBLIC_TK_HEADERS
-#TEA_PRIVATE_TCL_HEADERS
 
 #--------------------------------------------------------------------
 # A few miscellaneous platform-specific items:
-#
-# We have to define a special symbol for Windows (BUILD_tkimgpng in this
-# case) so that we create the export library with the dll.
 #
 # Windows creates a few extra files that need to be cleaned up.
 # We can add more files to clean if our extension creates any extra
@@ -125,7 +121,6 @@ TEA_PUBLIC_TK_HEADERS
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_tkimgpng)
     CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch init.c"
 else
     CLEANFILES="init.c"
@@ -176,9 +171,6 @@ TEA_PATH_X
 
 AC_DEFINE(USE_TCL_STUBS)
 AC_DEFINE(USE_TK_STUBS)
-AC_DEFINE(USE_TKIMG_STUBS)
-AC_DEFINE(USE_PNGTCL_STUBS)
-AC_DEFINE(USE_ZLIBTCL_STUBS)
 
 #--------------------------------------------------------------------
 # This macro generates a line to use when building a library.  It

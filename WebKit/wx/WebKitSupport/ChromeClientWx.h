@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier <kevino@theolliviers.com>
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * All rights reserved.
  *
@@ -41,6 +42,7 @@ public:
     virtual ~ChromeClientWx();
     virtual void chromeDestroyed();
 
+    virtual void* webView() const { return 0; }
     virtual void setWindowRect(const FloatRect&);
     virtual FloatRect windowRect();
 
@@ -55,8 +57,9 @@ public:
     virtual void takeFocus(FocusDirection);
 
     virtual void focusedNodeChanged(Node*);
+    virtual void focusedFrameChanged(Frame*);
 
-    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&);
+    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&);
     virtual Page* createModalDialog(Frame*, const FrameLoadRequest&);
     virtual void show();
 
@@ -96,7 +99,7 @@ public:
     virtual void setStatusbarText(const String&);
     virtual bool shouldInterruptJavaScript();
     
-    virtual bool tabsToLinks() const;
+    virtual WebCore::KeyboardUIMode keyboardUIMode();
 
     virtual IntRect windowResizerRect() const;
     virtual void scrollBackingStore(int dx, int dy, const IntRect& scrollViewRect, const IntRect& clipRect);
@@ -125,6 +128,11 @@ public:
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
+#endif
+
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
 #endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
@@ -132,14 +140,20 @@ public:
 
     virtual void formStateDidChange(const Node*) { }
 
-    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
-    virtual bool setCursor(PlatformCursorHandle);
+    virtual void setCursor(const Cursor&);
 
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
     virtual void requestGeolocationPermissionForFrame(Frame*, Geolocation*);
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) { }
+
+    virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
+    virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
+    virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
+
+    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
+    virtual void numWheelEventHandlersChanged(unsigned) { }
 
 private:
     wxWebView* m_webView;

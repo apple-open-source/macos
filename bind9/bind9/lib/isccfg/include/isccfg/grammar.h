@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2002, 2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: grammar.h,v 1.17 2008/09/25 04:02:39 tbox Exp $ */
+/* $Id: grammar.h,v 1.19.136.3 2010-08-11 18:19:58 each Exp $ */
 
 #ifndef ISCCFG_GRAMMAR_H
 #define ISCCFG_GRAMMAR_H 1
@@ -53,6 +53,8 @@
 #define CFG_CLAUSEFLAG_CALLBACK		0x00000020
 /*% A option that is only used in testing. */
 #define CFG_CLAUSEFLAG_TESTONLY		0x00000040
+/*% A configuration option that was not configured at compile time. */
+#define CFG_CLAUSEFLAG_NOTCONFIGURED	0x00000080
 
 typedef struct cfg_clausedef cfg_clausedef_t;
 typedef struct cfg_tuplefielddef cfg_tuplefielddef_t;
@@ -157,6 +159,7 @@ struct cfg_obj {
 		isc_sockaddr_t	sockaddr;
 		cfg_netprefix_t netprefix;
 	}               value;
+	isc_refcount_t  references;     /*%< reference counter */
 	const char *	file;
 	unsigned int    line;
 };
@@ -210,10 +213,21 @@ struct cfg_parser {
 	 */
 	unsigned int	line;
 
+	/*%
+	 * Parser context flags, used for maintaining state
+	 * from one token to the next.
+	 */
+	unsigned int flags;
+
+	/*%< Reference counter */
+	isc_refcount_t  references;
+
 	cfg_parsecallback_t callback;
 	void *callbackarg;
 };
 
+/* Parser context flags */
+#define CFG_PCTX_SKIP		0x1
 
 /*@{*/
 /*%
@@ -253,15 +267,20 @@ LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_qstring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_astring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_ustring;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_sockaddr;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_bracketed_namesockaddrkeylist;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_namesockaddrkey;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_namesockaddrkeylist;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netaddr;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netaddr4;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netaddr4wild;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netaddr6;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netaddr6wild;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_netprefix;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_optional_keyref;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_void;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_token;
 LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_unsupported;
+LIBISCCFG_EXTERNAL_DATA extern cfg_type_t cfg_type_implicitlist;
 /*@}*/
 
 isc_result_t
@@ -298,6 +317,9 @@ cfg_print_ustring(cfg_printer_t *pctx, const cfg_obj_t *obj);
 
 isc_result_t
 cfg_parse_astring(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret);
+
+isc_result_t
+cfg_create_string(cfg_parser_t *pctx, const char* contents, const cfg_type_t *type, cfg_obj_t **ret);
 
 isc_result_t
 cfg_parse_rawaddr(cfg_parser_t *pctx, unsigned int flags, isc_netaddr_t *na);
@@ -343,6 +365,9 @@ isc_result_t
 cfg_create_list(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **objp);
 
 isc_result_t
+cfg_create_listelt(cfg_parser_t *pctx, cfg_listelt_t **eltp);
+
+isc_result_t
 cfg_parse_listelt(cfg_parser_t *pctx, const cfg_type_t *elttype,
 		  cfg_listelt_t **ret);
 
@@ -374,6 +399,9 @@ cfg_print_chars(cfg_printer_t *pctx, const char *text, int len);
 void
 cfg_print_cstr(cfg_printer_t *pctx, const char *s);
 /*%< Print the null-terminated string 's' */
+
+isc_result_t
+cfg_create_map(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret);
 
 isc_result_t
 cfg_parse_map(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret);

@@ -39,11 +39,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
-#include <openssl/md5.h>
-#include <openssl/bio.h>
-#include <openssl/evp.h>
-#include <openssl/buffer.h>
-
+#include <CommonCrypto/CommonDigest.h>
+#include <AssertMacros.h>
 #include "EncodedSourceID.h"
 
 #define ACCOUNT_NAME_MAX_LEN	255
@@ -56,16 +53,21 @@ static int GenerateIDString(char *idBuffer);
 static int PrimaryMACAddressFromSystem(char *addressBuffer);
 static kern_return_t GetPrimaryMACAddress(UInt8 *MACAddress);
 static kern_return_t FindPrimaryEthernetInterfaces(io_iterator_t *matchingServices);
+int base64Encode(const void *inSourceData, size_t inSourceSize, 
+				 void *inEncodedDataBuffer, size_t inEncodedDataBufferSize, 
+				 size_t *outEncodedSize);
+
+unsigned char base64EncodeTable[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 /* Returns a Base-64 encoded MD5 hash of 'username:primary-mac-address' */
 int GetEncodedSourceID(char encodedIdBuffer[32]) {
 
     char idStr[ACCOUNT_NAME_MAX_LEN + (kIOEthernetAddressSize * 2) + 2];
-    unsigned char MD5Value[MD5_DIGEST_LENGTH];
-    BIO *mbio,*b64bio,*bio;
-    int b64Len = 0, writeLen = 0, status = FAILURE;
-    BUF_MEM *bptr = NULL;
+    int status = FAILURE;
+	CC_MD5_CTX md5_ctx;
+	size_t b64Len = 0;
     int result;
+	unsigned char MD5Value[CC_MD2_DIGEST_LENGTH];
     
     if (encodedIdBuffer == NULL) return FAILURE;
     encodedIdBuffer[0] = '\0';
@@ -73,32 +75,27 @@ int GetEncodedSourceID(char encodedIdBuffer[32]) {
     if (GenerateIDString(idStr)) {
 
         /* Convert idStr to MD5 */
-        MD5((const unsigned char *)idStr, strlen(idStr), MD5Value);
+		CC_MD5_Init(&md5_ctx);
+		CC_MD5_Update(&md5_ctx, idStr, (CC_LONG)strlen(idStr));
+		CC_MD5_Final(MD5Value, &md5_ctx);
             
         /* Convert MD5 to Base-64 */
-        mbio=BIO_new(BIO_s_mem());
-        b64bio=BIO_new(BIO_f_base64());
-        bio=BIO_push(b64bio,mbio);
-        writeLen = BIO_write(bio,MD5Value,MD5_DIGEST_LENGTH);
-        
-        if (writeLen > 0) {
-        
-            result = BIO_flush(bio);
-            BIO_get_mem_ptr(mbio, &bptr);
-            if ( (bptr != NULL) && ((b64Len = bptr->length) > 0) ) {
-                memcpy(encodedIdBuffer, bptr->data, b64Len);
-                
-                if (b64Len > ENCODED_ID_MAX_LEN) {
-                    encodedIdBuffer[ENCODED_ID_MAX_LEN] = '\0';
-                } else {
-                    encodedIdBuffer[b64Len-1] = '\0'; /* Overwrites the newline char */
-                }
-                status = SUCCESS;
-            }
+		result = base64Encode(MD5Value, CC_MD2_DIGEST_LENGTH, 
+							  encodedIdBuffer, 32, 
+							  &b64Len);
+		if (result != 0)
+			goto out;
+		
+		if (b64Len > 0) {
+			if (b64Len > ENCODED_ID_MAX_LEN)
+				encodedIdBuffer[ENCODED_ID_MAX_LEN] = '\0';
+			else
+				encodedIdBuffer[b64Len] = '\0'; /* Overwrites the newline char */
+			status = SUCCESS;
         }
-        BIO_free_all(bio);
     }
-    
+  
+out:
     return status;
 }
 
@@ -283,4 +280,67 @@ static kern_return_t FindPrimaryEthernetInterfaces(io_iterator_t *matchingServic
     kernResult = IOServiceGetMatchingServices(masterPort, matchingDict, matchingServices);    
         
     return kernResult;
+}
+
+//
+// Base64 encoder based documented in RFC 1521
+//
+int base64Encode(const void *inSourceData, size_t inSourceSize, 
+				 void *inEncodedDataBuffer, size_t inEncodedDataBufferSize, 
+				 size_t *outEncodedSize)
+{
+	int					err;
+	const unsigned char *src;
+	const unsigned char *end;
+	unsigned char		*dst;
+	size_t				encodedSize;
+	
+	src = (const unsigned char *) inSourceData;
+	end = src + inSourceSize;
+	dst = (unsigned char *) inEncodedDataBuffer;
+	err = 0;
+	
+	// every 3 bytes are turned into 4 bytes and + 2 for padding.
+	encodedSize = ( ( inSourceSize + 2 ) / 3 ) * 4;
+
+	require_action_quiet( encodedSize <= inEncodedDataBufferSize, exit, err = EINVAL );
+	
+	// Process all 3 byte chunks into 4 byte encoded chunks.
+	while( ( end - src ) >= 3 )
+	{
+		dst[ 0 ] = base64EncodeTable[     src[ 0 ]          >> 2 ];
+		dst[ 1 ] = base64EncodeTable[ ( ( src[ 0 ] & 0x03 ) << 4 ) + ( src[ 1 ] >> 4 ) ];
+		dst[ 2 ] = base64EncodeTable[ ( ( src[ 1 ] & 0x0F ) << 2 ) + ( src[ 2 ] >> 6 ) ];
+		dst[ 3 ] = base64EncodeTable[     src[ 2 ] & 0x3F ];
+		src += 3;
+		dst += 4;
+	}
+    
+	// Process any remaining 1 or 2 bytes into a 4 byte chunk, padding with 1 or 2 '=' characters as needed.
+	switch( end - src )
+	{
+		case 1:
+			dst[ 0 ] = base64EncodeTable[   src[ 0 ]          >> 2 ];
+			dst[ 1 ] = base64EncodeTable[ ( src[ 0 ] & 0x03 ) << 4 ];
+			dst[ 2 ] = '=';
+			dst[ 3 ] = '=';
+			dst += 4;
+			break;
+			
+		case 2:
+			dst[ 0 ] = base64EncodeTable[     src[ 0 ]          >> 2 ];
+			dst[ 1 ] = base64EncodeTable[ ( ( src[ 0 ] & 0x03 ) << 4 ) + ( src[ 1 ] >> 4 ) ];
+			dst[ 2 ] = base64EncodeTable[   ( src[ 1 ] & 0x0F ) << 2 ];
+			dst[ 3 ] = '=';
+			dst += 4;
+			break;
+			
+		default:
+			break;
+	}
+	
+exit:
+	if( outEncodedSize )
+		*outEncodedSize = (size_t)( dst - ( (unsigned char *) inEncodedDataBuffer ) );
+	return( err );
 }

@@ -135,7 +135,7 @@
   print "Shouldn't get here.")
 1:Failed builtin autoload
 ?(eval):3: module `zsh/parameter' has no such feature: `b:fail': autoload cancelled
-?(eval):3: unknown builtin: fail
+?(eval):3: autoloading module zsh/parameter failed to define builtin: fail
 
   (zmodload -u zsh/parameter
   zmodload -aF zsh/parameter p:fail
@@ -143,7 +143,7 @@
   print "Shouldn't get here.")
 1:Failed parameter autoload
 ?(eval):3: module `zsh/parameter' has no such feature: `p:fail': autoload cancelled
-?(eval):3: unknown parameter: fail
+?(eval):3: autoloading module zsh/parameter failed to define parameter: fail
 
   (zmodload -u zsh/parameter
   zmodload -aF zsh/parameter c:fail
@@ -151,14 +151,14 @@
   print "Shouldn't get here.")
 2:Failed condition autoload
 ?(eval):3: module `zsh/parameter' has no such feature: `c:fail': autoload cancelled
-?(eval):3: unknown condition: -foo
+?(eval):3: unknown condition: -fail
 
   (zmodload -u zsh/parameter
   zmodload -aF zsh/parameter f:fail
   (( fail() )) )
 2:Failed math function autoload
 ?(eval):3: module `zsh/parameter' has no such feature: `f:fail': autoload cancelled
-?(eval):3: unknown function: fail
+?(eval):3: autoloading module zsh/parameter failed to define math function: fail
 
   zmodload -aF zsh/parameter f:fail2
 1:Immediate autoload failure on non-existent feature when module loaded

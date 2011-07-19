@@ -1057,7 +1057,7 @@ void CL_nssDistPointsToCssm(
 	const NSS_CRLDistributionPoints	&nssObj,
 	CE_CRLDistPointsSyntax			&cdsaObj,
 	SecNssCoder 					&coder,	// for temp decoding
-	Allocator					&alloc)
+	Allocator						&alloc)
 {
 	memset(&cdsaObj, 0, sizeof(cdsaObj));
 	unsigned numPoints = clNssArraySize((const void **)nssObj.distPoints);
@@ -1157,6 +1157,120 @@ void CL_nssIssuingDistPointToCssm(
 		cssmIdp->indirectCrl = clNssBoolToCssm(*nssIdp->indirectCRL);
 	}
 }
+
+#pragma mark --- CE_NameConstraints <--> NSS_NameConstraints ---
+
+void CL_cssmNameConstraintsToNss(
+	const CE_NameConstraints		&cdsaObj,
+	NSS_NameConstraints				&nssObj,
+	SecNssCoder						&coder)
+{
+	//%%%FIXME tba
+}
+
+void CL_nssNameConstraintsToCssm(
+	const NSS_NameConstraints		&nssObj,
+	CE_NameConstraints				&cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc)
+{
+	//%%%FIXME tba
+}
+
+void CL_freeCssmNameConstraints(
+	CE_NameConstraints				*cssmNcs,
+	Allocator						&alloc)
+{
+	if(cssmNcs == NULL) {
+		return;
+	}
+//%%%FIXME need to add a CL_freeCssmGeneralSubtrees function to clNameUtils{.h,.cpp}
+#if 0
+	switch(cssmDpn->nameType) {
+		case CE_CDNT_FullName:
+			CL_freeCssmGeneralNames(cssmDpn->dpn.fullName, alloc);
+			alloc.free(cssmDpn->dpn.fullName);
+			break;
+		case CE_CDNT_NameRelativeToCrlIssuer:
+			CL_freeX509Rdn(cssmDpn->dpn.rdn, alloc);
+			alloc.free(cssmDpn->dpn.rdn);
+			break;
+	}
+#endif
+	memset(cssmNcs, 0, sizeof(*cssmNcs));
+}
+
+#pragma mark --- CE_PolicyMappings <--> NSS_PolicyMappings ---
+
+void CL_cssmPolicyMappingsToNss(
+	const CE_PolicyMappings			&cdsaObj,
+	NSS_PolicyMappings				&nssObj,
+	SecNssCoder						&coder)
+{
+	//%%%FIXME tba
+}
+
+void CL_nssPolicyMappingsToCssm(
+	const NSS_PolicyMappings		&nssObj,
+	CE_PolicyMappings				&cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc)
+{
+	//%%%FIXME tba
+}
+
+void CL_freeCssmPolicyMappings(
+	CE_PolicyMappings				*cssmPms,
+	Allocator						&alloc)
+{
+	if(cssmPms == NULL) {
+		return;
+	}
+	//%%%FIXME tba
+
+	memset(cssmPms, 0, sizeof(*cssmPms));
+}
+
+#pragma mark --- CE_PolicyConstraints <--> NSS_PolicyConstraints ---
+
+void CL_cssmPolicyConstraintsToNss(
+	const CE_PolicyConstraints		*cdsaObj,
+	NSS_PolicyConstraints			*nssObj,
+	SecNssCoder						&coder)
+{
+	//%%%FIXME tba
+}
+
+void CL_nssPolicyConstraintsToCssm(
+	const NSS_PolicyConstraints		*nssObj,
+	CE_PolicyConstraints			*cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc)
+{
+	memset(cdsaObj, 0, sizeof(*cdsaObj));
+	if(nssObj->requireExplicitPolicy.Data) {
+		cdsaObj->requireExplicitPolicyPresent = CSSM_TRUE;
+		cdsaObj->inhibitPolicyMapping = clDataToInt(
+			nssObj->requireExplicitPolicy, 0);
+	}
+	if(nssObj->inhibitPolicyMapping.Data) {
+		cdsaObj->inhibitPolicyMappingPresent = CSSM_TRUE;
+		cdsaObj->inhibitPolicyMapping = clDataToInt(
+			nssObj->inhibitPolicyMapping, 0);
+	}
+}
+
+void CL_freeCssmPolicyConstraints(
+	CE_PolicyConstraints			*cssmPcs,
+	Allocator						&alloc)
+{
+	if(cssmPcs == NULL) {
+		return;
+	}
+
+	memset(cssmPcs, 0, sizeof(*cssmPcs));
+}
+
 
 #pragma mark ----- ECDSA_SigAlgParams support -----
 

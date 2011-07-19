@@ -1,80 +1,68 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGPointList.h"
-#include "SVGPathSegList.h"
-#include "PlatformString.h"
+
+#include "FloatPoint.h"
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-SVGPointList::SVGPointList(const QualifiedName& attributeName)
-    : SVGPODList<FloatPoint>(attributeName)
-{
-}
-
-SVGPointList::~SVGPointList()
-{
-}
-
 String SVGPointList::valueAsString() const
 {
-    String result;
+    StringBuilder builder;
 
-    ExceptionCode ec = 0;
-    for (unsigned int i = 0; i < numberOfItems(); ++i) {
+    unsigned size = this->size();
+    for (unsigned i = 0; i < size; ++i) {
         if (i > 0)
-            result += " ";
+            builder.append(" "); // FIXME: Shouldn't we use commas to seperate?
 
-        FloatPoint point = getItem(i, ec);
-        ASSERT(ec == 0);
-
-        result += String::format("%.6lg %.6lg", point.x(), point.y());
+        const FloatPoint& point = at(i);
+        builder.append(String::number(point.x()) + ' ' + String::number(point.y()));
     }
 
-    return result;
+    return builder.toString();
 }
 
-PassRefPtr<SVGPointList> SVGPointList::createAnimated(const SVGPointList* fromList, const SVGPointList* toList, float progress)
+float inline adjustAnimatedValue(float from, float to, float progress)
 {
-    unsigned itemCount = fromList->numberOfItems();
-    if (!itemCount || itemCount != toList->numberOfItems())
-        return 0;
-    RefPtr<SVGPointList> result = create(fromList->associatedAttributeName());
-    ExceptionCode ec = 0;
+    return (to - from) * progress + from;
+}
+
+bool SVGPointList::createAnimated(const SVGPointList& fromList, const SVGPointList& toList, SVGPointList& resultList, float progress)
+{
+    unsigned itemCount = fromList.size();
+    if (!itemCount || itemCount != toList.size())
+        return false;
     for (unsigned n = 0; n < itemCount; ++n) {
-        FloatPoint from = fromList->getItem(n, ec);
-        if (ec)
-            return 0;
-        FloatPoint to = toList->getItem(n, ec);
-        if (ec)
-            return 0;
+        const FloatPoint& from = fromList.at(n);
+        const FloatPoint& to = toList.at(n);
         FloatPoint segment = FloatPoint(adjustAnimatedValue(from.x(), to.x(), progress),
                                         adjustAnimatedValue(from.y(), to.y(), progress));
-        result->appendItem(segment, ec);
-        if (ec)
-            return 0;
+        resultList.append(segment);
     }
-    return result.release();
+    return true;
 }
 
 }

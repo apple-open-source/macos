@@ -13,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -34,9 +30,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)isalnum.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/locale/isalnum.3,v 1.19 2004/08/21 07:37:08 tjr Exp $
+.\" $FreeBSD: src/lib/libc/locale/isalnum.3,v 1.24 2009/09/04 07:44:58 des Exp $
 .\"
-.Dd August 21, 2004
+.Dd July 17, 2005
 .Dt ISALNUM 3
 .Os
 .Sh NAME
@@ -56,15 +52,11 @@ function tests for any character for which
 or
 .Xr isdigit 3
 is true.
-For single C
-.Va char Ns s
-locales (see
-.Xr multibyte 3 )
-the value of the argument is
-representable as an
-.Li unsigned char
+The value of the argument must be representable as an
+.Vt "unsigned char"
 or the value of
 .Dv EOF .
+.Pp
 In the ASCII character set, this includes the following characters
 (with their numeric values shown in octal):
 .Pp
@@ -103,7 +95,6 @@ function should be used instead.
 .Xr isalpha 3 ,
 .Xr isdigit 3 ,
 .Xr iswalnum 3 ,
-.Xr multibyte 3 ,
 .Xr ascii 7
 .Sh STANDARDS
 The

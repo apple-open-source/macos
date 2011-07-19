@@ -1,0 +1,73 @@
+Teapop 0.3.8
+============
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+First at all sorry for my bad English. At work I had to migrate our existing
+teapop/mbox setup to Dovecot/Maildir without change the UIDL. At first I think
+I must set the option pop3_uidl_format to %Mf. But this doesn't work because
+Teapop use different algorithm. So the only way I found was to set the X-UIDL
+in the mbox and then use the mb2md script. My Co-worker Robert (many thanks for
+programming the script) and I use the following script:
+
+---%<-------------------------------------------------------------------------
+#!/usr/bin/perl
+use Digest::MD5;
+$context = Digest::MD5->new;
+$gotmail = 0;
+$counter = 1;
+@mail = ();
+while (<>)
+{
+    $line = $_;
+    if(/^From /)
+    {
+        if ($gotmail)
+        {
+            processMail ();
+            $counter++;
+            $context->reset();
+            @mail = ();
+        }
+        $gotmail = 1;
+    }
+    push (@mail, $line);
+    next if ($line =~ /^(Status|X-Status|Lines|Content-Length): /);
+    $context->add($line);
+}
+if ($gotmail)
+{
+    processMail ();
+}
+else
+{
+    print STDERR "Mailbox is empty!\n";
+}
+sub processMail ()
+{
+    if ($#mail > 2)
+    {
+        print shift(@mail);
+        print shift(@mail);
+        print "X-UIDL: " . $context->hexdigest() . "\n";
+        foreach $l (@mail)
+        {
+            print $l;
+        }
+    }
+    else
+    {
+        print STDERR "Email has less then 3 lines!\n";
+    }
+}
+---%<-------------------------------------------------------------------------
+
+Usage: scriptname $mboxfile > $newbox
+
+The script read the mbox file and generate the MD5 sum, if the line don't start
+with Status,X-Status,Lines and Content-Length, for each mail and insert the
+X-UIDL: after the Return-Path line. After that you can use the mb2md
+script.Important: You must set the 'pop3_reuse_xuidl=yes'.
+
+(This file was created from the wiki on 2011-05-11 04:42)

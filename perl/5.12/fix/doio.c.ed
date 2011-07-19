@@ -1,0 +1,16 @@
+$a
+.
+?^#include?a
+
+/*
+ * We don't have perliol.h in scope (and including it may cause other problems)
+ * so we create a routine, defined in perlio.h (where perliol.h is in scope)
+ * to zero out the posn field.
+ */
+extern void _zero_posn_(PerlIO *fp);
+.
+/fp = saveifp;/a
+	/* reset position to begining of file */
+	_zero_posn_(fp);
+.
+w

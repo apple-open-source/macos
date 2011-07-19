@@ -32,9 +32,6 @@ char	*default_bat_dir = NULL;  /* when not NULL, use this as the default
 				     directory to write .bat files in */
 char	*default_vim_dir = NULL;  /* when not NULL, use this as the default
 				     install dir for NSIS */
-#if 0
-char	homedir[BUFSIZE];	/* home directory or "" */
-#endif
 
 /*
  * Structure used for each choice the user can make.
@@ -63,7 +60,7 @@ char	*(compat_choices[]) =
 {
     "\nChoose the default way to run Vim:",
     "Vi compatible",
-    "with some Vim ehancements",
+    "with some Vim enhancements",
     "with syntax highlighting and other features switched on",
 };
 int	compat_choice = (int)compat_all_enhancements;
@@ -137,31 +134,6 @@ static char	*(vimfiles_subdirs[]) =
     "plugin",
     "syntax",
 };
-
-/*
- * Copy a directory name from "dir" to "buf", doubling backslashes.
- * Also make sure it ends in a double backslash.
- */
-    static void
-double_bs(char *dir, char *buf)
-{
-    char *d = buf;
-    char *s;
-
-    for (s = dir; *s; ++s)
-    {
-	if (*s == '\\')
-	    *d++ = '\\';
-	*d++ = *s;
-    }
-    /* when dir is not empty, it must end in a double backslash */
-    if (d > buf && d[-1] != '\\')
-    {
-	*d++ = '\\';
-	*d++ = '\\';
-    }
-    *d = NUL;
-}
 
 /*
  * Obtain a choice from a table.
@@ -442,8 +414,27 @@ get_vim_env(void)
     else
     {
 	printf("Failed to open %s\n", fname);
-	Sleep(2000);
+	sleep(2);
     }
+}
+
+static int num_windows;
+
+/*
+ * Callback used for EnumWindows():
+ * Count the window if the title looks like it is for the uninstaller.
+ */
+/*ARGSUSED*/
+    static BOOL CALLBACK
+window_cb(HWND hwnd, LPARAM lparam)
+{
+    char title[256];
+
+    title[0] = 0;
+    GetWindowText(hwnd, title, 256);
+    if (strstr(title, "Vim ") != NULL && strstr(title, "Uninstall:") != NULL)
+	++num_windows;
+    return TRUE;
 }
 
 /*
@@ -451,7 +442,7 @@ get_vim_env(void)
  * Return non-zero when found one.
  */
     static int
-uninstall_check(void)
+uninstall_check(int skip_question)
 {
     HKEY	key_handle;
     HKEY	uninstall_key_handle;
@@ -468,8 +459,8 @@ uninstall_check(void)
     DWORD	new_num_keys;
     int		foundone = 0;
 
-    code = RegOpenKeyEx(HKEY_LOCAL_MACHINE, uninstall_key, 0, KEY_READ,
-								 &key_handle);
+    code = RegOpenKeyEx(HKEY_LOCAL_MACHINE, uninstall_key, 0,
+				     KEY_WOW64_64KEY | KEY_READ, &key_handle);
     CHECK_REG_ERROR(code);
 
     for (key_index = 0;
@@ -481,8 +472,8 @@ uninstall_check(void)
 	if (strncmp("Vim", subkey_name_buff, 3) == 0)
 	{
 	    /* Open the key named Vim* */
-	    code = RegOpenKeyEx(key_handle, subkey_name_buff, 0, KEY_READ,
-		    &uninstall_key_handle);
+	    code = RegOpenKeyEx(key_handle, subkey_name_buff, 0,
+			   KEY_WOW64_64KEY | KEY_READ, &uninstall_key_handle);
 	    CHECK_REG_ERROR(code);
 
 	    /* get the DisplayName out of it to show the user */
@@ -502,7 +493,10 @@ uninstall_check(void)
 	    printf("(The batch files used in a console and the \"Edit with Vim\" entry in\n");
 	    printf("the popup menu will use the new version)\n");
 
-	    printf("\nDo you want to uninstall \"%s\" now?\n(y)es/(n)o)  ", temp_string_buffer);
+	    if (skip_question)
+		printf("\nRunning uninstall program for \"%s\"\n", temp_string_buffer);
+	    else
+		printf("\nDo you want to uninstall \"%s\" now?\n(y)es/(n)o)  ", temp_string_buffer);
 	    fflush(stdout);
 
 	    /* get the UninstallString */
@@ -523,8 +517,13 @@ uninstall_check(void)
 		if (input != 'n')
 		    printf("%c is an invalid reply.  Please enter either 'y' or 'n'\n", input);
 
-		rewind(stdin);
-		scanf("%c", &input);
+		if (skip_question)
+		    input = 'y';
+		else
+		{
+		    rewind(stdin);
+		    scanf("%c", &input);
+		}
 		switch (input)
 		{
 		    case 'y':
@@ -535,26 +534,53 @@ uninstall_check(void)
 					     &orig_num_keys, NULL, NULL, NULL,
 						      NULL, NULL, NULL, NULL);
 
-			/* Delete the uninstall key.  It has no subkeys, so
-			 * this is easy.  Do this before uninstalling, that
-			 * may try to delete the key as well. */
-			RegDeleteKey(key_handle, subkey_name_buff);
-
-			/* Find existing .bat files before deleting them.  */
+			/* Find existing .bat files before deleting them. */
 			find_bat_exe(TRUE);
 
 			/* Execute the uninstall program.  Put it in double
 			 * quotes if there is an embedded space. */
-			if (strchr(temp_string_buffer, ' ') != NULL)
 			{
 			    char buf[BUFSIZE];
 
-			    strcpy(buf, temp_string_buffer);
-			    sprintf(temp_string_buffer, "\"%s\"", buf);
+			    if (strchr(temp_string_buffer, ' ') != NULL)
+				sprintf(buf, "\"%s\"", temp_string_buffer);
+			    else
+				strcpy(buf, temp_string_buffer);
+			    run_command(buf);
 			}
-			run_command(temp_string_buffer);
 
-			/* Check if an unistall reg key was deleted.
+			/* Count the number of windows with a title that match
+			 * the installer, so that we can check when it's done.
+			 * The uninstaller copies itself, executes the copy
+			 * and exits, thus we can't wait for the process to
+			 * finish. */
+			sleep(1);  /* wait for uninstaller to start up */
+			num_windows = 0;
+			EnumWindows(window_cb, 0);
+			sleep(1);  /* wait for windows to be counted */
+			if (num_windows == 0)
+			{
+			    /* Did not find the uninstaller, ask user to press
+			     * Enter when done. Just in case. */
+			    printf("Press Enter when the uninstaller is finished\n");
+			    rewind(stdin);
+			    (void)getchar();
+			}
+			else
+			{
+			    printf("Waiting for the uninstaller to finish (press CTRL-C to abort).");
+			    do
+			    {
+				printf(".");
+				fflush(stdout);
+				num_windows = 0;
+				EnumWindows(window_cb, 0);
+				sleep(1);  /* wait for windows to be counted */
+			    } while (num_windows > 0);
+			}
+			printf("\nDone!\n");
+
+			/* Check if an uninstall reg key was deleted.
 			 * if it was, we want to decrement key_index.
 			 * if we don't do this, we will skip the key
 			 * immediately after any key that we delete.  */
@@ -691,39 +717,6 @@ inspect_system(void)
 	fclose(fd);
     else
 	*oldvimrc = NUL;
-
-#if 0 /* currently not used */
-    /*
-     * Get default home directory.
-     * Prefer $HOME if it's set.  For Win NT use $HOMEDRIVE and $HOMEPATH.
-     * Otherwise, if there is a "c:" drive use that.
-     */
-    p = getenv("HOME");
-    if (p != NULL && *p != NUL && strlen(p) < BUFSIZE)
-	strcpy(homedir, p);
-    else
-    {
-	p = getenv("HOMEDRIVE");
-	if (p != NULL && *p != NUL && strlen(p) + 2 < BUFSIZE)
-	{
-	    strcpy(homedir, p);
-	    p = getenv("HOMEPATH");
-	    if (p != NULL && *p != NUL && strlen(homedir) + strlen(p) < BUFSIZE)
-		strcat(homedir, p);
-	    else
-		strcat(homedir, "\\");
-	}
-	else
-	{
-	    struct stat st;
-
-	    if (stat("c:\\", &st) == 0)
-		strcpy(homedir, "c:\\");
-	    else
-		*homedir = NUL;
-	}
-    }
-#endif
 }
 
 /*
@@ -1131,7 +1124,6 @@ init_bat_choices(void)
 /*
  * Install the vimrc file.
  */
-/*ARGSUSED*/
     static void
 install_vimrc(int idx)
 {
@@ -1323,6 +1315,161 @@ init_vimrc_choices(void)
     ++choice_count;
 }
 
+#if defined(WIN3264)
+    static LONG
+reg_create_key(
+    HKEY root,
+    const char *subkey,
+    PHKEY phKey)
+{
+    DWORD disp;
+
+    *phKey = NULL;
+    return RegCreateKeyEx(
+		root, subkey,
+		0, NULL, REG_OPTION_NON_VOLATILE,
+		KEY_WOW64_64KEY | KEY_WRITE,
+		NULL, phKey, &disp);
+}
+
+    static LONG
+reg_set_string_value(
+    HKEY hKey,
+    const char *value_name,
+    const char *data)
+{
+    return RegSetValueEx(hKey, value_name, 0, REG_SZ,
+				     (LPBYTE)data, (DWORD)(1 + strlen(data)));
+}
+
+    static LONG
+reg_create_key_and_value(
+    HKEY hRootKey,
+    const char *subkey,
+    const char *value_name,
+    const char *data)
+{
+    HKEY hKey;
+    LONG lRet = reg_create_key(hRootKey, subkey, &hKey);
+
+    if (ERROR_SUCCESS == lRet)
+    {
+	lRet = reg_set_string_value(hKey, value_name, data);
+	RegCloseKey(hKey);
+    }
+    return lRet;
+}
+
+    static LONG
+register_inproc_server(
+    HKEY hRootKey,
+    const char *clsid,
+    const char *extname,
+    const char *module,
+    const char *threading_model)
+{
+    CHAR subkey[BUFSIZE];
+    LONG lRet;
+
+    sprintf(subkey, "CLSID\\%s", clsid);
+    lRet = reg_create_key_and_value(hRootKey, subkey, NULL, extname);
+    if (ERROR_SUCCESS == lRet)
+    {
+	sprintf(subkey, "CLSID\\%s\\InProcServer32", clsid);
+	lRet = reg_create_key_and_value(hRootKey, subkey, NULL, module);
+	if (ERROR_SUCCESS == lRet)
+	{
+	    lRet = reg_create_key_and_value(hRootKey, subkey,
+					   "ThreadingModel", threading_model);
+	}
+    }
+    return lRet;
+}
+
+    static LONG
+register_shellex(
+    HKEY hRootKey,
+    const char *clsid,
+    const char *name,
+    const char *exe_path)
+{
+    LONG lRet = reg_create_key_and_value(
+	    hRootKey,
+	    "*\\shellex\\ContextMenuHandlers\\gvim",
+	    NULL,
+	    clsid);
+
+    if (ERROR_SUCCESS == lRet)
+    {
+	lRet = reg_create_key_and_value(
+		HKEY_LOCAL_MACHINE,
+		"Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved",
+		clsid,
+		name);
+
+	if (ERROR_SUCCESS == lRet)
+	{
+	    lRet = reg_create_key_and_value(
+		    HKEY_LOCAL_MACHINE,
+		    "Software\\Vim\\Gvim",
+		    "path",
+		    exe_path);
+	}
+    }
+    return lRet;
+}
+
+    static LONG
+register_openwith(
+    HKEY hRootKey,
+    const char *exe_path)
+{
+    char	exe_cmd[BUFSIZE];
+    LONG	lRet;
+
+    sprintf(exe_cmd, "\"%s\" \"%%1\"", exe_path);
+    lRet = reg_create_key_and_value(
+	    hRootKey,
+	    "Applications\\gvim.exe\\shell\\edit\\command",
+	    NULL,
+	    exe_cmd);
+
+    if (ERROR_SUCCESS == lRet)
+    {
+	int i;
+	static const char *openwith[] = {
+		".htm\\OpenWithList\\gvim.exe",
+		".vim\\OpenWithList\\gvim.exe",
+		"*\\OpenWithList\\gvim.exe",
+	};
+
+	for (i = 0; ERROR_SUCCESS == lRet
+			   && i < sizeof(openwith) / sizeof(openwith[0]); i++)
+	{
+	    lRet = reg_create_key_and_value(hRootKey, openwith[i], NULL, "");
+	}
+    }
+
+    return lRet;
+}
+
+    static LONG
+register_uninstall(
+    HKEY hRootKey,
+    const char *appname,
+    const char *display_name,
+    const char *uninstall_string)
+{
+    LONG lRet = reg_create_key_and_value(hRootKey, appname,
+						 "DisplayName", display_name);
+
+    if (ERROR_SUCCESS == lRet)
+	lRet = reg_create_key_and_value(hRootKey, appname,
+					 "UninstallString", uninstall_string);
+    return lRet;
+}
+#endif /* WIN3264 */
+
 /*
  * Add some entries to the registry:
  * - to add "Edit with Vim" to the context * menu
@@ -1330,97 +1477,77 @@ init_vimrc_choices(void)
  * - to uninstall Vim
  */
 /*ARGSUSED*/
-    static void
+    static int
 install_registry(void)
 {
-#if defined(DJGPP) || defined(WIN3264) || defined(UNIX_LINT)
-    FILE	*fd;
+#ifdef WIN3264
+    LONG	lRet = ERROR_SUCCESS;
     const char	*vim_ext_ThreadingModel = "Apartment";
     const char	*vim_ext_name = "Vim Shell Extension";
     const char	*vim_ext_clsid = "{51EEE242-AD87-11d3-9C1E-0090278BBD99}";
-    char	buf[BUFSIZE];
+    char	vim_exe_path[BUFSIZE];
+    char	display_name[BUFSIZE];
+    char	uninstall_string[BUFSIZE];
 
-    fd = fopen("vim.reg", "w");
-    if (fd == NULL)
-	printf("ERROR: Could not open vim.reg for writing\n");
+    sprintf(vim_exe_path, "%s\\gvim.exe", installdir);
+
+    if (install_popup)
+    {
+	char	    bufg[BUFSIZE];
+	struct stat st;
+
+	if (stat("gvimext.dll", &st) >= 0)
+	    sprintf(bufg, "%s\\gvimext.dll", installdir);
+	else
+	    /* gvimext.dll is in gvimext subdir */
+	    sprintf(bufg, "%s\\gvimext\\gvimext.dll", installdir);
+
+	printf("Creating \"Edit with Vim\" popup menu entry\n");
+
+	lRet = register_inproc_server(
+	    HKEY_CLASSES_ROOT, vim_ext_clsid, vim_ext_name,
+						bufg, vim_ext_ThreadingModel);
+	if (ERROR_SUCCESS != lRet)
+	    return FAIL;
+	lRet = register_shellex(
+	    HKEY_CLASSES_ROOT, vim_ext_clsid, vim_ext_name, vim_exe_path);
+	if (ERROR_SUCCESS != lRet)
+	    return FAIL;
+    }
+
+    if (install_openwith)
+    {
+	printf("Creating \"Open with ...\" list entry\n");
+
+	lRet = register_openwith(HKEY_CLASSES_ROOT, vim_exe_path);
+	if (ERROR_SUCCESS != lRet)
+	    return FAIL;
+    }
+
+    printf("Creating an uninstall entry\n");
+
+    /* For the NSIS installer use the generated uninstaller. */
+    if (interactive)
+    {
+	sprintf(display_name, "Vim " VIM_VERSION_SHORT);
+	sprintf(uninstall_string, "%s\\uninstal.exe", installdir);
+    }
     else
     {
-	double_bs(installdir, buf); /* double the backslashes */
-
-	/*
-	 * Write the registry entries for the "Edit with Vim" menu.
-	 */
-	fprintf(fd, "REGEDIT4\n");
-	fprintf(fd, "\n");
-	if (install_popup)
-	{
-	    char	bufg[BUFSIZE];
-	    struct stat st;
-
-	    if (stat("gvimext.dll", &st) >= 0)
-		strcpy(bufg, buf);
-	    else
-		/* gvimext.dll is in gvimext subdir */
-		sprintf(bufg, "%sgvimext\\\\", buf);
-
-	    printf("Creating \"Edit with Vim\" popup menu entry\n");
-
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\CLSID\\%s]\n", vim_ext_clsid);
-	    fprintf(fd, "@=\"%s\"\n", vim_ext_name);
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\CLSID\\%s\\InProcServer32]\n",
-							       vim_ext_clsid);
-	    fprintf(fd, "@=\"%sgvimext.dll\"\n", bufg);
-	    fprintf(fd, "\"ThreadingModel\"=\"%s\"\n", vim_ext_ThreadingModel);
-	    fprintf(fd, "\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\*\\shellex\\ContextMenuHandlers\\gvim]\n");
-	    fprintf(fd, "@=\"%s\"\n", vim_ext_clsid);
-	    fprintf(fd, "\n");
-	    fprintf(fd, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Shell Extensions\\Approved]\n");
-	    fprintf(fd, "\"%s\"=\"%s\"\n", vim_ext_clsid, vim_ext_name);
-	    fprintf(fd, "\n");
-	    fprintf(fd, "[HKEY_LOCAL_MACHINE\\Software\\Vim\\Gvim]\n");
-	    fprintf(fd, "\"path\"=\"%sgvim.exe\"\n", buf);
-	    fprintf(fd, "\n");
-	}
-
-	if (install_openwith)
-	{
-	    printf("Creating \"Open with ...\" list entry\n");
-
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\Applications\\gvim.exe]\n\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\Applications\\gvim.exe\\shell]\n\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\Applications\\gvim.exe\\shell\\edit]\n\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\Applications\\gvim.exe\\shell\\edit\\command]\n");
-	    fprintf(fd, "@=\"%sgvim.exe \\\"%%1\\\"\"\n\n", buf);
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\.htm\\OpenWithList\\gvim.exe]\n\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\.vim\\OpenWithList\\gvim.exe]\n\n");
-	    fprintf(fd, "[HKEY_CLASSES_ROOT\\*\\OpenWithList\\gvim.exe]\n\n");
-	}
-
-	printf("Creating an uninstall entry\n");
-
-	/* The registry entries for uninstalling the menu */
-	fprintf(fd, "[HKEY_LOCAL_MACHINE\\Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim " VIM_VERSION_SHORT "]\n");
-
-	/* For the NSIS installer use the generated uninstaller. */
-	if (interactive)
-	{
-	    fprintf(fd, "\"DisplayName\"=\"Vim " VIM_VERSION_SHORT "\"\n");
-	    fprintf(fd, "\"UninstallString\"=\"%suninstal.exe\"\n", buf);
-	}
-	else
-	{
-	    fprintf(fd, "\"DisplayName\"=\"Vim " VIM_VERSION_SHORT " (self-installing)\"\n");
-	    fprintf(fd, "\"UninstallString\"=\"%suninstall-gui.exe\"\n", buf);
-	}
-
-	fclose(fd);
-
-	run_command("regedit /s vim.reg");
-
-	remove("vim.reg");
+	sprintf(display_name, "Vim " VIM_VERSION_SHORT " (self-installing)");
+	sprintf(uninstall_string, "%s\\uninstall-gui.exe", installdir);
     }
-#endif /* if defined(DJGPP) || defined(WIN3264) */
+
+    lRet = register_uninstall(
+	HKEY_LOCAL_MACHINE,
+	"Software\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Vim " VIM_VERSION_SHORT,
+	display_name,
+	uninstall_string);
+    if (ERROR_SUCCESS != lRet)
+	return FAIL;
+#endif /* WIN3264 */
+
+    return OK;
 }
 
     static void
@@ -2377,16 +2504,16 @@ main(int argc, char **argv)
     if (argc > 1 && strcmp(argv[1], "-uninstall-check") == 0)
     {
 	/* Only check for already installed Vims.  Used by NSIS installer. */
-	i = uninstall_check();
+	i = uninstall_check(1);
 
 	/* Find the value of $VIM, because NSIS isn't able to do this by
 	 * itself. */
 	get_vim_env();
 
 	/* When nothing found exit quietly.  If something found wait for
-	 * return pressed. */
+	 * a little while, so that the user can read the messages. */
 	if (i)
-	    myexit(0);
+	    sleep(3);
 	exit(0);
     }
 #endif
@@ -2400,7 +2527,7 @@ main(int argc, char **argv)
 #ifdef WIN3264
     /* Check for already installed Vims. */
     if (interactive)
-	uninstall_check();
+	uninstall_check(0);
 #endif
 
     /* Find out information about the system. */
@@ -2450,6 +2577,7 @@ main(int argc, char **argv)
 	    }
 	}
 	printf("\n");
+	myexit(0);
     }
     else
     {
@@ -2458,9 +2586,11 @@ main(int argc, char **argv)
 	 */
 	command_line_setup_choices(argc, argv);
 	install();
+
+	/* Avoid that the user has to hit Enter, just wait a little bit to
+	 * allow reading the messages. */
+	sleep(2);
     }
 
-    myexit(0);
-    /*NOTREACHED*/
     return 0;
 }

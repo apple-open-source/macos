@@ -1,49 +1,54 @@
 /*
-    Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #ifndef SVGStopElement_h
 #define SVGStopElement_h
 
 #if ENABLE(SVG)
-#include "SVGNames.h"
+#include "SVGAnimatedNumber.h"
 #include "SVGStyledElement.h"
 
 namespace WebCore {
 
-    class SVGStopElement : public SVGStyledElement {
-    public:
-        SVGStopElement(const QualifiedName&, Document*);
-        virtual ~SVGStopElement();
+class SVGStopElement : public SVGStyledElement {
+public:
+    static PassRefPtr<SVGStopElement> create(const QualifiedName&, Document*);
 
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual void synchronizeProperty(const QualifiedName&);
+    Color stopColorIncludingOpacity() const;
 
-        Color stopColorIncludingOpacity() const;
+private:
+    SVGStopElement(const QualifiedName&, Document*);
 
-    private:
-        virtual bool isGradientStop() const { return true; }
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void svgAttributeChanged(const QualifiedName&);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual void fillAttributeToPropertyTypeMap();
+    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
 
-        virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+    virtual bool isGradientStop() const { return true; }
 
-        DECLARE_ANIMATED_PROPERTY(SVGStopElement, SVGNames::offsetAttr, float, Offset, offset)
-    };
+    virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
+
+    // Animated property declarations
+    DECLARE_ANIMATED_NUMBER(Offset, offset)
+};
 
 } // namespace WebCore
 

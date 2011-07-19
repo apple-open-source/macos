@@ -2,6 +2,7 @@
 [manpage_begin nntp n 1.5.1]
 [moddesc   {Tcl NNTP Client Library}]
 [titledesc {Tcl client for the NNTP protocol}]
+[category  Networking]
 [require Tcl  8.2]
 [require nntp [opt 0.2.1]]
 [description]

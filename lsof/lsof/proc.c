@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: proc.c,v 1.44 2008/10/21 16:22:03 abe Exp abe $";
+static char *rcsid = "$Id: proc.c,v 1.46 2010/07/29 15:59:28 abe Exp $";
 #endif
 
 
@@ -302,6 +302,11 @@ alloc_lproc(pid, pgid, ppid, uid, cmd, pss, sf)
 	}
 	Lp = &Lproc[Nlproc++];
 	Lp->pid = pid;
+
+#if	defined(HASTASKS)
+	Lp->tid = 0;
+#endif	/* defined(HASTASKS) */
+
 	Lp->pgid = pgid;
 	Lp->ppid = ppid;
 	Lp->file = (struct lfile *)NULL;
@@ -405,6 +410,14 @@ comppid(a1, a2)
 	    return(-1);
 	if ((*p1)->pid > (*p2)->pid)
 	    return(1);
+
+#if	defined(HASTASKS)
+	if ((*p1)->tid < (*p2)->tid)
+	    return(-1);
+	if ((*p1)->tid > (*p2)->tid)
+	    return(1);
+#endif	/* defined(HASTASKS) */
+
 	return(0);
 }
 
@@ -648,12 +661,23 @@ is_file_sel(lp, lf)
  */
 
 int
+
+#if	defined(HASTASKS)
+is_proc_excl(pid, pgid, uid, pss, sf, tid)
+#else	/* !defined(HASTASKS) */
 is_proc_excl(pid, pgid, uid, pss, sf)
+#endif	/* defined(HASTASKS) */
+
 	int pid;			/* Process ID */
 	int pgid;			/* process group ID */
 	UID_ARG uid;			/* User ID */
 	short *pss;			/* process select state for lproc */
 	short *sf;			/* select flags for lproc */
+
+#if	defined(HASTASKS)
+	int tid;			/* task ID (not a task if zero) */
+#endif	/* defined(HASTASKS) */
+
 {
 	int i, j;
 
@@ -773,7 +797,7 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 	}
 /*
  * If the listing of processes has been specified by UID, see if the owner of
-* this process has been included.
+ * this process has been included.
  */
 	if (Nuidincl && (Selflags & SELUID)) {
 	    for (i = j = 0; (i < Nuid) && (j < Nuidincl); i++) {
@@ -792,36 +816,53 @@ is_proc_excl(pid, pgid, uid, pss, sf)
 	    if (Selflags == SELUID && (*sf & SELUID) == 0)
 		return(1);
 	}
+
+#if	defined(HASTASKS)
+	if ((Selflags & SELTASK) && tid) {
+
+	/*
+	 * This is a task and tasks are selected.
+	 */
+	    *pss = PS_PRI;
+	    *sf |= SELTASK;
+	    if ((Selflags == SELTASK)
+	    ||  (Fand && ((*sf & Selflags) == Selflags)))
+		return(0);
+	}
+#endif	/* defined(HASTASKS) */
+
 /*
- * When neither the process group ID, nor the PID, nor the UID is selected:
+ * When neither the process group ID, nor the PID, nor the task, nor the UID
+ * is selected:
  *
- *	If list option ANDing of process group IDs, PIDs or UIDs is specified,
- *	the process is excluded;
+ *	If list option ANDing of process group IDs, PIDs, UIDs or tasks is
+ *	specified, the process is excluded;
  *
  *	Otherwise, it's not excluded by the tests of this function.
  */
 	if ( ! *sf)
-	    return((Fand && (Selflags & (SELPGID|SELPID|SELUID))) ? 1 : 0);
+	    return((Fand && (Selflags & (SELPGID|SELPID|SELUID|SELTASK)))
+		   ? 1 : 0);
 /*
- * When the process group ID, PID, or UID is selected and the process group
- * ID, PID, or UID list option has been specified:
+ * When the process group ID, PID, task or UID is selected and the process
+ * group ID, PID, task or UID list option has been specified:
  *
  *	If list option ANDing has been specified, and the correct
- *	combination of process group ID, PID, and UID is selected, reply that
- *	the process is not excluded;
+ *	combination of selections are in place, reply that the process is no
+ *	excluded;
  * or
  *	If list option ANDing has not been specified, reply that the
  *	process is not excluded by the tests of this function.
  */
-	if (Selflags & (SELPGID|SELPID|SELUID)) {
+	if (Selflags & (SELPGID|SELPID|SELUID|SELTASK)) {
 	    if (Fand)
-		return(((Selflags & (SELPGID|SELPID|SELUID)) != *sf) ? 1 : 0);
+		return(((Selflags & (SELPGID|SELPID|SELUID|SELTASK)) != *sf)
+			? 1 : 0);
 	    return(0);
 	}
 /*
- * Finally, when neither the process group ID, nor the PID, nor the UID is
- * selected, and no process group ID, PID or UID list option has been
- * specified:
+ * Finally, when neither the process group ID, nor the PID, nor the UID, nor
+ * the task is selected, and no applicable list option has been specified:
  *
  *	If list option ANDing has been specified, this process is
  *	excluded;
@@ -851,6 +892,8 @@ link_lfile()
 	    Fnet = 2;
 	if (Fnfs && (Lf->sf & SELNFS))
 	    Fnfs = 2;
+	if (Ftask && (Lf->sf & SELTASK))
+	    Ftask = 2;
 	Lf = (struct lfile *)NULL;
 }
 
@@ -947,6 +990,14 @@ print_proc()
 	    return(0);
 	if (Fterse) {
 
+#if	defined(HASTASKS)
+	/*
+	 * If this is a task of a process, skip it.
+	 */
+	    if (Lp->tid)
+		return(0);
+#endif	/* defined(HASTASKS) */
+
 	/*
 	 * The mode is terse and something in the process appears to have
 	 * been selected.  Make sure of that by looking for a selected file,
@@ -974,6 +1025,11 @@ print_proc()
 		return(rv);
 	    rv = 1;
 	    (void) printf("%c%d%c", LSOF_FID_PID, Lp->pid, Terminator);
+
+#if	defined(HASTASKS)
+	    if (FieldSel[LSOF_FIX_TID].st && Lp->tid)
+		(void) printf("%c%d%c", LSOF_FID_TID, Lp->tid, Terminator);
+#endif	/* defined(HASTASKS) */
 
 #if	defined(HASZONES)
 	    if (FieldSel[LSOF_FIX_ZONE].st && Fzone && Lp->zn)

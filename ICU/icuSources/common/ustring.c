@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1998-2008, International Business Machines
+*   Copyright (C) 1998-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -536,9 +536,9 @@ endloop:
 U_CAPI UChar * U_EXPORT2
 u_strpbrk(const UChar *string, const UChar *matchSet)
 {
-    int32_t index = _matchFromSet(string, matchSet, TRUE);
-    if(index >= 0) {
-        return (UChar *)string + index;
+    int32_t idx = _matchFromSet(string, matchSet, TRUE);
+    if(idx >= 0) {
+        return (UChar *)string + idx;
     } else {
         return NULL;
     }
@@ -548,11 +548,11 @@ u_strpbrk(const UChar *string, const UChar *matchSet)
 U_CAPI int32_t U_EXPORT2
 u_strcspn(const UChar *string, const UChar *matchSet)
 {
-    int32_t index = _matchFromSet(string, matchSet, TRUE);
-    if(index >= 0) {
-        return index;
+    int32_t idx = _matchFromSet(string, matchSet, TRUE);
+    if(idx >= 0) {
+        return idx;
     } else {
-        return -index - 1; /* == u_strlen(string) */
+        return -idx - 1; /* == u_strlen(string) */
     }
 }
 
@@ -560,11 +560,11 @@ u_strcspn(const UChar *string, const UChar *matchSet)
 U_CAPI int32_t U_EXPORT2
 u_strspn(const UChar *string, const UChar *matchSet)
 {
-    int32_t index = _matchFromSet(string, matchSet, FALSE);
-    if(index >= 0) {
-        return index;
+    int32_t idx = _matchFromSet(string, matchSet, FALSE);
+    if(idx >= 0) {
+        return idx;
     } else {
-        return -index - 1; /* == u_strlen(string) */
+        return -idx - 1; /* == u_strlen(string) */
     }
 }
 
@@ -902,14 +902,14 @@ void fragment {
                 c1-=0x2800;
             }
         } else if(c1<=0xdfff) {
-            int32_t index=iter1->getIndex(iter1, UITER_CURRENT);
+            int32_t idx=iter1->getIndex(iter1, UITER_CURRENT);
             iter1->previous(iter1); /* ==c1 */
             if(!UTF_IS_LEAD(iter1->previous(iter1))) {
                 /* trail surrogate code point - make <d800 */
                 c1-=0x2800;
             }
             /* go back to behind where the difference is */
-            iter1->move(iter1, index, UITER_ZERO);
+            iter1->move(iter1, idx, UITER_ZERO);
         } else /* 0xe000<=c1<=0xffff */ {
             /* BMP code point - make <d800 */
             c1-=0x2800;
@@ -1373,12 +1373,12 @@ u_unescape(const char *src, UChar *dest, int32_t destCapacity) {
             if (src != segment) {
                 if (dest != NULL) {
                     _appendUChars(dest + i, destCapacity - i,
-                                  segment, src - segment);
+                                  segment, (int32_t)(src - segment));
                 }
-                i += src - segment;
+                i += (int32_t)(src - segment);
             }
             ++src; /* advance past '\\' */
-            c32 = u_unescapeAt(_charPtr_charAt, &lenParsed, uprv_strlen(src), (void*)src);
+            c32 = (UChar32)u_unescapeAt(_charPtr_charAt, &lenParsed, (int32_t)uprv_strlen(src), (void*)src);
             if (lenParsed == 0) {
                 goto err;
             }
@@ -1396,9 +1396,9 @@ u_unescape(const char *src, UChar *dest, int32_t destCapacity) {
     if (src != segment) {
         if (dest != NULL) {
             _appendUChars(dest + i, destCapacity - i,
-                          segment, src - segment);
+                          segment, (int32_t)(src - segment));
         }
-        i += src - segment;
+        i += (int32_t)(src - segment);
     }
     if (dest != NULL && i < destCapacity) {
         dest[i] = 0;
@@ -1410,31 +1410,6 @@ u_unescape(const char *src, UChar *dest, int32_t destCapacity) {
         *dest = 0;
     }
     return 0;
-}
-
-/* C UGrowBuffer implementation --------------------------------------------- */
-
-U_CAPI UBool /* U_CALLCONV U_EXPORT2 */
-u_growBufferFromStatic(void *context,
-                       UChar **pBuffer, int32_t *pCapacity, int32_t reqCapacity,
-                       int32_t length) {
-    UChar *newBuffer=(UChar *)uprv_malloc(reqCapacity*U_SIZEOF_UCHAR);
-    if(newBuffer!=NULL) {
-        if(length>0) {
-            uprv_memcpy(newBuffer, *pBuffer, length*U_SIZEOF_UCHAR);
-        }
-        *pCapacity=reqCapacity;
-    } else {
-        *pCapacity=0;
-    }
-
-    /* release the old pBuffer if it was not statically allocated */
-    if(*pBuffer!=(UChar *)context) {
-        uprv_free(*pBuffer);
-    }
-
-    *pBuffer=newBuffer;
-    return (UBool)(newBuffer!=NULL);
 }
 
 /* NUL-termination of strings ----------------------------------------------- */

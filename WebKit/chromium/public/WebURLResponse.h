@@ -32,6 +32,7 @@
 #define WebURLResponse_h
 
 #include "WebCommon.h"
+#include "WebPrivateOwnPtr.h"
 
 #if defined(WEBKIT_IMPLEMENTATION)
 namespace WebCore { class ResourceResponse; }
@@ -41,8 +42,10 @@ namespace WebKit {
 
 class WebCString;
 class WebHTTPHeaderVisitor;
+class WebHTTPLoadInfo;
 class WebString;
 class WebURL;
+class WebURLLoadTiming;
 class WebURLResponsePrivate;
 
 class WebURLResponse {
@@ -72,6 +75,21 @@ public:
     WEBKIT_API WebURL url() const;
     WEBKIT_API void setURL(const WebURL&);
 
+    WEBKIT_API unsigned connectionID() const;
+    WEBKIT_API void setConnectionID(unsigned);
+
+    WEBKIT_API bool connectionReused() const;
+    WEBKIT_API void setConnectionReused(bool);
+
+    WEBKIT_API WebURLLoadTiming loadTiming();
+    WEBKIT_API void setLoadTiming(const WebURLLoadTiming&);
+
+    WEBKIT_API WebHTTPLoadInfo httpLoadInfo();
+    WEBKIT_API void setHTTPLoadInfo(const WebHTTPLoadInfo&);
+
+    WEBKIT_API double responseTime() const;
+    WEBKIT_API void setResponseTime(double);
+
     WEBKIT_API WebString mimeType() const;
     WEBKIT_API void setMIMEType(const WebString&);
 
@@ -99,9 +117,6 @@ public:
     WEBKIT_API double lastModifiedDate() const;
     WEBKIT_API void setLastModifiedDate(double);
 
-    WEBKIT_API bool isContentFiltered() const;
-    WEBKIT_API void setIsContentFiltered(bool);
-
     WEBKIT_API long long appCacheID() const;
     WEBKIT_API void setAppCacheID(long long);
 
@@ -118,14 +133,46 @@ public:
     const WebCore::ResourceResponse& toResourceResponse() const;
 #endif
 
+    // Flag whether this request was served from the disk cache entry.
+    WEBKIT_API bool wasCached() const;
+    WEBKIT_API void setWasCached(bool);
+
     // Flag whether this request was loaded via the SPDY protocol or not.
     // SPDY is an experimental web protocol, see http://dev.chromium.org/spdy
     WEBKIT_API bool wasFetchedViaSPDY() const;
     WEBKIT_API void setWasFetchedViaSPDY(bool);
 
+    // Flag whether this request was loaded after the TLS/Next-Protocol-Negotiation was used.
+    // This is related to SPDY.
+    WEBKIT_API bool wasNpnNegotiated() const;
+    WEBKIT_API void setWasNpnNegotiated(bool);
+
+    // Flag whether this request was made when "Alternate-Protocol: xxx"
+    // is present in server's response.
+    WEBKIT_API bool wasAlternateProtocolAvailable() const;
+    WEBKIT_API void setWasAlternateProtocolAvailable(bool);
+
+    // Flag whether this request was loaded via an explicit proxy (HTTP, SOCKS, etc).
+    WEBKIT_API bool wasFetchedViaProxy() const;
+    WEBKIT_API void setWasFetchedViaProxy(bool);
+
     // Flag whether this request is part of a multipart response.
     WEBKIT_API bool isMultipartPayload() const;
     WEBKIT_API void setIsMultipartPayload(bool);
+
+    // This indicates the location of a downloaded response if the
+    // WebURLRequest had the downloadToFile flag set to true.  This file path
+    // remains valid for the lifetime of the WebURLLoader used to create it.
+    WEBKIT_API WebString downloadFilePath() const;
+    WEBKIT_API void setDownloadFilePath(const WebString&);
+
+    // Remote IP address of the socket which fetched this resource.
+    WEBKIT_API WebString remoteIPAddress() const;
+    WEBKIT_API void setRemoteIPAddress(const WebString&);
+
+    // Remote port number of the socket which fetched this resource.
+    WEBKIT_API unsigned short remotePort() const;
+    WEBKIT_API void setRemotePort(unsigned short);
 
 protected:
     void assign(WebURLResponsePrivate*);

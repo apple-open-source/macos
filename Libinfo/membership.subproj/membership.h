@@ -176,6 +176,27 @@ int mbr_uuid_to_id(const uuid_t uu, id_t* uid_or_gid, int* id_type);
 int mbr_uuid_to_sid(const uuid_t uu, nt_sid_t* sid);
 
 /*!
+	@function	mbr_sid_to_string
+	@abstract	convert a SID to a corresponding character string representation
+	@discussion for use in situations where an external representation of a SID is required.
+	@param		sid is the SID to be converted
+	@param		string is a buffer that will be filled in with a nul-terminated string
+				representation of the SID.  The buffer must be at least 194 characters in length.
+	@result    returns 0 on success or appropriate errno code.
+ */
+int mbr_sid_to_string(const nt_sid_t *sid, char *string);
+
+/*!
+	@function	mbr_string_to_sid
+	@abstract	convert a character string representation of a sid to an nt_sid_t value
+	@discussion for converting an external representation of a sid.
+	@param		string is a buffer containing a nul-terminated string representation of a SID
+	@param		sid is the target of the conversion
+	@result    returns 0 on success or appropriate errno code.
+ */
+int mbr_string_to_sid(const char *string, nt_sid_t *sid);
+
+/*!
 	@function	mbr_check_membership
 	@abstract	checks if a user is a member of a group
 	@discussion	will check if a user is a member of a group either through
@@ -186,7 +207,7 @@ int mbr_uuid_to_sid(const uuid_t uu, nt_sid_t* sid);
 				otherwise 0 is returned
 	@result		returns 0 on success or appropriate errno code.
 */
-int mbr_check_membership(uuid_t user, uuid_t group, int* ismember);
+int mbr_check_membership(const uuid_t user, const uuid_t group, int* ismember);
 
 /*!
 	@function	mbr_check_service_membership

@@ -33,41 +33,24 @@
 
 namespace JSC {
 
-    class JSNotAnObjectErrorStub : public JSObject {
-    public:
-        JSNotAnObjectErrorStub(ExecState* exec, bool isNull)
-            : JSObject(exec->globalData().notAnObjectErrorStubStructure)
-            , m_isNull(isNull)
-        {
-        }
-
-        bool isNull() const { return m_isNull; }
-
-    private:
-        virtual bool isNotAnObjectErrorStub() const { return true; }
-
-        bool m_isNull;
-    };
-    
     // This unholy class is used to allow us to avoid multiple exception checks
     // in certain SquirrelFish bytecodes -- effectively it just silently consumes
     // any operations performed on the result of a failed toObject call.
-    class JSNotAnObject : public JSObject {
+    class JSNotAnObject : public JSNonFinalObject {
     public:
-        JSNotAnObject(ExecState* exec, JSNotAnObjectErrorStub* exception)
-            : JSObject(exec->globalData().notAnObjectStructure)
-            , m_exception(exception)
+        JSNotAnObject(ExecState* exec)
+            : JSNonFinalObject(exec->globalData(), exec->globalData().notAnObjectStructure.get())
         {
         }
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
      private:
         
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames | JSObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSObject::StructureFlags;
 
         // JSValue methods
         virtual JSValue toPrimitive(ExecState*, PreferredPrimitiveType) const;
@@ -75,10 +58,7 @@ namespace JSC {
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual UString toString(ExecState*) const;
-        virtual JSObject* toObject(ExecState*) const;
-
-        // Marking
-        virtual void markChildren(MarkStack&);
+        virtual JSObject* toObject(ExecState*, JSGlobalObject*) const;
 
         // JSObject methods
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
@@ -92,8 +72,6 @@ namespace JSC {
         virtual bool deleteProperty(ExecState*, unsigned propertyName);
 
         virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
-
-        JSNotAnObjectErrorStub* m_exception;
     };
 
 } // namespace JSC

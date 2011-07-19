@@ -109,6 +109,7 @@ int eaptls_success(EAP_HANDLER *handler, int peap_flag)
 	REQUEST *request = handler->request;
 	tls_session_t *tls_session = handler->opaque;
 
+	handler->finished = TRUE;
 	reply.code = EAPTLS_SUCCESS;
 	reply.length = TLS_HEADER_LEN;
 	reply.flags = peap_flag;
@@ -148,14 +149,21 @@ int eaptls_success(EAP_HANDLER *handler, int peap_flag)
 		RDEBUG2("Saving response in the cache");
 		
 		vp = paircopy2(request->reply->vps, PW_USER_NAME);
-		pairadd(&vps, vp);
+		if (vp) pairadd(&vps, vp);
 		
 		vp = paircopy2(request->packet->vps, PW_STRIPPED_USER_NAME);
-		pairadd(&vps, vp);
+		if (vp) pairadd(&vps, vp);
+		
+		vp = paircopy2(request->reply->vps, PW_CACHED_SESSION_POLICY);
+		if (vp) pairadd(&vps, vp);
 		
 		if (vps) {
 			SSL_SESSION_set_ex_data(tls_session->ssl->session,
 						eaptls_session_idx, vps);
+		} else {
+			RDEBUG2("WARNING: No information to cache: session caching will be disabled for this session.");
+			SSL_CTX_remove_session(tls_session->ctx,
+					       tls_session->ssl->session);
 		}
 
 		/*
@@ -168,6 +176,7 @@ int eaptls_success(EAP_HANDLER *handler, int peap_flag)
 					     eaptls_session_idx);
 		if (!vp) {
 			RDEBUG("WARNING: No information in cached session!");
+			return eaptls_fail(handler, peap_flag);
 		} else {
 			RDEBUG("Adding cached attributes to the reply:");
 			debug_pair_list(vp);
@@ -176,7 +185,7 @@ int eaptls_success(EAP_HANDLER *handler, int peap_flag)
 			/*
 			 *	Mark the request as resumed.
 			 */
-			vp = pairmake("EAP-Session-Resumed", "0", T_OP_SET);
+			vp = pairmake("EAP-Session-Resumed", "1", T_OP_SET);
 			if (vp) pairadd(&request->packet->vps, vp);
 		}
 	}
@@ -204,6 +213,7 @@ int eaptls_fail(EAP_HANDLER *handler, int peap_flag)
 	EAPTLS_PACKET	reply;
 	tls_session_t *tls_session = handler->opaque;
 
+	handler->finished = TRUE;
 	reply.code = EAPTLS_FAIL;
 	reply.length = TLS_HEADER_LEN;
 	reply.flags = peap_flag;
@@ -330,7 +340,8 @@ static eaptls_status_t eaptls_ack_handler(EAP_HANDLER *handler)
 		return EAPTLS_FAIL;
 
 	case handshake:
-		if (tls_session->info.handshake_type == finished) {
+		if ((tls_session->info.handshake_type == finished) &&
+		    (tls_session->dirty_out.used == 0)) {
 			RDEBUG2("ACK handshake is finished");
 
 			/* 
@@ -445,7 +456,8 @@ static eaptls_status_t eaptls_verify(EAP_HANDLER *handler)
 		RDEBUG2("Received EAP-TLS ACK message");
 		return eaptls_ack_handler(handler);
 #else
-		if (prev_eap_ds->request->id == eap_ds->response->id) {
+		if (prev_eap_ds &&
+		    (prev_eap_ds->request->id == eap_ds->response->id)) {
 			/*
 			 *	Run the ACK handler directly from here.
 			 */
@@ -753,7 +765,7 @@ static eaptls_status_t eaptls_operation(eaptls_status_t status,
 	 *	If more info
 	 *	is required then send another request.
 	 */
-	if (!tls_handshake_recv(tls_session)) {
+	if (!tls_handshake_recv(handler->request, tls_session)) {
 		DEBUG2("TLS receive handshake failed during operation");
 		eaptls_fail(handler, tls_session->peap_flag);
 		return EAPTLS_FAIL;
@@ -828,6 +840,8 @@ eaptls_status_t eaptls_process(EAP_HANDLER *handler)
 	REQUEST *request = handler->request;
 
 	RDEBUG2("processing EAP-TLS");
+	if (handler->certs) pairadd(&request->packet->vps,
+				    paircopy(handler->certs));
 
 	/* This case is when SSL generates Alert then we
 	 * send that alert to the client and then send the EAP-Failure

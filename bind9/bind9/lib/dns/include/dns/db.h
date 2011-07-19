@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: db.h,v 1.93 2008/09/24 02:46:22 marka Exp $ */
+/* $Id: db.h,v 1.102 2009-11-25 23:49:22 tbox Exp $ */
 
 #ifndef DNS_DB_H
 #define DNS_DB_H 1
@@ -59,7 +59,10 @@
 #include <isc/ondestroy.h>
 #include <isc/stdtime.h>
 
+#include <dns/fixedname.h>
 #include <dns/name.h>
+#include <dns/rdata.h>
+#include <dns/rdataset.h>
 #include <dns/types.h>
 
 ISC_LANG_BEGINDECLS
@@ -205,14 +208,15 @@ struct dns_db {
 /*%
  * Options that can be specified for dns_db_find().
  */
-#define DNS_DBFIND_GLUEOK		0x01
-#define DNS_DBFIND_VALIDATEGLUE		0x02
-#define DNS_DBFIND_NOWILD		0x04
-#define DNS_DBFIND_PENDINGOK		0x08
-#define DNS_DBFIND_NOEXACT		0x10
-#define DNS_DBFIND_FORCENSEC		0x20
-#define DNS_DBFIND_COVERINGNSEC		0x40
-#define DNS_DBFIND_FORCENSEC3		0x80
+#define DNS_DBFIND_GLUEOK		0x0001
+#define DNS_DBFIND_VALIDATEGLUE		0x0002
+#define DNS_DBFIND_NOWILD		0x0004
+#define DNS_DBFIND_PENDINGOK		0x0008
+#define DNS_DBFIND_NOEXACT		0x0010
+#define DNS_DBFIND_FORCENSEC		0x0020
+#define DNS_DBFIND_COVERINGNSEC		0x0040
+#define DNS_DBFIND_FORCENSEC3		0x0080
+#define DNS_DBFIND_ADDITIONALOK		0x0100
 /*@}*/
 
 /*@{*/
@@ -490,6 +494,10 @@ dns_db_load(dns_db_t *db, const char *filename);
 
 isc_result_t
 dns_db_load2(dns_db_t *db, const char *filename, dns_masterformat_t format);
+
+isc_result_t
+dns_db_load3(dns_db_t *db, const char *filename, dns_masterformat_t format,
+	     unsigned int options);
 /*%<
  * Load master file 'filename' into 'db'.
  *
@@ -613,7 +621,7 @@ dns_db_closeversion(dns_db_t *db, dns_dbversion_t **versionp,
  *
  * Note: if '*versionp' is a read-write version and 'commit' is ISC_TRUE,
  * then all changes made in the version will take effect, otherwise they
- * will be rolled back.  The value if 'commit' is ignored for read-only
+ * will be rolled back.  The value of 'commit' is ignored for read-only
  * versions.
  *
  * Requires:
@@ -693,6 +701,10 @@ dns_db_find(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
  *	be returned.  For zone databases, glue is as defined in RFC2181.
  *	For cache databases, glue is any rdataset with a trust of
  *	dns_trust_glue.
+ *
+ * \li	If 'options' does not have #DNS_DBFIND_ADDITIONALOK set, then no
+ *	additional records will be returned.  Only caches can have
+ *	rdataset with trust dns_trust_additional.
  *
  * \li	If 'options' does not have #DNS_DBFIND_PENDINGOK set, then no
  *	pending data will be returned.  This option is only meaningful for
@@ -835,6 +847,9 @@ dns_db_find(dns_db_t *db, dns_name_t *name, dns_dbversion_t *version,
  *
  *	\li	#DNS_R_COVERINGNSEC		The returned data is a NSEC
  *						that potentially covers 'name'.
+ *
+ *	\li	#DNS_R_EMPTYWILD		The name is a wildcard without
+ *						resource records.
  *
  *	Error results:
  *
@@ -1072,7 +1087,7 @@ isc_result_t
 dns_db_allrdatasets(dns_db_t *db, dns_dbnode_t *node, dns_dbversion_t *version,
 		    isc_stdtime_t now, dns_rdatasetiter_t **iteratorp);
 /*%<
- * Make '*iteratorp' an rdataset iteratator for all rdatasets at 'node' in
+ * Make '*iteratorp' an rdataset iterator for all rdatasets at 'node' in
  * version 'version' of 'db'.
  *
  * Notes:
@@ -1259,7 +1274,7 @@ dns_db_getsoaserial(dns_db_t *db, dns_dbversion_t *ver, isc_uint32_t *serialp);
 void
 dns_db_overmem(dns_db_t *db, isc_boolean_t overmem);
 /*%<
- * Enable / disable agressive cache cleaning.
+ * Enable / disable aggressive cache cleaning.
  */
 
 unsigned int
@@ -1329,7 +1344,7 @@ dns_db_register(const char *name, dns_dbcreatefunc_t create, void *driverarg,
 void
 dns_db_unregister(dns_dbimplementation_t **dbimp);
 /*%<
- * Remove a database implementation from the the list of supported
+ * Remove a database implementation from the list of supported
  * implementations.  No databases of this type can be active when this
  * is called.
  *

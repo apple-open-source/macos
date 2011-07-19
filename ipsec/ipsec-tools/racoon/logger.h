@@ -37,7 +37,9 @@ struct log {
 	int siz;
 	char **buf;
 	time_t *tbuf;
+	FILE *fp;
 	char *fname;
+	off_t byteswritten;
 };
 
 extern struct log *log_open __P((size_t, char *));

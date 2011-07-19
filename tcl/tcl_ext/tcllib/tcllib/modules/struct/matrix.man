@@ -3,6 +3,7 @@
 [copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate matrix objects}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require struct::matrix [opt 2.0.1]]
 [description]

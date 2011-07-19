@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "PIC16.h"
+#include "PIC16ABINames.h"
 #include "PIC16InstrInfo.h"
 #include "PIC16TargetMachine.h"
 #include "PIC16GenInstrInfo.inc"
@@ -20,6 +21,7 @@
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 #include <cstdio>
 
 
@@ -68,24 +70,24 @@ unsigned PIC16InstrInfo::isLoadFromStackSlot(const MachineInstr *MI,
 void PIC16InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB, 
                                          MachineBasicBlock::iterator I,
                                          unsigned SrcReg, bool isKill, int FI,
-                                         const TargetRegisterClass *RC) const {
-  PIC16TargetLowering *PTLI = TM.getTargetLowering();
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+                                         const TargetRegisterClass *RC,
+                                         const TargetRegisterInfo *TRI) const {
+  const PIC16TargetLowering *PTLI = TM.getTargetLowering();
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
 
   const Function *Func = MBB.getParent()->getFunction();
   const std::string FuncName = Func->getName();
 
-  char *tmpName = new char [strlen(FuncName.c_str()) +  6];
-  sprintf(tmpName, "%s.tmp", FuncName.c_str());
+  const char *tmpName = ESNames::createESName(PAN::getTempdataLabel(FuncName));
 
   // On the order of operands here: think "movwf SrcReg, tmp_slot, offset".
   if (RC == PIC16::GPRRegisterClass) {
     //MachineFunction &MF = *MBB.getParent();
     //MachineRegisterInfo &RI = MF.getRegInfo();
     BuildMI(MBB, I, DL, get(PIC16::movwf))
-      .addReg(SrcReg, false, false, isKill)
-      .addImm(PTLI->GetTmpOffsetForFI(FI, 1))
+      .addReg(SrcReg, getKillRegState(isKill))
+      .addImm(PTLI->GetTmpOffsetForFI(FI, 1, *MBB.getParent()))
       .addExternalSymbol(tmpName)
       .addImm(1); // Emit banksel for it.
   }
@@ -99,35 +101,35 @@ void PIC16InstrInfo::storeRegToStackSlot(MachineBasicBlock &MBB,
     unsigned opcode = (SrcReg == PIC16::FSR0) ? PIC16::save_fsr0 
                                                  : PIC16::save_fsr1;
     BuildMI(MBB, I, DL, get(opcode))
-      .addReg(SrcReg, false, false, isKill)
-      .addImm(PTLI->GetTmpOffsetForFI(FI, 3))
+      .addReg(SrcReg, getKillRegState(isKill))
+      .addImm(PTLI->GetTmpOffsetForFI(FI, 3, *MBB.getParent()))
       .addExternalSymbol(tmpName)
       .addImm(1); // Emit banksel for it.
   }
   else
-    assert(0 && "Can't store this register to stack slot");
+    llvm_unreachable("Can't store this register to stack slot");
 }
 
 void PIC16InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB, 
                                           MachineBasicBlock::iterator I,
                                           unsigned DestReg, int FI,
-                                          const TargetRegisterClass *RC) const {
-  PIC16TargetLowering *PTLI = TM.getTargetLowering();
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+                                          const TargetRegisterClass *RC,
+                                          const TargetRegisterInfo *TRI) const {
+  const PIC16TargetLowering *PTLI = TM.getTargetLowering();
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
 
   const Function *Func = MBB.getParent()->getFunction();
   const std::string FuncName = Func->getName();
 
-  char *tmpName = new char [strlen(FuncName.c_str()) +  6];
-  sprintf(tmpName, "%s.tmp", FuncName.c_str());
+  const char *tmpName = ESNames::createESName(PAN::getTempdataLabel(FuncName));
 
   // On the order of operands here: think "movf FrameIndex, W".
   if (RC == PIC16::GPRRegisterClass) {
     //MachineFunction &MF = *MBB.getParent();
     //MachineRegisterInfo &RI = MF.getRegInfo();
     BuildMI(MBB, I, DL, get(PIC16::movf), DestReg)
-      .addImm(PTLI->GetTmpOffsetForFI(FI, 1))
+      .addImm(PTLI->GetTmpOffsetForFI(FI, 1, *MBB.getParent()))
       .addExternalSymbol(tmpName)
       .addImm(1); // Emit banksel for it.
   }
@@ -141,21 +143,20 @@ void PIC16InstrInfo::loadRegFromStackSlot(MachineBasicBlock &MBB,
     unsigned opcode = (DestReg == PIC16::FSR0) ? PIC16::restore_fsr0 
                                                  : PIC16::restore_fsr1;
     BuildMI(MBB, I, DL, get(opcode), DestReg)
-      .addImm(PTLI->GetTmpOffsetForFI(FI, 3))
+      .addImm(PTLI->GetTmpOffsetForFI(FI, 3, *MBB.getParent()))
       .addExternalSymbol(tmpName)
       .addImm(1); // Emit banksel for it.
   }
   else
-    assert(0 && "Can't load this register from stack slot");
+    llvm_unreachable("Can't load this register from stack slot");
 }
 
 bool PIC16InstrInfo::copyRegToReg (MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator I,
                                    unsigned DestReg, unsigned SrcReg,
                                    const TargetRegisterClass *DestRC,
-                                   const TargetRegisterClass *SrcRC) const {
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (I != MBB.end()) DL = I->getDebugLoc();
+                                   const TargetRegisterClass *SrcRC,
+                                   DebugLoc DL) const {
 
   if (DestRC == PIC16::FSR16RegisterClass) {
     BuildMI(MBB, I, DL, get(PIC16::copy_fsr), DestReg).addReg(SrcReg);
@@ -186,3 +187,58 @@ bool PIC16InstrInfo::isMoveInstr(const MachineInstr &MI,
   return false;
 }
 
+/// InsertBranch - Insert a branch into the end of the specified
+/// MachineBasicBlock.  This operands to this method are the same as those
+/// returned by AnalyzeBranch.  This is invoked in cases where AnalyzeBranch
+/// returns success and when an unconditional branch (TBB is non-null, FBB is
+/// null, Cond is empty) needs to be inserted. It returns the number of
+/// instructions inserted.
+unsigned PIC16InstrInfo::
+InsertBranch(MachineBasicBlock &MBB, MachineBasicBlock *TBB, 
+             MachineBasicBlock *FBB,
+             const SmallVectorImpl<MachineOperand> &Cond) const {
+  // Shouldn't be a fall through.
+  assert(TBB && "InsertBranch must not be told to insert a fallthrough");
+
+  if (FBB == 0) { // One way branch.
+    if (Cond.empty()) {
+      // Unconditional branch?
+      DebugLoc dl;
+      BuildMI(&MBB, dl, get(PIC16::br_uncond)).addMBB(TBB);
+    }
+    return 1;
+  }
+
+  // FIXME: If the there are some conditions specified then conditional branch
+  // should be generated.   
+  // For the time being no instruction is being generated therefore
+  // returning NULL.
+  return 0;
+}
+
+bool PIC16InstrInfo::AnalyzeBranch(MachineBasicBlock &MBB,
+                                   MachineBasicBlock *&TBB,
+                                   MachineBasicBlock *&FBB,
+                                   SmallVectorImpl<MachineOperand> &Cond,
+                                   bool AllowModify) const {
+  MachineBasicBlock::iterator I = MBB.end();
+  if (I == MBB.begin())
+    return true;
+
+  // Get the terminator instruction.
+  --I;
+  while (I->isDebugValue()) {
+    if (I == MBB.begin())
+      return true;
+    --I;
+  }
+  // Handle unconditional branches. If the unconditional branch's target is
+  // successor basic block then remove the unconditional branch. 
+  if (I->getOpcode() == PIC16::br_uncond  && AllowModify) {
+    if (MBB.isLayoutSuccessor(I->getOperand(0).getMBB())) {
+      TBB = 0;
+      I->eraseFromParent();
+    }
+  }
+  return true;
+}

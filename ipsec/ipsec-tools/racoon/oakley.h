@@ -34,7 +34,12 @@
 #ifndef _OAKLEY_H
 #define _OAKLEY_H
 
+#include "config.h"
+
 #include "vmbuf.h"
+#ifndef HAVE_OPENSSL
+#include <Security/SecDH.h>
+#endif
 
 /* refer to RFC 2409 */
 
@@ -153,6 +158,9 @@
 #define MAXPADLWORD	20
 
 struct dhgroup {
+#ifndef HAVE_OPENSSL
+	int desc;
+#endif
 	int type;
 	vchar_t *prime;
 	int gen1;
@@ -166,6 +174,8 @@ typedef enum cert_status {
 	CERT_STATUS_OK = 0,
 	CERT_STATUS_PREMATURE,
 	CERT_STATUS_EXPIRED,
+	CERT_STATUS_INVALID_SUBJNAME,
+	CERT_STATUS_INVALID_SUBJALTNAME,
 	CERT_STATUS_INVALID,
 } cert_status_t;
 
@@ -177,6 +187,7 @@ typedef struct cert_t_tag {
 	vchar_t cert;		/* pointer to the CERT */
 	vchar_t *pl;		/* CERT payload minus isakmp general header */
 	cert_status_t status;
+	struct cert_t_tag *chain;
 } cert_t;
 
 struct ph1handle;
@@ -187,10 +198,13 @@ extern int oakley_get_defaultlifetime __P((void));
 
 extern int oakley_dhinit __P((void));
 extern void oakley_dhgrp_free __P((struct dhgroup *));
-extern int oakley_dh_compute __P((const struct dhgroup *,
-	vchar_t *, vchar_t *, vchar_t *, vchar_t **));
-extern int oakley_dh_generate __P((const struct dhgroup *,
-	vchar_t **, vchar_t **));
+#ifdef HAVE_OPENSSL
+extern int oakley_dh_compute __P((const struct dhgroup *, vchar_t *, vchar_t *, vchar_t *, vchar_t **));
+extern int oakley_dh_generate __P((const struct dhgroup *, vchar_t **, vchar_t **));
+#else
+extern int oakley_dh_compute __P((const struct dhgroup *, vchar_t *, size_t, vchar_t **, SecDHContext));
+extern int oakley_dh_generate __P((const struct dhgroup *, vchar_t **, size_t *,  SecDHContext*));
+#endif
 extern int oakley_setdhgroup __P((int, struct dhgroup **));
 
 extern vchar_t *oakley_prf __P((vchar_t *, vchar_t *, struct ph1handle *));
@@ -212,6 +226,9 @@ extern vchar_t *oakley_ph1hash_base_r __P((struct ph1handle *, int));
 extern int oakley_validate_auth __P((struct ph1handle *));
 extern int oakley_getmycert __P((struct ph1handle *));
 extern int oakley_getsign __P((struct ph1handle *));
+extern cert_t * oakley_get_peer_cert_from_certchain __P((struct ph1handle *));
+extern int oakley_find_status_in_certchain __P((cert_t *, cert_status_t));
+extern void oakley_verify_certid __P((struct ph1handle *));
 extern vchar_t *oakley_getcr __P((struct ph1handle *));
 extern int oakley_checkcr __P((struct ph1handle *));
 extern int oakley_needcr __P((int));

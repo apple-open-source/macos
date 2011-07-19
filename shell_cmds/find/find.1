@@ -33,7 +33,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)find.1	8.7 (Berkeley) 5/9/95
-.\" $FreeBSD: src/usr.bin/find/find.1,v 1.86 2008/03/03 08:32:58 ru Exp $
+.\" $FreeBSD: src/usr.bin/find/find.1,v 1.87 2009/09/20 16:47:56 jilles Exp $
 .\"
 .Dd February 24, 2008
 .Dt FIND 1
@@ -211,12 +211,12 @@ units.
 Please refer to the
 .Ic -atime
 primary description for information on supported time units.
-.\" .It Ic -acl
-.\" May be used in conjunction with other primaries to locate
-.\" files with extended ACLs.
-.\" See
-.\" .Xr acl 3
-.\" for more information.
+.It Ic -acl
+May be used in conjunction with other primaries to locate
+files with extended ACLs.
+See
+.Xr acl 3
+for more information.
 .It Ic -amin Ar n
 True if the difference between the file last access time and the time
 .Nm
@@ -312,6 +312,7 @@ character in its pathname relative to
 .Dq Pa \&.
 for security reasons.
 Depth-first traversal processing is implied by this option.
+Following symlinks is incompatible with this option.
 .It Ic -depth
 Always true;
 same as the
@@ -821,6 +822,11 @@ is treated as a user ID.
 The same thing as 
 .Ic -path ,
 for GNU find compatibility.
+.It Ic -xattr
+True if the file has any extended attributes.
+.It Ic -xattrname Ar name
+True if the file has an extended attribute with the specified
+.Ar name .
 .El
 .Pp
 All primaries which take a numeric argument allow the number to be
@@ -921,7 +927,7 @@ recent than the current time minus one minute.
 Use the
 .Xr echo 1
 command to print out a list of all the files.
-.It Li "find -L /usr/ports/packages -type l -delete"
+.It Li "find -L /usr/ports/packages -type l -exec rm -- {} +"
 Delete all broken symbolic links in
 .Pa /usr/ports/packages .
 .It Li "find /usr/src -name CVS -prune -o -depth +6 -print"
@@ -951,7 +957,7 @@ section below for details.
 .Xr which 1 ,
 .Xr xargs 1 ,
 .Xr stat 2 ,
-.\" .Xr acl 3 ,
+.Xr acl 3 ,
 .Xr fts 3 ,
 .Xr getgrent 3 ,
 .Xr getpwent 3 ,

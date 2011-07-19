@@ -329,7 +329,7 @@ main(int argc, char **argv)
 		if (isdigit(**argv))
 			break;
 		if (record_one_device(*argv))
-			errx(1, "can't record '%s' for monitoring");
+			errx(1, "can't record '%s' for monitoring", *argv);
 		num_devices_specified++;
 	}
 	if (nflag == 0 && maxshowdevs < num_devices_specified)
@@ -865,7 +865,7 @@ static void remove_drivelist(void* context, io_iterator_t drivelist)
 		name = (CFStringRef)CFDictionaryGetValue(properties,
 			CFSTR(kIOBSDNameKey));
 
-		if (name && CFStringGetCString(name, bsdname, MAXDRIVENAME, CFStringGetSystemEncoding())) {
+		if (name && CFStringGetCString(name, bsdname, MAXDRIVENAME, kCFStringEncodingUTF8)) {
 			int i;
 			for (i = 0; i < num_devices; ++i) {
 				if (strcmp(bsdname,drivestat[i].name) == 0) {
@@ -958,7 +958,7 @@ record_device(io_registry_entry_t drive)
 			CFSTR(kIOBSDNameKey));
 		if (name)
 			CFStringGetCString(name, drivestat[num_devices].name, 
-					   MAXDRIVENAME, CFStringGetSystemEncoding());
+					   MAXDRIVENAME, kCFStringEncodingUTF8);
 		else {
 			errx(1, "device does not have a BSD name");
 		}

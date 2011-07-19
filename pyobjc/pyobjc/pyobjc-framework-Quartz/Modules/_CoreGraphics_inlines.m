@@ -1,18 +1,14 @@
 #include "Python.h"
+#include "pyobjc-api.h"
 #import <ApplicationServices/ApplicationServices.h>
 
-typedef void (*FUNCTION)(void);
-
-struct function_map {
-    const char* name;
-    FUNCTION    function;
-} function_map[] = {
-	{"CGPointMake", (FUNCTION)&CGPointMake },
-	{"CGRectMake", (FUNCTION)&CGRectMake },
-	{"CGSizeMake", (FUNCTION)&CGSizeMake },
-	{"__CGAffineTransformMake", (FUNCTION)&__CGAffineTransformMake },
-	{"__CGPointApplyAffineTransform", (FUNCTION)&__CGPointApplyAffineTransform },
-	{"__CGSizeApplyAffineTransform", (FUNCTION)&__CGSizeApplyAffineTransform },
+static PyObjC_function_map function_map[] = {
+	{"CGPointMake", (PyObjC_Function_Pointer)&CGPointMake },
+	{"CGRectMake", (PyObjC_Function_Pointer)&CGRectMake },
+	{"CGSizeMake", (PyObjC_Function_Pointer)&CGSizeMake },
+	{"__CGAffineTransformMake", (PyObjC_Function_Pointer)&__CGAffineTransformMake },
+	{"__CGPointApplyAffineTransform", (PyObjC_Function_Pointer)&__CGPointApplyAffineTransform },
+	{"__CGSizeApplyAffineTransform", (PyObjC_Function_Pointer)&__CGSizeApplyAffineTransform },
     { 0, 0 }
 };
 
@@ -20,10 +16,13 @@ static PyMethodDef mod_methods[] = {
         { 0, 0, 0, 0 } /* sentinel */
 };
 
-void init_inlines(void)
+PyObjC_MODULE_INIT(_inlines)
 {
-    PyObject* m = Py_InitModule4("_inlines", mod_methods, NULL, NULL, PYTHON_API_VERSION);
+    PyObject* m = PyObjC_MODULE_CREATE(_inlines);
+    if (!m) PyObjC_INITERROR();
 
-    PyModule_AddObject(m, "_inline_list_", 
-        PyCObject_FromVoidPtr(function_map, NULL));
+    if (PyModule_AddObject(m, "_inline_list_", 
+        PyObjC_CreateInlineTab(function_map)) < 0) PyObjC_INITERROR();
+
+    PyObjC_INITDONE();
 }

@@ -1,6 +1,7 @@
 /*
     Copyright (C) 1999 Lars Knoll (knoll@kde.org)
     Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+    Copyright (C) 2011 Rik Cabanier (cabanier@adobe.com)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -23,85 +24,95 @@
 
 #include <wtf/Assertions.h>
 #include <wtf/FastAllocBase.h>
+#include <wtf/Forward.h>
 #include <wtf/MathExtras.h>
+#include <wtf/PassOwnArrayPtr.h>
 
 namespace WebCore {
 
-class String;
-
 const int undefinedLength = -1;
-const int percentScaleFactor = 128;
+const int intMaxForLength = 0x7ffffff; // max value for a 28-bit int
+const int intMinForLength = (-0x7ffffff - 1); // min value for a 28-bit int
 
-enum LengthType { Auto, Relative, Percent, Fixed, Static, Intrinsic, MinIntrinsic };
+enum LengthType { Auto, Relative, Percent, Fixed, Intrinsic, MinIntrinsic };
 
-struct Length : FastAllocBase {
+struct Length {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
     Length()
-        : m_value(0)
+        :  m_intValue(0), m_quirk(false), m_type(Auto), m_isFloat(false)
     {
     }
 
     Length(LengthType t)
-        : m_value(t)
+        : m_intValue(0), m_quirk(false), m_type(t), m_isFloat(false)
     {
     }
 
     Length(int v, LengthType t, bool q = false)
-        : m_value((v * 16) | (q << 3) | t) // FIXME: Doesn't work if the passed-in value is very large!
+        : m_intValue(v), m_quirk(q), m_type(t), m_isFloat(false)
     {
-        ASSERT(t != Percent);
+    }
+    
+    Length(float v, LengthType t, bool q = false)
+    : m_floatValue(v), m_quirk(q), m_type(t), m_isFloat(true)
+    {            
     }
 
     Length(double v, LengthType t, bool q = false)
-        : m_value(static_cast<int>(v * percentScaleFactor) * 16 | (q << 3) | t)
-    {
-        ASSERT(t == Percent);
+        : m_quirk(q), m_type(t), m_isFloat(true)
+    {           
+        m_floatValue = static_cast<float>(v);    
     }
 
-    bool operator==(const Length& o) const { return m_value == o.m_value; }
-    bool operator!=(const Length& o) const { return m_value != o.m_value; }
+    bool operator==(const Length& o) const { return (getFloatValue() == o.getFloatValue()) && (m_type == o.m_type) && (m_quirk == o.m_quirk); }
+    bool operator!=(const Length& o) const { return (getFloatValue() != o.getFloatValue()) || (m_type != o.m_type) || (m_quirk != o.m_quirk); }
 
+    const Length& operator*=(float v)
+    {        
+        if (m_isFloat)
+            m_floatValue = static_cast<float>(m_floatValue * v);
+        else        
+            m_intValue = static_cast<int>(m_intValue * v);
+        
+        return *this;
+    }
+    
     int value() const {
-        ASSERT(type() != Percent);
-        return rawValue();
+        return getIntValue();
     }
 
-    int rawValue() const { return (m_value & ~0xF) / 16; }
-
-    double percent() const
+    float percent() const
     {
         ASSERT(type() == Percent);
-        return static_cast<double>(rawValue()) / percentScaleFactor;
+        return getFloatValue();
     }
 
-    LengthType type() const { return static_cast<LengthType>(m_value & 7); }
-    bool quirk() const { return (m_value >> 3) & 1; }
+    LengthType type() const { return static_cast<LengthType>(m_type); }
+    bool quirk() const { return m_quirk; }
 
     void setValue(LengthType t, int value)
     {
-        ASSERT(t != Percent);
-        setRawValue(t, value);
+        m_type = t;
+        m_intValue = value;
+        m_isFloat = false;
     }
-
-    void setRawValue(LengthType t, int value) { m_value = value * 16 | (m_value & 0x8) | t; }
 
     void setValue(int value)
     {
-        ASSERT(!value || type() != Percent);
-        setRawValue(value);
+        setValue(Fixed, value);
     }
 
-    void setRawValue(int value) { m_value = value * 16 | (m_value & 0xF); }
-
-    void setValue(LengthType t, double value)
+    void setValue(LengthType t, float value)
     {
-        ASSERT(t == Percent);
-        m_value = static_cast<int>(value * percentScaleFactor) * 16 | (m_value & 0x8) | t;
+        m_type = t;
+        m_floatValue = value;
+        m_isFloat = true;    
     }
 
-    void setValue(double value)
+    void setValue(float value)
     {
-        ASSERT(type() == Percent);
-        m_value = static_cast<int>(value * percentScaleFactor) * 16 | (m_value & 0xF);
+        *this = Length(value, Fixed);
     }
 
     // note: works only for certain types, returns undefinedLength otherwise
@@ -109,11 +120,8 @@ struct Length : FastAllocBase {
     {
         switch (type()) {
             case Fixed:
-                return value();
             case Percent:
-                if (roundPercentages)
-                    return static_cast<int>(round(maxValue * percent() / 100.0));
-                return maxValue * rawValue() / (100 * percentScaleFactor);
+                return calcMinValue(maxValue, roundPercentages);
             case Auto:
                 return maxValue;
             default:
@@ -128,8 +136,9 @@ struct Length : FastAllocBase {
                 return value();
             case Percent:
                 if (roundPercentages)
-                    return static_cast<int>(round(maxValue * percent() / 100.0));
-                return maxValue * rawValue() / (100 * percentScaleFactor);
+                    return static_cast<int>(round(maxValue * percent() / 100.0f));
+                // Don't remove the extra cast to float. It is needed for rounding on 32-bit Intel machines that use the FPU stack.
+                return static_cast<int>(static_cast<float>(maxValue * percent() / 100.0f));
             case Auto:
             default:
                 return 0;
@@ -140,9 +149,9 @@ struct Length : FastAllocBase {
     {
         switch (type()) {
             case Fixed:
-                return static_cast<float>(value());
+                return getFloatValue();
             case Percent:
-                return static_cast<float>(maxValue * percent() / 100.0);
+                return static_cast<float>(maxValue * percent() / 100.0f);
             case Auto:
                 return static_cast<float>(maxValue);
             default:
@@ -150,19 +159,22 @@ struct Length : FastAllocBase {
         }
     }
 
-    bool isUndefined() const { return rawValue() == undefinedLength; }
-    bool isZero() const { return !(m_value & ~0xF); }
-    bool isPositive() const { return rawValue() > 0; }
-    bool isNegative() const { return rawValue() < 0; }
+    bool isUndefined() const { return value() == undefinedLength; }
+    bool isZero() const 
+    { 
+        return m_isFloat ? !m_floatValue : !m_intValue;
+    }
+    
+    bool isPositive() const { return getFloatValue() > 0; }
+    bool isNegative() const { return getFloatValue() < 0; }
 
     bool isAuto() const { return type() == Auto; }
     bool isRelative() const { return type() == Relative; }
     bool isPercent() const { return type() == Percent; }
     bool isFixed() const { return type() == Fixed; }
-    bool isStatic() const { return type() == Static; }
     bool isIntrinsicOrAuto() const { return type() == Auto || type() == MinIntrinsic || type() == Intrinsic; }
 
-    Length blend(const Length& from, double progress) const
+    Length blend(const Length& from, float progress) const
     {
         // Blend two lengths to produce a new length that is in between them.  Used for animation.
         if (!from.isZero() && !isZero() && from.type() != type())
@@ -176,22 +188,38 @@ struct Length : FastAllocBase {
             resultType = from.type();
         
         if (resultType == Percent) {
-            double fromPercent = from.isZero() ? 0. : from.percent();
-            double toPercent = isZero() ? 0. : percent();
+            float fromPercent = from.isZero() ? 0 : from.percent();
+            float toPercent = isZero() ? 0 : percent();
             return Length(fromPercent + (toPercent - fromPercent) * progress, Percent);
         } 
             
-        int fromValue = from.isZero() ? 0 : from.value();
-        int toValue = isZero() ? 0 : value();
-        return Length(int(fromValue + (toValue - fromValue) * progress), resultType);
+        float fromValue = from.isZero() ? 0 : from.value();
+        float toValue = isZero() ? 0 : value();
+        return Length(fromValue + (toValue - fromValue) * progress, resultType);
     }
 
 private:
-    int m_value;
+    int getIntValue() const
+    {
+        return m_isFloat ? static_cast<int>(m_floatValue) : m_intValue;
+    }
+
+    float getFloatValue() const
+    {
+        return m_isFloat ? m_floatValue : m_intValue;
+    }
+
+    union {
+        int m_intValue;
+        float m_floatValue;
+    };
+    bool m_quirk;
+    unsigned char m_type;
+    bool m_isFloat;
 };
 
-Length* newCoordsArray(const String&, int& len);
-Length* newLengthArray(const String&, int& len);
+PassOwnArrayPtr<Length> newCoordsArray(const String&, int& len);
+PassOwnArrayPtr<Length> newLengthArray(const String&, int& len);
 
 } // namespace WebCore
 

@@ -1,3 +1,14 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-05-06  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* md4c.tcl: Fixed a leak in the critcl implemented due to
+	mismanaged reference counting.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

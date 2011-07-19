@@ -4,8 +4,8 @@
 Project = python
 VERSIONERDIR = /usr/local/versioner
 FIX = $(SRCROOT)/fix
-DEFAULT = 2.6
-VERSIONS = 2.6 2.5
+DEFAULT = 2.7
+VERSIONS = 2.5 2.6 2.7
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 REVERSEVERS := $(filter-out $(DEFAULT),$(VERSIONS)) $(DEFAULT)
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(DSTROOT)$(VERSIONERDIR)/$(Project) -I$(FIX) -framework CoreFoundation
@@ -49,9 +49,13 @@ endif
 # incompatible.  So we force python to use a version-specific name for the
 # compiler, which will be recorded, and used in all subsequent extension
 # (and other) builds.
+#
+# 7215121 - for now, we assume cc and c++ are symbolic links to the
+# version-specific name of the compiler.  If/when this changes, this
+# fix will have to be redone.
 ##---------------------------------------------------------------------
-export WITH_GCC = gcc-$(shell gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/')
-export WITH_GXX = g++-$(shell gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/')
+export WITH_GCC = $(shell test -L /usr/bin/cc && basename `readlink /usr/bin/cc` || gcc-`gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
+export WITH_GXX = $(shell test -L /usr/bin/c++ && basename `readlink /usr/bin/c++` || g++-`g++ -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\{1,\}\).*/\1/'`)
 
 ##---------------------------------------------------------------------
 # The "strip" perl script, works around a verification error caused by a
@@ -63,7 +67,7 @@ export WITH_GXX = g++-$(shell gcc -dumpversion | sed -e 's/\([0-9]\{1,\}\.[0-9]\
 # The cc/gcc scripts take a -no64 argument, which causes 64-bit architectures
 # to be removed, before calling the real compiler.
 ##---------------------------------------------------------------------
-export PATH:=$(SRCROOT)/bin:$(PATH)
+export PATH:=$(OBJROOT)/bin:$(PATH)
 
 TESTOK := -f $(shell echo $(foreach vers,$(VERSIONS),$(OBJROOT)/$(vers)/.ok) | sed 's/ / -a -f /g')
 
@@ -76,6 +80,8 @@ VERSIONMANLIST = $(VERSIONERDIR)/$(Project)/usr-share-man.list
 VERSIONERFIX = dummy.py scriptvers.ed
 build::
 	$(RSYNC) '$(SRCROOT)/' '$(OBJROOT)'
+	ln -sf gcc $(OBJROOT)/bin/$(WITH_GCC)
+	ln -sf gcc $(OBJROOT)/bin/$(WITH_GXX)
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    mkdir -p "$(SYMROOT)/$$vers" && \
@@ -107,10 +113,6 @@ build::
 	    echo '#### error detected, not merging'; \
 	    exit 1; \
 	fi
-
-install_source::
-	ln -sf gcc $(SRCROOT)/bin/$(WITH_GCC)
-	ln -sf gcc $(SRCROOT)/bin/$(WITH_GXX)
 
 ##---------------------------------------------------------------------
 # After the rest of the merge, we need to merge /usr/lib manually.  The

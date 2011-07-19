@@ -311,6 +311,8 @@ FILES_lib_objs = \
 	$(OBJDIR)/rand.o \
 	$(OBJDIR)/readwrite.o \
 	$(OBJDIR)/seek.o \
+	$(OBJDIR)/pollcb.o \
+	$(OBJDIR)/pollset.o \
 	$(OBJDIR)/select.o \
 	$(OBJDIR)/sendrecv.o \
 	$(OBJDIR)/sha2.o \
@@ -318,6 +320,7 @@ FILES_lib_objs = \
 	$(OBJDIR)/shm.o \
 	$(OBJDIR)/signals.o \
 	$(OBJDIR)/sockaddr.o \
+	$(OBJDIR)/socket_util.o \
 	$(OBJDIR)/sockets.o \
 	$(OBJDIR)/sockopt.o \
 	$(OBJDIR)/start.o \
@@ -364,6 +367,10 @@ installdev :: $(INSTDEVDIRS) FORCE
 	-$(CP) $(subst /,\,$(APRUTIL))\include\*.h         $(INSTALLBASE)\include\*.*
 	-$(CP) $(subst /,\,$(APR))\*.imp                   $(INSTALLBASE)\lib\*.*
 	-$(CP) $(subst /,\,$(APR))\misc\netware\*.xdc      $(INSTALLBASE)\lib\*.*
+	-$(CP) $(subst /,\,$(APRLIB))                      $(INSTALLBASE)\lib\*.*
+	-$(CP) $(subst /,\,$(APRUTLIB))                    $(INSTALLBASE)\lib\*.*
+	-$(CP) $(subst /,\,$(APULDAPLIB))                  $(INSTALLBASE)\lib\*.*
+	-$(CP) $(subst /,\,$(XMLLIB))                      $(INSTALLBASE)\lib\*.*
 
 $(INSTDEVDIRS) ::
 	$(CHKNOT) $@\NUL mkdir $@

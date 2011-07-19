@@ -1,0 +1,20 @@
+
+- Check performance of keytabs
+   - improve
+
+- rd_req server
+
+- Make free_entry a HDB function instead of entry function
+
+- Add ability to HDB to push in configuration for the KDC
+
+- Push CrackName() to hdb backends
+
+- KDC configuration
+
+  - KDC behavior
+    -- ports
+    -- global configuration
+       -- listing port
+    -- per realm configuration
+       -- pkinit certificate

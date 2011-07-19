@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 #  dropsite.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: dropsite.tcl,v 1.7 2003/10/20 21:23:52 damonc Exp $
+#  $Id: dropsite.tcl,v 1.8 2009/06/30 16:17:37 oehhar Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - DropSite::include
@@ -150,6 +150,7 @@ proc DropSite::register { path args } {
         set drop(overcmd) $overcmd
         foreach {type ops} $types {
             set drop($type,ops) {}
+            set masklist {}
             foreach {descop lmod} $ops {
                 if { ![llength $descop] || [llength $descop] > 3 } {
                     return -code error "invalid operation description \"$descop\""

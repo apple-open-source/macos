@@ -24,6 +24,7 @@
 
 #include "PopupMenuStyle.h"
 #include "ScrollTypes.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
@@ -31,15 +32,18 @@ class Color;
 class FontSelector;
 class HostWindow;
 class Scrollbar;
-class ScrollbarClient;
-class String;
+class ScrollableArea;
 
 class PopupMenuClient {
 public:
     virtual ~PopupMenuClient() {}
     virtual void valueChanged(unsigned listIndex, bool fireEvents = true) = 0;
+    virtual void selectionChanged(unsigned listIndex, bool fireEvents = true) = 0;
+    virtual void selectionCleared() = 0;
 
     virtual String itemText(unsigned listIndex) const = 0;
+    virtual String itemLabel(unsigned listIndex) const = 0;
+    virtual String itemIcon(unsigned listIndex) const = 0;
     virtual String itemToolTip(unsigned listIndex) const = 0;
     virtual String itemAccessibilityText(unsigned listIndex) const = 0;
     virtual bool itemIsEnabled(unsigned listIndex) const = 0;
@@ -58,11 +62,11 @@ public:
     virtual bool shouldPopOver() const = 0;
     virtual bool valueShouldChangeOnHotTrack() const = 0;
     virtual void setTextFromItem(unsigned listIndex) = 0;
-    
+
     virtual FontSelector* fontSelector() const = 0;
     virtual HostWindow* hostWindow() const = 0;
-    
-    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize) = 0;
+
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize) = 0;
 };
 
 #if ENABLE(NO_LISTBOX_RENDERING)

@@ -1,0 +1,52 @@
+--- Misc/python.man.orig	2010-10-13 15:25:26.000000000 -0700
++++ Misc/python.man	2010-11-29 13:23:14.000000000 -0800
+@@ -423,6 +423,49 @@
+ .IP PYTHONWARNINGS
+ If this is set to a comma-separated string it is equivalent to
+ specifying the \fB\-W\fP option for each separate value.
++.SH INTERACTIVE INPUT EDITING AND HISTORY SUBSTITUTION
++The Python inteterpreter supports editing of the current input line and
++history substitution, similar to facilities found in the Korn shell and
++the GNU Bash shell.
++However, rather than being implemented using the GNU Readline library, this
++Python interpreter uses the BSD EditLine library
++.BR editline (3)
++with a GNU Readline emulation layer.
++.PP
++The
++.I readline
++module provides the access to the EditLine library, but there are a few major
++differences compared to a traditional implementation using the Readline library.
++The command language used in the preference files is that of EditLine,
++as described in
++.BR editrc (5)
++and not that used by the Readline library.
++This also means that the
++.IR parse_and_bind ()
++routines uses EditLine commands.
++And the preference file itself is
++.I ~/.editrc
++instead of
++.IR ~/.inputrc .
++.PP
++For example, the
++.I rlcompleter
++module, which defines a completion function for the
++.I readline
++modules, works correctly with the EditLine libraries, but needs to be
++initialized somewhat differently:
++.IP
++import rlcompleter
++.br
++import readline
++.br
++readline.parse_and_bind("bind ^I rl_complete")
++.PP
++For
++.I vi
++mode, one needs:
++.IP
++readline.parse_and_bind("bind -v")
+ .SH AUTHOR
+ The Python Software Foundation: http://www.python.org/psf
+ .SH INTERNET RESOURCES

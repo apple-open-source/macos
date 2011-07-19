@@ -35,11 +35,13 @@ WebInspector.Drawer = function()
     this.state = WebInspector.Drawer.State.Hidden;
     this.fullPanel = false;
 
-    this.mainElement = document.getElementById("main");
-    this.toolbarElement = document.getElementById("toolbar");
-    this.mainStatusBar = document.getElementById("main-status-bar");
-    this.mainStatusBar.addEventListener("mousedown", this._startStatusBarDragging.bind(this), true);
-    this.viewStatusBar = document.getElementById("other-drawer-status-bar-items");
+    this._mainElement = document.getElementById("main");
+    this._toolbarElement = document.getElementById("toolbar");
+    this._mainStatusBar = document.getElementById("main-status-bar");
+    this._mainStatusBar.addEventListener("mousedown", this._startStatusBarDragging.bind(this), true);
+    this._viewStatusBar = document.getElementById("other-drawer-status-bar-items");
+    this._counters = document.getElementById("counters");
+    this._drawerStatusBar = document.getElementById("drawer-status-bar");
 }
 
 WebInspector.Drawer.prototype = {
@@ -65,8 +67,8 @@ WebInspector.Drawer.prototype = {
 
         if (x && !firstTime) {
             this._safelyRemoveChildren();
-            this.viewStatusBar.removeChildren(); // optimize this? call old.detach()
-            x.attach(this.element, this.viewStatusBar);
+            this._viewStatusBar.removeChildren(); // optimize this? call old.detach()
+            x.attach(this.element, this._viewStatusBar);
             x.show();
             this.visible = true;
         }
@@ -75,7 +77,7 @@ WebInspector.Drawer.prototype = {
     get savedHeight()
     {
         var height = this._savedHeight || this.element.offsetHeight;
-        return Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - this.mainElement.totalOffsetTop - Preferences.minConsoleHeight);
+        return Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - this._mainElement.totalOffsetTop - Preferences.minConsoleHeight);
     },
 
     showView: function(view)
@@ -99,16 +101,24 @@ WebInspector.Drawer.prototype = {
         document.body.addStyleClass("drawer-visible");
 
         var anchoredItems = document.getElementById("anchored-status-bar-items");
-        var height = (this.fullPanel ? window.innerHeight - this.toolbarElement.offsetHeight : this.savedHeight);
+        var height = (this.fullPanel ? window.innerHeight - this._toolbarElement.offsetHeight : this.savedHeight);
         var animations = [
             {element: this.element, end: {height: height}},
-            {element: document.getElementById("main"), end: {bottom: height}},
-            {element: document.getElementById("main-status-bar"), start: {"padding-left": anchoredItems.offsetWidth - 1}, end: {"padding-left": 0}},
-            {element: document.getElementById("other-drawer-status-bar-items"), start: {opacity: 0}, end: {opacity: 1}}
+            {element: this._mainElement, end: {bottom: height}},
+            {element: this._mainStatusBar, start: {"padding-left": anchoredItems.offsetWidth - 1}, end: {"padding-left": 0}},
+            {element: this._viewStatusBar, start: {opacity: 0}, end: {opacity: 1}}
         ];
 
-        var drawerStatusBar = document.getElementById("drawer-status-bar");
-        drawerStatusBar.insertBefore(anchoredItems, drawerStatusBar.firstChild);
+        this._drawerStatusBar.insertBefore(anchoredItems, this._drawerStatusBar.firstChild);
+
+        if (this._currentPanelCounters) {
+            var oldRight = this._drawerStatusBar.clientWidth - (this._counters.offsetLeft + this._currentPanelCounters.offsetWidth);
+            var newRight = WebInspector.Panel.counterRightMargin;
+            var rightPadding = (oldRight - newRight);
+            animations.push({element: this._currentPanelCounters, start: {"padding-right": rightPadding}, end: {"padding-right": 0}});
+            this._currentPanelCounters.parentNode.removeChild(this._currentPanelCounters);
+            this._mainStatusBar.appendChild(this._currentPanelCounters);
+        }
 
         function animationFinished()
         {
@@ -117,11 +127,13 @@ WebInspector.Drawer.prototype = {
             if (this.visibleView.afterShow)
                 this.visibleView.afterShow();
             delete this._animating;
-            delete this._currentAnimationInterval;
+            delete this._currentAnimation;
             this.state = (this.fullPanel ? WebInspector.Drawer.State.Full : WebInspector.Drawer.State.Variable);
+            if (this._currentPanelCounters)
+                this._currentPanelCounters.removeAttribute("style");
         }
 
-        this._currentAnimationInterval = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
+        this._currentAnimation = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
     },
 
     hide: function()
@@ -146,31 +158,44 @@ WebInspector.Drawer.prototype = {
 
         // Temporarily set properties and classes to mimic the post-animation values so panels
         // like Elements in their updateStatusBarItems call will size things to fit the final location.
-        this.mainStatusBar.style.setProperty("padding-left", (anchoredItems.offsetWidth - 1) + "px");
+        this._mainStatusBar.style.setProperty("padding-left", (anchoredItems.offsetWidth - 1) + "px");
         document.body.removeStyleClass("drawer-visible");
         if ("updateStatusBarItems" in WebInspector.currentPanel)
             WebInspector.currentPanel.updateStatusBarItems();
         document.body.addStyleClass("drawer-visible");
 
         var animations = [
-            {element: document.getElementById("main"), end: {bottom: 0}},
-            {element: document.getElementById("main-status-bar"), start: {"padding-left": 0}, end: {"padding-left": anchoredItems.offsetWidth - 1}},
-            {element: document.getElementById("other-drawer-status-bar-items"), start: {opacity: 1}, end: {opacity: 0}}
+            {element: this._mainElement, end: {bottom: 0}},
+            {element: this._mainStatusBar, start: {"padding-left": 0}, end: {"padding-left": anchoredItems.offsetWidth - 1}},
+            {element: this._viewStatusBar, start: {opacity: 1}, end: {opacity: 0}}
         ];
+
+        if (this._currentPanelCounters) {
+            var newRight = this._drawerStatusBar.clientWidth - this._counters.offsetLeft;
+            var oldRight = this._mainStatusBar.clientWidth - (this._currentPanelCounters.offsetLeft + this._currentPanelCounters.offsetWidth);
+            var rightPadding = (newRight - oldRight);
+            animations.push({element: this._currentPanelCounters, start: {"padding-right": 0}, end: {"padding-right": rightPadding}});
+        }
 
         function animationFinished()
         {
             WebInspector.currentPanel.resize();
-            var mainStatusBar = document.getElementById("main-status-bar");
-            mainStatusBar.insertBefore(anchoredItems, mainStatusBar.firstChild);
-            mainStatusBar.style.removeProperty("padding-left");
+            this._mainStatusBar.insertBefore(anchoredItems, this._mainStatusBar.firstChild);
+            this._mainStatusBar.style.removeProperty("padding-left");
+
+            if (this._currentPanelCounters) {
+                this._currentPanelCounters.setAttribute("style", null);
+                this._currentPanelCounters.parentNode.removeChild(this._currentPanelCounters);
+                this._counters.insertBefore(this._currentPanelCounters, this._counters.firstChild);
+            }
+
             document.body.removeStyleClass("drawer-visible");
             delete this._animating;
-            delete this._currentAnimationInterval;
+            delete this._currentAnimation;
             this.state = WebInspector.Drawer.State.Hidden;
         }
 
-        this._currentAnimationInterval = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
+        this._currentAnimation = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
     },
 
     resize: function()
@@ -179,14 +204,13 @@ WebInspector.Drawer.prototype = {
             return;
 
         var height;
-        var mainElement = document.getElementById("main");
         if (this.state === WebInspector.Drawer.State.Variable) {
             height = parseInt(this.element.style.height);
-            height = Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - mainElement.totalOffsetTop - Preferences.minConsoleHeight);
+            height = Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - this._mainElement.totalOffsetTop - Preferences.minConsoleHeight);
         } else
-            height = window.innerHeight - this.toolbarElement.offsetHeight;
+            height = window.innerHeight - this._toolbarElement.offsetHeight;
 
-        mainElement.style.bottom = height + "px";
+        this._mainElement.style.bottom = height + "px";
         this.element.style.height = height + "px";
     },
 
@@ -197,7 +221,7 @@ WebInspector.Drawer.prototype = {
         
         if (this.visible) {
             this._savedHeight = this.element.offsetHeight;
-            var height = window.innerHeight - this.toolbarElement.offsetHeight;
+            var height = window.innerHeight - this._toolbarElement.offsetHeight;
             this._animateDrawerHeight(height, WebInspector.Drawer.State.Full);
         }
     },
@@ -222,12 +246,35 @@ WebInspector.Drawer.prototype = {
         this.fullPanel = false;
     },
 
+    immediatelyFinishAnimation: function()
+    {
+        if (this._currentAnimation)
+            this._currentAnimation.forceComplete();
+    },
+
+    set currentPanelCounters(x)
+    {
+        if (!x) {
+            if (this._currentPanelCounters)
+                this._currentPanelCounters.parentElement.removeChild(this._currentPanelCounters);
+            delete this._currentPanelCounters;
+            return;
+        }
+
+        this._currentPanelCounters = x;
+        if (this.visible)
+            this._mainStatusBar.appendChild(x);
+        else
+            this._counters.insertBefore(x, this._counters.firstChild);
+    },
+
     _cancelAnimationIfNeeded: function()
     {
         if (this._animating) {
-            clearInterval(this._currentAnimationInterval);
+            if (this._currentAnimation)
+                this._currentAnimation.cancel();
             delete this._animating;
-            delete this._currentAnimationInterval;
+            delete this._currentAnimation;
         }
     },
 
@@ -236,17 +283,17 @@ WebInspector.Drawer.prototype = {
         this._animating = true;
         var animations = [
             {element: this.element, end: {height: height}},
-            {element: document.getElementById("main"), end: {bottom: height}}
+            {element: this._mainElement, end: {bottom: height}}
         ];
 
         function animationFinished()
         {
             delete this._animating;
-            delete this._currentAnimationInterval;
+            delete this._currentAnimation;
             this.state = finalState;
         }
 
-        this._currentAnimationInterval = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
+        this._currentAnimation = WebInspector.animateStyle(animations, this._animationDuration(), animationFinished.bind(this));
     },
 
     _animationDuration: function()
@@ -273,10 +320,10 @@ WebInspector.Drawer.prototype = {
 
     _startStatusBarDragging: function(event)
     {
-        if (!this.visible || event.target !== this.mainStatusBar)
+        if (!this.visible || event.target !== this._mainStatusBar)
             return;
 
-        WebInspector.elementDragStart(this.mainStatusBar, this._statusBarDragging.bind(this), this._endStatusBarDragging.bind(this), event, "row-resize");
+        WebInspector.elementDragStart(this._mainStatusBar, this._statusBarDragging.bind(this), this._endStatusBarDragging.bind(this), event, "row-resize");
 
         this._statusBarDragOffset = event.pageY - this.element.totalOffsetTop;
 
@@ -285,11 +332,10 @@ WebInspector.Drawer.prototype = {
 
     _statusBarDragging: function(event)
     {
-        var mainElement = document.getElementById("main");
         var height = window.innerHeight - event.pageY + this._statusBarDragOffset;
-        height = Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - mainElement.totalOffsetTop - Preferences.minConsoleHeight);
+        height = Number.constrain(height, Preferences.minConsoleHeight, window.innerHeight - this._mainElement.totalOffsetTop - Preferences.minConsoleHeight);
 
-        mainElement.style.bottom = height + "px";
+        this._mainElement.style.bottom = height + "px";
         this.element.style.height = height + "px";
 
         event.preventDefault();

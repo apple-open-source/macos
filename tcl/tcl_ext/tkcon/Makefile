@@ -9,8 +9,8 @@ Project               = tkcon
 License               = docs/license.terms
 
 # Fetch info
-Release               = 2.5
-TEApotVersion         = 0.0.0.2008.02.07.23.12.46
+Release               = 2.6
+TEApotVersion         = 0.0.0.2010.08.18.09.08.05
 
 Configure             = :
 

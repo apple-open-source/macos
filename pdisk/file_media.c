@@ -196,7 +196,7 @@ compute_block_size(int fd)
 	    }
 	}
     }
-    return 0;
+    return potential_block_sizes[0];
 }
 
 
@@ -282,7 +282,7 @@ read_file_media(MEDIA m, long long offset, unsigned long count, void *address)
 	/* do the read */
 	off = offset;
 	if ((off = llseek(a->fd, off, 0)) >= 0) {
-	    if ((t = read(a->fd, address, count)) == count) {
+	    if ((t = read(a->fd, address, count)) == (ssize_t)count) {
 		rtn_value = 1;
 	    } else {
 		// fprintf(stderr,"read failed\n");
@@ -319,7 +319,7 @@ write_file_media(MEDIA m, long long offset, unsigned long count, void *address)
 	/* do the write  */
 	off = offset;
 	if ((off = llseek(a->fd, off, 0)) >= 0) {
-	    if ((t = write(a->fd, address, count)) == count) {
+		if ((t = write(a->fd, address, count)) == (ssize_t)count) {
 		if (off + count > a->m.size_in_bytes) {
 			a->m.size_in_bytes = off + count;
 		}

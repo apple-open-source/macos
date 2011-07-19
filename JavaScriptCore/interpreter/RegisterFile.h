@@ -29,18 +29,14 @@
 #ifndef RegisterFile_h
 #define RegisterFile_h
 
-#include "Collector.h"
+#include "Heap.h"
 #include "ExecutableAllocator.h"
 #include "Register.h"
-#include "WeakGCPtr.h"
+#include "Weak.h"
 #include <stdio.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/PageReservation.h>
 #include <wtf/VMTags.h>
-
-#if HAVE(MMAP)
-#include <errno.h>
-#include <sys/mman.h>
-#endif
 
 namespace JSC {
 
@@ -93,40 +89,38 @@ namespace JSC {
 
     class JSGlobalObject;
 
-    class RegisterFile : public Noncopyable {
-        friend class JIT;
+    class RegisterFile {
+        WTF_MAKE_NONCOPYABLE(RegisterFile);
     public:
         enum CallFrameHeaderEntry {
-            CallFrameHeaderSize = 8,
+            CallFrameHeaderSize = 6,
 
-            CodeBlock = -8,
-            ScopeChain = -7,
-            CallerFrame = -6,
-            ReturnPC = -5, // This is either an Instruction* or a pointer into JIT generated code stored as an Instruction*.
-            ReturnValueRegister = -4,
-            ArgumentCount = -3,
-            Callee = -2,
-            OptionalCalleeArguments = -1,
+            ArgumentCount = -6,
+            CallerFrame = -5,
+            Callee = -4,
+            ScopeChain = -3,
+            ReturnPC = -2, // This is either an Instruction* or a pointer into JIT generated code stored as an Instruction*.
+            CodeBlock = -1,
         };
 
         enum { ProgramCodeThisRegister = -CallFrameHeaderSize - 1 };
-        enum { ArgumentsRegister = 0 };
 
-        static const size_t defaultCapacity = 524288;
-        static const size_t defaultMaxGlobals = 8192;
-        static const size_t commitSize = 1 << 14;
+        static const size_t defaultCapacity = 512 * 1024;
+        static const size_t defaultMaxGlobals = 8 * 1024;
+        static const size_t commitSize = 16 * 1024;
         // Allow 8k of excess registers before we start trying to reap the registerfile
         static const ptrdiff_t maxExcessCapacity = 8 * 1024;
 
-        RegisterFile(size_t capacity = defaultCapacity, size_t maxGlobals = defaultMaxGlobals);
+        RegisterFile(JSGlobalData&, size_t capacity = defaultCapacity, size_t maxGlobals = defaultMaxGlobals);
         ~RegisterFile();
+        
+        void gatherConservativeRoots(ConservativeRoots&);
 
         Register* start() const { return m_start; }
         Register* end() const { return m_end; }
         size_t size() const { return m_end - m_start; }
 
         void setGlobalObject(JSGlobalObject*);
-        bool clearGlobalObject(JSGlobalObject*);
         JSGlobalObject* globalObject();
 
         bool grow(Register* newEnd);
@@ -138,85 +132,53 @@ namespace JSC {
 
         Register* lastGlobal() const { return m_start - m_numGlobals; }
         
-        void markGlobals(MarkStack& markStack, Heap* heap) { heap->markConservatively(markStack, lastGlobal(), m_start); }
-        void markCallFrames(MarkStack& markStack, Heap* heap) { heap->markConservatively(markStack, m_start, m_end); }
+        static size_t committedByteCount();
+        static void initializeThreading();
+
+        Register* const * addressOfEnd() const
+        {
+            return &m_end;
+        }
 
     private:
         void releaseExcessCapacity();
+        void addToCommittedByteCount(long);
         size_t m_numGlobals;
         const size_t m_maxGlobals;
         Register* m_start;
         Register* m_end;
         Register* m_max;
-        Register* m_buffer;
         Register* m_maxUsed;
-
-#if HAVE(VIRTUALALLOC)
         Register* m_commitEnd;
-#endif
+        PageReservation m_reservation;
 
-        WeakGCPtr<JSGlobalObject> m_globalObject; // The global object whose vars are currently stored in the register file.
+        Weak<JSGlobalObject> m_globalObject; // The global object whose vars are currently stored in the register file.
+        class GlobalObjectOwner : public WeakHandleOwner {
+            virtual void finalize(Handle<Unknown>, void* context)
+            {
+                static_cast<RegisterFile*>(context)->setNumGlobals(0);
+            }
+        } m_globalObjectOwner;
     };
 
-    // FIXME: Add a generic getpagesize() to WTF, then move this function to WTF as well.
-    inline bool isPageAligned(size_t size) { return size != 0 && size % (8 * 1024) == 0; }
-
-    inline RegisterFile::RegisterFile(size_t capacity, size_t maxGlobals)
+    inline RegisterFile::RegisterFile(JSGlobalData& globalData, size_t capacity, size_t maxGlobals)
         : m_numGlobals(0)
         , m_maxGlobals(maxGlobals)
         , m_start(0)
         , m_end(0)
         , m_max(0)
-        , m_buffer(0)
+        , m_globalObject(globalData, 0, &m_globalObjectOwner, this)
     {
-        // Verify that our values will play nice with mmap and VirtualAlloc.
-        ASSERT(isPageAligned(maxGlobals));
-        ASSERT(isPageAligned(capacity));
-
+        ASSERT(maxGlobals && isPageAligned(maxGlobals));
+        ASSERT(capacity && isPageAligned(capacity));
         size_t bufferLength = (capacity + maxGlobals) * sizeof(Register);
-    #if HAVE(MMAP)
-        m_buffer = static_cast<Register*>(mmap(0, bufferLength, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON, VM_TAG_FOR_REGISTERFILE_MEMORY, 0));
-        if (m_buffer == MAP_FAILED) {
-#if OS(WINCE)
-            fprintf(stderr, "Could not allocate register file: %d\n", GetLastError());
-#else
-            fprintf(stderr, "Could not allocate register file: %d\n", errno);
-#endif
-            CRASH();
-        }
-    #elif HAVE(VIRTUALALLOC)
-        m_buffer = static_cast<Register*>(VirtualAlloc(0, roundUpAllocationSize(bufferLength, commitSize), MEM_RESERVE, PAGE_READWRITE));
-        if (!m_buffer) {
-#if OS(WINCE)
-            fprintf(stderr, "Could not allocate register file: %d\n", GetLastError());
-#else
-            fprintf(stderr, "Could not allocate register file: %d\n", errno);
-#endif
-            CRASH();
-        }
+        m_reservation = PageReservation::reserve(roundUpAllocationSize(bufferLength, commitSize), OSAllocator::JSVMStackPages);
+        void* base = m_reservation.base();
         size_t committedSize = roundUpAllocationSize(maxGlobals * sizeof(Register), commitSize);
-        void* commitCheck = VirtualAlloc(m_buffer, committedSize, MEM_COMMIT, PAGE_READWRITE);
-        if (commitCheck != m_buffer) {
-#if OS(WINCE)
-            fprintf(stderr, "Could not allocate register file: %d\n", GetLastError());
-#else
-            fprintf(stderr, "Could not allocate register file: %d\n", errno);
-#endif
-            CRASH();
-        }
-        m_commitEnd = reinterpret_cast<Register*>(reinterpret_cast<char*>(m_buffer) + committedSize);
-    #else 
-        /* 
-         * If neither MMAP nor VIRTUALALLOC are available - use fastMalloc instead.
-         *
-         * Please note that this is the fallback case, which is non-optimal.
-         * If any possible, the platform should provide for a better memory
-         * allocation mechanism that allows for "lazy commit" or dynamic
-         * pre-allocation, similar to mmap or VirtualAlloc, to avoid waste of memory.
-         */
-        m_buffer = static_cast<Register*>(fastMalloc(bufferLength));
-    #endif
-        m_start = m_buffer + maxGlobals;
+        m_reservation.commit(base, committedSize);
+        addToCommittedByteCount(static_cast<long>(committedSize));
+        m_commitEnd = reinterpret_cast_ptr<Register*>(reinterpret_cast<char*>(base) + committedSize);
+        m_start = static_cast<Register*>(base) + maxGlobals;
         m_end = m_start;
         m_maxUsed = m_end;
         m_max = m_start + capacity;
@@ -239,20 +201,12 @@ namespace JSC {
         if (newEnd > m_max)
             return false;
 
-#if !HAVE(MMAP) && HAVE(VIRTUALALLOC)
         if (newEnd > m_commitEnd) {
             size_t size = roundUpAllocationSize(reinterpret_cast<char*>(newEnd) - reinterpret_cast<char*>(m_commitEnd), commitSize);
-            if (!VirtualAlloc(m_commitEnd, size, MEM_COMMIT, PAGE_READWRITE)) {
-#if OS(WINCE)
-                fprintf(stderr, "Could not allocate register file: %d\n", GetLastError());
-#else
-                fprintf(stderr, "Could not allocate register file: %d\n", errno);
-#endif
-                CRASH();
-            }
-            m_commitEnd = reinterpret_cast<Register*>(reinterpret_cast<char*>(m_commitEnd) + size);
+            m_reservation.commit(m_commitEnd, size);
+            addToCommittedByteCount(static_cast<long>(size));
+            m_commitEnd = reinterpret_cast_ptr<Register*>(reinterpret_cast<char*>(m_commitEnd) + size);
         }
-#endif
 
         if (newEnd > m_maxUsed)
             m_maxUsed = newEnd;

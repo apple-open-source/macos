@@ -1,4 +1,4 @@
-Copyright (c) 1996,1998-2005, 2007-2008
+Copyright (c) 1996,1998-2005, 2007-2010
 	Todd C. Miller <Todd.Miller@courtesan.com>
 
 Permission to use, copy, modify, and distribute this software for any
@@ -18,7 +18,6 @@ Sponsored in part by the Defense Advanced Research Projects
 Agency (DARPA) and Air Force Research Laboratory, Air Force
 Materiel Command, USAF, under agreement number F39502-99-1-0512.
 
-$Sudo: visudo.pod,v 1.55 2008/11/15 18:34:01 millert Exp $
 =pod
 
 =head1 NAME
@@ -37,13 +36,12 @@ simultaneous edits, provides basic sanity checks, and checks
 for parse errors.  If the I<sudoers> file is currently being
 edited you will receive a message to try again later.
 
-There is a hard-coded list of editors that B<visudo> will use set
-at compile-time that may be overridden via the I<editor> I<sudoers>
-C<Default> variable.  This list defaults to the path to L<vi(1)> on
-your system, as determined by the I<configure> script.  Normally,
+There is a hard-coded list of one or more editors that B<visudo> will
+use set at compile-time that may be overridden via the I<editor> I<sudoers>
+C<Default> variable.  This list defaults to C<"@editor@">.  Normally,
 B<visudo> does not honor the C<VISUAL> or C<EDITOR> environment
 variables unless they contain an editor in the aforementioned editors
-list.  However, if B<visudo> is configured with the I<--with-enveditor>
+list.  However, if B<visudo> is configured with the I<--with-env-editor>
 option or the I<env_editor> C<Default> variable is set in I<sudoers>,
 B<visudo> will use any the editor defines by C<VISUAL> or C<EDITOR>.
 Note that this can be a security hole since it allows the user to
@@ -96,7 +94,7 @@ the B<-c> option.
 Enable B<strict> checking of the I<sudoers> file.  If an alias is
 used before it is defined, B<visudo> will consider this a parse
 error.  Note that it is not possible to differentiate between an
-alias and a hostname or username that consists solely of uppercase
+alias and a host name or user name that consists solely of uppercase
 letters, digits, and the underscore ('_') character.
 
 =item -V
@@ -156,7 +154,7 @@ Your userid does not appear in the system passwd file.
 =item Warning: {User,Runas,Host,Cmnd}_Alias referenced but not defined
 
 Either you are trying to use an undeclare {User,Runas,Host,Cmnd}_Alias
-or you have a user or hostname listed that consists solely of
+or you have a user or host name listed that consists solely of
 uppercase letters, digits, and the underscore ('_') character.  In
 the latter case, you can ignore the warnings (B<sudo> will not
 complain).  In B<-s> (strict) mode these are errors, not warnings.

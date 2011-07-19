@@ -46,7 +46,7 @@
 #include <mach/mach_error.h>
 #include "stuff/allocate.h"
 #include "stuff/errors.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/bytesex.h"
 
 /* These variables are set from the command line arguments */
@@ -450,7 +450,7 @@ uint32_t size)
 	    if(ep->found == 0 &&
 	       strncmp(ep->segname, segname, 16) == 0 &&
 	       strncmp(ep->sectname, sectname, 16) == 0){
-		if(flags == S_ZEROFILL)
+		if(flags == S_ZEROFILL || flags == S_THREAD_LOCAL_ZEROFILL)
 		    fatal("meaningless to extract zero fill "
 			  "section (%s,%s) in: %s", segname,
 			  sectname, input);
@@ -624,9 +624,11 @@ replace_sections(void)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LOAD_UPWARD_DYLIB:
 	    case LC_ID_DYLIB:
 	    case LC_LOAD_DYLINKER:
 	    case LC_ID_DYLINKER:
+	    case LC_DYLD_ENVIRONMENT:
 		break;
 	    default:
 		error("unknown load command %u (result maybe bad)", i);
@@ -722,7 +724,7 @@ replace_sections(void)
 					   sizeof(sp->sectname)) == 0){
 				    sects[k + j].rp = rp;
 				    segs[i].modified = 1;
-				    sp->size = round(rp->size, 1 << sp->align);
+				    sp->size = rnd(rp->size, 1 << sp->align);
 				    break;
 				}
 				rp = rp->next;
@@ -734,14 +736,14 @@ replace_sections(void)
 			}
 			if(strcmp(segs[i].sgp->segname, SEG_LINKEDIT) != 0 ||
 			   i != nsegs - 1){
-			    if(segs[i].sgp->filesize != round(oldsectsize,
+			    if(segs[i].sgp->filesize != rnd(oldsectsize,
 							      pagesize))
 				fatal("contents of input file: %s not in a "
 				      "format that the specified sections can "
 				      "be replaced by this program", input);
 			    segs[i].sgp->filesize =
-				round(newsectsize, pagesize);
-			    segs[i].sgp->vmsize = round(newsectsize, pagesize);
+				rnd(newsectsize, pagesize);
+			    segs[i].sgp->vmsize = rnd(newsectsize, pagesize);
 			    segs[i].padsize =
 				segs[i].sgp->filesize  - newsectsize;
 			}
@@ -790,7 +792,7 @@ replace_sections(void)
 					   sizeof(sp->sectname)) == 0){
 				    sects[k + j].rp = rp;
 				    segs[i].modified = 1;
-				    sp->size = round(rp->size, 1 << sp->align);
+				    sp->size = rnd(rp->size, 1 << sp->align);
 				    break;
 				}
 				rp = rp->next;
@@ -802,15 +804,15 @@ replace_sections(void)
 			}
 			if(strcmp(segs[i].sgp64->segname, SEG_LINKEDIT) != 0 ||
 			   i != nsegs - 1){
-			    if(segs[i].sgp64->filesize != round(oldsectsize,
+			    if(segs[i].sgp64->filesize != rnd(oldsectsize,
 							      pagesize))
 				fatal("contents of input file: %s not in a "
 				      "format that the specified sections can "
 				      "be replaced by this program", input);
 			    segs[i].sgp64->filesize =
-				round(newsectsize, pagesize);
+				rnd(newsectsize, pagesize);
 			    segs[i].sgp64->vmsize =
-				round(newsectsize, pagesize);
+				rnd(newsectsize, pagesize);
 			    segs[i].padsize =
 				segs[i].sgp64->filesize  - newsectsize;
 			}
@@ -1108,7 +1110,8 @@ uint32_t size)
 		       sizeof(segname)) == 0 &&
 	       strncmp(rp->sectname, sectname,
 		       sizeof(sectname)) == 0){
-		if(sect_flags == S_ZEROFILL){
+		if(sect_flags == S_ZEROFILL ||
+		   sect_flags == S_THREAD_LOCAL_ZEROFILL){
 		    error("can't replace zero fill section (%.16s,"
 			  "%.16s) in: %s", segname,
 			  sectname, input);

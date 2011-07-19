@@ -44,9 +44,16 @@
 		05D0BC8406A87338001F9A43 /* cssmapplePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D0BC8206A87338001F9A43 /* cssmapplePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		05D0BC8506A87338001F9A43 /* ocspTemplates.h in Headers */ = {isa = PBXBuildFile; fileRef = 05D0BC8306A87338001F9A43 /* ocspTemplates.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		089C1668FE841158C02AAC07 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = 089C1666FE841158C02AAC07 /* InfoPlist.strings */; };
+		12D4A8AC1226F92D00C2B581 /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 12D4A8AB1226F92D00C2B581 /* libz.dylib */; };
+		12D4A8BF1226FAD900C2B581 /* SecRandomP.h in Headers */ = {isa = PBXBuildFile; fileRef = 12D4A8BE1226FAD900C2B581 /* SecRandomP.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		12D4A8F212270ABC00C2B581 /* SecRandom.h in Headers */ = {isa = PBXBuildFile; fileRef = 12D4A8F112270ABC00C2B581 /* SecRandom.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		1B40AAEE062F63E7009BAE74 /* SecKeychainSearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 1B40AAED062F63E7009BAE74 /* SecKeychainSearchPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		1C4A135111066573006A16DA /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C4A135011066564006A16DA /* libpam.dylib */; };
 		309CD1FA062B3D1900B66530 /* SecIdentitySearchPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = 309CD1F9062B3D1900B66530 /* SecIdentitySearchPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		40A2A721066FE6B300858603 /* SecPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 40A2A720066FE6B200858603 /* SecPassword.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		44B9317D11CC0917005FBCF1 /* FDEPrefs.plist in Resources */ = {isa = PBXBuildFile; fileRef = 44B9317C11CC0917005FBCF1 /* FDEPrefs.plist */; };
+		44DAD0F411CAB4F8007A9244 /* FDELocalizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 44DAD0F211CAB4F8007A9244 /* FDELocalizable.strings */; };
+		48C16F4511D162D60037E993 /* SecRecoveryPassword.h in Headers */ = {isa = PBXBuildFile; fileRef = 48C16F4411D162D60037E993 /* SecRecoveryPassword.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4C2495B305811D3200DDE4A6 /* security_exports.s in Sources */ = {isa = PBXBuildFile; fileRef = 4CAF731A05363BD700D9DA7C /* security_exports.s */; };
 		4C596A41058115A0001507D4 /* Authorization.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C5969E5058115A0001507D4 /* Authorization.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4C596A42058115A0001507D4 /* AuthorizationDB.h in Headers */ = {isa = PBXBuildFile; fileRef = 4C5969E6058115A0001507D4 /* AuthorizationDB.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -142,8 +149,23 @@
 		4CA9BED4063726BD0013F16F /* SecCmsSignedData.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BEC7063726BD0013F16F /* SecCmsSignedData.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4CA9BED5063726BD0013F16F /* SecCmsSignerInfo.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BEC8063726BD0013F16F /* SecCmsSignerInfo.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		4CA9BED6063726BD0013F16F /* SecSMIME.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CA9BEC9063726BD0013F16F /* SecSMIME.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52008CCC11496FB700E8CA78 /* SecCertificateInternalP.h in Headers */ = {isa = PBXBuildFile; fileRef = 52008CCB11496FB700E8CA78 /* SecCertificateInternalP.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		52141F5809771DAB002C0FF6 /* SecDebugErrorMessages.strings in Resources */ = {isa = PBXBuildFile; fileRef = 52141F5709771DAB002C0FF6 /* SecDebugErrorMessages.strings */; };
 		5270685507024D6F00C5D30E /* iToolsTrustedApps.plist in Resources */ = {isa = PBXBuildFile; fileRef = 5270685407024D6F00C5D30E /* iToolsTrustedApps.plist */; };
+		52B88E9511DD5D96005BCA6B /* SecFDERecoveryAsymmetricCrypto.h in Headers */ = {isa = PBXBuildFile; fileRef = 52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		52FB469D11481F39006D3B0A /* SecCertificateOIDs.h in Headers */ = {isa = PBXBuildFile; fileRef = 52FB469C11481F39006D3B0A /* SecCertificateOIDs.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D97B436114EFC260033D0F9 /* SecDecodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3F9114EF0D00033D0F9 /* SecDecodeTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D97B437114EFC260033D0F9 /* SecEncodeTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3FA114EF0D00033D0F9 /* SecEncodeTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D97B438114EFC260033D0F9 /* SecEncryptTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3FB114EF0D00033D0F9 /* SecEncryptTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5D97B439114EFC260033D0F9 /* SecSignVerifyTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5D97B3FC114EF0D00033D0F9 /* SecSignVerifyTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		5DCB819012073F90007A7D84 /* SecCustomTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DCB818F12073F90007A7D84 /* SecCustomTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AA5C5A66138E25FB00D9E6C1 /* SecReadTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA19373F138E25430029DDC3 /* SecReadTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AA7CA2E91117BE2B00901AF5 /* SecNullTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA8AC7B31117BDF30002A07F /* SecNullTransform.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		AA8AC7AF1117BDD10002A07F /* security_transform.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA3ED3C81117BD76001DD41A /* security_transform.framework */; };
+		AA928D21123AEEBD0030D59E /* SecTransformReadTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA928D07123AEE3C0030D59E /* SecTransformReadTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AACB24E71117BEC100B236A2 /* SecDigestTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA7CA2EB1117BE7600901AF5 /* SecDigestTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AACB24E81117BEC100B236A2 /* SecTransform.h in Headers */ = {isa = PBXBuildFile; fileRef = AA7CA2EC1117BE7600901AF5 /* SecTransform.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		AAEB7DB211A61DF40011AE9E /* SecTransformInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = AA963A0B11A61D3500AE419B /* SecTransformInternal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		BE4AFDB00F85EEAB002B2F42 /* SecItem.h in Headers */ = {isa = PBXBuildFile; fileRef = BE4AFDAF0F85EEAB002B2F42 /* SecItem.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		BE4AFDB50F85EEE7002B2F42 /* SecItemPriv.h in Headers */ = {isa = PBXBuildFile; fileRef = BE4AFDB40F85EEE7002B2F42 /* SecItemPriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2022A110DE26911009A9816 /* SecCodePriv.h in Headers */ = {isa = PBXBuildFile; fileRef = C2022A010DE267FC009A9816 /* SecCodePriv.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -159,6 +181,7 @@
 		C27262F60B8624BE00D889AF /* csparser.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C27262F50B8624BE00D889AF /* csparser.cpp */; };
 		C27263200B86288B00D889AF /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 034768E0FF38A50411DB9C8B /* Security.framework */; };
 		C29B69340AD326CE007D7504 /* SecCodeSigner.h in Headers */ = {isa = PBXBuildFile; fileRef = C29B69330AD326B3007D7504 /* SecCodeSigner.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		C2A1D3DA0F58C1A100BD09F8 /* libbsm.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = C2A1D3D90F58C1A100BD09F8 /* libbsm.dylib */; };
 		C2A4879B0B79160900849490 /* SecCodeHostLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A487990B79160900849490 /* SecCodeHostLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2A4879C0B79160900849490 /* SecIntegrity.h in Headers */ = {isa = PBXBuildFile; fileRef = C2A4879A0B79160900849490 /* SecIntegrity.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		C2CC31360B85271C005FA59D /* SecIntegrityLib.h in Headers */ = {isa = PBXBuildFile; fileRef = C2CC31350B85271C005FA59D /* SecIntegrityLib.h */; settings = {ATTRIBUTES = (Private, ); }; };
@@ -168,6 +191,7 @@
 		D619986109F6FC4800699932 /* SecureDownload.h in Headers */ = {isa = PBXBuildFile; fileRef = D619986009F6FC4800699932 /* SecureDownload.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		D619986309F6FC5A00699932 /* SecureDownloadInternal.h in Headers */ = {isa = PBXBuildFile; fileRef = D619986209F6FC5A00699932 /* SecureDownloadInternal.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		D6FB4E6A05F934DC0015312A /* SecManifest.h in Headers */ = {isa = PBXBuildFile; fileRef = D6FB4E6805F934DC0015312A /* SecManifest.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		FE2D0DC110DC0E8D00726AB5 /* SecTask.h in Headers */ = {isa = PBXBuildFile; fileRef = FE2D0DC010DC0E6A00726AB5 /* SecTask.h */; settings = {ATTRIBUTES = (Public, ); }; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -228,9 +252,16 @@
 		05D0BC8206A87338001F9A43 /* cssmapplePriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = cssmapplePriv.h; sourceTree = "<group>"; };
 		05D0BC8306A87338001F9A43 /* ocspTemplates.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = ocspTemplates.h; sourceTree = "<group>"; };
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		12D4A8AB1226F92D00C2B581 /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
+		12D4A8BE1226FAD900C2B581 /* SecRandomP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRandomP.h; sourceTree = "<group>"; };
+		12D4A8F112270ABC00C2B581 /* SecRandom.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRandom.h; sourceTree = "<group>"; };
 		1B40AAED062F63E7009BAE74 /* SecKeychainSearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecKeychainSearchPriv.h; sourceTree = "<group>"; };
+		1C4A135011066564006A16DA /* libpam.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.dylib; path = /usr/lib/libpam.dylib; sourceTree = "<absolute>"; };
 		309CD1F9062B3D1900B66530 /* SecIdentitySearchPriv.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIdentitySearchPriv.h; sourceTree = "<group>"; };
 		40A2A720066FE6B200858603 /* SecPassword.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecPassword.h; sourceTree = "<group>"; };
+		44B9317C11CC0917005FBCF1 /* FDEPrefs.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = FDEPrefs.plist; sourceTree = SOURCE_ROOT; };
+		44DAD0F311CAB4F8007A9244 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/FDELocalizable.strings; sourceTree = "<group>"; };
+		48C16F4411D162D60037E993 /* SecRecoveryPassword.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecRecoveryPassword.h; sourceTree = "<group>"; };
 		4C01DDF20540D04C00A9C9B2 /* security_apple_csp.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_apple_csp.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C01DDF30540D04C00A9C9B2 /* security_apple_cspdl.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_apple_cspdl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4C01DDF40540D04C00A9C9B2 /* security_apple_file_dl.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_apple_file_dl.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -356,8 +387,24 @@
 		4CAF731A05363BD700D9DA7C /* security_exports.s */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.asm; path = security_exports.s; sourceTree = "<group>"; };
 		4CD8084D0536046D009F54B0 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		4ED0DD500E887E6400F626D0 /* security_cryptkit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_cryptkit.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		52008CCB11496FB700E8CA78 /* SecCertificateInternalP.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateInternalP.h; sourceTree = "<group>"; };
 		52141F5709771DAB002C0FF6 /* SecDebugErrorMessages.strings */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.strings; path = SecDebugErrorMessages.strings; sourceTree = "<group>"; };
 		5270685407024D6F00C5D30E /* iToolsTrustedApps.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist; path = iToolsTrustedApps.plist; sourceTree = "<group>"; };
+		52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecFDERecoveryAsymmetricCrypto.h; sourceTree = "<group>"; };
+		52FB469C11481F39006D3B0A /* SecCertificateOIDs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCertificateOIDs.h; sourceTree = "<group>"; };
+		5D97B3F9114EF0D00033D0F9 /* SecDecodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDecodeTransform.h; sourceTree = "<group>"; };
+		5D97B3FA114EF0D00033D0F9 /* SecEncodeTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncodeTransform.h; sourceTree = "<group>"; };
+		5D97B3FB114EF0D00033D0F9 /* SecEncryptTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecEncryptTransform.h; sourceTree = "<group>"; };
+		5D97B3FC114EF0D00033D0F9 /* SecSignVerifyTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecSignVerifyTransform.h; sourceTree = "<group>"; };
+		5DCB818F12073F90007A7D84 /* SecCustomTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCustomTransform.h; sourceTree = "<group>"; };
+		AA19373F138E25430029DDC3 /* SecReadTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = SecReadTransform.h; path = SecReadTransform.h; sourceTree = "<group>"; };
+		AA3ED3C81117BD76001DD41A /* security_transform.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_transform.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA4F5B6811405CAB00388604 /* SecCustomTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCustomTransform.h; sourceTree = "<group>"; };
+		AA7CA2EB1117BE7600901AF5 /* SecDigestTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecDigestTransform.h; sourceTree = "<group>"; };
+		AA7CA2EC1117BE7600901AF5 /* SecTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransform.h; sourceTree = "<group>"; };
+		AA8AC7B31117BDF30002A07F /* SecNullTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecNullTransform.h; sourceTree = "<group>"; };
+		AA928D07123AEE3C0030D59E /* SecTransformReadTransform.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformReadTransform.h; sourceTree = "<group>"; };
+		AA963A0B11A61D3500AE419B /* SecTransformInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTransformInternal.h; sourceTree = "<group>"; };
 		BE4AFDAF0F85EEAB002B2F42 /* SecItem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecItem.h; sourceTree = "<group>"; };
 		BE4AFDB40F85EEE7002B2F42 /* SecItemPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecItemPriv.h; sourceTree = "<group>"; };
 		C2022A010DE267FC009A9816 /* SecCodePriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecCodePriv.h; sourceTree = "<group>"; };
@@ -371,6 +418,7 @@
 		C27262F50B8624BE00D889AF /* csparser.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = csparser.cpp; sourceTree = "<group>"; };
 		C299D086056BF15B004BB123 /* generateErrStrings.pl */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; path = generateErrStrings.pl; sourceTree = "<group>"; };
 		C29B69330AD326B3007D7504 /* SecCodeSigner.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeSigner.h; sourceTree = "<group>"; };
+		C2A1D3D90F58C1A100BD09F8 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		C2A487990B79160900849490 /* SecCodeHostLib.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecCodeHostLib.h; sourceTree = "<group>"; };
 		C2A4879A0B79160900849490 /* SecIntegrity.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = SecIntegrity.h; sourceTree = "<group>"; };
 		C2CACF930DE26792003057A0 /* CodeSigning.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = CodeSigning.h; sourceTree = "<group>"; };
@@ -389,6 +437,7 @@
 		D6FB4E6F05F935690015312A /* security_manifest.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; path = security_manifest.exp; sourceTree = "<group>"; };
 		D6FB4E9405F937900015312A /* security_manifest.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_manifest.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		D6FB4E9505F937900015312A /* security_smime.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; path = security_smime.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		FE2D0DC010DC0E6A00726AB5 /* SecTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SecTask.h; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -396,7 +445,11 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA8AC7AF1117BDD10002A07F /* security_transform.framework in Frameworks */,
+				1C4A135111066573006A16DA /* libpam.dylib in Frameworks */,
 				C2FBE3530E3E5B0A00BC6617 /* libsqlite3.dylib in Frameworks */,
+				C2A1D3DA0F58C1A100BD09F8 /* libbsm.dylib in Frameworks */,
+				12D4A8AC1226F92D00C2B581 /* libz.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -431,6 +484,7 @@
 				4C5969DA058115A0001507D4 /* SecurityPieces */,
 				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
 				034768DFFF38A50411DB9C8B /* Products */,
+				12D4A8AB1226F92D00C2B581 /* libz.dylib */,
 			);
 			name = Security;
 			sourceTree = "<group>";
@@ -447,6 +501,7 @@
 		089C1665FE841158C02AAC07 /* intl */ = {
 			isa = PBXGroup;
 			children = (
+				44DAD0F211CAB4F8007A9244 /* FDELocalizable.strings */,
 				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
 			);
 			path = intl;
@@ -455,6 +510,7 @@
 		1058C7B0FEA5585E11CA2CBB /* Linked Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				1C4A135011066564006A16DA /* libpam.dylib */,
 				4C01DDF20540D04C00A9C9B2 /* security_apple_csp.framework */,
 				4C01DDF30540D04C00A9C9B2 /* security_apple_cspdl.framework */,
 				4C01DDF40540D04C00A9C9B2 /* security_apple_file_dl.framework */,
@@ -480,6 +536,8 @@
 				4CD8084D0536046D009F54B0 /* CoreFoundation.framework */,
 				053105C105E19ED400044101 /* Foundation.framework */,
 				C2FBE3520E3E5B0A00BC6617 /* libsqlite3.dylib */,
+				C2A1D3D90F58C1A100BD09F8 /* libbsm.dylib */,
+				AA3ED3C81117BD76001DD41A /* security_transform.framework */,
 			);
 			name = "Linked Frameworks";
 			sourceTree = "<group>";
@@ -538,6 +596,17 @@
 		4C5969E4058115A0001507D4 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				AA19373F138E25430029DDC3 /* SecReadTransform.h */,
+				AA928D07123AEE3C0030D59E /* SecTransformReadTransform.h */,
+				12D4A8F112270ABC00C2B581 /* SecRandom.h */,
+				5DCB818F12073F90007A7D84 /* SecCustomTransform.h */,
+				52FB469C11481F39006D3B0A /* SecCertificateOIDs.h */,
+				AA7CA2EB1117BE7600901AF5 /* SecDigestTransform.h */,
+				AA7CA2EC1117BE7600901AF5 /* SecTransform.h */,
+				5D97B3F9114EF0D00033D0F9 /* SecDecodeTransform.h */,
+				5D97B3FA114EF0D00033D0F9 /* SecEncodeTransform.h */,
+				5D97B3FB114EF0D00033D0F9 /* SecEncryptTransform.h */,
+				5D97B3FC114EF0D00033D0F9 /* SecSignVerifyTransform.h */,
 				C2CACF930DE26792003057A0 /* CodeSigning.h */,
 				C2CACF940DE26792003057A0 /* CSCommon.h */,
 				C2CACF950DE26792003057A0 /* SecCode.h */,
@@ -596,6 +665,7 @@
 				4C596A0E058115A0001507D4 /* SecKeychainSearch.h */,
 				4C596A0F058115A0001507D4 /* SecPolicy.h */,
 				4C596A10058115A0001507D4 /* SecPolicySearch.h */,
+				FE2D0DC010DC0E6A00726AB5 /* SecTask.h */,
 				4C596A11058115A0001507D4 /* SecTrust.h */,
 				4C596A12058115A0001507D4 /* SecTrustedApplication.h */,
 				4C596A13058115A0001507D4 /* SecureTransport.h */,
@@ -616,6 +686,12 @@
 		4C596A17058115A0001507D4 /* Security */ = {
 			isa = PBXGroup;
 			children = (
+				12D4A8BE1226FAD900C2B581 /* SecRandomP.h */,
+				52B88E9411DD5CCF005BCA6B /* SecFDERecoveryAsymmetricCrypto.h */,
+				AA963A0B11A61D3500AE419B /* SecTransformInternal.h */,
+				52008CCB11496FB700E8CA78 /* SecCertificateInternalP.h */,
+				AA4F5B6811405CAB00388604 /* SecCustomTransform.h */,
+				AA8AC7B31117BDF30002A07F /* SecNullTransform.h */,
 				C2D50D0B0E155F5E0059A195 /* CSCommonPriv.h */,
 				C2022A010DE267FC009A9816 /* SecCodePriv.h */,
 				C2022A020DE267FC009A9816 /* SecRequirementPriv.h */,
@@ -665,6 +741,7 @@
 				D6FB4E6805F934DC0015312A /* SecManifest.h */,
 				40A2A720066FE6B200858603 /* SecPassword.h */,
 				4C596A24058115A0001507D4 /* SecPolicyPriv.h */,
+				48C16F4411D162D60037E993 /* SecRecoveryPassword.h */,
 				4CA9BEC9063726BD0013F16F /* SecSMIME.h */,
 				4C596A25058115A0001507D4 /* SecTrustedApplicationPriv.h */,
 				4C596A26058115A0001507D4 /* SecTrustPriv.h */,
@@ -724,6 +801,7 @@
 		4CD808CC05360655009F54B0 /* lib */ = {
 			isa = PBXGroup;
 			children = (
+				44B9317C11CC0917005FBCF1 /* FDEPrefs.plist */,
 				4C60A0B105811AC800C8A016 /* copy_pieces.mk */,
 				C299D086056BF15B004BB123 /* generateErrStrings.pl */,
 				C4294290053B28F100470431 /* Security.order */,
@@ -748,6 +826,20 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				AA5C5A66138E25FB00D9E6C1 /* SecReadTransform.h in Headers */,
+				AA928D21123AEEBD0030D59E /* SecTransformReadTransform.h in Headers */,
+				52B88E9511DD5D96005BCA6B /* SecFDERecoveryAsymmetricCrypto.h in Headers */,
+				AAEB7DB211A61DF40011AE9E /* SecTransformInternal.h in Headers */,
+				52008CCC11496FB700E8CA78 /* SecCertificateInternalP.h in Headers */,
+				52FB469D11481F39006D3B0A /* SecCertificateOIDs.h in Headers */,
+				AACB24E71117BEC100B236A2 /* SecDigestTransform.h in Headers */,
+				AACB24E81117BEC100B236A2 /* SecTransform.h in Headers */,
+				AA7CA2E91117BE2B00901AF5 /* SecNullTransform.h in Headers */,
+				5D97B436114EFC260033D0F9 /* SecDecodeTransform.h in Headers */,
+				5D97B437114EFC260033D0F9 /* SecEncodeTransform.h in Headers */,
+				5D97B438114EFC260033D0F9 /* SecEncryptTransform.h in Headers */,
+				5D97B439114EFC260033D0F9 /* SecSignVerifyTransform.h in Headers */,
+				FE2D0DC110DC0E8D00726AB5 /* SecTask.h in Headers */,
 				C2CFBA030DF87990003F57E4 /* SecCodeHost.h in Headers */,
 				C2022A140DE26927009A9816 /* CodeSigning.h in Headers */,
 				C2022A150DE26927009A9816 /* CSCommon.h in Headers */,
@@ -869,6 +961,10 @@
 				050CCC3E0A115FAC004DFCA9 /* TrustSettingsSchema.h in Headers */,
 				BE4AFDB00F85EEAB002B2F42 /* SecItem.h in Headers */,
 				BE4AFDB50F85EEE7002B2F42 /* SecItemPriv.h in Headers */,
+				48C16F4511D162D60037E993 /* SecRecoveryPassword.h in Headers */,
+				5DCB819012073F90007A7D84 /* SecCustomTransform.h in Headers */,
+				12D4A8BF1226FAD900C2B581 /* SecRandomP.h in Headers */,
+				12D4A8F212270ABC00C2B581 /* SecRandom.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -955,6 +1051,7 @@
 			isa = PBXProject;
 			buildConfigurationList = C23B0C8509A2987F00B7FCED /* Build configuration list for PBXProject "Security" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -1003,6 +1100,8 @@
 				4C596A91058115A0001507D4 /* tp_policyOids.mdsinfo in Resources */,
 				4C596A92058115A0001507D4 /* tp_primary.mdsinfo in Resources */,
 				52141F5809771DAB002C0FF6 /* SecDebugErrorMessages.strings in Resources */,
+				44DAD0F411CAB4F8007A9244 /* FDELocalizable.strings in Resources */,
+				44B9317D11CC0917005FBCF1 /* FDEPrefs.plist in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1027,7 +1126,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "mkdir -p ${SYMROOT}/${PRODUCT_NAME}.framework\nfor variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs Versions/Current/${PRODUCT_NAME}${postfix} ${SYMROOT}/${PRODUCT_NAME}.framework/${PRODUCT_NAME}${postfix}\ndone\n";
+			shellScript = "mkdir -p ${SYMROOT}/${PRODUCT_NAME}.framework\nfor variant in ${BUILD_VARIANTS}\ndo\n\tpostfix=`echo _${variant} | sed 's/_normal//'`\n\tln -fs Versions/Current/${PRODUCT_NAME}${postfix} ${SYMROOT}/${PRODUCT_NAME}.framework/${PRODUCT_NAME}${postfix}\ndone\n\ncp -rp /usr/local/SecurityPieces/XPC/Security.framework/* ${DSTROOT}//System/Library/Frameworks/Security.framework\nfind ${DSTROOT}//System/Library/Frameworks/Security.framework/XPCServices -type f -perm -111 -print0 | xargs -0 strip -Sx\n";
 		};
 		4CAF72FE053639C900D9DA7C /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
@@ -1106,6 +1205,14 @@
 				089C1667FE841158C02AAC07 /* English */,
 			);
 			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+		44DAD0F211CAB4F8007A9244 /* FDELocalizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				44DAD0F311CAB4F8007A9244 /* English */,
+			);
+			name = FDELocalizable.strings;
 			sourceTree = "<group>";
 		};
 		C21204A4056D89280018F475 /* SecErrorMessages.strings */ = {
@@ -1466,9 +1573,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55010;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55002;
+				DYLIB_CURRENT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1477,9 +1584,11 @@
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-Security.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD = "$(DEVELOPER_BIN_DIR)/g++";
+				LIBRARY_SEARCH_PATHS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1495,12 +1604,15 @@
 					security_comcryption,
 					"-L/usr/local/lib",
 					"-lantlr2c++",
+					"-lz",
+					"-lauto",
+					"-lobjc",
 				);
-				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug  -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning  -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				PREBINDING = NO;
+				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug  -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning  -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS_FOR_GM = "-x";
@@ -1522,9 +1634,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55010;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55002;
+				DYLIB_CURRENT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1533,9 +1645,11 @@
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-Security.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD = "$(DEVELOPER_BIN_DIR)/g++";
+				LIBRARY_SEARCH_PATHS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				ORDER_FILE = "$(SRCROOT)/lib/Security.order";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -1552,12 +1666,15 @@
 					security_comcryption,
 					"-L/usr/local/lib",
 					"-lantlr2c++",
+					"-lz",
+					"-lauto",
+					"-lobjc",
 				);
-				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile-lstdc++ -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile  -framework security_cryptkit -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				PREBINDING = NO;
+				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile-lstdc++ -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile  -framework security_cryptkit -framework CoreFoundation $(OTHER_LDFLAGS)";
+				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "-order_file_statistics";
 				STRIPFLAGS_FOR_GM = "-x";
@@ -1576,9 +1693,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55010;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55002;
+				DYLIB_CURRENT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1587,9 +1704,11 @@
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-Security.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD = "$(DEVELOPER_BIN_DIR)/g++";
+				LIBRARY_SEARCH_PATHS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				ORDER_FILE = "$(SRCROOT)/lib/Security.order";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -1602,11 +1721,11 @@
 				OTHER_CPLUSPLUSFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
 				OTHER_CPLUSPLUSFLAGS_profile = "-DNDEBUG $(OTHER_CFLAGS) -pg";
 				OTHER_LDFLAGS = "";
-				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				PREBINDING = NO;
+				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS_FOR_GM = "-x";
@@ -1626,9 +1745,9 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers/Security";
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55010;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55002;
+				DYLIB_CURRENT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1638,9 +1757,11 @@
 				);
 				FRAMEWORK_VERSION = A;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-Security.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD = "$(DEVELOPER_BIN_DIR)/g++";
+				LIBRARY_SEARCH_PATHS = "";
 				OPT_LDFLAGS = "";
 				OPT_LDXFLAGS = "";
 				OPT_LDXNOPIC = "";
@@ -1658,12 +1779,15 @@
 					security_comcryption,
 					"-L/usr/local/lib",
 					"-lantlr2c++",
+					"-lz",
+					"-lauto",
+					"-lobjc",
 				);
-				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				PREBINDING = NO;
+				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS_FOR_GM = "-x";
@@ -1684,9 +1808,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 55002;
+				CURRENT_PROJECT_VERSION = 55010;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 55002;
+				DYLIB_CURRENT_VERSION = 55010;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "${BUILT_PRODUCTS_DIR}/derived_src/Security.exp";
@@ -1695,9 +1819,11 @@
 					/usr/local/SecurityPieces/Frameworks,
 				);
 				FRAMEWORK_VERSION = A;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-Security.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				LD = "$(DEVELOPER_BIN_DIR)/g++";
+				LIBRARY_SEARCH_PATHS = "";
 				OPT_LDFLAGS = "-dead_strip";
 				ORDER_FILE = "$(SRCROOT)/lib/Security.order";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -1714,12 +1840,15 @@
 					security_comcryption,
 					"-L/usr/local/lib",
 					"-lantlr2c++",
+					"-lz",
+					"-lauto",
+					"-lobjc",
 				);
-				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -lDirectoryServiceMIG -framework CoreFoundation $(OTHER_LDFLAGS)";
-				PREBINDING = NO;
+				OTHER_LDFLAGS_debug = "-framework security_codesigning,_debug -framework security_ssl,_debug -framework security_keychain,_debug -framework security_cssm,_debug -framework security_mds,_debug -framework security_apple_x509_tp,_debug -framework security_apple_x509_cl,_debug -framework security_apple_file_dl,_debug -framework security_apple_cspdl,_debug -framework security_apple_csp,_debug -framework security_sd_cspdl,_debug -framework security_filedb,_debug -framework security_cdsa_plugin,_debug -framework security_cdsa_client,_debug -framework security_authorization,_debug -framework securityd_client,_debug -framework security_cdsa_utilities,_debug -framework security_utilities,_debug -framework security_checkpw,_debug -framework security_authorization,_debug -framework security_pkcs12,_debug -framework security_smime,_debug -framework security_manifest,_debug -framework security_asn1,_debug -framework security_cdsa_utils,_debug -framework security_ocspd,_debug -framework security_cms,_debug -framework security_cryptkit,_debug -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_nopic = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_normal = "$(OPT_LDFLAGS) -framework security_codesigning -framework security_ssl -framework security_keychain -framework security_cssm -framework security_mds -framework security_apple_x509_tp -framework security_apple_x509_cl -framework security_apple_file_dl -framework security_apple_cspdl -framework security_apple_csp -framework security_sd_cspdl -framework security_filedb -framework security_cdsa_plugin -framework security_cdsa_client -framework security_authorization -framework securityd_client -framework security_cdsa_utilities -framework security_utilities -framework security_checkpw -framework security_authorization -framework security_pkcs12 -framework security_smime -framework security_manifest -framework security_asn1 -framework security_cdsa_utils -framework security_ocspd -framework security_cms -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				OTHER_LDFLAGS_profile = "$(OPT_LDFLAGS) -pg -framework security_codesigning,_profile -framework security_ssl,_profile -framework security_keychain,_profile -framework security_cssm,_profile -framework security_mds,_profile -framework security_apple_x509_tp,_profile -framework security_apple_x509_cl,_profile -framework security_apple_file_dl,_profile -framework security_apple_cspdl,_profile -framework security_apple_csp,_profile -framework security_sd_cspdl,_profile -framework security_filedb,_profile -framework security_cdsa_plugin,_profile -framework security_cdsa_client,_profile -framework security_authorization,_profile -framework securityd_client,_profile -framework security_cdsa_utilities,_profile -framework security_utilities,_profile -framework security_checkpw,_profile -framework security_authorization,_profile -framework security_pkcs12,_profile -framework security_smime,_profile -framework security_manifest,_profile -framework security_asn1,_profile -framework security_cdsa_utils,_profile -framework security_ocspd,_profile -framework security_cms,_profile -framework security_cryptkit -lstdc++ -framework CoreFoundation $(OTHER_LDFLAGS)";
+				PREBINDING = YES;
 				PRODUCT_NAME = Security;
 				SECTORDER_FLAGS = "-order_file_statistics";
 				STRIPFLAGS_FOR_GM = "-x";

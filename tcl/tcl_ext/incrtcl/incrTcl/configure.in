@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during [incr Tcl]
 dnl installation to configure the system for the local environment.
 #
-# RCS: $Id: configure.in,v 1.13 2007/05/24 22:15:40 hobbs Exp $
+# RCS: $Id: configure.in,v 1.14 2010/08/17 01:20:48 hobbs Exp $
 
 builtin(include,tclconfig/tcl.m4)
 
@@ -17,7 +17,7 @@ builtin(include,tclconfig/tcl.m4)
 
 AC_INIT([itcl-master], [3.4])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

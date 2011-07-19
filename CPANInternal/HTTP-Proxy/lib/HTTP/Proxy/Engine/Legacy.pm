@@ -94,7 +94,7 @@ sub reap_zombies {
         @$kids = grep { $_ != $pid } @$kids;
         $proxy->{conn}++;    # Cannot use the interface for RO attributes
         $proxy->log( HTTP::Proxy::PROCESS, "PROCESS", "Reaped child process $pid" );
-        $proxy->log( HTTP::Proxy::PROCESS, "PROCESS", "Remaining kids: @$kids" );
+        $proxy->log( HTTP::Proxy::PROCESS, "PROCESS", @$kids . " remaining kids: @$kids" );
     }
 }
 

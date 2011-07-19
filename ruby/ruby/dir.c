@@ -16,6 +16,7 @@
 
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <sys/param.h>
 
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>
@@ -2002,4 +2003,9 @@ Init_Dir()
     rb_file_const("FNM_DOTMATCH", INT2FIX(FNM_DOTMATCH));
     rb_file_const("FNM_CASEFOLD", INT2FIX(FNM_CASEFOLD));
     rb_file_const("FNM_SYSCASE", INT2FIX(FNM_SYSCASE));
+
+    char buf[MAXPATHLEN];
+    const size_t buflen = confstr(_CS_DARWIN_USER_TEMP_DIR, buf, sizeof buf);
+    VALUE str = buflen > 0 ? rb_obj_freeze(rb_str_new2(buf)) : Qnil;
+    rb_define_const(rb_cDir, "NS_TMPDIR", str);
 }

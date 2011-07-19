@@ -43,5 +43,5 @@ my_log(int priority, const char *message, ...);
 void
 my_log_init(bool verbose);
 
-#endif _S_MYLOG_H
+#endif /* _S_MYLOG_H */
 

@@ -71,14 +71,14 @@ openpam_load_module(const char *path)
 	pam_module_t *module;
 
 	module = openpam_dynamic(path);
-	openpam_log(PAM_LOG_DEBUG, "%s dynamic %s",
+	openpam_log(PAM_LOG_LIBDEBUG, "%s dynamic %s",
 	    (module == NULL) ? "no" : "using", path);
 
 #ifdef OPENPAM_STATIC_MODULES
 	/* look for a static module */
 	if (module == NULL && strchr(path, '/') == NULL) {
 		module = openpam_static(path);
-		openpam_log(PAM_LOG_DEBUG, "%s static %s",
+		openpam_log(PAM_LOG_LIBDEBUG, "%s static %s",
 		    (module == NULL) ? "no" : "using", path);
 	}
 #endif
@@ -104,7 +104,7 @@ openpam_release_module(pam_module_t *module)
 		/* static module */
 		return;
 	dlclose(module->dlh);
-	openpam_log(PAM_LOG_DEBUG, "releasing %s", module->path);
+	openpam_log(PAM_LOG_LIBDEBUG, "releasing %s", module->path);
 	FREE(module->path);
 	FREE(module);
 }

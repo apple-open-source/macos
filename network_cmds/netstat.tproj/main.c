@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -284,10 +284,12 @@ int	Lflag;		/* show size of listen queues */
 int	mflag;		/* show memory stats */
 int	nflag;		/* show addresses numerically */
 static int pflag;	/* show given protocol */
-int	prioflag;	/* show packet priority statistics */
+int	prioflag = -1;	/* show packet priority statistics */
+int	Rflag;		/* show reachability information */
 int	rflag;		/* show routing tables (or routing stats) */
 int	sflag;		/* show protocol statistics */
 int	tflag;		/* show i/f watchdog timers */
+int	vflag;		/* more verbose */
 int	Wflag;		/* wide display */
 
 int	interval;	/* repeat interval for i/f stats */
@@ -307,7 +309,7 @@ main(argc, argv)
 
 	af = AF_UNSPEC;
 
-	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnP:p:rRstuWw:")) != -1)
+	while ((ch = getopt(argc, argv, "Aabdf:gI:iLlmnP:p:rRstuvWw:")) != -1)
 		switch(ch) {
 		case 'A':
 			Aflag = 1;
@@ -380,6 +382,9 @@ main(argc, argv)
 			}
 			pflag = 1;
 			break;
+		case 'R':
+			Rflag = 1;
+			break;
 		case 'r':
 			rflag = 1;
 			break;
@@ -391,6 +396,9 @@ main(argc, argv)
 			break;
 		case 'u':
 			af = AF_UNIX;
+			break;
+		case 'v':
+			vflag++;
 			break;
 		case 'W':
 			Wflag = 1;
@@ -423,8 +431,11 @@ main(argc, argv)
 		mbpr();
 		exit(0);
 	}
-	if (iflag && !sflag) {
-		intpr(NULL);
+	if (iflag && !sflag && !gflag) {
+		if (Rflag)
+			intpr_ri(NULL);
+		else
+			intpr(NULL);
 		exit(0);
 	}
 	if (rflag) {
@@ -596,7 +607,7 @@ name2protox(char *name)
 #define	NETSTAT_USAGE "\
 Usage:	netstat [-AaLlnW] [-f address_family | -p protocol]\n\
 	netstat [-gilns] [-f address_family]\n\
-	netstat -i | -I interface [-w wait] [-abdgt]\n\
+	netstat -i | -I interface [-w wait] [-abdgRt]\n\
 	netstat -s [-s] [-f address_family | -p protocol] [-w wait]\n\
 	netstat -i | -I interface -s [-f address_family | -p protocol]\n\
 	netstat -m [-m]\n\

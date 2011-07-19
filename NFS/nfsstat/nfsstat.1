@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 1999-2007 Apple Inc.  All rights reserved.
+.\" Copyright (c) 1999-2011 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -53,7 +53,7 @@
 .\"
 .\"     @(#)nfsstat.1	8.1 (Berkeley) 6/6/93
 .\"
-.Dd May 11, 2005
+.Dd January 11, 2011
 .Dt NFSSTAT 1
 .Os BSD 4.4
 .Sh NAME
@@ -63,15 +63,16 @@
 statistics
 .Sh SYNOPSIS
 .Nm
-.Op Fl cseu
+.Op Fl cseuv
 .Op Fl w Ar wait
 .Op Fl n Ar net|user
+.Op Fl m [ Ar mountpath ]
 .Sh DESCRIPTION
 .Nm
 displays statistics kept about
 .Tn NFS
 client and server activity, active user activity,
-and exported directories.
+exported directories, and mount information.
 In the absence of any options,
 .Nm
 displays NFS client and server statistics.
@@ -81,18 +82,22 @@ The options are as follows:
 .It Fl c
 Show NFS client statistics.
 .It Fl e
-Show exported directory statistics.
+Show NFS server exported directory statistics.
+.It Fl m [ Ar mountpath ]
+Show NFS mount information.
 .It Fl s
 Show NFS server statistics.
 .It Fl u
-Show active user statistics.
-.It Fl w
+Show NFS server active user statistics.
+.It Fl w Ar wait
 Display a shorter summary at
 .Ar wait
 second intervals.
 .It Fl n Ar net|user
 Show network addresses as numbers, or show users as uid numbers.
 This option can appear multiple times.
+.It Fl v
+Show additional information (if available).
 .El
 .Sh OUTPUT
 The data fields that
@@ -100,7 +105,7 @@ The data fields that
 displays for each set of statistics are:
 .Bl -tag -width "xx"
 .\" ========
-.It Cm Client Info:
+.It Cm Client Information:
 Statistics for NFS file system mounts.
 .Bl -tag -width "xx"
 .It RPC Counts
@@ -140,7 +145,7 @@ Performance of directory offset cache.
 .El
 .El
 .\" ========
-.It Cm Server Info:
+.It Cm Server Information:
 Statistics for the NFS server.
 .Bl -tag -width "xx"
 .It RPC Counts
@@ -174,7 +179,7 @@ Write operations that were gathered (WriteRPC - WriteOps)
 .El
 .El
 .\" ========
-.It Cm Exported Directory Info:
+.It Cm NFS Server Exported Directory Information:
 Statistics for each exported directory on the NFS server.
 .Bl -tag -width "xxx"
 .It NFS Requests
@@ -185,7 +190,7 @@ Count of bytes read from an exported directory.
 Count of bytes written to an exported directory.
 .El
 .\" ========
-.It Cm Active User Info:
+.It Cm NFS Server Active User Information:
 List of active NFS users and statistics on the NFS server.
 .Bl -tag -width "xxx"
 .It NFS Requests
@@ -204,6 +209,14 @@ was given) of active user.
 Host name (or network address if
 .Fl n Ar net
 was given) of client machine.
+.El
+.\" ========
+.It Cm NFS Mount Information:
+Information about the given NFS mount (or all NFS mounts).
+.Bl -tag -width "xxx"
+.It The path mounted on and the server:/path that is mounted.
+.It Mount arguments originally passed in to the mount.
+.It Current mount parameter values and status information.
 .El
 .El
 .Sh SEE ALSO

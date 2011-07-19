@@ -34,6 +34,7 @@
 #ifdef HAVE_LIBPAM
 #include <security/pam_appl.h>
 #endif
+#include <resolv.h>
 
 /* 
  * XXX don't forget to update 

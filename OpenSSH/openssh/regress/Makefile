@@ -1,7 +1,9 @@
-#	$OpenBSD: Makefile,v 1.48 2008/06/28 13:57:25 djm Exp $
+#	$OpenBSD: Makefile,v 1.54 2010/06/27 19:19:56 phessler Exp $
 
 REGRESS_TARGETS=	t1 t2 t3 t4 t5 t6 t7 t-exec
 tests:		$(REGRESS_TARGETS)
+CURDIR=.
+SUDO=/usr/bin/sudo
 
 # Interop tests are not run by default
 interop interop-tests: t-exec-interop
@@ -31,9 +33,9 @@ LTESTS= 	connect \
 		agent \
 		agent-getpeereid \
 		agent-timeout \
-		agent-ptrace \
 		keyscan \
 		keygen-change \
+		keygen-convert \
 		key-options \
 		scp \
 		sftp \
@@ -50,7 +52,12 @@ LTESTS= 	connect \
 		cfgmatch \
 		addrmatch \
 		localcommand \
-		forcecommand
+		forcecommand \
+		utmpx-osx \
+		gssapi \
+		portnum \
+		cert-hostkey \
+		cert-userkey
 
 INTEROP_TESTS=	putty-transfer putty-ciphers putty-kex conch-ciphers
 #INTEROP_TESTS+=ssh-com ssh-com-client ssh-com-keygen ssh-com-sftp
@@ -64,32 +71,37 @@ CLEANFILES=	t2.out t6.out1 t6.out2 t7.out t7.out.pub copy.1 copy.2 \
 		ls.copy banner.in banner.out empty.in \
 		scp-ssh-wrapper.scp ssh_proxy_envpass remote_pid \
 		sshd_proxy_bak rsa_ssh2_cr.prv rsa_ssh2_crnl.prv \
-		putty.rsa2
+		known_hosts-cert host_ca_key* cert_host_key* \
+		putty.rsa2 sshd_proxy_orig \
+		authorized_principals_${USER}
+
+# Enable all malloc(3) randomisations and checks
+TEST_ENV=      "MALLOC_OPTIONS=AFGJPRX"
 
 t1:
-	ssh-keygen -if ${.CURDIR}/rsa_ssh2.prv | diff - ${.CURDIR}/rsa_openssh.prv
+	ssh-keygen -if $(CURDIR)/rsa_ssh2.prv | diff - $(CURDIR)/rsa_openssh.prv
 
 t2:
-	cat ${.CURDIR}/rsa_openssh.prv > $(OBJ)/t2.out
+	cat $(CURDIR)/rsa_openssh.prv > $(OBJ)/t2.out
 	chmod 600 $(OBJ)/t2.out
-	ssh-keygen -yf $(OBJ)/t2.out | diff - ${.CURDIR}/rsa_openssh.pub
+	ssh-keygen -yf $(OBJ)/t2.out | diff - $(CURDIR)/rsa_openssh.pub
 
 t3:
-	ssh-keygen -ef ${.CURDIR}/rsa_openssh.pub >$(OBJ)/rsa_secsh.pub
-	ssh-keygen -if $(OBJ)/rsa_secsh.pub | diff - ${.CURDIR}/rsa_openssh.pub
-	rm -f ${.CURDIR}/rsa_secsh.pub
+	ssh-keygen -ef $(CURDIR)/rsa_openssh.pub >$(OBJ)/rsa_secsh.pub
+	ssh-keygen -if $(OBJ)/rsa_secsh.pub | diff - $(CURDIR)/rsa_openssh.pub
+	rm -f $(CURDIR)/rsa_secsh.pub
 
 t4:
-	ssh-keygen -lf ${.CURDIR}/rsa_openssh.pub |\
-		awk '{print $$2}' | diff - ${.CURDIR}/t4.ok
+	ssh-keygen -lf $(CURDIR)/rsa_openssh.pub |\
+		awk '{print $$2}' | diff - $(CURDIR)/t4.ok
 
 t5:
-	ssh-keygen -Bf ${.CURDIR}/rsa_openssh.pub |\
-		awk '{print $$2}' | diff - ${.CURDIR}/t5.ok
+	ssh-keygen -Bf $(CURDIR)/rsa_openssh.pub |\
+		awk '{print $$2}' | diff - $(CURDIR)/t5.ok
 
 t6:
-	ssh-keygen -if ${.CURDIR}/dsa_ssh2.prv > $(OBJ)/t6.out1
-	ssh-keygen -if ${.CURDIR}/dsa_ssh2.pub > $(OBJ)/t6.out2
+	ssh-keygen -if $(CURDIR)/dsa_ssh2.prv > $(OBJ)/t6.out1
+	ssh-keygen -if $(CURDIR)/dsa_ssh2.pub > $(OBJ)/t6.out2
 	chmod 600 $(OBJ)/t6.out1
 	ssh-keygen -yf $(OBJ)/t6.out1 | diff - $(OBJ)/t6.out2
 
@@ -103,14 +115,27 @@ t7: $(OBJ)/t7.out
 t-exec:	${LTESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "run test $${TEST}" ... 1>&2; \
-		(env SUDO=${SUDO} sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
+		echo "[BEGIN] $${TEST}"; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh $(CURDIR)/test-exec.sh $(OBJ) $(CURDIR)/$${TEST}); \
+		ret=$$?; \
+		if [[ 0 -eq $${ret} ]]; then \
+			echo "[PASS] $${TEST}"; \
+		else\
+			echo "[FAIL] $${TEST}"; \
+			exit $${ret};\
+		fi;\
 	done
 
 t-exec-interop:	${INTEROP_TESTS:=.sh}
 	@if [ "x$?" = "x" ]; then exit 0; fi; \
 	for TEST in ""$?; do \
-		echo "run test $${TEST}" ... 1>&2; \
-		(env SUDO=${SUDO} sh ${.CURDIR}/test-exec.sh ${.OBJDIR} ${.CURDIR}/$${TEST}) || exit $$?; \
+		echo "[BEGIN] $${TEST}"; \
+		(env SUDO="${SUDO}" TEST_ENV=${TEST_ENV} sh $(CURDIR)/test-exec.sh $(OBJDIR) $(CURDIR)/$${TEST}); \
+		ret=$$?; \
+		if [[ 0 -eq $${ret} ]]; then \
+			echo "[PASS] $${TEST}"; \
+		else\
+			echo "[FAIL] $${TEST}"; \
+		fi;\
 	done
 

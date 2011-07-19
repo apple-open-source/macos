@@ -499,12 +499,6 @@ avoid errors because the characters are special to the tree widget.
 
 This command associates a command to execute whenever the event
 sequence given by <I>event</I> occurs anywhere within the Tree area.
-
-<p>
-Any occurrence of <b>%W</b> in script is substituted with the path of
-the tree.  <em><a href="#bug">(See note below about this behavior.)</a></em>
-</p>
-
 </DD></DL>
 <DL><DT><A NAME="bindImage"><I>pathName</I> <B>bindImage</B></A>
  <I>event</I>
@@ -513,13 +507,11 @@ the tree.  <em><a href="#bug">(See note below about this behavior.)</a></em>
 
 This command associates a command to execute whenever the event
 sequence given by <I>event</I> occurs on the image of a node.
-The node idenfier on which the event occurs is appended to the command.
+The node idenfier on which the event occurs is appended to the command and may be used to manipulate the tree (e.g. don't use <B>%W</B>).
 
-<p>
-Any occurrence of <b>%W</b> in script is substituted with the path of
-the tree.  <em><a href="#bug">(See note below about this behavior.)</a></em>
-</p>
-
+<P>
+If <B>-selectfill</B> is given, an eventual binding of the background box by <B>bindText</B> is overwritten.
+</P>
 </DD></DL>
 <DL><DT><A NAME="bindText"><I>pathName</I> <B>bindText</B></A>
  <I>event</I>
@@ -528,13 +520,11 @@ the tree.  <em><a href="#bug">(See note below about this behavior.)</a></em>
 
 This command associates a command to execute whenever the event
 sequence given by <I>event</I> occurs on the label of a node.
-The node idenfier on which the event occurs is appended to the command.
+The node idenfier on which the event occurs is appended to the command and may be used to manipulate the tree (e.g. don't use <B>%W</B>).
 
-<p>
-Any occurrence of <b>%W</b> in script is substituted with the path of
-the tree.  <em><a href="#bug">(See note below about this behavior.)</a></em>
-</p>
-
+<P>
+If <B>-selectfill</B> is given, an eventual binding of the background box by <B>bindImage</B> is overwritten.
+</P>
 </DD></DL>
 <DL><DT><A NAME="cget"><I>pathName</I> <B>cget</B></A>
  <I>option</I>
@@ -649,7 +639,9 @@ Inserts a new node identified by <I>node</I> in the children list of
 
 <p>
 Any instance of <i>#auto</i> within the node name will be replaced by the
-number of the item in the order of insertion.
+number of the item in the order of insertion.  The non-printable characters
+\1 to \5 are reserved for internal use and should not be present in node
+names.
 </p>
 
 
@@ -703,10 +695,19 @@ Specifies a font for the label of the node.
 
 </DD>
 </DL>
+<DL><DT><A NAME="-helpcmd"><B>-helpcmd</B></A></DT>
+<DD>
+
+If specified, refers to a command to execute to get the help text to display.
+The command must return a string to display.
+If the command returns an empty string, no help is displayed. 
+See also <A HREF="DynamicHelp.html">DynamicHelp</A>.
+</DD>
+</DL>
 <DL><DT><A NAME="-helptext"><B>-helptext</B></A></DT>
 <DD>
 
-Text for dynamic help. If empty, no help is available for this widget.
+Text for dynamic help.
 See also <A HREF="DynamicHelp.html">DynamicHelp</A>.
 </DD>
 </DL>
@@ -931,17 +932,6 @@ not be generated.
 
 <p>
 The tree has all the standard mouse wheel bindings when it has focus.
-</p>
-
-<B><A NAME="bug">CURRENT BUG WITH BINDS</A></B><BR>
-
-<p>
-There currently exists a bug with the Tree's <B>bindArea</B>,
-<B>bindImage</B>, and <B>bindText</B> commands.  Contrary to the given
-text, occurrences of <B>%W</B> within scripts do <em>not</em>
-substitute the Tree's path, but rather the Tree's underlying canvas.
-A future release of BWidget will fix this error.  For now it is
-recommended that you do not use <B>%W</B> within your scripts.
 </p>
 
 </BODY></HTML>

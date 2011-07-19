@@ -1,4 +1,4 @@
-# $Id: nasm.spec.in,v 1.1.1.1 2005/10/13 22:21:48 echristo Exp $
+# $Id: nasm.spec.in,v 1.1.1.1 2005-10-13 22:21:48 echristo Exp $
 Summary: The Netwide Assembler, a portable x86 assembler with Intel-like syntax
 Name: nasm
 Version: @@VERSION@@

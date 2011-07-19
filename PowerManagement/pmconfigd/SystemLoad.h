@@ -24,6 +24,7 @@
 #ifndef _SystemLoad_h_
 #define _SystemLoad_h_
 
+
 __private_extern__ void SystemLoad_prime(void);
 
 __private_extern__ void SystemLoadBatteriesHaveChanged(IOPMBattery **batt_stats);

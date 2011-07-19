@@ -1,0 +1,124 @@
+.\" Copyright 1994, 1998  The Open Group
+.\"
+.\" Permission to use, copy, modify, distribute, and sell this software and its
+.\" documentation for any purpose is hereby granted without fee, provided that
+.\" the above copyright notice appear in all copies and that both that
+.\" copyright notice and this permission notice appear in supporting
+.\" documentation.
+.\"
+.\" The above copyright notice and this permission notice shall be included in
+.\" all copies or substantial portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+.\" THE OPEN GROUP BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+.\" WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF
+.\" OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.\"
+.\" Except as contained in this notice, the name of The Open Group shall not
+.\" be used in advertising or otherwise to promote the sale, use or other
+.\" dealing in this Software without prior written authorization from the
+.\" The Open Group.
+.\"
+.TH ICEAUTH 1 __xorgversion__
+.SH NAME
+iceauth \- ICE authority file utility
+.SH SYNOPSIS
+.B iceauth
+[ \fB\-f\fP \fIauthfile\fP ] [ \fB\-vqib\fP ] [ \fIcommand arg ...\fP ]
+.SH DESCRIPTION
+.PP
+The \fIiceauth\fP program is used to edit and display the authorization
+information used in connecting with ICE.  This program is usually
+used to extract authorization records from one machine and merge them in on
+another (as is the case when using remote logins or granting access to
+other users).  Commands (described below) may be entered interactively,
+on the \fIiceauth\fP command line, or in scripts.
+.SH OPTIONS
+.PP
+\fB\-f\fP \fIauthfile\fP  Name of the authority file to use. Will default to
+             the file currently in use by the session.
+.PP
+\fB\-v\fP           Turns on extra messages (verbose mode)
+.PP
+\fB\-q\fP           Turns off extra messages (quiet mode)
+.PP
+\fB\-i\fP           Ignore the locks on the authority file
+.PP
+\fB\-b\fP           Break the locks on the authority file
+.PP
+\fB\-u\fP           Print basic usage instructions
+.PP
+.SH USAGE
+.PP
+When \fIiceauth\fP is run it will allow the following set of commands
+to be entered interactively or in scripts.
+.PP
+\fB?\fP
+.PP
+List available commands.
+.PP
+\fBhelp\fP
+.PP
+Print help information. You may supply a command name to \fIhelp\fP to
+get specific information about it.
+.PP
+\fBinfo\fP
+.PP
+Print information about the entries in the authority file.
+.PP
+\fBlist\fP
+.PP
+List (print) entries in the authority file. You may specify optional
+modifiers as below to specify which entries are listed.
+.PP
+\fIlist\fP [ \fIprotocol_name\fP ] [ \fIprotocol_data\fP ] [
+\fInetid\fP ] [ \fIauthname\fP ]
+.PP
+\fBadd\fP
+.PP
+Add an entry to the authority file. This must be in the format
+.PP
+\fIadd\fP \fIprotocol_name\fP \fIprotocol_data\fP \fInetid\fP \fIauthname\fP \fIauthdata\fP
+.PP
+\fBremove\fP
+.PP
+Remove entries from the authority file.
+.PP
+\fIremove\fP [ \fIprotocol_name\fP ] [ \fIprotocol_data\fP ] [
+\fInetid\fP ] [ \fIauthname\fP ]
+.PP
+\fBextract\fP
+.PP
+Extract entries from the authority file in to a destination file. You
+must supply the path to the destination to this command as in the
+following format. Optional specifiers allow you to narrow which
+entries are extracted.
+.PP
+\fIextract\fP \fIfilename\fP [ \fIprotocol_name\fP ] [ \fIprotocol_data\fP ]
+[ \fInetid\fP ] [ \fIauthname\fP ]
+.PP
+\fBmerge\fP
+.PP
+Merge entries from other files in to the authority file selected by the program. You may supply any number of file paths to this command as follows:
+.PP
+\fImerge\fP \fIfilename1\fP [ \fIfilename2\fP ] [ \fIfilename3\fP ] ...
+.PP
+\fBexit\fP
+.PP
+Save changes and exit the program.
+.PP
+\fBquit\fP
+.PP
+Abort changes and exit the program without saving.
+.PP
+\fBsource\fP
+.PP
+Read and execute commands from a file.
+.PP
+\fIsource\fP \fIfilename\fP
+.PP
+.SH AUTHOR
+Ralph Mor, X Consortium

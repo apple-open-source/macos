@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+#  tree.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: tree.tcl,v 1.4 2009/09/08 21:21:20 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+#
 
 namespace eval DemoTree {
     variable count

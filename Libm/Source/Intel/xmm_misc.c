@@ -23,7 +23,7 @@ double __inf ( void )
 *     No other functions are called by these routines outside of fpmacros.c.  *
 ******************************************************************************/
 
-unsigned int __math_errhandling ( void )
+int __math_errhandling ( void )
 {
     return (MATH_ERREXCEPT); // return the bitmask indicating the error discipline(s) in use.
 }

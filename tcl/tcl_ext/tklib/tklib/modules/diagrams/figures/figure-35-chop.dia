@@ -1,0 +1,9 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+circle "x"
+circle "y" at [[1st circle c] - [80  120]]
+circle "z" at [[1st circle c] + [80 -120]]
+
+arrow from [1st circle] to [2nd circle] chop
+arrow from [2nd circle] to [3rd circle] chop
+arrow from [3rd circle] to [1st circle] chop

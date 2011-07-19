@@ -86,7 +86,7 @@ sub Verify()
 	my $storedFileDir = "$tmpPath/iChatServer_restored_for_verify";
 	my $restoredSqlFile = "iChatServer_data_backup.sql";
 	my $newSqlFile = "iChatServer_data_current.sql";
-	my $sqliteDefaultDbPath = "/private/var/jabberd/sqlite/jabberd2.db";
+	my $sqliteDefaultDbPath = "/Library/Server/iChat/Data/sqlite/jabberd2.db";
 	my $sqliteDbPath = "";
 	my @diffLines;
 	my $cmd;

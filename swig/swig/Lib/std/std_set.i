@@ -7,12 +7,28 @@
 
 // Set
 %define %std_set_methods_common(set...)
-  %std_container_methods(set);
-  
+  set();
+  set( const set& );
+
+  bool empty() const;
+  size_type size() const;
+  void clear();
+
+  void swap(set& v);
+
+
   size_type erase(const key_type& x);
   size_type count(const key_type& x) const;
   
 #ifdef SWIG_EXPORT_ITERATOR_METHODS
+  class iterator;
+  class reverse_iterator;
+
+  iterator begin();
+  iterator end();
+  reverse_iterator rbegin();
+  reverse_iterator rend();
+
   void erase(iterator pos);
   void erase(iterator first, iterator last);
 
@@ -83,7 +99,7 @@ namespace std {
 	template <>  struct traits<std::set<_Key, _Compare, _Alloc > > {
 	  typedef pointer_category category;
 	  static const char* type_name() {
-	    return "std::set<" #_Key "," #_Alloc " >";
+	    return "std::set<" #_Key "," #_Compare "," #_Alloc " >";
 	  }
 	};
       }
@@ -91,12 +107,13 @@ namespace std {
 
     %typemap_traits_ptr(SWIG_TYPECHECK_SET, std::set<_Key, _Compare, _Alloc >);
 
+    set( const _Compare& );
+
 #ifdef %swig_set_methods
     // Add swig/language extra methods
     %swig_set_methods(std::set<_Key, _Compare, _Alloc >);
 #endif
   
     %std_set_methods(set);
-
   };
 }

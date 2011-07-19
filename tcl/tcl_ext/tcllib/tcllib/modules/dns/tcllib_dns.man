@@ -2,6 +2,7 @@
 [copyright {2002, Pat Thoyts}]
 [moddesc   {Domain Name Service}]
 [titledesc {Tcl Domain Name Service Client}]
+[category  Networking]
 [require Tcl 8.2]
 [require dns [opt 1.3.3]]
 [description]

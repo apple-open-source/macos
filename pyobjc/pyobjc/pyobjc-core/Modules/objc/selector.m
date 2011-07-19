@@ -40,18 +40,18 @@ ObjC_SignatureForSelector(char* class_name, SEL selector, char* signature)
 		}
 	}
 
-	replacement = PyString_FromString(signature);
+	replacement = PyBytes_FromString(signature);
 	if (replacement == NULL)  {
 		return -1;
 	}
 
-	name_str = PyString_FromString(class_name);
+	name_str = PyText_FromString(class_name);
 	if (name_str == NULL)  {
 		Py_DECREF(replacement);
 		return -1;
 	}
 
-	selector_str = PyString_FromString(sel_getName(selector));
+	selector_str = PyText_FromString(sel_getName(selector));
 	if (name_str == NULL)  {
 		Py_DECREF(replacement);
 		Py_DECREF(name_str);
@@ -85,7 +85,7 @@ PyObjC_FindReplacementSignature(Class cls, SEL selector)
 		return NULL;
 	}
 
-	result = PyString_AsString(replacement);
+	result = PyBytes_AsString(replacement);
 	Py_DECREF(replacement);
 
 	return result;
@@ -112,15 +112,18 @@ PyObjCSelector_GetMetadata(PyObject* _self)
 	if (self->sel_methinfo == NULL) {
 		self->sel_methinfo = PyObjCMethodSignature_ForSelector(
 			self->sel_class,
+			(self->sel_flags & PyObjCSelector_kCLASS_METHOD) != 0,
 			self->sel_selector,
-			self->sel_python_signature);
+			self->sel_python_signature,
+			PyObjCNativeSelector_Check(self)
+			);
 		if (self->sel_methinfo == NULL) return NULL;
 
 		if (PyObjCPythonSelector_Check(_self)) {
 			Py_ssize_t i;
 
 			((PyObjCPythonSelector*)_self)->numoutput = 0;
-			for (i = 0; i < ((PyObjCPythonSelector*)_self)->sel_methinfo->ob_size; i++) {
+			for (i = 0; i < Py_SIZE(((PyObjCPythonSelector*)_self)->sel_methinfo); i++) {
 				if (((PyObjCPythonSelector*)_self)->sel_methinfo->argtype[i].type[0] == _C_OUT) {
 					((PyObjCPythonSelector*)_self)->numoutput ++;
 				}
@@ -141,6 +144,16 @@ static PyObject* sel_metadata(PyObject* self)
 		r = PyDict_SetItemString(result, "classmethod", Py_True);
 	} else {
 		r = PyDict_SetItemString(result, "classmethod", Py_False);
+	}
+	if (r == -1) {
+		Py_DECREF(result);
+		return NULL;
+	}
+
+	if (((PyObjCSelector*)self)->sel_flags & PyObjCSelector_kHIDDEN) {
+		r = PyDict_SetItemString(result, "hidden", Py_True);
+	} else {
+		r = PyDict_SetItemString(result, "hidden", Py_False);
 	}
 	if (r == -1) {
 		Py_DECREF(result);
@@ -189,8 +202,9 @@ static PyObject*
 base_signature(PyObject* _self, void* closure __attribute__((__unused__)))
 {
 	PyObjCSelector* self = (PyObjCSelector*)_self;
-	return PyString_FromString(self->sel_python_signature);
+	return PyBytes_FromString(self->sel_python_signature);
 }
+
 
 PyDoc_STRVAR(base_native_signature_doc, "original Objective-C signature for the method");
 static PyObject*
@@ -202,7 +216,7 @@ base_native_signature(PyObject* _self, void* closure __attribute__((__unused__))
 		return Py_None;
 	}
 
-	return PyString_FromString(self->sel_native_signature);
+	return PyBytes_FromString(self->sel_native_signature);
 }
 
 static int
@@ -210,19 +224,36 @@ base_signature_setter(PyObject* _self, PyObject* newVal, void* closure __attribu
 {
 	PyObjCNativeSelector* self = (PyObjCNativeSelector*)_self;
 	char* t;
-	if (!PyString_Check(newVal)) {
-		PyErr_SetString(PyExc_TypeError, "signature must be string");
+	if (!PyBytes_Check(newVal)) {
+		PyErr_SetString(PyExc_TypeError, "signature must be byte string");
 		return -1;
 	}
 
-	t = PyObjCUtil_Strdup(PyString_AsString(newVal));
+	t = PyObjCUtil_Strdup(PyBytes_AsString(newVal));
 	if (t == NULL) {
 		PyErr_NoMemory();
 		return -1;
 	}
 
-	PyMem_Free(self->sel_python_signature);
+	PyMem_Free((char*)self->sel_python_signature);
 	self->sel_python_signature = t;
+	return 0;
+}
+
+PyDoc_STRVAR(base_hidden_doc, "If True the method is not directly accessible as an object attribute");
+static PyObject*
+base_hidden(PyObject* _self, void* closure __attribute__((__unused__)))
+{
+	return PyBool_FromLong(((PyObjCSelector*)_self)->sel_flags & PyObjCSelector_kHIDDEN);
+}
+static int
+base_hidden_setter(PyObject* _self, PyObject* newVal, void* closure __attribute__((__unused__)))
+{
+	if (PyObject_IsTrue(newVal)) {
+		((PyObjCSelector*)_self)->sel_flags |= PyObjCSelector_kHIDDEN;
+	} else {
+		((PyObjCSelector*)_self)->sel_flags &= ~PyObjCSelector_kHIDDEN;
+	}
 	return 0;
 }
 
@@ -231,7 +262,7 @@ static PyObject*
 base_selector(PyObject* _self, void* closure __attribute__((__unused__)))
 {
 	PyObjCSelector* self = (PyObjCSelector*)_self;
-	return PyString_FromString(sel_getName(self->sel_selector));
+	return PyBytes_FromString(sel_getName(self->sel_selector));
 }
 
 PyDoc_STRVAR(base_class_doc, "Objective-C Class that defines the method");
@@ -268,6 +299,13 @@ base_required(PyObject* _self, void* closure __attribute__((__unused__)))
 
 
 static PyGetSetDef base_getset[] = {
+	{
+		"isHidden",
+		base_hidden,
+		base_hidden_setter,
+		base_hidden_doc,
+		0
+	},
 	{
 		"isRequired",
 		base_required,
@@ -335,18 +373,18 @@ sel_dealloc(PyObject* object)
 	Py_XDECREF(self->sel_methinfo);
 	self->sel_methinfo = NULL;
 
-	PyMem_Free(self->sel_python_signature);
+	PyMem_Free((char*)self->sel_python_signature);
 	self->sel_python_signature = NULL;
 
 	if (self->sel_native_signature != NULL) {
-		PyMem_Free(self->sel_native_signature);
+		PyMem_Free((char*)self->sel_native_signature);
 		self->sel_native_signature = NULL;
 	}
 	if (self->sel_self) { 
 		Py_DECREF(self->sel_self); 
 		self->sel_self = NULL;
 	}
-	object->ob_type->tp_free(object);
+	Py_TYPE(object)->tp_free(object);
 }
 
 static int
@@ -409,8 +447,7 @@ PyDoc_STRVAR(base_selector_type_doc,
 "  when defining an 'informal_protocol' object.\n"
 );
 PyTypeObject PyObjCSelector_Type = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"objc.selector",			/* tp_name */
 	sizeof(PyObjCSelector),			/* tp_basicsize */
 	0,					/* tp_itemsize */
@@ -474,8 +511,9 @@ objcsel_repr(PyObject* _self)
 	PyObjCNativeSelector* sel = (PyObjCNativeSelector*)_self;
 	PyObject *rval;
 	if (sel->sel_self == NULL) {
-		rval = PyString_FromFormat("<unbound native-selector %s in %s>", sel_getName(sel->sel_selector), class_getName(sel->sel_class));
+		rval = PyText_FromFormat("<unbound native-selector %s in %s>", sel_getName(sel->sel_selector), class_getName(sel->sel_class));
 	} else {
+#if PY_MAJOR_VERSION == 2
 		PyObject* selfrepr = PyObject_Repr(sel->sel_self);
 		if (selfrepr == NULL) {
 			return NULL;
@@ -484,8 +522,12 @@ objcsel_repr(PyObject* _self)
 			Py_DECREF(selfrepr);
 			return NULL;
 		}
-		rval = PyString_FromFormat("<native-selector %s of %s>", sel_getName(sel->sel_selector), PyString_AS_STRING(selfrepr));
+		rval = PyText_FromFormat("<native-selector %s of %s>", sel_getName(sel->sel_selector), PyString_AS_STRING(selfrepr));
 		Py_DECREF(selfrepr);
+#else
+		rval = PyUnicode_FromFormat("<native-selector %s of %R>", sel_getName(sel->sel_selector),
+					sel->sel_self);
+#endif
 	}
 	return rval;
 }
@@ -534,14 +576,14 @@ objcsel_call(PyObject* _self, PyObject* args, PyObject* kwds)
 		pyres = res = execute((PyObject*)self, self->sel_self, args);
 		if (pyres != NULL
 			&& PyTuple_Check(pyres)
-			&& PyTuple_GET_SIZE(pyres) > 1
+			&& PyTuple_GET_SIZE(pyres) >= 1
 			&& PyTuple_GET_ITEM(pyres, 0) == pyself) {
 			pyres = pyself;
 		}
 
-		if (PyObjCObject_Check(self) && (((PyObjCObject*)self->sel_self)->flags & PyObjCObject_kUNINITIALIZED)) {
+		if (PyObjCObject_Check(self->sel_self) && (((PyObjCObject*)self->sel_self)->flags & PyObjCObject_kUNINITIALIZED)) {
 			if (self->sel_self != pyres && !PyErr_Occurred()) {
-				PyObjCObject_ClearObject(pyself);
+				PyObjCObject_ClearObject(self->sel_self);
 			}
 		}
 	} else {
@@ -565,7 +607,9 @@ objcsel_call(PyObject* _self, PyObject* args, PyObject* kwds)
 
 		myClass = PyObjCClass_New(self->sel_class);
 		if (!(PyObject_IsInstance(pyself, myClass)
+#if PY_MAJOR_VERSION == 2
 			|| (PyString_Check(pyself) && class_isSubclassOf(self->sel_class, [NSString class])) 
+#endif
 			|| (PyUnicode_Check(pyself) && class_isSubclassOf(self->sel_class, [NSString class])) 
 		)) {
 			Py_DECREF(arglist);
@@ -573,7 +617,7 @@ objcsel_call(PyObject* _self, PyObject* args, PyObject* kwds)
 			PyErr_Format(PyExc_TypeError,
 				"Expecting instance of %s as self, got one "
 				"of %s", class_getName(self->sel_class),
-				pyself->ob_type->tp_name);
+				Py_TYPE(pyself)->tp_name);
 			return NULL;
 		}
 		Py_DECREF(myClass);
@@ -585,6 +629,12 @@ objcsel_call(PyObject* _self, PyObject* args, PyObject* kwds)
 			&& PyTuple_GET_SIZE(pyres) > 1
 			&& PyTuple_GET_ITEM(pyres, 0) == pyself) {
 			pyres = pyself;
+		}
+
+		if (PyObjCObject_Check(pyself) && (((PyObjCObject*)pyself)->flags & PyObjCObject_kUNINITIALIZED)) {
+			if (pyself != pyres && !PyErr_Occurred()) {
+				PyObjCObject_ClearObject(pyself);
+			}
 		}
 
 		Py_DECREF(arglist);
@@ -668,8 +718,7 @@ objcsel_descr_get(PyObject* _self, PyObject* volatile obj, PyObject* class)
 
 
 PyTypeObject PyObjCNativeSelector_Type = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"objc.native_selector",			/* tp_name */
 	sizeof(PyObjCNativeSelector),		/* tp_basicsize */
 	0,					/* tp_itemsize */
@@ -734,6 +783,20 @@ PyObjCSelector_FindNative(PyObject* self, const char* name)
 
 	NSMethodSignature* methsig;
 	char  buf[1024];
+
+	if (PyObjCObject_Check(self)) {
+		if (PyObjCClass_HiddenSelector((PyObject*)Py_TYPE(self), sel, NO)) {
+			PyErr_Format(PyExc_AttributeError,
+				"No attribute %s", name);
+			return NULL;
+		}
+	} else {
+		if (PyObjCClass_HiddenSelector(self, sel, YES)) {
+			PyErr_Format(PyExc_AttributeError,
+				"No attribute %s", name);
+			return NULL;
+		}
+	}
 
 	if (Object_class == nil) {
 		Object_class = [Object class];
@@ -801,24 +864,34 @@ PyObjCSelector_FindNative(PyObject* self, const char* name)
 
 		object = PyObjCObject_GetObject(self);
 
-		if (nil != (methsig = [object methodSignatureForSelector:sel])){
-			PyObjCNativeSelector* res;
+		NS_DURING
+			if (nil != (methsig = [object methodSignatureForSelector:sel])){
+				PyObjCNativeSelector* res;
 
-			res =  (PyObjCNativeSelector*)PyObjCSelector_NewNative(
-				object_getClass(object), sel, 
-				PyObjC_NSMethodSignatureToTypeString(methsig, 
-					buf, sizeof(buf)), 0);
-			if (res != NULL) {
-				/* Bind the method to self */
-				res->sel_self = self;
-				Py_INCREF(res->sel_self);
+				res =  (PyObjCNativeSelector*)PyObjCSelector_NewNative(
+					object_getClass(object), sel, 
+					PyObjC_NSMethodSignatureToTypeString(methsig, 
+						buf, sizeof(buf)), 0);
+				if (res != NULL) {
+					/* Bind the method to self */
+					res->sel_self = self;
+					Py_INCREF(res->sel_self);
+				}
+				retval = (PyObject*)res;
+			} else {
+				PyErr_Format(PyExc_AttributeError,
+					"No attribute %s", name);
+				retval = NULL;
 			}
-			return (PyObject*)res;
-		} else {
+		NS_HANDLER
 			PyErr_Format(PyExc_AttributeError,
 				"No attribute %s", name);
-			return NULL;
-		}
+			retval = NULL;
+
+		NS_ENDHANDLER
+
+		return retval;
+
 	} else {
 		PyErr_SetString(PyExc_RuntimeError,
 			"PyObjCSelector_FindNative called on plain "
@@ -862,6 +935,7 @@ PyObjCSelector_NewNative(Class class,
 	if (sel_isEqual(selector, @selector(alloc)) || sel_isEqual(selector, @selector(allocWithZone:))) {
 		  result->sel_flags |= PyObjCSelector_kRETURNS_UNINITIALIZED;
 	}
+	result->sel_call_func = NULL;
 	return (PyObject*)result;
 }
 
@@ -870,7 +944,7 @@ static char gSheetMethodSignature[] = { _C_VOID, _C_ID, _C_SEL, _C_ID, _C_INT, _
 
 PyObject*
 PyObjCSelector_New(PyObject* callable, 
-	SEL selector, char* signature, int class_method, Class cls)
+	SEL selector, const char* signature, int class_method, Class cls)
 {
 	PyObjCPythonSelector* result;
 	if (signature == NULL) {
@@ -896,7 +970,7 @@ PyObjCSelector_New(PyObject* callable,
 		Py_DECREF(result);
 		return NULL;
 	}
-	PyObjC_RemoveInternalTypeCodes(result->sel_native_signature);
+	PyObjC_RemoveInternalTypeCodes((char*)result->sel_native_signature);
 
 	result->sel_self = NULL;
 	result->sel_class = cls;
@@ -919,9 +993,12 @@ PyObjCSelector_New(PyObject* callable,
 
 	} else {
 		/* Should not happen... */
-		result->argcount = -1;
-		abort();
-
+		result->argcount = 0;
+		const char* s = sel_getName(selector);
+		while ((s = strchr(s, ':')) != NULL) {
+			result->argcount++;
+			s++;
+		}
 	}
 
 	if (class_method) {
@@ -953,11 +1030,12 @@ pysel_repr(PyObject* _self)
 
 	if (sel->sel_self == NULL) {
 		if (sel->sel_class) {
-			rval = PyString_FromFormat("<unbound selector %s of %s at %p>", sel_getName(sel->sel_selector), class_getName(sel->sel_class), sel);
+			rval = PyText_FromFormat("<unbound selector %s of %s at %p>", sel_getName(sel->sel_selector), class_getName(sel->sel_class), sel);
 		} else {
-			rval = PyString_FromFormat("<unbound selector %s at %p>", sel_getName(sel->sel_selector), sel);
+			rval = PyText_FromFormat("<unbound selector %s at %p>", sel_getName(sel->sel_selector), sel);
 		}
 	} else {
+#if PY_MAJOR_VERSION == 2
 		PyObject* selfrepr = PyObject_Repr(sel->sel_self);
 		if (selfrepr == NULL) {
 			return NULL;
@@ -966,8 +1044,11 @@ pysel_repr(PyObject* _self)
 			Py_DECREF(selfrepr);
 			return NULL;
 		}
-		rval = PyString_FromFormat("<selector %s of %s>", sel_getName(sel->sel_selector), PyString_AS_STRING(selfrepr));
+		rval = PyText_FromFormat("<selector %s of %s>", sel_getName(sel->sel_selector), PyString_AS_STRING(selfrepr));
 		Py_DECREF(selfrepr);
+#else
+		rval = PyText_FromFormat("<selector %s of %R>", sel_getName(sel->sel_selector), sel->sel_self);
+#endif
 	}
 	return rval;
 }
@@ -1013,10 +1094,10 @@ compensate_arglist(PyObject* _self, PyObject* args, PyObject* kwds)
 
 	first_arg = self->sel_self ? 0 : 1;
 
-	if (self->argcount == self->sel_methinfo->ob_size-1) { /* the selector has an implicit '_sel' argument as well */
+	if (self->argcount == Py_SIZE(self->sel_methinfo)-1) { /* the selector has an implicit '_sel' argument as well */
 		/* All arguments are present, including output arguments */
 		if (argsmatch) {
-			for (i = 2; i < self->sel_methinfo->ob_size; i++) {
+			for (i = 2; i < Py_SIZE(self->sel_methinfo); i++) {
 				if (self->sel_methinfo->argtype[i].type[0] == _C_OUT) {
 					PyObject* a = PyTuple_GET_ITEM(args, first_arg + i - 2);
 					if (a != Py_None && a != PyObjC_NULL) {
@@ -1054,7 +1135,7 @@ compensate_arglist(PyObject* _self, PyObject* args, PyObject* kwds)
 			}
 
 			PyObjCMethodSignature* methinfo = PyObjCSelector_GetMetadata(_self);
-			for (i = 2; i < methinfo->ob_size; i++) {
+			for (i = 2; i < Py_SIZE(methinfo); i++) {
 				if (methinfo->argtype[i].type[0] == _C_OUT) {
 					PyTuple_SET_ITEM(real_args, i-2+first_arg, Py_None);
 					Py_INCREF(Py_None); 
@@ -1098,7 +1179,7 @@ compensate_arglist(PyObject* _self, PyObject* args, PyObject* kwds)
 			}
 
 			PyObjCMethodSignature* methinfo = PyObjCSelector_GetMetadata(_self);
-			for (i = 2; i < methinfo->ob_size; i++) {
+			for (i = 2; i < Py_SIZE(methinfo); i++) {
 				if (methinfo->argtype[i].type[0] != _C_OUT) {
 					PyTuple_SET_ITEM(real_args, pyarg, PyTuple_GET_ITEM(args, i-2+first_arg));
 					Py_INCREF(PyTuple_GET_ITEM(args, i-2+first_arg));
@@ -1143,7 +1224,7 @@ pysel_call(PyObject* _self, PyObject* args, PyObject* kwargs)
 				PyErr_Format(PyExc_TypeError, 
 					"Expecting an Objective-C class or "
 					"instance as self, got a %s",
-					self_arg->ob_type->tp_name);
+					Py_TYPE(self_arg)->tp_name);
 				return NULL;
 			}
 		}
@@ -1269,11 +1350,23 @@ pysel_default_selector(PyObject* callable)
 
 	if (name == NULL) return NULL;
 
-	if (!PyString_Check(name)) {
+	if (PyUnicode_Check(name)) {
+		PyObject* bytes = PyUnicode_AsEncodedString(name, NULL, NULL);
+		if (bytes == NULL) {
+			return NULL;
+		}
+		strncpy(buf, PyBytes_AS_STRING(bytes), sizeof(buf)-1);
+		Py_DECREF(bytes);
+
+
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(name)) {
+		strncpy(buf, PyString_AS_STRING(name), sizeof(buf)-1);
+#endif
+	} else  {
 		return NULL;
 	}
 
-	strncpy(buf, PyString_AS_STRING(name), sizeof(buf)-1);
 
 	cur = strchr(buf, '_');
 	while (cur != NULL) {
@@ -1420,7 +1513,7 @@ pysel_new(PyTypeObject* type __attribute__((__unused__)),
 {
 static	char*	keywords[] = { "function", "selector", "signature", 
 				"isClassMethod", "argumentTypes", 
-				"returnType", "isRequired", NULL };
+				"returnType", "isRequired", "isHidden", NULL };
 	PyObjCPythonSelector* result;
 	PyObject* callable;
 	char*     signature = NULL;
@@ -1431,10 +1524,12 @@ static	char*	keywords[] = { "function", "selector", "signature",
 	int	  class_method = 0;
 	char      signature_buf[1024];
 	int       required = 1;
+	int       hidden = 0;
 
-	if (!PyArg_ParseTupleAndKeywords(args, kwds, "O|ssissi:selector",
+	if (!PyArg_ParseTupleAndKeywords(args, kwds, 
+				"O|"Py_ARG_BYTES Py_ARG_BYTES"issii:selector",
 			keywords, &callable, &selector, &signature,
-			&class_method, &argtypes, &rettype, &required)) {
+			&class_method, &argtypes, &rettype, &required, &hidden)) {
 		return NULL;
 	}
 
@@ -1489,7 +1584,11 @@ static	char*	keywords[] = { "function", "selector", "signature",
 			return NULL;
 		}
 		
+#if PY_MAJOR_VERSION == 2
 		callable = PyObject_GetAttrString(tmp, "im_func");
+#else
+		callable = PyObject_GetAttrString(tmp, "__funct__");
+#endif
 		Py_DECREF(tmp);
 		if (callable == NULL) {
 			return NULL;
@@ -1512,6 +1611,9 @@ static	char*	keywords[] = { "function", "selector", "signature",
 	}
 	if (required) {
 		result->sel_flags |= PyObjCSelector_kREQUIRED;
+	}
+	if (hidden) {
+		result->sel_flags |= PyObjCSelector_kHIDDEN;
 	}
 	return (PyObject *)result;
 }
@@ -1627,8 +1729,7 @@ static PyGetSetDef pysel_getset[] = {
 };
 
 PyTypeObject PyObjCPythonSelector_Type = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"objc.python_selector",			/* tp_name */
 	sizeof(PyObjCPythonSelector),		/* tp_basicsize */
 	0,					/* tp_itemsize */
@@ -1681,7 +1782,7 @@ PyTypeObject PyObjCPythonSelector_Type = {
 
 };
 
-char* PyObjCSelector_Signature(PyObject* obj)
+const char* PyObjCSelector_Signature(PyObject* obj)
 {
 	return ((PyObjCSelector*)obj)->sel_python_signature;
 }
@@ -1717,6 +1818,11 @@ int   PyObjCSelector_IsClassMethod(PyObject* obj)
 	return (PyObjCSelector_GetFlags(obj) & PyObjCSelector_kCLASS_METHOD) != 0;
 }
 
+int   PyObjCSelector_IsHidden(PyObject* obj)
+{
+	return (PyObjCSelector_GetFlags(obj) & PyObjCSelector_kHIDDEN) != 0;
+}
+
 int   PyObjCSelector_GetFlags(PyObject* obj)
 {
 	return ((PyObjCSelector*)obj)->sel_flags;
@@ -1737,7 +1843,7 @@ find_protocol_signature(PyObject* protocols, SEL selector, int is_class_method)
 	if (!PyList_Check(protocols)) {
 		PyErr_Format(PyObjCExc_InternalError,
 			"Protocol-list is not a 'list', but '%s'",
-			protocols->ob_type->tp_name);
+			Py_TYPE(protocols)->tp_name);
 		return NULL;
 	}
 
@@ -1793,7 +1899,6 @@ PyObjCSelector_FromFunction(
 	PyObject* template_class,
 	PyObject* protocols)
 {
-	char*     oc_name;
 	SEL	  selector;
 	Method    meth;
 	int       is_class_method = 0;
@@ -1804,6 +1909,7 @@ PyObjCSelector_FromFunction(
 	if (oc_class == NULL) {
 		return NULL;
 	}
+
 
 	if (PyObjCPythonSelector_Check(callable)) {
 		PyObjCPythonSelector* result;
@@ -1832,11 +1938,14 @@ PyObjCSelector_FromFunction(
 		if (result->callable) {
 			Py_INCREF(result->callable);
 		}
+		if (PyObjCClass_HiddenSelector(template_class, PyObjCSelector_GetSelector(callable), PyObjCSelector_IsClassMethod(callable))) {
+			((PyObjCSelector*)result)->sel_flags |= PyObjCSelector_kHIDDEN;
+		}
 		return (PyObject*)result;
 	}
 
 	if (!PyFunction_Check(callable) && !PyMethod_Check(callable) &&
-		(callable->ob_type != &PyClassMethod_Type)) {
+		(Py_TYPE(callable) != &PyClassMethod_Type)) {
 	
 		PyErr_SetString(PyExc_TypeError, 
 				"expecting function, method or classmethod");
@@ -1844,7 +1953,7 @@ PyObjCSelector_FromFunction(
 	}
 
 
-	if (callable->ob_type == &PyClassMethod_Type) {
+	if (Py_TYPE(callable) == &PyClassMethod_Type) {
 		/*
 		 * This is a 'classmethod' or 'staticmethod'. 'classmethods'
 		 * will be converted to class 'selectors', 'staticmethods' are
@@ -1865,7 +1974,11 @@ PyObjCSelector_FromFunction(
 			return callable;
 		}
 
+#if PY_MAJOR_VERSION == 2
 		callable = PyObject_GetAttrString(tmp, "im_func");
+#else
+		callable = PyObject_GetAttrString(tmp, "__func__");
+#endif
 		Py_DECREF(tmp);
 		if (callable == NULL) {
 			return NULL;
@@ -1878,18 +1991,42 @@ PyObjCSelector_FromFunction(
 		if (pyname == NULL) {
 			return NULL;
 		}
-		oc_name = PyString_AS_STRING(pyname);
-		selector = PyObjCSelector_DefaultSelector(oc_name);
-		Py_DECREF(pyname);
-		oc_name = NULL;
+		if (PyUnicode_Check(pyname)) {
+			PyObject* bytes = PyUnicode_AsEncodedString(pyname, NULL, NULL);
+			if (bytes == NULL) {
+				return NULL;
+			}
+			selector = PyObjCSelector_DefaultSelector(
+					PyBytes_AsString(bytes));
+			Py_DECREF(bytes);
 
-	} else if (!PyString_Check(pyname)) {
+#if PY_MAJOR_VERSION == 2
+		} else if (PyString_Check(pyname)) {
+			selector = PyObjCSelector_DefaultSelector(
+					PyString_AsString(pyname));
+#endif
+		} else {
+			PyErr_SetString(PyExc_TypeError, "Function name is not a string");
+			return NULL;
+		}
+	} else if (PyUnicode_Check(pyname)) {
+		PyObject* bytes = PyUnicode_AsEncodedString(pyname, NULL, NULL);
+		if (bytes == NULL) {
+			return NULL;
+		}
+		selector = PyObjCSelector_DefaultSelector(
+				PyBytes_AsString(bytes));
+		Py_DECREF(bytes);
+
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(pyname)) {
+		selector = PyObjCSelector_DefaultSelector(
+			PyString_AS_STRING(pyname));
+#endif
+	} else {
 		PyErr_SetString(PyExc_TypeError, 
 			"method name must be a string");
 		return NULL;
-	} else {
-		oc_name = PyString_AS_STRING(pyname);
-		selector = PyObjCSelector_DefaultSelector(oc_name);
 	}
 
 	/* XXX: This seriously fails if a class method has a different signature
@@ -1902,6 +2039,9 @@ PyObjCSelector_FromFunction(
 	 * is.
 	 */
 	super_sel = PyObjCClass_FindSelector(template_class, selector, is_class_method);
+	if (super_sel == NULL) {
+		PyErr_Clear();
+	}
 
 	if (is_class_method) {
 		meth = class_getClassMethod(oc_class, selector);
@@ -1929,17 +2069,27 @@ PyObjCSelector_FromFunction(
 		 * the user may have specified a more exact
 		 * signature!
 		 */
+		const char* typestr = NULL;
+
 		if (super_sel == NULL) {
-			return NULL;
+			/* FIXME: This isn't optimal when hiding methods with non-standard types */
+			PyObject* met = PyObjCClass_HiddenSelector(template_class, selector, is_class_method);
+			if (met == NULL) {
+				typestr = method_getTypeEncoding(meth);
+			} else {
+				typestr = ((PyObjCMethodSignature*)met)->signature;
+			}
+		} else {
+			typestr = PyObjCSelector_Signature(super_sel);
 		}
 
 		value = PyObjCSelector_New(
 			callable, 
 			selector, 
-			PyObjCSelector_Signature(super_sel),
+			typestr,
 			is_class_method,
 			oc_class);
-		Py_DECREF(super_sel);
+		Py_XDECREF(super_sel);
 	} else {
 		char* signature = NULL;
 
@@ -1959,6 +2109,10 @@ PyObjCSelector_FromFunction(
 			is_class_method,
 			oc_class);
 	}
+	if (PyObjCClass_HiddenSelector(template_class, selector, PyObjCSelector_IsClassMethod(value))) {
+		((PyObjCSelector*)value)->sel_flags |= PyObjCSelector_kHIDDEN;
+	}
+
 	return value;
 }
 

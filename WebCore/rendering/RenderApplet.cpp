@@ -26,6 +26,7 @@
 #include "HTMLAppletElement.h"
 #include "HTMLNames.h"
 #include "HTMLParamElement.h"
+#include "PluginViewBase.h"
 #include "Widget.h"
 
 namespace WebCore {
@@ -37,6 +38,10 @@ RenderApplet::RenderApplet(HTMLAppletElement* applet, const HashMap<String, Stri
     , m_args(args)
 {
     setInline(true);
+}
+
+RenderApplet::~RenderApplet()
+{
 }
 
 IntSize RenderApplet::intrinsicSize() const
@@ -70,21 +75,36 @@ void RenderApplet::createWidgetIfNecessary()
         }
     }
 
-    Frame* frame = document()->frame();
+    Frame* frame = this->frame();
     ASSERT(frame);
-    setWidget(frame->loader()->createJavaAppletWidget(IntSize(contentWidth, contentHeight), element, m_args));
+    setWidget(frame->loader()->subframeLoader()->createJavaAppletWidget(IntSize(contentWidth, contentHeight), element, m_args));
 }
 
 void RenderApplet::layout()
 {
     ASSERT(needsLayout());
 
-    calcWidth();
-    calcHeight();
+    computeLogicalWidth();
+    computeLogicalHeight();
 
     // The applet's widget gets created lazily upon first layout.
     createWidgetIfNecessary();
     setNeedsLayout(false);
 }
+
+#if USE(ACCELERATED_COMPOSITING)
+bool RenderApplet::requiresLayer() const
+{
+    if (RenderWidget::requiresLayer())
+        return true;
+    
+    return allowsAcceleratedCompositing();
+}
+
+bool RenderApplet::allowsAcceleratedCompositing() const
+{
+    return widget() && widget()->isPluginViewBase() && static_cast<PluginViewBase*>(widget())->platformLayer();
+}
+#endif
 
 } // namespace WebCore

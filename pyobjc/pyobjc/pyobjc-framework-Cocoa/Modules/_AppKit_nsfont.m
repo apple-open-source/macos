@@ -1,8 +1,3 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <AppKit/AppKit.h>
-
 static PyObject* 
 m_NSConvertGlyphsToPackedGlyphs(
 	PyObject* self __attribute__((__unused__)), PyObject* arguments)
@@ -90,24 +85,10 @@ m_NSConvertGlyphsToPackedGlyphs(
 
 
 
-static PyMethodDef mod_methods[] = {
-	{
-	   "NSConvertGlyphsToPackedGlyphs",
-	   (PyCFunction)m_NSConvertGlyphsToPackedGlyphs,
-	   METH_VARARGS,
-	   0
+#define APPKIT_NSFONT_METHODS \
+	{							\
+	   "NSConvertGlyphsToPackedGlyphs",			\
+	   (PyCFunction)m_NSConvertGlyphsToPackedGlyphs,	\
+	   METH_VARARGS,					\
+	   0							\
 	},
-
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_nsfont(void);
-void init_nsfont(void)
-{
-	PyObject* m = Py_InitModule4("_nsfont", mod_methods, "", NULL,
-			PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-
-	return;
-}

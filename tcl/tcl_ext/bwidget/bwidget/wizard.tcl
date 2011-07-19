@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 #  wizard.tcl
-#
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: wizard.tcl,v 1.11 2009/09/06 21:49:58 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #
@@ -80,7 +81,7 @@ namespace eval Wizard {
 	{-height          TkResource "300"    0 frame}
 	{-relief          TkResource "flat"   0 frame}
 	{-borderwidth     TkResource "0"      0 frame}
-	{-background      TkResource ""       0 frame}
+	{-background      Color      "SystemWindowFrame" 0}	
 	{-foreground      String     "black"  0      }
 	{-title           String     "Wizard" 0      }
 
@@ -146,7 +147,8 @@ proc Wizard::create { path args } {
 
     if {[string equal $type "dialog"]} {
         set top $path
-        eval [list toplevel $path] $maps(:cmd) -class Wizard
+        eval [list toplevel $path] $maps(:cmd) -class Wizard \
+	        -background $::BWidget::colors(SystemWindowFrame)
         wm withdraw   $path
         wm protocol   $path WM_DELETE_WINDOW [list $path cancel]
         if {[Widget::cget $path -transient]} {
@@ -173,7 +175,11 @@ proc Wizard::create { path args } {
         frame $path.separator
         pack $path.separator -fill x
 
-        label $path.separator.l -text [Widget::cget $path -separatortext]
+        if { [BWidget::using ttk] } {
+              ttk::label $path.separator.l -text [Widget::cget $path -separatortext]
+	} else {
+              label $path.separator.l -text [Widget::cget $path -separatortext]
+	}
         pack  $path.separator.l -side left
 
         Separator $path.separator.s -orient horizontal

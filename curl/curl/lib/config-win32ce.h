@@ -310,11 +310,24 @@
 /*                            TYPE SIZES                            */
 /* ---------------------------------------------------------------- */
 
-/* The number of bytes in a long double.  */
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT 4
+
+/* The size of `long double', as computed by sizeof. */
 #define SIZEOF_LONG_DOUBLE 16
 
-/* The number of bytes in a long long.  */
+/* The size of `long long', as computed by sizeof. */
 /* #define SIZEOF_LONG_LONG 8 */
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT 2
+
+/* The size of `size_t', as computed by sizeof. */
+#if defined(_WIN64)
+#  define SIZEOF_SIZE_T 8
+#else
+#  define SIZEOF_SIZE_T 4
+#endif
 
 /* ---------------------------------------------------------------- */
 /*                          STRUCT RELATED                          */
@@ -373,7 +386,6 @@
 /* ---------------------------------------------------------------- */
 
 #define CURL_LDAP_WIN 1
-#undef CURL_LDAP_HYBRID
 #undef HAVE_LDAP_URL_PARSE
 
 /* ---------------------------------------------------------------- */

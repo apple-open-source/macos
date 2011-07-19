@@ -188,6 +188,14 @@ void    cleanup_extracted_process(CLEANUP_STATE *state, int type,
 	    cleanup_out_format(state, REC_TYPE_ATTR, "%s=%s",
 			       MAIL_ATTR_ENCODING, encoding);
 	state->flags |= CLEANUP_FLAG_INRCPT;
+	/* Make room to append more meta records. */
+	if (state->milters || cleanup_milters) {
+	    if ((state->append_meta_pt_offset = vstream_ftell(state->dst)) < 0)
+		msg_fatal("%s: vstream_ftell %s: %m:", myname, cleanup_path);
+	    cleanup_out_format(state, REC_TYPE_PTR, REC_TYPE_PTR_FORMAT, 0L);
+	    if ((state->append_meta_pt_target = vstream_ftell(state->dst)) < 0)
+		msg_fatal("%s: vstream_ftell %s: %m:", myname, cleanup_path);
+	}
     }
 
     /*
@@ -206,7 +214,7 @@ void    cleanup_extracted_process(CLEANUP_STATE *state, int type,
 	if (cleanup_milters != 0
 	    && state->milters == 0
 	    && CLEANUP_MILTER_OK(state))
-	    cleanup_milter_emul_rcpt(state, cleanup_milters, buf);
+	    cleanup_milter_emul_rcpt(state, cleanup_milters, state->recip);
 	myfree(state->orig_rcpt);
 	state->orig_rcpt = 0;
 	if (state->dsn_orcpt != 0) {

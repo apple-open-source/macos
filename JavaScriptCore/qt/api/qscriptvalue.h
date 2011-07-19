@@ -20,11 +20,13 @@
 #ifndef qscriptvalue_h
 #define qscriptvalue_h
 
+#include "qscriptstring.h"
 #include <QtCore/qlist.h>
 #include <QtCore/qshareddata.h>
 
 class QScriptEngine;
 class QScriptValuePrivate;
+class QDateTime;
 
 class QScriptValue;
 typedef QList<QScriptValue> QScriptValueList;
@@ -32,7 +34,27 @@ typedef QList<QScriptValue> QScriptValueList;
 typedef double qsreal;
 
 class QScriptValue {
-public:    
+public:
+    enum ResolveFlag {
+        ResolveLocal        = 0x00,
+        ResolvePrototype    = 0x01,
+        ResolveScope        = 0x02,
+        ResolveFull         = ResolvePrototype | ResolveScope
+    };
+    Q_DECLARE_FLAGS(ResolveFlags, ResolveFlag)
+
+    enum PropertyFlag {
+        ReadOnly            = 0x00000001,
+        Undeletable         = 0x00000002,
+        SkipInEnumeration   = 0x00000004,
+        PropertyGetter      = 0x00000008,
+        PropertySetter      = 0x00000010,
+        QObjectMember       = 0x00000020,
+        KeepExistingFlags   = 0x00000800,
+        UserRange           = 0xff000000 // Users may use these as they see fit.
+    };
+    Q_DECLARE_FLAGS(PropertyFlags, PropertyFlag)
+
     enum SpecialValue {
         NullValue,
         UndefinedValue
@@ -59,8 +81,24 @@ public:
     ~QScriptValue();
 
     QScriptValue& operator=(const QScriptValue& other);
+
+    QScriptValue prototype() const;
+    void setPrototype(const QScriptValue& prototype);
+
     bool equals(const QScriptValue& other) const;
     bool strictlyEquals(const QScriptValue& other) const;
+    bool instanceOf(const QScriptValue& other) const;
+
+    QScriptValue property(const QString& name, const ResolveFlags& mode = ResolvePrototype) const;
+    QScriptValue property(const QScriptString& name, const ResolveFlags& mode = ResolvePrototype) const;
+    QScriptValue property(quint32 arrayIndex, const ResolveFlags& mode = ResolvePrototype) const;
+
+    void setProperty(const QString& name, const QScriptValue& value, const PropertyFlags& flags = KeepExistingFlags);
+    void setProperty(quint32 arrayIndex, const QScriptValue& value, const PropertyFlags& flags = KeepExistingFlags);
+    void setProperty(const QScriptString& name, const QScriptValue& value, const PropertyFlags& flags = KeepExistingFlags);
+
+    PropertyFlags propertyFlags(const QString& name, const ResolveFlags& mode = ResolvePrototype) const;
+    PropertyFlags propertyFlags(const QScriptString& name, const ResolveFlags& mode = ResolvePrototype) const;
 
     QScriptEngine* engine() const;
 
@@ -74,6 +112,8 @@ public:
     bool isUndefined() const;
     bool isObject() const;
     bool isError() const;
+    bool isArray() const;
+    bool isDate() const;
 
     QString toString() const;
     qsreal toNumber() const;
@@ -83,10 +123,11 @@ public:
     qint32 toInt32() const;
     quint32 toUInt32() const;
     quint16 toUInt16() const;
+    QScriptValue toObject() const;
+    QDateTime toDateTime() const;
 
     QScriptValue call(const QScriptValue& thisObject = QScriptValue(),
                       const QScriptValueList& args = QScriptValueList());
-
 private:
     QScriptValue(void*);
     QScriptValue(QScriptValuePrivate*);

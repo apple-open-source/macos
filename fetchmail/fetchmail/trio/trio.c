@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: trio.c,v 1.125 2009/06/23 15:46:21 breese Exp $
+ * $Id: trio.c,v 1.129 2009/09/20 11:37:15 breese Exp $
  *
  * Copyright (C) 1998, 2009 Bjorn Reese and Daniel Stenberg.
  *
@@ -141,19 +141,19 @@
 #if TRIO_FEATURE_FLOAT
 # if defined(PREDEF_STANDARD_C99) \
   || defined(PREDEF_STANDARD_UNIX03)
-#  if !defined(HAVE_FLOORL)
+#  if !defined(HAVE_FLOORL) && !defined(TRIO_NO_FLOORL)
 #   define HAVE_FLOORL
 #  endif
-#  if !defined(HAVE_CEILL)
+#  if !defined(HAVE_CEILL) && !defined(TRIO_NO_CEILL)
 #   define HAVE_CEILL
 #  endif
-#  if !defined(HAVE_POWL)
+#  if !defined(HAVE_POWL) && !defined(TRIO_NO_POWL)
 #   define HAVE_POWL
 #  endif
-#  if !defined(HAVE_FMODL)
+#  if !defined(HAVE_FMODL) && !defined(TRIO_NO_FMODL)
 #   define HAVE_FMODL
 #  endif
-#  if !defined(HAVE_LOG10L)
+#  if !defined(HAVE_LOG10L) && !defined(TRIO_NO_LOG10L)
 #   define HAVE_LOG10L
 #  endif
 # endif
@@ -897,7 +897,7 @@ typedef struct _trio_userdef_t {
  *
  *************************************************************************/
 
-static TRIO_CONST char rcsid[] = "@(#)$Id: trio.c,v 1.125 2009/06/23 15:46:21 breese Exp $";
+static TRIO_CONST char rcsid[] = "@(#)$Id: trio.c,v 1.129 2009/09/20 11:37:15 breese Exp $";
 
 #if TRIO_FEATURE_FLOAT
 /*
@@ -3086,14 +3086,14 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
     }
 
  reprocess:
-  
+
   if (flags & FLAGS_FLOAT_G)
     {
       if (precision == 0)
 	precision = 1;
 
-      if ( (number < 1.0E-4) ||
-	   (number >= trio_pow(base, (trio_long_double_t)precision)) )
+      if ( (number < TRIO_SUFFIX_LONG(1.0E-4)) ||
+	   (number >= TrioPower(base, (trio_long_double_t)precision)) )
 	{
 	  /* Use scientific notation */
 	  flags |= FLAGS_FLOAT_E;
@@ -3127,15 +3127,20 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
       else
 	{
 	  exponent = (int)trio_floor(workNumber);
+	  workNumber = number;
 	  /*
 	   * The expression A * 10^-B is equivalent to A / 10^B but the former
 	   * usually gives better accuracy.
 	   */
-	  workNumber = number * trio_pow(dblBase, (trio_long_double_t)-exponent);
-	  if (trio_isinf(workNumber))
-	    {
-	      workNumber = number / trio_pow(dblBase, (trio_long_double_t)exponent);
-	    }
+	  workNumber *= TrioPower(dblBase, (trio_long_double_t)-exponent);
+	  if (trio_isinf(workNumber)) {
+	    /*
+	     * Scaling is done it two steps to avoid problems with subnormal
+	     * numbers.
+	     */
+	    workNumber /= TrioPower(dblBase, (trio_long_double_t)(exponent / 2));
+	    workNumber /= TrioPower(dblBase, (trio_long_double_t)(exponent - (exponent / 2)));
+	  }
 	  number = workNumber;
 	  isExponentNegative = (exponent < 0);
 	  uExponent = (isExponentNegative) ? -exponent : exponent;
@@ -3150,7 +3155,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
 
   integerNumber = trio_floor(number);
   fractionNumber = number - integerNumber;
-  
+
   /*
    * Truncated number.
    *
@@ -3180,7 +3185,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
 
   if (integerNumber < 1.0)
     {
-      workNumber = number * dblFractionBase + 0.5;
+      workNumber = number * dblFractionBase + TRIO_SUFFIX_LONG(0.5);
       if (trio_floor(number * dblFractionBase) != trio_floor(workNumber))
 	{
 	  adjustNumber = TRUE;
@@ -3194,7 +3199,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
     }
   else
     {
-      workNumber = number + 0.5 / dblFractionBase;
+      workNumber = number + TRIO_SUFFIX_LONG(0.5) / dblFractionBase;
       adjustNumber = (trio_floor(number) != trio_floor(workNumber));
     }
   if (adjustNumber)
@@ -3202,8 +3207,8 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
       if ((flags & FLAGS_FLOAT_G) && !(flags & FLAGS_FLOAT_E))
 	{
 	  /* The adjustment may require a change to scientific notation */
-	  if ( (workNumber < 1.0E-4) ||
-	       (workNumber >= trio_pow(base, (trio_long_double_t)precision)) )
+	  if ( (workNumber < TRIO_SUFFIX_LONG(1.0E-4)) ||
+	       (workNumber >= TrioPower(base, (trio_long_double_t)precision)) )
 	    {
 	      /* Use scientific notation */
 	      flags |= FLAGS_FLOAT_E;
@@ -3217,7 +3222,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
 	  if (integerDigits == workDigits)
 	    {
 	      /* Adjust if the same number of digits are used */
-	      number += 0.5 / dblFractionBase;
+	      number += TRIO_SUFFIX_LONG(0.5) / dblFractionBase;
 	      integerNumber = trio_floor(number);
 	      fractionNumber = number - integerNumber;
 	    }
@@ -3229,7 +3234,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
 	      uExponent = (isExponentNegative) ? -exponent : exponent;
 	      if (isHex)
 		uExponent *= 4; /* log16(2) */
-	      workNumber = (number + 0.5 / dblFractionBase) / dblBase;
+	      workNumber = (number + TRIO_SUFFIX_LONG(0.5) / dblFractionBase) / dblBase;
 	      integerNumber = trio_floor(workNumber);
 	      fractionNumber = workNumber - integerNumber;
 	    }
@@ -3283,7 +3288,7 @@ TRIO_ARGS6((self, number, flags, width, precision, base),
     }
 
   /* Estimate accuracy */
-  integerAdjust = fractionAdjust = 0.5;
+  integerAdjust = fractionAdjust = TRIO_SUFFIX_LONG(0.5);
 # if TRIO_FEATURE_ROUNDING
   if (flags & FLAGS_ROUNDING)
     {
@@ -5021,7 +5026,7 @@ TRIO_ARGS1((ref),
 /*************************************************************************
  * trio_get_argument [public]
  */
-trio_pointer_t 
+TRIO_CONST trio_pointer_t
 trio_get_argument
 TRIO_ARGS1((ref),
 	   trio_pointer_t ref)
@@ -5029,7 +5034,7 @@ TRIO_ARGS1((ref),
 #if TRIO_FEATURE_USER_DEFINED
   assert(((trio_reference_t *)ref)->parameter->type == FORMAT_USER_DEFINED);
 #endif
-  
+
   return ((trio_reference_t *)ref)->parameter->data.pointer;
 }
 

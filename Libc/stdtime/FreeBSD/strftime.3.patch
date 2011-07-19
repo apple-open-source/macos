@@ -1,6 +1,6 @@
---- _SB/Libc/stdtime/FreeBSD/strftime.3	2004-11-25 11:38:45.000000000 -0800
-+++ _SB/Libc/stdtime/FreeBSD/strftime.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -40,7 +40,8 @@
+--- strftime.3.bsdnew	2009-11-14 13:55:44.000000000 -0800
++++ strftime.3	2009-11-14 13:55:44.000000000 -0800
+@@ -36,7 +36,8 @@
  .Dt STRFTIME 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd format date and time
  .Sh LIBRARY
  .Lb libc
-@@ -48,10 +49,20 @@
+@@ -44,10 +45,20 @@
  .In time.h
  .Ft size_t
  .Fo strftime
@@ -34,7 +34,7 @@
  .Fc
  .Sh DESCRIPTION
  The
-@@ -59,7 +70,7 @@
+@@ -55,7 +66,7 @@ The
  function formats the information from
  .Fa timeptr
  into the buffer
@@ -43,7 +43,7 @@
  according to the string pointed to by
  .Fa format .
  .Pp
-@@ -83,6 +94,14 @@
+@@ -79,6 +90,14 @@ returns the number of characters in the 
  terminating NUL.
  Otherwise, zero is returned and the buffer contents are indeterminate.
  .Pp
@@ -58,7 +58,7 @@
  The conversion specifications are copied to the buffer after expansion
  as follows:-
  .Bl -tag -width "xxxx"
-@@ -226,7 +245,8 @@
+@@ -233,7 +252,8 @@ is replaced by
  .Xr ctime 3 ,
  .Xr printf 3 ,
  .Xr strptime 3 ,
@@ -68,7 +68,7 @@
  .Sh STANDARDS
  The
  .Fn strftime
-@@ -253,11 +273,12 @@
+@@ -260,11 +280,12 @@ with a lot of extensions including
  .Ql %u ,
  .Ql \&%V ,
  .Ql %z ,

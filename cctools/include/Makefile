@@ -24,8 +24,8 @@ LOCFILES = mach-o/rld_state.h mach-o/rld.h mach-o/sarld.h mach-o/kld.h \
 	   cbt/libsyminfo.h mach-o/dyld_priv.h
 
 # Note that OTHER_SRCS do NOT get installed
-GAS_OTHER_SRCS = stuff/bytesex.h stuff/bool.h stuff/round.h stuff/errors.h \
-		 stuff/openstep_mach.h
+GAS_OTHER_SRCS = stuff/bytesex.h stuff/bool.h stuff/rnd.h stuff/errors.h \
+		 stuff/openstep_mach.h opcode/arm.h
 OTHER_SRCS = notes gnu/symseg.h \
 	     stuff/allocate.h stuff/arch.h stuff/execute.h \
 	     stuff/ofile.h stuff/lto.h \
@@ -53,7 +53,9 @@ GAS_MISSING_SRCS = mach/m68k/thread_status.h \
 		   mach/hppa/thread_status.h \
 		   mach/sparc/thread_status.h \
 		   architecture/sparc/reg.h \
-		   mach/arm/thread_status.h
+		   mach/arm/thread_status.h \
+		   mach/ppc/thread_status.h \
+		   mach/ppc/_structs.h
 
 MISSING_SRCS = mach/machine.h \
 	       architecture/i386/fpu.h architecture/i386/frame.h \

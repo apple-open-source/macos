@@ -24,24 +24,26 @@
  */
 
 #include "config.h"
-#include "Cache.h"
+#include "WebView.h"
+
 #include "ContextMenu.h"
-#include "ContextMenuItem.h"
 #include "ContextMenuController.h"
+#include "ContextMenuItem.h"
 #include "Document.h"
-#include "Element.h"
 #include "Editor.h"
+#include "Element.h"
 #include "EmptyClients.h"
 #include "EventHandler.h"
 #include "FileChooser.h"
 #include "FocusController.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "HTMLFormElement.h"
 #include "Logging.h"
-#include "markup.h"
+#include "MemoryCache.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformMouseEvent.h"
@@ -52,10 +54,13 @@
 #include "RenderView.h"
 #include "ResourceHandleManager.h"
 #include "Scrollbar.h"
-#include "SelectionController.h"
 #include "Settings.h"
 #include "SubstituteData.h"
 #include "Threading.h"
+#include "markup.h"
+#if __WXMSW__
+#include "WebCoreInstanceHandle.h"
+#endif
 
 #include "ChromeClientWx.h"
 #include "ContextMenuClientWx.h"
@@ -66,12 +71,13 @@
 
 #include "ScriptController.h"
 #include "JSDOMBinding.h"
+#include <runtime/InitializeThreading.h>
 #include <runtime/JSValue.h>
 #include <runtime/UString.h>
 #include <wtf/text/CString.h>
 
 #if ENABLE(DATABASE)
-#include "Database.h"
+#include "AbstractDatabase.h"
 #include "DatabaseTracker.h"
 #endif
 
@@ -80,8 +86,10 @@
     #include "wx/wx.h"
 #endif
 
+#include "WebDOMElement.h"
+#include "WebDOMNode.h"
+
 #include "WebFrame.h"
-#include "WebView.h"
 #include "WebViewPrivate.h"
 
 #include <wx/defs.h>
@@ -220,17 +228,41 @@ wxWebViewWindowObjectClearedEvent::wxWebViewWindowObjectClearedEvent(wxWindow* w
         SetId(win->GetId());
 }
 
+IMPLEMENT_DYNAMIC_CLASS(wxWebViewContentsChangedEvent, wxCommandEvent)
+
+DEFINE_EVENT_TYPE(wxEVT_WEBVIEW_CONTENTS_CHANGED)
+
+wxWebViewContentsChangedEvent::wxWebViewContentsChangedEvent(wxWindow* win)
+{
+    SetEventType(wxEVT_WEBVIEW_CONTENTS_CHANGED);
+    SetEventObject(win);
+    if (win)
+        SetId(win->GetId());
+}
+
+IMPLEMENT_DYNAMIC_CLASS(wxWebViewSelectionChangedEvent, wxCommandEvent)
+
+DEFINE_EVENT_TYPE(wxEVT_WEBVIEW_SELECTION_CHANGED)
+
+wxWebViewSelectionChangedEvent::wxWebViewSelectionChangedEvent(wxWindow* win)
+{
+    SetEventType(wxEVT_WEBVIEW_SELECTION_CHANGED);
+    SetEventObject(win);
+    if (win)
+        SetId(win->GetId());
+}
 
 //---------------------------------------------------------
 // DOM Element info data type
 //---------------------------------------------------------
 
 wxWebViewDOMElementInfo::wxWebViewDOMElementInfo() :
-    m_domElement(NULL),
     m_isSelected(false),
     m_text(wxEmptyString),
     m_imageSrc(wxEmptyString),
-    m_link(wxEmptyString)
+    m_link(wxEmptyString),
+    m_urlElement(NULL),
+    m_innerNode(NULL)
 {
 }
 
@@ -239,12 +271,12 @@ static wxWebViewCachePolicy gs_cachePolicy;
 /* static */
 void wxWebView::SetCachePolicy(const wxWebViewCachePolicy& cachePolicy)
 {
-    WebCore::Cache* globalCache = WebCore::cache();
+    WebCore::MemoryCache* globalCache = WebCore::memoryCache();
     globalCache->setCapacities(cachePolicy.GetMinDeadCapacity(),
                                cachePolicy.GetMaxDeadCapacity(),
                                cachePolicy.GetCapacity());
 
-    // store a copy since there is no getter for Cache values
+    // store a copy since there is no getter for MemoryCache values
     gs_cachePolicy = cachePolicy;
 }
 
@@ -254,11 +286,28 @@ wxWebViewCachePolicy wxWebView::GetCachePolicy()
     return gs_cachePolicy;
 }
 
-#if OS(DARWIN)
-// prototype - function is in WebKitSystemInterface.mm
-extern "C" {
-void InitWebCoreSystemInterface(void);
+wxWebViewDOMElementInfo::wxWebViewDOMElementInfo(const wxWebViewDOMElementInfo& other)
+{
+    m_isSelected = other.m_isSelected;
+    m_text = other.m_text;
+    m_imageSrc = other.m_imageSrc;
+    m_link = other.m_link;
+    m_innerNode = other.m_innerNode;
+    m_urlElement = other.m_urlElement;
 }
+
+wxWebViewDOMElementInfo::~wxWebViewDOMElementInfo() 
+{
+    if (m_innerNode)
+        delete m_innerNode;
+        
+    if (m_urlElement)
+        delete m_urlElement;
+}
+
+#if OS(DARWIN)
+// prototype - function is in WebSystemInterface.mm
+void InitWebCoreSystemInterface(void);
 #endif
 
 BEGIN_EVENT_TABLE(wxWebView, wxWindow)
@@ -271,6 +320,7 @@ BEGIN_EVENT_TABLE(wxWebView, wxWindow)
     EVT_CHAR(wxWebView::OnKeyEvents)
     EVT_SET_FOCUS(wxWebView::OnSetFocus)
     EVT_KILL_FOCUS(wxWebView::OnKillFocus)
+    EVT_MOUSE_CAPTURE_LOST(wxWebView::OnMouseCaptureLost)
 END_EVENT_TABLE()
 
 IMPLEMENT_DYNAMIC_CLASS(wxWebView, wxWindow)
@@ -279,7 +329,6 @@ const wxChar* wxWebViewNameStr = wxT("webView");
 
 wxWebView::wxWebView() :
     m_textMagnifier(1.0),
-    m_isEditable(false),
     m_isInitialized(false),
     m_beingDestroyed(false),
     m_mouseWheelZooms(false),
@@ -290,7 +339,6 @@ wxWebView::wxWebView() :
 wxWebView::wxWebView(wxWindow* parent, int id, const wxPoint& position, 
                      const wxSize& size, long style, const wxString& name) :
     m_textMagnifier(1.0),
-    m_isEditable(false),
     m_isInitialized(false),
     m_beingDestroyed(false),
     m_mouseWheelZooms(false),
@@ -312,14 +360,14 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     if (!wxWindow::Create(parent, id, position, size, style, name))
         return false;
 
-    WTF::initializeThreading();
+    JSC::initializeThreading();
     WTF::initializeMainThread();
 
 // This is necessary because we are using SharedTimerWin.cpp on Windows,
 // due to a problem with exceptions getting eaten when using the callback
 // approach to timers (which wx itself uses).
 #if __WXMSW__
-    WebCore::Page::setInstanceHandle(wxGetInstance());
+    WebCore::setInstanceHandle(wxGetInstance());
 #endif
 
     // this helps reduce flicker on platforms like MSW
@@ -331,7 +379,14 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     WebCore::HTMLFrameOwnerElement* parentFrame = 0;
 
     WebCore::EditorClientWx* editorClient = new WebCore::EditorClientWx();
-    m_impl->page = new WebCore::Page(new WebCore::ChromeClientWx(this), new WebCore::ContextMenuClientWx(), editorClient, new WebCore::DragClientWx(), new WebCore::InspectorClientWx(), 0, 0);
+
+    WebCore::Page::PageClients pageClients;
+    pageClients.chromeClient = new WebCore::ChromeClientWx(this);
+    pageClients.contextMenuClient = new WebCore::ContextMenuClientWx();
+    pageClients.editorClient = editorClient;
+    pageClients.dragClient = new WebCore::DragClientWx();
+    pageClients.inspectorClient = new WebCore::InspectorClientWx();
+    m_impl->page = new WebCore::Page(pageClients);
     editorClient->setPage(m_impl->page);
     
     m_mainFrame = new wxWebFrame(this);
@@ -352,9 +407,10 @@ bool wxWebView::Create(wxWindow* parent, int id, const wxPoint& position,
     SetDatabasesEnabled(true);
 #endif
 
-    wxWindow* tlw = wxGetTopLevelParent(this);
-    tlw->Connect(-1, wxEVT_ACTIVATE, wxActivateEventHandler(wxWebView::OnTLWActivated));
-
+    // we need to do this so that objects like the focusController are properly
+    // initialized so that the activate handler is run properly.
+    LoadURL(wxT("about:blank"));
+    
     m_isInitialized = true;
 
     return true;
@@ -374,6 +430,9 @@ wxWebView::~wxWebView()
     m_impl->page = 0;   
 }
 
+// NOTE: binding to this event in the wxWebView constructor is too early in 
+// some cases, but leave the event handler here so that users can bind to it
+// at a later time if they have activation state problems.
 void wxWebView::OnTLWActivated(wxActivateEvent& event)
 {        
     if (m_impl && m_impl->page && m_impl->page->focusController())
@@ -403,10 +462,10 @@ wxString wxWebView::GetPageSource()
     return wxEmptyString;
 }
 
-void wxWebView::SetPageSource(const wxString& source, const wxString& baseUrl)
+void wxWebView::SetPageSource(const wxString& source, const wxString& baseUrl, const wxString& mimetype)
 {
     if (m_mainFrame)
-        m_mainFrame->SetPageSource(source, baseUrl);
+        m_mainFrame->SetPageSource(source, baseUrl, mimetype);
 }
 
 wxString wxWebView::GetInnerText()
@@ -429,6 +488,30 @@ wxString wxWebView::GetExternalRepresentation()
 {
     if (m_mainFrame)
         return m_mainFrame->GetExternalRepresentation();
+        
+    return wxEmptyString;
+}
+
+wxWebKitSelection wxWebView::GetSelection()
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetSelection();
+        
+    return 0;
+}
+
+wxString wxWebView::GetSelectionAsHTML()
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetSelectionAsHTML();
+        
+    return wxEmptyString;
+}
+
+wxString wxWebView::GetSelectionAsText()
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetSelectionAsText();
         
     return wxEmptyString;
 }
@@ -462,6 +545,26 @@ wxString wxWebView::RunScript(const wxString& javascript)
     if (m_mainFrame)
         return m_mainFrame->RunScript(javascript);
     
+    return wxEmptyString;
+}
+
+bool wxWebView::ExecuteEditCommand(const wxString& command, const wxString& parameter)
+{
+    if (m_mainFrame)
+        return m_mainFrame->ExecuteEditCommand(command, parameter);
+}
+
+EditState wxWebView::GetEditCommandState(const wxString& command) const
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetEditCommandState(command);
+}
+
+wxString wxWebView::GetEditCommandValue(const wxString& command) const
+{
+    if (m_mainFrame)
+        return m_mainFrame->GetEditCommandValue(command);
+ 
     return wxEmptyString;
 }
 
@@ -539,8 +642,18 @@ void wxWebView::ResetTextSize()
 
 void wxWebView::MakeEditable(bool enable)
 {
-    m_isEditable = enable;
+    if (m_mainFrame)
+        m_mainFrame->MakeEditable(enable);
 }
+
+bool wxWebView::IsEditable() const
+{
+    if (m_mainFrame)
+        return m_mainFrame->IsEditable();
+    
+    return false;
+}
+
 
 
 /* 
@@ -572,7 +685,7 @@ void wxWebView::OnPaint(wxPaintEvent& event)
             WebCore::GraphicsContext gc(&dc);
 #endif
             if (frame->contentRenderer()) {
-                frame->view()->layoutIfNeededRecursive();
+                frame->view()->updateLayoutAndStyleIfNeededRecursive();
                 frame->view()->paint(&gc, paintRect);
             }
         }
@@ -591,8 +704,7 @@ void wxWebView::OnSize(wxSizeEvent& event)
 { 
     if (m_isInitialized && m_mainFrame) {
         WebCore::Frame* frame = m_mainFrame->GetFrame();
-        frame->view()->setFrameRect(wxRect(wxPoint(0,0), event.GetSize()));
-        frame->view()->forceLayout();
+        frame->view()->resize(event.GetSize());
         frame->view()->adjustViewSize();
     }
       
@@ -732,6 +844,12 @@ void wxWebView::OnMenuSelectEvents(wxCommandEvent& event)
     delete item;
 }
 
+void wxWebView::OnMouseCaptureLost(wxMouseCaptureLostEvent& event)
+{
+    // do nothing - unfortunately, we MUST handle this event due to wxWidgets rules,
+    // otherwise we will assert, even though there is nothing for us to do here.
+}
+
 bool wxWebView::CanCopy()
 {
     if (m_mainFrame)
@@ -782,9 +900,6 @@ void wxWebView::OnKeyEvents(wxKeyEvent& event)
 
     if (!(frame && frame->view()))
         return;
-
-    if (event.GetKeyCode() == WXK_CAPITAL)
-        frame->eventHandler()->capsLockStateMayHaveChanged();
 
     WebCore::PlatformKeyboardEvent wkEvent(event);
 
@@ -984,7 +1099,7 @@ wxString wxWebView::GetDatabaseDirectory()
 void wxWebView::SetDatabasesEnabled(bool enabled)
 {
 #if ENABLE(DATABASE)
-    WebCore::Database::setIsAvailable(enabled);
+    WebCore::AbstractDatabase::setIsAvailable(enabled);
 #endif
 }
 
@@ -992,7 +1107,7 @@ void wxWebView::SetDatabasesEnabled(bool enabled)
 bool wxWebView::AreDatabasesEnabled()
 {
 #if ENABLE(DATABASE)
-    return WebCore::Database::isAvailable();
+    return WebCore::AbstractDatabase::isAvailable();
 #endif
     return false;
 }
@@ -1032,12 +1147,12 @@ wxWebSettings wxWebView::GetWebSettings()
     return wxWebSettings();
 }
 
-wxWebKitParseMode wxWebView::GetParseMode() const
+wxWebKitCompatibilityMode wxWebView::GetCompatibilityMode() const
 {
     if (m_mainFrame)
-        return m_mainFrame->GetParseMode();
+        return m_mainFrame->GetCompatibilityMode();
 
-    return NoDocument;
+    return QuirksMode;
 }
 
 void wxWebView::GrantUniversalAccess()

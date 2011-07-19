@@ -1,47 +1,49 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #ifndef SVGPointList_h
 #define SVGPointList_h
 
 #if ENABLE(SVG)
-#include "SVGList.h"
-#include "FloatPoint.h"
-#include <wtf/PassRefPtr.h>
+#include "QualifiedName.h"
+#include "SVGPropertyTraits.h"
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
-    class String;
+class FloatPoint;
 
-    class SVGPointList : public SVGPODList<FloatPoint> {
-    public:
-        static PassRefPtr<SVGPointList> create(const QualifiedName& attributeName) { return adoptRef(new SVGPointList(attributeName)); }
-        virtual ~SVGPointList();
+class SVGPointList : public Vector<FloatPoint> {
+public:
+    SVGPointList() { }
 
-        String valueAsString() const;
+    String valueAsString() const;
 
-        static PassRefPtr<SVGPointList> createAnimated(const SVGPointList* fromList, const SVGPointList* toList, float progress);
+    static bool createAnimated(const SVGPointList& fromList, const SVGPointList& toList, SVGPointList& resultList, float progress);
+};
 
-    private:
-        SVGPointList(const QualifiedName&);
-    };
+template<>
+struct SVGPropertyTraits<SVGPointList> {
+    static SVGPointList initialValue() { return SVGPointList(); }
+    typedef FloatPoint ListItemType;
+};
 
 } // namespace WebCore
 

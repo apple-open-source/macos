@@ -115,10 +115,16 @@ WebString WebSecurityOrigin::toString() const
     return m_private->toString();
 }
 
-WebString WebSecurityOrigin::databaseIdentifier()
+WebString WebSecurityOrigin::databaseIdentifier() const
 {
     ASSERT(m_private);
     return m_private->databaseIdentifier();
+}
+
+bool WebSecurityOrigin::canAccessPasswordManager() const
+{
+    ASSERT(m_private);
+    return m_private->canAccessPasswordManager();
 }
 
 WebSecurityOrigin::WebSecurityOrigin(const WTF::PassRefPtr<WebCore::SecurityOrigin>& origin)
@@ -135,6 +141,11 @@ WebSecurityOrigin& WebSecurityOrigin::operator=(const WTF::PassRefPtr<WebCore::S
 WebSecurityOrigin::operator WTF::PassRefPtr<WebCore::SecurityOrigin>() const
 {
     return PassRefPtr<SecurityOrigin>(const_cast<WebSecurityOriginPrivate*>(m_private));
+}
+
+SecurityOrigin* WebSecurityOrigin::get() const
+{
+    return m_private;
 }
 
 void WebSecurityOrigin::assign(WebSecurityOriginPrivate* p)

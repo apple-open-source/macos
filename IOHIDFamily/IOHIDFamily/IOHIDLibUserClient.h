@@ -28,7 +28,7 @@
 #ifndef _IOKIT_IOHIDLibUserClient_H_
 #define _IOKIT_IOHIDLibUserClient_H_
 
-#include "IOHIDKeys.h"
+#include <IOKit/hid/IOHIDKeys.h>
 
 enum IOHIDLibUserClientConnectTypes {
 	kIOHIDLibUserClientConnectManager = 0x00484944 /* HID */
@@ -134,11 +134,6 @@ class IOHIDDevice;
 class IOHIDEventQueue;
 class IOSyncer;
 struct IOHIDCompletion;
-#if 0
-class IOCommandGate;
-
-struct HIDResults;
-#endif
 
 enum {
 	kHIDQueueStateEnable,

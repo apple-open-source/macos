@@ -439,7 +439,7 @@ sl_uncompress_tcp(bufp, len, type, comp)
 	int hlen, vjlen;
 
 	cp = bufp? *bufp: NULL;
-	vjlen = sl_uncompress_tcp_core(cp, len, len, type, comp, &hdr, &hlen);
+	vjlen = sl_uncompress_tcp_core(cp, len, len, type, comp, &hdr, (uint32_t *)&hlen);
 	if (vjlen < 0)
 		return (0);	/* error */
 	if (vjlen == 0)
@@ -472,7 +472,8 @@ sl_uncompress_tcp(bufp, len, type, comp)
 	len += hlen;
 	BCOPY(hdr, cp, hlen);
 
-	*bufp = cp;
+	if (bufp)
+		*bufp = cp;
 	return (len);
 }
 

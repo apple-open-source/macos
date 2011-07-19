@@ -31,7 +31,7 @@
 #include "IntSize.h"
 #include <wtf/MathExtras.h>
 
-#if PLATFORM(CG) || (PLATFORM(WX) && OS(DARWIN))
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGSize CGSize;
 #endif
 
@@ -65,10 +65,12 @@ public:
 
     float aspectRatio() const { return m_width / m_height; }
 
-    void scale(float scale)
+    void scale(float s) { scale(s, s); }
+
+    void scale(float scaleX, float scaleY)
     {
-        m_width *= scale;
-        m_height *= scale;
+        m_width *= scaleX;
+        m_height *= scaleY;
     }
 
     FloatSize expandedTo(const FloatSize& other) const
@@ -83,7 +85,13 @@ public:
            m_height < other.m_height ? m_height : other.m_height);
     }
 
-#if PLATFORM(CG) || (PLATFORM(WX) && OS(DARWIN))
+    float diagonalLength() const;
+    float diagonalLengthSquared() const
+    {
+        return m_width * m_width + m_height * m_height;
+    }
+
+#if USE(CG) || (PLATFORM(WX) && OS(DARWIN)) || USE(SKIA_ON_MAC_CHROME)
     explicit FloatSize(const CGSize&); // don't do this implicitly since it's lossy
     operator CGSize() const;
 #endif
@@ -140,6 +148,11 @@ inline bool operator!=(const FloatSize& a, const FloatSize& b)
 inline IntSize roundedIntSize(const FloatSize& p)
 {
     return IntSize(static_cast<int>(roundf(p.width())), static_cast<int>(roundf(p.height())));
+}
+
+inline IntSize expandedIntSize(const FloatSize& p)
+{
+    return IntSize(clampToInteger(ceilf(p.width())), clampToInteger(ceilf(p.height())));
 }
 
 } // namespace WebCore

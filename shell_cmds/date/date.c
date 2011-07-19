@@ -173,7 +173,16 @@ main(int argc, char *argv[])
 	if (*argv && **argv == '+')
 		format = *argv + 1;
 
+#ifdef __APPLE__
+	/* 7999711 */
+	struct tm *ltp = localtime(&tval);
+	if (ltp == NULL) {
+		err(1, "localtime");
+	}
+	lt = *ltp;
+#else
 	lt = *localtime(&tval);
+#endif
 	badv = vary_apply(v, &lt);
 	if (badv) {
 		fprintf(stderr, "%s: Cannot apply date adjustment\n",

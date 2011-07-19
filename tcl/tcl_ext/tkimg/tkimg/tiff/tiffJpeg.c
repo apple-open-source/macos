@@ -24,10 +24,11 @@
  * OF THIS SOFTWARE.
  */
 
+#include "tkimg.h"
 #include "tiffInt.h"
+#include "jpegtcl.h"
 #include <assert.h>
 #include <setjmp.h>
-#include "jpegtcl.h"
 
 /*
  * TIFF Library
@@ -106,10 +107,10 @@ typedef	struct {
 
 #define	JState(tif)	((JPEGState*)(tif)->tif_data)
 
-static	int JPEGDecode    _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
-static	int JPEGDecodeRaw _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
-static	int JPEGEncode    _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
-static	int JPEGEncodeRaw _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
+static int JPEGDecode(TIFF*, tidata_t, tsize_t, tsample_t);
+static int JPEGDecodeRaw(TIFF*, tidata_t, tsize_t, tsample_t);
+static int JPEGEncode(TIFF*, tidata_t, tsize_t, tsample_t);
+static int JPEGEncodeRaw(TIFF*, tidata_t, tsize_t, tsample_t);
 
 #define	FIELD_JPEGTABLES	(FIELD_CODEC+0)
 
@@ -140,57 +141,57 @@ static const TIFFFieldInfo jpegFieldInfo[] = {
  * compression and decompression.
  */
 
-static void TIFFjpeg_error_exit _ANSI_ARGS_((j_common_ptr));
-static void TIFFjpeg_output_message _ANSI_ARGS_((j_common_ptr));
-static int  TIFFjpeg_create_compress _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_create_decompress _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_set_defaults _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_set_colorspace _ANSI_ARGS_((JPEGState*, J_COLOR_SPACE));
-static int  TIFFjpeg_set_quality _ANSI_ARGS_((JPEGState*, int, boolean));
-static int  TIFFjpeg_suppress_tables _ANSI_ARGS_((JPEGState*, boolean));
-static int  TIFFjpeg_start_compress _ANSI_ARGS_((JPEGState*, boolean));
-static int  TIFFjpeg_write_scanlines _ANSI_ARGS_((JPEGState*, JSAMPARRAY, int));
-static int  TIFFjpeg_write_raw_data _ANSI_ARGS_((JPEGState*, JSAMPIMAGE, int));
-static int  TIFFjpeg_finish_compress _ANSI_ARGS_((JPEGState* sp));
-static int  TIFFjpeg_write_tables _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_read_header _ANSI_ARGS_((JPEGState*, boolean));
-static int  TIFFjpeg_start_decompress _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_read_scanlines _ANSI_ARGS_((JPEGState*, JSAMPARRAY, int));
-static int  TIFFjpeg_read_raw_data _ANSI_ARGS_((JPEGState*, JSAMPIMAGE, int));
-static int  TIFFjpeg_finish_decompress _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_abort _ANSI_ARGS_((JPEGState*));
-static int  TIFFjpeg_destroy _ANSI_ARGS_((JPEGState*));
-static JSAMPARRAY TIFFjpeg_alloc_sarray _ANSI_ARGS_((JPEGState*,
-	int, JDIMENSION, JDIMENSION));
-static void TIFFjpeg_data_dest _ANSI_ARGS_((JPEGState*, TIFF*));
-static int  TIFFjpeg_tables_dest _ANSI_ARGS_((JPEGState*, TIFF*));
-static void TIFFjpeg_data_src _ANSI_ARGS_((JPEGState*, TIFF*));
-static void TIFFjpeg_tables_src _ANSI_ARGS_((JPEGState*, TIFF*));
+static void TIFFjpeg_error_exit(j_common_ptr);
+static void TIFFjpeg_output_message(j_common_ptr);
+static int TIFFjpeg_create_compress(JPEGState*);
+static int TIFFjpeg_create_decompress(JPEGState*);
+static int TIFFjpeg_set_defaults(JPEGState*);
+static int TIFFjpeg_set_colorspace(JPEGState*, J_COLOR_SPACE);
+static int TIFFjpeg_set_quality(JPEGState*, int, boolean);
+static int TIFFjpeg_suppress_tables(JPEGState*, boolean);
+static int TIFFjpeg_start_compress(JPEGState*, boolean);
+static int TIFFjpeg_write_scanlines(JPEGState*, JSAMPARRAY, int);
+static int TIFFjpeg_write_raw_data(JPEGState*, JSAMPIMAGE, int);
+static int TIFFjpeg_finish_compress(JPEGState* sp);
+static int TIFFjpeg_write_tables(JPEGState*);
+static int TIFFjpeg_read_header(JPEGState*, boolean);
+static int TIFFjpeg_start_decompress(JPEGState*);
+static int TIFFjpeg_read_scanlines(JPEGState*, JSAMPARRAY, int);
+static int  TIFFjpeg_read_raw_data(JPEGState*, JSAMPIMAGE, int);
+static int TIFFjpeg_finish_decompress(JPEGState*);
+static int TIFFjpeg_abort(JPEGState*);
+static int TIFFjpeg_destroy(JPEGState*);
+static JSAMPARRAY TIFFjpeg_alloc_sarray(JPEGState*,
+	int, JDIMENSION, JDIMENSION);
+static void TIFFjpeg_data_dest(JPEGState*, TIFF*);
+static int TIFFjpeg_tables_dest(JPEGState*, TIFF*);
+static void TIFFjpeg_data_src(JPEGState*, TIFF*);
+static void TIFFjpeg_tables_src(JPEGState*, TIFF*);
 
-static void    std_init_destination    _ANSI_ARGS_((j_compress_ptr));
-static boolean std_empty_output_buffer _ANSI_ARGS_((j_compress_ptr));
-static void    std_term_destination    _ANSI_ARGS_((j_compress_ptr));
-static void    tables_init_destination _ANSI_ARGS_((j_compress_ptr));
-static boolean tables_empty_output_buffer _ANSI_ARGS_((j_compress_ptr));
-static void    tables_term_destination _ANSI_ARGS_((j_compress_ptr));
-static void    std_init_source _ANSI_ARGS_((j_decompress_ptr));
-static boolean std_fill_input_buffer _ANSI_ARGS_((j_decompress_ptr));
-static void    std_skip_input_data _ANSI_ARGS_((j_decompress_ptr, long));
-static void    std_term_source _ANSI_ARGS_((j_decompress_ptr));
-static void    tables_init_source _ANSI_ARGS_((j_decompress_ptr));
-static int alloc_downsampled_buffers _ANSI_ARGS_((TIFF*,
-	jpeg_component_info*, int));
+static void std_init_destination(j_compress_ptr);
+static boolean std_empty_output_buffer(j_compress_ptr);
+static void std_term_destination(j_compress_ptr);
+static void tables_init_destination(j_compress_ptr);
+static boolean tables_empty_output_buffer(j_compress_ptr);
+static void tables_term_destination(j_compress_ptr);
+static void std_init_source(j_decompress_ptr);
+static boolean std_fill_input_buffer(j_decompress_ptr);
+static void std_skip_input_data(j_decompress_ptr, long);
+static void std_term_source(j_decompress_ptr);
+static void tables_init_source(j_decompress_ptr);
+static int alloc_downsampled_buffers(TIFF*,
+	jpeg_component_info*, int);
 
-static int JPEGSetupDecode _ANSI_ARGS_((TIFF* tif));
-static int JPEGSetupEncode _ANSI_ARGS_((TIFF* tif));
-static int JPEGEncode _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
-static int JPEGEncodeRaw _ANSI_ARGS_((TIFF*, tidata_t, tsize_t, tsample_t));
-static int JPEGPostEncode _ANSI_ARGS_((TIFF* tif));
-static void JPEGCleanup _ANSI_ARGS_((TIFF*));
-static int JPEGVSetField _ANSI_ARGS_((TIFF* tif, ttag_t tag, va_list ap));
-static int JPEGVGetField _ANSI_ARGS_((TIFF* tif, ttag_t tag, va_list ap));
-static uint32 JPEGDefaultStripSize _ANSI_ARGS_((TIFF*, uint32));
-static void JPEGDefaultTileSize _ANSI_ARGS_((TIFF*, uint32*, uint32*));
+static int JPEGSetupDecode(TIFF* tif);
+static int JPEGSetupEncode(TIFF* tif);
+static int JPEGEncode(TIFF*, tidata_t, tsize_t, tsample_t);
+static int JPEGEncodeRaw(TIFF*, tidata_t, tsize_t, tsample_t);
+static int JPEGPostEncode(TIFF* tif);
+static void JPEGCleanup(TIFF*);
+static int JPEGVSetField(TIFF* tif, ttag_t tag, va_list ap);
+static int JPEGVGetField(TIFF* tif, ttag_t tag, va_list ap);
+static uint32 JPEGDefaultStripSize(TIFF*, uint32);
+static void JPEGDefaultTileSize(TIFF*, uint32*, uint32*);
 
 
 static void
@@ -979,7 +980,7 @@ JPEGDecodeRaw (
  * JPEG Encoding.
  */
 
-static void unsuppress_quant_table _ANSI_ARGS_((JPEGState*, int));
+static void unsuppress_quant_table(JPEGState*, int);
 static void
 unsuppress_quant_table(sp, tblno)
     JPEGState* sp;
@@ -991,7 +992,7 @@ unsuppress_quant_table(sp, tblno)
 		qtbl->sent_table = FALSE;
 }
 
-static void unsuppress_huff_table _ANSI_ARGS_((JPEGState*, int));
+static void unsuppress_huff_table(JPEGState*, int);
 static void
 unsuppress_huff_table(sp, tblno)
     JPEGState* sp;
@@ -1005,7 +1006,7 @@ unsuppress_huff_table(sp, tblno)
 		htbl->sent_table = FALSE;
 }
 
-static int prepare_JPEGTables _ANSI_ARGS_((TIFF*));
+static int prepare_JPEGTables(TIFF*);
 static int
 prepare_JPEGTables(tif)
     TIFF* tif;

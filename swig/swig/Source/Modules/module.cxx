@@ -7,7 +7,7 @@
  * This file is responsible for the module system.  
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_module_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/module.cxx,v 1.4 2006/11/01 23:54:51 wsfulton Exp $";
+char cvsroot_module_cxx[] = "$Id: module.cxx 10003 2007-10-17 21:42:11Z wsfulton $";
 
 #include "swigmod.h"
 

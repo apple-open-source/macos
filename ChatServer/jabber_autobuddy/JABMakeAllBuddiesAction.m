@@ -14,6 +14,7 @@
 
 @synthesize activeQuery1 = _activeQuery1;
 @synthesize activeQuery2 = _activeQuery2;
+@synthesize userExceptionList = _userExceptionList;
 
 //------------------------------------------------------------------------------
 - (id) initWithCommandOptions: (NSDictionary *) cmdOpts
@@ -22,7 +23,10 @@
 	
 	self.activeQuery1 = [JABSelectAllActiveQuery jabSelectAllActiveQueryForAction: self];
 	self.activeQuery2 = [JABSelectAllActiveQuery jabSelectAllActiveQueryForAction: self];
-	
+
+	self.userExceptionList = [NSMutableArray arrayWithCapacity: 0];
+	[_userExceptionList addObject: EXCLUDED_USER_NOTIFICATION];
+
 	return self;
 }
 
@@ -81,6 +85,16 @@
 - (BOOL) shouldModifyRosterItemForOwner: (NSString *) ownerJid andBuddy: (NSString *) buddyJid
 {
 	// check for illegal pairings
+	NSArray *buddyJidComponents = [buddyJid componentsSeparatedByString:@"@"];
+	NSArray *ownerJidComponents = [ownerJid componentsSeparatedByString:@"@"];
+	
+	for (NSString *username in _userExceptionList) {
+		if ([username isEqualToString: [buddyJidComponents objectAtIndex: 0]] ||
+					[username isEqualToString: [ownerJidComponents objectAtIndex: 0]]) {
+			return NO;
+		}
+	}
+
 	return (![buddyJid isEqualToString: ownerJid]);
 }
 

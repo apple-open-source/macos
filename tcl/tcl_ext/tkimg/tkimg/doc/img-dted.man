@@ -1,0 +1,88 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME dted]
+[vset FORMATFULLNAME {DTED Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {DTED OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {DTED OPTIONS}].
+
+[list_end]
+
+
+[section {NOTE}]
+
+This format handler must be loaded explicitly with
+[cmd "package require img::[vset FORMATNAME]"].
+
+
+[section {SUPPORTED DTED TYPES}]
+
+[example_begin]
+ Interpret DTED terrain elevation data as a grayscale image.
+
+ List of currently supported features:
+
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+ Gray   | Yes   | Yes   | No    | No   |
+
+[example_end]
+
+
+[section {DTED OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+If set to [const true], additional information about the loaded image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -nchan] [arg int]"]
+
+Specify the number of channels of the generated image.
+Default is [const 1], i.e. generate a grayscale image.
+
+[lst_item "[option -gamma] [arg float]"]
+
+Specify a gamma correction to be applied when mapping
+the input data to 8-bit image values.
+Default is [const 1.0].
+
+[lst_item "[option -nomap] [arg bool]"]
+
+If set to [const true], no mapping of input values is done.
+Use this option, if your elevation file contains
+values in the range of [const 0] .. [const 255] only.
+Default is [const false].
+
+[lst_item "[option -min] [arg short]"]
+
+Specify the minimum pixel value to be used for mapping
+the input data to 8-bit image values.
+Default is the minimum value found in the elevation data.
+
+[lst_item "[option -max] [arg short]"]
+
+This option is supported for reading only.
+[nl]
+Specify the maximum pixel value to be used for mapping
+the input data to 8-bit image values.
+Default is the maximum value found in the elevation data.
+
+[list_end]
+
+[list_begin definitions]
+[include format-footer.inc]

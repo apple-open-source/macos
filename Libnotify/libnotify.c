@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 2003-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Portions Copyright (c) 2003-2010 Apple Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -59,11 +60,31 @@ _notify_lib_notify_state_new(uint32_t flags, uint32_t table_size)
 	if (ns->flags & NOTIFY_STATE_USE_LOCKS) 
 	{
 		ns->lock = (pthread_mutex_t *)malloc(sizeof(pthread_mutex_t));
+		if (ns->lock == NULL)
+		{
+			free(ns);
+			return NULL;
+		}
+
 		pthread_mutex_init(ns->lock, NULL);
 	}
 
 	ns->name_table = _nc_table_new(table_size);
+	if (ns->name_table == NULL)
+	{
+		free(ns->lock);
+		free(ns);
+		return NULL;
+	}
+
 	ns->client_table = _nc_table_new(table_size);
+	if (ns->client_table == NULL)
+	{
+		free(ns->lock);
+		_nc_table_free(ns->name_table);
+		free(ns);
+		return NULL;
+	}
 
 	ns->sock = -1;
 
@@ -147,6 +168,12 @@ _internal_free_client_info(client_info_t *info)
 {
 	if (info == NULL) return;
 
+	if (info->proc_src != NULL)
+	{
+		dispatch_source_cancel(info->proc_src);
+		dispatch_release(info->proc_src);
+	}
+
 	switch (info->notify_type)
 	{
 		case NOTIFY_TYPE_SIGNAL:
@@ -157,6 +184,7 @@ _internal_free_client_info(client_info_t *info)
 		case NOTIFY_TYPE_FD:
 		{
 			if (info->fd > 0) close(info->fd);
+			info->fd = -1;
 			break;
 		}
 
@@ -166,10 +194,18 @@ _internal_free_client_info(client_info_t *info)
 			{
 				if (info->msg->header.msgh_remote_port != MACH_PORT_NULL)
 				{
+					if (info->port_src != NULL)
+					{
+						dispatch_source_cancel(info->port_src);
+						dispatch_release(info->port_src);
+					}
+
 					/* release my send right to the port */
 					mach_port_deallocate(mach_task_self(), info->msg->header.msgh_remote_port);
 				}
+
 				free(info->msg);
+				info->msg = NULL;
 			}
 			break;
 		}
@@ -178,12 +214,6 @@ _internal_free_client_info(client_info_t *info)
 		{
 			break;
 		}
-	}
-
-	if (info->session != TASK_NAME_NULL) 
-	{
-		mach_port_deallocate(mach_task_self(), info->session);
-		info->session = TASK_NAME_NULL;
 	}
 
 	free(info);
@@ -200,6 +230,8 @@ _internal_client_release(notify_state_t *ns, client_t *c)
 	if (c == NULL) return;
 
 	_internal_free_client_info(c->info);
+	c->info = NULL;
+
 	x = c->client_id;
 	_nc_table_delete_n(ns->client_table, x);
 
@@ -273,6 +305,12 @@ _internal_new_name(notify_state_t *ns, const char *name)
 	if (n == NULL) return NULL;
 
 	n->name = strdup(name);
+	if (n->name == NULL)
+	{
+		free(n);
+		return NULL;
+	}
+
 	n->access = NOTIFY_ACCESS_DEFAULT;
 	n->slot = (uint32_t)-1;
 	n->val = 1;
@@ -287,19 +325,17 @@ _internal_insert_controlled_name(notify_state_t *ns, name_info_t *n)
 {
 	int i, j;
 
+	if (ns == NULL) return;
+	if (n == NULL) return;
+
+	if (ns->controlled_name == NULL) ns->controlled_name_count = 0;
+
 	for (i = 0; i < ns->controlled_name_count; i++)
 	{
 		if (ns->controlled_name[i] == n) return;
 	}
 
-	if (ns->controlled_name_count == 0)
-	{
-		ns->controlled_name = (name_info_t **)malloc(sizeof(name_info_t *));
-	}
-	else
-	{
-		ns->controlled_name = (name_info_t **)reallocf(ns->controlled_name, (ns->controlled_name_count + 1) * sizeof(name_info_t *));
-	}
+	ns->controlled_name = (name_info_t **)reallocf(ns->controlled_name, (ns->controlled_name_count + 1) * sizeof(name_info_t *));
 
 	/*
 	 * Insert name in reverse sorted order (longer names preceed shorter names).
@@ -361,6 +397,8 @@ _internal_check_user_protected(const char *name, uid_t uid, int *is_protected)
 	char str[64];
 	uint32_t len;
 
+	if (name == NULL) return NOTIFY_STATUS_OK;
+
 	*is_protected = 0;
 
 	/* if it doesn't have "user.uid." as a prefix, it's not in the user-protected namespace */
@@ -405,6 +443,7 @@ _internal_check_controlled_access(notify_state_t *ns, char *name, uid_t uid, gid
 	{
 		p = ns->controlled_name[i];
 		if (p == NULL) break;
+		if (p->name == NULL) continue;
 
 		plen = strlen(p->name);
 
@@ -431,6 +470,8 @@ uint32_t
 _notify_lib_check_controlled_access(notify_state_t *ns, char *name, uid_t uid, gid_t gid, int req)
 {
 	int status;
+
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 	status = _internal_check_controlled_access(ns, name, uid, gid, req);
@@ -510,22 +551,26 @@ _internal_send(notify_state_t *ns, client_t *c)
 
 		case NOTIFY_TYPE_PORT:
 		{
-			c->info->msg->header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
-			c->info->msg->header.msgh_local_port = MACH_PORT_NULL;
-			c->info->msg->header.msgh_size = sizeof(mach_msg_empty_send_t);
-			c->info->msg->header.msgh_id = (mach_msg_id_t)(c->info->token);
-
-			kstatus = mach_msg(&(c->info->msg->header),
-							   MACH_SEND_MSG | MACH_SEND_TIMEOUT,
-							   c->info->msg->header.msgh_size,
-							   0,
-							   MACH_PORT_NULL,
-							   MACH_PORT_SEND_TIMEOUT,
-							   MACH_PORT_NULL);
-
-			if (kstatus == MACH_SEND_INVALID_DEST)
+			if (c->info->msg != NULL)
 			{
-				/* XXX clean up XXX */
+				c->info->msg->header.msgh_bits = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, MACH_MSGH_BITS_ZERO);
+				c->info->msg->header.msgh_local_port = MACH_PORT_NULL;
+				c->info->msg->header.msgh_size = sizeof(mach_msg_empty_send_t);
+				c->info->msg->header.msgh_id = (mach_msg_id_t)(c->info->token);
+
+				kstatus = mach_msg(&(c->info->msg->header),
+								   MACH_SEND_MSG | MACH_SEND_TIMEOUT,
+								   c->info->msg->header.msgh_size,
+								   0,
+								   MACH_PORT_NULL,
+								   MACH_PORT_SEND_TIMEOUT,
+								   MACH_PORT_NULL);
+
+				if (kstatus == MACH_SEND_TIMED_OUT)
+				{
+					/* deallocate port rights obtained via pseudo-receive after failed mach_msg() send */
+					mach_msg_destroy(&c->info->msg->header);
+				}
 			}
 			break;
 		}
@@ -597,6 +642,9 @@ _notify_lib_post(notify_state_t *ns, const char *name, uid_t uid, gid_t gid)
 static void
 _internal_release_name_info(notify_state_t *ns, name_info_t *n)
 {
+	if (ns == NULL) return;
+	if (n == NULL) return;
+
 	if (n->refcount > 0) n->refcount--;
 	if (n->refcount == 0)
 	{
@@ -636,6 +684,8 @@ _internal_cancel(notify_state_t *ns, uint32_t cid)
 void
 _notify_lib_cancel(notify_state_t *ns, uint32_t cid)
 {
+	if (ns == NULL) return;
+
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 	_internal_cancel(ns, cid);
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -662,7 +712,7 @@ _notify_lib_suspend(notify_state_t *ns, uint32_t cid)
 }
 
 void
-_notify_lib_suspend_session(notify_state_t *ns, task_name_t session)
+_notify_lib_suspend_session(notify_state_t *ns, pid_t pid)
 {
 	client_t *c;
 	name_info_t *n;
@@ -670,7 +720,6 @@ _notify_lib_suspend_session(notify_state_t *ns, task_name_t session)
 	list_t *l;
 
 	if (ns == NULL) return;
-	if (session == TASK_NAME_NULL) return;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
@@ -685,7 +734,7 @@ _notify_lib_suspend_session(notify_state_t *ns, task_name_t session)
 		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
 		{
 			c = _nc_list_data(l);
-			if ((c != NULL) && (c->info != NULL) && (c->info->session == session))
+			if ((c != NULL) && (c->info != NULL) && (c->info->pid == pid))
 			{
 				c->info->state |= NOTIFY_CLIENT_STATE_SUSPENDED;
 				if (c->info->suspend_count < UINT32_MAX) c->info->suspend_count++;
@@ -693,7 +742,7 @@ _notify_lib_suspend_session(notify_state_t *ns, task_name_t session)
 		}
 	}
 	_nc_table_traverse_end(ns->name_table, tt);
-	
+
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
 }
 
@@ -727,7 +776,7 @@ _notify_lib_resume(notify_state_t *ns, uint32_t cid)
 }
 
 void
-_notify_lib_resume_session(notify_state_t *ns, task_name_t session)
+_notify_lib_resume_session(notify_state_t *ns, pid_t pid)
 {
 	client_t *c;
 	name_info_t *n;
@@ -735,7 +784,6 @@ _notify_lib_resume_session(notify_state_t *ns, task_name_t session)
 	list_t *l;
 
 	if (ns == NULL) return;
-	if (session == TASK_NAME_NULL) return;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
@@ -750,7 +798,7 @@ _notify_lib_resume_session(notify_state_t *ns, task_name_t session)
 		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
 		{
 			c = _nc_list_data(l);
-			if ((c != NULL) && (c->info != NULL) && (c->info->session == session))
+			if ((c != NULL) && (c->info != NULL) && (c->info->pid == pid))
 			{
 				if (c->info->suspend_count > 0) c->info->suspend_count--;
 				if (c->info->suspend_count == 0)
@@ -775,7 +823,7 @@ _notify_lib_resume_session(notify_state_t *ns, task_name_t session)
  * Delete all clients for a session
  */
 void
-_notify_lib_cancel_session(notify_state_t *ns, task_name_t session)
+_notify_lib_cancel_session(notify_state_t *ns, pid_t pid)
 {
 	client_t *c, *a, *p;
 	name_info_t *n;
@@ -783,7 +831,6 @@ _notify_lib_cancel_session(notify_state_t *ns, task_name_t session)
 	list_t *l, *x;
 
 	if (ns == NULL) return;
-	if (session == TASK_NAME_NULL) return;
 
 	a = NULL;
 	x = NULL;
@@ -800,7 +847,7 @@ _notify_lib_cancel_session(notify_state_t *ns, task_name_t session)
 		for (l = n->client_list; l != NULL; l = _nc_list_next(l))
 		{
 			c = _nc_list_data(l);
-			if ((c->info != NULL) && (c->info->session == session))
+			if ((c->info != NULL) && (c->info->pid == pid))
 			{
 				a = (client_t *)malloc(sizeof(client_t));
 				if (a == NULL)
@@ -1022,6 +1069,8 @@ _notify_lib_get_val(notify_state_t *ns, uint32_t cid, int *val)
 {
 	client_t *c;
 
+	if (val == NULL) return NOTIFY_STATUS_FAILED;
+
 	*val = 0;
 
 	if (ns == NULL) return NOTIFY_STATUS_FAILED;
@@ -1098,7 +1147,10 @@ _internal_register_common(notify_state_t *ns, const char *name, uid_t uid, gid_t
 	int auth, is_protected, is_new_name;
 	uint32_t status;
 
-	if (outc == NULL) return 0;
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
+
+	if (outc == NULL) return NOTIFY_STATUS_OK;
 
 	*outc = NULL;
 	if (outn != NULL) *outn = NULL;
@@ -1174,13 +1226,13 @@ _internal_register_common(notify_state_t *ns, const char *name, uid_t uid, gid_t
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t session, pid_t pid, uint32_t sig, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_signal(notify_state_t *ns, const char *name, pid_t pid, uint32_t sig, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return 0;
-	if (name == NULL) return 0;
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
 
@@ -1196,7 +1248,6 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t se
 	c->info->notify_type = NOTIFY_TYPE_SIGNAL;
 	c->info->pid = pid;
 	c->info->sig = sig;
-	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1208,39 +1259,19 @@ _notify_lib_register_signal(notify_state_t *ns, const char *name, task_name_t se
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_name_t session, const char *path, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, int fd, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	name_info_t *n;
 	uint32_t status;
-	struct sockaddr_un sun;
-	int sock;
 
-	if (ns == NULL) return 0;
-	if (name == NULL) return 0;
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
 	n = NULL;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
-
-	sock = socket(AF_UNIX, SOCK_DGRAM, 0);
-	if (sock < 0)
-	{
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_FAILED;
-	}
-
-	memset(&sun, 0, sizeof(sun));
-	sun.sun_family = AF_UNIX;
-	strncpy(sun.sun_path, path, sizeof(sun.sun_path));
-
-	if (connect(sock, (const struct sockaddr *)&sun, sizeof(sun)) < 0)
-	{
-		close(sock);
-		if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
-		return NOTIFY_STATUS_INVALID_FILE;
-	}
 
 	status = _internal_register_common(ns, name, uid, gid, &c, &n);
 	if (status != NOTIFY_STATUS_OK)
@@ -1251,9 +1282,8 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_
 
 	c->info->name_info = n;
 	c->info->notify_type = NOTIFY_TYPE_FD;
-	c->info->fd = sock;
+	c->info->fd = fd;
 	c->info->token = token;
-	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1265,13 +1295,13 @@ _notify_lib_register_file_descriptor(notify_state_t *ns, const char *name, task_
  * Returns the client_id;
  */
 uint32_t
-_notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t session, mach_port_t port, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_mach_port(notify_state_t *ns, const char *name, mach_port_t port, uint32_t token, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	uint32_t status;
 
-	if (ns == NULL) return 0;
-	if (name == NULL) return 0;
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
 
@@ -1292,7 +1322,6 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t
 	c->info->msg->header.msgh_size = sizeof(mach_msg_empty_send_t);
 	c->info->msg->header.msgh_id = token;
 	c->info->token = token;
-	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1304,14 +1333,14 @@ _notify_lib_register_mach_port(notify_state_t *ns, const char *name, task_name_t
  * Returns the client_id.
  */
 uint32_t
-_notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t session, uint32_t slot, uid_t uid, gid_t gid, uint32_t *out_token)
+_notify_lib_register_plain(notify_state_t *ns, const char *name, uint32_t slot, uid_t uid, gid_t gid, uint32_t *out_token)
 {
 	client_t *c;
 	name_info_t *n;
 	uint32_t status;
 
-	if (ns == NULL) return 0;
-	if (name == NULL) return 0;
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	c = NULL;
 	n = NULL;
@@ -1335,7 +1364,6 @@ _notify_lib_register_plain(notify_state_t *ns, const char *name, task_name_t ses
 		n->slot = slot;
 	}
 
-	c->info->session = session;
 	*out_token = c->client_id;
 
 	if (ns->lock != NULL) pthread_mutex_unlock(ns->lock);
@@ -1385,6 +1413,9 @@ _notify_lib_get_owner(notify_state_t *ns, const char *name, uint32_t *uid, uint3
 {
 	name_info_t *n;
 	int i, nlen, len;
+
+	if (ns == NULL) return NOTIFY_STATUS_FAILED;
+	if (name == NULL) return NOTIFY_STATUS_INVALID_NAME;
 
 	if (ns->lock != NULL) pthread_mutex_lock(ns->lock);
 
@@ -1495,6 +1526,7 @@ _notify_lib_get_access(notify_state_t *ns, const char *name, uint32_t *mode)
 	{
 		n = ns->controlled_name[i];
 		if (n == NULL) break;
+		if (n->name == NULL) continue;
 
 		nlen = strlen(n->name);
 

@@ -571,8 +571,8 @@ myCFDataCreateWithTagAndCFType(dhcptag_t tag, CFTypeRef value,
 		    if (err != NULL) {
 			strcpy(err, "Invalid number");
 		    }
-		    goto done;
 		    CFRelease(d);
+		    goto done;
 		}
 		if (type_info->size == 1) {
 		    uint8_t	b = l;
@@ -1045,7 +1045,7 @@ SubnetCreateWithDictionary(CFDictionaryRef plist, char * err)
     if (supernet_space != 0) {
 	my_CFStringToCStringAndLength(supernet_prop, offset, supernet_space);
 	subnet->supernet = offset;
-	offset += supernet_space;
+	/* offset += supernet_space; */
     }
     subnet->nextip = net_range.start;
 

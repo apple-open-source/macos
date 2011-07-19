@@ -1,4 +1,4 @@
-/*	$NetBSD: utmpx.c,v 1.21 2003/09/06 16:42:10 wiz Exp $	 */
+/*	$NetBSD: utmpx.c,v 1.25 2008/04/28 20:22:59 martin Exp $	 */
 
 /*-
  * Copyright (c) 2002 The NetBSD Foundation, Inc.
@@ -15,13 +15,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *        This product includes software developed by the NetBSD
- *        Foundation, Inc. and its contributors.
- * 4. Neither the name of The NetBSD Foundation nor the names of its
- *    contributors may be used to endorse or promote products derived
- *    from this software without specific prior written permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE NETBSD FOUNDATION, INC. AND CONTRIBUTORS
  * ``AS IS'' AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED
@@ -38,7 +31,7 @@
 #include <sys/cdefs.h>
 
 #if defined(LIBC_SCCS) && !defined(lint)
-__RCSID("$NetBSD: utmpx.c,v 1.21 2003/09/06 16:42:10 wiz Exp $");
+__RCSID("$NetBSD: utmpx.c,v 1.25 2008/04/28 20:22:59 martin Exp $");
 #endif /* LIBC_SCCS and not lint */
 
 #include "namespace.h"
@@ -58,21 +51,13 @@ __RCSID("$NetBSD: utmpx.c,v 1.21 2003/09/06 16:42:10 wiz Exp $");
 #include <string.h>
 #include <unistd.h>
 #include <utmp.h>
-/* don't define earlier, has side effects in fcntl.h */
-#define __LIBC12_SOURCE__
 #include <utmpx.h>
 #include <vis.h>
-
-__warn_references(getlastlogx,
-    "warning: reference to compatibility getlastlogx(); include <utmpx.h> for correct reference")
-__warn_references(lastlogxname,
-    "warning: reference to deprecated lastlogxname()")
 
 static FILE *fp;
 static int readonly = 0;
 static struct utmpx ut;
 static char utfile[MAXPATHLEN] = _PATH_UTMPX;
-static char llfile[MAXPATHLEN] = _PATH_LASTLOGX;
 
 static struct utmpx *utmp_update(const struct utmpx *);
 
@@ -294,7 +279,7 @@ utmp_update(const struct utmpx *utx)
 	case 0:
 		(void)execl(_PATH_UTMP_UPDATE,
 		    strrchr(_PATH_UTMP_UPDATE, '/') + 1, buf, NULL);
-		exit(1);
+		_exit(1);
 		/*NOTREACHED*/
 	case -1:
 		return NULL;
@@ -400,35 +385,8 @@ getutmpx(const struct utmp *u, struct utmpx *ux)
 	ux->ut_exit.e_exit = 0;
 }
 
-int
-lastlogxname(const char *fname)
-{
-	size_t len;
-
-	_DIAGASSERT(fname != NULL);
-
-	len = strlen(fname);
-
-	if (len >= sizeof(llfile))
-		return 0;
-
-	/* must end in x! */
-	if (fname[len - 1] != 'x')
-		return 0;
-
-	(void)strlcpy(llfile, fname, sizeof(llfile));
-	return 1;
-}
-
 struct lastlogx *
-getlastlogx(uid_t uid, struct lastlogx *ll)
-{
-
-	return __getlastlogx13(_PATH_LASTLOGX, uid, ll);
-}
-
-struct lastlogx *
-__getlastlogx13(const char *fname, uid_t uid, struct lastlogx *ll)
+getlastlogx(const char *fname, uid_t uid, struct lastlogx *ll)
 {
 	DBT key, data;
 	DB *db;
@@ -475,7 +433,7 @@ updlastlogx(const char *fname, uid_t uid, struct lastlogx *ll)
 	_DIAGASSERT(fname != NULL);
 	_DIAGASSERT(ll != NULL);
 
-	db = dbopen(fname, O_RDWR|O_CREAT|O_EXLOCK, 0, DB_HASH, NULL);
+	db = dbopen(fname, O_RDWR|O_CREAT|O_EXLOCK, 0644, DB_HASH, NULL);
 
 	if (db == NULL)
 		return -1;

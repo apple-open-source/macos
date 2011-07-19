@@ -172,7 +172,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 5253CEA00D5AAB030041AE31 /* Build configuration list for PBXProject "IOATAPIProtocolTransport" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 06B48B19FFC1B5E711CE15BF /* IOATAPIProtocolTransport */;
 			productRefGroup = 06B48B2BFFC1B5E711CE15BF /* Products */;
 			projectDirPath = "";

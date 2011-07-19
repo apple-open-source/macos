@@ -35,15 +35,18 @@
 
 namespace WebCore {
 
-    class SocketStreamError : public SocketStreamErrorBase {
-    public:
-        SocketStreamError() { }
-        explicit SocketStreamError(int errorCode)
-            : SocketStreamErrorBase(errorCode)
-        {
-        }
-
-    };
+class SocketStreamError : public SocketStreamErrorBase {
+public:
+    SocketStreamError() { }
+    explicit SocketStreamError(int errorCode)
+        : SocketStreamErrorBase(errorCode)
+    {
+    }
+    SocketStreamError(int errorCode, const String& failingURL, const String& localizedDescription)
+        : SocketStreamErrorBase(errorCode, failingURL, localizedDescription)
+    {
+    }
+};
 
 }  // namespace WebCore
 

@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -52,7 +51,6 @@
 #include <sys/param.h>
 #include <sys/time.h>
 #include <sys/stat.h>
-#include <sys/disklabel.h>
 #include <sys/mount.h>
 #include <sys/ioctl.h>
 #include <sys/disk.h>
@@ -67,7 +65,20 @@
 #include <string.h>
 #include <unistd.h>
 
-int dkdisklabel __P((int fd, struct disklabel * lp));
+#include <IOKit/IOKitLib.h>
+#include <IOKit/storage/IOStorageCardCharacteristics.h>
+
+/* ioctl selector to get the offset of the current partition 
+ * from the start of the disk to initialize hidden sectors 
+ * value in the boot sector.
+ *
+ * Note: This ioctl selector is not available in userspace
+ * and we are assuming its existence by defining it here. 
+ * This behavior can change in future.
+ */
+#ifndef DKIOCGETBASE
+#define DKIOCGETBASE	_IOR('d', 73, uint64_t)
+#endif
 
 #define MAXU16	  0xffff	/* maximum unsigned 16-bit quantity */
 #define BPN	  4		/* bits per nibble */
@@ -208,6 +219,7 @@ struct bpb {
     u_int rdcl; 		/* root directory start cluster */
     u_int infs; 		/* file system info sector */
     u_int bkbs; 		/* backup boot sector */
+    u_int driveNum;             /* INT 0x13 drive number (0x00 or 0x80) */
 };
 
 static struct {
@@ -259,43 +271,72 @@ static u_int8_t bootcode[] = {
 };
 
 /*
+ * These values define the default crossover points for selecting the default
+ * FAT type.  The intent here is to have the crossover points be the same as
+ * Microsoft documents, at least for 512 bytes per sector devices.  As much
+ * as possible, the same crossover point (in terms of bytes per volume) is used
+ * for larger sector sizes.  But the 4.1MB crossover between FAT12 and FAT16
+ * is not achievable for sector sizes larger than 1KB since it would result
+ * in fewer than 4085 clusters, making FAT16 impossible; in that case, the
+ * crossover is in terms of sectors, not bytes.
+ *
+ * Note that the FAT16 to FAT32 crossover is only good for sector sizes up to
+ * and including 4KB.  For larger sector sizes, there would be too few clusters
+ * for FAT32.
+ */
+enum {
+    MAX_SEC_FAT12_512	= 8400,	    /* (4.1 MB) Maximum 512 byte sectors to default to FAT12 */
+    MAX_SEC_FAT12	= 4200,	    /* Maximum sectors (>512 bytes) to default to FAT12 */
+    MAX_KB_FAT16	= 524288    /* (512 MiB) Maximum kilobytes to default to FAT16 */
+};
+
+/*
  * [2873851] Tables of default cluster sizes for FAT16 and FAT32.
- * These constants come from Microsoft's documentation.
+ *
+ * These constants are derived from Microsoft's documentation, but adjusted
+ * to represent kilobytes of volume size, not a number of 512-byte sectors.
+ * Also, this table uses default cluster size, not sectors per cluster, so
+ * that it can be independent of sector size.
  */
 
-#define MAX_SEC_FAT12 8400	/* (4 MB) Maximum number of sectors to default to FAT12 */
-#define MAX_SEC_FAT16 1048576	/* (512 MB) Maximum number of sectors t odefault to FAT16 */
-
 struct DiskSizeToClusterSize {
-    u_int diskSectors;		/* input: maximum bpb.bsec */
-    u_int sectorsPerCluster;	/* output: desired bpb.spc */
+    u_int32_t kilobytes;	    /* input: maximum kilobytes */
+    u_int32_t bytes_per_cluster;    /* output: desired cluster size (in bytes) */
 };
 
 struct DiskSizeToClusterSize fat16Sizes[] = {
-    {   8400,  0},	/* Disks up to 4.1 MB; the 0 triggers an error */
-    {  32680,  2},	/* Disks up to  16 MB => 1 KB cluster */
-    { 262144,  4},	/* Disks up to 128 MB => 2 KB cluster */
-    { 524288,  8},	/* Disks up to 256 MB => 4 KB cluster */
-    {1048576, 16},	/* Disks up to 512 MB => 8 KB cluster */
+    {   4200,        0},    /* Disks up to 4.1 MB; the 0 triggers an error */
+    {  16340,     1024},    /* Disks up to  16 MB => 1 KB cluster */
+    { 131072,     2048},    /* Disks up to 128 MB => 2 KB cluster */
+    { 262144,     4096},    /* Disks up to 256 MB => 4 KB cluster */
+    { 524288,     8192},    /* Disks up to 512 MB => 8 KB cluster */
     /* The following entries are used only if FAT16 is forced */
-    {2097152, 32},	/* Disks up to 1 GB => 16 KB cluster */
-    {0xFFFFFFFF, 64}	/* Disks over 2 GB => 32KB cluster (total size may be limited) */
+    {1048576,    16384},    /* Disks up to 1 GB => 16 KB cluster */
+    {UINT32_MAX, 32768}	    /* Disks over 2 GB => 32KB cluster (total size may be limited) */
 };
 struct DiskSizeToClusterSize fat32Sizes[] = {
-    {   66600,  0},	/* Disks up to 32.5 MB; the 0 triggers an error */
-    {  532480,  1},	/* Disks up to 260 MB => 512 byte cluster; not used unles FAT32 forced */
-    {16777216,  8},	/* Disks up to   8 GB =>  4 KB cluster */
-    {33554432, 16},	/* Disks up to  16 GB =>  8 KB cluster */
-    {67108864, 32},	/* Disks up to  32 GB => 16 KB cluster */
-    {0xFFFFFFFF, 64}	/* Disks over 32 GB => 32 KB cluster */
+    {   33300,       0},    /* Disks up to 32.5 MB; the 0 triggers an error */
+    {  266240,     512},    /* Disks up to 260 MB => 512 byte cluster; not used unles FAT32 forced */
+    { 8388608,    4096},    /* Disks up to   8 GB =>  4 KB cluster */
+    {16777216,    8192},    /* Disks up to  16 GB =>  8 KB cluster */
+    {33554432,   16384},    /* Disks up to  32 GB => 16 KB cluster */
+    {UINT32_MAX, 32768}	    /* Disks over 32 GB => 32 KB cluster */
+};
+
+enum SDCardType {
+    kCardTypeNone   =	0,
+    kCardTypeSDSC,
+    kCardTypeSDHC,
+    kCardTypeSDXC
 };
 
 static void check_mounted(const char *, mode_t);
 static void getstdfmt(const char *, struct bpb *);
 static void getdiskinfo(int, const char *, const char *, int,
 			struct bpb *);
+static enum SDCardType sd_card_type_for_path(const char *path);
+static void sd_card_set_defaults(const char *path, u_int *fat, struct bpb *bpb);
 static void print_bpb(struct bpb *);
-static u_int ckgeom(const char *, u_int, const char *);
 static u_int argtou(const char *, u_int, u_int, const char *);
 static int oklabel(const char *);
 static void mklabel(u_int8_t *, const char *);
@@ -550,21 +591,28 @@ main(int argc, char *argv[])
     if (!bpb.nft)
 	bpb.nft = 2;
 
+    sd_card_set_defaults(fname, &fat, &bpb);
+    
     /*
      * [2873851] If the FAT type or sectors per cluster were not explicitly specified,
      * set them to default values.
      */
     if (!bpb.spc)
     {
+	u_int64_t kilobytes = (u_int64_t) bpb.bps * (u_int64_t) bpb.bsec / 1024U;
+	u_int32_t bytes_per_cluster;
+	
 	/*
-	 * If the user didn't specify the FAT type, then pick a default based on the
-	 * number of sectors on the volume.
+	 * If the user didn't specify the FAT type, then pick a default based on
+	 * the size of the volume.
 	 */
 	if (!fat)
 	{
-	    if (bpb.bsec <= MAX_SEC_FAT12)
+	    if (bpb.bps == 512 && bpb.bsec <= MAX_SEC_FAT12_512)
 		fat = 12;
-	    else if (bpb.bsec <= MAX_SEC_FAT16)
+	    else if (bpb.bps != 512 && bpb.bsec <= MAX_SEC_FAT12)
+		fat = 12;
+	    else if (kilobytes <= MAX_KB_FAT16)
 		fat = 16;
 	    else
 		fat = 32;
@@ -575,11 +623,13 @@ main(int argc, char *argv[])
 	case 12:
 	    /*
 	     * There is no general table for FAT12, so try all possible
-	     * sector-per-cluster values until it all fits, or we try the
+	     * bytes-per-cluster values until it all fits, or we try the
 	     * maximum cluster size.
 	     */
-	    for (bpb.spc=1; bpb.spc<64; bpb.spc*=2)
+	    for (bytes_per_cluster = bpb.bps; bytes_per_cluster <= 32768; bytes_per_cluster *= 2)
 	    {
+		bpb.spc = bytes_per_cluster / bpb.bps;
+
 		/* Start with number of reserved sectors */
 		x = bpb.res ? bpb.res : bss;
 		/* Plus number of sectors used by FAT */
@@ -600,14 +650,20 @@ main(int argc, char *argv[])
 	    }
 	    break;
 	case 16:
-	    for (x=0; bpb.bsec > fat16Sizes[x].diskSectors; ++x)
+	    for (x=0; kilobytes > fat16Sizes[x].kilobytes; ++x)
 		;
-	    bpb.spc = fat16Sizes[x].sectorsPerCluster;
+	    bytes_per_cluster = fat16Sizes[x].bytes_per_cluster;
+	    if (bytes_per_cluster < bpb.bps)
+		bytes_per_cluster = bpb.bps;
+	    bpb.spc = bytes_per_cluster / bpb.bps;
 	    break;
 	case 32:
-	    for (x=0; bpb.bsec > fat32Sizes[x].diskSectors; ++x)
+	    for (x=0; kilobytes > fat32Sizes[x].kilobytes; ++x)
 		;
-	    bpb.spc = fat32Sizes[x].sectorsPerCluster;
+	    bytes_per_cluster = fat32Sizes[x].bytes_per_cluster;
+	    if (bytes_per_cluster < bpb.bps)
+		bytes_per_cluster = bpb.bps;
+	    bpb.spc = bytes_per_cluster / bpb.bps;
 	    break;
 	default:
 	    errx(1, "Invalid FAT type: %d", fat);
@@ -615,7 +671,7 @@ main(int argc, char *argv[])
 	}
 	
 	if (bpb.spc == 0)
-	    errx(1, "FAT%d is impossible with %lu sectors", fat, bpb.bsec);
+	    errx(1, "FAT%d is impossible with %u sectors", fat, bpb.bsec);
     }
     else
     {
@@ -802,6 +858,7 @@ main(int argc, char *argv[])
 		    x1 += sizeof(struct bsxbpb);
 		}
 		bsx = (struct bsx *)(img + x1);
+                mk1(bsx->drv, bpb.driveNum);
 		mk1(bsx->sig, 0x29);
 		if (Iflag)
 		    x = opt_I;
@@ -942,37 +999,220 @@ static void
 getdiskinfo(int fd, const char *fname, const char *dtype, int oflag,
 	    struct bpb *bpb)
 {
-	struct disklabel lab;
+    uint64_t partition_offset = 0;	    /* in bytes from start of device */
+    uint64_t block_count;
+    uint32_t block_size;
 
-	if (dkdisklabel(fd, &lab) < 0) {
-		warn("ioctl (GDINFO)");
-		errx(1, "%s: can't figure out partition info", fname);
-	}
+    if (ioctl(fd, DKIOCGETBASE, &partition_offset) == -1)
+        err(1, "%s: Cannot get partition offset", fname);
+
+    /*
+     * If we'll need the block count or block size, get them now.
+     */
+    if (!bpb->bsec)
+    {
+	if (ioctl(fd, DKIOCGETBLOCKCOUNT, &block_count) == -1)
+	    err(1, "%s: Cannot get number of sectors", fname);
+    }
+    if (!bpb->bps || !bpb->bsec)
+    {
+	/*
+	 * Note: if user specified bytes per sector, but not number of sectors,
+	 * then we'll need the sector size in order to calculate the total
+	 * bytes in this partition.
+	 */
+	if (ioctl(fd, DKIOCGETBLOCKSIZE, &block_size) == -1)
+	    err(1, "%s: Cannot get number of sectors", fname);
+    }
+    
+    /*
+     * If bytes-per-sector was explicitly specified, but total number of
+     * sectors was not explicitly specified, then find out how many sectors
+     * of the given size would fit into the given partition (calculate the
+     * size of the partition in bytes, and divide by the desired bytes per
+     * sector).
+     *
+     * This makes it possible to create a disk image, and format it in
+     * preparation for copying to a device with a different sector size.
+     */
+    if (bpb->bps && !bpb->bsec)
+	    bpb->bsec = (block_count * block_size) / bpb->bps;
+
+    if (!bpb->bsec)
+	    bpb->bsec = block_count;
+
+    if (!bpb->bps)
+	    bpb->bps = block_size;
+    
+    if (!oflag)
+	bpb->hid = partition_offset / bpb->bps;
+    
+    /*
+     * Set up the INT 0x13 style drive number for BIOS.  The FAT specification
+     * says "0x00 for floppies, 0x80 for hard disks".  I assume that means
+     * 0x80 if partitioned, and 0x000 otherwise.
+     */
+    bpb->driveNum = partition_offset != 0 ? 0x80 : 0x00;
 
 	/*
-	 * If bytes-per-sector was explicitly specified, but total number of
-	 * sectors was not explicitly specified, then find out how many sectors
-	 * of the given size would fit into the given partition (calculate the
-	 * size of the partition in bytes, and divide by the desired bytes per
-	 * sector).
-	 *
-	 * This makes it possible to create a disk image, and format it in
-	 * preparation for copying to a device with a different sector size.
-	 */
-	if (bpb->bps && !bpb->bsec)
-		bpb->bsec = (u_int64_t) (lab.d_partitions[0].p_size) * lab.d_secsize / bpb->bps;
+     * Compute default values for sectors per track and number of heads
+     * (number of tracks per cylinder) if the user didn't explicitly provide
+     * them.  This calculation mimics the dkdisklabel() routine from
+     * disklib.
+     */
+    if (!bpb->spt)
+        bpb->spt = 32;  /* The same constant that dkdisklabel() used. */
+    if (!bpb->hds)
+    {
+        /*
+         * These are the same values used by dkdisklabel().
+         *
+         * Note the use of block_count instead of bpb->bsec here.
+         * dkdisklabel() computed its fake geometry based on the block
+         * count returned by DKIOCGETBLOCKCOUNT, without adjusting for
+         * a new block size.
+         */
+        if (block_count < 8*32*1024)
+            bpb->hds = 16;
+        else if (block_count < 16*32*1024)
+            bpb->hds = 32;
+        else if (block_count < 32*32*1024)
+            bpb->hds = 54;  /* Should be 64?  Bug in dkdisklabel()? */
+        else if (block_count < 64*32*1024)
+            bpb->hds = 128;
+        else
+            bpb->hds = 255;
+    }
+}
 
-	if (!oflag)
-		bpb->hid = lab.d_partitions[0].p_offset;
-	if (!bpb->bsec)
-		bpb->bsec = lab.d_partitions[0].p_size;
+/*
+ * Given the path we're formatting, see if it looks like an SD card.
+ */
+static enum SDCardType sd_card_type_for_path(const char *path)
+{
+    enum SDCardType result = kCardTypeNone;
+    const char *disk = NULL;
+    io_service_t obj = 0;
+    CFDictionaryRef cardCharacteristics = NULL;
+    CFStringRef cardType = NULL;
+    
+    /*
+     * We're looking for the "disk1s1" part of the path, so see if the
+     * path starts with "/dev/" or "/dev/r" and point past that.
+     */
+    if (!strncmp(path, "/dev/", 5))
+    {
+	disk = path + 5;    /* Skip over "/dev/". */
+	if (*disk == 'r')
+	    ++disk;	    /* Skip over the "r" in "/dev/r". */
+    }
+    
+    /*
+     * Look for an IOService with the given BSD disk name.
+     */
+    if (disk)
+    {
+	obj = IOServiceGetMatchingService(kIOMasterPortDefault,
+					  IOBSDNameMatching(kIOMasterPortDefault, 0, disk));
+    }
+    
+    /* See if the object has a card characteristics dictionary. */
+    if (obj)
+    {
+	cardCharacteristics = IORegistryEntrySearchCFProperty(
+							      obj, kIOServicePlane,
+							      CFSTR(kIOPropertyCardCharacteristicsKey),
+							      kCFAllocatorDefault,
+							      kIORegistryIterateRecursively|kIORegistryIterateParents);
+    }
+    
+    /* See if the dictionary contains a card type string. */
+    if (cardCharacteristics && CFGetTypeID(cardCharacteristics) == CFDictionaryGetTypeID())
+    {
+	cardType = CFDictionaryGetValue(cardCharacteristics, CFSTR(kIOPropertyCardTypeKey));
+    }
+    
+    /* Turn the card type string into one of our constants. */
+    if (cardType && CFGetTypeID(cardType) == CFStringGetTypeID())
+    {
+	if (CFEqual(cardType, CFSTR(kIOPropertyCardTypeSDSCKey)))
+	    result = kCardTypeSDSC;
+	else if (CFEqual(cardType, CFSTR(kIOPropertyCardTypeSDHCKey)))
+	    result = kCardTypeSDHC;
+	else if (CFEqual(cardType, CFSTR(kIOPropertyCardTypeSDXCKey)))
+	    result = kCardTypeSDXC;
+    }
+    
+    if (cardType)
+	CFRelease(cardType);
+    if (cardCharacteristics)
+	CFRelease(cardCharacteristics);
+    if (obj)
+	IOObjectRelease(obj);
+    
+    return result;
+}
 
-	if (!bpb->bps)
-		bpb->bps = ckgeom(fname, lab.d_secsize, "bytes/sector");
-	if (!bpb->spt)
-		bpb->spt = ckgeom(fname, lab.d_nsectors, "sectors/track");
-	if (!bpb->hds)
-		bpb->hds = ckgeom(fname, lab.d_ntracks, "drive heads");
+/*
+ * If the given path is to some kind of SD card, then use the default FAT type
+ * and cluster size specified by the SD Card Association.
+ *
+ * Note that their specification refers to card capacity, which means the size
+ * of the entire media (not just the partition containing the file system).
+ * Below, the size of the partition is being compared since that is what we
+ * have most convenient access to, and its size is only slightly smaller than
+ * the size of the entire media.  This program does not write the partition
+ * map, so we can't enforce the recommended partition offset.
+ */
+static void sd_card_set_defaults(const char *path, u_int *fat, struct bpb *bpb)
+{
+    /*
+     * Only use SD card defaults if the sector size is 512 bytes, and the
+     * user did not explicitly specify the FAT type or cluster size.
+     */
+    if (*fat != 0 || bpb->spc != 0 || bpb->bps != 512)
+	return;
+    
+    enum SDCardType cardType = sd_card_type_for_path(path);
+    
+    switch (cardType)
+    {
+	case kCardTypeNone:
+	    break;
+	case kCardTypeSDSC:
+	    if (bpb->bsec < 16384)
+	    {
+		/* Up to 8MiB, use FAT12 and 16 sectors per cluster */
+		*fat = 12;
+		bpb->spc = 16;
+	    }
+	    else if (bpb->bsec < 128 * 1024)
+	    {
+		/* Up to 64MiB, use FAT12 and 32 sectors per cluster */
+		*fat = 12;
+		bpb->spc = 32;
+	    }
+	    else if (bpb->bsec < 2 * 1024 * 1024)
+	    {
+		/* Up to 1GiB, use FAT16 and 32 sectors per cluster */
+		*fat = 16;
+		bpb->spc = 32;
+	    }
+	    else
+	    {
+		/* 1GiB or larger, use FAT16 and 64 sectors per cluster */
+		*fat = 16;
+		bpb->spc = 64;
+	    }
+	    break;
+	case kCardTypeSDHC:
+	    *fat = 32;
+	    bpb->spc = 64;
+	    break;
+	case kCardTypeSDXC:
+	    warnx("%s: newfs_exfat should be used for SDXC media", path);
+	    break;
+    }
 }
 
 /*
@@ -990,7 +1230,7 @@ print_bpb(struct bpb *bpb)
     printf(" mid=%#x", bpb->mid);
     if (bpb->spf)
 	printf(" spf=%u", bpb->spf);
-    printf(" spt=%u hds=%u hid=%u", bpb->spt, bpb->hds, bpb->hid);
+    printf(" spt=%u hds=%u hid=%u drv=0x%02X", bpb->spt, bpb->hds, bpb->hid, bpb->driveNum);
     if (bpb->bsec)
 	printf(" bsec=%u", bpb->bsec);
     if (!bpb->spf) {
@@ -1001,19 +1241,6 @@ print_bpb(struct bpb *bpb)
 	printf(bpb->bkbs == MAXU16 ? "%#x" : "%u", bpb->bkbs);
     }
     printf("\n");
-}
-
-/*
- * Check a disk geometry value.
- */
-static u_int
-ckgeom(const char *fname, u_int val, const char *msg)
-{
-    if (!val)
-	errx(1, "%s: no default %s", fname, msg);
-    if (val > MAXU16)
-	errx(1, "%s: illegal %s", fname, msg);
-    return val;
 }
 
 /*

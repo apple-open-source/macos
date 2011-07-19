@@ -2,23 +2,22 @@ Project               = apr-util
 UserType              = Administrator
 ToolType              = Commands
 GnuAfterInstall       = install-plist post-install
-Extra_Configure_Flags = --with-apr=$(OBJROOT)/../apr --with-expat=/usr --without-berkeley-db --disable-util-dso
+Extra_Configure_Flags = --with-apr=$(OBJROOT)/../apr --with-expat=/usr --without-berkeley-db --disable-util-dso --with-ldap
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 Install_Target = install
 
 post-install:
-	$(CP) $(DSTROOT)/usr/lib/libaprutil-1.0.3.9.dylib $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)/usr/lib/libaprutil-1.0.3.9.dylib
+	$(CP) $(DSTROOT)/usr/lib/libaprutil-1.0.dylib $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)/usr/lib/libaprutil-1.0.dylib
 	$(RM) $(DSTROOT)/usr/lib/aprutil.exp
 	$(RM) $(DSTROOT)/usr/lib/libaprutil-1.la
-	$(MKDIR) $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libaprutil-1.a $(DSTROOT)/usr/local/lib
+	$(RM) $(DSTROOT)/usr/lib/libaprutil-1.a
 
 # Automatic Extract & Patch
 AEP_Project    = apr-util
-AEP_Version    = 1.3.9
+AEP_Version    = 1.3.10
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
@@ -33,11 +32,8 @@ install_source::
 		(cd $(SRCROOT)/$(Project) && patch -p0 -F0 < $(SRCROOT)/files/$$patchfile) || exit 1; \
 	done
 
-OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
 install-plist:
-	$(MKDIR) $(OSV)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/LICENSE $(OSL)/$(Project).txt

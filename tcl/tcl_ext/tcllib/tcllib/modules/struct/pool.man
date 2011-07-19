@@ -3,6 +3,7 @@
 [copyright {2002, Erik Leunissen <e.leunissen@hccnet.nl>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate pool objects (of discrete items)}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require struct::pool [opt 1.2.1]]
 [description]

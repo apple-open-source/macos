@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2002-2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2002-2006, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -70,13 +70,7 @@
 
 #include <_types.h>
 #include <sys/unistd.h>
-
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#ifndef _DEV_T
-#define	_DEV_T
-typedef __darwin_dev_t		dev_t;
-#endif
-#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+#include <Availability.h>
 
 #ifndef _GID_T
 #define	_GID_T
@@ -87,13 +81,6 @@ typedef __darwin_gid_t		gid_t;
 #define	_INTPTR_T
 typedef __darwin_intptr_t	intptr_t;
 #endif
-
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#ifndef _MODE_T
-#define	_MODE_T
-typedef __darwin_mode_t		mode_t;
-#endif
-#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
 
 #ifndef _OFF_T
 #define	_OFF_T
@@ -127,20 +114,14 @@ typedef __darwin_uid_t		uid_t;	/* user id 	*/
 typedef __darwin_useconds_t	useconds_t;
 #endif
 
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
-#ifndef _UUID_T
-#define	_UUID_T
-typedef __darwin_uuid_t		uuid_t;
-#endif /* _UUID_T */
-#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+#ifndef NULL
+#define	NULL __DARWIN_NULL
+#endif /* ! NULL */
 
 #define	 STDIN_FILENO	0	/* standard input file descriptor */
 #define	STDOUT_FILENO	1	/* standard output file descriptor */
 #define	STDERR_FILENO	2	/* standard error file descriptor */
 
-#ifndef NULL
-#define	NULL __DARWIN_NULL
-#endif /* ! NULL */
 
 /* Version test macros */
 /* _POSIX_VERSION and _POSIX2_VERSION from sys/unistd.h */
@@ -200,6 +181,7 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_POSIX_VDISABLE			0xff		/* same as sys/termios.h */
 #endif /* _POSIX_VDISABLE */
 
+#if __DARWIN_C_LEVEL >= 199209L
 #define	_POSIX2_C_BIND			200112L
 #define	_POSIX2_C_DEV			200112L		/* c99 command */
 #define	_POSIX2_CHAR_TERM		200112L
@@ -214,31 +196,62 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_POSIX2_PBS_TRACK		(-1)
 #define	_POSIX2_SW_DEV			200112L
 #define	_POSIX2_UPE			200112L	/* XXXX no fc, newgrp, tabs */
+#endif /* __DARWIN_C_LEVEL */
 
-#define	_V6_ILP32_OFF32			(-1)
-#define	_V6_ILP32_OFFBIG		(1)
-#define	_V6_LP64_OFF64			(-1)
-#define	_V6_LPBIG_OFFBIG		(-1)
+#define	__ILP32_OFF32          (-1)
+#define	__ILP32_OFFBIG         (-1)
+#define	__LP64_OFF64           (-1)
+#define	__LPBIG_OFFBIG         (-1)
 
-#define	_XBS5_ILP32_OFF32		_V6_ILP32_OFF32		/* legacy */
-#define	_XBS5_ILP32_OFFBIG		_V6_ILP32_OFFBIG	/* legacy */
-#define	_XBS5_LP64_OFF64		_V6_LP64_OFF64		/* legacy */
-#define	_XBS5_LPBIG_OFFBIG		_V6_LPBIG_OFFBIG	/* legacy */
+#ifdef __LP64__
+#undef __LP64_OFF64
+#define __LP64_OFF64           (1)
+#undef __LPBIG_OFFBIG
+#define __LPBIG_OFFBIG         (1)
+#else
+#undef	__ILP32_OFFBIG
+#define __ILP32_OFFBIG         (1)
+#endif
 
+#if __DARWIN_C_LEVEL >= 200112L
+#define	_POSIX_V6_ILP32_OFF32		__ILP32_OFF32
+#define	_POSIX_V6_ILP32_OFFBIG		__ILP32_OFFBIG
+#define	_POSIX_V6_LP64_OFF64		__LP64_OFF64
+#define	_POSIX_V6_LPBIG_OFFBIG		__LPBIG_OFFBIG
+#endif /* __DARWIN_C_LEVEL >= 200112L */
+
+#if __DARWIN_C_LEVEL >= 200809L
+#define	_POSIX_V7_ILP32_OFF32		__ILP32_OFF32
+#define	_POSIX_V7_ILP32_OFFBIG		__ILP32_OFFBIG
+#define	_POSIX_V7_LP64_OFF64		__LP64_OFF64
+#define	_POSIX_V7_LPBIG_OFFBIG		__LPBIG_OFFBIG
+#endif /* __DARWIN_C_LEVEL >= 200809L */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define	_V6_ILP32_OFF32             __ILP32_OFF32
+#define	_V6_ILP32_OFFBIG            __ILP32_OFFBIG
+#define	_V6_LP64_OFF64              __LP64_OFF64
+#define	_V6_LPBIG_OFFBIG            __LPBIG_OFFBIG
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+#if (__DARWIN_C_LEVEL >= 199506L && __DARWIN_C_LEVEL < 200809L) || __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+/* Removed in Issue 7 */
+#define	_XBS5_ILP32_OFF32		    __ILP32_OFF32
+#define	_XBS5_ILP32_OFFBIG		    __ILP32_OFFBIG
+#define	_XBS5_LP64_OFF64		    __LP64_OFF64
+#define	_XBS5_LPBIG_OFFBIG		    __LPBIG_OFFBIG
+#endif /* __DARWIN_C_LEVEL < 200809L */
+
+#if __DARWIN_C_LEVEL >= 199506L /* This really should be XSI */ 
 #define	_XOPEN_CRYPT			(1)
 #define	_XOPEN_ENH_I18N			(1)		/* XXX required */
 #define	_XOPEN_LEGACY			(-1)	/* no ftime gcvt, wcswcs */
 #define	_XOPEN_REALTIME			(-1)	/* no q'ed signals, mq_* */
 #define	_XOPEN_REALTIME_THREADS		(-1)	/* no posix_spawn, et. al. */
 #define	_XOPEN_SHM			(1)
-#define	_XOPEN_STREAMS			(-1)
+#define	_XOPEN_STREAMS			(-1)   /* Issue 6 */
 #define	_XOPEN_UNIX			(1)
-
-
-#define	F_ULOCK         0      /* unlock locked section */
-#define	F_LOCK          1      /* lock a section for exclusive use */
-#define	F_TLOCK         2      /* test and lock a section for exclusive use */
-#define	F_TEST          3      /* test a section for locks by other procs */
+#endif /* XSI */
 
 /* configurable system variables */
 #define	_SC_ARG_MAX			 1
@@ -268,6 +281,8 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_SC_2_UPE			25
 #define	_SC_STREAM_MAX			26
 #define	_SC_TZNAME_MAX			27
+
+#if __DARWIN_C_LEVEL >= 199309L
 #define	_SC_ASYNCHRONOUS_IO		28
 #define	_SC_PAGESIZE			29
 #define	_SC_MEMLOCK			30
@@ -293,10 +308,14 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_SC_SEM_VALUE_MAX		50
 #define	_SC_SIGQUEUE_MAX		51
 #define	_SC_TIMER_MAX			52
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#endif /* __DARWIN_C_LEVEL >= 199309L */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
 #define	_SC_NPROCESSORS_CONF		57
 #define	_SC_NPROCESSORS_ONLN		58
-#endif /* !_POSIX_C_SOURCE || _DARWIN_C_SOURCE */
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+#if __DARWIN_C_LEVEL >= 200112L
 #define	_SC_2_PBS			59
 #define	_SC_2_PBS_ACCOUNTING		60
 #define	_SC_2_PBS_CHECKPOINT		61
@@ -348,33 +367,52 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_SC_IPV6			118
 #define	_SC_RAW_SOCKETS			119
 #define	_SC_SYMLOOP_MAX			120
+#endif /* __DARWIN_C_LEVEL >= 200112L */
+
+#if __DARWIN_C_LEVEL >= 199506L /* Really XSI */
 #define	_SC_ATEXIT_MAX			107
 #define	_SC_IOV_MAX			56
 #define	_SC_PAGE_SIZE			_SC_PAGESIZE
 #define	_SC_XOPEN_CRYPT			108
 #define	_SC_XOPEN_ENH_I18N		109
-#define	_SC_XOPEN_LEGACY		110
-#define	_SC_XOPEN_REALTIME		111
-#define	_SC_XOPEN_REALTIME_THREADS	112
+#define	_SC_XOPEN_LEGACY		110      /* Issue 6 */
+#define	_SC_XOPEN_REALTIME		111      /* Issue 6 */
+#define	_SC_XOPEN_REALTIME_THREADS	112  /* Issue 6 */
 #define	_SC_XOPEN_SHM			113
-#define	_SC_XOPEN_STREAMS		114
+#define	_SC_XOPEN_STREAMS		114      /* Issue 6 */
 #define	_SC_XOPEN_UNIX			115
 #define	_SC_XOPEN_VERSION		116
 #define	_SC_XOPEN_XCU_VERSION		121
+#endif /* XSI */
+
+#if (__DARWIN_C_LEVEL >= 199506L && __DARWIN_C_LEVEL < 200809L) || __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+/* Removed in Issue 7 */
 #define	_SC_XBS5_ILP32_OFF32		122
 #define	_SC_XBS5_ILP32_OFFBIG		123
 #define	_SC_XBS5_LP64_OFF64		124
 #define	_SC_XBS5_LPBIG_OFFBIG		125
+#endif /* __DARWIN_C_LEVEL <= 200809L */
+
+#if __DARWIN_C_LEVEL >= 200112L
 #define	_SC_SS_REPL_MAX			126
 #define	_SC_TRACE_EVENT_NAME_MAX	127
 #define	_SC_TRACE_NAME_MAX		128
 #define	_SC_TRACE_SYS_MAX		129
 #define	_SC_TRACE_USER_EVENT_MAX	130
-#define	_SC_PASS_MAX			131
+#endif
 
-#ifndef _CS_PATH	/* XXX temporary #ifdef'ed for <sys/unistd.h> */
+#if __DARWIN_C_LEVEL < 200112L || __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+/* Removed in Issue 6 */
+#define	_SC_PASS_MAX			131
+#endif
+
+#if __DARWIN_C_LEVEL >= 199209L
+#ifndef _CS_PATH /* Defined in <sys/unistd.h> */
 #define	_CS_PATH				1
 #endif
+#endif
+
+#if __DARWIN_C_LEVEL >= 200112
 #define	_CS_POSIX_V6_ILP32_OFF32_CFLAGS		2
 #define	_CS_POSIX_V6_ILP32_OFF32_LDFLAGS	3
 #define	_CS_POSIX_V6_ILP32_OFF32_LIBS		4
@@ -388,8 +426,10 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS	12
 #define	_CS_POSIX_V6_LPBIG_OFFBIG_LIBS		13
 #define	_CS_POSIX_V6_WIDTH_RESTRICTED_ENVS	14
+#endif
 
-/* reserved for compatibility with Issue 5 */
+#if (__DARWIN_C_LEVEL >= 199506L && __DARWIN_C_LEVEL < 200809L) || __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+/* Removed in Issue 7 */
 #define	_CS_XBS5_ILP32_OFF32_CFLAGS		20
 #define	_CS_XBS5_ILP32_OFF32_LDFLAGS		21
 #define	_CS_XBS5_ILP32_OFF32_LIBS		22
@@ -406,19 +446,33 @@ typedef __darwin_uuid_t		uuid_t;
 #define	_CS_XBS5_LPBIG_OFFBIG_LDFLAGS		33
 #define	_CS_XBS5_LPBIG_OFFBIG_LIBS		34
 #define	_CS_XBS5_LPBIG_OFFBIG_LINTFLAGS		35
+#endif
 
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
 #define	_CS_DARWIN_USER_DIR			65536
 #define	_CS_DARWIN_USER_TEMP_DIR		65537
 #define	_CS_DARWIN_USER_CACHE_DIR		65538
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+
+#ifdef _DARWIN_UNLIMITED_GETGROUPS
+#if defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < __IPHONE_3_2
+#error "_DARWIN_UNLIMITED_GETGROUPS specified, but -miphoneos-version-min version does not support it."
+#elif defined(__MAC_OS_X_VERSION_MIN_REQUIRED) && __MAC_OS_X_VERSION_MIN_REQUIRED < __MAC_10_6
+#error "_DARWIN_UNLIMITED_GETGROUPS specified, but -mmacosx-version-min version does not support it."
+#endif
+#endif
+
+/* POSIX.1-1990 */
 
 __BEGIN_DECLS
-
 void	 _exit(int) __dead2;
 int	 access(const char *, int);
 unsigned int
 	 alarm(unsigned int);
 int	 chdir(const char *);
 int	 chown(const char *, uid_t, gid_t);
+
 //Begin-Libc
 #ifndef LIBC_ALIAS_CLOSE
 //End-Libc
@@ -428,112 +482,36 @@ int	 close(int) __DARWIN_ALIAS_C(close);
 int	 close(int) LIBC_ALIAS_C(close);
 #endif /* !LIBC_ALIAS_CLOSE */
 //End-Libc
-//Begin-Libc
-#ifndef LIBC_ALIAS_CONFSTR
-//End-Libc
-size_t	 confstr(int, char *, size_t) __DARWIN_ALIAS(confstr);
-//Begin-Libc
-#else /* LIBC_ALIAS_CONFSTR */
-size_t	 confstr(int, char *, size_t) LIBC_ALIAS(confstr);
-#endif /* !LIBC_ALIAS_CONFSTR */
-//End-Libc
-char	*crypt(const char *, const char *);
-char	*ctermid(char *);
+
 int	 dup(int);
 int	 dup2(int, int);
-#if __DARWIN_UNIX03
-//Begin-Libc
-#ifndef LIBC_ALIAS_ENCRYPT
-//End-Libc
-void	 encrypt(char *, int) __DARWIN_ALIAS(encrypt);
-//Begin-Libc
-#else /* LIBC_ALIAS_ENCRYPT */
-void	 encrypt(char *, int) LIBC_ALIAS(encrypt);
-#endif /* !LIBC_ALIAS_ENCRYPT */
-//End-Libc
-#else /* !__DARWIN_UNIX03 */
-int	 encrypt(char *, int);
-#endif /* __DARWIN_UNIX03 */
 int	 execl(const char *, const char *, ...);
 int	 execle(const char *, const char *, ...);
 int	 execlp(const char *, const char *, ...);
 int	 execv(const char *, char * const *);
 int	 execve(const char *, char * const *, char * const *);
 int	 execvp(const char *, char * const *);
-int	 fchown(int, uid_t, gid_t);
-int	 fchdir(int);
 pid_t	 fork(void);
 long	 fpathconf(int, int);
-//Begin-Libc
-#ifndef LIBC_ALIAS_FSYNC
-//End-Libc
-int	 fsync(int) __DARWIN_ALIAS_C(fsync);
-//Begin-Libc
-#else /* LIBC_ALIAS_FSYNC */
-int	 fsync(int) LIBC_ALIAS_C(fsync);
-#endif /* !LIBC_ALIAS_FSYNC */
-//End-Libc
-int	 ftruncate(int, off_t);
 char	*getcwd(char *, size_t);
 gid_t	 getegid(void);
 uid_t	 geteuid(void);
 gid_t	 getgid(void);
 #if defined(_DARWIN_UNLIMITED_GETGROUPS) || defined(_DARWIN_C_SOURCE)
-int	 getgroups(int, gid_t []) __DARWIN_EXTSN(getgroups);
+int	 getgroups(int, gid_t []) __DARWIN_ALIAS_STARTING(__MAC_10_6, __IPHONE_3_2, __DARWIN_EXTSN(getgroups));
 #else /* !_DARWIN_UNLIMITED_GETGROUPS && !_DARWIN_C_SOURCE */
 int	 getgroups(int, gid_t []);
 #endif /* _DARWIN_UNLIMITED_GETGROUPS || _DARWIN_C_SOURCE */
-long	 gethostid(void);
-int	 gethostname(char *, size_t);
 char	*getlogin(void);
-int	 getlogin_r(char *, size_t);
-//Begin-Libc
-#ifndef LIBC_ALIAS_GETOPT
-//End-Libc
-int	 getopt(int, char * const [], const char *) __DARWIN_ALIAS(getopt);
-//Begin-Libc
-#else /* LIBC_ALIAS_GETOPT */
-int	 getopt(int, char * const [], const char *) LIBC_ALIAS(getopt);
-#endif /* !LIBC_ALIAS_GETOPT */
-//End-Libc
-pid_t	 getpgid(pid_t);
 pid_t	 getpgrp(void);
 pid_t	 getpid(void);
 pid_t	 getppid(void);
-pid_t	 getsid(pid_t);
 uid_t	 getuid(void);
-char	*getwd(char *);			/* obsoleted by getcwd() */
 int	 isatty(int);
-//Begin-Libc
-#ifndef LIBC_ALIAS_LCHOWN
-//End-Libc
-int	 lchown(const char *, uid_t, gid_t) __DARWIN_ALIAS(lchown);
-//Begin-Libc
-#else /* LIBC_ALIAS_LCHOWN */
-int	 lchown(const char *, uid_t, gid_t) LIBC_ALIAS(lchown);
-#endif /* !LIBC_ALIAS_LCHOWN */
-//End-Libc
 int	 link(const char *, const char *);
-//Begin-Libc
-#ifndef LIBC_ALIAS_LOCKF
-//End-Libc
-int	 lockf(int, int, off_t) __DARWIN_ALIAS_C(lockf);
-//Begin-Libc
-#else /* LIBC_ALIAS_LOCKF */
-int	 lockf(int, int, off_t) LIBC_ALIAS_C(lockf);
-#endif /* !LIBC_ALIAS_LOCKF */
-//End-Libc
 off_t	 lseek(int, off_t, int);
-//Begin-Libc
-#ifndef LIBC_ALIAS_NICE
-//End-Libc
-int	 nice(int) __DARWIN_ALIAS(nice);
-//Begin-Libc
-#else /* LIBC_ALIAS_NICE */
-int	 nice(int) LIBC_ALIAS(nice);
-#endif /* !LIBC_ALIAS_NICE */
-//End-Libc
 long	 pathconf(const char *, int);
+
 //Begin-Libc
 #ifndef LIBC_ALIAS_PAUSE
 //End-Libc
@@ -543,25 +521,9 @@ int	 pause(void) __DARWIN_ALIAS_C(pause);
 int	 pause(void) LIBC_ALIAS_C(pause);
 #endif /* !LIBC_ALIAS_PAUSE */
 //End-Libc
+
 int	 pipe(int [2]);
-//Begin-Libc
-#ifndef LIBC_ALIAS_PREAD
-//End-Libc
-ssize_t	 pread(int, void *, size_t, off_t) __DARWIN_ALIAS_C(pread);
-//Begin-Libc
-#else /* LIBC_ALIAS_PREAD */
-ssize_t	 pread(int, void *, size_t, off_t) LIBC_ALIAS_C(pread);
-#endif /* !LIBC_ALIAS_PREAD */
-//End-Libc
-//Begin-Libc
-#ifndef LIBC_ALIAS_PWRITE
-//End-Libc
-ssize_t	 pwrite(int, const void *, size_t, off_t) __DARWIN_ALIAS_C(pwrite);
-//Begin-Libc
-#else /* LIBC_ALIAS_PWRITE */
-ssize_t	 pwrite(int, const void *, size_t, off_t) LIBC_ALIAS_C(pwrite);
-#endif /* !LIBC_ALIAS_PWRITE */
-//End-Libc
+
 //Begin-Libc
 #ifndef LIBC_ALIAS_READ
 //End-Libc
@@ -571,45 +533,13 @@ ssize_t	 read(int, void *, size_t) __DARWIN_ALIAS_C(read);
 ssize_t	 read(int, void *, size_t) LIBC_ALIAS_C(read);
 #endif /* !LIBC_ALIAS_READ */
 //End-Libc
-ssize_t  readlink(const char * __restrict, char * __restrict, size_t);
+
 int	 rmdir(const char *);
-int	 setegid(gid_t);
-int	 seteuid(uid_t);
 int	 setgid(gid_t);
 int	 setpgid(pid_t, pid_t);
-#if __DARWIN_UNIX03
-//Begin-Libc
-#ifndef LIBC_ALIAS_SETPGRP
-//End-Libc
-pid_t	 setpgrp(void) __DARWIN_ALIAS(setpgrp);
-//Begin-Libc
-#else /* LIBC_ALIAS_SETPGRP */
-pid_t	 setpgrp(void) LIBC_ALIAS(setpgrp);
-#endif /* !LIBC_ALIAS_SETPGRP */
-//End-Libc
-#else /* !__DARWIN_UNIX03 */
-int	 setpgrp(pid_t pid, pid_t pgrp);	/* obsoleted by setpgid() */
-#endif /* __DARWIN_UNIX03 */
-//Begin-Libc
-#ifndef LIBC_ALIAS_SETREGID
-//End-Libc
-int	 setregid(gid_t, gid_t) __DARWIN_ALIAS(setregid);
-//Begin-Libc
-#else /* LIBC_ALIAS_SETREGID */
-int	 setregid(gid_t, gid_t) LIBC_ALIAS(setregid);
-#endif /* !LIBC_ALIAS_SETREGID */
-//End-Libc
-//Begin-Libc
-#ifndef LIBC_ALIAS_SETREUID
-//End-Libc
-int	 setreuid(uid_t, uid_t) __DARWIN_ALIAS(setreuid);
-//Begin-Libc
-#else /* LIBC_ALIAS_SETREUID */
-int	 setreuid(uid_t, uid_t) LIBC_ALIAS(setreuid);
-#endif /* !LIBC_ALIAS_SETREUID */
-//End-Libc
 pid_t	 setsid(void);
 int	 setuid(uid_t);
+
 //Begin-Libc
 #ifndef LIBC_ALIAS_SLEEP
 //End-Libc
@@ -621,14 +551,12 @@ unsigned int
 	 sleep(unsigned int) LIBC_ALIAS_C(sleep);
 #endif /* !LIBC_ALIAS_SLEEP */
 //End-Libc
-void     swab(const void * __restrict, void * __restrict, ssize_t);
-int	 symlink(const char *, const char *);
-void	 sync(void);
+
 long	 sysconf(int);
 pid_t	 tcgetpgrp(int);
 int	 tcsetpgrp(int, pid_t);
-int	 truncate(const char *, off_t);
 char	*ttyname(int);
+
 #if __DARWIN_UNIX03
 //Begin-Libc
 #ifndef LIBC_ALIAS_TTYNAME_R
@@ -642,9 +570,208 @@ int	 ttyname_r(int, char *, size_t) LIBC_ALIAS(ttyname_r);
 #else /* !__DARWIN_UNIX03 */
 char	*ttyname_r(int, char *, size_t);
 #endif /* __DARWIN_UNIX03 */
-useconds_t
-	 ualarm(useconds_t, useconds_t);
+
 int	 unlink(const char *);
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_WRITE
+//End-Libc
+ssize_t	 write(int, const void *, size_t) __DARWIN_ALIAS_C(write);
+//Begin-Libc
+#else /* LIBC_ALIAS_WRITE */
+ssize_t	 write(int, const void *, size_t) LIBC_ALIAS_C(write);
+#endif /* !LIBC_ALIAS_WRITE */
+//End-Libc
+__END_DECLS
+
+
+
+/* Additional functionality provided by:
+ * POSIX.2-1992 C Language Binding Option
+ */
+
+#if __DARWIN_C_LEVEL >= 199209L
+__BEGIN_DECLS
+//Begin-Libc
+#ifndef LIBC_ALIAS_CONFSTR
+//End-Libc
+size_t	 confstr(int, char *, size_t) __DARWIN_ALIAS(confstr);
+//Begin-Libc
+#else /* LIBC_ALIAS_CONFSTR */
+size_t	 confstr(int, char *, size_t) LIBC_ALIAS(confstr);
+#endif /* !LIBC_ALIAS_CONFSTR */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_GETOPT
+//End-Libc
+int	 getopt(int, char * const [], const char *) __DARWIN_ALIAS(getopt);
+//Begin-Libc
+#else /* LIBC_ALIAS_GETOPT */
+int	 getopt(int, char * const [], const char *) LIBC_ALIAS(getopt);
+#endif /* !LIBC_ALIAS_GETOPT */
+//End-Libc
+
+extern char *optarg;			/* getopt(3) external variables */
+extern int optind, opterr, optopt;
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 199209L */
+
+
+
+/* Additional functionality provided by:
+ * POSIX.1c-1995,
+ * POSIX.1i-1995,
+ * and the omnibus ISO/IEC 9945-1: 1996
+ */
+
+#if __DARWIN_C_LEVEL >= 199506L
+                               /* These F_* are really XSI or Issue 6 */
+#define F_ULOCK         0      /* unlock locked section */
+#define	F_LOCK          1      /* lock a section for exclusive use */
+#define	F_TLOCK         2      /* test and lock a section for exclusive use */
+#define	F_TEST          3      /* test a section for locks by other procs */
+
+ __BEGIN_DECLS
+
+/* Begin XSI */
+/* Removed in Issue 6 */
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
+void	*brk(const void *);
+int	 chroot(const char *) __POSIX_C_DEPRECATED(199506L);
+#endif
+
+char	*crypt(const char *, const char *);
+#ifndef __CTERMID_DEFINED
+/* Multiply defined in stdio.h and unistd.h by SUS */
+#define __CTERMID_DEFINED 1
+char    *ctermid(char *);
+#endif
+#if __DARWIN_UNIX03
+//Begin-Libc
+#ifndef LIBC_ALIAS_ENCRYPT
+//End-Libc
+void	 encrypt(char *, int) __DARWIN_ALIAS(encrypt);
+//Begin-Libc
+#else /* LIBC_ALIAS_ENCRYPT */
+void	 encrypt(char *, int) LIBC_ALIAS(encrypt);
+#endif /* !LIBC_ALIAS_ENCRYPT */
+//End-Libc
+#else /* !__DARWIN_UNIX03 */
+int	 encrypt(char *, int);
+#endif /* __DARWIN_UNIX03 */
+int	 fchdir(int);
+long	 gethostid(void);
+pid_t	 getpgid(pid_t);
+pid_t	 getsid(pid_t);
+
+/* Removed in Issue 6 */
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
+int	 getdtablesize(void) __POSIX_C_DEPRECATED(199506L);
+int	 getpagesize(void) __pure2 __POSIX_C_DEPRECATED(199506L);
+char	*getpass(const char *) __POSIX_C_DEPRECATED(199506L);
+#endif
+
+/* Removed in Issue 7 */
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200809L
+char	*getwd(char *) __POSIX_C_DEPRECATED(200112L); /* obsoleted by getcwd() */
+#endif
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_LCHOWN
+//End-Libc
+int	 lchown(const char *, uid_t, gid_t) __DARWIN_ALIAS(lchown);
+//Begin-Libc
+#else /* LIBC_ALIAS_LCHOWN */
+int	 lchown(const char *, uid_t, gid_t) LIBC_ALIAS(lchown);
+#endif /* !LIBC_ALIAS_LCHOWN */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_LOCKF
+//End-Libc
+int	 lockf(int, int, off_t) __DARWIN_ALIAS_C(lockf);
+//Begin-Libc
+#else /* LIBC_ALIAS_LOCKF */
+int	 lockf(int, int, off_t) LIBC_ALIAS_C(lockf);
+#endif /* !LIBC_ALIAS_LOCKF */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_NICE
+//End-Libc
+int	 nice(int) __DARWIN_ALIAS(nice);
+//Begin-Libc
+#else /* LIBC_ALIAS_NICE */
+int	 nice(int) LIBC_ALIAS(nice);
+#endif /* !LIBC_ALIAS_NICE */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_PREAD
+//End-Libc
+ssize_t	 pread(int, void *, size_t, off_t) __DARWIN_ALIAS_C(pread);
+//Begin-Libc
+#else /* LIBC_ALIAS_PREAD */
+ssize_t	 pread(int, void *, size_t, off_t) LIBC_ALIAS_C(pread);
+#endif /* !LIBC_ALIAS_PREAD */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_PWRITE
+//End-Libc
+ssize_t	 pwrite(int, const void *, size_t, off_t) __DARWIN_ALIAS_C(pwrite);
+//Begin-Libc
+#else /* LIBC_ALIAS_PWRITE */
+ssize_t	 pwrite(int, const void *, size_t, off_t) LIBC_ALIAS_C(pwrite);
+#endif /* !LIBC_ALIAS_PWRITE */
+//End-Libc
+
+/* Removed in Issue 6 */
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
+/* Note that Issue 5 changed the argument as intprt_t,
+ * but we keep it as int for binary compatability. */
+void	*sbrk(int);
+#endif
+
+#if __DARWIN_UNIX03
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETPGRP
+//End-Libc
+pid_t	 setpgrp(void) __DARWIN_ALIAS(setpgrp);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETPGRP */
+pid_t	 setpgrp(void) LIBC_ALIAS(setpgrp);
+#endif /* !LIBC_ALIAS_SETPGRP */
+//End-Libc
+#else /* !__DARWIN_UNIX03 */
+int	 setpgrp(pid_t pid, pid_t pgrp);	/* obsoleted by setpgid() */
+#endif /* __DARWIN_UNIX03 */
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETREGID
+//End-Libc
+int	 setregid(gid_t, gid_t) __DARWIN_ALIAS(setregid);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETREGID */
+int	 setregid(gid_t, gid_t) LIBC_ALIAS(setregid);
+#endif /* !LIBC_ALIAS_SETREGID */
+//End-Libc
+
+//Begin-Libc
+#ifndef LIBC_ALIAS_SETREUID
+//End-Libc
+int	 setreuid(uid_t, uid_t) __DARWIN_ALIAS(setreuid);
+//Begin-Libc
+#else /* LIBC_ALIAS_SETREUID */
+int	 setreuid(uid_t, uid_t) LIBC_ALIAS(setreuid);
+#endif /* !LIBC_ALIAS_SETREUID */
+//End-Libc
+
+void     swab(const void * __restrict, void * __restrict, ssize_t);
+void	 sync(void);
+int	 truncate(const char *, off_t);
+useconds_t	 ualarm(useconds_t, useconds_t);
 //Begin-Libc
 #ifndef LIBC_ALIAS_USLEEP
 //End-Libc
@@ -655,42 +782,77 @@ int	 usleep(useconds_t) LIBC_ALIAS_C(usleep);
 #endif /* !LIBC_ALIAS_USLEEP */
 //End-Libc
 pid_t	 vfork(void);
+/* End XSI */
+
 //Begin-Libc
-#ifndef LIBC_ALIAS_WRITE
+#ifndef LIBC_ALIAS_FSYNC
 //End-Libc
-ssize_t	 write(int, const void *, size_t) __DARWIN_ALIAS_C(write);
+int	 fsync(int) __DARWIN_ALIAS_C(fsync);
 //Begin-Libc
-#else /* LIBC_ALIAS_WRITE */
-ssize_t	 write(int, const void *, size_t) LIBC_ALIAS_C(write);
-#endif /* !LIBC_ALIAS_WRITE */
+#else /* LIBC_ALIAS_FSYNC */
+int	 fsync(int) LIBC_ALIAS_C(fsync);
+#endif /* !LIBC_ALIAS_FSYNC */
 //End-Libc
 
-extern char *optarg;			/* getopt(3) external variables */
-extern int optind, opterr, optopt;
+int	 ftruncate(int, off_t);
+int	 getlogin_r(char *, size_t);
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 199506L */
 
-#if	!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+
+
+/* Additional functionality provided by:
+ * POSIX.1-2001
+ * ISO C99
+ */
+
+#if __DARWIN_C_LEVEL >= 200112L
+__BEGIN_DECLS
+int	 fchown(int, uid_t, gid_t);
+int	 gethostname(char *, size_t);
+ssize_t  readlink(const char * __restrict, char * __restrict, size_t);
+int	 setegid(gid_t);
+int	 seteuid(uid_t);
+int	 symlink(const char *, const char *);
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 200112L */
+
+
+
+/* Darwin extensions */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
 #include <sys/select.h>
 
+#ifndef _DEV_T
+#define	_DEV_T
+typedef __darwin_dev_t		dev_t;
+#endif
+
+#ifndef _MODE_T
+#define	_MODE_T
+typedef __darwin_mode_t		mode_t;
+#endif
+
+#ifndef _UUID_T
+#define	_UUID_T
+typedef __darwin_uuid_t		uuid_t;
+#endif /* _UUID_T */
+
+__BEGIN_DECLS
 void	 _Exit(int) __dead2;
 int	 accessx_np(const struct accessx_descriptor *, size_t, int *, uid_t);
 int	 acct(const char *);
 int	 add_profil(char *, size_t, unsigned long, unsigned int);
-void	*brk(const void *);
-int	 chroot(const char *);
 void	 endusershell(void);
 int	 execvP(const char *, const char *, char * const *);
 char	*fflagstostr(unsigned long);
-int	 getdtablesize(void);
 int	 getdomainname(char *, int);
 int	 getgrouplist(const char *, int, int *, int *);
-int	 gethostuuid(uuid_t, const struct timespec *);
+int	 gethostuuid(uuid_t, const struct timespec *) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 mode_t	 getmode(const void *, mode_t);
-int	 getpagesize(void) __pure2;
-char	*getpass(const char *);
 int	 getpeereid(int, uid_t *, gid_t *);
-int	 getpgid(pid_t _pid);
 int	 getsgroups_np(int *, uuid_t);
-int	 getsid(pid_t _pid);
 char	*getusershell(void);
 int	 getwgroups_np(int *, uuid_t);
 int	 initgroups(const char *, int);
@@ -714,7 +876,6 @@ int	 revoke(const char *);
 int	 rresvport(int *);
 int	 rresvport_af(int *, int);
 int	 ruserok(const char *, int, const char *, const char *);
-void	*sbrk(int);
 int	 setdomainname(const char *, int);
 int	 setgroups(int, const gid_t *);
 void	 sethostid(long);
@@ -736,7 +897,7 @@ int	 setlogin(const char *);
 //Begin-Libc
 #ifndef LIBC_ALIAS_SETMODE
 //End-Libc
-void	*setmode(const char *) __DARWIN_ALIAS(setmode);
+void	*setmode(const char *) __DARWIN_ALIAS_STARTING(__MAC_10_6, __IPHONE_2_0, __DARWIN_ALIAS(setmode));
 //Begin-Libc
 #else /* LIBC_ALIAS_SETMODE */
 void	*setmode(const char *) LIBC_ALIAS(setmode);
@@ -760,8 +921,8 @@ int	 getsubopt(char **, char * const *, char **);
 
 /*  HFS & HFS Plus semantics system calls go here */
 #ifdef __LP64__
-int    fgetattrlist(int,void*,void*,size_t,unsigned int);
-int    fsetattrlist(int,void*,void*,size_t,unsigned int);
+int    fgetattrlist(int,void*,void*,size_t,unsigned int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
+int    fsetattrlist(int,void*,void*,size_t,unsigned int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
 //Begin-Libc
 #ifndef LIBC_ALIAS_GETATTRLIST
 //End-Libc
@@ -784,8 +945,8 @@ int exchangedata(const char*,const char*,unsigned int);
 int    getdirentriesattr(int,void*,void*,size_t,unsigned int*,unsigned int*,unsigned int*,unsigned int);
 
 #else /* __LP64__ */
-int	fgetattrlist(int,void*,void*,size_t,unsigned long);
-int	fsetattrlist(int,void*,void*,size_t,unsigned long);
+int	fgetattrlist(int,void*,void*,size_t,unsigned long) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
+int	fsetattrlist(int,void*,void*,size_t,unsigned long) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
 //Begin-Libc
 #ifndef LIBC_ALIAS_GETATTRLIST
 //End-Libc
@@ -814,11 +975,11 @@ struct searchstate;
 
 int	 searchfs(const char *, struct fssearchblock *, unsigned long *, unsigned int, unsigned int, struct searchstate *);
 int	 fsctl(const char *,unsigned long,void*,unsigned int);
-int	 ffsctl(int,unsigned long,void*,unsigned int);
+int	 ffsctl(int,unsigned long,void*,unsigned int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
 
 extern int optreset;
 
-#endif /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 __END_DECLS
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
 
-#endif /* !_UNISTD_H_ */
+#endif /* _UNISTD_H_ */

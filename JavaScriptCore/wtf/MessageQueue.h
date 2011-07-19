@@ -41,14 +41,15 @@ namespace WTF {
     enum MessageQueueWaitResult {
         MessageQueueTerminated,       // Queue was destroyed while waiting for message.
         MessageQueueTimeout,          // Timeout was specified and it expired.
-        MessageQueueMessageReceived,  // A message was successfully received and returned.
+        MessageQueueMessageReceived   // A message was successfully received and returned.
     };
 
     // The queue takes ownership of messages and transfer it to the new owner
     // when messages are fetched from the queue.
     // Essentially, MessageQueue acts as a queue of OwnPtr<DataType>.
     template<typename DataType>
-    class MessageQueue : public Noncopyable {
+    class MessageQueue {
+        WTF_MAKE_NONCOPYABLE(MessageQueue);
     public:
         MessageQueue() : m_killed(false) { }
         ~MessageQueue();
@@ -92,7 +93,7 @@ namespace WTF {
     inline void MessageQueue<DataType>::append(PassOwnPtr<DataType> message)
     {
         MutexLocker lock(m_mutex);
-        m_queue.append(message.release());
+        m_queue.append(message.leakPtr());
         m_condition.signal();
     }
 
@@ -102,7 +103,7 @@ namespace WTF {
     {
         MutexLocker lock(m_mutex);
         bool wasEmpty = m_queue.isEmpty();
-        m_queue.append(message.release());
+        m_queue.append(message.leakPtr());
         m_condition.signal();
         return wasEmpty;
     }
@@ -111,7 +112,7 @@ namespace WTF {
     inline void MessageQueue<DataType>::prepend(PassOwnPtr<DataType> message)
     {
         MutexLocker lock(m_mutex);
-        m_queue.prepend(message.release());
+        m_queue.prepend(message.leakPtr());
         m_condition.signal();
     }
 
@@ -119,9 +120,9 @@ namespace WTF {
     inline PassOwnPtr<DataType> MessageQueue<DataType>::waitForMessage()
     {
         MessageQueueWaitResult exitReason; 
-        PassOwnPtr<DataType> result = waitForMessageFilteredWithTimeout(exitReason, MessageQueue<DataType>::alwaysTruePredicate, infiniteTime());
+        OwnPtr<DataType> result = waitForMessageFilteredWithTimeout(exitReason, MessageQueue<DataType>::alwaysTruePredicate, infiniteTime());
         ASSERT(exitReason == MessageQueueTerminated || exitReason == MessageQueueMessageReceived);
-        return result;
+        return result.release();
     }
 
     template<typename DataType>
@@ -139,19 +140,19 @@ namespace WTF {
 
         if (m_killed) {
             result = MessageQueueTerminated;
-            return 0;
+            return nullptr;
         }
 
         if (timedOut) {
             result = MessageQueueTimeout;
-            return 0;
+            return nullptr;
         }
 
         ASSERT(found != m_queue.end());
-        DataType* message = *found;
+        OwnPtr<DataType> message = adoptPtr(*found);
         m_queue.remove(found);
         result = MessageQueueMessageReceived;
-        return message;
+        return message.release();
     }
 
     template<typename DataType>
@@ -159,13 +160,11 @@ namespace WTF {
     {
         MutexLocker lock(m_mutex);
         if (m_killed)
-            return 0;
+            return nullptr;
         if (m_queue.isEmpty())
-            return 0;
+            return nullptr;
 
-        DataType* message = m_queue.first();
-        m_queue.removeFirst();
-        return message;
+        return adoptPtr(m_queue.takeFirst());
     }
 
     template<typename DataType>

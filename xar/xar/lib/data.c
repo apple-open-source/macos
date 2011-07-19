@@ -270,5 +270,9 @@ int32_t xar_data_verify(xar_t x, xar_file_t f)
 	tmpp = xar_prop_pfirst(f);
 	if( tmpp )
 		tmpp = xar_prop_find(tmpp, "data");
+	
+	if (!tmpp)		// It appears that xar can have truely empty files, aka, no data. We should just fail to verify these files. 
+		return 0;	// After all, the checksum of blank is meaningless. So, failing to do so will cause a crash.
+	
 	return xar_attrcopy_from_heap(x, f, tmpp, NULL , (void *)(&context));
 }

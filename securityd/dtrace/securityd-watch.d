@@ -1,6 +1,7 @@
 #!/usr/sbin/dtrace -q -s
 
 
+
 /*
  * Tracking state
  */
@@ -201,9 +202,53 @@ securityd*:::request-return
 /*
  * Sessions
  */
-securityd*:::session-*
+typedef uint32_t SessionId;
+
+struct Session {
+	DTHandle handle;
+	SessionId sessionid;
+};
+struct Session session[SessionId];
+
+struct xauditinfo {
+	uint32_t	ai_auid;		/* audit user id */
+	struct {
+		unsigned int low;
+		unsigned int high;
+	} ai_mask;
+	struct {
+		uint32_t dev;
+		uint32_t type;
+		uint32_t addr[4];
+	} ai_termid;
+	au_asid_t ai_asid;		/* audit session id */
+	au_asflgs_t ai_flags;	/* audit session flags */
+};
+self struct xauditinfo *ai;
+
+securityd*:::session-create
 {
-	printf("%u T%d:%s(<%x>,0x%x)\n", timestamp, self->mytid, probename, arg0, arg1);
+	session[arg1].handle = arg0;
+	session[arg1].sessionid = arg1;
+	self->ai = copyin(arg2, sizeof(struct xauditinfo));
+	printf("%u T%d:%s(<%x>,id=%d,uid=%d,flags=%#x)\n", timestamp, self->mytid, probename,
+		arg0, arg1, self->ai->ai_auid, self->ai->ai_flags);
+}
+
+securityd*:::session-kill
+{
+	printf("%u T%d:%s(<%x>,id=%d)\n", timestamp, self->mytid, probename, arg0, arg1);
+}
+
+securityd*:::session-destroy
+{
+	printf("%u T%d:%s(<%x>,id=%d)\n", timestamp, self->mytid, probename, arg0, arg1);
+}
+
+securityd*:::session-notify
+{
+	printf("%u T%d:%s(<%x>,id=%d,events=0x%x,uid=%d)\n", timestamp, self->mytid, probename,
+		session[arg0].handle, arg0, arg1, arg2);
 }
 
 

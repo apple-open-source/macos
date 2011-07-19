@@ -1,11 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin tooltip n 1.4]
-[copyright {1996-2007, Jeffrey Hobbs}]
+[manpage_begin tooltip n 1.4.4]
+[copyright {1996-2008, Jeffrey Hobbs}]
 [moddesc   {Tooltip management}]
 [titledesc {Tooltip management}]
 [require Tcl 8.4]
 [require msgcat 1.3]
-[require tooltip [opt 1.4]]
+[require tooltip [opt 1.4.4]]
 [description]
 [para]
 
@@ -52,7 +52,7 @@ Enables tooltips for defined widgets.
 
 [list_end]
 
-[nl]
+[para]
 
 [call [cmd ::tooltip::tooltip] \
      [arg pathName] [opt [arg "option arg"]] [arg message]]
@@ -72,15 +72,16 @@ This option is used to set a tooltip on a menu item. The index may be
 either the entry index or the entry label. The widget must be a menu
 widget but the entries do not have to exists when the tooltip is set.
 
-[opt_def -item [arg name]]
+[opt_def -items [arg name]]
 
-This option is used to set a tooltip for a canvas widget item or a listbox
-item. For the canvas widget, the item must already be present in the canvas
-widget. For listbox widgets the item may be created later but the programmer
+This option is used to set a tooltip for canvas widget or listbox items.
+For the canvas widget, the item must already be present in the canvas
+widget and will be found with a [cmd "find withtag"] lookup.
+For listbox widgets the item(s) may be created later but the programmer
 is responsible for managing the link between the listbox item index and the
 corresponding tooltip. If the listbox items are re-ordered, the tooltips
-will need ammending.
-[nl]
+will need amending.
+[para]
 If the widget is not a canvas or listbox then an error is raised.
 
 [opt_def -tag [arg name]]

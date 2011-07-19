@@ -1,0 +1,30 @@
+/* turn off the address book icon */
+.button-addressbook
+{
+	display: none;
+}
+
+/* turn off list controls under the message list */
+div#listcontrols
+{
+	display: none;
+}
+
+/* put the compose buttons on the right */
+div#compose-buttons
+{
+	left: auto;
+	right: 0;
+}
+
+/* message type should be on left */
+div#compose-editorfooter
+{
+	right: auto;
+}
+
+/* switch the order of the compose buttons */
+#compose-buttons input
+{
+	float: right;
+}

@@ -52,7 +52,7 @@
 
 - (void)processDevice:(IOUSBDeviceRef)deviceIntf deviceNumber:(int)deviceNumber usbName:(NSString*)usbName;
 - (void)PrintPortInfo: (uint32_t)portInfo forDevice:(BusProbeDevice *)thisDevice;
-
+- (void)GetAndPrintNumberOfEndpoints:(IOUSBDeviceRef)deviceIntf forDevice:(BusProbeDevice *)thisDevice portInfo:(UInt32)portInfo;
 @end
 
 @protocol BusProberListener <NSObject>

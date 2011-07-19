@@ -42,20 +42,24 @@ class QWebFrame;
 class QWebNetworkRequest;
 class QWebHistory;
 
-class QWebPagePrivate;
 class QWebFrameData;
-class QWebNetworkInterface;
-class QWebPluginFactory;
-class QWebHitTestResult;
 class QWebHistoryItem;
+class QWebHitTestResult;
+class QWebNetworkInterface;
+class QWebPagePrivate;
+class QWebPluginFactory;
+class QWebSecurityOrigin;
+class QtViewportAttributesPrivate;
 
 namespace WebCore {
     class ChromeClientQt;
     class EditorClientQt;
     class FrameLoaderClientQt;
     class InspectorClientQt;
+    class InspectorServerRequestHandlerQt;
     class InspectorFrontendClientQt;
     class NotificationPresenterClientQt;
+    class GeolocationPermissionClientQt;
     class ResourceHandle;
     class HitTestResult;
     class QNetworkReplyHandler;
@@ -68,6 +72,8 @@ class QWEBKIT_EXPORT QWebPage : public QObject {
 
     Q_PROPERTY(bool modified READ isModified)
     Q_PROPERTY(QString selectedText READ selectedText)
+    Q_PROPERTY(QString selectedHtml READ selectedHtml)
+    Q_PROPERTY(bool hasSelection READ hasSelection)
     Q_PROPERTY(QSize viewportSize READ viewportSize WRITE setViewportSize)
     Q_PROPERTY(QSize preferredContentsSize READ preferredContentsSize WRITE setPreferredContentsSize)
     Q_PROPERTY(bool forwardUnsupportedContent READ forwardUnsupportedContent WRITE setForwardUnsupportedContent)
@@ -99,6 +105,7 @@ public:
         OpenImageInNewWindow,
         DownloadImageToDisk,
         CopyImageToClipboard,
+        CopyImageUrlToClipboard,
 
         Back,
         Forward,
@@ -170,6 +177,8 @@ public:
         AlignLeft,
         AlignRight,
 
+        StopScheduledPageRefresh,
+
         WebActionCount
     };
 
@@ -191,6 +200,49 @@ public:
         WebBrowserWindow,
         WebModalDialog
     };
+
+    enum PermissionPolicy {
+        PermissionUnknown,
+        PermissionGrantedByUser,
+        PermissionDeniedByUser
+    };
+
+    enum Feature {
+        Notifications,
+        Geolocation
+    };
+
+    class QWEBKIT_EXPORT ViewportAttributes {
+    public:
+        ViewportAttributes();
+        ViewportAttributes(const QWebPage::ViewportAttributes& other);
+
+        ~ViewportAttributes();
+
+        QWebPage::ViewportAttributes& operator=(const QWebPage::ViewportAttributes& other);
+
+        inline qreal initialScaleFactor() const { return m_initialScaleFactor; }
+        inline qreal minimumScaleFactor() const { return m_minimumScaleFactor; }
+        inline qreal maximumScaleFactor() const { return m_maximumScaleFactor; }
+        inline qreal devicePixelRatio() const { return m_devicePixelRatio; }
+        inline bool isUserScalable() const { return m_isUserScalable; }
+        inline bool isValid() const { return m_isValid; }
+        inline QSize size() const { return m_size; }
+
+    private:
+        QSharedDataPointer<QtViewportAttributesPrivate> d;
+        qreal m_initialScaleFactor;
+        qreal m_minimumScaleFactor;
+        qreal m_maximumScaleFactor;
+        qreal m_devicePixelRatio;
+        bool m_isUserScalable;
+        bool m_isValid;
+        QSize m_size;
+
+        friend class WebCore::ChromeClientQt;
+        friend class QWebPage;
+    };
+
 
     explicit QWebPage(QObject *parent = 0);
     ~QWebPage();
@@ -219,7 +271,9 @@ public:
     quint64 totalBytes() const;
     quint64 bytesReceived() const;
 
+    bool hasSelection() const;
     QString selectedText() const;
+    QString selectedHtml() const;
 
 #ifndef QT_NO_ACTION
     QAction *action(WebAction action) const;
@@ -228,9 +282,11 @@ public:
 
     QSize viewportSize() const;
     void setViewportSize(const QSize &size) const;
+    ViewportAttributes viewportAttributesForSize(const QSize& availableSize) const;
 
     QSize preferredContentsSize() const;
     void setPreferredContentsSize(const QSize &size) const;
+    void setActualVisibleContentRect(const QRect& rect) const;
 
     virtual bool event(QEvent*);
     bool focusNextPrevChild(bool next);
@@ -257,6 +313,11 @@ public:
     void updatePositionDependentActions(const QPoint &pos);
 
     QMenu *createStandardContextMenu();
+
+    void setFeaturePermission(QWebFrame* frame, Feature feature, PermissionPolicy policy);
+
+    QStringList supportedContentTypes() const;
+    bool supportsContentType(const QString& mimeType) const;
 
     enum Extension {
         ChooseMultipleFilesExtension,
@@ -332,9 +393,15 @@ Q_SIGNALS:
     void microFocusChanged();
     void contentsChanged();
     void databaseQuotaExceeded(QWebFrame* frame, QString databaseName);
+    void applicationCacheQuotaExceeded(QWebSecurityOrigin* origin, quint64 defaultOriginQuota);
 
     void saveFrameStateRequested(QWebFrame* frame, QWebHistoryItem* item);
     void restoreFrameStateRequested(QWebFrame* frame);
+
+    void viewportChangeRequested();
+
+    void featurePermissionRequested(QWebFrame* frame, QWebPage::Feature feature);
+    void featurePermissionRequestCanceled(QWebFrame* frame, QWebPage::Feature feature);
 
 protected:
     virtual QWebPage *createWindow(WebWindowType type);
@@ -369,8 +436,10 @@ private:
     friend class WebCore::EditorClientQt;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::InspectorClientQt;
+    friend class WebCore::InspectorServerRequestHandlerQt;
     friend class WebCore::InspectorFrontendClientQt;
     friend class WebCore::NotificationPresenterClientQt;
+    friend class WebCore::GeolocationPermissionClientQt;
     friend class WebCore::ResourceHandle;
     friend class WebCore::QNetworkReplyHandler;
     friend class DumpRenderTreeSupportQt;

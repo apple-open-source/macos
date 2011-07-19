@@ -16,23 +16,66 @@
 	</ToolFiles>
 	<Configurations>
 		<Configuration
-			Name="all|Win32"
-			OutputDirectory="$(WebKitOutputDir)\lib"
-			IntermediateDirectory="$(WebKitOutputDir)\obj\$(ProjectName)\$(ConfigurationName)"
+			Name="Debug|Win32"
 			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedDebug.vsprops"
 			>
 			<Tool
 				Name="VCNMakeTool"
-				BuildCommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;&#x0D;&#x0A;nmake /nologo -f JavaScriptCoreGenerated.make"
-				ReBuildCommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;&#x0D;&#x0A;nmake /nologo -f JavaScriptCoreGenerated.make clean&#x0D;&#x0A;nmake -f JavaScriptCoreGenerated.make"
-				CleanCommandLine="%SystemDrive%\cygwin\bin\which.exe bash&#x0D;&#x0A;if errorlevel 1 set PATH=%SystemDrive%\cygwin\bin;%PATH%&#x0D;&#x0A;cmd /c&#x0D;&#x0A;&#x0D;&#x0A;nmake /nologo -f JavaScriptCoreGenerated.make clean"
-				Output=""
-				PreprocessorDefinitions="WIN32;NDEBUG"
-				IncludeSearchPath=""
-				ForcedIncludes=""
-				AssemblySearchPath=""
-				ForcedUsingAssemblies=""
-				CompileAsManaged=""
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug_All|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedDebugAll.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedRelease.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Production|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedProduction.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release_Cairo_CFLite|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedReleaseCairoCFLite.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Debug_Cairo_CFLite|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedDebugCairoCFLite.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
+			/>
+		</Configuration>
+		<Configuration
+			Name="Release_PGO|Win32"
+			ConfigurationType="0"
+			InheritedPropertySheets=".\JavaScriptCoreGeneratedReleasePGO.vsprops"
+			>
+			<Tool
+				Name="VCNMakeTool"
 			/>
 		</Configuration>
 	</Configurations>
@@ -44,7 +87,19 @@
 			>
 		</File>
 		<File
+			RelativePath=".\copy-files.cmd"
+			>
+		</File>
+		<File
+			RelativePath="..\..\DerivedSources.make"
+			>
+		</File>
+		<File
 			RelativePath=".\JavaScriptCoreGenerated.make"
+			>
+		</File>
+		<File
+			RelativePath=".\work-around-vs-dependency-tracking-bugs.py"
 			>
 		</File>
 	</Files>

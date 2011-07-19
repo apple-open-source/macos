@@ -32,6 +32,7 @@
 #import "WebKitLogging.h"
 #import "WebPreferenceKeysPrivate.h"
 #import <WebCore/WebCoreObjCExtras.h>
+#import <WebCore/HistoryItem.h>
 #import <objc/objc-auto.h>
 #import <runtime/InitializeThreading.h>
 #import <wtf/Threading.h>
@@ -45,9 +46,7 @@ int pluginDatabaseClientCount = 0;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 - (id)init 
@@ -62,16 +61,17 @@ int pluginDatabaseClientCount = 0;
     cssAnimationsSuspended = NO;
 
     zoomMultiplier = 1;
+    zoomsTextOnly = NO;
+
+    interactiveFormValidationEnabled = NO;
+    // The default value should be synchronized with WebCore/page/Settings.cpp.
+    validationMessageTimerMagnification = 50;
 
 #if ENABLE(DASHBOARD_SUPPORT)
     dashboardBehaviorAllowWheelScrolling = YES;
 #endif
 
-#if !defined(BUILDING_ON_TIGER)
     shouldCloseWithWindow = objc_collectingEnabled();
-#else
-    shouldCloseWithWindow = NO;
-#endif
 
     smartInsertDeleteEnabled = ![[NSUserDefaults standardUserDefaults] objectForKey:WebSmartInsertDeleteEnabled]
         || [[NSUserDefaults standardUserDefaults] boolForKey:WebSmartInsertDeleteEnabled];

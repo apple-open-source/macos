@@ -1,7 +1,7 @@
 # Makefile for Windows build of zlib for Safari
 
 name=zlib
-project=$(name)-1.2.3
+project=$(name)-1.2.5
 
 install:
 	xcopy $(name) "$(SRCROOT)\$(project)" /s/v/i/h/y

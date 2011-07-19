@@ -8,7 +8,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: base64.tcl,v 1.29 2008/05/28 17:34:31 andreas_kupries Exp $
+# RCS: @(#) $Id: base64.tcl,v 1.32 2010/07/06 19:15:40 andreas_kupries Exp $
 
 # Version 1.0   implemented Base64_Encode, Base64_Decode
 # Version 2.0   uses the base64 namespace
@@ -161,6 +161,8 @@ if {![catch {package require Trf 2.0}]} {
 	variable base64_en {}
 
 	# We create the auxiliary array base64_tmp, it will be unset later.
+	variable base64_tmp
+	variable i
 
 	set i 0
 	foreach char {A B C D E F G H I J K L M N O P Q R S T U V W X Y Z \
@@ -179,6 +181,10 @@ if {![catch {package require Trf 2.0}]} {
 	#
 
 	# the last ascii char is 'z'
+	variable char
+	variable len
+	variable val
+
 	scan z %c len
 	for {set i 0} {$i <= $len} {incr i} {
 	    set char [format %c $i]
@@ -345,11 +351,19 @@ if {![catch {package require Trf 2.0}]} {
 	    } elseif {$bits == -1} {
 		# = indicates end of data.  Output whatever chars are left.
 		# The encoding algorithm dictates that we can only have 1 or 2
-		# padding characters.  If x=={}, we have 12 bits of input 
+		# padding characters.  If x=={}, we must (*) have 12 bits of input 
 		# (enough for 1 8-bit output).  If x!={}, we have 18 bits of
 		# input (enough for 2 8-bit outputs).
-		
+		#
+		# (*) If we don't then the input is broken (bug 2976290).
+
 		foreach {v w z} $nums break
+
+		# Bug 2976290
+		if {$w == {}} {
+		    return -code error "Not enough data to process padding"
+		}
+
 		set a [expr {($v << 2) | (($w & 0x30) >> 4)}]
 		if {$z == {}} {
 		    append output [binary format c $a ]
@@ -370,4 +384,4 @@ if {![catch {package require Trf 2.0}]} {
     }
 }
 
-package provide base64 2.4
+package provide base64 2.4.2

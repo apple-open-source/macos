@@ -7,16 +7,15 @@
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.tcsh.org</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.15.00.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/tcsh/tcsh-6.17.00.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>d24f7bf27e80222a6293b6629c14db547f0b7387</string>
+	<string>9bf67d5ce1b406178e9ba535ecd34553fe0d4d36</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-1-23</string>
+	<string>2009-07-17</string>
 	<key>OpenSourceModifications</key>
 	<array>
-	<string>Fix for http://bugs.gw.com/view.php?id=49</string>
 	<string>Patch host.defs for x86_64</string>
-	<string>Fix bug in dorepeat with change from 6.16.00</string>
+	<string>Do not define SAVESIGVEC</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

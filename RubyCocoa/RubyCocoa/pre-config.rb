@@ -30,49 +30,24 @@ config_ary = [
   [ :install_path, install_path ]
 ]
 
-if @config['build-universal'] == 'yes' && @config['sdkroot'].size == 0
-  # SDKROOT is required to build a universal-binary on 10.4 
-  @config['sdkroot'] = 
-    case @config['macosx-deployment-target'].to_f 
-    when 10.4
-      sdkroot = '/Developer/SDKs/MacOSX10.4u.sdk'
-    else
-      '' # not needed for 10.5
-    end
-end
-
 # build options
 cflags = '-fno-common -g -fobjc-exceptions -Wall'
 ldflags = '-undefined suppress -flat_namespace'
-sdkroot = @config['sdkroot'] 
+sdkroot = @config['sdkroot']
+archs = @config['target-archs']
 
-if @config['build-universal'] == 'yes'
-  cflags << ' -arch ppc -arch i386'
-  ldflags << ' -arch ppc -arch i386'
+# add archs if given
+arch_flags = archs.gsub(/\A|\s+/, ' -arch ')
 
-  if @config['macosx-deployment-target'].to_f < 10.5
-    cflags << ' -isysroot ' << sdkroot
-    ldflags << ' -Wl,-syslibroot,' << sdkroot
-
-    # validation
-    raise "ERROR: SDK \"#{sdkroot}\" does not exist." unless File.exist?(sdkroot)
-    libruby_sdk = @config['libruby-path']
-    raise "ERROR: library \"#{libruby_sdk}\" does not exist." unless File.exist?(libruby_sdk)
-  elsif @config['macosx-deployment-target'].to_f > 10.5
-    cflags << ' -arch x86_64'
-    ldflags << ' -arch x86_64'
-  else
-    cflags << ' -arch ppc64 -arch x86_64'
-    ldflags << ' -arch ppc64 -arch x86_64'
-  end
+if sdkroot.size > 0
+  cflags << ' -isysroot ' << sdkroot
+  ldflags << ' -Wl,-syslibroot,' << sdkroot
 end
 
-if @config['macosx-deployment-target'].to_f > 10.5
-  cflags << ' -DRB_ID=ID'
-end
+cflags << ' -DRB_ID=ID'  if @config['macosx-deployment-target'].to_f > 10.5
 
-def lib_exist?(path, sdkoot=@config['sdkroot'])
-  File.exist?(File.join(sdkoot, path))
+def lib_exist?(path, sdkroot=@config['sdkroot'])
+  File.exist?(File.join(sdkroot, path))
 end
 
 if lib_exist?('/usr/include/libxml2') and lib_exist?('/usr/lib/libxml2.dylib')
@@ -106,6 +81,8 @@ ldflags << ' -lffi '
 
 config_ary << [ :other_cflags, cflags ]
 config_ary << [ :other_ldflags, ldflags ]
+config_ary << [ :target_archs, archs.size > 0 ? archs : '$NATIVE_ARCH' ]
+config_ary << [ :arch_flags, archs.size > 0 ? arch_flags : '' ]
 
 target_files.each do |dst_name|
   src_name = dst_name + '.in'

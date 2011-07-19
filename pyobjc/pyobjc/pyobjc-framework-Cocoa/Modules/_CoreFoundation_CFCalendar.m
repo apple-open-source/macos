@@ -5,10 +5,6 @@
  * arguments are integers and the number of arguments is trivially derived
  * from the format string these implementations are fairly trivial.
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static PyObject*
 mod_CFCalendarAddComponents(
@@ -425,39 +421,28 @@ mod_CFCalendarGetComponentDifference(
 	return rv;
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFCalendarAddComponents",
-		(PyCFunction)mod_CFCalendarAddComponents,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_CALENDAR_METHODS \
+        {	\
+		"CFCalendarAddComponents",	\
+		(PyCFunction)mod_CFCalendarAddComponents,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFCalendarComposeAbsoluteTime",	\
+		(PyCFunction)mod_CFCalendarComposeAbsoluteTime,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFCalendarDecomposeAbsoluteTime",	\
+		(PyCFunction)mod_CFCalendarDecomposeAbsoluteTime,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFCalendarGetComponentDifference",	\
+		(PyCFunction)mod_CFCalendarGetComponentDifference,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFCalendarComposeAbsoluteTime",
-		(PyCFunction)mod_CFCalendarComposeAbsoluteTime,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFCalendarDecomposeAbsoluteTime",
-		(PyCFunction)mod_CFCalendarDecomposeAbsoluteTime,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFCalendarGetComponentDifference",
-		(PyCFunction)mod_CFCalendarGetComponentDifference,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFCalendar(void);
-void init_CFCalendar(void)
-{
-	PyObject* m = Py_InitModule4("_CFCalendar", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

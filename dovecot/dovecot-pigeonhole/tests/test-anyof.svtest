@@ -1,0 +1,156 @@
+require "vnd.dovecot.testsuite";
+
+/* 
+ * ## RFC 5228, Section 5.3. Test anyof (page 27) ## 
+ */
+
+/* "The "anyof" test performs a logical OR on the tests supplied to it.
+ * 
+ *  Example:  anyof (false, false)  =>   false
+ *            anyof (false, true)   =>   true
+ *            anyof (true,  true)   =>   true
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: test@dovecot.example.net
+cc: stephan@idiot.ex
+Subject: Test
+
+Test!
+.
+;
+
+/*
+ * TEST: Basic functionality: static
+ */
+
+test "Basic functionality: static" {
+	if anyof ( true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong single outcome: false";
+	}
+
+	if anyof ( false ) {
+		test_fail "chose wrong single outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if anyof ( true, true, true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true outcome: false";
+	}
+
+	if anyof ( false, false, false ) {
+		test_fail "chose wrong all-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if anyof ( true, false, false ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong first-true outcome: false";
+	}
+	
+	if anyof ( false, true, false ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong second-true outcome: false";
+	}
+
+	if anyof ( false, false, true ) {		
+		/* Correct */
+	} else {
+		test_fail "chose wrong last-true outcome: false";
+	}
+
+	if anyof ( false, true, true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong first-false outcome: false";
+	}
+	
+	if anyof ( true, false, true ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong second-false outcome: false";
+	}
+
+	if anyof ( true, true, false ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong last-false outcome: false";
+	}
+}
+
+/*
+ * TEST: Basic functionality: dynamic
+ */
+
+test "Basic functionality: dynamic" {
+	if anyof ( exists "from" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong single outcome: false";
+	}
+
+	if anyof ( exists "friep" ) {
+		test_fail "chose wrong single outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if anyof ( exists "from", exists "to", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong all-true outcome: false";
+	}
+
+	if anyof ( exists "friep", exists "frop", exists "frml" ) {
+		test_fail "chose wrong all-false outcome: true";
+	} else {
+		/* Correct */
+	}
+
+	if anyof ( exists "to", exists "frop", exists "frml" ) {
+		/* Correct */		
+	} else {
+		test_fail "chose wrong first-true outcome: false";
+	}
+	
+	if anyof ( exists "friep", exists "from", exists "frml" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong second-true outcome: false";
+	}
+
+	if anyof ( exists "friep", exists "frop", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong last-true outcome: false";
+	}
+
+	if anyof ( exists "friep", exists "from", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong first-false outcome: false";
+	}
+	
+	if anyof ( exists "to", exists "frop", exists "cc" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong second-false outcome: false";
+	}
+
+	if anyof ( exists "to", exists "from", exists "frml" ) {
+		/* Correct */
+	} else {
+		test_fail "chose wrong last-false outcome: false";
+	}
+}
+

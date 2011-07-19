@@ -2,18 +2,22 @@
 #
 #       Tk cursor handling routines
 #
-# Copyright (c) 2001 by Jeffrey Hobbs
+# Copyright (c) 2001-2009 by Jeffrey Hobbs
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: cursor.tcl,v 1.2 2006/12/08 23:30:31 hobbs Exp $
+# RCS: @(#) $Id: cursor.tcl,v 1.3 2009/04/24 22:03:48 hobbs Exp $
 
 package require Tk 8.0
-package provide cursor 0.2
+package provide cursor 0.3
 
 namespace eval ::cursor {
     namespace export propagate restore display
+
+    # Default to depthfirst (bottom up) restore to account for
+    # megawidgets that will self-propagate cursor changes down.
+    variable depthfirst 1
 
     variable cursors [list \
 	    X_cursor arrow based_arrow_down based_arrow_up boat bogosity \
@@ -58,6 +62,7 @@ namespace eval ::cursor {
 
 proc ::cursor::propagate {w cursor} {
     variable CURSOR
+
     # Ignores {} cursors or widgets that don't have a -cursor option
     if {![catch {set CURSOR($w) [$w cget -cursor]}] && $CURSOR($w) != ""} {
 	$w config -cursor $cursor
@@ -67,7 +72,7 @@ proc ::cursor::propagate {w cursor} {
     foreach child [winfo children $w] { propagate $child $cursor }
 }
 
-# ::cursor::restores --
+# ::cursor::restore --
 #
 #	Restores original cursor of a widget and all descendants.
 #
@@ -79,14 +84,21 @@ proc ::cursor::propagate {w cursor} {
 #	Restore the cursor of $w and all descendants
 
 proc ::cursor::restore {w {cursor {}}} {
+    variable depthfirst
     variable CURSOR
+
+    if {$depthfirst} {
+	foreach child [winfo children $w] { restore $child $cursor }
+    }
     if {[info exists CURSOR($w)]} {
 	$w config -cursor $CURSOR($w)
     } else {
 	# Not all widgets have -cursor
 	catch {$w config -cursor $cursor}
     }
-    foreach child [winfo children $w] { restore $child $cursor }
+    if {!$depthfirst} {
+	foreach child [winfo children $w] { restore $child $cursor }
+    }
 }
 
 

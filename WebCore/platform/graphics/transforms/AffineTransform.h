@@ -32,15 +32,15 @@
 #include <string.h> // for memcpy
 #include <wtf/FastAllocBase.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CGAffineTransform.h>
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 #include <cairo.h>
 #elif PLATFORM(OPENVG)
 #include "VGUtils.h"
 #elif PLATFORM(QT)
 #include <QTransform>
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 #include <SkMatrix.h>
 #elif PLATFORM(WX) && USE(WXGC)
 #include <wx/graphics.h>
@@ -55,7 +55,8 @@ class IntPoint;
 class IntRect;
 class TransformationMatrix;
 
-class AffineTransform : public FastAllocBase {
+class AffineTransform {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     typedef double Transform[6];
 
@@ -95,22 +96,23 @@ public:
 
     void makeIdentity();
 
-    AffineTransform& multiply(const AffineTransform&);
-    AffineTransform& multLeft(const AffineTransform&);
+    AffineTransform& multiply(const AffineTransform& other);
     AffineTransform& scale(double); 
     AffineTransform& scale(double sx, double sy); 
     AffineTransform& scaleNonUniform(double sx, double sy);
     AffineTransform& rotate(double d);
     AffineTransform& rotateFromVector(double x, double y);
     AffineTransform& translate(double tx, double ty);
-    AffineTransform& translateRight(double tx, double ty);
     AffineTransform& shear(double sx, double sy);
     AffineTransform& flipX();
     AffineTransform& flipY();
     AffineTransform& skew(double angleX, double angleY);
     AffineTransform& skewX(double angle);
     AffineTransform& skewY(double angle);
- 
+
+    double xScale() const;
+    double yScale() const;
+
     double det() const;
     bool isInvertible() const;
     AffineTransform inverse() const;
@@ -129,6 +131,11 @@ public:
         return m_transform[0] == 1 && m_transform[1] == 0 && m_transform[2] == 0 && (m_transform[3] == 1 || m_transform[3] == -1);
     }
 
+    bool preservesAxisAlignment() const
+    {
+        return (m_transform[1] == 0 && m_transform[2] == 0) || (m_transform[0] == 0 && m_transform[3] == 0);
+    }
+
     bool operator== (const AffineTransform& m2) const
     {
         return (m_transform[0] == m2.m_transform[0]
@@ -144,31 +151,35 @@ public:
     // *this = *this * t (i.e., a multRight)
     AffineTransform& operator*=(const AffineTransform& t)
     {
-        *this = *this * t;
-        return *this;
+        return multiply(t);
     }
     
     // result = *this * t (i.e., a multRight)
     AffineTransform operator*(const AffineTransform& t) const
     {
-        AffineTransform result = t;
-        result.multLeft(*this);
+        AffineTransform result = *this;
+        result *= t;
         return result;
     }
 
-#if PLATFORM(CG)
+#if USE(CG)
     operator CGAffineTransform() const;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
     operator cairo_matrix_t() const;
 #elif PLATFORM(OPENVG)
     operator VGMatrix() const;
 #elif PLATFORM(QT)
     operator QTransform() const;
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
     operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
     operator wxGraphicsMatrix() const;
 #endif
+
+    static AffineTransform translation(double x, double y)
+    {
+        return AffineTransform(1, 0, 0, 1, x, y);
+    }
 
 private:
     void setMatrix(const Transform m)

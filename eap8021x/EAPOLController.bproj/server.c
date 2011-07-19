@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -61,7 +61,6 @@ static CFMachPortRef		server_cfport;
 static vm_address_t
 my_CFPropertyListCreateVMData(CFPropertyListRef plist,
 			      mach_msg_type_number_t * 	ret_data_len)
-
 {
     vm_address_t	data;
     int			data_len;
@@ -181,6 +180,37 @@ eapolcontroller_copy_loginwindow_config(mach_port_t server,
     my_CFRelease(&dict);
     return (KERN_SUCCESS);
 }
+
+kern_return_t
+eapolcontroller_copy_autodetect_info(mach_port_t server,
+				     xmlDataOut_t * info,
+				     mach_msg_type_number_t * info_len,
+				     int * result)
+{
+    CFDictionaryRef	dict = NULL;
+
+    *info = NULL;
+    *info_len = 0;
+    *result = ControllerCopyAutoDetectInformation(&dict);
+    if (dict != NULL) {
+	*info = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, info_len);
+	if (*info == NULL) {
+	    syslog(LOG_NOTICE, "EAPOLController: failed to serialize data");
+	}
+    }
+    my_CFRelease(&dict);
+    return (KERN_SUCCESS);
+}
+
+kern_return_t
+eapolcontroller_did_user_cancel(mach_port_t server,
+				if_name_t if_name,
+				boolean_t * user_cancelled)
+{
+    *user_cancelled = ControllerDidUserCancel(if_name);
+    return (KERN_SUCCESS);
+}
+
 #endif /* ! TARGET_OS_EMBEDDED */
 
 kern_return_t
@@ -188,6 +218,7 @@ eapolcontroller_start(mach_port_t server,
 		      if_name_t if_name, xmlData_t config, 
 		      mach_msg_type_number_t config_len,
 		      mach_port_t bootstrap,
+		      mach_port_t au_session,
 		      int * ret_result)
 {
     CFDictionaryRef	dict = NULL;
@@ -205,7 +236,8 @@ eapolcontroller_start(mach_port_t server,
 	result = EPERM;
 	goto done;
     }
-    result = ControllerStart(if_name, S_uid, S_gid, dict, bootstrap);
+    result = ControllerStart(if_name, S_uid, S_gid, dict, bootstrap,
+			     au_session);
 
 done:
     *ret_result = result;
@@ -244,6 +276,15 @@ eapolcontroller_start_system(mach_port_t server,
     *ret_result = result;
     return (KERN_SUCCESS);
 }
+
+kern_return_t 
+eapolcontroller_client_user_cancelled(mach_port_t server,
+				      int * result)
+{
+    *result = ControllerClientUserCancelled(server);
+    return (KERN_SUCCESS);
+};
+
 #endif /* ! TARGET_OS_EMBEDDED */
 
 kern_return_t
@@ -330,6 +371,7 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 			      xmlDataOut_t * control, 
 			      mach_msg_type_number_t * control_len,
 			      mach_port_t * bootstrap,
+			      mach_port_t * au_session,
 			      int * ret_result)
 {
     int			pid;
@@ -345,7 +387,7 @@ eapolcontroller_client_attach(mach_port_t server, task_t task,
 	goto done;
     }
     result = ControllerClientAttach(pid, if_name, notify_port, session,
-				    &dict, bootstrap);
+				    &dict, bootstrap, au_session);
     if (dict != NULL) {
 	*control = (xmlDataOut_t)my_CFPropertyListCreateVMData(dict, 
 							       control_len);
@@ -447,8 +489,8 @@ process_notification(mach_msg_header_t * request)
     mach_no_senders_notification_t * notify;
 
     notify = (mach_no_senders_notification_t *)request;
-    if ((notify->not_header.msgh_id > MACH_NOTIFY_LAST) ||
-	(notify->not_header.msgh_id < MACH_NOTIFY_FIRST)) {
+    if (notify->not_header.msgh_id > MACH_NOTIFY_LAST
+	|| notify->not_header.msgh_id < MACH_NOTIFY_FIRST) {
 	return FALSE;	/* if this is not a notification message */
     }
     return (TRUE);
@@ -460,19 +502,11 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
     mach_msg_return_t 	r;
     mach_msg_header_t *	request = (mach_msg_header_t *)msg;
     mach_msg_header_t *	reply;
-    char		reply_s[128];
+    char		reply_s[eapolcontroller_subsystem.maxsize];
 
     if (process_notification(request) == FALSE) {
 	read_trailer(request);
-	if (eapolcontroller_subsystem.maxsize > sizeof(reply_s)) {
-	    syslog(LOG_NOTICE, "EAPOLController: %d > %d",
-		   eapolcontroller_subsystem.maxsize, sizeof(reply_s));
-	    reply = (mach_msg_header_t *)
-		malloc(eapolcontroller_subsystem.maxsize);
-	}
-	else {
-	    reply = (mach_msg_header_t *)reply_s;
-	}
+	reply = (mach_msg_header_t *)reply_s;
 	if (eapolcontroller_server(request, reply) == FALSE) {
 	    syslog(LOG_NOTICE,
 		   "EAPOLController: unknown message ID (%d)",
@@ -500,9 +534,6 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 		mach_msg_destroy(reply);
 	    }
 	}
-	if (reply != (mach_msg_header_t *)reply_s) {
-	    free(reply);
-	}
     }
     return;
 }
@@ -510,15 +541,18 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
 void
 server_register(void)
 {
+    mach_port_t		server_port;
     kern_return_t 	status;
 
-    server_cfport = CFMachPortCreate(NULL, server_handle_request, NULL, NULL);
-    status = bootstrap_register(bootstrap_port, EAPOLCONTROLLER_SERVER, 
-				CFMachPortGetPort(server_cfport));
+    status = bootstrap_check_in(bootstrap_port, EAPOLCONTROLLER_SERVER, 
+				&server_port);
     if (status != BOOTSTRAP_SUCCESS) {
-	my_CFRelease(&server_cfport);
-	mach_error("bootstrap_register", status);
+	syslog(LOG_NOTICE, "EAPOLController: bootstrap_check_in failed, %s",
+	       mach_error_string(status));
+	return;
     }
+    server_cfport = _SC_CFMachPortCreateWithPort(NULL, server_port,
+						 server_handle_request, NULL);
     return;
 }
 

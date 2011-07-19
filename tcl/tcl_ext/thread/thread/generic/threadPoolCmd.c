@@ -8,7 +8,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: threadPoolCmd.c,v 1.39 2008/10/22 08:19:14 vasiljevic Exp $
+ * RCS: @(#) $Id: threadPoolCmd.c,v 1.43 2010/03/31 08:50:24 vasiljevic Exp $
  * ----------------------------------------------------------------------------
  */
 
@@ -32,6 +32,7 @@ typedef struct ThreadPool {
     unsigned int jobId;             /* Job counter */
     int idleTime;                   /* Time in secs a worker thread idles */
     int tearDown;                   /* Set to 1 to tear down the pool */
+    int suspend;                    /* Set to 1 to suspend pool processing */
     char *initScript;               /* Script to initialize worker thread */
     char *exitScript;               /* Script to cleanup the worker */
     int minWorkers;                 /* Minimum number or worker threads */
@@ -97,7 +98,7 @@ static Tcl_Mutex startMutex;
  * Used to represent the empty result.
  */
 
-static char *threadEmptyResult = "";
+static char *threadEmptyResult = (char *)"";
 
 /*
  * Functions implementing Tcl commands
@@ -110,6 +111,8 @@ static Tcl_ObjCmdProc TpoolCancelObjCmd;
 static Tcl_ObjCmdProc TpoolGetObjCmd;
 static Tcl_ObjCmdProc TpoolReserveObjCmd;
 static Tcl_ObjCmdProc TpoolReleaseObjCmd;
+static Tcl_ObjCmdProc TpoolSuspendObjCmd;
+static Tcl_ObjCmdProc TpoolResumeObjCmd;
 static Tcl_ObjCmdProc TpoolNamesObjCmd;
 
 /*
@@ -147,10 +150,10 @@ static void
 SetResult      _ANSI_ARGS_((Tcl_Interp *interp, TpoolResult *rPtr));
 
 static ThreadPool* 
-GetTpool       _ANSI_ARGS_((char *tpoolName));
+GetTpool       _ANSI_ARGS_((const char *tpoolName));
 
 static ThreadPool* 
-GetTpoolUnl    _ANSI_ARGS_((char *tpoolName));
+GetTpoolUnl    _ANSI_ARGS_((const char *tpoolName));
 
 static void
 ThrExitHandler _ANSI_ARGS_((ClientData clientData));
@@ -163,6 +166,12 @@ TpoolReserve   _ANSI_ARGS_((ThreadPool *tpoolPtr));
 
 static int
 TpoolRelease   _ANSI_ARGS_((ThreadPool *tpoolPtr));
+
+static void
+TpoolSuspend   _ANSI_ARGS_((ThreadPool *tpoolPtr));
+
+static void
+TpoolResume   _ANSI_ARGS_((ThreadPool *tpoolPtr));
 
 static void
 InitWaiter     _ANSI_ARGS_((void));
@@ -190,10 +199,10 @@ TpoolCreateObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ii, minw, maxw, idle, len;
-    char buf[16], *exs = NULL, *cmd = NULL;
+    char buf[64], *exs = NULL, *cmd = NULL;
     ThreadPool *tpoolPtr;
 
     /* 
@@ -231,10 +240,10 @@ TpoolCreateObjCmd(dummy, interp, objc, objv)
                 return TCL_ERROR;
             }
         } else if (OPT_CMP(opt, "-initcmd")) {
-            char *val = Tcl_GetStringFromObj(objv[ii+1], &len);
+            const char *val = Tcl_GetStringFromObj(objv[ii+1], &len);
             cmd  = strcpy(Tcl_Alloc(len+1), val);
         } else if (OPT_CMP(opt, "-exitcmd")) {
-            char *val = Tcl_GetStringFromObj(objv[ii+1], &len);
+            const char *val = Tcl_GetStringFromObj(objv[ii+1], &len);
             exs  = strcpy(Tcl_Alloc(len+1), val);
         } else {
             goto usage;
@@ -326,11 +335,11 @@ TpoolPostObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     unsigned int jobId = 0;
     int ii, detached = 0, nowait = 0, len;
-    char *tpoolName, *script;
+    const char *tpoolName, *script;
     TpoolResult *rPtr;
     ThreadPool *tpoolPtr;
 
@@ -475,7 +484,7 @@ TpoolWaitObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ii, done, wObjc;
     unsigned int jobId;
@@ -595,7 +604,7 @@ TpoolCancelObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ii, wObjc, jobId;
     char *tpoolName, *listVar = NULL;
@@ -689,7 +698,7 @@ TpoolGetObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ret, jobId;
     char *tpoolName, *resVar = NULL;
@@ -782,7 +791,7 @@ TpoolReserveObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ret;
     char *tpoolName;
@@ -837,7 +846,7 @@ TpoolReleaseObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     int ret;
     char *tpoolName;
@@ -873,6 +882,106 @@ TpoolReleaseObjCmd(dummy, interp, objc, objv)
 /*
  *----------------------------------------------------------------------
  *
+ * TpoolSuspendObjCmd --
+ *
+ *  This procedure is invoked to process the "tpool::suspend" Tcl 
+ *  command. See the user documentation for details on what it does.
+ *
+ * Results:
+ *  A standard Tcl result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+TpoolSuspendObjCmd(dummy, interp, objc, objv)
+    ClientData  dummy;          /* Not used. */
+    Tcl_Interp *interp;         /* Current interpreter. */
+    int         objc;           /* Number of arguments. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
+{
+    char *tpoolName;
+    ThreadPool *tpoolPtr;
+
+    /*
+     * Syntax: tpool::suspend tpoolId
+     */
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "tpoolId");
+        return TCL_ERROR;
+    }
+
+    tpoolName = Tcl_GetString(objv[1]);
+    tpoolPtr  = GetTpool(tpoolName);
+
+    if (tpoolPtr == NULL) {
+        Tcl_AppendResult(interp, "can not find threadpool \"", tpoolName, 
+                         "\"", NULL);
+        return TCL_ERROR;
+    }
+
+    TpoolSuspend(tpoolPtr); 
+
+    return TCL_OK; 
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TpoolResumeObjCmd --
+ *
+ *  This procedure is invoked to process the "tpool::resume" Tcl 
+ *  command. See the user documentation for details on what it does.
+ *
+ * Results:
+ *  A standard Tcl result.
+ *
+ * Side effects:
+ *  None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+TpoolResumeObjCmd(dummy, interp, objc, objv)
+    ClientData  dummy;          /* Not used. */
+    Tcl_Interp *interp;         /* Current interpreter. */
+    int         objc;           /* Number of arguments. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
+{
+    char *tpoolName;
+    ThreadPool *tpoolPtr;
+
+    /*
+     * Syntax: tpool::resume tpoolId
+     */
+
+    if (objc != 2) {
+        Tcl_WrongNumArgs(interp, 1, objv, "tpoolId");
+        return TCL_ERROR;
+    }
+
+    tpoolName = Tcl_GetString(objv[1]);
+    tpoolPtr  = GetTpool(tpoolName);
+
+    if (tpoolPtr == NULL) {
+        Tcl_AppendResult(interp, "can not find threadpool \"", tpoolName, 
+                         "\"", NULL);
+        return TCL_ERROR;
+    }
+
+    TpoolResume(tpoolPtr); 
+
+    return TCL_OK; 
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * TpoolNamesObjCmd --
  *
  *  This procedure is invoked to process the "tpool::names" Tcl 
@@ -892,7 +1001,7 @@ TpoolNamesObjCmd(dummy, interp, objc, objv)
     ClientData  dummy;          /* Not used. */
     Tcl_Interp *interp;         /* Current interpreter. */
     int         objc;           /* Number of arguments. */
-    Tcl_Obj    *CONST objv[];   /* Argument objects. */
+    Tcl_Obj    *const objv[];   /* Argument objects. */
 {
     ThreadPool *tpoolPtr;
     Tcl_Obj *listObj = Tcl_NewListObj(0, NULL);
@@ -1075,36 +1184,40 @@ TpoolWorker(clientData)
 
     Tcl_MutexLock(&tpoolPtr->mutex);
     while (!tpoolPtr->tearDown) {
+        SignalWaiter(tpoolPtr);
         tpoolPtr->idleWorkers++;
-        SignalWaiter(tpoolPtr); /* Another worker available */
-        while (!tpoolPtr->tearDown && !tout && !(rPtr = PopWork(tpoolPtr))) {
-            Tcl_Time t1,t2;
-            Tcl_GetTime(&t1);
-            Tcl_ConditionWait(&tpoolPtr->cond, &tpoolPtr->mutex, idlePtr);
-            Tcl_GetTime(&t2);
-            if (tpoolPtr->idleTime) {
-                if ((t2.sec - t1.sec) >= tpoolPtr->idleTime) {
-                    tout = 1;
+        rPtr = NULL;
+        tout = 0;
+        while (tpoolPtr->suspend
+               || (!tpoolPtr->tearDown && !tout
+                   && (rPtr = PopWork(tpoolPtr)) == NULL)) {
+            if (tpoolPtr->suspend && rPtr == NULL) {
+                Tcl_ConditionWait(&tpoolPtr->cond, &tpoolPtr->mutex, NULL);
+            } else if (rPtr == NULL) {
+                Tcl_Time t1, t2;
+                Tcl_GetTime(&t1);
+                Tcl_ConditionWait(&tpoolPtr->cond, &tpoolPtr->mutex, idlePtr);
+                Tcl_GetTime(&t2);
+                if (tpoolPtr->idleTime > 0) {
+                    tout = (t2.sec - t1.sec) >= tpoolPtr->idleTime;
                 }
             }
         }
         tpoolPtr->idleWorkers--;
-        if (tpoolPtr->tearDown) {
-            /* Queue tearing down; abandon all work */
-            break;
-        } else if (rPtr == NULL) {
-            /* No work, hence idle timer fired */
+        if (rPtr == NULL) {
             if (tpoolPtr->numWorkers > tpoolPtr->minWorkers) {
-                break; /* Can safely teardown this worker */
+                break; /* Enough workers, can safely kill this one */
             } else {
-                tout = 0;
-                continue; /* Leave this woker alive */
+                continue; /* Worker count at min, leave this one alive */
             }
+        } else if (tpoolPtr->tearDown) {
+            PushWork(rPtr, tpoolPtr);
+            break; /* Kill worker because pool is going down */
         }
         Tcl_MutexUnlock(&tpoolPtr->mutex);
         TpoolEval(interp, rPtr->script, rPtr->scriptLen, rPtr);
-        Tcl_Free(rPtr->script);
         Tcl_MutexLock(&tpoolPtr->mutex);
+        Tcl_Free(rPtr->script);
         if (!rPtr->detached) {
             int new;
             Tcl_SetHashValue(Tcl_CreateHashEntry(&tpoolPtr->jobsDone, 
@@ -1307,7 +1420,7 @@ PopWaiter(tpoolPtr)
  */
 static ThreadPool* 
 GetTpool(tpoolName) 
-    char *tpoolName;
+    const char *tpoolName;
 {
     ThreadPool *tpoolPtr; 
 
@@ -1338,7 +1451,7 @@ GetTpool(tpoolName)
 
 static ThreadPool* 
 GetTpoolUnl (tpoolName) 
-    char *tpoolName;
+    const char *tpoolName;
 {
     ThreadPool *tpool;
     ThreadPool *tpoolPtr = NULL;
@@ -1591,6 +1704,58 @@ TpoolRelease(tpoolPtr)
 /*
  *----------------------------------------------------------------------
  *
+ * TpoolSuspend --
+ *
+ *  Marks the pool as suspended. This prevents pool workers to drain
+ *  the pool work queue. 
+ *
+ * Results:
+ *  Value of the suspend flag (1 always).
+ *
+ * Side effects:
+ *  During the suspended state, pool worker threads wlll not timeout
+ *  even if the worker inactivity timer has been configured. 
+ *
+ *----------------------------------------------------------------------
+ */
+static void
+TpoolSuspend(tpoolPtr)
+    ThreadPool *tpoolPtr;
+{
+    Tcl_MutexLock(&tpoolPtr->mutex);
+    tpoolPtr->suspend = 1;
+    Tcl_MutexUnlock(&tpoolPtr->mutex);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TpoolResume --
+ *
+ *  Clears the pool suspended state. This allows pool workers to drain
+ *  the pool work queue again. 
+ *
+ * Results:
+ *  None.
+ *
+ * Side effects:
+ *  Pool workers may be started or awaken.
+ *
+ *----------------------------------------------------------------------
+ */
+static void
+TpoolResume(tpoolPtr)
+    ThreadPool *tpoolPtr;
+{
+    Tcl_MutexLock(&tpoolPtr->mutex);
+    tpoolPtr->suspend = 0;
+    Tcl_ConditionNotify(&tpoolPtr->cond);
+    Tcl_MutexUnlock(&tpoolPtr->mutex);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * SignalWaiter --
  *
  *  Signals the waiter thread.
@@ -1729,14 +1894,16 @@ Tpool_Init (interp)
 {
     static int initialized;
 
-    TCL_CMD(interp, TPNS"create",   TpoolCreateObjCmd);
-    TCL_CMD(interp, TPNS"names",    TpoolNamesObjCmd);
-    TCL_CMD(interp, TPNS"post",     TpoolPostObjCmd);
-    TCL_CMD(interp, TPNS"wait",     TpoolWaitObjCmd);
-    TCL_CMD(interp, TPNS"cancel",   TpoolCancelObjCmd);
-    TCL_CMD(interp, TPNS"get",      TpoolGetObjCmd);
-    TCL_CMD(interp, TPNS"preserve", TpoolReserveObjCmd);
-    TCL_CMD(interp, TPNS"release",  TpoolReleaseObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"create",   TpoolCreateObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"names",    TpoolNamesObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"post",     TpoolPostObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"wait",     TpoolWaitObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"cancel",   TpoolCancelObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"get",      TpoolGetObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"preserve", TpoolReserveObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"release",  TpoolReleaseObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"suspend",  TpoolSuspendObjCmd);
+    TCL_CMD(interp, TPOOL_CMD_PREFIX"resume",   TpoolResumeObjCmd);
 
     if (initialized == 0) {
         Tcl_MutexLock(&listMutex);

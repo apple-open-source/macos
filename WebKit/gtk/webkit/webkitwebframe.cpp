@@ -25,44 +25,49 @@
  */
 
 #include "config.h"
-
-#include "webkitenumtypes.h"
 #include "webkitwebframe.h"
-#include "webkitwebview.h"
-#include "webkitmarshal.h"
-#include "webkitprivate.h"
 
+#include "AXObjectCache.h"
 #include "AccessibilityObjectWrapperAtk.h"
 #include "AnimationController.h"
-#include "AXObjectCache.h"
+#include "DOMObjectCache.h"
 #include "DocumentLoader.h"
 #include "DocumentLoaderGtk.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClientGtk.h"
 #include "FrameTree.h"
 #include "FrameView.h"
-#include <glib/gi18n-lib.h>
 #include "GCController.h"
 #include "GraphicsContext.h"
 #include "GtkVersioning.h"
 #include "HTMLFrameOwnerElement.h"
+#include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
 #include "JSElement.h"
-#include "JSLock.h"
+#include "PlatformContextCairo.h"
 #include "PrintContext.h"
 #include "RenderListItem.h"
-#include "RenderView.h"
 #include "RenderTreeAsText.h"
-#include "JSDOMBinding.h"
+#include "RenderView.h"
 #include "ScriptController.h"
 #include "SubstituteData.h"
+#include "webkitenumtypes.h"
+#include "webkitglobalsprivate.h"
+#include "webkitmarshal.h"
+#include "webkitnetworkrequestprivate.h"
+#include "webkitnetworkresponseprivate.h"
+#include "webkitsecurityoriginprivate.h"
+#include "webkitwebframeprivate.h"
+#include "webkitwebview.h"
+#include "webkitwebviewprivate.h"
+#include <JavaScriptCore/APICast.h>
+#include <atk/atk.h>
+#include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
+
 #if ENABLE(SVG)
 #include "SVGSMILElement.h"
 #endif
-
-#include <atk/atk.h>
-#include <JavaScriptCore/APICast.h>
-#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitwebframe
@@ -111,11 +116,11 @@ static guint webkit_web_frame_signals[LAST_SIGNAL] = { 0, };
 
 G_DEFINE_TYPE(WebKitWebFrame, webkit_web_frame, G_TYPE_OBJECT)
 
-static void webkit_web_frame_get_property(GObject* object, guint prop_id, GValue* value, GParamSpec* pspec)
+static void webkit_web_frame_get_property(GObject* object, guint propertyId, GValue* value, GParamSpec* paramSpec)
 {
     WebKitWebFrame* frame = WEBKIT_WEB_FRAME(object);
 
-    switch(prop_id) {
+    switch (propertyId) {
     case PROP_NAME:
         g_value_set_string(value, webkit_web_frame_get_name(frame));
         break;
@@ -135,7 +140,7 @@ static void webkit_web_frame_get_property(GObject* object, guint prop_id, GValue
         g_value_set_enum(value, webkit_web_frame_get_vertical_scrollbar_policy(frame));
         break;
     default:
-        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
+        G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyId, paramSpec);
         break;
     }
 }
@@ -146,12 +151,15 @@ static void webkit_web_frame_get_property(GObject* object, guint prop_id, GValue
 void webkit_web_frame_core_frame_gone(WebKitWebFrame* frame)
 {
     ASSERT(WEBKIT_IS_WEB_FRAME(frame));
-    frame->priv->coreFrame = 0;
+    WebKitWebFramePrivate* priv = frame->priv;
+    if (priv->coreFrame)
+        DOMObjectCache::clearByFrame(priv->coreFrame);
+    priv->coreFrame = 0;
 }
 
 static WebKitWebDataSource* webkit_web_frame_get_data_source_from_core_loader(WebCore::DocumentLoader* loader)
 {
-    return loader ? static_cast<WebKit::DocumentLoader*>(loader)->dataSource() : NULL;
+    return loader ? static_cast<WebKit::DocumentLoader*>(loader)->dataSource() : 0;
 }
 
 static void webkit_web_frame_finalize(GObject* object)
@@ -160,6 +168,7 @@ static void webkit_web_frame_finalize(GObject* object)
     WebKitWebFramePrivate* priv = frame->priv;
 
     if (priv->coreFrame) {
+        DOMObjectCache::clearByFrame(priv->coreFrame);
         priv->coreFrame->loader()->cancelAndClear();
         priv->coreFrame = 0;
     }
@@ -173,7 +182,7 @@ static void webkit_web_frame_finalize(GObject* object)
 
 static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
 {
-    webkit_init();
+    webkitInit();
 
     /*
      * signals
@@ -182,8 +191,8 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_FROM_CLASS(frameClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
-            NULL,
-            NULL,
+            0,
+            0,
             g_cclosure_marshal_VOID__VOID,
             G_TYPE_NONE, 0);
 
@@ -199,8 +208,8 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_FROM_CLASS(frameClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
-            NULL,
-            NULL,
+            0,
+            0,
             g_cclosure_marshal_VOID__VOID,
             G_TYPE_NONE, 0);
 
@@ -217,8 +226,8 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_FROM_CLASS(frameClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
-            NULL,
-            NULL,
+            0,
+            0,
             g_cclosure_marshal_VOID__BOOLEAN,
             G_TYPE_NONE, 1,
             G_TYPE_BOOLEAN);
@@ -236,8 +245,8 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_FROM_CLASS(frameClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
-            NULL,
-            NULL,
+            0,
+            0,
             webkit_marshal_VOID__STRING,
             G_TYPE_NONE, 1,
             G_TYPE_STRING);
@@ -246,8 +255,8 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             G_TYPE_FROM_CLASS(frameClass),
             (GSignalFlags)G_SIGNAL_RUN_LAST,
             0,
-            NULL,
-            NULL,
+            0,
+            0,
             webkit_marshal_VOID__STRING_STRING,
             G_TYPE_NONE, 2,
             G_TYPE_STRING, G_TYPE_STRING);
@@ -282,7 +291,7 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
             (GSignalFlags)(G_SIGNAL_RUN_LAST | G_SIGNAL_ACTION),
             0,
             g_signal_accumulator_true_handled,
-            NULL,
+            0,
             webkit_marshal_BOOLEAN__VOID,
             G_TYPE_BOOLEAN, 0);
 
@@ -300,21 +309,21 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
                                     g_param_spec_string("name",
                                                         _("Name"),
                                                         _("The name of the frame"),
-                                                        NULL,
+                                                        0,
                                                         WEBKIT_PARAM_READABLE));
 
     g_object_class_install_property(objectClass, PROP_TITLE,
                                     g_param_spec_string("title",
                                                         _("Title"),
                                                         _("The document title of the frame"),
-                                                        NULL,
+                                                        0,
                                                         WEBKIT_PARAM_READABLE));
 
     g_object_class_install_property(objectClass, PROP_URI,
                                     g_param_spec_string("uri",
                                                         _("URI"),
                                                         _("The current URI of the contents displayed by the frame"),
-                                                        NULL,
+                                                        0,
                                                         WEBKIT_PARAM_READABLE));
 
     /**
@@ -373,11 +382,12 @@ static void webkit_web_frame_class_init(WebKitWebFrameClass* frameClass)
 
 static void webkit_web_frame_init(WebKitWebFrame* frame)
 {
-    WebKitWebFramePrivate* priv = WEBKIT_WEB_FRAME_GET_PRIVATE(frame);
+    WebKitWebFramePrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(frame, WEBKIT_TYPE_WEB_FRAME, WebKitWebFramePrivate);
 
     // TODO: Move constructor code here.
     frame->priv = priv;
 }
+
 
 /**
  * webkit_web_frame_new:
@@ -392,35 +402,20 @@ static void webkit_web_frame_init(WebKitWebFrame* frame)
  **/
 WebKitWebFrame* webkit_web_frame_new(WebKitWebView* webView)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
 
     WebKitWebFrame* frame = WEBKIT_WEB_FRAME(g_object_new(WEBKIT_TYPE_WEB_FRAME, NULL));
     WebKitWebFramePrivate* priv = frame->priv;
-    WebKitWebViewPrivate* viewPriv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
+    WebKitWebViewPrivate* viewPriv = webView->priv;
 
     priv->webView = webView;
     WebKit::FrameLoaderClient* client = new WebKit::FrameLoaderClient(frame);
     priv->coreFrame = Frame::create(viewPriv->corePage, 0, client).get();
     priv->coreFrame->init();
 
-    priv->origin = NULL;
+    priv->origin = 0;
 
     return frame;
-}
-
-PassRefPtr<Frame> webkit_web_frame_init_with_web_view(WebKitWebView* webView, HTMLFrameOwnerElement* element)
-{
-    WebKitWebFrame* frame = WEBKIT_WEB_FRAME(g_object_new(WEBKIT_TYPE_WEB_FRAME, NULL));
-    WebKitWebFramePrivate* priv = frame->priv;
-    WebKitWebViewPrivate* viewPriv = WEBKIT_WEB_VIEW_GET_PRIVATE(webView);
-
-    priv->webView = webView;
-    WebKit::FrameLoaderClient* client = new WebKit::FrameLoaderClient(frame);
-
-    RefPtr<Frame> coreFrame = Frame::create(viewPriv->corePage, element, client);
-    priv->coreFrame = coreFrame.get();
-
-    return coreFrame.release();
 }
 
 /**
@@ -433,7 +428,7 @@ PassRefPtr<Frame> webkit_web_frame_init_with_web_view(WebKitWebView* webView, HT
  */
 G_CONST_RETURN gchar* webkit_web_frame_get_title(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     WebKitWebFramePrivate* priv = frame->priv;
     return priv->title;
@@ -449,7 +444,7 @@ G_CONST_RETURN gchar* webkit_web_frame_get_title(WebKitWebFrame* frame)
  */
 G_CONST_RETURN gchar* webkit_web_frame_get_uri(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     WebKitWebFramePrivate* priv = frame->priv;
     return priv->uri;
@@ -464,11 +459,11 @@ G_CONST_RETURN gchar* webkit_web_frame_get_uri(WebKitWebFrame* frame)
  * The #WebKitWebView returned manages the entire hierarchy of #WebKitWebFrame
  * objects that contains @frame.
  *
- * Return value: the #WebKitWebView that manages @frame
+ * Return value: (transfer none): the #WebKitWebView that manages @frame
  */
 WebKitWebView* webkit_web_frame_get_web_view(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     WebKitWebFramePrivate* priv = frame->priv;
     return priv->webView;
@@ -480,23 +475,24 @@ WebKitWebView* webkit_web_frame_get_web_view(WebKitWebFrame* frame)
  *
  * Returns the @frame's name
  *
- * Return value: the name of @frame
+ * Return value: the name of @frame. This method will return NULL if
+ * the #WebKitWebFrame is invalid or an empty string if it is not backed
+ * by a live WebCore frame.
  */
 G_CONST_RETURN gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    WebKitWebFramePrivate* priv = frame->priv;
-
-    if (priv->name)
-        return priv->name;
-
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
     Frame* coreFrame = core(frame);
     if (!coreFrame)
         return "";
 
-    String string = coreFrame->tree()->name();
-    priv->name = g_strdup(string.utf8().data());
+    WebKitWebFramePrivate* priv = frame->priv;
+    CString frameName = coreFrame->tree()->uniqueName().string().utf8();
+    if (!g_strcmp0(frameName.data(), priv->name))
+        return priv->name;
+
+    g_free(priv->name);
+    priv->name = g_strdup(frameName.data());
     return priv->name;
 }
 
@@ -506,15 +502,15 @@ G_CONST_RETURN gchar* webkit_web_frame_get_name(WebKitWebFrame* frame)
  *
  * Returns the @frame's parent frame, or %NULL if it has none.
  *
- * Return value: the parent #WebKitWebFrame or %NULL in case there is none
+ * Return value: (transfer none): the parent #WebKitWebFrame or %NULL in case there is none
  */
 WebKitWebFrame* webkit_web_frame_get_parent(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     Frame* coreFrame = core(frame);
     if (!coreFrame)
-        return NULL;
+        return 0;
 
     return kit(coreFrame->tree()->parent());
 }
@@ -581,7 +577,7 @@ void webkit_web_frame_load_string(WebKitWebFrame* frame, const gchar* content, c
     g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
     g_return_if_fail(content);
 
-    webkit_web_frame_load_data(frame, content, contentMimeType, contentEncoding, baseUri, NULL);
+    webkit_web_frame_load_data(frame, content, contentMimeType, contentEncoding, baseUri, 0);
 }
 
 /**
@@ -602,7 +598,7 @@ void webkit_web_frame_load_alternate_string(WebKitWebFrame* frame, const gchar* 
     g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
     g_return_if_fail(content);
 
-    webkit_web_frame_load_data(frame, content, NULL, NULL, baseURL, unreachableURL);
+    webkit_web_frame_load_data(frame, content, 0, 0, baseURL, unreachableURL);
 }
 
 /**
@@ -677,16 +673,16 @@ void webkit_web_frame_reload(WebKitWebFrame* frame)
  * hierarchy, this function will search for a matching frame in other main
  * frame hierarchies. Returns %NULL if no match is found.
  *
- * Return value: the found #WebKitWebFrame or %NULL in case none is found
+ * Return value: (transfer none): the found #WebKitWebFrame or %NULL in case none is found
  */
 WebKitWebFrame* webkit_web_frame_find_frame(WebKitWebFrame* frame, const gchar* name)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-    g_return_val_if_fail(name, NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
+    g_return_val_if_fail(name, 0);
 
     Frame* coreFrame = core(frame);
     if (!coreFrame)
-        return NULL;
+        return 0;
 
     String nameString = String::fromUTF8(name);
     return kit(coreFrame->tree()->find(AtomicString(nameString)));
@@ -699,15 +695,15 @@ WebKitWebFrame* webkit_web_frame_find_frame(WebKitWebFrame* frame, const gchar* 
  * Gets the global JavaScript execution context. Use this function to bridge
  * between the WebKit and JavaScriptCore APIs.
  *
- * Return value: the global JavaScript context
+ * Return value: (transfer none): the global JavaScript context
  */
 JSGlobalContextRef webkit_web_frame_get_global_context(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     Frame* coreFrame = core(frame);
     if (!coreFrame)
-        return NULL;
+        return 0;
 
     return toGlobalRef(coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec());
 }
@@ -718,13 +714,13 @@ JSGlobalContextRef webkit_web_frame_get_global_context(WebKitWebFrame* frame)
  *
  * Returns the committed data source.
  *
- * Return value: the committed #WebKitWebDataSource.
+ * Return value: (transfer none): the committed #WebKitWebDataSource.
  *
  * Since: 1.1.14
  */
 WebKitWebDataSource* webkit_web_frame_get_data_source(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     Frame* coreFrame = core(frame);
     return webkit_web_frame_get_data_source_from_core_loader(coreFrame->loader()->documentLoader());
@@ -739,166 +735,17 @@ WebKitWebDataSource* webkit_web_frame_get_data_source(WebKitWebFrame* frame)
  * transition to a committed data source once any data has been received. Use
  * webkit_web_frame_get_data_source to get the committed data source.
  *
- * Return value: the provisional #WebKitWebDataSource or %NULL if a load
+ * Return value: (transfer none): the provisional #WebKitWebDataSource or %NULL if a load
  * request is not in progress.
  *
  * Since: 1.1.14
  */
 WebKitWebDataSource* webkit_web_frame_get_provisional_data_source(WebKitWebFrame* frame)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
 
     Frame* coreFrame = core(frame);
     return webkit_web_frame_get_data_source_from_core_loader(coreFrame->loader()->provisionalDocumentLoader());
-}
-
-/**
- * webkit_web_frame_get_children:
- * @frame: a #WebKitWebFrame
- *
- * Return value: child frames of @frame
- */
-GSList* webkit_web_frame_get_children(WebKitWebFrame* frame)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return NULL;
-
-    GSList* children = NULL;
-    for (Frame* child = coreFrame->tree()->firstChild(); child; child = child->tree()->nextSibling()) {
-        FrameLoader* loader = child->loader();
-        WebKit::FrameLoaderClient* client = static_cast<WebKit::FrameLoaderClient*>(loader->client());
-        if (client)
-          children = g_slist_append(children, client->webFrame());
-    }
-
-    return children;
-}
-
-/**
- * webkit_web_frame_get_inner_text:
- * @frame: a #WebKitWebFrame
- *
- * Return value: inner text of @frame
- */
-gchar* webkit_web_frame_get_inner_text(WebKitWebFrame* frame)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return g_strdup("");
-
-    FrameView* view = coreFrame->view();
-
-    if (view && view->layoutPending())
-        view->layout();
-
-    Element* documentElement = coreFrame->document()->documentElement();
-    String string =  documentElement->innerText();
-    return g_strdup(string.utf8().data());
-}
-
-/**
- * webkit_web_frame_dump_render_tree:
- * @frame: a #WebKitWebFrame
- *
- * Return value: Non-recursive render tree dump of @frame
- */
-gchar* webkit_web_frame_dump_render_tree(WebKitWebFrame* frame)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return g_strdup("");
-
-    FrameView* view = coreFrame->view();
-
-    if (view && view->layoutPending())
-        view->layout();
-
-    String string = externalRepresentation(coreFrame);
-    return g_strdup(string.utf8().data());
-}
-
-/**
- * webkit_web_frame_counter_value_for_element_by_id:
- * @frame: a #WebKitWebFrame
- * @id: an element ID string
- *
- * Return value: The counter value of element @id in @frame
- */
-gchar* webkit_web_frame_counter_value_for_element_by_id(WebKitWebFrame* frame, const gchar* id)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return 0;
-
-    Element* coreElement = coreFrame->document()->getElementById(AtomicString(id));
-    if (!coreElement)
-        return 0;
-    String counterValue = counterValueForElement(coreElement);
-    return g_strdup(counterValue.utf8().data());
-}
-
-/**
- * webkit_web_frame_page_number_for_element_by_id
- * @frame: a #WebKitWebFrame
- * @id: an element ID string
- * @pageWidth: width of a page
- * @pageHeight: height of a page
- *
- * Return value: The number of page where the specified element will be put
- */
-int webkit_web_frame_page_number_for_element_by_id(WebKitWebFrame* frame, const gchar* id, float pageWidth, float pageHeight)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return -1;
-
-    Element* coreElement = coreFrame->document()->getElementById(AtomicString(id));
-    if (!coreElement)
-        return -1;
-    return PrintContext::pageNumberForElement(coreElement, FloatSize(pageWidth, pageHeight));
-}
-
-/**
- * webkit_web_frame_number_of_pages
- * @frame: a #WebKitWebFrame
- * @pageWidth: width of a page
- * @pageHeight: height of a page
- *
- * Return value: The number of pages to be printed.
- */
-int webkit_web_frame_number_of_pages(WebKitWebFrame* frame, float pageWidth, float pageHeight)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return -1;
-
-    return PrintContext::numberOfPages(coreFrame, FloatSize(pageWidth, pageHeight));
-}
-
-/**
- * webkit_web_frame_get_pending_unload_event_count:
- * @frame: a #WebKitWebFrame
- *
- * Return value: number of pending unload events
- */
-guint webkit_web_frame_get_pending_unload_event_count(WebKitWebFrame* frame)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), 0);
-
-    return core(frame)->domWindow()->pendingUnloadEventListeners();
 }
 
 static void begin_print_callback(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
@@ -919,17 +766,17 @@ static void begin_print_callback(GtkPrintOperation* op, GtkPrintContext* context
     gtk_print_operation_set_n_pages(op, printContext->pageCount());
 }
 
-static void draw_page_callback(GtkPrintOperation* op, GtkPrintContext* context, gint page_nr, gpointer user_data)
+static void draw_page_callback(GtkPrintOperation*, GtkPrintContext* gtkPrintContext, gint pageNumber, PrintContext* corePrintContext)
 {
-    PrintContext* printContext = reinterpret_cast<PrintContext*>(user_data);
-
-    if (page_nr >= printContext->pageCount())
+    if (pageNumber >= static_cast<gint>(corePrintContext->pageCount()))
         return;
 
-    cairo_t* cr = gtk_print_context_get_cairo_context(context);
-    GraphicsContext ctx(cr);
-    float width = gtk_print_context_get_width(context);
-    printContext->spoolPage(ctx, page_nr, width);
+    cairo_t* cr = gtk_print_context_get_cairo_context(gtkPrintContext);
+    float pageWidth = gtk_print_context_get_width(gtkPrintContext);
+
+    PlatformContextCairo platformContext(cr);
+    GraphicsContext graphicsContext(&platformContext);
+    corePrintContext->spoolPage(graphicsContext, pageNumber, pageWidth);
 }
 
 static void end_print_callback(GtkPrintOperation* op, GtkPrintContext* context, gpointer user_data)
@@ -960,7 +807,7 @@ GtkPrintOperationResult webkit_web_frame_print_full(WebKitWebFrame* frame, GtkPr
     GtkWidget* topLevel = gtk_widget_get_toplevel(GTK_WIDGET(webkit_web_frame_get_web_view(frame)));
 
     if (!gtk_widget_is_toplevel(topLevel))
-        topLevel = NULL;
+        topLevel = 0;
 
     Frame* coreFrame = core(frame);
     if (!coreFrame)
@@ -1011,63 +858,6 @@ void webkit_web_frame_print(WebKitWebFrame* frame)
     }
 }
 
-bool webkit_web_frame_pause_animation(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element)
-{
-    ASSERT(core(frame));
-    Element* coreElement = core(frame)->document()->getElementById(AtomicString(element));
-    if (!coreElement || !coreElement->renderer())
-        return false;
-    return core(frame)->animation()->pauseAnimationAtTime(coreElement->renderer(), AtomicString(name), time);
-}
-
-bool webkit_web_frame_pause_transition(WebKitWebFrame* frame, const gchar* name, double time, const gchar* element)
-{
-    ASSERT(core(frame));
-    Element* coreElement = core(frame)->document()->getElementById(AtomicString(element));
-    if (!coreElement || !coreElement->renderer())
-        return false;
-    return core(frame)->animation()->pauseTransitionAtTime(coreElement->renderer(), AtomicString(name), time);
-}
-
-bool webkit_web_frame_pause_svg_animation(WebKitWebFrame* frame, const gchar* animationId, double time, const gchar* elementId)
-{
-    ASSERT(core(frame));
-#if ENABLE(SVG)
-    Document* document = core(frame)->document();
-    if (!document || !document->svgExtensions())
-        return false;
-    Element* coreElement = document->getElementById(AtomicString(animationId));
-    if (!coreElement || !SVGSMILElement::isSMILElement(coreElement))
-        return false;
-    return document->accessSVGExtensions()->sampleAnimationAtTime(elementId, static_cast<SVGSMILElement*>(coreElement), time);
-#else
-    return false;
-#endif
-}
-
-gchar* webkit_web_frame_marker_text_for_list_item(WebKitWebFrame* frame, JSContextRef context, JSValueRef nodeObject)
-{
-    JSC::ExecState* exec = toJS(context);
-    Element* element = toElement(toJS(exec, nodeObject));
-    if (!element)
-        return 0;
-
-    return g_strdup(markerTextForListItem(element).utf8().data());
-}
-
-unsigned int webkit_web_frame_number_of_active_animations(WebKitWebFrame* frame)
-{
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return 0;
-
-    AnimationController* controller = coreFrame->animation();
-    if (!controller)
-        return 0;
-
-    return controller->numberOfActiveAnimations();
-}
-
 gchar* webkit_web_frame_get_response_mime_type(WebKitWebFrame* frame)
 {
     Frame* coreFrame = core(frame);
@@ -1090,56 +880,6 @@ WebKitLoadStatus webkit_web_frame_get_load_status(WebKitWebFrame* frame)
 
     WebKitWebFramePrivate* priv = frame->priv;
     return priv->loadStatus;
-}
-
-void webkit_web_frame_clear_main_frame_name(WebKitWebFrame* frame)
-{
-    g_return_if_fail(WEBKIT_IS_WEB_FRAME(frame));
-
-    core(frame)->tree()->clearName();
-}
-
-void webkit_gc_collect_javascript_objects()
-{
-    gcController().garbageCollectNow();
-}
-
-void webkit_gc_collect_javascript_objects_on_alternate_thread(gboolean waitUntilDone)
-{
-    gcController().garbageCollectOnAlternateThreadForDebugging(waitUntilDone);
-}
-
-gsize webkit_gc_count_javascript_objects()
-{
-    JSC::JSLock lock(JSC::SilenceAssertionsOnly);
-    return JSDOMWindow::commonJSGlobalData()->heap.objectCount();
-
-}
-
-AtkObject* webkit_web_frame_get_focused_accessible_element(WebKitWebFrame* frame)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_FRAME(frame), NULL);
-
-#if HAVE(ACCESSIBILITY)
-    if (!AXObjectCache::accessibilityEnabled())
-        AXObjectCache::enableAccessibility();
-
-    WebKitWebFramePrivate* priv = frame->priv;
-    if (!priv->coreFrame || !priv->coreFrame->document())
-        return NULL;
-
-    RenderView* root = toRenderView(priv->coreFrame->document()->renderer());
-    if (!root)
-        return NULL;
-
-    AtkObject* wrapper =  priv->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
-    if (!wrapper)
-        return NULL;
-
-    return webkit_accessible_get_focused_element(WEBKIT_ACCESSIBLE(wrapper));
-#else
-    return NULL;
-#endif
 }
 
 GtkPolicyType webkit_web_frame_get_horizontal_scrollbar_policy(WebKitWebFrame* frame)
@@ -1188,7 +928,7 @@ GtkPolicyType webkit_web_frame_get_vertical_scrollbar_policy(WebKitWebFrame* fra
  *
  * Returns the @frame's security origin.
  *
- * Return value: the security origin of @frame
+ * Return value: (transfer none): the security origin of @frame
  *
  * Since: 1.1.14
  */
@@ -1196,7 +936,7 @@ WebKitSecurityOrigin* webkit_web_frame_get_security_origin(WebKitWebFrame* frame
 {
     WebKitWebFramePrivate* priv = frame->priv;
     if (!priv->coreFrame || !priv->coreFrame->document() || !priv->coreFrame->document()->securityOrigin())
-        return NULL;
+        return 0;
 
     if (priv->origin && priv->origin->priv->coreOrigin.get() == priv->coreFrame->document()->securityOrigin())
         return priv->origin;
@@ -1208,19 +948,6 @@ WebKitSecurityOrigin* webkit_web_frame_get_security_origin(WebKitWebFrame* frame
     return priv->origin;
 }
 
-void webkit_web_frame_layout(WebKitWebFrame* frame)
-{
-    Frame* coreFrame = core(frame);
-    if (!coreFrame)
-        return;
-
-    FrameView* view = coreFrame->view();
-    if (!view)
-        return;
-
-    view->layout();
-}
-
 /**
  * webkit_web_frame_get_network_response:
  * @frame: a #WebKitWebFrame
@@ -1230,7 +957,7 @@ void webkit_web_frame_layout(WebKitWebFrame* frame)
  * frame was not created by a load. You must unref the object when you
  * are done with it.
  *
- * Return value: a #WebKitNetworkResponse object
+ * Return value: (transfer full): a #WebKitNetworkResponse object
  *
  * Since: 1.1.18
  */
@@ -1238,11 +965,40 @@ WebKitNetworkResponse* webkit_web_frame_get_network_response(WebKitWebFrame* fra
 {
     Frame* coreFrame = core(frame);
     if (!coreFrame)
-        return NULL;
+        return 0;
 
     WebCore::DocumentLoader* loader = coreFrame->loader()->activeDocumentLoader();
     if (!loader)
-        return NULL;
+        return 0;
 
-    return webkit_network_response_new_with_core_response(loader->response());
+    return kitNew(loader->response());
+}
+
+namespace WebKit {
+
+WebKitWebView* getViewFromFrame(WebKitWebFrame* frame)
+{
+    WebKitWebFramePrivate* priv = frame->priv;
+    return priv->webView;
+}
+
+WebCore::Frame* core(WebKitWebFrame* frame)
+{
+    if (!frame)
+        return 0;
+
+    WebKitWebFramePrivate* priv = frame->priv;
+    return priv ? priv->coreFrame : 0;
+}
+
+WebKitWebFrame* kit(WebCore::Frame* coreFrame)
+{
+    if (!coreFrame)
+        return 0;
+
+    ASSERT(coreFrame->loader());
+    WebKit::FrameLoaderClient* client = static_cast<WebKit::FrameLoaderClient*>(coreFrame->loader()->client());
+    return client ? client->webFrame() : 0;
+}
+
 }

@@ -28,16 +28,20 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef ClipboardUtilitiesChromium_h
+#define ClipboardUtilitiesChromium_h
+
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
 class KURL;
-class String;
 
 #if OS(WINDOWS)
 void replaceNewlinesWithWindowsStyleNewlines(String&);
 #endif
 void replaceNBSPWithSpace(String&);
 
-String urlToMarkup(const KURL&, const String&);
-
 } // namespace WebCore
+
+#endif // ClipboardUtilitiesChromium_h

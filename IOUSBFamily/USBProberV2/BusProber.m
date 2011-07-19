@@ -261,6 +261,9 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 		error = kIOReturnSuccess;
 	}
 	
+	// Log the number of endpoints for each configuration
+	[self GetAndPrintNumberOfEndpoints:deviceIntf forDevice:thisDevice portInfo:portInfo];
+	
 	// If the device is suspended, then unsuspend it first
 	if ( portInfo & (1<<kUSBInformationDeviceIsSuspendedBit) ) {
 		if ([[NSUserDefaults standardUserDefaults] boolForKey:@"BusProbeSuspended"] == YES) {
@@ -300,7 +303,7 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 			}
 			else
 			{
-				sprintf((char *)buf, "%d (unconfigured)", currConfig );
+				sprintf((char *)buf, "%d (unconfigured)", (UInt8) currConfig );
 			}
 			[thisDevice addProperty:"Current configuration:" withValue:buf  atDepth:ROOT_LEVEL];
 
@@ -470,6 +473,116 @@ static void DeviceRemoved(void *refCon, io_iterator_t iterator)
 	if (portInfo & (1<<kUSBInformationDeviceIsRemote))
 		[thisDevice addProperty:"" withValue:"Remote" atDepth:ROOT_LEVEL+1];
 	
+}
+
+- (void)GetAndPrintNumberOfEndpoints:(IOUSBDeviceRef)deviceIntf forDevice:(BusProbeDevice *)thisDevice portInfo:(UInt32)portInfo {
+	IOUSBConfigurationDescriptorPtr			desc = NULL;
+	IOUSBInterfaceDescriptor				*intfDesc = NULL;
+	IOUSBInterfaceDescriptor				* descOut = NULL;
+	uint8_t									numberOfConfigurations = 1;
+	uint8_t									currentConfig = 0;
+	int										interfaceNumber = -1;
+	uint32_t								totalEndpoints = 1;
+	uint8_t									maxEndpoints = 0;
+	IOReturn								err;
+	int 									i;
+	char									buf[256];
+	char									buf2[256];
+	boolean_t								unconfigured = false;
+	
+	[thisDevice addProperty:"Number Of Endpoints (includes EP0):" withValue:"" atDepth:ROOT_LEVEL];
+
+	// Get the number of configurations that this device has
+	err = GetNumberOfConfigurations(deviceIntf, &numberOfConfigurations);
+    if (err)
+    {
+		sprintf((char *)buf, "(0x%x)(%s)", err, USBErrorToString(err));
+		[thisDevice addProperty:"Got error from GetNumberOfConfigurations" withValue:buf atDepth:ROOT_LEVEL+1];
+		return;
+    }
+	
+	// Get the current configuration -- this will return an error if the device is suspended.  Also, we then assume
+	// that the configuration value returned is 1-based and we subtract one to get it as an index into the list of configurations.
+	err = GetConfiguration(deviceIntf,&currentConfig);
+	if ( err != kIOReturnSuccess)
+	{
+	//	fprintf(stderr, "\t got error, setting to currentConfig of 0\n");
+		currentConfig = 0;
+	}
+	else {
+	//	fprintf(stderr, "\tcurrent config: %d\n", currentConfiguration);
+		if ( currentConfig == 0 )
+		{
+			unconfigured = true;
+		}
+		else
+			currentConfig--;
+	}
+	
+	for ( i = 0; i < numberOfConfigurations; i++ )
+	{
+		totalEndpoints = 1;
+		intfDesc = NULL;
+		interfaceNumber = -1;
+		maxEndpoints = 0;
+		
+		err = GetConfigurationDescriptor(deviceIntf, i, &desc);
+		if (err)
+		{
+			sprintf((char *)buf, "(0x%x)(%s)", err, USBErrorToString(err));
+			sprintf((char *)buf2, "Got error from GetConfigurationDescriptor(%d)", i);
+			[thisDevice addProperty:buf2 withValue:buf atDepth:ROOT_LEVEL+1];
+			break;
+		}
+		
+		// fprintf(stderr, "Found Configuration: %d\n", i);
+		// dump((void *)desc, (desc->wTotalLength));
+		
+		// Go through each interface, and count the number of endpoints.  If we alternate settings, count the one with the highest number
+		// of endpoints
+		do 
+		{
+			err = FindNextInterfaceDescriptor(desc,  intfDesc, &descOut);
+			if ( descOut && err == kIOReturnSuccess)
+			{
+				if ( interfaceNumber != descOut->bInterfaceNumber)
+				{
+					// This is a new interface, so now add the maxEndpoints from the previous one to our running total (totalEndpoints)
+					interfaceNumber = descOut->bInterfaceNumber;
+					totalEndpoints += maxEndpoints;
+					maxEndpoints = 0;
+				}
+				
+				if ( descOut->bAlternateSetting > 0 )
+				{
+					// This means that we have already seen this interface #, so only update the numEndpoints if greater than what we saved
+					if (descOut->bNumEndpoints > maxEndpoints ) 
+						maxEndpoints = descOut->bNumEndpoints;
+				}
+				else 
+				{
+					maxEndpoints = descOut->bNumEndpoints;
+				}
+				
+				//			fprintf(stderr, "Found interface #%d, altSetting: %d, bNumEndpoints: %d\n", descOut->bInterfaceNumber, descOut->bAlternateSetting, descOut->bNumEndpoints);
+				//			dump((void*) descOut, descOut->bLength);
+				//			fprintf(stderr, "\tbInterfaceNumber: %d, maxEndpoints: %d, total: %d\n", descOut->bInterfaceNumber, maxEndpoints, totalEndpoints);
+				
+				// Start looking for the next interface descriptor after the current one
+				intfDesc = descOut;
+			}
+			
+			// If we get to the end, we will get a kIOUSBInterfaceNotFound.  We still need to take into accountthe maxEndpoints for the last interface we iterated
+			if ( err ==kIOUSBInterfaceNotFound )
+				totalEndpoints += maxEndpoints;
+		}
+		while ( err == kIOReturnSuccess && descOut != NULL);
+		
+		sprintf((char *)buf, "Total Endpoints for Configuration %d %s:", i+1, (unconfigured) ? "(unconfigured)" : ( (i == currentConfig) ? "(current)":""));
+		sprintf((char *)buf2, "%d", totalEndpoints );
+		
+		[thisDevice addProperty:buf withValue:buf2 atDepth:ROOT_LEVEL+1];
+	}
 }
 
 @end

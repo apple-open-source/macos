@@ -54,6 +54,7 @@ namespace WebCore {
     struct CrossThreadResourceRequestData;
 
     class WorkerThreadableLoader : public RefCounted<WorkerThreadableLoader>, public ThreadableLoader {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         static void loadResourceSynchronously(WorkerContext*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
         static PassRefPtr<WorkerThreadableLoader> create(WorkerContext* workerContext, ThreadableLoaderClient* client, const String& taskMode, const ResourceRequest& request, const ThreadableLoaderOptions& options)
@@ -97,7 +98,7 @@ namespace WebCore {
         class MainThreadBridge : public ThreadableLoaderClient {
         public:
             // All executed on the worker context's thread.
-            MainThreadBridge(PassRefPtr<ThreadableLoaderClientWrapper>, WorkerLoaderProxy&, const String& taskMode, const ResourceRequest&, const ThreadableLoaderOptions&);
+            MainThreadBridge(PassRefPtr<ThreadableLoaderClientWrapper>, WorkerLoaderProxy&, const String& taskMode, const ResourceRequest&, const ThreadableLoaderOptions&, const String& outgoingReferrer);
             void cancel();
             void destroy();
 
@@ -109,12 +110,13 @@ namespace WebCore {
             static void mainThreadDestroy(ScriptExecutionContext*, MainThreadBridge*);
             ~MainThreadBridge();
 
-            static void mainThreadCreateLoader(ScriptExecutionContext*, MainThreadBridge*, PassOwnPtr<CrossThreadResourceRequestData>, ThreadableLoaderOptions);
+            static void mainThreadCreateLoader(ScriptExecutionContext*, MainThreadBridge*, PassOwnPtr<CrossThreadResourceRequestData>, ThreadableLoaderOptions, const String& outgoingReferrer);
             static void mainThreadCancel(ScriptExecutionContext*, MainThreadBridge*);
             virtual void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
             virtual void didReceiveResponse(const ResourceResponse&);
-            virtual void didReceiveData(const char*, int lengthReceived);
-            virtual void didFinishLoading(unsigned long identifier);
+            virtual void didReceiveData(const char*, int dataLength);
+            virtual void didReceiveCachedMetadata(const char*, int dataLength);
+            virtual void didFinishLoading(unsigned long identifier, double finishTime);
             virtual void didFail(const ResourceError&);
             virtual void didFailRedirectCheck();
             virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);

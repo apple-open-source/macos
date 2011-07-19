@@ -1,0 +1,75 @@
+.\" Copyright (c) 2008, Oracle and/or its affiliates. All rights reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation
+.\" the rights to use, copy, modify, merge, publish, distribute, sublicense,
+.\" and/or sell copies of the Software, and to permit persons to whom the
+.\" Software is furnished to do so, subject to the following conditions:
+.\"
+.\" The above copyright notice and this permission notice (including the next
+.\" paragraph) shall be included in all copies or substantial portions of the
+.\" Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+.\" THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+.\" LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+.\" FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+.\" DEALINGS IN THE SOFTWARE.
+.TH xkbbell  __appmansuffix__ __xorgversion__
+.SH NAME
+xkbbell - XKB extension user utility
+.SH SYNOPSIS
+.B xkbbell
+[-display <dpy>]
+[-synch]
+[-dev <id>]
+[-force]
+[-nobeep]
+[-bf <id>]
+[-kf <id>]
+[-v <volume>]
+[-w <id>]
+.SH DESCRIPTION
+user utility
+.SH OPTIONS
+.PP
+.TP 8
+.B \-display <dpy>
+specifies which display to use
+.TP 8
+.B \-synch
+turns on synchronization
+.PP
+.TP 8
+.B \-dev <id>
+specifies which device to use
+.PP
+.TP 8
+.B \-force
+force audible bell
+.PP
+.TP 8
+.B \-nobeep
+suppress server bell, event only
+.PP
+.TP 8
+.B \-bf <id>
+specifies which bell feedback to use
+.PP
+.TP 8
+.B \-kf <id> 
+specifies which keyboard feedback to use
+.PP
+.TP 8
+.B \-v <volume>
+specifies which volume to use
+.PP
+.TP 8
+.B \-w <id>
+specifies which  window to use
+.PP
+If neither device nor feedback are specified, xkbbell uses the default values 
+for the core keyboard device.

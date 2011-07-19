@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1998-2008, International Business Machines Corporation and
+ * Copyright (c) 1998-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -48,12 +48,20 @@
 #include "ucnv_io.h"
 #include "uprops.h"
 #include "ucase.h"
+#include "ucol_imp.h"
 #include "ucol_swp.h"
 #include "ucnv_bld.h"
-#include "unormimp.h"
 #include "sprpimpl.h"
 #include "propname.h"
 #include "rbbidata.h"
+
+/* swapping implementation in i18n */
+#include "uspoof_impl.h"
+
+U_CAPI int32_t U_EXPORT2
+unorm2_swap(const UDataSwapper *ds,
+            const void *inData, int32_t length, void *outData,
+            UErrorCode *pErrorCode);
 
 /* other definitions and prototypes */
 
@@ -79,16 +87,18 @@ void addUDataTest(TestNode** root);
 void
 addUDataTest(TestNode** root)
 {
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
     addTest(root, &TestUDataOpen,       "udatatst/TestUDataOpen"      );
     addTest(root, &TestUDataOpenChoiceDemo1, "udatatst/TestUDataOpenChoiceDemo1");
     addTest(root, &TestUDataOpenChoiceDemo2, "udatatst/TestUDataOpenChoiceDemo2"); 
     addTest(root, &TestUDataGetInfo,    "udatatst/TestUDataGetInfo"   );
     addTest(root, &TestUDataGetMemory,  "udatatst/TestUDataGetMemory" );
-    addTest(root, &TestUDataSetAppData, "udatatst/TestUDataSetAppData" );
     addTest(root, &TestErrorConditions, "udatatst/TestErrorConditions");
     addTest(root, &TestAppData, "udatatst/TestAppData" );
-    addTest(root, &TestICUDataName, "udatatst/TestICUDataName" );
     addTest(root, &TestSwapData, "udatatst/TestSwapData" );
+#endif
+    addTest(root, &TestUDataSetAppData, "udatatst/TestUDataSetAppData" );
+    addTest(root, &TestICUDataName, "udatatst/TestICUDataName" );
     addTest(root, &PointerTableOfContents, "udatatst/PointerTableOfContents" );
     addTest(root, &SetBadCommonData, "udatatst/SetBadCommonData" );
     addTest(root, &TestUDataFileAccess, "udatatst/TestUDataFileAccess" );
@@ -133,6 +143,7 @@ static void TestUDataOpen(){
     const char* testPath=loadTestData(&status);
     if(U_FAILURE(status)) {
         log_data_err("Could not load testdata.dat, status = %s\n", u_errorName(status));
+        free(path);
         return;
     }
 
@@ -496,7 +507,7 @@ static void TestUDataFileAccess(){
     u_setDataDirectory(icuDataDir);
     u_init(&status);
     if(U_FAILURE(status)){
-        log_err("%s\n", u_errorName(status));
+        log_err_status(status, "%s\n", u_errorName(status));
     }
     free(icuDataDir);
     ctest_resetICU();
@@ -1252,10 +1263,10 @@ static const struct {
     /* Test a 32-bit key table. This is large. */
     {"*testtable32",             "res", ures_swap},
 
-    /* ICU 2.6 resource bundle - data format 1.0, without indexes[] (little-endian ASCII) */
-    {"*icu26_testtypes",         "res", ures_swap},
+    /* ICU 4.2 resource bundle - data format 1.2 (little-endian ASCII) */
+    {"*old_l_testtypes",         "res", ures_swap},
     /* same for big-endian EBCDIC */
-    {"*icu26e_testtypes",        "res", ures_swap},
+    {"*old_e_testtypes",         "res", ures_swap},
 
 #if !UCONFIG_NO_COLLATION
     /* standalone collation data files */
@@ -1291,7 +1302,7 @@ static const struct {
 #endif
 
 #if !UCONFIG_NO_IDNA
-    {"uidna",                    "spp", usprep_swap},
+    {"rfc3491",                    "spp", usprep_swap},
 #endif
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -1313,13 +1324,16 @@ static const struct {
      * we need not jump through hoops (like adding snapshots of these files
      * to testdata) for code coverage in tests.
      * See Jitterbug 4497.
+     *
+     * ICU4C 4.4 adds normalization data files again, e.g., nfc.nrm.
      */
-#if !UCONFIG_NO_NORMALIZATION
-    {"unorm",                    "icu", unorm_swap},
-#endif
     {"uprops",                   "icu", uprops_swap},
     {"ucase",                    "icu", ucase_swap},
     {"ubidi",                    "icu", ubidi_swap},
+#endif
+#if !UCONFIG_NO_NORMALIZATION
+    {"nfc",                      "nrm", unorm2_swap},
+    {"confusables",              "cfu", uspoof_swap},
 #endif
     {"unames",                   "icu", uchar_swapNames}
 };
@@ -1643,6 +1657,11 @@ TestSwapData() {
             pkg=U_ICUDATA_BRKITR;
             nm=swapCases[i].name;
             uprv_strcpy(name, U_ICUDATA_BRKITR);
+        } else if (uprv_strcmp(swapCases[i].name, "ucadata")==0
+            || uprv_strcmp(swapCases[i].name, "invuca")==0) {
+            pkg=U_ICUDATA_COLL;
+            nm=swapCases[i].name;
+            uprv_strcpy(name, U_ICUDATA_COLL);
         } else {
             pkg=NULL;
             nm=swapCases[i].name;
@@ -1738,18 +1757,6 @@ static void SetBadCommonData(void) {
     udata_setCommonData(NULL, &status);
     if (status != U_ILLEGAL_ARGUMENT_ERROR) {
         log_err("FAIL: udata_setCommonData did not fail with bad arguments.\n");
-    }
-    if (u_getDataDirectory() == NULL || u_getDataDirectory()[0] == 0) {
-        /* Check that we don't change the common data. Many ICU tests will fail after this test, if this works. */
-        /* We could do a better test, if we called u_cleanup and udata_setCommonData returned the last value. */
-        status = U_ZERO_ERROR;
-        udata_setCommonData(&gOffsetTOCAppData_dat, &status);
-        if (status != U_USING_DEFAULT_WARNING) {
-            log_err("FAIL: udata_setCommonData allowed the data to be changed after initialization!\n");
-        }
-    }
-    else {
-        log_verbose("Can't test setting common data because files mode may have been used.\n");
     }
 
     /* Check that we verify that the data isn't bad */

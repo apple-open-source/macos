@@ -33,7 +33,7 @@
 #include "stuff/hash_string.h"
 #include "stuff/allocate.h"
 #include "stuff/errors.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/reloc.h"
 
 char *progname = NULL;	/* name of the program for error messages (argv[0]) */
@@ -538,7 +538,7 @@ enum bool nflag)
 		    archs[i].members[j].offset = offset;
 		    size = 0;
 		    if(archs[i].members[j].member_long_name == TRUE){
-			size = round(archs[i].members[j].member_name_size,
+			size = rnd(archs[i].members[j].member_name_size,
 				     sizeof(int32_t));
 			archs[i].toc_long_name = TRUE;
 		    }
@@ -1009,7 +1009,7 @@ struct object *object)
 	 * Second pass, create the new tables.
 	 */
 	new_symbols =(struct nlist *)allocate(new_nsyms * sizeof(struct nlist));
-	new_strsize = round(new_strsize, sizeof(int32_t));
+	new_strsize = rnd(new_strsize, sizeof(int32_t));
 	new_strings = (char *)allocate(new_strsize);
 	new_strings[new_strsize - 3] = '\0';
 	new_strings[new_strsize - 2] = '\0';
@@ -1281,6 +1281,13 @@ struct object *object)
 	    object->output_sym_info_size += object->split_info_cmd->datasize;
 	}
 
+	if(object->func_starts_info_cmd != NULL){
+	    object->input_sym_info_size +=
+		object->func_starts_info_cmd->datasize;
+	    object->output_sym_info_size +=
+		object->func_starts_info_cmd->datasize;
+	}
+
 	if(object->hints_cmd != NULL){ 
 	    object->input_sym_info_size +=
 		object->hints_cmd->nhints * sizeof(struct twolevel_hint);
@@ -1290,11 +1297,11 @@ struct object *object)
 
 	if(object->code_sig_cmd != NULL){
 	    object->input_sym_info_size =
-		round(object->input_sym_info_size, 16);
+		rnd(object->input_sym_info_size, 16);
 	    object->input_sym_info_size +=
 		object->code_sig_cmd->datasize;
 	    object->output_sym_info_size =
-		round(object->output_sym_info_size, 16);
+		rnd(object->output_sym_info_size, 16);
 	    object->output_sym_info_size +=
 		object->code_sig_cmd->datasize;
 	}
@@ -1322,6 +1329,12 @@ struct object *object)
 	    (object->object_addr + object->split_info_cmd->dataoff);
 	    object->output_split_info_data_size = 
 		object->split_info_cmd->datasize;
+	}
+	if(object->func_starts_info_cmd != NULL){
+	    object->output_func_start_info_data = 
+	    (object->object_addr + object->func_starts_info_cmd->dataoff);
+	    object->output_func_start_info_data_size = 
+		object->func_starts_info_cmd->datasize;
 	}
 	object->output_ext_relocs = ext_relocs;
 	object->output_indirect_symtab = indirect_symtab;
@@ -1372,6 +1385,10 @@ struct object *object)
 	    object->split_info_cmd->dataoff = offset;
 	    offset += object->split_info_cmd->datasize;
 	}
+	if(object->func_starts_info_cmd != NULL){
+	    object->func_starts_info_cmd->dataoff = offset;
+	    offset += object->func_starts_info_cmd->datasize;
+	}
 	if(object->st->nsyms != 0){
 	    object->st->symoff = offset;
 	    offset += object->st->nsyms * sizeof(struct nlist);
@@ -1410,7 +1427,7 @@ struct object *object)
 	    offset += object->st->strsize;
 	}
 	if(object->code_sig_cmd != NULL){
-	    offset = round(offset, 16);
+	    offset = rnd(offset, 16);
 	    object->code_sig_cmd->dataoff = offset;
 	    offset += object->code_sig_cmd->datasize;
 	}
@@ -1741,7 +1758,7 @@ end_string_table()
 {
     uint32_t length;
 
-	length = round(string_table.index, sizeof(uint32_t));
+	length = rnd(string_table.index, sizeof(uint32_t));
 	memset(string_table.strings + string_table.index, '\0',
 	       length - string_table.index);
 	string_table.index = length;

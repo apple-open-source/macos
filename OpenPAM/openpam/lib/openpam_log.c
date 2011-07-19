@@ -67,9 +67,10 @@ openpam_log(int level, const char *fmt, ...)
 	int priority;
 
 	switch (level) {
-	case PAM_LOG_DEBUG:
+	case PAM_LOG_LIBDEBUG:
 		if (!_openpam_debug)
 			return;
+	case PAM_LOG_DEBUG:
 		priority = LOG_DEBUG;
 		break;
 	case PAM_LOG_VERBOSE:
@@ -84,7 +85,7 @@ openpam_log(int level, const char *fmt, ...)
 		break;
 	}
 	va_start(ap, fmt);
-	vsyslog(priority, fmt, ap);
+	vsyslog(LOG_AUTHPRIV|priority, fmt, ap);
 	va_end(ap);
 }
 
@@ -98,9 +99,10 @@ _openpam_log(int level, const char *func, const char *fmt, ...)
 	int priority;
 
 	switch (level) {
-	case PAM_LOG_DEBUG:
+	case PAM_LOG_LIBDEBUG:
 		if (!_openpam_debug)
 			return;
+	case PAM_LOG_DEBUG:
 		priority = LOG_DEBUG;
 		break;
 	case PAM_LOG_VERBOSE:
@@ -116,10 +118,10 @@ _openpam_log(int level, const char *func, const char *fmt, ...)
 	}
 	va_start(ap, fmt);
 	if (asprintf(&format, "in %s(): %s", func, fmt) > 0) {
-		vsyslog(priority, format, ap);
+		vsyslog(LOG_AUTHPRIV|priority, format, ap);
 		FREE(format);
 	} else {
-		vsyslog(priority, fmt, ap);
+		vsyslog(LOG_AUTHPRIV|priority, fmt, ap);
 	}
 	va_end(ap);
 }
@@ -135,10 +137,8 @@ _openpam_log(int level, const char *func, const char *fmt, ...)
  *
  *	=PAM_LOG_DEBUG:
  *		Debugging messages.
- *		These messages are normally not logged unless the global
- *		integer variable :_openpam_debug is set to a non-zero
- *		value, in which case they are logged with a =syslog
- *		priority of =LOG_DEBUG.
+ *		These messages are logged with a =syslog priority of
+ *		=LOG_DEBUG.
  *	=PAM_LOG_VERBOSE:
  *		Information about the progress of the authentication
  *		process, or other non-essential messages.

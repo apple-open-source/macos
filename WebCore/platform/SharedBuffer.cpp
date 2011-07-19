@@ -28,6 +28,7 @@
 #include "SharedBuffer.h"
 
 #include "PurgeableBuffer.h"
+#include <wtf/PassOwnPtr.h>
 
 using namespace std;
 
@@ -86,11 +87,11 @@ PassRefPtr<SharedBuffer> SharedBuffer::adoptVector(Vector<char>& vector)
     return buffer.release();
 }
 
-PassRefPtr<SharedBuffer> SharedBuffer::adoptPurgeableBuffer(PurgeableBuffer* purgeableBuffer) 
+PassRefPtr<SharedBuffer> SharedBuffer::adoptPurgeableBuffer(PassOwnPtr<PurgeableBuffer> purgeableBuffer) 
 { 
     ASSERT(!purgeableBuffer->isPurgeable());
     RefPtr<SharedBuffer> buffer = create();
-    buffer->m_purgeableBuffer.set(purgeableBuffer);
+    buffer->m_purgeableBuffer = purgeableBuffer;
     return buffer.release();
 }
 
@@ -166,6 +167,9 @@ void SharedBuffer::clear()
 
     m_buffer.clear();
     m_purgeableBuffer.clear();
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+    m_dataArray.clear();
+#endif
 }
 
 PassRefPtr<SharedBuffer> SharedBuffer::copy() const
@@ -184,7 +188,7 @@ PassRefPtr<SharedBuffer> SharedBuffer::copy() const
     return clone;
 }
 
-PurgeableBuffer* SharedBuffer::releasePurgeableBuffer()
+PassOwnPtr<PurgeableBuffer> SharedBuffer::releasePurgeableBuffer()
 { 
     ASSERT(hasOneRef()); 
     return m_purgeableBuffer.release(); 
@@ -205,6 +209,9 @@ const Vector<char>& SharedBuffer::buffer() const
             freeSegment(m_segments[i]);
         }
         m_segments.clear();
+#if HAVE(CFNETWORK_DATA_ARRAY_CALLBACK)
+        copyDataArrayAndClear(destination, bytesLeft);
+#endif
     }
     return m_buffer;
 }
@@ -238,7 +245,7 @@ unsigned SharedBuffer::getSomeData(const char*& someData, unsigned position) con
     return segment == segments - 1 ? segmentedSize - position : segmentSize - positionInSegment;
 }
 
-#if !PLATFORM(CF)
+#if !USE(CF) || PLATFORM(QT)
 
 inline void SharedBuffer::clearPlatformData()
 {

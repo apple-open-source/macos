@@ -1,6 +1,7 @@
 [manpage_begin math::fuzzy n 0.2]
 [moddesc {Tcl Math Library}]
 [titledesc {Fuzzy comparison of floating-point numbers}]
+[category  Mathematics]
 [require Tcl [opt 8.3]]
 [require math::fuzzy [opt 0.2]]
 [description]

@@ -1,0 +1,71 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test_set "message" text:
+Received: ...
+Received: ...
+Subject: example
+To: foo@example.com, baz@example.com
+CC: qux@example.com
+
+RFC Example
+.
+;
+
+test "Example 1" {
+	# The test:
+
+	if not address :count "ge" :comparator "i;ascii-numeric"
+		["to", "cc"] ["3"] {
+	
+		test_fail "should have counted three addresses";
+	}
+
+    # would evaluate to true, and the test
+
+	if anyof ( 
+			address :count "ge" :comparator "i;ascii-numeric"
+				["to"] ["3"],
+			address :count "ge" :comparator "i;ascii-numeric"
+				["cc"] ["3"] 
+	) {
+	
+		test_fail "should not have counted three addresses";
+	}
+
+	# would evaluate to false.
+
+	# To check the number of received fields in the header, the following
+	# test may be used:
+
+	if header :count "ge" :comparator "i;ascii-numeric"
+ 		["received"] ["3"] {
+	
+		test_fail "should not have counted three received headers";
+	}
+
+	# This would evaluate to false.  But
+
+	if not header :count "ge" :comparator "i;ascii-numeric"
+		["received", "subject"] ["3"] {
+
+		test_fail "should have counted three headers";
+	}
+
+	# would evaluate to true.
+	
+	# The test:
+
+	if header :count "ge" :comparator "i;ascii-numeric"
+		["to", "cc"] ["3"] {
+
+		test_fail "should not have counted three to or cc headers";
+	}
+
+	# will always evaluate to false on an RFC 2822 compliant message
+	# [RFC2822], since a message can have at most one "to" field and at
+	# most one "cc" field.  This test counts the number of fields, not the
+	# number of addresses.
+}

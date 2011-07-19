@@ -43,7 +43,7 @@ height="31" border="0" alt="SourceForge Logo"></A>
 <TH><A HREF="start.html">Getting Started</A></TH>
 <TH><A HREF="bindings.html">Special Bindings</A></TH>
 <TH><A HREF="procs.html">Procedures</A></TH>
-<TH><A HREF="demopic.gif">Screenshot</A></TH>
+<TH><A HREF="demopic.png">Screenshot</A></TH>
 </TR>
 <TR>
 <TH><A HREF="dump.html"><CODE>dump</CODE></A></TH>
@@ -140,6 +140,11 @@ returns the result.
 
 <DT> <CODE>tkcon <b>new</b></CODE>
 <DD> Creates a new tkcon widget.
+
+<DT> <CODE>tkcon <b>resultfilter</b></CODE> ?<I>command</I>?
+<DD> Specify a command to process the results before outputting it to the
+console window.  The command receives one argument (the result string) and
+the string returned is placed in the console.
 
 <DT> <CODE>tkcon <b>save</b></CODE> ?<I>filename</I> ?<I>type</I>??
 <DD> Saves the console buffer to the given filename.  If no filename is

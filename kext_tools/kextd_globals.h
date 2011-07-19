@@ -44,7 +44,7 @@ extern const NXArchInfo     * gKernelArchInfo;
 extern uid_t                  gClientUID;  // set & cleared by kextd_demux()
 
 // serialize_kextload.c
-extern CFMachPortRef          _gKextutilLock;
+extern dispatch_source_t      _gKextutilLock;
 extern Boolean                gKernelRequestsPending;
 
-#endif _KEXTD_GLOBALS_H
+#endif

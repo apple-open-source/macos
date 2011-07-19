@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,14 +34,16 @@
 static char sccsid[] = "@(#)fopen.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fopen.c,v 1.10 2002/10/12 16:13:37 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fopen.c,v 1.14 2008/04/22 17:03:32 jhb Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
+#include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <limits.h>
 #include "un-namespace.h"
 
 #include "local.h"
@@ -65,6 +63,19 @@ fopen(file, mode)
 		return (NULL);
 	if ((f = _open(file, oflags, DEFFILEMODE)) < 0) {
 		fp->_flags = 0;			/* release */
+		return (NULL);
+	}
+	/*
+	 * File descriptors are a full int, but _file is only a short.
+	 * If we get a valid file descriptor that is greater than
+	 * SHRT_MAX, then the fd will get sign-extended into an
+	 * invalid file descriptor.  Handle this case by failing the
+	 * open.
+	 */
+	if (f > SHRT_MAX) {
+		fp->_flags = 0;			/* release */
+		_close(f);
+		errno = EMFILE;
 		return (NULL);
 	}
 	fp->_file = f;

@@ -1,6 +1,6 @@
---- hash_func.c.orig	Sun Feb 16 09:29:09 2003
-+++ hash_func.c	Sat Oct 18 18:30:57 2003
-@@ -45,7 +45,7 @@
+--- hash_func.c.orig	2009-11-06 12:41:16.000000000 -0800
++++ hash_func.c	2009-11-06 12:41:27.000000000 -0800
+@@ -41,7 +41,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/hash
  #include <db.h>
  #include "hash.h"
  #include "page.h"

@@ -3,7 +3,7 @@
  * Copyright (C) 2007 Staikos Computing Services Inc. <info@staikos.net>
  * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  * Copyright (C) 2009-2010 ProFUSION embedded systems
- * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2011 Samsung Electronics
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,21 +30,17 @@
 #include "config.h"
 #include "ContextMenuItem.h"
 
-#include "ContextMenu.h"
 #include "NotImplemented.h"
 
 namespace WebCore {
 
-ContextMenuItem::ContextMenuItem(PlatformMenuItemDescription)
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+void* ContextMenuItem::nativeMenuItem() const
 {
     notImplemented();
+    return 0;
 }
-
-ContextMenuItem::ContextMenuItem(ContextMenu*)
-{
-    notImplemented();
-}
-
+#else
 ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, ContextMenu*)
 {
     notImplemented();
@@ -55,19 +51,13 @@ ContextMenuItem::~ContextMenuItem()
     notImplemented();
 }
 
-PlatformMenuItemDescription ContextMenuItem::releasePlatformDescription()
-{
-    notImplemented();
-    return m_platformDescription;
-}
-
 ContextMenuItemType ContextMenuItem::type() const
 {
     notImplemented();
     return ActionType;
 }
 
-void ContextMenuItem::setType(ContextMenuItemType)
+void ContextMenuItem::setAction(ContextMenuAction)
 {
     notImplemented();
 }
@@ -78,36 +68,15 @@ ContextMenuAction ContextMenuItem::action() const
     return ContextMenuItemTagNoAction;
 }
 
-void ContextMenuItem::setAction(ContextMenuAction)
-{
-    notImplemented();
-}
-
-String ContextMenuItem::title() const
-{
-    notImplemented();
-    return String();
-}
-
-void ContextMenuItem::setTitle(const String&)
-{
-    notImplemented();
-}
-
-PlatformMenuDescription ContextMenuItem::platformSubMenu() const
-{
-    notImplemented();
-    return 0;
-}
-
-void ContextMenuItem::setSubMenu(ContextMenu*)
-{
-    notImplemented();
-}
-
 void ContextMenuItem::setChecked(bool)
 {
     notImplemented();
+}
+
+bool ContextMenuItem::checked() const
+{
+    notImplemented();
+    return 0;
 }
 
 void ContextMenuItem::setEnabled(bool)
@@ -115,4 +84,15 @@ void ContextMenuItem::setEnabled(bool)
     notImplemented();
 }
 
+bool ContextMenuItem::enabled() const
+{
+    notImplemented();
+    return false;
+}
+
+void ContextMenuItem::setSubMenu(ContextMenu*)
+{
+    notImplemented();
+}
+#endif
 }

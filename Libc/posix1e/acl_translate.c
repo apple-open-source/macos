@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,11 +24,13 @@
 #include <sys/appleapiopts.h>
 #include <sys/types.h>
 #include <sys/acl.h>
+#include <sys/fcntl.h>
 #include <errno.h>
 #include <stdio.h>
 #include <stdarg.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
 #include <membership.h>
 #include <membershipPriv.h>
 #include <pwd.h>
@@ -62,9 +64,17 @@ acl_copy_ext(void *buf, acl_t acl, ssize_t size)
 		errno = ERANGE;
 		return(-1);
 	}
+
+	bzero(ext, reqsize);
+	ext->fsec_magic = OSSwapHostToBigInt32(KAUTH_FILESEC_MAGIC);
+
+	/* special case for _FILESEC_REMOVE_ACL */
+	if (acl == (acl_t)_FILESEC_REMOVE_ACL) {
+		ext->fsec_entrycount = OSSwapHostToBigInt32(KAUTH_FILESEC_NOACL);
+		return(reqsize);
+	}
 		
 	/* export the header */
-	ext->fsec_magic = OSSwapHostToBigInt32(KAUTH_FILESEC_MAGIC);
 	ext->fsec_entrycount = OSSwapHostToBigInt32(acl->a_entries);
 	ext->fsec_flags = OSSwapHostToBigInt32(acl->a_flags);
 	
@@ -98,12 +108,19 @@ acl_copy_ext_native(void *buf, acl_t acl, ssize_t size)
 		errno = ERANGE;
 		return(-1);
 	}
+
+	bzero(ext, reqsize);
+	ext->fsec_magic = KAUTH_FILESEC_MAGIC;
+
+	/* special case for _FILESEC_REMOVE_ACL */
+	if (acl == (acl_t)_FILESEC_REMOVE_ACL) {
+		ext->fsec_entrycount = KAUTH_FILESEC_NOACL;
+		return(reqsize);
+	}
 		
 	/* export the header */
-	ext->fsec_magic = KAUTH_FILESEC_MAGIC;
 	ext->fsec_entrycount = acl->a_entries;
 	ext->fsec_flags = acl->a_flags;
-	/* XXX owner? */
 	
 	/* copy ACEs */
 	for (i = 0; i < acl->a_entries; i++) {
@@ -224,6 +241,7 @@ static struct {
 	{ACL_ENTRY_DIRECTORY_INHERIT,	"directory_inherit",	ACL_TYPE_DIR},
 	{ACL_ENTRY_LIMIT_INHERIT,	"limit_inherit",	ACL_TYPE_FILE | ACL_TYPE_DIR},
 	{ACL_ENTRY_ONLY_INHERIT,	"only_inherit",		ACL_TYPE_DIR},
+	{ACL_FLAG_NO_INHERIT,		"no_inherit",		ACL_TYPE_ACL},
 	{0, NULL, 0}
 };
 
@@ -628,20 +646,25 @@ acl_to_text(acl_t acl, ssize_t *len_p)
 	    if (((uu = (uuid_t *) acl_get_qualifier(entry)) == NULL)
 		|| (acl_get_tag_type(entry, &tag) != 0)
 		|| (acl_get_flagset_np(entry, &flags) != 0)
-		|| (acl_get_permset(entry, &perms) != 0)
-		|| ((str = uuid_to_name(uu, &id, &isgid)) == NULL)) {
+		|| (acl_get_permset(entry, &perms) != 0)) {
 		if (uu != NULL) acl_free(uu);
 		continue;
 	    }
 
 	    uuid_unparse_upper(*uu, uu_str);
 
-	    valid = raosnprintf(&buf, &bufsize, len_p, "\n%s:%s:%s:%d:%s",
-		isgid ? "group" : "user",
-		uu_str,
-		str,
-		id,
-		(tag == ACL_EXTENDED_ALLOW) ? "allow" : "deny");
+	    if ((str = uuid_to_name(uu, &id, &isgid)) != NULL) {
+		valid = raosnprintf(&buf, &bufsize, len_p, "\n%s:%s:%s:%d:%s",
+		    isgid ? "group" : "user",
+		    uu_str,
+		    str,
+		    id,
+		    (tag == ACL_EXTENDED_ALLOW) ? "allow" : "deny");
+	    } else {
+		valid = raosnprintf(&buf, &bufsize, len_p, "\nuser:%s:::%s",
+		    uu_str,
+		    (tag == ACL_EXTENDED_ALLOW) ? "allow" : "deny");
+	    }
 
 	    free(str);
 	    acl_free(uu);
@@ -690,6 +713,10 @@ err_nomem:
 ssize_t
 acl_size(acl_t acl)
 {
+	/* special case for _FILESEC_REMOVE_ACL */
+	if (acl == (acl_t)_FILESEC_REMOVE_ACL)
+		return KAUTH_FILESEC_SIZE(0);
+
 	_ACL_VALIDATE_ACL(acl);
 
 	return(KAUTH_FILESEC_SIZE(acl->a_entries));

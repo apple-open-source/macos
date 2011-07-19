@@ -1,23 +1,32 @@
-// CONFIG GC
-// XXX again, we don't know how to specify GCRR RRGC; maybe we need GC-only
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
+/*
+  TEST_CONFIG SDK=macosx GC=1
+ */
 
-#import <Foundation/Foundation.h>
+#import <stdio.h>
+#import <stdlib.h>
+#import <objc/objc-auto.h>
+#import "test.h"
 
 int GlobalInt = 0;
 
-id objc_assign_global(id val, id *dest) {
+id objc_assign_global(id val __unused, id *dest __unused) {
     GlobalInt = 1;
     return (id)0;
 }
 
-id objc_assign_ivar(id val, id dest, long offset) {
-    GlobalInt = 1;
+id objc_assign_ivar(id val __unused, id dest __unused, ptrdiff_t offset __unused) {
+    GlobalInt = 0;
     return (id)0;
 }
 
-id objc_assign_strongCast(id val, id *dest) {
-    GlobalInt = 1;
+id objc_assign_strongCast(id val __unused, id *dest __unused) {
+    GlobalInt = 0;
     return (id)0;
 }
 
@@ -25,14 +34,13 @@ id objc_assign_strongCast(id val, id *dest) {
 void (^GlobalVoidVoid)(void);
 
 
-int main(char *argc, char *argv[]) {
+int main() {
    __block int i = 0;
    // assigning a Block into a global should elicit a global write-barrier under GC
    GlobalVoidVoid = ^ {  ++i; };
-   if (GlobalInt == 1) {
-        printf("%s: success\n", argv[0]);
-        exit(0);
+   if (GlobalInt != 1) {
+       fail("missing global write-barrier for Block");
    }
-   printf("%s: missing global write-barrier for Block\n", argv[0]);
-   exit(1);
+
+   succeed(__FILE__);
 }

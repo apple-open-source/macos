@@ -1,24 +1,23 @@
---- msgcat.h.orig	2007-02-07 11:30:18.000000000 -0800
-+++ msgcat.h	2007-02-07 11:57:46.000000000 -0800
-@@ -44,7 +44,7 @@
-  */
- 
- /* For or'd constants */
--#define MCMakeId(s,m)		(unsigned long) ( ((unsigned short)s << (sizeof(short)*8)) \
-+#define MCMakeId(s,m)		(u_int32_t) ( ((unsigned short)s << (sizeof(short)*8)) \
- 						 | (unsigned short)m )
- #define MCSetId(id)		(unsigned int) ( id >> (sizeof(short) * 8) )
- #define MCMsgId(id)		(unsigned int) ( (id << (sizeof(short) * 8)) \
-@@ -54,7 +54,7 @@
- #define MCLastMsg	0
- #define MCLastSet	0
+--- msgcat.h.orig	2009-11-23 18:16:18.000000000 -0800
++++ msgcat.h	2009-12-05 13:58:11.000000000 -0800
+@@ -43,13 +43,14 @@ up-to-date.  Many thanks.
+ #define MCMagicLen	8
+ #define MCMagic		"*nazgul*"
  
 -#define MCMajorVer	1L
 +#define MCMajorVer	1
  #define MCMinorVer	0
  
+ /* For or'd constants */
+-#define MCMakeId(s,m)		(unsigned long) ( ((unsigned short)s << (sizeof(short)*8)) \
++#define MCMakeId(s,m)		(u_int32_t) ( ((unsigned short)s << (sizeof(short)*8)) \
+ 						 | (unsigned short)m )
+ 
++
  /*
-@@ -100,38 +100,44 @@
+  * Critical note here.  Sets and Messages *MUST* be stored in ascending
+  * order.  There are stored that way (by specification) in the original
+@@ -88,37 +89,43 @@ typedef union {
      struct _MCSetT	*set;
  } MCOffsetT;
  
@@ -63,15 +62,13 @@
   * MCCatT - Runtime catalog pointer
   */
  typedef struct {
--    long	loadType;	/* How to load the messages (see MSLoadType) */
-+    int32_t	loadType;	/* How to load the messages (see MSLoadType) */
      FILE        *fp;            /* File descriptor of catalog (if load-on-demand) */
 -    long	numSets;	/* Number of sets */
 +    int32_t	numSets;	/* Number of sets */
      MCSetT	*sets;		/* Pointer to the sets */
      off_t	firstSet;	/* Offset of first set on disk */
  } MCCatT;
-@@ -141,10 +147,10 @@
+@@ -128,10 +135,10 @@ typedef struct {
   */
  typedef struct {
      char	magic[MCMagicLen];	/* Magic cookie "*nazgul*" */

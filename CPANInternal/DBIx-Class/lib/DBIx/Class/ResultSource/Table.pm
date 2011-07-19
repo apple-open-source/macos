@@ -16,7 +16,7 @@ DBIx::Class::ResultSource::Table - Table object
 
 =head1 DESCRIPTION
 
-Table object that inherits from L<DBIx::Class::ResultSource>
+Table object that inherits from L<DBIx::Class::ResultSource>.
 
 =head1 METHODS
 

@@ -1,4 +1,4 @@
-/*	$NetBSD: vis.c,v 1.36 2008/04/29 06:53:01 martin Exp $	*/
+/*	$NetBSD: vis.c,v 1.41 2009/11/23 10:08:47 plunky Exp $	*/
 
 /*-
  * Copyright (c) 1989, 1993
@@ -55,28 +55,10 @@
  * POSSIBILITY OF SUCH DAMAGE.
  */
 
-/* AIX requires this to be the first thing in the file.  */
-#if defined (_AIX) && !defined (__GNUC__)
- #pragma alloca
-#endif
-
-#include <config.h>
-
-#ifdef __GNUC__
-# undef alloca
-# define alloca(n) __builtin_alloca (n)
-#else
-# ifdef HAVE_ALLOCA_H
-#  include <alloca.h>
-# else
-#  ifndef _AIX
-extern char *alloca ();
-#  endif
-# endif
-#endif
+#include "config.h"
 
 #if defined(LIBC_SCCS) && !defined(lint)
-__RCSID("$NetBSD: vis.c,v 1.36 2008/04/29 06:53:01 martin Exp $");
+__RCSID("$NetBSD: vis.c,v 1.41 2009/11/23 10:08:47 plunky Exp $");
 #endif /* LIBC_SCCS and not lint */
 
 #include <sys/types.h>
@@ -100,6 +82,8 @@ __weak_alias(vis,_vis)
 #include <stdio.h>
 #include <string.h>
 
+static char *do_svis(char *, int, int, int, const char *);
+
 #undef BELL
 #define BELL '\a'
 
@@ -107,9 +91,9 @@ __weak_alias(vis,_vis)
 #define iswhite(c)	(c == ' ' || c == '\t' || c == '\n')
 #define issafe(c)	(c == '\b' || c == BELL || c == '\r')
 #define xtoa(c)		"0123456789abcdef"[c]
+#define XTOA(c)		"0123456789ABCDEF"[c]
 
 #define MAXEXTRAS	5
-
 
 #define MAKEEXTRALIST(flag, extra, orig_str)				      \
 do {									      \
@@ -130,23 +114,54 @@ do {									      \
 	*e = '\0';							      \
 } while (/*CONSTCOND*/0)
 
-
 /*
- * This is HVIS, the macro of vis used to HTTP style (RFC 1808)
+ * This is do_hvis, for HTTP style (RFC 1808)
  */
-#define HVIS(dst, c, flag, nextc, extra)				      \
-do									      \
-	if (!isascii(c) || !isalnum(c) || strchr("$-_.+!*'(),", c) != NULL) { \
-		*dst++ = '%';						      \
-		*dst++ = xtoa(((unsigned int)c >> 4) & 0xf);		      \
-		*dst++ = xtoa((unsigned int)c & 0xf);			      \
-	} else {							      \
-		SVIS(dst, c, flag, nextc, extra);			      \
-	}								      \
-while (/*CONSTCOND*/0)
+static char *
+do_hvis(char *dst, int c, int flag, int nextc, const char *extra)
+{
+
+	if ((isascii(c) && isalnum(c))
+	    /* safe */
+	    || c == '$' || c == '-' || c == '_' || c == '.' || c == '+'
+	    /* extra */
+	    || c == '!' || c == '*' || c == '\'' || c == '(' || c == ')'
+	    || c == ',') {
+		dst = do_svis(dst, c, flag, nextc, extra);
+	} else {
+		*dst++ = '%';
+		*dst++ = xtoa(((unsigned int)c >> 4) & 0xf);
+		*dst++ = xtoa((unsigned int)c & 0xf);
+	}
+
+	return dst;
+}
 
 /*
- * This is SVIS, the central macro of vis.
+ * This is do_mvis, for Quoted-Printable MIME (RFC 2045)
+ * NB: No handling of long lines or CRLF.
+ */
+static char *
+do_mvis(char *dst, int c, int flag, int nextc, const char *extra)
+{
+	if ((c != '\n') &&
+	    /* Space at the end of the line */
+	    ((isspace(c) && (nextc == '\r' || nextc == '\n')) ||
+	    /* Out of range */
+	    (!isspace(c) && (c < 33 || (c > 60 && c < 62) || c > 126)) ||
+	    /* Specific char to be escaped */ 
+	    strchr("#$@[\\]^`{|}~", c) != NULL)) {
+		*dst++ = '=';
+		*dst++ = XTOA(((unsigned int)c >> 4) & 0xf);
+		*dst++ = XTOA((unsigned int)c & 0xf);
+	} else {
+		dst = do_svis(dst, c, flag, nextc, extra);
+	}
+	return dst;
+}
+
+/*
+ * This is do_vis, the central code of vis.
  * dst:	      Pointer to the destination buffer
  * c:	      Character to encode
  * flag:      Flag word
@@ -154,77 +169,93 @@ while (/*CONSTCOND*/0)
  * extra:     Pointer to the list of extra characters to be
  *	      backslash-protected.
  */
-#define SVIS(dst, c, flag, nextc, extra)				      \
-do {									      \
-	int isextra;							      \
-	isextra = strchr(extra, c) != NULL;				      \
-	if (!isextra && isascii(c) && (isgraph(c) || iswhite(c) ||	      \
-	    ((flag & VIS_SAFE) && issafe(c)))) {			      \
-		*dst++ = c;						      \
-		break;							      \
-	}								      \
-	if (flag & VIS_CSTYLE) {					      \
-		switch (c) {						      \
-		case '\n':						      \
-			*dst++ = '\\'; *dst++ = 'n';			      \
-			continue;					      \
-		case '\r':						      \
-			*dst++ = '\\'; *dst++ = 'r';			      \
-			continue;					      \
-		case '\b':						      \
-			*dst++ = '\\'; *dst++ = 'b';			      \
-			continue;					      \
-		case BELL:						      \
-			*dst++ = '\\'; *dst++ = 'a';			      \
-			continue;					      \
-		case '\v':						      \
-			*dst++ = '\\'; *dst++ = 'v';			      \
-			continue;					      \
-		case '\t':						      \
-			*dst++ = '\\'; *dst++ = 't';			      \
-			continue;					      \
-		case '\f':						      \
-			*dst++ = '\\'; *dst++ = 'f';			      \
-			continue;					      \
-		case ' ':						      \
-			*dst++ = '\\'; *dst++ = 's';			      \
-			continue;					      \
-		case '\0':						      \
-			*dst++ = '\\'; *dst++ = '0';			      \
-			if (isoctal(nextc)) {				      \
-				*dst++ = '0';				      \
-				*dst++ = '0';				      \
-			}						      \
-			continue;					      \
-		default:						      \
-			if (isgraph(c)) {				      \
-				*dst++ = '\\'; *dst++ = c;		      \
-				continue;				      \
-			}						      \
-		}							      \
-	}								      \
-	if (isextra || ((c & 0177) == ' ') || (flag & VIS_OCTAL)) {	      \
-		*dst++ = '\\';						      \
-		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 6) & 03) + '0';    \
-		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 3) & 07) + '0';    \
-		*dst++ =			     (c	      & 07) + '0';    \
-	} else {							      \
-		if ((flag & VIS_NOSLASH) == 0) *dst++ = '\\';		      \
-		if (c & 0200) {						      \
-			c &= 0177; *dst++ = 'M';			      \
-		}							      \
-		if (iscntrl(c)) {					      \
-			*dst++ = '^';					      \
-			if (c == 0177)					      \
-				*dst++ = '?';				      \
-			else						      \
-				*dst++ = c + '@';			      \
-		} else {						      \
-			*dst++ = '-'; *dst++ = c;			      \
-		}							      \
-	}								      \
-} while (/*CONSTCOND*/0)
+static char *
+do_svis(char *dst, int c, int flag, int nextc, const char *extra)
+{
+	int isextra;
+	isextra = strchr(extra, c) != NULL;
+	if (!isextra && isascii(c) && (isgraph(c) || iswhite(c) ||
+	    ((flag & VIS_SAFE) && issafe(c)))) {
+		*dst++ = c;
+		return dst;
+	}
+	if (flag & VIS_CSTYLE) {
+		switch (c) {
+		case '\n':
+			*dst++ = '\\'; *dst++ = 'n';
+			return dst;
+		case '\r':
+			*dst++ = '\\'; *dst++ = 'r';
+			return dst;
+		case '\b':
+			*dst++ = '\\'; *dst++ = 'b';
+			return dst;
+		case BELL:
+			*dst++ = '\\'; *dst++ = 'a';
+			return dst;
+		case '\v':
+			*dst++ = '\\'; *dst++ = 'v';
+			return dst;
+		case '\t':
+			*dst++ = '\\'; *dst++ = 't';
+			return dst;
+		case '\f':
+			*dst++ = '\\'; *dst++ = 'f';
+			return dst;
+		case ' ':
+			*dst++ = '\\'; *dst++ = 's';
+			return dst;
+		case '\0':
+			*dst++ = '\\'; *dst++ = '0';
+			if (isoctal(nextc)) {
+				*dst++ = '0';
+				*dst++ = '0';
+			}
+			return dst;
+		default:
+			if (isgraph(c)) {
+				*dst++ = '\\'; *dst++ = c;
+				return dst;
+			}
+		}
+	}
+	if (isextra || ((c & 0177) == ' ') || (flag & VIS_OCTAL)) {
+		*dst++ = '\\';
+		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 6) & 03) + '0';
+		*dst++ = (u_char)(((u_int32_t)(u_char)c >> 3) & 07) + '0';
+		*dst++ =			     (c	      & 07) + '0';
+	} else {
+		if ((flag & VIS_NOSLASH) == 0) *dst++ = '\\';
+		if (c & 0200) {
+			c &= 0177; *dst++ = 'M';
+		}
+		if (iscntrl(c)) {
+			*dst++ = '^';
+			if (c == 0177)
+				*dst++ = '?';
+			else
+				*dst++ = c + '@';
+		} else {
+			*dst++ = '-'; *dst++ = c;
+		}
+	}
+	return dst;
+}
 
+typedef char *(*visfun_t)(char *, int, int, int, const char *);
+
+/*
+ * Return the appropriate encoding function depending on the flags given.
+ */
+static visfun_t
+getvisfun(int flag)
+{
+	if (flag & VIS_HTTPSTYLE)
+		return do_hvis;
+	if (flag & VIS_MIMESTYLE)
+		return do_mvis;
+	return do_svis;
+}
 
 /*
  * svis - visually encode characters, also encoding the characters
@@ -234,6 +265,7 @@ char *
 svis(char *dst, int c, int flag, int nextc, const char *extra)
 {
 	char *nextra = NULL;
+	visfun_t f;
 
 	_DIAGASSERT(dst != NULL);
 	_DIAGASSERT(extra != NULL);
@@ -242,10 +274,8 @@ svis(char *dst, int c, int flag, int nextc, const char *extra)
 		*dst = '\0';		/* can't create nextra, return "" */
 		return dst;
 	}
-	if (flag & VIS_HTTPSTYLE)
-		HVIS(dst, c, flag, nextc, nextra);
-	else
-		SVIS(dst, c, flag, nextc, nextra);
+	f = getvisfun(flag);
+	dst = (*f)(dst, c, flag, nextc, nextra);
 	free(nextra);
 	*dst = '\0';
 	return dst;
@@ -274,6 +304,7 @@ strsvis(char *dst, const char *csrc, int flag, const char *extra)
 	char *start;
 	char *nextra = NULL;
 	const unsigned char *src = (const unsigned char *)csrc;
+	visfun_t f;
 
 	_DIAGASSERT(dst != NULL);
 	_DIAGASSERT(src != NULL);
@@ -283,16 +314,12 @@ strsvis(char *dst, const char *csrc, int flag, const char *extra)
 		*dst = '\0';		/* can't create nextra, return "" */
 		return 0;
 	}
-	if (flag & VIS_HTTPSTYLE) {
-		for (start = dst; (c = *src++) != '\0'; /* empty */)
-			HVIS(dst, c, flag, *src, nextra);
-	} else {
-		for (start = dst; (c = *src++) != '\0'; /* empty */)
-			SVIS(dst, c, flag, *src, nextra);
-	}
+	f = getvisfun(flag);
+	for (start = dst; (c = *src++) != '\0'; /* empty */)
+		dst = (*f)(dst, c, flag, *src, nextra);
 	free(nextra);
 	*dst = '\0';
-	return (dst - start);
+	return (int)(dst - start);
 }
 
 
@@ -303,6 +330,7 @@ strsvisx(char *dst, const char *csrc, size_t len, int flag, const char *extra)
 	char *start;
 	char *nextra = NULL;
 	const unsigned char *src = (const unsigned char *)csrc;
+	visfun_t f;
 
 	_DIAGASSERT(dst != NULL);
 	_DIAGASSERT(src != NULL);
@@ -313,20 +341,14 @@ strsvisx(char *dst, const char *csrc, size_t len, int flag, const char *extra)
 		return 0;
 	}
 
-	if (flag & VIS_HTTPSTYLE) {
-		for (start = dst; len > 0; len--) {
-			c = *src++;
-			HVIS(dst, c, flag, len ? *src : '\0', nextra);
-		}
-	} else {
-		for (start = dst; len > 0; len--) {
-			c = *src++;
-			SVIS(dst, c, flag, len ? *src : '\0', nextra);
-		}
+	f = getvisfun(flag);
+	for (start = dst; len > 0; len--) {
+		c = *src++;
+		dst = (*f)(dst, c, flag, len > 1 ? *src : '\0', nextra);
 	}
 	free(nextra);
 	*dst = '\0';
-	return (dst - start);
+	return (int)(dst - start);
 }
 #endif
 
@@ -339,6 +361,7 @@ vis(char *dst, int c, int flag, int nextc)
 {
 	char *extra = NULL;
 	unsigned char uc = (unsigned char)c;
+	visfun_t f;
 
 	_DIAGASSERT(dst != NULL);
 
@@ -347,10 +370,8 @@ vis(char *dst, int c, int flag, int nextc)
 		*dst = '\0';		/* can't create extra, return "" */
 		return dst;
 	}
-	if (flag & VIS_HTTPSTYLE)
-		HVIS(dst, uc, flag, nextc, extra);
-	else
-		SVIS(dst, uc, flag, nextc, extra);
+	f = getvisfun(flag);
+	dst = (*f)(dst, uc, flag, nextc, extra);
 	free(extra);
 	*dst = '\0';
 	return dst;

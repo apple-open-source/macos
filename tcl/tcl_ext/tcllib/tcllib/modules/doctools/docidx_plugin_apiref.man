@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {docidx plugin API reference}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -105,6 +106,15 @@ of the documentation for the package [package doctools::idx].
 
 Query command. It returns the name of the format associated with the
 index formatting engine.
+
+[call [cmd dt_read] [arg file]]
+
+Controlled filesystem access. Returns contents of [arg file] for
+whatever use desired by the plugin.
+
+Only files which are either in the same directory as the file
+containing the engine, or below it, can be loaded. Trying to load a
+file outside of this directory causes an error.
 
 [call [cmd dt_source] [arg file]]
 

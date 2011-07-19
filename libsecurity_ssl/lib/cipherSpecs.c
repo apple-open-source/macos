@@ -207,10 +207,10 @@ static const SSLSymmetricCipher SSLCipherAES_128 = {
     CSSM_ALGID_AES,
     CSSM_ALGMODE_CBC_IV8,
 	CSSM_PADDING_NONE,
-    AESSymmInit,
-    AESSymmEncrypt,
-    AESSymmDecrypt,
-    AESSymmFinish
+    CCSymmInit,
+    CCSymmEncryptDecrypt,
+    CCSymmEncryptDecrypt,
+    CCSymmFinish
 };
 
 static const SSLSymmetricCipher SSLCipherAES_256 = {
@@ -222,10 +222,10 @@ static const SSLSymmetricCipher SSLCipherAES_256 = {
     CSSM_ALGID_AES,
     CSSM_ALGMODE_CBC_IV8,
 	CSSM_PADDING_NONE,
-    CDSASymmInit,
-    CDSASymmEncrypt,
-    CDSASymmDecrypt,
-    CDSASymmFinish
+    CCSymmInit,
+    CCSymmEncryptDecrypt,
+    CCSymmEncryptDecrypt,
+    CCSymmFinish
 };
 
 #endif	/* ENABLE_AES */
@@ -686,11 +686,12 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 	
 	/* 
 	 * Trim out inappropriate ciphers:
-	 *  -- trim anonymous ciphers if !ctx->anonCipherEnable
+	 *  -- trim anonymous ciphers if !ctx->anonCipherEnable (default)
 	 *  -- trim ECDSA ciphers for server side if appropriate
 	 *  -- trim ECDSA ciphers if TLSv1 disable or SSLv2 enabled (since
 	 *     we MUST do the Client Hello extensions to make these ciphers
 	 *     work reliably)
+	 *  -- trim 40 and 56-bit ciphers if !ctx->weakCipherEnable (default)
 	 *  -- trim ciphers incompatible with our private key in server mode
 	 */
 	SSLCipherSpec *dst = ctx->validCipherSpecs;
@@ -742,6 +743,18 @@ OSStatus sslBuildCipherSpecArray(SSLContext *ctx)
 					continue;
 				default:
 					break;
+			}
+		}
+		if(!ctx->weakCipherEnable) {
+			/* trim out 40 and 56 bit ciphers (considered unsafe to use) */
+			if( src->cipher == &SSLCipherRC2_40 ||
+				src->cipher == &SSLCipherRC4_40 ||
+				src->cipher == &SSLCipherDES40_CBC ||
+				src->cipher == &SSLCipherDES_CBC) {
+				/* skip this one */
+				ctx->numValidCipherSpecs--;
+				src++;
+				continue;
 			}
 		}
 		if(ctx->protocolSide == SSL_ServerSide && ctx->signingPrivKeyRef != NULL) {
@@ -890,8 +903,18 @@ SSLGetNumberEnabledCiphers 	(SSLContextRef			ctx,
 		return paramErr;
 	}
 	if(ctx->validCipherSpecs == NULL) {
-		/* hasn't been set; use default */
-		*numCiphers = CipherSpecCount;
+		/* hasn't been set; build default array temporarily */
+		OSStatus status = sslBuildCipherSpecArray(ctx);
+		if(!status) {
+			*numCiphers = ctx->numValidCipherSpecs;
+			/* put things back as we found them */
+			sslFree(ctx->validCipherSpecs);
+			ctx->validCipherSpecs = NULL;
+			ctx->numValidCipherSpecs = 0;
+		} else {
+			/* unable to build default array; use known cipher count */
+			*numCiphers = CipherSpecCount;
+		}
 	}
 	else {
 		/* caller set via SSLSetEnabledCiphers */
@@ -909,11 +932,25 @@ SSLGetEnabledCiphers		(SSLContextRef			ctx,
 		return paramErr;
 	}
 	if(ctx->validCipherSpecs == NULL) {
-		/* hasn't been set; use default */
-		return cipherSpecsToCipherSuites(CipherSpecCount,
-			KnownCipherSpecs,
-			ciphers,
-			numCiphers);
+		/* hasn't been set; build default array temporarily */
+		OSStatus status = sslBuildCipherSpecArray(ctx);
+		if(!status) {
+			status = cipherSpecsToCipherSuites(ctx->numValidCipherSpecs,
+				ctx->validCipherSpecs,
+				ciphers,
+				numCiphers);
+			/* put things back as we found them */
+			sslFree(ctx->validCipherSpecs);
+			ctx->validCipherSpecs = NULL;
+			ctx->numValidCipherSpecs = 0;
+		} else {
+			/* unable to build default array; use known cipher spec array */
+			status = cipherSpecsToCipherSuites(CipherSpecCount,
+				KnownCipherSpecs,
+				ciphers,
+				numCiphers);
+		}
+		return status;
 	}
 	else {
 		/* use the ones specified in SSLSetEnabledCiphers() */

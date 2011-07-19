@@ -12,7 +12,7 @@ CWD := ${.CURDIR}/net
 FBSDMISRCS= addr2ascii.c ascii2addr.c inet_addr.c inet_lnaof.c \
 	inet_makeaddr.c inet_net_ntop.c inet_net_pton.c inet_neta.c \
 	inet_netof.c inet_network.c inet_ntoa.c linkaddr.c nsap_addr.c \
-	recv.c send.c sockatmark.c
+	recv.c send.c sockatmark.c sourcefilter.c
 .include "Makefile.fbsd_end"
 
 LEGACYSRCS+= recv.c send.c
@@ -26,7 +26,7 @@ CFLAGS-send-fbsd.c += -DLIBC_ALIAS_SEND
 .if ${LIB} == "c"
 MAN3+=	byteorder.3 ethers.3 rcmdsh.3
 .include "Makefile.fbsd_begin"
-FBSDMAN3= addr2ascii.3 inet.3 inet_net.3 linkaddr.3 sockatmark.3
+FBSDMAN3= addr2ascii.3 inet.3 inet_net.3 linkaddr.3 sockatmark.3 sourcefilter.3
 .include "Makefile.fbsd_end"
 
 MLINKS+= addr2ascii.3 ascii2addr.3
@@ -60,4 +60,10 @@ MLINKS+= inet_net.3 inet_net_ntop.3	\
 
 MLINKS+= linkaddr.3 link_addr.3		\
          linkaddr.3 link_ntoa.3
+
+MLINKS+= sourcefilter.3 getsourcefilter.3	\
+         sourcefilter.3 getipv4sourcefilter.3	\
+         sourcefilter.3 setsourcefilter.3	\
+         sourcefilter.3 setipv4sourcefilter.3
+
 .endif

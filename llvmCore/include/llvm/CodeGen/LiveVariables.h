@@ -29,10 +29,14 @@
 #ifndef LLVM_CODEGEN_LIVEVARIABLES_H
 #define LLVM_CODEGEN_LIVEVARIABLES_H
 
+#include "llvm/CodeGen/MachineBasicBlock.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstr.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SparseBitVector.h"
 
 namespace llvm {
 
@@ -75,11 +79,7 @@ public:
     /// through.  This is a bit set which uses the basic block number as an
     /// index.
     ///
-    BitVector AliveBlocks;
-
-    /// UsedBlocks - Set of blocks in which this value is actually used. This
-    /// is a bit set which uses the basic block number as an index.
-    BitVector UsedBlocks;
+    SparseBitVector<> AliveBlocks;
 
     /// NumUses - Number of uses of this register across the entire function.
     ///
@@ -103,7 +103,17 @@ public:
       Kills.erase(I);
       return true;
     }
-    
+
+    /// findKill - Find a kill instruction in MBB. Return NULL if none is found.
+    MachineInstr *findKill(const MachineBasicBlock *MBB) const;
+
+    /// isLiveIn - Is Reg live in to MBB? This means that Reg is live through
+    /// MBB, or it is killed in MBB. If Reg is only used by PHI instructions in
+    /// MBB, it is not considered live in.
+    bool isLiveIn(const MachineBasicBlock &MBB,
+                  unsigned Reg,
+                  MachineRegisterInfo &MRI);
+
     void dump() const;
   };
 
@@ -113,6 +123,11 @@ private:
   /// register number before indexing into this list.
   ///
   std::vector<VarInfo> VirtRegInfo;
+
+  /// PHIJoins - list of virtual registers that are PHI joins. These registers
+  /// may have multiple definitions, and they require special handling when
+  /// building live intervals.
+  SparseBitVector<> PHIJoins;
 
   /// ReservedRegisters - This vector keeps track of which registers
   /// are reserved register which are not allocatable by the target machine.
@@ -149,16 +164,19 @@ private:   // Intermediate data structures
   bool HandlePhysRegKill(unsigned Reg, MachineInstr *MI);
 
   void HandlePhysRegUse(unsigned Reg, MachineInstr *MI);
-  void HandlePhysRegDef(unsigned Reg, MachineInstr *MI);
+  void HandlePhysRegDef(unsigned Reg, MachineInstr *MI,
+                        SmallVector<unsigned, 4> &Defs);
+  void UpdatePhysRegDefs(MachineInstr *MI, SmallVector<unsigned, 4> &Defs);
 
-  /// FindLastPartialDef - Return the last partial def of the specified register.
-  /// Also returns the sub-register that's defined.
-  MachineInstr *FindLastPartialDef(unsigned Reg, unsigned &PartDefReg);
+  /// FindLastRefOrPartRef - Return the last reference or partial reference of
+  /// the specified register.
+  MachineInstr *FindLastRefOrPartRef(unsigned Reg);
 
-  /// hasRegisterUseBelow - Return true if the specified register is used after
-  /// the current instruction and before it's next definition.
-  bool hasRegisterUseBelow(unsigned Reg, MachineBasicBlock::iterator I,
-                           MachineBasicBlock *MBB);
+  /// FindLastPartialDef - Return the last partial def of the specified
+  /// register. Also returns the sub-registers that're defined by the
+  /// instruction.
+  MachineInstr *FindLastPartialDef(unsigned Reg,
+                                   SmallSet<unsigned,4> &PartDefRegs);
 
   /// analyzePHINodes - Gather information about the PHI nodes in here. In
   /// particular, we want to map the variable information of a virtual
@@ -265,6 +283,29 @@ public:
   void HandleVirtRegDef(unsigned reg, MachineInstr *MI);
   void HandleVirtRegUse(unsigned reg, MachineBasicBlock *MBB,
                         MachineInstr *MI);
+
+  bool isLiveIn(unsigned Reg, const MachineBasicBlock &MBB) {
+    return getVarInfo(Reg).isLiveIn(MBB, Reg, *MRI);
+  }
+
+  /// isLiveOut - Determine if Reg is live out from MBB, when not considering
+  /// PHI nodes. This means that Reg is either killed by a successor block or
+  /// passed through one.
+  bool isLiveOut(unsigned Reg, const MachineBasicBlock &MBB);
+
+  /// addNewBlock - Add a new basic block BB between DomBB and SuccBB. All
+  /// variables that are live out of DomBB and live into SuccBB will be marked
+  /// as passing live through BB. This method assumes that the machine code is
+  /// still in SSA form.
+  void addNewBlock(MachineBasicBlock *BB,
+                   MachineBasicBlock *DomBB,
+                   MachineBasicBlock *SuccBB);
+
+  /// isPHIJoin - Return true if Reg is a phi join register.
+  bool isPHIJoin(unsigned Reg) { return PHIJoins.test(Reg); }
+
+  /// setPHIJoin - Mark Reg as a phi join register.
+  void setPHIJoin(unsigned Reg) { PHIJoins.set(Reg); }
 };
 
 } // End llvm namespace

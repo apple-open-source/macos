@@ -3,7 +3,7 @@
   class.c -
 
   $Author: shyouhei $
-  $Date: 2009-01-16 11:00:48 +0900 (Fri, 16 Jan 2009) $
+  $Date: 2009-09-11 12:23:37 +0900 (Fri, 11 Sep 2009) $
   created at: Tue Aug 10 15:05:44 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -153,7 +153,7 @@ rb_singleton_class_clone(obj)
 		data.klass = obj;
 		break;
 	      default:
-		data.klass = 0;
+		data.klass = Qnil;
 		break;
 	    }
 

@@ -1,11 +1,11 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$106|strictfp class Java_Class_5 {
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$106|strictfp class Java_Class_5 {
      /** Comment */
      void foo();
      /** Comment */
      void bar();
 }
 $28|/** Java class example 5 */
-$0|$11700|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$12052|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -85,7 +85,7 @@ $parserState->{posstypesPending} => 0
 $parserState->{pplStack} => ARRAY(OBJID)
 $parserState->{preEqualsSymbol} => 
 $parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => class
+$parserState->{preclasssodtype} =>  strictfp class
 $parserState->{returntype} => strictfp class Java_Class_5 
 $parserState->{seenBraces} => 0
 $parserState->{seenMacroPart} => 0
@@ -99,7 +99,7 @@ $parserState->{sodtypeclasstoken} => class
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 0
 $parserState->{storeDec} => 
-$parserState->{typestring} => strictfp
+$parserState->{sublang} => java
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -205,8 +205,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -239,16 +239,16 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">Java class 5</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Java_class_5.test" target="_top" machineGenerated="true">Java class 5</a></p>
+
+    LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -281,15 +281,15 @@ LONG ATTRIBUTES: <p></p>
         APIREFSETUPDONE: "1"
         TPCDONE: ""
         NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
+        SUPPRESSCHILDREN: "0"
         NAMELINE_DISCUSSION: ""
         HIDEDOC: ""
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -322,15 +322,15 @@ LONG ATTRIBUTES: <p></p>
         APIREFSETUPDONE: "1"
         TPCDONE: ""
         NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
+        SUPPRESSCHILDREN: "0"
         NAMELINE_DISCUSSION: ""
         HIDEDOC: ""
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
 +---strictfp
@@ -420,27 +420,27 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/econst/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/clconst/Java_Class_5 //test_ref/java/intf/Java_Class_5" --><span class="type">Java_Class_5</span><!-- /a --> { 
+	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/intf/Java_Class_5 //test_ref/doc/anysymbol/Java_Class_5" machineGenerated="true" --><span class="type">Java_Class_5</span><!-- /a --> { 
 	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
+	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(); 
 	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
+	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="function">bar</span><!-- /a -->(); 
 	} 
 END OF OBJECT
 
 
 OBJECT: foo (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
+	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/Java_Class_5/foo //test_ref/java/clm/Java_Class_5/foo //test_ref/java/intfcm/Java_Class_5/foo //test_ref/java/intfm/Java_Class_5/foo //test_ref/java/func/foo //test_ref/java/ftmplt/Java_Class_5/foo //test_ref/java/defn/foo //test_ref/java/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(); 
 END OF OBJECT
 
 
 OBJECT: bar (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
+	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/Java_Class_5/bar //test_ref/java/clm/Java_Class_5/bar //test_ref/java/intfcm/Java_Class_5/bar //test_ref/java/intfm/Java_Class_5/bar //test_ref/java/func/bar //test_ref/java/ftmplt/Java_Class_5/bar //test_ref/java/defn/bar //test_ref/java/macro/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="function">bar</span><!-- /a -->(); 
 END OF OBJECT
 
 
 
-$11700|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$12052|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -520,7 +520,7 @@ $parserState->{posstypesPending} => 0
 $parserState->{pplStack} => ARRAY(OBJID)
 $parserState->{preEqualsSymbol} => 
 $parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => class
+$parserState->{preclasssodtype} =>  strictfp class
 $parserState->{returntype} => strictfp class Java_Class_5 
 $parserState->{seenBraces} => 0
 $parserState->{seenMacroPart} => 0
@@ -534,7 +534,7 @@ $parserState->{sodtypeclasstoken} => class
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 0
 $parserState->{storeDec} => 
-$parserState->{typestring} => strictfp
+$parserState->{sublang} => java
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -640,8 +640,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -674,16 +674,16 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">Java class 5</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Java_class_5.test" target="_top" machineGenerated="true">Java class 5</a></p>
+
+    LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -716,15 +716,15 @@ LONG ATTRIBUTES: <p></p>
         APIREFSETUPDONE: "1"
         TPCDONE: ""
         NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
+        SUPPRESSCHILDREN: "0"
         NAMELINE_DISCUSSION: ""
         HIDEDOC: ""
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -757,15 +757,15 @@ LONG ATTRIBUTES: <p></p>
         APIREFSETUPDONE: "1"
         TPCDONE: ""
         NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
+        SUPPRESSCHILDREN: "0"
         NAMELINE_DISCUSSION: ""
         HIDEDOC: ""
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
 +---strictfp
@@ -855,894 +855,24 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/econst/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/clconst/Java_Class_5 //test_ref/java/intf/Java_Class_5" --><span class="type">Java_Class_5</span><!-- /a --> { 
+	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/intf/Java_Class_5 //test_ref/doc/anysymbol/Java_Class_5" machineGenerated="true" --><span class="type">Java_Class_5</span><!-- /a --> { 
 	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
+	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(); 
 	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
+	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="function">bar</span><!-- /a -->(); 
 	} 
 END OF OBJECT
 
 
 OBJECT: foo (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
+	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/Java_Class_5/foo //test_ref/java/clm/Java_Class_5/foo //test_ref/java/intfcm/Java_Class_5/foo //test_ref/java/intfm/Java_Class_5/foo //test_ref/java/func/foo //test_ref/java/ftmplt/Java_Class_5/foo //test_ref/java/defn/foo //test_ref/java/macro/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="function">foo</span><!-- /a -->(); 
 END OF OBJECT
 
 
 OBJECT: bar (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
+	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/struct/void //test_ref/java/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/Java_Class_5/bar //test_ref/java/clm/Java_Class_5/bar //test_ref/java/intfcm/Java_Class_5/bar //test_ref/java/intfm/Java_Class_5/bar //test_ref/java/func/bar //test_ref/java/ftmplt/Java_Class_5/bar //test_ref/java/defn/bar //test_ref/java/macro/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="function">bar</span><!-- /a -->(); 
 END OF OBJECT
 
 
 
-_$40|testsuite/parser_tests/Java_class_5.test$4|java$12|Java class 5$11700|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Java_class_5.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Java_class_5.test
-$parserState->{ISFORWARDDECLARATION} => 0
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classNameFound} => 1
-$parserState->{classtype} => class
-$parserState->{forceClassDone} => 1
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 6
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => java
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => class
-$parserState->{returntype} => strictfp class Java_Class_5 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => class
-$parserState->{sodname} => Java_Class_5
-$parserState->{sodtype} => 
-$parserState->{sodtypeclasstoken} => class
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 0
-$parserState->{storeDec} => 
-$parserState->{typestring} => strictfp
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 6
-typelist: class
-namelist: Java_Class_5
-posstypes: 
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---strictfp
-+--- 
-+---class
-+--- 
-+---Java_Class_5
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---foo
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---bar
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
-|   +---[ NEWLINE ]
-|   +---}
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Java class 5
-APIUID: //test_ref/doc/header/Java_class_5.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::CPPClass
-    NAME: Java_Class_5
-    APIUID: 
-    ABSTRACT: ""
-    DISCUSSION: "<p>Java class example 5 "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::CPPClass"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">Java class 5</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Function
-        NAME: foo
-        APIUID: //test_ref/java/instm/Java_Class_5/foo/void/()
-        ABSTRACT: ""
-        DISCUSSION: "<p>Comment "
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: " void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Function"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Function
-        NAME: bar
-        APIUID: //test_ref/java/instm/Java_Class_5/bar/void/()
-        ABSTRACT: ""
-        DISCUSSION: "<p>Comment "
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: " void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Function"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-+---strictfp
-+--- 
-+---class
-+--- 
-+---Java_Class_5
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---foo
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---bar
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
-|   +---[ NEWLINE ]
-|   +---}
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: foo (HeaderDoc::Function)
-+-*-void (HAS STATE)
-+--- 
-+---foo
-+---(
-|   +---)
-+---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---/*
-|   +---*
-|   +--- Comment 
-|   +---*/
-+---[ NEWLINE ]
-+---     
-+-*-void (HAS STATE)
-+--- 
-+---bar
-+---(
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-+---}
-END OF OBJECT
-
-
-OBJECT: bar (HeaderDoc::Function)
-+-*-void (HAS STATE)
-+--- 
-+---bar
-+---(
-|   +---)
-+---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---}
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/econst/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/clconst/Java_Class_5 //test_ref/java/intf/Java_Class_5" --><span class="type">Java_Class_5</span><!-- /a --> { 
-	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
-	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
-	} 
-END OF OBJECT
-
-
-OBJECT: foo (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
-END OF OBJECT
-
-
-OBJECT: bar (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
-END OF OBJECT
-
-
-
-$11700|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Java_class_5.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Java_class_5.test
-$parserState->{ISFORWARDDECLARATION} => 0
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classNameFound} => 1
-$parserState->{classtype} => class
-$parserState->{forceClassDone} => 1
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 1
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 6
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => java
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{preclasssodtype} => class
-$parserState->{returntype} => strictfp class Java_Class_5 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => class
-$parserState->{sodname} => Java_Class_5
-$parserState->{sodtype} => 
-$parserState->{sodtypeclasstoken} => class
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 0
-$parserState->{storeDec} => 
-$parserState->{typestring} => strictfp
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 6
-typelist: class
-namelist: Java_Class_5
-posstypes: 
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---strictfp
-+--- 
-+---class
-+--- 
-+---Java_Class_5
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---foo
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---bar
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
-|   +---[ NEWLINE ]
-|   +---}
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Java class 5
-APIUID: //test_ref/doc/header/Java_class_5.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::CPPClass
-    NAME: Java_Class_5
-    APIUID: 
-    ABSTRACT: ""
-    DISCUSSION: "<p>Java class example 5 "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::CPPClass"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p><b>Declared In:</b> <a href="../../index.html" target="_top">Java class 5</a><br>
-</p>
-    LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Function
-        NAME: foo
-        APIUID: //test_ref/java/instm/Java_Class_5/foo/void/()
-        ABSTRACT: ""
-        DISCUSSION: "<p>Comment "
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: " void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Function"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::Function
-        NAME: bar
-        APIUID: //test_ref/java/instm/Java_Class_5/bar/void/()
-        ABSTRACT: ""
-        DISCUSSION: "<p>Comment "
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: " void"
-        LINENUM: ""
-        CLASS: "HeaderDoc::Function"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "1"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-+---strictfp
-+--- 
-+---class
-+--- 
-+---Java_Class_5
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---foo
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-|   +---[ NEWLINE ]
-|   +---/*
-|   |   +---*
-|   |   +--- Comment 
-|   |   +---*/
-|   +---[ NEWLINE ]
-|   +---     
-|   +-*-void (HAS STATE)
-|   +--- 
-|   +---bar
-|   +---(
-|   |   +---)
-|   +---;
-|   +--- 
-|   +---[ NEWLINE ]
-|   +---}
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: foo (HeaderDoc::Function)
-+-*-void (HAS STATE)
-+--- 
-+---foo
-+---(
-|   +---)
-+---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---/*
-|   +---*
-|   +--- Comment 
-|   +---*/
-+---[ NEWLINE ]
-+---     
-+-*-void (HAS STATE)
-+--- 
-+---bar
-+---(
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-+---}
-END OF OBJECT
-
-
-OBJECT: bar (HeaderDoc::Function)
-+-*-void (HAS STATE)
-+--- 
-+---bar
-+---(
-|   +---)
-+---;
-+--- 
--=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
-+---[ NEWLINE ]
-+---}
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Java_Class_5 (HeaderDoc::CPPClass)
-	<span class="keyword">strictfp</span> <span class="keyword">class</span> <!-- a logicalPath="//test_ref/java/cl/Java_Class_5 //test_ref/java/tdef/Java_Class_5 //test_ref/java/tag/Java_Class_5 //test_ref/java/econst/Java_Class_5 //test_ref/java/struct/Java_Class_5 //test_ref/java/clconst/Java_Class_5 //test_ref/java/intf/Java_Class_5" --><span class="type">Java_Class_5</span><!-- /a --> { 
-	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
-	    <span class="comment">/** Comment */</span>
-	    <!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
-	} 
-END OF OBJECT
-
-
-OBJECT: foo (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/foo //test_ref/java/clm/foo //test_ref/java/intfcm/foo //test_ref/java/intfm/foo //test_ref/java/func/foo //test_ref/java/ftmplt/foo //test_ref/java/defn/foo //test_ref/java/macro/foo" --><span class="function">foo</span><!-- /a -->(); 
-END OF OBJECT
-
-
-OBJECT: bar (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/java/cl/void //test_ref/java/tdef/void //test_ref/java/tag/void //test_ref/java/econst/void //test_ref/java/struct/void //test_ref/java/clconst/void //test_ref/java/intf/void" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/java/instm/bar //test_ref/java/clm/bar //test_ref/java/intfcm/bar //test_ref/java/intfm/bar //test_ref/java/func/bar //test_ref/java/ftmplt/bar //test_ref/java/defn/bar //test_ref/java/macro/bar" --><span class="function">bar</span><!-- /a -->(); 
-END OF OBJECT
-
-
-
-$4|java$6|parser
+_$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Java_class_5.test$4|java$12|Java class 5$4|java$6|parser

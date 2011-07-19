@@ -15,7 +15,7 @@
 #ifndef LLVM_SYSTEM_DISASSEMBLER_H
 #define LLVM_SYSTEM_DISASSEMBLER_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 #include <string>
 
 namespace llvm {
@@ -23,7 +23,7 @@ namespace sys {
 
 /// This function returns true, if there is possible to use some external
 /// disassembler library. False otherwise.
-bool hasDisassembler(void); 
+bool hasDisassembler();
 
 /// This function provides some "glue" code to call external disassembler
 /// libraries.

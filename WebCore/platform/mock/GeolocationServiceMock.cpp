@@ -40,10 +40,10 @@ GeolocationServiceMock::GeolocationServiceSet* GeolocationServiceMock::s_instanc
 RefPtr<Geoposition>* GeolocationServiceMock::s_lastPosition;
 RefPtr<PositionError>* GeolocationServiceMock::s_lastError;
 
-GeolocationService* GeolocationServiceMock::create(GeolocationServiceClient* client)
+PassOwnPtr<GeolocationService> GeolocationServiceMock::create(GeolocationServiceClient* client)
 {
     initStatics();
-    return new GeolocationServiceMock(client);
+    return adoptPtr(new GeolocationServiceMock(client));
 }
 
 GeolocationServiceMock::GeolocationServiceMock(GeolocationServiceClient* client)

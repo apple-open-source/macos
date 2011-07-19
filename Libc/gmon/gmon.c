@@ -376,7 +376,7 @@ char *highpc)
 	    if(!init)
 		add_profil(m->sbuf + sizeof(gmonhdr_t),
 			   m->ssiz - sizeof(gmonhdr_t),
-			   (long)m->lowpc, m->scale);
+			   (uintptr_t)m->lowpc, m->scale);
 	}
 }
 
@@ -424,7 +424,7 @@ const char *filename)
     mon_t *m;
     uint32_t image_count;
     intptr_t image_header;
-    char *image_name;
+    const char *image_name;
 
 	moncontrol(0);
 	m = mon;
@@ -673,7 +673,7 @@ char *selfpc)
 		  ((uintptr_t)frompcindex - (uintptr_t)m->lowpc);
 	}
 	frompcindex =
-	    &m->froms[((long)frompcindex) / (HASHFRACTION * sizeof(*m->froms))];
+	    &m->froms[((uintptr_t)frompcindex) / (HASHFRACTION * sizeof(*m->froms))];
 	toindex = *frompcindex;
 	if(toindex == 0){
 	    /*

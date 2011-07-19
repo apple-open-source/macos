@@ -46,13 +46,12 @@ Includes
 
 #include <sys/param.h>
 #include <sys/systm.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/socket.h>
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/sockio.h>
 #include <sys/kernel.h>
-#include <machine/spl.h>
 #include <kern/clock.h>
 
 #include <net/if_types.h>
@@ -92,8 +91,14 @@ static int  ppp_if_demux(ifnet_t ifp, mbuf_t m, char *frame_header,
 static int  ppp_if_add_proto(ifnet_t ifp, protocol_family_t protocol_family,
 			const struct ifnet_demux_desc *demux_list, u_int32_t demux_count);
 static int  ppp_if_del_proto(ifnet_t ifp, protocol_family_t protocol_family);
+#if KPI_INTERFACE_EMBEDDED
+static errno_t  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
+								const struct sockaddr *ndest, const char *edst, const char *ppp_type,
+								u_int32_t *pre, u_int32_t *post);
+#else /* KPI_INTERFACE_EMBEDDED */
 static errno_t  ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
                      const struct sockaddr *ndest, const char *edst, const char *ppp_type);
+#endif /* !KPI_INTERFACE_EMBEDDED */
 
 static int 	ppp_if_detach(ifnet_t ifp);
 static struct ppp_if *ppp_if_findunit(u_short unit);
@@ -256,6 +261,10 @@ int ppp_if_attach(u_short *unit)
 	ifnet_set_baudrate(wan->net, 0 /* 10 Mbits/s ??? */);
 	bzero(&stats, sizeof(stats));
 	ifnet_set_stat(wan->net, &stats);
+	/* 
+	 * A PPP interface does generate its own IPv6 LinkLocal address
+	 */
+	ifnet_set_eflags(wan->net, IFEF_NOAUTOIPV6LL, IFEF_NOAUTOIPV6LL);
 	ifnet_touch_lastchange(wan->net);
 	
     ret = ifnet_attach(wan->net, NULL);
@@ -959,7 +968,7 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
 	lck_mtx_lock(ppp_domain_mutex);
 	    
 	// clear any flag that can confuse the underlying driver
-	mbuf_setflags(m, mbuf_flags(m) & ~(M_BCAST + M_MCAST));
+	mbuf_setflags(m, mbuf_flags(m) & ~(MBUF_BCAST + MBUF_MCAST));
 
     proto = ntohs(*(u_int16_t*)mbuf_data(m));
     switch (proto) {
@@ -990,11 +999,16 @@ errno_t ppp_if_output(ifnet_t ifp, mbuf_t m)
     }
     
     if (afmode & NPAFMODE_SRC_OUT) {
-		mbuf_pullup(&m, sizeof(struct ip) + 2);
-		if (m == 0) {
+		if (mbuf_len(m) < (sizeof(struct ip) + 2) &&
+			mbuf_pullup(&m, sizeof(struct ip) + 2)) {
+			if (m) {
+				mbuf_free(m);
+				m = NULL;
+			}
 			bzero(&statsinc, sizeof(statsinc));
 			statsinc.errors_out = 1;
 			ifnet_stat_increment(ifp, &statsinc);		
+			lck_mtx_unlock(ppp_domain_mutex);
             return ENOBUFS;
 		}
         p = mbuf_data(m);
@@ -1123,18 +1137,28 @@ add the ppp header to the packet (as a network interface, we only worry
 about adding our protocol number)
 ----------------------------------------------------------------------------- */
 errno_t ppp_if_frameout(ifnet_t ifp, mbuf_t *m0,
-                     const struct sockaddr *ndest, const char *edst, const char *ppp_type)
+						const struct sockaddr *ndest, const char *edst, const char *ppp_type
+#if KPI_INTERFACE_EMBEDDED
+						, u_int32_t *pre, u_int32_t *post
+#endif /* KPI_INTERFACE_EMBEDDED */
+						)
+
 {
 	struct		ifnet_stat_increment_param statsinc;
-
+	
     if (mbuf_prepend(m0, 2, MBUF_DONTWAIT) != 0) {
         LOGDBG(ifp, ("ppp_fam_ifoutput : no memory for transmit header\n"));
 		bzero(&statsinc, sizeof(statsinc));
 		statsinc.errors_out = 1;
-		ifnet_stat_increment(ifp, &statsinc);		
+		ifnet_stat_increment(ifp, &statsinc);
         return EJUSTRETURN;	// just return, because the buffer was freed in m_prepend
     }
 
+#if KPI_INTERFACE_EMBEDDED
+	*pre = 2;
+	*post = 0;
+#endif /* KPI_INTERFACE_EMBEDDED */
+	
     // place protocol number at the beginning of the mbuf
     *(u_int16_t*)mbuf_data(*m0) = htons(*(u_int16_t *)ppp_type);
     
@@ -1172,7 +1196,7 @@ int ppp_if_attachlink(struct ppp_link *link, int unit)
 ----------------------------------------------------------------------------- */
 int ppp_if_detachlink(struct ppp_link *link)
 {
-    struct ifnet 	*ifp = (struct ifnet *)link->lk_ifnet;
+    ifnet_t			 ifp = (__typeof__(ifp))link->lk_ifnet;
     struct ppp_if 	*wan;
 	
 	lck_mtx_assert(ppp_domain_mutex, LCK_MTX_ASSERT_OWNED);
@@ -1180,11 +1204,11 @@ int ppp_if_detachlink(struct ppp_link *link)
     if (!ifp)
         return EINVAL; // link already detached
 
-    wan = ifp->if_softc;
+    wan = ifnet_softc(ifp);
     
     // check if this is the last link, when multilink is coded
-    ifp->if_flags &= ~IFF_RUNNING;
-    ifp->if_baudrate -= link->lk_baudrate;
+    ifnet_set_flags(ifp, 0, IFF_RUNNING);
+    ifnet_set_baudrate(ifp, ifnet_baudrate(ifp) - link->lk_baudrate);
     
     TAILQ_REMOVE(&wan->link_head, link, lk_bdl_next);
     wan->nblinks--;
@@ -1249,7 +1273,12 @@ int ppp_if_send(ifnet_t ifp, mbuf_t m)
         case PPP_CCP:
             mbuf_adj(m, 2);
             ppp_comp_ccp(wan, m, 0);
-            mbuf_prepend(&m, 2, MBUF_DONTWAIT);
+            if (mbuf_prepend(&m, 2, MBUF_DONTWAIT) != 0) {
+                bzero(&statsinc, sizeof(statsinc));
+                statsinc.errors_out = 1;
+                ifnet_stat_increment(ifp, &statsinc);		
+                return ENOBUFS;
+            }
             break;
     }
 

@@ -21,6 +21,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
+
 #include "AuthHelperUtils.h"
 #include "DSUtils.h"
 #include "CDSPluginUtils.h"
@@ -1066,3 +1068,4 @@ tDirStatus SASLErrToDirServiceError( int inSASLError )
     return dirServiceErr;
 }
 
+#endif // DISABLE_LOCAL_PLUGIN

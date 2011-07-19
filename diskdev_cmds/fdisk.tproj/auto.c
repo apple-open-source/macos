@@ -36,9 +36,7 @@
 #include "auto.h"
 
 int AUTO_boothfs __P((disk_t *, mbr_t *));
-int AUTO_bootufs __P((disk_t *, mbr_t *));
 int AUTO_hfs __P((disk_t *, mbr_t *));
-int AUTO_ufs __P((disk_t *, mbr_t *));
 int AUTO_dos __P((disk_t *, mbr_t *));
 int AUTO_raid __P((disk_t *, mbr_t *));
 
@@ -49,9 +47,7 @@ struct _auto_style {
   char *description;
 } style_fns[] = {
   {"boothfs", AUTO_boothfs, "8Mb boot plus HFS+ root partition"},
-  {"bootufs", AUTO_bootufs, "8Mb boot plus UFS root partition"},
   {"hfs",     AUTO_hfs,     "Entire disk as one HFS+ partition"},
-  {"ufs",     AUTO_ufs,     "Entire disk as one UFS partition"},
   {"dos",     AUTO_dos,     "Entire disk as one DOS partition"},
   {"raid",    AUTO_raid,    "Entire disk as one 0xAC partition"},
   {0,0}
@@ -120,18 +116,6 @@ AUTO_hfs(disk_t *disk, mbr_t *mbr)
   return cc;
 }
 
-/* UFS style: one partition for the whole disk */
-int
-AUTO_ufs(disk_t *disk, mbr_t *mbr)
-{
-  int cc;
-  cc = use_whole_disk(disk, 0xA8, mbr);
-  if (cc == AUTO_OK) {
-    mbr->part[0].flag = DOSACTIVE;
-  }
-  return cc;
-}
-
 /* One boot partition, one HFS+ root partition */
 int
 AUTO_boothfs (disk_t *disk, mbr_t *mbr)
@@ -160,33 +144,7 @@ AUTO_boothfs (disk_t *disk, mbr_t *mbr)
   return AUTO_OK;
 }
 
-/* One boot partition, one UFS root partition */
-int
-AUTO_bootufs(disk_t *disk, mbr_t *mbr)
-{
-  /* Check disk size. */
-  if (disk->real->size < 16 * 2048) {
-    errx(1, "Disk size must be greater than 16Mb");
-    return AUTO_ERR;
-  }
 
-  MBR_clear(mbr);
-
-  /* 8MB boot partition */
-  mbr->part[0].id = 0xAB;
-  mbr->part[0].bs = 63;
-  mbr->part[0].ns = 8 * 1024 * 2;
-  mbr->part[0].flag = DOSACTIVE;
-  PRT_fix_CHS(disk, &mbr->part[0], 0);
-
-  /* Rest of the disk for rooting */
-  mbr->part[1].id = 0xA8;
-  mbr->part[1].bs = (mbr->part[0].bs + mbr->part[0].ns);
-  mbr->part[1].ns = disk->real->size - mbr->part[0].ns - 63;
-  PRT_fix_CHS(disk, &mbr->part[1], 1);
-
-  return AUTO_OK;
-}
 
 /* RAID style: one 0xAC partition for the whole disk */
 int

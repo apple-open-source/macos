@@ -1,5 +1,5 @@
---- makecontext.3.orig	2009-03-13 03:05:02.000000000 -0700
-+++ makecontext.3	2009-03-13 03:12:49.000000000 -0700
+--- makecontext.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ makecontext.3	2009-11-07 14:51:39.000000000 -0800
 @@ -48,7 +48,7 @@
  .Ft void
  .Fo makecontext
@@ -9,7 +9,7 @@
  .Fa "int argc" ...
  .Fc
  .Ft int
-@@ -64,7 +64,9 @@
+@@ -64,7 +64,9 @@ which must have previously been initiali
  and had a stack allocated for it.
  The context is modified so that it will continue execution by invoking
  .Fn func

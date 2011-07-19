@@ -1,0 +1,64 @@
+Cyrus
+=====
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+For POP3 UIDL compatibility, use one of:
+
+Cyrus versions up to v2.1.3:
+  ---%<-----------------------------------------------------------------------
+  #  Cyrus (old format - up to v2.1.3)
+  pop3_uidl_format = %u
+  ---%<-----------------------------------------------------------------------
+
+Cyrus versions v2.1.4 and newer:
+  ---%<-----------------------------------------------------------------------
+  #  Cyrus (new format - v2.1.4 and above)
+  pop3_uidl_format = %v.%u
+  ---%<-----------------------------------------------------------------------
+
+Mail storage migration
+----------------------
+
+There exists several scripts which can be used to convert Cyrus mail storages
+to Maildir. They all read the Cyrus mail directories directly, so they don't
+need a running Cyrus installation.
+
+ * cyrus2dovecot [http://cyrus2dovecot.sw.fu-berlin.de/] (by Freie Universität
+   Berlin) allows you to perform a server transition which is fully transparent
+   to both POP and IMAP users, as virtually all available metadata is preserved
+   during the conversion. This includes message UIDs, INTERNALDATEs, IMAP
+   folder subscriptions, the UIDVALIDITY and UIDNEXT values for each folder, as
+   well as all IMAP flags (including the first 26 user-defined
+   keywords).Cyrus2Dovecot is supposed to work with all Cyrus releases up to
+   (at least) version 2.3.x. So far, it has been tested with Cyrus 1.4, 2.1.18,
+   2.2.12, and 2.3.12p2.
+ * cyrus2courier [http://madness.at/projects/] is Dovecot-compatible. A
+   non-official v1.6ts release [http://dovecot.org/tools/] works up to Cyrus
+   v2.3.9. It should be able to preserve message UIDs, INTERNALDATEs, flags and
+   the first 26 keywords. It works only with the supported Cyrus versions, so
+   if Cyrus once again changes its internal formats this tool might break
+   again.
+ * cyrus2maildir.py [http://www.majid.info/mylos/weblog/2006/03/08-1.html] (for
+   Cyrus v2.2) preserves (only) INTERNALDATEs and \Seen flags.
+ * cyrus2dovecot [http://trukenmueller.de/cyrus2dovecot] (by Trukenmüller)
+   doesn't preserve timestamps or flags.
+
+You can also use imapsync, as described in the <Migration.txt> page, but you'll
+lose all the message UIDs then.
+
+Migration of passwords
+----------------------
+
+Some installations of Cyrus store passwords using /Cyrus/ SASL (not to be
+confused with other SASL implementations).  Passwords are stored in
+'/etc/sasldb2', in Berkeley DB format. On Debian, the command 'db4.2_dump -p
+/etc/sasldb2' may allow you access to the passwords.  This could be
+incorporated into a script to copy the passwords to an LDAP directory for use
+with other mail servers (e.g. Dovecot).
+
+For Fedora Core 3 (and probably other versions) the command is just 'db_dump -p
+/etc/sasldb2'.
+
+(This file was created from the wiki on 2011-05-11 04:42)

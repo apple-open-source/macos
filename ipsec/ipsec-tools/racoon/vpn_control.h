@@ -81,6 +81,8 @@ extern mode_t vpncontrolsock_mode;
 #define VPNCTL_CMD_START_PH2			0x0013
 #define VPNCTL_CMD_XAUTH_INFO			0x0014
 #define VPNCTL_CMD_START_DPD			0x0015
+#define VPNCTL_CMD_ASSERT				0x0016
+#define VPNCTL_CMD_RECONNECT			0x0017
 #define VPNCTL_STATUS_IKE_FAILED		0x8001
 #define VPNCTL_STATUS_PH1_START_US		0x8011
 #define VPNCTL_STATUS_PH1_START_PEER	0x8012
@@ -89,6 +91,7 @@ extern mode_t vpncontrolsock_mode;
 #define VPNCTL_STATUS_PH2_ESTABLISHED	0x8022
 #define VPNCTL_STATUS_NEED_AUTHINFO		0x8101
 #define VPNCTL_STATUS_NEED_REAUTHINFO	0x8102
+#define VPNCTL_STATUS_PEER_RESP		0x8103
 
 /*
  * Flags
@@ -232,6 +235,13 @@ struct vpnctl_cmd_start_ph2 {
 	/* array of struct vpnctl_algo */
 };
 
+/* assert connection (after network change) */
+struct vpnctl_cmd_assert {
+	struct vpnctl_hdr		hdr;
+	u_int32_t				src_address;
+	u_int32_t				dst_address;
+};
+
 /* set xauth info */
 struct vpnctl_cmd_xauth_info {	
 	struct vpnctl_hdr		hdr;
@@ -290,9 +300,12 @@ struct vpnctl_cmd_start_dpd {
 #define VPNCTL_NTYPE_PEER_DEAD					50001	/* detected by DPD */
 #define VPNCTL_NTYPE_PH1_DELETE					50002	/* received a delete payload leaving no PH1 SA for the remote address */
 #define VPNCTL_NTYPE_IDLE_TIMEOUT				50003
-#define VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR                      VPNCTL_NTYPE_IDLE_TIMEOUT /* used for offsetting cert errors */
-#define VPNCTL_NTYPE_PH1_DELETE_CERT_PREMATURE                  50004   /* received a delete payload & there was a cert verification error leaving no PH1 SA for the remote address */
-#define VPNCTL_NTYPE_PH1_DELETE_CERT_EXPIRED                    50005   /* received a delete payload & there was a cert verification error leaving no PH1 SA for the remote address */
+#define VPNCTL_NTYPE_LOCAL_CERT_PREMATURE		50004	/* certificate is premature */
+#define VPNCTL_NTYPE_LOCAL_CERT_EXPIRED			50005	/* certificate has expired */
+#define VPNCTL_NTYPE_PEER_CERT_PREMATURE		50006	/* peer's certificate is premature */
+#define VPNCTL_NTYPE_PEER_CERT_EXPIRED			50007	/* peer's certificate has expired */
+#define VPNCTL_NTYPE_PEER_CERT_INVALID_SUBJNAME		50008	/* peer's certificate has an invalid subjname */
+#define VPNCTL_NTYPE_PEER_CERT_INVALID_SUBJALTNAME	50009	/* peer's certificate has an invalid subjaltname */
 #define VPNCTL_NTYPE_INTERNAL_ERROR				-1
 
 
@@ -340,5 +353,10 @@ struct vpnctl_status_failed {
 	u_int8_t					data[0];
 };
 
+struct vpnctl_status_peer_resp {
+	struct vpnctl_hdr			hdr;
+	u_int32_t					address;
+	u_int16_t					ike_code;
+};
 
 #endif /* _VPN_CONTROL_H */

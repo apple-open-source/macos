@@ -1,9 +1,9 @@
 /*
  * "$Id: cups-lpd.c 7899 2008-09-03 12:57:17Z mike $"
  *
- *   Line Printer Daemon interface for the Common UNIX Printing System (CUPS).
+ *   Line Printer Daemon interface for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,17 +28,10 @@
  * Include necessary headers...
  */
 
-#include <cups/http-private.h>
-#include <cups/cups.h>
-#include <cups/string.h>
-#include <cups/language.h>
-#include <stdlib.h>
-#include <errno.h>
+#include <cups/cups-private.h>
 #include <syslog.h>
-#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
-
 #include <sys/types.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -47,13 +40,6 @@
 #ifdef HAVE_INTTYPES_H
 #  include <inttypes.h>
 #endif /* HAVE_INTTYPES_H */
-
-#ifdef HAVE_COREFOUNDATION_H
-#  include <CoreFoundation/CoreFoundation.h>
-#endif /* HAVE_COREFOUNDATION_H */
-#ifdef HAVE_CFPRIV_H
-#  include <CoreFoundation/CFPriv.h>
-#endif /* HAVE_CFPRIV_H */
 
 
 /*
@@ -370,7 +356,7 @@ create_job(http_t        *http,		/* I - HTTP connection */
                  NULL, title);
 
   if (docname[0])
-    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "document-name", 
+    ippAddString(request, IPP_TAG_OPERATION, IPP_TAG_NAME, "document-name",
                  NULL, docname);
 
   cupsEncodeOptions(request, num_options, options);
@@ -588,7 +574,7 @@ get_printer(http_t        *http,	/* I - HTTP connection */
       }
 
       if (info_attr && name_attr &&
-          !strcasecmp(name, info_attr->values[0].string.text))
+          !_cups_strcasecmp(name, info_attr->values[0].string.text))
       {
        /*
         * Found a match, use this one!
@@ -663,100 +649,6 @@ get_printer(http_t        *http,	/* I - HTTP connection */
   }
 
  /*
-  * Override shared value for LPD using system-specific APIs...
-  */
-
-#ifdef HAVE_CFPRIV_H /* MacOS X */
-  if (shared && *shared)
-  {
-    CFURLRef		prefsurl;	/* URL for preferences file */
-    CFDataRef		xmldata;	/* XML data from preferences file */
-    CFPropertyListRef	plist;		/* Property list from XML data */
-    CFStringRef		queueid;	/* CFString of destination name */
-    CFArrayRef		lprqarray;	/* Array of shared "LPR" printers */
-    CFBooleanRef	serverflag;	/* State of the print service */
-    static const char printerprefsfile[] =
-        "/Library/Preferences/com.apple.printservice.plist";
-					/* Preferences file */
-
-
-   /*
-    * See if we are running on MacOS X Server...
-    */
-
-    CFDictionaryRef versdict = _CFCopyServerVersionDictionary();
-
-    if (versdict)
-    {
-     /*
-      * Yes, use the LPR sharing preference...
-      */
-
-      CFRelease(versdict);
-
-      *shared = 0;
-
-      prefsurl = CFURLCreateFromFileSystemRepresentation(
-                     kCFAllocatorDefault, 
-		     (const UInt8 *)printerprefsfile, 
-		     (CFIndex)strlen(printerprefsfile), 
-		     false);
-      if (prefsurl)
-      {
-        if (CFURLCreateDataAndPropertiesFromResource(kCFAllocatorDefault,
-	                                             prefsurl, &xmldata, NULL,
-						     NULL, NULL))
-	{
-	  plist = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, xmldata, 
-						  kCFPropertyListImmutable,
-						  NULL);
-	  if (plist)
-	  {
-	    serverflag = (CFBooleanRef)CFDictionaryGetValue(
-	                                   (CFDictionaryRef)plist,
-					   CFSTR("serviceState"));
-
-            if (serverflag && CFBooleanGetValue(serverflag))
-	    {
-	      lprqarray = (CFArrayRef)CFDictionaryGetValue(
-	                                  (CFDictionaryRef)plist,
-					  CFSTR("lprSharedQueues"));
-
-	      if (lprqarray)
-	      {
-	        queueid = CFStringCreateWithCString(CFAllocatorGetDefault(), 
-						    dest,
-						    kCFStringEncodingUTF8);
-
-                if (queueid)
-		{
-	          *shared = CFArrayContainsValue(lprqarray,
-						 CFRangeMake(0,
-						     CFArrayGetCount(lprqarray)),
-						 queueid);
-
-                  CFRelease(queueid);
-		}
-	      }
-	    }
-
-	    CFRelease(plist);
-	  }
-
-	  CFRelease(xmldata);
-	}
-
-	CFRelease(prefsurl);
-      }
-
-      if (!shared)
-	syslog(LOG_ERR, "Warning - Print Service sharing disabled for LPD "
-	                "on queue: %s", name);
-    }
-  }
-#endif /* HAVE_CFPRIV_H */
-
- /*
   * Next look for the printer in the lpoptions file...
   */
 
@@ -777,7 +669,7 @@ get_printer(http_t        *http,	/* I - HTTP connection */
 	* Make sure we have "Dest name options" or "Default name options"...
 	*/
 
-	if ((strcasecmp(line, "Dest") && strcasecmp(line, "Default")) || !value)
+	if ((_cups_strcasecmp(line, "Dest") && _cups_strcasecmp(line, "Default")) || !value)
           continue;
 
        /*
@@ -794,7 +686,7 @@ get_printer(http_t        *http,	/* I - HTTP connection */
 	* the loop - we're done!
 	*/
 
-	if (!strcasecmp(value, name))
+	if (!_cups_strcasecmp(value, name))
 	{
           num_options = cupsParseOptions(optptr, num_options, options);
 	  break;

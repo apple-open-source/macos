@@ -33,16 +33,23 @@
 
 #include "Chrome.h"
 #include "ChromeClientImpl.h"
+#include "PluginLayerChromium.h"
+#include "WebClipboard.h"
 #include "WebCursorInfo.h"
 #include "WebDataSourceImpl.h"
+#include "WebElement.h"
 #include "WebInputEvent.h"
 #include "WebInputEventConversion.h"
 #include "WebKit.h"
+#include "WebKitClient.h"
 #include "WebPlugin.h"
 #include "WebRect.h"
+#include "WebString.h"
+#include "WebURL.h"
 #include "WebURLError.h"
 #include "WebURLRequest.h"
 #include "WebVector.h"
+#include "WebViewImpl.h"
 #include "WrappedResourceResponse.h"
 
 #include "EventNames.h"
@@ -56,10 +63,14 @@
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
 #include "HTMLPlugInElement.h"
+#include "IFrameShimSupport.h"
+#include "KeyboardCodes.h"
 #include "KeyboardEvent.h"
 #include "MouseEvent.h"
 #include "Page.h"
+#include "RenderBox.h"
 #include "ScrollView.h"
+#include "UserGestureIndicator.h"
 #include "WheelEvent.h"
 
 #if WEBKIT_USING_SKIA
@@ -118,14 +129,12 @@ void WebPluginContainerImpl::invalidateRect(const IntRect& rect)
     if (!parent())
         return;
 
-    IntRect damageRect = convertToContainingWindow(rect);
+    RenderBox* renderer = toRenderBox(m_element->renderer());
 
-    // Get our clip rect and intersect with it to ensure we don't invalidate
-    // too much.
-    IntRect clipRect = parent()->windowClipRect();
-    damageRect.intersect(clipRect);
-
-    parent()->hostWindow()->invalidateContentsAndWindow(damageRect, false /*immediate*/);
+    IntRect dirtyRect = rect;
+    dirtyRect.move(renderer->borderLeft() + renderer->paddingLeft(),
+                   renderer->borderTop() + renderer->paddingTop());
+    renderer->repaintRectangle(dirtyRect);
 }
 
 void WebPluginContainerImpl::setFocus(bool focused)
@@ -155,6 +164,7 @@ void WebPluginContainerImpl::handleEvent(Event* event)
     if (!m_webPlugin->acceptsInputEvents())
         return;
 
+    RefPtr<WebPluginContainerImpl> protector(this);
     // The events we pass are defined at:
     //    http://devedge-temp.mozilla.org/library/manuals/2002/plugin/1.0/structures5.html#1000000
     // Don't take the documentation as truth, however.  There are many cases
@@ -165,6 +175,11 @@ void WebPluginContainerImpl::handleEvent(Event* event)
         handleWheelEvent(static_cast<WheelEvent*>(event));
     else if (event->isKeyboardEvent())
         handleKeyboardEvent(static_cast<KeyboardEvent*>(event));
+
+    // FIXME: it would be cleaner if Widget::handleEvent returned true/false and
+    // HTMLPluginElement called setDefaultHandled or defaultEventHandler.
+    if (!event->defaultHandled())
+        m_element->Node::defaultEventHandler(event);
 }
 
 void WebPluginContainerImpl::frameRectsChanged()
@@ -239,6 +254,19 @@ void WebPluginContainerImpl::printEnd()
     return m_webPlugin->printEnd();
 }
 
+void WebPluginContainerImpl::copy()
+{
+    if (!m_webPlugin->hasSelection())
+        return;
+
+    webKitClient()->clipboard()->writeHTML(m_webPlugin->selectionAsMarkup(), WebURL(), m_webPlugin->selectionAsText(), false);
+}
+
+WebElement WebPluginContainerImpl::element()
+{
+    return WebElement(m_element);
+}
+
 void WebPluginContainerImpl::invalidate()
 {
     Widget::invalidate();
@@ -247,6 +275,25 @@ void WebPluginContainerImpl::invalidate()
 void WebPluginContainerImpl::invalidateRect(const WebRect& rect)
 {
     invalidateRect(static_cast<IntRect>(rect));
+}
+
+void WebPluginContainerImpl::scrollRect(int dx, int dy, const WebRect& rect)
+{
+    Widget* parentWidget = parent();
+    if (parentWidget->isFrameView()) {
+        FrameView* parentFrameView = static_cast<FrameView*>(parentWidget);
+        if (!parentFrameView->isOverlapped()) {
+            IntRect damageRect = convertToContainingWindow(static_cast<IntRect>(rect));
+            IntSize scrollDelta(dx, dy);
+            // scroll() only uses the second rectangle, clipRect, and ignores the first
+            // rectangle.
+            parent()->hostWindow()->scroll(scrollDelta, damageRect, damageRect);
+            return;
+        }
+    }
+
+    // Use slow scrolling instead.
+    invalidateRect(rect);
 }
 
 void WebPluginContainerImpl::reportGeometry()
@@ -259,6 +306,30 @@ void WebPluginContainerImpl::reportGeometry()
     calculateGeometry(frameRect(), windowRect, clipRect, cutOutRects);
 
     m_webPlugin->updateGeometry(windowRect, clipRect, cutOutRects, isVisible());
+}
+
+void WebPluginContainerImpl::setBackingTextureId(unsigned id)
+{
+#if USE(ACCELERATED_COMPOSITING)
+    unsigned currId = m_platformLayer->textureId();
+    if (currId == id)
+        return;
+
+    m_platformLayer->setTextureId(id);
+    // If anyone of the IDs is zero we need to switch between hardware
+    // and software compositing. This is done by triggering a style recalc
+    // on the container element.
+    if (!(currId * id))
+        m_element->setNeedsStyleRecalc(WebCore::SyntheticStyleChange);
+#endif
+}
+
+void WebPluginContainerImpl::commitBackingTexture()
+{
+#if USE(ACCELERATED_COMPOSITING)
+    if (platformLayer())
+        platformLayer()->setNeedsDisplay();
+#endif
 }
 
 void WebPluginContainerImpl::clearScriptObjects()
@@ -305,14 +376,17 @@ void WebPluginContainerImpl::loadFrameRequest(
         // FIXME: This is a bit of hack to allow us to observe completion of
         // our frame request.  It would be better to evolve FrameLoader to
         // support a completion callback instead.
-        WebPluginLoadObserver* observer =
-            new WebPluginLoadObserver(this, request.url(), notifyData);
-        m_pluginLoadObservers.append(observer);
-        WebDataSourceImpl::setNextPluginLoadObserver(observer);
+        OwnPtr<WebPluginLoadObserver> observer = adoptPtr(new WebPluginLoadObserver(this, request.url(), notifyData));
+        // FIXME: Calling get here is dangerous! What if observer is freed?
+        m_pluginLoadObservers.append(observer.get());
+        WebDataSourceImpl::setNextPluginLoadObserver(observer.release());
     }
 
-    FrameLoadRequest frameRequest(request.toResourceRequest());
-    frameRequest.setFrameName(target);
+    FrameLoadRequest frameRequest(frame->document()->securityOrigin(),
+        request.toResourceRequest(), target);
+
+    UserGestureIndicator gestureIndicator(request.hasUserGesture() ?
+        DefinitelyProcessingUserGesture : DefinitelyNotProcessingUserGesture);
 
     frame->loader()->loadFrameRequest(
         frameRequest,
@@ -321,6 +395,12 @@ void WebPluginContainerImpl::loadFrameRequest(
         0,      // event
         0,     // form state
         SendReferrer);
+}
+
+void WebPluginContainerImpl::zoomLevelChanged(double zoomLevel)
+{
+    WebViewImpl* view = WebViewImpl::fromPage(m_element->document()->frame()->page());
+    view->fullFramePluginZoomLevelChanged(zoomLevel);
 }
 
 void WebPluginContainerImpl::didReceiveResponse(const ResourceResponse& response)
@@ -361,7 +441,24 @@ void WebPluginContainerImpl::willDestroyPluginLoadObserver(WebPluginLoadObserver
     m_pluginLoadObservers.remove(pos);
 }
 
+#if USE(ACCELERATED_COMPOSITING)
+WebCore::LayerChromium* WebPluginContainerImpl::platformLayer() const
+{
+    return m_platformLayer->textureId() ? m_platformLayer.get() : 0;
+}
+#endif
+
 // Private methods -------------------------------------------------------------
+
+WebPluginContainerImpl::WebPluginContainerImpl(WebCore::HTMLPlugInElement* element, WebPlugin* webPlugin)
+    : WebCore::PluginViewBase(0)
+    , m_element(element)
+    , m_webPlugin(webPlugin)
+#if USE(ACCELERATED_COMPOSITING)
+    , m_platformLayer(PluginLayerChromium::create(0))
+#endif
+{
+}
 
 WebPluginContainerImpl::~WebPluginContainerImpl()
 {
@@ -378,17 +475,16 @@ void WebPluginContainerImpl::handleMouseEvent(MouseEvent* event)
     // in the call to HandleEvent. See http://b/issue?id=1362948
     FrameView* parentView = static_cast<FrameView*>(parent());
 
-    WebMouseEventBuilder webEvent(parentView, *event);
+    WebMouseEventBuilder webEvent(this, *event);
     if (webEvent.type == WebInputEvent::Undefined)
         return;
 
     if (event->type() == eventNames().mousedownEvent) {
-        // Ensure that the frame containing the plugin has focus.
         Frame* containingFrame = parentView->frame();
         if (Page* currentPage = containingFrame->page())
-            currentPage->focusController()->setFocusedFrame(containingFrame);
-        // Give focus to our containing HTMLPluginElement.
-        containingFrame->document()->setFocusedNode(m_element);
+            currentPage->focusController()->setFocusedNode(m_element, containingFrame);
+        else
+            containingFrame->document()->setFocusedNode(m_element);
     }
 
     WebCursorInfo cursorInfo;
@@ -408,8 +504,7 @@ void WebPluginContainerImpl::handleMouseEvent(MouseEvent* event)
 
 void WebPluginContainerImpl::handleWheelEvent(WheelEvent* event)
 {
-    FrameView* parentView = static_cast<FrameView*>(parent());
-    WebMouseWheelEventBuilder webEvent(parentView, *event);
+    WebMouseWheelEventBuilder webEvent(this, *event);
     if (webEvent.type == WebInputEvent::Undefined)
         return;
 
@@ -423,6 +518,33 @@ void WebPluginContainerImpl::handleKeyboardEvent(KeyboardEvent* event)
     WebKeyboardEventBuilder webEvent(*event);
     if (webEvent.type == WebInputEvent::Undefined)
         return;
+
+    if (webEvent.type == WebInputEvent::KeyDown) {
+#if defined(OS_MACOSX)
+        if (webEvent.modifiers == WebInputEvent::MetaKey
+#else
+        if (webEvent.modifiers == WebInputEvent::ControlKey
+#endif
+            && webEvent.windowsKeyCode == VKEY_C
+            // Only copy if there's a selection, so that we only ever do this
+            // for Pepper plugins that support copying.  Windowless NPAPI
+            // plugins will get the event as before.
+            && m_webPlugin->hasSelection()) {
+            copy();
+            event->setDefaultHandled();
+            return;
+        }
+    }
+
+    const WebInputEvent* currentInputEvent = WebViewImpl::currentInputEvent();
+
+    // Copy stashed info over, and only copy here in order not to interfere
+    // the ctrl-c logic above.
+    if (currentInputEvent
+        && WebInputEvent::isKeyboardEventType(currentInputEvent->type)) {
+        webEvent.modifiers |= currentInputEvent->modifiers &
+            (WebInputEvent::CapsLockOn | WebInputEvent::NumLockOn);
+    }
 
     WebCursorInfo cursorInfo;
     if (m_webPlugin->handleInputEvent(webEvent, cursorInfo))
@@ -441,7 +563,7 @@ void WebPluginContainerImpl::calculateGeometry(const IntRect& frameRect,
     clipRect = windowClipRect();
     clipRect.move(-windowRect.x(), -windowRect.y());
 
-    windowCutOutRects(frameRect, cutOutRects);
+    getPluginOcclusions(m_element, this->parent(), frameRect, cutOutRects);
     // Convert to the plugin position.
     for (size_t i = 0; i < cutOutRects.size(); i++)
         cutOutRects[i].move(-frameRect.x(), -frameRect.y());
@@ -464,125 +586,6 @@ WebCore::IntRect WebPluginContainerImpl::windowClipRect() const
     }
 
     return clipRect;
-}
-
-static void getObjectStack(const RenderObject* ro,
-                           Vector<const RenderObject*>* roStack)
-{
-    roStack->clear();
-    while (ro) {
-        roStack->append(ro);
-        ro = ro->parent();
-    }
-}
-
-// Returns true if stack1 is at or above stack2
-static bool checkStackOnTop(
-        const Vector<const RenderObject*>& iframeZstack,
-        const Vector<const RenderObject*>& pluginZstack)
-{
-    for (size_t i1 = 0, i2 = 0;
-         i1 < iframeZstack.size() && i2 < pluginZstack.size();
-         i1++, i2++) {
-        // The root is at the end of these stacks.  We want to iterate
-        // root-downwards so we index backwards from the end.
-        const RenderObject* ro1 = iframeZstack[iframeZstack.size() - 1 - i1];
-        const RenderObject* ro2 = pluginZstack[pluginZstack.size() - 1 - i2];
-
-        if (ro1 != ro2) {
-            // When we find nodes in the stack that are not the same, then
-            // we've found the nodes just below the lowest comment ancestor.
-            // Determine which should be on top.
-
-            // See if z-index determines an order.
-            if (ro1->style() && ro2->style()) {
-                int z1 = ro1->style()->zIndex();
-                int z2 = ro2->style()->zIndex();
-                if (z1 > z2)
-                    return true;
-                if (z1 < z2)
-                    return false;
-            }
-
-            // For compatibility with IE: when the plugin is not positioned,
-            // it stacks behind the iframe, even if it's later in the
-            // document order.
-            if (ro2->style()->position() == StaticPosition)
-                return true;
-
-            // Inspect the document order.  Later order means higher
-            // stacking.
-            const RenderObject* parent = ro1->parent();
-            if (!parent)
-                return false;
-            ASSERT(parent == ro2->parent());
-
-            for (const RenderObject* ro = parent->firstChild(); ro; ro = ro->nextSibling()) {
-                if (ro == ro1)
-                    return false;
-                if (ro == ro2)
-                    return true;
-            }
-            ASSERT(false);  // We should have seen ro1 and ro2 by now.
-            return false;
-        }
-    }
-    return true;
-}
-
-// Return a set of rectangles that should not be overdrawn by the
-// plugin ("cutouts").  This helps implement the "iframe shim"
-// technique of overlaying a windowed plugin with content from the
-// page.  In a nutshell, iframe elements should occlude plugins when
-// they occur higher in the stacking order.
-void WebPluginContainerImpl::windowCutOutRects(const IntRect& frameRect,
-                                               Vector<IntRect>& cutOutRects)
-{
-    RenderObject* pluginNode = m_element->renderer();
-    ASSERT(pluginNode);
-    if (!pluginNode->style())
-        return;
-    Vector<const RenderObject*> pluginZstack;
-    Vector<const RenderObject*> iframeZstack;
-    getObjectStack(pluginNode, &pluginZstack);
-
-    // Get the parent widget
-    Widget* parentWidget = this->parent();
-    if (!parentWidget->isFrameView())
-        return;
-
-    FrameView* parentFrameView = static_cast<FrameView*>(parentWidget);
-
-    const HashSet<RefPtr<Widget> >* children = parentFrameView->children();
-    for (HashSet<RefPtr<Widget> >::const_iterator it = children->begin(); it != children->end(); ++it) {
-        // We only care about FrameView's because iframes show up as FrameViews.
-        if (!(*it)->isFrameView())
-            continue;
-
-        const FrameView* frameView =
-            static_cast<const FrameView*>((*it).get());
-        // Check to make sure we can get both the element and the RenderObject
-        // for this FrameView, if we can't just move on to the next object.
-        if (!frameView->frame() || !frameView->frame()->ownerElement()
-            || !frameView->frame()->ownerElement()->renderer())
-            continue;
-
-        HTMLElement* element = frameView->frame()->ownerElement();
-        RenderObject* iframeRenderer = element->renderer();
-
-        if (element->hasTagName(HTMLNames::iframeTag)
-            && iframeRenderer->absoluteBoundingBoxRect().intersects(frameRect)
-            && (!iframeRenderer->style() || iframeRenderer->style()->visibility() == VISIBLE)) {
-            getObjectStack(iframeRenderer, &iframeZstack);
-            if (checkStackOnTop(iframeZstack, pluginZstack)) {
-                IntPoint point =
-                    roundedIntPoint(iframeRenderer->localToAbsolute());
-                RenderBox* rbox = toRenderBox(iframeRenderer);
-                IntSize size(rbox->width(), rbox->height());
-                cutOutRects.append(IntRect(point, size));
-            }
-        }
-    }
 }
 
 } // namespace WebKit

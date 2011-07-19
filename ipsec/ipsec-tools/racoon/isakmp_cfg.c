@@ -39,9 +39,8 @@
 #include <sys/queue.h>
 
 #include <utmpx.h>
-#if defined(__APPLE__) && defined(__MACH__)
 #include <util.h>
-#endif
+
 
 #ifdef __FreeBSD__
 # include <libutil.h>
@@ -236,7 +235,15 @@ isakmp_cfg_r(iph1, msg)
 			plen = ntohs(ph->len);
 			nph = (struct isakmp_gen *)((char *)ph + plen);
 			plen = ntohs(nph->len);
-
+            /* Check that the hash payload fits in the packet */
+			if (tlen < (plen + ntohs(ph->len))) {
+				plog(LLV_WARNING, LOCATION, NULL,
+					 "Invalid Hash payload. len %d, overall-len %d\n",
+					 ntohs(nph->len),
+					 plen);
+				goto out;
+			}
+            
 			if ((payload = vmalloc(plen)) == NULL) {
 				plog(LLV_ERROR, LOCATION, NULL, 
 				    "Cannot allocate memory\n");
@@ -503,6 +510,12 @@ isakmp_cfg_reply(iph1, attrpl)
 		/* connection was started by API - save attr list for passing to VPN controller */
 		if (iph1->mode_cfg->attr_list != NULL)	/* shouldn't happen */
 			vfree(iph1->mode_cfg->attr_list);
+		if (ntohs(attrpl->h.len) < sizeof(*attrpl)) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "invalid cfg-attr-list, attr-len %d\n",
+				 ntohs(attrpl->h.len));
+			return -1;
+		}
 		alen = ntohs(attrpl->h.len) - sizeof(*attrpl);
 		if ((iph1->mode_cfg->attr_list = vmalloc(alen)) == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL,
@@ -545,6 +558,12 @@ isakmp_cfg_reply(iph1, attrpl)
 	{
 		vchar_t *buf;
 
+		if (ntohs(attrpl->h.len) < sizeof(*attrpl)) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "invalid cfg-attr-list, attr-len %d\n",
+				 ntohs(attrpl->h.len));
+			return -1;
+		}
 		alen = ntohs(attrpl->h.len) - sizeof(*attrpl);
 		if ((buf = vmalloc(alen)) == NULL) {
 			plog(LLV_WARNING, LOCATION, NULL, 
@@ -601,6 +620,9 @@ isakmp_cfg_request(iph1, attrpl, msg)
 		iph1->xauth_awaiting_userinput = 1;
                iph1->xauth_awaiting_userinput_msg = vdup(msg); // dup the message for later
 		ike_session_start_xauth_timer(iph1);
+
+		IPSECLOGASLMSG("IPSec Extended Authentication requested.\n");
+
 		return 0;
 	}
 
@@ -1417,7 +1439,7 @@ isakmp_cfg_send(iph1, payload, np, flags, new_exchange, retry_count, msg)
        if (msg) {
                /* the sending message is added to the received-list. */
                if (add_recvdpkt(iph1->remote, iph1->local, iph2->sendbuf, msg,
-                                PH2_NON_ESP_EXTRA_LEN(iph2)) == -1) {
+                                PH2_NON_ESP_EXTRA_LEN(iph2), PH1_FRAG_FLAGS(iph1)) == -1) {
                        plog(LLV_ERROR , LOCATION, NULL,
                             "failed to add a response packet to the tree.\n");
                }
@@ -1604,9 +1626,11 @@ isakmp_cfg_accounting(iph1, inout)
 	if (isakmp_cfg_config.accounting == ISAKMP_CFG_ACCT_RADIUS)
 		return isakmp_cfg_accounting_radius(iph1, inout);
 #endif
+#ifdef HAVE_OPENSSL
 	if (isakmp_cfg_config.accounting == ISAKMP_CFG_ACCT_SYSTEM)
 		return privsep_accounting_system(iph1->mode_cfg->port,
 			iph1->remote, iph1->mode_cfg->login, inout);
+#endif
 	return 0;
 }
 
@@ -1963,6 +1987,8 @@ isakmp_cfg_getconfig(iph1)
 	    ISAKMP_NPTYPE_ATTR, ISAKMP_FLAG_E, 1, iph1->rmconf->retry_counter, NULL);
 
 	vfree(buffer);
+
+	IPSECLOGASLMSG("IPSec Network Configuration requested.\n");
 
 	return error;
 }

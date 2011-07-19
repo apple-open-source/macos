@@ -2,3 +2,7 @@
 # Automounter map for /home
 #
 +auto_home	# Use directory service
+#
+# Get /home records synthesized from user records
+#
++/usr/libexec/od_user_homes

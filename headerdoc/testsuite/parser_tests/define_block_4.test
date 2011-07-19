@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$513|#if CP_LOG_RECYCLED_ERRORS
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$513|#if CP_LOG_RECYCLED_ERRORS
 #define CPReuseError(error) ({ \
         if (NULL != (error)) { \
                 CPPrintRecycledError((error)); \
@@ -26,7 +26,7 @@ logged before being released and cleared.  This ensures errors don't slip throug
 ntracts with regards to logging behaviour, so it must be used carefully (and is thus not the 
  * default behaviour).
  *       @param error The CFErrorRef to reuse. */
-$0|$28605|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$28648|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -114,7 +114,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -185,8 +185,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 5
     INDEX GROUP: 
     IS BLOCK: 1
@@ -236,8 +236,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -279,8 +279,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -321,8 +321,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -330,7 +330,7 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: error
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/CPReuseError/error
         ABSTRACT: ""
         DISCUSSION: "<p>The CFErrorRef to reuse."
         UPDATED: ""
@@ -364,8 +364,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CPReuseError (HeaderDoc::PDefine)
 +---#define
@@ -445,7 +445,7 @@ OBJECT: CPReuseError (HeaderDoc::PDefine)
 END OF OBJECT
 
 
-OBJECT: CPReuseError (HeaderDoc::Function)
+OBJECT: CPReuseError (HeaderDoc::PDefine)
 +---#if
 |   +--- 
 |   +---CP_LOG_RECYCLED_ERRORS
@@ -567,46 +567,46 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError //test_ref/doc/anysymbol/CPReuseError" machineGenerated="true" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">(</span><span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/struct/if //test_ref/c/intf/if //test_ref/c/econst/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if //test_ref/doc/anysymbol/if" machineGenerated="true" --><span class="preprocessor">if</span><!-- /a --> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --> <span class="preprocessor">!=</span> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease //test_ref/doc/anysymbol/CFRelease" machineGenerated="true" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">=</span> <!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span> <span class="preprocessor">\</span> 
+	    <span class="comment"><span class="comment">/*</span> <span class="comment">return </span><span class="comment">*/</span></span> <span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
 	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
 END OF OBJECT
 
 
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#else</span><span class="preprocessor"> </span><span class="comment"><span class="comment">//</span><span class="comment"></span><span class="comment"> </span><span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/doc/anysymbol/CP_LOG_RECYCLED_ERRORS" machineGenerated="true" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
 END OF OBJECT
 
 
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#endif</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError //test_ref/doc/anysymbol/CPReuseError" machineGenerated="true" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">(</span><span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/struct/if //test_ref/c/intf/if //test_ref/c/econst/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if //test_ref/doc/anysymbol/if" machineGenerated="true" --><span class="preprocessor">if</span><!-- /a --> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --> <span class="preprocessor">!=</span> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError //test_ref/doc/anysymbol/CPPrintRecycledError" machineGenerated="true" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease //test_ref/doc/anysymbol/CFRelease" machineGenerated="true" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">=</span> <!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span> <span class="preprocessor">\</span> 
+	    <span class="comment"><span class="comment">/*</span> <span class="comment">return </span><span class="comment">*/</span></span> <span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: CPReuseError (HeaderDoc::PDefine)
+	<span class="preprocessor">#else</span> <span class="comment"><span class="comment">//</span> <span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
+END OF OBJECT
+
+
+OBJECT: CPReuseError (HeaderDoc::PDefine)
+	<span class="preprocessor">#endif</span> 
 	<span class="comment">// CP_LOG_RECYCLED_ERRORS</span> 
 END OF OBJECT
 
 
 
-$28605|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$28648|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -694,7 +694,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -765,8 +765,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 5
     INDEX GROUP: 
     IS BLOCK: 1
@@ -816,8 +816,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -859,8 +859,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -901,8 +901,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -910,7 +910,7 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: error
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/defineparam/CPReuseError/error
         ABSTRACT: ""
         DISCUSSION: "<p>The CFErrorRef to reuse."
         UPDATED: ""
@@ -944,8 +944,8 @@ ntracts with regards to logging behaviour, so it must be used carefully (and is 
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CPReuseError (HeaderDoc::PDefine)
 +---#define
@@ -1025,7 +1025,7 @@ OBJECT: CPReuseError (HeaderDoc::PDefine)
 END OF OBJECT
 
 
-OBJECT: CPReuseError (HeaderDoc::Function)
+OBJECT: CPReuseError (HeaderDoc::PDefine)
 +---#if
 |   +--- 
 |   +---CP_LOG_RECYCLED_ERRORS
@@ -1147,40 +1147,40 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError //test_ref/doc/anysymbol/CPReuseError" machineGenerated="true" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">(</span><span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/struct/if //test_ref/c/intf/if //test_ref/c/econst/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if //test_ref/doc/anysymbol/if" machineGenerated="true" --><span class="preprocessor">if</span><!-- /a --> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --> <span class="preprocessor">!=</span> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease //test_ref/doc/anysymbol/CFRelease" machineGenerated="true" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">=</span> <!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span> <span class="preprocessor">\</span> 
+	    <span class="comment"><span class="comment">/*</span> <span class="comment">return </span><span class="comment">*/</span></span> <span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
 	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
 END OF OBJECT
 
 
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#else</span><span class="preprocessor"> </span><span class="comment"><span class="comment">//</span><span class="comment"></span><span class="comment"> </span><span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/doc/anysymbol/CP_LOG_RECYCLED_ERRORS" machineGenerated="true" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
 END OF OBJECT
 
 
 OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#endif</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError //test_ref/doc/anysymbol/CPReuseError" machineGenerated="true" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">(</span><span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/struct/if //test_ref/c/intf/if //test_ref/c/econst/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if //test_ref/doc/anysymbol/if" machineGenerated="true" --><span class="preprocessor">if</span><!-- /a --> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --> <span class="preprocessor">!=</span> <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span> <span class="preprocessor">{</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError //test_ref/doc/anysymbol/CPPrintRecycledError" machineGenerated="true" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease //test_ref/doc/anysymbol/CFRelease" machineGenerated="true" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span> <span class="preprocessor">=</span> <!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/struct/NULL //test_ref/c/intf/NULL //test_ref/c/econst/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL //test_ref/doc/anysymbol/NULL" machineGenerated="true" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span> <span class="preprocessor">\</span> 
+	    <span class="comment"><span class="comment">/*</span> <span class="comment">return </span><span class="comment">*/</span></span> <span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/struct/error //test_ref/c/intf/error //test_ref/c/econst/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error //test_ref/doc/anysymbol/error" machineGenerated="true" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span> <span class="preprocessor">\</span> 
+	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: CPReuseError (HeaderDoc::PDefine)
+	<span class="preprocessor">#else</span> <span class="comment"><span class="comment">//</span> <span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
+END OF OBJECT
+
+
+OBJECT: CPReuseError (HeaderDoc::PDefine)
+	<span class="preprocessor">#endif</span> 
 	<span class="comment">// CP_LOG_RECYCLED_ERRORS</span> 
 END OF OBJECT
 
@@ -1190,1164 +1190,4 @@ $241|This abusively tests what happens if you use the @function tag
 for an implicit block of #define macros (wrapped in a #if
 statement).  If this breaks, something is probably wrong with
 name handling and object creation in blockParseOutside().
-$19|define_block_4.test$1|C$14|define block 4$28605|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 1
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_block_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 4
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => CP_LOG_RECYCLED_ERRORS
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #if CP_LOG_RECYCLED_ERRORS
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: MACRO
-namelist: CP_LOG_RECYCLED_ERRORS
-posstypes: MACRO
-value: 
-returntype: #if CP_LOG_RECYCLED_ERRORS
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#if
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define block 4
-APIUID: //test_ref/doc/header/define_block_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 5
-    INDEX GROUP: 
-    IS BLOCK: 1
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: CPReuseError
-    APIUID: //test_ref/c/macro/CPReuseError
-    ABSTRACT: "<p>Convenience macro to release the existing CFError instance, if there is one, and return the freshly-nullified error
-by address.        "
-    DISCUSSION: "<p>You would use this function if you wish to reuse the same CFErrorRef declaration for multiple function
-s; simply pass the result of this macro for the CFErrorRef
-* parameter and it'll ensure any existing value will be cleared before the function is invoked, preventing memory leaks.
-*                               If the compile-time constant CP_LOG_RECYCLED_ERRORS is defined and true, any existing errors will be 
-logged before being released and cleared.  This ensures errors don't slip through the cracks, but it can of course violate function co
-ntracts with regards to logging behaviour, so it must be used carefully (and is thus not the 
-* default behaviour).
-*       "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>The CFErrorRef to reuse."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---CPReuseError
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---(
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---if
-|   +--- 
-|   +---(
-|   +---NULL
-|   +--- 
-|   +---!=
-|   +--- 
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CFRelease
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---=
-|   +--- 
-|   +---NULL
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---/*
-|   |   +--- 
-|   |   +---return 
-|   |   +---*/
-|   +--- 
-|   +---&
-|   +---(
-|   +---error
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---}
-|   +---)
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-+---#if
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---CPReuseError
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---(
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---if
-|   +--- 
-|   +---(
-|   +---NULL
-|   +--- 
-|   +---!=
-|   +--- 
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CPPrintRecycledError
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CFRelease
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---=
-|   +--- 
-|   +---NULL
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---/*
-|   |   +--- 
-|   |   +---return 
-|   |   +---*/
-|   +--- 
-|   +---&
-|   +---(
-|   +---error
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---}
-|   +---)
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#else
-|   +--- 
-|   +---//
-|   |   +--- 
-|   |   +---CP_LOG_RECYCLED_ERRORS
-|   |   +---[ NEWLINE ]
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#endif
-|   +---[ NEWLINE ]
-+--- 
-+---//
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#else</span><span class="preprocessor"> </span><span class="comment"><span class="comment">//</span><span class="comment"></span><span class="comment"> </span><span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#endif</span> 
-	<span class="comment">// CP_LOG_RECYCLED_ERRORS</span> 
-END OF OBJECT
-
-
-
-$28605|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 1
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_block_4.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_4.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 4
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => CP_LOG_RECYCLED_ERRORS
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #if CP_LOG_RECYCLED_ERRORS
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: MACRO
-namelist: CP_LOG_RECYCLED_ERRORS
-posstypes: MACRO
-value: 
-returntype: #if CP_LOG_RECYCLED_ERRORS
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#if
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define block 4
-APIUID: //test_ref/doc/header/define_block_4.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 5
-    INDEX GROUP: 
-    IS BLOCK: 1
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: CPReuseError
-    APIUID: //test_ref/c/macro/CPReuseError
-    ABSTRACT: "<p>Convenience macro to release the existing CFError instance, if there is one, and return the freshly-nullified error
-by address.        "
-    DISCUSSION: "<p>You would use this function if you wish to reuse the same CFErrorRef declaration for multiple function
-s; simply pass the result of this macro for the CFErrorRef
-* parameter and it'll ensure any existing value will be cleared before the function is invoked, preventing memory leaks.
-*                               If the compile-time constant CP_LOG_RECYCLED_ERRORS is defined and true, any existing errors will be 
-logged before being released and cleared.  This ensures errors don't slip through the cracks, but it can of course violate function co
-ntracts with regards to logging behaviour, so it must be used carefully (and is thus not the 
-* default behaviour).
-*       "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: error
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>The CFErrorRef to reuse."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---CPReuseError
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---(
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---if
-|   +--- 
-|   +---(
-|   +---NULL
-|   +--- 
-|   +---!=
-|   +--- 
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CFRelease
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---=
-|   +--- 
-|   +---NULL
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---/*
-|   |   +--- 
-|   |   +---return 
-|   |   +---*/
-|   +--- 
-|   +---&
-|   +---(
-|   +---error
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---}
-|   +---)
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-+---#if
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---CPReuseError
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---(
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---if
-|   +--- 
-|   +---(
-|   +---NULL
-|   +--- 
-|   +---!=
-|   +--- 
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +--- 
-|   +---{
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CPPrintRecycledError
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---CFRelease
-|   +---(
-|   +---(
-|   +---error
-|   +---)
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---                
-|   +---(
-|   +---error
-|   +---)
-|   +--- 
-|   +---=
-|   +--- 
-|   +---NULL
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---}
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---        
-|   +---/*
-|   |   +--- 
-|   |   +---return 
-|   |   +---*/
-|   +--- 
-|   +---&
-|   +---(
-|   +---error
-|   +---)
-|   +---;
-|   +--- 
-|   +---\
-|   +---[ NEWLINE ]
-|   +---}
-|   +---)
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#else
-|   +--- 
-|   +---//
-|   |   +--- 
-|   |   +---CP_LOG_RECYCLED_ERRORS
-|   |   +---[ NEWLINE ]
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-+---#endif
-|   +---[ NEWLINE ]
-+--- 
-+---//
-|   +--- 
-|   +---CP_LOG_RECYCLED_ERRORS
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::Function)
-	<span class="">#if</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CP_LOG_RECYCLED_ERRORS //test_ref/c/tdef/CP_LOG_RECYCLED_ERRORS //test_ref/c/tag/CP_LOG_RECYCLED_ERRORS //test_ref/c/econst/CP_LOG_RECYCLED_ERRORS //test_ref/c/struct/CP_LOG_RECYCLED_ERRORS //test_ref/c/data/CP_LOG_RECYCLED_ERRORS //test_ref/c/clconst/CP_LOG_RECYCLED_ERRORS //test_ref/c/intf/CP_LOG_RECYCLED_ERRORS //test_ref/c/instm/CP_LOG_RECYCLED_ERRORS //test_ref/c/clm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfcm/CP_LOG_RECYCLED_ERRORS //test_ref/c/intfm/CP_LOG_RECYCLED_ERRORS //test_ref/c/func/CP_LOG_RECYCLED_ERRORS //test_ref/c/ftmplt/CP_LOG_RECYCLED_ERRORS //test_ref/c/defn/CP_LOG_RECYCLED_ERRORS //test_ref/c/macro/CP_LOG_RECYCLED_ERRORS //test_ref/doc/com/intfm/CP_LOG_RECYCLED_ERRORS" --><span class="preprocessor">CP_LOG_RECYCLED_ERRORS</span><!-- /a --> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/CPReuseError //test_ref/c/tdef/CPReuseError //test_ref/c/tag/CPReuseError //test_ref/c/econst/CPReuseError //test_ref/c/struct/CPReuseError //test_ref/c/data/CPReuseError //test_ref/c/clconst/CPReuseError //test_ref/c/intf/CPReuseError //test_ref/c/instm/CPReuseError //test_ref/c/clm/CPReuseError //test_ref/c/intfcm/CPReuseError //test_ref/c/intfm/CPReuseError //test_ref/c/func/CPReuseError //test_ref/c/ftmplt/CPReuseError //test_ref/c/defn/CPReuseError //test_ref/c/macro/CPReuseError //test_ref/doc/com/intfm/CPReuseError" --><span class="preprocessor">CPReuseError</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">(</span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/if //test_ref/c/tdef/if //test_ref/c/tag/if //test_ref/c/econst/if //test_ref/c/struct/if //test_ref/c/data/if //test_ref/c/clconst/if //test_ref/c/intf/if //test_ref/c/instm/if //test_ref/c/clm/if //test_ref/c/intfcm/if //test_ref/c/intfm/if //test_ref/c/func/if //test_ref/c/ftmplt/if //test_ref/c/defn/if //test_ref/c/macro/if //test_ref/doc/com/intfm/if" --><span class="preprocessor">if</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">!=</span><span class="preprocessor"> </span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">{</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CPPrintRecycledError //test_ref/c/tdef/CPPrintRecycledError //test_ref/c/tag/CPPrintRecycledError //test_ref/c/econst/CPPrintRecycledError //test_ref/c/struct/CPPrintRecycledError //test_ref/c/data/CPPrintRecycledError //test_ref/c/clconst/CPPrintRecycledError //test_ref/c/intf/CPPrintRecycledError //test_ref/c/instm/CPPrintRecycledError //test_ref/c/clm/CPPrintRecycledError //test_ref/c/intfcm/CPPrintRecycledError //test_ref/c/intfm/CPPrintRecycledError //test_ref/c/func/CPPrintRecycledError //test_ref/c/ftmplt/CPPrintRecycledError //test_ref/c/defn/CPPrintRecycledError //test_ref/c/macro/CPPrintRecycledError //test_ref/doc/com/intfm/CPPrintRecycledError" --><span class="preprocessor">CPPrintRecycledError</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <!-- a logicalPath="//test_ref/c/cl/CFRelease //test_ref/c/tdef/CFRelease //test_ref/c/tag/CFRelease //test_ref/c/econst/CFRelease //test_ref/c/struct/CFRelease //test_ref/c/data/CFRelease //test_ref/c/clconst/CFRelease //test_ref/c/intf/CFRelease //test_ref/c/instm/CFRelease //test_ref/c/clm/CFRelease //test_ref/c/intfcm/CFRelease //test_ref/c/intfm/CFRelease //test_ref/c/func/CFRelease //test_ref/c/ftmplt/CFRelease //test_ref/c/defn/CFRelease //test_ref/c/macro/CFRelease //test_ref/doc/com/intfm/CFRelease" --><span class="preprocessor">CFRelease</span><!-- /a --><span class="preprocessor">(</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor"> </span><span class="preprocessor">=</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/NULL //test_ref/c/tdef/NULL //test_ref/c/tag/NULL //test_ref/c/econst/NULL //test_ref/c/struct/NULL //test_ref/c/data/NULL //test_ref/c/clconst/NULL //test_ref/c/intf/NULL //test_ref/c/instm/NULL //test_ref/c/clm/NULL //test_ref/c/intfcm/NULL //test_ref/c/intfm/NULL //test_ref/c/func/NULL //test_ref/c/ftmplt/NULL //test_ref/c/defn/NULL //test_ref/c/macro/NULL //test_ref/doc/com/intfm/NULL" --><span class="preprocessor">NULL</span><!-- /a --><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="comment"><span class="comment">/*</span><span class="comment"></span><span class="comment"> </span><span class="comment">return </span><span class="comment">*/</span></span><span class="preprocessor"> </span><span class="preprocessor">&amp;</span><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/error //test_ref/c/tdef/error //test_ref/c/tag/error //test_ref/c/econst/error //test_ref/c/struct/error //test_ref/c/data/error //test_ref/c/clconst/error //test_ref/c/intf/error //test_ref/c/instm/error //test_ref/c/clm/error //test_ref/c/intfcm/error //test_ref/c/intfm/error //test_ref/c/func/error //test_ref/c/ftmplt/error //test_ref/c/defn/error //test_ref/c/macro/error //test_ref/doc/com/intfm/error" --><span class="preprocessor">error</span><!-- /a --><span class="preprocessor">)</span><span class="preprocessor">;</span><span class="preprocessor"> </span><span class="preprocessor">\</span> 
-	    <span class="preprocessor">}</span><span class="preprocessor">)</span> 
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#else</span><span class="preprocessor"> </span><span class="comment"><span class="comment">//</span><span class="comment"></span><span class="comment"> </span><span class="comment">CP_LOG_RECYCLED_ERRORS</span></span>  
-END OF OBJECT
-
-
-OBJECT: CPReuseError (HeaderDoc::PDefine)
-	<span class="">#endif</span> 
-	<span class="comment">// CP_LOG_RECYCLED_ERRORS</span> 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+$96|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/define_block_4.test$1|C$14|define block 4$1|C$6|parser

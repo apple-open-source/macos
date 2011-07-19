@@ -134,7 +134,6 @@ _pthread_is_threaded_np
 _task_get_special_port
 _bootstrap_check_in
 _vproc_mig_check_in
-___commpage_dsmos
 _malloc_good_size
 _szone_good_size
 _opendir$UNIX2003
@@ -219,7 +218,6 @@ _getsectdata
 _getsectbyname
 _getegid
 _gettimeofday
-___commpage_gettimeofday
 _strlcpy
 _strlcat
 _setenv$UNIX2003

@@ -72,7 +72,7 @@ pam_start(const char *service,
 		goto fail;
 
 	*pamh = ph;
-	openpam_log(PAM_LOG_DEBUG, "pam_start(\"%s\") succeeded", service);
+	openpam_log(PAM_LOG_LIBDEBUG, "pam_start(\"%s\") succeeded", service);
 	RETURNC(PAM_SUCCESS);
 
  fail:

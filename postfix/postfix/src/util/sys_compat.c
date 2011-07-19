@@ -308,7 +308,7 @@ const char *inet_ntop(int af, const void *src, char *dst, size_t size)
     addr = (const unsigned char *) src;
 #if (CHAR_BIT > 8)
     snprintf(buffer, sizeof buffer, "%d.%d.%d.%d", addr[0] & 0xff,
-	     addr[1] & 0xff, addr[2] & 0xff, addr[3] & 0xff);
+	    addr[1] & 0xff, addr[2] & 0xff, addr[3] & 0xff);
 #else
     snprintf(buffer, sizeof buffer, "%d.%d.%d.%d", addr[0], addr[1], addr[2], addr[3]);
 #endif

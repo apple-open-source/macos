@@ -1,23 +1,31 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright © 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * This file contains Original Code and/or Modifications of Original Code
- * as defined in and that are subject to the Apple Public Source License
- * Version 2.0 (the 'License'). You may not use this file except in
- * compliance with the License. Please obtain a copy of the License at
- * http://www.opensource.apple.com/apsl/ and read it before using this
- * file.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
  * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
- * Please see the License for the specific language governing rights and
- * limitations under the License.
+ * 1.  Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission. 
  * 
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
  * @APPLE_LICENSE_HEADER_END@
  */
 #include "stdio.h"
@@ -311,6 +319,9 @@ struct section_info {
     char *contents;
     uint32_t addr;
     uint32_t size;
+    uint32_t offset;
+    enum bool protected;
+    enum bool zerofill;
 };
 
 static void get_objc_sections(
@@ -491,8 +502,9 @@ static enum bool get_hashEntry(
 /*
  * Print the objc segment.
  */
-void
+enum bool
 print_objc_segment(
+cpu_type_t mh_cputype,
 struct load_command *load_commands,
 uint32_t ncmds,
 uint32_t sizeofcmds,
@@ -530,9 +542,11 @@ enum bool verbose)
 			  &modules_addr, &modules_size);
 
 	if(modules == NULL){
+	    if(mh_cputype == CPU_TYPE_I386)
+		return(FALSE);
 	    printf("can't print objective-C information no (" SEG_OBJC ","
 		   SECT_OBJC_MODULES ") section\n");
-	    return;
+	    return(TRUE);
 	}
 
     if (verbose)
@@ -868,6 +882,7 @@ print_objc_class:
 	else
 	    printf(" RR");
 	printf("\n");
+	return(TRUE);
 }
 
 void
@@ -1097,13 +1112,14 @@ uint32_t *sect_addr,
 uint32_t *sect_size)
 {
     enum byte_sex host_byte_sex;
-    enum bool swapped;
+    enum bool swapped, encrypt_found;
 
     uint32_t i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
     struct segment_command sg;
     struct section s;
+    struct encryption_info_command encrypt;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1113,6 +1129,7 @@ uint32_t *sect_size)
 	*sect = NULL;
 	*sect_addr = 0;
 	*sect_size = 0;
+	encrypt_found = FALSE;
 
 	lc = load_commands;
 	for(i = 0 ; i < ncmds; i++){
@@ -1158,6 +1175,9 @@ uint32_t *sect_size)
 			(*objc_sections)[*nobjc_sections].addr = s.addr;
 			(*objc_sections)[*nobjc_sections].contents = 
 							 object_addr + s.offset;
+			(*objc_sections)[*nobjc_sections].offset = s.offset;
+		        (*objc_sections)[*nobjc_sections].zerofill =
+			  (s.flags & SECTION_TYPE) == S_ZEROFILL ? TRUE : FALSE;
 			if(s.offset > object_size){
 			    printf("section contents of: (%.16s,%.16s) is past "
 				   "end of file\n", s.segname, s.sectname);
@@ -1183,6 +1203,10 @@ uint32_t *sect_size)
 				*sect_addr = s.addr;
 			    }
 			}
+			if(sg.flags & SG_PROTECTED_VERSION_1)
+			    (*objc_sections)[*nobjc_sections].protected = TRUE;
+			else
+			    (*objc_sections)[*nobjc_sections].protected = FALSE;
 			(*nobjc_sections)++;
 		    }
 
@@ -1191,6 +1215,16 @@ uint32_t *sect_size)
 			break;
 		    p += size;
 		}
+		break;
+	    case LC_ENCRYPTION_INFO:
+		memset((char *)&encrypt, '\0',
+		       sizeof(struct encryption_info_command));
+		size = left < sizeof(struct encryption_info_command) ?
+		       left : sizeof(struct encryption_info_command);
+		memcpy((char *)&encrypt, (char *)lc, size);
+		if(swapped)
+		    swap_encryption_command(&encrypt, host_byte_sex);
+		encrypt_found = TRUE;
 		break;
 	    }
 	    if(lcmd.cmdsize == 0){
@@ -1201,6 +1235,26 @@ uint32_t *sect_size)
 	    lc = (struct load_command *)((char *)lc + lcmd.cmdsize);
 	    if((char *)lc > (char *)load_commands + sizeofcmds)
 		break;
+	}
+
+	if(encrypt_found == TRUE && encrypt.cryptid != 0){
+	    for(i = 0; i < *nobjc_sections; i++){
+		if((*objc_sections)[i].size > 0 &&
+		   (*objc_sections)[i].zerofill == FALSE){
+		    if((*objc_sections)[i].offset >
+		       encrypt.cryptoff + encrypt.cryptsize){
+			/* section starts past encryption area */ ;
+		    }
+		    else if((*objc_sections)[i].offset +
+			    (*objc_sections)[i].size < encrypt.cryptoff){
+			/* section ends before encryption area */ ;
+		    }
+		    else{
+			/* section has part in the encrypted area */
+			(*objc_sections)[i].protected = TRUE;
+		    }
+		}
+	    }
 	}
 }
 
@@ -1284,6 +1338,10 @@ struct section_info *cstring_section)
 			}
 			else
 			    cstring_section->size = s.size;
+			if(sg.flags & SG_PROTECTED_VERSION_1)
+			    cstring_section->protected = TRUE;
+			else
+			    cstring_section->protected = FALSE;
 			return;
 		    }
 
@@ -1664,8 +1722,11 @@ struct section_info *cstring_section_ptr)
 	   addr < cstring_section_ptr->addr + cstring_section_ptr->size){
 	    *left = cstring_section_ptr->size -
 	    (addr - cstring_section_ptr->addr);
-	    returnValue = (cstring_section_ptr->contents +
-			   (addr - cstring_section_ptr->addr));
+	    if(cstring_section_ptr->protected == TRUE)
+		returnValue = "some string from a protected section";
+	    else
+		returnValue = (cstring_section_ptr->contents +
+			       (addr - cstring_section_ptr->addr));
 	}
 	for(i = 0; returnValue != NULL && i < nobjc_sections; i++){
 	    if(addr >= objc_sections[i].addr &&

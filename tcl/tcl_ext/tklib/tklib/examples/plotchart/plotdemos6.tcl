@@ -2,13 +2,12 @@
 # -*- tcl -*- \
 exec tclsh "$0" ${1+"$@"}
 
-package require Tcl 8.3
+package require Tcl 8.4
 package require Tk
-source ../../modules/plotchart/plotchart.tcl
 package require Plotchart
 
-# testplot.tcl --
-#    Test program for the Plotchart package
+# plotdemos6.tcl --
+#    Test/demo program 6 for the Plotchart package
 #
 
 #

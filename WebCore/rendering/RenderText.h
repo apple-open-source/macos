@@ -24,11 +24,11 @@
 #define RenderText_h
 
 #include "RenderObject.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class InlineTextBox;
-class StringImpl;
 
 class RenderText : public RenderObject {
 public:
@@ -62,32 +62,34 @@ public:
     virtual void absoluteQuads(Vector<FloatQuad>&);
     void absoluteQuadsForRange(Vector<FloatQuad>&, unsigned startOffset = 0, unsigned endOffset = UINT_MAX, bool useSelectionHeight = false);
 
+    enum ClippingOption { NoClipping, ClipToEllipsis };
+    void absoluteQuads(Vector<FloatQuad>&, ClippingOption option = NoClipping);
+
     virtual VisiblePosition positionForPoint(const IntPoint&);
 
     const UChar* characters() const { return m_text.characters(); }
     unsigned textLength() const { return m_text.length(); } // non virtual implementation of length()
     void positionLineBox(InlineBox*);
 
-    virtual unsigned width(unsigned from, unsigned len, const Font&, int xPos, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
-    virtual unsigned width(unsigned from, unsigned len, int xPos, bool firstLine = false, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
+    virtual float width(unsigned from, unsigned len, const Font&, float xPos, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
+    virtual float width(unsigned from, unsigned len, float xPos, bool firstLine = false, HashSet<const SimpleFontData*>* fallbackFonts = 0, GlyphOverflow* = 0) const;
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
+    float minLogicalWidth() const;
+    float maxLogicalWidth() const;
 
-    virtual int minPrefWidth() const;
-    virtual int maxPrefWidth() const;
-
-    void trimmedPrefWidths(int leadWidth,
-                           int& beginMinW, bool& beginWS,
-                           int& endMinW, bool& endWS,
+    void trimmedPrefWidths(float leadWidth,
+                           float& beginMinW, bool& beginWS,
+                           float& endMinW, bool& endWS,
                            bool& hasBreakableChar, bool& hasBreak,
-                           int& beginMaxW, int& endMaxW,
-                           int& minW, int& maxW, bool& stripFrontSpaces);
+                           float& beginMaxW, float& endMaxW,
+                           float& minW, float& maxW, bool& stripFrontSpaces);
 
-    IntRect linesBoundingBox() const;
+    virtual IntRect linesBoundingBox() const;
+    IntRect linesVisualOverflowBoundingBox() const;
 
-    IntPoint firstRunOrigin() const;
-    int firstRunX() const;
-    int firstRunY() const;
+    FloatPoint firstRunOrigin() const;
+    float firstRunX() const;
+    float firstRunY() const;
 
     void setText(PassRefPtr<StringImpl>, bool force = false);
     void setTextWithOffset(PassRefPtr<StringImpl>, unsigned offset, unsigned len, bool force = false);
@@ -121,9 +123,13 @@ public:
 
     void checkConsistency() const;
 
-    virtual void calcPrefWidths(int leadWidth);
+    virtual void computePreferredLogicalWidths(float leadWidth);
     bool isAllCollapsibleWhitespace();
     
+    bool knownToHaveNoOverflowAndNoFallbackFonts() const { return m_knownToHaveNoOverflowAndNoFallbackFonts; }
+
+    void removeAndDestroyTextBoxes();
+
 protected:
     virtual void styleWillChange(StyleDifference, const RenderStyle*) { }
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
@@ -134,7 +140,7 @@ protected:
     virtual InlineTextBox* createTextBox(); // Subclassed by SVG.
 
 private:
-    void calcPrefWidths(int leadWidth, HashSet<const SimpleFontData*>& fallbackFonts, GlyphOverflow&);
+    void computePreferredLogicalWidths(float leadWidth, HashSet<const SimpleFontData*>& fallbackFonts, GlyphOverflow&);
 
     // Make length() private so that callers that have a RenderText*
     // will use the more efficient textLength() instead, while
@@ -143,26 +149,26 @@ private:
 
     virtual void paint(PaintInfo&, int, int) { ASSERT_NOT_REACHED(); }
     virtual void layout() { ASSERT_NOT_REACHED(); }
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int, int, int, int, HitTestAction) { ASSERT_NOT_REACHED(); return false; }
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint&, int, int, HitTestAction) { ASSERT_NOT_REACHED(); return false; }
 
     void deleteTextBoxes();
     bool containsOnlyWhitespace(unsigned from, unsigned len) const;
-    int widthFromCache(const Font&, int start, int len, int xPos, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow*) const;
+    float widthFromCache(const Font&, int start, int len, float xPos, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow*) const;
     bool isAllASCII() const { return m_isAllASCII; }
     void updateNeedsTranscoding();
 
     inline void transformText(String&) const;
 
-    int m_minWidth; // here to minimize padding in 64-bit.
+    float m_minWidth; // here to minimize padding in 64-bit.
 
     String m_text;
 
     InlineTextBox* m_firstTextBox;
     InlineTextBox* m_lastTextBox;
 
-    int m_maxWidth;
-    int m_beginMinWidth;
-    int m_endMinWidth;
+    float m_maxWidth;
+    float m_beginMinWidth;
+    float m_endMinWidth;
 
     bool m_hasBreakableChar : 1; // Whether or not we can be broken into multiple lines.
     bool m_hasBreak : 1; // Whether or not we have a hard break (e.g., <pre> with '\n').

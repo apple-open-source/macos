@@ -208,11 +208,26 @@ void Dumper::expr(SyntaxLevel level)
 		}
 		print("]"); match();
 		break;
+	case opCertPolicy:
+		print("certificate"); certSlot(); print("[");
+		{
+			const unsigned char *data; size_t length;
+			getData(data, length);
+			print("policy.%s", CssmOid((unsigned char *)data, length).toOid().c_str());
+		}
+		print("]"); match();
+		break;
 	case opTrustedCert:
 		print("certificate"); certSlot(); print("trusted");
 		break;
 	case opTrustedCerts:
 		print("anchor trusted");
+		break;
+	case opNamedAnchor:
+		print("anchor apple "); data();
+		break;
+	case opNamedCode:
+		print("("); data(); print(")");
 		break;
 	default:
 		if (op & opGenericFalse) {

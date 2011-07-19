@@ -33,30 +33,34 @@
 #define Notification_h
 
 #include "ActiveDOMObject.h"
-#include "AtomicStringHash.h"
-#include "Event.h"
-#include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "ExceptionCode.h"
 #include "KURL.h"
-#include "NotificationPresenter.h"
 #include "NotificationContents.h"
-#include "RegisteredEventListener.h"
+#include "SharedBuffer.h"
+#include "TextDirection.h"
+#include "ThreadableLoaderClient.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicStringHash.h>
 
 #if ENABLE(NOTIFICATIONS)
 namespace WebCore {
 
-    class WorkerContext;
+    class NotificationCenter;
+    class ResourceError;
+    class ResourceResponse;
+    class ScriptExecutionContext;
+    class ThreadableLoader;
 
-    class Notification : public RefCounted<Notification>, public ActiveDOMObject, public EventTarget { 
+    class Notification : public RefCounted<Notification>, public ActiveDOMObject, public ThreadableLoaderClient, public EventTarget {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
-        static Notification* create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return new Notification(url, context, ec, provider); }
-        static Notification* create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, NotificationPresenter* provider) { return new Notification(contents, context, ec, provider); }
+        static PassRefPtr<Notification> create(const KURL& url, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider);
+        static PassRefPtr<Notification> create(const NotificationContents& contents, ScriptExecutionContext* context, ExceptionCode& ec, PassRefPtr<NotificationCenter> provider);
         
         virtual ~Notification();
 
@@ -73,9 +77,12 @@ namespace WebCore {
         String replaceId() const { return m_replaceId; }
         void setReplaceId(const String& replaceId) { m_replaceId = replaceId; }
 
+        TextDirection direction() const { return dir() == "rtl" ? RTL : LTR; }
+
         DEFINE_ATTRIBUTE_EVENT_LISTENER(display);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(error);
         DEFINE_ATTRIBUTE_EVENT_LISTENER(close);
+        DEFINE_ATTRIBUTE_EVENT_LISTENER(click);
     
         using RefCounted<Notification>::ref;
         using RefCounted<Notification>::deref;
@@ -84,9 +91,27 @@ namespace WebCore {
         virtual ScriptExecutionContext* scriptExecutionContext() const { return ActiveDOMObject::scriptExecutionContext(); }
         virtual Notification* toNotification() { return this; }
 
+        // ActiveDOMObject interface
+        virtual void contextDestroyed();
+
+        void stopLoading();
+
+        SharedBuffer* iconData() { return m_iconData.get(); }
+        void releaseIconData() { m_iconData = 0; }
+
+        // Deprecated. Use functions from NotificationCenter.
+        void detachPresenter() { }
+
+        virtual void didReceiveResponse(const ResourceResponse&);
+        virtual void didReceiveData(const char* data, int dataLength);
+        virtual void didFinishLoading(unsigned long identifier, double finishTime);
+        virtual void didFail(const ResourceError&);
+        virtual void didFailRedirectCheck();
+        virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
+
     private:
-        Notification(const KURL&, ScriptExecutionContext*, ExceptionCode&, NotificationPresenter*);
-        Notification(const NotificationContents&, ScriptExecutionContext*, ExceptionCode&, NotificationPresenter*);
+        Notification(const KURL&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
+        Notification(const NotificationContents&, ScriptExecutionContext*, ExceptionCode&, PassRefPtr<NotificationCenter>);
 
         // EventTarget interface
         virtual void refEventTarget() { ref(); }
@@ -94,18 +119,31 @@ namespace WebCore {
         virtual EventTargetData* eventTargetData();
         virtual EventTargetData* ensureEventTargetData();
 
+        void startLoading();
+        void finishLoading();
+
         bool m_isHTML;
         KURL m_notificationURL;
         NotificationContents m_contents;
 
         String m_direction;
         String m_replaceId;
-      
-        bool m_isShowing;
 
-        NotificationPresenter* m_presenter;
+        enum NotificationState {
+            Idle = 0,
+            Loading = 1,
+            Showing = 2,
+            Cancelled = 3
+        };
+
+        NotificationState m_state;
+
+        RefPtr<NotificationCenter> m_notificationCenter;
         
         EventTargetData m_eventTargetData;
+
+        RefPtr<ThreadableLoader> m_loader;
+        RefPtr<SharedBuffer> m_iconData;
     };
 
 } // namespace WebCore

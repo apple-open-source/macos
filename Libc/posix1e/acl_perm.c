@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,58 @@
 #include <string.h>
 
 #include "aclvar.h"
+
+#if __DARWIN_ACL_READ_DATA != KAUTH_VNODE_READ_DATA
+#  error __DARWIN_ACL_READ_DATA != KAUTH_VNODE_READ_DATA
+#endif
+#if __DARWIN_ACL_LIST_DIRECTORY != KAUTH_VNODE_LIST_DIRECTORY
+#  error __DARWIN_ACL_LIST_DIRECTORY != KAUTH_VNODE_LIST_DIRECTORY
+#endif
+#if __DARWIN_ACL_WRITE_DATA != KAUTH_VNODE_WRITE_DATA
+#  error __DARWIN_ACL_WRITE_DATA != KAUTH_VNODE_WRITE_DATA
+#endif
+#if __DARWIN_ACL_ADD_FILE != KAUTH_VNODE_ADD_FILE
+#  error __DARWIN_ACL_ADD_FILE != KAUTH_VNODE_ADD_FILE
+#endif
+#if __DARWIN_ACL_EXECUTE != KAUTH_VNODE_EXECUTE
+#  error __DARWIN_ACL_EXECUTE != KAUTH_VNODE_EXECUTE
+#endif
+#if __DARWIN_ACL_SEARCH != KAUTH_VNODE_SEARCH
+#  error __DARWIN_ACL_SEARCH != KAUTH_VNODE_SEARCH
+#endif
+#if __DARWIN_ACL_DELETE != KAUTH_VNODE_DELETE
+#  error __DARWIN_ACL_DELETE != KAUTH_VNODE_DELETE
+#endif
+#if __DARWIN_ACL_APPEND_DATA != KAUTH_VNODE_APPEND_DATA
+#  error __DARWIN_ACL_APPEND_DATA != KAUTH_VNODE_APPEND_DATA
+#endif
+#if __DARWIN_ACL_ADD_SUBDIRECTORY != KAUTH_VNODE_ADD_SUBDIRECTORY
+#  error __DARWIN_ACL_ADD_SUBDIRECTORY != KAUTH_VNODE_ADD_SUBDIRECTORY
+#endif
+#if __DARWIN_ACL_DELETE_CHILD != KAUTH_VNODE_DELETE_CHILD
+#  error __DARWIN_ACL_DELETE_CHILD != KAUTH_VNODE_DELETE_CHILD
+#endif
+#if __DARWIN_ACL_READ_ATTRIBUTES != KAUTH_VNODE_READ_ATTRIBUTES
+#  error __DARWIN_ACL_READ_ATTRIBUTES != KAUTH_VNODE_READ_ATTRIBUTES
+#endif
+#if __DARWIN_ACL_WRITE_ATTRIBUTES != KAUTH_VNODE_WRITE_ATTRIBUTES
+#  error __DARWIN_ACL_WRITE_ATTRIBUTES != KAUTH_VNODE_WRITE_ATTRIBUTES
+#endif
+#if __DARWIN_ACL_READ_EXTATTRIBUTES != KAUTH_VNODE_READ_EXTATTRIBUTES
+#  error __DARWIN_ACL_READ_EXTATTRIBUTES != KAUTH_VNODE_READ_EXTATTRIBUTES
+#endif
+#if __DARWIN_ACL_WRITE_EXTATTRIBUTES != KAUTH_VNODE_WRITE_EXTATTRIBUTES
+#  error __DARWIN_ACL_WRITE_EXTATTRIBUTES != KAUTH_VNODE_WRITE_EXTATTRIBUTES
+#endif
+#if __DARWIN_ACL_READ_SECURITY != KAUTH_VNODE_READ_SECURITY
+#  error __DARWIN_ACL_READ_SECURITY != KAUTH_VNODE_READ_SECURITY
+#endif
+#if __DARWIN_ACL_WRITE_SECURITY != KAUTH_VNODE_WRITE_SECURITY
+#  error __DARWIN_ACL_WRITE_SECURITY != KAUTH_VNODE_WRITE_SECURITY
+#endif
+#if __DARWIN_ACL_CHANGE_OWNER != KAUTH_VNODE_CHANGE_OWNER
+#  error __DARWIN_ACL_CHANGE_OWNER != KAUTH_VNODE_CHANGE_OWNER
+#endif
 
 int
 acl_add_perm(acl_permset_t permset, acl_perm_t perm)
@@ -83,4 +135,31 @@ acl_set_permset(acl_entry_t entry, acl_permset_t permset)
 
 	entry->ae_perms = permset->ap_perms;
 	return(0);
+}
+
+int
+acl_maximal_permset_mask_np(acl_permset_mask_t * mask_p)
+{
+	/* Bitwise or of all possible acl_perm_t values */
+	*mask_p = _ACL_PERMS_MASK;
+	return (0);
+}
+
+int
+acl_get_permset_mask_np(acl_entry_t entry, acl_permset_mask_t * mask_p)
+{
+	_ACL_VALIDATE_ENTRY(entry);
+
+	*mask_p = (acl_permset_mask_t)entry->ae_perms;
+	return (0);
+}
+
+int
+acl_set_permset_mask_np(acl_entry_t entry, acl_permset_mask_t mask)
+{
+	_ACL_VALIDATE_ENTRY(entry);
+	_ACL_VALIDATE_PERM(mask);
+
+	entry->ae_perms = mask;
+	return (0);
 }

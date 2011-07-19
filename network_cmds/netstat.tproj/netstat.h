@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -78,10 +78,12 @@ extern int	lflag;	/* show routing table with use and ref */
 extern int	Lflag;	/* show size of listen queues */
 extern int	mflag;	/* show memory stats */
 extern int	nflag;	/* show addresses numerically */
+extern int	Rflag;	/* show reachability information */
 extern int	rflag;	/* show routing tables (or routing stats) */
 extern int	sflag;	/* show protocol statistics */
 extern int	prioflag; /* show packet priority  statistics */
 extern int	tflag;	/* show i/f watchdog timers */
+extern int	vflag;	/* more verbose */
 extern int	Wflag;	/* wide display */
 
 extern int	interval; /* repeat interval for i/f stats */
@@ -134,6 +136,7 @@ extern void	pfkey_stats(uint32_t, char *, int);
 extern void	mbpr(void);
 
 extern void	intpr(void (*)(char *));
+extern void	intpr_ri(void (*)(char *));
 extern void	intervalpr(void (*)(uint32_t, char *, int), uint32_t,
 		    char *, int);
 

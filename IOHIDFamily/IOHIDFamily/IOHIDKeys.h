@@ -89,6 +89,7 @@ __BEGIN_DECLS
 #define kIOHIDMaxFeatureReportSizeKey	    "MaxFeatureReportSize"
 #define kIOHIDReportIntervalKey             "ReportInterval"
 #define kIOHIDReportDescriptorKey           "ReportDescriptor"
+#define kIOHIDResetKey                      "Reset"
 
 /*!
     @define kIOHIDElementKey

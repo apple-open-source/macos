@@ -21,15 +21,17 @@
 #ifndef CollectionCache_h
 #define CollectionCache_h
 
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
-class AtomicStringImpl;
 class Element;
 
-struct CollectionCache : FastAllocBase {
+struct CollectionCache {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
     CollectionCache();
     CollectionCache(const CollectionCache&);
     CollectionCache& operator=(const CollectionCache& other)
@@ -47,7 +49,7 @@ struct CollectionCache : FastAllocBase {
 
     typedef HashMap<AtomicStringImpl*, Vector<Element*>*> NodeCacheMap;
 
-    unsigned version;
+    uint64_t version;
     Element* current;
     unsigned position;
     unsigned length;

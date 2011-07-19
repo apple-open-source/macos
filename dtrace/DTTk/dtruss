@@ -343,6 +343,7 @@ dtrace='
  }
 
  /* print 3 args, arg0 as a string */
+ syscall::execve:return,
  syscall::stat:return, 
  syscall::stat64:return, 
  syscall::lstat:return, 

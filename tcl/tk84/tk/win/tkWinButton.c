@@ -1,4 +1,4 @@
-/* 
+/*
  * tkWinButton.c --
  *
  *	This file implements the Windows specific portion of the button
@@ -37,17 +37,16 @@ typedef struct WinButton {
     DWORD style;		/* Window style flags. */
 } WinButton;
 
-
 /*
- * The following macro reverses the order of RGB bytes to convert
- * between RGBQUAD and COLORREF values.
+ * The following macro reverses the order of RGB bytes to convert between
+ * RGBQUAD and COLORREF values.
  */
 
 #define FlipColor(rgb) (RGB(GetBValue(rgb),GetGValue(rgb),GetRValue(rgb)))
 
 /*
- * The following enumeration defines the meaning of the palette entries
- * in the "buttons" image used to draw checkbox and radiobutton indicators.
+ * The following enumeration defines the meaning of the palette entries in the
+ * "buttons" image used to draw checkbox and radiobutton indicators.
  */
 
 enum {
@@ -61,24 +60,24 @@ enum {
 };
 
 /*
- * Cached information about the boxes bitmap, and the default border 
- * width for a button in string form for use in Tk_OptionSpec for 
- * the various button widget classes.
+ * Cached information about the boxes bitmap, and the default border width for
+ * a button in string form for use in Tk_OptionSpec for the various button
+ * widget classes.
  */
 
-typedef struct ThreadSpecificData { 
+typedef struct ThreadSpecificData {
     BITMAPINFOHEADER *boxesPtr;   /* Information about the bitmap. */
     DWORD *boxesPalette;	  /* Pointer to color palette. */
     LPSTR boxesBits;		  /* Pointer to bitmap data. */
     DWORD boxHeight;              /* Height of each sub-image. */
     DWORD boxWidth ;              /* Width of each sub-image. */
-    char defWidth[TCL_INTEGER_SPACE];
 } ThreadSpecificData;
 static Tcl_ThreadDataKey dataKey;
 
 /*
  * Declarations for functions defined in this file.
  */
+
 static LRESULT CALLBACK	ButtonProc _ANSI_ARGS_((HWND hwnd, UINT message,
 			    WPARAM wParam, LPARAM lParam));
 static Window		CreateProc _ANSI_ARGS_((Tk_Window tkwin,
@@ -89,7 +88,7 @@ static void		InitBoxes _ANSI_ARGS_((void));
  * The class procedure table for the button widgets.
  */
 
-Tk_ClassProcs tkpButtonProcs = { 
+Tk_ClassProcs tkpButtonProcs = {
     sizeof(Tk_ClassProcs),	/* size */
     TkButtonWorldChanged,	/* worldChangedProc */
     CreateProc,			/* createProc */
@@ -185,21 +184,9 @@ TkpButtonSetDefaults(specPtr)
 				 * terminated by one with type
 				 * TK_OPTION_END. */
 {
-    int width;
-    ThreadSpecificData *tsdPtr = (ThreadSpecificData *) 
-            Tcl_GetThreadData(&dataKey, sizeof(ThreadSpecificData));
-
-    if (tsdPtr->defWidth[0] == 0) {
-	width = GetSystemMetrics(SM_CXEDGE);
-	if (width == 0) {
-	    width = 1;
-	}
-	sprintf(tsdPtr->defWidth, "%d", width);
-    }
-    for ( ; specPtr->type != TK_OPTION_END; specPtr++) {
-	if (specPtr->internalOffset == Tk_Offset(TkButton, borderWidth)) {
-	    specPtr->defValue = tsdPtr->defWidth;
-	}
+    int width = GetSystemMetrics(SM_CXEDGE);
+    if (width > 0) {
+	sprintf(tkDefButtonBorderWidth, "%d", width);
     }
 }
 

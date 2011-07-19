@@ -1,0 +1,53 @@
+%d expands to empty string
+==========================
+
+The problem is that your username string lost the domain part. Dovecot doesn't
+keep track of the domain separately from username, so if something changes
+username from "user@domain" to just plain "user", the domain is lost and %d
+returns nothing. If you have 'auth_debug=yes', this shows up in logs like:
+
+---%<-------------------------------------------------------------------------
+Info: auth(user@domain.org): username changed user@domain.org -> user
+---%<-------------------------------------------------------------------------
+
+Below are some of the most common reasons for this.
+
+Settings
+--------
+
+'auth_username_format = %Ln' lowercases the username but also drops the domain.
+Use 'auth_username_format = %Lu' instead.
+
+'auth_username_format' changes the username permanently, currently it's not
+possible to make it affect only the authentication part.
+
+SQL
+---
+
+'password_query' gets often misconfigured to drop the domain if username and
+domain are stored separately. For example:
+
+---%<-------------------------------------------------------------------------
+# BROKEN:
+password_query = SELECT username AS user, password FROM users WHERE username =
+'%n' AND domain = '%d'
+---%<-------------------------------------------------------------------------
+
+The "username AS user" changes the username permanently and the domain is
+dropped. You can instead use:
+
+---%<-------------------------------------------------------------------------
+# MySQL:
+password_query = SELECT concat(username, '@', domain) AS user, password FROM
+users WHERE username = '%n' AND domain = '%d'
+---%<-------------------------------------------------------------------------
+
+Or you can return username and domain fields separately and Dovecot will merge
+them into a single user field:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT username, domain, password FROM users WHERE username =
+'%n' AND domain = '%d'
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

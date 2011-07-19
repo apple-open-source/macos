@@ -21,7 +21,7 @@
  *           mmclennan@lucent.com
  *           http://www.tcltk.com/itcl
  *
- *     RCS:  $Id: itcl_cmds.c,v 1.31 2007/08/07 20:05:30 msofer Exp $
+ *     RCS:  $Id: itcl_cmds.c,v 1.32 2008/12/15 20:02:58 andreas_kupries Exp $
  * ========================================================================
  *           Copyright (c) 1993-1998  Lucent Technologies, Inc.
  * ------------------------------------------------------------------------
@@ -913,7 +913,7 @@ Itcl_ProtectionCmd(clientData, interp, objc, objv)
     else if (result != TCL_OK) {
         char mesg[256], *name;
         name = Tcl_GetString(objv[0]);
-        sprintf(mesg, "\n    (%.100s body line %d)", name, interp->errorLine);
+        sprintf(mesg, "\n    (%.100s body line %d)", name, ERRORLINE(interp));
         Tcl_AddErrorInfo(interp, mesg);
     }
 

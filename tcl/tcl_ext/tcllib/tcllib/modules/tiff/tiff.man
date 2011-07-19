@@ -2,6 +2,7 @@
 [copyright {2005-2006, Aaron Faupell <afaupell@users.sourceforge.net>}]
 [moddesc   {TIFF image manipulation}]
 [titledesc {TIFF reading, writing, and querying and manipulation of meta data}]
+[category  {File formats}]
 [require Tcl 8.2]
 [require tiff [opt 0.2.1]]
 [description]

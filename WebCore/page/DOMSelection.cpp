@@ -30,12 +30,13 @@
 #include "config.h"
 #include "DOMSelection.h"
 
+#include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "Node.h"
 #include "PlatformString.h"
 #include "Range.h"
-#include "SelectionController.h"
 #include "TextIterator.h"
 #include "htmlediting.h"
 
@@ -76,23 +77,23 @@ const VisibleSelection& DOMSelection::visibleSelection() const
 static Position anchorPosition(const VisibleSelection& selection)
 {
     Position anchor = selection.isBaseFirst() ? selection.start() : selection.end();
-    return rangeCompliantEquivalent(anchor);
+    return anchor.parentAnchoredEquivalent();
 }
 
 static Position focusPosition(const VisibleSelection& selection)
 {
     Position focus = selection.isBaseFirst() ? selection.end() : selection.start();
-    return rangeCompliantEquivalent(focus);
+    return focus.parentAnchoredEquivalent();
 }
 
 static Position basePosition(const VisibleSelection& selection)
 {
-    return rangeCompliantEquivalent(selection.base());
+    return selection.base().parentAnchoredEquivalent();
 }
 
 static Position extentPosition(const VisibleSelection& selection)
 {
-    return rangeCompliantEquivalent(selection.extent());
+    return selection.extent().parentAnchoredEquivalent();
 }
 
 Node* DOMSelection::anchorNode() const
@@ -100,8 +101,8 @@ Node* DOMSelection::anchorNode() const
     if (!m_frame)
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
-        return shadowAncestor->parentNode();
-    return anchorPosition(visibleSelection()).node();
+        return shadowAncestor->parentNodeGuaranteedHostFree();
+    return anchorPosition(visibleSelection()).containerNode();
 }
 
 int DOMSelection::anchorOffset() const
@@ -110,7 +111,7 @@ int DOMSelection::anchorOffset() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->nodeIndex();
-    return anchorPosition(visibleSelection()).deprecatedEditingOffset();
+    return anchorPosition(visibleSelection()).offsetInContainerNode();
 }
 
 Node* DOMSelection::focusNode() const
@@ -118,8 +119,8 @@ Node* DOMSelection::focusNode() const
     if (!m_frame)
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
-        return shadowAncestor->parentNode();
-    return focusPosition(visibleSelection()).node();
+        return shadowAncestor->parentNodeGuaranteedHostFree();
+    return focusPosition(visibleSelection()).containerNode();
 }
 
 int DOMSelection::focusOffset() const
@@ -128,7 +129,7 @@ int DOMSelection::focusOffset() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->nodeIndex();
-    return focusPosition(visibleSelection()).deprecatedEditingOffset();
+    return focusPosition(visibleSelection()).offsetInContainerNode();
 }
 
 Node* DOMSelection::baseNode() const
@@ -136,8 +137,8 @@ Node* DOMSelection::baseNode() const
     if (!m_frame)
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
-        return shadowAncestor->parentNode();
-    return basePosition(visibleSelection()).node();
+        return shadowAncestor->parentNodeGuaranteedHostFree();
+    return basePosition(visibleSelection()).containerNode();
 }
 
 int DOMSelection::baseOffset() const
@@ -146,7 +147,7 @@ int DOMSelection::baseOffset() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->nodeIndex();
-    return basePosition(visibleSelection()).deprecatedEditingOffset();
+    return basePosition(visibleSelection()).offsetInContainerNode();
 }
 
 Node* DOMSelection::extentNode() const
@@ -154,8 +155,8 @@ Node* DOMSelection::extentNode() const
     if (!m_frame)
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
-        return shadowAncestor->parentNode();
-    return extentPosition(visibleSelection()).node();
+        return shadowAncestor->parentNodeGuaranteedHostFree();
+    return extentPosition(visibleSelection()).containerNode();
 }
 
 int DOMSelection::extentOffset() const
@@ -164,7 +165,7 @@ int DOMSelection::extentOffset() const
         return 0;
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame))
         return shadowAncestor->nodeIndex();
-    return extentPosition(visibleSelection()).deprecatedEditingOffset();
+    return extentPosition(visibleSelection()).offsetInContainerNode();
 }
 
 bool DOMSelection::isCollapsed() const
@@ -179,7 +180,7 @@ String DOMSelection::type() const
     if (!m_frame)
         return String();
 
-    SelectionController* selection = m_frame->selection();
+    FrameSelection* selection = m_frame->selection();
 
     // This is a WebKit DOM extension, incompatible with an IE extension
     // IE has this same attribute, but returns "none", "text" and "control"
@@ -211,24 +212,37 @@ void DOMSelection::collapse(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
-void DOMSelection::collapseToEnd()
+void DOMSelection::collapseToEnd(ExceptionCode& ec)
 {
     if (!m_frame)
         return;
 
     const VisibleSelection& selection = m_frame->selection()->selection();
+
+    if (selection.isNone()) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
     m_frame->selection()->moveTo(VisiblePosition(selection.end(), DOWNSTREAM));
 }
 
-void DOMSelection::collapseToStart()
+void DOMSelection::collapseToStart(ExceptionCode& ec)
 {
     if (!m_frame)
         return;
 
     const VisibleSelection& selection = m_frame->selection()->selection();
+
+    if (selection.isNone()) {
+        ec = INVALID_STATE_ERR;
+        return;
+    }
+
     m_frame->selection()->moveTo(VisiblePosition(selection.start(), DOWNSTREAM));
 }
 
@@ -252,8 +266,9 @@ void DOMSelection::setBaseAndExtent(Node* baseNode, int baseOffset, Node* extent
     if (!isValidForPosition(baseNode) || !isValidForPosition(extentNode))
         return;
 
-    VisiblePosition visibleBase = VisiblePosition(baseNode, baseOffset, DOWNSTREAM);
-    VisiblePosition visibleExtent = VisiblePosition(extentNode, extentOffset, DOWNSTREAM);
+    // FIXME: Eliminate legacy editing positions
+    VisiblePosition visibleBase = VisiblePosition(Position(baseNode, baseOffset), DOWNSTREAM);
+    VisiblePosition visibleExtent = VisiblePosition(Position(extentNode, extentOffset), DOWNSTREAM);
 
     m_frame->selection()->moveTo(visibleBase, visibleExtent);
 }
@@ -270,7 +285,8 @@ void DOMSelection::setPosition(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->moveTo(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->moveTo(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
 void DOMSelection::modify(const String& alterString, const String& directionString, const String& granularityString)
@@ -278,23 +294,23 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
     if (!m_frame)
         return;
 
-    SelectionController::EAlteration alter;
+    FrameSelection::EAlteration alter;
     if (equalIgnoringCase(alterString, "extend"))
-        alter = SelectionController::EXTEND;
+        alter = FrameSelection::AlterationExtend;
     else if (equalIgnoringCase(alterString, "move"))
-        alter = SelectionController::MOVE;
+        alter = FrameSelection::AlterationMove;
     else
         return;
 
-    SelectionController::EDirection direction;
+    SelectionDirection direction;
     if (equalIgnoringCase(directionString, "forward"))
-        direction = SelectionController::FORWARD;
+        direction = DirectionForward;
     else if (equalIgnoringCase(directionString, "backward"))
-        direction = SelectionController::BACKWARD;
+        direction = DirectionBackward;
     else if (equalIgnoringCase(directionString, "left"))
-        direction = SelectionController::LEFT;
+        direction = DirectionLeft;
     else if (equalIgnoringCase(directionString, "right"))
-        direction = SelectionController::RIGHT;
+        direction = DirectionRight;
     else
         return;
 
@@ -317,6 +333,8 @@ void DOMSelection::modify(const String& alterString, const String& directionStri
         granularity = ParagraphBoundary;
     else if (equalIgnoringCase(granularityString, "documentboundary"))
         granularity = DocumentBoundary;
+    else if (equalIgnoringCase(granularityString, "-webkit-visual-word"))
+        granularity = WebKitVisualWordGranularity;
     else
         return;
 
@@ -341,7 +359,8 @@ void DOMSelection::extend(Node* node, int offset, ExceptionCode& ec)
     if (!isValidForPosition(node))
         return;
 
-    m_frame->selection()->setExtent(VisiblePosition(node, offset, DOWNSTREAM));
+    // FIXME: Eliminate legacy editing positions
+    m_frame->selection()->setExtent(VisiblePosition(Position(node, offset), DOWNSTREAM));
 }
 
 PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
@@ -358,7 +377,7 @@ PassRefPtr<Range> DOMSelection::getRangeAt(int index, ExceptionCode& ec)
     ASSERT(rangeCount() == 1);
 
     if (Node* shadowAncestor = selectionShadowAncestor(m_frame)) {
-        Node* container = shadowAncestor->parentNode();
+        ContainerNode* container = shadowAncestor->parentNodeGuaranteedHostFree();
         int offset = shadowAncestor->nodeIndex();
         return Range::create(shadowAncestor->document(), container, offset, container, offset);
     }
@@ -381,7 +400,7 @@ void DOMSelection::addRange(Range* r)
     if (!r)
         return;
 
-    SelectionController* selection = m_frame->selection();
+    FrameSelection* selection = m_frame->selection();
 
     if (selection->isNone()) {
         selection->setSelection(VisibleSelection(r));
@@ -418,15 +437,17 @@ void DOMSelection::deleteFromDocument()
     if (!m_frame)
         return;
 
-    SelectionController* selection = m_frame->selection();
+    FrameSelection* selection = m_frame->selection();
 
     if (selection->isNone())
         return;
 
     if (isCollapsed())
-        selection->modify(SelectionController::EXTEND, SelectionController::BACKWARD, CharacterGranularity);
+        selection->modify(FrameSelection::AlterationExtend, DirectionBackward, CharacterGranularity);
 
     RefPtr<Range> selectedRange = selection->selection().toNormalizedRange();
+    if (!selectedRange)
+        return;
 
     ExceptionCode ec = 0;
     selectedRange->deleteContents(ec);
@@ -441,12 +462,12 @@ bool DOMSelection::containsNode(const Node* n, bool allowPartial) const
     if (!m_frame)
         return false;
 
-    SelectionController* selection = m_frame->selection();
+    FrameSelection* selection = m_frame->selection();
 
     if (!n || m_frame->document() != n->document() || selection->isNone())
         return false;
 
-    Node* parentNode = n->parentNode();
+    ContainerNode* parentNode = n->parentNode();
     unsigned nodeIndex = n->nodeIndex();
     RefPtr<Range> selectedRange = selection->selection().toNormalizedRange();
 
@@ -454,14 +475,14 @@ bool DOMSelection::containsNode(const Node* n, bool allowPartial) const
         return false;
 
     ExceptionCode ec = 0;
-    bool nodeFullySelected = Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->startContainer(ec), selectedRange->startOffset(ec)) >= 0
-        && Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->endContainer(ec), selectedRange->endOffset(ec)) <= 0;
+    bool nodeFullySelected = Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->startContainer(ec), selectedRange->startOffset(ec), ec) >= 0 && !ec
+        && Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->endContainer(ec), selectedRange->endOffset(ec), ec) <= 0 && !ec;
     ASSERT(!ec);
     if (nodeFullySelected)
         return true;
 
-    bool nodeFullyUnselected = Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->endContainer(ec), selectedRange->endOffset(ec)) > 0
-        || Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->startContainer(ec), selectedRange->startOffset(ec)) < 0;
+    bool nodeFullyUnselected = (Range::compareBoundaryPoints(parentNode, nodeIndex, selectedRange->endContainer(ec), selectedRange->endOffset(ec), ec) > 0 && !ec)
+        || (Range::compareBoundaryPoints(parentNode, nodeIndex + 1, selectedRange->startContainer(ec), selectedRange->startOffset(ec), ec) < 0 && !ec);
     ASSERT(!ec);
     if (nodeFullyUnselected)
         return false;

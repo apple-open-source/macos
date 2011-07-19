@@ -13,6 +13,7 @@ package require sak::validate
 set raw  0
 set log  0
 set stem {}
+set tclv {}
 
 if {[llength $argv]} {
     # First argument may be a command.
@@ -38,6 +39,10 @@ if {[llength $argv]} {
 		set stem [lindex $argv 1]
 		set argv [lrange $argv 2 end]
 	    }
+	    -t - --tcl {
+		set tclv [lindex $argv 1]
+		set argv [lrange $argv 2 end]
+	    }
 	    default {
 		sak::validate::usage Unknown option "\"$opt\""
 	    }
@@ -59,7 +64,7 @@ array set mode {
     11 _impossible_
 }
 
-sak::validate::$cmd $argv $mode($raw$log) $stem
+sak::validate::$cmd $argv $mode($raw$log) $stem $tclv
 
 ##
 # ###

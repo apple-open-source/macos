@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,29 +31,18 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $Id: nb_net.c,v 1.12 2006/01/06 07:53:01 lindak Exp $
- */
-#include <sys/param.h>
+*/
 #include <sys/socket.h>
 #include <sys/ioctl.h>
-#include <asl.h>
-
-#include <net/if.h>
-
-#include <ctype.h>
+#include <fcntl.h>
 #include <netdb.h>
-#include <err.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
+#include <net/if.h>
+#include <ifaddrs.h>
 
 #include <netsmb/netbios.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
 #include "charsets.h"
-
 
 static int SocketUtilsIncrementIfReqIter(UInt8** inIfReqIter, struct ifreq* ifr)
 {
@@ -74,11 +63,9 @@ static int SocketUtilsIncrementIfReqIter(UInt8** inIfReqIter, struct ifreq* ifr)
 }
 
 /*
- * Currently we only look for AF_INET address some day we need to check
- * for AF_INET6, but since we don't support AF_INET6 yet no need to do that
- * work.
+ * Check to see if the AF_INET address is a local address. 
  */
-int isLocalNetworkAddress(u_int32_t addr)
+static int IsLocalIPv4Address(uint32_t	addr)
 {
     UInt32		kMaxAddrBufferSize = 2048;
     UInt8 		buffer[kMaxAddrBufferSize];
@@ -88,20 +75,27 @@ int isLocalNetworkAddress(u_int32_t addr)
 	struct ifreq ifreq, *ifr;
 	int foundit = FALSE;
 	
+	if (addr == htonl(INADDR_LOOPBACK)) {
+		return TRUE;
+	}
+	
 	if ((so = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		smb_log_info("%s: socket failed!", -1, ASL_LEVEL_ERR, __FUNCTION__);
+		smb_log_info("%s: socket failed, syserr = %s", 
+					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
 		return foundit;
 	}
 	ifc.ifc_len = (int)sizeof (buffer);
     ifc.ifc_buf = (char*) buffer;
 	if (ioctl(so, SIOCGIFCONF, (char *)&ifc) < 0) {
-		smb_log_info("%s: ioctl (get interface configuration)!", -1, ASL_LEVEL_ERR, __FUNCTION__);
+		smb_log_info("%s: ioctl (get interface configuration), syserr = %s", 
+					 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
 		goto WeAreDone;
 	}
     for (ifReqIter = buffer; ifReqIter < (buffer + ifc.ifc_len);) {
-        ifr = (struct ifreq*) ifReqIter;
+        ifr = (struct ifreq*)((void *)ifReqIter);
         if (!SocketUtilsIncrementIfReqIter(&ifReqIter, ifr)) {
-			smb_log_info("%s: SocketUtilsIncrementIfReqIter failed!", 0, ASL_LEVEL_ERR, __FUNCTION__);
+			smb_log_info("%s: SocketUtilsIncrementIfReqIter failed!", 
+						 ASL_LEVEL_ERR, __FUNCTION__);
             break;
         }
 		ifreq = *ifr;
@@ -109,12 +103,13 @@ int isLocalNetworkAddress(u_int32_t addr)
 			continue;
 		
 		if (ioctl(so, SIOCGIFFLAGS, (char *)&ifreq) < 0) {
-			smb_log_info("%s: SIOCGIFFLAGS ioctl failed!", -1, ASL_LEVEL_ERR, __FUNCTION__);
+			smb_log_info("%s: SIOCGIFFLAGS ioctl failed, syserr = %s",
+						 ASL_LEVEL_ERR, __FUNCTION__, strerror(errno));
 			continue;
 		}
 		if (ifreq.ifr_flags & IFF_UP) {
-			struct sockaddr_in *laddr = (struct sockaddr_in *)&(ifreq.ifr_addr);
-			if ((u_int32_t)laddr->sin_addr.s_addr == addr) {
+			struct sockaddr_in *laddr = (struct sockaddr_in *)((void *)&(ifreq.ifr_addr));
+			if ((uint32_t)laddr->sin_addr.s_addr == addr) {
 				foundit = TRUE;
 				break;
 			}
@@ -125,79 +120,201 @@ WeAreDone:
 	return foundit;
 }
 
-int
-nb_getlocalname(char *name, size_t maxsize)
+/*
+ * Check to see if the AF_INET6 address is a local address. 
+ */
+static int IsLocalIPv6Address ( struct sockaddr_in6 *in6)
 {
-	char buf[_POSIX_HOST_NAME_MAX+1], *cp;
+    struct ifaddrs* addr_list, *ifa;
+    struct sockaddr_in6 *currAddress;
+    
+	if (IN6_IS_ADDR_LOOPBACK(&in6->sin6_addr)) {
+		return TRUE;
+	}
+	
+	/* Ignore any getifaddrs errors */
+	if (getifaddrs(&addr_list)) {
+		smb_log_info("%s: getifaddrs failed, syserr = %s",
+					 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(errno));
+		return FALSE;
+	}
+	
+	for (ifa = addr_list; ifa != NULL; ifa = ifa->ifa_next) {
+		if (ifa->ifa_addr->sa_family != AF_INET6)
+			continue;
+		currAddress = (struct sockaddr_in6 *)((void *)ifa->ifa_addr);
+		if (IN6_ARE_ADDR_EQUAL (&currAddress->sin6_addr, &in6->sin6_addr))
+			return TRUE;
+	}
+	freeifaddrs(addr_list); /* release memory */;
 
-	if (gethostname(buf, sizeof(buf)) != 0)
-		return errno;
-	cp = strchr(buf, '.');
-	if (cp)
-		*cp = 0;
-	/* 
-	 * Use strlcpy to make sure we do not overrun the buffer. The string
-	 * will get copy. We return ENAMETOOLONG and let the calling routine
-	 * decide what to do.
-	 */
-	if (strlcpy(name, buf, maxsize) >= maxsize)
-		return ENAMETOOLONG;
-	str_upper(name, name);
-	return 0;
+    return FALSE;
+}
+
+
+/*
+ * Check to see if this is a local address. We allow command line utilities to
+ * do a loopback connect. Also if the user supplied the port then assume they
+ * know what they are doing and allow the connection.
+ */
+int isLocalIPAddress(struct sockaddr *addr, uint16_t port, int allowLocalConn)
+{
+	/* Must be coming from a command line utility let them connect */
+	if (allowLocalConn)
+		return FALSE;
+	/* Always allow loop back connection if the user supplied the port */
+	if ((port != NBSS_TCP_PORT_139) && (port != SMB_TCP_PORT_445))
+		return FALSE;
+	
+	if (addr->sa_family == AF_INET) {
+		struct sockaddr_in *in = (struct sockaddr_in *)((void *)addr);
+		
+		if (IsLocalIPv4Address(in->sin_addr.s_addr)) {
+			return TRUE;
+		}
+	} else if (addr->sa_family == AF_INET6) {
+		if (IsLocalIPv6Address((struct sockaddr_in6 *)((void *)addr))) {
+			return TRUE;
+		}
+	} else {
+		smb_log_info("%s: Unknown address falmily %d?", 
+					 ASL_LEVEL_DEBUG, __FUNCTION__, addr->sa_family);
+	}
+
+	return FALSE;
 }
 
 /* 
- * This routine does not currently support ipv6, it only deals with
- * ipv4 and even at that not well.
+ * Resolve the name and retrieve all address associated with that name.  
  */
-int nb_resolvehost_in(const char *name, struct sockaddr **dest, u_int16_t port, int allow_local_conn)
-{
-	struct hostent* h;
-	struct sockaddr_in *sinp;
-	int len;
+int resolvehost(const char *name, CFMutableArrayRef *outAddressArray, char *netbios_name, 
+				uint16_t port, int allowLocalConn, int tryBothPorts)
+{	
+	int error;
+	struct addrinfo hints, *res0, *res;
+	CFMutableArrayRef addressArray = NULL;
+	CFMutableDataRef addressData;
 
-	h = gethostbyname(name);
-	if (!h) {
-		smb_log_info("%s: can't get server address %s!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, name);
-		return EHOSTUNREACH;
-	}
-	
-	/* Need to deal with AF_INET6 in the future */
-	if (h->h_addrtype != AF_INET) {
-		smb_log_info("%s: we only support ipv4 currently %d!", 0, ASL_LEVEL_DEBUG, __FUNCTION__, h->h_addrtype);
-		return EAFNOSUPPORT;
-	}
+	/* If we are trying both ports always put port 139 in after port 445 */
+	if (tryBothPorts && (port == NBSS_TCP_PORT_139))
+		port = SMB_TCP_PORT_445;
 
-	if (h->h_length != 4) {
-		smb_log_info("%s: address for `%s' has invalid length!\n", 0, ASL_LEVEL_DEBUG, __FUNCTION__, name);					
-		return EAFNOSUPPORT;
+	memset (&hints, 0, sizeof (hints));
+	hints.ai_family = PF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	error = getaddrinfo (name, NULL, &hints, &res0);
+	if (error) {
+		return (error == EAI_SYSTEM) ? errno : EHOSTUNREACH;
 	}
-	
-	if (! allow_local_conn) {
-		if (*(u_int32_t *)h->h_addr == (u_int32_t)htonl(INADDR_LOOPBACK)) {
-			smb_log_info("The address for `%s' is a loopback address, not allowed!\n", 0, ASL_LEVEL_ERR, name);
-			/* AFP now returns ELOOP, so we will do the same */
-			return ELOOP;		
+	addressArray = CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeArrayCallBacks);
+	if (!addressArray) {
+		error = ENOMEM;
+		goto done;
+	}
+	for (res = res0; res; res = res->ai_next) {
+		struct connectAddress conn; 
+		
+		/* We only support IPv4 or IPv6 */
+		if ((res->ai_family != PF_INET6) && (res->ai_family != PF_INET)) {
+			smb_log_info("Skipping address for `%s', unknown address family %d", 
+						 ASL_LEVEL_DEBUG, name, res->ai_family);
+			continue;
+		}
+		/* Check to make sure we are not connecting to ourself */		
+		if (isLocalIPAddress((struct sockaddr *)res->ai_addr, port, allowLocalConn)) {
+			smb_log_info("The address for `%s' is a loopback address, not allowed!",
+						 ASL_LEVEL_DEBUG, name);
+			error = ELOOP;	/* AFP returns ELOOP, so we will do the same */
+			goto done; 
 		}
 		
-		if (isLocalNetworkAddress(*(u_int32_t *)h->h_addr) == TRUE) {
-			smb_log_info("The address for `%s' is a local address, not allowed!\n", 0, ASL_LEVEL_ERR, name);			
-			/* AFP now returns ELOOP, so we will do the same */
-			return ELOOP;		
-		}		
-	}
+		/* We don't support port 137 on IPv6 addresses currently? */		
+		if ((res->ai_family == PF_INET6) && (port == NBNS_UDP_PORT_137)) {
+			smb_log_info("Skipping address of `%s', we don't support port 137 on IPV6 addresses", 
+						 ASL_LEVEL_DEBUG, name);
+			continue;
+		}
+		/* We don't support port 139 on IPv6 addresses */		
+		if ((res->ai_family == PF_INET6) && (port == NBSS_TCP_PORT_139)) {
+			smb_log_info("Skipping address of `%s', we don't support port 139 on IPV6 addresses", 
+						 ASL_LEVEL_DEBUG, name);
+			continue;
+		}
+		memset(&conn, 0, sizeof(conn));
+		conn.so = -1;	/* Default to socket create failed */
+		memcpy(&conn.addr, res->ai_addr, res->ai_addrlen);
+		if (res->ai_family == PF_INET6) {
+			conn.in6.sin6_port = htons(port);
+		} else {
+			conn.in4.sin_port = htons(port);
+		}
+		addressData = CFDataCreateMutable(NULL, 0);
+		if (addressData) {
+			/* We have a netbios name, we need a netbios sockaddr */
+			if ((port == NBSS_TCP_PORT_139) && (netbios_name))
+				convertToNetBIOSaddr(&conn.storage, netbios_name);
 
-	len = (int)sizeof(struct sockaddr_in);
-	sinp = malloc(len);
-	*dest = (struct sockaddr*)sinp;
-	if (sinp == NULL)
-		return ENOMEM;
-	bzero(sinp, len);
-	sinp->sin_len = len;
-	sinp->sin_family = h->h_addrtype;
-	memcpy(&sinp->sin_addr.s_addr, h->h_addr, 4);
-	sinp->sin_port = htons(port);
-	return 0;
+			CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
+			CFArrayAppendValue(addressArray, addressData);
+			CFRelease(addressData);
+		}
+		/* We only try both ports with IPv4 */
+		if (tryBothPorts && (res->ai_family == PF_INET)) {
+			conn.in4.sin_port = htons(NBSS_TCP_PORT_139);
+			/* We have a netbios name, we need a netbios sockaddr */
+			if (netbios_name)
+				convertToNetBIOSaddr(&conn.storage, netbios_name);
+			
+			addressData = CFDataCreateMutable(NULL, 0);
+			if (addressData) {
+				CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
+				CFArrayAppendValue(addressArray, addressData);
+				CFRelease(addressData);
+			}
+		}
+	}
+	if (CFArrayGetCount(addressArray) == 0) {
+		error = EHOSTUNREACH;
+		goto done;
+	}
+	
+done:
+	freeaddrinfo(res0);
+	if (error) {
+		if (addressArray)
+			CFRelease(addressArray);
+		addressArray = NULL;
+	}
+	*outAddressArray = addressArray;
+	return error;
+}
+
+/* 
+ * Is this a IPv6 Dot name.  
+ */
+int isIPv6NumericName(const char *name)
+{	
+	int error;
+	struct addrinfo hints, *res0, *res;
+	
+	memset (&hints, 0, sizeof (hints));
+	hints.ai_flags = AI_NUMERICHOST;
+	hints.ai_family = PF_INET6;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_protocol = IPPROTO_TCP;
+	error = getaddrinfo (name, NULL, &hints, &res0);
+	if (error)
+		return FALSE;
+	
+	for (res = res0; res; res = res->ai_next) {		
+		if (res->ai_family == PF_INET6) {
+			freeaddrinfo(res0);
+			return TRUE;
+		}
+	}
+	freeaddrinfo(res0);
+	return FALSE;
 }
 
 int
@@ -208,7 +325,7 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 	struct nb_ifdesc *ifd;
 	struct in_addr iaddr, imask;
 	char *ifrdata, *iname;
-	int s, rdlen, ifcnt, error, iflags, i;
+	int s, rdlen, error, iflags, i;
 	unsigned len;
 
 	*iflist = NULL;
@@ -229,11 +346,10 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 		goto bad;
 	} 
 	ifrqp = ifc.ifc_req;
-	ifcnt = ifc.ifc_len / (int)sizeof(struct ifreq);
 	error = 0;
 	/* freebsd bug: ifreq size is variable - must use _SIZEOF_ADDR_IFREQ */
 	for (i = 0; i < ifc.ifc_len;
-	     i += len, ifrqp = (struct ifreq *)((caddr_t)ifrqp + len)) {
+	     i += len, ifrqp = (struct ifreq *)(void *)((uint8_t *)ifrqp + len)) {
 		len = (int)_SIZEOF_ADDR_IFREQ(*ifrqp);
 		/* XXX for now, avoid IP6 broadcast performance costs */
 		if (ifrqp->ifr_addr.sa_family != AF_INET)
@@ -250,11 +366,11 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 		iname = ifrqp->ifr_name;
 		if (strlen(iname) >= sizeof(ifd->id_name))
 			continue;
-		iaddr = (*(struct sockaddr_in *)&ifrqp->ifr_addr).sin_addr;
+		iaddr = (*(struct sockaddr_in *)(void *)&ifrqp->ifr_addr).sin_addr;
 
 		if (ioctl(s, SIOCGIFNETMASK, ifrqp) != 0)
 			continue;
-		imask = ((struct sockaddr_in *)&ifrqp->ifr_addr)->sin_addr;
+		imask = ((struct sockaddr_in *)(void *)&ifrqp->ifr_addr)->sin_addr;
 
 		ifd = malloc(sizeof(struct nb_ifdesc));
 		if (ifd == NULL)
@@ -268,8 +384,231 @@ nb_enum_if(struct nb_ifdesc **iflist, int maxif)
 		*iflist = ifd;
 	}
 bad:
-	free(ifrdata);
+	if (ifrdata)
+		free(ifrdata);
 	close(s);
 	return error;
 }  
 
+
+#define kPollSeconds 5
+#define kMaxTimeToWait 60
+
+/* 
+ * Get a non blocking socket to be used for the connect. Since a connection
+ * failure always returns the same error, we don't worry about errno getting
+ * overwritten by the close call. We just use errno for debug purposes here.
+ */
+static int nonBlockingSocket(int family)
+{
+	int so, flags;
+	
+	so = socket(family, SOCK_STREAM, 0);
+	if (so < 0) {
+		smb_log_info("%s: socket call failed for family %d, syserr = %s",
+					 ASL_LEVEL_DEBUG, __FUNCTION__, family, strerror(errno));
+		return -1;
+	}
+	if ( (flags = fcntl(so, F_GETFL, NULL)) < 0 ) {
+		smb_log_info("%s: F_GETFL call failed for family %d, syserr = %s",
+					 ASL_LEVEL_DEBUG, __FUNCTION__, family, strerror(errno));
+		close(so);
+		return -1;
+	} 
+	flags |= O_NONBLOCK; 
+	if ( fcntl(so, F_SETFL, flags) < 0 ) { 
+		smb_log_info("%s: F_SETFL call failed for sa_family %d, syserr = %s", 
+					 ASL_LEVEL_DEBUG, __FUNCTION__, family, strerror(errno));
+		close(so);
+		return -1;
+	} 
+	return so;
+}
+
+int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struct connectAddress **dest)
+{
+	struct timeval tv;
+	int error = 0;
+	fd_set writefds;
+	int	nfds = 0;
+	CFIndex ii, numAddresses =  CFArrayGetCount(addressArray);
+	int32_t totalWaitTime = 0;
+	CFMutableDataRef dataRef;
+	struct connectAddress *conn;
+	
+	*dest = NULL;
+	FD_ZERO(&writefds);
+	
+	/* Attempt to connect to all address non blocking */
+	for (ii = 0; ii < numAddresses; ii++) {
+		dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
+		if (!dataRef)
+			continue;
+		conn = (struct connectAddress *)((void *)CFDataGetMutableBytePtr(dataRef));
+		if (!conn)
+			continue;
+					
+		if ( (cancel) && (*cancel == TRUE) ) {
+			smb_log_info("%s: Connection cancelled", ASL_LEVEL_DEBUG, __FUNCTION__);
+			error = ECANCELED;
+			goto done;
+		}
+		
+		if (conn->addr.sa_family == AF_NETBIOS)
+			conn->so = nonBlockingSocket(AF_INET);
+		else	
+			conn->so = nonBlockingSocket(conn->addr.sa_family);
+		
+		if (conn->so < 0) {
+			/* Socket called failed, so skip this address */
+			continue;
+		}
+		/* Connect to the addresses */
+		if (conn->addr.sa_family == AF_NETBIOS)
+			error = connect(conn->so, (struct sockaddr *)&conn->nb.snb_addrin, conn->nb.snb_addrin.sin_len);
+		else
+			error = connect(conn->so, &conn->addr, conn->addr.sa_len);
+		if (error < 0) {
+			/* This is a non blocking, so we expect EINPROGRESS */
+			if (errno == EINPROGRESS) {
+				FD_SET(conn->so, &writefds); /* add socket into set for the select call */
+				if (conn->so > nfds)		/* save max fd for select call */
+					nfds = conn->so;
+			} else {
+				/* Connection failed skip this address */
+				smb_log_info("%s: Connection %ld failed, family = %d, syserr = %s", 
+							 ASL_LEVEL_DEBUG, __FUNCTION__, ii, 
+							 conn->addr.sa_family, strerror(errno));
+				close (conn->so);
+				conn->so = -1;
+			}
+			continue;
+		}
+		/* Connection competed we are done, return this connection entry */
+		*dest = conn;
+		goto done;
+	}
+	
+	/* Wait for one or more connects to complete */
+	while (nfds && (totalWaitTime < kMaxTimeToWait)) { 
+		tv.tv_sec = kPollSeconds; 
+		tv.tv_usec = 0; 
+		error = select(nfds + 1, NULL, &writefds, NULL, &tv);
+		if (error < 0) {
+			/* We treat EAGAIN or EINTR the same as a timeout */
+			if ((errno == EAGAIN) || (errno == EINTR)) {
+				error = 0;
+			} else {
+				/* Not sure what went wrong here just get out */
+				error = errno;
+				smb_log_info("%s: Select call failed, syserr = %s", 
+							 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
+				goto done;
+			}
+		}
+		if (error > 0) {
+			/* One or more sockets finished */
+			nfds = 0;
+			error = 0;
+			for (ii = 0; ii < numAddresses; ii++) {
+				socklen_t dummy;
+
+				dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
+				if (!dataRef)
+					continue;
+				
+				conn = (struct connectAddress *)((void *)CFDataGetMutableBytePtr(dataRef));
+				if (!conn)
+					continue;
+				
+				/* This socket already failed, so skip this connection */
+				if (conn->so < 0)
+					continue;
+				
+				if (FD_ISSET(conn->so, &writefds) == 0) {
+					/* Connection hasn't completed, so skip it */
+					FD_SET (conn->so, &writefds);
+					if (conn->so > nfds)
+						nfds = conn->so;
+					continue;
+				}
+				
+				/* 
+				 * See what error came back.  SO_ERROR gives us an exact error 
+				 * for why the connect failed 
+				 */
+				dummy = sizeof(int); 
+				if (getsockopt(conn->so, SOL_SOCKET, SO_ERROR, (void*)(&error), &dummy) < 0) {
+					error = errno;	/* Hanle this below */
+					smb_log_info("%s: getsockopt failed, syserr = %s", 
+								 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(errno));
+				}
+				if (error) {
+					if (error != EINPROGRESS) {
+						smb_log_info("%s: Connection failed, syserr = %s", 
+									 ASL_LEVEL_DEBUG, __FUNCTION__, strerror(error));
+						/* We treat all other errors as a connection failure */
+						FD_CLR (conn->so, &writefds);
+						close (conn->so);
+						conn->so = -1;
+					} else {
+						FD_SET (conn->so, &writefds);
+						if (conn->so > nfds)		/* save max fd for select call */
+							nfds = conn->so;
+					}
+					error = 0;
+					continue;
+				}
+				/* Connection competed we are done, return this connection entry */
+				*dest = conn;
+				goto done;
+			}
+		} else {
+			/* time limit expired */
+			totalWaitTime += kPollSeconds;
+			
+			if ( (cancel) && (*cancel == TRUE) ) {
+				smb_log_info("%s: Connection cancelled", ASL_LEVEL_DEBUG, __FUNCTION__);
+				error = ECANCELED;
+				goto done;
+			}
+			
+			/* we are going to do the select call again, so setup the FD list */
+			nfds = 0;
+			for (ii = 0; ii < numAddresses; ii++) {
+				dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
+				if (!dataRef)
+					continue;
+				conn = (struct connectAddress *)((void *)CFDataGetMutableBytePtr(dataRef));
+				if (!conn)
+					continue;
+				
+				if (conn->so < 0)
+					continue;
+				
+				if (FD_ISSET(conn->so, &writefds) == 0) {
+					FD_SET (conn->so, &writefds);
+					if (conn->so > nfds)		/* save max fd for select call */
+						nfds = conn->so;
+				}
+			}
+		}
+	}
+	
+done:
+	if (!error && (*dest == NULL))
+		error = ETIMEDOUT;
+	/* close all open sockets */
+	for (ii = 0; ii < numAddresses; ii++) {
+		dataRef = (CFMutableDataRef)CFArrayGetValueAtIndex(addressArray, ii);
+		if (!dataRef)
+			continue;
+		conn = (struct connectAddress *)((void *)CFDataGetMutableBytePtr(dataRef));
+		if (!conn)
+			continue;
+		
+		if (conn->so != -1)
+			close (conn->so);
+	}	
+	return error;
+}

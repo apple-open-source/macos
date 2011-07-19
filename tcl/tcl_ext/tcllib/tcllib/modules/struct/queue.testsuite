@@ -8,36 +8,74 @@
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # All rights reserved.
 #
-# RCS: @(#) $Id: queue.testsuite,v 1.1 2008/07/02 23:35:07 andreas_kupries Exp $
+# RCS: @(#) $Id: queue.testsuite,v 1.3 2010/05/25 19:26:18 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
 ::tcltest::testConstraint queue_critcl [string equal $impl critcl]
+::tcltest::testConstraint queue_oo     [expr {![catch {package present TclOO}] && [string equal $impl tcl]}]
 
 #----------------------------------------------------------------------
 
-test queue-${impl}-0.1 {queue errors} {
+test queue-${impl}-0.1.0 {queue errors} !queue_oo {
     queue myqueue
     catch {queue myqueue} msg
     myqueue destroy
     set msg
-} "command \"::myqueue\" already exists, unable to create queue"
-test queue-${impl}-0.2 {queue errors} {
+} {command "::myqueue" already exists, unable to create queue}
+
+test queue-${impl}-0.1.1 {queue errors} queue_oo {
+    queue myqueue
+    catch {queue myqueue} msg
+    myqueue destroy
+    set msg
+} {can't create object "myqueue": command already exists with that name}
+
+test queue-${impl}-0.2 {queue errors} badTest {
     queue myqueue
     catch {myqueue} msg
     myqueue destroy
     set msg
 } "wrong # args: should be \"$MY option ?arg arg ...?\""
-test queue-${impl}-0.3 {queue errors} {
+
+test queue-${impl}-0.3.0 {queue errors} tcl8.4minus {
     queue myqueue
     catch {myqueue foo} msg
     myqueue destroy
     set msg
-} "bad option \"foo\": must be clear, destroy, get, peek, put, size, or unget"
-test queue-${impl}-0.4 {queue errors} {
+} {bad option "foo": must be clear, destroy, get, peek, put, size, or unget}
+
+test queue-${impl}-0.3.1.0 {queue errors} {tcl8.5plus !queue_oo} {
+    queue myqueue
+    catch {myqueue foo} msg
+    myqueue destroy
+    set msg
+} [tmTake \
+       {unknown or ambiguous subcommand "foo": must be clear, destroy, get, peek, put, size, or unget} \
+       {bad option "foo": must be clear, destroy, get, peek, put, size, or unget} \
+      ]
+
+test queue-${impl}-0.3.1.1 {queue errors} {tcl8.5plus queue_oo} {
+    queue myqueue
+    catch {myqueue foo} msg
+    myqueue destroy
+    set msg
+} [tmTake \
+       {unknown method "foo": must be clear, destroy, get, peek, put, size or unget} \
+       {bad option "foo": must be clear, destroy, get, peek, put, size, or unget} \
+      ]
+
+test queue-${impl}-0.4.0 {queue errors} !queue_oo {
     catch {queue set} msg
     set msg
-} "command \"::set\" already exists, unable to create queue"
+} {command "::set" already exists, unable to create queue}
+
+test queue-${impl}-0.4.1 {queue errors} queue_oo {
+    catch {queue set} msg
+    set msg
+} {can't create object "set": command already exists with that name}
+
+#----------------------------------------------------------------------
 
 test queue-${impl}-1.1 {queue creation} {
     set foo [queue myqueue]
@@ -46,7 +84,8 @@ test queue-${impl}-1.1 {queue creation} {
     myqueue destroy
     list $foo $cmd $size
 } {::myqueue ::myqueue 0}
-test queue-${impl}-1.2 {queue creation} {
+
+test queue-${impl}-1.2.0 {queue creation} !queue_oo {
     set foo [queue]
     set cmd [info commands ::$foo]
     set size [$foo size]
@@ -54,11 +93,24 @@ test queue-${impl}-1.2 {queue creation} {
     list $foo $cmd $size
 } {::queue1 ::queue1 0}
 
+test queue-${impl}-1.2.1 {queue creation} queue_oo {
+    set foo [queue]
+    set cmd [info commands ::$foo]
+    set size [$foo size]
+    $foo destroy
+    list $foo $cmd $size
+    string match [list ::oo::Obj* ::oo::Obj* 0] [list $foo $cmd $size]
+} 1
+
+#----------------------------------------------------------------------
+
 test queue-${impl}-2.1 {queue destroy} {
     queue myqueue
     myqueue destroy
     info commands ::myqueue
 } {}
+
+#----------------------------------------------------------------------
 
 test queue-${impl}-3.2 {size operation} {
     queue myqueue
@@ -84,6 +136,8 @@ test queue-${impl}-3.4 {size operation} {
     myqueue destroy
     set size
 } 4
+
+#----------------------------------------------------------------------
     
 test queue-${impl}-4.1 {put operation} {
     queue myqueue
@@ -91,6 +145,7 @@ test queue-${impl}-4.1 {put operation} {
     myqueue destroy
     set msg
 } "wrong # args: should be \"$MY put item ?item ...?\""
+
 test queue-${impl}-4.2 {put operation, singleton items} {
     queue myqueue
     myqueue put a
@@ -99,21 +154,24 @@ test queue-${impl}-4.2 {put operation, singleton items} {
     set result [list [myqueue get] [myqueue get] [myqueue get]]
     myqueue destroy
     set result
-} "a b c"
+} {a b c}
+
 test queue-${impl}-4.3 {put operation, multiple items} {
     queue myqueue
     myqueue put a b c
     set result [list [myqueue get] [myqueue get] [myqueue get]]
     myqueue destroy
     set result
-} "a b c"
+} {a b c}
+
 test queue-${impl}-4.4 {put operation, spaces in items} {
     queue myqueue
     myqueue put a b "foo bar"
     set result [list [myqueue get] [myqueue get] [myqueue get]]
     myqueue destroy
     set result
-} [list a b "foo bar"]
+} {a b {foo bar}}
+
 test queue-${impl}-4.5 {put operation, bad chars in items} {
     queue myqueue
     myqueue put a b \{
@@ -121,6 +179,8 @@ test queue-${impl}-4.5 {put operation, bad chars in items} {
     myqueue destroy
     set result
 } [list a b \{]
+
+#----------------------------------------------------------------------
 
 test queue-${impl}-5.1 {get operation} {
     queue myqueue
@@ -130,7 +190,8 @@ test queue-${impl}-5.1 {get operation} {
     set result [list [myqueue get] [myqueue get] [myqueue get]]
     myqueue destroy
     set result
-} [list a b c]
+} {a b c}
+
 test queue-${impl}-5.2 {get operation, multiple items} {
     queue myqueue
     myqueue put a
@@ -139,7 +200,9 @@ test queue-${impl}-5.2 {get operation, multiple items} {
     set result [myqueue get 3]
     myqueue destroy
     set result
-} [list a b c]
+} {a b c}
+
+#----------------------------------------------------------------------
 
 test queue-${impl}-6.1 {peek operation} {
     queue myqueue
@@ -149,7 +212,7 @@ test queue-${impl}-6.1 {peek operation} {
     set result [list [myqueue peek] [myqueue peek] [myqueue peek]]
     myqueue destroy
     set result
-} [list a a a]
+} {a a a}
 
 test queue-${impl}-6.2 {peek operation} {
     queue myqueue
@@ -157,18 +220,21 @@ test queue-${impl}-6.2 {peek operation} {
     myqueue destroy
     set msg
 } {invalid item count 0}
+
 test queue-${impl}-6.3 {peek operation} {
     queue myqueue
     catch {myqueue peek -1} msg
     myqueue destroy
     set msg
 } {invalid item count -1}
+
 test queue-${impl}-6.4 {peek operation} {
     queue myqueue
     catch {myqueue peek} msg
     myqueue destroy
     set msg
 } {insufficient items in queue to fill request}
+
 test queue-${impl}-6.5 {peek operation} {
     queue myqueue
     myqueue put a
@@ -185,7 +251,7 @@ test queue-${impl}-6.6 {get operation, multiple items} {
     set result [list [myqueue peek 3] [myqueue get 3]]
     myqueue destroy
     set result
-} [list [list a b c] [list a b c]]
+} {{a b c} {a b c}}
 
 test queue-${impl}-6.7 {get operation} {
     queue myqueue
@@ -193,18 +259,21 @@ test queue-${impl}-6.7 {get operation} {
     myqueue destroy
     set msg
 } {invalid item count 0}
+
 test queue-${impl}-6.8 {get operation} {
     queue myqueue
     catch {myqueue get -1} msg
     myqueue destroy
     set msg
 } {invalid item count -1}
+
 test queue-${impl}-6.9 {get operation} {
     queue myqueue
     catch {myqueue get} msg
     myqueue destroy
     set msg
 } {insufficient items in queue to fill request}
+
 test queue-${impl}-6.10 {get operation} {
     queue myqueue
     myqueue put a
@@ -212,6 +281,8 @@ test queue-${impl}-6.10 {get operation} {
     myqueue destroy
     set msg
 } {insufficient items in queue to fill request}
+
+#----------------------------------------------------------------------
 
 test queue-${impl}-7.1 {clear operation} {
     queue myqueue
@@ -223,9 +294,9 @@ test queue-${impl}-7.1 {clear operation} {
     lappend result [myqueue size]
     myqueue destroy
     set result
-} [list [list a b c] 0]
+} {{a b c} 0}
 
-
+#----------------------------------------------------------------------
 
 test queue-${impl}-8.1 {unget operation, not enough arguments} {
     queue myqueue
@@ -249,7 +320,7 @@ test queue-${impl}-8.3 {unget, empty queue} {
     set res
 } {foo}
 
-test queue-${impl}-8.4 {unget, nonempty queue} {
+test queue-${impl}-8.4 {unget, nonempty queue, at beginning of queue} {
     queue myqueue
     myqueue put a b c
     myqueue unget foo
@@ -257,3 +328,15 @@ test queue-${impl}-8.4 {unget, nonempty queue} {
     myqueue destroy
     set res
 } {foo a b c}
+
+test queue-${impl}-8.5 {unget, nonempty queue, middle of queue} {
+    queue myqueue
+    myqueue put a b c d e f
+    myqueue get 3
+    myqueue unget foo
+    set res [myqueue peek [myqueue size]]
+    myqueue destroy
+    set res
+} {foo d e f}
+
+#----------------------------------------------------------------------

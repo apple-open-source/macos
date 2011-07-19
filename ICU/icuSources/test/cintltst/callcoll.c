@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*******************************************************************************
@@ -52,7 +52,6 @@
 #include "calldata.h"
 #include "cstring.h"
 #include "cmemory.h"
-#include "ucol_imp.h"
 
 /* set to 1 to test offsets in backAndForth() */
 #define TEST_OFFSETS 0
@@ -148,13 +147,14 @@ static char* U_EXPORT2 sortKeyToString(const UCollator *coll, const uint8_t *sor
     int32_t strength = UCOL_PRIMARY;
     uint32_t res_size = 0;
     UBool doneCase = FALSE;
+    UErrorCode errorCode = U_ZERO_ERROR;
 
     char *current = buffer;
     const uint8_t *currentSk = sortkey;
 
     uprv_strcpy(current, "[");
 
-    while(strength <= UCOL_QUATERNARY && strength <= coll->strength) {
+    while(strength <= UCOL_QUATERNARY && strength <= ucol_getStrength(coll)) {
         if(strength > UCOL_PRIMARY) {
             uprv_strcat(current, " . ");
         }
@@ -162,20 +162,20 @@ static char* U_EXPORT2 sortKeyToString(const UCollator *coll, const uint8_t *sor
             uprv_appendByteToHexString(current, *currentSk++);
             uprv_strcat(current, " ");
         }
-        if(coll->caseLevel == UCOL_ON && strength == UCOL_SECONDARY && doneCase == FALSE) {
+        if(ucol_getAttribute(coll, UCOL_CASE_LEVEL, &errorCode) == UCOL_ON && strength == UCOL_SECONDARY && doneCase == FALSE) {
             doneCase = TRUE;
-        } else if(coll->caseLevel == UCOL_OFF || doneCase == TRUE || strength != UCOL_SECONDARY) {
+        } else if(ucol_getAttribute(coll, UCOL_CASE_LEVEL, &errorCode) == UCOL_OFF || doneCase == TRUE || strength != UCOL_SECONDARY) {
             strength ++;
         }
         if (*currentSk) {
             uprv_appendByteToHexString(current, *currentSk++); /* This should print '01' */
         }
-        if(strength == UCOL_QUATERNARY && coll->alternateHandling == UCOL_NON_IGNORABLE) {
+        if(strength == UCOL_QUATERNARY && ucol_getAttribute(coll, UCOL_ALTERNATE_HANDLING, &errorCode) == UCOL_NON_IGNORABLE) {
             break;
         }
     }
 
-    if(coll->strength == UCOL_IDENTICAL) {
+    if(ucol_getStrength(coll) == UCOL_IDENTICAL) {
         uprv_strcat(current, " . ");
         while(*currentSk != 0) {
             uprv_appendByteToHexString(current, *currentSk++);
@@ -214,7 +214,7 @@ UBool hasCollationElements(const char *locName) {
 
   UErrorCode status = U_ZERO_ERROR;
 
-  UResourceBundle *loc = ures_open(U_ICUDATA_COLL, locName, &status);;
+  UResourceBundle *loc = ures_open(U_ICUDATA_NAME U_TREE_SEPARATOR_STRING "coll", locName, &status);;
 
   if(U_SUCCESS(status)) {
     status = U_ZERO_ERROR;
@@ -283,11 +283,11 @@ static void doTestVariant(UCollator* myCollation, const UChar source[], const UC
     uiter_setString(&tIter, target, tLen);
     compareResultIter = ucol_strcollIter(myCollation, &sIter, &tIter, &status);
     if(compareResultIter != result) {
-      log_err("different results in iterative comparison for UTF-16 encoded strings. %s, %s\n", aescstrdup(source,-1), aescstrdup(target,-1));
+        log_err("different results in iterative comparison for UTF-16 encoded strings. %s, %s\n", aescstrdup(source,-1), aescstrdup(target,-1));
     }
 
     /* convert the strings to UTF-8 and do try comparing with char iterator */
-    if(QUICK <= 0) { /*!QUICK*/
+    if(getTestOption(QUICK_OPTION) <= 0) { /*!QUICK*/
       char utf8Source[256], utf8Target[256];
       int32_t utf8SourceLen = 0, utf8TargetLen = 0;
       u_strToUTF8(utf8Source, 256, &utf8SourceLen, source, sLen, &status);
@@ -329,7 +329,7 @@ static void doTestVariant(UCollator* myCollation, const UChar source[], const UC
       int32_t i = 0;
       int32_t partialSizes[] = { 3, 1, 2, 4, 8, 20, 80 }; /* just size 3 in the quick mode */
       int32_t partialSizesSize = 1;
-      if(QUICK <= 0) {
+      if(getTestOption(QUICK_OPTION) <= 0) {
         partialSizesSize = 7;
       }
       /*log_verbose("partial sortkey test piecesize=");*/
@@ -344,7 +344,7 @@ static void doTestVariant(UCollator* myCollation, const UChar source[], const UC
             aescstrdup(source,-1), aescstrdup(target,-1), partialSizes[i]);
         }
 
-        if(QUICK <= 0 && norm != UCOL_ON) {
+        if(getTestOption(QUICK_OPTION) <= 0 && norm != UCOL_ON) {
           /*log_verbose("N ");*/
           ucol_setAttribute(myCollation, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
           partialNormalizedSKResult = compareUsingPartials(myCollation, source, sLen, target, tLen, partialSizes[i], &status);
@@ -503,7 +503,10 @@ backAndForth(UCollationElements *iter)
 
     /* synwee : changed */
     while ((o = ucol_previous(iter, &status)) != UCOL_NULLORDER) {
-      int32_t offset = ucol_getOffset(iter);
+#if TEST_OFFSETS
+      int32_t offset = 
+#endif
+        ucol_getOffset(iter);
 
       index -= 1;
       if (o != orders[index].order) {
@@ -515,7 +518,7 @@ backAndForth(UCollationElements *iter)
           }
 
           if (o != orders[index].order) {
-              log_err("Mismatched order at index %d: 0x%0:8X vs. 0x%0:8X\n", index,
+              log_err("Mismatched order at index %d: 0x%8.8X vs. 0x%8.8X\n", index,
                 orders[index].order, o);
             goto bail;
           }
@@ -647,7 +650,7 @@ void genericRulesStarterWithOptionsAndResult(const char *rules, const char * con
 
     genericOrderingTestWithResult(coll, s, size, result);
   } else {
-    log_err("Unable to open collator with rules %s\n", rules);
+    log_err_status(status, "Unable to open collator with rules %s\n", rules);
   }
   ucol_close(coll);
 }
@@ -669,7 +672,7 @@ void genericLocaleStarterWithOptionsAndResult(const char *locale, const char * c
 
     genericOrderingTestWithResult(coll, s, size, result);
   } else {
-    log_err("Unable to open collator for locale %s\n", locale);
+    log_err_status(status, "Unable to open collator for locale %s\n", locale);
   }
   ucol_close(coll);
 }
@@ -713,7 +716,7 @@ static void TestTertiary()
 
     myCollation=ucol_openRules(rules, len, UCOL_OFF, UCOL_DEFAULT_STRENGTH, NULL, &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator :%s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator :%s\n", myErrorName(status));
         return;
     }
    
@@ -738,7 +741,7 @@ static void TestPrimary( )
 
     myCollation=ucol_openRules(rules, len, UCOL_OFF, UCOL_DEFAULT_STRENGTH,NULL, &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator :%s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator :%s\n", myErrorName(status));
         return;
     }
     ucol_setStrength(myCollation, UCOL_PRIMARY);
@@ -765,7 +768,7 @@ static void TestSecondary()
 
     myCollation=ucol_openRules(rules, len, UCOL_OFF, UCOL_DEFAULT_STRENGTH,NULL, &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator :%s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator :%s\n", myErrorName(status));
         return;
     }
     ucol_setStrength(myCollation, UCOL_SECONDARY);
@@ -790,7 +793,7 @@ static void TestIdentical()
 
     myCollation=ucol_openRules(rules, len, UCOL_OFF, UCOL_IDENTICAL, NULL,&status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator :%s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator :%s\n", myErrorName(status));
         return;
     }
     for(i= 34; i<37; i++)
@@ -814,7 +817,7 @@ static void TestExtra()
 
     myCollation=ucol_openRules(rules, len, UCOL_OFF, UCOL_DEFAULT_STRENGTH,NULL, &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator :%s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator :%s\n", myErrorName(status));
         return;
     }
     ucol_setStrength(myCollation, UCOL_TERTIARY);
@@ -850,7 +853,7 @@ static void TestJB581(void)
 
     myCollator = ucol_open("en_US", &status);
     if (U_FAILURE(status)){
-        log_err("ERROR: Failed to create the collator : %s\n", u_errorName(status));
+        log_err_status(status, "ERROR: Failed to create the collator : %s\n", u_errorName(status));
         return;
     }
     result = ucol_strcoll(myCollator, source, -1, target, -1);
@@ -893,7 +896,7 @@ static void TestJB1401(void)
     
     myCollator = ucol_open("en_US", &status);
     if (U_FAILURE(status)){
-        log_err("ERROR: Failed to create the collator : %s\n", u_errorName(status));
+        log_err_status(status, "ERROR: Failed to create the collator : %s\n", u_errorName(status));
         return;
     }
     ucol_setAttribute(myCollator, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
@@ -994,7 +997,7 @@ static void TestVariableTop(void)
 
     enCollation = ucol_open("en_US", &status);
     if (U_FAILURE(status)) {
-        log_err("ERROR: in creation of collator :%s\n", 
+        log_err_status(status, "ERROR: in creation of collator :%s\n", 
                 myErrorName(status));
         return;
     }
@@ -1075,7 +1078,7 @@ static void TestSurrogates(void)
     
     enCollation = ucol_open("en_US", &status);
     if (U_FAILURE(status)) {
-        log_err("ERROR: in creation of collator :%s\n", 
+        log_err_status(status, "ERROR: in creation of collator :%s\n", 
                 myErrorName(status));
         return;
     }
@@ -1160,10 +1163,10 @@ TestInvalidRules(){
         /* open the rules and test */
         coll = ucol_openRules(rules,u_strlen(rules),UCOL_OFF,UCOL_DEFAULT_STRENGTH,&parseError,&status);
         if(u_strcmp(parseError.preContext,preContextExp)!=0){
-            log_err("preContext in UParseError for ucol_openRules does not match\n");
+            log_err_status(status, "preContext in UParseError for ucol_openRules does not match\n");
         }
         if(u_strcmp(parseError.postContext,postContextExp)!=0){
-            log_err("postContext in UParseError for ucol_openRules does not match\n");
+            log_err_status(status, "postContext in UParseError for ucol_openRules does not match\n");
         }
     }  
 }
@@ -1205,7 +1208,7 @@ TestJitterbug1098(){
         u_uastrcpy(rule, rules[i]);
         c1 = ucol_openRules(rule, u_strlen(rule), UCOL_OFF, UCOL_DEFAULT_STRENGTH, &parseError, &status);
         if(U_FAILURE(status)){
-            log_err("Could not parse the rules syntax. Error: %s\n", u_errorName(status));
+            log_err_status(status, "Could not parse the rules syntax. Error: %s\n", u_errorName(status));
 
             if (status == U_PARSE_ERROR) {
                 u_UCharsToChars(parseError.preContext,preContext,20);
@@ -1232,7 +1235,7 @@ TestFCDCrash(void) {
     UErrorCode status = U_ZERO_ERROR;
     UCollator *coll = ucol_open("es", &status);
     if(U_FAILURE(status)) {
-        log_err("Couldn't open collator\n");
+        log_err_status(status, "Couldn't open collator -> %s\n", u_errorName(status));
         return;
     }
     ucol_close(coll);
@@ -1240,7 +1243,7 @@ TestFCDCrash(void) {
     ctest_resetICU();
     coll = ucol_open("de_DE", &status);
     if(U_FAILURE(status)) {
-        log_err("Couldn't open collator\n");
+        log_err_status(status, "Couldn't open collator -> %s\n", u_errorName(status));
         return;
     }
     ucol_setAttribute(coll, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
@@ -1293,4 +1296,3 @@ static void TestJ5298(void)
     log_verbose("\n");
 }
 #endif /* #if !UCONFIG_NO_COLLATION */
-

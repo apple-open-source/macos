@@ -21,8 +21,9 @@
 namespace llvm {
   template<typename ItTy = User::const_op_iterator>
   class generic_gep_type_iterator
-    : public forward_iterator<const Type *, ptrdiff_t> {
-    typedef forward_iterator<const Type*, ptrdiff_t> super;
+    : public std::iterator<std::forward_iterator_tag, const Type *, ptrdiff_t> {
+    typedef std::iterator<std::forward_iterator_tag,
+                          const Type *, ptrdiff_t> super;
 
     ItTy OpIt;
     const Type *CurTy;
@@ -83,7 +84,7 @@ namespace llvm {
 
   inline gep_type_iterator gep_type_begin(const User *GEP) {
     return gep_type_iterator::begin(GEP->getOperand(0)->getType(),
-                                      GEP->op_begin()+1);
+                                    GEP->op_begin()+1);
   }
   inline gep_type_iterator gep_type_end(const User *GEP) {
     return gep_type_iterator::end(GEP->op_end());

@@ -1,0 +1,10 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set f [5 cm]
+set pi [expr {atan2(0, -1)}]
+for {set i 0} {$i <= 2*$pi} {set i [expr {$i + 0.1}]} {
+    set k [expr {$f*$i/2.}]
+    text text "-" at [$k 0]
+    text text "." at [$k [expr {$f*sin($i)/2.}]]
+    text text ":" at [$k [expr {$f*cos($i)/2.}]]
+}

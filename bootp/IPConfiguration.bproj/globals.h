@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,12 +50,15 @@ extern int			G_dhcp_defend_ip_address_interval_secs;
 extern int			G_dhcp_defend_ip_address_count;
 extern int			G_dhcp_lease_write_t1_threshold_secs;
 extern int			G_manual_conflict_retry_interval_secs;
+extern boolean_t		G_dhcpv6_enabled;
+extern boolean_t		G_dhcpv6_stateful_enabled;
+extern int			G_dhcp_duid_type;
+extern boolean_t		G_is_netboot;
 
 extern const unsigned char	G_rfc_magic[4];
-extern const struct sockaddr	G_blank_sin;
 extern const struct in_addr	G_ip_broadcast;
 extern const struct in_addr	G_ip_zeroes;
 
 #include "ipconfigd_globals.h"
 
-#endif _S_GLOBALS_H
+#endif /* _S_GLOBALS_H */

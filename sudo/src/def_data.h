@@ -64,9 +64,9 @@
 #define I_PRESERVE_GROUPS       31
 #define def_loglinelen          (sudo_defs_table[32].sd_un.ival)
 #define I_LOGLINELEN            32
-#define def_timestamp_timeout   (sudo_defs_table[33].sd_un.ival)
+#define def_timestamp_timeout   (sudo_defs_table[33].sd_un.fval)
 #define I_TIMESTAMP_TIMEOUT     33
-#define def_passwd_timeout      (sudo_defs_table[34].sd_un.ival)
+#define def_passwd_timeout      (sudo_defs_table[34].sd_un.fval)
 #define I_PASSWD_TIMEOUT        34
 #define def_passwd_tries        (sudo_defs_table[35].sd_un.ival)
 #define I_PASSWD_TRIES          35
@@ -138,6 +138,20 @@
 #define I_SUDOERS_LOCALE        68
 #define def_visiblepw           (sudo_defs_table[69].sd_un.flag)
 #define I_VISIBLEPW             69
+#define def_pwfeedback          (sudo_defs_table[70].sd_un.flag)
+#define I_PWFEEDBACK            70
+#define def_fast_glob           (sudo_defs_table[71].sd_un.flag)
+#define I_FAST_GLOB             71
+#define def_umask_override      (sudo_defs_table[72].sd_un.flag)
+#define I_UMASK_OVERRIDE        72
+#define def_log_input           (sudo_defs_table[73].sd_un.flag)
+#define I_LOG_INPUT             73
+#define def_log_output          (sudo_defs_table[74].sd_un.flag)
+#define I_LOG_OUTPUT            74
+#define def_compress_io         (sudo_defs_table[75].sd_un.flag)
+#define I_COMPRESS_IO           75
+#define def_use_pty             (sudo_defs_table[76].sd_un.flag)
+#define I_USE_PTY               76
 
 enum def_tupple {
 	never,

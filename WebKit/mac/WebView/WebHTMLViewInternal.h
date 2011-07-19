@@ -49,23 +49,22 @@ namespace WebCore {
 - (WebFrame *)_frame;
 - (void)_lookUpInDictionaryFromMenu:(id)sender;
 - (void)_hoverFeedbackSuspendedChanged;
-- (BOOL)_interceptEditingKeyEvent:(WebCore::KeyboardEvent *)event shouldSaveCommand:(BOOL)shouldSave;
+- (BOOL)_interpretKeyEvent:(WebCore::KeyboardEvent *)event savingCommands:(BOOL)savingCommands;
 - (DOMDocumentFragment *)_documentFragmentFromPasteboard:(NSPasteboard *)pasteboard;
 - (NSEvent *)_mouseDownEvent;
-#ifndef BUILDING_ON_TIGER
 - (BOOL)isGrammarCheckingEnabled;
 - (void)setGrammarCheckingEnabled:(BOOL)flag;
 - (void)toggleGrammarChecking:(id)sender;
-#endif
 - (WebCore::CachedImage*)promisedDragTIFFDataSource;
 - (void)setPromisedDragTIFFDataSource:(WebCore::CachedImage*)source;
-- (void)_web_layoutIfNeededRecursive;
+- (void)_web_updateLayoutAndStyleIfNeededRecursive;
 - (void)_destroyAllWebPlugins;
 - (BOOL)_needsLayout;
 
 #if USE(ACCELERATED_COMPOSITING)
 - (void)attachRootLayer:(CALayer*)layer;
 - (void)detachRootLayer;
+- (BOOL)_web_isDrawingIntoLayer;
 #endif
 
 #if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)

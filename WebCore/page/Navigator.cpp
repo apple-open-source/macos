@@ -25,6 +25,9 @@
 
 #include "Chrome.h"
 #include "CookieJar.h"
+#include "DOMMimeTypeArray.h"
+#include "DOMPluginArray.h"
+#include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -32,15 +35,16 @@
 #include "Geolocation.h"
 #include "KURL.h"
 #include "Language.h"
-#include "MimeTypeArray.h"
+#include "MediaStreamFrameController.h"
+#include "NavigatorUserMediaErrorCallback.h"
+#include "NavigatorUserMediaSuccessCallback.h"
 #include "Page.h"
 #include "PageGroup.h"
 #include "PlatformString.h"
-#include "PluginArray.h"
 #include "PluginData.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "StorageNamespace.h"
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
@@ -52,6 +56,12 @@ Navigator::Navigator(Frame* frame)
 Navigator::~Navigator()
 {
     disconnectFrame();
+}
+
+void Navigator::resetGeolocation()
+{
+    if (m_geolocation)
+        m_geolocation->reset();
 }
 
 void Navigator::disconnectFrame()
@@ -116,17 +126,17 @@ String Navigator::userAgent() const
     return m_frame->loader()->userAgent(m_frame->document()->url());
 }
 
-PluginArray* Navigator::plugins() const
+DOMPluginArray* Navigator::plugins() const
 {
     if (!m_plugins)
-        m_plugins = PluginArray::create(m_frame);
+        m_plugins = DOMPluginArray::create(m_frame);
     return m_plugins.get();
 }
 
-MimeTypeArray* Navigator::mimeTypes() const
+DOMMimeTypeArray* Navigator::mimeTypes() const
 {
     if (!m_mimeTypes)
-        m_mimeTypes = MimeTypeArray::create(m_frame);
+        m_mimeTypes = DOMMimeTypeArray::create(m_frame);
     return m_mimeTypes.get();
 }
 
@@ -172,9 +182,11 @@ void Navigator::getStorageUpdates()
 }
 #endif
 
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
 static bool verifyCustomHandlerURL(const String& baseURL, const String& url, ExceptionCode& ec)
 {
-    // The specification requires that it is a SYNTAX_ERR if the the "%s" token is not present.
+    // The specification requires that it is a SYNTAX_ERR if the "%s" token is
+    // not present.
     static const char token[] = "%s";
     int index = url.find(token);
     if (-1 == index) {
@@ -185,7 +197,7 @@ static bool verifyCustomHandlerURL(const String& baseURL, const String& url, Exc
     // It is also a SYNTAX_ERR if the custom handler URL, as created by removing
     // the "%s" token and prepending the base url, does not resolve.
     String newURL = url;
-    newURL.remove(index, sizeof(token) / sizeof(token[0]));
+    newURL.remove(index, WTF_ARRAY_LENGTH(token) - 1);
 
     KURL base(ParsedURLString, baseURL);
     KURL kurl(base, newURL);
@@ -225,40 +237,20 @@ void Navigator::registerProtocolHandler(const String& scheme, const String& url,
     if (!verifyCustomHandlerURL(baseURL, url, ec))
         return;
 
-    if (Page* page = m_frame->page())
-        page->chrome()->registerProtocolHandler(scheme, baseURL, url, m_frame->displayStringModifiedByEncoding(title));
-}
+    Page* page = m_frame->page();
+    if (!page)
+        return;
 
-static bool verifyProtocolHandlerMimeType(const String& type, ExceptionCode& ec)
+    page->chrome()->registerProtocolHandler(scheme, baseURL, url, m_frame->displayStringModifiedByEncoding(title));
+}
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+void Navigator::webkitGetUserMedia(const String& options, PassRefPtr<NavigatorUserMediaSuccessCallback> successCallback, PassRefPtr<NavigatorUserMediaErrorCallback> errorCallback, ExceptionCode& ec)
 {
-    // It is a SECURITY_ERR for these mime types to be assigned to a custom
-    // handler.
-    if (equalIgnoringCase(type, "text/html") || equalIgnoringCase(type, "text/css") || equalIgnoringCase(type, "application/x-javascript")) {
-        ec = SECURITY_ERR;
-        return false;
-    }
-    return true;
+    if (m_frame && m_frame->mediaStreamFrameController())
+        m_frame->mediaStreamFrameController()->generateStream(options, successCallback, errorCallback, ec);
 }
-
-void Navigator::registerContentHandler(const String& mimeType, const String& url, const String& title, ExceptionCode& ec)
-{
-    if (!verifyProtocolHandlerMimeType(mimeType, ec))
-        return;
-
-    if (!m_frame)
-        return;
-
-    Document* document = m_frame->document();
-    if (!document)
-        return;
-
-    String baseURL = document->baseURL().baseAsString();
-
-    if (!verifyCustomHandlerURL(baseURL, url, ec))
-        return;
-
-    if (Page* page = m_frame->page())
-        page->chrome()->registerContentHandler(mimeType, baseURL, url, m_frame->displayStringModifiedByEncoding(title));
-}
+#endif
 
 } // namespace WebCore

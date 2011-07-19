@@ -1080,15 +1080,21 @@ typedef enum {
 	} USBPowerRequestTypes;
 	
 	// Apple specific properties
-#define kAppleCurrentAvailable		"AAPL,current-available"
-#define kAppleMaxPortCurrent		"AAPL,current-available"
-#define kAppleCurrentInSleep		"AAPL,current-in-sleep"
-#define kAppleCurrentExtra			"AAPL,current-extra"
-#define kAppleMaxPortCurrentInSleep	"AAPL,max-port-current-in-sleep"
-#define kAppleCurrentExtraInSleep	"AAPL,current-extra-in-sleep"
-#define kApplePortCurrentInSleep	"AAPL,port-current-in-sleep"
+#define kAppleMaxPortCurrent			"AAPL,current-available"
+#define kAppleCurrentExtra				"AAPL,current-extra"
+#define kAppleMaxPortCurrentInSleep		"AAPL,max-port-current-in-sleep"
+#define kAppleCurrentExtraInSleep		"AAPL,current-extra-in-sleep"
+	
+#define kAppleStandardPortCurrentInSleep	"AAPL,standard-port-current-in-sleep"
+
 #define kAppleInternalUSBDevice		"AAPL,device-internal"
 #define kUSBBusID					"AAPL,bus-id"
+	
+	// Deprecated Names and/or values
+#define kAppleCurrentAvailable		"AAPL,current-available"
+#define kAppleCurrentInSleep		"AAPL,current-in-sleep"
+#define kApplePortCurrentInSleep	"AAPL,port-current-in-sleep"
+
 
 // UPC definitions from ACPI Rev 4.0
 typedef enum {

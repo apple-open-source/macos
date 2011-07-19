@@ -1,0 +1,270 @@
+#!/bin/sh
+#
+# Copyright (c) 2007 Kungliga Tekniska Högskolan
+# (Royal Institute of Technology, Stockholm, Sweden). 
+# All rights reserved. 
+#
+# Redistribution and use in source and binary forms, with or without 
+# modification, are permitted provided that the following conditions 
+# are met: 
+#
+# 1. Redistributions of source code must retain the above copyright 
+#    notice, this list of conditions and the following disclaimer. 
+#
+# 2. Redistributions in binary form must reproduce the above copyright 
+#    notice, this list of conditions and the following disclaimer in the 
+#    documentation and/or other materials provided with the distribution. 
+#
+# 3. Neither the name of the Institute nor the names of its contributors 
+#    may be used to endorse or promote products derived from this software 
+#    without specific prior written permission. 
+#
+# THIS SOFTWARE IS PROVIDED BY THE INSTITUTE AND CONTRIBUTORS ``AS IS'' AND 
+# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE 
+# IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE 
+# ARE DISCLAIMED.  IN NO EVENT SHALL THE INSTITUTE OR CONTRIBUTORS BE LIABLE 
+# FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL 
+# DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS 
+# OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) 
+# HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT 
+# LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY 
+# OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF 
+# SUCH DAMAGE. 
+#
+# $Id$
+#
+
+env_setup="@env_setup@"
+confdir="@confdir@"
+testdir="@testdir@"
+
+. ${env_setup}
+
+# If there is no useful db support compile in, disable test
+${have_db} || exit 77
+
+R=TEST.H5L.SE
+R2=TEST2.H5L.SE
+
+port=@port@
+
+keytabfile=${testdir}/server.keytab
+keytab="FILE:${keytabfile}"
+nokeytab="FILE:no-such-keytab"
+cache="FILE:${testdir}/krb5ccfile"
+cache2="FILE:${testdir}/krb5ccfile2"
+nocache="FILE:no-such-cache"
+
+kinit="${kinit} -c $cache ${afs_no_afslog}"
+kdestroy="${kdestroy} -c $cache ${afs_no_unlog}"
+klist="${klist} -c $cache"
+kadmin="${kadmin} -l -r $R"
+kdc="${kdc} --addresses=localhost -P $port"
+
+acquire_cred="${test_acquire_cred}"
+test_kcred="${test_kcred}"
+
+KRB5_CONFIG="${confdir}/krb5.conf"
+export KRB5_CONFIG
+
+KRB5_KTNAME="${keytab}"
+export KRB5_KTNAME
+KRB5CCNAME="${cache}"
+export KRB5CCNAME
+
+rm -f ${keytabfile}
+rm -f ${testdir}/current-db*
+rm -f ${testdir}/out-*
+rm -f ${testdir}/mkey.file*
+
+> ${testdir}/messages.log
+
+echo Creating database
+${kadmin} \
+    init \
+    --realm-max-ticket-life=1day \
+    --realm-max-renewable-life=1month \
+    ${R} || exit 1
+
+echo upw > ${testdir}/foopassword
+
+${kadmin} add -p upw --use-defaults user@${R} || exit 1
+${kadmin} add -p upw --use-defaults another@${R} || exit 1
+
+${kadmin} add -p p1 --use-defaults host/host.test.h5l.se@${R} || exit 1
+${kadmin} ext -k ${keytab} host/host.test.h5l.se@${R} || exit 1
+
+${kadmin} add -p p1 --use-defaults host/host-r2.test.h5l.se@${R2} || exit 1
+${kadmin} ext -k ${keytab} host/host-r2.test.h5l.se@${R2} || exit 1
+
+echo "Doing database check"
+${kadmin} check ${R} || exit 1
+
+echo Starting kdc
+env MallocStackLoggingNoCompact=1 MallocErrorAbort=1 MallocLogFile=${testdir}/malloc-log \
+${kdc} &
+kdcpid=$!
+
+sh ${wait_kdc} KDC ${testdir}/messages.log
+if [ "$?" != 0 ] ; then
+    kill ${kdcpid}
+    exit 1
+fi
+
+trap "kill ${kdcpid}; echo signal killing kdc; exit 1;" EXIT
+
+exitcode=0
+
+echo "initial ticket"
+${kinit} --password-file=${testdir}/foopassword user@${R} || exitcode=1
+
+echo "keytab"
+${acquire_cred} \
+    --acquire-type=accept \
+    --acquire-name=host@host.test.h5l.se || exit 1
+
+echo "keytab w/o name"
+${acquire_cred} \
+    --acquire-type=accept || exit 1
+
+echo "keytab w/ wrong name"
+${acquire_cred} \
+    --acquire-type=accept \
+    --cred-type=krb5 \
+    --kerberos \
+    --acquire-name=host@host2.test.h5l.se 2>/dev/null && exit 1
+
+echo "keytab default realm wrong (hostbased service name)"
+${acquire_cred} \
+    --acquire-type=accept \
+    --cred-type=krb5 \
+    --kerberos \
+    --name-type=hostbased-service \
+    --acquire-name=host@host-r2.test.h5l.se 2>/dev/null || exit 1
+
+echo "keytab default realm wrong (kerberos principal)"
+${acquire_cred} \
+    --acquire-type=accept \
+    --cred-type=krb5 \
+    --kerberos \
+    --name-type=krb5-principal-name \
+    --acquire-name=host/host-r2.test.h5l.se@${R1} 2>/dev/null && exit 1
+
+echo "keytab default realm wrong (kerberos principal referral)"
+${acquire_cred} \
+    --acquire-type=accept \
+    --cred-type=krb5 \
+    --kerberos \
+    --name-type=krb5-principal-name-referral \
+    --acquire-name=host/host-r2.test.h5l.se@${R2} >/dev/null || exit 1
+
+echo "init using keytab"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --acquire-name=host@host.test.h5l.se > /dev/null || exit 1
+
+echo "init using keytab (loop 10)"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --loops=10 \
+    --acquire-name=host@host.test.h5l.se > /dev/null || exit 1
+
+echo "init using keytab (loop 10, target)"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --loops=10 \
+    --target=host@host.test.h5l.se \
+    --acquire-name=host@host.test.h5l.se > /dev/null || exit 1
+
+echo "init using keytab (loop 10, kerberos)"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --loops=10 \
+    --cred-type=krb5 \
+    --kerberos \
+    --acquire-name=host@host.test.h5l.se > /dev/null || exit 1
+
+echo "init using keytab (loop 10, target, kerberos)"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --loops=10 \
+    --cred-type=krb5 \
+    --kerberos \
+    --target=host@host.test.h5l.se \
+    --acquire-name=host@host.test.h5l.se > /dev/null || exit 1
+
+echo "init using existing cc"
+${acquire_cred} \
+    --name-type=user-name \
+    --acquire-type=initiate \
+    --acquire-name=user || exit 1
+
+KRB5CCNAME=${nocache}
+
+echo "fail init using existing cc"
+${acquire_cred} \
+    --name-type=user-name \
+    --acquire-type=initiate \
+    --acquire-name=user 2>/dev/null && exit 1
+
+echo "use gss_krb5_ccache_name for user"
+${acquire_cred} \
+    --name-type=user-name \
+    --ccache=${cache} \
+    --acquire-type=initiate \
+    --acquire-name=user >/dev/null || exit 1
+
+KRB5CCNAME=${cache}
+KRB5_KTNAME=${nokeytab}
+
+echo "kcred"
+${test_kcred} || exit 1
+
+${kdestroy}
+
+KRB5_KTNAME="${keytab}"
+
+echo "init using keytab"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --acquire-name=host@host.test.h5l.se 2>/dev/null || exit 1
+
+echo "init using keytab (ccache)"
+${acquire_cred} \
+    --acquire-type=initiate \
+    --ccache=${cache} \
+    --acquire-name=host@host.test.h5l.se 2>/dev/null || exit 1
+
+echo "init anon ntlm cred"
+
+for mech in spengo ntlm ; do
+    echo "init anon ntlm cred (mech=$mech)"
+    ${acquire_cred} \
+	--anonymous \
+        --target=host@server.domain \
+        --acquire-type=initiate \
+        --cred-type=ntlm \
+        --mech-type=spnego \
+        --name-type=anonymous \
+            2>/dev/null || exit 1
+
+    echo "init anon ntlm cred (mech=$mech) (failure because non GSS_C_ANON_FLAG)"
+    ${acquire_cred} \
+        --target=host@server.domain \
+        --acquire-type=initiate \
+        --cred-type=ntlm \
+        --mech-type=spnego \
+        --name-type=anonymous \
+            2>/dev/null && exit 1
+
+done
+
+echo "checking scram"
+${test_gssscram} --user=lha --password=foo || exit 1
+
+trap "" EXIT
+
+echo "killing kdc (${kdcpid})"
+sh ${leaks_kill} kdc ${kdcpid} || { exitcode=1; }
+
+exit $exitcode

@@ -1,0 +1,219 @@
+Virtual mailboxes
+=================
+
+First, you'll have to load the plugin:
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins virtual
+---%<-------------------------------------------------------------------------
+
+Namespace configuration
+-----------------------
+
+Then, you'll have to create a <namespace> [Namespaces.txt] for the virtual
+mailboxes, for example:
+
+---%<-------------------------------------------------------------------------
+namespace {
+  prefix = virtual/
+  separator = /
+  location = virtual:~/Maildir/virtual
+}
+---%<-------------------------------------------------------------------------
+
+After this you can create virtual mailboxes under '~/Maildir/virtual'. By
+default it uses the "fs" layout, so you can create directories such as:
+
+ * INBOX: '~/Maildir/virtual/INBOX/'
+ * Sub/mailbox: '~/Maildir/virtual/Sub/mailbox/'
+
+If you prefer to use Maildir++ layout instead, you can simply append
+':LAYOUT=maildir++' to the location.
+
+Virtual mailbox configuration
+-----------------------------
+
+For each virtual directory you need to create a 'dovecot-virtual' file. Its
+syntax is like:
+
+---%<-------------------------------------------------------------------------
+<1+ mailbox patterns>
+  <search program>
+[<more mailbox patterns>
+  <search program for these mailboxes>
+[etc..]]
+---%<-------------------------------------------------------------------------
+
+Mailbox patterns can contain IMAP LIST-compatible
+[http://tools.ietf.org/html/rfc3501#section-6.3.8] "*" and "%" wildcards. They
+are currently evaluated only when the virtual mailbox is being selected, so if
+more mailboxes are created during that they aren't noticed.
+
+"*" wildcard matches only one namespace at a time based on the namespace
+prefix. For example if you have namespaces with an empty prefix and a prefix
+"mail/":
+
+ * '*' matches only mailboxes from the namespace with empty prefix
+ * 'mail*' matches mailboxes beginning with name "mail" from the namespace with
+   empty prefix
+ * 'mail/*' matches only mailboxes from the mail/ namespace
+
+It's possible to give negative matches for mailbox names by prefixing the
+mailbox name with '-' character.
+
+Search program is compatible with IMAP SEARCH command
+[http://tools.ietf.org/html/rfc3501#section-6.4.4]. Besides the standard SEARCH
+key you may want to use X-MAILBOX key which matches the message's original
+mailbox. Note the leading whitespace in front of search specifications.
+
+Saving mails to virtual mailboxes
+---------------------------------
+
+It's possible to configure virtual mailbox so that it's possible to save/copy
+messages there. This is done by specifying a single physical mailbox where the
+message is really saved by prefixing it with '!', e.g.:
+
+---%<-------------------------------------------------------------------------
+!INBOX
+work/*
+ unseen
+---%<-------------------------------------------------------------------------
+
+Note however that nothing guarantees that the saved mail will actually show up
+in the virtual mailbox. If a message was saved with \Seen flag to the above
+virtual mailbox, it wouldn't show up there. This also means it's problematic to
+support IMAP UIDPLUS extension for virtual mailboxes, and currently Dovecot
+doesn't even try (no [APPENDUID] or [COPYUID] is sent to client).
+
+The !-prefixed virtual mailbox is also selected from; you don't need to list it
+again without an ! or you'll get two copies of your messages in the virtual
+mailbox.
+
+Examples
+--------
+
+List all messages with \Deleted flag in all mailboxes:
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/Trash/dovecot-virtual
+*
+  deleted
+---%<-------------------------------------------------------------------------
+
+List all unseen INBOX and work/* messages:
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/unseen/dovecot-virtual
+INBOX
+work/*
+  unseen
+---%<-------------------------------------------------------------------------
+
+Create a GMail-style "conversation view" for INBOX which shows all threads that
+have messages in INBOX, but shows all messages in the thread regardless of in
+what mailbox they physically exist in:
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/all/dovecot-virtual
+*
+  all
+---%<-------------------------------------------------------------------------
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/INBOX/dovecot-virtual
+virtual/all
+  inthread refs x-mailbox INBOX
+---%<-------------------------------------------------------------------------
+
+Create a mailbox containing messages from all mailboxes except Trash and its
+children:
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/all/dovecot-virtual
+*
+-Trash
+-Trash/*
+  all
+---%<-------------------------------------------------------------------------
+
+Create a virtual Sentmail folder that includes Sent*:
+
+---%<-------------------------------------------------------------------------
+# ~/Maildir/virtual/Sentmail/dovecot-virtual
+Sent*
+  all
+---%<-------------------------------------------------------------------------
+
+Virtual POP3 INBOX
+------------------
+
+If you want POP3 INBOX to contain some or all mailboxes, you can do this in the
+following way:
+
+Namespace configuration:
+
+---%<-------------------------------------------------------------------------
+# The default namespace that is visible to IMAP clients
+namespace default {
+  prefix =
+  separator = /
+  list = yes
+}
+
+# Virtual namespace for the virtual INBOX. Use a global directory for
+dovecot-virtual files.
+namespace virtual {
+  prefix = virtual/
+  separator = /
+  location = virtual:/etc/dovecot/virtual:INDEX=~/Maildir/virtual
+  list = no
+  hidden = yes
+}
+
+# Copy of the default namespace. We'll use this in dovecot-virtual file.
+namespace real {
+  prefix = RealMails/
+  separator = /
+  list = no
+  hidden = yes
+}
+---%<-------------------------------------------------------------------------
+
+Note that none of the namespaces have inbox=yes. This is because for IMAP users
+you want the default namespace to have inbox=yes, but for POP3 users you want
+the virtual namespace to have inbox=yes. This requires setting the inbox=yes in
+<userdb extra fields> [UserDatabase.ExtraFields.txt]. For example with MySQL
+you can can do this like:
+
+---%<-------------------------------------------------------------------------
+user_query = SELECT ..., \
+  CASE '%s' WHEN 'pop3' THEN NULL ELSE 'yes' END AS 'namespace/default/inbox',
+\
+  CASE '%s' WHEN 'pop3' THEN 'yes' ELSE NULL END AS 'namespace/virtual/inbox' \
+  WHERE ...
+---%<-------------------------------------------------------------------------
+
+Finally specify what the virtual INBOX looks like for POP3 users:
+
+'/etc/dovecot/virtual/INBOX/dovecot-virtual' :
+
+---%<-------------------------------------------------------------------------
+RealMails/*
+-RealMails/Trash
+-RealMails/Trash/*
+-RealMails/Spam
+  all
+---%<-------------------------------------------------------------------------
+
+You'll have to use the RealMails/ prefix if you want to use "*" wildcard,
+otherwise it would match INBOX, which in turn would again lead to the virtual
+INBOX and that would create a loop.
+
+Also to avoid accidental POP3 UIDL changes, you shouldn't base the UIDLs on
+IMAP UIDs. Instead use for GUIDs (with maildir the same as base filename):
+
+---%<-------------------------------------------------------------------------
+pop3_uidl_format = %g
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

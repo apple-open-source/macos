@@ -32,13 +32,12 @@
 #include "Editor.h"
 #include "Frame.h"
 #include "Image.h"
-#include "markup.h"
 #include "RenderImage.h"
-
-#include <qdebug.h>
-#include <qclipboard.h>
-#include <qmimedata.h>
+#include "markup.h"
 #include <qapplication.h>
+#include <qclipboard.h>
+#include <qdebug.h>
+#include <qmimedata.h>
 #include <qurl.h>
 
 #define methodDebug() qDebug() << "PasteboardQt: " << __FUNCTION__;
@@ -61,35 +60,39 @@ Pasteboard* Pasteboard::generalPasteboard()
 void Pasteboard::writeSelection(Range* selectedRange, bool canSmartCopyOrDelete, Frame* frame)
 {
     QMimeData* md = new QMimeData;
-    QString text = frame->selectedText();
+    QString text = frame->editor()->selectedText();
     text.replace(QChar(0xa0), QLatin1Char(' '));
     md->setText(text);
 
-    QString html = QLatin1String("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /></head><body>");
-    html += createMarkup(selectedRange, 0, AnnotateForInterchange);
-    html += QLatin1String("</body></html>");
-    md->setHtml(html);
+    QString markup = createMarkup(selectedRange, 0, AnnotateForInterchange, false, AbsoluteURLs);
+#ifdef Q_OS_MAC
+    markup.prepend(QLatin1String("<html><head><meta http-equiv=\"Content-Type\" content=\"text/html; charset=utf-8\" /></head><body>"));
+    markup.append(QLatin1String("</body></html>"));
+    md->setData(QLatin1String("text/html"), markup.toUtf8());
+#else
+    md->setHtml(markup);
+#endif
 
 #ifndef QT_NO_CLIPBOARD
-    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
-            QClipboard::Selection : QClipboard::Clipboard);
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ? QClipboard::Selection : QClipboard::Clipboard);
 #endif
     if (canSmartCopyOrDelete)
-        md->setData("application/vnd.qtwebkit.smartpaste", QByteArray());
+        md->setData(QLatin1String("application/vnd.qtwebkit.smartpaste"), QByteArray());
 }
 
 bool Pasteboard::canSmartReplace()
 {
+#ifndef QT_NO_CLIPBOARD
     if (QApplication::clipboard()->mimeData()->hasFormat((QLatin1String("application/vnd.qtwebkit.smartpaste"))))
         return true;
+#endif
     return false;
 }
 
 String Pasteboard::plainText(Frame*)
 {
 #ifndef QT_NO_CLIPBOARD
-    return QApplication::clipboard()->text(m_selectionMode ?
-            QClipboard::Selection : QClipboard::Clipboard);
+    return QApplication::clipboard()->text(m_selectionMode ? QClipboard::Selection : QClipboard::Clipboard);
 #else
     return String();
 #endif
@@ -130,22 +133,20 @@ void Pasteboard::writePlainText(const String& text)
     QString qtext = text;
     qtext.replace(QChar(0xa0), QLatin1Char(' '));
     md->setText(qtext);
-    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
-            QClipboard::Selection : QClipboard::Clipboard);
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ? QClipboard::Selection : QClipboard::Clipboard);
 #endif
 }
 
-void Pasteboard::writeURL(const KURL& _url, const String&, Frame*)
+void Pasteboard::writeURL(const KURL& url, const String&, Frame*)
 {
-    ASSERT(!_url.isEmpty());
+    ASSERT(!url.isEmpty());
 
 #ifndef QT_NO_CLIPBOARD
     QMimeData* md = new QMimeData;
-    QString url = _url.string();
-    md->setText(url);
-    md->setUrls(QList<QUrl>() << QUrl(url));
-    QApplication::clipboard()->setMimeData(md, m_selectionMode ?
-            QClipboard::Selection : QClipboard::Clipboard);
+    QString urlString = url.string();
+    md->setText(urlString);
+    md->setUrls(QList<QUrl>() << url);
+    QApplication::clipboard()->setMimeData(md, m_selectionMode ? QClipboard::Selection : QClipboard::Clipboard);
 #endif
 }
 
@@ -162,8 +163,8 @@ void Pasteboard::writeImage(Node* node, const KURL&, const String&)
     ASSERT(image);
 
     QPixmap* pixmap = image->nativeImageForCurrentFrame();
-    ASSERT(pixmap);
-
+    if (!pixmap)
+        return;
     QApplication::clipboard()->setPixmap(*pixmap, QClipboard::Clipboard);
 #endif
 }

@@ -56,25 +56,6 @@ catch (...) { return CssmError::cssmError(CSSM_ERRCODE_INTERNAL_ERROR, CSSM_ ## 
 #define END_API1(bad)	} catch (...) { return bad; }
 
 
-//
-// Helpers for memory pointer validation
-//
-template <class T>
-inline T &Required(T *ptr, CSSM_RETURN err = CSSM_ERRCODE_INVALID_POINTER)
-{
-    if (ptr == NULL)
-        CssmError::throwMe(err);
-    return *ptr;
-}
-
-// specialization for void * (just check for non-null; don't return a void & :-)
-inline void Required(void *ptr, CSSM_RETURN err = CSSM_ERRCODE_INVALID_POINTER)
-{
-	if (ptr == NULL)
-		CssmError::throwMe(err);
-}
-
-
 } // end namespace Security
 
 

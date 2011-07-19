@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -166,7 +166,7 @@ static	char *ip6nh[] = {
 	"no next header",	
 	"destination option",
 	"#61",
-	"#62",
+	"mobility",
 	"#63",
 	"#64",
 	"#65",
@@ -518,7 +518,8 @@ ip6_stats(uint32_t off __unused, char *name, int af __unused)
 
 	p1a(ip6s_forward_cachehit, "\t%llu forward cache hit\n");
 	p1a(ip6s_forward_cachemiss, "\t%llu forward cache miss\n");
-
+	p(ip6s_pktdropcntrl, "\t%llu packet%s dropped due to no bufs for control data\n");
+	
 	if (interval > 0)
 		bcopy(&ip6stat, &pip6stat, len);
 
@@ -545,7 +546,7 @@ ip6_ifstats(char *ifname)
 		return;
 	}
 
-	strcpy(ifr.ifr_name, ifname);
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("ip6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_IN6, (char *)&ifr) < 0) {
@@ -715,8 +716,8 @@ static	char *icmp6names[] = {
 	"echo",
 	"echo reply",	
 	"multicast listener query",
-	"multicast listener report",
-	"multicast listener done",
+	"MLDv1 listener report",
+	"MLDv1 listener done",
 	"router solicitation",
 	"router advertisement",
 	"neighbor solicitation",
@@ -727,7 +728,7 @@ static	char *icmp6names[] = {
 	"node information reply",
 	"inverse neighbor solicitation",
 	"inverse neighbor advertisement",
-	"#143",
+	"MLDv2 listener report",
 	"#144",
 	"#145",
 	"#146",
@@ -950,7 +951,7 @@ icmp6_ifstats(char *ifname)
 		return;
 	}
 
-	strcpy(ifr.ifr_name, ifname);
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	printf("icmp6 on %s:\n", ifr.ifr_name);
 
 	if (ioctl(s, SIOCGIFSTAT_ICMP6, (char *)&ifr) < 0) {
@@ -1118,15 +1119,15 @@ inet6print(struct in6_addr *in6, int port, char *proto, int numeric)
 	char line[80], *cp;
 	int width;
 
-	sprintf(line, "%.*s.", lflag ? 39 :
+	snprintf(line, sizeof(line), "%.*s.", lflag ? 39 :
 		(Aflag && !numeric) ? 12 : 16, inet6name(in6));
 	cp = index(line, '\0');
 	if (!numeric && port)
 		GETSERVBYPORT6(port, proto, sp);
 	if (sp || port == 0)
-		sprintf(cp, "%.8s", sp ? sp->s_name : "*");
+		snprintf(cp, sizeof(line) - (cp - line), "%.8s", sp ? sp->s_name : "*");
 	else
-		sprintf(cp, "%d", ntohs((u_short)port));
+		snprintf(cp, sizeof(line) - (cp - line), "%d", ntohs((u_short)port));
 	width = lflag ? 45 : Aflag ? 18 : 22;
 	printf("%-*.*s ", width, width, line);
 }
@@ -1153,7 +1154,7 @@ inet6name(struct in6_addr *in6p)
 		first = 0;
 		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
 		    (cp = index(domain, '.')))
-			(void) strcpy(domain, cp + 1);
+			(void) strlcpy(domain, cp + 1, sizeof(domain));
 		else
 			domain[0] = 0;
 	}
@@ -1168,7 +1169,7 @@ inet6name(struct in6_addr *in6p)
 		}
 	}
 	if (IN6_IS_ADDR_UNSPECIFIED(in6p))
-		strcpy(line, "*");
+		strlcpy(line, "*", sizeof(line));
 	else if (cp)
 		strlcpy(line, cp, sizeof(line));
 	else {
@@ -1178,6 +1179,7 @@ inet6name(struct in6_addr *in6p)
 		sin6.sin6_addr = *in6p;
 
 		if (IN6_IS_ADDR_LINKLOCAL(in6p) ||
+		    IN6_IS_ADDR_MC_NODELOCAL(in6p) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(in6p)) {
 			sin6.sin6_scope_id =
 			    ntohs(*(u_int16_t *)&in6p->s6_addr[2]);

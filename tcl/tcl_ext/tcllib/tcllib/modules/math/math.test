@@ -7,7 +7,7 @@
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # All rights reserved.
 #
-# RCS: @(#) $Id: math.test,v 1.21 2007/08/21 17:33:00 andreas_kupries Exp $
+# RCS: @(#) $Id: math.test,v 1.22 2009/12/04 17:37:47 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -262,5 +262,18 @@ test math-11.1 {math::fibonacci} {
     }
     set result
 } [list 0 1 1 2 3 5 8 13 21 34 55 89 144 233 377]
+
+test math-12.1 {Safe Interpreter} {
+    ::safe::interpCreate safeInterp
+    interp alias safeInterp puts {} puts
+
+    set result [interp eval safeInterp {
+	package require math
+	set result [math::cov 100 100 100 -100]
+    }]
+
+    interp delete safeInterp
+    set result
+} 200.0
 
 testsuiteCleanup

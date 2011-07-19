@@ -58,7 +58,7 @@ static struct builtin builtins[] =
     BUILTIN("disable", 0, bin_enable, 0, -1, BIN_DISABLE, "afmrs", NULL),
     BUILTIN("disown", 0, bin_fg, 0, -1, BIN_DISOWN, NULL, NULL),
     BUILTIN("echo", BINF_SKIPINVALID, bin_print, 0, -1, BIN_ECHO, "neE", "-"),
-    BUILTIN("emulate", 0, bin_emulate, 1, 1, 0, "LR", NULL),
+    BUILTIN("emulate", 0, bin_emulate, 0, 3, 0, "LR", NULL),
     BUILTIN("enable", 0, bin_enable, 0, -1, BIN_ENABLE, "afmrs", NULL),
     BUILTIN("eval", BINF_PSPECIAL, bin_eval, 0, -1, BIN_EVAL, NULL, NULL),
     BUILTIN("exit", BINF_PSPECIAL, bin_break, 0, 1, BIN_EXIT, NULL, NULL),
@@ -69,7 +69,7 @@ static struct builtin builtins[] =
      * But that's actually not useful, so it's more consistent to
      * cause an error.
      */
-    BUILTIN("fc", 0, bin_fc, 0, -1, BIN_FC, "nlre:IRWAdDfEimpPa", NULL),
+    BUILTIN("fc", 0, bin_fc, 0, -1, BIN_FC, "aAdDe:EfiIlmnpPrRt:W", NULL),
     BUILTIN("fg", 0, bin_fg, 0, -1, BIN_FG, NULL, NULL),
     BUILTIN("float", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "E:%F:%HL:%R:%Z:%ghlprtux", "E"),
     BUILTIN("functions", BINF_PLUSOPTS, bin_functions, 0, -1, 0, "kmMtuUz", NULL),
@@ -81,7 +81,7 @@ static struct builtin builtins[] =
     BUILTIN("hashinfo", 0, bin_hashinfo, 0, 0, 0, NULL, NULL),
 #endif
 
-    BUILTIN("history", 0, bin_fc, 0, -1, BIN_FC, "nrdDfEimpPa", "l"),
+    BUILTIN("history", 0, bin_fc, 0, -1, BIN_FC, "adDEfimnpPrt:", "l"),
     BUILTIN("integer", BINF_PLUSOPTS | BINF_MAGICEQUALS | BINF_PSPECIAL, bin_typeset, 0, -1, 0, "HL:%R:%Z:%ghi:%lprtux", "i"),
     BUILTIN("jobs", 0, bin_fg, 0, -1, BIN_JOBS, "dlpZrs", NULL),
     BUILTIN("kill", BINF_HANDLES_OPTS, bin_kill, 0, -1, 0, NULL, NULL),
@@ -203,6 +203,17 @@ freebuiltinnode(HashNode hn)
 	zsfree(bn->node.nam);
 	zsfree(bn->optstr);
 	zfree(bn, sizeof(struct builtin));
+    }
+}
+
+/**/
+void
+init_builtins(void)
+{
+    if (!EMULATION(EMULATE_ZSH)) {
+	HashNode hn = reswdtab->getnode2(reswdtab, "repeat");
+	if (hn)
+	    reswdtab->disablenode(hn, 0);
     }
 }
 
@@ -536,7 +547,7 @@ bin_set(char *nam, char **args, UNUSED(Options ops), UNUSED(int func))
 
     /* Obsolescent sh compatibility: set - is the same as set +xv *
      * and set - args is the same as set +xv -- args              */
-    if (emulation != EMULATE_ZSH && *args && **args == '-' && !args[0][1]) {
+    if (!EMULATION(EMULATE_ZSH) && *args && **args == '-' && !args[0][1]) {
 	dosetopt(VERBOSE, 0, 0);
 	dosetopt(XTRACE, 0, 0);
 	if (!args[1])
@@ -794,17 +805,19 @@ bin_cd(char *nam, char **argv, Options ops, int func)
     if (stat(unmeta(pwd), &st1) < 0) {
 	setjobpwd();
 	zsfree(pwd);
+	pwd = NULL;
 	pwd = metafy(zgetcwd(), -1, META_DUP);
-    } else if (stat(".", &st2) < 0)
-	chdir(unmeta(pwd));
-    else if (st1.st_ino != st2.st_ino || st1.st_dev != st2.st_dev) {
+    } else if (stat(".", &st2) < 0) {
+	if (chdir(unmeta(pwd)) < 0)
+	    zwarn("unable to chdir(%s): %e", pwd, errno);
+    } else if (st1.st_ino != st2.st_ino || st1.st_dev != st2.st_dev) {
 	if (chasinglinks) {
 	    setjobpwd();
 	    zsfree(pwd);
+	    pwd = NULL;
 	    pwd = metafy(zgetcwd(), -1, META_DUP);
-	} else {
-	    chdir(unmeta(pwd));
-	}
+	} else if (chdir(unmeta(pwd)) < 0)
+	    zwarn("unable to chdir(%s): %e", pwd, errno);
     }
     unqueue_signals();
     return 0;
@@ -945,14 +958,23 @@ cd_do_chdir(char *cnam, char *dest, int hard)
 	return NULL;
     }
 
-    /* if cdpath is being used, check it for . */
-    if (!nocdpath)
+    /*
+     * If cdpath is being used, check it for ".".
+     * Don't bother doing this if POSIXCD is set, we don't
+     * need to know (though it doesn't actually matter).
+     */
+    if (!nocdpath && !isset(POSIXCD))
 	for (pp = cdpath; *pp; pp++)
 	    if (!(*pp)[0] || ((*pp)[0] == '.' && (*pp)[1] == '\0'))
 		hasdot = 1;
-    /* if there is no . in cdpath (or it is not being used), try the directory
-       as-is (i.e. from .) */
-    if (!hasdot) {
+    /*
+     * If 
+     * (- there is no . in cdpath
+     *  - or cdpath is not being used)
+     *  - and the POSIXCD option is not set
+     * try the directory as-is (i.e. from .)
+     */
+    if (!hasdot && !isset(POSIXCD)) {
 	if ((ret = cd_try_chdir(NULL, dest, hard)))
 	    return ret;
 	if (errno != ENOENT)
@@ -963,14 +985,34 @@ cd_do_chdir(char *cnam, char *dest, int hard)
     if (!nocdpath)
 	for (pp = cdpath; *pp; pp++) {
 	    if ((ret = cd_try_chdir(*pp, dest, hard))) {
-		if (strcmp(*pp, ".")) {
-		    doprintdir++;
+		if (isset(POSIXCD)) {
+		    /*
+		     * For POSIX we need to print the directory
+		     * any time CDPATH was used, except in the
+		     * special case of an empty segment being
+		     * treated as a ".".
+		     */
+		    if (**pp)
+			doprintdir++;
+		}  else {
+		    if (strcmp(*pp, ".")) {
+			doprintdir++;
+		    }
 		}
 		return ret;
 	    }
 	    if (errno != ENOENT)
 		eno = errno;
 	}
+    /*
+     * POSIX requires us to check "." after CDPATH rather than before.
+     */
+    if (isset(POSIXCD)) {
+	if ((ret = cd_try_chdir(NULL, dest, hard)))
+	    return ret;
+	if (errno != ENOENT)
+	    eno = errno;
+    }
 
     /* handle the CDABLEVARS option */
     if ((ret = cd_able_vars(dest))) {
@@ -1029,17 +1071,19 @@ cd_try_chdir(char *pfix, char *dest, int hard)
 
     /* handle directory prefix */
     if (pfix && *pfix) {
-	if (*pfix == '/')
+	if (*pfix == '/') {
 #ifdef __CYGWIN__
 /* NB: Don't turn "/"+"bin" into "//"+"bin" by mistake!  "//bin" may *
  * not be what user really wants (probably wants "/bin"), but        *
  * "//bin" could be valid too (see fixdir())!  This is primarily for *
- * handling CDPATH correctly.                                        */
-	    buf = tricat(pfix, ( pfix[1] == '\0' ? "" : "/" ), dest);
+ * handling CDPATH correctly.  Likewise for "//"+"bin" not becoming  *
+ * "///bin" (aka "/bin").                                            */
+	    int root = pfix[1] == '\0' || (pfix[1] == '/' && pfix[2] == '\0');
+	    buf = tricat(pfix, ( root ? "" : "/" ), dest);
 #else
 	    buf = tricat(pfix, "/", dest);
 #endif
-	else {
+	} else {
 	    int pfl = strlen(pfix);
 	    dlen = strlen(pwd);
 
@@ -1126,8 +1170,8 @@ cd_new_pwd(int func, LinkNode dir, int quiet)
     pwd = new_pwd;
     set_pwd_env();
 
-    if (isset(INTERACTIVE)) {
-	if (func != BIN_CD) {
+    if (isset(INTERACTIVE) || isset(POSIXCD)) {
+	if (func != BIN_CD && isset(INTERACTIVE)) {
             if (unset(PUSHDSILENT) && !quiet)
 	        printdirstack();
         } else if (doprintdir) {
@@ -1200,8 +1244,8 @@ fixdir(char *src)
 	/* compress multiple /es into single */
 	if (*src == '/') {
 #ifdef __CYGWIN__
-	    /* allow leading // under cygwin */
-	    if (src == s0 && src[1] == '/')
+	    /* allow leading // under cygwin, but /// still becomes / */
+	    if (src == s0 && src[1] == '/' && src[2] != '/')
 		*dest++ = *src++;
 #endif
 	    *dest++ = *src++;
@@ -1480,6 +1524,7 @@ bin_fc(char *nam, char **argv, Options ops, int func)
 		    unqueue_signals();
 		    zwarnnam("fc",
 		      "current history line would recurse endlessly, aborted");
+		    fclose(out);
 		    unlink(fil);
 		    return 1;
 		}
@@ -1598,7 +1643,7 @@ fclist(FILE *f, Options ops, zlong first, zlong last,
 {
     int fclistdone = 0;
     zlong tmp;
-    char *s;
+    char *s, *tdfmt, *timebuf;
     Histent ent;
 
     /* reverse range if required */
@@ -1619,7 +1664,28 @@ fclist(FILE *f, Options ops, zlong first, zlong last,
 	    zwarnnam("fc", "no such event: %s", buf);
 	} else
 	    zwarnnam("fc", "no events in that range");
+	if (f != stdout)
+	    fclose(f);
 	return 1;
+    }
+
+    if (OPT_ISSET(ops,'d') || OPT_ISSET(ops,'f') ||
+	OPT_ISSET(ops,'E') || OPT_ISSET(ops,'i') ||
+	OPT_ISSET(ops,'t')) {
+	if (OPT_ISSET(ops,'t')) {
+	    tdfmt = OPT_ARG(ops,'t');
+	} else if (OPT_ISSET(ops,'i')) {
+	    tdfmt = "%Y-%m-%d %H:%M";
+	} else if (OPT_ISSET(ops,'E')) {
+	    tdfmt = "%f.%-m.%Y %H:%M";
+	} else if (OPT_ISSET(ops,'f')) {
+	    tdfmt = "%-m/%f/%Y %H:%M";
+	} else {
+	    tdfmt = "%H:%M";
+	}
+	timebuf = zhalloc(256);
+    } else {
+	tdfmt = timebuf = NULL;
     }
 
     for (;;) {
@@ -1638,24 +1704,11 @@ fclist(FILE *f, Options ops, zlong first, zlong last,
 	    }
 	    /* output actual time (and possibly date) of execution of the
 	       command, if required */
-	    if (OPT_ISSET(ops,'d') || OPT_ISSET(ops,'f') ||
-		OPT_ISSET(ops,'E') || OPT_ISSET(ops,'i')) {
+	    if (tdfmt != NULL) {
 		struct tm *ltm;
 		ltm = localtime(&ent->stim);
-		if (OPT_ISSET(ops,'i')) {
-		    fprintf(f, "%d-%02d-%02d ",
-			    ltm->tm_year + 1900,
-			    ltm->tm_mon + 1, ltm->tm_mday);
-		} else if (OPT_ISSET(ops,'E')) {
-		    fprintf(f, "%d.%d.%d ",
-			    ltm->tm_mday, ltm->tm_mon + 1,
-			    ltm->tm_year + 1900);
-		} else if (OPT_ISSET(ops,'f')) {
-		    fprintf(f, "%d/%d/%d ",
-			    ltm->tm_mon + 1, ltm->tm_mday,
-			    ltm->tm_year + 1900);
-		}
-		fprintf(f, "%02d:%02d  ", ltm->tm_hour, ltm->tm_min);
+		if (ztrftime(timebuf, 256, tdfmt, ltm))
+		    fprintf(f, "%s  ", timebuf);
 	    }
 	    /* display the time taken by the command, if required */
 	    if (OPT_ISSET(ops,'D')) {
@@ -1704,7 +1757,7 @@ fcedit(char *ename, char *fn)
 	return 1;
 
     s = tricat(ename, " ", fn);
-    execstring(s, 1, 0);
+    execstring(s, 1, 0, "fc");
     zsfree(s);
 
     return !lastval;
@@ -1951,7 +2004,8 @@ typeset_single(char *cname, char *pname, Param pm, UNUSED(int func),
 	if (!on && !roff && !value) {
 	    if (OPT_ISSET(ops,'p'))
 		paramtab->printnode(&pm->node, PRINT_TYPESET);
-	    else if (unset(TYPESETSILENT) || OPT_ISSET(ops,'m'))
+	    else if (!OPT_ISSET(ops,'g') &&
+		     (unset(TYPESETSILENT) || OPT_ISSET(ops,'m')))
 		paramtab->printnode(&pm->node, PRINT_INCLUDEVALUE);
 	    return pm;
 	}
@@ -2857,6 +2911,8 @@ bin_functions(char *name, char **argv, Options ops, int func)
 	    shf = (Shfunc) zshcalloc(sizeof *shf);
 	    shf->node.flags = on;
 	    shf->funcdef = mkautofn(shf);
+	    /* No sticky emulation for autoloaded functions */
+	    shf->emulation = 0;
 	    shfunctab->addnode(shfunctab, ztrdup(*argv), shf);
 
 	    if (signum != -1) {
@@ -3294,7 +3350,6 @@ bin_hash(char *name, char **argv, Options ops, UNUSED(int func))
 				 "invalid character in directory name: %s",
 				 asg->name);
 			returnval = 1;
-			argv++;
 			continue;
 		    } else {
 			Nameddir nd = hn = zshcalloc(sizeof *nd);
@@ -3649,6 +3704,7 @@ bin_print(char *name, char **args, Options ops, int func)
 	    Nameddir d;
 
 	    queue_signals();
+	    /* TODO: finddir takes a metafied file */
 	    d = finddir(args[n]);
 	    if(d) {
 		int dirlen = strlen(d->dir);
@@ -3665,13 +3721,21 @@ bin_print(char *name, char **args, Options ops, int func)
     if (OPT_HASARG(ops,'u') || OPT_ISSET(ops,'p')) {
 	int fd;
 
-	if (OPT_ISSET(ops, 'p'))
+	if (OPT_ISSET(ops, 'p')) {
 	    fd = coprocout;
-	else {
+	    if (fd < 0) {
+		zwarnnam(name, "-p: no coprocess");
+		return 1;
+	    }
+	} else {
 	    char *argptr = OPT_ARG(ops,'u'), *eptr;
 	    /* Handle undocumented feature that -up worked */
 	    if (!strcmp(argptr, "p")) {
 		fd = coprocout;
+		if (fd < 0) {
+		    zwarnnam(name, "-p: no coprocess");
+		    return 1;
+		}
 	    } else {
 		fd = (int)zstrtol(argptr, &eptr, 10);
 		if (*eptr) {
@@ -3730,8 +3794,30 @@ bin_print(char *name, char **args, Options ops, int func)
 		memset(&mbs, 0, sizeof(mbstate_t));
 		while (l > 0) {
 		    wchar_t wc;
-		    size_t cnt = mbrtowc(&wc, aptr, l, &mbs);
+		    size_t cnt;
 		    int wcw;
+
+		    /*
+		     * Prevent misaligned columns due to escape sequences by
+		     * skipping over them. Octals \033 and \233 are the
+		     * possible escape characters recognized by ANSI.
+		     *
+		     * It ought to be possible to do this in the case
+		     * of prompt expansion by propagating the information
+		     * about escape sequences (currently we strip this
+		     * out).
+		     */
+		    if (*aptr == '\033' || *aptr == '\233') {
+			for (aptr++, l--;
+			     l && !isalpha(STOUC(*aptr));
+			     aptr++, l--)
+			    ;
+			aptr++;
+			l--;
+			continue;
+		    }
+
+		    cnt = mbrtowc(&wc, aptr, l, &mbs);
 
 		    if (cnt == MB_INCOMPLETE || cnt == MB_INVALID)
 		    {
@@ -4158,7 +4244,7 @@ bin_print(char *name, char **args, Options ops, int func)
 		break;
 	    case 'q':
 		stringval = curarg ?
-		    quotestring(curarg, NULL, QT_BACKSLASH) : &nullstr;
+		    quotestring(curarg, NULL, QT_BACKSLASH_SHOWNULL) : &nullstr;
 		*d = 's';
 		print_val(stringval);
 		break;
@@ -4512,7 +4598,8 @@ bin_break(char *name, char **argv, UNUSED(Options ops), int func)
 	breaks = nump ? minimum(num,loops) : 1;
 	break;
     case BIN_RETURN:
-	if (isset(INTERACTIVE) || locallevel || sourcelevel) {
+	if ((isset(INTERACTIVE) && isset(SHINSTDIN))
+	    || locallevel || sourcelevel) {
 	    retflag = 1;
 	    breaks = loops;
 	    lastval = num;
@@ -4667,9 +4754,10 @@ int
 bin_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 {
     char **old, *old0 = NULL;
-    int ret, diddot = 0, dotdot = 0;
+    int diddot = 0, dotdot = 0;
     char *s, **t, *enam, *arg0, *buf;
     struct stat st;
+    enum source_return ret;
 
     if (!*argv)
 	return 0;
@@ -4681,18 +4769,18 @@ bin_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
     enam = arg0 = ztrdup(*argv);
     if (isset(FUNCTIONARGZERO)) {
 	old0 = argzero;
-	argzero = arg0;
+	argzero = ztrdup(arg0);
     }
     s = unmeta(enam);
     errno = ENOENT;
-    ret = 1;
+    ret = SOURCE_NOT_FOUND;
     /* for source only, check in current directory first */
     if (*name != '.' && access(s, F_OK) == 0
 	&& stat(s, &st) >= 0 && !S_ISDIR(st.st_mode)) {
 	diddot = 1;
 	ret = source(enam);
     }
-    if (ret) {
+    if (ret == SOURCE_NOT_FOUND) {
 	/* use a path with / in it */
 	for (s = arg0; *s; s++)
 	    if (*s == '/') {
@@ -4705,7 +4793,8 @@ bin_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 		ret = source(arg0);
 		break;
 	    }
-	if (!*s || (ret && isset(PATHDIRS) && diddot < 2 && dotdot == 0)) {
+	if (!*s || (ret == SOURCE_NOT_FOUND &&
+		    isset(PATHDIRS) && diddot < 2 && dotdot == 0)) {
 	    pushheap();
 	    /* search path for script */
 	    for (t = path; *t; t++) {
@@ -4732,32 +4821,22 @@ bin_dot(char *name, char **argv, UNUSED(Options ops), UNUSED(int func))
 	freearray(pparams);
 	pparams = old;
     }
-    if (ret)
+    if (ret == SOURCE_NOT_FOUND)
 	zwarnnam(name, "%e: %s", errno, enam);
     zsfree(arg0);
-    if (old0)
+    if (old0) {
+	zsfree(argzero);
 	argzero = old0;
-    return ret ? ret : lastval;
+    }
+    return ret == SOURCE_OK ? lastval : 128 - ret;
 }
 
-/**/
-int
-bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
-{
-    emulate(*argv, OPT_ISSET(ops,'R'));
-    if (OPT_ISSET(ops,'L'))
-	opts[LOCALOPTIONS] = opts[LOCALTRAPS] = 1;
-    return 0;
-}
+/*
+ * common for bin_emulate and bin_eval
+ */
 
-/* eval: simple evaluation */
-
-/**/
-mod_export int ineval;
-
-/**/
-int
-bin_eval(UNUSED(char *nam), char **argv, UNUSED(Options ops), UNUSED(int func))
+static int
+eval(char **argv)
 {
     Eprog prog;
     char *oscriptname = scriptname;
@@ -4815,9 +4894,9 @@ bin_eval(UNUSED(char *nam), char **argv, UNUSED(Options ops), UNUSED(int func))
 	    /* No code to execute */
 	    lastval = 0;
 	} else {
-	    execode(prog, 1, 0);
+	    execode(prog, 1, 0, "eval");
 
-	    if (errflag)
+	    if (errflag && !lastval)
 		lastval = errflag;
 	}
     } else {
@@ -4832,6 +4911,99 @@ bin_eval(UNUSED(char *nam), char **argv, UNUSED(Options ops), UNUSED(int func))
     ineval = oineval;
 
     return lastval;
+}
+
+/* emulate: set emulation mode and optionally evaluate shell code */
+
+/**/
+int
+bin_emulate(UNUSED(char *nam), char **argv, Options ops, UNUSED(int func))
+{
+    int opt_L = OPT_ISSET(ops, 'L');
+    int opt_R = OPT_ISSET(ops, 'R');
+    int saveemulation, savesticky_emulation;
+    int ret;
+    char saveopts[OPT_SIZE];
+
+    /* without arguments just print current emulation */
+    if (!*argv) {
+	const char *shname;
+
+	if (opt_L || opt_R) {
+	    zwarnnam("emulate", "not enough arguments");
+	    return 1;
+	}
+
+	switch(SHELL_EMULATION()) {
+	case EMULATE_CSH:
+	    shname = "csh";
+	    break;
+
+	case EMULATE_KSH:
+	    shname = "ksh";
+	    break;
+
+	case EMULATE_SH:
+	    shname = "sh";
+	    break;
+
+	default:
+	    shname = "zsh";
+	    break;
+	}
+
+	printf("%s\n", shname);
+	return 0;
+    }
+
+    /* with single argument set current emulation */
+    if (!argv[1]) {
+	emulate(*argv, OPT_ISSET(ops,'R'));
+	if (OPT_ISSET(ops,'L'))
+	    opts[LOCALOPTIONS] = opts[LOCALTRAPS] = 1;
+	return 0;
+    }
+
+    /* If "-c command" is given, evaluate command using specified
+     * emulation mode.
+     */
+    if (strcmp(argv[1], "-c")) {
+	zwarnnam("emulate", "unknown argument %s", argv[1]);
+	return 1;
+    }
+
+    if (!argv[2]) {
+	zwarnnam("emulate", "not enough arguments");
+	return 1;
+    }
+
+    if (opt_L) {
+	zwarnnam("emulate", "option -L incompatible with -c");
+	return 1;
+    }
+
+    memcpy(saveopts, opts, sizeof(opts));
+    saveemulation = emulation;
+    savesticky_emulation = sticky_emulation;
+    emulate(*argv, OPT_ISSET(ops,'R'));
+    sticky_emulation = emulation;
+    ret = eval(argv+2);
+    memcpy(opts, saveopts, sizeof(opts));
+    sticky_emulation = savesticky_emulation;
+    emulation = saveemulation;
+    return ret;
+}
+
+/* eval: simple evaluation */
+
+/**/
+mod_export int ineval;
+
+/**/
+int
+bin_eval(UNUSED(char *nam), char **argv, UNUSED(Options ops), UNUSED(int func))
+{
+    return eval(argv);
 }
 
 static char *zbuf;
@@ -4892,8 +5064,8 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
     if(OPT_ISSET(ops,'l') || OPT_ISSET(ops,'c'))
 	return compctlreadptr(name, args, ops, reply);
 
-    if ((OPT_ISSET(ops,'k') && !OPT_ISSET(ops,'u') &&
-	 !OPT_ISSET(ops,'p')) || OPT_ISSET(ops,'q')) {
+    if ((OPT_ISSET(ops,'k') || OPT_ISSET(ops,'q')) &&
+	!OPT_ISSET(ops,'u') && !OPT_ISSET(ops,'p')) {
 	if (!zleactive) {
 	    if (SHTTY == -1) {
 		/* need to open /dev/tty specially */
@@ -4917,7 +5089,7 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 		gettyinfo(&shttyinfo);
 	    /* attach to the tty */
 	    attachtty(mypgrp);
-	    if (!isem && OPT_ISSET(ops,'k'))
+	    if (!isem)
 		setcbreak();
 	    readfd = SHTTY;
 	}
@@ -4928,6 +5100,10 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	/* The old code handled -up, but that was never documented. Still...*/
 	if (!strcmp(argptr, "p")) {
 	    readfd = coprocin;
+	    if (readfd < 0) {
+		zwarnnam(name, "-p: no coprocess");
+		return 1;
+	    }
 	} else {
 	    readfd = (int)zstrtol(argptr, &eptr, 10);
 	    if (*eptr) {
@@ -4942,6 +5118,10 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	izle = 0;
     } else if (OPT_ISSET(ops,'p')) {
 	readfd = coprocin;
+	if (readfd < 0) {
+	    zwarnnam(name, "-p: no coprocess");
+	    return 1;
+	}
 	izle = 0;
     } else
 	readfd = izle = 0;
@@ -4975,16 +5155,16 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
     if (OPT_ISSET(ops,'d')) {
 	char *delimstr = OPT_ARG(ops,'d');
 #ifdef MULTIBYTE_SUPPORT
-	wint_t wc;
+	wint_t wi;
 
 	if (isset(MULTIBYTE)) {
 	    mb_metacharinit();
-	    (void)mb_metacharlenconv(delimstr, &wc);
+	    (void)mb_metacharlenconv(delimstr, &wi);
 	}
 	else
-	    wc = WEOF;
-	if (wc != WEOF)
-	    delim = (wchar_t)wc;
+	    wi = WEOF;
+	if (wi != WEOF)
+	    delim = (wchar_t)wi;
 	else
 	    delim = (wchar_t)((delimstr[0] == Meta) ?
 			      delimstr[1] ^ 32 : delimstr[0]);
@@ -5036,8 +5216,9 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 #endif
 	} else {
 	    if (readfd == -1 ||
-		!read_poll(readfd, &readchar, keys && !zleactive, timeout)) {
-		if (OPT_ISSET(ops,'k') && !zleactive && !isem)
+		!read_poll(readfd, &readchar, keys && !zleactive,
+			   timeout)) {
+		if (keys && !zleactive && !isem)
 		    settyinfo(&shttyinfo);
 		else if (resettty && SHTTY != -1)
 		    settyinfo(&saveti);
@@ -5046,7 +5227,7 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 		    shout = oshout;
 		    SHTTY = -1;
 		}
-		return 1;
+		return OPT_ISSET(ops,'q') ? 2 : 1;
 	    }
 	}
     }
@@ -5055,11 +5236,18 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
     memset(&mbs, 0, sizeof(mbs));
 #endif
 
-    /* option -k means read only a given number of characters (default 1) */
-    if (OPT_ISSET(ops,'k')) {
+    /*
+     * option -k means read only a given number of characters (default 1)
+     * option -q means get one character, and interpret it as a Y or N
+     */
+    if (OPT_ISSET(ops,'k') || OPT_ISSET(ops,'q')) {
 	int eof = 0;
 	/* allocate buffer space for result */
+#ifdef MULTIBYTE_SUPPORT
+	bptr = buf = (char *)zalloc(nchars*MB_CUR_MAX+1);
+#else
 	bptr = buf = (char *)zalloc(nchars+1);
+#endif
 
 	do {
 	    if (izle) {
@@ -5147,6 +5335,17 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	    }
 	}
 
+	if (OPT_ISSET(ops,'q'))
+	{
+	    /*
+	     * Keep eof as status but status is now whether we read
+	     * 'y' or 'Y'.  If we timed out, status is 2.
+	     */
+	    if (eof)
+		eof = 2;
+	    else
+		eof = (bptr - buf != 1 || (buf[0] != 'y' && buf[0] != 'Y'));
+	}
 	if (OPT_ISSET(ops,'e') || OPT_ISSET(ops,'E'))
 	    fwrite(buf, bptr - buf, 1, stdout);
 	if (!OPT_ISSET(ops,'e'))
@@ -5156,59 +5355,6 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	if (resettty && SHTTY != -1)
 	    settyinfo(&saveti);
 	return eof;
-    }
-
-    /* option -q means get one character, and interpret it as a Y or N */
-    if (OPT_ISSET(ops,'q')) {
-	char readbuf[2];
-
-	/* set up the buffer */
-	readbuf[1] = '\0';
-
-	/* get, and store, reply */
-	if (izle) {
-#ifdef MULTIBYTE_SUPPORT
-	    int key;
-	    char c;
-
-	    for (;;) {
-		zleentry(ZLE_CMD_GET_KEY, izle_timeout, NULL, &key);
-		if (key < 0)
-		    break;
-		c = (char)key;
-		/*
-		 * If multibyte, it can't be y, so we don't care
-		 * what key gets set to; just read to end of character.
-		 */
-		if (!isset(MULTIBYTE) ||
-		    mbrlen(&c, 1, &mbs) != MB_INCOMPLETE)
-		    break;
-	    }
-#else
-	    int key;
-	    zleentry(ZLE_CMD_GET_KEY, izle_timeout, NULL, &key);
-#endif
-
-	    readbuf[0] = (key == 'y' ? 'y' : 'n');
-	} else {
-	    readbuf[0] = ((char)getquery(NULL, 0)) == 'y' ? 'y' : 'n';
-
-	    /* dispose of result appropriately, etc. */
-	    if (haso) {
-		fclose(shout);	/* close(SHTTY) */
-		shout = oshout;
-		SHTTY = -1;
-	    }
-	}
-
-	if (OPT_ISSET(ops,'e') || OPT_ISSET(ops,'E'))
-	    printf("%s\n", readbuf);
-	if (!OPT_ISSET(ops,'e'))
-	    setsparam(reply, ztrdup(readbuf));
-
-	if (resettty && SHTTY != -1)
-	    settyinfo(&saveti);
-	return readbuf[0] == 'n';
     }
 
     /* All possible special types of input have been exhausted.  Take one line,
@@ -5248,8 +5394,12 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 		wc = (wchar_t)c;
 	    }
 	    if (ret != MB_INCOMPLETE) {
-		if (ret == MB_INVALID)
+		if (ret == MB_INVALID) {
 		    memset(&mbs, 0, sizeof(mbs));
+		    /* Treat this as a single character */
+		    wc = (wchar_t)c;
+		    laststart = bptr;
+		}
 		if (bslash && wc == delim) {
 		    bslash = 0;
 		    continue;
@@ -5340,9 +5490,10 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 	}
 	signal_setmask(s);
 #ifdef MULTIBYTE_SUPPORT
-	if (c == EOF)
+	if (c == EOF) {
 	    gotnl = 1;
-	if (ret == MB_INCOMPLETE) {
+	    *bptr = '\0';	/* see below */
+	} else if (ret == MB_INCOMPLETE) {
 	    /*
 	     * We can only get here if there is an EOF in the
 	     * middle of a character... safest to keep the debris,
@@ -5436,8 +5587,12 @@ bin_read(char *name, char **args, Options ops, UNUSED(int func))
 		wc = (wchar_t)c;
 	    }
 	    if (ret != MB_INCOMPLETE) {
-		if (ret == MB_INVALID)
+		if (ret == MB_INVALID) {
 		    memset(&mbs, 0, sizeof(mbs));
+		    /* Treat this as a single character */
+		    wc = (wchar_t)c;
+		    laststart = bptr;
+		}
 		/*
 		 * \ at the end of a line introduces a continuation line,
 		 * except in raw mode (-r option)
@@ -5688,22 +5843,26 @@ bin_test(char *name, char **argv, UNUSED(Options ops), int func)
 	}
     }
 
+    lexsave();
     testargs = argv;
     tok = NULLTOK;
     condlex = testlex;
     testlex();
     prog = parse_cond();
-    condlex = yylex;
+    condlex = zshlex;
 
     if (errflag) {
 	errflag = 0;
+	lexrestore();
 	return 1;
     }
 
     if (!prog || tok == LEXERR) {
 	zwarnnam(name, tokstr ? "parse error" : "argument expected");
+	lexrestore();
 	return 1;
     }
+    lexrestore();
 
     if (*curtestarg) {
 	zwarnnam(name, "too many arguments");

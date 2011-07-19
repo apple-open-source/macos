@@ -38,8 +38,8 @@
 #include <WebCore/FontSelector.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/Page.h>
+#include <WebCore/PlatformCALayer.h>
 #include <WebCore/TextRun.h>
-#include <WebCore/WKCACFLayer.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <windowsx.h>
 #include <wtf/StdLibExtras.h>
@@ -116,7 +116,7 @@ HUDButton::HUDButton(HUDButtonType type, const IntPoint& position)
 void HUDButton::draw(GraphicsContext& context)
 {
     Image* image = (m_showAltButton && m_buttonImageAlt) ? m_buttonImageAlt.get() : m_buttonImage.get();
-    context.drawImage(image, DeviceColorSpace, m_rect.location());
+    context.drawImage(image, ColorSpaceDeviceRGB, m_rect.location());
 }
 
 HUDSlider::HUDSlider(HUDSliderButtonShape shape, int buttonSize, const IntRect& rect)
@@ -132,11 +132,11 @@ void HUDSlider::draw(GraphicsContext& context)
 {
     // Draw gutter
     IntSize radius(m_rect.height() / 2, m_rect.height() / 2);
-    context.fillRoundedRect(m_rect, radius, radius, radius, radius, Color(sliderGutterColor), DeviceColorSpace);
+    context.fillRoundedRect(m_rect, radius, radius, radius, radius, Color(sliderGutterColor), ColorSpaceDeviceRGB);
 
     // Draw button
-    context.setStrokeColor(Color(sliderButtonColor), DeviceColorSpace);
-    context.setFillColor(Color(sliderButtonColor), DeviceColorSpace);
+    context.setStrokeColor(Color(sliderButtonColor), ColorSpaceDeviceRGB);
+    context.setFillColor(Color(sliderButtonColor), ColorSpaceDeviceRGB);
 
     if (m_buttonShape == RoundButton) {
         context.drawEllipse(IntRect(m_rect.location().x() + m_buttonPosition, m_rect.location().y() - (m_buttonSize - m_rect.height()) / 2, m_buttonSize, m_buttonSize));
@@ -174,20 +174,29 @@ void HUDSlider::drag(const IntPoint& point, bool start)
 }
 
 #if USE(ACCELERATED_COMPOSITING)
-class FullscreenVideoController::LayoutClient : public WKCACFLayerLayoutClient {
+class FullscreenVideoController::LayerClient : public WebCore::PlatformCALayerClient {
 public:
-    LayoutClient(FullscreenVideoController* parent);
-    void layoutSublayersOfLayer(WKCACFLayer* layer);
+    LayerClient(FullscreenVideoController* parent) : m_parent(parent) { }
+
+private:
+    virtual void platformCALayerLayoutSublayersOfLayer(PlatformCALayer*);
+    virtual bool platformCALayerRespondsToLayoutChanges() const { return true; }
+
+    virtual void platformCALayerAnimationStarted(CFTimeInterval beginTime) { }
+    virtual GraphicsLayer::CompositingCoordinatesOrientation platformCALayerContentsOrientation() const { return GraphicsLayer::CompositingCoordinatesBottomUp; }
+    virtual void platformCALayerPaintContents(GraphicsContext&, const IntRect& inClip) { }
+    virtual bool platformCALayerShowDebugBorders() const { return false; }
+    virtual bool platformCALayerShowRepaintCounter() const { return false; }
+    virtual int platformCALayerIncrementRepaintCount() { return 0; }
+
+    virtual bool platformCALayerContentsOpaque() const { return false; }
+    virtual bool platformCALayerDrawsContent() const { return false; }
+    virtual void platformCALayerLayerDidDisplay(PlatformLayer*) { }
 
     FullscreenVideoController* m_parent;
 };
 
-FullscreenVideoController::LayoutClient::LayoutClient(FullscreenVideoController* parent)
-    : m_parent(parent)
-{
-}
-
-void FullscreenVideoController::LayoutClient::layoutSublayersOfLayer(WKCACFLayer* layer) 
+void FullscreenVideoController::LayerClient::platformCALayerLayoutSublayersOfLayer(PlatformCALayer* layer) 
 {
     ASSERT_ARG(layer, layer == m_parent->m_rootChild);
 
@@ -195,7 +204,8 @@ void FullscreenVideoController::LayoutClient::layoutSublayersOfLayer(WKCACFLayer
     if (!mediaElement)
         return;
 
-    WKCACFLayer* videoLayer = mediaElement->platformLayer();
+
+    PlatformCALayer* videoLayer = PlatformCALayer::platformCALayer(mediaElement->platformLayer());
     if (!videoLayer || videoLayer->superlayer() != layer)
         return;
 
@@ -232,20 +242,17 @@ FullscreenVideoController::FullscreenVideoController()
     , m_movingWindow(false)
     , m_timer(this, &FullscreenVideoController::timerFired)
 #if USE(ACCELERATED_COMPOSITING)
-    , m_rootChild(WKCACFLayer::create(WKCACFLayer::Layer))
-    , m_layoutClient(new LayoutClient(this))
+    , m_layerClient(adoptPtr(new LayerClient(this)))
+    , m_rootChild(PlatformCALayer::create(PlatformCALayer::LayerTypeLayer, m_layerClient.get()))
 #endif
-    , m_fullscreenWindow(new MediaPlayerPrivateFullscreenWindow(this))
+    , m_fullscreenWindow(adoptPtr(new MediaPlayerPrivateFullscreenWindow(this)))
 {
-#if USE(ACCELERATED_COMPOSITING)
-    m_rootChild->setLayoutClient(m_layoutClient.get());
-#endif
 }
 
 FullscreenVideoController::~FullscreenVideoController()
 {
 #if USE(ACCELERATED_COMPOSITING)
-    m_rootChild->setLayoutClient(0);
+    m_rootChild->setOwner(0);
 #endif
 }
 
@@ -270,11 +277,12 @@ void FullscreenVideoController::enterFullscreen()
     HWND parentHwnd = webView ? webView->viewWindow() : 0;
 
     m_fullscreenWindow->createWindow(parentHwnd);
+    ::ShowWindow(m_fullscreenWindow->hwnd(), SW_SHOW);
 #if USE(ACCELERATED_COMPOSITING)
     m_fullscreenWindow->setRootChildLayer(m_rootChild);
 
-    WKCACFLayer* videoLayer = m_mediaElement->platformLayer();
-    m_rootChild->addSublayer(videoLayer);
+    PlatformCALayer* videoLayer = PlatformCALayer::platformCALayer(m_mediaElement->platformLayer());
+    m_rootChild->appendSublayer(videoLayer);
     m_rootChild->setNeedsLayout();
     m_rootChild->setGeometryFlipped(1);
 #endif
@@ -292,7 +300,7 @@ void FullscreenVideoController::exitFullscreen()
     SetWindowLongPtr(m_hudWindow, 0, 0);
 
     if (m_fullscreenWindow)
-        m_fullscreenWindow = 0;
+        m_fullscreenWindow = nullptr;
 
     ASSERT(!IsWindow(m_hudWindow));
     m_hudWindow = 0;
@@ -430,8 +438,8 @@ void FullscreenVideoController::createHUDWindow()
     // will get cleaned up when m_bitmap is destroyed in the dtor
     void* pixels;
     BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(IntSize(windowWidth, windowHeight));
-    m_bitmap.set(::CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
-    
+    m_bitmap = adoptPtr(::CreateDIBSection(0, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
+
     // Dirty the window so the HUD draws
     RECT clearRect = { m_hudPosition.x(), m_hudPosition.y(), m_hudPosition.x() + windowWidth, m_hudPosition.y() + windowHeight };
     InvalidateRect(m_fullscreenWindow->hwnd(), &clearRect, true);
@@ -477,7 +485,7 @@ void FullscreenVideoController::draw()
     HDC windowDC = GetDC(m_hudWindow);
     HDC bitmapDC = CreateCompatibleDC(windowDC);
     ::ReleaseDC(m_hudWindow, windowDC);
-    SelectObject(bitmapDC, m_bitmap.get());
+    HGDIOBJ oldBitmap = SelectObject(bitmapDC, m_bitmap.get());
 
     GraphicsContext context(bitmapDC, true);
 
@@ -489,9 +497,9 @@ void FullscreenVideoController::draw()
     IntSize innerRadius(borderRadius - borderThickness, borderRadius - borderThickness);
     IntRect innerRect(borderThickness, borderThickness, windowWidth - borderThickness * 2, windowHeight - borderThickness * 2);
 
-    context.fillRoundedRect(outerRect, outerRadius, outerRadius, outerRadius, outerRadius, Color(borderColor), DeviceColorSpace);
+    context.fillRoundedRect(outerRect, outerRadius, outerRadius, outerRadius, outerRadius, Color(borderColor), ColorSpaceDeviceRGB);
     context.setCompositeOperation(CompositeCopy);
-    context.fillRoundedRect(innerRect, innerRadius, innerRadius, innerRadius, innerRadius, Color(backgroundColor), DeviceColorSpace);
+    context.fillRoundedRect(innerRect, innerRadius, innerRadius, innerRadius, innerRadius, Color(backgroundColor), ColorSpaceDeviceRGB);
 
     // Draw the widgets
     m_playPauseButton.draw(context);
@@ -525,15 +533,16 @@ void FullscreenVideoController::draw()
     // the text at the center of the slider.
     // Left string
     s = timeToString(currentTime());
+    int fontHeight = font.fontMetrics().height();
     TextRun leftText(s);
-    context.setFillColor(Color(textColor), DeviceColorSpace);
-    context.drawText(font, leftText, IntPoint(windowWidth / 2 - timeSliderWidth / 2 - margin - font.width(leftText), windowHeight - margin - sliderHeight / 2 + font.height() / 4));
+    context.setFillColor(Color(textColor), ColorSpaceDeviceRGB);
+    context.drawText(font, leftText, IntPoint(windowWidth / 2 - timeSliderWidth / 2 - margin - font.width(leftText), windowHeight - margin - sliderHeight / 2 + fontHeight / 4));
 
     // Right string
     s = timeToString(currentTime() - duration());
     TextRun rightText(s);
-    context.setFillColor(Color(textColor), DeviceColorSpace);
-    context.drawText(font, rightText, IntPoint(windowWidth / 2 + timeSliderWidth / 2 + margin, windowHeight - margin - sliderHeight / 2 + font.height() / 4));
+    context.setFillColor(Color(textColor), ColorSpaceDeviceRGB);
+    context.drawText(font, rightText, IntPoint(windowWidth / 2 + timeSliderWidth / 2 + margin, windowHeight - margin - sliderHeight / 2 + fontHeight / 4));
 
     // Copy to the window
     BLENDFUNCTION blendFunction = {AC_SRC_OVER, 0, 255, AC_SRC_ALPHA};
@@ -544,6 +553,7 @@ void FullscreenVideoController::draw()
 
     context.restore();
 
+    ::SelectObject(bitmapDC, oldBitmap);
     ::DeleteDC(bitmapDC);
 }
 

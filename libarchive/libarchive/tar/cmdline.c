@@ -41,12 +41,13 @@ __FBSDID("$FreeBSD$");
 #endif
 
 #include "bsdtar.h"
+#include "err.h"
 
 /*
  * Short options for tar.  Please keep this sorted.
  */
 static const char *short_options
-	= "Bb:C:cf:HhI:jkLlmnOoPpqrSs:T:tUuvW:wX:xyZz";
+	= "Bb:C:cf:HhI:JjkLlmnOoPpqrSs:T:tUuvW:wX:xyZz";
 
 /*
  * Long options for tar.  Please keep this list sorted.
@@ -84,6 +85,7 @@ static struct option {
 	{ "file",                 1, 'f' },
 	{ "files-from",           1, 'T' },
 	{ "format",               1, OPTION_FORMAT },
+	{ "options",              1, OPTION_OPTIONS },
 	{ "gunzip",               0, 'z' },
 	{ "gzip",                 0, 'z' },
 	{ "help",                 0, OPTION_HELP },
@@ -93,6 +95,7 @@ static struct option {
 	{ "keep-newer-files",     0, OPTION_KEEP_NEWER_FILES },
 	{ "keep-old-files",       0, 'k' },
 	{ "list",                 0, 't' },
+	{ "lzma",                 0, OPTION_LZMA },
 	{ "modification-time",    0, 'm' },
 	{ "newer",		  1, OPTION_NEWER_CTIME },
 	{ "newer-ctime",	  1, OPTION_NEWER_CTIME },
@@ -111,6 +114,7 @@ static struct option {
 	{ "posix",		  0, OPTION_POSIX },
 	{ "preserve-permissions", 0, 'p' },
 	{ "read-full-blocks",	  0, 'B' },
+	{ "same-owner",	          0, OPTION_SAME_OWNER },
 	{ "same-permissions",     0, 'p' },
 	{ "strip-components",	  1, OPTION_STRIP_COMPONENTS },
 	{ "to-stdout",            0, 'O' },
@@ -122,6 +126,7 @@ static struct option {
 	{ "use-compress-program", 1, OPTION_USE_COMPRESS_PROGRAM },
 	{ "verbose",              0, 'v' },
 	{ "version",              0, OPTION_VERSION },
+	{ "xz",                   0, 'J' },
 	{ NULL, 0, 0 }
 };
 
@@ -217,7 +222,7 @@ bsdtar_getopt(struct bsdtar *bsdtar)
 			if (p[1] == ':') {
 				bsdtar->optarg = *bsdtar->argv;
 				if (bsdtar->optarg == NULL) {
-					bsdtar_warnc(bsdtar, 0,
+					lafe_warnc(0,
 					    "Option %c requires an argument",
 					    opt);
 					return ('?');
@@ -284,7 +289,7 @@ bsdtar_getopt(struct bsdtar *bsdtar)
 				/* Otherwise, pick up the next word. */
 				opt_word = *bsdtar->argv;
 				if (opt_word == NULL) {
-					bsdtar_warnc(bsdtar, 0,
+					lafe_warnc(0,
 					    "Option -%c requires an argument",
 					    opt);
 					return ('?');
@@ -335,13 +340,13 @@ bsdtar_getopt(struct bsdtar *bsdtar)
 
 		/* Fail if there wasn't a unique match. */
 		if (match == NULL) {
-			bsdtar_warnc(bsdtar, 0,
+			lafe_warnc(0,
 			    "Option %s%s is not supported",
 			    long_prefix, opt_word);
 			return ('?');
 		}
 		if (match2 != NULL) {
-			bsdtar_warnc(bsdtar, 0,
+			lafe_warnc(0,
 			    "Ambiguous option %s%s (matches --%s and --%s)",
 			    long_prefix, opt_word, match->name, match2->name);
 			return ('?');
@@ -353,7 +358,7 @@ bsdtar_getopt(struct bsdtar *bsdtar)
 			if (bsdtar->optarg == NULL) {
 				bsdtar->optarg = *bsdtar->argv;
 				if (bsdtar->optarg == NULL) {
-					bsdtar_warnc(bsdtar, 0,
+					lafe_warnc(0,
 					    "Option %s%s requires an argument",
 					    long_prefix, match->name);
 					return ('?');
@@ -364,7 +369,7 @@ bsdtar_getopt(struct bsdtar *bsdtar)
 		} else {
 			/* Argument forbidden: fail if there is one. */
 			if (bsdtar->optarg != NULL) {
-				bsdtar_warnc(bsdtar, 0,
+				lafe_warnc(0,
 				    "Option %s%s does not allow an argument",
 				    long_prefix, match->name);
 				return ('?');

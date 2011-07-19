@@ -319,7 +319,7 @@ FindCursorByName(
 	}
     }
     if (path) {
-	image = [[[NSImage alloc] initWithContentsOfFile:path] autorelease];
+	image = [[NSImage alloc] initWithContentsOfFile:path];
     }
     if (!image && !macCursor && result != TCL_OK) {
 	macCursorPtr->type = IMAGENAMED;

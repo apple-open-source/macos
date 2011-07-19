@@ -34,6 +34,8 @@ We can't support interrupt() with a synchronous interface unless we add some not
 #include <security_cdsa_utilities/AuthorizationWalkers.h>
 #include <security_cdsa_utilities/AuthorizationData.h>
 
+#include <security_utilities/logging.h>
+
 using LowLevelMemoryUtilities::increment;
 using LowLevelMemoryUtilities::difference;
 using Security::DataWalkers::walk;
@@ -205,6 +207,16 @@ Client::clientHints(SecurityAgent::RequestorType type, std::string &path, pid_t 
 
 #pragma mark request operations
 
+OSStatus Client::contact(mach_port_t jobId, Bootstrap processBootstrap, mach_port_t userPrefs)
+{
+    kern_return_t ret = sa_request_client_contact(mServerPort, mClientPort, jobId, processBootstrap, userPrefs);
+    if (ret)
+    {
+        Syslog::error("SecurityAgent::Client::contact(): kern_return error %s", 
+                      mach_error_string(ret));
+    }
+    return ret;
+}
 
 OSStatus Client::create(const char *inPluginId, const char *inMechanismId, const SessionId inSessionId)
 {
@@ -551,5 +563,3 @@ kern_return_t sa_reply_server_didStartTx(mach_port_t replyPort, kern_return_t re
     secdebug("agentclient", "got didStartTx");
     return retval;
 }
-
-

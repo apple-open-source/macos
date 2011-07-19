@@ -1063,7 +1063,7 @@ diff -Naur net-snmp-5.4.1.rc4/agent/mibgroup/ucd-snmp/data_access/sensors_darwin
 +
 +static IOReturn CloseUserClient(io_connect_t dataPort)
 +{
-+	return IOConnectCallScalarMethod(dataPort, kSMCUserClientOpen, NULL, 0, NULL, NULL);
++	return IOConnectCallScalarMethod(dataPort, kSMCUserClientClose, NULL, 0, NULL, NULL);
 +}
 +
 +static IOReturn callFunction(int which, SMCParamStruct *inputValues, SMCParamStruct *outputValues) 

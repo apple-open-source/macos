@@ -1,3 +1,10 @@
+# ----------------------------------------------------------------------------
+#  select.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: select.tcl,v 1.3 2009/09/08 21:22:09 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+#
+
 namespace eval DemoSelect {
     variable var
 }
@@ -18,15 +25,15 @@ proc DemoSelect::create { nb } {
                    -relief sunken -borderwidth 1 \
                    -helptext "Modify some options of SpinBox"]
     set subf  [$labf getframe]
-    set chk1  [checkbutton $subf.chk1 -text "Non editable" \
+    set chk1  [BWidget::wrap checkbutton $subf.chk1 -text "Non editable" \
                    -variable DemoSelect::var(spin,editable) -onvalue false -offvalue true \
                    -command "$spin configure -editable \$DemoSelect::var(spin,editable)"]
-    set chk2  [checkbutton $subf.chk2 -text "Disabled" \
+    set chk2  [BWidget::wrap checkbutton $subf.chk2 -text "Disabled" \
                    -variable DemoSelect::var(spin,state) -onvalue disabled -offvalue normal \
                    -command "$spin configure -state \$DemoSelect::var(spin,state)"]
 
-    pack $chk1 $chk2 -side left -anchor w
-    pack $spin $ent $labf -pady 4 -fill x
+    pack $chk1 $chk2 -side left -anchor w -padx 5
+    pack $spin $ent $labf -padx 5 -pady 5 -fill x
     pack $titf1
 
     set titf2 [TitleFrame $frame.titf2 -text ComboBox]
@@ -42,17 +49,17 @@ proc DemoSelect::create { nb } {
                    -relief sunken -borderwidth 1 \
                    -helptext "Modify some options of SpinBox"]
     set subf  [$labf getframe]
-    set chk1  [checkbutton $subf.chk1 -text "Non editable" \
+    set chk1  [BWidget::wrap checkbutton $subf.chk1 -text "Non editable" \
                    -variable DemoSelect::var(combo,editable) -onvalue false -offvalue true \
                    -command  "$combo configure -editable \$DemoSelect::var(combo,editable)"]
-    set chk2  [checkbutton $subf.chk2 -text "Disabled" \
+    set chk2  [BWidget::wrap checkbutton $subf.chk2 -text "Disabled" \
                    -variable DemoSelect::var(combo,state) -onvalue disabled -offvalue normal \
                    -command  "$combo configure -state \$DemoSelect::var(combo,state)"]
 
-    pack $chk1 $chk2 -side left -anchor w
-    pack $combo $ent $labf -pady 4 -fill x
+    pack $chk1 $chk2 -side left -anchor w -padx 5
+    pack $combo $ent $labf -padx 5 -pady 5 -fill x
 
-    pack $titf1 $titf2 -pady 4
+    pack $titf1 $titf2 -padx 5 -pady 5
 
     return $frame
 }

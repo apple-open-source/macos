@@ -2,7 +2,7 @@
 #
 #         Tests for [control::do]
 # 
-# RCS: @(#) $Id: do.test,v 1.13 2006/10/09 21:41:40 andreas_kupries Exp $
+# RCS: @(#) $Id: do.test,v 1.14 2009/11/24 04:52:49 andreas_kupries Exp $
 #
 
 # -------------------------------------------------------------------------
@@ -229,14 +229,19 @@ test do-2.2 {wrong no of arguments} {
 
 # ----------------------------------------
 
-if {![package vsatisfies [package provide Tcl] 8.5]} {
-    # 8.4 and lower
-    set do23res {1 {wrong # args: should be "do body args"
+if {[package vsatisfies [package provide Tcl] 8.6]} {
+    # 8.6+
+    set do23res {1 {wrong # args: should be "do body ?arg ...?"
+    while executing
+"do"}}
+} elseif {[package vsatisfies [package provide Tcl] 8.5]} {
+    # 8.5+
+    set do23res {1 {wrong # args: should be "do body ..."
     while executing
 "do"}}
 } else {
-    # 8.5 and higher
-    set do23res {1 {wrong # args: should be "do body ..."
+    # 8.4-
+    set do23res {1 {wrong # args: should be "do body args"
     while executing
 "do"}}
 }

@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)setmode.c	8.2 (Berkeley) 3/25/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/setmode.c,v 1.9 2003/02/23 00:24:03 mikeh Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/setmode.c,v 1.11 2007/01/09 00:27:55 imp Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -86,9 +82,7 @@ static void	 dumpmode(BITCMD *);
  * bits) followed by a '+' (set bits).
  */
 mode_t
-getmode(bbox, omode)
-	const void *bbox;
-	mode_t omode;
+getmode(const void *bbox, mode_t omode)
 {
 	const BITCMD *set;
 	mode_t clrval, newmode, value;
@@ -180,8 +174,7 @@ common:			if (set->cmd2 & CMD2_CLR) {
 #endif /* !VARIANT_LEGACY */
 
 void *
-setmode(p)
-	const char *p;
+setmode(const char *p)
 {
 	int perm, who;
 	char op, *ep;
@@ -361,11 +354,7 @@ apply:		if (!*p)
 }
 
 static BITCMD *
-addcmd(set, op, who, oparg, mask)
-	BITCMD *set;
-	int oparg, who;
-	int op;
-	u_int mask;
+addcmd(BITCMD *set, int op, int who, int oparg, u_int mask)
 {
 	switch (op) {
 	case '=':
@@ -409,8 +398,7 @@ addcmd(set, op, who, oparg, mask)
 
 #ifdef SETMODE_DEBUG
 static void
-dumpmode(set)
-	BITCMD *set;
+dumpmode(BITCMD *set)
 {
 	for (; set->cmd; ++set)
 		(void)printf("cmd: '%c' bits %04o%s%s%s%s%s%s\n",
@@ -431,8 +419,7 @@ dumpmode(set)
  * compacted, but it's not worth the effort.
  */
 __private_extern__ void
-compress_mode(set)
-	BITCMD *set;
+compress_mode(BITCMD *set)
 {
 	BITCMD *nset;
 	int setbits, clrbits, Xbits, op;

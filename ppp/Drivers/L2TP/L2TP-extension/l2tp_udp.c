@@ -71,7 +71,7 @@ void l2tp_udp_thread_func(struct l2tp_udp_thread *thread_socket);
 kern_return_t thread_terminate(register thread_act_t act);
 int l2tp_udp_init_threads(int nb_threads);
 void l2tp_udp_dispose_threads();
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 static int sysctl_nb_threads SYSCTL_HANDLER_ARGS;
 #endif
 
@@ -89,7 +89,7 @@ static lck_attr_t		*l2tp_udp_mtx_attr;
 static lck_grp_t		*l2tp_udp_mtx_grp;
 static lck_grp_attr_t	*l2tp_udp_mtx_grp_attr;
 
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 SYSCTL_PROC(_net_ppp_l2tp, OID_AUTO, nb_threads, CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_NOAUTO|CTLFLAG_KERN,
     &l2tp_udp_nb_threads, 0, sysctl_nb_threads, "I", "Number of l2tp output threads 0 - 16");
 SYSCTL_INT(_net_ppp_l2tp, OID_AUTO, thread_outq_size, CTLTYPE_INT|CTLFLAG_RW|CTLFLAG_NOAUTO|CTLFLAG_KERN,
@@ -128,7 +128,7 @@ int l2tp_udp_init()
 	if (err)
 		goto fail;
 		
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     sysctl_register_oid(&sysctl__net_ppp_l2tp_nb_threads);
     sysctl_register_oid(&sysctl__net_ppp_l2tp_thread_outq_size);
 #endif
@@ -164,7 +164,7 @@ int l2tp_udp_dispose()
 	if (!l2tp_udp_inited)
 		return 0;
 		
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
     sysctl_unregister_oid(&sysctl__net_ppp_l2tp_nb_threads);
     sysctl_unregister_oid(&sysctl__net_ppp_l2tp_thread_outq_size);
 #endif
@@ -184,7 +184,7 @@ int l2tp_udp_dispose()
     return 0;
 }
 
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 /* -----------------------------------------------------------------------------
 sysctl to change the number of threads
 ----------------------------------------------------------------------------- */

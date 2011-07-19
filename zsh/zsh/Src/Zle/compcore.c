@@ -648,6 +648,17 @@ callcompfunc(char *s, char *fn)
         else
             compredirs = (char **) zshcalloc(sizeof(char *));
 
+	/*
+	 * We need to untokenize compparameter which is the
+	 * raw internals of a parameter subscript.
+	 *
+	 * The double memory duplication is a bit ugly: the additional
+	 * dupstring() is necessary because untokenize() might change
+	 * the string length and so later zsfree() would get the wrong
+	 * length of the string.
+	 */
+	compparameter = dupstring(compparameter);
+	untokenize(compparameter);
 	compparameter = ztrdup(compparameter);
 	compredirect = ztrdup(compredirect);
 	zsfree(compquote);
@@ -1470,13 +1481,13 @@ set_comp_sep(void)
 
     /* Put the string in the lexer buffer and call the lexer to *
      * get the words we have to expand.                        */
-    zleparse = 1;
     ocs = zlemetacs;
     oll = zlemetall;
     ol = zlemetaline;
     addedx = 1;
     noerrs = 1;
     lexsave();
+    lexflags = LEXFLAGS_ZLE;
     /*
      * tl is the length of the temporary string including
      * the space at the start and the x at the cursor position,
@@ -1605,7 +1616,7 @@ set_comp_sep(void)
         }
 	else
 	    p = NULL;
-	if (!got && !zleparse) {
+	if (!got && !lexflags) {
 	    DPUTS(!p, "no current word in substr");
 	    got = 1;
 	    cur = i;
@@ -1623,7 +1634,7 @@ set_comp_sep(void)
     noaliases = ona;
     strinend();
     inpop();
-    errflag = zleparse = 0;
+    errflag = 0;
     noerrs = ne;
     lexrestore();
     wb = owb;
@@ -2932,7 +2943,7 @@ add_match_data(int alt, char *str, char *orig, Cline line,
 		comp_setunset(0, 0, CP_EXACTSTR, 0);
 	    }
 	    ai->exactm = cm;
-	} else if (useexact && !matcheq(cm, ai->exactm)) {
+	} else if (useexact && (!ai->exactm || !matcheq(cm, ai->exactm))) {
 	    ai->exact = 2;
 	    ai->exactm = NULL;
 	    if (incompfunc)

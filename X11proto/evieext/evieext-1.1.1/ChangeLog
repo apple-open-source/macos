@@ -1,0 +1,268 @@
+commit 9a98637885e2c6d61175090574373ff9b86cfb41
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 17:54:01 2011 -0800
+
+    evieproto 1.1.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8192a839c3a542e869d241b71128c24715bb1546
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 17:53:24 2011 -0800
+
+    Chop whitespace off of the ends of lines
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 77751643fc01bd8f8ef29345bf17ea8d224039bc
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 28 18:27:21 2010 -0800
+
+    config: Add missing AC_CONFIG_SRCDIR
+    
+    Regroup AC statements under the Autoconf initialization section.
+    Regroup AM statements under the Automake initialization section.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 819ac2a57b75501f048c9942491ce96285b8f3bd
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Dec 28 18:24:11 2010 -0800
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 79c2b66520f266bc0458d48a76b847d824117940
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 10 21:01:57 2010 -0800
+
+    Sun's copyrights belong to Oracle now
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2cc1693cec306253de308621e298ce967d91af41
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 15 13:26:31 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 54b2fffced04aa7f69c903035b8202a1611b81a2
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:48 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit d276272bd0e86ba4344094b642ed73d37cc2601d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:29 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit 632c3d7d02ff9da94f13e4e563be6be4f283465d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:26 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 765cabb3633ddc262a2ca2faeb0319c8c3cc7723
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:28 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit 5a217580a3ef10d1779bef4fa7e9bb98c4b5696b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 0e7b63ca7ae9585c8c58e8006b36a0f76c6c7ace
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:25 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit b7d2eb55564994e00f89e31171fce69724227382
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:46 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit c94dd88d55b9b8f28c702b71a3e025c1a3c4c6b6
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 11:52:54 2009 +1000
+
+    evieproto 1.1.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit bb660bf2b11db7a661941ec56f87ff10bdef5184
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 11:52:03 2009 +1000
+
+    Move Xeviestr.h to evieproto.h for consistency with other modules.
+    
+    A stub Xeviestr.h is provided to avoid breaking clients.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6cfd47671edb554c2d1b44550b58bd8bc5990cfc
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 11:49:25 2009 +1000
+
+    Remove RCS tags
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit cb157d3388d977b057dac5c985326e01e5e41460
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 89ae43b7876c9febe8ebbfbf3f5f396ec4d9a53f
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:58 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit f5207dba8195fd269d950a54abb7660b50024ac2
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:01 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 93439d6acc0f2aef3959f53f35225af7b53f61c2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:10 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit cb3aed6f3b9a97c5bd5eb71fda479309c466f4b4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:37 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 5e917f737fdcde9a18a8da57df1f62ed69c16bb6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:13 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit dc484c73f468130bcbbf2a7d3b0f24efb0fc6286
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:38 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit f3ac570c62aa2c7bb14efa09c7821ace84f7ced0
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:55 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 7739b24ffe32a84391ccd22c7b6ddf64fd859337
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat May 28 02:31:19 2005 +0000
+
+    Removed Xevie.h since it's now only library prototypes and as such is in
+        lib/Xevie.
+
+commit ff59ff27eb61e2b2ef69c2af74a4c9c353a27426
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 22 01:20:14 2005 +0000
+
+    Move request id definitions to Xeviestr.h, leaving Xevie.h for client
+        library definitions and Xeviestr.h for protocol definitions to allow
+        cleaner split in modularization.
+
+commit 451aba41359641a9f736896bd004729ef9f7adeb
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 03:49:50 2005 +0000
+
+    Change version to 1.0.
+
+commit 3122eb59addb1887c6591e9e39d0ac3ec81024a6
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:38 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 7c2b5f0f77abce523757271e23a5a2db174905e5
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:17 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit f1e52c450dcbf611fbf67da65aee3bb6547fc80e
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Sat May 14 07:55:10 2005 +0000
+
+    Add some COPYING files.
+
+commit 6e0ba01312789e4fe857ed32d9417e3db5843553
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:04 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit d65d2d14e9f570ae4f743c215068eeddaf328e18
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:30 2005 +0000
+
+    Initial build system files for proto module.
+
+commit 617e62bea3ea385ab2cddd94223a673567c4bb75
+Author: Stuart Kreitman <stuart.kreitman@sun.com>
+Date:   Fri Jul 30 01:31:08 2004 +0000
+
+    Integration of XEVIE branch to trunk
+        https://freedesktop.org/bugzilla/show_bug.cgi?id=947
+    Modified Files: Imakefile Added Files: Xevie.h Xeviestr.h
+
+commit a897a51fb62a2fa2834596fd6ca74789ebb42b1a
+Author: Stuart Kreitman <stuart.kreitman@sun.com>
+Date:   Wed Feb 25 22:38:16 2004 +0000
+
+    file Xeviestr.h was initially added on branch XEVIE.

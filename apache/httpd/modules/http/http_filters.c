@@ -331,6 +331,10 @@ apr_status_t ap_http_filter(ap_filter_t *f, apr_bucket_brigade *b,
                 char *tmp;
                 int len;
 
+                /* if we send an interim response, we're no longer
+                 * in a state of expecting one.
+                 */
+                f->r->expecting_100 = 0;
                 tmp = apr_pstrcat(f->r->pool, AP_SERVER_PROTOCOL, " ",
                                   ap_get_status_line(100), CRLF CRLF, NULL);
                 len = strlen(tmp);
@@ -380,8 +384,13 @@ apr_status_t ap_http_filter(ap_filter_t *f, apr_bucket_brigade *b,
 
             /* Detect chunksize error (such as overflow) */
             if (rv != APR_SUCCESS || ctx->remaining < 0) {
+                ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r, "Error reading first chunk %s ", 
+                              (ctx->remaining < 0) ? "(overflow)" : "");
                 ctx->remaining = 0; /* Reset it in case we have to
                                      * come back here later */
+                if (APR_STATUS_IS_TIMEUP(rv)) { 
+                    http_error = HTTP_REQUEST_TIME_OUT;
+                }
                 return bail_out_on_error(ctx, f, http_error);
             }
 
@@ -481,10 +490,14 @@ apr_status_t ap_http_filter(ap_filter_t *f, apr_bucket_brigade *b,
 
                 /* Detect chunksize error (such as overflow) */
                 if (rv != APR_SUCCESS || ctx->remaining < 0) {
+                    ap_log_rerror(APLOG_MARK, APLOG_ERR, rv, f->r, "Error reading chunk %s ", 
+                                  (ctx->remaining < 0) ? "(overflow)" : "");
                     ctx->remaining = 0; /* Reset it in case we have to
                                          * come back here later */
-                    bail_out_on_error(ctx, f, http_error);
-                    return rv;
+                    if (APR_STATUS_IS_TIMEUP(rv)) { 
+                        http_error = HTTP_REQUEST_TIME_OUT;
+                    }
+                    return bail_out_on_error(ctx, f, http_error);
                 }
 
                 if (!ctx->remaining) {

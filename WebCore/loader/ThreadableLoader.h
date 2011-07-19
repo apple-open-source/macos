@@ -55,17 +55,19 @@ namespace WebCore {
     };
     
     struct ThreadableLoaderOptions {
-        ThreadableLoaderOptions() : sendLoadCallbacks(false), sniffContent(false), allowCredentials(false), forcePreflight(false), crossOriginRequestPolicy(DenyCrossOriginRequests) { }
+        ThreadableLoaderOptions() : sendLoadCallbacks(false), sniffContent(false), allowCredentials(false), forcePreflight(false), crossOriginRequestPolicy(DenyCrossOriginRequests), shouldBufferData(true) { }
         bool sendLoadCallbacks;
         bool sniffContent;
         bool allowCredentials;  // Whether HTTP credentials and cookies are sent with the request.
         bool forcePreflight;  // If AccessControl is used, whether to force a preflight.
         CrossOriginRequestPolicy crossOriginRequestPolicy;
+        bool shouldBufferData;
     };
 
     // Useful for doing loader operations from any thread (not threadsafe, 
     // just able to run on threads other than the main thread).
-    class ThreadableLoader : public Noncopyable {
+    class ThreadableLoader {
+        WTF_MAKE_NONCOPYABLE(ThreadableLoader);
     public:
         static void loadResourceSynchronously(ScriptExecutionContext*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
         static PassRefPtr<ThreadableLoader> create(ScriptExecutionContext*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&);
@@ -75,6 +77,7 @@ namespace WebCore {
         void deref() { derefThreadableLoader(); }
 
     protected:
+        ThreadableLoader() { }
         virtual ~ThreadableLoader() { }
         virtual void refThreadableLoader() = 0;
         virtual void derefThreadableLoader() = 0;

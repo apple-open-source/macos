@@ -29,10 +29,10 @@
 #define _H_UTILITIES
 
 #include <security_utilities/utility_config.h>
+#include <security_utilities/errors.h>
 #include <exception>
 #include <new>
 #include <string>
-#include <errno.h>
 #include <string.h>
 
 namespace Security
@@ -84,6 +84,26 @@ inline Derived safe_cast(Base *base)
 #define NOCOPY(Type)	\
 	private: Type(const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER; \
 	void operator = (const Type &) DEPRECATED_IN_MAC_OS_X_VERSION_10_0_AND_LATER;
+
+
+//
+// Helpers for memory pointer validation
+//
+#define MY_CSSM_ERRCODE_INVALID_POINTER 0x0004
+template <class T>
+inline T &Required(T *ptr, OSStatus err = MY_CSSM_ERRCODE_INVALID_POINTER)
+{
+    if (ptr == NULL)
+        MacOSError::throwMe(err);
+    return *ptr;
+}
+
+// specialization for void * (just check for non-null; don't return a void & :-)
+inline void Required(void *ptr, OSStatus err = MY_CSSM_ERRCODE_INVALID_POINTER)
+{
+	if (ptr == NULL)
+		MacOSError::throwMe(err);
+}
 
 
 //

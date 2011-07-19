@@ -51,6 +51,7 @@ static const char sccsid[] = "@(#)vis.c	8.1 (Berkeley) 6/6/93";
 #include <stdlib.h>
 #include <unistd.h>
 #include <vis.h>
+#include <sysexits.h>
 
 #include "extern.h"
 
@@ -187,4 +188,7 @@ process(FILE *fp)
 	 */
 	if (fold && *(cp-1) != '\n')
 		printf("\\\n");
+
+	if (ferror(fp))
+		errx(EX_IOERR, NULL);
 }

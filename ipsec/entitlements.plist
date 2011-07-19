@@ -5,6 +5,11 @@
 	<key>keychain-access-groups</key>
 	<array>
 		<string>apple</string>
+		<string>com.apple.identities</string>
+	</array>
+	<key>seatbelt-profiles</key>
+	<array>
+		<string>racoon</string>
 	</array>
 </dict>
 </plist>

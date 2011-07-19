@@ -28,5 +28,33 @@
 	.align	2
 	.globl	__commpage_pthread_mutex_lock
 __commpage_pthread_mutex_lock:
-	movl	$(_COMM_PAGE_MUTEX_LOCK), %eax
-	jmpl	*%eax
+	pushl	%ebp			    // set up frame for backtrace
+	movl	%esp,%ebp
+	pushl	%esi
+	pushl	%edi
+	pushl	%ebx
+	xorl	%ebx,%ebx		    // clear "preemption pending" flag
+	movl	20(%esp),%edi		    // %edi == ptr to LVAL/UVAL structure
+	lea	20(%esp),%esi		    // %esi == ptr to argument list
+	movl	_COMM_PAGE_SPIN_COUNT, %edx
+	movl	16(%esi),%ecx		    // get mask (ie, PTHRW_EBIT etc)
+1:
+	testl	0(%edi),%ecx		    // is mutex available?
+	jz	2f			    // yes, it is available
+	pause
+	decl	%edx			    // decrement max spin count
+	jnz	1b			    // keep spinning
+2:
+	movl	$(_COMM_PAGE_PFZ_MUTEX_LOCK), %ecx
+	call	*%ecx
+	testl	%ebx,%ebx		    // pending preemption?
+	jz	3f
+	pushl	%eax			    // save return value across sysenter
+	call	_preempt
+	popl	%eax
+3:
+	popl	%ebx
+	popl	%edi
+	popl	%esi
+	popl	%ebp
+	ret

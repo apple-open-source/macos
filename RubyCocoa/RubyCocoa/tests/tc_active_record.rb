@@ -12,6 +12,11 @@ begin
   #require File.expand_path('../../framework/src/ruby/osx/objc/active_record', __FILE__)
   require 'sqlite3'
   
+  # FIXME: Why is this necessary in the latest trunk? (r2231)
+  # def OSX._ignore_ns_override
+  #   true
+  # end
+  
   class Object
     def __stub(mname, *return_values)
       @return_values = return_values
@@ -75,8 +80,9 @@ begin
   end
   
   class Mailbox < ActiveRecord::Base
+    
     has_many :emails
-  
+    
     validates_presence_of :title
   end
   
@@ -84,8 +90,9 @@ begin
   #
   # class MailboxProxy < OSX::ActiveRecordProxy
   # end
-
+  
   class Email < ActiveRecord::Base
+    
     belongs_to :mailbox
   end
   
@@ -136,6 +143,12 @@ begin
       proxy = Mailbox.find(:first).to_activerecord_proxy
       assert_kind_of MailboxProxy, proxy
       assert_equal @mailbox, proxy.to_activerecord
+    end
+    
+    def test_namespaced_activerecord_base_subclassing
+      assert_nothing_raised NameError do
+        eval "module TestNamespace; class BaseSubclass < ActiveRecord::Base; end; end"
+      end
     end
   end
   

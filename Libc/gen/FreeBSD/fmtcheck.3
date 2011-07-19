@@ -31,7 +31,7 @@
 .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
 .\" POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\" $FreeBSD: src/lib/libc/gen/fmtcheck.3,v 1.9 2004/07/02 23:52:10 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/fmtcheck.3,v 1.10 2008/08/02 06:02:42 das Exp $
 .Dd October 16, 2002
 .Os
 .Dt FMTCHECK 3
@@ -112,6 +112,4 @@ the first requires an integer and the second requires a long.
 .Sh BUGS
 The
 .Fn fmtcheck
-function does not understand all of the conversions that
-.Xr printf 3
-does.
+function does not recognize positional parameters.

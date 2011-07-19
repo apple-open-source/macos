@@ -48,14 +48,21 @@ class StyleReflection;
 class StyleTransformData;
 
 struct ContentData;
+struct LengthSize;
 
 #if ENABLE(DASHBOARD_SUPPORT)
-class StyleDashboardRegion;
+struct StyleDashboardRegion;
 #endif
 
-#if ENABLE(XBL)
-class BindingURI;
-#endif
+// Page size type.
+// StyleRareNonInheritedData::m_pageSize is meaningful only when 
+// StyleRareNonInheritedData::m_pageSizeType is PAGE_SIZE_RESOLVED.
+enum PageSizeType {
+    PAGE_SIZE_AUTO, // size: auto
+    PAGE_SIZE_AUTO_LANDSCAPE, // size: landscape
+    PAGE_SIZE_AUTO_PORTRAIT, // size: portrait
+    PAGE_SIZE_RESOLVED // Size is fully resolved.
+};
 
 // This struct is for rarely used non-inherited CSS3, CSS2, and WebKit-specific properties.
 // By grouping them together, we save space, and only allocate this object when someone
@@ -66,10 +73,6 @@ public:
     PassRefPtr<StyleRareNonInheritedData> copy() const { return adoptRef(new StyleRareNonInheritedData(*this)); }
     ~StyleRareNonInheritedData();
     
-#if ENABLE(XBL)
-    bool bindingsEquivalent(const StyleRareNonInheritedData&) const;
-#endif
-
     bool operator==(const StyleRareNonInheritedData&) const;
     bool operator!=(const StyleRareNonInheritedData& o) const { return !(*this == o); }
 
@@ -95,15 +98,16 @@ public:
 
     unsigned userDrag : 2; // EUserDrag
     bool textOverflow : 1; // Whether or not lines that spill out should be truncated with "..."
-    unsigned marginTopCollapse : 2; // EMarginCollapse
-    unsigned marginBottomCollapse : 2; // EMarginCollapse
+    unsigned marginBeforeCollapse : 2; // EMarginCollapse
+    unsigned marginAfterCollapse : 2; // EMarginCollapse
     unsigned matchNearestMailBlockquoteColor : 1; // EMatchNearestMailBlockquoteColor, FIXME: This property needs to be eliminated. It should never have been added.
     unsigned m_appearance : 6; // EAppearance
     unsigned m_borderFit : 1; // EBorderFit
+    unsigned m_textCombine : 1; // CSS3 text-combine properties
     
     short m_counterIncrement;
     short m_counterReset;
-    
+
 #if USE(ACCELERATED_COMPOSITING)
     bool m_runningAcceleratedAnimation : 1;
 #endif
@@ -123,10 +127,9 @@ public:
     Length m_perspectiveOriginX;
     Length m_perspectiveOriginY;
 
-#if ENABLE(XBL)
-    OwnPtr<BindingURI> bindingURI; // The XBL binding URI list.
-#endif
-    
+    LengthSize m_pageSize;
+    PageSizeType m_pageSizeType;
+
 private:
     StyleRareNonInheritedData();
     StyleRareNonInheritedData(const StyleRareNonInheritedData&);

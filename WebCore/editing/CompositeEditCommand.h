@@ -32,24 +32,27 @@
 
 namespace WebCore {
 
-class CSSStyleDeclaration;
+class EditingStyle;
 class HTMLElement;
+class StyledElement;
 class Text;
 
 class CompositeEditCommand : public EditCommand {
 public:
+    virtual ~CompositeEditCommand();
+
     bool isFirstCommand(EditCommand* command) { return !m_commands.isEmpty() && m_commands.first() == command; }
 
 protected:
-    CompositeEditCommand(Document*);
+    explicit CompositeEditCommand(Document*);
 
     //
     // sugary-sweet convenience functions to help create and apply edit commands in composite commands
     //
-    void appendNode(PassRefPtr<Node>, PassRefPtr<Element> parent);
+    void appendNode(PassRefPtr<Node>, PassRefPtr<ContainerNode> parent);
     void applyCommandToComposite(PassRefPtr<EditCommand>);
-    void applyStyle(CSSStyleDeclaration*, EditAction = EditActionChangeAttributes);
-    void applyStyle(CSSStyleDeclaration*, const Position& start, const Position& end, EditAction = EditActionChangeAttributes);
+    void applyStyle(const EditingStyle*, EditAction = EditActionChangeAttributes);
+    void applyStyle(const EditingStyle*, const Position& start, const Position& end, EditAction = EditActionChangeAttributes);
     void applyStyledElement(PassRefPtr<Element>);
     void removeStyledElement(PassRefPtr<Element>);
     void deleteSelection(bool smartDelete = false, bool mergeBlocksAfterDelete = true, bool replace = false, bool expandForSpecialElements = true);
@@ -67,16 +70,20 @@ protected:
     void mergeIdenticalElements(PassRefPtr<Element>, PassRefPtr<Element>);
     void rebalanceWhitespace();
     void rebalanceWhitespaceAt(const Position&);
+    void rebalanceWhitespaceOnTextSubstring(RefPtr<Text>, int startOffset, int endOffset);
     void prepareWhitespaceAtPositionForSplit(Position&);
-    void removeCSSProperty(PassRefPtr<CSSMutableStyleDeclaration>, CSSPropertyID);
+    bool canRebalance(const Position&) const;
+    bool shouldRebalanceLeadingWhitespaceFor(const String&) const;
+    void removeCSSProperty(PassRefPtr<StyledElement>, CSSPropertyID);
     void removeNodeAttribute(PassRefPtr<Element>, const QualifiedName& attribute);
     void removeChildrenInRange(PassRefPtr<Node>, unsigned from, unsigned to);
     virtual void removeNode(PassRefPtr<Node>);
-    HTMLElement* replaceNodeWithSpanPreservingChildrenAndAttributes(PassRefPtr<Node>);
+    HTMLElement* replaceElementWithSpanPreservingChildrenAndAttributes(PassRefPtr<HTMLElement>);
     void removeNodePreservingChildren(PassRefPtr<Node>);
     void removeNodeAndPruneAncestors(PassRefPtr<Node>);
     void prune(PassRefPtr<Node>);
     void replaceTextInNode(PassRefPtr<Text>, unsigned offset, unsigned count, const String& replacementText);
+    void replaceTextInNodePreservingMarkers(PassRefPtr<Text>, unsigned offset, unsigned count, const String& replacementText);
     Position positionOutsideTabSpan(const Position&);
     void setNodeAttribute(PassRefPtr<Element>, const QualifiedName& attribute, const AtomicString& value);
     void splitElement(PassRefPtr<Element>, PassRefPtr<Node> atChild);
@@ -98,13 +105,12 @@ protected:
     PassRefPtr<Node> moveParagraphContentsToNewBlockIfNecessary(const Position&);
     
     void pushAnchorElementDown(Node*);
-    void pushPartiallySelectedAnchorElementsDown();
     
     void moveParagraph(const VisiblePosition&, const VisiblePosition&, const VisiblePosition&, bool preserveSelection = false, bool preserveStyle = true);
     void moveParagraphs(const VisiblePosition&, const VisiblePosition&, const VisiblePosition&, bool preserveSelection = false, bool preserveStyle = true);
     void moveParagraphWithClones(const VisiblePosition& startOfParagraphToMove, const VisiblePosition& endOfParagraphToMove, Element* blockElement, Node* outerNode);
     void cloneParagraphUnderNewElement(Position& start, Position& end, Node* outerNode, Element* blockElement);
-    void cleanupAfterDeletion();
+    void cleanupAfterDeletion(VisiblePosition destination = VisiblePosition());
     
     bool breakOutOfEmptyListItem();
     bool breakOutOfEmptyMailBlockquotedParagraph();

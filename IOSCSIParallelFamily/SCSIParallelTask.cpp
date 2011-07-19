@@ -318,6 +318,15 @@ SCSIParallelTask::GetLogicalUnitNumber ( void )
 	return ( ( SCSITask * ) fSCSITask )->GetLogicalUnitNumber ( );
 }
 
+//-----------------------------------------------------------------------------
+//	GetLogicalUnitBytes - Gets SCSILogicalUnitBytes for this task.   [PUBLIC]
+//-----------------------------------------------------------------------------
+
+void
+SCSIParallelTask::GetLogicalUnitBytes ( SCSILogicalUnitBytes * logicalUnitBytes )
+{
+	return ( ( SCSITask * ) fSCSITask )->GetLogicalUnitBytes ( logicalUnitBytes );
+}
 
 //-----------------------------------------------------------------------------
 //	GetTaskAttribute - Gets SCSITaskAttribute for this task. 		   [PUBLIC]

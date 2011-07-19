@@ -358,7 +358,7 @@ __numeric_ctype(locale_t loc)
 			loc->__numeric_fp_cvt = LC_NUMERIC_FP_SAME_LOCALE;
 			return loc;
 		} else {
-			loc->__lc_numeric_loc = newlocale(LC_CTYPE_MASK, numeric, &__c_locale);
+			loc->__lc_numeric_loc = newlocale(LC_CTYPE_MASK, numeric, (locale_t)&__c_locale);
 			if (loc->__lc_numeric_loc) {
 				loc->__numeric_fp_cvt = LC_NUMERIC_FP_USE_LOCALE;
 				return loc->__lc_numeric_loc;

@@ -4,6 +4,7 @@
 [copyright {2004 Jochen Loewer <loewerj@web.de>}]
 [copyright {2004-2008 Michael Schlenker <mic42@users.sourceforge.net>}]
 [moddesc   {ASN.1 processing}]
+[category  Networking]
 [titledesc {ASN.1 BER encoder/decoder}]
 [require Tcl 8.4]
 [require asn [opt 0.8.3]]

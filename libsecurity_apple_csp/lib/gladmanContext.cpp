@@ -29,17 +29,24 @@
  * AES encrypt/decrypt.
  */
 GAESContext::GAESContext(AppleCSPSession &session) : 
-	BlockCryptor(session),
+    BlockCryptor(session),
+	mAesKey(NULL),
 	mInitFlag(false),
 	mRawKeySize(0),
 	mWasEncrypting(false)
 { 
-	cbcCapable(true);
-	multiBlockCapable(true);
+	cbcCapable(false);
+	multiBlockCapable(false);
 }
 
 GAESContext::~GAESContext()
 {
+    if(mAesKey) {
+        CCCryptorFinal(mAesKey,NULL,0,NULL);
+        CCCryptorRelease(mAesKey);
+        mAesKey = NULL;
+    }
+    
 	deleteKey();
 	memset(mRawKey, 0, MAX_AES_KEY_BITS / 8);
 	mInitFlag = false;
@@ -47,7 +54,6 @@ GAESContext::~GAESContext()
 	
 void GAESContext::deleteKey()
 {
-	memset(&mAesKey, 0, sizeof(mAesKey));
 	mRawKeySize = 0;
 }
 
@@ -74,9 +80,9 @@ void GAESContext::init(
 		keyData, keyLen);
 	
 	switch(keyLen) {
-		case MIN_AES_KEY_BITS / 8:
-		case MID_AES_KEY_BITS / 8:
-		case MAX_AES_KEY_BITS / 8:
+		case kCCKeySizeAES128:
+		case kCCKeySizeAES192:
+		case kCCKeySizeAES256:
 			break;
 		default:
 			CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
@@ -99,7 +105,7 @@ void GAESContext::init(
 	 */
 	if(!sameKeySize || (mWasEncrypting != encrypting) ||
 		memcmp(mRawKey, keyData, mRawKeySize)) {
-		aes_cc_set_key(&mAesKey, keyData, keyLen, encrypting);
+        (void) CCCryptorCreateWithMode(0, kCCModeECB, kCCAlgorithmAES128, ccDefaultPadding, NULL, keyData, keyLen, NULL, 0, 0, 0, &mAesKey);
 
 		/* save this raw key data */
 		memmove(mRawKey, keyData, keyLen); 
@@ -121,7 +127,6 @@ void GAESContext::init(
 			if(iv->Length != kCCBlockSizeAES128) {
 				CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_INIT_VECTOR);
 			}
-			aes_cc_set_iv(&mAesKey, encrypting, iv->Data);
 		}
 		break;
 		default:
@@ -147,9 +152,8 @@ void GAESContext::encryptBlock(
 	if(cipherTextLen < plainTextLen) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	aes_encrypt_cbc((const unsigned char *)plainText, NULL, 
-		plainTextLen / GLADMAN_BLOCK_SIZE_BYTES, 
-		(unsigned char *)cipherText, &mAesKey.encrypt);
+    (void) CCCryptorEncryptDataBlock(mAesKey, NULL, plainText, plainTextLen, cipherText);
+
 	cipherTextLen = plainTextLen;
 }
 
@@ -163,9 +167,7 @@ void GAESContext::decryptBlock(
 	if(plainTextLen < cipherTextLen) {
 		CssmError::throwMe(CSSMERR_CSP_OUTPUT_LENGTH_ERROR);
 	}
-	aes_decrypt_cbc((const unsigned char *)cipherText, NULL,
-		cipherTextLen / GLADMAN_BLOCK_SIZE_BYTES, 
-		(unsigned char *)plainText, &mAesKey.decrypt);
+    (void) CCCryptorDecryptDataBlock(mAesKey, NULL, cipherText, cipherTextLen, plainText);
 	plainTextLen = cipherTextLen;
 }
 

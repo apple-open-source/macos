@@ -31,11 +31,15 @@
 #ifndef WebContextMenuData_h
 #define WebContextMenuData_h
 
+#include "WebHistoryItem.h"
 #include "WebMenuItemInfo.h"
+#include "WebNode.h"
 #include "WebPoint.h"
 #include "WebString.h"
 #include "WebURL.h"
 #include "WebVector.h"
+
+#define WEBCONTEXT_MEDIATYPEFILE_DEFINED
 
 namespace WebKit {
 
@@ -50,6 +54,10 @@ struct WebContextMenuData {
         MediaTypeVideo,
         // An audio node is selected.
         MediaTypeAudio,
+        // A file node is selected.
+        MediaTypeFile,
+        // A plugin node is selected.
+        MediaTypePlugin,
     };
     // The type of media the context menu is being invoked on.
     MediaType mediaType;
@@ -75,6 +83,9 @@ struct WebContextMenuData {
     // The encoding for the frame in context.
     WebString frameEncoding;
 
+    // History state of the subframe in context.
+    WebHistoryItem frameHistoryItem;
+
     enum MediaFlags {
         MediaNone = 0x0,
         MediaInError = 0x1,
@@ -84,7 +95,8 @@ struct WebContextMenuData {
         MediaCanSave = 0x10,
         MediaHasAudio = 0x20,
         MediaHasVideo = 0x40,
-        MediaControls = 0x80,
+        MediaControlRootElement = 0x80,
+        MediaCanPrint = 0x100,
     };
 
     // Extra attributes describing media elements.
@@ -98,6 +110,9 @@ struct WebContextMenuData {
 
     // The editable (possibily) misspelled word.
     WebString misspelledWord;
+
+    // If misspelledWord is not empty, holds suggestions from the dictionary.
+    WebVector<WebString> dictionarySuggestions;
 
     // Whether context is editable.
     bool isEditable;
@@ -124,6 +139,7 @@ struct WebContextMenuData {
         CanPaste = 0x10,
         CanDelete = 0x20,
         CanSelectAll = 0x40,
+        CanTranslate = 0x80,
     };
 
     // Which edit operations are available in the context.
@@ -134,6 +150,20 @@ struct WebContextMenuData {
 
     // Custom context menu items provided by the WebCore internals.
     WebVector<WebMenuItemInfo> customItems;
+
+    // The node that was clicked.
+    WebNode node;
+
+    WebContextMenuData()
+        : mediaType(MediaTypeNone)
+        , isImageBlocked(false)
+        , mediaFlags(MediaNone)
+        , isSpellCheckingEnabled(false)
+        , isEditable(false)
+        , writingDirectionDefault(CheckableMenuItemDisabled)
+        , writingDirectionLeftToRight(CheckableMenuItemEnabled)
+        , writingDirectionRightToLeft(CheckableMenuItemEnabled)
+        , editFlags(0) { }
 };
 
 } // namespace WebKit

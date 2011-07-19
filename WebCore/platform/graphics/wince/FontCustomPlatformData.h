@@ -21,7 +21,10 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontDescription.h"
 #include "FontRenderingMode.h"
+#include "FontWidthVariant.h"
+#include "TextOrientation.h"
 #include "PlatformString.h"
 #include <wtf/Noncopyable.h>
 
@@ -36,7 +39,9 @@ namespace WebCore {
         virtual void unregisterFont(const String& fontName) = 0;
     };
 
-    struct FontCustomPlatformData : Noncopyable {
+    struct FontCustomPlatformData {
+        WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
+    public:
         FontCustomPlatformData(const String& name)
             : m_name(name)
         {
@@ -44,7 +49,10 @@ namespace WebCore {
 
         ~FontCustomPlatformData();
 
-        FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode = NormalRenderingMode);
+        FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth, FontRenderingMode = NormalRenderingMode);
+
+        static bool supportsFormat(const String&);
+
         String m_name;
     };
 

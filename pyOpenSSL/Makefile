@@ -11,27 +11,37 @@ ToolType    = Library
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
+PYTHON_VERSIONS = $(shell \
+  for python in /usr/bin/python2.*[0-9]; do \
+    "$${python}" -c 'import sys; print "%d.%d" % tuple(sys.version_info[0:2])'; \
+  done; \
+)
+
 PYTHON = /usr/bin/python
-EXTRAS := $(shell $(PYTHON) -c 'import sys; print sys.prefix')/Extras
 
 build:: extract_source
-	$(_v) cd $(OBJROOT)/$(Project) && $(Environment) $(PYTHON) setup.py build
+	$(_v) for version in $(PYTHON_VERSIONS); do \
+	        echo "Building for Python $${version}..."; \
+	        cd $(OBJROOT)/$(Project) && $(Environment) "$(PYTHON)$${version}" setup.py build; \
+	      done;
 
 install::
-	$(_v) cd $(OBJROOT)/$(Project) && $(Environment) $(PYTHON) setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)";
-ifdef RC_JASPER
-	$(_v) for so in $$(find "$(DSTROOT)$(EXTRAS)" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done
-endif
+	$(_v) for version in $(PYTHON_VERSIONS); do \
+	        extras="$$("$(PYTHON)$${version}" -c 'import sys; print sys.prefix')/Extras"; \
+	        echo "Installing for Python $${version}..."; \
+	        cd $(OBJROOT)/$(Project) && $(Environment) "$(PYTHON)$${version}" setup.py install --home="$${extras}" --root="$(DSTROOT)"; \
+	        for so in $$(find "$(DSTROOT)$${extras}" -type f -name '*.so'); do $(STRIP) -Sx "$${so}"; done; \
+	      done;
 
 #
 # Automatic Extract & Patch
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-0.7
+AEP_ProjVers   = $(Project)-0.12
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = CVSid.patch PyObject.patch unused.patch
+AEP_Patches    = 
 
 extract_source::
 ifeq ($(AEP),YES)
@@ -57,5 +67,5 @@ install:: install-ossfiles
 install-ossfiles::
 	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSV)
 	$(_v) $(INSTALL_FILE) $(SRCROOT)/$(ProjectName).plist $(DSTROOT)/$(OSV)/$(ProjectName).plist
-	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSL)
-	$(_v) $(INSTALL_FILE) $(OBJROOT)/$(Project)/COPYING $(DSTROOT)/$(OSL)/$(ProjectName).txt
+#	$(_v) $(INSTALL_DIRECTORY) $(DSTROOT)/$(OSL)
+#	$(_v) $(INSTALL_FILE) $(OBJROOT)/$(Project)/COPYING $(DSTROOT)/$(OSL)/$(ProjectName).txt

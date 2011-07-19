@@ -1,5 +1,27 @@
 %test
 
+  fn1() { return 1; }
+  fn2() {
+      fn1
+      print $?
+      return 2
+  }
+  fn2
+2:Basic status returns from functions
+>1
+
+  fnz() { }
+  false
+  fnz
+0:Empty function body resets status
+
+  fn3() { return 3; }
+  fnstat() { print $?; }
+  fn3
+  fnstat
+0:Status is not reset on non-empty function body
+>3
+
   function f$$ () {
     print regress expansion of function names
   }
@@ -178,3 +200,7 @@
 >Dum da dum
 >Da de da
 >Do be do
+
+%clean
+
+ rm -f file.in file.out

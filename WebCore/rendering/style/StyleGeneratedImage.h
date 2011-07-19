@@ -42,7 +42,7 @@ public:
 
     virtual bool isGeneratedImage() const { return true; }
     
-    virtual PassRefPtr<CSSValue> cssValue();
+    virtual PassRefPtr<CSSValue> cssValue() const;
 
     virtual IntSize imageSize(const RenderObject*, float multiplier) const;
     virtual bool imageHasRelativeWidth() const { return !m_fixedSize; }
@@ -51,7 +51,7 @@ public:
     virtual void setImageContainerSize(const IntSize&);
     virtual void addClient(RenderObject*);
     virtual void removeClient(RenderObject*);
-    virtual Image* image(RenderObject*, const IntSize&) const;
+    virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) const;
     
 private:
     StyleGeneratedImage(CSSImageGeneratorValue* val, bool fixedSize)

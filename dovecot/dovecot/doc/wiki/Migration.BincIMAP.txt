@@ -1,0 +1,349 @@
+Binc IMAP
+=========
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+If you're using only Binc IMAP, it's possible to do a transparent Dovecot
+migration.
+
+Binc IMAP v1.2 and later
+------------------------
+
+binc2dovecot.pl attempts to do as perfect migration as possible. Basically it
+reads Binc's uidlist files from the specified maildir and it's (sub-)folders
+and generates 'dovecot-uidlist' files out of them. It also converts Binc's
+subscription file. This script hasn't been tested with Binc IMAP< 1.2.
+
+If Binc has been used with the IMAPdir depot format, it need to be converted to
+Maildir++ with the script IMAPdir2Maildir++ before running binc2dovecot.pl.
+
+IMAPdir2Maildir++
+
+---%<-------------------------------------------------------------------------
+#!/bin/bash
+# BINC mailbox definition for the example parameters below
+# Mailbox {
+#     depot = "IMAPdir",
+#     type = "Maildir",
+#     path = "Maildir",
+# }
+
+#
+# Parameters: set according to your local system settings
+#
+
+# Path to the IMAPdir
+IMAPdirName="${1}/Maildir"
+
+# Path to the new Maildir++ directory
+maildirName="${1}/Maildir"
+
+# Name used for the inbox with IMAPdir
+inboxName="INBOX"
+
+# the character . is invalid for Maildir++
+# What string shall it be replaced with?
+dotReplacementString="_cdot_"
+
+#
+# Below here nothing should need to be adjusted
+#
+
+# Initialise some variables and settings
+shopt -s dotglob
+orgDir=$(pwd)
+
+# loop through all file names according to the pattern in $FILES
+cd $IMAPdirName
+FILES="*"
+for file in $FILES
+do
+  # Skip over Maildir++ directories
+  if [[ ${file:0:1} = "." && -e ${file}/maildirfolder ]]
+  then
+    continue
+  fi
+  # Skip over non-directory file names
+  if [[ ! -d $file ]]
+  then
+    continue
+  fi
+
+  # Move INBOX contents according to Maildir++ specification
+  if [[ $file = $inboxName ]]
+  then
+    mv ${file}/* $maildirName
+    rmdir $file
+    continue
+  fi
+
+  # create Maildir++ compliant new folder name
+  newFile=${file//\\\\/\\}
+  newFile=${newFile//\\./$dotReplacementString}
+  newFile=${newFile/#./$dotReplacementString}
+  newFile=.$newFile
+
+  # rename folder name according to Maildir++ specification & add maildirfolder
+file
+  mv "$file" "${maildirName}/$newFile"
+  owner=$(stat -c %u "${maildirName}/$newFile")
+  group=$(stat -c %g "${maildirName}/$newFile")
+  touch "${maildirName}/$newFile/maildirfolder"
+  chown $owner:$group "${maildirName}/$newFile/maildirfolder"
+  chmod 600 "${maildirName}/$newFile/maildirfolder"
+done
+
+# Adapt subscriptions file
+mv .bincimap-subscribed "${maildirName}/.bincimap-subscribed"
+sed -i "s/\./$dotReplacementString/g" "${maildirName}/.bincimap-subscribed"
+
+# Return to original working directory
+cd $orgDir
+---%<-------------------------------------------------------------------------
+
+Usage: ./IMAPdir2Maildir++ /path/to/user
+
+binc2dovecot.pl
+
+---%<-------------------------------------------------------------------------
+#!/usr/bin/perl
+
+use IO::File;
+use IO::Dir;
+use File::stat;
+use File::Basename;
+use strict;
+
+### Parameters to adapt to local cofiguration
+# Name of the Maildir++ directory relative to the path passed as argument
+my $mailbox = $ARGV[0]."/Maildir";
+# Name space used by BINC for private folders, with IMAPdir often = ""
+our $namespace = "INBOX.";
+
+### Nothing should need to be changed below here
+our $indent = 0;
+
+die("Mailbox doesn't exist")
+  if (!-d $mailbox);
+parse_mailbox($mailbox);
+
+# Sanity check for namespace
+my $subscriptionsSize = -s $mailbox.'/subscriptions';
+if ($subscriptionsSize == 0) {
+  print $/;
+  print $/;
+  print "WARNING: Your new subscriptions file is empty. Are you using the
+correct namespace? If not re-run script with correct namespace parameter.", $/;
+}
+
+sub parse_mailbox
+{
+  my ($mailbox) = @_;
+  print " " x $indent, "Parsing ", $mailbox, " ...", $/;
+  $indent += 2;
+
+  my $mb = IO::Dir->new($mailbox)
+    or die("Unable to open mailbox $mailbox");
+  while(my $file = $mb->read())
+  {
+    my $absfile = $mailbox."/".$file;
+    next
+      if ($file eq "." || $file eq "..");
+    if ($file eq ".bincimap-subscribed" && -f $absfile)
+    {
+      convert_subscribtions($absfile);
+    }
+    elsif ($file eq "bincimap-cache" && -f $absfile)
+    {
+      convert_cache($absfile);
+    }
+    elsif (substr($file, 0, 1) eq "." && -d $absfile && -e
+$absfile."/maildirfolder")
+    {
+      parse_mailbox($absfile);
+    }
+  }
+  $mb->close();
+
+  $indent -= 2;
+  return 1;
+}
+
+sub convert_cache
+{
+  my ($infile) = @_;
+  my $dir = dirname($infile);
+  my %uids = ();
+
+  print " " x $indent, "Converting cache...", $/;
+  my $in = IO::File->new("<".$infile)
+     or die("Unable to open cache file $infile");
+  my ($blockopen, $uid) = (0, 0);
+  my $id = "";
+  while(my $line = $in->getline())
+  {
+    if ($line =~ /^\d+\s{$/)
+    {
+      $blockopen = 1;
+      $uid = 0;
+      $id = "";
+      next;
+    }
+    elsif ($blockopen && $line =~ /^}$/)
+    {
+      $blockopen = 0;
+      next;
+    }
+    elsif ($blockopen && $line =~ /^\t_UID\s=\s(\d+),?$/)
+    {
+      $uid = $1;
+    }
+    elsif ($blockopen && $line =~ /^\t_ID\s=\s"?(.*?)"?,?$/)
+    {
+      $id = $1;
+    }
+    if ($uid > 0 && length($id) > 0)
+    {
+      $uids{$uid} = $id;
+      $uid = 0;
+      $id = "";
+      next;
+    }
+  }
+  $in->close();
+
+  if (scalar(keys(%uids)) <= 0)
+  {
+    print " " x $indent, "Empty uidlist. Skipping...", $/;
+    return 1;
+  }
+
+  my $uidvalfile = $dir."/bincimap-uidvalidity";
+  my ($uidvalidity, $uidnext) = (0, 0);
+  die("Error: File $uidvalfile doesn't exist")
+    if (!-f $uidvalfile);
+  $in = IO::File->new("<".$uidvalfile)
+    or die("Unable to open file: $uidvalfile");
+  while(my $line = $in->getline())
+  {
+    if ($line =~ /^\t_uidvalidity\s=\s(\d+),?$/)
+    {
+      $uidvalidity = $1;
+    }
+    elsif ($line =~ /^\t_uidnext\s=\s(\d+),?$/)
+    {
+      $uidnext = $1;
+    }
+  }
+  $in->close();
+
+  die("Error: either uidnext ($uidnext) or uidvalidity ($uidvalidity) is
+invalid")
+    if ($uidnext <= 0 || $uidvalidity <= 0);
+
+  my $version = 1;
+  my $outfile = $dir."/dovecot-uidlist";;
+  my $out = IO::File->new(">".$outfile)
+    or die("Unable to create cache file $outfile");
+  $out->print($version, " ", $uidvalidity, " ", $uidnext, $/);
+  foreach my $uid (sort{$a <=> $b} (keys(%uids)))
+  {
+    $out->print($uid, " ", $uids{$uid}, $/);
+  }
+  $out->close();
+
+  my $stat = stat($infile);
+  chown($stat->uid, $stat->gid, $outfile);
+  chmod(0600, $outfile);
+
+  return 1;
+}
+
+sub convert_subscribtions
+{
+  my ($infile) = @_;
+  my $dir = dirname($infile);
+  my @cache = ();
+
+  print " " x $indent, "Converting subscriptions...", $/;
+  my $in = IO::File->new("<".$infile)
+    or die("Unable to open file: $infile");
+  while(my $line = $in->getline())
+  {
+    next
+      if ($line !~ /^$namespace/);
+    $line =~ s/^$namespace?//;
+    $line =~ s/\n$//;
+    $line =~ s/\r$//;
+    $line =~ s/\//\./g;
+    next
+      if (length($line) <= 0);
+    next
+      if (!-d $dir."/.".$line);
+    push(@cache, $line)
+      if (scalar(grep{$_ eq $line}(@cache)) <= 0);
+  }
+  $in->close();
+
+  my $outfile = $dir."/subscriptions";
+  my $out = IO::File->new(">".$outfile)
+    or die("Unable to create subscriptions file: $outfile");
+  foreach my $subscription (@cache)
+  {
+    $out->print($subscription, $/);
+  }
+  $out->close();
+
+  my $stat = stat($infile);
+  chown($stat->uid, $stat->gid, $outfile);
+  chmod(0600, $outfile);
+
+  return 1;
+}
+---%<-------------------------------------------------------------------------
+
+Usage: ./binc2dovecot.pl /path/to/user
+
+NOTE:  /path/to/user/Maildir MUST exist. If "./Maildir" isn't your default
+maildir-name, you can  edit this at the top of the script.
+
+---%<-------------------------------------------------------------------------
+Example 1:
+# find /var/pop -mindepth 1 -maxdepth 1 -type d -exec
+/path/to/binc2dove.pl {} \;
+
+Example 2:
+# find /usr/local/vpopmail/domains -mindepth 2 -maxdepth 2 -type d -exec
+/path/to/binc2dove.pl {} \;
+---%<-------------------------------------------------------------------------
+
+Dovecot configuration
+---------------------
+
+Binc IMAP by default uses "INBOX/" as the IMAP namespace for private mailboxes.
+If you want a transparent migration, you'll need to configure Dovecot to use a
+namespace with "INBOX/" prefix as well.
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir
+namespace {
+  separator = /
+  prefix = INBOX/
+  inbox = yes
+}
+---%<-------------------------------------------------------------------------
+
+Manual conversion
+-----------------
+
+ * Binc's '.bincimap-subscribed' file is compatible with Dovecot's
+   'subscriptions' file, but you need to remove the "INBOX/" prefixes from the
+   mailboxes.
+ * Binc's 'bincimap-cache + bincimap-uidvalidity' are NOT compatible with
+   Dovecot's 'dovecot-uidlist' file. See file format documention or above
+   script for conversion.
+ * Binc's message flags are compatible with Dovecot (as they are specified by
+   the Maildir specification)
+
+(This file was created from the wiki on 2011-05-11 04:42)

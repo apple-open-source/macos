@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -25,6 +25,7 @@
 #include "Font.h"
 #include "GlyphBuffer.h"
 #include "SimpleFontData.h"
+#include "TextRun.h"
 #include <wtf/MathExtras.h>
 
 #if USE(ICU_UNICODE)
@@ -40,35 +41,36 @@ namespace WebCore {
 // According to http://www.unicode.org/Public/UNIDATA/UCD.html#Canonical_Combining_Class_Values
 static const uint8_t hiraganaKatakanaVoicingMarksCombiningClass = 8;
 
-WidthIterator::WidthIterator(const Font* font, const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, bool accountForGlyphBounds)
+WidthIterator::WidthIterator(const Font* font, const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, bool accountForGlyphBounds, bool forTextEmphasis)
     : m_font(font)
     , m_run(run)
     , m_end(run.length())
     , m_currentCharacter(0)
     , m_runWidthSoFar(0)
-    , m_finalRoundingWidth(0)
+    , m_isAfterExpansion(!run.allowsLeadingExpansion())
     , m_fallbackFonts(fallbackFonts)
     , m_accountForGlyphBounds(accountForGlyphBounds)
     , m_maxGlyphBoundingBoxY(numeric_limits<float>::min())
     , m_minGlyphBoundingBoxY(numeric_limits<float>::max())
     , m_firstGlyphOverflow(0)
     , m_lastGlyphOverflow(0)
+    , m_forTextEmphasis(forTextEmphasis)
 {
     // If the padding is non-zero, count the number of spaces in the run
     // and divide that by the padding for per space addition.
-    m_padding = m_run.padding();
-    if (!m_padding)
-        m_padPerSpace = 0;
+    m_expansion = m_run.expansion();
+    if (!m_expansion)
+        m_expansionPerOpportunity = 0;
     else {
-        float numSpaces = 0;
-        for (int i = 0; i < run.length(); i++)
-            if (Font::treatAsSpace(m_run[i]))
-                numSpaces++;
+        bool isAfterExpansion = m_isAfterExpansion;
+        unsigned expansionOpportunityCount = Font::expansionOpportunityCount(m_run.characters(), m_end, m_run.ltr() ? LTR : RTL, isAfterExpansion);
+        if (isAfterExpansion && !m_run.allowsTrailingExpansion())
+            expansionOpportunityCount--;
 
-        if (numSpaces == 0)
-            m_padPerSpace = 0;
+        if (!expansionOpportunityCount)
+            m_expansionPerOpportunity = 0;
         else
-            m_padPerSpace = ceilf(m_run.padding() / numSpaces);
+            m_expansionPerOpportunity = m_expansion / expansionOpportunityCount;
     }
 }
 
@@ -81,10 +83,8 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
     const UChar* cp = m_run.data(currentCharacter);
 
     bool rtl = m_run.rtl();
-    bool hasExtraSpacing = (m_font->letterSpacing() || m_font->wordSpacing() || m_padding) && !m_run.spacingDisabled();
+    bool hasExtraSpacing = (m_font->letterSpacing() || m_font->wordSpacing() || m_expansion) && !m_run.spacingDisabled();
 
-    float runWidthSoFar = m_runWidthSoFar;
-    float lastRoundingWidth = m_finalRoundingWidth;
     FloatRect bounds;
 
     const SimpleFontData* primaryFont = m_font->primaryFont();
@@ -129,16 +129,15 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
         // Now that we have a glyph and font data, get its width.
         float width;
         if (c == '\t' && m_run.allowTabs()) {
-            float tabWidth = m_font->tabWidth();
-            width = tabWidth - fmodf(m_run.xPos() + runWidthSoFar, tabWidth);
+            float tabWidth = m_font->tabWidth(*fontData);
+            width = tabWidth - fmodf(m_run.xPos() + m_runWidthSoFar, tabWidth);
         } else {
             width = fontData->widthForGlyph(glyph);
-            // We special case spaces in two ways when applying word rounding.
-            // First, we round spaces to an adjusted width in all fonts.
-            // Second, in fixed-pitch fonts we ensure that all characters that
-            // match the width of the space character have the same width as the space character.
-            if (width == fontData->spaceWidth() && (fontData->pitch() == FixedPitch || glyph == fontData->spaceGlyph()) && m_run.applyWordRounding())
-                width = fontData->adjustedSpaceWidth();
+
+#if ENABLE(SVG)
+            // SVG uses horizontalGlyphStretch(), when textLength is used to stretch/squeeze text.
+            width *= m_run.horizontalGlyphStretch();
+#endif
         }
 
         if (fontData != lastFontData && width) {
@@ -161,25 +160,37 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
             if (width && m_font->letterSpacing())
                 width += m_font->letterSpacing();
 
-            if (Font::treatAsSpace(c)) {
-                // Account for padding. WebCore uses space padding to justify text.
-                // We distribute the specified padding over the available spaces in the run.
-                if (m_padding) {
-                    // Use left over padding if not evenly divisible by number of spaces.
-                    if (m_padding < m_padPerSpace) {
-                        width += m_padding;
-                        m_padding = 0;
-                    } else {
-                        width += m_padPerSpace;
-                        m_padding -= m_padPerSpace;
+            static bool expandAroundIdeographs = Font::canExpandAroundIdeographsInComplexText();
+            bool treatAsSpace = Font::treatAsSpace(c);
+            if (treatAsSpace || (expandAroundIdeographs && Font::isCJKIdeographOrSymbol(c))) {
+                // Distribute the run's total expansion evenly over all expansion opportunities in the run.
+                if (m_expansion) {
+                    if (!treatAsSpace && !m_isAfterExpansion) {
+                        // Take the expansion opportunity before this ideograph.
+                        m_expansion -= m_expansionPerOpportunity;
+                        m_runWidthSoFar += m_expansionPerOpportunity;
+                        if (glyphBuffer) {
+                            if (glyphBuffer->isEmpty())
+                                glyphBuffer->add(fontData->spaceGlyph(), fontData, m_expansionPerOpportunity);
+                            else
+                                glyphBuffer->expandLastAdvance(m_expansionPerOpportunity);
+                        }
                     }
-                }
+                    if (m_run.allowsTrailingExpansion() || (m_run.ltr() && currentCharacter + clusterLength < static_cast<size_t>(m_run.length()))
+                        || (m_run.rtl() && currentCharacter)) {
+                        m_expansion -= m_expansionPerOpportunity;
+                        width += m_expansionPerOpportunity;
+                        m_isAfterExpansion = true;
+                    }
+                } else
+                    m_isAfterExpansion = false;
 
                 // Account for word spacing.
                 // We apply additional space between "words" by adding width to the space character.
-                if (currentCharacter != 0 && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing())
+                if (treatAsSpace && currentCharacter && !Font::treatAsSpace(cp[-1]) && m_font->wordSpacing())
                     width += m_font->wordSpacing();
-            }
+            } else
+                m_isAfterExpansion = false;
         }
 
         if (m_accountForGlyphBounds) {
@@ -188,58 +199,37 @@ void WidthIterator::advance(int offset, GlyphBuffer* glyphBuffer)
                 m_firstGlyphOverflow = max<float>(0, -bounds.x());
         }
 
+        if (m_forTextEmphasis && !Font::canReceiveTextEmphasis(c))
+            glyph = 0;
+
         // Advance past the character we just dealt with.
         cp += clusterLength;
         currentCharacter += clusterLength;
 
-        // Account for float/integer impedance mismatch between CG and KHTML. "Words" (characters 
-        // followed by a character defined by isRoundingHackCharacter()) are always an integer width.
-        // We adjust the width of the last character of a "word" to ensure an integer width.
-        // If we move KHTML to floats we can remove this (and related) hacks.
-
-        float oldWidth = width;
-
-        // Force characters that are used to determine word boundaries for the rounding hack
-        // to be integer width, so following words will start on an integer boundary.
-        if (m_run.applyWordRounding() && Font::isRoundingHackCharacter(c))
-            width = ceilf(width);
-
-        // Check to see if the next character is a "rounding hack character", if so, adjust
-        // width so that the total run width will be on an integer boundary.
-        if ((m_run.applyWordRounding() && currentCharacter < m_run.length() && Font::isRoundingHackCharacter(*cp))
-                || (m_run.applyRunRounding() && currentCharacter >= m_end)) {
-            float totalWidth = runWidthSoFar + width;
-            width += ceilf(totalWidth) - totalWidth;
-        }
-
-        runWidthSoFar += width;
+        m_runWidthSoFar += width;
 
         if (glyphBuffer)
-            glyphBuffer->add(glyph, fontData, (rtl ? oldWidth + lastRoundingWidth : width));
-
-        lastRoundingWidth = width - oldWidth;
+            glyphBuffer->add(glyph, fontData, width);
 
         if (m_accountForGlyphBounds) {
-            m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, bounds.bottom());
+            m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, bounds.maxY());
             m_minGlyphBoundingBoxY = min(m_minGlyphBoundingBoxY, bounds.y());
-            m_lastGlyphOverflow = max<float>(0, bounds.right() - width);
+            m_lastGlyphOverflow = max<float>(0, bounds.maxX() - width);
         }
     }
 
     m_currentCharacter = currentCharacter;
-    m_runWidthSoFar = runWidthSoFar;
-    m_finalRoundingWidth = lastRoundingWidth;
 }
 
 bool WidthIterator::advanceOneCharacter(float& width, GlyphBuffer* glyphBuffer)
 {
-    glyphBuffer->clear();
+    int oldSize = glyphBuffer->size();
     advance(m_currentCharacter + 1, glyphBuffer);
     float w = 0;
-    for (int i = 0; i < glyphBuffer->size(); ++i)
+    for (int i = oldSize; i < glyphBuffer->size(); ++i)
         w += glyphBuffer->advanceAt(i);
     width = w;
-    return !glyphBuffer->isEmpty();
+    return glyphBuffer->size() > oldSize;
 }
 
 UChar32 WidthIterator::normalizeVoicingMarks(int currentCharacter)

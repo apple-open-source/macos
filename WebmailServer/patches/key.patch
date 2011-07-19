@@ -1,0 +1,126 @@
+diff -Naur roundcubemail-0.5/program/include/rcmail.php roundcubemail/program/include/rcmail.php
+--- roundcubemail-0.5/program/include/rcmail.php	2011-01-06 04:41:16.000000000 -0800
++++ roundcubemail/program/include/rcmail.php	2011-01-12 15:40:38.000000000 -0800
+@@ -41,6 +41,7 @@
+    * @var rcmail
+    */
+   static private $instance;
++  static private $crypto_method = "AES-128-CBC";
+ 
+   /**
+    * Stores instance of rcube_config.
+@@ -596,6 +597,11 @@
+       $_SESSION['auth_time'] = time();
+       $_SESSION['temp'] = true;
+     }
++	// create a random DES key cookie if there isn't one
++	if (!isset($_COOKIE['webmail_des_key'])) {
++		rcmail::setcookie('webmail_des_key', rcmail::random_key(24));
++	}
++
+   }
+ 
+ 
+@@ -1172,7 +1178,13 @@
+      */
+     $clear = pack("a*H2", $clear, "80");
+ 
+-    if (function_exists('mcrypt_module_open') &&
++    if (function_exists('openssl_encrypt'))
++    {
++      $iv = $this->create_iv(openssl_cipher_iv_length(self::$crypto_method));
++      $cipher = openssl_encrypt($clear, self::$crypto_method, $this->config->get_crypto_key($key), true, $iv);
++      $cipher = $iv . $cipher;
++    }
++    else if (function_exists('mcrypt_module_open') &&
+         ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
+     {
+       $iv = $this->create_iv(mcrypt_enc_get_iv_size($td));
+@@ -1217,7 +1229,14 @@
+ 
+     $cipher = $base64 ? base64_decode($cipher) : $cipher;
+ 
+-    if (function_exists('mcrypt_module_open') &&
++    if (function_exists('openssl_decrypt'))
++    {
++      $iv_len = openssl_cipher_iv_length(self::$crypto_method);
++      $iv = substr($cipher, 0, $iv_len);
++      $cipher = substr($cipher, $iv_len);
++      $clear = openssl_decrypt($cipher, self::$crypto_method, $this->config->get_crypto_key($key), true, $iv);
++    }
++    else if (function_exists('mcrypt_module_open') &&
+         ($td = mcrypt_module_open(MCRYPT_TripleDES, "", MCRYPT_MODE_CBC, "")))
+     {
+       $iv_size = mcrypt_enc_get_iv_size($td);
+@@ -1322,6 +1341,25 @@
+     setcookie($name, $value, $exp, $cookie['path'], $cookie['domain'],
+       rcube_https_check(), true);
+   }
++ 
++
++  /**
++   * Generate a random string to be used as encryption key
++   *
++   * @param int Key length
++   * @return string The generated random string
++   * @static
++  */
++  public static function random_key($length)
++   {
++	$alpha = 'ABCDEFGHIJKLMNOPQERSTUVXYZabcdefghijklmnopqrtsuvwxyz0123456789+*%&?!$-_=';
++	$out = '';
++ 
++	for ($i=0; $i < $length; $i++)
++		$out .= $alpha{rand(0, strlen($alpha)-1)};
++  
++	return $out;
++   }
+ }
+ 
+ 
+diff -Naur roundcubemail-0.4.2/program/include/rcube_config.php roundcubemail/program/include/rcube_config.php
+--- roundcubemail-0.4.2/program/include/rcube_config.php	2010-12-22 11:17:47.000000000 -0800
++++ roundcubemail/program/include/rcube_config.php	2011-01-12 15:40:38.000000000 -0800
+@@ -212,8 +212,16 @@
+      */
+     public function get_crypto_key($key)
+     {
+-        // Bomb out if the requested key does not exist
+-        if (!array_key_exists($key, $this->prop)) {
++		$val = null;
++  
++		// try and get the key from a cookie
++		if (isset($_COOKIE['webmail_'.$key]))
++		{
++			$val = $_COOKIE['webmail_'.$key];
++		}
++  
++       // Bomb out if the requested key does not exist
++        if ($val == null && !array_key_exists($key, $this->prop)) {
+             raise_error(array(
+                 'code' => 500, 'type' => 'php',
+                 'file' => __FILE__, 'line' => __LINE__,
+@@ -222,17 +230,20 @@
+         }
+ 
+         $key = $this->prop[$key];
++		
++		if ($val == null)
++			$val = $this->prop[$key];
+ 
+         // Bomb out if the configured key is not exactly 24 bytes long
+-        if (strlen($key) != 24) {
++        if (strlen($val) != 24) {
+             raise_error(array(
+                 'code' => 500, 'type' => 'php',
+ 	            'file' => __FILE__, 'line' => __LINE__,
+-                'message' => "Configured crypto key '$key' is not exactly 24 bytes long"
++                'message' => "Configured crypto key '$val' is not exactly 24 bytes long"
+             ), true, true);
+         }
+ 
+-        return $key;
++        return $val;
+     }
+ 
+ 

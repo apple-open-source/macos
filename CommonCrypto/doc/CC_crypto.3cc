@@ -34,6 +34,8 @@ on that same context.
 .Pp
 The interfaces to the encryption and HMAC algorithms have a calling interface
 that is different from that provided by OpenSSL.
+.Sh HISTORY
+The Common Crypto collection of functions started to become available in OS X 10.4 and later.
 .Sh SEE ALSO
 .Xr CC_MD5 3cc ,
 .Xr CC_SHA 3cc ,

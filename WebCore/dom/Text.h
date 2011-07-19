@@ -32,7 +32,7 @@ public:
     static const unsigned defaultLengthLimit = 1 << 16;
 
     static PassRefPtr<Text> create(Document*, const String&);
-    static PassRefPtr<Text> createWithLengthLimit(Document*, const String&, unsigned& charsLeft, unsigned lengthLimit = defaultLengthLimit);
+    static PassRefPtr<Text> createWithLengthLimit(Document*, const String&, unsigned positionInString, unsigned lengthLimit = defaultLengthLimit);
 
     PassRefPtr<Text> splitText(unsigned offset, ExceptionCode&);
 
@@ -42,6 +42,8 @@ public:
     PassRefPtr<Text> replaceWholeText(const String&, ExceptionCode&);
 
     virtual void attach();
+    
+    virtual bool canContainRangeEndPoint() const { return true; }
 
 protected:
     Text(Document* document, const String& data)
@@ -56,7 +58,7 @@ private:
     virtual bool rendererIsNeeded(RenderStyle*);
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
     virtual void recalcStyle(StyleChange = NoChange);
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
 
     virtual PassRefPtr<Text> virtualCreate(const String&);
 

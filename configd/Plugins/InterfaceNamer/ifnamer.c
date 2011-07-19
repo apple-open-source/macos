@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@
 #include <sys/socket.h>
 #include <sys/sockio.h>
 #include <sys/stat.h>
+#include <sys/sysctl.h>
 #include <sys/param.h>
 #include <mach/mach.h>
 #include <net/ethernet.h>
@@ -83,8 +84,13 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/usb/USB.h>
 
-#define kIONetworkStackUserCommand	"IONetworkStackUserCommand"
-#define kRegisterInterface		1
+// from <IOKit/network/IONetworkStack.h>
+#define kIONetworkStackUserCommand      "IONetworkStackUserCommand"
+enum {
+    kRegisterInterfaceWithFixedUnit = 0,
+    kRegisterInterface,
+    kRegisterAllInterfaces
+};
 
 #define	kSCNetworkInterfaceInfo		"SCNetworkInterfaceInfo"
 #define	kSCNetworkInterfaceType		"SCNetworkInterfaceType"
@@ -92,6 +98,9 @@
 
 #define MY_PLUGIN_NAME			"InterfaceNamer"
 #define	MY_PLUGIN_ID			CFSTR("com.apple.SystemConfiguration." MY_PLUGIN_NAME)
+
+#define WAIT_STACK_TIMEOUT_KEY		"WaitStackTimeout"
+#define WAIT_STACK_TIMEOUT_DEFAULT	300.0
 
 #define WAIT_QUIET_TIMEOUT_KEY		"WaitQuietTimeout"
 #define WAIT_QUIET_TIMEOUT_DEFAULT	60.0
@@ -128,6 +137,12 @@ static CFMutableArrayRef	S_iflist		= NULL;
  *   new network interfaces.
  */
 static io_iterator_t		S_iter			= MACH_PORT_NULL;
+
+/*
+ * S_model
+ *   Hardware model for this network configuration.
+ */
+static CFStringRef		S_model			= NULL;
 
 /*
  * S_notify
@@ -169,20 +184,30 @@ static CFMutableDictionaryRef	S_state			= NULL;
  * S_timer
  *   CFRunLoopTimer tracking how long we are willing to wait
  *   for IOKit matching to quiesce (IOKitWaitQuiet).
+ *
+ * S_stack_timeout
+ *   time to wait for the IONetworkStack object to appear before timeout
+ *
+ * S_quiet_timeout
+ *   time to wait for the IOKit to quiesce (after the IONetworkStack is
+ *   has appeared.
  */
 static CFRunLoopTimerRef	S_timer			= NULL;
+static double			S_stack_timeout		= WAIT_STACK_TIMEOUT_DEFAULT;
+static double			S_quiet_timeout		= WAIT_QUIET_TIMEOUT_DEFAULT;
 
-#if	!TARGET_OS_IPHONE
+
 /*
  * Virtual network interface configuration
- *   S_prefs : SCPreferences to configuration
- *   S_bonds : most recently actived Bond configuration
- *   S_vlans : most recently actived VLAN configuration
+ *   S_prefs   : SCPreferences to configuration
+ *   S_bonds   : most recently actived Bond configuration
+ *   S_bridges : most recently actived Bridge configuration
+ *   S_vlans   : most recently actived VLAN configuration
  */
 static SCPreferencesRef		S_prefs			= NULL;
 static CFArrayRef		S_bonds			= NULL;
+static CFArrayRef		S_bridges		= NULL;
 static CFArrayRef		S_vlans			= NULL;
-#endif	/* !TARGET_OS_IPHONE */
 
 static void
 addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
@@ -195,6 +220,35 @@ addTimestamp(CFMutableDictionaryRef dict, CFStringRef key)
     CFDictionaryAddValue(dict, key, val);
     CFRelease(val);
     return;
+}
+
+#define	INTERFACES			CFSTR("Interfaces")
+#define	MODEL				CFSTR("Model")
+#define	NETWORK_INTERFACES_PREFS	CFSTR("NetworkInterfaces.plist")
+
+static CFStringRef
+hw_model()
+{
+    if (S_model == NULL) {
+	char	hwModel[64];
+	int	mib[]		= { CTL_HW, HW_MODEL };
+	size_t	n		= sizeof(hwModel);
+	int	ret;
+
+	// get HW model name
+	bzero(&hwModel, sizeof(hwModel));
+	ret = sysctl(mib, sizeof(mib) / sizeof(mib[0]), &hwModel, &n, NULL, 0);
+	if (ret != 0) {
+	    SCLog(TRUE, LOG_ERR, CFSTR("sysctl() CTL_HW/HW_MODEL failed: %s"), strerror(errno));
+	    return NULL;
+	}
+	hwModel[sizeof(hwModel) - 1] = '\0';
+
+	S_model = CFStringCreateWithCString(NULL, hwModel, kCFStringEncodingASCII);
+    }
+
+    return S_model;
+
 }
 
 static CFComparisonResult
@@ -221,90 +275,27 @@ if_unit_compare(const void *val1, const void *val2, void *context)
     return (CFNumberCompare(unit1, unit2, NULL));
 }
 
-static void *
-read_file(char * filename, size_t * data_length)
+static void
+reportIssue(const char *signature, CFStringRef issue)
 {
-    void *		data	= NULL;
-    size_t		len	= 0;
-    int			fd	= -1;
-    struct stat		sb;
+    aslmsg  m;
 
-    *data_length = 0;
-    if (stat(filename, &sb) == -1)
-	goto done;
-    len = sb.st_size;
-    if (len == 0)
-	goto done;
+    m = asl_new(ASL_TYPE_MSG);
+    asl_set(m, "com.apple.message.domain", "com.apple.SystemConfiguration." MY_PLUGIN_NAME);
+    asl_set(m, "com.apple.message.signature", signature);
+    asl_set(m, "com.apple.message.result", "failure");
+    SCLOG(NULL, m, ~ASL_LEVEL_ERR, CFSTR("%s\n%@"), signature, issue);
+    asl_free(m);
 
-    data = malloc(len);
-    if (data == NULL)
-	goto done;
-
-    fd = open(filename, O_RDONLY);
-    if (fd == -1)
-	goto done;
-
-    if (read(fd, data, len) != len) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": read %s failed, %s"),
-	      filename, strerror(errno));
-	goto done;
-    }
-
- done:
-    if (fd != -1)
-	close(fd);
-    if (data) {
-	*data_length = len;
-    }
-    return (data);
+    return;
 }
-
-static CFPropertyListRef
-readPropertyList(char * filename)
-{
-    void *		buf;
-    size_t		bufsize;
-    CFDataRef		data		= NULL;
-    CFPropertyListRef	plist		= NULL;
-    CFStringRef		errorString	= NULL;
-
-    buf = read_file(filename, &bufsize);
-    if (buf == NULL) {
-	return (NULL);
-    }
-    data = CFDataCreate(NULL, buf, bufsize);
-    if (data == NULL) {
-	goto error;
-    }
-
-    plist = CFPropertyListCreateFromXMLData(NULL, data,
-					    kCFPropertyListMutableContainers,
-					    &errorString);
-    if (plist == NULL) {
-	if (errorString != NULL) {
-	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": %@"),
-		  errorString);
-	    CFRelease(errorString);
-	}
-    }
- error:
-    if (data)
-	CFRelease(data);
-    if (buf)
-	free(buf);
-    return (plist);
-}
-
-#define	INTERFACES			CFSTR("Interfaces")
-#define	NETWORK_INTERFACES_PREFS	CFSTR("NetworkInterfaces.plist")
-#define	OLD_NETWORK_INTERFACES_FILE	"/var/db/NetworkInterfaces.xml"
 
 static void
 writeInterfaceList(CFArrayRef if_list)
 {
     CFArrayRef		cur_list;
+    CFStringRef		new_model;
+    CFStringRef		old_model;
     SCPreferencesRef	prefs;
 
     if (isA_CFArray(if_list) == NULL) {
@@ -321,6 +312,46 @@ writeInterfaceList(CFArrayRef if_list)
 
     cur_list = SCPreferencesGetValue(prefs, INTERFACES);
     if (_SC_CFEqual(cur_list, if_list)) {
+	goto done;
+    }
+
+    old_model = SCPreferencesGetValue(prefs, MODEL);
+    new_model = hw_model();
+    if ((old_model != NULL) &&
+	(new_model != NULL) &&
+	!CFEqual(old_model, new_model) &&
+	(cur_list != NULL)) {
+	CFStringRef history;
+	CFStringRef issue;
+
+	// if interface list was created on other hardware
+	history = CFStringCreateWithFormat(NULL, NULL,
+					   CFSTR("%@:%@"),
+					   INTERFACES,
+					   old_model);
+	SCPreferencesSetValue(prefs, history, cur_list);
+	CFRelease(history);
+
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": Hardware model changed\n"
+		    MY_PLUGIN_NAME ":   created on \"%@\"\n"
+		    MY_PLUGIN_NAME ":   now on     \"%@\""),
+	      old_model,
+	      new_model);
+
+	issue = CFStringCreateWithFormat(NULL, NULL,
+					 CFSTR("%@ --> %@"),
+					 old_model,
+					 new_model);
+	reportIssue("Hardware model changed", issue);
+	CFRelease(issue);
+    }
+
+    if ((new_model != NULL) &&
+	!SCPreferencesSetValue(prefs, MODEL, new_model)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": SCPreferencesSetValue failed, %s"),
+	      SCErrorString(SCError()));
 	goto done;
     }
 
@@ -348,8 +379,9 @@ static CFMutableArrayRef
 readInterfaceList()
 {
     CFArrayRef		if_list;
-    CFMutableArrayRef 	plist = NULL;
-    SCPreferencesRef	prefs = NULL;
+    CFStringRef		old_model;
+    CFMutableArrayRef 	plist	= NULL;
+    SCPreferencesRef	prefs	= NULL;
 
     prefs = SCPreferencesCreate(NULL, MY_PLUGIN_ID, NETWORK_INTERFACES_PREFS);
     if (!prefs) {
@@ -360,21 +392,19 @@ readInterfaceList()
     }
 
     if_list = SCPreferencesGetValue(prefs, INTERFACES);
-    if (!isA_CFArray(if_list)) {
-	if_list = (CFArrayRef)readPropertyList(OLD_NETWORK_INTERFACES_FILE);
-	if (if_list == NULL) {
-	    goto done;
-	}
-	if (!isA_CFArray(if_list)) {
-	    CFRelease(if_list);
+    if_list = isA_CFArray(if_list);
+
+    old_model = SCPreferencesGetValue(prefs, MODEL);
+    if (old_model != NULL) {
+	CFStringRef new_model;
+
+	new_model = hw_model();
+	if (!_SC_CFEqual(old_model, new_model)) {
+	    // if interface list was created on other hardware
 	    if_list = NULL;
-	    goto done;
 	}
-	writeInterfaceList(if_list);
-	(void)unlink(OLD_NETWORK_INTERFACES_FILE);
     }
 
-  done:
     if (if_list != NULL) {
 	CFIndex	i;
 	CFIndex	n	= CFArrayGetCount(if_list);
@@ -392,7 +422,8 @@ readInterfaceList()
 	    }
 	}
     }
-    if (prefs) {
+
+    if (prefs != NULL) {
 	CFRelease(prefs);
     }
     return (plist);
@@ -450,14 +481,98 @@ updateStore(void)
     return;
 }
 
-#if	!TARGET_OS_IPHONE
+static void
+updateBondInterfaceConfiguration(SCPreferencesRef prefs)
+{
+    CFArrayRef	interfaces;
+
+    interfaces = SCBondInterfaceCopyAll(prefs);
+    if ((interfaces != NULL) && (CFArrayGetCount(interfaces) == 0)) {
+	CFRelease(interfaces);
+	interfaces = NULL;
+    }
+
+    if (_SC_CFEqual(S_bonds, interfaces)) {
+	// if no change
+	if (interfaces != NULL) CFRelease(interfaces);
+	return;
+    }
+
+    if (S_bonds != NULL) CFRelease(S_bonds);
+    S_bonds = interfaces;
+
+    if (!_SCBondInterfaceUpdateConfiguration(prefs)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": _SCBondInterfaceUpdateConfiguration failed, %s"),
+	      SCErrorString(SCError()));
+    }
+
+    return;
+}
+
+static void
+updateBridgeInterfaceConfiguration(SCPreferencesRef prefs)
+{
+    CFArrayRef	interfaces;
+
+    interfaces = SCBridgeInterfaceCopyAll(prefs);
+    if ((interfaces != NULL) && (CFArrayGetCount(interfaces) == 0)) {
+	CFRelease(interfaces);
+	interfaces = NULL;
+    }
+
+    if (_SC_CFEqual(S_bridges, interfaces)) {
+	// if no change
+	if (interfaces != NULL) CFRelease(interfaces);
+	return;
+    }
+
+    if (S_bridges != NULL) CFRelease(S_bridges);
+    S_bridges = interfaces;
+
+    if (!_SCBridgeInterfaceUpdateConfiguration(prefs)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": _SCBridgeInterfaceUpdateConfiguration failed, %s"),
+	      SCErrorString(SCError()));
+    }
+
+    return;
+}
+
+static void
+updateVLANInterfaceConfiguration(SCPreferencesRef prefs)
+{
+    CFArrayRef	interfaces;
+
+    interfaces = SCVLANInterfaceCopyAll(prefs);
+    if ((interfaces != NULL) && (CFArrayGetCount(interfaces) == 0)) {
+	CFRelease(interfaces);
+	interfaces = NULL;
+    }
+
+    if (_SC_CFEqual(S_vlans, interfaces)) {
+	// if no change
+	if (interfaces != NULL) CFRelease(interfaces);
+	return;
+    }
+
+    if (S_vlans != NULL) CFRelease(S_vlans);
+    S_vlans = interfaces;
+
+    if (!_SCVLANInterfaceUpdateConfiguration(prefs)) {
+	SCLog(TRUE, LOG_ERR,
+	      CFSTR(MY_PLUGIN_NAME ": _SCVLANInterfaceUpdateConfiguration failed, %s"),
+	      SCErrorString(SCError()));
+    }
+
+    return;
+}
+
 static void
 updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 					   SCPreferencesNotification   notificationType,
 					   void				*info)
 {
-    CFArrayRef	interfaces;
-
     if ((notificationType & kSCPreferencesNotificationApply) != kSCPreferencesNotificationApply) {
 	return;
     }
@@ -469,64 +584,24 @@ updateVirtualNetworkInterfaceConfiguration(SCPreferencesRef		prefs,
 	    CFRelease(S_bonds);
 	    S_bonds = NULL;
 	}
+	if (S_bridges != NULL) {
+	    CFRelease(S_bridges);
+	    S_bridges = NULL;
+	}
 	if (S_vlans != NULL) {
 	    CFRelease(S_vlans);
 	    S_vlans = NULL;
 	}
     }
 
-    // update Bond configuration
-
-    interfaces = SCBondInterfaceCopyAll(prefs);
-    if ((S_bonds == NULL) && (interfaces == NULL)) {
-	// if no change
-	goto vlan;
-    }
-    if ((S_bonds != NULL) && (interfaces != NULL) && CFEqual(S_bonds, interfaces)) {
-	// if no change
-	CFRelease(interfaces);
-	goto vlan;
-    }
-    if (S_bonds != NULL) CFRelease(S_bonds);
-    S_bonds = interfaces;
-
-    if (!_SCBondInterfaceUpdateConfiguration(prefs)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": _SCBondInterfaceUpdateConfiguration failed, %s"),
-	      SCErrorString(SCError()));
-    }
-
-  vlan :
-
-    // update VLAN configuration
-
-    interfaces = SCVLANInterfaceCopyAll(prefs);
-    if ((S_vlans == NULL) && (interfaces == NULL)) {
-	// if no change
-	goto done;
-    }
-    if ((S_vlans != NULL) && (interfaces != NULL) && CFEqual(S_vlans, interfaces)) {
-	// if no change
-	CFRelease(interfaces);
-	goto done;
-    }
-    if (S_vlans != NULL) CFRelease(S_vlans);
-    S_vlans = interfaces;
-
-    if (!_SCVLANInterfaceUpdateConfiguration(prefs)) {
-	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": _SCVLANInterfaceUpdateConfiguration failed, %s"),
-	      SCErrorString(SCError()));
-    }
-
-  done :
+    updateBondInterfaceConfiguration  (prefs);
+    updateBridgeInterfaceConfiguration(prefs);
+    updateVLANInterfaceConfiguration  (prefs);
 
     // we are finished with current prefs, wait for changes
-
     SCPreferencesSynchronize(prefs);
     return;
 }
-#endif	/* !TARGET_OS_IPHONE */
 
 static CFDictionaryRef
 createInterfaceDict(SCNetworkInterfaceRef interface)
@@ -958,21 +1033,36 @@ insertInterface(CFMutableArrayRef db_list, SCNetworkInterfaceRef interface)
 static void
 replaceInterface(SCNetworkInterfaceRef interface)
 {
-    CFIndex where;
+    int		n	= 0;
+    CFIndex	where;
 
     if (S_dblist == NULL) {
 	S_dblist = CFArrayCreateMutable(NULL, 0,
 					&kCFTypeArrayCallBacks);
     }
     // remove any dict that has our type/addr
-    if (lookupInterfaceByAddress(S_dblist, interface, &where) != NULL) {
+    while (lookupInterfaceByAddress(S_dblist, interface, &where) != NULL) {
 	CFArrayRemoveValueAtIndex(S_dblist, where);
+	n++;
     }
     // remove any dict that has the same type/unit
-    if (lookupInterfaceByUnit(S_dblist, interface, &where) != NULL) {
+    while (lookupInterfaceByUnit(S_dblist, interface, &where) != NULL) {
 	CFArrayRemoveValueAtIndex(S_dblist, where);
+	n++;
     }
     insertInterface(S_dblist, interface);
+
+    if (n > 1) {
+	CFStringRef	issue;
+
+	issue = CFStringCreateWithFormat(NULL, NULL,
+					 CFSTR("n = %d, %@"),
+					 n,
+					 interface);
+	reportIssue("Multiple interfaces updated", issue);
+	CFRelease(issue);
+    }
+
     return;
 }
 
@@ -1017,9 +1107,9 @@ getHighestUnitForType(CFNumberRef if_type)
 static kern_return_t
 registerInterface(io_connect_t	connect,
 		  CFStringRef	path,
-		  CFNumberRef	unit)
+		  CFNumberRef	unit,
+		  const int	command)
 {
-    static const int		command	= kRegisterInterface;
     CFMutableDictionaryRef	dict;
     kern_return_t		kr;
     CFNumberRef			num;
@@ -1049,7 +1139,7 @@ lookupIOKitPath(CFStringRef if_path)
     kr = IOMasterPort(bootstrap_port, &masterPort);
     if (kr != KERN_SUCCESS) {
 	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x\n"),
+	      CFSTR(MY_PLUGIN_NAME ": IOMasterPort returned 0x%x"),
 	      kr);
 	goto error;
     }
@@ -1136,6 +1226,7 @@ nameInterfaces(CFMutableArrayRef if_list)
 
     for (i = 0; i < n; i++) {
 	SCNetworkInterfaceRef	interface;
+	Boolean			ok	= TRUE;
 	CFStringRef		path;
 	CFNumberRef		type;
 	CFNumberRef		unit;
@@ -1240,18 +1331,40 @@ nameInterfaces(CFMutableArrayRef if_list)
 		      is_builtin ? "built-in" : "next available");
 	    }
 
-	    kr = registerInterface(S_connect, path, unit);
+	    kr = registerInterface(S_connect,
+				   path,
+				   unit,
+				   (dbdict == NULL) ? kRegisterInterface : kRegisterInterfaceWithFixedUnit);
 	    if (kr != KERN_SUCCESS) {
+		CFStringRef issue;
+		const char  *signature;
+
+		signature = (dbdict == NULL) ? "failed to name new interface"
+					     : "failed to name known interface";
+
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": failed to name the interface, kr=0x%x\n"
+		      CFSTR(MY_PLUGIN_NAME ": %s, kr=0x%x\n"
 			    MY_PLUGIN_NAME ":   path = %@\n"
 			    MY_PLUGIN_NAME ":   unit = %@"),
+		      signature,
 		      kr,
 		      path,
 		      unit);
+
 		if (S_debug) {
 		    displayInterface(interface);
 		}
+
+		// report issue w/MessageTracer
+		issue = CFStringCreateWithFormat(NULL, NULL,
+						 CFSTR("kr=0x%x, path=%@, unit=%@"),
+						 kr,
+						 path,
+						 unit);
+		reportIssue(signature, issue);
+		CFRelease(issue);
+
+		ok = FALSE;	// ... and don't update the database
 	    } else {
 		SCNetworkInterfaceRef	new_interface;
 
@@ -1293,7 +1406,9 @@ nameInterfaces(CFMutableArrayRef if_list)
 	}
 
 	// update db
-	replaceInterface(interface);
+	if (ok) {
+	    replaceInterface(interface);
+	}
     }
     return;
 }
@@ -1326,9 +1441,7 @@ updateInterfaces()
 	 *   in the HW config (or have yet to show up).
 	 */
 	writeInterfaceList(S_dblist);
-#if	!TARGET_OS_IPHONE
 	updateVirtualNetworkInterfaceConfiguration(NULL, kSCPreferencesNotificationApply, NULL);
-#endif	/* !TARGET_OS_IPHONE */
 	updateStore();
 
 	if (S_iflist != NULL) {
@@ -1585,6 +1698,14 @@ stackCallback(void *refcon, io_iterator_t iter)
 	S_stack = MACH_PORT_NULL;
     }
 
+    if ((S_timer != NULL) && CFRunLoopTimerIsValid(S_timer)) {
+	// With the IONetworkStack object now available we can
+	// reset (shorten?) the time we are willing to wait for
+	// IOKit to quiesce.
+	CFRunLoopTimerSetNextFireDate(S_timer,
+				      CFAbsoluteTimeGetCurrent() + S_quiet_timeout);
+    }
+
     updateInterfaces();
 
  error:
@@ -1638,17 +1759,19 @@ quietCallback(void		*refcon,
 }
 
 static void
-iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
+iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, CFMutableStringRef snapshot, int *count)
 {
     kern_return_t	kr  = kIOReturnSuccess;;
     io_object_t		obj;
 
     while ((kr == kIOReturnSuccess) &&
 	   ((obj = IOIteratorNext(iterator)) != MACH_PORT_NULL)) {
-	uint32_t		busy;
+	uint64_t		accumulated_busy_time;
+	uint32_t		busy_state;
 	io_name_t		location;
 	io_name_t		name;
 	CFMutableArrayRef	newNodes;
+	uint64_t		state;
 	CFMutableStringRef	str	= NULL;
 
 	if (nodes == NULL) {
@@ -1660,7 +1783,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 	kr = IORegistryEntryGetName(obj, name);
 	if (kr != kIOReturnSuccess) {
 	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryEntryGetName returned 0x%x"),
+		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryEntryGetName returned 0x%x"),
 		  kr);
 	    goto next;
 	}
@@ -1678,7 +1801,7 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 		break;
 	    default :
 		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryEntryGetLocationInPlane returned 0x%x"),
+		      CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryEntryGetLocationInPlane returned 0x%x"),
 		      kr);
 		CFRelease(str);
 		goto next;
@@ -1687,40 +1810,51 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
 	CFArrayAppendValue(newNodes, str);
 	CFRelease(str);
 
-	kr = IOServiceGetBusyState(obj, &busy);
+	kr = IOServiceGetBusyStateAndTime(obj, &state, &busy_state, &accumulated_busy_time);
 	if (kr != kIOReturnSuccess) {
 	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": reportBusy IOServiceGetBusyState returned 0x%x"),
+		  CFSTR(MY_PLUGIN_NAME ": captureBusy IOServiceGetBusyStateAndTime returned 0x%x"),
 		  kr);
 	    goto next;
 	}
 
-	if (busy != 0) {
+#ifdef	TEST_SNAPSHOT
+	// report all nodes
+	busy_state = 1;
+#endif	// TEST_SNAPSHOT
+
+	if (busy_state != 0) {
 	    CFStringRef	path;
 
 	    if ((*count)++ == 0) {
-		SCLog(TRUE, LOG_WARNING, CFSTR(MY_PLUGIN_NAME ": Busy services :"));
+		CFStringAppend(snapshot, CFSTR("Busy services :"));
 	    }
 
 	    path = CFStringCreateByCombiningStrings(NULL, newNodes, CFSTR("/"));
-	    SCLog(TRUE, LOG_WARNING, CFSTR(MY_PLUGIN_NAME ":   %@ [%d]"), path, busy);
+	    CFStringAppendFormat(snapshot, NULL,
+				 CFSTR("\n  %@ [%s%s%s%d, %lld ms]"),
+				 path,
+				 (state & kIOServiceRegisteredState) ? "" : "!registered, ",
+				 (state & kIOServiceMatchedState)    ? "" : "!matched, ",
+				 (state & kIOServiceInactiveState)   ? "inactive, " : "",
+				 accumulated_busy_time / kMillisecondScale);
 	    CFRelease(path);
 	}
 
 	kr = IORegistryIteratorEnterEntry(iterator);
 	if (kr != kIOReturnSuccess) {
 	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryIteratorEnterEntry returned 0x%x"),
+		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryIteratorEnterEntry returned 0x%x"),
 		  kr);
 	    goto next;
 	}
 
-	iterateRegistryBusy(iterator, newNodes, count);
+	iterateRegistryBusy(iterator, newNodes, snapshot, count);
 
 	kr = IORegistryIteratorExitEntry(iterator);
 	if (kr != kIOReturnSuccess) {
 	    SCLog(TRUE, LOG_ERR,
-		  CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryIteratorExitEntry returned 0x%x"),
+		  CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryIteratorExitEntry returned 0x%x"),
 		  kr);
 	}
 
@@ -1733,12 +1867,15 @@ iterateRegistryBusy(io_iterator_t iterator, CFArrayRef nodes, int *count)
     return;
 }
 
-static void
-reportBusy()
+static CFStringRef
+captureBusy()
 {
     int			count		= 0;
     io_iterator_t	iterator	= MACH_PORT_NULL;
     kern_return_t	kr;
+    CFMutableStringRef	snapshot;
+
+    snapshot = CFStringCreateMutable(NULL, 0);
 
     kr = IORegistryCreateIterator(kIOMasterPortDefault,
 				  kIOServicePlane,
@@ -1746,30 +1883,37 @@ reportBusy()
 				  &iterator);
     if (kr != kIOReturnSuccess) {
 	SCLog(TRUE, LOG_ERR,
-	      CFSTR(MY_PLUGIN_NAME ": reportBusy IORegistryCreateIterator returned 0x%x"),
+	      CFSTR(MY_PLUGIN_NAME ": captureBusy IORegistryCreateIterator returned 0x%x"),
 	      kr);
-	return;
+	return snapshot;
     }
 
-    iterateRegistryBusy(iterator, NULL, &count);
-    SCLog((count == 0), LOG_WARNING,
-	  CFSTR(MY_PLUGIN_NAME ":   w/no busy services"));
+    iterateRegistryBusy(iterator, NULL, snapshot, &count);
+    if (count == 0) {
+	CFStringAppend(snapshot, CFSTR("w/no busy services"));
+    }
+
     IOObjectRelease(iterator);
-    return;
+    return snapshot;
 }
 
 static void
 timerCallback(CFRunLoopTimerRef	timer, void *info)
 {
-    /*
-     * We've been waiting for IOKit to quiesce and it just
-     * hasn't happenned.  Time to just move on!
-     */
-    addTimestamp(S_state, CFSTR("*TIMEOUT*"));
-    SCLog(TRUE, LOG_ERR,
-	  CFSTR(MY_PLUGIN_NAME ": timed out waiting for IOKit to quiesce"));
+    CFStringRef	snapshot;
 
-    reportBusy();
+    // We've been waiting for IOKit to quiesce and it just
+    // hasn't happenned.  Time to just move on!
+    addTimestamp(S_state, CFSTR("*TIMEOUT*"));
+
+    // log busy nodes
+    snapshot = captureBusy();
+    SCLog(TRUE, LOG_ERR,
+	  CFSTR(MY_PLUGIN_NAME ": timed out waiting for IOKit to quiesce\n%@"),
+	  snapshot);
+    reportIssue("timed out waiting for IOKit to quiesce", snapshot);
+    CFRelease(snapshot);
+
     quietCallback((void *)S_notify, MACH_PORT_NULL, 0, NULL);
     return;
 }
@@ -1778,12 +1922,10 @@ static Boolean
 setup_IOKit(CFBundleRef bundle)
 {
     uint32_t		busy;
-    CFDictionaryRef	dict;
     kern_return_t	kr;
     mach_port_t		masterPort	= MACH_PORT_NULL;
     Boolean		ok		= FALSE;
     io_object_t		root		= MACH_PORT_NULL;
-    double		timeout		= WAIT_QUIET_TIMEOUT_DEFAULT;
 
     // read DB of previously named network interfaces
     S_dblist = readInterfaceList();
@@ -1853,23 +1995,8 @@ setup_IOKit(CFBundleRef bundle)
     }
 
     // add a timer so we don't wait forever for IOKit to quiesce
-    dict = CFBundleGetInfoDictionary(bundle);
-    if (isA_CFDictionary(dict)) {
-	CFNumberRef	num;
-
-	num = CFDictionaryGetValue(dict, CFSTR(WAIT_QUIET_TIMEOUT_KEY));
-	if (num != NULL) {
-	    if (!isA_CFNumber(num) ||
-		!CFNumberGetValue(num, kCFNumberDoubleType, &timeout) ||
-		(timeout <= 0.0)) {
-		SCLog(TRUE, LOG_ERR,
-		      CFSTR(MY_PLUGIN_NAME ": " WAIT_QUIET_TIMEOUT_KEY " value error"));
-		timeout = WAIT_QUIET_TIMEOUT_DEFAULT;
-	    }
-	}
-    }
     S_timer = CFRunLoopTimerCreate(NULL,
-				   CFAbsoluteTimeGetCurrent() + timeout,
+				   CFAbsoluteTimeGetCurrent() + S_stack_timeout,
 				   0,
 				   0,
 				   0,
@@ -1960,7 +2087,6 @@ setup_IOKit(CFBundleRef bundle)
     return ok;
 }
 
-#if	!TARGET_OS_IPHONE
 static Boolean
 setup_Virtual(CFBundleRef bundle)
 {
@@ -1995,29 +2121,55 @@ setup_Virtual(CFBundleRef bundle)
 
     return TRUE;
 }
-#endif	/* !TARGET_OS_IPHONE */
 
-__private_extern__
-void
-load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
+static void *
+exec_InterfaceNamer(void *arg)
 {
-    if (bundleVerbose) {
-	S_debug = TRUE;
+    CFBundleRef		bundle  = (CFBundleRef)arg;
+    CFDictionaryRef	dict;
+
+#if	!TARGET_OS_EMBEDDED
+    pthread_setname_np(MY_PLUGIN_NAME " thread");
+#endif	// !TARGET_OS_EMBEDDED
+
+    dict = CFBundleGetInfoDictionary(bundle);
+    if (isA_CFDictionary(dict)) {
+	CFNumberRef	num;
+
+	num = CFDictionaryGetValue(dict, CFSTR(WAIT_STACK_TIMEOUT_KEY));
+	if (num != NULL) {
+	    if (!isA_CFNumber(num) ||
+		!CFNumberGetValue(num, kCFNumberDoubleType, &S_stack_timeout) ||
+		(S_stack_timeout <= 0.0)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR(MY_PLUGIN_NAME ": " WAIT_STACK_TIMEOUT_KEY " value error"));
+		S_stack_timeout = WAIT_STACK_TIMEOUT_DEFAULT;
+	    }
+	}
+
+	num = CFDictionaryGetValue(dict, CFSTR(WAIT_QUIET_TIMEOUT_KEY));
+	if (num != NULL) {
+	    if (!isA_CFNumber(num) ||
+		!CFNumberGetValue(num, kCFNumberDoubleType, &S_quiet_timeout) ||
+		(S_quiet_timeout <= 0.0)) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR(MY_PLUGIN_NAME ": " WAIT_QUIET_TIMEOUT_KEY " value error"));
+		S_quiet_timeout = WAIT_QUIET_TIMEOUT_DEFAULT;
+	    }
+	}
     }
 
-#if	!TARGET_OS_IPHONE
     // setup virtual network interface monitoring
     if (!setup_Virtual(bundle)) {
 	goto error;
     }
-#endif	/* !TARGET_OS_IPHONE */
 
     // setup [IOKit] network interface monitoring
     if (!setup_IOKit(bundle)) {
 	goto error;
     }
 
-    return;
+    goto done;
 
   error :
     if (S_connect != MACH_PORT_NULL) {
@@ -2052,6 +2204,41 @@ load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
 	CFRelease(S_timer);
 	S_timer = NULL;
     }
+
+  done :
+#if	!TARGET_OS_EMBEDDED
+    CFRelease(bundle);
+    CFRunLoopRun();
+#endif	// !TARGET_OS_EMBEDDED
+
+    return NULL;
+}
+
+__private_extern__
+void
+load_InterfaceNamer(CFBundleRef bundle, Boolean bundleVerbose)
+{
+    if (bundleVerbose) {
+	S_debug = TRUE;
+    }
+
+#if	!TARGET_OS_EMBEDDED
+    {
+	pthread_attr_t	tattr;
+	pthread_t	tid;
+
+	CFRetain(bundle);	// released in exec_InterfaceNamer
+
+	pthread_attr_init(&tattr);
+	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
+	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+//	pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
+	pthread_create(&tid, &tattr, exec_InterfaceNamer, bundle);
+	pthread_attr_destroy(&tattr);
+    }
+#else	// !TARGET_OS_EMBEDDED
+    (void)exec_InterfaceNamer(bundle);
+#endif	// !TARGET_OS_EMBEDDED
 
     return;
 }
@@ -2106,3 +2293,22 @@ main(int argc, char ** argv)
     return 0;
 }
 #endif	/* TEST_PLATFORM_UUID */
+
+#ifdef	TEST_SNAPSHOT
+int
+main(int argc, char ** argv)
+{
+    CFStringRef	snapshot;
+
+    _sc_log     = FALSE;
+    _sc_verbose = (argc > 1) ? TRUE : FALSE;
+
+    snapshot = captureBusy();
+    SCPrint(TRUE, stdout, CFSTR("%@\n"), snapshot);
+    CFRelease(snapshot);
+
+    exit(0);
+    return 0;
+}
+#endif	/* TEST_SNAPSHOT */
+

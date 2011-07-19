@@ -1,0 +1,68 @@
+.\" Copyright (c) 2008-2011 Apple Computer, Inc., all rights reserved.
+.\" Distributed only as part of Mac OS X Server
+.TH cvt_mail_data "8" "April 23, 2008" "Mac OS X Server"
+.SH NAME
+\fBcvt_mail_data \fP- convert OS X Server mail data tool
+.SH SYNOPSIS
+.nf
+.fam C
+        \fBcvt_mail_data\fP \fB-a\fP \fIuser-acct\fP [\fB-d\fP \fIdb-dir\fP] [\fB-s\fP \fIspool-dir\fP] [\fB-t\fP \fIdest-dir\fP] [\fB-cem\fP] [\fB-g\fP]
+        \fBcvt_mail_data\fP \fB-i\fP \fIuser-acct\fP
+        \fBcvt_mail_data\fP \fB-u\fP \fIguid\fP
+        \fBcvt_mail_data\fP \fB-r\fP \fIdata-store-dir\fP
+        \fBcvt_mail_data\fP \fB-V\fP
+        \fBcvt_mail_data\fP \fB-h\fP
+.fam T
+.fi
+.SH DESCRIPTION
+OS X Server tool used for converting previous version of mail server data stores to the current maildir format as well as performing other mail data related tasks.
+.SH OPTIONS
+.TP
+.B
+\fB-a\fP \fIuser-acct\fP
+user ID of account to be migrated
+.TP
+.B
+\fB-d\fP \fIdb-dir\fP
+path to cyrus IMAP database (default: /var/imap)
+.TP
+.B
+\fB-s\fP \fIspool-dir\fP
+path to cyrus IMAP data spool (default: /var/spool/imap)
+.TP
+.B
+\fB-t\fP \fIdest-dir\fP
+path to dovecot maildir data spool directory (default: /Library/Server/Mail/Data/mail)
+.TP
+.B
+\fB-c\fP
+copy mail messages to new destination leaving original (default)
+.TP
+.B
+\fB-e\fP
+copy mail messages to new destination deleting original
+.TP
+.B
+\fB-m\fP
+move mail messages to new destination
+.TP
+.B
+\fB-i\fP \fIuser-acct\fP
+print GUID for user account
+\fB-u\fP \fIguid\fP print user account for GUID
+.TP
+.B
+\fB-r\fP \fIdata-store-dir\fP
+rename mailboxes to GUID in specified data spool directory
+.TP
+.B
+\fB-g\fP
+verbose debug output
+.TP
+.B
+\fB-v\fP
+print version
+.TP
+.B
+\fB-h\fP
+print this message

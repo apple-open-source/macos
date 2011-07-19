@@ -260,6 +260,8 @@ Boolean reportEvalFlag(
             cString = "Integrity";
         } else if (CFEqual(flag, CFSTR(kPredNameExecutable))) {
             cString = "Has Executable";
+        } else if (CFEqual(flag, CFSTR(kPredNameDuplicate))) {
+            cString = "Has Duplicates";
         } else {
             *error = kQEQueryErrorEvaluationCallbackFailed;
             goto finish;
@@ -307,6 +309,22 @@ Boolean reportEvalFlag(
             print = false;
         } else if (CFEqual(flag, CFSTR(kPredNameExecutable))) {
             cString = OSKextDeclaresExecutable(theKext) ? kWordYes : kWordNo;
+        } else if (CFEqual(flag, CFSTR(kPredNameDuplicate))) {
+            CFStringRef kextIdentifier = OSKextGetIdentifier(theKext);
+            if (kextIdentifier) {
+                if (kextIdentifier) {
+                    CFArrayRef kexts = OSKextCopyKextsWithIdentifier(kextIdentifier);
+                    if (!kexts) {
+                        OSKextLogMemError();
+                        goto finish;
+                    }
+                    cString = (CFArrayGetCount(kexts) > 1) ? kWordYes : kWordNo;
+                    SAFE_RELEASE(kexts);
+                }
+            }
+        } else {
+            *error = kQEQueryErrorEvaluationCallbackFailed;
+            goto finish;
         }
 
         if (print) {
@@ -338,14 +356,16 @@ Boolean reportParseArch(
     QEQueryError * error)
 {
     Boolean result = false;
+    CFStringRef scratchString = NULL;
 
     if (!argv[(*num_used) + 1]) {
         goto finish;
     }
+    
+    scratchString = CFStringCreateWithCString(kCFAllocatorDefault,
+        argv[(*num_used) + 1], kCFStringEncodingUTF8);
 
-    CFDictionarySetValue(element, CFSTR("label"),
-        CFStringCreateWithCString(kCFAllocatorDefault,
-            argv[(*num_used) + 1], kCFStringEncodingUTF8));
+    CFDictionarySetValue(element, CFSTR("label"), scratchString);
 
     result = parseArch(element, argc, argv, num_used, user_data, error);
     if (!result) {
@@ -354,6 +374,7 @@ Boolean reportParseArch(
 
     result = true;
 finish:
+    SAFE_RELEASE(scratchString);
     return result;
 }
 
@@ -516,7 +537,6 @@ Boolean reportEvalDefinesOrReferencesSymbol(
                 } else {
                     value = "defines";
                 }
-                result = true;
                 break;
             }
         }
@@ -580,24 +600,23 @@ Boolean reportEvalCommand(
     void * user_data,
     QEQueryError * error)
 {
-    Boolean        result  = false;
-    CFStringRef    command = CFDictionaryGetValue(element, CFSTR(kKeywordCommand));
-    OSKextRef      theKext = (OSKextRef)object;
-    QueryContext * context = (QueryContext *)user_data;
+    Boolean        result        = false;
+    CFStringRef    command       = CFDictionaryGetValue(element, CFSTR(kKeywordCommand));
+    OSKextRef      theKext       = (OSKextRef)object;
+    QueryContext * context       = (QueryContext *)user_data;
     CFStringRef    scratchString = NULL;  // must release
-    char         * cString = NULL;  // must free
+    char         * cString       = NULL;  // must free
 
     // if we do arches, easier to print than generate a string
-    Boolean print = true;
+    Boolean        print         = true;
 
-    CFArrayRef dependencies = NULL; // must release
-    CFArrayRef dependents = NULL;   // must release
-    CFArrayRef plugins = NULL;          // do NOT release
-    CFIndex count;
-    char buffer[80];   // more than enough for an int
+    CFArrayRef     dependencies  = NULL;  // must release
+    CFArrayRef     dependents    = NULL;  // must release
+    CFArrayRef     plugins       = NULL;  // do NOT release
+    CFIndex        count;
+    char           buffer[80];   // more than enough for an int
 
     if (!context->reportStarted) {
-
         if (CFEqual(command, CFSTR(kPredNamePrint)) ||
             CFEqual(command, CFSTR(kPredNameBundleName))) {
             cString = strdup("Bundle");
@@ -629,12 +648,14 @@ Boolean reportEvalCommand(
             scratchString = copyPathForKext(theKext, context->pathSpec);
             if (!scratchString) {
                 OSKextLogMemError();
+                goto finish;
             }
             cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNameBundleName))) {
             scratchString = copyPathForKext(theKext, kPathsNone);
             if (!scratchString) {
                 OSKextLogMemError();
+                goto finish;
             }
             cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNamePrintProperty))) {
@@ -671,12 +692,14 @@ Boolean reportEvalCommand(
             scratchString = copyKextInfoDictionaryPath(theKext, context->pathSpec);
             if (!scratchString) {
                 OSKextLogMemError();
+                goto finish;
             }
             cString = createUTF8CStringForCFString(scratchString);
         } else if (CFEqual(command, CFSTR(kPredNamePrintExecutable))) {
             scratchString = copyKextExecutablePath(theKext, context->pathSpec);
             if (!scratchString) {
                 OSKextLogMemError();
+                goto finish;
             }
             cString = createUTF8CStringForCFString(scratchString);
         } else {

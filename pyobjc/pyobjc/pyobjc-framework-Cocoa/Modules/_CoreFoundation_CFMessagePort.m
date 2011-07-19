@@ -1,10 +1,5 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static const void* 
-mod_retain(const void* info) 
+mod_messageport_retain(const void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +8,7 @@ mod_retain(const void* info)
 }
 
 static void
-mod_release(const void* info)
+mod_messageport_release(const void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -24,8 +19,8 @@ mod_release(const void* info)
 static CFMessagePortContext mod_CFMessagePortContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_messageport_retain,
+	mod_messageport_release,
 	NULL
 };
 
@@ -74,12 +69,12 @@ mod_CFMessagePortCreateLocal(
 	PyObject* py_name;
 	PyObject* callout;
 	PyObject* info;
-	PyObject* py_shouldFree = Py_None;
+	PyObject* py_shouldFree;
 	CFAllocatorRef allocator;
 	CFStringRef name;
 	Boolean shouldFree;
 
-	if (!PyArg_ParseTuple(args, "OOOO|O", &py_allocator, &py_name, &callout, &info, &py_shouldFree)) {
+	if (!PyArg_ParseTuple(args, "OOOOO", &py_allocator, &py_name, &callout, &info, &py_shouldFree)) {
 		return NULL;
 	}
 
@@ -120,7 +115,7 @@ mod_CFMessagePortCreateLocal(
 		return NULL;
 	}
 
-	PyObject* result =  Py_BuildValue("OO",
+	PyObject* result =  Py_BuildValue("NN",
 			PyObjC_ObjCToPython(@encode(CFMachPortRef), &rv),
 			PyBool_FromLong(shouldFree));
 
@@ -137,11 +132,11 @@ mod_CFMessagePortGetContext(
 	PyObject* args)
 {
 	PyObject* py_f;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFMessagePortRef f;
 	CFMessagePortContext context;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_f, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_f, &py_context)) {
 		return NULL;
 	}
 
@@ -173,7 +168,7 @@ mod_CFMessagePortGetContext(
 		return NULL;
 	}
 
-	if (context.retain != mod_retain) {
+	if (context.retain != mod_messageport_retain) {
 		PyErr_SetString(PyExc_ValueError, 
 			"retrieved context is not supported");
 		return NULL;
@@ -183,27 +178,16 @@ mod_CFMessagePortGetContext(
 	return PyTuple_GET_ITEM((PyObject*)context.info, 1);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFMessagePortCreateLocal",
-		(PyCFunction)mod_CFMessagePortCreateLocal,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_MESSAGEPORT_METHODS \
+        {	\
+		"CFMessagePortCreateLocal",	\
+		(PyCFunction)mod_CFMessagePortCreateLocal,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFMessagePortGetContext",	\
+		(PyCFunction)mod_CFMessagePortGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFMessagePortGetContext",
-		(PyCFunction)mod_CFMessagePortGetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFMessagePort(void);
-void init_CFMessagePort(void)
-{
-	PyObject* m = Py_InitModule4("_CFMessagePort", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

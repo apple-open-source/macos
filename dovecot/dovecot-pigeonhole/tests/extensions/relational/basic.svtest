@@ -1,0 +1,178 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+/* 
+ * Test message
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Cc: frop@example.org
+CC: timo@example.org
+X-Spam-Score: 300
+X-Nonsense: 1000
+X-Nonsense: 20
+X-Alpha: abcdzyx
+X-Count: a
+X-Count: b
+X-Count: c
+X-Count: d
+X-Count: e
+X-Count: f
+X-Count: g
+X-Count: h
+X-Count: i
+X-Count: j
+X-Count: k
+X-Count: l
+X-Count: m
+X-Count: n
+X-Count: o
+X-Count: p
+X-Count: q
+X-Count: r
+X-Count: s
+X-Count: t
+X-Count: u
+X-Count: v
+X-Count: w
+X-Count: x
+X-Count: y
+X-Count: z
+Subject: Test
+Comment:                                    
+
+Test!
+.
+;
+
+/*
+ * Empty strings
+ */
+
+test "Value \"\" eq 40 (vs)" {
+	if header :value "eq" :comparator "i;ascii-numeric" "comment" "40" {
+		test_fail ":value matched empty string with i;ascii-numeric";
+	}
+
+	if header :value "gt" :comparator "i;ascii-numeric" "x-spam-score" "" {
+		test_fail ":value 300 exceeded empty string with i;ascii-numeric";
+	}
+
+	if header :value "gt" :comparator "i;ascii-numeric" "x-spam-score" "" {
+		test_fail ":count exceeded empty string with i;ascii-numeric";
+	}
+}
+
+/* 
+ * Match type :value
+ */
+
+test "Value 300 eq 2" {
+	if header :value "eq" :comparator "i;ascii-numeric" "x-spam-score" "2" {
+		test_fail "should not have matched";
+	} 
+}
+
+test "Value 300 lt 2" {
+	if header :value "lt" :comparator "i;ascii-numeric" "x-spam-score" "2" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Value 300 le 300" {
+	if not header :value "le" :comparator "i;ascii-numeric" "x-spam-score" "300" {
+		test_fail "should have matched";
+	}
+}
+
+test "Value 300 le 302" {
+	if not header :value "le" :comparator "i;ascii-numeric" "x-spam-score" "302" {
+		test_fail "should have matched";
+	}
+}
+
+test "Value 302 le 00302" {
+	if not header :value "le" :comparator "i;ascii-numeric" "x-spam-score" "00302" {
+		test_fail "should have matched";
+	}
+}
+
+test "Value {1000,20} le 300" {
+	if not header :value "le" :comparator "i;ascii-numeric" "x-nonsense" "300" {
+		test_fail "should have matched";
+	}
+}
+
+test "Value {1000,20} lt 3" {
+	if header :value "lt" :comparator "i;ascii-numeric" "x-nonsense" "3" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Value {1000,20} gt 3000" {
+	if header :value "gt" :comparator "i;ascii-numeric" "x-nonsense" "3000" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Value {1000,20} gt {3000,30}" {
+	if not header :value "gt" :comparator "i;ascii-numeric" "x-nonsense" ["3000","30"] {
+		test_fail "should have matched";
+	}
+}
+
+test "Value {1000,20} lt {3, 19})" {
+	if header :value "lt" :comparator "i;ascii-numeric" "x-nonsense" ["3","19"] {
+		test_fail "should not have matched";
+	}
+}
+
+test "Value {1000,20} gt {3000,1001}" {
+	if header :value "gt" :comparator "i;ascii-numeric" "x-nonsense" ["3000","1001"] {
+		test_fail "should not have matched";
+	}
+}
+
+test "Value abcdzyz gt aaaaaaa" {
+	if not header :value "gt" :comparator "i;octet" "x-alpha" "aaaaaaa" {
+		test_fail "should have matched";
+	}
+}
+
+/* 
+ * Match type :count
+ */
+
+test "Count 2 ne 2" {
+	if header :count "ne" :comparator "i;ascii-numeric" "cc" "2" {
+		test_fail "should not have matched";
+	}
+}
+
+test "Count 2 ge 2" {
+	if not header :count "ge" :comparator "i;ascii-numeric" "cc" "2" {
+		test_fail "should have matched";
+	}
+}
+
+test "Count 2 ge 002" {
+	if not header :count "ge" :comparator "i;ascii-numeric" "cc" "002" {
+		test_fail "should have matched";
+	}
+}
+
+test "Count 26 lt {4,5,6,10,20}" {
+	if header :count "lt" :comparator "i;ascii-numeric" "x-count" ["4","5","6","10","20"] {
+		test_fail "should not have matched";
+	}
+}
+
+test "Count 26 lt {4,5,6,10,20,100}" {
+	if not header :count "lt" :comparator "i;ascii-numeric" "x-count" ["4","5","6","10","20","100"] {
+		test_fail "should have matched";
+	}
+}

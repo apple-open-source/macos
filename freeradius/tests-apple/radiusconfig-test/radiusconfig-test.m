@@ -53,9 +53,6 @@ int _runCommandWithPassword(NSString* inCommandPath, NSArray* inArguments,
                            NSString** outString, NSString** errString);
 void LogStep(const char *message, int lapCount);
 void LogMessage(NSString* message);
-BOOL PasswordServerRunning( unsigned long *outPID );
-BOOL PasswordServerListening( const char *ipString, int secondsToWait );
-pid_t ProcessRunning( const char *inProcName );
 NSString* _getPrimaryIPv4Address();
 BOOL StringIsAnIPAddress(const char *inAddrStr);
 
@@ -439,126 +436,6 @@ void LogMessage(NSString* message)
 	}
 	fprintf(stderr,"%s\n",[message UTF8String]);
 }
-
-
-//--------------------------------------------------------------------------------------------------------
-//	 PasswordServerRunning
-//--------------------------------------------------------------------------------------------------------
-
-BOOL PasswordServerRunning( unsigned long *outPID )
-{
-	pid_t pid = ProcessRunning( "PasswordService" );
-	if ( outPID != NULL )
-		*outPID = pid;
-	
-	return ( pid > 0 );
-}
-
-
-//--------------------------------------------------------------------------------------------------------
-//  PasswordServerListening
-//
-//  Returns: TRUE if the password server has completed at least one startup
-//--------------------------------------------------------------------------------------------------------
-
-BOOL PasswordServerListening( const char *ipString, int secondsToWait )
-{
-	BOOL listening = false;
-	int sock = -1;
-	socklen_t structlength;
-	int byteCount;
-	struct sockaddr_in cin;
-	char packetData[64];
-	fd_set fdset;
-	int ticker;
-	struct timeval selectTimeout = { 1, 0 };
-	
-	for ( ticker = secondsToWait - 1; ticker >= 0; ticker-- )
-	{
-		// send a ping
-		if ( testconn_udp( ipString, "3659", &sock ) == 0 )
-		{
-			bzero( &cin, sizeof(cin) );
-			cin.sin_family = AF_INET;
-			cin.sin_addr.s_addr = htonl( INADDR_ANY );
-			cin.sin_port = htons( 0 );
-				
-			byteCount = 0;
-			FD_ZERO( &fdset );
-			FD_SET( sock, &fdset );
-			if ( select( FD_SETSIZE, &fdset, NULL, NULL, &selectTimeout ) > 0 )
-			{
-				structlength = sizeof( cin );
-				byteCount = recvfrom( sock, packetData, sizeof(packetData) - 1, MSG_DONTWAIT, (struct sockaddr *)&cin, &structlength );
-			}
-			close( sock );
-			
-			// don't care what the response is, just that we got one
-			if ( byteCount > 0 )
-			{
-				listening = true;
-				break;
-			}
-		}
-		else
-		{
-			sleep( 1 );
-		}
-	}
-	
-	return listening;
-}
-
-//--------------------------------------------------------------------------------------------------------
-//	ProcessRunning
-//
-//  Returns: -1 = not running, or pid
-//--------------------------------------------------------------------------------------------------------
-
-pid_t ProcessRunning( const char *inProcName )
-{
-	register size_t		i ;
-	register pid_t 		pidLast		= -1 ;
-	int					mib[]		= { CTL_KERN, KERN_PROC, KERN_PROC_ALL, 0 };
-	size_t				ulSize		= 0;
-
-	// Allocate space for complete process list
-	if ( 0 > sysctl( mib, 4, NULL, &ulSize, NULL, 0) )
-		return( pidLast );
-	
-	i = ulSize / sizeof( struct kinfo_proc );
-	struct kinfo_proc *kpspArray = (struct kinfo_proc *) malloc( sizeof(struct kinfo_proc) * i );
-	if ( !kpspArray )
-		return( pidLast );
-	
-	// Get the proc list
-	ulSize = i * sizeof( struct kinfo_proc );
-	if ( 0 > sysctl( mib, 4, kpspArray, &ulSize, NULL, 0 ) )
-	{
-		free( kpspArray );
-		return( pidLast );
-	}
-
-	register struct kinfo_proc	*kpsp = kpspArray;
-	
-	for ( ; i-- ; kpsp++ )
-	{
-		// match the name
-		if ( strcmp( kpsp->kp_proc.p_comm, inProcName ) == 0 )
-		{
-			// skip zombies
-			if ( kpsp->kp_proc.p_stat != SZOMB )
-			{
-				pidLast = kpsp->kp_proc.p_pid;
-				break;
-			}
-		}
-	}
-	
-	free( kpspArray );
-	return( pidLast );
-}
-
 
 //--------------------------------------------------------------------------------------------------------
 //	 _getPrimaryIPv4Address

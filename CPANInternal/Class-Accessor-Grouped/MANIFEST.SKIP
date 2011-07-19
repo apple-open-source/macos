@@ -9,6 +9,8 @@ aegis.log$
 \bconfig$
 \bbuild$
 \.DS_Store$
+\.git
+
 
 # Avoid Makemaker generated and utility files.
 \bMakefile$

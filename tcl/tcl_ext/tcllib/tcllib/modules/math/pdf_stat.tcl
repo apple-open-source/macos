@@ -985,7 +985,12 @@ proc ::math::statistics::pdf-beta { a b x } {
     set term1 [expr {[::math::ln_Gamma $aplusb]- [::math::ln_Gamma $a] - [::math::ln_Gamma $b]}]
     set term2 [expr {($a - 1.0) * log($x) + ($b - 1.0) * log(1.0 - $x)}]
 
-    expr {exp($term1 + $term2)}
+    set term [expr {$term1 + $term2}]
+    if { $term > -200.0 } {
+        return [expr {exp($term)}]
+    } else {
+        return 0.0
+    }
 }
 
 

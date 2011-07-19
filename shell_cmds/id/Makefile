@@ -4,7 +4,7 @@ Install_Dir = /usr/bin
 CFILES = id.c
 MANPAGES = groups.1 id.1 whoami.1
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Wall \
 	-D__FBSDID=__RCSID -DUSE_BSM_AUDIT \
 	-Wno-error
 Extra_LD_Flags = -dead_strip

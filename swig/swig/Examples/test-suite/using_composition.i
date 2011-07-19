@@ -2,7 +2,16 @@
 
 %warnfilter(SWIGWARN_JAVA_MULTIPLE_INHERITANCE,
 	    SWIGWARN_CSHARP_MULTIPLE_INHERITANCE,
-	    SWIGWARN_PHP4_MULTIPLE_INHERITANCE) FooBar;   // C#, Java, Php4 multiple inheritance
+	    SWIGWARN_PHP_MULTIPLE_INHERITANCE) FooBar;   // C#, Java, PHP multiple inheritance
+%warnfilter(SWIGWARN_JAVA_MULTIPLE_INHERITANCE,
+	    SWIGWARN_CSHARP_MULTIPLE_INHERITANCE,
+	    SWIGWARN_PHP_MULTIPLE_INHERITANCE) FooBar2;   // C#, Java, PHP multiple inheritance
+%warnfilter(SWIGWARN_JAVA_MULTIPLE_INHERITANCE,
+	    SWIGWARN_CSHARP_MULTIPLE_INHERITANCE,
+	    SWIGWARN_PHP_MULTIPLE_INHERITANCE) FooBar3;   // C#, Java, PHP multiple inheritance
+#ifdef SWIGLUA	// lua only has one numeric type, so some overloads shadow each other creating warnings
+%warnfilter(SWIGWARN_LANG_OVERLOAD_SHADOW) blah;
+#endif
 
 %inline %{
 class Foo {
@@ -21,6 +30,20 @@ public:
      using Foo::blah;
      using Bar::blah;
      char *blah(char *x) { return x; }
+};
+
+class FooBar2 : public Foo, public Bar {
+public:
+     char *blah(char *x) { return x; }
+     using Foo::blah;
+     using Bar::blah;
+};
+
+class FooBar3 : public Foo, public Bar {
+public:
+     using Foo::blah;
+     char *blah(char *x) { return x; }
+     using Bar::blah;
 };
 
 %}

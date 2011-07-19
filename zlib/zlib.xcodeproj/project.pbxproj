@@ -7,9 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2CEC3CF710A23E0300F16843 /* adler32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CEC3CF510A23E0300F16843 /* adler32vec.s */; };
+		2CEC3CF810A23E0300F16843 /* inffast.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CEC3CF610A23E0300F16843 /* inffast.s */; };
 		2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0001098F41E002A3E08 /* adler32vec.s */; };
 		2CFBE0031098F41E002A3E08 /* inffast.s in Sources */ = {isa = PBXBuildFile; fileRef = 2CFBE0011098F41E002A3E08 /* inffast.s */; };
-		4C98E19D107D595E0031599B /* gzio.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C98E19C107D595E0031599B /* gzio.c */; };
 		4CE5F21D107AB6D200DCB1EB /* adler32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F208107AB6D200DCB1EB /* adler32.c */; };
 		4CE5F21E107AB6D200DCB1EB /* compress.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F209107AB6D200DCB1EB /* compress.c */; };
 		4CE5F21F107AB6D200DCB1EB /* crc32.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F20A107AB6D200DCB1EB /* crc32.c */; };
@@ -23,7 +24,6 @@
 		4CE5F227107AB6D200DCB1EB /* inflate.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F212107AB6D200DCB1EB /* inflate.h */; };
 		4CE5F228107AB6D200DCB1EB /* inftrees.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F213107AB6D200DCB1EB /* inftrees.c */; };
 		4CE5F229107AB6D200DCB1EB /* inftrees.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F214107AB6D200DCB1EB /* inftrees.h */; };
-		4CE5F22A107AB6D200DCB1EB /* local.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F215107AB6D200DCB1EB /* local.h */; };
 		4CE5F22B107AB6D200DCB1EB /* trees.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F216107AB6D200DCB1EB /* trees.c */; };
 		4CE5F22C107AB6D200DCB1EB /* trees.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F217107AB6D200DCB1EB /* trees.h */; };
 		4CE5F22D107AB6D200DCB1EB /* uncompr.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F218107AB6D200DCB1EB /* uncompr.c */; };
@@ -31,12 +31,19 @@
 		4CE5F22F107AB6D200DCB1EB /* zlib.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F21A107AB6D200DCB1EB /* zlib.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		4CE5F230107AB6D200DCB1EB /* zutil.c in Sources */ = {isa = PBXBuildFile; fileRef = 4CE5F21B107AB6D200DCB1EB /* zutil.c */; };
 		4CE5F231107AB6D200DCB1EB /* zutil.h in Headers */ = {isa = PBXBuildFile; fileRef = 4CE5F21C107AB6D200DCB1EB /* zutil.h */; };
+		B1EA68D31318904800CB9362 /* gzclose.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68CD1318904800CB9362 /* gzclose.c */; };
+		B1EA68D41318904800CB9362 /* gzguts.h in Headers */ = {isa = PBXBuildFile; fileRef = B1EA68CE1318904800CB9362 /* gzguts.h */; };
+		B1EA68D51318904800CB9362 /* gzlib.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68CF1318904800CB9362 /* gzlib.c */; };
+		B1EA68D61318904800CB9362 /* gzread.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68D01318904800CB9362 /* gzread.c */; };
+		B1EA68D71318904800CB9362 /* gzwrite.c in Sources */ = {isa = PBXBuildFile; fileRef = B1EA68D11318904800CB9362 /* gzwrite.c */; };
+		B1EA68D81318904800CB9362 /* inffixed.h in Headers */ = {isa = PBXBuildFile; fileRef = B1EA68D21318904800CB9362 /* inffixed.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2CEC3CF510A23E0300F16843 /* adler32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = adler32vec.s; path = zlib/intel/adler32vec.s; sourceTree = "<group>"; };
+		2CEC3CF610A23E0300F16843 /* inffast.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = inffast.s; path = zlib/intel/inffast.s; sourceTree = "<group>"; };
 		2CFBE0001098F41E002A3E08 /* adler32vec.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = adler32vec.s; path = zlib/arm/adler32vec.s; sourceTree = "<group>"; };
 		2CFBE0011098F41E002A3E08 /* inffast.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; name = inffast.s; path = zlib/arm/inffast.s; sourceTree = "<group>"; };
-		4C98E19C107D595E0031599B /* gzio.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzio.c; path = zlib/gzio.c; sourceTree = "<group>"; };
 		4CE5F208107AB6D200DCB1EB /* adler32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = adler32.c; path = zlib/adler32.c; sourceTree = "<group>"; };
 		4CE5F209107AB6D200DCB1EB /* compress.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = compress.c; path = zlib/compress.c; sourceTree = "<group>"; };
 		4CE5F20A107AB6D200DCB1EB /* crc32.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = crc32.c; path = zlib/crc32.c; sourceTree = "<group>"; };
@@ -50,7 +57,6 @@
 		4CE5F212107AB6D200DCB1EB /* inflate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inflate.h; path = zlib/inflate.h; sourceTree = "<group>"; };
 		4CE5F213107AB6D200DCB1EB /* inftrees.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = inftrees.c; path = zlib/inftrees.c; sourceTree = "<group>"; };
 		4CE5F214107AB6D200DCB1EB /* inftrees.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inftrees.h; path = zlib/inftrees.h; sourceTree = "<group>"; };
-		4CE5F215107AB6D200DCB1EB /* local.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = local.h; path = zlib/local.h; sourceTree = "<group>"; };
 		4CE5F216107AB6D200DCB1EB /* trees.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = trees.c; path = zlib/trees.c; sourceTree = "<group>"; };
 		4CE5F217107AB6D200DCB1EB /* trees.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = trees.h; path = zlib/trees.h; sourceTree = "<group>"; };
 		4CE5F218107AB6D200DCB1EB /* uncompr.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = uncompr.c; path = zlib/uncompr.c; sourceTree = "<group>"; };
@@ -58,7 +64,13 @@
 		4CE5F21A107AB6D200DCB1EB /* zlib.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zlib.h; path = zlib/zlib.h; sourceTree = "<group>"; };
 		4CE5F21B107AB6D200DCB1EB /* zutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = zutil.c; path = zlib/zutil.c; sourceTree = "<group>"; };
 		4CE5F21C107AB6D200DCB1EB /* zutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = zutil.h; path = zlib/zutil.h; sourceTree = "<group>"; };
-		D2AAC0630554660B00DB518D /* libz.1.2.3.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libz.1.2.3.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		B1EA68CD1318904800CB9362 /* gzclose.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzclose.c; path = zlib/gzclose.c; sourceTree = "<group>"; };
+		B1EA68CE1318904800CB9362 /* gzguts.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gzguts.h; path = zlib/gzguts.h; sourceTree = "<group>"; };
+		B1EA68CF1318904800CB9362 /* gzlib.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzlib.c; path = zlib/gzlib.c; sourceTree = "<group>"; };
+		B1EA68D01318904800CB9362 /* gzread.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzread.c; path = zlib/gzread.c; sourceTree = "<group>"; };
+		B1EA68D11318904800CB9362 /* gzwrite.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = gzwrite.c; path = zlib/gzwrite.c; sourceTree = "<group>"; };
+		B1EA68D21318904800CB9362 /* inffixed.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = inffixed.h; path = zlib/inffixed.h; sourceTree = "<group>"; };
+		D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libz.1.2.5.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,9 +96,16 @@
 		08FB7795FE84155DC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				B1EA68CD1318904800CB9362 /* gzclose.c */,
+				B1EA68CE1318904800CB9362 /* gzguts.h */,
+				B1EA68CF1318904800CB9362 /* gzlib.c */,
+				B1EA68D01318904800CB9362 /* gzread.c */,
+				B1EA68D11318904800CB9362 /* gzwrite.c */,
+				B1EA68D21318904800CB9362 /* inffixed.h */,
+				2CEC3CF510A23E0300F16843 /* adler32vec.s */,
+				2CEC3CF610A23E0300F16843 /* inffast.s */,
 				2CFBE0001098F41E002A3E08 /* adler32vec.s */,
 				2CFBE0011098F41E002A3E08 /* inffast.s */,
-				4C98E19C107D595E0031599B /* gzio.c */,
 				4CE5F208107AB6D200DCB1EB /* adler32.c */,
 				4CE5F209107AB6D200DCB1EB /* compress.c */,
 				4CE5F20A107AB6D200DCB1EB /* crc32.c */,
@@ -100,7 +119,6 @@
 				4CE5F212107AB6D200DCB1EB /* inflate.h */,
 				4CE5F213107AB6D200DCB1EB /* inftrees.c */,
 				4CE5F214107AB6D200DCB1EB /* inftrees.h */,
-				4CE5F215107AB6D200DCB1EB /* local.h */,
 				4CE5F216107AB6D200DCB1EB /* trees.c */,
 				4CE5F217107AB6D200DCB1EB /* trees.h */,
 				4CE5F218107AB6D200DCB1EB /* uncompr.c */,
@@ -115,7 +133,7 @@
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D2AAC0630554660B00DB518D /* libz.1.2.3.dylib */,
+				D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -132,11 +150,12 @@
 				4CE5F225107AB6D200DCB1EB /* inffast.h in Headers */,
 				4CE5F227107AB6D200DCB1EB /* inflate.h in Headers */,
 				4CE5F229107AB6D200DCB1EB /* inftrees.h in Headers */,
-				4CE5F22A107AB6D200DCB1EB /* local.h in Headers */,
 				4CE5F22C107AB6D200DCB1EB /* trees.h in Headers */,
 				4CE5F22E107AB6D200DCB1EB /* zconf.h in Headers */,
 				4CE5F22F107AB6D200DCB1EB /* zlib.h in Headers */,
 				4CE5F231107AB6D200DCB1EB /* zutil.h in Headers */,
+				B1EA68D41318904800CB9362 /* gzguts.h in Headers */,
+				B1EA68D81318904800CB9362 /* inffixed.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -158,7 +177,7 @@
 			);
 			name = libz;
 			productName = zlib;
-			productReference = D2AAC0630554660B00DB518D /* libz.1.2.3.dylib */;
+			productReference = D2AAC0630554660B00DB518D /* libz.1.2.5.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
@@ -168,7 +187,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB914E08733D8E0010E9CD /* Build configuration list for PBXProject "zlib" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* zlib */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -190,7 +213,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 			shellPath = /bin/sh;
-			shellScript = "set -x\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\ngzip \"$DSTROOT\"/usr/share/man/man3/*\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.dylib libz.dylib; do\n\techo l: $l\n\tln -s libz.1.2.3.dylib \"$DSTROOT\"/usr/lib/$l\ndone\n";
+			shellScript = "set -x\nif [ \"${RC_ProjectName%_Sim}\" != \"${RC_ProjectName}\" ] ; then\n    DSTROOT=\"$DSTROOT$SDKROOT\"\ninstall_name_tool -id /usr/lib/libz.1.dylib ${DSTROOT}/usr/lib/libz.${DYLIB_CURRENT_VERSION}.dylib\nfi\nmkdir -p \"$DSTROOT\"/usr/share/man/man3 \"$DSTROOT\"/usr/local/{OpenSourceLicenses,OpenSourceVersions} \"$DSTROOT\"/usr/include\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib/zlib.3 \"$DSTROOT\"/usr/share/man/man3\ngzip \"$DSTROOT\"/usr/share/man/man3/*\n\ninstall -g \"$INSTALL_GROUP\" -o \"$INSTALL_OWNER\" -m \"$INSTALL_MODE_FLAG\" zlib.plist \"$DSTROOT\"/usr/local/OpenSourceVersions\ngrep -A 1073741824 Copyright zlib/README >\"$DSTROOT\"/usr/local/OpenSourceLicenses/zlib.txt\nchmod -R -w \"$DSTROOT\"/usr/local/Open*/zlib.*\n\nfor l in libz.1.1.3.dylib libz.1.dylib libz.dylib; do\n\techo l: $l\nln -s libz.${DYLIB_CURRENT_VERSION}.dylib \"$DSTROOT\"/usr/lib/$l\ndone\n";
 		};
 /* End PBXShellScriptBuildPhase section */
 
@@ -210,9 +233,14 @@
 				4CE5F22B107AB6D200DCB1EB /* trees.c in Sources */,
 				4CE5F22D107AB6D200DCB1EB /* uncompr.c in Sources */,
 				4CE5F230107AB6D200DCB1EB /* zutil.c in Sources */,
-				4C98E19D107D595E0031599B /* gzio.c in Sources */,
 				2CFBE0021098F41E002A3E08 /* adler32vec.s in Sources */,
 				2CFBE0031098F41E002A3E08 /* inffast.s in Sources */,
+				2CEC3CF710A23E0300F16843 /* adler32vec.s in Sources */,
+				2CEC3CF810A23E0300F16843 /* inffast.s in Sources */,
+				B1EA68D31318904800CB9362 /* gzclose.c in Sources */,
+				B1EA68D51318904800CB9362 /* gzlib.c in Sources */,
+				B1EA68D61318904800CB9362 /* gzread.c in Sources */,
+				B1EA68D71318904800CB9362 /* gzwrite.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -223,14 +251,24 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DYLIB_COMPATIBILITY_VERSION = 1.0.0;
-				DYLIB_CURRENT_VERSION = 1.2.3;
+				DYLIB_CURRENT_VERSION = 1.2.5;
 				EXECUTABLE_PREFIX = lib;
 				EXPORTED_SYMBOLS_FILE = libz.exp;
-				GCC_PREPROCESSOR_DEFINITIONS = USE_MMAP;
+				GCC_ENABLE_PASCAL_STRINGS = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					USE_MMAP,
+					VEC_OPTIMIZE,
+				);
 				INSTALL_PATH = /usr/lib;
+				"INSTALL_PATH[sdk=iphoneos*]" = /usr/lib;
+				"INSTALL_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/lib";
+				"INSTALL_PATH[sdk=macosx*]" = /usr/lib;
 				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/libz.1.dylib";
-				PRODUCT_NAME = z.1.2.3;
+				PRODUCT_NAME = "z.$(DYLIB_CURRENT_VERSION)";
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphoneos*]" = /usr/include;
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=iphonesimulator*]" = "$(SDKROOT)/usr/include";
+				"PUBLIC_HEADERS_FOLDER_PATH[sdk=macosx*]" = /usr/include;
 				STRIP_STYLE = "non-global";
 			};
 			name = Release;

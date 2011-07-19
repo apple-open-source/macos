@@ -5,6 +5,7 @@ include ../Makefile.inc
 
 custompatching:
 	(cd $(DIR) && patch -p1) < patches/dyld_info_only.diff
+	ed - $(DIR)/macholib/MachO.py < MachO.py.ed
 	ex - $(DIR)/macholib/mach_o.py < mach_o.py.ex
 
 postinstall:

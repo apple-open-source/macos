@@ -8,6 +8,7 @@ README
 Todo
 lib/DateTime/Format/ISO8601.pm
 lib/DateTime/Format/ISO8601.pod
+t/00_distribution.t
 t/01_load.t
 t/02_examples.t
 t/03_base_datetime.t

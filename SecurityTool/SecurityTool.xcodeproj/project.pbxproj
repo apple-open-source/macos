@@ -404,13 +404,14 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 40596;
+				CURRENT_PROJECT_VERSION = 55001;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				LDFLAGS_BUILDFOLDER_SECURITY = "-dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security:$(SYMROOT)/Security.framework/Versions/A/Security_debug\" -dylib_file \"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A/Security_debug:$(SYMROOT)/Security.framework/Versions/A/Security_debug\"";
 				OPT_LDXNOPIC = ",_nopic";
@@ -447,11 +448,12 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40596;
+				CURRENT_PROJECT_VERSION = 55001;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OPT_LDXNOPIC = ",_nopic";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -484,11 +486,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 40596;
+				CURRENT_PROJECT_VERSION = 55001;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OPT_LDFLAGS = "";
 				OPT_LDXFLAGS = "";
@@ -524,11 +527,12 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 40596;
+				CURRENT_PROJECT_VERSION = 55001;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/Security,
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OPT_LDXNOPIC = ",_nopic";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -561,6 +565,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 			};
 			name = Development;
 		};

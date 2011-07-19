@@ -2,10 +2,10 @@ package DBIx::Class::Storage::Statistics;
 use strict;
 use warnings;
 
-use base qw/Class::Accessor::Grouped/;
+use base qw/DBIx::Class/;
 use IO::File;
 
-__PACKAGE__->mk_group_accessors(simple => qw/callback debugfh/);
+__PACKAGE__->mk_group_accessors(simple => qw/callback debugfh silence/);
 
 =head1 NAME
 
@@ -16,7 +16,7 @@ DBIx::Class::Storage::Statistics - SQL Statistics
 =head1 DESCRIPTION
 
 This class is called by DBIx::Class::Storage::DBI as a means of collecting
-statistics on it's actions.  Using this class alone merely prints the SQL
+statistics on its actions.  Using this class alone merely prints the SQL
 executed, the fact that it completes and begin/end notification for
 transactions.
 
@@ -56,6 +56,8 @@ to display the message.
 sub print {
   my ($self, $msg) = @_;
 
+  return if $self->silence;
+
   if(!defined($self->debugfh())) {
     my $fh;
     my $debug_env = $ENV{DBIX_CLASS_STORAGE_DBI_DEBUG}
@@ -75,6 +77,10 @@ sub print {
   $self->debugfh->print($msg);
 }
 
+=head2 silence
+
+Turn off all output if set to true.
+
 =head2 txn_begin
 
 Called when a transaction begins.
@@ -82,6 +88,8 @@ Called when a transaction begins.
 =cut
 sub txn_begin {
   my $self = shift;
+
+  return if $self->callback;
 
   $self->print("BEGIN WORK\n");
 }
@@ -94,6 +102,8 @@ Called when a transaction is rolled back.
 sub txn_rollback {
   my $self = shift;
 
+  return if $self->callback;
+
   $self->print("ROLLBACK\n");
 }
 
@@ -105,7 +115,48 @@ Called when a transaction is committed.
 sub txn_commit {
   my $self = shift;
 
+  return if $self->callback;
+
   $self->print("COMMIT\n");
+}
+
+=head2 svp_begin
+
+Called when a savepoint is created.
+
+=cut
+sub svp_begin {
+  my ($self, $name) = @_;
+
+  return if $self->callback;
+
+  $self->print("SAVEPOINT $name\n");
+}
+
+=head2 svp_release
+
+Called when a savepoint is released.
+
+=cut
+sub svp_release {
+  my ($self, $name) = @_;
+
+  return if $self->callback;
+
+  $self->print("RELEASE SAVEPOINT $name\n");
+}
+
+=head2 svp_rollback
+
+Called when rolling back to a savepoint.
+
+=cut
+sub svp_rollback {
+  my ($self, $name) = @_;
+
+  return if $self->callback;
+
+  $self->print("ROLLBACK TO SAVEPOINT $name\n");
 }
 
 =head2 query_start

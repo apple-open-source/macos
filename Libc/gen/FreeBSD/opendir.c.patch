@@ -1,6 +1,6 @@
---- opendir.c.orig	2007-01-24 14:10:41.000000000 -0800
-+++ opendir.c	2007-01-28 01:37:51.000000000 -0800
-@@ -48,6 +48,7 @@
+--- opendir.c.orig	2009-11-08 17:01:43.000000000 -0800
++++ opendir.c	2009-11-08 17:01:51.000000000 -0800
+@@ -44,6 +44,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ope
  #include <stdlib.h>
  #include <string.h>
  #include <unistd.h>
@@ -8,7 +8,7 @@
  #include "un-namespace.h"
  
  #include "telldir.h"
-@@ -72,27 +73,15 @@
+@@ -65,27 +66,15 @@ __opendir2(const char *name, int flags)
  	int incr;
  	int saved_errno;
  	int unionstack;
@@ -40,7 +40,7 @@
  	if (_fcntl(fd, F_SETFD, FD_CLOEXEC) == -1 ||
  	    (dirp = malloc(sizeof(DIR) + sizeof(struct _telldir))) == NULL)
  		goto fail;
-@@ -154,7 +143,11 @@
+@@ -147,7 +136,11 @@ __opendir2(const char *name, int flags)
  				ddptr = buf + (len - space);
  			}
  
@@ -52,7 +52,7 @@
  			if (n > 0) {
  				ddptr += n;
  				space -= n;
-@@ -262,14 +255,18 @@
+@@ -255,14 +248,18 @@ __opendir2(const char *name, int flags)
  		dirp->dd_buf = malloc(dirp->dd_len);
  		if (dirp->dd_buf == NULL)
  			goto fail;

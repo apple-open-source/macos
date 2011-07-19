@@ -199,7 +199,7 @@ auth_url(const char *challenge, char **response, const char *guser,
 		fprintf(ttyout, "%s\n", user);
 	} else {
 		(void)fflush(ttyout);
-		if (getline(stdin, user, sizeof(user), &errormsg) < 0) {
+		if (get_line(stdin, user, sizeof(user), &errormsg) < 0) {
 			warnx("%s; can't authenticate", errormsg);
 			goto cleanup_auth_url;
 		}
@@ -839,7 +839,7 @@ fetch_url(const char *url, const char *proxyenv, char *proxyauth, char *wwwauth)
 		}
 
 				/* Read the response */
-		len = getline(fin, buf, sizeof(buf), &errormsg);
+		len = get_line(fin, buf, sizeof(buf), &errormsg);
 		if (len < 0) {
 			if (*errormsg == '\n')
 				errormsg++;
@@ -863,7 +863,7 @@ fetch_url(const char *url, const char *proxyenv, char *proxyauth, char *wwwauth)
 
 				/* Read the rest of the header. */
 		while (1) {
-			len = getline(fin, buf, sizeof(buf), &errormsg);
+			len = get_line(fin, buf, sizeof(buf), &errormsg);
 			if (len < 0) {
 				if (*errormsg == '\n')
 					errormsg++;
@@ -1067,7 +1067,7 @@ fetch_url(const char *url, const char *proxyenv, char *proxyauth, char *wwwauth)
 
 				fprintf(ttyout,
 				    "Authorization failed. Retry (y/n)? ");
-				if (getline(stdin, reply, sizeof(reply), NULL)
+				if (get_line(stdin, reply, sizeof(reply), NULL)
 				    < 0) {
 					goto cleanup_fetch_url;
 				}

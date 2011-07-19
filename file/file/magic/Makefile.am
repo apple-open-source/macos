@@ -1,12 +1,15 @@
 #
-# $File: Makefile.am,v 1.45 2009/03/05 22:40:59 christos Exp $
+# $File: Makefile.am,v 1.52 2010/01/22 21:44:30 christos Exp $
 #
 MAGIC_FRAGMENT_BASE = Magdir
-MAGIC_FRAGMENT_DIR = $(top_srcdir)/magic/$(MAGIC_FRAGMENT_BASE)
+MAGIC_DIR = $(top_srcdir)/magic
+MAGIC_FRAGMENT_DIR = $(MAGIC_DIR)/$(MAGIC_FRAGMENT_BASE)
 
 pkgdata_DATA = magic.mgc
 
-EXTRA_DIST = Header Localstuff \
+EXTRA_DIST = \
+$(MAGIC_DIR)/Header \
+$(MAGIC_DIR)/Localstuff \
 $(MAGIC_FRAGMENT_DIR)/acorn \
 $(MAGIC_FRAGMENT_DIR)/adi \
 $(MAGIC_FRAGMENT_DIR)/adventure \
@@ -157,7 +160,6 @@ $(MAGIC_FRAGMENT_DIR)/plus5 \
 $(MAGIC_FRAGMENT_DIR)/printer \
 $(MAGIC_FRAGMENT_DIR)/project \
 $(MAGIC_FRAGMENT_DIR)/psdbms \
-$(MAGIC_FRAGMENT_DIR)/psion \
 $(MAGIC_FRAGMENT_DIR)/pulsar \
 $(MAGIC_FRAGMENT_DIR)/pyramid \
 $(MAGIC_FRAGMENT_DIR)/python \
@@ -201,6 +203,7 @@ $(MAGIC_FRAGMENT_DIR)/varied.out \
 $(MAGIC_FRAGMENT_DIR)/varied.script \
 $(MAGIC_FRAGMENT_DIR)/vax \
 $(MAGIC_FRAGMENT_DIR)/vicar \
+$(MAGIC_FRAGMENT_DIR)/virtual \
 $(MAGIC_FRAGMENT_DIR)/virtutech \
 $(MAGIC_FRAGMENT_DIR)/visx \
 $(MAGIC_FRAGMENT_DIR)/vms \
@@ -221,7 +224,7 @@ $(MAGIC_FRAGMENT_DIR)/zilog \
 $(MAGIC_FRAGMENT_DIR)/zyxel 
 
 MAGIC = magic.mgc
-CLEANFILES = ${MAGIC}
+CLEANFILES = ${MAGIC} $(MAGIC_FRAGMENT_DIR)/Localstuff
 
 # FIXME: Build file natively as well so that it can be used to compile
 # the target's magic file
@@ -234,5 +237,6 @@ FILE_COMPILE_DEP = $(FILE_COMPILE)
 endif
 
 ${MAGIC}: $(EXTRA_DIST) $(FILE_COMPILE_DEP)
-	$(FILE_COMPILE) -C -m $(MAGIC_FRAGMENT_DIR)
-	@mv $(MAGIC_FRAGMENT_BASE).mgc $@
+	@mkdir magic && cp -p $(EXTRA_DIST) magic
+	$(FILE_COMPILE) -C -m magic
+	@rm -fr magic

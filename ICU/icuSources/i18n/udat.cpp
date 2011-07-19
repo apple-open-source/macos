@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-*   Copyright (C) 1996-2009, International Business Machines
+*   Copyright (C) 1996-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *******************************************************************************
 */
@@ -32,10 +32,54 @@ U_NAMESPACE_USE
  * @param status error code, will be set to failure if there is a familure or the fmt is NULL.
  */
 static void verifyIsSimpleDateFormat(const UDateFormat* fmt, UErrorCode *status) {
-   if(!U_FAILURE(*status) && 
-       ((DateFormat*)fmt)->getDynamicClassID()!=SimpleDateFormat::getStaticClassID()) {
+   if(U_SUCCESS(*status) &&
+       dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))==NULL) {
        *status = U_ILLEGAL_ARGUMENT_ERROR;
    }
+}
+
+// This mirrors the correspondence between the
+// SimpleDateFormat::fgPatternIndexToDateFormatField and
+// SimpleDateFormat::fgPatternIndexToCalendarField arrays.
+static UCalendarDateFields gDateFieldMapping[] = {
+    UCAL_ERA,                  // UDAT_ERA_FIELD = 0
+    UCAL_YEAR,                 // UDAT_YEAR_FIELD = 1
+    UCAL_MONTH,                // UDAT_MONTH_FIELD = 2
+    UCAL_DATE,                 // UDAT_DATE_FIELD = 3
+    UCAL_HOUR_OF_DAY,          // UDAT_HOUR_OF_DAY1_FIELD = 4
+    UCAL_HOUR_OF_DAY,          // UDAT_HOUR_OF_DAY0_FIELD = 5
+    UCAL_MINUTE,               // UDAT_MINUTE_FIELD = 6
+    UCAL_SECOND,               // UDAT_SECOND_FIELD = 7
+    UCAL_MILLISECOND,          // UDAT_FRACTIONAL_SECOND_FIELD = 8
+    UCAL_DAY_OF_WEEK,          // UDAT_DAY_OF_WEEK_FIELD = 9
+    UCAL_DAY_OF_YEAR,          // UDAT_DAY_OF_YEAR_FIELD = 10
+    UCAL_DAY_OF_WEEK_IN_MONTH, // UDAT_DAY_OF_WEEK_IN_MONTH_FIELD = 11
+    UCAL_WEEK_OF_YEAR,         // UDAT_WEEK_OF_YEAR_FIELD = 12
+    UCAL_WEEK_OF_MONTH,        // UDAT_WEEK_OF_MONTH_FIELD = 13
+    UCAL_AM_PM,                // UDAT_AM_PM_FIELD = 14
+    UCAL_HOUR,                 // UDAT_HOUR1_FIELD = 15
+    UCAL_HOUR,                 // UDAT_HOUR0_FIELD = 16
+    UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_FIELD = 17
+    UCAL_YEAR_WOY,             // UDAT_YEAR_WOY_FIELD = 18
+    UCAL_DOW_LOCAL,            // UDAT_DOW_LOCAL_FIELD = 19
+    UCAL_EXTENDED_YEAR,        // UDAT_EXTENDED_YEAR_FIELD = 20
+    UCAL_JULIAN_DAY,           // UDAT_JULIAN_DAY_FIELD = 21
+    UCAL_MILLISECONDS_IN_DAY,  // UDAT_MILLISECONDS_IN_DAY_FIELD = 22
+    UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_RFC_FIELD = 23
+    // UCAL_DST_OFFSET also
+    UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_GENERIC_FIELD = 24
+    UCAL_DOW_LOCAL,            // UDAT_STANDALONE_DAY_FIELD = 25
+    UCAL_MONTH,                // UDAT_STANDALONE_MONTH_FIELD = 26
+    UCAL_MONTH,                // UDAT_QUARTER_FIELD = 27
+    UCAL_MONTH,                // UDAT_STANDALONE_QUARTER_FIELD = 28
+    UCAL_ZONE_OFFSET,          // UDAT_TIMEZONE_SPECIAL_FIELD = 29
+    UCAL_FIELD_COUNT,          // UDAT_FIELD_COUNT = 30
+    // UCAL_IS_LEAP_MONTH is not the target of a mapping
+};
+
+U_CAPI UCalendarDateFields U_EXPORT2
+udat_toCalendarDateField(UDateFormatField field) {
+  return gDateFieldMapping[field];
 }
 
 U_CAPI UDateFormat* U_EXPORT2
@@ -105,7 +149,6 @@ udat_clone(const UDateFormat *fmt,
 {
     if(U_FAILURE(*status)) return 0;
 
-    /* clone is defined for DateFormat and implemented for all subclasses */
     Format *res = ((DateFormat*)fmt)->clone();
 
     if(res == 0) {
@@ -294,13 +337,16 @@ udat_toPattern(    const   UDateFormat     *fmt,
         res.setTo(result, 0, resultLength);
     }
 
-    if ( ((DateFormat*)fmt)->getDynamicClassID()==SimpleDateFormat::getStaticClassID() ) {
+    const DateFormat *df=reinterpret_cast<const DateFormat *>(fmt);
+    const SimpleDateFormat *sdtfmt=dynamic_cast<const SimpleDateFormat *>(df);
+    const RelativeDateFormat *reldtfmt;
+    if (sdtfmt!=NULL) {
         if(localized)
-            ((SimpleDateFormat*)fmt)->toLocalizedPattern(res, *status);
+            sdtfmt->toLocalizedPattern(res, *status);
         else
-            ((SimpleDateFormat*)fmt)->toPattern(res);
-    } else if ( !localized && ((DateFormat*)fmt)->getDynamicClassID()==RelativeDateFormat::getStaticClassID() ) {
-        ((RelativeDateFormat*)fmt)->toPattern(res, *status);
+            sdtfmt->toPattern(res);
+    } else if (!localized && (reldtfmt=dynamic_cast<const RelativeDateFormat *>(df))!=NULL) {
+        reldtfmt->toPattern(res, *status);
     } else {
         *status = U_ILLEGAL_ARGUMENT_ERROR;
         return -1;
@@ -309,20 +355,22 @@ udat_toPattern(    const   UDateFormat     *fmt,
     return res.extract(result, resultLength, *status);
 }
 
-// TBD: should this take an UErrorCode?
+// TODO: should this take an UErrorCode?
+// A: Yes. Of course.
 U_CAPI void U_EXPORT2
 udat_applyPattern(  UDateFormat     *format,
                     UBool          localized,
                     const   UChar           *pattern,
                     int32_t         patternLength)
 {
+    const UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
     UErrorCode status = U_ZERO_ERROR;
+
     verifyIsSimpleDateFormat(format, &status);
     if(U_FAILURE(status)) {
         return;
     }
-    const UnicodeString pat((UBool)(patternLength == -1), pattern, patternLength);
-
+    
     if(localized)
         ((SimpleDateFormat*)format)->applyLocalizedPattern(pat, status);
     else
@@ -337,11 +385,16 @@ udat_getSymbols(const   UDateFormat     *fmt,
                 int32_t                 resultLength,
                 UErrorCode              *status)
 {
-    verifyIsSimpleDateFormat(fmt, status);
-    if(U_FAILURE(*status)) return -1;
-
-    const DateFormatSymbols *syms = 
-        ((SimpleDateFormat*)fmt)->getDateFormatSymbols();
+    const DateFormatSymbols *syms;
+    const SimpleDateFormat* sdtfmt;
+    const RelativeDateFormat* rdtfmt;
+    if ((sdtfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
+    	syms = sdtfmt->getDateFormatSymbols();
+    } else if ((rdtfmt = dynamic_cast<const RelativeDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
+    	syms = rdtfmt->getDateFormatSymbols();
+    } else {
+        return -1;
+    }
     int32_t count;
     const UnicodeString *res = NULL;
 
@@ -442,18 +495,21 @@ udat_getSymbols(const   UDateFormat     *fmt,
     return 0;
 }
 
+// TODO: also needs an errorCode.
 U_CAPI int32_t U_EXPORT2
 udat_countSymbols(    const    UDateFormat                *fmt,
             UDateFormatSymbolType    type)
 {
-    UErrorCode status = U_ZERO_ERROR;
-    verifyIsSimpleDateFormat(fmt, &status);
-    if(U_FAILURE(status)) {
+    const DateFormatSymbols *syms;
+    const SimpleDateFormat* sdtfmt;
+    const RelativeDateFormat* rdtfmt;
+    if ((sdtfmt = dynamic_cast<const SimpleDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
+    	syms = sdtfmt->getDateFormatSymbols();
+    } else if ((rdtfmt = dynamic_cast<const RelativeDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))) != NULL) {
+    	syms = rdtfmt->getDateFormatSymbols();
+    } else {
         return 0;
     }
-
-    const DateFormatSymbols *syms = 
-        ((SimpleDateFormat*)fmt)->getDateFormatSymbols();
     int32_t count = 0;
 
     switch(type) {
@@ -849,8 +905,8 @@ udat_getLocaleByType(const UDateFormat *fmt,
  * @param status error code, will be set to failure if there is a familure or the fmt is NULL.
  */
 static void verifyIsRelativeDateFormat(const UDateFormat* fmt, UErrorCode *status) {
-   if(!U_FAILURE(*status) && 
-       ((DateFormat*)fmt)->getDynamicClassID()!=RelativeDateFormat::getStaticClassID()) {
+   if(U_SUCCESS(*status) &&
+       dynamic_cast<const RelativeDateFormat*>(reinterpret_cast<const DateFormat*>(fmt))==NULL) {
        *status = U_ILLEGAL_ARGUMENT_ERROR;
    }
 }

@@ -21,7 +21,7 @@ add_executable(
   )
 
 source_group("cURLX source files" FILES ${CURLX_ONES})
-source_group("cURL source files" FILES ${CURL_SOURCES})
+source_group("cURL source files" FILES ${CURL_CFILES})
 source_group("cURL header files" FILES ${CURL_HFILES})
 
 include_directories(
@@ -43,7 +43,7 @@ target_link_libraries( ${EXE_NAME} libcurl )
 #SET_TARGET_PROPERTIES(${EXE_NAME} LIBRARY_OUTPUT_DIRECTORY "blah blah blah")
 
 # Add the postfix to the executable since it is not added automatically as for modules and shared libraries
-set_target_properties(${EXE_NAME} PROPERTIES 
+set_target_properties(${EXE_NAME} PROPERTIES
   DEBUG_POSTFIX "${CMAKE_DEBUG_POSTFIX}")
 
 if(MSVC)

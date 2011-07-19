@@ -25,15 +25,14 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginDatabase_H
-#define PluginDatabase_H
+#ifndef PluginDatabase_h
+#define PluginDatabase_h
 
 #include "PlatformString.h"
 #include "PluginPackage.h"
-#include "StringHash.h"
-
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
     class Element;
@@ -45,7 +44,8 @@ namespace WebCore {
 
     typedef HashSet<RefPtr<PluginPackage>, PluginPackageHash> PluginSet;
 
-    class PluginDatabase : public Noncopyable {
+    class PluginDatabase {
+        WTF_MAKE_NONCOPYABLE(PluginDatabase); WTF_MAKE_FAST_ALLOCATED;
     public:
         PluginDatabase();
 
@@ -75,15 +75,16 @@ namespace WebCore {
             m_pluginDirectories = directories;
         }
 
-        void setClient(PluginDatabaseClient* client)
-        {
-            m_client = client;
-        }
-
         static Vector<String> defaultPluginDirectories();
         Vector<String> pluginDirectories() const { return m_pluginDirectories; }
 
         String MIMETypeForExtension(const String& extension) const;
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        static bool isPersistentMetadataCacheEnabled();
+        static void setPersistentMetadataCacheEnabled(bool isEnabled);
+        static String persistentMetadataCachePath();
+        static void setPersistentMetadataCachePath(const String& persistentMetadataCachePath);
+#endif
 
     private:
         void getPluginPathsInDirectories(HashSet<String>&) const;
@@ -92,6 +93,10 @@ namespace WebCore {
         // Returns whether the plugin was actually added or not (it won't be added if it's a duplicate of an existing plugin).
         bool add(PassRefPtr<PluginPackage>);
         void remove(PluginPackage*);
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        void loadPersistentMetadataCache();
+        void updatePersistentMetadataCache();
+#endif
 
         Vector<String> m_pluginDirectories;
         HashSet<String> m_registeredMIMETypes;
@@ -99,7 +104,9 @@ namespace WebCore {
         HashMap<String, RefPtr<PluginPackage> > m_pluginsByPath;
         HashMap<String, time_t> m_pluginPathsWithTimes;
         HashMap<String, RefPtr<PluginPackage> > m_preferredPlugins;
-        PluginDatabaseClient* m_client;
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        bool m_persistentMetadataCacheIsLoaded;
+#endif
     };
 
 } // namespace WebCore

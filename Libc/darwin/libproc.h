@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,6 +32,8 @@
 
 #include <sys/proc_info.h>
 
+#include <Availability.h>
+
 /*
  * This header file contains private interfaces to obtain process information.  
  * These interfaces are subject to change in future releases.
@@ -56,7 +58,6 @@
 
 __BEGIN_DECLS
 
-int proc_listpids(uint32_t type, uint32_t typeinfo, void *buffer, int buffersize);
 
 /*!
 	@function proc_listpidspath
@@ -82,15 +83,20 @@ int	proc_listpidspath(uint32_t	type,
 			  const char	*path,
 			  uint32_t	pathflags,
 			  void		*buffer,
-			  int		buffersize);
+			  int		buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
-int proc_pidinfo(int pid, int flavor, uint64_t arg,  void *buffer, int buffersize);
-int proc_pidfdinfo(int pid, int fd, int flavor, void * buffer, int buffersize); 
-int proc_name(int pid, void * buffer, uint32_t buffersize);
-int proc_regionfilename(int pid, uint64_t address, void * buffer, uint32_t buffersize);
-int proc_kmsgbuf(void * buffer, uint32_t buffersize);
-int proc_pidpath(int pid, void * buffer, uint32_t  buffersize);
-int proc_libversion(int *major, int * minor);
+int proc_listpids(uint32_t type, uint32_t typeinfo, void *buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_listallpids(void * buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_1);
+int proc_listpgrppids(pid_t pgrpid, void * buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_1);
+int proc_listchildpids(pid_t ppid, void * buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_1);
+int proc_pidinfo(int pid, int flavor, uint64_t arg,  void *buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_pidfdinfo(int pid, int fd, int flavor, void * buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_pidfileportinfo(int pid, uint32_t fileport, int flavor, void *buffer, int buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+int proc_name(int pid, void * buffer, uint32_t buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_regionfilename(int pid, uint64_t address, void * buffer, uint32_t buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_kmsgbuf(void * buffer, uint32_t buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_pidpath(int pid, void * buffer, uint32_t  buffersize) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+int proc_libversion(int *major, int * minor) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 /* 
  * A process can use the following api to set its own process control 
  * state on resoure starvation. The argument can have one of the PROC_SETPC_XX values
@@ -100,7 +106,9 @@ int proc_libversion(int *major, int * minor);
 #define PROC_SETPC_SUSPEND	2
 #define PROC_SETPC_TERMINATE	3
 
+int proc_setpcontrol(const int control) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 int proc_setpcontrol(const int control);
+
 __END_DECLS
 
 #endif /*_LIBPROC_H_ */

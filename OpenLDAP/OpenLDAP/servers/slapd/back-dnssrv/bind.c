@@ -1,8 +1,8 @@
 /* bind.c - DNS SRV backend bind function */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.22.2.3 2008/02/11 23:26:46 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-dnssrv/bind.c,v 1.22.2.5 2010/04/13 20:23:26 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * Portions Copyright 2000-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *

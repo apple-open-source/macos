@@ -1,12 +1,25 @@
-use 5.006;
-use ExtUtils::MakeMaker;
-# See lib/ExtUtils/MakeMaker.pm for details of how to influence
-# the contents of the Makefile that is written.
-WriteMakefile(
-    NAME              => 'SQL::Abstract',
-    VERSION_FROM      => 'lib/SQL/Abstract.pm', # finds $VERSION
-    PREREQ_PM         => {}, # e.g., Module::Name => 1.1
-    ($] >= 5.005 ?     ## Add these new keywords supported since 5.005
-      (ABSTRACT_FROM  => 'lib/SQL/Abstract.pm', # retrieve abstract from module
-       AUTHOR         => 'Nathan Wiger <nwiger@sun.com>') : ()),
-);
+use inc::Module::Install 0.79;
+use strict;
+use warnings;
+
+use 5.006001;
+
+perl_version '5.006001';
+name 'SQL-Abstract';
+author 'Nathan Wiger <nate@wiger.org>';
+
+all_from 'lib/SQL/Abstract.pm';
+
+requires "List::Util"   => 0;
+requires "Scalar::Util" => 0;
+
+test_requires "Test::Builder"   => 0;
+test_requires "Test::Deep"      => 0;
+test_requires "Test::More"      => 0;
+test_requires "Test::Exception" => 0;
+test_requires "Test::Warn"      => 0;
+test_requires "Clone"           => 0.31;
+
+tests_recursive 't';
+
+WriteAll();

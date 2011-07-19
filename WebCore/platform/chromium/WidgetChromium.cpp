@@ -32,7 +32,8 @@
 #include "Widget.h"
 
 #include "Assertions.h"
-#include "ChromiumBridge.h"
+#include "HostWindow.h"
+#include "ScrollView.h"
 
 namespace WebCore {
 
@@ -56,7 +57,9 @@ void Widget::hide()
 
 void Widget::setCursor(const Cursor& cursor)
 {
-    ChromiumBridge::widgetSetCursor(this, cursor);
+    ScrollView* view = root();
+    if (view)
+        view->hostWindow()->setCursor(cursor);
 }
 
 void Widget::paint(GraphicsContext*, const IntRect&)
@@ -65,8 +68,6 @@ void Widget::paint(GraphicsContext*, const IntRect&)
 
 void Widget::setFocus(bool focused)
 {
-    if (focused)
-        ChromiumBridge::widgetSetFocus(this);
 }
 
 void Widget::setIsSelected(bool)

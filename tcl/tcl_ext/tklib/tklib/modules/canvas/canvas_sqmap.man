@@ -1,0 +1,142 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin canvas::sqmap n 0.3.1]
+[moddesc   {Variations on a canvas}]
+[titledesc {Canvas with map background based on square tiles}]
+[require Tcl 8.4]
+[require Tk 8.4]
+[require snit]
+[require uevent::onidle]
+[require cache::async]
+[require canvas::sqmap [opt 0.3.1]]
+[description]
+
+This package provides an extended canvas widget for the display of
+maps based on a set of square image tiles. The tiles are the
+background of the canvas, with all other canvas items added always
+shown in front of them. The number of tiles shown, tile size, and
+where to get the images to show are all configurable.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::canvas::sqmap] [arg pathName] [opt options]]
+
+Creates the canvas [arg pathName] and configures it. The new widget
+supports all of the options and methods of a regular canvas, plus the
+options and methods described below.
+
+[para]
+
+The result of the command is [arg pathName].
+
+[list_end]
+
+
+[subsection Options]
+
+[list_begin options]
+[opt_def -grid-cell-width]
+
+The value for this option is a non-negative integer. It specifies the
+width of the cells the background is made up of.
+
+[opt_def -grid-cell-height]
+
+The value for this option is a non-negative integer. It specifies the
+height of the cells the background is made up of.
+
+[opt_def -grid-cell-command]
+
+The value for this option is a command prefix. It is invoked whenever
+the canvas needs the image for a specific cell of the background, with
+two additional arguments, the id of the cell, and a command prefix to
+invoke when the image is ready, or known to not exist.
+
+[para]
+
+The id of the cell is a 2-element list containing the row and column
+number of the cell, in this order. The result command prefix (named
+"$result" in the example below) has to be invoked with either two or
+three arguments, i.e.
+
+[example {
+    $result set   $cellid $image ; # image is known and ready
+    $result unset $cellid        ; # image does not exist
+}]
+
+This option may be left undefined, i.e. the canvas can operate without
+it. In that case the only images shown in grid cells are those
+explicitly set with the method [method {image set}], see the next
+section. All other grid cells will simply be empty.
+
+[opt_def -viewport-command]
+
+This option specifies a command prefix to invoke when the viewport of
+the canvas is changed, to allow users keep track of where in the
+scroll-region we are at all times. This can be used, for example, to
+drive derivate displays, or to keep items in view by moving them as
+the viewport moves.
+
+[opt_def -image-on-load]
+
+The value for this option is an image. If specified the image is shown
+in a cell while the actual image for that cell is getting loaded
+through the callback specified by the [option -grid-cell-command].
+
+[opt_def -image-on-unset]
+
+The value for this option is an image. If specified the image is shown
+in a cell for which the callback specified by the [option -grid-cell-command]
+reported that there is no actual image to be shown.
+
+[list_end]
+
+
+
+[subsection Methods]
+
+[list_begin definitions]
+[call [arg canvasName] [method {image set}] [arg cell] [arg image]]
+
+Invoking this method places the [arg image] into the specified
+[arg cell] of the background. The cell is given as a 2-element list
+containing row and column number, in this order.
+
+[para]
+
+Note that an image is allowed to be associated with and displayed in
+multiple cells of the canvas.
+
+
+[call [arg canvasName] [method {image unset}] [arg cell]]
+
+Invoking this method declares the specified [arg cell] of the
+background as empty, an existing image shown by this cell will be
+forgotten.  The cell is given as a 2-element list containing row and
+column number, in this order.
+
+
+[call [arg canvasName] [method flush]]
+
+Invoking this method forces the canvas to completely reload the images
+for all cells. Do not use this method if the canvas is operated
+without a [option -grid-cell-command], as in that case the canvas will
+simply forget all images without being able to reload them.
+
+[list_end]
+
+
+[section {Image ownership}]
+
+Note that the canvas [emph {does not}] take ownership of the images it
+shows in the background. In other words, when we say that the canvas
+forgets an image this means only that the association between a grid
+cell and shown image is broken. The image is [emph not]
+deleted. Managing the lifecycle of the images shown by the canvas is
+responsibility of the user of the canvas.
+
+
+[keywords map {square map} canvas tile grid cell image]
+[manpage_end]
+

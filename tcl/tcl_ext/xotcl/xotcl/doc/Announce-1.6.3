@@ -1,0 +1,52 @@
+Dear XOTcl Community,
+
+XOTcl 1.6.3 is available. See below for more details.
+
+Best regards
+Gustaf Neumann
+
+
+Announcing XOTcl 1.6.3
+*************************
+
+We are pleased to announce the availability of XOTcl 1.6.3
+
+Major changes relative to 1.6.2 are:
+
+   * Functional improvements:
+
+       - simplified and generalized handling of namespaced instance
+         variables, where namespaced associative arrays could conflict
+         with global variables due to Tcl's default namespace
+         resolution. Many thanks to Stefan Sobernig for this
+         contribution!
+         
+  * Fixes:
+      - Corrected deletion of meta-classes. Before, it was possible
+        to create undestroyable objects via complex
+        meta-class structures
+
+   * Speed improvements:
+      - Use of new interfaces in Tcl 8.5 (when compiled with Tcl 8.5)
+      - simplified interfaces for various C functions
+      - Speed improvement for method invocation:
+          * With Tcl 8.5: 10-15 %
+          * With Tcl 8.4:  5-10 %
+
+   * Improve code quality:
+       - some more code cleanup
+       - factoring out common code
+       - using const in more cases
+
+   * Extended regression tests
+
+   * Improved documentation
+
+
+ For more details about the changes, please consult the ChangeLog and
+ documentation.
+
+MORE INFO
+  General and more detailed information about XOTcl and its components
+  can be found at http://www.xotcl.org
+

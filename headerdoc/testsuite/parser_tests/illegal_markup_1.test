@@ -1,0 +1,634 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$103|#ifdef __OBJC__
+
+@interface NSValue (MyAdditions)
+
++ (NSValue *)valueWithSomething:(something) s;
+@end
+$65|/*! @category NSValue(MyAdditions)
+    @abstract adds stuff.
+ */
+$0|$7414|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/illegal_markup_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/illegal_markup_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __OBJC__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __OBJC__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __OBJC__
+posstypes: MACRO
+value: 
+returntype: #ifdef __OBJC__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__OBJC__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: illegal markup 1
+APIUID: //test_ref/doc/header/illegal_markup_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCCategory
+    NAME: NSValue(MyAdditions)
+    APIUID: 
+    ABSTRACT: "<p>adds stuff.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCCategory"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSValue" machineGenerated="true" -->NSValue<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/illegal_markup_1.test" target="_top" machineGenerated="true">illegal markup 1</a></p>
+
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: NSValue(MyAdditions) (HeaderDoc::ObjCCategory)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---NSValue
+|   +--- 
+|   +---(
+|   |   +---MyAdditions
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSValue
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---valueWithSomething
+|   |   +---:
+|   |   +---(
+|   |   |   +---something
+|   |   |   +---)
+|   |   +--- 
+|   |   +---s
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: NSValue(MyAdditions) (HeaderDoc::ObjCCategory)
+	 @<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/NSValue //test_ref/occ/clm/NSValue //test_ref/occ/intfcm/NSValue //test_ref/occ/intfm/NSValue //test_ref/occ/func/NSValue //test_ref/occ/ftmplt/NSValue //test_ref/occ/defn/NSValue //test_ref/occ/macro/NSValue //test_ref/doc/anysymbol/NSValue" machineGenerated="true" --><span class="function">NSValue</span><!-- /a --> (
+	        <span class="param">MyAdditions</span>)  + (
+	            <!-- a logicalPath="//test_ref/occ/cl/NSValue //test_ref/occ/tdef/NSValue //test_ref/occ/tag/NSValue //test_ref/occ/struct/NSValue //test_ref/occ/intf/NSValue //test_ref/doc/anysymbol/NSValue" machineGenerated="true" --><span class="type">NSValue</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/cl/valueWithSomething //test_ref/occ/tdef/valueWithSomething //test_ref/occ/tag/valueWithSomething //test_ref/occ/struct/valueWithSomething //test_ref/occ/intf/valueWithSomething //test_ref/doc/anysymbol/valueWithSomething" machineGenerated="true" --><span class="type">valueWithSomething</span><!-- /a -->:(
+	            <span class="param">something</span>) <!-- a logicalPath="//test_ref/occ/econst/s //test_ref/occ/data/s //test_ref/occ/clconst/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->;  @@end 
+END OF OBJECT
+
+
+
+$11398|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/illegal_markup_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/illegal_markup_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __OBJC__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #ifdef __OBJC__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __OBJC__
+posstypes: MACRO
+value: 
+returntype: #ifdef __OBJC__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#ifdef
+|   +--- 
+|   +---__OBJC__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: illegal markup 1
+APIUID: //test_ref/doc/header/illegal_markup_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCCategory
+    NAME: NSValue(MyAdditions)
+    APIUID: 
+    ABSTRACT: "<p>adds stuff.
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCCategory"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Extends&nbsp;Class</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSValue" machineGenerated="true" -->NSValue<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/illegal_markup_1.test" target="_top" machineGenerated="true">illegal markup 1</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: valueWithSomething:
+        APIUID: //test_ref/occ/clm/NSValue(MyAdditions)/valueWithSomething:
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSValue *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: s
+            TYPE: (something)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: NSValue(MyAdditions) (HeaderDoc::ObjCCategory)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---NSValue
+|   +--- 
+|   +---(
+|   |   +---MyAdditions
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSValue
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---valueWithSomething
+|   |   +---:
+|   |   +---(
+|   |   |   +---something
+|   |   |   +---)
+|   |   +--- 
+|   |   +---s
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: valueWithSomething: (HeaderDoc::Method)
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSValue
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---valueWithSomething
+|   +---:
+|   +---(
+|   |   +---something
+|   |   +---)
+|   +--- 
+|   +---s
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: NSValue(MyAdditions) (HeaderDoc::ObjCCategory)
+	 @<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/instm/NSValue //test_ref/occ/clm/NSValue //test_ref/occ/intfcm/NSValue //test_ref/occ/intfm/NSValue //test_ref/occ/func/NSValue //test_ref/occ/ftmplt/NSValue //test_ref/occ/defn/NSValue //test_ref/occ/macro/NSValue //test_ref/doc/anysymbol/NSValue" machineGenerated="true" --><span class="function">NSValue</span><!-- /a --> (
+	        <span class="param">MyAdditions</span>)  + (
+	            <!-- a logicalPath="//test_ref/occ/cl/NSValue //test_ref/occ/tdef/NSValue //test_ref/occ/tag/NSValue //test_ref/occ/struct/NSValue //test_ref/occ/intf/NSValue //test_ref/doc/anysymbol/NSValue" machineGenerated="true" --><span class="type">NSValue</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/cl/valueWithSomething //test_ref/occ/tdef/valueWithSomething //test_ref/occ/tag/valueWithSomething //test_ref/occ/struct/valueWithSomething //test_ref/occ/intf/valueWithSomething //test_ref/doc/anysymbol/valueWithSomething" machineGenerated="true" --><span class="type">valueWithSomething</span><!-- /a -->:(
+	            <span class="param">something</span>) <!-- a logicalPath="//test_ref/occ/econst/s //test_ref/occ/data/s //test_ref/occ/clconst/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->;  @@end 
+END OF OBJECT
+
+
+OBJECT: valueWithSomething: (HeaderDoc::Method)
+	+ (<!-- a logicalPath="//test_ref/occ/cl/NSValue //test_ref/occ/tdef/NSValue //test_ref/occ/tag/NSValue //test_ref/occ/struct/NSValue //test_ref/occ/intf/NSValue //test_ref/doc/anysymbol/NSValue" machineGenerated="true" --><span class="type">NSValue</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/instm/NSValue/valueWithSomething //test_ref/occ/clm/NSValue/valueWithSomething //test_ref/occ/intfcm/NSValue/valueWithSomething //test_ref/occ/intfm/NSValue/valueWithSomething //test_ref/occ/func/valueWithSomething //test_ref/occ/ftmplt/NSValue/valueWithSomething //test_ref/occ/defn/valueWithSomething //test_ref/occ/macro/valueWithSomething //test_ref/doc/anysymbol/valueWithSomething" machineGenerated="true" --><span class="function">valueWithSomething</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/something //test_ref/occ/tdef/something //test_ref/occ/tag/something //test_ref/occ/struct/something //test_ref/occ/intf/something //test_ref/doc/anysymbol/something" machineGenerated="true" --><span class="type">something</span><!-- /a -->) <!-- a logicalPath="//test_ref/occ/econst/s //test_ref/occ/data/NSValue/s //test_ref/occ/data/s //test_ref/occ/clconst/NSValue/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$76|Tests to make sure that #if statements before a class are properly skipped.
+$98|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/illegal_markup_1.test$1|C$16|illegal markup 1$1|C$6|parser

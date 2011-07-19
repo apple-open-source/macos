@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2007, International Business Machines
+*   Copyright (C) 2007-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -38,11 +38,13 @@ void addDateTimePatternGeneratorTest(TestNode** root);
 static void TestOpenClose(void);
 static void TestUsage(void);
 static void TestBuilder(void);
+static void TestOptions(void);
 
 void addDateTimePatternGeneratorTest(TestNode** root) {
     TESTCASE(TestOpenClose);
     TESTCASE(TestUsage);
     TESTCASE(TestBuilder);
+    TESTCASE(TestOptions);
 }
 
 /*
@@ -52,7 +54,7 @@ void addDateTimePatternGeneratorTest(TestNode** root) {
 static const UChar pipeString[]={ 0x7c, 0x0a };
 
 static const UChar testSkeleton1[]={ 0x48, 0x48, 0x6d, 0x6d, 0 }; /* HHmm */
-static const UChar expectingBestPattern[]={ 0x48, 0x48, 0x2e, 0x6d, 0x6d, 0 }; /* HH.mm */
+static const UChar expectingBestPattern[]={ 0x48, 0x2e, 0x6d, 0x6d, 0 }; /* H.mm */
 static const UChar testPattern[]={ 0x48, 0x48, 0x3a, 0x6d, 0x6d, 0 }; /* HH:mm */
 static const UChar expectingSkeleton[]= { 0x48, 0x48, 0x6d, 0x6d, 0 }; /* HHmm */
 static const UChar expectingBaseSkeleton[]= { 0x48, 0x6d, 0 }; /* HHmm */
@@ -76,7 +78,7 @@ static void TestOpenClose() {
     /* Open a DateTimePatternGenerator for the default locale. */
     dtpg=udatpg_open(NULL, &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("udatpg_open(NULL) failed - %s\n", u_errorName(errorCode));
+        log_err_status(errorCode, "udatpg_open(NULL) failed - %s\n", u_errorName(errorCode));
         return;
     }
     udatpg_close(dtpg);
@@ -120,7 +122,7 @@ static void TestUsage() {
     
     dtpg=udatpg_open("fi", &errorCode);
     if(U_FAILURE(errorCode)) {
-        log_err("udatpg_open(fi) failed - %s\n", u_errorName(errorCode));
+        log_err_status(errorCode, "udatpg_open(fi) failed - %s\n", u_errorName(errorCode));
         return;
     }
     length = udatpg_getBestPattern(dtpg, testSkeleton1, 4,
@@ -226,7 +228,7 @@ static void TestBuilder() {
     UChar   pattern[40], formatted[40];
     UDateFormat *formatter;
     UDate sampleDate = 837039928046.0;
-	static const char locale[]= "fr";
+    static const char locale[]= "fr";
     UErrorCode status=U_ZERO_ERROR;
     
     /* test create an empty DateTimePatternGenerator */
@@ -345,6 +347,70 @@ static void TestBuilder() {
     }
     udatpg_close(generator);
     udat_close(formatter);
+}
+
+typedef struct DTPtnGenOptionsData {
+    const char *                    locale;
+    const UChar *                   skel;
+    UDateTimePatternMatchOptions    options;
+    const UChar *                   expectedPattern;
+} DTPtnGenOptionsData;
+enum { kTestOptionsPatLenMax = 32 };
+
+static const UChar skel_Hmm[]     = { 0x0048, 0x006D, 0x006D, 0 };
+static const UChar skel_HHmm[]    = { 0x0048, 0x0048, 0x006D, 0x006D, 0 };
+static const UChar skel_hhmm[]    = { 0x0068, 0x0068, 0x006D, 0x006D, 0 };
+static const UChar patn_Hcmm[]    = { 0x0048, 0x003A, 0x006D, 0x006D, 0 }; /* H:mm */
+static const UChar patn_hcmm_a[]  = { 0x0068, 0x003A, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* h:mm a */
+static const UChar patn_HHcmm[]   = { 0x0048, 0x0048, 0x003A, 0x006D, 0x006D, 0 }; /* HH:mm */
+static const UChar patn_hhcmm_a[] = { 0x0068, 0x0068, 0x003A, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* hh:mm a */
+static const UChar patn_HHpmm[]   = { 0x0048, 0x0048, 0x002E, 0x006D, 0x006D, 0 }; /* HH.mm */
+static const UChar patn_hpmm_a[]  = { 0x0068, 0x002E, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* h.mm a */
+static const UChar patn_Hpmm[]    = { 0x0048, 0x002E, 0x006D, 0x006D, 0 }; /* H.mm */
+static const UChar patn_hhpmm_a[] = { 0x0068, 0x0068, 0x002E, 0x006D, 0x006D, 0x0020, 0x0061, 0 }; /* hh.mm a */
+
+static void TestOptions() {
+    const DTPtnGenOptionsData testData[] = {
+        /*loc   skel       options                       expectedPattern */
+        { "en", skel_Hmm,  UDATPG_MATCH_NO_OPTIONS,        patn_HHcmm   },
+        { "en", skel_HHmm, UDATPG_MATCH_NO_OPTIONS,        patn_HHcmm   },
+        { "en", skel_hhmm, UDATPG_MATCH_NO_OPTIONS,        patn_hcmm_a  },
+        { "en", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHcmm   },
+        { "en", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHcmm   },
+        { "en", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhcmm_a },
+        { "be", skel_Hmm,  UDATPG_MATCH_NO_OPTIONS,        patn_HHpmm   },
+        { "be", skel_HHmm, UDATPG_MATCH_NO_OPTIONS,        patn_HHpmm   },
+        { "be", skel_hhmm, UDATPG_MATCH_NO_OPTIONS,        patn_hpmm_a  },
+        { "be", skel_Hmm,  UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_Hpmm    },
+        { "be", skel_HHmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_HHpmm   },
+        { "be", skel_hhmm, UDATPG_MATCH_HOUR_FIELD_LENGTH, patn_hhpmm_a },
+    };
+
+    int count = sizeof(testData) / sizeof(testData[0]);
+    const DTPtnGenOptionsData * testDataPtr = testData;
+
+    for (; count-- > 0; ++testDataPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        UDateTimePatternGenerator * dtpgen = udatpg_open(testDataPtr->locale, &status);
+        if ( U_SUCCESS(status) ) {
+            UChar pattern[kTestOptionsPatLenMax];
+            int32_t patLen = udatpg_getBestPatternWithOptions(dtpgen, testDataPtr->skel, -1,
+                                                              testDataPtr->options, pattern,
+                                                              kTestOptionsPatLenMax, &status);
+            if ( U_FAILURE(status) || u_strncmp(pattern, testDataPtr->expectedPattern, patLen+1) != 0 ) {
+                char skelBytes[kTestOptionsPatLenMax];
+                char expectedPatternBytes[kTestOptionsPatLenMax];
+                char patternBytes[kTestOptionsPatLenMax];
+                log_err("ERROR udatpg_getBestPatternWithOptions, locale %s, skeleton %s, options 0x%04X, expected pattern %s, got %s, status %d\n",
+                        testDataPtr->locale, u_austrncpy(skelBytes,testDataPtr->skel,kTestOptionsPatLenMax), testDataPtr->options,
+                        u_austrncpy(expectedPatternBytes,testDataPtr->expectedPattern,kTestOptionsPatLenMax),
+                        u_austrncpy(patternBytes,pattern,kTestOptionsPatLenMax), status );
+            }
+            udatpg_close(dtpgen);
+        } else {
+            log_data_err("ERROR udatpg_open failed for locale %s : %s - (Are you missing data?)\n", testDataPtr->locale, myErrorName(status));
+        }
+    }
 }
 
 #endif

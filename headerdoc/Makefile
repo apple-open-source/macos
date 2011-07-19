@@ -11,6 +11,8 @@ templatefile = com.apple.headerdoc.exampletocteplate.html
 program1 = headerdoc2html
 program2 = gatherheaderdoc
 
+building_ppc = $(shell echo "$$RC_ARCHS" | grep -c ppc)
+
 os := $(shell uname -s)
 osmajor := $(shell uname -r | sed 's/\..*//')
 perl_libdir := $(shell perl -e 'require Config; print "$$Config::Config{'privlib'}\n";')
@@ -21,13 +23,15 @@ endif
 endif
 startperl   := $(shell perl -e 'require Config; print "$$Config::Config{'startperl'}\n";')
 
-all: all_internal test
+all: all_internal test apidoc
 
+# Override the default compiler to GCC 4.0 if building for Snow Leopard internally.
 all_internal:
-	cd xmlman ; make all ARCH=`uname` VERS=`sw_vers -productVersion | sed 's/\([0-9][0-9]*\)\.\([0-9][0-9]*\)\..*/\1.\2/'` ; cd ..
+	cd xmlman ; make all CC=`if [ "$$DEVELOPER_BIN_DIR" != "" -a "$(building_ppc)" != "0" ] ; then echo "gcc-4.0" ; else echo "cc"; fi` ARCH=`uname` VERS=`sw_vers -productVersion | sed 's/\([0-9][0-9]*\)\.\([0-9][0-9]*\)\..*/\1.\2/'` ; cd ..
 
 clean:
 	cd xmlman ; make clean ; cd ..
+	rm -rf Documentation/hdapi
 
 installsrc:
 	mkdir -p "$(SRCROOT)"
@@ -37,13 +41,11 @@ installhdrs:
 
 build:
 
-clean:
-
 test:
 	./headerDoc2HTML.pl -T run; \
 	if [ "$$?" -ne 0 ] ; then \
 		echo "Test suite failed."; \
-		exit -1; \
+		exit 1; \
 	fi
 
 	rm -rf /tmp/hdtest_perm
@@ -61,7 +63,7 @@ test:
 			echo "Permission test failed."; \
 			rm -rf /tmp/hdtest_perm; \
 			rm -rf /tmp/hdtest_out; \
-			exit -1; \
+			exit 1; \
 		fi \
 	fi
 	rm -rf /tmp/hdtest_perm
@@ -100,14 +102,24 @@ installsub:
 		umask 022 && install -d $(DSTROOT)/AppleInternal/Library/Perl/HeaderDoc ; \
 		install -c -m 444 Modules/HeaderDoc/LinkResolver.pm $(DSTROOT)/AppleInternal/Library/Perl/HeaderDoc ; \
 	fi
+	if [ "$(SYMROOT)" != "" ] ; then \
+		umask 022 && install -d $(SYMROOT)$(bindir); \
+	fi
 	umask 022 && install -d $(DSTROOT)$(bindir)
-	umask 022 && install -d $(DSTROOT)$(perl_libdir)/HeaderDoc/bin
 	umask 022 && install -d $(DSTROOT)$(confdir)
 	install -c -m 755 headerDoc2HTML.config-xcodecolors $(DSTROOT)$(confdir)$(conffile)
 	install -c -m 444 exampletoctemplate.html $(DSTROOT)$(confdir)$(templatefile)
-	install -c -m 755 xmlman/xml2man $(DSTROOT)$(bindir)/xml2man
-	install -c -m 755 xmlman/hdxml2manxml $(DSTROOT)$(bindir)/hdxml2manxml
-	install -c -m 755 xmlman/resolveLinks $(DSTROOT)$(perl_libdir)/HeaderDoc//bin/resolveLinks
+	if [ "$(SYMROOT)" != "" ] ; then \
+		install -c -m 755 xmlman/xml2man $(SYMROOT)$(bindir)/xml2man; \
+		dsymutil -o $(SYMROOT)$(bindir)/xml2man.dSYM $(SYMROOT)$(bindir)/xml2man; \
+		install -c -m 755 xmlman/hdxml2manxml $(SYMROOT)$(bindir)/hdxml2manxml; \
+		dsymutil -o $(SYMROOT)$(bindir)/hdxml2manxml.dSYM $(SYMROOT)$(bindir)/hdxml2manxml; \
+		install -c -m 755 xmlman/resolveLinks $(SYMROOT)$(bindir)/resolveLinks; \
+		dsymutil -o $(SYMROOT)$(bindir)/resolveLinks.dSYM $(SYMROOT)$(bindir)/resolveLinks ; \
+	fi
+	install -s -c -m 755 xmlman/xml2man $(DSTROOT)$(bindir)/xml2man
+	install -s -c -m 755 xmlman/hdxml2manxml $(DSTROOT)$(bindir)/hdxml2manxml
+	install -s -c -m 755 xmlman/resolveLinks $(DSTROOT)$(bindir)/resolveLinks
 	install -c -m 755 headerDoc2HTML.pl $(DSTROOT)$(bindir)/$(program1)
 	perl -i -pe 's|^#!/usr/bin/perl.*$$|$(startperl)|;' $(DSTROOT)$(bindir)/$(program1)
 	chmod 555 $(DSTROOT)$(bindir)/$(program1)
@@ -122,4 +134,40 @@ installsub:
 	umask 022 && install -d $(DSTROOT)/usr/share/man/man5
 	install -c -m 444 Documentation/man/*.5 $(DSTROOT)/usr/share/man/man5
 	cd xmlman ; make clean ; cd ..
+
+	# Install test suite
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite/parser_tests
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite/resolvelinks
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite/resolvelinks/sourcefiles
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite/resolvelinks/tests
+	umask 022 && install -d $(DSTROOT)/usr/share/headerdoc/testsuite/c_preprocessor_tests
+	install -c -m 444 testsuite/parser_tests/*.test $(DSTROOT)/usr/share/headerdoc/testsuite/parser_tests
+
+	# Install resolvelinks test tools
+	install -c -m 755 testsuite/resolvelinks/update.sh $(DSTROOT)/usr/share/headerdoc/testsuite/resolvelinks
+	install -c -m 755 testsuite/resolvelinks/runtests.sh $(DSTROOT)/usr/share/headerdoc/testsuite/resolvelinks
+
+	# Make resolvelinks test source directories
+	find testsuite/resolvelinks/sourcefiles -type d -and \! -path '*/CVS/*' -and \! -path '*/CVS' -exec install -m 755 -d -c {} $(DSTROOT)/usr/share/headerdoc/{} \;
+	# Copy resolvelinks test sources
+	find testsuite/resolvelinks/sourcefiles \! -type d -and \! -path '*/CVS/*' -and \! -path '*/CVS' -exec install -m 444 -c {} $(DSTROOT)/usr/share/headerdoc/{} \;
+
+	# Make resolvelinks test expected result directories
+	find testsuite/resolvelinks/tests -type d \! -path '*/CVS/*' -and \! -path '*/CVS' -exec install -m 755 -d -c {} $(DSTROOT)/usr/share/headerdoc/{} \;
+
+	# Copy resolvelinks test expected results
+	find testsuite/resolvelinks/tests \! -type d -and \! -path '*/CVS/*' -and \! -path '*/CVS' -exec install -m 444 -c {} $(DSTROOT)/usr/share/headerdoc/{} \;
+
+
+	install -c -m 444 testsuite/c_preprocessor_tests/*.test $(DSTROOT)/usr/share/headerdoc/testsuite/c_preprocessor_tests
+
+	# Install copies everywhere else
+	if [ -f "/usr/local/versioner/perl/versions" ] ; then \
+		./installmulti.sh "$(DSTROOT)"; \
+	fi
+
+apidoc:
+	./generateAPIDocs.sh
+	./apicoverage.sh
 

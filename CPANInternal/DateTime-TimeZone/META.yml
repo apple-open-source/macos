@@ -1,22 +1,22 @@
 ---
-name: DateTime-TimeZone
-version: 0.41
+abstract: 'Time zone object base class and factory'
 author:
-  - Dave Rolsky <autarch@urth.org>
-abstract: Time zone object base class and factory
-license: perl
-resources:
-  license: http://dev.perl.org/licenses/
-requires:
-  Class::Singleton: 1.03
-  Params::Validate: 0.72
-  Pod::Man: 1.14
+  - 'Dave Rolsky <autarch@urth.org>'
 build_requires:
   Module::Build: 0
+configure_requires:
+  Module::Build: 0.36
+dynamic_config: 1
+generated_by: 'Module::Build version 0.36'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-TimeZone
 provides:
   DateTime::TimeZone:
     file: lib/DateTime/TimeZone.pm
-    version: 0.41
+    version: 1.10
   DateTime::TimeZone::Africa::Abidjan:
     file: lib/DateTime/TimeZone/Africa/Abidjan.pm
   DateTime::TimeZone::Africa::Accra:
@@ -25,8 +25,8 @@ provides:
     file: lib/DateTime/TimeZone/Africa/Addis_Ababa.pm
   DateTime::TimeZone::Africa::Algiers:
     file: lib/DateTime/TimeZone/Africa/Algiers.pm
-  DateTime::TimeZone::Africa::Asmera:
-    file: lib/DateTime/TimeZone/Africa/Asmera.pm
+  DateTime::TimeZone::Africa::Asmara:
+    file: lib/DateTime/TimeZone/Africa/Asmara.pm
   DateTime::TimeZone::Africa::Bamako:
     file: lib/DateTime/TimeZone/Africa/Bamako.pm
   DateTime::TimeZone::Africa::Bangui:
@@ -143,8 +143,12 @@ provides:
     file: lib/DateTime/TimeZone/America/Argentina/Mendoza.pm
   DateTime::TimeZone::America::Argentina::Rio_Gallegos:
     file: lib/DateTime/TimeZone/America/Argentina/Rio_Gallegos.pm
+  DateTime::TimeZone::America::Argentina::Salta:
+    file: lib/DateTime/TimeZone/America/Argentina/Salta.pm
   DateTime::TimeZone::America::Argentina::San_Juan:
     file: lib/DateTime/TimeZone/America/Argentina/San_Juan.pm
+  DateTime::TimeZone::America::Argentina::San_Luis:
+    file: lib/DateTime/TimeZone/America/Argentina/San_Luis.pm
   DateTime::TimeZone::America::Argentina::Tucuman:
     file: lib/DateTime/TimeZone/America/Argentina/Tucuman.pm
   DateTime::TimeZone::America::Argentina::Ushuaia:
@@ -153,6 +157,8 @@ provides:
     file: lib/DateTime/TimeZone/America/Aruba.pm
   DateTime::TimeZone::America::Asuncion:
     file: lib/DateTime/TimeZone/America/Asuncion.pm
+  DateTime::TimeZone::America::Atikokan:
+    file: lib/DateTime/TimeZone/America/Atikokan.pm
   DateTime::TimeZone::America::Bahia:
     file: lib/DateTime/TimeZone/America/Bahia.pm
   DateTime::TimeZone::America::Barbados:
@@ -161,6 +167,8 @@ provides:
     file: lib/DateTime/TimeZone/America/Belem.pm
   DateTime::TimeZone::America::Belize:
     file: lib/DateTime/TimeZone/America/Belize.pm
+  DateTime::TimeZone::America::Blanc_Sablon:
+    file: lib/DateTime/TimeZone/America/Blanc_Sablon.pm
   DateTime::TimeZone::America::Boa_Vista:
     file: lib/DateTime/TimeZone/America/Boa_Vista.pm
   DateTime::TimeZone::America::Bogota:
@@ -183,8 +191,6 @@ provides:
     file: lib/DateTime/TimeZone/America/Chicago.pm
   DateTime::TimeZone::America::Chihuahua:
     file: lib/DateTime/TimeZone/America/Chihuahua.pm
-  DateTime::TimeZone::America::Coral_Harbour:
-    file: lib/DateTime/TimeZone/America/Coral_Harbour.pm
   DateTime::TimeZone::America::Costa_Rica:
     file: lib/DateTime/TimeZone/America/Costa_Rica.pm
   DateTime::TimeZone::America::Cuiaba:
@@ -243,10 +249,14 @@ provides:
     file: lib/DateTime/TimeZone/America/Indiana/Marengo.pm
   DateTime::TimeZone::America::Indiana::Petersburg:
     file: lib/DateTime/TimeZone/America/Indiana/Petersburg.pm
+  DateTime::TimeZone::America::Indiana::Tell_City:
+    file: lib/DateTime/TimeZone/America/Indiana/Tell_City.pm
   DateTime::TimeZone::America::Indiana::Vevay:
     file: lib/DateTime/TimeZone/America/Indiana/Vevay.pm
   DateTime::TimeZone::America::Indiana::Vincennes:
     file: lib/DateTime/TimeZone/America/Indiana/Vincennes.pm
+  DateTime::TimeZone::America::Indiana::Winamac:
+    file: lib/DateTime/TimeZone/America/Indiana/Winamac.pm
   DateTime::TimeZone::America::Inuvik:
     file: lib/DateTime/TimeZone/America/Inuvik.pm
   DateTime::TimeZone::America::Iqaluit:
@@ -273,6 +283,8 @@ provides:
     file: lib/DateTime/TimeZone/America/Manaus.pm
   DateTime::TimeZone::America::Martinique:
     file: lib/DateTime/TimeZone/America/Martinique.pm
+  DateTime::TimeZone::America::Matamoros:
+    file: lib/DateTime/TimeZone/America/Matamoros.pm
   DateTime::TimeZone::America::Mazatlan:
     file: lib/DateTime/TimeZone/America/Mazatlan.pm
   DateTime::TimeZone::America::Menominee:
@@ -305,6 +317,10 @@ provides:
     file: lib/DateTime/TimeZone/America/Noronha.pm
   DateTime::TimeZone::America::North_Dakota::Center:
     file: lib/DateTime/TimeZone/America/North_Dakota/Center.pm
+  DateTime::TimeZone::America::North_Dakota::New_Salem:
+    file: lib/DateTime/TimeZone/America/North_Dakota/New_Salem.pm
+  DateTime::TimeZone::America::Ojinaga:
+    file: lib/DateTime/TimeZone/America/Ojinaga.pm
   DateTime::TimeZone::America::Panama:
     file: lib/DateTime/TimeZone/America/Panama.pm
   DateTime::TimeZone::America::Pangnirtung:
@@ -329,8 +345,14 @@ provides:
     file: lib/DateTime/TimeZone/America/Recife.pm
   DateTime::TimeZone::America::Regina:
     file: lib/DateTime/TimeZone/America/Regina.pm
+  DateTime::TimeZone::America::Resolute:
+    file: lib/DateTime/TimeZone/America/Resolute.pm
   DateTime::TimeZone::America::Rio_Branco:
     file: lib/DateTime/TimeZone/America/Rio_Branco.pm
+  DateTime::TimeZone::America::Santa_Isabel:
+    file: lib/DateTime/TimeZone/America/Santa_Isabel.pm
+  DateTime::TimeZone::America::Santarem:
+    file: lib/DateTime/TimeZone/America/Santarem.pm
   DateTime::TimeZone::America::Santiago:
     file: lib/DateTime/TimeZone/America/Santiago.pm
   DateTime::TimeZone::America::Santo_Domingo:
@@ -419,8 +441,6 @@ provides:
     file: lib/DateTime/TimeZone/Asia/Bishkek.pm
   DateTime::TimeZone::Asia::Brunei:
     file: lib/DateTime/TimeZone/Asia/Brunei.pm
-  DateTime::TimeZone::Asia::Calcutta:
-    file: lib/DateTime/TimeZone/Asia/Calcutta.pm
   DateTime::TimeZone::Asia::Choibalsan:
     file: lib/DateTime/TimeZone/Asia/Choibalsan.pm
   DateTime::TimeZone::Asia::Chongqing:
@@ -441,6 +461,8 @@ provides:
     file: lib/DateTime/TimeZone/Asia/Gaza.pm
   DateTime::TimeZone::Asia::Harbin:
     file: lib/DateTime/TimeZone/Asia/Harbin.pm
+  DateTime::TimeZone::Asia::Ho_Chi_Minh:
+    file: lib/DateTime/TimeZone/Asia/Ho_Chi_Minh.pm
   DateTime::TimeZone::Asia::Hong_Kong:
     file: lib/DateTime/TimeZone/Asia/Hong_Kong.pm
   DateTime::TimeZone::Asia::Hovd:
@@ -461,8 +483,10 @@ provides:
     file: lib/DateTime/TimeZone/Asia/Karachi.pm
   DateTime::TimeZone::Asia::Kashgar:
     file: lib/DateTime/TimeZone/Asia/Kashgar.pm
-  DateTime::TimeZone::Asia::Katmandu:
-    file: lib/DateTime/TimeZone/Asia/Katmandu.pm
+  DateTime::TimeZone::Asia::Kathmandu:
+    file: lib/DateTime/TimeZone/Asia/Kathmandu.pm
+  DateTime::TimeZone::Asia::Kolkata:
+    file: lib/DateTime/TimeZone/Asia/Kolkata.pm
   DateTime::TimeZone::Asia::Krasnoyarsk:
     file: lib/DateTime/TimeZone/Asia/Krasnoyarsk.pm
   DateTime::TimeZone::Asia::Kuala_Lumpur:
@@ -483,6 +507,8 @@ provides:
     file: lib/DateTime/TimeZone/Asia/Muscat.pm
   DateTime::TimeZone::Asia::Nicosia:
     file: lib/DateTime/TimeZone/Asia/Nicosia.pm
+  DateTime::TimeZone::Asia::Novokuznetsk:
+    file: lib/DateTime/TimeZone/Asia/Novokuznetsk.pm
   DateTime::TimeZone::Asia::Novosibirsk:
     file: lib/DateTime/TimeZone/Asia/Novosibirsk.pm
   DateTime::TimeZone::Asia::Omsk:
@@ -503,8 +529,6 @@ provides:
     file: lib/DateTime/TimeZone/Asia/Rangoon.pm
   DateTime::TimeZone::Asia::Riyadh:
     file: lib/DateTime/TimeZone/Asia/Riyadh.pm
-  DateTime::TimeZone::Asia::Saigon:
-    file: lib/DateTime/TimeZone/Asia/Saigon.pm
   DateTime::TimeZone::Asia::Sakhalin:
     file: lib/DateTime/TimeZone/Asia/Sakhalin.pm
   DateTime::TimeZone::Asia::Samarkand:
@@ -549,8 +573,8 @@ provides:
     file: lib/DateTime/TimeZone/Atlantic/Canary.pm
   DateTime::TimeZone::Atlantic::Cape_Verde:
     file: lib/DateTime/TimeZone/Atlantic/Cape_Verde.pm
-  DateTime::TimeZone::Atlantic::Faeroe:
-    file: lib/DateTime/TimeZone/Atlantic/Faeroe.pm
+  DateTime::TimeZone::Atlantic::Faroe:
+    file: lib/DateTime/TimeZone/Atlantic/Faroe.pm
   DateTime::TimeZone::Atlantic::Madeira:
     file: lib/DateTime/TimeZone/Atlantic/Madeira.pm
   DateTime::TimeZone::Atlantic::Reykjavik:
@@ -571,6 +595,8 @@ provides:
     file: lib/DateTime/TimeZone/Australia/Currie.pm
   DateTime::TimeZone::Australia::Darwin:
     file: lib/DateTime/TimeZone/Australia/Darwin.pm
+  DateTime::TimeZone::Australia::Eucla:
+    file: lib/DateTime/TimeZone/Australia/Eucla.pm
   DateTime::TimeZone::Australia::Hobart:
     file: lib/DateTime/TimeZone/Australia/Hobart.pm
   DateTime::TimeZone::Australia::Lindeman:
@@ -583,8 +609,14 @@ provides:
     file: lib/DateTime/TimeZone/Australia/Perth.pm
   DateTime::TimeZone::Australia::Sydney:
     file: lib/DateTime/TimeZone/Australia/Sydney.pm
+  DateTime::TimeZone::CET:
+    file: lib/DateTime/TimeZone/CET.pm
   DateTime::TimeZone::CST6CDT:
     file: lib/DateTime/TimeZone/CST6CDT.pm
+  DateTime::TimeZone::Catalog:
+    file: lib/DateTime/TimeZone/Catalog.pm
+  DateTime::TimeZone::EET:
+    file: lib/DateTime/TimeZone/EET.pm
   DateTime::TimeZone::EST:
     file: lib/DateTime/TimeZone/EST.pm
   DateTime::TimeZone::EST5EDT:
@@ -667,6 +699,8 @@ provides:
     file: lib/DateTime/TimeZone/Europe/Vienna.pm
   DateTime::TimeZone::Europe::Vilnius:
     file: lib/DateTime/TimeZone/Europe/Vilnius.pm
+  DateTime::TimeZone::Europe::Volgograd:
+    file: lib/DateTime/TimeZone/Europe/Volgograd.pm
   DateTime::TimeZone::Europe::Warsaw:
     file: lib/DateTime/TimeZone/Europe/Warsaw.pm
   DateTime::TimeZone::Europe::Zaporozhye:
@@ -702,6 +736,15 @@ provides:
     file: lib/DateTime/TimeZone/Indian/Reunion.pm
   DateTime::TimeZone::Local:
     file: lib/DateTime/TimeZone/Local.pm
+    version: 0.01
+  DateTime::TimeZone::Local::Unix:
+    file: lib/DateTime/TimeZone/Local/Unix.pm
+  DateTime::TimeZone::Local::VMS:
+    file: lib/DateTime/TimeZone/Local/VMS.pm
+  DateTime::TimeZone::Local::Win32:
+    file: lib/DateTime/TimeZone/Local/Win32.pm
+  DateTime::TimeZone::MET:
+    file: lib/DateTime/TimeZone/MET.pm
   DateTime::TimeZone::MST:
     file: lib/DateTime/TimeZone/MST.pm
   DateTime::TimeZone::MST7MDT:
@@ -712,13 +755,13 @@ provides:
   DateTime::TimeZone::OlsonDB:
     file: lib/DateTime/TimeZone/OlsonDB.pm
   DateTime::TimeZone::OlsonDB::Change:
-    file: lib/DateTime/TimeZone/OlsonDB.pm
+    file: lib/DateTime/TimeZone/OlsonDB/Change.pm
   DateTime::TimeZone::OlsonDB::Observance:
-    file: lib/DateTime/TimeZone/OlsonDB.pm
+    file: lib/DateTime/TimeZone/OlsonDB/Observance.pm
   DateTime::TimeZone::OlsonDB::Rule:
-    file: lib/DateTime/TimeZone/OlsonDB.pm
+    file: lib/DateTime/TimeZone/OlsonDB/Rule.pm
   DateTime::TimeZone::OlsonDB::Zone:
-    file: lib/DateTime/TimeZone/OlsonDB.pm
+    file: lib/DateTime/TimeZone/OlsonDB/Zone.pm
   DateTime::TimeZone::PST8PDT:
     file: lib/DateTime/TimeZone/PST8PDT.pm
   DateTime::TimeZone::Pacific::Apia:
@@ -800,4 +843,13 @@ provides:
   DateTime::TimeZone::UTC:
     file: lib/DateTime/TimeZone/UTC.pm
     version: 0.01
-generated_by: Module::Build version 0.2703
+  DateTime::TimeZone::WET:
+    file: lib/DateTime/TimeZone/WET.pm
+requires:
+  Class::Singleton: 1.03
+  Cwd: 3
+  Params::Validate: 0.72
+  Pod::Man: 1.14
+resources:
+  license: http://dev.perl.org/licenses/
+version: 1.10

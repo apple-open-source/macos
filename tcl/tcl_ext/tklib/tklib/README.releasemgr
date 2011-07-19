@@ -1,0 +1,42 @@
+RCS: @(#) $Id: README.releasemgr,v 1.1 2010/07/07 15:15:17 andreas_kupries Exp $
+
+Welcome to the tklib, the Tk Standard Library.
+================================================
+
+Introduction
+------------
+
+This README is intended to be a guide to the tools available to a
+
+	Release manager
+
+working on the creation of a release of Tklib.
+
+Audience
+--------
+
+The intended audience is the release manager of Tklib, his deputies,
+and anybody else interested in the task.
+
+Basics
+------
+
+< Flesh this out >
+
+	sak.tcl
+
+< Tasks, and how to perform them >
+
+
+Uploading and releasing files to SourceForge
+--------------------------------------------
+
+The main form to upload files is
+
+	https://frs.sourceforge.net/webupload
+
+This is WebDAV.
+
+The place to manage the releases the files are for is
+
+	https://sourceforge.net/project/admin/editpackages.php?group_id=12883

@@ -34,13 +34,20 @@
 #ifndef _HANDLER_H
 #define _HANDLER_H
 
+#include "config.h"
+
 #include <sys/queue.h>
+#ifdef HAVE_OPENSSL
 #include <openssl/rsa.h>
+#endif
 
 #include <sys/time.h>
 
 #include "isakmp_var.h"
 #include "oakley.h"
+#ifndef HAVE_OPENSSL
+#include <Security/SecDH.h>
+#endif
 
 typedef struct ike_session ike_session_t;
 
@@ -150,6 +157,10 @@ struct ph1handle {
 	int retry_counter;		/* for resend. */
 	vchar_t *sendbuf;		/* buffer for re-sending */
 
+#ifndef HAVE_OPENSSL
+	SecDHContext dhC;		/* Context for Security Framework Diffie-Hellman calculations */
+	size_t publicKeySize;
+#endif
 	vchar_t *dhpriv;		/* DH; private value */
 	vchar_t *dhpub;			/* DH; public value */
 	vchar_t *dhpub_p;		/* DH; partner's public value */
@@ -168,9 +179,11 @@ struct ph1handle {
 	cert_t *cert_p;			/* peer's CERT minus general header */
 	cert_t *crl_p;			/* peer's CRL minus general header */
 	cert_t *cr_p;			/* peer's CR not including general */
+#ifdef HAVE_OPENSSL
 	RSA *rsa;			/* my RSA key */
 	RSA *rsa_p;			/* peer's RSA key */
 	struct genlist *rsa_candidates;	/* possible candidates for peer's RSA key */
+#endif
 	vchar_t *id;			/* ID minus gen header */
 	vchar_t *id_p;			/* partner's ID minus general header */
 					/* i.e. struct ipsecdoi_id_b*. */
@@ -223,12 +236,10 @@ struct ph1handle {
 	u_int8_t xauth_awaiting_userinput;	/* indicates we are waiting for user input */
         vchar_t *xauth_awaiting_userinput_msg; /* tracks the last packet that triggered XAUTH */
 #endif
-#ifdef __APPLE__
 	int                    is_rekey:1;
 	int                    is_dying:1;
 	ike_session_t         *parent_session;
 	LIST_ENTRY(ph1handle)  ph1ofsession_chain;
-#endif
 };
 
 /* Phase 2 handler */
@@ -307,6 +318,10 @@ struct ph2handle {
 	struct saprop *approval;	/* SA(s) approved. */
 	caddr_t spidx_gen;		/* policy from peer's proposal */
 
+#ifndef HAVE_OPENSSL
+	SecDHContext dhC;		/* Context for Security Framework Diffie-Hellman calculations */
+	size_t publicKeySize;
+#endif	
 	struct dhgroup *pfsgrp;		/* DH; prime number */
 	vchar_t *dhpriv;		/* DH; private value */
 	vchar_t *dhpub;			/* DH; public value */
@@ -334,14 +349,12 @@ struct ph2handle {
 	struct timeval end;
 #endif
 	struct ph1handle *ph1;	/* back pointer to isakmp status */
-#ifdef __APPLE__
 	int                    is_rekey:1;
 	int                    is_dying:1;
 	ike_session_t         *parent_session;
 	LIST_ENTRY(ph2handle)  ph2ofsession_chain;
 	vchar_t               *ext_nat_id;
 	vchar_t               *ext_nat_id_p;
-#endif
 	
 	LIST_ENTRY(ph2handle) chain;
 	LIST_ENTRY(ph2handle) ph1bind;	/* chain to ph1handle */
@@ -366,6 +379,10 @@ struct recvdpkt {
 	int retry_counter;		/* how many times to send */
 	time_t time_send;		/* timestamp to send a packet */
 	time_t created;			/* timestamp to create a queue */
+	time_t retry_interval;
+#ifdef ENABLE_FRAG
+	u_int32_t frag_flags;            /* IKE phase 1 fragmentation */
+#endif
 
 	struct sched *scr;		/* schedule for resend, may not used */
 
@@ -501,10 +518,12 @@ extern int inscontacted __P((struct sockaddr *));
 extern void clear_contacted __P((void));
 extern void initctdtree __P((void));
 
+extern time_t get_exp_retx_interval __P((int num_retries, int fixed_retry_interval));
+
 extern int check_recvdpkt __P((struct sockaddr *,
 	struct sockaddr *, vchar_t *));
 extern int add_recvdpkt __P((struct sockaddr *, struct sockaddr *,
-	vchar_t *, vchar_t *, size_t));
+	vchar_t *, vchar_t *, size_t, u_int32_t));
 extern void clear_recvdpkt __P((void));
 extern void init_recvdpkt __P((void));
 
@@ -515,5 +534,6 @@ extern int exclude_cfg_addr __P((const struct sockaddr *));
 #ifdef ENABLE_DPD
 extern int  ph1_force_dpd __P((struct sockaddr *));
 #endif
+extern void sweep_sleepwake __P((void));
 
 #endif /* _HANDLER_H */

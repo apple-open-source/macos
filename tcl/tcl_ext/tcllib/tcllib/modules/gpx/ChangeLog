@@ -1,0 +1,18 @@
+2010-07-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* gpx.test: Extended testsuite, provided by Keith.
+
+2010-07-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* gpx.man: Added documentation, written by Keith.
+
+2010-07-09  Andreas Kupries  <andreask@activestate.com>
+
+	* gpx.tcl (::gpx::GetTrackPoints, ::gpx::GetRoutePoints): Fixed
+	  bugs reported by Keith through mail, using his code.
+
+2010-07-08  Andreas Kupries  <andreask@activestate.com>
+
+	* gpx.tcl: New module and package for the parsing of GPS eXChange
+	* pkgIndex.tcl: files, by Keith Vetter.
+	* gpx.test: Beginnings of a testsuite.

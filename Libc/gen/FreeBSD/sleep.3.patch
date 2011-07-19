@@ -1,6 +1,6 @@
---- /Volumes/XDisk/tmp/Libc/gen/FreeBSD/sleep.3.orig	2004-07-02 16:52:10.000000000 -0700
-+++ /Volumes/XDisk/tmp/Libc/gen/FreeBSD/sleep.3	2004-10-24 17:08:28.000000000 -0700
-@@ -37,7 +37,7 @@
+--- sleep.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ sleep.3	2009-11-07 14:51:40.000000000 -0800
+@@ -33,7 +33,7 @@
  .Os
  .Sh NAME
  .Nm sleep
@@ -9,7 +9,7 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
-@@ -47,11 +47,11 @@
+@@ -43,11 +43,11 @@
  .Sh DESCRIPTION
  The
  .Fn sleep

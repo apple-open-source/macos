@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ftpgetresp.c,v 1.4 2007-07-16 21:22:12 danf Exp $
  */
 
 #include <stdio.h>
@@ -28,7 +27,7 @@ write_response(void *ptr, size_t size, size_t nmemb, void *data)
   return fwrite(ptr, size, nmemb, writehere);
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
   CURL *curl;
   CURLcode res;
@@ -44,7 +43,7 @@ int main(int argc, char **argv)
   curl = curl_easy_init();
   if(curl) {
     /* Get a file listing from sunet */
-    curl_easy_setopt(curl, CURLOPT_URL, "ftp://ftp.sunet.se/");
+    curl_easy_setopt(curl, CURLOPT_URL, "ftp://ftp.example.com/");
     curl_easy_setopt(curl, CURLOPT_WRITEDATA, ftpfile);
     /* If you intend to use this on windows with a libcurl DLL, you must use
        CURLOPT_WRITEFUNCTION as well */

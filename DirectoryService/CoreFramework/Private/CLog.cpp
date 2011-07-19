@@ -47,15 +47,8 @@ OptionBits	CLog::fSrvrLogFlags		= kLogMeta;
 OptionBits	CLog::fErrLogFlags		= kLogMeta | kLogError;
 OptionBits	CLog::fDbgLogFlags		= kLogEverything;
 OptionBits	CLog::fInfoLogFlags		= kLogMeta;
-CLog	   *CLog::fServerLog		= nil;
-CLog	   *CLog::fDebugLog			= nil;
-CLog	   *CLog::fErrorLog			= nil;
-CLog	   *CLog::fInfoLog			= nil;
-CString	   *CLog::fServerLogName	= nil;
-CString	   *CLog::fErrorLogName		= nil;
-CString	   *CLog::fDebugLogName		= nil;
-CString	   *CLog::fInfoLogName		= nil;
 
+static passthru_logging_fn	passthru_log_message = NULL;
 
 //--------------------------------------------------------------------------------------------------
 //	* Initialize()
@@ -65,143 +58,15 @@ CString	   *CLog::fInfoLogName		= nil;
 SInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 							OptionBits debugFlags,	OptionBits infoFlags,
 							bool inOpenDbgLog, bool inOpenInfoLog,
-							bool inLocalOnlyMode )
+							bool inLocalOnlyMode, passthru_logging_fn passthru )
 {
-	SInt32							result;
-	NSSearchPathEnumerationState	eState;
-	struct stat						ssFolder;
-    char							localPath[ PATH_MAX ];
-    CString							csBasePath( 128 );
-
-	try
-	{
-		// Locate or create the product suite's prefs folder.
-		eState = NSStartSearchPathEnumeration( NSLibraryDirectory, NSLocalDomainMask );
-		eState = NSGetNextSearchPathEnumeration( eState, localPath );
-
-		fSrvrLogFlags	= srvrFlags;
-		fErrLogFlags	= errFlags;
-		fDbgLogFlags	= debugFlags;
-		fInfoLogFlags	= infoFlags;
-		
-		fServerLogName = new CString( 128 );
-		if ( fServerLogName == nil )
-		{
-			throw( (SInt32)eMemoryAllocError );
-		}
-
-		fErrorLogName = new CString( 128 );
-		if ( fErrorLogName == nil )
-		{
-			throw( (SInt32)eMemoryAllocError );
-		}
-
-		fDebugLogName = new CString( 128 );
-		if ( fDebugLogName == nil )
-		{
-			throw( (SInt32)eMemoryAllocError );
-		}
-
-		fInfoLogName = new CString( 128 );
-		if ( fInfoLogName == nil )
-		{
-			throw( (SInt32)eMemoryAllocError );
-		}
-
-		// Set the base path (/Library)
-		csBasePath.Set( localPath );
-
-		// Append the log folder name
-		csBasePath.Append( "/" );
-		csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrLogFolder ) );
-
-		// Create it if it doesn't exist
-		result = ::stat( csBasePath.GetData(), &ssFolder );
-		if ( result != eDSNoErr )
-		{
-			result = ::mkdir( csBasePath.GetData(), 0775 );
-			::chmod( csBasePath.GetData(), 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-		}
-		
-		// Append the product folder name
-		csBasePath.Append( "/" );
-		if (inLocalOnlyMode)
-		{
-			csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrLocalProductFolder ) );
-		}
-		else
-		{
-			csBasePath.Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
-		}
-
-		// Create it if it doesn't exist
-		result = ::stat( csBasePath.GetData(), &ssFolder );
-		if ( result != eDSNoErr )
-		{
-			result = ::mkdir( csBasePath.GetData(), 0775 );
-			::chmod( csBasePath.GetData(), 0775 ); //above 0775 doesn't seem to work - looks like umask modifies it
-		}
-		
-		csBasePath. Append( "/" );
-
-		// Set the data member log file names
-		fServerLogName->Set( csBasePath.GetData() );
-		fServerLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
-		fServerLogName->Append( "." );
-		fServerLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrServerLogFileName ) );
-
-		fErrorLogName->Set( csBasePath.GetData() );
-		fErrorLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
-		fErrorLogName->Append( "." );
-		fErrorLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrErrorLogFileName ) );
-
-		fDebugLogName->Set( csBasePath.GetData() );
-		fDebugLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
-		fDebugLogName->Append( "." );
-		fDebugLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrDebugLogFileName ) );
-
-		fInfoLogName->Set( csBasePath.GetData() );
-		fInfoLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrProductFolder ) );
-		fInfoLogName->Append( "." );
-		fInfoLogName->Append( COSUtils::GetStringFromList( kAppStringsListID, kStrInfoLogFileName ) );
-
-		// Create only the required log files
-		if ( result == eDSNoErr )
-		{
-			// Create the server event log file.
-			fServerLog = new CLog( fServerLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-
-			// Create the Error event log file on demand and not here
-			//fErrorLog = new CLog( fErrorLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-
-			if ( inOpenDbgLog == true )
-			{
-				// Create the debug event log file.
-				if (kLogDebugHeader & fDbgLogFlags)
-				{
-					fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kDebugHdr | kThreadInfo | kRollLog );
-				}
-				else
-				{
-					fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-				}
-			}
-
-			if ( inOpenInfoLog == true )
-			{
-				// Create the performance event log file.
-				fInfoLog = new CLog( fInfoLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-			}
-		}
-	}
-
-	catch( SInt32 err )
-	{
-		result = err;
-	}
-
-
-	return( result );
+	fSrvrLogFlags	= srvrFlags;
+	fErrLogFlags	= errFlags;
+	fDbgLogFlags	= debugFlags;
+	fInfoLogFlags	= infoFlags;
+	passthru_log_message = passthru;
+	
+	return eDSNoErr;
 
 } // Initialize
 
@@ -213,31 +78,6 @@ SInt32 CLog::Initialize (	OptionBits srvrFlags,	OptionBits errFlags,
 
 void CLog::Deinitialize ( void )
 {
-
-	if ( fServerLog != nil )
-	{
-		delete( fServerLog );
-		fServerLog = nil;
-	}
-
-	if ( fErrorLog != nil )
-	{
-		delete( fErrorLog );
-		fErrorLog = nil;
-	}
-
-	if ( fDebugLog != nil )
-	{
-		delete( fDebugLog );
-		fDebugLog = nil;
-	}
-
-	if ( fInfoLog != nil )
-	{
-		delete( fInfoLog );
-		fInfoLog = nil;
-	}
-
 } // Deinitialize
 
 
@@ -440,24 +280,6 @@ bool CLog::IsLogging ( eLogType inWhichLog, UInt32 inFlag )
 
 void CLog::StartDebugLog ( void )
 {
-	try
-	{
-		if ( fDebugLog == nil )
-		{
-			if (kLogDebugHeader & fDbgLogFlags)
-			{
-				fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kDebugHdr | kThreadInfo | kRollLog );
-			}
-			else
-			{
-				fDebugLog = new CLog( fDebugLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-			}
-		}
-	}
-
-	catch ( ... )
-	{
-	}
 } // StartDebugLog
 
 
@@ -468,15 +290,7 @@ void CLog::StartDebugLog ( void )
 
 void CLog::StopDebugLog ( void )
 {
-	if ( fDebugLog != nil )
-	{
-		fDebugLog->Lock();
-
-		fDbgLogFlags = kLogMeta;
-
-		delete( fDebugLog );
-		fDebugLog = nil;
-	}
+	fDbgLogFlags = kLogMeta;
 } // StopDebugLog
 
 
@@ -487,21 +301,6 @@ void CLog::StopDebugLog ( void )
 
 void CLog::StartErrorLog ( void )
 {
-	try
-	{
-		if ( fErrorLog == nil )
-		{
-			CLog *tempLog = new CLog( fErrorLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-			
-			// use atomic calls to set this so we can deal with multiple clients at once
-			if ( OSAtomicCompareAndSwapPtrBarrier(NULL, tempLog, (void **) &fErrorLog) == false )
-				delete tempLog;
-		}
-	}
-
-	catch ( ... )
-	{
-	}
 } // StartErrorLog
 
 
@@ -512,15 +311,7 @@ void CLog::StartErrorLog ( void )
 
 void CLog::StopErrorLog ( void )
 {
-	if ( fErrorLog != nil )
-	{
-		fErrorLog->Lock();
-
-		fErrLogFlags = kLogMeta;
-
-		delete( fErrorLog );
-		fErrorLog = nil;
-	}
+	fErrLogFlags = kLogMeta;
 } // StopErrorLog
 
 
@@ -531,19 +322,7 @@ void CLog::StopErrorLog ( void )
 
 void CLog::StartInfoLog ( void )
 {
-	try
-	{
-		if ( fInfoLog == nil )
-		{
-			fInfoLogFlags = kLogEverything;
-
-			fInfoLog = new CLog( fInfoLogName->GetData(), kLengthUnlimited, kThreadInfo | kRollLog );
-		}
-	}
-
-	catch( ... )
-	{
-	}
+	fInfoLogFlags = kLogEverything;
 } // StartInfoLog
 
 
@@ -554,15 +333,7 @@ void CLog::StartInfoLog ( void )
 
 void CLog::StopInfoLog ( void )
 {
-	if ( fInfoLog != nil )
-	{
-		fInfoLog->Lock();
-
-		fInfoLogFlags = kLogMeta;
-
-		delete( fInfoLog );
-		fInfoLog = nil;
-	}
+	fInfoLogFlags = kLogMeta;
 } // StopInfoLog
 
 
@@ -573,7 +344,7 @@ void CLog::StopInfoLog ( void )
 
 CLog* CLog::GetServerLog ( void )
 {
-	return( fServerLog );
+	return NULL;
 } // GetServerLog
 
 
@@ -584,7 +355,7 @@ CLog* CLog::GetServerLog ( void )
 
 CLog* CLog::GetErrorLog ( void )
 {
-	return( fErrorLog );
+	return NULL;
 } // GetErrorLog
 
 
@@ -595,7 +366,7 @@ CLog* CLog::GetErrorLog ( void )
 
 CLog* CLog::GetDebugLog ( void )
 {
-	return( fDebugLog );
+	return NULL;
 } // GetDebugLog
 
 
@@ -606,7 +377,7 @@ CLog* CLog::GetDebugLog ( void )
 
 CLog* CLog::GetInfoLog ( void )
 {
-	return( fInfoLog );
+	return NULL;
 } // GetInfoLog
 
 
@@ -816,14 +587,16 @@ SInt16 CLog::Append ( const CString &line )
 
 void SrvrLog ( SInt32 lType, const char *szpPattern, ... )
 {
-	if ( (szpPattern != nil) && (CLog::GetServerLog() != nil ) )
+	// if log is not open, we start it now
+	if ( szpPattern != nil )
 	{
-		if ( CLog::IsLogging( keServerLog, lType ) )
-		{
-			va_list	args;
-			va_start( args, szpPattern );
-
-			CLog::GetServerLog()->Append( CString( szpPattern, args ) );
+		va_list	args;
+		va_start( args, szpPattern );
+		
+		bool isLogging = CLog::IsLogging(keDebugLog, lType); // no application log anymore, just direct to debug log
+		if (passthru_log_message != NULL && isLogging == true) {
+			CString message = CString(szpPattern, args);
+			passthru_log_message(lType, message.GetData());
 		}
 	}
 } // SrvrLog
@@ -834,14 +607,13 @@ void ErrLog ( SInt32 lType, const char *szpPattern, ... )
 	// if log is not open, we start it now
 	if ( szpPattern != nil )
 	{
-		CLog::StartErrorLog(); //create error log on demand
+		va_list	args;
+		va_start( args, szpPattern );
 		
-		if ( CLog::IsLogging(keErrorLog, lType) && CLog::GetErrorLog() != nil )
-		{
-			va_list	args;
-			va_start( args, szpPattern );
-
-			CLog::GetErrorLog()->Append( CString( szpPattern, args ) );
+		bool isLogging = CLog::IsLogging(keDebugLog, kLogError); // no error log anymore, just direct to debug log
+		if (passthru_log_message != NULL && isLogging == true) {
+			CString message = CString(szpPattern, args);
+			passthru_log_message(kLogError, message.GetData());
 		}
 	}
 } // ErrLog
@@ -849,31 +621,25 @@ void ErrLog ( SInt32 lType, const char *szpPattern, ... )
 
 void DbgLog ( SInt32 lType, const char *szpPattern, ... )
 {
+	if (szpPattern == NULL)
+		return;
+
+	va_list	args;
+	va_start( args, szpPattern );
+
 	// certain types always get logged to error log
-	if ( (lType & (kLogEmergency | kLogAlert | kLogCritical | kLogError)) != 0 )
-	{
-		CLog::StartErrorLog(); //create error log on demand
-		
-		if ( CLog::IsLogging(keErrorLog, lType) && CLog::GetErrorLog() != nil )
-		{
-			va_list	args;
-			va_start( args, szpPattern );
-			
-			CLog::GetErrorLog()->Append( CString( szpPattern, args ) );
+	if ((lType & (kLogEmergency | kLogAlert | kLogCritical | kLogError)) != 0) {
+		bool isLogging = CLog::IsLogging(keErrorLog, lType);
+		if (passthru_log_message != NULL && isLogging == true) {
+			CString message = CString(szpPattern, args);
+			passthru_log_message(lType, message.GetData());
 		}
 	}
-	else if ( (szpPattern != nil) && (CLog::GetDebugLog() != nil ) )
-	{
-		// Just in case it was deleted while I was waiting for it
-		if ( CLog::GetDebugLog() != nil )
-		{
-			if ( CLog::IsLogging( keDebugLog, lType ) )
-			{
-				va_list	args;
-				va_start( args, szpPattern );
-
-				CLog::GetDebugLog()->Append( CString( szpPattern, args ) );
-			}
+	else {
+		bool isLogging = CLog::IsLogging(keDebugLog, lType);
+		if (passthru_log_message != NULL && isLogging == true) {
+			CString message = CString(szpPattern, args);
+			passthru_log_message(lType, message.GetData());
 		}
 	}
 } // DbgLog

@@ -1,0 +1,1292 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		1C3D9D1B101FB9CB007934F5 /* OpenPAM */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C3D9D29101FBA33007934F5 /* Build configuration list for PBXAggregateTarget "OpenPAM" */;
+			buildPhases = (
+			);
+			dependencies = (
+				1C3D9D20101FB9DB007934F5 /* PBXTargetDependency */,
+				1CEE194F1027B212002306F4 /* PBXTargetDependency */,
+				1C3D9D24101FB9E2007934F5 /* PBXTargetDependency */,
+				1C3D9D22101FB9DE007934F5 /* PBXTargetDependency */,
+				1C3D9F0F101FCA59007934F5 /* PBXTargetDependency */,
+				1C3D9F0B101FCA54007934F5 /* PBXTargetDependency */,
+				1C3D9F0D101FCA57007934F5 /* PBXTargetDependency */,
+				1C3D9F26101FCFCF007934F5 /* PBXTargetDependency */,
+			);
+			name = OpenPAM;
+			productName = all;
+		};
+		1C3D9E5C101FC704007934F5 /* Install Legal */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C3D9E66101FC704007934F5 /* Build configuration list for PBXAggregateTarget "Install Legal" */;
+			buildPhases = (
+				1C3D9E65101FC704007934F5 /* ShellScript */,
+			);
+			dependencies = (
+				1C3D9E5D101FC704007934F5 /* PBXTargetDependency */,
+				1C3D9E5F101FC704007934F5 /* PBXTargetDependency */,
+				1C3D9E63101FC704007934F5 /* PBXTargetDependency */,
+			);
+			name = "Install Legal";
+			productName = "Install pam.d";
+		};
+		1C3D9E6B101FC76A007934F5 /* Install Manpages */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C3D9E71101FC7E8007934F5 /* Build configuration list for PBXAggregateTarget "Install Manpages" */;
+			buildPhases = (
+				1C3D9E6A101FC76A007934F5 /* Copy to man3 */,
+				1C3D9E70101FC7E8007934F5 /* Copy to man5 */,
+				1C3D9E6E101FC783007934F5 /* Compress */,
+			);
+			dependencies = (
+			);
+			name = "Install Manpages";
+			productName = "Install Manpages";
+		};
+		1C3D9EFB101FC918007934F5 /* Install pam.d */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C3D9F01101FC942007934F5 /* Build configuration list for PBXAggregateTarget "Install pam.d" */;
+			buildPhases = (
+				1C3D9EFA101FC918007934F5 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "Install pam.d";
+			productName = "Install pam.d";
+		};
+		1C3D9F1A101FCF61007934F5 /* Cleanup EVERYTHING */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1C3D9F24101FCF8C007934F5 /* Build configuration list for PBXAggregateTarget "Cleanup EVERYTHING" */;
+			buildPhases = (
+				1C3D9F19101FCF61007934F5 /* ShellScript */,
+			);
+			dependencies = (
+				1C3D9F1D101FCF66007934F5 /* PBXTargetDependency */,
+				1C3D9F1F101FCF66007934F5 /* PBXTargetDependency */,
+				1C3D9F23101FCF66007934F5 /* PBXTargetDependency */,
+			);
+			name = "Cleanup EVERYTHING";
+			productName = "Cleanup EVERYTHING";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		1C3D9D10101FB962007934F5 /* pam_deny.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D0F101FB962007934F5 /* pam_deny.c */; };
+		1C3D9D12101FB973007934F5 /* pam_permit.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D11101FB973007934F5 /* pam_permit.c */; };
+		1C3D9D31101FBA60007934F5 /* openpam_attr.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2A101FBA60007934F5 /* openpam_attr.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D32101FBA60007934F5 /* openpam_version.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2B101FBA60007934F5 /* openpam_version.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D33101FBA60007934F5 /* openpam.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2C101FBA60007934F5 /* openpam.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D34101FBA60007934F5 /* pam_appl.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2D101FBA60007934F5 /* pam_appl.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D35101FBA60007934F5 /* pam_constants.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2E101FBA60007934F5 /* pam_constants.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D36101FBA60007934F5 /* pam_modules.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D2F101FBA60007934F5 /* pam_modules.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D37101FBA60007934F5 /* pam_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1C3D9D30101FBA60007934F5 /* pam_types.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		1C3D9D75101FBA9F007934F5 /* openpam_borrow_cred.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D3B101FBA9F007934F5 /* openpam_borrow_cred.c */; };
+		1C3D9D76101FBA9F007934F5 /* openpam_configure.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D3C101FBA9F007934F5 /* openpam_configure.c */; };
+		1C3D9D77101FBA9F007934F5 /* openpam_dispatch.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D3D101FBA9F007934F5 /* openpam_dispatch.c */; };
+		1C3D9D78101FBA9F007934F5 /* openpam_dynamic.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D3E101FBA9F007934F5 /* openpam_dynamic.c */; };
+		1C3D9D79101FBA9F007934F5 /* openpam_findenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D3F101FBA9F007934F5 /* openpam_findenv.c */; };
+		1C3D9D7A101FBA9F007934F5 /* openpam_free_data.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D40101FBA9F007934F5 /* openpam_free_data.c */; };
+		1C3D9D7B101FBA9F007934F5 /* openpam_free_envlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D41101FBA9F007934F5 /* openpam_free_envlist.c */; };
+		1C3D9D7C101FBA9F007934F5 /* openpam_get_option.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D42101FBA9F007934F5 /* openpam_get_option.c */; };
+		1C3D9D7E101FBA9F007934F5 /* openpam_load.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D44101FBA9F007934F5 /* openpam_load.c */; };
+		1C3D9D7F101FBA9F007934F5 /* openpam_log.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D45101FBA9F007934F5 /* openpam_log.c */; };
+		1C3D9D80101FBA9F007934F5 /* openpam_nullconv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D46101FBA9F007934F5 /* openpam_nullconv.c */; };
+		1C3D9D81101FBA9F007934F5 /* openpam_readline.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D47101FBA9F007934F5 /* openpam_readline.c */; };
+		1C3D9D82101FBA9F007934F5 /* openpam_restore_cred.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D48101FBA9F007934F5 /* openpam_restore_cred.c */; };
+		1C3D9D83101FBA9F007934F5 /* openpam_set_option.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D49101FBA9F007934F5 /* openpam_set_option.c */; };
+		1C3D9D84101FBA9F007934F5 /* openpam_static.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D4A101FBA9F007934F5 /* openpam_static.c */; };
+		1C3D9D85101FBA9F007934F5 /* openpam_ttyconv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D4B101FBA9F007934F5 /* openpam_ttyconv.c */; };
+		1C3D9D86101FBA9F007934F5 /* pam_acct_mgmt.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D4C101FBA9F007934F5 /* pam_acct_mgmt.c */; };
+		1C3D9D88101FBA9F007934F5 /* pam_authenticate.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D4E101FBA9F007934F5 /* pam_authenticate.c */; };
+		1C3D9D89101FBA9F007934F5 /* pam_chauthtok.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D4F101FBA9F007934F5 /* pam_chauthtok.c */; };
+		1C3D9D8A101FBA9F007934F5 /* pam_close_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D50101FBA9F007934F5 /* pam_close_session.c */; };
+		1C3D9D8B101FBA9F007934F5 /* pam_end.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D51101FBA9F007934F5 /* pam_end.c */; };
+		1C3D9D8C101FBA9F007934F5 /* pam_error.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D52101FBA9F007934F5 /* pam_error.c */; };
+		1C3D9D8D101FBA9F007934F5 /* pam_get_authtok.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D53101FBA9F007934F5 /* pam_get_authtok.c */; };
+		1C3D9D8E101FBA9F007934F5 /* pam_get_data.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D54101FBA9F007934F5 /* pam_get_data.c */; };
+		1C3D9D8F101FBA9F007934F5 /* pam_get_item.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D55101FBA9F007934F5 /* pam_get_item.c */; };
+		1C3D9D92101FBA9F007934F5 /* pam_get_user.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D58101FBA9F007934F5 /* pam_get_user.c */; };
+		1C3D9D93101FBA9F007934F5 /* pam_getenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D59101FBA9F007934F5 /* pam_getenv.c */; };
+		1C3D9D94101FBA9F007934F5 /* pam_getenvlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5A101FBA9F007934F5 /* pam_getenvlist.c */; };
+		1C3D9D95101FBA9F007934F5 /* pam_info.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5B101FBA9F007934F5 /* pam_info.c */; };
+		1C3D9D96101FBA9F007934F5 /* pam_open_session.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5C101FBA9F007934F5 /* pam_open_session.c */; };
+		1C3D9D97101FBA9F007934F5 /* pam_prompt.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5D101FBA9F007934F5 /* pam_prompt.c */; };
+		1C3D9D98101FBA9F007934F5 /* pam_putenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5E101FBA9F007934F5 /* pam_putenv.c */; };
+		1C3D9D99101FBA9F007934F5 /* pam_set_data.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D5F101FBA9F007934F5 /* pam_set_data.c */; };
+		1C3D9D9A101FBA9F007934F5 /* pam_set_item.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D60101FBA9F007934F5 /* pam_set_item.c */; };
+		1C3D9D9D101FBA9F007934F5 /* pam_setcred.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D63101FBA9F007934F5 /* pam_setcred.c */; };
+		1C3D9D9E101FBA9F007934F5 /* pam_setenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D64101FBA9F007934F5 /* pam_setenv.c */; };
+		1C3D9DAA101FBA9F007934F5 /* pam_start.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D70101FBA9F007934F5 /* pam_start.c */; };
+		1C3D9DAB101FBA9F007934F5 /* pam_strerror.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D71101FBA9F007934F5 /* pam_strerror.c */; };
+		1C3D9DAC101FBA9F007934F5 /* pam_verror.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D72101FBA9F007934F5 /* pam_verror.c */; };
+		1C3D9DAD101FBA9F007934F5 /* pam_vinfo.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D73101FBA9F007934F5 /* pam_vinfo.c */; };
+		1C3D9DAE101FBA9F007934F5 /* pam_vprompt.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D74101FBA9F007934F5 /* pam_vprompt.c */; };
+		1C3D9EB2101FC88C007934F5 /* openpam.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E7C101FC7FE007934F5 /* openpam.3 */; };
+		1C3D9EB4101FC88C007934F5 /* openpam_borrow_cred.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E72101FC7FE007934F5 /* openpam_borrow_cred.3 */; };
+		1C3D9EB5101FC88C007934F5 /* openpam_free_data.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E73101FC7FE007934F5 /* openpam_free_data.3 */; };
+		1C3D9EB6101FC88C007934F5 /* openpam_free_envlist.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E74101FC7FE007934F5 /* openpam_free_envlist.3 */; };
+		1C3D9EB7101FC88C007934F5 /* openpam_get_option.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E75101FC7FE007934F5 /* openpam_get_option.3 */; };
+		1C3D9EB8101FC88C007934F5 /* openpam_log.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E76101FC7FE007934F5 /* openpam_log.3 */; };
+		1C3D9EB9101FC88C007934F5 /* openpam_nullconv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E77101FC7FE007934F5 /* openpam_nullconv.3 */; };
+		1C3D9EBA101FC88C007934F5 /* openpam_readline.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E78101FC7FE007934F5 /* openpam_readline.3 */; };
+		1C3D9EBB101FC88C007934F5 /* openpam_restore_cred.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E79101FC7FE007934F5 /* openpam_restore_cred.3 */; };
+		1C3D9EBC101FC88C007934F5 /* openpam_set_option.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E7A101FC7FE007934F5 /* openpam_set_option.3 */; };
+		1C3D9EBD101FC88C007934F5 /* openpam_ttyconv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E7B101FC7FE007934F5 /* openpam_ttyconv.3 */; };
+		1C3D9EBE101FC88C007934F5 /* pam.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E9E101FC7FE007934F5 /* pam.3 */; };
+		1C3D9EBF101FC88C007934F5 /* pam_acct_mgmt.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E7E101FC7FE007934F5 /* pam_acct_mgmt.3 */; };
+		1C3D9EC0101FC88C007934F5 /* pam_authenticate.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E7F101FC7FE007934F5 /* pam_authenticate.3 */; };
+		1C3D9EC1101FC88C007934F5 /* pam_chauthtok.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E80101FC7FE007934F5 /* pam_chauthtok.3 */; };
+		1C3D9EC2101FC88C007934F5 /* pam_close_session.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E81101FC7FE007934F5 /* pam_close_session.3 */; };
+		1C3D9EC3101FC88C007934F5 /* pam_conv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E82101FC7FE007934F5 /* pam_conv.3 */; };
+		1C3D9EC4101FC88C007934F5 /* pam_end.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E83101FC7FE007934F5 /* pam_end.3 */; };
+		1C3D9EC5101FC88C007934F5 /* pam_error.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E84101FC7FE007934F5 /* pam_error.3 */; };
+		1C3D9EC6101FC88C007934F5 /* pam_get_authtok.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E85101FC7FE007934F5 /* pam_get_authtok.3 */; };
+		1C3D9EC7101FC88C007934F5 /* pam_get_data.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E86101FC7FE007934F5 /* pam_get_data.3 */; };
+		1C3D9EC8101FC88C007934F5 /* pam_get_item.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E87101FC7FE007934F5 /* pam_get_item.3 */; };
+		1C3D9EC9101FC88C007934F5 /* pam_get_user.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E88101FC7FE007934F5 /* pam_get_user.3 */; };
+		1C3D9ECA101FC88C007934F5 /* pam_getenv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E89101FC7FE007934F5 /* pam_getenv.3 */; };
+		1C3D9ECB101FC88C007934F5 /* pam_getenvlist.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8A101FC7FE007934F5 /* pam_getenvlist.3 */; };
+		1C3D9ECC101FC88C007934F5 /* pam_info.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8B101FC7FE007934F5 /* pam_info.3 */; };
+		1C3D9ECD101FC88C007934F5 /* pam_open_session.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8C101FC7FE007934F5 /* pam_open_session.3 */; };
+		1C3D9ECE101FC88C007934F5 /* pam_prompt.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8D101FC7FE007934F5 /* pam_prompt.3 */; };
+		1C3D9ECF101FC88C007934F5 /* pam_putenv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8E101FC7FE007934F5 /* pam_putenv.3 */; };
+		1C3D9ED0101FC88C007934F5 /* pam_set_data.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E8F101FC7FE007934F5 /* pam_set_data.3 */; };
+		1C3D9ED1101FC88C007934F5 /* pam_set_item.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E90101FC7FE007934F5 /* pam_set_item.3 */; };
+		1C3D9ED2101FC88C007934F5 /* pam_setcred.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E91101FC7FE007934F5 /* pam_setcred.3 */; };
+		1C3D9ED3101FC88C007934F5 /* pam_setenv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E92101FC7FE007934F5 /* pam_setenv.3 */; };
+		1C3D9ED4101FC88C007934F5 /* pam_sm_acct_mgmt.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E93101FC7FE007934F5 /* pam_sm_acct_mgmt.3 */; };
+		1C3D9ED5101FC88C007934F5 /* pam_sm_authenticate.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E94101FC7FE007934F5 /* pam_sm_authenticate.3 */; };
+		1C3D9ED6101FC88C007934F5 /* pam_sm_chauthtok.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E95101FC7FE007934F5 /* pam_sm_chauthtok.3 */; };
+		1C3D9ED7101FC88C007934F5 /* pam_sm_close_session.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E96101FC7FE007934F5 /* pam_sm_close_session.3 */; };
+		1C3D9ED8101FC88C007934F5 /* pam_sm_open_session.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E97101FC7FE007934F5 /* pam_sm_open_session.3 */; };
+		1C3D9ED9101FC88C007934F5 /* pam_sm_setcred.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E98101FC7FE007934F5 /* pam_sm_setcred.3 */; };
+		1C3D9EDA101FC88C007934F5 /* pam_start.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E99101FC7FE007934F5 /* pam_start.3 */; };
+		1C3D9EDB101FC88C007934F5 /* pam_strerror.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E9A101FC7FE007934F5 /* pam_strerror.3 */; };
+		1C3D9EDC101FC88C007934F5 /* pam_verror.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E9B101FC7FE007934F5 /* pam_verror.3 */; };
+		1C3D9EDD101FC88C007934F5 /* pam_vinfo.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E9C101FC7FE007934F5 /* pam_vinfo.3 */; };
+		1C3D9EDE101FC88C007934F5 /* pam_vprompt.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 1C3D9E9D101FC7FE007934F5 /* pam_vprompt.3 */; };
+		1C3D9EE0101FC89C007934F5 /* pam.conf.5 in Copy to man5 */ = {isa = PBXBuildFile; fileRef = 1C3D9EA2101FC838007934F5 /* pam.conf.5 */; };
+		1C3D9F03101FC965007934F5 /* other in CopyFiles */ = {isa = PBXBuildFile; fileRef = 1C3D9F02101FC965007934F5 /* other */; };
+		1CEE194A1027B0EA002306F4 /* pam_shim.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D9D02101FB8DA007934F5 /* pam_shim.c */; };
+		7413C87E108E1025001F12F6 /* pam_unsetenv.c in Sources */ = {isa = PBXBuildFile; fileRef = 7413C87D108E1025001F12F6 /* pam_unsetenv.c */; };
+		74A4846910A2788900D13119 /* pam_unsetenv.3 in Copy to man3 */ = {isa = PBXBuildFile; fileRef = 74A4846810A2780400D13119 /* pam_unsetenv.3 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1C3D9D1F101FB9DB007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CF2101FB7F0007934F5;
+			remoteInfo = "pam library (libpam.2)";
+		};
+		1C3D9D21101FB9DE007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CDA101FB64D007934F5;
+			remoteInfo = pam_deny;
+		};
+		1C3D9D23101FB9E2007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CE4101FB70D007934F5;
+			remoteInfo = pam_permit;
+		};
+		1C3D9E5E101FC704007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CDA101FB64D007934F5;
+			remoteInfo = pam_deny;
+		};
+		1C3D9E60101FC704007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CE4101FB70D007934F5;
+			remoteInfo = pam_permit;
+		};
+		1C3D9E64101FC704007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CF2101FB7F0007934F5;
+			remoteInfo = "pam library (libpam.2)";
+		};
+		1C3D9F0A101FCA54007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9E5C101FC704007934F5;
+			remoteInfo = "Install Legal";
+		};
+		1C3D9F0C101FCA57007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9E6B101FC76A007934F5;
+			remoteInfo = "Install Manpages";
+		};
+		1C3D9F0E101FCA59007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9EFB101FC918007934F5;
+			remoteInfo = "Install pam.d";
+		};
+		1C3D9F1C101FCF66007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CDA101FB64D007934F5;
+			remoteInfo = pam_deny;
+		};
+		1C3D9F1E101FCF66007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CE4101FB70D007934F5;
+			remoteInfo = pam_permit;
+		};
+		1C3D9F22101FCF66007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CF2101FB7F0007934F5;
+			remoteInfo = "pam library (libpam.2)";
+		};
+		1C3D9F25101FCFCF007934F5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9F1A101FCF61007934F5;
+			remoteInfo = "Cleanup EVERYTHING";
+		};
+		1CB95668102A2AAD0075969E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C3D9CF2101FB7F0007934F5;
+			remoteInfo = "Build Library";
+		};
+		1CEE194E1027B212002306F4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CEE19471027B0BE002306F4;
+			remoteInfo = "Build shim for deployment";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1C3D9E6A101FC76A007934F5 /* Copy to man3 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man3/;
+			dstSubfolderSpec = 0;
+			files = (
+				1C3D9EB2101FC88C007934F5 /* openpam.3 in Copy to man3 */,
+				1C3D9EB4101FC88C007934F5 /* openpam_borrow_cred.3 in Copy to man3 */,
+				1C3D9EB5101FC88C007934F5 /* openpam_free_data.3 in Copy to man3 */,
+				1C3D9EB6101FC88C007934F5 /* openpam_free_envlist.3 in Copy to man3 */,
+				1C3D9EB7101FC88C007934F5 /* openpam_get_option.3 in Copy to man3 */,
+				1C3D9EB8101FC88C007934F5 /* openpam_log.3 in Copy to man3 */,
+				1C3D9EB9101FC88C007934F5 /* openpam_nullconv.3 in Copy to man3 */,
+				1C3D9EBA101FC88C007934F5 /* openpam_readline.3 in Copy to man3 */,
+				1C3D9EBB101FC88C007934F5 /* openpam_restore_cred.3 in Copy to man3 */,
+				1C3D9EBC101FC88C007934F5 /* openpam_set_option.3 in Copy to man3 */,
+				1C3D9EBD101FC88C007934F5 /* openpam_ttyconv.3 in Copy to man3 */,
+				1C3D9EBE101FC88C007934F5 /* pam.3 in Copy to man3 */,
+				1C3D9EBF101FC88C007934F5 /* pam_acct_mgmt.3 in Copy to man3 */,
+				1C3D9EC0101FC88C007934F5 /* pam_authenticate.3 in Copy to man3 */,
+				1C3D9EC1101FC88C007934F5 /* pam_chauthtok.3 in Copy to man3 */,
+				1C3D9EC2101FC88C007934F5 /* pam_close_session.3 in Copy to man3 */,
+				1C3D9EC3101FC88C007934F5 /* pam_conv.3 in Copy to man3 */,
+				1C3D9EC4101FC88C007934F5 /* pam_end.3 in Copy to man3 */,
+				1C3D9EC5101FC88C007934F5 /* pam_error.3 in Copy to man3 */,
+				1C3D9EC6101FC88C007934F5 /* pam_get_authtok.3 in Copy to man3 */,
+				1C3D9EC7101FC88C007934F5 /* pam_get_data.3 in Copy to man3 */,
+				1C3D9EC8101FC88C007934F5 /* pam_get_item.3 in Copy to man3 */,
+				1C3D9EC9101FC88C007934F5 /* pam_get_user.3 in Copy to man3 */,
+				1C3D9ECA101FC88C007934F5 /* pam_getenv.3 in Copy to man3 */,
+				1C3D9ECB101FC88C007934F5 /* pam_getenvlist.3 in Copy to man3 */,
+				1C3D9ECC101FC88C007934F5 /* pam_info.3 in Copy to man3 */,
+				1C3D9ECD101FC88C007934F5 /* pam_open_session.3 in Copy to man3 */,
+				1C3D9ECE101FC88C007934F5 /* pam_prompt.3 in Copy to man3 */,
+				1C3D9ECF101FC88C007934F5 /* pam_putenv.3 in Copy to man3 */,
+				1C3D9ED0101FC88C007934F5 /* pam_set_data.3 in Copy to man3 */,
+				1C3D9ED1101FC88C007934F5 /* pam_set_item.3 in Copy to man3 */,
+				1C3D9ED2101FC88C007934F5 /* pam_setcred.3 in Copy to man3 */,
+				1C3D9ED3101FC88C007934F5 /* pam_setenv.3 in Copy to man3 */,
+				1C3D9ED4101FC88C007934F5 /* pam_sm_acct_mgmt.3 in Copy to man3 */,
+				1C3D9ED5101FC88C007934F5 /* pam_sm_authenticate.3 in Copy to man3 */,
+				1C3D9ED6101FC88C007934F5 /* pam_sm_chauthtok.3 in Copy to man3 */,
+				1C3D9ED7101FC88C007934F5 /* pam_sm_close_session.3 in Copy to man3 */,
+				1C3D9ED8101FC88C007934F5 /* pam_sm_open_session.3 in Copy to man3 */,
+				1C3D9ED9101FC88C007934F5 /* pam_sm_setcred.3 in Copy to man3 */,
+				1C3D9EDA101FC88C007934F5 /* pam_start.3 in Copy to man3 */,
+				1C3D9EDB101FC88C007934F5 /* pam_strerror.3 in Copy to man3 */,
+				74A4846910A2788900D13119 /* pam_unsetenv.3 in Copy to man3 */,
+				1C3D9EDC101FC88C007934F5 /* pam_verror.3 in Copy to man3 */,
+				1C3D9EDD101FC88C007934F5 /* pam_vinfo.3 in Copy to man3 */,
+				1C3D9EDE101FC88C007934F5 /* pam_vprompt.3 in Copy to man3 */,
+			);
+			name = "Copy to man3";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1C3D9E70101FC7E8007934F5 /* Copy to man5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				1C3D9EE0101FC89C007934F5 /* pam.conf.5 in Copy to man5 */,
+			);
+			name = "Copy to man5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		1C3D9EFA101FC918007934F5 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/etc/pam.d;
+			dstSubfolderSpec = 0;
+			files = (
+				1C3D9F03101FC965007934F5 /* other in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1C3D9CDB101FB64D007934F5 /* pam_deny.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_deny.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C3D9CEA101FB70D007934F5 /* pam_permit.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_permit.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C3D9CF8101FB7F0007934F5 /* libpam.2.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libpam.2.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C3D9CFB101FB8DA007934F5 /* pam_shim_authenticate_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_authenticate_flags.h; path = compat/pam_shim_authenticate_flags.h; sourceTree = "<group>"; };
+		1C3D9CFC101FB8DA007934F5 /* pam_shim_chauthtok_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_chauthtok_flags.h; path = compat/pam_shim_chauthtok_flags.h; sourceTree = "<group>"; };
+		1C3D9CFD101FB8DA007934F5 /* pam_shim_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_flags.h; path = compat/pam_shim_flags.h; sourceTree = "<group>"; };
+		1C3D9CFE101FB8DA007934F5 /* pam_shim_item_type.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_item_type.h; path = compat/pam_shim_item_type.h; sourceTree = "<group>"; };
+		1C3D9CFF101FB8DA007934F5 /* pam_shim_retval.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_retval.h; path = compat/pam_shim_retval.h; sourceTree = "<group>"; };
+		1C3D9D00101FB8DA007934F5 /* pam_shim_session_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_session_flags.h; path = compat/pam_shim_session_flags.h; sourceTree = "<group>"; };
+		1C3D9D01101FB8DA007934F5 /* pam_shim_setcred_flags.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_shim_setcred_flags.h; path = compat/pam_shim_setcred_flags.h; sourceTree = "<group>"; };
+		1C3D9D02101FB8DA007934F5 /* pam_shim.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_shim.c; path = compat/pam_shim.c; sourceTree = "<group>"; };
+		1C3D9D0F101FB962007934F5 /* pam_deny.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_deny.c; path = openpam/modules/pam_deny/pam_deny.c; sourceTree = "<group>"; };
+		1C3D9D11101FB973007934F5 /* pam_permit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_permit.c; path = openpam/modules/pam_permit/pam_permit.c; sourceTree = "<group>"; };
+		1C3D9D2A101FBA60007934F5 /* openpam_attr.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = openpam_attr.h; path = openpam/include/security/openpam_attr.h; sourceTree = "<group>"; };
+		1C3D9D2B101FBA60007934F5 /* openpam_version.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = openpam_version.h; path = openpam/include/security/openpam_version.h; sourceTree = "<group>"; };
+		1C3D9D2C101FBA60007934F5 /* openpam.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = openpam.h; path = openpam/include/security/openpam.h; sourceTree = "<group>"; };
+		1C3D9D2D101FBA60007934F5 /* pam_appl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_appl.h; path = openpam/include/security/pam_appl.h; sourceTree = "<group>"; };
+		1C3D9D2E101FBA60007934F5 /* pam_constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_constants.h; path = openpam/include/security/pam_constants.h; sourceTree = "<group>"; };
+		1C3D9D2F101FBA60007934F5 /* pam_modules.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_modules.h; path = openpam/include/security/pam_modules.h; sourceTree = "<group>"; };
+		1C3D9D30101FBA60007934F5 /* pam_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pam_types.h; path = openpam/include/security/pam_types.h; sourceTree = "<group>"; };
+		1C3D9D3B101FBA9F007934F5 /* openpam_borrow_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_borrow_cred.c; path = openpam/lib/openpam_borrow_cred.c; sourceTree = "<group>"; };
+		1C3D9D3C101FBA9F007934F5 /* openpam_configure.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_configure.c; path = openpam/lib/openpam_configure.c; sourceTree = "<group>"; };
+		1C3D9D3D101FBA9F007934F5 /* openpam_dispatch.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_dispatch.c; path = openpam/lib/openpam_dispatch.c; sourceTree = "<group>"; };
+		1C3D9D3E101FBA9F007934F5 /* openpam_dynamic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_dynamic.c; path = openpam/lib/openpam_dynamic.c; sourceTree = "<group>"; };
+		1C3D9D3F101FBA9F007934F5 /* openpam_findenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_findenv.c; path = openpam/lib/openpam_findenv.c; sourceTree = "<group>"; };
+		1C3D9D40101FBA9F007934F5 /* openpam_free_data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_free_data.c; path = openpam/lib/openpam_free_data.c; sourceTree = "<group>"; };
+		1C3D9D41101FBA9F007934F5 /* openpam_free_envlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_free_envlist.c; path = openpam/lib/openpam_free_envlist.c; sourceTree = "<group>"; };
+		1C3D9D42101FBA9F007934F5 /* openpam_get_option.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_get_option.c; path = openpam/lib/openpam_get_option.c; sourceTree = "<group>"; };
+		1C3D9D43101FBA9F007934F5 /* openpam_impl.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = openpam_impl.h; path = openpam/lib/openpam_impl.h; sourceTree = "<group>"; };
+		1C3D9D44101FBA9F007934F5 /* openpam_load.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_load.c; path = openpam/lib/openpam_load.c; sourceTree = "<group>"; };
+		1C3D9D45101FBA9F007934F5 /* openpam_log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_log.c; path = openpam/lib/openpam_log.c; sourceTree = "<group>"; };
+		1C3D9D46101FBA9F007934F5 /* openpam_nullconv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_nullconv.c; path = openpam/lib/openpam_nullconv.c; sourceTree = "<group>"; };
+		1C3D9D47101FBA9F007934F5 /* openpam_readline.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_readline.c; path = openpam/lib/openpam_readline.c; sourceTree = "<group>"; };
+		1C3D9D48101FBA9F007934F5 /* openpam_restore_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_restore_cred.c; path = openpam/lib/openpam_restore_cred.c; sourceTree = "<group>"; };
+		1C3D9D49101FBA9F007934F5 /* openpam_set_option.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_set_option.c; path = openpam/lib/openpam_set_option.c; sourceTree = "<group>"; };
+		1C3D9D4A101FBA9F007934F5 /* openpam_static.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_static.c; path = openpam/lib/openpam_static.c; sourceTree = "<group>"; };
+		1C3D9D4B101FBA9F007934F5 /* openpam_ttyconv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = openpam_ttyconv.c; path = openpam/lib/openpam_ttyconv.c; sourceTree = "<group>"; };
+		1C3D9D4C101FBA9F007934F5 /* pam_acct_mgmt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_acct_mgmt.c; path = openpam/lib/pam_acct_mgmt.c; sourceTree = "<group>"; };
+		1C3D9D4D101FBA9F007934F5 /* pam_authenticate_secondary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_authenticate_secondary.c; path = openpam/lib/pam_authenticate_secondary.c; sourceTree = "<group>"; };
+		1C3D9D4E101FBA9F007934F5 /* pam_authenticate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_authenticate.c; path = openpam/lib/pam_authenticate.c; sourceTree = "<group>"; };
+		1C3D9D4F101FBA9F007934F5 /* pam_chauthtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_chauthtok.c; path = openpam/lib/pam_chauthtok.c; sourceTree = "<group>"; };
+		1C3D9D50101FBA9F007934F5 /* pam_close_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_close_session.c; path = openpam/lib/pam_close_session.c; sourceTree = "<group>"; };
+		1C3D9D51101FBA9F007934F5 /* pam_end.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_end.c; path = openpam/lib/pam_end.c; sourceTree = "<group>"; };
+		1C3D9D52101FBA9F007934F5 /* pam_error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_error.c; path = openpam/lib/pam_error.c; sourceTree = "<group>"; };
+		1C3D9D53101FBA9F007934F5 /* pam_get_authtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_authtok.c; path = openpam/lib/pam_get_authtok.c; sourceTree = "<group>"; };
+		1C3D9D54101FBA9F007934F5 /* pam_get_data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_data.c; path = openpam/lib/pam_get_data.c; sourceTree = "<group>"; };
+		1C3D9D55101FBA9F007934F5 /* pam_get_item.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_item.c; path = openpam/lib/pam_get_item.c; sourceTree = "<group>"; };
+		1C3D9D56101FBA9F007934F5 /* pam_get_mapped_authtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_mapped_authtok.c; path = openpam/lib/pam_get_mapped_authtok.c; sourceTree = "<group>"; };
+		1C3D9D57101FBA9F007934F5 /* pam_get_mapped_username.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_mapped_username.c; path = openpam/lib/pam_get_mapped_username.c; sourceTree = "<group>"; };
+		1C3D9D58101FBA9F007934F5 /* pam_get_user.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_get_user.c; path = openpam/lib/pam_get_user.c; sourceTree = "<group>"; };
+		1C3D9D59101FBA9F007934F5 /* pam_getenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_getenv.c; path = openpam/lib/pam_getenv.c; sourceTree = "<group>"; };
+		1C3D9D5A101FBA9F007934F5 /* pam_getenvlist.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_getenvlist.c; path = openpam/lib/pam_getenvlist.c; sourceTree = "<group>"; };
+		1C3D9D5B101FBA9F007934F5 /* pam_info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_info.c; path = openpam/lib/pam_info.c; sourceTree = "<group>"; };
+		1C3D9D5C101FBA9F007934F5 /* pam_open_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_open_session.c; path = openpam/lib/pam_open_session.c; sourceTree = "<group>"; };
+		1C3D9D5D101FBA9F007934F5 /* pam_prompt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_prompt.c; path = openpam/lib/pam_prompt.c; sourceTree = "<group>"; };
+		1C3D9D5E101FBA9F007934F5 /* pam_putenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_putenv.c; path = openpam/lib/pam_putenv.c; sourceTree = "<group>"; };
+		1C3D9D5F101FBA9F007934F5 /* pam_set_data.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_set_data.c; path = openpam/lib/pam_set_data.c; sourceTree = "<group>"; };
+		1C3D9D60101FBA9F007934F5 /* pam_set_item.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_set_item.c; path = openpam/lib/pam_set_item.c; sourceTree = "<group>"; };
+		1C3D9D61101FBA9F007934F5 /* pam_set_mapped_authtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_set_mapped_authtok.c; path = openpam/lib/pam_set_mapped_authtok.c; sourceTree = "<group>"; };
+		1C3D9D62101FBA9F007934F5 /* pam_set_mapped_username.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_set_mapped_username.c; path = openpam/lib/pam_set_mapped_username.c; sourceTree = "<group>"; };
+		1C3D9D63101FBA9F007934F5 /* pam_setcred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_setcred.c; path = openpam/lib/pam_setcred.c; sourceTree = "<group>"; };
+		1C3D9D64101FBA9F007934F5 /* pam_setenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_setenv.c; path = openpam/lib/pam_setenv.c; sourceTree = "<group>"; };
+		1C3D9D65101FBA9F007934F5 /* pam_sm_acct_mgmt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_acct_mgmt.c; path = openpam/lib/pam_sm_acct_mgmt.c; sourceTree = "<group>"; };
+		1C3D9D66101FBA9F007934F5 /* pam_sm_authenticate_secondary.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_authenticate_secondary.c; path = openpam/lib/pam_sm_authenticate_secondary.c; sourceTree = "<group>"; };
+		1C3D9D67101FBA9F007934F5 /* pam_sm_authenticate.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_authenticate.c; path = openpam/lib/pam_sm_authenticate.c; sourceTree = "<group>"; };
+		1C3D9D68101FBA9F007934F5 /* pam_sm_chauthtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_chauthtok.c; path = openpam/lib/pam_sm_chauthtok.c; sourceTree = "<group>"; };
+		1C3D9D69101FBA9F007934F5 /* pam_sm_close_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_close_session.c; path = openpam/lib/pam_sm_close_session.c; sourceTree = "<group>"; };
+		1C3D9D6A101FBA9F007934F5 /* pam_sm_get_mapped_authtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_get_mapped_authtok.c; path = openpam/lib/pam_sm_get_mapped_authtok.c; sourceTree = "<group>"; };
+		1C3D9D6B101FBA9F007934F5 /* pam_sm_get_mapped_username.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_get_mapped_username.c; path = openpam/lib/pam_sm_get_mapped_username.c; sourceTree = "<group>"; };
+		1C3D9D6C101FBA9F007934F5 /* pam_sm_open_session.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_open_session.c; path = openpam/lib/pam_sm_open_session.c; sourceTree = "<group>"; };
+		1C3D9D6D101FBA9F007934F5 /* pam_sm_set_mapped_authtok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_set_mapped_authtok.c; path = openpam/lib/pam_sm_set_mapped_authtok.c; sourceTree = "<group>"; };
+		1C3D9D6E101FBA9F007934F5 /* pam_sm_set_mapped_username.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_set_mapped_username.c; path = openpam/lib/pam_sm_set_mapped_username.c; sourceTree = "<group>"; };
+		1C3D9D6F101FBA9F007934F5 /* pam_sm_setcred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sm_setcred.c; path = openpam/lib/pam_sm_setcred.c; sourceTree = "<group>"; };
+		1C3D9D70101FBA9F007934F5 /* pam_start.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_start.c; path = openpam/lib/pam_start.c; sourceTree = "<group>"; };
+		1C3D9D71101FBA9F007934F5 /* pam_strerror.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_strerror.c; path = openpam/lib/pam_strerror.c; sourceTree = "<group>"; };
+		1C3D9D72101FBA9F007934F5 /* pam_verror.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_verror.c; path = openpam/lib/pam_verror.c; sourceTree = "<group>"; };
+		1C3D9D73101FBA9F007934F5 /* pam_vinfo.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_vinfo.c; path = openpam/lib/pam_vinfo.c; sourceTree = "<group>"; };
+		1C3D9D74101FBA9F007934F5 /* pam_vprompt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_vprompt.c; path = openpam/lib/pam_vprompt.c; sourceTree = "<group>"; };
+		1C3D9E72101FC7FE007934F5 /* openpam_borrow_cred.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_borrow_cred.3; path = openpam/doc/man/openpam_borrow_cred.3; sourceTree = "<group>"; };
+		1C3D9E73101FC7FE007934F5 /* openpam_free_data.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_free_data.3; path = openpam/doc/man/openpam_free_data.3; sourceTree = "<group>"; };
+		1C3D9E74101FC7FE007934F5 /* openpam_free_envlist.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_free_envlist.3; path = openpam/doc/man/openpam_free_envlist.3; sourceTree = "<group>"; };
+		1C3D9E75101FC7FE007934F5 /* openpam_get_option.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_get_option.3; path = openpam/doc/man/openpam_get_option.3; sourceTree = "<group>"; };
+		1C3D9E76101FC7FE007934F5 /* openpam_log.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_log.3; path = openpam/doc/man/openpam_log.3; sourceTree = "<group>"; };
+		1C3D9E77101FC7FE007934F5 /* openpam_nullconv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_nullconv.3; path = openpam/doc/man/openpam_nullconv.3; sourceTree = "<group>"; };
+		1C3D9E78101FC7FE007934F5 /* openpam_readline.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_readline.3; path = openpam/doc/man/openpam_readline.3; sourceTree = "<group>"; };
+		1C3D9E79101FC7FE007934F5 /* openpam_restore_cred.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_restore_cred.3; path = openpam/doc/man/openpam_restore_cred.3; sourceTree = "<group>"; };
+		1C3D9E7A101FC7FE007934F5 /* openpam_set_option.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_set_option.3; path = openpam/doc/man/openpam_set_option.3; sourceTree = "<group>"; };
+		1C3D9E7B101FC7FE007934F5 /* openpam_ttyconv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam_ttyconv.3; path = openpam/doc/man/openpam_ttyconv.3; sourceTree = "<group>"; };
+		1C3D9E7C101FC7FE007934F5 /* openpam.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam.3; path = openpam/doc/man/openpam.3; sourceTree = "<group>"; };
+		1C3D9E7D101FC7FE007934F5 /* openpam.man */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = openpam.man; path = openpam/doc/man/openpam.man; sourceTree = "<group>"; };
+		1C3D9E7E101FC7FE007934F5 /* pam_acct_mgmt.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_acct_mgmt.3; path = openpam/doc/man/pam_acct_mgmt.3; sourceTree = "<group>"; };
+		1C3D9E7F101FC7FE007934F5 /* pam_authenticate.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_authenticate.3; path = openpam/doc/man/pam_authenticate.3; sourceTree = "<group>"; };
+		1C3D9E80101FC7FE007934F5 /* pam_chauthtok.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_chauthtok.3; path = openpam/doc/man/pam_chauthtok.3; sourceTree = "<group>"; };
+		1C3D9E81101FC7FE007934F5 /* pam_close_session.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_close_session.3; path = openpam/doc/man/pam_close_session.3; sourceTree = "<group>"; };
+		1C3D9E82101FC7FE007934F5 /* pam_conv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_conv.3; path = openpam/doc/man/pam_conv.3; sourceTree = "<group>"; };
+		1C3D9E83101FC7FE007934F5 /* pam_end.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_end.3; path = openpam/doc/man/pam_end.3; sourceTree = "<group>"; };
+		1C3D9E84101FC7FE007934F5 /* pam_error.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_error.3; path = openpam/doc/man/pam_error.3; sourceTree = "<group>"; };
+		1C3D9E85101FC7FE007934F5 /* pam_get_authtok.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_get_authtok.3; path = openpam/doc/man/pam_get_authtok.3; sourceTree = "<group>"; };
+		1C3D9E86101FC7FE007934F5 /* pam_get_data.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_get_data.3; path = openpam/doc/man/pam_get_data.3; sourceTree = "<group>"; };
+		1C3D9E87101FC7FE007934F5 /* pam_get_item.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_get_item.3; path = openpam/doc/man/pam_get_item.3; sourceTree = "<group>"; };
+		1C3D9E88101FC7FE007934F5 /* pam_get_user.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_get_user.3; path = openpam/doc/man/pam_get_user.3; sourceTree = "<group>"; };
+		1C3D9E89101FC7FE007934F5 /* pam_getenv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_getenv.3; path = openpam/doc/man/pam_getenv.3; sourceTree = "<group>"; };
+		1C3D9E8A101FC7FE007934F5 /* pam_getenvlist.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_getenvlist.3; path = openpam/doc/man/pam_getenvlist.3; sourceTree = "<group>"; };
+		1C3D9E8B101FC7FE007934F5 /* pam_info.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_info.3; path = openpam/doc/man/pam_info.3; sourceTree = "<group>"; };
+		1C3D9E8C101FC7FE007934F5 /* pam_open_session.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_open_session.3; path = openpam/doc/man/pam_open_session.3; sourceTree = "<group>"; };
+		1C3D9E8D101FC7FE007934F5 /* pam_prompt.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_prompt.3; path = openpam/doc/man/pam_prompt.3; sourceTree = "<group>"; };
+		1C3D9E8E101FC7FE007934F5 /* pam_putenv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_putenv.3; path = openpam/doc/man/pam_putenv.3; sourceTree = "<group>"; };
+		1C3D9E8F101FC7FE007934F5 /* pam_set_data.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_set_data.3; path = openpam/doc/man/pam_set_data.3; sourceTree = "<group>"; };
+		1C3D9E90101FC7FE007934F5 /* pam_set_item.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_set_item.3; path = openpam/doc/man/pam_set_item.3; sourceTree = "<group>"; };
+		1C3D9E91101FC7FE007934F5 /* pam_setcred.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_setcred.3; path = openpam/doc/man/pam_setcred.3; sourceTree = "<group>"; };
+		1C3D9E92101FC7FE007934F5 /* pam_setenv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_setenv.3; path = openpam/doc/man/pam_setenv.3; sourceTree = "<group>"; };
+		1C3D9E93101FC7FE007934F5 /* pam_sm_acct_mgmt.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_acct_mgmt.3; path = openpam/doc/man/pam_sm_acct_mgmt.3; sourceTree = "<group>"; };
+		1C3D9E94101FC7FE007934F5 /* pam_sm_authenticate.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_authenticate.3; path = openpam/doc/man/pam_sm_authenticate.3; sourceTree = "<group>"; };
+		1C3D9E95101FC7FE007934F5 /* pam_sm_chauthtok.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_chauthtok.3; path = openpam/doc/man/pam_sm_chauthtok.3; sourceTree = "<group>"; };
+		1C3D9E96101FC7FE007934F5 /* pam_sm_close_session.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_close_session.3; path = openpam/doc/man/pam_sm_close_session.3; sourceTree = "<group>"; };
+		1C3D9E97101FC7FE007934F5 /* pam_sm_open_session.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_open_session.3; path = openpam/doc/man/pam_sm_open_session.3; sourceTree = "<group>"; };
+		1C3D9E98101FC7FE007934F5 /* pam_sm_setcred.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sm_setcred.3; path = openpam/doc/man/pam_sm_setcred.3; sourceTree = "<group>"; };
+		1C3D9E99101FC7FE007934F5 /* pam_start.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_start.3; path = openpam/doc/man/pam_start.3; sourceTree = "<group>"; };
+		1C3D9E9A101FC7FE007934F5 /* pam_strerror.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_strerror.3; path = openpam/doc/man/pam_strerror.3; sourceTree = "<group>"; };
+		1C3D9E9B101FC7FE007934F5 /* pam_verror.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_verror.3; path = openpam/doc/man/pam_verror.3; sourceTree = "<group>"; };
+		1C3D9E9C101FC7FE007934F5 /* pam_vinfo.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_vinfo.3; path = openpam/doc/man/pam_vinfo.3; sourceTree = "<group>"; };
+		1C3D9E9D101FC7FE007934F5 /* pam_vprompt.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_vprompt.3; path = openpam/doc/man/pam_vprompt.3; sourceTree = "<group>"; };
+		1C3D9E9E101FC7FE007934F5 /* pam.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam.3; path = openpam/doc/man/pam.3; sourceTree = "<group>"; };
+		1C3D9EA2101FC838007934F5 /* pam.conf.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam.conf.5; path = openpam/doc/man/pam.conf.5; sourceTree = "<group>"; };
+		1C3D9F02101FC965007934F5 /* other */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = other; path = pam.d/other; sourceTree = "<group>"; };
+		1CEE19481027B0BE002306F4 /* libpam.1.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libpam.1.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		7413C87D108E1025001F12F6 /* pam_unsetenv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_unsetenv.c; path = openpam/lib/pam_unsetenv.c; sourceTree = "<group>"; };
+		74A4846810A2780400D13119 /* pam_unsetenv.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_unsetenv.3; path = openpam/doc/man/pam_unsetenv.3; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1C3D9CD9101FB64D007934F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CE7101FB70D007934F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CF5101FB7F0007934F5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CEE19461027B0BE002306F4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* openpam */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9E9F101FC807007934F5 /* Doc */,
+				1C3D9F04101FC96E007934F5 /* pam.d */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = openpam;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9D3A101FBA8B007934F5 /* lib */,
+				1C3D9D38101FBA69007934F5 /* include */,
+				1C3D9D0B101FB8E4007934F5 /* modules */,
+				1C3D9CFA101FB8A6007934F5 /* shim */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9CDB101FB64D007934F5 /* pam_deny.so.2 */,
+				1C3D9CEA101FB70D007934F5 /* pam_permit.so.2 */,
+				1C3D9CF8101FB7F0007934F5 /* libpam.2.dylib */,
+				1CEE19481027B0BE002306F4 /* libpam.1.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1C3D9CFA101FB8A6007934F5 /* shim */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9CFB101FB8DA007934F5 /* pam_shim_authenticate_flags.h */,
+				1C3D9CFC101FB8DA007934F5 /* pam_shim_chauthtok_flags.h */,
+				1C3D9CFD101FB8DA007934F5 /* pam_shim_flags.h */,
+				1C3D9CFE101FB8DA007934F5 /* pam_shim_item_type.h */,
+				1C3D9CFF101FB8DA007934F5 /* pam_shim_retval.h */,
+				1C3D9D00101FB8DA007934F5 /* pam_shim_session_flags.h */,
+				1C3D9D01101FB8DA007934F5 /* pam_shim_setcred_flags.h */,
+				1C3D9D02101FB8DA007934F5 /* pam_shim.c */,
+			);
+			name = shim;
+			sourceTree = "<group>";
+		};
+		1C3D9D0B101FB8E4007934F5 /* modules */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9D11101FB973007934F5 /* pam_permit.c */,
+				1C3D9D0F101FB962007934F5 /* pam_deny.c */,
+			);
+			name = modules;
+			sourceTree = "<group>";
+		};
+		1C3D9D38101FBA69007934F5 /* include */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9D2A101FBA60007934F5 /* openpam_attr.h */,
+				1C3D9D2B101FBA60007934F5 /* openpam_version.h */,
+				1C3D9D2C101FBA60007934F5 /* openpam.h */,
+				1C3D9D2D101FBA60007934F5 /* pam_appl.h */,
+				1C3D9D2E101FBA60007934F5 /* pam_constants.h */,
+				1C3D9D2F101FBA60007934F5 /* pam_modules.h */,
+				1C3D9D30101FBA60007934F5 /* pam_types.h */,
+			);
+			name = include;
+			sourceTree = "<group>";
+		};
+		1C3D9D3A101FBA8B007934F5 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9D3B101FBA9F007934F5 /* openpam_borrow_cred.c */,
+				1C3D9D3C101FBA9F007934F5 /* openpam_configure.c */,
+				1C3D9D3D101FBA9F007934F5 /* openpam_dispatch.c */,
+				1C3D9D3E101FBA9F007934F5 /* openpam_dynamic.c */,
+				1C3D9D3F101FBA9F007934F5 /* openpam_findenv.c */,
+				1C3D9D40101FBA9F007934F5 /* openpam_free_data.c */,
+				1C3D9D41101FBA9F007934F5 /* openpam_free_envlist.c */,
+				1C3D9D42101FBA9F007934F5 /* openpam_get_option.c */,
+				1C3D9D43101FBA9F007934F5 /* openpam_impl.h */,
+				1C3D9D44101FBA9F007934F5 /* openpam_load.c */,
+				1C3D9D45101FBA9F007934F5 /* openpam_log.c */,
+				1C3D9D46101FBA9F007934F5 /* openpam_nullconv.c */,
+				1C3D9D47101FBA9F007934F5 /* openpam_readline.c */,
+				1C3D9D48101FBA9F007934F5 /* openpam_restore_cred.c */,
+				1C3D9D49101FBA9F007934F5 /* openpam_set_option.c */,
+				1C3D9D4A101FBA9F007934F5 /* openpam_static.c */,
+				1C3D9D4B101FBA9F007934F5 /* openpam_ttyconv.c */,
+				1C3D9D4C101FBA9F007934F5 /* pam_acct_mgmt.c */,
+				1C3D9D4D101FBA9F007934F5 /* pam_authenticate_secondary.c */,
+				1C3D9D4E101FBA9F007934F5 /* pam_authenticate.c */,
+				1C3D9D4F101FBA9F007934F5 /* pam_chauthtok.c */,
+				1C3D9D50101FBA9F007934F5 /* pam_close_session.c */,
+				1C3D9D51101FBA9F007934F5 /* pam_end.c */,
+				1C3D9D52101FBA9F007934F5 /* pam_error.c */,
+				1C3D9D53101FBA9F007934F5 /* pam_get_authtok.c */,
+				1C3D9D54101FBA9F007934F5 /* pam_get_data.c */,
+				1C3D9D55101FBA9F007934F5 /* pam_get_item.c */,
+				1C3D9D56101FBA9F007934F5 /* pam_get_mapped_authtok.c */,
+				1C3D9D57101FBA9F007934F5 /* pam_get_mapped_username.c */,
+				1C3D9D58101FBA9F007934F5 /* pam_get_user.c */,
+				1C3D9D59101FBA9F007934F5 /* pam_getenv.c */,
+				1C3D9D5A101FBA9F007934F5 /* pam_getenvlist.c */,
+				1C3D9D5B101FBA9F007934F5 /* pam_info.c */,
+				1C3D9D5C101FBA9F007934F5 /* pam_open_session.c */,
+				1C3D9D5D101FBA9F007934F5 /* pam_prompt.c */,
+				1C3D9D5E101FBA9F007934F5 /* pam_putenv.c */,
+				1C3D9D5F101FBA9F007934F5 /* pam_set_data.c */,
+				1C3D9D60101FBA9F007934F5 /* pam_set_item.c */,
+				1C3D9D61101FBA9F007934F5 /* pam_set_mapped_authtok.c */,
+				1C3D9D62101FBA9F007934F5 /* pam_set_mapped_username.c */,
+				1C3D9D63101FBA9F007934F5 /* pam_setcred.c */,
+				1C3D9D64101FBA9F007934F5 /* pam_setenv.c */,
+				1C3D9D65101FBA9F007934F5 /* pam_sm_acct_mgmt.c */,
+				1C3D9D66101FBA9F007934F5 /* pam_sm_authenticate_secondary.c */,
+				1C3D9D67101FBA9F007934F5 /* pam_sm_authenticate.c */,
+				1C3D9D68101FBA9F007934F5 /* pam_sm_chauthtok.c */,
+				1C3D9D69101FBA9F007934F5 /* pam_sm_close_session.c */,
+				1C3D9D6A101FBA9F007934F5 /* pam_sm_get_mapped_authtok.c */,
+				1C3D9D6B101FBA9F007934F5 /* pam_sm_get_mapped_username.c */,
+				1C3D9D6C101FBA9F007934F5 /* pam_sm_open_session.c */,
+				1C3D9D6D101FBA9F007934F5 /* pam_sm_set_mapped_authtok.c */,
+				1C3D9D6E101FBA9F007934F5 /* pam_sm_set_mapped_username.c */,
+				1C3D9D6F101FBA9F007934F5 /* pam_sm_setcred.c */,
+				1C3D9D70101FBA9F007934F5 /* pam_start.c */,
+				1C3D9D71101FBA9F007934F5 /* pam_strerror.c */,
+				7413C87D108E1025001F12F6 /* pam_unsetenv.c */,
+				1C3D9D72101FBA9F007934F5 /* pam_verror.c */,
+				1C3D9D73101FBA9F007934F5 /* pam_vinfo.c */,
+				1C3D9D74101FBA9F007934F5 /* pam_vprompt.c */,
+			);
+			name = lib;
+			sourceTree = "<group>";
+		};
+		1C3D9E9F101FC807007934F5 /* Doc */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9EA0101FC810007934F5 /* man3 */,
+				1C3D9EA1101FC81D007934F5 /* man5 */,
+			);
+			name = Doc;
+			sourceTree = "<group>";
+		};
+		1C3D9EA0101FC810007934F5 /* man3 */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9E72101FC7FE007934F5 /* openpam_borrow_cred.3 */,
+				1C3D9E73101FC7FE007934F5 /* openpam_free_data.3 */,
+				1C3D9E74101FC7FE007934F5 /* openpam_free_envlist.3 */,
+				1C3D9E75101FC7FE007934F5 /* openpam_get_option.3 */,
+				1C3D9E76101FC7FE007934F5 /* openpam_log.3 */,
+				1C3D9E77101FC7FE007934F5 /* openpam_nullconv.3 */,
+				1C3D9E78101FC7FE007934F5 /* openpam_readline.3 */,
+				1C3D9E79101FC7FE007934F5 /* openpam_restore_cred.3 */,
+				1C3D9E7A101FC7FE007934F5 /* openpam_set_option.3 */,
+				1C3D9E7B101FC7FE007934F5 /* openpam_ttyconv.3 */,
+				1C3D9E7C101FC7FE007934F5 /* openpam.3 */,
+				1C3D9E7D101FC7FE007934F5 /* openpam.man */,
+				1C3D9E7E101FC7FE007934F5 /* pam_acct_mgmt.3 */,
+				1C3D9E7F101FC7FE007934F5 /* pam_authenticate.3 */,
+				1C3D9E80101FC7FE007934F5 /* pam_chauthtok.3 */,
+				1C3D9E81101FC7FE007934F5 /* pam_close_session.3 */,
+				1C3D9E82101FC7FE007934F5 /* pam_conv.3 */,
+				1C3D9E83101FC7FE007934F5 /* pam_end.3 */,
+				1C3D9E84101FC7FE007934F5 /* pam_error.3 */,
+				1C3D9E85101FC7FE007934F5 /* pam_get_authtok.3 */,
+				1C3D9E86101FC7FE007934F5 /* pam_get_data.3 */,
+				1C3D9E87101FC7FE007934F5 /* pam_get_item.3 */,
+				1C3D9E88101FC7FE007934F5 /* pam_get_user.3 */,
+				1C3D9E89101FC7FE007934F5 /* pam_getenv.3 */,
+				1C3D9E8A101FC7FE007934F5 /* pam_getenvlist.3 */,
+				1C3D9E8B101FC7FE007934F5 /* pam_info.3 */,
+				1C3D9E8C101FC7FE007934F5 /* pam_open_session.3 */,
+				1C3D9E8D101FC7FE007934F5 /* pam_prompt.3 */,
+				1C3D9E8E101FC7FE007934F5 /* pam_putenv.3 */,
+				1C3D9E8F101FC7FE007934F5 /* pam_set_data.3 */,
+				1C3D9E90101FC7FE007934F5 /* pam_set_item.3 */,
+				1C3D9E91101FC7FE007934F5 /* pam_setcred.3 */,
+				1C3D9E92101FC7FE007934F5 /* pam_setenv.3 */,
+				1C3D9E93101FC7FE007934F5 /* pam_sm_acct_mgmt.3 */,
+				1C3D9E94101FC7FE007934F5 /* pam_sm_authenticate.3 */,
+				1C3D9E95101FC7FE007934F5 /* pam_sm_chauthtok.3 */,
+				1C3D9E96101FC7FE007934F5 /* pam_sm_close_session.3 */,
+				1C3D9E97101FC7FE007934F5 /* pam_sm_open_session.3 */,
+				1C3D9E98101FC7FE007934F5 /* pam_sm_setcred.3 */,
+				1C3D9E99101FC7FE007934F5 /* pam_start.3 */,
+				1C3D9E9A101FC7FE007934F5 /* pam_strerror.3 */,
+				74A4846810A2780400D13119 /* pam_unsetenv.3 */,
+				1C3D9E9B101FC7FE007934F5 /* pam_verror.3 */,
+				1C3D9E9C101FC7FE007934F5 /* pam_vinfo.3 */,
+				1C3D9E9D101FC7FE007934F5 /* pam_vprompt.3 */,
+				1C3D9E9E101FC7FE007934F5 /* pam.3 */,
+			);
+			name = man3;
+			sourceTree = "<group>";
+		};
+		1C3D9EA1101FC81D007934F5 /* man5 */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9EA2101FC838007934F5 /* pam.conf.5 */,
+			);
+			name = man5;
+			sourceTree = "<group>";
+		};
+		1C3D9F04101FC96E007934F5 /* pam.d */ = {
+			isa = PBXGroup;
+			children = (
+				1C3D9F02101FC965007934F5 /* other */,
+			);
+			name = pam.d;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		1C3D9CD7101FB64D007934F5 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CE5101FB70D007934F5 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CF3101FB7F0007934F5 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C3D9D31101FBA60007934F5 /* openpam_attr.h in Headers */,
+				1C3D9D32101FBA60007934F5 /* openpam_version.h in Headers */,
+				1C3D9D33101FBA60007934F5 /* openpam.h in Headers */,
+				1C3D9D34101FBA60007934F5 /* pam_appl.h in Headers */,
+				1C3D9D35101FBA60007934F5 /* pam_constants.h in Headers */,
+				1C3D9D36101FBA60007934F5 /* pam_modules.h in Headers */,
+				1C3D9D37101FBA60007934F5 /* pam_types.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CEE19441027B0BE002306F4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		1C3D9CDA101FB64D007934F5 /* pam_deny */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C3D9CE1101FB655007934F5 /* Build configuration list for PBXNativeTarget "pam_deny" */;
+			buildPhases = (
+				1C3D9CD7101FB64D007934F5 /* Headers */,
+				1C3D9CD8101FB64D007934F5 /* Sources */,
+				1C3D9CD9101FB64D007934F5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pam_deny;
+			productName = pam_deny;
+			productReference = 1C3D9CDB101FB64D007934F5 /* pam_deny.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1C3D9CE4101FB70D007934F5 /* pam_permit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C3D9CE8101FB70D007934F5 /* Build configuration list for PBXNativeTarget "pam_permit" */;
+			buildPhases = (
+				1C3D9CE5101FB70D007934F5 /* Headers */,
+				1C3D9CE6101FB70D007934F5 /* Sources */,
+				1C3D9CE7101FB70D007934F5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = pam_permit;
+			productName = pam_deny;
+			productReference = 1C3D9CEA101FB70D007934F5 /* pam_permit.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1C3D9CF2101FB7F0007934F5 /* Build Library */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C3D9CF6101FB7F0007934F5 /* Build configuration list for PBXNativeTarget "Build Library" */;
+			buildPhases = (
+				1C3D9CF3101FB7F0007934F5 /* Headers */,
+				1C3D9CF4101FB7F0007934F5 /* Sources */,
+				1C3D9CF5101FB7F0007934F5 /* Frameworks */,
+				1C3D9E30101FC643007934F5 /* Install dylib symlink */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Build Library";
+			productName = "pam shim";
+			productReference = 1C3D9CF8101FB7F0007934F5 /* libpam.2.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CEE19471027B0BE002306F4 /* Build shim */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CEE194D1027B13C002306F4 /* Build configuration list for PBXNativeTarget "Build shim" */;
+			buildPhases = (
+				1CEE19441027B0BE002306F4 /* Headers */,
+				1CEE19451027B0BE002306F4 /* Sources */,
+				1CEE19461027B0BE002306F4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1CB95669102A2AAD0075969E /* PBXTargetDependency */,
+			);
+			name = "Build shim";
+			productName = pam.1;
+			productReference = 1CEE19481027B0BE002306F4 /* libpam.1.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "openpam" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* openpam */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1C3D9D1B101FB9CB007934F5 /* OpenPAM */,
+				1C3D9CDA101FB64D007934F5 /* pam_deny */,
+				1C3D9CE4101FB70D007934F5 /* pam_permit */,
+				1C3D9CF2101FB7F0007934F5 /* Build Library */,
+				1CEE19471027B0BE002306F4 /* Build shim */,
+				1C3D9E5C101FC704007934F5 /* Install Legal */,
+				1C3D9E6B101FC76A007934F5 /* Install Manpages */,
+				1C3D9EFB101FC918007934F5 /* Install pam.d */,
+				1C3D9F1A101FCF61007934F5 /* Cleanup EVERYTHING */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1C3D9E30101FC643007934F5 /* Install dylib symlink */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install dylib symlink";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "set -ex\n\nlibdir=\"$DSTROOT/usr/lib/\"\nln -s \"libpam.2.dylib\" \"$libdir/libpam.dylib\"";
+		};
+		1C3D9E65101FC704007934F5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "usr_lc=\"$DSTROOT/usr/local/OpenSourceLicenses\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lc\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/openpam/LICENSE\" \"$usr_lc/OpenPAM.txt\"\n\nusr_lv=\"$DSTROOT/usr/local/OpenSourceVersions\"\nplist=\"OpenPAM.plist\"\n\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0755 -d \"$usr_lv\"\ninstall -o \"$INSTALL_OWNER\" -g \"$INSTALL_GROUP\" -m 0444 \"$SRCROOT/$plist\" \"$usr_lv/$plist\"\n";
+		};
+		1C3D9E6E101FC783007934F5 /* Compress */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = Compress;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" /usr/share/man";
+		};
+		1C3D9F19101FCF61007934F5 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "\ncd \"${DSTROOT}\"\n\nchmod 444 ./private/etc/pam.d/other\n\n# Well, not pretty. \nfind . -exec chown root:wheel \"{}\" \\;";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1C3D9CD8101FB64D007934F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C3D9D10101FB962007934F5 /* pam_deny.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CE6101FB70D007934F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C3D9D12101FB973007934F5 /* pam_permit.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C3D9CF4101FB7F0007934F5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C3D9D75101FBA9F007934F5 /* openpam_borrow_cred.c in Sources */,
+				1C3D9D76101FBA9F007934F5 /* openpam_configure.c in Sources */,
+				1C3D9D77101FBA9F007934F5 /* openpam_dispatch.c in Sources */,
+				1C3D9D78101FBA9F007934F5 /* openpam_dynamic.c in Sources */,
+				1C3D9D79101FBA9F007934F5 /* openpam_findenv.c in Sources */,
+				1C3D9D7A101FBA9F007934F5 /* openpam_free_data.c in Sources */,
+				1C3D9D7B101FBA9F007934F5 /* openpam_free_envlist.c in Sources */,
+				1C3D9D7C101FBA9F007934F5 /* openpam_get_option.c in Sources */,
+				1C3D9D7E101FBA9F007934F5 /* openpam_load.c in Sources */,
+				1C3D9D7F101FBA9F007934F5 /* openpam_log.c in Sources */,
+				1C3D9D80101FBA9F007934F5 /* openpam_nullconv.c in Sources */,
+				1C3D9D81101FBA9F007934F5 /* openpam_readline.c in Sources */,
+				1C3D9D82101FBA9F007934F5 /* openpam_restore_cred.c in Sources */,
+				1C3D9D83101FBA9F007934F5 /* openpam_set_option.c in Sources */,
+				1C3D9D84101FBA9F007934F5 /* openpam_static.c in Sources */,
+				1C3D9D85101FBA9F007934F5 /* openpam_ttyconv.c in Sources */,
+				1C3D9D86101FBA9F007934F5 /* pam_acct_mgmt.c in Sources */,
+				1C3D9D88101FBA9F007934F5 /* pam_authenticate.c in Sources */,
+				1C3D9D89101FBA9F007934F5 /* pam_chauthtok.c in Sources */,
+				1C3D9D8A101FBA9F007934F5 /* pam_close_session.c in Sources */,
+				1C3D9D8B101FBA9F007934F5 /* pam_end.c in Sources */,
+				1C3D9D8C101FBA9F007934F5 /* pam_error.c in Sources */,
+				1C3D9D8D101FBA9F007934F5 /* pam_get_authtok.c in Sources */,
+				1C3D9D8E101FBA9F007934F5 /* pam_get_data.c in Sources */,
+				1C3D9D8F101FBA9F007934F5 /* pam_get_item.c in Sources */,
+				1C3D9D92101FBA9F007934F5 /* pam_get_user.c in Sources */,
+				1C3D9D93101FBA9F007934F5 /* pam_getenv.c in Sources */,
+				1C3D9D94101FBA9F007934F5 /* pam_getenvlist.c in Sources */,
+				1C3D9D95101FBA9F007934F5 /* pam_info.c in Sources */,
+				1C3D9D96101FBA9F007934F5 /* pam_open_session.c in Sources */,
+				1C3D9D97101FBA9F007934F5 /* pam_prompt.c in Sources */,
+				1C3D9D98101FBA9F007934F5 /* pam_putenv.c in Sources */,
+				1C3D9D99101FBA9F007934F5 /* pam_set_data.c in Sources */,
+				1C3D9D9A101FBA9F007934F5 /* pam_set_item.c in Sources */,
+				1C3D9D9D101FBA9F007934F5 /* pam_setcred.c in Sources */,
+				1C3D9D9E101FBA9F007934F5 /* pam_setenv.c in Sources */,
+				1C3D9DAA101FBA9F007934F5 /* pam_start.c in Sources */,
+				1C3D9DAB101FBA9F007934F5 /* pam_strerror.c in Sources */,
+				1C3D9DAC101FBA9F007934F5 /* pam_verror.c in Sources */,
+				1C3D9DAD101FBA9F007934F5 /* pam_vinfo.c in Sources */,
+				1C3D9DAE101FBA9F007934F5 /* pam_vprompt.c in Sources */,
+				7413C87E108E1025001F12F6 /* pam_unsetenv.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CEE19451027B0BE002306F4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CEE194A1027B0EA002306F4 /* pam_shim.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1C3D9D20101FB9DB007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CF2101FB7F0007934F5 /* Build Library */;
+			targetProxy = 1C3D9D1F101FB9DB007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9D22101FB9DE007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CDA101FB64D007934F5 /* pam_deny */;
+			targetProxy = 1C3D9D21101FB9DE007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9D24101FB9E2007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CE4101FB70D007934F5 /* pam_permit */;
+			targetProxy = 1C3D9D23101FB9E2007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9E5D101FC704007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CDA101FB64D007934F5 /* pam_deny */;
+			targetProxy = 1C3D9E5E101FC704007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9E5F101FC704007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CE4101FB70D007934F5 /* pam_permit */;
+			targetProxy = 1C3D9E60101FC704007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9E63101FC704007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CF2101FB7F0007934F5 /* Build Library */;
+			targetProxy = 1C3D9E64101FC704007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F0B101FCA54007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9E5C101FC704007934F5 /* Install Legal */;
+			targetProxy = 1C3D9F0A101FCA54007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F0D101FCA57007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9E6B101FC76A007934F5 /* Install Manpages */;
+			targetProxy = 1C3D9F0C101FCA57007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F0F101FCA59007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9EFB101FC918007934F5 /* Install pam.d */;
+			targetProxy = 1C3D9F0E101FCA59007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F1D101FCF66007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CDA101FB64D007934F5 /* pam_deny */;
+			targetProxy = 1C3D9F1C101FCF66007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F1F101FCF66007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CE4101FB70D007934F5 /* pam_permit */;
+			targetProxy = 1C3D9F1E101FCF66007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F23101FCF66007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CF2101FB7F0007934F5 /* Build Library */;
+			targetProxy = 1C3D9F22101FCF66007934F5 /* PBXContainerItemProxy */;
+		};
+		1C3D9F26101FCFCF007934F5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9F1A101FCF61007934F5 /* Cleanup EVERYTHING */;
+			targetProxy = 1C3D9F25101FCFCF007934F5 /* PBXContainerItemProxy */;
+		};
+		1CB95669102A2AAD0075969E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C3D9CF2101FB7F0007934F5 /* Build Library */;
+			targetProxy = 1CB95668102A2AAD0075969E /* PBXContainerItemProxy */;
+		};
+		1CEE194F1027B212002306F4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CEE19471027B0BE002306F4 /* Build shim */;
+			targetProxy = 1CEE194E1027B212002306F4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1C3D9CDD101FB64E007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_EXTENSION = so.2;
+				INSTALL_PATH = /usr/lib/pam/;
+				MACH_O_TYPE = mh_dylib;
+				PRODUCT_NAME = pam_deny;
+			};
+			name = Release;
+		};
+		1C3D9CE9101FB70D007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				EXECUTABLE_EXTENSION = so.2;
+				HEADER_SEARCH_PATHS = "$(SRCROOT)/openpam/lib";
+				INSTALL_PATH = /usr/lib/pam/;
+				MACH_O_TYPE = mh_dylib;
+				PRODUCT_NAME = pam_permit;
+			};
+			name = Release;
+		};
+		1C3D9CF7101FB7F0007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DYLIB_COMPATIBILITY_VERSION = 3.0.0;
+				DYLIB_CURRENT_VERSION = 3.0.0;
+				EXECUTABLE_PREFIX = lib;
+				INSTALL_PATH = /usr/lib;
+				MACH_O_TYPE = mh_dylib;
+				PRODUCT_NAME = pam.2;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/include/security;
+			};
+			name = Release;
+		};
+		1C3D9D1C101FB9CB007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = all;
+			};
+			name = Release;
+		};
+		1C3D9E67101FC704007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "Install Legal";
+			};
+			name = Release;
+		};
+		1C3D9E6C101FC76A007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "Install Manpages";
+			};
+			name = Release;
+		};
+		1C3D9EFC101FC918007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "Install pam.d";
+			};
+			name = Release;
+		};
+		1C3D9F1B101FCF61007934F5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "Cleanup EVERYTHING";
+			};
+			name = Release;
+		};
+		1CEE19491027B0BF002306F4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				EXECUTABLE_PREFIX = lib;
+				INSTALL_PATH = /usr/lib;
+				OTHER_LDFLAGS = "-allowable_client,'!'";
+				PRODUCT_NAME = pam.1;
+			};
+			name = Release;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"LIB_MAJ=2",
+					"OPENPAM_MODULES_DIR='\"/usr/lib/pam//\"'",
+					_GNU_SOURCE,
+				);
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1C3D9CE1101FB655007934F5 /* Build configuration list for PBXNativeTarget "pam_deny" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9CDD101FB64E007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9CE8101FB70D007934F5 /* Build configuration list for PBXNativeTarget "pam_permit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9CE9101FB70D007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9CF6101FB7F0007934F5 /* Build configuration list for PBXNativeTarget "Build Library" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9CF7101FB7F0007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9D29101FBA33007934F5 /* Build configuration list for PBXAggregateTarget "OpenPAM" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9D1C101FB9CB007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9E66101FC704007934F5 /* Build configuration list for PBXAggregateTarget "Install Legal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9E67101FC704007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9E71101FC7E8007934F5 /* Build configuration list for PBXAggregateTarget "Install Manpages" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9E6C101FC76A007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9F01101FC942007934F5 /* Build configuration list for PBXAggregateTarget "Install pam.d" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9EFC101FC918007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C3D9F24101FCF8C007934F5 /* Build configuration list for PBXAggregateTarget "Cleanup EVERYTHING" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C3D9F1B101FCF61007934F5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CEE194D1027B13C002306F4 /* Build configuration list for PBXNativeTarget "Build shim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CEE19491027B0BF002306F4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "openpam" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

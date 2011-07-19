@@ -1,11 +1,11 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE_$222|/*! @header
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE_$222|/*! @header
         This is the main core code for generating an index.  It does
         not generate any output by itself unless one of its output
         functions is called.
 
         @indexgroup Photo Gallery (PHP)
  */
-$0|$3966|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$3983|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 1
 inClass: 0
 inInterface: 0
@@ -91,6 +91,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => php
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -162,173 +163,10 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 
-__$36|testsuite/parser_tests/header_2.test$3|php$8|header 2$3966|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 1
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/header_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/header_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => php
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{onlyComments} => 1
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: 
-namelist: 
-posstypes: 
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-0
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: Photo Gallery (PHP) 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: header 2
-APIUID: //test_ref/doc/header/header_2.test
-ABSTRACT: ""
-DISCUSSION: "<p>This is the main core code for generating an index.  It does
-not generate any output by itself unless one of its output
-functions is called.
-</p>
-"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: "Photo Gallery (PHP) "
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-
-_$3|php$6|parser
+__$90|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/header_2.test$3|php$8|header 2$3|php$6|parser

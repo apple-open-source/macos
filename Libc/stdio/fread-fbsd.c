@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)fread.c	8.2 (Berkeley) 12/11/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fread.c,v 1.12 2002/10/12 16:13:37 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fread.c,v 1.16 2009/07/12 13:09:43 ed Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -47,11 +43,23 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fread.c,v 1.12 2002/10/12 16:13:37 mike E
 #include "local.h"
 #include "libc_private.h"
 
+/*
+ * MT-safe version
+ */
+
 size_t
-fread(buf, size, count, fp)
-	void * __restrict buf;
-	size_t size, count;
-	FILE * __restrict fp;
+fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
+{
+	size_t ret;
+
+	FLOCKFILE(fp);
+	ret = __fread(buf, size, count, fp);
+	FUNLOCKFILE(fp);
+	return (ret);
+}
+
+size_t
+__fread(void * __restrict buf, size_t size, size_t count, FILE * __restrict fp)
 {
 	size_t resid;
 	char *p;
@@ -59,13 +67,10 @@ fread(buf, size, count, fp)
 	size_t total;
 
 	/*
-	 * The ANSI standard requires a return value of 0 for a count
-	 * or a size of 0.  Peculiarily, it imposes no such requirements
-	 * on fwrite; it only requires fread to be broken.
+	 * ANSI and SUSv2 require a return value of 0 if size or count are 0.
 	 */
 	if ((resid = count * size) == 0)
 		return (0);
-	FLOCKFILE(fp);
 	ORIENT(fp, -1);
 	if (fp->_r < 0)
 		fp->_r = 0;
@@ -82,7 +87,6 @@ fread(buf, size, count, fp)
 			break;
 		else if (ret) {
 			/* no more input: return partial result */
-			FUNLOCKFILE(fp);
 			return ((total - resid) / size);
 		}
 	}
@@ -106,7 +110,6 @@ fread(buf, size, count, fp)
 				fp->_bf = save;
 				fp->_p = fp->_bf._base;
 				/* fp->_r = 0;  already set in __srefill1 */
-				FUNLOCKFILE(fp);
 				return ((total - resid) / size);
 			}
 			fp->_bf._base += fp->_r;
@@ -127,7 +130,6 @@ fread(buf, size, count, fp)
 			resid -= r;
 			if (__srefill1(fp)) {
 				/* no more input: return partial result */
-				FUNLOCKFILE(fp);
 				return ((total - resid) / size);
 			}
 		}
@@ -135,6 +137,5 @@ fread(buf, size, count, fp)
 		fp->_r -= resid;
 		fp->_p += resid;
 	}
-	FUNLOCKFILE(fp);
 	return (count);
 }

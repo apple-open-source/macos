@@ -1,9 +1,9 @@
 /*
  * "$Id: printers.h 7564 2008-05-15 00:57:43Z mike $"
  *
- *   Printer definitions for the Common UNIX Printing System (CUPS) scheduler.
+ *   Printer definitions for the CUPS scheduler.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -38,9 +38,10 @@ typedef struct
 
 typedef struct cupsd_job_s cupsd_job_t;
 
-typedef struct cupsd_printer_s
+struct cupsd_printer_s
 {
   char		*uri,			/* Printer URI */
+		*uuid,			/* Printer UUID */
 		*hostname,		/* Host printer resides on */
 		*name,			/* Printer name */
 		*location,		/* Location code */
@@ -70,7 +71,8 @@ typedef struct cupsd_printer_s
   int		remote;			/* Remote queue? */
   mime_type_t	*filetype,		/* Pseudo-filetype for printer */
 		*prefiltertype;		/* Pseudo-filetype for pre-filters */
-  cups_array_t	*filetypes;		/* Supported file types */
+  cups_array_t	*filetypes,		/* Supported file types */
+		*dest_types;		/* Destination types for queue */
   cupsd_job_t	*job;			/* Current job in queue */
   ipp_t		*attrs,			/* Attributes supported by this printer */
 		*ppd_attrs;		/* Attributes based on the PPD */
@@ -81,11 +83,8 @@ typedef struct cupsd_printer_s
 		page_limit,		/* Maximum number of pages */
 		k_limit;		/* Maximum number of kilobytes */
   cups_array_t	*quotas;		/* Quota records */
-  int		deny_users,		/* 1 = deny, 0 = allow */
-		num_users;		/* Number of allowed/denied users */
-  const char	**users;		/* Allowed/denied users */
-  int		num_history;		/* Number of history collections */
-  ipp_t		**history;		/* History data */
+  int		deny_users;		/* 1 = deny, 0 = allow */
+  cups_array_t	*users;			/* Allowed/denied users */
   int		sequence_number;	/* Increasing sequence number */
   int		num_options;		/* Number of default options */
   cups_option_t	*options;		/* Default options */
@@ -94,14 +93,10 @@ typedef struct cupsd_printer_s
   char		*alert,			/* PSX printer-alert value */
 		*alert_description;	/* PSX printer-alert-description value */
   time_t	marker_time;		/* Last time marker attributes were updated */
-  cups_array_t	*filters,		/* Filters for queue */
-		*pre_filters;		/* Pre-filters for queue */
-  char		*recoverable;		/* com.apple.print.recoverable-message */
-  _pwg_t	*pwg;			/* PWG<->PPD mapping data */
+  _ppd_cache_t	*pc;			/* PPD cache and mapping data */
 
 #ifdef HAVE_DNSSD
   char		*reg_name,		/* Name used for service registration */
-		*product,		/* PPD Product string */
 		*pdl,			/* pdl value for TXT record */
 		*ipp_txt,		/* IPP TXT record contents */
 		*printer_txt;		/* LPD TXT record contents */
@@ -110,7 +105,7 @@ typedef struct cupsd_printer_s
   DNSServiceRef	ipp_ref,		/* Reference for _ipp._tcp,_cups */
 		printer_ref;		/* Reference for _printer._tcp */
 #endif /* HAVE_DNSSD */
-} cupsd_printer_t;
+};
 
 
 /*
@@ -139,9 +134,6 @@ VAR cupsd_policy_t	*DefaultPolicyPtr
  */
 
 extern cupsd_printer_t	*cupsdAddPrinter(const char *name);
-extern void		cupsdAddPrinterHistory(cupsd_printer_t *p);
-extern void		cupsdAddPrinterUser(cupsd_printer_t *p,
-			                    const char *username);
 extern void		cupsdCreateCommonData(void);
 extern void		cupsdDeleteAllPrinters(void);
 extern int		cupsdDeletePrinter(cupsd_printer_t *p, int update);
@@ -149,7 +141,6 @@ extern cupsd_printer_t	*cupsdFindDest(const char *name);
 extern cupsd_printer_t	*cupsdFindPrinter(const char *name);
 extern cupsd_quota_t	*cupsdFindQuota(cupsd_printer_t *p,
 			                const char *username);
-extern void		cupsdFreePrinterUsers(cupsd_printer_t *p);
 extern void		cupsdFreeQuotas(cupsd_printer_t *p);
 extern void		cupsdLoadAllPrinters(void);
 extern void		cupsdRenamePrinter(cupsd_printer_t *p,

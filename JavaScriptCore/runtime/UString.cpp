@@ -25,24 +25,21 @@
 #include "UString.h"
 
 #include "JSGlobalObjectFunctions.h"
-#include "Collector.h"
-#include "dtoa.h"
+#include "Heap.h"
 #include "Identifier.h"
 #include "Operations.h"
 #include <ctype.h>
 #include <limits.h>
 #include <limits>
-#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <string.h>
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
+#include <wtf/DecimalNumber.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/UTF8.h>
-#include <wtf/StringExtras.h>
 
 #if HAVE(STRINGS_H)
 #include <strings.h>
@@ -57,44 +54,50 @@ namespace JSC {
 extern const double NaN;
 extern const double Inf;
 
-// The null string is immutable, except for refCount.
-UString* UString::s_nullUString;
+COMPILE_ASSERT(sizeof(UString) == sizeof(void*), UString_should_stay_small);
 
-void initializeUString()
-{
-    // UStringImpl::empty() does not construct its static string in a threadsafe fashion,
-    // so ensure it has been initialized from here.
-    UStringImpl::empty();
-
-    UString::s_nullUString = new UString;
-}
-
-UString::UString(const char* c)
-    : m_rep(Rep::create(c))
+// Construct a string with UTF-16 data.
+UString::UString(const UChar* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
 {
 }
 
-UString::UString(const char* c, unsigned length)
-    : m_rep(Rep::create(c, length))
+// Construct a string with UTF-16 data, from a null-terminated source.
+UString::UString(const UChar* characters)
+{
+    if (!characters)
+        return;
+
+    int length = 0;
+    while (characters[length] != UChar(0))
+        ++length;
+
+    m_impl = StringImpl::create(characters, length);
+}
+
+// Construct a string with latin1 data.
+UString::UString(const char* characters, unsigned length)
+    : m_impl(characters ? StringImpl::create(characters, length) : 0)
 {
 }
 
-UString::UString(const UChar* c, unsigned length)
-    : m_rep(Rep::create(c, length))
+// Construct a string with latin1 data, from a null-terminated source.
+UString::UString(const char* characters)
+    : m_impl(characters ? StringImpl::create(characters) : 0)
 {
 }
 
-UString UString::from(int i)
+UString UString::number(int i)
 {
     UChar buf[1 + sizeof(i) * 3];
-    UChar* end = buf + sizeof(buf) / sizeof(UChar);
+    UChar* end = buf + WTF_ARRAY_LENGTH(buf);
     UChar* p = end;
 
     if (i == 0)
         *--p = '0';
     else if (i == INT_MIN) {
         char minBuf[1 + sizeof(i) * 3];
-        sprintf(minBuf, "%d", INT_MIN);
+        snprintf(minBuf, sizeof(minBuf), "%d", INT_MIN);
         return UString(minBuf);
     } else {
         bool negative = false;
@@ -113,10 +116,10 @@ UString UString::from(int i)
     return UString(p, static_cast<unsigned>(end - p));
 }
 
-UString UString::from(long long i)
+UString UString::number(long long i)
 {
     UChar buf[1 + sizeof(i) * 3];
-    UChar* end = buf + sizeof(buf) / sizeof(UChar);
+    UChar* end = buf + WTF_ARRAY_LENGTH(buf);
     UChar* p = end;
 
     if (i == 0)
@@ -124,9 +127,9 @@ UString UString::from(long long i)
     else if (i == std::numeric_limits<long long>::min()) {
         char minBuf[1 + sizeof(i) * 3];
 #if OS(WINDOWS)
-        snprintf(minBuf, sizeof(minBuf) - 1, "%I64d", std::numeric_limits<long long>::min());
+        snprintf(minBuf, sizeof(minBuf), "%I64d", std::numeric_limits<long long>::min());
 #else
-        snprintf(minBuf, sizeof(minBuf) - 1, "%lld", std::numeric_limits<long long>::min());
+        snprintf(minBuf, sizeof(minBuf), "%lld", std::numeric_limits<long long>::min());
 #endif
         return UString(minBuf);
     } else {
@@ -146,10 +149,10 @@ UString UString::from(long long i)
     return UString(p, static_cast<unsigned>(end - p));
 }
 
-UString UString::from(unsigned u)
+UString UString::number(unsigned u)
 {
     UChar buf[sizeof(u) * 3];
-    UChar* end = buf + sizeof(buf) / sizeof(UChar);
+    UChar* end = buf + WTF_ARRAY_LENGTH(buf);
     UChar* p = end;
 
     if (u == 0)
@@ -164,17 +167,17 @@ UString UString::from(unsigned u)
     return UString(p, static_cast<unsigned>(end - p));
 }
 
-UString UString::from(long l)
+UString UString::number(long l)
 {
     UChar buf[1 + sizeof(l) * 3];
-    UChar* end = buf + sizeof(buf) / sizeof(UChar);
+    UChar* end = buf + WTF_ARRAY_LENGTH(buf);
     UChar* p = end;
 
     if (l == 0)
         *--p = '0';
     else if (l == LONG_MIN) {
         char minBuf[1 + sizeof(l) * 3];
-        sprintf(minBuf, "%ld", LONG_MIN);
+        snprintf(minBuf, sizeof(minBuf), "%ld", LONG_MIN);
         return UString(minBuf);
     } else {
         bool negative = false;
@@ -193,329 +196,24 @@ UString UString::from(long l)
     return UString(p, end - p);
 }
 
-UString UString::from(double d)
+UString UString::number(double d)
 {
-    DtoaBuffer buffer;
-    unsigned length;
-    doubleToStringInJavaScriptFormat(d, buffer, &length);
+    NumberToStringBuffer buffer;
+    unsigned length = numberToString(d, buffer);
     return UString(buffer, length);
 }
 
-char* UString::ascii() const
+UString UString::substringSharingImpl(unsigned offset, unsigned length) const
 {
-    static char* asciiBuffer = 0;
+    // FIXME: We used to check against a limit of Heap::minExtraCost / sizeof(UChar).
 
-    unsigned length = size();
-    unsigned neededSize = length + 1;
-    delete[] asciiBuffer;
-    asciiBuffer = new char[neededSize];
+    unsigned stringLength = this->length();
+    offset = min(offset, stringLength);
+    length = min(length, stringLength - offset);
 
-    const UChar* p = data();
-    char* q = asciiBuffer;
-    const UChar* limit = p + length;
-    while (p != limit) {
-        *q = static_cast<char>(p[0]);
-        ++p;
-        ++q;
-    }
-    *q = '\0';
-
-    return asciiBuffer;
-}
-
-bool UString::is8Bit() const
-{
-    const UChar* u = data();
-    const UChar* limit = u + size();
-    while (u < limit) {
-        if (u[0] > 0xFF)
-            return false;
-        ++u;
-    }
-
-    return true;
-}
-
-UChar UString::operator[](unsigned pos) const
-{
-    if (pos >= size())
-        return '\0';
-    return data()[pos];
-}
-
-double UString::toDouble(bool tolerateTrailingJunk, bool tolerateEmptyString) const
-{
-    if (size() == 1) {
-        UChar c = data()[0];
-        if (isASCIIDigit(c))
-            return c - '0';
-        if (isASCIISpace(c) && tolerateEmptyString)
-            return 0;
-        return NaN;
-    }
-
-    // FIXME: If tolerateTrailingJunk is true, then we want to tolerate junk 
-    // after the number, even if it contains invalid UTF-16 sequences. So we
-    // shouldn't use the UTF8String function, which returns null when it
-    // encounters invalid UTF-16. Further, we have no need to convert the
-    // non-ASCII characters to UTF-8, so the UTF8String does quite a bit of
-    // unnecessary work.
-    CString s = UTF8String();
-    if (s.isNull())
-        return NaN;
-    const char* c = s.data();
-
-    // skip leading white space
-    while (isASCIISpace(*c))
-        c++;
-
-    // empty string ?
-    if (*c == '\0')
-        return tolerateEmptyString ? 0.0 : NaN;
-
-    double d;
-
-    // hex number ?
-    if (*c == '0' && (*(c + 1) == 'x' || *(c + 1) == 'X')) {
-        const char* firstDigitPosition = c + 2;
-        c++;
-        d = 0.0;
-        while (*(++c)) {
-            if (*c >= '0' && *c <= '9')
-                d = d * 16.0 + *c - '0';
-            else if ((*c >= 'A' && *c <= 'F') || (*c >= 'a' && *c <= 'f'))
-                d = d * 16.0 + (*c & 0xdf) - 'A' + 10.0;
-            else
-                break;
-        }
-
-        if (d >= mantissaOverflowLowerBound)
-            d = parseIntOverflow(firstDigitPosition, c - firstDigitPosition, 16);
-    } else {
-        // regular number ?
-        char* end;
-        d = WTF::strtod(c, &end);
-        if ((d != 0.0 || end != c) && d != Inf && d != -Inf) {
-            c = end;
-        } else {
-            double sign = 1.0;
-
-            if (*c == '+')
-                c++;
-            else if (*c == '-') {
-                sign = -1.0;
-                c++;
-            }
-
-            // We used strtod() to do the conversion. However, strtod() handles
-            // infinite values slightly differently than JavaScript in that it
-            // converts the string "inf" with any capitalization to infinity,
-            // whereas the ECMA spec requires that it be converted to NaN.
-
-            if (c[0] == 'I' && c[1] == 'n' && c[2] == 'f' && c[3] == 'i' && c[4] == 'n' && c[5] == 'i' && c[6] == 't' && c[7] == 'y') {
-                d = sign * Inf;
-                c += 8;
-            } else if ((d == Inf || d == -Inf) && *c != 'I' && *c != 'i')
-                c = end;
-            else
-                return NaN;
-        }
-    }
-
-    // allow trailing white space
-    while (isASCIISpace(*c))
-        c++;
-    // don't allow anything after - unless tolerant=true
-    // FIXME: If string contains a U+0000 character, then this check is incorrect.
-    if (!tolerateTrailingJunk && *c != '\0')
-        d = NaN;
-
-    return d;
-}
-
-double UString::toDouble(bool tolerateTrailingJunk) const
-{
-    return toDouble(tolerateTrailingJunk, true);
-}
-
-double UString::toDouble() const
-{
-    return toDouble(false, true);
-}
-
-uint32_t UString::toUInt32(bool* ok) const
-{
-    double d = toDouble();
-    bool b = true;
-
-    if (d != static_cast<uint32_t>(d)) {
-        b = false;
-        d = 0;
-    }
-
-    if (ok)
-        *ok = b;
-
-    return static_cast<uint32_t>(d);
-}
-
-uint32_t UString::toUInt32(bool* ok, bool tolerateEmptyString) const
-{
-    double d = toDouble(false, tolerateEmptyString);
-    bool b = true;
-
-    if (d != static_cast<uint32_t>(d)) {
-        b = false;
-        d = 0;
-    }
-
-    if (ok)
-        *ok = b;
-
-    return static_cast<uint32_t>(d);
-}
-
-uint32_t UString::toStrictUInt32(bool* ok) const
-{
-    if (ok)
-        *ok = false;
-
-    // Empty string is not OK.
-    unsigned len = m_rep->length();
-    if (len == 0)
-        return 0;
-    const UChar* p = m_rep->characters();
-    unsigned short c = p[0];
-
-    // If the first digit is 0, only 0 itself is OK.
-    if (c == '0') {
-        if (len == 1 && ok)
-            *ok = true;
-        return 0;
-    }
-
-    // Convert to UInt32, checking for overflow.
-    uint32_t i = 0;
-    while (1) {
-        // Process character, turning it into a digit.
-        if (c < '0' || c > '9')
-            return 0;
-        const unsigned d = c - '0';
-
-        // Multiply by 10, checking for overflow out of 32 bits.
-        if (i > 0xFFFFFFFFU / 10)
-            return 0;
-        i *= 10;
-
-        // Add in the digit, checking for overflow out of 32 bits.
-        const unsigned max = 0xFFFFFFFFU - d;
-        if (i > max)
-            return 0;
-        i += d;
-
-        // Handle end of string.
-        if (--len == 0) {
-            if (ok)
-                *ok = true;
-            return i;
-        }
-
-        // Get next character.
-        c = *(++p);
-    }
-}
-
-unsigned UString::find(const UString& f, unsigned pos) const
-{
-    unsigned fsz = f.size();
-
-    if (fsz == 1) {
-        UChar ch = f[0];
-        const UChar* end = data() + size();
-        for (const UChar* c = data() + pos; c < end; c++) {
-            if (*c == ch)
-                return static_cast<unsigned>(c - data());
-        }
-        return NotFound;
-    }
-
-    unsigned sz = size();
-    if (sz < fsz)
-        return NotFound;
-    if (fsz == 0)
-        return pos;
-    const UChar* end = data() + sz - fsz;
-    unsigned fsizeminusone = (fsz - 1) * sizeof(UChar);
-    const UChar* fdata = f.data();
-    unsigned short fchar = fdata[0];
-    ++fdata;
-    for (const UChar* c = data() + pos; c <= end; c++) {
-        if (c[0] == fchar && !memcmp(c + 1, fdata, fsizeminusone))
-            return static_cast<unsigned>(c - data());
-    }
-
-    return NotFound;
-}
-
-unsigned UString::find(UChar ch, unsigned pos) const
-{
-    const UChar* end = data() + size();
-    for (const UChar* c = data() + pos; c < end; c++) {
-        if (*c == ch)
-            return static_cast<unsigned>(c - data());
-    }
-
-    return NotFound;
-}
-
-unsigned UString::rfind(const UString& f, unsigned pos) const
-{
-    unsigned sz = size();
-    unsigned fsz = f.size();
-    if (sz < fsz)
-        return NotFound;
-    if (pos > sz - fsz)
-        pos = sz - fsz;
-    if (fsz == 0)
-        return pos;
-    unsigned fsizeminusone = (fsz - 1) * sizeof(UChar);
-    const UChar* fdata = f.data();
-    for (const UChar* c = data() + pos; c >= data(); c--) {
-        if (*c == *fdata && !memcmp(c + 1, fdata + 1, fsizeminusone))
-            return static_cast<unsigned>(c - data());
-    }
-
-    return NotFound;
-}
-
-unsigned UString::rfind(UChar ch, unsigned pos) const
-{
-    if (isEmpty())
-        return NotFound;
-    if (pos + 1 >= size())
-        pos = size() - 1;
-    for (const UChar* c = data() + pos; c >= data(); c--) {
-        if (*c == ch)
-            return static_cast<unsigned>(c - data());
-    }
-
-    return NotFound;
-}
-
-UString UString::substr(unsigned pos, unsigned len) const
-{
-    unsigned s = size();
-
-    if (pos >= s)
-        pos = s;
-    unsigned limit = s - pos;
-    if (len > limit)
-        len = limit;
-
-    if (pos == 0 && len == s)
+    if (!offset && length == stringLength)
         return *this;
-
-    return UString(Rep::create(m_rep, pos, len));
+    return UString(StringImpl::create(m_impl, offset, length));
 }
 
 bool operator==(const UString& s1, const char *s2)
@@ -523,8 +221,8 @@ bool operator==(const UString& s1, const char *s2)
     if (s2 == 0)
         return s1.isEmpty();
 
-    const UChar* u = s1.data();
-    const UChar* uend = u + s1.size();
+    const UChar* u = s1.characters();
+    const UChar* uend = u + s1.length();
     while (u != uend && *s2) {
         if (u[0] != (unsigned char)*s2)
             return false;
@@ -537,11 +235,11 @@ bool operator==(const UString& s1, const char *s2)
 
 bool operator<(const UString& s1, const UString& s2)
 {
-    const unsigned l1 = s1.size();
-    const unsigned l2 = s2.size();
+    const unsigned l1 = s1.length();
+    const unsigned l2 = s2.length();
     const unsigned lmin = l1 < l2 ? l1 : l2;
-    const UChar* c1 = s1.data();
-    const UChar* c2 = s2.data();
+    const UChar* c1 = s1.characters();
+    const UChar* c2 = s2.characters();
     unsigned l = 0;
     while (l < lmin && *c1 == *c2) {
         c1++;
@@ -556,11 +254,11 @@ bool operator<(const UString& s1, const UString& s2)
 
 bool operator>(const UString& s1, const UString& s2)
 {
-    const unsigned l1 = s1.size();
-    const unsigned l2 = s2.size();
+    const unsigned l1 = s1.length();
+    const unsigned l2 = s2.length();
     const unsigned lmin = l1 < l2 ? l1 : l2;
-    const UChar* c1 = s1.data();
-    const UChar* c2 = s2.data();
+    const UChar* c1 = s1.characters();
+    const UChar* c2 = s2.characters();
     unsigned l = 0;
     while (l < lmin && *c1 == *c2) {
         c1++;
@@ -573,45 +271,96 @@ bool operator>(const UString& s1, const UString& s2)
     return (l1 > l2);
 }
 
-int compare(const UString& s1, const UString& s2)
+CString UString::ascii() const
 {
-    const unsigned l1 = s1.size();
-    const unsigned l2 = s2.size();
-    const unsigned lmin = l1 < l2 ? l1 : l2;
-    const UChar* c1 = s1.data();
-    const UChar* c2 = s2.data();
-    unsigned l = 0;
-    while (l < lmin && *c1 == *c2) {
-        c1++;
-        c2++;
-        l++;
+    // Basic Latin1 (ISO) encoding - Unicode characters 0..255 are
+    // preserved, characters outside of this range are converted to '?'.
+
+    unsigned length = this->length();
+    const UChar* characters = this->characters();
+
+    char* characterBuffer;
+    CString result = CString::newUninitialized(length, characterBuffer);
+
+    for (unsigned i = 0; i < length; ++i) {
+        UChar ch = characters[i];
+        characterBuffer[i] = ch && (ch < 0x20 || ch >= 0x7f) ? '?' : ch;
     }
 
-    if (l < lmin)
-        return (c1[0] > c2[0]) ? 1 : -1;
-
-    if (l1 == l2)
-        return 0;
-
-    return (l1 > l2) ? 1 : -1;
+    return result;
 }
 
-CString UString::UTF8String(bool strict) const
+CString UString::latin1() const
 {
-    // Allocate a buffer big enough to hold all the characters.
-    const unsigned length = size();
+    // Basic Latin1 (ISO) encoding - Unicode characters 0..255 are
+    // preserved, characters outside of this range are converted to '?'.
+
+    unsigned length = this->length();
+    const UChar* characters = this->characters();
+
+    char* characterBuffer;
+    CString result = CString::newUninitialized(length, characterBuffer);
+
+    for (unsigned i = 0; i < length; ++i) {
+        UChar ch = characters[i];
+        characterBuffer[i] = ch > 0xff ? '?' : ch;
+    }
+
+    return result;
+}
+
+// Helper to write a three-byte UTF-8 code point to the buffer, caller must check room is available.
+static inline void putUTF8Triple(char*& buffer, UChar ch)
+{
+    ASSERT(ch >= 0x0800);
+    *buffer++ = static_cast<char>(((ch >> 12) & 0x0F) | 0xE0);
+    *buffer++ = static_cast<char>(((ch >> 6) & 0x3F) | 0x80);
+    *buffer++ = static_cast<char>((ch & 0x3F) | 0x80);
+}
+
+CString UString::utf8(bool strict) const
+{
+    unsigned length = this->length();
+    const UChar* characters = this->characters();
+
+    // Allocate a buffer big enough to hold all the characters
+    // (an individual UTF-16 UChar can only expand to 3 UTF-8 bytes).
+    // Optimization ideas, if we find this function is hot:
+    //  * We could speculatively create a CStringBuffer to contain 'length' 
+    //    characters, and resize if necessary (i.e. if the buffer contains
+    //    non-ascii characters). (Alternatively, scan the buffer first for
+    //    ascii characters, so we know this will be sufficient).
+    //  * We could allocate a CStringBuffer with an appropriate size to
+    //    have a good chance of being able to write the string into the
+    //    buffer without reallocing (say, 1.5 x length).
     if (length > numeric_limits<unsigned>::max() / 3)
         return CString();
-    Vector<char, 1024> buffer(length * 3);
+    Vector<char, 1024> bufferVector(length * 3);
 
-    // Convert to runs of 8-bit characters.
-    char* p = buffer.data();
-    const UChar* d = reinterpret_cast<const UChar*>(&data()[0]);
-    ConversionResult result = convertUTF16ToUTF8(&d, d + length, &p, p + buffer.size(), strict);
-    if (result != conversionOK)
+    char* buffer = bufferVector.data();
+    ConversionResult result = convertUTF16ToUTF8(&characters, characters + length, &buffer, buffer + bufferVector.size(), strict);
+    ASSERT(result != targetExhausted); // (length * 3) should be sufficient for any conversion
+
+    // Only produced from strict conversion.
+    if (result == sourceIllegal)
         return CString();
 
-    return CString(buffer.data(), p - buffer.data());
+    // Check for an unconverted high surrogate.
+    if (result == sourceExhausted) {
+        if (strict)
+            return CString();
+        // This should be one unpaired high surrogate. Treat it the same
+        // was as an unpaired high surrogate would have been handled in
+        // the middle of a string with non-strict conversion - which is
+        // to say, simply encode it to UTF-8.
+        ASSERT((characters + 1) == (this->characters() + length));
+        ASSERT((*characters >= 0xD800) && (*characters <= 0xDBFF));
+        // There should be room left, since one UChar hasn't been converted.
+        ASSERT((buffer + 3) <= (buffer + bufferVector.size()));
+        putUTF8Triple(buffer, *characters);
+    }
+
+    return CString(bufferVector.data(), buffer - bufferVector.data());
 }
 
 } // namespace JSC

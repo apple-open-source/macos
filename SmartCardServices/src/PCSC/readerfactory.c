@@ -39,7 +39,7 @@
 	Purpose: This keeps track of a list of currently 
 	available reader structures.
 
-$Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
+$Id: readerfactory.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 
 ********************************************************************/
 
@@ -73,6 +73,7 @@ $Id: readerfactory.c,v 1.3 2004/10/14 20:33:35 mb Exp $
 
 #include <mach/machine.h>
 #include <sys/sysctl.h>
+#include "configfile.h"
 
 static cpu_type_t architectureForPid(pid_t pid);
 
@@ -108,8 +109,7 @@ static int ReaderCheckArchitecture(LPCSTR lpcLibrary);
 static cpu_type_t architectureForPid(pid_t pid);
 static int architectureMatch(const char *name);
 
-extern int DBUpdateReaders(char *readerconf);
-
+extern int DBUpdateReaders(const char *readerconf);
 
 LONG RFAllocateReaderSpace()
 {
@@ -251,7 +251,6 @@ LONG RFAddReader(LPSTR lpcReader, DWORD dwPort, LPSTR lpcLibrary, LPSTR lpcDevic
 		rv = EHSpawnEventHandler(ctxSlot);
 		if (rv != SCARD_S_SUCCESS)
 			return rv;
-		EHSpawnEventHandler(ctxSlot);
 	}
 
 xit:
@@ -1129,7 +1128,8 @@ void RFAwakeAllReaders(void)
 			for (jx=0; jx < i; jx++)
 			{
 				if (((sReadersContexts[jx])->vHandle == (sReadersContexts[i])->vHandle)&&
-					((sReadersContexts[jx])->dwPort  == (sReadersContexts[i])->dwPort))
+					((sReadersContexts[jx])->dwPort  == (sReadersContexts[i])->dwPort)&&
+					((sReadersContexts[jx])->dwSlot  == (sReadersContexts[i])->dwSlot))
 				{
 					alreadyInitializedFlag = 1;
 				}
@@ -1548,7 +1548,7 @@ static int ReaderCheckArchitecture(LPCSTR lpcLibrary)
 		Log3(PCSC_LOG_CRITICAL, "Can't signal pcscd (pid=%d): %s",
 			 pid, strerror(errno));
 	}
-	void *value_ptr;
+	void *value_ptr = NULL;
 	pthread_exit(value_ptr);
 	return SCARD_E_SERVICE_STOPPED;
 #else

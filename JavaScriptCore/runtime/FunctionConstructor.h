@@ -29,15 +29,17 @@ namespace JSC {
 
     class FunctionConstructor : public InternalFunction {
     public:
-        FunctionConstructor(ExecState*, NonNullPassRefPtr<Structure>, FunctionPrototype*);
+        FunctionConstructor(ExecState*, JSGlobalObject*, Structure*, FunctionPrototype*);
 
     private:
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
     };
 
-    JSObject* constructFunction(ExecState*, const ArgList&, const Identifier& functionName, const UString& sourceURL, int lineNumber);
-    JSObject* constructFunction(ExecState*, const ArgList&);
+    JSObject* constructFunction(ExecState*, JSGlobalObject*, const ArgList&, const Identifier& functionName, const UString& sourceURL, int lineNumber);
+    JSObject* constructFunction(ExecState*, JSGlobalObject*, const ArgList&);
+
+    JSObject* constructFunctionSkippingEvalEnabledCheck(ExecState*, JSGlobalObject*, const ArgList&, const Identifier&, const UString&, int lineNumber);
 
 } // namespace JSC
 

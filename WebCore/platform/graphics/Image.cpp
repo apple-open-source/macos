@@ -36,7 +36,7 @@
 #include <math.h>
 #include <wtf/StdLibExtras.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -81,10 +81,10 @@ void Image::fillWithSolidColor(GraphicsContext* ctxt, const FloatRect& dstRect, 
     if (color.alpha() <= 0)
         return;
     
-    ctxt->save();
+    CompositeOperator previousOperator = ctxt->compositeOperation();
     ctxt->setCompositeOperation(!color.hasAlpha() && op == CompositeSourceOver ? CompositeCopy : op);
     ctxt->fillRect(dstRect, color, styleColorSpace);
-    ctxt->restore();
+    ctxt->setCompositeOperation(previousOperator);
 }
 
 static inline FloatSize calculatePatternScale(const FloatRect& dstRect, const FloatRect& srcRect, Image::TileRule hRule, Image::TileRule vRule)
@@ -111,6 +111,11 @@ void Image::drawTiled(GraphicsContext* ctxt, const FloatRect& destRect, const Fl
         fillWithSolidColor(ctxt, destRect, solidColor(), styleColorSpace, op);
         return;
     }
+
+    // See <https://webkit.org/b/59043>.
+#if !PLATFORM(WX)
+    ASSERT(!isBitmapImage() || static_cast<BitmapImage*>(this)->notSolidColor());
+#endif
 
     FloatSize intrinsicTileSize = size();
     if (hasRelativeWidth())

@@ -1,9 +1,9 @@
-diff -aur php-5.3.2/acconfig.h php/acconfig.h
---- php-5.3.2/acconfig.h	2010-03-03 08:52:37.000000000 -0800
-+++ php/acconfig.h	2010-03-05 16:38:04.000000000 -0800
+diff -aur php-5.3.6/acconfig.h php/acconfig.h
+--- php-5.3.6/acconfig.h	2011-03-17 00:55:56.000000000 -0700
++++ php/acconfig.h	2011-03-18 14:07:34.000000000 -0700
 @@ -20,6 +20,8 @@
  
- /* $Id: acconfig.h 293155 2010-01-05 20:46:53Z sebastian $ */
+ /* $Id: acconfig.h 306939 2011-01-01 02:19:59Z felipe $ */
  
 +#ifndef ZEND_API
 +
@@ -40,12 +40,12 @@ diff -aur php-5.3.2/acconfig.h php/acconfig.h
   * Local variables:
   * tab-width: 4
   * c-basic-offset: 4
-diff -aur php-5.3.2/main/php_config.h.in php/main/php_config.h.in
---- php-5.3.4/main/php_config.h.in	2010-12-08 13:47:02.000000000 -0800
-+++ php/main/php_config.h.in	2010-12-10 14:41:17.000000000 -0800
+diff -aur php-5.3.6/main/php_config.h.in php/main/php_config.h.in
+--- php-5.3.6/main/php_config.h.in	2011-03-17 00:56:00.000000000 -0700
++++ php/main/php_config.h.in	2011-03-18 14:07:34.000000000 -0700
 @@ -21,6 +21,8 @@
  
- /* $Id: acconfig.h 293155 2010-01-05 20:46:53Z sebastian $ */
+ /* $Id: acconfig.h 306939 2011-01-01 02:19:59Z felipe $ */
  
 +#ifndef ZEND_API
 +

@@ -280,7 +280,9 @@ struct notifier *disconnect_done_notify = NULL;
 struct notifier *stop_notify = NULL;
 struct notifier *cont_notify = NULL;
 struct notifier *system_inited_notify = NULL;
-
+struct notifier *network_probed_notify = NULL;
+int wait_underlying_interface_up = 0;
+int retry_pre_start_link_check = 0;
 #endif
 
 #ifdef ultrix
@@ -292,15 +294,6 @@ struct notifier *system_inited_notify = NULL;
 #define setlogmask(x)
 #endif
 
-#ifdef __APPLE__
-/*
- * If pppd crashes, then this string will be magically 
- *	included in the automatically-generated crash log
- */
-const char *__crashreporter_info__ = "ppp-" PPP_VERSION;
-asm(".desc ___crashreporter_info__, 0x10");
-
-#endif
 
 /*
  * PPP Data Link Layer "protocol" table.
@@ -345,12 +338,13 @@ main(argc, argv)
     int argc;
     char *argv[];
 {
-    int i, t;
+    int i, t = 0;
     char *p;
     struct passwd *pw;
     struct protent *protp;
     char numbuf[16];
 
+	
     link_stats_valid = 0;
     new_phase(PHASE_INITIALIZE);
 
@@ -616,7 +610,15 @@ main(argc, argv)
 #ifdef __APPLE__
         if (start_link_hook) {
             if (the_channel->pre_start_link_check) {
-                if (the_channel->pre_start_link_check()) {
+                int rc = -1;
+                if (retry_pre_start_link_check < 0)
+                    retry_pre_start_link_check = 0;
+                for (i = 1 + retry_pre_start_link_check; i > 0; i--) {
+                    if (!(rc = the_channel->pre_start_link_check())) {
+                        break;
+                    }
+                }
+                if (rc) {
                     status = EXIT_PEER_UNREACHABLE;
                     goto end;
                 }
@@ -800,6 +802,9 @@ main(argc, argv)
 		    (*ccp_protent.open)(0);
 		}
 	    }
+#ifdef __APPLE__
+		sys_runloop();
+#endif
 	}
 
 	print_link_stats();
@@ -1157,13 +1162,15 @@ setup_signals()
 #ifdef SIGXFSZ
     SIGNAL(SIGXFSZ, bad_signal);
 #endif
-
+	
     /*
      * Apparently we can get a SIGPIPE when we call syslog, if
      * syslogd has died and been restarted.  Ignoring it seems
      * be sufficient.
      */
+#ifndef __APPLE__
     signal(SIGPIPE, SIG_IGN);
+#endif
 }
 
 /*

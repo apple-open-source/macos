@@ -1,4 +1,4 @@
-use Test::More tests => 10;
+use Test::More tests => 14;
 use strict;
 use HTTP::Proxy::BodyFilter::simple;
 
@@ -31,10 +31,18 @@ $sub = sub {
 
 $filter = HTTP::Proxy::BodyFilter::simple->new($sub);
 is( $filter->can('filter'), $sub, "filter() runs the correct filter" );
+ok( $filter->will_modify(), 'will_modify() defaults to true' );
+
+# will_modify()
+$filter = HTTP::Proxy::BodyFilter::simple->new( filter => $sub,
+    will_modify => 42 );
+is( $filter->will_modify(), 42, 'will_modify() returns the given data' );
 
 # test the filter
 for (
     [ "\nfoo\n", "", "\nbar\n", "" ],
+    HTTP::Proxy::BodyFilter::simple->new( end => sub {} ),
+    [ "\nfoo\n", "", "\nfoo\n", "" ],
   )
 {
     $filter = $_, next if ref $_ eq 'HTTP::Proxy::BodyFilter::simple';

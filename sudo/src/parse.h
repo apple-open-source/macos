@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2000, 2004, 2007-2008
+ * Copyright (c) 1996, 1998-2000, 2004, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -13,8 +13,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Sudo: parse.h,v 1.44 2008/11/09 14:13:12 millert Exp $
  */
 
 #ifndef _SUDO_PARSE_H
@@ -42,10 +40,11 @@ struct sudo_command {
  * Possible valus: TRUE, FALSE, UNSPEC.
  */
 struct cmndtag {
-    __signed char nopasswd;
-    __signed char noexec;
-    __signed char setenv;
-    __signed char extra;
+    __signed int nopasswd: 3;
+    __signed int noexec: 3;
+    __signed int setenv: 3;
+    __signed int log_input: 3;
+    __signed int log_output: 3;
 };
 
 /*
@@ -168,7 +167,6 @@ extern unsigned int alias_seqno;
  */
 char *alias_add		__P((char *, int, struct member *));
 int addr_matches	__P((char *));
-int alias_remove	__P((char *, int));
 int cmnd_matches	__P((struct member *));
 int cmndlist_matches	__P((struct member_list *));
 int command_matches	__P((char *, char *));
@@ -181,9 +179,13 @@ int userlist_matches	__P((struct passwd *, struct member_list *));
 int usergr_matches	__P((char *, char *, struct passwd *));
 int userpw_matches	__P((char *, char *, struct passwd *));
 int group_matches	__P((char *, struct group *));
-struct alias *find_alias __P((char *, int));
+struct alias *alias_find __P((char *, int));
+struct alias *alias_remove __P((char *, int));
+void alias_free		__P((void *));
 void alias_apply	__P((int (*)(void *, void *), void *));
 void init_aliases	__P((void));
+void init_lexer		__P((void));
 void init_parser	__P((char *, int));
+int alias_compare	__P((const void *, const void *));
 
 #endif /* _SUDO_PARSE_H */

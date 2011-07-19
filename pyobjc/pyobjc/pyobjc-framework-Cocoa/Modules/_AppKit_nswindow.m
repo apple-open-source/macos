@@ -1,8 +1,6 @@
-#include <Python.h>
-#include <AppKit/AppKit.h>
-#include "pyobjc-api.h"
+#if PY_MAJOR_VERSION == 2
 
-#ifndef __LP64__
+#ifdef __LP64__
 
 #include "pymactoolbox.h"
 
@@ -11,7 +9,7 @@
 	 * of pymactoolbox.h that we need because that header
 	 * doesn't work in 64-bit mode.
 	 */
-#	include <Carbon/Carbon.h>
+#	import <Carbon/Carbon.h>
 extern PyObject *WinObj_New(WindowPtr);
 extern int WinObj_Convert(PyObject *, WindowPtr *);
 extern PyObject *WinObj_WhichWindow(WindowPtr);
@@ -37,7 +35,7 @@ call_NSWindow_windowRef(
 			PyObjCObject_GetObject(self));
 
 
-		windowRef = objc_msgSendSuper(&super,
+		windowRef = ((void*(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method));
 
 	PyObjC_HANDLER
@@ -123,7 +121,7 @@ call_NSWindow_initWithWindowRef_(
 			PyObjCSelector_GetClass(method),
 			PyObjCObject_GetObject(self));
 
-		objc_result = objc_msgSendSuper(&super,
+		objc_result = ((id(*)(struct objc_super*, SEL, void*))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method), windowRef);
 
 	PyObjC_HANDLER
@@ -191,21 +189,16 @@ error:
 	PyObjCErr_ToObjCWithGILState(&state);
 }
 
+#endif /* PY_MAJOR_VERSION == 2 */
 
-
-static PyMethodDef mod_methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_nswindow(void);
-void init_nswindow(void)
+static int setup_nswindows(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_nswindow", mod_methods, "", NULL,
-			PYTHON_API_VERSION);
 
-	PyObjC_ImportAPI(m);
-
+#if PY_MAJOR_VERSION == 2
 	Class classNSWindow = objc_lookUpClass("NSWindow");
+	if (classNSWindow == NULL) {
+		return 0;
+	}
 
 	if (PyObjC_RegisterMethodMapping(
 		classNSWindow,
@@ -213,7 +206,7 @@ void init_nswindow(void)
 		call_NSWindow_initWithWindowRef_,
 		imp_NSWindow_initWithWindowRef_) < 0) {
 
-		return;
+		return -1;
 	}
 
 	if (PyObjC_RegisterMethodMapping(
@@ -222,6 +215,9 @@ void init_nswindow(void)
 		call_NSWindow_windowRef,
 		imp_NSWindow_windowRef) < 0) {
 
-		return;
+		return -1;
 	}
+#endif
+
+	return 0;
 }

@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'li_std_string'
 
 include Li_std_string
@@ -113,7 +124,7 @@ if (s != "hellohello")
 end
 
 
-if (empty() != "")
+if (stdstring_empty() != "")
   raise RuntimeError
 end
 

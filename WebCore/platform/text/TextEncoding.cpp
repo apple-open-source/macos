@@ -40,18 +40,10 @@
 #include "GOwnPtr.h"
 #endif
 #include <wtf/text/CString.h>
-#include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
-
-static void addEncodingName(HashSet<const char*>& set, const char* name)
-{
-    const char* atomicName = atomicCanonicalTextEncodingName(name);
-    if (atomicName)
-        set.add(atomicName);
-}
 
 static const TextEncoding& UTF7Encoding()
 {
@@ -120,6 +112,10 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
 #elif USE(GLIB_UNICODE)
     GOwnPtr<char> UTF8Source;
     UTF8Source.set(g_utf16_to_utf8(characters, length, 0, 0, 0));
+    if (!UTF8Source) {
+        // If conversion to UTF-8 failed, try with the string without normalization
+        return newTextCodec(*this)->encode(characters, length, handling);
+    }
 
     GOwnPtr<char> UTF8Normalized;
     UTF8Normalized.set(g_utf8_normalize(UTF8Source.get(), -1, G_NORMALIZE_NFC));
@@ -131,6 +127,10 @@ CString TextEncoding::encode(const UChar* characters, size_t length, Unencodable
     return newTextCodec(*this)->encode(UTF16Normalized.get(), UTF16Length, handling);
 #elif OS(WINCE)
     // normalization will be done by Windows CE API
+    OwnPtr<TextCodec> textCodec = newTextCodec(*this);
+    return textCodec.get() ? textCodec->encode(characters, length, handling) : CString();
+#elif USE(BREWMP_UNICODE)
+    // FIXME: not sure if Brew MP normalizes the input string automatically
     OwnPtr<TextCodec> textCodec = newTextCodec(*this);
     return textCodec.get() ? textCodec->encode(characters, length, handling) : CString();
 #endif
@@ -165,39 +165,12 @@ bool TextEncoding::usesVisualOrdering() const
 
 bool TextEncoding::isJapanese() const
 {
-    if (noExtendedTextEncodingNameUsed())
-        return false;
-
-    DEFINE_STATIC_LOCAL(HashSet<const char*>, set, ());
-    if (set.isEmpty()) {
-        addEncodingName(set, "x-mac-japanese");
-        addEncodingName(set, "cp932");
-        addEncodingName(set, "JIS_X0201");
-        addEncodingName(set, "JIS_X0208-1983");
-        addEncodingName(set, "JIS_X0208-1990");
-        addEncodingName(set, "JIS_X0212-1990");
-        addEncodingName(set, "JIS_C6226-1978");
-        addEncodingName(set, "Shift_JIS_X0213-2000");
-        addEncodingName(set, "ISO-2022-JP");
-        addEncodingName(set, "ISO-2022-JP-2");
-        addEncodingName(set, "ISO-2022-JP-1");
-        addEncodingName(set, "ISO-2022-JP-3");
-        addEncodingName(set, "EUC-JP");
-        addEncodingName(set, "Shift_JIS");
-    }
-    return m_name && set.contains(m_name);
+    return isJapaneseEncoding(m_name);
 }
 
 UChar TextEncoding::backslashAsCurrencySymbol() const
 {
-    if (noExtendedTextEncodingNameUsed())
-        return '\\';
-
-    // The text encodings below treat backslash as a currency symbol.
-    // See http://blogs.msdn.com/michkap/archive/2005/09/17/469941.aspx for more information.
-    static const char* const a = atomicCanonicalTextEncodingName("Shift_JIS_X0213-2000");
-    static const char* const b = atomicCanonicalTextEncodingName("EUC-JP");
-    return (m_name == a || m_name == b) ? 0x00A5 : '\\';
+    return shouldShowBackslashAsCurrencySymbolIn(m_name) ? 0x00A5 : '\\';
 }
 
 bool TextEncoding::isNonByteBasedEncoding() const
@@ -248,7 +221,7 @@ const TextEncoding& ASCIIEncoding()
 
 const TextEncoding& Latin1Encoding()
 {
-    static TextEncoding globalLatin1Encoding("Latin-1");
+    static TextEncoding globalLatin1Encoding("latin1");
     return globalLatin1Encoding;
 }
 

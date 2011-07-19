@@ -1,0 +1,6 @@
+#!/bin/sh
+echo 'Rails is not currently installed on this system. To get the latest version, simply type:'
+echo
+echo '    $ sudo gem install rails'
+echo
+echo 'You can then rerun your "rails" command.'

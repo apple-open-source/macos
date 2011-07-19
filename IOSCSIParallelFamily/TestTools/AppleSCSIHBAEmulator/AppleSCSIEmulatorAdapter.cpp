@@ -767,7 +767,7 @@ AppleSCSIEmulatorAdapter::CompleteTaskOnWorkloopThread (
 				
 				if ( !SetRealizedDataTransferCount ( parallelRequest, actuallyTransferred ) )
 				{
-					ERROR_LOG ( ( "CompleteTaskOnWorkloopThread: SetRealizedDataTransferCount (%d bytes) returned FAIL", actuallyTransferred ) );
+					ERROR_LOG ( ( "CompleteTaskOnWorkloopThread: SetRealizedDataTransferCount (%llu bytes) returned FAIL", actuallyTransferred ) );
 				}
 				break;
 				
@@ -783,7 +783,7 @@ AppleSCSIEmulatorAdapter::CompleteTaskOnWorkloopThread (
 				
 				if ( !SetRealizedDataTransferCount ( parallelRequest, actuallyTransferred ) )
 				{
-					ERROR_LOG ( ( "CompleteTaskOnWorkloopThread: SetRealizedDataTransferCount (%d bytes) returned FAIL", actuallyTransferred ) );
+					ERROR_LOG ( ( "CompleteTaskOnWorkloopThread: SetRealizedDataTransferCount (%llu bytes) returned FAIL", actuallyTransferred ) );
 				}
 				break;
 				

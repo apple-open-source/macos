@@ -19,8 +19,8 @@
 #include "llvm/Pass.h"
 #include "llvm/Module.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 #include <fstream>
 #include <set>
@@ -43,7 +43,7 @@ APIList("internalize-public-api-list", cl::value_desc("list"),
         cl::CommaSeparated);
 
 namespace {
-  class VISIBILITY_HIDDEN InternalizePass : public ModulePass {
+  class InternalizePass : public ModulePass {
     std::set<std::string> ExternalNames;
     /// If no api symbols were specified and a main function is defined,
     /// assume the main function is the only API
@@ -86,7 +86,7 @@ void InternalizePass::LoadFile(const char *Filename) {
   // Load the APIFile...
   std::ifstream In(Filename);
   if (!In.good()) {
-    cerr << "WARNING: Internalize couldn't load file '" << Filename
+    errs() << "WARNING: Internalize couldn't load file '" << Filename
          << "'! Continuing as if it's empty.\n";
     return; // Just continue as if the file were empty
   }
@@ -101,7 +101,7 @@ void InternalizePass::LoadFile(const char *Filename) {
 bool InternalizePass::runOnModule(Module &M) {
   CallGraph *CG = getAnalysisIfAvailable<CallGraph>();
   CallGraphNode *ExternalNode = CG ? CG->getExternalCallingNode() : 0;
-
+  
   if (ExternalNames.empty()) {
     // Return if we're not in 'all but main' mode and have no external api
     if (!AllButMain)
@@ -131,12 +131,14 @@ bool InternalizePass::runOnModule(Module &M) {
       if (ExternalNode) ExternalNode->removeOneAbstractEdgeTo((*CG)[I]);
       Changed = true;
       ++NumFunctions;
-      DOUT << "Internalizing func " << I->getName() << "\n";
+      DEBUG(dbgs() << "Internalizing func " << I->getName() << "\n");
     }
 
   // Never internalize the llvm.used symbol.  It is used to implement
   // attribute((used)).
+  // FIXME: Shouldn't this just filter on llvm.metadata section??
   ExternalNames.insert("llvm.used");
+  ExternalNames.insert("llvm.compiler.used");
 
   // Never internalize anchors used by the machine module info, else the info
   // won't find them.  (see MachineModuleInfo.)
@@ -154,22 +156,26 @@ bool InternalizePass::runOnModule(Module &M) {
   for (Module::global_iterator I = M.global_begin(), E = M.global_end();
        I != E; ++I)
     if (!I->isDeclaration() && !I->hasLocalLinkage() &&
+        // Available externally is really just a "declaration with a body".
+        !I->hasAvailableExternallyLinkage() &&
         !ExternalNames.count(I->getName())) {
       I->setLinkage(GlobalValue::InternalLinkage);
       Changed = true;
       ++NumGlobals;
-      DOUT << "Internalized gvar " << I->getName() << "\n";
+      DEBUG(dbgs() << "Internalized gvar " << I->getName() << "\n");
     }
 
   // Mark all aliases that are not in the api as internal as well.
   for (Module::alias_iterator I = M.alias_begin(), E = M.alias_end();
        I != E; ++I)
     if (!I->isDeclaration() && !I->hasInternalLinkage() &&
+        // Available externally is really just a "declaration with a body".
+        !I->hasAvailableExternallyLinkage() &&
         !ExternalNames.count(I->getName())) {
       I->setLinkage(GlobalValue::InternalLinkage);
       Changed = true;
       ++NumAliases;
-      DOUT << "Internalized alias " << I->getName() << "\n";
+      DEBUG(dbgs() << "Internalized alias " << I->getName() << "\n");
     }
 
   return Changed;

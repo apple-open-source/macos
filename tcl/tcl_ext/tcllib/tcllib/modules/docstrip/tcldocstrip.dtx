@@ -275,6 +275,7 @@ tcltest::testConstraint docstripSourcesAvailable [expr {[
 [moddesc {Literate programming tool}]
 %<man>[titledesc {Docstrip style source code extraction}]
 %<utilman>[titledesc {Docstrip-related utilities}]
+[category  {Documentation tools}]
 [require Tcl 8.4]
 %<man>[require docstrip [opt 1.2]]
 %<utilman>[require docstrip::util [opt 1.2]]
@@ -321,9 +322,9 @@ The [package docstrip] Tcl package handles this translation.
 Even for those who do not whole-hartedly subscribe to the philosophy 
 behind literate programming, [syscmd docstrip] can bring greater 
 clarity to in particular:
-[list_begin bullet]
-  [bullet] programs employing non-obvious mathematics
-  [bullet] projects where separate pieces of code, perhaps in 
+[list_begin itemized]
+  [item] programs employing non-obvious mathematics
+  [item] projects where separate pieces of code, perhaps in 
     different languages, need to be closely coordinated.
 [list_end]
 The first is by providing access to much more powerful typographical 
@@ -350,7 +351,7 @@ and interpret the master source files directly.
 
 Readers who are not previously familiar with [syscmd docstrip] but 
 want to know more about it may consult the following sources.
-[list_begin enum]
+[list_begin enumerated]
 [enum]
   [emph {The tclldoc package and class}],
   [uri {http://tug.org/tex-archive/macros/latex/contrib/tclldoc/}].
@@ -760,7 +761,7 @@ The package defines two commands.
   a newline. The [arg terminals] is the list of those guard 
   expression terminals which should evaluate to true. 
   The available options are:
-  [list_begin opt]
+  [list_begin options]
   [opt_def -annotate [arg lines]]
     Requests the specified number of lines of annotation to follow 
     each extracted line in the result. Defaults to 0. Annotation lines 
@@ -781,12 +782,12 @@ The package defines two commands.
     Controls what will be done when a format error in the [arg text] 
     being processed is detected. The settings are:
     [list_begin definitions]
-    [lst_item [const ignore]]
+    [def [const ignore]]
       Just ignore the error; continue as if nothing happened.
-    [lst_item [const puts]]
+    [def [const puts]]
       Write an error message to [const stderr], then continue 
       processing.
-    [lst_item [const throw]]
+    [def [const throw]]
       Throw an error. [var ::errorCode] is set to a list whose 
       first element is [const DOCSTRIP], second element is the 
       type of error, and third element is the line number where 
@@ -1353,23 +1354,23 @@ the main package to avoid overhead for end-users.
   (Tcl Markup Language for Manpages). The different line types are 
   treated as follows:
   [list_begin definitions]
-  [lst_item {comment and metacomment lines}]
+  [def {comment and metacomment lines}]
     The '%' and '%%' prefixes are removed, the rest of the text is 
     kept as it is.
-  [lst_item {empty lines}]
+  [def {empty lines}]
     These are kept as they are. (Effectively this means that they will 
     count as comment lines after a comment line and as code lines
     after a code line.)
-  [lst_item {code lines}]
+  [def {code lines}]
     [cmd example_begin] and [cmd example_end] commands are placed 
     at the beginning and end of every block of consecutive code 
     lines. Brackets in a code line are converted to [cmd lb] and 
     [cmd rb] commands.
-  [lst_item {verbatim guards}]
+  [def {verbatim guards}]
     These are processed as usual, so they do not show up in the 
     result but every line in a verbatim block is treated as a code 
     line.
-  [lst_item {other guards}]
+  [def {other guards}]
     These are treated as code lines, except that the actual guard is 
     [cmd emph]asised.
   [list_end]
@@ -1415,7 +1416,7 @@ the main package to avoid overhead for end-users.
   [cmd docstrip::util::ddt2man] then the result will be a syntactically 
   correct [package doctools] manpage, even though its purpose is a 
   bit different.
-  [nl]
+  [para]
   
   It is suggested that master source code files with [package doctools] 
   markup are given the suffix [file .ddt], hence the "ddt" in 
@@ -1550,22 +1551,22 @@ proc docstrip::util::ddt2man {text} {
   in the [arg text]. The [arg subcmd] selects what is returned.
   
   [list_begin definitions]
-  [lst_item counts]
+  [def counts]
     List the guard expression terminals with counts. The format of 
     the return value is a dictionary which maps the terminal name to 
     the number of occurencies of it in the file.
-  [lst_item exprcount]
+  [def exprcount]
     List the guard expressions with counts. The format of the return 
     value is a dictionary which maps the expression to the number of 
     occurencies of it in the file.
-  [lst_item exprerr]
+  [def exprerr]
     List the syntactically incorrect guard expressions (e.g. 
     parentheses do not match, or a terminal is missing). The return 
     value is a list, with the elements in no particular order.
-  [lst_item expressions]
+  [def expressions]
     List the guard expressions. The return value is a list, with the 
     elements in no particular order.
-  [lst_item exprmods]
+  [def exprmods]
     List the guard expressions with modifiers. The format of the return 
     value is a dictionary where each index is a guard expression and 
     each entry is a string with one character for every guard line that 
@@ -1573,10 +1574,10 @@ proc docstrip::util::ddt2man {text} {
     modifier was used in that line: +, -, *, /, or (for guard without 
     modifier:) space. This is the most primitive form of the 
     information gathered by [cmd guards].
-  [lst_item names]
+  [def names]
     List the guard expression terminals. The return value is a list, 
     with the elements in no particular order.
-  [lst_item rotten]
+  [def rotten]
     List the malformed guard lines (this does not include lines where 
     only the expression is malformed, though). The format of the return 
     value is a dictionary which maps line numbers to their contents.
@@ -2262,7 +2263,7 @@ proc docstrip::util::import_unidiff {text {warnvar ""}} {
 % explicit cleanup.
 % 
 % \begin{tcl}
-%<test,utiltest>tcltest::cleanupTests
+%<test,utiltest>testsuiteCleanup
 % \end{tcl}
 % 
 % The manpages require an explicit ending, and can do with some 

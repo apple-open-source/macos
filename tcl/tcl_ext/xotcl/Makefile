@@ -10,7 +10,7 @@ ProjectName           = XOTcl
 License               = COPYRIGHT
 
 # Fetch info
-Release               = 1.6.2
+Release               = 1.6.6
 Url                   = http://media.wu-wien.ac.at/download/$(UrlFile)$(UrlExt)
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
@@ -37,3 +37,4 @@ fix-perms::
 
 extract::
 	$(_v) $(RM) $(SRCROOT)/$(Project)/{ChangeLog.*,doc/{index.html,xo-daemon.html,xo-whichPkg.html}}
+	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/doc/openacs-4

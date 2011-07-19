@@ -55,7 +55,7 @@ void unmonitor_lock_host(const char *hostname);
 /* callbacks from lock_proc.c */
 int	transmit_result(int, nlm_res *, struct sockaddr *, int);
 int	transmit4_result(int, nlm4_res *, struct sockaddr *, int);
-CLIENT  *get_client(struct sockaddr *, rpcvers_t, int);
+CLIENT  *get_client(struct sockaddr *, rpcvers_t, int, int);
 int	addrcmp(const struct sockaddr *, const struct sockaddr *);
 
 extern time_t currsec;

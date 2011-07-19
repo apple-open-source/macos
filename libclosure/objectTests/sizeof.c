@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  sizeof.c
  *  testObjects
  *
@@ -7,15 +13,25 @@
  *
  */
 
+// TEST_CONFIG RUN=0
+
+/*
+TEST_BUILD_OUTPUT
+.*sizeof.c: In function 'main':
+.*sizeof.c:36: error: invalid type argument of 'unary \*'
+OR
+.*sizeof.c: In function '.*main.*':
+.*sizeof.c:36: error: invalid application of 'sizeof' to a function type
+OR
+.*sizeof.c:36:(47|51): error: indirection requires pointer operand \('void \(\^\)\((void)?\)' invalid\)
+END
+ */
+
 #include <stdio.h>
+#include "test.h"
 
-// CONFIG error:
-
-int main(int argc, char *argv[]) {
-
+int main() {
     void (^aBlock)(void) = ^{ printf("hellow world\n"); };
 
-    printf("the size of a block is %ld\n", sizeof(*aBlock));
-    printf("%s: success\n", argv[0]);
-    return 0;
+    fail("the size of a block is %ld", sizeof(*aBlock));
 }

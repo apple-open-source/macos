@@ -28,13 +28,15 @@
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
 .\" Manual page, using -mandoc macros
-.\" $FreeBSD: src/lib/libc/gen/arc4random.3,v 1.16 2003/07/31 06:18:24 das Exp $
+.\" $FreeBSD: src/lib/libc/gen/arc4random.3,v 1.18 2008/07/22 11:33:49 ache Exp $
 .\"
 .Dd April 15, 1997
 .Dt ARC4RANDOM 3
 .Os
 .Sh NAME
 .Nm arc4random ,
+.Nm arc4random_buf ,
+.Nm arc4random_uniform ,
 .Nm arc4random_stir ,
 .Nm arc4random_addrandom
 .Nd arc4 random number generator
@@ -44,6 +46,10 @@
 .In stdlib.h
 .Ft u_int32_t
 .Fn arc4random "void"
+.Ft void
+.Fn arc4random_buf "void *buf" "size_t nbytes"
+.Ft u_int32_t
+.Fn arc4random_uniform "u_int32_t upper_bound"
 .Ft void
 .Fn arc4random_stir "void"
 .Ft void
@@ -68,6 +74,21 @@ and therefore has twice the range of
 and
 .Xr random 3 .
 .Pp
+.Fn arc4random_buf
+function fills the region
+.Fa buf
+of length
+.Fa nbytes
+with ARC4-derived random data.
+.Pp
+.Fn arc4random_uniform
+will return a uniformly distributed random number less than
+.Fa upper_bound .
+.Fn arc4random_uniform
+is recommended over constructions like
+.Dq Li arc4random() % upper_bound
+as it avoids "modulo bias" when the upper bound is not a power of two.
+.Pp
 The
 .Fn arc4random_stir
 function reads data from
@@ -78,10 +99,9 @@ and uses it to permute the S-Boxes via
 There is no need to call
 .Fn arc4random_stir
 before using
-.Fn arc4random ,
-since
 .Fn arc4random
-automatically initializes itself.
+functions family, since
+they automatically initialize themselves.
 .Sh EXAMPLES
 The following produces a drop-in replacement for the traditional
 .Fn rand

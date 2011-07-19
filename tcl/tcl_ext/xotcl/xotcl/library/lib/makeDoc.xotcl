@@ -1,5 +1,5 @@
 #$Id: makeDoc.xotcl,v 1.6 2006/09/27 08:12:40 neumann Exp $
-package require XOTcl
+package require XOTcl 1.6
 namespace import ::xotcl::*
 @ @File {
   description {

@@ -1,9 +1,9 @@
 #
 # "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
 #
-#   Locale file makefile for the Common UNIX Printing System (CUPS).
+#   Locale file makefile for CUPS.
 #
-#   Copyright 2007-2008 by Apple Inc.
+#   Copyright 2007-2011 by Apple Inc.
 #   Copyright 1993-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -79,6 +79,10 @@ install-languages:
 		fi ; \
 	done
 
+install-langbundle: po2strings
+	$(INSTALL_DIR) -m 755 "$(BUILDROOT)$(BUNDLEDIR)/Resources/English.lproj"
+	$(INSTALL_DATA) cups.strings "$(BUILDROOT)$(BUNDLEDIR)/Resources/English.lproj"
+
 
 #
 # Install programs...
@@ -112,29 +116,36 @@ uninstall-languages:
 		$(RM) $(LOCALEDIR)/$$loc/cups_$$loc.po ; \
 	done
 
+uninstall-langbundle:
+	$(RM) "$(BUILDROOT)$(BUNDLEDIR)/Resources/English.lproj/cups.strings"
+
 
 #
-# pot - Creates/updates the cups.pot template file, and merges changes
-#       into existing message catalogs.
+# pot - Creates/updates the cups.pot template file, merges changes into existing
+#       message catalogs, and updates the cups.strings file.  We don't use
+#       xgettext to update the cups.strings file due to known xgettext bugs.
 #
 
-pot:
+pot:	checkpo po2strings
 	echo Updating cups.pot...
 	mv cups.pot cups.pot.bck
 	touch cups.pot
-	cd ..; xgettext -o locale/cups.pot -j -s --keyword=_ --no-wrap \
+	cd ..; xgettext -o locale/cups.pot -cTRANSLATORS -s \
+		--keyword=_ --no-wrap \
 		--copyright-holder="Apple Inc." \
+		--package-name="CUPS" --package-version="1.5" \
 		--msgid-bugs-address="http://www.cups.org/str.php" \
 		*/*.c */*.cxx
-	(cat cups.header; \
-	 cat cups.pot | sed -e '1,6d' -e '1,$$s/PACKAGE VERSION/CUPS 1.4/' \
-	     -e '1,$$s/charset=CHARSET/charset=utf-8/'; \
-	 cat cups.footer) > cups.pot.N
+	(cat cups.header; tail +6 cups.pot; cat cups.footer) > cups.pot.N
 	mv cups.pot.N cups.pot
+	echo Checking cups.pot...
+	./checkpo cups.pot
 	for loc in $(LANGUAGES) ; do \
 		echo Merging changes into cups_$$loc.po... ; \
 		msgmerge -o cups_$$loc.po -s -N --no-location cups_$$loc.po cups.pot ; \
 	done
+	echo Updating cups.strings...
+	./po2strings cups.pot cups.strings
 
 
 #
@@ -144,10 +155,11 @@ pot:
 # checkpo filename.po [... filenameN.po]
 #
 
-checkpo:	checkpo.o ../cups/libcups.a
+checkpo:	checkpo.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o checkpo checkpo.o ../cups/libcups.a \
-		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o checkpo checkpo.o \
+		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
+		$(COMMONLIBS) $(LIBZ)
 
 checkall:	checkpo
 	for file in *.po; do \
@@ -162,10 +174,11 @@ checkall:	checkpo
 # po2strings filename.po filename.strings
 #
 
-po2strings:	po2strings.o ../cups/libcups.a
+po2strings:	po2strings.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o po2strings po2strings.o ../cups/libcups.a \
-		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o po2strings po2strings.o \
+		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
+		$(COMMONLIBS) $(LIBZ)
 
 
 #
@@ -177,7 +190,7 @@ po2strings:	po2strings.o ../cups/libcups.a
 
 strings2po:	strings2po.o
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o strings2po strings2po.o
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o strings2po strings2po.o
 
 
 #
@@ -187,16 +200,17 @@ strings2po:	strings2po.o
 # translate outfile language
 #
 
-translate:	translate.o ../cups/libcups.a
+translate:	translate.o ../cups/$(LIBCUPSSTATIC)
 	echo Linking $<...
-	$(CC) $(LDFLAGS) -o translate translate.o ../cups/libcups.a \
-		$(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) $(COMMONLIBS) $(LIBZ)
+	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o translate translate.o \
+		../cups/$(LIBCUPSSTATIC) $(LIBGSSAPI) $(SSLLIBS) $(DNSSDLIBS) \
+		$(COMMONLIBS) $(LIBZ)
 
 
 #
 # Dependencies...
 #
-  
+
 include Dependencies
 
 

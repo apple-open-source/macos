@@ -345,21 +345,36 @@ pum_redraw()
 			    if (st != NULL)
 			    {
 				char_u	*rt = reverse_text(st);
-				char_u	*rt_saved = rt;
-				int	len, j;
 
 				if (rt != NULL)
 				{
-				    len = (int)STRLEN(rt);
-				    if (len > pum_width)
+				    char_u	*rt_start = rt;
+				    int		size;
+
+				    size = vim_strsize(rt);
+				    if (size > pum_width)
 				    {
-					for (j = pum_width; j < len; ++j)
+					do
+					{
+					    size -= has_mbyte
+						    ? (*mb_ptr2cells)(rt) : 1;
 					    mb_ptr_adv(rt);
-					len = pum_width;
+					} while (size > pum_width);
+
+					if (size < pum_width)
+					{
+					    /* Most left character requires
+					     * 2-cells but only 1 cell is
+					     * available on screen.  Put a
+					     * '<' on the left of the pum
+					     * item */
+					    *(--rt) = '<';
+					    size++;
+					}
 				    }
-				    screen_puts_len(rt, len, row,
-							col - len + 1, attr);
-				    vim_free(rt_saved);
+				    screen_puts_len(rt, (int)STRLEN(rt),
+						   row, col - size + 1, attr);
+				    vim_free(rt_start);
 				}
 				vim_free(st);
 			    }
@@ -456,17 +471,6 @@ pum_redraw()
 	++row;
     }
 }
-
-#if 0 /* not used yet */
-/*
- * Return the index of the currently selected item.
- */
-    int
-pum_get_selected()
-{
-    return pum_selected;
-}
-#endif
 
 /*
  * Set the index of the currently selected item.  The menu will scroll when
@@ -625,7 +629,7 @@ pum_set_selected(n, repeat)
 
 		    curbuf->b_changed = 0;
 		    curbuf->b_p_ma = FALSE;
-		    curwin->w_cursor.lnum = 0;
+		    curwin->w_cursor.lnum = 1;
 		    curwin->w_cursor.col = 0;
 
 		    if (curwin != curwin_save && win_valid(curwin_save))

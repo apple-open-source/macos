@@ -14,7 +14,7 @@
 	</array>
 	<key>QueueDirectories</key>
 	<array>
-		<string>/var/spool/postfix/maildrop</string>
+		<string>/Library/Server/Mail/Data/spool/maildrop</string>
 	</array>
 	<key>AbandonProcessGroup</key>
 	<true/>

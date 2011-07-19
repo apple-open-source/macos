@@ -1,0 +1,15 @@
+Changes
+Makefile.PL
+MANIFEST
+README
+Warn.pm
+t/1.t
+t/warning_is.t
+t/warning_like.t
+t/warnings_are.t
+t/warnings_like.t
+t/warnings_exist.t
+t/warnings_exist1.pl
+t/carped.t
+t/pod.t
+META.yml                                 Module meta-data (added by MakeMaker)

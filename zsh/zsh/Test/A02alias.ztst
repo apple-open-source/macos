@@ -25,3 +25,20 @@
   \bar \bar
 0:Aliasing with a backslash
 >bar
+
+  (alias '!=echo This command has the argument'
+  eval 'print Without
+  ! true'
+  setopt posixaliases
+  eval 'print With
+  ! true')
+1:POSIX_ALIASES option
+>Without
+>This command has the argument true
+>With
+
+  print -u $ZTST_fd 'This test hangs the shell when it fails...'
+  alias cat='LC_ALL=C cat'
+  cat <(echo foo | cat)
+0:Alias expansion works at the end of parsed strings
+>foo

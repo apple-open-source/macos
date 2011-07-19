@@ -159,7 +159,7 @@ inet_pton6(const char *src, unsigned char *dst)
   unsigned char tmp[IN6ADDRSZ], *tp, *endp, *colonp;
   const char *xdigits, *curtok;
   int ch, saw_xdigit;
-  unsigned int val;
+  size_t val;
 
   memset((tp = tmp), 0, IN6ADDRSZ);
   endp = tp + IN6ADDRSZ;
@@ -218,14 +218,14 @@ inet_pton6(const char *src, unsigned char *dst)
      * Since some memmove()'s erroneously fail to handle
      * overlapping regions, we'll do the shift by hand.
      */
-    const long n = tp - colonp;
-    long i;
+    const ssize_t n = tp - colonp;
+    ssize_t i;
 
     if(tp == endp)
       return (0);
     for (i = 1; i <= n; i++) {
-      endp[- i] = colonp[n - i];
-      colonp[n - i] = 0;
+      *(endp - i) = *(colonp + n - i);
+      *(colonp + n - i) = 0;
     }
     tp = endp;
   }

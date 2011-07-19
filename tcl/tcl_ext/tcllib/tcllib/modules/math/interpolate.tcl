@@ -6,7 +6,7 @@
 #    None of the methods deal gracefully with missing values
 #
 # To do:
-#    Add cubic splines and B-splines as methods
+#    Add B-splines as methods
 #    For spatial interpolation in two dimensions also quadrant method?
 #    Method for destroying a table
 #    Proper documentation
@@ -24,7 +24,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: interpolate.tcl,v 1.9 2006/09/20 22:16:01 andreas_kupries Exp $
+# RCS: @(#) $Id: interpolate.tcl,v 1.10 2009/10/22 18:19:52 arjenmarkus Exp $
 #
 #----------------------------------------------------------------------
 
@@ -596,7 +596,8 @@ proc ::math::interpolate::prepare-cubic-splines {xcoord ycoord} {
         set y1  [lindex $c $i]
         set r   [expr {$yp1-$y1}]
         lappend d [expr {$r/$s}]
-        lset c $i [expr {3.0*$y1}]
+        set y1    [expr {3.0*$y1}]
+        lset c $i $y1
         lappend b [expr {([lindex $ycoord $ip1]-[lindex $ycoord $i])/$s
                          -($y1+$r)*$s}]
     }
@@ -650,4 +651,4 @@ proc ::math::interpolate::interp-cubic-splines {coeffs x} {
 #
 # Announce our presence
 #
-package provide math::interpolate 1.0.2
+package provide math::interpolate 1.0.3

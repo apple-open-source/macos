@@ -217,7 +217,7 @@ class msdosfs(object):
 		#
 		dev.seek(0)
 		bs = dev.read(512)
-		if ord(bs[0]) != 0xE9 and (ord(bs[0]) != 0xEB or ord(bs[2]) != 0x90):
+		if ord(bs[0]) != 0xE9 and ord(bs[0]) != 0xEB:
 			raise RuntimeError("Invalid boot jump signature")
 		v = struct.unpack("<H", bs[11:13])[0]
 		if v < 512 or v > 4096 or (v & (v-1)):

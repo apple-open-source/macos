@@ -24,6 +24,10 @@
  */
 
 #include "config.h"
+
+// FIXME: Remove this define!
+#define LOOSE_OWN_PTR
+
 #include "StorageNamespaceProxy.h"
 
 #if ENABLE(DOM_STORAGE)
@@ -49,9 +53,8 @@ PassRefPtr<StorageNamespace> StorageNamespace::localStorageNamespace(const Strin
 
 PassRefPtr<StorageNamespace> StorageNamespace::sessionStorageNamespace(Page* page, unsigned quota)
 {
-    WebKit::ChromeClientImpl* chromeClientImpl = static_cast<WebKit::ChromeClientImpl*>(page->chrome()->client());
-    WebKit::WebViewClient* webViewClient = chromeClientImpl->webView()->client();
-    return adoptRef(new StorageNamespaceProxy(webViewClient->createSessionStorageNamespace(), SessionStorage));
+    WebKit::WebViewClient* webViewClient = static_cast<WebKit::WebViewImpl*>(page->chrome()->client()->webView())->client();
+    return adoptRef(new StorageNamespaceProxy(webViewClient->createSessionStorageNamespace(quota), SessionStorage));
 }
 
 StorageNamespaceProxy::StorageNamespaceProxy(WebKit::WebStorageNamespace* storageNamespace, StorageType storageType)
@@ -90,6 +93,21 @@ void StorageNamespaceProxy::close()
 void StorageNamespaceProxy::unlock()
 {
     // FIXME: Implement.
+}
+
+void StorageNamespaceProxy::clearOriginForDeletion(SecurityOrigin* origin)
+{
+    ASSERT_NOT_REACHED();
+}
+
+void StorageNamespaceProxy::clearAllOriginsForDeletion()
+{
+    ASSERT_NOT_REACHED();
+}
+
+void StorageNamespaceProxy::sync()
+{
+    ASSERT_NOT_REACHED();
 }
 
 } // namespace WebCore

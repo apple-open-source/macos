@@ -1,5 +1,5 @@
 <manpage>
-	<docdate>May 8, 2009</docdate>
+	<docdate>March 17, 2011</docdate>
 	<doctitle>com.apple.Boot.plist</doctitle>
 	<os>Darwin</os>
 	<section>5</section>
@@ -14,7 +14,7 @@
 			EFI boot options, and keyboard "snag keys".
 		</p>
 		<p>The <path>com.apple.Boot.plist</path> is a standard <manpage>plist<section>5</section></manpage>
-			format Core Foundation property list. Keys are generally strings like <command>Kernel Flags</command>,
+			format Core Foundation property list stored in XML format. Keys are generally strings like <command>Kernel Flags</command>,
 			with either string or integer values. The following key-values are currently supported:
 		</p>
 		<dl>
@@ -87,6 +87,8 @@
 			<dt><command>Command-V</command></dt><dd>Boot in Verbose Mode. Effectively the same as passing "-v" in
 				<command>Kernel Flags</command>, and causes the system to boot to verbose text logging before
 				starting the graphical user interface.</dd>
+
+                        <dt><command>Command-R</command></dt><dd>Boot in Recovery Mode.  This causes the system to boot into special Recovery System image, which can be used used to restore the system from Time Machine Backup, re-install Mac OS X, or use Disk Utility to repair or erase disks.</dd>
 			
 			<dt><command>3 2</command></dt><dd>Boot with the 32-bit kernel. Effectively the same as passing
 				"arch=i386" in <command>Kernel Flags</command>, and causes the system to prefer the 32-bit

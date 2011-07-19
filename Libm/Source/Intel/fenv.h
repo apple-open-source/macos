@@ -34,10 +34,6 @@
 #if defined( __ppc__ ) || defined( __ppc64__ )
     #error  Wrong arch. This is Intel only.
 #endif
-   
-#if defined(__GNUC__) && (__GNUC__ >= 4)   
-#pragma GCC fenv
-#endif
 
 #ifdef __cplusplus
 extern "C" {

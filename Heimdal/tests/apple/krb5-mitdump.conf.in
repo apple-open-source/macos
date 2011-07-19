@@ -1,0 +1,25 @@
+[libdefaults]
+    default_realm = GUPTA4.APPLE.COM
+
+[domain_realm]
+    localhost = GUPTA4.APPLE.COM
+
+[realms]
+    GUPTA4.APPLE.COM = {
+	kdc = localhost
+    }
+
+[logging]
+    kdc = 0-/FILE:@testdir@/messages.log
+    default = 0-/FILE:@testdir@/messages.log
+    krb5 = 0-/FILE:@testdir@/messages.log
+
+[kdc]
+    database = {
+	label = { 
+	    realm = GUPTA4.APPLE.COM
+	    dbname = mit-db:@confdir@/principal.GUPTA4.APPLE.COM
+	    mkey_file = @confdir@/k5.GUPTA4.APPLE.COM
+	    log_file = @testdir@/gupta4.log
+	}
+    }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,11 +42,11 @@ class KeyItem : public ItemImpl
 public:
 	SECCFFUNCTIONS(KeyItem, SecKeyRef, errSecInvalidItemRef, gTypes().KeyItem)
 
-	// db item contstructor
+	// db item constructor
 private:
     KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey, const CssmClient::DbUniqueRecord &uniqueId);
 
-	// PrimaryKey item contstructor
+	// PrimaryKey item constructor
     KeyItem(const Keychain &keychain, const PrimaryKey &primaryKey);
 
 public:
@@ -61,6 +61,7 @@ public:
 
 	virtual void update();
 	virtual Item copyTo(const Keychain &keychain, Access *newAccess = NULL);
+	virtual Item importTo(const Keychain &keychain, Access *newAccess = NULL, SecKeychainAttributeList *attrList = NULL);
 	virtual void didModify();
 
 	CssmClient::SSDbUniqueRecord ssDbUniqueRecord();
@@ -106,12 +107,22 @@ public:
 		uint32 keyAttr,
 		SecPointer<Access> initialAccess);
 
+	static SecPointer<KeyItem> generateWithAttributes(
+		const SecKeychainAttributeList *attrList,
+		Keychain keychain,
+		CSSM_ALGORITHMS algorithm,
+		uint32 keySizeInBits,
+		CSSM_CC_HANDLE contextHandle,
+		CSSM_KEYUSE keyUsage,
+		uint32 keyAttr,
+		SecPointer<Access> initialAccess);
+
 	virtual const CssmData &itemID();
 	
-	void RawSign(SecPadding padding, CSSM_DATA dataToSign, CSSM_DATA& signedData);
-	void RawVerify(SecPadding padding, CSSM_DATA dataToVerify, CSSM_DATA signature);
-	void Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData);
-	void Decrypt(SecPadding padding, CSSM_DATA dataToEncrypt, CSSM_DATA& encryptedData);
+	void RawSign(SecPadding padding, CSSM_DATA dataToSign, const AccessCredentials *credentials, CSSM_DATA& signedData);
+	void RawVerify(SecPadding padding, CSSM_DATA dataToVerify, const AccessCredentials *credentials, CSSM_DATA signature);
+	void Encrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
+	void Decrypt(SecPadding padding, CSSM_DATA dataToEncrypt, const AccessCredentials *credentials, CSSM_DATA& encryptedData);
 
 protected:
 	virtual PrimaryKey add(Keychain &keychain);

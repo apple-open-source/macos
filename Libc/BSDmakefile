@@ -2,6 +2,7 @@
 .include <CoreOS/Standard/Variables.mk>
 
 ALLARCHS = arm i386 ppc ppc64 x86_64 # installsrc doesn't set RC_ARCHS
+CODESIGN != xcrun -find codesign
 TOP != ${PWD}
 .ifdef DSTROOT
 DESTDIR = $(DSTROOT)
@@ -35,6 +36,11 @@ RC_NONARCH_CFLAGS = -pipe
 LIBSYS = $(ALTUSRLOCALLIBSYSTEM)
 .else
 LIBSYS = $(SDKROOT)/usr/local/lib/system
+.endif
+.ifdef ALTUSRLIBSYSTEM
+LSYS = $(ALTUSRLIBSYSTEM)
+.else
+LSYS = $(SDKROOT)/usr/lib/system
 .endif
 NJOBS != ${PERL} -e '$$n = `$(SYSCTL) -n hw.ncpu`; printf "%d\n", $$n < 2 ? 2 : ($$n * 1.5)'
 .ifdef DEBUG
@@ -76,40 +82,49 @@ $($(R)):
 # These are the non B&I defaults
 .ifndef RC_ProjectName
 
+RC_ProjectName = Libc
+
 installhdrs: roots installhdrs-real
 build: roots build-static build-profile build-debug build-dynamic
 install: roots installhdrs install-all
 
 .else # RC_ProjectName
 
+RC_ProjectNameBase := $(RC_ProjectName:%_Sim=%)
+.if $(RC_ProjectName) == $(RC_ProjectNameBase)
+INSTALL_PREFIX =
+.else
+INSTALL_PREFIX = $(SDKROOT)
+.endif
+
 # And these are to deal with B&I building libc differently 
 # based on RC_ProjectName.
-.if $(RC_ProjectName) == Libc
+.if $(RC_ProjectNameBase) == Libc
 installhdrs:
 build: roots build-dynamic
 install: roots BI-install-dynamic
 .endif
-.if $(RC_ProjectName) == Libc_headers
+.if $(RC_ProjectNameBase) == Libc_headers
 installhdrs: roots installhdrs-real
 build:
 install: roots installhdrs-real
 .endif
-.if $(RC_ProjectName) == Libc_man
+.if $(RC_ProjectNameBase) == Libc_man
 installhdrs:
 build:
 install: roots install-man
 .endif
-.if $(RC_ProjectName) == Libc_static
+.if $(RC_ProjectNameBase) == Libc_static
 installhdrs:
 build: roots build-static
 install: roots BI-install-static
 .endif
-.if $(RC_ProjectName) == Libc_debug
+.if $(RC_ProjectNameBase) == Libc_debug
 installhdrs:
 build: roots build-debug
 install: roots BI-install-debug
 .endif
-.if $(RC_ProjectName) == Libc_profile
+.if $(RC_ProjectNameBase) == Libc_profile
 installhdrs:
 build: roots build-profile
 install: roots BI-install-profile
@@ -132,7 +147,7 @@ $(FRAMEWORKS):
 	${LN} -fs $(VERSIONSB)/PrivateHeaders $(FRAMEWORKS)/$(SYSTEMFRAMEWORK)/PrivateHeaders
 
 AUTOPATCHED = $(SRCROOT)/.autopatched
-PARTIAL = -partial
+PARTIAL = 
 .for F in $(FORMS) # {
 .if $(dynamic) == $(F) # {
 SUFFIX-$(F) =
@@ -196,13 +211,13 @@ $(AUTOPATCHED):
 	touch $(AUTOPATCHED)
 
 copysrc:
-	${PAX} -rw -p p . "$(SRCROOT)"
+	${TAR} -cp --exclude .git --exclude .svn --exclude CVS . | ${TAR} -pox -C "$(SRCROOT)"
 
 installsrc: copysrc $(AUTOPATCHED)
 
 installhdrs-real:
-	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" MAKEFLAGS="" \
-	    DSTROOT=$(DSTROOT) OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
+	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)$(INSTALL_PREFIX)" MAKEFLAGS="" \
+	    DSTROOT="$(DSTROOT)$(INSTALL_PREFIX)" OBJROOT=$(OBJROOT) SYMROOT=$(SYMROOT) \
 	    $(MYBSDMAKEJ) installhdrs
 .for A in $(RC_ARCHS) # {
 	${MKDIR} "$(OBJROOT)/obj.$(A)" && \
@@ -214,19 +229,24 @@ installhdrs-real:
 
 .for F in $(FORMS) # {
 BI-install-$(F): build-$(F)
+	$(CC) -dynamiclib -o $(SYMROOT)/libsystem_c$(SUFFIX-$(F)).dylib $(RC_ARCHS:C/^/-arch /g) \
+		-compatibility_version 1 -current_version $(RC_ProjectSourceVersion) \
+		-install_name /usr/lib/system/libsystem_c$(SUFFIX-$(F)).dylib -nostdlib -Wl,-umbrella,System \
+		-all_load $(SYMROOT)/libc$(PSUFFIX-$(F)).a -Wl,-interposable_list,$(SRCROOT)/interposable.list \
+		-L$(LSYS) -L$(SDKROOT)/usr/lib -lSystem -lgcc
 	${MKDIR} $(DSTROOT)/usr/local/lib/system
-	if [ -f "$(SYMROOT)/libc$(PSUFFIX-$(F)).a" ]; then \
-		${ECHO} "Installing libc$(PSUFFIX-$(F)).a" && \
-		${INSTALL} -m 444 "$(SYMROOT)/libc$(PSUFFIX-$(F)).a" \
-			$(DSTROOT)/usr/local/lib/system && \
-		${RANLIB} "$(DSTROOT)/usr/local/lib/system/libc$(PSUFFIX-$(F)).a" || exit 1; \
-	fi
+	${MKDIR} $(DSTROOT)/usr/lib/system
+	${INSTALL} $(SYMROOT)/libsystem_c$(SUFFIX-$(F)).dylib $(DSTROOT)/usr/lib/system
+	${STRIP} -S $(DSTROOT)/usr/lib/system/libsystem_c$(SUFFIX-$(F)).dylib
+	-${CODESIGN} -s - $(DSTROOT)/usr/lib/system/libsystem_c$(SUFFIX-$(F)).dylib
 .if $(dynamic) == $(F) # {
 	if [ -f "$(SYMROOT)/libc-dyld.a" ]; then \
 		${ECHO} "Installing libc-dyld.a" && \
+		${MKDIR} $(DSTROOT)/usr/local/lib/dyld && \
 		${INSTALL} -m 444 "$(SYMROOT)/libc-dyld.a" \
-			$(DSTROOT)/usr/local/lib/system && \
-		${RANLIB} "$(DSTROOT)/usr/local/lib/system/libc-dyld.a" || exit 1; \
+			$(DSTROOT)/usr/local/lib/dyld/libc.a && \
+		${LN} -sf "../dyld/libc.a" "$(DSTROOT)/usr/local/lib/system/libc-dyld.a" && \
+		${RANLIB} "$(DSTROOT)/usr/local/lib/dyld/libc.a" || exit 1; \
 	fi
 .for A in $(RC_ARCHS) # {
 	MAKEOBJDIR="$(OBJROOT)/obj.$(A)" MACHINE_ARCH=$(MACHINE_ARCH-$(A)) CCARCH=$(A) \
@@ -249,8 +269,8 @@ install-man:
 	${MKDIR} $(DSTROOT)/usr/share/man/man4
 	${MKDIR} $(DSTROOT)/usr/share/man/man5
 	${MKDIR} $(DSTROOT)/usr/share/man/man7
-	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)" \
-		DSTROOT='$(DSTROOT)' OBJROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' \
+	MAKEOBJDIR="$(OBJROOT)" DESTDIR="$(DSTROOT)$(INSTALL_PREFIX)" \
+		DSTROOT='$(DSTROOT)$(INSTALL_PREFIX)' OBJROOT='$(OBJROOT)' SYMROOT='$(SYMROOT)' \
 		MACHINE_ARCH="$(MACHINE_ARCH-$(FIRST_ARCH))" CCARCH=$(FIRST_ARCH) MAKEFLAGS="" \
 		RC_NONARCH_CFLAGS="$(RC_NONARCH_CFLAGS)" \
 		$(MYBSDMAKE) all-man maninstall $(MANARGS)

@@ -126,4 +126,4 @@ MSChap2_MPPEGetAsymetricStartKey(const uint8_t MasterKey[NT_MASTER_KEY_SIZE],
 				 int SessionKeyLength,
 				 bool IsSend,
 				 bool IsServer);
-#endif _EAP8021X_MSCHAP_H
+#endif /* _EAP8021X_MSCHAP_H */

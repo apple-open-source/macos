@@ -11,15 +11,16 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/CompilerDriver/BuiltinOptions.h"
 #include "llvm/CompilerDriver/Tool.h"
 
+#include "llvm/ADT/StringExtras.h"
 #include "llvm/System/Path.h"
-#include "llvm/Support/CommandLine.h"
+
+#include <algorithm>
 
 using namespace llvm;
 using namespace llvmc;
-
-extern cl::opt<std::string> OutputFilename;
 
 namespace {
   sys::Path MakeTempFile(const sys::Path& TempDir, const std::string& BaseName,
@@ -39,7 +40,7 @@ namespace {
     // NOTE: makeUnique always *creates* a unique temporary file,
     // which is good, since there will be no races. However, some
     // tools do not like it when the output file already exists, so
-    // they have to be placated with -f or something like that.
+    // they need to be placated with -f or something like that.
     Out.makeUnique(true, NULL);
     return Out;
   }
@@ -70,5 +71,24 @@ sys::Path Tool::OutFilename(const sys::Path& In,
     else
       Out = MakeTempFile(TempDir, In.getBasename(), OutputSuffix);
   }
+  return Out;
+}
+
+namespace {
+  template <class A, class B>
+  bool CompareFirst (std::pair<A,B> p1, std::pair<A,B> p2) {
+    return std::less<A>()(p1.first, p2.first);
+  }
+}
+
+StrVector Tool::SortArgs(ArgsVector& Args) const {
+  StrVector Out;
+
+  // HACK: this won't be needed when we'll migrate away from CommandLine.
+  std::stable_sort(Args.begin(), Args.end(), &CompareFirst<unsigned, std::string>);
+  for (ArgsVector::iterator B = Args.begin(), E = Args.end(); B != E; ++B) {
+    Out.push_back(B->second);
+  }
+
   return Out;
 }

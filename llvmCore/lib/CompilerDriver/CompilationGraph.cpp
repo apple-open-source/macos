@@ -11,17 +11,17 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "llvm/CompilerDriver/BuiltinOptions.h"
 #include "llvm/CompilerDriver/CompilationGraph.h"
 #include "llvm/CompilerDriver/Error.h"
 
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/DOTGraphTraits.h"
 #include "llvm/Support/GraphWriter.h"
+#include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
 #include <cstring>
-#include <iostream>
 #include <iterator>
 #include <limits>
 #include <queue>
@@ -30,15 +30,15 @@
 using namespace llvm;
 using namespace llvmc;
 
-extern cl::list<std::string> InputFilenames;
-extern cl::list<std::string> Languages;
-
 namespace llvmc {
 
   const std::string& LanguageMap::GetLanguage(const sys::Path& File) const {
-    LanguageMap::const_iterator Lang = this->find(File.getSuffix());
+    StringRef suf = File.getSuffix();
+    LanguageMap::const_iterator Lang =
+      this->find(suf.empty() ? "*empty*" : suf);
     if (Lang == this->end())
-      throw std::runtime_error("Unknown suffix: " + File.getSuffix());
+      throw std::runtime_error("File '" + File.str() +
+                                "' has unknown suffix '" + suf.str() + '\'');
     return Lang->second;
   }
 }
@@ -314,7 +314,7 @@ int CompilationGraph::Build (const sys::Path& TempDir,
     JoinTool* JT = &dynamic_cast<JoinTool&>(*CurNode->ToolPtr.getPtr());
 
     // Are there any files in the join list?
-    if (JT->JoinListEmpty())
+    if (JT->JoinListEmpty() && !(JT->WorksOnEmpty() && InputFilenames.empty()))
       continue;
 
     Action CurAction = JT->GenerateAction(CurNode->HasChildren(),
@@ -349,8 +349,8 @@ int CompilationGraph::CheckLanguageNames() const {
 
         if (!N2.ToolPtr) {
           ++ret;
-          std::cerr << "Error: there is an edge from '" << N1.ToolPtr->Name()
-                    << "' back to the root!\n\n";
+          errs() << "Error: there is an edge from '" << N1.ToolPtr->Name()
+                 << "' back to the root!\n\n";
           continue;
         }
 
@@ -366,17 +366,17 @@ int CompilationGraph::CheckLanguageNames() const {
 
         if (!eq) {
           ++ret;
-          std::cerr << "Error: Output->input language mismatch in the edge '" <<
-            N1.ToolPtr->Name() << "' -> '" << N2.ToolPtr->Name() << "'!\n";
-
-          std::cerr << "Expected one of { ";
+          errs() << "Error: Output->input language mismatch in the edge '"
+                 << N1.ToolPtr->Name() << "' -> '" << N2.ToolPtr->Name()
+                 << "'!\n"
+                 << "Expected one of { ";
 
           InLangs = N2.ToolPtr->InputLanguages();
           for (;*InLangs; ++InLangs) {
-            std::cerr << '\'' << *InLangs << (*(InLangs+1) ? "', " : "'");
+            errs() << '\'' << *InLangs << (*(InLangs+1) ? "', " : "'");
           }
 
-          std::cerr << " }, but got '" << OutLang << "'!\n\n";
+          errs() << " }, but got '" << OutLang << "'!\n\n";
         }
 
       }
@@ -409,9 +409,8 @@ int CompilationGraph::CheckMultipleDefaultEdges() const {
       }
       else if (EdgeWeight == MaxWeight) {
         ++ret;
-        std::cerr
-          << "Error: there are multiple maximal edges stemming from the '"
-          << N.ToolPtr->Name() << "' node!\n\n";
+        errs() << "Error: there are multiple maximal edges stemming from the '"
+               << N.ToolPtr->Name() << "' node!\n\n";
         break;
       }
     }
@@ -443,9 +442,9 @@ int CompilationGraph::CheckCycles() {
   }
 
   if (deleted != NodesMap.size()) {
-    std::cerr << "Error: there are cycles in the compilation graph!\n"
-              << "Try inspecting the diagram produced by "
-      "'llvmc --view-graph'.\n\n";
+    errs() << "Error: there are cycles in the compilation graph!\n"
+           << "Try inspecting the diagram produced by "
+           << "'llvmc --view-graph'.\n\n";
     return 1;
   }
 
@@ -475,6 +474,7 @@ namespace llvm {
   struct DOTGraphTraits<llvmc::CompilationGraph*>
     : public DefaultDOTGraphTraits
   {
+    DOTGraphTraits (bool isSimple=false) : DefaultDOTGraphTraits(isSimple) {}
 
     template<typename GraphType>
     static std::string getNodeLabel(const Node* N, const GraphType&)
@@ -517,13 +517,13 @@ namespace llvm {
 }
 
 void CompilationGraph::writeGraph(const std::string& OutputFilename) {
-  std::ofstream O(OutputFilename.c_str());
+  std::string ErrorInfo;
+  raw_fd_ostream O(OutputFilename.c_str(), ErrorInfo);
 
-  if (O.good()) {
-    std::cerr << "Writing '"<< OutputFilename << "' file...";
+  if (ErrorInfo.empty()) {
+    errs() << "Writing '"<< OutputFilename << "' file...";
     llvm::WriteGraph(O, this);
-    std::cerr << "done.\n";
-    O.close();
+    errs() << "done.\n";
   }
   else {
     throw std::runtime_error("Error opening file '" + OutputFilename

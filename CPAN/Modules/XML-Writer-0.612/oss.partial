@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>XML-Writer</string>
+        <key>OpenSourceVersion</key>
+        <string>0.612</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/J/JO/JOSEPHW/XML-Writer-0.612.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>MIT</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-12-06</string>
+</dict>

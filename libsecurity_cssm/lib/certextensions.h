@@ -77,7 +77,7 @@
  *           nameAssigner            [0]     DirectoryString OPTIONAL,
  *           partyName               [1]     DirectoryString }
  */
-typedef enum {
+typedef enum __CE_GeneralNameType {
 	GNT_OtherName = 0,
 	GNT_RFC822Name,
 	GNT_DNSName,
@@ -89,21 +89,21 @@ typedef enum {
 	GNT_RegisteredID
 } CE_GeneralNameType;
 
-typedef struct {
+typedef struct __CE_OtherName {
 	CSSM_OID				typeId;
 	CSSM_DATA				value;		// unparsed, BER-encoded
-} CE_OtherName;
+} CE_OtherName DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_GeneralName {
 	CE_GeneralNameType		nameType;	// GNT_RFC822Name, etc.
 	CSSM_BOOL				berEncoded;
 	CSSM_DATA				name; 
-} CE_GeneralName;
+} CE_GeneralName DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_GeneralNames {
 	uint32					numNames;
 	CE_GeneralName			*generalName;		
-} CE_GeneralNames;	
+} CE_GeneralNames DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;	
 
 /*
  * id-ce-authorityKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 35 }
@@ -117,14 +117,14 @@ typedef struct {
  *
  * CSSM OID = CSSMOID_AuthorityKeyIdentifier
  */
-typedef struct {
+typedef struct __CE_AuthorityKeyID {
 	CSSM_BOOL			keyIdentifierPresent;
 	CSSM_DATA			keyIdentifier;
 	CSSM_BOOL			generalNamesPresent;
 	CE_GeneralNames		*generalNames;
 	CSSM_BOOL			serialNumberPresent;
 	CSSM_DATA			serialNumber;
-} CE_AuthorityKeyID;
+} CE_AuthorityKeyID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * id-ce-subjectKeyIdentifier OBJECT IDENTIFIER ::=  { id-ce 14 }
@@ -132,7 +132,7 @@ typedef struct {
  *
  * CSSM OID = CSSMOID_SubjectKeyIdentifier
  */
-typedef CSSM_DATA CE_SubjectKeyID;
+typedef CSSM_DATA CE_SubjectKeyID DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * id-ce-keyUsage OBJECT IDENTIFIER ::=  { id-ce 15 }
@@ -151,7 +151,7 @@ typedef CSSM_DATA CE_SubjectKeyID;
  * CSSM OID = CSSMOID_KeyUsage
  *
  */
-typedef uint16 CE_KeyUsage;
+typedef uint16 CE_KeyUsage DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #define CE_KU_DigitalSignature	0x8000
 #define CE_KU_NonRepudiation	0x4000
@@ -181,7 +181,7 @@ typedef uint16 CE_KeyUsage;
  * CSSM OID = CSSMOID_CrlReason
  *
  */
-typedef uint32 CE_CrlReason;
+typedef uint32 CE_CrlReason DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #define CE_CR_Unspecified			0
 #define CE_CR_KeyCompromise			1
@@ -211,7 +211,7 @@ typedef uint32 CE_CrlReason;
  *
  * CSSM OID = CSSMOID_ExtendedKeyUsage
  */
-typedef struct {
+typedef struct __CE_ExtendedKeyUsage {
 	uint32			numPurposes;
 	CSSM_OID_PTR	purposes;		// in Intel pre-encoded format
 } CE_ExtendedKeyUsage;
@@ -225,11 +225,11 @@ typedef struct {
  *
  * CSSM OID = CSSMOID_BasicConstraints
  */
-typedef struct {
+typedef struct __CE_BasicConstraints {
 	CSSM_BOOL			cA;
 	CSSM_BOOL			pathLenConstraintPresent;
 	uint32				pathLenConstraint;
-} CE_BasicConstraints;	
+} CE_BasicConstraints DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;	
 
 /*
  * id-ce-certificatePolicies OBJECT IDENTIFIER ::=  { id-ce 32 }
@@ -282,22 +282,22 @@ typedef struct {
  * CSSM_DATA containing the BER-encoded UserNotice sequence. 
  */
 
-typedef struct {
+typedef struct __CE_PolicyQualifierInfo {
 	CSSM_OID	policyQualifierId;			// CSSMOID_QT_CPS, CSSMOID_QT_UNOTICE
 	CSSM_DATA	qualifier;					// CSSMOID_QT_CPS: IA5String contents
 											// CSSMOID_QT_UNOTICE : Sequence contents
-} CE_PolicyQualifierInfo;
+} CE_PolicyQualifierInfo DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_PolicyInformation {
 	CSSM_OID				certPolicyId;
 	uint32					numPolicyQualifiers;	// size of *policyQualifiers;
 	CE_PolicyQualifierInfo	*policyQualifiers;
-} CE_PolicyInformation;
+} CE_PolicyInformation DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_CertPolicies {
 	uint32					numPolicies;			// size of *policies;
 	CE_PolicyInformation	*policies;
-} CE_CertPolicies;
+} CE_CertPolicies DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * netscape-cert-type, a bit string.
@@ -306,7 +306,7 @@ typedef struct {
  *
  * Bit fields defined in oidsattr.h: CE_NCT_SSL_Client, etc.
  */
-typedef uint16 CE_NetscapeCertType;
+typedef uint16 CE_NetscapeCertType DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * CRLDistributionPoints.
@@ -348,7 +348,7 @@ typedef uint16 CE_NetscapeCertType;
  * Note that this looks similar to CE_CrlReason, but that's an enum and this
  * is an OR-able bit string.
  */
-typedef uint8 CE_CrlDistReasonFlags;
+typedef uint8 CE_CrlDistReasonFlags DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #define CE_CD_Unspecified			0x80
 #define CE_CD_KeyCompromise			0x40
@@ -358,34 +358,34 @@ typedef uint8 CE_CrlDistReasonFlags;
 #define CE_CD_CessationOfOperation	0x04
 #define CE_CD_CertificateHold		0x02
 
-typedef enum {
+typedef enum __CE_CrlDistributionPointNameType {
 	CE_CDNT_FullName,
 	CE_CDNT_NameRelativeToCrlIssuer
-} CE_CrlDistributionPointNameType;
+} CE_CrlDistributionPointNameType DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_DistributionPointName {
 	CE_CrlDistributionPointNameType		nameType;
 	union {
 		CE_GeneralNames					*fullName;
 		CSSM_X509_RDN_PTR				rdn;
 	} dpn;
-} CE_DistributionPointName;
+} CE_DistributionPointName DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * The top-level CRLDistributionPoint.
  * All fields are optional; NULL pointers indicate absence. 
  */
-typedef struct {
+typedef struct __CE_CRLDistributionPoint {
 	CE_DistributionPointName			*distPointName;
 	CSSM_BOOL							reasonsPresent;
 	CE_CrlDistReasonFlags				reasons;
 	CE_GeneralNames						*crlIssuer;
-} CE_CRLDistributionPoint;
+} CE_CRLDistributionPoint DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_CRLDistPointsSyntax {
 	uint32								numDistPoints;
 	CE_CRLDistributionPoint				*distPoints;
-} CE_CRLDistPointsSyntax;
+} CE_CRLDistPointsSyntax DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* 
  * Authority Information Access and Subject Information Access.
@@ -400,15 +400,15 @@ typedef struct {
  *		accessMethod          OBJECT IDENTIFIER,
  *		accessLocation        GeneralName  }
  */
-typedef struct {
+typedef struct __CE_AccessDescription {
 	CSSM_OID				accessMethod;
 	CE_GeneralName			accessLocation;
-} CE_AccessDescription;
+} CE_AccessDescription DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_AuthorityInfoAccess {
 	uint32					numAccessDescriptions;
 	CE_AccessDescription	*accessDescriptions;
-} CE_AuthorityInfoAccess;
+} CE_AuthorityInfoAccess DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * Qualified Certificate Statement support, per RFC 3739.
@@ -417,17 +417,17 @@ typedef struct {
  * SemanticsInformation; it's the same as a GeneralNames - 
  * a sequence of GeneralName. 
  */
-typedef CE_GeneralNames CE_NameRegistrationAuthorities;
+typedef CE_GeneralNames CE_NameRegistrationAuthorities DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * SemanticsInformation, identified as the qcType field
  * of a CE_QC_Statement for statementId value id-qcs-pkixQCSyntax-v2.
  * Both fields optional; at least one must be present. 
  */
-typedef struct {
+typedef struct __CE_SemanticsInformation {
 	CSSM_OID							*semanticsIdentifier;	
 	CE_NameRegistrationAuthorities		*nameRegistrationAuthorities;
-} CE_SemanticsInformation;
+} CE_SemanticsInformation DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /* 
  * One Qualified Certificate Statement. 
@@ -438,19 +438,19 @@ typedef struct {
  * information may be present in otherInfo. Both semanticsInfo and
  * otherInfo are optional. 
  */
-typedef struct {
+typedef struct __CE_QC_Statement {
 	CSSM_OID							statementId;
 	CE_SemanticsInformation				*semanticsInfo;
 	CSSM_DATA							*otherInfo;
-} CE_QC_Statement;
+} CE_QC_Statement DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * The top-level Qualified Certificate Statements extension.
  */
-typedef struct {
+typedef struct __CE_QC_Statements {
 	uint32								numQCStatements;
 	CE_QC_Statement						*qcStatements;
-} CE_QC_Statements;
+} CE_QC_Statements DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*** CRL extensions ***/
 
@@ -482,7 +482,7 @@ typedef uint32 CE_DeltaCrl;
  *
  * CSSM OID = CSSMOID_IssuingDistributionPoint
  */
-typedef struct {
+typedef struct __CE_IssuingDistributionPoint {
 	CE_DistributionPointName	*distPointName;		// optional
 	CSSM_BOOL					onlyUserCertsPresent;
 	CSSM_BOOL					onlyUserCerts;
@@ -492,13 +492,95 @@ typedef struct {
 	CE_CrlDistReasonFlags		onlySomeReasons;
 	CSSM_BOOL					indirectCrlPresent;
 	CSSM_BOOL					indirectCrl;
-} CE_IssuingDistributionPoint;
+} CE_IssuingDistributionPoint DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER; 
+
+/*
+ * NameConstraints
+ *
+ * id-ce-nameConstraints OBJECT IDENTIFIER ::=  { id-ce 30 }
+ *
+ *     NameConstraints ::= SEQUENCE {
+ *          permittedSubtrees       [0]     GeneralSubtrees OPTIONAL,
+ *          excludedSubtrees        [1]     GeneralSubtrees OPTIONAL }
+ *
+ *     GeneralSubtrees ::= SEQUENCE SIZE (1..MAX) OF GeneralSubtree
+ *
+ *     GeneralSubtree ::= SEQUENCE {
+ *          base                    GeneralName,
+ *          minimum         [0]     BaseDistance DEFAULT 0,
+ *          maximum         [1]     BaseDistance OPTIONAL }
+ *
+ *     BaseDistance ::= INTEGER (0..MAX)
+ */
+typedef struct __CE_GeneralSubtree {
+	CE_GeneralNames						*base;
+	uint32								minimum; // default=0
+	CSSM_BOOL							maximumPresent;
+	uint32								maximum; // optional
+} CE_GeneralSubtree DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+typedef struct __CE_GeneralSubtrees {
+	uint32								numSubtrees;
+	CE_GeneralSubtree					*subtrees;
+} CE_GeneralSubtrees DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+typedef struct __CE_NameConstraints {
+	CE_GeneralSubtrees					*permitted; // optional
+	CE_GeneralSubtrees					*excluded;  // optional
+} CE_NameConstraints DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+/*
+ * PolicyMappings
+ *
+ * id-ce-policyMappings OBJECT IDENTIFIER ::=  { id-ce 33 }
+ *
+ *     PolicyMappings ::= SEQUENCE SIZE (1..MAX) OF SEQUENCE {
+ *          issuerDomainPolicy      CertPolicyId,
+ *          subjectDomainPolicy     CertPolicyId }
+ *
+ * Note that both issuer and subject policy OIDs are required,
+ * and are stored by value in this structure.
+ */
+typedef struct __CE_PolicyMapping {
+	CSSM_OID							issuerDomainPolicy;
+	CSSM_OID							subjectDomainPolicy;
+} CE_PolicyMapping DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+typedef struct __CE_PolicyMappings {
+	uint32								numPolicyMappings;
+	CE_PolicyMapping					*policyMappings;
+} CE_PolicyMappings DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+/*
+ * PolicyConstraints
+ *
+ * id-ce-policyConstraints OBJECT IDENTIFIER ::=  { id-ce 36 }
+ *
+ *     PolicyConstraints ::= SEQUENCE {
+ *          requireExplicitPolicy   [0]     SkipCerts OPTIONAL,
+ *          inhibitPolicyMapping    [1]     SkipCerts OPTIONAL }
+ *
+ *      SkipCerts ::= INTEGER (0..MAX)
+ */
+typedef struct __CE_PolicyConstraints {
+	CSSM_BOOL							requireExplicitPolicyPresent;
+	uint32								requireExplicitPolicy; // optional
+	CSSM_BOOL							inhibitPolicyMappingPresent;
+	uint32								inhibitPolicyMapping;  // optional
+} CE_PolicyConstraints DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+/*
+ * InhibitAnyPolicy, an integer.
+ *
+ * CSSM OID = CSSMOID_InhibitAnyPolicy
+ */
+typedef uint32 CE_InhibitAnyPolicy DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*
  * An enumerated list identifying one of the above per-extension
  * structs.
  */
-typedef enum {
+typedef enum __CE_DataType {
 	DT_AuthorityKeyID,			// CE_AuthorityKeyID
 	DT_SubjectKeyID,			// CE_SubjectKeyID
 	DT_KeyUsage,				// CE_KeyUsage
@@ -515,11 +597,15 @@ typedef enum {
 	DT_IssuingDistributionPoint,// CE_IssuingDistributionPoint
 	DT_AuthorityInfoAccess,		// CE_AuthorityInfoAccess
 	DT_Other,					// unknown, raw data as a CSSM_DATA
-	DT_QC_Statements			// CE_QC_Statements
+	DT_QC_Statements,			// CE_QC_Statements
+	DT_NameConstraints,			// CE_NameConstraints
+	DT_PolicyMappings,			// CE_PolicyMappings
+	DT_PolicyConstraints,		// CE_PolicyConstraints
+	DT_InhibitAnyPolicy			// CE_InhibitAnyPolicy
 } CE_DataType;
 
 /*
- * One unified representation of all the cert adn CRL extensions we know about.
+ * One unified representation of all the cert and CRL extensions we know about.
  */
 typedef union {
 	CE_AuthorityKeyID			authorityKeyID;
@@ -538,13 +624,17 @@ typedef union {
 	CE_IssuingDistributionPoint	issuingDistPoint;
 	CE_AuthorityInfoAccess		authorityInfoAccess;
 	CE_QC_Statements			qualifiedCertStatements;
+	CE_NameConstraints			nameConstraints;
+	CE_PolicyMappings			policyMappings;
+	CE_PolicyConstraints		policyConstraints;
+	CE_InhibitAnyPolicy			inhibitAnyPolicy;
 	CSSM_DATA					rawData;			// unknown, not decoded
-} CE_Data;
+} CE_Data DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
-typedef struct {
+typedef struct __CE_DataAndType {
 	CE_DataType				type;
 	CE_Data					extension;
 	CSSM_BOOL				critical;
-} CE_DataAndType;
+} CE_DataAndType DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #endif	/* _CERT_EXTENSIONS_H_ */

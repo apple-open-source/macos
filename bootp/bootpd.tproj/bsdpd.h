@@ -3,7 +3,7 @@
 #define _S_BSDPD_H
 
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

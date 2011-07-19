@@ -264,7 +264,8 @@ static OidString oidStrings[] =
 	{ &CSSMOID_APPLE_TP_PKINIT_SERVER, "PKINIT Server" },
 	{ &CSSMOID_APPLE_TP_CODE_SIGNING, "Code Signing" },
 	{ &CSSMOID_APPLE_TP_PACKAGE_SIGNING, "Package Signing" },
-	{ &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT, "Mac App Store" }
+	{ &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT, "Mac App Store" },
+	{ &CSSMOID_APPLE_TP_APPLEID_SHARING, "AppleID Sharing" }
 };
 #define NUM_OID_STRINGS		(sizeof(oidStrings) / sizeof(oidStrings[0]))
 
@@ -431,6 +432,9 @@ const CSSM_OID *policyStringToOid(
 	}
 	else if(!strcmp(policy, "macappstore")) {
 		return &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT;
+	}
+	else if(!strcmp(policy, "appleID")) {
+		return &CSSMOID_APPLE_TP_APPLEID_SHARING;
 	}
 	else {
 		fprintf(stderr, "***unknown policy spec (%s)\n", policy);

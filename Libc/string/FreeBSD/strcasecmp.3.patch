@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strcasecmp.3	2004-11-25 11:38:46.000000000 -0800
-+++ _SB/Libc/string/FreeBSD/strcasecmp.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -39,16 +39,40 @@
+--- strcasecmp.3.orig	2009-11-30 13:52:22.000000000 -0800
++++ strcasecmp.3	2009-11-30 15:12:56.000000000 -0800
+@@ -35,16 +35,40 @@
  .Os
  .Sh NAME
  .Nm strcasecmp ,
@@ -44,7 +44,7 @@
  .Sh DESCRIPTION
  The
  .Fn strcasecmp
-@@ -63,8 +87,20 @@
+@@ -59,8 +83,20 @@ and
  The
  .Fn strncasecmp
  compares at most
@@ -66,12 +66,11 @@
  .Sh RETURN VALUES
  The
  .Fn strcasecmp
-@@ -87,7 +123,8 @@
- .Xr strcmp 3 ,
+@@ -84,7 +120,7 @@ is greater than
  .Xr strcoll 3 ,
  .Xr strxfrm 3 ,
--.Xr tolower 3
-+.Xr tolower 3 ,
+ .Xr tolower 3 ,
+-.Xr wcscasecmp 3
 +.Xr xlocale 3
  .Sh HISTORY
  The

@@ -21,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <OpenDirectory/OpenDirectory.h>
+
 #include <sys/cdefs.h>
 #include <sys/time.h>
 #include <sys/types.h>
@@ -38,7 +41,6 @@
 #include <time.h>
 #include <unistd.h>
 #include <limits.h>
-#include <assert.h>
 
 #include "LKDCHelper-main.h"
 #include "LKDCHelper.h"
@@ -58,9 +60,11 @@ static int opt_debug;
 static struct timeval last_message;
 static pthread_t idletimer_thread;
 
+char *LocalLKDCRealm = NULL;
+
 volatile int	LKDCLogLevel = ASL_LEVEL_DEBUG;
 
-unsigned long maxidle = 0;
+unsigned long maxidle = 600;
 
 static uid_t LKDCHelperUID = -1;
 static gid_t LKDCHelperGID = -1;
@@ -87,13 +91,13 @@ helplog(int level, const char *fmt, ...)
 }
 
 int
-authorized(audit_token_t *token)
+authorized(audit_token_t token)
 {
 	int ok = 0;
 	pid_t pid = (pid_t)-1;
 	uid_t euid = (uid_t)-1;
 	
-	audit_token_to_au32(*token, NULL, &euid, NULL, NULL, NULL, &pid, NULL, NULL);
+	audit_token_to_au32(token, NULL, &euid, NULL, NULL, NULL, &pid, NULL, NULL);
 	
 	ok = (euid == LKDCHelperUID || euid == 0);
 	if (!ok) {
@@ -120,24 +124,23 @@ initialize_logging(void)
 void
 update_idle_timer(void)
 {
-	assert(0 == gettimeofday(&last_message, NULL));
+	gettimeofday(&last_message, NULL);
 }
 
 static void *
 idletimer_main (void *context)
 {
-	static struct timeval now;
+	struct timeval now;
 
 	for (;;) {
-		assert(0 == gettimeofday(&now, NULL));
+		gettimeofday(&now, NULL);
 		if (now.tv_sec - last_message.tv_sec > (long) maxidle) {
-			(void) request_LKDCHelperExit (*(mach_port_t*)context);
-			sleep(1);
+			exit(1);
 		} else {
 			int t = maxidle - (now.tv_sec - last_message.tv_sec);
 			if (t < 1)
 				t = 1;
-			sleep(t);
+			sleep(t + 11); /* sleep past idle exit */
 		}
 	}
 
@@ -145,13 +148,13 @@ idletimer_main (void *context)
 }
 
 static void
-initialize_timer(mach_port_t port)
+initialize_timer(void)
 {
 	int err;
 
 	update_idle_timer();
 
-	err = pthread_create(&idletimer_thread, NULL, idletimer_main, &port);
+	err = pthread_create(&idletimer_thread, NULL, idletimer_main, NULL);
 
 	if (0 != err) {
 		helplog(ASL_LEVEL_ERR, "Failed to start idletimer thread: %s", strerror(err));
@@ -246,6 +249,58 @@ error:
 	return MACH_PORT_NULL;
 }
 
+static void
+GetLocalLKDCRealm(void)
+{
+	CFArrayRef inKDCAttributes = NULL;
+	ODNodeRef localRef = NULL;
+	ODRecordRef kdcConfRef = NULL;
+	CFArrayRef data = NULL;
+	CFTypeRef attrs[]	= { CFSTR("dsAttrTypeStandard:RealName") };
+
+	inKDCAttributes = CFArrayCreate(NULL, attrs, 1, &kCFTypeArrayCallBacks);
+	if (inKDCAttributes == NULL)
+		goto out;
+
+	localRef = ODNodeCreateWithName(kCFAllocatorDefault, 
+					kODSessionDefault,
+					CFSTR("/Local/Default"),
+					NULL);
+ 	if (localRef == NULL)
+		goto out;
+	
+	kdcConfRef = ODNodeCopyRecord(localRef, kODRecordTypeConfiguration, 
+				      CFSTR("KerberosKDC"),
+				      inKDCAttributes,
+				      NULL);
+	if (kdcConfRef == NULL)
+		goto out;
+	
+	data = ODRecordCopyValues(kdcConfRef, 
+				  CFSTR("dsAttrTypeStandard:RealName"),
+				  NULL);
+	if (data == NULL)
+		goto out;
+	
+	if (CFArrayGetCount(data) != 1)
+		goto out;
+
+	__KRBCreateUTF8StringFromCFString((CFStringRef)CFArrayGetValueAtIndex(data, 0),
+					  &LocalLKDCRealm);
+
+    out:
+	if (localRef)
+	    CFRelease(localRef);
+	if (kdcConfRef)
+	    CFRelease(kdcConfRef);
+	if (data)
+	    CFRelease(data);
+	if (inKDCAttributes)
+		CFRelease(inKDCAttributes);
+}
+
+
+
 int
 main(int ac, char *av[])
 {
@@ -282,6 +337,8 @@ main(int ac, char *av[])
 	LKDCHelperUID = getuid ();
 	LKDCHelperGID = getgid ();
 	
+	GetLocalLKDCRealm();
+
 	helplog (ASL_LEVEL_NOTICE, "Starting (uid=%lu)", (unsigned long)LKDCHelperUID);
 
 	if (opt_debug) {
@@ -291,7 +348,7 @@ main(int ac, char *av[])
 	}
 
 	if (maxidle > 0) {
-		initialize_timer(port);
+		initialize_timer();
 	}
 
 	kr = mach_msg_server(LKDCHelper_server, MAX_MSG_SIZE, port, 

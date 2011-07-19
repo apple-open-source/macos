@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,9 +27,11 @@
 #include "codesign.h"
 #include <Security/Security.h>
 #include <Security/SecCodeSigner.h>
+#include <Security/SecCodePriv.h>
 #include <Security/SecRequirementPriv.h>
 #include <Security/CSCommonPriv.h>
 #include <security_utilities/blob.h>
+#include <security_utilities/cfmunge.h>
 #include <cstdio>
 #include <cmath>
 
@@ -70,6 +72,8 @@ void prepareToSign()
 		CFDictionaryAddValue(parameters, kSecCodeSignerPageSize, CFTempNumber(pagesize));
 	if (cdFlags)
 		CFDictionaryAddValue(parameters, kSecCodeSignerFlags, CFTempNumber(cdFlags));
+	if (digestAlgorithm)
+		CFDictionaryAddValue(parameters, kSecCodeSignerDigestAlgorithm, CFTempNumber(digestAlgorithm));
 	if (signingTime)
 		CFDictionaryAddValue(parameters, kSecCodeSignerSigningTime, signingTime);
 		
@@ -84,6 +88,16 @@ void prepareToSign()
 				CFRef<CFDictionaryRef>(makeCFDictionaryFrom(data)));
 		} else
 			fail("%s: cannot read resources", resourceRules);
+	}
+	
+	if (!sdkRoot)
+		if (const char *envroot = getenv("SDKDIR"))
+			sdkRoot = envroot;
+	if (sdkRoot) {
+		struct stat st;
+		if (::stat(sdkRoot, &st))
+			fail("%s: %s", sdkRoot, strerror(errno));
+		CFDictionaryAddValue(parameters, kSecCodeSignerSDKRoot, CFTempURL(sdkRoot, true));
 	}
 	
 	if (entitlements) {
@@ -119,13 +133,12 @@ void sign(const char *target)
 {
 	secdebug("codesign", "BEGIN SIGNING %s", target);
 	
-	CFRef<SecStaticCodeRef> code;
-	MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags,
-		&code.aref()));
+	CFRef<SecStaticCodeRef> code = staticCodePath(target, architecture, bundleVersion);
 	
+	// check previous signature (if any) and collect some data from it
 	CFRef<CFDictionaryRef> dict;
 	switch (OSStatus rc = SecCodeCopySigningInformation(code,
-		preserveMetadata ? SecCSFlags(kSecCSRequirementInformation) : kSecCSDefaultFlags,
+		preserveMetadata ? SecCSFlags(kSecCSRequirementInformation|kSecCSInternalInformation) : kSecCSDefaultFlags,
 		&dict.aref())) {
 	case noErr:
 		if (CFDictionaryGetValue(dict, kSecCodeInfoIdentifier)) {	// binary is signed
@@ -137,8 +150,7 @@ void sign(const char *target)
 				fail("%s: is already signed", target);
 		}
 		break;
-	case errSecCSSignatureFailed:	// signed but signature invalid
-	case CSSMERR_TP_NOT_TRUSTED:	// cert chain invalid
+	default:
 		if (detached)
 			note(0, "%s: ignoring invalid embedded signature", target);
 		else if (force)
@@ -146,10 +158,9 @@ void sign(const char *target)
 		else if (signer)
 			fail("%s: is already signed", target);
 		break;
-	default:
-		MacOSError::throwMe(rc);
 	}
 	
+	// add target-specific signing inputs, mostly carried from a prior signature
 	CFCopyRef<SecCodeSignerRef> currentSigner = signerRef;		// the one we prepared during setup
 	if (preserveMetadata) {
 		CFRef<CFMutableDictionaryRef> param = CFDictionaryCreateMutableCopy(NULL, 0, parameters);
@@ -159,12 +170,20 @@ void sign(const char *target)
 		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerEntitlements))
 			if (CFTypeRef entitlements = CFDictionaryGetValue(dict, kSecCodeInfoEntitlements))
 				CFDictionaryAddValue(param, kSecCodeSignerEntitlements, entitlements);
+		if (dict && !uniqueIdentifier)		// reuse identifier
+			if (CFTypeRef identifier = CFDictionaryGetValue(dict, kSecCodeInfoIdentifier))
+				CFDictionaryAddValue(param, kSecCodeSignerIdentifier, identifier);
+		if (dict && !CFDictionaryGetValue(param, kSecCodeSignerResourceRules))
+			if (CFTypeRef resourceDirectory = CFDictionaryGetValue(dict, kSecCodeInfoResourceDirectory))
+				CFDictionaryAddValue(param,	kSecCodeSignerResourceRules, resourceDirectory);
 		MacOSError::check(SecCodeSignerCreate(param, kSecCSDefaultFlags, &currentSigner.aref()));
 	}
 	
+	// do the deed
 	ErrorCheck check;
 	check(SecCodeSignerAddSignatureWithErrors(currentSigner, code, kSecCSDefaultFlags, check));
 
+	// collect some resulting information and deliver it to the user
 	SecCSFlags flags = kSecCSDefaultFlags;
 	if (modifiedFiles)
 		flags |= kSecCSContentInformation;

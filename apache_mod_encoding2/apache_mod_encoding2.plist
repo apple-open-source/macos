@@ -1,0 +1,24 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>apache_mod_encoding2</string>
+        <key>OpenSourceVersion</key>
+        <string>20021209</string>
+        <key>OpenSourceURL</key>
+        <string>http://webdav.todo.gr.jp/download/mod_encoding-20021209.tar.gz</string>
+        <key>OpenSourceSHA1</key>
+        <string>019d112d14e9b3d38aca84010726f8af480a43f5</string>
+        <key>OpenSourceImportDate</key>
+        <string>2006-03-14</string>
+        <key>OpenSourceModifications</key>
+        <array>
+		<string>Patch source so it builds on our platform for Apache 2.2</string>
+	</array>
+        <key>OpenSourceLicense</key>
+        <string>other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>apache_mod_encoding2.txt</string>
+</dict>
+</array>
+</plist>

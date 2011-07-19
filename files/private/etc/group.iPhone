@@ -19,6 +19,7 @@ owner:*:10:
 everyone:*:12:
 group:*:16:
 staff:*:20:root
+_networkd:*:24:
 _wireless:*:25:
 _lp:*:26:
 _postfix:*:27:
@@ -38,6 +39,7 @@ _devdocs:*:59:
 _sandbox:*:60:
 localaccounts:*:61:
 netaccounts:*:62:
+_securityd:*:64:_securityd
 _mdnsresponder:*:65:
 _uucp:*:66:
 _ard:*:67:
@@ -72,4 +74,3 @@ _atsserver:*:97:
 _lpadmin:*:98:
 _unknown:*:99:
 mobile:*:501:mobile
-_securityd:*:64:_securityd

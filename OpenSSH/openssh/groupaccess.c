@@ -83,7 +83,11 @@ ga_init(struct passwd *pw)
 	if (-1 == (ngroups = getgrouplist_2(pw->pw_name, pw->pw_gid,
 	    &groups_bygid))) {
 		logit("getgrouplist_2 failed");
-		return;
+		/*
+		 * getgrouplist_2 only fails on memory error; in which case
+		 * groups_bygid will be left NULL so no need to free.
+		 */
+		return 0;
 	}
 #endif
 	groups_byname = xcalloc(ngroups, sizeof(*groups_byname));
@@ -91,7 +95,7 @@ ga_init(struct passwd *pw)
 	if (getgrouplist(pw->pw_name, pw->pw_gid, groups_bygid, &ngroups) == -1) {
 	    logit("getgrouplist: groups list too small");
 		xfree(groups_bygid);
-		return;
+		return 0;
 	}
 #endif
 	for (i = 0, j = 0; i < ngroups; i++)
@@ -109,27 +113,12 @@ ga_init(struct passwd *pw)
 int
 ga_match(char * const *groups, int n)
 {
-#ifdef __APPLE_MEMBERSHIP__
-	int i, ismember = 0;
-	uuid_t g_uuid;
-	struct group *grp;
-
-	for (i = 0; i < n; i++) {
-		if ((grp = getgrnam(groups[i])) == NULL ||
-		   (mbr_gid_to_uuid(grp->gr_gid, g_uuid) != 0) ||
-		   (mbr_check_membership(u_uuid, g_uuid, &ismember) != 0))
-			return 0;
-		if (ismember)
-			return 1;
-	}
-#else
 	int i, j;
 
 	for (i = 0; i < ngroups; i++)
 		for (j = 0; j < n; j++)
 			if (match_pattern(groups_byname[i], groups[j]))
 				return 1;
-#endif
 	return 0;
 }
 

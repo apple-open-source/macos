@@ -1,0 +1,52 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin tcl::transform::limitsize n 1]
+[copyright {2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[moddesc   {Reflected/virtual channel support}]
+[category  Channels]
+[titledesc {limiting input}]
+[require Tcl 8.6]
+[require tcl::transform::core [opt 1]]
+[require tcl::transform::limitsize [opt 1]]
+[description]
+[para]
+
+The [package tcl::transform::limitsize] package provides a command
+creating a channel transformation which limits the number of
+characters which can be read from the channel. A generator for an
+artificial EOF.
+
+[para] The internal [package TclOO] class implementing the transform
+handler is a sub-class of the [package tcl::transform::core]
+framework.
+
+[section API]
+
+[list_begin definitions]
+
+[call [cmd ::tcl::transform::limitsize] [arg chan] [arg max]]
+
+This command creates a size limiting transformation on top of the
+channel [arg chan] and returns its handle.
+
+[para] [arg max] is the number of bytes which can be read from the
+channel before EOF is signaled by the transformation. Note that
+popping the transformation clears the EOF it generated as well.
+
+[list_end]
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the package it describes, will undoubtedly contain
+bugs and other problems.
+
+Please report such in the category [emph virtchannel] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+package and/or documentation.
+
+
+[keywords {size limit} transformation {channel transformation}]
+[keywords limitsize {virtual channel} {reflected channel} {tip 230}]
+[manpage_end]

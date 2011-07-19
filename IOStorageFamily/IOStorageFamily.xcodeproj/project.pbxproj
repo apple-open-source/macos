@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 44;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -70,6 +70,12 @@
 		60AA595E0D64D65700A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */; };
 		60AA595F0D64D65C00A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */; };
 		60AA59600D64D65C00A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */; };
+		60BF9EB1122D7EF1000D606C /* IOStorageCardCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60BF9EB2122D7F15000D606C /* IOStorageCardCharacteristics.h in Headers */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60BF9EB3122D7F29000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60BF9EB4122D7F34000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60BF9EB5122D7F47000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
+		60BF9EB6122D7F51000D606C /* IOStorageCardCharacteristics.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */; };
 		60DDA4FA07382C6A00FAB8B3 /* IOAppleLabelScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */; };
 		60DDA4FB07382C6A00FAB8B3 /* IOApplePartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
 		60DDA4FC07382C6A00FAB8B3 /* IOBlockStorageDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */; };
@@ -118,6 +124,14 @@
 		60FD687E0D402C95000D088D /* IOMediaBSDClient.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFAE008B961F11CA2AA4 /* IOMediaBSDClient.h */; };
 		60FD687F0D402C95000D088D /* IOPartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */; };
 		60FD68800D402C95000D088D /* IOStorage.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFB1008B961F11CA2AA4 /* IOStorage.h */; };
+		C16DEB051123882100D8DB98 /* IOApplePartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
+		C16DEB061123892200D8DB98 /* IOApplePartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
+		C16DEB071123892500D8DB98 /* IOApplePartitionScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 0560FFA9008B961F11CA2AA4 /* IOApplePartitionScheme.h */; };
+		C1D722091123918100F08996 /* IOAppleLabelScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 60DB532606DCFE850053A0B9 /* IOAppleLabelScheme.cpp */; };
+		C1D7220A1123918800F08996 /* IOAppleLabelScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */; };
+		C1D7220B1123919400F08996 /* IOAppleLabelScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */; };
+		C1D7220C1123919B00F08996 /* IOAppleLabelScheme.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */; };
+		C1E11DA8112387AD00316356 /* IOApplePartitionScheme.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 0560FF97008B94F111CA2AA4 /* IOApplePartitionScheme.cpp */; };
 		C1E55B070D32D158002875AA /* IOBlockStorageDevice.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFAA008B961F11CA2AA4 /* IOBlockStorageDevice.h */; };
 		C1E55B080D32D158002875AA /* IOBlockStorageDriver.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFAB008B961F11CA2AA4 /* IOBlockStorageDriver.h */; };
 		C1E55B090D32D158002875AA /* IOFDiskPartitionScheme.h in Headers */ = {isa = PBXBuildFile; fileRef = 0560FFAC008B961F11CA2AA4 /* IOFDiskPartitionScheme.h */; };
@@ -158,6 +172,8 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/Kernel.framework/Versions/A/Headers/IOKit/storage";
 			dstSubfolderSpec = 0;
 			files = (
+				C1D7220B1123919400F08996 /* IOAppleLabelScheme.h in CopyFiles */,
+				C16DEB061123892200D8DB98 /* IOApplePartitionScheme.h in CopyFiles */,
 				606B78B60D4A564A00A2EB99 /* IOBlockStorageDevice.h in CopyFiles */,
 				606B78B70D4A564B00A2EB99 /* IOBlockStorageDriver.h in CopyFiles */,
 				606B78B80D4A564B00A2EB99 /* IOFDiskPartitionScheme.h in CopyFiles */,
@@ -167,6 +183,7 @@
 				606B78BA0D4A564B00A2EB99 /* IOMediaBSDClient.h in CopyFiles */,
 				606B78BB0D4A564B00A2EB99 /* IOPartitionScheme.h in CopyFiles */,
 				606B78BC0D4A564B00A2EB99 /* IOStorage.h in CopyFiles */,
+				60BF9EB5122D7F47000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
 				60AA595D0D64D65700A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595E0D64D65700A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -178,6 +195,8 @@
 			dstPath = "$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/Versions/A/Headers/storage";
 			dstSubfolderSpec = 0;
 			files = (
+				C1D7220C1123919B00F08996 /* IOAppleLabelScheme.h in CopyFiles */,
+				C16DEB071123892500D8DB98 /* IOApplePartitionScheme.h in CopyFiles */,
 				606B78BD0D4A566400A2EB99 /* IOBlockStorageDevice.h in CopyFiles */,
 				606B78BE0D4A566400A2EB99 /* IOBlockStorageDriver.h in CopyFiles */,
 				606B78BF0D4A566400A2EB99 /* IOFDiskPartitionScheme.h in CopyFiles */,
@@ -187,6 +206,7 @@
 				606B78C10D4A566400A2EB99 /* IOMediaBSDClient.h in CopyFiles */,
 				606B78C20D4A566400A2EB99 /* IOPartitionScheme.h in CopyFiles */,
 				606B78C30D4A566400A2EB99 /* IOStorage.h in CopyFiles */,
+				60BF9EB6122D7F51000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
 				60AA595F0D64D65C00A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA59600D64D65C00A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -209,6 +229,7 @@
 				60FD68730D402C82000D088D /* IOMediaBSDClient.h in CopyFiles */,
 				60FD68740D402C82000D088D /* IOPartitionScheme.h in CopyFiles */,
 				60FD68750D402C82000D088D /* IOStorage.h in CopyFiles */,
+				60BF9EB3122D7F29000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
 				60AA59590D64D5FF00A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595A0D64D5FF00A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -231,6 +252,7 @@
 				60FD687E0D402C95000D088D /* IOMediaBSDClient.h in CopyFiles */,
 				60FD687F0D402C95000D088D /* IOPartitionScheme.h in CopyFiles */,
 				60FD68800D402C95000D088D /* IOStorage.h in CopyFiles */,
+				60BF9EB4122D7F34000D606C /* IOStorageCardCharacteristics.h in CopyFiles */,
 				60AA595B0D64D60800A955B0 /* IOStorageDeviceCharacteristics.h in CopyFiles */,
 				60AA595C0D64D60800A955B0 /* IOStorageProtocolCharacteristics.h in CopyFiles */,
 			);
@@ -263,6 +285,7 @@
 		6008184605C5671B00B652A2 /* IOGUIDPartitionScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOGUIDPartitionScheme.cpp; sourceTree = "<group>"; };
 		60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageDeviceCharacteristics.h; sourceTree = "<group>"; };
 		60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageProtocolCharacteristics.h; sourceTree = "<group>"; };
+		60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOStorageCardCharacteristics.h; sourceTree = "<group>"; };
 		60D01BE006E3CBC7005DAC06 /* IOFilterScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOFilterScheme.h; sourceTree = "<group>"; };
 		60D01BE106E3CBC7005DAC06 /* IOFilterScheme.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOFilterScheme.cpp; sourceTree = "<group>"; };
 		60DB532506DCFE850053A0B9 /* IOAppleLabelScheme.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IOAppleLabelScheme.h; sourceTree = "<group>"; };
@@ -332,6 +355,7 @@
 				0560FFB0008B961F11CA2AA4 /* IOPartitionScheme.h */,
 				0560FF9E008B94F111CA2AA4 /* IOStorage.cpp */,
 				0560FFB1008B961F11CA2AA4 /* IOStorage.h */,
+				60BF9EB0122D7EC0000D606C /* IOStorageCardCharacteristics.h */,
 				60AA59530D64D57400A955B0 /* IOStorageDeviceCharacteristics.h */,
 				60AA59540D64D57400A955B0 /* IOStorageProtocolCharacteristics.h */,
 			);
@@ -365,6 +389,7 @@
 				60DDA50207382C6A00FAB8B3 /* IOMediaBSDClient.h in Headers */,
 				60DDA50407382C6A00FAB8B3 /* IOPartitionScheme.h in Headers */,
 				60DDA50507382C6A00FAB8B3 /* IOStorage.h in Headers */,
+				60BF9EB1122D7EF1000D606C /* IOStorageCardCharacteristics.h in Headers */,
 				60AA59550D64D57400A955B0 /* IOStorageDeviceCharacteristics.h in Headers */,
 				60AA59560D64D57400A955B0 /* IOStorageProtocolCharacteristics.h in Headers */,
 			);
@@ -374,6 +399,8 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1D7220A1123918800F08996 /* IOAppleLabelScheme.h in Headers */,
+				C16DEB051123882100D8DB98 /* IOApplePartitionScheme.h in Headers */,
 				C1E55B070D32D158002875AA /* IOBlockStorageDevice.h in Headers */,
 				C1E55B080D32D158002875AA /* IOBlockStorageDriver.h in Headers */,
 				C1E55B090D32D158002875AA /* IOFDiskPartitionScheme.h in Headers */,
@@ -383,6 +410,7 @@
 				C1E55B0D0D32D158002875AA /* IOMediaBSDClient.h in Headers */,
 				C1E55B0E0D32D158002875AA /* IOPartitionScheme.h in Headers */,
 				C1E55B0F0D32D158002875AA /* IOStorage.h in Headers */,
+				60BF9EB2122D7F15000D606C /* IOStorageCardCharacteristics.h in Headers */,
 				60AA59570D64D57400A955B0 /* IOStorageDeviceCharacteristics.h in Headers */,
 				60AA59580D64D57400A955B0 /* IOStorageProtocolCharacteristics.h in Headers */,
 			);
@@ -426,7 +454,7 @@
 			productInstallPath = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 			productName = IOStorageFamily;
 			productReference = C1E55B250D32D158002875AA /* IOStorageFamily.kext */;
-			productType = "com.apple.product-type.kernel-extension.iokit.shallow";
+			productType = "com.apple.product-type.kernel-extension.iokit";
 		};
 /* End PBXNativeTarget section */
 
@@ -434,7 +462,7 @@
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 60CD8A3708A7E7F300DC31BD /* Build configuration list for PBXProject "IOStorageFamily" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
 			hasScannedForEncodings = 1;
 			mainGroup = 089C166AFE841209C02AAC07 /* IOStorageFamily */;
 			projectDirPath = "";
@@ -514,6 +542,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				C1D722091123918100F08996 /* IOAppleLabelScheme.cpp in Sources */,
+				C1E11DA8112387AD00316356 /* IOApplePartitionScheme.cpp in Sources */,
 				C1E55B180D32D158002875AA /* IOBlockStorageDevice.cpp in Sources */,
 				C1E55B190D32D158002875AA /* IOBlockStorageDriver.cpp in Sources */,
 				C1E55B1A0D32D158002875AA /* IOFDiskPartitionScheme.cpp in Sources */,
@@ -557,6 +587,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IOStorageFamily Headers_Embedded";
 			};
 			name = Debug;
@@ -565,6 +596,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IOStorageFamily Headers_Embedded";
 			};
 			name = Release;
@@ -575,10 +607,7 @@
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -589,10 +618,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -615,6 +641,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IOStorageFamily Headers";
 			};
 			name = Debug;
@@ -623,6 +650,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALLHDRS_SCRIPT_PHASE = YES;
 				PRODUCT_NAME = "IOStorageFamily Headers";
 			};
 			name = Release;
@@ -635,11 +663,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				"GCC_THUMB_SUPPORT[arch=armv6]" = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREFIX_HEADER = /usr/include/TargetConditionals.h;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -650,13 +674,10 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = C1165C510E1D9D8600155EBF /* AspenSDK.xcconfig */;
 			buildSettings = {
+				COPY_PHASE_STRIP = NO;
 				"GCC_THUMB_SUPPORT[arch=armv6]" = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_PREFIX_HEADER = /usr/include/TargetConditionals.h;
-				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOStorageFamily;
-				MODULE_VERSION = 1.6;
 				PRODUCT_NAME = IOStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

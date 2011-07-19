@@ -88,6 +88,98 @@ stm_DESTROY (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
 /*
  *---------------------------------------------------------------------------
  *
+ * stm_GET --
+ *
+ *	Non-destructively retrieves all elements of the stack.
+ *
+ * Results:
+ *	A standard Tcl result code.
+ *
+ * Side effects:
+ *	Only internal, memory allocation changes ...
+ *
+ *---------------------------------------------------------------------------
+ */
+
+int
+stm_GET (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int revers)
+{
+    /* Syntax: stack get
+     *	       [0]  [1]
+     */
+
+    int n;
+
+    if (objc != 2) {
+	Tcl_WrongNumArgs (interp, 2, objv, NULL);
+	return TCL_ERROR;
+    }
+
+    Tcl_ListObjLength (interp, s->stack, &n);
+
+    if (n) {
+	return st_peek (s, interp, n, 0, 1, revers, 1
+			/* no pop, list all, <revers>, return result */);
+    } else {
+	Tcl_SetObjResult (interp, Tcl_NewListObj (0,NULL));
+	return TCL_OK;
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * stm_TRIM --
+ *
+ *	Destructively retrieves one or more elements from the top of the
+ *	stack, trims the stack to a new size.
+ *
+ * Results:
+ *	A standard Tcl result code.
+ *
+ * Side effects:
+ *	Only internal, memory allocation changes ...
+ *
+ *---------------------------------------------------------------------------
+ */
+
+int
+stm_TRIM (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int ret)
+{
+    /* Syntax: stack trim N
+     *	       [0]  [1]   [2]
+     */
+
+    int n, len;
+
+    if (objc != 3) {
+	Tcl_WrongNumArgs (interp, 2, objv, "newsize");
+	return TCL_ERROR;
+    }
+
+    if (Tcl_GetIntFromObj(interp, objv[2], &n) != TCL_OK) {
+	    return TCL_ERROR;
+    } else if (n < 0) {
+	Tcl_AppendResult (interp, "invalid size ",
+			  Tcl_GetString (objv[2]),
+			  NULL);
+	return TCL_ERROR;
+    }
+
+    Tcl_ListObjLength (interp, s->stack, &len);
+
+    if (len > n) {
+	return st_peek (s, interp, len-n, 1, 1, 0, ret
+			/* pop, list all, normal order, <ret> */);
+    } else {
+	Tcl_SetObjResult (interp, Tcl_NewListObj (0,NULL));
+	return TCL_OK;
+    }
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
  * stm_PEEK/POP --
  *
  *	(Non-)destructively retrieves one or more elements from the top of the
@@ -103,7 +195,7 @@ stm_DESTROY (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
  */
 
 int
-stm_PEEK (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int pop)
+stm_PEEK (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int pop, int revers)
 {
     /* Syntax: stack peek|pop ?n?
      *	       [0]  [1]       [2]
@@ -131,76 +223,8 @@ stm_PEEK (S* s, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int pop)
 	}
     }
 
-    Tcl_ListObjGetElements (interp, s->stack, &listc, &listv);
-
-    if (n > listc) {
-	Tcl_AppendResult (interp,
-			  "insufficient items on stack to fill request",
-			  NULL);
-	return TCL_ERROR;
-    }
-
-    if (n == 1) {
-	r = listv [listc-1];
-    } else {
-	/* Grab range at the top of the stack, and revert order */
-
-	ASSERT_BOUNDS (listc-n,listc);
-
-	r = Tcl_NewListObj (n, listv + (listc - n));
-	Tcl_ListObjGetElements (interp, r, &listc, &listv);
-	for (i = 0, j = listc-1;
-	     i < j;
-	     i++, j--) {
-	    Tcl_Obj* tmp;
-
-	    ASSERT_BOUNDS (i,listc);
-	    ASSERT_BOUNDS (j,listc);
-
-	    tmp = listv[i];
-	    listv[i] = listv[j];
-	    listv[j] = tmp;
-	}
-    }
-
-    Tcl_SetObjResult (interp, r);
-
-    if (pop) {
-	Tcl_ListObjGetElements (interp, s->stack, &listc, &listv);
-
-	if (n == listc) {
-	    /* Complete removal, like clear */
-
-	    Tcl_DecrRefCount (s->stack);
-
-	    s->max   = 0;
-	    s->stack = Tcl_NewListObj (0,NULL);
-	    Tcl_IncrRefCount (s->stack);
-
-	} else if ((listc-n) < (s->max/2)) {
-	    /* Size dropped under threshold, shrink used memory.
-	     */
-
-	    Tcl_Obj* r;
-
-	    ASSERT_BOUNDS (listc-n,listc);
-
-	    r = Tcl_NewListObj (listc-n, listv);
-	    Tcl_DecrRefCount (s->stack);
-	    s->stack = r;
-	    Tcl_IncrRefCount (s->stack);
-	    s->max = listc - n;
-	} else {
-	    /* Keep current list, just reduce number of elements held.
-	     */
-
-	    ASSERT_BOUNDS (listc-n,listc);
-
-	    Tcl_ListObjReplace (interp, s->stack, listc-n, n, 0, NULL);
-	}
-    }
-
-    return TCL_OK;
+    return st_peek (s, interp, n, pop, 0, revers, 1
+		    /* <pop>, single, <revers>, return result */);
 }
 
 /*

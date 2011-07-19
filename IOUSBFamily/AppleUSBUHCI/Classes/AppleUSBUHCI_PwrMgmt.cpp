@@ -622,7 +622,7 @@ AppleUSBUHCI::powerChangeDone ( unsigned long fromState)
 	unsigned long newState = getPowerState();
 	
 	USBTrace( kUSBTUHCI, KTPUHCIPowerState, (uintptr_t)this, fromState, newState, 3);
-	USBLog((fromState == newState) ? 7 : 5, "AppleUSBUHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
+	USBLog((fromState == newState) || !_controllerAvailable ? 7 : 5, "AppleUSBUHCI[%p]::powerChangeDone from state (%d) to state (%d) _controllerAvailable(%s)", this, (int)fromState, (int)newState, _controllerAvailable ? "true" : "false");
 	if (_controllerAvailable)
 		showRegisters(7, "powerChangeDone");
 	super::powerChangeDone(fromState);

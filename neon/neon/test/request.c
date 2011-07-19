@@ -1791,7 +1791,8 @@ static int send_bad_offset(void)
 
     ONN("request dispatched with bad offset!", ret == NE_OK);
     ONV(ret != NE_ERROR,
-        ("request failed with non-NE_ERROR: %s", ne_get_error(sess)));
+        ("request failed with unexpected error code %d: %s", 
+         ret, ne_get_error(sess)));
 
     ONV(strstr(ne_get_error(sess), "Could not seek") == NULL,
         ("bad error message from seek failure: %s", ne_get_error(sess)));
@@ -2154,6 +2155,87 @@ static int dereg_progress(void)
     return await_server();    
 }
 
+static int addrlist(void)
+{
+    ne_session *sess;
+    ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+    const ne_inet_addr *ial[1];
+
+    sess = ne_session_create("http", "www.example.com", 7777);
+
+    CALL(spawn_server(7777, single_serve_string, EMPTY_RESP));
+
+    ial[0] = ia;
+
+    ne_set_addrlist(sess, ial, 1);
+
+    CALL(any_2xx_request(sess, "/blah"));
+
+    ne_session_destroy(sess);
+    ne_iaddr_free(ia);
+    
+    return await_server();
+}
+
+static int socks_session(ne_session **sess, struct socks_server *srv,
+                         const char *hostname, unsigned int port,
+                         server_fn server, void *userdata)
+{
+    srv->server = server;
+    srv->userdata = userdata;
+    CALL(spawn_server(7777, socks_server, srv));
+    *sess = ne_session_create("http", hostname, port);
+    ne_session_socks_proxy(*sess, srv->version, "localhost", 7777,
+                           srv->username, srv->password);
+    return OK;    
+}
+
+static int socks_proxy(void)
+{
+    ne_session *sess;
+    struct socks_server srv = {0};
+
+    srv.version = NE_SOCK_SOCKSV5;
+    srv.failure = fail_none;
+    srv.expect_port = 4242;
+    srv.expect_addr = NULL;
+    srv.expect_fqdn = "socks.example.com";
+    srv.username = "bloggs";
+    srv.password = "guessme";
+    
+    CALL(socks_session(&sess, &srv, srv.expect_fqdn, srv.expect_port,
+                       single_serve_string, EMPTY_RESP));
+
+    CALL(any_2xx_request(sess, "/blee"));
+
+    ne_session_destroy(sess);
+    return await_server();
+}
+
+static int socks_v4_proxy(void)
+{
+    ne_session *sess;
+    struct socks_server srv = {0};
+
+    srv.version = NE_SOCK_SOCKSV4;
+    srv.failure = fail_none;
+    srv.expect_port = 4242;
+    srv.expect_addr = ne_iaddr_parse("127.0.0.1", ne_iaddr_ipv4);
+    srv.expect_fqdn = "localhost";
+    srv.username = "bloggs";
+    srv.password = "guessme";
+    
+    CALL(socks_session(&sess, &srv, srv.expect_fqdn, srv.expect_port,
+                       single_serve_string, EMPTY_RESP));
+
+    CALL(any_2xx_request(sess, "/blee"));
+
+    ne_iaddr_free(srv.expect_addr);
+
+    ne_session_destroy(sess);
+    return await_server();
+}
+
 /* TODO: test that ne_set_notifier(, NULL, NULL) DTRT too. */
 
 ne_test tests[] = {
@@ -2242,5 +2324,8 @@ ne_test tests[] = {
     T(status_chunked),
     T(local_addr),
     T(dereg_progress),
+    T(addrlist),
+    T(socks_proxy),
+    T(socks_v4_proxy),
     T(NULL)
 };

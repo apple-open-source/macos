@@ -1,8 +1,7 @@
 /*
+ * Copyright (c) 2009 Apple, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 2009 Apple, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -74,6 +73,7 @@ static const CFRuntimeClass __IOMIGMachPortClass = {
     NULL,                       // equal
     NULL,                       // hash
     NULL,                       // copyFormattingDesc
+    NULL,
     NULL,
     NULL
 };
@@ -166,6 +166,9 @@ void IOMIGMachPortScheduleWithRunLoop(IOMIGMachPortRef migPort, CFRunLoopRef run
     migPort->runLoop        = runLoop;
     migPort->runLoopMode    = runLoopMode;
     
+    require(migPort->runLoop, exit);
+    require(migPort->runLoopMode, exit);
+
     // init the sources
     if ( !migPort->source ) {
         migPort->source = CFMachPortCreateRunLoopSource(kCFAllocatorDefault, migPort->port, 1);

@@ -25,8 +25,10 @@
 #define __IPSEC_UTILS_H__
 
 #include <sys/kern_event.h>
+#include "scnc_main.h"
 
 /* IKE Configuration */
+void IPSecConfigureVerboseLogging(CFMutableDictionaryRef ipsec_dict, int verbose_logging);
 int IPSecValidateConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecApplyConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
 int IPSecRemoveConfiguration(CFDictionaryRef ipsec_dict, char **error_text);
@@ -39,8 +41,8 @@ int IPSecSelfRepair();
 int IPSecCountPolicies(CFDictionaryRef ipsec_dict);
 int IPSecInstallPolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
 int IPSecRemovePolicies(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text);
-int IPSecInstallRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
-int IPSecRemoveRoutes(CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
+int IPSecInstallRoutes(struct service *serv, CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
+int IPSecRemoveRoutes(struct service *serv, CFDictionaryRef ipsec_dict, CFIndex index, char **error_text, struct in_addr gateway);
 
 /* Kernel Security Associations */
 int IPSecRemoveSecurityAssociations(struct sockaddr *src, struct sockaddr *dst);
@@ -60,21 +62,24 @@ u_int32_t get_if_media(char *if_name);
 u_int32_t get_if_baudrate(char *if_name);
 u_int32_t get_if_mtu(char *if_name);
 
-void IPSecLogVPNInterfaceAddressEvent (char                  *location,
+void IPSecLogVPNInterfaceAddressEvent (const char                  *location,
 									   struct kern_event_msg *ev_msg,
 									   int                    wait_interface_timeout,
 								 	   char                  *interface,
 									   struct in_addr        *our_address);
-int IPSecCheckVPNInterfaceOrServiceUnrecoverable (void                  *dynamicStore,
-						  char                  *location,
-						  struct kern_event_msg *ev_msg,
-						  char                  *interface_buf);
-int IPSecCheckVPNInterfaceAddressChange (int                    transport_down,
-                                         struct kern_event_msg *ev_msg,
-                                         char                  *interface_buf,
-                                         struct in_addr        *our_address);
-int IPSecCheckVPNInterfaceAddressAlternate (int                    transport_down,
-                                            struct kern_event_msg *ev_msg,
-                                            char                  *interface_buf);
+
+void update_service_route (struct service	*serv,
+						   in_addr_t	local_addr,
+						   in_addr_t	local_mask,
+						   in_addr_t	dest_addr,
+						   in_addr_t	dest_mask,
+						   in_addr_t	gtwy_addr,
+						   uint16_t			flags,
+						   int				installed);
+void free_service_routes (struct service	*serv);
+
+/* creates a directory path from string */
+int makepath( char *path);
+
 
 #endif

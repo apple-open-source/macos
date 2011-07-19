@@ -19,6 +19,8 @@
  *
  * @APPLE_LICENSE_HEADER_END@
  */
+
+#ifndef DISABLE_SEARCH_PLUGIN
  
 #ifndef __Mbrd_MembershipResolver_h__
 #define	__Mbrd_MembershipResolver_h__
@@ -41,7 +43,7 @@ void Mbrd_ProcessDumpState(void);
 void Mbrd_InitializeGlobals(void);
 void Mbrd_Initialize(void);
 int Mbrd_SetNodeAvailability( const char *nodeName, bool nodeAvailable );
-void Mbrd_SweepCache( void );
+void Mbrd_SweepCache(void *);
 void Mbrd_ProcessResetCache( void );
 
 void Mbrd_SetMembershipThread( bool bActive );
@@ -50,6 +52,21 @@ bool Mbrd_IsMembershipThread( void );
 void dsNodeStateChangeOccurred( void ); // this expires entries but does not remove them
 void dsFlushMembershipCache( void ); // this flushes the cache entirely
 bool dsIsUserMemberOfGroup( const char *insername, const char *inGroupName );
+
+__END_DECLS
+
+#endif
+
+#else
+
+#include <stdbool.h>
+#include <unistd.h>
+
+__BEGIN_DECLS
+
+void dsFlushMembershipCache( void ); // this flushes the cache entirely
+bool dsIsUserMemberOfGroup( const char *inUsername, const char *inGroupName );
+#define Mbrd_IsMembershipThread() false
 
 __END_DECLS
 

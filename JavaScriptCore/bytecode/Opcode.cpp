@@ -30,6 +30,11 @@
 #include "config.h"
 #include "Opcode.h"
 
+#if ENABLE(OPCODE_STATS)
+#include <stdio.h>
+#include <wtf/FixedArray.h>
+#endif
+
 using namespace std;
 
 namespace JSC {
@@ -101,10 +106,10 @@ OpcodeStats::~OpcodeStats()
         for (int j = 0; j < numOpcodeIDs; ++j)
             totalInstructionPairs += opcodePairCounts[i][j];
 
-    int sortedIndices[numOpcodeIDs];    
+    FixedArray<int, numOpcodeIDs> sortedIndices;
     for (int i = 0; i < numOpcodeIDs; ++i)
         sortedIndices[i] = i;
-    qsort(sortedIndices, numOpcodeIDs, sizeof(int), compareOpcodeIndices);
+    qsort(sortedIndices.data(), numOpcodeIDs, sizeof(int), compareOpcodeIndices);
     
     pair<int, int> sortedPairIndices[numOpcodeIDs * numOpcodeIDs];
     pair<int, int>* currentPairIndex = sortedPairIndices;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -43,7 +43,6 @@ namespace WebCore {
     class CachedFrame;
     class HistoryItem;
     class ProtectionSpace;
-    class String;
     class ResourceLoader;
     class ResourceRequest;
 }
@@ -84,7 +83,7 @@ private:
     virtual bool canAuthenticateAgainstProtectionSpace(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ProtectionSpace&);
 #endif
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
-    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
+    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int dataLength);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceError&);
 
@@ -102,8 +101,8 @@ private:
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
-    virtual void dispatchDidReceiveTitle(const WebCore::String& title);
-    virtual void dispatchDidChangeIcons();
+    virtual void dispatchDidReceiveTitle(const WebCore::StringWithDirection&);
+    virtual void dispatchDidChangeIcons(WebCore::IconType);
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFailProvisionalLoad(const WebCore::ResourceError&);
     virtual void dispatchDidFailLoad(const WebCore::ResourceError&);
@@ -112,13 +111,13 @@ private:
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-    virtual WebCore::Frame* dispatchCreatePage();
+    virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
-    virtual void dispatchDecidePolicyForMIMEType(WebCore::FramePolicyFunction,
-        const WebCore::String& MIMEType, const WebCore::ResourceRequest&);
+    virtual void dispatchDecidePolicyForResponse(WebCore::FramePolicyFunction, 
+        const WebCore::ResourceResponse&, const WebCore::ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(WebCore::FramePolicyFunction,
-        const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WebCore::String& frameName);
+        const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>, const WTF::String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(WebCore::FramePolicyFunction,
         const WebCore::NavigationAction&, const WebCore::ResourceRequest&, PassRefPtr<WebCore::FormState>);
     virtual void cancelPolicyCheck();
@@ -152,12 +151,14 @@ private:
     virtual void updateGlobalHistoryRedirectLinks();
 
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidChangeBackForwardIndex() const;
+    virtual void updateGlobalHistoryItemForPage();
 
     virtual void didDisplayInsecureContent();
-    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
 
     virtual WebCore::ResourceError cancelledError(const WebCore::ResourceRequest&);
     virtual WebCore::ResourceError blockedError(const WebCore::ResourceRequest&);
@@ -170,16 +171,22 @@ private:
 
     virtual bool shouldFallBack(const WebCore::ResourceError&);
 
-    virtual WebCore::String userAgent(const WebCore::KURL&);
+    virtual WTF::String userAgent(const WebCore::KURL&);
     
     virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void didSaveToPageCache();
+    virtual void didRestoreFromPageCache();
+
+    virtual void dispatchDidBecomeFrameset(bool);
+
     virtual bool canHandleRequest(const WebCore::ResourceRequest&) const;
-    virtual bool canShowMIMEType(const WebCore::String& MIMEType) const;
-    virtual bool representationExistsForURLScheme(const WebCore::String& URLScheme) const;
-    virtual WebCore::String generatedMIMETypeForURLScheme(const WebCore::String& URLScheme) const;
+    virtual bool canShowMIMEType(const WTF::String& MIMEType) const;
+    virtual bool canShowMIMETypeAsHTML(const WTF::String& MIMEType) const;
+    virtual bool representationExistsForURLScheme(const WTF::String& URLScheme) const;
+    virtual WTF::String generatedMIMETypeForURLScheme(const WTF::String& URLScheme) const;
 
     virtual void frameLoadCompleted();
     virtual void saveViewStateToItem(WebCore::HistoryItem*);
@@ -189,20 +196,28 @@ private:
     virtual void prepareForDataSourceReplacement();
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
 
-    virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
+    virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::KURL&);
 
-    virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement*,
-                                        const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument();
-    virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&,
-                                          const Vector<WebCore::String>&, const WebCore::String&, bool);
+    virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WTF::String& name, WebCore::HTMLFrameOwnerElement*,
+                                        const WTF::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+    virtual void didTransferChildFrameToNewDocument(WebCore::Page* oldPage);
+    virtual void transferLoadingResourceFromPage(unsigned long identifier, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page* oldPage);
+    virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WTF::String>&,
+                                          const Vector<WTF::String>&, const WTF::String&, bool);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
     
     virtual PassRefPtr<WebCore::Widget> createJavaAppletWidget(const WebCore::IntSize&, WebCore::HTMLAppletElement*, const WebCore::KURL& baseURL,
-                                                    const Vector<WebCore::String>& paramNames, const Vector<WebCore::String>& paramValues);
+                                                    const Vector<WTF::String>& paramNames, const Vector<WTF::String>& paramValues);
     
-    virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL& url, const WebCore::String& mimeType);
-    virtual WebCore::String overrideMediaType() const;
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+    virtual PassRefPtr<WebCore::Widget> createMediaPlayerProxyPlugin(const WebCore::IntSize&, WebCore::HTMLMediaElement*, const WebCore::KURL&, 
+                                        const Vector<WTF::String>&, const Vector<WTF::String>&, const WTF::String&);
+    virtual void hideMediaPlayerProxyPlugin(WebCore::Widget*);
+    virtual void showMediaPlayerProxyPlugin(WebCore::Widget*);
+#endif
+    
+    virtual WebCore::ObjectContentType objectContentType(const WebCore::KURL&, const WTF::String& mimeType, bool shouldPreferPlugInsForImages);
+    virtual WTF::String overrideMediaType() const;
     
     virtual void dispatchDidClearWindowObjectInWorld(WebCore::DOMWrapperWorld*);
     virtual void documentElementAvailable();
@@ -214,6 +229,10 @@ private:
     virtual jobject javaApplet(NSView*);
 #endif
 
+#if PLATFORM(MAC)
+    virtual RemoteAXObjectRef accessibilityRemoteObject() { return 0; }
+#endif
+    
     void setOriginalURLForDownload(WebDownload *, const WebCore::ResourceRequest&) const;
 
     RetainPtr<WebFramePolicyListener> setUpPolicyListener(WebCore::FramePolicyFunction);
@@ -221,7 +240,11 @@ private:
     NSDictionary *actionDictionary(const WebCore::NavigationAction&, PassRefPtr<WebCore::FormState>) const;
     
     virtual bool canCachePage() const;
-    
+
+    virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
+
+    virtual bool shouldPaintBrokenImage(const WebCore::KURL&) const;
+
     RetainPtr<WebFrame> m_webFrame;
 
     RetainPtr<WebFramePolicyListener> m_policyListener;

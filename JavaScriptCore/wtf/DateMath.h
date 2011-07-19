@@ -2,6 +2,7 @@
  * Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2010 Research In Motion Limited. All rights reserved.
  *
  * Version: MPL 1.1/GPL 2.0/LGPL 2.1
  *
@@ -43,17 +44,21 @@
 #define DateMath_h
 
 #include <math.h>
+#include <stdint.h>
 #include <string.h>
 #include <time.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/OwnArrayPtr.h>
+#include <wtf/PassOwnArrayPtr.h>
 #include <wtf/UnusedParam.h>
 
 namespace WTF {
 void initializeDates();
 int equivalentYearForDST(int year);
 
-// Not really math related, but this is currently the only shared place to put these.  
+// Not really math related, but this is currently the only shared place to put these.
+double parseES5DateFromNullTerminatedCharacters(const char* dateString);
 double parseDateFromNullTerminatedCharacters(const char* dateString);
 double timeClip(double);
 
@@ -83,17 +88,26 @@ int dayInYear(double ms, int year);
 int monthFromDayInYear(int dayInYear, bool leapYear);
 int dayInMonthFromDayInYear(int dayInYear, bool leapYear);
 
+// Returns offset milliseconds for UTC and DST.
+int32_t calculateUTCOffset();
+double calculateDSTOffset(double ms, double utcOffset);
+
 } // namespace WTF
 
+using WTF::adoptArrayPtr;
 using WTF::dateToDaysFrom1970;
 using WTF::dayInMonthFromDayInYear;
 using WTF::dayInYear;
 using WTF::minutesPerHour;
 using WTF::monthFromDayInYear;
 using WTF::msPerDay;
+using WTF::msPerMinute;
 using WTF::msPerSecond;
 using WTF::msToYear;
 using WTF::secondsPerMinute;
+using WTF::parseDateFromNullTerminatedCharacters;
+using WTF::calculateUTCOffset;
+using WTF::calculateDSTOffset;
 
 #if USE(JSC)
 namespace JSC {
@@ -107,7 +121,9 @@ double parseDateFromNullTerminatedCharacters(ExecState*, const char* dateString)
 
 // Intentionally overridding the default tm of the system.
 // The members of tm differ on various operating systems.
-struct GregorianDateTime : Noncopyable {
+struct GregorianDateTime {
+    WTF_MAKE_NONCOPYABLE(GregorianDateTime);
+public:
     GregorianDateTime()
         : second(0)
         , minute(0)
@@ -119,13 +135,7 @@ struct GregorianDateTime : Noncopyable {
         , year(0)
         , isDST(0)
         , utcOffset(0)
-        , timeZone(0)
     {
-    }
-
-    ~GregorianDateTime()
-    {
-        delete [] timeZone;
     }
 
     GregorianDateTime(ExecState* exec, const tm& inTm)
@@ -148,10 +158,10 @@ struct GregorianDateTime : Noncopyable {
 
 #if HAVE(TM_ZONE)
         int inZoneSize = strlen(inTm.tm_zone) + 1;
-        timeZone = new char[inZoneSize];
-        strncpy(timeZone, inTm.tm_zone, inZoneSize);
+        timeZone = adoptArrayPtr(new char[inZoneSize]);
+        strncpy(timeZone.get(), inTm.tm_zone, inZoneSize);
 #else
-        timeZone = 0;
+        timeZone = nullptr;
 #endif
     }
 
@@ -174,7 +184,7 @@ struct GregorianDateTime : Noncopyable {
         ret.tm_gmtoff = static_cast<long>(utcOffset);
 #endif
 #if HAVE(TM_ZONE)
-        ret.tm_zone = timeZone;
+        ret.tm_zone = timeZone.get();
 #endif
 
         return ret;
@@ -193,11 +203,11 @@ struct GregorianDateTime : Noncopyable {
         isDST = rhs.isDST;
         utcOffset = rhs.utcOffset;
         if (rhs.timeZone) {
-            int inZoneSize = strlen(rhs.timeZone) + 1;
-            timeZone = new char[inZoneSize];
-            strncpy(timeZone, rhs.timeZone, inZoneSize);
+            int inZoneSize = strlen(rhs.timeZone.get()) + 1;
+            timeZone = adoptArrayPtr(new char[inZoneSize]);
+            strncpy(timeZone.get(), rhs.timeZone.get(), inZoneSize);
         } else
-            timeZone = 0;
+            timeZone = nullptr;
     }
 
     int second;
@@ -210,7 +220,7 @@ struct GregorianDateTime : Noncopyable {
     int year;
     int isDST;
     int utcOffset;
-    char* timeZone;
+    OwnArrayPtr<char> timeZone;
 };
 
 static inline int gmtoffset(const GregorianDateTime& t)

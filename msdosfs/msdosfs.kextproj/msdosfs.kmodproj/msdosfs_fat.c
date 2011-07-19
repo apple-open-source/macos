@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -115,32 +113,35 @@ struct msdosfs_fat_node {
 /*
  * Internal routines
  */
-static int msdosfs_fat_cache_flush(struct msdosfsmount *pmp, int ioflags);
-static int clusterfree_internal(struct msdosfsmount *pmp,
-				uint32_t cluster, uint32_t *oldcnp);
-static int fatentry_internal(int function, struct msdosfsmount *pmp,
-				uint32_t cn, uint32_t *oldcontents, uint32_t newcontents);
-static int clusteralloc_internal(struct msdosfsmount *pmp,
-				uint32_t start, uint32_t count, uint32_t fillwith,
-				uint32_t *retcluster, uint32_t *got);
-static int	chainalloc __P((struct msdosfsmount *pmp, uint32_t start,
-				uint32_t count, uint32_t fillwith,
-				uint32_t *retcluster, uint32_t *got));
-static int	chainlength __P((struct msdosfsmount *pmp, uint32_t start,
-				uint32_t count));
-static int	fatchain __P((struct msdosfsmount *pmp, uint32_t start,
-				uint32_t count, uint32_t fillwith));
-static int fillinusemap(struct msdosfsmount *pmp);
-static __inline void
-		usemap_alloc __P((struct msdosfsmount *pmp, uint32_t cn));
-static __inline void
-		usemap_free __P((struct msdosfsmount *pmp, uint32_t cn));
+int msdosfs_fat_cache_flush(struct msdosfsmount *pmp, int ioflags);
+int msdosfs_clusterfree_internal(struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcnp);
+int msdosfs_fatentry_internal(int function, struct msdosfsmount *pmp, uint32_t cn,
+			      uint32_t *oldcontents, uint32_t newcontents);
+int msdosfs_clusteralloc_internal(struct msdosfsmount *pmp, uint32_t start, uint32_t count,
+				  uint32_t fillwith, uint32_t *retcluster, uint32_t *got);
+int msdosfs_chainalloc(struct msdosfsmount *pmp, uint32_t start, uint32_t count,
+		       uint32_t fillwith, uint32_t *retcluster, uint32_t *got);
+int msdosfs_chainlength(struct msdosfsmount *pmp, uint32_t start, uint32_t count);
+int msdosfs_fatchain(struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith);
+int msdosfs_fillinusemap(struct msdosfsmount *pmp);
+static __inline void usemap_alloc(struct msdosfsmount *pmp, uint32_t cn);
+static __inline void usemap_free(struct msdosfsmount *pmp, uint32_t cn);
+void *msdosfs_fat_map(struct msdosfsmount *pmp, u_int32_t cn, u_int32_t *offp, u_int32_t *sizep, int *error_out);
+void msdosfs_meta_flush_internal(struct msdosfsmount *pmp, int sync);
 
 /*
  * vnode operations for the FAT vnode
  */
-typedef int     vnop_t __P((void *));
-static int msdosfs_fat_pagein(struct vnop_pagein_args *ap)
+typedef int vnop_t(void *);
+int msdosfs_fat_pagein(struct vnop_pagein_args *ap);
+int msdosfs_fat_pageout(struct vnop_pageout_args *ap);
+int msdosfs_fat_strategy(struct vnop_strategy_args *ap);
+int msdosfs_fat_blockmap(struct vnop_blockmap_args *ap);
+int msdosfs_fat_fsync(struct vnop_fsync_args *ap);
+int msdosfs_fat_inactive(struct vnop_inactive_args *ap);
+int msdosfs_fat_reclaim(struct vnop_reclaim_args *ap);
+
+int msdosfs_fat_pagein(struct vnop_pagein_args *ap)
 {
     struct msdosfs_fat_node *node = vnode_fsnode(ap->a_vp);
     
@@ -148,7 +149,7 @@ static int msdosfs_fat_pagein(struct vnop_pagein_args *ap)
 	ap->a_size, node->file_size, ap->a_flags);
 }
 
-static int msdosfs_fat_pageout(struct vnop_pageout_args *ap)
+int msdosfs_fat_pageout(struct vnop_pageout_args *ap)
 {
     struct msdosfs_fat_node *node = vnode_fsnode(ap->a_vp);
     
@@ -156,14 +157,14 @@ static int msdosfs_fat_pageout(struct vnop_pageout_args *ap)
 	ap->a_size, node->file_size, ap->a_flags);
 }
 
-static int msdosfs_fat_strategy(struct vnop_strategy_args *ap)
+int msdosfs_fat_strategy(struct vnop_strategy_args *ap)
 {
     struct msdosfs_fat_node *node = vnode_fsnode(buf_vnode(ap->a_bp));
     
     return buf_strategy(node->pmp->pm_devvp, ap);
 }
 
-static int msdosfs_fat_blockmap(struct vnop_blockmap_args *ap)
+int msdosfs_fat_blockmap(struct vnop_blockmap_args *ap)
 {
     struct msdosfs_fat_node *node = vnode_fsnode(ap->a_vp);
     
@@ -188,7 +189,7 @@ static int msdosfs_fat_blockmap(struct vnop_blockmap_args *ap)
     return 0;
 }
 
-static int msdosfs_fat_fsync(struct vnop_fsync_args *ap)
+int msdosfs_fat_fsync(struct vnop_fsync_args *ap)
 {
     int error = 0;
     int ioflags = 0;
@@ -211,13 +212,13 @@ static int msdosfs_fat_fsync(struct vnop_fsync_args *ap)
     return error;
 }
 
-static int msdosfs_fat_inactive(struct vnop_inactive_args *ap)
+int msdosfs_fat_inactive(struct vnop_inactive_args *ap)
 {
     vnode_recycle(ap->a_vp);
     return 0;
 }
 
-static int msdosfs_fat_reclaim(struct vnop_reclaim_args *ap)
+int msdosfs_fat_reclaim(struct vnop_reclaim_args *ap)
 {
     vnode_t vp = ap->a_vp;
     struct msdosfs_fat_node *node = vnode_fsnode(vp);
@@ -234,8 +235,8 @@ static struct vnodeopv_entry_desc msdosfs_fat_vnodeop_entries[] = {
     { &vnop_pageout_desc,   (vnop_t *) msdosfs_fat_pageout },
     { &vnop_strategy_desc,  (vnop_t *) msdosfs_fat_strategy },
     { &vnop_blockmap_desc,  (vnop_t *) msdosfs_fat_blockmap },
-    { &vnop_blktooff_desc,  (vnop_t *) msdosfs_blktooff },
-    { &vnop_offtoblk_desc,  (vnop_t *) msdosfs_offtoblk },
+    { &vnop_blktooff_desc,  (vnop_t *) msdosfs_vnop_blktooff },
+    { &vnop_offtoblk_desc,  (vnop_t *) msdosfs_vnop_offtoblk },
     { &vnop_fsync_desc,	    (vnop_t *) msdosfs_fat_fsync },
     { &vnop_inactive_desc,  (vnop_t *) msdosfs_fat_inactive },
     { &vnop_reclaim_desc,   (vnop_t *) msdosfs_fat_reclaim },
@@ -247,8 +248,7 @@ __private_extern__
 struct vnodeopv_desc msdosfs_fat_vnodeop_opv_desc =
 	{ &msdosfs_fat_vnodeop_p, msdosfs_fat_vnodeop_entries };
 
-__private_extern__ int
-msdosfs_fat_init_vol(struct msdosfsmount *pmp)
+int msdosfs_fat_init_vol(struct msdosfsmount *pmp)
 {	
     errno_t error;
     struct vnode_fsparam vfsp;
@@ -357,7 +357,7 @@ msdosfs_fat_init_vol(struct msdosfsmount *pmp)
 	goto exit;
     }
 
-    error = fillinusemap(pmp);
+    error = msdosfs_fillinusemap(pmp);
 
 exit:
     /*
@@ -367,8 +367,7 @@ exit:
     return error;
 }
 
-__private_extern__ void
-msdosfs_fat_uninit_vol(struct msdosfsmount *pmp)
+void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp)
 {
     /*
      * Try one last time to flush the FAT before we get rid of the FAT vnodes.
@@ -425,7 +424,6 @@ msdosfs_fat_uninit_vol(struct msdosfsmount *pmp)
  * Update the free cluster count and next free cluster number in the FSInfo
  * sector of a FAT32 volume.  This is called during VFS_SYNC.
  */
-__private_extern__
 int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t context)
 {
     int error;
@@ -475,8 +473,7 @@ int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t c
  * will not necessarily go to disk right away.  You must explicitly fsync
  * the vnode(s) to force changes to the media.
  */
-static int
-msdosfs_fat_cache_flush(struct msdosfsmount *pmp, int ioflags)
+int msdosfs_fat_cache_flush(struct msdosfsmount *pmp, int ioflags)
 {
     int error;
     u_int32_t fat_file_size;
@@ -543,8 +540,7 @@ msdosfs_fat_cache_flush(struct msdosfsmount *pmp, int ioflags)
  *
  * Return value: Pointer to cluster cn's entry in the FAT block
  */
-static void *
-msdosfs_fat_map(struct msdosfsmount *pmp, u_int32_t cn, u_int32_t *offp, u_int32_t *sizep, int *error_out)
+void *msdosfs_fat_map(struct msdosfsmount *pmp, u_int32_t cn, u_int32_t *offp, u_int32_t *sizep, int *error_out)
 {
     int error = 0;
     u_int32_t offset;
@@ -624,7 +620,7 @@ msdosfs_fat_map(struct msdosfsmount *pmp, u_int32_t cn, u_int32_t *offp, u_int32
  * 
  * If sync is non-zero, the data is flushed syncrhonously.
  */
-static void msdosfs_meta_flush_internal(struct msdosfsmount *pmp, int sync)
+void msdosfs_meta_flush_internal(struct msdosfsmount *pmp, int sync)
 {
     int error;
     
@@ -665,8 +661,7 @@ static void msdosfs_meta_flush_internal(struct msdosfsmount *pmp, int sync)
     buf_flushdirtyblks(pmp->pm_devvp, sync, 0, "msdosfs_meta_flush");
 }
 
-__private_extern__ void
-msdosfs_meta_flush(struct msdosfsmount *pmp, int sync)
+void msdosfs_meta_flush(struct msdosfsmount *pmp, int sync)
 {
     if (sync) goto flush_now;
 
@@ -725,7 +720,7 @@ flush_now:
 }
 
 
-__private_extern__ void msdosfs_meta_sync_callback(void *arg0, void *unused)
+void msdosfs_meta_sync_callback(void *arg0, void *unused)
 {
 #pragma unused(unused)
     struct msdosfsmount *pmp = arg0;
@@ -760,8 +755,7 @@ __private_extern__ void msdosfs_meta_sync_callback(void *arg0, void *unused)
  * This is useful for determining how long a directory is, or for initializing
  * the de_LastCluster field.
  */
-__private_extern__ int
-pcbmap_internal(
+int msdosfs_pcbmap_internal(
     struct denode *dep,
     uint32_t findcn,	    /* file relative cluster to get */
     uint32_t numclusters,	    /* maximum number of contiguous clusters to map */
@@ -780,7 +774,7 @@ pcbmap_internal(
     void *entry;
     
     if (numclusters == 0)
-	panic("pcbmap: numclusters == 0");
+	panic("msdosfs_pcbmap: numclusters == 0");
     
     /*
      * If they don't give us someplace to return a value then don't
@@ -860,7 +854,7 @@ pcbmap_internal(
     	cluster_physical = dep->de_cluster_physical;
     	cluster_count = dep->de_cluster_count;
     	prevcn = dep->de_cluster_physical+dep->de_cluster_count-1;
-    	error = fatentry_internal(FAT_GET, pmp, prevcn, &cn, 0);
+    	error = msdosfs_fatentry_internal(FAT_GET, pmp, prevcn, &cn, 0);
 	if (error)
 	    goto exit;
     }
@@ -883,7 +877,7 @@ pcbmap_internal(
 	 */
 	if (cluster_logical > pmp->pm_maxcluster)
 	{
-	    printf("msdosfs: pcbmap: Corrupt cluster chain detected\n");
+	    printf("msdosfs: msdosfs_pcbmap: Corrupt cluster chain detected\n");
 	    pmp->pm_flags |= MSDOSFS_CORRUPT;
 	    error = EIO;
 	    goto exit;
@@ -895,7 +889,7 @@ pcbmap_internal(
 	if (cn < CLUST_FIRST || cn > pmp->pm_maxcluster)
 	{
 	    if (DEBUG)
-		panic("pcbmap_internal: invalid cluster: cn=%u, name='%11.11s'", cn, dep->de_Name);
+		panic("msdosfs_pcbmap_internal: invalid cluster: cn=%u, name='%11.11s'", cn, dep->de_Name);
 	    return EIO;
 	}
 	
@@ -982,8 +976,7 @@ hiteof:
 }
 
 
-__private_extern__ int
-pcbmap(
+int msdosfs_pcbmap(
     struct denode *dep,
     uint32_t findcn,	    /* file relative cluster to get */
     uint32_t numclusters,	    /* maximum number of contiguous clusters to map */
@@ -995,7 +988,7 @@ pcbmap(
     
     lck_mtx_lock(dep->de_cluster_lock);
     lck_mtx_lock(dep->de_pmp->pm_fat_lock);
-    error = pcbmap_internal(dep, findcn, numclusters, bnp, cnp, sp);
+    error = msdosfs_pcbmap_internal(dep, findcn, numclusters, bnp, cnp, sp);
     lck_mtx_unlock(dep->de_pmp->pm_fat_lock);
     lck_mtx_unlock(dep->de_cluster_lock);
     
@@ -1042,17 +1035,13 @@ usemap_free(pmp, cn)
 	pmp->pm_inusemap[cn / N_INUSEBITS] &= ~(1 << (cn % N_INUSEBITS));
 }
 
-static int
-clusterfree_internal(pmp, cluster, oldcnp)
-	struct msdosfsmount *pmp;
-	uint32_t cluster;
-	uint32_t *oldcnp;
+int msdosfs_clusterfree_internal(struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcnp)
 {
 	int error;
 	uint32_t oldcn;
 
 	usemap_free(pmp, cluster);
-	error = fatentry_internal(FAT_GET_AND_SET, pmp, cluster, &oldcn, MSDOSFSFREE);
+	error = msdosfs_fatentry_internal(FAT_GET_AND_SET, pmp, cluster, &oldcn, MSDOSFSFREE);
 	if (error) {
 		usemap_alloc(pmp, cluster);
 		return (error);
@@ -1067,16 +1056,12 @@ clusterfree_internal(pmp, cluster, oldcnp)
 	return (0);
 }
 
-__private_extern__ int
-clusterfree(pmp, cluster, oldcnp)
-	struct msdosfsmount *pmp;
-	uint32_t cluster;
-	uint32_t *oldcnp;
+int msdosfs_clusterfree(struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcnp)
 {
 	int error;
 	
 	lck_mtx_lock(pmp->pm_fat_lock);
-	error = clusterfree_internal(pmp, cluster, oldcnp);
+	error = msdosfs_clusterfree_internal(pmp, cluster, oldcnp);
 	lck_mtx_unlock(pmp->pm_fat_lock);
 	
 	return error;
@@ -1099,16 +1084,10 @@ clusterfree(pmp, cluster, oldcnp)
  * for a cluster to 0.
  *
  * All copies of the fat are updated if this is a set function. NOTE: If
- * fatentry() marks a cluster as free it does not update the inusemap in
+ * msdosfs_fatentry() marks a cluster as free it does not update the inusemap in
  * the msdosfsmount structure. This is left to the caller.
  */
-static int
-fatentry_internal(function, pmp, cn, oldcontents, newcontents)
-	int function;
-	struct msdosfsmount *pmp;
-	uint32_t cn;
-	uint32_t *oldcontents;
-	uint32_t newcontents;
+int msdosfs_fatentry_internal(int function, struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcontents, uint32_t newcontents)
 {
 	int error = 0;
 	uint32_t readcn;
@@ -1121,7 +1100,7 @@ fatentry_internal(function, pmp, cn, oldcontents, newcontents)
 	{
 	    if (DEBUG)
 	    {
-		printf("msdosfs: fatentry_internal: cn=%u, function=%d, new=%u\n", cn, function, newcontents);
+		printf("msdosfs: msdosfs_fatentry_internal: cn=%u, function=%d, new=%u\n", cn, function, newcontents);
 	    }
 	    return (EIO);
 	}
@@ -1175,18 +1154,12 @@ fatentry_internal(function, pmp, cn, oldcontents, newcontents)
 	return 0;
 }
 
-__private_extern__ int
-fatentry(function, pmp, cn, oldcontents, newcontents)
-	int function;
-	struct msdosfsmount *pmp;
-	uint32_t cn;
-	uint32_t *oldcontents;
-	uint32_t newcontents;
+int msdosfs_fatentry(int function, struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcontents, uint32_t newcontents)
 {
 	int error;
 	
 	lck_mtx_lock(pmp->pm_fat_lock);
-	error = fatentry_internal(function, pmp, cn, oldcontents, newcontents);
+	error = msdosfs_fatentry_internal(function, pmp, cn, oldcontents, newcontents);
 	lck_mtx_unlock(pmp->pm_fat_lock);
 	
 	return error;
@@ -1201,12 +1174,7 @@ fatentry(function, pmp, cn, oldcontents, newcontents)
  * count    - number of clusters in chain
  * fillwith - what to write into fat entry of last cluster
  */
-static int
-fatchain(pmp, start, count, fillwith)
-	struct msdosfsmount *pmp;
-	uint32_t start;
-	uint32_t count;
-	uint32_t fillwith;
+int msdosfs_fatchain(struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith)
 {
 	int error = 0;
 	u_int32_t bo, bsize;
@@ -1219,7 +1187,7 @@ fatchain(pmp, start, count, fillwith)
 	 */
 	if (start < CLUST_FIRST || start + count - 1 > pmp->pm_maxcluster)
 	{
-	    printf("msdosfs: fatchain: start=%u, count=%u, fill=%u\n", start, count, fillwith);
+	    printf("msdosfs: msdosfs_fatchain: start=%u, count=%u, fill=%u\n", start, count, fillwith);
 	    return (EIO);
 	}
 
@@ -1277,11 +1245,7 @@ fatchain(pmp, start, count, fillwith)
  * start - start of chain
  * count - maximum interesting length
  */
-static int
-chainlength(pmp, start, count)
-	struct msdosfsmount *pmp;
-	uint32_t start;
-	uint32_t count;
+int msdosfs_chainlength(struct msdosfsmount *pmp, uint32_t start, uint32_t count)
 {
 	uint32_t idx, max_idx;
 	u_int map;
@@ -1323,14 +1287,13 @@ chainlength(pmp, start, count)
  * retcluster - put the first allocated cluster's number here.
  * got	      - how many clusters were actually allocated.
  */
-static int
-chainalloc(pmp, start, count, fillwith, retcluster, got)
-	struct msdosfsmount *pmp;
-	uint32_t start;
-	uint32_t count;
-	uint32_t fillwith;
-	uint32_t *retcluster;
-	uint32_t *got;
+int msdosfs_chainalloc(
+	struct msdosfsmount *pmp,
+	uint32_t start,
+	uint32_t count,
+	uint32_t fillwith,
+	uint32_t *retcluster,
+	uint32_t *got)
 {
 	int error;
 	uint32_t cl, n;
@@ -1338,7 +1301,7 @@ chainalloc(pmp, start, count, fillwith, retcluster, got)
 	for (cl = start, n = count; n-- > 0;)
 		usemap_alloc(pmp, cl++);
 
-	error = fatchain(pmp, start, count, fillwith);
+	error = msdosfs_fatchain(pmp, start, count, fillwith);
 	if (error != 0)
 		return (error);
 	if (retcluster)
@@ -1359,14 +1322,13 @@ chainalloc(pmp, start, count, fillwith, retcluster, got)
  * retcluster - put the first allocated cluster's number here.
  * got	      - how many clusters were actually allocated.
  */
-static int
-clusteralloc_internal(pmp, start, count, fillwith, retcluster, got)
-	struct msdosfsmount *pmp;
-	uint32_t start;
-	uint32_t count;
-	uint32_t fillwith;
-	uint32_t *retcluster;
-	uint32_t *got;
+int msdosfs_clusteralloc_internal(
+	struct msdosfsmount *pmp,
+	uint32_t start,
+	uint32_t count,
+	uint32_t fillwith,
+	uint32_t *retcluster,
+	uint32_t *got)
 {
 	uint32_t idx;
 	uint32_t len, foundl, cn, l;
@@ -1380,8 +1342,8 @@ clusteralloc_internal(pmp, start, count, fillwith, retcluster, got)
 		 *
 		 * If there are enough contiguous free clusters at "start", just use them.
 		 */
-		if ((len = chainlength(pmp, start, count)) >= count)
-			return (chainalloc(pmp, start, count, fillwith, retcluster, got));
+		if ((len = msdosfs_chainlength(pmp, start, count)) >= count)
+			return (msdosfs_chainalloc(pmp, start, count, fillwith, retcluster, got));
 		
 		/*
 		 * If we fall through here, "len" = the number of contiguous free clusters
@@ -1416,8 +1378,8 @@ clusteralloc_internal(pmp, start, count, fillwith, retcluster, got)
 			cn = idx * N_INUSEBITS + ffs(map^(u_int)-1) - 1;
 			
 			/* See how many contiguous free clusters are there. */
-			if ((l = chainlength(pmp, cn, count)) >= count)
-				return (chainalloc(pmp, cn, count, fillwith, retcluster, got));
+			if ((l = msdosfs_chainlength(pmp, cn, count)) >= count)
+				return (msdosfs_chainalloc(pmp, cn, count, fillwith, retcluster, got));
 			
 			/*
 			 * If we get here, there were some free clusters, but not as many
@@ -1460,24 +1422,23 @@ clusteralloc_internal(pmp, start, count, fillwith, retcluster, got)
 	 * Otherwise, just return the largest free chain we found.
 	 */
 	if (len)
-		return (chainalloc(pmp, start, len, fillwith, retcluster, got));
+		return (msdosfs_chainalloc(pmp, start, len, fillwith, retcluster, got));
 	else
-		return (chainalloc(pmp, foundcn, foundl, fillwith, retcluster, got));
+		return (msdosfs_chainalloc(pmp, foundcn, foundl, fillwith, retcluster, got));
 }
 
-__private_extern__ int
-clusteralloc(pmp, start, count, fillwith, retcluster, got)
-	struct msdosfsmount *pmp;
-	uint32_t start;
-	uint32_t count;
-	uint32_t fillwith;
-	uint32_t *retcluster;
-	uint32_t *got;
+int msdosfs_clusteralloc(
+	struct msdosfsmount *pmp,
+	uint32_t start,
+	uint32_t count,
+	uint32_t fillwith,
+	uint32_t *retcluster,
+	uint32_t *got)
 {
 	int error;
 	
 	lck_mtx_lock(pmp->pm_fat_lock);
-	error = clusteralloc_internal(pmp, start, count, fillwith, retcluster, got);
+	error = msdosfs_clusteralloc_internal(pmp, start, count, fillwith, retcluster, got);
 	lck_mtx_unlock(pmp->pm_fat_lock);
 	
 	return error;
@@ -1492,10 +1453,7 @@ clusteralloc(pmp, start, count, fillwith, retcluster, got)
  * startcluster - number of the 1st cluster in the chain of clusters to be
  *		  freed.
  */
-__private_extern__ int
-freeclusterchain(pmp, cluster)
-	struct msdosfsmount *pmp;
-	uint32_t cluster;
+int msdosfs_freeclusterchain(struct msdosfsmount *pmp, uint32_t cluster)
 {
 	int error=0;
 	uint32_t readcn;
@@ -1546,8 +1504,7 @@ freeclusterchain(pmp, cluster)
  * Read in fat blocks looking for free clusters. For every free cluster
  * found turn off its corresponding bit in the pm_inusemap.
  */
-static int
-fillinusemap(struct msdosfsmount *pmp)
+int msdosfs_fillinusemap(struct msdosfsmount *pmp)
 {
     uint32_t cn, readcn=0;
     int error = 0;
@@ -1634,10 +1591,7 @@ fillinusemap(struct msdosfsmount *pmp)
  * the de_flag field of the denode and it does not change the de_FileSize
  * field.  This is left for the caller to do.
  */
-__private_extern__ int
-extendfile(dep, count)
-	struct denode *dep;
-	uint32_t count;
+int msdosfs_extendfile(struct denode *dep, uint32_t count)
 {
     int error=0;
     uint32_t cn, got, reqcnt;
@@ -1664,7 +1618,7 @@ extendfile(dep, count)
     if (dep->de_LastCluster == 0 &&
         dep->de_StartCluster != 0)
     {
-        error = pcbmap_internal(dep, 0xFFFFFFFF, 1, NULL, NULL, &dep->de_LastCluster);
+        error = msdosfs_pcbmap_internal(dep, 0xFFFFFFFF, 1, NULL, NULL, &dep->de_LastCluster);
         /* we expect it to return E2BIG */
         if (error != E2BIG)
             goto exit;
@@ -1672,7 +1626,7 @@ extendfile(dep, count)
 	
 	if (dep->de_LastCluster == 0)
 	{
-	    printf("msdosfs: extendfile: dep->de_LastCluster == 0!\n");
+	    printf("msdosfs: msdosfs_extendfile: dep->de_LastCluster == 0!\n");
 	    error = EIO;
 	    goto exit;
 	}
@@ -1693,7 +1647,7 @@ extendfile(dep, count)
             cn = 0;
         else
             cn = dep->de_LastCluster + 1;
-        error = clusteralloc_internal(pmp, cn, count, CLUST_EOFE, &cn, &got);
+        error = msdosfs_clusteralloc_internal(pmp, cn, count, CLUST_EOFE, &cn, &got);
         if (error)
             goto exit;
 
@@ -1729,11 +1683,11 @@ extendfile(dep, count)
         if (dep->de_StartCluster == 0) {
             dep->de_StartCluster = cn;
         } else {
-            error = fatentry_internal(FAT_SET, pmp,
+            error = msdosfs_fatentry_internal(FAT_SET, pmp,
                              dep->de_LastCluster,
                              0, cn);
             if (error) {
-                clusterfree_internal(pmp, cn, NULL);
+                msdosfs_clusterfree_internal(pmp, cn, NULL);
                 goto exit;
             }
         }
@@ -1773,9 +1727,9 @@ exit:
  * of the FAT entry for cluster 1.  Note that this bit is not defined for FAT12 volumes, which
  * are always assumed to be dirty.
  *
- * The fatentry() routine only works on cluster numbers that a file could occupy, so it won't
+ * The msdosfs_fatentry() routine only works on cluster numbers that a file could occupy, so it won't
  * manipulate the entry for cluster 1.  So we have to do it here.  The code is ripped from
- * fatentry(), and tailored for cluster 1.
+ * msdosfs_fatentry(), and tailored for cluster 1.
  * 
  * Inputs:
  *	pmp	The MS-DOS volume to mark
@@ -1786,7 +1740,7 @@ exit:
  *	EROFS	Volume is read-only
  *	?	(other errors from called routines)
  */
-__private_extern__ int markvoldirty(struct msdosfsmount *pmp, int dirty)
+int msdosfs_markvoldirty(struct msdosfsmount *pmp, int dirty)
 {
     int error=0;
     uint32_t fatval;

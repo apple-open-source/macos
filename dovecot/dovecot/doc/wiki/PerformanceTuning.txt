@@ -1,0 +1,36 @@
+Dovecot performance tuning
+==========================
+
+Disk I/O optimization
+---------------------
+
+Usually heavily loaded IMAP and POP3 servers don't use much CPU, but they use
+all the disk I/O they can get. So reducing disk I/O is probably the most useful
+optimization you can do.
+
+ * See <MailLocation.LocalDisk.txt> for generic disk I/O optimizations.
+ * See <MailLocation.Mbox.txt> for mbox-specific optimizations.
+ * See <MailLocation.Maildir.txt> for Maildir-specific optimizations.
+
+CPU usage optimization
+----------------------
+
+ * See <LoginProcess.txt> for optimizing CPU usage caused by logins
+ * See 'auth_cache_size' setting for caching passdb and userdb lookups
+
+Memory usage optimization
+-------------------------
+
+There aren't many settings which affect Dovecot's memory usage. About the only
+such settings are 'auth_cache_size' and <LoginProcess.txt> settings. In general
+Dovecot uses as much memory as it needs, which is usually quite little.
+
+Note that these settings do not directly affect the memory usage:
+
+ * 'service { vsz_limit } ': These are simply safe guards against potential
+   memory leaks. If the process's virtual size reaches the limit, the process
+   is killed by the kernel.
+ * 'service { process_limit, client_limit } ': These are mostly to avoid DoS
+   attacks using up all your memory.
+
+(This file was created from the wiki on 2011-05-11 04:42)

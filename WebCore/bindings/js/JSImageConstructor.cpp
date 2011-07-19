@@ -32,40 +32,41 @@ namespace WebCore {
 
 ASSERT_CLASS_FITS_IN_CELL(JSImageConstructor);
 
-const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", 0, 0, 0 };
+const ClassInfo JSImageConstructor::s_info = { "ImageConstructor", &DOMConstructorWithDocument::s_info, 0, 0 };
 
-JSImageConstructor::JSImageConstructor(ExecState* exec, JSDOMGlobalObject* globalObject)
-    : DOMConstructorWithDocument(JSImageConstructor::createStructure(globalObject->objectPrototype()), globalObject)
+JSImageConstructor::JSImageConstructor(ExecState* exec, Structure* structure, JSDOMGlobalObject* globalObject)
+    : DOMConstructorWithDocument(structure, globalObject)
 {
-    putDirect(exec->propertyNames().prototype, JSHTMLImageElementPrototype::self(exec, globalObject), None);
+    ASSERT(inherits(&s_info));
+    putDirect(exec->globalData(), exec->propertyNames().prototype, JSHTMLImageElementPrototype::self(exec, globalObject), None);
 }
 
-static JSObject* constructImage(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructImage(ExecState* exec)
 {
-    JSImageConstructor* jsConstructor = static_cast<JSImageConstructor*>(constructor);
+    JSImageConstructor* jsConstructor = static_cast<JSImageConstructor*>(exec->callee());
     Document* document = jsConstructor->document();
     if (!document)
-        return throwError(exec, ReferenceError, "Image constructor associated document is unavailable");
+        return throwVMError(exec, createReferenceError(exec, "Image constructor associated document is unavailable"));
 
     // Calling toJS on the document causes the JS document wrapper to be
-    // added to the window object. This is done to ensure that JSDocument::markChildren
+    // added to the window object. This is done to ensure that JSDocument::visit
     // will be called, which will cause the image element to be marked if necessary.
     toJS(exec, jsConstructor->globalObject(), document);
     int width;
     int height;
     int* optionalWidth = 0;
     int* optionalHeight = 0;
-    if (args.size() > 0) {
-        width = args.at(0).toInt32(exec);
+    if (exec->argumentCount() > 0) {
+        width = exec->argument(0).toInt32(exec);
         optionalWidth = &width;
     }
-    if (args.size() > 1) {
-        height = args.at(1).toInt32(exec);
+    if (exec->argumentCount() > 1) {
+        height = exec->argument(1).toInt32(exec);
         optionalHeight = &height;
     }
 
-    return asObject(toJS(exec, jsConstructor->globalObject(),
-        HTMLImageElement::createForJSConstructor(document, optionalWidth, optionalHeight)));
+    return JSValue::encode(asObject(toJS(exec, jsConstructor->globalObject(),
+        HTMLImageElement::createForJSConstructor(document, optionalWidth, optionalHeight))));
 }
 
 ConstructType JSImageConstructor::getConstructData(ConstructData& constructData)

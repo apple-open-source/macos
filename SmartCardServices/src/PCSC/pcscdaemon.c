@@ -33,7 +33,7 @@
  *  David Corcoran <corcoran@linuxnet.com>
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: pcscdaemon.c 2377 2007-02-05 13:13:56Z rousseau $
+ * $Id: pcscdaemon.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

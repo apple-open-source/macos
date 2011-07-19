@@ -94,7 +94,7 @@ Node* TreeWalker::firstChild(ScriptState* state)
                 node = node->nextSibling();
                 break;
             }
-            Node* parent = node->parentNode();
+            ContainerNode* parent = node->parentNode();
             if (!parent || parent == root() || parent == m_current)
                 return 0;
             node = parent;
@@ -127,7 +127,7 @@ Node* TreeWalker::lastChild(ScriptState* state)
                 node = node->previousSibling();
                 break;
             }
-            Node* parent = node->parentNode();
+            ContainerNode* parent = node->parentNode();
             if (!parent || parent == root() || parent == m_current)
                 return 0;
             node = parent;
@@ -151,8 +151,9 @@ Node* TreeWalker::previousSibling(ScriptState* state)
                     m_current = sibling.release();
                     return m_current.get();
                 case NodeFilter::FILTER_SKIP:
-                    if (sibling->firstChild()) {
-                        sibling = sibling->firstChild();
+                    if (sibling->lastChild()) {
+                        sibling = sibling->lastChild();
+                        node = sibling;
                         continue;
                     }
                     break;
@@ -189,6 +190,7 @@ Node* TreeWalker::nextSibling(ScriptState* state)
                 case NodeFilter::FILTER_SKIP:
                     if (sibling->firstChild()) {
                         sibling = sibling->firstChild();
+                        node = sibling;
                         continue;
                     }
                     break;
@@ -224,8 +226,8 @@ Node* TreeWalker::previousNode(ScriptState* state)
                 acceptNodeResult = acceptNode(state, node.get());
                 if (state && state->hadException())
                     return 0;
-                if (acceptNodeResult == NodeFilter::FILTER_ACCEPT)
-                    continue;
+                if (acceptNodeResult == NodeFilter::FILTER_REJECT)
+                    break;
             }
             if (acceptNodeResult == NodeFilter::FILTER_ACCEPT) {
                 m_current = node.release();
@@ -234,7 +236,7 @@ Node* TreeWalker::previousNode(ScriptState* state)
         }
         if (node == root())
             return 0;
-        Node* parent = node->parentNode();
+        ContainerNode* parent = node->parentNode();
         if (!parent)
             return 0;
         node = parent;

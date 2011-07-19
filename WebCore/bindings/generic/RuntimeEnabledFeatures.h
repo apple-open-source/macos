@@ -51,11 +51,24 @@ public:
     static void setApplicationCacheEnabled(bool isEnabled) { isApplicationCacheEnabled = isEnabled; }
     static bool applicationCacheEnabled() { return isApplicationCacheEnabled; }
 
+    static void setDataTransferItemsEnabled(bool isEnabled) { isDataTransferItemsEnabled = isEnabled; }
+    static bool dataTransferItemsEnabled() { return isDataTransferItemsEnabled; }
+
     static void setGeolocationEnabled(bool isEnabled) { isGeolocationEnabled = isEnabled; }
     static bool geolocationEnabled() { return isGeolocationEnabled; }
 
-    static void setIndexedDBEnabled(bool isEnabled) { isIndexedDBEnabled = isEnabled; }
-    static bool indexedDBEnabled() { return isIndexedDBEnabled; }
+    static void setWebkitIndexedDBEnabled(bool isEnabled) { isIndexedDBEnabled = isEnabled; }
+    static bool webkitIndexedDBEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBCursorEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseErrorEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBDatabaseExceptionEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBFactoryEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBIndexEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBKeyRangeEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBObjectStoreEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBRequestEnabled() { return isIndexedDBEnabled; }
+    static bool webkitIDBTransactionEnabled() { return isIndexedDBEnabled; }
 
 #if ENABLE(VIDEO)
     static bool audioEnabled();
@@ -63,6 +76,7 @@ public:
     static bool htmlAudioElementEnabled();
     static bool htmlVideoElementEnabled();
     static bool mediaErrorEnabled();
+    static bool timeRangesEnabled();
 #endif
 
 #if ENABLE(SHARED_WORKERS)
@@ -75,19 +89,12 @@ public:
 
 #if ENABLE(DATABASE)
     static bool openDatabaseEnabled();
+    static bool openDatabaseSyncEnabled();
 #endif
 
-#if ENABLE(3D_CANVAS)
-    static void setWebGLEnabled(bool isEnabled) { isWebGLEnabled = isEnabled; }
-    static bool webGLRenderingContextEnabled() { return isWebGLEnabled; }
-    static bool webGLArrayBufferEnabled() { return isWebGLEnabled; }
-    static bool webGLByteArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedByteArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLShortArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedShortArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLIntArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLUnsignedIntArrayEnabled() { return isWebGLEnabled; }
-    static bool webGLFloatArrayEnabled() { return isWebGLEnabled; }
+#if ENABLE(WEB_AUDIO)
+    static void setWebkitAudioContextEnabled(bool isEnabled) { isWebAudioEnabled = isEnabled; }
+    static bool webkitAudioContextEnabled() { return isWebAudioEnabled; }
 #endif
 
     static void setPushStateEnabled(bool isEnabled) { isPushStateEnabled = isEnabled; }
@@ -101,6 +108,51 @@ public:
     static bool ontouchmoveEnabled() { return isTouchEnabled; }
     static bool ontouchendEnabled() { return isTouchEnabled; }
     static bool ontouchcancelEnabled() { return isTouchEnabled; }
+    static bool createTouchEnabled() { return isTouchEnabled; }
+    static bool createTouchListEnabled() { return isTouchEnabled; }
+#endif
+
+    static void setDeviceMotionEnabled(bool isEnabled) { isDeviceMotionEnabled = isEnabled; }
+    static bool deviceMotionEnabled() { return isDeviceMotionEnabled; }
+    static bool deviceMotionEventEnabled() { return isDeviceMotionEnabled; }
+    static bool ondevicemotionEnabled() { return isDeviceMotionEnabled; }
+    
+    static void setDeviceOrientationEnabled(bool isEnabled) { isDeviceOrientationEnabled = isEnabled; }
+    static bool deviceOrientationEnabled() { return isDeviceOrientationEnabled; }
+    static bool deviceOrientationEventEnabled() { return isDeviceOrientationEnabled; }
+    static bool ondeviceorientationEnabled() { return isDeviceOrientationEnabled; }
+
+    static void setSpeechInputEnabled(bool isEnabled) { isSpeechInputEnabled = isEnabled; }
+    static bool speechInputEnabled() { return isSpeechInputEnabled; }
+    static bool webkitSpeechEnabled() { return isSpeechInputEnabled; }
+    static bool webkitGrammarEnabled() { return isSpeechInputEnabled; }
+
+#if ENABLE(XHR_RESPONSE_BLOB)
+    static bool xhrResponseBlobEnabled() { return isXHRResponseBlobEnabled; }
+    static void setXHRResponseBlobEnabled(bool isEnabled) { isXHRResponseBlobEnabled = isEnabled; }
+    static bool responseBlobEnabled() { return isXHRResponseBlobEnabled; }
+    static bool asBlobEnabled()  { return isXHRResponseBlobEnabled; }
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    static bool fileSystemEnabled();
+    static void setFileSystemEnabled(bool isEnabled) { isFileSystemEnabled = isEnabled; }
+#endif
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+    static bool javaScriptI18NAPIEnabled();
+    static void setJavaScriptI18NAPIEnabled(bool isEnabled) { isJavaScriptI18NAPIEnabled = isEnabled; }
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    static bool mediaStreamEnabled() { return isMediaStreamEnabled; }
+    static void setMediaStreamEnabled(bool isEnabled) { isMediaStreamEnabled = isEnabled; }
+    static bool webkitGetUserMediaEnabled() { return isMediaStreamEnabled; }
+#endif
+
+#if ENABLE(QUOTA)
+    static bool quotaEnabled() { return isQuotaEnabled; }
+    static void setQuotaEnabled(bool isEnabled) { isQuotaEnabled = isEnabled; }
 #endif
 
 private:
@@ -111,11 +163,34 @@ private:
     static bool isSessionStorageEnabled;
     static bool isWebkitNotificationsEnabled;
     static bool isApplicationCacheEnabled;
+    static bool isDataTransferItemsEnabled;
     static bool isGeolocationEnabled;
     static bool isIndexedDBEnabled;
-    static bool isWebGLEnabled;
+    static bool isWebAudioEnabled;
     static bool isPushStateEnabled;
     static bool isTouchEnabled;
+    static bool isDeviceMotionEnabled;
+    static bool isDeviceOrientationEnabled;
+    static bool isSpeechInputEnabled;
+#if ENABLE(XHR_RESPONSE_BLOB)
+    static bool isXHRResponseBlobEnabled;
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    static bool isFileSystemEnabled;
+#endif
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+    static bool isJavaScriptI18NAPIEnabled;
+#endif
+
+#if ENABLE(MEDIA_STREAM)
+    static bool isMediaStreamEnabled;
+#endif
+
+#if ENABLE(QUOTA)
+    static bool isQuotaEnabled;
+#endif
 };
 
 } // namespace WebCore

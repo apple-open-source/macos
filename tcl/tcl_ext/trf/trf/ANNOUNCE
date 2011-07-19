@@ -1,6 +1,6 @@
 Hello world,
 
-I hereby announce trf 2.1.3.
+I hereby announce trf 2.1.4.
 It is 
 	A loadable extension to Tcl providing commands for data conversion,
 	message digests, zlib based compression, error-correction,
@@ -30,4 +30,4 @@ The distribution can be found at
 
 Sincerely
 	Andreas Kupries <andreas_kupries@users.sourceforge.net>
-	DEC-06-2008
+	MAY-06-2009

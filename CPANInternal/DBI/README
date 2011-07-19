@@ -1,15 +1,10 @@
 DBI - The Perl Database Interface by Tim Bunce.
 
-Copyright (c) 1994-2004  Tim Bunce  Ireland.
+Copyright (c) 1994-2008  Tim Bunce  Ireland.
 
 See COPYRIGHT section in DBI.pm for usage and distribution rights.
 
 See GETTING HELP section in DBI.pm for how to get help.
-
-RECENT NEWS:
-
-  Note: There is a bug in perl 5.8.2 when configured with threads
-  and debugging enabled (bug #24463) which causes a DBI test to fail.
 
 QUICK START GUIDE:
 

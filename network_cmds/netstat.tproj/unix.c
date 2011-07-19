@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -112,9 +112,9 @@ unixpr()
 
 	for (type = SOCK_STREAM; type <= SOCK_SEQPACKET; type++) {
 #if !TARGET_OS_EMBEDDED
-		sprintf(mibvar, "net.local.%s.pcblist64", socktype[type]);
+		snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist64", socktype[type]);
 #else
-		sprintf(mibvar, "net.local.%s.pcblist", socktype[type]);
+		snprintf(mibvar, sizeof(mibvar), "net.local.%s.pcblist", socktype[type]);
 #endif
 		len = 0;
 		if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {

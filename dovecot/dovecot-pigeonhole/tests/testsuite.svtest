@@ -1,0 +1,75 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+
+/* Test message environment */
+
+test "Message Environment" {
+	test_set "message" text:
+From: sirius@example.org
+To: nico@frop.example.com
+Subject: Frop!
+
+Frop!
+.
+	;
+
+	if not header :contains "from" "example.org" {
+		test_fail "message data not set properly.";
+	}
+
+	test_set "message" text:
+From: nico@frop.example.com
+To: stephan@nl.example.com
+Subject: Friep!
+
+Friep!
+.
+	;
+
+	if not header :is "from" "nico@frop.example.com" {
+    	test_fail "message data not set properly.";
+	} 
+
+	keep;
+}
+
+/* Test envelope environment */
+
+test "Envelope Environment" {
+	test_set "envelope.from" "stephan@hutsefluts.example.net";
+
+	if not envelope :is "from" "stephan@hutsefluts.example.net" {
+		test_fail "envelope.from data not set properly (1).";
+	}
+
+	test_set "envelope.to" "news@example.org";
+
+	if not envelope :is "to" "news@example.org" {
+		test_fail "envelope.to data not set properly (1).";
+	}
+
+	test_set "envelope.auth" "sirius";
+
+	if not envelope :is "auth" "sirius" {
+		test_fail "envelope.auth data not set properly (1).";
+	}
+
+	test_set "envelope.from" "stephan@example.org";
+
+	if not envelope :is "from" "stephan@example.org" {
+		test_fail "envelope.from data not reset properly (2).";
+	}
+
+	test_set "envelope.to" "past-news@example.org";
+
+	if not envelope :is "to" "past-news@example.org" {
+		test_fail "envelope.to data not reset properly (2).";
+	}
+
+	test_set "envelope.auth" "zilla";
+
+	if not envelope :is "auth" "zilla" {
+		test_fail "envelope.auth data not reset properly (2).";
+	}
+}
+

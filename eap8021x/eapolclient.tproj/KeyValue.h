@@ -43,4 +43,4 @@ KeyValueList_free(KeyValueList * * list_p);
 KeyValueList *
 KeyValueList_create(void * buf, int buflen);
 
-#endif _S_KEYVALUE_H
+#endif /* _S_KEYVALUE_H */

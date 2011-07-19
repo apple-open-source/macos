@@ -29,6 +29,8 @@
 # include <stdio.h>			// for stderr, fprintf(), et al
 #endif
 
+#define USE_DISPATCH_MIG_SERVER 0
+
 #include "ServerControl.h"
 #include "DirServicesConst.h"
 #include "DirServicesPriv.h"
@@ -38,7 +40,6 @@
 #include "DSCThread.h"
 #include "CServerPlugin.h"
 #include "CPluginHandler.h"
-#include "CSearchPlugin.h"
 #include "CNodeList.h"
 #include "CLog.h"
 #include "CPluginConfig.h"
@@ -48,13 +49,12 @@
 #include "DSMachEndian.h"
 #include "WorkstationService.h"
 #include "Mbrd_MembershipResolver.h"
-#include "DSLDAPUtils.h"
 #include "CDSPluginUtils.h"
 #include "DSTCPEndpoint.h"
 #include "DSTCPEndian.h"
 #include "CInternalDispatch.h"
 #include "COSUtils.h"
-#include "BaseDirectoryPlugin.h"
+#include "od_passthru.h"
 
 #include <mach/mach.h>
 #include <mach/notify.h>
@@ -71,16 +71,21 @@
 #include <dispatch/dispatch.h>
 #include <sys/sysctl.h>	// for struct kinfo_proc and sysctl()
 #include <fcntl.h>
+#include <DirectoryServiceCore/DSSemaphore.h>
 
 // This is for MIG
 extern "C" {
+    #include "legacy_callServer.h"
+#ifndef DISABLE_SEARCH_PLUGIN
 	#include "DirectoryServiceMIGServer.h"
 	#include "DSlibinfoMIGServer.h"
+    #include "DSlibinfoMIGAsyncReply.h"
 	#include "DSmemberdMIGServer.h"
-	#include "DSlibinfoMIGAsyncReply.h"
+#endif
 }
 
 dispatch_source_t ServerControl::fTCPListener = NULL;
+uint32_t			gSystemGoingToSleep	= false;
 
 //power management
 extern void dsPMNotificationHandler ( void *refContext, io_service_t service, natural_t messageType, void *notificationID );
@@ -98,12 +103,12 @@ extern bool				gIgnoreSunsetTime;
 
 extern	bool			gServerOS;
 extern dsBool			gDSDebugMode;
+#ifndef DISABLE_CACHE_PLUGIN
 extern CCachePlugin	   *gCacheNode;
+extern DSEventSemaphore gKickCacheRequests;
+#endif
 extern dsBool			gDSLocalOnlyMode;
 extern dsBool			gDSInstallDaemonMode;
-extern DSEventSemaphore gKickCacheRequests;
-extern int              gKernelTimeout;
-extern uint32_t			gNumberOfCores;
 
 // ---------------------------------------------------------------------------
 //	* Globals
@@ -116,7 +121,9 @@ ServerControl		   *gSrvrCntl			= nil;
 CRefTable				gRefTable( ServerControl::RefDeallocProc );
 CPlugInList			   *gPlugins			= nil;
 dispatch_queue_t		gLibinfoQueue		= NULL;
+#ifndef DISABLE_CONFIGURE_PLUGIN
 CPluginConfig		   *gPluginConfig		= nil;
+#endif
 CNodeList			   *gNodeList			= nil;
 CPluginHandler		   *gPluginHandler		= nil;
 char				   *gDSLocalFilePath	= nil;
@@ -140,13 +147,23 @@ dsBool					gToggleDebugging							= false;
 bool					gFirstNetworkUpAtBoot						= false;
 bool					gNetInfoPluginIsLoaded						= false;
 
-dispatch_source_t		gLibinfoDispatchSource						= NULL;
-dispatch_source_t		gAPIDispatchSource							= NULL;
+#ifndef DISABLE_MEMBERSHIP_CACHE
 dispatch_source_t		gMembershipDispatchSource					= NULL;
+#endif
+#ifndef DISABLE_CACHE_PLUGIN
+dispatch_source_t		gLibinfoDispatchSource						= NULL;
+#endif
+dispatch_source_t		gAPIDispatchSource							= NULL;
+dispatch_source_t       gLegacyDispatchSource                       = NULL;
 
+#ifndef DISABLE_CACHE_PLUGIN
 extern mach_port_t		gLibinfoMachPort;
-extern mach_port_t		gAPIMachPort;
+#endif
+#ifndef DISABLE_MEMBERSHIP_CACHE
 extern mach_port_t		gMembershipMachPort;
+#endif
+extern mach_port_t		gAPIMachPort;
+extern mach_port_t      gLegacyMachPort;
 
 //eDSLookupProcedureNumber MUST be SYNC'ed with lookupProcedures
 const char *lookupProcedures[] =
@@ -244,6 +261,8 @@ const char *lookupProcedures[] =
 #pragma mark MIG Call Handler Routines - separate DS, Lookup, and memberd servers
 #pragma mark -
 
+#ifndef DISABLE_SEARCH_PLUGIN
+
 kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 												 sStringPtr username,
 												 sStringPtr password,
@@ -327,16 +346,28 @@ kern_return_t dsmig_do_checkUsernameAndPassword( mach_port_t server,
 //   which prevents calls to DS APIs from going over mach back to ourselves
 static boolean_t dsmig_demux_internaldispatch( mach_msg_header_t *request, mach_msg_header_t *reply )
 {
-	boolean_t	result;
+	boolean_t	result = false;
 	
 	CInternalDispatch::AddCapability();
 	
-	if ( request->msgh_id >= 60000 ) // 60000 are memberd requests
+	if ( request->msgh_id >= 60000 ) {
+#ifndef DISABLE_MEMBERSHIP_CACHE
+        // 60000 are memberd requests
 		result = DSmemberdMIG_server( request, reply );
-	else if ( request->msgh_id >= 50000 ) // 50000 are libinfo requests
+#endif
+    } else if ( request->msgh_id >= 50000 ) {
+#ifndef DISABLE_CACHE_PLUGIN
+        // 50000 are libinfo requests
 		result = DSlibinfoMIG_server( request, reply );
-	else
+#endif
+    } else if (request->msgh_id >= 40000) {
+#ifndef DISABLE_SEARCH_PLUGIN
+        // 40000 are DS API requests
 		result = DirectoryServiceMIG_server(request, reply);
+#endif
+    } else if (request->msgh_id >= 7000) {
+        result = legacy_call_server(request, reply);
+    }
 
 	if ( request->msgh_id == MACH_NOTIFY_NO_SENDERS ) {
 		mach_vm_address_t context = NULL;
@@ -347,7 +378,7 @@ static boolean_t dsmig_demux_internaldispatch( mach_msg_header_t *request, mach_
 		gRefTable.CleanRefsForMachRefs( request->msgh_local_port );
 		
 		if ( context != 0 ) {
-            dispatch_cancel( (dispatch_source_t) context );
+            dispatch_source_cancel( (dispatch_source_t) context );
             dispatch_release( (dispatch_source_t) context );
 		}
 	}
@@ -359,62 +390,48 @@ static void
 dsdispatch_process_wentaway( pid_t inProc )
 {
     DbgLog( kLogNotice, "dsdispatch_process_wentaway:: PID: %d - has exited, exec'd, or closed session", inProc );
-    
-    // no need to keep this daemon going anymore as it launches on demand
-    // create a lazy timer
-    // TODO: need a better on-demand solution, we use hold a mutex while we exit,
-    // clients will recover
-    dispatch_source_t source = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
-                                                             5ULL * NSEC_PER_SEC,
-                                                             1ULL * NSEC_PER_SEC,
-                                                             NULL,
-                                                             dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
-                                                             ^(dispatch_source_t ds) {
-                                                                 // use try lock in case we collide with another timer which gets done on the
-                                                                 // same thread will cause an abort
-                                                                 if ( dispatch_source_get_error(ds, NULL) == 0 && gLocalSessionLock.WaitTryLock() ) {
-                                                                     if ( gLocalSessionCount == 0 ) {
-                                                                         // just stop the runloop it will exit
-                                                                         CFRunLoopStop( CFRunLoopGetMain() );
-                                                                         
-                                                                         // we intentionally don't unlock cause we are going to exit
-                                                                     } else {
-                                                                         gLocalSessionLock.SignalLock();
-                                                                     }
-                                                                 }
-                                                             } );
-    assert( source != NULL );
+    od_passthru_localonly_exit();
 }
+
+#define MY_MIG_OPTIONS	(MACH_RCV_TIMEOUT | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_CTX) | \
+                        MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0))
 
 static dispatch_source_t
 CreateDispatchSourceForMachPort( mach_port_t newServer, size_t maxSize, pid_t inPID, bool bPerClientPort )
 {
-#define MY_MIG_OPTIONS	(MACH_RCV_TIMEOUT | MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_CTX) | \
-                         MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0))
-	
     dispatch_source_t machSource;
     dispatch_queue_t machQueue;
     
     if ( bPerClientPort == true ) {
+        dispatch_group_t mig_group = dispatch_group_create();
+
         // we use serial queues for per-client ports to ensure ordered requests
         machQueue = dispatch_queue_create( "per-client MIG queue", NULL );
         assert( machQueue != NULL );
         
-        machSource = dispatch_source_machport_create( newServer,
-                                                      DISPATCH_MACHPORT_RECV,
-                                                      DISPATCH_SOURCE_CREATE_SUSPENDED,
-                                                      machQueue,
-                                                      ^(dispatch_source_t ds) {
-                                                          if ( dispatch_source_get_error(ds, NULL) == 0 ) {
-                                                              mach_msg_server( dsmig_demux_internaldispatch,
-                                                                               maxSize,
-                                                                               newServer,
-                                                                               MY_MIG_OPTIONS );
-                                                          } else {
-                                                              mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
-                                                          }
-                                                      } );
+        machSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, newServer, 0, machQueue);
         assert( machSource != NULL );
+        
+        dispatch_source_set_event_handler(machSource, 
+                                          ^(void) {
+                                              dispatch_group_async(mig_group, machQueue,
+                                                                   ^(void) {
+#if USE_DISPATCH_MIG_SERVER
+                                                                       dispatch_mig_server(machSource, maxSize, dsmig_demux_internaldispatch);
+#else
+                                                                       mach_msg_server(dsmig_demux_internaldispatch,
+                                                                                       maxSize,
+                                                                                       newServer,
+                                                                                       MY_MIG_OPTIONS);
+#endif
+                                                                   });
+                                          });
+        dispatch_source_set_cancel_handler(machSource, 
+                                           ^(void) {
+                                               dispatch_group_wait(mig_group, DISPATCH_TIME_FOREVER);
+                                               dispatch_release(mig_group);
+                                               mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
+                                           });
         
         mach_port_set_context( mach_task_self(), newServer, (mach_vm_address_t) machSource );
         
@@ -427,51 +444,54 @@ CreateDispatchSourceForMachPort( mach_port_t newServer, size_t maxSize, pid_t in
         
         // we only use the process source in localonly mode to track who is still around
         if ( gDSLocalOnlyMode == true && inPID > 0 ) {
-            dispatch_source_t procSource = dispatch_source_proc_create( inPID,
-                                                                        DISPATCH_PROC_EXIT | DISPATCH_PROC_EXEC, 
-                                                                        NULL,
-                                                                        dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
-                                                                        ^(dispatch_source_t ds) { 
-                                                                            if ( dispatch_source_get_error(ds, NULL) == 0 ) {
-                                                                                dsdispatch_process_wentaway( inPID );
-                                                                                dispatch_cancel( ds );
-                                                                            }
-                                                                            else {
-                                                                                dispatch_release( ds );
-                                                                            }
-                                                                        } );
-            assert( procSource != NULL );
+            machQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+            dispatch_source_t procSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_PROC, inPID, DISPATCH_PROC_EXIT | DISPATCH_PROC_EXEC, machQueue);
+            assert(procSource != NULL);
+            
+            dispatch_source_set_event_handler(procSource, 
+                                              ^(void) {
+                                                  dsdispatch_process_wentaway( inPID );
+                                                  dispatch_source_cancel(procSource);
+                                              });
+            dispatch_source_set_cancel_handler(procSource, 
+                                               ^(void) {
+                                                   dispatch_release(procSource);
+                                               });
+            dispatch_resume(procSource);
         }        
     }
     else {
         // our main launchd registered ports are always on the concurrent queue to ensure re-entrancy
-        machQueue = dispatch_get_concurrent_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT );
+        machQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
         
         dispatch_group_t migGroup = dispatch_group_create();
-        machSource = dispatch_source_machport_create( newServer,
-                                                      DISPATCH_MACHPORT_RECV,
-                                                      DISPATCH_SOURCE_CREATE_SUSPENDED,
-                                                      machQueue,
-                                                      ^(dispatch_source_t ds) {
-                                                          if ( dispatch_source_get_error(ds, NULL) == 0 ) {
-                                                              dispatch_group_async( migGroup,
-                                                                                    machQueue, 
-                                                                                    ^(void) {
-                                                                                        mach_msg_server( dsmig_demux_internaldispatch,
-                                                                                                         maxSize,
-                                                                                                         newServer,
-                                                                                                         MY_MIG_OPTIONS );
-                                                                                    } );
-                                                          } else {
-                                                              dispatch_group_wait( migGroup, UINT64_MAX );
-                                                              dispatch_release( migGroup );
-                                                              mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
-                                                          }
-                                                      } );
+        
+        machSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, newServer, 0, machQueue);
         assert( machSource != NULL );
+        
+        dispatch_source_set_event_handler(machSource, 
+                                          ^(void) {
+                                              dispatch_group_async(migGroup, machQueue,
+                                                                   ^(void) {
+#if USE_DISPATCH_MIG_SERVER
+                                                                       dispatch_mig_server(machSource, maxSize, dsmig_demux_internaldispatch);
+#else
+                                                                       mach_msg_server(dsmig_demux_internaldispatch,
+                                                                                       maxSize,
+                                                                                       newServer,
+                                                                                       MY_MIG_OPTIONS);
+#endif
+                                                                   });
+                                          });
+        dispatch_source_set_cancel_handler(machSource, 
+                                           ^(void) {
+                                               dispatch_group_wait(migGroup, DISPATCH_TIME_FOREVER);
+                                               dispatch_release(migGroup);
+                                               mach_port_mod_refs( mach_task_self(), newServer, MACH_PORT_RIGHT_RECEIVE, -1 );
+                                           });
     }
 	
-    dispatch_resume( machSource );
+    dispatch_resume(machSource);
     
 	return machSource;
 }
@@ -718,6 +738,7 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
 										mach_msg_type_number_t *ooreplyCnt,
 										audit_token_t atoken )
 {
+#ifndef DISABLE_CACHE_PLUGIN
 	kern_return_t	kr				= KERN_FAILURE;
 	kvbuf_t		   *returnedBuf		= NULL;
 	Boolean			bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
@@ -813,8 +834,13 @@ kern_return_t libinfoDSmig_do_Query(	mach_port_t server,
 
 		free( debugDataTag );
 	}
-
+    
 	return kr;
+#else
+    abort();
+    
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
@@ -825,6 +851,7 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
                                             mach_vm_address_t callbackAddr,
                                             audit_token_t atoken )
 {
+#ifndef DISABLE_CACHE_PLUGIN
     Boolean					bValidProcedure	= ( (procnumber > 0) && (procnumber < (int)kDSLUlastprocnum) ? TRUE : FALSE);
     char					*debugDataTag	= NULL;
     __block sLibinfoRequest	*pLibinfoRequest = NULL;
@@ -971,10 +998,15 @@ kern_return_t libinfoDSmig_do_Query_async(	mach_port_t server,
     }
     
     return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity_extlookup *request, audit_token_t *atoken )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	char			*debugDataTag	= NULL;
 	
 	// mig calls all use seqno as a byte order field, so check if we need to swap
@@ -1013,17 +1045,27 @@ kern_return_t memberdDSmig_do_MembershipCall( mach_port_t server, kauth_identity
 	}
 
 	return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_GetStats(mach_port_t server, StatBlock *stats)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	Mbrd_ProcessGetStats( stats );
 	
 	return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_ClearStats(mach_port_t server, audit_token_t atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	char *debugDataTag = NULL;
 
 	if ( (gDebugLogging) || (gLogAPICalls) )
@@ -1046,10 +1088,15 @@ kern_return_t memberdDSmig_do_ClearStats(mach_port_t server, audit_token_t atoke
 	}
 	
 	return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_MapName(mach_port_t server, uint8_t isUser, mstring name, guid_t *guid, audit_token_t *atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	kern_return_t	result;
 	char			*debugDataTag	= NULL;
 	
@@ -1085,6 +1132,10 @@ kern_return_t memberdDSmig_do_MapName(mach_port_t server, uint8_t isUser, mstrin
 	}	
 	
 	return result;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_MapIdentifier(mach_port_t server, int idType, 
@@ -1092,6 +1143,7 @@ kern_return_t memberdDSmig_do_MapIdentifier(mach_port_t server, int idType,
 											vm_offset_t ooidentifier, mach_msg_type_number_t ooidentifierCnt,
 											guid_t *guid, audit_token_t *atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	kern_return_t	result;
 	char			*debugDataTag	= NULL;
 	void			*idValue		= (void *) (identifierCnt ? identifier : ooidentifier);
@@ -1149,10 +1201,15 @@ kern_return_t memberdDSmig_do_MapIdentifier(mach_port_t server, int idType,
 	}	
 	
 	return result;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_GetGroups(mach_port_t server, uint32_t uid, uint32_t* numGroups, GIDArray gids, audit_token_t *atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	int		result;
 	char	*debugDataTag = NULL;
 
@@ -1176,11 +1233,16 @@ kern_return_t memberdDSmig_do_GetGroups(mach_port_t server, uint32_t uid, uint32
 	}	
 	
 	return (kern_return_t)result;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uint32_t* numGroups, GIDList *gids, mach_msg_type_number_t *gidsCnt, 
 										   audit_token_t *atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	int		result;
 	char	*debugDataTag = NULL;
 	
@@ -1220,10 +1282,15 @@ kern_return_t memberdDSmig_do_GetAllGroups(mach_port_t server, uint32_t uid, uin
 	}	
 	
 	return (kern_return_t)result;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_ClearCache(mach_port_t server, audit_token_t atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	char		*debugDataTag = NULL;
 	struct stat	sb;
 	
@@ -1260,10 +1327,15 @@ kern_return_t memberdDSmig_do_ClearCache(mach_port_t server, audit_token_t atoke
 	}		
 
 	return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
 
 kern_return_t memberdDSmig_do_DumpState(mach_port_t server, audit_token_t atoken)
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	char	*debugDataTag = NULL;
 	
 	if ( (gDebugLogging) || (gLogAPICalls) )
@@ -1286,7 +1358,13 @@ kern_return_t memberdDSmig_do_DumpState(mach_port_t server, audit_token_t atoken
 	}		
 	
 	return KERN_SUCCESS;
+#else
+    abort();
+    return KERN_FAILURE;
+#endif
 }
+
+#endif // ENABLE_LEGACY_PORTS
 
 #pragma mark -
 #pragma mark ServerControl Routines
@@ -1412,163 +1490,90 @@ SInt32 ServerControl::RefDeallocProc ( UInt32 inRefNum, eRefType inRefType, CSer
 	return( dsResult );
 } // RefDeallocProc
 
-#pragma mark -
-#pragma mark Kernel Routines
-
-struct kauth_request {
-    STAILQ_ENTRY(kauth_request) stailq_entry;
-    kauth_identity_extlookup    kauth;
-};
-
-static dispatch_semaphore_t active_semaphore;
-
-static int
-_RegisterKernel(void)
-{
-    int kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, (void *) gKernelTimeout);
-    if (kresult != 0) {
-        DbgLog( kLogError, "Fatal error registering for Kernel identity service requests - %d: %s", errno, strerror(errno) );
-        syslog( LOG_ERR, "Fatal error registering for Kernel identity service requests - %d: %s", errno, strerror(errno) );
-        
-        // if we can't re-register, let's exit gracefully and see if we can recover after relaunch
-        CFRunLoopStop(CFRunLoopGetMain()); 
-    } else {
-        SrvrLog(kLogApplication, "Successfully registered for Kernel identity service requests");
-    }
-    
-    return kresult;
-}
-
-static void
-__kauth_worker(void *context)
-{
-    struct kauth_request *request = (struct kauth_request *) context;
-    char *debugDataTag = NULL;
-    int result;
-    
-    CInternalDispatch::AddCapability();
-    
-    if (gDebugLogging || gLogAPICalls) {
-        static CRequestHandler handler;
-        
-        debugDataTag = handler.BuildAPICallDebugDataTag(NULL, request->kauth.el_info_pid, "mbr_syscall", "Server" );
-        DbgLog( kLogAPICalls, "%s : process kauth result %X", debugDataTag, request );
-    }
-    
-    request->kauth.el_flags |= kKernelRequest;
-    Mbrd_ProcessLookup(&request->kauth);
-    request->kauth.el_flags &= ~kKernelRequest;
-    
-    result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, &request->kauth);
-    if (result == 0) {
-        if (debugDataTag != NULL) {
-            DbgLog( kLogAPICalls, "%s : delivered kauth result %X", debugDataTag, request );
-        }
-    } else {
-        SrvrLog(kLogApplication, "Kernel identity service failed to deliver result - %d: %s", errno, strerror(errno));
-        syslog(LOG_ERR, "Kernel identity service failed to deliver result - %d: %s", errno, strerror(errno));
-    }
-    
-    DSFree(debugDataTag);
-    DSFree(request);
-    
-    dispatch_semaphore_signal(active_semaphore); // signal for more work
-}
-
+#ifndef DISABLE_KAUTH_LISTENER
 static void __StartKernelListener( void )
 {
-	static dispatch_once_t once;
-    static dispatch_semaphore_t workq_semaphore;
-    static dispatch_group_t group;
-    static STAILQ_HEAD( , kauth_request) request_workq = STAILQ_HEAD_INITIALIZER(request_workq);
-    static volatile OSSpinLock lock = OS_SPINLOCK_INIT;
+#ifndef DISABLE_SEARCH_PLUGIN
+	static CRequestHandler handler;
+	
+	dispatch_async( dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), 
+				    ^(void) {
+						kern_return_t kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_REGISTER, 0 );
+						if ( kresult == KERN_SUCCESS )
+						{
+							SrvrLog( kLogApplication, "Registered for Kernel identity service requests" );
 
-	dispatch_once(&once, ^(void) {
-		active_semaphore = dispatch_semaphore_create(gNumberOfCores);
-        workq_semaphore = dispatch_semaphore_create(0);
-        group = dispatch_group_create();
-	});
-    
-    // our workq watcher
-    dispatch_async(dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), ^(void) {
-        for (;;) {
-            kauth_request *request;
-            
-            dispatch_semaphore_wait(workq_semaphore, DISPATCH_TIME_FOREVER);
-            dispatch_semaphore_wait(active_semaphore, DISPATCH_TIME_FOREVER);
-            
-            dispatch_group_enter(group);
-            
-            OSSpinLockLock(&lock);
-            request = STAILQ_FIRST(&request_workq);
-            STAILQ_REMOVE_HEAD(&request_workq, stailq_entry);
-            OSSpinLockUnlock(&lock);
-            
-            dispatch_group_async_f(group, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), request, __kauth_worker);
-            dispatch_group_leave(group);
-        }
-    });
-    
-	dispatch_async(dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_HIGH), ^(void) {
-        int kresult = _RegisterKernel();
-        if (kresult == 0) {
-            do {
-                struct kauth_request *request = (struct kauth_request *) calloc(1, sizeof(*request));
-                
-                kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER, &request->kauth);
-                if (kresult == KERN_SUCCESS) {
-                    OSSpinLockLock(&lock);
-                    STAILQ_INSERT_TAIL(&request_workq, request, stailq_entry);
-                    OSSpinLockUnlock(&lock);
-                    
-                    dispatch_semaphore_signal(workq_semaphore);
-                    request = NULL;
-                } else {
-                    if (errno == EPERM) {
-                        SrvrLog( kLogApplication, "Kernel identity service worker error - Permission Denied");
-                        syslog( LOG_ERR, "Kernel identity service worker error - Permission Denied");
-                        
-                        // drain our queue, we no longer have permission
-                        OSSpinLockLock(&lock);
-                        if (!STAILQ_EMPTY(&request_workq)) {
-                            DbgLog(kLogNotice, "Kernel identity service flushing backlog due to kernel Permission error");
-                        }
-                        
-                        for (struct kauth_request *drainReq = STAILQ_FIRST(&request_workq); drainReq != NULL; drainReq = STAILQ_FIRST(&request_workq)) {
-                            STAILQ_REMOVE_HEAD(&request_workq, stailq_entry);
-                            DSFree(drainReq);
-                        }
-                        OSSpinLockUnlock(&lock);
-                    } else {
-                        SrvrLog( kLogApplication, "Fatal error for Kernel identity service worker - %d: %s", errno, strerror(errno) );
-                        syslog( LOG_ERR, "Fatal error for Kernel identity service worker - %d: %s", errno, strerror(errno) );
-                    }
-
-                    // wait for the group to finish
-                    dispatch_group_wait(group, DISPATCH_TIME_FOREVER);
-                    
-                    kresult = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, NULL); // ensure we are really deregistered in case we hit the error directly
-                    if (kresult != 0) {
-                        SrvrLog(kLogApplication, "Error deregistering for Kernel identity service - %d: %s", errno, strerror(errno));
-                    }
-                    
-                    kresult = _RegisterKernel();
-                }
-                
-                DSFree(request);
-            } while (kresult == KERN_SUCCESS);
-            
-            syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0);
-        }
-    });
+							do
+							{
+								kauth_identity_extlookup *request = (kauth_identity_extlookup *) calloc( 1, sizeof(kauth_identity_extlookup) );
+							   
+								kresult = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_WORKER, request );
+								if ( kresult == KERN_SUCCESS )
+								{
+#if 0
+									// 6449641
+									if ( (gDebugLogging) || (gLogAPICalls) ) {
+										char *debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
+																							   "mbr_syscall", "Server" );
+										DbgLog( kLogAPICalls, "%s : dequeue kauth request %X", debugDataTag, request );
+									}
+#endif
+									
+									dispatch_async( dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_HIGH, 0), 
+												    ^(void) {
+														char *debugDataTag = NULL;
+														
+														if ( (gDebugLogging) || (gLogAPICalls) ) {
+															debugDataTag = handler.BuildAPICallDebugDataTag( NULL, request->el_info_pid, 
+																											 "mbr_syscall", "Server" );
+															DbgLog( kLogAPICalls, "%s : process kauth result %X", debugDataTag, request );
+														}
+														
+														CInternalDispatch::AddCapability();
+														request->el_flags |= kKernelRequest;
+														Mbrd_ProcessLookup( request );
+														request->el_flags &= ~kKernelRequest;
+														
+														kern_return_t result = syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_RESULT, request );
+														if ( debugDataTag != NULL ) {
+															if ( result == KERN_SUCCESS ) {
+																DbgLog( kLogAPICalls, "%s : delivered kauth result %X", debugDataTag, request );
+															}
+															else {
+																DbgLog( kLogAPICalls, "%s : failed to deliver kauth result %X - %d", 
+																	    debugDataTag, request, result );
+															}
+															
+															free( debugDataTag );
+														}
+														
+														free( request );
+													} );
+									request = NULL;
+								}
+								else
+								{
+									syslog( LOG_ERR, "Fatal error %d from KAUTH_EXTLOOKUP_WORKER setup (%d: %s)", kresult, errno, strerror(errno) );
+									DSFree( request );
+								}
+							} while ( kresult == KERN_SUCCESS );
+						}
+						else {
+							syslog( LOG_ERR, "Got error %d trying to register with kernel", kresult );
+						}
+					   
+						syscall( SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0 );
+					} );
+#endif
 }
+#endif
 
+#ifndef DISABLE_KAUTH_LISTENER
 void ServerControl::StartKernelListener( void )
 {
 	__StartKernelListener(); // 6453258
 }
-
-#pragma mark -
+#endif
 
 SInt32 ServerControl::StartUpServer ( void )
 {
@@ -1583,14 +1588,18 @@ SInt32 ServerControl::StartUpServer ( void )
 		}
 
 		// Let's initialize membership globals just in case we get called
+#ifndef DISABLE_SEARCH_PLUGIN
 		Mbrd_InitializeGlobals();
+#endif
 
+#ifndef DISABLE_CONFIGURE_PLUGIN
 		if ( gPluginConfig == nil )
 		{
 			gPluginConfig = new CPluginConfig();
 			if ( gPluginConfig == nil ) throw( (SInt32)eMemoryAllocError );
 			gPluginConfig->Initialize();
 		}
+#endif
 		
 		if ( gPlugins == nil )
 		{
@@ -1604,82 +1613,37 @@ SInt32 ServerControl::StartUpServer ( void )
 			gLibinfoQueue = dispatch_queue_create( "async_libinfo", NULL );
 		}
 		
-		CreateDebugPrefFileIfNecessary();
-		
-		bool bOnce = false;
-		if ( lstat("/Library/Preferences/DirectoryService/.DSLogAPIAtStartOnce", &statResult) == 0 ) {
-			bOnce = true;
-			unlink( "/Library/Preferences/DirectoryService/.DSLogAPIAtStartOnce" );
-		}
-
-		if ( bOnce == true || lstat("/Library/Preferences/DirectoryService/.DSLogAPIAtStart", &statResult) == 0)
-		{
-			if ( __sync_bool_compare_and_swap(&gLogAPICalls, false, true) == true ) {
-				ToggleAPILogging( false );
-				syslog( LOG_ALERT, "%s%s", "Logging of API Calls turned ON at Startup of DS Daemon", 
-						(bOnce == true ? " (once)." : ".") );
-			}
-		}
-
-		if ( lstat("/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce", &statResult) == 0 ) {
-			bOnce = true;
-			unlink( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce" );
-		}
-		else {
-			bOnce = false;
-		}
-		
-		// let's start the MIG listeners
-		if ( lstat("/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult) == 0 )
-		{
-			if ( __sync_bool_compare_and_swap(&gDebugLogging, false, true) == true ) {
-				ResetDebugging(); //ignore return status
-				syslog( LOG_ALERT, "%s%s", "Debug Logging turned ON at Startup of DS Daemon",
-						(bOnce == true ? " (once)." : ".") );
-			}
-		}
-		
-		if (!gDSLocalOnlyMode && !gDSInstallDaemonMode && !gDSDebugMode)
-		{
-			// see if we need TCP too
-			if ( 	(	(::stat( "/Library/Preferences/DirectoryService/.DSTCPListening", &statResult ) == eDSNoErr) ||
-						(gServerOS) ) &&
-						(::stat( "/Library/Preferences/DirectoryService/.DSTCPNotListening", &statResult ) != eDSNoErr) )
-			{
-				// Start the TCP listener thread
-				result = StartTCPListener(kDSDefaultListenPort);
-				if ( result != eDSNoErr ) throw( result );
-			}
-		}
-
-		if ( gPluginHandler == nil )
-		{
-			gPluginHandler = new CPluginHandler();
-			if ( gPluginHandler == nil ) throw((SInt32)eMemoryAllocError);
-
-			//this call could throw
-			gPluginHandler->StartThread();
-		}
-
 		result = RegisterForSystemPower();
 		if ( result != eDSNoErr ) throw( result );
 
 		result = (SInt32)RegisterForNetworkChange();
 		if ( result != eDSNoErr ) throw( result );
-		
-		dispatch_source_t source = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
-																 30ULL * NSEC_PER_SEC,
-																 1ULL * NSEC_PER_SEC,
-																 NULL,
-																 dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
-																 ^(dispatch_source_t ds) {
-																	 // we intentionally ignore errors, etc, this is never released or cancelled
-																	 ServerControl::DoPeriodicTask( ds );
-																 } );
-		if ( source == NULL ) result = eMemoryAllocError;
 
+        if ( gPluginHandler == nil )
+		{
+			gPluginHandler = new CPluginHandler();
+			if ( gPluginHandler == nil ) throw((SInt32)eMemoryAllocError);
+            
+			// we load plugins before continuing, no longer asynchronous
+			gPluginHandler->ThreadMain();
+		}
+        
+        dispatch_queue_t concurrentQueue = dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0);
+		dispatch_source_t source = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, concurrentQueue);
+		if ( source == NULL ) result = eMemoryAllocError;
+        
+        // never released and never cancelled, permanent timer
+        dispatch_source_set_event_handler_f(source, DoPeriodicTask);
+        dispatch_source_set_timer(source, dispatch_time(0, 30ull * NSEC_PER_SEC), 30ull * NSEC_PER_SEC, 1ull * NSEC_PER_SEC);
+        dispatch_resume(source);
+        
+        // we don't wait for anything for the legacy mach port
+        if (gLegacyMachPort != MACH_PORT_NULL) {
+            gLegacyDispatchSource = od_passthru_create_source(gLegacyMachPort);
+        }
+        
+#ifndef DISABLE_SEARCH_PLUGIN
 		// let's start the MIG listeners
-		dispatch_queue_t concurrentQueue = dispatch_get_concurrent_queue( DISPATCH_QUEUE_PRIORITY_DEFAULT );
 		dispatch_async( concurrentQueue, 
                         ^(void) {
                             // if not localonly mode we wait for the authentication policy before bringing up listeners
@@ -1699,46 +1663,52 @@ SInt32 ServerControl::StartUpServer ( void )
                                 DbgLog( kLogDebug, "Created mig source for API calls" );
                             }
                             
+                            CInternalDispatch::AddCapability();
+                            
+#ifndef DISABLE_MEMBERSHIP_CACHE
                             // if libinfo port or membership port, initialize membership as a safety
                             // TODO: stop using shared demux routine because API port is the only listener that needs it
-                            if ( gLibinfoMachPort != MACH_PORT_NULL || gMembershipMachPort != MACH_PORT_NULL ) {
-                                CInternalDispatch::AddCapability();
+                            if ( gMembershipMachPort != MACH_PORT_NULL ) {
                                 Mbrd_Initialize();
                             }
+#endif
                            
+#ifndef DISABLE_CACHE_PLUGIN
                             if ( gLibinfoMachPort != MACH_PORT_NULL ) {
                                 gLibinfoDispatchSource = CreateDispatchSourceForMachPort( gLibinfoMachPort, kMaxMIGMsg, 0, false );
                                 SrvrLog( kLogApplication, "Listening for Libinfo API mach messages" );
                                 DbgLog( kLogDebug, "Created mig source for Libinfo calls" );
                             }
+#endif
                            
+#ifndef DISABLE_MEMBERSHIP_CACHE
                             if ( gMembershipMachPort != MACH_PORT_NULL ) {
+#ifndef DISABLE_KAUTH_LISTENER
                                 // we don't enable kernel listener for localonly or debug mode
                                 // only the official daemon can answer the kernel
                                 if ( gDSLocalOnlyMode == false && gDSDebugMode == false ) {
                                     StartKernelListener();
-                                }             
+                                }
+#endif
                                 
-                                // let's sweep the membership cache every 24 hours to remove expired entries
+                                // let's sweep the membership cache every 15 minutes to remove expired entries
                                 // the validation stuff will take care of expired entries if they are touched
                                 // this sweep is to remove stale entries
-                                dispatch_source_t ::mbrSweep = dispatch_source_timer_create( DISPATCH_TIMER_INTERVAL, 
-                                                                                             24ull * 60ull * 60ull * NSEC_PER_SEC,
-                                                                                             15ULL * NSEC_PER_SEC,
-                                                                                             NULL,
-                                                                                             concurrentQueue,
-                                                                                             ^(dispatch_source_t) {
-                                                                                                 // we intentionally ignore errors
-                                                                                                 // this is never released or cancelled
-                                                                                                 Mbrd_SweepCache();
-                                                                                             } );
-                                assert( mbrSweep != NULL );
+                                dispatch_source_t ::mbrSweep = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, concurrentQueue);
+                                assert(mbrSweep != NULL);
+                                
+                                // never released and never cancelled, permanent timer
+                                dispatch_source_set_event_handler_f(mbrSweep, Mbrd_SweepCache);
+                                dispatch_source_set_timer(mbrSweep, dispatch_time(0, 900ull * NSEC_PER_SEC), 900ull * NSEC_PER_SEC, 15ull * NSEC_PER_SEC);
+                                dispatch_resume(mbrSweep);
                                 
                                 gMembershipDispatchSource = CreateDispatchSourceForMachPort( gMembershipMachPort, kMaxMIGMsg, 0, false );
                                 SrvrLog( kLogApplication, "Listening for Membership API mach messages" );
                                 DbgLog( kLogDebug, "Created mig source for Membership calls" );
                             }
+#endif
                         } );
+#endif // DISABLE_MEMBERSHIP_CACHE
 	}
 
 	catch( SInt32 err )
@@ -1762,7 +1732,6 @@ SInt32 ServerControl::ShutDownServer ( void )
 
 	try
 	{
-
 		result = (SInt32)UnRegisterForNetworkChange();
 		if ( result != eDSNoErr ) throw( result );
 
@@ -1770,35 +1739,51 @@ SInt32 ServerControl::ShutDownServer ( void )
 //		if ( result != eDSNoErr ) throw( result );
 
 		// we just NULL the ports because the source owns the reference
-		gAPIMachPort = MACH_PORT_NULL;
-		gLibinfoMachPort = MACH_PORT_NULL;
+#ifndef DISABLE_MEMBERSHIP_CACHE
 		gMembershipMachPort = MACH_PORT_NULL;
+#endif
+#ifndef DISABLE_CACHE_PLUGIN
+		gLibinfoMachPort = MACH_PORT_NULL;
+#endif
+		gAPIMachPort = MACH_PORT_NULL;
+		gLegacyMachPort = MACH_PORT_NULL;
+
 		
+#ifndef DISABLE_CACHE_PLUGIN
         if ( gLibinfoDispatchSource ) {
-            dispatch_cancel( gLibinfoDispatchSource );
+            dispatch_source_cancel( gLibinfoDispatchSource );
             dispatch_release( gLibinfoDispatchSource );
         }
+#endif
+        
+#ifndef DISABLE_MEMBERSHIP_CACHE
+        if ( gMembershipDispatchSource ) {
+            dispatch_source_cancel( gMembershipDispatchSource );
+            dispatch_release( gMembershipDispatchSource );
+        }
+#endif
         
         if ( gAPIDispatchSource ) {
-            dispatch_cancel( gAPIDispatchSource );
+            dispatch_source_cancel( gAPIDispatchSource );
             dispatch_release( gAPIDispatchSource );
         }
         
-        if ( gMembershipDispatchSource ) {
-            dispatch_cancel( gMembershipDispatchSource );
-            dispatch_release( gMembershipDispatchSource );
+        if (gLegacyDispatchSource) {
+            dispatch_source_cancel(gLegacyDispatchSource);
+            dispatch_release(gLegacyDispatchSource);
         }
 		
+#ifndef DISABLE_KAUTH_LISTENER
 		// we are in a syscall, so we must just deregister and error out from there
 		if ( gDSLocalOnlyMode == false && gDSDebugMode == false) {
-            result = syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0);
-			if (result  == 0 ) {
+			if ( syscall(SYS_identitysvc, KAUTH_EXTLOOKUP_DEREGISTER, 0) == 0 ) {
 				SrvrLog( kLogApplication, "Deregistered Kernel identity service" );
 			}
 			else {
-				DbgLog( kLogError, "Failed to deregister Kernel identity service - %d: %s", errno, strerror(errno) );
+				DbgLog( kLogError, "Failed to deregister Kernel identity service" );
 			}
 		}
+#endif
 		
 		//no need to delete the global objects as this process is going away and
 		//we don't want to create a race condition on the threads dying that
@@ -1824,317 +1809,6 @@ SInt32 ServerControl::ShutDownServer ( void )
 	return( result );
 
 } // ShutDownServer
-
-struct sProxyHeader {
-	char		tag[kDSTCPEndpointMessageTagSize];
-	uint32_t	payloadLen;
-};	
-
-struct sProxyPacket {
-	sProxyHeader	header;
-	char			payload[];
-};
-
-struct sReadContext
-{
-	uint32_t	bufferSize;
-	uint32_t	bufferLen;
-	union {
-		sProxyPacket	*packet;
-		char			*buffer;
-	} u;
-};
-
-static void __TCPListenerEventCallback( int listenFD )
-{
-	sockaddr_storage	address;
-	socklen_t			aLen		= sizeof( address );
-	char				addr_string[INET6_ADDRSTRLEN];
-
-	int sock = accept( listenFD, (sockaddr *) &address, (socklen_t *)&aLen );
-	if ( sock != -1 )
-	{
-		int	yes	= 1;
-		
-		setsockopt( sock, SOL_SOCKET, SO_KEEPALIVE, &yes, sizeof(yes) );
-		setsockopt( sock, SOL_SOCKET, SO_NOSIGPIPE, &yes, sizeof(yes) );
-		
-		int fcntlFlags = fcntl( sock, F_GETFL, 0 );
-		assert( fcntlFlags != -1 );
-		assert( fcntl(sock, F_SETFL, fcntlFlags | O_NONBLOCK) != -1 );
-
-		sReadContext	*context	= (sReadContext *) calloc( 1, sizeof(sReadContext) );
-		DSTCPEndpoint	*endPoint	= new DSTCPEndpoint( kTCPOpenTimeout, kTCPRWTimeout, sock );
-		in_port_t		tcpPort;
-		
-		switch ( address.ss_family ) {
-			case AF_INET:
-				tcpPort = ((sockaddr_in *) &address)->sin_port;
-				break;
-				
-			case AF_INET6:
-				tcpPort = ((sockaddr_in6 *) &address)->sin6_port;
-				break;
-				
-			default:
-				tcpPort = 0;
-				break;
-		}
-		
-		void (^readBlock)(dispatch_source_t) = ^(dispatch_source_t ds) {
-			
-			long err_code = 0;
-			long err_domain = dispatch_source_get_error( ds, &err_code );
-			switch ( err_domain )
-			{
-				case DISPATCH_ERROR_DOMAIN_NO_ERROR:
-					break;
-				case DISPATCH_ERROR_DOMAIN_POSIX:
-					if ( err_code == ECANCELED )
-						return;
-				default:
-					DbgLog( kLogError, "ServerControl::TCPReadEventCallback - dispatch timer receved error domain %ld error %ld", 
-						   err_domain, err_code );
-			}
-			
-			uint32_t bytesAvail = dispatch_source_get_data( ds );
-			uint32_t newLen = context->bufferLen + bytesAvail;
-			
-			DbgLog( kLogDebug, "ServerControl::TCPReadEventCallback - event %d bytes available", bytesAvail );
-			
-			// assume synchronous transmission
-			// will need adjustment if we ever support more than one in-flight transaction at a time on this socket
-			if ( context->u.buffer == NULL ) {
-				context->bufferSize = (bytesAvail ?: sizeof(sProxyHeader));
-				context->u.buffer = (char *) malloc( context->bufferSize );
-				assert( context->u.buffer != NULL );
-			}
-			else if ( newLen > context->bufferSize ) {
-				uint32_t expectedLen = (context->bufferLen > sizeof(sProxyHeader) ? ntohl(context->u.packet->header.payloadLen) : 0);
-
-				// if the expected length is greater than the bytes avail, let's allocate up front to miniminize allocs
-				if ( expectedLen > newLen ) {
-					newLen = expectedLen;
-				}
-				
-				context->bufferSize = newLen;
-				context->u.buffer = (char *) reallocf( context->u.buffer, context->bufferSize );
-				assert( context->u.buffer != NULL );
-			}
-			
-			uint32_t bytes = read( sock, context->u.buffer + context->bufferLen, context->bufferSize - context->bufferLen );
-			if ( bytes < 0 ) {
-				if ( errno == EAGAIN ) return; // no bytes
-				
-				// got an error
-				DbgLog( kLogError, "ServerControl::TCPReadEventCallback - error %d - releasing the source for socket %d", errno, sock );
-				dispatch_cancel( ds );
-				dispatch_release( ds );
-				return;
-			}
-			
-			if ( bytes == 0 ) {
-				DbgLog( kLogInfo, "ServerControl::TCPReadEventCallback - Disconnect - releasing the source for socket %d", sock );
-				dispatch_cancel( ds );
-				dispatch_release( ds );
-				return;
-			};				
-			
-			context->bufferLen += bytes;
-			
-			// return if we haven't read our header yet
-			if ( context->bufferLen < sizeof(sProxyHeader) ) return;
-			
-			// check our our header tag
-			if ( memcmp(context->u.packet->header.tag, "DSPX", kDSTCPEndpointMessageTagSize) != 0 ) {
-				context->bufferLen = 0;
-				return;
-			};
-			
-			// grab the expected length and byte swap accordingly
-			uint32_t expectedLen = ntohl( context->u.packet->header.payloadLen );
-			if ( expectedLen > 0 && context->bufferLen >= (expectedLen + sizeof(sProxyHeader)) )
-			{
-				char	*payload	= context->u.packet->payload;
-				char	*buffer		= context->u.buffer;
-				
-				context->u.buffer = NULL;
-				context->bufferSize = 0;
-				context->bufferLen = 0;
-
-				dispatch_async( dispatch_get_current_queue(), 
-								^(void) {
-									SInt32	siResult	= eDSNoErr;
-									
-									if ( endPoint->Negotiated() == true )
-									{
-										void	*decryptedData		= NULL;
-										UInt32	decryptedDataLen	= 0;
-										
-										siResult = endPoint->ProcessData( false, 
-																		  payload, expectedLen,
-																		  decryptedData, decryptedDataLen );
-										if ( decryptedData != NULL )
-										{
-											sComProxyData *pProxyData = (sComProxyData *) decryptedData;
-											decryptedData = NULL;
-											
-											if ( pProxyData->type.msgt_translate != 2 ) {
-												SwapProxyMessage( pProxyData, kDSSwapNetworkToHostOrder );
-											}
-											
-											if ( pProxyData->fDataSize <= (decryptedDataLen - sizeof(sComProxyData)) ) {
-												CRequestHandler handler;
-												sComData		*pComData;
-												
-												pComData = endPoint->AllocFromProxyStruct( pProxyData );
-												DSFree( pProxyData );
-												
-												bcopy( &address, &pComData->fIPAddress, address.ss_len );
-												pComData->fSocket = sock;
-												
-												CInternalDispatch::AddCapability();
-												handler.HandleRequest( &pComData );
-												
-												endPoint->SendMessage( pComData );
-												
-												DSFree( pComData );
-											}
-										}
-									}
-									else
-									{
-										siResult = endPoint->ServerNegotiateKey( payload, expectedLen );
-									}
-									
-									free( buffer );
-
-									if ( siResult != eDSNoErr ) {
-										char *status = dsCopyDirStatusName( siResult );
-										DbgLog( kLogError, "ServerControl::TCPReadEventCallback - %s (%d) - releasing the source for socket %d", 
-											   status, siResult, sock );
-										DSFree( status );
-										
-										// release the source here
-										gRefTable.CleanRefsForSocket( sock ); // clean here too to prevent race conditions of new sockets
-										dispatch_release( ds );
-									}
-								} );
-			}
-		};
-
-		char			q_name[64];
-		static int32_t	sReqNum		= 0;
-
-		snprintf( q_name, sizeof(q_name), "request #%d socket #%d", __sync_add_and_fetch(&sReqNum, 1), sock );
-		
-		dispatch_queue_t queue = dispatch_queue_create( q_name, NULL );
-		dispatch_source_attr_t attr = dispatch_source_attr_create();
-		dispatch_source_attr_set_finalizer( attr, 
-										    ^(dispatch_source_t ds) {
-												DSFree( context->u.buffer );
-												free( context );
-												gRefTable.CleanRefsForSocket( dispatch_source_get_descriptor(ds) );
-												delete endPoint; // endPoint closes socket
-											} );
-		
-		dispatch_source_t source = dispatch_source_read_create( sock, attr, queue, readBlock );
-		assert( source != NULL );
-		
-		dispatch_release( attr );
-		dispatch_release( queue );
-	}
-}
-
-void ServerControl::TCPListenerEventCallback( int listenFD )
-{
-	__TCPListenerEventCallback( listenFD ); // 6453258
-}
-
-// ---------------------------------------------------------------------------
-//	* StartTCPListener ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl::StartTCPListener ( UInt32 inPort )
-{
-	SInt32		result		= eDSNoErr;
-	char		port[16];
-	addrinfo	ai_hints;
-	addrinfo	*my_addr	= NULL;
-	int			sock		= socket( AF_INET, SOCK_STREAM, IPPROTO_TCP );
-	
-	bzero( &ai_hints, sizeof(ai_hints) );
-	ai_hints.ai_flags = AI_PASSIVE;
-	ai_hints.ai_family = PF_INET;
-	ai_hints.ai_socktype = SOCK_STREAM;
-	ai_hints.ai_protocol = IPPROTO_TCP;
-	snprintf( port, sizeof(port), "%d", (int) inPort );
-	
-	if ( getaddrinfo(NULL, port, &ai_hints, &my_addr) == 0 )
-	{
-		if ( bind(sock, my_addr->ai_addr, my_addr->ai_addr->sa_len) == 0 )
-		{
-			if ( listen(sock, 25) == 0 )
-			{
-				DbgLog( kLogInfo, "ServerControl::StartTCPListener - started TCP Listener on port %d", inPort );
-				dispatch_queue_t queue = dispatch_queue_create( "TCP listener", NULL );
-				dispatch_source_attr_t attr = dispatch_source_attr_create();
-				dispatch_source_attr_set_finalizer( attr, 
-												    ^(dispatch_source_t ds) {
-														DbgLog( kLogNotice, "ServerControl::StartTCPListener - exiting listener on socket %d", sock );
-														close( sock );
-													} );
-				dispatch_source_t tempSource = dispatch_source_read_create( sock,
-																		    attr,
-																		    queue,
-																		    ^(dispatch_source_t ds) {
-																				if ( dispatch_source_get_error(ds, NULL) == 0 ) {
-																					__TCPListenerEventCallback(sock);
-																				}
-																			} );
-				dispatch_release( attr );
-				dispatch_release( queue );
-				
-				if ( __sync_bool_compare_and_swap(&ServerControl::fTCPListener, NULL, tempSource) == false ) {
-					dispatch_release( tempSource );
-					tempSource = NULL;
-				}
-			}
-			else
-			{
-				close( sock );
-			}
-		}
-		
-		freeaddrinfo( my_addr );
-	}
-	
-	return result;
-	
-} // StartTCPListener
-
-// ---------------------------------------------------------------------------
-//	* StopTCPListener ()
-//
-// ---------------------------------------------------------------------------
-
-SInt32 ServerControl::StopTCPListener ( void )
-{
-	if ( fTCPListener == nil ) return eMemoryAllocError;
-	
-	dispatch_source_t tempSource = fTCPListener;
-	if ( __sync_bool_compare_and_swap(&fTCPListener, tempSource, NULL) == true )
-	{
-		DbgLog( kLogNotice, "ServerControl::StopTCPListener stopping listener" );
-		dispatch_cancel( tempSource );
-		dispatch_release( tempSource );
-	}
-	
-	return eDSNoErr;
-	
-} // StopTCPListener
-
 
 // ---------------------------------------------------------------------------
 //	* RegisterForNetworkChange ()
@@ -2299,6 +1973,8 @@ SInt32 ServerControl::HandleSystemWillSleep ( void )
 	aHeader.fResult			= eDSNoErr;
 	aHeader.fContextData	= nil;
 
+    gSystemGoingToSleep = true;
+    
 	if ( gPlugins != nil )
 	{
 		pPlugin = gPlugins->Next( &iterator );
@@ -2339,6 +2015,8 @@ SInt32 ServerControl::HandleSystemWillPowerOn ( void )
 	aHeader.fType			= kHandleSystemWillPowerOn;
 	aHeader.fResult			= eDSNoErr;
 	aHeader.fContextData	= nil;
+
+    gSystemGoingToSleep = false;
 
 	if ( gPlugins != nil )
 	{
@@ -2429,37 +2107,35 @@ void ServerControl::HandleNetworkTransition ( void )
 void
 ServerControl::ToggleAPILogging( bool fromSignal )
 {
-	static dispatch_source_t	loggingTimer	= NULL;
-	static pthread_mutex_t		localLock		= PTHREAD_MUTEX_INITIALIZER;
+	static dispatch_source_t	loggingTimer;
+    static dispatch_once_t      once;
+    static dispatch_queue_t     queue;
 
-	pthread_mutex_lock( &localLock );
-	if ( loggingTimer != NULL ) {
-		dispatch_cancel( loggingTimer );
-		dispatch_release( loggingTimer );
-		loggingTimer = NULL;
-	}
-
-	if ( __sync_bool_compare_and_swap(&gLogAPICalls, false, true) == true ) {
-		loggingTimer = dispatch_source_timer_create( DISPATCH_TIMER_ONESHOT, 
-													 300ULL * NSEC_PER_SEC, 
-													 1 * NSEC_PER_SEC,
-													 NULL,
-													 dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT),
-													 ^(dispatch_source_t ds) {
-														 if ( dispatch_source_get_error(ds, NULL) == 0 && 
-															  gIgnoreSunsetTime == false &&
-															  __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true )
-														 {
-															 syslog( LOG_CRIT, "Logging of API Calls automatically turned OFF after reaching sunset duration of five minutes." );
-														 }
-													 } );
-		if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned ON after receiving USR2 signal." );
-	}
-	else if ( __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true ) {
-		if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned OFF after receiving USR2 signal." );
-	}
-	
-	pthread_mutex_unlock( &localLock );
+    // create the timer once
+    dispatch_once(&once, 
+                  ^(void) {
+                      queue = dispatch_queue_create("toggle API logging queue", NULL);
+                      loggingTimer = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, queue);
+                      dispatch_source_set_event_handler(loggingTimer, 
+                                                        ^(void) {
+                                                            if (gIgnoreSunsetTime == false &&
+                                                                __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true)
+                                                            {
+                                                                syslog( LOG_CRIT, "Logging of API Calls automatically turned OFF after reaching sunset duration of five minutes." );
+                                                            }
+                                                        });
+                  });
+    
+    dispatch_async(queue, 
+                   ^(void) {
+                       if ( __sync_bool_compare_and_swap(&gLogAPICalls, false, true) == true ) {
+                           dispatch_source_set_timer(loggingTimer, dispatch_time(0, 120ull * NSEC_PER_SEC), 120ull * NSEC_PER_SEC, 1ull * NSEC_PER_SEC);
+                           if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned ON after receiving USR2 signal." );
+                       }
+                       else if ( __sync_bool_compare_and_swap(&gLogAPICalls, true, false) == true ) {
+                           if ( fromSignal == true ) syslog( LOG_ALERT, "Logging of API Calls turned OFF after receiving USR2 signal." );
+                       }
+                   });
 }
 
 #ifdef BUILD_IN_PERFORMANCE
@@ -2655,7 +2331,7 @@ void ServerControl::LogStats( void )
 //
 // ---------------------------------------------------------------------------
 
-void ServerControl::DoPeriodicTask( dispatch_source_t )
+void ServerControl::DoPeriodicTask(void *)
 {
 	SInt32						siResult		= eDSNoErr;
 	UInt32						iterator		= 0;
@@ -2683,58 +2359,6 @@ void ServerControl::DoPeriodicTask( dispatch_source_t )
 	
 	return;
 } // DoPeriodicTask
-
-void ServerControl::CreateDebugPrefFileIfNecessary( bool bForceCreate )
-{
-	UInt32					uiDataSize	= 0;
-	CFile				   *pFile		= nil;
-	struct stat				statbuf;
-	CFDataRef				dataRef		= nil;
-
-	if ( bForceCreate )
-		unlink( kDSDebugConfigFilePath );
-	
-	if ( lstat(kDSDebugConfigFilePath, &statbuf) != 0 )
-	{
-		//write a default file and setup debugging
-		SInt32 result = eDSNoErr;
-		CLog::SetLoggingPriority(keDebugLog, 5);
-		uiDataSize = ::strlen( kDefaultDebugConfig );
-		dataRef = ::CFDataCreate( nil, (const UInt8 *)kDefaultDebugConfig, uiDataSize );
-		if ( dataRef != nil )
-		{
-			result = dsCreatePrefsDirectory();
-			
-			CFIndex dataLen = CFDataGetLength( dataRef );
-			const UInt8 *pUData = CFDataGetBytePtr( dataRef );
-			if ( pUData != NULL && dataLen > 0 )
-			{
-				try
-				{
-					pFile = new CFile( kDSDebugConfigFilePath, true );
-					if ( pFile != nil )
-					{
-						if ( pFile->is_open() )
-						{
-							pFile->seteof( 0 );
-							pFile->write( pUData, dataLen );
-							chmod( kDSDebugConfigFilePath, 0600 );
-						}
-						
-						delete( pFile );
-						pFile = nil;
-					}
-				}
-				catch ( ... )
-				{
-				}
-			}
-			
-			CFRelease( dataRef );
-			dataRef = nil;
-		}
-	}
-}
 
 // ---------------------------------------------------------------------------
 //	* ResetDebugging ()
@@ -2900,9 +2524,6 @@ void ServerControl::ResetDebugging( void )
 				pFile = nil;
 			}
 		}
-		
-		if (!bFileUsed)
-			CreateDebugPrefFileIfNecessary( true );
 	}
 } // ResetDebugging
 

@@ -32,9 +32,9 @@
 #define WebHTTPBody_h
 
 #include "WebData.h"
-#include "WebFileInfo.h"
 #include "WebNonCopyable.h"
 #include "WebString.h"
+#include "WebURL.h"
 
 #if WEBKIT_IMPLEMENTATION
 namespace WebCore { class FormData; }
@@ -48,12 +48,13 @@ class WebHTTPBodyPrivate;
 class WebHTTPBody {
 public:
     struct Element {
-        enum { TypeData, TypeFile } type;
+        enum { TypeData, TypeFile, TypeBlob } type;
         WebData data;
         WebString filePath;
         long long fileStart;
         long long fileLength; // -1 means to the end of the file.
-        WebFileInfo fileInfo;
+        double modificationTime;
+        WebURL blobURL;
     };
 
     ~WebHTTPBody() { reset(); }
@@ -83,7 +84,8 @@ public:
     WEBKIT_API void appendData(const WebData&);
     WEBKIT_API void appendFile(const WebString&);
     // Passing -1 to fileLength means to the end of the file.
-    WEBKIT_API void appendFileRange(const WebString&, long long fileStart, long long fileLength, const WebFileInfo&);
+    WEBKIT_API void appendFileRange(const WebString&, long long fileStart, long long fileLength, double modificationTime);
+    WEBKIT_API void appendBlob(const WebURL&);
 
     // Identifies a particular form submission instance.  A value of 0 is
     // used to indicate an unspecified identifier.

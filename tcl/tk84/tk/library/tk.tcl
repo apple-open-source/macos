@@ -242,6 +242,11 @@ proc ::tk::ScreenChanged screen {
 	set disp $screen
     }
 
+    # Ensure that namespace separators never occur in the display name (as
+    # they cause problems in variable names). Double-colons exist in some VNC
+    # display names. [Bug 2912473]
+    set disp [string map {:: _doublecolon_} $disp]
+
     uplevel #0 upvar #0 ::tk::Priv.$disp ::tk::Priv
     variable ::tk::Priv
     global tcl_platform

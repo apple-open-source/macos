@@ -1,0 +1,71 @@
+Dovecot LDA with Sendmail
+=========================
+
+The following describes how to configure Sendmail to use 'dovecot-lda' where
+'root' permission is not granted and Dovecot runs under a single user ID.  It
+may need some adjustment for more typical setups.  Other assumptions are that
+Sendmail is configured for virtual hosting and that local-system mail delivery
+is not handled by 'dovecot-lda'.
+
+Allowing that 'sendmail.mc' has 'MAILER(procmail)dnl' included, edit
+'sendmail.cf' adding these lines after the 'Mprocmail' definition:
+
+---%<-------------------------------------------------------------------------
+######################*****##############
+###   DOVECOT Mailer specification                              ###
+##################*****##################
+Mdovecot,   P=/usr/local/libexec/dovecot/dovecot-lda, F=DFMPhnu9,
+                 S=EnvFromSMTP/HdrFromSMTP, R=EnvToSMTP/HdrFromSMTP,
+                 T=DNS/RFC822/X-Unix,
+                 A=/usr/local/libexec/dovecot/dovecot-lda -d $u
+---%<-------------------------------------------------------------------------
+
+If you're using 'sendmail.mc' then put the lines above into a new file
+'/usr/share/sendmail/cf/mailer/dovecot.m4' and put 'MAILER(dovecot)' into your
+'sendmail.mc'
+
+===================================
+
+Another method of doing the above is by editing your 'hostname.mc' with the
+following three lines:
+
+---%<-------------------------------------------------------------------------
+FEATURE(`local_procmail',
+`/usr/local/libexec/dovecot/dovecot-lda',`/usr/local/libexec/dovecot/dovecot-lda
+-d $u')
+MODIFY_MAILER_FLAGS(`LOCAL', `-f')
+MAILER(procmail)
+---%<-------------------------------------------------------------------------
+
+After editing 'hostname.mc' with the above, be sure to remake your
+'hostname.cf' file.  This is confirmed to work with:
+
+ * dovecot-1.0.7
+ * FreeBSD 6.3-RELEASE-p3 i386
+ * sendmail Version 8.14.2
+ * Compiled with: DNSMAP LOG MAP_REGEX MATCHGECOS MILTER MIME7TO8 MIME8TO7
+   NAMED_BIND NETINET NETINET6 NETUNIX NEWDB NIS PIPELINING SASLv2 SCANF
+   STARTTLS TCPWRAPPERS USERDB XDEBUG
+
+===================================
+
+If 'sendmail' runs under a different non-'root' UID via
+
+ * 'define(`confRUN_AS_USER', `sendmail')dnl'
+
+in 'sendmail.mc', then the /env_put(t_strconcat("RESTRICT_/ lines in
+'deliver.c' must be commented-out.
+
+Now add a
+
+---%<-------------------------------------------------------------------------
+virtualdomain.example.com vmail:vmail
+---%<-------------------------------------------------------------------------
+
+line for each virtual domain to 'mailertable.cf' and run 'makemap hash
+mailertable.db < mailertable.cf'.  The 'dovecot' (or some other random text)
+after the colon character is required, else 'sendmail' will fail to pass
+command arguments to 'dovecot-lda' correctly.  Make sure all the virtual
+domains are in the 'virtuserdomains' file.
+
+(This file was created from the wiki on 2011-05-11 04:42)

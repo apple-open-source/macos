@@ -83,4 +83,4 @@ CFStringRef copyKextExecutablePath(
     OSKextRef theKext,
     PathSpec pathSpec);
 
-#endif /* _KEXTFIND_COMMANDS_H_ */
+#endif

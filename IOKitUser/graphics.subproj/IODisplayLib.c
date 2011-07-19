@@ -300,7 +300,8 @@ IODisplayCreateOverrides( IOOptionBits options,
                                             kCFStringEncodingMacRoman );
         if( !string)
             continue;
-        url = CFURLCreateWithString( kCFAllocatorDefault, string, NULL);
+        url = CFURLCreateWithFileSystemPath( kCFAllocatorDefault, string, 
+        									 kCFURLPOSIXPathStyle, true );
         CFRelease(string);
         if( !url)
             continue;
@@ -359,8 +360,8 @@ EDIDInfo( struct EDID * edid,
     }
 }
 
-static Boolean
-EDIDName( EDID * edid, char * name )
+__private_extern__ Boolean
+IODisplayEDIDName( EDID * edid, char * name )
 {
     char *      oname = name;
     EDIDDesc *  desc;
@@ -489,7 +490,7 @@ static void GenerateProductName( CFMutableDictionaryRef dict,
         char sbuf[ 128 ];
         const char * name = NULL;
 
-        if( EDIDName(edid, sbuf))
+        if( IODisplayEDIDName(edid, sbuf))
             name = sbuf;
         else if (edid)
             name = "Unknown Display";

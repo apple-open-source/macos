@@ -1,3 +1,5 @@
+/*	$OpenBSD: stack_protector.c,v 1.10 2006/03/31 05:34:44 deraadt Exp $	*/
+
 /*
  * Copyright (c) 2002 Hiroaki Etoh, Federico G. Schwindt, and Miodrag Vallat.
  * All rights reserved.
@@ -25,48 +27,113 @@
  *
  */
 
-#if defined(LIBC_SCCS) && !defined(list)
-static char rcsid[] = "$OpenBSD: stack_protector.c,v 1.3 2002/12/10 08:53:42 etoh Exp $";
-#endif
-
 #include <sys/param.h>
-#include <sys/sysctl.h>
-#include <syslog.h>
-#include <sys/types.h>
+#include <signal.h>
+#include <string.h>
+#include <stdlib.h>
+#include <asl.h>
 #include <unistd.h>
+#include <sys/types.h>
 #include <fcntl.h>
+#include "CrashReporterClient.h"
+#include "libproc.h"
+#include "_simple.h"
 
-extern void __abort(void) __dead2;
-long __stack_chk_guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
-void __guard_setup(void) __attribute__ ((visibility ("hidden")));
+#define	GUARD_MAX 8
+long __stack_chk_guard[GUARD_MAX] = {0, 0, 0, 0, 0, 0, 0, 0};
+void __abort(void) __dead2;
+void __guard_setup(const char *apple[]) __attribute__ ((visibility ("hidden")));
 void __stack_chk_fail(void);
 
-void
-__guard_setup(void)
+static void
+__guard_from_kernel(const char *str)
 {
-  int fd;
-  if (__stack_chk_guard[0]!=0) return;
-  fd = open ("/dev/urandom", 0);
-  if (fd != -1) {
-    ssize_t size = read (fd, (char*)&__stack_chk_guard,
-			 sizeof(__stack_chk_guard));
-    close (fd) ;
-    if (size == sizeof(__stack_chk_guard)
-	&& *__stack_chk_guard != 0) return;
-  }
-  /* If a random generator can't be used, the protector switches the guard
-     to the "terminator canary" */
-  ((char*)__stack_chk_guard)[0] = 0; ((char*)__stack_chk_guard)[1] = 0;
-  ((char*)__stack_chk_guard)[2] = '\n'; ((char*)__stack_chk_guard)[3] = 255;
+	unsigned long long val;
+	char tmp[20], *p;
+	int idx = 0;
+
+	/* Skip over the 'stack_guard=' key to the list of values */
+	str = strchr(str, '=');
+	if (str == NULL)
+		return;
+	str++;
+
+	while (str && idx < GUARD_MAX) {
+		/*
+		 * Pull the next numeric string out of the list and convert it to
+		 * a real number.
+		 */
+		strlcpy(tmp, str, 20);
+		p = strchr(tmp, ',');
+		if (p)
+			*p = '\0';
+		val = strtoull(tmp, NULL, 0);
+		__stack_chk_guard[idx] = (long)(val & ((unsigned long) -1));
+		idx++;
+		if ((str = strchr(str, ',')) != NULL)
+			str++;
+	}
 }
+
+void
+__guard_setup(const char *apple[])
+{
+	int fd;
+	size_t len;
+	const char **p;
+
+	if (__stack_chk_guard[0] != 0)
+		return;
+
+	for (p = apple; p && *p; p++) {
+		if (strstr(*p, "stack_guard") == *p) {
+			__guard_from_kernel(*p);
+			if (__stack_chk_guard[0] != 0)
+				return;
+		}
+	}
+
+	fd = open ("/dev/urandom", 0);
+	if (fd != -1) {
+		len = read (fd, (char*)&__stack_chk_guard, sizeof(__stack_chk_guard));
+		close(fd);
+		if (len == sizeof(__stack_chk_guard) && 
+                    *__stack_chk_guard != 0)
+			return;
+	}
+
+	/* If If a random generator can't be used, the protector switches the guard
+           to the "terminator canary" */
+	((unsigned char *)__stack_chk_guard)[0] = 0;
+	((unsigned char *)__stack_chk_guard)[1] = 0;
+	((unsigned char *)__stack_chk_guard)[2] = '\n';
+	((unsigned char *)__stack_chk_guard)[3] = 255;
+}
+
+#define STACKOVERFLOW	"] stack overflow"
 
 void
 __stack_chk_fail()
 {
-  const char message[] = "[%d] stack overflow";
+	char n[16]; // bigger than will hold the digits in a pid_t
+	char *np;
+	int pid = getpid();
+	char message[sizeof(n) + sizeof(STACKOVERFLOW)] = "[";
+	char prog[2*MAXCOMLEN+1] = {0};
 
-  /* this may fail on a chroot jail, though luck */
-  syslog(LOG_CRIT, message, getpid());
+	proc_name(pid, prog, 2*MAXCOMLEN);
+	prog[2*MAXCOMLEN] = 0;
+	np = n + sizeof(n);
+	*--np = 0;
+	while(pid > 0) {
+	    *--np = (pid % 10) + '0';
+	    pid /= 10;
+	}
+	strlcat(message, np, sizeof(message));
+	strlcat(message, STACKOVERFLOW, sizeof(message));
+	/* This may fail on a chroot jail... */
+	_simple_asl_log_prog(ASL_LEVEL_CRIT, "user", message, prog);
 
-  __abort();
+	CRSetCrashLogMessage(message);
+	__abort();
 }

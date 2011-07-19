@@ -40,8 +40,10 @@
 
 #if WEBKIT_USING_SKIA
 #include <wtf/OwnPtr.h>
-#include <wtf/PassRefPtr.h>
+#include <wtf/PassOwnPtr.h>
 #endif
+
+#include <wtf/PassRefPtr.h>
 
 using namespace WebCore;
 
@@ -56,10 +58,10 @@ void WebImageDecoder::init(Type type)
 {
     switch (type) {
     case TypeBMP:
-        m_private = new BMPImageDecoder();
+        m_private = new BMPImageDecoder(ImageSource::AlphaPremultiplied, ImageSource::GammaAndColorProfileApplied);
         break;
     case TypeICO:
-        m_private = new ICOImageDecoder();
+        m_private = new ICOImageDecoder(ImageSource::AlphaPremultiplied, ImageSource::GammaAndColorProfileApplied);
         break;
     }
 }
@@ -97,20 +99,20 @@ size_t WebImageDecoder::frameCount() const
 bool WebImageDecoder::isFrameCompleteAtIndex(int index) const
 {
     ASSERT(m_private);
-    RGBA32Buffer* const frameBuffer = m_private->frameBufferAtIndex(index);
+    ImageFrame* const frameBuffer = m_private->frameBufferAtIndex(index);
     if (!frameBuffer)
         return false;
-    return (frameBuffer->status() == RGBA32Buffer::FrameComplete);
+    return (frameBuffer->status() == ImageFrame::FrameComplete);
 }
 
 WebImage WebImageDecoder::getFrameAtIndex(int index = 0) const
 {
     ASSERT(m_private);
-    RGBA32Buffer* const frameBuffer = m_private->frameBufferAtIndex(index);
+    ImageFrame* const frameBuffer = m_private->frameBufferAtIndex(index);
     if (!frameBuffer)
         return WebImage();
 #if WEBKIT_USING_SKIA
-    OwnPtr<NativeImageSkia>image(frameBuffer->asNewNativeImage());
+    OwnPtr<NativeImageSkia> image = adoptPtr(frameBuffer->asNewNativeImage());
     return WebImage(*image);
 #elif WEBKIT_USING_CG
     // FIXME: Implement CG side of this.

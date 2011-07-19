@@ -1,0 +1,468 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$186|on Multi Word Function 2 of foo from bar given baz: bat, bag:ban
+	display dialog myNumber
+end Multi Word Function 2
+on ShouldNotBeParsed()
+    display dialog myNumber
+end ReportMyNumber
+$19|(*! Function 3. *)
+$0|$12020|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/AppleScript_function_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{ASlabel} => from bar
+$parserState->{FULLPATH} => /test_suite_bogus_path/AppleScript_function_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{OfIn} => of foo
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => Multi Word Function 2
+$parserState->{functionContents} => 
+        display dialog myNumber
+end Multi Word Function 2
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inGiven} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inLabel} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOfIn} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 3
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => applescript
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 2
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => Multi
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 19
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{pushedfuncbrace} => 2
+$parserState->{returntype} =>  on Multi Word Function 2 of foo from bar given baz: bat,
+bag:ban 
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => 2
+$parserState->{sodtype} =>  Multi Word Function
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => applescript
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 3
+typelist: function
+namelist: Multi Word Function 2
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+        display dialog myNumber
+end Multi Word Function 2
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => baz: bat
+Parsed Param 1 => bag:ban
+Parsed Param 2 => of foo
+Parsed Param 3 => from bar
+-=: DUMP OF PARSE TREE :=-
++---on
++--- 
++---Multi
++--- 
++---Word
++--- 
++---Function
++--- 
++---2
++--- 
++---of
++--- 
++---foo
++--- 
++---from
++--- 
++---bar
++--- 
++---given
++--- 
++---baz
++---:
++--- 
++---bat
++---,
++--- 
++---bag
++---:
++---ban
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: AppleScript function 2
+APIUID: //test_ref/doc/header/AppleScript_function_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: Multi Word Function 2
+    APIUID: //test_ref/applescript/func/MultiWordFunction2
+    ABSTRACT: ""
+    DISCUSSION: "<p>Function 3."
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: 
+        TYPE:  baz : bat
+        APIUID: //test_ref/applescript/internal_temporary_object/
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: 
+        TYPE:  bag : ban
+        APIUID: //test_ref/applescript/internal_temporary_object/
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: 
+        TYPE:  of foo
+        APIUID: //test_ref/applescript/internal_temporary_object/
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: 
+        TYPE:  from bar
+        APIUID: //test_ref/applescript/internal_temporary_object/
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: Multi Word Function 2 (HeaderDoc::Function)
++---on
++--- 
++---Multi
++--- 
++---Word
++--- 
++---Function
++--- 
++---2
++--- 
++---of
++--- 
++---foo
++--- 
++---from
++--- 
++---bar
++--- 
++---given
++--- 
++---baz
++---:
++--- 
++---bat
++---,
++--- 
++---bag
++---:
++---ban
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: Multi Word Function 2 (HeaderDoc::Function)
+	<span class="keyword">on</span> <!-- a logicalPath="//test_ref/applescript/instm/Multi //test_ref/applescript/clm/Multi //test_ref/applescript/intfcm/Multi //test_ref/applescript/intfm/Multi //test_ref/applescript/func/Multi //test_ref/applescript/ftmplt/Multi //test_ref/applescript/defn/Multi //test_ref/applescript/macro/Multi //test_ref/doc/anysymbol/Multi" machineGenerated="true" --><span class="function">Multi</span><!-- /a --> <!-- a logicalPath="//test_ref/applescript/instm/Word //test_ref/applescript/clm/Word //test_ref/applescript/intfcm/Word //test_ref/applescript/intfm/Word //test_ref/applescript/func/Word //test_ref/applescript/ftmplt/Word //test_ref/applescript/defn/Word //test_ref/applescript/macro/Word //test_ref/doc/anysymbol/Word" machineGenerated="true" --><span class="function">Word</span><!-- /a --> <!-- a logicalPath="//test_ref/applescript/instm/Function //test_ref/applescript/clm/Function //test_ref/applescript/intfcm/Function //test_ref/applescript/intfm/Function //test_ref/applescript/func/Function //test_ref/applescript/ftmplt/Function //test_ref/applescript/defn/Function //test_ref/applescript/macro/Function //test_ref/doc/anysymbol/Function" machineGenerated="true" --><span class="function">Function</span><!-- /a --> <span class="function">2</span> <span class="keyword">of</span> <span class="param">foo</span> <span class="keyword">from</span> <span class="param">bar</span> <span class="keyword">given</span> <span class="param">baz</span>: <span class="param">bat</span>,
+	<span class="param">bag</span>:<span class="param">ban</span>
+END OF OBJECT
+
+
+
+__$104|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/AppleScript_function_2.test$11|applescript$22|AppleScript function 2$11|applescript$6|parser

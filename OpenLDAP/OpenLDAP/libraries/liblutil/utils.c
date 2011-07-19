@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.33.2.17 2008/02/11 23:26:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/utils.c,v 1.33.2.29 2010/06/10 17:23:20 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -77,6 +77,13 @@ char* lutil_progname( const char* name, int argc, char *argv[] )
 	LUTIL_SLASHPATH( argv[0] );
 	progname = strrchr ( argv[0], *LDAP_DIRSEP );
 	progname = progname ? &progname[1] : argv[0];
+#ifdef _WIN32
+	{
+		size_t len = strlen( progname );
+		if ( len > 4 && strcasecmp( &progname[len - 4], ".exe" ) == 0 )
+			progname[len - 4] = '\0';
+	}
+#endif
 	return progname;
 }
 
@@ -140,7 +147,7 @@ size_t lutil_localtime( char *s, size_t smax, const struct tm *tm, long delta )
 	snprintf( p, smax - 15, "%02ld%02ld", delta / 3600,
 			( delta % 3600 ) / 60 );
 
-	return ret + 5;
+	return ret + 4;
 }
 
 int lutil_tm2time( struct lutil_tm *tm, struct lutil_timet *tt )
@@ -275,117 +282,6 @@ int lutil_parsetime( char *atm, struct lutil_tm *tm )
 	return -1;
 }
 
-/* return a broken out time, with microseconds
- * Must be mutex-protected.
- */
-#ifdef _WIN32
-/* Windows SYSTEMTIME only has 10 millisecond resolution, so we
- * also need to use a high resolution timer to get microseconds.
- * This is pretty clunky.
- */
-void
-lutil_gettime( struct lutil_tm *tm )
-{
-	static LARGE_INTEGER cFreq;
-	static LARGE_INTEGER prevCount;
-	static int subs;
-	static int offset;
-	LARGE_INTEGER count;
-	SYSTEMTIME st;
-
-	GetSystemTime( &st );
-	QueryPerformanceCounter( &count );
-
-	/* We assume Windows has at least a vague idea of
-	 * when a second begins. So we align our microsecond count
-	 * with the Windows millisecond count using this offset.
-	 * We retain the submillisecond portion of our own count.
-	 */
-	if ( !cFreq.QuadPart ) {
-		long long t;
-		int usec;
-		QueryPerformanceFrequency( &cFreq );
-
-		t = count.QuadPart * 1000000;
-		t /= cFreq.QuadPart;
-		usec = t % 10000000;
-		usec /= 1000;
-		offset = ( usec - st.wMilliseconds ) * 1000;
-	}
-
-	/* It shouldn't ever go backwards, but multiple CPUs might
-	 * be able to hit in the same tick.
-	 */
-	if ( count.QuadPart <= prevCount.QuadPart ) {
-		subs++;
-	} else {
-		subs = 0;
-		prevCount = count;
-	}
-
-	tm->tm_usub = subs;
-
-	/* convert to microseconds */
-	count.QuadPart *= 1000000;
-	count.QuadPart /= cFreq.QuadPart;
-	count.QuadPart -= offset;
-
-	tm->tm_usec = count.QuadPart % 1000000;
-
-	/* any difference larger than microseconds is
-	 * already reflected in st
-	 */
-
-	tm->tm_sec = st.wSecond;
-	tm->tm_min = st.wMinute;
-	tm->tm_hour = st.wHour;
-	tm->tm_mday = st.wDay;
-	tm->tm_mon = st.wMonth - 1;
-	tm->tm_year = st.wYear - 1900;
-}
-#else
-void
-lutil_gettime( struct lutil_tm *ltm )
-{
-	struct timeval tv;
-	static struct timeval prevTv;
-	static int subs;
-
-#ifdef HAVE_GMTIME_R
-	struct tm tm_buf;
-#endif
-	struct tm *tm;
-	time_t t;
-
-	gettimeofday( &tv, NULL );
-	t = tv.tv_sec;
-
-	if ( tv.tv_sec < prevTv.tv_sec
-		|| ( tv.tv_sec == prevTv.tv_sec && tv.tv_usec == prevTv.tv_usec )) {
-		subs++;
-	} else {
-		subs = 0;
-		prevTv = tv;
-	}
-
-	ltm->tm_usub = subs;
-
-#ifdef HAVE_GMTIME_R
-	tm = gmtime_r( &t, &tm_buf );
-#else
-	tm = gmtime( &t );
-#endif
-
-	ltm->tm_sec = tm->tm_sec;
-	ltm->tm_min = tm->tm_min;
-	ltm->tm_hour = tm->tm_hour;
-	ltm->tm_mday = tm->tm_mday;
-	ltm->tm_mon = tm->tm_mon;
-	ltm->tm_year = tm->tm_year;
-	ltm->tm_usec = tv.tv_usec;
-}
-#endif
-
 /* strcopy is like strcpy except it returns a pointer to the trailing NUL of
  * the result string. This allows fast construction of catenated strings
  * without the overhead of strlen/strcat.
@@ -421,6 +317,21 @@ lutil_strncopy(
 	return a-1;
 }
 
+/* memcopy is like memcpy except it returns a pointer to the byte past
+ * the end of the result buffer, set to NULL. This allows fast construction
+ * of catenated buffers.  Provided for API consistency with lutil_str*copy().
+ */
+char *
+lutil_memcopy(
+	char *a,
+	const char *b,
+	size_t n
+)
+{
+	AC_MEMCPY(a, b, n);
+	return a + n;
+}
+
 #ifndef HAVE_MKSTEMP
 int mkstemp( char * template )
 {
@@ -433,6 +344,40 @@ int mkstemp( char * template )
 #endif
 
 #ifdef _MSC_VER
+/* Equivalent of MS CRT's _dosmaperr().
+ * @param lastError[in] Result of GetLastError().
+ */
+static errno_t win2errno(DWORD lastError)
+{
+	const struct { 
+		DWORD   windows_code;
+		errno_t errno_code;
+	} WIN2ERRNO_TABLE[] = {
+		{ ERROR_SUCCESS, 0 },
+		{ ERROR_FILE_NOT_FOUND, ENOENT },
+		{ ERROR_PATH_NOT_FOUND, ENOENT },
+		{ ERROR_TOO_MANY_OPEN_FILES, EMFILE },
+		{ ERROR_ACCESS_DENIED, EACCES },
+		{ ERROR_INVALID_HANDLE, EBADF },
+		{ ERROR_NOT_ENOUGH_MEMORY, ENOMEM },
+		{ ERROR_LOCK_VIOLATION, EACCES },
+		{ ERROR_FILE_EXISTS, EEXIST },
+		{ ERROR_INVALID_PARAMETER, EINVAL },
+		{ ERROR_FILENAME_EXCED_RANGE, ENAMETOOLONG },
+	};
+	const unsigned int WIN2ERRNO_TABLE_SIZE = sizeof(WIN2ERRNO_TABLE) /
+sizeof(WIN2ERRNO_TABLE[0]);
+	const errno_t DEFAULT_ERRNO_ERROR = -1;
+	unsigned int i;
+
+	for (i = 0; i < WIN2ERRNO_TABLE_SIZE; ++i) {
+		if (WIN2ERRNO_TABLE[i].windows_code == lastError) {
+			return WIN2ERRNO_TABLE[i].errno_code;
+		}
+	}
+	return DEFAULT_ERRNO_ERROR;
+}
+
 struct dirent {
 	char *d_name;
 };
@@ -450,8 +395,10 @@ DIR *opendir( char *path )
 	HANDLE h;
 	WIN32_FIND_DATA data;
 	
-	if (len+3 >= sizeof(tmp))
+	if (len+3 >= sizeof(tmp)) {
+		errno = ENAMETOOLONG;
 		return NULL;
+	}
 
 	strcpy(tmp, path);
 	tmp[len++] = '\\';
@@ -459,9 +406,11 @@ DIR *opendir( char *path )
 	tmp[len] = '\0';
 
 	h = FindFirstFile( tmp, &data );
-	
-	if ( h == INVALID_HANDLE_VALUE )
+
+	if ( h == INVALID_HANDLE_VALUE ) {
+		errno = win2errno( GetLastError());
 		return NULL;
+	}
 
 	d = ber_memalloc( sizeof(DIR) );
 	if ( !d )
@@ -485,7 +434,7 @@ struct dirent *readdir(DIR *dir)
 	}
 	return &dir->data;
 }
-void closedir(DIR *dir)
+int closedir(DIR *dir)
 {
 	FindClose(dir->dir);
 	ber_memfree(dir);
@@ -496,7 +445,7 @@ void closedir(DIR *dir)
  * Memory Reverse Search
  */
 void *
-lutil_memrchr(const void *b, int c, size_t n)
+(lutil_memrchr)(const void *b, int c, size_t n)
 {
 	if (n != 0) {
 		const unsigned char *s, *bb = b, cc = c;
@@ -677,7 +626,6 @@ lutil_str2bin( struct berval *in, struct berval *out, void *ctx )
 {
 	char *pin, *pout, ctmp;
 	char *end;
-	long l;
 	int i, chunk, len, rc = 0, hex = 0;
 	if ( !out || !out->bv_val || out->bv_len < in->bv_len )
 		return -1;
@@ -700,38 +648,40 @@ lutil_str2bin( struct berval *in, struct berval *out, void *ctx )
 	}
 	if ( hex ) {
 #define HEXMAX	(2 * sizeof(long))
+		unsigned long l;
 		/* Convert a longword at a time, but handle leading
 		 * odd bytes first
 		 */
-		chunk = len & (HEXMAX-1);
+		chunk = len % HEXMAX;
 		if ( !chunk )
 			chunk = HEXMAX;
 
 		while ( len ) {
+			int ochunk;
 			ctmp = pin[chunk];
 			pin[chunk] = '\0';
 			errno = 0;
-			l = strtol( pin, &end, 16 );
+			l = strtoul( pin, &end, 16 );
 			pin[chunk] = ctmp;
 			if ( errno )
 				return -1;
-			chunk++;
-			chunk >>= 1;
-			for ( i = chunk; i>=0; i-- ) {
+			ochunk = (chunk + 1)/2;
+			for ( i = ochunk - 1; i >= 0; i-- ) {
 				pout[i] = l & 0xff;
 				l >>= 8;
 			}
 			pin += chunk;
-			pout += sizeof(long);
+			pout += ochunk;
 			len -= chunk;
 			chunk = HEXMAX;
 		}
-		out->bv_len = pout + len - out->bv_val;
+		out->bv_len = pout - out->bv_val;
 	} else {
 	/* Decimal */
 		char tmpbuf[64], *tmp;
 		lutil_int_decnum num;
 		int neg = 0;
+		long l;
 
 		len = in->bv_len;
 		pin = in->bv_val;
@@ -921,7 +871,7 @@ lutil_snprintf( char *buf, ber_len_t bufsize, char **next, ber_len_t *len, LDAP_
 		*len = ret;
 	}
 
-	if ( ret >= bufsize ) {
+	if ( (unsigned) ret >= bufsize ) {
 		if ( next ) {
 			*next = &buf[ bufsize - 1 ];
 		}

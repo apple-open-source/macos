@@ -1,0 +1,107 @@
+Solr Full Text Search Indexing
+==============================
+
+Solr [http://lucene.apache.org/solr/] is a Lucene indexing server. Dovecot
+communicates to it using HTTP/XML queries.
+
+Compiling
+---------
+
+Give '--with-solr' parameter to 'configure' script. You'll also need to have
+libexpat and libcurl installed.
+
+Configuration
+-------------
+
+Replace Solr's existing 'solr/conf/schema.xml' using 'doc/solr-schema.xml' from
+Dovecot. You may want to check if the file contains something you want to
+modify. See Solr wiki [http://wiki.apache.org/solr/SchemaXml] for how to
+configure it.
+
+On Dovecot's side add:
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins fts fts_solr
+
+plugin {
+  fts = solr
+  fts_solr = url=http://solr.example.org:8983/solr/
+}
+---%<-------------------------------------------------------------------------
+
+Fields listed in 'fts_solr' plugin setting are space separated. They can
+contain:
+
+ * url=<solr url> : Required base URL for Solr.
+ * debug : Enable HTTP debugging. Writes to error log.
+ * break-imap-search : Use Solr also for indexing TEXT and BODY searches. This
+   makes your server non-IMAP-compliant.
+
+Solr optimization
+-----------------
+
+Solr indexes should be optimized once in a while to make searches faster and to
+remove space used by deleted mails. Dovecot never asks Solr to optimize, so you
+should do this yourself. Perhaps a cronjob that sends the optimize-command to
+Solr every n hours.
+
+Sorting by relevancy
+--------------------
+
+Solr/Lucene supports returning a relevancy score for search results. If you
+want to sort the search results by the score, use Dovecot's non-standard
+X-SCORE sort key:
+
+---%<-------------------------------------------------------------------------
+1 SORT (X-SCORE) UTF-8 <search parameters>
+---%<-------------------------------------------------------------------------
+
+Indexes
+-------
+
+Dovecot creates the following fields:
+
+ * id: Unique ID consisting of uid/uidv/user/box.
+    * Note that your user names really shouldn't contain '/' character.
+ * uid: Message's IMAP UID.
+ * uidv: Mailbox's UIDVALIDITY. This changes if mailbox gets recreated.
+ * box: Mailbox name
+ * user: User name who owns the mailbox (indexing shared/public mailboxes is
+   probably broken currently)
+ * hdr: Indexed message headers
+ * body: Indexed message body
+ * any: "Copy field" from hdr and body, i.e. searching based on this will
+   search from both headers and bodies.
+
+Lucene does duplicate suppression based on the "id" field, so even if Dovecot
+sends the same message multiple times to Solr it gets indexed only once. This
+might happen currently if multiple searches are started at the same time.
+
+You might want to build a cronjob to go through the Lucene indexes once in a
+while to delete indexed messages (or entire mailboxes) that no longer exist on
+the filesystem. It shouldn't normally find any such messages though.
+
+Sharding
+--------
+
+If you have more users than fit into a single Solr box, you can split users off
+to different servers. A couple of different ways you could do it are:
+
+ * Have some HTTP proxy redirecting the connections based on the URL
+ * Configure Dovecot's userdb lookup to return a different host for 'fts_solr'
+   setting using <extra fields> [UserDatabase.ExtraFields.txt].
+    * LDAP: 'user_attrs = ..., solrHost=fts_solr=url=http://%$:8983/solr/'
+    * MySQL: 'user_query = SELECT concat('url=http://', solr_host,
+      ':8983/solr/') AS fts_solr, ...'
+
+External Tutorials
+------------------
+
+External sites with tutorials on using Solr under Dovecot
+
+ * Installing Apache Solr with Dovecot for fulltext search results
+   [http://atmail.com/kb/2009/installing-apache-solr-with-dovecot-for-fulltext-search-results/]
+   - Guide for installing all the dependencies for Solr to work under
+   CentOS/Fedora. Step by step tutorial.
+
+(This file was created from the wiki on 2011-05-11 04:42)

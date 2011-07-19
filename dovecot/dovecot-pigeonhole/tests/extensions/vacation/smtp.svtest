@@ -1,0 +1,157 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+require "vacation";
+require "variables";
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "timo@example.net";
+
+test "Basic" {
+	vacation :addresses "tss@example.net" :from "Timo Sirainen <sirainen@example.net>" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "to" "sirius@example.org" {
+		test_fail "to address incorrect";
+	}
+
+	if not address :is "from" "sirainen@example.net" {
+		test_fail "from address incorrect";
+	}
+
+	if not envelope :is "to" "sirius@example.org" {
+		test_fail "envelope recipient incorrect";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender not null";
+	}
+}
+
+test_result_reset;
+test_set "envelope.from" "<>";
+
+test "Null Sender" {
+	vacation :addresses "tss@example.net" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "reject sent message to NULL sender";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: timo@example.net
+Cc: stephan@friep.example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "timo@example.net";
+
+test "Envelope.to == To" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "from" "timo@example.net" {
+		test_fail "from address incorrect";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender not null";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Cc: stephan@friep.example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "timo@example.net";
+
+test "Envelope.to != To" {
+	vacation :addresses "tss@example.net" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "from" "tss@example.net" {
+		test_fail "from address incorrect";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender not null";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Cc: colleague@example.net
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "colleague@example.net";
+
+test "Cc" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "from" "colleague@example.net" {
+		if address :matches "from" "*" { }
+		test_fail "from address incorrect: ${1}";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender not null";
+	}
+}

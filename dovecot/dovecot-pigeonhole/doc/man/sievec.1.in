@@ -1,0 +1,118 @@
+.\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
+.TH "SIEVEC" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.\"------------------------------------------------------------------------
+.SH NAME
+sievec \- Pigeonhole\(aqs Sieve script compiler
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B sievec
+.RI [ options ]
+.I script\-file
+.RI [ out\-file ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.PP
+The \fBsieve\-dump\fP command is part of the Pigeonhole Project
+(\fBpigeonhole\fR(7)), which adds Sieve (RFC 5228) support to the Dovecot
+secure IMAP and POP3 server (\fBdovecot\fR(1)).
+.PP
+Using the \fBsievec\fP command, Sieve scripts can be compiled into a binary
+representation. The resulting binary can be used directly to process e\-mail
+messages during the delivery process. The delivery of mail messages and \- by
+means of the LDA Sieve plugin \- also the execution of Sieve scripts is
+performed by Dovecot\(aqs local delivery agent (LDA) called \fBdovecot\-lda\fP(1).
+Usually, it is not necessaryto compile the Sieve script manually using
+\fBsievec\fP, because \fBdovecot\-lda\fP will do this automatically if the binary
+is missing. However, in some cases \fBdovecot\-lda\fP does not have permission to
+write the compiled binary to disk, forcing it to recompile the script every time
+it is executed. Using the \fBsievec\fP tool, this can be performed manually by
+an authorized user to increase performance.
+.PP
+The Pigeonhole Sieve implementation recognizes files with a \fB.sieve\fP
+extension as Sieve scripts and corresponding files with a \fB.svbin\fP extension
+as the associated compiled binary. This means for example that Dovecot\(aqs LDA
+process will first look for a binary file \(dqdovecot.svbin\(dq when it needs to
+execute \(dqdovecot.sieve\(dq. It will compile a new binary when it is missing.
+.PP
+The \fBsievec\fP command is also useful to verify Sieve scripts before using.
+Additionally, with the \fB\-d\fP option it can output a textual (and thus
+human\-readable) dump of the generated Sieve code to the specified file. The
+output is then identical to what the \fBsieve\-dump\fP(1) command produces for a
+stored binary file. This output is mainly useful to find bugs in the compiler
+that yield corrupt binaries.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.BI \-c\  config\-file
+Alternative Dovecot configuration file path.
+.TP
+.B \-d
+Don\(aqt write the binary to \fIout\-file\fP, but write a textual dump of the
+binary instead. In this context, the \fIout\-file\fP value '\-' has special
+meaning: it causes the the textual dump to be written to \fBstdout\fP.
+The \fIout\-file\fP argument may also be omitted, which has the same effect
+as '\-'.
+The output is identical to what the \fBsieve\-dump\fP(1) command produces
+for a compiled Sieve binary file. Note that this option is not allowed when the
+\fIout\-file\fP argument is a directory.
+.TP
+.BI \-x\  extensions
+Set the available extensions. The parameter is a space\-separated list of the
+active extensions. By prepending the extension identifiers with \fB+\fP or
+\fB\-\fP, extensions can be included or excluded relative to the default set of
+extensions. If no extensions have a \fB+\fP or \fB\-\fP prefix, only
+those extensions that are explicitly listed will be enabled. Unknown extensions
+are ignored and a warning is produced. By default, all supported extensions are
+available, except for deprecated extensions or those that are still under
+development.
+
+For example \fB\-x\fP \(dq+imapflags \-enotify\(dq will enable the deprecated
+imapflags extension along with all extensions that are available by default,
+except for the enotify extension.
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I script\-file
+Specifies the script to be compiled. If the \fIscript\-file\fP argument is a
+directory, all files in that directory with a \fI.sieve\fP extension are
+compiled into a corresponding \fI.svbin\fP binary file. The compilation is not
+halted upon errors; it attempts to compile as many scripts in the directory as
+possible. Note that the \fB\-d\fP option and the \fIout\-file\fP argument are
+not allowed when the \fIscript\-file\fP argument is a directory.
+.TP
+.I out\-file
+Specifies where the (binary) output is to be written. This argument is optional.
+If omitted a binary compiled from <scriptname>.sieve is saved as
+<scriptname>.svbin. If \fB\-b\fP is specified, the binary dump is output to
+\fBstdout\fP.
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B sievec
+will exit with one of the following values:
+.TP 4
+.B 0
+Delivery was successful. (EX_OK, EXIT_SUCCES)
+.TP
+.B 1
+Operation failed. This is returned for almost all failures.
+(EXIT_FAILURE)
+.TP
+.B 64
+Invalid parameter given. (EX_USAGE)
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @pkgsysconfdir@/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @pkgsysconfdir@/conf.d/90\-sieve.conf
+Sieve interpreter settings (included from Dovecot\(aqs main configuration file)
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH "SEE ALSO"
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR sieve\-dump (1),
+.BR sieve\-test (1),
+.BR pigeonhole (7)

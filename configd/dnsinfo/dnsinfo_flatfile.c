@@ -29,7 +29,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <net/if.h>
 #include <sys/dir.h>
+#include <sys/types.h>
+#include <sys/socket.h>
 #include <unistd.h>
 
 #include "dnsinfo.h"
@@ -37,14 +40,16 @@
 #include "dnsinfo_create.h"
 
 enum {
-	TOKEN_NAMESERVER,
-	TOKEN_PORT,
 	TOKEN_DOMAIN,
+	TOKEN_FLAGS,
+	TOKEN_INTERFACE,
+	TOKEN_NAMESERVER,
+	TOKEN_OPTIONS,
+	TOKEN_PORT,
 	TOKEN_SEARCH,
 	TOKEN_SEARCH_ORDER,
 	TOKEN_SORTLIST,
 	TOKEN_TIMEOUT,
-	TOKEN_OPTIONS,
 	TOKEN_MAX
 };
 
@@ -57,14 +62,16 @@ static const struct {
 	int		token;
 	int		max_count;
 } tokens [] = {
-	{ "nameserver",		TOKEN_NAMESERVER,	MAXNS	},
-	{ "port",		TOKEN_PORT,		1	},
 	{ "domain",		TOKEN_DOMAIN,		1	},
+	{ "flags",		TOKEN_FLAGS,		1	},
+	{ "interface",		TOKEN_INTERFACE,	1	},
+	{ "nameserver",		TOKEN_NAMESERVER,	MAXNS	},
+	{ "options",		TOKEN_OPTIONS,		1	},
+	{ "port",		TOKEN_PORT,		1	},
 	{ "search",		TOKEN_SEARCH,		1	},
 	{ "search_order",	TOKEN_SEARCH_ORDER,	1	},
 	{ "sortlist",		TOKEN_SORTLIST,		1	},
 	{ "timeout",		TOKEN_TIMEOUT,		1	},
-	{ "options",		TOKEN_OPTIONS,		1	},
 };
 
 
@@ -313,9 +320,47 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 		}
 
 		switch (token) {
-			case TOKEN_DOMAIN:
-				_dns_resolver_set_domain(&res, word);
+			case TOKEN_DOMAIN: {
+				size_t	len;
+
+				len = strlen(word);
+				while ((len > 0) && (word[len - 1] == '.')) {
+					// trim trailing '.'
+					word[--len] = '\0';
+				}
+				if (len > 0) {
+					_dns_resolver_set_domain(&res, word);
+				}
 				break;
+			}
+
+			case TOKEN_FLAGS: {
+				uint32_t	flags	= 0;
+
+				while (word != NULL) {
+					if (word[0] != '\0') {
+						if (strcasecmp(word, "scoped") == 0) {
+							flags |= DNS_RESOLVER_FLAGS_SCOPED;
+						}
+					}
+					word = strsep(&lineptr, sep);
+				}
+
+				if (flags != 0) {
+					_dns_resolver_set_flags(&res, flags);
+				}
+				break;
+			}
+
+			case TOKEN_INTERFACE: {
+				unsigned int	if_index;
+
+				if_index = if_nametoindex(word);
+				if (if_index > 0) {
+					_dns_resolver_set_if_index(&res, if_index);
+				}
+				break;
+			}
 
 			case TOKEN_NAMESERVER: {
 				struct sockaddr	*sa;
@@ -324,6 +369,31 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 				if (sa != NULL) {
 					_dns_resolver_add_nameserver(&res, sa);
 					free(sa);
+				}
+				break;
+			}
+
+			case TOKEN_OPTIONS: {
+				char	*options	= NULL;
+
+				while (word != NULL) {
+					if (word[0] != '\0') {
+						if (options == NULL) {
+							options = malloc(len+1);
+							if (options == NULL) break;
+
+							strlcpy(options, word, len+1);
+						} else {
+							strlcat(options, " ", len+1);
+							strlcat(options, word, len+1);
+						}
+					}
+					word = strsep(&lineptr, sep);
+				}
+
+				if (options != NULL) {
+					_dns_resolver_set_options(&res, options);
+					free(options);
 				}
 				break;
 			}
@@ -342,9 +412,27 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 
 				// multiple search domains are supported
 				while ((word != NULL) && (n++ < MAXDNSRCH)) {
-					_dns_resolver_add_search(&res, word);
+					size_t	len;
+
+					len = strlen(word);
+					while ((len > 0) && (word[len - 1] == '.')) {
+						// trim trailing '.'
+						word[--len] = '\0';
+					}
+					if (len > 0) {
+						_dns_resolver_add_search(&res, word);
+					}
 					word = strsep(&lineptr, sep);
 				}
+				break;
+			}
+
+			case TOKEN_SEARCH_ORDER: {
+				long	number	= -1;
+
+				number = strtol(word, NULL, 0);
+				if (number < 0 || number > UINT32_MAX) break;
+				_dns_resolver_set_order(&res, number);
 				break;
 			}
 
@@ -363,25 +451,12 @@ _dnsinfo_flatfile_create_resolver(const char *dir, const char *path)
 				break;
 			}
 
-			case TOKEN_OPTIONS:
-				_dns_resolver_set_options(&res, lineptr);
-				break;
-
 			case TOKEN_TIMEOUT: {
 				long	number	= -1;
 
 				number = strtol(word, NULL, 0);
 				if (number < 0 || number > UINT32_MAX) break;
 				_dns_resolver_set_timeout(&res, number);
-				break;
-			}
-
-			case TOKEN_SEARCH_ORDER: {
-				long	number	= -1;
-
-				number = strtol(word, NULL, 0);
-				if (number < 0 || number > UINT32_MAX) break;
-				_dns_resolver_set_order(&res, number);
 				break;
 			}
 		}
@@ -442,7 +517,8 @@ _dnsinfo_flatfile_add_resolvers(dns_create_config_t *config)
 }
 
 
-#ifdef MAIN
+#ifdef	MAIN
+#undef	MAIN
 
 #include "dnsinfo_copy.c"
 
@@ -472,4 +548,5 @@ main(int argc, char **argv)
 
 	return 0;
 }
+
 #endif

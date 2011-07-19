@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2006 - 2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -346,24 +346,27 @@ struct SSPSecurityBuffer {
 #define NTLMSSP_AUTH		2
 #define NTLMSSP_DONE		3
 
-#ifndef GSS_C_COMPLETE
-#define GSS_C_COMPLETE 0
+#ifndef GSS_S_COMPLETE
+#define GSS_S_COMPLETE 0
 #endif
 
-#ifndef GSS_C_CONTINUE_NEEDED
-#define GSS_C_CONTINUE_NEEDED 1
+#ifndef GSS_S_CONTINUE_NEEDED
+#define GSS_S_CONTINUE_NEEDED 1
 #endif
 
 #define SMB_USE_GSS(vp) (IPC_PORT_VALID((vp)->vc_gss.gss_mp))
-#define SMB_GSS_CONTINUE_NEEDED(p) ((p)->gss_major == GSS_C_CONTINUE_NEEDED)
-#define SMB_GSS_ERROR(p) ((p)->gss_major != GSS_C_COMPLETE && \
-	(p)->gss_major != GSS_C_CONTINUE_NEEDED)
-int smb_gss_negotiate(struct smb_vc *, vfs_context_t , uint8_t *token, u_int16_t toklen);
-int smb_gss_ssnsetup(struct smb_vc *, vfs_context_t );
-void smb_gss_destroy(struct smb_gss *);
+#define SMB_GSS_CONTINUE_NEEDED(p) ((p)->gss_major == GSS_S_CONTINUE_NEEDED)
+#define SMB_GSS_ERROR(p) ((p)->gss_major != GSS_S_COMPLETE && \
+	(p)->gss_major != GSS_S_CONTINUE_NEEDED)
+#define SMB_GSS_COMPLETE(p) ((p)->gss_major == GSS_S_COMPLETE)
+int smb_gss_negotiate(struct smb_vc *vcp, vfs_context_t context);
+int smb_gss_ssnsetup(struct smb_vc *vcp, vfs_context_t context);
+void smb_gss_destroy(struct smb_gss *gp);
+
+void smb_gss_ref_cred(struct smb_vc *vcp);
+void smb_gss_rel_cred(struct smb_vc *vcp);
 
 #ifdef SMB_DEBUG
-//#define DEBUG_NTLM_BY_TURNING_OFF_NTLMV2 1
 //#define DEBUG_TURN_OFF_EXT_SEC 1
 #endif // SMB_DEBUG
 

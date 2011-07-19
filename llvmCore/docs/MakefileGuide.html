@@ -232,17 +232,16 @@
   Normally, the makefile system will build all the software into a single
   <tt>libname.o</tt> (pre-linked) object. This means the library is not
   searchable and that the distinction between compilation units has been
-  dissolved. Optionally, you can ask for a shared library (.so), archive library
-  (.a) or to not have the default (relinked) library built. For example:</p>
+  dissolved. Optionally, you can ask for a shared library (.so) or archive
+  library (.a) built.  Archive libraries are the default. For example:</p>
   <pre><tt>
       LIBRARYNAME = mylib
       SHARED_LIBRARY = 1
       ARCHIVE_LIBRARY = 1
-      DONT_BUILD_RELINKED = 1
   </tt></pre>
   <p>says to build a library named "mylib" with both a shared library 
-  (<tt>mylib.so</tt>) and an archive library (<tt>mylib.a</tt>) version but
-  not to build the relinked object (<tt>mylib.o</tt>). The contents of all the
+  (<tt>mylib.so</tt>) and an archive library (<tt>mylib.a</tt>) version. The
+  contents of all the
   libraries produced will be the same, they are just constructed differently.
   Note that you normally do not need to specify the sources involved. The LLVM
   Makefile system will infer the source files from the contents of the source
@@ -262,7 +261,7 @@
 <!-- ======================================================================= -->
 <div class="doc_subsubsection"><a name="BCModules">Bitcode Modules</a></div>
 <div class="doc_text">
-  <p>In some situations, it is desireable to build a single bitcode module from
+  <p>In some situations, it is desirable to build a single bitcode module from
   a variety of sources, instead of an archive, shared library, or bitcode 
   library. Bitcode modules can be specified in addition to any of the other
   types of libraries by defining the <a href="#MODULE_NAME">MODULE_NAME</a>
@@ -306,8 +305,6 @@
     <li>The <a href="#SHARED_LIBRARY">SHARED_LIBRARY</a> variable is turned 
     on.</li>
     <li>The <a href="#LINK_LIBS_IN_SHARED">LINK_LIBS_IN_SHARED</a> variable
-    is turned on.</li>
-    <li>The <a href="#DONT_BUILD_RELINKED">DONT_BUILD_RELINKED</a> variable
     is turned on.</li>
   </ol>
   <p>A loadable module is loaded by LLVM via the facilities of libtool's libltdl
@@ -629,6 +626,11 @@
     <dd>If set to any value, causes a bitcode library (.bc) to be built.</dd>
     <dt><a name="CONFIG_FILES"><tt>CONFIG_FILES</tt></a></dt>
     <dd>Specifies a set of configuration files to be installed.</dd>
+    <dt><a name="DEBUG_SYMBOLS"><tt>DEBUG_SYMBOLS</tt></a></dt>
+    <dd>If set to any value, causes the build to include debugging
+    symbols even in optimized objects, libraries and executables. This
+    alters the flags specified to the compilers and linkers. Debugging
+    isn't fun in an optimized build, but it is possible.</dd>
     <dt><a name="DIRS"><tt>DIRS</tt></a></dt>
     <dd>Specifies a set of directories, usually children of the current
     directory, that should also be made using the same goal. These directories 
@@ -637,11 +639,6 @@
     <dd>If set to any value, causes the makefiles to <b>not</b> automatically
     generate dependencies when running the compiler. Use of this feature is
     discouraged and it may be removed at a later date.</dd>
-    <dt><a name="DONT_BUILD_RELINKED"><tt>DONT_BUILD_RELINKED</tt></a></dt>
-    <dd>If set to any value, causes a relinked library (.o) not to be built. By
-    default, libraries are built as re-linked since most LLVM libraries are
-    needed in their entirety and re-linked libraries will be linked more quickly
-    than equivalent archive libraries.</dd>
     <dt><a name="ENABLE_OPTIMIZED"><tt>ENABLE_OPTIMIZED</tt></a></dt>
     <dd>If set to any value, causes the build to generate optimized objects,
     libraries and executables. This alters the flags specified to the compilers
@@ -821,6 +818,10 @@
     <tt>mklib</tt> by the <tt>configure</tt> script and always located in the 
     <dt><a name="LLVMAS"><tt>LLVMAS</tt></a><small>(defaulted)</small></dt>
     <dd>Specifies the path to the <tt>llvm-as</tt> tool.</dd>
+    <dt><a name="LLVMCC"><tt>LLVMCC</tt></a></dt>
+    <dd>Specifies the path to the LLVM capable compiler.</dd>
+    <dt><a name="LLVMCXX"><tt>LLVMCXX</tt></a></dt>
+    <dd>Specifies the path to the LLVM C++ capable compiler.</dd>
     <dt><a name="LLVMGCC"><tt>LLVMGCC</tt></a><small>(defaulted)</small></dt>
     <dd>Specifies the path to the LLVM version of the GCC 'C' Compiler</dd>
     <dt><a name="LLVMGXX"><tt>LLVMGXX</tt></a><small>(defaulted)</small></dt>
@@ -841,6 +842,8 @@
     <dt><a name="MKDIR"><tt>MKDIR</tt></a><small>(defaulted)</small></dt>
     <dd>Specifies the path to the <tt>mkdir</tt> tool that creates
     directories.</dd>
+    <dt><a name="ONLY_TOOLS"><tt>ONLY_TOOLS</tt></a></dt>
+    <dd>If set, specifies the list of tools to build.</dd>
     <dt><a name="PLATFORMSTRIPOPTS"><tt>PLATFORMSTRIPOPTS</tt></a></dt>
     <dd>The options to provide to the linker to specify that a stripped (no
     symbols) executable should be built.</dd>
@@ -958,7 +961,6 @@
     DestArchiveLib
     DestBitcodeLib
     DestModule
-    DestRelinkedLib
     DestSharedLib
     DestTool
     DistAlways
@@ -1002,7 +1004,6 @@
     ProjUsedLibs
     Ranlib
     RecursiveTargets
-    Relink
     SrcMakefiles
     Strip
     StripWarnMsg
@@ -1024,7 +1025,7 @@
 
   <a href="mailto:rspencer@x10sys.com">Reid Spencer</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2009-02-25 23:44:16 -0800 (Wed, 25 Feb 2009) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 </body>
 </html>

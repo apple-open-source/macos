@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2009, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -39,6 +39,11 @@ static void TestSpelloutNumberParse(void);
 static void TestSignificantDigits(void);
 
 /**
+ * The function used to test Number format API rounding with significant digits
+ **/
+static void TestSigDigRounding(void);
+
+/**
  * The function used to test the Number format API with padding
  **/
 static void TestNumberFormatPadding(void);
@@ -60,6 +65,10 @@ static void TestRBNFFormat(void);
  **/
 static void TestCurrencyRegression(void);
 
+/**
+ * Test strict parsing of "0"
+ **/
+static void TestParseZero(void);
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

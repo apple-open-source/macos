@@ -57,7 +57,7 @@
 #include "RASSchemaDefinitions.h"
 #include "cf_utils.h"
 
-
+static u_char *empty_str = (u_char*)"";
 
 static int process_interface_prefs(struct vpn_params *params);
 static int process_ipv4_prefs(struct vpn_params *params);
@@ -82,7 +82,7 @@ void ppp_process_options(struct vpn_params *params)
 int ppp_process_prefs(struct vpn_params *params)
 {
 
-    char 			pathStr[MAXPATHLEN];
+    u_char 			pathStr[MAXPATHLEN];
     u_int32_t		len;
 	int				i;
       
@@ -115,9 +115,9 @@ int ppp_process_prefs(struct vpn_params *params)
     // they can override what have been specified by the prefs file
     // be careful to the conflicts on options
 	len = sizeof(pathStr);
-    get_str_option(params->serverRef, kRASEntPPP, kRASPropUserDefinedName, pathStr, &len, "");
+    get_str_option(params->serverRef, kRASEntPPP, kRASPropUserDefinedName, pathStr, sizeof(pathStr), &len, empty_str);
     if (pathStr[0])
-        addstrparam(params->exec_args, &params->next_arg_index, "call", pathStr);
+        addstrparam(params->exec_args, &params->next_arg_index, "call", (char*)pathStr);
 
     return 0;
 
@@ -188,7 +188,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
     CFStringRef		ipstr = 0, ipstr2 = 0;
     CFDictionaryRef	dict;
     char 		str[MAXPATHLEN];
-    int 		i, nb, len;
+    uint32_t 		i, nb, len;
     char		ipcstr[100], ipcstr2[100], ip_addr[100], ip_addr2[100];
     char		*ip, *ip2;
 
@@ -197,7 +197,7 @@ static int process_ipv4_prefs(struct vpn_params *params)
     
         // get server side address
 		len = sizeof(str);
-        get_array_option(params->serverRef, kRASEntIPv4, kRASPropIPv4Addresses, 0, str, &len, "");
+        get_array_option(params->serverRef, kRASEntIPv4, kRASPropIPv4Addresses, 0, (u_char*)str, sizeof(str), &len, empty_str);
         if (str[0] == 0) {
             // get the address of the default interface
             ipstr = CopyDefaultIPAddress();
@@ -370,7 +370,7 @@ static int process_ppp_prefs(struct vpn_params *params)
         addparam(params->exec_args, &params->next_arg_index, "debug");
 
 	len = sizeof(optStr);
-    get_str_option(params->serverRef, kRASEntPPP, kRASPropPPPLogfile, optStr, &len, "");
+    get_str_option(params->serverRef, kRASEntPPP, kRASPropPPPLogfile, (u_char*)optStr, sizeof(optStr), &len, empty_str);
     if (optStr[0]) {
         // if logfile start with /, it's a full path
         // otherwise it's relative to the logs folder (convention)
@@ -503,7 +503,7 @@ static int process_ppp_prefs(struct vpn_params *params)
         // even if CCP is enabled in the configuration.
         // Will be revisited when addition compression modules and
         // authentication modules will be added 
-        //&& !ppp_getoptval(ppp, opts, PPP_OPT_AUTH_PROTO, &lval, &len, service) 
+        //&& !ppp_getoptval(ppp, opts, PPP_OPT_AUTH_PROTO, &lval, sizeof(lval), &len, service) 
         //&& (lval == OPT_AUTH_PROTO_DEF)) {
         if ((dict = CFDictionaryGetValue(params->serverRef, kRASEntPPP)) != 0) {
             array = CFDictionaryGetValue(dict, kRASPropPPPCCPProtocols);
@@ -604,7 +604,8 @@ static int process_ppp_prefs(struct vpn_params *params)
 		
 		i = 0;
 		do {
-			lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorEAPPlugins, i++, pathStr, &len, "");
+			lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorEAPPlugins, 
+									i++, (u_char*)pathStr, sizeof(pathStr), &len, empty_str);
 			if (pathStr[0]) {
 				strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
 				if (!plugin_exists(pathStr)) {
@@ -633,7 +634,8 @@ static int process_ppp_prefs(struct vpn_params *params)
     i = 0;
     do {
 		len = sizeof(pathStr);
-       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorPlugins, i++, pathStr, &len, "");
+       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorPlugins, 
+							   i++, (u_char*)pathStr, sizeof(pathStr), &len, empty_str);
         if (pathStr[0]) {
             strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
@@ -649,7 +651,8 @@ static int process_ppp_prefs(struct vpn_params *params)
     i = 0;
     do {
  		len = sizeof(pathStr);
-       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorACLPlugins, i++, pathStr, &len, "");
+       lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPAuthenticatorACLPlugins, 
+							   i++, (u_char*)pathStr, sizeof(pathStr), &len, empty_str);
         if (pathStr[0]) {
             strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
@@ -665,7 +668,8 @@ static int process_ppp_prefs(struct vpn_params *params)
     i = 0;
     do {
 		len = sizeof(pathStr);
-        lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPPlugins, i++, pathStr, &len, "");
+        lval = get_array_option(params->serverRef, kRASEntPPP, kRASPropPPPPlugins, 
+								i++, (u_char*)pathStr, sizeof(pathStr), &len, empty_str);
         if (pathStr[0]) {
             strlcat(pathStr, ".ppp", sizeof(pathStr));	// add plugin suffix
             if (!plugin_exists(pathStr)) {
@@ -715,8 +719,9 @@ int ppp_check_conflicts(struct vpn_params *params)
                             CFRelease(ref);
                             break;
                         }
-                        CFRelease(ref);
                     }
+                    if (ref)
+                        CFRelease(ref);
                 }
             }
             CFRelease(array);
@@ -761,7 +766,6 @@ int ppp_kill_orphans(struct vpn_params* params)
                             if (CFStringFindAndReplace(mutable_key, kSCEntNetInterface, kSCEntNetPPP, 
                                     CFRangeMake(0, CFStringGetLength(mutable_key)), kCFCompareBackwards | kCFCompareAnchored)) {
                                 ppp_dict = SCDynamicStoreCopyValue(params->storeRef, mutable_key);
-                                CFRelease(mutable_key);
                                 if (isDictionary(ppp_dict)) {
                                     pidRef = CFDictionaryGetValue(ppp_dict, CFSTR("pid"));
                                     if (isNumber(pidRef))
@@ -771,6 +775,8 @@ int ppp_kill_orphans(struct vpn_params* params)
                                 if (ppp_dict)
                                     CFRelease(ppp_dict);
                             }
+                            if (mutable_key)
+                                CFRelease(&mutable_key);
                         }
                     }
                     if (interface_dict)

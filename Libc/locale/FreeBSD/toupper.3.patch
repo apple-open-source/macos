@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/toupper.3	2004-11-25 11:38:20.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/toupper.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -40,14 +40,24 @@
+--- toupper.3.bsdnew	2009-11-10 13:13:11.000000000 -0800
++++ toupper.3	2009-11-10 13:52:49.000000000 -0800
+@@ -36,14 +36,24 @@
  .Dt TOUPPER 3
  .Os
  .Sh NAME
@@ -27,15 +27,8 @@
  .Sh DESCRIPTION
  The
  .Fn toupper
-@@ -56,17 +66,25 @@
- For single C
- .Va char Ns s
- locales (see
--.Xr multibyte 3 )
-+.Xr multibyte 3 ) ,
- the value of the argument is
- representable as an
- .Li unsigned char
+@@ -53,11 +63,19 @@ The argument must be representable as an
+ .Vt "unsigned char"
  or the value of
  .Dv EOF .
 +.Pp
@@ -55,10 +48,10 @@
  .Sh COMPATIBILITY
  The
  .Bx 4.4
-@@ -81,7 +99,8 @@
+@@ -71,7 +89,8 @@ function should be used instead.
+ .Sh SEE ALSO
  .Xr ctype 3 ,
  .Xr isupper 3 ,
- .Xr multibyte 3 ,
 -.Xr towupper 3
 +.Xr towupper 3 ,
 +.Xr xlocale 3

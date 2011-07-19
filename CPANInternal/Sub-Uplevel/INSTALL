@@ -1,0 +1,18 @@
+INSTALLATION 
+
+If Module::Build is installed (preferred):
+
+    perl Build.PL
+    perl Build
+    perl Build test
+    perl Build install
+
+Otherwise, using a Makefile:
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+If you are on a Windows machine you should use 'nmake' or 'dmake' rather than
+'make'.

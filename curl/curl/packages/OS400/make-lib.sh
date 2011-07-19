@@ -2,7 +2,6 @@
 #
 #       libcurl compilation script for the OS/400.
 #
-# $Id: make-lib.sh,v 1.5 2009-02-16 15:33:17 patrickm Exp $
 
 SCRIPTDIR=`dirname "${0}"`
 . "${SCRIPTDIR}/initscript.sh"
@@ -13,7 +12,7 @@ cd "${TOPDIR}/lib"
 
 echo '#pragma comment(user, "libcurl version '"${LIBCURL_VERSION}"'")' > os400.c
 echo '#pragma comment(date)' >> os400.c
-echo '#pragma comment(copyright, "Copyright (C) 1998-2009 Daniel Stenberg et al. OS/400 version by P. Monnerat")' >> os400.c
+echo '#pragma comment(copyright, "Copyright (C) 1998-2010 Daniel Stenberg et al. OS/400 version by P. Monnerat")' >> os400.c
 make_module     OS400           os400.c
 LINK=                           # No need to rebuild service program yet.
 MODULES=

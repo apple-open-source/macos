@@ -287,6 +287,16 @@ ipsec_error_to_string (int status)
             return CONSTSTR("Edge Activation Error");
         case IPSEC_IDLETIMEOUT_ERROR:
             return CONSTSTR("Idle Timeout");
+		case IPSEC_CLIENT_CERTIFICATE_PREMATURE:
+			return CONSTSTR("Client Certificate premature");
+		case IPSEC_CLIENT_CERTIFICATE_EXPIRED:
+			return CONSTSTR("Client Certificate expired");
+		case IPSEC_SERVER_CERTIFICATE_PREMATURE:
+			return CONSTSTR("Server Certificate premature");
+		case IPSEC_SERVER_CERTIFICATE_EXPIRED:
+			return CONSTSTR("Server Certificate expired");
+		case IPSEC_SERVER_CERTIFICATE_INVALID_ID:
+			return CONSTSTR("Server Certificate identity incorrect");
     }
 
     return CONSTSTR(NULL);
@@ -318,7 +328,8 @@ sessionGetReasonString (struct service *serv,
             } else if (serv->u.ppp.laststatus) {
                 snprintf(tmp_buf, sizeof(tmp_buf), "Error %d", serv->u.ppp.laststatus);
             } else {
-                snprintf(tmp_buf, sizeof(tmp_buf), "");
+				*tmp_buf = 0;
+                //snprintf(tmp_buf, sizeof(tmp_buf), "");
             }
             if (dev_err) {
                 snprintf(reason_buf, reason_bufsize, "%s : %s", tmp_buf, dev_err);                
@@ -403,6 +414,7 @@ sessionGetConnectionDuration (struct service *serv)
     }
 }
 
+#if 0
 static
 void
 sessionLogEvent (const char *domain, const char *event_msg)
@@ -419,6 +431,7 @@ sessionLogEvent (const char *domain, const char *event_msg)
 	asl_log(NULL, m, ASL_LEVEL_NOTICE, "SCNCController: %s", event_msg);
 	asl_free(m);
 }
+#endif
 
 static void
 sessionTracerLogStop (const char *domain, int caused_by_failure, const char *reason, u_int32_t established, u_int32_t duration)
@@ -460,15 +473,16 @@ sessionTracerLogStop (const char *domain, int caused_by_failure, const char *rea
 void
 sessionTracerStop (struct service *serv)
 {
-	if (serv) {
+	if (serv && (serv->connecttime || serv->establishtime)) {
         int established = sessionCheckIfEstablished(serv);
+		u_int32_t duration = sessionGetConnectionDuration(serv);
         char reason_buf[512];        
 
         sessionTracerLogStop((established)? sessionGetConnectionDomain(serv) : sessionGetConnectionLessDomain(serv),
                              sessionCheckStatusForFailure(serv),
                              (sessionGetReasonString(serv, reason_buf, sizeof(reason_buf)) == 0)? reason_buf : NULL,
                              established,
-                             sessionGetConnectionDuration(serv));
+                             duration);
         // may be log failure stats?
         // cleanup the messagetracer state info
         serv->establishtime = 0;
@@ -482,6 +496,11 @@ sessionTracerLogEstablished (struct service *serv)
     if (serv) {
         aslmsg      m;
         const char *domain = sessionGetConnectionLessDomain(serv);
+
+        if (sessionCheckIfEstablished(serv)) {
+            // already established no need to log (mostly here due to sleep-wake)
+            return;
+        }
 
         sessionIsEstablished(serv);
 

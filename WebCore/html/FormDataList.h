@@ -23,35 +23,13 @@
 
 #include "Blob.h"
 #include "TextEncoding.h"
+#include <wtf/Forward.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
 
 class FormDataList {
 public:
-    FormDataList(const TextEncoding&);
-
-    void appendData(const String& key, const String& value)
-    {
-        appendString(key);
-        appendString(value);
-    }
-    void appendData(const String& key, const WTF::CString& value)
-    {
-        appendString(key);
-        appendString(value);
-    }
-    void appendData(const String& key, int value)
-    {
-        appendString(key);
-        appendString(String::number(value));
-    }
-    void appendBlob(const String& key, PassRefPtr<Blob> blob)
-    {
-        appendString(key);
-        m_list.append(blob);
-    }
-
     class Item {
     public:
         Item() { }
@@ -66,15 +44,39 @@ public:
         RefPtr<Blob> m_blob;
     };
 
-    const Vector<Item>& list() const { return m_list; }
+    FormDataList(const TextEncoding&);
+
+    void appendData(const String& key, const String& value)
+    {
+        appendString(key);
+        appendString(value);
+    }
+    void appendData(const String& key, const CString& value)
+    {
+        appendString(key);
+        appendString(value);
+    }
+    void appendData(const String& key, int value)
+    {
+        appendString(key);
+        appendString(String::number(value));
+    }
+    void appendBlob(const String& key, PassRefPtr<Blob> blob)
+    {
+        appendString(key);
+        appendBlob(blob);
+    }
+
+    const Vector<Item>& items() const { return m_items; }
     const TextEncoding& encoding() const { return m_encoding; }
 
 private:
-    void appendString(const WTF::CString&);
+    void appendString(const CString&);
     void appendString(const String&);
+    void appendBlob(PassRefPtr<Blob>);
 
     TextEncoding m_encoding;
-    Vector<Item> m_list;
+    Vector<Item> m_items;
 };
 
 } // namespace WebCore

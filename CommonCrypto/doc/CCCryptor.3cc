@@ -212,6 +212,8 @@ The following values may be returned as a status of type
 .Pp
 .Er kCCUnimplemented
 - Function not implemented for the current algorithm.
+.Sh HISTORY
+These functions are available in OS X 10.5 and later.
 .Sh SEE ALSO
 .Xr CCHmac 3cc ,
 .Xr CC_MD5 3cc ,

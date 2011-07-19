@@ -27,6 +27,8 @@
 #include <unicode/ubrk.h>
 #include <wtf/Assertions.h>
 
+using namespace std;
+
 namespace WebCore {
 
 static TextBreakIterator* setUpIterator(bool& createdIterator, TextBreakIterator*& iterator,
@@ -68,12 +70,34 @@ TextBreakIterator* wordBreakIterator(const UChar* string, int length)
         staticWordBreakIterator, UBRK_WORD, string, length);
 }
 
-TextBreakIterator* lineBreakIterator(const UChar* string, int length)
+static bool createdLineBreakIterator = false;
+static TextBreakIterator* staticLineBreakIterator;
+
+TextBreakIterator* acquireLineBreakIterator(const UChar* string, int length)
 {
-    static bool createdLineBreakIterator = false;
-    static TextBreakIterator* staticLineBreakIterator;
-    return setUpIterator(createdLineBreakIterator,
-        staticLineBreakIterator, UBRK_LINE, string, length);
+    TextBreakIterator* lineBreakIterator = 0;
+    if (!createdLineBreakIterator || staticLineBreakIterator) {
+        setUpIterator(createdLineBreakIterator, staticLineBreakIterator, UBRK_LINE, string, length);
+        swap(staticLineBreakIterator, lineBreakIterator);
+    }
+
+    if (!lineBreakIterator) {
+        bool createdNewLineBreakIterator = false;
+        setUpIterator(createdNewLineBreakIterator, lineBreakIterator, UBRK_LINE, string, length);
+    }
+
+    return lineBreakIterator;
+}
+
+void releaseLineBreakIterator(TextBreakIterator* iterator)
+{
+    ASSERT(createdLineBreakIterator);
+    ASSERT(iterator);
+
+    if (!staticLineBreakIterator)
+        staticLineBreakIterator = iterator;
+    else
+        ubrk_close(reinterpret_cast<UBreakIterator*>(iterator));
 }
 
 TextBreakIterator* sentenceBreakIterator(const UChar* string, int length)
@@ -124,7 +148,6 @@ bool isTextBreak(TextBreakIterator* iterator, int position)
     return ubrk_isBoundary(reinterpret_cast<UBreakIterator*>(iterator), position);
 }
 
-#ifndef BUILDING_ON_TIGER
 static TextBreakIterator* setUpIteratorWithRules(bool& createdIterator, TextBreakIterator*& iterator,
     const char* breakRules, const UChar* string, int length)
 {
@@ -149,14 +172,9 @@ static TextBreakIterator* setUpIteratorWithRules(bool& createdIterator, TextBrea
 
     return iterator;
 }
-#endif // BUILDING_ON_TIGER
 
 TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
 {
-#ifdef BUILDING_ON_TIGER
-    // ICU 3.2 cannot compile the below rules.
-    return characterBreakIterator(string, length);
-#else
     // This rule set is based on character-break iterator rules of ICU 4.0
     // <http://source.icu-project.org/repos/icu/icu/tags/release-4-0/source/data/brkitr/char.txt>.
     // The major differences from the original ones are listed below:
@@ -236,7 +254,6 @@ TextBreakIterator* cursorMovementIterator(const UChar* string, int length)
     static bool createdCursorMovementIterator = false;
     static TextBreakIterator* staticCursorMovementIterator;
     return setUpIteratorWithRules(createdCursorMovementIterator, staticCursorMovementIterator, kRules, string, length);
-#endif // BUILDING_ON_TIGER
 }
 
 }

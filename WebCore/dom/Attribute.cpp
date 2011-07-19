@@ -27,6 +27,7 @@
 #include "Attr.h"
 #include "Element.h"
 #include <wtf/HashMap.h>
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
@@ -78,10 +79,9 @@ void Attribute::bindAttr(Attr* attr)
 
 void Attribute::unbindAttr(Attr* attr)
 {
-    UNUSED_PARAM(attr);
     ASSERT(m_hasAttr);
     ASSERT(attributeAttrMap().contains(this));
-    ASSERT(attributeAttrMap().get(this) == attr);
+    ASSERT_UNUSED(attr, attributeAttrMap().get(this) == attr);
     attributeAttrMap().remove(this);
     m_hasAttr = false;
 }

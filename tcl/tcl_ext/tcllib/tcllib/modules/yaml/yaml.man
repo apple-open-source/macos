@@ -1,10 +1,10 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin yaml n 0.3.3]
+[manpage_begin yaml n 0.3.5]
 [copyright {2008 KATO Kanryu <kanryu6@users.sourceforge.net>}]
 [moddesc   {YAML processing}]
 [titledesc {YAML Format Encoder/Decoder}]
 [require Tcl 8.4]
-[require yaml [opt 0.3.3]]
+[require yaml [opt 0.3.5]]
 [description]
 [para]
 

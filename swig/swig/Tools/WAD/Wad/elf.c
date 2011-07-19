@@ -28,7 +28,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/elf.c,v 1.14 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: elf.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 #ifdef WAD_SOLARIS
 #include <sys/elf.h>

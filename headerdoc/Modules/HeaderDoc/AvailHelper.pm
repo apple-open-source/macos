@@ -3,7 +3,7 @@
 # Class name: AvailHelper
 # Synopsis: Helper code for availability
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:57 $
 # 
 # Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,7 +27,31 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*!
+#     @header
+#     @abstract
+#         Generates hash tables for automatic availability.
+#     @discussion
+#         This file contains the <code>AvailHelper</code> class, which is used
+#         for generating hash tables related to availability
+#         macros.
+#
+#         See the class documentation below for more details.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         <code>AvailHelper</code> Class
+#     @discussion
+#         The <code>AvailHelper</code> class generates hash tables related
+#         to availability macros.
+#
+#  */
 package HeaderDoc::AvailHelper;
+
+my $HD_VERSION_MAX = 100;
 
 BEGIN {
 	foreach (qw(Mac::Files)) {
@@ -36,14 +60,22 @@ BEGIN {
 }
 use HeaderDoc::HeaderElement;
 use HeaderDoc::DBLookup;
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash resolveLink quote sanitize);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash sanitize);
 use File::Basename;
 use Cwd;
 use Carp qw(cluck);
 
 use strict;
 use vars qw(@ISA);
-$HeaderDoc::AvailHelper::VERSION = '$Revision: 1.4 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::AvailHelper::VERSION = '$Revision: 1298084577 $';
 
 # Inheritance
 # @ISA = qw(HeaderDoc::HeaderElement);
@@ -64,11 +96,19 @@ my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
 # $moy++;
 $year += 1900;
-my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year);
+my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year, "UTF-8");
 ######################################################################
 
 my $depth = 0;
 
+# /*!
+#     @abstract
+#         Creates a new <code>AvailHelper</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::AvailHelper->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param; 
@@ -84,16 +124,27 @@ sub new {
     my $_versionHash = _initVersionHash();
     my $_versionStringHash = _initVersionStringHash();
 
+    # /*!
+    #     @abstract
+    #         Initializes an instance of an <code>AvailHelper</code> object.
+    #     @param self
+    #         The object to initialize.
+    #  */
     sub _initialize
     {
 	my ($self) = shift;
     }
 
+    # /*!
+    #     @abstract
+    #         Initializes and returns a hash that maps availabity
+    #               tokens to version numbers.
+    #  */
     sub _initVersionHash()
     {
 	my %hash = ();
 	my $x = 0;
-	while ($x <= 9) {
+	while ($x <= $HD_VERSION_MAX) {
 		my $string = "MAC_OS_X_VERSION_10_".$x;
 		my $value = 1000 + (10 * $x);
 		# print STDERR "STRING: $string VALUE: $value\n";
@@ -102,11 +153,17 @@ sub new {
 	}
 	return \%hash;
     }
+
+    # /*!
+    #     @abstract
+    #         Initializes and returns a hash that maps version
+    #         numbers to human-readable availability strings.
+    #  */
     sub _initVersionStringHash()
     {
 	my %hash = ();
 	my $x = 0;
-	while ($x <= 9) {
+	while ($x <= $HD_VERSION_MAX) {
 		my $string = "Mac OS X v10.".$x;
 		my $value = 1000 + (10 * $x);
 		$hash{$value} = $string;
@@ -115,6 +172,15 @@ sub new {
 	return \%hash;
     }
 
+    # /*!
+    #     @abstract
+    #         Converts an availability token to a version number.
+    #     @param self
+    #         An <code>AvailHelper</code> object.
+    #     @param string
+    #         The version token to convert into a version
+    #         number code.
+    #  */
     sub versionnum
     {
 	my $self = shift;
@@ -126,6 +192,16 @@ sub new {
 	}
 	return $string;
     }
+
+
+    # /*!
+    #     @abstract
+    #         Converts a version number to a human-readable availability string.
+    #     @param self
+    #         An <code>AvailHelper</code> object.
+    #     @param num
+    #         The version number code to convert into a version string.
+    #  */
     sub versionstring
     {
 	my $self = shift;
@@ -139,6 +215,19 @@ sub new {
     }
 }
 
+# /*!
+#     @abstract
+#         Tears apart an availbility macro token string and
+#         converts to a human-readable availability string.
+#     @param self
+#         An <code>AvailHelper</code> object.
+#     @param string
+#         A simple availability string (the ones without arguments).
+#     @param fullpath
+#         The path of the file where this string appears.
+#     @param line
+#         The line number in the file where this string appears.
+#  */
 sub parseString
 {
 	my $self = shift;

@@ -1,9 +1,9 @@
 /*
  * "$Id: conf.h 7935 2008-09-11 01:54:11Z mike $"
  *
- *   Configuration file definitions for CUPS.
+ *   Configuration file definitions for the CUPS scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -183,8 +183,6 @@ VAR int			MaxClients		VALUE(100),
 					/* Maximum number of copies per job */
 			MaxLogSize		VALUE(1024 * 1024),
 					/* Maximum size of log files */
-			MaxPrinterHistory	VALUE(10),
-					/* Maximum printer state history */
 			MaxRequestSize		VALUE(0),
 					/* Maximum size of IPP requests */
 			HostNameLookups		VALUE(FALSE),
@@ -219,8 +217,10 @@ VAR int			MaxClients		VALUE(100),
 					/* Format of printcap file? */
 			DefaultShared		VALUE(TRUE),
 					/* Share printers by default? */
-			MultipleOperationTimeout VALUE(DEFAULT_TIMEOUT);
+			MultipleOperationTimeout VALUE(DEFAULT_TIMEOUT),
 					/* multiple-operation-time-out value */
+			WebInterface		VALUE(CUPS_DEFAULT_WEBIF);
+					/* Enable the web interface? */
 VAR cups_file_t		*AccessFile		VALUE(NULL),
 					/* Access log file */
 			*ErrorFile		VALUE(NULL),
@@ -252,11 +252,6 @@ VAR int			LaunchdTimeout		VALUE(DEFAULT_KEEPALIVE);
 					/* Time after which an idle cupsd will exit */
 #endif /* HAVE_LAUNCHD */
 
-#ifdef __APPLE__
-VAR int			AppleQuotas		VALUE(TRUE);
-					/* Use Apple PrintService Quotas instead of CUPS quotas */
-#endif  /* __APPLE__ */
-
 #ifdef HAVE_AUTHORIZATION_H
 VAR char		*SystemGroupAuthKey	VALUE(NULL);
 					/* System group auth key */
@@ -268,12 +263,16 @@ VAR char		*SystemGroupAuthKey	VALUE(NULL);
  */
 
 extern void	cupsdAddAlias(cups_array_t *aliases, const char *name);
+extern int	cupsdCheckLogFile(cups_file_t **lf, const char *logname);
 extern int	cupsdCheckPermissions(const char *filename,
 		                      const char *suffix, int mode,
 	 			      int user, int group, int is_dir,
 				      int create_dir);
+extern int	cupsdCheckProgram(const char *filename, cupsd_printer_t *p);
 extern void	cupsdFreeAliases(cups_array_t *aliases);
 extern char	*cupsdGetDateTime(struct timeval *t, cupsd_time_t format);
+extern void	cupsdLogFCMessage(void *context, _cups_fc_result_t result,
+		                  const char *message);
 #ifdef HAVE_GSSAPI
 extern int	cupsdLogGSSMessage(int level, int major_status,
 		                   int minor_status,

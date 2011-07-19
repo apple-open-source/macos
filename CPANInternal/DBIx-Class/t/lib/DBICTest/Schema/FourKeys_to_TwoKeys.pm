@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::FourKeys_to_TwoKeys;
 
-use base 'DBIx::Class::Core';
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('fourkeys_to_twokeys');
 __PACKAGE__->add_columns(
@@ -12,6 +12,7 @@ __PACKAGE__->add_columns(
   't_artist' => { data_type => 'integer' },
   't_cd' => { data_type => 'integer' },
   'autopilot' => { data_type => 'character' },
+  'pilot_sequence' => { data_type => 'integer', is_nullable => 1 },
 );
 __PACKAGE__->set_primary_key(
   qw/f_foo f_bar f_hello f_goodbye t_artist t_cd/

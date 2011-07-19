@@ -12,10 +12,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Target/SubtargetFeature.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Streams.h"
 #include <algorithm>
-#include <ostream>
 #include <cassert>
 #include <cctype>
 using namespace llvm;
@@ -67,7 +67,7 @@ static void Split(std::vector<std::string> &V, const std::string &S) {
   while (true) {
     // Find the next comma
     size_t Comma = S.find(',', Pos);
-    // If no comma found then the the rest of the string is used
+    // If no comma found then the rest of the string is used
     if (Comma == std::string::npos) {
       // Add string to vector
       V.push_back(S.substr(Pos));
@@ -145,22 +145,22 @@ static void Help(const SubtargetFeatureKV *CPUTable, size_t CPUTableSize,
   unsigned MaxFeatLen = getLongestEntryLength(FeatTable, FeatTableSize);
 
   // Print the CPU table.
-  cerr << "Available CPUs for this target:\n\n";
+  errs() << "Available CPUs for this target:\n\n";
   for (size_t i = 0; i != CPUTableSize; i++)
-    cerr << "  " << CPUTable[i].Key
+    errs() << "  " << CPUTable[i].Key
          << std::string(MaxCPULen - std::strlen(CPUTable[i].Key), ' ')
          << " - " << CPUTable[i].Desc << ".\n";
-  cerr << "\n";
+  errs() << "\n";
   
   // Print the Feature table.
-  cerr << "Available features for this target:\n\n";
+  errs() << "Available features for this target:\n\n";
   for (size_t i = 0; i != FeatTableSize; i++)
-    cerr << "  " << FeatTable[i].Key
+    errs() << "  " << FeatTable[i].Key
          << std::string(MaxFeatLen - std::strlen(FeatTable[i].Key), ' ')
          << " - " << FeatTable[i].Desc << ".\n";
-  cerr << "\n";
+  errs() << "\n";
   
-  cerr << "Use +feature to enable a feature, or -feature to disable it.\n"
+  errs() << "Use +feature to enable a feature, or -feature to disable it.\n"
        << "For example, llc -mcpu=mycpu -mattr=+feature1,-feature2\n";
   exit(1);
 }
@@ -186,7 +186,7 @@ void SubtargetFeatures::setString(const std::string &Initial) {
 }
 
 
-/// setCPU - Set the CPU string.  Replaces previous setting.  Setting to "" 
+/// setCPU - Set the CPU string.  Replaces previous setting.  Setting to ""
 /// clears CPU.
 void SubtargetFeatures::setCPU(const std::string &String) {
   Features[0] = LowercaseString(String);
@@ -199,9 +199,16 @@ void SubtargetFeatures::setCPUIfNone(const std::string &String) {
   if (Features[0].empty()) setCPU(String);
 }
 
+/// getCPU - Returns current CPU.
+///
+const std::string & SubtargetFeatures::getCPU() const {
+  return Features[0];
+}
+
+
 /// SetImpliedBits - For each feature that is (transitively) implied by this
 /// feature, set it.
-/// 
+///
 static
 void SetImpliedBits(uint32_t &Bits, const SubtargetFeatureKV *FeatureEntry,
                     const SubtargetFeatureKV *FeatureTable,
@@ -276,10 +283,9 @@ uint32_t SubtargetFeatures::getBits(const SubtargetFeatureKV *CPUTable,
         SetImpliedBits(Bits, &FE, FeatureTable, FeatureTableSize);
     }
   } else {
-    cerr << "'" << Features[0]
-         << "' is not a recognized processor for this target"
-         << " (ignoring processor)"
-         << "\n";
+    errs() << "'" << Features[0]
+           << "' is not a recognized processor for this target"
+           << " (ignoring processor)\n";
   }
   // Iterate through each feature
   for (size_t i = 1; i < Features.size(); i++) {
@@ -307,10 +313,9 @@ uint32_t SubtargetFeatures::getBits(const SubtargetFeatureKV *CPUTable,
         ClearImpliedBits(Bits, FeatureEntry, FeatureTable, FeatureTableSize);
       }
     } else {
-      cerr << "'" << Feature
-           << "' is not a recognized feature for this target"
-           << " (ignoring feature)"
-           << "\n";
+      errs() << "'" << Feature
+             << "' is not a recognized feature for this target"
+             << " (ignoring feature)\n";
     }
   }
 
@@ -333,25 +338,46 @@ void *SubtargetFeatures::getInfo(const SubtargetInfoKV *Table,
   if (Entry) {
     return Entry->Value;
   } else {
-    cerr << "'" << Features[0]
-         << "' is not a recognized processor for this target"
-         << " (ignoring processor)"
-         << "\n";
+    errs() << "'" << Features[0]
+           << "' is not a recognized processor for this target"
+           << " (ignoring processor)\n";
     return NULL;
   }
 }
 
 /// print - Print feature string.
 ///
-void SubtargetFeatures::print(std::ostream &OS) const {
-  for (size_t i = 0; i < Features.size(); i++) {
+void SubtargetFeatures::print(raw_ostream &OS) const {
+  for (size_t i = 0, e = Features.size(); i != e; ++i)
     OS << Features[i] << "  ";
-  }
   OS << "\n";
 }
 
 /// dump - Dump feature info.
 ///
 void SubtargetFeatures::dump() const {
-  print(*cerr.stream());
+  print(dbgs());
+}
+
+/// getDefaultSubtargetFeatures - Return a string listing the features
+/// associated with the target triple.
+///
+/// FIXME: This is an inelegant way of specifying the features of a
+/// subtarget. It would be better if we could encode this information
+/// into the IR. See <rdar://5972456>.
+///
+void SubtargetFeatures::getDefaultSubtargetFeatures(const std::string &CPU,
+                                                    const Triple& Triple) {
+  setCPU(CPU);
+
+  if (Triple.getVendor() == Triple::Apple) {
+    if (Triple.getArch() == Triple::ppc) {
+      // powerpc-apple-*
+      AddFeature("altivec");
+    } else if (Triple.getArch() == Triple::ppc64) {
+      // powerpc64-apple-*
+      AddFeature("64bit");
+      AddFeature("altivec");
+    }
+  }
 }

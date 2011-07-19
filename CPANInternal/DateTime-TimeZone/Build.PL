@@ -1,4 +1,7 @@
+use 5.006;
+
 use strict;
+use warnings;
 
 use Module::Build;
 use File::Spec;
@@ -21,14 +24,26 @@ EOF
     exit;
 }
 
-Module::Build->new( module_name => 'DateTime::TimeZone',
-                    author      => 'Dave Rolsky <autarch@urth.org>',
-                    license     => 'perl',
-                    requires    => { 'Params::Validate' => 0.72,
-                                     'Class::Singleton' => 1.03,
-                                     'Pod::Man'    => 1.14,
-                                   },
-                    build_requires => { 'Module::Build' => 0 },
-		    sign        => 1,
-                    create_makefile_pl => 'passthrough',
+my %requires = ( 'Class::Singleton' => 1.03,
+                 'Cwd'              => 3,
+                 'Params::Validate' => 0.72,
+                 'Pod::Man'         => 1.14,
+               );
+
+my %IsWin32 = map { $_ => 1 } qw( MSWin32 NetWare symbian );
+$requires{'Win32::TieRegistry'} = 0
+    if $IsWin32{ $^O };
+
+$requires{'DateTime::TimeZone::HPUX'} = 0
+    if $^O eq 'hpux';
+
+Module::Build->new( module_name        => 'DateTime::TimeZone',
+                    dist_author        => 'Dave Rolsky <autarch@urth.org>',
+                    license            => 'perl',
+                    requires           => \%requires,
+                    build_requires     => { 'Module::Build' => 0 },
+                    sign               => 1,
+                    create_makefile_pl => 'traditional',
+                    create_readme      => 1,
+                    dynamic_config     => 1,
                   )->create_build_script;

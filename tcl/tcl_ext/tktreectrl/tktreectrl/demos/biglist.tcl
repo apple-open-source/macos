@@ -1,6 +1,8 @@
-# RCS: @(#) $Id: biglist.tcl,v 1.14 2006/12/07 03:47:42 treectrl Exp $
+# RCS: @(#) $Id: biglist.tcl,v 1.15 2010/06/12 20:39:21 treectrl Exp $
 
+# A nice feature of the element type "window" is the -clip option.
 set ::clip 1
+
 proc DemoBigList {} {
 
     global BigList
@@ -116,6 +118,12 @@ if {$::clip} {
 	BigListExpandBefore %T %I
     }
 
+    # In this demo there are 100,000 items that display a window element.
+    # It would take a lot of time and memory to create 100,000 Tk windows
+    # all at once when initializing the demo list.
+    # The solution is to assign item styles only when items are actually
+    # visible to the user onscreen.
+    #
     # This binding will assign styles to items when they are displayed and
     # clear the styles when they are no longer displayed.
     $T notify bind $T <ItemVisibility> {
@@ -127,12 +135,12 @@ if {$::clip} {
     set BigList(prev) ""
 
     BigListGetWindowHeight $T
+
+    # When the Tile/Ttk theme changes, recalculate the height of styCitizen
+    # windows.
     if {$::tile} {
 	bind DemoBigList <<ThemeChanged>> {
-	    BigListGetWindowHeight [DemoList]
-	    if {[[DemoList] item id {first visible tag info}] ne ""} {
-		[DemoList] item conf {tag info} -height $BigList(windowHeight)
-	    }
+	    after idle BigListThemeChanged [DemoList]
 	}
     }
 
@@ -163,9 +171,20 @@ if {$::clip} {
     return
 }
 
+# BigListGetWindowHeight
+#
+# Calculate and store the height of one of the windows used to display citizen
+# information.  Since item styles are assigned on-the-fly (see the
+# BigListItemVisibility procedure) we need to know the height an item would
+# have if it had the "styCitizen" style assigned so the scrollbars are set
+# properly.
+#
+# Arguments:
+# T		The treectrl widget.
+
 proc BigListGetWindowHeight {T} {
     global BigList
-    # Create a new window just to get the requested size. This will be the
+    # Create a new window just to get the requested size.  This will be the
     # value of the item -height option for some items.
     set w [BigListNewWindow $T root]
     update idletasks
@@ -180,6 +199,19 @@ if {$::clip} {
     BigListFreeWindow $T $w
     return
 }
+
+# BigListExpandBefore --
+#
+# Handle the <Expand-before> event.  If the item already has child items,
+# then nothing happens.  Otherwise 1 or more items are created as children
+# of the item being expanded.
+#
+# Take advantage of the <Expand-before> event to create child items
+# immediately prior to expanding a parent item.
+#
+# Arguments:
+# T		The treectrl widget.
+# I		The item whose children are about to be displayed.
 
 proc BigListExpandBefore {T I} {
 
@@ -221,6 +253,19 @@ proc BigListExpandBefore {T I} {
 
     return
 }
+
+# BigListItemVisibility --
+#
+# Handle the <ItemVisibility> event.  Item styles are assigned or cleared
+# when item visibility changes.
+#
+# Take advantage of the <ItemVisibility> event to update the appearance of
+# items just before they become visible onscreen.
+#
+# Arguments:
+# T		The treectrl widget.
+# visible	List of items that are now visible.
+# hidden	List of items that are no longer visible.
 
 proc BigListItemVisibility {T visible hidden} {
 
@@ -407,3 +452,11 @@ proc BigListMotion {w x y} {
     return
 }
 
+proc BigListThemeChanged {T} {
+    global BigList
+    BigListGetWindowHeight $T
+    if {[$T item id {first visible tag info}] ne ""} {
+	$T item conf {tag info} -height $BigList(windowHeight)
+    }
+    return
+}

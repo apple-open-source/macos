@@ -97,7 +97,9 @@ static struct sockaddr_in *sintab[] = {
 static void
 in_getaddr(const char *s, int which)
 {
+#ifndef MIN
 #define	MIN(a,b)	((a)<(b)?(a):(b))
+#endif /* MIN */
 	struct sockaddr_in *sin = sintab[which];
 	struct hostent *hp;
 	struct netent *np;

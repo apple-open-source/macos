@@ -37,13 +37,14 @@
 #include "Logging.h"
 #include "SQLTransactionClient.h"
 #include "SQLTransactionCoordinator.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 DatabaseThread::DatabaseThread()
     : m_threadID(0)
-    , m_transactionClient(new SQLTransactionClient())
-    , m_transactionCoordinator(new SQLTransactionCoordinator())
+    , m_transactionClient(adoptPtr(new SQLTransactionClient()))
+    , m_transactionCoordinator(adoptPtr(new SQLTransactionCoordinator()))
     , m_cleanupSync(0)
 {
     m_selfRef = this;
@@ -75,8 +76,15 @@ void DatabaseThread::requestTermination(DatabaseTaskSynchronizer *cleanupSync)
     m_queue.kill();
 }
 
-bool DatabaseThread::terminationRequested() const
+bool DatabaseThread::terminationRequested(DatabaseTaskSynchronizer* taskSynchronizer) const
 {
+#ifndef NDEBUG
+    if (taskSynchronizer)
+        taskSynchronizer->setHasCheckedForTermination();
+#else
+    UNUSED_PARAM(taskSynchronizer);
+#endif
+
     return m_queue.killed();
 }
 
@@ -113,14 +121,14 @@ void* DatabaseThread::databaseThread()
         openSetCopy.swap(m_openDatabaseSet);
         DatabaseSet::iterator end = openSetCopy.end();
         for (DatabaseSet::iterator it = openSetCopy.begin(); it != end; ++it)
-           (*it)->close(Database::RemoveDatabaseFromContext);
+            (*it)->close();
     }
 
     // Detach the thread so its resources are no longer of any concern to anyone else
     detachThread(m_threadID);
 
     DatabaseTaskSynchronizer* cleanupSync = m_cleanupSync;
-    
+
     // Clear the self refptr, possibly resulting in deletion
     m_selfRef = 0;
 
@@ -148,11 +156,13 @@ void DatabaseThread::recordDatabaseClosed(Database* database)
 
 void DatabaseThread::scheduleTask(PassOwnPtr<DatabaseTask> task)
 {
+    ASSERT(!task->hasSynchronizer() || task->hasCheckedForTermination());
     m_queue.append(task);
 }
 
 void DatabaseThread::scheduleImmediateTask(PassOwnPtr<DatabaseTask> task)
 {
+    ASSERT(!task->hasSynchronizer() || task->hasCheckedForTermination());
     m_queue.prepend(task);
 }
 

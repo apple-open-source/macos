@@ -10,7 +10,8 @@ INSTHDRS += ${.CURDIR}/darwin/libproc.h
 
 LOCALHDRS += ${.CURDIR}/darwin/dirhelper.defs \
 	${.CURDIR}/darwin/dirhelper_priv.h \
-	${.CURDIR}/darwin/libproc.h
+	${.CURDIR}/darwin/libproc.h \
+	${.CURDIR}/darwin/libproc_internal.h 
 MISRCS += ${DARWINMIGSRCS} _dirhelper.c libproc.c proc_listpidspath.c
 
 .ifndef LP64

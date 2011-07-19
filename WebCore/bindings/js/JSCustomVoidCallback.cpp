@@ -32,7 +32,7 @@
 #include "Frame.h"
 #include "JSCallbackData.h"
 #include "JSDOMWindowCustom.h"
-#include "ScriptController.h"
+#include "SecurityOrigin.h"
 #include <runtime/JSLock.h>
 #include <wtf/MainThread.h>
 
@@ -42,12 +42,16 @@ using namespace JSC;
     
 JSCustomVoidCallback::JSCustomVoidCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
     : m_data(new JSCallbackData(callback, globalObject))
+    , m_scriptExecutionContext(globalObject->scriptExecutionContext())
 {
 }
 
 JSCustomVoidCallback::~JSCustomVoidCallback()
 {
-    callOnMainThread(JSCallbackData::deleteData, m_data);
+    if (m_scriptExecutionContext->isContextThread())
+        delete m_data;
+    else
+        m_scriptExecutionContext->postTask(DeleteCallbackDataTask::create(m_data));
 #ifndef NDEBUG
     m_data = 0;
 #endif

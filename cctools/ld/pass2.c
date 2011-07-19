@@ -109,7 +109,7 @@ static void print_block_list(void);
 #endif /* DEBUG */
 static struct block *get_block(void);
 static void remove_block(struct block *block);
-static unsigned long trunc(unsigned long v, unsigned long r);
+static unsigned long trnc(unsigned long v, unsigned long r);
 #endif /* !defined(RLD) */
 static void create_output_sections_array(void);
 static void set_SG_NORELOC_flags(void);
@@ -780,11 +780,11 @@ printf("in output_flush() offset = %lu size = %lu\n", offset, size);
 		else
 		    write_offset =before->written_offset + before->written_size;
 		if(after->written_size == 0)
-		    write_size = trunc(after->offset + after->size -
-				       write_offset, host_pagesize);
+		    write_size = trnc(after->offset + after->size -
+				      write_offset, host_pagesize);
 		else
-		    write_size = trunc(after->written_offset - write_offset,
-				       host_pagesize);
+		    write_size = trnc(after->written_offset - write_offset,
+				      host_pagesize);
 		if(write_size != 0){
 		    before->written_size += write_size;
 		}
@@ -804,7 +804,7 @@ printf("in output_flush() offset = %lu size = %lu\n", offset, size);
 		 * before the new area.
 		 */
 		write_offset = before->written_offset + before->written_size;
-		write_size = trunc(offset + size - write_offset, host_pagesize);
+		write_size = trnc(offset + size - write_offset, host_pagesize);
 		if(write_size != 0)
 		    before->written_size += write_size;
 		before->size += size;
@@ -821,13 +821,13 @@ printf("in output_flush() offset = %lu size = %lu\n", offset, size);
 	     * (if any) ends.  The new area is folded into this block after the
 	     * new area.
 	     */
-	    write_offset = round(offset, host_pagesize);
+	    write_offset = rnd(offset, host_pagesize);
 	    if(after->written_size == 0)
-		write_size = trunc(after->offset + after->size - write_offset,
-				   host_pagesize);
+		write_size = trnc(after->offset + after->size - write_offset,
+				  host_pagesize);
 	    else
-		write_size = trunc(after->written_offset - write_offset,
-				   host_pagesize);
+		write_size = trnc(after->written_offset - write_offset,
+				  host_pagesize);
 	    if(write_size != 0){
 		after->written_offset = write_offset;
 		after->written_size += write_size;
@@ -845,8 +845,8 @@ printf("in output_flush() offset = %lu size = %lu\n", offset, size);
 	     * it (if any) starts.  A new block is created and the new area is
 	     * is placed in it.
 	     */
-	    write_offset = round(offset, host_pagesize);
-	    write_size = trunc(offset + size - write_offset, host_pagesize);
+	    write_offset = rnd(offset, host_pagesize);
+	    write_size = trnc(offset + size - write_offset, host_pagesize);
 	    block = get_block();
 	    block->offset = offset;
 	    block->size = size;
@@ -1003,12 +1003,12 @@ struct block *block)
 }
 
 /*
- * trunc() truncates the value 'v' to the power of two value 'r'.  If v is
+ * trnc() truncates the value 'v' to the power of two value 'r'.  If v is
  * less than zero it returns zero.
  */
 static
 unsigned long
-trunc(
+trnc(
 unsigned long v,
 unsigned long r)
 {

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,6 +100,9 @@ CFTypeID SecCodeSignerGetTypeID(void);
 	@constant kSecCodeSignerResourceRules A CFDictionary containing resource scanning rules
 		determining what resource files are sealed into the signature (and in what way).
 		A situation-dependent default is applied if this parameter is not specified.
+	@constant kSecCodeSignerSDKRoot A CFURLRef indicating an alterate directory root
+		where signing operations should find subcomponents (libraries, frameworks, modules, etc.).
+		The default is the host system root "/".
 	@constant kSecCodeSignerSigningTime Specifies what date and time is sealed into the
 		code signature's CMS data. Can be either a CFDate object specifying a date, or
 		the value kCFNull indicating that no date should be included in the signature.
@@ -109,6 +112,7 @@ CFTypeID SecCodeSignerGetTypeID(void);
  */
 extern const CFStringRef kSecCodeSignerApplicationData;
 extern const CFStringRef kSecCodeSignerDetached;
+extern const CFStringRef kSecCodeSignerDigestAlgorithm;
 extern const CFStringRef kSecCodeSignerDryRun;
 extern const CFStringRef kSecCodeSignerEntitlements;
 extern const CFStringRef kSecCodeSignerFlags;
@@ -118,6 +122,7 @@ extern const CFStringRef kSecCodeSignerIdentity;
 extern const CFStringRef kSecCodeSignerPageSize;
 extern const CFStringRef kSecCodeSignerRequirements;
 extern const CFStringRef kSecCodeSignerResourceRules;
+extern const CFStringRef kSecCodeSignerSDKRoot;
 extern const CFStringRef kSecCodeSignerSigningTime;
 
 

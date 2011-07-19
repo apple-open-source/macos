@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/var.c,v 1.13.2.3 2008/02/11 23:26:43 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/var.c,v 1.13.2.6 2010/04/13 20:23:09 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -123,7 +123,11 @@ rewrite_var_replace(
 		int flags
 )
 {
-	ber_len_t	len = strlen( value );
+	ber_len_t	len;
+
+	assert( value != NULL );
+
+	len = strlen( value );
 
 	if ( var->lv_flags & REWRITE_VAR_COPY_VALUE ) {
 		if ( flags & REWRITE_VAR_COPY_VALUE ) {
@@ -149,6 +153,10 @@ rewrite_var_replace(
 		} else {
 			var->lv_value.bv_val = (char *)value;
 		}
+	}
+
+	if ( var->lv_value.bv_val == NULL ) {
+		return -1;
 	}
 
 	var->lv_value.bv_len = len;

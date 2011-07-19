@@ -1,0 +1,393 @@
+commit 820d9be7cf4e501c931c4e31b38ddd2d55209ce2
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 10:14:38 2010 -0700
+
+    xkbutils 1.0.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 19b8c1dfc637245e306b34a3aef69370cfe8059b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 1 17:36:33 2010 -0400
+
+    config: update direct dependencies for xkbvleds and xkbwatch
+    
+    Depends on xproto through the inclusion of X.h.
+    Depends on x11 through the inclusion of Xlib.h.
+    Depends on Xaw through the inclusion of XawInit.h
+    Depends on Xt through the inclusion of IntrinsicP.h
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 73401c0d6679ff6a1c06d732c192a69cf70a27fc
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 1 17:34:53 2010 -0400
+
+    config: update direct dependencies for xkbbell
+    
+    Depends on xproto through the inclusion of Xproto.h.
+    Depends on inputproto through the inclusion of XI.h
+    Depends on x11 through the inclusion of Xlib.h.
+    Does not depend on xkbfile for headers or libs.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5778996d90d7ddee169e1dbf48a11896ee2fd34c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Aug 8 10:55:06 2010 -0400
+
+    LED.c: remove unrequired X11/Xmu includes
+    
+    This removes a direct dependencies which was not reflected
+    in configure.ac.
+    Xaw privatly requires Xmu.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 1f08410c81e7b9bb1fc5ac9e40e37c26906bfd0c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Sep 23 20:46:12 2010 -0700
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_CC & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    PKG_CONFIG_MODULES handles AC_SUBST of the CFLAGS & LIBS variables
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b7de2aa690fbf033e74427d1d37ffa49cbfd031a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Sep 23 20:10:43 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Enables use of platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 03459ea3c60c19703c958b1f7199021168c49cdd
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Jul 20 18:45:18 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5b5542b8a581754a87ba0d466e403e1f47e17103
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 6 09:19:28 2010 -0700
+
+    Sun copyrights are now owned by Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 7aa41989a5aede80b97a1306bd782842baf35bce
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 6 09:17:10 2010 -0700
+
+    Add DEC notice from utils.c to COPYING
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit bd94930d9082095886f469965264dc352f0bbbb2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 22:46:10 2010 -0800
+
+    Add missing notices to COPYING file
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 5bed941fa0064823bfbe21c37729df02a5aa9b97
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 22:18:41 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d2d6d39c60fa224752066b9d0791306c5fd4efad
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Jan 7 21:58:57 2010 -0500
+
+    COPYING: replace stub with actual copyright notice
+    
+    Refer to xkbwatch.c
+    Copyright (c) 1995 by Silicon Graphics Computer Systems, Inc.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a8b01ac9a898ba8a5f273f1a0b50485b4ff61e2a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 81f74707c1d2638c911067ba81356696f73c6d0c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 5786d1deeab8fe6c6ed0481220e487e9ec5cfdf4
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:25 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit fac7fddbd5df94789d78cd0847dcd8684486d668
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:39 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 2ad523460c93e29d24a531894a7719b3b0b87e90
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:15 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 33383dca28dc60473f677a302962413d504fc4f3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 18:46:53 2009 -0700
+
+    xkbutils 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 864b472e096a8c6ca8f86f78615da023adeb60fd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 18:46:24 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 917138713d60631c6d2e03afae88e7425caa7afd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:25 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0c3b1ab2daa3a48d33da55f016d6771b8faaef7b
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jan 22 15:06:47 2009 -0200
+
+    Correct make distcheck and sparse warnings.
+
+commit 98b7afc0d1d53a766ea60175e9fc5f031051f057
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Sun Mar 16 18:51:53 2008 -0300
+
+    Compile warning fixes.
+    
+      Ansify some functions in LED.c and utils.c.
+
+commit f4db3aa38240038496d99b1368f5b6fb412f53a9
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Wed Aug 20 10:32:51 2008 -0400
+
+    xaw8 is gone, use xaw7
+
+commit 67322880f26c3e4818b9b36b18487951769372a7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 18 15:53:46 2008 -0700
+
+    Add AM_PROG_CC_C_O to placate automake-1.10
+    
+    Makefile.am:33: compiling `xkbbell.c' with per-target flags requires `AM_PROG_CC_C_O' in `configure.ac'
+
+commit 7fa628b28be06ba387faae712c616ebcd5306e57
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 18 15:52:15 2008 -0700
+
+    Add rudimentary man pages for xkbbell, xkbvleds, xkbwatch
+    
+    We've been shipping these in Solaris for years, but they still need
+    work - it's a starting point though.
+
+commit d3f4c454ac17f3d18d1c5cae8ee00e69ffb29358
+Author: Eric Anholt <eric@anholt.net>
+Date:   Fri Mar 14 09:07:36 2008 -0700
+
+    Add missing dependency on inputproto.
+
+commit 69bcf4324926d9903979e62ed2f337898a6fe17d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Fri Dec 7 20:54:53 2007 -0500
+
+    Fix commit 7a0686b98d54fe77b10c52d7c4cc9e84a4df4479
+
+commit 7a0686b98d54fe77b10c52d7c4cc9e84a4df4479
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:19 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 95878b55dd4f6cbba6c2d2c1e9e5d25d44b8f5e6
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:27 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 164ce22b4217a55a388bc5d61ed960c3b0ae91a4
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:54 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 481219d69d95ea4dccfae7b3a003c155879f3d18
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:51 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit b8b8b84c9a5b85fed20ce23e71b01657d8231cc5
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:45 2005 +0000
+
+    Stub COPYING files
+
+commit dd7473e2087e366fc5c4c016026c22770b7413af
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:08 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit b828cb9a371404e62d833031a2b1d0312b776ad9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:24 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit c91b322ed192a54144e56ce7e2564c94d228f2ad
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:53 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 3b715538c80f0b145d9ec36d17acbb72e9e7bdcb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:37 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 1cad9a1624d9af4cee9b3a4dbc36258a09ac0c3f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:21 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit eeb9f2e7ea53b54c3ccf7593a0873410b547ff46
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 1 15:05:19 2005 +0000
+
+    Update pkgcheck depedencies to work with separate build roots.
+
+commit d77bf077c620d9bbec866d6a49212bca4848b11e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:35 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 13e10bbd6f54b3d8b6cb4aa370c06863fb29d349
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Fri Jul 22 15:02:12 2005 +0000
+
+    Add utils.h as source so it lands in distdir.
+
+commit 3423f5d91ecd66a2a967ccf6ed9ddfd2940d12ba
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 20:54:51 2005 +0000
+
+    Build system for xkbutils
+
+commit 5986b948e9821790f9c21f2556a11ca8f8a2d29e
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:57 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 80512e7091a09313043adbb6bca84424a5b3909b
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:37 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit ec5d08d47d138e3f1ceca5ccd06c845cee5f758d
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:14 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 02899a72c801eeb2b6b57bff82ae98d02ad9794e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 4821635c8a3d82a52df7191996f455fc0b463347
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:13 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit d1c3c6175a74baf089122f4fc2136b96919577bf
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:14 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit b8a964643bded3b8b835a93c3fbdae248e90e021
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 53c921965d341cfa3f14fedf862d9db666c16002
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:54 2003 +0000
+
+    R6.6 is the Xorg base-line

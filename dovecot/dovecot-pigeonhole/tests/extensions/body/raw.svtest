@@ -1,0 +1,85 @@
+require "vnd.dovecot.testsuite";
+require "body";
+
+test_set "message" text:
+From: Whomever <whoever@example.com>
+To: Someone <someone@example.com>
+Date: Sat, 10 Oct 2009 00:30:04 +0200
+Subject: whatever
+Content-Type: multipart/mixed; boundary=outer
+
+This is a multi-part message in MIME format.
+
+--outer
+Content-Type: multipart/alternative; boundary=inner
+
+This is a nested multi-part message in MIME format.
+
+--inner
+Content-Type: text/plain; charset="us-ascii"
+
+Hello
+        
+--inner
+Content-Type: text/html; charset="us-ascii"
+
+<html><body>Hello</body></html>
+
+--inner--
+
+This is the end of the inner MIME multipart.
+
+--outer
+Content-Type: message/rfc822
+
+From: Someone Else
+Subject: hello request
+
+Please say Hello
+
+--outer--
+
+This is the end of the outer MIME multipart.
+.
+;
+
+/*
+ *
+ * RFC 5173:
+ *  The ":raw" transform matches against the entire undecoded body of a
+ *  message as a single item.
+ *
+ *  If the specified body-transform is ":raw", the [MIME] structure of
+ *  the body is irrelevant.  The implementation MUST NOT remove any
+ *  transfer encoding from the message, MUST NOT refuse to filter
+ *  messages with syntactic errors (unless the environment it is part of
+ *  rejects them outright), and MUST treat multipart boundaries or the
+ *  MIME headers of enclosed body parts as part of the content being
+ *  matched against, instead of MIME structures to interpret.
+ */
+
+test "Multipart Boundaries" {
+	if not body :raw :contains "--inner" {
+		test_fail "Raw body does not contain '--inner'";
+	}
+
+	if not body :raw :contains "--outer" {
+		test_fail "Raw body does not contain '--outer'";
+	}
+}
+
+test "Multipart Headers" {
+	if not body :raw :contains "boundary=inner" {
+		test_fail "Raw body does not contain 'boundary=inner'";
+	}
+
+	if not body :raw :contains "rfc822" {
+		test_fail "Raw body does not contain 'rfc822'";
+	}
+}
+
+test "Multipart Content" {
+	if not body :raw :contains "<html><body>Hello</body></html>" {
+		test_fail "Raw body does not contain '<html><body>Hello</body></html>'";
+	}
+}

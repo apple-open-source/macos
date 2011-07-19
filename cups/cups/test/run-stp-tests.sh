@@ -251,6 +251,7 @@ ln -s $root/backend/ipp /tmp/cups-$user/bin/backend
 ln -s $root/backend/lpd /tmp/cups-$user/bin/backend
 ln -s $root/backend/mdns /tmp/cups-$user/bin/backend
 ln -s $root/backend/parallel /tmp/cups-$user/bin/backend
+ln -s $root/backend/pseudo /tmp/cups-$user/bin/backend
 ln -s $root/backend/serial /tmp/cups-$user/bin/backend
 ln -s $root/backend/snmp /tmp/cups-$user/bin/backend
 ln -s $root/backend/socket /tmp/cups-$user/bin/backend
@@ -266,6 +267,8 @@ ln -s $root/filter/hpgltops /tmp/cups-$user/bin/filter
 ln -s $root/filter/pstops /tmp/cups-$user/bin/filter
 ln -s $root/filter/rastertoepson /tmp/cups-$user/bin/filter
 ln -s $root/filter/rastertohp /tmp/cups-$user/bin/filter
+ln -s $root/filter/rastertolabel /tmp/cups-$user/bin/filter
+ln -s $root/filter/rastertopwg /tmp/cups-$user/bin/filter
 ln -s $root/filter/texttops /tmp/cups-$user/bin/filter
 
 ln -s $root/data/classified /tmp/cups-$user/share/banners
@@ -285,6 +288,14 @@ ln -s $root/data/*.h /tmp/cups-$user/share/ppdc
 ln -s $root/data/*.defs /tmp/cups-$user/share/ppdc
 ln -s $root/templates /tmp/cups-$user/share
 
+if test -f $root/filter/imagetops; then
+	ln -s $root/filter/imagetops /tmp/cups-$user/bin/filter
+fi
+
+if test -f $root/filter/imagetoraster; then
+	ln -s $root/filter/imagetoraster /tmp/cups-$user/bin/filter
+fi
+
 #
 # Mac OS X filters and configuration files...
 #
@@ -300,6 +311,8 @@ if test `uname` = Darwin; then
 	ln -s /usr/libexec/cups/filter/pstoappleps /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/pstocupsraster /tmp/cups-$user/bin/filter
 	ln -s /usr/libexec/cups/filter/pstopdffilter /tmp/cups-$user/bin/filter
+	ln -s /usr/libexec/cups/filter/rastertourf /tmp/cups-$user/bin/filter
+	ln -s /usr/libexec/cups/filter/xhtmltopdf /tmp/cups-$user/bin/filter
 
 	if test -f /private/etc/cups/apple.types; then
 		ln -s /private/etc/cups/apple.* /tmp/cups-$user/share/mime
@@ -307,8 +320,6 @@ if test `uname` = Darwin; then
 		ln -s /usr/share/cups/mime/apple.* /tmp/cups-$user/share/mime
 	fi
 else
-	ln -s $root/filter/imagetops /tmp/cups-$user/bin/filter
-	ln -s $root/filter/imagetoraster /tmp/cups-$user/bin/filter
 	ln -s $root/filter/pdftops /tmp/cups-$user/bin/filter
 fi
 
@@ -542,7 +553,7 @@ done
 #
 
 date=`date "+%Y-%m-%d"`
-strfile=/tmp/cups-$user/cups-str-1.4-$date-$user.html
+strfile=/tmp/cups-$user/cups-str-1.5-$date-$user.html
 
 rm -f $strfile
 cat str-header.html >$strfile
@@ -565,7 +576,7 @@ for file in 4*.test; do
 	echo "Performing $file..."
 	echo "" >>$strfile
 
-	./ipptest ipp://localhost:$port/printers $file | tee -a $strfile
+	./ipptool -t ipp://localhost:$port/printers $file | tee -a $strfile
 	status=$?
 
 	if test $status != 0; then
@@ -749,10 +760,10 @@ fi
 
 # Warning log messages
 count=`$GREP '^W ' /tmp/cups-$user/log/error_log | wc -l | awk '{print $1}'`
-if test $count != 0; then
-	echo "FAIL: $count warning messages, expected 0."
+if test $count != 9; then
+	echo "FAIL: $count warning messages, expected 9."
 	$GREP '^W ' /tmp/cups-$user/log/error_log
-	echo "<P>FAIL: $count warning messages, expected 0.</P>" >>$strfile
+	echo "<P>FAIL: $count warning messages, expected 9.</P>" >>$strfile
 	echo "<PRE>" >>$strfile
 	$GREP '^W ' /tmp/cups-$user/log/error_log | sed -e '1,$s/&/&amp;/g' -e '1,$s/</&lt;/g' >>$strfile
 	echo "</PRE>" >>$strfile
@@ -808,16 +819,6 @@ if test $count = 0; then
 else
 	echo "PASS: $count debug2 messages."
 	echo "<P>PASS: $count debug2 messages.</P>" >>$strfile
-fi
-
-# Page log file...
-if $GREP -iq 'testfile.pdf na_letter_8.5x11in' /tmp/cups-$user/log/page_log; then
-	echo "PASS: page_log formatted correctly."
-	echo "<P>PASS: page_log formatted correctly.</P>" >>$strfile
-else
-	echo "WARN: page_log formatted incorrectly."
-	echo "<P>WARN: page_log formatted incorrectly.</P>" >>$strfile
-#	fail=`expr $fail + 1`
 fi
 
 # Log files...

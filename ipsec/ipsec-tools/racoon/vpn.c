@@ -58,11 +58,7 @@
 #include <sys/stat.h>
 #include <sys/un.h>
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <netinet/in.h>
 #ifndef HAVE_NETINET6_IPSEC
@@ -118,12 +114,13 @@
 #include "vpn_control_var.h"
 #include "strnames.h"
 #include "ike_session.h"
+#include "ipsecMessageTracer.h"
 
 
 static int vpn_get_ph2pfs(struct ph1handle *);
 
 int
-vpn_connect(struct bound_addr *srv)
+vpn_connect(struct bound_addr *srv, int oper)
 {
 	int error = -1;
 	struct sockaddr *dst;
@@ -192,8 +189,11 @@ vpn_connect(struct bound_addr *srv)
 		"accept a request to establish IKE-SA: "
 		"%s\n", saddrwop2str(remote));
 
+	IPSECLOGASLMSG("IPSec connecting to server %s\n",
+				   saddrwop2str(remote));
+
 	/* begin ident mode */
-	if (isakmp_ph1begin_i(rmconf, remote, local, 1) < 0)
+	if (isakmp_ph1begin_i(rmconf, remote, local, oper) < 0)
 		goto out1;
 		
 	error = 0;
@@ -220,7 +220,11 @@ vpn_disconnect(struct bound_addr *srv)
 	saddr.sin_addr.s_addr = srv->address;
 	saddr.sin_port = 0;
 	saddr.sin_family = AF_INET;
-    	ike_sessions_stopped_by_controller(&saddr,
+
+	IPSECLOGASLMSG("IPSec disconnecting from server %s\n",
+				   saddrwop2str(&saddr));	
+
+	ike_sessions_stopped_by_controller(&saddr,
                                        0,
                                        ike_session_stopped_by_vpn_disconnect);
 	if (purgephXbydstaddrwop((struct sockaddr *)(&saddr)) > 0) {
@@ -478,6 +482,8 @@ vpn_get_config(struct ph1handle *iph1, struct vpnctl_status_phase_change **msg, 
 	memcpy(cptr, iph1->mode_cfg->attr_list->v, iph1->mode_cfg->attr_list->l);
 	*msg_size = msize;
 
+	IPSECLOGASLMSG("IPSec Network Configuration established.\n");
+
 	return 0;
 }
 
@@ -556,9 +562,22 @@ vpn_xauth_reply(u_int32_t address, void *attr_list, size_t attr_len)
 	VPTRINIT(iph1->xauth_awaiting_userinput_msg);
 	ike_session_stop_xauth_timer(iph1);
 
+	IPSECLOGASLMSG("IPSec Extended Authentication sent.\n");
+
 end:
 	if (payload)
 		vfree(payload);
 	return error;
 }
 
+int
+vpn_assert(struct sockaddr *src_addr, struct sockaddr *dst_addr)
+{
+	if (ike_session_assert(src_addr, dst_addr)) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "cannot assert - no matching session.\n");
+		return -1;
+	}
+
+	return 0;
+}

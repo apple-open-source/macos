@@ -2,6 +2,11 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>__CF_USER_TEXT_ENCODING</key>
+		<string>=0x1F5:0:0</string>
+	</dict>
 	<key>Label</key>
 	<string>com.apple.DirectoryServices</string>
 	<key>ProgramArguments</key>
@@ -10,11 +15,7 @@
 	</array>
 	<key>MachServices</key>
 	<dict>
-		<key>com.apple.DirectoryService</key>
-		<true/>
-		<key>com.apple.system.DirectoryService.libinfo_v1</key>
-		<true/>
-		<key>com.apple.system.DirectoryService.membership_v1</key>
+		<key>com.apple.system.DirectoryService.legacy</key>
 		<true/>
 	</dict>
 	<key>KeepAlive</key>
@@ -23,10 +24,5 @@
 	<true/>
 	<key>EnableTransactions</key>
 	<true/>
-	<key>EnvironmentVariables</key>
-	<dict>
-		<key>OPENSSL_X509_TEA_DISABLE</key>
-		<string>1</string>
-	</dict>
 </dict>
 </plist>

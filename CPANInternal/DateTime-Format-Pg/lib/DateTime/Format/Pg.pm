@@ -1,5 +1,5 @@
 package DateTime::Format::Pg;
-# $Id: Pg.pm,v 1.14 2005/09/02 21:38:59 lestrrat Exp $
+# $Id: Pg.pm 4148 2009-03-27 00:37:47Z lestrrat $
 
 use strict;
 use vars qw ($VERSION);
@@ -12,7 +12,7 @@ use DateTime::TimeZone 0.06;
 use DateTime::TimeZone::UTC;
 use DateTime::TimeZone::Floating;
 
-$VERSION = '0.09';
+$VERSION = '0.16004';
 $VERSION = eval $VERSION;
 
 our @ISA = ('DateTime::Format::Builder');
@@ -226,8 +226,8 @@ my $pg_timeonly =
 #
 my $pg_datetime_iso =
 {
-  regex		=> qr/^(\d{4,})-(\d{2,})-(\d{2,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)?( BC)? *([-\+][\d:]+)?$/,
-  params 	=> [ qw( year    month    day      hour     minute  second nanosecond era    time_zone) ],
+  regex		=> qr/^(\d{4,})-(\d{2,})-(\d{2,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? *([-\+][\d:]+)?( BC)?$/,
+  params 	=> [ qw( year    month    day      hour     minute  second nanosecond time_zone       era) ],
   postprocess 	=> [ \&_fix_era, \&_fix_timezone, \&_fix_nanosecond ],
 };
 
@@ -235,8 +235,8 @@ my $pg_datetime_iso =
 #
 my $pg_datetime_pg_eu =
 {
-  regex		=> qr/^\S{3,} (\d{2,}) (\S{3,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? (\d{4,})( BC)? *((?:[-\+][\d:]+)|(?:\S+))?$/,
-  params 	=> [ qw(       day      month    hour     minute  second nanosecond year    era     time_zone) ],
+  regex		=> qr/^\S{3,} (\d{2,}) (\S{3,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? (\d{4,}) *((?:[-\+][\d:]+)|(?:\S+))?( BC)?$/,
+  params 	=> [ qw(       day      month    hour     minute  second nanosecond year      time_zone                 era ) ],
   postprocess 	=> [ \&_fix_era, \&_fix_timezone, \&_fix_nanosecond ],
 };
 
@@ -244,8 +244,8 @@ my $pg_datetime_pg_eu =
 #
 my $pg_datetime_pg_us =
 {
-  regex		=> qr/^\S{3,} (\S{3,}) (\s{2,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? (\d{4,})( BC)? *((?:[-\+][\d:]+)|(?:\S+))?$/,
-  params 	=> [ qw(       month    day      hour     minute  second nanosecond year    era     time_zone) ],
+  regex		=> qr/^\S{3,} (\S{3,}) (\s{2,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? (\d{4,}) *((?:[-\+][\d:]+)|(?:\S+))?( BC)?$/,
+  params 	=> [ qw(       month    day      hour     minute  second nanosecond year     time_zone                 era ) ],
   postprocess 	=> [ \&_fix_era, \&_fix_month_names, \&_fix_timezone, \&_fix_nanosecond ],
 };
 
@@ -254,8 +254,8 @@ my $pg_datetime_pg_us =
 #
 my $pg_datetime_sql =
 {
-  regex		=> qr/^(\d{2,})\/(\d{2,})\/(\d{4,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)?( BC)? *((?:[-\+][\d:]+)|(?:\S+))?$/,
-  params 	=> [ qw( month    day       year    hour     minute   second nanosecond era      time_zone) ],
+  regex		=> qr/^(\d{2,})\/(\d{2,})\/(\d{4,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? *((?:[-\+][\d:]+)|(?:\S+))?( BC)?$/,
+  params 	=> [ qw( month    day       year    hour     minute   second nanosecond    time_zone               era ) ],
   postprocess 	=> [ \&_fix_era, \&_fix_eu, \&_fix_timezone, \&_fix_nanosecond ],
 };
 
@@ -263,8 +263,8 @@ my $pg_datetime_sql =
 #
 my $pg_datetime_german =
 {
-  regex		=> qr/^(\d{2,})\.(\d{2,})\.(\d{4,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)?( BC)? *((?:[-\+][\d:]+)|(?:\S+))?$/,
-  params 	=> [ qw( day      month     year    hour     minute   second nanosecond era    time_zone) ],
+  regex		=> qr/^(\d{2,})\.(\d{2,})\.(\d{4,}) (\d{2,}):(\d{2,}):(\d{2,})(\.\d+)? *((?:[-\+][\d:]+)|(?:\S+))?( BC)?$/,
+  params 	=> [ qw( day      month     year    hour     minute   second nanosecond time_zone                 era ) ],
   postprocess 	=> [ \&_fix_era, \&_fix_timezone, \&_fix_nanosecond ],
 };
 
@@ -338,8 +338,9 @@ sub _fix_timezone {
 
   # Numerical time zone
   #
-  elsif($args{'parsed'}->{'time_zone'} =~ m/^[-\+]\d+(:\d+)?$/) {
-    $args{'parsed'}->{'time_zone'} .= ':00' unless $1;
+  
+  elsif($args{'parsed'}->{'time_zone'} =~ m/^[-\+](\d+)(:\d+)?$/) {
+    $args{'parsed'}->{'time_zone'} .= ':00' if !$2 && length($1) == 2;
   }
   
   # Non-numerical time zone returned, which can be ambiguous :(
@@ -349,7 +350,7 @@ sub _fix_timezone {
     my $stz = $args{'self'}->_server_tz($args{'args'} ? @{$args{'args'}} : ());
     $args{'parsed'}->{'time_zone'} = $stz || 'floating';
   }
-  
+
   return 1;
 }
 
@@ -550,23 +551,32 @@ If given an improperly formatted string, this method may die.
 =cut
 
 sub parse_duration {
-  my ($self,$string,%param) = @_;
-
-  # USE_ISO_DATES
-  #
-  if($string =~ m/^(?:(-?\d+) years?)? *(?:([-\+]?\d+) mons?)? *(?:([-\+]?\d+) days?)? *(?:([-\+])?(\d{2,}):(\d{2,})(?::(\d{2,})(\.\d+)?)?)?$/) {
-    my ($year,$mon,$day,$sgn,$hour,$min,$sec,$frc) = ($1,$2,$3,$4,$5,$6,$7,$8);
+    my ($self, $string) = @_;
+    my ($year, $mon, $day, $sgn, $hour, $min, $sec, $frc, $ago) = $string =~ m{
+        \A                                     # Start of string.
+        (?:\@\s*)?                             # Optional leading @.
+        (?:([-+]?\d+)\s+years?\s*)?            # years
+        (?:([-+]?\d+)\s+mons?\s*)?             # months
+        (?:([-+]?\d+)\s+days?\s*)?             # days
+        (?:                                    # Start h/m/s
+          # hours
+          (?:([-+])?([0-9]\d|[1-9]\d{2,}(?=:)|\d+(?=\s+hour))(?:\s+hours?)?\s*)?
+          # minutes
+          (?::?((?<=:)[012345]\d|\d+(?=\s+mins?))(?:\s+mins?)?\s*)?
+          # seconds
+          (?::?((?<=:)[012345]\d|\d+(?=\.|\s+secs?))(\.\d+)?(?:\s+secs?)?\s*)?
+        ?)                                     # End hh:mm:ss
+        (ago)?                                 # Optional inversion
+        \z                                     # End of string
+    }xms or croak "Invalid interval string $string";
 
     # NB: We can't just pass our values to new() because it treats all
     # arguments as negative if we have a single negative component.
     # PostgreSQL might return mixed signs, e.g. '1 mon -1day'.
-    my $du = DateTime::Duration->new();
+    my $du = DateTime::Duration->new;
 
-    $sec ||= 0;
-    $frc ||= 0;
-    $min ||= 0;
-    $day ||= 0;
-    $mon ||= 0;
+    # Define for calculations
+    $_ ||= 0 for $sec, $frc, $min, $day, $mon;
 
     # DT::Duration only stores years, days, months, seconds (and
     # nanoseconds)
@@ -574,86 +584,19 @@ sub parse_duration {
     $min += 60 * $hour if $hour;
 
     # HH:MM:SS.FFFF share a single sign
-    #
-    $sgn ||= '+';
-    $sgn = $sgn eq '-' ? -1 : 1;
-    $min *= $sgn;
-    $sec *= $sgn;
-    $frc *= $sgn;
-
-    # If the most significant value is negative, set the sign
-    #
-    if($mon<0 || ($mon==0 && ($day<0 || ($day==0 && ($sgn<0 && ($min != 0 || $sec != 0 || $frc != 0)))))) {
-      $du = $du->inverse();
+    if ($sgn && $sgn eq '-') {
+        $_ *= -1 for $min, $sec, $frc;
     }
 
-    # Fractional seconds. Pg can have a maximum precision of 10 decimal
-    # digits, so it's safe to just use floating point arithmetic
-    # (provided we have at least double precision).
-    #
-    $frc *= DateTime::Duration::MAX_NANOSECONDS;
-
-    # One add per sign (PostgreSQL stores, months, days and time with
-    # one sign each)
-    $du -> add( 'months' => $mon ) if $mon;
-    $du -> add( 'days'   => $day ) if $day;
-    $du -> add(
-      ($min ? ( 'minutes'=> $min) : () ),
-      ($sec ? ( 'seconds'=> $sec) : () ),
-      ($frc ? ( 'nanoseconds'=> $frc ) : ()) ) if $min || $sec || $frc;
-
-    return $du;
-  }
-
-  # USE_POSTGRES_DATES (and 'default')
-  #
-  elsif($string =~ m/^@ (?:(-?\d+) years?)? *(?:([-\+]?\d+) mons?)? *(?:([-\+]?\d+) days?)? *(?:([-\+]?\d+) hours?)? *(?:([-\+]?\d+) mins?)? *(?:(([-\+])?\d+)(\.\d+)? secs?)? *(ago)?$/) {
-    my ($year,$mon,$day,$hour,$min,$sec,$sgn,$frc,$ago) = ($1,$2,$3,$4,$5,$6,$7,$8,$9);
-
-    # NB: We can't just pass our values to new() because it treats all
-    # arguments as negative if we have a single negative component.
-    # PostgreSQL might return mixed signs, e.g. '1 mon -1day'.
-    my $du = DateTime::Duration->new();
-
-    # DT::Duration only stores years, days, months, seconds (and
-    # nanoseconds)
-    $mon += 12 * $year if $year;
-    $min += 60 * $hour if $hour;
-
-    # Fractional seconds. Pg can have a maximum precision of 10 decimal
-    # digits, so it's safe to just use floating point arithmetic
-    # (provided we have at least double precision).
-    #
-    if ($frc) {
-      $frc = $sgn.$frc if $sgn;
-      $frc *= DateTime::Duration::MAX_NANOSECONDS;
-    }
-    $frc ||= 0;
-
-    # One add per sign (PostgreSQL stores, months, days and time with
-    # one sign each)
-    $du -> add( 'months' => $mon ) if $mon;
-    $du -> add( 'days'   => $day ) if $day;
-    $du -> add(
-      ($min ? ( 'minutes'=> $min) : () ),
-      ($sec ? ( 'seconds'=> $sec) : () ),
-      ($frc ? ( 'nanoseconds'=> $frc ) : ()) ) if $min || $sec || $frc;
-
-    if($ago) {
-      return $du->inverse();
-    } else {
-      return $du;
-    }
-  }
-
-  # zero interval
-  #
-  elsif($string =~ m/^\@? *0+ *(ago)?$/) {
-    return DateTime::Duration->new( 'seconds' => 0 );
-  }
-
-  croak 'Invalid input format';
-};
+    $du->add(
+        months      => $mon,
+        days        => $day,
+        minutes     => $min,
+        seconds     => $sec,
+        nanoseconds => $frc * DateTime::Duration::MAX_NANOSECONDS,
+    );
+    return $ago ? $du->inverse : $du;
+}
 
 *parse_interval = \&parse_duration;
 
@@ -775,7 +718,7 @@ sub format_timestamp
 {
   my ($self,$dt,%param) = @_;
   if($dt->is_infinite) {
-    return $dt->isa('DateTime::Infinite::Future') ? 'infinite' : '-infinite';
+    return $dt->isa('DateTime::Infinite::Future') ? 'infinity' : '-infinity';
   } elsif($dt->year()<=0) {
     return sprintf('%04d-%02d-%02d %s BC',
       1-$dt->year(),
@@ -808,7 +751,7 @@ sub format_timestamptz
 {
   my ($self,$dt,%param) = @_;
   if($dt->is_infinite) {
-    return $dt->isa('DateTime::Infinite::Future') ? 'infinite' : '-infinite';
+    return $dt->isa('DateTime::Infinite::Future') ? 'infinity' : '-infinity';
   } elsif($dt->year()<=0) {
     return sprintf('%04d-%02d-%02d',
       1-$dt->year(),
@@ -846,9 +789,9 @@ sub format_duration {
   my $output = '@';
 
   if($deltas{'nanoseconds'}) {
-    $deltas{'seconds'} +=
-      $deltas{'nanoseconds'} /
-      DateTime::Duration::MAX_NANOSECONDS;
+    $deltas{'seconds'} = 
+      sprintf('%f', $deltas{'seconds'} + $deltas{'nanoseconds'} / 
+                                        DateTime::Duration::MAX_NANOSECONDS);
   }
 
   foreach(qw(months days minutes seconds)) {
@@ -939,13 +882,15 @@ list.  See http://lists.perl.org/ for more details.
 
 =head1 AUTHOR
 
-Claus A. Färber <perl@faerber.muc.de>
+Daisuke Maki E<lt>daisuke@endeworks.jpE<gt>
 
-Currently maintained by Daisuke Maki E<lt>dmaki@cpan.orgE<gt>
+=head1 AUTHOR EMERITUS 
+
+Claus A. Faerber <perl@faerber.muc.de>
 
 =head1 COPYRIGHT
 
-Copyright © 2003 Claus A. Färber.  All rights reserved.  
+Copyright (c) 2003 Claus A. Faerber. Copyright (c) 2005-2007 Daisuke Maki
 
 This program is free software; you can redistribute it and/or modify it under
 the same terms as Perl itself.

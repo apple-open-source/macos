@@ -1,7 +1,7 @@
 /* $OpenBSD: gss-serv.c,v 1.22 2008/05/08 12:02:23 djm Exp $ */
 
 /*
- * Copyright (c) 2001-2008 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -46,6 +46,7 @@
 #include "session.h"
 #include "misc.h"
 #include "servconf.h"
+#include "uidswap.h"
 
 #include "ssh-gss.h"
 #include "monitor_wrap.h"
@@ -54,10 +55,10 @@ extern ServerOptions options;
 
 static ssh_gssapi_client gssapi_client =
     { GSS_C_EMPTY_BUFFER, GSS_C_EMPTY_BUFFER,
-    GSS_C_NO_CREDENTIAL, NULL, {NULL, NULL, NULL}};
+    GSS_C_NO_CREDENTIAL, GSS_C_NO_NAME,  NULL, {NULL, NULL, NULL}, 0, 0};
 
 ssh_gssapi_mech gssapi_null_mech =
-    { NULL, NULL, {0, NULL}, NULL, NULL, NULL, NULL};
+    { NULL, NULL, {0, NULL}, NULL, NULL, NULL, NULL, NULL};
 
 #ifdef KRB5
 extern ssh_gssapi_mech gssapi_kerberos_mech;
@@ -100,7 +101,7 @@ ssh_gssapi_acquire_cred(Gssctxt *ctx)
 		}
 
 		if ((ctx->major = gss_acquire_cred(&ctx->minor,
-		    GSS_C_NO_NAME, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
+		    ctx->name, 0, oidset, GSS_C_ACCEPT, &ctx->creds, 
 		    NULL, NULL)))
 			ssh_gssapi_error(ctx);
 
@@ -131,12 +132,13 @@ ssh_gssapi_server_mechanisms() {
 
 	ssh_gssapi_supported_oids(&supported);
 	return (ssh_gssapi_kex_mechs(supported, &ssh_gssapi_server_check_mech,
-	    NULL));
+	    NULL, NULL));
 }
 
 /* Unprivileged */
 int
-ssh_gssapi_server_check_mech(Gssctxt **dum, gss_OID oid, const char *data) {
+ssh_gssapi_server_check_mech(Gssctxt **dum, gss_OID oid, const char *data,
+    const char *dummy) {
 	Gssctxt *ctx = NULL;
 	int res;
  
@@ -156,7 +158,9 @@ ssh_gssapi_supported_oids(gss_OID_set *oidset)
 	gss_OID_set supported;
 
 	gss_create_empty_oid_set(&min_status, oidset);
-	gss_indicate_mechs(&min_status, &supported);
+
+	if (GSS_ERROR(gss_indicate_mechs(&min_status, &supported)))
+		return;
 
 	while (supported_mechs[i]->name != NULL) {
 		if (GSS_ERROR(gss_test_oid_set_member(&min_status,
@@ -280,8 +284,48 @@ OM_uint32
 ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
 {
 	int i = 0;
+	int equal = 0;
+	gss_name_t new_name = GSS_C_NO_NAME;
+	gss_buffer_desc ename = GSS_C_EMPTY_BUFFER;
 
-	gss_buffer_desc ename;
+	if (options.gss_store_rekey && client->used && ctx->client_creds) {
+		if (client->mech->oid.length != ctx->oid->length ||
+		    (memcmp(client->mech->oid.elements,
+		     ctx->oid->elements, ctx->oid->length) !=0)) {
+			debug("Rekeyed credentials have different mechanism");
+			return GSS_S_COMPLETE;
+		}
+
+		if ((ctx->major = gss_inquire_cred_by_mech(&ctx->minor, 
+		    ctx->client_creds, ctx->oid, &new_name, 
+		    NULL, NULL, NULL))) {
+			ssh_gssapi_error(ctx);
+			return (ctx->major);
+		}
+
+		ctx->major = gss_compare_name(&ctx->minor, client->name, 
+		    new_name, &equal);
+
+		if (GSS_ERROR(ctx->major)) {
+			ssh_gssapi_error(ctx);
+			return (ctx->major);
+		}
+ 
+		if (!equal) {
+			debug("Rekeyed credentials have different name");
+			return GSS_S_COMPLETE;
+		}
+
+		debug("Marking rekeyed credentials for export");
+
+		gss_release_name(&ctx->minor, &client->name);
+		gss_release_cred(&ctx->minor, &client->creds);
+		client->name = new_name;
+		client->creds = ctx->client_creds;
+        	ctx->client_creds = GSS_C_NO_CREDENTIAL;
+		client->updated = 1;
+		return GSS_S_COMPLETE;
+	}
 
 	client->mech = NULL;
 
@@ -295,6 +339,13 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
 
 	if (client->mech == NULL)
 		return GSS_S_FAILURE;
+
+	if (ctx->client_creds &&
+	    (ctx->major = gss_inquire_cred_by_mech(&ctx->minor,
+	     ctx->client_creds, ctx->oid, &client->name, NULL, NULL, NULL))) {
+		ssh_gssapi_error(ctx);
+		return (ctx->major);
+	}
 
 	if ((ctx->major = gss_display_name(&ctx->minor, ctx->client,
 	    &client->displayname, NULL))) {
@@ -312,6 +363,8 @@ ssh_gssapi_getclient(Gssctxt *ctx, ssh_gssapi_client *client)
 	    &client->exportedname))) {
 		return (ctx->major);
 	}
+
+	gss_release_buffer(&ctx->minor, &ename);
 
 	/* We can't copy this structure, so we just move the pointer to it */
 	client->creds = ctx->client_creds;
@@ -360,7 +413,7 @@ ssh_gssapi_do_child(char ***envp, u_int *envsizep)
 
 /* Privileged */
 int
-ssh_gssapi_userok(char *user)
+ssh_gssapi_userok(char *user, struct passwd *pw)
 {
 	OM_uint32 lmin;
 
@@ -370,9 +423,11 @@ ssh_gssapi_userok(char *user)
 		return 0;
 	}
 	if (gssapi_client.mech && gssapi_client.mech->userok)
-		if ((*gssapi_client.mech->userok)(&gssapi_client, user))
+		if ((*gssapi_client.mech->userok)(&gssapi_client, user)) {
+			gssapi_client.used = 1;
+			gssapi_client.store.owner = pw;
 			return 1;
-		else {
+		} else {
 			/* Destroy delegated credentials if userok fails */
 			gss_release_buffer(&lmin, &gssapi_client.displayname);
 			gss_release_buffer(&lmin, &gssapi_client.exportedname);
@@ -383,6 +438,92 @@ ssh_gssapi_userok(char *user)
 	else
 		debug("ssh_gssapi_userok: Unknown GSSAPI mechanism");
 	return (0);
+}
+
+/* These bits are only used for rekeying. The unpriviledged child is running 
+ * as the user, the monitor is root.
+ *
+ * In the child, we want to :
+ *    *) Ask the monitor to store our credentials into the store we specify
+ *    *) If it succeeds, maybe do a PAM update
+ */
+
+/* Stuff for PAM */
+
+#ifdef USE_PAM
+static int ssh_gssapi_simple_conv(int n, const struct pam_message **msg, 
+    struct pam_response **resp, void *data)
+{
+	return (PAM_CONV_ERR);
+}
+#endif
+
+void
+ssh_gssapi_rekey_creds() {
+	int ok;
+	int ret;
+#ifdef USE_PAM
+	pam_handle_t *pamh = NULL;
+	struct pam_conv pamconv = {ssh_gssapi_simple_conv, NULL};
+	char *envstr;
+#endif
+
+	if (gssapi_client.store.filename == NULL && 
+	    gssapi_client.store.envval == NULL &&
+	    gssapi_client.store.envvar == NULL)
+		return;
+ 
+	ok = PRIVSEP(ssh_gssapi_update_creds(&gssapi_client.store));
+
+	if (!ok)
+		return;
+
+	debug("Rekeyed credentials stored successfully");
+
+	/* Actually managing to play with the ssh pam stack from here will
+	 * be next to impossible. In any case, we may want different options
+	 * for rekeying. So, use our own :)
+	 */
+#ifdef USE_PAM	
+	if (!use_privsep) {
+		debug("Not even going to try and do PAM with privsep disabled");
+		return;
+	}
+
+	ret = pam_start("sshd-rekey", gssapi_client.store.owner->pw_name,
+ 	    &pamconv, &pamh);
+	if (ret)
+		return;
+
+	xasprintf(&envstr, "%s=%s", gssapi_client.store.envvar, 
+	    gssapi_client.store.envval);
+
+	ret = pam_putenv(pamh, envstr);
+	if (!ret)
+		pam_setcred(pamh, PAM_REINITIALIZE_CRED);
+	pam_end(pamh, PAM_SUCCESS);
+#endif
+}
+
+int 
+ssh_gssapi_update_creds(ssh_gssapi_ccache *store) {
+	int ok = 0;
+
+	/* Check we've got credentials to store */
+	if (!gssapi_client.updated)
+		return 0;
+
+	gssapi_client.updated = 0;
+
+	temporarily_use_uid(gssapi_client.store.owner);
+	if (gssapi_client.mech && gssapi_client.mech->updatecreds)
+		ok = (*gssapi_client.mech->updatecreds)(store, &gssapi_client);
+	else
+		debug("No update function for this mechanism");
+
+	restore_uid();
+
+	return ok;
 }
 
 #endif

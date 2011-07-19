@@ -74,3 +74,6 @@ extern int CheckHFS(	const char *rdevnode, int fsReadRef, int fsWriteRef,
 						fsck_ctx_t fsckContext,
 						int lostAndFoundMode, int canWrite,
 						int *modified, int liveMode, int rebuildOptions );
+
+extern int journal_replay(const char *);
+

@@ -23,7 +23,7 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#if USE(PLUGIN_HOST_PROCESS)
+#if USE(PLUGIN_HOST_PROCESS) && ENABLE(NETSCAPE_PLUGIN_API)
 
 #import "HostedNetscapePluginStream.h"
 
@@ -39,6 +39,7 @@
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/ResourceLoadScheduler.h>
 #import <WebCore/SecurityOrigin.h>
 #import <WebCore/WebCoreURLResponse.h>
 #import <wtf/RefCountedLeakCounter.h>
@@ -213,11 +214,7 @@ void HostedNetscapePluginStream::start()
     ASSERT(!m_frameLoader);
     ASSERT(!m_loader);
     
-    m_loader = NetscapePlugInStreamLoader::create(core([m_instance->pluginView() webFrame]), this);
-    m_loader->setShouldBufferData(false);
-    
-    m_loader->documentLoader()->addPlugInStreamLoader(m_loader.get());
-    m_loader->load(m_request.get());
+    m_loader = resourceLoadScheduler()->schedulePluginStreamLoad(core([m_instance->pluginView() webFrame]), this, m_request.get());
 }
 
 void HostedNetscapePluginStream::stop()
@@ -256,7 +253,7 @@ NSError *HostedNetscapePluginStream::pluginCancelledConnectionError() const
     return [[[NSError alloc] _initWithPluginErrorCode:WebKitErrorPlugInCancelledConnection
                                            contentURL:m_responseURL ? m_responseURL.get() : m_requestURL.get()
                                         pluginPageURL:nil
-                                           pluginName:[[m_instance->pluginView() pluginPackage] name]
+                                           pluginName:[[m_instance->pluginView() pluginPackage] pluginInfo].name
                                              MIMEType:m_mimeType.get()] autorelease];
 }
 
@@ -275,5 +272,5 @@ NSError *HostedNetscapePluginStream::errorForReason(NPReason reason) const
 
 } // namespace WebKit
 
-#endif // USE(PLUGIN_HOST_PROCESS)
+#endif // USE(PLUGIN_HOST_PROCESS) && ENABLE(NETSCAPE_PLUGIN_API)
 

@@ -26,7 +26,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Python/wadpyinit.cxx,v 1.4 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: wadpyinit.cxx 10001 2007-10-17 21:33:57Z wsfulton $";
 
 extern "C" void pywadinit();
 

@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)inet.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/net/inet.3,v 1.29 2004/07/02 23:52:11 ru Exp $
+.\" $FreeBSD: src/lib/libc/net/inet.3,v 1.36 2007/06/14 07:13:28 delphij Exp $
 .\"
-.Dd June 14, 2004
+.Dd June 14, 2007
 .Dt INET 3
 .Os
 .Sh NAME
@@ -40,6 +36,7 @@
 .Nm inet_addr ,
 .Nm inet_network ,
 .Nm inet_ntoa ,
+.Nm inet_ntoa_r ,
 .Nm inet_ntop ,
 .Nm inet_pton ,
 .Nm inet_makeaddr ,
@@ -61,6 +58,12 @@
 .Fn inet_network "const char *cp"
 .Ft char *
 .Fn inet_ntoa "struct in_addr in"
+.Ft char *
+.Fo inet_ntoa_r
+.Fa "struct in_addr in"
+.Fa "char *buf"
+.Fa "socklen_t size"
+.Fc
 .Ft const char *
 .Fo inet_ntop
 .Fa "int af"
@@ -94,7 +97,7 @@ as held in a character string) to network format (usually a
 .Ft struct in_addr
 or some other internal binary representation, in network byte order).
 It returns 1 if the address was valid for the specified address family, or
-0 if the address wasn't parseable in the specified address family, or -1
+0 if the address was not parseable in the specified address family, or -1
 if some system error occurred (in which case
 .Va errno
 will have been set).
@@ -130,6 +133,11 @@ The
 .Fa size
 argument specifies the size, in bytes, of the buffer
 .Fa *dst .
+.Dv INET_ADDRSTRLEN
+and
+.Dv INET6_ADDRSTRLEN
+define the maximum size required to convert an address of the respective
+type.
 It returns NULL if a system error occurs (in which case,
 .Va errno
 will have been set), or it returns a pointer to the destination string.
@@ -145,6 +153,10 @@ takes an Internet address and returns an
 string representing the address in
 .Ql .\&
 notation.
+The routine
+.Fn inet_ntoa_r
+is the reentrant version of
+.Fn inet_ntoa .
 The routine
 .Fn inet_makeaddr
 takes an Internet network number and a local
@@ -216,19 +228,6 @@ may be decimal, octal, or hexadecimal, as specified
 in the C language (i.e., a leading 0x or 0X implies
 hexadecimal; otherwise, a leading 0 implies octal;
 otherwise, the number is interpreted as decimal).
-.Pp
-The
-.Fn inet_aton
-and
-.Fn inet_ntoa
-functions are semi-deprecated in favor of the
-.Xr addr2ascii 3
-family.
-However, since those functions are not yet widely implemented,
-portable programs cannot rely on their presence and will continue
-to use the
-.Xr inet 3
-functions for some time.
 .Sh DIAGNOSTICS
 The constant
 .Dv INADDR_NONE
@@ -254,9 +253,10 @@ or
 family address.
 .El
 .Sh SEE ALSO
-.Xr addr2ascii 3 ,
 .Xr byteorder 3 ,
+.Xr getaddrinfo 3 ,
 .Xr gethostbyname 3 ,
+.Xr getnameinfo 3 ,
 .Xr getnetent 3 ,
 .Xr inet_net 3 ,
 .Xr hosts 5 ,
@@ -299,5 +299,7 @@ The string returned by
 .Fn inet_ntoa
 resides in a static memory area.
 .Pp
-Inet_addr should return a
+The
+.Fn inet_addr
+function should return a
 .Fa struct in_addr .

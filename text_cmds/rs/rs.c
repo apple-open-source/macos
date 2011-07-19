@@ -55,6 +55,7 @@ __FBSDID("$FreeBSD: src/usr.bin/rs/rs.c,v 1.13 2005/04/28 12:37:15 robert Exp $"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sysexits.h>
 
 long	flags;
 #define	TRANSPOSE	000001
@@ -96,7 +97,7 @@ int	owidth = 80, gutter = 2;
 
 void	  getargs(int, char *[]);
 void	  getfile(void);
-int	  getline(void);
+int	  rs_getline(void);
 char	 *getlist(short **, char *);
 char	 *getnum(int *, char *, int);
 char	**getptrs(char **);
@@ -135,11 +136,11 @@ getfile(void)
 	char **padto;
 
 	while (skip--) {
-		getline();
+		rs_getline();
 		if (flags & SKIPPRINT)
 			puts(curline);
 	}
-	getline();
+	rs_getline();
 	if (flags & NOARGS && curlen < owidth)
 		flags |= ONEPERLINE;
 	if (flags & ONEPERLINE)
@@ -185,7 +186,7 @@ getfile(void)
 				INCR(ep);
 			}
 		}
-	} while (getline() != EOF);
+	} while (rs_getline() != EOF);
 	*ep = 0;				/* mark end of pointers */
 	nelem = ep - elem;
 }
@@ -334,7 +335,7 @@ prepfile(void)
 char	ibuf[BSIZE];		/* two screenfuls should do */
 
 int
-getline(void)	/* get line; maintain curline, curlen; manage storage */
+rs_getline(void)	/* get line; maintain curline, curlen; manage storage */
 {
 	static	int putlength;
 	static	char *endblock = ibuf + BSIZE;
@@ -363,6 +364,9 @@ getline(void)	/* get line; maintain curline, curlen; manage storage */
 	for (p = curline, i = 1; i < BUFSIZ; *p++ = c, i++)
 		if ((c = getchar()) == EOF || c == '\n')
 			break;
+	if (ferror(stdin)) {
+		errx(EX_IOERR, "Read error");
+	}
 	*p = '\0';
 	curlen = i - 1;
 	return(c);

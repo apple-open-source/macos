@@ -1,0 +1,48 @@
+Dovecot Design
+==============
+
+ * <Overview of Dovecot processes> [Design.Processes.txt]
+ * <Design of index files> [Design.Indexes.txt]
+    * <API for accessing the index files> [Design.Indexes.MailIndexApi.txt]
+ * <Design of authentication process> [Design.AuthProcess.txt]
+    * <Authentication protocol> [Design.AuthProtocol.txt]
+ * <Design of IMAP/POP3 processes> [Design.MailProcess.txt]
+
+Code APIs
+=========
+
+Look at the *.h files for the actual API documentation. The documentation below
+doesn't attempt to list full API documentation.
+
+liblib:
+
+ * <Memory allocations> [Design.Memory.txt]
+ * <Static/dynamic buffers> [Design.Buffers.txt]
+ * <Dynamic arrays> [Design.Arrays.txt]
+ * <String handling> [Design.Strings.txt]
+ * <Input streams> [Design.InputStreams.txt]
+ * <Output streams> [Design.OutputStreams.txt]
+ * <Plugins> [Design.Plugins.txt]
+
+lib-storage:
+
+ * <Mail user> [Design.Storage.MailUser.txt] contains everything related to a
+   single user.
+ * <Mail namespace> [Design.Storage.MailNamespace.txt]: A single user can
+   contain multiple <namespaces> [Namespaces.txt].
+ * <Mailbox list> [Design.Storage.MailboxList.txt] is used to list/manage a
+   list of mailboxes for a single namespace (1:1 relationship).
+ * <Mail storage> [Design.Storage.MailStorage.txt] is used to access mails in a
+   specific location with a specific mailbox format. Multiple namespaces can
+   point to the same storage. A single namespace may in future (but not
+   currently) point to multiple storages (e.g. a mixed mbox and Maildir
+   directory).
+ * <Mailbox> [Design.Storage.Mailbox.txt] is used to access a specific mailbox
+   in a storage.
+ * <Mail> [Design.Storage.Mail.txt] is used to access a specific mail in a
+   mailbox.
+ * <Error handling> [Design.Storage.ErrorHandling.txt].
+ * <Plugins> [Design.Storage.Plugins.txt] - how to hook into lib-storage
+   functions.
+
+(This file was created from the wiki on 2011-05-11 04:42)

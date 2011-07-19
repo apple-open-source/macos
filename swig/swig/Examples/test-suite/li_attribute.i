@@ -1,18 +1,26 @@
 %module li_attribute
 
-%include exception.i
-%include attribute.i
+%include <exception.i>
+
+//#define SWIG_ATTRIBUTE_TEMPLATE
+%include <attribute.i>
+
+%{
+// forward reference needed if using SWIG_ATTRIBUTE_TEMPLATE
+struct A;
+struct MyFoo; // %attribute2 does not work with templates
+%}
 
 %attribute(A, int, a, get_a, set_a);
-%attribute_ref(A, int, b);
+%attributeref(A, int, b);
 
-%attribute_ref(Param<int>, int, value);
+%attributeref(Param<int>, int, value);
 
 
 %attribute(A, int, c, get_c);  /* read-only */
-%attribute_ref(A, int, b, d);  /* different attribute name 'd' */
+%attributeref(A, int, d, b);   /* renames accessor method 'b' to attribute name 'd' */
 
-%attribute_ref(B, A*, a)
+%attributeref(B, A*, a)
 
 %inline
 {
@@ -83,5 +91,49 @@
 }
 
 %template(Param_i) Param<int>;
+
+
+// class/struct attribute with get/set methods using return/pass by reference
+%attribute2(MyClass, MyFoo, Foo, GetFoo, SetFoo);
+%inline %{
+  struct MyFoo { 
+    MyFoo() : x(-1) {}
+    int x;
+  };
+  class MyClass {
+    MyFoo foo;
+  public:
+    MyFoo& GetFoo() { return foo; }
+    void SetFoo(const MyFoo& other) { foo = other; }
+  };
+%} 
+
+
+// class/struct attribute with get/set methods using return/pass by value
+%attributeval(MyClassVal, MyFoo, ReadWriteFoo, GetFoo, SetFoo);
+%attributeval(MyClassVal, MyFoo, ReadOnlyFoo, GetFoo);
+%inline %{
+  class MyClassVal {
+    MyFoo foo;
+  public:
+    MyFoo GetFoo() { return foo; }
+    void SetFoo(MyFoo other) { foo = other; }
+  };
+%} 
+
+
+// string attribute with get/set methods using return/pass by value
+%include <std_string.i>
+%attributestring(MyStringyClass, std::string, ReadWriteString, GetString, SetString);
+%attributestring(MyStringyClass, std::string, ReadOnlyString, GetString);
+%inline %{
+  class MyStringyClass {
+    std::string str;
+  public:
+    MyStringyClass(const std::string &val) : str(val) {}
+    std::string GetString() { return str; }
+    void SetString(std::string other) { str = other; }
+  };
+%} 
 
 

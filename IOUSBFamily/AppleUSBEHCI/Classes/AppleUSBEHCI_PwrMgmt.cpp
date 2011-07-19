@@ -166,6 +166,11 @@ AppleUSBEHCI::CheckSleepCapability(void)
 	{
 		if (_device->getProperty("built-in"))
 		{
+			if (_errataBits & kErrataNECIncompleteWrite)
+			{
+				FixupNECControllerConfigRegisters();
+			}
+			
 			// rdar://5769508 - if we are on a built in PCI device, then assume the system supports D3cold
 			if (_device->hasPCIPowerManagement(kPCIPMCPMESupportFromD3Cold) && (_device->enablePCIPowerManagement(kPCIPMCSPowerStateD3) == kIOReturnSuccess))
 			{
@@ -582,6 +587,11 @@ AppleUSBEHCI::RestoreControllerStateFromSleep(void)
 	USBLog(5, "AppleUSBEHCI[%p]::RestoreControllerStateFromSleep - setPowerState powering on USB",  this);
 	
 	showRegisters(7, "+RestoreControllerStateFromSleep");
+
+	if (_errataBits & kErrataNECIncompleteWrite)
+	{
+		FixupNECControllerConfigRegisters();
+	}
 
 	// at this point, interrupts are disabled, and we are waking up. If the Port Change interrupt is active
 	// then it is likely that we are responsible for the system issuing the wakeup

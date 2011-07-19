@@ -1,0 +1,86 @@
+dbox configuration
+==================
+
+See <MailboxFormat.dbox.txt> for a description of the dbox mailbox format.
+
+Mail location
+-------------
+
+dbox can be used in two ways:
+
+ 1. One message per file (*single-dbox*), similar to <Maildir>
+    [MailboxFormat.Maildir.txt].
+ 2. Multiple messages per file (*multi-dbox*), but unlike <mbox>
+    [MailboxFormat.mbox.txt] multiple files per mailbox.
+
+To use *single-dbox*, use the tag 'sdbox' in the <mail location>
+[MailLocation.txt], for example:
+
+---%<-------------------------------------------------------------------------
+# single-dbox
+mail_location = sdbox:~/dbox
+---%<-------------------------------------------------------------------------
+
+For backwards compatibility, 'dbox' is an alias to 'sdbox' in the mail
+location.
+
+To use *multi-dbox*, use the tag 'mdbox' in the <mail location>
+[MailLocation.txt], for example:
+
+---%<-------------------------------------------------------------------------
+# multi-dbox
+mail_location = mdbox:~/mdbox
+---%<-------------------------------------------------------------------------
+
+Alternate storage
+-----------------
+
+dbox has a feature for transparently moving message data to an <Alternate
+storage> [MailboxFormat.dbox.txt] area.
+
+To specify an alternate storage area, use the 'ALT' parameter in the mail
+location. For example, specifying the mail location as:
+
+---%<-------------------------------------------------------------------------
+mail_location = mdbox:/var/vmail/%d/%n:ALT=/altstorage/vmail/%d/%n
+---%<-------------------------------------------------------------------------
+
+will make Dovecot look for message data first under '/var/vmail/%d/%n', and if
+it is not found there it will look under '/altstorage/vmail/%d/%n' instead.
+
+Keep the unmounted '/altstorage' directory permissions such that Dovecot mail
+processes can't create directories under it (e.g. root:root 0755). This way if
+the alt storage isn't mounted for some reason, Dovecot won't think that all the
+messages in alt storage were deleted and lose their flags.
+
+Mailbox directory name
+----------------------
+
+When using the default hierarchical layout, there is a potential for naming
+collisions between dbox's 'dbox-Mails/' subdirectory and mail folders of the
+same name. For example, consider a mail folder "foo/bar". Under the default
+hierarchical layout, data about this mail folder would be stored at
+'~/mdbox/mailboxes/foo/bar/dbox-Mails/'.
+
+If the user then tried to create a mail folder "foo/bar/dbox-Mails", this would
+then imply that data would be stored at
+'~/mdbox/mailboxes/foo/bar/dbox-Mails/dbox-Mails/'. But this would overlap the
+'dbox-Mails/' subdirectory of mail folder "foo/bar".
+
+This may not be a problem in many installations, but if a risk of collisions
+with the default name "dbox-Mails" is perceived, then the 'DIRNAME' parameter
+can be used. For example, if we specify mail location as:
+
+---%<-------------------------------------------------------------------------
+mail_location = mdbox:~/mdbox:DIRNAME=DbOx-mAiLs
+---%<-------------------------------------------------------------------------
+
+then this will make data for mail folders be stored in a subdirectory
+'DbOx-mAiLs/' instead of the default 'dbox-Mails/', so a mail folder "foo/bar"
+would have data stored at '~/mdbox/mailboxes/foo/bar/DbOx-mAiLs/'.
+
+The value for 'DIRNAME' should be chosen carefully so as to minimise the
+chances of clashing with mail folder names. In the example here, unusual
+upper/lower casing has been used.
+
+(This file was created from the wiki on 2011-05-11 04:42)

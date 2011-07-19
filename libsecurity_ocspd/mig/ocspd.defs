@@ -1,5 +1,5 @@
 //
-// Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+// Copyright (c) 2002-2011 Apple Inc. All Rights Reserved.
 //
 // @APPLE_LICENSE_HEADER_START@
 // 
@@ -68,6 +68,7 @@ routine ocspdCacheFlushStale(
 //
 routine certFetch(
 	requestport serverport : mach_port_t;
+	serveraudittoken sourceAudit: audit_token_t;
 	in cert_url : Data;
 	out cert_data : Data);
 	
@@ -77,19 +78,20 @@ routine certFetch(
 // 
 // crl_issuer is optional; it's the normalized issuer of the 
 // CRL to be fetched, used for cache lookup. It is only specified
-// when client klnows that the issuer of the CRL is the same as 
+// when client knows that the issuer of the CRL is the same as
 // the issuer of the cert being verified (i.e., there is no 
-// crlIssuer field in the crlDistribuitionPoints extension).
+// crlIssuer field in the crlDistributionPoints extension).
 //
 routine crlFetch(
 	requestport serverport : mach_port_t;
+	serveraudittoken sourceAudit: audit_token_t;
 	in crl_url : Data;
 	in crl_issuer : Data;
 	in cache_read : boolean_t;
 	in cache_write : boolean_t;
 	in verify_time : Data;
 	out crl_data : Data);
-	
+
 //
 // Refresh CRL cache.
 //
@@ -122,7 +124,8 @@ routine trustSettingsRead(
 //
 routine trustSettingsWrite(
 	requestport serverport : mach_port_t;
-	serveraudittoken sourceAudit: audit_token_t; 
+	serveraudittoken sourceAudit: audit_token_t;
+	in clientport: mach_port_t;
 	in domain: uint32_t;
 	in authBlob: Data;
 	in trustSettings : Data;

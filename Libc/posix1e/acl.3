@@ -75,14 +75,6 @@ and may be used to copy the contents of an ACL entry.
 This function is described in
 .Xr acl_create_entry 3 ,
 and may be used to create an empty entry in an ACL.
-.It Xo
-.Fn acl_delete_fd_np ,
-.Fn acl_delete_file_np ,
-.Fn acl_delete_link_np
-.Xc
-These functions are described in
-.Xr acl_delete 3 ,
-and may be used to delete ACLs from file system objects.
 .It Fn acl_delete_entry
 This function is described in
 .Xr acl_delete_entry 3 ,
@@ -170,9 +162,6 @@ and may be used to validate an ACL as correct POSIX.1e-semantics, or
 as appropriate for a particular file system object regardless of semantics.
 .El
 .Pp
-Documentation of the internal kernel interfaces backing these calls may
-be found in
-.Xr acl 9 .
 The syscalls between the internal interfaces and the public library
 routines may change over time, and as such are not documented.
 They are not intended to be called directly without going through the
@@ -203,7 +192,6 @@ library.
 .Xr acl_to_text 3 ,
 .Xr acl_valid 3 ,
 .Xr posix1e 3
-.\".Xr acl 9
 .Sh UNSUPPORTED FUNCTIONS
 .Xr acl_calc_mask 3 ,
 .Fn acl_delete_def_file

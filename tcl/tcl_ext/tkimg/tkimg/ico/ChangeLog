@@ -1,3 +1,19 @@
+2009-01-06	Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* No longer Panic when an out-of-memory error occurs,
+	  when compiled with Tcl/Tk 8.5 or later and running with
+	  Tcl/Tk 8.5 and later (Tk bug #2477446)
+
+2009-01-02	Paul Obermeier <obermeier@users.sourceforge.net>
+
+	* Additional check for supported compression types. 
+    * Implemented missing 32-bit mode for reading.
+
+2009-01-01	Paul Obermeier <obermeier@users.sourceforge.net>
+
+	* Additional checks on icon size when reading to avoid core
+	  dumps with defect icon files. (Bug 2477446 in Tk Toolkit) 
+
 2004-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

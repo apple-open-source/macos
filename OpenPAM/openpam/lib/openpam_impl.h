@@ -38,6 +38,8 @@
 #ifndef _OPENPAM_IMPL_H_INCLUDED
 #define _OPENPAM_IMPL_H_INCLUDED
 
+#define PAM_LOG_LIBDEBUG -1
+
 #ifdef HAVE_CONFIG_H
 # include <config.h>
 #endif
@@ -136,53 +138,53 @@ pam_module_t	*openpam_dynamic(const char *);
 #define	FREE(p) do { free((p)); (p) = NULL; } while (0)
 
 #ifdef DEBUG
-#define ENTER() openpam_log(PAM_LOG_DEBUG, "entering")
+#define ENTER() openpam_log(PAM_LOG_LIBDEBUG, "entering")
 #define ENTERI(i) do { \
 	int _i = (i); \
 	if (_i > 0 && _i < PAM_NUM_ITEMS) \
-		openpam_log(PAM_LOG_DEBUG, "entering: %s", _pam_item_name[_i]); \
+		openpam_log(PAM_LOG_LIBDEBUG, "entering: %s", _pam_item_name[_i]); \
 	else \
-		openpam_log(PAM_LOG_DEBUG, "entering: %d", _i); \
+		openpam_log(PAM_LOG_LIBDEBUG, "entering: %d", _i); \
 } while (0)
 #define ENTERN(n) do { \
 	int _n = (n); \
-	openpam_log(PAM_LOG_DEBUG, "entering: %d", _n); \
+	openpam_log(PAM_LOG_LIBDEBUG, "entering: %d", _n); \
 } while (0)
 #define ENTERS(s) do { \
 	const char *_s = (s); \
 	if (_s == NULL) \
-		openpam_log(PAM_LOG_DEBUG, "entering: NULL"); \
+		openpam_log(PAM_LOG_LIBDEBUG, "entering: NULL"); \
 	else \
-		openpam_log(PAM_LOG_DEBUG, "entering: '%s'", _s); \
+		openpam_log(PAM_LOG_LIBDEBUG, "entering: '%s'", _s); \
 } while (0)
-#define	RETURNV() openpam_log(PAM_LOG_DEBUG, "returning")
+#define	RETURNV() openpam_log(PAM_LOG_LIBDEBUG, "returning")
 #define RETURNC(c) do { \
 	int _c = (c); \
 	if (_c >= 0 && _c < PAM_NUM_ERRORS) \
-		openpam_log(PAM_LOG_DEBUG, "returning %s", _pam_err_name[_c]); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning %s", _pam_err_name[_c]); \
 	else \
-		openpam_log(PAM_LOG_DEBUG, "returning %d!", _c); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning %d!", _c); \
 	return (_c); \
 } while (0)
 #define	RETURNN(n) do { \
 	int _n = (n); \
-	openpam_log(PAM_LOG_DEBUG, "returning %d", _n); \
+	openpam_log(PAM_LOG_LIBDEBUG, "returning %d", _n); \
 	return (_n); \
 } while (0)
 #define	RETURNP(p) do { \
 	const void *_p = (p); \
 	if (_p == NULL) \
-		openpam_log(PAM_LOG_DEBUG, "returning NULL"); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning NULL"); \
 	else \
-		openpam_log(PAM_LOG_DEBUG, "returning %p", _p); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning %p", _p); \
 	return (p); \
 } while (0)
 #define	RETURNS(s) do { \
 	const char *_s = (s); \
 	if (_s == NULL) \
-		openpam_log(PAM_LOG_DEBUG, "returning NULL"); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning NULL"); \
 	else \
-		openpam_log(PAM_LOG_DEBUG, "returning '%s'", _s); \
+		openpam_log(PAM_LOG_LIBDEBUG, "returning '%s'", _s); \
 	return (_s); \
 } while (0)
 #else

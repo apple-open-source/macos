@@ -45,7 +45,8 @@ using Security::OSXCode;
 //
 // base for classes talking to SecurityAgent and authorizationhost
 //
-class SecurityAgentConnection : public SecurityAgentConnectionInterface
+class SecurityAgentConnection : public SecurityAgent::Client,
+                                public SecurityAgentConnectionInterface
 {
 public:
     SecurityAgentConnection(const AuthHostType type = securityAgent, Session &session = Server::session());
@@ -90,8 +91,7 @@ private:
 //
 // The main SecurityAgent/authorizationhost interaction base class
 //
-class SecurityAgentQuery : public SecurityAgent::Client, 
-                           public SecurityAgentConnection
+class SecurityAgentQuery : public SecurityAgentConnection
 {
 public:
 	typedef SecurityAgent::Reason Reason;
@@ -104,8 +104,6 @@ public:
 
 	virtual ~SecurityAgentQuery();
 
-	virtual void activate();
-	virtual void reconnect();
 	virtual void disconnect();
 	virtual void terminate();
 	void create(const char *pluginId, const char *mechanismId, const SessionId inSessionId);
@@ -190,7 +188,7 @@ private:
 // A query for a new passphrase
 //
 class QueryNewPassphrase : public SecurityAgentQuery {
-	static const int maxTries = 7;
+	static const int maxTries = kMaximumAuthorizationTries;
 public:
 	QueryNewPassphrase(Database &db, Reason reason) :
 	    database(db), initialReason(reason),

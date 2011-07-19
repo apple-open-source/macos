@@ -23,6 +23,7 @@
  */
 
 #include <asl_core.h>
+#include <stdlib.h>
 #include <string.h>
 #include <membership.h>
 #include <pthread.h>
@@ -247,4 +248,178 @@ asl_core_new_msg_id(uint64_t start)
 	pthread_mutex_unlock(&msg_id_lock);
 
 	return out;
+}
+
+/*
+ * asl_core_encode_buffer
+ * encode arbitrary data as a C string without embedded zero (nul) characters
+ *
+ * The routine computes a histogram of the input buffer and finds
+ * the two least frequently used non-nul chars (L[0] and L[1]).
+ *
+ * L[0] is used to stand in for nul.
+ * L[1] is used as the escape character.
+ * Occurrences of nul in the data are encoded as L[0]
+ * Occurrences of L[0] in the data are encoded as the sequence L[1] 1.
+ * Occurrences of L[1] in the data are encoded as the sequence L[1] 2.
+ *
+ * The output string is preceded by L[0] L[1], and is nul terminated.
+ * The output length is 2 + n + N(L[0]) + N(L[1]) + 1
+ * where N(x) is the number of occurrences of x in the input string.
+ * The worst case occurs when all characters are equally frequent, 
+ * In that case the output size will less that 1% larger than the input.
+ */
+char *
+asl_core_encode_buffer(const char *in, uint32_t len)
+{
+	char *str;
+	uint32_t i, j, k, outlen, breakit, min, hist[256];
+	uint32_t lfu[2], save[2];
+	uint8_t v;
+
+	if (in == NULL) return NULL;
+	if (len == 0) return NULL;
+
+	memset(hist, 0, sizeof(hist));
+	save[0] = 0;
+	save[1] = 0;
+
+	for (i = 0; i < len; i++)
+	{
+		v = in[i];
+		hist[v]++;
+	}
+
+	for (j = 0; j < 2; j++)
+	{
+		lfu[j] = 1;
+		min = hist[1];
+
+		for (i = 2; i < 256; i++)
+		{
+			if (hist[i] < min)
+			{
+				lfu[j] = i;
+				min = hist[i];
+
+				/*
+				 * Stop if there are no occurances or character i in the input.
+				 * The minimum will never be less than zero.
+				 */
+				if (min == 0) break;
+
+				/*
+				 * When looking for the second least frequently used character,
+				 * stop scanning if we hit the same minimum as we saw in the first
+				 * pass.  There will be no smaller values.
+				 */
+				if ((j == 1) && (min == save[0])) break;
+			}
+		}
+
+		save[j] = hist[lfu[j]];
+		hist[lfu[j]] = (uint32_t)-1;
+	}
+
+	outlen = 2 + len + save[0] + save[1] + 1;
+
+	str = malloc(outlen);
+	if (str == NULL) return NULL;
+
+	str[outlen - 1] = '\0';
+
+	str[0] = lfu[0];
+	str[1] = lfu[1];
+
+	j = 2;
+
+	for (i = 0; i < len; i++)
+	{
+		v = in[i];
+		if (v == 0)
+		{
+			str[j++] = lfu[0];
+			continue;
+		}
+
+		breakit = 0;
+		for (k = 0; (k < 2) && (breakit == 0); k++)
+		{
+			if (v == lfu[k])
+			{
+				str[j++] = lfu[1];
+				str[j++] = k + 1;
+				breakit = 1;
+			}
+		}
+
+		if (breakit == 1) continue;
+
+		str[j++] = v;
+	}
+
+	return str;
+}
+
+/*
+ * asl_core_decode_buffer
+ * decode a string produced by asl_encode_buffer to recreate the original data
+ */
+int32_t
+asl_core_decode_buffer(const char *in, char **buf, uint32_t *len)
+{
+	uint8_t v;
+	uint32_t i, j, n, outlen;
+	uint32_t lfu[2];
+	char *out;
+
+	if (buf == NULL) return -1;
+	if (len == NULL) return -1;
+
+	lfu[0] = in[0];
+	lfu[1] = in[1];
+
+	outlen = 0;
+
+	/* strip trailing nul */
+	n = strlen(in);
+
+	/* determine output length and check for invalid input */
+	for (i = 2; i < n; i++)
+	{
+		if (in[i] == lfu[1])
+		{
+			if ((i + 1) == n) return -1;
+			i++;
+			if ((in[i] < 1) || (in[i] > 2)) return -1;
+			outlen++;
+		}
+		else outlen++;
+	}
+
+	if (outlen == 0) return -1;
+
+	out = malloc(outlen);
+	if (out == NULL) return -1;
+
+	j = 0;
+	for (i = 2; i < n; i++)
+	{
+		v = in[i];
+		if (v == lfu[0])
+		{
+			out[j++] = 0;
+		}
+		else if (v == lfu[1])
+		{
+			i++;
+			v = in[i];
+			out[j++] = lfu[v - 1];
+		}
+		else out[j++] = v;
+	}
+
+	*len = outlen;
+	*buf = out;
+	return 0;
 }

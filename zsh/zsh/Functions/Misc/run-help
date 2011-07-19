@@ -5,11 +5,10 @@
 # Install this function by placing it in your FPATH and then
 # adding to your .zshrc the lines:
 #	unalias run-help
-#	autoload run-help
+#	autoload -Uz run-help
 #
 
-emulate -R zsh
-setopt localoptions
+emulate -RL zsh
 
 local HELPDIR="${HELPDIR:-/usr/share/zsh/$ZSH_VERSION/help}"
 
@@ -50,6 +49,7 @@ if [[ $places = *"not found"* && $1 != ${(Q)1} ]]; then
   noalias=1
 fi
 
+{
 while ((i++ < $#places))
 do
     what=$places[$i]
@@ -57,7 +57,8 @@ do
     builtin print -r $what
     case $what in
     (*( is an alias)*)
-	[[ ${what[(w)6]:t} != ${what[(w)1]} ]] && run-help ${what[(w)6]:t}
+	[[ ${what[(w)6]:t} != ${what[(w)1]} ]] &&
+	  run_help_orig_cmd=${what[(w)1]} run-help ${what[(w)6]:t}
 	;;
     (*( is a * function))
 	case ${what[(w)1]} in
@@ -76,7 +77,7 @@ do
 	(clone) ;&
 	(ln|mkdir|mv|rm|rmdir|sync) ;&
 	(sched) ;&
-	(stat) man zshmodules;;
+	(echotc|echoti|sched|stat|zprof|zpty|zsocket|zstyle|ztcp) man zshmodules;;
 	(zftp) man zshftpsys;;
 	(*) man zshbuiltins;;
 	esac
@@ -97,13 +98,13 @@ do
 		builtin print -z "$cmd_args"
 		cmd_args=( ${(z)cmd_args} )
 		# Discard environment assignments, etc.
-		while [[ $cmd_args[1] != $1 ]]
+		while [[ $cmd_args[1] != ${run_help_orig_cmd:-$1} ]]
 		do
-		    shift cmd_args
+		    shift cmd_args || return 1
 		done
 		eval "run-help-$1:t ${(q@)cmd_args[2,-1]}"
 	    else
-		man $@:t
+		POSIXLY_CORRECT=1 man $@:t
 	    fi
 	fi
 	;;
@@ -116,3 +117,6 @@ do
 	[[ $what == [qQ] ]] && break
     fi
 done
+} always {
+  unset run_help_orig_cmd
+}

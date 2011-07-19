@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctoc language command reference}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -54,7 +55,7 @@ written in the doctoc markup and processed in the place of the
 include command. The markup in the file has to be self-contained. It
 is not possible for a markup command to cross the file boundaries.
 
-[call [cmd item]]
+[call [cmd item] [arg file] [arg text] [arg desc]]
 
 Toc structure. This command adds an individual element to the table of
 contents. Each such element refers to a document. The document is

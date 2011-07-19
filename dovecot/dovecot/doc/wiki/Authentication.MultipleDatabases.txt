@@ -1,0 +1,112 @@
+Multiple Authentication Databases
+=================================
+
+Dovecot supports defining multiple authentication databases, so that if the
+password doesn't match in the first database, it checks the next one. This can
+be useful if you want to easily support having both local system users in
+'/etc/passwd' and virtual users.
+
+Currently the fallback works only with the PLAIN authentication mechanism.
+
+Often you also want a different mail location for system and virtual users. The
+best way to do this would be to always have mails stored below the home
+directory ( <virtual users should have a home directory too>
+[VirtualUsers.Home.txt]):
+
+ * System users' mails: /home/user/Maildir
+ * Virtual users' mails: /var/vmail/domain/user/Maildir
+
+This can be done by simply having both system and virtual userdbs return home
+directory properly (i.e. virtual users''home=/var/vmail/%d/%n') and then set
+'mail_location = maildir:~/Maildir'.
+
+If it's not possible to have a home directory for virtual users (avoid that if
+possible), you can do this by pointing <mail_location> [MailLocation.txt] to
+system users' mail location and have the virtual userdb override it by
+returning 'mail' <extra field> [UserDatabase.ExtraFields.txt].
+
+Example with home dirs
+----------------------
+
+ * System users' mails: /home/user/Maildir
+ * Virtual users' mails: /var/vmail/domain/user/Maildir
+
+dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+# Mail location for both system and virtual users:
+mail_location = maildir:~/Maildir
+
+# try to authenticate using SQL database first
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+# fallback to PAM
+passdb {
+  driver = pam
+}
+
+# look up users from SQL first (even if authentication was done using PAM!)
+userdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+# if not found, fallback to /etc/passwd
+userdb {
+  driver = passwd
+}
+---%<-------------------------------------------------------------------------
+
+dovecot-sql.conf.ext:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT userid as user, password FROM users WHERE userid = '%u'
+user_query = SELECT uid, gid, '/var/vmail/%d/%n' as home FROM users WHERE
+userid = '%u'
+---%<-------------------------------------------------------------------------
+
+Example with overriding mail location
+-------------------------------------
+
+ * System users' mails: /home/user/Maildir
+ * Virtual users' mails: /var/vmail/domain/user
+
+dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+# the default mail location for system users, this will be overridden in userdb
+sql.
+mail_location = maildir:~/Maildir
+
+# try to authenticate using SQL database first
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+# fallback to PAM
+passdb {
+  driver = pam
+}
+
+# look up users from SQL first (even if authentication was done using PAM!)
+userdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+# if not found, fallback to /etc/passwd
+userdb {
+  driver = passwd
+}
+---%<-------------------------------------------------------------------------
+
+dovecot-sql.conf.ext:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT userid as user, password FROM users WHERE userid = '%u'
+# returning mail overrides mail_location setting for SQL users.
+user_query = SELECT uid, gid, 'maildir:/var/vmail/%u' as mail FROM users WHERE
+userid = '%u'
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

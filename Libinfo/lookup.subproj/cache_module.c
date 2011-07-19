@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,7 @@
 #include <sys/stat.h>
 #include <ils.h>
 #include <libkern/OSAtomic.h>
+#include <dispatch/dispatch.h>
 
 /* GLOBAL */
 uint32_t gL1CacheEnabled = 1;
@@ -153,61 +154,61 @@ cache_fetch_list(si_mod_t *si, int cat)
 	return list;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_user_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_USER, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_user_byuid(si_mod_t *si, uid_t uid)
 {
 	return cache_fetch_item(si, CATEGORY_USER, NULL, uid, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_user_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_USER);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_group_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_GROUP, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_group_bygid(si_mod_t *si, gid_t gid)
 {
 	return cache_fetch_item(si, CATEGORY_GROUP, NULL, gid, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_group_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_GROUP);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_grouplist(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_GROUPLIST, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_alias_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_ALIAS, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_alias_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_ALIAS);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
@@ -223,7 +224,7 @@ cache_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, u
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
@@ -239,31 +240,31 @@ cache_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, u
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_host_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_HOST);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_network_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_NETWORK, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_network_byaddr(si_mod_t *si, uint32_t addr)
 {
 	return cache_fetch_item(si, CATEGORY_NETWORK, NULL, addr, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_network_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_NETWORK);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_service_byname(si_mod_t *si, const char *name, const char *proto)
 {
 	uint32_t pn;
@@ -277,91 +278,91 @@ cache_service_byname(si_mod_t *si, const char *name, const char *proto)
 	return cache_fetch_item(si, CATEGORY_SERVICE, name, pn, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_service_byport(si_mod_t *si, int port, const char *proto)
 {
 	return cache_fetch_item(si, CATEGORY_SERVICE, proto, port, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_service_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_SERVICE);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_protocol_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_PROTOCOL, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_protocol_bynumber(si_mod_t *si, int number)
 {
 	return cache_fetch_item(si, CATEGORY_PROTOCOL, NULL, number, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_protocol_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_PROTOCOL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_rpc_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_RPC, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_rpc_bynumber(si_mod_t *si, int number)
 {
 	return cache_fetch_item(si, CATEGORY_RPC, NULL, number, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_rpc_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_RPC);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_fs_byspec(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_FS, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_fs_byfile(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_FS, name, 0, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_fs_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_FS);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_mac_byname(si_mod_t *si, const char *name)
 {
 	return cache_fetch_item(si, CATEGORY_MAC, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_mac_bymac(si_mod_t *si, const char *mac)
 {
 	return cache_fetch_item(si, CATEGORY_MAC, mac, 0, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 cache_mac_all(si_mod_t *si)
 {
 	return cache_fetch_list(si, CATEGORY_MAC);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 cache_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *ignored, uint32_t *err)
 {
 	/*
@@ -374,7 +375,7 @@ cache_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *i
 	return NULL;
 }
 
-__private_extern__ void
+static void
 cache_close(si_mod_t *si)
 {
 	cache_si_private_t *pp;
@@ -396,92 +397,89 @@ cache_close(si_mod_t *si)
 		}
 	}
 
-	free(si->private);
+	free(pp);
 }
 
-__private_extern__ si_mod_t *
-si_module_static_cache()
+si_mod_t *
+si_module_static_cache(void)
 {
-	si_mod_t *out;
-	char *outname;
-	cache_si_private_t *pp;
-
-	out = (si_mod_t *)calloc(1, sizeof(si_mod_t));
-	outname = strdup("cache");
-	pp = (cache_si_private_t *)calloc(1, sizeof(cache_si_private_t));
-
-	if ((out == NULL) || (outname == NULL) || (pp == NULL))
+	static const struct si_mod_vtable_s cache_vtable =
 	{
-		if (out != NULL) free(out);
-		if (outname != NULL) free(outname);
-		if (pp != NULL) free(pp);
+		.sim_close = &cache_close,
 
-		errno = ENOMEM;
-		return NULL;
-	}
+		.sim_user_byname = &cache_user_byname,
+		.sim_user_byuid = &cache_user_byuid,
+		.sim_user_all = &cache_user_all,
 
-	out->name = outname;
-	out->vers = 1;
-	out->refcount = 1;
-	out->private = pp;
+		.sim_group_byname = &cache_group_byname,
+		.sim_group_bygid = &cache_group_bygid,
+		.sim_group_all = &cache_group_all,
 
-	out->sim_close = cache_close;
+		.sim_grouplist = &cache_grouplist,
 
-	out->sim_user_byname = cache_user_byname;
-	out->sim_user_byuid = cache_user_byuid;
-	out->sim_user_all = cache_user_all;
+		/* no netgroup support */
+		.sim_netgroup_byname = NULL,
+		.sim_in_netgroup = NULL,
 
-	out->sim_group_byname = cache_group_byname;
-	out->sim_group_bygid = cache_group_bygid;
-	out->sim_group_all = cache_group_all;
+		.sim_alias_byname = &cache_alias_byname,
+		.sim_alias_all = &cache_alias_all,
 
-	out->sim_grouplist = cache_grouplist;
+		.sim_host_byname = &cache_host_byname,
+		.sim_host_byaddr = &cache_host_byaddr,
+		.sim_host_all = &cache_host_all,
 
-	/* no netgroup support */
-	out->sim_netgroup_byname = NULL;
-	out->sim_in_netgroup = NULL;
+		.sim_network_byname = &cache_network_byname,
+		.sim_network_byaddr = &cache_network_byaddr,
+		.sim_network_all = &cache_network_all,
 
-	out->sim_alias_byname = cache_alias_byname;
-	out->sim_alias_all = cache_alias_all;
+		.sim_service_byname = &cache_service_byname,
+		.sim_service_byport = &cache_service_byport,
+		.sim_service_all = &cache_service_all,
 
-	out->sim_host_byname = cache_host_byname;
-	out->sim_host_byaddr = cache_host_byaddr;
-	out->sim_host_all = cache_host_all;
+		.sim_protocol_byname = &cache_protocol_byname,
+		.sim_protocol_bynumber = &cache_protocol_bynumber,
+		.sim_protocol_all = &cache_protocol_all,
 
-	out->sim_network_byname = cache_network_byname;
-	out->sim_network_byaddr = cache_network_byaddr;
-	out->sim_network_all = cache_network_all;
+		.sim_rpc_byname = &cache_rpc_byname,
+		.sim_rpc_bynumber = &cache_rpc_bynumber,
+		.sim_rpc_all = &cache_rpc_all,
 
-	out->sim_service_byname = cache_service_byname;
-	out->sim_service_byport = cache_service_byport;
-	out->sim_service_all = cache_service_all;
+		.sim_fs_byspec = &cache_fs_byspec,
+		.sim_fs_byfile = &cache_fs_byfile,
+		.sim_fs_all = &cache_fs_all,
 
-	out->sim_protocol_byname = cache_protocol_byname;
-	out->sim_protocol_bynumber = cache_protocol_bynumber;
-	out->sim_protocol_all = cache_protocol_all;
+		.sim_mac_byname = &cache_mac_byname,
+		.sim_mac_bymac = &cache_mac_bymac,
+		.sim_mac_all = &cache_mac_all,
 
-	out->sim_rpc_byname = cache_rpc_byname;
-	out->sim_rpc_bynumber = cache_rpc_bynumber;
-	out->sim_rpc_all = cache_rpc_all;
+		/* no addrinfo support */
+		.sim_wants_addrinfo = NULL,
+		.sim_addrinfo = NULL,
 
-	out->sim_fs_byspec = cache_fs_byspec;
-	out->sim_fs_byfile = cache_fs_byfile;
-	out->sim_fs_all = cache_fs_all;
+		.sim_nameinfo = &cache_nameinfo,
+	};
 
-	out->sim_mac_byname = cache_mac_byname;
-	out->sim_mac_bymac = cache_mac_bymac;
-	out->sim_mac_all = cache_mac_all;
+	static si_mod_t si =
+	{
+		.vers = 1,
+		.refcount = 1,
+		.flags = SI_MOD_FLAG_STATIC,
 
-	/* no addrinfo support */
-	out->sim_wants_addrinfo = NULL;
-	out->sim_addrinfo = NULL;
+		.private = NULL,
+		.vtable = &cache_vtable,
+	};
 
-	out->sim_nameinfo = cache_nameinfo;
+	static dispatch_once_t once;
 
-	return out;
+	dispatch_once(&once, ^{
+		si.name = strdup("cache");
+		si.private = calloc(1, sizeof(cache_si_private_t));
+	});
+
+	return &si;
 }
 
-__private_extern__ void
+void
 si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 {
 	cache_si_private_t *pp;
@@ -516,7 +514,7 @@ si_cache_add_item(si_mod_t *si, si_mod_t *src, si_item_t *item)
 	OSSpinLockUnlock(&(pp->cache_store[cat].lock));
 }
 
-__private_extern__ void
+void
 si_cache_add_list(si_mod_t *si, si_mod_t *src, si_list_t *list)
 {
 	cache_si_private_t *pp;

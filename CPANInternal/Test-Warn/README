@@ -1,0 +1,75 @@
+Test/Warn version 0.21
+======================
+
+INSTALLATION
+
+To install this module type the following:
+
+   perl Makefile.PL
+   make
+   make test
+   make install
+
+DEPENDENCIES
+
+This module requires these other modules and libraries:
+
+Test::Builder
+Sub::Uplevel
+List::Util
+Tree::DAG_Node
+File::Spec
+
+SYNOPSIS
+      use Test::Warn;
+
+      warning_is    {foo(-dri => "/")} "Unknown Parameter 'dri'", "dri != dir gives warning";
+      warnings_are  {bar(1,1)} ["Width very small", "Height very small"];
+  
+      warning_is    {add(2,2)} undef, "No warning to calc 2+2"; # or
+      warnings_are  {add(2,2)} [],    "No warning to calc 2+2"; # what reads better :-)
+  
+      warning_like  {foo(-dri => "/"} qr/unknown param/i, "an unknown parameter test";
+      warnings_like {bar(1,1)} [qr/width.*small/i, qr/height.*small/i];
+  
+      warning_is    {foo()} {carped => 'didn't found the right parameters'};
+      warnings_like {foo()} [qr/undefined/,qr/undefined/,{carped => qr/no result/i}];
+  
+      warning_like {foo(undef)}                 'uninitialized';
+      warning_like {bar(file => '/etc/passwd')} 'io';
+
+      warning_like {eval q/"$x"; $x;/} 
+                   [qw/void uninitialized/], 
+                   "some warnings at compile time";
+
+DESCRIPTION
+    This module provides a few convenience methods for testing warning based
+    code.
+
+    If you are not already familiar with the Test::More manpage now would be
+    the time to go take a look.
+
+  FUNCTIONS - OVERVIEW
+    warning_is    BLOCK STRING,   TEST_NAME
+    warnings_are  BLOCK ARRAYREF, TEST_NAME
+    warning_like  BLOCK REGEXP,   TEST_NAME
+    warning_like  BLOCK STRING,   TEST_NAME
+    warnings_like BLOCK ARRAYREF, TEST_NAME
+
+SEE ALSO
+    Have a look to the similar Test::Exception module.
+
+THANKS
+    Many thanks to Adrian Howard, chromatic and Michael G. Schwern, who all had
+    given me a lot of ideas.
+
+AUTHOR
+    Janek Schleicher, <bigj@kamelfreund.de>
+
+COPYRIGHT AND LICENSE
+    Copyright 2002 by Janek Schleicher
+    Copyright 2007-2009 by Alexandr Ciornii
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.
+

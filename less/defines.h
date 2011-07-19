@@ -68,7 +68,7 @@
  * USERFILE is 1 if you wish to allow a .less file to specify 
  * user-defined key bindings.
  */
-#define	USERFILE	(!SECURE)
+#define	USERFILE	0
 
 /*
  * GLOB is 1 if you wish to have shell metacharacters expanded in filenames.

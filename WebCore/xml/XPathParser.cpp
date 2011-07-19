@@ -31,12 +31,12 @@
 #if ENABLE(XPATH)
 
 #include "ExceptionCode.h"
-#include "StringHash.h"
 #include "XPathEvaluator.h"
 #include "XPathException.h"
 #include "XPathNSResolver.h"
 #include "XPathStep.h"
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringHash.h>
 
 int xpathyyparse(void*);
 
@@ -124,23 +124,21 @@ static bool isNodeTypeName(const String& name)
     return nodeTypeNames.contains(name);
 }
 
-/* Returns whether the last parsed token matches the [32] Operator rule
- * (check http://www.w3.org/TR/xpath#exprlex). Necessary to disambiguate
- * the tokens.
- */
-bool Parser::isOperatorContext() const
+// Returns whether the current token can possibly be a binary operator, given
+// the previous token. Necessary to disambiguate some of the operators
+// (* (multiply), div, and, or, mod) in the [32] Operator rule
+// (check http://www.w3.org/TR/xpath#exprlex).
+bool Parser::isBinaryOperatorContext() const
 {
-    if (m_nextPos == 0)
-        return false;
-
     switch (m_lastTokenType) {
-        case AND: case OR: case MULOP:
-        case '/': case SLASHSLASH: case '|': case PLUS: case MINUS:
-        case EQOP: case RELOP:
-        case '@': case AXISNAME:   case '(': case '[':
-            return false;
-        default:
-            return true;
+    case 0:
+    case '@': case AXISNAME: case '(': case '[': case ',':
+    case AND: case OR: case MULOP:
+    case '/': case SLASHSLASH: case '|': case PLUS: case MINUS:
+    case EQOP: case RELOP:
+        return false;
+    default:
+        return true;
     }
 }
 
@@ -279,57 +277,57 @@ Token Parser::nextTokenInternal()
 
     char code = peekCurHelper();
     switch (code) {
-        case '(': case ')': case '[': case ']':
-        case '@': case ',': case '|':
-            return makeTokenAndAdvance(code);
-        case '\'':
-        case '\"':
-            return lexString();
-        case '0': case '1': case '2': case '3': case '4':
-        case '5': case '6': case '7': case '8': case '9':
+    case '(': case ')': case '[': case ']':
+    case '@': case ',': case '|':
+        return makeTokenAndAdvance(code);
+    case '\'':
+    case '\"':
+        return lexString();
+    case '0': case '1': case '2': case '3': case '4':
+    case '5': case '6': case '7': case '8': case '9':
+        return lexNumber();
+    case '.': {
+        char next = peekAheadHelper();
+        if (next == '.')
+            return makeTokenAndAdvance(DOTDOT, 2);
+        if (next >= '0' && next <= '9')
             return lexNumber();
-        case '.': {
-            char next = peekAheadHelper();
-            if (next == '.')
-                return makeTokenAndAdvance(DOTDOT, 2);
-            if (next >= '0' && next <= '9')
-                return lexNumber();
-            return makeTokenAndAdvance('.');
-        }
-        case '/':
-            if (peekAheadHelper() == '/')
-                return makeTokenAndAdvance(SLASHSLASH, 2);
-            return makeTokenAndAdvance('/');
-        case '+':
-            return makeTokenAndAdvance(PLUS);
-        case '-':
-            return makeTokenAndAdvance(MINUS);
-        case '=':
-            return makeTokenAndAdvance(EQOP, EqTestOp::OP_EQ);
-        case '!':
-            if (peekAheadHelper() == '=')
-                return makeTokenAndAdvance(EQOP, EqTestOp::OP_NE, 2);
+        return makeTokenAndAdvance('.');
+    }
+    case '/':
+        if (peekAheadHelper() == '/')
+            return makeTokenAndAdvance(SLASHSLASH, 2);
+        return makeTokenAndAdvance('/');
+    case '+':
+        return makeTokenAndAdvance(PLUS);
+    case '-':
+        return makeTokenAndAdvance(MINUS);
+    case '=':
+        return makeTokenAndAdvance(EQOP, EqTestOp::OP_EQ);
+    case '!':
+        if (peekAheadHelper() == '=')
+            return makeTokenAndAdvance(EQOP, EqTestOp::OP_NE, 2);
+        return Token(XPATH_ERROR);
+    case '<':
+        if (peekAheadHelper() == '=')
+            return makeTokenAndAdvance(RELOP, EqTestOp::OP_LE, 2);
+        return makeTokenAndAdvance(RELOP, EqTestOp::OP_LT);
+    case '>':
+        if (peekAheadHelper() == '=')
+            return makeTokenAndAdvance(RELOP, EqTestOp::OP_GE, 2);
+        return makeTokenAndAdvance(RELOP, EqTestOp::OP_GT);
+    case '*':
+        if (isBinaryOperatorContext())
+            return makeTokenAndAdvance(MULOP, NumericOp::OP_Mul);
+        ++m_nextPos;
+        return Token(NAMETEST, "*");
+    case '$': { // $ QName
+        m_nextPos++;
+        String name;
+        if (!lexQName(name))
             return Token(XPATH_ERROR);
-        case '<':
-            if (peekAheadHelper() == '=')
-                return makeTokenAndAdvance(RELOP, EqTestOp::OP_LE, 2);
-            return makeTokenAndAdvance(RELOP, EqTestOp::OP_LT);
-        case '>':
-            if (peekAheadHelper() == '=')
-                return makeTokenAndAdvance(RELOP, EqTestOp::OP_GE, 2);
-            return makeTokenAndAdvance(RELOP, EqTestOp::OP_GT);
-        case '*':
-            if (isOperatorContext())
-                return makeTokenAndAdvance(MULOP, NumericOp::OP_Mul);
-            ++m_nextPos;
-            return Token(NAMETEST, "*");
-        case '$': { // $ QName
-            m_nextPos++;
-            String name;
-            if (!lexQName(name))
-                return Token(XPATH_ERROR);
-            return Token(VARIABLEREFERENCE, name);
-        }
+        return Token(VARIABLEREFERENCE, name);
+    }
     }
 
     String name;
@@ -338,7 +336,7 @@ Token Parser::nextTokenInternal()
 
     skipWS();
     // If we're in an operator context, check for any operator names
-    if (isOperatorContext()) {
+    if (isBinaryOperatorContext()) {
         if (name == "and") //### hash?
             return Token(AND);
         if (name == "or")
@@ -410,6 +408,10 @@ Parser::Parser()
     reset(String());
 }
 
+Parser::~Parser()
+{
+}
+
 void Parser::reset(const String& data)
 {
     m_nextPos = 0;
@@ -426,26 +428,26 @@ int Parser::lex(void* data)
     Token tok = nextToken();
 
     switch (tok.type) {
-        case AXISNAME:
-            yylval->axis = tok.axis;
-            break;
-        case MULOP:
-            yylval->numop = tok.numop;
-            break;
-        case RELOP:
-        case EQOP:
-            yylval->eqop = tok.eqop;
-            break;
-        case NODETYPE:
-        case PI:
-        case FUNCTIONNAME:
-        case LITERAL:
-        case VARIABLEREFERENCE:
-        case NUMBER:
-        case NAMETEST:
-            yylval->str = new String(tok.str);
-            registerString(yylval->str);
-            break;
+    case AXISNAME:
+        yylval->axis = tok.axis;
+        break;
+    case MULOP:
+        yylval->numop = tok.numop;
+        break;
+    case RELOP:
+    case EQOP:
+        yylval->eqop = tok.eqop;
+        break;
+    case NODETYPE:
+    case PI:
+    case FUNCTIONNAME:
+    case LITERAL:
+    case VARIABLEREFERENCE:
+    case NUMBER:
+    case NAMETEST:
+        yylval->str = new String(tok.str);
+        registerString(yylval->str);
+        break;
     }
 
     return tok.type;
@@ -453,8 +455,8 @@ int Parser::lex(void* data)
 
 bool Parser::expandQName(const String& qName, String& localName, String& namespaceURI)
 {
-    int colon = qName.find(':');
-    if (colon >= 0) {
+    size_t colon = qName.find(':');
+    if (colon != notFound) {
         if (!m_resolver)
             return false;
         namespaceURI = m_resolver->lookupNamespaceURI(qName.left(colon));

@@ -1,0 +1,266 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 42;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		177C3B4A0E952D0B0049E145 /* push_notify.m in Sources */ = {isa = PBXBuildFile; fileRef = 177C3B490E952D0B0049E145 /* push_notify.m */; };
+		177D92F30EA3ACDF00405EC2 /* XMPP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 177D92F20EA3ACDF00405EC2 /* XMPP.framework */; };
+		612051B60F9E227700B8368B /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 612051B50F9E227700B8368B /* OpenDirectory.framework */; };
+		6126CACF0A559216004B74A4 /* push_notify.8 in Copy Man Page */ = {isa = PBXBuildFile; fileRef = 6126CACD0A55920B004B74A4 /* push_notify.8 */; };
+		6126CAD20A559263004B74A4 /* com.apple.push_notify.plist in Copy Launchd Plist */ = {isa = PBXBuildFile; fileRef = 6126CAD10A559263004B74A4 /* com.apple.push_notify.plist */; };
+		61CAF8100A0A5F0E00B7CD82 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */; };
+		61CAF8170A0A5F2B00B7CD82 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		613B007D0A558E2300056B7F /* Copy Man Page */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				6126CACF0A559216004B74A4 /* push_notify.8 in Copy Man Page */,
+			);
+			name = "Copy Man Page";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		618FFEEE0A548C4100A0FE95 /* Copy Launchd Plist */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				6126CAD20A559263004B74A4 /* com.apple.push_notify.plist in Copy Launchd Plist */,
+			);
+			name = "Copy Launchd Plist";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		177C3B480E952D0B0049E145 /* push_notify.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = push_notify.h; sourceTree = "<group>"; };
+		177C3B490E952D0B0049E145 /* push_notify.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = push_notify.m; sourceTree = "<group>"; };
+		177D92F20EA3ACDF00405EC2 /* XMPP.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = XMPP.framework; path = /System/Library/PrivateFrameworks/XMPP.framework; sourceTree = "<absolute>"; };
+		612051B50F9E227700B8368B /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
+		6126CACD0A55920B004B74A4 /* push_notify.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = push_notify.8; sourceTree = "<group>"; };
+		6126CAD10A559263004B74A4 /* com.apple.push_notify.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.push_notify.plist; sourceTree = "<group>"; };
+		61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
+		61FD409D0A0A4FCA0098F485 /* push_notify */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = push_notify; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		613AC90C0A0A4DCB00100B43 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				61CAF8100A0A5F0E00B7CD82 /* CoreFoundation.framework in Frameworks */,
+				61CAF8170A0A5F2B00B7CD82 /* Foundation.framework in Frameworks */,
+				177D92F30EA3ACDF00405EC2 /* XMPP.framework in Frameworks */,
+				612051B60F9E227700B8368B /* OpenDirectory.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* mail_backup */ = {
+			isa = PBXGroup;
+			children = (
+				613AC9330A0A4E7C00100B43 /* source */,
+				08FB7795FE84155DC02AAC07 /* Common */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				61CAF8070A0A5EB800B7CD82 /* External Frameworks and Libraries */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = mail_backup;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				6126CAD10A559263004B74A4 /* com.apple.push_notify.plist */,
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				61FD409D0A0A4FCA0098F485 /* push_notify */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		613AC9330A0A4E7C00100B43 /* source */ = {
+			isa = PBXGroup;
+			children = (
+				177C3B480E952D0B0049E145 /* push_notify.h */,
+				177C3B490E952D0B0049E145 /* push_notify.m */,
+			);
+			name = source;
+			sourceTree = "<group>";
+		};
+		61CAF8070A0A5EB800B7CD82 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				61CAF8140A0A5F2B00B7CD82 /* Foundation.framework */,
+				61CAF80D0A0A5F0E00B7CD82 /* CoreFoundation.framework */,
+				612051B50F9E227700B8368B /* OpenDirectory.framework */,
+				177D92F20EA3ACDF00405EC2 /* XMPP.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				6126CACD0A55920B004B74A4 /* push_notify.8 */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		613AC90D0A0A4DCB00100B43 /* push_notify */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 61E39F030A50A796006A171E /* Build configuration list for PBXNativeTarget "push_notify" */;
+			buildPhases = (
+				613AC90B0A0A4DCB00100B43 /* Sources */,
+				613AC90C0A0A4DCB00100B43 /* Frameworks */,
+				618FFEEE0A548C4100A0FE95 /* Copy Launchd Plist */,
+				613B007D0A558E2300056B7F /* Copy Man Page */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = push_notify;
+			productName = mailService_backup;
+			productReference = 61FD409D0A0A4FCA0098F485 /* push_notify */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 61E39EFB0A50A796006A171E /* Build configuration list for PBXProject "push_notify" */;
+			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* mail_backup */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				613AC90D0A0A4DCB00100B43 /* push_notify */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		613AC90B0A0A4DCB00100B43 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				177C3B4A0E952D0B0049E145 /* push_notify.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		61E39EFC0A50A796006A171E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Development;
+		};
+		61E39EFE0A50A796006A171E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+			};
+			name = Default;
+		};
+		61E39F040A50A796006A171E /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/PrivateFrameworks,
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/sbin;
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = push_notify;
+				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Development;
+		};
+		61E39F060A50A796006A171E /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					/System/Library/PrivateFrameworks,
+				);
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = push_notify;
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		61E39EFB0A50A796006A171E /* Build configuration list for PBXProject "push_notify" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				61E39EFC0A50A796006A171E /* Development */,
+				61E39EFE0A50A796006A171E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		61E39F030A50A796006A171E /* Build configuration list for PBXNativeTarget "push_notify" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				61E39F040A50A796006A171E /* Development */,
+				61E39F060A50A796006A171E /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

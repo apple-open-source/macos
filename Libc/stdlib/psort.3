@@ -13,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -34,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)qsort.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.15 2004/07/02 23:52:12 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.17 2007/01/09 00:28:10 imp Exp $
 .\"
 .Dd Nov 25, 2008
 .Dt PSORT 3
@@ -131,3 +127,51 @@ functions
 return no value.
 .Sh SEE ALSO
 .Xr qsort 3
+.Sh SEE ALSO
+.Xr sort 1 ,
+.Xr radixsort 3
+.Rs
+.%A Hoare, C.A.R.
+.%D 1962
+.%T "Quicksort"
+.%J "The Computer Journal"
+.%V 5:1
+.%P pp. 10-15
+.Re
+.Rs
+.%A Williams, J.W.J
+.%D 1964
+.%T "Heapsort"
+.%J "Communications of the ACM"
+.%V 7:1
+.%P pp. 347-348
+.Re
+.Rs
+.%A Knuth, D.E.
+.%D 1968
+.%B "The Art of Computer Programming"
+.%V Vol. 3
+.%T "Sorting and Searching"
+.%P pp. 114-123, 145-149
+.Re
+.Rs
+.%A McIlroy, P.M.
+.%T "Optimistic Sorting and Information Theoretic Complexity"
+.%J "Fourth Annual ACM-SIAM Symposium on Discrete Algorithms"
+.%V January 1992
+.Re
+.Rs
+.%A Bentley, J.L.
+.%A McIlroy, M.D.
+.%T "Engineering a Sort Function"
+.%J "Software--Practice and Experience"
+.%V Vol. 23(11)
+.%P pp. 1249-1265
+.%D November\ 1993
+.Re
+.Sh STANDARDS
+The
+.Fn qsort
+function
+conforms to
+.St -isoC .

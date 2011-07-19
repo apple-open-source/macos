@@ -32,14 +32,16 @@
 
 namespace JSC {
 
-    class JSByteArray : public JSObject {
+    class JSByteArray : public JSNonFinalObject {
         friend class JSGlobalData;
     public:
+        typedef JSNonFinalObject Base;
+
         bool canAccessIndex(unsigned i) { return i < m_storage->length(); }
-        JSValue getIndex(ExecState* exec, unsigned i)
+        JSValue getIndex(ExecState*, unsigned i)
         {
             ASSERT(canAccessIndex(i));
-            return jsNumber(exec, m_storage->data()[i]);
+            return jsNumber(m_storage->data()[i]);
         }
 
         void setIndex(unsigned i, int value)
@@ -73,9 +75,9 @@ namespace JSC {
                 setIndex(i, byteValue);
         }
 
-        JSByteArray(ExecState* exec, NonNullPassRefPtr<Structure>, WTF::ByteArray* storage, const JSC::ClassInfo* = &s_defaultInfo);
-        static PassRefPtr<Structure> createStructure(JSValue prototype);
-        
+        JSByteArray(ExecState*, Structure*, WTF::ByteArray* storage);
+        static Structure* createStructure(JSGlobalData&, JSValue prototype, const JSC::ClassInfo* = &s_defaultInfo);
+
         virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);
         virtual bool getOwnPropertySlot(JSC::ExecState*, unsigned propertyName, JSC::PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
@@ -84,7 +86,6 @@ namespace JSC {
 
         virtual void getOwnPropertyNames(JSC::ExecState*, JSC::PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
-        virtual const ClassInfo* classInfo() const { return m_classInfo; }
         static const ClassInfo s_defaultInfo;
         
         size_t length() const { return m_storage->length(); }
@@ -99,21 +100,18 @@ namespace JSC {
         static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSObject::StructureFlags;
 
     private:
-        enum VPtrStealingHackType { VPtrStealingHack };
-        JSByteArray(VPtrStealingHackType) 
-            : JSObject(createStructure(jsNull()))
-            , m_classInfo(0)
+        JSByteArray(VPtrStealingHackType)
+            : JSNonFinalObject(VPtrStealingHack)
         {
         }
 
         RefPtr<WTF::ByteArray> m_storage;
-        const ClassInfo* m_classInfo;
     };
     
     JSByteArray* asByteArray(JSValue value);
     inline JSByteArray* asByteArray(JSValue value)
     {
-        return static_cast<JSByteArray*>(asCell(value));
+        return static_cast<JSByteArray*>(value.asCell());
     }
 
     inline bool isJSByteArray(JSGlobalData* globalData, JSValue v) { return v.isCell() && v.asCell()->vptr() == globalData->jsByteArrayVPtr; }

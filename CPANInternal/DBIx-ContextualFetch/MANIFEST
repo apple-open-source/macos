@@ -1,6 +1,10 @@
 Changes
+lib/DBIx/ContextualFetch.pm
+Makefile.PL
 MANIFEST			This list of files
 MANIFEST.SKIP
-Makefile.PL
-lib/DBIx/ContextualFetch.pm
+META.yml			Module meta-data (added by MakeMaker)
+README
 t/01.t
+t/pod-coverage.t
+t/pod.t

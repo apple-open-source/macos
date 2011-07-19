@@ -1149,8 +1149,7 @@ libtop_p_disks_sample(void)
 
 		/* Obtain the properties for this drive object. */
 		if (IORegistryEntryCreateCFProperties(drive,
-		    (CFMutableDictionaryRef *)&properties, kCFAllocatorDefault,
-		    kNilOptions)) {
+		    (CFMutableDictionaryRef *)&properties, kCFAllocatorDefault, 0)) {
 			libtop_print(libtop_user_data,
 			    "Error in IORegistryEntryCreateCFProperties()");
 			retval = -1;
@@ -1456,6 +1455,21 @@ libtop_pinfo_update_events_info(task_t task, libtop_pinfo_t* pinfo) {
 }
 
 static kern_return_t
+libtop_pinfo_update_kernmem_info(task_t task, libtop_pinfo_t* pinfo) {
+	kern_return_t kr;
+	
+	mach_msg_type_number_t count = TASK_KERNELMEMORY_INFO_COUNT;
+
+	pinfo->psamp.p_palloc = pinfo->psamp.palloc;
+	pinfo->psamp.p_pfree = pinfo->psamp.pfree;
+	pinfo->psamp.p_salloc = pinfo->psamp.salloc;
+	pinfo->psamp.p_sfree = pinfo->psamp.sfree;
+	
+	kr = task_info(task, TASK_KERNELMEMORY_INFO, (task_info_t)&pinfo->psamp.palloc, &count);
+	return kr;
+}
+
+static kern_return_t
 libtop_pinfo_update_cpu_usage(task_t task, libtop_pinfo_t* pinfo, int *state) {
 	kern_return_t kr;
 	thread_act_array_t threads;
@@ -1616,6 +1630,9 @@ libtop_update_vm_regions(task_t task, libtop_pinfo_t* pinfo) {
 		}
 
 		switch (info.share_mode) {
+			case SM_LARGE_PAGE:
+				// Treat SM_LARGE_PAGE the same as SM_PRIVATE
+				// since they are not shareable and are wired.
 			case SM_PRIVATE:
 				rprvt += info.private_pages_resident * pagesize;
 				rprvt += info.shared_pages_resident * pagesize;
@@ -1890,6 +1907,11 @@ libtop_p_task_update(task_t task, boolean_t reg)
 	 * Get event counters.
 	 */
 	kr = libtop_pinfo_update_events_info(task, pinfo);
+
+	/*
+	 * Get updated wired memory usage numbers
+	 */
+	kr = libtop_pinfo_update_kernmem_info(task, pinfo);
 
 	libtop_p_wq_update(pinfo);
 	

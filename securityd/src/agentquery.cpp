@@ -31,7 +31,12 @@
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationTagsPriv.h>
 #include <Security/checkpw.h>
+#include <System/sys/fileport.h>
+#include <bsm/audit.h>
 #include <bsm/audit_uevents.h>      // AUE_ssauthint
+#include <security_utilities/logging.h>
+#include <security_utilities/mach++.h>
+#include <stdlib.h>
 
 //
 // NOSA support functions. This is a test mode where the SecurityAgent
@@ -93,15 +98,82 @@ void
 SecurityAgentConnection::activate()
 {
     secdebug("SecurityAgentConnection", "activate(%p)", this);
+	
+    Session &session = mHostInstance->session();
+    SessionId targetSessionId = session.sessionId();
+    MachPlusPlus::Bootstrap processBootstrap = Server::process().taskPort().bootstrap();
+    fileport_t userPrefsFP = MACH_PORT_NULL;
+	
+    // send the the userPrefs to SecurityAgent
+    if (mAuthHostType == securityAgent || mAuthHostType == userAuthHost) {
+		CFRef<CFDataRef> userPrefs(mHostInstance->session().copyUserPrefs());
+		if (NULL != userPrefs)
+		{
+			FILE *mbox = NULL;
+			int fd = 0;
+			mbox = tmpfile();		
+			if (NULL != mbox)
+			{
+				fd = dup(fileno(mbox));
+				fclose(mbox);
+				if (fd != -1)
+				{
+					CFIndex length = CFDataGetLength(userPrefs);
+					if (write(fd, CFDataGetBytePtr(userPrefs), length) != length)
+						Syslog::error("could not write userPrefs");
+					else
+					{
+						if (0 == fileport_makeport(fd, &userPrefsFP))
+							secdebug("SecurityAgentConnection", "stashed the userPrefs file descriptor");
+						else
+							Syslog::error("failed to stash the userPrefs file descriptor");
+					}
+					close(fd);
+				}
+			}
+		}
+		if (MACH_PORT_NULL == userPrefsFP)
+		{
+			secdebug("SecurityAgentConnection", "could not read userPrefs");
+		}
+    }
+    
 	mConnection->useAgent(this);
-	try {
-        mPort = mHostInstance->activate();
+	try 
+    {
+        StLock<Mutex> _(*mHostInstance);
+		
+        mach_port_t lookupPort = mHostInstance->lookup(targetSessionId);
+        if (MACH_PORT_NULL == lookupPort)
+        {
+			Syslog::error("could not find real service, bailing");
+			MacOSError::throwMe(CSSM_ERRCODE_SERVICE_NOT_AVAILABLE);
+        }
+        // reset Client contact info
+        mPort = lookupPort;
+        SecurityAgent::Client::activate(mPort);
+        
         secdebug("SecurityAgentConnection", "%p activated", this);
-	} catch (...) {
+	} 
+    catch (MacOSError &err) 
+    {
 		mConnection->useAgent(NULL);	// guess not
-        secdebug("SecurityAgentConnection", "error activating %p", this);
+        Syslog::error("SecurityAgentConnection: error activating %s instance %p",
+                      mAuthHostType == privilegedAuthHost 
+                      ? "authorizationhost" 
+                      : "SecurityAgent", this);
 		throw;
 	}
+	
+    secdebug("SecurityAgentConnection", "contacting service (%p)", this);
+	mach_port_name_t jobPort;
+	if (0 > audit_session_port(session.sessionId(), &jobPort))
+		Syslog::error("audit_session_port failed: %m");
+    MacOSError::check(SecurityAgent::Client::contact(jobPort, processBootstrap, userPrefsFP));
+    secdebug("SecurityAgentConnection", "contact didn't throw (%p)", this);
+	
+    if (userPrefsFP != MACH_PORT_NULL)
+        mach_port_deallocate(mach_task_self(), userPrefsFP);
 }
 
 void
@@ -110,8 +182,6 @@ SecurityAgentConnection::reconnect()
     // if !mHostInstance throw()?
     if (mHostInstance)
     {
-        Session &session = mHostInstance->session();
-        mHostInstance = session.authhost(mAuthHostType, true);
         activate();
     }
 }
@@ -186,22 +256,6 @@ SecurityAgentQuery::~SecurityAgentQuery()
 
     if (SecurityAgent::Client::state() != SecurityAgent::Client::dead)
         destroy(); 
-}
-
-void 
-SecurityAgentQuery::activate()
-{
-    SecurityAgentConnection::activate();
-    SecurityAgent::Client::activate(mPort);
-    secdebug("SecurityAgentQuery", "activate(%p)", this);
-}
-
-void 
-SecurityAgentQuery::reconnect()
-{
-    SecurityAgentConnection::reconnect();
-    SecurityAgent::Client::activate(mPort);
-    secdebug("SecurityAgentQuery", "reconnect(%p)", this);
 }
 
 void

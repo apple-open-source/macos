@@ -29,34 +29,37 @@
 
 namespace WebCore {
 
-class DoctypeToken;
 class HTMLTableCellElement;
 class HTMLTableSectionElement;
-
-struct Token;
+class HTMLToken;
 
 class HTMLViewSourceDocument : public HTMLDocument {
 public:
-    static PassRefPtr<HTMLViewSourceDocument> create(Frame* frame, const String& mimeType)
+    static PassRefPtr<HTMLViewSourceDocument> create(Frame* frame, const KURL& url, const String& mimeType)
     {
-        return adoptRef(new HTMLViewSourceDocument(frame, mimeType));
+        return adoptRef(new HTMLViewSourceDocument(frame, url, mimeType));
     }
 
-    void addViewSourceToken(Token*); // Used by the HTML tokenizer.
-    void addViewSourceText(const String&); // Used by the plaintext tokenizer.
-    void addViewSourceDoctypeToken(DoctypeToken*);
+    void addSource(const String&, HTMLToken&);
 
 private:
-    HTMLViewSourceDocument(Frame*, const String& mimeType);
+    HTMLViewSourceDocument(Frame*, const KURL&, const String& mimeType);
 
-    // Returns HTMLTokenizer or TextTokenizer based on m_type.
-    virtual Tokenizer* createTokenizer();
+    // Returns HTMLViewSourceParser or TextDocumentParser based on m_type.
+    virtual PassRefPtr<DocumentParser> createParser();
+
+    void processDoctypeToken(const String& source, HTMLToken&);
+    void processTagToken(const String& source, HTMLToken&);
+    void processCommentToken(const String& source, HTMLToken&);
+    void processCharacterToken(const String& source, HTMLToken&);
 
     void createContainingTable();
-    PassRefPtr<Element> addSpanWithClassName(const String&);
-    void addLine(const String& className);
-    void addText(const String& text, const String& className);
-    PassRefPtr<Element> addLink(const String& url, bool isAnchor);
+    PassRefPtr<Element> addSpanWithClassName(const AtomicString&);
+    void addLine(const AtomicString& className);
+    void addText(const String& text, const AtomicString& className);
+    int addRange(const String& source, int start, int end, const String& className, bool isLink = false, bool isAnchor = false);
+    PassRefPtr<Element> addLink(const AtomicString& url, bool isAnchor);
+    PassRefPtr<Element> addBase(const AtomicString& href);
 
     String m_type;
     RefPtr<Element> m_current;

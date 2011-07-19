@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.30 2007/07/03 20:47:56 hobbs Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.33 2010/08/17 21:20:26 hobbs Exp $
 
 #========================================================================
 # The names of the source files is defined in the configure script.
@@ -123,7 +123,6 @@ RANLIB		= @RANLIB@
 RANLIB_STUB	= @RANLIB_STUB@
 SHLIB_CFLAGS	= @SHLIB_CFLAGS@
 SHLIB_LD	= @SHLIB_LD@
-SHLIB_LD_FLAGS	= @SHLIB_LD_FLAGS@
 SHLIB_LD_LIBS	= @SHLIB_LD_LIBS@
 STLIB_LD	= @STLIB_LD@
 TCL_DEFS	= @TCL_DEFS@
@@ -131,9 +130,6 @@ TCL_BIN_DIR	= @TCL_BIN_DIR@
 TCL_SRC_DIR	= @TCL_SRC_DIR@
 TK_SRC_DIR	= @TK_SRC_DIR@
 TK_BIN_DIR	= @TK_BIN_DIR@
-# This is necessary for packages that use private headers
-TCL_TOP_DIR_NATIVE = @TCL_TOP_DIR_NATIVE@
-TK_TOP_DIR_NATIVE = @TK_TOP_DIR_NATIVE@
 
 # Not used, but retained for reference of what libs Tcl required
 TCL_LIBS	= @TCL_LIBS@
@@ -416,9 +412,9 @@ install-bin-binaries:
 
 .SUFFIXES: .c .$(OBJEXT)
 
-Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
-	cd $(top_builddir) \
-	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
+#Makefile: $(srcdir)/Makefile.in  $(top_builddir)/config.status
+#	cd $(top_builddir) \
+#	  && CONFIG_FILES=$@ CONFIG_HEADERS= $(SHELL) ./config.status
 
 uninstall-binaries:
 	list='$(lib_BINARIES)'; for p in $$list; do \

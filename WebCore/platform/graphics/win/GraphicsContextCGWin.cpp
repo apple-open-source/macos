@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -24,7 +24,7 @@
  */
 
 #include "config.h"
-#include "GraphicsContext.h"
+#include "GraphicsContextCG.h"
 
 #include "AffineTransform.h"
 #include "Path.h"
@@ -40,19 +40,24 @@ namespace WebCore {
 static CGContextRef CGContextWithHDC(HDC hdc, bool hasAlpha)
 {
     HBITMAP bitmap = static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP));
-    CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
-    BITMAP info;
 
-    GetObject(bitmap, sizeof(info), &info);
-    ASSERT(info.bmBitsPixel == 32);
+    DIBPixelData pixelData(bitmap);
+
+    // FIXME: We can get here because we asked for a bitmap that is too big
+    // when we have a tiled layer and we're compositing. In that case 
+    // bmBitsPixel will be 0. This seems to be benign, so for now we will
+    // exit gracefully and look at it later:
+    //  https://bugs.webkit.org/show_bug.cgi?id=52041   
+    // ASSERT(bitmapBits.bitsPerPixel() == 32);
+    if (pixelData.bitsPerPixel() != 32)
+        return 0;
 
     CGBitmapInfo bitmapInfo = kCGBitmapByteOrder32Little | (hasAlpha ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaNoneSkipFirst);
-    CGContextRef context = CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
-                                                 info.bmWidthBytes, deviceRGB, bitmapInfo);
-    CGColorSpaceRelease(deviceRGB);
+    CGContextRef context = CGBitmapContextCreate(pixelData.buffer(), pixelData.size().width(), pixelData.size().height(), 8,
+                                                 pixelData.bytesPerRow(), deviceRGBColorSpaceRef(), bitmapInfo);
 
     // Flip coords
-    CGContextTranslateCTM(context, 0, info.bmHeight);
+    CGContextTranslateCTM(context, 0, pixelData.size().height());
     CGContextScaleCTM(context, 1, -1);
     
     // Put the HDC In advanced mode so it will honor affine transforms.
@@ -62,16 +67,21 @@ static CGContextRef CGContextWithHDC(HDC hdc, bool hasAlpha)
 }
 
 GraphicsContext::GraphicsContext(HDC hdc, bool hasAlpha)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(CGContextWithHDC(hdc, hasAlpha)))
+    : m_updatingControlTints(false)
 {
+    platformInit(hdc, hasAlpha);
+}
+
+void GraphicsContext::platformInit(HDC hdc, bool hasAlpha)
+{
+    m_data = new GraphicsContextPlatformPrivate(CGContextWithHDC(hdc, hasAlpha));
     CGContextRelease(m_data->m_cgContext.get());
     m_data->m_hdc = hdc;
     setPaintingDisabled(!m_data->m_cgContext);
     if (m_data->m_cgContext) {
         // Make sure the context starts in sync with our state.
-        setPlatformFillColor(fillColor(), DeviceColorSpace);
-        setPlatformStrokeColor(strokeColor(), DeviceColorSpace);
+        setPlatformFillColor(fillColor(), ColorSpaceDeviceRGB);
+        setPlatformStrokeColor(strokeColor(), ColorSpaceDeviceRGB);
     }
 }
 
@@ -79,56 +89,52 @@ GraphicsContext::GraphicsContext(HDC hdc, bool hasAlpha)
 // suitable for all clients?
 void GraphicsContext::releaseWindowsContext(HDC hdc, const IntRect& dstRect, bool supportAlphaBlend, bool mayCreateBitmap)
 {
-    if (mayCreateBitmap && hdc && inTransparencyLayer()) {
-        if (dstRect.isEmpty())
-            return;
-
-        HBITMAP bitmap = static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP));
-
-        // Need to make a CGImage out of the bitmap's pixel buffer and then draw
-        // it into our context.
-        BITMAP info;
-        GetObject(bitmap, sizeof(info), &info);
-        ASSERT(info.bmBitsPixel == 32);
-
-        CGColorSpaceRef deviceRGB = CGColorSpaceCreateDeviceRGB();
-        CGContextRef bitmapContext = CGBitmapContextCreate(info.bmBits, info.bmWidth, info.bmHeight, 8,
-                                                           info.bmWidthBytes, deviceRGB, kCGBitmapByteOrder32Little | 
-                                                           (supportAlphaBlend ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaNoneSkipFirst));
-        CGColorSpaceRelease(deviceRGB);
-
-        CGImageRef image = CGBitmapContextCreateImage(bitmapContext);
-        CGContextDrawImage(m_data->m_cgContext.get(), dstRect, image);
-        
-        // Delete all our junk.
-        CGImageRelease(image);
-        CGContextRelease(bitmapContext);
-        ::DeleteDC(hdc);
-        ::DeleteObject(bitmap);
-
+    bool createdBitmap = mayCreateBitmap && (!m_data->m_hdc || inTransparencyLayer());
+    if (!createdBitmap) {
+        m_data->restore();
         return;
     }
 
-    m_data->restore();
+    if (dstRect.isEmpty())
+        return;
+
+    OwnPtr<HBITMAP> bitmap = adoptPtr(static_cast<HBITMAP>(GetCurrentObject(hdc, OBJ_BITMAP)));
+
+    DIBPixelData pixelData(bitmap.get());
+
+    ASSERT(pixelData.bitsPerPixel() == 32);
+
+    CGContextRef bitmapContext = CGBitmapContextCreate(pixelData.buffer(), pixelData.size().width(), pixelData.size().height(), 8,
+                                                       pixelData.bytesPerRow(), deviceRGBColorSpaceRef(), kCGBitmapByteOrder32Little |
+                                                       (supportAlphaBlend ? kCGImageAlphaPremultipliedFirst : kCGImageAlphaNoneSkipFirst));
+
+    CGImageRef image = CGBitmapContextCreateImage(bitmapContext);
+    CGContextDrawImage(m_data->m_cgContext.get(), dstRect, image);
+    
+    // Delete all our junk.
+    CGImageRelease(image);
+    CGContextRelease(bitmapContext);
+    ::DeleteDC(hdc);
 }
 
 void GraphicsContext::drawWindowsBitmap(WindowsBitmap* image, const IntPoint& point)
 {
-    RetainPtr<CGColorSpaceRef> deviceRGB(AdoptCF, CGColorSpaceCreateDeviceRGB());
     // FIXME: Creating CFData is non-optimal, but needed to avoid crashing when printing.  Ideally we should 
     // make a custom CGDataProvider that controls the WindowsBitmap lifetime.  see <rdar://6394455>
     RetainPtr<CFDataRef> imageData(AdoptCF, CFDataCreate(kCFAllocatorDefault, image->buffer(), image->bufferLength()));
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(imageData.get()));
-    RetainPtr<CGImageRef> cgImage(AdoptCF, CGImageCreate(image->size().width(), image->size().height(), 8, 32, image->bytesPerRow(), deviceRGB.get(),
+    RetainPtr<CGImageRef> cgImage(AdoptCF, CGImageCreate(image->size().width(), image->size().height(), 8, 32, image->bytesPerRow(), deviceRGBColorSpaceRef(),
                                                          kCGBitmapByteOrder32Little | kCGImageAlphaFirst, dataProvider.get(), 0, true, kCGRenderingIntentDefault));
     CGContextDrawImage(m_data->m_cgContext.get(), CGRectMake(point.x(), point.y(), image->size().width(), image->size().height()), cgImage.get());   
 }
 
-void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+void GraphicsContext::drawFocusRing(const Path& path, int width, int offset, const Color& color)
 {
     // FIXME: implement
 }
 
+// FIXME: This is nearly identical to the GraphicsContext::drawFocusRing function in GraphicsContextMac.mm.
+// The code could move to GraphicsContextCG.cpp and be shared.
 void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
 {
     if (paintingDisabled())
@@ -136,7 +142,7 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
 
     float radius = (width - 1) / 2.0f;
     offset += radius;
-    CGColorRef colorRef = color.isValid() ? createCGColor(color) : 0;
+    CGColorRef colorRef = color.isValid() ? cachedCGColor(color, ColorSpaceDeviceRGB) : 0;
 
     CGMutablePathRef focusRingPath = CGPathCreateMutable();
     unsigned rectCount = rects.size();
@@ -150,8 +156,6 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
     CGContextAddPath(context, focusRingPath);
 
     wkDrawFocusRing(context, colorRef, radius);
-
-    CGColorRelease(colorRef);
 
     CGPathRelease(focusRingPath);
 
@@ -176,9 +180,12 @@ static const Color& grammarPatternColor() {
     return grammarColor;
 }
 
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, int width, bool grammar)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& point, float width, TextCheckingLineStyle style)
 {
     if (paintingDisabled())
+        return;
+
+    if (style != TextCheckingSpellingLineStyle && style != TextCheckingGrammarLineStyle)
         return;
 
     // These are the same for misspelling or bad grammar
@@ -193,7 +200,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     // bounds (e.g. when at the edge of a view) and could make it appear that the
     // space between adjacent misspelled words was underlined.
     // allow slightly more considering that the pattern ends with a transparent pixel
-    int widthMod = width % patternWidth;
+    float widthMod = fmodf(width, patternWidth);
     if (patternWidth - widthMod > cMisspellingLinePatternGapWidth)
         width -= widthMod;
       
@@ -201,7 +208,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     CGContextRef context = platformContext();
     CGContextSaveGState(context);
 
-    const Color& patternColor = grammar ? grammarPatternColor() : spellingPatternColor();
+    const Color& patternColor = style == TextCheckingGrammarLineStyle ? grammarPatternColor() : spellingPatternColor();
     setCGStrokeColor(context, patternColor);
 
     wkSetPatternPhaseInUserSpace(context, point);
@@ -225,20 +232,17 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     const float lowerOpacity = 0.88f;
 
     //Top line
-    CGContextSetLineDash(context, edge_offset, edge_dash_lengths, 
-                         sizeof(edge_dash_lengths) / sizeof(edge_dash_lengths[0]));
+    CGContextSetLineDash(context, edge_offset, edge_dash_lengths, WTF_ARRAY_LENGTH(edge_dash_lengths));
     CGContextSetAlpha(context, upperOpacity);
     CGContextStrokeLineSegments(context, upperPoints, 2);
  
     // Middle line
-    CGContextSetLineDash(context, middle_offset, middle_dash_lengths, 
-                         sizeof(middle_dash_lengths) / sizeof(middle_dash_lengths[0]));
+    CGContextSetLineDash(context, middle_offset, middle_dash_lengths, WTF_ARRAY_LENGTH(middle_dash_lengths));
     CGContextSetAlpha(context, middleOpacity);
     CGContextStrokeLineSegments(context, middlePoints, 2);
     
     // Bottom line
-    CGContextSetLineDash(context, edge_offset, edge_dash_lengths,
-                         sizeof(edge_dash_lengths) / sizeof(edge_dash_lengths[0]));
+    CGContextSetLineDash(context, edge_offset, edge_dash_lengths, WTF_ARRAY_LENGTH(edge_dash_lengths));
     CGContextSetAlpha(context, lowerOpacity);
     CGContextStrokeLineSegments(context, lowerPoints, 2);
 

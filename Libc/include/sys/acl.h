@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,36 @@
 #ifndef _SYS_ACL_H
 #define _SYS_ACL_H
 
+#include <Availability.h>
 #include <sys/kauth.h>
+
+#define __DARWIN_ACL_READ_DATA			(1<<1)
+#define __DARWIN_ACL_LIST_DIRECTORY		__DARWIN_ACL_READ_DATA
+#define __DARWIN_ACL_WRITE_DATA			(1<<2)
+#define __DARWIN_ACL_ADD_FILE			__DARWIN_ACL_WRITE_DATA
+#define __DARWIN_ACL_EXECUTE			(1<<3)
+#define __DARWIN_ACL_SEARCH			__DARWIN_ACL_EXECUTE
+#define __DARWIN_ACL_DELETE			(1<<4)
+#define __DARWIN_ACL_APPEND_DATA		(1<<5)
+#define __DARWIN_ACL_ADD_SUBDIRECTORY		__DARWIN_ACL_APPEND_DATA
+#define __DARWIN_ACL_DELETE_CHILD		(1<<6)
+#define __DARWIN_ACL_READ_ATTRIBUTES		(1<<7)
+#define __DARWIN_ACL_WRITE_ATTRIBUTES		(1<<8)
+#define __DARWIN_ACL_READ_EXTATTRIBUTES		(1<<9)
+#define __DARWIN_ACL_WRITE_EXTATTRIBUTES	(1<<10)
+#define __DARWIN_ACL_READ_SECURITY		(1<<11)
+#define __DARWIN_ACL_WRITE_SECURITY		(1<<12)
+#define __DARWIN_ACL_CHANGE_OWNER		(1<<13)
+
+#define __DARWIN_ACL_EXTENDED_ALLOW		1
+#define __DARWIN_ACL_EXTENDED_DENY		2
+
+#define __DARWIN_ACL_ENTRY_INHERITED		(1<<4)
+#define __DARWIN_ACL_ENTRY_FILE_INHERIT		(1<<5)
+#define __DARWIN_ACL_ENTRY_DIRECTORY_INHERIT	(1<<6)
+#define __DARWIN_ACL_ENTRY_LIMIT_INHERIT	(1<<7)
+#define __DARWIN_ACL_ENTRY_ONLY_INHERIT		(1<<8)
+#define __DARWIN_ACL_FLAG_NO_INHERIT		(1<<17)
 
 /*
  * Implementation constants.
@@ -36,30 +65,30 @@
 
 /* 23.2.2 Individual object access permissions - nonstandard */
 typedef enum {
-	ACL_READ_DATA		= KAUTH_VNODE_READ_DATA,
-	ACL_LIST_DIRECTORY	= KAUTH_VNODE_LIST_DIRECTORY,
-	ACL_WRITE_DATA		= KAUTH_VNODE_WRITE_DATA,
-	ACL_ADD_FILE		= KAUTH_VNODE_ADD_FILE,
-	ACL_EXECUTE		= KAUTH_VNODE_EXECUTE,
-	ACL_SEARCH		= KAUTH_VNODE_SEARCH,
-	ACL_DELETE		= KAUTH_VNODE_DELETE,
-	ACL_APPEND_DATA		= KAUTH_VNODE_APPEND_DATA,
-	ACL_ADD_SUBDIRECTORY	= KAUTH_VNODE_ADD_SUBDIRECTORY,
-	ACL_DELETE_CHILD	= KAUTH_VNODE_DELETE_CHILD,
-	ACL_READ_ATTRIBUTES	= KAUTH_VNODE_READ_ATTRIBUTES,
-	ACL_WRITE_ATTRIBUTES	= KAUTH_VNODE_WRITE_ATTRIBUTES,
-	ACL_READ_EXTATTRIBUTES	= KAUTH_VNODE_READ_EXTATTRIBUTES,
-	ACL_WRITE_EXTATTRIBUTES	= KAUTH_VNODE_WRITE_EXTATTRIBUTES,
-	ACL_READ_SECURITY	= KAUTH_VNODE_READ_SECURITY,
-	ACL_WRITE_SECURITY	= KAUTH_VNODE_WRITE_SECURITY,
-	ACL_CHANGE_OWNER	= KAUTH_VNODE_CHANGE_OWNER
+	ACL_READ_DATA		= __DARWIN_ACL_READ_DATA,
+	ACL_LIST_DIRECTORY	= __DARWIN_ACL_LIST_DIRECTORY,
+	ACL_WRITE_DATA		= __DARWIN_ACL_WRITE_DATA,
+	ACL_ADD_FILE		= __DARWIN_ACL_ADD_FILE,
+	ACL_EXECUTE		= __DARWIN_ACL_EXECUTE,
+	ACL_SEARCH		= __DARWIN_ACL_SEARCH,
+	ACL_DELETE		= __DARWIN_ACL_DELETE,
+	ACL_APPEND_DATA		= __DARWIN_ACL_APPEND_DATA,
+	ACL_ADD_SUBDIRECTORY	= __DARWIN_ACL_ADD_SUBDIRECTORY,
+	ACL_DELETE_CHILD	= __DARWIN_ACL_DELETE_CHILD,
+	ACL_READ_ATTRIBUTES	= __DARWIN_ACL_READ_ATTRIBUTES,
+	ACL_WRITE_ATTRIBUTES	= __DARWIN_ACL_WRITE_ATTRIBUTES,
+	ACL_READ_EXTATTRIBUTES	= __DARWIN_ACL_READ_EXTATTRIBUTES,
+	ACL_WRITE_EXTATTRIBUTES	= __DARWIN_ACL_WRITE_EXTATTRIBUTES,
+	ACL_READ_SECURITY	= __DARWIN_ACL_READ_SECURITY,
+	ACL_WRITE_SECURITY	= __DARWIN_ACL_WRITE_SECURITY,
+	ACL_CHANGE_OWNER	= __DARWIN_ACL_CHANGE_OWNER,
 } acl_perm_t;
 
 /* 23.2.5 ACL entry tag type bits - nonstandard */
 typedef enum {
 	ACL_UNDEFINED_TAG	= 0,
-	ACL_EXTENDED_ALLOW	= KAUTH_ACE_PERMIT,
-	ACL_EXTENDED_DENY	= KAUTH_ACE_DENY
+	ACL_EXTENDED_ALLOW	= __DARWIN_ACL_EXTENDED_ALLOW,
+	ACL_EXTENDED_DENY	= __DARWIN_ACL_EXTENDED_DENY
 } acl_tag_t;
 
 /* 23.2.6 Individual ACL types */
@@ -89,11 +118,12 @@ typedef enum {
 /* nonstandard ACL / entry flags */
 typedef enum {
 	ACL_FLAG_DEFER_INHERIT		= (1 << 0),	/* tentative */
-	ACL_ENTRY_INHERITED		= KAUTH_ACE_INHERITED,
-	ACL_ENTRY_FILE_INHERIT		= KAUTH_ACE_FILE_INHERIT,
-	ACL_ENTRY_DIRECTORY_INHERIT	= KAUTH_ACE_DIRECTORY_INHERIT,
-	ACL_ENTRY_LIMIT_INHERIT		= KAUTH_ACE_LIMIT_INHERIT,
-	ACL_ENTRY_ONLY_INHERIT		= KAUTH_ACE_ONLY_INHERIT
+	ACL_FLAG_NO_INHERIT		= __DARWIN_ACL_FLAG_NO_INHERIT,
+	ACL_ENTRY_INHERITED		= __DARWIN_ACL_ENTRY_INHERITED,
+	ACL_ENTRY_FILE_INHERIT		= __DARWIN_ACL_ENTRY_FILE_INHERIT,
+	ACL_ENTRY_DIRECTORY_INHERIT	= __DARWIN_ACL_ENTRY_DIRECTORY_INHERIT,
+	ACL_ENTRY_LIMIT_INHERIT		= __DARWIN_ACL_ENTRY_LIMIT_INHERIT,
+	ACL_ENTRY_ONLY_INHERIT		= __DARWIN_ACL_ENTRY_ONLY_INHERIT
 } acl_flag_t;
 
 /* "External" ACL types */
@@ -107,6 +137,8 @@ typedef struct _acl		*acl_t;
 typedef struct _acl_entry	*acl_entry_t;
 typedef struct _acl_permset	*acl_permset_t;
 typedef struct _acl_flagset	*acl_flagset_t;
+
+typedef u_int64_t		acl_permset_mask_t;
 
 __BEGIN_DECLS
 /* 23.1.6.1 ACL Storage Management */
@@ -133,6 +165,11 @@ extern int	acl_delete_perm(acl_permset_t permset_d, acl_perm_t perm);
 extern int	acl_get_perm_np(acl_permset_t permset_d, acl_perm_t perm);
 extern int 	acl_get_permset(acl_entry_t entry_d, acl_permset_t *permset_p);
 extern int	acl_set_permset(acl_entry_t entry_d, acl_permset_t permset_d);
+
+/* nonstandard - manipulate permissions within an ACL entry using bitmasks */
+extern int	acl_maximal_permset_mask_np(acl_permset_mask_t * mask_p) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+extern int	acl_get_permset_mask_np(acl_entry_t entry_d, acl_permset_mask_t * mask_p) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+extern int	acl_set_permset_mask_np(acl_entry_t entry_d, acl_permset_mask_t mask) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 
 /* nonstandard - manipulate flags on ACLs and entries */
 extern int	acl_add_flag_np(acl_flagset_t flagset_d, acl_flag_t flag);

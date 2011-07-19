@@ -29,7 +29,6 @@
 #include "PlatformString.h"
 #include <wtf/text/CString.h>
 #include <qset.h>
-// #include <QDebug>
 
 namespace WebCore {
 
@@ -65,7 +64,7 @@ void TextCodecQt::registerEncodingNames(EncodingNameRegistrar registrar)
 
 static PassOwnPtr<TextCodec> newTextCodecQt(const TextEncoding& encoding, const void*)
 {
-    return new TextCodecQt(encoding);
+    return adoptPtr(new TextCodecQt(encoding));
 }
 
 void TextCodecQt::registerCodecs(TextCodecRegistrar registrar)
@@ -110,7 +109,7 @@ String TextCodecQt::decode(const char* bytes, size_t length, bool flush, bool /*
         int size = end - buf;
         size = qMin(size, MaxInputChunkSize);
         QString decoded = m_codec->toUnicode(buf, size, &m_state);
-        unicode.append(decoded);
+        unicode.append(reinterpret_cast_ptr<const UChar*>(decoded.unicode()), decoded.length());
         buf += size;
     }
 
@@ -125,14 +124,41 @@ String TextCodecQt::decode(const char* bytes, size_t length, bool flush, bool /*
     return unicode;
 }
 
-CString TextCodecQt::encode(const UChar* characters, size_t length, UnencodableHandling)
+CString TextCodecQt::encode(const UChar* characters, size_t length, UnencodableHandling handling)
 {
+    QTextCodec::ConverterState state;
+    state.flags = QTextCodec::ConversionFlags(QTextCodec::ConvertInvalidToNull | QTextCodec::IgnoreHeader);
+
     if (!length)
         return "";
 
-    // FIXME: do something sensible with UnencodableHandling
+    QByteArray ba = m_codec->fromUnicode(reinterpret_cast<const QChar*>(characters), length, &state);
 
-    QByteArray ba = m_codec->fromUnicode(reinterpret_cast<const QChar*>(characters), length, 0);
+    // If some <b> characters </b> are unencodable, escape them as specified by <b> handling </b>
+    // We append one valid encoded chunk to a QByteArray at a time. When we encounter an unencodable chunk we
+    // escape it with getUnencodableReplacement, append it, then move to the next chunk.
+    if (state.invalidChars) {
+        state.invalidChars = 0;
+        state.remainingChars = 0;
+        int len = 0;
+        ba.clear();
+        for (size_t pos = 0; pos < length; ++pos) {
+            QByteArray tba = m_codec->fromUnicode(reinterpret_cast<const QChar*>(characters), ++len, &state);
+            if (state.remainingChars)
+                continue;
+            if (state.invalidChars) {
+                UnencodableReplacementArray replacement;
+                getUnencodableReplacement(characters[0], handling, replacement);
+                tba.replace('\0', replacement);
+                state.invalidChars = 0;
+            }
+            ba.append(tba);
+            characters += len;
+            len = 0;
+            state.remainingChars = 0;
+        }
+    }
+
     return CString(ba.constData(), ba.length());
 }
 

@@ -127,15 +127,31 @@
 #ifdef FEAT_LANGMAP
 /*
  * Adjust chars in a language according to 'langmap' option.
- * NOTE that there is NO overhead if 'langmap' is not set; but even
- * when set we only have to do 2 ifs and an array lookup.
+ * NOTE that there is no noticeable overhead if 'langmap' is not set.
+ * When set the overhead for characters < 256 is small.
  * Don't apply 'langmap' if the character comes from the Stuff buffer.
  * The do-while is just to ignore a ';' after the macro.
  */
-# define LANGMAP_ADJUST(c, condition) do { \
+# ifdef FEAT_MBYTE
+#  define LANGMAP_ADJUST(c, condition) \
+    do { \
+	if (*p_langmap && (condition) && !KeyStuffed && (c) >= 0) \
+	{ \
+	    if ((c) < 256) \
+		c = langmap_mapchar[c]; \
+	    else \
+		c = langmap_adjust_mb(c); \
+	} \
+    } while (0)
+# else
+#  define LANGMAP_ADJUST(c, condition) \
+    do { \
 	if (*p_langmap && (condition) && !KeyStuffed && (c) >= 0 && (c) < 256) \
 	    c = langmap_mapchar[c]; \
     } while (0)
+# endif
+#else
+# define LANGMAP_ADJUST(c, condition) /* nop */
 #endif
 
 /*
@@ -211,23 +227,8 @@
 # endif
 #endif
 
-/*
- * Encryption macros.  Mohsin Ahmed, mosh@sasi.com 98-09-24
- * Based on zip/crypt sources.
- */
-
-#ifdef FEAT_CRYPT
-
-/* encode byte c, using temp t.  Warning: c must not have side effects. */
-# define ZENCODE(c, t)  (t = decrypt_byte(), update_keys(c), t^(c))
-
-/* decode byte c in place */
-# define ZDECODE(c)   update_keys(c ^= decrypt_byte())
-
-#endif
-
 #ifdef STARTUPTIME
-# define TIME_MSG(s) time_msg(s, NULL)
+# define TIME_MSG(s) { if (time_fd != NULL) time_msg(s, NULL); }
 #else
 # define TIME_MSG(s)
 #endif
@@ -268,7 +269,7 @@
 # define mb_cptr2len(p)	    (enc_utf8 ? utf_ptr2len(p) : (*mb_ptr2len)(p))
 
 # define MB_COPY_CHAR(f, t) if (has_mbyte) mb_copy_char(&f, &t); else *t++ = *f++
-# define MB_CHARLEN(p)	    (has_mbyte ? mb_charlen(p) : STRLEN(p))
+# define MB_CHARLEN(p)	    (has_mbyte ? mb_charlen(p) : (int)STRLEN(p))
 # define PTR2CHAR(p)	    (has_mbyte ? mb_ptr2char(p) : (int)*(p))
 #else
 # define mb_ptr_adv(p)		++p

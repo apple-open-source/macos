@@ -27,6 +27,7 @@
 #include <IOKit/hid/IOHIDLib.h>
 #include <IOKit/hid/IOHIDDevicePlugIn.h>
 #include <IOKit/hid/IOHIDLibUserClient.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
 
@@ -39,6 +40,11 @@ typedef struct _IOHIDCalibrationStruct {
     CFIndex     max;
     double_t    gran;
 } IOHIDCalibrationInfo;
+
+typedef struct _IOHIDCallbackApplierContext {
+    IOReturn                result;
+    void *                  sender;
+} IOHIDCallbackApplierContext;
 
 extern void _IOObjectCFRelease(CFAllocatorRef allocator, const void * value);
 
@@ -83,6 +89,16 @@ IOCFPlugInInterface ** _IOHIDDeviceGetIOCFPlugInInterface(
 
 CF_EXPORT
 CFArrayRef _IOHIDQueueCopyElements(IOHIDQueueRef queue);
+
+CF_EXPORT 
+void _IOHIDCallbackApplier(const void *callback, const void *callbackContext, void *applierContext);
+
+CF_EXPORT
+void _IOHIDLog(int level, const char *format, ...) __printflike(2, 3);
+
+CF_EXPORT
+kern_return_t IOHIDSetFixedMouseLocation(io_connect_t connect,
+                                         int32_t x, int32_t y)                                      AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 __END_DECLS
 

@@ -10,7 +10,7 @@
 /*
  * (C) 2001,2005 by Marcin Dalecki <martin@dalecki.de>
  *
- * Implementation of dialogue functions for the Motif GUI variant.
+ * Implementation of dialog functions for the Motif GUI variant.
  *
  * Note about Lesstif: Apparently lesstif doesn't get the widget layout right,
  * when using a dynamic scrollbar policy.
@@ -168,7 +168,7 @@ name_part(char *font, char *buf)
     get_part(font, 2, buf2);
     get_part(font, 1, buf3);
 
-    if (strlen(buf3))
+    if (*buf3 != NUL)
 	vim_snprintf(buf, TEMP_BUF_SIZE, "%s (%s)", buf2, buf3);
     else
 	vim_snprintf(buf, TEMP_BUF_SIZE, "%s", buf2);
@@ -225,7 +225,7 @@ size_part(char *font, char *buf, int inPixels)
     if (inPixels)
     {
 	get_part(font, 7, buf);
-	if (strlen(buf) > 0)
+	if (*buf != NUL)
 	{
 	    size = atoi(buf);
 	    sprintf(buf, "%3d", size);
@@ -234,7 +234,7 @@ size_part(char *font, char *buf, int inPixels)
     else
     {
 	get_part(font, 8, buf);
-	if (strlen(buf) > 0)
+	if (*buf != NUL)
 	{
 	    size = atoi(buf);
 	    temp = (float)size / 10.0;
@@ -261,7 +261,7 @@ encoding_part(char *font, char *buf)
     get_part(font, 13, buf1);
     get_part(font, 14, buf2);
 
-    if (strlen(buf1) > 0 && strlen(buf2))
+    if (*buf1 != NUL && *buf2 != NUL)
 	vim_snprintf(buf, TEMP_BUF_SIZE, "%s-%s", buf1, buf2);
     if (!strcmp(buf, " "))
 	strcpy(buf, "-");
@@ -448,7 +448,7 @@ fill_lists(enum ListSpecifier fix, SharedFontSelData *data)
 
 	    items[i] = XmStringCreateLocalized(list[ENCODING][i]);
 
-	    if (i < n_items)
+	    if (i < (int)n_items)
 	    {
 		/* recycle old button */
 		XtVaSetValues(children[i],
@@ -481,7 +481,7 @@ fill_lists(enum ListSpecifier fix, SharedFontSelData *data)
 
 	/* Destroy all the outstanding menu items.
 	 */
-	for (i = count[ENCODING]; i < n_items; ++i)
+	for (i = count[ENCODING]; i < (int)n_items; ++i)
 	{
 	    XtUnmanageChild(children[i]);
 	    XtDestroyWidget(children[i]);
@@ -544,9 +544,8 @@ fill_lists(enum ListSpecifier fix, SharedFontSelData *data)
     }
 }
 
-/*ARGSUSED*/
     static void
-stoggle_callback(Widget w,
+stoggle_callback(Widget w UNUSED,
 	SharedFontSelData *data,
 	XmToggleButtonCallbackStruct *call_data)
 {
@@ -634,16 +633,19 @@ do_choice(Widget w,
 	data->sel[which] = XtNewString(sel);
     else
     {
-	XtFree(data->sel[which]);
 	if (!strcmp(data->sel[which], sel))
 	{
 	    /* unselecting current selection */
+	    XtFree(data->sel[which]);
 	    data->sel[which] = NULL;
 	    if (w)
 		XmListDeselectItem(w, call_data->item);
 	}
 	else
+	{
+	    XtFree(data->sel[which]);
 	    data->sel[which] = XtNewString(sel);
+	}
     }
     XtFree(sel);
 
@@ -709,11 +711,10 @@ do_choice(Widget w,
     }
 }
 
-/*ARGSUSED*/
     static void
 encoding_callback(Widget w,
 	SharedFontSelData *data,
-	XtPointer dummy)
+	XtPointer dummy UNUSED)
 {
     XmString str;
     XmListCallbackStruct fake_data;
@@ -752,11 +753,10 @@ size_callback(Widget w,
     do_choice(w, data, call_data, SIZE);
 }
 
-/*ARGSUSED*/
     static void
-cancel_callback(Widget w,
+cancel_callback(Widget w UNUSED,
 	SharedFontSelData *data,
-	XmListCallbackStruct *call_data)
+	XmListCallbackStruct *call_data UNUSED)
 {
     if (data->sel[ENCODING])
     {
@@ -789,11 +789,10 @@ cancel_callback(Widget w,
     data->exit = True;
 }
 
-/*ARGSUSED*/
     static void
-ok_callback(Widget w,
+ok_callback(Widget w UNUSED,
 	SharedFontSelData *data,
-	XmPushButtonCallbackStruct *call_data)
+	XmPushButtonCallbackStruct *call_data UNUSED)
 {
     char    *pattern;
     char    **name;
@@ -1230,10 +1229,10 @@ gui_xm_select_font(char_u *current)
 	    size_part(found, sizebuf, data->in_pixels);
 	    encoding_part(found, encodingbuf);
 
-	    if (strlen(namebuf) > 0
-		    && strlen(stylebuf) > 0
-		    && strlen(sizebuf) > 0
-		    && strlen(encodingbuf) > 0)
+	    if (*namebuf != NUL
+		    && *stylebuf != NUL
+		    && *sizebuf != NUL
+		    && *encodingbuf != NUL)
 	    {
 		data->sel[NAME] = XtNewString(namebuf);
 		data->sel[STYLE] = XtNewString(stylebuf);
@@ -1275,13 +1274,12 @@ gui_xm_select_font(char_u *current)
 	XtAppProcessEvent(XtWidgetToApplicationContext(data->dialog),
 							(XtInputMask)XtIMAll);
 
-    XtDestroyWidget(data->dialog);
-
     if (data->old)
     {
 	XFreeFont(XtDisplay(data->dialog),  data->old);
 	XmFontListFree(data->old_list);
     }
+    XtDestroyWidget(data->dialog);
 
     gui_motif_synch_fonts();
 

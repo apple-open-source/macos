@@ -1,0 +1,39 @@
+diff -Naur roundcubemail-0.5/program/localization/en_US/labels.inc roundcubemail/program/localization/en_US/labels.inc
+--- roundcubemail-0.5/program/localization/en_US/labels.inc	2010-12-22 10:45:15.000000000 -0800
++++ roundcubemail/program/localization/en_US/labels.inc	2011-01-12 15:40:38.000000000 -0800
+@@ -41,8 +41,8 @@
+ 
+ // message listing
+ $labels['subject'] = 'Subject';
+-$labels['from']    = 'Sender';
+-$labels['to']      = 'Recipient';
++$labels['from']    = 'From';
++$labels['to']      = 'To';
+ $labels['cc']      = 'Copy';
+ $labels['bcc']     = 'Bcc';
+ $labels['replyto'] = 'Reply-To';
+@@ -53,7 +53,7 @@
+ $labels['organization'] = 'Organization';
+ $labels['readstatus'] = 'Read status';
+ 
+-$labels['mailboxlist'] = 'Folders';
++$labels['mailboxlist'] = 'MAILBOXES';
+ $labels['messagesfromto'] = 'Messages $from to $to of $count';
+ $labels['threadsfromto'] = 'Threads $from to $to of $count';
+ $labels['messagenrof'] = 'Message $nr of $count';
+@@ -154,6 +154,6 @@
+ $labels['deleted'] = 'Deleted';
+ $labels['invert'] = 'Invert';
+-$labels['filter'] = 'Filter';
++$labels['filter'] = 'Show';
+ 
+ $labels['list'] = 'List';
+ $labels['threads'] = 'Threads';
+@@ -197,6 +198,6 @@
+ // message compose
+ $labels['compose']        = 'Compose a message';
+-$labels['editasnew']      = 'Edit as new';
++$labels['editasnew']      = 'Send again';
+ $labels['savemessage']    = 'Save this draft';
+ $labels['sendmessage']    = 'Send now';
+ $labels['addattachment']  = 'Attach a file';

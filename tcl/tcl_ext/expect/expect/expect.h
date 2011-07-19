@@ -28,7 +28,7 @@ would appreciate credit if this program or parts of it are used.
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: expect.h,v 5.30 2001/11/09 19:36:18 andreas_kupries Exp $
+ * RCS: @(#) $Id: expect.h,v 5.33 2010/08/31 22:20:27 andreas_kupries Exp $
  */
 
 #ifndef _TCL
@@ -258,46 +258,6 @@ typedef long LONG;
 typedef struct Tcl_RegExp_ *Tcl_RegExp;
 
 /*
- * The following declarations either map ckalloc and ckfree to
- * malloc and free, or they map them to procedures with all sorts
- * of debugging hooks defined in tclCkalloc.c.
- */
-
-#ifdef TCL_MEM_DEBUG
-
-#  define Tcl_Alloc(x) Tcl_DbCkalloc(x, __FILE__, __LINE__)
-#  define Tcl_Free(x)  Tcl_DbCkfree(x, __FILE__, __LINE__)
-#  define Tcl_Realloc(x,y) Tcl_DbCkrealloc((x), (y),__FILE__, __LINE__)
-#  define ckalloc(x) Tcl_DbCkalloc(x, __FILE__, __LINE__)
-#  define ckfree(x)  Tcl_DbCkfree(x, __FILE__, __LINE__)
-#  define ckrealloc(x,y) Tcl_DbCkrealloc((x), (y),__FILE__, __LINE__)
-
-#else
-
-/*
- * If USE_TCLALLOC is true, then we need to call Tcl_Alloc instead of
- * the native malloc/free.  The only time USE_TCLALLOC should not be
- * true is when compiling the Tcl/Tk libraries on Unix systems.  In this
- * case we can safely call the native malloc/free directly as a performance
- * optimization.
- */
-
-#  if USE_TCLALLOC
-#     define ckalloc(x) Tcl_Alloc(x)
-#     define ckfree(x) Tcl_Free(x)
-#     define ckrealloc(x,y) Tcl_Realloc(x,y)
-#  else
-#     define ckalloc(x) malloc(x)
-#     define ckfree(x)  free(x)
-#     define ckrealloc(x,y) realloc(x,y)
-#  endif
-#  define Tcl_DumpActiveMemory(x)
-#  define Tcl_ValidateAllMemory(x,y)
-
-#endif /* !TCL_MEM_DEBUG */
-
-
-/*
  * These function have been renamed. The old names are deprecated, but we
  * define these macros for backwards compatibilty.
  */
@@ -307,14 +267,6 @@ typedef struct Tcl_RegExp_ *Tcl_RegExp;
 #define Tcl_Ckrealloc Tcl_Realloc
 #define Tcl_Return Tcl_SetResult
 #define Tcl_TildeSubst Tcl_TranslateFileName
-
-/*
- * In later releases, Tcl_Panic will be the correct name to use.  For now
- * we leave it as panic to avoid breaking existing binaries.
- */
-
-#define Tcl_Panic panic
-#define Tcl_PanicVA panicVA
 
 #endif /* RESOURCE_INCLUDED */
 
@@ -338,7 +290,7 @@ typedef struct Tcl_RegExp_ *Tcl_RegExp;
  * Caveat:  this is V8 regexp(3) [actually, a reimplementation thereof],
  * not the System V one.
  *
- * RCS: @(#) $Id: expect.h,v 5.30 2001/11/09 19:36:18 andreas_kupries Exp $
+ * RCS: @(#) $Id: expect.h,v 5.33 2010/08/31 22:20:27 andreas_kupries Exp $
  */
 
 #ifndef _REGEXP

@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,12 +24,17 @@
 #include "config.h"
 #include "StyledElement.h"
 
+#include "Attribute.h"
+#include "CSSMutableStyleDeclaration.h"
 #include "CSSStyleSelector.h"
 #include "CSSStyleSheet.h"
 #include "CSSValueKeywords.h"
+#include "ClassList.h"
+#include "ContentSecurityPolicy.h"
+#include "DOMTokenList.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
+#include "HTMLParserIdioms.h"
 #include <wtf/HashFunctions.h>
 
 using namespace std;
@@ -118,7 +123,7 @@ StyledElement::~StyledElement()
 
 PassRefPtr<Attribute> StyledElement::createAttribute(const QualifiedName& name, const AtomicString& value)
 {
-    return MappedAttribute::create(name, value);
+    return Attribute::createMapped(name, value);
 }
 
 void StyledElement::createInlineStyleDecl()
@@ -126,7 +131,7 @@ void StyledElement::createInlineStyleDecl()
     m_inlineStyleDecl = CSSMutableStyleDeclaration::create();
     m_inlineStyleDecl->setParent(document()->elementSheet());
     m_inlineStyleDecl->setNode(this);
-    m_inlineStyleDecl->setStrictParsing(isHTMLElement() && !document()->inCompatMode());
+    m_inlineStyleDecl->setStrictParsing(isHTMLElement() && !document()->inQuirksMode());
 }
 
 void StyledElement::destroyInlineStyleDecl()
@@ -145,32 +150,30 @@ void StyledElement::attributeChanged(Attribute* attr, bool preserveDecls)
         return;
     }
  
-    MappedAttribute* mappedAttr = toMappedAttribute(attr);
-    if (mappedAttr->decl() && !preserveDecls) {
-        mappedAttr->setDecl(0);
+    if (attr->decl() && !preserveDecls) {
+        attr->setDecl(0);
         setNeedsStyleRecalc();
-        if (namedAttrMap)
-            mappedAttributes()->declRemoved();
+        if (attributeMap())
+            attributeMap()->declRemoved();
     }
 
     bool checkDecl = true;
     MappedAttributeEntry entry;
     bool needToParse = mapToEntry(attr->name(), entry);
     if (preserveDecls) {
-        if (mappedAttr->decl()) {
+        if (attr->decl()) {
             setNeedsStyleRecalc();
-            if (namedAttrMap)
-                mappedAttributes()->declAdded();
+            if (attributeMap())
+                attributeMap()->declAdded();
             checkDecl = false;
         }
-    }
-    else if (!attr->isNull() && entry != eNone) {
+    } else if (!attr->isNull() && entry != eNone) {
         CSSMappedAttributeDeclaration* decl = getMappedAttributeDecl(entry, attr);
         if (decl) {
-            mappedAttr->setDecl(decl);
+            attr->setDecl(decl);
             setNeedsStyleRecalc();
-            if (namedAttrMap)
-                mappedAttributes()->declAdded();
+            if (attributeMap())
+                attributeMap()->declAdded();
             checkDecl = false;
         } else
             needToParse = true;
@@ -182,20 +185,21 @@ void StyledElement::attributeChanged(Attribute* attr, bool preserveDecls)
     // If that changes for some reason moving between documents will be buggy.
     // webarchive/adopt-attribute-styled-node-webarchive.html should catch any resulting crashes.
     if (needToParse)
-        parseMappedAttribute(mappedAttr);
+        parseMappedAttribute(attr);
 
     if (entry == eNone)
         recalcStyleIfNeededAfterAttributeChanged(attr);
 
-    if (checkDecl && mappedAttr->decl()) {
+    if (checkDecl && attr->decl()) {
         // Add the decl to the table in the appropriate spot.
-        setMappedAttributeDecl(entry, attr, mappedAttr->decl());
-        mappedAttr->decl()->setMappedState(entry, attr->name(), attr->value());
-        mappedAttr->decl()->setParent(0);
-        mappedAttr->decl()->setNode(0);
-        if (namedAttrMap)
-            mappedAttributes()->declAdded();
+        setMappedAttributeDecl(entry, attr, attr->decl());
+        attr->decl()->setMappedState(entry, attr->name(), attr->value());
+        attr->decl()->setParent(0);
+        attr->decl()->setNode(0);
+        if (attributeMap())
+            attributeMap()->declAdded();
     }
+
     updateAfterAttributeChanged(attr);
 }
 
@@ -213,40 +217,31 @@ void StyledElement::classAttributeChanged(const AtomicString& newClassString)
     unsigned length = newClassString.length();
     unsigned i;
     for (i = 0; i < length; ++i) {
-        if (!isClassWhitespace(characters[i]))
+        if (isNotHTMLSpace(characters[i]))
             break;
     }
-    setHasClass(i < length);
-    if (namedAttrMap) {
-        if (i < length)
-            mappedAttributes()->setClass(newClassString);
-        else
-            mappedAttributes()->clearClass();
-    }
+    bool hasClass = i < length;
+    setHasClass(hasClass);
+    if (hasClass) {
+        attributes()->setClass(newClassString);
+        if (DOMTokenList* classList = optionalClassList())
+            static_cast<ClassList*>(classList)->reset(newClassString);
+    } else if (attributeMap())
+        attributeMap()->clearClass();
     setNeedsStyleRecalc();
     dispatchSubtreeModifiedEvent();
 }
 
-void StyledElement::parseMappedAttribute(MappedAttribute *attr)
+void StyledElement::parseMappedAttribute(Attribute* attr)
 {
-    if (attr->name() == idAttributeName()) {
-        // unique id
-        setHasID(!attr->isNull());
-        if (namedAttrMap) {
-            if (attr->isNull())
-                namedAttrMap->setID(nullAtom);
-            else if (document()->inCompatMode())
-                namedAttrMap->setID(attr->value().lower());
-            else
-                namedAttrMap->setID(attr->value());
-        }
-        setNeedsStyleRecalc();
-    } else if (attr->name() == classAttr)
+    if (isIdAttributeName(attr->name()))
+        idAttributeChanged(attr);
+    else if (attr->name() == classAttr)
         classAttributeChanged(attr->value());
     else if (attr->name() == styleAttr) {
         if (attr->isNull())
             destroyInlineStyleDecl();
-        else
+        else if (document()->contentSecurityPolicy()->allowInlineStyle())
             getInlineStyleDecl()->parseDeclaration(attr->value());
         setIsStyleAttributeValid();
         setNeedsStyleRecalc();
@@ -265,25 +260,28 @@ CSSStyleDeclaration* StyledElement::style()
     return getInlineStyleDecl();
 }
 
-void StyledElement::addCSSProperty(MappedAttribute* attr, int id, const String &value)
+void StyledElement::addCSSProperty(Attribute* attribute, int id, const String &value)
 {
-    if (!attr->decl()) createMappedDecl(attr);
-    attr->decl()->setProperty(id, value, false);
+    if (!attribute->decl())
+        createMappedDecl(attribute);
+    attribute->decl()->setProperty(id, value, false);
 }
 
-void StyledElement::addCSSProperty(MappedAttribute* attr, int id, int value)
+void StyledElement::addCSSProperty(Attribute* attribute, int id, int value)
 {
-    if (!attr->decl()) createMappedDecl(attr);
-    attr->decl()->setProperty(id, value, false);
+    if (!attribute->decl())
+        createMappedDecl(attribute);
+    attribute->decl()->setProperty(id, value, false);
 }
 
-void StyledElement::addCSSImageProperty(MappedAttribute* attr, int id, const String& url)
+void StyledElement::addCSSImageProperty(Attribute* attribute, int id, const String& url)
 {
-    if (!attr->decl()) createMappedDecl(attr);
-    attr->decl()->setImageProperty(id, url, false);
+    if (!attribute->decl())
+        createMappedDecl(attribute);
+    attribute->decl()->setImageProperty(id, url, false);
 }
 
-void StyledElement::addCSSLength(MappedAttribute* attr, int id, const String &value)
+void StyledElement::addCSSLength(Attribute* attr, int id, const String &value)
 {
     // FIXME: This function should not spin up the CSS parser, but should instead just figure out the correct
     // length unit and make the appropriate parsed value.
@@ -320,7 +318,7 @@ void StyledElement::addCSSLength(MappedAttribute* attr, int id, const String &va
 }
 
 /* color parsing that tries to match as close as possible IE 6. */
-void StyledElement::addCSSColor(MappedAttribute* attr, int id, const String& c)
+void StyledElement::addCSSColor(Attribute* attr, int id, const String& c)
 {
     // this is the only case no color gets applied in IE.
     if (!c.length())
@@ -392,7 +390,7 @@ void StyledElement::addCSSColor(MappedAttribute* attr, int id, const String& c)
     attr->decl()->setProperty(id, CSSValueBlack, false);
 }
 
-void StyledElement::createMappedDecl(MappedAttribute* attr)
+void StyledElement::createMappedDecl(Attribute* attr)
 {
     RefPtr<CSSMappedAttributeDeclaration> decl = CSSMappedAttributeDeclaration::create();
     attr->setDecl(decl);
@@ -401,62 +399,25 @@ void StyledElement::createMappedDecl(MappedAttribute* attr)
     decl->setStrictParsing(false); // Mapped attributes are just always quirky.
 }
 
-// Paul Hsieh's SuperFastHash
-// http://www.azillionmonkeys.com/qed/hash.html
 unsigned MappedAttributeHash::hash(const MappedAttributeKey& key)
 {
-    uint32_t hash = WTF::stringHashingStartValue;
-    uint32_t tmp;
+    COMPILE_ASSERT(sizeof(key.name) == 4 || sizeof(key.name) == 8, key_name_size);
+    COMPILE_ASSERT(sizeof(key.value) == 4 || sizeof(key.value) == 8, key_value_size);
 
-    const uint16_t* p;
+    StringHasher hasher;
+    const UChar* data;
 
-    p = reinterpret_cast<const uint16_t*>(&key.name);
-    hash += p[0];
-    tmp = (p[1] << 11) ^ hash;
-    hash = (hash << 16) ^ tmp;
-    hash += hash >> 11;
-    ASSERT(sizeof(key.name) == 4 || sizeof(key.name) == 8);
-    if (sizeof(key.name) == 8) {
-        p += 2;
-        hash += p[0];
-        tmp = (p[1] << 11) ^ hash;
-        hash = (hash << 16) ^ tmp;
-        hash += hash >> 11;
-    }
+    data = reinterpret_cast<const UChar*>(&key.name);
+    hasher.addCharacters(data[0], data[1]);
+    if (sizeof(key.name) == 8)
+        hasher.addCharacters(data[2], data[3]);
 
-    p = reinterpret_cast<const uint16_t*>(&key.value);
-    hash += p[0];
-    tmp = (p[1] << 11) ^ hash;
-    hash = (hash << 16) ^ tmp;
-    hash += hash >> 11;
-    ASSERT(sizeof(key.value) == 4 || sizeof(key.value) == 8);
-    if (sizeof(key.value) == 8) {
-        p += 2;
-        hash += p[0];
-        tmp = (p[1] << 11) ^ hash;
-        hash = (hash << 16) ^ tmp;
-        hash += hash >> 11;
-    }
+    data = reinterpret_cast<const UChar*>(&key.value);
+    hasher.addCharacters(data[0], data[1]);
+    if (sizeof(key.value) == 8)
+        hasher.addCharacters(data[2], data[3]);
 
-    // Handle end case
-    hash += key.type;
-    hash ^= hash << 11;
-    hash += hash >> 17;
-
-    // Force "avalanching" of final 127 bits
-    hash ^= hash << 3;
-    hash += hash >> 5;
-    hash ^= hash << 2;
-    hash += hash >> 15;
-    hash ^= hash << 10;
-
-    // This avoids ever returning a hash code of 0, since that is used to
-    // signal "hash not computed yet", using a value that is likely to be
-    // effectively the same as 0 when the low bits are masked
-    if (hash == 0)
-        hash = 0x80000000;
-
-    return hash;
+    return hasher.hash();
 }
 
 void StyledElement::copyNonAttributeProperties(const Element *sourceElement)

@@ -480,7 +480,14 @@
 			isa = PBXProject;
 			buildConfigurationList = C23B0CEC09A298C500B7FCED /* Build configuration list for PBXProject "libsecurity_asn1" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 9D56980803E74D6100003D05;
 			productRefGroup = 9D56981D03E74E4100003D05 /* Products */;
 			projectDirPath = "";
@@ -638,10 +645,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -649,7 +657,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -683,10 +690,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -694,7 +702,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -727,10 +734,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
@@ -738,7 +746,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";

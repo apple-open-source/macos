@@ -5,7 +5,7 @@
         <string>0.4.2</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://undefined.org/python/#py2app</string>
-        <key>OpenSourceSVN</key>
+        <key>OpenSourceSCM</key>
         <string>svn export http://svn.red-bean.com/pyobjc/trunk/pyobjc/py2app</string>
         <key>OpenSourceImportDate</key>
         <string>2009-01-21</string>

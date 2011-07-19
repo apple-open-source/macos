@@ -30,9 +30,9 @@
     Version numbers are based on the 'current library version' specified in the WebKit build rules.
     All of these methods return or take version numbers with each part shifted to the left 2 bytes.
     For example the version 1.2.3 is returned as 0x00010203 and version 200.3.5 is returned as 0x00C80305
-    A version of -1 is returned if the main executable did not link against WebKit (should never happen).
+    A version of -1 is returned if the main executable did not link against WebKit.
 
-    Please use the current WebKit version number, available in WebKit/Configurations/Version.xcconfig,
+    Please use the current WebKit version number, available in WebKit/mac/Configurations/Version.xcconfig,
     when adding a new version constant.
 */
 
@@ -54,14 +54,15 @@
 #define WEBKIT_FIRST_VERSION_WITHOUT_BUMPERCAR_BACK_FORWARD_QUIRK 0x02120700 // 530.7.0
 #define WEBKIT_FIRST_VERSION_WITHOUT_CONTENT_SNIFFING_FOR_FILE_URLS 0x02120A00 // 530.10.0
 #define WEBKIT_FIRST_VERSION_WITHOUT_LINK_ELEMENT_TEXT_CSS_QUIRK 0x02130200 // 531.2.0
+#define WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER 0x02160900 // 534.9.0
+#define WEBKIT_FIRST_VERSION_WITH_GET_MATCHED_CSS_RULES_RESTRICTIONS 0x02160B00 // 534.11.0
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 BOOL WebKitLinkedOnOrAfter(int version);
-int WebKitLinkTimeVersion(void);
-int WebKitRunTimeVersion(void);
+void setWebKitLinkTimeVersion(int);
 
 #ifdef __cplusplus
 }

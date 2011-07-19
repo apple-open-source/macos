@@ -31,6 +31,8 @@
 #ifndef WebRuntimeFeatures_h
 #define WebRuntimeFeatures_h
 
+#define HAS_WEBAUDIO_RUNTIMEFEATURES 1
+
 #include "WebCommon.h"
 
 namespace WebKit {
@@ -61,6 +63,9 @@ public:
 
     WEBKIT_API static void enableApplicationCache(bool);
     WEBKIT_API static bool isApplicationCacheEnabled();
+    
+    WEBKIT_API static void enableDataTransferItems(bool);
+    WEBKIT_API static bool isDataTransferItemsEnabled();
 
     WEBKIT_API static void enableGeolocation(bool);
     WEBKIT_API static bool isGeolocationEnabled();
@@ -68,14 +73,35 @@ public:
     WEBKIT_API static void enableIndexedDatabase(bool);
     WEBKIT_API static bool isIndexedDatabaseEnabled();
 
-    WEBKIT_API static void enableWebGL(bool);
-    WEBKIT_API static bool isWebGLEnabled();
+    WEBKIT_API static void enableWebAudio(bool);
+    WEBKIT_API static bool isWebAudioEnabled();
 
     WEBKIT_API static void enablePushState(bool);
     WEBKIT_API static bool isPushStateEnabled(bool);
 
     WEBKIT_API static void enableTouch(bool);
     WEBKIT_API static bool isTouchEnabled();
+
+    WEBKIT_API static void enableDeviceMotion(bool);
+    WEBKIT_API static bool isDeviceMotionEnabled();
+
+    WEBKIT_API static void enableDeviceOrientation(bool);
+    WEBKIT_API static bool isDeviceOrientationEnabled();
+
+    WEBKIT_API static void enableSpeechInput(bool);
+    WEBKIT_API static bool isSpeechInputEnabled();
+
+    WEBKIT_API static void enableXHRResponseBlob(bool);
+    WEBKIT_API static bool isXHRResponseBlobEnabled();
+
+    WEBKIT_API static void enableFileSystem(bool);
+    WEBKIT_API static bool isFileSystemEnabled();
+    
+    WEBKIT_API static void enableJavaScriptI18NAPI(bool);
+    WEBKIT_API static bool isJavaScriptI18NAPIEnabled();
+
+    WEBKIT_API static void enableQuota(bool);
+    WEBKIT_API static bool isQuotaEnabled();
 
 private:
     WebRuntimeFeatures();

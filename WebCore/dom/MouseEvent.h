@@ -29,6 +29,9 @@
 
 namespace WebCore {
 
+class EventDispatcher;
+class PlatformMouseEvent;
+
     // Introduced in DOM Level 2
     class MouseEvent : public MouseRelatedEvent {
     public:
@@ -44,6 +47,8 @@ namespace WebCore {
             return adoptRef(new MouseEvent(type, canBubble, cancelable, view, detail, screenX, screenY, pageX, pageY,
                 ctrlKey, altKey, shiftKey, metaKey, button, relatedTarget, clipboard, isSimulated));
         }
+        static PassRefPtr<MouseEvent> create(const AtomicString& eventType, PassRefPtr<AbstractView>, const PlatformMouseEvent&, int detail, PassRefPtr<Node> relatedTarget);
+
         virtual ~MouseEvent();
 
         void initMouseEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView>,
@@ -56,6 +61,7 @@ namespace WebCore {
         unsigned short button() const { return m_button; }
         bool buttonDown() const { return m_buttonDown; }
         EventTarget* relatedTarget() const { return m_relatedTarget.get(); }
+        void setRelatedTarget(PassRefPtr<EventTarget> relatedTarget) { m_relatedTarget = relatedTarget; }
 
         Clipboard* clipboard() const { return m_clipboard.get(); }
 
@@ -68,18 +74,39 @@ namespace WebCore {
         virtual bool isDragEvent() const;
         virtual int which() const;
 
-    private:
-        MouseEvent();
+    protected:
         MouseEvent(const AtomicString& type, bool canBubble, bool cancelable, PassRefPtr<AbstractView>,
                    int detail, int screenX, int screenY, int pageX, int pageY,
                    bool ctrlKey, bool altKey, bool shiftKey, bool metaKey, unsigned short button,
                    PassRefPtr<EventTarget> relatedTarget, PassRefPtr<Clipboard> clipboard, bool isSimulated);
+
+    private:
+        MouseEvent();
 
         unsigned short m_button;
         bool m_buttonDown;
         RefPtr<EventTarget> m_relatedTarget;
         RefPtr<Clipboard> m_clipboard;
     };
+
+class SimulatedMouseEvent : public MouseEvent {
+public:
+    static PassRefPtr<SimulatedMouseEvent> create(const AtomicString& eventType, PassRefPtr<AbstractView>, PassRefPtr<Event> underlyingEvent);
+    virtual ~SimulatedMouseEvent();
+
+private:
+    SimulatedMouseEvent(const AtomicString& eventType, PassRefPtr<AbstractView>, PassRefPtr<Event> underlyingEvent);
+};
+
+class MouseEventDispatchMediator : public EventDispatchMediator {
+public:
+    explicit MouseEventDispatchMediator(PassRefPtr<MouseEvent>);
+
+private:
+    MouseEvent* event() const;
+
+    virtual bool dispatchEvent(EventDispatcher*) const;
+};
 
 } // namespace WebCore
 

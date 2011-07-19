@@ -1,6 +1,7 @@
 [manpage_begin uri_urn n 1.1.2]
 [moddesc   {Tcl Uniform Resource Identifier Management}]
 [titledesc {URI utilities, URN scheme}]
+[category  Networking]
 [require Tcl 8.2]
 [require uri::urn [opt 1.1.2]]
 [description]

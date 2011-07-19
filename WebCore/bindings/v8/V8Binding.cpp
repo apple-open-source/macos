@@ -31,20 +31,19 @@
 #include "config.h"
 #include "V8Binding.h"
 
-#include "AtomicString.h"
+#include "DOMStringList.h"
 #include "Element.h"
 #include "MathExtras.h"
 #include "PlatformString.h"
 #include "QualifiedName.h"
 #include "StdLibExtras.h"
-#include "StringBuffer.h"
-#include "StringHash.h"
 #include "Threading.h"
 #include "V8Element.h"
 #include "V8Proxy.h"
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
-
-#include <v8.h>
+#include <wtf/text/StringBuffer.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -63,7 +62,7 @@ public:
     }
 
     explicit WebCoreStringResource(const AtomicString& string)
-        : m_plainString(string)
+        : m_plainString(string.string())
         , m_atomicString(string)
     {
 #ifndef NDEBUG
@@ -370,33 +369,55 @@ StringType v8StringToWebCoreString(v8::Handle<v8::String> v8String, ExternalMode
 template String v8StringToWebCoreString<String>(v8::Handle<v8::String>, ExternalMode);
 template AtomicString v8StringToWebCoreString<AtomicString>(v8::Handle<v8::String>, ExternalMode);
 
+// Fast but non thread-safe version.
+String int32ToWebCoreStringFast(int value)
+{
+    // Caching of small strings below is not thread safe: newly constructed AtomicString
+    // are not safely published.
+    ASSERT(WTF::isMainThread());
+
+    // Most numbers used are <= 100. Even if they aren't used there's very little cost in using the space.
+    const int kLowNumbers = 100;
+    DEFINE_STATIC_LOCAL(Vector<AtomicString>, lowNumbers, (kLowNumbers + 1));
+    String webCoreString;
+    if (0 <= value && value <= kLowNumbers) {
+        webCoreString = lowNumbers[value];
+        if (!webCoreString) {
+            AtomicString valueString = AtomicString(String::number(value));
+            lowNumbers[value] = valueString;
+            webCoreString = valueString;
+        }
+    } else
+        webCoreString = String::number(value);
+    return webCoreString;
+}
+
+String int32ToWebCoreString(int value)
+{
+    // If we are on the main thread (this should always true for non-workers), call the faster one.
+    if (WTF::isMainThread())
+        return int32ToWebCoreStringFast(value);
+    return String::number(value);
+}
 
 String v8NonStringValueToWebCoreString(v8::Handle<v8::Value> object)
 {
     ASSERT(!object->IsString());
-    if (object->IsInt32()) {
-        int value = object->Int32Value();
-        // Most numbers used are <= 100. Even if they aren't used there's very little in using the space.
-        const int kLowNumbers = 100;
-        static AtomicString lowNumbers[kLowNumbers + 1];
-        String webCoreString;
-        if (0 <= value && value <= kLowNumbers) {
-            webCoreString = lowNumbers[value];
-            if (!webCoreString) {
-                AtomicString valueString = AtomicString(String::number(value));
-                lowNumbers[value] = valueString;
-                webCoreString = valueString;
-            }
-        } else
-            webCoreString = String::number(value);
-        return webCoreString;
-    }
+    if (object->IsInt32())
+        return int32ToWebCoreString(object->Int32Value());
 
     v8::TryCatch block;
     v8::Handle<v8::String> v8String = object->ToString();
     // Handle the case where an exception is thrown as part of invoking toString on the object.
     if (block.HasCaught()) {
         throwError(block.Exception());
+        return StringImpl::empty();
+    }
+    // This path is unexpected.  However there is hypothesis that it
+    // might be combination of v8 and v8 bindings bugs.  For now
+    // just bailout as we'll crash if attempt to convert empty handle into a string.
+    if (v8String.IsEmpty()) {
+        ASSERT_NOT_REACHED();
         return StringImpl::empty();
     }
     return v8StringToWebCoreString<String>(v8String, DoNotExternalize);
@@ -444,25 +465,29 @@ static void cachedStringCallback(v8::Persistent<v8::Value> wrapper, void* parame
     stringImpl->deref();
 }
 
-v8::Local<v8::String> v8ExternalString(const String& string)
+RefPtr<StringImpl> lastStringImpl = 0;
+v8::Persistent<v8::String> lastV8String;
+
+v8::Local<v8::String> v8ExternalStringSlow(StringImpl* stringImpl)
 {
-    StringImpl* stringImpl = string.impl();
-    if (!stringImpl || !stringImpl->length())
+    if (!stringImpl->length())
         return v8::String::Empty();
 
     if (!stringImplCacheEnabled)
-        return makeExternalString(string);
+        return makeExternalString(String(stringImpl));
 
     StringCache& stringCache = getStringCache();
     v8::String* cachedV8String = stringCache.get(stringImpl);
-    if (cachedV8String)
-    {
+    if (cachedV8String) {
         v8::Persistent<v8::String> handle(cachedV8String);
-        if (!handle.IsNearDeath() && !handle.IsEmpty())
+        if (!handle.IsNearDeath() && !handle.IsEmpty()) {
+            lastStringImpl = stringImpl;
+            lastV8String = handle;
             return v8::Local<v8::String>::New(handle);
+        }
     }
 
-    v8::Local<v8::String> newString = makeExternalString(string);
+    v8::Local<v8::String> newString = makeExternalString(String(stringImpl));
     if (newString.IsEmpty())
         return newString;
 
@@ -473,6 +498,9 @@ v8::Local<v8::String> v8ExternalString(const String& string)
     stringImpl->ref();
     wrapper.MakeWeak(stringImpl, cachedStringCallback);
     stringCache.set(stringImpl, *wrapper);
+
+    lastStringImpl = stringImpl;
+    lastV8String = wrapper;
 
     return newString;
 }
@@ -556,6 +584,21 @@ void setElementStringAttr(const v8::AccessorInfo& info,
     Element* imp = V8Element::toNative(info.Holder());
     AtomicString v = toAtomicWebCoreStringWithNullCheck(value);
     imp->setAttribute(name, v);
+}
+
+PassRefPtr<DOMStringList> v8ValueToWebCoreDOMStringList(v8::Handle<v8::Value> value)
+{
+    v8::Local<v8::Value> v8Value(v8::Local<v8::Value>::New(value));
+    if (!v8Value->IsArray())
+        return 0;
+
+    RefPtr<DOMStringList> ret = DOMStringList::create();
+    v8::Local<v8::Array> v8Array = v8::Local<v8::Array>::Cast(v8Value);
+    for (size_t i = 0; i < v8Array->Length(); ++i) {
+        v8::Local<v8::Value> indexedValue = v8Array->Get(v8::Integer::New(i));
+        ret->append(v8ValueToWebCoreString(indexedValue));
+    }
+    return ret.release();
 }
 
 } // namespace WebCore

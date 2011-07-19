@@ -1,0 +1,64 @@
+Userdb LDAP
+===========
+
+Usually your LDAP database contains also the <userdb information>
+[UserDatabase.txt]. If your home directory can be specified with a template and
+you're using only a single <UID and GID> [UserIds.txt], you should use <static
+userdb> [UserDatabase.Static.txt] instead to avoid an unnecessary LDAP lookup.
+You can also use <prefetch userdb> [UserDatabase.Prefetch.txt] to avoid the
+userdb LDAP lookup.
+
+Userdb lookups are always done using the default DN ('dn' setting) bind. It's
+not possible to do the lookup using the user's DN (remember that e.g. <LDA.txt>
+needs to do userdb lookups without knowing the user's password).
+
+The userdb lookups are configured in very much the same way as <LDAP password
+lookups> [AuthDatabase.LDAP.PasswordLookups.txt]. Instead of 'pass_attrs' and
+'pass_filter', the userdb uses 'user_attrs' and 'user_filter'. Typically
+'pass_filter' and 'user_filter' are equivalent.
+
+If you're using a single UID and GID for all the users, you can specify them
+globally with 'mail_uid' and 'mail_gid' settings instead of returning them from
+LDAP.
+
+Example:
+
+---%<-------------------------------------------------------------------------
+user_attrs = homeDirectory=home, uidNumber=uid, gidNumber=gid
+user_filter = (&(objectClass=posixAccount)(uid=%u))
+
+# For using doveadm -A:
+iterate_attrs = uid=user
+iterate_filter = (objectClass=posixAccount)
+---%<-------------------------------------------------------------------------
+
+Attribute templates
+-------------------
+
+You can mix static text with the value returned from LDAP by using %$ in the
+value. Some examples:
+
+Create a "quota_rule" field with value "*:bytes=<n>" where <n> comes from
+"quotaBytes" LDAP attribute:
+
+---%<-------------------------------------------------------------------------
+user_attrs = quotaBytes=quota_rule=*:bytes=%$
+---%<-------------------------------------------------------------------------
+
+Create a "mail" field with value "maildir:/var/mail/<dir>/Maildir" where <dir>
+comes from "sAMAccountName" LDAP attribute:
+
+---%<-------------------------------------------------------------------------
+user_attrs = sAMAccountName=mail=maildir:/var/spool/vmail/%$/Maildir
+---%<-------------------------------------------------------------------------
+
+You can add static fields that aren't looked up from LDAP. For example create a
+"mail" field with value "maildir:/var/vmail/%d/%n/Maildir":
+
+---%<-------------------------------------------------------------------------
+user_attrs = \
+  quotaBytes=quota_rule=*:bytes=%$, \
+  =mail=maildir:/var/vmail/%d/%n/Maildir
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

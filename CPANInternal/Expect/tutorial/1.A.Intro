@@ -1,0 +1,43 @@
+
+	Why is this tool useful?
+
+	Chances are if you are reading this you probably have already used
+the fine Expect for tcl, and possibly even read Exploring Expect. You are
+interested in learning how to accomplish the same things you've done in tcl
+using perl, or perhaps are just totally irritated at tcl.
+
+	Expect is a generic tool for talking to processes that normally require
+user interaction. This might be running an ftp client to grab a file,
+telnetting to a router to grab statistics or reset an interface. Or, as in the
+case of a place I recently administered, to start up a secure webserver without
+having to be physically at the machine to enter the super secret password.
+	Expect talks to processes through ptys. To it, a process is mostly just
+a bidirectional file handle, much the same as a socket. In fact, it is possible
+to take a filehandle you've already used and pass it off to expect to interact
+with.
+	Now, something you might say at this point is "well, but there are
+tools that I can use to do that with for more common protocols like telnet and
+ftp already, such as Net::Ftp and Net::Telnet. Why would I want to use your
+tool?". This is true. You might never want to use it. However, there are a few
+advantages Expect has over similar modules:
+
+	1. A consistent interface. You don't have to remember the syntax for
+the other tools.
+	2. It is more intuitive (my opinion, of course) because you already
+know how to use the clients you are familiar with. Once you learn how to
+talk to a process using Expect you will have an easy time automating your 
+other tasks.
+	3. It is more versatile. With Expect you can connect multiple
+processes together, write to log files, talk to sockets, etc.
+	4. Consistent debugging. Debugging, IMHO, is much easier in Expect
+than in other tools because you have the ability to watch the interaction
+take place, and it's really pretty easy to use.
+
+	One serious disadvantage of Expect is that scripts generated using it
+are generally non-portable. The way a client 'looks' is important to building
+a script to talk to it. Interacting with a client on DG-UX may be very
+different than the equivalent client on SunOS. Or, and ncftp would be a good
+example of this, a client may be different between versions. Similarly, if
+an administrator changes versions of a server it might send back different
+prompts than what you are looking for. These are things you should be aware of.
+

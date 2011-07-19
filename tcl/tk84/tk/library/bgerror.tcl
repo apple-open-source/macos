@@ -149,6 +149,8 @@ proc ::tk::dialog::error::bgerror err {
     if {($tcl_platform(platform) eq "macintosh")
             || ($windowingsystem eq "aqua")} {
 	::tk::unsupported::MacWindowStyle style .bgerrorDialog moveableAlert {}
+    } elseif {$windowingsystem eq "x11"} {
+	wm attributes .bgerrorDialog -type dialog
     }
 
     frame .bgerrorDialog.bot

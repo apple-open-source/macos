@@ -2,6 +2,7 @@
  * CSS Media Query
  *
  * Copyright (C) 2006 Kimmo Kinnunen <kimmo.t.kinnunen@nokia.com>.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,17 +29,19 @@
 #ifndef MediaQueryExp_h
 #define MediaQueryExp_h
 
-#include "AtomicString.h"
 #include "CSSValue.h"
 #include "MediaFeatureNames.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 class CSSParserValueList;
 
-class MediaQueryExp : public FastAllocBase {
+class MediaQueryExp {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    MediaQueryExp(const AtomicString& mediaFeature, CSSParserValueList* values);
+    static PassOwnPtr<MediaQueryExp> create(const AtomicString& mediaFeature, CSSParserValueList* values);
     ~MediaQueryExp();
 
     AtomicString mediaFeature() const { return m_mediaFeature; }
@@ -64,10 +67,16 @@ public:
                                               m_mediaFeature == MediaFeatureNames::aspect_ratioMediaFeature ||
                                               m_mediaFeature == MediaFeatureNames::min_aspect_ratioMediaFeature ||
                                               m_mediaFeature == MediaFeatureNames::max_aspect_ratioMediaFeature;  }
+
+    String serialize() const;
+
 private:
+    MediaQueryExp(const AtomicString& mediaFeature, CSSParserValueList* values);
+
     AtomicString m_mediaFeature;
     RefPtr<CSSValue> m_value;
     bool m_isValid;
+    String m_serializationCache;
 };
 
 } // namespace

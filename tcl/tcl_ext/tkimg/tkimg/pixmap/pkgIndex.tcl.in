@@ -1,5 +1,0 @@
-# Tcl package index file - handcrafted
-#
-# $Id: pkgIndex.tcl.in 22 2002-12-05 07:08:43Z andreas_kupries $
-
-package ifneeded "@DPACKAGE@" @VERSION@ [list load [file join $dir @tkimgpixmap_LIB_FILE@]]

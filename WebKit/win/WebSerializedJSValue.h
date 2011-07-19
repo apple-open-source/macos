@@ -25,6 +25,7 @@
 #ifndef WebSerializedJSValue_h
 #define WebSerializedJSValue_h
 
+#include "WebKit.h"
 #include <WebCore/COMPtr.h>
 
 typedef const struct OpaqueJSContext* JSContextRef;
@@ -34,7 +35,8 @@ namespace WebCore {
     class SerializedScriptValue;
 }
 
-class WebSerializedJSValue : public Noncopyable, public IWebSerializedJSValue {
+class WebSerializedJSValue : public IWebSerializedJSValue, public IWebSerializedJSValuePrivate {
+    WTF_MAKE_NONCOPYABLE(WebSerializedJSValue);
 public:
     static COMPtr<WebSerializedJSValue> createInstance();
 
@@ -43,6 +45,8 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE serialize(JSContextRef, JSValueRef value, JSValueRef* exception);
     virtual HRESULT STDMETHODCALLTYPE deserialize(JSContextRef, JSValueRef* result);
+    virtual HRESULT STDMETHODCALLTYPE setInternalRepresentation(void* internalRepresentation);
+    virtual HRESULT STDMETHODCALLTYPE getInternalRepresentation(void** internalRepresentation);
 
 private:
     WebSerializedJSValue();

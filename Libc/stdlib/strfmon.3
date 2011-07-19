@@ -167,6 +167,20 @@ The format string is invalid.
 .It Bq Er ENOMEM
 Not enough memory for temporary buffers.
 .El
+.Sh EXAMPLE
+.Bd -literal -offset indent -compact
+  #include <stdio.h>
+  #include <monetary.h>
+  #include <locale.h>
+
+  int main() {
+          char buf[200];
+          setlocale(LC_ALL, "en_US");
+          (void)strfmon (buf, sizeof(buf)-1, "%n" , 123456.78);
+          printf("%s\n", buf);
+  }
+.Ed
+.Pp
 .Sh SEE ALSO
 .Xr localeconv 3 ,
 .Xr xlocale 3

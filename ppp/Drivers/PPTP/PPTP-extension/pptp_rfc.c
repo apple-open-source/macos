@@ -23,15 +23,13 @@
 
 
 #include <sys/systm.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/domain.h>
 #include <kern/locks.h>
-
-#include <machine/spl.h>
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
@@ -240,42 +238,39 @@ void pptp_rfc_free_client(void *data)
 }
 
 /* -----------------------------------------------------------------------------
-called by protocol family when fast timer expires
+main body of function used to be pptp_rfc_fasttimer... called by protocol family when fast timer expired:
+now it's called when slow timer expired because of <rdar://problem/7617885> 
 ----------------------------------------------------------------------------- */
-void pptp_rfc_fasttimer()
+static void pptp_rfc_delayed_ack(struct pptp_rfc *rfc)
 {
-    struct pptp_rfc  	*rfc;
     struct pptp_gre	*p;
     u_int16_t 		len;
     mbuf_t			m;
 
-    TAILQ_FOREACH(rfc, &pptp_rfc_head, next) {
-
-        if (rfc->state & PPTP_STATE_NEW_SEQUENCE) {
+    if (rfc->state & PPTP_STATE_NEW_SEQUENCE) {
         
-            if ((mbuf_gethdr(MBUF_DONTWAIT, MBUF_TYPE_DATA, &m)) != 0)
-                return;
+        if ((mbuf_gethdr(MBUF_DONTWAIT, MBUF_TYPE_DATA, &m)) != 0)
+            return;
 
-            // build an ack packet, without data
-            len = sizeof(struct pptp_gre) - 4;
-            mbuf_setlen(m, len);
-            mbuf_pkthdr_setlen(m, len);
-                        
-            // probably some of it should move to pptp_ip when we implement 
-            // a more modular GRE handler
-            p = mbuf_data(m);
-            p->flags = PPTP_GRE_FLAGS_K;
-            p->flags_vers = PPTP_GRE_VER | PPTP_GRE_FLAGS_A;
-            p->proto_type = htons(PPTP_GRE_TYPE);
-            p->payload_len = 0; 
-            p->call_id = htons(rfc->peer_call_id);
-            /* XXX use seq_num in the structure to put the ack */
-            p->seq_num = htonl(rfc->peer_last_seq);
-            rfc->state &= ~PPTP_STATE_NEW_SEQUENCE;
-                
-            //IOLog("pptp_rfc_fasttimer, output delayed ACK = %d\n", rfc->peer_last_seq);
-            pptp_ip_output(m, rfc->our_address, rfc->peer_address);
-        }
+        // build an ack packet, without data
+        len = sizeof(struct pptp_gre) - 4;
+        mbuf_setlen(m, len);
+        mbuf_pkthdr_setlen(m, len);
+
+        // probably some of it should move to pptp_ip when we implement 
+        // a more modular GRE handler
+        p = mbuf_data(m);
+        p->flags = PPTP_GRE_FLAGS_K;
+        p->flags_vers = PPTP_GRE_VER | PPTP_GRE_FLAGS_A;
+        p->proto_type = htons(PPTP_GRE_TYPE);
+        p->payload_len = 0; 
+        p->call_id = htons(rfc->peer_call_id);
+        /* XXX use seq_num in the structure to put the ack */
+        p->seq_num = htonl(rfc->peer_last_seq);
+        rfc->state &= ~PPTP_STATE_NEW_SEQUENCE;
+
+        //IOLog("pptp_rfc_delayed_ack, output delayed ACK = %d\n", rfc->peer_last_seq);
+        pptp_ip_output(m, rfc->our_address, rfc->peer_address);
     }
 }
 
@@ -331,6 +326,8 @@ void pptp_rfc_slowtimer()
 			rfc = next_rfc;
 			continue;
 		}
+
+		pptp_rfc_delayed_ack(rfc);
 
         if (rfc->send_timeout && (--rfc->send_timeout == 0)) {
                 
@@ -621,7 +618,7 @@ u_int16_t handle_data(struct pptp_rfc *rfc, mbuf_t m, u_int32_t from)
 			if (SEQ_LT(ntohl(p->seq_num), elem->seqno))
 				break;
 		}
-		new_elem = (struct pptp_elem *)_MALLOC(sizeof (struct pptp_elem), M_TEMP, M_DONTWAIT);
+		new_elem = (struct pptp_elem *)_MALLOC(sizeof (struct pptp_elem), M_TEMP, M_NOWAIT);
 		if (new_elem == 0)
 			goto dropit;
 		new_elem->seqno = ntohl(p->seq_num);

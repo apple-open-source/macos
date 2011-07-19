@@ -133,6 +133,11 @@
 "IPSec Error 16" = "The connection was terminated by the VPN server. Try reconnecting."; /* Peer Disconnection error */
 "IPSec Error 17" = "The connection was terminated because the VPN server is not responding. Try reconnecting."; /* Peer Dead Detection error */
 "IPSec Error 19" = "You were disconnected because there was no network activity.";  /* Idle Timeout error */
+"IPSec Error 20" = "Your certificate is premature. Verify your settings and try reconnecting."; /* Server Certificate date not yet valid */
+"IPSec Error 21" = "Your certificate has expired. Verify your settings and try reconnecting."; /* Client Certificate expiry error */
+"IPSec Error 22" = "The server certificate is premature. Contact your network administrator."; /* Server Certificate date not yet valid */
+"IPSec Error 23" = "The server certificate has expired. Contact your network administrator."; /* Server Certificate expiry error */
+"IPSec Error 24" = "The server certificate's identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
 
 
 /* 
@@ -146,3 +151,43 @@
 "Account" = "Account Name:";
 "Passcode" = "Passcode:";
 "Password" = "Password:";
+"Group" = "Group:";
+"Role" = "Role:";
+
+
+/*  
+    VPN error strings
+    
+    VPN will display one of the following errors.
+*/
+
+/* "VPN Error 0" = ""; */ /* no error */
+"VPN Error 1" = "An unexpected error occurred."; /* Generic error */
+"VPN Error 2" = "No VPN server address was provided."; /* No Server Address error */
+"VPN Error 3" = "No VPN Certificate was provided."; /* No Certificate error */
+"VPN Error 4" = "The VPN server could not be found."; /* Server Address did not resolve error */
+"VPN Error 5" = "No network connection available."; /* No Local Network error */
+"VPN Error 6" = "A configuration error occurred."; /* Configuration error */
+"VPN Error 7" = "An unrecoverable error occurred."; /* Control error */
+"VPN Error 8" = "The VPN server did not respond."; /* Connection error */
+
+/* From HI guidelines: we should never show the disconnection errors below */
+"VPN Error 9" = "You have been disconnected from the VPN server because the network configuration changed."; /* Network changed error */
+"VPN Error 10" = "The connection was terminated by the VPN server. Try reconnecting."; /* Peer Disconnection error */
+"VPN Error 11" = "The connection was terminated because the VPN server is not responding. Try reconnecting."; /* Peer Dead Detection error */
+"VPN Error 12" = "The connection was terminated because the VPN server is not responding. Try reconnecting."; /* Peer Dead Detection error */
+"VPN Error 13" = "Negotiation error"; /* Peer Dead Detection error */
+"VPN Error 14" = "User Authentication failed."; /* XAUTH User Authentication error */
+"VPN Error 15" = "No network connection available."; /* EDGE connection failed */
+"VPN Error 16" = "You were disconnected because there was no network activity."; /* Idle Timeout error */
+"VPN Error 17" = "Invalid server address."; /* "You were disconnected because there was no network activity."; */ /* Idle Timeout error */
+"VPN Error 18" = "The VPN connection requires an application to start up."; /* "The VPN connection requires an application to start up."; */ /* Application required error */
+"VPN Error 20" = "Your certificate is premature."; /* Client Certificate date not yet valid */
+"VPN Error 21" = "Your certificate has expired."; /* Certificate expired error */
+"VPN Error 22" = "The server certificate is premature. Contact your network administrator."; /* Server Certificate date not yet valid */
+"VPN Error 23" = "The server certificate has expired. Contact your network administrator."; /* Server Certificate expiry error */
+"VPN Error 24" = "The server certificate's identity is incorrect. Contact your network administrator."; /* Server Certificate ID mismatched or unexpected */
+"VPN Error 25" = "";																	/* Plugin Update */
+"VPN Error 26" = "Please launch the VPN application to enable the VPN connection.";			/* plugin needs to be enabled */
+
+"Please launch %@ to enable the VPN connection." = "Please launch %@ to enable the VPN connection.";

@@ -2,7 +2,7 @@
 #ifndef _S_FDSET_H
 #define _S_FDSET_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,52 +37,25 @@
  * - created
  */
 
-#ifndef CFRUNLOOP_NEW_API
-#define CFRUNLOOP_NEW_API 1
-#endif
-
-#include <CoreFoundation/CFRunLoop.h>
-#include <CoreFoundation/CFSocket.h>
-
 /*
  * Type: FDCallout_func_t
  * Purpose:
  *   Client registers a function to call when file descriptor is ready.
  */
 
-typedef void (FDCallout_func_t)(void * arg1, void * arg2);
+typedef void (FDCalloutFunc)(void * arg1, void * arg2);
+typedef FDCalloutFunc * FDCalloutFuncRef;
 
-typedef struct {
-    dynarray_t		callouts;
-    int			debug;
-} FDSet_t;
+struct FDCallout;
+typedef struct FDCallout * FDCalloutRef;
 
-typedef struct {
-    CFRunLoopSourceRef	rls;
-    CFSocketRef		socket;
-    int			fd;
-    FDCallout_func_t *	func;
-    void *		arg1;
-    void *		arg2;
-} FDCallout_t;
-
-FDCallout_t *
-FDSet_add_callout(FDSet_t * set, int fd, FDCallout_func_t * func, 
-		  void * arg1, void * arg2);
+FDCalloutRef
+FDCalloutCreate(int fd, FDCalloutFuncRef func, void * arg1, void * arg2);
 
 void
-FDSet_remove_callout(FDSet_t * set, FDCallout_t * * callout);
-
-FDSet_t * 
-FDSet_init();
-
-void
-FDSet_free(FDSet_t * * set);
-
-fd_set
-FDSet_fd_set(FDSet_t * set);
+FDCalloutRelease(FDCalloutRef * callout_p);
 
 int
-FDSet_max_fd(FDSet_t * set);
+FDCalloutGetFD(FDCalloutRef callout);
 
 #endif _S_FDSET_H

@@ -1,8 +1,8 @@
---- atoi.c.orig	2003-05-20 15:23:24.000000000 -0700
-+++ atoi.c	2005-02-23 18:32:57.000000000 -0800
-@@ -37,11 +37,22 @@
+--- atoi.c.bsdnew	2009-11-13 14:11:47.000000000 -0800
++++ atoi.c	2009-11-13 14:11:47.000000000 -0800
+@@ -33,11 +33,22 @@ static char sccsid[] = "@(#)atoi.c	8.1 (
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdlib/atoi.c,v 1.5 2002/03/22 21:53:09 obrien Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/atoi.c,v 1.6 2007/01/09 00:28:09 imp Exp $");
  
 +#include "xlocale_private.h"
 +

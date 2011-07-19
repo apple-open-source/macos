@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
@@ -119,6 +119,10 @@
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co csplit</string>
 		<key>OpenSourceImportDate</key>
 		<string>2005-09-16</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Rename getline to csplit_getline (7556902).</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -204,15 +208,19 @@
 		<key>OpenSourceProject</key>
 		<string>head</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2007-01-11</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/head/</string>
 		<key>OpenSourceCVS</key>
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co head</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2010-05-10</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Check ferror (6555390).</string>
+		</array>
 	</dict>
 	<dict>
 		<key>OpenSourceProject</key>
@@ -332,17 +340,15 @@
 		<key>OpenSourceProject</key>
 		<string>rev</string>
 		<key>OpenSourceVersion</key>
-		<string>2005-09-16</string>
+		<string>2009-12-13</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/usr.bin/rev/</string>
 		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co rev</string>
+		<string>cvs -d anoncvs@anoncvs1.FreeBSD.org:/home/ncvs co rev</string>
 		<key>OpenSourceImportDate</key>
-		<string>2005-09-16</string>
+		<string>2010-04-07</string>
 		<key>OpenSourceModifications</key>
-		<array>
-			<string>XXX NOT MERGED YET XXX</string>
-		</array>
+		<array/>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -357,6 +363,10 @@
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co rs</string>
 		<key>OpenSourceImportDate</key>
 		<string>2005-09-16</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Rename getline to rs_getline (7556902).</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>
@@ -375,8 +385,8 @@
 		<array>
 			<string>Correctly document -y option (4134578).</string>
 			<string>Rewind stdin before exit (3681024).</string>
-			<string>Handle '[' delimiter (3733839).</string>
-			<string>Handle backslash with 'y', remove handy warning (3733839).</string>
+			<string>Handle &apos;[&apos; delimiter (3733839).</string>
+			<string>Handle backslash with &apos;y&apos;, remove handy warning (3733839).</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -420,7 +430,7 @@
 		<string>2005-09-16</string>
 		<key>OpenSourceModifications</key>
 		<array>
-			<string>Don't read directories (3849683).</string>
+			<string>Don&apos;t read directories (3849683).</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -439,7 +449,7 @@
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Add missing character classes to man page (4115259).</string>
-			<string>Handle tr -s '[a*]' (3673947).</string>
+			<string>Handle tr -s &apos;[a*]&apos; (3673947).</string>
 		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
@@ -483,6 +493,10 @@
 		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co uniq</string>
 		<key>OpenSourceImportDate</key>
 		<string>2005-09-16</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Rename getline to uniq_getline (7556902).</string>
+		</array>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 	</dict>

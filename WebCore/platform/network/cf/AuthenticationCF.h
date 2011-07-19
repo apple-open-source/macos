@@ -26,8 +26,21 @@
 #ifndef AuthenticationCF_h
 #define AuthenticationCF_h
 
+#if USE(CFNETWORK)
+
+#ifdef __OBJC__
+@class NSURLAuthenticationChallenge;
+@class NSURLCredential;
+@class NSURLProtectionSpace;
+#else
+class NSURLAuthenticationChallenge;
+class NSURLCredential;
+class NSURLProtectionSpace;
+#endif
+
+#include <CFNetwork/CFURLCredentialPriv.h>
+
 typedef struct _CFURLAuthChallenge* CFURLAuthChallengeRef;
-typedef struct _CFURLCredential* CFURLCredentialRef;
 typedef struct _CFURLProtectionSpace* CFURLProtectionSpaceRef;
 
 namespace WebCore {
@@ -40,9 +53,24 @@ CFURLAuthChallengeRef createCF(const AuthenticationChallenge&);
 CFURLCredentialRef createCF(const Credential&);
 CFURLProtectionSpaceRef createCF(const ProtectionSpace&);
 
+#if PLATFORM(MAC)
+AuthenticationChallenge core(CFURLAuthChallengeRef);
+#endif
 Credential core(CFURLCredentialRef);
 ProtectionSpace core(CFURLProtectionSpaceRef);
 
+#if PLATFORM(MAC)
+AuthenticationChallenge core(NSURLAuthenticationChallenge *);
+Credential core(NSURLCredential *);
+ProtectionSpace core(NSURLProtectionSpace*);
+
+NSURLAuthenticationChallenge *mac(const AuthenticationChallenge&);
+NSURLCredential *mac(const Credential&);
+NSURLProtectionSpace *mac(const ProtectionSpace&);
+#endif
+
 }
 
-#endif
+#endif // USE(CFNETWORK)
+
+#endif // AuthenticationCF_h

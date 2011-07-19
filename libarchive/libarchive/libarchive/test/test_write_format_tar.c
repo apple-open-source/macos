@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_write_format_tar.c,v 1.4 2008/09/01 05:38:33 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_write_format_tar.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 char buff[1000000];
 char buff2[64];
@@ -42,8 +42,8 @@ DEFINE_TEST(test_write_format_tar)
 		assert((a = archive_write_new()) != NULL);
 		assertA(0 == archive_write_set_format_ustar(a));
 		assertA(0 == archive_write_set_compression_none(a));
-		assertA(0 == archive_write_set_bytes_per_block(a, blocksize));
-		assertA(0 == archive_write_set_bytes_in_last_block(a, blocksize));
+		assertA(0 == archive_write_set_bytes_per_block(a, (int)blocksize));
+		assertA(0 == archive_write_set_bytes_in_last_block(a, (int)blocksize));
 		assertA(blocksize == (size_t)archive_write_get_bytes_in_last_block(a));
 		assertA(0 == archive_write_open_memory(a, buff, sizeof(buff), &used));
 		assertA(blocksize == (size_t)archive_write_get_bytes_in_last_block(a));

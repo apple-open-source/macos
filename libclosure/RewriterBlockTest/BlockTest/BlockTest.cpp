@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 // BlockTest.cpp : Defines the entry point for the console application.
 //
 

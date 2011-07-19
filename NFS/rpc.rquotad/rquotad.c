@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -59,8 +59,8 @@ __RCSID("$NetBSD: rquotad.c,v 1.23 2006/05/09 20:18:07 mrg Exp $");
 #include <syslog.h>
 #include <libutil.h>
 
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/rpcb.h>
 #include "rquota.h"
 
 int bindresvport_sa(int sd, struct sockaddr *sa);
@@ -90,11 +90,15 @@ void *rquotad_thread(void *arg);
  */
 struct nfs_conf_server {
 	int rquota_port;
+	int tcp;
+	int udp;
 	int verbose;
 };
 const struct nfs_conf_server config_defaults =
 {
 	0,		/* rquota_port */
+	1,		/* tcp */
+	1,		/* udp */
 	0		/* verbose */
 };
 int config_read(struct nfs_conf_server *conf);
@@ -127,14 +131,20 @@ int
 main(__unused int argc, __unused char *argv[])
 {
 	SVCXPRT *transp;
-	struct sockaddr_in inetaddr;
-	int sockfd = 0, error;
+	struct sockaddr_storage saddr;
+	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
+	int error, on = 1, svcregcnt;
 	pthread_attr_t pattr;
 	pthread_t thd;
 	int kq, rv;
 	struct kevent ke;
 	struct pidfh *pfh;
 	pid_t pid;
+	int rqudpsock, rqtcpsock;
+	int rqudp6sock, rqtcp6sock;
+
+	/* If we are serving UDP, set up the RQUOTA/UDP sockets. */
 
 	/* set defaults then do config_read() to get config values */
 	config = config_defaults;
@@ -155,36 +165,182 @@ main(__unused int argc, __unused char *argv[])
 	if (pidfile_write(pfh) == -1)
 		syslog(LOG_WARNING, "can't write to rquotad pidfile: %s (%d)", strerror(errno), errno);
 
-	pmap_unset(RQUOTAPROG, RQUOTAVERS);
-	pmap_unset(RQUOTAPROG, EXT_RQUOTAVERS);
+	rpcb_unset(NULL, RQUOTAPROG, RQUOTAVERS);
+	rpcb_unset(NULL, RQUOTAPROG, EXT_RQUOTAVERS);
+
 	signal(SIGINT, sigmux);
 	signal(SIGTERM, sigmux);
 	signal(SIGHUP, sigmux);
 
 	/* create and register the service */
-	if ((sockfd = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-		syslog(LOG_ERR, "can't create UDP socket: %s (%d)", strerror(errno), errno);
-		exit(1);
+	rqudpsock = rqtcpsock = -1;
+	rqudp6sock = rqtcp6sock = -1;
+
+	/* If we are serving UDP, set up the RQUOTA/UDP sockets. */
+	if (config.udp) {
+
+		/* IPv4 */
+		if ((rqudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+			syslog(LOG_WARNING, "can't create UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (rqudpsock >= 0) {
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.rquota_port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(rqudpsock, (struct sockaddr *)sin) < 0) {
+				syslog(LOG_WARNING, "can't bind UDP IPv4 addr: %s (%d)", strerror(errno), errno);
+				close(rqudpsock);
+				rqudpsock = -1;
+			}
+		}
+		if ((rqudpsock >= 0) && ((transp = svcudp_create(rqudpsock)) == NULL)) {
+			syslog(LOG_WARNING, "cannot create UDP IPv4 service");
+			close(rqudpsock);
+			rqudpsock = -1;
+		}
+		if (rqudpsock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(transp, RQUOTAPROG, RQUOTAVERS, rquota_service, IPPROTO_UDP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, RQUOTAVERS, UDP/IPv4)");
+			else
+				svcregcnt++;
+			if (!svc_register(transp, RQUOTAPROG, EXT_RQUOTAVERS, ext_rquota_service, IPPROTO_UDP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, EXT_RQUOTAVERS, UDP/IPv4)");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(transp);
+				close(rqudpsock);
+				rqudpsock = -1;
+			}
+		}
+
+		/* IPv6 */
+		if ((rqudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+			syslog(LOG_WARNING, "can't create UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (rqudp6sock >= 0) {
+			setsockopt(rqudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.rquota_port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(rqudp6sock, (struct sockaddr *)sin6) < 0) {
+				syslog(LOG_WARNING, "can't bind UDP IPv6 addr: %s (%d)", strerror(errno), errno);
+				close(rqudp6sock);
+				rqudp6sock = -1;
+			}
+		}
+		if ((rqudp6sock >= 0) && ((transp = svcudp_create(rqudp6sock)) == NULL)) {
+			syslog(LOG_WARNING, "cannot create UDP IPv6 service");
+			close(rqudp6sock);
+			rqudp6sock = -1;
+		}
+		if (rqudp6sock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(transp, RQUOTAPROG, RQUOTAVERS, rquota_service, IPPROTO_UDP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, RQUOTAVERS, UDP/IPv6)");
+			else
+				svcregcnt++;
+			if (!svc_register(transp, RQUOTAPROG, EXT_RQUOTAVERS, ext_rquota_service, IPPROTO_UDP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, EXT_RQUOTAVERS, UDP/IPv6)");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(transp);
+				close(rqudp6sock);
+				rqudp6sock = -1;
+			}
+		}
 	}
-	inetaddr.sin_family = AF_INET;
-	inetaddr.sin_addr.s_addr = INADDR_ANY;
-	inetaddr.sin_port = htons(config.rquota_port);
-	inetaddr.sin_len = sizeof(inetaddr);
-	if (bindresvport_sa(sockfd, (struct sockaddr *) & inetaddr) < 0) {
-		syslog(LOG_ERR, "can't bind UDP addr: %s (%d)", strerror(errno), errno);
-		exit(1);
+
+	/* If we are serving TCP, set up the RQUOTA/TCP sockets. */
+	if (config.tcp) {
+
+		/* IPv4 */
+		if ((rqtcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+			syslog(LOG_WARNING, "can't create TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (rqtcpsock >= 0) {
+			if (setsockopt(rqtcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				syslog(LOG_WARNING, "setsockopt TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.rquota_port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(rqtcpsock, (struct sockaddr *)sin) < 0) {
+				syslog(LOG_WARNING, "can't bind TCP IPv4 addr: %s (%d)", strerror(errno), errno);
+				close(rqtcpsock);
+				rqtcpsock = -1;
+			}
+		}
+		if ((rqtcpsock >= 0) && ((transp = svctcp_create(rqtcpsock, 0, 0)) == NULL)) {
+			syslog(LOG_WARNING, "cannot create TCP IPv4 service");
+			close(rqtcpsock);
+			rqtcpsock = -1;
+		}
+		if (rqtcpsock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(transp, RQUOTAPROG, RQUOTAVERS, rquota_service, IPPROTO_TCP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, RQUOTAVERS, TCP/IPv4)");
+			else
+				svcregcnt++;
+			if (!svc_register(transp, RQUOTAPROG, EXT_RQUOTAVERS, ext_rquota_service, IPPROTO_TCP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, EXT_RQUOTAVERS, TCP/IPv4)");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(transp);
+				close(rqtcpsock);
+				rqtcpsock = -1;
+			}
+		}
+
+		/* IPv6 */
+		if ((rqtcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+			syslog(LOG_WARNING, "can't create TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (rqtcp6sock >= 0) {
+			if (setsockopt(rqtcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				syslog(LOG_WARNING, "setsockopt TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			setsockopt(rqtcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.rquota_port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(rqtcp6sock, (struct sockaddr *)sin6) < 0) {
+				syslog(LOG_WARNING, "can't bind TCP IPv6 addr: %s (%d)", strerror(errno), errno);
+				close(rqtcp6sock);
+				rqtcp6sock = -1;
+			}
+		}
+		if ((rqtcp6sock >= 0) && ((transp = svctcp_create(rqtcp6sock, 0, 0)) == NULL)) {
+			syslog(LOG_WARNING, "cannot create TCP IPv6 service");
+			close(rqtcp6sock);
+			rqtcp6sock = -1;
+		}
+		if (rqtcp6sock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(transp, RQUOTAPROG, RQUOTAVERS, rquota_service, IPPROTO_TCP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, RQUOTAVERS, TCP/IPv6)");
+			else
+				svcregcnt++;
+			if (!svc_register(transp, RQUOTAPROG, EXT_RQUOTAVERS, ext_rquota_service, IPPROTO_TCP))
+				syslog(LOG_WARNING, "unable to register (RQUOTAPROG, EXT_RQUOTAVERS, TCP/IPv6)");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(transp);
+				close(rqtcp6sock);
+				rqtcp6sock = -1;
+			}
+		}
 	}
-	transp = svcudp_create(sockfd);
-	if (transp == NULL) {
-		syslog(LOG_ERR, "cannot create UDP service");
-		exit(1);
-	}
-	if (!svc_register(transp, RQUOTAPROG, RQUOTAVERS, rquota_service, IPPROTO_UDP)) {
-		syslog(LOG_ERR, "unable to register (RQUOTAPROG, RQUOTAVERS, UDP)");
-		exit(1);
-	}
-	if (!svc_register(transp, RQUOTAPROG, EXT_RQUOTAVERS, ext_rquota_service, IPPROTO_UDP)) {
-		syslog(LOG_ERR, "unable to register (RQUOTAPROG, EXT_RQUOTAVERS, UDP)");
+
+	if ((rqudp6sock < 0) && (rqtcp6sock < 0))
+		syslog(LOG_WARNING, "Can't create RQUOTA IPv6 sockets");
+	if ((rqudpsock < 0) && (rqtcpsock < 0))
+		syslog(LOG_WARNING, "Can't create RQUOTA IPv4 sockets");
+	if ((rqudp6sock < 0) && (rqtcp6sock < 0) &&
+	    (rqudpsock < 0) && (rqtcpsock < 0)) {
+		syslog(LOG_ERR, "Can't create any RQUOTA sockets!");
 		exit(1);
 	}
 
@@ -226,9 +382,9 @@ main(__unused int argc, __unused char *argv[])
 		}
 	}
 
-	alarm(1); /* XXX 5028243 in case pmap_unset() gets hung up during shutdown */
-	pmap_unset(RQUOTAPROG, RQUOTAVERS);
-	pmap_unset(RQUOTAPROG, EXT_RQUOTAVERS);
+	alarm(1); /* XXX 5028243 in case rpcb_unset() gets hung up during shutdown */
+	rpcb_unset(NULL, RQUOTAPROG, RQUOTAVERS);
+	rpcb_unset(NULL, RQUOTAPROG, EXT_RQUOTAVERS);
 	pidfile_remove(pfh);
 	exit(0);
 }
@@ -301,10 +457,10 @@ ismember(struct authunix_parms *aup, int gid)
 {
 	uint g;
 
-	if (aup->aup_gid == gid)
+	if (aup->aup_gid == (uint32_t)gid)
 		return (1);
 	for (g=0; g < aup->aup_len; g++)
-		if (aup->aup_gids[g] == gid)
+		if (aup->aup_gids[g] == (uint32_t)gid)
 			return (1);
 	return (0);
 }
@@ -324,7 +480,7 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 	memset((char *)&ext_getq_args, 0, sizeof(ext_getq_args));
 	switch (vers) {
 	case RQUOTAVERS:
-		if (!svc_getargs(transp, xdr_getquota_args,
+		if (!svc_getargs(transp, (xdrproc_t)xdr_getquota_args,
 		    (caddr_t)&getq_args)) {
 			svcerr_decode(transp);
 			return;
@@ -334,7 +490,7 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		ext_getq_args.gqa_type = RQUOTA_USRQUOTA;
 		break;
 	case EXT_RQUOTAVERS:
-		if (!svc_getargs(transp, xdr_ext_getquota_args,
+		if (!svc_getargs(transp, (xdrproc_t)xdr_ext_getquota_args,
 		    (caddr_t)&ext_getq_args)) {
 			svcerr_decode(transp);
 			return;
@@ -346,7 +502,7 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		/* bad auth */
 		getq_rslt.status = Q_EPERM;
 	} else if ((ext_getq_args.gqa_type == RQUOTA_USRQUOTA) && aup->aup_uid &&
-	    (aup->aup_uid != ext_getq_args.gqa_id)) {
+	    (aup->aup_uid != (uint32_t)ext_getq_args.gqa_id)) {
 		/* only allow user or root to get a user quota */
 		getq_rslt.status = Q_EPERM;
 	} else if ((ext_getq_args.gqa_type == RQUOTA_GRPQUOTA) && aup->aup_uid &&
@@ -358,30 +514,40 @@ sendquota(struct svc_req *request, int vers, SVCXPRT *transp)
 		/* failed, return noquota */
 		getq_rslt.status = Q_NOQUOTA;
 	} else {
+		uint32_t bsize = DEV_BSIZE;
+#define CLAMP_MAX_32(V)	(((V) > UINT32_MAX) ? UINT32_MAX : (V))
+
+		/* scale the block size up to fit values into 32 bits */
+		while ((bsize < INT32_MAX) &&
+			(((dqblk.dqb_bhardlimit / bsize) > UINT32_MAX) ||
+			 ((dqblk.dqb_bsoftlimit / bsize) > UINT32_MAX) ||
+			 ((dqblk.dqb_curbytes / bsize) > UINT32_MAX)))
+			bsize <<= 1;
+
 		gettimeofday(&timev, NULL);
 		getq_rslt.status = Q_OK;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_active = TRUE;
-		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bsize = DEV_BSIZE;
+		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bsize = bsize;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bhardlimit =
-		    dqblk.dqb_bhardlimit / DEV_BSIZE;
+			CLAMP_MAX_32(dqblk.dqb_bhardlimit / bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_bsoftlimit =
-		    dqblk.dqb_bsoftlimit / DEV_BSIZE;
+			CLAMP_MAX_32(dqblk.dqb_bsoftlimit / bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_curblocks =
-		    dqblk.dqb_curbytes / DEV_BSIZE;
+			CLAMP_MAX_32(dqblk.dqb_curbytes / bsize);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_fhardlimit =
-		    dqblk.dqb_ihardlimit;
+			CLAMP_MAX_32(dqblk.dqb_ihardlimit);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_fsoftlimit =
-		    dqblk.dqb_isoftlimit;
+			CLAMP_MAX_32(dqblk.dqb_isoftlimit);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_curfiles =
-		    dqblk.dqb_curinodes;
+			CLAMP_MAX_32(dqblk.dqb_curinodes);
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_btimeleft =
 		    dqblk.dqb_btime - timev.tv_sec;
 		getq_rslt.getquota_rslt_u.gqr_rquota.rq_ftimeleft =
 		    dqblk.dqb_itime - timev.tv_sec;
 	}
-	if (!svc_sendreply(transp, (xdrproc_t)xdr_getquota_rslt, (char *)&getq_rslt))
+	if (!svc_sendreply(transp, (xdrproc_t)xdr_getquota_rslt, &getq_rslt))
 		svcerr_systemerr(transp);
-	if (!svc_freeargs(transp, xdr_getquota_args, (caddr_t)&getq_args)) {
+	if (!svc_freeargs(transp, (xdrproc_t)xdr_getquota_args, &getq_args)) {
 		syslog(LOG_ERR, "unable to free arguments");
 		exit(1);
 	}
@@ -727,7 +893,12 @@ config_read(struct nfs_conf_server *conf)
 		DEBUG("%4ld %s=%s (%d)\n", linenum, key, value ? value : "", val);
 
 		if (!strcmp(key, "nfs.server.rquota.port")) {
-			conf->rquota_port = val;
+			if (value && val)
+				conf->rquota_port = val;
+		} else if (!strcmp(key, "nfs.server.rquota.tcp")) {
+			conf->tcp = val;
+		} else if (!strcmp(key, "nfs.server.rquota.udp")) {
+			conf->udp = val;
 		} else if (!strcmp(key, "nfs.server.verbose")) {
 			conf->verbose = val;
 		} else {

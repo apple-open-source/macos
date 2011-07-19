@@ -28,15 +28,14 @@
 #if ENABLE(VIDEO)
 #include "HTMLVideoElement.h"
 
+#include "Attribute.h"
+#include "CSSPropertyNames.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "CSSHelper.h"
-#include "CSSPropertyNames.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "HTMLImageLoader.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderImage.h"
 #include "RenderVideo.h"
@@ -45,11 +44,15 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document* doc)
-    : HTMLMediaElement(tagName, doc)
-    , m_shouldDisplayPosterImage(false)
+inline HTMLVideoElement::HTMLVideoElement(const QualifiedName& tagName, Document* document)
+    : HTMLMediaElement(tagName, document)
 {
     ASSERT(hasTagName(videoTag));
+}
+
+PassRefPtr<HTMLVideoElement> HTMLVideoElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLVideoElement(tagName, document));
 }
 
 bool HTMLVideoElement::rendererIsNeeded(RenderStyle* style) 
@@ -69,15 +72,13 @@ void HTMLVideoElement::attach()
     HTMLMediaElement::attach();
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    updatePosterImage();
-    if (m_shouldDisplayPosterImage) {
+    updateDisplayState();
+    if (shouldDisplayPosterImage()) {
         if (!m_imageLoader)
-            m_imageLoader.set(new HTMLImageLoader(this));
+            m_imageLoader = adoptPtr(new HTMLImageLoader(this));
         m_imageLoader->updateFromElement();
-        if (renderer()) {
-            RenderImage* imageRenderer = toRenderImage(renderer());
-            imageRenderer->setCachedImage(m_imageLoader->image()); 
-        }
+        if (renderer())
+            toRenderImage(renderer())->imageResource()->setCachedImage(m_imageLoader->image()); 
     }
 #endif
 }
@@ -86,28 +87,30 @@ void HTMLVideoElement::detach()
 {
     HTMLMediaElement::detach();
     
-    if (!m_shouldDisplayPosterImage)
-        if (m_imageLoader)
-            m_imageLoader.clear();
+    if (!shouldDisplayPosterImage() && m_imageLoader)
+        m_imageLoader.clear();
 }
 
-void HTMLVideoElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLVideoElement::parseMappedAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
 
     if (attrName == posterAttr) {
-        m_posterURL = document()->completeURL(attr->value());
-        updatePosterImage();
-        if (m_shouldDisplayPosterImage) {
+        // Force a poster recalc by setting m_displayMode to Unknown directly before calling updateDisplayState.
+        HTMLMediaElement::setDisplayMode(Unknown);
+        updateDisplayState();
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+        if (shouldDisplayPosterImage()) {
             if (!m_imageLoader)
-                m_imageLoader.set(new HTMLImageLoader(this));
+                m_imageLoader = adoptPtr(new HTMLImageLoader(this));
             m_imageLoader->updateFromElementIgnoringPreviousError();
-#else
-            if (player())
-                player()->setPoster(poster());
-#endif
+        } else {
+            if (m_imageLoader)
+                m_imageLoader.clear();
+            if (renderer())
+                toRenderImage(renderer())->imageResource()->setCachedImage(0); 
         }
+#endif
     } else if (attrName == widthAttr)
         addCSSLength(attr, CSSPropertyWidth, attr->value());
     else if (attrName == heightAttr)
@@ -126,6 +129,11 @@ bool HTMLVideoElement::supportsFullscreen() const
         return false;
 
     // Check with the platform client.
+#if ENABLE(FULLSCREEN_API)
+    if (page->chrome()->client()->supportsFullScreenForElement(this, false))
+        return true;
+#endif
+
     return page->chrome()->client()->supportsFullscreenForNode(this);
 }
 
@@ -149,11 +157,6 @@ unsigned HTMLVideoElement::width() const
     unsigned w = getAttribute(widthAttr).string().toUInt(&ok);
     return ok ? w : 0;
 }
-
-void HTMLVideoElement::setWidth(unsigned value)
-{
-    setAttribute(widthAttr, String::number(value));
-}
     
 unsigned HTMLVideoElement::height() const
 {
@@ -162,19 +165,10 @@ unsigned HTMLVideoElement::height() const
     return ok ? h : 0;
 }
     
-void HTMLVideoElement::setHeight(unsigned value)
+bool HTMLVideoElement::isURLAttribute(Attribute* attribute) const
 {
-    setAttribute(heightAttr, String::number(value));
-}
-
-void HTMLVideoElement::setPoster(const String& value)
-{
-    setAttribute(posterAttr, value);
-}
-
-bool HTMLVideoElement::isURLAttribute(Attribute* attr) const
-{
-    return attr->name() == posterAttr;
+    return HTMLMediaElement::isURLAttribute(attribute)
+        || attribute->name() == posterAttr;
 }
 
 const QualifiedName& HTMLVideoElement::imageSourceAttributeName() const
@@ -182,18 +176,40 @@ const QualifiedName& HTMLVideoElement::imageSourceAttributeName() const
     return posterAttr;
 }
 
-void HTMLVideoElement::updatePosterImage()
+void HTMLVideoElement::setDisplayMode(DisplayMode mode)
 {
-#if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    bool oldShouldShowPosterImage = m_shouldDisplayPosterImage;
-#endif
+    DisplayMode oldMode = displayMode();
+    KURL poster = getNonEmptyURLAttribute(posterAttr);
 
-    m_shouldDisplayPosterImage = !poster().isEmpty() && !hasAvailableVideoFrame();
+    if (!poster.isEmpty()) {
+        // We have a poster path, but only show it until the user triggers display by playing or seeking and the
+        // media engine has something to display.
+        if (mode == Video) {
+            if (oldMode != Video && player())
+                player()->prepareForRendering();
+            if (!hasAvailableVideoFrame())
+                mode = PosterWaitingForVideo;
+        }
+    } else if (oldMode != Video && player())
+        player()->prepareForRendering();
+
+    HTMLMediaElement::setDisplayMode(mode);
+
+    if (player() && player()->canLoadPoster())
+        player()->setPoster(poster);
 
 #if !ENABLE(PLUGIN_PROXY_FOR_VIDEO)
-    if (renderer() && oldShouldShowPosterImage != m_shouldDisplayPosterImage)
+    if (renderer() && displayMode() != oldMode)
         renderer()->updateFromElement();
 #endif
+}
+
+void HTMLVideoElement::updateDisplayState()
+{
+    if (getNonEmptyURLAttribute(posterAttr).isEmpty())
+        setDisplayMode(Video);
+    else if (displayMode() < Poster)
+        setDisplayMode(Poster);
 }
 
 void HTMLVideoElement::paintCurrentFrameInContext(GraphicsContext* context, const IntRect& destRect)
@@ -221,7 +237,7 @@ void HTMLVideoElement::webkitEnterFullscreen(bool isUserGesture, ExceptionCode& 
 
     // Generate an exception if this isn't called in response to a user gesture, or if the 
     // element does not support fullscreen.
-    if (!isUserGesture || !supportsFullscreen()) {
+    if ((requireUserGestureForFullScreen() && !isUserGesture) || !supportsFullscreen()) {
         ec = INVALID_STATE_ERR;
         return;
     }
@@ -252,5 +268,24 @@ void HTMLVideoElement::willMoveToNewOwnerDocument()
     HTMLMediaElement::willMoveToNewOwnerDocument();
 }
 
+#if ENABLE(MEDIA_STATISTICS)
+unsigned HTMLVideoElement::webkitDecodedFrameCount() const
+{
+    if (!player())
+        return 0;
+
+    return player()->decodedFrameCount();
 }
+
+unsigned HTMLVideoElement::webkitDroppedFrameCount() const
+{
+    if (!player())
+        return 0;
+
+    return player()->droppedFrameCount();
+}
+#endif
+
+}
+
 #endif

@@ -3,7 +3,7 @@
 # Class name: Enum
 # Synopsis: Holds struct info parsed by headerDoc
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,9 +27,29 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         <code>Enum</code> class package file.
+#     @discussion
+#         This file contains the <code>Enum</code> class, a class for content
+#         relating to an enumeration declaration.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract 
+#         API object that that describes an enumeration declaration.
+#     @discussion
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found there.
+#  */
 package HeaderDoc::Enum;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash validTag);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 use HeaderDoc::MinorAPIElement;
 use HeaderDoc::APIOwner;
@@ -38,18 +58,22 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::Enum::VERSION = '$Revision: 1.13 $';
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->_initialize();
-    return($self);
-}
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Enum::VERSION = '$Revision: 1298084578 $';
 
+# /*!
+#     @abstract
+#         Initializes an instance of an <code>Enum</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     
@@ -57,13 +81,21 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::Enum";
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>Enum</code> object into another one.
+#     @param self
+#         The object to clone.
+#     @param clone
+#         The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
 	$clone = shift;
     } else {
-	$clone = HeaderDoc::Enum->new();
+	$clone = HeaderDoc::Enum->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     }
 
     $self->SUPER::clone($clone);
@@ -73,134 +105,19 @@ sub clone {
     return $clone;
 }
 
-
-sub processComment_old {
-    my $self = shift;
-    my $fieldArrayRef = shift;
-    my @fields = @$fieldArrayRef;
-    my $fullpath = $self->fullpath();
-    my $linenum = $self->linenum();
-
-    foreach my $field (@fields) {
-	my $fieldname = "";
-	my $top_level_field = 0;
-	if ($field =~ /^(\w+)(\s|$)/) {
-		$fieldname = $1;
-		# print STDERR "FIELDNAME: $fieldname\n";
-		$top_level_field = validTag($fieldname, 1);
-	}
-	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
-	SWITCH: {
-            ($field =~ /^\/\*\!/o)&& do {
-                                my $copy = $field;
-                                $copy =~ s/^\/\*\!\s*//s;
-                                if (length($copy)) {
-                                        $self->discussion($copy);
-                                }
-                        last SWITCH;
-                        };
-            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-            ($field =~ s/^details(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^discussion(\s+|$)//io) && do {$self->discussion($field); last SWITCH;};
-            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
-            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
-            ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 0);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributelist\s+//io) && do {
-		    $field =~ s/^\s*//so;
-		    $field =~ s/\s*$//so;
-		    my ($name, $lines) = split(/\n/, $field, 2);
-		    $name =~ s/^\s*//so;
-		    $name =~ s/\s*$//so;
-		    $lines =~ s/^\s*//so;
-		    $lines =~ s/\s*$//so;
-		    if (length($name) && length($lines)) {
-			my @attlines = split(/\n/, $lines);
-			foreach my $line (@attlines) {
-			    $self->attributelist($name, $line);
-			}
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributeblock\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 1);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ /^see(also|)\s+/io) &&
-		do {
-		    $self->see($field);
-		    last SWITCH;
-		};
-            ($field =~ s/^const(ant)?\s+//io) && 
-            do {
-				$field =~ s/^\s+|\s+$//go;
-#	            $field =~ /(\w*)\s*(.*)/so;
-	            $field =~ /(\S*)\s*(.*)/so; # Let's accept any printable char for name, for pseudo enum values
-	            my $cName = $1;
-	            my $cDesc = $2;
-	            my $cObj = HeaderDoc::MinorAPIElement->new();
-	            $cObj->outputformat($self->outputformat);
-	            $cObj->name($cName);
-	            $cObj->discussion($cDesc);
-                $self->addConstant($cObj); 
-		my $name = $self->name();
-		if ($name eq "") {
-		    $name = "$cName";
-		    $self->name($name);
-		}
-                last SWITCH;
-            };
-		($top_level_field == 1) &&
-			do {
-				my $keepname = 1;
- 				if ($field =~ s/^(enum)(\s+|$)/$2/io) {
-					$keepname = 1;
-				} else {
-					$field =~ s/(\w+)(\s|$)/$2/io;
-					$keepname = 0;
-				}
-                		my ($name, $disc, $namedisc);
-                		($name, $disc, $namedisc) = &getAPINameAndDisc($field); 
-                		$self->name($name);
-                		if (length($disc)) {
-					if ($namedisc) {
-						$self->nameline_discussion($disc);
-					} else {
-						$self->discussion($disc);
-					}
-				}
-                		last SWITCH;
-            		};
-	    # my $fullpath = $HeaderDoc::headerObject->fullpath();
-	    my $fullpath = $self->fullpath();
-	    my $linenum = $self->linenum();
-            # print STDERR "$fullpath:$linenum: warning: Unknown field in Enum comment: $field\n";
-		    if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in enum comment (".$self->name().")\n"; }
-		}
-	}
-}
-
+# /*! 
+#     @abstract
+#         Legacy formatter for <code>Enum</code> declarations.
+#     @param self
+#         The <code>Enum</code> object.
+#     @param dec
+#         The raw input declaration.
+#     @discussion
+#         This usually just returns the declaration (for performance reasons)
+#         because the declaration is going to be thrown away anyway.
+#
+#         This should probably go away eventually.
+#  */
 sub getEnumDeclaration {
     my $self = shift;
     my $dec = shift;
@@ -222,7 +139,12 @@ sub getEnumDeclaration {
     return $dec;
 }
 
-
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub printObject {
     my $self = shift;
  

@@ -56,6 +56,58 @@ CssmNetAddress::~CssmNetAddress()
         delete Address.Data;
 }
 
+void DbName::CanonicalizeName()
+{
+	if (mDbNameValid)
+	{
+		char* s = realpath(mDbName.c_str(), NULL);
+		if (s != NULL)
+		{
+			mCanonicalName = s;
+			free(s);
+		}
+		else
+		{
+			// the most likely situation here is that the file doesn't exist.
+			// we will pull the path apart and try again.
+			
+			// search backward for the delimiter
+			int n = mDbName.length() - 1;
+			
+			// all subpaths must be tested, because there may be more than just
+			// the file name that doesn't exist.
+			while (n > 0)
+			{
+				while (n > 0 && mDbName[n] != '/') // if the delimiter is 0, we would never
+												   // have gotten here in the first place
+				{
+					n -= 1;
+				}
+				
+				if (n > 0)
+				{
+					string tmpPath = mDbName.substr(0, n);
+					s = realpath(tmpPath.c_str(), NULL);
+					if (s != NULL)
+					{
+						mCanonicalName = s;
+						free(s);
+						mCanonicalName += mDbName.substr(n, mDbName.length() - n);
+						return;
+					}
+				}
+				
+				n -= 1;
+			}
+			
+			// if we get here, all other paths have failed.  Just reuse the original string.
+			mCanonicalName = mDbName;
+		}
+	}
+}
+
+
+
 DbName::DbName(const char *inDbName, const CSSM_NET_ADDRESS *inDbLocation)
 	: mDbName(inDbName ? inDbName : ""), mDbNameValid(inDbName), mDbLocation(NULL)
 {
@@ -63,6 +115,8 @@ DbName::DbName(const char *inDbName, const CSSM_NET_ADDRESS *inDbLocation)
     {
         mDbLocation = new CssmNetAddress(*inDbLocation);
     }
+	
+	CanonicalizeName();
 }
 
 DbName::DbName(const DbName &other)
@@ -72,6 +126,8 @@ DbName::DbName(const DbName &other)
     {
         mDbLocation = new CssmNetAddress(*other.mDbLocation);
     }
+	
+	CanonicalizeName();
 }
 
 DbName &

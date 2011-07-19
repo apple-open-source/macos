@@ -3,6 +3,7 @@
 [copyright {2005 for documentation, Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {bibtex}]
 [titledesc {Parse bibtex files}]
+[category  {Text processing}]
 [require Tcl 8.4]
 [require bibtex [opt 0.5]]
 [description]

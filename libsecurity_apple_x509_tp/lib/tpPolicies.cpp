@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009, Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -18,8 +18,6 @@
 
 /*
 	policies.cpp - TP module policy implementation
-
-	Created 10/9/2000 by Doug Mitchell. 
 */
 
 #include <Security/cssmtype.h>
@@ -64,9 +62,14 @@ typedef struct {
 	iSignExtenInfo		basicConstraints;
 	iSignExtenInfo		netscapeCertType;
 	iSignExtenInfo		subjectAltName;
+	iSignExtenInfo		certPolicies;
 	iSignExtenInfo		qualCertStatements;
+	iSignExtenInfo		nameConstraints;
+	iSignExtenInfo		policyMappings;
+	iSignExtenInfo		policyConstraints;
+	iSignExtenInfo		inhibitAnyPolicy;
 	iSignExtenInfo		certificatePolicies;
-	
+
 	/* flag indicating presence of a critical extension we don't understand */
 	CSSM_BOOL			foundUnknownCritical;
 	/* flag indicating that this certificate was signed with a known-broken algorithm */
@@ -94,6 +97,42 @@ static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(TPCertGroup &certGroup,
 	const CSSM_DATA *fieldOpts,	const iSignCertInfo *certInfo);
 bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const CSSM_OID *oidToFind);
 	
+/*
+ * Certificate policy OIDs
+ */
+
+/* 2.5.29.32.0 */
+#define ANY_POLICY_OID				OID_EXTENSION, 0x32, 0x00
+#define ANY_POLICY_OID_LEN			OID_EXTENSION_LENGTH + 2
+
+/* 2.5.29.54 */
+#define INHIBIT_ANY_POLICY_OID		OID_EXTENSION, 0x54
+#define INHIBIT_ANY_POLICY_OID_LEN	OID_EXTENSION_LENGTH + 1
+
+/* 2.16.840.1.101.2.1 */
+#define US_DOD_INFOSEC				0x60, 0x86, 0x48, 0x01, 0x65, 0x02, 0x01
+#define US_DOD_INFOSEC_LEN			7
+
+/* 2.16.840.1.101.2.1.11.10 */
+#define PIV_AUTH_OID				US_DOD_INFOSEC, 0x0B, 0x0A
+#define PIV_AUTH_OID_LEN			US_DOD_INFOSEC_LEN + 2
+
+/* 2.16.840.1.101.2.1.11.20 */
+#define PIV_AUTH_2048_OID			US_DOD_INFOSEC, 0x0B, 0x14
+#define PIV_AUTH_2048_OID_LEN		US_DOD_INFOSEC_LEN + 2
+
+static const uint8 	OID_ANY_POLICY[] = {ANY_POLICY_OID};
+const CSSM_OID	CSSMOID_ANY_POLICY   = {ANY_POLICY_OID_LEN, (uint8 *)OID_ANY_POLICY};
+static const uint8 	OID_INHIBIT_ANY_POLICY[] = {INHIBIT_ANY_POLICY_OID};
+const CSSM_OID	CSSMOID_INHIBIT_ANY_POLICY   = {INHIBIT_ANY_POLICY_OID_LEN, (uint8 *)OID_INHIBIT_ANY_POLICY};
+static const uint8 	OID_PIV_AUTH[] = {PIV_AUTH_OID};
+const CSSM_OID	CSSMOID_PIV_AUTH   = {PIV_AUTH_OID_LEN, (uint8 *)OID_PIV_AUTH};
+static const uint8 	OID_PIV_AUTH_2048[] = {PIV_AUTH_2048_OID};
+const CSSM_OID	CSSMOID_PIV_AUTH_2048   = {PIV_AUTH_2048_OID_LEN, (uint8 *)OID_PIV_AUTH_2048};
+
+static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
+												const CSSM_DATA *fieldOpts,			// optional Common Name
+												const iSignCertInfo *certInfo);
 /*
  * Setup a single iSignExtenInfo. Called once per known extension
  * per cert. 
@@ -154,6 +193,10 @@ static CSSM_RETURN iSignVerifyCriticalExtension(
 		return CSSMERR_TP_INVALID_FIELD_POINTER;
 	
 	if (!cssmExt->critical)
+		return CSSM_OK;
+	
+	/* FIXME: remove when policyConstraints NSS template is fixed */
+	if (!memcmp(cssmExt->extnId.Data, CSSMOID_PolicyConstraints.Data, CSSMOID_PolicyConstraints.Length))
 		return CSSM_OK;
 
 	if (cssmExt->extnId.Length > APPLE_EXTENSION_OID_LENGTH &&
@@ -339,8 +382,43 @@ static CSSM_RETURN iSignGetCertInfo(
 	}
 	crtn = iSignFetchExtension(alloc,
 		tpCert,
+		&CSSMOID_CertificatePolicies,
+		&certInfo->certPolicies);
+	if(crtn) {
+		return crtn;
+	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
 		&CSSMOID_QC_Statements,
 		&certInfo->qualCertStatements);
+	if(crtn) {
+		return crtn;
+	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_NameConstraints,
+		&certInfo->nameConstraints);
+	if(crtn) {
+		return crtn;
+	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_PolicyMappings,
+		&certInfo->policyMappings);
+	if(crtn) {
+		return crtn;
+	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_PolicyConstraints,
+		&certInfo->policyConstraints);
+	if(crtn) {
+		return crtn;
+	}
+	crtn = iSignFetchExtension(alloc,
+		tpCert,
+		&CSSMOID_InhibitAnyPolicy,
+		&certInfo->inhibitAnyPolicy);
 	if(crtn) {
 		return crtn;
 	}
@@ -394,6 +472,18 @@ static void iSignFreeCertInfo(
 	if(certInfo->subjectAltName.present) {
 		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_SubjectAltName, 
 			certInfo->subjectAltName.valToFree);
+	}
+	if(certInfo->certPolicies.present) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies, 
+			certInfo->certPolicies.valToFree);
+	}
+//	if(certInfo->policyConstraints.present) {
+//		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_PolicyConstraints, 
+//			certInfo->policyConstraints.valToFree);
+//	}
+	if(certInfo->qualCertStatements.present) {
+		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_QC_Statements, 
+			certInfo->qualCertStatements.valToFree);
 	}
 	if(certInfo->certificatePolicies.present) {
 		CSSM_CL_FreeFieldValue(clHand, &CSSMOID_CertificatePolicies, 
@@ -818,6 +908,34 @@ static bool tpVerifyEKU(
 			return true;
 		}
 		if(ekuAnyOK && tpCompareOids(foundEku, &CSSMOID_ExtendedKeyUsageAny)) {
+			return true;
+		}
+	}
+	return false;
+}
+
+/*
+ * Given one iSignCertInfo, determine whether or not the specified
+ * Certificate Policy OID, or - optionally - CSSMOID_ANY_POLICY - is present.
+ * Returns true if so, else false.
+ */
+static bool tpVerifyCPE(
+	const iSignCertInfo &certInfo,
+	const CSSM_OID &cpOid,
+	bool anyPolicyOK)		// if true, CSSMOID_ANY_POLICY counts as "found"
+{
+	if(!certInfo.certPolicies.present) {
+		return false;
+	}
+	CE_CertPolicies *cp = &certInfo.certPolicies.extnData->certPolicies;
+	assert(cp != NULL);
+
+	for(unsigned i=0; i<cp->numPolicies; i++) {
+		const CE_PolicyInformation *foundPolicy = &cp->policies[i];
+		if(tpCompareOids(&foundPolicy->certPolicyId, &cpOid)) {
+			return true;
+		}
+		if(anyPolicyOK && tpCompareOids(&foundPolicy->certPolicyId, &CSSMOID_ANY_POLICY)) {
 			return true;
 		}
 	}
@@ -1465,7 +1583,7 @@ checkEku:
 }
 
 /*
- * Verify Apple SW Update signing (was Apple Code Signing pre-Leopard) options. 
+ * Verify Apple SW Update signing (was Apple Code Signing, pre-Leopard) options. 
  *
  * -- Must have one intermediate cert
  * -- intermediate must have basic constraints with path length 0
@@ -1690,7 +1808,7 @@ static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
 	tpCert = certGroup.certAtIndex(0);
 	if (certInfo->certificatePolicies.present)
 	{
-//		syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: found certificatePolicies");
+	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: found certificatePolicies");
 		const CE_CertPolicies *certPolicies = 
 				&isCertInfo->certificatePolicies.extnData->certPolicies;
 		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_MACAPPSTORE_RECEIPT_CERT_POLICY))
@@ -1699,7 +1817,7 @@ static CSSM_RETURN tp_verifyMacAppStoreReciptOpts(
 	}
 	else
 	{
-//		syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: no certificatePolicies present");	// DEBUG
+	//	syslog(LOG_ERR, "tp_verifyMacAppStoreReciptOpts: no certificatePolicies present");	// DEBUG
         tpPolicyError("tp_verifyMacAppStoreReciptOpts: no certificatePolicies present in leaf");
         if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
 			return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
@@ -1725,6 +1843,176 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
     }
 	
 	return false;
+}
+
+
+/*
+ * Verify Apple ID Sharing options. 
+ *
+ * -- Do basic cert validation (OCSP-based certs)
+ * -- Validate that the cert is an Apple ID sharing cert:
+ *		has a custom extension: OID: Apple ID Sharing Certificate ( 1 2 840 113635 100 4 7 )
+ *			(CSSMOID_APPLE_EXTENSION_APPLEID_SHARING)
+ *		EKU should have both client and server authentication
+ *		chains to the "Apple Application Integration Certification Authority" intermediate
+ * -- optionally has a client-specified common name, which is the Apple ID account's UUID.
+ 
+ * -- Must have one intermediate cert ("Apple Application Integration Certification Authority")
+ * -- intermediate must have basic constraints with path length 0
+ * -- intermediate has CSSMOID_APPLE_EXTENSION_AAI_INTERMEDIATE extension (OID 1 2 840 113635 100 6 2 3)
+ */
+
+static CSSM_RETURN tp_verifyAppleIDSharingOpts(TPCertGroup &certGroup,
+												const CSSM_DATA *fieldOpts,			// optional Common Name
+												const iSignCertInfo *certInfo)		// all certs, size certGroup.numCerts()	
+{
+	unsigned numCerts = certGroup.numCerts();
+	const iSignCertInfo *isCertInfo;
+	TPCertInfo *tpCert;
+	//	const CE_BasicConstraints *bc;		// currently unused
+	CE_ExtendedKeyUsage *eku;
+	CSSM_RETURN crtn = CSSM_OK;	
+	unsigned int serverNameLen = 0;
+	const char *serverName = NULL;
+
+	// The CSSM_APPLE_TP_SMIME_OPTIONS pointer is optional as is everything in it.
+    if (fieldOpts && fieldOpts->Data)
+    {
+		CSSM_APPLE_TP_SSL_OPTIONS *sslOpts = (CSSM_APPLE_TP_SSL_OPTIONS *)fieldOpts->Data;
+        switch (sslOpts->Version)
+        {
+        case CSSM_APPLE_TP_SSL_OPTS_VERSION:
+            if (fieldOpts->Length != sizeof(CSSM_APPLE_TP_SSL_OPTIONS))
+                return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+            break;
+            /* handle backwards compatibility here if necessary */
+        default:
+            return CSSMERR_TP_INVALID_POLICY_IDENTIFIERS;
+		}
+		serverNameLen = sslOpts->ServerNameLen;
+		serverName = sslOpts->ServerName;
+	}
+
+	//------------------------------------------------------------------------
+
+	if (numCerts != 3)
+	{
+		if (!certGroup.isAllowedError(CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH))
+		{
+			tpPolicyError("tp_verifyAppleIDSharingOpts: numCerts %u", numCerts);
+			return CSSMERR_APPLETP_CS_BAD_CERT_CHAIN_LENGTH;
+		}
+		else
+		if (numCerts < 3)
+		{
+			/* this error allowed, but no intermediate...check leaf */
+			goto checkLeaf;
+		}
+	}
+	
+	/* verify intermediate cert */
+	isCertInfo = &certInfo[1];
+	tpCert = certGroup.certAtIndex(1);
+	
+	if (!isCertInfo->basicConstraints.present)
+	{
+		tpPolicyError("tp_verifyAppleIDSharingOpts: no basicConstraints in intermediate");
+		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS))
+			return CSSMERR_APPLETP_CS_NO_BASIC_CONSTRAINTS;
+	}
+
+checkLeaf:
+	
+	/* verify leaf cert */
+	isCertInfo = &certInfo[0];
+	tpCert = certGroup.certAtIndex(0);
+
+	/* host name check is optional */
+	if (serverNameLen != 0)
+	{
+		if (serverName == NULL)
+			return CSSMERR_TP_INVALID_POINTER;
+		
+		/* convert caller's hostname string to lower case */
+		char *hostName = (char *)certGroup.alloc().malloc(serverNameLen);
+		memmove(hostName, serverName, serverNameLen);
+		tpToLower(hostName, serverNameLen);
+				
+		/* Check common name... */
+
+		bool fieldFound;
+		CSSM_BOOL match = tpCompareSubjectName(*tpCert, SN_CommonName, false, hostName, 
+									 serverNameLen, fieldFound);
+
+		certGroup.alloc().free(hostName);	
+		if (!match && tpCert->addStatusCode(CSSMERR_APPLETP_HOSTNAME_MISMATCH))
+            return CSSMERR_APPLETP_HOSTNAME_MISMATCH;
+	}
+
+	if (certInfo->certificatePolicies.present)
+	{
+		const CE_CertPolicies *certPolicies = 
+				&isCertInfo->certificatePolicies.extnData->certPolicies;
+		if (!certificatePoliciesContainsOID(certPolicies, &CSSMOID_APPLEID_SHARING_CERT_POLICY))
+			if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+				return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+	}
+	else
+	if (tpCert->addStatusCode(CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION))
+		return CSSMERR_APPLETP_MISSING_REQUIRED_EXTENSION;
+
+	if (!isCertInfo->extendKeyUsage.present)
+    {
+		tpPolicyError("tp_verifyAppleIDSharingOpts: no extendedKeyUse in leaf");
+		if (tpCert->addStatusCode(CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE))
+			return crtn ? crtn : CSSMERR_APPLETP_CS_NO_EXTENDED_KEY_USAGE;
+
+        /* have to skip remainder */
+        return CSSM_OK;
+	}
+
+	// Check that certificate can do Client and Server Authentication (EKU)
+	eku = &isCertInfo->extendKeyUsage.extnData->extendedKeyUsage;
+	assert(eku != NULL);
+	if(eku->numPurposes != 2)
+	{
+		tpPolicyError("tp_verifyAppleIDSharingOpts: bad eku->numPurposes (%lu)", 
+					  (unsigned long)eku->numPurposes);
+		if (tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE))
+		{
+			if (crtn == CSSM_OK)
+				crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+		}
+		return crtn;
+	}
+	bool canDoClientAuth = false, canDoServerAuth = false, ekuError = false;
+	for (int ix=0;ix<2;ix++)
+	{
+		if (tpCompareOids(&eku->purposes[ix], &CSSMOID_ClientAuth))
+			canDoClientAuth = true;
+		else
+		if (tpCompareOids(&eku->purposes[ix], &CSSMOID_ServerAuth))
+			canDoServerAuth = true;
+		else
+		{
+			ekuError = true;
+			break;
+		}
+	}
+	
+	if (!(canDoClientAuth && canDoServerAuth))
+		ekuError = true;
+	if (ekuError)
+	{
+		tpPolicyError("tp_verifyAppleIDSharingOpts: bad EKU in leaf");
+		if (tpCert->addStatusCode(CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE))
+		{
+			if (crtn == CSSM_OK)
+				crtn = CSSMERR_APPLETP_INVALID_EXTENDED_KEY_USAGE;
+		}
+	}
+	
+	return crtn;
 }
 
 
@@ -1755,8 +2043,8 @@ bool certificatePoliciesContainsOID(const CE_CertPolicies *certPolicies, const C
 /*
  * RFC 2632, "S/MIME Version 3 Certificate Handling", section
  * 4.4.2, says that KeyUsage extensions MUST be flagged critical, 
- * but Thawte's intermediate cert (common namd "Thawte Personal 
- * Freemail Issuing CA" does not meet this requirement.
+ * but Thawte's intermediate cert (common name "Thawte Personal 
+ * Freemail Issuing CA") does not meet this requirement.
  */
 #define SMIME_KEY_USAGE_MUST_BE_CRITICAL		0
 
@@ -1860,10 +2148,9 @@ CSSM_RETURN tp_policyVerify(
 		}
 		
 		/* 
-		 * Note it's possible for both of these to be true, for a 
+		 * Note it's possible for both of these to be true, for a chain
 		 * of length one (kTPx509Basic, kCrlPolicy only!)
-		 * FIXME: should this code work if the last cert in the chain is
-		 * NOT a root?
+		 * FIXME: should this code work if the last cert in the chain is NOT a root?
 		 */
 		isLeaf = thisTpCertInfo->isLeaf();
 		isRoot = thisTpCertInfo->isSelfSigned(true);
@@ -2162,6 +2449,43 @@ CSSM_RETURN tp_policyVerify(
 			}
 		}	/* critical Qualified Cert Statement */
 
+		/*
+		 * Certificate Policies extension validation, per section 1.2 of:
+		 * http://iase.disa.mil/pki/dod_cp_v10_final_2_mar_09_signed.pdf
+		 */
+		if (tpVerifyCPE(*thisCertInfo, CSSMOID_PIV_AUTH, false) ||
+			tpVerifyCPE(*thisCertInfo, CSSMOID_PIV_AUTH_2048, false)) {
+			/*
+			 * Certificate asserts one of the PIV-Auth Certificate Policy OIDs;
+			 * check the required Key Usage extension for compliance.
+			 *
+			 * Leaf cert:
+			 *    usage = digitalSignature (only; no other bits asserted)
+			 * Others:
+			 *    usage = keyCertSign (required; other bits ignored)
+			 */
+			if(thisCertInfo->keyUsage.present) {
+				actUsage = thisCertInfo->keyUsage.extnData->keyUsage;
+			} else {
+				/* No key usage! Policy fail. */
+				actUsage = 0;
+			}
+			if(!(actionFlags & CSSM_TP_ACTION_LEAF_IS_CA) && (certDex == 0)) {
+				expUsage = CE_KU_DigitalSignature;
+			} else {
+				expUsage = actUsage | CE_KU_KeyCertSign;
+			}
+			if(!(actUsage == expUsage)) {
+				tpPolicyError("tp_policyVerify: bad keyUsage for PIV-Auth policy (leaf %s; "
+					"usage 0x%x)",
+					(certDex == 0) ? "TRUE" : "FALSE", actUsage);
+				if(thisTpCertInfo->addStatusCode(CSSMERR_APPLETP_INVALID_KEY_USAGE)) {
+					policyFail = CSSM_TRUE;
+				}
+			}
+		}	/* Certificate Policies */
+
+
 	}	/* for certDex, checking presence of extensions */
 
 	/*
@@ -2263,6 +2587,9 @@ CSSM_RETURN tp_policyVerify(
 			break;
 		case kTP_MacAppStoreRec:
 			policyError = tp_verifyMacAppStoreReciptOpts(*certGroup, policyFieldData, certInfo);
+			break;
+		case kTP_AppleIDSharing:
+			policyError = tp_verifyAppleIDSharingOpts(*certGroup, policyFieldData, certInfo);
 			break;
 		case kTPx509Basic:
 		case kTPiSign:

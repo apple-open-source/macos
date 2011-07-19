@@ -1,28 +1,14 @@
 dnl Process this file with autoconf to produce a configure script.
-AC_INIT([exp_test],[0.42])
+AC_INIT([exp_test],[0.43])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../tclconfig)
 
 TEA_PATH_TCLCONFIG
 TEA_LOAD_TCLCONFIG
-CC=$TCL_CC
 
-AC_PROG_CC
-CY_AC_C_WORKS
- 
-# This is for LynxOS, which needs a flag to force true POSIX when
-# building. It's weirder than that, cause the flag varies depending
-# how old the compiler is. So...
-# -X is for the old "cc" and "gcc" (based on 1.42)
-# -mposix is for the new gcc (at least 2.5.8)
-# This modifies the value of $CC to have the POSIX flag added
-# so it'll configure correctly
-CY_AC_TCL_LYNX_POSIX
-CY_AC_PATH_TCLH
+TEA_SETUP_COMPILER
 
-AC_SUBST(CC)
-AC_SUBST(TCLHDIR)
 AC_SUBST(host)
 AC_OUTPUT(Makefile)

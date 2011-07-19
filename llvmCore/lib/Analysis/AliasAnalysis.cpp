@@ -49,19 +49,9 @@ AliasAnalysis::alias(const Value *V1, unsigned V1Size,
   return AA->alias(V1, V1Size, V2, V2Size);
 }
 
-void AliasAnalysis::getMustAliases(Value *P, std::vector<Value*> &RetVals) {
-  assert(AA && "AA didn't call InitializeAliasAnalysis in its run method!");
-  return AA->getMustAliases(P, RetVals);
-}
-
 bool AliasAnalysis::pointsToConstantMemory(const Value *P) {
   assert(AA && "AA didn't call InitializeAliasAnalysis in its run method!");
   return AA->pointsToConstantMemory(P);
-}
-
-bool AliasAnalysis::hasNoModRefInfoForCalls() const {
-  assert(AA && "AA didn't call InitializeAliasAnalysis in its run method!");
-  return AA->hasNoModRefInfoForCalls();
 }
 
 void AliasAnalysis::deleteValue(Value *V) {
@@ -88,7 +78,7 @@ AliasAnalysis::getModRefInfo(CallSite CS1, CallSite CS2) {
 
 AliasAnalysis::ModRefResult
 AliasAnalysis::getModRefInfo(LoadInst *L, Value *P, unsigned Size) {
-  return alias(L->getOperand(0), TD->getTypeStoreSize(L->getType()),
+  return alias(L->getOperand(0), getTypeStoreSize(L->getType()),
                P, Size) ? Ref : NoModRef;
 }
 
@@ -97,7 +87,7 @@ AliasAnalysis::getModRefInfo(StoreInst *S, Value *P, unsigned Size) {
   // If the stored address cannot alias the pointer in question, then the
   // pointer cannot be modified by the store.
   if (!alias(S->getOperand(1),
-             TD->getTypeStoreSize(S->getOperand(0)->getType()), P, Size))
+             getTypeStoreSize(S->getOperand(0)->getType()), P, Size))
     return NoModRef;
 
   // If the pointer is a pointer to constant memory, then it could not have been
@@ -126,28 +116,32 @@ AliasAnalysis::getModRefBehavior(Function *F,
       return DoesNotAccessMemory;
     if (F->onlyReadsMemory())
       return OnlyReadsMemory;
-    if (unsigned id = F->getIntrinsicID()) {
-#define GET_INTRINSIC_MODREF_BEHAVIOR
-#include "llvm/Intrinsics.gen"
-#undef GET_INTRINSIC_MODREF_BEHAVIOR
-    }
+    if (unsigned id = F->getIntrinsicID())
+      return getModRefBehavior(id);
   }
   return UnknownModRefBehavior;
 }
 
+AliasAnalysis::ModRefBehavior AliasAnalysis::getModRefBehavior(unsigned iid) {
+#define GET_INTRINSIC_MODREF_BEHAVIOR
+#include "llvm/Intrinsics.gen"
+#undef GET_INTRINSIC_MODREF_BEHAVIOR
+}
+
 AliasAnalysis::ModRefResult
 AliasAnalysis::getModRefInfo(CallSite CS, Value *P, unsigned Size) {
-  ModRefResult Mask = ModRef;
   ModRefBehavior MRB = getModRefBehavior(CS);
   if (MRB == DoesNotAccessMemory)
     return NoModRef;
-  else if (MRB == OnlyReadsMemory)
+  
+  ModRefResult Mask = ModRef;
+  if (MRB == OnlyReadsMemory)
     Mask = Ref;
   else if (MRB == AliasAnalysis::AccessesArguments) {
     bool doesAlias = false;
     for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
          AI != AE; ++AI)
-      if (alias(*AI, ~0U, P, Size) != NoAlias) {
+      if (!isNoAlias(*AI, ~0U, P, Size)) {
         doesAlias = true;
         break;
       }
@@ -177,16 +171,21 @@ AliasAnalysis::~AliasAnalysis() {}
 /// AliasAnalysis interface before any other methods are called.
 ///
 void AliasAnalysis::InitializeAliasAnalysis(Pass *P) {
-  TD = &P->getAnalysis<TargetData>();
+  TD = P->getAnalysisIfAvailable<TargetData>();
   AA = &P->getAnalysis<AliasAnalysis>();
 }
 
 // getAnalysisUsage - All alias analysis implementations should invoke this
-// directly (using AliasAnalysis::getAnalysisUsage(AU)) to make sure that
-// TargetData is required by the pass.
+// directly (using AliasAnalysis::getAnalysisUsage(AU)).
 void AliasAnalysis::getAnalysisUsage(AnalysisUsage &AU) const {
-  AU.addRequired<TargetData>();            // All AA's need TargetData.
   AU.addRequired<AliasAnalysis>();         // All AA's chain
+}
+
+/// getTypeStoreSize - Return the TargetData store size for the given type,
+/// if known, or a conservative value otherwise.
+///
+unsigned AliasAnalysis::getTypeStoreSize(const Type *Ty) {
+  return TD ? TD->getTypeStoreSize(Ty) : ~0u;
 }
 
 /// canBasicBlockModify - Return true if it is possible for execution of the
@@ -228,13 +227,15 @@ bool llvm::isNoAliasCall(const Value *V) {
 
 /// isIdentifiedObject - Return true if this pointer refers to a distinct and
 /// identifiable object.  This returns true for:
-///    Global Variables and Functions
+///    Global Variables and Functions (but not Global Aliases)
 ///    Allocas and Mallocs
 ///    ByVal and NoAlias Arguments
 ///    NoAlias returns
 ///
 bool llvm::isIdentifiedObject(const Value *V) {
-  if (isa<GlobalValue>(V) || isa<AllocationInst>(V) || isNoAliasCall(V))
+  if (isa<AllocaInst>(V) || isNoAliasCall(V))
+    return true;
+  if (isa<GlobalValue>(V) && !isa<GlobalAlias>(V))
     return true;
   if (const Argument *A = dyn_cast<Argument>(V))
     return A->hasNoAliasAttr() || A->hasByValAttr();

@@ -2,6 +2,7 @@
 [copyright {2002, Pat Thoyts}]
 [moddesc   {Cyclic Redundancy Checks}]
 [titledesc {Perform a 32bit Cyclic Redundancy Check}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require crc32 [opt 1.3]]
 [description]
@@ -61,6 +62,13 @@ is 0xffffffff. This can be useful for calculating the CRC for data
 structures without first converting the whole structure into a
 string. The CRC of the previous member can be used as the seed for
 calculating the CRC of the next member.
+
+Note that the crc32 algorithm includes a final XOR step. If
+incremental processing is desired then this must be undone before
+using the output of the algorithm as the seed for further
+processing. A simpler alternative is to use the 
+[sectref {PROGRAMMING INTERFACE}] which is intended for this mode of
+operation.
 
 [list_end]
 

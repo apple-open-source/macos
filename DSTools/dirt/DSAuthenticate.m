@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -251,7 +251,15 @@ extern BOOL doVerbose;
 		fflush(stdout);
 	}
 	
-    status = dsFindDirNodes(_DirRef, buffer, NULL, eDSLocalNodeNames, &count, NULL);
+    do {
+		status = dsFindDirNodes(_DirRef, buffer, NULL, eDSLocalNodeNames, &count, NULL);
+		if (status == eDSBufferTooSmall) {
+			UInt32 newSize = buffer->fBufferSize * 2;
+			dsDataBufferDeAllocate(_DirRef, buffer);
+			buffer = dsDataBufferAllocate(_DirRef, newSize);
+		}
+	} while (status == eDSBufferTooSmall);
+	
     if (doVerbose)
 	{
 		[_dsStat printOutErrorMessage:"Status" withStatus:status];
@@ -281,7 +289,15 @@ extern BOOL doVerbose;
 		fflush(stdout);
 	}
 	
-    status = dsFindDirNodes(_DirRef, buffer, NULL, _SearchNodeNameToUse, &count, NULL);
+    do {
+		status = dsFindDirNodes(_DirRef, buffer, NULL, _SearchNodeNameToUse, &count, NULL);
+		if (status == eDSBufferTooSmall) {
+			UInt32 newSize = buffer->fBufferSize * 2;
+			dsDataBufferDeAllocate(_DirRef, buffer);
+			buffer = dsDataBufferAllocate(_DirRef, newSize);
+		}
+	} while (status == eDSBufferTooSmall);
+
     if (doVerbose)
 	{
 		[_dsStat printOutErrorMessage:"Status" withStatus:status];

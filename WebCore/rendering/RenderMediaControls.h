@@ -26,18 +26,27 @@
 #ifndef RenderMediaControls_h
 #define RenderMediaControls_h
 
+#if ENABLE(VIDEO)
+
 #include "RenderObject.h"
 #include "MediaControlElements.h"
 
 namespace WebCore {
 
 class HTMLMediaElement;
+
 class RenderMediaControls {
 public:
-    static bool paintMediaControlsPart(MediaControlElementType, RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+
+#if PLATFORM(WIN)
+    static bool paintMediaControlsPart(MediaControlElementType, RenderObject*, const PaintInfo&, const IntRect&);
     static void adjustMediaSliderThumbSize(RenderObject*);
+#endif
+    static IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&);
 };
 
 } // namespace WebCore
+
+#endif // ENABLE(VIDEO)
 
 #endif // RenderMediaControls_h

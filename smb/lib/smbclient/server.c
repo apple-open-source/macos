@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2009 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -21,14 +21,18 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "ntstatus.h"
 #include "smbclient.h"
+#include "smbclient_private.h"
+#include "smbclient_internal.h"
 
 #include <stdlib.h>
 #include <pwd.h>
 #include <unistd.h>
 #include <readpassphrase.h>
 #include <libkern/OSAtomic.h>
-#include <netsmb/smb.h>
+#include <sys/param.h>
+#include <sys/mount.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
 #include <CoreFoundation/CoreFoundation.h>
@@ -47,87 +51,97 @@ static NTSTATUS
 SMBLibraryInit(void)
 {
     if (smb_load_library() != 0) {
-        return make_nterror(NT_STATUS_NO_SUCH_DEVICE);
+		errno = ENXIO;
+        return STATUS_NO_SUCH_DEVICE;
     }
 
-    return NT_STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 /* Allocate a new SMBHANDLE. */
 static NTSTATUS
 SMBAllocateServer(
-    SMBHANDLE * phConnection)
+    SMBHANDLE * outConnection,
+	const char * targetServer)
 {
-    SMBHANDLE hConnection;
+    SMBHANDLE inConnection;
+	int error;
 
-    hConnection = calloc(1, sizeof(struct smb_server_handle));
-    if (hConnection == NULL) {
-        return make_nterror(NT_STATUS_NO_MEMORY);
+    inConnection = calloc(1, sizeof(struct smb_server_handle));
+    if (inConnection == NULL) {
+		/* calloc sets errno for us */ 
+        return STATUS_NO_MEMORY;
     }
 
-    hConnection->context = smb_create_ctx();
-    if (hConnection->context == NULL) {
-        return make_nterror(NT_STATUS_NO_MEMORY);
+	error = create_smb_ctx_with_url(&inConnection->context, targetServer);
+	if (error || (inConnection->context == NULL)) {
+		free(inConnection); /* We alocate, free it on error */
+		if (error) {
+			errno = error;
+			return STATUS_INVALID_PARAMETER;
+		} else {
+			errno = ENOMEM;
+		}
+        return STATUS_NO_MEMORY;
     }
 
-    SMBRetainServer(hConnection);
-    *phConnection = hConnection;
-    return NT_STATUS_SUCCESS;
+    SMBRetainServer(inConnection);
+    *outConnection = inConnection;
+    return STATUS_SUCCESS;
 }
 
-static NTSTATUS
-SMBCreateURLFromString(
-    const char * pTarget,
-    CFURLRef *   pTargetURL)
+SMBHANDLE
+SMBAllocateAndSetContext(
+	void * phContext)
 {
-    CFStringRef cfstr;
-    CFURLRef    cfurl;
-
-    if (*pTarget == '\\' && *(pTarget + 1) == '\\') {
-        /* We have a UNC path that we need to break down into a SMB URL. */
-
-        /* Until we write some UNC parsing code, just fail ... */
-        return make_nterror(NT_STATUS_OBJECT_PATH_SYNTAX_BAD);
+    SMBHANDLE inConnection = calloc(1, sizeof(struct smb_server_handle));
+    if (inConnection == NULL) {
+		/* calloc sets errno for us */ 
+        return NULL;
     }
-
-    cfstr = CFStringCreateWithCString(kCFAllocatorDefault, pTarget,
-                                            kCFStringEncodingUTF8);
-    if (cfstr == NULL) {
-        return make_nterror(NT_STATUS_NO_MEMORY);
-    }
-
-    cfurl = CFURLCreateWithString(kCFAllocatorDefault, cfstr, NULL);
-    CFRelease(cfstr);
-
-    if (cfurl == NULL) {
-        return make_nterror(NT_STATUS_OBJECT_PATH_SYNTAX_BAD);
-    }
-
-    *pTargetURL = cfurl;
-    return NT_STATUS_SUCCESS;
+    SMBRetainServer(inConnection);
+	inConnection->context = phContext;
+    return inConnection;
 }
 
 static CFMutableDictionaryRef
-SMBCreateDefaultOptions(void)
+SMBCreateDefaultOptions( uint64_t options)
 {
-    CFMutableDictionaryRef options;
+    CFMutableDictionaryRef optionDict;
 
-    options = CFDictionaryCreateMutable(kCFAllocatorDefault, 0 /* capacity */,
+    optionDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0 /* capacity */,
             &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-    if (!options) {
+    if (!optionDict) {
+		errno = ENOMEM;
         return NULL;
     }
 
-    /* Share an existing VC if possible. */
-    CFDictionarySetValue(options, kNetFSForceNewSessionKey, kCFBooleanFalse);
+	/* We always allow loopback connections, from the framework */
+	CFDictionarySetValue(optionDict, kNetFSAllowLoopbackKey, kCFBooleanTrue);
+	
+	if (options & kSMBOptionNoUserPreferences) {
+		CFDictionarySetValue(optionDict, kNetFSNoUserPreferencesKey, kCFBooleanTrue);
+	} else {
+		CFDictionarySetValue(optionDict, kNetFSNoUserPreferencesKey, kCFBooleanFalse);
+	}
+	
+	if (options & kSMBOptionForceNewSession) {
+		/* Force a new VC. */
+		CFDictionarySetValue (optionDict, kNetFSForceNewSessionKey, kCFBooleanTrue);
+	} else {
+		/* Share an existing VC if possible. */
+		CFDictionarySetValue(optionDict, kNetFSForceNewSessionKey, kCFBooleanFalse);
+	}
 
-    return options;
+
+    return optionDict;
 }
 
 /* Prompt for a password and set it on the SMB context. */
-static NTSTATUS
+static Boolean
 SMBPasswordPrompt(
-    SMBHANDLE hConnection)
+    SMBHANDLE hConnection,
+	uint64_t options)
 {
     void *      hContext = NULL;
     NTSTATUS    status;
@@ -135,32 +149,49 @@ SMBPasswordPrompt(
     char        passbuf[SMB_MAXPASSWORDLEN + 1];
     char        prompt[128];
 
-    status = SMBServerContext(hConnection, &hContext);
-    if (!NT_SUCCESS(status)) {
-        return status;
+	/* They told us not to prompt */
+	if (options & kSMBOptionNoPrompt)
+		return false;
+
+	status = SMBServerContext(hConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
+        return false;
     }
 
-    /* If the password is already set, don't prompt. We don't want
-     * to prompt on every retry ...
+    /* 
+	 * If the password is already set, don't prompt. Since anonymous and guest
+	 * both have an empty password this will protect us from prompting in
+	 * those cases.
      */
-    if (((struct smb_ctx *)hContext)->ct_setup.ioc_password[0] != '\0') {
-        return NT_STATUS_SUCCESS;
+	if (((struct smb_ctx *)hContext)->ct_flags & SMBCF_EXPLICITPWD) {
+        return false;
     }
 
+   /* 
+	 * If the target hasn't set a user name, let's assume that we should use
+     * the current username. This is almost always what the caller wants, when
+	 * being prompted for a password. The above check protect us from overriding
+	 * anonymouse connections.
+     */
+	if (((struct smb_ctx *)hContext)->ct_setup.ioc_user[0] == '\0') {
+        struct passwd * pwent;
+		
+        pwent = getpwuid(geteuid());
+        if (pwent) {
+            smb_ctx_setuser(hContext, pwent->pw_name);
+        }
+    }
+	
     snprintf(prompt, sizeof(prompt), "Password for %s: ",
             ((struct smb_ctx *)hContext)->serverName);
 
     /* If we have a TTY, read a password and retry ... */
-    passwd = readpassphrase(prompt, passbuf, sizeof(passbuf),
-            RPP_REQUIRE_TTY);
+    passwd = readpassphrase(prompt, passbuf, sizeof(passbuf), RPP_REQUIRE_TTY);
     if (passwd) {
-        smb_ctx_setpassword(hContext, passwd);
+        smb_ctx_setpassword(hContext, passwd, TRUE);
         memset(passbuf, 0, sizeof(passbuf));
-        return NT_STATUS_SUCCESS;
-    } else {
-        /* XXX Map errno to NTSTATUS */
-        return NT_STATUS_ILL_FORMED_PASSWORD;
     }
+	return true;
 }
 
 static NTSTATUS
@@ -175,49 +206,71 @@ SMBServerConnect(
     int err;
 
     status = SMBServerContext(hConnection, &hContext);
-    if (!NT_SUCCESS(status)) {
+	if (!NT_SUCCESS(status)) {
         return status;
     }
 
     /* Reset all the authentication options. This puts us into the
      * state of requiring user authentication (ie. forces NTLM).
      */
-    CFDictionarySetValue(netfsOptions, kNetFSUseKerberosKey, kCFBooleanFalse);
     CFDictionarySetValue(netfsOptions, kNetFSUseGuestKey, kCFBooleanFalse);
     CFDictionarySetValue(netfsOptions, kNetFSUseAnonymousKey, kCFBooleanFalse);
 
     switch (authType) {
+		case kSMBAuthTypeAuthenticated:
         case kSMBAuthTypeKerberos:
-            CFDictionarySetValue(netfsOptions, kNetFSUseKerberosKey,
-                    kCFBooleanTrue);
-            break;
         case kSMBAuthTypeUser:
-            /* If no authentication options are set, this is the default. */
-            break;
+			CFDictionarySetValue(netfsOptions, kNetFSUseAuthenticationInfoKey, kCFBooleanFalse);
+			break;
         case kSMBAuthTypeGuest:
-            CFDictionarySetValue(netfsOptions, kNetFSUseGuestKey,
-                    kCFBooleanTrue);
+			/* Don't try Kerberos */
+ 			CFDictionarySetValue(netfsOptions, kNetFSUseAuthenticationInfoKey, kCFBooleanFalse);
+			CFDictionarySetValue(netfsOptions, kNetFSUseGuestKey, kCFBooleanTrue);
             break;
         case kSMBAuthTypeAnonymous:
-            CFDictionarySetValue(netfsOptions, kNetFSUseAnonymousKey,
-                    kCFBooleanTrue);
+			/* Don't try Kerberos */
+			CFDictionarySetValue(netfsOptions, kNetFSUseAuthenticationInfoKey, kCFBooleanFalse);
+            CFDictionarySetValue(netfsOptions, kNetFSUseAnonymousKey, kCFBooleanTrue);
             break;
         default:
-            return make_nterror(NT_STATUS_INVALID_PARAMETER);
+            return STATUS_INVALID_PARAMETER;
     }
 
     err = smb_open_session(hContext, targetUrl, netfsOptions,
             NULL /* [OUT] session_info */);
-    if (err == EAUTH) {
-        return make_nterror(NT_STATUS_LOGON_FAILURE);
-    }
 
-    if (err) {
-        /* XXX map real NTSTATUS code */
-        return make_nterror(NT_STATUS_CONNECTION_REFUSED);
-    }
+	/* XXX map real NTSTATUS code */
+	if (err) {
+		if (err< 0) {
+			/* 
+			 * A negative error is a special NetFSAuth error. We have no method
+			 * to tell us if the calling routine understands these errors, so
+			 * always set errno to a number defined in sys/errno.h.
+			 */
+			switch (errno) {
+				case SMB_ENETFSNOAUTHMECHSUPP:
+					errno = ENOTSUP;
+					break;
+				case SMB_ENETFSNOPROTOVERSSUPP:
+					errno = ENOTSUP;
+					break;
+				case SMB_ENETFSACCOUNTRESTRICTED:
+				case SMB_ENETFSPWDNEEDSCHANGE:
+				case SMB_ENETFSPWDPOLICY:
+				default:
+					errno = EAUTH;
+					break;
+			}
+		} else {
+			errno = err;
+		}
+		if (err == EAUTH) {
+			return STATUS_LOGON_FAILURE;
+		}
+		return STATUS_CONNECTION_REFUSED;
+	}
 
-    return NT_STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
@@ -226,211 +279,464 @@ SMBServerContext(
     void ** phContext)
 {
     if (hConnection == NULL || hConnection->context == NULL) {
-        return make_nterror(NT_STATUS_INVALID_HANDLE);
+		errno = EINVAL;
+        return STATUS_INVALID_HANDLE;
     }
 
     *phContext = hConnection->context;
-    return NT_STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
-SMBOpenServer(
-    const char * pTargetServer,
-    SMBHANDLE * phConnection)
+SMBMountShare(
+	SMBHANDLE inConnection,
+	const char * targetShare,
+	const char * mountPoint)
 {
-    return SMBOpenServerEx(pTargetServer, phConnection, 0);
+    return SMBMountShareEx(inConnection, targetShare, mountPoint, 0, 0, 0, 0, NULL, NULL);
 }
 
+
 NTSTATUS
+SMBMountShareEx(
+	SMBHANDLE	inConnection,
+	const char	*targetShare,
+	const char	*mountPoint,
+	unsigned	mountFlags,
+	uint64_t	mountOptions,
+	mode_t 		fileMode,
+	mode_t 		dirMode,
+	void (*callout)(void  *, void *), 
+	void *args)
+{
+    NTSTATUS    status = STATUS_SUCCESS;
+    int         err = 0;
+    void *      hContext = NULL;
+	CFStringRef mountPtRef = NULL;
+	CFMutableDictionaryRef mOptions = NULL;
+	CFNumberRef numRef = NULL;
+	
+	status = SMBServerContext(inConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
+		/* Couldn't get the context? */
+        goto done;
+    }
+
+	mOptions = CFDictionaryCreateMutable(kCFAllocatorDefault, 0, &kCFTypeDictionaryKeyCallBacks, 
+										 &kCFTypeDictionaryValueCallBacks);
+	if (mOptions == NULL) {
+		/* Couldn't create the mount option dictionary, error out */
+		errno = ENOMEM;
+		status = STATUS_NO_MEMORY;
+        goto done;
+	}
+	
+	numRef = CFNumberCreate (NULL, kCFNumberSInt32Type, &mountFlags);
+	if (numRef) {
+		/* Put the mount flags into the dictionary */
+		CFDictionarySetValue (mOptions, kNetFSMountFlagsKey, numRef);
+		CFRelease(numRef);
+	}
+	
+	if (mountOptions & kSMBMntOptionNoStreams) {
+		/* Don't use NTFS Streams even if they are supported by the server.  */
+		CFDictionarySetValue (mOptions, kStreamstMountKey, kCFBooleanFalse);
+	}
+		
+	if (mountOptions & kSMBMntOptionNoNotifcations) {
+		/* Don't use Remote Notifications even if they are supported by the server. */
+		CFDictionarySetValue (mOptions, kNotifyOffMountKey, kCFBooleanTrue);
+	}
+		
+	if (mountOptions & kSMBMntOptionSoftMount) {
+		/* Mount the volume soft, return time out error durring reconnect. */
+		CFDictionarySetValue (mOptions, kNetFSSoftMountKey, kCFBooleanTrue);
+	}
+	/*
+	 * Specify permissions that should be assigned to files and directories. The 
+	 * value must be specified as an octal numbers. A value of zero means use the
+	 * default values. Not setting these in the dictionary will force the default
+	 * values to be used.
+	 */
+	if (fileMode || dirMode) {		
+		if (fileMode) {
+			numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &fileMode);
+			if (numRef) {
+				CFDictionarySetValue (mOptions, kfileModeKey, numRef);
+				CFRelease(numRef);
+			}
+		}
+		if (dirMode) {
+			numRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberSInt16Type, &dirMode);
+			if (numRef) {
+				CFDictionarySetValue (mOptions, kdirModeKey, numRef);
+				CFRelease(numRef);
+			}
+		}
+	}
+	
+	/* Get the mount point */
+	if (mountPoint) {
+		mountPtRef = CFStringCreateWithCString(kCFAllocatorDefault, mountPoint, 
+											   kCFStringEncodingUTF8);
+	}
+	if (mountPtRef == NULL) {
+		/* No mount point */
+		errno = ENOMEM;
+		status = STATUS_NO_MEMORY;
+		goto done;
+	}
+	/* Set the share if they gave us one */
+	if (targetShare) {
+		err = smb_ctx_setshare(hContext, targetShare);
+	}
+	
+	if (err == 0) {
+		err = smb_mount(hContext, mountPtRef, mOptions, NULL, callout, args);
+	}
+	
+	if (err) {
+		errno = err;
+		status = STATUS_UNSUCCESSFUL;
+		goto done;
+	}
+	
+done:
+	if (mOptions) {
+		CFRelease(mOptions);
+	}
+	if (mountPtRef) {
+		CFRelease(mountPtRef);
+	}
+	return status;
+}
+
+NTSTATUS 
+SMBOpenServer(
+    const char * targetServer,
+    SMBHANDLE * outConnection)
+{
+    return SMBOpenServerEx(targetServer, outConnection, 0);
+}
+
+NTSTATUS 
 SMBOpenServerEx(
-    const char * pTargetServer,
-    SMBHANDLE * phConnection,
+    const char * targetServer,
+    SMBHANDLE * outConnection,
     uint64_t    options)
 {
     NTSTATUS    status;
     int         err;
     void *      hContext;
 
-    CFURLRef    targetUrl = NULL;
     CFMutableDictionaryRef netfsOptions = NULL;
+	CFDictionaryRef ServerParams = NULL;
 
-    *phConnection = NULL;
+    *outConnection = NULL;
 
     status = SMBLibraryInit();
-    if (!NT_SUCCESS(status)) {
+	if (!NT_SUCCESS(status)) {
         goto done;
     }
 
-    netfsOptions = SMBCreateDefaultOptions();
+    netfsOptions = SMBCreateDefaultOptions(options);
     if (netfsOptions == NULL) {
-        status = make_nterror(NT_STATUS_NO_MEMORY);
+        status = STATUS_NO_MEMORY;
         goto done;
     }
 
-    status = SMBCreateURLFromString(pTargetServer, &targetUrl);
-    if (!NT_SUCCESS(status)) {
+    status = SMBAllocateServer(outConnection, targetServer);
+	if (!NT_SUCCESS(status)) {
         goto done;
     }
 
-    status = SMBAllocateServer(phConnection);
-    if (!NT_SUCCESS(status)) {
+    status = SMBServerContext(*outConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
         goto done;
     }
-
-    status = SMBServerContext(*phConnection, &hContext);
-    if (!NT_SUCCESS(status)) {
-        goto done;
+	
+	err = smb_get_server_info(hContext, NULL, netfsOptions, &ServerParams);
+	if (err) {
+        /* XXX map real NTSTATUS code */
+        status = STATUS_CONNECTION_REFUSED;
+		errno = err;
+		goto done;
     }
+	/*
+	 * They didn't set the force new session option and we have a shared session,
+	 * then we are done. We have a connection and we are authenticated.
+	 */
+	if (!(options & kSMBOptionForceNewSession) && (((struct smb_ctx *)hContext)->ct_vc_shared)) {
+		goto authDone;
+	}
+	/*
+	 * They have guest as the username in the url, then they want us to 
+	 * force guest access.
+	 */
+	if (((struct smb_ctx *)hContext)->ct_setup.ioc_userflags & SMBV_GUEST_ACCESS) {
+		options |= kSMBOptionUseGuestOnlyAuth;
+	}
+	
+	/* Connect using Guest Access only */
+	if (options & kSMBOptionUseGuestOnlyAuth) {
+		status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeGuest);
+		goto authDone;
+	}
 
-    /* If the target hasn't set a user name, let's assume that we should use
-     * the current username. This is almost always what the caller wants.
-     */
-    if (((struct smb_ctx *)hContext)->ct_setup.ioc_user[0] == '\0') {
-        struct passwd * pwent;
+	/* Connect using Anonymous Access only  */
+	if (options & kSMBOptionUseAnonymousOnlyAuth) {
+		status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeAnonymous);
+		goto authDone;
+	}
+	
+	/* Attempt an authenticated connect, could be kerberos or ntlm. */
+	status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeAuthenticated);
+	if (NT_SUCCESS(status)) {
+		goto authDone;
+	}
+	
+	/* See if we need to prompt for a password */
+	if (SMBPasswordPrompt(*outConnection, options)) {
+		/* Attempt an authenticated connect again , could be kerberos or ntlm. */
+		status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeAuthenticated);
+		if (NT_SUCCESS(status)) {
+			goto authDone;
+		}
+	}
 
-        pwent = getpwuid(geteuid());
-        if (pwent) {
-            smb_ctx_setuser(hContext, pwent->pw_name);
-        }
-    }
+	/* Kerberos and NTLM failed, attempt Guest access if option set */
+	if (options & kSMBOptionAllowGuestAuth) {
+		status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeGuest);
+		if (NT_SUCCESS(status)) {
+			goto authDone;
+		}
+	}
+	
+	/* Kerberos and NTLM failed, attempt Anonymous access if option set */
+	if (options & kSMBOptionAllowAnonymousAuth) {
+		status = SMBServerConnect(*outConnection, NULL, netfsOptions, kSMBAuthTypeAnonymous);
+		if (NT_SUCCESS(status)) {
+			goto authDone;
+		}
+	}
 
-    /* If the target doesn't contain a share name, let's assume that the
-     * caller means IPC$.
+authDone:
+
+	if (!NT_SUCCESS(status)) {
+		goto done;
+	}
+		
+	if (options & kSMBOptionSessionOnly) {
+		goto done;
+	}
+	
+    /* 
+	 * If the target doesn't contain a share name, let's assume that the
+     * caller means IPC$, unless a share name is required.
      */
     if (!((struct smb_ctx *)hContext)->ct_origshare) {
-        err = smb_ctx_setshare(hContext, "IPC$", SMB_ST_ANY);
+        err = smb_ctx_setshare(hContext, "IPC$");
         if (err) {
-            status = make_nterror(NT_STATUS_NO_MEMORY);
+			if (err == ENAMETOOLONG) {
+				status = STATUS_NAME_TOO_LONG;
+			} else {
+				status = STATUS_NO_MEMORY;
+			}
+			errno = err;
             goto done;
         }
     }
-
-    /* XXX We really should port this code to use the lower-level API so that
-     * we can give up immediately if the TCP connection fails..
-     */
-
-    /* Our default connection strategy is to always use the name of the
-     * logged-in user. We try Kerberos and then fall back to NTLM, and then
-     * guest and anonymous if we are allowed.
-     */
-
-    status = SMBServerConnect(*phConnection, targetUrl,
-            netfsOptions, kSMBAuthTypeKerberos);
-    if (status == make_nterror(NT_STATUS_LOGON_FAILURE) &&
-        !(options & kSMBOptionNoPrompt)) {
-        SMBPasswordPrompt(*phConnection);
-    }
-
-    if (!NT_SUCCESS(status)) {
-        status = SMBServerConnect(*phConnection, targetUrl,
-                netfsOptions, kSMBAuthTypeUser);
-    }
-
-    if (!(options & kSMBOptionRequireAuth)) {
-        if (!NT_SUCCESS(status)) {
-            status = SMBServerConnect(*phConnection, targetUrl,
-                    netfsOptions, kSMBAuthTypeGuest);
-        }
-
-        if (!NT_SUCCESS(status)) {
-            status = SMBServerConnect(*phConnection, targetUrl,
-                    netfsOptions, kSMBAuthTypeAnonymous);
-        }
-    }
-
+	
     /* OK, now we have a virtual circuit but no tree connection yet. */
-    
-    err = smb_share_connect((*phConnection)->context);
+    err = smb_share_connect((*outConnection)->context);
     if (err) {
-        status = make_nterror(NT_STATUS_BAD_NETWORK_NAME);
+        status = STATUS_BAD_NETWORK_NAME;
+		errno = err;
         goto done;
     }
     
-    status = NT_STATUS_SUCCESS;
+    status = STATUS_SUCCESS;
 
 done:
     if (netfsOptions) {
         CFRelease(netfsOptions);
     }
-
-    if (!NT_SUCCESS(status) && *phConnection) {
-        SMBReleaseServer(*phConnection);
-        *phConnection = NULL;
-    }
-
-    if (targetUrl) {
-        CFRelease(targetUrl);
+	if (ServerParams) {
+		CFRelease(ServerParams);
+	}
+    if ((!NT_SUCCESS(status)) && *outConnection) {
+        SMBReleaseServer(*outConnection);
+        *outConnection = NULL;
     }
 
     return status;
 }
 
 NTSTATUS
-SMBServerGetProperties(
-        SMBHANDLE hConnection,
-        SMBServerProperties * pProperties)
+SMBOpenServerWithMountPoint(
+	const char * pTargetMountPath,
+	const char * pTargetTreeName,
+	SMBHANDLE * outConnection,
+	uint64_t    options)
+{
+	NTSTATUS	status;
+	int         err;
+	void *      hContext;
+	struct statfs statbuf;
+		
+	*outConnection = NULL;
+	
+	status = SMBLibraryInit();
+	if (!NT_SUCCESS(status)) {
+		goto done;
+	}
+	
+	/* Need to get the mount from name, use that as the URL */
+	err = statfs(pTargetMountPath, &statbuf);
+	if (err) {
+		status = STATUS_OBJECT_PATH_NOT_FOUND;
+		goto done;
+	}
+	
+	status = SMBAllocateServer(outConnection, statbuf.f_mntfromname);
+	if (!NT_SUCCESS(status)) {
+		goto done;
+	}
+
+	status = SMBServerContext(*outConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
+		goto done;
+	}
+
+	/* Need to clear out the user name field */
+	smb_ctx_setuser(hContext, "");
+	err = findMountPointVC(hContext, pTargetMountPath);
+	if (err) {
+		status = STATUS_OBJECT_NAME_NOT_FOUND;
+		errno = err;
+		goto done;
+    }
+
+	if (options & kSMBOptionSessionOnly) {
+		goto done;
+	}
+	
+	/*  No tree name, let's assume that the caller means IPC$ */
+	if (!pTargetTreeName) {
+		pTargetTreeName = "IPC$";
+	}
+	err = smb_ctx_setshare(hContext, pTargetTreeName);
+	if (err) {
+		if (err == ENAMETOOLONG) {
+			status = STATUS_NAME_TOO_LONG;
+		} else {
+			status = STATUS_NO_MEMORY;
+		}
+		errno = err;
+		goto done;
+	}
+	
+	/* OK, now we have a virtual circuit but no tree connection yet. */
+	err = smb_share_connect((*outConnection)->context);
+	if (err) {
+		status = STATUS_BAD_NETWORK_NAME;
+		errno = err;
+		goto done;
+	}
+	
+	status = STATUS_SUCCESS;
+	
+done:
+	if ((!NT_SUCCESS(status)) && *outConnection) {
+		SMBReleaseServer(*outConnection);
+		*outConnection = NULL;
+	}
+
+	return status;
+}
+
+NTSTATUS
+SMBGetServerProperties(
+		SMBHANDLE	inConnection,
+		void		*outProperties,
+		uint32_t	inVersion,
+		size_t		inPropertiesSize)
 {
     NTSTATUS    status;
     void *      hContext;
     uint32_t    vc_flags;
-
-    status = SMBServerContext(hConnection, &hContext);
-    if (!NT_SUCCESS(status)) {
+	SMBServerPropertiesV1 * properties = NULL;
+	
+	/* 
+	 * Do some sanity checking here, currently we only support version
+	 * one properties, make sure they aren't null and the size matches.
+	 */
+	if ((outProperties == NULL) || (inVersion != kPropertiesVersion) ||
+		(inPropertiesSize != sizeof(SMBServerPropertiesV1))) {
+		errno = EINVAL;
+		return STATUS_INVALID_LEVEL;
+	}
+    status = SMBServerContext(inConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
         return status;
     }
-
-    memset(pProperties, 0, sizeof(*pProperties));
-
-    /* Since we don't ever create a SMBHANDLE without a valid SMB connection,
-     * the vc_flags must always be set. If this assumption changes, we ought
-     * to call the SMBIOC_GET_VC_FLAGS ioctl here.
-     */
+	properties = (SMBServerPropertiesV1 *)outProperties;
+    memset(properties, 0, sizeof(*properties));
+	
+    /* Update the vc properties to make sure we have a current verison. */
+	smb_get_vc_properties(hContext);
     vc_flags = ((struct smb_ctx *)hContext)->ct_vc_flags;
-
+	
     if (vc_flags & SMBV_GUEST_ACCESS) {
-        pProperties->authType = kSMBAuthTypeGuest;
+        properties->authType = kSMBAuthTypeGuest;
     } else if (vc_flags & SMBV_ANONYMOUS_ACCESS) {
-        pProperties->authType = kSMBAuthTypeAnonymous;
+        properties->authType = kSMBAuthTypeAnonymous;
     } else if (vc_flags & SMBV_KERBEROS_ACCESS) {
-        pProperties->authType = kSMBAuthTypeKerberos;
+        properties->authType = kSMBAuthTypeKerberos;
     } else {
-        pProperties->authType = kSMBAuthTypeUser;
+        properties->authType = kSMBAuthTypeUser;
     }
-
-    pProperties->dialect = kSMBDialectSMB;
-
-    pProperties->capabilities = ((struct smb_ctx *)hContext)->ct_vc_caps;
-
-    /* XXX We don't have a way of getting the following info: */
-    pProperties->maxReadBytes = getpagesize();
-    pProperties->maxWriteBytes = getpagesize();
-    pProperties->maxTransactBytes = getpagesize();
-    pProperties->tconFlags = 0;
-
-    return NT_STATUS_SUCCESS;
+	
+	if (vc_flags & SMBV_NETWORK_SID) {
+        properties->internalFlags |= kHasNtwrkSID;
+	}
+	
+    properties->dialect = kSMBDialectSMB;
+	
+    properties->capabilities = ((struct smb_ctx *)hContext)->ct_vc_caps;
+	
+	properties->maxTransactBytes = ((struct smb_ctx *)hContext)->ct_vc_txmax;	
+	properties->maxReadBytes = ((struct smb_ctx *)hContext)->ct_vc_rxmax;		
+	properties->maxWriteBytes = ((struct smb_ctx *)hContext)->ct_vc_wxmax;
+    properties->treeOptionalSupport = ((struct smb_ctx *)hContext)->ct_sh.ioc_optionalSupport;
+	if (((struct smb_ctx *)hContext)->serverName) {
+		strlcpy(properties->serverName, ((struct smb_ctx *)hContext)->serverName, 
+				sizeof(properties->serverName));
+	}
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
 SMBRetainServer(
-    SMBHANDLE hConnection)
+    SMBHANDLE inConnection)
 {
-    OSAtomicIncrement32(&hConnection->refcount);
-    return NT_STATUS_SUCCESS;
+    OSAtomicIncrement32(&inConnection->refcount);
+    return STATUS_SUCCESS;
 }
 
 NTSTATUS
 SMBReleaseServer(
-    SMBHANDLE hConnection)
+    SMBHANDLE inConnection)
 {
     refcount_t refcount;
 
-    refcount = OSAtomicDecrement32(&hConnection->refcount);
+    refcount = OSAtomicDecrement32(&inConnection->refcount);
     if (refcount == 0) {
-        smb_ctx_done(hConnection->context);
-        free(hConnection);
+        smb_ctx_done(inConnection->context);
+        free(inConnection);
     }
 
-    return NT_STATUS_SUCCESS;
+    return STATUS_SUCCESS;
 }
 
 /* vim: set sw=4 ts=4 tw=79 et: */

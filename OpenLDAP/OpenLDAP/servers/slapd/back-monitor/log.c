@@ -1,8 +1,8 @@
 /* log.c - deal with log subsystem */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/log.c,v 1.56.2.4 2008/02/11 23:26:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/log.c,v 1.56.2.7 2010/04/13 20:23:33 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2008 The OpenLDAP Foundation.
+ * Copyright 2001-2010 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -181,7 +181,7 @@ monitor_subsys_log_modify(
 		}
 
 		/* check that the entry still obeys the schema */
-		rc = entry_schema_check( op, e, save_attrs, 0, 0,
+		rc = entry_schema_check( op, e, save_attrs, 0, 0, NULL,
 			&text, textbuf, sizeof( textbuf ) );
 		if ( rc != LDAP_SUCCESS ) {
 			rs->sr_err = rc;

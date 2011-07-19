@@ -4,6 +4,7 @@
  *    Implementations for all tree methods.
  */
 
+#include <string.h>
 #include <arc.h>
 #include <graph.h>
 #include <methods.h>
@@ -240,7 +241,7 @@ gm_arc_GETUNWEIGH (G* g, Tcl_Interp* interp, int objc, Tcl_Obj* const* objv)
     rv = NALLOC (g->arcs.n, Tcl_Obj*);
     rc = 0;
 
-    for (a = (GA*) g->arcs.first; a ; a = a->base.next) {
+    for (a = (GA*) g->arcs.first; a ; a = (GA*) a->base.next) {
 	if (a->weight) continue;
 
 	ASSERT_BOUNDS (rc, g->arcs.n);
@@ -337,7 +338,7 @@ gm_arc_SETUNWEIGH (G* g, Tcl_Interp* interp, int objc, Tcl_Obj* const* objv)
 	weight = Tcl_NewIntObj (0);
     }
 
-    for (a = (GA*) g->arcs.first; a ; a = a->base.next) {
+    for (a = (GA*) g->arcs.first; a ; a = (GA*) a->base.next) {
 	if (a->weight) continue;
 
 	a->weight = weight;
@@ -509,7 +510,7 @@ gm_arc_WEIGHTS (G* g, Tcl_Interp* interp, int objc, Tcl_Obj* const* objv)
     rv = NALLOC (rcmax, Tcl_Obj*);
     rc = 0;
 
-    for (a = (GA*) g->arcs.first; a ; a = a->base.next) {
+    for (a = (GA*) g->arcs.first; a ; a = (GA*) a->base.next) {
 	if (!a->weight) continue;
 
 	ASSERT_BOUNDS (rc,   rcmax);
@@ -1264,6 +1265,48 @@ gm_arc_TARGET (G* g, Tcl_Interp* interp, int objc, Tcl_Obj* const* objv)
     FAIL (a);
 
     Tcl_SetObjResult (interp, a->end->n->base.name);
+    return TCL_OK;
+}
+
+/*
+ *---------------------------------------------------------------------------
+ *
+ * gm_arc_NODES --
+ *
+ *      
+ *	
+ *
+ * Results:
+ *	A standard Tcl result code.
+ *
+ * Side effects:
+ *	May release and allocate memory.
+ *
+ *---------------------------------------------------------------------------
+ */
+
+int
+gm_arc_NODES (G* g, Tcl_Interp* interp, int objc, Tcl_Obj* const* objv)
+{
+    /* Syntax: graph arc target ARC
+     *	       [0]   [1] [2]    [3]
+     */
+
+    GA* a;
+    Tcl_Obj* nv[2];
+
+    if (objc != 4) {
+	Tcl_WrongNumArgs (interp, 3, objv, "arc");
+	return TCL_ERROR;
+    }
+
+    a = ga_get_arc (g, objv [3], interp, objv [0]);
+    FAIL (a);
+
+    nv[0] = a->start->n->base.name;
+    nv[1] = a->end->n->base.name;
+
+    Tcl_SetObjResult (interp, Tcl_NewListObj (2, nv));
     return TCL_OK;
 }
 

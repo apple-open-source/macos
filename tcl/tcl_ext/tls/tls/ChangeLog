@@ -1,3 +1,23 @@
+2010-08-11  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	*** TLS 1.6.1 TAGGED ***
+
+	* configure: regen with ac-2.59
+	* win/makefile.vc, configure.in: bump version to 1.6.1
+	* tclconfig/tcl.m4: updated to TEA 3.8
+
+	* tls.c (StatusObjCmd): memleak: free peer if loaded. [Bug 3041925]
+
+2010-07-27  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tls.tcl (tls::socket): some socket implementations have a -type
+	support (e.g. for inet6).
+
+2009-04-23  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tls.tcl (tls::initlib): add support for Windows starpack
+	operation that unbundles any constituent libraries. [AS Bug 82888]
+
 2008-06-18  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* tests/ciphers.test: Fix for different openssl versions.

@@ -10,7 +10,7 @@
 .RE
 .sp
 ..
-.TH unlang 5 "01 Jul 2008" "" "FreeRADIUS Processing un-language"
+.TH unlang 5 "19 May 2010" "" "FreeRADIUS Processing un-language"
 .SH NAME
 unlang \- FreeRADIUS Processing un\-language
 .SH DESCRIPTION
@@ -22,7 +22,13 @@ Python modules rlm_perl, or rlm_python.
 
 The goal of the language is to allow simple policies to be written
 with minimal effort.  Those policies are then applied when a request
-is being processed.
+is being processed.  Requests are processed through virtual servers
+(including the default one), in the sections titled "authorize",
+"authenticate", "post-auth", "preacct", "accounting", "pre-proxy",
+"post-proxy", and "session".
+
+These policies cannot be used in any other part of the configuration
+files, such as module or client configuration.
 .SH KEYWORDS
 The keywords for the language are a combination of pre-defined
 keywords, and references to loadable module names.  We document only
@@ -144,10 +150,11 @@ the current block.
 .DE
 
 The <list> can be one of "request", "reply", "proxy-request",
-"proxy-reply", or "control".  The "control" list is the list of
-attributes maintainted internally by the server that controls how the
-server processes the request.  Any attribute that does not go in a
-packet on the network will generally be placed in the "control" list.
+"proxy-reply", "coa", "disconnect", or "control".  The "control" list
+is the list of attributes maintainted internally by the server that
+controls how the server processes the request.  Any attribute that
+does not go in a packet on the network will generally be placed in the
+"control" list.
 
 For backwards compatibility with older versions, "check" is accepted
 as a synonym for "control".  The use of "check" is deprecated, and
@@ -157,6 +164,17 @@ For EAP methods with tunneled authentication sessions (i.e. PEAP and
 EAP-TTLS), the inner tunnel session can also reference
 "outer.request", "outer.reply", and "outer.control".  Those references
 allow you to address the relevant list in the outer tunnel session.
+
+The "coa" and "disconnect" sections can only be used when the server
+receives an Access-Request or Accounting-Request.  Use "request" and
+"reply" instead of "coa" when the server receives a CoA-Request or
+Disconnect-Request packet.
+
+Adding one or more attributes to either of the "coa" or "disconnect"
+list causes server to originate a CoA-Request or Disconnect-Request
+packet.  That packet is sent when the current Access-Request or
+Accounting-Request has been finished, and a reply sent to the NAS.
+See raddb/sites-available/originate-coa for additional information.
 
 The only contents permitted in an "update" section are attributes and
 values.  The contents of the "update" section are described in the
@@ -304,7 +322,7 @@ stand-alone condition, in which case they are evaluated as described
 in "Simple conditions", above.  They can also appear (with some
 exceptions noted below) on the left-hand or on the right-hand side of
 a comparison.
-.IP Numbers
+.IP numbers
 Numbers are composed of decimal digits.  Floating point, hex, and
 octal numbers are not supported.  The maximum value for a number is
 machine-dependent, but is usually 32-bits, including one bit for a
@@ -333,14 +351,14 @@ as seen in the examples below.
 	if (Service-Type == Login-User) { 
 .DE
 .RE
-.IP "strings"
+.IP """strings"""
 .RS
 Double-quoted strings are expanded by inserting the value of any
 variables (see VARIABLES, below) before being evaluated.  If
 the result is a number it is evaluated in a numerical context.
 
 String length is limited by line-length, usually about 8000
-characters.  A double quote character (") can be used in a string via
+characters.  A double quote character can be used in a string via
 the normal back-slash escaping method.  ("like \\"this\\" !")
 .RE
 .IP 'strings'
@@ -484,6 +502,15 @@ The number of characters in %{string}.  If %{string} is not
 set, then the length is not set.
 
 e.g. %{#Junk-junk:-foo} will yeild the string "foo".
+.IP %{Attribute-Name#}
+Will print the integer value of the attribute, rather than a decoded
+VALUE or date.  This feature applies only to attributes of type
+"date", "integer", "byte", and "short".  It has no effect on any other
+attributes.  It is used when the numerical value is needed (e.g. Unix
+seconds), rather than a humanly-readable string.
+
+e.g. If a request contains "Service-Type = Login-User", the expansion
+of %{Service-Type#} will yeild "1".
 .IP %{Attribute-Name[index]}
 Reference the N'th occurance of the given attribute.  The syntax
 %{<list>:Attribute-Name[index]} may also be used.  The indexes start
@@ -530,7 +557,7 @@ the following, with the given meaning.
 .RS
 .IP =
 Add the attribute to the list, if and only if an attribute of the same
-name is already present in that list.
+name is not already present in that list.
 .IP := 
 Add the attribute to the list.  If any attribute of the same name is
 already present in that list, its value is replaced with the value of
@@ -550,32 +577,28 @@ Remove all matching attributes from the list.  Both the attribute name
 and value have to match in order for the attribute to be removed from
 the list.
 .IP ==
-Remove all non-matching attributes from the list.  Both the attribute
-name and value have to match in order for the attribute to remain in
-the list.
+Keep all matching attributes.  Both the attribute name and value have
+to match in order for the attribute to remain in the list.
 
 Note that this operator is very different than the '=' operator listed
 above!
 .IP <=
-Enforce that the integer value of the attribute is less than or equal
-to the value given here.  If there is no attribute of the same name in
-the list, the attribute is added with the given value, is with "+=".
-If an attribute in the list exists, and has value less than given
-here, it's value is unchanged.  If an attribute in the list exists,
-and has a value greater than given here, then that value is replaced
-with the one given here.
+Keep all attributes having values less than, or equal to, the value
+given here.  Any larger value is replaced by the value given here.  If
+no attribute exists, it is added with the value given here, as with
+"+=".
 
 This operator is valid only for attributes of integer type.
 .IP >=
-Enforce that the integer value of the attribute is greater than or
-equal to the value given here.  If there is no attribute of the same
-name in the list, the attribute is added with the given value, is with
-"+=".  If an attribute in the list exists, and has value greater than
-given here, it's value is unchanged.  If an attribute in the list
-exists, and has value less than given here, then that value is
-replaced with the one given here.
+Keep all attributes having values greater than, or equal to, the value
+given here.  Any larger value is replaced by the value given here.  If
+no attribute exists, it is added with the value given here, as with
+"+=".
 
 This operator is valid only for attributes of integer type.
+.IP !*
+Delete all occurances of the named attribute, no matter what the
+value.
 .RE
 .IP Values
 .br
@@ -638,6 +661,9 @@ When a module is called, it returns one of the following codes to
 
 These return codes can be tested for in a condition, as described
 above in the CONDITIONS section.
+
+See also the file doc/configurable_failover for additional methods of
+trapping and modifying module return codes.
 .SH FILES
 /etc/raddb/radiusd.conf
 .SH "SEE ALSO"

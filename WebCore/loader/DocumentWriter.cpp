@@ -34,15 +34,18 @@
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
+#include "FrameLoaderStateMachine.h"
 #include "FrameView.h"
 #include "PlaceholderDocument.h"
 #include "PluginDocument.h"
+#include "RawDataDocumentParser.h"
+#include "ScriptableDocumentParser.h"
 #include "SecurityOrigin.h"
 #include "SegmentedString.h"
 #include "Settings.h"
 #include "SinkDocument.h"
 #include "TextResourceDecoder.h"
-#include "Tokenizer.h"
+
 
 namespace WebCore {
 
@@ -58,11 +61,26 @@ DocumentWriter::DocumentWriter(Frame* frame)
 {
 }
 
-void DocumentWriter::replaceDocument(const String& html)
+// This is only called by ScriptController::executeIfJavaScriptURL
+// and always contains the result of evaluating a javascript: url.
+// This is the <iframe src="javascript:'html'"> case.
+void DocumentWriter::replaceDocument(const String& source)
 {
     m_frame->loader()->stopAllLoaders();
-    begin(m_frame->loader()->url(), true, m_frame->document()->securityOrigin());
-    addData(html);
+    begin(m_frame->document()->url(), true, m_frame->document()->securityOrigin());
+
+    if (!source.isNull()) {
+        if (!m_receivedData) {
+            m_receivedData = true;
+            m_frame->document()->setCompatibilityMode(Document::NoQuirksMode);
+        }
+
+        // FIXME: This should call DocumentParser::appendBytes instead of append
+        // to support RawDataDocumentParsers.
+        if (DocumentParser* parser = m_frame->document()->parser())
+            parser->append(source);
+    }
+
     end();
 }
 
@@ -79,13 +97,13 @@ void DocumentWriter::begin()
     begin(KURL());
 }
 
-PassRefPtr<Document> DocumentWriter::createDocument()
+PassRefPtr<Document> DocumentWriter::createDocument(const KURL& url)
 {
-    if (!m_frame->loader()->isDisplayingInitialEmptyDocument() && m_frame->loader()->client()->shouldUsePluginDocument(m_mimeType))
-        return PluginDocument::create(m_frame);
+    if (!m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->loader()->client()->shouldUsePluginDocument(m_mimeType))
+        return PluginDocument::create(m_frame, url);
     if (!m_frame->loader()->client()->hasHTMLView())
-        return PlaceholderDocument::create(m_frame);
-    return DOMImplementation::createDocument(m_mimeType, m_frame, m_frame->inViewSourceMode());
+        return PlaceholderDocument::create(m_frame, url);
+    return DOMImplementation::createDocument(m_mimeType, m_frame, url, m_frame->inViewSourceMode());
 }
 
 void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origin)
@@ -96,20 +114,22 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
 
     // Create a new document before clearing the frame, because it may need to
     // inherit an aliased security context.
-    RefPtr<Document> document = createDocument();
+    RefPtr<Document> document = createDocument(url);
     
     // If the new document is for a Plugin but we're supposed to be sandboxed from Plugins,
-    // then replace the document with one whose tokenizer will ignore the incoming data (bug 39323)
+    // then replace the document with one whose parser will ignore the incoming data (bug 39323)
     if (document->isPluginDocument() && m_frame->loader()->isSandboxed(SandboxPlugins))
-        document = SinkDocument::create(m_frame);
+        document = SinkDocument::create(m_frame, url);
 
-    bool resetScripting = !(m_frame->loader()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
+    // FIXME: Do we need to consult the content security policy here about blocked plug-ins?
+
+    bool resetScripting = !(m_frame->loader()->stateMachine()->isDisplayingInitialEmptyDocument() && m_frame->document()->securityOrigin()->isSecureTransitionTo(url));
     m_frame->loader()->clear(resetScripting, resetScripting);
+    clear();
     if (resetScripting)
         m_frame->script()->updatePlatformScriptObjects();
 
-    m_frame->loader()->setURL(url);
-    document->setURL(url);
+    m_frame->loader()->setOutgoingReferrer(url);
     m_frame->setDocument(document);
 
     if (m_decoder)
@@ -128,21 +148,8 @@ void DocumentWriter::begin(const KURL& url, bool dispatch, SecurityOrigin* origi
         m_frame->view()->setContentsSize(IntSize());
 }
 
-void DocumentWriter::addData(const char* str, int len, bool flush)
+TextResourceDecoder* DocumentWriter::createDecoderIfNeeded()
 {
-    if (len == 0 && !flush)
-        return;
-
-    if (len == -1)
-        len = strlen(str);
-
-    Tokenizer* tokenizer = m_frame->document()->tokenizer();
-    if (tokenizer && tokenizer->wantsRawData()) {
-        if (len > 0)
-            tokenizer->writeRawData(str, len);
-        return;
-    }
-    
     if (!m_decoder) {
         if (Settings* settings = m_frame->settings()) {
             m_decoder = TextResourceDecoder::create(m_mimeType,
@@ -172,38 +179,28 @@ void DocumentWriter::addData(const char* str, int len, bool flush)
         }
         m_frame->document()->setDecoder(m_decoder.get());
     }
+    return m_decoder.get();
+}
 
-    String decoded = m_decoder->decode(str, len);
-    if (flush)
-        decoded += m_decoder->flush();
-    if (decoded.isEmpty())
-        return;
-
+void DocumentWriter::reportDataReceived()
+{
+    ASSERT(m_decoder);
     if (!m_receivedData) {
         m_receivedData = true;
         if (m_decoder->encoding().usesVisualOrdering())
             m_frame->document()->setVisuallyOrdered();
         m_frame->document()->recalcStyle(Node::Force);
     }
-
-    if (tokenizer) {
-        ASSERT(!tokenizer->wantsRawData());
-        tokenizer->write(decoded, true);
-    }
 }
 
-void DocumentWriter::addData(const String& str)
+void DocumentWriter::addData(const char* str, int len, bool flush)
 {
-    if (str.isNull())
-        return;
+    if (len == -1)
+        len = strlen(str);
 
-    if (!m_receivedData) {
-        m_receivedData = true;
-        m_frame->document()->setParseMode(Document::Strict);
-    }
-
-    if (Tokenizer* tokenizer = m_frame->document()->tokenizer())
-        tokenizer->write(str, true);
+    DocumentParser* parser = m_frame->document()->parser();
+    if (parser)
+        parser->appendBytes(this, str, len, flush);
 }
 
 void DocumentWriter::end()
@@ -251,7 +248,12 @@ void DocumentWriter::setDecoder(TextResourceDecoder* decoder)
 
 String DocumentWriter::deprecatedFrameEncoding() const
 {
-    return m_frame->loader()->url().isEmpty() ? m_encoding : encoding();
+    return m_frame->document()->url().isEmpty() ? m_encoding : encoding();
+}
+
+void DocumentWriter::setDocumentWasLoadedAsPartOfNavigation()
+{
+    m_frame->document()->parser()->setDocumentWasLoadedAsPartOfNavigation();
 }
 
 } // namespace WebCore

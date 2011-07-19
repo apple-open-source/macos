@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,8 @@ static ModuleNexus<Mutex> gTrustSettingsLock;
 /* 
  * The auth rights we use.
  * This probably will get tweaked: what I'd like to have, I think, for 
- * the admin settings is "OK if root, else authentciate as admin". For
- * Now just require root. 
+ * the admin settings is "OK if root, else authenticate as admin". For
+ * now just require root. 
  */
 #define TRUST_SETTINGS_RIGHT_USER	"com.apple.trust-settings.user"
 #define TRUST_SETTINGS_RIGHT_ADMIN	"com.apple.trust-settings.admin"
@@ -153,6 +153,54 @@ static void trustSettingsPath(
 	}
 }
 
+static mach_port_t	gBootstrapPort=MACH_PORT_NULL;
+static mach_port_t	gAuditSessionPort=MACH_PORT_NULL;
+
+void switchToContext(mach_port_t clientBootstrapPort, audit_token_t auditToken)
+{
+	au_asid_t 		asid, tmp_asid;
+	mach_port_t		clientAuditSessionPort=MACH_PORT_NULL;
+	kern_return_t	kr;
+
+	/* get the audit session identifier and port from the audit_token */
+	audit_token_to_au32(auditToken, NULL, NULL, NULL, NULL, NULL, NULL, &asid, NULL);
+	audit_session_port(asid, &clientAuditSessionPort);
+
+	if (gBootstrapPort == MACH_PORT_NULL) {
+		/* save our own bootstrap port the first time through (to restore later) */
+		task_get_bootstrap_port(mach_task_self(), &gBootstrapPort);
+	}
+	kr = task_set_bootstrap_port(mach_task_self(), clientBootstrapPort);
+	if (kr != KERN_SUCCESS)
+		ocspdErrorLog("Unable to set client bootstrap port\n");
+
+	if (gAuditSessionPort == MACH_PORT_NULL) {
+		/* save our own audit session port the first time through (to restore later) */
+		gAuditSessionPort = audit_session_self();
+		mach_port_mod_refs(mach_task_self(), gAuditSessionPort, MACH_PORT_RIGHT_SEND, +1);
+	}
+	tmp_asid = audit_session_join(clientAuditSessionPort);
+	if (tmp_asid == AU_DEFAUDITSID)
+		ocspdErrorLog("Unable to join client security session\n");
+}
+
+void restoreContext()
+{
+	if (gBootstrapPort != MACH_PORT_NULL)
+	{
+		kern_return_t kr = task_set_bootstrap_port(mach_task_self(), gBootstrapPort);
+		if (kr != KERN_SUCCESS)
+			ocspdErrorLog("Unable to restore server bootstrap port");
+	}
+
+	if (gAuditSessionPort != MACH_PORT_NULL)
+	{
+		au_asid_t asid = audit_session_join(gAuditSessionPort);
+		if (asid == AU_DEFAUDITSID)
+			ocspdErrorLog("Unable to rejoin original security session");
+	}
+}
+
 kern_return_t ocsp_server_trustSettingsRead(
 	mach_port_t serverport,
 	audit_token_t auditToken,
@@ -192,6 +240,7 @@ kern_return_t ocsp_server_trustSettingsRead(
 kern_return_t ocsp_server_trustSettingsWrite(
 	mach_port_t serverport,
 	audit_token_t auditToken,
+	mach_port_t clientport,
 	uint32_t domain,
 	Data authBlob,
 	mach_msg_type_number_t authBlobCnt,
@@ -270,8 +319,11 @@ kern_return_t ocsp_server_trustSettingsWrite(
 	AuthorizationRights authRights = { 1, &authItem };
 	AuthorizationFlags authFlags   = kAuthorizationFlagInteractionAllowed | 
 								     kAuthorizationFlagExtendRights;
+	/* save and restore context around call which can put up UI */
+	switchToContext(clientport, auditToken);
 	ortn = AuthorizationCopyRights(authRef, &authRights, NULL,
 		authFlags, NULL);
+	restoreContext();
 	if(ortn) {
 		ocspdErrorLog("trustSettingsWrite: AuthorizationCopyRights failure\n");		
 	}

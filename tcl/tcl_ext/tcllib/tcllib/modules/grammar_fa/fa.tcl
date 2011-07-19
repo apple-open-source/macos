@@ -1,5 +1,5 @@
 # -*- tcl -*-
-# (c) 2004-1007 Andreas Kupries
+# (c) 2004-2009 Andreas Kupries
 # Grammar / Finite Automatons / Container
 
 # ### ### ### ######### ######### #########
@@ -14,7 +14,7 @@
 ## Requisites
 
 package require grammar::fa::op ; # Heavy FA operations.
-package require snit            ; # OO system in use
+package require snit 1.3        ; # OO system in use (Using hierarchical methods)
 package require struct::list    ; # Extended list operations.
 package require struct::set     ; # Extended set operations.
 
@@ -39,22 +39,22 @@ snit::type ::grammar::fa {
     method deserialize_merge {value} {}
 
     method states {} {}
-    method state {cmd s args} {}
+    #method state {cmd s args} {}
 
     method startstates {} {}
     method start?      {s} {}
     method start?set   {states} {}
-    method start       {cmd args} {}
+    #method start       {cmd args} {}
 
     method finalstates {} {}
     method final?      {s} {}
     method final?set   {states} {}
-    method final       {cmd args} {}
+    #method final       {cmd args} {}
 
     method symbols     {} {}
     method symbols@    {state} {}
     method symbols@set {states} {}
-    method symbol      {cmd sym} {}
+    #method symbol      {cmd sym} {}
 
     method next  {s sym args} {}
     method !next {s sym args} {}
@@ -311,150 +311,143 @@ snit::type ::grammar::fa {
 	return [array names order]
     }
 
-    method state {cmd s args} {
-	switch -exact -- $cmd {
-	    add {
-		set args [linsert $args 0 $s]
-		foreach s $args {
-		    if {[info exists order($s)]} {
-			return -code error "State \"$s\" is already known"
-		    }
-		}
-		foreach s $args {set order($s) [incr scount]}
-		return
-	    }
-	    delete {
-		set args [linsert $args 0 $s]
-		$self StateCheckSet $args
-
-		foreach s $args {
-		    unset -nocomplain start($s)                   ; # Start/Initial indicator
-		    unset -nocomplain final($s)                   ; # Final/Accept indicator
-
-		    # Remove all inbound transitions.
-		    if {[info exists transinv($s)]} {
-			set src $transinv($s)
-			unset    transinv($s)
-
-			foreach srcitem $src {
-			    struct::list assign $srcitem sin sym
-			    $self !Next $sin $sym $s
-			}
-		    }
-
-		    # We remove transition data only after the inbound
-		    # ones. Otherwise we screw up the removal of
-		    # looping transitions. We have to consider the
-		    # backpointers to us in transinv as well.
-
-		    upvar #0  ${selfns}::trans_$order($s) jump
-		    if {[info exists jump]} {
-			foreach sym [array names jump] {
-			    $self !Transym $s $sym
-			    foreach nexts $jump($sym) {
-				$self !Transinv $s $sym $nexts
-			    }
-			}
-
-			unset ${selfns}::trans_$order($s) ; # Transitions from s
-		    }
-		    unset order($s)                               ; # State ordering
-
-		    # Removal of a state may break the automaton into
-		    # disconnected pieces. This means that the set of
-		    # reachable and useful states may change, and the
-		    # cache cannot be used from now on.
-
-		    $self InvalidateReach
-		    $self InvalidateUseful
-		}
-		return
-	    }
-	    rename {
-		set alen [llength $args]
-		if {($alen != 1)} {
-		    return -code error "wrong#args: [list $self] state rename s s'"
-		}
-		$self StateCheck $s
-		set snew [lindex $args 0]
-		if {[info exists order($snew)]} {
-		    return -code error "State \"$snew\" is already known"
-		}
-
-		set o $order($s)
-		unset order($s)                               ; # State ordering
-		set   order($snew) $o
-
-                # Start/Initial indicator
-		if {[info exists start($s)]} {
-		    set   start($snew) $start($s)
-		    unset start($s)
-		}
-                # Final/Accept indicator
-		if {[info exists final($s)]} {
-		    set   final($snew) $final($s)
-		    unset final($s)
-		}
-		# Update all inbound transitions.
-		if {[info exists transinv($s)]} {
-		    set   transinv($snew) $transinv($s)
-		    unset transinv($s)
-
-		    # We have to perform a bit more here. We have to
-		    # go through the inbound transitions and chane the
-		    # listed destination state to the new name.
-
-		    foreach srcitem $transinv($snew) {
-			struct::list assign $srcitem sin sym
-			upvar #0 ${selfns}::trans_$order($sin) jump
-			upvar 0 jump($sym) destinations
-			set pos [lsearch -exact $destinations $s]
-			set destinations [lreplace $destinations $pos $pos $snew]
-		    }
-		}
-
-		# Another place to change are the back pointers from
-		# all the states we have transitions to, i.e. transinv
-		# for all outbound states.
-
-		upvar #0 ${selfns}::trans_$o jump
-		if {[info exists jump]} {
-		    foreach sym [array names jump] {
-			foreach sout $jump($sym) {
-			    upvar 0 transinv($sout) backpointer
-			    set pos [lsearch -exact $backpointer [list $s $sym]]
-			    set backpointer [lreplace $backpointer $pos $pos [list $snew $sym]]
-			}
-
-			# And also to update: Transym information for the symbol.
-			upvar 0 transym($sym) users
-			set pos [lsearch -exact $users $s]
-			set users [lreplace $users $pos $pos $snew]
-		    }
-		}
-
-		# Changing the name of a state does not change the
-		# reachables / useful states per se. We just may have
-		# to replace the name in the caches as well.
-
-		# - Invalidation will do the same, at the expense of a
-		# - larger computation later.
-
-		$self InvalidateReach
-		$self InvalidateUseful
-	    }
-	    exists {
-		set alen [llength $args]
-		if {$alen != 0} {
-		    return -code error "wrong#args: [list $self] state exists s"
-		}
-		return [info exists order($s)]
-	    }
-	    default {
-		return -code error "Expected add, exists, delete, or rename, got \"$cmd\""
+    method {state add} {s args} {
+	set args [linsert $args 0 $s]
+	foreach s $args {
+	    if {[info exists order($s)]} {
+		return -code error "State \"$s\" is already known"
 	    }
 	}
+	foreach s $args {set order($s) [incr scount]}
 	return
+    }
+
+    method {state delete} {s args} {
+	set args [linsert $args 0 $s]
+	$self StateCheckSet $args
+
+	foreach s $args {
+	    unset -nocomplain start($s)                   ; # Start/Initial indicator
+	    unset -nocomplain final($s)                   ; # Final/Accept indicator
+
+	    # Remove all inbound transitions.
+	    if {[info exists transinv($s)]} {
+		set src $transinv($s)
+		unset    transinv($s)
+
+		foreach srcitem $src {
+		    struct::list assign $srcitem sin sym
+		    $self !Next $sin $sym $s
+		}
+	    }
+
+	    # We remove transition data only after the inbound
+	    # ones. Otherwise we screw up the removal of
+	    # looping transitions. We have to consider the
+	    # backpointers to us in transinv as well.
+
+	    upvar #0  ${selfns}::trans_$order($s) jump
+	    if {[info exists jump]} {
+		foreach sym [array names jump] {
+		    $self !Transym $s $sym
+		    foreach nexts $jump($sym) {
+			$self !Transinv $s $sym $nexts
+		    }
+		}
+
+		unset ${selfns}::trans_$order($s) ; # Transitions from s
+	    }
+	    unset order($s)                               ; # State ordering
+
+	    # Removal of a state may break the automaton into
+	    # disconnected pieces. This means that the set of
+	    # reachable and useful states may change, and the
+	    # cache cannot be used from now on.
+
+	    $self InvalidateReach
+	    $self InvalidateUseful
+	}
+	return
+    }
+
+    method {state rename} {s snew} {
+	$self StateCheck $s
+	if {[info exists order($snew)]} {
+	    return -code error "State \"$snew\" is already known"
+	}
+
+	set o $order($s)
+	unset order($s)                               ; # State ordering
+	set   order($snew) $o
+
+	# Start/Initial indicator
+	if {[info exists start($s)]} {
+	    set   start($snew) $start($s)
+	    unset start($s)
+	}
+	# Final/Accept indicator
+	if {[info exists final($s)]} {
+	    set   final($snew) $final($s)
+	    unset final($s)
+	}
+	# Update all inbound transitions.
+	if {[info exists transinv($s)]} {
+	    set   transinv($snew) $transinv($s)
+	    unset transinv($s)
+
+	    # We have to perform a bit more here. We have to
+	    # go through the inbound transitions and change the
+	    # listed destination state to the new name.
+
+	    foreach srcitem $transinv($snew) {
+		struct::list assign $srcitem sin sym
+		# For loops access the 'order' array under the
+		# new name, the old entry is already gone. See
+		# above. See bug SF 2595296.
+		if {$sin eq $s} {
+		    set sin $snew
+		}
+		upvar #0 ${selfns}::trans_$order($sin) jump
+		upvar 0 jump($sym) destinations
+		set pos [lsearch -exact $destinations $s]
+		set destinations [lreplace $destinations $pos $pos $snew]
+	    }
+	}
+
+	# Another place to change are the back pointers from
+	# all the states we have transitions to, i.e. transinv
+	# for all outbound states.
+
+	upvar #0 ${selfns}::trans_$o jump
+	if {[info exists jump]} {
+	    foreach sym [array names jump] {
+		foreach sout $jump($sym) {
+		    upvar 0 transinv($sout) backpointer
+		    set pos [lsearch -exact $backpointer [list $s $sym]]
+		    set backpointer [lreplace $backpointer $pos $pos [list $snew $sym]]
+		}
+
+		# And also to update: Transym information for the symbol.
+		upvar 0 transym($sym) users
+		set pos [lsearch -exact $users $s]
+		set users [lreplace $users $pos $pos $snew]
+	    }
+	}
+
+	# Changing the name of a state does not change the
+	# reachables / useful states per se. We just may have
+	# to replace the name in the caches as well.
+
+	# - Invalidation will do the same, at the expense of a
+	# - larger computation later.
+
+	$self InvalidateReach
+	$self InvalidateUseful
+	return
+    }
+
+    method {state exists} {s} {
+	return [info exists order($s)]
     }
 
     # --- --- --- --------- --------- ---------
@@ -476,49 +469,38 @@ snit::type ::grammar::fa {
 	return 0
     }
 
-    method start {cmd args} {
-	# Note: Adding or removing start states does not change
-	# usefulness, only reachability
-	switch -exact -- $cmd {
-	    add {
-		if {[llength $args] < 1} {
-		    return -code error "wrong#args: start add state ..."
-		}
-		$self StateCheckSet $args
-		foreach s $args {set start($s) .}
-		$self InvalidateReach
-	    }
-	    set {
-		if {[llength $args] != 1} {
-		    return -code error "wrong#args: start set states"
-		}
-		set states [lindex $args 0]
-		$self StateCheckSet $states
-		array unset start
-		foreach s $states {set start($s) .}
-		$self InvalidateReach
-	    }
-	    remove {
-		if {[llength $args] < 1} {
-		    return -code error "wrong#args: start remove state ..."
-		}
-		$self StateCheckSet $args
-		foreach s $args {
-		    unset -nocomplain start($s)
-		}
-		$self InvalidateReach
-	    }
-	    clear {
-		if {[llength $args] != 0} {
-		    return -code error "wrong#args: start clear"
-		}
-		array unset start
-		$self InvalidateReach
-	    }
-	    default {
-		return -code error "Expected add, clear, remove, or set, got \"$cmd\""
-	    }
+    # Note: Adding or removing start states does not change
+    # usefulness, only reachability
+
+    method {start add} {state args} {
+	set args [linsert $args 0 $state]
+	$self StateCheckSet $args
+	foreach s $args {set start($s) .}
+	$self InvalidateReach
+	return
+    }
+
+    method {start set} {states} {
+	$self StateCheckSet $states
+	array unset start
+	foreach s $states {set start($s) .}
+	$self InvalidateReach
+	return
+    }
+
+    method {start remove} {state args} {
+	set args [linsert $args 0 $state]
+	$self StateCheckSet $args
+	foreach s $args {
+	    unset -nocomplain start($s)
 	}
+	$self InvalidateReach
+	return
+    }
+
+    method {start clear} {} {
+	array unset start
+	$self InvalidateReach
 	return
     }
 
@@ -541,49 +523,38 @@ snit::type ::grammar::fa {
 	return 0
     }
 
-    method final {cmd args} {
-	# Note: Adding or removing start states does not change
-	# reachability, only usefulness
-	switch -exact -- $cmd {
-	    add {
-		if {[llength $args] < 1} {
-		    return -code error "wrong#args: final add state ..."
-		}
-		$self StateCheckSet $args
-		foreach s $args {set final($s) .}
-		$self InvalidateUseful
-	    }
-	    set {
-		if {[llength $args] != 1} {
-		    return -code error "wrong#args: final set states"
-		}
-		set states [lindex $args 0]
-		$self StateCheckSet $states
-		array unset final
-		foreach s $states {set final($s) .}
-		$self InvalidateReach
-	    }
-	    remove {
-		if {[llength $args] < 1} {
-		    return -code error "wrong#args: final remove state ..."
-		}
-		$self StateCheckSet $args
-		foreach s $args {
-		    unset -nocomplain final($s)
-		}
-		$self InvalidateUseful
-	    }
-	    clear {
-		if {[llength $args] != 0} {
-		    return -code error "wrong#args: final clear"
-		}
-		array unset final
-		$self InvalidateReach
-	    }
-	    default {
-		return -code error "Expected add, clear, remove, or set, got \"$cmd\""
-	    }
+    # Note: Adding or removing final states does not change
+    # reachability, only usefulness
+
+    method {final add} {state args} {
+	set args [linsert $args 0 $state]
+	$self StateCheckSet $args
+	foreach s $args {set final($s) .}
+	$self InvalidateUseful
+	return
+    }
+
+    method {final set} {states} {
+	$self StateCheckSet $states
+	array unset final
+	foreach s $states {set final($s) .}
+	$self InvalidateReach
+	return
+    }
+
+    method {final remove} {state args} {
+	set args [linsert $args 0 $state]
+	$self StateCheckSet $args
+	foreach s $args {
+	    unset -nocomplain final($s)
 	}
+	$self InvalidateUseful
+	return
+    }
+
+    method {final clear} {} {
+	array unset final
+	$self InvalidateReach
 	return
     }
 
@@ -626,86 +597,74 @@ snit::type ::grammar::fa {
 	return [lsort -uniq $result]
     }
 
-    method symbol {cmd sym args} {
-	switch -exact -- $cmd {
-	    add {
-		set args [linsert $args 0 $sym]
-		foreach sym $args {
-		    if {$sym eq ""} {
-			return -code error "Cannot add illegal empty symbol \"\""
-		    }
-		    if {[info exists symbol($sym)]} {
-			return -code error "Symbol \"$sym\" is already known"
-		    }
-		}
-		foreach sym $args {set symbol($sym) .}
+    method {symbol add} {sym args} {
+	set args [linsert $args 0 $sym]
+	foreach sym $args {
+	    if {$sym eq ""} {
+		return -code error "Cannot add illegal empty symbol \"\""
 	    }
-	    delete {
-		set args [linsert $args 0 $sym]
-		$self SymbolCheckSetNE $args
-		foreach sym $args {
-		    unset symbol($sym)
-
-		    # Delete all transitions using the removed symbol.
-
-		    if {[info exists transym($sym)]} {
-			foreach s $transym($sym) {
-			    $self !Next $s $sym
-			}
-		    }
-		}
+	    if {[info exists symbol($sym)]} {
+		return -code error "Symbol \"$sym\" is already known"
 	    }
-	    rename {
-		set alen [llength $args]
-		if {$alen != 1} {
-		    return -code error "wrong#args: [list $self] symbol rename sym newsym"
+	}
+	foreach sym $args {set symbol($sym) .}
+	return
+    }
+
+    method {symbol delete} {sym args} {
+	set args [linsert $args 0 $sym]
+	$self SymbolCheckSetNE $args
+	foreach sym $args {
+	    unset symbol($sym)
+
+	    # Delete all transitions using the removed symbol.
+
+	    if {[info exists transym($sym)]} {
+		foreach s $transym($sym) {
+		    $self !Next $s $sym
 		}
-		$self SymbolCheckNE $sym
-		set newsym [lindex $args 0]
-
-		if {$newsym eq ""} {
-		    return -code error "Cannot add illegal empty symbol \"\""
-		}
-		if {[info exists symbol($newsym)]} {
-		    return -code error "Symbol \"$newsym\" is already known"
-		}
-
-		unset symbol($sym)
-		set symbol($newsym) .
-
-		if {[info exists transym($sym)]} {
-		    set   transym($newsym) [set states $transym($sym)]
-		    unset transym($sym)
-
-		    foreach s $states {
-			# Update the jump tables for each of the states
-			# using this symbol, and the reverse tables as
-			# well.
-
-			upvar #0 ${selfns}::trans_$order($s) jump
-			set   jump($newsym) [set destinations $jump($sym)]
-			unset jump($sym)
-
-			foreach sd $destinations {
-			    upvar 0 transinv($sd) backpointer
-			    set pos [lsearch -exact $backpointer [list $s $sym]]
-			    set backpointer [lreplace $backpointer $pos $pos [list $s $newsym]]
-			}
-		    }
-		}
-	    }
-	    exists {
-		set alen [llength $args]
-		if {$alen != 0} {
-		    return -code error "wrong#args: [list $self] symbol exists sym"
-		}
-		return [info exists symbol($sym)]
-	    }
-	    default {
-		return -code error "Expected add, delete, exists, or rename, got \"$cmd\""
 	    }
 	}
 	return
+    }
+
+    method {symbol rename} {sym newsym} {
+	$self SymbolCheckNE $sym
+	if {$newsym eq ""} {
+	    return -code error "Cannot add illegal empty symbol \"\""
+	}
+	if {[info exists symbol($newsym)]} {
+	    return -code error "Symbol \"$newsym\" is already known"
+	}
+
+	unset symbol($sym)
+	set symbol($newsym) .
+
+	if {[info exists transym($sym)]} {
+	    set   transym($newsym) [set states $transym($sym)]
+	    unset transym($sym)
+
+	    foreach s $states {
+		# Update the jump tables for each of the states
+		# using this symbol, and the reverse tables as
+		# well.
+
+		upvar #0 ${selfns}::trans_$order($s) jump
+		set   jump($newsym) [set destinations $jump($sym)]
+		unset jump($sym)
+
+		foreach sd $destinations {
+		    upvar 0 transinv($sd) backpointer
+		    set pos [lsearch -exact $backpointer [list $s $sym]]
+		    set backpointer [lreplace $backpointer $pos $pos [list $s $newsym]]
+		}
+	    }
+	}
+	return
+    }
+
+    method {symbol exists} {sym} {
+	return [info exists symbol($sym)]
     }
 
     # --- --- --- --------- --------- ---------
@@ -1267,4 +1226,4 @@ snit::type ::grammar::fa {
 # ### ### ### ######### ######### #########
 ## Package Management
 
-package provide grammar::fa 0.3
+package provide grammar::fa 0.4

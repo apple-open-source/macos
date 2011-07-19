@@ -28,6 +28,12 @@
  
 ********************************************************************/
 
+/**
+ * @file
+ * @brief This keeps track of smartcard protocols, timing issues
+ * and Answer to Reset ATR handling.
+ */
+
 #ifndef __atrhandler_h__
 #define __atrhandler_h__
 
@@ -45,58 +51,19 @@ extern "C"
 		struct _ATR
 		{
 			DWORD Length;
-			UCHAR Value[MAX_ATR_SIZE];
 			DWORD HistoryLength;
+			UCHAR Value[MAX_ATR_SIZE];
 			UCHAR HistoryValue[MAX_ATR_SIZE];
 		}
 		ATR;
-
-		DWORD ReadTimeout;
 
 		struct _CardCapabilities
 		{
 			UCHAR AvailableProtocols;
 			UCHAR CurrentProtocol;
 			UCHAR Convention;
-			USHORT ETU;
-
-			struct _PtsData
-			{
-				UCHAR F1;
-				UCHAR D1;
-				UCHAR I1;
-				UCHAR P1;
-				UCHAR N1;
 			}
-			PtsData;
-
-			struct _T1
-			{
-				USHORT BGT;
-				USHORT BWT;
-				USHORT CWT;
-				USHORT CGT;
-				USHORT WT;
-			}
-			T1;
-
-			struct _T0
-			{
-				USHORT BGT;
-				USHORT BWT;
-				USHORT CWT;
-				USHORT CGT;
-				USHORT WT;
-			}
-			T0;
-
-		}
 		CardCapabilities;
-
-		/*
-		 * PREADER_CONNECTION psReaderConnection; 
-		 */
-
 	}
 	SMARTCARD_EXTENSION, *PSMARTCARD_EXTENSION;
 
@@ -111,4 +78,4 @@ extern "C"
 }
 #endif
 
-#endif							/* __smclib_h__ */
+#endif							/* __atrhandler_h__ */

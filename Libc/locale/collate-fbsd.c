@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.33 2004/09/22 16:56:48 stefanf Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.35 2005/02/27 20:31:13 ru Exp $");
 
 #include "xlocale_private.h"
 /* assumes the locale_t variable is named loc */

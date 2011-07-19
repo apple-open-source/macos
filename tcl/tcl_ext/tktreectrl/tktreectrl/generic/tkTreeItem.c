@@ -3,9 +3,9 @@
  *
  *	This module implements items for treectrl widgets.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeItem.c,v 1.106 2008/07/21 18:49:33 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeItem.c,v 1.113 2010/03/08 17:04:58 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -60,6 +60,7 @@ struct TreeItem_ {
 #define ITEM_FLAG_BUTTON	0x0008 /* -button true */
 #define ITEM_FLAG_BUTTON_AUTO	0x0010 /* -button auto */
 #define ITEM_FLAG_VISIBLE	0x0020 /* -visible */
+#define ITEM_FLAG_WRAP		0x0040 /* -wrap */
     int flags;
     TagInfo *tagInfo;	/* Tags. May be NULL. */
 };
@@ -75,6 +76,7 @@ static CONST char *ItemUid = "Item", *ItemColumnUid = "ItemColumn";
 
 #define IS_DELETED(i) (((i)->flags & ITEM_FLAG_DELETED) != 0)
 #define IS_VISIBLE(i) (((i)->flags & ITEM_FLAG_VISIBLE) != 0)
+#define IS_WRAP(i) (((i)->flags & ITEM_FLAG_WRAP) != 0)
 
 /*
  * Flags returned by Tk_SetOptions() (see itemOptionSpecs below).
@@ -82,6 +84,7 @@ static CONST char *ItemUid = "Item", *ItemColumnUid = "ItemColumn";
 #define ITEM_CONF_BUTTON		0x0001
 #define ITEM_CONF_SIZE			0x0002
 #define ITEM_CONF_VISIBLE		0x0004
+#define ITEM_CONF_WRAP			0x0008
 
 /*
  * Information used for Item objv parsing.
@@ -99,6 +102,9 @@ static Tk_OptionSpec itemOptionSpecs[] = {
     {TK_OPTION_CUSTOM, "-visible", (char *) NULL, (char *) NULL,
      "1", -1, Tk_Offset(TreeItem_, flags),
      0, (ClientData) NULL, ITEM_CONF_VISIBLE},
+    {TK_OPTION_CUSTOM, "-wrap", (char *) NULL, (char *) NULL,
+     "0", -1, Tk_Offset(TreeItem_, flags),
+     0, (ClientData) NULL, ITEM_CONF_WRAP},
     {TK_OPTION_END, (char *) NULL, (char *) NULL, (char *) NULL,
      (char *) NULL, 0, -1, 0, 0, 0}
 };
@@ -505,8 +511,12 @@ Item_UpdateIndex(TreeCtrl *tree,
 	    parentOpen = TRUE;
 	    parentVis = IS_VISIBLE(parent);
 	}
-	if (parentVis && parentOpen && IS_VISIBLE(item))
+	if (parentVis && parentOpen && IS_VISIBLE(item)) {
 	    item->indexVis = (*indexVis)++;
+	    if (IS_WRAP(item))
+		tree->itemWrapCount++;
+	}
+	
     }
     child = item->firstChild;
     while (child != NULL) {
@@ -554,10 +564,16 @@ Tree_UpdateItemIndex(
     /* Also track max depth */
     tree->depth = -1;
 
+    /* Count visible items with -wrap=true */
+    tree->itemWrapCount = 0;
+
     item->index = 0;
     item->indexVis = -1;
-    if (tree->showRoot && IS_VISIBLE(item))
+    if (tree->showRoot && IS_VISIBLE(item)) {
 	item->indexVis = indexVis++;
+	if (IS_WRAP(item))
+	    tree->itemWrapCount++;
+    }
     item = item->firstChild;
     while (item != NULL) {
 	Item_UpdateIndex(tree, item, &index, &indexVis);
@@ -1134,6 +1150,31 @@ TreeItem_GetParent(
     )
 {
     return item->parent;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TreeItem_GetWrap --
+ *
+ *	Return whether an Item -wrap is TRUE or FALSE.
+ *
+ * Results:
+ *	TRUE if the item should wrap, FALSE otherwise.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int
+TreeItem_GetWrap(
+    TreeCtrl *tree,		/* Widget info. */
+    TreeItem item		/* Item token. */
+    )
+{
+    return (item->flags & ITEM_FLAG_WRAP) != 0;
 }
 
 /*
@@ -3057,7 +3098,7 @@ TreeItem_RemoveColumns(
     }
     if (prev != NULL)
 	prev->next = next;
-    else
+    else if (first == 0)
 	item->columns = next;
 }
 
@@ -3976,7 +4017,7 @@ typedef int (*TreeItemWalkSpansProc)(
  *----------------------------------------------------------------------
  */
 
-void
+static void
 TreeItem_WalkSpans(
     TreeCtrl *tree,		/* Widget info. */
     TreeItem item,		/* Item token. */
@@ -4366,7 +4407,7 @@ TreeItem_DrawButton(
     if (!TreeItem_HasButton(tree, item))
 	return;
 
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_TK_CARBON)
     /* QuickDraw on Mac is offset by one pixel in both x and y. */
     macoffset = 1;
 #endif
@@ -4735,6 +4776,7 @@ static int Item_Configure(
     Tcl_Obj *errorResult = NULL;
     int mask;
     int lastVisible = IS_VISIBLE(item);
+    int lastWrap = IS_WRAP(item);
 
     for (error = 0; error <= 1; error++) {
 	if (error == 0) {
@@ -4804,6 +4846,12 @@ static int Item_Configure(
 	Tree_DInfoChanged(tree, DINFO_REDO_RANGES | DINFO_REDO_SELECTION);
     }
 
+    if ((mask & ITEM_CONF_WRAP) && (IS_WRAP(item) != lastWrap)) {
+	tree->updateIndex = 1;
+	Tree_InvalidateColumnWidth(tree, NULL);
+	Tree_DInfoChanged(tree, DINFO_REDO_RANGES);
+    }
+
     return TCL_OK;
 }
 
@@ -4836,12 +4884,13 @@ ItemCreateCmd(
     TreeCtrl *tree = clientData;
     static CONST char *optionNames[] = { "-button", "-count", "-height",
 	"-nextsibling", "-open", "-parent", "-prevsibling", "-returnid",
-	"-tags", "-visible",
+	"-tags", "-visible", "-wrap",
 	(char *) NULL };
     enum { OPT_BUTTON, OPT_COUNT, OPT_HEIGHT, OPT_NEXTSIBLING,
 	OPT_OPEN, OPT_PARENT, OPT_PREVSIBLING, OPT_RETURNID, OPT_TAGS,
-	OPT_VISIBLE };
+	OPT_VISIBLE, OPT_WRAP };
     int index, i, count = 1, button = 0, returnId = 1, open = 1, visible = 1;
+    int wrap = 0;
     int height = 0;
     TreeItem item, parent = NULL, prevSibling = NULL, nextSibling = NULL;
     TreeItem head = NULL, tail = NULL;
@@ -4882,6 +4931,7 @@ ItemCreateCmd(
 		if (count <= 0) {
 		    FormatResult(interp, "bad count \"%d\": must be > 0",
 			    count);
+		    return TCL_ERROR;
 		}
 		break;
 	    case OPT_HEIGHT:
@@ -4891,6 +4941,7 @@ ItemCreateCmd(
 		if (height < 0) {
 		    FormatResult(interp, "bad screen distance \"%s\": must be > 0",
 			    Tcl_GetString(objv[i + 1]));
+		    return TCL_ERROR;
 		}
 		break;
 	    case OPT_NEXTSIBLING:
@@ -4934,6 +4985,12 @@ ItemCreateCmd(
 		    return TCL_ERROR;
 		}
 		break;
+	    case OPT_WRAP:
+		if (Tcl_GetBooleanFromObj(interp, objv[i + 1], &wrap)
+			!= TCL_OK) {
+		    return TCL_ERROR;
+		}
+		break;
 	}
     }
 
@@ -4961,6 +5018,8 @@ ItemCreateCmd(
 	else item->flags &= ~ITEM_FLAG_VISIBLE;
 	if (open) item->state |= STATE_OPEN;
 	else item->state &= ~STATE_OPEN;
+	if (wrap) item->flags |= ITEM_FLAG_WRAP;
+	else item->flags &= ~ITEM_FLAG_WRAP;
 	item->fixedHeight = height;
 
 	/* Apply each column's -itemstyle option. */
@@ -5977,7 +6036,7 @@ CompareProc(
 	}
     }
 #ifdef STABLE_SORT
-    return (a->index < b->index) ? -1 : 1;
+    return ((a->index < b->index) == sortData->columns[0].order) ? -1 : 1;
 #else
     return 0;
 #endif
@@ -7954,7 +8013,7 @@ TreeItemCmd(
 	/* T item span I ?C? ?span? ?C span ...? */
 	case COMMAND_SPAN: {
 	    TreeColumn treeColumn = tree->columns;
-	    Column *column = item->columns;
+	    Column *column;
 	    Tcl_Obj *listObj;
 	    struct columnSpan {
 		TreeColumnList columns;
@@ -7970,6 +8029,7 @@ TreeItemCmd(
 	    }
 	    if (objc == 4) {
 		listObj = Tcl_NewListObj(0, NULL);
+		column = item->columns;
 		while (treeColumn != NULL) {
 		    Tcl_ListObjAppendElement(interp, listObj,
 			    Tcl_NewIntObj(column ? column->span : 1));
@@ -8710,6 +8770,7 @@ TreeItem_Init(
     ItemButtonCO_Init(itemOptionSpecs, "-button", ITEM_FLAG_BUTTON,
 	    ITEM_FLAG_BUTTON_AUTO);
     BooleanFlagCO_Init(itemOptionSpecs, "-visible", ITEM_FLAG_VISIBLE);
+    BooleanFlagCO_Init(itemOptionSpecs, "-wrap", ITEM_FLAG_WRAP);
 
     tree->itemOptionTable = Tk_CreateOptionTable(tree->interp, itemOptionSpecs);
 

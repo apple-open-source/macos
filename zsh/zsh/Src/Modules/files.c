@@ -382,9 +382,7 @@ recursivecmd(char *nam, int opt_noerr, int opt_recurse, int opt_safe,
     reccmd.dirpost_func = dirpost_func;
     reccmd.leaf_func = leaf_func;
     reccmd.magic = magic;
-    ds.ino = ds.dev = 0;
-    ds.dirname = NULL;
-    ds.dirfd = ds.level = -1;
+    init_dirsav(&ds);
     if (opt_recurse || opt_safe) {
 	if ((ds.dirfd = open(".", O_RDONLY|O_NOCTTY)) < 0 &&
 	    zgetdir(&ds) && *ds.dirname != '/')
@@ -428,7 +426,8 @@ recursivecmd(char *nam, int opt_noerr, int opt_recurse, int opt_safe,
     if ((err & 2) && ds.dirfd >= 0 && restoredir(&ds) && zchdir(pwd)) {
 	zsfree(pwd);
 	pwd = ztrdup("/");
-	chdir(pwd);
+	if (chdir(pwd) < 0)
+	    zwarn("failed to chdir(%s): %e", pwd, errno);
     }
     if (ds.dirfd >= 0)
 	close(ds.dirfd);
@@ -475,9 +474,7 @@ recursivecmd_dorec(struct recursivecmd const *reccmd,
     }
     err = err1;
 
-    dsav.ino = dsav.dev = 0;
-    dsav.dirname = NULL;
-    dsav.dirfd = dsav.level = -1;
+    init_dirsav(&dsav);
     d = opendir(".");
     if(!d) {
 	if(!reccmd->opt_noerr)

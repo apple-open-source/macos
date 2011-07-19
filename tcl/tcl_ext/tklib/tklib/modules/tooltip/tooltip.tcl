@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: tooltip.tcl,v 1.15 2008/11/04 16:51:18 patthoyts Exp $
+# RCS: @(#) $Id: tooltip.tcl,v 1.16 2008/12/01 23:37:16 hobbs Exp $
 #
 # Initiated: 28 October 1996
 
@@ -38,11 +38,15 @@ package require msgcat
 # enable OR on
 #	Enables tooltips for defined widgets.
 #
-# <widget> ?-index index? ?-item id? ?message?
+# <widget> ?-index index? ?-items id? ?-tag tag? ?message?
 #	If -index is specified, then <widget> is assumed to be a menu
 #	and the index represents what index into the menu (either the
 #	numerical index or the label) to associate the tooltip message with.
 #	Tooltips do not appear for disabled menu items.
+#	If -item is specified, then <widget> is assumed to be a listbox
+#	or canvas and the itemId specifies one or more items.
+#	If -tag is specified, then <widget> is assumed to be a text
+#	and the tagId specifies a tag.
 #	If message is {}, then the tooltip for that widget is removed.
 #	The widget must exist prior to calling tooltip.  The current
 #	tooltip message for <widget> is returned, if any.
@@ -61,6 +65,7 @@ package require msgcat
 
 namespace eval ::tooltip {
     namespace export -clear tooltip
+    variable labelOpts
     variable tooltip
     variable G
 
@@ -79,6 +84,14 @@ namespace eval ::tooltip {
             set G(fade) 0 ; # don't fade by default on X11
         }
     }
+    if {![info exists labelOpts]} {
+	# Undocumented variable that allows users to extend / override
+	# label creation options.  Must be set prior to first registry
+	# of a tooltip, or destroy $::tooltip::G(TOPLEVEL) first.
+	set labelOpts [list -highlightthickness 0 -relief solid -bd 1 \
+			   -background lightyellow -fg black]
+    }
+
     # The extra ::hide call in <Enter> is necessary to catch moving to
     # child widgets where the <Leave> event won't be generated
     bind Tooltip <Enter> [namespace code {
@@ -137,6 +150,8 @@ proc ::tooltip::tooltip {w args} {
 	    }
 	    set b $G(TOPLEVEL)
 	    if {![winfo exists $b]} {
+		variable labelOpts
+
 		toplevel $b -class Tooltip
 		if {[tk windowingsystem] eq "aqua"} {
 		    ::tk::unsupported::MacWindowStyle style $b help none
@@ -148,8 +163,7 @@ proc ::tooltip::tooltip {w args} {
 		catch {wm attributes $b -alpha 0.99}
 		wm positionfrom $b program
 		wm withdraw $b
-		label $b.label -highlightthickness 0 -relief solid -bd 1 \
-			-background lightyellow -fg black
+		eval [linsert $labelOpts 0 label $b.label]
 		pack $b.label -ipadx 1
 	    }
 	    if {[info exists tooltip($i)]} { return $tooltip($i) }
@@ -170,18 +184,14 @@ proc ::tooltip::register {w args} {
 		set index [lindex $args 1]
 		set args [lreplace $args 0 1]
 	    }
-	    -item	{
+	    -item - -items {
                 if {[winfo class $w] eq "Listbox"} {
-                    set item [lindex $args 1]
+                    set items [lindex $args 1]
                 } else {
                     set namedItem [lindex $args 1]
-                    if {[catch {$w find withtag $namedItem} item]} {
-                        return -code error "widget \"$w\" is not a canvas, or item\
-			    \"$namedItem\" does not exist in the canvas"
-                    }
-                    if {[llength $item] > 1} {
-                        return -code error "item \"$namedItem\" specifies more\
-			    than one item on the canvas"
+                    if {[catch {$w find withtag $namedItem} items]} {
+                        return -code error "widget \"$w\" is not a canvas, or\
+			    item \"$namedItem\" does not exist in the canvas"
                     }
                 }
 		set args [lreplace $args 0 1]
@@ -197,14 +207,14 @@ proc ::tooltip::register {w args} {
             }
 	    default	{
 		return -code error "unknown option \"$key\":\
-			should be -index or -item"
+			should be -index, -items or -tag"
 	    }
 	}
 	set key [lindex $args 0]
     }
     if {[llength $args] != 1} {
 	return -code error "wrong # args: should be \"tooltip widget\
-		?-index index? ?-item item? ?-tag tag? message\""
+		?-index index? ?-items item? ?-tag tag? message\""
     }
     if {$key eq ""} {
 	clear $w
@@ -215,14 +225,18 @@ proc ::tooltip::register {w args} {
 	if {[info exists index]} {
 	    set tooltip($w,$index) $key
 	    return $w,$index
-	} elseif {[info exists item]} {
-	    set tooltip($w,$item) $key
-            if {[winfo class $w] eq "Listbox"} {
-                enableListbox $w $item
-            } else {
-                enableCanvas $w $item
-            }
-	    return $w,$item
+	} elseif {[info exists items]} {
+	    foreach item $items {
+		set tooltip($w,$item) $key
+		if {[winfo class $w] eq "Listbox"} {
+		    enableListbox $w $item
+		} else {
+		    enableCanvas $w $item
+		}
+	    }
+	    # Only need to return the first item for the purposes of
+	    # how this is called
+	    return $w,[lindex $items 0]
         } elseif {[info exists tag]} {
             set tooltip($w,t_$tag) $key
             enableTag $w $tag
@@ -425,7 +439,7 @@ proc ::tooltip::enableListbox {w args} {
     bind $w <Any-KeyPress> +[namespace code hide]
     bind $w <Any-Button> +[namespace code hide]
 }
-    
+
 proc ::tooltip::itemTip {w args} {
     variable tooltip
     variable G
@@ -465,4 +479,4 @@ proc ::tooltip::enableTag {w tag} {
     $w tag bind $tag <Any-Button> +[namespace code hide]
 }
 
-package provide tooltip 1.4.3
+package provide tooltip 1.4.4

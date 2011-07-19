@@ -304,6 +304,24 @@ representation is implied */
 #define APPLE_CERT_POLICIES_MACAPPSTORE_RECEIPT		APPLE_CERT_POLICIES_MACAPPSTORE, 1
 #define APPLE_CERT_POLICIES_MACAPPSTORE_RECEIPT_LENGTH	APPLE_CERT_POLICIES_MACAPPSTORE_LENGTH + 1
 
+/*
+ * Base for AppleID Certificate Policy identifiers
+ * macAppStoreCertificatePolicyIDs OBJECT IDENTIFIER ::= 
+ *		{ appleCertificatePolicies 7 }
+ *		{ 1 2 840 113635 100 5 7 }
+ */
+#define APPLE_CERT_POLICIES_APPLEID		APPLE_CERT_POLICIES, 7
+#define APPLE_CERT_POLICIES_APPLEID_LENGTH	APPLE_CERT_POLICIES_LENGTH + 1
+
+/*
+ * AppleID Sharing Certificate Policy identifier
+ * appleIDSharingPolicyID OBJECT IDENTIFIER ::= 
+ *		{ appleCertificatePolicies 7 1 }
+ *		{ 1 2 840 113635 100 5 7 1 }
+ */
+#define APPLE_CERT_POLICIES_APPLEID_SHARING		APPLE_CERT_POLICIES_APPLEID, 1
+#define APPLE_CERT_POLICIES_APPLEID_SHARING_LENGTH	APPLE_CERT_POLICIES_APPLEID_LENGTH + 1
+
 /* -------------------------------------------------------------------------*/
 
 /*
@@ -326,13 +344,59 @@ representation is implied */
 
 /*
  * Basis of MacAppStore receipt verification certificate extensions
- * macAppStoreReceiptExtension OBJECT IDENTIFIER ::= 
- *		{ appleCertificateExtensions 11 1 }
- *		{ 1 2 840 113635 100 6 11 1 }
+ * macAppStoreReceiptExtension OBJECT IDENTIFIER ::=
+ *             { appleCertificateExtensions 11 1 }
+ *             { 1 2 840 113635 100 6 11 1 }
  */
-#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT		APPLE_EXTENSION_OID, 11, 1
-#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT_LENGTH	APPLE_EXTENSION_OID_LENGTH + 2
+#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT            APPLE_EXTENSION_OID, 11, 1
+#define APPLE_EXTENSION_MACAPPSTORE_RECEIPT_LENGTH     APPLE_EXTENSION_OID_LENGTH + 2
 
+/*
+ * Basis of Apple-specific Intermediate Certificate extensions
+ * appleCertificateExtensionIntermediateMarker OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensions 2 }
+ *		{ 1 2 840 113635 100 6 2 }
+ */
+#define APPLE_EXTENSION_INTERMEDIATE_MARKER         APPLE_EXTENSION_OID, 2
+#define APPLE_EXTENSION_INTERMEDIATE_MARKER_LENGTH	APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
+ * Marker for the WWDR Intermediate Certificate
+ * appleCertificateExtensionWWDRIntermediate OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensionIntermediateMarker 1 }
+ *		{ 1 2 840 113635 100 6 2 1 }
+ */
+#define APPLE_EXTENSION_WWDR_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 1
+#define APPLE_EXTENSION_WWDR_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
+ * Marker for the iTunes Store Intermediate Certificate
+ * appleCertificateExtensioniTunesStoreIntermediate OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensionIntermediateMarker 2 }
+ *		{ 1 2 840 113635 100 6 2 2 }
+ */
+#define APPLE_EXTENSION_ITMS_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 2
+#define APPLE_EXTENSION_ITMS_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
+ * Marker for the Application Integration Intermediate Certificate
+ * appleCertificateExtensionApplicationIntegrationIntermediate OBJECT IDENTIFIER ::= 
+ *		{ appleCertificateExtensionIntermediateMarker 3 }
+ *		{ 1 2 840 113635 100 6 2 3 }
+ */
+#define APPLE_EXTENSION_AAI_INTERMEDIATE           APPLE_EXTENSION_INTERMEDIATE_MARKER, 3
+#define APPLE_EXTENSION_AAI_INTERMEDIATE_LENGTH    APPLE_EXTENSION_OID_LENGTH + 1
+
+/*
+ * Marker for the AppleID Sharing Certificate
+ * appleID OBJECT IDENTIFIER ::= 
+ *		{ appleExtendedKeyUsage 7}
+ *		{ 1 2 840 113635 100 4 7 }
+ */
+
+#define APPLE_EXTENSION_APPLEID_SHARING				APPLE_EKU_OID, 7
+#define APPLE_EXTENSION_APPLEID_SHARING_LENGTH		APPLE_EKU_OID_LENGTH + 1
+	
 /*
  * Netscape OIDs.
  */

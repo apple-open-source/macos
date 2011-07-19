@@ -115,6 +115,10 @@ exec_f	f_regex;
 exec_f	f_size;
 exec_f	f_type;
 exec_f	f_user;
+#ifdef __APPLE__
+exec_f	f_xattr;
+exec_f	f_xattrname;
+#endif /* __APPLE__ */
 
 extern int ftsoptions, isdeprecated, isdepth, isoutput, issort, isxargs;
 extern int mindepth, maxdepth;

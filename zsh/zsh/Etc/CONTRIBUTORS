@@ -4,7 +4,7 @@ ZSH CONTRIBUTORS
 
 Zsh was originally written by Paul Falstad <pf@zsh.org>.  Zsh is
 now maintained by the members of the zsh-workers mailing list
-<zsh-workers@sunsite.dk>.  The development is currently coordinated
+<zsh-workers@zsh.org>.  The development is currently coordinated
 by Peter Stephenson <pws@zsh.org>.
 
 This file credits only the major contributors to the current release.
@@ -13,25 +13,39 @@ patches.  Note that email addresses below and in the ChangeLog file
 are included for disambiguation purposes only, and are not guaranteed
 to be currently accurate.  If you feel that you or someone else have
 been unfairly omitted from this list please mail the list
-<zsh-workers@sunsite.dk>.
+<zsh-workers@zsh.org>.
 
 Version 4.3
 -----------
 
 Contributors to the main shell include Clint Adams, Rocky Bernstein, Andrey
 Borzenkov, Dan Bullok, Marc Chantreux, Thorsten Dahlheimer, Wayne Davison,
-Oliver Kiddle, Matthias Kopferman, Mikael Magnusson, Dan Nelson, Phil
-Pennock, Toby Peterson, R. Ramkumar, Bart Schaefer, Joerg Sonnenberger,
-Peter Stephenson, Takimoto Jun, River Tarnell, Philippe Troin, Geoff Wing,
-Matt Wozniski.
+Lionel Flandrin, Michael Hwang, Oliver Kiddle, Greg Klanderman, Matthias
+Kopferman, Mikael Magnusson, Dan Nelson, Phil Pennock, Toby Peterson,
+R. Ramkumar, FranÃ§ois Revol, Bart Schaefer, TomÃ¡Å¡ Smetana, Joerg
+Sonnenberger, Peter Stephenson, Jon Strait, Takimoto Jun, River Tarnell,
+Frank Terbeck, Philippe Troin, Geoff Wing, Matt Wozniski.
 
-The VCS_Info function system was written by Frank Terbeck.
+The VCS_Info function system was written by Frank Terbeck with
+contributions from Julien Langer.
 
-Contributors to completion functions include those above plus Zack Cerza,
-Danek Duvall, Tobias Gruetzmacher, Dough Kearns, Hannu Koivisto, Henryk
-Konsek, Scott Murray, Tomasz Pala, Carlos Phillips, Haakon Riiser, Felix
-Rosencrantz, Stephen Rüger, Kris Shannon, Travis Spencer, Mårten
-Svantesson, Motoi Washida, Jess Weinstein.
+Contributors to documentation and to completion and other shell
+functions include those above plus Nuno Alexandre, Ralph Amissah, Micah
+Anderson, arno, Frank Benkstein, Jay Berkenbilt, Frank Blendinger, Zack
+Cerza, Brendan Cully, Baptiste Daroussin, Danek Duvall, Ryan F, Sean
+Finney, Daniel Friesel, Alexey I. Froloff, Tobias Gruetzmacher, Pierre
+Habouzit, Richard Hartmann, Benjamin R. Haskell, Ag. D. Hatzimanikas,
+Pete Hollobon, Erik Johansson, Kohsuke Kawaguchi, Dough Kearns, Hannu
+Koivisto, Henryk Konsek, Chris Lamb, Vincent Lefevre, Roger Leigh, Eric
+Mangold, Max Mikhanosha, Arkadiusz Miskiewicz, Matthieu Moy, Scott
+Murray, Alexander Myodov, Å tÄ›pÃ¡n NÄ›mec, Kalle Olavi Niemitalo, Kazuhiro
+NISHIYAMA, Omari Norman, Mustafa Oezkan, Tomasz Pala, Peter Palfrader,
+Carlos Phillips, Daniel Qarras, Jean-Baptiste Quenot, David Riebenbauer,
+Haakon Riiser, Ingo Rohlfs, Felix Rosencrantz, Simon Ruderich, Stephen
+RÃ¼ger, William Scott, Kris Shannon, JÃ¶rg Sommer, Travis Spencer, Vincent
+Steman, MÃ¥rten Svantesson, Evgenii Terechkov, Magnus Therning, Ingmar
+Vanhassel, Markus Waldeck, Motoi Washida, Nikolai Weibull, Jesse
+Weinstein.
 
 Version 4.2
 -----------
@@ -175,7 +189,7 @@ Versions 3.1.7 to 3.1.9
   fix guttering, put up shelves in study, recarpet hall, ...
 
 Other patches were submitted by Will Day, Irving Wolfe, John Williams, Vin
-Shelton, Akim Demaille, Helmut Jarausch, Gene Cohler, Johan Sundström.
+Shelton, Akim Demaille, Helmut Jarausch, Gene Cohler, Johan SundstrÃ¶m.
 
 Version 3.1.6
 -------------
@@ -202,7 +216,7 @@ Version 3.1.6
 * Geoff Wing <gcw@zsh.org>:  Zle display code fixes, mailing list and patch
   archive.
 
-* Zoltán Hidvégi <hzoli@cs.elte.hu>: AIX dynamic loading code.
+* ZoltÃ¡n HidvÃ©gi <hzoli@cs.elte.hu>: AIX dynamic loading code.
 
 * Matt Armstrong: cygwin configuration changes.
 
@@ -212,7 +226,7 @@ Furukawa, Ville Herva, Will Day, Lehti Rahmi, Larry P. Schrof, Helmut
 Jarausch, Phil Pennock, Wilfredo Sanchez, Bruce Stephens, Gene Cohler,
 Ollivier Robert, Felix Rosencrantz.
 
-Previous versions of zsh 3 were maintained by Zoltán Hidvégi and Andrew
+Previous versions of zsh 3 were maintained by ZoltÃ¡n HidvÃ©gi and Andrew
 Main (Zefram).
 
 Version 3.0
@@ -224,7 +238,7 @@ Version 3.0
   internal hash tables and rewrote the related builtins (enable, disable,
   hash, unhash).  Made some cleanups in exec.c.
 
-* Zoltán Hidvégi <hzoli@cs.elte.hu> maintained zsh from version
+* ZoltÃ¡n HidvÃ©gi <hzoli@cs.elte.hu> maintained zsh from version
   2.6-beta16.  Rewrote most of the lexer and substitution and the related
   completion code.  Improved sh/ksh/POSIX compatibility.  Fixed lots
   of bugs in completion, parameter and history code.  Made zsh fully

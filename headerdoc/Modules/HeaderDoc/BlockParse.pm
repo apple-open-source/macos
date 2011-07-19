@@ -3,7 +3,7 @@
 # Module name: BlockParse
 # Synopsis: Block parser code
 #
-# Last Updated: $Date: 2009/04/10 07:00:27 $
+# Last Updated: $Date: 2011/05/19 13:01:25 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,6 +27,49 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*!
+#     @header
+#     @abstract
+#         Block parser package File
+#     @discussion
+#         This file contains the BlockParse package, a group of
+#         functions that are used for parsing declarations in
+#         every supported language except Python.
+#
+#         For details, see the package documentation.
+#     @indexgroup HeaderDoc Parser Pieces
+#  */
+
+# /*!
+#     @abstract
+#         Core parser routines and parser interfaces
+#     @discussion
+#         The BlockParse package is a group of functions that
+#         are used for parsing declarations in every supported
+#         language except Python.  (Support functions in this
+#         package are used when parsing Python, but the actual
+#         parsing of Python declarations happens in the
+#         {@link //apple_ref/perl/cl/HeaderDoc::PythonParse PythonParse}
+#         package.)
+#
+#         The main entry points are {@link blockParse} (used for
+#         parsing a declaration and returning information about
+#         what was parsed) and {@link blockParseOutside} (used for
+#         taking both a declaration and a HeaderDoc comment and
+#         reconciling them into a HeaderDoc object (descended from
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}).
+#
+#         Other important functions are {@link cpp_add} (adds a C
+#         preprocessor macro from a parse tree), {@link cpp_add_string}
+#         (adds a C preprocessor macro from a string), and
+#         {@link blockParseReturnState} (used for handling APIs inside
+#         classes &mdash; interprets a
+#         {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState}
+#         object hidden away inside the parse tree for the class,
+#         returning the same results that {@link blockParse} would have
+#         returned had been called on the individual declaration).
+#  */
 package HeaderDoc::BlockParse;
 
 BEGIN {
@@ -42,12 +85,17 @@ foreach (qw(Mac::Files Mac::MoreFiles)) {
     eval "use $_";
 }
 
-$HeaderDoc::disable_parms = 0;
+# $HeaderDoc::disable_parms = 0;
 
 @ISA = qw(Exporter);
-@EXPORT = qw(blockParse nspaces blockParseOutside getAndClearCPPHash cpp_remove buildCommentFromFields bracematching peekmatch);
+@EXPORT = qw(blockParse nspaces blockParseOutside getAndClearCPPHash cpp_remove buildCommentFromFields bracematching peekmatch cpp_add_cl);
+@EXPORT_OK = qr(blockParseReturnState); # Used by Python parser.
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash quote parseTokens isKeyword warnHDComment classTypeFromFieldAndBPinfo casecmp get_super addAvailabilityMacro);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash parseTokens isKeyword warnHDComment classTypeFromFieldAndBPinfo casecmp addAvailabilityMacro printFields objectForUID peek);
+
+use HeaderDoc::HashObject;
+
+use HeaderDoc::PythonParse qw(pythonParse);
 
 my $cpp_debug_file = "";
 $cpp_debug_file = "/tmp/cpp_debug";
@@ -56,7 +104,15 @@ my $cpp_debug_lastfile = "";
 use strict;
 use vars qw($VERSION @ISA);
 use File::Basename qw(basename);
-$HeaderDoc::BlockParse::VERSION = '$Revision: 1.59 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::BlockParse::VERSION = '$Revision: 1305835285 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -70,8 +126,39 @@ if ($^O =~ /MacOS/io) {
 }
 
 
+# /*!
+#     @abstract
+#         C preprocessor token hash for the current header.
+#     @discussion
+#         The token hash contains a mapping of C preprocessor tokens
+#         to their values.  For example, if you have the following define:
+#
+#         <pre>
+#             #define FOO(x, y) (x + (3 * y))
+#         </pre>
+#
+#         then the C preprocessor token hash would contain a key called
+#         <code>FOO</code> with a (string) value of <code>(x + (3 * y))</code>.
+#  */
 my %CPP_HASH = ();
+
+# /*!
+#     @abstract
+#         C preprocessor argument hash for the current header.
+#     @discussion
+#         The token hash contains a mapping of C preprocessor token
+#         names to their argument lists.  For example, if you have
+#         the following define:
+#
+#         <pre>
+#             #define FOO(x, y) (x + (3 * y))
+#         </pre>
+#
+#         then the C preprocessor argument hash would contain a key called
+#         <code>FOO</code> with a (string) value of <code>x, y</code>.
+#  */
 my %CPP_ARG_HASH = ();
+
 my $cppDebugDefault = 0;
 my $cppDebug = 0;
 my $cppDebugFromToken = "";
@@ -80,49 +167,77 @@ my $warnAllMultipleDefinitions = 1;
 
 my $modules_are_special = 1;
 
-# Change this to 0 if you want to hide the parameter name
-# for unlabeled parameters (old behavior)
+# /*!
+#     @abstract
+#         Change this to 0 if you want to hide the parameter name
+#         for unlabeled parameters (old behavior).
+#     @discussion
+#         Historically, HeaderDoc left out unlabeled parameters
+#         in constructing Objective-C method names.  If you
+#         want that behavior, change this value.  This is not
+#         an end-user-tunable parameter (without changing the
+#         code) because it doesn't seem likely that many
+#         people will want to change this behavior.
+#  */
 $HeaderDoc::useParmNameForUnlabeledParms = 1;
 
+# /*!
+#     @abstract
+#         Global variable that turns on input counter debugging in
+#         various parts of the code.
+#  */
 $HeaderDoc::inputCounterDebug = 0;
 
-# Change this to 0 if you don't want to hide IDL attributes (e.g. [foo])
+my $tempDebug = 1;
+
+# /*!
+#     @abstract
+#         Controls whether IDL attributes (e.g. [foo]) should be hidden
+#         in HTML output.
+#     @discussion
+#         By default, these tokens are hidden.  Because this switch
+#         is unlikely to ever be used by anyone, it can be set only
+#         by changing the default value in <code>BlockParse.pm</code>
+#         from <code>1</code> to <code>0</code>.
+#  */
 $HeaderDoc::hideIDLAttributes = 1;
 
+# /* Forward reference.  This is not a HeaderDoc comment, but looks enough
+#    like one to fool the API coverage tool. */
 sub cpp_subparse($);
 
 ################ Code ###################################
 
 
 # /*!
-#    This is a trivial function that returns a look at the top of a stack.
-#    This seems like it should be part of the language.  If there is an
-#    equivalent, this should be dropped.
-# */
-sub peek
-{
-	my $ref = shift;
-	my @stack = @{$ref};
-	my $tos = pop(@stack);
-	push(@stack, $tos);
-
-	return $tos;
-}
-
-# /*! getLangAndSublangFromClassType takes a class token (class, \@class,
-#     \@interface, etc.) and returns a lang and sublang.  Pretty trivial,
-#     but critical....
+#     @abstract
+#         Returns the new language and language dialect based on the
+#         token that began a class declaration.
+#
+#     @param classtype
+#         The class token.
+#
+#     @discussion
+#         This function takes a class token (<code>class</code>,
+#         <code>\@class</code>, <code>\@interface</code>, etc.) and returns
+#         a <code>lang</code> and <code>sublang</code> value.  Pretty trivial,
+#         but critical....
 #  */
 sub getLangAndSublangFromClassType
 {
     my $classtype = shift;
+    my $outerlang = shift;
+    my $outersublang = shift;
+
+    # print STDERR "OUTERLANG: $outerlang OUTERSUBLANG: $outersublang\n";
+
+    if ($outerlang ne "C" && $outerlang ne "Csource") {
+	# This should never change for java/javascript/php.  :-)
+	return ($outerlang, $outersublang);
+    }
+
     my $lang = "C";
     my $sublang = "C";
-
-    if ($HeaderDoc::lang ne "C") {
-	# This should never change for java/javascript/php.  :-)
-	return ($HeaderDoc::lang, $HeaderDoc::sublang);
-    }
 
     if ($classtype =~ /\@/) {
 	$sublang = "occ";
@@ -138,12 +253,24 @@ sub getLangAndSublangFromClassType
 }
 
 # /*!
-#    This is a variant of peek that returns the right token to match
-#    the left token at the top of a brace stack.
+#     @abstract
+#         Returns the closing token that matches the token at the top
+#         of the brace stack.
+#     @param ref
+#         A reference to the brace stack array.
+#     @param fullpath
+#         The path of the current header.  Used for error
+#         messages.
+#     @param linenum
+#         The current line number within the header.  Used for error
+#         messages.
+#     @discussion
+#         This is a variant of {@link //apple_ref/perl/instm/HeaderDoc::Utilities/peek//()  peek}.
 #  */
 sub peekmatch
 {
 	my $ref = shift;
+	my $lang = shift;
 	my $fullpath = shift;
 	my $linenum = shift;
 	my @stack = @{$ref};
@@ -155,16 +282,28 @@ sub peekmatch
 		return "";
 	}
 
-	return bracematching($tos, $fullpath, $linenum);
+	return bracematching($tos, $lang, $fullpath, $linenum);
 }
 
 # /*!
-#     This is used by peekmatch (and by other bits of code) to find the
-#     ending token that matches a starting token for braces, etc.
+#     @abstract
+#         Returns the closing token to match a given
+#         opening token.
+#     @param tos
+#         The opening symbol.
+#     @param calledByParser
+#         If 1, returns the original symbol and prints a warning
+#         message on error.  If 0, returns an empty string on error (with
+#         no warning).
+#     @discussion
+#         This is used by peekmatch (and by other bits of code) to find the
+#         ending token that matches a starting token for braces, parentheses,
+#         and various other tokens that behave similarly.
 #  */
 sub bracematching
 {
 	my $tos = shift;
+	my $lang = shift;
 	my $calledByParser = 0;
 	my $fullpath = "";
 	my $linenum = "";
@@ -186,6 +325,9 @@ sub bracematching
 		};
 	    ($tos eq "/") && do {
 			return "/";
+		};
+	    ($tos eq "|") && do {
+			return "|";
 		};
 	    ($tos eq "'") && do {
 			return "'";
@@ -211,6 +353,9 @@ sub bracematching
 	    ($tos eq "\@protocol") && do {
 			return "\@end";
 		};
+	    (($lang eq "ruby") && $tos =~ /(for|while|if|until|begin)/) && do {
+			return "end";
+		};
 	    {
 		# default case
 		if ($calledByParser) {
@@ -224,18 +369,318 @@ sub bracematching
 	}
 }
 
-# /*! The blockParse function is the core of HeaderDoc's parse engine.
-#     @param fullpath the path to the file being parsed.
-#     @param fileoffset the line number where the current block begins.  The line number printed is (fileoffset + inputCounter).
-#     @param inputLinesRef a reference to an array of code lines.
-#     @param inputCounter the offset within the array.  This is added to fileoffset when printing the line number.
-#     @param argparse disable warnings when parsing arguments to avoid seeing them twice.
-#     @param ignoreref a reference to a hash of tokens to ignore on all headers.
-#     @param perheaderignoreref a reference to a hash of tokens, generated from \@ignore headerdoc comments.
-#     @param perheaderignorefuncmacrosref a reference to a hash of tokens, generated from \@ignorefunmacro headerdoc comments.
-#     @param keywordhashref a reference to a hash of keywords.
-#     @param case_sensitive boolean: controls whether keywords should be processed in a case-sensitive fashion.
-#     @result Returns ($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, \@pplStack, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability).
+# /*! @abstract
+#         The core of HeaderDoc's parse engine.
+#     @param fullpath
+#         The path to the file being parsed.
+#     @param fileoffset
+#         The line number where the current block begins.  The
+#         line number printed is <code>(fileoffset + inputCounter)</code>.
+#     @param inputLinesRef
+#         A reference to an array of code lines.
+#     @param inputCounter
+#         The offset within the array.  This is added to fileoffset
+#         when printing the line number.
+#     @param argparse
+#         Set to 1 for parsing function arguments, enum constants,
+#         or struct fields, 2 for reparsing embedded
+#         HeaderDoc markup in a class, 0 otherwise.
+#
+#         This has the following effects:
+#
+#         <ul>
+#         <li>Disables warnings when parsing arguments to avoid seeing them twice.</li>
+#         <li>Disables C preprocessing (to avoid double-replacement).</li>
+#         <li>Sets <code>$parseTokens{assignmentwithcolon} = 2</code> in
+#             AppleScript.</li>
+#         <li>Disables the handling of the <code>of</code> and <code>in</code>
+#             tokens and label keywords in AppleScript.</li>
+#         <li>Forces the block parser to return only the outer name for
+#             a type (a la <code>$HeaderDoc::outerNamesOnly</code>) if
+#             <code>argpase</code> is 2.</li>
+#         </ul>
+#     @param ignoreref
+#         A reference to a hash of tokens to ignore on all headers.
+#     @param perheaderignoreref
+#         A reference to a hash of tokens, generated from <code>\@ignore</code>
+#         headerdoc comments.
+#     @param perheaderignorefuncmacrosref
+#         A reference to a hash of tokens, generated from
+#         <code>\@ignorefunmacro</code> headerdoc comments.
+#     @param keywordhashref
+#         A reference to a hash of keywords.
+#     @param case_sensitive
+#         Boolean value that controls whether keywords should
+#         be processed in a case-sensitive fashion.
+#     @param lang
+#         The language family to use in parsing.  Overrides
+#         <code>HeaderDoc::lang</code>.
+#     @param sublang
+#         The language variant to use in parsing.  Overrides
+#         <code>HeaderDoc::sublang</code>.
+#     @result
+#         Returns the array <code>($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, \@pplStack, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability)</code> to the caller.
+#
+#     @discussion
+#
+#         Most of the variables used by this parser are things that are
+#         used for determining what type of declaration we just parsed.
+#         Such variables are stored as keys in the <code>$parserState</code>
+#         variable.  For more information about these variables, see
+#         the documentation for the
+#         {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState} class.
+#
+#         This parser consists of three parsers running in parallel:
+#
+#         <ul>
+#             <li>The <code>namePending</code> parser &mdash; looks for names a certain number of
+#                 non-keyword tokens after keyword tokens like <code>struct</code>. Used mainly for
+#                 data structures.</li>
+#             <li>The <code>startOfDec</code> parser &mdash; looks for names based on the number of
+#                 tokens since the start of the declaration (SOD/SODEC).  Used for
+#                 functions, etc.</li>
+#             <li>The parameter list parser.</li>
+#             <li>The callback name parser &mdash; uses parameter list parse results.</li>
+#         </ul>
+#
+#    @vargroup External variables
+#
+#         @var HeaderDoc::parseIfElse
+#             Enables parsing of <code>if</code>/<code>else</code>
+#             statements.  Not used by HeaderDoc; used by other
+#             tools that share this parser.
+#         @var HeaderDoc::fileDebug
+#             Set to 1 by the outer layers when the filename
+#             matches a particular filename.  This is useful
+#             when you need to enable lots of debugging for a
+#             single file.  When 1, enables lots of debugging.
+#         @var HeaderDoc::lang
+#             The programming language being parsed.  This is
+#             deprecated, and is used only if you do not pass
+#             in a value for the <code>lang</code> parameter.
+#         @var HeaderDoc::sublang
+#             The programming language dialect being parsed
+#             (e.g. <code>cpp</code> for C++).  This is
+#             deprecated, and is used only if you do not pass
+#             in a value for the <code>sublang</code> parameter.
+#         @var HeaderDoc::AccessControlState
+#             The current access control state (public, private,
+#             protected, etc.).  When a permanent access control
+#             change (with a colon after it) occurs, this global
+#             variable is modified.  After a declaration, the
+#             temporary (per-declaration) access control state is
+#             restored from this variable.
+#         @var HeaderDoc::parsing_man_pages
+#             Set to 1 if (in C) you want a function declaration
+#             to end after the closing parenthesis even if there
+#             is no trailing semicolon.  Do NOT set this for
+#             normal parsing; it will break many typedef
+#             declarations and similar.  This also enables
+#             some broken man page detection for deleting lines
+#             that say <code>or</code> and <code>and</code>.
+#
+#    @vargroup Key parser state variables
+#
+#         @var continue
+#             Indicates that parsing should continue.  Upon receiving a terminating token,
+#                 this gets set to zero, and parsing ends at the end of the line.
+#         @var continue_no_return
+#             This gets high when we see an opening brace at the start of parsing.  If the
+#                 parser returned, you would get a bogus declaration, so instead, the parser
+#                 reboots itself, starting parsing from scratch at the next line.
+#         @var lang
+#             The programming language being parsed.  Set from
+#             <code>HeaderDoc::lang</code>.
+#         @var sublang
+#             The programming language dialect being parsed (e.g. cpp for C++).
+#             Set from <code>HeaderDoc::sublang</code>.
+#         @var callback_typedef_and_name_on_one_line
+#             Legacy formatting cruft variable.
+#         @var inRegexp
+#             Indicates whether the parser is in a regular expression.  Values are:
+#                 <ul>
+#                     <li>0 &mdash; Not in a regex (or in the tail of a regex).</li>
+#                     <li>1 &mdash; In the second part of a two-part regexp, or the only
+#                         part of a one-part regexp.</li>
+#                     <li>2 &mdash; Between the two parts; only occurs if
+#                         the separator is neither '|' nor '/'.  Otherwise,
+#                         this state gets skipped.</li>
+#                     <li>3 &mdash; In the first part of a regular expression
+#                         after the first separator.</li>
+#                     <li>4 &mdash; Before the first separator.  This state
+#                         ends instantly unless there is a prefix.</li>
+#                 </ul>
+#         @var inRegexpFirstPart
+#             When parsing regular expressions, the contents of the right side are
+#                    largely unparsed (no parenthesis or bracket interpolation, for example).
+#                    Thus, it is important to know whether you are in the left side or the
+#                    right side during parsing.  Unfortunately, the <code>inRegexp</code> 
+#                    variable only indicates how many pieces remain in the regexp.  Although
+#                    this is vital information, it is insufficient for this purpose.
+#                    For a single-part regexp, you would have to look for 1, but for a two-part
+#                    regexp, a 1 would indicate the last part instead of the first.
+#                    This variable solves that problem.
+# 
+#                 Values are:
+#
+#                 <ul>
+#                     <li>0 &mdash; Not in the first part of a regular expression.</li>
+#                     <li>1 &mdash; In the first part of a regular expression.</li>
+#                     <li>2 &mdash; Before the first part of a regular expression.</li>
+#                 </ul>
+#
+#                 The value is 2 up to and including the leading symbol (e.g. /).
+#                 It goes to zero upon reaching the symbol that terminates the first
+#                 part of the regular expression (e.g. /).
+#         @var inRegexpCharClass
+#             
+#                 In a regular expression character class, the first character
+#                 behaves differently; a closing bracket as the first character
+#                 in a character class is treated as a literal.  (For example,
+#                 []] is a character class containing only a close bracket.)
+#                 To support this, the <code>inRegexpCharClass</code> has
+#                 several values:
+#
+#                 <ul>
+#                     <li>0 &mdash; Not in a character class.</li>
+#                     <li>1 &mdash; In a chracter class (not at the beginning).</li>
+#                     <li>2 &mdash; The first character of a character class.  (Reduced
+#                         to 1 at end of token loop.)</li>
+#                     <li>3 &mdash; Just saw the opening bracket.  (Reduced to 2 at end
+#                         of token loop.)</li>
+#                     <li>4 &mdash; In a nested character class.  (Reduced to 1
+#                         after closing :] mark.)</li>
+#                     <li>5 &mdash; In a nested character class after possible trailing colon.
+#                         (Reduced to 1 if next character is a right bracket.)</li>
+#                     <li>6 &mdash; In a nested character class at possible trailing colon.
+#                         (Reduced to 5 at end of token loop.)</li>
+#                 </ul>
+#         @var regexpNoInterpolate
+#             Certain regular expression commands don't result in any parsing
+#                 within them (e.g. the tr command).  If set, this is equivalent to
+#                 setting <code>inRegexpFirstPart</code> to 0.
+#         @var leavingRegexp
+#             In the trailing part of a regular expression.
+#         @var inParen
+#             Indicates the number of levels of nested parentheses the current
+#                 token is within.
+#         @var inPType
+#             Indicates that the parser is currently processing a Pascal type declaration.
+#         @var ppSkipOneToken
+#             Used to tell the parameter parsing code to skip the end-of-comment
+#                 character.  (The value of <code>inComment</code> (in the
+#                 <code>parserState</code> object) goes to 0 before that code, so
+#                 without this, it would end up at the start of the next parameter.)
+#
+#    @vargroup Parameter parsing
+#
+#         @var inPrivateParamTypes
+#             In the cruft after a colon in a C++ method declaration.
+#
+#    @vargroup Token variables
+#
+#         @var curline
+#             The (input) line being parsed.
+#         @var part
+#             The current token being processed (from <code>curline</code>).
+#         @var nextpart
+#             The token after the token being processed (from <code>curline</code>).
+#         @var treepart
+#             In some cases, it is necessary to drop a token for formatting purposes but keep it in
+#             the parse tree.  When this is needed, the <code>treepart</code> variable contains
+#             the original token, and the <code>part</code> variable contains a placeholder value
+#             (generally a space).
+#         @var lastchar
+#             This variable is rather odd.  The last token in this string is the last character,
+#             but it may contain multiple characters.  This should probably not be used in the
+#             parser, but it is used in a few spots.
+#         @var lastnspart
+#             The last non-space token encountered.
+#         @var lasttoken
+#             The last token encountered (though newlines and carriage returns may be
+#             replaced by a space).
+#
+#    @vargroup Parser states and parser state insertion
+#
+#         @var parserState
+#             The {@link //apple_ref/perl/cl/HeaderDoc::ParserState ParserState}
+#             object used for storing most of the parser state variables.
+#
+#         @var sethollow
+#             This variable is normally 0.  It gets set to 1 to tell the hollow insertion code
+#             (at the bottom of the token loop) to set the value of the <code>hollow</code>
+#             variable (in the <code>parserState</code> object) to the tree node for the current
+#             token (which has not been created yet at the time this variable gets set).
+#         @var hollowskip
+#             Indicates that in spite of sethollow being set to 1, the current node is a bad place
+#             to insert the parser state because it is one of the access control tokens (e.g.
+#             public/private) or because it isn't really being inserted into the tree.
+#
+#    @vargroup Tree management
+#
+#         @var treeTop
+#             The top of the current parse tree.
+#         @var treeCur
+#             The current position in the parse tree.
+#         @var treeNest
+#             Used to control whether the code at the bottom of the token loop should trigger a loop
+#             nesting after the current token.
+#
+#             <ul>
+#                 <li>0 &mdash; tokens after this one should be siblings of this one.</li>
+#                 <li>1 &mdash; tokens after this one should be nested as children of this node.</li>
+#                 <li>2 &mdash; tokens after this one should be nested as children of this node
+#                     and this node has already been inserted into the tree, so it should not be
+#                     inserted again at the bottom of the loop.</li>
+#             </ul>
+#         @var treeSkip
+#             This gets set to 1 if the current part should not be inserted into the parse tree
+#             (generally because it has already been inserted in some form during parsing).
+#         @var treePopOnNewLine
+#             This indicates that the current position in the parse tree should be popped from
+#             the <code>treeStack</code> stack after the next newline character.
+#
+#    @vargroup Parser stacks
+#
+#         @var regexpStack
+#             Stack for regular expression characters.
+#         @var braceStack
+#             Stack for brace tokens, including the left curly brace, the start-of-template
+#             (<code>sotemplate</code>) value, the left square bracket, the left parenthesis
+#             and the opening class marker for class markers that aren't followed by a left
+#             curly brace (Objective-C <code>\@interface</code>, for example).
+#         @var parsedParamParseStack
+#             A stack containing values from <code>parsedParamParse</code> (in
+#             the <code>parserState</code> object).  These are
+#             pushed and popped on curly braces, parentheses, etc.  This is basically used
+#             for keeping track of which split character to use as the parser goes into
+#             deeper nesting levels (e.g. when dropping into a function pointer/callback
+#             inside a struct).
+#         @var treeStack
+#             A stack of parse trees.  These are pushed and popped at various points during
+#             the parse process as braces, colons, parentheses, etc.  The behavior is
+#             controlled by the variables <code>treeNest</code>, <code>treeSkip</code>,
+#             <code>treePopTwo</code> (in <code>parserState</code>, and
+#             <code>treePopOnNewLine</code>.
+#
+#    @vargroup Legacy junk variables
+# 
+#         @var prespace
+#             Temporary variable used for leading space during formatting.
+#         @var prespaceadjust
+#             Temporary variable used for leading space during formatting.
+#         @var scratch
+#             Temporary storage used during formatting.
+#         @var curstring
+#             The string currently being parsed.  Was at one time used
+#             for checking for quoting, but no longer.
+#         @var continuation
+#             An obscure spacing workaround.
+#         @var forcenobreak
+#             An obscure spacing workaround.
+#         @var setNoInsert
+#             When set to a nonzero value, the <code>noInsert</code> variable in the ParseTree
+#             object created after the next open curly brace gets set to this value.
 # */
 sub blockParse
 {
@@ -249,6 +694,30 @@ sub blockParse
     my $perheaderignorefuncmacrosref = shift;
     my $keywordhashref = shift;
     my $case_sensitive = shift;
+    my $lang = shift;
+    my $sublang = shift;
+
+    if (!$lang) {
+	print STDERR "WARNING: Old API use detected.  Please update your\ncode to call blockParse with a lang argument.\nThis will break in a future version of HeaderDoc.\n";
+	cluck("Backtrace:\n");
+	$lang = $HeaderDoc::lang;
+    }
+    if (!$sublang) {
+	$sublang = $HeaderDoc::sublang;
+	print STDERR "WARNING: Old API use detected.  Please update your\ncode to call blockParse with a sublang argument.\nThis will break in a future version of HeaderDoc.\n";
+	cluck("Backtrace:\n");
+    }
+
+    # print STDERR "AP: $argparse\n";
+
+    # print STDERR "LANG: $lang\n";
+    # print STDERR "SUBLANG: $sublang\n";
+
+    if ($lang eq "python") {
+	return pythonParse($fullpath, $fileoffset, $inputLinesRef, $inputCounter,
+	$argparse, $ignoreref, $perheaderignoreref, $perheaderignorefuncmacrosref,
+	$keywordhashref, $case_sensitive, $lang, $sublang);
+    }
 
     my $apwarn = 0;
     if ($argparse && $apwarn) {
@@ -271,13 +740,14 @@ sub blockParse
     my $sodDebug                = 0 || $HeaderDoc::fileDebug;
     my $valueDebug              = 0;
     my $parmDebug               = 0;
+    my $bitfieldDebug           = 0;
     my $cbnDebug                = 0;
     my $macroDebug              = 0;
     my $apDebug                 = 0;
     my $tsDebug                 = 0;
     my $treeDebug               = 0;
     my $ilcDebug                = 0;
-    my $regexpDebug             = 0;
+    my $regexpDebug             = 0; # 0, 1, 2
     my $parserStackDebug        = 0 || $HeaderDoc::fileDebug;
     my $braceDebug              = 0 || $HeaderDoc::fileDebug;
     my $hangDebug               = 0;
@@ -286,10 +756,14 @@ sub blockParse
     my $gccAttributeDebug       = 0; # also for availability macro argument handling.
     my $occMethodNameDebug      = 0;
     my $moduleDebug             = 0; # prints changes to INMODULE
+    my $lineDebug               = 0 || $HeaderDoc::fileDebug; # Just prints the lines.
     my $liteDebug               = 0 || $HeaderDoc::fileDebug; # Just prints the tokens.
+    my $tokenDebug              = 0;
     my $functionContentsDebug   = 0;
     my $continueDebug           = 0;
     my $parserStateInsertDebug  = 0;
+    my $rubyDebug               = 0;
+    my $asDebug                 = 0;
 
     $cppDebug = $cppDebugDefault || $HeaderDoc::fileDebug;
 
@@ -304,9 +778,8 @@ sub blockParse
     # my @freezeStack = (); # copy of pplStack when frozen.
     # my $frozensodname = "";
     # my $stackFrozen = 0; # set to prevent fake parsed params with inline funcs
-    my $lang = $HeaderDoc::lang;
-    my $perl_or_shell = 0;
-    my $sublang = $HeaderDoc::sublang;
+    # my $lang = $HeaderDoc::lang;
+    # my $sublang = $HeaderDoc::sublang;
     my $callback_typedef_and_name_on_one_line = 1; # deprecated
     # my $returntype = "";
     # my $freezereturn = 0;       # set to prevent fake return types with inline funcs
@@ -380,7 +853,7 @@ sub blockParse
 	# Avoid double-processing macro inclusions.
 	$disable_cpp = 1;
     }
-    if ($lang ne "C" || $sublang eq "PHP") { # || $sublang eq "IDL")
+    if (($lang ne "C" && $lang ne "Csource") || $sublang eq "php") { # || $sublang eq "IDL")
 	$disable_cpp = 1;
     }
 
@@ -389,10 +862,9 @@ sub blockParse
 # warn("in BlockParse\n");
 
     # State variables (part 2 of 3)
-    my $parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+    my $parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
     # $parserState->{hollow} = $treeTop;
-    setHollowWithLineNumbers(\$parserState, $treeTop, $fileoffset, $inputCounter);
-    $parserState->{lang} = $lang;
+    $parserState->setHollowWithLineNumbers($treeTop, $fileoffset, $inputCounter);
     $parserState->{inputCounter} = $inputCounter;
     $parserState->{initbsCount} = 0; # included for consistency....
     my @parserStack = ();
@@ -422,6 +894,9 @@ sub blockParse
     # my $inBrackets = 0;           # square brackets ([]).
     my $inPType = 0;              # in pascal types.
     my $inRegexp = 0;             # in perl regexp.
+    my $leavingRegexp = 0;        # inRegexp just went to zero, but don't process
+                                  # this symbol differently in case it's a brace
+                                  # or parenthesis.
     my $inRegexpFirstPart = 0;    # 2 if in leading chars, 1 after first / or
 				  # whatever, 0 after second / or outside regexp.
     my $inRegexpCharClass = 0;    # 3 until end of loop.
@@ -443,42 +918,60 @@ sub blockParse
     my @regexpStack = ();         # stack of RE tokens (since some can nest).
 
     # Get the parse tokens from Utilities.pm.
-    my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-	$enumname,
-	$typedefname, $varname, $constname, $structisbrace, $macronameref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-	$requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $sublang);
-    my $macrore_pound = macroRegexpFromList($macronameref, 1);
-    my $macrore_nopound = macroRegexpFromList($macronameref, 2);
+    # my ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+	# $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+	# $parseTokens{enumname},
+	# $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
+	# $NOCHANGEclassregexp, $NOCHANGEclassbraceregexp, $NOCHANGEclassclosebraceregexp, $NOCHANGEaccessregexp,
+	# $NOCHANGErequiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $NOCHANGEmoduleregexp, $parseTokens{definename},
+	# $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+	# $NOCHANGElabelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $sublang);
+    my %parseTokens = %{parseTokens($lang, $sublang)};
+    my $labelregexp = $parseTokens{labelregexp};
+    my $classregexp = $parseTokens{classregexp};
+    my $classbraceregexp = $parseTokens{classbraceregexp};
+    my $classclosebraceregexp = $parseTokens{classclosebraceregexp};
+    my $accessregexp = $parseTokens{accessregexp};
+    my $requiredregexp = $parseTokens{requiredregexp};
+    my $moduleregexp = $parseTokens{moduleregexp};
+
+# print STDERR "SOCONSTRUCTOR: \"$parseTokens{soconstructor}\"\n";
+
+    if ($argparse && $lang eq "applescript") {
+	$parseTokens{assignmentwithcolon} = 2;
+    }
+    my $macrore_pound = macroRegexpFromList($parseTokens{macronames}, 1);
+    my $macrore_nopound = macroRegexpFromList($parseTokens{macronames}, 2);
 	# print STDERR "LANG: $lang SUBLANG: $sublang";
     print STDERR "MACRORE_POUND: \"$macrore_pound\"\n" if ($localDebug || $parseDebug);
     print STDERR "MACRORE_NOPOUND: \"$macrore_nopound\"\n" if ($localDebug || $parseDebug);
-# print STDERR "INITIAL PROPNAME $propname\n";
+# print STDERR "INITIAL PROPNAME $parseTokens{propname}\n";
 
     if ($parseDebug) {
-	print STDERR "SOT: $sotemplate EOF: $eotemplate OP: $operator SOC: $soc EOC: $eoc ILC: $ilc ILC_B: $ilc_b\n";
-	print STDERR "SOFUNC: $sofunction SOPROC: $soprocedure SOPREPROC: $sopreproc LBRACE: $lbrace RBRACE:  $rbrace\n";
- 	print STDERR "UNION: $unionname STRUCT: $structname TYPEDEF: $typedefname VAR: $varname CONST: $constname\n";
- 	print STDERR "STRUCTISBRACE: $structisbrace MACRONAMEREF: $macronameref CLASSRE: $classregexp\n";
+	print STDERR "SOT: $parseTokens{sotemplate} EOF: $parseTokens{eotemplate} OP: $parseTokens{operator} SOC: $parseTokens{soc} EOC: $parseTokens{eoc} ILC: $parseTokens{ilc} ILC_B: $parseTokens{ilc_b}\n";
+	print STDERR "SOFUNC: $parseTokens{sofunction} SOPROC: $parseTokens{soprocedure} SOPREPROC: $parseTokens{sopreproc} LBRACE: $parseTokens{lbrace} RBRACE:  $parseTokens{rbrace}\n";
+ 	print STDERR "UNION: $parseTokens{unionname} STRUCT: $parseTokens{structname} TYPEDEF: $parseTokens{typedefname} VAR: $parseTokens{varname} CONST: $parseTokens{constname}\n";
+ 	print STDERR "STRUCTISBRACE: $parseTokens{structisbrace} MACRONAMEREF: $parseTokens{macronames} CLASSRE: $classregexp\n";
 	print STDERR "CLASSBRACERE: $classbraceregexp CLASSCLOSEBRACERE: $classclosebraceregexp ACCESSRE: $accessregexp\n";
 	print STDERR "MODULERE: $moduleregexp\n";
     }
     
 
     # Set up regexp patterns for perl, variable for perl or shell.
-    if ($lang eq "perl" || $lang eq "shell") {
-	$perl_or_shell = 1;
+    if ($lang eq "perl" || $lang eq "shell" || $lang eq "tcl") {
 	if ($lang eq "perl") {
-		$regexpcharpattern = '\\{|\\#\\(|\\/|\\\'|\\"|\\<|\\[|\\`';
-		# } vi bug workaround for previous line
+		# $regexpcharpattern = '\\{|\\#\\(|\\/|\\\'|\\"|\\<|\\[|\\`';
+		# "}" vi bug workaround for previous line
+		$regexpcharpattern = "[[|{#(/'\"<`]";
+		# "}" vi bug workaround for previous line
 		$regexppattern = "qq|qr|qx|qw|q|m|s|tr|y";
 		$singleregexppattern = "qq|qr|qx|qw|q|m";
 	}
     }
 
-    my $pascal = 0;
+    my $pascal = 0; my $ruby = 0;
     if ($lang eq "pascal") { $pascal = 1; }
+    if ($lang eq "ruby") { $ruby = 1; }
 
     # State variables (part 3 of 3)
     # my $lastsymbol = "";          # Name of the last token, wiped by braces,
@@ -552,6 +1045,11 @@ sub blockParse
     my $parsedParam = "";         # The current parameter being parsed.
     my $postPossNL = 0;           # Used to force certain newlines to be added
                                   # to the parse tree (to end macros, etc.)
+    # my $followingrubyrbrace = 0;  # A while or other statement right after
+                                  # an end statement (on the same line) does
+                                  # not get treated as an opening brace.
+                                  # Set to 1 when end is encounered, 0 at
+                                  # following newline.
     # my $categoryClass = "";
     # my $classtype = "";
     # my $inClass = 0;
@@ -581,10 +1079,15 @@ sub blockParse
     my $nlines = $#inputLines;
     my $incrementoffsetatnewline = 0;
     print STDERR "INCOMING INPUTCOUNTER: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
+
+    print STDERR "IL[0]: ".$inputLines[0]."\n" if ($hangDebug);
+
     while ($continue && ($inputCounter <= $nlines)) {
+	print STDERR "IC: $inputCounter NLINES: $nlines\n" if ($hangDebug);
+
 	$HeaderDoc::CurLine = $inputCounter + $fileoffset;
 	my $line = $inputLines[$inputCounter++];
-	print STDERR "GOT LINE: $line\n" if (($localDebug && $apDebug) || $HeaderDoc::inputCounterDebug);
+	print STDERR "GOT LINE: $line\n" if (($localDebug && $apDebug) || $lineDebug || $HeaderDoc::inputCounterDebug);
 	print STDERR "INCREMENTED INPUTCOUNTER [1]\n" if ($HeaderDoc::inputCounterDebug);
 	my @parts = ();
 
@@ -608,9 +1111,24 @@ sub blockParse
 
 	# The tokenizer
 	if ($lang eq "perl" || $lang eq "shell") {
-	    @parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|\W)/, $line);
+	    @parts = split(/("|'|\#|\{|\}|\(|\)|\s|;;|;|::|\\|\<\<|\W)/, $line);
+	} elsif ($lang eq "tcl") {
+	    @parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|::|\/\*|\*\/|\W)/, $line);
+	} elsif ($ruby) {
+	    @parts = split(/(=begin|=end|\%\{|\%\/|\%Q\{|\<\<\-|"|'|\/\/|\/\*|\*\/|::|\-\-|\+\+|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\^|\W)/, $line);
+	} elsif ($lang eq "applescript") {
+	    # Easier to have the tokenizer combine these multi-word tokens than
+	    # to do it later.
+
+	    # Because this regexp terrifies mere mortals, here's an explanation:
+	    # The (?<=\s) causes whatever is after it to match only if what
+	    # preceded it was whitespace, but does not include the whitespace
+	    # as part of the token itself.  This is very important to avoid
+	    # strange behavior.  Similarly, the (?!\s) does the same thing for
+	    # whitespace at the end of the token.
+	    @parts = split(/((?<=\s)apart\s+from(?!\s)|(?<=\s)aside\s+from(?!\s)|(?<=\s)instead\s+of(?!\s)|(?<=\s)out\s+of(?!\s)|"|'|\/\/|\(\*|\*\)|::|\-\-|\+\+|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\^|\W)/, $line);
 	} else {
-	    @parts = split(/("|'|\/\/|\/\*|\*\/|::|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\^|\W)/, $line);
+	    @parts = split(/("|'|\/\/|\/\*|\*\/|\.\.\.|::|\-\-|\+\+|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\^|\W)/, $line);
 	}
 
 	# See note about similar block below.  This block is for fixing the
@@ -669,9 +1187,13 @@ sub blockParse
 		my $cpptreecur = HeaderDoc::ParseTree->new();
 		my $cpptreetop = $cpptreecur;
 
-		# print STDERR "CHECK LINE $line\n";
-		if ($line =~ /^\s*#include (.*)$/) {
-			my $rest = $1;
+		my $definename = $parseTokens{definename};
+
+		print STDERR "CHECK LINE $line\n" if ($cppDebug || $hangDebug);
+		if ($line =~ /^\s*#(include|import)\s(.*)$/) {
+			print STDERR "IS INCLUDE OR IMPORT\n" if ($cppDebug);
+			my $token = $1;
+			my $rest = $2;
 			$rest =~ s/^\s*//s;
 			$rest =~ s/\s*$//s;
 			if ($rest !~ s/^\<(.*)\>$/$1/s) {
@@ -688,6 +1210,7 @@ sub blockParse
 				push(@HeaderDoc::cppArgHashList, $HeaderDoc::HeaderFileCPPArgHashHash{$filename});
 			}
 		} elsif ($line =~ /^\s*$definename\s+/) {
+			print STDERR "IS DEFINE\n" if ($cppDebug);
 			# print STDERR "inMacro -> 1\n";
 			# print STDERR "inMacro -> 1\n" if ($macroDebug || $cppDebug);
 			# This is a throwaway line.
@@ -701,17 +1224,24 @@ sub blockParse
 		do {
 		    my $pos = 0;
 		    my $dropargs = 0;
+
+		    print STDERR "ENTERING CPP LOOP\n" if ($hangDebug);
 		    while ($pos < scalar(@parts)) {
 			my $part = $parts[$pos];
 			my $noCPPThisToken = 0;
+
+			print STDERR "IN CPP LOOP.  PART IS $part INCPPARGS: $incppargs\n" if ($cppDebug || $hangDebug);
+
 			if (length($part)) {
 			    if (!$inChar && !$inString && !$inComment && !$inSLC) {
 				if ($parserState->{NEXTTOKENNOCPP} == 1) {
+					print STDERR "In an \"if\" block (NTNCPP=1)\n" if ($cppDebug);
 					# We're in an "if" block.
 					if ($part eq "defined") {
 						$parserState->{NEXTTOKENNOCPP} = 3;
 					}
 				} elsif ($parserState->{NEXTTOKENNOCPP} == 2) {
+					print STDERR "In an \"ifdef/ifndef\" block\n" if ($cppDebug);
 					# We're in an "ifdef"/"ifndef" block, so first word token
 					# ends this mode completely.
 					if ($part !~ /(\s|\()/) {
@@ -719,6 +1249,7 @@ sub blockParse
 						$noCPPThisToken = 1;
 					}
 				} elsif ($parserState->{NEXTTOKENNOCPP} == 3) {
+					print STDERR "In an \"if\" block (NTNCPP=3)\n" if ($cppDebug);
 					# We're in an "if" block, so first word token
 					# drops us back to default "if" block state.
 					if ($part !~ /(\s|\()/) {
@@ -727,8 +1258,10 @@ sub blockParse
 					}
 				}
 				if ($inCPPSpecial && $part =~ /(ifdef|ifndef)/) {
+					print STDERR "CPPSpecial: ifdef/ifndef\n" if ($cppDebug);
 					$parserState->{NEXTTOKENNOCPP} = 2;
 				} elsif ($inCPPSpecial && $part =~ /if/) {
+					print STDERR "CPPSpecial: if\n" if ($cppDebug);
 					$parserState->{NEXTTOKENNOCPP} = 1;
 				}
 			    }
@@ -736,17 +1269,17 @@ sub blockParse
 
 			    print STDERR "CPPLEADPART: $part\n"if ($cppleaddebug);
 			    if (!$inString && !$inChar) {
-				if ($inComment && $part eq $eoc) {
+				if ($inComment && $part eq $parseTokens{eoc}) {
 					print STDERR "EOC\n"if ($cppleaddebug);
 					$inComment = 0;
 				} elsif ($inSLC && $part =~ /[\r\n]/) {
 					# Handle newline in single-line comments.
 					print STDERR "EOSLC\n"if ($cppleaddebug);
 					$inSLC = 0;
-				} elsif (!$inSLC && $part eq $soc) {
+				} elsif (!$inSLC && $part eq $parseTokens{soc}) {
 					print STDERR "SOC\n"if ($cppleaddebug);
 					$inComment = 1;
-				} elsif (!$inComment && ($part eq $ilc || $part eq $ilc_b)) {
+				} elsif (!$inComment && ($part eq $parseTokens{ilc} || $part eq $parseTokens{ilc_b})) {
 					print STDERR "INSLC\n"if ($cppleaddebug);
 					$inSLC = 1;
 				}
@@ -756,7 +1289,8 @@ sub blockParse
 				my $newpart = $part;
 				my $hasargs = 0;
 				if (!$inComment && !$inSLC && !$noCPPThisToken) {
-					($newpart, $hasargs) = cpp_preprocess($part, $HeaderDoc::CurLine);
+					my $tempstring = "";
+					($newpart, $hasargs, $tempstring) = cpp_preprocess($part, $HeaderDoc::CurLine);
 					# Don't drop tokens in macros.
 					if ($hasargs == 2 && $inMacro) {
 						$newpart = $part;
@@ -770,6 +1304,7 @@ sub blockParse
 					}
 				}
 				if ($hasargs) {
+					print STDERR "HAS ARGS!\n" if ($cppDebug);
 					$incppargs = 1;
 					$cppname = $part;
 					if ($hasargs == 2) {
@@ -935,8 +1470,8 @@ sub blockParse
 			if ($parserState->{inMacro} || $inMacro) {
 			# print STDERR "YOYO\n";
 				if ($cppstring !~ s/\\\s*$//s) {
-print STDERR "CPPS: \"$cppstring\"\n";
 					warn "Non-terminated macro.\n";
+					print STDERR "CPPS: \"$cppstring\"\n";
 					$incppargs = 0;
 				}
 			}
@@ -957,16 +1492,24 @@ print STDERR "CPPS: \"$cppstring\"\n";
 
 			print STDERR "INCREMENTED INPUTCOUNTER [2]\n" if ($HeaderDoc::inputCounterDebug);
 			# @parts = split(/(\W)/, $line);
+
+			# Perform a minimal tokenization of the new line for C preprocessing purposes.
 			if ($lang eq "perl" || $lang eq "shell") {
 			    @parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|\W)/, $line);
+			} elsif ($lang eq "tcl") {
+			    @parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|::|\/\*|\*\/|\W)/, $line);
 			} else {
 			    @parts = split(/("|'|\/\/|\/\*|\*\/|::|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\W)/, $line);
 			}
 		    }
+		    print STDERR "LOOPBOTTOM: $incppargs, $inComment\n" if ($hangDebug);
 		} until (!$incppargs && !$inComment);
-		# The tokenizer
+
+		# Perform a minimal tokenization of the new line for C preprocessing purposes.
 		if ($lang eq "perl" || $lang eq "shell") {
-			@parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|\W)/, $newrawline);
+			@parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|::|\W)/, $newrawline);
+		} elsif ($lang eq "tcl") {
+			@parts = split(/("|'|\#|\{|\}|\(|\)|\s|;|\\|::|\/\*|\*\/|\W)/, $newrawline);
 		} else {
 			@parts = split(/("|'|\/\/|\/\*|\*\/|::|==|<=|>=|!=|\<\<|\>\>|\{|\}|\(|\)|\s|;|\\|\W)/, $newrawline);
 		}
@@ -1033,7 +1576,14 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	foreach my $nextpart (@parts) {
 	    my $hideTokenAndMaybeContents = 0;
 	    my $bshandled = 0;
+	    my $setIsAvailable = 0;
 	    $treeSkip = 0;
+
+	    print STDERR "INMACROLINE: ".$parserState->{inMacroLine}."\n" if ($localDebug || $parseDebug || $parmDebug);
+	    if ($part) { $leavingRegexp = 0; } # Reset to 0 at the top of the loop.
+
+	    print STDERR "********************************************************\n" if ($localDebug || $parseDebug);
+
 	    # $treePopTwo = 0;
 	    # $treePopOnNewLine = 0;
 
@@ -1045,6 +1595,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 	    print STDERR "MYPART: \"$part\"\n" if ($localDebug || $spaceDebug);
 
+	    # print STDERR "pushedfuncbrace: ".$parserState->{pushedfuncbrace}."\n";
+
 	    $forcenobreak = 0;
 
 	    # Convert CR/LF or LF/CR pair to LF
@@ -1055,7 +1607,11 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    if ($nextpart eq "\r") { $nextpart = "\n"; }
 
 	    if ($localDebug && $nextpart eq "\n") { print STDERR "NEXTPART IS NEWLINE!\n"; }
-	    if ($localDebug && $part eq "\n") { print STDERR "PART IS NEWLINE!\n"; }
+	    my $partIsNL = 0;
+	    if ($part eq "\n") {
+		$partIsNL = 1; 
+		if ($localDebug) { print STDERR "PART IS NEWLINE!\n"; }
+	    }
 
 	    ### if ($nextpart ne "\n" && $nextpart =~ /\s/o) {
 		### # Replace tabs with spaces.
@@ -1078,8 +1634,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$part = $nextpart;
 			next;
 	    }
-	    print STDERR "PART IS \"$part\"\n" if ($localDebug || $parserStackDebug || $parseDebug || $liteDebug || $spaceDebug);
-	    print STDERR "QUOTED: ".$parserState->isQuoted()."\n" if ($localDebug || $parserStackDebug || $parseDebug || $liteDebug || $spaceDebug);
+	    print STDERR "PART IS \"$part\"\n" if ($localDebug || $parserStackDebug || $parseDebug || $liteDebug || $spaceDebug || $tokenDebug);
+	    print STDERR "QUOTED: ".$parserState->isQuoted($lang, $sublang)."\n" if ($localDebug || $parserStackDebug || $parseDebug || $liteDebug || $spaceDebug);
 	    print STDERR "CURLINE IS \"$curline\"\n" if ($localDebug || $hangDebug || $liteDebug);
 	    print STDERR "RETURNTYPE IS \"$parserState->{returntype}\"\n" if ($localDebug || $hangDebug || $liteDebug);
 	    print STDERR "INOP: ".$parserState->{inOperator}."\n" if ($operatorDebug);
@@ -1098,10 +1654,16 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		if ($part =~ /\w/) {
 			$occPushParserStateOnWordTokenAfterNext--;
 			print STDERR "occPushParserStateOnWordTokenAfterNext -> $occPushParserStateOnWordTokenAfterNext (--)\n" if ($localDebug || $parseDebug);
+			print STDERR "OCCParse Case 1\n" if ($liteDebug);
 		}
 	    } elsif ($occPushParserStateOnWordTokenAfterNext) {
 		# if ($part !~ /(\s|<)/)
-		if ($part =~ /(\/\/|\/\*|\-|\+|\w|\@)/) {
+		print STDERR "OCCParse Case 2\n" if ($liteDebug);
+
+		if (($part =~ /(\-|\+|\w|\@)/ || ($part eq "/*" && $nextpart eq "!")) && !$parserState->{inComment} && !$parserState->{inInlineComment}) {
+			# die("PART: $part NP: $nextpart\n");
+			print STDERR "OCCParse Case 2a\n" if ($liteDebug);
+			print STDERR "Last tree node set to $treeCur [1]\n" if ($parserStateInsertDebug);
 			$parserState->{lastTreeNode} = $treeCur;
 			print STDERR "parserState pushed onto stack[occPushParserStateOnWordTokenAfterNext]\n" if ($parserStackDebug);
 			$curline = "";
@@ -1109,9 +1671,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 0;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 			$parserState->{noInsert} = $setNoInsert;
@@ -1132,6 +1693,12 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		$fileoffset++;
 	    }
 
+	    if ($treeDebug > 1) {
+		print STDERR "TREE DUMP\n";
+		$treeTop->dbprint();
+		print STDERR "\nEND TREE DUMP\n";
+	    }
+
 	    print STDERR "IN LOOP LANG: $lang INITIAL SUBLANG: $sublang\n" if ($localDebug || $parseDebug);
 	    if ($parseDebug) {
 		print STDERR "PART: $part, type: $parserState->{typestring}, inComment: $parserState->{inComment}, inInlineComment: $parserState->{inInlineComment}, inChar: $parserState->{inChar}.\n" if ($localDebug);
@@ -1145,8 +1712,15 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		print STDERR "PART: sodtype: $parserState->{sodtype}\n";
 		print STDERR "PART: simpleTypedef: $parserState->{simpleTypedef}\n";
 		print STDERR "PART: posstypes: $parserState->{posstypes}\n";
-		print STDERR "PART: seenBraces: $parserState->{seenBraces} inRegexp: $inRegexp inRegexpCharClass: $inRegexpCharClass\n";
-		print STDERR "PART: regexpNoInterpolate: $regexpNoInterpolate\n";
+		print STDERR "PART: seenBraces: $parserState->{seenBraces}\n";
+		print STDERR "SEENIF: ".$parserState->{seenIf}." INIF: ".$parserState->{INIF}."\n";
+	    }
+	    if ($parseDebug || $regexpDebug) {
+		print STDERR "PART: inRegexp: $inRegexp inRegexpCharClass: $inRegexpCharClass\n";
+		print STDERR "PART: inRegexpTrailer: $inRegexpTrailer inRegexpFirstPart: $inRegexpFirstPart\n";
+		print STDERR "PART: leavingRegexp: $leavingRegexp regexpNoInterpolate: $regexpNoInterpolate\n";
+	    }
+	    if ($parseDebug) {
 		print STDERR "PART: seenTilde: $parserState->{seenTilde}\n";
 		print STDERR "PART: CBN: $parserState->{callbackName}\n";
 		print STDERR "PART: regexpStack is:";
@@ -1162,6 +1736,9 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    } elsif ($tsDebug || $treeDebug) {
 		print STDERR "BPPART: $part\n";
 	    }
+	    if ($parseDebug || $parmDebug) {
+		print STDERR "PARSED PARAM IS NOW: $parsedParam\n";
+	    }
 	    if ($parserStackDebug) {
 		print STDERR "parserState: STACK CONTAINS ".scalar(@parserStack)." STATES\n";
 		print STDERR "parserState is $parserState\n";
@@ -1174,14 +1751,33 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    # contained an @availability tag.
 	    # 
 	    my $tempavail = ignore($part, $ignoreref, $perheaderignoreref);
+	    if ($disable_cpp || $parserState->{inString} ||
+                $parserState->{inComment} || $parserState->{inInlineComment} ||
+                $parserState->{inChar} || $inRegexp) {
+		    if ($tempavail == 2 || $tempavail == 3) {
+			print STDERR "Forcing ignore state to zero.  TOKEN: $part TA: $tempavail INSTRING: $parserState->{inString}\n" if ($parseDebug || $regexpDebug);
+			$tempavail = 0;
+		    }
+	    } elsif ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) {
+
+		print STDERR "Forcing ignore state to zero in macro name.  TOKEN: $part TA: $tempavail INSTRING: $parserState->{inString}\n" if ($parseDebug || $regexpDebug);
+		if ($tempavail) {
+			$parserState->{ignoreAvailabilityMacros} = 1;
+			$tempavail = 0;
+		}
+	    }
+	    if ($parserState->{ignoreAvailabilityMacros}) { $tempavail = 0; }
 	    printf("PART: $part TEMPAVAIL: $tempavail\n") if ($localDebug || $gccAttributeDebug);
 	    if ($tempavail && ($tempavail ne "1") && ($tempavail ne "2") && ($tempavail ne "3")) {
 		$parserState->{availability} = $tempavail;
+
+		$setIsAvailable = 1;
+		# print STDERR "SET IS AVAILABLE[1] FOR PART $part\n";
 	    } elsif ($tempavail eq "2" || $tempavail eq "3") {
 		# Reusing the GCC attribute handling code because that does exactly what we need.
+		print STDERR "Attribute-like Availabilitymacro\n" if ($liteDebug);
 		print STDERR "Function-like availability macro detected.  Collecting.\n" if ($localDebug || $gccAttributeDebug);
 		$parserState->{attributeState} = 1;
-		$parserState->{attributeParts} = ();
 
 		# Add __attribute__ as the next token.
 		my $hidden = 0;
@@ -1190,6 +1786,9 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		}
 
 		$treeCur = $treeCur->addSibling($part, $hidden);
+		$treeCur->isAvailabilityMacro(1);
+		# print STDERR "SET IS AVAILABLE[2] FOR PART $part\n";
+
 		# print STDERR "PUSHED $treeCur onto tree stack (__OSX_AVAIL...).\n";
 		push(@treeStack, $treeCur);
 
@@ -1221,10 +1820,29 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    # breaks the syntax.
 	    # Same for asm
 	    my $iskw = isKeyword($part, $keywordhashref, $case_sensitive);
-	    if ($lang eq "C" && ($iskw == 2 || $iskw == 5 || $iskw == 6)) {
+	    if (($iskw == 8) && !$parserState->{attributeState} &&
+		!$parserState->{parsedParamParse} &&
+		!$parserState->{inBrackets} &&
+		!$parserState->{inTemplate} &&
+		!$parserState->{inChar} &&
+		!$parserState->{inString} &&
+		!$parserState->{inComment} &&
+		!$parserState->{inInlineComment} &&
+		!$parserState->{inImplements} &&
+		!$parserState->{inExtends} &&
+		!$parserState->{inClassConformingToProtocol} &&
+		!$parserState->{inRuby} &&
+		!$parserState->{seenBraces} &&
+		!$parserState->{classNameFound} &&
+		!$parserState->{inMacro} &&
+		!$parserState->{inMacroLine} &&
+		!$parserState->{preEqualsSymbol}) {
+			print STDERR "Attribute CASE 1\n" if ($liteDebug);
+			$parserState->{isStatic} = 1;
+	    } elsif (($lang eq "C" || $lang eq "Csource") && ($iskw == 2 || $iskw == 5 || $iskw == 6)) {
+		print STDERR "Attribute CASE 2\n" if ($liteDebug);
 		print STDERR "GCC attribute/asm detected.  Collecting.\n" if ($localDebug || $gccAttributeDebug);
 		$parserState->{attributeState} = 1;
-		$parserState->{attributeParts} = ();
 
 		# Add __attribute__ as the next token.
 		$treeCur = $treeCur->addSibling($part, 0);
@@ -1234,7 +1852,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		$treeCur = $treeCur->addChild("", 0);
 		$part = $nextpart;
 		next;
-	    } elsif ($lang eq "C" && ($iskw == 7)) {
+	    } elsif (($lang eq "C" || $lang eq "Csource") && ($iskw == 7)) {
+		print STDERR "Attribute CASE 3 (Extern C)\n" if ($liteDebug);
 		$parserState->rollbackSet();
 		print STDERR "EXTERN C -> 1\n" if ($externCDebug);
 		$parserState->{externC} = 1;
@@ -1245,6 +1864,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		# $parserState->{preExternCsodtype} = $parserState->{sodtype};
 		# $parserState->{preExternCreturntype} = $parserState->{returntype};
 	    } elsif ($parserState->{attributeState} == 1) {
+		print STDERR "Attribute CASE 4\n" if ($liteDebug);
 		if ($part eq "(") {
 			print STDERR "GCC attribute open paren\n" if ($localDebug || $gccAttributeDebug);
 			$parserState->{attributeState} = -1;
@@ -1253,10 +1873,13 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		$part = $nextpart;
 		next;
 	    } elsif ($parserState->{attributeState} < 0) {
+		print STDERR "Attribute CASE 5\n" if ($liteDebug);
 		if ($part eq "(") {
+			print STDERR "Attribute OPAREN\n" if ($liteDebug);
 			$parserState->{attributeState}--;
 			print STDERR "GCC attribute open paren, count=".(0-$parserState->{attributeState})."\n" if ($localDebug || $gccAttributeDebug);
 		} elsif ($part eq ")") {
+			print STDERR "Attribute CPAREN\n" if ($liteDebug);
 			$parserState->{attributeState}++;
 			print STDERR "GCC attribute close paren, count=".(0-$parserState->{attributeState})."\n" if ($localDebug || $gccAttributeDebug);
 		}
@@ -1271,6 +1894,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		$part = $nextpart;
 		next;
 	    } elsif ($parserState->{externC} == 1) {
+		print STDERR "Attribute CASE 6\n" if ($liteDebug);
 		if ($part =~ /"/) {
 			print STDERR "EXTERN C -> 2\n" if ($externCDebug);
 			$parserState->{externC} = 2;
@@ -1279,6 +1903,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$parserState->{externC} = 0;
 		}
 	    } elsif ($parserState->{externC} == 2) {
+		print STDERR "Attribute CASE 7\n" if ($liteDebug);
 		if ($part =~ /C/) {
 			print STDERR "EXTERN C -> 3\n" if ($externCDebug);
 			$parserState->{externC} = 3;
@@ -1287,6 +1912,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$parserState->{externC} = 0;
 		}
 	    } elsif ($parserState->{externC} == 3) {
+		print STDERR "Attribute CASE 8\n" if ($liteDebug);
 		if ($part =~ /"/) {
 			print STDERR "EXTERN C -> 0[Success]\n" if ($externCDebug);
 			$parserState->{externC} = 0;
@@ -1307,6 +1933,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    # Here be the parser.  Abandon all hope, ye who enter here.
 	    $treepart = "";
 
+	my $tempInIf = 0;
+	if ((!$parserState->{inComment}) && (!$parserState->{inInlineComment}) && ($part ne $parseTokens{ilc}) && (($part ne $parseTokens{soc}) || $nextpart eq "!")) {
 	    if ($parserState->{inProtocol} == 1) {
 		print STDERR "INPROTOCOL: 1\n" if ($parseDebug || $classDebug); 
 		if ($part =~ /\w/) {
@@ -1320,18 +1948,22 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$parserState->{extendsProtocol} = "";
 			$parserState->{inProtocol} = 3;
 		} elsif ($part =~ /\S/) {
+
 			# PUSH PARSER STATE
+			# Don't do this if the next thing is a non-HeaderDoc
+			# comment, though.
+
 			print STDERR "parserState pushed onto stack[PROTOCOL]\n" if ($parserStackDebug);
 			$parserState->{inProtocol} = -1;
 			$parserState->{lastTreeNode} = $treeCur;
+			print STDERR "Last tree node set to $treeCur [2]\n" if ($parserStateInsertDebug);
 			$curline = "";
 			$parserState->{storeDec} = $declaration;
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 1;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 			$pushParserStateAfterWordToken = 0;
@@ -1352,10 +1984,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			print STDERR "inClass -> 1 [1]\n" if ($classDebug);
 			$parserState->{categoryClass} .= $part;
 			print STDERR "parserState will be pushed onto stack[cparen3]\n" if ($parserStackDebug);
+			# print STDERR "Last tree node set to $treeCur [2a]\n" if ($parserStateInsertDebug);
 			# $parserState->{lastTreeNode} = $treeCur;
 			# push(@parserStack, $parserState);
-			# $parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
-			# $parserState->{lang} = $lang;
+			# $parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			# $parserState->{inputCounter} = $inputCounter;
 			# $parserState->{initbsCount} = scalar(@braceStack);
 			$pushParserStateAfterToken = 1;
@@ -1390,6 +2022,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		if ($part eq ")") {
 			$parserState->{inClass} = 1;
 			print STDERR "inClass -> 1 [3]\n" if ($classDebug);
+			print STDERR "Last tree node set to $treeCur [3]\n" if ($parserStateInsertDebug);
 			$parserState->{lastTreeNode} = $treeCur;
 			print STDERR "parserState pushed onto stack[cparen2]\n" if ($parserStackDebug);
 			$curline = "";
@@ -1397,9 +2030,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 1;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 		} elsif ($part eq ":") {
@@ -1420,7 +2052,26 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		print STDERR "INCLASS1\n" if ($parseDebug || $classDebug);
 		# print STDERR "inclass Part is $part\n";
 		print STDERR "IK: $part => ".isKeyword($part, $keywordhashref, $case_sensitive)."\n" if ($parseDebug || $classDebug);;
-		if ($part eq ":") {
+		if ($part eq "::") {
+			print STDERR "INCLASS DOUBLE-COLON\n" if ($classDebug);
+			$parserState->{classNameFound} = 0;
+			if ($parserState->{perlClassName}) {
+				$parserState->{perlClassName} .= $parserState->{sodname}."::";
+			} else {
+				$parserState->{perlClassName} = $parserState->{sodname}."::";
+			}
+
+			$parserState->{startOfDec} = 1; # Skip the :: token; the name is after it.
+
+			print STDERR "PCN: ".$parserState->{perlClassName}."\n" if ($classDebug);
+		} elsif ($part eq "." && !($parserState->{forceClassDone} || $parserState->{inExtends} ||
+		                           $parserState->{inImplements} ||
+		                           $parserState->{inClassConformingToProtocol} ||
+			                   $parserState->{forceClassSuper})) {
+			print STDERR "INCLASS DOT\n" if ($parseDebug || $classDebug);
+			$parserState->{classNameConcat} = 1;
+			# print STDERR "XSUPER: $parserState->{forceClassSuper}\n";
+		} elsif ($part eq ":") {
 			print STDERR "INCLASS COLON\n" if ($parseDebug || $classDebug);
 			if (!$parserState->{forceClassName}) {
 				$parserState->{forceClassName} = $parserState->{sodname};
@@ -1449,11 +2100,15 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			} else {
 				$parserState->{implementsClass} = "";
 			}
-		} elsif ($part eq "{" || $part eq ";") {
+		} elsif ($parserState->isLeftBrace($part, $lang, $parseTokens{lbrace}, $parseTokens{lbraceunconditionalre}, $parseTokens{lbraceconditionalre},
+		         $parseTokens{classisbrace}, $parseTokens{functionisbrace}, $case_sensitive, scalar(@braceStack)) || $part eq ";") {
+
+			# $part eq "{"
 			print STDERR "INCLASS BRCSEMI\n" if ($parseDebug || $classDebug);
 			$parserState->{forceClassDone} = 1;
 			if ($parserState->{classIsObjC} && $part eq "{") {
 				$parserState->{ISFORWARDDECLARATION} = 0;
+				print STDERR "Last tree node set to $treeCur [4]\n" if ($parserStateInsertDebug);
 				$parserState->{lastTreeNode} = $treeCur;
 				print STDERR "parserState pushed onto stack[OCC-BRCSEMI]\n" if ($parserStackDebug);
 				$curline = "";
@@ -1461,9 +2116,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				$parserState->{freezereturn} = 1;
 				$declaration = "";
 				push(@parserStack, $parserState);
-				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 				$parserState->{skiptoken} = 0;
-				$parserState->{lang} = $lang;
 				$parserState->{inputCounter} = $inputCounter;
 				$parserState->{initbsCount} = scalar(@braceStack) + 1; # NOTE: add one here because it will change in the SWITCH to follow.
 				$parserState->{noInsert} = $setNoInsert;
@@ -1524,9 +2178,14 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					$parserState->{sodtype} = $parserState->{preclasssodtype} . $parserState->{sodtype};
 				} elsif ($part =~ /\w/) {
 					print STDERR "INCLASS GOT WORD TOKEN\n" if ($parseDebug || $classDebug);
-					if ($parserState->{classNameFound} && !$parserState->{forceClassName}) {
+					if ($parserState->{classNameFound} && !$parserState->{forceClassName} && !$parserState->{classNameConcat}) {
 						print STDERR "INCLASS NOT A CLASS.  IT IS A VARIABLE OR TYPEDEF.\n" if ($parseDebug || $classDebug);
 						$parserState->{inClass} = 0;
+					} elsif ($parserState->{classNameConcat}) {
+						# Once per dot.
+						# $parserState->dbprint();
+						$parserState->{classNameConcat} = 0;
+						$parserState->{forceClassName} = $parserState->{sodtype}.".".$part;
 					} else {
 						print STDERR "INCLASS WORD TOKEN IS CLASS NAME\n" if ($parseDebug || $classDebug);
 						$parserState->{classNameFound} = 1;
@@ -1546,13 +2205,34 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		print STDERR "MNT: ".$parserState->{macroNoTrunc}."\n";
 	}
 
-		# if (($part eq $ilc || $part eq $ilc_b) && ($lang ne "perl" || $lasttoken ne "\$")) {
+		# if (($part eq $parseTokens{ilc} || $part eq $parseTokens{ilc_b}) && ($lang ne "perl" || $lasttoken ne "\$")) {
 			# print STDERR "should be ILC?\n";
 		# } else {
-			# print STDERR "NO CHANEC: PART \"$part\" ILC \"$ilc\" ILC_B: \"ilc_b\" LANG: \"$lang\" LASTTOKEN: \"$lasttoken\"\n";
+			# print STDERR "NO CHANEC: PART \"$part\" ILC \"$parseTokens{ilc}\" ILC_B: \"$parseTokens{ilc_b}\" LANG: \"$lang\" LASTTOKEN: \"$lasttoken\"\n";
 		# }
 
-	my $tempInIf = 0;
+
+	$parserState->dbprint() if ($regexpDebug == 2);
+	print STDERR "LASTNSPART: $lastnspart\n" if ($regexpDebug == 2);
+	print STDERR "
+		(($inRegexp || $parserState->{lastsymbol} eq \"~\" ||
+		  ((!$inRegexp) &&
+		   ($parserState->{lastsymbol} =~ /[=,(]/ ||
+		    ($parserState->{lastsymbol} eq \"\" && $lastnspart eq \"\" && peek(\"".peek(\@braceStack)."\") eq \"(\")
+		   ) && $part =~ /\// && !$parserState->{inTemplate} &&
+		   length($regexpcharpattern) &&
+		   !($inRegexp || $inRegexpTrailer ||
+		     $parserState->{inString} || $parserState->{inComment} ||
+		     $parserState->{inInlineComment} || $parserState->{inChar})
+		  )
+		 ) &&
+		 (length($regexpcharpattern) &&
+		  $part =~ /^($regexpcharpattern)$/ &&
+		  (!$inRegexpCharClass) &&
+		  (!scalar(@regexpStack) || $part eq peekmatch(\@regexpStack, $lang, $fullpath, $inputCounter))
+		 )
+\n" if ($regexpDebug == 2);
+
 	if ($HeaderDoc::parseIfElse && (!$parserState->{inMacro} && !$parserState->{inMacroLine} && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}))) {
 	    if (!(scalar(@braceStack) - $parserState->{initbsCount})) {
 		if ($part eq "if" || $part eq "else") {
@@ -1584,6 +2264,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		} elsif ($part =~ /\S/ && $part ne "(" && $parserState->{INIF}) {
 			$parserState->{INIF}++;
 			$parserState->{seenBraces} = 1;
+			print STDERR "seenBraces -> 1 [1]\n" if ($parseDebug || $braceDebug);
 		} else {
 			print STDERR "INIF OUTSIDE NC (".$parserState->{INIF}.") FOR PART \"$part\" IN $parserState\n" if ($continueDebug);
 		}
@@ -1594,9 +2275,109 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 	    }
 	}
 
+	if ($part ne ":" && $parserState->{inBitfield}) {
+		print STDERR "BITFIELD CONFIRMED.\n" if ($parmDebug || $parseDebug || $localDebug || $bitfieldDebug);
+		$parserState->{startOfDec} = 0;
+		delete $parserState->{inBitfield};
+	}
+    }
+
+	# print STDERR "VARCHECK: $parseTokens{varname} :: $part eq $parseTokens{varname} :: $inRegexp :: $inRegexpTrailer :: $parserState->{inString} :: $parserState->{inComment} :: $parserState->{inInlineComment} :: $parserState->{inChar} :: $parserState->{sodclass}\n";
+
+	    # The phrase "foo.bar" is a valid name in these languages.
+	    # This code handles that....
+	    if ( (  ($lang eq "C" && $sublang eq "IDL") ||
+		     $lang eq "javascript" ||
+		     $lang eq "java") &&
+		  ($parserState->{callbackNamePending} || $parserState->{namePending} || $parserState->{startOfDec} == 2) &&
+		  $part eq "." &&
+	          !$parserState->{classNameConcat} &&
+	          !$parserState->{variableNameConcat}) {
+		print STDERR "IDL/JS/Java CONCAT -> 1\n" if ($liteDebug);
+			$parserState->{variableNameConcat} = 2;
+	    };
+	    # The phrase "foo::bar" is a valid name in these languages.
+	    # This code handles that....
+	    if ( ($lang eq "perl") &&
+		  ($parserState->{callbackNamePending} || $parserState->{namePending} || $parserState->{startOfDec} == 2) &&
+		  $part eq "::" &&
+	          !$parserState->{classNameConcat} &&
+	          !$parserState->{variableNameConcat} &&
+	          !$parserState->{seenBraces}) {
+		print STDERR "Perl CONCAT -> 1\n" if ($liteDebug);
+			$parserState->{variableNameConcat} = 2;
+	    };
+
 	    SWITCH: {
 		# Blank declaration handlers (mostly for misuse of
 		# OSMetaClassDeclareReservedUsed and similar)
+
+		(($lang eq "applescript") && !$argparse && ($part =~ /(of|in)/) && 
+		 !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} ||
+		   $parserState->{inChar})) && do {
+			print STDERR "IN APPLESCRIPT OF/IN: SET TO $part\n" if ($asDebug);
+			$parserState->{inOfIn} = 1;
+			$parserState->{OfIn} = $part;
+			last SWITCH;
+		};
+
+		(($lang eq "applescript") && $parserState->{inOfIn} && ($part =~ /\w/)) && do  {
+			print STDERR "IN APPLESCRIPT OF/IN: ADDING $part\n" if ($asDebug);
+			$parserState->{OfIn} .= " ".$part;
+			$parserState->{inOfIn} = 0;
+			last SWITCH;
+		};
+		
+		(($lang eq "applescript") && !$argparse && $labelregexp && ($part =~ /$labelregexp/) && ($parserState->{startOfDec} != 1)) && do {
+			print STDERR "IN APPLESCRIPT LABEL: SET TO $part SOD=".$parserState->{startOfDec}."\n" if ($asDebug);
+			$parserState->{inLabel} = 1;
+			$parserState->{ASlabel} = $part;
+			last SWITCH;
+		};
+
+		(($lang eq "applescript") && $labelregexp && $parserState->{inLabel} && ($part =~ /\w/)) && do {
+			print STDERR "IN APPLESCRIPT LABEL: ADDING $part\n" if ($asDebug);
+			$parserState->{ASlabel} .= " ".$part;
+			$parserState->{inLabel} = 0;
+			last SWITCH;
+		};
+
+		(($lang eq "applescript") && ($part eq "given")) && do {
+			print STDERR "IN APPLESCRIPT GIVEN ($part)\n" if ($asDebug);
+			$parserState->{inGiven} = 1;
+			$parserState->{inLabel} = 0;
+			last SWITCH;
+		};
+		(($lang eq "applescript") && $parserState->{inGiven} && ($part !~ /[\r\n]/)) && do {
+			print STDERR "IN APPLESCRIPT GIVEN\n" if ($asDebug);
+			if ($part eq ",") {
+				print STDERR "IN APPLESCRIPT GIVEN COMMA\n" if ($asDebug);
+				print STDERR "PUSHING \"$parsedParam\" onto parsed parameters list (comma)\n" if ($parseDebug || $asDebug);
+				if (length($parsedParam)) { push(@{$parserState->{parsedParamList}}, $parsedParam); }
+				$parsedParam = "";
+			} else {
+				print STDERR "IN APPLESCRIPT GIVEN TOKEN: $part\n" if ($asDebug);
+				$parsedParam .= $part;
+			}
+			last SWITCH;
+		};
+
+		# (($lang eq "applescript") && $argparse && ($part eq ":")) && do {
+			# print STDERR "IN APPLESCRIPT GIVEN: IGNORING COLON\n" if ($asDebug);
+			# $treepart = "";
+			# last SWITCH;
+		# };
+
+		(($iskw == 9) && ($parserState->{afterSemi} || $parserState->{firstpastnl})) && do {
+			$parserState->{inCase}++;
+			print STDERR "inCase -> ".$parserState->{inCase}."\n" if ($parseDebug || $localDebug || $braceDebug);
+		};
+
+		(($iskw == 10) && ($parserState->{afterSemi} == 2)) && do { #  && ($parserState->{afterSemi} >= 2)) && do {
+			# print "AFTERSEMI: ".$parserState->{afterSemi}."\n" if ($parseDebug || $localDebug || $braceDebug);
+			$parserState->{inCase}--;
+			print STDERR "inCase -> ".$parserState->{inCase}."\n" if ($parseDebug || $localDebug || $braceDebug);
+		};
 
 		(($part eq ";") && ($parserState->{startOfDec} == 1) && !$parserState->{inMacro} && !$parserState->{inMacroLine} && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
 			print STDERR "LEADING SEMICOLON: CASE 01\n" if ($liteDebug);
@@ -1604,6 +2385,60 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			$part = "";
 			last SWITCH;
 		};
+		(($lang eq "perl" || $lang eq "shell") && $part eq "<<" && !$parserState->{attributeState} &&
+                	!$parserState->{parsedParamParse} &&
+                	!$parserState->{inBrackets} &&
+                	!$parserState->{inTemplate} &&
+                	!$parserState->{inChar} &&
+                	!$parserState->{inString} &&
+                	!$parserState->{inComment} &&
+                	!$parserState->{inInlineComment} &&
+                	!$parserState->{inImplements} &&
+                	!$parserState->{inExtends} &&
+                	!$parserState->{inClassConformingToProtocol} &&
+                	!$parserState->{inRuby} &&
+                	!$parserState->{seenBraces} &&
+                	!$parserState->{classNameFound} &&
+                	!$parserState->{inMacro} &&
+                	!$parserState->{inMacroLine}) && do {
+				$parserState->{inString} = 13;
+				$parserState->{endOfString} = "";
+
+# print STDERR "Aha\n";
+
+				$treeNest = 1;
+
+				last SWITCH;
+		};
+		(($lang eq "perl" || $lang eq "shell") && ($parserState->{inString} == 13) && ($parserState->{endOfString} eq "") && $part =~ /\S/) && do {
+			$parserState->{endOfString} = $part;
+			last SWITCH;
+		};
+
+		(($lang eq "perl" || $lang eq "shell") && ($parserState->{inString} == 13) && ($part =~ /[\n\r]/)) && do {
+			$parserState->{firstpastnl} = 1;
+			last SWITCH;
+		};
+		(($lang eq "perl" || $lang eq "shell") && ($parserState->{inString} == 13) && ($part eq $parserState->{endOfString}) && $parserState->{firstpastnl}) && do {
+			$treeCur->addSibling($part, 0); $treeSkip = 1;
+			$treeCur = pop(@treeStack) || $treeTop;
+			$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+			$treeCur = $treeCur->lastSibling();
+			$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+			print STDERR "TSPOP [3]: now $treeCur\n" if ($tsDebug || $treeDebug);
+			bless($treeCur, "HeaderDoc::ParseTree");
+			last SWITCH;
+		};
+
+		(($lang eq "perl" || $lang eq "shell") && ($parserState->{inString} == 13) && $part =~ /\S/ && $parserState->{firstpastnl}) && do {
+			$parserState->{firstpastnl} = 0;
+			last SWITCH;
+		};
+
+		(($lang eq "perl" || $lang eq "shell") && ($parserState->{inString} == 13)) && do {
+			last SWITCH;
+		};
+
 
 		# Macro handlers
 
@@ -1615,7 +2450,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			print STDERR "inMacro -> 3\n" if ($macroDebug || $cppDebug);
 			$parserState->{sodname} = "";
 			my $pound = $treeCur->token();
-			if ($pound eq "$sopreproc") {
+			if ($pound eq $parseTokens{sopreproc}) {
 				$treeNest = 2;
 				if ($treeDebug) { print STDERR "TS TREENEST -> 2 [1]\n"; }
 				$treePopOnNewLine = 2;
@@ -1624,9 +2459,9 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			}
 			last SWITCH;
 		};
-		# (($parserState->{inMacro} == 1 && $macrore_pound ne "" && $part =~ /(if|ifdef|ifndef|endif|else|undef|elif|error|warning|pragma|import|include)/ && ($part ne $definename)) || ($parserState->{inMacro} == 0 && $macrore_nopound ne "" && $part =~ /$macrore_nopound/)) 
+		# (($parserState->{inMacro} == 1 && $macrore_pound ne "" && $part =~ /(if|ifdef|ifndef|endif|else|undef|elif|error|warning|pragma|import|include)/ && ($part ne $parseTokens{definename})) || ($parserState->{inMacro} == 0 && $macrore_nopound ne "" && $part =~ /$macrore_nopound/)) 
 		# (($parserState->{inMacro} == 1 && $part =~ /(if|ifdef|ifndef|endif|else|undef|elif|error|warning|pragma|import|include)/ )) && do
-		(!$parserState->{inComment} && (($parserState->{inMacro} == 1 && $macrore_pound ne "" && $part =~ /^$macrore_pound$/ && ($part ne $definename)) || ($parserState->{inMacro} == 0 && $macrore_nopound ne "" && $part =~ /^$macrore_nopound$/))) && do {
+		(!$parserState->{inComment} && (($parserState->{inMacro} == 1 && $macrore_pound ne "" && $part =~ /^$macrore_pound$/ && ($part ne $parseTokens{definename})) || ($parserState->{inMacro} == 0 && $macrore_nopound ne "" && $part =~ /^$macrore_nopound$/))) && do {
 			print STDERR "MACRORE-v: \"$macrore_pound\"\n" if ($macroDebug);
 			print STDERR "MACRORE-r: \"(if|ifdef|ifndef|endif|else|undef|elif|error|warning|pragma|import|include)\"\n" if ($macroDebug);
 			print STDERR "MACRORE-n: \"$macrore_nopound\"\n" if ($macroDebug);
@@ -1638,7 +2473,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			print STDERR "inMacro -> 4\n" if ($macroDebug || $cppDebug);
 			$parserState->{sodname} = "";
 			my $pound = $treeCur->token();
-			if ($pound eq "$sopreproc") {
+			if ($pound eq $parseTokens{sopreproc}) {
 				$treeNest = 2;
 				if ($treeDebug) { print STDERR "TS TREENEST -> 2 [2]\n"; }
 				$treePopOnNewLine = 1;
@@ -1661,7 +2496,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			print STDERR "INMACROLINE/IF: CASE 04\n" if ($liteDebug);
 			print STDERR "INMACROLINE AND IF/IFDEF/IFNDEF/ENDIF/ELSE/PRAGMA/IMPORT/INCLUDE\n" if ($parseDebug || $localDebug);
 			my $pound = $treeCur->token();
-			if ($pound eq "$sopreproc") {
+			if ($pound eq $parseTokens{sopreproc}) {
 				$pound .= $part;
 				$treeCur->token($pound);
 				if ($part =~ /define/o) {
@@ -1685,11 +2520,11 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			}
 			last SWITCH;
 		};
-		($parserState->{inMacro} == 1 && ($part ne $soc) && ($part ne $eoc) && $part =~ /\s/) && do {
+		($parserState->{inMacro} == 1 && ($part ne $parseTokens{soc}) && ($part ne $parseTokens{eoc}) && $part =~ /\s/) && do {
 			$treepart = $part; $part = "";
 			last SWITCH;
 		};
-		($parserState->{inMacro} == 1 && ($part ne $soc) && ($part ne $eoc)) && do {
+		($parserState->{inMacro} == 1 && ($part ne $parseTokens{soc}) && ($part ne $parseTokens{eoc})) && do {
 			print STDERR "INMACRO PPTOKEN: CASE 05\n" if ($liteDebug);
 			print STDERR "INMACRO IS 1, CHANGING TO 2 (NO PROCESSING)\n" if ($parseDebug || $localDebug);
 			# error case.
@@ -1697,22 +2532,30 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			print STDERR "inMacro -> 2\n" if ($macroDebug || $cppDebug);
 			last SWITCH;
 		};
-		($parserState->{inMacro} > 1 && $part ne "//" && $part !~ /[\n\r]/ && ($part ne $soc) && ($part ne $eoc)) && do {
+		($parserState->{inMacro} > 1 && $part ne "//" && $part !~ /[\n\r]/ && ($part ne $parseTokens{soc}) && ($part ne $parseTokens{eoc})) && do {
 			print STDERR "INMACRO OTHERTOKEN: CASE 06\n" if ($liteDebug);
+
+			if ($part eq "(") {
+				# print STDERR "HERE\n";
+				if ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) {
+					$parserState->{cppMacroHasArgs} = 1;
+				}
+			}
+
 			print STDERR "INMACRO > 1, PART NE //" if ($parseDebug || $localDebug);
 			if ($cppDebug || $parseDebug) {
-				print STDERR "\nISQUOTED: ".$parserState->isQuoted()."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
+				print STDERR "\nISQUOTED: ".$parserState->isQuoted($lang, $sublang)."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 			}
 			if ($part eq "\\") {
 				print STDERR "BS ADD\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 				$parserState->addBackslash();
 				$bshandled = 1;
-				print STDERR "ISQUOTED NOW: ".$parserState->isQuoted()."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
+				print STDERR "ISQUOTED NOW: ".$parserState->isQuoted($lang, $sublang)."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 			} elsif ($part !~ /[ \t]/) {
 				print STDERR "BS RESET\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 				$parserState->resetBackslash();
 				$bshandled = 1;
-				print STDERR "ISQUOTED NOW: ".$parserState->isQuoted()."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
+				print STDERR "ISQUOTED NOW: ".$parserState->isQuoted($lang, $sublang)."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 			}
 			print STDERR "PART: $part\n" if ($macroDebug);
 			if ($parserState->{seenMacroPart}) {
@@ -1745,7 +2588,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				push(@parsedParamParseStack, $parserState->{parsedParamParse});
 				print STDERR "PUSHED $part ONTO BRACESTACK\n" if ($macroDebug || $braceDebug);
 			} elsif ($part =~ /[\}\)]/o) {
-				if ($part ne peekmatch(\@braceStack, $fullpath, $inputCounter)) {
+				if ($part ne peekmatch(\@braceStack, $lang, $fullpath, $inputCounter)) {
 					if ($parserState->{macroNoTrunc} == 1) {
 						# We haven't reached the end of the first part of the declaration, so this is an error.
 						warn("$fullpath:$inputCounter: warning: Initial braces in macro name do not match.\nWe may have a problem.\n");
@@ -1770,14 +2613,20 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# Regular expression handlers
 
-		(length($varname) && $part eq $varname && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !$parserState->{sodclass})  && do {
+		(length($parseTokens{varname}) && $part eq $parseTokens{varname} && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !$parserState->{sodclass})  && do {
+			print "VARNAME: CASE 06A\n" if ($liteDebug);
 			$parserState->{sodclass} = "variable";
+			$parserState->{onlyComments} = 0;
+			if ($lang eq "applescript" || $lang eq "tcl") {
+				print STDERR "declarationEndsAtNewLine -> 1 [AS]\n" if ($parseDebug || $asDebug);
+				$parserState->{declarationEndsAtNewLine} = 1;
+			}
 			print STDERR "sodclass -> variable (explicit[1])\n" if ($sodDebug);
 			print STDERR "DETECTED VARIABLE KEYWORD\n" if ($localDebug || $parseDebug);
 
 			# Fall through.
 		};
-		(length($constname) && $part eq $constname && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && (!(scalar(@braceStack) - $parserState->{initbsCount}))) && do {
+		(length($parseTokens{constname}) && $part eq $parseTokens{constname} && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && (!(scalar(@braceStack) - $parserState->{initbsCount}))) && do {
 			$parserState->{constKeywordFound} = 1;
 			print STDERR "DETECTED CONSTANT KEYWORD\n" if ($localDebug || $parseDebug);
 
@@ -1785,16 +2634,21 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		};
 		# print STDERR "IRE: $inRegexp IRT: $inRegexpTrailer IS: $parserState->{inString} ICo $parserState->{inComment} ILC: $parserState->{inInlineComment} ICh $parserState->{inChar}\n";
 		# print STDERR "IRE: $inRegexp IRT: $inRegexpTrailer IS: $parserState->{inString} ICo $parserState->{inComment} ILC: $parserState->{inInlineComment} ICh $parserState->{inChar}\n";
-		(length($regexppattern) && $part =~ /^($regexppattern)$/ && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
+
+		(length($regexppattern) && $parserState->{lastsymbol} ne "\$" && $part =~ /^($regexppattern)$/ && !($inRegexp || $inRegexpTrailer || $parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
 			print STDERR "REGEXP PATTERN: CASE 07\n" if ($liteDebug);
 			my $match = $1;
 			print STDERR "REGEXP WITH PREFIX\n" if ($regexpDebug);
 			$regexpNoInterpolate = 0;
 			if ($match =~ /^($singleregexppattern)$/) {
 				# e.g. perl PATTERN?
+				print STDERR "SINGLE REGEXP\n" if ($regexpDebug);
+				print STDERR "INREGEXP -> 2 [1]\n" if ($regexpDebug);
 				$inRegexp = 2;
 			} else {
+				print STDERR "INREGEXP -> 4 [2]\n" if ($regexpDebug);
 				$inRegexp = 4;
+				print STDERR "DOUBLE REGEXP\n" if ($regexpDebug);
 				# print STDERR "REGEXP PART IS \"$part\"\n";
 				if ($part eq "tr") { $regexpNoInterpolate = 1; }
 				# if ($part =~ /tr/) { $regexpNoInterpolate = 1; }
@@ -1803,7 +2657,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			last SWITCH;
 		}; # end regexppattern
 		(($inRegexp || $parserState->{lastsymbol} eq "~" ||
-		  ((!$inRegexp) && $part =~ /\// &&
+		  ((!$inRegexp) &&
+		   ($parserState->{lastsymbol} =~ /[=,(]/ ||
+		    ($parserState->{lastsymbol} eq "" && $lastnspart eq "(" && peek(\@braceStack) eq "(")
+		   ) && $part =~ /\// && !$parserState->{inTemplate} &&
 		   length($regexpcharpattern) &&
 		   !($inRegexp || $inRegexpTrailer ||
 		     $parserState->{inString} || $parserState->{inComment} ||
@@ -1813,26 +2670,33 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		 (length($regexpcharpattern) &&
 		  $part =~ /^($regexpcharpattern)$/ &&
 		  (!$inRegexpCharClass) &&
-		  (!scalar(@regexpStack) || $part eq peekmatch(\@regexpStack, $fullpath, $inputCounter))
+		  (!scalar(@regexpStack) || $part eq peekmatch(\@regexpStack, $lang, $fullpath, $inputCounter))
 		 )
 		) && do {
 			print STDERR "REGEXP CHARACTER: CASE 08\n" if ($liteDebug);
 			print STDERR "REGEXP?\n" if ($regexpDebug);
 
 			# if ($lasttoken eq "\\") 
-			if ($parserState->isQuoted($lang. $sublang)) {
-				# jump to next match.
+			if ($parserState->isQuoted($lang, $sublang) ||
+			    ((!$inRegexp) && $lasttoken eq "\$")) {
+				# jump to next match if quoted in a regexp
+				# or if it's $/
 				$lasttoken = $part;
 				$parserState->{lastsymbol} = $part;
 			} else {
 				print STDERR "REGEXP POINT A\n" if ($regexpDebug);
 
+				print STDERR "INREGEXP is $inRegexp\n" if ($regexpDebug);
 				if (!$inRegexp) {
+					print STDERR "INREGEXP -> 3 [3]\n" if ($regexpDebug);
 					$inRegexp = 2;
+					print STDERR "IRFP -> 1\n" if ($regexpDebug);
 					$inRegexpFirstPart = 1;
 				} elsif ($inRegexpFirstPart != 2) {
+					print STDERR "IRFP -> 0\n" if ($regexpDebug);
 					$inRegexpFirstPart = 0;
 				} else {
+					print STDERR "IRFP -> 1\n" if ($regexpDebug);
 					$inRegexpFirstPart = 1;
 				}
 	
@@ -1842,7 +2706,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				my $is_a_comment = 0;
 				if ($part eq "#" &&
 				    ((scalar(@regexpStack) != 1) || 
-				     (peekmatch(\@regexpStack, $fullpath, $inputCounter) ne "#"))) {
+				     (peekmatch(\@regexpStack, $lang, $fullpath, $inputCounter) ne "#"))) {
 					if ($nextpart =~ /^\s/o) {
 						# it's a comment.  jump to next match.
 						$is_a_comment = 1;
@@ -1854,41 +2718,47 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					print STDERR "REGEXP POINT B\n" if ($regexpDebug);
 	
 					if (!scalar(@regexpStack)) {
-						print STDERR "PUSHING $part ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+						print STDERR "PUSHING $part ONTO REGEXPSTACK [1]\n" if ($localDebug || $parseDebug || $regexpDebug);
 						push(@regexpStack, $part);
 						$inRegexp--;
+						if (!$inRegexp) { $leavingRegexp = 1; }
+						print STDERR "INREGEXP -> $inRegexp [4]\n" if ($regexpDebug);
 					} else {
-						my $match = peekmatch(\@regexpStack, $fullpath, $inputCounter);
+						my $match = peekmatch(\@regexpStack, $lang, $fullpath, $inputCounter);
 						my $tos = pop(@regexpStack);
-						print STDERR "popped $tos FROM REGEXPSTACK\n" if ($localDebug || $parseDebug);
+						print STDERR "popped $tos FROM REGEXPSTACK\n" if ($localDebug || $parseDebug || $regexpDebug);
 
 						if (!scalar(@regexpStack) && ($match eq $part)) {
 							$inRegexp--;
-							if ($inRegexp == 2 && $tos eq "/") {
-								# we don't double the slash in the
+							if (!$inRegexp) { $leavingRegexp = 1; }
+							print STDERR "INREGEXP -> $inRegexp [5]\n" if ($regexpDebug);
+							if ($inRegexp == 2 && ($tos eq "/" || $tos eq "|")) {
+								# we don't double the slash or vertical bar in the
 								# middle of a s/foo/bar/g style
 								# expression.
 								$inRegexp--;
+								if (!$inRegexp) { $leavingRegexp = 1; }
+								print STDERR "INREGEXP -> $inRegexp [6]\n" if ($regexpDebug);
 							}
 							if ($inRegexp) {
-								print STDERR "PUSHING $tos ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+								print STDERR "PUSHING $tos ONTO REGEXPSTACK [2]\n" if ($localDebug || $parseDebug || $regexpDebug);
 								push(@regexpStack, $tos);
 							}
 						} elsif (scalar(@regexpStack) == 1) {
-							print STDERR "PUSHING $tos ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+							print STDERR "PUSHING $tos ONTO REGEXPSTACK [3]\n" if ($localDebug || $parseDebug || $regexpDebug);
 							push(@regexpStack, $tos);
-							if ($tos =~ /['"`]/o || $regexpNoInterpolate) {
+							if ($tos =~ /['"`|{}]/o || $regexpNoInterpolate) {
 								# these don't interpolate.
 								$fall_through = 1;
 							}
 						} else {
-							print STDERR "PUSHING $tos ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+							print STDERR "PUSHING $tos ONTO REGEXPSTACK [4]\n" if ($localDebug || $parseDebug || $regexpDebug);
 							push(@regexpStack, $tos);
-							if ($tos =~ /['"`]/o || $regexpNoInterpolate) {
+							if ($tos =~ /['"`|{}]/o || $regexpNoInterpolate) {
 								# these don't interpolate.
 								$fall_through = 1;
 							} else {
-								print STDERR "PUSHING $part ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+								print STDERR "PUSHING $part ONTO REGEXPSTACK [5]\n" if ($localDebug || $parseDebug || $regexpDebug);
 								push(@regexpStack, $part);
 							}
 						}
@@ -1906,7 +2776,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# Start of preprocessor macros
 
-		($part eq "$sopreproc") && do {
+		($part eq $parseTokens{sopreproc}) && do {
 			print STDERR "SOPREPROC: CASE 09\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if ($parserState->{onlyComments}) {
@@ -1941,12 +2811,24 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		# Start of token-delimited functions and procedures (e.g.
 		# Pascal and PHP)
 
-		($part eq "$sofunction" || $part eq "$soprocedure") && do {
+		(($part eq $parseTokens{sofunction} || $part eq $parseTokens{soprocedure} || $part eq $parseTokens{soconstructor}) &&
+		  !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) &&
+		  !(scalar(@braceStack)-$parserState->{initbsCount}) && !$parserState->{seenBraces}) && do {
 			print STDERR "SOFUNC: CASE 10\n" if ($liteDebug);
+				if ($part eq $parseTokens{soconstructor}) {
+					$parserState->{isConstructor} = 1;
+				}
+				if ($lang eq "tcl" && scalar(@parserStack)) {
+					print STDERR "declarationEndsAtNewLine -> 1 (SOPROC/FUNC/CONS)\n" if ($parseDebug);
+					$parserState->{declarationEndsAtNewLine} = 1;
+				}
 				$parserState->{sodclass} = "function";
+				$parserState->{onlyComments} = 0;
+				$parserState->{lastsymbol} = $part;
+				# $parserState->{sodname} = $part;
 				print STDERR "sodclass -> function (explicit[2])\n" if ($sodDebug);
 				print STDERR "FUNCTION OR PROCEDURE FOUND [1].\n" if ($localDebug);
-				if (!$pascal) {
+				if (!$pascal && !$ruby && ($lang ne "tcl") && ($lang ne "applescript") && $lang ne "perl") {
 					$parserState->{kr_c_function} = 1;
 				}
 				$parserState->{typestring} = "function";
@@ -1961,12 +2843,19 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					# bless($treeCur, "HeaderDoc::ParseTree");
 				# }
 				print STDERR "namePending -> 1 [1]\n" if ($parseDebug);
+				if ($parseTokens{functionisbrace} && $parserState->{sodclass} eq "function" &&
+				    !$parserState->{pushedfuncbrace}) {
+					$parserState->{pushedfuncbrace} = 1;
+				}
+				if ($parseTokens{parmswithcurlybraces}) {
+					$parserState->{pendingBracedParameters} = 1;
+				}
 				last SWITCH;
 			};
 
 		# C++ destructor handler.
 
-		($part =~ /\~/o && $lang eq "C" && $sublang eq "cpp" && !!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
+		($part =~ /\~/o && ($lang eq "C" || $lang eq "Csource") && $sublang eq "cpp" && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
 			print STDERR "C++ DESTRUCTOR: CASE 11\n" if ($liteDebug);
 				print STDERR "TILDE\n" if ($localDebug);
 				$parserState->{seenTilde} = 2;
@@ -1978,7 +2867,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# Objective-C method handler.
 
-		($part =~ /[-+]/o && $parserState->{onlyComments}) && do {
+		($part =~ /[-+]/o && ($lang eq "C" || $lang eq "Csource") && $parserState->{onlyComments}) && do {
 			print STDERR "OBJC METHOD: CASE 12\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				print STDERR "OCCMETHOD\n" if ($localDebug);
@@ -2003,14 +2892,45 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			};
 
 		# newline handler.
-		($part =~ /[\n\r]/o) && do {
+		($part =~ /[\n\r]/o && ($parserState->{inString} != 13) && 
+		 (!($parseTokens{classisbrace} && $parserState->{sodclass} eq "class" && (!$parserState->{inRubyClass}))) &&
+		 (!($parseTokens{functionisbrace} && $parserState->{pushedfuncbrace} == 1)) &&
+		 ($parserState->isQuoted($lang, $sublang) || (!$parserState->{newlineIsSemi}))) && do {
+			if ($lang eq "shell") {
+				if ($part eq ";;") {
+					$parserState->{afterSemi} = 2;
+				} elsif (!$parserState->{afterSemi}) {
+					$parserState->{afterSemi} = 1;
+				}
+			}
 			print STDERR "NEWLINE: CASE 13\n" if ($liteDebug);
 			# NEWLINE FOUND
+
+				my $prev_inInlineComment = $parserState->{inInlineComment};
+				$parserState->{inInlineComment} = 0;
+				print STDERR "inInlineComment -> 0\n" if ($ilcDebug);
+
+				if ($ruby) {
+					$parserState->{followingrubyrbrace} = 0;
+				}
+				if ($parserState->{pushedfuncbrace}) {
+					# Ensure we get a token after the closing parenthesis
+					# (if applicable) to set as the end of the declaration.
+					print STDERR "OOH.  We are in a function now.\n" if ($parseDebug);
+					$parserState->{inOfIn} = 0;
+					$parserState->{inLabel} = 0;
+					$parserState->{inGiven} = 0;
+					$treeCur = $treeCur->addSibling("", 0);
+					bless($treeCur, "HeaderDoc::ParseTree");
+					$parserState->{startOfDec} = 0;
+				}
 				$treepart = $part;
 				if ($inRegexp) {
 					warn "$fullpath:$inputCounter: warning: multi-line regular expression\n";
+					print "DECTODATE: $declaration".$line."\n";
 				}
 				print STDERR "NLCR\n" if ($tsDebug || $treeDebug || $localDebug);
+				# print "LASTCHAR: $lastchar\n";
 				if ($lastchar !~ /[\,\;\{\(\)\}]/o && $nextpart !~ /[\{\}\(\)]/o) {
 					if ($lastchar ne "*/" && $nextpart ne "/*") {
 						if (!$parserState->{inMacro} && !$parserState->{inMacroLine} && !$treePopOnNewLine) {
@@ -2019,26 +2939,44 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 							print STDERR "LC: $lastchar\n" if ($localDebug);
 							print STDERR "NP: $nextpart\n" if ($localDebug);
 							$postPossNL = 2;
+						} elsif ($treePopOnNewLine && $prev_inInlineComment) {
+							# print STDERR "TPONL: $treePopOnNewLine\n";
+							print STDERR "Keeping parsed parameter $parsedParam because we're leaving a single-line comment.\n" if ($parmDebug || $cppDebug || $localDebug);
 						} else {
+							if ($parserState->{inMacroLine}) {
+								print STDERR "skipped pushing CPP directive $parsedParam into parsedParamList [1]\n" if ($parmDebug || $cppDebug || $localDebug);
+							} else {
+								print STDERR "cleared parsed parameter $parsedParam"." [1]\n" if ($parmDebug || $cppDebug || $localDebug);
+							}
 							$parserState->{inMacroLine} = 0;
 							# Don't push parsed parameter here.  Just clear it.
 							# push(@{$parserState->{parsedParamList}}, $parsedParam);
 							# print STDERR "pushed $parsedParam into parsedParamList [1]\n" if ($parmDebug);
-							print STDERR "skipped pushing CPP directive $parsedParam into parsedParamList [1]\n" if ($parmDebug || $cppDebug || $localDebug);
 							$parsedParam = "";
 						}
+					} elsif ($parserState->{inMacroLine}) {
+						$parserState->{inMacroLine} = 0;
+						print STDERR "skipped pushing CPP directive $parsedParam into parsedParamList [2]\n" if ($parmDebug || $cppDebug || $localDebug);
+						$parsedParam = "";
 					}
+				} elsif ($parserState->{inMacroLine}) {
+					$parserState->{inMacroLine} = 0;
+					print STDERR "skipped pushing CPP directive $parsedParam into parsedParamList [3]\n" if ($parmDebug || $cppDebug || $localDebug);
+					$parsedParam = "";
 				}
-				if ($lang eq "shell" && $parserState->{sodclass} ne "function") {
-					print STDERR "SC: ".$parserState->{sodclass}."\n" if ($localDebug || $parseDebug);
+				if (($lang eq "shell" && $parserState->{sodclass} ne "function") ||
+				    ($ruby && ($parserState->{sodclass} ne "class" && $parserState->{sodclass} ne "function") && !scalar(@parserStack))) {
+
+					print STDERR "SC: ".$parserState->{sodclass}."\n" if ($localDebug || $parseDebug || $rubyDebug);
 					if (!($parserState->{inString} || $parserState->{inChar})) {
-						if ($parserState->{lastsymbol} ne "\\") {
+						if (!$parserState->isQuoted($lang, $sublang)) {
 							print STDERR "LS: ".$parserState->{lastsymbol}."\n" if ($localDebug || $parseDebug);
 							print STDERR "CONTINUE -> 0 [1aa]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
 							$continue = 0;
 						}
 					}
 				}
+				print STDERR "TPONL: $treePopOnNewLine\n" if ($liteDebug);
 				if ($treePopOnNewLine < 0) {
 					# pop once for //, possibly again for macro
 					$treePopOnNewLine = 0 - $treePopOnNewLine;
@@ -2051,13 +2989,13 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 						$treeCur = $treeTop;
 						warn "$fullpath:$inputCounter: warning: Attempted to pop off top of tree\n";
 					}
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [1]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [1]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
-				if ($treePopOnNewLine == 1 || ($treePopOnNewLine && !$parserState->isQuoted())) {
+				if ($treePopOnNewLine == 1 || ($treePopOnNewLine && !$parserState->isQuoted($lang, $sublang))) {
 					# $parserState->{lastsymbol} ne "\\"
 					$treeCur = $treeCur->addSibling($treepart, 0);
 					bless($treeCur, "HeaderDoc::ParseTree");
@@ -2068,11 +3006,11 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 						$treeCur = $treeTop;
 						warn "$fullpath:$inputCounter: warning: Attempted to pop off top of tree\n";
 					}
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->addSibling("", 0); # empty token
-					print STDERR "TSPOP [1a]\n" if ($tsDebug || $treeDebug);
+					print STDERR "TSPOP [1a]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 					$treePopOnNewLine = 0;
 					$HeaderDoc::hidetokens = 0;
@@ -2084,7 +3022,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# C++ template handlers
 
-		($part eq $sotemplate && !$parserState->{seenBraces} && ($parserState->{inOperator} != 1)) && do {
+		($part eq $parseTokens{sotemplate} && (($lang eq "perl" && $parserState->{lastsymbol} eq "=" && !$inRegexp) || ($lang ne "perl" && (!$parserState->{seenBraces}) && (!$parserState->{inMacroLine}) && (!$parserState->{inMacro}) && (!$parserState->{INIF}))) && ($parserState->{inOperator} != 1)) && do {
 			print STDERR "C++ TEMPLATE: CASE 14\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if ($HeaderDoc::hideIDLAttributes && $lang eq "C" && $sublang eq "IDL") { $hideTokenAndMaybeContents = 3; }
@@ -2100,6 +3038,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				push(@parsedParamParseStack, $parserState->{parsedParamParse});
 				push(@braceStack, $part); pbs(@braceStack);
 				print STDERR "PUSHED $part ONTO BRACESTACK\n" if ($macroDebug || $braceDebug);
+				print STDERR "LINE: $line\n" if ($regexpDebug && $braceDebug);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
 					if (!$parserState->{hollow}) { $sethollow = 1; } # IDL can have this at the start of declaration.
@@ -2112,7 +3051,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 			    }
 			    last SWITCH;
 			};
-		($part eq $eotemplate && !$parserState->{seenBraces} && ($parserState->{inOperator} != 1)) && do {
+		($part eq $parseTokens{eotemplate} && (($lang eq "perl" && $parserState->{inTemplate} && !$inRegexp) || ($lang ne "perl" && (!$parserState->{seenBraces}) && (!$parserState->{inMacroLine}) && (!$parserState->{inMacro}) && (!$parserState->{INIF}))) && ($parserState->{inOperator} != 1)) && do {
 			print STDERR "C++ TEMPLATE END: CASE 15\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && (!(scalar(@braceStack)-$parserState->{initbsCount}) || $parserState->{inTemplate})) {
 				if ($parserState->{inTemplate})  {
@@ -2130,28 +3069,46 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeCur->addSibling($part, 0); $treeSkip = 1;
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [2]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [2]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
-				if ($top ne "$sotemplate") {
-					warn("$fullpath:$inputCounter: warning: Template (angle) brackets do not match.\nWe may have a problem.\n");
+				if ($top ne $parseTokens{sotemplate}) {
+					# Because of the way the code (ab)uses these,
+					# legitimate constructs like => would otherwise
+					# set this off.
+					if ($lang eq "perl") {
+						push(@braceStack, $top);
+					} else {
+						warn("$fullpath:$inputCounter: warning: Template (angle) brackets do not match.\nWe may have a problem.\n");
+					}
 				}
 			    }
 			    last SWITCH;
 			};
+		($ruby && ($part eq "<") && ($parserState->{sodclass} eq "class")) && do {
+			if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && (!(scalar(@braceStack)-$parserState->{initbsCount}))) {
+			    $parserState->{waitingForExceptions} = 1;
+			}
+		};
 
 		#
 		# Handles C++ access control state, e.g. "public:"
 		#
 
-		($part eq ":") && do {
+		($part eq ":" && (!$parseTokens{assignmentwithcolon})) && do {
 			print STDERR "Access control colon: CASE 16\n" if ($liteDebug);
 			print STDERR "TS IS \"$parserState->{typestring}\"\n" if ($localDebug || $parseDebug);
 			# fall through to next colon handling case if we fail.
-			if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
+			if ($inRegexp && $inRegexpCharClass && ($inRegexpCharClass != 2) && ($inRegexpCharClass < 4) && $lasttoken eq "[") {
+				print STDERR "In regexp nested character class (e.g. [:space:]).\n" if ($regexpDebug || $parseDebug);
+				$inRegexpCharClass = 4;
+			} elsif ($inRegexp && ($inRegexpCharClass >= 4)) {
+				print STDERR "In regexp nested character class (e.g. [:space:]).\n" if ($regexpDebug || $parseDebug);
+				$inRegexpCharClass = 6;
+			} elsif (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 
 				if ($pascal && (!(scalar(@braceStack)-$parserState->{initbsCount}))) {
 					print STDERR "Clearing SOD (pascal variable)\n" if ($sodDebug || $localDebug);
@@ -2193,13 +3150,26 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					$HeaderDoc::AccessControlState = $1;
 					$lastACS = $1;
 					last SWITCH;
-				} elsif ($structname && $parserState->{typestring} eq $structname) {
+				} elsif ($parseTokens{structname} && $parserState->{typestring} eq $parseTokens{structname}) {
+					print STDERR "STRUCT CASE\n" if ($parmDebug || $localDebug);
 					if (!(scalar(@braceStack) - $parserState->{initbsCount})) {
+						print STDERR "STRUCT CASE OUTER\n" if ($parmDebug || $localDebug);
 						if (!$parserState->{structClassName}) {
+							print STDERR "STRUCT NAME BLANK\n" if ($parmDebug || $localDebug);
 							$parserState->{structClassName} = $parserState->{lastsymbol};
 							$parserState->{bracePending} = 2;
 						}
 					}
+				} elsif ($parserState->{inBitfield}) {
+					print STDERR "NOT IN BITFIELD (::)\n" if ($parmDebug || $parseDebug || $localDebug || $bitfieldDebug);
+					delete $parserState->{inBitfield};
+				} elsif ($parserState->{sodclass} ne "class" &&
+					 !$parserState->{occmethod} && !$parserState->{inMacro} &&
+					 !$parserState->{inEnum} && !$parserState->{inClass} &&
+					 !$parserState->{seenBraces} && ($lang eq "C" || $lang eq "Csource") && ($sublang ne "MIG")) {
+					print STDERR "SC: $parserState->{sodclass} ST: $parserState->{sodtype}\n" if ($localDebug || $parseDebug);
+					print STDERR "IN BITFIELD?\n" if ($parmDebug || $parseDebug || $localDebug || $bitfieldDebug);
+					$parserState->{inBitfield} = 1;
 				}
 			}
 		    };
@@ -2244,7 +3214,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		# char *class(void *a, void *b) :
 		#       class(pri_type, pri_type);
 		#
-		($part eq ":") && do {
+		($part eq ":" && (!$parseTokens{assignmentwithcolon})) && do {
 			print STDERR "Copy constructor: CASE 18\n" if ($liteDebug);
 			if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if ($parserState->{occmethod}) {
@@ -2271,7 +3241,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					print STDERR "[d]onlyComments -> 0\n" if ($macroDebug);
 				    }
 				} else {
-				    if ($lang eq "C" && $sublang eq "cpp") {
+				    if (($lang eq "C" || $lang eq "Csource") && $sublang eq "cpp") {
 					if (!(scalar(@braceStack)-$parserState->{initbsCount}) && $parserState->{sodclass} eq "function") {
 					    $inPrivateParamTypes = 1;
 					    $declaration .= "$curline";
@@ -2290,7 +3260,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 							}
 						    }
 						    @{$parserState->{parsedParamList}} = ();
-						    print STDERR "parsedParamList pushed\n" if ($parmDebug);
+						    print STDERR "parsedParamList pushed [1]\n" if ($parmDebug);
 						}
 						# print STDERR "SEOPPLS\n";
 						# for my $item (@{$parserState->{pplStack}}) {
@@ -2322,9 +3292,17 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# Non-newline, non-carriage-return whitespace handler.
 
-		($part =~ /\s/o) && do {
+		($part =~ /\s/o && $part !~ /[\n\r]/o) && do {
 			print STDERR "Whitespace: CASE 19\n" if ($liteDebug);
-				# just add white space silently.
+
+				# Maybe push parsed parameter (lang = tcl)
+				if ($parserState->{parsedParamParse} == 5) {
+					print STDERR "PUSHED \"$parsedParam\" onto parsedParamList\n" if ($parmDebug);
+					if (length($parsedParam)) { push(@{$parserState->{parsedParamList}}, $parsedParam); }
+					$parsedParam = "";
+				}
+
+				# otherwise just add white space silently.
 				# if ($part eq "\n") { $parserState->{lastsymbol} = ""; };
 				$lastchar = $part;
 				last SWITCH;
@@ -2340,13 +3318,20 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# quote and bracket handlers.
 
-		($part eq "\"") && do {
+		($part eq "\"" || 
+		 ($ruby && ($parserState->isRubyOpenQuote($part) ||
+		            $parserState->isRubyCloseQuote($part)))) && do {
 			print STDERR "DOUBLE QUOTE: CASE 21\n" if ($liteDebug);
 				print STDERR "dquo\n" if ($localDebug);
 
 				# print STDERR "QUOTEDEBUG: CURSTRING IS '$curstring'\n";
 				# print STDERR "QUOTEDEBUG: CURLINE IS '$curline'\n";
-				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar} || $inRegexp)) {
+				if ((!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar} || $inRegexp)) && ($parserState->isRubyCloseQuote($part) || !$parserState->{inRuby})) {
+					if ($ruby) {
+						$parserState->{inRuby} = $parserState->isRubyOpenQuote($part);
+						# print STDERR "RUBYQUOTE: ".$parserState->{inRuby}."\n";
+					}
+
 					$parserState->{onlyComments} = 0;
 					print STDERR "[e]onlyComments -> 0\n" if ($macroDebug);
 					print STDERR "LASTTOKEN: $lasttoken\nCS: $curstring\n" if ($localDebug);
@@ -2364,10 +3349,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 						    if (!$parserState->{seenBraces}) { # TREEDONE
 							$treeCur->addSibling($part, 0); $treeSkip = 1;
 							$treeCur = pop(@treeStack) || $treeTop;
-							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 							$treeCur = $treeCur->lastSibling();
-							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-							print STDERR "TSPOP [3]\n" if ($tsDebug || $treeDebug);
+							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+							print STDERR "TSPOP [3]: now $treeCur\n" if ($tsDebug || $treeDebug);
 							bless($treeCur, "HeaderDoc::ParseTree");
 						    }
 						}
@@ -2390,8 +3375,8 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					$lasttoken = $part;
 					$parserState->{lastsymbol} = $part;
 					$fall_through = 1;
-				} else {
-					if ($inRegexp) {
+				} elsif (!$parserState->isQuoted($lang, $sublang)) {
+					if ($inRegexp && $inRegexpFirstPart == 1) {
 						$inRegexpCharClass = 3;
 					}
 					print STDERR "lbracket\n" if ($localDebug);
@@ -2414,6 +3399,9 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					$curline = spacefix($curline, $part, $lastchar);
 					$parserState->{lastsymbol} = "";
 					$parserState->{inBrackets} += 1;
+				} else {
+					print STDERR "FALLING THROUGH (QUOTED)\n" if ($localDebug);
+					$fall_through = 1;
 				}
 			    }
 			    if (!$fall_through) {
@@ -2439,24 +3427,32 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		($part eq "]") && do {
 			print STDERR "CLOSE BRACKET: CASE 23\n" if ($liteDebug);
 			    # right square bracket (square brace)
-			    if ($inRegexp && ($inRegexpCharClass == 2)) {
-				print STDERR "First in character class.  Treating as literal.\n" if ($localDebug || $parseDebug);
+			    if ($inRegexp && ($inRegexpCharClass == 5)) {
+				# Got :] after a [: in s character class.
+				print STDERR "Leaving nested character class.\n" if ($localDebug || $parseDebug || $regexpDebug);
+				$inRegexpCharClass = 1;
+				$lasttoken = $part;
+				$parserState->{lastsymbol} = $part;
+			    } elsif ($inRegexp && ($inRegexpCharClass == 2)) {
+				print STDERR "First in character class.  Treating as literal.\n" if ($localDebug || $parseDebug || $regexpDebug);
 				# A close bracket as first character in a
 				# character class is treated as a literal.
 				# jump to next match.
 				$lasttoken = $part;
 				$parserState->{lastsymbol} = $part;
 
-			    } elsif ($inRegexpCharClass && ($parserState->isQuoted($lang, $sublang))) {
-				# At least in Perl, \] is treated as a literal
+			    } elsif ($inRegexp && ($parserState->isQuoted($lang, $sublang))) {
+				# At least in Perl, \] is treated as a literal...
 				# even in a character class....
-				print STDERR "Quoted ] in character class.  Treating as literal.\n" if ($localDebug || $parseDebug);
+				my $place = "regular expression";
+				if ($inRegexpCharClass) { $place = "character class"; }
+				print STDERR "Quoted ] in $place.  Treating as literal.\n" if ($localDebug || $parseDebug || $regexpDebug);
 				$lasttoken = $part;
 				$parserState->{lastsymbol} = $part;
 
 			    } else {
 			      if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
-				print STDERR "rbracket\n" if ($localDebug);
+				print STDERR "rbracket\n" if ($localDebug || $regexpDebug);
 
 				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString})) {
 					$parserState->{onlyComments} = 0;
@@ -2468,10 +3464,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeCur->addSibling($part, 0); $treeSkip = 1;
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [4]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [4]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
 				if ($top ne "[") {
@@ -2483,8 +3479,12 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				$parserState->{lastsymbol} = "";
 				$parserState->{inBrackets} -= 1;
 			      }
+			      print "RECC: $inRegexpCharClass\n" if ($regexpDebug);
 			      if ($inRegexpCharClass) {
-				$inRegexpCharClass = 0;
+				if  ($inRegexpCharClass != 4) {
+					print STDERR "Leaving character class.\n" if ($localDebug || $parseDebug || $regexpDebug);
+					$inRegexpCharClass = 0;
+				}
 			      }
 			      $lastchar = $part;
 
@@ -2526,10 +3526,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 						    if (!$parserState->{seenBraces}) { # TREEDONE
 							$treeCur->addSibling($part, 0); $treeSkip = 1;
 							$treeCur = pop(@treeStack) || $treeTop;
-							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 							$treeCur = $treeCur->lastSibling();
-							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-							print STDERR "TSPOP [5]\n" if ($tsDebug || $treeDebug);
+							$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+							print STDERR "TSPOP [5]: now $treeCur\n" if ($tsDebug || $treeDebug);
 							bless($treeCur, "HeaderDoc::ParseTree");
 						    }
 						}
@@ -2548,14 +3548,15 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		# Inline comment (two slashes in c++, hash in perl/shell)
 		# handler.
 
-		(($part eq $ilc || $part eq $ilc_b) && ($lang ne "perl" || $lasttoken ne "\$")) && do {
+		(($part eq $parseTokens{ilc} || $part eq $parseTokens{ilc_b}) && ($lang ne "perl" || $lasttoken ne "\$")) && do {
 			print STDERR "SINGLE LINE COMMENT: CASE 25\n" if ($liteDebug);
 				print STDERR "ILC\n" if ($localDebug || $ilcDebug);
 
-				if (!($parserState->{inComment} || $parserState->{inChar} || $parserState->{inString} || $inRegexp)) {
+				if (!($parserState->{inComment} || $parserState->{inChar} || $parserState->{inString} || $inRegexp ||
+				      $parserState->{inInlineComment})) {
 					$parserState->{inInlineComment} = 4;
 					print STDERR "inInlineComment -> 1\n" if ($ilcDebug);
-					$curline = spacefix($curline, $part, $lastchar, $soc, $eoc, $ilc, $ilc_b);
+					$curline = spacefix($curline, $part, $lastchar, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b});
 					if (!$parserState->{seenBraces}) { # TREEDONE
 						$treeNest = 1;
 					if ($treeDebug) { print STDERR "TS TREENEST -> 1 [13]\n"; }
@@ -2595,7 +3596,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 		# Standard comment handlers: soc = start of comment,
 		# eoc = end of comment.
 
-		($part eq $soc) && do {
+		($part eq $parseTokens{soc}) && do {
 			print STDERR "START OF MULTILINE COMMENT: CASE 26\n" if ($liteDebug);
 				print STDERR "SOC\n" if ($localDebug);
 
@@ -2625,7 +3626,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 				last SWITCH;
 			};
-		($part eq $eoc) && do {
+		($part eq $parseTokens{eoc}) && do {
 			print STDERR "END OF MULTILINE COMMENT: CASE 27\n" if ($liteDebug);
 				print STDERR "EOC\n" if ($localDebug);
 
@@ -2637,10 +3638,10 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					if (!$parserState->{seenBraces}) {
                                         	$treeCur->addSibling($part, 0); $treeSkip = 1;
                                         	$treeCur = pop(@treeStack) || $treeTop;
-						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 						$treeCur = $treeCur->lastSibling();
-						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-                                        	print STDERR "TSPOP [6]\n" if ($tsDebug || $treeDebug);
+						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+                                        	print STDERR "TSPOP [6]: now $treeCur\n" if ($tsDebug || $treeDebug);
                                         	bless($treeCur, "HeaderDoc::ParseTree");
 					}
 				} elsif (!$parserState->{inComment} && !$parserState->{inInlineComment} && !$parserState->{inString} && !$parserState->{inChar} && !$inRegexp) {
@@ -2649,7 +3650,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 				} elsif ($parserState->{inInlineComment}) {
 					my $linenum = $inputCounter + $fileoffset;
 					# We'll leave this one on for now.
-					if ((1 || $nestedcommentwarn) && (!$HeaderDoc::test_mode)) {
+					if ((1 || $nestedcommentwarn) && (!$HeaderDoc::running_test)) {
 						warn("$fullpath:$linenum: warning: Nested comment found [3].  Ignoring.\n");
 					}
 				}
@@ -2661,14 +3662,25 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 
 		# Parenthesis and brace handlers.
 
-		($part eq "(") && do {
+		((($part eq "(" && (!$parserState->{inCase})) || (($parserState->{pendingBracedParameters} == 1) && casecmp($part, $parseTokens{lbrace}, $case_sensitive)))) && do {
+
 			print STDERR "OPEN PAREN: CASE 28\n" if ($liteDebug);
 			# if ($liteDebug) { $localDebug = 1; $parseDebug = 1; }
 			    my @tempppl = undef;
-			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && $regexpNoInterpolate)) {
+			    # print STDERR "(!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && ($regexpNoInterpolate || ($inRegexpFirstPart != 1))))\n";
+			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && ($regexpNoInterpolate || ($inRegexpFirstPart != 1)))) {
+			      # print STDERR "OPAREN 1\n" if ($parseDebug || 1);
 			      if ((!$parserState->isQuoted($lang, $sublang)) && (!$inRegexpCharClass)) {
+			        # print STDERR "OPAREN 2\n" if ($parseDebug || 1);
 				my $oldParsedParamParse = $parserState->{parsedParamParse};
-			        if (!(scalar(@braceStack)-$parserState->{initbsCount})) {
+			        if ((!(scalar(@braceStack)-$parserState->{initbsCount})) && (!$parserState->{valuepending})) {
+					# print STDERR "OPAREN 3\n" if ($parseDebug || 1);
+					if ($parserState->{pendingBracedParameters}) {
+						$parserState->{startOfDec} = 0;
+						# Only the first set of braces.
+						print STDERR "SET pendingBracedParameters -> 2\n" if ($parseDebug);
+						$parserState->{pendingBracedParameters} = 2;
+					}
 					# start parameter parsing after this token
 					# print STDERR "SUBLANG: \"$sublang\"\n";
 					# print STDERR "SODCLASS: \"".$parserState->{sodclass}."\"\n";
@@ -2677,6 +3689,9 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 					} elsif ($pascal && $parserState->{sodclass} eq "function") {
 						# Pascal fuction parameters are semicolon-delimited.
 						$parserState->{parsedParamParse} = 2;
+					} elsif ($sublang eq "tcl") {
+						# MIG fuction parameters are space-delimited
+						$parserState->{parsedParamParse} = 6;
 					} elsif ($sublang eq "MIG") {
 						# MIG fuction parameters are semicolon-delimited.
 						$parserState->{parsedParamParse} = 2;
@@ -2747,7 +3762,7 @@ if ($localDebug || $cppDebug) {foreach my $partlist (@parts) {print STDERR "POST
 						# If we are in a function that returns a callback, everything from here on
 						# is a list of parameters for the callback, not the function, so the
 						# previous parameter list should be discarded (though it is useful to
-						# add these parameters as valid things to comment about)
+						# add these parameters as valid things to comment about).
 
 						@{$parserState->{parsedParamList}} = @tempppl;
 						$parserState->{functionReturnsCallback}--;
@@ -2827,6 +3842,12 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 				$lastchar = $part;
 
 				if ($parserState->{startOfDec} == 2) {
+					if ($HeaderDoc::parsing_man_pages) {
+						# Some bad man pages leave out
+						# the trailing semicolon.
+						$parserState->{declarationEndsAtNewLine} = 1;
+					}
+
 					$parserState->{sodclass} = "function";
 					print STDERR "sodclass -> function (implicit)[7]\n" if ($sodDebug);
 					$parserState->{freezereturn} = 1;
@@ -2844,8 +3865,9 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 					$prespaceadjust += 4;
 					print STDERR "PSA: $prespaceadjust\n" if ($localDebug);
 				}
+				# print STDERR "IRE: $inRegexp\n";
 				if ($inRegexp) {
-					print STDERR "PUSHING $part ONTO REGEXPSTACK\n" if ($localDebug || $parseDebug);
+					print STDERR "PUSHING $part ONTO REGEXPSTACK [6]\n" if ($localDebug || $parseDebug || $regexpDebug);
 					push(@regexpStack, $part);
 				}
 			      }
@@ -2853,13 +3875,18 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 			    print STDERR "OUTGOING CURLINE: \"$curline\"\n" if ($localDebug);
 			    last SWITCH;
 			};
-		($part eq ")") && do {
+		((($part eq ")" && (!$parserState->{inCase})) || (casecmp($part, $parseTokens{rbrace}, $case_sensitive) && ($parserState->{pendingBracedParameters} == 2)))) && do {
 			print STDERR "CLOSE PAREN: CASE 29\n" if ($liteDebug);
 			    print STDERR "TOP OF RE STACK IS: \"".peek(\@regexpStack)."\"\n" if ($localDebug || $parseDebug);
-			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && $regexpNoInterpolate && (peek(\@regexpStack) ne "("))) {
+			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && !($inRegexp && ($regexpNoInterpolate || ($inRegexpFirstPart != 1)) && (peek(\@regexpStack) ne "("))) {
 			      print STDERR "PAST FIRST CHECK\n" if ($localDebug || $parseDebug);
 			      if ((!$parserState->isQuoted($lang, $sublang)) && (!$inRegexpCharClass)) {
-			        if ((scalar(@braceStack)-$parserState->{initbsCount} - $parserState->{functionReturnsCallback}) == 1) {
+				my $opentoken = "(";
+			        if (((scalar(@braceStack)-$parserState->{initbsCount} - $parserState->{functionReturnsCallback}) == 1)) {
+				    if ($parserState->{pendingBracedParameters}) {
+					$parserState->{pendingBracedParameters} = 0;
+					$opentoken = "{";
+				    }
 				    # stop parameter parsing
 				    if ($parserState->{gatheringObjCReturnType}) {
 					$parserState->{gatheringObjCReturnType}--;
@@ -2892,13 +3919,13 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeCur->addSibling($part, 0); $treeSkip = 1;
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [6a]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [6a]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
-				if (!($test eq "(")) {		# ) brace hack for vi
+				if (!($test eq $opentoken)) {
 					warn("$fullpath:$inputCounter: warning: Parentheses do not match.\nWe may have a problem.\n");
 					warn("Declaration to date: $declaration$curline\n");
 					# cluck("backtrace follows\n");
@@ -2918,18 +3945,32 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 					$prespaceadjust -= 4;
 					print STDERR "PSA: $prespaceadjust\n" if ($localDebug);
 				}
-				if ($inRegexp) {
+				if ($inRegexp && (!$regexpNoInterpolate || ($inRegexpFirstPart == 1))) {
 					my $temp = pop(@regexpStack);
-					print STDERR "popped $temp FROM REGEXPSTACK\n" if ($localDebug || $parseDebug);
+					print STDERR "popped $temp FROM REGEXPSTACK\n" if ($localDebug || $parseDebug || $regexpDebug);
 					if ($temp ne "(") {
 						warn("Parentheses do not match in regular expression.  We may have a problem.\n");
+						warn("Line is \"$line\"\n") if ($regexpDebug);
 					}
 				}
+				last SWITCH;
 			      }
 			    }
-			    last SWITCH;
 			};
-		(casecmp($part, $lbrace, $case_sensitive)) && do {
+		(($lang ne "perl" || !($parserState->{inTemplate} || $inRegexp || $leavingRegexp)) && $parserState->isLeftBrace($part, $lang, $parseTokens{lbrace}, $parseTokens{lbraceunconditionalre}, $parseTokens{lbraceconditionalre},
+			$parseTokens{classisbrace}, $parseTokens{functionisbrace}, $case_sensitive, scalar(@braceStack))) && do {
+
+			my $brctoken = $part;
+			print STDERR "IRC ".$parserState->{inRubyClass}."\n" if ($rubyDebug || $parseDebug);
+		 	if ($parseTokens{classisbrace} && $parserState->{sodclass} eq "class" && (!$parserState->{inRubyClass}) && $part =~ /[\n\r]/) {
+				print STDERR "SET IRC -> 1\n" if ($rubyDebug || $parseDebug);;
+				$parserState->{inRubyClass} = 1;
+				$brctoken = "class";
+			} elsif ($parseTokens{functionisbrace} && $parserState->{pushedfuncbrace} == 1) {
+				$parserState->{pushedfuncbrace} = 2;
+				$brctoken = $parseTokens{sofunction};
+			}
+
 			my $oldParsedParamParse = $parserState->{parsedParamParse};
 			print STDERR "LEFT BRACE: CASE 30\n" if ($liteDebug);
 			    if ($parserState->{onlyComments} && !$parserState->{inComment} && !$parserState->{inInlineComment} && !$parserState->{inChar} && !$inRegexp && !scalar(@parserStack) && !$parserState->{INIF} && !$tempInIf) {
@@ -2937,6 +3978,11 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 				$continue_no_return = 1;
 				print STDERR "CONTINUE -> 0 [NORETURN]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
 				$continue = 0;
+			    }
+			    if ($parserState->{inGiven}) {
+				if (length($parsedParam)) { push(@{$parserState->{parsedParamList}}, $parsedParam); }
+				print STDERR "PUSHING \"$parsedParam\" onto parsed parameters list ()\n" if ($parseDebug || $asDebug);
+				$parsedParam = "";
 			    }
 			    if ($parserState->{onlyComments} && !$parserState->{inComment} && !$parserState->{inInlineComment} && !$parserState->{inChar} && !$inRegexp && scalar(@parserStack)) {
 				# Somebody put in a brace in the middle of
@@ -2964,7 +4010,7 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 						}
 					}
 					@{$parserState->{parsedParamList}} = ();
-					print STDERR "parsedParamList pushed\n" if ($parmDebug);
+					print STDERR "parsedParamList pushed [2]\n" if ($parmDebug);
 				}
 
 				# start parameter parsing after this token
@@ -2981,7 +4027,7 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 				if (!$parserState->{inClass} && ($parserState->{sodclass} eq "function" || $parserState->{inOperator} || $parserState->{occmethod})) {
 					# This is the opening brace of a function.  Start ignoring everything
 					# until the matching brace is encountered.
-					print STDERR "seenBraces -> 1\n" if ($parseDebug);
+					print STDERR "seenBraces -> 1 [2]\n" if ($parseDebug || $braceDebug);
 					$parserState->{seenBraces} = 1;
 					if (!$parserState->{stackFrozen}) {
 						@{$parserState->{freezeStack}} = @{$parserState->{pplStack}};
@@ -2999,8 +4045,8 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 				print STDERR "lbrace\n" if ($localDebug);
 
 				push(@parsedParamParseStack, $oldParsedParamParse);
-				push(@braceStack, $part); pbs(@braceStack);
-				print STDERR "PUSHED $part ONTO BRACESTACK\n" if ($macroDebug || $braceDebug);
+				push(@braceStack, $brctoken); pbs(@braceStack);
+				print STDERR "PUSHED $brctoken ONTO BRACESTACK\n" if ($macroDebug || $braceDebug);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeNest = 1;
 					if ($treeDebug) { print STDERR "TS TREENEST -> 1 [16]\n"; }
@@ -3032,7 +4078,8 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 			    }
 			    last SWITCH;
 			};
-		(casecmp($part, $rbrace, $case_sensitive)) && do {
+		(casecmp($part, $parseTokens{rbrace}, $case_sensitive) && ($parserState->{pendingBracedParameters} != 2) && ($lang ne "perl" || !($parserState->{inTemplate} || $inRegexp || $leavingRegexp))) && do {
+			# {Treat } within <> as ordinary character in Perl.
 			print STDERR "RIGHT BRACE: CASE 31\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar} || $inRegexp)) {
 
@@ -3042,7 +4089,11 @@ print STDERR "SCARYCASE\n" if ($localDebug);
 									# unrolling a class or similar anyway.
 				print STDERR "[l]onlyComments -> 0\n" if ($macroDebug);
 
+				if ($ruby) { $parserState->{followingrubyrbrace} = 1; }
+
 				my $bsCount = scalar(@braceStack);
+
+				print STDERR "SPS: ".scalar(@parserStack)." BSC: ".$bsCount." IBSC: ".$parserState->{initbsCount}."\n" if ($rubyDebug || $parseDebug);
 				if (scalar(@parserStack) && !($bsCount - $parserState->{initbsCount})) {
 print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					if ($parserState->{noInsert} || $oldOC) {
@@ -3051,6 +4102,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print STDERR "inserted parser state into tree [RBRACE]\n" if ($parserStateInsertDebug);
 						my $treeRef = $parserState->{hollow};
 
+						print STDERR "Last tree node set to $treeCur [5]\n" if ($parserStateInsertDebug);
 						$parserState->{lastTreeNode} = $treeCur;
 						$treeRef->addRawParsedParams(\@{$parserState->{parsedParamList}});
 						$treeRef->parserState($parserState);
@@ -3065,7 +4117,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					$parserState = pop(@parserStack) || $parserState;
 					$declaration = $parserState->{storeDec}.$declaration;
 
-					$HeaderDoc::module = $parserState->{MODULE};
+					# $HeaderDoc::module = $parserState->{MODULE};
 
 					# print STDERR "INMODULE: ".$parserState->{INMODULE}."\n";
 
@@ -3078,13 +4130,16 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print STDERR "CONTINUE -> 0 [1a]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
 						$parserState->{noInsert} = 0;
 						$continue = 0;
-						print STDERR "AT END: REALPS IS ".$parserState->{REALPS}."\n" if ($parserStackDebug || $localDebug);
-						print STDERR "STACK COUNT: ".scalar(@parserStack)."\n" if ($parserStackDebug || $localDebug);
+						# print STDERR "AT END: REALPS IS ".$parserState->{REALPS}."\n" if ($parserStackDebug || $localDebug);
+						print STDERR "AT END.  STACK COUNT: ".scalar(@parserStack)."\n" if ($parserStackDebug || $localDebug);
 					}
-					if ($lang eq "php" || ($lang eq "C" && $sublang eq "IDL") || ($lang eq "java" && $sublang eq "java")) {
+
+# print STDERR "HERE\n";
+
+					if ($lang eq "php" || ($lang eq "C" && $sublang eq "IDL") || ($lang eq "java" && $sublang eq "java") || $ruby || ($lang eq "tcl")) {
 							# print STDERR "PHP OUT OF BRACES?: ".scalar(@braceStack)."\n";
 						if (scalar(@braceStack) == 1) {
-							# PHP, IDL, and Java classes end at
+							# PHP, IDL, Ruby, TCL, and Java classes end at
 							# the brace.
 							print STDERR "CONTINUE -> 0 [1a]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
 							$continue = 0;
@@ -3095,9 +4150,8 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						# the private vars in an
 						# Objective C class.
 						print STDERR "parserState: Hit me.\n" if ($localDebug);
-						$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+						$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 						$parserState->{skiptoken} = 1;
-						$parserState->{lang} = $lang;
 						$parserState->{inputCounter} = $inputCounter;
 						# It's about to go down by 1.
 						$parserState->{initbsCount} = scalar(@braceStack) - 1;
@@ -3107,8 +4161,13 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					print STDERR "NO CHANGE IN PARSER STATE STACK (nPARSERSTACK = ".scalar(@parserStack).", $bsCount != $parserState->{initbsCount})\n" if ($parseDebug || $parserStackDebug);
 				}
 
+				print STDERR "Ruby stopcheck: ".scalar(@braceStack)." - ".$parserState->{initbsCount}."\n" if ($rubyDebug || $parseDebug);
 				if ((scalar(@braceStack)-$parserState->{initbsCount}) == 1) {
 					# stop parameter parsing
+					if ($ruby) {
+						print STDERR "Ruby stopearly: ".scalar(@braceStack)." - ".$parserState->{initbsCount}."\n" if ($rubyDebug || $parseDebug);;
+						$parserState->{newlineIsSemi} = 1;
+					}
 					$parserState->{parsedParamParse} = 0;
 					print STDERR "parsedParamParse -> 0[rbrace]\n" if ($parmDebug);
 					$parsedParam =~ s/^\s*//so; # trim leading space
@@ -3120,6 +4179,12 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print STDERR "pushed $parsedParam into parsedParamList [1b]\n" if ($parmDebug);
 					}
 					$parsedParam = "";
+					# if ($ruby && ($parserState->{sodclass} eq "class")) {
+						# print STDERR "CONTINUE -> 0 [1a_ruby]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
+						# $continue = 0;
+					# } else {
+						# print STDERR "checkpoint SC: ".$parserState->{sodclass}."\n";
+					# }
 				} else {
 					# start parameter parsing after this token
 					# grabbing end names for typedefs.
@@ -3136,7 +4201,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						}
 					}
 					@{$parserState->{parsedParamList}} = ();
-					print STDERR "parsedParamList pushed\n" if ($parmDebug);
+					print STDERR "parsedParamList pushed [3]\n" if ($parmDebug);
 				}
 
 				print STDERR "rbrace\n" if ($localDebug);
@@ -3156,13 +4221,13 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 				if (!$parserState->{seenBraces}) { # TREEDONE
 					$treeCur->addSibling($part, 0); $treeSkip = 1;
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [7]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [7]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
-				if (!($test eq "$lbrace") && (!length($structname) || (!($test eq $structname) && $structisbrace))) {
+				if (!($test eq "$parseTokens{lbrace}") && (!length($parseTokens{structname}) || (!($test eq $parseTokens{structname}) && $parseTokens{structisbrace}))) {
 					warn("$fullpath:$inputCounter: warning: Braces do not match (top of brace stack\nis \"$test\").We may have a problem.\n");
 					warn("Declaration to date: $declaration$curline\n");
 				}
@@ -3188,10 +4253,10 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 		# Typedef, struct, enum, and union handlers.
 
 		# Merge the '@' symbol onto @protocol, @property, @public, and similar.
-		(length($part) && length($nextpart) && ((length($propname) && $propname =~ /\@/) || length($objcdynamicname) || length($objcsynthesizename) || length($classregexp) || (length($accessregexp) && $accessregexp =~ /\@/)) && $part =~ /^\@$/ && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
+		(length($part) && length($nextpart) && ((length($parseTokens{propname}) && $parseTokens{propname} =~ /\@/) || length($parseTokens{objcdynamicname}) || length($parseTokens{objcsynthesizename}) || length($classregexp) || (length($accessregexp) && $accessregexp =~ /\@/)) && $part =~ /^\@$/ && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
 			print STDERR "PROPERTY PREPEND AT (\@): CASE 32\n" if ($liteDebug);
 				my $temp = "\@".$nextpart;
-				# print STDERR "TEMP IS $temp PROPNAME is $propname\n";
+				# print STDERR "TEMP IS $temp PROPNAME is $parseTokens{propname}\n";
 				if ($temp =~ /$accessregexp/) {
 					print STDERR "MERGE $part $nextpart\n" if ($localDebug);
 					$nextpart = "\@".$nextpart;
@@ -3201,7 +4266,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					$parserState->{classIsObjC} = 1;
 				} elsif ($temp =~ /$classclosebraceregexp/) {
 					$nextpart = "\@".$nextpart;
-				} elsif ($temp eq $propname) {
+				} elsif ($temp eq $parseTokens{propname}) {
 					# This shows up in a declaration, so delete the token
 					$part = "";
 					print STDERR "MERGE $part $nextpart\n" if ($localDebug);
@@ -3211,12 +4276,12 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					$part = "";
 					print STDERR "MERGE $part $nextpart\n" if ($localDebug);
 					$nextpart = "\@".$nextpart;
-				} elsif ($temp eq $objcdynamicname) {
+				} elsif ($temp eq $parseTokens{objcdynamicname}) {
 					# This shows up in a declaration, so delete the token
 					$part = "";
 					print STDERR "MERGE $part $nextpart\n" if ($localDebug);
 					$nextpart = "\@".$nextpart;
-				} elsif ($temp eq $objcsynthesizename) {
+				} elsif ($temp eq $parseTokens{objcsynthesizename}) {
 					# This shows up in a declaration, so delete the token
 					$part = "";
 					print STDERR "MERGE $part $nextpart\n" if ($localDebug);
@@ -3232,19 +4297,20 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 
 		(length($classclosebraceregexp) && ($part =~ /$classclosebraceregexp/) && !$parserState->{inComment} && !$parserState->{inChar} && !$parserState->{inString} && !$parserState->{inInlineComment}) && do {
 			print STDERR "CLASS CLOSE BRACE: CASE 33\n" if ($liteDebug);
-				if ($part ne peekmatch(\@braceStack, $fullpath, $inputCounter)) {
+				if ($part ne peekmatch(\@braceStack, $lang, $fullpath, $inputCounter)) {
 					warn("$fullpath:inputCounter: warning: Class braces do not match.\nWe may have a problem.\n");
 				}
+				print STDERR "seenBraces -> 1 [3]\n" if ($parseDebug || $braceDebug);
 				$parserState->{seenBraces} = 1;
 				my $temp = pop(@braceStack);
 				$parserState->{parsedParamParse} = pop(@parsedParamParseStack);
 				print STDERR "POPPED $temp FROM BRACESTACK\n" if ($macroDebug || $braceDebug);
 				$treeCur->addSibling($part, 0); $treeSkip = 1;
 				$treeCur = pop(@treeStack) || $treeTop;
-				$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+				$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 				$treeCur = $treeCur->lastSibling();
-				$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-				print STDERR "TSPOP [6]\n" if ($tsDebug || $treeDebug);
+				$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+				print STDERR "TSPOP [6]: now $treeCur\n" if ($tsDebug || $treeDebug);
 				bless($treeCur, "HeaderDoc::ParseTree");
 				$part =~ s/^\@//s;
 				if ( 1 || $nextpart ne ";") {
@@ -3256,7 +4322,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						# it will always be empty anyway.
 						$parserState = pop(@parserStack) || $parserState;
 						$declaration = $parserState->{storeDec}.$declaration;
-						$HeaderDoc::module = $parserState->{MODULE};
+						# $HeaderDoc::module = $parserState->{MODULE};
 
 						$continue = 0;
 						print STDERR "CONTINUE -> 0 [occend]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
@@ -3268,6 +4334,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						} elsif ($parserState->{hollow}) {
 							print STDERR "inserted parser state into tree [\@end]\n" if ($parserStateInsertDebug);
 							my $treeRef = $parserState->{hollow};
+							print STDERR "Last tree node set to $treeCur [6]\n" if ($parserStateInsertDebug);
 							$parserState->{lastTreeNode} = $treeCur;
 
 							$treeRef->addRawParsedParams(\@{$parserState->{parsedParamList}});
@@ -3279,16 +4346,15 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						print STDERR "parserState: Created parser state[1].\n" if ($parserStackDebug);
 						print STDERR "CURLINE CLEAR[PRS2]\n" if ($localDebug);
 						$curline = "";
-						$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+						$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 						$parserState->{skiptoken} = 1;
-						$parserState->{lang} = $lang;
 						$parserState->{inputCounter} = $inputCounter;
 						$parserState->{initbsCount} = scalar(@braceStack);
 					    }
 					    print STDERR "parserState popped from parserStack[\@end]\n" if ($parserStackDebug);
 					    $parserState = pop(@parserStack) || $parserState;
 					    $declaration = $parserState->{storeDec}.$declaration;
-					    $HeaderDoc::module = $parserState->{MODULE};
+					    # $HeaderDoc::module = $parserState->{MODULE};
 					}
 				}
 				# fall through to next case.  WHY???
@@ -3299,13 +4365,19 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 			### else { $sublang = "cpp"; }
 			### print STDERR "LANG $lang SUBLANG $sublang\n" if ($localDebug || $parseDebug || $classDebug);
 			### # Update the class regular expressions because our language has changed.
-			### ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-				### $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-				### $enumname,
-				### $typedefname, $varname, $constname, $structisbrace, $macronameref,
+			### ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+				### $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+				### $parseTokens{enumname},
+				### $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
 				### $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-				### $requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $sublang);
-			### print STDERR "PROPNAME NOW $propname\n" if ($localDebug || $parseDebug || $classDebug);
+				### $requiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $moduleregexp, $parseTokens{definename}, $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+				### $labelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $sublang);
+			### print STDERR "PROPNAME NOW $parseTokens{propname}\n" if ($localDebug || $parseDebug || $classDebug);
+
+			if ($parseTokens{superclasseswithcurlybraces}) {
+				$parserState->{pendingBracedParameters} = 1;
+			}
+
 			my $localclasstype = $1;
 			if ($part =~ /^\@/) { $part =~ s/^\@//s; }
 			if (!(scalar(@braceStack)-$parserState->{initbsCount})) {
@@ -3333,7 +4405,11 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 			    		$parserState->{sodclass} = "class";
 					print STDERR "sodclass -> class (explicit)[8]\n" if ($sodDebug);
 					$parserState->{classtype} = $localclasstype;
-					$parserState->{preclasssodtype} = $parserState->{sodtype} . $part;
+					if (length($parserState->{sodtype})) {
+						$parserState->{preclasssodtype} = $parserState->{sodtype} . " " . $part;
+					} else {
+						$parserState->{preclasssodtype} = $part;
+					}
 					$parserState->{sodtype} = "";
 			    		$parserState->{startOfDec} = 1;
 					$parserState->{sodtypeclasstoken} = $part;
@@ -3356,35 +4432,60 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 					}
 
 
-					($lang, $sublang) = getLangAndSublangFromClassType($localclasstype);
+					($lang, $sublang) = getLangAndSublangFromClassType($localclasstype, $lang, $sublang);
 					$HeaderDoc::lang = $lang;
 					$HeaderDoc::sublang = $sublang;
 
-					($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-						$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-						$enumname,
-						$typedefname, $varname, $constname, $structisbrace, $macronameref,
-						$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-						$requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $sublang);
-					my $macrore = macroRegexpFromList($macronameref);
-# print STDERR "PROPNAME2: $propname\n";
+					# ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+						# $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+						# $parseTokens{enumname},
+						# $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
+						# $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+						# $requiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $moduleregexp, $parseTokens{definename},
+						# $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+						# $labelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $sublang);
+					%parseTokens = %{parseTokens($lang, $sublang)};
+
+					$labelregexp = $parseTokens{labelregexp};
+					$classregexp = $parseTokens{classregexp};
+# print STDERR "PROPNAME2: $parseTokens{propname}\n";
+					$classbraceregexp = $parseTokens{classbraceregexp};
+					$classclosebraceregexp = $parseTokens{classclosebraceregexp};
+					$accessregexp = $parseTokens{accessregexp};
+					$requiredregexp = $parseTokens{requiredregexp};
+					$moduleregexp = $parseTokens{moduleregexp};
+					# $macrore = macroRegexpFromList($parseTokens{macronames});
+					$macrore_pound = macroRegexpFromList($parseTokens{macronames}, 1);
+					$macrore_nopound = macroRegexpFromList($parseTokens{macronames}, 2);
 					print STDERR "ARP: $accessregexp\n" if ($localDebug);
 
 
 			    		last SWITCH;
 				} else {
-					($lang, $sublang) = getLangAndSublangFromClassType($localclasstype);
+					($lang, $sublang) = getLangAndSublangFromClassType($localclasstype, $lang, $sublang);
 					$HeaderDoc::lang = $lang;
 					$HeaderDoc::sublang = $sublang;
 
-					($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-						$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-						$enumname,
-						$typedefname, $varname, $constname, $structisbrace, $macronameref,
-						$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-						$requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $sublang);
-					my $macrore = macroRegexpFromList($macronameref);
-# print STDERR "PROPNAME2: $propname\n";
+					# ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+						# $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+						# $parseTokens{enumname},
+						# $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
+						# $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+						# $requiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $moduleregexp, $parseTokens{definename},
+						# $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+						# $labelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $sublang);
+					%parseTokens = %{parseTokens($lang, $sublang)};
+					$labelregexp = $parseTokens{labelregexp};
+					$classregexp = $parseTokens{classregexp};
+					$classbraceregexp = $parseTokens{classbraceregexp};
+					$classclosebraceregexp = $parseTokens{classclosebraceregexp};
+					$accessregexp = $parseTokens{accessregexp};
+# print STDERR "PROPNAME2: $parseTokens{propname}\n";
+					$requiredregexp = $parseTokens{requiredregexp};
+					$moduleregexp = $parseTokens{moduleregexp};
+					# $macrore = macroRegexpFromList($parseTokens{macronames});
+					$macrore_pound = macroRegexpFromList($parseTokens{macronames}, 1);
+					$macrore_nopound = macroRegexpFromList($parseTokens{macronames}, 2);
 					print STDERR "ARP: $accessregexp\n" if ($localDebug);
 
 
@@ -3394,31 +4495,32 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 			}
 		};
 
-		($part eq $objcdynamicname) && do {
+		($part eq $parseTokens{objcdynamicname}) && do {
 			print STDERR "PROPERTY: CASE 35\n" if ($liteDebug);
 			print STDERR "PROPERTY FOUND\n" if ($localDebug);
 			$parserState->{isProperty} = 1; # Basically treat it like a normal variable, but flag it.
 			last SWITCH;
 		};
-		($part eq $objcsynthesizename) && do {
+		($part eq $parseTokens{objcsynthesizename}) && do {
 			print STDERR "PROPERTY: CASE 35\n" if ($liteDebug);
 			print STDERR "PROPERTY FOUND\n" if ($localDebug);
 			$parserState->{isProperty} = 1; # Basically treat it like a normal variable, but flag it.
 			last SWITCH;
 		};
-		($part eq $propname) && do {
+		($part eq $parseTokens{propname}) && do {
 			print STDERR "PROPERTY: CASE 35\n" if ($liteDebug);
 			print STDERR "PROPERTY FOUND\n" if ($localDebug);
 			$parserState->{isProperty} = 1; # Basically treat it like a normal variable, but flag it.
 			last SWITCH;
 		};
-		($part eq $structname || $part eq $enumname || $part eq $unionname) && do {
+		($part eq $parseTokens{structname} || $part eq $parseTokens{enumname} || $part eq $parseTokens{unionname}) && do {
 			print STDERR "STRUCT/ENUM/UNION: CASE 36\n" if ($liteDebug);
 			    if ((!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) &&
 				(!(scalar(@braceStack)-$parserState->{initbsCount}))) {
 
-				if ($structisbrace) {
+				if ($parseTokens{structisbrace}) {
                                 	if ($parserState->{sodclass} eq "function") {
+						print STDERR "seenBraces -> 1 [4]\n" if ($parseDebug || $braceDebug);
                                         	$parserState->{seenBraces} = 1;
 						if (!$parserState->{stackFrozen}) {
 							@{$parserState->{freezeStack}} = @{$parserState->{pplStack}};
@@ -3472,10 +4574,10 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 						# bless($treeCur, "HeaderDoc::ParseTree");
 					# }
 				}
-				if ($part eq $enumname) {
+				if ($part eq $parseTokens{enumname}) {
 					$parserState->{inEnum} = 1;
 					$parserState->{inUnion} = 0;
-				} elsif ($part eq $unionname) {
+				} elsif ($part eq $parseTokens{unionname}) {
 					$parserState->{inEnum} = 0;
 					$parserState->{inUnion} = 1;
 				} else {
@@ -3487,6 +4589,7 @@ print STDERR "parserState: ENDOFSTATE\n" if ($parserStackDebug);
 				$continuation = 1;
 				# $parserState->{simpleTypedef} = 0;
 				if ($parserState->{basetype} eq "") { $parserState->{basetype} = $part; }
+				if ($parserState->{typestring} eq "") { $parserState->{typestring} = $part; }
 				# fall through to default case when we're done.
 				if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString} || $parserState->{inChar})) {
 					$parserState->{namePending} = 2;
@@ -3501,16 +4604,17 @@ print STDERR "sodname cleared (seu)\n" if ($sodDebug);
 				$lastchar = $part;
 			    }; # end if
 			}; # end do
-		($part =~ /^$typedefname$/) && do {
+		($part eq $parseTokens{typedefname}) && do {
 			print STDERR "TYPEDEF: CASE 37\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				if (!(scalar(@braceStack)-$parserState->{initbsCount})) { $parserState->{callbackIsTypedef} = 1; $parserState->{inTypedef} = 1; }
 				$parserState->{onlyComments} = 0;
 				print STDERR "[o]onlyComments -> 0\n" if ($macroDebug);
 				$continuation = 1;
+				if ($parserState->{typestring} eq "") { $parserState->{typestring} = $part; }
 				$parserState->{simpleTypedef} = 1; print STDERR "simpleTypedef -> 1\n" if ($localDebug);
 				# previous case falls through, so be explicit.
-				if ($part =~ /^$typedefname$/) {
+				if ($part eq $parseTokens{typedefname}) {
 				    if (!($parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inString} || $parserState->{inChar})) {
 					if ($pascal) {
 					    $parserState->{namePending} = 2;
@@ -3527,7 +4631,7 @@ print STDERR "sodname cleared (seu)\n" if ($sodDebug);
 				if ($parserState->{sodclass} eq "") {
 					$parserState->{startOfDec} = 0; $parserState->{sodname} = "";
 					print STDERR "startOfDec -> 0 [10]\n" if ($localDebug);
-print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
+print STDERR "sodname cleared ($parseTokens{typedefname})\n" if ($sodDebug);
 				}
 				$lastchar = $part;
 			    }; # end if
@@ -3535,7 +4639,7 @@ print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
 
 		# C++ operator keyword handler
 
-		($part eq "$operator") && do {
+		($part eq $parseTokens{operator}) && do {
 			print STDERR "OPERATOR KEYWORD: CASE 38\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
 				$parserState->{inOperator} = 1;
@@ -3550,9 +4654,16 @@ print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
 
 		# Punctuation handlers
 
-		($part =~ /;/o) && do {
+		($part =~ /;/o || ($parserState->{newlineIsSemi} && (!$parserState->isQuoted($lang, $sublang)) && $part =~ /[\n\r]/)) && do {
 			print STDERR "SEMICOLON: CASE 39\n" if ($liteDebug);
 			    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
+				if ($lang eq "shell") {
+					if ($part eq ";;") {
+						$parserState->{afterSemi} = 2;
+					} elsif (!$parserState->{afterSemi}) {
+						$parserState->{afterSemi} = 1;
+					}
+				}
 				print STDERR "NOT IN STRING, CHAR, COMMENT, etc.\n" if ($localDebug);
 				if ($parserState->{parsedParamParse}) {
 					print STDERR "PPP IS $parserState->{parsedParamParse}.\n" if ($localDebug);
@@ -3564,6 +4675,7 @@ print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
 				}
 				# skip this token
 				print STDERR "PPP AT SEMI: $parserState->{parsedParamParse}\n" if ($parseDebug || $localDebug || $parmDebug);
+
 				if ($parserState->{parsedParamParse} <= 2) {
 					$parserState->{parsedParamParse} = 2;
 					print STDERR "parsedParamParse -> 2[semi]\n" if ($parmDebug);
@@ -3584,8 +4696,15 @@ print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
 					$prespaceadjust = -$prespace;
 				}
 				# previous case falls through, so be explicit.
-				if ($part =~ /;/o && !$parserState->{inMacroLine} && !$parserState->{inMacro}) {
+				# print STDERR "PRE\n" if ($rubyDebug || $parseDebug);;
+				if (($part =~ /;/o && !$parserState->{inMacroLine} && !$parserState->{inMacro}) ||
+				    ($parserState->{newlineIsSemi} && $part =~ /[\n\r]/)) {
+
+				    if ($parserState->{newlineIsSemi}) { $parserState->{newlineIsSemi} = 0; }
 				    my $bsCount = scalar(@braceStack)-$parserState->{initbsCount};
+
+				    print STDERR "INHERE BSC $bsCount\n" if ($rubyDebug || $parseDebug);
+
 				    if (!$bsCount && !$parserState->{kr_c_function}) {
 					if ($parserState->{startOfDec} == 2 && !$pascal) {
 						$parserState->{sodclass} = "variable";
@@ -3601,41 +4720,60 @@ print STDERR "sodname cleared ($typedefname)\n" if ($sodDebug);
 					# $parserState->{lastsymbol} .= $part;
 				    }
 				    if (!$bsCount) {
-					$treeCur = $treeCur->addSibling(";"); $treepart = " "; # $treeSkip = 1;
+print STDERR "HERE BSC: $bsCount\n" if ($rubyDebug || $parseDebug);
+					$treeCur = $treeCur->addSibling($part); $treepart = " "; # $treeSkip = 1;
 if (0) {
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [8]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [8]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 }
+					# print STDERR "Last tree node set to $treeCur [6a]\n" if ($parserStateInsertDebug);
 					# $parserState->{lastTreeNode} = $treeCur;
 					# print STDERR "LASTTREENODE -> $treeCur (".$treeCur->token().")\n";
 					while ($parserState->{treePopTwo}--) {
 						$treeCur = pop(@treeStack) || $treeTop;
-						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 						$treeCur = $treeCur->lastSibling();
-						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-						print STDERR "TSPOP [9]\n" if ($tsDebug || $treeDebug);
+						$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+						print STDERR "TSPOP [9]: now $treeCur\n" if ($tsDebug || $treeDebug);
 						bless($treeCur, "HeaderDoc::ParseTree");
 					}
 					$parserState->{treePopTwo} = 0;
+				    # } else {
+					# print STDERR "Not adding sibling.  BSCOUNT: rbsCount\n";
 				    }
 				}
 				$lastchar = $part;
 			    }; # end if
 			}; # end do
-		($part eq "=" && ($parserState->{lastsymbol} ne "operator") && (!(($parserState->{inOperator} == 1) && $parserState->{lastsymbol} =~ /\W/ && $parserState->{lastsymbol} =~ /\S/)) && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
+		((($part eq "=" && (!$parseTokens{assignmentwithcolon})) ||
+		  ($part eq ":" && ($parseTokens{assignmentwithcolon} == 1))) &&
+		 ($parserState->{lastsymbol} ne $parseTokens{operator}) && (!(($parserState->{inOperator} == 1) && $parserState->{lastsymbol} =~ /\W/ && $parserState->{lastsymbol} =~ /\S/)) && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) && do {
 			print STDERR "EQUALS: CASE 40\n" if ($liteDebug);
 				$parserState->{onlyComments} = 0;
+
+			# print STDERR "EQUALSCHECK: if ((($part eq \"=\" && (!$parseTokens{assignmentwithcolon})) ||
+				     # ($part eq \":\" && ($parseTokens{assignmentwithcolon} ))) &&
+				    # !(".scalar(@braceStack)."-$parserState->{initbsCount}) &&
+				    # $nextpart !~ /=/o && $lastchar !~ /=/o &&
+				    # $parserState->{sodclass} ne \"function\" && !$inPType)\n";
+
 				print STDERR "[q]onlyComments -> 0\n" if ($macroDebug);
-				if ($part =~ /=/o && !(scalar(@braceStack)-$parserState->{initbsCount}) &&
+				if ((($part eq "=" && (!$parseTokens{assignmentwithcolon})) ||
+				     ($part eq ":" && ($parseTokens{assignmentwithcolon} == 1))) &&
+				    !(scalar(@braceStack)-$parserState->{initbsCount}) &&
 				    $nextpart !~ /=/o && $lastchar !~ /=/o &&
 				    $parserState->{sodclass} ne "function" && !$inPType) {
 					print STDERR "valuepending -> 1\n" if ($valueDebug);
 					$parserState->{valuepending} = 1;
-					$parserState->{preEqualsSymbol} = $parserState->{lastsymbol};
+					if ($parserState->{sodname}) {
+						$parserState->{preEqualsSymbol} = $parserState->{sodname};
+					} else {
+						$parserState->{preEqualsSymbol} = $parserState->{lastsymbol};
+					}
 					$parserState->{sodclass} = "variable";
 					print STDERR "sodclass -> variable (implicit)[10]\n" if ($sodDebug);
 					$parserState->{startOfDec} = 0;
@@ -3649,23 +4787,77 @@ if (0) {
 					print STDERR "[r]onlyComments -> 0\n" if ($macroDebug);
 				}
 				print STDERR "PPP AT COMMA: $parserState->{parsedParamParse}\n" if ($parseDebug || $localDebug || $parmDebug);
-				if ($part =~ /,/o && ($parserState->{parsedParamParse} == 3 || $parserState->{parsedParamParse} == 4) && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) && ((scalar(@braceStack)-$parserState->{initbsCount}-$parserState->{functionReturnsCallback}) == 1) && (peek(\@braceStack) eq '(' || peek(\@braceStack) eq '{')) {
-					print STDERR "$part is a comma\n" if ($localDebug || $parseDebug);
-					$parsedParam =~ s/^\s*//so; # trim leading space
-					$parsedParam =~ s/\s*$//so; # trim trailing space
-					if (length($parsedParam)) { push(@{$parserState->{parsedParamList}}, $parsedParam); }
-					print STDERR "pushed $parsedParam into parsedParamList [2]\n" if ($parmDebug);
-					$parsedParam = "";
-					# skip this token
-					$parserState->{parsedParamParse} = 4;
-					print STDERR "parsedParamParse -> 4[comma]\n" if ($parmDebug);
-				} elsif ($parserState->{parsedParamParse}) {
-					if ($parmDebug) {
-						warn "WARNING: PPP AT COMMA NOT 3 or 4 (or maybe in string, comment, etc.)!\n";
+				if ($part =~ /,/o && !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
+					if (($parserState->{parsedParamParse} == 3 || $parserState->{parsedParamParse} == 4) && ((scalar(@braceStack)-$parserState->{initbsCount}-$parserState->{functionReturnsCallback}) == 1) && (peek(\@braceStack) eq '(' || peek(\@braceStack) eq '{')) {
+						print STDERR "$part is a comma\n" if ($localDebug || $parseDebug);
+						$parsedParam =~ s/^\s*//so; # trim leading space
+						$parsedParam =~ s/\s*$//so; # trim trailing space
+						if (length($parsedParam)) { push(@{$parserState->{parsedParamList}}, $parsedParam); }
+						print STDERR "pushed $parsedParam into parsedParamList [2]\n" if ($parmDebug);
+						$parsedParam = "";
+						# skip this token
+						$parserState->{parsedParamParse} = 4;
+						print STDERR "parsedParamParse -> 4[comma]\n" if ($parmDebug);
+
+					} elsif ($parserState->{parsedParamParse}) {
+						if ($parmDebug) {
+							warn "WARNING: PPP AT COMMA NOT 3 or 4 (or maybe in string, comment, etc.)!\n";
+						}
+					}
+					# print STDERR "PPP: ".$parserState->{parsedParamParse}." SC: ".$parserState->{sodclass}."\n";
+					# $parserState->dbprint();
+
+					if ((!$parserState->{parsedParamParse}) && ($parserState->{sodclass} eq "variable" ||
+					    $parserState->{sodclass} eq "constant" || $parserState->{sodclass} eq "") &&
+					    ($lang eq "C" || $lang eq "Csource" || $lang eq "java" || $lang eq "perl") && $parserState->{sodname} &&
+					    (!(scalar(@braceStack)-$parserState->{initbsCount}))) {
+						print STDERR "PARSER STATE: $parserState\n" if ($parseDebug || $localDebug);
+						print STDERR "VARIABLE SODNAME ".$parserState->{sodname}."\n" if ($parseDebug || $localDebug);
+						print STDERR "VARIABLE RETURNTYPE \"".$parserState->{returntype}."\"\n" if ($parseDebug || $localDebug);
+						print STDERR "VARIABLE SODTYPE \"".$parserState->{sodtype}."\"\n" if ($parseDebug || $localDebug);
+						if ($parserState->{variablenames}) {
+							my $basetype = $parserState->{sodtype};
+							my $stars = $parserState->{curvarstars};
+							print STDERR "ADDED STARS: $stars\n" if ($parseDebug || $localDebug);
+
+							my %temp = %{$parserState->{variablenames}};
+							$parserState->{variablenames} = \%temp;
+							$temp{$parserState->{sodname}} = $parserState->{value};
+
+							my %tempb = %{$parserState->{variablestars}};
+							$parserState->{variablestars} = \%tempb;
+							$tempb{$parserState->{sodname}} = $stars;
+							$parserState->{curvarstars} = "";
+						} else {
+							my %temp = ();
+							my %tempb = ();
+
+							my $basetype = $parserState->{sodtype};
+							my $stars = "";
+							if ($basetype =~ s/(\**)\s*$//s) {
+								$stars = $1;
+							}
+							print STDERR "NEW SET STARS: $stars\n" if ($parseDebug || $localDebug);
+
+							$parserState->{variabletype} = $basetype;
+							$temp{$parserState->{sodname}} = $parserState->{value};
+							$tempb{$parserState->{sodname}} = $stars;
+							$parserState->{variablenames} = \%temp;
+							$parserState->{variablestars} = \%tempb;
+							$parserState->{curvarstars} = "";
+						}
+						# $parserState->{sodclass} = "";
+						# $parserState->{sodtype} = "";
+						# $parserState->{sodname} = "";
+						$parserState->{bracePending} = 1;
+						# $parserState->{returntype} = "";
+						# $declaration = "";
+						# $curline = "";
 					}
 				}; # end if
 			}; # end do
 		($part =~ /[*^]/) && do {
+				if ($part =~ /[*]/) { $parserState->{curvarstars} .= $part; }
 				if ($lastnspart eq "(" &&  # ")"
 					!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) &&
 					!$parserState->{callbackNamePending} &&
@@ -3683,9 +4875,14 @@ if (0) {
 
 		    print STDERR "DEFAULT CASE\n" if ($localDebug || $parseDebug);
 
+
 	# print STDERR "TEST CURLINE IS \"$curline\".\n";
 		    if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar})) {
-		      if (!ignore($part, $ignoreref, $perheaderignoreref)) {
+		      my $tempavail = ignore($part, $ignoreref, $perheaderignoreref);
+		      if ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) { $tempavail = 0; }
+		      if ($parserState->{ignoreAvailabilityMacros}) { $tempavail = 0; }
+
+		      if (!$tempavail) {
 			if ($part =~ /\S/o) {
 				$parserState->{onlyComments} = 0;
 				print STDERR "[s]onlyComments -> 0\n" if ($macroDebug);
@@ -3706,6 +4903,8 @@ if (0) {
 						# warn "NAME: $parserState->{sodname}\n";
 						if (!isKeyword($part, $keywordhashref, $case_sensitive)) {
 							my $tempavail = ignore($part, $ignoreref, $perheaderignoreref);
+							if ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) { $tempavail = 0; }
+							if ($parserState->{ignoreAvailabilityMacros}) { $tempavail = 0; }
 							if (!$tempavail) {
 								print STDERR "K&R C FUNCTION FOUND [2].\n" if ($localDebug);
 								print STDERR "TOKEN: \"$part\"\n" if ($localDebug);
@@ -3721,7 +4920,7 @@ if (0) {
 				$lastchar = $part;
 				if ($part =~ /\w/o || $part eq "::") {
 				    if ($parserState->{callbackNamePending} == 1) {
-					if (!($part eq $structname || $part eq $enumname || $part eq $unionname || $part eq $typedefname)) {
+					if (!($part eq $parseTokens{structname} || $part eq $parseTokens{enumname} || $part eq $parseTokens{unionname} || $part eq $parseTokens{typedefname})) {
 						# we've seen the initial type.  The name of
 						# the callback is after the next open
 						# parenthesis.
@@ -3783,7 +4982,9 @@ if (0) {
 						print STDERR "Word token before brace.  Setting sodname to ".$parserState->{lastsymbol}."\n" if ($localDebug || $sodDebug);
 						$parserState->{sodname} = $part;
 						# $parserState->{sodtype} = $parserState->{returntype}; #  . " " . $parserState->{name};
+
 						$parserState->{sodtype} = "$declaration$curline";
+						# print STDERR "SET SODTYPE TO ".$parserState->{sodtype}."\n";
 						$parserState->{sodclass} = "variable";
 						print STDERR "sodclass -> variable (implicit)[12]\n" if ($sodDebug);
 						$parserState->{frozensodname} = $part;
@@ -3794,7 +4995,7 @@ if (0) {
 					$parserState->{bracePending}--;
 				    }
 				} # end if ($part =~ /\w/o)
-				if ($part !~ /[,;\[\]]/o && !$parserState->{inBrackets})  {
+				if ($part !~ /[][,;\n\r]/o && !$parserState->{inBrackets})  {
 					my $opttilde = "";
 					if ($parserState->{seenTilde}) { $opttilde = "~"; }
 					if ($parserState->{sodbrackets}) {
@@ -3813,10 +5014,17 @@ if (0) {
 					if ($parserState->{startOfDec} == 1) { # @@@ FIXME DAG.  This should not set sodname, but otherwise, we're losing classes!!!
 						if (!$parserState->{inTemplate}) {
 							if (!length($accessregexp) || ($part !~ /$accessregexp/)) {
-								print STDERR "Setting sodname (maybe type) to \"$part\"\n" if ($sodDebug);
-								$parserState->{sodname} = $opttilde.$part;
-								if ($part =~ /\w/o) {
-									$parserState->{startOfDec}++;
+								if (!isKeyword($part, $keywordhashref, $case_sensitive)) {
+									print STDERR "Setting sodname (maybe type) to \"$part\"\n" if ($sodDebug);
+									$parserState->{sodname} = $opttilde.$part;
+									if ($part =~ /\w/o) {
+										$parserState->{startOfDec}++;
+									}
+								} else {
+									# If we're here, this is the first symbol on the
+									# line s, it's safe to put it straight into sodtype.
+									$parserState->{sodtype} = " ".$opttilde.$part;
+										$parserState->{startOfDec}++;
 								}
 							} else {
 								print STDERR "Not adjusting startOfDec or sodname because in access (e.g. public/private/*).\n" if ($localDebug || $sodDebug);
@@ -3828,8 +5036,10 @@ if (0) {
 						if ($part =~ /\w/o && !$parserState->{inTemplate}) {
 							$parserState->{preTemplateSymbol} = "";
 						}
-						if (!$parserState->{inTemplate}) {
+						if (!$parserState->{inTemplate} && !$parserState->{waitingForExceptions}) {
 							if (isKeyword($part, $keywordhashref, $case_sensitive)) {
+							    print STDERR "ISKEYWORD: $part.  Setting prekeywordsodname to ".$parserState->{sodname}."\n" if ($sodDebug || $parseDebug || $localDebug);
+							    print STDERR "ISKEYWORD: $part.  Setting prekeywordsodtype to ".$parserState->{sodtype}."\n" if ($sodDebug || $parseDebug || $localDebug);
 							    $parserState->{prekeywordsodname} = $parserState->{sodname};
 							    $parserState->{prekeywordsodtype} = $parserState->{sodtype};
 							} else {
@@ -3839,12 +5049,17 @@ if (0) {
 							if ($parserState->{inOperator} == 1) {
 							    $parserState->{sodname} .= $part;
 							} else {
-							    if (length($parserState->{sodname})) {
-								my $spc = "";
-								if ($parserState->{sodname} !~ /[][()]/) { $spc = " "; }
-								$parserState->{sodtype} .= "$spc$parserState->{sodname}";
+							    if ($parserState->{variableNameConcat}) {
+								$parserState->{sodname} .= $opttilde.$part;
+								$parserState->{variableNameConcat}--;
+							    } else {
+								if (length($parserState->{sodname})) {
+								    my $spc = "";
+								    if ($parserState->{sodname} !~ /[][()]/) { $spc = " "; }
+								    $parserState->{sodtype} .= "$spc$parserState->{sodname}";
+								}
+								$parserState->{sodname} = $opttilde.$part;
 							    }
-							    $parserState->{sodname} = $opttilde.$part;
 							}
 
 							print STDERR "sodname set to $part\n" if ($sodDebug);
@@ -3863,9 +5078,9 @@ if (0) {
 					$parserState->{inBrackets} -= 1;
 					print STDERR "inBrackets -> $parserState->{inBrackets}\n" if ($sodDebug);
 				} # end if ($part !~ /[;\[\]]/o)
-				if (!($part eq $eoc)) {
+				if (!($part eq $parseTokens{eoc})) {
 					print STDERR "SETTING LS ($part)\n" if ($parseDebug);
-					if ($parserState->{typestring} eq "") { $parserState->{typestring} = $part; }
+					# if ($parserState->{typestring} eq "") { $parserState->{typestring} = $part; }
 					if ($parserState->{lastsymbol} =~ /\,\s*$/o) {
 						$parserState->{lastsymbol} .= $part;
 					} elsif ($parserState->{inTypedef} && !(scalar(@braceStack)-$parserState->{initbsCount}) && $part =~ /,/) {
@@ -3876,12 +5091,40 @@ if (0) {
 						# warn("replacing lastsymbol with \"$part\"\n");
 						$parserState->{lastsymbol} = $part;
 					}
-				} # end if (!($part eq $eoc))
+				} # end if (!($part eq $parseTokens{eoc}))
 			} # end if (length($part) && !($parserState->{inComment} || $parserState->{inInlineComment}))
 		      }
 		    } # end if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}))
 		} # end SWITCH default case
 	    } # end SWITCH
+
+	    if ($part =~ /\S/ && $part ne ";" && $part ne ";;" && $parserState->{afterSemi}) {
+	    	$parserState->{afterSemi} = 0;
+	    }
+
+	    print STDERR "INMACRO: ".$parserState->{inMacro}." AT TOKEN $part\n" if ($cppDebug);
+	    if ($parserState->{inMacro} == 3 && !$parserState->{seenMacroStart}) {
+		if ($part =~ /\S/) {
+			print STDERR "seenMacroStart -> 1 at token $part\n" if ($cppDebug);
+			$parserState->{seenMacroStart} = 1;
+		}
+	    } elsif ($parserState->{inMacro} == 3 && !$parserState->{seenMacroName}) {
+		if ($part =~ /\S/) {
+			print STDERR "PARSER seenMacroName -> 1 at token $part\n" if ($cppDebug);
+			$parserState->{seenMacroName} = 1;
+		}
+	    } elsif ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) {
+		# Note that a space after the macro name means the name is
+		# done.  Thus, any token, including a space, puts us in the
+		# macro's tail.
+		print STDERR "PARSER inMacroTail -> 1 at token $part\n" if ($cppDebug);
+		$parserState->{inMacroTail} = 1;
+	    }
+
+	    if (($part =~ /\S/ && $part ne "<<") && ($parserState->{inRuby} == 3) && $parserState->{inRubyBlock} eq "") {
+		# print STDERR "IRB: $part\n";
+		$parserState->{inRubyBlock} = $part;
+	    }
 
 	    if ($parserState->{occmethod} && $parserState->{gatheringObjCReturnType} == 1) {
 		$parserState->{gatheringObjCReturnType} = 2;
@@ -3894,7 +5137,7 @@ if (0) {
 	    } elsif ($parserState->{waitingForTypeInformation} == 2) {
 			$parserState->{waitingForTypeInformation} = 1;
 	    }
-	    if ($inRegexpCharClass > 1) {
+	    if ($inRegexpCharClass > 1 && $inRegexpCharClass != 4) {
 		$inRegexpCharClass--;
 	    }
 
@@ -3925,7 +5168,7 @@ if (0) {
 	    if (length($part)) { $lasttoken = $part; }
 	    if (length($part) && $inRegexpTrailer) { --$inRegexpTrailer; }
 	    if ($postPossNL) { --$postPossNL; }
-	    if (($parserState->{simpleTypedef} == 1) && ($part ne $typedefname) &&
+	    if (($parserState->{simpleTypedef} == 1) && ($part ne $parseTokens{typedefname}) &&
 		   !($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar} ||
 		     $inRegexp)) {
 		# print STDERR "NP: $parserState->{namePending} PTP: $parserState->{posstypesPending} PART: $part\n";
@@ -3933,6 +5176,8 @@ if (0) {
 	    }
 
 	    my $ignoretoken = ignore($part, $ignoreref, $perheaderignoreref);
+	    if ($parserState->{inMacro} == 3 && !$parserState->{inMacroTail}) { $ignoretoken = 0; }
+	    if ($parserState->{ignoreAvailabilityMacros}) { $ignoretoken = 0; }
 	    my $hide = ( $hideTokenAndMaybeContents ||
 				( $ignoretoken &&
 					!( $parserState->{inString} || $parserState->{inComment} ||
@@ -3972,7 +5217,7 @@ if (0) {
 				if ($sethollow) {
 					print STDERR "WILL INSERT STATE $parserState (SETHOLLOW) at ".$treeCur->token()."\n" if ($parserStackDebug);
 					# $parserState->{hollow} = $treeCur;
-					setHollowWithLineNumbers(\$parserState, $treeCur, $fileoffset, $inputCounter);
+					$parserState->setHollowWithLineNumbers($treeCur, $fileoffset, $inputCounter);
 					$sethollow = 0;
 				}
 				print STDERR "TSPUSH\n" if ($tsDebug || $treeDebug);
@@ -3981,7 +5226,14 @@ if (0) {
 				bless($treeCur, "HeaderDoc::ParseTree");
 			}
 		}
+	    } else {
+		print STDERR "Not adding sibling (seenBraces)\n" if ($treeDebug);
 	    }
+
+	    if ($setIsAvailable) {
+		$treeCur->isAvailabilityMacro(1);
+	    }
+
 	    if ($parserState->{inComment} > 1) { $parserState->{inComment}--; }
 	    if ($parserState->{inInlineComment} > 1) { $parserState->{inInlineComment}--; }
 	    if (($parserState->{inComment} == 1) && $treepart eq "!") {
@@ -4026,9 +5278,12 @@ if (0) {
 		!$ignoretoken) {
 		if (!($parserState->{inString} || $parserState->{inComment} || $parserState->{inInlineComment} || $parserState->{inChar}) &&
                     !$ppSkipOneToken) {
-	            if ($parserState->{parsedParamParse} == 1 || $parserState->{parsedParamParse} == 3) {
-		        $parsedParam .= $part;
-	            } elsif ($parserState->{parsedParamParse} == 2 || $parserState->{parsedParamParse} == 4) {
+	            if ($parserState->{parsedParamParse} == 1 || $parserState->{parsedParamParse} == 3 ||
+		        $parserState->{parsedParamParse} == 5) {
+		        	$parsedParam .= $part;
+				print STDERR "PARSED PARAM IS NOW $parsedParam\n" if ($parmDebug);
+	            } elsif ($parserState->{parsedParamParse} == 2 || $parserState->{parsedParamParse} == 4 ||
+			     $parserState->{parsedParamParse} == 6) {
 		        $parserState->{parsedParamParse}--;
 		        print STDERR "parsedParamParse -> $parserState->{parsedParamParse}"."[endgame]\n" if ($parmDebug);
 	            }
@@ -4148,20 +5403,27 @@ if (0) {
 	        my $bsCount = scalar(@braceStack);
 		print STDERR "ENDTEST: $bsCount \"$parserState->{lastsymbol}\"\n" if ($localDebug);
 		print STDERR "KRC: $parserState->{kr_c_function} SB: $parserState->{seenBraces}\n" if ($localDebug);
-	        if (!($bsCount - $parserState->{initbsCount}) && $parserState->{lastsymbol} =~ /;\s*$/o) {
+		print STDERR "DEANL: ".$parserState->{declarationEndsAtNewLine}." PART: \"$treepart\"\n" if ($parseDebug || $asDebug);
+	        if (!($bsCount - $parserState->{initbsCount}) && ($parserState->{lastsymbol} =~ /;\s*$/o || ($parserState->{declarationEndsAtNewLine} && $partIsNL))) {
+		    if ($parserState->{declarationEndsAtNewLine} && $partIsNL) {
+			print STDERR "CREATING NEW PARSER STATE NOW.\n" if ($parseDebug || $asDebug);
+			$parserState->{declarationEndsAtNewLine} = 0;
+		    }
 		    # print STDERR "DPA\n";
 		    if ((!$parserState->{kr_c_function} || $parserState->{seenBraces}) && !$parserState->{inMacro}) {
-		        # print STDERR "DPB\n";
+		        print STDERR "DPB\n" if ($parserStateInsertDebug);
 			if (!scalar(@parserStack)) {
 			    $continue = 0;
 			    print STDERR "CONTINUE -> 0 [3]\n" if ($parseDebug || $cppDebug || $macroDebug || $localDebug || $continueDebug);
 			} elsif (!$parserState->{onlyComments}) {
 				# Process entry here
 				if ($parserState->{noInsert}) {
-					print STDERR "parserState insertion skipped[SEMI-1]\n" if ($parserStackDebug);
+					print STDERR "parserState insertion skipped[SEMI-1]\n" if ($parserStateInsertDebug);
 				} elsif ($parserState->{hollow}) {
 					my $treeRef = $parserState->{hollow};
 
+					print STDERR "inserted parser state into tree [semi]\n" if ($parserStateInsertDebug);
+					print STDERR "Last tree node set to $treeCur [7]\n" if ($parserStateInsertDebug);
 					$parserState->{lastTreeNode} = $treeCur;
 					$treeRef->addRawParsedParams(\@{$parserState->{parsedParamList}});
 					$treeRef->parserState($parserState);
@@ -4175,37 +5437,46 @@ if (0) {
 				}
 
 				print STDERR "parserState: Created parser state[2].\n" if ($parserStackDebug);
-				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 				$parserState->{skiptoken} = 1;
-				$parserState->{lang} = $lang;
 				$parserState->{inputCounter} = $inputCounter;
 				$parserState->{initbsCount} = scalar(@braceStack);
 				print STDERR "NEWRETURNTYPE: $parserState->{returntype}\n" if ($localDebug);
 				print STDERR "CURLINE CLEAR[PRS2]\n" if ($localDebug);
 				$curline = "";
+			} else {
+				print STDERR "parserState insertion skipped[ONLY COMMENTS]\n" if ($parserStateInsertDebug);
 			}
 		    }
 	        } else {
 		    print STDERR "bsCount: $bsCount - $parserState->{initbsCount}, ls: $parserState->{lastsymbol}\n" if ($localDebug);
 		    pbs(@braceStack);
 	        }
+
+		# print STDERR "BSCOUNT: $bsCount IBS: $parserState->{initbsCount}\n";
 	        if (!($bsCount - $parserState->{initbsCount}) && $parserState->{seenBraces} && ($parserState->{sodclass} eq "function" || $parserState->{inOperator}) && 
 		    ($nextpart ne ";")) {
 			# Function declarations end at the close curly brace.
 			# No ';' necessary (though we'll eat it if it's there.
 
-			if ($parserState->{treePopTwo}) {
+			if ($parserState->{treePopTwo} || $ruby) {
 				# Fix nesting.
 				# print STDERR "LASTTREENODE -> $treeCur (".$treeCur->token().")\n";
 				while ($parserState->{treePopTwo}--) {
 					$treeCur = pop(@treeStack) || $treeTop;
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
 					$treeCur = $treeCur->lastSibling();
-					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}});
-					print STDERR "TSPOP [13]\n" if ($tsDebug || $treeDebug);
+					$treeCur->parsedParamCopy(\@{$parserState->{parsedParamList}}, $lang, $sublang);
+					print STDERR "TSPOP [13]: now $treeCur\n" if ($tsDebug || $treeDebug);
 					bless($treeCur, "HeaderDoc::ParseTree");
 				}
-				$treeCur = $treeCur->addSibling(";", 0);
+				if ($ruby) {
+					$treeCur = $treeCur->addSibling("", 0);
+				} else {
+					$treeCur = $treeCur->addSibling(";", 0);
+				}
+				print STDERR "parser state lastTreeNode reset [treePopTwo]\n" if ($parserStateInsertDebug);
+				print STDERR "Last tree node set to $treeCur [8]\n" if ($parserStateInsertDebug);
 				$parserState->{lastTreeNode} = $treeCur;
 				$parserState->{treePopTwo} = 0;
 			}
@@ -4221,6 +5492,8 @@ if (0) {
 				} elsif ($parserState->{hollow}) {
 					my $treeRef = $parserState->{hollow};
 
+					print STDERR "inserted parser state into tree [rbrace]\nEOD: $treeCur\n" if ($parserStateInsertDebug);
+					print STDERR "Last tree node set to $treeCur [9]\n" if ($parserStateInsertDebug);
 					$parserState->{lastTreeNode} = $treeCur;
 					$treeRef->addRawParsedParams(\@{$parserState->{parsedParamList}});
 					$treeRef->parserState($parserState);
@@ -4229,9 +5502,8 @@ if (0) {
 				}
 
 				print STDERR "parserState: Created parser state[3].\n" if ($parserStackDebug);
-				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 				$parserState->{skiptoken} = 1;
-				$parserState->{lang} = $lang;
 				$parserState->{inputCounter} = $inputCounter;
 				$parserState->{initbsCount} = scalar(@braceStack);
 				print STDERR "CURLINE CLEAR[PRS3]\n" if ($localDebug);
@@ -4256,9 +5528,9 @@ if (0) {
 
 				if ($parserState->{inMacro} == 3) {
 					if (!$HeaderDoc::skipNextPDefine) {
-						cpp_add($parserState->{hollow});
+						cpp_add($parserState->{hollow}, 0, $lang, $sublang);
 					} else {
-						cpp_add($parserState->{hollow}, 1);
+						cpp_add($parserState->{hollow}, 1, $lang, $sublang);
 						$HeaderDoc::skipNextPDefine = 0;
 					}
 				}
@@ -4268,6 +5540,8 @@ if (0) {
 				} elsif ($parserState->{hollow}) {
 					my $treeRef = $parserState->{hollow};
 
+					print STDERR "inserted parser state into tree [macro]\n" if ($parserStateInsertDebug);
+					print STDERR "Last tree node set to $treeCur [10]\n" if ($parserStateInsertDebug);
 					$parserState->{lastTreeNode} = $treeCur;
 					$treeRef->addRawParsedParams(\@{$parserState->{parsedParamList}});
 					$treeRef->parserState($parserState);
@@ -4276,9 +5550,8 @@ if (0) {
 				}
 
 				print STDERR "parserState: Created parser state[4].\n" if ($parserStackDebug);
-				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+				$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 				$parserState->{skiptoken} = 1;
-				$parserState->{lang} = $lang;
 				$parserState->{inputCounter} = $inputCounter;
 				$parserState->{initbsCount} = scalar(@braceStack);
 				print STDERR "CURLINE CLEAR[PRS4]\n" if ($localDebug);
@@ -4306,15 +5579,15 @@ if (0) {
 	    print STDERR "OOGABOOGA\n" if ($parserStackDebug);
 	    if ($pushParserStateAfterToken == 1) {
 			print STDERR "parserState pushed onto stack[token]\n" if ($parserStackDebug);
+			print STDERR "Last tree node set to $treeCur [11]\n" if ($parserStateInsertDebug);
 			$parserState->{lastTreeNode} = $treeCur;
 			$curline = "";
 			$parserState->{storeDec} = $declaration;
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 1;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 			$pushParserStateAfterToken = 0;
@@ -4322,15 +5595,15 @@ if (0) {
 	    } elsif ($pushParserStateAfterWordToken == 1) {
 		if ($part =~ /\w/) {
 			print STDERR "parserState pushed onto stack[word]\n" if ($parserStackDebug);
+			print STDERR "Last tree node set to $treeCur [12]\n" if ($parserStateInsertDebug);
 			$parserState->{lastTreeNode} = $treeCur;
 			$curline = "";
 			$parserState->{storeDec} = $declaration;
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 1;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 			$pushParserStateAfterWordToken = 0;
@@ -4341,7 +5614,14 @@ if (0) {
 		print STDERR "$pushParserStateAfterWordToken\n" if ($parserStackDebug);
 	    } elsif ($pushParserStateAtBrace) {
 		print STDERR "PPSatBrace?\n" if ($parserStackDebug);
-		if (casecmp($part, $lbrace, $case_sensitive)) {
+
+		# if (casecmp($part, $parseTokens{lbrace}, $case_sensitive)) 
+
+		print STDERR "check: ".$parserState->isLeftBrace($part, $lang, $parseTokens{lbrace}, $parseTokens{lbraceunconditionalre}, $parseTokens{lbraceconditionalre}, $parseTokens{classisbrace}, $parseTokens{functionisbrace}, $case_sensitive, scalar(@braceStack))."\n" if ($rubyDebug || $parseDebug);
+
+		if ($parserState->isLeftBrace($part, $lang, $parseTokens{lbrace}, $parseTokens{lbraceunconditionalre}, $parseTokens{lbraceconditionalre},
+		    $parseTokens{classisbrace}, $parseTokens{functionisbrace}, $case_sensitive, scalar(@braceStack))) {
+			if ($part =~ /[\n\r]/) { $parserState->{inRubyClass} = 2; }
 			$parserState->{ISFORWARDDECLARATION} = 0;
 			print STDERR "parserState pushed onto stack[brace]\n" if ($parserStackDebug);
 			# if ($pushParserStateAtBrace == 2) {
@@ -4349,15 +5629,15 @@ if (0) {
 				# $parserState->{hollow} = undef;
 				# $parserState->{noInsert} = 1;
 			# }
+			print STDERR "Last tree node set to $treeCur [13]\n" if ($parserStateInsertDebug);
 			$parserState->{lastTreeNode} = $treeCur;
 			$curline = "";
 			$parserState->{storeDec} = $declaration;
 			$parserState->{freezereturn} = 1;
 			$declaration = "";
 			push(@parserStack, $parserState);
-			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath );
+			$parserState = HeaderDoc::ParserState->new( "FULLPATH" => $fullpath, "lang" => $lang, "sublang" => $sublang );
 			$parserState->{skiptoken} = 1;
-			$parserState->{lang} = $lang;
 			$parserState->{inputCounter} = $inputCounter;
 			$parserState->{initbsCount} = scalar(@braceStack);
 			$parserState->{noInsert} = $setNoInsert;
@@ -4381,10 +5661,10 @@ if (0) {
 			if ($tok =~ /\S/) {
 				print STDERR "parserState: PS IS $parserState\n" if ($parserStackDebug);
 				print STDERR "parserState: NOT WHITESPACE : ".$parserState->{hollow}." -> $treeCur\n" if ($parserStackDebug);
-				if (!casecmp($tok, $rbrace, $case_sensitive) && $part !~ /\)/) {
+				if (!casecmp($tok, $parseTokens{rbrace}, $case_sensitive) && $part !~ /\)/) {
 					# $parserState->{hollow} = $treeCur;
-					setHollowWithLineNumbers(\$parserState, $treeCur, $fileoffset, $inputCounter);
-					$HeaderDoc::curParserState = $parserState;
+					$parserState->setHollowWithLineNumbers($treeCur, $fileoffset, $inputCounter);
+					# $HeaderDoc::curParserState = $parserState;
 					print STDERR "parserState: WILL INSERT STATE $parserState (HOLLOW-AUTO-1) AT TOKEN \"$part\"/\"".$treeCur->token()."\"\n" if ($parserStackDebug);
 				}
 			}
@@ -4403,9 +5683,9 @@ if (0) {
 			if ($tok =~ /\S/) {
 				print STDERR "parserState: PS IS $parserState\n" if ($parserStackDebug);
 				print STDERR "parserState: NOT WHITESPACE : ".$parserState->{hollow}." -> $treeCur\n" if ($parserStackDebug);
-				if (!casecmp($tok, $rbrace, $case_sensitive) && $part !~ /\)/) {
-					setHollowWithLineNumbers(\$parserState, $treeCur, $fileoffset, $inputCounter);
-					$HeaderDoc::curParserState = $parserState;
+				if (!casecmp($tok, $parseTokens{rbrace}, $case_sensitive) && $part !~ /\)/) {
+					$parserState->setHollowWithLineNumbers($treeCur, $fileoffset, $inputCounter);
+					# $HeaderDoc::curParserState = $parserState;
 					print STDERR "parserState: WILL INSERT STATE $parserState (HOLLOW-AUTO-2) AT TOKEN \"$part\"/\"".$treeCur->token()."\"\n" if ($parserStackDebug);
 				}
 			}
@@ -4455,7 +5735,7 @@ if (0) {
 		if ($part !~ /[ \t]/) {
 			print STDERR "BS RESET\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);
 			$parserState->resetBackslash();
-			print STDERR "ISQUOTED NOW: ".$parserState->isQuoted()."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);;
+			print STDERR "ISQUOTED NOW: ".$parserState->isQuoted($lang, $sublang)."\n" if ($parseDebug || $localDebug || $cppDebug || $macroDebug);;
 		}
 		# Fall through.
 	    };
@@ -4465,12 +5745,16 @@ if (0) {
 			$declaration = $parserState->{preExternCdeclaration};
 			$parserState->rollback();
 	    }
+
 	} # end foreach (parts of the current line)
+	if ($HeaderDoc::inputCounterDebug) {
+		print STDERR "continue: $continue IC: $inputCounter NLINES: $nlines\n";
+	}
     } # end while (continue && ...)
 
     if ($continue_no_return) {
 	return blockParse($fullpath, $fileoffset, $inputLinesRef, $inputCounter, $argparse, $ignoreref,
-		$perheaderignoreref, $perheaderignorefuncmacrosref, $keywordhashref, $case_sensitive);
+		$perheaderignoreref, $perheaderignorefuncmacrosref, $keywordhashref, $case_sensitive, $lang, $sublang);
     }
 
     print STDERR "RETURNING DECLARATION\n" if ($localDebug);
@@ -4488,6 +5772,7 @@ if (0) {
 
     print STDERR "LS: $parserState->{lastsymbol}\n" if ($localDebug);
 
+    print STDERR "Last tree node set to $treeCur [14]\n" if ($parserStateInsertDebug);
     $parserState->{lastTreeNode} = $treeCur;
     $parserState->{inputCounter} = $inputCounter;
 
@@ -4495,9 +5780,9 @@ print STDERR "PARSERSTATE: $parserState\n" if ($localDebug);
 
     if ($parserState->{inMacro} == 3) {
 	if (!$HeaderDoc::skipNextPDefine) {
-		cpp_add($treeTop);
+		cpp_add($treeTop, 0, $lang, $sublang);
 	} else {
-		cpp_add($treeTop, 1);
+		cpp_add($treeTop, 1, $lang, $sublang);
 		$HeaderDoc::skipNextPDefine = 0;
 	}
     }
@@ -4513,12 +5798,15 @@ print STDERR "LEFTBPMAIN\n" if ($localDebug || $hangDebug);
     $declaration = $parserState->{storeDec}.$declaration;
     while ($tempParserState) {
 	$parserState = $tempParserState;
+	print STDERR "Last tree node set to $treeCur [15]\n" if ($parserStateInsertDebug);
+	$parserState->{lastTreeNode} = $treeCur;
+	$parserState->{inputCounter} = $inputCounter;
 	$tempParserState = pop(@parserStack);
 	$declaration = $parserState->{storeDec}.$declaration;
     }
-    $HeaderDoc::module = $parserState->{MODULE};
+    # $HeaderDoc::module = $parserState->{MODULE};
 
-    if ($localDebug || $apDebug || $liteDebug || $parseDebug) {
+    if ($localDebug || $apDebug || $liteDebug || $parseDebug || $hangDebug) {
 	print STDERR "LEAVING BLOCKPARSE\n";
     }
 
@@ -4529,12 +5817,88 @@ print STDERR "LEFTBPMAIN\n" if ($localDebug || $hangDebug);
     }
 
 # print STDERR "FC: ".$parserState->{functionContents}."\n";
-# print STDERR "DEFINENAME: \"$definename\"\n";
+# print STDERR "DEFINENAME: \"$parseTokens{definename}\"\n";
 
-    return blockParseReturnState($parserState, $treeTop, $argparse, $declaration, $inPrivateParamTypes, $publicDeclaration, $lastACS, $retDebug, $fileoffset, 0, $definename, $inputCounter);
+    return blockParseReturnState($parserState, $treeTop, $argparse, $declaration, $inPrivateParamTypes, $publicDeclaration, $lastACS, $retDebug, $fileoffset, 0, $parseTokens{definename}, $inputCounter, $lang, $sublang);
 }
 
 
+# /*!
+#     @abstract
+#         The magic box.
+#     @discussion
+#         The block parser consists of a fairly complex
+#         state machine.  Inside it lies a complex state
+#         object that requires further interpretation if
+#         you want to derive any useful information from
+#         it.
+#
+#         This code was originally part of the
+#         {@link blockParse} function itself.  However,
+#         to improve class handling performance, the
+#         code was modified to reuse the previous class
+#         parse and extract information about each
+#         embedded method, etc.  To support this, the
+#         parser state nformation needed to be stored
+#         in the parse tree and interpreted later.
+#         Thus, this portion was split off from the
+#         parser to interpret the structure when needed.
+#
+#         This function is called in three main places:
+#         at the end of {@link blockParse}, in the
+#         {@link blockParseOutside} function when
+#         reprocessing a parse tree, and at the end of
+#         {@link //apple_ref/perl/instm/HeaderDoc::PythonParse/pythonParse//() pythonParse}.
+#
+#     @param parserState
+#         The topmost parser state context object from {@link blockParse}.
+#     @param treeTop
+#         The top of the parser tree object from {@link blockParse}.
+#     @param argparse
+#         Set to 1 for parsing function arguments, enum constants,
+#         or struct fields, 2 for reparsing embedded
+#         HeaderDoc markup in a class, 0 otherwise.  For more details,
+#         see {@link blockParse}.
+#     @param declaration
+#         The declaration returned by {@link blockParse}.  If you pass
+#         an empty string, the declaration is obtained from the parse tree.
+#     @param inPrivateParamTypes
+#         Set to 1 if a C++ method with private parameters has been parsed
+#         and the public declaration needs to be restored.
+#     @param publicDeclaration
+#         The public declaration to restore.
+#     @param lastACS
+#         The access control state when the block parser finished, including
+#         any access control changes parsed this round.
+#     @param forcedebug
+#         Set to 1 to dump lots of debug information.
+#     @param fileoffset
+#         The base line number of the
+#         {@link //apple_ref/perl/cl/HeaderDoc::LineRange LineRange}
+#         object containing this declaration.  In subparse mode (reprocessing
+#         a declaration embedded in a class), this value gets overwritten with
+#         the correct value from the tree.  Thus, this value is only relevant
+#         when this function is called from {@link blockParse} itself.
+#     @param subparse
+#         Set to 0 when this is called from {@link blockParse}.  Set to 1
+#         when reinterpreting a parse tree obtained from a declaration within
+#         a class.
+#     @param definename
+#         The token for <code>#define</code>.  Used to determine whether to run a
+#         separate parser to extract the <code>#define</code> macro parameters.
+#     @param inputCounter
+#         The line number relative to the start of the
+#         {@link //apple_ref/perl/cl/HeaderDoc::LineRange LineRange}
+#         object containing this declaration.  In subparse mode (reprocessing
+#         a declaration embedded in a class), this value gets overwritten with
+#         the correct value from the tree.  Thus, this value is only relevant
+#         when this function is called from {@link blockParse} itself.
+#
+#     @vargroup External variables
+#
+#         @var HeaderDoc::outerNamesOnly
+#             Set by the <code>-O</code> flag.
+#  */
 sub blockParseReturnState
 {
     my $parserState = shift;
@@ -4549,12 +5913,15 @@ sub blockParseReturnState
     my $subparse = shift;
     my $definename = shift;
     my $inputCounter = shift;
+    my $lang = shift;
+    my $sublang = shift;
 
     my $fullpath = $parserState->{FULLPATH};
 
     my $nameObjDumpDebug = 0;
 
 # $forcedebug = 1;
+    if ($forcedebug) { $treeTop->dbprint(); }
     $forcedebug = $forcedebug || $HeaderDoc::fileDebug;
 
     my $subparseDebug = 0;
@@ -4570,18 +5937,28 @@ sub blockParseReturnState
 	$declaration = $treeTop->textTree();
     }
 
+    my $perlClassPrefix = "";
+    if ($parserState->{perlClassName}) {
+	$perlClassPrefix = $parserState->{perlClassName};
+    }
+
     cluck("PARSERSTATE IS $parserState\n") if ($localDebug);
 
     if ($forcedebug) { $parserState->print(); }
 
 if ($forcedebug) { print STDERR "FD\n"; }
 
-    my $lang = $parserState->{lang};
-    my $sublang = $parserState->{sublang};
+    # my $lang = $parserState->{lang};
+    # my $sublang = $parserState->{sublang};
+
+# print STDERR "SL: $sublang STATE: $parserState\n";
+
     my $pascal = 0;
     if ($lang eq "pascal") { $pascal = 1; }
     my $perl_or_shell = 0;
     if ($lang eq "perl" || $lang eq "shell") {
+	# IMPORTANT: TCL is NOT a shell for these purposes because it has
+	# tokens of the form foo::bar.
 	$perl_or_shell = 1;
     }
 
@@ -4595,7 +5972,7 @@ if ($forcedebug) { print STDERR "FD\n"; }
 
     my $returntype = $parserState->{returntype};
     my $sodtype = $parserState->{sodtype};
-    my $sodname = $parserState->{sodname};
+    my $sodname = $perlClassPrefix.$parserState->{sodname};
     my $basetype = $parserState->{basetype};
     my $callbackName = $parserState->{callbackName};
     my $psName = $parserState->{name};
@@ -4604,6 +5981,42 @@ if ($forcedebug) { print STDERR "FD\n"; }
     my $value = $parserState->{value};
     my $simpleTDcontents = $parserState->{simpleTDcontents};
     my $availability = $parserState->{availability};
+
+    if ($parserState->{variabletype}) {
+	$returntype = $parserState->{variabletype};
+	$sodtype = $parserState->{variabletype};
+    }
+
+    # TCL is a little odd.
+    if ($lang eq "tcl" && $parserState->{inClass}) {
+	$sodclass = "class";
+	$parserState->{sodclass} = "class";
+
+	$sodtype = join(",", @{$parserState->{pplStack}});
+	$parserState->{classtype} = "class";
+	print "SETTING sodtype TO $sodtype\n" if ($forcedebug);
+    }
+
+    # AppleScript supports multi-word names, but does not support
+    # types.
+    if ($lang eq "applescript") {
+	if (length($sodtype)) {
+		$sodname = "$sodtype $sodname";
+		$sodname =~ s/^\s*//sg;
+		$sodtype = "";
+		$parserState->{frozensodname} = $sodname;
+	}
+    }
+
+    # if ($localDebug || 1) {
+	# print STDERR "Preliminary parsed parameters:\n";
+	# my $count = 1;
+	# foreach my $ppl (@{$parserState->{parsedParamList}}) {
+		# print STDERR "Parameter $count:\n";
+		# print STDERR $ppl."\n";
+	# }
+	# print STDERR "End preliminary parsed parameters:\n";
+    # }
 
     if ($pascal && $parserState->{nameList}) {
 	$sodtype = $sodtype . $sodname;
@@ -4660,8 +6073,34 @@ if ($forcedebug) { print STDERR "FD\n"; }
 
     # print STDERR "RNL: \"".$parserState->{nameList}."\"\n";
 
+    my @variableAltNameObjects = ();
     my @names = split(/[,\s;]/, $rawnamelist);
+
+    if ($parserState->{variablenames}) {
+	my %temp = %{$parserState->{variablenames}};
+	@names = keys %temp;
+
+	my $stars = "";
+
+	# print STDERR "RT: ".$parserState->{returntype}."\n";
+
+	my $temprt = $parserState->{returntype};
+	if ($temprt =~ s/(\**)\s*$//s) {
+		$stars = $1;
+	}
+	
+	if ($parserState->{variablestars}) {
+		my %stars = %{$parserState->{variablestars}};
+		$stars{$sodname} = $stars;
+		$parserState->{variablestars} = \%stars;
+
+		# print STDERR "SODNAME STARS: $stars (sodname is \"$sodname\")\n";
+	}
+    }
+
     foreach my $insname (@names) {
+	my $origname = $insname;
+	# print "NAME: $insname\n";
 	if ($insname =~ /\S/) {
 		$insname =~ s/\s//so;
 		$insname =~ s/^[*^]//sgo;
@@ -4677,11 +6116,25 @@ if ($forcedebug) { print STDERR "FD\n"; }
 		my $nameobj = HeaderDoc::TypeHelper->new();
 		$nameobj->{NAME} = $insname;
 		$nameobj->{TYPE} = $newtype;
+
+		# print STDERR "HERE\n";
+		if ($parserState->{variablestars}) {
+			# print STDERR "HEREB ($origname)\n";
+			my %stars = %{$parserState->{variablestars}};
+			# print STDERR "STARSB: ".$stars{$origname}."\n";
+
+			$nameobj->{STARS} = $stars{$origname};
+
+			# print STDERR "STARS: ".$nameobj->{STARS}."\n";
+		}
 		$nameobj->{POSSTYPES} = $posstypes;
 		$nameobj->{EXTENDSCLASS} = $extendsClass;
 		$nameobj->{IMPLEMENTSCLASS} = $implementsClass;
 		$nameobj->{INSERTEDAT} = "names";
 		push(@nameObjects, $nameobj);
+		if ($parserState->{variablenames}) {
+			push(@variableAltNameObjects, $nameobj);
+		}
 	}
     }
     $typelist =~ s/^ //o;
@@ -4729,8 +6182,7 @@ print STDERR "NAME is $psName\n" if ($localDebug || $listDebug);
 
 	print STDERR "NAME BLOCK BEGIN\nNM: \"$psName\"\nSTD: $parserState->{simpleTypedef}\nONO: ".$HeaderDoc::outerNamesOnly."\nAP: $argparse\nLNL: \"".$namelist."\" (".length($namelist).")\nNAME BLOCK END\n" if ($localDebug);
 
-	my $quotename = quote($psName);
-	if ((!length($psName)) || $namelist !~ /$quotename/) {
+	if ((!length($psName)) || $namelist !~ /\Q$psName\E/) {
 		print STDERR "NAME AND TYPE APPENDED\n" if ($localDebug);
 		if (length($namelist)) {
 			$namelist .= ",";
@@ -4829,6 +6281,11 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
 	$nameobj->{EXTENDSCLASS} = $extendsClass;
 	$nameobj->{IMPLEMENTSCLASS} = $implementsClass;
 	$nameobj->{INSERTEDAT} = "callback";
+
+        if ($parserState->{callbackIsTypedef}) {
+		$nameobj->{ISCALLBACK} = 1;
+	}
+
 	push(@nameObjects, $nameobj);
 
 	print STDERR "NL: \"$namelist\".\n" if ($localDebug || $listDebug);
@@ -4934,10 +6391,19 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
 		$psName = $sodname;
 		$namelist = $psName;
 
-		@nameObjects = ();
+		@nameObjects = @variableAltNameObjects;
 		my $nameobj = HeaderDoc::TypeHelper->new();
 		$nameobj->{NAME} = $psName;
 		$nameobj->{TYPE} = $sodclass;
+		if ($parserState->{variablestars}) {
+			# print STDERR "HEREC ($psName)\n";
+			my %stars = %{$parserState->{variablestars}};
+			# print STDERR "STARSC: ".$stars{$psName}."\n";
+
+			$nameobj->{STARS} = $stars{$psName};
+
+			# print STDERR "STARS: ".$nameobj->{STARS}."\n";
+		}
 		$nameobj->{POSSTYPES} = $posstypes;
 		$nameobj->{EXTENDSCLASS} = $extendsClass;
 		$nameobj->{IMPLEMENTSCLASS} = $implementsClass;
@@ -5007,7 +6473,23 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
 
 	# cluck("DEFINENAME IS \"$definename\"\n");
 
+	# @@@ Do this right?
 	if ($definename && $declaration =~ /$definename\s+\w+\(/) {
+		if (!$parserState->{cppMacroHasArgs}) {
+			warn("Dec match but not args match.  Please file a bug and\ninclude a copy of this header.\n".$declaration);
+		}
+	}
+	if ($parserState->{cppMacroHasArgs}) {
+		if ($definename && $declaration !~ /$definename\s+\w+\(/) {
+			warn("Args match but not dec match.  Please file a bug and\ninclude a copy of this header.\n".$declaration);
+		}
+	}
+
+	# print STDERR "PS $parserState HAS ARGS: ".$parserState->{cppMacroHasArgs}."\n";
+
+	if ($parserState->{cppMacroHasArgs}) {
+		# if ($definename && $declaration =~ /$definename\s+\w+\(/) { }
+
 		my $pplref = defParmParse($declaration, $inputCounter, $definename, $forcedebug, $fullpath);
 		print STDERR "parsedParamList replaced\n" if ($parmDebug);
 		@parsedParamList = @{$pplref};
@@ -5143,6 +6625,7 @@ print STDERR "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
 		# $localDebug = 1;
 	# }
 	print STDERR "INCLASS!\n" if ($localDebug);
+	print STDERR "SODNAME WAS $sodname\n" if ($localDebug);
 	print STDERR "PTS: $parserState->{preTemplateSymbol}\n" if ($localDebug);
 
 	$declaration = $treeTop->textTree();
@@ -5187,6 +6670,7 @@ print STDERR "TYPELIST WAS \"$typelist\"\n" if ($localDebug);;
 	# print STDERR "RETURNING CLASS: NAMELIST IS $classname\n";
 	$typelist = "$parserState->{classtype}";
 	$posstypes = "$superclass";
+	print STDERR "SET posstypes to \"$superclass\"\n" if ($localDebug);
 	changeAll(\@nameObjects, "TYPE", $parserState->{classtype}, 0);
 	changeAll(\@nameObjects, "POSSTYPES", $superclass, 0);
 	print STDERR "SUPER WAS \"$superclass\"\n" if ($localDebug);
@@ -5292,11 +6776,15 @@ print STDERR "LEFTBP\n" if ($localDebug);
     if ($parserState->{isProperty}) {
 		print STDERR "isProperty Set.\n" if ($localDebug || $listDebug);
 		$typelist = "property";
-		$posstypes="property";
+		$posstypes="property variable* function* method*";
 		$sodclass="";
 		print STDERR "sodclass -> \"\" (return state)[18]\n" if ($sodDebug);
 		changeAll(\@nameObjects, "TYPE", "property", 0);
 		changeAll(\@nameObjects, "POSSTYPES", "property variable* function* method*", 0);
+
+		# Eliminate bogus parameter tag warnings about (copy), etc.
+		@parsedParamList = ();
+		@pplStack = ();
     }
 
     if ($pascal && ($sodclass eq "enum")) {
@@ -5314,8 +6802,8 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
 
 
     print STDERR "SUBPARSE: $subparse NAME: $namelist TTIC: ".$treeTop->{INPUTCOUNTER}." TTBO: ".$treeTop->{BLOCKOFFSET}."\n" if ($subparseDebug);
-    if ($subparse && defined($treeTop->{INPUTCOUNTER})) { $inputCounter = $treeTop->{INPUTCOUNTER}; } elsif ($subparse) { warn("Line numbers may be wrong.\n"); }
-    if ($subparse && defined($treeTop->{BLOCKOFFSET})) { $fileoffset = $treeTop->{BLOCKOFFSET}; } elsif ($subparse) { warn("Line numbers may be wrong.\n"); }
+    if ($subparse && defined($treeTop->{INPUTCOUNTER})) { $inputCounter = $treeTop->{INPUTCOUNTER}; } elsif ($subparse) { warn("Line numbers may be wrong [1].\n"); }
+    if ($subparse && defined($treeTop->{BLOCKOFFSET})) { $fileoffset = $treeTop->{BLOCKOFFSET}; } elsif ($subparse) { warn("Line numbers may be wrong [2].\n"); }
 
     if ($parserState->{ISFORWARDDECLARATION}) {
 	$typelist = "forwarddeclaration-$typelist";
@@ -5359,10 +6847,34 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
     }
     print STDERR "POSTLP: $lastparm\n" if ($localDebug || $parmDebug);
 
+    # Merge in the extra parameters from new-style AppleScript handlers
+    if ($lang eq "applescript") {
+	print STDERR "OFIN: ".$parserState->{OfIn}." ASLABEL: ".$parserState->{ASlabel}."\n" if ($parseDebug);;
+	if (length($parserState->{OfIn})) {
+		print STDERR "PUSHED ".$parserState->{OfIn}." into parsedParamList\n" if ($parseDebug || $forcedebug);
+		push(@pplStack, $parserState->{OfIn});
+	}
+	if (length($parserState->{ASlabel})) {
+		print STDERR "PUSHED ".$parserState->{ASlabel}." into parsedParamList\n" if ($parseDebug || $forcedebug);
+		push(@pplStack, $parserState->{ASlabel});
+	}
+    }
+
+    if ($parmDebug) {
+	print STDERR "PARSED PARAMETERS:";
+	my $count = 1;
+	foreach my $ppl (@pplStack) {
+		print "#".$count++."\n";
+		print $ppl."\n";
+	}
+	print STDERR "END OF PARSED PARAMETERS\n";
+    }
+
     # $returntype =~ s/^\s*//s;
     # $returntype =~ s/\s*$//s;
 
-    if ($HeaderDoc::sublang eq "MIG" && $parserState->{simpleTypedef}) {
+    # print STDERR "SUBLANG: $sublang GLOBAL: ".$HeaderDoc::sublang."\n";
+    if ($sublang eq "MIG" && $parserState->{simpleTypedef}) {
 	# $parserState->dbprint();
 
 	$returntype = $value;
@@ -5382,16 +6894,40 @@ print STDERR "SN: \"$sodname\"\nST: \"$sodtype\"\nSC: \"$sodclass\"\n" if ($loca
 	
     }
 
+    my $memberOfClass = "";
+    if ($sodclass eq "function" && $parserState->{isConstructor} && $lang eq "tcl") {
+	$memberOfClass = $sodname;
+    } elsif ($sodclass eq "function" && $sodtype =~ /(\w+)\s*::\s*$/) {
+	$memberOfClass = $1;
+	print STDERR "MEMBER OF CLASS: $memberOfClass\n" if ($localDebug || $forcedebug);
+    }
+
     if ($localDebug || $nameObjDumpDebug) {
 	print STDERR "DUMPING NAME OBJECTS ON RETURN:\n";
 	nameObjDump(\@nameObjects);
 	print STDERR "RETURN TYPE: $returntype\n";
     }
 
+    if ($lang eq "perl") {
+	# These are bogus anyway.
+	@pplStack = ();
+    }
+
+    changeAllMatching(\@nameObjects, "TYPE", "constant", "POSSTYPES", "constant variable", 0);
+    changeAllMatching(\@nameObjects, "TYPE", "variable", "POSSTYPES", "constant variable", 0);
+
+	# print STDERR "ATEND PS $parserState HAS ARGS: ".$parserState->{cppMacroHasArgs}."\n";
+
     # We're outta here.
-    return ($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, \@pplStack, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability, $fileoffset, $conformsToList, $parserState->{functionContents}, $parserState, \@nameObjects, $extendsClass, $implementsClass, $propertyAttributes);
+    return ($inputCounter, $declaration, $typelist, $namelist, $posstypes, $value, \@pplStack, $returntype, $privateDeclaration, $treeTop, $simpleTDcontents, $availability, $fileoffset, $conformsToList, $parserState->{functionContents}, $parserState, \@nameObjects, $extendsClass, $implementsClass, $propertyAttributes, $memberOfClass, $lang, $sublang);
 }
 
+# /*!
+#     @abstract
+#         Dumps an array of {@link //apple_ref/perl/cl/HeaderDoc::TypeHelper TypeHelper} objects for debugging purposes.
+#     @param arrayRef
+#         A reference to the array to dump.
+#  */
 sub nameObjDump($)
 {
     my $arrayRef = shift;
@@ -5408,6 +6944,16 @@ sub nameObjDump($)
     print STDERR "END DUMP\n";
 }
 
+# /*!
+#     @abstract
+#         Searches an array of {@link //apple_ref/perl/cl/HeaderDoc::TypeHelper TypeHelper} objects for a matching name.
+#     @param arrayRef
+#         A reference to the array to search.
+#     @param element
+#         The key in each object to search.
+#     @param value
+#         The expected value of that key.
+#  */
 sub findMatch($$$)
 {
     my $arrayRef = shift;
@@ -5430,6 +6976,21 @@ sub findMatch($$$)
     return undef;
 }
 
+# /*!
+#     @abstract
+#         Changes an array of {@link //apple_ref/perl/cl/HeaderDoc::TypeHelper TypeHelper} objects.
+#     @param arrayRef
+#         The array to dump.
+#     @param element
+#         The key in each object to modify.
+#     @param value
+#         The desired value for the specified key.
+#     @param append
+#         If 0, replace the existing value with <code>$value</code>.
+#
+#         If 1, append <code>$value</code> to the existing
+#         value (space-delimited).
+#  */
 sub changeAll($$$$)
 {
     my $arrayRef = shift;
@@ -5452,6 +7013,60 @@ sub changeAll($$$$)
     }
 }
 
+# /*!
+#     @abstract
+#         Changes matching members of an array of {@link //apple_ref/perl/cl/HeaderDoc::TypeHelper TypeHelper} objects.
+#     @param arrayRef
+#         The array to dump.
+#     @param matchingElement
+#         The key in each object to match.
+#     @param matchingValue
+#         The value for that key that, if matching, indicates the object should be modified.
+#     @param element
+#         The key in each object to modify.
+#     @param value
+#         The desired value for the specified key.
+#     @param append
+#         If 0, replace the existing value with <code>$value</code>.
+#
+#         If 1, append <code>$value</code> to the existing
+#         value (space-delimited).
+#  */
+sub changeAllMatching($$$$$$)
+{
+    my $arrayRef = shift;
+    my $matchingElement = shift;
+    my $matchingValue = shift;
+    my $element = shift;
+    my $value = shift;
+    my $append = shift;
+    my @array = @{$arrayRef};
+
+    my $localDebug = 0;
+
+    foreach my $item (@array) {
+	if ($item->{$matchingElement} eq $matchingValue) {
+		print STDERR "CHANGED $element from $item->{$element} to " if ($localDebug);
+		if ($append) {
+			$item->{$element} = $item->{$element}." ".$value;
+		} else {
+			$item->{$element} = $value;
+		}
+		print STDERR "$item->{$element}\n" if ($localDebug);
+		print STDERR "APPEND: $append\n" if ($localDebug);
+	}
+    }
+}
+
+# /*!
+#     @abstract
+#         Merges availability from multiple sources.
+#     @param orig_avail
+#         The original availability derived from comments.
+#     @param nodearrayref
+#         The array of availability nodes generated from parse
+#         tokens parsed by the parser.
+#  */
 sub mergeComplexAvailability($$)
 {
     my $orig_avail = shift;
@@ -5475,6 +7090,13 @@ sub mergeComplexAvailability($$)
     return $orig_avail;
 }
 
+# /*!
+#     @abstract
+#         A legacy piece of code that adjusts spacing in the raw
+#         declaration.
+#     @deprecated
+#         This is going away eventually.
+#  */
 sub spacefix
 {
 my $curline = shift;
@@ -5543,6 +7165,13 @@ print STDERR "PAREN\n" if ($localDebug);
 	return $curline;
 }
 
+# /*!
+#     @abstract
+#         A legacy piece of code that generates spaces for the raw
+#         declaration.
+#     @deprecated
+#         This is going away eventually.
+#  */
 sub nspaces
 {
     my $n = shift;
@@ -5552,6 +7181,14 @@ sub nspaces
     return $string;
 }
 
+# /*!
+#     @abstract
+#         A piece of debug code that prints the brace stack.
+#     @discussion
+#         This does nothing unless localDebug is set to 1 below.
+#         This should probably be revisited to key off something
+#         in the calling function.
+#  */
 sub pbs
 {
     my @braceStack = shift;
@@ -5565,6 +7202,20 @@ sub pbs
 }
 
 # parse #define arguments
+# /*!
+#     @abstract
+#         Parses <code>#define</code> arguments.
+#     @param declaration
+#         The text of the declaration to parse.
+#     @param inputCounter
+#         The line number (for debugging purposes).
+#     @param definename
+#         The name of the <code>#define</code>.
+#     @param braceDebug
+#         Set to 1 to print debug info.
+#     @param fullpath
+#         The header file path (for debugging purposes).
+#  */
 sub defParmParse
 {
     my $declaration = shift;
@@ -5627,6 +7278,19 @@ sub defParmParse
     return \@myargs;
 }
 
+# /*!
+#     @abstract
+#         Returns whether a token should be ignored.
+#     @discussion
+#         Checks the ignore list and availability macros.
+#     @return
+#         Returns the availability string if one is available.
+#         Otherwise, returns 0 if the token is a normal token,
+#         1 if the token is in the ignore list and should be
+#         dropped during parsing, or 3 if the token represents
+#         an availability macro that has arguments and thus
+#         needs special handling.
+#  */
 sub ignore
 {
     my $part = shift;
@@ -5678,6 +7342,272 @@ sub ignore
     return 0;
 }
 
+# /*! 
+#     @abstract
+#         The outer block parser
+#
+#     @param apiOwner
+#         The API owner object (class, header, etc.)
+#         into which new declarations should be inserted.
+#
+#     @param fullpath
+#         The path to the file being parsed.
+#
+#     @param inFunction
+#         Set to 1 if an <code>\@function</code> comment
+#         preceded this declaration.
+#
+#     @param inUnknown
+#         Set to 1 if a new-style comment (with no
+#         top-level HeaderDoc tag) preceded this declaration.
+#
+#     @param inTypedef
+#         Set to 1 if an <code>\@typedef</code> comment
+#         preceded this declaration.
+#
+#     @param inStruct
+#         Set to 1 if an <code>\@struct</code> comment
+#         preceded this declaration.
+#
+#     @param inEnum
+#         Set to 1 if an <code>\@enum</code> comment
+#         preceded this declaration.
+#
+#     @param inUnion
+#         Set to 1 if an <code>\@union</code> comment
+#         preceded this declaration.
+#
+#     @param inConstant
+#         Set to 1 if an <code>\@constant</code> or
+#         <code>\@const</code> comment preceded this
+#         declaration.
+#
+#     @param inVar
+#         Set to 1 if an <code>\@var</code> comment
+#         preceded this declaration.
+#
+#     @param inMethod
+#         Set to 1 if an <code>\@method</code> comment
+#         preceded this declaration.
+#
+#     @param inPDefine
+#         Set to 1 if an <code>\@define</code> comment
+#         preceded this declaration.
+#
+#         Set to 2 if an <code>\@defineblock</code> or
+#         <code>\@definedblock</code> comment preceded
+#         this declaration.
+#
+#     @param inClass
+#         Set to 1 if an <code>\@class</code> comment
+#         preceded this declaration.
+#
+#     @param inInterface
+#         Set to 1 if an <code>\@interface</code> comment
+#         preceded this declaration.
+#
+#     @param blockOffset
+#         The line number where the current block begins.  The
+#         line number printed is <code>(blockOffset + inputCounter)</code>.
+#
+#     @param categoryObjectsref
+#         A reference to the initial array of category
+#         (<code>HeaderDoc::ObjCCategory</code>) objects.
+#         New category objects are added to this array.
+#
+#     @param classObjectsref
+#         A reference to the initial array of class
+#         (<code>HeaderDoc::CPPClass</code> and
+#         <code>HeaderDoc::ObjCClss</code>) objects.
+#         New category objects are added to this array.
+#
+#     @param classType
+#         The class type, based on what class was
+#         last parsed.  Used when parsing fragments
+#         within a class.  Legal values are
+#         <code>intf</code>, <code>occ</code>,
+#         <code>occCat</code>, or any value that
+#         is valid for sublang.
+#
+#         This is used to determine whether to treat the
+#         <code>\@method</code> tag as an Objective-C method
+#         (<code>HeaderDoc::Method</code>) or as a normal
+#         method (<code>HeaderDoc::Function</code>).
+#
+#     @param cppAccessControlState
+#         The new access control state (public, private, etc.).
+#         It is named cpp because at the time it was naed, the
+#         only langauge that required it was C++ (where
+#         <code>sublang = "cpp"</code>).
+#
+#     @param fieldsref
+#         An array of fields returned from a call to
+#         {@link //apple_ref/perl/instm/HeaderDoc::Utilities/stringToFields//() stringToFields} on a HeaderDoc comment.
+#
+#     @param fullpath
+#         The full (possibly relative) path to the current
+#         input file.
+#
+#     @param functionGroup
+#         The function group currently in effect.
+#
+#     @param headerObject
+#         The header object that will eventually contain any
+#         objects produced.
+#
+#     @param inputCounter
+#         The offset within the array.  This is added to
+#         <code>blockOffset</code> when printing the line number.
+#
+#     @param inputlinesref
+#         A reference to an array of code lines.
+#
+#     @param lang
+#         The language family to use in parsing.  Overrides
+#         <code>HeaderDoc::lang</code>.
+#
+#     @param nlines
+#         The number of lines in <code>inputlinesref</code>.
+#
+#     @param preAtPart
+#         Text before the initial <code>\@</code> in the
+#         preceding HeaderDoc comment.  Contains the
+#         discussion in a new-style comment.  Otherwise,
+#         contains whitespace.
+#
+#     @param xml_output
+#         Set to 1 if output should be in XML format, else 0.
+#         This sets the <code>outputformat</code> value on new
+#         objects.
+#
+#     @param localDebug
+#         Set to 1 to enable lots of general debug spew.
+#
+#     @param hangDebug
+#         Set to 1 to enable lots of debug spew specific to
+#         tracking down infinite loops.
+#
+#     @param parmDebug
+#         Set to 1 to enable lots of debug spew specific to
+#         parameter handling.
+#
+#     @param blockDebug
+#         Set to 1 to debug block handling (both define blocks
+#         and blocks wrapped in C preprocessor macros).
+#
+#     @param subparse
+#         Set to 1 to use subparse mode (handling a declaration
+#         extracted out of an existing parse tree).
+#
+#     @param subparseTree
+#         The source parse tree in subparse mode.  Ignored
+#         otherwise.
+#
+#     @param nodec
+#         No longer used.  Always pass zero.
+#
+#     @param allow_multi
+#         Pass 1 to allow blocks to be created when a
+#         <code>#if</code> statement is found immediately
+#         after a HeaderDoc comment.  Pass 0 to disable this
+#         feature.
+#
+#     @param subparseCommentTree
+#         Used in block mode because subparseTree is empty by
+#         definition when the comment precedes the declaration.
+#
+#     @param sublang
+#         The language variant to use in parsing.  Overrides
+#         <code>HeaderDoc::sublang</code> used in previous
+#         versions of this function.  Optional FOR NOW.
+#
+#     @param hashtreecur
+#         A {@link //apple_ref/perl/cl/HeaderDoc::HashObject HashObject} instance
+#         that reflects the current position in the CPP hash tree.
+#         This is used by the parser to manage the C preprocessor
+#         hash tables in the presence of <code>#if</code> directives.
+#
+#         For a detailed explanation, see the documentation for the
+#         {@link //apple_ref/perl/cl/HeaderDoc::HashObject HashObject} class.
+#
+#         Although this is optional, if you don't pass these correctly,
+#         you won't get support for #if/#else/#endif blocks.
+#
+#     @param hashtreeroot
+#         A {@link //apple_ref/perl/cl/HeaderDoc::HashObject HashObject} instance
+#         that represents the root of the CPP hash tree.
+#         This is used by the parser to manage the C preprocessor
+#         hash tables in the presence of <code>#if</code> directives.
+#
+#         For a detailed explanation, see the documentation for the
+#         {@link //apple_ref/perl/cl/HeaderDoc::HashObject HashObject} class.
+#
+#         Although this is optional, if you don't pass these correctly,
+#         you won't get support for #if/#else/#endif blocks.
+#
+#     @result
+#         Returns the array <code>($inputCounter, $cppAccessControlState, $classType, \@classObjects, \@categoryObjects, $blockOffset, $numcurlybraces, $foundMatch, $lang, $sublang)</code>.
+#
+#         <dl>
+#         <dt><code>inputCounter</code></dt>
+#             <dd>The new value for inputCounter, adjusted for the lines
+#                 that have were parsed.</dd>
+#         <dt><code>cppAccessControlState</code></dt>
+#             <dd>The new access control state (public, private, etc.)</dd>
+#         <dt><code>classType</code></dt>
+#             <dd>The new value for class type, based on what class was
+#                 last parsed.  Used when parsing fragments within a class.</dd>
+#         <dt><code>classObjects</code></dt>
+#             <dd>A reference to an array of class objects (either
+#                 <code>CPPClass</code> or <code>ObjCClass</code>).</dd>
+#         <dt><code>categoryObjects</code></dt>
+#             <dd>A reference to an array of category objects
+#                 (<code>ObjCCategory</code>).</dd>
+#         <dt><code>blockOffset</code></dt>
+#             <dd>The new block offset (relative to inputCounter),
+#                 adjusted for the lines already parsed.</dd>
+#         <dt><code>numcurlybraces</code></dt>
+#             <dd>The number of curly braces parsed.  Not
+#                 particularly useful anymore.</dd>
+#         <dt><code>foundMatch</code></dt>
+#             <dd>True if this pass found an object that matches
+#                 the requested type (e.g. an <code>\@function</code>
+#                 comment matched a function or function-like macro).</dd>
+#         <dt><code>lang</code></dt>
+#             <dd>The programming language.</dd>
+#         <dt><code>sublang</code></dt>
+#             <dd>The sublanguage (which may change as new
+#                 classes are parsed).</dd>
+#         </dl>
+#
+#     @discussion
+#         This is the block parser API you should generally be calling if you are
+#         reusing this code for other purposes.  It parses a declaration and
+#         returns an appropriate set of HeaderDoc objects.  It includes all of
+#         the HeaderDoc name processing voodoo.  More explanation of this code
+#         is probably in order, but there's no time right now.
+#
+#         <b>Common mistakes:</b>
+#
+#         Unlike {@link blockParse}, you must increment the input
+#         counter or you risk an infinite loop.  (When looping
+#         with {@link blockParse}, you must <b>not</b> increment
+#         the input counter or you will skip lines.)
+#
+#     @var blockmode
+#         Possible values:
+#
+#         <ul>
+#             <li>0 &mdash; Not in a block of any kind.
+#             <li>1 &mdash; Got an <code>\@defineblock</code> comment,
+#                 but have not yet seen any <code>#define</code> macros.
+#             <li>2 &mdash; Got an <code>\@defineblock</code> comment,
+#                 and have seen at least one <code>#define</code> macro.
+#             <li>3 &mdash; Got a <code>#if</code> macro before the first
+#                 declaration.  Treat the following declarations as
+#                 a group until the corresponding <code>#endif</code> macro
+#         </ul>
+#  */
 sub blockParseOutside
 {
     my $apiOwner = shift;
@@ -5720,7 +7650,7 @@ sub blockParseOutside
     # my $outertype = shift;
     # my $posstypes = shift;
     my $preAtPart = shift;
-    # my $typedefname = shift;
+    # my $parseTokens{typedefname} = shift;
     # my $typelist = shift;
     # my $varIsConstant = shift;
     my $xml_output = shift;
@@ -5742,18 +7672,43 @@ sub blockParseOutside
     # my $outputdir = shift;
     my $nodec = shift;
     my $allow_multi = shift;
+    my $subparseCommentTree = shift; # Used in block mode because
+                                     # subparseTree is empty by
+                                     # definition when the comment
+                                     # precedes the declaration.
+
+    my $sublang = shift; # optional FOR NOW.
+    if (!$sublang) {
+	print STDERR "WARNING: Old API use detected.  Please update your\ncode to call blockParseOutside with a sublang argument.\nThis will break in a future version of HeaderDoc.\n";
+	cluck("Backtrace:\n");
+	$sublang = $HeaderDoc::sublang;
+    }
+    my $hashtreecur = shift;   # If you don't pass these correctly, you won't get the
+    my $hashtreeroot = shift;  # support for #if/#else/#endif blocks.
+
+    # print STDERR "IN BLOCKPARSEOUTSIDE HTC: $hashtreecur HTR: $hashtreeroot\n";
+
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 001: SUBLANG NOMATCH\n"; }
 
 	print STDERR "ALLOW_MULTI: $allow_multi\n" if ($localDebug);
 
 # $localDebug = 1; $blockDebug = 1;
+    my $subparseDebug = 0;
     my $nameDebug = 0;
     my $nameObjDebug = 0;
     my $nestClassDebug = 0;
 
     my $missingParseTreeDebug = 0;
 
+    my $mustLockDiscussion = 0;
+
 # cluck('BPO') if (!$subparse);
 # cluck('BPO SUBPARSE') if ($subparse);
+
+    if ($subparse && ($localDebug || $subparseDebug)) {
+    	print "SUBPARSE COMMENT TREE: $subparseCommentTree\n";
+    	$subparseCommentTree->dbprint();
+    }
 
     if ($inClass && $nestClassDebug) {
 	$localDebug = 1; $blockDebug = 1; $hangDebug = 1; # turn on the kitchen sink.
@@ -5777,7 +7732,7 @@ sub blockParseOutside
 	$HeaderDoc::enable_cpp = -1;
     }
 
-    print STDERR "IN BLOCKPARSEOUTSIDE, INPUTCOUNTER: $inputCounter BLOCKOFFSET: $blockOffset\n" if ($localDebug);
+    print STDERR "IN BLOCKPARSEOUTSIDE, INPUTCOUNTER: $inputCounter BLOCKOFFSET: $blockOffset\n" if ($localDebug || $HeaderDoc::inputCounterDebug);
 
     # Args here
 
@@ -5802,13 +7757,17 @@ sub blockParseOutside
 	$subparseInputCounter = $subparseTree->{LINENUM};
 	$subparseBlockOffset = 0;
     }
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 002: SUBLANG NOMATCH\n"; }
 
-    my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-	$enumname,
-	$typedefname, $varname, $constname, $structisbrace, $macronameref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-	$requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $HeaderDoc::sublang);
+    # my ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+	# $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+	# $parseTokens{enumname},
+	# $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
+	# $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	# $requiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $moduleregexp, $parseTokens{definename},
+	# $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+	# $labelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $HeaderDoc::sublang);
+    my %parseTokens = %{parseTokens($lang, $sublang)};
 
 # print STDERR "BPO: FIELDS: \n";
 # foreach my $field (@fields) {
@@ -5816,12 +7775,14 @@ sub blockParseOutside
 # }
 # print STDERR "END FIELDS\n";
 
+# printFields(\@fields);
+
 my $foundMatch = 0;
 
 print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 
 				if ($inUnknown || $inTypedef || $inStruct || $inEnum || $inUnion || $inConstant || $inVar || $inFunction || ($inMethod && $methods_with_new_parser) || $inPDefine || $inClass) {
-# print STDERR "PROPNAME3: $propname\n";
+# print STDERR "PROPNAME3: $parseTokens{propname}\n";
 				    my $varIsConstant = 0;
 				    my $blockmode = 0;
 				    my $blocklevel = 0;
@@ -5831,9 +7792,30 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 				    my $parmDebug = 0 || $localDebug;
 				    # my $localDebug = 1;
 
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 003: SUBLANG NOMATCH\n"; }
 				    if ($inPDefine == 2) {
 					print STDERR "BLOCKMODE[1] -> 1\n" if ($localDebug || $blockDebug);
 					$blockmode = 1;
+
+					$mustLockDiscussion = 1;
+
+					if ($subparse) {
+						$subparseTree = $subparseCommentTree->next();
+						print "LINE NUMBER NOW: ".$subparseTree->{LINENUM}."\n" if ($subparseDebug);
+						print "INPUT COUNTER OF TOKEN: ".$subparseTree->{INPUTCOUNTER}."\n" if ($subparseDebug);
+						print "BLOCK OFFSET OF TOKEN: ".$subparseTree->{BLOCKOFFSET}."\n" if ($subparseDebug);
+
+						# Because this was set previously,
+						# reset it here.
+						$subparseInputCounter = $subparseTree->{LINENUM};
+
+						# Because the first comment in a block
+						# does not have input counter information
+						# associated with it (no declaration there),
+						# we have to add it from the LINENUM value.
+						$subparseTree->{INPUTCOUNTER} = $subparseInputCounter;
+						$subparseTree->{BLOCKOFFSET} = 0;
+					}
 				    }
 				    if ($inFunction || $inMethod) {
 					if ($localDebug) {
@@ -5852,10 +7834,10 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 							}
 					}
 					if ($method) {
-						$curObj = HeaderDoc::Method->new;
+						$curObj = HeaderDoc::Method->new("LANG" => $lang, "SUBLANG" => $sublang);
 						$curtype = "method";
 					} else {
-						$curObj = HeaderDoc::Function->new;
+						$curObj = HeaderDoc::Function->new("LANG" => $lang, "SUBLANG" => $sublang);
 						$curtype = "function";
 					}
 					$curObj->apiOwner($apiOwner);
@@ -5880,6 +7862,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					}
 					# $curObj->linenum($inputCounter+$blockOffset);
 					# print STDERR "LINE NUMBER IS $inputCounter + $blockOffset\n";
+					# printFields(\@fields);
 					if ($method) {
 						$curObj->processComment(\@fields);
 					} else {
@@ -5889,7 +7872,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					print STDERR "inPDefine\n" if ($localDebug);
 					$curtype = "#define";
 					if ($blockmode) { $warntype = "defineblock"; }
-					$curObj = HeaderDoc::PDefine->new;
+					$curObj = HeaderDoc::PDefine->new("LANG" => $lang, "SUBLANG" => $sublang);
 					$curObj->apiOwner($apiOwner);
 					$curObj->group($HeaderDoc::globalGroup);
 					if ($xml_output) {
@@ -5909,12 +7892,14 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					}
 					# $curObj->linenum($inputCounter+$blockOffset);
 					$curObj->processComment(\@fields);
+
+					if ($mustLockDiscussion) { $curObj->discussionLocked(1); }
 				    } elsif ($inVar) {
 # print STDERR "inVar!!\n";
 					print STDERR "inVar\n" if ($localDebug);
 					$curtype = "variable";
 					$varIsConstant = 0;
-					$curObj = HeaderDoc::Var->new;
+					$curObj = HeaderDoc::Var->new("LANG" => $lang, "SUBLANG" => $sublang);
 					$curObj->apiOwner($apiOwner);
 					$curObj->group($HeaderDoc::globalGroup);
 					if ($xml_output) {
@@ -5937,7 +7922,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					print STDERR "inConstant\n" if ($localDebug);
 					$curtype = "constant";
 					$varIsConstant = 1;
-					$curObj = HeaderDoc::Constant->new;
+					$curObj = HeaderDoc::Constant->new("LANG" => $lang, "SUBLANG" => $sublang);
 					$curObj->apiOwner($apiOwner);
 					$curObj->group($HeaderDoc::globalGroup);
 					if ($xml_output) {
@@ -5966,11 +7951,11 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					}
 					$curtype = "UNKNOWN";
 					if ($inUnknown) {
-						$curObj = HeaderDoc::HeaderElement->new;
+						$curObj = HeaderDoc::HeaderElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 						$curObj->apiOwner($apiOwner);
 						$classKeyword = "auto";
 					} else {
-						$curObj = HeaderDoc::APIOwner->new;
+						$curObj = HeaderDoc::APIOwner->new("LANG" => $lang, "SUBLANG" => $sublang);
 						$curObj->apiOwner($apiOwner);
 						$classKeyword = $fields[0];
 						$classKeyword =~ s/^\s*\/\*\!\s*//s;
@@ -5987,17 +7972,17 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					} else { 
 					    $curObj->outputformat("html");
 					}
-					warnHDComment(\@inputLines, $inputCounter, $blockOffset, "unknown", "11");
+					warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "unknown", "11", \%parseTokens);
 				    } elsif ($inTypedef) {
 # print STDERR "inTypedef\n"; $localDebug = 1;
 					print STDERR "inTypedef\n" if ($localDebug);
-					$curtype = $typedefname;
+					$curtype = $parseTokens{typedefname};
 					# if ($lang eq "pascal") {
 						# $curtype = "type";
 					# } else {
 						# $curtype = "typedef";
 					# }
-					$curObj = HeaderDoc::Typedef->new;
+					$curObj = HeaderDoc::Typedef->new("LANG" => $lang, "SUBLANG" => $sublang);
 					$curObj->apiOwner($apiOwner);
 					$curObj->group($HeaderDoc::globalGroup);
 					if ($xml_output) {
@@ -6018,7 +8003,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					$curObj->processComment(\@fields);
 					$curObj->masterEnum(0);
 					
-					warnHDComment(\@inputLines, $inputCounter, $blockOffset, "enum", "11a");
+					warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "enum", "11a", \%parseTokens);
 					# if a struct declaration precedes the typedef, suck it up
 				} elsif ($inStruct || $inUnion) {
 					if ($localDebug) {
@@ -6033,7 +8018,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					} else {
 						$curtype = "struct";
 					}
-                                        $curObj = HeaderDoc::Struct->new;
+                                        $curObj = HeaderDoc::Struct->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $curObj->apiOwner($apiOwner);
 					$curObj->group($HeaderDoc::globalGroup);
                                         if ($inUnion) {     
@@ -6057,11 +8042,11 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					}
 					# $curObj->linenum($inputCounter+$blockOffset);
                                         $curObj->processComment(\@fields);
-					warnHDComment(\@inputLines, $inputCounter, $blockOffset, "$curtype", "11b");
+					warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "$curtype", "11b", \%parseTokens);
 				} elsif ($inEnum) {
 					print STDERR "inEnum\n" if ($localDebug);
 					$curtype = "enum";
-                                        $curObj = HeaderDoc::Enum->new;
+                                        $curObj = HeaderDoc::Enum->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $curObj->apiOwner($apiOwner);
 					$curObj->masterEnum(1);
 					$curObj->group($HeaderDoc::globalGroup);
@@ -6081,7 +8066,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
 					}
 					# $curObj->linenum($inputCounter+$blockOffset);
                                         $curObj->processComment(\@fields);
-					warnHDComment(\@inputLines, $inputCounter, $blockOffset, "$curtype", "11c");
+					warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "$curtype", "11c", \%parseTokens);
 				}
 
 				my $origcurtype = $curtype;
@@ -6096,7 +8081,7 @@ print STDERR "blockParseOutside: APIOWNER IS $apiOwner\n" if ($localDebug);
                                 	$inputCounter++;
 					print STDERR "INCREMENTED INPUTCOUNTER [3]\n" if ($HeaderDoc::inputCounterDebug);
 # print STDERR "warntype is $warntype\n";
-                                	warnHDComment(\@inputLines, $inputCounter, $blockOffset, "$warntype", "12");
+                                	warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "$warntype", "12", \%parseTokens);
                                 	print STDERR "Input line number[7]: $inputCounter\n" if ($localDebug);
                                 };
                                 # my  $declaration = $inputLines[$inputCounter];
@@ -6109,36 +8094,50 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 	my $returnedParserState = undef;
 	my $nameObjectsRef = undef;
 
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 004: SUBLANG NOMATCH\n"; }
+
 	my ($case_sensitive, $keywordhashref) = $curObj->keywords();
 	my $typelist = ""; my $innertype = ""; my $posstypes = "";
 	print STDERR "PTCT: $posstypes =? $curtype\n" if ($localDebug || $blockDebug);
 	my $blockDec = "";
 	$localDebug = 0 || $nestClassDebug;
 	my $hangDebug = 0 || $localDebug;
-	my $subparseDebug = 0 || $localDebug;
+	$subparseDebug = 0 || $localDebug || $subparseDebug;
 
 	print STDERR "ENTERING IC: $inputCounter\n" if ($localDebug);
 
 	my $lastParserState = undef;
-	print STDERR "LOOPTEST: (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && ($inputCounter <= $nlines))\n" if ($localDebug);
+	print STDERR "LOOPTEST: (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && ($inputCounter <= $nlines))\n" if ($localDebug || $hangDebug || $nameDebug || $nameObjDebug || $subparseDebug);
 	my $previousInputCounter = $inputCounter;
 	my $bail = 0;
 	my $checkLineNumbers = 0;
 	my $blockCurNameAutoGenerated = 0;
 	my $firstDeclaration = 1;
+	my $realApiOwner = $apiOwner;
 	my $leading_linenum = $inputCounter+$blockOffset;
-	while (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && (($inputCounter <= $nlines) || ($subparse && !$checkLineNumbers))) { # ($typestring !~ /$typedefname/)
 
-		print STDERR "TOP OF LOOP: BLOCKMODE IS $blockmode\n" if ($blockDebug || $localDebug);
+	while (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && (($inputCounter <= $nlines) || ($subparse && !$checkLineNumbers))) { # ($typestring !~ /$parseTokens{typedefname}/)
+
+		$apiOwner = $realApiOwner;
+		# print "APIO AT TOP OF BLOCK: $apiOwner\n";
+		# print "HEADER AT TOP OF BLOCK: $headerObject\n";
+
+		print STDERR "TOP OF LOOP: BLOCKMODE IS $blockmode\n" if ($blockDebug || $localDebug || $subparseDebug || $hangDebug);
+
+		if ($HeaderDoc::parsing_man_pages) {
+			while ($inputLines[$inputCounter] =~ /^\s*(or|and)\s*$/i) {
+				$inputCounter++;
+			}
+		}
 
 		# print STDERR "DEC: $declaration\n";
 
 		if ($firstDeclaration) {
 			$firstDeclaration = 0;
 		} else {
-			if ($HeaderDoc::enableParanoidWarnings && $posstypes !~ "MACRO") {
+			if ($HeaderDoc::enableParanoidWarnings && $posstypes !~ "MACRO" && !$blockmode) {
 				my ($tagname, $tag_re, $superclassFieldName) = $curObj->tagNameRegexpAndSuperclassFieldNameForType();
-				warn("$fullpath:$leading_linenum: ".$tagname." ".$curObj->name()." declaration not\nfound immediately after HeaderDoc comment.  Declarations after this will\nbe treated as part of the same declaration.\n");
+				warn("$fullpath:$leading_linenum: ".$tagname." \"".$curObj->name()."\" declaration not\nfound immediately after HeaderDoc comment.  Declarations after this will\nbe treated as part of the same declaration.\n");
 				# warn("Last declaration was $declaration\n");
 				# warn("CURTYPE $curtype INNERTYPE $innertype OUTERTYPE $outertype POSSTYPES $posstypes\n");
 			}
@@ -6146,9 +8145,12 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 
 
 		if ($hangDebug) { print STDERR "In Block Loop\n"; }
+		if ($HeaderDoc::inputCounterDebug) {
+			print STDERR "In block loop with blockmode: $blockmode, blocklevel = $blocklevel\n";
+		}
 
 		# while ($inputLines[$inputCounter] !~ /\S/o && ($inputCounter <= $nlines)) { $inputCounter++; }
-		# if (warnHDComment(\@inputLines, $inputCounter, 0, "blockParse:$outertype", "18b")) {
+		# if (warnHDComment(\@inputLines, $inputCounter, 0, $lang, "blockParse:$outertype", "18b", \%parseTokens)) {
 			# last;
 		# } else { print STDERR "OK\n"; }
 		print STDERR "DOING SOMETHING\n" if ($localDebug);
@@ -6165,12 +8167,14 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 		my $pplref = undef;
 		my $returntype = undef;
 		my $propertyAttributes = undef;
+		my $memberOfClass = "";
 		my $pridec = "";
 		my $parseTree = undef;
 		my $simpleTDcontents = "";
 		my $bpavail = "";
 		my $conformsToList; # Suddenly feeling nonconformist.
 		print STDERR "Entering blockParse\n" if ($hangDebug);
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005: SUBLANG NOMATCH\n"; }
 		print STDERR "ENTERING BP WITH IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 		if ($subparse) {
 			print STDERR "subparse\n" if ($localDebug || $blockDebug || $hangDebug);
@@ -6182,9 +8186,9 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				}
 				if ($lastParserState) {
 					my $lastend = $lastParserState->{lastTreeNode};
-					$parseTree = $lastend->nextTokenNoComments($soc, $ilc, $ilc_b);
+					$parseTree = $lastend->nextTokenNoComments($parseTokens{soc}, $parseTokens{ilc}, $parseTokens{ilc_b});
 				} else {
-					$parseTree = $lastParseTree->nextTokenNoComments($soc, $ilc, $ilc_b);
+					$parseTree = $lastParseTree->nextTokenNoComments($parseTokens{soc}, $parseTokens{ilc}, $parseTokens{ilc_b});
 				}
 				if ($subparseDebug) {
 					print STDERR "FOUND:\n";
@@ -6207,9 +8211,15 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 					my $classobjref = undef; my $catobjref = undef;
 					$classType = undef; $blockOffset = 0;
 					$numcurlybraces = 0; $foundMatch = 0;
+					if (!$curObj->{INSERTED}) { $curObj->free(0, 1, undef); }
+					print STDERR "EARLY RETURN" if ($hangDebug || $localDebug || $subparseDebug);
+
+					if ($curObj->discussionLocked()) {
+						$curObj->unlockDiscussion();
+					}
 					return ($inputCounter, $cppAccessControlState, $classType,
 						$classobjref, $catobjref, $blockOffset, $numcurlybraces,
-						$foundMatch);
+						$foundMatch, $lang, $sublang, $hashtreecur, $hashtreeroot);
 				}
 				$lastParseTree = $parseTree;
 			} else {
@@ -6218,9 +8228,11 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 
 				$parseTree = $subparseTree;;
 
-				if ($subparseDebug) {
+				if ($subparseDebug && $parseTree) {
 					print STDERR "PARSETREE FOLLOWS:\n";
 					$parseTree->printTree();
+				} elsif ($subparseDebug) {
+					print STDERR "NO PARSE TREE\n";
 				}
 
 				print STDERR "HERE\n" if ($localDebug);
@@ -6241,11 +8253,17 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 					my $classobjref = undef; my $catobjref = undef;
 					$classType = undef; $blockOffset = 0;
 					$numcurlybraces = 0; $foundMatch = 0;
+					if (!$curObj->{INSERTED}) { $curObj->free(0, 1, undef); }
+
+					if ($curObj->discussionLocked()) {
+						$curObj->unlockDiscussion();
+					}
 					return ($inputCounter, $cppAccessControlState, $classType,
 						$classobjref, $catobjref, $blockOffset, $numcurlybraces,
-						$foundMatch);
+						$foundMatch, $lang, $sublang, $hashtreecur, $hashtreeroot);
 				}
 			}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005a: SUBLANG NOMATCH\n"; }
 			# From here down happens for every parse tree.
 			print STDERR "THERE\n" if ($localDebug);
 
@@ -6253,7 +8271,7 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 			# print STDERR $parseTree->textTree();
 			# print STDERR "Done dumping parse tree (debug)\n";
 			my @ppl = ();
-			@ppl = $parseTree->parsedParams();
+			@ppl = $parseTree->parsedParams($lang, $sublang);
 			$pplref = \@ppl;
 			print STDERR "PPLREF is $pplref\n" if ($localDebug);
 			my $treestring = $parseTree->textTree();
@@ -6273,9 +8291,15 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				my $classobjref = undef; my $catobjref = undef;
 				$classType = undef; $blockOffset = 0;
 				$numcurlybraces = 0; $foundMatch = 0;
+
+				if (!$curObj->{INSERTED}) { $curObj->free(0, 1, undef); }
+
+				if ($curObj->discussionLocked()) {
+					$curObj->unlockDiscussion();
+				}
 				return ($inputCounter, $cppAccessControlState, $classType,
 					$classobjref, $catobjref, $blockOffset, $numcurlybraces,
-					$foundMatch);
+					$foundMatch, $lang, $sublang, $hashtreecur, $hashtreeroot);
 			}
 			@inputLines = ();
 			foreach my $line (split(/\n/, $treestring)) {
@@ -6294,6 +8318,7 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				$parserState = $findstate->parserState;
 				$findstate = $findstate->next();
 			}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005b: SUBLANG NOMATCH\n"; }
 			if (!$parserState || $inClass) {
 				# Failure case.  Something is broken in the block parser.
 				print STDERR "NOPARSERSTATE\n" if ($localDebug);
@@ -6312,7 +8337,7 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 						$tree->dbprint();
 					}
 				}
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes, $memberOfClass, $lang, $sublang) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $lang, $sublang);
 
 				# @@@ CHECKME DAG
 				if ($curObj->isAPIOwner) {
@@ -6323,7 +8348,7 @@ print STDERR "NEXT LINE is ".$inputLines[$inputCounter].".\n" if ($localDebug);
 				print STDERR "API OWNER FOR $parseTree is ".$parseTree->apiOwner()."\n" if ($localDebug);
 
 print STDERR "NC: $newcount\n" if ($localDebug);
-                                $numcurlybraces += $parseTree->curlycount($lbrace);
+                                $numcurlybraces += $parseTree->curlycount($parseTokens{lbrace});
 				if ($inClass && $nestClassDebug) {
 					print STDERR "NESTCLASS TEST:\n";
 					$parseTree->dbprint();
@@ -6341,40 +8366,65 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				print STDERR "parseTree IS \"$parseTree\"\n" if ($localDebug);
 				$lastParserState = undef; # prevent infinite loop.
 
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005c: SUBLANG NOMATCH\n"; }
 				if ($typelist eq "MACRO" && ($returntype !~ /\#define/)) {
 					if ($blockmode != 2) {
-						if ($returntype =~ /#if/ && $allow_multi) {
-							$blockmode = 3;
-							$blocklevel++;
-							$curObj->isBlock(1);
-							print STDERR "BLOCKMODE[2] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype =~ /#endif/ && $allow_multi) {
-							$blocklevel--;
-							if (!$blocklevel) { $blockmode = 0; }
-							print STDERR "BLOCKMODE[3] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-							last;
-						} elsif ($returntype =~ /#elif/ && $allow_multi) {
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype =~ /#else/ && $allow_multi) {
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
-							if (@fields != ()) {
-								warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::test_mode);
-								print STDERR "DEC: $declaration\n" if (!$HeaderDoc::test_mode);
+                                        	if ($inClass) {
+							# Classes are special.  They can't be combined with #if
+							# statements, so don't even try.
+							warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+							print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+						} else {
+							if ($returntype =~ /#if/ && $allow_multi) {
+								$blockmode = 3;
+								$blocklevel++;
+								$curObj->isBlock(1);
+								print STDERR "BLOCKMODE[2] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype =~ /#endif/ && $allow_multi) {
+								$blocklevel--;
+
+								my $prev_blockmode = $blockmode;
+
+								if (!$blocklevel) { $blockmode = 0; }
+								print STDERR "BLOCKMODE[3] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+
+								if ($prev_blockmode) {
+									my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+									($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+									$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+									setCPPHashes($cpphashref, $cpparghashref);
+								}
+
+								$inputCounter = $newcount;
+								last;
+							} elsif ($returntype =~ /#elif/ && $allow_multi) {
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype =~ /#else/ && $allow_multi) {
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
+								if (@fields != ()) {
+									warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+									print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+								}
 							}
+							my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+							($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+							$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+							setCPPHashes($cpphashref, $cpparghashref);
 						}
 					}
 					$inputCounter = $newcount;
 					next;
 				}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005d: SUBLANG NOMATCH\n"; }
 			} else {
 				$parserState->{APIODONE} = 1;
 				# Normal case.
 				my $subParseDebugPoint = (0 || $localDebug || $subparseDebug);
 				my $newblockoffset;
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $newblockoffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes) = &blockParseReturnState($parserState, $parseTree, 0, "", 0, "", "", ($localDebug || $blockDebug), 0, $subparse, $definename);
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $newblockoffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes, $memberOfClass, $lang, $sublang) = &blockParseReturnState($parserState, $parseTree, 0, "", 0, "", "", ($localDebug || $blockDebug), 0, $subparse, $parseTokens{definename}, $inputCounter, $lang, $sublang);
 				# $newcount = 1;
 
 				# @@@ CHECKME DAG
@@ -6385,7 +8435,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				}
 				print STDERR "API OWNER FOR $parseTree is ".$parseTree->apiOwner()."\n" if ($localDebug);
 
-                                $numcurlybraces += $parseTree->curlycount($lbrace, $parserState->{lastTreeNode});
+                                $numcurlybraces += $parseTree->curlycount($parseTokens{lbrace}, $parserState->{lastTreeNode});
 
 				print STDERR "newcount IS $newcount\n" if ($subParseDebugPoint);
 				print STDERR "dec is $declaration\n" if ($subParseDebugPoint);
@@ -6402,30 +8452,59 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				$blockOffset = $newblockoffset;
 				$inputCounter = $newcount;
 
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005e: SUBLANG NOMATCH\n"; }
 				if ($typelist eq "MACRO" && ($returntype !~ /\#define/)) {
-					if ($blockmode != 2) {
-						if ($returntype =~ /#if/ && $allow_multi) {
-							$blockmode = 3; 
-							$curObj->isBlock(1);
-							print STDERR "BLOCKMODE[4] -> $blockmode\n" if ($localDebug || $blockDebug);
-							# print STDERR "RETURN TYPE IS $returntype\n";
-							# print STDERR "DECLARATION IS $declaration\n";
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype =~ /#endif/ && $allow_multi) {
-							$blockmode = 0; 
-							print STDERR "BLOCKMODE[5] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-							print STDERR "CUROBJ: $curObj\n" if ($missingParseTreeDebug);
-							my $temp = $curObj->parseTreeList();
-							last;
-						} elsif ($returntype =~ /#else/ && $allow_multi) {
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
-							if (@fields != ()) {
-								warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::test_mode); 
-								print STDERR "DEC: $declaration\n" if (!$HeaderDoc::test_mode);
+                                        if ($inClass) {
+						# Classes are special.  They can't be combined with #if
+						# statements, so don't even try.
+						warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+						print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+					} else {
+						if ($blockmode != 2) {
+							if ($returntype =~ /#if/ && $allow_multi) {
+								$blockmode = 3; 
+								$blocklevel++;
+								$curObj->isBlock(1);
+								print STDERR "BLOCKMODE[4] -> $blockmode\n" if ($localDebug || $blockDebug);
+								# print STDERR "RETURN TYPE IS $returntype\n";
+								# print STDERR "DECLARATION IS $declaration\n";
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype =~ /#endif/ && $allow_multi) {
+								$blocklevel--;
+
+								my $prev_blockmode = $blockmode;
+
+								if (!$blocklevel) { $blockmode = 0; }
+								print STDERR "BLOCKMODE[5] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+								print STDERR "CUROBJ: $curObj\n" if ($missingParseTreeDebug);
+								my $temp = $curObj->parseTreeList();
+
+								if ($prev_blockmode) {
+									my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+									($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+									$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+									setCPPHashes($cpphashref, $cpparghashref);
+								}
+
+								# This is going to get decremented later, and we
+								# skip the assignment down below, so do it here.
+								$inputCounter = $newcount;
+								print STDERR "ENDIF LAST[1]: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
+								last;
+							} elsif ($returntype =~ /#else/ && $allow_multi) {
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
+								if (@fields != ()) {
+									warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test); 
+									print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+								}
 							}
 						}
+						my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+						($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+						$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+						setCPPHashes($cpphashref, $cpparghashref);
 					}
 					$subparseInputCounter = $parseTree->{LINENUM};
 					$subparseBlockOffset = 0;
@@ -6433,8 +8512,14 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 					$curObj->blockoffset($subparseBlockOffset);
 					next;
 				}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005f: SUBLANG NOMATCH\n"; }
 				$subparseInputCounter = $parseTree->{LINENUM};
 				$subparseBlockOffset = 0;
+
+				# print STDERR "RUNNING TEXTTREE\n" if ($nameDebug);
+				$declaration = $parseTree->textTree();
+				# $parseTree->dbprint();
+
 				$curObj->linenuminblock($subparseInputCounter);
 				$curObj->blockoffset($subparseBlockOffset);
 				print STDERR "NEW INFO: LNIB: $inputCounter BO: $blockOffset\n" if ($subParseDebugPoint);
@@ -6449,9 +8534,13 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				my @ppl = ();
 				$pplref = \@ppl;
 				$newcount = $inputCounter;
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005g: SUBLANG NOMATCH\n"; }
 			} else {
 					print STDERR "PREIC: $inputCounter\n" if ($localDebug);
-				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+
+				# print STDERR "PRELANG: $lang SUB: $sublang\n";
+
+				($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $extendsClass, $implementsClass, $propertyAttributes, $memberOfClass, $lang, $sublang) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $lang, $sublang);
 
 				# @@@ CHECKME DAG
 				if ($curObj->isAPIOwner) {
@@ -6459,6 +8548,11 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				} else {
 					$parseTree->addAPIOwner($curObj);
 				}
+
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005h: SUBLANG NOMATCH\n"; }
+
+				$curObj->addToCleanup(\$parseTree);
+				print STDERR "PT HERE IS $parseTree\n" if ($HeaderDoc::debugAllocations);
 				print STDERR "API OWNER FOR $parseTree is ".$parseTree->apiOwner()."\n" if ($localDebug);
 				# print STDERR "DECLARATION:\n"; $parseTree->printTree(); print STDERR "END DECLARATION\n";
 
@@ -6476,61 +8570,164 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 					}
 					if ($typelist eq "MACRO" && ($returntype !~ /\#define/)) {
 						# print STDERR "INCLASS: returned $typelist\n";
-						if ($returntype =~ /#if/ && $allow_multi) {
-							$blockmode = 3; 
-							$curObj->isBlock(1);
-							print STDERR "BLOCKMODE[6] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype =~ /#endif/ && $allow_multi) {
-							$blockmode = 0; 
-							print STDERR "BLOCKMODE[7] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-							last;
-						} elsif ($returntype =~ /#else/ && $allow_multi) {
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
-							if (@fields != ()) {
-								warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between class comments and class.  Ignoring.\n") if (!$HeaderDoc::test_mode);
-								print STDERR "DEC: $declaration\n" if (!$HeaderDoc::test_mode);
+                                        	if ($inClass) {
+							# Classes are special.  They can't be combined with #if
+							# statements, so don't even try.
+							warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+							print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+						} else {
+							if ($returntype =~ /#if/ && $allow_multi) {
+								$blockmode = 3; 
+								$blocklevel++;
+								$curObj->isBlock(1);
+								print STDERR "BLOCKMODE[6] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype =~ /#endif/ && $allow_multi) {
+								$blocklevel--;
+
+								my $prev_blockmode = $blockmode;
+
+								if (!$blocklevel) { $blockmode = 0; }
+								print STDERR "BLOCKMODE[7] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+
+								if ($prev_blockmode) {
+									my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+									($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+									$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+									setCPPHashes($cpphashref, $cpparghashref);
+								}
+
+								# This is going to get decremented later, and we
+								# skip the assignment down below, so do it here.
+								$inputCounter = $newcount;
+								print STDERR "ENDIF LAST[2]: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
+								last;
+							} elsif ($returntype =~ /#else/ && $allow_multi) {
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
+								if (@fields != ()) {
+									warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between class comments and class.  Ignoring.\n") if (!$HeaderDoc::running_test);
+									print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+								}
 							}
+							my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+							($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+							$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+							setCPPHashes($cpphashref, $cpparghashref);
 						}
 						$inputCounter = $newcount;
 						next;
 					}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005i: SUBLANG NOMATCH\n"; }
 				} else {
+					print STDERR "HERE TL: $typelist RT: $returntype\n" if ($HeaderDoc::inputCounterDebug);
 					if ($typelist eq "MACRO" && ($returntype !~ /\#define/)) {
-						if ($returntype =~ /#if/ && $allow_multi) {
-							$blockmode = 3; 
-							$curObj->isBlock(1);
-							print STDERR "BLOCKMODE[8] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype =~ /#endif/ && $allow_multi) {
-							$blockmode = 0; 
-							print STDERR "BLOCKMODE[9] -> $blockmode\n" if ($localDebug || $blockDebug);
-							$curObj->addParseTree(\$parseTree);
-							last;
-						} elsif ($returntype =~ /#else/ && $allow_multi) {
-							$curObj->addParseTree(\$parseTree);
-						} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
-							if (@fields != ()) {
-								warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::test_mode);
-								print STDERR "DEC: $declaration\n" if (!$HeaderDoc::test_mode);
+                                        	if ($inClass) {
+							# Classes are special.  They can't be combined with #if
+							# statements, so don't even try.
+							warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+							print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+						} else {
+							if ($returntype =~ /#if/ && $allow_multi) {
+								$blockmode = 3; 
+								$blocklevel++;
+								$curObj->isBlock(1);
+								print STDERR "BLOCKMODE[8] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype =~ /#endif/ && $allow_multi) {
+								$blocklevel--;
+
+								my $prev_blockmode = $blockmode;
+
+								if (!$blocklevel) { $blockmode = 0; }
+								print STDERR "BLOCKMODE[9] -> $blockmode\n" if ($localDebug || $blockDebug);
+								$curObj->addParseTree(\$parseTree);
+
+								if ($prev_blockmode) {
+									my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+
+									($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+									$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+									setCPPHashes($cpphashref, $cpparghashref);
+								}
+
+								# This is going to get decremented later, and we
+								# skip the assignment down below, so do it here.
+								$inputCounter = $newcount;
+								print STDERR "ENDIF LAST[3]: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
+								if ($blocklevel) {
+									next;
+								}
+								last;
+							} elsif ($returntype =~ /#else/ && $allow_multi) {
+								$curObj->addParseTree(\$parseTree);
+							} elsif ($returntype !~ /#(if|endif|else)/ || $allow_multi) {
+								if (@fields != ()) {
+									warn("$fullpath:".($inputCounter + $blockOffset).": warning: Macros found between comments and declaration.  Ignoring.\n") if (!$HeaderDoc::running_test);
+									print STDERR "DEC: $declaration\n" if (!$HeaderDoc::running_test);
+								}
 							}
+							my ($cpphashref, $cpparghashref) = getAndClearCPPHash();
+
+							# print STDERR "GOING INTO $returntype: CPP HASH DUMP:\n";
+							# printHash(%{$cpphashref});
+							# print STDERR "DONE\n";
+
+							# print STDERR "\nARGUMENT HASH:\n\n";
+							# printHash(%{$cpparghashref});
+							# print STDERR "\nDONE\n\n";
+
+							($cpphashref, $cpparghashref, $hashtreeroot, $hashtreecur) = cppHashMerge($hashtreeroot, $hashtreecur, $cpphashref, $cpparghashref, $returntype);
+							$hashtreeroot = $hashtreeroot; $hashtreecur = $hashtreecur;
+							# print STDERR "COMING OUT OF $returntype: CPP HASH DUMP:\n";
+							# printHash(%{$cpphashref});
+							# print STDERR "DONE\n";
+
+							# print STDERR "\nARGUMENT HASH:\n\n";
+							# printHash(%{$cpparghashref});
+							# print STDERR "\nDONE\n\n";
+
+							setCPPHashes($cpphashref, $cpparghashref);
 						}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005j: SUBLANG NOMATCH\n"; }
 						$inputCounter = $newcount;
 						next;
 					}
 				}
 			}
 		}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 005k: SUBLANG NOMATCH\n"; }
+
+		if ($memberOfClass ne "") {
+			# my $prefix = $apiOwner->apiUIDPrefix();
+			# my $classuid = "//$prefix/$lang/cl/$memberOfClass";
+
+			my $temp = $realApiOwner->findClass($memberOfClass);
+			# objectForUID($classuid);
+
+			if ($temp) {
+				print STDERR "CLASSSEARCH FOUND CLASS.  Will insert into class object $temp instead.\n" if ($localDebug || $nameDebug);
+				$apiOwner = $temp;
+			} else {
+				print STDERR "CLASSSEARCH COULD NOT FIND CLASS $memberOfClass.  Will insert into header object $apiOwner.\n" if ($localDebug || $nameDebug);
+			}
+		}
 
 		print STDERR "HAVE DECLARATION NOW\n" if ($nameObjDebug);
+
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 006: SUBLANG NOMATCH\n"; }
 
 		# print STDERR "TYPELIST: $typelist\n";
 		# print STDERR "POSSTYPES: $posstypes\n";
 		# print STDERR "NAMELIST: $namelist\n";
 
-		if ($declaration !~ /\S/) { last; }
+		if ($declaration !~ /\S/) {
+			warn("Empty declaration.  Skipping to end of loop.\n") if ($localDebug || $hangDebug || $nameObjDebug || $nameDebug);
+			print STDERR "EMPTY: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
+			$inputCounter = $newcount;
+			last;
+		}
 		$foundMatch = 1;
 
 		if ($hangDebug) {
@@ -6606,7 +8803,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		if ($outertype eq "") {
 			$outertype = $curtype;
 			my $linenum = $inputCounter + $blockOffset;
-			if ((!$nodec) && (!$HeaderDoc::test_mode)) {
+			if ((!$nodec) && (!$HeaderDoc::running_test)) {
 				warn("$fullpath:$linenum: WARNING: anonymous type.\n");
 				warn("IC: $inputCounter\n");
 				warn("DC: \"$declaration\"\n");
@@ -6623,7 +8820,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				if ($curname eq "") {
 					$withno = " with no name provided in comment";
 				}
-				if (!$HeaderDoc::test_mode) {
+				if (!$HeaderDoc::running_test) {
 					warn("$fullpath:$linenum: WARNING: anonymous type$withno.\n");
 					warn("IC: $inputCounter\n");
 					warn("DC: \"$declaration\"\n");
@@ -6644,13 +8841,14 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 						my $bpavail = "";
 						my $bogusblockoffset;
 						my $conformsToList; # throw this away here.
-						my ($foo, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $tempParseTree, $tempSimpleTDcontents, $tempbpavail, $tempbogusblockoffset, $tempConformsToList, $tempfunctionContents, $ec, $ic, $propertyAttributes) = &blockParse($fullpath, ($inputCounter + $blockOffset), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+						my ($bogusIC, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $tempParseTree, $tempSimpleTDcontents, $tempbpavail, $tempbogusblockoffset, $tempConformsToList, $tempfunctionContents, $tempParserState, $tempNameObjectsRef, $ec, $ic, $propertyAttributes, $memberOfClass, $pplang, $ppsublang) = &blockParse($fullpath, ($inputCounter + $blockOffset), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $lang, $sublang);
+						$tempParseTree->dispose();
 						$curname = $name;
 					}
 
 					# Try first tagged parameter name.
 					if ($curname eq "") { $curname = $curObj->firstconstname(); }
-					if ($curname ne "" && (!$HeaderDoc::test_mode)) {
+					if ($curname ne "" && (!$HeaderDoc::running_test)) {
 						warn("Using first constant name: $curname\n");
 					}
 					$curname_extended = $curname;
@@ -6670,6 +8868,18 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 				print STDERR "TYPE: \"$ot\"\n";
 			}
 		}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 007: SUBLANG NOMATCH\n"; }
+
+		# my $nameDebug = 1; # Uncomment to enable debugging.
+
+		if ($nameDebug) {
+			print STDERR "GOT DECLARATION.\n";
+			warn("IC: $inputCounter\n");
+			warn("DC: \"$declaration\"\n");
+			warn("TL: \"$typelist\"\n");
+			warn("NL: \"$namelist\"\n");
+			warn("PT: \"$posstypes\"\n");
+		}
 
 		my $explicit_name_differs = 1;
 		my $explicit_name_canonical = 0;
@@ -6680,13 +8890,12 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		# my @names = ( ); #$curname
 		# my @types = ( ); #$outertype
 
-		# my $nameDebug = 1; # Uncomment to enable debugging.
 		my $dropped = 0;
 		print STDERR "names:\n" if ($nameDebug);
 
 		# Fix up user-specified names that should end in a colon but don't.
 		if ($curname !~ /:$/o) {
-		    # foreach my $name (@oldnames) {
+		    # foreach my $name (@oldnames) { }
 		    foreach my $obj (@nameObjects) {
 			my $name = $obj->{NAME};
 			my $NCname = $name;
@@ -6710,17 +8919,21 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		# A conversion request occurs when the main object is not of the correct
 		# type to accept the declaration that follows it, where the following
 		# declaration is of a type that ostensibly should be allowed to silently
-		# against that type, but where the declaration cannot be safely assigned
-		# to a curObj of that type for technical reasons (missing functions in
-		# the object, for example).
+		# match against that type, but where the declaration cannot be safely
+		# assigned to a curObj of that type for technical reasons (missing
+		# functions in the object, for example).
 
 		my $conversion_requested = 0;
 		my $newcurtype = "UNKNOWN";
+
+		my $isCallback = 0;
 
 		print STDERR "Initial name object count: ".scalar(@nameObjects)."\n" if ($nameDebug);
 		# foreach my $name (@oldnames)
 		foreach my $obj (@nameObjects) {
 			my $pt = $obj->{POSSTYPES};
+
+			if ($obj->{ISCALLBACK}) { $isCallback = 1; }
 
 			if ($curname =~ /:$/o) {
 				my $name = $obj->{NAME};
@@ -6816,12 +9029,13 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 
 			if ($conversion_requested == 1) {
 				print STDERR "CURTYPE CHANGE[2]\n" if ($nameDebug);
+				$curObj->origType($curtype);
 				$curtype = $newcurtype;
 			}
 			print STDERR "CURTYPE NOW: $curtype\n" if ($nameDebug);
 			print STDERR "ENDNAMES:\n" if ($nameDebug);
 			if (!$allmatch && !$conversion_requested) {
-				warn "WARNING: No name found in block mode and names do not match.  Using first.\n" if (!$HeaderDoc::test_mode);
+				warn "WARNING: No name found in block mode and names do not match.  Using first.\n" if (!$HeaderDoc::running_test);
 				# $curname =~ s/^_//;
 				# $curname .= "_multideclaration_block";
 			}
@@ -6830,11 +9044,16 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			# $curname_inserted = 1;
 			my $newcurObj;
 			my $typestring = $curtype;
-			($newcurObj, $classType, $varIsConstant) = objForType( $curObj, $typedefname, $typestring,
+			($newcurObj, $classType, $varIsConstant) = objForType( $curObj, $parseTokens{typedefname}, $typestring,
 					$posstypes, $outertype, $curtype, $classType, $classKeyword, $declaration,
 					\@fields, $functionGroup, $varIsConstant, $blockmode, $inClass, $inInterface,
-					$inTypedef, $inStruct, $fullpath, $inputCounter, $blockOffset, $lang, 0, $functionContents,
-					$apiOwner, $subparseInputCounter, $subparseBlockOffset, $extendsClass, $implementsClass);
+					$inTypedef, $inStruct, $fullpath, $inputCounter, $blockOffset, $lang, $sublang, 0, $functionContents,
+					$apiOwner, $subparseInputCounter, $subparseBlockOffset, $extendsClass, $implementsClass, 1);
+			if ($mustLockDiscussion) {
+				$curObj->prepareDiscussionForTemporary();
+			}
+
+# print "PARSER STATE: $returnedParserState\n";
 
 			print STDERR "CUROBJ ON RETURN: $curObj\n" if ($nameDebug);
 			print STDERR "NEWCUROBJ ON RETURN: $newcurObj\n" if ($nameDebug);
@@ -6856,7 +9075,14 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			my $group = $curObj->group();
 			$newcurObj->group($group);
 			$curObj->apiOwner()->removeFromGroup($group, $curObj);
+
 			$parseTree->apiOwnerSub($curObj, $newcurObj); # @@@
+
+			$curObj->dbprint() if ($HeaderDoc::debugAllocations);
+
+			if (!$curObj->{INSERTED}) { $curObj->free(0, 1, $newcurObj); }
+			print STDERR "Replacing $curObj with $newcurObj\n" if ($HeaderDoc::debugAllocations);
+
 			$curObj = $newcurObj;
 			$curObj->apiOwner($apiOwner);
 			$blockCurNameAutoGenerated = 1;
@@ -6865,7 +9091,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			print STDERR "CURNAME AUTO PATH (BLOCKMODE $blockmode)\n" if ($nameDebug);
 			my $allmatch = 1;
 			my $typematch = 1;
-			# foreach my $name (@oldnames) {
+			# foreach my $name (@oldnames) { }
 			foreach my $obj (@nameObjects) {
 				my $name = $obj->{NAME};
 				if (!length($curname)) {
@@ -6884,10 +9110,10 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			}
 			if (!$allmatch || !$typematch) {
 				if (!$allmatch) {
-					warn "WARNING: No name found in block mode and names do not match.  Using first.\n" if (!$HeaderDoc::test_mode);
+					warn "WARNING: No name found in block mode and names do not match.  Using first.\n" if (!$HeaderDoc::running_test);
 				}
 				if (!$typematch) {
-					warn "WARNING: No name found in block mode and types do not match.  Using first.\n" if (!$HeaderDoc::test_mode);
+					warn "WARNING: No name found in block mode and types do not match.  Using first.\n" if (!$HeaderDoc::running_test);
 				}
 				# $curname =~ s/^_//;
 				$curname .= "_multideclaration_block";
@@ -6895,10 +9121,15 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			}
 		}
 
+		# print STDERR "SETTING curObj $curObj PARSER STATE TO $returnedParserState\n";
+		# print STDERR "  DECLARATION: $declaration\n\n";
+
+		$curObj->parserState($returnedParserState);
 		if (!$firstBlockObjType) {
 			$firstBlockObjType = $newcurtype;
 			$firstBlockCurType = $curtype;
 		}
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 008: SUBLANG NOMATCH\n"; }
 
 		print STDERR "ORIG CURTYPE $origcurtype FIRST CURTYPE WAS $firstBlockCurType\n".
 		             "CURTYPE $curtype INFUNCTION: $inFunction\n" if ($nameObjDebug || $nameDebug);
@@ -6923,7 +9154,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		my $found = $blockmode;
 
 		print STDERR "Current APIOwner is ".$apiOwner->name()."\n" if ($localDebug || $nameDebug);
-		# foreach my $ot (@oldtypes) {
+		# foreach my $ot (@oldtypes) { }
 		foreach my $obj (@nameObjects) {
 			my $ottrim = $obj->{TYPE};
 			$ottrim =~ s/\W//sg;
@@ -6939,7 +9170,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			# print "CUROBJ IS $curObj\n" if ($nameDebug);
 		}
 		my @ptlist = split(/\s/, $posstypes);
-		# foreach my $pt (@ptlist) {
+		# foreach my $pt (@ptlist) { }
 		foreach my $obj (@nameObjects) {
 			my $pt = $obj->{POSSTYPES}; # $pt;
 			my @ptlist = split(/\s/, $posstypes);
@@ -7014,7 +9245,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		# if ($typelist eq "operator") {
 			# $operator = 1;
 		# }
-		# foreach my $name (@oldnames) {
+		# foreach my $name (@oldnames) {}
 
 		# We don't want to insert an object that could potentially cause a tainted
 		# curObj to appear in the output, so if its name matches the name and
@@ -7098,6 +9329,7 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 		# $explicit_name_differs = 0;
 
 		print STDERR "END: $explicit_name_differs; ENC: $explicit_name_canonical\n" if ($nameDebug);
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 009: SUBLANG NOMATCH\n"; }
 
 		# If we are the only name for an object, the user-entered (tagged/explicit) name is
 		# treated as canonical for apple_ref purposes.  Otherwise, the user-
@@ -7167,12 +9399,14 @@ print STDERR "NC: $newcount\n" if ($localDebug);
 			# my $junk = $curObj->apirefSetup();
 			# $curObj->appleRefIsDoc($oldisdoc);
 			# $HeaderDoc::ignore_apiuid_errors = 0;
+		} elsif ($curtype eq "UNKNOWN") {
+			$matching_declaration = 1;
 		} else {
 			print STDERR "NOMATCH: OUTER: $outertype CUR: $curtype INNER: $innertype\n" if ($nameDebug);
 		}
 
 		$count = 0;
-		# foreach my $name (@names) {
+		# foreach my $name (@names) {}
 		print STDERR "ENTERING NAMEOBJECT LOOP.  CURTYPE IS $curtype CUROBJ is $curObj\n" if ($nameObjDebug || $nameDebug);
 		foreach my $obj (@nameObjects) {
 		    print STDERR "IN NAMEOBJECT LOOP.  CURTYPE IS $curtype CUROBJ is $curObj\n" if ($nameObjDebug || $nameDebug);
@@ -7261,17 +9495,19 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 				$bail = 1;
 				## $inputCounter--; ## @@@ DAG CHECKME @@@
 				## print STDERR "DECREMENTED INPUTCOUNTER [4]\n" if ($HeaderDoc::inputCounterDebug);
+				print STDERR "BAILFAST[1]: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 				last;
 			    }
-			    ($extra, $classType, $varIsConstant) = objForType( $curObj, $typedefname, $typestring,
+			    ($extra, $classType, $varIsConstant) = objForType( $curObj, $parseTokens{typedefname}, $typestring,
 					$posstypes, $outertype, $curtype, $classType, $classKeyword, $declaration,
 					\@fields, $functionGroup, $varIsConstant, $blockmode, $inClass, $inInterface,
-					$inTypedef, $inStruct, $fullpath, $inputCounter, $blockOffset, $lang, $outerLocalDebug,
+					$inTypedef, $inStruct, $fullpath, $inputCounter, $blockOffset, $lang, $sublang, $outerLocalDebug,
 					$functionContents, $apiOwner, $subparseInputCounter, $subparseBlockOffset,
-					$extendsClass, $implementsClass);
+					$extendsClass, $implementsClass, 0);
 
 			print "EXTRA ON RETURN IS $extra\n" if ($nameDebug || $nameObjDebug);
 			}
+
 			my $class = ref($extra) || $extra;
 			if ($class =~ /HeaderDoc::HeaderElement/) {
 				next;
@@ -7279,11 +9515,16 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 
 			# print STDERR "CHECKING TYPE: ";
 			if ($extra) {
+				# print STDERR "SETTING extra $extra PARSER STATE TO $returnedParserState\n";
+				# print STDERR "  DECLARATION: $declaration\n\n";
+
+				$extra->parserState($returnedParserState);
+
 				if ($matching_declaration) {
-					# print STDERR "$name: YES ($extra)\n";
+					# print STDERR "NOT SUPPRESSING $name: YES ($extra)\n";
 					$extra->suppressChildren(0);
 				} else {
-					# print STDERR "$name: NO ($extra)\n";
+					# print STDERR "SUPPRESSING $name: NO ($extra)\n";
 					$extra->suppressChildren(1);
 				}
 			}
@@ -7308,6 +9549,11 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 				my $orig_parsetree_ref = $curObj->parseTree();
 				bless($orig_parsetree_ref, "HeaderDoc::ParseTree");
 				my $pt = ${$orig_parsetree_ref};
+
+				# $pt->apiOwnerSub($curObj, $extra);
+
+				if ((!$curObj->{INSERTED}) && ($curObj != $extra)) { $curObj->free(0, 1, $extra); }
+
 				$curObj = $extra;
 				$curObj->apiOwner($apiOwner);
 
@@ -7336,6 +9582,11 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 			if ($extra) {
 				print STDERR "Processing \"extra\" ($extra).\n" if ($localDebug);
 				print STDERR "EXTRANAME: \"".$name."\"\n" if ($localDebug);
+				if ($isCallback) {
+					if ($extra->can("isFunctionPointer")) {
+						$extra->isFunctionPointer($isCallback);
+					}
+				}
 				if ($bpavail && length($bpavail)) {
 					$extra->availability($bpavail);
 				}
@@ -7345,12 +9596,14 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 				$cleantypename =~ s/\s*$//so;
 				if (length($cleantypename)) {
 					$HeaderDoc::namerefs{$cleantypename} = $extra;
+					$extra->addToNameRefs($cleantypename);
 				}
 				my $extraclass = ref($extra) || $extra;
 				my $abstract = $curObj->abstract();
 
 				my $discussion_set = $curObj->discussion_set();
 				my $discussion = $curObj->raw_discussion();
+
 				my $override_discussion = undef;
 				my $nameline_discussion = $curObj->raw_nameline_discussion();
 				print STDERR "OLD DISCUSSION: $discussion\n" if ($nameDebug);
@@ -7399,7 +9652,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 					# } elsif ($altDiscussionRef) {
 						# my @altDiscEntries = @{$altDiscussionRef};
 						# foreach my $field (@altDiscEntries) {
-						    # my ($dname, $ddisc, $is_on_nameline) = &getAPINameAndDisc($field);
+						    # my ($dname, $ddisc, $is_on_nameline) = &getAPINameAndDisc($field, $lang);
 						    # if ($name eq $dname) {
 						    	# if (!$is_on_nameline) {
 								# $discussion = $ddisc;
@@ -7449,6 +9702,10 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 						my $pplref;
 						my $returntype;
 						my @nameObjects = ();
+
+						my $pplang = $lang;
+						my $ppsublang = $sublang;
+
 						if ($ppstring eq "...") {
 							# $name = $ppstring;
 							# $type = "";
@@ -7470,7 +9727,10 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							my $bogusblockoffset;
 							my $conformsToList; # throw this away here.
 							my $ec = ""; my $ic = "";
-							($foo, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset, $conformsToList, $functionContents, $returnedParserState, $nameObjectsRef, $ec, $ic, $propertyAttributes) = &blockParse($fullpath, $extra->linenum(), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+							my $argreturnedParserState;   # Don't stop on this!
+
+							($foo, $dec, $type, $name, $pt, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $bogusblockoffset, $conformsToList, $functionContents, $argreturnedParserState, $nameObjectsRef, $ec, $ic, $propertyAttributes, $memberOfClass, $pplang, $ppsublang) = &blockParse($fullpath, $extra->linenum(), \@array, 0, 1, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $lang, $sublang);
+							$parseTree->dispose();
 							@nameObjects = @{$nameObjectsRef};
 						}
 
@@ -7483,9 +9743,10 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 
 						foreach my $obj (@nameObjects) {
 							my $name = $obj->{NAME};
+							my $stars = $obj->{STARS};
 
 							print STDERR "NAME: $name TYPE: $returntype\n" if ($ppDebug);
-							my $param = HeaderDoc::MinorAPIElement->new();
+							my $param = HeaderDoc::MinorAPIElement->new("LANG" => $pplang, "SUBLANG" => $ppsublang);
 							$param->apiOwner($apiOwner);
 							if (defined($subparseInputCounter)) {
 								$param->linenuminblock($subparseInputCounter);
@@ -7509,11 +9770,15 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							print STDERR "RETURNTYPE IS $returntype\n" if ($ppDebug);
 
 							    # ($returntype =~ /(^|\s)(struct|union|enum|record|typedef)$/)
-# print STDERR "SL: $HeaderDoc::sublang\n";
-							if ($extraclass =~ /HeaderDoc::Function/ && $HeaderDoc::sublang ne "php") {
+# print STDERR "SL: $ppsublang\n";
+							if ($extraclass =~ /HeaderDoc::Function/ && $ppsublang ne "php") {
 								# Handle cases where a function is given with no actual
 								# parameter name.
-								if ($lang ne "pascal" && $HeaderDoc::sublang ne "MIG" && 
+								my $enumname = $parseTokens{enumname};
+								my $typedefname = $parseTokens{typedefname};
+								my $structname = $parseTokens{structname};
+								my $unionname = $parseTokens{unionname};
+								if ($pplang ne "pascal" && $ppsublang ne "MIG" && 
 								    (($structname && $returntype =~ /(^|\s)\Q$structname\E$/) ||
 								     ($unionname && $returntype =~ /(^|\s)\Q$unionname\E$/) ||
 								     ($enumname && $returntype =~ /(^|\s)\Q$enumname\E$/) ||
@@ -7531,14 +9796,18 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							print STDERR "NM: $name RT $returntype\n" if ($ppDebug);
 							$param->name($name);
 							$param->position($position++);
-							$param->type($returntype);
+
+							my $typeval = $returntype;
+							if ($stars) { $typeval .= " ".$stars; }
+
+							$param->type($typeval);
 							$extra->addParsedParameter($param);
 						}
 					}
 				} elsif ($extraclass eq "HeaderDoc::Method") {
 					# we're a method
 					$extra->returntype($returntype);
-					my @newpps = $parseTree->objCparsedParams();
+					my @newpps = $parseTree->objCparsedParams($lang, $sublang);
 					# print STDERR "PPLIST for $name:\n";
 					foreach my $newpp (@newpps) {
 						# print STDERR "Parsed param: ".$newpp->{NAME}."\n";
@@ -7592,6 +9861,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 						# $curObj->dbprint();
 
 						$bail = 1;
+						print STDERR "BAILFAST[2]: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 						last;
 					}
 				}
@@ -7613,9 +9883,14 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 						$extra->discussion(($override_discussion ? $override_discussion : $preAtPart));
 					}
 				} elsif ($extra != $curObj) {
-					print STDERR "SETTING DISCUSSION: extra != CurObj\n" if ($parmDebug);
 					# Otherwise this would be bad....
-					if ($blockmode == 2) {
+
+					print STDERR "SETTING DISCUSSION: extra != CurObj\n" if ($parmDebug);
+
+					# print STDERR "BLOCKMODE: $blockmode\n";
+					# print STDERR "NOT EQUAL CASE\n    NL DISC: $nameline_discussion\n    DISC: $discussion\n    OD: $override_discussion\n";
+
+					if ($blockmode == 1 || $blockmode == 2) {
 						if (!$discussion) {
 							# Only do this if no discussion.  Otherwise, this is
 							# part of the block name.
@@ -7626,6 +9901,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							$extra->blockDiscussion($discussion);
 						}
 						if ($override_discussion) {
+							# print STDERR "OVERRIDE DISCUSSION $override_discussion\n";
 							$extra->discussion($override_discussion);
 						}
 					} else {
@@ -7675,7 +9951,9 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 				    foreach my $param (@params) {
 					print STDERR "CONSTANT $param\n" if ($parmDebug);
 					if (!$param->{ISDEFINE}) {
-						$extra->addTaggedParameter($param->clone());
+						my $newparam = $param->clone();
+						$newparam->apiOwner($extra);
+						$extra->addTaggedParameter($newparam);
 					} elsif ($param->name() eq $extra->rawname() || $param->name() eq $extra->name()) {
 						my @subparams = $param->userDictArray();
 						print "SP: ".@subparams."\n" if ($parmDebug);
@@ -7683,7 +9961,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							while (my ($param, $disc) = each %{$hashRef}) {
 								print STDERR "PARAM IS $param\n" if ($parmDebug);
 
-								my $paramobj = HeaderDoc::MinorAPIElement->new();
+								my $paramobj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 								$paramobj->name($param);
 								$paramobj->discussion($disc);
 								$extra->addTaggedParameter($paramobj);
@@ -7697,12 +9975,25 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 				    foreach my $constant (@constants) {
 					# print STDERR "CONSTANT $constant\n";
 					if ($extra->can("addToConstants")) {
-					    $extra->addToConstants($constant->clone());
+					    my $newconstant = $constant->clone();
+					    $newconstant->apiOwner($extra);
+					    $extra->addToConstants($newconstant);
 					    # print STDERR "ATC\n";
 					} elsif ($extra->can("addConstant")) {
-					    $extra->addConstant($constant->clone());
+					    my $newconstant = $constant->clone();
+					    $newconstant->apiOwner($extra);
+					    $extra->addConstant($newconstant);
 					    # print STDERR "AC\n";
 					}
+				    }
+				    my @local_variables = $curObj->variables();
+				    foreach my $variable (@local_variables) {
+					# print STDERR "LOCAL VARIABLE $variable\n";
+					my $newvariable = $variable->clone();
+
+					$newvariable->apiOwner($extra);
+					$extra->addVariable($newvariable);
+					# print STDERR "AV\n";
 				    }
 
 				    print STDERR "Point B6\n" if ($hangDebug);
@@ -7727,6 +10018,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 					foreach my $field (@fields) {
 						bless($field, "HeaderDoc::MinorAPIElement");
 						my $newfield = $field->clone();
+						$newfield->apiOwner($extra);
 						$extra->addToFields($newfield);
 						# print STDERR "Added field ".$newfield->name()." to $extra ".$extra->name()."\n";
 					}
@@ -7744,8 +10036,9 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 
 				# print STDERR "ITD: $inTypedef\n";
 				print STDERR "B8X blockmode=$blockmode ts=$typestring\n" if ($localDebug || $hangDebug);
+				my $typedefname = $parseTokens{typedefname};
 
-				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module|namespace)/ || $inClass) && !$inTypedef) {
+				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module|namespace|package)/ || $inClass) && !$inTypedef) {
 					print STDERR "ITSACLASS! ($extra->name)\n" if ($localDebug);
 					$extra->declaration($declaration);
 					$extra->declarationInHTML($declaration);
@@ -7754,8 +10047,8 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 					    # my $localDebug = 1;
 						print STDERR "ADDING \"".$extra->name."\" TO CLASSES/PROTOCOLS/*\n" if ($localDebug);
 					print STDERR "RAWDEC: $declaration\n" if ($localDebug);
-						$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $fullpath, $inputCounter+$blockOffset, $HeaderDoc::sublang);
-						# print STDERR "CT: $classType\n";
+						$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $fullpath, $inputCounter+$blockOffset, $sublang);
+						# print STDERR "CLASSTYPE: $classType\n";
 						if ($classType eq "intf") {
 							push (@classObjects, $extra);
 							print STDERR "intf\n" if ($localDebug);
@@ -7768,7 +10061,7 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							push (@classObjects, $extra);
 							print STDERR "occ\n" if ($localDebug);
 							$apiOwner->addToClasses($extra) if ($extra->{INSERTED} != 2);
-						} elsif ($classType eq "C" || $classType eq "cpp" || $extra->isCOMInterface() || $classType eq $lang || $classType eq $HeaderDoc::sublang) {
+						} elsif ($classType eq "C" || $classType eq "cpp" || $extra->isCOMInterface() || $classType eq $lang || $classType eq $sublang) {
 							# print STDERR "CT: $classType\n";
 							# class or typedef struct
 							# (java, C, cpp, etc.)
@@ -7780,6 +10073,10 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 							print STDERR "Unknown class type $classType\n";
 						}
 					# }
+					if ($lang eq "perl") {
+						# print STDERR "Perl Class\n";
+						$HeaderDoc::perlClassChange = $extra;
+					}
 				} elsif (($typestring =~ /$typedefname/ && length($typedefname)) || ($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/)) {
 	                		if (length($declaration)) {
                         			$extra->setDeclaration($declaration);
@@ -7791,6 +10088,9 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 					# throw these away.
 					# $extra->setDeclaration($declaration);
 					# $apiOwner->addToPDefines($extra);
+					if ($localDebug || $subparseDebug) {
+						print STDERR "Skipping insertion of MACRO in block mode.\n";
+					}
 				} elsif ($typestring =~ /#define/o) {
 					print STDERR "SPDF[2]\n" if ($hangDebug);
 					$extra->setDeclaration($declaration);
@@ -7799,7 +10099,12 @@ print STDERR "setting curtype to UNKNOWN\n" if ($localDebug);
 					print STDERR "EXTRA IS $extra\n" if ($nameDebug);
 					print STDERR "PDEF DECL: $declaration\n" if ($nameDebug);
 					if ($extra !~ /HeaderDoc::PDefine/) { die("Unexpected type $extra"); }
-					if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToPDefines($extra) if ($extra->{INSERTED} != 2); }
+					if (($blockmode != 2) || ($extra != $curObj)) {
+						$apiOwner->addToPDefines($extra) if ($extra->{INSERTED} != 2);
+						print STDERR "Adding #define to $apiOwner in block mode.  $extra == $curObj\n" if ($localDebug || $subparseDebug);
+					} elsif ($localDebug || $subparseDebug) {
+						print STDERR "Skipping insertion of #define in block mode.  $extra != $curObj\n";
+					}
 					if ($extra->can('isAvailabilityMacro') && $extra->isAvailabilityMacro()) {
 						addAvailabilityMacro($extra->name, $extra->discussion);
 					}
@@ -7826,7 +10131,12 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 					print STDERR "SPDF[3]\n" if ($hangDebug);
 					$extra->setDeclaration($declaration);
 					print STDERR "END SPDF[3]\n" if ($hangDebug);
-					if (($blockmode != 2) || ($extra != $curObj)) { $headerObject->addToPDefines($extra); }
+					if (($blockmode != 2) || ($extra != $curObj)) {
+						$headerObject->addToPDefines($extra);
+						print STDERR "Adding #define to $headerObject in block mode.  $extra == $curObj\n" if ($localDebug || $subparseDebug);
+					} elsif ($localDebug || $subparseDebug) {
+						print STDERR "Skipping insertion of #define in block mode.  $extra != $curObj\n";
+ }
 					if ($extra->can('isAvailabilityMacro') && $extra->isAvailabilityMacro()) {
 						addAvailabilityMacro($extra->name, $extra->discussion);
 					}
@@ -7876,12 +10186,12 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 					$returntype =~ s/\s*$//s;
 					$extra->returntype($returntype);
                                         if (length($extra->name())) {
-                                                if (ref($apiOwner) ne "HeaderDoc::Header") {
-                                                        $extra->accessControl($cppAccessControlState);
-                                                        if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToVars($extra) if ($extra->{INSERTED} != 2); }
-                                                } else { # headers group by type
+                                                # if (ref($apiOwner) ne "HeaderDoc::Header") {
+                                                        # $extra->accessControl($cppAccessControlState);
+                                                        # if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToVars($extra) if ($extra->{INSERTED} != 2); }
+                                                # } else { # headers group by type
                                                             if (($blockmode != 2) || ($extra != $curObj)) { $apiOwner->addToConstants($extra) if ($extra->{INSERTED} != 2); }
-                                                }
+                                                # }
                                         }
 				} elsif ($typestring =~ /variable/o) {
 					$extra->declaration($declaration);
@@ -7899,7 +10209,7 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 				}
 				print STDERR "B9 blockmode=$blockmode ts=$typestring\n" if ($localDebug || $hangDebug);
 		    print STDERR "DOC REF: ".$extra->appleRefIsDoc()."\n" if ($nameDebug);
-				$extra->checkDeclaration();
+				# $extra->checkDeclaration();
 				my $prevignore = $HeaderDoc::ignore_apiuid_errors;
 				$HeaderDoc::ignore_apiuid_errors = 1;
 				my $junk = $extra->apirefSetup(1);
@@ -7914,6 +10224,8 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 			print STDERR "inputCounter is $inputCounter, #inputLines is $nlines\n";
 		}
 
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 010: SUBLANG NOMATCH\n"; }
+
 		print STDERR "READ DECLARATION \"$declaration\"\n" if ($HeaderDoc::inputCounterDebug);
 
 		if (!$bail) {
@@ -7925,16 +10237,25 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 			# print STDERR "DECREMENTED INPUTCOUNTER [10]: LINE ".$inputLines[$inputCounter]."\n" if ($HeaderDoc::inputCounterDebug);
 			if ($hangDebug) { print STDERR "Point D\n"; }
 			if ($curtype eq "UNKNOWN") { $curtype = $outertype; }
-			if ((($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && (($inputCounter > $nlines) || warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockParse:$outertype", "18a"))) {
-				if (!$HeaderDoc::test_mode) {
+
+			if ((($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && (($inputCounter > $nlines) || warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "blockParse:$outertype", "18a", \%parseTokens))) {
+				if (!$HeaderDoc::running_test) {
 					warn "No matching declaration found.  Last name was $curname\n";
 					warn buildCommentFromFields(@fields, $preAtPart, "The HeaderDoc comment that caused this was:\n")."\n";
 					warn "$outertype ne $curtype && $innertype ne $curtype && $posstypes !~ $curtype\n";
 				}
 				$foundMatch = 0;
+				print STDERR "NOMATCH: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 				last;
 			}
 			if ($hangDebug) { print STDERR "Point E\n"; }
+			# print STDERR "IC: $inputCounter\nLINE: ".$inputLines[$inputCounter]."\nSUBPARSE: $subparse\n";
+			if ($blockmode && (!$subparse)) {
+				while (($inputLines[$inputCounter] =~ /^\s*\/[\/*][^!]/ || $inputLines[$inputCounter] !~ /\S/s) && ($inputCounter <= $nlines)){
+					$inputCounter++;
+				}
+			}
+			# print STDERR "POSTIC: $inputCounter\nPOSTLINE: ".$inputLines[$inputCounter]."\nPOSTSUBPARSE: $subparse\n";
 			if ($blockmode == 1) {
 				warn "next line: ".$inputLines[$inputCounter]."\n" if ($hangDebug);
 				print STDERR "BLOCKMODE[10] -> 2\n" if ($localDebug || $blockDebug);
@@ -7943,7 +10264,7 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 			if ($blockmode == 2) {
 				my $prevignore = $HeaderDoc::ignore_apiuid_errors;
 				$HeaderDoc::ignore_apiuid_errors = 1;
-				if (warnHDComment(\@inputLines, $inputCounter, $blockOffset, "blockMode:$outertype", "18a") == 1) {
+				if (warnHDComment(\@inputLines, $inputCounter, $blockOffset, $lang, "blockMode:$outertype", "18a", \%parseTokens) == 1) {
 					# print STDERR "OT: $outertype\n";
 					$blockmode = 0;
 					print STDERR "BLOCKMODE[11] -> 0\n" if ($localDebug || $blockDebug);
@@ -7954,11 +10275,14 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 			print STDERR "PTCT: $posstypes =? $curtype\n" if ($localDebug || $blockDebug);
 			$previousInputCounter = $inputCounter;
 		} else {
+			print STDERR "BAIL: AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 			last;
 		}
+		print STDERR "AT END LOOPTEST: (($blockmode || ($outertype ne $curtype && $innertype ne $curtype && $posstypes !~ /$curtype/ && !($inTypedef && $outertype =~ /^(class|\@class|\@interface|\@implementation|\@protocol)/))) && ($inputCounter <= $nlines)) || ($subparse && !$checkLineNumbers)\n" if ($localDebug || $hangDebug || $nameDebug || $nameObjDebug || $subparseDebug || $blockDebug);
+		print STDERR "AT END IC: $inputCounter\n" if ($HeaderDoc::inputCounterDebug);
 	}
 
-	print STDERR "OUT OF LOOP.  Exited with blockmode = $blockmode\n" if ($localDebug || $blockDebug);
+	print STDERR "OUT OF LOOP.  Exited with blockmode = $blockmode\n" if ($localDebug || $blockDebug || $subparseDebug || $hangDebug);
 	if (length($blockDec)) {
 		$curObj->declaration($blockDec);
 		$curObj->declarationInHTML($blockDec);
@@ -7967,12 +10291,12 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 	if ($curObj->can('isAvailabilityMacro') && $curObj->isAvailabilityMacro()) {
 		addAvailabilityMacro($curObj->name, $curObj->discussion);
 	}
-	print STDERR "Out of Block\n" if ($localDebug || $blockDebug);
+	print STDERR "Out of Block\n" if ($localDebug || $blockDebug || $hangDebug);
 	# the end of this block assumes that inputCounter points
 	# to the last line grabbed, but right now it points to the
 	# next line available.  Back it up by one.
 	$inputCounter--;
-	print STDERR "DECREMENTED INPUTCOUNTER [11]: LINE ".$inputLines[$inputCounter]."\n" if ($HeaderDoc::inputCounterDebug);
+	print STDERR "DECREMENTED INPUTCOUNTER TO $inputCounter [11]: LINE ".$inputLines[$inputCounter]."\n" if ($HeaderDoc::inputCounterDebug);
 	# warn("NEWDEC:\n$declaration\nEND NEWDEC\n");
 
 				}  ## end blockParse handler
@@ -7980,9 +10304,116 @@ print STDERR "B8ENUMINSERT apio=$apiOwner\n" if ($localDebug || $hangDebug);
 		$HeaderDoc::enable_cpp = $old_enable_cpp;
 	}
 	objlink(\@linkobjs);
-	return ($inputCounter, $cppAccessControlState, $classType, \@classObjects, \@categoryObjects, $blockOffset, $numcurlybraces, $foundMatch);
+
+	if ($curObj) {
+		print "CO AT END: $curObj\n" if ($HeaderDoc::debugAllocations);
+		if (!$curObj->{INSERTED}) { $curObj->free(0, 1, undef); }
+	}
+
+	if ($curObj && $curObj->discussionLocked()) {
+		$curObj->unlockDiscussion();
+	}
+
+    # if ($sublang ne $HeaderDoc::sublang) { print STDERR "CHECKPOINT 011: SUBLANG NOMATCH\n"; }
+
+	return ($inputCounter, $cppAccessControlState, $classType, \@classObjects, \@categoryObjects, $blockOffset, $numcurlybraces, $foundMatch, $lang, $sublang, $hashtreecur, $hashtreeroot);
 }
 
+# /*!
+#     @abstract
+#         Returns a HeaderDoc object (<code>Var</code>, <code>Enum</code>, <code>Typedef</code>, <code>CPPClass</code>, etc.)
+#         for a given set of type information.
+#     @discussion
+#         This logic got so large that it was too much of a pain to maintain
+#         in two places in {@link blockParseOutside}, hence the separate function.
+#     @param curObj
+#         IN: The current master object from {@link blockParseOutside}.  This master object
+#         is generated based on the top-level tag in the HeaderDoc comment,
+#         if present.  (If the comment has no top-level tag, this is a generic
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}
+#         object.)
+#     @param typedefname
+#         IN: The <code>typedefname</code> parse token (obtained from a call to
+#         {@link //apple_ref/perl/instm/HeaderDoc::Utilities/parseTokens//() parseTokens}.
+#     @param typestring
+#         IN: The <code>typestring</code> field out of the parser state object.
+#         See the parserState class for more information.
+#     @param posstypes
+#         IN: The <code>posstypes</code> field out of the parser state object.
+#         See the parserState class for more information.
+#     @param outertype
+#         IN: The primary type returned by the parser.  For example, in the case of a
+#         <code>typedef struct</code> declaration, the outer type would be
+#         <code>typedef</code>.
+#     @param curtype
+#         IN: The type that we are searching for (as defined by the HeaderDoc comment).
+#     @param classType
+#         IN: The class type of the enclosing context.
+#
+#         OUT: The class type of the class just parsed; unchanged if the current
+#              declaration is not a class.
+#     @param classKeyword
+#         IN: The class keyword from the HeaderDoc comment (e.g. for
+#             an <code>\@class</code> comment, the value is <code>class</code>).  If
+#             unspecified, the value is <code>auto</code>.
+#     @param declaration
+#         IN: The raw declaration.  For classes, passed to
+#         {@link //apple_ref/perl/instm/HeaderDoc::Utilities/classTypeFromFieldAndBPinfo//() classTypeFromFieldAndBPinfo}.  Otherwise unused.
+#     @param fieldref
+#         IN: A reference to the array of fields from the HeaderDoc comment.
+#     @param functionGroup
+#         IN: The name of the current function group.
+#     @param varIsConstant
+#         IN: Probably doesn't matter.
+#
+#         OUT: Returns 1 if the variable declaration is a constant, else 0.
+#     @param blockmode
+#         IN: Nonzero if the parser is in a <code>#define</code> block.  (For details, see
+#         {@link blockParseOutside}.
+#     @param inClass
+#         IN: Nonzero if the HeaderDoc comment began with <code>\@class</code>.
+#     @param inInterface
+#         IN: Nonzero if the HeaderDoc comment began with <code>\@interface</code>.
+#     @param inTypedef
+#         IN: Nonzero if the HeaderDoc comment began with <code>\@typedef</code>.
+#     @param inStruct
+#         IN: Nonzero if the HeaderDoc comment began with <code>\@struct</code>.
+#     @param fullpath
+#         IN: The filename with leading path parts (for debugging purposes/warnings).
+#     @param inputCounter
+#         IN: The position within the current text block (for debugging purposes/warnings).
+#     @param blockOffset
+#         IN: The offset of the current text block from the start of the file (for debugging purposes/warnings).
+#     @param lang
+#         IN: The programming language of the file being parsed.  Used to determine whether certain
+#         Pascal-specific keywords are active.
+#     @param outerLocalDebug
+#         IN: The value of localDebug in {@link blockParseOutside}.  Set high for debugging.
+#     @param functionContents
+#         IN: The function body.  Used to populate the object (if it's a function).
+#     @param apiOwner
+#         IN: The object into which this object will eventually be inserted.  (Used to set the
+#         appropriate field in the object; this function does NOT add the object to the
+#         apiOwner object in any way.)
+#     @param subparseInputCounter
+#         IN: An override for the inputCounter field used when doing a subparse (handling a
+#         parse tree that has already been parsed once).  Leave unset normally.
+#     @param subparseBlockOffset 
+#         IN: An override for the blockOffset field used when doing a subparse (handling a
+#         parse tree that has already been parsed once).  Leave unset normally.
+#     @param extendsClass
+#         IN: The superclass name (obtained from the block parser).
+#     @param implementsClass
+#         IN: The name of the class that this class implements (Java-specific, obtained from
+#         the block parser).
+#     @param alwaysProcessComment
+#         IN: Indicates that the processComment() call should me made on the resulting object
+#         even if curtype is <code>UNKNOWN</code> (meaning that the comment would normally get processed
+#         later in {@link blockParseOutside}).  Used only in the case of a conversion request in
+#         blockParseOutisde.
+#     @result
+#         Returns the array ($extra, $classType, $varIsConstant).
+#  */
 sub objForType
 {
 	my $curObj = shift;               # IN
@@ -7992,7 +10423,7 @@ sub objForType
 	my $outertype = shift;            # IN
 	my $curtype = shift;              # IN
 	my $classType = shift;            # INOUT
-	my $classKeyword = shift;         # INOUT
+	my $classKeyword = shift;         # IN
 	my $declaration = shift;          # IN
 	my $fieldref = shift;             # IN
 	my $functionGroup = shift;        # IN
@@ -8006,6 +10437,7 @@ sub objForType
 	my $inputCounter = shift;         # IN
 	my $blockOffset = shift;          # IN
 	my $lang = shift;                 # IN
+	my $sublang = shift;                 # IN
 	my $outerLocalDebug = shift;      # IN
 	my $functionContents = shift;     # IN
 	my $apiOwner = shift;             # IN
@@ -8013,31 +10445,36 @@ sub objForType
 	my $subparseBlockOffset  = shift; # IN
 	my $extendsClass = shift;         # IN
 	my $implementsClass = shift;      # IN
+	my $alwaysProcessComment = shift; # IN
+	my $parserState = shift;          # IN
 
-	my $extra = undef;
+	my $extra = undef;                # OUT
 	my $localDebug = 0;
 
 	my $filename = basename($fullpath);
 
 	print STDERR "FOR DECLARATION $declaration\n" if ($localDebug);
+	# printFields($fieldref);
+
+	# print STDERR "CO: $curObj HASPC: ".$curObj->{HASPROCESSEDCOMMENT}." CURTYPE: $curtype\n";
 
 			    if ($typestring eq $outertype || !$HeaderDoc::outerNamesOnly) {
-				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module|namespace)/ || $inClass) && !$inTypedef && !$inStruct) {
+				if (($typestring =~ /^(class|\@class|\@interface|\@implementation|\@protocol|interface|module|namespace|package)/ || $inClass) && !$inTypedef && !$inStruct) {
                                         print STDERR "blockParse returned class\n" if ($localDebug);
 					print STDERR "RAWDEC: $declaration\n" if ($localDebug && $outerLocalDebug);
-					$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $fullpath, $inputCounter+$blockOffset, $HeaderDoc::sublang);
+					$classType = classTypeFromFieldAndBPinfo($classKeyword, $typestring." ".$posstypes, $declaration, $fullpath, $inputCounter+$blockOffset, $sublang);
 					print STDERR "classtype: $classType\n" if ($localDebug);
 					if ($classType eq "intf") {
-						$extra = HeaderDoc::ObjCProtocol->new();
+						$extra = HeaderDoc::ObjCProtocol->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 					} elsif ($classType eq "occCat") {
-						$extra = HeaderDoc::ObjCCategory->new();
+						$extra = HeaderDoc::ObjCCategory->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 					} elsif ($classType eq "occ") {
-						$extra = HeaderDoc::ObjCClass->new();
+						$extra = HeaderDoc::ObjCClass->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 					} else {
-						$extra = HeaderDoc::CPPClass->new();
+						$extra = HeaderDoc::CPPClass->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 						if ($inInterface || $typestring =~ /typedef/ || $typestring =~ /struct/) {
 							# cluck "Setting isCOMInterface -> 1 ($inInterface, $typestring)\n";
@@ -8058,9 +10495,11 @@ sub objForType
 					print STDERR "TYPESTRING IS $typestring.  CCLASS IS ".$extra->CClass."\n" if ($localDebug);
 
 					$extra->group($HeaderDoc::globalGroup);
-					if ($HeaderDoc::module) {
-						$extra->indexgroup($HeaderDoc::module);
-						print STDERR "MODULE: ".$HeaderDoc::module."\n"; # @@@
+
+					# if ($HeaderDoc::module)
+					if ($parserState->{MODULE}) {
+						$extra->indexgroup($parserState->{MODULE}); # $HeaderDoc::module
+						print STDERR "MODULE: ".$parserState->{MODULE}."\n"; # @@@
 					}
                                         $extra->filename($filename);
                                         $extra->fullpath($fullpath);
@@ -8084,6 +10523,7 @@ sub objForType
 					} elsif ($class =~ /HeaderDoc::ObjCProtocol/) {
 						$superclassfieldname = "Extends&nbsp;Protocol";
 					}
+					# print STDERR "SUPER: $superclass\n";
 					if (length($superclass) && length($superclassfieldname) && (!($extra->checkShortLongAttributes($superclassfieldname))) && !$extra->CClass()) {
 						$extra->attribute($superclassfieldname, $superclass, 0, 1);
 					}
@@ -8101,7 +10541,7 @@ sub objForType
 
 					# $extra->declaration($declaration);
 					# $extra->declarationInHTML($declaration);
-					# if ($curtype eq "UNKNOWN") {
+					# if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					# }
 
@@ -8127,7 +10567,7 @@ sub objForType
 							print STDERR "FIELD $field\n";
 						}
 					}
-					$extra = HeaderDoc::Typedef->new;
+					$extra = HeaderDoc::Typedef->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $extra->apiOwner($apiOwner);
 					$extra->group($HeaderDoc::globalGroup);
                                         $extra->filename($filename);
@@ -8141,12 +10581,12 @@ sub objForType
 					}
 					# $extra->linenum($inputCounter+$blockOffset);
 					$curObj->masterEnum(1);
-					if ($curtype eq "UNKNOWN") {
+					if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					}
 				} elsif ($typestring =~ /^struct/o || $typestring =~ /^union/o || ($lang eq "pascal" && $typestring =~ /^record/o)) {
 					print STDERR "blockParse returned struct or union ($typestring)\n" if ($localDebug);
-					$extra = HeaderDoc::Struct->new;
+					$extra = HeaderDoc::Struct->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $extra->apiOwner($apiOwner);
 					$extra->group($HeaderDoc::globalGroup);
                                         $extra->filename($filename);
@@ -8162,12 +10602,12 @@ sub objForType
 					if ($typestring =~ /union/o) {
 						$extra->isUnion(1);
 					}
-					if ($curtype eq "UNKNOWN") {
+					if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					}
 				} elsif ($typestring =~ /^enum/o) {
 					print STDERR "blockParse returned enum\n" if ($localDebug);
-					$extra = HeaderDoc::Enum->new;
+					$extra = HeaderDoc::Enum->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $extra->apiOwner($apiOwner);
 					$extra->group($HeaderDoc::globalGroup);
                                         $extra->filename($filename);
@@ -8180,7 +10620,7 @@ sub objForType
 						$extra->blockoffset($blockOffset);
 					}
 					# $extra->linenum($inputCounter+$blockOffset);
-					if ($curtype eq "UNKNOWN") {
+					if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					}
 					if ($curtype eq "enum" || $curtype eq "typedef") {
@@ -8193,7 +10633,7 @@ sub objForType
 					# silently ignore this noise.
 				} elsif ($typestring =~ /^\#define/o) {
 					print STDERR "blockParse returned #define\n" if ($localDebug);
-					$extra = HeaderDoc::PDefine->new;
+					$extra = HeaderDoc::PDefine->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $extra->apiOwner($apiOwner);
 					$extra->inDefineBlock($blockmode);
 					$extra->group($HeaderDoc::globalGroup);
@@ -8207,13 +10647,13 @@ sub objForType
 						$extra->blockoffset($blockOffset);
 					}
 					# $extra->linenum($inputCounter+$blockOffset);
-					if ($curtype eq "UNKNOWN") {
+					if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					}
 				} elsif ($typestring =~ /^property/o) {
 					$varIsConstant = 0;
 					print STDERR "blockParse returned property\n" if ($localDebug);
-					$extra = HeaderDoc::Var->new;
+					$extra = HeaderDoc::Var->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         $extra->apiOwner($apiOwner);
 					$extra->group($HeaderDoc::globalGroup);
                                        	$extra->filename($filename);
@@ -8227,14 +10667,14 @@ sub objForType
 					}
 					# $extra->linenum($inputCounter+$blockOffset);
 					$extra->isProperty(1);
-					if ($curtype eq "UNKNOWN") {
+					if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 						$extra->processComment($fieldref);
 					}
 				} elsif ($typestring =~ /^constant/o) {
 					# if ($declaration =~ /\s+const\s+/o) {
 						$varIsConstant = 1;
 						print STDERR "blockParse returned constant\n" if ($localDebug);
-						$extra = HeaderDoc::Constant->new;
+						$extra = HeaderDoc::Constant->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 						$extra->group($HeaderDoc::globalGroup);
                                         	$extra->filename($filename);
@@ -8247,13 +10687,13 @@ sub objForType
 							$extra->blockoffset($blockOffset);
 						}
 						# $extra->linenum($inputCounter+$blockOffset);
-						if ($curtype eq "UNKNOWN") {
+						if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 							$extra->processComment($fieldref);
 						}
 				} elsif ($typestring =~ /^variable/o) {
 						$varIsConstant = 0;
 						print STDERR "blockParse returned variable\n" if ($localDebug);
-						$extra = HeaderDoc::Var->new;
+						$extra = HeaderDoc::Var->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 						$extra->group($HeaderDoc::globalGroup);
                                         	$extra->filename($filename);
@@ -8266,13 +10706,13 @@ sub objForType
 							$extra->blockoffset($blockOffset);
 						}
 						# $extra->linenum($inputCounter+$blockOffset);
-						if ($curtype eq "UNKNOWN") {
+						if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 							$extra->processComment($fieldref);
 						}
 				} elsif ($typestring =~ /^(function|method|operator|ftmplt|callback)/o) {
 					print STDERR "blockParse returned function or method\n" if ($localDebug);
 					if ($typestring =~ /method/) {
-						$extra = HeaderDoc::Method->new;
+						$extra = HeaderDoc::Method->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 						$extra->functionContents($functionContents);
 						if (length($functionGroup)) {
@@ -8290,11 +10730,11 @@ sub objForType
 							$extra->blockoffset($blockOffset);
 						}
 						# $extra->linenum($inputCounter+$blockOffset);
-						if ($curtype eq "UNKNOWN") {
+						if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 							$extra->processComment($fieldref);
 						}
 					} else {
-						$extra = HeaderDoc::Function->new;
+						$extra = HeaderDoc::Function->new("LANG" => $lang, "SUBLANG" => $sublang);
                                         	$extra->apiOwner($apiOwner);
 						$extra->functionContents($functionContents);
 						if (length($functionGroup)) {
@@ -8312,7 +10752,7 @@ sub objForType
 							$extra->blockoffset($blockOffset);
 						}
 						# $extra->linenum($inputCounter+$blockOffset);
-						if ($curtype eq "UNKNOWN") {
+						if ($curtype eq "UNKNOWN" || $alwaysProcessComment) {
 							$extra->processComment($fieldref);
 						}
 					}
@@ -8337,7 +10777,19 @@ sub objForType
 	return ($extra, $classType, $varIsConstant);
 }
 
-
+# /*!
+#     @abstract
+#         Creates "see also" references between related APIs.
+#     @param listref
+#         A reference to an array of objects to be cross-linked.
+#     @discussion
+#         When the parser sees, for example, an <code>\@typedef</code>
+#         comment, followed by a <code>struct</code>, followed by a
+#         <code>typedef</code>, it treats these as related APIs and
+#         automatically associates the comment with both of these
+#         two declarations.  This function links those together at
+#         the end.
+#  */
 sub objlink
 {
     my $listref = shift;
@@ -8365,7 +10817,8 @@ sub objlink
 	my $obj = ${$objref};
 	# change whitespace to ctrl-d to
 	# allow multi-word names.
-	my $ern = $obj->rawname();
+	my $ern = $obj->name();
+	# print STDERR "RN: $ern\n";
 	if ($ern =~ /\s/o && $localDebug) {
 		print STDERR "changed space to ctrl-d\n";
 		print STDERR "ref is ".$obj->apiuid()."\n";
@@ -8376,7 +10829,7 @@ sub objlink
 	}
     }
     if ($masterobj) {
-	my $ern = $masterobj->rawname();
+	my $ern = $masterobj->name();
 	if ($ern =~ /\s/o && $localDebug) {
 		print STDERR "changed space to ctrl-d\n";
 		print STDERR "ref is ".$masterobj->apiuid()."\n";
@@ -8391,6 +10844,7 @@ sub objlink
 		if (!$masterobj->seeDupCheck($apiref) && !$masterobj->{HIDESINGLETONS}) {
 			$masterobj->attributelist("See Also", $apiref);
 			$masterobj->seeDupCheck($apiref, 1);
+			$masterobj->autoRelate($apiref);
 		}
 	}
     }
@@ -8410,6 +10864,7 @@ sub objlink
 			if (!$obj->seeDupCheck($apiref)) {
 				$obj->attributelist("See Also", $apiref);
 				$obj->seeDupCheck($apiref, 1);
+				$obj->autoRelate($apiref);
 			}
 		}
 	    }
@@ -8417,8 +10872,13 @@ sub objlink
     }
 }
 
-# /*! Used by availability macros so the C preprocessor doesn't strip the
-# token out before the parser sees it. */
+# /*! @abstract
+#         Removes a token from the C preprocessor macros list.
+#     @discussion
+#         Used with availability macros so that C preprocessor doesn't
+#         strip out the availability macro tokens out before the parser sees
+#         them.
+#  */
 sub cpp_remove($)
 {
     my $name = shift;
@@ -8426,19 +10886,42 @@ sub cpp_remove($)
 
     print STDERR "Removing token \"$name\" from C preprocessor macros list.\n" if ($localDebug);
 
-    $CPP_HASH{$name} = undef;
-    $CPP_ARG_HASH{$name} = undef;
+    delete $CPP_HASH{$name};
+    delete $CPP_ARG_HASH{$name};
 }
 
+# /*! @abstract
+#         Adds a C preprocessor macro to the parser.
+#     @param parseTree
+#         The parse tree for the macro in question.
+#     @param dropdeclaration
+#         True if the declaration's contents should be omitted entirely.
+#  */
 sub cpp_add($$)
 {
     my $parseTree = shift;
-    my $string = $parseTree->textTreeNC($HeaderDoc::lang, $HeaderDoc::sublang);
     my $dropdeclaration = shift;
+    my $lang = shift;
+    my $sublang = shift;
+
+    # Don't use textTreeNC here because we need to be able to handle
+    # #define comments that contain HeaderDoc markup.
+    my $string = $parseTree->textTree($lang, $sublang);
+
+    $string =~ s/^\/\*.*?\*\///s;
+
+    # print STDERR "IN cpp_add: ADDING  \"$string\"\n";
 
     return cpp_add_string($string, $dropdeclaration);
 }
 
+# /*! @abstract
+#         Adds a C preprocessor macro to the parser.
+#     @param string
+#         The string form of the macro in question.
+#     @param dropdeclaration
+#         True if the declaration's contents should be omitted entirely.
+#  */
 sub cpp_add_string($$)
 {
     my $string = shift;
@@ -8459,21 +10942,20 @@ sub cpp_add_string($$)
 	print STDERR "Dropping declaration \"$name\"." if ($localDebug || $cppDebug);
 
 	# Deleting token by force.
-	if ($CPP_HASH{$name}) {
+	if (exists $CPP_HASH{$name}) {
 		warn "Multiple definitions for $name.  Using first.\n" if ($cppDebug || $warnAllMultipleDefinitions);
 	} else {
 		$CPP_HASH{$name} = "";
 	}
     } elsif ($slstring =~ s/^(?:\/\*.*?\*\/)?\s*#define\s+((?:\w|::|->)+)(\s|\(|\{)//s) {
 	my $name = $1;
-	my $namequot = quote($name);
 	# my $firsttoken = $2;
 
 	print STDERR "CPP ADDING FUNC-LIKE MACRO\n" if ($localDebug || $cppDebug);
 
 	print STDERR "GOT NAME $name\n" if ($localDebug || $cppDebug);
 
-	$string =~ s/^.*?$namequot//s;
+	$string =~ s/^.*?\Q$name\E//s;
 
 	print STDERR "POST-STRIP: STRING IS \"$string\"\n" if ($localDebug || $cppDebug);
 
@@ -8580,7 +11062,7 @@ sub cpp_add_string($$)
 
 		print STDERR "ADDING NAME=\"$name\" ARGS=\"$firstpart\" DEFINITION=\"$definition\"\n" if ($cppDebug);
 
-		if (defined $CPP_HASH{$name}) {
+		if (exists $CPP_HASH{$name}) {
 			warn "Multiple definitions for $name.  Using first.\n" if (($cppDebug || $warnAllMultipleDefinitions) && $HeaderDoc::enable_cpp);
 		} else {
 			$CPP_HASH{$name} = $definition;
@@ -8591,7 +11073,7 @@ sub cpp_add_string($$)
 	} else {
 		# This is defining a function-like macro to wipe.
 		# warn("Unable to process #define macro \"$name\".\n");
-		if ($CPP_HASH{$name}) {
+		if (exists $CPP_HASH{$name}) {
 			warn "Multiple definitions for $name.  Using first.\n" if ($cppDebug || $warnAllMultipleDefinitions);
 		} else {
 			$CPP_HASH{$name} = "";
@@ -8603,16 +11085,46 @@ sub cpp_add_string($$)
     } elsif ($slstring =~ s/^\s*#define\s+(\w+)\s*$//s) {
 	my $name = $1;
 	# This is defining a single token to delete.
-	if ($CPP_HASH{$name}) {
+	if (exists $CPP_HASH{$name}) {
 		warn "Multiple definitions for $name.  Using first.\n" if ($cppDebug || $warnAllMultipleDefinitions);
 	} else {
 		$CPP_HASH{$name} = "";
 	}
     } else {
-	warn "CAN'T HANDLE \"$string\".\n" if ($HeaderDoc::enable_cpp);
+	warn "COWARDLY REFUSING TO HANDLE \"$string\".\n" if ($HeaderDoc::enable_cpp);
     }
 }
 
+# /*!
+#     @abstract
+#         Adds C preprocessor macro passed in with the <code>-D</code> flag
+#         on the command line.
+#  */
+sub cpp_add_cl
+{
+    my $name = shift;
+    my $value = shift;
+
+    $CPP_HASH{$name} = $value;
+
+}
+
+# /*! 
+#    @abstract
+#        Performs C preprocessing on a single token.
+#    @discussion
+#        Much of the actual processing happens in the caller.  For simple substitutions, this
+#        returns the updated part.  For function-like macros, this returns <code>true</code> for the
+#        hasargs value and also returns an array of argument names for use when processing
+#        the contents of the macros.  In practice, that third value is never used.
+#    @param part
+#        The part to process.
+#    @param linenum
+#        The line number where the part appears.  Used for determining which <code>#define</code> directives
+#        apply at that point in time.
+#    @result
+#        Returns the array <code>($newtoken, $hasargs, \@arguments)</code>
+#  */
 sub cpp_preprocess
 {
     my $part = shift;
@@ -8659,10 +11171,10 @@ sub cpp_preprocess
       }
 
       my $altpart = $CPP_HASH{$part};
-      my $exists = defined $CPP_HASH{$part};
+      my $exists = exists $CPP_HASH{$part};
       if ($exists) {
 	print STDERR "FOUND NAME=\"$part\" REPLACEMENT=\"$altpart\"\n" if ($cppDebug);
-	if (defined($CPP_ARG_HASH{$part})) { $hasargs = 1; }
+	if (exists($CPP_ARG_HASH{$part})) { $hasargs = 1; }
 	print STDERR "HASARGS: $hasargs\n" if ($cppDebug);
 	return ($altpart, $hasargs, $CPP_ARG_HASH{$part});
       }
@@ -8682,6 +11194,11 @@ sub cpp_preprocess
     return ($part, $hasargs, "");
 }
 
+# /*!
+#     @abstract
+#         Returns the current C preprocessor hash tables and
+#         wipes them clean for the next header.
+#  */
 sub getAndClearCPPHash
 {
     my %newhash = %CPP_HASH;
@@ -8691,6 +11208,48 @@ sub getAndClearCPPHash
     return (\%newhash, \%newarghash);
 }
 
+# /*!
+#     @abstract
+#         Sets a new CPP hash and CPP argument hash in place of the existing one.
+#     @param cpphashref
+#         A reference to the new CPP symbol hash.
+#     @param cpparghashref
+#         A reference to the new CPP argument hash.
+#  */
+sub setCPPHashes
+{
+    my $cpphashref = shift;
+    my $cpparghashref = shift;
+
+	# cluck("setCPPHashes called.  HASH: $cpphashref ARGHASH: $cpparghashref\n");
+
+	### print STDERR "setCPPHashes called.  HASH: $cpphashref ARGHASH: $cpparghashref\n";
+
+	### print STDERR "\nDUMPING NEW HASH:\n\n";
+	### printHash(%{$cpphashref});
+	### print STDERR "\nDONE\n\n";
+
+	### print STDERR "\nDUMPING NEW ARGUMENT HASH:\n\n";
+	### printHash(%{$cpparghashref});
+	### print STDERR "\nDONE\n\n";
+
+
+    %CPP_HASH = %{$cpphashref};
+    %CPP_ARG_HASH = %{$cpparghashref};
+}
+
+# /*!
+#     @abstract
+#         Parses C preprocessor arguments.
+#     @param name
+#        The name of the C preprocessor macro for which these arguments are the parameters.
+#     @param linenum
+#        The line number where this line appears.  Used for determining which <code>#define</code> directives
+#        apply at that point in time.
+#     @param arglistref
+#        An array containing a parse tree for each actual parameters to this instance of the C
+#        preprocessor macro (in order of occurrence).
+#  */
 sub cpp_argparse
 {
     my $name = shift;
@@ -8775,13 +11334,20 @@ sub cpp_argparse
     return $retstring;
 }
 
+# /*!
+#     @abstract
+#         Used by <code>cpp_argparse</code> to recursively perform preprocessing on tokens within the
+#         actual arguments to a macro.
+#     @param tree
+#         A parse tree for the actual argument in question.
+#  */
 sub cpp_subparse($)
 {
     my $tree = shift;
     # my $hashlistref = shift;
     # my $arghashlistref = shift;
 
-    my ($newtoken, $has_args) = cpp_preprocess($tree->token(), $tree->linenum()); #, $hashlistref, $arghashlistref);
+    my ($newtoken, $has_args, $tempstring) = cpp_preprocess($tree->token(), $tree->linenum()); #, $hashlistref, $arghashlistref);
 
     if ($cppDebug) {
 	print STDERR "SUBPARSE: ARGS: $has_args\n";
@@ -8842,6 +11408,12 @@ sub cpp_subparse($)
     return $tree->textTree();
 }
 
+# /*!
+#     @abstract
+#         Scrapes the C++ superclass information from a declaration.
+#     @discussion
+#         This function is also used for the Java <code>implements</code> information.
+#  */
 sub cppsupers
 {
     my $string = shift;
@@ -8853,13 +11425,17 @@ sub cppsupers
     my @parts = split(/(\W)/, $string);
     my $superlist = "";
     my $cursuper = "";
-    my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-	$enumname,
-	$typedefname, $varname, $constname, $structisbrace, $macronameref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
-	$requiredregexp, $propname, $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($lang, $sublang);
-# print STDERR "PROPNAME4: $propname\n";
+    # my ($parseTokens{sotemplate}, $parseTokens{eotemplate}, $parseTokens{operator}, $parseTokens{soc}, $parseTokens{eoc}, $parseTokens{ilc}, $parseTokens{ilc_b}, $parseTokens{sofunction},
+	# $parseTokens{soprocedure}, $parseTokens{sopreproc}, $parseTokens{lbrace}, $parseTokens{rbrace}, $parseTokens{unionname}, $parseTokens{structname},
+	# $parseTokens{enumname},
+	# $parseTokens{typedefname}, $parseTokens{varname}, $parseTokens{constname}, $parseTokens{structisbrace}, $parseTokens{macronames},
+	# $classregexp, $classbraceregexp, $classclosebraceregexp, $accessregexp,
+	# $requiredregexp, $parseTokens{propname}, $parseTokens{objcdynamicname}, $parseTokens{objcsynthesizename}, $moduleregexp, $parseTokens{definename},
+	# $parseTokens{functionisbrace}, $parseTokens{classisbrace}, $parseTokens{lbraceconditionalre}, $parseTokens{lbraceunconditionalre}, $parseTokens{assignmentwithcolon},
+	# $labelregexp, $parseTokens{parmswithcurlybraces}, $parseTokens{superclasseswithcurlybraces}, $parseTokens{soconstructor}) = parseTokens($lang, $sublang);
+    my %parseTokens = %{parseTokens($lang, $sublang)};
+# print STDERR "PROPNAME4: $parseTokens{propname}\n";
+    my $accessregexp = $parseTokens{accessregexp};
 
     my $inTemplate = 0;
 
@@ -8883,14 +11459,23 @@ sub cppsupers
     $superlist .= "\cA".$cursuper;
     $superlist =~ s/^\cA//s;
 
+    # print STDERR "CPPSUPERS LANG IS $lang\n";
+    if ($lang eq "tcl" || $sublang eq "tcl") {
+	$superlist =~ s/^\s*{//s;
+	$superlist =~ s/}\s*$//s;
+    }
 	print STDERR "SUPERLIST IS $superlist\n" if ($localDebug);
 
     return $superlist;
 }
 
-# /*! This should only be used when handling return types.  It does not handle
-#     strings or anything requiring actual parsing.  It strictly rips out
-#     C comments (both single-line and standard).
+# /*!
+#     @abstract
+#         Strips comments out of a return type declaration.
+#     @discussion
+#         This should only be used when handling return types.  It does not handle
+#         strings or anything requiring actual parsing.  It strictly rips out
+#         C comments (both single-line and standard).
 #  */
 sub decomment
 {
@@ -8911,6 +11496,18 @@ sub decomment
 
 }
 
+# /*!
+#    @abstract
+#         Reconstructs a HeaderDoc comment from a field list.
+#    @param fields
+#        An array of fields.
+#    @param preAtPart
+#        The part before the first <code>\@</code> sign (the declaration of a
+#        new-style HeaderDoc comment, or empty for an old-style
+#        HeaderDoc comment).
+#    @param message
+#        Content to use if the field set is empty.
+#  */
 sub buildCommentFromFields
 {
     my @fields = shift;
@@ -8940,22 +11537,25 @@ sub buildCommentFromFields
     return $string;
 }
 
-sub setHollowWithLineNumbers
-{
-	my $parserStateRef = shift;
-	my $treeCur = shift;
-	my $blockOffset = shift;
-	my $inputCounter = shift;
-
-	$treeCur->{BLOCKOFFSET} = $blockOffset;
-	$treeCur->{INPUTCOUNTER} = $inputCounter;
-
-	my $parserState = ${$parserStateRef};
-	$parserState->{hollow} = $treeCur;
-}
-
+# /*!
+#     @abstract
+#         Returns a regular expression for searching for macro tokens
+#         derived from a hash table.
+#     @param nameref
+#         A reference to a hash in which the names of the macro tokens
+#         (e.g. <code>#define</code>, <code>#if</code>, <code>#ifdef</code>) are the hash keys.
+#     @param onlywithpound
+#         If 0, includes all tokens as-is.
+#
+#         If 1, includes only tokens that begin with a <code>#</code> sign and
+#         strips off the leading <code>#</code>, e.g. <code>define</code> instead of
+#         <code>#define</code>.
+#
+#         If 2, includes only tokens that do not begin with a <code>#</code> sign.
+#  */
 sub macroRegexpFromList
 {
+	# cluck("here");
 	my $nameref = shift;
 	my $onlywithpound = shift;
 	my %names = %{$nameref};
@@ -8988,6 +11588,10 @@ sub macroRegexpFromList
 	return $regexpstring;
 }
 
+# /*!
+#    @abstract
+#         Returns <code>true</code> if a field set is effectively empty.
+#  */
 sub empty_comment
 {
 	my @fields = shift;
@@ -8997,6 +11601,132 @@ sub empty_comment
 	
 
 }
+
+
+# /*!
+#     @abstract
+#         Merges CPP hashes and CPP argument hashes based on interpreting
+#         a stack of <code>#if ... #else ... #elif ... #endif</code>
+#         directives.
+#     @discussion
+#         Used when processing blocks that might corrupt each other.
+#
+#         For example, if you have a <code>#if ... #else ... #endif</code>
+#         block in which the <code>#if</code> side is a <code>#define</code>
+#         that defines the name of a nonexistent function to an existing
+#         function and the <code>#else</code> side or <code>#elif</code>
+#         side is a real function definition for that same symbol name,
+#         the C preprocessor would dutifully turn that function declaration
+#         into a declaration for the <b>other</b> function.  Oops.
+#
+#         Instead, upon entering such a block, the parser makes a backup of
+#         the C preprocessor's working hashes (which contain C preprocessing
+#         tokens and argument lists).  This gives the preprocessor a
+#         base state for the block.  Whenever a <code>#else</code> or
+#         <code>#elif</code> directive appears, the parser makes an
+#         intermediate copy of the hash coming out of that block, then
+#         resets the working hashes to the base state (prior to the initial
+#         <code>#if</code>).  When the closing <code>#endif</code>
+#         directive appears, the parser merges all of the intermediate
+#         (per-block) hashes together and sets the working hashes to
+#         that value.
+#
+#         For detailed explanation, see the documentation for 
+#         {@link //apple_ref/perl/cl/HeaderDoc::HashObject HashObject}.
+#  */
+sub cppHashMerge
+{
+    my $root = shift;
+    my $curhashobj = shift;
+    my $cpphashref = shift;
+    my $cpparghashref = shift;
+    my $token = shift;
+
+    my $localDebug = 0;
+
+    print STDERR "IN cppHashMerge WITH TOKEN: $token\n" if ($localDebug);
+
+    if (!$root) {
+	$root = HeaderDoc::HashObject->new();
+    }
+
+    if (!$curhashobj) {
+	$curhashobj = $root;
+    }
+
+    print STDERR "GOING IN:\n" if ($localDebug);
+    $root->dbprint() if ($localDebug);
+
+    my $hashret = ();
+    my $arghashret = ();
+
+    SWITCH: {
+	($token =~ /#if/) && do {
+		print STDERR "IF CASE\n" if ($localDebug);
+
+		($hashret, $arghashret) = $curhashobj->cppHashNodeSetHashes($cpphashref, $cpparghashref);
+
+		# print STDERR "CHECK: ".$curhashobj->{CPPHASH}.", ".$curhashobj->{CPPARGHASH}."\n";
+		$curhashobj = $curhashobj->cppHashNodeNewChild($token);
+		last;
+	};
+	($token =~ /#else/) && do {
+		print STDERR "ELSE CASE\n" if ($localDebug);
+
+		# Throw away values from previous if/elif clause for now.
+		$curhashobj-> cppHashNodeSetHashes($cpphashref, $cpparghashref);
+
+		$curhashobj = $curhashobj->cppHashNodeNewSibling($token);
+
+		# Return the parent node's hashes.
+		($hashret, $arghashret) = $curhashobj->cppHashNodeResetToParent();
+		last;
+	};
+	($token =~ /#elif/) && do {
+		print STDERR "ELIF CASE\n" if ($localDebug);
+
+		# Throw away values from previous if/elif clause for now.
+		$curhashobj->cppHashNodeSetHashes($cpphashref, $cpparghashref);
+		$curhashobj = $curhashobj->cppHashNodeNewSibling($token);
+
+		# Return the parent node's hashes.
+		($hashret, $arghashret) = $curhashobj->cppHashNodeResetToParent();
+		last;
+	};
+	($token =~ /#endif/) && do {
+		print STDERR "ENDIF CASE\n" if ($localDebug);
+
+		# Throw away values from previous if/else/elif clause for now.
+		$curhashobj->cppHashNodeSetHashes($cpphashref, $cpparghashref);
+
+		# Return the union of all this node's siblings' hashes.
+		($curhashobj, $hashret, $arghashret) = $curhashobj->cppHashNodePop();
+		last;
+	};
+	{
+		# die("Unknown CPP macro type \"$token\" in cppHashMerge\n");
+		# Other macros make it in here, so return what was passed in.
+
+		print STDERR "COMING OUT:\n" if ($localDebug);
+		$root->dbprint() if ($localDebug);
+
+		return ($cpphashref, $cpparghashref, $root, $curhashobj);
+
+	};
+    }
+
+	# warn("HR: $hashret, AHR: $arghashret\n");
+
+    # print STDERR "CPP HASH DUMP:\n";
+    # printHash(%{$hashret});
+    # print STDERR "DONE\n";
+
+    print STDERR "COMING OUT:\n" if ($localDebug);
+    $root->dbprint() if ($localDebug);
+
+    return ($hashret, $arghashret, $root, $curhashobj);
+}
+
 
 1;
 

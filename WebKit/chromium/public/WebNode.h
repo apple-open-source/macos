@@ -38,9 +38,9 @@
 namespace WebCore { class Node; }
 
 namespace WebKit {
+class WebDOMEventListener;
+class WebDOMEventListenerPrivate;
 class WebDocument;
-class WebEventListener;
-class WebEventListenerPrivate;
 class WebFrame;
 class WebNodeList;
 
@@ -61,7 +61,10 @@ public:
     WEBKIT_API void assign(const WebNode&);
 
     WEBKIT_API bool equals(const WebNode&) const;
-
+    // Required for using WebNodes in std maps.  Note the order used is
+    // arbitrary and should not be expected to have any specific meaning.
+    WEBKIT_API bool lessThan(const WebNode&) const;
+    
     bool isNull() const { return m_private.isNull(); }
 
     enum NodeType {
@@ -77,15 +80,14 @@ public:
         DocumentTypeNode,
         DocumentFragmentNode,
         NotationNode,
-        XPathNamespaceNode
+        XPathNamespaceNode,
+        ShadowRootNode
     };
     WEBKIT_API NodeType nodeType() const;
     WEBKIT_API WebNode parentNode() const;
     WEBKIT_API WebString nodeName() const;
     WEBKIT_API WebString nodeValue() const;
     WEBKIT_API bool setNodeValue(const WebString&);
-    // Deprecated. Use document().frame() instead.
-    WEBKIT_API WebFrame* frame() const;
     WEBKIT_API WebDocument document() const;
     WEBKIT_API WebNode firstChild() const;
     WEBKIT_API WebNode lastChild() const;
@@ -95,9 +97,11 @@ public:
     WEBKIT_API WebNodeList childNodes();
     WEBKIT_API WebString createMarkup() const;
     WEBKIT_API bool isTextNode() const;
+    WEBKIT_API bool isFocusable() const;
+    WEBKIT_API bool isContentEditable() const;
     WEBKIT_API bool isElementNode() const;
-    WEBKIT_API void addEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture);
-    WEBKIT_API void removeEventListener(const WebString& eventType, WebEventListener* listener, bool useCapture);
+    WEBKIT_API void addEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture);
+    WEBKIT_API void removeEventListener(const WebString& eventType, WebDOMEventListener* listener, bool useCapture);
     WEBKIT_API void simulateClick();
     WEBKIT_API WebNodeList getElementsByTagName(const WebString&) const;
 
@@ -105,22 +109,6 @@ public:
     // This does not 100% guarantee the user can see it, but is pretty close.
     // Note: This method only works properly after layout has occurred.
     WEBKIT_API bool hasNonEmptyBoundingBox() const;
-
-    // Deprecated. Use to() instead.
-    template<typename T> T toElement()
-    {
-        T res;
-        res.WebNode::assign(*this);
-        return res;
-    }
-
-    // Deprecated. Use toConst() instead.
-    template<typename T> const T toConstElement() const
-    {
-        T res;
-        res.WebNode::assign(*this);
-        return res;
-    }
 
     template<typename T> T to()
     {
@@ -142,7 +130,6 @@ public:
     operator WTF::PassRefPtr<WebCore::Node>() const;
 #endif
 
-protected:
 #if WEBKIT_IMPLEMENTATION
     template<typename T> T* unwrap()
     {
@@ -155,6 +142,7 @@ protected:
     }
 #endif
 
+protected:
     WebPrivatePtr<WebCore::Node> m_private;
 };
 
@@ -166,6 +154,11 @@ inline bool operator==(const WebNode& a, const WebNode& b)
 inline bool operator!=(const WebNode& a, const WebNode& b)
 {
     return !(a == b);
+}
+
+inline bool operator<(const WebNode& a, const WebNode& b)
+{
+    return a.lessThan(b);
 }
 
 } // namespace WebKit

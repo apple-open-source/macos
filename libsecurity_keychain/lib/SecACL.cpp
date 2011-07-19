@@ -24,15 +24,25 @@
 #include <Security/SecACL.h>
 #include <security_keychain/ACL.h>
 #include <security_keychain/Access.h>
+#include <security_keychain/SecAccessPriv.h>
 
 #include "SecBridge.h"
 
+// Forward reference
+/*!
+	@function GetACLAuthorizationTagFromString
+	@abstract Get the CSSM ACL item from the CFString
+    @param aclStr The String name of the ACL
+	@result The CSSM ACL value
+*/
+sint32 GetACLAuthorizationTagFromString(CFStringRef aclStr);
+
+CFStringRef GetAuthStringFromACLAuthorizationTag(sint32 tag);
 
 //
 // Local functions
 //
 static void setApplications(ACL *acl, CFArrayRef applicationList);
-
 
 CFTypeID
 SecACLGetTypeID(void)
@@ -66,6 +76,18 @@ OSStatus SecACLCreateFromSimpleContents(SecAccessRef accessRef,
 	access->add(acl.get());
 	Required(newAcl) = acl->handle();
 	END_SECAPI
+}
+
+OSStatus SecACLCreateWithSimpleContents(SecAccessRef access,
+										CFArrayRef applicationList,
+										CFStringRef description, 
+										SecKeychainPromptSelector promptSelector,
+										SecACLRef *newAcl)
+{
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
+	cdsaPromptSelector.version = CSSM_ACL_KEYCHAIN_PROMPT_CURRENT_VERSION;
+	cdsaPromptSelector.flags = promptSelector;
+	return SecACLCreateFromSimpleContents(access, applicationList, description, &cdsaPromptSelector, newAcl);
 }
 
 
@@ -113,6 +135,20 @@ OSStatus SecACLCopySimpleContents(SecACLRef aclRef,
 	END_SECAPI
 }
 
+OSStatus SecACLCopyContents(SecACLRef acl,
+							CFArrayRef *applicationList,
+							CFStringRef *description, 
+							SecKeychainPromptSelector *promptSelector)
+{
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
+	memset(&cdsaPromptSelector, 0, sizeof(cdsaPromptSelector));
+	OSStatus err = noErr;
+	
+	err = SecACLCopySimpleContents(acl, applicationList, description, &cdsaPromptSelector);
+	*promptSelector = cdsaPromptSelector.flags;
+	return err;	
+}
+
 OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 	CFArrayRef applicationList,
 	CFStringRef description, const CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR *promptSelector)
@@ -133,6 +169,16 @@ OSStatus SecACLSetSimpleContents(SecACLRef aclRef,
 	END_SECAPI
 }
 
+OSStatus SecACLSetContents(SecACLRef acl,
+						   CFArrayRef applicationList,
+						   CFStringRef description, 
+						   SecKeychainPromptSelector promptSelector)
+{
+	CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR cdsaPromptSelector;
+	cdsaPromptSelector.version = CSSM_ACL_PROCESS_SELECTOR_CURRENT_VERSION;
+	cdsaPromptSelector.flags = promptSelector;
+	return SecACLSetSimpleContents(acl, applicationList, description, &cdsaPromptSelector);	
+}
 
 //
 // Stuff a CFArray-of-SecTrustedApplications into an ACL object
@@ -166,6 +212,51 @@ OSStatus SecACLGetAuthorizations(SecACLRef acl,
 	END_SECAPI
 }
 
+CFArrayRef SecACLCopyAuthorizations(SecACLRef acl)
+{
+	CFArrayRef result = NULL;
+	if (NULL == acl)
+	{
+		return result;
+	}
+	
+	AclAuthorizationSet auths = ACL::required(acl)->authorizations();
+	uint32 numAuths = auths.size();				
+	
+    CSSM_ACL_AUTHORIZATION_TAG* tags = new CSSM_ACL_AUTHORIZATION_TAG[numAuths];
+    int i;
+    for (i = 0; i < numAuths; ++i)
+    {
+        tags[i] = NULL;
+    }
+	
+	OSStatus err = SecACLGetAuthorizations(acl, tags, &numAuths);
+	if (noErr != err)
+	{
+		
+		return result;
+	}
+	
+	CFTypeRef* strings = new CFTypeRef[numAuths];
+    for (i = 0; i < numAuths; ++i)
+    {
+        strings[i] = NULL;
+    }
+    
+	for (size_t iCnt = 0; iCnt < numAuths; iCnt++)
+	{
+		strings[iCnt] = (CFTypeRef)GetAuthStringFromACLAuthorizationTag(tags[iCnt]);
+	}
+
+	result = CFArrayCreate(kCFAllocatorDefault, (const void **)strings, numAuths, NULL);
+
+	delete[] strings;
+    delete[] tags;
+
+	return result;
+	
+}
+
 OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 	CSSM_ACL_AUTHORIZATION_TAG *tags, uint32 tagCount)
 {
@@ -178,4 +269,26 @@ OSStatus SecACLSetAuthorizations(SecACLRef aclRef,
 	copy(tags, tags + tagCount, insert_iterator<AclAuthorizationSet>(auths, auths.begin()));
 	acl->modify();
 	END_SECAPI
+}
+
+OSStatus SecACLUpdateAuthorizations(SecACLRef acl, CFArrayRef authorizations)
+{
+	if (NULL == acl || NULL == authorizations)
+	{
+		return paramErr;
+	}
+	uint32 tagCount = CFArrayGetCount(authorizations);
+	
+	size_t tagSize = (tagCount * sizeof(CSSM_ACL_AUTHORIZATION_TAG));
+	
+	CSSM_ACL_AUTHORIZATION_TAG* tags = (CSSM_ACL_AUTHORIZATION_TAG*)malloc(tagSize);
+	memset(tags, 0, tagSize);
+	for (uint32 iCnt = 0; iCnt < tagCount; iCnt++)
+	{
+		tags[iCnt] = GetACLAuthorizationTagFromString((CFStringRef)CFArrayGetValueAtIndex(authorizations, iCnt));
+	}
+	
+	OSStatus result = SecACLSetAuthorizations(acl, tags, tagCount);
+	free(tags);
+	return result;
 }

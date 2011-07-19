@@ -26,9 +26,9 @@
 #include "config.h"
 #include "DragData.h"
 
-#include "Clipboard.h"
 #include "Document.h"
 #include "DocumentFragment.h"
+#include "Range.h"
 
 namespace WebCore {
 
@@ -56,7 +56,7 @@ bool DragData::containsPlainText() const
     return false;
 }
 
-String DragData::asPlainText() const
+String DragData::asPlainText(Frame*) const
 {
     return String();
 }
@@ -66,28 +66,23 @@ Color DragData::asColor() const
     return Color();
 }
 
-PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
-{
-    return 0;
-}
-    
 bool DragData::containsCompatibleContent() const
 {
     return false;
 }
     
-bool DragData::containsURL() const
+bool DragData::containsURL(Frame*, FilenameConversionPolicy filenamePolicy) const
 {
     return false;
 }
     
-String DragData::asURL(String* title) const
+String DragData::asURL(Frame*, FilenameConversionPolicy filenamePolicy, String* title) const
 {
     return String();
 }
     
     
-PassRefPtr<DocumentFragment> DragData::asFragment(Document*) const
+PassRefPtr<DocumentFragment> DragData::asFragment(Frame*, PassRefPtr<Range>, bool, bool&) const
 {
     return 0;
 }

@@ -38,15 +38,15 @@ uuid_unparse \- convert an UUID from binary representation to a string
 .sp
 \fIvoid\fP
 .br
-\fBuuid_unparse\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
+\fBuuid_unparse\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 .sp
 \fIvoid\fP
 .br
-\fBuuid_unparse_lower\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
+\fBuuid_unparse_lower\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 .sp
 \fIvoid\fP
 .br
-\fBuuid_unparse_upper\fP(\fIuuid_t uu\fP, \fIchar * out\fP);
+\fBuuid_unparse_upper\fP(\fIuuid_t uu\fP, \fIuuid_string_t out\fP);
 .sp
 .fi
 .SH DESCRIPTION
@@ -54,7 +54,7 @@ The
 .B uuid_unparse
 function converts the supplied UUID
 .I uu
-from the binary representation into a 36\-byte string (plus tailing '\\0')
+from the binary representation into a uuid_string_t (37\-byte string including tailing '\\0')
 of the form 1b4e28ba\-2fa1\-11d2\-883f\-b9a761bde3fb and stores this value in the
 character string pointed to by
 .IR out .  

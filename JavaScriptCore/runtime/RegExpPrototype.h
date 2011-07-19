@@ -21,16 +21,28 @@
 #ifndef RegExpPrototype_h
 #define RegExpPrototype_h
 
+#include "RegExpObject.h"
 #include "JSObject.h"
 
 namespace JSC {
 
-    class RegExpPrototype : public JSObject {
+    class RegExpPrototype : public RegExpObject {
     public:
-        RegExpPrototype(ExecState*, NonNullPassRefPtr<Structure>, Structure* prototypeFunctionStructure);
+        RegExpPrototype(ExecState*, JSGlobalObject*, Structure*);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static const ClassInfo s_info;
+
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+    protected:
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | RegExpObject::StructureFlags;
+
+    private:
+        virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
     };
 
 } // namespace JSC

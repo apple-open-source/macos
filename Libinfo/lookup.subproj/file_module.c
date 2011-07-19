@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,18 +29,88 @@
 #include <time.h>
 #include <dirent.h>
 #include <errno.h>
+#include <notify.h>
 #include <arpa/inet.h>
 #include <sys/param.h>
 #include <sys/mount.h>
 #include <sys/stat.h>
 #include <ils.h>
+#include <dispatch/dispatch.h>
+
+/* notify SPI */
+uint32_t notify_peek(int token, uint32_t *val);
+
+extern uint32_t gL1CacheEnabled;
 
 /* These really should be in netdb.h & etc. */
 #define _PATH_RPCS "/etc/rpc"
 #define _PATH_ALIASES "/etc/aliases"
 #define _PATH_ETHERS "/etc/ethers"
+#define _PATH_NETGROUP "/etc/netgroup"
 
+static dispatch_once_t rootfs_once;
 static si_item_t *rootfs = NULL;
+
+#define CHUNK 256
+#define FNG_MEM 0x00000010
+#define FNG_GRP 0x00000020
+
+#define forever for(;;)
+
+#define VALIDATION_PASSWD 0
+#define VALIDATION_MASTER_PASSWD 1
+#define VALIDATION_GROUP 2
+#define VALIDATION_NETGROUP 3
+#define VALIDATION_ALIASES 4
+#define VALIDATION_HOSTS 5
+#define VALIDATION_NETWORKS 6
+#define VALIDATION_SERVICES 7
+#define VALIDATION_PROTOCOLS 8
+#define VALIDATION_RPC 9
+#define VALIDATION_FSTAB 10
+#define VALIDATION_ETHERS 11
+#define VALIDATION_COUNT 12
+
+#define VALIDATION_MASK_PASSWD			0x00000001
+#define VALIDATION_MASK_MASTER_PASSWD	0x00000002
+#define VALIDATION_MASK_MASK_GROUP		0x00000004
+#define VALIDATION_MASK_NETGROUP				0x00000008
+#define VALIDATION_MASK_ALIASES			0x00000010
+#define VALIDATION_MASK_HOSTS			0x00000020
+#define VALIDATION_MASK_NETWORKS		0x00000040
+#define VALIDATION_MASK_SERVICES		0x00000080
+#define VALIDATION_MASK_PROTOCOLS		0x00000100
+#define VALIDATION_MASK_RPC				0x00000200
+#define VALIDATION_MASK_FSTAB			0x00000400
+#define VALIDATION_MASK_ETHERS			0x00000800
+
+typedef struct file_netgroup_member_s
+{
+	uint32_t flags;
+	char *host;
+	char *user;
+	char *domain;
+	struct file_netgroup_member_s *next;
+} file_netgroup_member_t;
+
+typedef struct file_netgroup_s
+{
+	char *name;
+	uint32_t flags;
+	file_netgroup_member_t *members;
+	struct file_netgroup_s *next;
+} file_netgroup_t;
+
+typedef struct
+{
+	uint32_t validation_notify_mask;
+	int notify_token[VALIDATION_COUNT];
+	file_netgroup_t *file_netgroup_cache;
+	uint64_t netgroup_validation_a;
+	uint64_t netgroup_validation_b;
+} file_si_private_t;
+
+static pthread_mutex_t file_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static char *
 _fsi_copy_string(char *s)
@@ -80,7 +150,7 @@ _fsi_append_string(char *s, char **l)
 	return l;
 }
 
-__private_extern__ char **
+char **
 _fsi_tokenize(char *data, const char *sep, int trailing_empty, int *ntokens)
 {
 	char **tokens;
@@ -161,7 +231,7 @@ _fsi_tokenize(char *data, const char *sep, int trailing_empty, int *ntokens)
 	return tokens;
 }
 
-__private_extern__ char *
+char *
 _fsi_get_line(FILE *fp)
 {
 	char s[4096];
@@ -178,14 +248,526 @@ _fsi_get_line(FILE *fp)
 	return out;
 }
 
+static const char *
+_fsi_validation_path(int vtype)
+{
+	if (vtype == VALIDATION_PASSWD) return _PATH_PASSWD;
+	else if (vtype == VALIDATION_MASTER_PASSWD) return _PATH_MASTERPASSWD;
+	else if (vtype == VALIDATION_GROUP) return _PATH_GROUP;
+	else if (vtype == VALIDATION_NETGROUP) return _PATH_NETGROUP;
+	else if (vtype == VALIDATION_ALIASES) return _PATH_ALIASES;
+	else if (vtype == VALIDATION_HOSTS) return _PATH_HOSTS;
+	else if (vtype == VALIDATION_NETWORKS) return _PATH_NETWORKS;
+	else if (vtype == VALIDATION_SERVICES) return _PATH_SERVICES;
+	else if (vtype == VALIDATION_PROTOCOLS) return _PATH_PROTOCOLS;
+	else if (vtype == VALIDATION_RPC) return _PATH_RPCS;
+	else if (vtype == VALIDATION_FSTAB) return _PATH_FSTAB;
+	else if (vtype == VALIDATION_ETHERS) return _PATH_ETHERS;
+
+	return NULL;
+}
+
+static void
+_fsi_get_validation(si_mod_t *si, int vtype, const char *path, FILE *f, uint64_t *a, uint64_t *b)
+{
+	struct stat sb;
+	file_si_private_t *pp;
+	uint32_t peek, bit;
+	int status;
+
+	if (a != NULL) *a = 0;
+	if (b != NULL) *a = 0;
+
+	if (si == NULL) return;
+	if (path == NULL) return;
+	if (gL1CacheEnabled == 0) return;
+
+	pp = (file_si_private_t *)si->private;
+	if (pp == NULL) return;
+
+	if (vtype >= VALIDATION_COUNT) return;
+
+	bit = 1 << vtype;
+	if (bit & pp->validation_notify_mask)
+	{
+		/* use notify validation for this type */
+		if (pp->notify_token[vtype] < 0)
+		{
+			char *str = NULL;
+			asprintf(&str, "com.apple.system.info:%s", path);
+			if (str == NULL) return;
+
+			status = notify_register_check(str, &(pp->notify_token[vtype]));
+			free(str);
+		}
+
+		if (a != NULL)
+		{
+			status = notify_peek(pp->notify_token[vtype], &peek);
+			if (status == NOTIFY_STATUS_OK) *a = ntohl(peek);
+		}
+
+		if (b != NULL) *b = vtype;
+	}
+	else
+	{
+		/* use stat() and last mod time for this type */
+		memset(&sb, 0, sizeof(struct stat));
+		if (f != NULL)
+		{
+			if (fstat(fileno(f), &sb) == 0)
+			{
+				if (a != NULL) *a = sb.st_mtimespec.tv_sec;
+				if (b != NULL) *b = sb.st_mtimespec.tv_nsec;
+			}
+		}
+		else
+		{
+			path = _fsi_validation_path(vtype);
+			if (path != NULL)
+			{
+				memset(&sb, 0, sizeof(struct stat));
+				if (stat(path, &sb) == 0)
+				{
+					if (a != NULL) *a = sb.st_mtimespec.tv_sec;
+					if (b != NULL) *b = sb.st_mtimespec.tv_nsec;
+				}
+			}
+		}
+	}
+}
+
+static int
+_fsi_validate(si_mod_t *si, int cat, uint64_t va, uint64_t vb)
+{
+	struct stat sb;
+	const char *path;
+	uint32_t item_val, curr_val, vtype;
+	file_si_private_t *pp;
+	int status;
+
+	if (si == NULL) return 0;
+
+	pp = (file_si_private_t *)si->private;
+	if (pp == NULL) return 0;
+
+	vtype = UINT32_MAX;
+	switch (cat)
+	{
+		case CATEGORY_USER:
+		{
+			if (geteuid() == 0) vtype = VALIDATION_MASTER_PASSWD;
+			else vtype = VALIDATION_PASSWD;
+			break;
+		}
+		case CATEGORY_GROUP:
+		{
+			vtype = VALIDATION_GROUP;
+			break;
+		}
+		case CATEGORY_GROUPLIST:
+		{
+			vtype = VALIDATION_GROUP;
+			break;
+		}
+		case CATEGORY_NETGROUP:
+		{
+			vtype = VALIDATION_NETGROUP;
+			break;
+		}
+		case CATEGORY_ALIAS:
+		{
+			vtype = VALIDATION_ALIASES;
+			break;
+		}
+		case CATEGORY_HOST_IPV4:
+		{
+			vtype = VALIDATION_HOSTS;
+			break;
+		}
+		case CATEGORY_HOST_IPV6:
+		{
+			vtype = VALIDATION_HOSTS;
+			break;
+		}
+		case CATEGORY_NETWORK:
+		{
+			vtype = VALIDATION_NETWORKS;
+			break;
+		}
+		case CATEGORY_SERVICE:
+		{
+			vtype = VALIDATION_SERVICES;
+			break;
+		}
+		case CATEGORY_PROTOCOL:
+		{
+			vtype = VALIDATION_PROTOCOLS;
+			break;
+		}
+		case CATEGORY_RPC:
+		{
+			vtype = VALIDATION_RPC;
+			break;
+		}
+		case CATEGORY_FS:
+		{
+			vtype = VALIDATION_FSTAB;
+			break;
+		}
+		case CATEGORY_MAC:
+		{
+			vtype = VALIDATION_ETHERS;
+			break;
+		}
+		default: return 0;
+	}
+
+	if (pp->notify_token[vtype] < 0)
+	{
+		path = _fsi_validation_path(vtype);
+		if (path == NULL) return 0;
+
+		memset(&sb, 0, sizeof(struct stat));
+		if (stat(path, &sb) != 0) return 0;
+		if (va != sb.st_mtimespec.tv_sec) return 0;
+		if (vb != sb.st_mtimespec.tv_nsec) return 0;
+	}
+	else
+	{
+		item_val = va;
+		curr_val = -1;
+		status = notify_peek(pp->notify_token[vtype], &curr_val);
+		if (status != NOTIFY_STATUS_OK) return 0;
+
+		curr_val = ntohl(curr_val);
+		if (item_val != curr_val) return 0;
+	}
+
+	return 1;
+}
+
+/* netgroup support */
+static char *
+_fsi_append_char_to_line(char c, char *buf, size_t *x)
+{
+	if (x == NULL) return NULL;
+
+	if (buf == NULL) *x = 0;
+
+	if ((*x % CHUNK) == 0)
+	{
+		buf = reallocf(buf, *x + CHUNK);
+		memset(buf + *x, 0, CHUNK);
+	}
+
+	buf[*x] = c;
+	*x = *x + 1;
+
+	return buf;
+}
+
+static char *
+_fsi_read_netgroup_line(FILE *f)
+{
+	char *out = NULL;
+	size_t x = 0;
+	int white = 0;
+	int paren = 0;
+
+	if (f == NULL) return NULL;
+	forever
+	{
+		int c = getc(f);
+
+		if (c == EOF)
+		{
+			if (out == NULL) return NULL;
+			return _fsi_append_char_to_line('\0', out, &x);
+		}
+
+		if (c == '\n') return _fsi_append_char_to_line('\0', out, &x);
+		if (c == '(') paren = 1;
+		else if (c == ')') paren = 0;
+
+		if ((c == ' ') || (c == '\t'))
+		{
+			if ((white == 0) && (paren == 0)) out = _fsi_append_char_to_line(' ', out, &x);
+			white = 1;
+		}
+		else if (c == '\\')
+		{
+			forever
+			{
+				c = getc(f);
+				if (c == EOF) return _fsi_append_char_to_line('\0', out, &x);
+				if (c == '\n') break;
+			}
+		}
+		else
+		{
+			out = _fsi_append_char_to_line(c, out, &x);
+			white = 0;
+		}
+	}
+}
+
+static file_netgroup_t *
+_fsi_find_netgroup(file_netgroup_t **list, const char *name, int create)
+{
+	file_netgroup_t *n;
+
+	if (list == NULL) return NULL;
+
+	for (n = *list; n != NULL; n = n->next)
+	{
+		if (!strcmp(name, n->name)) return n;
+	}
+
+	if (create == 0) return NULL;
+
+	n = (file_netgroup_t *)calloc(1, sizeof(file_netgroup_t));
+	if (n == NULL) return NULL;
+
+	n->name = strdup(name);
+
+	n->next = *list;
+	*list = n;
+	return n;
+}
+
+void
+_fsi_free_file_netgroup(file_netgroup_t *n)
+{
+	file_netgroup_member_t *m;
+
+	if (n == NULL) return;
+	free(n->name);
+
+	m = n->members;
+	while (m != NULL)
+	{
+		file_netgroup_member_t *x = m;
+		m = m->next;
+		free(x->host);
+		free(x->user);
+		free(x->domain);
+		free(x);
+	}
+
+	free(n);
+}
+
+static void
+_fsi_add_netgroup_group(file_netgroup_t *n, char *grp)
+{
+	file_netgroup_member_t *g;
+
+	if (n == NULL) return;
+
+	g = (file_netgroup_member_t *)calloc(1, sizeof(file_netgroup_member_t));
+	if (g == NULL) return;
+
+	g->flags = FNG_GRP;
+	g->host = strdup(grp);
+
+	g->next = n->members;
+	n->members = g;
+
+	return;
+}
+
+static void
+_fsi_add_netgroup_member(file_netgroup_t *n, char *mem)
+{
+	char **tokens;
+	file_netgroup_member_t *m;
+	int ntokens;
+
+	if (n == NULL) return;
+
+	m = (file_netgroup_member_t *)calloc(1, sizeof(file_netgroup_member_t));
+	if (m == NULL) return;
+
+	tokens = _fsi_tokenize(mem + 1, ",)", 0, &ntokens);
+
+	if (tokens == NULL)
+	{
+		free(m);
+		return;
+	}
+
+	if ((ntokens > 0) && (tokens[0][0] != '\0')) m->host = strdup(tokens[0]);
+	if ((ntokens > 1) && (tokens[1][0] != '\0')) m->user = strdup(tokens[1]);
+	if ((ntokens > 2) && (tokens[2][0] != '\0')) m->domain = strdup(tokens[2]);
+
+	free(tokens);
+
+	m->flags = FNG_MEM;
+	m->next = n->members;
+	n->members = m;
+}
+
+static file_netgroup_t *
+_fsi_process_netgroup_line(file_netgroup_t **pass1, char *line)
+{
+	file_netgroup_t *n;
+	char **tokens;
+	int i, ntokens = 0;
+
+	tokens = _fsi_tokenize(line, " ", 0, &ntokens);
+	if (tokens == NULL) return NULL;
+	if (tokens[0] == NULL)
+	{
+		free(tokens);
+		return NULL;
+	}
+
+	n = _fsi_find_netgroup(pass1, tokens[0], 1);
+
+	for (i = 1; tokens[i] != NULL; i++)
+	{
+		if (tokens[i][0] == '(') _fsi_add_netgroup_member(n, tokens[i]);
+		else if (tokens[i][0] != '\0') _fsi_add_netgroup_group(n, tokens[i]);
+	}
+
+	free(tokens);
+	return n;
+}
+
+static void
+_fsi_flatten_netgroup(file_netgroup_t *pass1, file_netgroup_t **top, file_netgroup_t *n, file_netgroup_member_t *m)
+{
+	if (n == NULL) return;
+
+	if (n->flags == 1) return;
+	n->flags = 1;
+
+	if (*top == NULL)
+	{
+		*top = (file_netgroup_t *)calloc(1, sizeof(file_netgroup_t));
+		if (*top == NULL) return;
+		(*top)->name = strdup(n->name);
+		if ((*top)->name == NULL)
+		{
+			free(*top);
+			*top = NULL;
+			return;
+		}
+	}
+
+	while (m!= NULL)
+	{
+		if (m->flags & FNG_MEM)
+		{
+			file_netgroup_member_t *x = (file_netgroup_member_t *)calloc(1, sizeof(file_netgroup_member_t));
+			if (x == NULL) return;
+
+			x->flags = FNG_MEM;
+			if (m->host != NULL) x->host = strdup(m->host);
+			if (m->user != NULL) x->user = strdup(m->user);
+			if (m->domain != NULL) x->domain = strdup(m->domain);
+
+			x->next = (*top)->members;
+			(*top)->members = x;
+		}
+		else
+		{
+			file_netgroup_t *g = _fsi_find_netgroup(&pass1, m->host, 0);
+			if (g == NULL) continue;
+
+			_fsi_flatten_netgroup(pass1, top, g, g->members);
+		}
+
+		m = m->next;
+	}
+}
+
+static void
+_fsi_check_netgroup_cache(si_mod_t *si)
+{
+	file_netgroup_t *p1, *n, *x, *a;
+	char *line;
+	FILE *f;
+	file_si_private_t *pp;
+
+	if (si == NULL) return;
+
+	pp = (file_si_private_t *)si->private;
+	if (pp == NULL) return;
+
+	pthread_mutex_lock(&file_mutex);
+
+	if (_fsi_validate(si, CATEGORY_NETGROUP, pp->netgroup_validation_a, pp->netgroup_validation_b))
+	{
+		pthread_mutex_unlock(&file_mutex);
+		return;
+	}
+
+	n = pp->file_netgroup_cache;
+	while (n != NULL)
+	{
+		x = n;
+		n = n->next;
+		_fsi_free_file_netgroup(x);
+	}
+
+	pp->file_netgroup_cache = NULL;
+
+	f = fopen(_PATH_NETGROUP, "r");
+	if (f == NULL)
+	{
+		pthread_mutex_unlock(&file_mutex);
+		return;
+	}
+
+	_fsi_get_validation(si, VALIDATION_NETGROUP, _PATH_NETGROUP, f, &(pp->netgroup_validation_a), &(pp->netgroup_validation_b));
+
+	p1 = NULL;
+
+	line = _fsi_read_netgroup_line(f);
+	while (line != NULL)
+	{
+		n = _fsi_process_netgroup_line(&p1, line);
+
+		free(line);
+		line = _fsi_read_netgroup_line(f);
+	}
+
+	fclose(f);
+
+	for (n = p1; n != NULL; n = n->next)
+	{
+		a = NULL;
+		_fsi_flatten_netgroup(p1, &a, n, n->members);
+		for (x = p1; x != NULL; x = x->next) x->flags = 0;
+
+		if (a != NULL)
+		{
+			a->next = pp->file_netgroup_cache;
+			pp->file_netgroup_cache = a;
+		}
+	}
+
+	n = p1;
+	while (n != NULL)
+	{
+		x = n;
+		n = n->next;
+		_fsi_free_file_netgroup(x);
+	}
+
+	pthread_mutex_unlock(&file_mutex);
+}
+
 /* USERS */
 
 static si_item_t *
-_fsi_parse_user(si_mod_t *si, const char *name, uid_t uid, int which, char *data, int format, uint64_t sec, uint64_t nsec)
+_fsi_parse_user(si_mod_t *si, const char *name, uid_t uid, int which, char *data, int format, uint64_t va, uint64_t vb)
 {
 	char **tokens;
 	int ntokens, match;
-	time_t change, exsire;
+	time_t change, expire;
 	si_item_t *item;
 	uid_t xuid;
 
@@ -215,17 +797,17 @@ _fsi_parse_user(si_mod_t *si, const char *name, uid_t uid, int which, char *data
 
 	if (format == 0)
 	{
-		/* master.passwd: name[0] passwd[1] uid[2] gid[3] class[4] change[5] exsire[6] gecos[7] dir[8] shell[9] */
-		/* struct pwd: name[0] passwd[1] uid[2] gid[3] change[5] class[4] gecos[7] dir[8] shell[9] exsire[6] */
+		/* master.passwd: name[0] passwd[1] uid[2] gid[3] class[4] change[5] expire[6] gecos[7] dir[8] shell[9] */
+		/* struct pwd: name[0] passwd[1] uid[2] gid[3] change[5] class[4] gecos[7] dir[8] shell[9] expire[6] */
 		change = atoi(tokens[5]);
-		exsire = atoi(tokens[6]);
-		item = (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, sec, nsec, tokens[0], tokens[1], xuid, atoi(tokens[3]), change, tokens[4], tokens[7], tokens[8], tokens[9], exsire);
+		expire = atoi(tokens[6]);
+		item = (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, va, vb, tokens[0], tokens[1], xuid, atoi(tokens[3]), change, tokens[4], tokens[7], tokens[8], tokens[9], expire);
 	}
 	else
 	{
 		/* passwd: name[0] passwd[1] uid[2] gid[3] gecos[4] dir[5] shell[6] */
-		/* struct pwd: name[0] passwd[1] uid[2] gid[3] change[-] class[-] gecos[4] dir[5] shell[6] exsire[-] */
-		item = (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, sec, nsec, tokens[0], tokens[1], xuid, atoi(tokens[3]), 0, "", tokens[4], tokens[5], tokens[6], 0);
+		/* struct pwd: name[0] passwd[1] uid[2] gid[3] change[-] class[-] gecos[4] dir[5] shell[6] expire[-] */
+		item = (si_item_t *)LI_ils_create("L4488ss44LssssL", (unsigned long)si, CATEGORY_USER, 1, va, vb, tokens[0], tokens[1], xuid, atoi(tokens[3]), 0, "", tokens[4], tokens[5], tokens[6], 0);
 	}
 
 	free(tokens); 
@@ -240,35 +822,30 @@ _fsi_get_user(si_mod_t *si, const char *name, uid_t uid, int which)
 	int fmt;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 
 	if ((which == SEL_NAME) && (name == NULL)) return NULL;
 
 	all = NULL;
 	f = NULL;
 	fmt = 0;
-	sec = 0;
-	nsec = 0;
+	va = 0;
+	vb = 0;
 
 	if (geteuid() == 0)
 	{
 		f = fopen(_PATH_MASTERPASSWD, "r");
+		_fsi_get_validation(si, VALIDATION_MASTER_PASSWD, _PATH_MASTERPASSWD, f, &va, &vb);
 	}
 	else
 	{
 		f = fopen(_PATH_PASSWD, "r");
+		_fsi_get_validation(si, VALIDATION_PASSWD, _PATH_PASSWD, f, &va, &vb);
 		fmt = 1;
 	}
 
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
 
 	forever
 	{
@@ -282,7 +859,7 @@ _fsi_get_user(si_mod_t *si, const char *name, uid_t uid, int which)
 			continue;
 		}
 
-		item = _fsi_parse_user(si, name, uid, which, line, fmt, sec, nsec);
+		item = _fsi_parse_user(si, name, uid, which, line, fmt, va, vb);
 		free(line);
 		line = NULL;
 
@@ -305,7 +882,7 @@ _fsi_get_user(si_mod_t *si, const char *name, uid_t uid, int which)
 /* GROUPS */
 
 static si_item_t *
-_fsi_parse_group(si_mod_t *si, const char *name, gid_t gid, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_group(si_mod_t *si, const char *name, gid_t gid, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens, **members;
 	int ntokens, match;
@@ -338,7 +915,7 @@ _fsi_parse_group(si_mod_t *si, const char *name, gid_t gid, int which, char *dat
 	ntokens = 0;
 	members = _fsi_tokenize(tokens[3], ",", 1, &ntokens);
 
-	item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, sec, nsec, tokens[0], tokens[1], xgid, members);
+	item = (si_item_t *)LI_ils_create("L4488ss4*", (unsigned long)si, CATEGORY_GROUP, 1, va, vb, tokens[0], tokens[1], xgid, members);
 
 	free(tokens); 
 	free(members);
@@ -353,25 +930,17 @@ _fsi_get_group(si_mod_t *si, const char *name, gid_t gid, int which)
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 
 	if ((which == SEL_NAME) && (name == NULL)) return NULL;
 
 	all = NULL;
 	f = NULL;
-	sec = 0;
-	nsec = 0;
 
 	f = fopen(_PATH_GROUP, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_GROUP, _PATH_GROUP, f, &va, &vb);
 
 	forever
 	{
@@ -385,7 +954,7 @@ _fsi_get_group(si_mod_t *si, const char *name, gid_t gid, int which)
 			continue;
 		}
 
-		item = _fsi_parse_group(si, name, gid, which, line, sec, nsec);
+		item = _fsi_parse_group(si, name, gid, which, line, va, vb);
 		free(line);
 		line = NULL;
 
@@ -414,8 +983,7 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	char *line;
 	si_item_t *item;
 	FILE *f;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 	int32_t gid, basegid, *gidp;
 	char **gidlist;
 	struct passwd *pw;
@@ -425,11 +993,9 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	gidlist = NULL;
 	gidcount = 0;
 	f = NULL;
-	sec = 0;
-	nsec = 0;
 	basegid = -1;
 
-	item = si->sim_user_byname(si, user);
+	item = si->vtable->sim_user_byname(si, user);
 	if (item != NULL)
 	{
 		pw = (struct passwd *)((uintptr_t)item + sizeof(si_item_t));
@@ -440,12 +1006,7 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	f = fopen(_PATH_GROUP, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_GROUP, _PATH_GROUP, f, &va, &vb);
 
 	forever
 	{
@@ -520,7 +1081,7 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 	if (gidlist == NULL) return NULL;
 	gidlist[gidcount] = NULL;
 
-	item = (si_item_t *)LI_ils_create("L4488s44a", (unsigned long)si, CATEGORY_GROUPLIST, 1, sec, nsec, user, basegid, gidcount, gidlist);
+	item = (si_item_t *)LI_ils_create("L4488s44a", (unsigned long)si, CATEGORY_GROUPLIST, 1, va, vb, user, basegid, gidcount, gidlist);
 
 	for (i = 0; i <= gidcount; i++) free(gidlist[i]);
 	free(gidlist);
@@ -531,7 +1092,7 @@ _fsi_get_grouplist(si_mod_t *si, const char *user)
 /* ALIASES */
 
 static si_item_t *
-_fsi_parse_alias(si_mod_t *si, const char *name, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_alias(si_mod_t *si, const char *name, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens, **members;
 	int ntokens, match;
@@ -559,9 +1120,9 @@ _fsi_parse_alias(si_mod_t *si, const char *name, int which, char *data, uint64_t
 	}
 
 	ntokens = 0;
-	members = _fsi_tokenize(tokens[3], ",", 1, &ntokens);
+	members = _fsi_tokenize(tokens[1], ",", 1, &ntokens);
 
-	item = (si_item_t *)LI_ils_create("L4488s4*4", (unsigned long)si, CATEGORY_ALIAS, 1, sec, nsec, tokens[0], ntokens, members, 1);
+	item = (si_item_t *)LI_ils_create("L4488s4*4", (unsigned long)si, CATEGORY_ALIAS, 1, va, vb, tokens[0], ntokens, members, 1);
 
 	free(tokens); 
 	free(members);
@@ -576,25 +1137,17 @@ _fsi_get_alias(si_mod_t *si, const char *name, int which)
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 
 	if ((which == SEL_NAME) && (name == NULL)) return NULL;
 
 	all = NULL;
 	f = NULL;
-	sec = 0;
-	nsec = 0;
 
 	f = fopen(_PATH_ALIASES, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_ALIASES, _PATH_ALIASES, f, &va, &vb);
 
 	forever
 	{
@@ -608,7 +1161,7 @@ _fsi_get_alias(si_mod_t *si, const char *name, int which)
 			continue;
 		}
 
-		item = _fsi_parse_alias(si, name, which, line, sec, nsec);
+		item = _fsi_parse_alias(si, name, which, line, va, vb);
 		free(line);
 		line = NULL;
 
@@ -632,7 +1185,7 @@ _fsi_get_alias(si_mod_t *si, const char *name, int which)
 /* ETHERS */
 
 static si_item_t *
-_fsi_parse_ether(si_mod_t *si, const char *name, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_ether(si_mod_t *si, const char *name, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens;
 	char *cmac;
@@ -649,7 +1202,7 @@ _fsi_parse_ether(si_mod_t *si, const char *name, int which, char *data, uint64_t
 		return NULL;
 	}
 
-	cmac = si_canonical_mac_address(tokens[1]);
+	cmac = si_standardize_mac_address(tokens[0]);
 	if (cmac == NULL)
 	{
 		free(tokens);
@@ -658,7 +1211,7 @@ _fsi_parse_ether(si_mod_t *si, const char *name, int which, char *data, uint64_t
 
 	match = 0;
 	if (which == SEL_ALL) match = 1;
-	else if ((which == SEL_NAME) && (string_equal(name, tokens[0]))) match = 1;
+	else if ((which == SEL_NAME) && (string_equal(name, tokens[1]))) match = 1;
 	else if ((which == SEL_NUMBER) && (string_equal(name, cmac))) match = 1;
 
 	if (match == 0)
@@ -668,7 +1221,7 @@ _fsi_parse_ether(si_mod_t *si, const char *name, int which, char *data, uint64_t
 		return NULL;
 	}
 
-	item = (si_item_t *)LI_ils_create("L4488ss", (unsigned long)si, CATEGORY_MAC, 1, sec, nsec, tokens[0], cmac);
+	item = (si_item_t *)LI_ils_create("L4488ss", (unsigned long)si, CATEGORY_MAC, 1, va, vb, tokens[1], cmac);
 
 	free(tokens); 
 	free(cmac);
@@ -683,32 +1236,24 @@ _fsi_get_ether(si_mod_t *si, const char *name, int which)
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 
 	if ((which != SEL_ALL) && (name == NULL)) return NULL;
 
 	cmac = NULL;
 	if (which == SEL_NUMBER)
 	{
-		cmac = si_canonical_mac_address(name);
+		cmac = si_standardize_mac_address(name);
 		if (cmac == NULL) return NULL;
 	}
 
 	all = NULL;
 	f = NULL;
-	sec = 0;
-	nsec = 0;
 
 	f = fopen(_PATH_ETHERS, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_ETHERS, _PATH_ETHERS, f, &va, &vb);
 
 	forever
 	{
@@ -723,8 +1268,8 @@ _fsi_get_ether(si_mod_t *si, const char *name, int which)
 		}
 
 		item = NULL;
-		if (which == SEL_NUMBER) item = _fsi_parse_ether(si, cmac, which, line, sec, nsec);
-		else item = _fsi_parse_ether(si, name, which, line, sec, nsec);
+		if (which == SEL_NUMBER) item = _fsi_parse_ether(si, cmac, which, line, va, vb);
+		else item = _fsi_parse_ether(si, name, which, line, va, vb);
 
 		free(line);
 		line = NULL;
@@ -749,10 +1294,10 @@ _fsi_get_ether(si_mod_t *si, const char *name, int which)
 /* HOSTS */
 
 static si_item_t *
-_fsi_parse_host(si_mod_t *si, const char *name, const void *addr, int af, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_host(si_mod_t *si, const char *name, const void *addr, int af, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens, **h_aliases, *null_alias;
-	int i, ntokens, match, xaf, h_length;
+	int i, ntokens, match, h_addrtype, h_length;
 	struct in_addr a4;
 	struct in6_addr a6;
 	si_item_t *item;
@@ -773,23 +1318,23 @@ _fsi_parse_host(si_mod_t *si, const char *name, const void *addr, int af, int wh
 
 	h_addr_list[1] = NULL;
 
-	xaf = AF_UNSPEC;
+	h_addrtype = AF_UNSPEC;
 	if (inet_pton(AF_INET, tokens[0], &a4) == 1)
 	{
-		xaf = AF_INET;
+		h_addrtype = AF_INET;
 		h_length = sizeof(struct in_addr);
 		memcpy(h_addr_4, &a4, 4);
 		h_addr_list[0] = h_addr_4;
 	}
 	else if (inet_pton(AF_INET6, tokens[0], &a6) == 1)
 	{
-		xaf = AF_INET6;
+		h_addrtype = AF_INET6;
 		h_length = sizeof(struct in6_addr);
 		memcpy(h_addr_6, &a6, 16);
 		h_addr_list[0] = h_addr_6;
 	}
 
-	if (xaf == AF_UNSPEC)
+	if (h_addrtype == AF_UNSPEC)
 	{
 		free(tokens);
 		return NULL;
@@ -803,7 +1348,7 @@ _fsi_parse_host(si_mod_t *si, const char *name, const void *addr, int af, int wh
 	if (which == SEL_ALL) match = 1;
 	else
 	{
-		if (af == xaf)
+		if (h_addrtype == af)
 		{
 			if (which == SEL_NAME)
 			{
@@ -831,13 +1376,13 @@ _fsi_parse_host(si_mod_t *si, const char *name, const void *addr, int af, int wh
 
 	if (h_aliases == NULL) h_aliases = &null_alias;
 
-	if (af == AF_INET)
+	if (h_addrtype == AF_INET)
 	{
-		item = (si_item_t *)LI_ils_create("L4488s*44a", (unsigned long)si, CATEGORY_HOST_IPV4, 1, sec, nsec, tokens[1], h_aliases, af, h_length, h_addr_list);
+		item = (si_item_t *)LI_ils_create("L4488s*44a", (unsigned long)si, CATEGORY_HOST_IPV4, 1, va, vb, tokens[1], h_aliases, h_addrtype, h_length, h_addr_list);
 	}
 	else
 	{
-		item = (si_item_t *)LI_ils_create("L4488s*44c", (unsigned long)si, CATEGORY_HOST_IPV6, 1, sec, nsec, tokens[1], h_aliases, af, h_length, h_addr_list);
+		item = (si_item_t *)LI_ils_create("L4488s*44c", (unsigned long)si, CATEGORY_HOST_IPV6, 1, va, vb, tokens[1], h_aliases, h_addrtype, h_length, h_addr_list);
 	}
 
 	free(tokens);
@@ -852,11 +1397,7 @@ _fsi_get_host(si_mod_t *si, const char *name, const void *addr, int af, int whic
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
-
-	sec = 0;
-	nsec = 0;
+	uint64_t va, vb;
 
 	if ((which == SEL_NAME) && (name == NULL))
 	{
@@ -877,12 +1418,7 @@ _fsi_get_host(si_mod_t *si, const char *name, const void *addr, int af, int whic
 		return NULL;
 	}
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_HOSTS, _PATH_HOSTS, f, &va, &vb);
 
 	all = NULL;
 
@@ -898,7 +1434,7 @@ _fsi_get_host(si_mod_t *si, const char *name, const void *addr, int af, int whic
 			continue;
 		}
 
-		item = _fsi_parse_host(si, name, addr, af, which, line, sec, nsec);
+		item = _fsi_parse_host(si, name, addr, af, which, line, va, vb);
 		free(line);
 		line = NULL;
 
@@ -922,7 +1458,7 @@ _fsi_get_host(si_mod_t *si, const char *name, const void *addr, int af, int whic
 /* SERVICE */
 
 static si_item_t *
-_fsi_parse_service(si_mod_t *si, const char *name, const char *proto, int port, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_service(si_mod_t *si, const char *name, const char *proto, int port, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens, **s_aliases, *xproto;
 	int i, ntokens, match;
@@ -983,7 +1519,7 @@ _fsi_parse_service(si_mod_t *si, const char *name, const char *proto, int port, 
 	/* strange but correct */
 	xport = htons(xport);
 
-	item = (si_item_t *)LI_ils_create("L4488s*4s", (unsigned long)si, CATEGORY_SERVICE, 1, sec, nsec, tokens[0], s_aliases, xport, xproto);
+	item = (si_item_t *)LI_ils_create("L4488s*4s", (unsigned long)si, CATEGORY_SERVICE, 1, va, vb, tokens[0], s_aliases, xport, xproto);
 
 	free(tokens);
 
@@ -997,11 +1533,7 @@ _fsi_get_service(si_mod_t *si, const char *name, const char *proto, int port, in
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
-
-	sec = 0;
-	nsec = 0;
+	uint64_t va, vb;
 
 	if ((which == SEL_NAME) && (name == NULL)) return NULL;
 	if ((which == SEL_NUMBER) && (port == 0)) return NULL;
@@ -1009,12 +1541,7 @@ _fsi_get_service(si_mod_t *si, const char *name, const char *proto, int port, in
 	f = fopen(_PATH_SERVICES, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_SERVICES, _PATH_SERVICES, f, &va, &vb);
 
 	all = NULL;
 
@@ -1033,7 +1560,7 @@ _fsi_get_service(si_mod_t *si, const char *name, const char *proto, int port, in
 		p = strchr(line, '#');
 		if (p != NULL) *p = '\0';
 
-		item = _fsi_parse_service(si, name, proto, port, which, line, sec, nsec);
+		item = _fsi_parse_service(si, name, proto, port, which, line, va, vb);
 		free(line);
 		line = NULL;
 
@@ -1060,7 +1587,7 @@ _fsi_get_service(si_mod_t *si, const char *name, const char *proto, int port, in
  */
 
 static si_item_t *
-_fsi_parse_name_num_aliases(si_mod_t *si, const char *name, int num, int which, char *data, uint64_t sec, uint64_t nsec, int cat)
+_fsi_parse_name_num_aliases(si_mod_t *si, const char *name, int num, int which, char *data, uint64_t va, uint64_t vb, int cat)
 {
 	char **tokens, **aliases;
 	int i, ntokens, match, xnum;
@@ -1101,7 +1628,20 @@ _fsi_parse_name_num_aliases(si_mod_t *si, const char *name, int num, int which, 
 		return NULL;
 	}
 
-	item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, cat, 1, sec, nsec, tokens[0], aliases, xnum);
+	switch (cat) {
+		case CATEGORY_NETWORK:
+			// struct netent
+			item = (si_item_t *)LI_ils_create("L4488s*44", (unsigned long)si, cat, 1, va, vb, tokens[0], aliases, AF_INET, xnum);
+			break;
+		case CATEGORY_PROTOCOL:
+		case CATEGORY_RPC:
+			// struct protoent
+			// struct rpcent
+			item = (si_item_t *)LI_ils_create("L4488s*4", (unsigned long)si, cat, 1, va, vb, tokens[0], aliases, xnum);
+			break;
+		default:
+			abort();
+	}
 
 	free(tokens);
 
@@ -1109,27 +1649,37 @@ _fsi_parse_name_num_aliases(si_mod_t *si, const char *name, int num, int which, 
 }
 
 static void *
-_fsi_get_name_number_aliases(si_mod_t *si, const char *name, int num, int which, int cat, const char *path)
+_fsi_get_name_number_aliases(si_mod_t *si, const char *name, int num, int which, int cat)
 {
 	char *p, *line;
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
+	const char *path;
+	int vtype;
 
-	sec = 0;
-	nsec = 0;
+	switch (cat) {
+		case CATEGORY_NETWORK:
+			vtype = VALIDATION_NETWORKS;
+			path = _PATH_NETWORKS;
+			break;
+		case CATEGORY_PROTOCOL:
+			vtype = VALIDATION_PROTOCOLS;
+			path = _PATH_PROTOCOLS;
+			break;
+		case CATEGORY_RPC:
+			vtype = VALIDATION_RPC;
+			path = _PATH_RPCS;
+			break;
+		default:
+			abort();
+	}
 
 	f = fopen(path, "r");
 	if (f == NULL) return NULL;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, vtype, path, f, &va, &vb);
 
 	all = NULL;
 
@@ -1148,7 +1698,7 @@ _fsi_get_name_number_aliases(si_mod_t *si, const char *name, int num, int which,
 		p = strchr(line, '#');
 		if (p != NULL) *p = '\0';
 
-		item = _fsi_parse_name_num_aliases(si, name, num, which, line, sec, nsec, cat);
+		item = _fsi_parse_name_num_aliases(si, name, num, which, line, va, vb, cat);
 		free(line);
 		line = NULL;
 
@@ -1172,7 +1722,7 @@ _fsi_get_name_number_aliases(si_mod_t *si, const char *name, int num, int which,
 /* MOUNT */
 
 static si_item_t *
-_fsi_parse_fs(si_mod_t *si, const char *name, int which, char *data, uint64_t sec, uint64_t nsec)
+_fsi_parse_fs(si_mod_t *si, const char *name, int which, char *data, uint64_t va, uint64_t vb)
 {
 	char **tokens, *tmp, **opts, *fstype;
 	int ntokens, match, i, freq, passno;
@@ -1233,7 +1783,7 @@ _fsi_parse_fs(si_mod_t *si, const char *name, int which, char *data, uint64_t se
 		return NULL;
 	}
 
-	item = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, sec, nsec, tokens[0], tokens[1], tokens[2], tokens[3], (fstype == NULL) ? "rw" : fstype, freq, passno);
+	item = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, va, vb, tokens[0], tokens[1], tokens[2], tokens[3], (fstype == NULL) ? "rw" : fstype, freq, passno);
 
 	free(tokens); 
 	free(opts); 
@@ -1284,7 +1834,7 @@ _fsi_get_device_path(dev_t target_dev)
             /* reset dev to _PATH_DEV and try again */
             dev[sizeof(_PATH_DEV) - 1] = '\0';
         }
-		
+
 		if (dirp) closedir(dirp);
     }
 	else
@@ -1300,32 +1850,29 @@ _fsi_get_device_path(dev_t target_dev)
 static si_item_t *
 _fsi_fs_root(si_mod_t *si)
 {
-	struct stat rootstat;
-	struct statfs rootfsinfo;
-	char *root_spec;
-	const char *root_path;
+	dispatch_once(&rootfs_once, ^{
+		struct stat rootstat;
+		struct statfs rootfsinfo;
+		char *root_spec;
+		const char *root_path = "/";
 
-	if (rootfs != NULL) return si_item_retain(rootfs);
+		if (stat(root_path, &rootstat) < 0) return;
+ 		if (statfs(root_path, &rootfsinfo) < 0) return;
 
-	root_path = "/";
+		// Check to make sure we're not looking at a synthetic root:
+		if (string_equal(rootfsinfo.f_fstypename, "synthfs")) {
+			root_path = "/root";
+        		if (stat(root_path, &rootstat) < 0) return;
+			if (statfs(root_path, &rootfsinfo) < 0) return;
+		}
 
-	if (stat(root_path, &rootstat) < 0) return NULL;
- 	if (statfs(root_path, &rootfsinfo) < 0) return NULL;
+		root_spec = _fsi_get_device_path(rootstat.st_dev);
 
-	/* Check to make sure we're not looking at a synthetic root: */
-	if (string_equal(rootfsinfo.f_fstypename, "synthfs"))
-	{
-		root_path = "/root";
-        if (stat(root_path, &rootstat) < 0) return NULL;
-		if (statfs(root_path, &rootfsinfo) < 0) return NULL;
-	}
+		rootfs = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, 0LL, 0LL, root_spec, root_path, rootfsinfo.f_fstypename, FSTAB_RW, FSTAB_RW, 0, 1);
+	});
 
-	root_spec = _fsi_get_device_path(rootstat.st_dev);
-
-	rootfs = (si_item_t *)LI_ils_create("L4488sssss44", (unsigned long)si, CATEGORY_FS, 1, 0LL, 0LL, root_spec, root_path, rootfsinfo.f_fstypename, FSTAB_RW, FSTAB_RW, 0, 1);
-	return rootfs;
+	return si_item_retain(rootfs);
 }
-
 
 static void *
 _fsi_get_fs(si_mod_t *si, const char *name, int which)
@@ -1334,8 +1881,7 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 	si_item_t *item;
 	FILE *f;
 	si_list_t *all;
-	struct stat sb;
-	uint64_t sec, nsec;
+	uint64_t va, vb;
 	int synthesize_root;
 	struct fstab *rfs;
 
@@ -1343,8 +1889,6 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 
 	all = NULL;
 	f = NULL;
-	sec = 0;
-	nsec = 0;
 #ifdef SYNTH_ROOTFS
 	synthesize_root = 1;
 #else
@@ -1394,12 +1938,7 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 
 	if (f == NULL) return all;
 
-	memset(&sb, 0, sizeof(struct stat));
-	if (fstat(fileno(f), &sb) == 0)
-	{
-		sec = sb.st_mtimespec.tv_sec;
-		nsec = sb.st_mtimespec.tv_nsec;
-	}
+	_fsi_get_validation(si, VALIDATION_FSTAB, _PATH_FSTAB, f, &va, &vb);
 
 	forever
 	{
@@ -1413,7 +1952,7 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 			continue;
 		}
 
-		item = _fsi_parse_fs(si, name, which, line, sec, nsec);
+		item = _fsi_parse_fs(si, name, which, line, va, vb);
 		free(line);
 		line = NULL;
 
@@ -1434,12 +1973,9 @@ _fsi_get_fs(si_mod_t *si, const char *name, int which)
 	return all;
 }
 
-__private_extern__ int
+static int
 file_is_valid(si_mod_t *si, si_item_t *item)
 {
-	struct stat sb;
-	uint64_t sec, nsec;
-	const char *path;
 	si_mod_t *src;
 
 	if (si == NULL) return 0;
@@ -1454,76 +1990,142 @@ file_is_valid(si_mod_t *si, si_item_t *item)
 
 	if (item == rootfs) return 1;
 
-	path = NULL;
-	memset(&sb, 0, sizeof(struct stat));
-	sec = item->validation_a;
-	nsec = item->validation_b;
-
-	if (item->type == CATEGORY_USER)
-	{
-		if (geteuid() == 0) path = _PATH_MASTERPASSWD;
-		else path = _PATH_PASSWD;
-	}
-	else if (item->type == CATEGORY_GROUP) path = _PATH_GROUP;
-	else if (item->type == CATEGORY_HOST_IPV4) path = _PATH_HOSTS;
-	else if (item->type == CATEGORY_HOST_IPV6) path = _PATH_HOSTS;
-	else if (item->type == CATEGORY_NETWORK) path = _PATH_NETWORKS;
-	else if (item->type == CATEGORY_SERVICE) path = _PATH_SERVICES;
-	else if (item->type == CATEGORY_PROTOCOL) path = _PATH_PROTOCOLS;
-	else if (item->type == CATEGORY_RPC) path = _PATH_RPCS;
-	else if (item->type == CATEGORY_FS) path = _PATH_FSTAB;
-
-	if (path == NULL) return 0;
-	if (stat(path, &sb) != 0) return 0;
-	if (sec != sb.st_mtimespec.tv_sec) return 0;
-	if (nsec != sb.st_mtimespec.tv_nsec) return 0;
-
-	return 1;
+	return _fsi_validate(si, item->type, item->validation_a, item->validation_b);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_user_byname(si_mod_t *si, const char *name)
 {
 	return _fsi_get_user(si, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_user_byuid(si_mod_t *si, uid_t uid)
 {
 	return _fsi_get_user(si, NULL, uid, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_user_all(si_mod_t *si)
 {
 	return _fsi_get_user(si, NULL, 0, SEL_ALL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_group_byname(si_mod_t *si, const char *name)
 {
 	return _fsi_get_group(si, name, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_group_bygid(si_mod_t *si, gid_t gid)
 {
 	return _fsi_get_group(si, NULL, gid, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_group_all(si_mod_t *si)
 {
 	return _fsi_get_group(si, NULL, 0, SEL_ALL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_grouplist(si_mod_t *si, const char *name)
 {
 	return _fsi_get_grouplist(si, name);
 }
 
-__private_extern__ si_item_t *
+static si_list_t *
+file_netgroup_byname(si_mod_t *si, const char *name)
+{
+	si_list_t *list = NULL;
+	si_item_t *item;
+	uint64_t va, vb;
+	file_netgroup_t *n;
+	file_si_private_t *pp;
+
+	if (name == NULL) return NULL;
+
+	pp = (file_si_private_t *)si->private;
+	if (pp == NULL) return NULL;
+
+	_fsi_check_netgroup_cache(si);
+
+	pthread_mutex_lock(&file_mutex);
+
+	n = _fsi_find_netgroup(&(pp->file_netgroup_cache), name, 0);
+	if (n != NULL)
+	{
+		file_netgroup_member_t *m = n->members;
+		while (m != NULL)
+		{
+			item = (si_item_t *)LI_ils_create("L4488sss", (unsigned long)si, CATEGORY_NETGROUP, 1, va, vb, m->host, m->user, m->domain);
+			list = si_list_add(list, item);
+			m = m->next;
+		}
+	}
+
+	pthread_mutex_unlock(&file_mutex);
+
+	return list;
+}
+
+static int
+file_in_netgroup(si_mod_t *si, const char *group, const char *host, const char *user, const char *domain)
+{
+	file_netgroup_t *n;
+	file_netgroup_member_t *m;
+	file_si_private_t *pp;
+
+	if (group == NULL) return 0;
+
+	pp = (file_si_private_t *)si->private;
+	if (pp == NULL) return 0;
+
+	_fsi_check_netgroup_cache(si);
+
+	pthread_mutex_lock(&file_mutex);
+
+	n = _fsi_find_netgroup(&(pp->file_netgroup_cache), group, 0);
+	if (n == NULL)
+	{
+		pthread_mutex_unlock(&file_mutex);
+		return 0;
+	}
+
+	m = n->members;
+	while (m != NULL)
+	{
+		file_netgroup_member_t *x = m;
+		m = m->next;
+
+		if (host != NULL)
+		{
+			if (x->host == NULL) continue;
+			if (strcmp(host, x->host)) continue;
+		}
+
+		if (user != NULL)
+		{
+			if (x->user == NULL) continue;
+			if (strcmp(user, x->user)) continue;
+		}
+
+		if (domain != NULL)
+		{
+			if (x->domain == NULL) continue;
+			if (strcmp(domain, x->domain)) continue;
+		}
+
+		pthread_mutex_unlock(&file_mutex);
+		return 1;
+	}
+
+	pthread_mutex_unlock(&file_mutex);
+	return 0;
+}
+
+static si_item_t *
 file_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
@@ -1536,7 +2138,7 @@ file_host_byname(si_mod_t *si, const char *name, int af, const char *ignored, ui
 	return item;
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, uint32_t *err)
 {
 	si_item_t *item;
@@ -1549,130 +2151,130 @@ file_host_byaddr(si_mod_t *si, const void *addr, int af, const char *ignored, ui
 	return item;
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_host_all(si_mod_t *si)
 {
 	return _fsi_get_host(si, NULL, NULL, 0, SEL_ALL, NULL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_network_byname(si_mod_t *si, const char *name)
 {
 	if (name == NULL) return NULL;
-	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_NETWORK, _PATH_NETWORKS);
+	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_NETWORK);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_network_byaddr(si_mod_t *si, uint32_t addr)
 {
-	return _fsi_get_name_number_aliases(si, NULL, (int)addr, SEL_NUMBER, CATEGORY_NETWORK, _PATH_NETWORKS);
+	return _fsi_get_name_number_aliases(si, NULL, (int)addr, SEL_NUMBER, CATEGORY_NETWORK);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_network_all(si_mod_t *si)
 {
-	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_NETWORK, _PATH_NETWORKS);
+	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_NETWORK);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_service_byname(si_mod_t *si, const char *name, const char *proto)
 {
 	return _fsi_get_service(si, name, proto, 0, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_service_byport(si_mod_t *si, int port, const char *proto)
 {
 	return _fsi_get_service(si, NULL, proto, port, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_service_all(si_mod_t *si)
 {
 	return _fsi_get_service(si, NULL, NULL, 0, SEL_ALL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_protocol_byname(si_mod_t *si, const char *name)
 {
 	if (name == NULL) return NULL;
-	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_PROTOCOL, _PATH_PROTOCOLS);
+	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_PROTOCOL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_protocol_bynumber(si_mod_t *si, int number)
 {
-	return _fsi_get_name_number_aliases(si, NULL, number, SEL_NUMBER, CATEGORY_PROTOCOL, _PATH_PROTOCOLS);
+	return _fsi_get_name_number_aliases(si, NULL, number, SEL_NUMBER, CATEGORY_PROTOCOL);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_protocol_all(si_mod_t *si)
 {
-	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_PROTOCOL, _PATH_PROTOCOLS);
+	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_PROTOCOL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_rpc_byname(si_mod_t *si, const char *name)
 {
 	if (name == NULL) return NULL;
-	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_RPC, _PATH_RPCS);
+	return _fsi_get_name_number_aliases(si, name, 0, SEL_NAME, CATEGORY_RPC);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_rpc_bynumber(si_mod_t *si, int number)
 {
-	return _fsi_get_name_number_aliases(si, NULL, number, SEL_NUMBER, CATEGORY_RPC, _PATH_RPCS);
+	return _fsi_get_name_number_aliases(si, NULL, number, SEL_NUMBER, CATEGORY_RPC);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_rpc_all(si_mod_t *si)
 {
-	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_RPC, _PATH_RPCS);
+	return _fsi_get_name_number_aliases(si, NULL, 0, SEL_ALL, CATEGORY_RPC);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_fs_byspec(si_mod_t *si, const char *spec)
 {
 	return _fsi_get_fs(si, spec, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_fs_byfile(si_mod_t *si, const char *file)
 {
 	return _fsi_get_fs(si, file, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_fs_all(si_mod_t *si)
 {
 	return _fsi_get_fs(si, NULL, SEL_ALL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_alias_byname(si_mod_t *si, const char *name)
 {
 	return _fsi_get_alias(si, name, SEL_NAME);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_alias_all(si_mod_t *si)
 {
 	return _fsi_get_alias(si, NULL, SEL_ALL);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_mac_byname(si_mod_t *si, const char *name)
 {
 	return _fsi_get_ether(si, name, SEL_NAME);
 }
 
-__private_extern__ si_item_t *
+static si_item_t *
 file_mac_bymac(si_mod_t *si, const char *mac)
 {
 	return _fsi_get_ether(si, mac, SEL_NUMBER);
 }
 
-__private_extern__ si_list_t *
+static si_list_t *
 file_mac_all(si_mod_t *si)
 {
 	return _fsi_get_ether(si, NULL, SEL_ALL);
@@ -1685,80 +2287,90 @@ file_addrinfo(si_mod_t *si, const void *node, const void *serv, uint32_t family,
 	return _gai_simple(si, node, serv, family, socktype, proto, flags, interface, err);
 }
 
-__private_extern__  si_mod_t *
-si_module_static_file()
+si_mod_t *
+si_module_static_file(void)
 {
-	si_mod_t *out;
-	char *outname;
-
-	out = (si_mod_t *)calloc(1, sizeof(si_mod_t));
-	outname = strdup("file");
-
-	if ((out == NULL) || (outname == NULL))
+	static const struct si_mod_vtable_s file_vtable =
 	{
-		if (out != NULL) free(out);
-		if (outname != NULL) free(outname);
+		.sim_is_valid = &file_is_valid,
 
-		errno = ENOMEM;
-		return NULL;
-	}
+		.sim_user_byname = &file_user_byname,
+		.sim_user_byuid = &file_user_byuid,
+		.sim_user_all = &file_user_all,
 
-	out->name = outname;
-	out->vers = 1;
-	out->refcount = 1;
+		.sim_group_byname = &file_group_byname,
+		.sim_group_bygid = &file_group_bygid,
+		.sim_group_all = &file_group_all,
 
-	out->sim_is_valid = file_is_valid;
+		.sim_grouplist = &file_grouplist,
 
-	out->sim_user_byname = file_user_byname;
-	out->sim_user_byuid = file_user_byuid;
-	out->sim_user_all = file_user_all;
+		.sim_netgroup_byname = &file_netgroup_byname,
+		.sim_in_netgroup = &file_in_netgroup,
 
-	out->sim_group_byname = file_group_byname;
-	out->sim_group_bygid = file_group_bygid;
-	out->sim_group_all = file_group_all;
+		.sim_alias_byname = &file_alias_byname,
+		.sim_alias_all = &file_alias_all,
 
-	out->sim_grouplist = file_grouplist;
+		.sim_host_byname = &file_host_byname,
+		.sim_host_byaddr = &file_host_byaddr,
+		.sim_host_all = &file_host_all,
 
-	/* NETGROUP SUPPORT NOT IMPLEMENTED */
-	out->sim_netgroup_byname = NULL;
-	out->sim_in_netgroup = NULL;
+		.sim_network_byname = &file_network_byname,
+		.sim_network_byaddr = &file_network_byaddr,
+		.sim_network_all = &file_network_all,
 
-	out->sim_alias_byname = file_alias_byname;
-	out->sim_alias_all = file_alias_all;
+		.sim_service_byname = &file_service_byname,
+		.sim_service_byport = &file_service_byport,
+		.sim_service_all = &file_service_all,
 
-	out->sim_host_byname = file_host_byname;
-	out->sim_host_byaddr = file_host_byaddr;
-	out->sim_host_all = file_host_all;
+		.sim_protocol_byname = &file_protocol_byname,
+		.sim_protocol_bynumber = &file_protocol_bynumber,
+		.sim_protocol_all = &file_protocol_all,
 
-	out->sim_network_byname = file_network_byname;
-	out->sim_network_byaddr = file_network_byaddr;
-	out->sim_network_all = file_network_all;
+		.sim_rpc_byname = &file_rpc_byname,
+		.sim_rpc_bynumber = &file_rpc_bynumber,
+		.sim_rpc_all = &file_rpc_all,
 
-	out->sim_service_byname = file_service_byname;
-	out->sim_service_byport = file_service_byport;
-	out->sim_service_all = file_service_all;
+		.sim_fs_byspec = &file_fs_byspec,
+		.sim_fs_byfile = &file_fs_byfile,
+		.sim_fs_all = &file_fs_all,
 
-	out->sim_protocol_byname = file_protocol_byname;
-	out->sim_protocol_bynumber = file_protocol_bynumber;
-	out->sim_protocol_all = file_protocol_all;
+		.sim_mac_byname = &file_mac_byname,
+		.sim_mac_bymac = &file_mac_bymac,
+		.sim_mac_all = &file_mac_all,
 
-	out->sim_rpc_byname = file_rpc_byname;
-	out->sim_rpc_bynumber = file_rpc_bynumber;
-	out->sim_rpc_all = file_rpc_all;
+		.sim_wants_addrinfo = NULL,
+		.sim_addrinfo = &file_addrinfo,
 
-	out->sim_fs_byspec = file_fs_byspec;
-	out->sim_fs_byfile = file_fs_byfile;
-	out->sim_fs_all = file_fs_all;
+		/* no nameinfo support */
+		.sim_nameinfo = NULL,
+	};
 
-	out->sim_mac_byname = file_mac_byname;
-	out->sim_mac_bymac = file_mac_bymac;
-	out->sim_mac_all = file_mac_all;
+	static si_mod_t si =
+	{
+		.vers = 1,
+		.refcount = 1,
+		.flags = SI_MOD_FLAG_STATIC,
 
-	out->sim_wants_addrinfo = NULL;
-	out->sim_addrinfo = file_addrinfo;
+		.private = NULL,
+		.vtable = &file_vtable,
+	};
 
-	/* no nameinfo support */
-	out->sim_nameinfo = NULL;
+	static dispatch_once_t once;
 
-	return out;
+	dispatch_once(&once, ^{
+		si.name = strdup("file");
+		file_si_private_t *pp = calloc(1, sizeof(file_si_private_t));
+		if (pp != NULL)
+		{
+			int i;
+			for (i = 0; i < VALIDATION_COUNT; i++) pp->notify_token[i] = -1;
+
+			/* hardwired for now, but we may want to make this configurable someday */
+			pp->validation_notify_mask = VALIDATION_MASK_HOSTS | VALIDATION_MASK_SERVICES;
+		}
+
+		si.private = pp;
+	});
+
+	return (si_mod_t *)&si;
 }

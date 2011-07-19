@@ -2,12 +2,15 @@ package DBIx::Class::Schema::Loader::DBI::SQLite;
 
 use strict;
 use warnings;
-use base qw/DBIx::Class::Schema::Loader::DBI/;
+use base qw/
+    DBIx::Class::Schema::Loader::DBI::Component::QuotedDefault
+    DBIx::Class::Schema::Loader::DBI
+/;
 use Carp::Clan qw/^DBIx::Class/;
 use Text::Balanced qw( extract_bracketed );
 use Class::C3;
 
-our $VERSION = '0.04005';
+our $VERSION = '0.05003';
 
 =head1 NAME
 
@@ -52,6 +55,7 @@ sub _sqlite_parse_table {
 
     my @rels;
     my @uniqs;
+    my %auto_inc;
 
     my $dbh = $self->schema->storage->dbh;
     my $sth = $self->{_cache}->{sqlite_master}
@@ -62,7 +66,7 @@ sub _sqlite_parse_table {
     $sth->finish;
 
     # Cut "CREATE TABLE ( )" blabla...
-    $sql =~ /^[\w\s']+\((.*)\)$/si;
+    $sql =~ /^[\w\s"]+\((.*)\)$/si;
     my $cols = $1;
 
     # strip single-line comments
@@ -110,7 +114,12 @@ sub _sqlite_parse_table {
             push(@uniqs, [ $name => \@cols ]);
         }
 
-        next if $col !~ /^(.*\S)\s+REFERENCES\s+(\w+) (?: \s* \( (.*) \) )? /ix;
+        if ($col =~ /AUTOINCREMENT/i) {
+            $col =~ /^(\S+)/;
+            $auto_inc{lc $1} = 1;
+        }
+
+        next if $col !~ /^(.*\S)\s+REFERENCES\s+(\w+) (?: \s* \( (.*) \) )? /six;
 
         my ($cols, $f_table, $f_cols) = ($1, $2, $3);
 
@@ -119,7 +128,7 @@ sub _sqlite_parse_table {
             $cols =~ s/\s*\)$//;
         }
         else {               # Inline
-            $cols =~ s/\s+.*$//;
+            $cols =~ s/\s+.*$//s;
         }
 
         my @cols = map { s/\s*//g; lc $_ } split(/\s*,\s*/,$cols);
@@ -137,7 +146,22 @@ sub _sqlite_parse_table {
         });
     }
 
-    return { rels => \@rels, uniqs => \@uniqs };
+    return { rels => \@rels, uniqs => \@uniqs, auto_inc => \%auto_inc };
+}
+
+sub _extra_column_info {
+    my ($self, $table, $col_name, $sth, $col_num) = @_;
+    ($table, $col_name) = @{$table}{qw/TABLE_NAME COLUMN_NAME/} if ref $table;
+    my %extra_info;
+
+    $self->{_sqlite_parse_data}->{$table} ||=
+        $self->_sqlite_parse_table($table);
+
+    if ($self->{_sqlite_parse_data}->{$table}->{auto_inc}->{$col_name}) {
+        $extra_info{is_auto_increment} = 1;
+    }
+
+    return \%extra_info;
 }
 
 sub _table_fk_info {
@@ -178,6 +202,15 @@ sub _tables_list {
 
 L<DBIx::Class::Schema::Loader>, L<DBIx::Class::Schema::Loader::Base>,
 L<DBIx::Class::Schema::Loader::DBI>
+
+=head1 AUTHOR
+
+See L<DBIx::Class::Schema::Loader/AUTHOR> and L<DBIx::Class::Schema::Loader/CONTRIBUTORS>.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
 
 =cut
 

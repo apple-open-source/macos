@@ -22,7 +22,8 @@ namespace llvm {
 // Debug info constants.
 
 enum {
-  LLVMDebugVersion = (7 << 16),         // Current version of debug information.
+  LLVMDebugVersion = (8 << 16),         // Current version of debug information.
+  LLVMDebugVersion7 = (7 << 16),        // Constant for version 7.
   LLVMDebugVersion6 = (6 << 16),        // Constant for version 6.
   LLVMDebugVersion5 = (5 << 16),        // Constant for version 5.
   LLVMDebugVersion4 = (4 << 16),        // Constant for version 4.
@@ -229,6 +230,7 @@ enum dwarf_constants {
   DW_AT_APPLE_block = 0x3fe4,
   DW_AT_APPLE_major_runtime_vers = 0x3fe5,
   DW_AT_APPLE_runtime_class = 0x3fe6,
+  DW_AT_APPLE_omit_frame_ptr = 0x3fe7,
 
   // Attribute form encodings
   DW_FORM_addr = 0x01,
@@ -449,6 +451,7 @@ enum dwarf_constants {
 
   // Call frame instruction encodings
   DW_CFA_extended = 0x00,
+  DW_CFA_nop = 0x00,
   DW_CFA_advance_loc = 0x40,
   DW_CFA_offset = 0x80,
   DW_CFA_restore = 0xc0,
@@ -579,7 +582,6 @@ const char *MacinfoString(unsigned Encoding);
 /// CallFrameString - Return the string for the specified call frame instruction
 /// encodings.
 const char *CallFrameString(unsigned Encoding);
-
 } // End of namespace dwarf
 
 } // End of namespace llvm

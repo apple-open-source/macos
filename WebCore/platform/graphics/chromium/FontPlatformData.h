@@ -33,7 +33,7 @@
 
 #if OS(WINDOWS)
 #include "FontPlatformDataChromiumWin.h"
-#elif OS(LINUX)
+#elif OS(UNIX) && !OS(DARWIN)
 #include "FontPlatformDataLinux.h"
 #endif
 

@@ -31,19 +31,22 @@
 #include "config.h"
 #include "FontPlatformData.h"
 
-#include "ChromiumBridge.h"
 #include "HarfbuzzSkia.h"
 #include "NotImplemented.h"
+#include "PlatformBridge.h"
 #include "PlatformString.h"
-#include "StringImpl.h"
 
+#include "SkAdvancedTypefaceMetrics.h"
 #include "SkPaint.h"
 #include "SkTypeface.h"
+
+#include <wtf/text/StringImpl.h> 
 
 namespace WebCore {
 
 static SkPaint::Hinting skiaHinting = SkPaint::kNormal_Hinting;
-static bool isSkiaAntiAlias = true, isSkiaSubpixelGlyphs;
+static bool isSkiaAntiAlias = true;
+static bool isSkiaSubpixelGlyphs = false;
 
 void FontPlatformData::setHinting(SkPaint::Hinting hinting)
 {
@@ -69,22 +72,28 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src)
     : m_typeface(src.m_typeface)
     , m_family(src.m_family)
     , m_textSize(src.m_textSize)
+    , m_emSizeInFontUnits(src.m_emSizeInFontUnits)
     , m_fakeBold(src.m_fakeBold)
     , m_fakeItalic(src.m_fakeItalic)
+    , m_orientation(src.m_orientation)
+    , m_textOrientation(src.m_textOrientation)
     , m_style(src.m_style)
     , m_harfbuzzFace(src.m_harfbuzzFace)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
 }
 
-FontPlatformData::FontPlatformData(SkTypeface* tf, const char* family, float textSize, bool fakeBold, bool fakeItalic)
+FontPlatformData::FontPlatformData(SkTypeface* tf, const char* family, float textSize, bool fakeBold, bool fakeItalic, FontOrientation orientation, TextOrientation textOrientation)
     : m_typeface(tf)
     , m_family(family)
     , m_textSize(textSize)
+    , m_emSizeInFontUnits(0)
     , m_fakeBold(fakeBold)
     , m_fakeItalic(fakeItalic)
+    , m_orientation(orientation)
+    , m_textOrientation(textOrientation)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
     querySystemForRenderStyle();
 }
 
@@ -92,17 +101,31 @@ FontPlatformData::FontPlatformData(const FontPlatformData& src, float textSize)
     : m_typeface(src.m_typeface)
     , m_family(src.m_family)
     , m_textSize(textSize)
+    , m_emSizeInFontUnits(src.m_emSizeInFontUnits)
     , m_fakeBold(src.m_fakeBold)
     , m_fakeItalic(src.m_fakeItalic)
+    , m_orientation(src.m_orientation)
+    , m_textOrientation(src.m_textOrientation)
     , m_harfbuzzFace(src.m_harfbuzzFace)
 {
-    m_typeface->safeRef();
+    SkSafeRef(m_typeface);
     querySystemForRenderStyle();
 }
 
 FontPlatformData::~FontPlatformData()
 {
-    m_typeface->safeUnref();
+    SkSafeUnref(m_typeface);
+}
+
+int FontPlatformData::emSizeInFontUnits() const
+{
+    if (m_emSizeInFontUnits)
+        return m_emSizeInFontUnits;
+
+    SkAdvancedTypefaceMetrics* metrics = m_typeface->getAdvancedTypefaceMetrics(SkAdvancedTypefaceMetrics::kNo_PerGlyphInfo);
+    m_emSizeInFontUnits = metrics->fEmSize;
+    metrics->unref();
+    return m_emSizeInFontUnits;
 }
 
 FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
@@ -114,7 +137,10 @@ FontPlatformData& FontPlatformData::operator=(const FontPlatformData& src)
     m_fakeBold = src.m_fakeBold;
     m_fakeItalic = src.m_fakeItalic;
     m_harfbuzzFace = src.m_harfbuzzFace;
+    m_orientation = src.m_orientation;
+    m_textOrientation = src.m_textOrientation;
     m_style = src.m_style;
+    m_emSizeInFontUnits = src.m_emSizeInFontUnits;
 
     return *this;
 }
@@ -128,7 +154,7 @@ String FontPlatformData::description() const
 
 void FontPlatformData::setupPaint(SkPaint* paint) const
 {
-    const float ts = m_textSize > 0 ? m_textSize : 12;
+    const float ts = m_textSize >= 0 ? m_textSize : 12;
 
     paint->setAntiAlias(m_style.useAntiAlias == FontRenderStyle::NoPreference ? isSkiaAntiAlias : m_style.useAntiAlias);
     switch (m_style.useHinting) {
@@ -143,10 +169,12 @@ void FontPlatformData::setupPaint(SkPaint* paint) const
         break;
     }
 
+    paint->setEmbeddedBitmapText(m_style.useBitmaps);
     paint->setTextSize(SkFloatToScalar(ts));
     paint->setTypeface(m_typeface);
     paint->setFakeBoldText(m_fakeBold);
     paint->setTextSkewX(m_fakeItalic ? -SK_Scalar1 / 4 : 0);
+    paint->setAutohinted(m_style.useAutoHint);
 
     if (m_style.useAntiAlias == 1 || (m_style.useAntiAlias == FontRenderStyle::NoPreference && isSkiaAntiAlias))
         paint->setLCDRenderText(m_style.useSubpixel == FontRenderStyle::NoPreference ? isSkiaSubpixelGlyphs : m_style.useSubpixel);
@@ -174,13 +202,16 @@ bool FontPlatformData::operator==(const FontPlatformData& a) const
     return typefacesEqual 
         && m_textSize == a.m_textSize
         && m_fakeBold == a.m_fakeBold
-        && m_fakeItalic == a.m_fakeItalic;
+        && m_fakeItalic == a.m_fakeItalic
+        && m_orientation == a.m_orientation
+        && m_textOrientation == a.m_textOrientation
+        && m_style == a.m_style;
 }
 
 unsigned FontPlatformData::hash() const
 {
     unsigned h = SkTypeface::UniqueID(m_typeface);
-    h ^= 0x01010101 * ((static_cast<int>(m_fakeBold) << 1) | static_cast<int>(m_fakeItalic));
+    h ^= 0x01010101 * ((static_cast<int>(m_textOrientation) << 3) | (static_cast<int>(m_orientation) << 2) | (static_cast<int>(m_fakeBold) << 1) | static_cast<int>(m_fakeItalic));
 
     // This memcpy is to avoid a reinterpret_cast that breaks strict-aliasing
     // rules. Memcpy is generally optimized enough so that performance doesn't
@@ -220,7 +251,7 @@ void FontPlatformData::querySystemForRenderStyle()
         return;
     }
 
-    ChromiumBridge::getRenderStyleForStrike(m_family.data(), (((int)m_textSize) << 2) | (m_typeface->style() & 3), &m_style);
+    PlatformBridge::getRenderStyleForStrike(m_family.data(), (((int)m_textSize) << 2) | (m_typeface->style() & 3), &m_style);
 }
 
 }  // namespace WebCore

@@ -41,18 +41,17 @@ using namespace Bindings;
 
 ASSERT_CLASS_FITS_IN_CELL(RuntimeMethod);
 
-const ClassInfo RuntimeMethod::s_info = { "RuntimeMethod", &InternalFunction::info, 0, 0 };
+const ClassInfo RuntimeMethod::s_info = { "RuntimeMethod", &InternalFunction::s_info, 0, 0 };
 
-RuntimeMethod::RuntimeMethod(ExecState* exec, const Identifier& ident, Bindings::MethodList& m)
-    // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
-    // exec-globalData() is also likely wrong.
+RuntimeMethod::RuntimeMethod(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, const Identifier& ident, Bindings::MethodList& m)
     // Callers will need to pass in the right global object corresponding to this native object "m".
-    : InternalFunction(&exec->globalData(), deprecatedGetDOMStructure<RuntimeMethod>(exec), ident)
-    , _methodList(new MethodList(m))
+    : InternalFunction(&exec->globalData(), globalObject, structure, ident)
+    , _methodList(adoptPtr(new MethodList(m)))
 {
+    ASSERT(inherits(&s_info));
 }
 
-JSValue RuntimeMethod::lengthGetter(ExecState* exec, JSValue slotBase, const Identifier&)
+JSValue RuntimeMethod::lengthGetter(ExecState*, JSValue slotBase, const Identifier&)
 {
     RuntimeMethod* thisObj = static_cast<RuntimeMethod*>(asObject(slotBase));
 
@@ -62,7 +61,7 @@ JSValue RuntimeMethod::lengthGetter(ExecState* exec, JSValue slotBase, const Ide
     // Java does.
     // FIXME: a better solution might be to give the maximum number of parameters
     // of any method
-    return jsNumber(exec, thisObj->_methodList->at(0)->numParameters());
+    return jsNumber(thisObj->_methodList->at(0)->numParameters());
 }
 
 bool RuntimeMethod::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
@@ -87,20 +86,21 @@ bool RuntimeMethod::getOwnPropertyDescriptor(ExecState* exec, const Identifier& 
     return InternalFunction::getOwnPropertyDescriptor(exec, propertyName, descriptor);
 }
 
-static JSValue JSC_HOST_CALL callRuntimeMethod(ExecState* exec, JSObject* function, JSValue thisValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callRuntimeMethod(ExecState* exec)
 {
-    RuntimeMethod* method = static_cast<RuntimeMethod*>(function);
+    RuntimeMethod* method = static_cast<RuntimeMethod*>(exec->callee());
 
     if (method->methods()->isEmpty())
-        return jsUndefined();
+        return JSValue::encode(jsUndefined());
 
     RefPtr<Instance> instance;
 
+    JSValue thisValue = exec->hostThisValue();
     if (thisValue.inherits(&RuntimeObject::s_info)) {
         RuntimeObject* runtimeObject = static_cast<RuntimeObject*>(asObject(thisValue));
         instance = runtimeObject->getInternalInstance();
         if (!instance) 
-            return RuntimeObject::throwInvalidAccessError(exec);
+            return JSValue::encode(RuntimeObject::throwInvalidAccessError(exec));
     } else {
         // Calling a runtime object of a plugin element?
         if (thisValue.inherits(&JSHTMLElement::s_info)) {
@@ -108,14 +108,14 @@ static JSValue JSC_HOST_CALL callRuntimeMethod(ExecState* exec, JSObject* functi
             instance = pluginInstance(element);
         }
         if (!instance)
-            return throwError(exec, TypeError);
+            return throwVMTypeError(exec);
     }
     ASSERT(instance);
 
     instance->begin();
-    JSValue result = instance->invokeMethod(exec, method, args);
+    JSValue result = instance->invokeMethod(exec, method);
     instance->end();
-    return result;
+    return JSValue::encode(result);
 }
 
 CallType RuntimeMethod::getCallData(CallData& callData)

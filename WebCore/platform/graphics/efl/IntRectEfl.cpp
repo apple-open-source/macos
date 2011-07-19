@@ -1,8 +1,6 @@
 /*
  * Copyright (C) 2007 Alp Toker <alp@atoker.com>
- * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
- * Copyright (C) 2009-2010 ProFUSION embedded systems
- * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2010 Samsung Electronics
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,6 +21,8 @@
 #include "config.h"
 #include "IntRect.h"
 
+#include <Eina.h>
+
 namespace WebCore {
 
 IntRect::IntRect(const Eina_Rectangle& r)
@@ -31,11 +31,10 @@ IntRect::IntRect(const Eina_Rectangle& r)
 {
 }
 
-IntRect::operator Eina_Rectangle() const // NOLINT
+IntRect::operator Eina_Rectangle() const
 {
-    Eina_Rectangle r = { x(), y(), width(), height() };
+    Eina_Rectangle r = {x(), y(), width(), height()};
     return r;
 }
 
 }
-

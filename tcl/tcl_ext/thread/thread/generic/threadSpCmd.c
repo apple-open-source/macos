@@ -26,7 +26,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: threadSpCmd.c,v 1.27 2008/05/22 16:31:13 vasiljevic Exp $
+ * RCS: @(#) $Id: threadSpCmd.c,v 1.33 2010/05/26 20:10:10 andreas_kupries Exp $
  * ----------------------------------------------------------------------------
  */
 
@@ -44,6 +44,15 @@
 
 #define SP_MUTEX   1  /* Any kind of mutex */
 #define SP_CONDV   2  /* The condition variable sync type */
+
+/*
+ * Handle hiding of errorLine in 8.6
+ */
+#if (TCL_MAJOR_VERSION == 8) && (TCL_MINOR_VERSION < 6)
+#define ERRORLINE(interp) ((interp)->errorLine)
+#else
+#define ERRORLINE(interp) (Tcl_GetErrorLine(interp))
+#endif
 
 /* 
  * Structure representing one sync primitive (mutex, condition variable). 
@@ -120,16 +129,16 @@ static int       SpCondvWait       (SpCondv *, SpMutex *, int);
 static void      SpCondvNotify     (SpCondv *);
 static int       SpCondvFinalize   (SpCondv *);
 
-static void      AddAnyItem        (int, char *, int, SpItem *);
-static SpItem*   GetAnyItem        (int, char *, int);
+static void      AddAnyItem        (int, const char *, int, SpItem *);
+static SpItem*   GetAnyItem        (int, const char *, int);
 static void      PutAnyItem        (SpItem *);
-static SpItem *  RemoveAnyItem     (int, char*, int);
+static SpItem *  RemoveAnyItem     (int, const char*, int);
 
-static int       RemoveMutex       (char *, int);
-static int       RemoveCondv       (char *, int);
+static int       RemoveMutex       (const char *, int);
+static int       RemoveCondv       (const char *, int);
 
 static Tcl_Obj*  GetName           (int, void *);
-static SpBucket* GetBucket         (int, char *, int);
+static SpBucket* GetBucket         (int, const char *, int);
 
 static int       AnyMutexIsLocked  (Sp_AnyMutex *mPtr, Tcl_ThreadId);
 
@@ -181,17 +190,18 @@ ThreadMutexObjCmd(dummy, interp, objc, objv)
     ClientData dummy;                   /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int opt, ret, nameLen;
-    char *mutexName, type;
+    const char *mutexName;
+    char type;
     SpMutex *mutexPtr;
 
-    static CONST84 char *cmdOpts[] = {
+    static const char *cmdOpts[] = {
         "create", "destroy", "lock", "unlock", NULL
     };
     enum options {
-        m_CREATE, m_DESTROY, m_LOCK, m_UNLOCK,
+        m_CREATE, m_DESTROY, m_LOCK, m_UNLOCK
     };
     
     /* 
@@ -218,7 +228,7 @@ ThreadMutexObjCmd(dummy, interp, objc, objv)
 
     if (opt == (int)m_CREATE) {
         Tcl_Obj *nameObj;
-        char *arg;
+        const char *arg;
         
         /*
          * Parse out which type of mutex to create
@@ -353,18 +363,19 @@ ThreadRWMutexObjCmd(dummy, interp, objc, objv)
     ClientData dummy;                   /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int opt, ret, nameLen;
-    char *mutexName;
+    const char *mutexName;
     SpMutex *mutexPtr;
     Sp_ReadWriteMutex *rwPtr;
+    Sp_AnyMutex **lockPtr;
 
-    static CONST84 char *cmdOpts[] = {
+    static const char *cmdOpts[] = {
         "create", "destroy", "rlock", "wlock", "unlock", NULL
     };
     enum options {
-        w_CREATE, w_DESTROY, w_RLOCK, w_WLOCK, w_UNLOCK,
+        w_CREATE, w_DESTROY, w_RLOCK, w_WLOCK, w_UNLOCK
     };
     
     /* 
@@ -455,11 +466,13 @@ ThreadRWMutexObjCmd(dummy, interp, objc, objv)
         return TCL_ERROR;
     }
 
-    rwPtr = (Sp_ReadWriteMutex*)&mutexPtr->lock;
+    lockPtr = &mutexPtr->lock;
+    rwPtr = (Sp_ReadWriteMutex*) lockPtr;
     
     switch ((enum options)opt) {
     case w_RLOCK:
         if (!Sp_ReadWriteMutexRLock(rwPtr)) {
+            PutMutex(mutexPtr);
             Tcl_AppendResult(interp, "read-locking already write-locked mutex ",
                              "from the same thread", NULL);
             return TCL_ERROR;
@@ -512,14 +525,14 @@ ThreadCondObjCmd(dummy, interp, objc, objv)
     ClientData dummy;                   /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int opt, ret, nameLen, timeMsec = 0;
-    char *condvName, *mutexName;
+    const char *condvName, *mutexName;
     SpMutex *mutexPtr;
     SpCondv *condvPtr;
 
-    static CONST84 char *cmdOpts[] = {
+    static const char *cmdOpts[] = {
         "create", "destroy", "notify", "wait", NULL
     };
     enum options {
@@ -678,10 +691,10 @@ ThreadEvalObjCmd(dummy, interp, objc, objv)
     ClientData dummy;                   /* Not used. */
     Tcl_Interp *interp;                 /* Current interpreter. */
     int objc;                           /* Number of arguments. */
-    Tcl_Obj *CONST objv[];              /* Argument objects. */
+    Tcl_Obj *const objv[];              /* Argument objects. */
 {
     int ret, optx, internal, nameLen;
-    char *mutexName;
+    const char *mutexName;
     Tcl_Obj *scriptObj;
     SpMutex *mutexPtr = NULL;
     static Sp_RecursiveMutex evalMutex;
@@ -759,8 +772,8 @@ ThreadEvalObjCmd(dummy, interp, objc, objv)
     Tcl_DecrRefCount(scriptObj);
 
     if (ret == TCL_ERROR) {
-        char msg[32 + TCL_INTEGER_SPACE];   
-        sprintf(msg, "\n    (\"eval\" body line %d)", interp->errorLine);
+        char msg[32 + TCL_INTEGER_SPACE];
+        sprintf(msg, "\n    (\"eval\" body line %d)", ERRORLINE(interp));
         Tcl_AddObjErrorInfo(interp, msg, -1);
     }
 
@@ -829,7 +842,7 @@ GetName(int type, void *addrPtr)
  */
 
 static SpBucket*
-GetBucket(int type, char *name, int len)
+GetBucket(int type, const char *name, int len)
 {
     switch (type) {
     case SP_MUTEX: return &muxBuckets[GetHash(name, len)];
@@ -856,7 +869,7 @@ GetBucket(int type, char *name, int len)
  */
 
 static SpItem*
-GetAnyItem(int type, char *name, int len)
+GetAnyItem(int type, const char *name, int len)
 {
     SpItem *itemPtr = NULL;
     SpBucket *bucketPtr = GetBucket(type, name, len);
@@ -916,7 +929,7 @@ PutAnyItem(SpItem *itemPtr)
  */
 
 static void
-AddAnyItem(int type, char *handle, int len, SpItem *itemPtr)
+AddAnyItem(int type, const char *handle, int len, SpItem *itemPtr)
 {
     int new;
     SpBucket *bucketPtr = GetBucket(type, handle, len);
@@ -951,7 +964,7 @@ AddAnyItem(int type, char *handle, int len, SpItem *itemPtr)
  */
 
 static SpItem *
-RemoveAnyItem(int type, char *name, int len)
+RemoveAnyItem(int type, const char *name, int len)
 {
     SpItem *itemPtr = NULL;
     SpBucket *bucketPtr = GetBucket(type, name, len);
@@ -992,17 +1005,18 @@ RemoveAnyItem(int type, char *name, int len)
  */
 
 static int
-RemoveMutex(char *name, int len)
+RemoveMutex(const char *name, int len)
 {
-    SpMutex *mutexPtr = (SpMutex*)RemoveAnyItem(SP_MUTEX, name, len);
-
+    SpMutex *mutexPtr = GetMutex(name, len);
     if (mutexPtr == NULL) {
         return -1;
     }
     if (!SpMutexFinalize(mutexPtr)) {
+        PutMutex(mutexPtr);
         return 0;
     }
-
+    PutMutex(mutexPtr);
+    RemoveAnyItem(SP_MUTEX, name, len);
     Tcl_Free((char*)mutexPtr);
 
     return 1;
@@ -1027,17 +1041,18 @@ RemoveMutex(char *name, int len)
  */
 
 static int
-RemoveCondv(char *name, int len)
+RemoveCondv(const char *name, int len)
 {
-    SpCondv *condvPtr = (SpCondv*)RemoveAnyItem(SP_CONDV, name, len);
-
+    SpCondv *condvPtr = GetCondv(name, len);
     if (condvPtr == NULL) {
         return -1;
     }
     if (!SpCondvFinalize(condvPtr)) {
+        PutCondv(condvPtr);
         return 0;
     }
-
+    PutCondv(condvPtr);
+    RemoveAnyItem(SP_CONDV, name, len);
     Tcl_Free((char*)condvPtr);
 
     return 1;
@@ -1083,10 +1098,10 @@ Sp_Init (interp)
         Tcl_MutexUnlock(&initMutex);
     }
 
-    TCL_CMD(interp, THNS"::mutex",   ThreadMutexObjCmd);
-    TCL_CMD(interp, THNS"::rwmutex", ThreadRWMutexObjCmd);
-    TCL_CMD(interp, THNS"::cond",    ThreadCondObjCmd);
-    TCL_CMD(interp, THNS"::eval",    ThreadEvalObjCmd);
+    TCL_CMD(interp, THREAD_CMD_PREFIX"::mutex",   ThreadMutexObjCmd);
+    TCL_CMD(interp, THREAD_CMD_PREFIX"::rwmutex", ThreadRWMutexObjCmd);
+    TCL_CMD(interp, THREAD_CMD_PREFIX"::cond",    ThreadCondObjCmd);
+    TCL_CMD(interp, THREAD_CMD_PREFIX"::eval",    ThreadEvalObjCmd);
 
     return TCL_OK;
 }
@@ -1111,12 +1126,14 @@ Sp_Init (interp)
 static int 
 SpMutexLock(SpMutex *mutexPtr)
 {
+    Sp_AnyMutex **lockPtr = &mutexPtr->lock;
+
     switch (mutexPtr->type) {
     case EMUTEXID:
-        return Sp_ExclusiveMutexLock((Sp_ExclusiveMutex*)&mutexPtr->lock);
+        return Sp_ExclusiveMutexLock((Sp_ExclusiveMutex*)lockPtr);
         break;
     case RMUTEXID: 
-        return Sp_RecursiveMutexLock((Sp_RecursiveMutex*)&mutexPtr->lock);
+        return Sp_RecursiveMutexLock((Sp_RecursiveMutex*)lockPtr);
         break;
     }
 
@@ -1143,12 +1160,14 @@ SpMutexLock(SpMutex *mutexPtr)
 static int
 SpMutexUnlock(SpMutex *mutexPtr)
 {
+    Sp_AnyMutex **lockPtr = &mutexPtr->lock;
+
     switch (mutexPtr->type) {
     case EMUTEXID:
-        return Sp_ExclusiveMutexUnlock((Sp_ExclusiveMutex*)&mutexPtr->lock);
+        return Sp_ExclusiveMutexUnlock((Sp_ExclusiveMutex*)lockPtr);
         break;
     case RMUTEXID:
-        return Sp_RecursiveMutexUnlock((Sp_RecursiveMutex*)&mutexPtr->lock);
+        return Sp_RecursiveMutexUnlock((Sp_RecursiveMutex*)lockPtr);
         break;
     }
 
@@ -1176,6 +1195,8 @@ SpMutexUnlock(SpMutex *mutexPtr)
 static int
 SpMutexFinalize(SpMutex *mutexPtr)
 {
+    Sp_AnyMutex **lockPtr = &mutexPtr->lock;
+
     if (AnyMutexIsLocked((Sp_AnyMutex*)mutexPtr->lock, (Tcl_ThreadId)0)) {
         return 0;
     }
@@ -1187,13 +1208,13 @@ SpMutexFinalize(SpMutex *mutexPtr)
 
     switch (mutexPtr->type) {
     case EMUTEXID:
-        Sp_ExclusiveMutexFinalize((Sp_ExclusiveMutex*)&mutexPtr->lock);
+        Sp_ExclusiveMutexFinalize((Sp_ExclusiveMutex*)lockPtr);
         break;
     case RMUTEXID:
-        Sp_RecursiveMutexFinalize((Sp_RecursiveMutex*)&mutexPtr->lock);
+        Sp_RecursiveMutexFinalize((Sp_RecursiveMutex*)lockPtr);
         break;
     case WMUTEXID:
-        Sp_ReadWriteMutexFinalize((Sp_ReadWriteMutex*)&mutexPtr->lock);
+        Sp_ReadWriteMutexFinalize((Sp_ReadWriteMutex*)lockPtr);
         break;
     default:
         break;
@@ -1222,7 +1243,8 @@ SpMutexFinalize(SpMutex *mutexPtr)
 static int
 SpCondvWait(SpCondv *condvPtr, SpMutex *mutexPtr, int msec)
 {
-    Sp_ExclusiveMutex_ *emPtr = *(Sp_ExclusiveMutex_**)&mutexPtr->lock;
+	Sp_AnyMutex **lock = &mutexPtr->lock;
+    Sp_ExclusiveMutex_ *emPtr = *(Sp_ExclusiveMutex_**)lock;
     Tcl_Time waitTime, *wt = NULL;
     Tcl_ThreadId threadId = Tcl_GetCurrentThread();
 

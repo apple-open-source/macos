@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$128|struct CGPathElement {
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$128|struct CGPathElement {
         CGPathElementType type;
         CGPoint *points;
 };
@@ -7,7 +7,7 @@ typedef struct CGPathElement CGPathElement;
 $80|/*!     @typedef CGPathElement
     @discussion Test of struct/typedef combo.
 */
-$0|$11133|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$11281|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -46,6 +46,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -98,6 +99,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => struct
@@ -192,8 +194,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -233,11 +235,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tag/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tag/CGPathElement">CGPathElement</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -277,11 +279,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tdef/CGPathElement">CGPathElement</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -323,8 +325,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -365,8 +367,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CGPathElement (HeaderDoc::Typedef)
 +---typedef
@@ -412,20 +414,20 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CGPathElement (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement" --><span class="var">CGPathElement</span><!-- /a -->;  
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/intf/CGPathElement //test_ref/doc/anysymbol/CGPathElement" machineGenerated="true" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement //test_ref/c/clconst/CGPathElement " machineGenerated="true" --><span class="var">CGPathElement</span><!-- /a -->;  
 END OF OBJECT
 
 
 OBJECT: CGPathElement (HeaderDoc::Struct)
-	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> { 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/econst/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/clconst/CGPathElementType //test_ref/c/intf/CGPathElementType" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type" --><span class="var">type</span><!-- /a -->; 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/econst/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/clconst/CGPoint //test_ref/c/intf/CGPoint" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points" --><span class="var">points</span><!-- /a -->; 
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/intf/CGPathElement //test_ref/doc/anysymbol/CGPathElement" machineGenerated="true" --><span class="type">CGPathElement</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/intf/CGPathElementType //test_ref/doc/anysymbol/CGPathElementType" machineGenerated="true" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type //test_ref/c/clconst/type " machineGenerated="true" --><span class="var">type</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/intf/CGPoint //test_ref/doc/anysymbol/CGPoint" machineGenerated="true" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points //test_ref/c/clconst/points " machineGenerated="true" --><span class="var">points</span><!-- /a -->; 
 	};  
 END OF OBJECT
 
 
 
-$11133|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$11281|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -464,6 +466,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => *
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -516,6 +519,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => struct
@@ -610,8 +614,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -651,11 +655,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tag/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tag/CGPathElement">CGPathElement</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -695,11 +699,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/tdef/CGPathElement">CGPathElement</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -741,8 +745,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -783,8 +787,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: CGPathElement (HeaderDoc::Typedef)
 +---typedef
@@ -830,853 +834,17 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: CGPathElement (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement" --><span class="var">CGPathElement</span><!-- /a -->;  
+	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/intf/CGPathElement //test_ref/doc/anysymbol/CGPathElement" machineGenerated="true" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement //test_ref/c/clconst/CGPathElement " machineGenerated="true" --><span class="var">CGPathElement</span><!-- /a -->;  
 END OF OBJECT
 
 
 OBJECT: CGPathElement (HeaderDoc::Struct)
-	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> { 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/econst/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/clconst/CGPathElementType //test_ref/c/intf/CGPathElementType" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type" --><span class="var">type</span><!-- /a -->; 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/econst/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/clconst/CGPoint //test_ref/c/intf/CGPoint" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points" --><span class="var">points</span><!-- /a -->; 
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/intf/CGPathElement //test_ref/doc/anysymbol/CGPathElement" machineGenerated="true" --><span class="type">CGPathElement</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/intf/CGPathElementType //test_ref/doc/anysymbol/CGPathElementType" machineGenerated="true" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type //test_ref/c/clconst/type " machineGenerated="true" --><span class="var">type</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/intf/CGPoint //test_ref/doc/anysymbol/CGPoint" machineGenerated="true" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points //test_ref/c/clconst/points " machineGenerated="true" --><span class="var">points</span><!-- /a -->; 
 	};  
 END OF OBJECT
 
 
 
-_$37|testsuite/parser_tests/typedef_5.test$1|C$9|typedef 5$11133|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_5.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_5.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => struct
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => CGPathElement
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  struct
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  struct CGPathElement {
-         CGPathElementType 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => struct
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: struct
-namelist: CGPathElement
-posstypes:  struct
-value: 
-returntype:  struct CGPathElement {         CGPathElementType 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => CGPathElementType type
-Parsed Param 1 => CGPoint *points
--=: DUMP OF PARSE TREE :=-
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPathElementType
-|   +--- 
-|   +---type
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPoint
-|   +--- 
-|   +---*
-|   +---points
-|   +---;
-|   +---[ NEWLINE ]
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 5
-APIUID: //test_ref/doc/header/typedef_5.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CGPathElement
-    APIUID: //test_ref/c/tdef/CGPathElement
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of struct/typedef combo.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tag/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Struct
-    NAME: CGPathElement
-    APIUID: //test_ref/c/tag/CGPathElement
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of struct/typedef combo.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Struct"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: type
-        TYPE: CGPathElementType
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: points
-        TYPE: CGPoint *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CGPathElement (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---CGPathElement
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CGPathElement (HeaderDoc::Struct)
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPathElementType
-|   +--- 
-|   +---type
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPoint
-|   +--- 
-|   +---*
-|   +---points
-|   +---;
-|   +---[ NEWLINE ]
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CGPathElement (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement" --><span class="var">CGPathElement</span><!-- /a -->;  
-END OF OBJECT
-
-
-OBJECT: CGPathElement (HeaderDoc::Struct)
-	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> { 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/econst/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/clconst/CGPathElementType //test_ref/c/intf/CGPathElementType" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type" --><span class="var">type</span><!-- /a -->; 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/econst/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/clconst/CGPoint //test_ref/c/intf/CGPoint" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points" --><span class="var">points</span><!-- /a -->; 
-	};  
-END OF OBJECT
-
-
-
-$11133|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 1
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/typedef_5.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_5.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => struct
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => CGPathElement
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  struct
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  struct CGPathElement {
-         CGPathElementType 
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => struct
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: struct
-namelist: CGPathElement
-posstypes:  struct
-value: 
-returntype:  struct CGPathElement {         CGPathElementType 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => CGPathElementType type
-Parsed Param 1 => CGPoint *points
--=: DUMP OF PARSE TREE :=-
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPathElementType
-|   +--- 
-|   +---type
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPoint
-|   +--- 
-|   +---*
-|   +---points
-|   +---;
-|   +---[ NEWLINE ]
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: typedef 5
-APIUID: //test_ref/doc/header/typedef_5.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Typedef
-    NAME: CGPathElement
-    APIUID: //test_ref/c/tdef/CGPathElement
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of struct/typedef combo.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Typedef"
-    MASTERENUM: "0"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tag/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Struct
-    NAME: CGPathElement
-    APIUID: //test_ref/c/tag/CGPathElement
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of struct/typedef combo.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Struct"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/tdef/CGPathElement" --><p>CGPathElement<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: type
-        TYPE: CGPathElementType
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: points
-        TYPE: CGPoint *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: CGPathElement (HeaderDoc::Typedef)
-+---typedef
-+--- 
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---CGPathElement
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: CGPathElement (HeaderDoc::Struct)
-+---struct
-+--- 
-+---CGPathElement
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPathElementType
-|   +--- 
-|   +---type
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---CGPoint
-|   +--- 
-|   +---*
-|   +---points
-|   +---;
-|   +---[ NEWLINE ]
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: CGPathElement (HeaderDoc::Typedef)
-	<span class="keyword">typedef</span> <span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/CGPathElement //test_ref/c/data/CGPathElement" --><span class="var">CGPathElement</span><!-- /a -->;  
-END OF OBJECT
-
-
-OBJECT: CGPathElement (HeaderDoc::Struct)
-	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/CGPathElement //test_ref/c/tdef/CGPathElement //test_ref/c/tag/CGPathElement //test_ref/c/econst/CGPathElement //test_ref/c/struct/CGPathElement //test_ref/c/clconst/CGPathElement //test_ref/c/intf/CGPathElement" --><span class="type">CGPathElement</span><!-- /a --> { 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPathElementType //test_ref/c/tdef/CGPathElementType //test_ref/c/tag/CGPathElementType //test_ref/c/econst/CGPathElementType //test_ref/c/struct/CGPathElementType //test_ref/c/clconst/CGPathElementType //test_ref/c/intf/CGPathElementType" --><span class="type">CGPathElementType</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/type //test_ref/c/data/type" --><span class="var">type</span><!-- /a -->; 
-	    <!-- a logicalPath="//test_ref/c/cl/CGPoint //test_ref/c/tdef/CGPoint //test_ref/c/tag/CGPoint //test_ref/c/econst/CGPoint //test_ref/c/struct/CGPoint //test_ref/c/clconst/CGPoint //test_ref/c/intf/CGPoint" --><span class="type">CGPoint</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/points //test_ref/c/data/points" --><span class="var">points</span><!-- /a -->; 
-	};  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$91|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/typedef_5.test$1|C$9|typedef 5$1|C$6|parser

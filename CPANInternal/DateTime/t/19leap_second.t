@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 148;
+use Test::More tests => 172;
 use DateTime;
 
 # tests using UTC times
@@ -921,4 +921,45 @@ use DateTime;
 
     $dt->add( seconds => 1 );
     is( $dt->datetime, '2005-12-31T00:00:00', 'dt is 2005-12-31T00:00:00' );
+}
+
+{
+    for my $date ( [ 1972,  6, 30 ],
+                   [ 1972, 12, 31 ],
+                   [ 1973, 12, 31 ],
+                   [ 1974, 12, 31 ],
+                   [ 1975, 12, 31 ],
+                   [ 1976, 12, 31 ],
+                   [ 1977, 12, 31 ],
+                   [ 1978, 12, 31 ],
+                   [ 1979, 12, 31 ],
+                   [ 1981,  6, 30 ],
+                   [ 1982,  6, 30 ],
+                   [ 1983,  6, 30 ],
+                   [ 1985,  6, 30 ],
+                   [ 1987, 12, 31 ],
+                   [ 1989, 12, 31 ],
+                   [ 1990, 12, 31 ],
+                   [ 1992,  6, 30 ],
+                   [ 1993,  6, 30 ],
+                   [ 1994,  6, 30 ],
+                   [ 1995, 12, 31 ],
+                   [ 1997,  6, 30 ],
+                   [ 1998, 12, 31 ],
+                   [ 2005, 12, 31 ],
+                   [ 2008, 12, 31 ],
+                 )
+    {
+        my $dt = eval { DateTime->new( year   => $date->[0],
+                                       month  => $date->[1],
+                                       day    => $date->[2],
+                                       hour   => 23,
+                                       minute => 59,
+                                       second => 60,
+                                       time_zone => 'UTC',
+                                     ) };
+
+        my $formatted = join '-', @{ $date };
+        ok( $dt, "We can make a DateTime object for the leap second on $formatted" );
+    }
 }

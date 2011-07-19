@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2006 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -59,6 +59,7 @@ kexgss_client(Kex *kex) {
 	BIGNUM *g = NULL;	
 	u_char *kbuf, *hash;
 	u_char *serverhostkey = NULL;
+	u_char *empty = "";
 	char *msg;
 	char *lang;
 	int type = 0;
@@ -73,7 +74,11 @@ kexgss_client(Kex *kex) {
 
 	if (ssh_gssapi_import_name(ctxt, kex->gss_host))
 		fatal("Couldn't import hostname");
-	
+
+	if (kex->gss_client && 
+	    ssh_gssapi_client_identity(ctxt, kex->gss_client))
+		fatal("Couldn't acquire client credentials");
+
 	switch (kex->kex_type) {
 	case KEX_GSS_GRP1_SHA1:
 		dh = dh_new_group1();
@@ -245,9 +250,16 @@ kexgss_client(Kex *kex) {
 	klen = DH_size(dh);
 	kbuf = xmalloc(klen);
 	kout = DH_compute_key(kbuf, dh_server_pub, dh);
+	if (kout < 0)
+		fatal("DH_compute_key: failed");
 
 	shared_secret = BN_new();
-	BN_bin2bn(kbuf,kout, shared_secret);
+	if (shared_secret == NULL)
+		fatal("kexgss_client: BN_new failed");
+
+	if (BN_bin2bn(kbuf, kout, shared_secret) == NULL)
+		fatal("kexdh_client: BN_bin2bn failed");
+
 	memset(kbuf, 0, klen);
 	xfree(kbuf);
 
@@ -258,7 +270,7 @@ kexgss_client(Kex *kex) {
 		    kex->server_version_string,
 		    buffer_ptr(&kex->my), buffer_len(&kex->my),
 		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-		    serverhostkey, slen, /* server host key */
+		    (serverhostkey ? serverhostkey : empty), slen,
 		    dh->pub_key,	/* e */
 		    dh_server_pub,	/* f */
 		    shared_secret,	/* K */
@@ -272,7 +284,7 @@ kexgss_client(Kex *kex) {
 		    kex->server_version_string,
 		    buffer_ptr(&kex->my), buffer_len(&kex->my),
 		    buffer_ptr(&kex->peer), buffer_len(&kex->peer),
-		    serverhostkey, slen,
+		    (serverhostkey ? serverhostkey : empty), slen,
  		    min, nbits, max,
 		    dh->p, dh->g,
 		    dh->pub_key,
@@ -305,6 +317,9 @@ kexgss_client(Kex *kex) {
 		kex->session_id = xmalloc(kex->session_id_len);
 		memcpy(kex->session_id, hash, kex->session_id_len);
 	}
+
+	if (kex->gss_deleg_creds)
+		ssh_gssapi_credentials_updated(ctxt);
 
 	if (gss_kex_context == NULL)
 		gss_kex_context = ctxt;

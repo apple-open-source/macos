@@ -61,7 +61,6 @@
 #define VENDORID_NATT_07	12
 #define VENDORID_NATT_08	13
 
-#ifdef __APPLE__
 #define VENDORID_NATT_APPLE 14
 #define VENDORID_NATT_RFC	15
 /* Hybrid auth */
@@ -71,16 +70,6 @@
 #define VENDORID_FRAG		18
 /* Dead Peer Detection */
 #define VENDORID_DPD		19
-#else /* __APPLE__ */
-#define VENDORID_NATT_RFC	14
-/* Hybrid auth */
-#define VENDORID_XAUTH		15
-#define VENDORID_UNITY		16
-/* IKE fragmentation */
-#define VENDORID_FRAG		17
-/* Dead Peer Detection */
-#define VENDORID_DPD		18
-#endif /* __APPLE__ */
 
 #define VENDORID_NATT_FIRST	VENDORID_NATT_00
 #define VENDORID_NATT_LAST	VENDORID_NATT_RFC

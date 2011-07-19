@@ -31,13 +31,13 @@
 #ifndef InspectorFrontendClient_h
 #define InspectorFrontendClient_h
 
+#include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
 
 class ContextMenuItem;
 class Event;
-class String;
 
 class InspectorFrontendClient {
 public:
@@ -53,12 +53,19 @@ public:
 
     virtual void bringToFront() = 0;
     virtual void closeWindow() = 0;
+    virtual void disconnectFromBackend() = 0;
 
     virtual void requestAttachWindow() = 0;
     virtual void requestDetachWindow() = 0;
     virtual void changeAttachedWindowHeight(unsigned) = 0;
+    virtual void saveAs(const WTF::String& fileName, const WTF::String& content) = 0;
 
     virtual void inspectedURLChanged(const String&) = 0;
+
+    virtual void sendMessageToBackend(const String&) = 0;
+
+    virtual void saveSessionSetting(const String&, const String&) { }
+    virtual void loadSessionSetting(const String&, String*) { }
 };
 
 } // namespace WebCore

@@ -29,7 +29,7 @@ enum {
 #ifdef TK_MAC_DEBUG_EVENTS
     TKLog(@"-[%@(%p) %s] %@", [self class], self, _cmd, theEvent);
 #endif
-    id		    win;
+    NSEvent	    *processedEvent = theEvent;
     NSEventType	    type = [theEvent type];
     NSInteger	    subtype;
     NSUInteger	    flags;
@@ -59,7 +59,7 @@ enum {
     case NSKeyDown:
     case NSFlagsChanged:
 	flags = [theEvent modifierFlags];
-	theEvent = [self tkProcessKeyEvent:theEvent];
+	processedEvent = [self tkProcessKeyEvent:theEvent];
 	break;
     case NSLeftMouseDown:
     case NSLeftMouseUp:
@@ -76,14 +76,17 @@ enum {
     case NSOtherMouseDragged:
     case NSTabletPoint:
     case NSTabletProximity:
-	theEvent = [self tkProcessMouseEvent:theEvent];
+	processedEvent = [self tkProcessMouseEvent:theEvent];
 	break;
+#if 0
     case NSSystemDefined:
         subtype = [theEvent subtype];
 	break;
-    case NSApplicationDefined:
+    case NSApplicationDefined: {
+	id win;
 	win = [theEvent window];
 	break;
+	}
     case NSCursorUpdate:
         break;
 #if MAC_OS_X_VERSION_MAX_ALLOWED >= 1060
@@ -95,11 +98,12 @@ enum {
     case NSEventTypeEndGesture:
         break;
 #endif
+#endif
 
     default:
 	break;
     }
-    return theEvent;
+    return processedEvent;
 }
 @end
 

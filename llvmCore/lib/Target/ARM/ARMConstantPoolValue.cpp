@@ -13,37 +13,45 @@
 
 #include "ARMConstantPoolValue.h"
 #include "llvm/ADT/FoldingSet.h"
+#include "llvm/Constant.h"
+#include "llvm/Constants.h"
 #include "llvm/GlobalValue.h"
 #include "llvm/Type.h"
-#include "llvm/Support/Streams.h"
 #include "llvm/Support/raw_ostream.h"
-#include <ostream>
+#include <cstdlib>
 using namespace llvm;
 
-ARMConstantPoolValue::ARMConstantPoolValue(GlobalValue *gv, unsigned id,
-                                           ARMCP::ARMCPKind k,
+ARMConstantPoolValue::ARMConstantPoolValue(const Constant *cval, unsigned id,
+                                           ARMCP::ARMCPKind K,
                                            unsigned char PCAdj,
                                            const char *Modif,
                                            bool AddCA)
-  : MachineConstantPoolValue((const Type*)gv->getType()),
-    GV(gv), S(NULL), LabelId(id), Kind(k), PCAdjust(PCAdj),
+  : MachineConstantPoolValue((const Type*)cval->getType()),
+    CVal(cval), S(NULL), LabelId(id), Kind(K), PCAdjust(PCAdj),
     Modifier(Modif), AddCurrentAddress(AddCA) {}
 
-ARMConstantPoolValue::ARMConstantPoolValue(const char *s, unsigned id,
-                                           ARMCP::ARMCPKind k,
+ARMConstantPoolValue::ARMConstantPoolValue(LLVMContext &C,
+                                           const char *s, unsigned id,
                                            unsigned char PCAdj,
                                            const char *Modif,
                                            bool AddCA)
-  : MachineConstantPoolValue((const Type*)Type::Int32Ty),
-    GV(NULL), S(s), LabelId(id), Kind(k), PCAdjust(PCAdj),
-    Modifier(Modif), AddCurrentAddress(AddCA) {}
+  : MachineConstantPoolValue((const Type*)Type::getInt32Ty(C)),
+    CVal(NULL), S(strdup(s)), LabelId(id), Kind(ARMCP::CPExtSymbol),
+    PCAdjust(PCAdj), Modifier(Modif), AddCurrentAddress(AddCA) {}
 
-ARMConstantPoolValue::ARMConstantPoolValue(GlobalValue *gv,
-                                           ARMCP::ARMCPKind k,
+ARMConstantPoolValue::ARMConstantPoolValue(const GlobalValue *gv,
                                            const char *Modif)
-  : MachineConstantPoolValue((const Type*)Type::Int32Ty),
-    GV(gv), S(NULL), LabelId(0), Kind(k), PCAdjust(0),
+  : MachineConstantPoolValue((const Type*)Type::getInt32Ty(gv->getContext())),
+    CVal(gv), S(NULL), LabelId(0), Kind(ARMCP::CPValue), PCAdjust(0),
     Modifier(Modif) {}
+
+const GlobalValue *ARMConstantPoolValue::getGV() const {
+  return dyn_cast_or_null<GlobalValue>(CVal);
+}
+
+const BlockAddress *ARMConstantPoolValue::getBlockAddress() const {
+  return dyn_cast_or_null<BlockAddress>(CVal);
+}
 
 int ARMConstantPoolValue::getExistingMachineCPValue(MachineConstantPool *CP,
                                                     unsigned Alignment) {
@@ -54,11 +62,11 @@ int ARMConstantPoolValue::getExistingMachineCPValue(MachineConstantPool *CP,
         (Constants[i].getAlignment() & AlignMask) == 0) {
       ARMConstantPoolValue *CPV =
         (ARMConstantPoolValue *)Constants[i].Val.MachineCPVal;
-      if (CPV->GV == GV &&
-          CPV->S == S &&
+      if (CPV->CVal == CVal &&
           CPV->LabelId == LabelId &&
-          CPV->Kind == Kind &&
-          CPV->PCAdjust == PCAdjust)
+          CPV->PCAdjust == PCAdjust &&
+          (CPV->S == S || strcmp(CPV->S, S) == 0) &&
+          (CPV->Modifier == Modifier || strcmp(CPV->Modifier, Modifier) == 0))
         return i;
     }
   }
@@ -66,31 +74,45 @@ int ARMConstantPoolValue::getExistingMachineCPValue(MachineConstantPool *CP,
   return -1;
 }
 
+ARMConstantPoolValue::~ARMConstantPoolValue() {
+  free((void*)S);
+}
+
 void
 ARMConstantPoolValue::AddSelectionDAGCSEId(FoldingSetNodeID &ID) {
-  ID.AddPointer(GV);
+  ID.AddPointer(CVal);
   ID.AddPointer(S);
   ID.AddInteger(LabelId);
-  ID.AddInteger((unsigned)Kind);
   ID.AddInteger(PCAdjust);
 }
 
-void ARMConstantPoolValue::dump() const {
-  cerr << "  " << *this;
+bool
+ARMConstantPoolValue::hasSameValue(ARMConstantPoolValue *ACPV) {
+  if (ACPV->Kind == Kind &&
+      ACPV->CVal == CVal &&
+      ACPV->PCAdjust == PCAdjust &&
+      (ACPV->S == S || strcmp(ACPV->S, S) == 0) &&
+      (ACPV->Modifier == Modifier || strcmp(ACPV->Modifier, Modifier) == 0)) {
+    if (ACPV->LabelId == LabelId)
+      return true;
+    // Two PC relative constpool entries containing the same GV address or
+    // external symbols. FIXME: What about blockaddress?
+    if (Kind == ARMCP::CPValue || Kind == ARMCP::CPExtSymbol)
+      return true;
+  }
+  return false;
 }
 
-void ARMConstantPoolValue::print(std::ostream &O) const {
-  raw_os_ostream RawOS(O);
-  print(RawOS);
+void ARMConstantPoolValue::dump() const {
+  errs() << "  " << *this;
 }
+
 
 void ARMConstantPoolValue::print(raw_ostream &O) const {
-  if (GV)
-    O << GV->getName();
+  if (CVal)
+    O << CVal->getName();
   else
     O << S;
-  if (isNonLazyPointer()) O << "$non_lazy_ptr";
-  else if (isStub()) O << "$stub";
   if (Modifier) O << "(" << Modifier << ")";
   if (PCAdjust != 0) {
     O << "-(LPC" << LabelId << "+" << (unsigned)PCAdjust;

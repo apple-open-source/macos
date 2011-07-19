@@ -1,6 +1,6 @@
---- setpgrp.c.orig	2006-09-17 12:11:20.000000000 -0700
-+++ setpgrp.c	2006-09-24 16:13:25.000000000 -0700
-@@ -40,8 +40,13 @@
+--- setpgrp.c.orig	2009-11-06 10:36:38.000000000 -0800
++++ setpgrp.c	2009-11-06 10:42:14.000000000 -0800
+@@ -36,8 +36,13 @@ __FBSDID("$FreeBSD: src/lib/libc/compat-
  #include <sys/types.h>
  #include <unistd.h>
  

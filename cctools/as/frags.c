@@ -123,7 +123,7 @@ int old_frags_var_max_size)	/* Number of chars (already allocated on obstack
     (frag_now->fr_literal) - old_frags_var_max_size;
  /* Fix up old frag's fr_fix. */
 
-    obstack_finish (&frags);
+    (void)obstack_finish (&frags);
  /* This will align the obstack so the */
  /* next struct we allocate on it will */
  /* begin at a correct boundary. */

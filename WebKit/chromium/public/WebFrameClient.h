@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,8 +32,12 @@
 #define WebFrameClient_h
 
 #include "WebCommon.h"
+#include "WebFileSystem.h"
+#include "WebIconURL.h"
 #include "WebNavigationPolicy.h"
 #include "WebNavigationType.h"
+#include "WebStorageQuotaType.h"
+#include "WebTextDirection.h"
 #include "WebURLError.h"
 
 namespace WebKit {
@@ -50,6 +54,7 @@ class WebNode;
 class WebPlugin;
 class WebSecurityOrigin;
 class WebSharedWorker;
+class WebStorageQuotaCallbacks;
 class WebString;
 class WebURL;
 class WebURLRequest;
@@ -85,23 +90,19 @@ public:
 
     // A frame specific cookie jar.  May return null, in which case
     // WebKitClient::cookieJar() will be called to access cookies.
-    virtual WebCookieJar* cookieJar() { return 0; }
+    virtual WebCookieJar* cookieJar(WebFrame*) { return 0; }
 
 
     // General notifications -----------------------------------------------
 
+    // This frame has been detached from the view.
+    //
+    // FIXME: Do not use this in new code. Currently this is used by code in
+    // Chromium that errantly caches WebKit objects.
+    virtual void frameDetached(WebFrame*) { }
+
     // This frame is about to be closed.
     virtual void willClose(WebFrame*) { }
-
-    // Controls whether plugins are allowed for this frame.
-    virtual bool allowPlugins(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
-
-    // Notifies the client that the frame would have instantiated a plug-in if plug-ins were enabled.
-    virtual void didNotAllowPlugins(WebFrame*) { }
-
-    // Controls whether images are allowed for this frame.
-    virtual bool allowImages(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
-
 
     // Load commands -------------------------------------------------------
 
@@ -194,10 +195,15 @@ public:
     virtual void didCreateDocumentElement(WebFrame*) { }
 
     // The page title is available.
+    // FIXME: remove override once Chrome is updated to new API.
     virtual void didReceiveTitle(WebFrame*, const WebString& title) { }
+    virtual void didReceiveTitle(WebFrame* frame, const WebString& title, WebTextDirection direction)
+    {
+        didReceiveTitle(frame, title);
+    }
 
-    // The icons for the page have changed.
-    virtual void didChangeIcons(WebFrame*) { }
+    // The icon for the page have changed.
+    virtual void didChangeIcon(WebFrame*, WebIconURL::Type) { }
 
     // The frame's document finished loading.
     virtual void didFinishDocumentLoad(WebFrame*) { }
@@ -233,6 +239,10 @@ public:
     virtual void assignIdentifierToRequest(
         WebFrame*, unsigned identifier, const WebURLRequest&) { }
 
+     // Remove the association between an identifier assigned to a request if
+     // the client keeps such an association.
+     virtual void removeIdentifierForRequest(unsigned identifier) { }
+
     // A request is about to be sent out, and the client may modify it.  Request
     // is writable, and changes to the URL, for example, will change the request
     // made.  If this request is the result of a redirect, then redirectResponse
@@ -265,19 +275,10 @@ public:
     // The indicated security origin has run active content (such as a
     // script) from an insecure source.  Note that the insecure content can
     // spread to other frames in the same origin.
-    virtual void didRunInsecureContent(WebFrame*, const WebSecurityOrigin&) { }
+    virtual void didRunInsecureContent(WebFrame*, const WebSecurityOrigin&, const WebURL& insecureURL) { }
 
 
     // Script notifications ------------------------------------------------
-
-    // Controls whether scripts are allowed to execute for this frame.
-    virtual bool allowScript(WebFrame*, bool enabledPerSettings) { return enabledPerSettings; }
-
-    // Controls whether access to Web Databases is allowed for this frame.
-    virtual bool allowDatabase(WebFrame*, const WebString& name, const WebString& displayName, unsigned long estimatedSize) { return true; }
-
-    // Notifies the client that the frame would have executed script if script were enabled.
-    virtual void didNotAllowScript(WebFrame*) { }
 
     // Script in the page tried to allocate too much memory.
     virtual void didExhaustMemoryAvailableForScript(WebFrame*) { }
@@ -326,6 +327,47 @@ public:
     // where on the screen the selection rect is currently located.
     virtual void reportFindInPageSelection(
         int identifier, int activeMatchOrdinal, const WebRect& selection) { }
+
+    // FileSystem ----------------------------------------------------
+
+    // Requests to open a FileSystem.
+    // |size| indicates how much storage space (in bytes) the caller expects
+    // to need.
+    // WebFileSystemCallbacks::didOpenFileSystem() must be called with
+    // a name and root path for the requested FileSystem when the operation
+    // is completed successfully. WebFileSystemCallbacks::didFail() must be
+    // called otherwise. The create bool is for indicating whether or not to
+    // create root path for file systems if it do not exist.
+    virtual void openFileSystem(
+        WebFrame*, WebFileSystem::Type, long long size,
+        bool create, WebFileSystemCallbacks*) { }
+
+    // Quota ---------------------------------------------------------
+
+    // Queries the origin's storage usage and quota information.
+    // WebStorageQuotaCallbacks::didQueryStorageUsageAndQuota will be called
+    // with the current usage and quota information for the origin. When
+    // an error occurs WebStorageQuotaCallbacks::didFail is called with an
+    // error code.
+    // The callbacks object is deleted when the callback method is called
+    // and does not need to be (and should not be) deleted manually.
+    virtual void queryStorageUsageAndQuota(
+        WebFrame*, WebStorageQuotaType, WebStorageQuotaCallbacks*) { }
+
+    // Requests a new quota size for the origin's storage.
+    // |newQuotaInBytes| indicates how much storage space (in bytes) the
+    // caller expects to need.
+    // WebStorageQuotaCallbacks::didGrantStorageQuota will be called when
+    // a new quota is granted. WebStorageQuotaCallbacks::didFail
+    // is called with an error code otherwise.
+    // Note that the requesting quota size may not always be granted and
+    // a smaller amount of quota than requested might be returned.
+    // The callbacks object is deleted when the callback method is called
+    // and does not need to be (and should not be) deleted manually.
+    virtual void requestStorageQuota(
+        WebFrame*, WebStorageQuotaType,
+        unsigned long long newQuotaInBytes,
+        WebStorageQuotaCallbacks*) { }
 
 protected:
     ~WebFrameClient() { }

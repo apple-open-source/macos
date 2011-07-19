@@ -1,11 +1,6 @@
---- utmpx.5.orig	2004-09-20 17:32:52.000000000 -0700
-+++ utmpx.5	2005-12-26 11:25:30.000000000 -0800
-@@ -34,13 +34,11 @@
- .\" ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
- .\" POSSIBILITY OF SUCH DAMAGE.
- .\"
--.Dd September 26, 2002
-+.Dd Dec 26, 2005
+--- utmpx.5.orig	2009-11-06 10:28:19.000000000 -0800
++++ utmpx.5	2009-11-06 10:29:23.000000000 -0800
+@@ -31,9 +31,7 @@
  .Dt UTMPX 5
  .Os
  .Sh NAME
@@ -16,7 +11,7 @@
  .Nd user accounting database
  .Sh SYNOPSIS
  .In utmpx.h
-@@ -49,89 +47,51 @@
+@@ -53,88 +51,51 @@ The
  .Aq Pa utmpx.h
  header defines the structures and functions for logging user.
  Currently logged in users are tracked in
@@ -26,14 +21,13 @@
 -.Pa /var/log/wtmpx ,
 -and the last login of each user is noted in
 -.Pa /var/log/lastlogx .
--The files are not automatically created if they do not exist; they
--must be created manually.
 -.Pp
 +.Pa /var/run/utmpx .
  The interface to the
  .Nm utmpx
  file is described in
- .Xr endutxent 3 .
+-.Xr getutxent 3 .
++.Xr endutxent 3 .
 +The file is not automatically created if they do not exist; it
 +must be created manually.
  .Pp
@@ -132,6 +126,7 @@
 +.Xr asl 3 ,
  .Xr endutxent 3 ,
 -.Xr logwtmpx 3 ,
+-.Xr utmp 5 ,
 -.Xr ac 8 ,
 -.Xr init 8 ,
 -.Xr newsyslog 8 ,

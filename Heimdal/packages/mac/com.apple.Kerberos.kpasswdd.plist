@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.Kerberos.kpasswdd</string>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/Library/Preferences/edu.mit.Kerberos.kadmind.launchd</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/kpasswdd</string>
+	</array>
+</dict>
+</plist>

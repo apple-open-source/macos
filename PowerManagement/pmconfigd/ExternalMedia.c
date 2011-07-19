@@ -27,7 +27,7 @@
 #include <IOKit/storage/IOStorageProtocolCharacteristics.h>
 
 #include "ExternalMedia.h"
-#include "SetActive.h"
+#include "PMAssertions.h"
 #include "PrivateLib.h"
 
 #if !TARGET_OS_EMBEDDED
@@ -45,7 +45,7 @@ static void _DiskAppeared(DADiskRef disk, void * context);
 /*****************************************************************************/
 
 static CFMutableSetRef      gExternalMediaSet = NULL;
-static int                  gDiskAssertionID = kIOPMNullAssertionID;
+static IOPMAssertionID      gDiskAssertionID = kIOPMNullAssertionID;
 static DASessionRef         gDASession = NULL;
 
 /*****************************************************************************/
@@ -106,7 +106,7 @@ static bool weLikeTheDisk(DADiskRef disk)
     That will prevent deep sleep.     
       USB hard drive    : Protocol = USB
       USB thumb drive   : Protocol = USB 
-      SD Card           : Protocol = USB, Protocol = Secure Digital
+      SD Card           : Protocol = USB, Protocol = Secure Digital 
 
     These disks do not cause us to create an ExternalMedia assertion;
       CD/DVD            : Protocol = ATAPI
@@ -132,35 +132,92 @@ static bool weLikeTheDisk(DADiskRef disk)
 
 /*****************************************************************************/
 
+static CFMutableDictionaryRef	_IOPMAssertionDescriptionCreate(
+    CFStringRef AssertionType, 
+    CFStringRef Name, 
+    CFStringRef Details,
+    CFStringRef HumanReadableReason,
+    CFStringRef LocalizationBundlePath,
+    CFTimeInterval Timeout,
+    CFStringRef TimeoutBehavior)
+{
+    CFMutableDictionaryRef  descriptor = NULL;
+    
+    if (!AssertionType || !Name) {
+        return NULL;
+    }
+    
+    descriptor = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!descriptor) {
+        return NULL;
+    }
+
+    CFDictionarySetValue(descriptor, kIOPMAssertionNameKey, Name);
+
+    int _on = kIOPMAssertionLevelOn;
+    CFNumberRef _on_num = CFNumberCreate(0, kCFNumberIntType, &_on);
+    CFDictionarySetValue(descriptor, kIOPMAssertionLevelKey, _on_num);
+    CFRelease(_on_num);
+
+    CFDictionarySetValue(descriptor, kIOPMAssertionTypeKey, AssertionType);
+
+    if (Details) {
+        CFDictionarySetValue(descriptor, kIOPMAssertionDetailsKey, Details);
+    }
+    if (HumanReadableReason) {
+        CFDictionarySetValue(descriptor, kIOPMAssertionHumanReadableReasonKey, HumanReadableReason);
+    }
+    if (LocalizationBundlePath) {
+        CFDictionarySetValue(descriptor, kIOPMAssertionLocalizationBundlePathKey, LocalizationBundlePath);
+    }
+    if (Timeout) {
+        CFNumberRef Timeout_num = CFNumberCreate(0, kCFNumberDoubleType, &Timeout);
+        CFDictionarySetValue(descriptor, kIOPMAssertionTimeoutKey, Timeout_num);
+        CFRelease(Timeout_num);
+    }
+    if (TimeoutBehavior)
+    {
+        CFDictionarySetValue(descriptor, kIOPMAssertionTimeoutActionKey, TimeoutBehavior);
+    }
+
+    return descriptor;
+}
+
+
 static void adjustExternalDiskAssertion()
 {
     CFIndex	deviceCount = CFSetGetCount(gExternalMediaSet);
     
-    if ((0 == deviceCount)
-        && (kIOPMNullAssertionID != gDiskAssertionID))
+    if (0 == deviceCount)
     {	
         /*
          * Release assertion
          */
         
-        InternalAssertionRelease(gDiskAssertionID);
+        InternalReleaseAssertion(&gDiskAssertionID);
         
-        gDiskAssertionID = kIOPMNullAssertionID;
 
         return;
     }
     
 
-    if ((0 < deviceCount)
-        && (kIOPMNullAssertionID == gDiskAssertionID))
+    if (0 < deviceCount)
     {
         /*
          *  Create new assertion
          */
+         
+        CFMutableDictionaryRef assertionDescription = NULL;
+         
+        assertionDescription = _IOPMAssertionDescriptionCreate(
+                                        _kIOPMAssertionTypeExternalMedia, 
+                                        CFSTR(_kExternalMediaAssertionName), 
+                                        NULL, CFSTR("An external media device is attached."), NULL, 0, NULL);
         
-        InternalAssertionCreate(_kExternalMediaAssertionName, 
-                                _kIOPMAssertionTypeExternalMediaCStr, 
+        InternalCreateAssertion(assertionDescription, 
                                 &gDiskAssertionID);
+
+        CFRelease(assertionDescription);
 
         return;
     }

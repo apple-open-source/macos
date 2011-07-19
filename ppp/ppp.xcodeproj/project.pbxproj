@@ -16,7 +16,7 @@
 			);
 			dependencies = (
 				230560D605E1808C00EAB16F /* PBXTargetDependency */,
-				230560D805E1808C00EAB16F /* PBXTargetDependency */,
+				72FD18FF1015543200277ED4 /* PBXTargetDependency */,
 				230560DA05E1808C00EAB16F /* PBXTargetDependency */,
 				230560DC05E1808C00EAB16F /* PBXTargetDependency */,
 				230560DE05E1808C00EAB16F /* PBXTargetDependency */,
@@ -60,6 +60,7 @@
 			dependencies = (
 				230560F205E1808C00EAB16F /* PBXTargetDependency */,
 				230560F405E1808C00EAB16F /* PBXTargetDependency */,
+				72FD18F81015541C00277ED4 /* PBXTargetDependency */,
 				230560F605E1808C00EAB16F /* PBXTargetDependency */,
 				230560FA05E1808C00EAB16F /* PBXTargetDependency */,
 			);
@@ -120,6 +121,8 @@
 			dependencies = (
 				83F592E50F6B379300B1E1AE /* PBXTargetDependency */,
 				72C265CE0D412950003A6CE8 /* PBXTargetDependency */,
+				81937EB5107EC4B100EEE3F8 /* PBXTargetDependency */,
+				72DA28211151704B0028754B /* PBXTargetDependency */,
 			);
 			name = "Helpers (Aggregate) EMBEDDED";
 			productName = "Helpers (Aggregate)";
@@ -414,13 +417,28 @@
 		23EC339B0CD7E4BB005AB2A9 /* ipsec_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC33990CD7E4BB005AB2A9 /* ipsec_manager.h */; };
 		23EC339C0CD7E4BB005AB2A9 /* ipsec_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 23EC339A0CD7E4BB005AB2A9 /* ipsec_manager.c */; };
 		23EC340B0CD94AFE005AB2A9 /* scnc_main.h in Headers */ = {isa = PBXBuildFile; fileRef = 23EC340A0CD94AFE005AB2A9 /* scnc_main.h */; };
+		7202B3F5114EF02700FD3AA2 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF60F572A1B0031E487 /* main.c */; };
+		7202B3F6114EF02700FD3AA2 /* vpnagent.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF70F572A1B0031E487 /* vpnagent.c */; };
+		7202B3F7114EF02700FD3AA2 /* vpnagent_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF80F572A1B0031E487 /* vpnagent_utils.c */; };
+		7202B3F8114EF02700FD3AA2 /* vpnagent_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EFA0F572A1B0031E487 /* vpnagent_control.c */; };
+		7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB13A0235C9C70160DF93 /* SystemConfiguration.framework */; };
+		7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
+		7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
 		72117C6409EC519A008EC1A2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
+		723074571161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
+		723074581161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
+		723074591161275A004C0871 /* vpn_environment.c in Sources */ = {isa = PBXBuildFile; fileRef = 723074551161275A004C0871 /* vpn_environment.c */; };
+		7230745A1161275A004C0871 /* vpn_environment.h in Headers */ = {isa = PBXBuildFile; fileRef = 723074561161275A004C0871 /* vpn_environment.h */; };
 		723FE96709E5C4AA00845480 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
+		7249BFC112A9518100FB4435 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		7251DFEF09212AAA00B94FFF /* radius_eap.c in Sources */ = {isa = PBXBuildFile; fileRef = 7251DFEE09212AAA00B94FFF /* radius_eap.c */; };
 		7251E01309212CF000B94FFF /* radius.h in Headers */ = {isa = PBXBuildFile; fileRef = 7251E01209212CF000B94FFF /* radius.h */; };
 		725D8ABC0DA5C12400017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8ABA0DA5C12400017E37 /* Localizable.strings */; };
 		725D8AC30DA5C14800017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AC10DA5C14800017E37 /* Localizable.strings */; };
 		725D8AD50DA5C45700017E37 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = 725D8AD30DA5C45700017E37 /* Localizable.strings */; };
+		7273078E11611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
+		7273078F11611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
+		7273079011611E7100395F26 /* net_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 7273078C11611E7100395F26 /* net_utils.c */; };
 		728CB6300D404ECD00B1964E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		728CB6400D404F6600B1964E /* pptp.h in Headers */ = {isa = PBXBuildFile; fileRef = FAD305DC029D629504CA2CDC /* pptp.h */; };
 		728CB6410D404F6600B1964E /* PPP_VERSION.h in Headers */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
@@ -471,12 +489,13 @@
 		7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
 		7290FED40D3318CC0027CEAD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA43F57A00F2A22504CA2CDC /* IOKit.framework */; };
 		7290FED70D3318CC0027CEAD /* PPPDialogs.ppp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23055F8C05E1808100EAB16F /* PPPDialogs.ppp */; };
-		7294F1440CE557C30084954B /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
 		7294F16A0CE559EF0084954B /* pfkey.c in Sources */ = {isa = PBXBuildFile; fileRef = FA76575503EB2B7504CA2DDA /* pfkey.c */; };
 		72A56F870D1B58EB00DFDE1E /* ipsec_strerror.h in Headers */ = {isa = PBXBuildFile; fileRef = FA76575303EB2B7504CA2DDA /* ipsec_strerror.h */; };
 		72A56FF10D1B5E2300DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72A570130D1B5E9400DFDE1E /* PPP_VERSION.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */; };
 		72B9DBF00F6DEFD3006DFE11 /* SpringBoardServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */; };
+		72BE352510A0C29900F4849C /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
+		72BE36B810A11F3800F4849C /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		72C265870D412932003A6CE8 /* ccp.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E20235C6910160DF93 /* ccp.h */; };
 		72C265880D412932003A6CE8 /* chap_ms.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0E40235C6910160DF93 /* chap_ms.h */; };
 		72C265890D412932003A6CE8 /* fsm.h in Headers */ = {isa = PBXBuildFile; fileRef = F51AB0EF0235C6910160DF93 /* fsm.h */; };
@@ -531,8 +550,17 @@
 		72C265BD0D412932003A6CE8 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FA9E969403798CF504CA2CDC /* IOKit.framework */; };
 		72C265BE0D412932003A6CE8 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		72C265C10D412932003A6CE8 /* pppd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FAAAD5FD023EA4CE04CA2CDC /* pppd.8 */; };
+		72C3BA0C11474CEB004184C2 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 23524800049FFD5F0051E486 /* Security.framework */; };
 		72D07F270A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
 		72D07F280A65A7D0009D1FA4 /* vpn_control.h in Headers */ = {isa = PBXBuildFile; fileRef = 72D07F260A65A7D0009D1FA4 /* vpn_control.h */; };
+		72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72BE352410A0C29900F4849C /* MobileInstallation.framework */; };
+		72DC04C1115834E700CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
+		72DC04C2115834F800CEA5A9 /* vpnagent.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DC04BA1158348E00CEA5A9 /* vpnagent.8 */; };
+		72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DCD75B1149BBE900B25E3A /* vpn_configuration.c */; };
+		72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */ = {isa = PBXBuildFile; fileRef = 72DCD75B1149BBE900B25E3A /* vpn_configuration.c */; };
+		72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 2395013C06504CF800ECAC9B /* ipsec_utils.c */; };
+		72E07C47103E387600E4241C /* vpnd.5 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E07C3B103E376900E4241C /* vpnd.5 */; };
+		72E8A03712973B36002DD098 /* vpn-plugins.sb in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72E8A03412973AE5002DD098 /* vpn-plugins.sb */; };
 		72F5EB630D4721600078F2B3 /* PPPControllerPriv.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */; };
 		72FDE4750D4124C4007C4F13 /* if_ppp.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5C00754CF87F000001 /* if_ppp.h */; };
 		72FDE4760D4124C4007C4F13 /* if_ppplink.h in Headers */ = {isa = PBXBuildFile; fileRef = 014A7C5D00754CF87F000001 /* if_ppplink.h */; };
@@ -584,15 +612,38 @@
 		72FDE5030D41256B007C4F13 /* NetworkConnect.icns in Resources */ = {isa = PBXBuildFile; fileRef = 018CF39F00BDC8447F000001 /* NetworkConnect.icns */; };
 		72FDE5050D41256B007C4F13 /* Dialogs.c in Sources */ = {isa = PBXBuildFile; fileRef = 071EC564009888F57F000001 /* Dialogs.c */; };
 		72FDE5070D41256B007C4F13 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */; };
+		813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 81CF182E111126D500D53EB8 /* StoreServices.framework */; };
+		813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8179206711124814005B9F24 /* Foundation.framework */; };
+		81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 81953A2E0F5208CB00BC014C /* vpn_manager.c */; };
+		81937E63107EC2FA00EEE3F8 /* vpn_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 81953A2F0F5208EE00BC014C /* vpn_manager.h */; };
+		81937E95107EC4A200EEE3F8 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF60F572A1B0031E487 /* main.c */; };
+		81937E96107EC4A200EEE3F8 /* vpnagent.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF70F572A1B0031E487 /* vpnagent.c */; };
+		81937E97107EC4A200EEE3F8 /* vpnagent_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF80F572A1B0031E487 /* vpnagent_utils.c */; };
+		81937E98107EC4A200EEE3F8 /* vpnagent_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EFA0F572A1B0031E487 /* vpnagent_control.c */; };
+		81937E9B107EC4A200EEE3F8 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB13A0235C9C70160DF93 /* SystemConfiguration.framework */; };
+		81937E9C107EC4A200EEE3F8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
+		81C9000C1092603B00DDB6A2 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */; };
+		81D42EFB0F572A1B0031E487 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF60F572A1B0031E487 /* main.c */; };
+		81D42EFC0F572A1B0031E487 /* vpnagent.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF70F572A1B0031E487 /* vpnagent.c */; };
+		81D42EFD0F572A1B0031E487 /* vpnagent_utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EF80F572A1B0031E487 /* vpnagent_utils.c */; };
+		81D42EFF0F572A1B0031E487 /* vpnagent_control.c in Sources */ = {isa = PBXBuildFile; fileRef = 81D42EFA0F572A1B0031E487 /* vpnagent_control.c */; };
+		81D4302D0F57579B0031E487 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
+		81D430A80F575A040031E487 /* vpn_manager.c in Sources */ = {isa = PBXBuildFile; fileRef = 81953A2E0F5208CB00BC014C /* vpn_manager.c */; };
+		81D430A90F575A160031E487 /* vpn_manager.h in Headers */ = {isa = PBXBuildFile; fileRef = 81953A2F0F5208EE00BC014C /* vpn_manager.h */; };
+		81FC7D9511C697B20058949B /* PluginDownloadObserver.m in Sources */ = {isa = PBXBuildFile; fileRef = 81FC7D9411C697B20058949B /* PluginDownloadObserver.m */; };
 		830402C50F6B43590062C836 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F51AB14A0235CA450160DF93 /* CoreFoundation.framework */; };
-		830403510F6B4D3C0062C836 /* sbslauncher in CopyFiles */ = {isa = PBXBuildFile; fileRef = 83F592D40F6B376D00B1E1AE /* sbslauncher */; };
 		834679F60DCFE34700FCABA3 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
 		83467A260DCFE8FC00FCABA3 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
 		8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */; };
-		83F592FB0F6B38C900B1E1AE /* sbslauncher.c in Sources */ = {isa = PBXBuildFile; fileRef = 83F592FA0F6B38C900B1E1AE /* sbslauncher.c */; };
+		83F592FB0F6B38C900B1E1AE /* sbslauncher.m in Sources */ = {isa = PBXBuildFile; fileRef = 83F592FA0F6B38C900B1E1AE /* sbslauncher.m */; };
 		BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C20F3FFDF200E52690 /* messageTracer.h */; };
 		BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */ = {isa = PBXBuildFile; fileRef = BA1E33C30F3FFDF200E52690 /* sessionTracer.c */; };
 		BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */ = {isa = PBXBuildFile; fileRef = BA1E33C40F3FFDF200E52690 /* sessionTracer.h */; };
+		BA6C4EA210D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
+		BA6C4EA310D49581001D4B22 /* net_location.c in Sources */ = {isa = PBXBuildFile; fileRef = BA6C4EA110D49581001D4B22 /* net_location.c */; };
+		BA6C4F2410D4BD89001D4B22 /* Apple80211.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = BAB4969610CC6007007B830C /* Apple80211.framework */; };
+		BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
+		BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */ = {isa = PBXBuildFile; fileRef = BAC29FA410D493F9007AC660 /* nat_port_mapping.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -609,13 +660,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = 2305603E05E1808400EAB16F;
 			remoteInfo = "InstallHeaders (Upgraded)";
-		};
-		230560D705E1808C00EAB16F /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 23055F5605E1808000EAB16F;
-			remoteInfo = "Helpers (Aggregate) (Upgraded)";
 		};
 		230560D905E1808C00EAB16F /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -834,6 +878,27 @@
 			remoteGlobalIDString = 72C265850D412932003A6CE8;
 			remoteInfo = "pppd (Tool) EMBEDDED";
 		};
+		72DA28201151704B0028754B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7202B3F3114EF02700FD3AA2;
+			remoteInfo = "vpnagent (Tool - Developer) EMBEDDED";
+		};
+		72FD18F71015541C00277ED4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81D42ED10F5728790031E487;
+			remoteInfo = "vpnagent (Tool)";
+		};
+		72FD18FE1015543200277ED4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 23055F5605E1808000EAB16F;
+			remoteInfo = "Helpers (Aggregate)";
+		};
 		72FDE4AA0D4124F1007C4F13 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
@@ -861,6 +926,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 72FDE4FE0D41256B007C4F13;
 			remoteInfo = "PPPDialogs (Plugin) EMBEDDED";
+		};
+		81937EB4107EC4B100EEE3F8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 7129A431FFF956F311CA2CDC /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 81937E93107EC4A200EEE3F8;
+			remoteInfo = "vpnagent (Tool) Embedded";
 		};
 		830403480F6B4CC00062C836 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -891,12 +963,13 @@
 		};
 		23055ED305E1807F00EAB16F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 13;
+			buildActionMask = 8;
+			dstPath = /System/Library/Sandbox/Profiles;
+			dstSubfolderSpec = 0;
 			files = (
+				72E8A03712973B36002DD098 /* vpn-plugins.sb in CopyFiles */,
 			);
-			runOnlyForDeploymentPostprocessing = 0;
+			runOnlyForDeploymentPostprocessing = 1;
 		};
 		23055EEE05E1807F00EAB16F /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -1079,13 +1152,42 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		72DC04CB1158350500CEA5A9 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				72DC04C1115834E700CEA5A9 /* vpnagent.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72DC04CC1158350500CEA5A9 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				72DC04C2115834F800CEA5A9 /* vpnagent.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72E07C46103E37E200E4241C /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = usr/share/man/man5;
+			dstSubfolderSpec = 0;
+			files = (
+				72E07C47103E387600E4241C /* vpnd.5 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		830403500F6B4D140062C836 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 2147483647;
 			dstPath = "";
 			dstSubfolderSpec = 7;
 			files = (
-				830403510F6B4D3C0062C836 /* sbslauncher in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1246,23 +1348,52 @@
 		7129A45CFFF956F311CA2CDC /* ppp_getoption.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ppp_getoption.c; path = Controller/ppp_getoption.c; sourceTree = "<group>"; };
 		7129A45DFFF956F311CA2CDC /* ppp_manager.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = ppp_manager.c; path = Controller/ppp_manager.c; sourceTree = "<group>"; };
 		7129A463FFF956F311CA2CDC /* scnc_main.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = scnc_main.c; path = Controller/scnc_main.c; sourceTree = "<group>"; };
+		7202B401114EF02700FD3AA2 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
+		72047525101FE0A200E486DB /* vpnagent_control_var.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent_control_var.h; path = vpnagent/vpnagent_control_var.h; sourceTree = "<group>"; };
+		72047526101FE0A200E486DB /* vpnagent_control.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent_control.h; path = vpnagent/vpnagent_control.h; sourceTree = "<group>"; };
+		72047527101FE0A200E486DB /* vpnagent_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent_utils.h; path = vpnagent/vpnagent_utils.h; sourceTree = "<group>"; };
+		72047528101FE0A200E486DB /* vpnagent.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = vpnagent.h; path = vpnagent/vpnagent.h; sourceTree = "<group>"; };
+		723074551161275A004C0871 /* vpn_environment.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_environment.c; path = Controller/vpn_environment.c; sourceTree = "<group>"; };
+		723074561161275A004C0871 /* vpn_environment.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_environment.h; sourceTree = "<group>"; };
 		7251DFEE09212AAA00B94FFF /* radius_eap.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = radius_eap.c; path = Authenticators/Radius/radius_eap.c; sourceTree = "<group>"; };
 		7251E01209212CF000B94FFF /* radius.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = radius.h; path = Authenticators/Radius/radius.h; sourceTree = "<group>"; };
 		725D8ABB0DA5C12400017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = EMBEDDED/English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AC20DA5C14800017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/Localizable.strings; sourceTree = "<group>"; };
 		725D8AD40DA5C45700017E37 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = Dialogs/EMBEDDED/English.lproj/Localizable.strings; sourceTree = SOURCE_ROOT; };
+		7273078C11611E7100395F26 /* net_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_utils.c; path = vpnagent/net_utils.c; sourceTree = "<group>"; };
+		7273078D11611E7100395F26 /* net_utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = net_utils.h; path = vpnagent/net_utils.h; sourceTree = "<group>"; };
 		728CB6530D404F6600B1964E /* PPTP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPTP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		728CB6870D404F8C00B1964E /* L2TP.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
 		7290FEDD0D3318CC0027CEAD /* PPPController.bundle */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPController.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
+		72B435CE1138BFBA00EBF1B6 /* vpnagent-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement.plist"; path = "vpnagent/vpnagent-entitlement.plist"; sourceTree = "<group>"; };
 		72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SpringBoardServices.framework; path = System/Library/PrivateFrameworks/SpringBoardServices.framework; sourceTree = SDKROOT; };
 		72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = SYSTEM_DEVELOPER_DIR; };
+		72BE352410A0C29900F4849C /* MobileInstallation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MobileInstallation.framework; path = System/Library/PrivateFrameworks/MobileInstallation.framework; sourceTree = SDKROOT; };
+		72C04DBD1304666B00163BFD /* vpn_configuration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_configuration.h; sourceTree = "<group>"; };
 		72C265C70D412932003A6CE8 /* pppd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pppd; sourceTree = BUILT_PRODUCTS_DIR; };
 		72D07F260A65A7D0009D1FA4 /* vpn_control.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vpn_control.h; path = "Drivers/L2TP/L2TP-plugin/vpn_control.h"; sourceTree = "<group>"; };
+		72DA281011516ECB0028754B /* vpnagent-entitlement-dev.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "vpnagent-entitlement-dev.plist"; path = "vpnagent/vpnagent-entitlement-dev.plist"; sourceTree = "<group>"; };
+		72DC04BA1158348E00CEA5A9 /* vpnagent.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = vpnagent.8; path = vpnagent/vpnagent.8; sourceTree = "<group>"; };
+		72DCD75B1149BBE900B25E3A /* vpn_configuration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_configuration.c; path = Controller/vpn_configuration.c; sourceTree = "<group>"; };
+		72DE98FD10113DF700DF2440 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
+		72E07C3B103E376900E4241C /* vpnd.5 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = vpnd.5; path = vpnd/vpnd.5; sourceTree = "<group>"; };
+		72E8A03412973AE5002DD098 /* vpn-plugins.sb */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "vpn-plugins.sb"; path = "vpnagent/vpn-plugins.sb"; sourceTree = "<group>"; };
 		72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PPPControllerPriv.h; sourceTree = "<group>"; };
 		72FDE4940D4124C4007C4F13 /* PPP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE4C20D41251B007C4F13 /* L2TP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = L2TP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE4E40D412522007C4F13 /* PPTP.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPTP.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		72FDE50D0D41256B007C4F13 /* PPPDialogs.ppp */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = PPPDialogs.ppp; sourceTree = BUILT_PRODUCTS_DIR; };
+		8179206711124814005B9F24 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
+		81937EA1107EC4A200EEE3F8 /* vpnagent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = vpnagent; sourceTree = BUILT_PRODUCTS_DIR; };
+		81953A2E0F5208CB00BC014C /* vpn_manager.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpn_manager.c; path = Controller/vpn_manager.c; sourceTree = "<group>"; };
+		81953A2F0F5208EE00BC014C /* vpn_manager.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = vpn_manager.h; sourceTree = "<group>"; };
+		81CF182E111126D500D53EB8 /* StoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = StoreServices.framework; path = System/Library/PrivateFrameworks/StoreServices.framework; sourceTree = SDKROOT; };
+		81D42EF60F572A1B0031E487 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = vpnagent/main.c; sourceTree = "<group>"; };
+		81D42EF70F572A1B0031E487 /* vpnagent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpnagent.c; path = vpnagent/vpnagent.c; sourceTree = "<group>"; };
+		81D42EF80F572A1B0031E487 /* vpnagent_utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpnagent_utils.c; path = vpnagent/vpnagent_utils.c; sourceTree = "<group>"; };
+		81D42EFA0F572A1B0031E487 /* vpnagent_control.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vpnagent_control.c; path = vpnagent/vpnagent_control.c; sourceTree = "<group>"; };
+		81FC7D9311C697B20058949B /* PluginDownloadObserver.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PluginDownloadObserver.h; path = sbslauncher/PluginDownloadObserver.h; sourceTree = "<group>"; };
+		81FC7D9411C697B20058949B /* PluginDownloadObserver.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = PluginDownloadObserver.m; path = sbslauncher/PluginDownloadObserver.m; sourceTree = "<group>"; };
 		832EE3BC0F6873020026B6E4 /* pppd-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "pppd-entitlement.plist"; path = "pppd/pppd-entitlement.plist"; sourceTree = "<group>"; };
 		836F4BE305DB26090099DEC1 /* chap-md5.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = "chap-md5.c"; path = "pppd/chap-md5.c"; sourceTree = "<group>"; };
 		8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreTelephony.framework; path = /System/Library/PrivateFrameworks/CoreTelephony.framework; sourceTree = "<absolute>"; };
@@ -1274,11 +1405,14 @@
 		838BE5EF053C9D9A00F0D0CB /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
 		83F592D40F6B376D00B1E1AE /* sbslauncher */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sbslauncher; sourceTree = BUILT_PRODUCTS_DIR; };
 		83F592F90F6B38C900B1E1AE /* sbslauncher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sbslauncher.h; path = sbslauncher/sbslauncher.h; sourceTree = "<group>"; };
-		83F592FA0F6B38C900B1E1AE /* sbslauncher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sbslauncher.c; path = sbslauncher/sbslauncher.c; sourceTree = "<group>"; };
+		83F592FA0F6B38C900B1E1AE /* sbslauncher.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = sbslauncher.m; path = sbslauncher/sbslauncher.m; sourceTree = "<group>"; };
 		83F593010F6B394800B1E1AE /* sbslauncher-entitlement.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "sbslauncher-entitlement.plist"; path = "sbslauncher/sbslauncher-entitlement.plist"; sourceTree = "<group>"; };
 		BA1E33C20F3FFDF200E52690 /* messageTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = messageTracer.h; sourceTree = "<group>"; };
 		BA1E33C30F3FFDF200E52690 /* sessionTracer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sessionTracer.c; path = Controller/sessionTracer.c; sourceTree = "<group>"; };
 		BA1E33C40F3FFDF200E52690 /* sessionTracer.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sessionTracer.h; sourceTree = "<group>"; };
+		BA6C4EA110D49581001D4B22 /* net_location.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = net_location.c; path = Controller/net_location.c; sourceTree = "<group>"; };
+		BAB4969610CC6007007B830C /* Apple80211.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Apple80211.framework; path = /System/Library/PrivateFrameworks/Apple80211.framework; sourceTree = "<absolute>"; };
+		BAC29FA410D493F9007AC660 /* nat_port_mapping.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = nat_port_mapping.c; path = Controller/nat_port_mapping.c; sourceTree = "<group>"; };
 		F50592A103DDFFB301CA2DE3 /* vpnd.8 */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = vpnd.8; path = vpnd/vpnd.8; sourceTree = "<group>"; };
 		F5130EDC03F04FD701CA2DE3 /* vpnoptions.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = vpnoptions.c; path = vpnd/vpnoptions.c; sourceTree = "<group>"; };
 		F5130EDE03F04FF301CA2DE3 /* vpnoptions.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = vpnoptions.h; path = vpnd/vpnoptions.h; sourceTree = "<group>"; };
@@ -1392,6 +1526,8 @@
 				23055EEA05E1807F00EAB16F /* CoreFoundation.framework in Frameworks */,
 				23055EEB05E1807F00EAB16F /* SystemConfiguration.framework in Frameworks */,
 				23055EEC05E1807F00EAB16F /* IOKit.framework in Frameworks */,
+				BA6C4F2410D4BD89001D4B22 /* Apple80211.framework in Frameworks */,
+				72C3BA0C11474CEB004184C2 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1598,6 +1734,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7202B3F9114EF02700FD3AA2 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7202B3FA114EF02700FD3AA2 /* SystemConfiguration.framework in Frameworks */,
+				7202B3FB114EF02700FD3AA2 /* CoreFoundation.framework in Frameworks */,
+				7202B3FC114EF02700FD3AA2 /* MobileInstallation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		728CB6480D404F6600B1964E /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -1622,10 +1768,12 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72BE36B810A11F3800F4849C /* Security.framework in Frameworks */,
 				7290FED20D3318CC0027CEAD /* CoreFoundation.framework in Frameworks */,
 				7290FED30D3318CC0027CEAD /* SystemConfiguration.framework in Frameworks */,
 				7290FED40D3318CC0027CEAD /* IOKit.framework in Frameworks */,
 				8376A9630DCA88ED0084EA79 /* CoreTelephony.framework in Frameworks */,
+				72BE352510A0C29900F4849C /* MobileInstallation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1670,12 +1818,34 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		81937E99107EC4A200EEE3F8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81937E9B107EC4A200EEE3F8 /* SystemConfiguration.framework in Frameworks */,
+				81937E9C107EC4A200EEE3F8 /* CoreFoundation.framework in Frameworks */,
+				72D35601112F7EF9000F1B65 /* MobileInstallation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81D42ED00F5728790031E487 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81C9000C1092603B00DDB6A2 /* SystemConfiguration.framework in Frameworks */,
+				81D4302D0F57579B0031E487 /* CoreFoundation.framework in Frameworks */,
+				7249BFC112A9518100FB4435 /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		83F592D20F6B376D00B1E1AE /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
 				830402C50F6B43590062C836 /* CoreFoundation.framework in Frameworks */,
 				72B9DBF00F6DEFD3006DFE11 /* SpringBoardServices.framework in Frameworks */,
+				813F1F6E11168087005AB6C7 /* StoreServices.framework in Frameworks */,
+				813F1F6F1116809D005AB6C7 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1878,13 +2048,18 @@
 		2D5033BA0072595C7F000001 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				72DCD75B1149BBE900B25E3A /* vpn_configuration.c */,
 				7129A45DFFF956F311CA2CDC /* ppp_manager.c */,
 				7129A45CFFF956F311CA2CDC /* ppp_getoption.c */,
 				23EC339A0CD7E4BB005AB2A9 /* ipsec_manager.c */,
 				23B708FF061CA53B008BA483 /* scnc_utils.c */,
 				01A345D600C4684A7F000001 /* scnc_client.c */,
+				81953A2E0F5208CB00BC014C /* vpn_manager.c */,
+				723074551161275A004C0871 /* vpn_environment.c */,
 				7129A463FFF956F311CA2CDC /* scnc_main.c */,
 				BA1E33C30F3FFDF200E52690 /* sessionTracer.c */,
+				BA6C4EA110D49581001D4B22 /* net_location.c */,
+				BAC29FA410D493F9007AC660 /* nat_port_mapping.c */,
 			);
 			name = Sources;
 			sourceTree = SOURCE_ROOT;
@@ -1921,7 +2096,7 @@
 				7129A4BAFFF956F311CA2CDC /* Helpers */,
 				23F53312052E16E70011A2BC /* chat */,
 				7129A4B5FFF956F311CA2CDC /* SampleCode */,
-				7129A4CBFFF956F311CA2CDC /* External Frameworks and Libraries */,
+				7129A4CBFFF956F311CA2CDC /* External Libraries */,
 				7129A4CEFFF956F311CA2CDC /* Products */,
 				23A7DF9005DAD1A100A3589A /* PPP_VERSION.h */,
 				72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */,
@@ -1947,13 +2122,16 @@
 		7129A439FFF956F311CA2CDC /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				72C04DBD1304666B00163BFD /* vpn_configuration.h */,
 				72F5EB620D4721600078F2B3 /* PPPControllerPriv.h */,
 				23EC340A0CD94AFE005AB2A9 /* scnc_main.h */,
-				7129A445FFF956F311CA2CDC /* scnc_client.h */,
 				23B70908061CA5B6008BA483 /* scnc_utils.h */,
+				7129A445FFF956F311CA2CDC /* scnc_client.h */,
 				7129A449FFF956F311CA2CDC /* ppp_option.h */,
 				7129A447FFF956F311CA2CDC /* ppp_manager.h */,
 				23EC33990CD7E4BB005AB2A9 /* ipsec_manager.h */,
+				81953A2F0F5208EE00BC014C /* vpn_manager.h */,
+				723074561161275A004C0871 /* vpn_environment.h */,
 				BA1E33C20F3FFDF200E52690 /* messageTracer.h */,
 				BA1E33C40F3FFDF200E52690 /* sessionTracer.h */,
 			);
@@ -2049,20 +2227,23 @@
 				013F9724001901697F000001 /* MiniTerm */,
 				F51AB1710235CB0B0160DF93 /* pppstats */,
 				83F592F30F6B386600B1E1AE /* sbslauncher */,
+				81953A300F52093A00BC014C /* vpnagent */,
 			);
 			path = Helpers;
 			sourceTree = SOURCE_ROOT;
 		};
-		7129A4CBFFF956F311CA2CDC /* External Frameworks and Libraries */ = {
+		7129A4CBFFF956F311CA2CDC /* External Libraries */ = {
 			isa = PBXGroup;
 			children = (
+				72BE352410A0C29900F4849C /* MobileInstallation.framework */,
 				8376A9620DCA88ED0084EA79 /* CoreTelephony.framework */,
 				FAAA1C1B00D5475E04CA2CDC /* CoreFoundation.framework */,
 				FAAA1C2300D5514104CA2CDC /* SystemConfiguration.framework */,
 				FA43F57A00F2A22504CA2CDC /* IOKit.framework */,
 				2562EB670469BA5F005239BE /* DirectoryService.framework */,
+				BAB4969610CC6007007B830C /* Apple80211.framework */,
 			);
-			name = "External Frameworks and Libraries";
+			name = "External Libraries";
 			sourceTree = "<group>";
 		};
 		7129A4CEFFF956F311CA2CDC /* Products */ = {
@@ -2103,6 +2284,9 @@
 				72FDE50D0D41256B007C4F13 /* PPPDialogs.ppp */,
 				72C265C70D412932003A6CE8 /* pppd */,
 				83F592D40F6B376D00B1E1AE /* sbslauncher */,
+				72DE98FD10113DF700DF2440 /* vpnagent */,
+				81937EA1107EC4A200EEE3F8 /* vpnagent */,
+				7202B401114EF02700FD3AA2 /* vpnagent */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -2123,13 +2307,46 @@
 			name = EMBEDDED;
 			sourceTree = "<group>";
 		};
+		81953A300F52093A00BC014C /* vpnagent */ = {
+			isa = PBXGroup;
+			children = (
+				72E8A03412973AE5002DD098 /* vpn-plugins.sb */,
+				7273078C11611E7100395F26 /* net_utils.c */,
+				7273078D11611E7100395F26 /* net_utils.h */,
+				72DC04BA1158348E00CEA5A9 /* vpnagent.8 */,
+				81D42EF60F572A1B0031E487 /* main.c */,
+				81D42EF70F572A1B0031E487 /* vpnagent.c */,
+				81D42EF80F572A1B0031E487 /* vpnagent_utils.c */,
+				81D42EFA0F572A1B0031E487 /* vpnagent_control.c */,
+				72B435CE1138BFBA00EBF1B6 /* vpnagent-entitlement.plist */,
+				72DA281011516ECB0028754B /* vpnagent-entitlement-dev.plist */,
+				81953A310F52095800BC014C /* Headers */,
+			);
+			name = vpnagent;
+			sourceTree = "<group>";
+		};
+		81953A310F52095800BC014C /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				72047525101FE0A200E486DB /* vpnagent_control_var.h */,
+				72047526101FE0A200E486DB /* vpnagent_control.h */,
+				72047527101FE0A200E486DB /* vpnagent_utils.h */,
+				72047528101FE0A200E486DB /* vpnagent.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
 		83F592F30F6B386600B1E1AE /* sbslauncher */ = {
 			isa = PBXGroup;
 			children = (
 				72B9DBEF0F6DEFD3006DFE11 /* SpringBoardServices.framework */,
+				81CF182E111126D500D53EB8 /* StoreServices.framework */,
+				8179206711124814005B9F24 /* Foundation.framework */,
 				83F592F90F6B38C900B1E1AE /* sbslauncher.h */,
-				83F592FA0F6B38C900B1E1AE /* sbslauncher.c */,
+				83F592FA0F6B38C900B1E1AE /* sbslauncher.m */,
 				83F593010F6B394800B1E1AE /* sbslauncher-entitlement.plist */,
+				81FC7D9311C697B20058949B /* PluginDownloadObserver.h */,
+				81FC7D9411C697B20058949B /* PluginDownloadObserver.m */,
 			);
 			name = sbslauncher;
 			sourceTree = "<group>";
@@ -2330,6 +2547,7 @@
 				F5130EDC03F04FD701CA2DE3 /* vpnoptions.c */,
 				F6818E5503F5F45601521AA5 /* sys_MacOSX.c */,
 				F6CBB03503F5F36401EEA24D /* Headers */,
+				72E07C3B103E376900E4241C /* vpnd.5 */,
 				F50592A103DDFFB301CA2DE3 /* vpnd.8 */,
 			);
 			name = vpnd;
@@ -2431,6 +2649,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				81D430A90F575A160031E487 /* vpn_manager.h in Headers */,
 				23055ED705E1807F00EAB16F /* scnc_client.h in Headers */,
 				23055ED905E1807F00EAB16F /* ppp_manager.h in Headers */,
 				23055EDA05E1807F00EAB16F /* ppp_msg.h in Headers */,
@@ -2447,6 +2666,7 @@
 				23EC340B0CD94AFE005AB2A9 /* scnc_main.h in Headers */,
 				BA1E33C50F3FFDF200E52690 /* messageTracer.h in Headers */,
 				BA1E33C70F3FFDF200E52690 /* sessionTracer.h in Headers */,
+				723074581161275A004C0871 /* vpn_environment.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2736,7 +2956,9 @@
 				7290FEBE0D3318CC0027CEAD /* ipsec_strerror.h in Headers */,
 				7290FEBF0D3318CC0027CEAD /* pppcontroller.h in Headers */,
 				7290FEC00D3318CC0027CEAD /* ipsec_manager.h in Headers */,
+				81937E63107EC2FA00EEE3F8 /* vpn_manager.h in Headers */,
 				7290FEC10D3318CC0027CEAD /* scnc_main.h in Headers */,
+				7230745A1161275A004C0871 /* vpn_environment.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -3089,6 +3311,7 @@
 				2305602105E1808300EAB16F /* Sources */,
 				2305602605E1808300EAB16F /* Frameworks */,
 				2305602A05E1808300EAB16F /* Rez */,
+				72E07C46103E37E200E4241C /* CopyFiles */,
 				2305602B05E1808300EAB16F /* CopyFiles */,
 				2305602D05E1808300EAB16F /* ShellScript */,
 			);
@@ -3337,6 +3560,23 @@
 			productReference = 23E16FAF062D9F3F0006D20B /* EAP-TLS.ppp */;
 			productType = "com.apple.product-type.bundle";
 		};
+		7202B3F3114EF02700FD3AA2 /* vpnagent (Tool - Developer) EMBEDDED */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7202B3FD114EF02700FD3AA2 /* Build configuration list for PBXNativeTarget "vpnagent (Tool - Developer) EMBEDDED" */;
+			buildPhases = (
+				7202B3F4114EF02700FD3AA2 /* Sources */,
+				7202B3F9114EF02700FD3AA2 /* Frameworks */,
+				72DC04CC1158350500CEA5A9 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "vpnagent (Tool - Developer) EMBEDDED";
+			productName = sslvpn;
+			productReference = 7202B401114EF02700FD3AA2 /* vpnagent */;
+			productType = "com.apple.product-type.tool";
+		};
 		728CB63A0D404F6600B1964E /* PPTP (Plugin) EMBEDDED */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 728CB64F0D404F6600B1964E /* Build configuration list for PBXNativeTarget "PPTP (Plugin) EMBEDDED" */;
@@ -3508,6 +3748,39 @@
 			productReference = 72FDE50D0D41256B007C4F13 /* PPPDialogs.ppp */;
 			productType = "com.apple.product-type.bundle.shallow";
 		};
+		81937E93107EC4A200EEE3F8 /* vpnagent (Tool) EMBEDDED */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81937E9D107EC4A200EEE3F8 /* Build configuration list for PBXNativeTarget "vpnagent (Tool) EMBEDDED" */;
+			buildPhases = (
+				81937E94107EC4A200EEE3F8 /* Sources */,
+				81937E99107EC4A200EEE3F8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "vpnagent (Tool) EMBEDDED";
+			productName = sslvpn;
+			productReference = 81937EA1107EC4A200EEE3F8 /* vpnagent */;
+			productType = "com.apple.product-type.tool";
+		};
+		81D42ED10F5728790031E487 /* vpnagent (Tool) */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 81D42ED70F5728980031E487 /* Build configuration list for PBXNativeTarget "vpnagent (Tool)" */;
+			buildPhases = (
+				81D42ECF0F5728790031E487 /* Sources */,
+				81D42ED00F5728790031E487 /* Frameworks */,
+				72DC04CB1158350500CEA5A9 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "vpnagent (Tool)";
+			productName = sslvpn;
+			productReference = 72DE98FD10113DF700DF2440 /* vpnagent */;
+			productType = "com.apple.product-type.tool";
+		};
 		83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 83F592E60F6B37B100B1E1AE /* Build configuration list for PBXNativeTarget "sbslauncher (Tool) EMBEDDED" */;
@@ -3531,6 +3804,7 @@
 			isa = PBXProject;
 			buildConfigurationList = 72DD79E0091AA0ED00EE4DEA /* Build configuration list for PBXProject "ppp" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -3560,6 +3834,7 @@
 				23055FBA05E1808200EAB16F /* PPTP (VPN Plugin) */,
 				23055FC605E1808200EAB16F /* PPPSerial (Plugin) */,
 				23055FD605E1808300EAB16F /* pppd (Tool) */,
+				81D42ED10F5728790031E487 /* vpnagent (Tool) */,
 				2305601A05E1808300EAB16F /* vpnd (Tool) */,
 				2305603105E1808400EAB16F /* pppstats (Tool) */,
 				2305603E05E1808400EAB16F /* InstallHeaders */,
@@ -3586,6 +3861,8 @@
 				72FDE4FE0D41256B007C4F13 /* PPPDialogs (Plugin) EMBEDDED */,
 				72C265850D412932003A6CE8 /* pppd (Tool) EMBEDDED */,
 				83F592D30F6B376D00B1E1AE /* sbslauncher (Tool) EMBEDDED */,
+				81937E93107EC4A200EEE3F8 /* vpnagent (Tool) EMBEDDED */,
+				7202B3F3114EF02700FD3AA2 /* vpnagent (Tool - Developer) EMBEDDED */,
 			);
 		};
 /* End PBXProject section */
@@ -4176,7 +4453,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				23B7076D061B74AF008BA483 /* pppcontroller.defs in Sources */,
-				7294F1440CE557C30084954B /* ipsec_utils.c in Sources */,
 				7294F16A0CE559EF0084954B /* pfkey.c in Sources */,
 				23055EE305E1807F00EAB16F /* ppp_getoption.c in Sources */,
 				23055EE405E1807F00EAB16F /* ppp_manager.c in Sources */,
@@ -4187,6 +4463,12 @@
 				23B70900061CA53B008BA483 /* scnc_utils.c in Sources */,
 				23EC339C0CD7E4BB005AB2A9 /* ipsec_manager.c in Sources */,
 				BA1E33C60F3FFDF200E52690 /* sessionTracer.c in Sources */,
+				72DE9C74101551E600DF2440 /* ipsec_utils.c in Sources */,
+				81D430A80F575A040031E487 /* vpn_manager.c in Sources */,
+				BAC29FA510D493F9007AC660 /* nat_port_mapping.c in Sources */,
+				BA6C4EA210D49581001D4B22 /* net_location.c in Sources */,
+				72DCD75D1149BBE900B25E3A /* vpn_configuration.c in Sources */,
+				723074571161275A004C0871 /* vpn_environment.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4441,6 +4723,18 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		7202B3F4114EF02700FD3AA2 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7202B3F5114EF02700FD3AA2 /* main.c in Sources */,
+				7202B3F6114EF02700FD3AA2 /* vpnagent.c in Sources */,
+				7202B3F7114EF02700FD3AA2 /* vpnagent_utils.c in Sources */,
+				7202B3F8114EF02700FD3AA2 /* vpnagent_control.c in Sources */,
+				7273079011611E7100395F26 /* net_utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		728CB6450D404F6600B1964E /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -4470,6 +4764,7 @@
 				7290FEC70D3318CC0027CEAD /* ipsec_utils.c in Sources */,
 				7290FEC80D3318CC0027CEAD /* pfkey.c in Sources */,
 				7290FEC90D3318CC0027CEAD /* ppp_getoption.c in Sources */,
+				81937E62107EC2D900EEE3F8 /* vpn_manager.c in Sources */,
 				7290FECA0D3318CC0027CEAD /* ppp_manager.c in Sources */,
 				7290FECB0D3318CC0027CEAD /* scnc_main.c in Sources */,
 				7290FECC0D3318CC0027CEAD /* scnc_client.c in Sources */,
@@ -4477,6 +4772,10 @@
 				7290FECE0D3318CC0027CEAD /* scnc_mach_server.c in Sources */,
 				7290FECF0D3318CC0027CEAD /* scnc_utils.c in Sources */,
 				7290FED00D3318CC0027CEAD /* ipsec_manager.c in Sources */,
+				BAC29FA610D493F9007AC660 /* nat_port_mapping.c in Sources */,
+				BA6C4EA310D49581001D4B22 /* net_location.c in Sources */,
+				72DCD75F1149BBE900B25E3A /* vpn_configuration.c in Sources */,
+				723074591161275A004C0871 /* vpn_environment.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4561,11 +4860,36 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		81937E94107EC4A200EEE3F8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81937E95107EC4A200EEE3F8 /* main.c in Sources */,
+				81937E96107EC4A200EEE3F8 /* vpnagent.c in Sources */,
+				81937E97107EC4A200EEE3F8 /* vpnagent_utils.c in Sources */,
+				81937E98107EC4A200EEE3F8 /* vpnagent_control.c in Sources */,
+				7273078F11611E7100395F26 /* net_utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		81D42ECF0F5728790031E487 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				81D42EFB0F572A1B0031E487 /* main.c in Sources */,
+				81D42EFC0F572A1B0031E487 /* vpnagent.c in Sources */,
+				81D42EFD0F572A1B0031E487 /* vpnagent_utils.c in Sources */,
+				81D42EFF0F572A1B0031E487 /* vpnagent_control.c in Sources */,
+				7273078E11611E7100395F26 /* net_utils.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		83F592D10F6B376D00B1E1AE /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				83F592FB0F6B38C900B1E1AE /* sbslauncher.c in Sources */,
+				83F592FB0F6B38C900B1E1AE /* sbslauncher.m in Sources */,
+				81FC7D9511C697B20058949B /* PluginDownloadObserver.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -4581,11 +4905,6 @@
 			isa = PBXTargetDependency;
 			target = 2305603E05E1808400EAB16F /* InstallHeaders */;
 			targetProxy = 230560D505E1808C00EAB16F /* PBXContainerItemProxy */;
-		};
-		230560D805E1808C00EAB16F /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 23055F5605E1808000EAB16F /* Helpers (Aggregate) */;
-			targetProxy = 230560D705E1808C00EAB16F /* PBXContainerItemProxy */;
 		};
 		230560DA05E1808C00EAB16F /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4742,6 +5061,21 @@
 			target = 72C265850D412932003A6CE8 /* pppd (Tool) EMBEDDED */;
 			targetProxy = 72C265CD0D412950003A6CE8 /* PBXContainerItemProxy */;
 		};
+		72DA28211151704B0028754B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7202B3F3114EF02700FD3AA2 /* vpnagent (Tool - Developer) EMBEDDED */;
+			targetProxy = 72DA28201151704B0028754B /* PBXContainerItemProxy */;
+		};
+		72FD18F81015541C00277ED4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81D42ED10F5728790031E487 /* vpnagent (Tool) */;
+			targetProxy = 72FD18F71015541C00277ED4 /* PBXContainerItemProxy */;
+		};
+		72FD18FF1015543200277ED4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 23055F5605E1808000EAB16F /* Helpers (Aggregate) */;
+			targetProxy = 72FD18FE1015543200277ED4 /* PBXContainerItemProxy */;
+		};
 		72FDE4AB0D4124F1007C4F13 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72FDE4720D4124C4007C4F13 /* PPP (Kernel Extension) EMBEDDED */;
@@ -4761,6 +5095,11 @@
 			isa = PBXTargetDependency;
 			target = 72FDE4FE0D41256B007C4F13 /* PPPDialogs (Plugin) EMBEDDED */;
 			targetProxy = 72FDE5130D412576007C4F13 /* PBXContainerItemProxy */;
+		};
+		81937EB5107EC4B100EEE3F8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 81937E93107EC4A200EEE3F8 /* vpnagent (Tool) EMBEDDED */;
+			targetProxy = 81937EB4107EC4B100EEE3F8 /* PBXContainerItemProxy */;
 		};
 		830403490F6B4CC00062C836 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -4859,6 +5198,81 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		7202B3FE114EF02700FD3AA2 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /Developer/usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+			};
+			name = Development;
+		};
+		7202B3FF114EF02700FD3AA2 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /Developer/usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos4.3.internal;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		7202B400114EF02700FD3AA2 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement-dev.plist";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /Developer/usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos4.0.internal;
+			};
+			name = Default;
+		};
 		728CB6320D404ECD00B1964E /* Development */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
@@ -4873,7 +5287,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -4899,7 +5316,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Drivers;
@@ -4920,7 +5340,10 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Drivers;
@@ -4942,6 +5365,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -4954,7 +5378,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
@@ -4986,6 +5411,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -4995,7 +5421,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
@@ -5025,6 +5452,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/Versions/B/PrivateHeaders/";
@@ -5032,7 +5460,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_CPLUSPLUSFLAGS = "$(OTHER_CFLAGS)";
@@ -5059,10 +5488,7 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
-				);
+				FRAMEWORK_SEARCH_PATHS = "";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -5074,7 +5500,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5086,7 +5513,6 @@
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
-				SDKROOT = iphoneos2.0.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -5116,7 +5542,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5127,7 +5554,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
-				SDKROOT = iphoneos2.0.internal;
+				SDKROOT = iphoneos4.3.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -5154,7 +5581,8 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5165,7 +5593,7 @@
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
-				SDKROOT = iphoneos2.0.internal;
+				SDKROOT = iphoneos4.0.internal;
 				SECTORDER_FLAGS = "";
 				WARNING_CFLAGS = (
 					"-Wmost",
@@ -5186,6 +5614,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -5203,7 +5632,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5234,6 +5664,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -5248,7 +5679,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5277,6 +5709,7 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
@@ -5289,7 +5722,8 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = (
@@ -5322,7 +5756,10 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -5350,7 +5787,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
@@ -5370,7 +5810,10 @@
 			buildSettings = {
 				ARCHS = armv6;
 				FRAMEWORK_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
@@ -5397,7 +5840,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -5423,7 +5869,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Helpers;
@@ -5444,7 +5893,10 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Helpers;
@@ -5501,7 +5953,8 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = "-lbsm";
@@ -5529,7 +5982,7 @@
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
 				CODE_SIGN_IDENTITY = "-";
 				COPY_PHASE_STRIP = YES;
-				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					lint,
@@ -5561,7 +6014,8 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = "-lbsm";
@@ -5587,7 +6041,7 @@
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/pppd/pppd-entitlement.plist";
 				CODE_SIGN_IDENTITY = "-";
-				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = (
 					lint,
 					DEBUGUPAP,
@@ -5617,7 +6071,8 @@
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OTHER_CFLAGS = (
 					"-DCOMMON_DIGEST_FOR_OPENSSL",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
 				);
 				OTHER_LDFLAGS = "-lbsm";
@@ -5647,12 +6102,16 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/include/net;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5671,11 +6130,15 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/include/net;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5691,11 +6154,15 @@
 				INSTALLHDRS_COPY_PHASE = YES;
 				INSTALL_PATH = /usr/include/net;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "PPP Headers";
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5743,14 +6210,22 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
-				OTHER_LDFLAGS = "-lbsm";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-lCrashReporterClient",
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5797,13 +6272,21 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
-				OTHER_LDFLAGS = "-lbsm";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-lCrashReporterClient",
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5847,13 +6330,21 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
-				OTHER_LDFLAGS = "-lbsm";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
+				OTHER_LDFLAGS = (
+					"-lbsm",
+					"-lCrashReporterClient",
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppd;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5880,7 +6371,10 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "-lipsec";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -5888,6 +6382,7 @@
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5913,13 +6408,17 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "-lipsec";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = vpnd;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5942,13 +6441,17 @@
 				INSTALL_OWNER = root;
 				INSTALL_PATH = /usr/sbin;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "-lipsec";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = vpnd;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
 				STRIPFLAGS = "-x";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -5973,12 +6476,16 @@
 				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /usr/libexec;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6003,11 +6510,15 @@
 				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /usr/libexec;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6029,11 +6540,15 @@
 				INSTALL_MODE_FLAG = "u+w,go-w,a+rX";
 				INSTALL_PATH = /usr/libexec;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = MiniTerm;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6063,6 +6578,7 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6089,6 +6605,7 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6112,6 +6629,7 @@
 				PRODUCT_NAME = chat;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6133,7 +6651,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -6158,7 +6679,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Helpers;
@@ -6178,7 +6702,10 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Helpers;
@@ -6207,7 +6734,10 @@
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OBJROOT = "$(SYMROOT)";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6217,6 +6747,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6237,7 +6768,10 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6246,6 +6780,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6263,7 +6798,10 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6273,6 +6811,7 @@
 				PRODUCT_NAME = PPPDialogs;
 				SECTORDER_FLAGS = "";
 				SYMROOT = build;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6289,7 +6828,10 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)/$(CONFIGURATION)";
 				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -6302,9 +6844,15 @@
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A\"",
+				);
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-lbsm",
@@ -6314,6 +6862,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6330,7 +6879,10 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
-				FRAMEWORK_SEARCH_PATHS = "$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
@@ -6340,9 +6892,15 @@
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A\"",
+				);
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-lbsm",
@@ -6351,6 +6909,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6366,7 +6925,10 @@
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
-				FRAMEWORK_SEARCH_PATHS = "$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(NEXT_ROOT)/System/Library/Frameworks/CoreServices.framework/Frameworks",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
 				GCC_PREPROCESSOR_DEFINITIONS = "__FreeBSD__=5";
 				HEADER_SEARCH_PATHS = (
 					../include,
@@ -6374,9 +6936,15 @@
 				);
 				INFOPLIST_FILE = "Controller/PPPController-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
-				LIBRARY_SEARCH_PATHS = "";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Versions/A\"",
+				);
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-lbsm",
@@ -6385,6 +6953,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPController;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6418,11 +6987,16 @@
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6454,10 +7028,15 @@
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6486,10 +7065,15 @@
 				MODULE_START = ppp_module_start;
 				MODULE_STOP = ppp_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6513,7 +7097,11 @@
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DHAVE_LAUNCHSERVICES";
+				OTHER_CFLAGS = (
+					"-DHAVE_LAUNCHSERVICES",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6523,6 +7111,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6544,7 +7133,11 @@
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DHAVE_LAUNCHSERVICES";
+				OTHER_CFLAGS = (
+					"-DHAVE_LAUNCHSERVICES",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6553,6 +7146,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6571,7 +7165,11 @@
 				INFOPLIST_FILE = "Drivers/PPPSerial/PPPSerial-plugin/PPPSerial-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DHAVE_LAUNCHSERVICES";
+				OTHER_CFLAGS = (
+					"-DHAVE_LAUNCHSERVICES",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6580,6 +7178,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPSerial;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6602,7 +7201,10 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6612,6 +7214,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6632,7 +7235,10 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6641,6 +7247,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6658,7 +7265,10 @@
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-vpn/PPPoE-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6667,6 +7277,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6699,11 +7310,17 @@
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6734,10 +7351,16 @@
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6765,10 +7388,16 @@
 				MODULE_START = pppoe_domain_module_start;
 				MODULE_STOP = pppoe_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-Wno-format";
+				OTHER_CFLAGS = (
+					"-Wno-format",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6792,7 +7421,10 @@
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6802,6 +7434,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6823,7 +7456,10 @@
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6832,6 +7468,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6850,7 +7487,10 @@
 				INFOPLIST_FILE = "Drivers/PPPoE/PPPoE-plugin/PPPoE-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6859,6 +7499,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPPoE;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6890,11 +7531,16 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6924,10 +7570,15 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6954,10 +7605,15 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -6981,7 +7637,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-vpn/PPTP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -6991,6 +7650,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7012,7 +7672,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-vpn/PPTP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7021,6 +7684,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7039,7 +7703,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-vpn/PPTP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7048,6 +7715,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7072,7 +7740,10 @@
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-plugin/PPTP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7082,6 +7753,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7104,7 +7776,10 @@
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-plugin/PPTP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7113,6 +7788,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7132,7 +7808,10 @@
 				INFOPLIST_FILE = "Drivers/PPTP/PPTP-plugin/PPTP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7141,6 +7820,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7173,12 +7853,17 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7208,11 +7893,16 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7239,11 +7929,16 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				SKIP_INSTALL = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7267,7 +7962,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7278,6 +7976,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7299,7 +7998,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7309,6 +8011,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7327,7 +8030,10 @@
 				HEADER_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders/";
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-vpn/L2TP-vpn-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7337,6 +8043,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7366,7 +8073,10 @@
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7377,6 +8087,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7404,7 +8115,10 @@
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7414,6 +8128,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7438,7 +8153,10 @@
 				INFOPLIST_FILE = "Drivers/L2TP/L2TP-plugin/L2TP-ppp-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7448,6 +8166,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7470,7 +8189,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -7495,7 +8217,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Drivers;
@@ -7515,7 +8240,10 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Drivers;
@@ -7542,7 +8270,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7552,6 +8283,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7573,7 +8305,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7582,6 +8317,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7600,7 +8336,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAccessControl/DSACL-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7609,6 +8348,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSACL;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7632,7 +8372,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7642,6 +8385,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7663,7 +8407,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7672,6 +8419,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7690,7 +8438,10 @@
 				INFOPLIST_FILE = "Authenticators/DSAuthentication/DSAuth-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7699,6 +8450,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = DSAuth;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7722,7 +8474,11 @@
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7733,6 +8489,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7754,7 +8511,11 @@
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7764,6 +8525,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7782,7 +8544,11 @@
 				INFOPLIST_FILE = "Authenticators/Radius/Radius-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DCOMMON_DIGEST_FOR_OPENSSL";
+				OTHER_CFLAGS = (
+					"-DCOMMON_DIGEST_FOR_OPENSSL",
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7792,6 +8558,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = Radius;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7817,7 +8584,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7827,6 +8597,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7850,7 +8621,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7859,6 +8633,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7879,7 +8654,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-TLS/EAP-TLS-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7888,6 +8666,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-TLS";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7915,7 +8694,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7925,6 +8707,7 @@
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7950,7 +8733,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7959,6 +8745,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -7981,7 +8768,10 @@
 				INFOPLIST_FILE = "Authenticators/EAP-KRB/EAP-KRB-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -7990,6 +8780,7 @@
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "EAP-KRB";
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8009,7 +8800,10 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8031,7 +8825,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "Authenticators (Aggregate)";
@@ -8048,7 +8845,10 @@
 		72DD79CF091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = "Authenticators (Aggregate)";
@@ -8074,7 +8874,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8099,7 +8902,10 @@
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SampleCode;
@@ -8119,7 +8925,10 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				HEADER_SEARCH_PATHS = "";
 				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = SampleCode;
@@ -8144,7 +8953,10 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8167,7 +8979,10 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				MACOSX_DEPLOYMENT_TARGET = 10.4;
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
@@ -8185,7 +9000,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = ppp;
@@ -8211,13 +9029,17 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = ../../Family;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8238,12 +9060,16 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				HEADER_SEARCH_PATHS = ../../Family;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8261,12 +9087,16 @@
 				GCC_DYNAMIC_NO_PIC = YES;
 				HEADER_SEARCH_PATHS = ../../Family;
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = pppstats;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8287,13 +9117,17 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALL_PATH = "$(HOME)/bin";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8313,12 +9147,16 @@
 				GCC_WARN_ABOUT_POINTER_SIGNEDNESS = NO;
 				INSTALL_PATH = "$(HOME)/bin";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8335,12 +9173,16 @@
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "$(HOME)/bin";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = krblaunch;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",
@@ -8352,18 +9194,21 @@
 		72DD79E1091AA0ED00EE4DEA /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Development;
 		};
 		72DD79E2091AA0ED00EE4DEA /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Deployment;
 		};
 		72DD79E3091AA0ED00EE4DEA /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 			};
 			name = Default;
 		};
@@ -8393,7 +9238,8 @@
 				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = (
 					"-Wno-format",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8432,7 +9278,8 @@
 				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = (
 					"-Wno-format",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
@@ -8467,7 +9314,8 @@
 				MODULE_VERSION = 1.5;
 				OTHER_CFLAGS = (
 					"-Wno-format",
-					"-DTARGET_EMBEDDED_OS",
+					"-include",
+					TargetConditionals.h,
 				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPP;
@@ -8504,7 +9352,10 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
@@ -8540,7 +9391,10 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -8572,7 +9426,10 @@
 				MODULE_START = l2tp_domain_module_start;
 				MODULE_STOP = l2tp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = L2TP;
@@ -8609,7 +9466,10 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PPP_DEVELOPMENT = 1;
 				PRODUCT_NAME = PPTP;
@@ -8644,7 +9504,10 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
@@ -8675,7 +9538,10 @@
 				MODULE_START = pptp_domain_module_start;
 				MODULE_STOP = pptp_domain_module_stop;
 				MODULE_VERSION = 1.5;
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = PPTP;
 				SECTORDER_FLAGS = "";
@@ -8705,7 +9571,10 @@
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
 				OBJROOT = "$(SYMROOT)";
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -8736,7 +9605,10 @@
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				LD_MAP_FILE_PATH = "$(TARGET_TEMP_DIR)/$(PRODUCT_NAME)-LinkMap-$(CURRENT_VARIANT)-$(CURRENT_ARCH).txt";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -8762,7 +9634,10 @@
 				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
 				INFOPLIST_FILE = "Dialogs/PPPDialogs-Info.plist";
 				MACOSX_DEPLOYMENT_TARGET = "";
-				OTHER_CFLAGS = "-DTARGET_EMBEDDED_OS";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+				);
 				OTHER_LDFLAGS = (
 					"-bundle",
 					"-bundle_loader",
@@ -8781,6 +9656,150 @@
 			};
 			name = Default;
 		};
+		81937E9E107EC4A200EEE3F8 /* Development */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+			};
+			name = Development;
+		};
+		81937E9F107EC4A200EEE3F8 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos4.3.internal;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		81937EA0107EC4A200EEE3F8 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_BIT)";
+				CODE_SIGN_ENTITLEMENTS = "$(SRCROOT)/Helpers/vpnagent/vpnagent-entitlement.plist";
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				OTHER_CFLAGS = (
+					"-include",
+					TargetConditionals.h,
+					"-DUSE_SYSTEMCONFIGURATION_PRIVATE_HEADERS",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				SDKROOT = iphoneos4.0.internal;
+			};
+			name = Default;
+		};
+		81D42ED40F57287A0031E487 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SRCROOT)/build/Development\"",
+				);
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+			};
+			name = Development;
+		};
+		81D42ED50F57287A0031E487 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SRCROOT)/build/Development\"",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		81D42ED60F57287A0031E487 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+					"\"$(SRCROOT)/build/Development\"",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = /usr/libexec;
+				LIBRARY_SEARCH_PATHS = "$(inherited)";
+				PREBINDING = NO;
+				PRODUCT_NAME = vpnagent;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+			};
+			name = Default;
+		};
 		83F592E10F6B376E00B1E1AE /* Development */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 72BBDFA90DBFAC1700CBE963 /* AspenSDK.xcconfig */;
@@ -8794,7 +9813,7 @@
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
 				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = "";
@@ -8817,6 +9836,7 @@
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
@@ -8838,7 +9858,8 @@
 					"$(inherited)",
 					"\"$(SDKROOT)$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
 				PREBINDING = NO;
@@ -8850,6 +9871,16 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		7202B3FD114EF02700FD3AA2 /* Build configuration list for PBXNativeTarget "vpnagent (Tool - Developer) EMBEDDED" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7202B3FE114EF02700FD3AA2 /* Development */,
+				7202B3FF114EF02700FD3AA2 /* Deployment */,
+				7202B400114EF02700FD3AA2 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		728CB6310D404ECD00B1964E /* Build configuration list for PBXAggregateTarget "Drivers (Aggregate) EMBEDDED" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -9266,6 +10297,26 @@
 				72FDE50A0D41256B007C4F13 /* Development */,
 				72FDE50B0D41256B007C4F13 /* Deployment */,
 				72FDE50C0D41256B007C4F13 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		81937E9D107EC4A200EEE3F8 /* Build configuration list for PBXNativeTarget "vpnagent (Tool) EMBEDDED" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81937E9E107EC4A200EEE3F8 /* Development */,
+				81937E9F107EC4A200EEE3F8 /* Deployment */,
+				81937EA0107EC4A200EEE3F8 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		81D42ED70F5728980031E487 /* Build configuration list for PBXNativeTarget "vpnagent (Tool)" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				81D42ED40F57287A0031E487 /* Development */,
+				81D42ED50F57287A0031E487 /* Deployment */,
+				81D42ED60F57287A0031E487 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

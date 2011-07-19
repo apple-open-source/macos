@@ -7,7 +7,7 @@ AC_REVISION($Id: configure.in,v 1.17 2005/03/18 01:56:23 hobbs Exp $)
 
 AC_INIT([tbcload], [1.7])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

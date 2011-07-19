@@ -66,5 +66,5 @@ bool
 SIMProcessRAND(const uint8_t * rand_p, int count,
 	       uint8_t * kc_p, uint8_t * sres_p);
 
-#endif _EAP8021X_SIMACCESS_H
+#endif /* _EAP8021X_SIMACCESS_H */
 

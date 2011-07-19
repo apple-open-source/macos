@@ -1,6 +1,7 @@
 # ----------------------------------------------------------------------------
 #  panedw.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: panedw.tcl,v 1.16 2009/10/25 20:55:36 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - PanedWindow::create
@@ -34,13 +35,20 @@ namespace eval PanedWindow {
         {-side       Enum       top   1 {top left bottom right}}
         {-width      Int        10    1 "%d >=3"}
         {-pad        Int        4     1 "%d >= 0"}
-        {-background TkResource ""    0 frame}
+        {-background Color      "SystemWindowFrame" 0}
         {-bg         Synonym    -background}
         {-activator  Enum       ""    1 {line button}}
 	{-weights    Enum       extra 1 {extra available}}
     }
 
     variable _panedw
+
+    if { [BWidget::using ttk] } {
+        if {[lsearch [bindtags .] PanedWThemeChanged] < 0} {
+            bindtags . [linsert [bindtags .] 1 PanedWThemeChanged]
+        }
+    }
+
 }
 
 
@@ -52,8 +60,10 @@ proc PanedWindow::create { path args } {
     variable _panedw
 
     Widget::init PanedWindow $path $args
+    frame $path -background [Widget::cget $path -background] \
+                -class PanedWindow \
+		-highlightthickness 0
 
-    frame $path -background [Widget::cget $path -background] -class PanedWindow
     set _panedw($path,nbpanes) 0
     set _panedw($path,weights) ""
     set _panedw($path,configuredone) 0
@@ -72,6 +82,12 @@ proc PanedWindow::create { path args } {
     
     bind $path <Configure> [list PanedWindow::_realize $path %w %h]
     bind $path <Destroy>   [list PanedWindow::_destroy $path]
+
+    if { [BWidget::using ttk] } {
+        bind PanedWThemeChanged <<ThemeChanged>> \
+	       "+[namespace current]::_themechanged $path"
+    }
+
 
     return [Widget::create PanedWindow $path]
 }
@@ -382,4 +398,17 @@ proc PanedWindow::_destroy { path } {
     }
     unset _panedw($path,nbpanes)
     Widget::destroy $path
+}
+
+
+# ----------------------------------------------------------------------------
+#  Command PanedWindow::_themechanged
+# ----------------------------------------------------------------------------
+proc PanedWindow::_themechanged { path } {
+
+    if { ![winfo exists $path] } { return }
+    BWidget::set_themedefaults
+    
+    $path configure \
+           -background $BWidget::colors(SystemWindowFrame)
 }

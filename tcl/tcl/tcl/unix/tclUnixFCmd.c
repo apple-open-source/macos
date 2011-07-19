@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclUnixFCmd.c,v 1.65 2007/12/13 15:28:42 dgp Exp $
+ * RCS: @(#) $Id: tclUnixFCmd.c,v 1.65.2.4 2010/08/04 19:45:07 hobbs Exp $
  *
  * Portions of this code were derived from NetBSD source code which has the
  * following copyright notice:
@@ -25,11 +25,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *      This product includes software developed by the University of
- *      California, Berkeley and its contributors.
- * 4. Neither the name of the University nor the names of its contributors may
+ * 3. Neither the name of the University nor the names of its contributors may
  *    be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -49,7 +45,7 @@
 #include "tclInt.h"
 #include <utime.h>
 #include <grp.h>
-#ifndef HAVE_ST_BLKSIZE
+#ifndef HAVE_STRUCT_STAT_ST_BLKSIZE
 #ifndef NO_FSTATFS
 #include <sys/statfs.h>
 #endif
@@ -544,13 +540,13 @@ TclUnixCopyFile(
      * that's likely to be fairly efficient anyway.
      */
 
-#ifdef HAVE_ST_BLKSIZE
+#ifdef HAVE_STRUCT_STAT_ST_BLKSIZE
     blockSize = statBufPtr->st_blksize;
 #elif !defined(NO_FSTATFS)
     {
 	struct statfs fs;
 
-	if (fstatfs(srcFd, &fs, sizeof(fs), 0) == 0) {
+	if (fstatfs(srcFd, &fs) == 0) {
 	    blockSize = fs.f_bsize;
 	} else {
 	    blockSize = 4096;
@@ -558,13 +554,14 @@ TclUnixCopyFile(
     }
 #else
     blockSize = 4096;
-#endif /* HAVE_ST_BLKSIZE */
+#endif /* HAVE_STRUCT_STAT_ST_BLKSIZE */
 
     /*
-     * [SF Tcl Bug 1586470] Even if we HAVE_ST_BLKSIZE, there are filesystems
-     * which report a bogus value for the blocksize. An example is the Andrew
-     * Filesystem (afs), reporting a blocksize of 0. When detecting such a
-     * situation we now simply fall back to a hardwired default size.
+     * [SF Tcl Bug 1586470] Even if we HAVE_STRUCT_STAT_ST_BLKSIZE, there are
+     * filesystems which report a bogus value for the blocksize. An example
+     * is the Andrew Filesystem (afs), reporting a blocksize of 0. When
+     * detecting such a situation we now simply fall back to a hardwired
+     * default size.
      */
 
     if (blockSize <= 0) {
@@ -1338,7 +1335,6 @@ GetGroupAttribute(
 	*attributePtrPtr = Tcl_NewStringObj(utf, -1);
 	Tcl_DStringFree(&ds);
     }
-    endgrent();
     return TCL_OK;
 }
 
@@ -1393,7 +1389,6 @@ GetOwnerAttribute(
 	*attributePtrPtr = Tcl_NewStringObj(utf, Tcl_DStringLength(&ds));
 	Tcl_DStringFree(&ds);
     }
-    endpwent();
     return TCL_OK;
 }
 
@@ -1480,7 +1475,6 @@ SetGroupAttribute(
 	Tcl_DStringFree(&ds);
 
 	if (groupPtr == NULL) {
-	    endgrent();
 	    if (interp != NULL) {
 		Tcl_AppendResult(interp, "could not set group for file \"",
 			TclGetString(fileName), "\": group \"", string,
@@ -1494,7 +1488,6 @@ SetGroupAttribute(
     native = Tcl_FSGetNativePath(fileName);
     result = chown(native, (uid_t) -1, (gid_t) gid);	/* INTL: Native. */
 
-    endgrent();
     if (result != 0) {
 	if (interp != NULL) {
 	    Tcl_AppendResult(interp, "could not set group for file \"",
@@ -1542,7 +1535,7 @@ SetOwnerAttribute(
 	string = Tcl_GetStringFromObj(attributePtr, &length);
 
 	native = Tcl_UtfToExternalDString(NULL, string, length, &ds);
-	pwPtr = TclpGetPwNam(native); /* INTL: Native. */
+	pwPtr = TclpGetPwNam(native);			/* INTL: Native. */
 	Tcl_DStringFree(&ds);
 
 	if (pwPtr == NULL) {

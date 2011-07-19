@@ -49,12 +49,15 @@ namespace JSC {
     // assertions working, so that clients that use the shared context don't break.
 
     class ExecState;
+    class JSGlobalData;
 
     enum JSLockBehavior { SilenceAssertionsOnly, LockForReal };
 
-    class JSLock : public Noncopyable {
+    class JSLock {
+        WTF_MAKE_NONCOPYABLE(JSLock);
     public:
         JSLock(ExecState*);
+        JSLock(JSGlobalData*);
 
         JSLock(JSLockBehavior lockBehavior)
             : m_lockBehavior(lockBehavior)
@@ -87,7 +90,8 @@ namespace JSC {
 
         JSLockBehavior m_lockBehavior;
 
-        class DropAllLocks : public Noncopyable {
+        class DropAllLocks {
+            WTF_MAKE_NONCOPYABLE(DropAllLocks);
         public:
             DropAllLocks(ExecState* exec);
             DropAllLocks(JSLockBehavior);

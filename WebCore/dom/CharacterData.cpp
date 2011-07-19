@@ -22,10 +22,15 @@
 #include "config.h"
 #include "CharacterData.h"
 
+#include "Document.h"
 #include "EventNames.h"
 #include "ExceptionCode.h"
+#include "InspectorInstrumentation.h"
 #include "MutationEvent.h"
 #include "RenderText.h"
+#include "TextBreakIterator.h"
+
+using namespace std;
 
 namespace WebCore {
 
@@ -35,18 +40,9 @@ void CharacterData::setData(const String& data, ExceptionCode&)
     if (equal(m_data.get(), dataImpl))
         return;
 
-    int oldLength = length();
-    RefPtr<StringImpl> oldStr = m_data;
-    m_data = dataImpl;
+    unsigned oldLength = length();
 
-    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
-        detach();
-        attach();
-    } else if (renderer())
-        toRenderText(renderer())->setTextWithOffset(m_data, 0, oldLength);
-
-    dispatchModifiedEvent(oldStr.get());
-
+    setDataAndUpdate(dataImpl, 0, oldLength, dataImpl->length());
     document()->textRemoved(this, 0, oldLength);
 }
 
@@ -59,44 +55,60 @@ String CharacterData::substringData(unsigned offset, unsigned count, ExceptionCo
     return m_data->substring(offset, count);
 }
 
-void CharacterData::appendData(const String& arg, ExceptionCode&)
+unsigned CharacterData::parserAppendData(const UChar* data, unsigned dataLength, unsigned lengthLimit)
 {
-    String newStr = m_data;
-    newStr.append(arg);
+    unsigned oldLength = m_data->length();
 
-    RefPtr<StringImpl> oldStr = m_data;
+    unsigned end = min(dataLength, lengthLimit - oldLength);
+
+    // Check that we are not on an unbreakable boundary.
+    // Some text break iterator implementations work best if the passed buffer is as small as possible, 
+    // see <https://bugs.webkit.org/show_bug.cgi?id=29092>. 
+    // We need at least two characters look-ahead to account for UTF-16 surrogates.
+    if (end < dataLength) {
+        TextBreakIterator* it = characterBreakIterator(data, (end + 2 > dataLength) ? dataLength : end + 2);
+        if (!isTextBreak(it, end))
+            end = textBreakPreceding(it, end);
+    }
+    
+    if (!end)
+        return 0;
+
+    String newStr = m_data;
+    newStr.append(data, end);
     m_data = newStr.impl();
 
-    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
-        detach();
-        attach();
-    } else if (renderer())
-        toRenderText(renderer())->setTextWithOffset(m_data, oldStr->length(), 0);
+    updateRenderer(oldLength, 0);
+    // We don't call dispatchModifiedEvent here because we don't want the
+    // parser to dispatch DOM mutation events.
+    if (parentNode())
+        parentNode()->childrenChanged();
     
-    dispatchModifiedEvent(oldStr.get());
+    return end;
 }
 
-void CharacterData::insertData(unsigned offset, const String& arg, ExceptionCode& ec)
+void CharacterData::appendData(const String& data, ExceptionCode&)
+{
+    String newStr = m_data;
+    newStr.append(data);
+
+    setDataAndUpdate(newStr.impl(), m_data->length(), 0, data.length());
+
+    // FIXME: Should we call textInserted here?
+}
+
+void CharacterData::insertData(unsigned offset, const String& data, ExceptionCode& ec)
 {
     checkCharDataOperation(offset, ec);
     if (ec)
         return;
 
     String newStr = m_data;
-    newStr.insert(arg, offset);
+    newStr.insert(data, offset);
 
-    RefPtr<StringImpl> oldStr = m_data;
-    m_data = newStr.impl();
+    setDataAndUpdate(newStr.impl(), offset, 0, data.length());
 
-    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
-        detach();
-        attach();
-    } else if (renderer())
-        toRenderText(renderer())->setTextWithOffset(m_data, offset, 0);
-
-    dispatchModifiedEvent(oldStr.get());
-    
-    document()->textInserted(this, offset, arg.length());
+    document()->textInserted(this, offset, data.length());
 }
 
 void CharacterData::deleteData(unsigned offset, unsigned count, ExceptionCode& ec)
@@ -114,21 +126,12 @@ void CharacterData::deleteData(unsigned offset, unsigned count, ExceptionCode& e
     String newStr = m_data;
     newStr.remove(offset, realCount);
 
-    RefPtr<StringImpl> oldStr = m_data;
-    m_data = newStr.impl();
-    
-    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
-        detach();
-        attach();
-    } else if (renderer())
-        toRenderText(renderer())->setTextWithOffset(m_data, offset, count);
-
-    dispatchModifiedEvent(oldStr.get());
+    setDataAndUpdate(newStr.impl(), offset, count, 0);
 
     document()->textRemoved(this, offset, realCount);
 }
 
-void CharacterData::replaceData(unsigned offset, unsigned count, const String& arg, ExceptionCode& ec)
+void CharacterData::replaceData(unsigned offset, unsigned count, const String& data, ExceptionCode& ec)
 {
     checkCharDataOperation(offset, ec);
     if (ec)
@@ -142,22 +145,13 @@ void CharacterData::replaceData(unsigned offset, unsigned count, const String& a
 
     String newStr = m_data;
     newStr.remove(offset, realCount);
-    newStr.insert(arg, offset);
+    newStr.insert(data, offset);
 
-    RefPtr<StringImpl> oldStr = m_data;
-    m_data = newStr.impl();
+    setDataAndUpdate(newStr.impl(), offset, count, data.length());
 
-    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
-        detach();
-        attach();
-    } else if (renderer())
-        toRenderText(renderer())->setTextWithOffset(m_data, offset, count);
-    
-    dispatchModifiedEvent(oldStr.get());
-    
     // update the markers for spell checking and grammar checking
     document()->textRemoved(this, offset, realCount);
-    document()->textInserted(this, offset, arg.length());
+    document()->textInserted(this, offset, data.length());
 }
 
 String CharacterData::nodeValue() const
@@ -175,13 +169,35 @@ void CharacterData::setNodeValue(const String& nodeValue, ExceptionCode& ec)
     setData(nodeValue, ec);
 }
 
-void CharacterData::dispatchModifiedEvent(StringImpl* prevValue)
+void CharacterData::setDataAndUpdate(PassRefPtr<StringImpl> newData, unsigned offsetOfReplacedData, unsigned oldLength, unsigned newLength)
+{
+    if (document()->frame())
+        document()->frame()->selection()->textWillBeReplaced(this, offsetOfReplacedData, oldLength, newLength);
+    RefPtr<StringImpl> oldData = m_data;
+    m_data = newData;
+    updateRenderer(offsetOfReplacedData, oldLength);
+    dispatchModifiedEvent(oldData.get());
+}
+
+void CharacterData::updateRenderer(unsigned offsetOfReplacedData, unsigned lengthOfReplacedData)
+{
+    if ((!renderer() || !rendererIsNeeded(renderer()->style())) && attached()) {
+        detach();
+        attach();
+    } else if (renderer())
+        toRenderText(renderer())->setTextWithOffset(m_data, offsetOfReplacedData, lengthOfReplacedData);
+}
+
+void CharacterData::dispatchModifiedEvent(StringImpl* oldData)
 {
     if (parentNode())
         parentNode()->childrenChanged();
     if (document()->hasListenerType(Document::DOMCHARACTERDATAMODIFIED_LISTENER))
-        dispatchEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, 0, prevValue, m_data));
+        dispatchEvent(MutationEvent::create(eventNames().DOMCharacterDataModifiedEvent, true, 0, oldData, m_data));
     dispatchSubtreeModifiedEvent();
+#if ENABLE(INSPECTOR)
+    InspectorInstrumentation::characterDataModified(document(), this);
+#endif
 }
 
 void CharacterData::checkCharDataOperation(unsigned offset, ExceptionCode& ec)

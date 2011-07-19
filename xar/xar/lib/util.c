@@ -205,6 +205,10 @@ int xar_path_issane(char* path) {
 	char* component = NULL;
 	int path_depth = 0;
 	
+	// Ban 0 length / absolute paths.
+	if (strlen(path) == 0 || path[0] == '/')
+		return 0;
+	
 	while (component = xar_path_nextcomponent(&path_walker)) {
 		
 		if (strlen(component) == 0 || strcmp(component, ".") == 0) { // Since // is legal, and '.' is legal it's possible to have empty path elements. Ignore them

@@ -11,16 +11,16 @@ dnl commercial use. Licensing information for BSAFE SSL-C may be
 dnl obtained from RSA Data Scurity Inc., San Mateo, California, USA.
 dnl Their home page on the web is "www.rsasecurity.com". 
 #
-# RCS: @(#) $Id: configure.in,v 1.24 2008/03/19 22:38:26 hobbs2 Exp $
+# RCS: @(#) $Id: configure.in,v 1.25 2010/08/12 01:30:44 hobbs2 Exp $
 
 
 #--------------------------------------------------------------------
 # macro used to verify that the configure script can find the sources
 #--------------------------------------------------------------------
 
-AC_INIT([tls], [1.6])
+AC_INIT([tls], [1.6.1])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

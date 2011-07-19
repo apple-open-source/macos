@@ -44,7 +44,6 @@
 #import "WebFrameViewInternal.h"
 #import "WebHTMLView.h"
 #import "WebHTMLViewInternal.h"
-#import "WebIconFetcherInternal.h"
 #import "WebKitStatisticsPrivate.h"
 #import "WebKitVersionChecks.h"
 #import "WebNSObjectExtras.h"
@@ -57,18 +56,22 @@
 #import <WebCore/AccessibilityObject.h>
 #import <WebCore/AnimationController.h>
 #import <WebCore/CSSMutableStyleDeclaration.h>
+#import <WebCore/CachedResourceLoader.h>
 #import <WebCore/Chrome.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/DOMImplementation.h>
-#import <WebCore/DocLoader.h>
 #import <WebCore/DocumentFragment.h>
+#import <WebCore/DocumentLoader.h>
+#import <WebCore/DocumentMarkerController.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/EventNames.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/FrameLoaderStateMachine.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/GraphicsContext.h>
 #import <WebCore/HTMLFrameOwnerElement.h>
+#import <WebCore/HTMLNames.h>
 #import <WebCore/HistoryItem.h>
 #import <WebCore/HitTestResult.h>
 #import <WebCore/LegacyWebArchive.h>
@@ -81,7 +84,9 @@
 #import <WebCore/ReplaceSelectionCommand.h>
 #import <WebCore/RuntimeApplicationChecks.h>
 #import <WebCore/ScriptValue.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/SmartReplace.h>
+#import <WebCore/SVGDocumentExtensions.h>
 #import <WebCore/SVGSMILElement.h>
 #import <WebCore/TextIterator.h>
 #import <WebCore/ThreadCheck.h>
@@ -196,6 +201,20 @@ EditableLinkBehavior core(WebKitEditableLinkBehavior editableLinkBehavior)
     return EditableLinkDefaultBehavior;
 }
 
+WebCore::EditingBehaviorType core(WebKitEditingBehavior behavior)
+{
+    switch (behavior) {
+        case WebKitEditingMacBehavior:
+            return WebCore::EditingMacBehavior;
+        case WebKitEditingWinBehavior:
+            return WebCore::EditingWindowsBehavior;
+        case WebKitEditingUnixBehavior:
+            return WebCore::EditingUnixBehavior;
+    }
+    ASSERT_NOT_REACHED();
+    return WebCore::EditingMacBehavior;
+}
+
 TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior behavior)
 {
     switch (behavior) {
@@ -229,7 +248,7 @@ Page* core(WebView *webView)
 
 WebView *kit(Page* page)
 {
-    return page ? static_cast<WebChromeClient*>(page->chrome()->client())->webView() : nil;
+    return page ? static_cast<WebView*>(page->chrome()->client()->webView()) : nil;
 }
 
 WebView *getWebView(WebFrame *webFrame)
@@ -376,23 +395,21 @@ WebView *getWebView(WebFrame *webFrame)
     return _private->internalLoadDelegate;
 }
 
-#ifndef BUILDING_ON_TIGER
 - (void)_unmarkAllBadGrammar
 {
     Frame* coreFrame = _private->coreFrame;
     for (Frame* frame = coreFrame; frame; frame = frame->tree()->traverseNext(coreFrame)) {
         if (Document* document = frame->document())
-            document->removeMarkers(DocumentMarker::Grammar);
+            document->markers()->removeMarkers(DocumentMarker::Grammar);
     }
 }
-#endif
 
 - (void)_unmarkAllMisspellings
 {
     Frame* coreFrame = _private->coreFrame;
     for (Frame* frame = coreFrame; frame; frame = frame->tree()->traverseNext(coreFrame)) {
         if (Document* document = frame->document())
-            document->removeMarkers(DocumentMarker::Spelling);
+            document->markers()->removeMarkers(DocumentMarker::Spelling);
     }
 }
 
@@ -474,24 +491,9 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return dataSource(_private->coreFrame->loader()->documentLoader());
 }
 
-- (void)_addData:(NSData *)data
-{
-    Document* document = _private->coreFrame->document();
-    
-    // Document may be nil if the part is about to redirect
-    // as a result of JS executing during load, i.e. one frame
-    // changing another's location before the frame's document
-    // has been created. 
-    if (!document)
-        return;
-
-    document->setShouldCreateRenderers(_private->shouldCreateRenderers);
-    _private->coreFrame->loader()->addData((const char *)[data bytes], [data length]);
-}
-
 - (NSString *)_stringWithDocumentTypeStringAndMarkupString:(NSString *)markupString
 {
-    return _private->coreFrame->documentTypeString() + markupString;
+    return String(_private->coreFrame->documentTypeString() + String(markupString));
 }
 
 - (NSArray *)_nodesFromList:(Vector<Node*> *)nodesVector
@@ -516,7 +518,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (NSString *)_selectedString
 {
-    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->selectedText());
+    return _private->coreFrame->displayStringModifiedByEncoding(_private->coreFrame->editor()->selectedText());
 }
 
 - (NSString *)_stringForRange:(DOMRange *)range
@@ -530,6 +532,26 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
     // Transfer buffer ownership to NSString
     return [[[NSString alloc] initWithCharactersNoCopy:buf length:length freeWhenDone:YES] autorelease];
+}
+
+- (BOOL)_shouldFlattenCompositingLayers:(CGContextRef)context
+{
+    // -currentContextDrawingToScreen returns YES for bitmap contexts.
+    BOOL isPrinting = ![NSGraphicsContext currentContextDrawingToScreen];
+    if (isPrinting)
+        return YES;
+
+    if (!WKCGContextIsBitmapContext(context))
+        return NO;
+
+    // If we're drawing into a bitmap, we might be snapshotting, or drawing into a layer-backed view.
+    if ([getWebView(self) _usesDocumentViews]) {
+        id documentView = [_private->webFrameView documentView];
+        if ([documentView isKindOfClass:[WebHTMLView class]] && [(WebHTMLView *)documentView _web_isDrawingIntoLayer])
+            return NO;
+    }
+
+    return [getWebView(self) _includesFlattenedCompositingLayersWhenDrawingToBitmap];
 }
 
 - (void)_drawRect:(NSRect)rect contentsOnly:(BOOL)contentsOnly
@@ -548,7 +570,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         if (parentView)
             shouldFlatten = parentView->paintBehavior() & PaintBehaviorFlattenCompositingLayers;
     } else
-        shouldFlatten = WKCGContextIsBitmapContext(ctx) && [getWebView(self) _includesFlattenedCompositingLayersWhenDrawingToBitmap];
+        shouldFlatten = [self _shouldFlattenCompositingLayers:ctx];
 
     PaintBehavior oldBehavior = PaintBehaviorNormal;
     if (shouldFlatten) {
@@ -557,51 +579,12 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     }
     
     if (contentsOnly)
-        _private->coreFrame->view()->paintContents(&context, enclosingIntRect(rect));
+        view->paintContents(&context, enclosingIntRect(rect));
     else
-        _private->coreFrame->view()->paint(&context, enclosingIntRect(rect));
+        view->paint(&context, enclosingIntRect(rect));
 
     if (shouldFlatten)
         view->setPaintBehavior(oldBehavior);
-}
-
-// Used by pagination code called from AppKit when a standalone web page is printed.
-- (NSArray*)_computePageRectsWithPrintWidthScaleFactor:(float)printWidthScaleFactor printHeight:(float)printHeight
-{
-    NSMutableArray* pages = [NSMutableArray arrayWithCapacity:5];
-    if (printWidthScaleFactor <= 0) {
-        LOG_ERROR("printWidthScaleFactor has bad value %.2f", printWidthScaleFactor);
-        return pages;
-    }
-    
-    if (printHeight <= 0) {
-        LOG_ERROR("printHeight has bad value %.2f", printHeight);
-        return pages;
-    }
-
-    if (!_private->coreFrame || !_private->coreFrame->document() || !_private->coreFrame->view()) return pages;
-    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
-    if (!root) return pages;
-    
-    FrameView* view = _private->coreFrame->view();
-    if (!view)
-        return pages;
-
-    NSView* documentView = view->documentView();
-    if (!documentView)
-        return pages;
-
-    float docWidth = root->layer()->width();
-    float printWidth = docWidth / printWidthScaleFactor;
-
-    PrintContext printContext(_private->coreFrame);
-    printContext.computePageRectsWithPageSize(FloatSize(printWidth, printHeight), true);
-
-    const Vector<IntRect>& pageRects = printContext.pageRects();
-    const size_t pageCount = pageRects.size();
-    for (size_t pageNumber = 0; pageNumber < pageCount; ++pageNumber)
-        [pages addObject: [NSValue valueWithRect: NSRect(pageRects[pageNumber])]];
-    return pages;
 }
 
 - (BOOL)_getVisibleRect:(NSRect*)rect
@@ -634,22 +617,22 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
     // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
     // JSEvaluateScript instead, since they have less surprising semantics.
-    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+    if (!result || (!result.isBoolean() && !result.isString() && !result.isNumber()))
         return @"";
 
     JSLock lock(SilenceAssertionsOnly);
     return ustringToString(result.toString(_private->coreFrame->script()->globalObject(mainThreadNormalWorld())->globalExec()));
 }
 
-- (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity
+- (NSRect)_caretRectAtPosition:(const Position&)pos affinity:(NSSelectionAffinity)affinity
 {
-    VisiblePosition visiblePosition(core(node), offset, static_cast<EAffinity>(affinity));
+    VisiblePosition visiblePosition(pos, static_cast<EAffinity>(affinity));
     return visiblePosition.absoluteCaretBounds();
 }
 
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range
 {
-   return _private->coreFrame->firstRectForRange(core(range));
+   return _private->coreFrame->editor()->firstRectForRange(core(range));
 }
 
 - (void)_scrollDOMRangeToVisible:(DOMRange *)range
@@ -669,32 +652,12 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return _private->coreFrame->view() ? _private->coreFrame->view()->needsLayout() : false;
 }
 
-- (id)_accessibilityTree
-{
-#if HAVE(ACCESSIBILITY)
-    if (!AXObjectCache::accessibilityEnabled()) {
-        AXObjectCache::enableAccessibility();
-        if ([[NSApp accessibilityAttributeValue:NSAccessibilityEnhancedUserInterfaceAttribute] boolValue])
-            AXObjectCache::enableEnhancedUserInterfaceAccessibility();
-    }
-
-    if (!_private->coreFrame || !_private->coreFrame->document())
-        return nil;
-    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
-    if (!root)
-        return nil;
-    return _private->coreFrame->document()->axObjectCache()->getOrCreate(root)->wrapper();
-#else
-    return nil;
-#endif
-}
-
-- (DOMRange *)_rangeByAlteringCurrentSelection:(SelectionController::EAlteration)alteration direction:(SelectionController::EDirection)direction granularity:(TextGranularity)granularity
+- (DOMRange *)_rangeByAlteringCurrentSelection:(FrameSelection::EAlteration)alteration direction:(SelectionDirection)direction granularity:(TextGranularity)granularity
 {
     if (_private->coreFrame->selection()->isNone())
         return nil;
 
-    SelectionController selection;
+    FrameSelection selection;
     selection.setSelection(_private->coreFrame->selection()->selection());
     selection.modify(alteration, direction, granularity);
     return kit(selection.toNormalizedRange().get());
@@ -702,35 +665,20 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (TextGranularity)_selectionGranularity
 {
-    return _private->coreFrame->selectionGranularity();
+    return _private->coreFrame->selection()->granularity();
 }
 
 - (NSRange)_convertToNSRange:(Range *)range
 {
-    if (!range || !range->startContainer())
+    if (!range)
         return NSMakeRange(NSNotFound, 0);
 
-    Element* selectionRoot = _private->coreFrame->selection()->rootEditableElement();
-    Element* scope = selectionRoot ? selectionRoot : _private->coreFrame->document()->documentElement();
-    
-    // Mouse events may cause TSM to attempt to create an NSRange for a portion of the view
-    // that is not inside the current editable region.  These checks ensure we don't produce
-    // potentially invalid data when responding to such requests.
-    if (range->startContainer() != scope && !range->startContainer()->isDescendantOf(scope))
+    size_t location;
+    size_t length;
+    if (!TextIterator::locationAndLengthFromRange(range, location, length))
         return NSMakeRange(NSNotFound, 0);
-    if (range->endContainer() != scope && !range->endContainer()->isDescendantOf(scope))
-        return NSMakeRange(NSNotFound, 0);
-    
-    RefPtr<Range> testRange = Range::create(scope->document(), scope, 0, range->startContainer(), range->startOffset());
-    ASSERT(testRange->startContainer() == scope);
-    int startPosition = TextIterator::rangeLength(testRange.get());
 
-    ExceptionCode ec;
-    testRange->setEnd(range->endContainer(), range->endOffset(), ec);
-    ASSERT(testRange->startContainer() == scope);
-    int endPosition = TextIterator::rangeLength(testRange.get());
-
-    return NSMakeRange(startPosition, endPosition - startPosition);
+    return NSMakeRange(location, length);
 }
 
 - (PassRefPtr<Range>)_convertToDOMRange:(NSRange)nsrange
@@ -775,7 +723,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMRange *)_markDOMRange
 {
-    return kit(_private->coreFrame->mark().toNormalizedRange().get());
+    return kit(_private->coreFrame->editor()->mark().toNormalizedRange().get());
 }
 
 // Given proposedRange, returns an extended range that includes adjacent whitespace that should
@@ -801,72 +749,14 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (newEnd.isNull())
         newEnd = end;
 
-    newStart = rangeCompliantEquivalent(newStart);
-    newEnd = rangeCompliantEquivalent(newEnd);
+    newStart = newStart.parentAnchoredEquivalent();
+    newEnd = newEnd.parentAnchoredEquivalent();
 
     RefPtr<Range> range = _private->coreFrame->document()->createRange();
     int exception = 0;
-    range->setStart(newStart.node(), newStart.deprecatedEditingOffset(), exception);
-    range->setEnd(newStart.node(), newStart.deprecatedEditingOffset(), exception);
+    range->setStart(newStart.containerNode(), newStart.offsetInContainerNode(), exception);
+    range->setEnd(newStart.containerNode(), newStart.offsetInContainerNode(), exception);
     return kit(range.get());
-}
-
-// Determines whether whitespace needs to be added around aString to preserve proper spacing and
-// punctuation when it‚Äôs inserted into the receiver‚Äôs text over charRange. Returns by reference
-// in beforeString and afterString any whitespace that should be added, unless either or both are
-// nil. Both are returned as nil if aString is nil or if smart insertion and deletion are disabled.
-- (void)_smartInsertForString:(NSString *)pasteString replacingRange:(DOMRange *)rangeToReplace beforeString:(NSString **)beforeString afterString:(NSString **)afterString
-{
-    // give back nil pointers in case of early returns
-    if (beforeString)
-        *beforeString = nil;
-    if (afterString)
-        *afterString = nil;
-        
-    // inspect destination
-    Node *startContainer = core([rangeToReplace startContainer]);
-    Node *endContainer = core([rangeToReplace endContainer]);
-
-    Position startPos(startContainer, [rangeToReplace startOffset]);
-    Position endPos(endContainer, [rangeToReplace endOffset]);
-
-    VisiblePosition startVisiblePos = VisiblePosition(startPos, VP_DEFAULT_AFFINITY);
-    VisiblePosition endVisiblePos = VisiblePosition(endPos, VP_DEFAULT_AFFINITY);
-    
-    // this check also ensures startContainer, startPos, endContainer, and endPos are non-null
-    if (startVisiblePos.isNull() || endVisiblePos.isNull())
-        return;
-
-    bool addLeadingSpace = startPos.leadingWhitespacePosition(VP_DEFAULT_AFFINITY, true).isNull() && !isStartOfParagraph(startVisiblePos);
-    if (addLeadingSpace)
-        if (UChar previousChar = startVisiblePos.previous().characterAfter())
-            addLeadingSpace = !isCharacterSmartReplaceExempt(previousChar, true);
-    
-    bool addTrailingSpace = endPos.trailingWhitespacePosition(VP_DEFAULT_AFFINITY, true).isNull() && !isEndOfParagraph(endVisiblePos);
-    if (addTrailingSpace)
-        if (UChar thisChar = endVisiblePos.characterAfter())
-            addTrailingSpace = !isCharacterSmartReplaceExempt(thisChar, false);
-    
-    // inspect source
-    bool hasWhitespaceAtStart = false;
-    bool hasWhitespaceAtEnd = false;
-    unsigned pasteLength = [pasteString length];
-    if (pasteLength > 0) {
-        NSCharacterSet *whiteSet = [NSCharacterSet whitespaceAndNewlineCharacterSet];
-        
-        if ([whiteSet characterIsMember:[pasteString characterAtIndex:0]]) {
-            hasWhitespaceAtStart = YES;
-        }
-        if ([whiteSet characterIsMember:[pasteString characterAtIndex:(pasteLength - 1)]]) {
-            hasWhitespaceAtEnd = YES;
-        }
-    }
-    
-    // issue the verdict
-    if (beforeString && addLeadingSpace && !hasWhitespaceAtStart)
-        *beforeString = @" ";
-    if (afterString && addTrailingSpace && !hasWhitespaceAtEnd)
-        *afterString = @" ";
 }
 
 - (DOMDocumentFragment *)_documentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString 
@@ -904,7 +794,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return;
     
     TypingCommand::insertParagraphSeparatorInQuotedContent(_private->coreFrame->document());
-    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
+    _private->coreFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 - (VisiblePosition)_visiblePositionForPoint:(NSPoint)point
@@ -915,41 +805,24 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (DOMRange *)_characterRangeAtPoint:(NSPoint)point
 {
-    VisiblePosition position = [self _visiblePositionForPoint:point];
-    if (position.isNull())
-        return nil;
-    
-    VisiblePosition previous = position.previous();
-    if (previous.isNotNull()) {
-        DOMRange *previousCharacterRange = kit(makeRange(previous, position).get());
-        NSRect rect = [self _firstRectForDOMRange:previousCharacterRange];
-        if (NSPointInRect(point, rect))
-            return previousCharacterRange;
-    }
-
-    VisiblePosition next = position.next();
-    if (next.isNotNull()) {
-        DOMRange *nextCharacterRange = kit(makeRange(position, next).get());
-        NSRect rect = [self _firstRectForDOMRange:nextCharacterRange];
-        if (NSPointInRect(point, rect))
-            return nextCharacterRange;
-    }
-    
-    return nil;
+    return kit(_private->coreFrame->rangeForPoint(IntPoint(point)).get());
 }
 
 - (DOMCSSStyleDeclaration *)_typingStyle
 {
-    if (!_private->coreFrame || !_private->coreFrame->typingStyle())
+    if (!_private->coreFrame)
         return nil;
-    return kit(_private->coreFrame->typingStyle()->copy().get());
+    RefPtr<CSSMutableStyleDeclaration> typingStyle = _private->coreFrame->selection()->copyTypingStyle();
+    if (!typingStyle)
+        return nil;
+    return kit(typingStyle.get());
 }
 
 - (void)_setTypingStyle:(DOMCSSStyleDeclaration *)style withUndoAction:(EditAction)undoAction
 {
     if (!_private->coreFrame)
         return;
-    _private->coreFrame->computeAndSetTypingStyle(core(style), undoAction);
+    _private->coreFrame->editor()->computeAndSetTypingStyle(core(style), undoAction);
 }
 
 - (void)_dragSourceEndedAt:(NSPoint)windowLoc operation:(NSDragOperation)operation
@@ -969,7 +842,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 - (BOOL)_canProvideDocumentSource
 {
     Frame* frame = _private->coreFrame;
-    String mimeType = frame->loader()->writer()->mimeType();
+    String mimeType = frame->document()->loader()->writer()->mimeType();
     PluginData* pluginData = frame->page() ? frame->page()->pluginData() : 0;
 
     if (WebCore::DOMImplementation::isTextMIMEType(mimeType) ||
@@ -987,15 +860,13 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return [self _canProvideDocumentSource];
 }
 
-- (void)_receivedData:(NSData *)data textEncodingName:(NSString *)textEncodingName
+- (void)_commitData:(NSData *)data
 {
-    // Set the encoding. This only needs to be done once, but it's harmless to do it again later.
-    String encoding = _private->coreFrame->loader()->documentLoader()->overrideEncoding();
-    bool userChosen = !encoding.isNull();
-    if (encoding.isNull())
-        encoding = textEncodingName;
-    _private->coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
-    [self _addData:data];
+    // FIXME: This really should be a setting.
+    Document* document = _private->coreFrame->document();
+    document->setShouldCreateRenderers(_private->shouldCreateRenderers);
+
+    _private->coreFrame->loader()->documentLoader()->commitData((const char *)[data bytes], [data length]);
 }
 
 @end
@@ -1039,7 +910,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 
 - (BOOL)_firstLayoutDone
 {
-    return _private->coreFrame->loader()->firstLayoutDone();
+    return _private->coreFrame->loader()->stateMachine()->firstLayoutDone();
 }
 
 - (WebFrameLoadType)_loadType
@@ -1068,14 +939,6 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 - (unsigned)_pendingFrameUnloadEventCount
 {
     return _private->coreFrame->domWindow()->pendingUnloadEventListeners();
-}
-
-- (WebIconFetcher *)fetchApplicationIcon:(id)target
-                                selector:(SEL)selector
-{
-    return [WebIconFetcher _fetchApplicationIconForFrame:self
-                                                  target:target
-                                                selector:selector];
 }
 
 - (void)_setIsDisconnected:(bool)isDisconnected
@@ -1180,13 +1043,37 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     return controller->numberOfActiveAnimations();
 }
 
+- (void) _suspendAnimations
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return;
+        
+    frame->animation()->suspendAnimations();
+}
+
+- (void) _resumeAnimations
+{
+    Frame* frame = core(self);
+    if (!frame)
+        return;
+
+    frame->animation()->resumeAnimations();
+}
+
 - (void)_replaceSelectionWithFragment:(DOMDocumentFragment *)fragment selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace matchStyle:(BOOL)matchStyle
 {
     if (_private->coreFrame->selection()->isNone() || !fragment)
         return;
-    
-    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), core(fragment), selectReplacement, smartReplace, matchStyle));
-    _private->coreFrame->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
+    ReplaceSelectionCommand::CommandOptions options = ReplaceSelectionCommand::PreventNesting;
+    if (selectReplacement)
+        options |= ReplaceSelectionCommand::SelectReplacement;
+    if (smartReplace)
+        options |= ReplaceSelectionCommand::SmartReplace;
+    if (matchStyle)
+        options |= ReplaceSelectionCommand::MatchStyle;
+    applyCommand(ReplaceSelectionCommand::create(_private->coreFrame->document(), core(fragment), options));
+    _private->coreFrame->selection()->revealSelection(ScrollAlignment::alignToEdgeIfNeeded);
 }
 
 - (void)_replaceSelectionWithText:(NSString *)text selectReplacement:(BOOL)selectReplacement smartReplace:(BOOL)smartReplace
@@ -1201,6 +1088,64 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     [self _replaceSelectionWithFragment:fragment selectReplacement:selectReplacement smartReplace:smartReplace matchStyle:NO];
 }
 
+// Determines whether whitespace needs to be added around aString to preserve proper spacing and
+// punctuation when it's inserted into the receiver's text over charRange. Returns by reference
+// in beforeString and afterString any whitespace that should be added, unless either or both are
+// nil. Both are returned as nil if aString is nil or if smart insertion and deletion are disabled.
+- (void)_smartInsertForString:(NSString *)pasteString replacingRange:(DOMRange *)rangeToReplace beforeString:(NSString **)beforeString afterString:(NSString **)afterString
+{
+    // give back nil pointers in case of early returns
+    if (beforeString)
+        *beforeString = nil;
+    if (afterString)
+        *afterString = nil;
+        
+    // inspect destination
+    Node *startContainer = core([rangeToReplace startContainer]);
+    Node *endContainer = core([rangeToReplace endContainer]);
+
+    Position startPos(startContainer, [rangeToReplace startOffset]);
+    Position endPos(endContainer, [rangeToReplace endOffset]);
+
+    VisiblePosition startVisiblePos = VisiblePosition(startPos, VP_DEFAULT_AFFINITY);
+    VisiblePosition endVisiblePos = VisiblePosition(endPos, VP_DEFAULT_AFFINITY);
+    
+    // this check also ensures startContainer, startPos, endContainer, and endPos are non-null
+    if (startVisiblePos.isNull() || endVisiblePos.isNull())
+        return;
+
+    bool addLeadingSpace = startPos.leadingWhitespacePosition(VP_DEFAULT_AFFINITY, true).isNull() && !isStartOfParagraph(startVisiblePos);
+    if (addLeadingSpace)
+        if (UChar previousChar = startVisiblePos.previous().characterAfter())
+            addLeadingSpace = !isCharacterSmartReplaceExempt(previousChar, true);
+    
+    bool addTrailingSpace = endPos.trailingWhitespacePosition(VP_DEFAULT_AFFINITY, true).isNull() && !isEndOfParagraph(endVisiblePos);
+    if (addTrailingSpace)
+        if (UChar thisChar = endVisiblePos.characterAfter())
+            addTrailingSpace = !isCharacterSmartReplaceExempt(thisChar, false);
+    
+    // inspect source
+    bool hasWhitespaceAtStart = false;
+    bool hasWhitespaceAtEnd = false;
+    unsigned pasteLength = [pasteString length];
+    if (pasteLength > 0) {
+        NSCharacterSet *whiteSet = [NSCharacterSet whitespaceAndNewlineCharacterSet];
+        
+        if ([whiteSet characterIsMember:[pasteString characterAtIndex:0]]) {
+            hasWhitespaceAtStart = YES;
+        }
+        if ([whiteSet characterIsMember:[pasteString characterAtIndex:(pasteLength - 1)]]) {
+            hasWhitespaceAtEnd = YES;
+        }
+    }
+    
+    // issue the verdict
+    if (beforeString && addLeadingSpace && !hasWhitespaceAtStart)
+        *beforeString = @" ";
+    if (afterString && addTrailingSpace && !hasWhitespaceAtEnd)
+        *afterString = @" ";
+}
+
 - (NSMutableDictionary *)_cacheabilityDictionary
 {
     NSMutableDictionary *result = [NSMutableDictionary dictionary];
@@ -1210,7 +1155,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (documentLoader && !documentLoader->mainDocumentError().isNull())
         [result setObject:(NSError *)documentLoader->mainDocumentError() forKey:WebFrameMainDocumentError];
         
-    if (frameLoader->containsPlugins())
+    if (frameLoader->subframeLoader()->containsPlugins())
         [result setObject:[NSNumber numberWithBool:YES] forKey:WebFrameHasPlugins];
     
     if (DOMWindow* domWindow = _private->coreFrame->domWindow()) {
@@ -1243,7 +1188,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
 {
     if (!_private->coreFrame)
         return YES;
-    return SecurityOrigin::canLoad(URL, String(), _private->coreFrame->document());
+    return _private->coreFrame->document()->securityOrigin()->canDisplay(URL);
 }
 
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string withGlobalObject:(JSObjectRef)globalObjectRef inScriptWorld:(WebScriptWorld *)world
@@ -1267,7 +1212,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     // This bizarre set of rules matches behavior from WebKit for Safari 2.0.
     // If you don't like it, use -[WebScriptObject evaluateWebScript:] or 
     // JSEvaluateScript instead, since they have less surprising semantics.
-    if (!result || !result.isBoolean() && !result.isString() && !result.isNumber())
+    if (!result || (!result.isBoolean() && !result.isString() && !result.isNumber()))
         return @"";
 
     JSLock lock(SilenceAssertionsOnly);
@@ -1308,13 +1253,14 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     if (!AXObjectCache::accessibilityEnabled())
         return;
     
-    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
-    if (!root)
+    if (!_private->coreFrame || !_private->coreFrame->document())
         return;
     
-    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->getOrCreate(root);
-    String strName(name);
-    rootObject->setAccessibleName(strName);
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObject();
+    if (rootObject) {
+        String strName(name);
+        rootObject->setAccessibleName(strName);
+    }
 #endif
 }
 
@@ -1325,6 +1271,91 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
         return @"";
 
     return coreFrame->layerTreeAsText();
+}
+
+- (BOOL)hasSpellingMarker:(int)from length:(int)length
+{
+    Frame* coreFrame = core(self);
+    if (!coreFrame)
+        return NO;
+    return coreFrame->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
+}
+
+- (BOOL)hasGrammarMarker:(int)from length:(int)length
+{
+    Frame* coreFrame = core(self);
+    if (!coreFrame)
+        return NO;
+    return coreFrame->editor()->selectionStartHasMarkerFor(DocumentMarker::Grammar, from, length);
+}
+
+- (id)accessibilityRoot
+{
+#if HAVE(ACCESSIBILITY)
+    if (!AXObjectCache::accessibilityEnabled()) {
+        AXObjectCache::enableAccessibility();
+        AXObjectCache::setEnhancedUserInterfaceAccessibility([[NSApp accessibilityAttributeValue:NSAccessibilityEnhancedUserInterfaceAttribute] boolValue]);
+    }
+    
+    if (!_private->coreFrame || !_private->coreFrame->document())
+        return nil;
+    
+    AccessibilityObject* rootObject = _private->coreFrame->document()->axObjectCache()->rootObjectForFrame(_private->coreFrame);
+    if (!rootObject)
+        return nil;
+    
+    // The root object will be a WebCore scroll view object. In WK1, scroll views are handled
+    // by the system and the root object should be the web area (instead of the scroll view).
+    if (rootObject->isAttachment() && rootObject->firstChild())
+        return rootObject->firstChild()->wrapper();
+    
+    return rootObject->wrapper();
+#else
+    return nil;
+#endif
+}
+
+- (void)_clearOpener
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (coreFrame)
+        coreFrame->loader()->setOpener(0);
+}
+
+// Used by pagination code called from AppKit when a standalone web page is printed.
+- (NSArray *)_computePageRectsWithPrintScaleFactor:(float)printScaleFactor pageSize:(NSSize)pageSize
+{
+    if (printScaleFactor <= 0) {
+        LOG_ERROR("printScaleFactor has bad value %.2f", printScaleFactor);
+        return [NSArray array];
+    }
+
+    if (!_private->coreFrame)
+        return [NSArray array];
+    if (!_private->coreFrame->document())
+        return [NSArray array];
+    if (!_private->coreFrame->view())
+        return [NSArray array];
+    if (!_private->coreFrame->view()->documentView())
+        return [NSArray array];
+
+    RenderView* root = toRenderView(_private->coreFrame->document()->renderer());
+    if (!root)
+        return [NSArray array];
+
+    const IntRect& documentRect = root->documentRect();
+    float printWidth = root->style()->isHorizontalWritingMode() ? documentRect.width() / printScaleFactor : pageSize.width;
+    float printHeight = root->style()->isHorizontalWritingMode() ? pageSize.height : documentRect.height() / printScaleFactor;
+
+    PrintContext printContext(_private->coreFrame);
+    printContext.computePageRectsWithPageSize(FloatSize(printWidth, printHeight), true);
+    const Vector<IntRect>& pageRects = printContext.pageRects();
+
+    size_t size = pageRects.size();
+    NSMutableArray *pages = [NSMutableArray arrayWithCapacity:size];
+    for (size_t i = 0; i < size; ++i)
+        [pages addObject:[NSValue valueWithRect:NSRect(pageRects[i])]];
+    return pages;
 }
 
 @end
@@ -1365,7 +1396,7 @@ static inline WebDataSource *dataSource(DocumentLoader* loader)
     Frame* coreFrame = _private->coreFrame;
     if (!coreFrame)
         return nil;
-    return coreFrame->tree()->name();
+    return coreFrame->tree()->uniqueName();
 }
 
 - (WebFrameView *)frameView

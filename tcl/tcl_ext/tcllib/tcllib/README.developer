@@ -1,4 +1,4 @@
-RCS: @(#) $Id: README.developer,v 1.5 2007/08/30 17:24:13 andreas_kupries Exp $
+RCS: @(#) $Id: README.developer,v 1.6 2009/06/02 22:49:55 andreas_kupries Exp $
 
 Welcome to the tcllib, the Tcl Standard Library.
 ================================================
@@ -18,19 +18,50 @@ manager easier as well.
 Audience
 --------
 
-The intended audience, are first and foremost, developers beginning to
+The intended audience are, first and foremost, developers beginning to
 work on Tcllib. To an experienced developer this document will be less
 of a guide and more of a reference. Anybody else interested in working
 on Tcllib is invited as well.
 
-Basics
-------
 
-< Flesh this out >
+Directory hierarchy and file basics
+------------------------------------
 
-	sak.tcl
+The main directories under the tcllib top directory are
 
-< Tasks, and how to perform them >
+	modules/
+	examples/
+and	apps/
+
+Each directory FOO under modules/ represents one package, sometimes
+more. In the case of the latter the packages are usually related in
+some way. Examples are the base64, math, and struct modules, with
+loose (base64) to strong (math) relations between the packages.
+
+Examples associated with a module FOO, if there are any, are placed
+into the directory
+
+	examples/FOO
+
+Any type of distributable application can be found under apps/,
+together with their documentation, if any. Note that the apps/
+directory is currently not split into sub-directories.
+
+Regarding the files in Tcllib, the most common types found are
+
+	.tcl	Tcl code for a package.
+
+	.man	Documentation for a package, in doctools format.
+
+	.test	Test suite for a package, or part of. Based on tcltest.
+
+	.bench	Performance benchmarks for a package, or part of.
+		Based on modules/bench
+
+	.pcx	Syntax rules for TclDevKit's tclchecker. Using these
+		rules allows tclchecker to check the use of commands
+		of a Tcllib package X without having to scan the
+		implementation of X, i.e. its .tcl files.
 
 
 Adding a new module
@@ -144,8 +175,8 @@ To run the testsuites of all modules either invoke 'test run' without a
 module name, or use 'make test'. The latter assumes that configure was
 run for Tcllib before, i.e.:
 
-	% ./sak.tcl test run FOO
-or	% ./sak.tcl test run modules/FOO
+	% ./sak.tcl test run
+or	% ./sak.tcl test run
 	% make test
 
 In all of the above cases the result will be a combination of progress
@@ -184,3 +215,182 @@ Non-developers should reports problems in Tcllib's bug tracker.
 Information about its location and the relevant category can be found
 in the section 'BUGS, IDEAS, FEEDBACK' of the manpage of the module
 and/or package.
+
+Module documentation
+--------------------
+
+The main format used for the documentation of packages in Tcllib is
+'doctools', the support packages of which are part of Tcllib, see the
+module 'doctools'.
+
+To convert this documentation to HTML or nroff manpages, or some other
+format use the 'doc' argument of sak.tcl, like so:
+
+	% pwd
+	/the/tcllib/toplevel/directory
+
+	% ./sak.tcl doc html FOO
+or	% ./sak.tcl doc html modules/FOO
+
+The result of the conversion can be found in the newly-created 'doc'
+directory in the current working directory.
+
+The set of formats the documentation can be converted into can be
+queried via
+
+	% ./sak.tcl help doc
+
+
+To convert the documentation of all modules either invoke 'test run'
+without a module name, or use 'make html-doc', etc.. The latter
+assumes that configure was run for Tcllib before, i.e.:
+
+	% ./sak.tcl doc html
+	% make html-doc
+
+Note the special format 'validate'. Using this format does not convert
+the documentation to anything (and the sub-directory 'doc' will not be
+created), it just checks that the documentation is syntactically
+correct. I.e.
+
+	% ./sak.tcldoc validate modules/FOO
+	% ./sak.tcldoc validate
+
+
+Validating modules
+------------------
+
+Running the testsuite of a module, or checking the syntax of its
+documentation (see the previous sections) are two forms of validation.
+
+The 'validate' command of sak.tcl provides a few more. The online
+documentation of this command is available via
+
+	% ./sak.tcl help validate
+
+The validated parts are man pages, testsuites, version information,
+and syntax. The latter only if various static syntax checkers are
+available on the PATH, like TclDevKit's tclchecker.
+
+Note that testsuite validation is not the execution of the testsuites,
+only if a package has a testsuite or not.
+
+It is strongly recommended to validate a module before committing any
+type of change made to it.
+
+It is recommended to validate all modules before committing any type
+of change made to one of them. We have package inter-dependencies
+between packages in Tcllib, thus changing one package may break
+others, and just validating the changed package will not catch such
+problems.
+
+
+Writing Tests
+-------------
+
+While a previous section talked about running the testsuite for a
+module and the packages therein this has no meaning if the module in
+question has no testsuites at all.
+
+This section gives a very basic overview on methodologies for writing
+tests and testsuites.
+
+First there are "drudgery" tests. Written to check absolutely basic
+assumptions which should never fail.
+
+Example:
+
+	For a command FOO taking two arguments, three tests calling it
+	with zero, one, and three arguments. The basic checks that the
+	command fails if it has not enough arguments, or too many.
+
+After that come the tests checking things based on our knowledge of
+the command, about its properties and assumptions. Some examples based
+on the graph operations added during Google's Summer of Code 2009.
+
+**	The BellmanFord command in struct::graph::ops takes a
+	_startnode_ as argument, and this node should be a node of the
+	graph. equals one test case checking the behavior when the
+	specified node is not a node a graph.
+
+	This often gives rise to code in the implementation which
+	explicitly checks the assumption and throws a nice error.
+	Instead of letting the algorithm fails later in some weird
+	non-deterministic way.
+
+	Such checks cannot be done always. The graph argument for
+	example is just a command in itself, and while we expect it to
+	exhibit a certain interface, i.e. set of sub-commands aka
+	methods, we cannot check that it has them, except by actually
+	trying to use them. That is done by the algorithm anyway, so
+	an explicit check is just overhead we can get by without.
+
+**	IIRC one of the distinguishing characteristic of either
+	BellmanFord and/or Johnson is that they are able to handle
+	negative weights. Whereas Dijkstra requires positive weights.
+
+	This induces (at least) three testcases ... Graph with all
+	positive weights, all negative, and a mix of positive and
+	negative weights.
+
+	Thinking further does the algorithm handle the weight '0' as
+	well ? Another test case, or several, if we mix zero with
+	positive and negative weights.
+
+**	The two algorithms we are currently thinking about are about
+	distances between nodes, and distance can be 'Inf'inity,
+	i.e. nodes may not be connected. This means that good test
+	cases are
+
+	(1)	Strongly connected graph
+	(2)	Connected graph
+	(3)	Disconnected graph.
+
+	At the extremes of (1) and (3) we have the fully connected
+	graphs and graphs without edges, only nodes, i.e. completely
+	disconnected.
+
+**	IIRC both of the algorithms take weighted arcs, and fill in a
+	default if arcs are left unweighted in the input graph.
+
+	This also induces three test cases:
+
+	(1)	Graph will all arcs with explicit weights.
+	(2)	Graph without weights at all.
+	(3)	Graph with mixture of weighted and unweighted graphs.
+
+
+What was described above via examples is called 'black-box' testing.
+Test cases are designed and written based on our knowledge of the
+properties of the algorithm and its inputs, without referencing a
+particular implementation.
+
+Going further, a complement to 'black-box' testing is 'white-box'. For
+this we know the implementation of the algorithm, we look at it and
+design our tests cases so that they force the code through all
+possible paths in the implementation. Wherever a decision is made we
+have a test cases forcing a specific direction of the decision, for
+all possible directions.
+
+In practice I often hope that the black-box tests I have made are
+enough to cover all the paths, obviating the need for white-box tests.
+
+So, if you, dear reader, now believe that writing tests for an
+algorithm takes at least as much time as coding the algorithm, and
+often more time, then you are completely right. It does. Much more
+time. See for example also http://sqlite.org/testing.html, a writeup
+on how the Sqlite database engine is tested.
+
+
+
+An interesting connection is to documentation. In one direction, the
+properties you are checking with black-box testing are properties
+which should be documented in the algorithm man page. And conversely,
+if you have documentation of properties of an algorithm then this is a
+good reference to base black-box tests on.
+
+In practice test cases and documentation often get written together,
+cross-influencing each other. And the actual writing of test cases is
+a mix of black and white box, possibly influencing the implementation
+while writing the tests. Like writing test for 'startnode not in input
+graph' serving as reminder to put in a check for this into the code.

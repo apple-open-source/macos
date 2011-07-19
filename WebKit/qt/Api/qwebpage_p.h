@@ -31,21 +31,27 @@
 #include "qwebhistory.h"
 #include "qwebframe.h"
 
+#include "IntPoint.h"
 #include "KURL.h"
 #include "PlatformString.h"
 
+#include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
+
+#include "ViewportArguments.h"
 
 namespace WebCore {
     class ChromeClientQt;
     class ContextMenuClientQt;
     class ContextMenuItem;
     class ContextMenu;
+    class Document;
     class EditorClientQt;
     class Element;
     class InspectorController;
-    class NotificationPresenterClientQt;
+    class IntRect;
     class Node;
+    class NodeList;
     class Page;
     class Frame;
 }
@@ -59,12 +65,21 @@ QT_END_NAMESPACE
 class QWebInspector;
 class QWebPageClient;
 
+class QtViewportAttributesPrivate : public QSharedData {
+public:
+    QtViewportAttributesPrivate(QWebPage::ViewportAttributes* qq)
+        : q(qq)
+    { }
+
+    QWebPage::ViewportAttributes* q;
+};
+
 class QWebPagePrivate {
 public:
     QWebPagePrivate(QWebPage*);
     ~QWebPagePrivate();
 
-    static WebCore::Page* core(QWebPage*);
+    static WebCore::Page* core(const QWebPage*);
     static QWebPagePrivate* priv(QWebPage*);
 
     void createMainFrame();
@@ -80,78 +95,82 @@ public:
 
     void timerEvent(QTimerEvent*);
 
-    void mouseMoveEvent(QMouseEvent*);
-    void mouseMoveEvent(QGraphicsSceneMouseEvent*);
-    void mousePressEvent(QMouseEvent*);
-    void mousePressEvent(QGraphicsSceneMouseEvent*);
-    void mouseDoubleClickEvent(QMouseEvent*);
-    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent*);
-    void mouseTripleClickEvent(QMouseEvent*);
-    void mouseTripleClickEvent(QGraphicsSceneMouseEvent*);
-    void mouseReleaseEvent(QMouseEvent*);
-    void mouseReleaseEvent(QGraphicsSceneMouseEvent*);
+    template<class T> void mouseMoveEvent(T*);
+    template<class T> void mousePressEvent(T*);
+    template<class T> void mouseDoubleClickEvent(T*);
+    template<class T> void mouseTripleClickEvent(T*);
+    template<class T> void mouseReleaseEvent(T*);
 #ifndef QT_NO_CONTEXTMENU
     void contextMenuEvent(const QPoint& globalPos);
 #endif
 #ifndef QT_NO_WHEELEVENT
-    void wheelEvent(QWheelEvent*);
-    void wheelEvent(QGraphicsSceneWheelEvent*);
+    template<class T> void wheelEvent(T*);
 #endif
     void keyPressEvent(QKeyEvent*);
     void keyReleaseEvent(QKeyEvent*);
     void focusInEvent(QFocusEvent*);
     void focusOutEvent(QFocusEvent*);
 
-    void dragEnterEvent(QDragEnterEvent*);
-    void dragEnterEvent(QGraphicsSceneDragDropEvent*);
-    void dragLeaveEvent(QDragLeaveEvent*);
-    void dragLeaveEvent(QGraphicsSceneDragDropEvent*);
-    void dragMoveEvent(QDragMoveEvent*);
-    void dragMoveEvent(QGraphicsSceneDragDropEvent*);
-    void dropEvent(QDropEvent*);
-    void dropEvent(QGraphicsSceneDragDropEvent*);
+    template<class T> void dragEnterEvent(T*);
+    template<class T> void dragLeaveEvent(T*);
+    template<class T> void dragMoveEvent(T*);
+    template<class T> void dropEvent(T*);
 
     void inputMethodEvent(QInputMethodEvent*);
 
+#ifndef QT_NO_PROPERTIES
     void dynamicPropertyChangeEvent(QDynamicPropertyChangeEvent*);
+#endif
 
     void shortcutOverrideEvent(QKeyEvent*);
     void leaveEvent(QEvent*);
     void handleClipboard(QEvent*, Qt::MouseButton);
-    void handleSoftwareInputPanel(Qt::MouseButton);
+    void handleSoftwareInputPanel(Qt::MouseButton, const QPoint&);
     bool handleScrolling(QKeyEvent*, WebCore::Frame*);
 
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
-    void touchEvent(QTouchEvent*);
+    // Returns whether the default action was cancelled in the JS event handler
+    bool touchEvent(QTouchEvent*);
+
+    class TouchAdjuster {
+    public:
+        TouchAdjuster(unsigned topPadding, unsigned rightPadding, unsigned bottomPadding, unsigned leftPadding);
+
+        WebCore::IntPoint findCandidatePointForTouch(const WebCore::IntPoint&, WebCore::Document*) const;
+
+    private:
+        unsigned m_topPadding;
+        unsigned m_rightPadding;
+        unsigned m_bottomPadding;
+        unsigned m_leftPadding;
+    };
+
+    void adjustPointForClicking(QMouseEvent*);
+#if !defined(QT_NO_GRAPHICSVIEW)
+    void adjustPointForClicking(QGraphicsSceneMouseEvent*);
 #endif
 
     void setInspector(QWebInspector*);
     QWebInspector* getOrCreateInspector();
     WebCore::InspectorController* inspectorController();
+    quint16 inspectorServerPort();
+
+    WebCore::ViewportArguments viewportArguments();
 
 #ifndef QT_NO_SHORTCUT
     static QWebPage::WebAction editorActionForKeyEvent(QKeyEvent* event);
 #endif
     static const char* editorCommandForWebActions(QWebPage::WebAction action);
 
-    WebCore::ChromeClientQt *chromeClient;
-    WebCore::ContextMenuClientQt *contextMenuClient;
-    WebCore::EditorClientQt *editorClient;
+    QWebPage *q;
     WebCore::Page *page;
-
+    OwnPtr<QWebPageClient> client;
     QPointer<QWebFrame> mainFrame;
 
-    QWebPage *q;
-    QWebPageClient* client;
 #ifndef QT_NO_UNDOSTACK
     QUndoStack *undoStack;
 #endif
 
-#if QT_VERSION >= 0x040600
     QWeakPointer<QWidget> view;
-#else
-    QWidget* view;
-#endif
 
     bool insideOpenCall;
     quint64 m_totalBytes;
@@ -172,6 +191,8 @@ public:
 
     QSize viewportSize;
     QSize fixedLayoutSize;
+    qreal pixelRatio;
+
     QWebHistory history;
     QWebHitTestResult hitTestResult;
 #ifndef QT_NO_CONTEXTMENU
@@ -179,7 +200,6 @@ public:
 #endif
     QWebSettings *settings;
     QPalette palette;
-    bool editable;
     bool useFixedLayout;
 
     QAction *actions[QWebPage::WebActionCount];
@@ -190,10 +210,6 @@ public:
     QWebInspector* inspector;
     bool inspectorIsInternalOnly; // True if created through the Inspect context menu action
     Qt::DropAction m_lastDropAction;
-    
-    WebCore::NotificationPresenterClientQt* notificationPresenterClient;
-
-    QString viewMode;
 
     static bool drtRun;
 };

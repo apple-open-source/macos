@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,7 +42,7 @@
 static int kx = 0;
 static char kline[MAXLINE + 1];
 
-asl_msg_t *
+aslmsg
 klog_in_acceptmsg(int fd)
 {
 	int n;
@@ -62,7 +62,7 @@ klog_in_acceptmsg(int fd)
 	kline[kx] = '\0';
 	kx = 0;
 
-	return asl_input_parse(kline, n, NULL, 1);
+	return asl_input_parse(kline, n, NULL, SOURCE_KERN);
 }
 
 int
@@ -90,18 +90,19 @@ klog_in_init(void)
 }
 
 int
-klog_in_reset(void)
-{
-	return 0;
-}
-
-int
 klog_in_close(void)
 {
 	if (global.kfd < 0) return 1;
 
+	aslevent_removefd(global.kfd);
 	close(global.kfd);
 	global.kfd = -1;
 
+	return 0;
+}
+
+int
+klog_in_reset(void)
+{
 	return 0;
 }

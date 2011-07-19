@@ -25,6 +25,8 @@
 
 #include "config.h"
 #include "RenderScrollbarPart.h"
+
+#include "PaintInfo.h"
 #include "RenderScrollbar.h"
 #include "RenderScrollbarTheme.h"
 #include "RenderView.h"
@@ -114,14 +116,14 @@ void RenderScrollbarPart::computeScrollbarHeight()
     m_marginBottom = style()->marginBottom().calcMinValue(visibleSize);
 }
 
-void RenderScrollbarPart::calcPrefWidths()
+void RenderScrollbarPart::computePreferredLogicalWidths()
 {
-    if (!prefWidthsDirty())
+    if (!preferredLogicalWidthsDirty())
         return;
     
-    m_minPrefWidth = m_maxPrefWidth = 0;
+    m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = 0;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
 }
 
 void RenderScrollbarPart::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
@@ -160,7 +162,7 @@ void RenderScrollbarPart::imageChanged(WrappedImagePtr image, const IntRect* rec
 void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, int tx, int ty, const IntRect& rect)
 {
     // Make sure our dimensions match the rect.
-    setLocation(rect.x() - tx, rect.y() - ty);
+    setLocation(rect.location() - IntSize(tx, ty));
     setWidth(rect.width());
     setHeight(rect.height());
 
@@ -168,7 +170,7 @@ void RenderScrollbarPart::paintIntoRect(GraphicsContext* graphicsContext, int tx
         return;
 
     // Now do the paint.
-    RenderObject::PaintInfo paintInfo(graphicsContext, rect, PaintPhaseBlockBackground, false, 0, 0);
+    PaintInfo paintInfo(graphicsContext, rect, PaintPhaseBlockBackground, false, 0, 0);
     paint(paintInfo, tx, ty);
     paintInfo.phase = PaintPhaseChildBlockBackgrounds;
     paint(paintInfo, tx, ty);

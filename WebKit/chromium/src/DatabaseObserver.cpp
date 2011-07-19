@@ -31,14 +31,18 @@
 #include "config.h"
 #include "DatabaseObserver.h"
 
-#include "Database.h"
+#if ENABLE(DATABASE)
+
+#include "AbstractDatabase.h"
 #include "Document.h"
 #include "ScriptExecutionContext.h"
 #include "WebDatabase.h"
 #include "WebDatabaseObserver.h"
 #include "WebFrameClient.h"
 #include "WebFrameImpl.h"
+#include "WebPermissionClient.h"
 #include "WebSecurityOrigin.h"
+#include "WebViewImpl.h"
 #include "WebWorkerImpl.h"
 #include "WorkerContext.h"
 #include "WorkerThread.h"
@@ -50,33 +54,41 @@ namespace WebCore {
 bool DatabaseObserver::canEstablishDatabase(ScriptExecutionContext* scriptExecutionContext, const String& name, const String& displayName, unsigned long estimatedSize)
 {
     ASSERT(scriptExecutionContext->isContextThread());
-    // FIXME: add support for the case scriptExecutionContext()->isWorker() once workers implement web databases.
-    ASSERT(scriptExecutionContext->isDocument());
+    ASSERT(scriptExecutionContext->isDocument() || scriptExecutionContext->isWorkerContext());
     if (scriptExecutionContext->isDocument()) {
         Document* document = static_cast<Document*>(scriptExecutionContext);
         WebFrameImpl* webFrame = WebFrameImpl::fromFrame(document->frame());
-        return webFrame->client()->allowDatabase(webFrame, name, displayName, estimatedSize);
+        WebViewImpl* webView = webFrame->viewImpl();
+        if (webView->permissionClient())
+            return webView->permissionClient()->allowDatabase(webFrame, name, displayName, estimatedSize);
+    } else {
+        WorkerContext* workerContext = static_cast<WorkerContext*>(scriptExecutionContext);
+        WorkerLoaderProxy* workerLoaderProxy = &workerContext->thread()->workerLoaderProxy();
+        WebWorkerBase* webWorker = static_cast<WebWorkerBase*>(workerLoaderProxy);
+        return webWorker->allowDatabase(0, name, displayName, estimatedSize);
     }
 
     return true;
 }
 
-void DatabaseObserver::databaseOpened(Database* database)
+void DatabaseObserver::databaseOpened(AbstractDatabase* database)
 {
-    ASSERT(isMainThread());
+    ASSERT(database->scriptExecutionContext()->isContextThread());
     WebDatabase::observer()->databaseOpened(WebDatabase(database));
 }
 
-void DatabaseObserver::databaseModified(Database* database)
+void DatabaseObserver::databaseModified(AbstractDatabase* database)
 {
-    ASSERT(isMainThread());
+    ASSERT(database->scriptExecutionContext()->isContextThread());
     WebDatabase::observer()->databaseModified(WebDatabase(database));
 }
 
-void DatabaseObserver::databaseClosed(Database* database)
+void DatabaseObserver::databaseClosed(AbstractDatabase* database)
 {
-    ASSERT(isMainThread());
+    ASSERT(database->scriptExecutionContext()->isContextThread());
     WebDatabase::observer()->databaseClosed(WebDatabase(database));
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(DATABASE)

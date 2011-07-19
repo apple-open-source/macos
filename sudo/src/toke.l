@@ -1,6 +1,6 @@
 %{
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2008
+ * Copyright (c) 1996, 1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -27,6 +27,7 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/stat.h>
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <stdlib.h>
@@ -38,27 +39,39 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
 # include <malloc.h>
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
+#ifdef HAVE_DIRENT_H
+# include <dirent.h>
+# define NAMLEN(dirent) strlen((dirent)->d_name)
+#else
+# define dirent direct
+# define NAMLEN(dirent) (dirent)->d_namlen
+# ifdef HAVE_SYS_NDIR_H
+#  include <sys/ndir.h>
+# endif
+# ifdef HAVE_SYS_DIR_H
+#  include <sys/dir.h>
+# endif
+# ifdef HAVE_NDIR_H
+#  include <ndir.h>
+# endif
+#endif
 #include <ctype.h>
 #include "sudo.h"
 #include "parse.h"
 #include <gram.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: toke.l,v 1.27 2008/11/24 00:41:36 millert Exp $";
-#endif /* lint */
-
 extern YYSTYPE yylval;
+extern int parse_error;
 int sudolineno = 1;
 char *sudoers;
 static int sawspace = 0;
@@ -69,15 +82,16 @@ static int append		__P((char *, int));
 static int _fill		__P((char *, int, int));
 static int fill_cmnd		__P((char *, int));
 static int fill_args		__P((char *, int, int));
-static int switch_buffer	__P((char *));
+static int _push_include	__P((char *, int));
+static int pop_include		__P((void));
 static int ipv6_valid		__P((const char *s));
 static char *parse_include	__P((char *));
 extern void yyerror		__P((const char *));
 
 #define fill(a, b)		_fill(a, b, 0)
 
-#define	push_include(_p)	(switch_buffer((_p)))
-#define	pop_include()		(switch_buffer(NULL))
+#define	push_include(_p)	(_push_include((_p), FALSE))
+#define	push_includedir(_p)	(_push_include((_p), TRUE))
 
 /* realloc() to size + COMMANDARGINC to make room for command args */
 #define COMMANDARGINC	64
@@ -206,7 +220,7 @@ DEFVAR			[a-z_]+
 			    return(COMMAND);
 			}			/* end of command line args */
 
-    [^\\:, \t\n]+ 	{
+    [^#\\:, \t\n]+ 	{
 			    LEXTRACE("ARG ");
 			    if (!fill_args(yytext, yyleng, sawspace))
 				yyterminate();
@@ -227,7 +241,23 @@ DEFVAR			[a-z_]+
 				yyterminate();
 			}
 
-<INITIAL>^[[:blank:]]*Defaults([:@>\!]{WORD})? {
+<INITIAL>^#includedir[[:blank:]]+\/.*\n {
+			    char *path;
+
+			    if ((path = parse_include(yytext)) == NULL)
+				yyterminate();
+
+			    LEXTRACE("INCLUDEDIR\n");
+
+			    /*
+			     * Push current buffer and switch to include file.
+			     * We simply ignore empty directories.
+			     */
+			    if (!push_includedir(path) && parse_error)
+				yyterminate();
+			}
+
+<INITIAL>^[[:blank:]]*Defaults([:@>\!]\!?{WORD})? {
 			    int n;
 			    for (n = 0; isblank((unsigned char)yytext[n]); n++)
 				continue;
@@ -308,6 +338,26 @@ NOSETENV[[:blank:]]*:	{
 			    	return(NOSETENV);
 			}
 
+LOG_OUTPUT[[:blank:]]*:	{
+			    	LEXTRACE("LOG_OUTPUT ");
+			    	return(LOG_OUTPUT);
+			}
+
+NOLOG_OUTPUT[[:blank:]]*:	{
+			    	LEXTRACE("NOLOG_OUTPUT ");
+			    	return(NOLOG_OUTPUT);
+			}
+
+LOG_INPUT[[:blank:]]*:	{
+			    	LEXTRACE("LOG_INPUT ");
+			    	return(LOG_INPUT);
+			}
+
+NOLOG_INPUT[[:blank:]]*:	{
+			    	LEXTRACE("NOLOG_INPUT ");
+			    	return(NOLOG_INPUT);
+			}
+
 \+{WORD}		{
 			    /* netgroup */
 			    if (!fill(yytext, yyleng))
@@ -316,7 +366,7 @@ NOSETENV[[:blank:]]*:	{
 			    return(NETGROUP);
 			}
 
-\%{WORD}		{
+\%:?{WORD}		{
 			    /* UN*X group */
 			    if (!fill(yytext, yyleng))
 				yyterminate();
@@ -412,11 +462,28 @@ sudoedit		{
 			    }
 			}			/* a pathname */
 
+<INITIAL,GOTDEFS>\"[^"\n]+\" {
+			    /* a quoted user/group name */
+			    if (!fill(yytext + 1, yyleng - 2))
+				yyterminate();
+			    switch (yytext[1]) {
+			    case '%':
+				LEXTRACE("USERGROUP ");
+				return(USERGROUP);
+			    case '+':
+				LEXTRACE("NETGROUP ");
+				return(NETGROUP);
+			    default:
+				LEXTRACE("WORD(4) ");
+				return(WORD);
+			    }
+			}
+
 <INITIAL,GOTDEFS>({ID}|{WORD}) {
 			    /* a word */
 			    if (!fill(yytext, yyleng))
 				yyterminate();
-			    LEXTRACE("WORD(4) ");
+			    LEXTRACE("WORD(5) ");
 			    return(WORD);
 			}
 
@@ -467,12 +534,12 @@ sudoedit		{
 			    LEXTRACE("\n\t");
 			}			/* throw away EOL after \ */
 
-<INITIAL,STARTDEFS,INDEFS>#([^\n0-9-].*)?\n	{
+<INITIAL,STARTDEFS,INDEFS>#(-[^\n0-9].*|[^\n0-9-].*)?\n	{
 			    BEGIN INITIAL;
 			    ++sudolineno;
 			    LEXTRACE("\n");
 			    return(COMMENT);
-			}			/* return comments */
+			}			/* comment, not uid/gid */
 
 <*>.			{
 			    LEXTRACE("ERROR ");
@@ -490,12 +557,57 @@ sudoedit		{
 			}
 
 %%
+static unsigned char
+hexchar(s)
+    const char *s;
+{
+    int i;
+    int result = 0;
+
+    s += 2; /* skip \\x */
+    for (i = 0; i < 2; i++) {
+	switch (*s) {
+	case 'A':
+	case 'a':
+	    result += 10;
+	    break;
+	case 'B':
+	case 'b':
+	    result += 11;
+	    break;
+	case 'C':
+	case 'c':
+	    result += 12;
+	    break;
+	case 'D':
+	case 'd':
+	    result += 13;
+	    break;
+	case 'E':
+	case 'e':
+	    result += 14;
+	    break;
+	case 'F':
+	case 'f':
+	    result += 15;
+	    break;
+	default:
+	    result += *s - '0';
+	    break;
+	}
+	if (i == 0) {
+	    result *= 16;
+	    s++;
+	}
+    }
+    return((unsigned char)result);
+}
+
 static int
 _fill(src, len, olen)
     char *src;
     int len, olen;
 {
-    int i, j;
     char *dst;
 
     dst = olen ? realloc(yylval.string, olen + len + 1) : malloc(len + 1);
@@ -507,13 +619,24 @@ _fill(src, len, olen)
 
     /* Copy the string and collapse any escaped characters. */
     dst += olen;
-    for (i = 0, j = 0; i < len; i++, j++) {
-	if (src[i] == '\\' && i != len - 1)
-	    dst[j] = src[++i];
-	else
-	    dst[j] = src[i];
+    while (len--) {
+	if (*src == '\\' && len) {
+	    if (src[1] == 'x' && len >= 3 && 
+		isxdigit((unsigned char) src[2]) &&
+		isxdigit((unsigned char) src[3])) {
+		*dst++ = hexchar(src);
+		src += 4;
+		len -= 3;
+	    } else {
+		src++;
+		len--;
+		*dst++ = *src++;
+	    }
+	} else {
+	    *dst++ = *src++;
+	}
     }
-    dst[j] = '\0';
+    *dst = '\0';
     return(TRUE);
 }
 
@@ -605,63 +728,240 @@ fill_args(s, len, addspace)
     return(TRUE);
 }
 
-struct sudoers_state {
+struct path_list {
+    char *path;
+    struct path_list *next;
+};
+
+struct include_stack {
     YY_BUFFER_STATE bs;
     char *path;
+    struct path_list *more; /* more files in case of includedir */
     int lineno;
+    int keepopen;
 };
+
+static int
+pl_compare(v1, v2)
+    const void *v1;
+    const void *v2;
+{
+    const struct path_list * const *p1 = v1;
+    const struct path_list * const *p2 = v2;
+
+    return(strcmp((*p1)->path, (*p2)->path));
+}
+
+static char *
+switch_dir(stack, dirpath)
+    struct include_stack *stack;
+    char *dirpath;
+{
+    DIR *dir;
+    int i, count = 0;
+    char *path = NULL;
+    struct dirent *dent;
+    struct stat sb;
+    struct path_list *pl, *first = NULL;
+    struct path_list **sorted = NULL;
+
+    if (!(dir = opendir(dirpath))) {
+	yyerror(dirpath);
+	return(NULL);
+    }
+    while ((dent = readdir(dir))) {
+	/* Ignore files that end in '~' or have a '.' in them. */
+	if (dent->d_name[0] == '\0' || dent->d_name[NAMLEN(dent) - 1] == '~'
+	    || strchr(dent->d_name, '.') != NULL) {
+	    continue;
+	}
+	if (asprintf(&path, "%s/%s", dirpath, dent->d_name) == -1) {
+	    closedir(dir);
+	    goto bad;
+	}
+	if (stat(path, &sb) != 0 || !S_ISREG(sb.st_mode)) {
+	    efree(path);
+	    continue;
+	}
+	pl = malloc(sizeof(*pl));
+	if (pl == NULL)
+	    goto bad;
+	pl->path = path;
+	pl->next = first;
+	first = pl;
+	count++;
+    }
+    closedir(dir);
+
+    if (count == 0)
+	goto done;
+
+    /* Sort the list as an array. */
+    sorted = malloc(sizeof(*sorted) * count);
+    if (sorted == NULL)
+	goto bad;
+    pl = first;
+    for (i = 0; i < count; i++) {
+	sorted[i] = pl;
+	pl = pl->next;
+    }
+    qsort(sorted, count, sizeof(*sorted), pl_compare);
+
+    /* Apply sorting to the list. */
+    first = sorted[0];
+    sorted[count - 1]->next = NULL;
+    for (i = 1; i < count; i++)
+	sorted[i - 1]->next = sorted[i];
+    efree(sorted);
+
+    /* Pull out the first element for parsing, leave the rest for later. */
+    if (count) {
+	path = first->path;
+	pl = first->next;
+	efree(first);
+	stack->more = pl;
+    } else {
+	path = NULL;
+    }
+done:
+    efree(dirpath);
+    return(path);
+bad:
+    while (first != NULL) {
+	pl = first;
+	first = pl->next;
+	free(pl->path);
+	free(pl);
+    }
+    efree(sorted);
+    efree(dirpath);
+    efree(path);
+    return(NULL);
+}
 
 #define MAX_SUDOERS_DEPTH	128
 #define SUDOERS_STACK_INCREMENT	16
 
-static int
-switch_buffer(path)
-    char *path;
+static size_t istacksize, idepth;
+static struct include_stack *istack;
+static int keepopen;
+
+void
+init_lexer()
 {
-    static size_t stacksize, depth;
-    static struct sudoers_state *state;
-    static int keepopen;
+    struct path_list *pl;
+
+    while (idepth) {
+	idepth--;
+	while ((pl = istack[idepth].more) != NULL) {
+	    istack[idepth].more = pl->next;
+	    efree(pl->path);
+	    efree(pl);
+	}
+	efree(istack[idepth].path);
+	if (idepth && !istack[idepth].keepopen)
+	    fclose(istack[idepth].bs->yy_input_file);
+	yy_delete_buffer(istack[idepth].bs);
+    }
+    efree(istack);
+    istack = NULL;
+    istacksize = idepth = 0;
+    keepopen = FALSE;
+}
+
+static int
+_push_include(path, isdir)
+    char *path;
+    int isdir;
+{
+    struct path_list *pl;
     FILE *fp;
 
-    if (path != NULL) {
-	/* push current state */
-	if (depth >= stacksize) {
-	    if (depth > MAX_SUDOERS_DEPTH) {
-		yyerror("too many levels of includes");
-		return(FALSE);
-	    }
-	    stacksize += SUDOERS_STACK_INCREMENT;
-	    state = (struct sudoers_state *) realloc(state,
-		sizeof(state) * stacksize);
-	    if (state == NULL) {
-		yyerror("unable to allocate memory");
-		return(FALSE);
-	    }
+    /* push current state onto stack */
+    if (idepth >= istacksize) {
+	if (idepth > MAX_SUDOERS_DEPTH) {
+	    yyerror("too many levels of includes");
+	    return(FALSE);
 	}
-	if ((fp = open_sudoers(path, &keepopen)) == NULL) {
+	istacksize += SUDOERS_STACK_INCREMENT;
+	istack = (struct include_stack *) realloc(istack,
+	    sizeof(*istack) * istacksize);
+	if (istack == NULL) {
+	    yyerror("unable to allocate memory");
+	    return(FALSE);
+	}
+    }
+    if (isdir) {
+	if (!(path = switch_dir(&istack[idepth], path))) {
+	    /* switch_dir() called yyerror() for us */
+	    return(FALSE);
+	}
+	while ((fp = open_sudoers(path, FALSE, &keepopen)) == NULL) {
+	    /* Unable to open path in includedir, go to next one, if any. */
+	    efree(path);
+	    if ((pl = istack[idepth].more) == NULL)
+		return(FALSE);
+	    path = pl->path;
+	    istack[idepth].more = pl->next;
+	    efree(pl);
+	}
+    } else {
+	if ((fp = open_sudoers(path, TRUE, &keepopen)) == NULL) {
 	    yyerror(path);
 	    return(FALSE);
 	}
-	state[depth].bs = YY_CURRENT_BUFFER;
-	state[depth].path = sudoers;
-	state[depth].lineno = sudolineno;
-	depth++;
-	sudolineno = 1;
-	sudoers = path;
-	yy_switch_to_buffer(yy_create_buffer(fp, YY_BUF_SIZE));
-    } else {
-	/* pop */
-	if (depth == 0)
-	    return(FALSE);
-	depth--;
-	if (!keepopen)
-	    fclose(YY_CURRENT_BUFFER->yy_input_file);
-	yy_delete_buffer(YY_CURRENT_BUFFER);
-	yy_switch_to_buffer(state[depth].bs);
+	istack[idepth].more = NULL;
+    }
+    /* Push the old (current) file and open the new one. */
+    istack[idepth].path = sudoers; /* push old path */
+    istack[idepth].bs = YY_CURRENT_BUFFER;
+    istack[idepth].lineno = sudolineno;
+    istack[idepth].keepopen = keepopen;
+    idepth++;
+    sudolineno = 1;
+    sudoers = path;
+    yy_switch_to_buffer(yy_create_buffer(fp, YY_BUF_SIZE));
+
+    return(TRUE);
+}
+
+static int
+pop_include()
+{
+    struct path_list *pl;
+    FILE *fp;
+
+    if (idepth == 0)
+	return(FALSE);
+
+    if (!keepopen)
+	fclose(YY_CURRENT_BUFFER->yy_input_file);
+    yy_delete_buffer(YY_CURRENT_BUFFER);
+    /* If we are in an include dir, move to the next file. */
+    while ((pl = istack[idepth - 1].more) != NULL) {
+	fp = open_sudoers(pl->path, FALSE, &keepopen);
+	if (fp != NULL) {
+	    istack[idepth - 1].more = pl->next;
+	    efree(sudoers);
+	    sudoers = pl->path;
+	    sudolineno = 1;
+	    yy_switch_to_buffer(yy_create_buffer(fp, YY_BUF_SIZE));
+	    efree(pl);
+	    break;
+	}
+	/* Unable to open path in include dir, go to next one. */
+	istack[idepth - 1].more = pl->next;
+	efree(pl->path);
+	efree(pl);
+    }
+    /* If no path list, just pop the last dir on the stack. */
+    if (pl == NULL) {
+	idepth--;
+	yy_switch_to_buffer(istack[idepth].bs);
 	efree(sudoers);
-	sudoers = state[depth].path;
-	sudolineno = state[depth].lineno;
-	keepopen = FALSE;
+	sudoers = istack[idepth].path;
+	sudolineno = istack[idepth].lineno;
+	keepopen = istack[idepth].keepopen;
     }
     return(TRUE);
 }
@@ -671,22 +971,46 @@ parse_include(base)
     char *base;
 {
     char *cp, *ep, *path;
-    int len;
+    int len = 0, subst = 0;
+    size_t shost_len = 0;
 
     /* Pull out path from #include line. */
     cp = base + sizeof("#include");
+    if (*cp == 'i')
+	cp += 3; /* includedir */
     while (isblank((unsigned char) *cp))
 	cp++;
     ep = cp;
-    while (*ep != '\0' && !isspace((unsigned char) *ep))
+    while (*ep != '\0' && !isspace((unsigned char) *ep)) {
+	if (ep[0] == '%' && ep[1] == 'h') {
+	    shost_len = strlen(user_shost);
+	    len += shost_len - 2;
+	    subst = 1;
+	}
 	ep++;
+    }
 
     /* Make a copy of path and return it. */
-    len = (int)(ep - cp);
+    len += (int)(ep - cp);
     if ((path = malloc(len + 1)) == NULL)
 	yyerror("unable to allocate memory");
-    memcpy(path, cp, len);
-    path[len] = '\0';
+    if (subst) {
+	/* substitute for %h */
+	char *pp = path;
+	while (cp < ep) {
+	    if (cp[0] == '%' && cp[1] == 'h') {
+		memcpy(pp, user_shost, shost_len);
+		pp += shost_len;
+		cp += 2;
+		continue;
+	    }
+	    *pp++ = *cp++;
+	}
+	*pp = '\0';
+    } else {
+	memcpy(path, cp, len);
+	path[len] = '\0';
+    }
 
     /* Push any excess characters (e.g. comment, newline) back to the lexer */
     if (*ep != '\0')

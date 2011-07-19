@@ -1,8 +1,8 @@
 /* getpeereid.c */
-/* $OpenLDAP: pkg/ldap/libraries/liblutil/getpeereid.c,v 1.24.2.4 2008/07/15 18:29:53 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/liblutil/getpeereid.c,v 1.24.2.7 2010/04/13 20:23:05 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -13,6 +13,10 @@
  * top-level directory of the distribution or, alternatively, at
  * <http://www.OpenLDAP.org/license.html>.
  */
+
+#ifndef _GNU_SOURCE
+#define _GNU_SOURCE 1			/* Needed for glibc struct ucred */
+#endif
 
 #include "portable.h"
 

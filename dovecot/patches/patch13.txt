@@ -1,0 +1,119 @@
+diff -Nur dovecot-1.1.7+patches9-10/src/lib/hostpid.c dovecot-patch/src/lib/hostpid.c
+--- dovecot-1.1.7+patches9-10/src/lib/hostpid.c	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/lib/hostpid.c	2009-01-06 16:51:37.000000000 -0600
+@@ -4,19 +4,35 @@
+ #include "hostpid.h"
+ 
+ #include <unistd.h>
++#include <netdb.h>			/* APPLE */
+ 
+ const char *my_hostname = NULL;
++const char *my_hostdomain = NULL;	/* APPLE moved from mbox-save.c */
+ const char *my_pid = NULL;
+ 
+ void hostpid_init(void)
+ {
+ 	static char hostname[256], pid[MAX_INT_STRLEN];
++	static char hostdomain[256];		/* APPLE */
++	struct hostent *hent;			/* APPLE */
++	const char *name;			/* APPLE */
+ 
+ 	if (gethostname(hostname, sizeof(hostname)-1) == -1)
+ 		i_strocpy(hostname, "unknown", sizeof(hostname));
+ 	hostname[sizeof(hostname)-1] = '\0';
+ 	my_hostname = hostname;
+ 
++	/* APPLE moved my_hostdomain from mbox-save.c */
++	hent = gethostbyname(my_hostname);
++	name = hent != NULL ? hent->h_name : NULL;
++	if (name == NULL) {
++		/* failed, use just the hostname */
++		name = my_hostname;
++	}
++	i_strocpy(hostdomain, name, sizeof hostdomain);
++	hostdomain[sizeof hostdomain - 1] = '\0';
++	my_hostdomain = hostdomain;
++
+ 	i_strocpy(pid, dec2str(getpid()), sizeof(pid));
+ 	my_pid = pid;
+ }
+diff -Nur dovecot-1.1.7+patches9-10/src/lib/hostpid.h dovecot-patch/src/lib/hostpid.h
+--- dovecot-1.1.7+patches9-10/src/lib/hostpid.h	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/lib/hostpid.h	2009-01-06 16:51:41.000000000 -0600
+@@ -2,10 +2,10 @@
+ #define HOSTPID_H
+ 
+ extern const char *my_hostname;
++extern const char *my_hostdomain;	/* APPLE */
+ extern const char *my_pid;
+ 
+-/* Initializes my_hostname and my_pid. Done only once, so it's safe and
+-   fast to call this function multiple times. */
++/* Initializes my_hostname and my_pid. */
+ void hostpid_init(void);
+ 
+ #endif
+diff -Nur dovecot-1.1.7+patches9-10/src/lib-storage/index/mbox/mbox-save.c dovecot-patch/src/lib-storage/index/mbox/mbox-save.c
+--- dovecot-1.1.7+patches9-10/src/lib-storage/index/mbox/mbox-save.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/lib-storage/index/mbox/mbox-save.c	2009-01-06 16:51:24.000000000 -0600
+@@ -27,7 +27,6 @@
+ #include <unistd.h>
+ #include <fcntl.h>
+ #include <sys/stat.h>
+-#include <netdb.h>
+ #include <utime.h>
+ 
+ #define MBOX_DELIVERY_ID_RAND_BYTES (64/8)
+@@ -59,7 +58,7 @@
+ 	unsigned int finished:1;
+ };
+ 
+-static char my_hostdomain[256] = "";
++/* APPLE moved my_hostdomain to hostpid.c */
+ 
+ static int write_error(struct mbox_save_context *ctx)
+ {
+@@ -115,22 +114,9 @@
+ static int write_from_line(struct mbox_save_context *ctx, time_t received_date,
+ 			   const char *from_envelope)
+ {
+-	const char *name;
+ 	int ret;
+ 
+-	if (*my_hostdomain == '\0') {
+-		struct hostent *hent;
+-
+-		hent = gethostbyname(my_hostname);
+-
+-		name = hent != NULL ? hent->h_name : NULL;
+-		if (name == NULL) {
+-			/* failed, use just the hostname */
+-			name = my_hostname;
+-		}
+-
+-		i_strocpy(my_hostdomain, name, sizeof(my_hostdomain));
+-	}
++	/* APPLE moved my_hostdomain to hostpid.c */
+ 
+ 	T_BEGIN {
+ 		const char *line;
+diff -Nur dovecot-1.1.7+patches9-10/src/master/main.c dovecot-patch/src/master/main.c
+--- dovecot-1.1.7+patches9-10/src/master/main.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/master/main.c	2009-01-06 16:52:16.000000000 -0600
+@@ -21,6 +21,7 @@
+ #include "ssl-init.h"
+ #include "log.h"
+ #include "sysinfo-get.h"
++#include "hostpid.h"		/* APPLE */
+ 
+ #include <stdio.h>
+ #include <stdlib.h>
+@@ -153,6 +154,8 @@
+         auth_processes_destroy_all();
+         dict_process_kill();
+ 
++	hostpid_init();		/* APPLE - notice if host name changed */
++
+ 	if (!master_settings_read(configfile, FALSE, FALSE))
+ 		i_warning("Invalid configuration, keeping old one");
+ 	else {

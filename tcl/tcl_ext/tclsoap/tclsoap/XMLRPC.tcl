@@ -1,4 +1,5 @@
 # XMLRPC.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
+#              Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # Provide Tcl access to XML-RPC provided methods.
 #
@@ -11,15 +12,17 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP::Utils
 package require SOAP 1.4
 package require rpcvar
 
 namespace eval ::XMLRPC {
-    variable version 1.0
-    variable rcs_version { $Id: XMLRPC.tcl,v 1.8 2003/09/06 17:08:46 patthoyts Exp $ }
+    variable version 1.0.1
+    variable rcs_version { $Id: XMLRPC.tcl,v 1.9 2008/07/09 16:14:23 andreas_kupries Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force [uplevel {namespace current}]::rpcvar::*}
+    catch {namespace import -force ::SOAP::Utils::*}
 }
 
 # -------------------------------------------------------------------------
@@ -106,9 +109,9 @@ proc ::XMLRPC::fault {faultcode faultstring {detail {}}} {
 #   Returns the DOM document root of the generated reply packet
 #
 proc ::XMLRPC::_reply {doc uri methodName result} {
-    set d_root [dom::document createElement $doc "methodResponse"]
-    set d_params [dom::document createElement $d_root "params"]
-    set d_param [dom::document createElement $d_params "param"]
+    set d_root   [addNode $doc      "methodResponse"]
+    set d_params [addNode $d_root   "params"]
+    set d_param  [addNode $d_params "param"]
     insert_value $d_param $result
     return $doc
 }
@@ -125,11 +128,11 @@ proc ::XMLRPC::_reply {doc uri methodName result} {
 #   Returns the DOM document root of the generated reply packet
 #
 proc ::XMLRPC::reply {doc uri methodName args} {
-    set d_root   [dom::document createElement $doc  "methodResponse"]
-    set d_params [dom::document createElement $d_root "params"]
+    set d_root   [addNode $doc      "methodResponse"]
+    set d_params [addNode $d_root   "params"]
 
     foreach result $args {
-        set d_param  [dom::document createElement $d_params "param"]
+        set d_param  [addNode $d_params "param"]
         insert_value $d_param $result
     }
     return $doc
@@ -144,7 +147,7 @@ proc ::XMLRPC::insert_value {node value} {
     set value     [rpcvalue $value]
     set typeinfo  [typedef -info $type]
 
-    set value_elt [dom::document createElement $node "value"]
+    set value_elt [addNode $node "value"]
 
     if {[string match {*()} $type] || [string match array $type]} {
         # array type: arrays are indicated by a () suffix of the word 'array'
@@ -152,8 +155,8 @@ proc ::XMLRPC::insert_value {node value} {
         if {$itemtype == "array"} {
             set itemtype "any"
         }
-        set array_elt [dom::document createElement $value_elt "array"]
-        set data_elt [dom::document createElement $array_elt "data"]
+        set array_elt [addNode $value_elt "array"]
+        set data_elt  [addNode $array_elt "data"]
         foreach elt $value {
             if {[string match $itemtype "any"] || \
                 [string match $itemtype "ur-type"] || \
@@ -165,12 +168,12 @@ proc ::XMLRPC::insert_value {node value} {
         }
     } elseif {[llength $typeinfo] > 1} {
         # a typedef'd struct
-        set struct_elt [dom::document createElement $value_elt "struct"]
+        set struct_elt [addNode $value_elt "struct"]
         array set ti $typeinfo
         foreach {eltname eltvalue} $value {
-            set member_elt [dom::document createElement $struct_elt "member"]
-            set name_elt [dom::document createElement $member_elt "name"]
-            dom::document createTextNode $name_elt $eltname
+            set member_elt [addNode $struct_elt "member"]
+            set name_elt   [addNode $member_elt "name"]
+            addTextNode $name_elt $eltname
             if {![info exists ti($eltname)]} {
                 error "invalid member name: \"$eltname\" is not a member of\
                         the $type type."
@@ -180,17 +183,17 @@ proc ::XMLRPC::insert_value {node value} {
 
     } elseif {[string match struct $type]} {
         # an undefined struct
-        set struct_elt [dom::document createElement $value_elt "struct"]
+        set struct_elt [addNode $value_elt "struct"]
         foreach {eltname eltvalue} $value {
-            set member_elt [dom::document createElement $struct_elt "member"]
-            set name_elt [dom::document createElement $member_elt "name"]
-            dom::document createTextNode $name_elt $eltname
+            set member_elt [addNode $struct_elt "member"]
+            set name_elt   [addNode $member_elt "name"]
+            addTextNode $name_elt $eltname
             XMLRPC::insert_value $member_elt $eltvalue
         }
     } else {
         # simple type.
-        set type_elt  [dom::document createElement $value_elt $type]
-        dom::document createTextNode $type_elt $value
+        set type_elt  [addNode $value_elt $type]
+        addTextNode $type_elt $value
     }    
 }
 

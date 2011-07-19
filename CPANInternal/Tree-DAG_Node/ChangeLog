@@ -1,0 +1,88 @@
+Revision history for Perl module Tree::DAG_Node.
+
+2007-12-02  David Hand  cogent@cpan.org
+
+	* release 1.06 -- new maintainer.  No code changes.
+
+2004-12-29  Sean M. Burke  sburke@cpan.org
+
+	* release 1.05 -- just repackaging.  No code changes.
+
+2001-02-23  Sean M. Burke  sburke@cpan.org
+	
+	* Release 1.04 -- bugfix: Olegt@dreamtime.net notes a bug in
+	depth_under that apparently always makes it return 0.  Fixed.
+
+2000-05-13  Sean M. Burke  sburke@cpan.org
+
+	* Release 1.03 -- superficial changes:
+
+	* Minor doc spiffing-up.
+	
+	* Noting my new email address.
+
+	* In order to keep its symbol table clean, DAG_Node no longer
+	imports routines from Carp and UNIVERSAL.  Should have no effect
+	on existing code.
+
+	* I went and commented out all the places where I have asserts for
+	non-cyclicity.  I once had the idea that DAG_Node could be a base
+	class for graphs that /could/ allow cyclicity, or something like
+	that, so those assertions would apply for methods that work only
+	for acyclic networks.  But, in time, I realized that almost
+	everything in DAG_Node would have to have such assertions.  Moral
+	of the story: DAG_Node has nearly no code that it could share with
+	a class for anything but DAGs.  And since DAG_Node does everything it
+	can to /keep/ you from making cyclicities, there's no point in
+	constantly having assertions of noncyclicity (especially when
+	these assertions are rather expensive to check).
+
+2000-03-05  Sean M. Burke  sburke@netadventure.net
+
+	* Release 1.02 -- minor bugfixes:
+
+	* Fixed a typo in the docs: corrected one "right_sisters" to
+	"right_sister"
+
+	* Initialized a variable to '' to avoid warnings under -w.
+	Thanks to Gilles Lamiral.
+
+1999-05-14  Sean M. Burke  sburke@netadventure.net
+
+        * Releass 1.01 -- major additions:
+	
+	Scads of new methods.  Still (as far as I know) backward
+	compatible with all previous versions.  Some minor changes in
+	coding, not affecting the interface.
+
+	Hopefully more friendly to users that use -w (warnings).
+
+	Cautionary tale: I started making big changes to this right around
+	mid-November 1998.  But I kept thinking "oh, ONE MORE change and
+	then I'll release it."  Famous last words!  Other things came up,
+	I forgot what was new and what was different in this module
+	(which is why you don't see a detailed list of differences here),
+	altho apparently somehow I managed to document all the new
+	methods.
+
+1998-11-03  Sean M. Burke  sburke@netadventure.net
+
+	* Release 0.75 -- minor changes:
+
+	New methods new_daughter, new_daughter_left.
+
+	$obj->new constructor syntax now documented.
+	
+	Internal accesses to "daughter" and "mother" attribs
+	are now direct, for efficiency's sake.
+
+	Minor improvements to the docs.
+
+1998-10-28  Sean M. Burke  sburke@netadventure.net
+
+	* Release 0.74 -- whoops, forgot to bundle the README.
+	No change in the module.
+
+1998-10-27  Sean M. Burke  sburke@netadventure.net
+
+	* Release 0.73 -- first release version.

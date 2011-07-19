@@ -732,6 +732,7 @@ MOD_DAV_LDADD
 MOD_MIME_LDADD
 MOD_HTTP_LDADD
 APACHECTL_ULIMIT
+NONPORTABLE_SUPPORT
 httxt2dbm_LTFLAGS
 htcacheclean_LTFLAGS
 checkgid_LTFLAGS
@@ -806,6 +807,7 @@ MOD_AUTHN_DBM_LDADD
 MOD_AUTHN_FILE_LDADD
 PILDFLAGS
 PICFLAGS
+CRYPT_LIBS
 MKDEP
 EGREP
 GREP
@@ -1811,7 +1813,7 @@ Optional Packages:
   --with-sslc=DIR         RSA SSL-C SSL/TLS toolkit
   --with-ssl=DIR          OpenSSL SSL/TLS toolkit
   --with-mpm=MPM          Choose the process model for Apache to use.
-                          MPM={beos|event|worker|prefork|mpmt_os2}
+                          MPM={beos|event|worker|prefork|mpmt_os2|winnt}
   --with-module=module-type:module-file
                           Enable module-file in the modules/<module-type>
                           directory.
@@ -3566,7 +3568,7 @@ else
       done
     fi
         if test "$apr_found" = "no" && test -d ""$srcdir/srclib/apr""; then
-      apr_temp_abs_srcdir="`cd "$srcdir/srclib/apr" && pwd`"
+      apr_temp_abs_srcdir="`cd \""$srcdir/srclib/apr"\" && pwd`"
       apr_found="reconfig"
       apr_bundled_major="`sed -n '/#define.*APR_MAJOR_VERSION/s/^[^0-9]*\([0-9]*\).*$/\1/p' \""$srcdir/srclib/apr"/include/apr_version.h\"`"
       case $apr_bundled_major in
@@ -5861,6 +5863,33 @@ case $host in
   SINGLE_LISTEN_UNSERIALIZED_ACCEPT="1"
 
       ;;
+  *mingw32*)
+
+  test "x$silent" != "xyes" && echo "  forcing APACHE_MPM to \"winnt\""
+  APACHE_MPM="winnt"
+
+
+  if test "x$CPPFLAGS" = "x"; then
+    test "x$silent" != "xyes" && echo "  setting CPPFLAGS to \"-DAP_DECLARE_EXPORT\""
+    CPPFLAGS="-DAP_DECLARE_EXPORT"
+  else
+    apr_addto_bugger="-DAP_DECLARE_EXPORT"
+    for i in $apr_addto_bugger; do
+      apr_addto_duplicate="0"
+      for j in $CPPFLAGS; do
+        if test "x$i" = "x$j"; then
+          apr_addto_duplicate="1"
+          break
+        fi
+      done
+      if test $apr_addto_duplicate = "0"; then
+        test "x$silent" != "xyes" && echo "  adding \"$i\" to CPPFLAGS"
+        CPPFLAGS="$CPPFLAGS $i"
+      fi
+    done
+  fi
+
+      ;;
   *aix*)
       aixver=`echo $host | sed 's/^[^0-9]*//' | sed 's/\.//g'`
       if test $aixver -ge 4320; then
@@ -7675,6 +7704,102 @@ if test "$ac_res" != no; then
 fi
 
 
+saved_LIBS="$LIBS"
+LIBS=""
+{ $as_echo "$as_me:$LINENO: checking for library containing crypt" >&5
+$as_echo_n "checking for library containing crypt... " >&6; }
+if test "${ac_cv_search_crypt+set}" = set; then
+  $as_echo_n "(cached) " >&6
+else
+  ac_func_search_save_LIBS=$LIBS
+cat >conftest.$ac_ext <<_ACEOF
+/* confdefs.h.  */
+_ACEOF
+cat confdefs.h >>conftest.$ac_ext
+cat >>conftest.$ac_ext <<_ACEOF
+/* end confdefs.h.  */
+
+/* Override any GCC internal prototype to avoid an error.
+   Use char because int might match the return type of a GCC
+   builtin and then its argument prototype would still apply.  */
+#ifdef __cplusplus
+extern "C"
+#endif
+char crypt ();
+int
+main ()
+{
+return crypt ();
+  ;
+  return 0;
+}
+_ACEOF
+for ac_lib in '' crypt; do
+  if test -z "$ac_lib"; then
+    ac_res="none required"
+  else
+    ac_res=-l$ac_lib
+    LIBS="-l$ac_lib  $ac_func_search_save_LIBS"
+  fi
+  rm -f conftest.$ac_objext conftest$ac_exeext
+if { (ac_try="$ac_link"
+case "(($ac_try" in
+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
+  *) ac_try_echo=$ac_try;;
+esac
+eval ac_try_echo="\"\$as_me:$LINENO: $ac_try_echo\""
+$as_echo "$ac_try_echo") >&5
+  (eval "$ac_link") 2>conftest.er1
+  ac_status=$?
+  grep -v '^ *+' conftest.er1 >conftest.err
+  rm -f conftest.er1
+  cat conftest.err >&5
+  $as_echo "$as_me:$LINENO: \$? = $ac_status" >&5
+  (exit $ac_status); } && {
+	 test -z "$ac_c_werror_flag" ||
+	 test ! -s conftest.err
+       } && test -s conftest$ac_exeext && {
+	 test "$cross_compiling" = yes ||
+	 $as_test_x conftest$ac_exeext
+       }; then
+  ac_cv_search_crypt=$ac_res
+else
+  $as_echo "$as_me: failed program was:" >&5
+sed 's/^/| /' conftest.$ac_ext >&5
+
+
+fi
+
+rm -rf conftest.dSYM
+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
+      conftest$ac_exeext
+  if test "${ac_cv_search_crypt+set}" = set; then
+  break
+fi
+done
+if test "${ac_cv_search_crypt+set}" = set; then
+  :
+else
+  ac_cv_search_crypt=no
+fi
+rm conftest.$ac_ext
+LIBS=$ac_func_search_save_LIBS
+fi
+{ $as_echo "$as_me:$LINENO: result: $ac_cv_search_crypt" >&5
+$as_echo "$ac_cv_search_crypt" >&6; }
+ac_res=$ac_cv_search_crypt
+if test "$ac_res" != no; then
+  test "$ac_res" = "none required" || LIBS="$ac_res $LIBS"
+
+fi
+
+CRYPT_LIBS="$LIBS"
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST CRYPT_LIBS"
+
+
+LIBS="$saved_LIBS"
+
 
 
 
@@ -8001,6 +8126,9 @@ else
     case $host in
     *freebsd5*|*netbsd*|*openbsd*)
         v4mapped=no
+        ;;
+    *mingw*)
+                        v4mapped=no
         ;;
     *)
         v4mapped=yes
@@ -16654,6 +16782,10 @@ bs2000*)
   OS="cygwin"
   OS_DIR="unix"
   ;;
+*mingw32*)
+  OS="win32"
+  OS_DIR=$OS
+  ;;
 *)
   OS="unix"
   OS_DIR=$OS;;
@@ -17538,7 +17670,7 @@ apache_cv_mpm=$APACHE_MPM
 
 ap_mpm_is_threaded ()
 {
-    if test "$apache_cv_mpm" = "worker" -o "$apache_cv_mpm" = "event" ; then
+    if test "$apache_cv_mpm" = "worker" -o "$apache_cv_mpm" = "event" -o "$apache_cv_mpm" = "winnt" ; then
         return 0
     else
         return 1
@@ -17641,6 +17773,12 @@ MODLIST="$MODLIST mpm_${MPM_NAME}"
 
 
 if test "$MPM_NAME" = "prefork" ; then
+
+  APACHE_FAST_OUTPUT_FILES="$APACHE_FAST_OUTPUT_FILES server/mpm/$MPM_NAME/Makefile"
+
+fi
+
+if test "$MPM_NAME" = "winnt" ; then
 
   APACHE_FAST_OUTPUT_FILES="$APACHE_FAST_OUTPUT_FILES server/mpm/$MPM_NAME/Makefile"
 
@@ -18348,6 +18486,23 @@ fi
   APACHE_VAR_SUBST="$APACHE_VAR_SUBST httxt2dbm_LTFLAGS"
 
 
+
+# Configure or check which of the non-portable support programs can be enabled.
+
+NONPORTABLE_SUPPORT=""
+case $host in
+    *mingw*)
+        ;;
+    *)
+        NONPORTABLE_SUPPORT="checkgid"
+        ;;
+esac
+
+  APACHE_VAR_SUBST="$APACHE_VAR_SUBST NONPORTABLE_SUPPORT"
+
+
+
+# Configure the ulimit -n command used by apachectl.
 
 case $host in
     *aix*)
@@ -19305,9 +19460,21 @@ EOF
   fi
 
 
-if ap_mpm_is_threaded; then
-# if we are using a threaded MPM, we will get better performance with
-# mod_cgid, so make it the default.
+# Is mod_cgid needed?
+case $host in
+    *mingw*)
+                cgid_needed="no"
+        ;;
+    *)
+        if ap_mpm_is_threaded; then
+                                                cgid_needed="yes"
+        else
+                                    cgid_needed="no"
+        fi
+        ;;
+esac
+
+if test $cgid_needed = "yes"; then
 
   { $as_echo "$as_me:$LINENO: checking whether to enable mod_cgid" >&5
 $as_echo_n "checking whether to enable mod_cgid... " >&6; }
@@ -19495,9 +19662,6 @@ EOF
   fi
 
 else
-# if we are using a non-threaded MPM, it makes little sense to use
-# mod_cgid, and it just opens up holes we don't need.  Make mod_cgi the
-# default
 
   { $as_echo "$as_me:$LINENO: checking whether to enable mod_cgi" >&5
 $as_echo_n "checking whether to enable mod_cgi... " >&6; }

@@ -32,12 +32,10 @@
 #include "JSNode.h"
 #include "Logging.h"
 #include "Page.h"
-#include "ScriptController.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
 #include "WebCoreJSClientData.h"
 #include <wtf/Threading.h>
-#include <wtf/text/CString.h>
 
 using namespace JSC;
 
@@ -45,46 +43,36 @@ namespace WebCore {
 
 const ClassInfo JSDOMWindowBase::s_info = { "Window", &JSDOMGlobalObject::s_info, 0, 0 };
 
-JSDOMWindowBase::JSDOMWindowBaseData::JSDOMWindowBaseData(PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
-    : JSDOMGlobalObjectData(shell->world(), destroyJSDOMWindowBaseData)
-    , impl(window)
-    , shell(shell)
+JSDOMWindowBase::JSDOMWindowBase(JSGlobalData& globalData, Structure* structure, PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
+    : JSDOMGlobalObject(globalData, structure, shell->world(), shell)
+    , m_impl(window)
+    , m_shell(shell)
 {
-}
+    ASSERT(inherits(&s_info));
 
-JSDOMWindowBase::JSDOMWindowBase(NonNullPassRefPtr<Structure> structure, PassRefPtr<DOMWindow> window, JSDOMWindowShell* shell)
-    : JSDOMGlobalObject(structure, new JSDOMWindowBaseData(window, shell), shell)
-{
     GlobalPropertyInfo staticGlobals[] = {
         GlobalPropertyInfo(Identifier(globalExec(), "document"), jsNull(), DontDelete | ReadOnly),
-        GlobalPropertyInfo(Identifier(globalExec(), "window"), d()->shell, DontDelete | ReadOnly)
+        GlobalPropertyInfo(Identifier(globalExec(), "window"), m_shell, DontDelete | ReadOnly)
     };
     
-    addStaticGlobals(staticGlobals, sizeof(staticGlobals) / sizeof(GlobalPropertyInfo));
+    addStaticGlobals(staticGlobals, WTF_ARRAY_LENGTH(staticGlobals));
 }
 
 void JSDOMWindowBase::updateDocument()
 {
-    ASSERT(d()->impl->document());
+    ASSERT(m_impl->document());
     ExecState* exec = globalExec();
-    symbolTablePutWithAttributes(Identifier(exec, "document"), toJS(exec, this, d()->impl->document()), DontDelete | ReadOnly);
+    symbolTablePutWithAttributes(exec->globalData(), Identifier(exec, "document"), toJS(exec, this, m_impl->document()), DontDelete | ReadOnly);
 }
 
 ScriptExecutionContext* JSDOMWindowBase::scriptExecutionContext() const
 {
-    return d()->impl->document();
+    return m_impl->document();
 }
 
 String JSDOMWindowBase::crossDomainAccessErrorMessage(const JSGlobalObject* other) const
 {
-    KURL originURL = asJSDOMWindow(other)->impl()->url();
-    KURL targetURL = d()->shell->window()->impl()->url();
-    if (originURL.isNull() || targetURL.isNull())
-        return String();
-
-    // FIXME: this error message should contain more specifics of why the same origin check has failed.
-    return String::format("Unsafe JavaScript attempt to access frame with URL %s from frame with URL %s. Domains, protocols and ports must match.\n",
-        targetURL.string().utf8().data(), originURL.string().utf8().data());
+    return m_shell->window()->impl()->crossDomainAccessErrorMessage(asJSDOMWindow(other)->impl());
 }
 
 void JSDOMWindowBase::printErrorMessage(const String& message) const
@@ -118,6 +106,28 @@ bool JSDOMWindowBase::supportsProfiling() const
 #endif
 }
 
+bool JSDOMWindowBase::supportsRichSourceInfo() const
+{
+#if PLATFORM(ANDROID)
+    return true;
+#elif !ENABLE(JAVASCRIPT_DEBUGGER) || !ENABLE(INSPECTOR)
+    return false;
+#else
+    Frame* frame = impl()->frame();
+    if (!frame)
+        return false;
+
+    Page* page = frame->page();
+    if (!page)
+        return false;
+
+    bool enabled = page->inspectorController()->enabled();
+    ASSERT(enabled || !debugger());
+    ASSERT(enabled || !supportsProfiling());
+    return enabled;
+#endif
+}
+
 bool JSDOMWindowBase::shouldInterruptScript() const
 {
     ASSERT(impl()->frame());
@@ -146,9 +156,14 @@ JSObject* JSDOMWindowBase::toThisObject(ExecState*) const
     return shell();
 }
 
+JSValue JSDOMWindowBase::toStrictThisObject(ExecState*) const
+{
+    return shell();
+}
+
 JSDOMWindowShell* JSDOMWindowBase::shell() const
 {
-    return d()->shell;
+    return m_shell;
 }
 
 JSGlobalData* JSDOMWindowBase::commonJSGlobalData()
@@ -166,11 +181,6 @@ JSGlobalData* JSDOMWindowBase::commonJSGlobalData()
     }
 
     return globalData;
-}
-
-void JSDOMWindowBase::destroyJSDOMWindowBaseData(void* jsDOMWindowBaseData)
-{
-    delete static_cast<JSDOMWindowBaseData*>(jsDOMWindowBaseData);
 }
 
 // JSDOMGlobalObject* is ignored, accessing a window in any context will

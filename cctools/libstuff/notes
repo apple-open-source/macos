@@ -5,6 +5,155 @@
 TODO:
 - Deal with LC_PREPAGE and unknown load commands that don't need to be swapped.
 
+Changes for the 5.28 release (the cctools-799 release):
+- Changed is_llvm_bitcode() in lto.c to check for a filesize of zero and just
+  return since the libLTO API's will crash it handed a empty file.  Radar bug
+  #8628314.
+
+Changes for the 5.28 release (the cctools-798 release):
+- Changed is_llvm_bitcode() in lto.c to first call
+  lto_module_is_object_file_in_memory().  Radar bug #8628314.
+
+Changes for the 5.28 release (the cctools-797 release):
+- Added support for LC_DYLD_ENVIRONMENT in swap_headers.c and ofile.c .
+  Radar bug #8653976.
+
+Changes for the 5.28 release (the cctools-795 release):
+- Fixed symbol_string_at_end() to allow for a the codesign data at the end of
+  the file before the string table.  Radar bug #8308587.
+
+Changes for the 5.28 release (the cctools-792 release):
+- Fixed problems with not coping out the function start info.  Updated
+  copy_new_symbol_info() to uses the new fields for the info and copy the info
+  into the output buffer.  Radar bug #8401082.
+
+Changes for the 5.28 release (the cctools-791 release):
+- Fixed some missing copy and paste errors swap_object_headers() in 
+  swap_headers.c where it was using ld-> not vc-> for the LC_VERSION_MIN_*
+  stuff.
+
+Changes for the 5.28 release (the cctools-790 release):
+- Fixed problems with the incorrect support for LC_VERSION_MIN_* and
+  LC_FUNCTION_STARTS.  Radar bug #8274584.
+  - In check_Mach_O() in ofile.c needed to set vers to NULL.
+  - In check_object() in checkout.c added code to set the new
+    func_starts_info_cmd field.
+  - In dyld_order() in checkout.c added code to check that if the
+    func_starts_info_cmd is set its data is after the split-seg data and before
+    the symbol table.
+
+Changes for the 5.27 release (the cctools-784 release):
+- Added swap_version_min_command() to bytesex.c .  Added checking of the
+  new load commands to check_Mach_O() in ofile.c .  Added swapping the new
+  commands to swap_object_headers() in swap_headers.c .  Radar bug #7902277.
+
+Changes for the 5.27 release (the cctools-783 release):
+- Change code that used S_ZEROFILL to also use S_THREAD_LOCAL_ZEROFILL.
+  Radar bug #7796734.
+
+Changes for the 5.28 release (the cctools-781 release):
+- The check in check_Mach_O() in ofile.c that was checking that the addr field
+  of section less than the segment's vmaddr to not do that check if the Mach-O
+  file was an MH_DYLIB_STUB.  Radar bug #7709068.
+- Removed the checking of LC_ENCRYPTION_INFO overlapping in check_Mach_O() in
+  ofile.c as it is part of the __TEXT segment and does overlap by design.
+  Also fixed a bug in check_overlaping_element() in ofile.c which did not catch
+  the size and offset completely covering an element in list.  Radar bug
+  #7690872.
+- Added support in writeout.c to add content to Mach-O files so the
+  program ctf_insert(1) can add a (__CTF,__ctf) section to a statically
+  linked Mach-O file.  Radar bug #7016839.
+- Added support for LC_LOAD_UPWARD_DYLIB in check_Mach_O() in ofile.c and
+  swap_object_headers() in swap_headers.c . Radar bug #7659206.
+
+Changes for the 5.28 release (the cctools-779 release):
+- Fixed a problem with the check for overlapping module table in check_Mach_O()
+  in ofile.c .  It was using modtaboff when it should have been using nmodtab.
+  Radar bug #7520315.
+
+Changes for the 5.28 release (the cctools-778 release):
+- Fixed a problem with the check for overlapping local relocation entries in
+  check_Mach_O() in ofile.c .  It was using locreloff when it should have been
+  using nlocrel.  Radar bug #7479717.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() and stuff/round.h to stuff/rnd.h in all files and
+  removed -fno-builtin-round from the Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+- Changed the error checking in check_Mach_O() in ofile.c for checking that
+  a segment's filesize or section's size is not greater than its vmsize if the
+  vmsize is zero.  As this is used for unmapped segments.  Radar bug #7467115.
+
+Changes for the 5.28 release (the cctools-776 release):
+- Fixed a bug check_Mach_O() in ofile.c for looping over sections in a 64-bit
+  mach-O file.  It was incrementing s not s64 at the end of the loop.
+- Improved the error checking in check_Mach_O() in ofile.c to make sure that
+  elements don't overlap.  Added the struct element and the static routines
+  check_overlaping_element() and free_elements.  And the calls to them in
+  check_Mach_O().  Also fixed the dyld info checking in case of integer over
+  flow and a logic error the was not getting to the checking the size.  Radar
+  bug #6083845.
+- Improved the error checking in check_archive() in ofile.c to make sure that
+  member_size does not extend past the end of the file before the contents of
+  the member are used.  Radar bug #6078200.
+- Improved the error checking in check_Mach_O() in ofile.c to make sure that
+  flavor and count that follow a thread command fits in side their command.
+  Radar bug #6179251.
+- Improved the error checking in check_Mach_O() in ofile.c to make sure that
+  commands fit inside their cmdsize.  Also that thread states fit in side their
+  thread command.  Radar bug #6077166.
+- Fixed the error check in check_fat() in ofile.c for the offset plus size so
+  it will be detected in the add overflows.  Radar bug #6076414.
+- Improved the error checking in check_Mach_O() in ofile.c to make sure that
+  sections are contained in their segments.  Radar bug #6081358.
+
+Changes for the 5.28 release (the cctools-775 release):
+- Updated reloc_has_pair() and reloc_is_sectdiff() in reloc.c for the new
+  arm HALF relocation entries.  Radar bug #7421496.
+
+Changes for the 5.27 release (the cctools-769 release):
+- Changed round() in round.c to take and return uint64_t types.  Radar bug
+  #7245879.
+
+Changes for the 5.27 release (the cctools-767 release):
+- Updated get_byte_sex_from_flag() in arch.c to include CPU_TYPE_X86_64.  Radar
+  bug #7222145.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-760 release):
+- Changed the sources so the armv7 stuff is a no longer #ifndef __OPEN_SOURCE__
+  Radar bug #7016121.
+  - Changed the Makefile and removed the OPEN macro which was -D__OPEN_SOURCE__
+    and removed it from CFLAGS.
+  - Removed #ifndef __OPEN_SOURCE__ from arch.c, best_arch.c and lto.c which
+    bracketed armv7 references.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.26 release (the cctools-758 release):
+- Changed ofile_process() in ofile.c to default to 64-bit intel if the program
+  is being run as a 64-bit binary on an intel machine.  Radar bug #6942056.
+
+Changes for the 5.26 release (the cctools-756 release):
+- Added add_execute_list_with_prefix() to execute() to add a string prefixed
+  with the executable's path.  Radar bug #6821441.
+
+Changes for the 5.26 release (the cctools-753 release):
+- Changed the Makefile to not use -iwithsysroot when RC_MAJOR_RELEASE_TRAIN is
+  Tiger.  Radar bug #6796174.
+
+Changes for the 5.26 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6756912 and 6757212.
+  - Added cast to int in swap_headers.c (two places) and ofile.c in switch
+    statements (one place).
+  - Fixed warnings about extra tokens at end of #endif directive in ofile.c
+    by putting them in a comment.
+
 Changes for the 5.26 release (the cctools-750 release):
 - Added lto_get_nlist_64() to lto.c for use by nm(1) print information from
   llvm bit code files.  Radar bug #6067110.
@@ -151,6 +300,12 @@ Changes for the 5.25 release (the cctools-698 release):
       ofile .  They also clear the new lto* fields in the ofile.
 
 Changes for the 5.25 release (the cctools-697 release):
+- Changed the sources so the armv7 stuff is not in the open source version.
+  Radar bug #5844124.
+  - Changed the Makefile to add the OPEN macro as -D__OPEN_SOURCE__ and added it
+    to the CFLAGS.
+  - Added #ifndef __OPEN_SOURCE__ to arch.c and best_arch.c to bracket armv7
+    references.
 
 Changes for the 5.25 release (the cctools-696 release):
 - Changed the Makefile to use -iwithsysroot as part of the KERN flags.
@@ -176,6 +331,7 @@ Changes for the 5.25 release (the cctools-679.4 and cctools-686 releases):
 Changes for the 5.25 release (the cctools-682 release):
 - Changed get_macosx_deployment_target() in macosx_deployment_target.c under the
   label bad_system_value to use 10.6 as the highest know shipping version.
+- Updated the logic in cpusubtype_combine() in best_arch.c to include armv7.
 
 Changes for the 5.25 release (the cctools-681 release):
 - Removed all __OPEN_SOURCE__ references in: Makefile, notes, arch.c,
@@ -183,6 +339,8 @@ Changes for the 5.25 release (the cctools-681 release):
   swap_headers.c .
 
 Changes for the 5.25 release (the cctools-680 release):
+- Added support for ARMv7. Radar bug #5490815.
+  - Added "arm7" to arch_flags[] in arch.c .
 
 Changes for the 5.25 release (the cctools-678 release):
 - Added swap_ms_dos_stub(), swap_filehdr(), swap_aouthdr(), swap_scnhdr() and

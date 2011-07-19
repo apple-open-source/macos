@@ -37,13 +37,9 @@
 #include <sys/ioctl.h>
 
 #include <net/if.h>
-#if defined(__FreeBSD__) && __FreeBSD__ >= 3
 #include <net/if_var.h>
-#endif
-#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__APPLE__)
 #include <netinet/in.h>
 #include <netinet6/in6_var.h>
-#endif
 #include <net/route.h>
 
 #include <stdlib.h>
@@ -74,15 +70,6 @@
 #include "gcmalloc.h"
 #include "nattraversal.h"
 
-#ifdef __linux__
-#include <linux/types.h>
-#include <linux/rtnetlink.h>
-#ifndef HAVE_GETIFADDRS
-#define HAVE_GETIFADDRS
-#define NEED_LINUX_GETIFADDRS
-#endif
-#endif
-
 #ifndef HAVE_GETIFADDRS
 static unsigned int if_maxindex __P((void));
 #endif
@@ -90,184 +77,6 @@ static unsigned int if_maxindex __P((void));
 static int suitable_ifaddr __P((const char *, const struct sockaddr *));
 #ifdef INET6
 static int suitable_ifaddr6 __P((const char *, const struct sockaddr *));
-#endif
-
-#ifdef NEED_LINUX_GETIFADDRS
-
-/* We could do this _much_ better. kame racoon in its current form
- * will esentially die at frequent changes of address configuration.
- */
-
-struct ifaddrs
-{
-	struct ifaddrs *ifa_next;
-	char		ifa_name[16];
-	int		ifa_ifindex;
-	struct sockaddr *ifa_addr;
-	struct sockaddr_storage ifa_addrbuf;
-};
-
-static int parse_rtattr(struct rtattr *tb[], int max, struct rtattr *rta, int len)
-{
-	while (RTA_OK(rta, len)) {
-		if (rta->rta_type <= max)
-			tb[rta->rta_type] = rta;
-		rta = RTA_NEXT(rta,len);
-	}
-	return 0;
-}
-
-static void recvaddrs(int fd, struct ifaddrs **ifa, __u32 seq)
-{
-	char	buf[8192];
-	struct sockaddr_nl nladdr;
-	struct iovec iov = { buf, sizeof(buf) };
-	struct ifaddrmsg *m;
-	struct rtattr * rta_tb[IFA_MAX+1];
-	struct ifaddrs *I;
-
-	while (1) {
-		int status;
-		struct nlmsghdr *h;
-
-		struct msghdr msg = {
-			(void*)&nladdr, sizeof(nladdr),
-			&iov,	1,
-			NULL,	0,
-			0
-		};
-
-		status = recvmsg(fd, &msg, 0);
-
-		if (status < 0)
-			continue;
-
-		if (status == 0)
-			return;
-
-		if (nladdr.nl_pid) /* Message not from kernel */
-			continue;
-
-		h = (struct nlmsghdr*)buf;
-		while (NLMSG_OK(h, status)) {
-			if (h->nlmsg_seq != seq)
-				goto skip_it;
-
-			if (h->nlmsg_type == NLMSG_DONE)
-				return;
-
-			if (h->nlmsg_type == NLMSG_ERROR)
-				return;
-
-			if (h->nlmsg_type != RTM_NEWADDR)
-				goto skip_it;
-
-			m = NLMSG_DATA(h);
-
-			if (m->ifa_family != AF_INET &&
-			    m->ifa_family != AF_INET6)
-				goto skip_it;
-
-			if (m->ifa_flags&IFA_F_TENTATIVE)
-				goto skip_it;
-
-			memset(rta_tb, 0, sizeof(rta_tb));
-			parse_rtattr(rta_tb, IFA_MAX, IFA_RTA(m), h->nlmsg_len - NLMSG_LENGTH(sizeof(*m)));
-
-			if (rta_tb[IFA_LOCAL] == NULL)
-				rta_tb[IFA_LOCAL] = rta_tb[IFA_ADDRESS];
-			if (rta_tb[IFA_LOCAL] == NULL)
-				goto skip_it;
-			
-			I = malloc(sizeof(struct ifaddrs));
-			if (!I)
-				return;
-			memset(I, 0, sizeof(*I));
-
-			I->ifa_ifindex = m->ifa_index;
-			I->ifa_addr = (struct sockaddr*)&I->ifa_addrbuf;
-			I->ifa_addr->sa_family = m->ifa_family;
-			if (m->ifa_family == AF_INET) {
-				struct sockaddr_in *sin = (void*)I->ifa_addr;
-				memcpy(&sin->sin_addr, RTA_DATA(rta_tb[IFA_LOCAL]), 4);
-			} else {
-				struct sockaddr_in6 *sin = (void*)I->ifa_addr;
-				memcpy(&sin->sin6_addr, RTA_DATA(rta_tb[IFA_LOCAL]), 16);
-				if (IN6_IS_ADDR_LINKLOCAL(&sin->sin6_addr))
-					sin->sin6_scope_id = I->ifa_ifindex;
-			}
-			I->ifa_next = *ifa;
-			*ifa = I;
-
-skip_it:
-			h = NLMSG_NEXT(h, status);
-		}
-		if (msg.msg_flags & MSG_TRUNC)
-			continue;
-	}
-	return;
-}
-
-static int getifaddrs(struct ifaddrs **ifa0)
-{
-	struct {
-		struct nlmsghdr nlh;
-		struct rtgenmsg g;
-	} req;
-	struct sockaddr_nl nladdr;
-	static __u32 seq;
-	struct ifaddrs *i;
-	int fd;
-
-	fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-	if (fd < 0)
-		return -1;
-
-	memset(&nladdr, 0, sizeof(nladdr));
-	nladdr.nl_family = AF_NETLINK;
-
-	req.nlh.nlmsg_len = sizeof(req);
-	req.nlh.nlmsg_type = RTM_GETADDR;
-	req.nlh.nlmsg_flags = NLM_F_ROOT|NLM_F_MATCH|NLM_F_REQUEST;
-	req.nlh.nlmsg_pid = 0;
-	req.nlh.nlmsg_seq = ++seq;
-	req.g.rtgen_family = AF_UNSPEC;
-
-	if (sendto(fd, (void*)&req, sizeof(req), 0, (struct sockaddr*)&nladdr, sizeof(nladdr)) < 0) {
-		close(fd);
-		return -1;
-	}
-
-	*ifa0 = NULL;
-
-	recvaddrs(fd, ifa0, seq);
-
-	close(fd);
-
-	fd = socket(AF_INET, SOCK_DGRAM, 0);
-
-	for (i=*ifa0; i; i = i->ifa_next) {
-		struct ifreq ifr;
-		ifr.ifr_ifindex = i->ifa_ifindex;
-		ioctl(fd, SIOCGIFNAME, (void*)&ifr);
-		memcpy(i->ifa_name, ifr.ifr_name, 16);
-	}
-	close(fd);
-
-	return 0;
-}
-
-static void freeifaddrs(struct ifaddrs *ifa0)
-{
-        struct ifaddrs *i;
-
-        while (ifa0) {
-                i = ifa0;
-                ifa0 = i->ifa_next;
-                free(i);
-        }
-}
-
 #endif
 
 #ifndef HAVE_GETIFADDRS
@@ -457,7 +266,7 @@ suitable_ifaddr(ifname, ifaddr)
 	const char *ifname;
 	const struct sockaddr *ifaddr;
 {
-#ifdef ENABLE_HYBRID
+#if 0 //we need to be able to do nested ipsec for BTMM... stub out ifdef ENABLE_HYBRID
 	/* Exclude any address we got through ISAKMP mode config */
 	if (exclude_cfg_addr(ifaddr) == 0)
 		return 0;
@@ -481,15 +290,12 @@ suitable_ifaddr6(ifname, ifaddr)
 	const char *ifname;
 	const struct sockaddr *ifaddr;
 {
-#ifndef __linux__
 	struct in6_ifreq ifr6;
 	int s;
-#endif
 
 	if (ifaddr->sa_family != AF_INET6)
 		return 0;
 
-#ifndef __linux__
 	s = socket(PF_INET6, SOCK_DGRAM, 0);
 	if (s == -1) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -515,7 +321,6 @@ suitable_ifaddr6(ifname, ifaddr)
 	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_DETACHED
 	 || ifr6.ifr_ifru.ifru_flags6 & IN6_IFF_ANYCAST)
 		return 0;
-#endif
 
 	/* suitable */
 	return 1;
@@ -525,23 +330,6 @@ suitable_ifaddr6(ifname, ifaddr)
 int
 update_myaddrs()
 {
-#ifdef __linux__
-	char msg[BUFSIZ];
-	int len;
-	struct nlmsghdr *h = (void*)msg;
-	len = read(lcconf->rtsock, msg, sizeof(msg));
-	if (len < 0)
-		return errno == ENOBUFS;
-	if (len < sizeof(*h))
-		return 0;
-	if (h->nlmsg_pid) /* not from kernel! */
-		return 0;
-	if (h->nlmsg_type == RTM_NEWLINK)
-		return 0;
-	plog(LLV_DEBUG, LOCATION, NULL,
-		"netlink signals update interface address list\n");
-	return 1;
-#else
 	char msg[BUFSIZ];
 	int len;
 	struct rt_msghdr *rtm;
@@ -587,7 +375,6 @@ update_myaddrs()
 		rtm->rtm_type);
 
 	return 1;
-#endif /* __linux__ */
 }
 
 /*
@@ -739,10 +526,8 @@ delmyaddr(myaddr)
 {
 	if (myaddr->addr)
 		racoon_free(myaddr->addr);
-#ifdef __APPLE__
 	if (myaddr->ifname)
 		racoon_free(myaddr->ifname);
-#endif
 	racoon_free(myaddr);
 }
 
@@ -757,31 +542,6 @@ initmyaddr()
 			strerror(errno));
 		return -1;
 	}
-
-#ifdef __linux__
-   {
-	struct sockaddr_nl nl;
-	u_int addr_len;
-
-	memset(&nl, 0, sizeof(nl));
-	nl.nl_family = AF_NETLINK;
-	nl.nl_groups = RTMGRP_IPV4_IFADDR|RTMGRP_LINK;
-
-	if (bind(lcconf->rtsock, (struct sockaddr*)&nl, sizeof(nl)) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-		     "bind(PF_NETLINK) failed: %s\n",
-		     strerror(errno));
-		return -1;
-	}
-	addr_len = sizeof(nl);
-	if (getsockname(lcconf->rtsock, (struct sockaddr*)&nl, &addr_len) < 0) {
-		plog(LLV_ERROR, LOCATION, NULL,
-		     "getsockname(PF_NETLINK) failed: %s\n",
-		     strerror(errno));
-		return -1;
-	}
-   }
-#endif
 
 	if (lcconf->myaddrs == NULL && lcconf->autograbaddr == 1) {
 		grab_myaddrs();
@@ -800,11 +560,6 @@ getsockmyaddr(my)
 	struct sockaddr *my;
 {
 	struct myaddrs *p, *lastresort = NULL;
-#if defined(INET6) && defined(__linux__)
-	struct myaddrs *match_wo_scope_id = NULL;
-	int check_wo_scope_id = (my->sa_family == AF_INET6) && 
-		IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)my)->sin6_addr);
-#endif
 
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (p->addr == NULL)
@@ -816,20 +571,7 @@ getsockmyaddr(my)
 		 && memcmp(my, p->addr, sysdep_sa_len(my)) == 0) {
 			break;
 		}
-#if defined(INET6) && defined(__linux__)
-		if (check_wo_scope_id && IN6_IS_ADDR_LINKLOCAL(&((struct sockaddr_in6 *)p->addr)->sin6_addr) &&
-			/* XXX: this depends on sin6_scope_id to be last
-			 * item in struct sockaddr_in6 */
-			memcmp(my, p->addr, 
-				sysdep_sa_len(my) - sizeof(uint32_t)) == 0) {
-			match_wo_scope_id = p;
-		}
-#endif
 	}
-#if defined(INET6) && defined(__linux__)
-	if (!p)
-		p = match_wo_scope_id;
-#endif
 	if (!p)
 		p = lastresort;
 	if (!p) {

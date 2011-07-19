@@ -33,18 +33,30 @@
 
 #include "WebKit.h"
 #include "WebKitClient.h"
+#include <webkit/support/webkit_support.h>
 
-// WebKitClient has a protected destructor, so we need to subclass.
-class DummyWebKitClient : public WebKit::WebKitClient {
-};
+#if defined(WEBKIT_DLL_UNITTEST)
+#include "WebUnitTests.h"
+#endif
+
+#include <gmock/gmock.h>
 
 int main(int argc, char** argv)
 {
-    DummyWebKitClient dummyClient;
-    WebKit::initialize(&dummyClient);
+    ::testing::InitGoogleMock(&argc, argv);
+    TestSuite testSuite(argc, argv);
+    // TestSuite must be created before SetUpTestEnvironment so it performs
+    // initializations needed by WebKit support.
+    webkit_support::SetUpTestEnvironmentForUnitTests();
 
-    int result = TestSuite(argc, argv).Run();
+#if defined(WEBKIT_DLL_UNITTEST)
+    // For chromium multi-dll build, need to call webkit api to create a
+    // TestSuite instance in webkit.dll and run all tests from there.
+    int result = WebKit::RunAllUnitTests(argc, argv);
+#else
+    int result = testSuite.Run();
+#endif
 
-    WebKit::shutdown();
+    webkit_support::TearDownTestEnvironment();
     return result;
 }

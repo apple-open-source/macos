@@ -67,24 +67,22 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Acceso prohibido!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="Acceso prohibido!" -->
+<!--#include virtual="include/top.html" -->
 
-  <!--#if expr="$REDIRECT_URL = /\/$/" -->
+   <!--#if expr="$REDIRECT_URL = /\/$/" -->
 
-    Usted no tiene permiso para accesar a la direcci&oacute;n
-    solicitada. Existe la posibilidad de que el directorio
-    este protegido contra lectura o que no exista la
-    documentaci&oacute;n requerida.
+      Usted no tiene permiso para accesar al directorio solicitado.
+      No existe un documento &iacute;ndice, o el directorio est&aacute;
+      protegido contra lectura.
 
   <!--#else -->
 
-    Usted no tiene permiso de accesar al objeto solicitado.
-    Existe la posibilidad de que este protegido contra
-    lectura o que no haya podido ser leido por el servidor.
+      Usted no tiene permiso de accesar al objeto solicitado.
+      El objeto est&aacute; protegido contra lectura, o no
+      puede ser leido por el servidor.
 
   <!--#endif -->
 
@@ -269,7 +267,7 @@ Body:-------pt-br--
 
   <!--#else -->
 
-   Voc&ecirc; n&atilde;o tem premiss&atilde;o para acessar o 
+   Voc&ecirc; n&atilde;o tem permiss&atilde;o para acessar o 
    objeto requisitado. Ele pode estar protegido contra leitura ou 
    n&atilde;o ser leg&iacute;vel pelo servidor.
 
@@ -277,6 +275,29 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Acesso proibido!"
+--><!--#include virtual="include/top.html" -->
+
+  <!--#if expr="$REDIRECT_URL = /\/$/" -->
+
+	N&atilde;o tem permiss&atilde;o para aceder ao direct&oacute;rio
+	que deseja. Ou n&atilde;o existe o documento de &iacute;ndice
+	ou o direct&oacute;rio est&aacute; protegido contra leitura.
+
+  <!--#else -->
+
+	N&atilde;o tem permiss&atilde;o para aceder ao objecto
+	que deseja. Este est&aacute; protegido contra leitura ou
+	o servidor n&atilde;o o consegue ler.
+
+  <!--#endif -->
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

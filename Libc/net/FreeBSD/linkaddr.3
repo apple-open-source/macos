@@ -12,10 +12,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -33,9 +29,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)linkaddr.3	8.1 (Berkeley) 7/28/93
-.\" $FreeBSD: src/lib/libc/net/linkaddr.3,v 1.14 2004/07/03 22:30:08 ru Exp $
+.\" $FreeBSD: src/lib/libc/net/linkaddr.3,v 1.16 2007/02/28 21:18:38 bms Exp $
 .\"
-.Dd June 17, 1996
+.Dd February 28, 2007
 .Dt LINK_ADDR 3
 .Os
 .Sh NAME
@@ -96,11 +92,6 @@ Thus
 .Li le0:8.0.9.13.d.30
 represents an ethernet address
 to be transmitted on the first Lance ethernet interface.
-.Pp
-The direct use of these functions is deprecated in favor of the
-.Xr addr2ascii 3
-interface; however, portable programs cannot rely on the latter as it is
-not yet widely implemented.
 .Sh RETURN VALUES
 The
 .Fn link_ntoa
@@ -113,8 +104,7 @@ has no return value.
 (See
 .Sx BUGS . )
 .Sh SEE ALSO
-.Xr addr2ascii 3
-.\" .Xr iso 4
+.Xr getnameinfo 3
 .Sh HISTORY
 The
 .Fn link_addr

@@ -1,0 +1,43 @@
+xscope 1.2 is the grand unification release of xscope, finishing the
+three way merge of the MIT-licensed version from the original author,
+James Peterson of MCC, the extensions from Keith Packard, and the fork
+Sun Microsystems maintained in Solaris releases.
+
+Features from James Peterson's version:
+
+ - Core X11 protocol decoding
+ - TCP/IPv4 socket support
+
+Features from Keith Packard's version:
+
+ - Interactive debugging mode with breakpoints & single stepping for
+   core protocol
+ - X11 extension protocol decoding for:
+	BIGREQUESTS		NCD-WinCenterPro
+	LBX			RANDR 1.0
+	MIT-SHM			RENDER 0.4
+ - Decoding of bigrequest-encoded requests
+ - NAS audio protocol decoding
+ - Unix domain socket support
+ - -S option to toggle output on SIGUSR1
+ - -t option to terminate when all clients close
+ - xstats program to generate statistics from xscope logs
+	(not built by default)
+
+Features from Solaris version:
+
+ - SVR4 platform support
+ - Use of xtrans to get all normally supported transports, including IPv6
+ - IPv6 address decoding in hosts requests
+ - -r option to dump raw packet data
+
+New features in this release:
+
+ - Support for setting breakpoints on X11 extension requests
+ - Decoding of GenericEvents & ServerInterpreted host addresses
+ - Update RENDER extension decoding to protocol version 0.11
+
+Removed features:
+
+ - X11 extension protocol decoding for PEX extension
+ - DECnet support

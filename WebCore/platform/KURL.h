@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,10 @@
 #define KURL_h
 
 #include "PlatformString.h"
+#include "URLString.h"
+#include <wtf/HashMap.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFURL* CFURLRef;
 #endif
 
@@ -59,6 +61,8 @@ namespace WebCore {
 class TextEncoding;
 struct KURLHash;
 
+typedef HashMap<String, String> ParsedURLParameters;
+
 enum ParsedURLStringTag { ParsedURLString };
 
 class KURL {
@@ -71,6 +75,13 @@ public:
     // It is usually best to avoid repeatedly parsing a string, unless memory saving outweigh the possible slow-downs.
     KURL(ParsedURLStringTag, const char*);
     KURL(ParsedURLStringTag, const String&);
+    KURL(ParsedURLStringTag, const URLString&);
+#if USE(GOOGLEURL)
+    KURL(WTF::HashTableDeletedValueType) : m_url(WTF::HashTableDeletedValue) { }
+#else
+    KURL(WTF::HashTableDeletedValueType) : m_string(WTF::HashTableDeletedValue) { }
+#endif
+    bool isHashTableDeletedValue() const { return string().isHashTableDeletedValue(); }
 
     // Resolves the relative URL with the given base URL. If provided, the
     // TextEncoding is used to encode non-ASCII characers. The base URL can be
@@ -82,14 +93,14 @@ public:
     KURL(const KURL& base, const String& relative);
     KURL(const KURL& base, const String& relative, const TextEncoding&);
 
-
 #if USE(GOOGLEURL)
-    // For conversions for other structures that have already parsed and
+    // For conversions from other structures that have already parsed and
     // canonicalized the URL. The input must be exactly what KURL would have
     // done with the same input.
-    KURL(const CString& canonicalSpec,
-         const url_parse::Parsed& parsed, bool isValid);
+    KURL(const CString& canonicalSpec, const url_parse::Parsed&, bool isValid);
 #endif
+
+    String strippedForUseAsReferrer() const;
 
     // FIXME: The above functions should be harmonized so that passing a
     // base of null or the empty string gives the same result as the
@@ -114,11 +125,13 @@ public:
     bool canSetHostOrPort() const { return isHierarchical(); }
 
     bool canSetPathname() const { return isHierarchical(); }
-    
+
 #if USE(GOOGLEURL)
     const String& string() const { return m_url.string(); }
+    URLString urlString() const { return URLString(m_url.string()); }
 #else
     const String& string() const { return m_string; }
+    URLString urlString() const { return URLString(m_string); }
 #endif
 
     String protocol() const;
@@ -133,6 +146,8 @@ public:
     String fragmentIdentifier() const;
     bool hasFragmentIdentifier() const;
 
+    void copyParsedQueryTo(ParsedURLParameters&) const;
+
     String baseAsString() const;
 
     String prettyURL() const;
@@ -141,7 +156,8 @@ public:
     // Returns true if the current URL's protocol is the same as the null-
     // terminated ASCII argument. The argument must be lower-case.
     bool protocolIs(const char*) const;
-    bool protocolInHTTPFamily() const;
+    bool protocolIsData() const { return protocolIs("data"); }
+    bool protocolIsInHTTPFamily() const;
     bool isLocalFile() const;
 
     bool setProtocol(const String&);
@@ -178,9 +194,10 @@ public:
     unsigned pathStart() const;
     unsigned pathEnd() const;
     unsigned pathAfterLastSlash() const;
+
     operator const String&() const { return string(); }
 
-#if PLATFORM(CF)
+#if USE(CF)
     KURL(CFURLRef);
     CFURLRef createCFURL() const;
 #endif
@@ -208,6 +225,9 @@ public:
     void print() const;
 #endif
 
+    // FIXME: Remove this after changing all callers to use protocolIsInHTTPFamily.
+    bool protocolInHTTPFamily() const { return protocolIsInHTTPFamily(); }
+
 private:
     void invalidate();
     bool isHierarchical() const;
@@ -229,7 +249,7 @@ private:
 
     String m_string;
     bool m_isValid : 1;
-    bool m_protocolInHTTPFamily : 1;
+    bool m_protocolIsInHTTPFamily : 1;
 
     int m_schemeEnd;
     int m_userStart;
@@ -262,10 +282,13 @@ const KURL& blankURL();
 // This is especially important because valid javascript URLs are not necessarily considered valid by KURL.
 
 bool protocolIs(const String& url, const char* protocol);
+bool protocolIsInHTTPFamily(const String& url);
 bool protocolIsJavaScript(const String& url);
 
 bool isDefaultPortForProtocol(unsigned short port, const String& protocol);
 bool portAllowed(const KURL&); // Blacklist ports that should never be used for Web resources.
+
+bool isValidProtocol(const String&);
 
 String mimeTypeFromDataURL(const String& url);
 
@@ -334,9 +357,9 @@ inline bool KURL::hasPort() const
     return m_hostEnd < m_portEnd;
 }
 
-inline bool KURL::protocolInHTTPFamily() const
+inline bool KURL::protocolIsInHTTPFamily() const
 {
-    return m_protocolInHTTPFamily;
+    return m_protocolIsInHTTPFamily;
 }
 
 inline unsigned KURL::hostStart() const

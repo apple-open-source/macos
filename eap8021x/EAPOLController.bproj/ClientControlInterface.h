@@ -47,4 +47,4 @@ enum {
 };
 typedef uint32_t EAPOLClientControlCommand;
 
-#endif _S_CLIENTCONTROLINTERFACE
+#endif /* _S_CLIENTCONTROLINTERFACE */

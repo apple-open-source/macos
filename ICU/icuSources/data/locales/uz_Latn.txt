@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/uz_Latn.xml
@@ -10,83 +10,38 @@
  *  ICU <specials> source: <path>/xml/main/uz_Latn.xml
  */
 uz_Latn{
-    Countries{
-        AF{"Afgʿoniston"}
-        BR{"Braziliya"}
-        CN{"Xitoy"}
-        DE{"Olmoniya"}
-        FR{"Fransiya"}
-        GB{"Birlashgan Qirollik"}
-        IN{"Hindiston"}
-        IT{"Italiya"}
-        JP{"Yaponiya"}
-        RU{"Rossiya"}
-        US{"Qo'shma Shtatlar"}
-        UZ{"Oʿzbekiston"}
-    }
-    Currencies{
-        BRL{
-            "R$",
-            "Brazil reali",
-        }
-        CNY{
-            "CNY",
-            "Xitoy yuani",
-        }
-        EUR{
-            "€",
-            "Evro",
-        }
-        GBP{
-            "UK£",
-            "Ingliz funt sterlingi",
-        }
-        INR{
-            "=0#Rs.|1#Re.|1<Rs." /** (choice)  */,
-            "Hind rupiyasi",
-        }
-        JPY{
-            "JP¥",
-            "Yapon yenasi",
-        }
-        RUB{
-            "RUB",
-            "Rus rubli",
-        }
-        USD{
-            "US$",
-            "AQSH dollari",
-        }
-        UZS{
-            "soʿm",
-            "Oʿzbekiston soʿm",
-        }
-    }
-    ExemplarCharacters{"[a-v x-z ʿ]"}
-    Languages{
-        ar{"arabcha"}
-        de{"olmoncha"}
-        en{"inglizcha"}
-        es{"ispancha"}
-        fr{"fransuzcha"}
-        hi{"hindcha"}
-        it{"italyancha"}
-        ja{"yaponcha"}
-        pt{"portugalcha"}
-        ru{"ruscha"}
-        uz{"o'zbekcha"}
-        zh{"xitoycha"}
-    }
+    %%ParentIsRoot:int{1}
+    ExemplarCharacters{"[a b c d e f g h i j k l m n o p q r s t u v x y z ʿ]"}
+    ExemplarCharactersIndex{"[A B C D E F G H I J K L M N O P Q R S T U V W X Y Z ʿ]"}
     LocaleScript{
         "Latn",
     }
-    Scripts{
-        Cyrl{"Kiril"}
-        Latn{"Lotin"}
+    NumberElements{
+        latn{
+            symbols{
+                decimal{","}
+                group{" "}
+            }
+        }
     }
-    Version{"1.19"}
+    Version{"2.0.47.68"}
     calendar{
         gregorian{
+            DateTimePatterns{
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, y MMMM dd",
+                "y MMMM d",
+                "y MMM d",
+                "yy/MM/dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
             dayNames{
                 format{
                     abbreviated{
@@ -136,20 +91,6 @@ uz_Latn{
                         "Noya",
                         "Dek",
                     }
-                    wide{
-                        "Muharram",
-                        "Safar",
-                        "Rabiul-avval",
-                        "Rabiul-oxir",
-                        "Jumodiul-ulo",
-                        "Jumodiul-uxro",
-                        "Rajab",
-                        "Shaʿbon",
-                        "Ramazon",
-                        "Shavvol",
-                        "Zil-qaʿda",
-                        "Zil-hijja",
-                    }
                 }
                 stand-alone{
                     narrow{
@@ -166,19 +107,25 @@ uz_Latn{
                         "N",
                         "D",
                     }
+                }
+            }
+        }
+        islamic{
+            monthNames{
+                format{
                     wide{
-                        "Yanvar",
-                        "2",
-                        "3",
-                        "4",
-                        "5",
-                        "6",
-                        "7",
-                        "8",
-                        "9",
-                        "10",
-                        "11",
-                        "12",
+                        "Muharram",
+                        "Safar",
+                        "Rabiul-avval",
+                        "Rabiul-oxir",
+                        "Jumodiul-ulo",
+                        "Jumodiul-uxro",
+                        "Rajab",
+                        "Shaʿbon",
+                        "Ramazon",
+                        "Shavvol",
+                        "Zil-qaʿda",
+                        "Zil-hijja",
                     }
                 }
             }

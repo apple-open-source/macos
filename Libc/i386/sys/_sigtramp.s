@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,6 +68,7 @@ _sigtramp(
 	.text
 	.align 4,0x90
 __sigtramp:
+Lstart:
 	/* Although this routine does not need any stack frame, various parts
 	   of the OS can't analyse the stack without them.  */
 	pushl	%ebp
@@ -91,9 +92,7 @@ __sigtramp:
 	movl	%esi, 8(%esp)
 	movl	%eax, 4(%esp)
 	movl	%edx, (%esp)
-Lcall_start:
 	call	*%ecx
-Lcall_end:
 #if defined(__DYNAMIC__)
 	decl	___in_sigtramp-"L00000000001$pb"(%ebx)
 #endif
@@ -101,6 +100,7 @@ Lcall_end:
 	movl	$ UC_FLAVOR, 8(%esp)
 	movl	$ SYS_sigreturn, %eax
 	int	$0x80
+Lend:
 
 /* DWARF unwind table #defines.  */
 #define DW_CFA_advance_loc_4 0x44
@@ -160,8 +160,8 @@ EH_frame1:
 	.long L$set$0	# Length of Common Information Entry
 LSCIE1:
 	.long	0	# CIE Identifier Tag
-	.byte	0x3	# CIE Version
-	.ascii "zR\0"	# CIE Augmentation
+	.byte	0x1	# CIE Version
+	.ascii "zRS\0"	# CIE Augmentation
 	.byte	0x1	# uleb128 0x1; CIE Code Alignment Factor
 	.byte	0x7c	# sleb128 -4; CIE Data Alignment Factor
 	.byte	0x8	# CIE RA Column
@@ -172,6 +172,8 @@ LSCIE1:
 	.byte	0x4	# uleb128 0x4
 	.byte	DW_CFA_offset(8)
 	.byte	0x1	# uleb128 0x1
+	.byte	DW_CFA_offset(8)	// double DW_CFA_offset (eip, -4) tells linker to not make compact unwind
+	.byte	0x1	# uleb128 0x1
 	.align 2
 LECIE1:
 	.globl _sigtramp.eh
@@ -181,8 +183,8 @@ LSFDE1:
 	.long L$set$1	# FDE Length
 LASFDE1:
 	.long	LASFDE1-EH_frame1	# FDE CIE offset
-	.long	Lcall_start-.	# FDE initial location
-	.set L$set$2,Lcall_end-Lcall_start
+	.long	Lstart-.	# FDE initial location
+	.set L$set$2,Lend-Lstart
 	.long	L$set$2	# FDE address range
 	.byte	0x0	# uleb128 0x0; Augmentation size
 

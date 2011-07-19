@@ -5,12 +5,12 @@
 %fragment("StdMapTraits","header",fragment="StdSequenceTraits")
 {
   namespace swig {
-    template <class PySeq, class K, class T >
+    template <class SwigPySeq, class K, class T >
     inline void
-    assign(const PySeq& pyseq, std::map<K,T > *map) {
+    assign(const SwigPySeq& swigpyseq, std::map<K,T > *map) {
       typedef typename std::map<K,T>::value_type value_type;
-      typename PySeq::const_iterator it = pyseq.begin();
-      for (;it != pyseq.end(); ++it) {
+      typename SwigPySeq::const_iterator it = swigpyseq.begin();
+      for (;it != swigpyseq.end(); ++it) {
 	map->insert(value_type(it->first, it->second));
       }
     }
@@ -20,14 +20,20 @@
       typedef std::map<K,T> map_type;
       static int asptr(PyObject *obj, map_type **val) {
 	int res = SWIG_ERROR;
+	SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	if (PyDict_Check(obj)) {
-	  PyObject_var items = PyMapping_Items(obj);
+	  SwigVar_PyObject items = PyObject_CallMethod(obj,(char *)"items",NULL);
+%#if PY_VERSION_HEX >= 0x03000000
+          /* In Python 3.x the ".items()" method returns a dict_items object */
+          items = PySequence_Fast(items, ".items() didn't return a sequence!");
+%#endif
 	  res = traits_asptr_stdseq<std::map<K,T>, std::pair<K, T> >::asptr(items, val);
 	} else {
 	  map_type *p;
 	  res = SWIG_ConvertPtr(obj,(void**)&p,swig::type_info<map_type>(),0);
 	  if (SWIG_IsOK(res) && val)  *val = p;
 	}
+	SWIG_PYTHON_THREAD_END_BLOCK;
 	return res;
       }      
     };
@@ -43,10 +49,10 @@
 	if (desc && desc->clientdata) {
 	  return SWIG_NewPointerObj(new map_type(map), desc, SWIG_POINTER_OWN);
 	} else {
+	  SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	  size_type size = map.size();
 	  int pysize = (size <= (size_type) INT_MAX) ? (int) size : -1;
 	  if (pysize < 0) {
-	    SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	    PyErr_SetString(PyExc_OverflowError,
 			    "map size not valid in python");
 	    SWIG_PYTHON_THREAD_END_BLOCK;
@@ -54,10 +60,11 @@
 	  }
 	  PyObject *obj = PyDict_New();
 	  for (const_iterator i= map.begin(); i!= map.end(); ++i) {
-	    swig::PyObject_var key = swig::from(i->first);
-	    swig::PyObject_var val = swig::from(i->second);
+	    swig::SwigVar_PyObject key = swig::from(i->first);
+	    swig::SwigVar_PyObject val = swig::from(i->second);
 	    PyDict_SetItem(obj, key, val);
 	  }
+	  SWIG_PYTHON_THREAD_END_BLOCK;
 	  return obj;
 	}
       }
@@ -86,10 +93,10 @@
     };
 
     template<class OutIterator, class FromOper, class ValueType = typename OutIterator::value_type>
-    struct PyMapIterator_T : PySwigIteratorClosed_T<OutIterator, ValueType, FromOper>
+    struct SwigPyMapIterator_T : SwigPyIteratorClosed_T<OutIterator, ValueType, FromOper>
     {
-      PyMapIterator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
-	: PySwigIteratorClosed_T<OutIterator,ValueType,FromOper>(curr, first, last, seq)
+      SwigPyMapIterator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
+	: SwigPyIteratorClosed_T<OutIterator,ValueType,FromOper>(curr, first, last, seq)
       {
       }
     };
@@ -97,37 +104,37 @@
 
     template<class OutIterator,
 	     class FromOper = from_key_oper<typename OutIterator::value_type> >
-    struct PyMapKeyIterator_T : PyMapIterator_T<OutIterator, FromOper>
+    struct SwigPyMapKeyIterator_T : SwigPyMapIterator_T<OutIterator, FromOper>
     {
-      PyMapKeyIterator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
-	: PyMapIterator_T<OutIterator, FromOper>(curr, first, last, seq)
+      SwigPyMapKeyIterator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
+	: SwigPyMapIterator_T<OutIterator, FromOper>(curr, first, last, seq)
       {
       }
     };
 
     template<typename OutIter>
-    inline PySwigIterator*
+    inline SwigPyIterator*
     make_output_key_iterator(const OutIter& current, const OutIter& begin, const OutIter& end, PyObject *seq = 0)
     {
-      return new PyMapKeyIterator_T<OutIter>(current, begin, end, seq);
+      return new SwigPyMapKeyIterator_T<OutIter>(current, begin, end, seq);
     }
 
     template<class OutIterator,
 	     class FromOper = from_value_oper<typename OutIterator::value_type> >
-    struct PyMapValueIterator_T : PyMapIterator_T<OutIterator, FromOper>
+    struct SwigPyMapValueITerator_T : SwigPyMapIterator_T<OutIterator, FromOper>
     {
-      PyMapValueIterator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
-	: PyMapIterator_T<OutIterator, FromOper>(curr, first, last, seq)
+      SwigPyMapValueITerator_T(OutIterator curr, OutIterator first, OutIterator last, PyObject *seq)
+	: SwigPyMapIterator_T<OutIterator, FromOper>(curr, first, last, seq)
       {
       }
     };
     
 
     template<typename OutIter>
-    inline PySwigIterator*
+    inline SwigPyIterator*
     make_output_value_iterator(const OutIter& current, const OutIter& begin, const OutIter& end, PyObject *seq = 0)
     {
-      return new PyMapValueIterator_T<OutIter>(current, begin, end, seq);
+      return new SwigPyMapValueITerator_T<OutIter>(current, begin, end, seq);
     }
   }
 }
@@ -161,8 +168,8 @@
     PyObject* keys() {
       Map::size_type size = self->size();
       int pysize = (size <= (Map::size_type) INT_MAX) ? (int) size : -1;
+      SWIG_PYTHON_THREAD_BEGIN_BLOCK;
       if (pysize < 0) {
-	SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	PyErr_SetString(PyExc_OverflowError,
 			"map size not valid in python");
 	SWIG_PYTHON_THREAD_END_BLOCK;
@@ -173,14 +180,15 @@
       for (int j = 0; j < pysize; ++i, ++j) {
 	PyList_SET_ITEM(keyList, j, swig::from(i->first));
       }
+      SWIG_PYTHON_THREAD_END_BLOCK;
       return keyList;
     }
     
     PyObject* values() {
       Map::size_type size = self->size();
       int pysize = (size <= (Map::size_type) INT_MAX) ? (int) size : -1;
+      SWIG_PYTHON_THREAD_BEGIN_BLOCK;
       if (pysize < 0) {
-	SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	PyErr_SetString(PyExc_OverflowError,
 			"map size not valid in python");
 	SWIG_PYTHON_THREAD_END_BLOCK;
@@ -191,14 +199,15 @@
       for (int j = 0; j < pysize; ++i, ++j) {
 	PyList_SET_ITEM(valList, j, swig::from(i->second));
       }
+      SWIG_PYTHON_THREAD_END_BLOCK;
       return valList;
     }
     
     PyObject* items() {
       Map::size_type size = self->size();
       int pysize = (size <= (Map::size_type) INT_MAX) ? (int) size : -1;
+      SWIG_PYTHON_THREAD_BEGIN_BLOCK;
       if (pysize < 0) {
-	SWIG_PYTHON_THREAD_BEGIN_BLOCK;
 	PyErr_SetString(PyExc_OverflowError,
 			"map size not valid in python");
 	SWIG_PYTHON_THREAD_END_BLOCK;
@@ -209,6 +218,7 @@
       for (int j = 0; j < pysize; ++i, ++j) {
 	PyList_SET_ITEM(itemList, j, swig::from(*i));
       }
+      SWIG_PYTHON_THREAD_END_BLOCK;
       return itemList;
     }
     
@@ -218,12 +228,12 @@
     }
 
     %newobject key_iterator(PyObject **PYTHON_SELF);
-    swig::PySwigIterator* key_iterator(PyObject **PYTHON_SELF) {
+    swig::SwigPyIterator* key_iterator(PyObject **PYTHON_SELF) {
       return swig::make_output_key_iterator(self->begin(), self->begin(), self->end(), *PYTHON_SELF);
     }
 
     %newobject value_iterator(PyObject **PYTHON_SELF);
-    swig::PySwigIterator* value_iterator(PyObject **PYTHON_SELF) {
+    swig::SwigPyIterator* value_iterator(PyObject **PYTHON_SELF) {
       return swig::make_output_value_iterator(self->begin(), self->begin(), self->end(), *PYTHON_SELF);
     }
 

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in 157 2008-10-23 16:09:37Z nijtmans $
+# RCS: @(#) $Id: Makefile.in 243 2010-04-09 15:18:41Z nijtmans $
 
 #========================================================================
 # Add additional lines to handle any additional AC_SUBST cases that
@@ -77,6 +77,7 @@ exec_prefix	= @exec_prefix@
 
 bindir		= @bindir@
 libdir		= @libdir@
+datarootdir	= @datarootdir@
 datadir		= @datadir@
 mandir		= @mandir@
 includedir	= @includedir@
@@ -150,7 +151,7 @@ SHARED_BUILD	= @SHARED_BUILD@
 # just a comment
 
 INCLUDES	= @PKG_INCLUDES@ \
-		  @TCL_INCLUDES@ @TK_INCLUDES@ @TK_XINCLUDES@
+		  @TK_INCLUDES@ @TCL_INCLUDES@ @TK_XINCLUDES@
 
 PKG_CFLAGS	= @PKG_CFLAGS@
 
@@ -167,7 +168,7 @@ CONFIG_CLEAN_FILES = Makefile
 CPPFLAGS	= @CPPFLAGS@ -DPACKAGE_TCLNAME=\"$(PACKAGE_TCLNAME)\"
 LIBS		= @PKG_LIBS@ @LIBS@
 AR		= @AR@
-CFLAGS		= @CFLAGS@
+CFLAGS		= @CFLAGS@ -DBUILD_tkimgps
 COMPILE		= $(CC) $(DEFS) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
 
 #========================================================================
@@ -197,7 +198,7 @@ all: binaries libraries doc
 # of the Makefile, in the "BINARIES" variable.
 #========================================================================
 
-binaries: $(BINARIES) pkgIndex.tcl-hand
+binaries: $(BINARIES) pkgIndex.tcl
 
 libraries:
 
@@ -243,7 +244,7 @@ install-doc: doc
 #	done
 
 test: binaries libraries
-	$(TCLSH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
+	$(WISH) `@CYGPATH@ $(srcdir)/tests/all.tcl` $(TESTFLAGS)
 
 shell: binaries libraries
 	@$(TCLSH) $(SCRIPT)
@@ -301,10 +302,7 @@ VPATH = $(srcdir):$(srcdir)/generic:$(srcdir)/unix:$(srcdir)/win
 # the configure script output the pkgIndex.tcl by editing configure.in.
 #========================================================================
 
-pkgIndex.tcl:
-	( echo pkg_mkIndex . $(PKG_LIB_FILE) \; exit; ) | $(TCLSH)
-
-pkgIndex.tcl-hand:
+pkgIndex.tcl:	$(PKG_LIB_FILE)
 	(echo 'package ifneeded $(PACKAGE_TCLNAME) $(PACKAGE_VERSION) \
 	    [list load [file join $$dir $(PKG_LIB_FILE)]]'\
 	) > pkgIndex.tcl

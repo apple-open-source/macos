@@ -1,10 +1,11 @@
 provider magmalloc {
 		probe refreshIndex(void *, int, int);
-		probe depotRegion(void *, int, int);
-		probe recircRegion(void *, int, int);
-		probe allocRegion(void *, int);
-		probe deallocRegion(void *, void *);
+		probe depotRegion(void *, int, void *, int, int);
+		probe recircRegion(void *, int, void *, int, int);
+		probe allocRegion(void *, int, void *, int);
+		probe deallocRegion(void *, void *, int);
 		probe madvfreeRegion(void *, void *, void *, int);
+		probe pressureRelief(void *, int, int);
 		probe mallocErrorBreak();
 };
 

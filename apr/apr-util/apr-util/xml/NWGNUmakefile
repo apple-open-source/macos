@@ -3,7 +3,7 @@
 #
 
 SUBDIRS = \
-	$(EOLIST) 
+	$(EOLIST)
 
 #
 # Get the 'head' of the build environment.  This includes default targets and
@@ -37,6 +37,7 @@ XINCDIRS	+= \
 # These flags will come after CFLAGS
 #
 XCFLAGS		+= \
+			-DHAVE_EXPAT_CONFIG_H \
 			$(EOLIST)
 
 #
@@ -102,39 +103,39 @@ endif
 # This is used by the link 'name' directive to name the nlm.  If left blank
 # TARGET_nlm (see below) will be used.
 #
-NLM_NAME		= 
+NLM_NAME	=
 
 #
-# This is used by the link '-desc ' directive. 
+# This is used by the link '-desc ' directive.
 # If left blank, NLM_NAME will be used.
 #
-NLM_DESCRIPTION	= 
+NLM_DESCRIPTION	=
 
 #
 # This is used by the '-threadname' directive.  If left blank,
 # NLM_NAME Thread will be used.
 #
-NLM_THREAD_NAME	= 
+NLM_THREAD_NAME	=
 #
-# If this is specified, it will override VERSION value in 
+# If this is specified, it will override VERSION value in
 # $(APR_WORK)\build\NWGNUenvironment.inc
 #
-NLM_VERSION		=
+NLM_VERSION	=
 
 #
 # If this is specified, it will override the default of 64K
 #
-NLM_STACK_SIZE	= 
+NLM_STACK_SIZE	=
 
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= 
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= 
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -144,14 +145,14 @@ NLM_CHECK_SYM	=
 #
 # If this is specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS		=
- 
+NLM_FLAGS	=
+
 #
-# If this is specified it will be linked in with the XDCData option in the def 
-# file instead of the default of $(APR)/misc/netware/apache.xdc.  XDCData can 
+# If this is specified it will be linked in with the XDCData option in the def
+# file instead of the default of $(APR)/misc/netware/apache.xdc.  XDCData can
 # be disabled by setting APACHE_UNIPROC in the environment
 #
-XDCDATA         = 
+XDCDATA		=
 
 #
 # Declare all target files (you must add your files here)
@@ -195,7 +196,7 @@ FILES_nlm_modules = \
 # If the nlm has a msg file, put it's path here
 #
 FILE_nlm_msg =
- 
+
 #
 # If the nlm has a hlp file put it's path here
 #
@@ -211,14 +212,14 @@ FILE_nlm_copyright =
 #
 FILES_nlm_Ximports = \
 	$(EOLIST)
- 
-#   
+
+#
 # Any symbols exported to here
 #
 FILES_nlm_exports = \
 	$(EOLIST)
-	
-#   
+
+#
 # These are the OBJ files needed to create the LIB target above.
 # Paths must all use the '/' character
 #
@@ -238,7 +239,7 @@ libs :: $(OBJDIR) $(TARGET_lib)
 nlms :: libs $(TARGET_nlm)
 
 #
-# Updated this target to create necessary directories and copy files to the 
+# Updated this target to create necessary directories and copy files to the
 # correct place.  (See $(APR_WORK)\build\NWGNUhead.inc for examples)
 #
 install :: nlms FORCE

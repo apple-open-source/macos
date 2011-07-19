@@ -42,9 +42,9 @@ using namespace WTF;
 namespace WebCore {
 
 // true if there is more to parse
-static inline bool skipWhiteSpace(const String& str, int& pos, bool fromHttpEquivMeta)
+static inline bool skipWhiteSpace(const String& str, unsigned& pos, bool fromHttpEquivMeta)
 {
-    int len = str.length();
+    unsigned len = str.length();
 
     if (fromHttpEquivMeta) {
         while (pos != len && str[pos] <= ' ')
@@ -59,9 +59,9 @@ static inline bool skipWhiteSpace(const String& str, int& pos, bool fromHttpEqui
 
 // Returns true if the function can match the whole token (case insensitive).
 // Note: Might return pos == str.length()
-static inline bool skipToken(const String& str, int& pos, const char* token)
+static inline bool skipToken(const String& str, unsigned& pos, const char* token)
 {
-    int len = str.length();
+    unsigned len = str.length();
 
     while (pos != len && *token) {
         if (toASCIILower(str[pos]) != *token++)
@@ -104,8 +104,8 @@ ContentDispositionType contentDispositionType(const String& contentDisposition)
 
 bool parseHTTPRefresh(const String& refresh, bool fromHttpEquivMeta, double& delay, String& url)
 {
-    int len = refresh.length();
-    int pos = 0;
+    unsigned len = refresh.length();
+    unsigned pos = 0;
     
     if (!skipWhiteSpace(refresh, pos, fromHttpEquivMeta))
         return false;
@@ -126,7 +126,7 @@ bool parseHTTPRefresh(const String& refresh, bool fromHttpEquivMeta, double& del
         
         ++pos;
         skipWhiteSpace(refresh, pos, fromHttpEquivMeta);
-        int urlStartPos = pos;
+        unsigned urlStartPos = pos;
         if (refresh.find("url", urlStartPos, false) == urlStartPos) {
             urlStartPos += 3;
             skipWhiteSpace(refresh, urlStartPos, fromHttpEquivMeta);
@@ -137,7 +137,7 @@ bool parseHTTPRefresh(const String& refresh, bool fromHttpEquivMeta, double& del
                 urlStartPos = pos;  // e.g. "Refresh: 0; url.html"
         }
 
-        int urlEndPos = len;
+        unsigned urlEndPos = len;
 
         if (refresh[urlStartPos] == '"' || refresh[urlStartPos] == '\'') {
             UChar quotationMark = refresh[urlStartPos];
@@ -173,8 +173,8 @@ String filenameFromHTTPContentDisposition(const String& value)
 
     unsigned length = keyValuePairs.size();
     for (unsigned i = 0; i < length; i++) {
-        int valueStartPos = keyValuePairs[i].find('=');
-        if (valueStartPos < 0)
+        size_t valueStartPos = keyValuePairs[i].find('=');
+        if (valueStartPos == notFound)
             continue;
 
         String key = keyValuePairs[i].left(valueStartPos).stripWhiteSpace();
@@ -241,12 +241,12 @@ void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, u
     charsetPos = start;
     charsetLen = 0;
 
-    int pos = start;
-    int length = (int)mediaType.length();
+    size_t pos = start;
+    unsigned length = mediaType.length();
     
     while (pos < length) {
         pos = mediaType.find("charset", pos, false);
-        if (pos <= 0) {
+        if (pos == notFound || pos == 0) {
             charsetLen = 0;
             return;
         }
@@ -270,7 +270,7 @@ void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, u
             ++pos;
 
         // we don't handle spaces within quoted parameter values, because charset names cannot have any
-        int endpos = pos;
+        unsigned endpos = pos;
         while (pos != length && mediaType[endpos] > ' ' && mediaType[endpos] != '"' && mediaType[endpos] != '\'' && mediaType[endpos] != ';')
             ++endpos;
 
@@ -290,8 +290,8 @@ XSSProtectionDisposition parseXSSProtectionHeader(const String& header)
     if (stippedHeader[0] == '0')
         return XSSProtectionDisabled;
 
-    int length = (int)header.length();
-    int pos = 0;
+    unsigned length = header.length();
+    unsigned pos = 0;
     if (stippedHeader[pos++] == '1'
         && skipWhiteSpace(stippedHeader, pos, false)
         && stippedHeader[pos++] == ';'
@@ -309,10 +309,67 @@ XSSProtectionDisposition parseXSSProtectionHeader(const String& header)
 
 String extractReasonPhraseFromHTTPStatusLine(const String& statusLine)
 {
-    int spacePos = statusLine.find(' ');
+    size_t spacePos = statusLine.find(' ');
     // Remove status code from the status line.
     spacePos = statusLine.find(' ', spacePos + 1);
     return statusLine.substring(spacePos + 1);
+}
+
+bool parseRange(const String& range, long long& rangeOffset, long long& rangeEnd, long long& rangeSuffixLength)
+{
+    // The format of "Range" header is defined in RFC 2616 Section 14.35.1.
+    // http://www.w3.org/Protocols/rfc2616/rfc2616-sec14.html#sec14.35.1
+    // We don't support multiple range requests.
+
+    rangeOffset = rangeEnd = rangeSuffixLength = -1;
+
+    // The "bytes" unit identifier should be present.
+    static const char bytesStart[] = "bytes="; 
+    if (!range.startsWith(bytesStart, false))
+        return false;
+    String byteRange = range.substring(sizeof(bytesStart) - 1);
+
+    // The '-' character needs to be present.
+    int index = byteRange.find('-');
+    if (index == -1)
+        return false;
+
+    // If the '-' character is at the beginning, the suffix length, which specifies the last N bytes, is provided.
+    // Example:
+    //     -500
+    if (!index) {
+        String suffixLengthString = byteRange.substring(index + 1).stripWhiteSpace();
+        bool ok;
+        long long value = suffixLengthString.toInt64Strict(&ok);
+        if (ok)
+            rangeSuffixLength = value;
+        return true;
+    }
+
+    // Otherwise, the first-byte-position and the last-byte-position are provied.
+    // Examples:
+    //     0-499
+    //     500-
+    String firstBytePosStr = byteRange.left(index).stripWhiteSpace();
+    bool ok;
+    long long firstBytePos = firstBytePosStr.toInt64Strict(&ok);
+    if (!ok)
+        return false;
+
+    String lastBytePosStr = byteRange.substring(index + 1).stripWhiteSpace();
+    long long lastBytePos = -1;
+    if (!lastBytePosStr.isEmpty()) {
+        lastBytePos = lastBytePosStr.toInt64Strict(&ok);
+        if (!ok)
+            return false;
+    }
+
+    if (firstBytePos < 0 || !(lastBytePos == -1 || lastBytePos >= firstBytePos))
+        return false;
+
+    rangeOffset = firstBytePos;
+    rangeEnd = lastBytePos;
+    return true;
 }
 
 }

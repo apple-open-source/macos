@@ -1,0 +1,295 @@
+Master users/passwords
+======================
+
+It's possible to configure master users who are able to log in as other users.
+It's also possible to directly log in as any user using a master password,
+although this isn't recommended.
+
+Master users
+------------
+
+There are two ways for master users to log in as other users:
+
+ 1. Give the login username in the <SASL mechanism's>
+    [Authentication.Mechanisms.txt] authorization ID field. Currently only the
+    PLAIN SASL mechanism supports this.
+ 2. Specify both the master username and the login username in the same
+    username field. The usernames are separated by a string configured by the
+    'auth_master_user_separator' setting. UW-IMAP uses "*" as the separator, so
+    that could be a good choice. Using "*" as the separator, the master user
+    would log in as "login_user*master_user".
+
+Master users are configured by adding a new <passdb> [PasswordDatabase.txt]
+with 'master=yes' setting. The users in the master passdb cannot log in as
+themselves, only as other people. That means they don't need to exist in the
+<userdb> [UserDatabase.txt], because the userdb lookup is done only for the
+user they're logging in as.
+
+You should also add the 'pass=yes' setting to the master passdb if possible. It
+means that Dovecot verifies that the login user really exists before allowing
+the master user to log in. Without the setting if a nonexistent login username
+is given, depending on the configuration, it could either return an internal
+login error (the userdb lookup failed) or create a whole new user (with eg.
+<static userdb> [UserDatabase.Static.txt]). 'pass=yes' doesn't work with PAM or
+LDAP with 'auth_bind=yes', because both of them require knowing the user's
+password.
+
+'pass=yes' is especially useful with a <Checkpassword>
+[PasswordDatabase.CheckPassword.txt] passdb because the script gets both the
+login and the master username as environment variables. Other passdbs see only
+the login username in '%u'. In the future there will probably be another
+setting to make the user verification to be done from userdb.
+
+If you want master users to be able to log in as themselves, you'll need to
+either add the user to the normal passdb or add the passdb to 'dovecot.conf'
+twice, with and without 'master=yes'. Note that if the passdbs point to
+different locations, the user can have a different password when logging in as
+other users than when logging in as himself. This is a good idea since it can
+avoid accidentally logging in as someone else.
+
+Usually it's better to have only a few special master users that are used
+*only* to log in as other people. One example could be a special "spam" master
+user that trains the users' spam filters by reading the messages from the
+user's spam mailbox.
+
+Example configuration
+---------------------
+
+---%<-------------------------------------------------------------------------
+auth_master_user_separator = *
+passdb {
+  driver = passwd-file
+  args = /etc/dovecot/passwd.masterusers
+  master = yes
+  pass = yes
+}
+passdb {
+  driver = shadow
+}
+userdb {
+  driver = passwd
+}
+---%<-------------------------------------------------------------------------
+
+Where the 'passwd.masterusers' file would contain the master usernames and
+passwords:
+
+---%<-------------------------------------------------------------------------
+admin:{SHA1}nU4eI71bcnBGqeO0t9tXvY1u5oQ=
+admin2:{SHA1}i+UhJqb95FCnFio2UdWJu1HpV50=
+---%<-------------------------------------------------------------------------
+
+One way to create this master file is to use the htaccess program as follows:
+
+---%<-------------------------------------------------------------------------
+htpasswd -b -c -s passwd.masterusers user password
+---%<-------------------------------------------------------------------------
+
+SQL Example
+-----------
+
+The master passdb doesn't have to be passwd-file, it could be an SQL query as
+well:
+
+---%<-------------------------------------------------------------------------
+auth_master_user_separator = *
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql-master.conf.ext
+  master = yes
+  pass = yes
+}
+passdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+userdb {
+  driver = sql
+  args = /etc/dovecot/dovecot-sql.conf.ext
+}
+}
+---%<-------------------------------------------------------------------------
+
+'dovecot-sql-master.conf.ext' would contain all the normal connection settings
+and a 'password_query':
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT password FROM users WHERE userid = '%u' and master_user
+= true
+---%<-------------------------------------------------------------------------
+
+Testing
+-------
+
+---%<-------------------------------------------------------------------------
+# telnet localhost 143
+* OK Dovecot ready.
+1 login loginuser*masteruser masterpass
+1 OK Logged in.
+---%<-------------------------------------------------------------------------
+
+If you had any problems, set 'auth_debug=yes' and look at the logs.
+
+Master passwords
+----------------
+
+The easiest way to implement this is with SQL:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user, 'master-password' AS password FROM users WHERE
+userid = '%u'
+---%<-------------------------------------------------------------------------
+
+If you don't have the users in SQL database, you can still fake it:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT '%u' AS user, 'master-password' AS password
+---%<-------------------------------------------------------------------------
+
+However note that the above will allow logins for any username using the master
+password, even those that don't really exist.
+
+Then in your dovecot.conf, have something like:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = pam
+}
+passdb {
+  driver = sql
+  args = /etc/dovecot-sql-master.conf.ext
+}
+---%<-------------------------------------------------------------------------
+
+One way to do this without SQL is to create a <passwd-file>
+[AuthDatabase.PasswdFile.txt] containing every user:
+
+---%<-------------------------------------------------------------------------
+user1:{plain}master-password
+user2:{plain}master-password
+..etc..
+---%<-------------------------------------------------------------------------
+
+Advanced SQL Examples
+---------------------
+
+In these example we will create 3 kinds of master users. The first will be
+users who can read all email for all domains. The next example will be users
+who can read all email for their domain only. The third example will be users
+who can read email of domains listed in a separate ownership table. We will use
+MySQL and create 2 tables with the following structure.
+
+---%<-------------------------------------------------------------------------
+CREATE TABLE `users` (
+  `uid` int(4) NOT NULL AUTO_INCREMENT,
+  `user_name` varchar(80) NOT NULL,
+  `domain_name` varchar(80) NOT NULL,
+  `password` varchar(60) DEFAULT NULL,
+  `last_login` datetime DEFAULT NULL,
+  `masteradmin` tinyint(1) NOT NULL DEFAULT '0',
+  `owns_domain` tinyint(1) NOT NULL DEFAULT '0',
+  UNIQUE KEY `emaillookup` (`domain_name`,`user_name`),
+  UNIQUE KEY `uid` (`uid`)
+) ENGINE=MyISAM AUTO_INCREMENT=995 DEFAULT CHARSET=latin
+
+CREATE TABLE `ownership` (
+  `login_id` varchar(128) NOT NULL,
+  `owned_object` varchar(128) NOT NULL,
+  UNIQUE KEY `login_id_full` (`login_id`,`owned_object`),
+  KEY `login_id` (`login_id`),
+  KEY `owned_object` (`owned_object`),
+  KEY `login_id_index` (`login_id`),
+  KEY `owned_object_index` (`owned_object`)
+) ENGINE=MyISAM DEFAULT CHARSET=latin1
+---%<-------------------------------------------------------------------------
+
+The dovecot.conf file for all 3 master user configurations will be as follows:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = sql
+  args = /etc/dovecot/ownership-sql.conf
+  master = yes
+  pass = yes
+}
+
+passdb {
+  driver = sql
+  args = /etc/dovecot/domain-owner-sql.conf
+  master = yes
+  pass = yes
+}
+
+passdb {
+  driver = sql
+  args = /etc/dovecot/masteradmin-sql.conf
+  master = yes
+  pass = yes
+}
+passdb {
+  args = /etc/dovecot/sql.conf
+  driver = sql
+}
+---%<-------------------------------------------------------------------------
+
+Before we get into the master user tricks, we start with normal email
+authentication. The query for that is as follows:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user_name, domain_name, password FROM users WHERE
+user_name = '%n' AND domain_name = '%d'
+---%<-------------------------------------------------------------------------
+
+In this first example master admin suppose you want to allow a few people to be
+master users over all domains. These users will have the "masteradmin" field
+set to 1. The query would be:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user_name, domain_name, password FROM users WHERE
+user_name = '%n' AND domain_name = '%d' AND masteradmin='1'
+---%<-------------------------------------------------------------------------
+
+In the second example suppose you are hosting multiple domains and you want to
+allow a few users to become master users of their domain only.
+
+Your query would be as follows:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user_name, domain_name, password FROM users WHERE
+user_name = '%n' \
+AND domain_name = '%d' AND owns_domain='1' AND '%d'='%{login_domain}'
+---%<-------------------------------------------------------------------------
+
+This will allow you to log in using the following to read Joe's email if
+master@dovecot.org is flagged as the domain_owner.
+
+---%<-------------------------------------------------------------------------
+joe@dovecot.org*master@dovecot.org
+---%<-------------------------------------------------------------------------
+
+In this third example we have a table of owners. There are a list of pairs
+between owner email addresses and domains that are owned. That way if a person
+controls a lot of domains then they can view all the users in all the domains
+they control. The query would be as follows:
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user_name, domain_name, password FROM users, ownership
+WHERE \
+user_name = '%n' AND domain_name = '%d' AND login_id='%u' AND
+owned_object='%{login_domain}'
+---%<-------------------------------------------------------------------------
+
+If you really want to get tricky and efficient you can combine all 3 queries
+into one giant query that does everything.
+
+---%<-------------------------------------------------------------------------
+password_query = SELECT user_name, domain_name, password FROM users, ownership
+WHERE \
+user_name = '%n' AND domain_name = '%d' AND ( \
+(masteradmin='1') OR \
+(owns_domain='1' AND '%d'='%{login_domain}') OR \
+(login_id='%u' and owned_object='%{login_domain}')) \
+group by uid
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

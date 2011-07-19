@@ -35,29 +35,39 @@
 
 namespace WebCore {
 
-class GeolocationControllerClient;
+class GeolocationClient;
 class GeolocationError;
 class GeolocationPosition;
 class Page;
 
-class GeolocationController : public Noncopyable {
+class GeolocationController {
+    WTF_MAKE_NONCOPYABLE(GeolocationController);
 public:
-    GeolocationController(Page*, GeolocationControllerClient*);
+    GeolocationController(Page*, GeolocationClient*);
     ~GeolocationController();
 
-    void addObserver(Geolocation*);
+    void addObserver(Geolocation*, bool enableHighAccuracy);
     void removeObserver(Geolocation*);
+
+    void requestPermission(Geolocation*);
+    void cancelPermissionRequest(Geolocation*);
 
     void positionChanged(GeolocationPosition*);
     void errorOccurred(GeolocationError*);
 
     GeolocationPosition* lastPosition();
 
+    GeolocationClient* client() { return m_client; }
+
 private:
     Page* m_page;
-    GeolocationControllerClient* m_client;
+    GeolocationClient* m_client;
 
-    HashSet<RefPtr<Geolocation> > m_observers;
+    RefPtr<GeolocationPosition> m_lastPosition;
+    typedef HashSet<RefPtr<Geolocation> > ObserversSet;
+    // All observers; both those requesting high accuracy and those not.
+    ObserversSet m_observers;
+    ObserversSet m_highAccuracyObservers;
 };
 
 } // namespace WebCore

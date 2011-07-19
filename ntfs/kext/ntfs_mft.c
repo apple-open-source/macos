@@ -1,8 +1,8 @@
 /*
  * ntfs_mft.c - NTFS kernel mft record operations.
  *
- * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -122,7 +122,7 @@ errno_t ntfs_mft_record_map_ext(ntfs_inode *ni, MFT_RECORD **mrec,
 		return EINVAL;
 	}
 	/* Get an iocount reference on the $MFT vnode. */
-	err = vnode_getwithref(mft_ni->vn);
+	err = vnode_get(mft_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $MFT.");
 		return err;
@@ -452,7 +452,7 @@ errno_t ntfs_mft_record_sync(ntfs_inode *ni)
 		return ENOTSUP;
 	}
 	/* Get an iocount reference on the $MFT vnode. */
-	err = vnode_getwithref(mft_ni->vn);
+	err = vnode_get(mft_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $MFT.");
 		return err;
@@ -534,7 +534,7 @@ errno_t ntfs_mft_mirror_sync(ntfs_volume *vol, const s64 rec_no,
 	lck_rw_lock_shared(&mirr_ni->lock);
 	if (rec_no >= vol->mftmirr_size)
 		panic("%s(): rec_no >= vol->mftmirr_size\n", __FUNCTION__);
-	err = vnode_getwithref(mirr_vn);
+	err = vnode_get(mirr_vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for mft mirror.");
 		goto err;
@@ -846,7 +846,7 @@ static errno_t ntfs_mft_bitmap_extend_allocation_nolock(ntfs_volume *vol)
 	ntfs_debug("Last lcn of mft bitmap attribute is 0x%llx.",
 			(unsigned long long)lcn);
 	lck_rw_lock_exclusive(&vol->lcnbmp_lock);
-	err = vnode_getwithref(lcnbmp_ni->vn);
+	err = vnode_get(lcnbmp_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $Bitmap.");
 		lck_rw_unlock_exclusive(&vol->lcnbmp_lock);
@@ -1172,14 +1172,15 @@ static errno_t ntfs_mft_bitmap_extend_initialized_nolock(ntfs_volume *vol)
 	mftbmp_ni->initialized_size += 8;
 	a->initialized_size = cpu_to_sle64(mftbmp_ni->initialized_size);
 	if (mftbmp_ni->initialized_size > old_data_size) {
-		mftbmp_ni->data_size = mftbmp_ni->initialized_size;
-		if (!ubc_setsize(mftbmp_ni->vn, mftbmp_ni->initialized_size))
-			panic("%s(): !ubc_setsize(mftbmp_ni->vn, "
-					"mftbmp_ni->initialized_size))\n",
+		const s64 init_size = mftbmp_ni->initialized_size;
+		mftbmp_ni->data_size = init_size;
+		a->data_size = cpu_to_sle64(init_size);
+		lck_spin_unlock(&mftbmp_ni->size_lock);
+		if (!ubc_setsize(mftbmp_ni->vn, init_size))
+			panic("%s(): !ubc_setsize(mftbmp_ni->vn, init_size)\n",
 					__FUNCTION__);
-		a->data_size = cpu_to_sle64(mftbmp_ni->initialized_size);
-	}
-	lck_spin_unlock(&mftbmp_ni->size_lock);
+	} else
+		lck_spin_unlock(&mftbmp_ni->size_lock);
 	/* Ensure the changes make it to disk. */
 	NInoSetMrecNeedsDirtying(ctx->ni);
 	ntfs_attr_search_ctx_put(ctx);
@@ -1220,14 +1221,15 @@ static errno_t ntfs_mft_bitmap_extend_initialized_nolock(ntfs_volume *vol)
 	mftbmp_ni->initialized_size = old_initialized_size;
 	a->initialized_size = cpu_to_sle64(old_initialized_size);
 	if (ubc_getsize(mftbmp_ni->vn) != old_data_size) {
+		mftbmp_ni->data_size = old_data_size;
+		a->data_size = cpu_to_sle64(old_data_size);
+		lck_spin_unlock(&mftbmp_ni->size_lock);
 		if (!ubc_setsize(mftbmp_ni->vn, old_data_size))
 			ntfs_error(vol->mp, "Failed to restore UBC size.  "
 					"Leaving UBC size out of sync with "
 					"attribute data size.");
-		mftbmp_ni->data_size = old_data_size;
-		a->data_size = cpu_to_sle64(old_data_size);
-	}
-	lck_spin_unlock(&mftbmp_ni->size_lock);
+	} else
+		lck_spin_unlock(&mftbmp_ni->size_lock);
 	NInoSetMrecNeedsDirtying(ctx->ni);
 #ifdef DEBUG
 	lck_spin_lock(&mftbmp_ni->size_lock);
@@ -2082,7 +2084,7 @@ errno_t ntfs_mft_record_alloc(ntfs_volume *vol, struct vnode_attr *va,
 	 */
 	mft_ni = vol->mft_ni;
 	if (va) {
-		err = vnode_getwithref(mft_ni->vn);
+		err = vnode_get(mft_ni->vn);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to get vnode for $MFT.");
 			lck_rw_unlock_exclusive(&vol->mftbmp_lock);
@@ -2090,7 +2092,7 @@ errno_t ntfs_mft_record_alloc(ntfs_volume *vol, struct vnode_attr *va,
 		}
 	}
 	mftbmp_ni = vol->mftbmp_ni;
-	err = vnode_getwithref(mftbmp_ni->vn);
+	err = vnode_get(mftbmp_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $MFT/$Bitmap.");
 		if (va)
@@ -2304,12 +2306,13 @@ mft_relocked:
 					"nr_mft_records_added %lld.",
 					(long long)nr_mft_records_added);
 			mft_ni->data_size = new_initialized_size;
+			lck_spin_unlock(&mft_ni->size_lock);
 			if (!ubc_setsize(mft_ni->vn, new_initialized_size))
 				panic("%s(): ubc_setsize() failed.\n",
 						__FUNCTION__);
 			mark_sizes_dirty = TRUE;
-		}
-		lck_spin_unlock(&mft_ni->size_lock);
+		} else
+			lck_spin_unlock(&mft_ni->size_lock);
 		ntfs_debug("Initializing mft record 0x%llx.",
 				(unsigned long long)mft_no);
 		/*
@@ -3135,7 +3138,7 @@ errno_t ntfs_extent_mft_record_free(ntfs_inode *base_ni, ntfs_inode *ni,
 	 * making it available for someone else to allocate it.
 	 */
 	lck_rw_lock_exclusive(&vol->mftbmp_lock);
-	err = vnode_getwithref(vol->mftbmp_ni->vn);
+	err = vnode_get(vol->mftbmp_ni->vn);
 	if (err)
 		ntfs_error(vol->mp, "Failed to get vnode for $MFT/$BITMAP.");
 	else {

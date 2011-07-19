@@ -1,16 +1,16 @@
 #!/usr/bin/bash
 
-# Determine if we have QuartzCore so we can turn on
-QUARTZCORE_H_PATH=$(cygpath -u "${WEBKITLIBRARIESDIR}/include/QuartzCore/QuartzCore.h")
-QUARTZCOREPRESENT_H_PATH=$(cygpath -u "${WEBKITOUTPUTDIR}/include/private/QuartzCorePresent.h")
-if test \( ! -f "${QUARTZCOREPRESENT_H_PATH}" \) -o \( -f "${QUARTZCORE_H_PATH}" -a \( "${QUARTZCORE_H_PATH}" -nt "${QUARTZCOREPRESENT_H_PATH}" \) \)
+# Determine whether we have the versioned ICU 4.0 or the unversioned ICU 4.4
+UNVERSIONED_ICU_LIB_PATH=$(cygpath -u "${WEBKITLIBRARIESDIR}/lib/libicuuc.lib")
+ICUVERSION_H_PATH=$(cygpath -u "${CONFIGURATIONBUILDDIR}/include/private/ICUVersion.h")
+if test \( ! -f "${ICUVERSION_H_PATH}" \) -o \( -f "${UNVERSIONED_ICU_LIB_PATH}" -a \( "${UNVERSIONED_ICU_LIB_PATH}" -nt "${ICUVERSION_H_PATH}" \) \)
 then
-    mkdir -p "$(dirname "${QUARTZCOREPRESENT_H_PATH}")"
-    test ! -f "${QUARTZCORE_H_PATH}"
-    echo "#define QUARTZCORE_PRESENT $?" > "${QUARTZCOREPRESENT_H_PATH}"
+    mkdir -p "$(dirname "${ICUVERSION_H_PATH}")"
+    test ! -f "${UNVERSIONED_ICU_LIB_PATH}"
+    echo "#define U_DISABLE_RENAMING $?" > "${ICUVERSION_H_PATH}"
 fi
 
-NUMCPUS=`../../../WebKitTools/Scripts/num-cpus`
+NUMCPUS=`../../../../Tools/Scripts/num-cpus`
 
 XSRCROOT="`pwd`/../.."
 XSRCROOT=`realpath "$XSRCROOT"`

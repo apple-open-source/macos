@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/sbin/gpt/map.c,v 1.5.8.1 2005/09/06 23:59:01 marcel Exp $");
+__FBSDID("$FreeBSD: src/sbin/gpt/map.c,v 1.6.10.1 2010/02/10 00:26:20 kensmith Exp $");
 
 #include <sys/types.h>
 #include <err.h>
@@ -210,7 +210,7 @@ map_init(off_t size)
 	char buf[32];
 
 	mediamap = mkmap(0LL, size, MAP_TYPE_UNUSED);
-	lbawidth = sprintf(buf, "%llu", (long long)size);
+	lbawidth = snprintf(buf, sizeof(buf), "%llu", (long long)size);
 	if (lbawidth < 5)
 		lbawidth = 5;
 }

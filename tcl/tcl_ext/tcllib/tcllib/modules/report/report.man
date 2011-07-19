@@ -3,6 +3,7 @@
 [copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Matrix reports}]
 [titledesc {Create and manipulate report objects}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require report [opt 0.3.1]]
 [description]

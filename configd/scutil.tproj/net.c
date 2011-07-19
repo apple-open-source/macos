@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -251,10 +251,12 @@ _process_options(optionsRef options, int nOptions, int argc, char **argv, CFMuta
 
 				if        ((strcasecmp(argv[0], "disable") == 0) ||
 					   (strcasecmp(argv[0], "no"     ) == 0) ||
+					   (strcasecmp(argv[0], "off"    ) == 0) ||
 					   (strcasecmp(argv[0], "0"      ) == 0)) {
 					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_0);
 				} else if ((strcasecmp(argv[0], "enable") == 0) ||
 					   (strcasecmp(argv[0], "yes"   ) == 0) ||
+					   (strcasecmp(argv[0], "on"   ) == 0) ||
 					   (strcasecmp(argv[0], "1"     ) == 0)) {
 					CFDictionarySetValue(newConfiguration, *(options[optionIndex].key), CFNumberRef_1);
 				} else {
@@ -690,8 +692,9 @@ do_net_create(int argc, char **argv)
 		return;
 	}
 
-	if (*net_keys[i].create == NULL) {
+	if (net_keys[i].create == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("create what?\n"));
+		return;
 	}
 
 	(*net_keys[i].create)(argc, argv);
@@ -716,8 +719,9 @@ do_net_disable(int argc, char **argv)
 		return;
 	}
 
-	if (*net_keys[i].disable == NULL) {
+	if (net_keys[i].disable == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("disable what?\n"));
+		return;
 	}
 
 	(*net_keys[i].disable)(argc, argv);
@@ -742,8 +746,9 @@ do_net_enable(int argc, char **argv)
 		return;
 	}
 
-	if (*net_keys[i].enable == NULL) {
+	if (net_keys[i].enable == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("enable what?\n"));
+		return;
 	}
 
 	(*net_keys[i].enable)(argc, argv);
@@ -768,8 +773,9 @@ do_net_remove(int argc, char **argv)
 		return;
 	}
 
-	if (*net_keys[i].remove == NULL) {
+	if (net_keys[i].remove == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("remove what?\n"));
+		return;
 	}
 
 	(*net_keys[i].remove)(argc, argv);
@@ -796,6 +802,7 @@ do_net_select(int argc, char **argv)
 
 	if (*net_keys[i].select == NULL) {
 		SCPrint(TRUE, stderr, CFSTR("select what?\n"));
+		return;
 	}
 
 	(*net_keys[i].select)(argc, argv);
@@ -984,12 +991,12 @@ do_net_snapshot(int argc, char **argv)
 				return;
 			}
 
-			xmlData = CFPropertyListCreateXMLData(NULL, prefsPrivate->prefs);
+			xmlData = CFPropertyListCreateData(NULL, prefsPrivate->prefs, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 			if (xmlData != NULL) {
 				(void) write(fd, CFDataGetBytePtr(xmlData), CFDataGetLength(xmlData));
 				CFRelease(xmlData);
 			} else {
-				SCPrint(TRUE, stdout, CFSTR("could not write snapshot: CFPropertyListCreateXMLData() failed\n"));
+				SCPrint(TRUE, stdout, CFSTR("could not write snapshot: CFPropertyListCreateData() failed\n"));
 			}
 
 			(void) close(fd);

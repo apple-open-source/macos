@@ -1,3 +1,7 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
 #####
 #
 # "BibTeX parser" -- Example Application.
@@ -8,7 +12,6 @@
 #
 #####
 
-lappend auto_path [file dirname [info script]]
 
 # bibtex.tcl --
 #

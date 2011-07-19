@@ -211,6 +211,10 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
     UInt32  alpha   = usage;
     bool    repeat  = ((options & kHIDDispatchOptionKeyboardNoRepeat) == 0);
     
+    if ((usagePage > 0xffff) || (usage > 0xffff))
+        IOLog("IOHIDKeyboard::dispatchKeyboardEvent usage/page unexpectedly large %02x:%02x\n", (int)usagePage, (int)usage);
+    setLastPageAndUsage(usagePage, usage);
+    
 	switch (usagePage)
 	{
 		case kHIDPage_KeyboardOrKeypad:
@@ -237,6 +241,8 @@ void IOHIDKeyboard::dispatchKeyboardEvent(
                 super::dispatchKeyboardEvent(0x3f, keyDown, timeStamp);
 			break;
 	}
+    
+    clearLastPageAndUsage();
 }
 
 // **************************************************************************
@@ -363,7 +369,7 @@ IOHIDKeyboard::deviceType ( void )
         id = _deviceType;
     }
     //Info.plist key is <integer>, not <string>
-    else if ( xml_handlerID = OSDynamicCast( OSNumber, _provider->getProperty("alt_handler_id")) )
+    else if ( ( xml_handlerID = OSDynamicCast(OSNumber, _provider->getProperty("alt_handler_id")) ) )
     {
         id = xml_handlerID->unsigned32BitValue();
     }
@@ -656,7 +662,7 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x00,0x00,0x00, 
             0x00,0x00,0x00, // Virtual = 0x81 is Spotlight
             0x00,0x00,0x00, // Virtual = 0x82 is Dashboard
-            0x00,0x00,0x00,
+            0x00,0x00,0x00, // Virtual = 0x83 is Launchpad
             0x00,0x00,0x00,
             0x00,0x00,0x00,
             0x00,0x00,0x00,
@@ -859,7 +865,7 @@ IOHIDKeyboard::defaultKeymapOfLength (UInt32 * length )
             0x00,0x00,0x00, 
             0x00,0x00,0x00, // Virtual = 0x81 is Spotlight
             0x00,0x00,0x00, // Virtual = 0x82 is Dashboard
-            0x00,0x00,0x00,
+            0x00,0x00,0x00, // Virtual = 0x83 is Launchpad
             0x00,0x00,0x00,
             0x00,0x00,0x00,
             0x00,0x00,0x00,

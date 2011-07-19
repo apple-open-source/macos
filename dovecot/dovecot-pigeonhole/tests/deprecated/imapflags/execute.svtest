@@ -1,0 +1,92 @@
+require "vnd.dovecot.testsuite";
+require "fileinto";
+require "imap4flags";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "mailbox";
+
+test_set "message" text:
+From: Henry von Flockenstoffen <henry@example.com>
+To: Dieter von Ausburg <dieter@example.com>
+Subject: Test message.
+
+Test message.
+.
+;
+
+test "Mark / Unmark" {
+	if not test_script_compile "execute/mark.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "failed to execute first result";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Marked" 0;
+
+	if not hasflag "\\flagged" {
+		test_fail "message not marked";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Unmarked" 0;
+
+	if hasflag "\\flagged" {
+		test_fail "message not unmarked";
+	}
+}
+
+test_result_reset;
+test "Setflag / Addflag / Removeflag" {
+	if not test_script_compile "execute/flags.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "failed to execute first result";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Set" 0;
+
+	if not hasflag "\\draft" {
+		test_fail "flag not set";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Add" 0;
+
+	if not hasflag "\\draft" {
+		test_fail "flag not retained";
+	}
+
+	if not hasflag "\\flagged" {
+		test_fail "flag not added";
+	}
+
+	test_result_reset;
+
+	test_message :folder "Remove" 0;
+
+	if not hasflag "\\flagged" {
+		test_fail "flag not retained";
+	}
+
+	if hasflag "\\draft" {
+		test_fail "flag not removed";
+	}
+}

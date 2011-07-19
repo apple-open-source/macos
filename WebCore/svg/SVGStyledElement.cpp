@@ -1,22 +1,22 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2007, 2008 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -25,10 +25,8 @@
 
 #include "Attr.h"
 #include "CSSParser.h"
-#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "PlatformString.h"
 #include "RenderObject.h"
 #include "RenderSVGResource.h"
@@ -44,8 +42,12 @@
 #include "SVGSVGElement.h"
 #include "SVGUseElement.h"
 #include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
 
 namespace WebCore {
+
+// Animated property definitions
+DEFINE_ANIMATED_STRING(SVGStyledElement, HTMLNames::classAttr, ClassName, className)
 
 using namespace SVGNames;
 
@@ -56,32 +58,39 @@ void mapAttributeToCSSProperty(HashMap<AtomicStringImpl*, int>* propertyNameToId
     propertyNameToIdMap->set(attrName.localName().impl(), propertyId);
 }
 
-SVGStyledElement::SVGStyledElement(const QualifiedName& tagName, Document* doc)
-    : SVGElement(tagName, doc)
+SVGStyledElement::SVGStyledElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
 {
 }
 
 SVGStyledElement::~SVGStyledElement()
 {
+    if (needsPendingResourceHandling() && hasPendingResources() && document())
+        document()->accessSVGExtensions()->removeElementFromPendingResources(this);
+
+    ASSERT(!hasPendingResources());
 }
 
 String SVGStyledElement::title() const
 {
-    // According to spec, we should not return titles when hovering over <svg> elements (those 
+    // According to spec, we should not return titles when hovering over root <svg> elements (those
     // <title> elements are the title of the document, not a tooltip) so we instantly return.
-    if (hasTagName(SVGNames::svgTag))
-        return String();
+    if (hasTagName(SVGNames::svgTag)) {
+        const SVGSVGElement* svg = static_cast<const SVGSVGElement*>(this);
+        if (svg->isOutermostSVG())
+            return String();
+    }
     
     // Walk up the tree, to find out whether we're inside a <use> shadow tree, to find the right title.
     Node* parent = const_cast<SVGStyledElement*>(this);
     while (parent) {
-        if (!parent->isShadowNode()) {
-            parent = parent->parentNode();
+        if (!parent->isSVGShadowRoot()) {
+            parent = parent->parentNodeGuaranteedHostFree();
             continue;
         }
         
         // Get the <use> element.
-        Node* shadowParent = parent->shadowParentNode();
+        Element* shadowParent = parent->svgShadowHost();
         if (shadowParent && shadowParent->isSVGElement() && shadowParent->hasTagName(SVGNames::useTag)) {
             SVGUseElement* useElement = static_cast<SVGUseElement*>(shadowParent);
             // If the <use> title is not empty we found the title to use.
@@ -186,12 +195,95 @@ int SVGStyledElement::cssPropertyIdForSVGAttributeName(const QualifiedName& attr
         mapAttributeToCSSProperty(propertyNameToIdMap, text_decorationAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, text_renderingAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, unicode_bidiAttr);
+        mapAttributeToCSSProperty(propertyNameToIdMap, vector_effectAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, visibilityAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, word_spacingAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, writing_modeAttr);
     }
     
     return propertyNameToIdMap->get(attrName.localName().impl());
+}
+
+static inline AttributeToPropertyTypeMap& cssPropertyToTypeMap()
+{
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_cssPropertyMap, ());
+    
+    if (!s_cssPropertyMap.isEmpty())
+        return s_cssPropertyMap;
+
+    // Fill the map for the first use.
+    s_cssPropertyMap.set(alignment_baselineAttr, AnimatedString);
+    s_cssPropertyMap.set(baseline_shiftAttr, AnimatedString);
+    s_cssPropertyMap.set(clipAttr, AnimatedRect);
+    s_cssPropertyMap.set(clip_pathAttr, AnimatedString);
+    s_cssPropertyMap.set(clip_ruleAttr, AnimatedString);
+    s_cssPropertyMap.set(SVGNames::colorAttr, AnimatedColor);
+    s_cssPropertyMap.set(color_interpolationAttr, AnimatedString);
+    s_cssPropertyMap.set(color_interpolation_filtersAttr, AnimatedString);
+    s_cssPropertyMap.set(color_profileAttr, AnimatedString);
+    s_cssPropertyMap.set(color_renderingAttr, AnimatedString); 
+    s_cssPropertyMap.set(cursorAttr, AnimatedString);
+    s_cssPropertyMap.set(displayAttr, AnimatedString);
+    s_cssPropertyMap.set(dominant_baselineAttr, AnimatedString);
+    s_cssPropertyMap.set(fillAttr, AnimatedColor);
+    s_cssPropertyMap.set(fill_opacityAttr, AnimatedNumber);
+    s_cssPropertyMap.set(fill_ruleAttr, AnimatedString);
+    s_cssPropertyMap.set(filterAttr, AnimatedString);
+    s_cssPropertyMap.set(flood_colorAttr, AnimatedColor);
+    s_cssPropertyMap.set(flood_opacityAttr, AnimatedNumber);
+    s_cssPropertyMap.set(font_familyAttr, AnimatedString);
+    s_cssPropertyMap.set(font_sizeAttr, AnimatedLength);
+    s_cssPropertyMap.set(font_stretchAttr, AnimatedString);
+    s_cssPropertyMap.set(font_styleAttr, AnimatedString);
+    s_cssPropertyMap.set(font_variantAttr, AnimatedString);
+    s_cssPropertyMap.set(font_weightAttr, AnimatedString);
+    s_cssPropertyMap.set(image_renderingAttr, AnimatedString);
+    s_cssPropertyMap.set(kerningAttr, AnimatedLength);
+    s_cssPropertyMap.set(letter_spacingAttr, AnimatedLength);
+    s_cssPropertyMap.set(lighting_colorAttr, AnimatedColor);
+    s_cssPropertyMap.set(marker_endAttr, AnimatedString);
+    s_cssPropertyMap.set(marker_midAttr, AnimatedString);
+    s_cssPropertyMap.set(marker_startAttr, AnimatedString);
+    s_cssPropertyMap.set(maskAttr, AnimatedString);
+    s_cssPropertyMap.set(opacityAttr, AnimatedNumber);
+    s_cssPropertyMap.set(overflowAttr, AnimatedString);
+    s_cssPropertyMap.set(pointer_eventsAttr, AnimatedString);
+    s_cssPropertyMap.set(shape_renderingAttr, AnimatedString);
+    s_cssPropertyMap.set(stop_colorAttr, AnimatedColor);
+    s_cssPropertyMap.set(stop_opacityAttr, AnimatedNumber);
+    s_cssPropertyMap.set(strokeAttr, AnimatedColor);
+    s_cssPropertyMap.set(stroke_dasharrayAttr, AnimatedLengthList);
+    s_cssPropertyMap.set(stroke_dashoffsetAttr, AnimatedLength);
+    s_cssPropertyMap.set(stroke_linecapAttr, AnimatedString);
+    s_cssPropertyMap.set(stroke_linejoinAttr, AnimatedString);
+    s_cssPropertyMap.set(stroke_miterlimitAttr, AnimatedNumber);
+    s_cssPropertyMap.set(stroke_opacityAttr, AnimatedNumber);
+    s_cssPropertyMap.set(stroke_widthAttr, AnimatedLength);
+    s_cssPropertyMap.set(text_anchorAttr, AnimatedString);
+    s_cssPropertyMap.set(text_decorationAttr, AnimatedString);
+    s_cssPropertyMap.set(text_renderingAttr, AnimatedString);
+    s_cssPropertyMap.set(vector_effectAttr, AnimatedString);
+    s_cssPropertyMap.set(visibilityAttr, AnimatedString);
+    s_cssPropertyMap.set(word_spacingAttr, AnimatedLength);
+    return s_cssPropertyMap;
+}
+
+AnimatedAttributeType SVGStyledElement::animatedPropertyTypeForCSSProperty(const QualifiedName& attrName)
+{
+    AttributeToPropertyTypeMap& cssPropertyTypeMap = cssPropertyToTypeMap();
+    if (cssPropertyTypeMap.contains(attrName))
+        return cssPropertyTypeMap.get(attrName);
+    return AnimatedUnknown;
+}
+
+bool SVGStyledElement::isAnimatableCSSProperty(const QualifiedName& attrName)
+{
+    return cssPropertyToTypeMap().contains(attrName);
+}
+
+void SVGStyledElement::fillPassedAttributeToPropertyTypeMap(AttributeToPropertyTypeMap& attributeToPropertyTypeMap)
+{
+    attributeToPropertyTypeMap.set(HTMLNames::classAttr, AnimatedString);
 }
 
 bool SVGStyledElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -203,7 +295,7 @@ bool SVGStyledElement::mapToEntry(const QualifiedName& attrName, MappedAttribute
     return SVGElement::mapToEntry(attrName, result);
 }
 
-void SVGStyledElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGStyledElement::parseMappedAttribute(Attribute* attr)
 {
     const QualifiedName& attrName = attr->name();
     // NOTE: Any subclass which overrides parseMappedAttribute for a property handled by
@@ -228,12 +320,7 @@ void SVGStyledElement::parseMappedAttribute(MappedAttribute* attr)
 
 bool SVGStyledElement::isKnownAttribute(const QualifiedName& attrName)
 {
-    // Recognize all style related SVG CSS properties
-    int propId = SVGStyledElement::cssPropertyIdForSVGAttributeName(attrName);
-    if (propId > 0)
-        return true;
-
-    return (attrName == idAttributeName() || attrName == HTMLNames::styleAttr); 
+    return isIdAttributeName(attrName);
 }
 
 void SVGStyledElement::svgAttributeChanged(const QualifiedName& attrName)
@@ -245,18 +332,10 @@ void SVGStyledElement::svgAttributeChanged(const QualifiedName& attrName)
 
     RenderObject* object = renderer();
 
-    if (attrName == idAttributeName()) {
+    if (isIdAttributeName(attrName)) {
         // Notify resources about id changes, this is important as we cache resources by id in SVGDocumentExtensions
         if (object && object->isSVGResourceContainer())
             object->toRenderSVGResourceContainer()->idChanged();
-    }
-
-    if (!document()->parsing() && object) {
-        // If we're the child of a resource element, tell the resource (and eventually its resources) that we've changed.
-        invalidateResourcesInAncestorChain();
-
-        // If we're referencing resources, tell them we've changed.
-        deregisterFromResources(object);
     }
 
     // Invalidate all SVGElementInstances associated with us
@@ -271,33 +350,49 @@ void SVGStyledElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeClassName();
 }
 
-void SVGStyledElement::invalidateResourcesInAncestorChain() const
+void SVGStyledElement::attach()
 {
-    Node* node = parentNode();
-    while (node) {
-        if (!node->isSVGElement())
-            break;
+    SVGElement::attach();
 
-        SVGElement* element = static_cast<SVGElement*>(node);
-        if (SVGStyledElement* styledElement = static_cast<SVGStyledElement*>(element->isStyled() ? element : 0)) {
-            styledElement->invalidateResourceClients();
+    if (RenderObject* object = renderer())
+        object->updateFromElement();
+}
 
-            // If we found the first resource in the ancestor chain, immediately stop.
-            break;
-        }
+void SVGStyledElement::insertedIntoDocument()
+{
+    SVGElement::insertedIntoDocument();
+    updateRelativeLengthsInformation();
 
-        node = node->parentNode();
+    Document* document = this->document();
+    if (!needsPendingResourceHandling() || !document)
+        return;
+
+    SVGDocumentExtensions* extensions = document->accessSVGExtensions();
+    String resourceId = getIdAttribute();
+    if (!extensions->hasPendingResources(resourceId))
+        return;
+
+    OwnPtr<SVGDocumentExtensions::SVGPendingElements> clients(extensions->removePendingResource(resourceId));
+    ASSERT(!clients->isEmpty());
+
+    const SVGDocumentExtensions::SVGPendingElements::const_iterator end = clients->end();
+    for (SVGDocumentExtensions::SVGPendingElements::const_iterator it = clients->begin(); it != end; ++it) {
+        ASSERT((*it)->hasPendingResources());
+        (*it)->buildPendingResource();
+        (*it)->setHasPendingResources(false);
     }
 }
 
-void SVGStyledElement::invalidateResourceClients()
+void SVGStyledElement::removedFromDocument()
 {
-    RenderObject* object = renderer();
-    if (!object)
+    updateRelativeLengthsInformation(false, this);
+    SVGElement::removedFromDocument();
+
+    Document* document = this->document();
+    if (!needsPendingResourceHandling() || !document)
         return;
 
-    if (object->isSVGResourceContainer())
-        object->toRenderSVGResourceContainer()->invalidateClients();
+    document->accessSVGExtensions()->removeElementFromPendingResources(this);
 }
 
 void SVGStyledElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
@@ -309,24 +404,17 @@ void SVGStyledElement::childrenChanged(bool changedByParser, Node* beforeChange,
         SVGElementInstance::invalidateAllInstancesOfElement(this);
 }
 
-PassRefPtr<RenderStyle> SVGStyledElement::resolveStyle(RenderStyle* parentStyle)
-{
-    if (renderer())
-        return renderer()->style();
-    return document()->styleSelector()->styleForElement(this, parentStyle);
-}
-
 PassRefPtr<CSSValue> SVGStyledElement::getPresentationAttribute(const String& name)
 {
-    if (!mappedAttributes())
+    if (!attributeMap())
         return 0;
 
     QualifiedName attributeName(nullAtom, name, nullAtom);
-    Attribute* attr = mappedAttributes()->getAttributeItem(attributeName);
+    Attribute* attr = attributeMap()->getAttributeItem(attributeName);
     if (!attr || !attr->isMappedAttribute() || !attr->style())
         return 0;
 
-    MappedAttribute* cssSVGAttr = toMappedAttribute(attr);
+    Attribute* cssSVGAttr = attr;
     // This function returns a pointer to a CSSValue which can be mutated from JavaScript.
     // If the associated MappedAttribute uses the same CSSMappedAttributeDeclaration
     // as StyledElement's mappedAttributeDecls cache, create a new CSSMappedAttributeDeclaration
@@ -352,11 +440,60 @@ void SVGStyledElement::setInstanceUpdatesBlocked(bool value)
         rareSVGData()->setInstanceUpdatesBlocked(value);
 }
 
+bool SVGStyledElement::hasPendingResources() const
+{
+    return hasRareSVGData() && rareSVGData()->hasPendingResources();
+}
+
+void SVGStyledElement::setHasPendingResources(bool value)
+{
+    ensureRareSVGData()->setHasPendingResources(value);
+}
+
 AffineTransform SVGStyledElement::localCoordinateSpaceTransform(SVGLocatable::CTMScope) const
 {
     // To be overriden by SVGStyledLocatableElement/SVGStyledTransformableElement (or as special case SVGTextElement)
     ASSERT_NOT_REACHED();
     return AffineTransform();
+}
+
+void SVGStyledElement::updateRelativeLengthsInformation(bool hasRelativeLengths, SVGStyledElement* element)
+{
+    // If we're not yet in a document, this function will be called again from insertedIntoDocument(). Do nothing now.
+    if (!inDocument())
+        return;
+
+    // An element wants to notify us that its own relative lengths state changed.
+    // Register it in the relative length map, and register us in the parent relative length map.
+    // Register the parent in the grandparents map, etc. Repeat procedure until the root of the SVG tree.
+
+    if (hasRelativeLengths)
+        m_elementsWithRelativeLengths.add(element);
+    else {
+        if (!m_elementsWithRelativeLengths.contains(element)) {
+            // We were never registered. Do nothing.
+            return;
+        }
+
+        m_elementsWithRelativeLengths.remove(element);
+    }
+
+    // Find first styled parent node, and notify it that we've changed our relative length state.
+    ContainerNode* node = parentNode();
+    while (node) {
+        if (!node->isSVGElement())
+            break;
+
+        SVGElement* element = static_cast<SVGElement*>(node);
+        if (!element->isStyled()) {
+            node = node->parentNode();
+            continue;
+        }
+
+        // Register us in the parent element map.
+        static_cast<SVGStyledElement*>(element)->updateRelativeLengthsInformation(hasRelativeLengths, this);
+        break;
+    }
 }
 
 }

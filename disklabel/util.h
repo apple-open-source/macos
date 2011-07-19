@@ -40,7 +40,7 @@ extern uint32_t GetMetadataSize(const char*);
 extern int IsAppleLabel(const char*);
 extern uint32_t GetBlockSize(const char*);
 extern uint64_t GetDiskSize(const char*);
-extern int InitialMetadata(const char *, CFDictionaryRef, uint32_t);
+extern int InitialMetadata(const char *, CFDictionaryRef, uint64_t);
 
 extern int gDebug, gVerbose;
 

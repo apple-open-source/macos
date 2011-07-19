@@ -226,8 +226,8 @@ extern void tli_host();			/* look up endpoint addresses etc. */
   */
 
 #ifdef __STDC__
-extern void tcpd_warn(char *, ...);	/* report problem and proceed */
-extern void tcpd_jump(char *, ...);	/* report problem and jump */
+extern void tcpd_warn(char *, ...) __printflike(1, 2);	/* report problem and proceed */
+extern void tcpd_jump(char *, ...) __printflike(1, 2);	/* report problem and jump */
 #else
 extern void tcpd_warn();
 extern void tcpd_jump();

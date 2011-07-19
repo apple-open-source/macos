@@ -35,22 +35,26 @@
 #include "GraphicsContext.h"
 #include "KURL.h"
 #include "MediaPlayerPrivateTaskTimer.h"
+#include "Page.h"
 #include "QTMovieTask.h"
 #include "ScrollView.h"
 #include "SoftLinking.h"
-#include "StringBuilder.h"
-#include "StringHash.h"
 #include "TimeRanges.h"
 #include "Timer.h"
+#include <CoreGraphics/CGColorSpace.h>
+#include <CoreGraphics/CGContext.h>
+#include <CoreGraphics/CGImage.h>
 #include <Wininet.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashSet.h>
 #include <wtf/MathExtras.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringHash.h>
 
 #if USE(ACCELERATED_COMPOSITING)
 #include "GraphicsLayerCACF.h"
-#include "WKCACFLayer.h"
+#include "PlatformCALayer.h"
 #endif
 
 #if DRAW_FRAME_RATE
@@ -68,15 +72,15 @@ namespace WebCore {
 SOFT_LINK_LIBRARY(Wininet)
 SOFT_LINK(Wininet, InternetSetCookieExW, DWORD, WINAPI, (LPCWSTR lpszUrl, LPCWSTR lpszCookieName, LPCWSTR lpszCookieData, DWORD dwFlags, DWORD_PTR dwReserved), (lpszUrl, lpszCookieName, lpszCookieData, dwFlags, dwReserved))
 
-MediaPlayerPrivateInterface* MediaPlayerPrivate::create(MediaPlayer* player) 
+PassOwnPtr<MediaPlayerPrivateInterface> MediaPlayerPrivate::create(MediaPlayer* player)
 { 
-    return new MediaPlayerPrivate(player);
+    return adoptPtr(new MediaPlayerPrivate(player));
 }
 
 void MediaPlayerPrivate::registerMediaEngine(MediaEngineRegistrar registrar)
 {
     if (isAvailable())
-        registrar(create, getSupportedTypes, supportsType);
+        registrar(create, getSupportedTypes, supportsType, 0, 0, 0);
 }
 
 MediaPlayerPrivate::MediaPlayerPrivate(MediaPlayer* player)
@@ -159,7 +163,7 @@ static void addCookieParam(StringBuilder& cookieBuilder, const String& name, con
     // Add parameter name, and value if there is one.
     cookieBuilder.append(name);
     if (!value.isEmpty()) {
-        cookieBuilder.append("=");
+        cookieBuilder.append('=');
         cookieBuilder.append(value);
     }
 }
@@ -194,7 +198,7 @@ void MediaPlayerPrivate::setUpCookiesForQuickTime(const String& url)
             addCookieParam(cookieBuilder, "expires", rfc2616DateStringFromTime(cookie.expires));
         if (cookie.httpOnly) 
             addCookieParam(cookieBuilder, "httpOnly", String());
-        cookieBuilder.append(";");
+        cookieBuilder.append(';');
 
         String cookieURL;
         if (!cookie.domain.isEmpty()) {
@@ -600,12 +604,13 @@ void MediaPlayerPrivate::paint(GraphicsContext* p, const IntRect& r)
 
     bool usingTempBitmap = false;
     OwnPtr<GraphicsContext::WindowsBitmap> bitmap;
+    // FIXME: use LocalWindowsContext.
     HDC hdc = p->getWindowsContext(r);
     if (!hdc) {
         // The graphics context doesn't have an associated HDC so create a temporary
         // bitmap where QTMovieGWorld can draw the frame and we can copy it.
         usingTempBitmap = true;
-        bitmap.set(p->createWindowsBitmap(r.size()));
+        bitmap = p->createWindowsBitmap(r.size());
         hdc = bitmap->hdc();
 
         // FIXME: is this necessary??
@@ -621,7 +626,7 @@ void MediaPlayerPrivate::paint(GraphicsContext* p, const IntRect& r)
 
     m_qtGWorld->paint(hdc, r.x(), r.y());
     if (usingTempBitmap)
-        p->drawWindowsBitmap(bitmap.get(), r.topLeft());
+        p->drawWindowsBitmap(bitmap.get(), r.location());
     else
         p->releaseWindowsContext(hdc, r);
 
@@ -759,7 +764,7 @@ void MediaPlayerPrivate::movieNewImageAvailable(QTMovieGWorld* movie)
 
 #if USE(ACCELERATED_COMPOSITING)
     if (m_qtVideoLayer)
-        m_qtVideoLayer->platformLayer()->setNeedsDisplay();
+        m_qtVideoLayer->setNeedsDisplay();
     else
 #endif
         m_player->repaint();
@@ -886,9 +891,9 @@ void MediaPlayerPrivate::createLayerForMovie()
         return;
 
     // Create a GraphicsLayer that won't be inserted directly into the render tree, but will used 
-    // as a wrapper for a WKCACFLayer which gets inserted as the content layer of the video 
+    // as a wrapper for a PlatformCALayer which gets inserted as the content layer of the video 
     // renderer's GraphicsLayer.
-    m_qtVideoLayer.set(new GraphicsLayerCACF(this));
+    m_qtVideoLayer = adoptPtr(new GraphicsLayerCACF(this));
     if (!m_qtVideoLayer)
         return;
 
@@ -908,7 +913,7 @@ void MediaPlayerPrivate::destroyLayerForMovie()
 #if USE(ACCELERATED_COMPOSITING)
     if (!m_qtVideoLayer)
         return;
-    m_qtVideoLayer = 0;
+    m_qtVideoLayer = nullptr;
 #endif
 }
 

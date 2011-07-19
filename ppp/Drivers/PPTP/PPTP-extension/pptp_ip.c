@@ -117,6 +117,10 @@ void pptp_ip_input(mbuf_t m, int len)
 
 	if (mbuf_len(m) < sizeof(struct ip) && 
 		mbuf_pullup(&m, sizeof(struct ip))) {
+			if (m) {
+				mbuf_freem(m);
+				m = NULL;
+			}
 			IOLog("pptp_ip_input: cannot pullup ip header\n");
 			return;
 	}
@@ -178,6 +182,10 @@ int pptp_ip_output(mbuf_t m, u_int32_t from, u_int32_t to)
 	lck_mtx_unlock(ppp_domain_mutex);
     ip_output((struct mbuf *)m, 0, &ro, 0, 0, 0);
 	lck_mtx_lock(ppp_domain_mutex);
+	if (ro.ro_rt != NULL) {
+		rtfree(ro.ro_rt);
+		ro.ro_rt = NULL;
+	}
     return 0;
 }
 

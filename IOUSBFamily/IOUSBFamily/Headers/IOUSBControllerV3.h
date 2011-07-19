@@ -241,6 +241,10 @@ class IOUSBControllerV3 : public IOUSBControllerV2
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  27);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  28);
 	OSMetaClassDeclareReservedUnused(IOUSBControllerV3,  29);
+	
+	protected:
+	
+		void							FixupNECControllerConfigRegisters(void);
 };
 
 #endif		// _IOKIT_IOUSBCONTROLLERV3_H

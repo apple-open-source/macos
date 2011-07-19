@@ -32,16 +32,16 @@ in a secure manner before being encrypted with a private
 key under a public-key cryptosystem such as
 .Tn RSA .
 .Pp
+.Tn MD5's
+designer Ron Rivest has stated "md5 and sha1 are both clearly broken (in terms
+of collision-resistance)".     
+So
 .Tn MD5
-has not yet (2001-09-03) been broken, but sufficient attacks have been
-made that its security is in some doubt.
-The attacks on
-.Tn MD5
-are in the nature of finding
-.Dq collisions
-\(em that is, multiple
-inputs which hash to the same value; it is still unlikely for an attacker
-to be able to determine the exact original input given a hash value.
+should be avoided when creating new protocols, or implementing protocols with better options.
+.Tn SHA256
+and 
+.Tn SHA512
+are better options as they have been more resilient to attacks (as of 2009).
 .Pp
 The following options may be used in any combination and must
 precede any files named on the command line.
@@ -79,11 +79,16 @@ and 1 if at least one of the input files could not be read.
 .Xr cksum 1 ,
 .Xr md5 3 ,
 .Xr ripemd 3 ,
-.Xr sha 3
+.Xr sha 3 ,
+.Xr CC_SHA256_Init 3
 .Rs
 .%A R. Rivest
 .%T The MD5 Message-Digest Algorithm
 .%O RFC1321
+.Rs
+.%A Vlastimil Klima
+.%T Finding MD5 Collisions - a Toy For a Notebook
+.%O Cryptology ePrint Archive: Report 2005/075
 .Re
 .Sh ACKNOWLEDGMENTS
 This program is placed in the public domain for free general use by

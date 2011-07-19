@@ -5,8 +5,8 @@
 # Don't let LC_* override our choice of locale.
   unset -m LC_\*
   mb_ok=
-  langs=(en_US.UTF-8 en_GB.UTF-8 en.UTF-8
-	 $(locale -a 2>/dev/null | sed -e 's/utf8/UTF-8/' | grep UTF-8))
+  langs=(en_{US,GB}.{UTF-,utf}8 en.UTF-8
+	 $(locale -a 2>/dev/null | egrep 'utf8|UTF-8'))
   for LANG in $langs; do
     if [[ é = ? ]]; then
       mb_ok=1
@@ -232,6 +232,12 @@
 <«»ignored
 >«»
 
+  read -q -u0 mb
+  print $?
+0:multibyte character makes read -q return false
+<«
+>1
+
   # See if the system grokks first-century Greek...
   ioh="Ἐν ἀρχῇ ἦν ὁ λόγος, καὶ ὁ λόγος ἦν πρὸς τὸν θεόν, καὶ θεὸς ἦν ὁ λόγος."
   for (( i = 1; i <= ${#ioh}; i++ )); do
@@ -322,10 +328,10 @@
 # We ask for case-insensitive sorting here (and supply upper case
 # characters) so that we exercise the logic in the shell that lowers the
 # case of the string for case-insensitive sorting.
-  print -oi HΕH HΔH HΓH HΒH HΑH
+  print -oi HÛH HÔH HÎH HÊH HÂH
   (LC_ALL=C; print -oi HAH HUH HEH HÉH HÈH)
 0:Multibyte characters in print sorting
->HΑH HΒH HΓH HΔH HΕH
+>HÂH HÊH HÎH HÔH HÛH
 >HAH HEH HUH HÈH HÉH
 
 # These are control characters in Unicode, so don't show up.
@@ -378,17 +384,25 @@
 >X$'\300'Y$'\a'Z$'\177'T
 
 # This also isn't strictly multibyte and is here to reduce the
-# likelihood of a "can't do character set conversion" error.
-  testfn() { (LC_ALL=C; print $'\u00e9') }
-  repeat 4 testfn 2>&1 | while read line; do
-    if [[ $line = *"character not in range"* ]]; then
-      print OK
-    elif [[ $line = "?" ]]; then
-      print OK
-    else
-      print Failed: no error message and no question mark
-    fi
-  done
+# likelihood of a "cannot do character set conversion" error.
+  (print $'\u00e9') 2>&1 | read
+  if [[ $REPLY != é ]]; then
+    print "warning: your system can't do simple Unicode conversion." >&$ZTST_fd
+    print "Check you have a correctly installed iconv library." >&$ZTST_fd
+    # cheat
+    repeat 4 print OK
+  else
+    testfn() { (LC_ALL=C; print $'\u00e9') }
+    repeat 4 testfn 2>&1 | while read line; do
+      if [[ $line = *"character not in range"* ]]; then
+        print OK
+      elif [[ $line = "?" ]]; then
+        print OK
+      else
+        print Failed: no error message and no question mark
+      fi
+    done
+  fi
   true
 0:error handling in Unicode quoting
 >OK
@@ -410,3 +424,44 @@
 0:Metafied characters in prompt expansion
 >梶浦由記
 >Пётр Ильич Чайковский
+
+  (
+  setopt nonomatch
+  tmp1=Ą
+  tmpA=(Ą 'Пётр Ильич Чайковский' 梶浦由記)
+  print ${tmp1} ${(%)tmp1} ${(%%)tmp1}
+  print ${#tmp1} ${#${(%)tmp1}} ${#${(%%)tmp1}}
+  print ${tmpA}
+  print ${(%)tmpA}
+  print ${(%%)tmpA}
+  )
+0:More metafied characters in prompt expansion
+>Ą Ą Ą
+>1 1 1
+>Ą Пётр Ильич Чайковский 梶浦由記
+>Ą Пётр Ильич Чайковский 梶浦由記
+>Ą Пётр Ильич Чайковский 梶浦由記
+
+  setopt cbases
+  print $'\xc5' | read
+  print $(( [#16] #REPLY ))
+0:read passes through invalid multibyte characters
+>0xC5
+
+  word=abcま          
+  word[-1]=
+  print $word
+  word=abcま 
+  word[-2]=
+  print $word
+  word=abcま 
+  word[4]=d
+  print $word
+  word=abcま 
+  word[3]=not_c
+  print $word  
+0:assignment with negative indices
+>abc
+>abま
+>abcd
+>abnot_cま

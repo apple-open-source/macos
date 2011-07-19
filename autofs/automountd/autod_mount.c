@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_mount.c	1.71	05/06/08 SMI"
@@ -48,6 +48,7 @@
 #include <fcntl.h>
 
 #include "automount.h"
+#include "nfs.h"
 #include "automountd.h"
 #include "auto_mntopts.h"
 #include "replica.h"
@@ -55,10 +56,10 @@
 #include "umount_by_fsid.h"
 
 static void free_action_list(action_list *);
-static int unmount_mntpnt(int32_t, int32_t, struct mnttab *);
+static int unmount_mntpnt(fsid_t, struct mnttab *);
 static int fork_exec(char *, char **, uid_t, mach_port_t);
-static void remove_browse_options(char *, bool_t);
-static int inherit_options(char *, char **);
+static void remove_browse_options(char *);
+static int inherit_options(const char *, char **);
 
 #define ROUND_UP(a, b)	((((a) + (b) - 1)/(b)) * (b))
 
@@ -95,13 +96,30 @@ putstring(uint8_t *outbuf, char *string)
 	return (outbuf);
 }
 
-int
-do_mount1(autofs_pathname mapname, char *key, autofs_pathname subdir,
-    autofs_opts mapopts, autofs_pathname path, boolean_t isdirect,
-    uid_t sendereuid, mach_port_t gssd_port,
-    byte_buffer *actions, mach_msg_type_number_t *actionsCnt)
+static uint8_t *
+putint(uint8_t *outbuf, int val)
 {
-	bool_t from_fstab = FALSE;
+	memcpy(outbuf, &val, sizeof (int));
+	outbuf += sizeof (int);
+	return (outbuf);
+}
+
+static uint8_t *
+putuint32(uint8_t *outbuf, uint32_t val)
+{
+	memcpy(outbuf, &val, sizeof (uint32_t));
+	outbuf += sizeof (uint32_t);
+	return (outbuf);
+}
+
+int
+do_mount1(const autofs_pathname mapname, const char *key,
+    const autofs_pathname subdir, const autofs_opts mapopts,
+    const autofs_pathname path, boolean_t isdirect, boolean_t issubtrigger,
+    fsid_t mntpnt_fsid, uid_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t *retflags, byte_buffer *actions,
+    mach_msg_type_number_t *actionsCnt)
+{
 	struct mapent *me, *mapents;
 	char mntpnt[MAXPATHLEN];
 	char spec_mntpnt[MAXPATHLEN];
@@ -112,26 +130,15 @@ do_mount1(autofs_pathname mapname, char *key, autofs_pathname subdir,
 	char root[MAXPATHLEN];
 	char next_subdir[MAXPATHLEN];
 	bool_t mount_access = TRUE;
-	bool_t iswildcard;
 	bool_t isrestricted = hasrestrictopt(mapopts);
 	kern_return_t ret;
 	size_t bufsize;
 	vm_address_t buffer_vm_address;
 	uint8_t *outbuf;
 
-	/*
-	 * We treat "browse" and "nobrowse" from fstab specially, as
-	 * we can assume it probably means Mac OS X-style "browse"/"nobrowse",
-	 * not Solaris autofs-style "browse"/"nobrowse".
-	 */
-	if (strcmp(mapname, "-fstab") == 0 || strcmp(mapname, "-static") == 0)
-		from_fstab = TRUE;
-
 retry:
-	iswildcard = FALSE;
-
 	mapents = parse_entry(key, mapname, mapopts, subdir, isdirect,
-		&iswildcard, isrestricted, mount_access, &err);
+		NULL, isrestricted, mount_access, &err);
 	if (mapents == NULL) {
 		/* Return the error parse_entry handed back. */
 		return (err);
@@ -171,8 +178,27 @@ retry:
 	 */
 	private = "";
 	for (me = mapents; me && !err; me = me->map_next) {
-		len = snprintf(mntpnt, sizeof (mntpnt), "%s%s%s", path,
-		    mapents->map_root, me->map_mntpnt);
+		/*
+		 * For subtrigger mounts, path is the mount path of
+		 * the subtrigger, which is the path atop which we
+		 * mount the remote object, so there's no subdirectory
+		 * underneath the root of the mount.  subdir is
+		 * relative to the root of the top-level autofs mount,
+		 * not relative to the root of the subtrigger mount,
+		 * so we don't include it in the path.  (subdir is
+		 * used to look in the map entry for mapents at or
+		 * below that directory, as the topmost of those
+		 * tells us what to mount, and the entries below
+		 * it tell us what triggers need to be planted.)
+		 */
+		if (isdirect) {
+			len = snprintf(mntpnt, sizeof (mntpnt), "%s%s%s",
+			    path, issubtrigger ? "" : subdir, me->map_mntpnt);
+		} else {
+			len = snprintf(mntpnt, sizeof (mntpnt), "%s%s%s%s",
+			    path, mapents->map_root,
+			    issubtrigger ? "" : subdir, me->map_mntpnt);
+		}
 
 		if (len < 0) {
 			free_mapent(mapents);
@@ -198,14 +224,14 @@ retry:
 		    inherit_options(mapopts, &me->map_mntopts) != 0) {
 			syslog(LOG_ERR, "malloc of options failed");
 			free_mapent(mapents);
-			return (EAGAIN);
+			return (ENOMEM);
 		}
 
 		if (strcmp(me->map_fstype, MNTTYPE_NFS) == 0) {
-			remove_browse_options(me->map_mntopts, from_fstab);
+			remove_browse_options(me->map_mntopts);
 			err =
 			    mount_nfs(me, spec_mntpnt, private, isdirect,
-			        gssd_port);
+			        mntpnt_fsid, gssd_port, fsidp, retflags);
 			/*
 			 * We must retry if we don't have access to the
 			 * root file system and there are other
@@ -241,25 +267,11 @@ retry:
 				return (ENAMETOOLONG);
 			}
 
-			alp = (action_list *)malloc(sizeof (action_list));
-			if (alp == NULL) {
-				syslog(LOG_ERR, "malloc of alp failed");
-				continue;
-			}
-			memset(alp, 0, sizeof (action_list));
-
 			/*
-			 * get the next subidr, but only if its a modified
-			 * or faked autofs mount
+			 * get the next subdir
 			 */
-			if (me->map_modified || me->map_faked) {
-				len = snprintf(next_subdir,
-					sizeof (next_subdir), "%s%s", subdir,
-					me->map_mntpnt);
-			} else {
-				next_subdir[0] = '\0';
-				len = 0;
-			}
+			len = snprintf(next_subdir, sizeof (next_subdir),
+				"%s%s", subdir, me->map_mntpnt);
 
 			if (trace > 2)
 				trace_prt(1, "  root=%s\t next_subdir=%s\n",
@@ -267,14 +279,16 @@ retry:
 			if (len < 0) {
 				err = EINVAL;
 			} else if ((size_t)len < sizeof (next_subdir)) {
-				err = mount_autofs(me, spec_mntpnt, alp,
-					root, next_subdir, key);
+				err = mount_autofs(mapname, me, spec_mntpnt,
+					mntpnt_fsid, &alp, root,
+					next_subdir, key, fsidp, retflags);
 			} else {
 				err = ENAMETOOLONG;
 			}
-			if (err == 0) {
+			if (alp != NULL) {
 				/*
-				 * append to action list
+				 * We were given an action list entry to
+				 * append to the action list; do so.
 				 */
 				if (alphead == NULL)
 					alphead = alp;
@@ -284,20 +298,20 @@ retry:
 						prev = tmp;
 					prev->next = alp;
 				}
-			} else
-				free(alp);
+			}
 #ifdef HAVE_LOFS
 		} else if (strcmp(me->map_fstype, MNTTYPE_LOFS) == 0) {
-			remove_browse_options(me->map_mntopts, from_fstab);
+			remove_browse_options(me->map_mntopts);
 			err = loopbackmount(me->map_fs->mfs_dir, spec_mntpnt,
 					    me->map_mntopts);
 #endif
 		} else {
-			remove_browse_options(me->map_mntopts, from_fstab);
+			remove_browse_options(me->map_mntopts);
 			err = mount_generic(me->map_fs->mfs_dir,
-					    me->map_fstype, me->map_mntopts,
-					    spec_mntpnt, isdirect, sendereuid,
-					    gssd_port);
+					    me->map_fstype, me->map_mntopts, 0,
+					    spec_mntpnt, isdirect, FALSE,
+					    mntpnt_fsid, sendereuid, gssd_port,
+					    fsidp, retflags);
 		}
 	}
 	if (mapents)
@@ -315,7 +329,11 @@ retry:
 			bufsize += countstring(tmp->mounta.path);
 			bufsize += countstring(tmp->mounta.map);
 			bufsize += countstring(tmp->mounta.subdir);
-			bufsize += sizeof (uint32_t);
+			bufsize += countstring(tmp->mounta.trig_mntpnt);
+			bufsize += sizeof (int);	/* tmp->mounta.flags */
+			bufsize += sizeof (int);	/* tmp->mounta.mntflags */
+			bufsize += sizeof (uint32_t);	/* tmp->mounta.isdirect */
+			bufsize += sizeof (uint32_t);	/* tmp->mounta.needs_subtrigger */
 			bufsize += countstring(tmp->mounta.key);
 		}
 		if (bufsize != 0) {
@@ -335,9 +353,11 @@ retry:
 				outbuf = putstring(outbuf, tmp->mounta.path);
 				outbuf = putstring(outbuf, tmp->mounta.map);
 				outbuf = putstring(outbuf, tmp->mounta.subdir);
-				memcpy(outbuf, &tmp->mounta.isdirect,
-				    sizeof (uint32_t));
-				outbuf += sizeof (uint32_t);
+				outbuf = putstring(outbuf, tmp->mounta.trig_mntpnt);
+				outbuf = putint(outbuf, tmp->mounta.flags);
+				outbuf = putint(outbuf, tmp->mounta.mntflags);
+				outbuf = putuint32(outbuf, tmp->mounta.isdirect);
+				outbuf = putuint32(outbuf, tmp->mounta.needs_subtrigger);
 				outbuf = putstring(outbuf, tmp->mounta.key);
 			}
 			free_action_list(alphead);
@@ -359,73 +379,45 @@ free_action_list(action_list *alp)
 	}
 }
 
-int
-do_check_trigger(autofs_pathname mapname, char *key, autofs_pathname subdir,
-    autofs_opts mapopts, autofs_pathname path, boolean_t isdirect,
-    boolean_t *istrigger)
-{
-	struct mapent *me, *mapents = NULL;
-	int err = 0;
-	bool_t iswildcard;
-	bool_t isrestricted = hasrestrictopt(mapopts);
-
-	iswildcard = FALSE;
-
-	/*
-	 * Start out assuming it's not a trigger.
-	 */
-	*istrigger = FALSE;
-
-	mapents = parse_entry(key, mapname, mapopts, subdir, isdirect,
-		&iswildcard, isrestricted, TRUE, &err);
-	if (mapents == NULL)
-		return (err);
-
-	if (trace > 1) {
-		struct mapfs *mfs;
-		trace_prt(1, "  do_check_trigger:\n");
-		for (me = mapents; me; me = me->map_next) {
-			trace_prt(1, "  (%s,%s)\t%s%s%s\n",
-			me->map_fstype ? me->map_fstype : "",
-			me->map_mounter ? me->map_mounter : "",
-			path ? path : "",
-			me->map_root  ? me->map_root : "",
-			me->map_mntpnt ? me->map_mntpnt : "");
-			trace_prt(0, "\t\t-%s\n",
-			me->map_mntopts ? me->map_mntopts : "");
-
-			for (mfs = me->map_fs; mfs; mfs = mfs->mfs_next)
-				trace_prt(0, "\t\t%s:%s\tpenalty=%d\n",
-					mfs->mfs_host ? mfs->mfs_host: "",
-					mfs->mfs_dir ? mfs->mfs_dir : "",
-					mfs->mfs_penalty);
-		}
-	}
-
-	/*
-	 * Each mapent in the list describes a mount to be done.
-	 * See whether any of them aren't autofs mounts.
-	 */
-	for (me = mapents; me; me = me->map_next) {
-		if (strcmp(me->map_fstype, MNTTYPE_AUTOFS) != 0)
-			*istrigger = TRUE;	/* non-autofs mount */
-	}
-	free_mapent(mapents);
-	return (0);
-}
-
-#define	ARGV_MAX	21
+#define	ARGV_MAX	23
 #define	VFS_PATH	"/sbin"
 #define MOUNT_PATH	"/sbin/mount"
 #define MOUNT_URL_PATH	"/usr/libexec/mount_url"
 
+struct attr_buffer {
+	uint32_t		length;
+	fsid_t			fsid;
+	uint32_t		mountflags;
+	vol_capabilities_attr_t	capabilities;
+};
+
+/*
+ * TRUE if two fsids are equal.
+ */
+#define FSIDS_EQUAL(fsid1, fsid2)	\
+	((fsid1).val[0] == (fsid2).val[0] && \
+	 (fsid1).val[1] == (fsid2).val[1])
+
 int
-mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
-    boolean_t isdirect, uid_t sendereuid, mach_port_t gssd_port)
+mount_generic(char *special, char *fstype, char *opts, int nfsvers,
+    char *mntpnt, boolean_t isdirect, boolean_t usenetauth, fsid_t mntpnt_fsid,
+    uid_t sendereuid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t *retflags)
 {
 	struct stat stbuf;
 	int i, res;
 	char *newargv[ARGV_MAX];
+	static struct mntopt mopts_soft[] = {
+		{ "soft", 0, 1, 1 },
+		{ NULL, 0, 0, 0 }
+	};
+	mntoptparse_t mp;
+	int flags, altflags;
+	char *opts_copy;
+	size_t mapped_opts_buflen;
+	char *mapped_opts = NULL;
+	char *p;
+	char *optp;
 
 	if (trace > 1) {
 		trace_prt(1, "  mount: %s %s %s %s\n",
@@ -456,6 +448,12 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 #endif
 
 	/*
+	 * If this should go through the NetAuth agent, say so.
+	 */
+	if (usenetauth)
+		newargv[i++] = "-n";
+
+	/*
 	 * Flag it as not to show up as a "mounted volume" in the
 	 * Finder/File Manager sense; we put this first so that
 	 * it can be overridden if somebody wants it to show up.
@@ -464,6 +462,38 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	newargv[i++] = "nobrowse";
 
 	if (strcmp(fstype, "nfs") == 0) {
+		/*
+		 * Is "soft" set?
+		 */
+		flags = altflags = 0;
+		getmnt_silent = 1;
+		mp = getmntopts(opts, mopts_soft, &flags, &altflags);
+		if (mp == NULL) {
+			syslog(LOG_ERR, "Couldn't parse mount options \"%s\": %m",
+			    opts);
+			return (ENOENT);
+		}
+		freemntopts(mp);
+		if (!altflags) {
+			/*
+			 * The only bit in altflags is the bit for "soft",
+			 * so if nothing is set, it's a hard mount.
+			 *
+			 * Therefore, we don't want to preemptively unmount
+			 * it on a sleep or network change, because that
+			 * unmount might hang forever, causing a more severe
+			 * hang than if we just let it stay mounted and hang
+			 * in a regular NFS operation, as, in the latter case,
+			 * you can ^C out of it from the command line, and
+			 * should get a "server not responding" dialog from
+			 * the GUI, which, if you click the unmount button,
+			 * will trigger a forced unmount, which will cause
+			 * the hanging operations to time out and won't
+			 * itself block.
+			 */
+			*retflags |= MOUNT_RETF_DONTPREUNMOUNT;
+		}
+
 		/*
 		 * Add a "-t nfs" option, as we'll be running "mount"
 		 * rather than "mount_nfs".
@@ -477,6 +507,27 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 		 */
 		newargv[i++] = "-o";
 		newargv[i++] = "retrycnt=0";
+
+		/*
+		 * Specify the NFS version, if a version was given.
+		 */
+		switch (nfsvers) {
+
+		case NFS_VER4:
+			newargv[i++] = "-o";
+			newargv[i++] = "vers=4";
+			break;
+
+		case NFS_VER3:
+			newargv[i++] = "-o";
+			newargv[i++] = "vers=3";
+			break;
+
+		case NFS_VER2:
+			newargv[i++] = "-o";
+			newargv[i++] = "vers=2";
+			break;
+		}
 	}
 	if (automountd_defopts != NULL) {
 		/*
@@ -489,12 +540,68 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	}
 	if (opts && *opts) {
 		/*
-		 * XXX - handle Solaris-style mount options we don't
-		 * support, or for which we have a different name,
-		 * here.
+		 * Map "findervol" to "browse", and "nofindervol"
+		 * to "nobrowse".  In autofs, we use "findervol"
+		 * and "nofindervol" to control whether a mount
+		 * should show up as a "mounted volume" in the
+		 * Finder/File Manager sense, to avoid collisions
+		 * with the autofs "browse"/"nobrowse" options.
+		 *
+		 * Remove any automounter-specific options that the
+		 * mount command may warn about such as "hidefromfinder"
+		 * or any commonly-encountered Solaris options.
+		 *
+		 * Scan a copy of the options, as strsep() will
+		 * modify what it's passed.
 		 */
+		opts_copy = strdup(opts);
+		if (opts_copy == NULL) {
+			syslog(LOG_ERR, "Can't mount \"%s\" - out of memory",
+			    special);
+			return (ENOMEM);
+		}
+		mapped_opts_buflen = strlen(opts_copy) + 1;
+		mapped_opts = malloc(mapped_opts_buflen);
+		*mapped_opts = '\0';
+		opts = opts_copy;
+		while ((p = strsep(&opts, ",")) != NULL) {
+
+			/*
+			 * Edit out any automounter specific options
+			 * or commonly encountered but unsupported options
+			 * that the mount command might warn about.
+			 */
+			if (strcmp(p, MNTOPT_HIDEFROMFINDER) == 0 ||
+				strcmp(p, "grpid") == 0)
+				continue;
+			/*
+			 * Now handle mappings
+			 */
+			if (strcmp(p, "findervol") == 0)
+				optp = "browse";
+			else if (strcmp(p, "nofindervol") == 0)
+				optp = "nobrowse";
+			else
+				optp = p;
+
+			/*
+			 * "findervol" is longer than "browse", and
+			 * the target string is long enough for the
+			 * options before we map "findervol" to
+			 * "browse", so we know the options will fit.
+			 */
+			if (mapped_opts[0] != '\0') {
+				/*
+				 * We already have mount options; add a
+				 * comma before this one.
+				 */
+				strlcat(mapped_opts, ",", mapped_opts_buflen);
+			}
+			strlcat(mapped_opts, optp, mapped_opts_buflen);
+		}
+		free(opts_copy);
 		newargv[i++] = "-o";
-		newargv[i++] = opts;
+		newargv[i++] = mapped_opts;
 	}
 
 	/*
@@ -514,6 +621,8 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 		syslog(LOG_ERR,
 		    "Can't mount \"%s\", as its name begins with \"-\"\n",
 		    special);
+		if (mapped_opts != NULL)
+			free(mapped_opts);
 		return (ENOENT);
 	}
 	newargv[i++] = special;
@@ -521,14 +630,21 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
 	newargv[i] = NULL;
 
 	res = fork_exec(fstype, newargv, sendereuid, gssd_port);
-	if (res == 0 && trace > 1) {
-		if (stat(mntpnt, &stbuf) == 0) {
-			trace_prt(1, "  mount of %s dev=%x rdev=%x OK\n",
-				mntpnt, stbuf.st_dev, stbuf.st_rdev);
-		} else {
-			trace_prt(1, "  failed to stat %s\n", mntpnt);
+	if (res == 0) {
+		res = get_triggered_mount_info(mntpnt, mntpnt_fsid,
+		    fsidp, retflags);
+
+		if (trace > 1) {
+			if (stat(mntpnt, &stbuf) == 0) {
+				trace_prt(1, "  mount of %s dev=%x rdev=%x OK\n",
+					mntpnt, stbuf.st_dev, stbuf.st_rdev);
+			} else {
+				trace_prt(1, "  failed to stat %s\n", mntpnt);
+			}
 		}
 	}
+	if (mapped_opts != NULL)
+		free(mapped_opts);
 	return (res);
 }
 
@@ -538,7 +654,7 @@ mount_generic(char *special, char *fstype, char *opts, char *mntpnt,
  * port), and log a message if that fails or release the port if it
  * succeeds.
  */
-static void
+void
 put_back_gssd_port(mach_port_t saved_gssd_port)
 {
 	kern_return_t ret;
@@ -557,6 +673,61 @@ put_back_gssd_port(mach_port_t saved_gssd_port)
 	}
 }
 
+int
+get_triggered_mount_info(const char *mntpnt, fsid_t mntpnt_fsid,
+    fsid_t *fsidp, uint32_t *retflags)
+{
+	struct attrlist attrs;
+	struct attr_buffer attrbuf;
+
+	memset(&attrs, 0, sizeof (attrs));
+	attrs.bitmapcount = ATTR_BIT_MAP_COUNT;
+	attrs.commonattr = ATTR_CMN_FSID;
+	attrs.volattr = ATTR_VOL_INFO|ATTR_VOL_MOUNTFLAGS|ATTR_VOL_CAPABILITIES;
+	if (getattrlist(mntpnt, &attrs, &attrbuf, sizeof (attrbuf), 0) == -1) {
+		/* Failed. */
+		return errno;
+	}
+	if (FSIDS_EQUAL(mntpnt_fsid, attrbuf.fsid)) {
+		/*
+		 * OK, the file system there has the same fsid
+		 * as the file system containing the mount
+		 * point, so there's nothing mounted there.
+		 * This presumably means somebody unmounted it
+		 * out from under us; return EAGAIN to force
+		 * the mount to be re-triggered.
+		 */
+		return EAGAIN;
+	}
+
+	/*
+	 * Get the FSID of what's presumably the
+	 * newly-mounted file system.
+	 */
+	*fsidp = attrbuf.fsid;
+
+	/*
+	 * If this is a VolFS file system, we don't want to unmount it
+	 * ourselves, as, if somebody wanted to reopen a file from it,
+	 * using /.vol, that would fail, as the /.vol path would use the
+	 * fsid the file system had then, and if we unmount it, that fsid
+	 * would no longer be valid and the /.vol lookup would fail - even
+	 * though this was a triggered mount; the /.vol lookup would not
+	 * trigger a remount.
+	 *
+	 * If either the VOL_CAP_FMT_PATH_FROM_ID capability is present
+	 * or the MNT_DOVOLFS flag is set, it's a VolFS file system.
+	 */
+	if ((attrbuf.capabilities.capabilities[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PATH_FROM_ID) &&
+	    (attrbuf.capabilities.valid[VOL_CAPABILITIES_FORMAT] & VOL_CAP_FMT_PATH_FROM_ID))
+		*retflags |= MOUNT_RETF_DONTUNMOUNT;
+	else if (attrbuf.mountflags & MNT_DOVOLFS)
+		*retflags |= MOUNT_RETF_DONTUNMOUNT;
+	return 0;
+}
+
+#define CFENVFORMATSTRING "0x%X:0:0"
+
 static int
 fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 {
@@ -566,9 +737,9 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 	int i;
 	kern_return_t ret;
 	mach_port_t saved_gssd_port;
+	char CFUserTextEncodingEnvSetting[sizeof(CFENVFORMATSTRING) + 20]; /* Extra bytes for expansion of %X uid field */
 	int child_pid;
 	int stat_loc;
-	int fd = 0;
 	int res;
 
 	/*
@@ -665,25 +836,15 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 		 * that launchd has made the right thing happen for us,
 		 * and that this is also the right thing for the processes
 		 * we run.
-		 */
-		if (!verbose) {
-			/*
-			 * Pitch all output from the mount program
-			 * down /dev/null.
-			 */
-			fd = open("/dev/null", O_WRONLY);
-			if (fd != -1) {
-				(void) dup2(fd, 1);
-				(void) dup2(fd, 2);
-				(void) close(fd);
-			}
-		}
-
-		/*
-		 * Do the mount as the user who triggered the mount, so
-		 * that if it's a file system such as AFP or SMB where a
-		 * mount has a single session and user identity associated
-		 * with it, the right user identity get associated with it.
+		 *
+		 * One change we make is that we do the mount as the user
+		 * who triggered the mount, so that if it's a file system
+		 * such as AFP or SMB where a mount has a single session
+		 * and user identity associated with it, the right user
+		 * identity gets associated with it, and if it's a file
+		 * system such as NFS that doesn't, but that might require
+		 * user credentials, the UID matches the credentials that
+		 * the GSSD it talks to has.
 		 */
 		if (setuid(sendereuid) == -1) {
 			res = errno;
@@ -692,6 +853,25 @@ fork_exec(char *fstype, char **newargv, uid_t sendereuid, mach_port_t gssd_port)
 			_exit(res);
 		}
 
+		/* 
+		 * Create a new environment with a definition of
+		 * __CF_USER_TEXT_ENCODING to work around CF's interest
+		 * in the user's home directory.  We're a child of the
+		 * automountd process, so those references won't deadlock
+		 * us by blocking waiting for the very mount that we're
+		 * trying to do, but it still means that CF makes a
+		 * pointless attempt to find the user's home directory.
+		 * The program we run to do the mount, if linked with
+		 * CF - as mount_url is - will do that.
+		 *
+		 * Make sure we include the UID since CF will check for
+		 * this when deciding whether to look in the home directory.
+		 */
+		snprintf(CFUserTextEncodingEnvSetting,
+		    sizeof(CFUserTextEncodingEnvSetting), CFENVFORMATSTRING,
+		    getuid());
+		setenv("__CF_USER_TEXT_ENCODING", CFUserTextEncodingEnvSetting,
+		    1);
 		(void) execv(path, newargv);
 		res = errno;
 		syslog(LOG_ERR, "exec %s: %m", path);
@@ -751,9 +931,8 @@ static const struct mntopt mopts_nfs[] = {
 };
 
 int
-do_unmount1(int32_t fsid_val0, int32_t fsid_val1,
-    autofs_pathname mntresource, autofs_pathname mntpnt,
-    autofs_component fstype, autofs_opts mntopts)
+do_unmount1(fsid_t mntpnt_fsid, autofs_pathname mntresource,
+    autofs_pathname mntpnt, autofs_component fstype, autofs_opts mntopts)
 {
 
 	struct mnttab m;
@@ -825,20 +1004,17 @@ do_unmount1(int32_t fsid_val0, int32_t fsid_val1,
 		free_replica(list, n);
 	}
 
-	res = unmount_mntpnt(fsid_val0, fsid_val1, &m);
+	res = unmount_mntpnt(mntpnt_fsid, &m);
 
 done:	return (res);
 }
 
 static int
-unmount_mntpnt(int32_t fsid_val0, int32_t fsid_val1, struct mnttab *mnt)
+unmount_mntpnt(fsid_t mntpnt_fsid, struct mnttab *mnt)
 {
-	fsid_t fsid;
 	int res = 0;
 
-	fsid.val[0] = fsid_val0;
-	fsid.val[1] = fsid_val1;
-	if (umount_by_fsid(&fsid, 0) < 0)
+	if (umount_by_fsid(&mntpnt_fsid, 0) < 0)
 		res = errno;
 
 	if (trace > 1)
@@ -849,16 +1025,10 @@ unmount_mntpnt(int32_t fsid_val0, int32_t fsid_val1, struct mnttab *mnt)
 
 /*
  * Remove the autofs specific options 'browse', 'nobrowse' and
- * 'restrict' from 'opts'; if the map comes from fstab, however,
- * assume that 'browse' and 'nobrowse' are intended to have
- * the Mac OS X meaning, not the autofs meaning, and leave it in.
- *
- * This means maps other than -fstab and -static can't force our
- * "nobrowse" option to be cleared on a file system (it's set by
- * default), but that's life.
+ * 'restrict' from 'opts'.
  */
 static void
-remove_browse_options(char *opts, bool_t from_fstab)
+remove_browse_options(char *opts)
 {
 	char *p, *pb;
 	char buf[MAXOPTSLEN], new[MAXOPTSLEN];
@@ -875,16 +1045,13 @@ remove_browse_options(char *opts, bool_t from_fstab)
 	 */
 	while ((p = (char *)strtok_r(pb, ",", &placeholder)) != NULL) {
 		pb = NULL;
-		if (strcmp(p, MNTOPT_RESTRICT) == 0)
-			continue;	/* "restrict" is never copied */
-		if (!from_fstab) {
-			if (strcmp(p, "nobrowse") == 0 ||
-			    strcmp(p, "browse") == 0)
-				continue;
+		if (strcmp(p, "nobrowse") != 0 &&
+		    strcmp(p, "browse") != 0 &&
+		    strcmp(p, MNTOPT_RESTRICT) != 0) {
+			if (new[0] != '\0')
+				(void) strcat(new, ",");
+			(void) strcat(new, p);
 		}
-		if (new[0] != '\0')
-			(void) strcat(new, ",");
-		(void) strcat(new, p);
 	}
 
 	/*
@@ -906,7 +1073,7 @@ static const struct mntopt mopts_restrict[] = {
 #define	NROPTS	((sizeof (mopts_restrict)/sizeof (mopts_restrict[0])) - 1)
 
 static int
-inherit_options(char *opts, char **mapentopts)
+inherit_options(const char *opts, char **mapentopts)
 {
 	u_int i;
 	char *new;
@@ -988,7 +1155,7 @@ inherit_options(char *opts, char **mapentopts)
 }
 
 bool_t
-hasrestrictopt(char *opts)
+hasrestrictopt(const char *opts)
 {
 	mntoptparse_t mp;
 	int flags, altflags;

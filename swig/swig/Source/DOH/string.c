@@ -10,7 +10,7 @@
  * See the file LICENSE for information on usage and redistribution.	
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_string_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/string.c,v 1.31 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_string_c[] = "$Id: string.c 10926 2008-11-11 22:17:40Z wsfulton $";
 
 #include "dohint.h"
 
@@ -36,9 +36,10 @@ static void *String_data(DOH *so) {
   return (void *) s->str;
 }
 
-char *DohString_char(DOH *so) {
+/* static char *String_char(DOH *so) {
   return (char *) String_data(so);
 }
+*/
 
 /* -----------------------------------------------------------------------------
  * int String_dump() - Serialize a string onto out
@@ -63,7 +64,6 @@ static int String_dump(DOH *so, DOH *out) {
  * ----------------------------------------------------------------------------- */
 
 static DOH *CopyString(DOH *so) {
-  int max;
   String *str;
   String *s = (String *) ObjData(so);
   str = (String *) DohMalloc(sizeof(String));
@@ -73,10 +73,9 @@ static DOH *CopyString(DOH *so) {
   str->file = s->file;
   if (str->file)
     Incref(str->file);
-  max = s->maxsize;
-  str->str = (char *) DohMalloc(max + 1);
-  memmove(str->str, s->str, max);
-  str->maxsize = max;
+  str->str = (char *) DohMalloc(s->len + 1);
+  memcpy(str->str, s->str, s->len);
+  str->maxsize = s->len;
   str->len = s->len;
   str->str[str->len] = 0;
 
@@ -97,7 +96,7 @@ static void DelString(DOH *so) {
  * DohString_len() - Length of a string
  * ----------------------------------------------------------------------------- */
 
-int DohString_len(DOH *so) {
+static int String_len(DOH *so) {
   String *s = (String *) ObjData(so);
   return s->len;
 }
@@ -139,7 +138,7 @@ static int String_cmp(DOH *so1, DOH *so2) {
  * int String_equal() - Say if two string are equal
  * ----------------------------------------------------------------------------- */
 
-int DohString_equal(DOH *so1, DOH *so2) {
+static int String_equal(DOH *so1, DOH *so2) {
   String *s1 = (String *) ObjData(so1);
   String *s2 = (String *) ObjData(so2);
   register int len = s1->len;
@@ -509,7 +508,7 @@ static long String_tell(DOH *so) {
  * int String_putc()
  * ----------------------------------------------------------------------------- */
 
-int DohString_putc(DOH *so, int ch) {
+static int String_putc(DOH *so, int ch) {
   String *s = (String *) ObjData(so);
   register int len = s->len;
   register int sp = s->sp;
@@ -540,13 +539,13 @@ int DohString_putc(DOH *so, int ch) {
  * int String_getc()
  * ----------------------------------------------------------------------------- */
 
-int DohString_getc(DOH *so) {
+static int String_getc(DOH *so) {
   int c;
   String *s = (String *) ObjData(so);
   if (s->sp >= s->len)
     c = EOF;
   else
-    c = (int) s->str[s->sp++];
+    c = (int)(unsigned char) s->str[s->sp++];
   if (c == '\n')
     s->line++;
   return c;
@@ -556,7 +555,7 @@ int DohString_getc(DOH *so) {
  * int String_ungetc()
  * ----------------------------------------------------------------------------- */
 
-int DohString_ungetc(DOH *so, int ch) {
+static int String_ungetc(DOH *so, int ch) {
   String *s = (String *) ObjData(so);
   if (ch == EOF)
     return ch;
@@ -968,9 +967,9 @@ static DohListMethods StringListMethods = {
 static DohFileMethods StringFileMethods = {
   String_read,
   String_write,
-  DohString_putc,
-  DohString_getc,
-  DohString_ungetc,
+  String_putc,
+  String_getc,
+  String_ungetc,
   String_seek,
   String_tell,
   0,				/* close */
@@ -989,10 +988,10 @@ DohObjInfo DohStringType = {
   String_str,			/* doh_str */
   String_data,			/* doh_data */
   String_dump,			/* doh_dump */
-  DohString_len,		/* doh_len */
+  String_len,	    	        /* doh_len */
   String_hash,			/* doh_hash    */
   String_cmp,			/* doh_cmp */
-  DohString_equal,		/* doh_equal */
+  String_equal,	    	        /* doh_equal */
   0,				/* doh_first    */
   0,				/* doh_next     */
   String_setfile,		/* doh_setfile */
@@ -1057,7 +1056,7 @@ DOHString *DohNewString(const DOH *so) {
  * NewStringEmpty() - Create a new string
  * ----------------------------------------------------------------------------- */
 
-DOHString *DohNewStringEmpty() {
+DOHString *DohNewStringEmpty(void) {
   int max = INIT_MAXSIZE;
   String *str = (String *) DohMalloc(sizeof(String));
   str->hashkey = 0;

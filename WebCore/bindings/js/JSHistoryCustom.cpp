@@ -31,8 +31,8 @@
 
 #include "Frame.h"
 #include "History.h"
+#include "SerializedScriptValue.h"
 #include <runtime/JSFunction.h>
-#include <runtime/PrototypeFunction.h>
 
 using namespace JSC;
 
@@ -40,17 +40,17 @@ namespace WebCore {
 
 static JSValue nonCachingStaticBackFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 0, propertyName, jsHistoryPrototypeFunctionBack);
+    return new (exec) JSFunction(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 0, propertyName, jsHistoryPrototypeFunctionBack);
 }
 
 static JSValue nonCachingStaticForwardFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 0, propertyName, jsHistoryPrototypeFunctionForward);
+    return new (exec) JSFunction(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 0, propertyName, jsHistoryPrototypeFunctionForward);
 }
 
 static JSValue nonCachingStaticGoFunctionGetter(ExecState* exec, JSValue, const Identifier& propertyName)
 {
-    return new (exec) NativeFunctionWrapper(exec, exec->lexicalGlobalObject()->prototypeFunctionStructure(), 1, propertyName, jsHistoryPrototypeFunctionGo);
+    return new (exec) JSFunction(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->functionStructure(), 1, propertyName, jsHistoryPrototypeFunctionGo);
 }
 
 bool JSHistory::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -162,19 +162,19 @@ void JSHistory::getOwnPropertyNames(ExecState* exec, PropertyNameArray& property
     Base::getOwnPropertyNames(exec, propertyNames, mode);
 }
 
-JSValue JSHistory::pushState(ExecState* exec, const ArgList& args)
+JSValue JSHistory::pushState(ExecState* exec)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, args.at(0));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0));
     if (exec->hadException())
         return jsUndefined();
 
-    String title = valueToStringWithUndefinedOrNullCheck(exec, args.at(1));
+    String title = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(1));
     if (exec->hadException())
         return jsUndefined();
         
     String url;
-    if (args.size() > 2) {
-        url = valueToStringWithUndefinedOrNullCheck(exec, args.at(2));
+    if (exec->argumentCount() > 2) {
+        url = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
         if (exec->hadException())
             return jsUndefined();
     }
@@ -186,19 +186,19 @@ JSValue JSHistory::pushState(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue JSHistory::replaceState(ExecState* exec, const ArgList& args)
+JSValue JSHistory::replaceState(ExecState* exec)
 {
-    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, args.at(0));
+    RefPtr<SerializedScriptValue> historyState = SerializedScriptValue::create(exec, exec->argument(0));
     if (exec->hadException())
         return jsUndefined();
 
-    String title = valueToStringWithUndefinedOrNullCheck(exec, args.at(1));
+    String title = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(1));
     if (exec->hadException())
         return jsUndefined();
         
     String url;
-    if (args.size() > 2) {
-        url = valueToStringWithUndefinedOrNullCheck(exec, args.at(2));
+    if (exec->argumentCount() > 2) {
+        url = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(2));
         if (exec->hadException())
             return jsUndefined();
     }

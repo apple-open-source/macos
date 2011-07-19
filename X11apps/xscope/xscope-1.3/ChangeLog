@@ -1,0 +1,582 @@
+commit e1c92233d401c7a6e739220de8d5260abc1a445a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 18:27:59 2010 -0700
+
+    xscope 1.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 80a7ccf7df6c8e74220a128fba2f2da7bccf53d1
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 18:26:19 2010 -0700
+
+    Sun's copyrights now belong to Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2e54b74549ebf99321e3a7986ff2d4ec18a7ad11
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Sep 26 17:54:09 2010 -0700
+
+    Makefile.am: Add glxscope.h to xscope_SOURCES so distcheck works
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 6ebcb9d1c483407542fea55b4aa84d3c6e0f03a4
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Sep 26 17:51:13 2010 -0700
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_CC & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    PKG_CONFIG_MODULES handles AC_SUBST of the CFLAGS & LIBS variables
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 73b178a04269c0383f1f08207532f177dcb70835
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Sep 26 17:50:23 2010 -0700
+
+    config: Use AC_DEFINE instead of -D flag for setting USE_XTRANS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 965213342f7b42fdd2ec7289f8fabd9330a880ac
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Sep 26 17:41:53 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Enables use of platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 48d35f25a01e57c5604d5a3d5253c41fbaabd37d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Jul 20 18:45:18 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6fa3e0c937885e0302e8d7258cc94371203a906c
+Author: Kristian Høgsberg <krh@bitplanet.net>
+Date:   Fri Jul 23 12:32:45 2010 -0400
+
+    Add basic support for GLX extension
+    
+    Signed-off-by: Kristian Høgsberg <krh@bitplanet.net>
+
+commit 0e3496a1551d3b0947f8fd20cd78275ab81278ed
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Jun 9 13:56:28 2010 -0400
+
+    Use strncpy rather than strlcpy as it is not available on Linux
+    
+    Because it is available on other platforms, it only fails on Linux.
+    strncpy should be safe enough in this situation where a constant is copied.
+    The xserver private impl of strlcpy is not available to apps.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit bc4ca2a54785b03ee771180d1142496f06f76adb
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Fri May 14 16:59:11 2010 -0700
+
+    Allow quitting via EOF (^D) on the command line
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit 26db4f6adf5a43f49b7941bab90c05c1e271d6b0
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Wed May 12 18:12:37 2010 -0700
+
+    Fallback on other transports.
+    
+    This adds support for --disable-unix-transport
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit df598a664bf5c22e9fa55a15f38780c55cac47d2
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Thu Apr 29 13:34:35 2010 -0700
+
+    Eliminate a few compiler warnings for style and signedness.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit 344db0911e1e2447abe210b5684269a2a0daf04c
+Author: Jeremy Huddleston <jeremyhu@apple.com>
+Date:   Mon Apr 5 17:19:46 2010 -0700
+
+    Allow a configure option to build without xtrans (--disable-xtrans)
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit 73cffd5048e10e512cbc2edc7b136162e7dd1408
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 22:11:04 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b5d8184ab63551e948913fa35a32054e4cf0f539
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 62760e7de55d0411dc192112689c25bee0991098
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 12 15:00:02 2009 -0500
+
+    INSTALL, NEWS, README and AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    For all X.Org components.
+
+commit f4340ba7529cf2a1ab442fa55feb480c3fd26e8c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 12 14:48:00 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 5f98e638ff394d99ef22cb9e7d0c8c4abf89de39
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 00:24:19 2009 -0700
+
+    xscope 1.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 186e9134da5d440ae2f2194164a14f52c05ba150
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 30 23:22:51 2009 -0700
+
+    Update COPYING file
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 42d50379212932c7807e4d963a3b33b3c129bd71
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 30 23:06:48 2009 -0700
+
+    Update notes about only testing on Sun3's
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6d29eee4cf29fa916a145dcf09b2380bffd53a72
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 30 22:31:38 2009 -0700
+
+    Fix breakpoint disabling
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b287c1b1670bec76dec2856a52354be9087fca7c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 29 10:28:17 2009 -0700
+
+    Add support for setting breakpoints on extension requests
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d3e165bc8f24b9fe0f6f8330cb55eed3f30e51ce
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 29 09:41:26 2009 -0700
+
+    Fix typo in "Enabling all breakpoints" message
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ee5466fb41640654e1359c30cfed1bab7e156704
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 29 09:35:19 2009 -0700
+
+    Add interactive mode description & command list to man page
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 42038b1eaca64e76de52adc93d12ef2927428677
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 29 09:21:22 2009 -0700
+
+    Show request name, not just number, in breakpoint list
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 3d55f9b61ba23234c5355ed725963fdc0e520d45
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 29 00:32:20 2009 -0700
+
+    Decode ServerInterpreted addresses in HOST structures
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8f5292aad3a0dcbc219d76d63ea915f49d403bbc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Sep 28 23:48:38 2009 -0700
+
+    Replace platform #ifdefs with autoconf tests
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit a5de13686c9ad9c8fc7e4cf2508fd2ba1de50965
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Sep 28 21:44:58 2009 -0700
+
+    README updates
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit cbf235460e163b9b27024a2ccb8cb6c1487a7dfb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Sep 28 21:39:42 2009 -0700
+
+    Add AC_USE_SYSTEM_EXTENSIONS to configure.ac
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 4fe64535cf96968593975c96bc1cf1700d4f818c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Sep 27 23:47:53 2009 -0700
+
+    Add missing return statements in PrintSET & PrintENUMERATED
+    
+    Fixes warnings:
+    "prtype.c", line 654: warning: Function has no return statement : PrintENUMERATED
+    "prtype.c", line 704: warning: Function has no return statement : PrintSET
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e93c377de48b8a3f28586334341f5d85953f26d3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Sep 27 23:43:35 2009 -0700
+
+    Upgrade to xorg-macros 1.3 and XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit fdf93171dbccb6f9aa2eb2569a61d3cf790f0dc3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Sep 27 23:36:03 2009 -0700
+
+    man page: add missing options & info, fix formatting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6ec99fe027820038b539d8b463c09a6213e48a8c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Sep 27 23:15:41 2009 -0700
+
+    Correct message when SIGUSR1 received
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 923215b60f4339b7a641274f30c9afca40f41999
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Sep 27 22:09:26 2009 -0700
+
+    Enable raw mode option code
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c3f9b85903ec73c2e9843c837d334b0430d46b58
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Aug 18 18:24:21 2009 -0700
+
+    Correct labels for several MIT-SHM request fields
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8287286a3b49120b16dfd9a327d592b416daa295
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Aug 13 15:20:36 2009 -0700
+
+    Fix typo in MIT-SHM name that caused it not to be decoded
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 20ae2b2fb439643cf75dc134a84ce21753c5ce70
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 22:19:42 2009 -0700
+
+    Update Render extension decoding from protocol rev 0.5 to 0.11
+    
+    Filled in most, but not all, of the details for new & existing requests
+    Corrected print-outs several existing requests
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f6b577a009b1dd9e31e89768bc1ff516b47b8dc1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 18:49:06 2009 -0700
+
+    Add default handlers for new/unknown Render & RandR requests/replies
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 68880963745cc29ef829370297bae63d38366127
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 18:26:07 2009 -0700
+
+    Remove RCS Ids
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b90bb97a5b8686ba050835724c6b299a0cfb0305
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 16:40:09 2009 -0700
+
+    Add GenericEvent support
+    
+    Allows extensions to register their own decoders for GenericEvents,
+    though none do, since XInput isn't decoded yet
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f65c809fb7c269c2bf450274f424feab85ea95cb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 15:10:46 2009 -0700
+
+    Print more useful messages for unknown replies, events & errors
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 96d5676e6ef1a1bf687e44f2790d911364df7878
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 14:29:20 2009 -0700
+
+    Stop creating invalid name entries for extensions that aren't present
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 3199c6fb39f02b36a07ef65bf4b07d6ec340944d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Aug 12 14:18:25 2009 -0700
+
+    Convert extension decoding to function pointer tables
+    
+    Each extension now registers it's own request, reply, event & error decoding
+    functions as needed in the central table, instead of a cascading block of
+    if/else statements to modify for each new extension added.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit fccbbd6f3bdc090d2da9b32fdff2fd13679e2b78
+Author: Yanko Kaneti <yaneti@declera.com>
+Date:   Mon Jun 15 10:57:53 2009 +0300
+
+    Include sys/param.h earlier
+    
+    MAXHOSTNAMELEN is also needed for some scope.h declarations
+
+commit 50ef34933ba3e846605d52a96619323e12887959
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 21:43:59 2009 -0700
+
+    Clear many compiler & sparse warnings
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0167af41624e8ef86b657d83ece09fe4e12fd6a2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 21:30:29 2009 -0700
+
+    Make big requests support work without modifying buffer
+    
+    Fixes corruption of big requests data in -v4/raw output
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit aec53bc090ef6b63e16efebab3f8c8e6f329eb6b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 19:42:47 2009 -0700
+
+    Report names for all extensions, not just those we know
+    
+    Move extension handling to new extensions.c & extensions.h files
+    Start to make extension handling more generic/modular/extendable
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 02906bf1766ad1769e03f9372611087389ee23b0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 17:00:09 2009 -0700
+
+    Constify many char pointers
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6dde56a016d502cf422b5c54247e225bb13e26d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 10:33:49 2009 -0700
+
+    Convert select() arguments back to fd_set structures
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 80ac8c6d04c04ec1f892883397507f32292ae590
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 09:42:48 2009 -0700
+
+    Ansify prototypes and move extern declarations to header files
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 245871145e6a12739ed8d4512b5e2cb6b1a1721c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 5 13:21:07 2009 -0700
+
+    Use XORG_CWARNFLAGS, XORG_CHANGELOG, & XORG_WITH_LINT
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit bc32bb55ca5a9059dec9d9326f34ff372b54f154
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 5 12:57:32 2009 -0700
+
+    Delete DECnet support
+
+commit 50f126f91c12e25e33cb5d8b79c6172ec33765ee
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 5 11:14:33 2009 -0700
+
+    Delete unused patchlevel.h
+
+commit 7cbba2672729d57ad9e35f8bfe9af6bc8d94cf48
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 5 11:12:53 2009 -0700
+
+    Delete PEX code
+
+commit 0aab8135dae526b090dcb1ffab801023ac4084aa
+Merge: eb05316 def948f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed May 6 17:10:31 2009 -0700
+
+    Merge branch 'keithp'
+    
+    Conflicts:
+    
+    	common.c
+    	decode11.c
+    	fd.c
+    	fd.h
+    	print11.c
+    	prtype.c
+    	scope.c
+    	scope.h
+    	server.c
+    	table11.c
+    	x11.h
+    	xscope.man
+
+commit def948f052a758850cadc022943517742b299441
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Aug 31 07:38:35 2002 +0000
+
+    Fix bugs in CompositeGlyphs decoding
+
+commit 5a0de81b2922b2f2c174f136b0b5ade2440562a8
+Author: Keith Packard <keithp@keithp.com>
+Date:   Wed May 15 05:26:19 2002 +0000
+
+    Add lots more Render stuff
+
+commit 6e2099e8fa4d192d1dfa324454f538c3017c1988
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sun Feb 3 06:50:04 2002 +0000
+
+    Use Unix sockets for local connections
+
+commit af92a00b953746d64e1394d1988e77ffc3142df8
+Author: Keith Packard <keithp@keithp.com>
+Date:   Tue Jan 1 07:51:45 2002 +0000
+
+    Add (some) support for BIG-REQUESTS
+
+commit 093842a5e11bb5c0fd17b51a6c037634b5a3a223
+Author: Keith Packard <keithp@keithp.com>
+Date:   Wed Dec 5 18:12:21 2001 +0000
+
+    Avoid infinite loop on broken protocol
+
+commit 30392c1e635663e5b3eb5771d8ce4c852cada4b8
+Author: Keith Packard <keithp@keithp.com>
+Date:   Mon Oct 15 16:33:22 2001 +0000
+
+    Add SHM decoding
+
+commit 062412a066cc62635c1d1eb99999ee774775ca6f
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Jun 8 00:32:52 2001 +0000
+
+    Import xscope bits into keithp.com CVS
+
+commit eb05316a471da962eefe82c9b9a16a7590653ba7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Nov 5 16:21:07 2008 -0800
+
+    X.Org bug #18392: #include <sys/param.h> for MAXHOSTNAMELEN on Cygwin
+    
+    <http://bugs.freedesktop.org/show_bug.cgi?id=18392>
+
+commit 635b109d4940f2cf7dc15af92a4d279806697a82
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Sep 11 19:56:43 2008 -0700
+
+    Convert more function declarations to ANSI C
+
+commit cadaa93b915458525abb4887b31d81905a1cd0aa
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Sep 11 19:38:54 2008 -0700
+
+    Remove old makefiles
+
+commit 5f48316d12acc598748c9ba3bd7467d257b7baed
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Sep 11 19:37:59 2008 -0700
+
+    Add .gitignore
+
+commit 54ad450dea936523c12b72b85617c3db757f7ca2
+Author: Stuart Kreitman <stuart.kreitman@sun.com>
+Date:   Thu Sep 11 19:02:36 2008 -0700
+
+    Autotooled
+
+commit dbf94a72289efaa89fdab27b4cf0608994ebd0a1
+Author: Stuart Kreitman <stuart.kreitman@sun.com>
+Date:   Thu Sep 11 18:28:24 2008 -0700
+
+    Merge Sun's version of xscope in
+    
+    Conversion to ANSI C
+    SysVR4 support
+    Conversion of networking code to use xtrans
+
+commit 306057f2475b216fb73686bcb0003355cf88944a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Sep 11 16:45:45 2008 -0700
+
+    Import initial version from James Peterson

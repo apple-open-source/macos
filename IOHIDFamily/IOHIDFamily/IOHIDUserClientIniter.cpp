@@ -53,7 +53,7 @@ bool IOHIDUserClientIniter::start(IOService* provider)
 
     result = mergeDictionaryIntoProvider(provider, providerMergeProperties) ;
     
-    return result ;
+    return result;
 }
 
 bool IOHIDUserClientIniter::mergeDictionaryIntoProvider(IOService * provider, OSDictionary * dictionaryToMerge)

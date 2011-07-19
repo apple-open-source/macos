@@ -2,7 +2,7 @@ dnl
 dnl Process this file with autoconf to produce a configure script
 dnl
 
-AC_PREREQ(2.50)
+AC_PREREQ(2.59)
 AC_INIT(export_vars.sh.in)
 
 AC_CONFIG_HEADER(include/private/apu_config.h)

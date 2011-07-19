@@ -20,6 +20,7 @@
 		<string>CVS-2008-2142 diff from http://cvs.savannah.gnu.org/viewvc/emacs/lisp/obsolete/fast-lock.el?r1=1.11.2.3&amp;r2=1.11.2.4&amp;view=patch&amp;sortby=date&amp;root=emacs&amp;pathrev=EMACS_22_BASE</string>
 		<string>Remove unneeded -fpascal-strings from darwin.h</string>
 		<string>python.el patch http://cvs.savannah.gnu.org/viewvc/emacs/lisp/progmodes/python.el?r1=1.89&amp;r2=1.90&amp;sortby=date&amp;root=emacs&amp;view=patch</string>
+		<string>xdisp.c patch http://cvs.savannah.gnu.org/viewvc/emacs/src/xdisp.c?root=emacs&amp;r1=1.1159&amp;r2=1.1160&amp;view=patch</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>GPL</string>

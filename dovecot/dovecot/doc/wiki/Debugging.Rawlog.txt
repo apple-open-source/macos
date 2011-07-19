@@ -1,0 +1,65 @@
+Rawlog
+======
+
+Dovecot supports logging post-login IMAP/POP3 traffic (also TLS/SSL encrypted)
+using 'rawlog' binary. It works by checking if 'dovecot.rawlog/' directory
+exists in the logged in user's home directory, and writing the traffic to
+'yyyymmdd-HHMMSS-pid.in' and '.out' files. Each connection gets their own
+in/out files.
+
+Home directory
+--------------
+
+Note that for rawlog to work, your <userdb> [UserDatabase.txt] must have
+returned a home directory for the user. If you can't get rawlog to work, you
+should verify that the home directory really is where you expected it to be by
+setting 'mail_debug=yes' and checking the logs. You should see a line such as:
+
+---%<-------------------------------------------------------------------------
+Effective uid=1000, gid=1000, home=/home/user
+---%<-------------------------------------------------------------------------
+
+In above configuration rawlog would expect to find '/home/user/dovecot.rawlog/'
+directory writable by uid 1000.
+
+If you don't have the home directory and you can't or don't want to modify
+userdb configuration, you can add the home to plugin section:
+
+---%<-------------------------------------------------------------------------
+plugin {
+  # ..
+  home = /home/%u
+  # or temporarily even e.g. home = /tmp/temp-home
+}
+---%<-------------------------------------------------------------------------
+
+Configuration
+-------------
+
+To enable rawlog, you must use rawlog as a <post-login script>
+[PostLoginScripting.txt]:
+
+---%<-------------------------------------------------------------------------
+service imap {
+  executable = imap postlogin
+}
+service pop3 {
+  executable = pop3 postlogin
+}
+
+service postlogin {
+  executable = script-login rawlog
+  unix_listener postlogin {
+  }
+}
+---%<-------------------------------------------------------------------------
+
+You can also give parameters to rawlog:
+
+ * -i: Log only to *.in files
+ * -o: Log only to *.out files
+ * -b: Write IP packet boundaries (or whatever read() sees anyway) to the log
+   files. The packet is written between<<< and >>>.
+ * -t: Log a microsecond resolution timestamp at the beginning of each line.
+
+(This file was created from the wiki on 2011-05-11 04:42)

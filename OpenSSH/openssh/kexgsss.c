@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2006 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,9 @@
 #include "dh.h"
 #include "ssh-gss.h"
 #include "monitor_wrap.h"
+#include "servconf.h"
+
+extern ServerOptions options;
 
 void
 kexgss_server(Kex *kex)
@@ -67,6 +70,7 @@ kexgss_server(Kex *kex)
 	BIGNUM *dh_client_pub = NULL;
 	int type = 0;
 	gss_OID oid;
+	char *mechs;
 
 	/* Initialise GSSAPI */
 
@@ -75,7 +79,8 @@ kexgss_server(Kex *kex)
 	 * into life
 	 */
 	if (!ssh_gssapi_oid_table_ok()) 
-		ssh_gssapi_server_mechanisms();
+		if ((mechs = ssh_gssapi_server_mechanisms()))
+			xfree(mechs);
 
 	debug2("%s: Identifying %s", __func__, kex->name);
 	oid = ssh_gssapi_id_kex(NULL, kex->name, kex->kex_type);
@@ -191,9 +196,16 @@ kexgss_server(Kex *kex)
 	klen = DH_size(dh);
 	kbuf = xmalloc(klen); 
 	kout = DH_compute_key(kbuf, dh_client_pub, dh);
+	if (kout < 0)
+		fatal("DH_compute_key: failed");
 
 	shared_secret = BN_new();
-	BN_bin2bn(kbuf, kout, shared_secret);
+	if (shared_secret == NULL)
+		fatal("kexgss_server: BN_new failed");
+
+	if (BN_bin2bn(kbuf, kout, shared_secret) == NULL)
+		fatal("kexgss_server: BN_bin2bn failed");
+
 	memset(kbuf, 0, klen);
 	xfree(kbuf);
 
@@ -228,7 +240,7 @@ kexgss_server(Kex *kex)
 		fatal("%s: Unexpected KEX type %d", __func__, kex->kex_type);
 	}
 
-	BN_free(dh_client_pub);
+	BN_clear_free(dh_client_pub);
 
 	if (kex->session_id == NULL) {
 		kex->session_id_len = hashlen;
@@ -267,5 +279,10 @@ kexgss_server(Kex *kex)
 	kex_derive_keys(kex, hash, hashlen, shared_secret);
 	BN_clear_free(shared_secret);
 	kex_finish(kex);
+
+	/* If this was a rekey, then save out any delegated credentials we
+	 * just exchanged.  */
+	if (options.gss_store_rekey)
+		ssh_gssapi_rekey_creds();
 }
 #endif /* GSSAPI */

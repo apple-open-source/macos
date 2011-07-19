@@ -72,6 +72,10 @@ for world writable directories with sticky bit set
 item(tt(ow 34;43))(
 for world writable directories without sticky bit set
 )
+item(tt(sa) var(none))(
+for files with an associated suffix alias; this is only tested
+after specific suffixes, as described below
+)
 item(tt(st 37;44))(
 for directories with sticky bit set but not world writable
 )
@@ -193,6 +197,9 @@ xitem(tt(complete-word), tt(menu-complete), tt(expand-or-complete))
 item(tt(expand-or-complete-prefix), tt(menu-complete-or-expand))(
 scrolls forward one screenful
 )
+item(tt(accept-search))(
+stop listing but take no other action
+)
 enditem()
 
 Every other character stops listing and immediately processes the key
@@ -284,11 +291,15 @@ Selecting matches is done by moving the mark around using the zle movement
 functions.  When not all matches can be shown on the screen at the same 
 time, the list will scroll up and down when crossing the top or
 bottom line.  The following zle functions have special meaning during
-menu selection:
+menu selection.  Note that the following always
+perform the same task within the menu selection map and cannot be
+replaced by user defined widgets, nor can the set of functions
+be extended:
 
 startitem()
-item(tt(accept-line))(
-accepts the current match and leaves menu selection
+item(tt(accept-line), tt(accept-search))(
+accept the current match and leave menu selection (but do
+not cause the command line to be accepted)
 )
 item(tt(send-break))(
 leaves menu selection and restores the previous contents of the

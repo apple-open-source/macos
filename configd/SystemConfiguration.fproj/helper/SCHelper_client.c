@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -33,12 +33,16 @@
 #include <sys/socket.h>
 #include <sys/un.h>
 #include <sys/wait.h>
+#include <mach/mach.h>
+#include <mach/mach_error.h>
+#include <servers/bootstrap.h>
+#include <bootstrap_priv.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
 #include "SCHelper_client.h"
-#include "helper_comm.h"
+#include "helper.h"		// MiG generated file
 
 
 #define	HELPER					"SCHelper"
@@ -48,61 +52,209 @@
 #define	SUFFIX_SYM_LEN				(sizeof(SUFFIX_SYM) - 1)
 
 
-__private_extern__
-int
-_SCHelperOpen(CFDataRef authorizationData)
+static pthread_mutex_t	_helper_lock	= PTHREAD_MUTEX_INITIALIZER;
+static mach_port_t	_helper_server	= MACH_PORT_NULL;
+
+
+static mach_port_t
+__SCHelperServerPort(kern_return_t *status)
 {
+	mach_port_t	server	= MACH_PORT_NULL;
+	char		*server_name;
+
+	server_name = getenv("SCHELPER_SERVER");
+	if (!server_name) {
+		server_name = SCHELPER_SERVER;
+	}
+
+#ifdef	BOOTSTRAP_PRIVILEGED_SERVER
+	*status = bootstrap_look_up2(bootstrap_port,
+				     server_name,
+				     &server,
+				     0,
+				     BOOTSTRAP_PRIVILEGED_SERVER);
+#else	// BOOTSTRAP_PRIVILEGED_SERVER
+	*status = bootstrap_look_up(bootstrap_port, server_name, &server);
+#endif	// BOOTSTRAP_PRIVILEGED_SERVER
+
+	switch (*status) {
+		case BOOTSTRAP_SUCCESS :
+			/* service currently registered, "a good thing" (tm) */
+			return server;
+		case BOOTSTRAP_NOT_PRIVILEGED :
+			/* the service is not privileged */
+			break;
+		case BOOTSTRAP_UNKNOWN_SERVICE :
+			/* service not currently registered, try again later */
+			break;
+		default :
+#ifdef	DEBUG
+			SCLog(_sc_verbose, LOG_DEBUG,
+			      CFSTR("__SCHelperServerPort bootstrap_look_up() failed: status=%s"),
+			      bootstrap_strerror(*status));
+#endif	/* DEBUG */
+			break;
+	}
+
+	return MACH_PORT_NULL;
+}
+
+
+__private_extern__
+Boolean
+_SCHelperOpen(CFDataRef authorizationData, mach_port_t *helper_port)
+{
+	kern_return_t		kr;
 	Boolean			ok;
-	int			sock;
-	struct sockaddr_un	sun;
+	mach_port_t		server;
 	uint32_t		status	= 0;
-	static int		yes	= 1;
 
-	if ((sock = socket(AF_UNIX, SOCK_STREAM, 0)) == -1) {
-		perror("_SCHelperOpen socket() failed");
-		return -1;
+	*helper_port = MACH_PORT_NULL;
+
+	// open a new session with the server
+	server = _helper_server;
+	while (TRUE) {
+		if (server != MACH_PORT_NULL) {
+			kr = helperinit(server,
+					helper_port,
+					&status);
+			if (kr == KERN_SUCCESS) {
+				break;
+			}
+
+			// our [cached] server port is not valid
+			if (kr != MACH_SEND_INVALID_DEST) {
+				// if we got an unexpected error, don't retry
+				status = kr;
+				break;
+			}
+		}
+
+		pthread_mutex_lock(&_helper_lock);
+		if (_helper_server != MACH_PORT_NULL) {
+			if (server == _helper_server) {
+				// if the server we tried returned the error
+				(void)mach_port_deallocate(mach_task_self(), _helper_server);
+				_helper_server = __SCHelperServerPort(&kr);
+				if (_helper_server == MACH_PORT_NULL) {
+					status = kr;
+				}
+			} else {
+				// another thread has refreshed the SCHelper server port
+			}
+		} else {
+			_helper_server = __SCHelperServerPort(&kr);
+			if (_helper_server == MACH_PORT_NULL) {
+				status = kr;
+			}
+		}
+		server = _helper_server;
+		pthread_mutex_unlock(&_helper_lock);
+
+		if (server == MACH_PORT_NULL) {
+			// if SCHelper server not available
+			break;
+		}
+	}
+	__MACH_PORT_DEBUG(TRUE, "*** _SCHelperOpen", *helper_port);
+
+	if (*helper_port == MACH_PORT_NULL) {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("_SCHelperOpen: could not contact server: %s"),
+		      SCErrorString(status));
+		return FALSE;
 	}
 
-	sun.sun_family = AF_UNIX;
-	strlcpy(sun.sun_path, "/var/run/SCHelper", sizeof(sun.sun_path));
-	if (connect(sock, (struct sockaddr *)&sun, sizeof(sun)) == -1) {
-		perror("_SCHelperOpen connect() failed");
-		close(sock);
-		return -1;
-	}
-
-	if (setsockopt(sock, SOL_SOCKET, SO_NOSIGPIPE, (const void *)&yes, sizeof(yes)) == -1) {
-		perror("_SCHelperOpen setsockopt() failed");
-		close(sock);
-		return -1;
-	}
-
-	ok = _SCHelperExec(sock, SCHELPER_MSG_AUTH, authorizationData, &status, NULL);
+	ok = _SCHelperExec(*helper_port, SCHELPER_MSG_AUTH, authorizationData, &status, NULL);
 	if (!ok) {
 		SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen: could not send authorization"));
-		close(sock);
-		return -1;
+		goto error;
 	}
 
 	ok = (status == 0);
 	if (!ok) {
 		SCLog(TRUE, LOG_INFO, CFSTR("could not start \"" HELPER "\", status = %u"), status);
-		close(sock);
-		return -1;
+		goto error;
 	}
 
-	return sock;
+	return TRUE;
+
+    error :
+
+	if (*helper_port != MACH_PORT_NULL) {
+		(void)mach_port_deallocate(mach_task_self(), *helper_port);
+		*helper_port = MACH_PORT_NULL;
+	}
+
+	return FALSE;
+
 }
 
 
 __private_extern__
 void
-_SCHelperClose(int helper)
+_SCHelperClose(mach_port_t *helper_port)
 {
-	if (!_SCHelperExec(helper, SCHELPER_MSG_EXIT, NULL, NULL, NULL)) {
+	if (!_SCHelperExec(*helper_port, SCHELPER_MSG_EXIT, NULL, NULL, NULL)) {
 		SCLog(TRUE, LOG_INFO, CFSTR("_SCHelperOpen: could not send exit request"));
 	}
 
-	(void)close(helper);
+	if (*helper_port != MACH_PORT_NULL) {
+		(void)mach_port_deallocate(mach_task_self(), *helper_port);
+		*helper_port = MACH_PORT_NULL;
+	}
+
 	return;
+}
+
+
+Boolean
+_SCHelperExec(mach_port_t port, uint32_t msgID, CFDataRef data, uint32_t *status, CFDataRef *reply)
+{
+	kern_return_t		kr;
+	CFDataRef		myData		= NULL;
+	xmlDataOut_t		replyRef	= NULL;		/* raw bytes */
+	mach_msg_type_number_t	replyLen	= 0;
+	uint32_t		replyStatus	= 0;
+
+	kr = helperexec(port,
+			msgID,
+			(data != NULL) ? (void *)CFDataGetBytePtr(data) : NULL,
+			(data != NULL) ? CFDataGetLength(data)  : 0,
+			&replyStatus,
+			&replyRef,
+			&replyLen);
+	if (kr != KERN_SUCCESS) {
+		if (replyRef != NULL) {
+			(void) vm_deallocate(mach_task_self(), (vm_address_t)replyRef, replyLen);
+		}
+
+		if (kr != MACH_SEND_INVALID_DEST) {
+			// if we got an unexpected error
+			SCLog(TRUE, LOG_ERR, CFSTR("_SCHelperExec() failed: %s"), mach_error_string(kr));
+		}
+		_SCErrorSet(kr);
+
+		return FALSE;
+	}
+
+	// un-serialize the reply
+	if (replyRef != NULL) {
+		if (!_SCUnserializeData(&myData, replyRef, replyLen)) {
+			return FALSE;
+		}
+	}
+
+	if (status != NULL) {
+		*status = replyStatus;
+	}
+
+	if (reply != NULL) {
+		*reply = myData;
+	} else if (myData != NULL) {
+		SCLog(TRUE, LOG_DEBUG, CFSTR("_SCHelperExec() data available with no place to go"));
+		CFRelease(myData);
+	}
+
+	return TRUE;
 }

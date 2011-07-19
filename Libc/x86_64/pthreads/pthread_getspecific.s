@@ -27,5 +27,5 @@
 .align 2, 0x90
 .globl _pthread_getspecific
 _pthread_getspecific:
-	movq	%gs:_PTHREAD_TSD_OFFSET(,%rdi,8),%rax
+	movq	%gs:(,%rdi,8),%rax
 	ret

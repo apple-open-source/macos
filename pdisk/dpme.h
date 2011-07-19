@@ -63,7 +63,7 @@
 //
 typedef	unsigned char	u8;
 typedef	unsigned short	u16;
-typedef	unsigned long	u32;
+typedef	unsigned int	u32;
 
 
 // Physical block zero of the disk has this format
@@ -115,10 +115,10 @@ struct dpme {
 #endif
     u32     dpme_boot_block         ;
     u32     dpme_boot_bytes         ;
-    u8     *dpme_load_addr          ;
-    u8     *dpme_load_addr_2        ;
-    u8     *dpme_goto_addr          ;
-    u8     *dpme_goto_addr_2        ;
+    u32     dpme_load_addr          ;
+    u32     dpme_load_addr_2        ;
+    u32     dpme_goto_addr          ;
+    u32     dpme_goto_addr_2        ;
     u32     dpme_checksum           ;
     char    dpme_process_id[16]     ;
     u32     dpme_boot_args[32]      ;
@@ -187,7 +187,7 @@ struct	bzb			/* block zero block format */
     u32  bzb_tumount;		/* time of last umount */
     ABM  bzb_abm;		/* altblk map info */
     u32  bzb_fill2[7];		/* for expansion of ABM (ha!ha!) */
-    char bzb_mount_point[64];	/* default mount point name */
+    u8   bzb_mount_point[64];	/* default mount point name */
 };
 typedef	struct bzb	BZB;
 

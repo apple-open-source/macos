@@ -1,0 +1,350 @@
+commit 42adfc3d4fda8dfd3aac1329e86af9201dca7c03
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 15:52:02 2010 -0700
+
+    xfsinfo 1.0.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d8b0170c376b4b67d5fb10f409fcf868a2722934
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Oct 30 15:50:15 2010 -0700
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e31137e82915b31cb283794a08b82cce94187d05
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 15:49:47 2010 -0700
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_CC & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    PKG_CONFIG_MODULES handles AC_SUBST of the CFLAGS & LIBS variables
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9bd59da2351ef82916317a8a7d3f54a9ffd13853
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 15:49:18 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    The existing statement can now be removed from the configuration file.
+    
+    Use automake provided $(AM_V_GEN) and XORG_DEFAULT_OPTIONS provided $(SED)
+    Enables silent rule and use platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8dbe9dd6ebfb85b2e41e592edce9ed78726a126d
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jun 30 19:29:53 2010 -0700
+
+    xfsinfo only depends on x11proto (for Xos.h) not x11
+    
+    No need to link against libX11 when no functions in it are ever called,
+    nor any headers from it ever used, since xfsinfo is a pure font-server
+    protocol client.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 6804576a195b14b3b9753b6884fe0b9d57a9a374
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Feb 11 10:08:07 2010 -0500
+
+    config: move CWARNFLAGS from configure.ac to Makefile.am
+    
+    Compiler warning flags should be explicitly set in the makefile
+    rather than being merged with other packages compiler flags.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 889886811da171c16562fb26ed7cffb51e18c798
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 0af1b914f3a4976afb332be0d2c58110b8246575
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit dde7ecba3cddc98565b21032f216581d8ce3e4fc
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:25 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 0f7d1a066861a57c9fa34da37059af08a0cb0d7c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:39 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit ea5d94aa839dc2b7633b8e1802d13edf5227ba1c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:15 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 831836a029dbd747e9d91a94cabd784af6f9b7c9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:24 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit be1c0624824ab7bd52d9f417a73a80dd8bb0820d
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jan 21 18:21:03 2009 -0200
+
+    Query the "default" local server if none specified.
+    
+      If no server specified, and the documented environment variable is
+    not set, attempt to connect to the local font server, as configured
+    by most Linux distributions for several years.
+
+commit 4115bdcae1a73543900118230a421da2710af836
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jan 21 18:17:20 2009 -0200
+
+    Correct make distcheck and sparse warnings.
+
+commit 2212c7ad4386dcddfa2910b0cbf7497d2ac60654
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 16:13:43 2008 -0700
+
+    xfsinfo 1.0.2
+
+commit 3816d144f9f310544d6ddff991911a949d2ae070
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 16:13:31 2008 -0700
+
+    Fill in COPYING with copyright/license notices from sources
+
+commit 72a78dc043b06192a72e08d37bbac1ee0fb27429
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 16:01:10 2008 -0700
+
+    Replace (1) with __appmansuffix__ in man page
+
+commit 58d4b018eaf3840341c0815bb177521e6311a665
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri May 23 15:44:26 2008 -0700
+
+    Plug memory leaks (Coverity ids 570 & 571)
+
+commit 8e614188ba9ee7cd0c87804555a352d1248efa11
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 20:02:34 2008 -0700
+
+    Change xfsinfo_CFLAGS to AM_CFLAGS to make automake-1.10 happier
+
+commit 94c2ffa1fd6a6c8aacb5bce3002a1ec4ccae29dd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu May 22 19:37:56 2008 -0700
+
+    Clarify syntax of -server & FONTSERVER in man page
+
+commit 0034621a7661c18f2e2b55239fc7f5c79117b694
+Author: Jeremy Huddleston <jeremy@tifa.local>
+Date:   Sun Mar 16 23:04:25 2008 -0700
+
+    Added missing AM_PROG_CC_C_O
+
+commit cc632b81c4840fed41972b672a6e78e903b64d0c
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:15 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 3f09e04800c597beaac11bb6de7d4c2b15e009bb
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:51:23 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit bc30afe115ffaab9aac6a580013e27e76477ac3f
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:24:49 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 16af7a8d70d4abfbcefaf5397ca6a702136c462d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:50 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 9493acfad1b73681caea030fa4429af7a35c9703
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:44 2005 +0000
+
+    Stub COPYING files
+
+commit a970f4d11b32b5dcf32389609950ad6b5bb0f2c4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:07 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit c6c1e15b824fc8e871994f087e58252bd76df9ba
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:22 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 7623174063bd35bbdf87ffc338a40134750d4fea
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:23 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 76c904a43455515b4cd2b357d5cd5249586b90fa
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:42 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit ba8bd073ed2d5131e20ccf53c0f3b26a07415f5f
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:01 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit ae4e88480f26e057a4c356b2a5d5057ddc8870ef
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:52 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit bb0af487c21e63754891ea05e16f74a68c13a2ac
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:54 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 0f35ff2cea82b2d3c8a3faad2de3397b2ceab22d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:22 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 6b84bdf6ab2d1cdf813475ac003e850cc2ab75b8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:45 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit ab6ef92d549e286d367889e1fdc3eca0baab6678
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:30 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit a9822002d7a724ac6036401da2e6b24c4e5ddb83
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:34 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 632c814305c180f61beb068b946a7a12e07bf728
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:31:56 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit dddb0fc49f851443d9aea595c7c98c109256f407
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 14:54:15 2005 +0000
+
+    Build system for xfsinfo
+
+commit 1358a14ac6d3ae2b4d3f184d240e9da91e2203d6
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:48 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit deba072592938eb8f684756831fef1c03247f187
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:23 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 19186656b5274e8d63b66154798f17584be2416b
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:08 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 9668d8f33eb05c12ecd0831831e57643b2a877c8
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:24 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit bc80c9eeba40ec86e29abb9932d6abc43e657298
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:07 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit a40bcbfdb43fd4f4facca21d3749595322491a97
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 83f8ee18a050cbad1a2d3770bc8c2ad0f89c3837
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:22 2003 +0000
+
+    Initial revision

@@ -25,6 +25,12 @@
 #include <fcntl.h>
 #include "authhost.h"
 #include "server.h"
+#include <security_utilities/logging.h>
+#include <security_utilities/debugging.h>
+#include <security_agent_client/sa_request.h>
+#include <security_agent_client/utils.h>
+#include <bsm/audit.h>
+#include <bootstrap_priv.h>
 
 #include <grp.h>
 #include <pwd.h>
@@ -71,6 +77,12 @@ Session &AuthHostInstance::session() const
 void
 AuthHostInstance::childAction()
 {
+	// switch to desired session
+	CommonCriteria::AuditInfo &audit = this->session().auditInfo();
+	audit.get(audit.sessionId());
+	audit.set();
+	//this->session().auditInfo().set();
+
 	// Setup the environment for the SecurityAgent
 	unsetenv("USER");
 	unsetenv("LOGNAME");
@@ -96,6 +108,7 @@ AuthHostInstance::childAction()
 	const char *path = getenv("SECURITYAGENT");
 	if (!path)
 		path = "/System/Library/CoreServices/SecurityAgent.app";
+	secdebug("adhoc", "hostType = %d", mHostType);
 
 	if ((mHostType == userAuthHost) || (mHostType == privilegedAuthHost))
 	{
@@ -116,42 +129,54 @@ AuthHostInstance::childAction()
 		setgid(agent_gid);
 		setuid(agent_uid);
 
-		CFRef<CFDataRef> userPrefs(session().copyUserPrefs());
-		
-		FILE *mbox = tmpfile();
-		
-		if (userPrefs && mbox)
-		{
-			if (fwrite(CFDataGetBytePtr(userPrefs), CFDataGetLength(userPrefs), 1, mbox) != 1)
-				fclose(mbox);
-			else
-			{
-				char mboxFdString[20];
-				fflush(mbox);
-				if ((int)sizeof(mboxFdString) > snprintf(mboxFdString, sizeof(mboxFdString), "%d", fileno(mbox)))
-					setenv("SECURITYAGENT_USERPREFS_FD", mboxFdString, 1);
-			}
-		}
-		
 		secdebug("AuthHostInstance", "execl(%s) as user (%d,%d)", agentExecutable, agent_uid, agent_gid);
 		execl(agentExecutable, agentExecutable, NULL);
 	}
 
 	secdebug("AuthHostInstance", "execl failed, errno=%d", errno);
 	// Unconditional suicide follows.
-	// See comments below on why we can't use abort()
-#if 1
 	_exit(1);
-#else
-	// NOTE: OS X abort() is implemented as kill(getuid()), which fails
-	// for a setuid-root process that has setuid'd. Go back to root to die...
-	setuid(0);
-	abort();
-#endif
 }
 
-Port
-AuthHostInstance::activate()
+// @@@  these definitions and the logic in lookup() should move into 
+// libsecurity_agent
+#define SECURITYAGENT_BOOTSTRAP_NAME_BASE       "com.apple.SecurityAgent"
+#define AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE   "com.apple.authorizationhost"
+
+mach_port_t
+AuthHostInstance::lookup(SessionId jobId)
+{
+    StLock<Mutex> _(*this);
+    
+    mach_port_t pluginhostPort = MACH_PORT_NULL;
+    kern_return_t result;
+    const char *serviceName;
+    /* PR-7483709 const */ uuid_t instanceId = UUID_INITIALIZER_FROM_SESSIONID(jobId);
+    uuid_string_t s;
+
+    if ((mHostType == securityAgent) &&
+      !(session().attributes() & sessionHasGraphicAccess))
+        CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
+    
+    if (mHostType == securityAgent)
+	serviceName = SECURITYAGENT_BOOTSTRAP_NAME_BASE;
+    else
+	serviceName = AUTHORIZATIONHOST_BOOTSTRAP_NAME_BASE;
+
+    secdebug("AuthHostInstance", "looking up %s instance %s", serviceName,
+      uuid_to_string(instanceId, s)); // XXX/gh  debugging
+    if ((result = bootstrap_look_up3(bootstrap_port, serviceName,
+      &pluginhostPort, 0, instanceId, BOOTSTRAP_SPECIFIC_INSTANCE)) != KERN_SUCCESS) {
+
+        Syslog::error("error %d looking up %s instance %s", result, serviceName,
+	  uuid_to_string(instanceId, s));
+    } else
+	secdebug("AuthHostInstance", "port = %x", (unsigned int)pluginhostPort);
+
+    return pluginhostPort;
+}
+
+Port AuthHostInstance::activate()
 {
 	StLock<Mutex> _(*this);
 	if (state() != alive)
@@ -159,8 +184,6 @@ AuthHostInstance::activate()
 		if ((mHostType == securityAgent) && 
 		    !(session().attributes() & sessionHasGraphicAccess))
 			CssmError::throwMe(CSSM_ERRCODE_NO_USER_INTERACTION);
-
-		Security::MachPlusPlus::StBootstrap bootSaver(session().bootstrapPort());
 
 		fork();
 		switch (ServerChild::state()) {

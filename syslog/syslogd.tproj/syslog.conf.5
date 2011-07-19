@@ -88,7 +88,7 @@ and
 .Xr syslog 3
 library routines.
 .Pp
-Apple System Log messages, sent using the
+Apple System Log (ASL) messages, sent using the
 .Xr asl 3
 library routines permit the facility name to be an arbitrary string,
 although users of the system are encouraged to use a 
@@ -97,6 +97,17 @@ naming convention, for example
 .Dq com.apple.system.syslog .
 Since these facility names may contain dot characters, the names may be enclosed in
 either singe quote or double quote characters.
+.Pp
+If 
+.Em facility
+is terminated by an asterisk (``*''),
+then facility names are matched using the prefix characters preceeding the asterisk.
+For example,
+.Pp
+.Dq 'com.apple.abc.*'
+.Pp
+matches any facility with the prefix ``com.apple.abc.''.
+These wildcard facility names typically must be enclosed in single or double quotes characters.
 .Pp
 The
 .Em level

@@ -1,6 +1,6 @@
 /* 
    socket handling interface
-   Copyright (C) 1999-2007, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -114,12 +114,24 @@ ne_iaddr_type ne_iaddr_typeof(const ne_inet_addr *ia);
  * buffer 'buffer', which is of length 'bufsiz'.  Returns 'buffer'. */
 char *ne_iaddr_print(const ne_inet_addr *ia, char *buffer, size_t bufsiz);
 
+/* Dump the raw byte representation (in network byte order) of address
+ * 'ia' into the buffer 'buffer', which must be of a suitable length
+ * (4 bytes for an IPv4 address, 16 bytes for an IPv6 address).
+ * Returns 'buffer'. */
+unsigned char *ne_iaddr_raw(const ne_inet_addr *ia, unsigned char *buffer);
+
 /* Perform the reverse name lookup on network address 'ia', placing
  * the returned name in the 'buf' buffer (of length 'bufsiz') if
  * successful.  Returns zero on success, or non-zero on error. */
 int ne_iaddr_reverse(const ne_inet_addr *ia, char *buf, size_t bufsiz);
 
-/* Destroy a network address object created using ne_iaddr_make. */
+/* Convert network address string 'addr' (for example, "127.0.0.1")
+ * into a network address object.  Returns NULL on parse error.  If
+ * non-NULL, return value must be freed using ne_iaddr_free. */
+ne_inet_addr *ne_iaddr_parse(const char *addr, ne_iaddr_type type);
+
+/* Destroy a network address object created using ne_iaddr_make or
+ * ne_iaddr_parse. */
 void ne_iaddr_free(ne_inet_addr *addr);
 
 /* Create a socket object; returns NULL on error. */
@@ -171,6 +183,19 @@ int ne_sock_block(ne_socket *sock, int n);
  * on error. */
 int ne_sock_fullwrite(ne_socket *sock, const char *data, size_t count); 
 
+/* I/O vector. */
+struct ne_iovec {
+    void *base;
+    size_t len;
+};
+
+/* Writes 'count' blocks described by 'vector' to the socket.
+ * Guarantees to either write all the bytes or to fail.  Count must be
+ * greater than zero and smaller than the system-defined maximum
+ * vector limit.  Returns 0 on success, or NE_SOCK_* on error. */
+int ne_sock_fullwritev(ne_socket *sock, const struct ne_iovec *vector,
+                       int count); 
+
 /* Read an LF-terminated line into 'buffer', and NUL-terminate it.
  * At most 'len' bytes are read (including the NUL terminator).
  * Returns:
@@ -200,6 +225,11 @@ int ne_sock_close(ne_socket *sock);
 
 /* Return current error string for socket. */
 const char *ne_sock_error(const ne_socket *sock);
+
+/* Set the error string for the socket; takes printf-like format
+ * string. */
+void ne_sock_set_error(ne_socket *sock, const char *format, ...)
+    ne_attribute((format (printf, 2, 3)));
 
 /* Set read timeout for socket, in seconds; must be a non-zero
  * positive integer. */
@@ -235,6 +265,37 @@ int ne_sock_sessid(ne_socket *sock, unsigned char *buf, size_t *buflen);
  * NUL-terminated malloc-allocated string if not NULL, which must be
  * freed by the caller. */
 char *ne_sock_cipher(ne_socket *sock);
+
+/* SOCKS proxy protocol version: */
+enum ne_sock_sversion {
+    NE_SOCK_SOCKSV4 = 0,
+    NE_SOCK_SOCKSV4A,
+    NE_SOCK_SOCKSV5
+};
+
+/* Given a socket 'sock' which is connected to a SOCKS proxy, initiate
+ * a connection to a destination server using that proxy, specified
+ * either by network address or hostname, at given port 'port'.
+ *
+ * If 'vers' is NE_SOCKS_V4, addr must be an IPv4 address; hostname
+ * and password are ignored; username must be non-NULL.
+ *
+ * If 'vers' is NE_SOCKS_V4A, hostname must be non-NULL; addr is
+ * ignored; password is ignored; username must be non-NULL.
+ *
+ * If 'vers' is NE_SOCKS_V5, addr may be NULL, in which case hostname
+ * must be non-NULL.  addr if non-NULL may be an IPv4 or IPv6 address;
+ * username may be NULL, in which case password is ignored.  If
+ * username is non-NULL password must also be non-NULL.
+ *
+ * Returns 0 on success, or NE_SOCK_* on failure - in which case, the
+ * socket error string is set.  On failure, the socket must be closed
+ * by the caller.
+ */
+int ne_sock_proxy(ne_socket *sock, enum ne_sock_sversion vers,
+                  const ne_inet_addr *addr, const char *hostname, 
+                  unsigned int port,
+                  const char *username, const char *password);
 
 NE_END_DECLS
 

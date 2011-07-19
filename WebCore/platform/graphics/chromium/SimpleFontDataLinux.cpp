@@ -48,11 +48,19 @@ namespace WebCore {
 
 // Smallcaps versions of fonts are 70% the size of the normal font.
 static const float smallCapsFraction = 0.7f;
+static const float emphasisMarkFraction = .5;
 // This is the largest VDMX table which we'll try to load and parse.
 static const size_t maxVDMXTableSize = 1024 * 1024;  // 1 MB
 
 void SimpleFontData::platformInit()
 {
+    if (!m_platformData.size()) {
+        m_fontMetrics.reset();
+        m_avgCharWidth = 0;
+        m_maxCharWidth = 0;
+        return;
+    }
+
     SkPaint paint;
     SkPaint::FontMetrics metrics;
 
@@ -75,26 +83,44 @@ void SimpleFontData::platformInit()
         fastFree(vdmxTable);
     }
 
+    float ascent;
+    float descent;
+
     // Beware those who step here: This code is designed to match Win32 font
     // metrics *exactly*.
     if (isVDMXValid) {
-        m_ascent = vdmxAscent;
-        m_descent = -vdmxDescent;
+        ascent = vdmxAscent;
+        descent = -vdmxDescent;
     } else {
         SkScalar height = -metrics.fAscent + metrics.fDescent + metrics.fLeading;
-        m_ascent = SkScalarRound(-metrics.fAscent);
-        m_descent = SkScalarRound(height) - m_ascent;
+        ascent = SkScalarRound(-metrics.fAscent);
+        descent = SkScalarRound(height) - ascent;
     }
 
+    m_fontMetrics.setAscent(ascent);
+    m_fontMetrics.setDescent(descent);
+
+    float xHeight;
     if (metrics.fXHeight)
-        m_xHeight = metrics.fXHeight;
+        xHeight = metrics.fXHeight;
     else {
         // hack taken from the Windows port
-        m_xHeight = static_cast<float>(m_ascent) * 0.56;
+        xHeight = ascent * 0.56f;
     }
 
-    m_lineGap = SkScalarRound(metrics.fLeading);
-    m_lineSpacing = m_ascent + m_descent + m_lineGap;
+    float lineGap = SkScalarToFloat(metrics.fLeading);
+    m_fontMetrics.setLineGap(lineGap);
+    m_fontMetrics.setXHeight(xHeight);
+    m_fontMetrics.setLineSpacing(lroundf(ascent) + lroundf(descent) + lroundf(lineGap));
+
+    if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
+        static const uint32_t vheaTag = SkSetFourByteTag('v', 'h', 'e', 'a');
+        static const uint32_t vorgTag = SkSetFourByteTag('V', 'O', 'R', 'G');
+        size_t vheaSize = SkFontHost::GetTableSize(fontID, vheaTag);
+        size_t vorgSize = SkFontHost::GetTableSize(fontID, vorgTag);
+        if ((vheaSize > 0) || (vorgSize > 0))
+            m_hasVerticalGlyphs = true;
+    }
 
     // In WebKit/WebCore/platform/graphics/SimpleFontData.cpp, m_spaceWidth is
     // calculated for us, but we need to calculate m_maxCharWidth and
@@ -106,7 +132,7 @@ void SimpleFontData::platformInit()
     if (metrics.fAvgCharWidth)
         m_avgCharWidth = SkScalarRound(metrics.fAvgCharWidth);
     else {
-        m_avgCharWidth = m_xHeight;
+        m_avgCharWidth = xHeight;
 
         GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
 
@@ -127,18 +153,32 @@ void SimpleFontData::platformCharWidthInit()
 
 void SimpleFontData::platformDestroy()
 {
-    delete m_smallCapsFontData;
-    m_smallCapsFontData = 0;
+}
+
+PassOwnPtr<SimpleFontData> SimpleFontData::createScaledFontData(const FontDescription& fontDescription, float scaleFactor) const
+{
+    const float scaledSize = lroundf(fontDescription.computedSize() * scaleFactor);
+    return adoptPtr(new SimpleFontData(FontPlatformData(m_platformData, scaledSize), isCustomFont(), false));
 }
 
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
-    if (!m_smallCapsFontData) {
-        const float smallCapsSize = lroundf(fontDescription.computedSize() * smallCapsFraction);
-        m_smallCapsFontData = new SimpleFontData(FontPlatformData(m_platformData, smallCapsSize));
-    }
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->smallCaps)
+        m_derivedFontData->smallCaps = createScaledFontData(fontDescription, smallCapsFraction);
 
-    return m_smallCapsFontData;
+    return m_derivedFontData->smallCaps.get();
+}
+
+SimpleFontData* SimpleFontData::emphasisMarkFontData(const FontDescription& fontDescription) const
+{
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->emphasisMark)
+        m_derivedFontData->emphasisMark = createScaledFontData(fontDescription, emphasisMarkFraction);
+
+    return m_derivedFontData->emphasisMark.get();
 }
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
@@ -179,6 +219,9 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph) const
     
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
+    if (!m_platformData.size())
+        return 0;
+
     SkASSERT(sizeof(glyph) == 2);   // compile-time assert
 
     SkPaint paint;

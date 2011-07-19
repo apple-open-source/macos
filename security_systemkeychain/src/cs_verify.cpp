@@ -27,7 +27,6 @@
 #include "codesign.h"
 #include <Security/SecRequirementPriv.h>
 #include <Security/SecCodePriv.h>
-#include <sys/codesign.h>
 
 using namespace UnixPlusPlus;
 
@@ -53,12 +52,12 @@ void prepareToVerify()
 //
 void verify(const char *target)
 {
-	CFRef<SecCodeRef> code = codePath(target);		// set if the target is dynamic
+	CFRef<SecCodeRef> code = dynamicCodePath(target);		// set if the target is dynamic
 	CFRef<SecStaticCodeRef> staticCode;
 	if (code)
 		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &staticCode.aref()));
 	else
-		MacOSError::check(SecStaticCodeCreateWithPath(CFTempURL(target), kSecCSDefaultFlags, &staticCode.aref()));
+		staticCode.take(staticCodePath(target, architecture, bundleVersion));
 	if (detached)
 		if (CFRef<CFDataRef> dsig = cfLoadFile(detached))
 			MacOSError::check(SecCodeSetDetachedSignature(staticCode, dsig, kSecCSDefaultFlags));
@@ -71,8 +70,8 @@ void verify(const char *target)
 	}
 	if (!code || verbose > 0) {		// validate statically if static input or verbose dynamic
 		ErrorCheck check;
-		check(SecStaticCodeCheckValidityWithErrors(staticCode, verifyOptions, NULL, check));
-		if (verifyOptions & kSecCSBasicValidateOnly)
+		check(SecStaticCodeCheckValidityWithErrors(staticCode, staticVerifyOptions, NULL, check));
+		if (staticVerifyOptions & kSecCSBasicValidateOnly)
 			note(1, "%s: valid on disk (not all contents verified)", target);
 		else
 			note(1, "%s: valid on disk", target);
@@ -92,7 +91,7 @@ void verify(const char *target)
 	}
 	
     if (testReqs) {			// check explicit test requirement
-        if (OSStatus rc = SecStaticCodeCheckValidity(staticCode, verifyOptions, testReqs)) {
+        if (OSStatus rc = SecStaticCodeCheckValidity(staticCode, staticVerifyOptions, testReqs)) {
             cssmPerror("test-requirement", rc);
             if (!exitcode)
                 exitcode = exitNoverify;
@@ -109,7 +108,7 @@ void verify(const char *target)
 //
 void hostinginfo(const char *target)
 {
-	CFRef<SecCodeRef> code = codePath(target);
+	CFRef<SecCodeRef> code = dynamicCodePath(target);
 	if (!code)
 		fail("%s: not a dynamic code specification", target);
 
@@ -125,15 +124,15 @@ void hostinginfo(const char *target)
 				printf("UNSIGNED (");
 			if (CFNumberRef state = info.get<CFNumberRef>(kSecCodeInfoStatus)) {
 				uint32_t status = cfNumber(state);
-				if (status & CS_VALID)
+				if (status & kSecCodeStatusValid)
 					printf("valid");
 				else
 					printf("INVALID");
-				if (status & CS_KILL)
+				if (status & kSecCodeStatusKill)
 					printf(" kill");
-				if (status & CS_HARD)
+				if (status & kSecCodeStatusHard)
 					printf(" hard");
-				if (status & ~(CS_VALID | CS_KILL | CS_HARD))	// unrecognized flag
+				if (status & ~(kSecCodeStatusValid | kSecCodeStatusKill | kSecCodeStatusHard))	// unrecognized flag
 					printf(" 0x%x", status);
 			} else
 				printf("UNKNOWN");

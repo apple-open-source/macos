@@ -19,6 +19,7 @@
 
 #ifndef GeolocationServiceGtk_h
 #define GeolocationServiceGtk_h
+#if ENABLE(GEOLOCATION)
 
 #include "GeolocationService.h"
 #include "Geoposition.h"
@@ -31,7 +32,7 @@
 namespace WebCore {
     class GeolocationServiceGtk : public GeolocationService {
     public:
-        static GeolocationService* create(GeolocationServiceClient*);
+        static PassOwnPtr<GeolocationService> create(GeolocationServiceClient*);
         ~GeolocationServiceGtk();
 
         virtual bool startUpdating(PositionOptions*);
@@ -70,4 +71,5 @@ namespace WebCore {
     };
 }
 
+#endif // ENABLE(GEOLOCATION)
 #endif

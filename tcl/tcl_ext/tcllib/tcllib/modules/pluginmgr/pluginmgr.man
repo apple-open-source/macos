@@ -1,11 +1,13 @@
 [comment {-*- tcl -*- paths manpage}]
-[manpage_begin pluginmgr n 0.2]
+[manpage_begin pluginmgr n 0.3]
 [copyright {2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Plugin management}]
 [titledesc {Manage a plugin}]
+[category  {Programming tools}]
 [require Tcl 8.4]
-[require pluginmgr [opt 0.2]]
+[require pluginmgr [opt 0.3]]
 [description]
+[keywords {plugin management} {plugin search}]
 
 This package provides commands and objects for the generic management
 of plugins which can be loaded into an application.
@@ -453,6 +455,4 @@ Please report such in the category [emph pluginmgr] of the
 Please also report any ideas for enhancements you may have for either
 package and/or documentation.
 
-
-[see_also {plugin management} {plugin search}]
 [manpage_end]

@@ -23,23 +23,6 @@
 		60184FE20A08FE0B001C810A /* libz.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 60184FE10A08FE0B001C810A /* libz.dylib */; };
 /* End PBXBuildFile section */
 
-/* Begin PBXBuildStyle section */
-		60E7BFF606EE3590006F3D9E /* Development */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-			};
-			name = Development;
-		};
-		60E7BFF706EE3590006F3D9E /* Deployment */ = {
-			isa = PBXBuildStyle;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-			};
-			name = Deployment;
-		};
-/* End PBXBuildStyle section */
-
 /* Begin PBXCopyFilesBuildPhase section */
 		60184FAD0A08FC19001C810A /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
@@ -54,7 +37,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-		60184FB30A08FC19001C810A /* disklabel */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = "compiled.mach-o.executable"; path = disklabel; sourceTree = BUILT_PRODUCTS_DIR; };
+		60184FB30A08FC19001C810A /* disklabel */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = disklabel; sourceTree = BUILT_PRODUCTS_DIR; };
 		60184FE10A08FE0B001C810A /* libz.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libz.dylib; path = /usr/lib/libz.dylib; sourceTree = "<absolute>"; };
 		60E7C00906EE35C6006F3D9E /* create.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = create.c; sourceTree = "<group>"; };
 		60E7C00A06EE35C6006F3D9E /* destroy.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = destroy.c; sourceTree = "<group>"; };
@@ -166,20 +149,6 @@
 			);
 			buildRules = (
 			);
-			buildSettings = {
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = disklabel;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
 			dependencies = (
 			);
 			name = disklabel;
@@ -194,16 +163,12 @@
 		60E7BFF806EE3590006F3D9E /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 60DE891B0A08FA6500BCD169 /* Build configuration list for PBXProject "disklabel" */;
-			buildSettings = {
-			};
-			buildStyles = (
-				60E7BFF606EE3590006F3D9E /* Development */,
-				60E7BFF706EE3590006F3D9E /* Deployment */,
-			);
+			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
 			mainGroup = 60E7BFF406EE3590006F3D9E;
 			productRefGroup = 60E7C00506EE359F006F3D9E /* Products */;
 			projectDirPath = "";
+			projectRoot = "";
 			targets = (
 				60184F9B0A08FC19001C810A /* disklabel */,
 			);
@@ -227,79 +192,37 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		60184FB00A08FC19001C810A /* Development */ = {
+		60184FB00A08FC19001C810A /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = disklabel;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = Development;
+			name = Debug;
 		};
-		60184FB10A08FC19001C810A /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = disklabel;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Deployment;
-		};
-		60184FB20A08FC19001C810A /* Default */ = {
+		60184FB10A08FC19001C810A /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALL_PATH = /sbin;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = disklabel;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
-			name = Default;
+			name = Release;
 		};
-		60DE891C0A08FA6500BCD169 /* Development */ = {
+		60DE891C0A08FA6500BCD169 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Development;
+			name = Debug;
 		};
-		60DE891D0A08FA6500BCD169 /* Deployment */ = {
+		60DE891D0A08FA6500BCD169 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 			};
-			name = Deployment;
-		};
-		60DE891E0A08FA6500BCD169 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
@@ -307,22 +230,20 @@
 		60184FAF0A08FC19001C810A /* Build configuration list for PBXNativeTarget "disklabel" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60184FB00A08FC19001C810A /* Development */,
-				60184FB10A08FC19001C810A /* Deployment */,
-				60184FB20A08FC19001C810A /* Default */,
+				60184FB00A08FC19001C810A /* Debug */,
+				60184FB10A08FC19001C810A /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 		60DE891B0A08FA6500BCD169 /* Build configuration list for PBXProject "disklabel" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				60DE891C0A08FA6500BCD169 /* Development */,
-				60DE891D0A08FA6500BCD169 /* Deployment */,
-				60DE891E0A08FA6500BCD169 /* Default */,
+				60DE891C0A08FA6500BCD169 /* Debug */,
+				60DE891D0A08FA6500BCD169 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

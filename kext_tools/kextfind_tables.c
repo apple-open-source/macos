@@ -42,7 +42,7 @@ struct option opt_info[] = {
 #ifdef MEEK_PICKY
     { kOptNameMeek,             no_argument,        &longopt, kLongOptMeek },
     { kOptNamePicky,            no_argument,        &longopt, kLongOptPicky },
-#endif /* MEEK_PICKY */
+#endif
 
    /* We register the query predicates so that they are handled correctly
     * even with the few short options we have (without these, -invalid gets
@@ -94,6 +94,9 @@ struct querySetup queryCallbackList[] = {
     {   CFSTR(kPredNameWarnings), CFSTR(kPredCharWarnings), 
         parseFlag, NULL },
     {   CFSTR(kPredNameIsLibrary), CFSTR(kPredCharIsLibrary), 
+        parseFlag, NULL },
+
+    {   CFSTR(kPredNameDuplicate), CFSTR(kPredCharDuplicate), 
         parseFlag, NULL },
 
     {   CFSTR(kPredNameInvalid), CFSTR(kPredCharInvalid), 
@@ -239,6 +242,9 @@ struct querySetup reportCallbackList[] = {
         reportParseShorthand, NULL },
     {   CFSTR(kPredNameBundleName), CFSTR(kPredCharBundleName), 
         reportParseCommand, NULL },
+
+    {   CFSTR(kPredNameDuplicate), CFSTR(kPredCharDuplicate), 
+        reportParseFlag, NULL },
 
     {   CFSTR(kPredNamePrint), NULL, 
         reportParseCommand, NULL },

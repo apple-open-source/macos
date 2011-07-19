@@ -26,15 +26,16 @@
 #ifndef CustomEvent_h
 #define CustomEvent_h
 
-#include "AtomicString.h"
 #include "Event.h"
 #include "ScriptValue.h"
-#include <wtf/RefCounted.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 class CustomEvent : public Event {
 public:
+    virtual ~CustomEvent();
+
     static PassRefPtr<CustomEvent> create()
     {
         return adoptRef(new CustomEvent);

@@ -39,7 +39,7 @@
 static char sccsid[] = "@(#)euc.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/param.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.20 2004/06/23 07:01:43 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.22 2007/10/13 16:28:21 ache Exp $");
 
 #include "xlocale_private.h"
 
@@ -51,12 +51,11 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.20 2004/06/23 07:01:43 tjr Exp
 #include <wchar.h>
 #include "mblocal.h"
 
-__private_extern__ int	_EUC_init(struct __xlocale_st_runelocale *);
-static size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict, locale_t);
+static size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict, locale_t);
 static int	_EUC_mbsinit(const mbstate_t *, locale_t);
-static size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict,
-	    locale_t);
+static size_t	_EUC_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict, locale_t);
 
 typedef struct {
 	int	count[4];
@@ -122,16 +121,17 @@ _EUC_init(struct __xlocale_st_runelocale *xrl)
 	}
 	rl->__variable = ei;
 	rl->__variable_len = sizeof(_EucInfo);
-	xrl->__mb_cur_max = new__mb_cur_max;
-	xrl->__mbrtowc = _EUC_mbrtowc;
-	xrl->__wcrtomb = _EUC_wcrtomb;
-	xrl->__mbsinit = _EUC_mbsinit;
-	xrl->__free_extra = (__free_extra_t)_EUC_free_extra;
+ 	xrl->__mb_cur_max = new__mb_cur_max;
+ 	xrl->__mbrtowc = _EUC_mbrtowc;
+ 	xrl->__wcrtomb = _EUC_wcrtomb;
+ 	xrl->__mbsinit = _EUC_mbsinit;
+	xrl->__mb_sb_limit = 256;
+ 	xrl->__free_extra = (__free_extra_t)_EUC_free_extra;
 	return (0);
 }
 
 static int
-_EUC_mbsinit(const mbstate_t *ps, locale_t loc)
+_EUC_mbsinit(const mbstate_t *ps, locale_t loc __unused)
 {
 
 	return (ps == NULL || ((const _EucState *)ps)->want == 0);
@@ -145,6 +145,7 @@ _EUC_mbsinit(const mbstate_t *ps, locale_t loc)
 static __inline int
 _euc_set(u_int c)
 {
+
 	c &= 0xff;
 	return ((c & 0x80) ? c == _SS3 ? 3 : c == _SS2 ? 2 : 1 : 0);
 }
@@ -225,8 +226,7 @@ _EUC_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 }
 
 static size_t
-_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps,
-    locale_t loc)
+_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
 {
 	_EucState *es;
 	wchar_t m, nm;

@@ -1,3 +1,4 @@
+
 /*
  * utils.c - miscellaneous utilities
  *
@@ -605,6 +606,44 @@ zwcwidth(wint_t wc)
 /**/
 #endif /* MULTIBYTE_SUPPORT */
 
+/*
+ * Search the path for prog and return the file name.
+ * The returned value is unmetafied and in the unmeta storage
+ * area (N.B. should be duplicated if not used immediately and not
+ * equal to *namep).
+ *
+ * If namep is not NULL, *namep is set to the metafied programme
+ * name, which is in heap storage.
+ */
+/**/
+char *
+pathprog(char *prog, char **namep)
+{
+    char **pp, ppmaxlen = 0, *buf, *funmeta;
+    struct stat st;
+
+    for (pp = path; *pp; pp++)
+    {
+	int len = strlen(*pp);
+	if (len > ppmaxlen)
+	    ppmaxlen = len;
+    }
+    buf = zhalloc(ppmaxlen + strlen(prog) + 2);
+    for (pp = path; *pp; pp++) {
+	sprintf(buf, "%s/%s", *pp, prog);
+	funmeta = unmeta(buf);
+	if (access(funmeta, F_OK) == 0 &&
+	    stat(funmeta, &st) >= 0 &&
+	    !S_ISDIR(st.st_mode)) {
+	    if (namep)
+		*namep = buf;
+	    return funmeta;
+	}
+    }
+
+    return NULL;
+}
+
 /* get a symlink-free pathname for s relative to PWD */
 
 /**/
@@ -691,6 +730,8 @@ xsymlinks(char *s)
 	    zsfree(*pp);
 	    if (!strcmp(xbuf, "/"))
 		continue;
+	    if (!*xbuf)
+		continue;
 	    p = xbuf + strlen(xbuf);
 	    while (*--p != '/');
 	    *p = '\0';
@@ -763,6 +804,26 @@ fprintdir(char *s, FILE *f)
     }
 }
 
+/*
+ * Substitute a directory using a name.
+ * If there is none, return the original argument.
+ *
+ * At this level all strings involved are metafied.
+ */
+
+/**/
+char *
+substnamedir(char *s)
+{
+    Nameddir d = finddir(s);
+
+    if (!d)
+	return quotestring(s, NULL, QT_BACKSLASH);
+    return zhtricat("~", d->node.nam, quotestring(s + strlen(d->dir),
+						  NULL, QT_BACKSLASH));
+}
+
+
 /* Returns the current username.  It caches the username *
  * and uid to try to avoid requerying the password files *
  * or NIS/NIS+ database.                                 */
@@ -816,9 +877,13 @@ finddir_scan(HashNode hn, UNUSED(int flags))
     }
 }
 
-/* See if a path has a named directory as its prefix. *
- * If passed a NULL argument, it will invalidate any  *
- * cached information.                                */
+/*
+ * See if a path has a named directory as its prefix.
+ * If passed a NULL argument, it will invalidate any 
+ * cached information.
+ *
+ * s here is metafied.
+ */
 
 /**/
 Nameddir
@@ -857,9 +922,7 @@ finddir(char *s)
     scanhashtable(nameddirtab, 0, 0, 0, finddir_scan, 0);
 
     if (func) {
-	char *dir_meta = metafy(finddir_full, strlen(finddir_full),
-				META_ALLOC);
-	char **ares = subst_string_by_func(func, "d", dir_meta);
+	char **ares = subst_string_by_func(func, "d", finddir_full);
 	int len;
 	if (ares && arrlen(ares) >= 2 &&
 	    (len = (int)zstrtol(ares[1], NULL, 10)) > finddir_best) {
@@ -870,8 +933,6 @@ finddir(char *s)
 	    finddir_last->diff = len - strlen(finddir_last->node.nam);
 	    finddir_best = len;
 	}
-	if (dir_meta != finddir_full)
-	    zsfree(dir_meta);
     }
 
     return finddir_last;
@@ -980,6 +1041,10 @@ getnameddir(char *name)
     /* There are no more possible sources of directory names, so give up. */
     return NULL;
 }
+
+/*
+ * Compare directories.  Both are metafied.
+ */
 
 /**/
 static int
@@ -1174,13 +1239,12 @@ callhookfunc(char *name, LinkList lnklst, int arrayp, int *retval)
     if (arrayp) {
 	char **arrptr;
 	int namlen = strlen(name);
-#define HOOK_SUFFIX	"_functions"
-#define HOOK_SUFFIX_LEN	11	/* including NUL byte */
 	VARARR(char, arrnam, namlen + HOOK_SUFFIX_LEN);
 	memcpy(arrnam, name, namlen);
 	memcpy(arrnam + namlen, HOOK_SUFFIX, HOOK_SUFFIX_LEN);
 
 	if ((arrptr = getaparam(arrnam))) {
+	    arrptr = arrdup(arrptr);
 	    for (; *arrptr; arrptr++) {
 		if ((shfunc = getshfunc(*arrptr))) {
 		    int newret = doshfunc(shfunc, lnklst, 1);
@@ -1218,12 +1282,18 @@ preprompt(void)
 	 * Unfortunately it interacts badly with ZLE displaying message
 	 * when ^D has been pressed. So just disable PROMPT_SP logic in
 	 * this case */
+	char *eolmark = getsparam("PROMPT_EOL_MARK");
 	char *str;
-	int percents = opts[PROMPTPERCENT];
+	int percents = opts[PROMPTPERCENT], w = 0;
+	if (!eolmark)
+	    eolmark = "%B%S%#%s%b";
 	opts[PROMPTPERCENT] = 1;
-	str = promptexpand("%B%S%#%s%b", 0, NULL, NULL, NULL);
+	str = promptexpand(eolmark, 1, NULL, NULL, NULL);
+	countprompt(str, &w, 0, -1);
 	opts[PROMPTPERCENT] = percents;
-	fprintf(shout, "%s%*s\r", str, (int)columns - 1 - !hasxn, "");
+	zputs(str, shout);
+	fprintf(shout, "%*s\r%*s\r", (int)columns - w - !hasxn, "", w, "");
+	fflush(shout);
 	free(str);
     }
 
@@ -1342,9 +1412,13 @@ checkmailpath(char **s)
 		    fprintf(shout, "You have new mail.\n");
 		    fflush(shout);
 		} else {
-		    VARARR(char, usav, underscoreused);
+		    char *usav;
+		    int uusav = underscoreused;
 
-		    memcpy(usav, underscore, underscoreused);
+		    usav = zalloc(underscoreused);
+
+		    if (usav)
+			memcpy(usav, zunderscore, underscoreused);
 
 		    setunderscore(*s);
 
@@ -1355,7 +1429,10 @@ checkmailpath(char **s)
 			fputc('\n', shout);
 			fflush(shout);
 		    }
-		    setunderscore(usav);
+		    if (usav) {
+			setunderscore(usav);
+			zfree(usav, uusav);
+		    }
 		}
 	    }
 	    if (isset(MAILWARNING) && st.st_atime > st.st_mtime &&
@@ -1437,13 +1514,13 @@ settyinfo(struct ttyinfo *ti)
 #  ifndef TCSADRAIN
 #   define TCSADRAIN 1	/* XXX Princeton's include files are screwed up */
 #  endif
-	tcsetattr(SHTTY, TCSADRAIN, &ti->tio);
-    /* if (tcsetattr(SHTTY, TCSADRAIN, &ti->tio) == -1) */
+	while (tcsetattr(SHTTY, TCSADRAIN, &ti->tio) == -1 && errno == EINTR)
+	    ;
 # else
-	ioctl(SHTTY, TCSETS, &ti->tio);
-    /* if (ioctl(SHTTY, TCSETS, &ti->tio) == -1) */
+	while (ioctl(SHTTY, TCSETS, &ti->tio) == -1 && errno == EINTR)
+	    ;
 # endif
-	/*	zerr("settyinfo: %e",errno)*/ ;
+	/*	zerr("settyinfo: %e",errno);*/
 #else
 # ifdef HAVE_TERMIO_H
 	ioctl(SHTTY, TCSETA, &ti->tio);
@@ -1534,8 +1611,10 @@ void
 adjustwinsize(int from)
 {
     static int getwinsz = 1;
+#ifdef TIOCGWINSZ
     int ttyrows = shttyinfo.winsize.ws_row;
     int ttycols = shttyinfo.winsize.ws_col;
+#endif
     int resetzle = 0;
 
     if (getwinsz || from == 1) {
@@ -1604,6 +1683,27 @@ adjustwinsize(int from)
     }
 }
 
+/*
+ * Ensure the fdtable is large enough for fd, and that the
+ * maximum fd is set appropriately.
+ */
+static void
+check_fd_table(int fd)
+{
+    if (fd <= max_zsh_fd)
+	return;
+
+    if (fd >= fdtable_size) {
+	int old_size = fdtable_size;
+	while (fd >= fdtable_size)
+	    fdtable = zrealloc(fdtable,
+			       (fdtable_size *= 2)*sizeof(*fdtable));
+	memset(fdtable + old_size, 0,
+	       (fdtable_size - old_size) * sizeof(*fdtable));
+    }
+    max_zsh_fd = fd;
+}
+
 /* Move a fd to a place >= 10 and mark the new fd in fdtable.  If the fd *
  * is already >= 10, it is not moved.  If it is invalid, -1 is returned. */
 
@@ -1617,36 +1717,75 @@ movefd(int fd)
 #else
 	int fe = movefd(dup(fd));
 #endif
+	/*
+	 * To close or not to close if fe is -1?
+	 * If it is -1, we haven't moved the fd, so if we close
+	 * it we lose it; but we're probably not going to be able
+	 * to use it in situ anyway.  So probably better to avoid a leak.
+	 */
 	zclose(fd);
 	fd = fe;
     }
     if(fd != -1) {
-	if (fd > max_zsh_fd) {
-	    while (fd >= fdtable_size)
-		fdtable = zrealloc(fdtable,
-				   (fdtable_size *= 2)*sizeof(*fdtable));
-	    max_zsh_fd = fd;
-	}
+	check_fd_table(fd);
 	fdtable[fd] = FDT_INTERNAL;
     }
     return fd;
 }
 
-/* Move fd x to y.  If x == -1, fd y is closed. */
+/*
+ * Move fd x to y.  If x == -1, fd y is closed.
+ * Returns y for success, -1 for failure.
+ */
 
 /**/
-mod_export void
+mod_export int
 redup(int x, int y)
 {
+    int ret = y;
+
     if(x < 0)
 	zclose(y);
     else if (x != y) {
-	while (y >= fdtable_size)
-	    fdtable = zrealloc(fdtable, (fdtable_size *= 2)*sizeof(*fdtable));
-	dup2(x, y);
-	if ((fdtable[y] = fdtable[x]) && y > max_zsh_fd)
-	    max_zsh_fd = y;
+	if (dup2(x, y) == -1) {
+	    ret = -1;
+	} else {
+	    check_fd_table(y);
+	    fdtable[y] = fdtable[x];
+	    if (fdtable[y] == FDT_FLOCK || fdtable[y] == FDT_FLOCK_EXEC)
+		fdtable[y] = FDT_INTERNAL;
+	}
+	/*
+	 * Closing any fd to the locked file releases the lock.
+	 * This isn't expected to happen, it's here for completeness.
+	 */
+	if (fdtable[x] == FDT_FLOCK)
+	    fdtable_flocks--;
 	zclose(x);
+    }
+
+    return ret;
+}
+
+/*
+ * Indicate that an fd has a file lock; if cloexec is 1 it will be closed
+ * on exec.
+ * The fd should already be known to fdtable (e.g. by movefd).
+ * Note the fdtable code doesn't care what sort of lock
+ * is used; this simply prevents the main shell exiting prematurely
+ * when it holds a lock.
+ */
+
+/**/
+mod_export void
+addlockfd(int fd, int cloexec)
+{
+    if (cloexec) {
+	if (fdtable[fd] != FDT_FLOCK)
+	    fdtable_flocks++;
+	fdtable[fd] = FDT_FLOCK;
+    } else {
+	fdtable[fd] = FDT_FLOCK_EXEC;
     }
 }
 
@@ -1657,6 +1796,16 @@ mod_export int
 zclose(int fd)
 {
     if (fd >= 0) {
+	/*
+	 * We sometimes zclose() an fd twice where the second
+	 * time is a catch-all in case there was a failure using
+	 * the fd.  This is harmless but we need to trap it
+	 * for the error check here.
+	 */
+	DPUTS2(fd > max_zsh_fd && fdtable[fd] != FDT_UNUSED,
+	       "BUG: fd is %d, max_zsh_fd is %d", fd, max_zsh_fd);
+	if (fdtable[fd] == FDT_FLOCK)
+	    fdtable_flocks--;
 	fdtable[fd] = FDT_UNUSED;
 	while (max_zsh_fd > 0 && fdtable[max_zsh_fd] == FDT_UNUSED)
 	    max_zsh_fd--;
@@ -1667,6 +1816,22 @@ zclose(int fd)
 	return close(fd);
     }
     return -1;
+}
+
+/*
+ * Close an fd returning 0 if used for locking; return -1 if it isn't.
+ */
+
+/**/
+mod_export int
+zcloselockfd(int fd)
+{
+    if (fd > max_zsh_fd)
+	return -1;
+    if (fdtable[fd] != FDT_FLOCK && fdtable[fd] != FDT_FLOCK_EXEC)
+	return -1;
+    zclose(fd);
+    return 0;
 }
 
 #ifdef HAVE__MKTEMP
@@ -2105,6 +2270,56 @@ checkrmall(char *s)
     return (getquery("ny", 1) == 'y');
 }
 
+/**/
+mod_export ssize_t
+read_loop(int fd, char *buf, size_t len)
+{
+    ssize_t got = len;
+
+    while (1) {
+	ssize_t ret = read(fd, buf, len);
+	if (ret == len)
+	    break;
+	if (ret <= 0) {
+	    if (ret < 0) {
+		if (errno == EINTR)
+		    continue;
+		if (fd != SHTTY)
+		    zwarn("read failed: %e", errno);
+	    }
+	    return ret;
+	}
+	buf += ret;
+	len -= ret;
+    }
+
+    return got;
+}
+
+/**/
+mod_export ssize_t
+write_loop(int fd, const char *buf, size_t len)
+{
+    ssize_t wrote = len;
+
+    while (1) {
+	ssize_t ret = write(fd, buf, len);
+	if (ret == len)
+	    break;
+	if (ret < 0) {
+	    if (errno == EINTR)
+		continue;
+	    if (fd != SHTTY)
+		zwarn("write failed: %e", errno);
+	    return -1;
+	}
+	buf += ret;
+	len -= ret;
+    }
+
+    return wrote;
+}
+
 static int
 read1char(int echo)
 {
@@ -2115,7 +2330,7 @@ read1char(int echo)
 	    return -1;
     }
     if (echo)
-	write(SHTTY, &c, 1);
+	write_loop(SHTTY, &c, 1);
     return STOUC(c);
 }
 
@@ -2130,8 +2345,11 @@ noquery(int purge)
 
     ioctl(SHTTY, FIONREAD, (char *)&val);
     if (purge) {
-	for (; val; val--)
-	    read(SHTTY, &c, 1);
+	for (; val; val--) {
+	    if (read(SHTTY, &c, 1) != 1) {
+		/* Do nothing... */
+	    }
+	}
     }
 #endif
 
@@ -2166,7 +2384,7 @@ getquery(char *valid_chars, int purge)
     if (noquery(purge)) {
 	if (!isem)
 	    settyinfo(&shttyinfo);
-	write(SHTTY, "n\n", 2);
+	write_loop(SHTTY, "n\n", 2);
 	return 'n';
     }
 
@@ -2189,9 +2407,9 @@ getquery(char *valid_chars, int purge)
 	zbeep();
     }
     if (c >= 0)
-	write(SHTTY, &c, 1);
+	write_loop(SHTTY, &c, 1);
     if (nl)
-	write(SHTTY, "\n", 1);
+	write_loop(SHTTY, "\n", 1);
 
     if (isem) {
 	if (c != '\n')
@@ -2220,7 +2438,7 @@ getquery(char *valid_chars, int purge)
 		}
 	    }
 #endif
-	    write(SHTTY, "\n", 1);
+	    write_loop(SHTTY, "\n", 1);
 	}
     }
     settyinfo(&shttyinfo);
@@ -2229,12 +2447,16 @@ getquery(char *valid_chars, int purge)
 
 static int d;
 static char *guess, *best;
+static Patprog spckpat;
 
 /**/
 static void
 spscan(HashNode hn, UNUSED(int scanflags))
 {
     int nd;
+
+    if (spckpat && pattry(spckpat, hn->nam))
+	return;
 
     nd = spdist(hn->nam, guess, (int) strlen(guess) / 4 + 1);
     if (nd <= d) {
@@ -2250,7 +2472,7 @@ spscan(HashNode hn, UNUSED(int scanflags))
 mod_export void
 spckword(char **s, int hist, int cmd, int ask)
 {
-    char *t;
+    char *t, *correct_ignore;
     int x;
     char ic = '\0';
     int ne;
@@ -2286,6 +2508,14 @@ spckword(char **s, int hist, int cmd, int ask)
 	    break;
     if (**s == Tilde && !*t)
 	return;
+
+    if ((correct_ignore = getsparam("CORRECT_IGNORE")) != NULL) {
+	tokenize(correct_ignore = dupstring(correct_ignore));
+	remnulargs(correct_ignore);
+	spckpat = patcompile(correct_ignore, 0, NULL);
+    } else
+	spckpat = NULL;
+
     if (**s == String && !*t) {
 	guess = *s + 1;
 	if (itype_end(guess, IIDENT, 1) == guess)
@@ -2436,14 +2666,19 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
      "Aug", "Sep", "Oct", "Nov", "Dec"};
 #endif
     char *origbuf = buf;
-    char tmp[3];
+    char tmp[4];
 
 
-    tmp[0] = '%';
-    tmp[2] = '\0';
     while (*fmt)
 	if (*fmt == '%') {
+	    int strip;
+
 	    fmt++;
+	    if (*fmt == '-') {
+		strip = 1;
+		fmt++;
+	    } else
+		strip = 0;
 	    /*
 	     * Assume this format will take up at least two
 	     * characters.  Not always true, but if that matters
@@ -2454,51 +2689,67 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		return -1;
 	    switch (*fmt++) {
 	    case 'd':
-		*buf++ = '0' + tm->tm_mday / 10;
+		if (tm->tm_mday > 9 || !strip)
+		    *buf++ = '0' + tm->tm_mday / 10;
 		*buf++ = '0' + tm->tm_mday % 10;
 		break;
-	    case 'e':
 	    case 'f':
+		strip = 1;
+		/* FALLTHROUGH */
+	    case 'e':
 		if (tm->tm_mday > 9)
 		    *buf++ = '0' + tm->tm_mday / 10;
-		else if (fmt[-1] == 'e')
+		else if (!strip)
 		    *buf++ = ' ';
 		*buf++ = '0' + tm->tm_mday % 10;
 		break;
-	    case 'k':
 	    case 'K':
+		strip = 1;
+		/* FALLTHROUGH */
+	    case 'H':
+	    case 'k':
 		if (tm->tm_hour > 9)
 		    *buf++ = '0' + tm->tm_hour / 10;
-		else if (fmt[-1] == 'k')
-		    *buf++ = ' ';
+		else if (!strip) {
+		    if (fmt[-1] == 'H')
+			*buf++ = '0';
+		    else
+			*buf++ = ' ';
+		}
 		*buf++ = '0' + tm->tm_hour % 10;
 		break;
-	    case 'l':
 	    case 'L':
+		strip = 1;
+		/* FALLTHROUGH */
+	    case 'l':
 		hr12 = tm->tm_hour % 12;
 		if (hr12 == 0)
 		    hr12 = 12;
 	        if (hr12 > 9)
 		    *buf++ = '1';
-		else if (fmt[-1] == 'l')
+		else if (!strip)
 		    *buf++ = ' ';
 
 		*buf++ = '0' + (hr12 % 10);
 		break;
 	    case 'm':
-		*buf++ = '0' + (tm->tm_mon + 1) / 10;
+		if (tm->tm_mon > 8 || !strip)
+		    *buf++ = '0' + (tm->tm_mon + 1) / 10;
 		*buf++ = '0' + (tm->tm_mon + 1) % 10;
 		break;
 	    case 'M':
-		*buf++ = '0' + tm->tm_min / 10;
+		if (tm->tm_min > 9 || !strip)
+		    *buf++ = '0' + tm->tm_min / 10;
 		*buf++ = '0' + tm->tm_min % 10;
 		break;
 	    case 'S':
-		*buf++ = '0' + tm->tm_sec / 10;
+		if (tm->tm_sec > 9 || !strip)
+		    *buf++ = '0' + tm->tm_sec / 10;
 		*buf++ = '0' + tm->tm_sec % 10;
 		break;
 	    case 'y':
-		*buf++ = '0' + (tm->tm_year / 10) % 10;
+		if (tm->tm_year > 9 || !strip)
+		    *buf++ = '0' + (tm->tm_year / 10) % 10;
 		*buf++ = '0' + tm->tm_year % 10;
 		break;
 	    case '\0':
@@ -2507,6 +2758,26 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		fmt--;
 		break;
 #ifndef HAVE_STRFTIME
+	    case 'Y':
+	    {
+		/*
+		 * Not worth handling this natively if
+		 * strftime has it.
+		 */
+		int year, digits, testyear;
+		year = tm->tm_year + 1900;
+		digits = 1;
+		testyear = year;
+		while (testyear > 9) {
+		    digits++;
+		    testyear /= 10;
+		}
+		if (ztrftimebuf(&bufsize, digits))
+		    return -1;
+		sprintf(buf, "%d", year);
+		buf += digits;
+		break;
+	    }
 	    case 'a':
 		if (ztrftimebuf(&bufsize, strlen(astr[tm->tm_wday]) - 2))
 		    return -1;
@@ -2532,7 +2803,7 @@ ztrftime(char *buf, int bufsize, char *fmt, struct tm *tm)
 		 * in the accounting in bufsize (but nowhere else).
 		 */
 		*buf = '\1';
-		tmp[1] = fmt[-1];
+		sprintf(tmp, strip ? "%%-%c" : "%%%c", fmt[-1]);
 		if (!strftime(buf, bufsize + 2, tmp, tm))
 		{
 		    if (*buf) {
@@ -2979,9 +3250,9 @@ zbeep(void)
     if ((vb = getsparam("ZBEEP"))) {
 	int len;
 	vb = getkeystring(vb, &len, GETKEYS_BINDKEY, NULL);
-	write(SHTTY, vb, len);
+	write_loop(SHTTY, vb, len);
     } else if (isset(BEEP))
-	write(SHTTY, "\07", 1);
+	write_loop(SHTTY, "\07", 1);
     unqueue_signals();
 }
 
@@ -3048,6 +3319,7 @@ inittyptab(void)
     for (t0 = 0240; t0 != 0400; t0++)
 	typtab[t0] = IALPHA | IALNUM | IIDENT | IUSER | IWORD;
 #endif
+    /* typtab['.'] |= IIDENT; */ /* Allow '.' in variable names - broken */
     typtab['_'] = IIDENT | IUSER;
     typtab['-'] = typtab['.'] = IUSER;
     typtab[' '] |= IBLANK | INBLANK;
@@ -3060,7 +3332,8 @@ inittyptab(void)
 	typtab[t0] |= ITOK | IMETA;
     for (t0 = (int)STOUC(Snull); t0 <= (int)STOUC(Nularg); t0++)
 	typtab[t0] |= ITOK | IMETA | INULL;
-    for (s = ifs ? ifs : DEFAULT_IFS; *s; s++) {
+    for (s = ifs ? ifs : EMULATION(EMULATE_KSH|EMULATE_SH) ?
+	ztrdup(DEFAULT_IFS_SH) : ztrdup(DEFAULT_IFS); *s; s++) {
 	int c = STOUC(*s == Meta ? *++s ^ 32 : *s);
 #ifdef MULTIBYTE_SUPPORT
 	if (!isascii(c)) {
@@ -3094,7 +3367,8 @@ inittyptab(void)
     }
 #ifdef MULTIBYTE_SUPPORT
     set_widearray(wordchars, &wordchars_wide);
-    set_widearray(ifs, &ifs_wide);
+    set_widearray(ifs ? ifs : EMULATION(EMULATE_KSH|EMULATE_SH) ?
+	ztrdup(DEFAULT_IFS_SH) : ztrdup(DEFAULT_IFS), &ifs_wide);
 #endif
     for (s = SPECCHARS; *s; s++)
 	typtab[STOUC(*s)] |= ISPECIAL;
@@ -3346,7 +3620,8 @@ spname(char *oldname)
      * Rationale for this, if there ever was any, has been forgotten.    */
     for (;;) {
 	while (*old == '/') {
-	    if ((new - newname) >= (sizeof(newname)-1)) return NULL;
+	    if ((new - newname) >= (sizeof(newname)-1))
+		return NULL;
 	    *new++ = *old++;
 	}
 	*new = '\0';
@@ -3524,7 +3799,7 @@ attachtty(pid_t pgrp)
 {
     static int ep = 0;
 
-    if (jobbing) {
+    if (jobbing && interact) {
 #ifdef HAVE_TCSETPGRP
 	if (SHTTY != -1 && tcsetpgrp(SHTTY, pgrp) == -1 && !ep)
 #else
@@ -3704,26 +3979,67 @@ metalen(const char *s, int len)
     return mlen;
 }
 
-/* This function converts a zsh internal string to a form which can be *
- * passed to a system call as a filename.  The result is stored in a   *
- * single static area.  NULL returned if the result is longer than     *
- * 4 * PATH_MAX.                                                       */
+/*
+ * This function converts a zsh internal string to a form which can be
+ * passed to a system call as a filename.  The result is stored in a
+ * single static area, sized to fit.  If there is no Meta character
+ * the original string is returned.
+ */
 
 /**/
 mod_export char *
 unmeta(const char *file_name)
 {
-    static char fn[4 * PATH_MAX];
+    static char *fn;
+    static int sz;
     char *p;
     const char *t;
+    int newsz, meta;
+    
+    meta = 0;
+    for (t = file_name; *t; t++) {
+	if (*t == Meta)
+	    meta = 1;
+    }
+    if (!meta) {
+	/*
+	 * don't need allocation... free if it's long, see below
+	 */
+	if (sz > 4 * PATH_MAX) {
+	    zfree(fn, sz);
+	    fn = NULL;
+	    sz = 0;
+	}
+	return (char *) file_name;
+    }
 
-    for (t = file_name, p = fn; *t && p < fn + 4 * PATH_MAX - 1; p++)
+    newsz = (t - file_name) + 1;
+    /*
+     * Optimisation: don't resize if we don't have to.
+     * We need a new allocation if
+     * - nothing was allocated before
+     * - the new string is larger than the old one
+     * - the old string was larger than an arbitrary limit but the
+     *   new string isn't so that we free up significant space by resizing.
+     */
+    if (!fn || newsz > sz || (sz > 4 * PATH_MAX && newsz <= 4 * PATH_MAX))
+    {
+	if (fn)
+	    zfree(fn, sz);
+	sz = newsz;
+	fn = (char *)zalloc(sz);
+	if (!fn) {
+	    sz = 0;
+	    /*
+	     * will quite likely crash in the caller anyway...
+	     */
+	    return NULL;
+	}
+    }
+
+    for (t = file_name, p = fn; *t; p++)
 	if ((*p = *t++) == Meta)
 	    *p = *t++ ^ 32;
-    if (*t)
-	return NULL;
-    if (p - fn == t - file_name)
-	return (char *) file_name;
     *p = '\0';
     return fn;
 }
@@ -4151,6 +4467,8 @@ mb_metacharlenconv(const char *s, wint_t *wcp)
  * until end of string.
  *
  * If width is 1, return total character width rather than number.
+ * If width is greater than 1, return 1 if character has non-zero width,
+ * else 0.
  */
 
 /**/
@@ -4189,13 +4507,15 @@ mb_metastrlen(char *ptr, int width)
 	    } else if (width) {
 		/*
 		 * Returns -1 if not a printable character.  We
-		 * turn this into 1 for backward compatibility.
+		 * turn this into 0.
 		 */
 		int wcw = WCWIDTH(wc);
-		if (wcw >= 0)
-		    num += wcw;
-		else
-		    num++;
+		if (wcw > 0) {
+		    if (width == 1)
+			num += wcw;
+		    else
+			num++;
+		}
 	    } else
 		num++;
 	    laststart = ptr;
@@ -4293,13 +4613,18 @@ addunprintable(char *v, const char *u, const char *uend)
 }
 
 /*
- * Quote the string s and return the result.
+ * Quote the string s and return the result as a string from the heap.
  *
  * If e is non-zero, the
  * pointer it points to may point to a position in s and in e the position
  * of the corresponding character in the quoted string is returned.
  * 
  * The last argument is a QT_ value defined in zsh.h other than QT_NONE.
+ *
+ * Most quote styles other than backslash assume the quotes are to
+ * be added outside quotestring().  QT_SINGLE_OPTIONAL is different:
+ * the single quotes are only added where necessary, so the
+ * whole expression is handled here.
  *
  * The string may be metafied and contain tokens.
  */
@@ -4310,20 +4635,60 @@ quotestring(const char *s, char **e, int instring)
 {
     const char *u, *tt;
     char *v;
+    int alloclen;
+    char *buf;
+    int sf = 0, shownull;
     /*
-     * With QT_BACKSLASH we may need to use $'\300' stuff.
-     * Keep memory usage within limits by allocating temporary
-     * storage and using heap for correct size at end.
+     * quotesub is used with QT_SINGLE_OPTIONAL.
+     * quotesub = 0:  mechanism not active
+     * quotesub = 1:  mechanism pending, no "'" yet;
+     *                needs adding at quotestart.
+     * quotesub = 2:  mechanism active, added opening "'"; need
+     *                closing "'".
      */
-    int alloclen = (instring == QT_BACKSLASH ? 7 : 4) * strlen(s) + 1;
-    char *buf = zshcalloc(alloclen);
-    int sf = 0;
+    int quotesub = 0, slen;
+    char *quotestart;
     convchar_t cc;
     const char *uend;
 
-    DPUTS(instring < QT_BACKSLASH || instring > QT_DOLLARS,
+    slen = strlen(s);
+    if (instring == QT_BACKSLASH_SHOWNULL) {
+	shownull = 1;
+	instring = QT_BACKSLASH;
+    } else {
+	shownull = 0;
+    }
+    switch (instring)
+    {
+    case QT_BACKSLASH:
+	/*
+	 * With QT_BACKSLASH we may need to use $'\300' stuff.
+	 * Keep memory usage within limits by allocating temporary
+	 * storage and using heap for correct size at end.
+	 */
+	alloclen = slen * 7 + 1;
+	if (!*s && shownull)
+	    alloclen += 2;	/* for '' */
+	break;
+
+    case QT_SINGLE_OPTIONAL:
+	/*
+	 * Here, we may need to add single quotes.
+	 */
+	alloclen = slen * 4 + 3;
+	quotesub = 1;
+	break;
+
+    default:
+	alloclen = slen * 4 + 1;
+	break;
+    }
+
+    tt = quotestart = v = buf = zshcalloc(alloclen);
+
+    DPUTS(instring < QT_BACKSLASH || instring == QT_BACKTICK ||
+	  instring > QT_SINGLE_OPTIONAL,
 	  "BUG: bad quote type in quotestring");
-    tt = v = buf;
     u = s;
     if (instring == QT_DOLLARS) {
 	/*
@@ -4365,6 +4730,13 @@ quotestring(const char *s, char **e, int instring)
     }
     else
     {
+	if (shownull) {
+	    /* We can't show an empty string with just backslash quoting. */
+	    if (!*u) {
+		*v++ = '\'';
+		*v++ = '\'';
+	    }
+	}
 	/*
 	 * Here there are syntactic special characters, so
 	 * we start by going through bytewise.
@@ -4419,21 +4791,77 @@ quotestring(const char *s, char **e, int instring)
 		       (u[-1] == '=' || u[-1] == ':')) ||
 		      (*u == '~' && isset(EXTENDEDGLOB))) &&
 		     (instring == QT_BACKSLASH ||
+		      instring == QT_SINGLE_OPTIONAL ||
 		      (isset(BANGHIST) && *u == (char)bangchar &&
 		       instring != QT_SINGLE) ||
 		      (instring == QT_DOUBLE &&
 		       (*u == '$' || *u == '`' || *u == '\"' || *u == '\\')) ||
 		      (instring == QT_SINGLE && *u == '\''))) {
-		if (*u == '\n' || (instring == QT_SINGLE && *u == '\'')) {
-		    if (unset(RCQUOTES)) {
+		if (instring == QT_SINGLE_OPTIONAL) {
+		    if (quotesub == 1) {
+			/*
+			 * We haven't yet had to quote at the start.
+			 */
+			if (*u == '\'') {
+			    /*
+			     * We don't need to.
+			     */
+			    *v++ = '\\';
+			} else {
+			    /*
+			     * It's now time to add quotes.
+			     */
+			    if (v > quotestart)
+			    {
+				char *addq;
+
+				for (addq = v; addq > quotestart; addq--)
+				    *addq = addq[-1];
+			    }
+			    *quotestart = '\'';
+			    v++;
+			    quotesub = 2;
+			}
+			*v++ = *u++;
+			/*
+			 * Next place to start quotes is here.
+			 */
+			quotestart = v;
+		    } else if (*u == '\'') {
+			if (unset(RCQUOTES)) {
+			    *v++ = '\'';
+			    *v++ = '\\';
+			    *v++ = '\'';
+			    /* Don't restart quotes unless we need them */
+			    quotesub = 1;
+			    quotestart = v;
+			} else {
+			    /* simplest just to use '' always */
+			    *v++ = '\'';
+			    *v++ = '\'';
+			}
+			/* dealt with */
+			u++;
+		    } else {
+			/* else already quoting, just add */
+			*v++ = *u++;
+		    }
+		    continue;
+		} else if (*u == '\n' ||
+			   (instring == QT_SINGLE && *u == '\'')) {
+		    if (*u == '\n') {
+			*v++ = '$';
+			*v++ = '\'';
+			*v++ = '\\';
+			*v++ = 'n';
+			*v++ = '\'';
+		    } else if (unset(RCQUOTES)) {
 			*v++ = '\'';
 			if (*u == '\'')
 			    *v++ = '\\';
 			*v++ = *u;
 			*v++ = '\'';
-		    } else if (*u == '\n')
-			*v++ = '"', *v++ = '\n', *v++ = '"';
-		    else
+		    } else
 			*v++ = '\'', *v++ = '\'';
 		    u++;
 		    continue;
@@ -4482,6 +4910,8 @@ quotestring(const char *s, char **e, int instring)
 	    }
 	}
     }
+    if (quotesub == 2)
+	*v++ = '\'';
     *v = '\0';
 
     if (e && *e == u)
@@ -4769,7 +5199,7 @@ getkeystring(char *s, int *len, int how, int *misc)
     char *buf, tmp[1];
     char *t, *tdest = NULL, *u = NULL, *sstart = s, *tbuf = NULL;
     char svchar = '\0';
-    int meta = 0, control = 0;
+    int meta = 0, control = 0, ignoring = 0;
     int i;
 #if defined(HAVE_WCHAR_H) && defined(HAVE_WCTOMB) && defined(__STDC_ISO_10646__)
     wint_t wval;
@@ -5192,11 +5622,22 @@ getkeystring(char *s, int *len, int how, int *misc)
 	if (how & GETKEY_DOLLAR_QUOTE) {
 	    char *t2;
 	    for (t2 = tbuf; t2 < t; t2++) {
+		/*
+		 * In POSIX mode, an embedded NULL is discarded and
+		 * terminates processing.  It just does, that's why.
+		 */
+		if (isset(POSIXSTRINGS)) {
+		    if (*t2 == '\0')
+			ignoring = 1;
+		    if (ignoring)
+			break;
+		}
 		if (imeta(*t2)) {
 		    *tdest++ = Meta;
 		    *tdest++ = *t2 ^ 32;
-		} else
+		} else {
 		    *tdest++ = *t2;
+		}
 	    }
 	    /*
 	     * Reset use of temporary buffer.
@@ -5268,6 +5709,21 @@ upchdir(int n)
     return 0;
 }
 
+/*
+ * Initialize a "struct dirsav".
+ * The structure will be set to the directory we want to save
+ * the first time we change to a different directory.
+ */
+
+/**/
+mod_export void
+init_dirsav(Dirsav d)
+{
+    d->ino = d->dev = 0;
+    d->dirname = NULL;
+    d->dirfd = d->level = -1;
+}
+
 /* Change directory, without following symlinks.  Returns 0 on success, -1 *
  * on failure.  Sets errno to ENOTDIR if any symlinks are encountered.  If *
  * fchdir() fails, or the current directory is unreadable, we might end up *
@@ -5286,11 +5742,12 @@ lchdir(char const *path, struct dirsav *d, int hard)
     int err;
     struct stat st2;
 #endif
+#ifdef HAVE_FCHDIR
+    int close_dir = 0;
+#endif
 
     if (!d) {
-	ds.ino = ds.dev = 0;
-	ds.dirname = NULL;
-	ds.dirfd = -1;
+	init_dirsav(&ds);
 	d = &ds;
     }
 #ifdef HAVE_LSTAT
@@ -5300,11 +5757,7 @@ lchdir(char const *path, struct dirsav *d, int hard)
     if (*path == '/') {
 #endif
 	level = -1;
-#ifdef HAVE_FCHDIR
-	if (d->dirfd < 0 && (d->dirfd = open(".", O_RDONLY | O_NOCTTY)) < 0 &&
-	    zgetdir(d) && *d->dirname != '/')
-	    d->dirfd = open("..", O_RDONLY | O_NOCTTY);
-#else
+#ifndef HAVE_FCHDIR
 	if (!d->dirname)
 	    zgetdir(d);
 #endif
@@ -5331,19 +5784,33 @@ lchdir(char const *path, struct dirsav *d, int hard)
 	}
 	return zchdir((char *) path);
     }
+
 #ifdef HAVE_LSTAT
+#ifdef HAVE_FCHDIR
+    if (d->dirfd < 0) {
+	close_dir = 1;
+        if ((d->dirfd = open(".", O_RDONLY | O_NOCTTY)) < 0 &&
+	    zgetdir(d) && *d->dirname != '/')
+	    d->dirfd = open("..", O_RDONLY | O_NOCTTY);
+    }
+#endif
     if (*path == '/')
-	chdir("/");
+	if (chdir("/") < 0)
+	    zwarn("failed to chdir(/): %e", errno);
     for(;;) {
 	while(*path == '/')
 	    path++;
 	if(!*path) {
-	    if (d == &ds) {
+	    if (d == &ds)
 		zsfree(ds.dirname);
-		if (ds.dirfd >=0)
-		    close(ds.dirfd);
-	    } else
+	    else
 		d->level = level;
+#ifdef HAVE_FCHDIR
+	    if (d->dirfd >=0 && close_dir) {
+		close(d->dirfd);
+		d->dirfd = -1;
+	    }
+#endif
 	    return 0;
 	}
 	for(pptr = path; *++pptr && *pptr != '/'; ) ;
@@ -5378,19 +5845,50 @@ lchdir(char const *path, struct dirsav *d, int hard)
 	}
     }
     if (restoredir(d)) {
-	if (d == &ds) {
-	    zsfree(ds.dirname);
-	    if (ds.dirfd >=0)
-		close(ds.dirfd);
+	int restoreerr = errno;
+	int i;
+	/*
+	 * Failed to restore the directory.
+	 * Just be definite, cd to root and report the result.
+	 */
+	for (i = 0; i < 2; i++) {
+	    const char *cdest;
+	    if (i)
+		cdest = "/";
+	    else {
+		if (!home)
+		    continue;
+		cdest = home;
+	    }
+	    zsfree(pwd);
+	    pwd = ztrdup(cdest);
+	    if (chdir(pwd) == 0)
+		break;
 	}
+	if (i == 2)
+	    zerr("lost current directory, failed to cd to /: %e", errno);
+	else
+	    zerr("lost current directory: %e: changed to `%s'", restoreerr,
+		pwd);
+	if (d == &ds)
+	    zsfree(ds.dirname);
+#ifdef HAVE_FCHDIR
+	if (d->dirfd >=0 && close_dir) {
+	    close(d->dirfd);
+	    d->dirfd = -1;
+	}
+#endif
 	errno = err;
 	return -2;
     }
-    if (d == &ds) {
+    if (d == &ds)
 	zsfree(ds.dirname);
-	if (ds.dirfd >=0)
-	    close(ds.dirfd);
+#ifdef HAVE_FCHDIR
+    if (d->dirfd >=0 && close_dir) {
+	close(d->dirfd);
+	d->dirfd = -1;
     }
+#endif
     errno = err;
     return -1;
 #endif /* HAVE_LSTAT */
@@ -5458,8 +5956,8 @@ privasserted(void)
 		    cap_free(caps);
 		    return 1;
 		}
-	    cap_free(caps);
 	}
+	cap_free(caps);
     }
 #endif /* HAVE_CAP_GET_PROC */
     return 0;

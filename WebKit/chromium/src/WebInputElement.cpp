@@ -40,19 +40,29 @@ using namespace WebCore;
 
 namespace WebKit {
 
+bool WebInputElement::isTextField() const
+{
+    return constUnwrap<HTMLInputElement>()->isTextField();
+}
+
+bool WebInputElement::isText() const
+{
+    return constUnwrap<HTMLInputElement>()->isText();
+}
+
+bool WebInputElement::isPasswordField() const
+{
+    return constUnwrap<HTMLInputElement>()->isPasswordField();
+}
+
+bool WebInputElement::isImageButton() const
+{
+    return constUnwrap<HTMLInputElement>()->isImageButton();
+}
+
 bool WebInputElement::autoComplete() const
 {
     return constUnwrap<HTMLInputElement>()->autoComplete();
-}
-
-bool WebInputElement::isEnabledFormControl() const
-{
-    return constUnwrap<HTMLInputElement>()->isEnabledFormControl();
-}
-
-WebInputElement::InputType WebInputElement::inputType() const
-{
-    return static_cast<InputType>(constUnwrap<HTMLInputElement>()->inputType());
 }
 
 int WebInputElement::maxLength() const
@@ -70,9 +80,14 @@ void WebInputElement::setActivatedSubmit(bool activated)
     unwrap<HTMLInputElement>()->setActivatedSubmit(activated);
 }
 
-void WebInputElement::setValue(const WebString& value)
+int WebInputElement::size() const
 {
-    unwrap<HTMLInputElement>()->setValue(value);
+    return constUnwrap<HTMLInputElement>()->size();
+}
+
+void WebInputElement::setValue(const WebString& value, bool sendChangeEvent)
+{
+    unwrap<HTMLInputElement>()->setValue(value, sendChangeEvent);
 }
 
 WebString WebInputElement::value() const
@@ -80,19 +95,64 @@ WebString WebInputElement::value() const
     return constUnwrap<HTMLInputElement>()->value();
 }
 
+void WebInputElement::setSuggestedValue(const WebString& value)
+{
+    unwrap<HTMLInputElement>()->setSuggestedValue(value);
+}
+
+WebString WebInputElement::suggestedValue() const
+{
+    return constUnwrap<HTMLInputElement>()->suggestedValue();
+}
+
+void WebInputElement::setPlaceholder(const WebString& value)
+{
+    unwrap<HTMLInputElement>()->setPlaceholder(value);
+}
+
+WebString WebInputElement::placeholder() const
+{
+    return constUnwrap<HTMLInputElement>()->placeholder();
+}
+
+bool WebInputElement::isAutofilled() const
+{
+    return constUnwrap<HTMLInputElement>()->isAutofilled();
+}
+
 void WebInputElement::setAutofilled(bool autoFilled)
 {
     unwrap<HTMLInputElement>()->setAutofilled(autoFilled);
 }
 
-void WebInputElement::dispatchFormControlChangeEvent()
-{
-    unwrap<HTMLInputElement>()->dispatchFormControlChangeEvent();
-}
-
 void WebInputElement::setSelectionRange(int start, int end)
 {
     unwrap<HTMLInputElement>()->setSelectionRange(start, end);
+}
+
+int WebInputElement::selectionStart() const
+{
+    return constUnwrap<HTMLInputElement>()->selectionStart();
+}
+
+int WebInputElement::selectionEnd() const
+{
+    return constUnwrap<HTMLInputElement>()->selectionEnd();
+}
+
+bool WebInputElement::isValidValue(const WebString& value) const
+{
+    return constUnwrap<HTMLInputElement>()->isValidValue(value);
+}
+
+bool WebInputElement::isChecked() const
+{
+    return constUnwrap<HTMLInputElement>()->checked();
+}
+
+int WebInputElement::defaultMaxLength()
+{
+    return HTMLInputElement::maximumLength;
 }
 
 WebInputElement::WebInputElement(const PassRefPtr<HTMLInputElement>& elem)
@@ -109,6 +169,15 @@ WebInputElement& WebInputElement::operator=(const PassRefPtr<HTMLInputElement>& 
 WebInputElement::operator PassRefPtr<HTMLInputElement>() const
 {
     return static_cast<HTMLInputElement*>(m_private.get());
+}
+
+WebInputElement* toWebInputElement(WebElement* webElement)
+{
+    HTMLInputElement* inputElement = webElement->unwrap<Element>()->toInputElement();
+    if (!inputElement)
+        return 0;
+
+    return static_cast<WebInputElement*>(webElement);
 }
 
 } // namespace WebKit

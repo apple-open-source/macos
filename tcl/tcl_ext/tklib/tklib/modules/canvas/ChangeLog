@@ -1,0 +1,122 @@
+2010-08-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* canvas_mvg.tcl: New package. Partial conversion of canvas
+	* canvas_mvg.man: contents to ImageMagick's MVG vector format.
+	* pkgIndex.tcl:
+
+2010-08-13  Andreas Kupries  <andreask@activestate.com>
+
+	* canvas_zoom.tcl: Added missing Tk requirement. Bumped version to
+	* canvas_zoom.man: 0.2.1. Updated documentation.
+	* canvas_sqmap.tcl: Added missing Tk requirement. Bumped version to
+	* canvas_sqmap.man: 0.3.1. Updated documentation.
+	* pkgIndex.tcl:
+
+2010-07-19  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* canvas_sqmap.tcl: Extend the class with two option to specify
+	* canvas_sqmap.man: images to show while the image for a cell is
+	* pkgIndex.tcl: loaded, and in cells for which there is no
+	  image. Updated the documentation. Bumped the version to 0.3.
+
+2010-07-16  Andreas Kupries  <andreask@activestate.com>
+
+	* ../../examples/canvas/osm.tcl: Another update of the app, Keith
+	  added:
+	  o computes distance between points: as you right click to
+	    to add points, it shows the distance from start to end
+	  o built in some initial locations (so not dependent on
+	    locations.gps)
+	  o hack to get the display shown nicely while initial maps
+	    are loading
+	  o double clicking a location automatically goes there
+	  o safer way to process *.gps files instead of just using 'eval'
+	  o shorten lat/lon to 6 decimal places
+
+	  And I added a binding (Button 3 double-click) to center the map
+	  at the mouse position. The zoom control has been 'place'd on the
+	  canvas. This works best for the new control, see below.
+
+	* canvas_zoom.tcl: Updated and modified by Keith. Only two buttons
+	* canvas_zoom.man: (+/-, as images) and a label in the
+	* pkgIndex.tcl: middle. Automatically uses tile/ttk widgets if
+	  they are present. Simplified internals by using an unmapped
+	  scale widget to handle all the variable tracing. Version bumped
+	  to 0.2.
+
+2010-07-07  Andreas Kupries  <andreask@activestate.com>
+
+	* ../../examples/canvas/city.tcl: Dropped the code trying
+	* ../../examples/canvas/puzzle.tcl: to find and source
+	* ../../examples/canvas/osm.tcl: packages relative to the
+	  example's location. Assume that the packages are installed.
+	  Further fixed issue with initial zoom level in osm.tcl.
+
+2010-05-28  Andreas Kupries  <andreask@activestate.com>
+
+	* canvas_snap.tcl: Fixed oops, missing setup of our
+	* canvas_snap.man: namespace. Version bumped to 1.0.1
+	* pkgIndex.tcl: Thanks to George Petasis for noticing.
+
+2010-05-26  Andreas Kupries  <andreask@activestate.com>
+
+	* canvas_snap.tcl: New package, taking snapshots of
+	* canvas_snap.man: Canvases (to Tk photo image).
+	* pkgIndex.tcl: Original author George Petasis, see
+	  http://wiki.tcl.tk/1404.
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2008-11-26  Andreas Kupries  <andreask@activestate.com>
+
+	* canvas_zoom.man: Fixed syntax error in manpage I forgot to
+	  validate.
+
+2008-11-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* ../../examples/canvas/osm_zoom.tcl: Removed zoom control and
+	* ../../examples/canvas/tiles_xy_store_http.tcl: tile fetching.
+	* ../../examples/canvas/osm.tcl: The former is now canvas::zoom,
+	  the latter has been replaced by the map::slippy::* packages in
+	  Tcllib. Updated the OSM example application to use these
+	  packages now. Reordered its innards a bit as well.
+
+	* canvas_zoom.tcl: Converted the zoom control in the canvas example
+	* canvas_zoom.man: into a regular widget, and fixed a problem with
+	* pkgIndex.tcl: viewport calculations (div-by-zero) in sqmap.
+	* canvas_sqmap.tcl: Bumped version the of sqmap to 0.2
+	* canvas_sqmap.man:
+
+2008-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* canvas_sqmap.tcl (Reconfigure): Streamline internal operations a
+	  bit ... I.e. no redraw before the viewport is stabilized, and
+	  done only if not already done through the viewport move. Further
+	  no irrelevant redraw request when forced through undefined
+	  pixelview. At last, do never drop free items. As we configure
+	  them to show no image even those not immediately reused are
+	  effectively invisible and stay around until needed. This reduces
+	  item destroy/create churn rate when we are forcing a full reload.
+
+2008-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* canvas_sqmap.tcl: Removed guards from tilecache invokations in
+	  the image methods. Could have prevented insertion of new image
+	  into the cache, keeping an old image and making cache
+	  inconsistent with the display. This needs cache::async 0.3 to
+	  prevent a blow-up in the recursive call to the cache due to
+	  recursive call and cleanup of notifications causding failure in
+	  the outer call later. This was fixed in v0.3 of the cache::async.
+
+2008-11-22  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module for extended canvas widgets.
+
+	* canvas_sqmap.man: Extended canvas for map display, based on
+	* canvas_sqmap.tcl: square image tiles. Plus examples.
+	* pkgIndex.tcl:
+

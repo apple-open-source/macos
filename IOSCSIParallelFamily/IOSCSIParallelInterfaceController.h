@@ -63,6 +63,11 @@
 #define kIOPropertySCSIDeviceFeaturesKey			"SCSI Device Features"
 #define kIOPropertySCSI_I_T_NexusFeaturesKey		"SCSI I_T Nexus Features"
 
+// Set this key with a value of true in ReportHBAConstraints() to indicate support
+// for full 8-byte LUN addressing and use GetLogicalUnitBytes() to obtain the
+// full 8-byte LUN when processing commands in ProcessParallelTask().
+#define kIOHierarchicalLogicalUnitSupportKey		"SCSI Hierarchical Logical Unit Support"
+
 // This is the alignment mask used when allocating per-task HBA data. It allows
 // the HBA to declare whether or not it supports 64-bit addressability and what the
 // minimum byte alignment is for the data. E.g. By specifying 0x0000FFFFFFFFFFFEULL,
@@ -116,14 +121,14 @@ typedef enum SCSIParallelFeatureRequest
 	// This selector indicates that the controller
 	// should clear any negotiation for the feature
 	kSCSIParallelFeature_ClearNegotiation 		= 2
-};
+} SCSIParallelFeatureRequest;
 	
 typedef enum SCSIParallelFeatureResult
 {
 	kSCSIParallelFeature_NegotitiationUnchanged	= 0,
 	kSCSIParallelFeature_NegotitiationCleared	= 1,
 	kSCSIParallelFeature_NegotitiationSuccess	= 2
-};
+} SCSIParallelFeatureResult;
 
 
 // The SCSI Message Codes used for MESSAGE IN and MESSAGE OUT phases.
@@ -388,7 +393,8 @@ public:
 			kIOMaximumSegmentByteCountWriteKey, (required)
 			kIOMinimumSegmentAlignmentByteCountKey, (required)
 			kIOMaximumSegmentAddressableBitCountKey, (required)
-			kIOMinimumHBADataAlignmentMaskKey (required).
+			kIOMinimumHBADataAlignmentMaskKey (required)
+			kIOHierarchicalLogicalUnitSupportKey (optional).
 		NB: These keys and their values are described in this header and <IOKit/IOKitKeys.h>
 		@param constraints. An OSDictionary object used to aggregate the key/value pairs.
 		Subclasses must set the required keys if they override this method. If a subclass does
@@ -398,8 +404,20 @@ public:
 	
 	virtual void	ReportHBAConstraints ( OSDictionary * constraints );
 	
+	/*!
+		@function DoesHBASupportMultiPathing
+		@abstract Queries the HBA child class to determine if it supports
+		Multi-Pathing.
+		@discussion	Queries the HBA child class to determine if it supports
+		Multi-Pathing.
+		@result Returns true if requested feature is supported.
+	*/
+	OSMetaClassDeclareReservedUsed ( IOSCSIParallelInterfaceController, 3 );
+
+	virtual bool	DoesHBASupportMultiPathing ( void );
+							
+	
 	// Padding for the Client API
-	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 3 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 4 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 5 );
 	OSMetaClassDeclareReservedUnused ( IOSCSIParallelInterfaceController, 6 );
@@ -447,9 +465,9 @@ protected:
 				kIOPropertySASAddressKey,
 				kIOPropertyFibreChannelNodeWorldWideNameKey,
 				kIOPropertyFibreChannelPortWorldWideNameKey,
-				kIOPropertyFibreChannelAddressIdentifierKey, 
+				kIOPropertyFibreChannelAddressIdentifierKey,
 				kIOPropertyFibreChannelALPAKey, and
-				kIOPropertyRetryCountKey.
+				kIOPropertyRetryCountKey
 				These keys are defined in
 				<IOKit/storage/IOStorageProtocolCharacteristics.h> and the values
 				associated with these keys must be of the proper type/size,
@@ -534,8 +552,9 @@ protected:
 			kIOPropertyFibreChannelCableDescriptionKey,
 			kIOPropertyFibreChannelNodeWorldWideNameKey,
 			kIOPropertyFibreChannelPortWorldWideNameKey,
-			kIOPropertyFibreChannelAddressIdentifierKey, and
-			kIOPropertyFibreChannelALPAKey.
+			kIOPropertyFibreChannelAddressIdentifierKey, 
+			kIOPropertyFibreChannelALPAKey, and
+			kIOPropertySASAddressKey.
 		NB: These keys and their values are described in <IOKit/storage/IOStorageDeviceCharacteristics.h>
 		and <IOKit/storage/IOStorageProtocolCharacteristics.h>
 		@param value Pointer to an OSObject (one of type OSData, OSString, etc.)
@@ -935,8 +954,22 @@ protected:
 	*/
 	
 	SCSILogicalUnitNumber	GetLogicalUnitNumber ( 
-							SCSIParallelTaskIdentifier 	parallelTask );
+							SCSIParallelTaskIdentifier 	parallelTask ); // DEPRECATED, use GetLogicalUnitBytes instead.
 	
+	/*!
+		@function GetLogicalUnitBytes
+		@abstract Method to get the logical unit bytes associated with a
+		request.
+		@discussion Method to get the logical unit bytes associated with a
+		request.
+		@param parallelTask A valid SCSIParallelTaskIdentifier.
+		@result returns a valid 8-byte logical unit address.
+	*/
+
+    void    GetLogicalUnitBytes (
+                            SCSIParallelTaskIdentifier  parallelTask,
+                            SCSILogicalUnitBytes *      logicalUnitBytes );
+
 	/*!
 		@function GetTaggedTaskIdentifier
 		@abstract Method to retrieve the SCSI Tagged Task Identifier of the 
@@ -1542,7 +1575,6 @@ private:
 	// These shall not be overridden by the HBA child classes.
 	bool			start ( IOService * 				provider );
 	void			stop ( 	IOService *  				provider );
-	virtual void	free ( void );
 	
 	
 protected:
@@ -1563,6 +1595,8 @@ protected:
 	
 	virtual bool	willTerminate ( IOService * provider, IOOptionBits options );
 	virtual bool	didTerminate ( IOService * provider, IOOptionBits options, bool * defer );
+    virtual void	free ( void );
+
 	
 };
 

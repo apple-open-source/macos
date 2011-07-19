@@ -1,4 +1,4 @@
-# RCS: @(#) $Id: layout.tcl,v 1.15 2006/12/07 03:54:06 treectrl Exp $
+# RCS: @(#) $Id: layout.tcl,v 1.16 2009/06/29 20:19:44 treectrl Exp $
 
 #
 # Demo: Layout
@@ -99,7 +99,7 @@ proc DemoLayout {} {
 
     $T element create eb border -background $::SystemButtonFace \
 	-relief {sunken {selected} raised {}} -thickness 2 -filled yes
-    $T element create et text
+    $T element create et text -lmargin2 20
 
     set text "Here is a text element surrounded by a border element.\nResize the column to watch me wrap."
 

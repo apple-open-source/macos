@@ -28,16 +28,12 @@
 #include "WebHistoryItem.h"
 
 #include "COMEnumVariant.h"
-#include "COMPtr.h"
 #include "MarshallingHelpers.h"
 #include "WebKit.h"
-
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/KURL.h>
-#pragma warning(pop)
-
 #include <wtf/PassOwnPtr.h>
 #include <wtf/RetainPtr.h>
 #include <wtf/text/CString.h>
@@ -147,7 +143,7 @@ HRESULT STDMETHODCALLTYPE WebHistoryItem::initFromDictionaryRepresentation(void*
     OwnPtr<Vector<String> > redirectURLsVector;
     if (CFArrayRef redirectURLsRef = static_cast<CFArrayRef>(CFDictionaryGetValue(dictionaryRef, redirectURLsKey))) {
         CFIndex size = CFArrayGetCount(redirectURLsRef);
-        redirectURLsVector = PassOwnPtr<Vector<String> >(new Vector<String>(size));
+        redirectURLsVector = adoptPtr(new Vector<String>(size));
         for (CFIndex i = 0; i < size; ++i)
             (*redirectURLsVector)[i] = String(static_cast<CFStringRef>(CFArrayGetValueAtIndex(redirectURLsRef, i)));
     }

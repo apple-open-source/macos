@@ -1,4 +1,6 @@
-# Commands covered:  vfs::ftp::Mount and friends.
+# vfsFtp.test                                                   -*- tcl -*-
+#
+#	Commands covered:  vfs::ftp::Mount and friends.
 #
 # This file contains a collection of tests for one or more of the Tcl
 # built-in commands.  Sourcing this file into Tcl runs the tests and
@@ -11,35 +13,49 @@
 #
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
+    package require tcltest 2
     namespace import ::tcltest::*
 }
 
-package require vfs::ftp
+testConstraint ftp [expr {![catch {package require vfs::ftp}]}]
 
-puts stdout "These tests require an internet connection, and might"
-puts stdout "take a long time to complete."
+if {[testConstraint ftp]} {
+    puts stdout "These tests require an internet connection, and might"
+    puts stdout "take a long time to complete."
+}
 
-set dir [pwd]
-
-test vfsFtp-1.1 {mount and cd} {
-    vfs::ftp::Mount ftp://ftp.ucsd.edu/pub/alpha/ localmount
-    cd localmount
+test vfsFtp-1.1 {mount and cd} -constraints {ftp} -setup {
+    set cwd [pwd]
+} -body {
+    vfs::ftp::Mount ftp://ftp.ucsd.edu/pub/alpha/ local
+    cd local
     cd tcl
-    file tail [pwd]
-} {tcl}
+    set result [file tail [pwd]]
+    vfs::unmount local
+    set result
+} -cleanup {
+    cd $pwd
+} -result {tcl}
 
-test vfsFtp-1.2 {mount and glob} {
-    glob -nocomplain vfsTest.tcl
-} {vfsTest.tcl}
+test vfsFtp-1.2 {mount and glob} -constraints {ftp} -setup {
+    vfs::ftp::Mount ftp://ftp.ucsd.edu/pub/alpha/ local
+} -body {
+    glob -nocomplain -directory local/tcl vfsTest.tcl
+} -cleanup {
+    vfs::unmount local
+} -result {vfsTest.tcl}
 
-test vfsFtp-1.3 {mount and source} {
-    source vfsTest.tcl
-} {This was returned from a remote file}
+test vfsFtp-1.3 {mount and source} -constraints {ftp} -setup {
+    vfs::ftp::Mount ftp://ftp.ucsd.edu/pub/alpha/ local
+} -body {
+    set f [open local/tcl/vfsTest.tcl r]
+    set data [read $f]
+    close $f
+    set data
+} -cleanup {
+    vfs::unmount local
+} -result {This was returned from a remote file}
 
 # cleanup
-cd $dir
-catch {vfs::unmount localmount}
-
 ::tcltest::cleanupTests
 return

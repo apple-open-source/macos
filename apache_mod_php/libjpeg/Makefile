@@ -25,7 +25,7 @@ Install_Info	= $(Install_Prefix)/info
 
 # Automatic Extract & Patch
 AEP		= YES
-AEP_Version	= 8b
+AEP_Version	= 8c
 AEP_Filename	= jpegsrc.v$(AEP_Version).tar.gz
 AEP_ExtractDir	= jpeg-$(AEP_Version)
 AEP_Patches	=
@@ -41,7 +41,11 @@ install::
 
 # Include common makefile targets for B&I
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+ifeq ($(_OS_VERSION),10.6)
 include $(SRCROOT)/../AEP.make
+else
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/AEP.make
+endif
 
 #
 # Override settings from above include

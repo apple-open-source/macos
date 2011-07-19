@@ -47,6 +47,8 @@ struct IndirectLinkInfo {
 struct HardLinkInfo {
 	UInt32	privDirID;
 	SGlobPtr globals;
+	uint32_t	priv_dir_itime;	/* Creation (initialization) time of metadata folder */
+	uint32_t	root_dir_itime;	/* Creation (initialization) time of root folder */
 	PrimeBuckets	*fileBucket;
 };
 
@@ -72,6 +74,7 @@ HFSPlusCatalogKey gMetaDataDirKey = {
 
 /* private local routines */
 static int  GetPrivateDir(SGlobPtr gp, CatalogRecord *rec);
+static int  GetRootDir(SGlobPtr gp, CatalogRecord *rec);
 static int  RecordOrphanOpenUnlink(SGlobPtr gp, UInt32 parID, unsigned char * filename);
 static int  RecordBadHardLinkChainFirst(SGlobPtr, UInt32, UInt32, UInt32);
 static int  RecordBadHardLinkNext(SGlobPtr gp, UInt32 fileID, UInt32 is, UInt32 shouldbe);
@@ -250,6 +253,7 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 {
 	struct HardLinkInfo *info;
 	CatalogRecord rec;
+	CatalogRecord rootFolder;
 	UInt32 folderID;
 
 	if (GetPrivateDir(gp, &rec) == 0) {
@@ -268,6 +272,13 @@ HardLinkCheckBegin(SGlobPtr gp, void** cookie)
 	}
 
 	info->privDirID = folderID;
+	info->priv_dir_itime = folderID ? rec.hfsPlusFolder.createDate : 0;
+	if (GetRootDir(gp, &rootFolder) == 0) {
+			info->root_dir_itime = rootFolder.hfsPlusFolder.createDate;
+	} else {
+			info->root_dir_itime = 0;
+	}
+
 	info->globals = gp;
 	
 	/* We will use the ID of private metadata directory for file hard 
@@ -487,6 +498,35 @@ CaptureHardLink(void *cookie, const HFSPlusCatalogFile *file)
 		if ((file->flags & kHFSHasLinkChainMask) == 0) {
 			record_link_badchain(info->globals, false);
 		}
+	}
+	if ((info->priv_dir_itime && file->createDate != info->priv_dir_itime) &&
+		(info->root_dir_itime && file->createDate != info->root_dir_itime)) {
+		RepairOrderPtr p;
+		char str1[12];
+		char str2[12];
+		uint32_t correct;
+
+		if (debug)
+			plog("Hard Link catalog entry %u has bad time %u (should be %u, or at least %u)\n",
+				file->fileID, file->createDate, info->priv_dir_itime, info->root_dir_itime);
+		correct = info->priv_dir_itime;
+
+		p = AllocMinorRepairOrder(info->globals, 0);
+		if (p == NULL) {
+			if (debug)
+				plog("Unable to allocate hard link time repair order!");
+			return;
+		}
+
+		fsckPrint(info->globals->context, E_BadHardLinkDate);
+		snprintf(str1, sizeof(str1), "%u", correct);
+		snprintf(str2, sizeof(str2), "%u", file->createDate);
+		fsckPrint(info->globals->context, E_BadValue, str1, str2);
+
+		p->type = E_BadHardLinkDate;
+		p->parid = file->fileID;
+		p->correct = info->priv_dir_itime;
+		p->incorrect = file->createDate;
 	}
 
 	return;
@@ -1037,6 +1077,28 @@ GetPrivateDir(SGlobPtr gp, CatalogRecord * rec)
 }
 
 /*
+ * GetRootDir
+ *
+ * Get catalog entry for the Root Folder.
+ */
+static int
+GetRootDir(SGlobPtr gp, CatalogRecord * rec)
+{
+	CatalogKey	key;
+	uint16_t	recSize;
+	int                 result;
+	Boolean 			isHFSPlus;
+
+	isHFSPlus = VolumeObjectIsHFSPlus( );
+	if (!isHFSPlus)
+		return (-1);
+
+	result = GetCatalogRecordByID(gp, kHFSRootFolderID, isHFSPlus, &key, rec, &recSize);
+
+	return (result);
+}
+
+/*
  * RecordOrphanLink
  *
  * Record a repair to delete an orphaned hard links, i.e. hard links 
@@ -1089,30 +1151,14 @@ RecordOrphanInode(SGlobPtr gp, Boolean isdir, UInt32 inodeID)
 /*
  * RecordOrphanOpenUnlink
  *
- * Record a repair to delete an open unlinked file 
+ * This is only called when debugging is turned on.  Don't
+ * record an actual error, just print out a message.
  */
 static int
 RecordOrphanOpenUnlink(SGlobPtr gp, UInt32 parID, unsigned char* filename)
 {
-	RepairOrderPtr p;
-	size_t n;
-	
 	fsckPrint(gp->context, E_UnlinkedFile, filename);
 	
-	n = strlen((char *)filename);
-	p = AllocMinorRepairOrder(gp, n + 1);
-	if (p == NULL)
-		return (R_NoMem);
-
-	p->type = E_UnlinkedFile;
-	p->correct = 0;
-	p->incorrect = 0;
-	p->hint = 0;
-	p->parid = parID;
-	p->name[0] = n;  /* pascal string */
-	CopyMemory(filename, &p->name[1], n);
-
-	gp->CatStat |= S_UnlinkedFile;
 	return (noErr);
 }
 

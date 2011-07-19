@@ -313,6 +313,28 @@ bool QScriptValue::isError() const
 }
 
 /*!
+  Returns true if this QScriptValue is an object of the Array class;
+  otherwise returns false.
+
+  \sa QScriptEngine::newArray()
+*/
+bool QScriptValue::isArray() const
+{
+    return d_ptr->isArray();
+}
+
+/*!
+    Returns true if this QScriptValue is an object of the Date class;
+    otherwise returns false.
+
+    \sa QScriptEngine::newDate()
+*/
+bool QScriptValue::isDate() const
+{
+    return d_ptr->isDate();
+}
+
+/*!
   Returns true if this QScriptValue is of the Object type; otherwise
   returns false.
 
@@ -467,6 +489,28 @@ quint16 QScriptValue::toUInt16() const
 }
 
 /*!
+  \obsolete
+
+  This function is obsolete; use QScriptEngine::toObject() instead.
+*/
+QScriptValue QScriptValue::toObject() const
+{
+    return QScriptValuePrivate::get(d_ptr->toObject());
+}
+
+/*!
+    Returns a QDateTime representation of this value, in local time.
+    If this QScriptValue is not a date, or the value of the date is
+    NaN (Not-a-Number), an invalid QDateTime is returned.
+
+    \sa isDate()
+*/
+QDateTime QScriptValue::toDateTime() const
+{
+    return d_ptr->toDateTime();
+}
+
+/*!
   Calls this QScriptValue as a function, using \a thisObject as
   the `this' object in the function call, and passing \a args
   as arguments to the function. Returns the value returned from
@@ -508,6 +552,34 @@ QScriptEngine* QScriptValue::engine() const
 }
 
 /*!
+  If this QScriptValue is an object, returns the internal prototype
+  (\c{__proto__} property) of this object; otherwise returns an
+  invalid QScriptValue.
+
+  \sa setPrototype(), isObject()
+*/
+QScriptValue QScriptValue::prototype() const
+{
+    return QScriptValuePrivate::get(d_ptr->prototype());
+}
+
+/*!
+  If this QScriptValue is an object, sets the internal prototype
+  (\c{__proto__} property) of this object to be \a prototype;
+  otherwise does nothing.
+
+  The internal prototype should not be confused with the public
+  property with name "prototype"; the public prototype is usually
+  only set on functions that act as constructors.
+
+  \sa prototype(), isObject()
+*/
+void QScriptValue::setPrototype(const QScriptValue& prototype)
+{
+    d_ptr->setPrototype(QScriptValuePrivate::get(prototype));
+}
+
+/*!
   Assigns the \a other value to this QScriptValue.
 
   Note that if \a other is an object (isObject() returns true),
@@ -546,7 +618,7 @@ QScriptValue& QScriptValue::operator=(const QScriptValue& other)
 */
 bool QScriptValue::equals(const QScriptValue& other) const
 {
-    return d_ptr == other.d_ptr || d_ptr->equals(QScriptValuePrivate::get(other));
+    return d_ptr->equals(QScriptValuePrivate::get(other));
 }
 
 /*!
@@ -573,5 +645,158 @@ bool QScriptValue::equals(const QScriptValue& other) const
 */
 bool QScriptValue::strictlyEquals(const QScriptValue& other) const
 {
-    return d_ptr == other.d_ptr || d_ptr->strictlyEquals(QScriptValuePrivate::get(other));
+    return d_ptr->strictlyEquals(QScriptValuePrivate::get(other));
+}
+
+/*!
+    Returns true if this QScriptValue is an instance of
+    \a other; otherwise returns false.
+
+    This QScriptValue is considered to be an instance of \a other if
+    \a other is a function and the value of the \c{prototype}
+    property of \a other is in the prototype chain of this
+    QScriptValue.
+*/
+bool QScriptValue::instanceOf(const QScriptValue& other) const
+{
+    return d_ptr->instanceOf(QScriptValuePrivate::get(other));
+}
+
+/*!
+  Returns the value of this QScriptValue's property with the given \a name,
+  using the given \a mode to resolve the property.
+
+  If no such property exists, an invalid QScriptValue is returned.
+
+  If the property is implemented using a getter function (i.e. has the
+  PropertyGetter flag set), calling property() has side-effects on the
+  script engine, since the getter function will be called (possibly
+  resulting in an uncaught script exception). If an exception
+  occurred, property() returns the value that was thrown (typically
+  an \c{Error} object).
+
+  \sa setProperty(), propertyFlags(), QScriptValueIterator
+*/
+QScriptValue QScriptValue::property(const QString& name, const ResolveFlags& mode) const
+{
+    return QScriptValuePrivate::get(d_ptr->property(name, mode));
+}
+
+/*!
+  \overload
+
+  Returns the value of this QScriptValue's property with the given \a name,
+  using the given \a mode to resolve the property.
+
+  This overload of property() is useful when you need to look up the
+  same property repeatedly, since the lookup can be performed faster
+  when the name is represented as an interned string.
+
+  \sa QScriptEngine::toStringHandle(), setProperty()
+*/
+QScriptValue QScriptValue::property(const QScriptString& name, const ResolveFlags& mode) const
+{
+    return QScriptValuePrivate::get(d_ptr->property(QScriptStringPrivate::get(name).constData(), mode));
+}
+
+/*!
+  \overload
+
+  Returns the property at the given \a arrayIndex, using the given \a
+  mode to resolve the property.
+
+  This function is provided for convenience and performance when
+  working with array objects.
+
+  If this QScriptValue is not an Array object, this function behaves
+  as if property() was called with the string representation of \a
+  arrayIndex.
+*/
+QScriptValue QScriptValue::property(quint32 arrayIndex, const ResolveFlags& mode) const
+{
+    return QScriptValuePrivate::get(d_ptr->property(arrayIndex, mode));
+}
+
+/*!
+  Sets the value of this QScriptValue's property with the given \a name to
+  the given \a value.
+
+  If this QScriptValue is not an object, this function does nothing.
+
+  If this QScriptValue does not already have a property with name \a name,
+  a new property is created; the given \a flags then specify how this
+  property may be accessed by script code.
+
+  If \a value is invalid, the property is removed.
+
+  If the property is implemented using a setter function (i.e. has the
+  PropertySetter flag set), calling setProperty() has side-effects on
+  the script engine, since the setter function will be called with the
+  given \a value as argument (possibly resulting in an uncaught script
+  exception).
+
+  Note that you cannot specify custom getter or setter functions for
+  built-in properties, such as the \c{length} property of Array objects
+  or meta properties of QObject objects.
+
+  \sa property()
+*/
+void QScriptValue::setProperty(const QString& name, const QScriptValue& value, const PropertyFlags& flags)
+{
+    d_ptr->setProperty(name, QScriptValuePrivate::get(value), flags);
+}
+
+/*!
+  \overload
+
+  Sets the property at the given \a arrayIndex to the given \a value.
+
+  This function is provided for convenience and performance when
+  working with array objects.
+
+  If this QScriptValue is not an Array object, this function behaves
+  as if setProperty() was called with the string representation of \a
+  arrayIndex.
+*/
+void QScriptValue::setProperty(quint32 arrayIndex, const QScriptValue& value, const PropertyFlags& flags)
+{
+    d_ptr->setProperty(arrayIndex, QScriptValuePrivate::get(value), flags);
+}
+
+/*!
+  Sets the value of this QScriptValue's property with the given \a
+  name to the given \a value. The given \a flags specify how this
+  property may be accessed by script code.
+
+  This overload of setProperty() is useful when you need to set the
+  same property repeatedly, since the operation can be performed
+  faster when the name is represented as an interned string.
+
+  \sa QScriptEngine::toStringHandle()
+*/
+void QScriptValue::setProperty(const QScriptString& name, const QScriptValue& value, const PropertyFlags& flags)
+{
+    d_ptr->setProperty(QScriptStringPrivate::get(name).constData(), QScriptValuePrivate::get(value), flags);
+}
+
+/*!
+  Returns the flags of the property with the given \a name, using the
+  given \a mode to resolve the property.
+
+  \sa property()
+*/
+QScriptValue::PropertyFlags QScriptValue::propertyFlags(const QString& name, const ResolveFlags& mode) const
+{
+    return d_ptr->propertyFlags(name, mode);
+}
+
+/*!
+  Returns the flags of the property with the given \a name, using the
+  given \a mode to resolve the property.
+
+  \sa property()
+*/
+QScriptValue::PropertyFlags QScriptValue::propertyFlags(const QScriptString& name, const ResolveFlags& mode) const
+{
+    return d_ptr->propertyFlags(QScriptStringPrivate::get(name).constData(), mode);
 }

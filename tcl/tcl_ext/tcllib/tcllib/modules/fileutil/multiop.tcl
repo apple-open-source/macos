@@ -497,7 +497,24 @@ snit::type ::fileutil::multi::op {
 	    set d [file join $base $d]
 
 	    file mkdir [file dirname $d]
-	    file copy -force $s $d
+	    if {
+		[file isdirectory $s] &&
+		[file exists      $d] &&
+		[file isdirectory $d]
+	    } {
+		# Special case: source and destination are
+		# directories, and the latter exists. This puts the
+		# source under the destination, and may even prevent
+		# copying at all. The semantics of the operation is
+		# that the source is the destination. We avoid the
+		# trouble by copying the contents of the source,
+		# instead of the directory itself.
+		foreach path [glob -directory $s *] {
+		    file copy -force $path $d
+		}
+	    } else {
+		file copy -force $s $d
+	    }
 	}
 	return
     }
@@ -625,4 +642,4 @@ snit::type ::fileutil::multi::op {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide fileutil::multi::op 0.5.2
+package provide fileutil::multi::op 0.5.3

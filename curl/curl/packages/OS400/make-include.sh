@@ -2,7 +2,6 @@
 #
 #       Installation of the include files in the OS/400 library.
 #
-# $Id: make-include.sh,v 1.6 2009-10-23 15:05:45 patrickm Exp $
 
 SCRIPTDIR=`dirname "${0}"`
 . "${SCRIPTDIR}/initscript.sh"
@@ -47,12 +46,6 @@ copy_hfile()
 }
 
 #       Copy the header files.
-
-DEST="${SRCPF}/`db2_name curl/curl.h`.MBR"
-if action_needed "${DEST}" curl/curl.h
-then	copy_hfile "${DEST}" curl/curl.h -e                             \
-            's/^# *include  *[<"]curl\/curlbuild.h[">]/#include "curlbuild.h"/'
-fi
 
 for HFILE in curl/*.h ${SCRIPTDIR}/ccsidcurl.h
 do      DEST="${SRCPF}/`db2_name \"${HFILE}\"`.MBR"

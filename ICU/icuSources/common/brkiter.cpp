@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2008, International Business Machines Corporation and    *
-* others. All Rights Reserved.                                                *
+* Copyright (C) 1997-2010, International Business Machines Corporation and
+* others. All Rights Reserved.
 *******************************************************************************
 *
 * File TXTBDRY.CPP
@@ -100,7 +100,7 @@ BreakIterator::buildInstance(const Locale& loc, const char *type, int32_t kind, 
             UChar* extStart=u_strchr(brkfname, 0x002e);
             int len = 0;
             if(extStart!=NULL){
-                len = extStart-brkfname;
+                len = (int)(extStart-brkfname);
                 u_UCharsToChars(extStart+1, ext, sizeof(ext)); // nul terminates the buff
                 u_UCharsToChars(brkfname, fnbuff, len);
             }
@@ -194,25 +194,6 @@ const Locale* U_EXPORT2
 BreakIterator::getAvailableLocales(int32_t& count)
 {
     return Locale::getAvailableLocales(count);
-}
-
-// -------------------------------------
-// Gets the objectLocale display name in the default locale language.
-UnicodeString& U_EXPORT2
-BreakIterator::getDisplayName(const Locale& objectLocale,
-                             UnicodeString& name)
-{
-    return objectLocale.getDisplayName(name);
-}
-
-// -------------------------------------
-// Gets the objectLocale display name in the displayLocale language.
-UnicodeString& U_EXPORT2
-BreakIterator::getDisplayName(const Locale& objectLocale,
-                             const Locale& displayLocale,
-                             UnicodeString& name)
-{
-    return objectLocale.getDisplayName(displayLocale, name);
 }
 
 // ------------------------------------------
@@ -378,7 +359,6 @@ BreakIterator::createInstance(const Locale& loc, int32_t kind, UErrorCode& statu
         return NULL;
     }
 
-    u_init(&status);
 #if !UCONFIG_NO_SERVICE
     if (hasService()) {
         Locale actualLoc("");

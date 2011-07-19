@@ -31,11 +31,11 @@
 #ifndef PlatformIcon_h
 #define PlatformIcon_h
 
-typedef struct HICON__* HICON;
-
 namespace WebCore {
 
-typedef HICON PlatformIcon;
+class Image;
+
+typedef Image PlatformIcon;
 
 }  // namespace WebCore
 

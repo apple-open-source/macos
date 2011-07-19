@@ -1,28 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1992, 1993 Theo de Raadt <deraadt@fsa.ca>
+ * Copyright (c) 1992/3 Theo de Raadt <deraadt@fsa.ca>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,10 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by Theo de Raadt.
- * 4. The name of the author may not be used to endorse or promote
+ * 3. The name of the author may not be used to endorse or promote
  *    products derived from this software without specific prior written
  *    permission.
  *
@@ -54,28 +28,31 @@
  */
 
 #include <sys/cdefs.h>
-#ifndef LINT
-__unused static char rcsid[] = "$Id: ypcat.c,v 1.2 2006/02/07 06:22:59 lindak Exp $";
-#endif
+
+__FBSDID("$FreeBSD: src/usr.bin/ypcat/ypcat.c,v 1.12 2009/12/13 03:14:06 delphij Exp $");
 
 #include <sys/param.h>
 #include <sys/types.h>
 #include <sys/socket.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <ctype.h>
 
 #include <rpc/rpc.h>
 #include <rpc/xdr.h>
 #include <rpcsvc/yp_prot.h>
 #include <rpcsvc/ypclnt.h>
 
+#include <ctype.h>
+#include <err.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+
 struct ypalias {
 	char *alias, *name;
 } ypaliases[] = {
 	{ "passwd", "passwd.byname" },
+	{ "master.passwd", "master.passwd.byname" },
+	{ "shadow", "shadow.byname" },
 	{ "group", "group.byname" },
 	{ "networks", "networks.byaddr" },
 	{ "hosts", "hosts.byaddr" },
@@ -87,51 +64,42 @@ struct ypalias {
 
 int key;
 
-__dead2 void
-usage()
+static void
+usage(void)
 {
-	fprintf(stderr, "Usage:\n");
-	fprintf(stderr, "\typcat [-k] [-d domainname] [-t] mapname\n");
-	fprintf(stderr, "\typcat -x\n");
+	fprintf(stderr, "%s\n%s\n",
+		"usage: ypcat [-kt] [-d domainname] mapname",
+		"       ypcat -x");
 	exit(1);
 }
 
-int
-printit(instatus, inkey, inkeylen, inval, invallen, indata)
-int instatus;
-char *inkey;
-int inkeylen;
-char *inval;
-int invallen;
-char *indata;
+static int
+printit(unsigned long instatus, char *inkey, int inkeylen, char *inval, int invallen, void *dummy __unused)
 {
-	if(instatus != YP_TRUE)
-		return instatus;
-	if(key)
+	if (instatus != YP_TRUE)
+		return (instatus);
+	if (key)
 		printf("%*.*s ", inkeylen, inkeylen, inkey);
 	printf("%*.*s\n", invallen, invallen, inval);
-	return 0;
+	return (0);
 }
 
 int
-main(argc, argv)
-char **argv;
+main(int argc, char *argv[])
 {
-	char *domainname;
+	char *domainname = NULL;
 	struct ypall_callback ypcb;
 	char *inmap;
-	extern char *optarg;
-	extern int optind;
 	int notrans;
-	int c, r, i;
+	int c, r;
+	u_int i;
 
 	notrans = key = 0;
-	yp_get_default_domain(&domainname);
 
-	while( (c=getopt(argc, argv, "xd:kt")) != -1)
-		switch(c) {
+	while ((c = getopt(argc, argv, "xd:kt")) != -1)
+		switch (c) {
 		case 'x':
-			for(i=0; i<sizeof ypaliases/sizeof ypaliases[0]; i++)
+			for (i = 0; i<sizeof ypaliases/sizeof ypaliases[0]; i++)
 				printf("Use \"%s\" for \"%s\"\n",
 					ypaliases[i].alias,
 					ypaliases[i].name);
@@ -149,27 +117,27 @@ char **argv;
 			usage();
 		}
 
-	if(optind + 1 != argc )
+	if (optind + 1 != argc)
 		usage();
 
+	if (!domainname)
+		yp_get_default_domain(&domainname);
+
 	inmap = argv[optind];
-	for(i=0; (!notrans) && i<sizeof ypaliases/sizeof ypaliases[0]; i++)
-		if( strcmp(inmap, ypaliases[i].alias) == 0)
+	for (i = 0; (!notrans) && i<sizeof ypaliases/sizeof ypaliases[0]; i++)
+		if (strcmp(inmap, ypaliases[i].alias) == 0)
 			inmap = ypaliases[i].name;
 	ypcb.foreach = printit;
 	ypcb.data = NULL;
 
 	r = yp_all(domainname, inmap, &ypcb);
-	switch(r) {
+	switch (r) {
 	case 0:
 		break;
 	case YPERR_YPBIND:
-		fprintf(stderr, "ypcat: not running ypbind\n");
-		exit(1);
+		errx(1, "not running ypbind");
 	default:
-		fprintf(stderr, "No such map %s. Reason: %s\n",
-			inmap, yperr_string(r));
-		exit(1);
+		errx(1, "no such map %s. reason: %s", inmap, yperr_string(r));
 	}
 	exit(0);
 }

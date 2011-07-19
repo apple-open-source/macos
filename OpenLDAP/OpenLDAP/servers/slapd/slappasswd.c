@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slappasswd.c,v 1.5.2.5 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slappasswd.c,v 1.5.2.7 2010/04/13 20:23:21 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * Portions Copyright 1998-2003 Kurt D. Zeilenga.
  * All rights reserved.
  *

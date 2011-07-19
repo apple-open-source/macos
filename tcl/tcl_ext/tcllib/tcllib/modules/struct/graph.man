@@ -1,10 +1,11 @@
 [comment {-*- tcl -*-}]
-[manpage_begin struct::graph n 2.3]
-[copyright {2002-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin struct::graph n 2.4]
+[copyright {2002-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Create and manipulate directed graph objects}]
+[category  {Data structures}]
 [require Tcl 8.4]
-[require struct::graph [opt 2.3]]
+[require struct::graph [opt 2.4]]
 [require struct::list  [opt 1.5]]
 [require struct::set   [opt 2.2.3]]
 [description]
@@ -366,6 +367,12 @@ Return the node the given [arg arc] begins at.
 [call [arg graphName] [method {arc target}] [arg arc]]
 
 Return the node the given [arg arc] ends at.
+
+
+[call [arg graphName] [method {arc nodes}] [arg arc]]
+
+Return the nodes the given [arg arc] begins and ends at,
+as a two-element list.
 
 
 [call [arg graphName] [method {arc move-source}] [arg arc] [arg newsource]]

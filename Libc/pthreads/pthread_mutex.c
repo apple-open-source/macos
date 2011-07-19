@@ -66,21 +66,26 @@
 
 extern int __unix_conforming;
 extern int __unix_conforming;
-int _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
 
-#if  defined(__i386__) || defined(__x86_64__)
+#ifndef BUILDING_VARIANT
+__private_extern__ int usenew_mtximpl = 1;
+static void __pthread_mutex_set_signature(npthread_mutex_t * mutex);
+int __mtx_markprepost(npthread_mutex_t *mutex, uint32_t oupdateval, int firstfit);
+static int _pthread_mutex_destroy_locked(pthread_mutex_t *omutex);
+#else /* BUILDING_VARIANT */
+extern int usenew_mtximpl;
+#endif /* BUILDING_VARIANT */
+
+
+#ifdef NOTNEEDED 
 #define USE_COMPAGE 1
+extern int _commpage_pthread_mutex_lock(uint32_t * lvalp, int flags, uint64_t mtid, uint32_t mask, uint64_t * tidp, int *sysret);
+#endif
 
 #include <machine/cpu_capabilities.h>
 
-extern int _commpage_pthread_mutex_lock(uint32_t * lvalp, int flags, uint64_t mtid, uint32_t mask, uint64_t * tidp, int *sysret);
+int _pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr, uint32_t static_type);
 
-int _new_pthread_mutex_destroy(pthread_mutex_t *mutex);
-int _new_pthread_mutex_destroy_locked(pthread_mutex_t *mutex);
-int _new_pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr);
-int _new_pthread_mutex_lock(pthread_mutex_t *omutex);
-int _new_pthread_mutex_trylock(pthread_mutex_t *omutex);
-int _new_pthread_mutex_unlock(pthread_mutex_t *omutex);
 
 #if defined(__LP64__)
 #define MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr) \
@@ -121,10 +126,9 @@ int __kdebug_trace(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 #define _KSYN_TRACE_UM_MHOLD    0x9000068
 #define _KSYN_TRACE_UM_MDROP    0x900006c
 #define _KSYN_TRACE_UM_MUBITS    0x900007c
+#define _KSYN_TRACE_UM_MARKPP    0x90000a8
 
 #endif /* _KSYN_TRACE_ */
-
-#endif /* __i386__ || __x86_64__ */
 
 #ifndef BUILDING_VARIANT /* [ */
 
@@ -145,82 +149,6 @@ __private_extern__ void _plockstat_never_fired(void)
 	PLOCKSTAT_MUTEX_SPUN(NULL, 0, 0);
 }
 
-/*
- * Destroy a mutex variable.
- */
-int
-pthread_mutex_destroy(pthread_mutex_t *mutex)
-{
-	int res;
-
-	LOCK(mutex->lock);
-	if (mutex->sig == _PTHREAD_MUTEX_SIG)
-	{
-
-#if  defined(__i386__) || defined(__x86_64__)
-		if(mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED){
-
-			res = _new_pthread_mutex_destroy_locked(mutex);
-			UNLOCK(mutex->lock);
-			return(res);
-		}
-#endif /* __i386__ || __x86_64__ */
-
-		if (mutex->owner == (pthread_t)NULL &&
-		    mutex->busy == (pthread_cond_t *)NULL)
-		{
-			mutex->sig = _PTHREAD_NO_SIG;
-			res = 0;
-		}
-		else
-			res = EBUSY;
-	} else 
-		res = EINVAL;
-	UNLOCK(mutex->lock);
-	return (res);
-}
-
-/*
- * Initialize a mutex variable, possibly with additional attributes.
- */
-int
-_pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
-{
-	if (attr)
-	{
-		if (attr->sig != _PTHREAD_MUTEX_ATTR_SIG)
-			return (EINVAL);
-#if  defined(__i386__) || defined(__x86_64__)
-		if (attr->pshared == PTHREAD_PROCESS_SHARED) {
-			return(_new_pthread_mutex_init(mutex, attr));
-		} else 
-#endif /* __i386__ || __x86_64__ */
-		{
-			mutex->prioceiling = attr->prioceiling;
-			mutex->mtxopts.options.protocol = attr->protocol;
-			mutex->mtxopts.options.policy = attr->policy;
-			mutex->mtxopts.options.type = attr->type;
-			mutex->mtxopts.options.pshared = attr->pshared;
-		}
-	} else {
-		mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
-		mutex->mtxopts.options.protocol = _PTHREAD_DEFAULT_PROTOCOL;
-		mutex->mtxopts.options.policy = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
-		mutex->mtxopts.options.type = PTHREAD_MUTEX_DEFAULT;
-		mutex->mtxopts.options.pshared = _PTHREAD_DEFAULT_PSHARED;
-	}
-	mutex->mtxopts.options.lock_count = 0;
-	mutex->owner = (pthread_t)NULL;
-	mutex->next = (pthread_mutex_t *)NULL;
-	mutex->prev = (pthread_mutex_t *)NULL;
-	mutex->busy = (pthread_cond_t *)NULL;
-	mutex->waiters = 0;
-	mutex->sem = SEMAPHORE_NULL;
-	mutex->order = SEMAPHORE_NULL;
-	mutex->prioceiling = 0;
-	mutex->sig = _PTHREAD_MUTEX_SIG;
-	return (0);
-}
 
 /*
  * Initialize a mutex variable, possibly with additional attributes.
@@ -236,276 +164,7 @@ pthread_mutex_init(pthread_mutex_t *mutex, const pthread_mutexattr_t *attr)
 		return EBUSY;
 #endif
 	LOCK_INIT(mutex->lock);
-	return (_pthread_mutex_init(mutex, attr));
-}
-
-/*
- * Lock a mutex.
- * TODO: Priority inheritance stuff
- */
-int
-pthread_mutex_lock(pthread_mutex_t *mutex)
-{
-	kern_return_t kern_res;
-	pthread_t self;
-	int sig = mutex->sig; 
-
-	/* To provide backwards compat for apps using mutex incorrectly */
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init)) {
-		PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
-		return(EINVAL);
-	}
-		
-	LOCK(mutex->lock);
-	if (mutex->sig != _PTHREAD_MUTEX_SIG)
-	{
-		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
-		{
-				UNLOCK(mutex->lock);
-				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
-				return (EINVAL);
-		}
-		_pthread_mutex_init(mutex, NULL);
-		self = _PTHREAD_MUTEX_OWNER_SELF;
-	} 
-#if  defined(__i386__) || defined(__x86_64__)
-	else if(mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED){
-			UNLOCK(mutex->lock);
-			return(_new_pthread_mutex_lock(mutex));
-	}
-#endif /* __i386__ || __x86_64__ */
-	else if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL)
-	{
-		self = pthread_self();
-		if (mutex->owner == self)
-		{
-			int res;
-
-			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
-			{
-				if (mutex->mtxopts.options.lock_count < USHRT_MAX)
-				{
-					mutex->mtxopts.options.lock_count++;
-					PLOCKSTAT_MUTEX_ACQUIRE(mutex, 1, 0);
-					res = 0;
-				} else {
-					res = EAGAIN;
-					PLOCKSTAT_MUTEX_ERROR(mutex, res);
-				}
-			} else	{ /* PTHREAD_MUTEX_ERRORCHECK */
-				res = EDEADLK;
-				PLOCKSTAT_MUTEX_ERROR(mutex, res);
-			}
-			UNLOCK(mutex->lock);
-			return (res);
-		}
-	} else 
-		self = _PTHREAD_MUTEX_OWNER_SELF;
-
-	if (mutex->owner != (pthread_t)NULL) {
-		if (mutex->waiters || mutex->owner != _PTHREAD_MUTEX_OWNER_SWITCHING)
-		{
-			semaphore_t sem, order;
-
-			if (++mutex->waiters == 1)
-			{
-				mutex->sem = sem = new_sem_from_pool();
-				mutex->order = order = new_sem_from_pool();
-			}
-			else
-			{
-				sem = mutex->sem;
-				order = mutex->order;
-				do {
-					PTHREAD_MACH_CALL(semaphore_wait(order), kern_res);
-				} while (kern_res == KERN_ABORTED);
-			} 
-			UNLOCK(mutex->lock);
-
-			PLOCKSTAT_MUTEX_BLOCK(mutex);
-			PTHREAD_MACH_CALL(semaphore_wait_signal(sem, order), kern_res);
-			while (kern_res == KERN_ABORTED)
-			{
-				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
-			} 
-
-			PLOCKSTAT_MUTEX_BLOCKED(mutex, BLOCK_SUCCESS_PLOCKSTAT);
-
-			LOCK(mutex->lock);
-			if (--mutex->waiters == 0)
-			{
-				PTHREAD_MACH_CALL(semaphore_wait(order), kern_res);
-				mutex->sem = mutex->order = SEMAPHORE_NULL;
-				restore_sem_to_pool(order);
-				restore_sem_to_pool(sem);
-			}
-		} 
-		else if (mutex->owner == _PTHREAD_MUTEX_OWNER_SWITCHING)
-		{
-			semaphore_t sem = mutex->sem;
-			do {
-				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
-			} while (kern_res == KERN_ABORTED);
-			mutex->sem = SEMAPHORE_NULL;
-			restore_sem_to_pool(sem);
-		}
-	}
-
-	mutex->mtxopts.options.lock_count = 1;
-	mutex->owner = self;
-	UNLOCK(mutex->lock);
-	PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
-	return (0);
-}
-
-/*
- * Attempt to lock a mutex, but don't block if this isn't possible.
- */
-int
-pthread_mutex_trylock(pthread_mutex_t *mutex)
-{
-	kern_return_t kern_res;
-	pthread_t self;
-	
-	LOCK(mutex->lock);
-	if (mutex->sig != _PTHREAD_MUTEX_SIG)
-	{
-		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
-		{
-				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
-				UNLOCK(mutex->lock);
-				return (EINVAL);
-		}
-		_pthread_mutex_init(mutex, NULL);
-		self = _PTHREAD_MUTEX_OWNER_SELF;
-	}
-#if  defined(__i386__) || defined(__x86_64__)
-		else if(mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED){
-			UNLOCK(mutex->lock);
-			return(_new_pthread_mutex_trylock(mutex));
-		}
-#endif /* __i386__ || __x86_64__ */
-	else if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL)
-	{
-		self = pthread_self();
-		if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
-		{
-			if (mutex->owner == self)
-			{
-				int res;
-
-				if (mutex->mtxopts.options.lock_count < USHRT_MAX)
-				{
-					mutex->mtxopts.options.lock_count++;
-					PLOCKSTAT_MUTEX_ACQUIRE(mutex, 1, 0);
-					res = 0;
-				} else {
-					res = EAGAIN;
-					PLOCKSTAT_MUTEX_ERROR(mutex, res);
-				}
-				UNLOCK(mutex->lock);
-				return (res);
-			}
-		}
-	} else
-		self = _PTHREAD_MUTEX_OWNER_SELF;
-
-	if (mutex->owner != (pthread_t)NULL)
-	{
-		if (mutex->waiters || mutex->owner != _PTHREAD_MUTEX_OWNER_SWITCHING)
-		{
-			PLOCKSTAT_MUTEX_ERROR(mutex, EBUSY);
-			UNLOCK(mutex->lock);
-			return (EBUSY);
-		}
-		else if (mutex->owner == _PTHREAD_MUTEX_OWNER_SWITCHING)
-		{
-			semaphore_t sem = mutex->sem;
-
-			do {
-				PTHREAD_MACH_CALL(semaphore_wait(sem), kern_res);
-			} while (kern_res == KERN_ABORTED);
-			restore_sem_to_pool(sem);
-			mutex->sem = SEMAPHORE_NULL;
-		}
-	}
-
-	mutex->mtxopts.options.lock_count = 1;
-	mutex->owner = self;
-	UNLOCK(mutex->lock);
-	PLOCKSTAT_MUTEX_ACQUIRE(mutex, 0, 0);
-	return (0);
-}
-
-/*
- * Unlock a mutex.
- * TODO: Priority inheritance stuff
- */
-int
-pthread_mutex_unlock(pthread_mutex_t *mutex)
-{
-	kern_return_t kern_res;
-	int waiters;
-	int sig = mutex->sig; 
-
-	
-	/* To provide backwards compat for apps using mutex incorrectly */
-	
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init)) {
-		PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
-		return(EINVAL);
-	}
-	LOCK(mutex->lock);
-	if (mutex->sig != _PTHREAD_MUTEX_SIG)
-	{
-		if (mutex->sig != _PTHREAD_MUTEX_SIG_init)
-		{
-				PLOCKSTAT_MUTEX_ERROR(mutex, EINVAL);
-				UNLOCK(mutex->lock);
-				return (EINVAL);
-		}
-		_pthread_mutex_init(mutex, NULL);
-	}
-#if  defined(__i386__) || defined(__x86_64__)
-		else if(mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED){
-			UNLOCK(mutex->lock);
-			return(_new_pthread_mutex_unlock(mutex));
-		}
-#endif /* __i386__ || __x86_64__ */
-	else if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL)
-	{
-		pthread_t self = pthread_self();
-		if (mutex->owner != self)
-		{
-			PLOCKSTAT_MUTEX_ERROR(mutex, EPERM);
-			UNLOCK(mutex->lock);
-			return EPERM;
-		} else if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE &&
-		    --mutex->mtxopts.options.lock_count)
-		{
-			PLOCKSTAT_MUTEX_RELEASE(mutex, 1);
-			UNLOCK(mutex->lock);
-			return(0);
-		}
-	}
-
-	mutex->mtxopts.options.lock_count = 0;
-
-	waiters = mutex->waiters;
-	if (waiters)
-	{
-		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
-		PLOCKSTAT_MUTEX_RELEASE(mutex, 0);
-		UNLOCK(mutex->lock);
-		PTHREAD_MACH_CALL(semaphore_signal(mutex->sem), kern_res);
-	}
-	else
-	{
-		mutex->owner = (pthread_t)NULL;
-		PLOCKSTAT_MUTEX_RELEASE(mutex, 0);
-		UNLOCK(mutex->lock);
-	}
-	return (0);
+	return (_pthread_mutex_init(mutex, attr, 0x7));
 }
 
 /*
@@ -692,19 +351,23 @@ pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr,
         }
 }
 
-#ifdef NOTYET
 int
 pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *attr,
                               int policy)
 {
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
-                if ((policy == _PTHREAD_MUTEX_POLICY_FAIRSHARE) ||
-                    (policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT) ||
+                if (
+		    (policy == _PTHREAD_MUTEX_POLICY_FAIRSHARE) ||
+                    (policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT)
+#if NOTYET
+		    ||
                     (policy == _PTHREAD_MUTEX_POLICY_REALTIME) ||
                     (policy == _PTHREAD_MUTEX_POLICY_ADAPTIVE) ||
                     (policy == _PTHREAD_MUTEX_POLICY_PRIPROTECT) ||
-                    (policy == _PTHREAD_MUTEX_POLICY_PRIINHERIT))
+                    (policy == _PTHREAD_MUTEX_POLICY_PRIINHERIT)
+#endif /* NOTYET */
+		)
                 {
                         attr->policy = policy;
                         return (0);
@@ -717,7 +380,6 @@ pthread_mutexattr_setpolicy_np(pthread_mutexattr_t *attr,
                 return (EINVAL); /* Not an initialized 'attribute' structure */
         }
 }
-#endif /* NOTYET */
 
 /*
  * Set the mutex 'type' value in a mutex attribute structure.
@@ -787,19 +449,14 @@ pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
         if (attr->sig == _PTHREAD_MUTEX_ATTR_SIG)
         {
 #if __DARWIN_UNIX03
-#ifdef PR_5243343
-                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED && PR_5243343_flag))
-#else /* !PR_5243343 */
                 if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED))
-#endif /* PR_5243343 */
 #else /* __DARWIN_UNIX03 */
                 if ( pshared == PTHREAD_PROCESS_PRIVATE)
 #endif /* __DARWIN_UNIX03 */
-			  {
+	  	{
                          attr->pshared = pshared; 
                         return (0);
-                } else
-                {
+                } else {
                         return (EINVAL); /* Invalid parameter */
                 }
         } else
@@ -808,130 +465,39 @@ pthread_mutexattr_setpshared(pthread_mutexattr_t *attr, int pshared)
         }
 }
 
-#if  defined(__i386__) || defined(__x86_64__)
-
-/* 
- * Acquire lock seq for condition var  signalling/broadcast
- */
-__private_extern__ void
-__mtx_holdlock(npthread_mutex_t * mutex, uint32_t diff, uint32_t * flagp, uint32_t **pmtxp, uint32_t * mgenp, uint32_t * ugenp)
-{
-	uint32_t mgen, ugen, ngen;
-	int hold = 0;
-	int firstfit = (mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT);
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
-	
-
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MHOLD | DBG_FUNC_START, (uint32_t)mutex, diff, firstfit, 0, 0);
-#endif
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		/* no holds for shared mutexes */
-		hold = 2;
-		mgen = 0;
-		ugen = 0;
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-		goto out;
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
-
-retry:
-	mgen = *lseqaddr;
-	ugen = *useqaddr;
-	/* no need to do extra wrap */
-	ngen = mgen + (PTHRW_INC * diff);
-	hold = 0;
-
-	
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MHOLD | DBG_FUNC_NONE, (uint32_t)mutex, 0, mgen, ngen, 0);
-#endif
-	/* can we acquire the lock ? */
-	if ((mgen & PTHRW_EBIT) == 0) { 
-		/* if it is firstfit, no need to hold till the cvar returns */
-		if (firstfit == 0) {
-			ngen |= PTHRW_EBIT;
-			hold = 1;
-		}
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MHOLD | DBG_FUNC_NONE, (uint32_t)mutex, 1, mgen, ngen, 0);
-#endif
-	}
-
-	/* update lockseq */
-	if (OSAtomicCompareAndSwap32(mgen, ngen, (volatile int32_t *)lseqaddr) != TRUE)
-		goto retry;
-	if (hold == 1) {
-		mutex->m_tid = PTHREAD_MTX_TID_SWITCHING ;
-	}
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MHOLD | DBG_FUNC_NONE, (uint32_t)mutex, 2, hold, 0, 0);
-#endif
-	
-out:
-	if (flagp != NULL) {
-		if (hold == 1) {
-			*flagp = (mutex->mtxopts.value | _PTHREAD_MTX_OPT_HOLD);
-		 } else if (hold == 2) {
-			*flagp = (mutex->mtxopts.value | _PTHREAD_MTX_OPT_NOHOLD);
-		 } else  {
-			*flagp = mutex->mtxopts.value;
-		}
-	}
-	if (mgenp != NULL)
-		*mgenp = mgen;
-	if (ugenp != NULL)
-		*ugenp = ugen;
-	if (pmtxp != NULL)
-		*pmtxp = lseqaddr;
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MHOLD | DBG_FUNC_END, (uint32_t)mutex, hold, 0, 0, 0);
-#endif
-}
-
-
 /*
  * Drop the mutex unlock references(from cond wait or mutex_unlock().
- * mgenp and ugenp valid only if notifyp is set 
  * 
  */
 __private_extern__ int
-__mtx_droplock(npthread_mutex_t * mutex, int count, uint32_t * flagp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp, uint32_t *notifyp)
+__mtx_droplock(npthread_mutex_t * mutex, uint32_t diffgen, uint32_t * flagsp, uint32_t ** pmtxp, uint32_t * mgenp, uint32_t * ugenp)
 {
-	int oldval, newval, lockval, unlockval;
-	uint64_t oldtid;
-	pthread_t self = pthread_self();
-	uint32_t notify = 0;
-	uint64_t oldval64, newval64;
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
+	pthread_t self;
+	uint64_t selfid, resettid;
 	int firstfit = (mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT);
+	uint32_t lgenval, ugenval, nlval, ulval, morewaiters=0, flags;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	uint64_t oldval64, newval64;
+	int numwaiters=0, clearprepost = 0;
 
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_START, (uint32_t)mutex, count, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_START, (uint32_t)mutex, diffgen, 0, 0, 0);
 #endif
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
 	
-	if (flagp != NULL)
-		*flagp = mutex->mtxopts.value;
-	
-	if (firstfit != 0) 
-		notify |= 0x80000000;
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED)
-		notify |= 0x40000000;
-	
+
+	flags = mutex->mtxopts.value;
+	flags &= ~_PTHREAD_MTX_OPT_NOTIFY;	/* no notification by default */
+
+
 	if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL)
 	{
-		if (mutex->m_tid != (uint64_t)((uintptr_t)self))
+		self = pthread_self();
+		(void) pthread_threadid_np(self, &selfid); 
+
+		if (mutex->m_tid != selfid)
 		{
+			//LIBC_ABORT("dropping recur or error mutex not owned by the thread\n");
 			PLOCKSTAT_MUTEX_ERROR((pthread_mutex_t *)mutex, EPERM);
 			return(EPERM);
 		} else if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE &&
@@ -943,167 +509,192 @@ __mtx_droplock(npthread_mutex_t * mutex, int count, uint32_t * flagp, uint32_t *
 	}
 	
 	
-	if (mutex->m_tid != (uint64_t)((uintptr_t)self)) 
-		return(EINVAL);
-	
-	
-ml0:
-	oldval = *useqaddr;
-	unlockval =  oldval + (PTHRW_INC * count);
-	lockval = *lseqaddr;
+retry:
+	lgenval = *lseqaddr;
+	ugenval = *useqaddr;
 
+	numwaiters = diff_genseq((lgenval & PTHRW_COUNT_MASK),(ugenval & PTHRW_COUNT_MASK));	/* pendig waiters */
 
+	if (numwaiters == 0) {
+		/* spurious unlocks, do not touch tid */
+		oldval64 = (((uint64_t)ugenval) << 32);
+		oldval64 |= lgenval;
+		if ((firstfit != 0) && ((lgenval & PTH_RWL_PBIT) != 0)) {
+			clearprepost = 1;
+			lgenval &= ~PTH_RWL_PBIT;
+			newval64 = (((uint64_t)ugenval) << 32);
+			newval64 |= lgenval;
+		} else
+			newval64 = oldval64;
+		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) 
+			goto retry;
+		/* validated L & U to be same, this is spurious unlock */
+		flags &= ~_PTHREAD_MTX_OPT_NOTIFY;
+		if (clearprepost == 1)
+			 __psynch_cvclrprepost(mutex, lgenval, ugenval, 0, 0, lgenval, (flags | _PTHREAD_MTX_OPT_MUTEX));
+			
+		goto out;
+	}
+
+	if (numwaiters < diffgen) {
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, 10, lockval, oldval, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, numwaiters, lgenval, ugenval, 0);
 #endif
-#if 1
-	if (lockval == oldval) 
-		LIBC_ABORT("same unlock and lockseq \n");
-#endif
-	
-	if ((lockval & PTHRW_COUNT_MASK) == unlockval) {
-		oldtid = mutex->m_tid;
+		/* cannot drop more than existing number of waiters */
+		diffgen = numwaiters;
+	}
 
+	oldval64 = (((uint64_t)ugenval) << 32);
+	oldval64 |= lgenval;
+	ulval = ugenval  + diffgen;
+	nlval = lgenval;
+
+	if ((lgenval & PTHRW_COUNT_MASK) == (ulval & PTHRW_COUNT_MASK)) {
+		/* do not reset Ibit, just K&E */
+		nlval &= ~(PTH_RWL_KBIT | PTH_RWL_EBIT);
+		flags &= ~_PTHREAD_MTX_OPT_NOTIFY;
+		if ((firstfit != 0) && ((lgenval & PTH_RWL_PBIT) != 0)) {
+			clearprepost = 1;
+			nlval &= ~PTH_RWL_PBIT;
+		}
+	} else {
+		/* need to signal others waiting for mutex */
+		morewaiters = 1;
+		flags |= _PTHREAD_MTX_OPT_NOTIFY;
+	}
+
+	if (((nlval & PTH_RWL_EBIT) != 0) && (firstfit != 0)) {
+		nlval &= ~PTH_RWL_EBIT;		/* reset Ebit so another can acquire meanwhile */
+	}
+
+	newval64 = (((uint64_t)ulval) << 32);
+	newval64 |= nlval;
+
+	resettid = mutex->m_tid;
+
+	if ((lgenval & PTHRW_COUNT_MASK) == (ulval & PTHRW_COUNT_MASK))
 		mutex->m_tid = 0;
-
-		oldval64 = (((uint64_t)oldval) << 32);
-		oldval64 |= lockval;
-
-		newval64 = 0;
-
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, 1, 0, 0, 0);
-#endif
-			goto out;
-		} else {
-			mutex->m_tid = oldtid;
-			/* fall thru for kernel call */
-			goto ml0;
-		}
-	} 
-
-	if (firstfit != 0) {
-		/* reset ebit along with unlock */
-		newval = (lockval & ~PTHRW_EBIT);
-
-		lockval = newval;
-		oldval64 = (((uint64_t)oldval) << 32);
-		oldval64 |= lockval;
-
-		newval64 = (((uint64_t)unlockval) << 32);
-		newval64 |= newval;
-
-		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) {
-			goto ml0;
-		}
-		lockval = newval;	
-	} else  {
-		/* fairshare , just update and go to kernel */
-		if (OSAtomicCompareAndSwap32(oldval, unlockval, (volatile int32_t *)useqaddr) != TRUE)
-		goto ml0;
-
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, 2, oldval, unlockval, 0);
-#endif
+	else if (firstfit == 0)
+		mutex->m_tid = PTHREAD_MTX_TID_SWITCHING;
+	
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) != TRUE) {
+		mutex->m_tid = resettid;
+		goto retry;
 	}
 
-	notify |= 1;
 
-	if (notifyp != 0) {
-		if (mgenp != NULL)
-			*mgenp = lockval;		
-		if (ugenp != NULL)
-			*ugenp = unlockval;		
-		if (pmtxp != NULL)
-			*pmtxp = lseqaddr;
-		*notifyp = notify;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, ugenval, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_NONE, (uint32_t)mutex, 2, nlval, ulval, 0);
+#endif
+
+	if (clearprepost != 0) {
+		 __psynch_cvclrprepost(mutex, nlval, ulval, 0, 0, nlval, (flags | _PTHREAD_MTX_OPT_MUTEX));
 	}
+		
+	if (mgenp != NULL)
+		*mgenp = nlval;		
+	if (ugenp != NULL)
+		*ugenp = ulval;		
+#if USE_COMPAGE
+	if (pmtxp != NULL)
+		*pmtxp = lseqaddr;
+#else
+	if (pmtxp != NULL)
+		*pmtxp = (uint32_t *)mutex;
+#endif
+
 out:
-	if (notifyp != 0) {
-		*notifyp = notify;
-	}
+	if (flagsp != NULL)
+		*flagsp = flags;		
+
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_END, (uint32_t)mutex, 0, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MDROP | DBG_FUNC_END, (uint32_t)mutex, flags, 0, 0, 0);
 #endif
 	return(0);
 }
 
 int
-__mtx_updatebits(npthread_mutex_t *mutex, uint32_t oupdateval, int firstfit, int fromcond)
+__mtx_updatebits(npthread_mutex_t *mutex, uint32_t oupdateval, int firstfit, int fromcond, uint64_t selfid)
 {
-        uint32_t lgenval, newval, bits;
-	int isebit = 0;
 	uint32_t updateval = oupdateval;
+#if !USE_COMPAGE
 	pthread_mutex_t * omutex = (pthread_mutex_t *)mutex;
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
+#endif
+	int isebit = 0;
+	uint32_t lgenval, ugenval, nval, uval, bits;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	uint64_t oldval64, newval64;
 
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
+
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_START, (uint32_t)mutex, oupdateval, firstfit, fromcond, 0);
 #endif
 
 retry:
         lgenval = *lseqaddr;
+        ugenval = *useqaddr;
         bits = updateval & PTHRW_BIT_MASK;
 
-        if (lgenval == updateval) 
-		goto out;
-
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 1, lgenval, updateval, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 1, lgenval, ugenval, 0);
 #endif
-        if ((lgenval & PTHRW_BIT_MASK) == bits)
-                goto out;
 
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, bits, 0);
-#endif
-	/* firsfit might not have EBIT */
-	if (firstfit != 0) {
-		lgenval  &= ~PTHRW_EBIT;	/* see whether EBIT is set */
-		if ((lgenval & PTHRW_EBIT) != 0)
-			isebit = 1;
-	}
 
-        if ((lgenval & PTHRW_COUNT_MASK) == (updateval & PTHRW_COUNT_MASK)) {
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 3, lgenval, updateval, 0);
-#endif
-		updateval |= PTHRW_EBIT;  /* just in case.. */
-                if (OSAtomicCompareAndSwap32(lgenval, updateval, (volatile int32_t *)lseqaddr) != TRUE) {
-			if (firstfit == 0)
-                        	goto retry;
-			goto handleffit;
+	if ((updateval & PTH_RWL_MTX_WAIT) != 0) {
+		lgenval = (updateval & PTHRW_COUNT_MASK) | (lgenval & PTHRW_BIT_MASK);
+		if (fromcond == 0) {
+			/* if from mutex_lock(), it will handle the rewind */
+			return(1);
 		}
-		/* update succesfully */
-		goto out;
-        }
-
-
-        if (((lgenval & PTHRW_WBIT) != 0) && ((updateval & PTHRW_WBIT) == 0)) {
-                newval = lgenval | (bits | PTHRW_WBIT | PTHRW_EBIT);
-         } else {
-                newval = lgenval | (bits | PTHRW_EBIT);
+		/* go block in the kernel with same lgenval as returned */
+		goto ml1;
+	} else {
+		/* firsfit might not have EBIT */
+		if (firstfit != 0) {
+			if ((lgenval & PTH_RWL_EBIT) != 0)
+				isebit = 1;
+			else
+				isebit = 0;
+		} else if ((lgenval & (PTH_RWL_KBIT|PTH_RWL_EBIT)) == (PTH_RWL_KBIT|PTH_RWL_EBIT)) {
+			/* fairshare mutex and the bits are already set, just update tid */
+			goto out;
+		}
 	}
 
+	/* either firstfist or no E bit set */
+	/* update the bits */
+	oldval64 = (((uint64_t)ugenval) << 32);
+	oldval64 |= lgenval;
+	uval = ugenval;
+	nval = lgenval | (PTH_RWL_KBIT|PTH_RWL_EBIT);
+	newval64 = (((uint64_t)uval) << 32);
+	newval64 |= nval;
+
+	/* set s and b bit */
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 4, lgenval, newval, 0);
+		(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
 #endif
-        if (OSAtomicCompareAndSwap32(lgenval, newval, (volatile int32_t *)lseqaddr) != TRUE)  {
-			if (firstfit == 0)
-                        	goto retry;
+		if ((firstfit != 0) && (isebit != 0))
+			goto handleffit;
+
+		goto out;
+	} else  {
+		if (firstfit == 0)
+			goto retry;
+		else
 			goto handleffit;
 	}
+	
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_NONE, (uint32_t)mutex, 4, nval, uval, 0);
+#endif
+
 out:
 	/* succesful bits updation */
-	mutex->m_tid = (uint64_t)((uintptr_t)pthread_self());
+	mutex->m_tid = selfid;
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_MUBITS | DBG_FUNC_END, (uint32_t)mutex, 0, 0, 0, 0);
 #endif
@@ -1111,66 +702,144 @@ out:
 
 handleffit:
 	/* firstfit failure */
-	newval = *lseqaddr;
-	if ((newval & PTHRW_EBIT) == 0)
+        lgenval = *lseqaddr;
+        ugenval = *useqaddr;
+	if ((lgenval & PTH_RWL_EBIT) == 0)
 		goto retry;
-	if (((lgenval & PTHRW_COUNT_MASK) == (newval & PTHRW_COUNT_MASK)) && (isebit == 1)) {
-		if (fromcond == 0)
-			return(1);
-		else {
-			/* called from condition variable code  block again */
+
+	if (fromcond == 0)
+		return(1);
+	else {
+		/* called from condition variable code  block again */
 ml1:
 #if  USE_COMPAGE /* [ */
-			updateval = __psynch_mutexwait((pthread_mutex_t *)lseqaddr, newval | PTHRW_RETRYBIT, *useqaddr, (uint64_t)0,
-							   mutex->mtxopts.value);
+		updateval = __psynch_mutexwait((pthread_mutex_t *)lseqaddr, lgenval | PTH_RWL_RETRYBIT, ugenval, mutex->m_tid,
+					   mutex->mtxopts.value);
 #else /* USECOMPAGE ][ */
-			updateval = __psynch_mutexwait(omutex, newval | PTHRW_RETRYBIT, *useqaddr, (uint64_t)0,
+		updateval = __psynch_mutexwait(omutex, lgenval | PTH_RWL_RETRYBIT, ugenval, mutex->m_tid,
+					   mutex->mtxopts.value);
 #endif /* USE_COMPAGE ] */
-			if (updateval == (uint32_t)-1) {
-				goto ml1;
-			}
-
-			goto retry;
+		if (updateval == (uint32_t)-1) {
+			goto ml1;
 		}
+
+		/* now update the bits */
+		goto retry;
 	}
-	/* seqcount changed, retry */
+	/* cannot reach */
 	goto retry;
 }
 
+
 int
-_new_pthread_mutex_lock(pthread_mutex_t *omutex)
+__mtx_markprepost(npthread_mutex_t *mutex, uint32_t oupdateval, int firstfit)
+{
+	uint32_t updateval = oupdateval;
+	int clearprepost = 0;
+	uint32_t lgenval, ugenval,flags;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	uint64_t oldval64, newval64;
+
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MARKPP | DBG_FUNC_START, (uint32_t)mutex, oupdateval, firstfit, 0, 0);
+#endif
+
+retry:
+
+
+
+	if ((firstfit != 0) && ((updateval & PTH_RWL_PBIT) != 0)) {
+		flags = mutex->mtxopts.value;
+
+        	lgenval = *lseqaddr;
+        	ugenval = *useqaddr;
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_MARKPP | DBG_FUNC_NONE, (uint32_t)mutex, 1, lgenval, ugenval, 0);
+#endif
+		/* update the bits */
+		oldval64 = (((uint64_t)ugenval) << 32);
+		oldval64 |= lgenval;
+
+		if ((lgenval & PTHRW_COUNT_MASK) == (ugenval & PTHRW_COUNT_MASK)) {
+			clearprepost = 1;	
+			lgenval &= ~PTH_RWL_PBIT;
+			
+		} else {
+			lgenval |= PTH_RWL_PBIT;
+		}
+		newval64 = (((uint64_t)ugenval) << 32);
+		newval64 |= lgenval;
+
+		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+#if _KSYN_TRACE_
+			(void)__kdebug_trace(_KSYN_TRACE_UM_MARKPP | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, ugenval, 0);
+#endif
+
+			if (clearprepost != 0)
+			 	__psynch_cvclrprepost(mutex, lgenval, ugenval, 0, 0, lgenval, (flags | _PTHREAD_MTX_OPT_MUTEX));
+				
+		} else  {
+				goto retry;
+		}
+	
+#if _KSYN_TRACE_
+		(void)__kdebug_trace(_KSYN_TRACE_UM_MARKPP | DBG_FUNC_END, (uint32_t)mutex, 0, 0, 0, 0);
+#endif
+	}
+	return(0);
+}
+
+/* 
+ * For the new style mutex, interlocks are not held all the time.
+ * We needed the signature to be set in the end. And we  need
+ * to protect against the code getting reorganized by compiler.
+ */
+static void
+__pthread_mutex_set_signature(npthread_mutex_t * mutex)
+{
+	mutex->sig = _PTHREAD_MUTEX_SIG;
+}
+
+int
+pthread_mutex_lock(pthread_mutex_t *omutex)
 {
 	pthread_t self;
+	uint64_t selfid;
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
 	int sig = mutex->sig; 
+#if NEVERINCOMPAGE || !USE_COMPAGE
+	//uint32_t oldval, newval;
+#endif
 	int retval;
-	uint32_t oldval, newval, uval, updateval;
-	int gotlock = 0;
-	int firstfit = 0;
-	int retrybit = 0;
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
-	int updatebitsonly = 0;
+	int gotlock = 0, firstfit = 0;
+	uint32_t updateval, lgenval, ugenval, nval, uval;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	uint64_t oldval64, newval64;
 #if USE_COMPAGE
-	uint64_t mytid;
 	int sysret = 0;
 	uint32_t mask;
 #else
-
+	int retrybit = 0;
 #endif
 	
 	/* To provide backwards compat for apps using mutex incorrectly */
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init)) {
+	if ((sig != _PTHREAD_MUTEX_SIG) && ((sig & _PTHREAD_MUTEX_SIG_init_MASK) != _PTHREAD_MUTEX_SIG_CMP)) {
 		PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 		return(EINVAL);
 	}
-	if (sig != _PTHREAD_MUTEX_SIG) {
+	if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 		LOCK(mutex->lock);
-		if ((sig != _PTHREAD_MUTEX_SIG) && (sig == _PTHREAD_MUTEX_SIG_init)) {
-			/* static initializer, init the mutex */
-			_new_pthread_mutex_init(omutex, NULL);
-			self = _PTHREAD_MUTEX_OWNER_SELF;
-		} else {
+		if ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_CMP) {
+		/* static initializer, init the mutex */
+                	if(retval = _pthread_mutex_init(omutex, NULL, (mutex->sig & 0xf)) != 0){
+                		UNLOCK(mutex->lock);
+				PLOCKSTAT_MUTEX_ERROR(omutex, retval);
+                        	return(retval);
+                   	}
+		} else if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 			UNLOCK(mutex->lock);
 			PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 			return(EINVAL);
@@ -1181,16 +850,13 @@ _new_pthread_mutex_lock(pthread_mutex_t *omutex)
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_START, (uint32_t)mutex, 0, 0, 0, 0);
 #endif
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
 
 	self = pthread_self();
+	(void) pthread_threadid_np(self, &selfid); 
+
 	if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL) {
-		if (mutex->m_tid == (uint64_t)((uintptr_t)self)) {
+		if (mutex->m_tid == selfid) {
 			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
 			{
 				if (mutex->mtxopts.options.lock_count < USHRT_MAX)
@@ -1209,24 +875,23 @@ _new_pthread_mutex_lock(pthread_mutex_t *omutex)
 			return (retval);
 		}
 	}
+
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 1, 0, 0, 0);
 #endif
-loop:
+
 #if  USE_COMPAGE /* [ */
 
-	mytid = (uint64_t)((uintptr_t)pthread_self());
-
 ml0:
-	mask = PTHRW_EBIT;
-	retval = _commpage_pthread_mutex_lock(lseqaddr, mutex->mtxopts.value, mytid, mask, &mutex->m_tid, &sysret);
+	mask = PTH_RWL_EBIT;
+	retval = _commpage_pthread_mutex_lock(lseqaddr, mutex->mtxopts.value, selfid, mask, &mutex->m_tid, &sysret);
 	if (retval == 0) {
 		gotlock = 1;	
 	} else if (retval == 1) {
 		gotlock = 1;	
 		updateval = sysret;
 		/* returns 0 on succesful update */
-		if (__mtx_updatebits( mutex, updateval, firstfit, 0) == 1) {
+		if (__mtx_updatebits( mutex, updateval, firstfit, 0, selfid) == 1) {
 			/* could not acquire, may be locked in ffit case */
 #if USE_COMPAGE
 			LIBC_ABORT("comapge implementatin looping in libc \n");
@@ -1245,57 +910,65 @@ ml0:
 	} 
 #endif
 	else {
-		LIBC_ABORT("comapge implementatin bombed \n");
+		LIBC_ABORT("comapge implementation bombed \n");
 	}
 		
 
 #else /* USECOMPAGE ][ */
-	oldval = *lseqaddr;
-	uval = *useqaddr;
-	newval = oldval + PTHRW_INC;
+retry:
+	lgenval = *lseqaddr;
+	ugenval = *useqaddr;
 	
-	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, oldval, uval, 0);
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, ugenval, 0);
+#endif /* _KSYN_TRACE_ */
 	
-	if((oldval & PTHRW_EBIT) == 0) {
+	if((lgenval & PTH_RWL_EBIT) == 0) {
 		gotlock = 1;
-		newval |= PTHRW_EBIT;
 	} else {
 		gotlock = 0;
-		newval |= PTHRW_WBIT;
 	}
-	
-	if (OSAtomicCompareAndSwap32(oldval, newval, (volatile int32_t *)lseqaddr) == TRUE) {
-		if (gotlock != 0)
-			mutex->m_tid = (uint64_t)((uintptr_t)self);
+
+	oldval64 = (((uint64_t)ugenval) << 32);
+	oldval64 |= lgenval;
+	uval = ugenval;
+	nval = (lgenval + PTHRW_INC) | (PTH_RWL_EBIT|PTH_RWL_KBIT);
+	newval64 = (((uint64_t)uval) << 32);
+	newval64 |= nval;
+
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, oldval, newval, 0);
+		(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
 #endif
+		if (gotlock != 0) {
+			mutex->m_tid = selfid;
+			goto out;
+		}
 	} else 
-		goto loop;
+		goto retry;
 	
 
 	retrybit = 0;
 	if (gotlock == 0) {
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 3, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 3, nval, uval, 0);
 #endif
 		firstfit = (mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT);
 ml1:
-		updateval = __psynch_mutexwait(omutex, newval | retrybit, uval, (uint64_t)0,
+		updateval = __psynch_mutexwait(omutex, nval | retrybit, uval, mutex->m_tid,
 							   mutex->mtxopts.value);
 		
-		if (updateval == (uint32_t)-1) {
-			updatebitsonly = 0;
-			goto ml1;
-		}
-
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 4, updateval, 0, 0);
 #endif
-		/* returns 0 on succesful update */
-		if (__mtx_updatebits( mutex, updateval, firstfit, 0) == 1) {
+		if (updateval == (uint32_t)-1) {
+			goto ml1;
+		}
+
+		/* returns 0 on succesful update; in firstfit it may fail with 1 */
+		if (__mtx_updatebits( mutex, PTHRW_INC | (PTH_RWL_KBIT | PTH_RWL_EBIT), firstfit, 0, selfid) == 1) {
 			/* could not acquire, may be locked in ffit case */
-			retrybit = PTHRW_RETRYBIT;
+			retrybit = PTH_RWL_RETRYBIT;
 #if USE_COMPAGE
 		LIBC_ABORT("comapge implementatin looping in libc \n");
 
@@ -1305,8 +978,9 @@ ml1:
 	}
 #endif /* USE_COMPAGE ] */
 	
+out:
 	if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
-		mutex->mtxopts.options.lock_count++;
+		mutex->mtxopts.options.lock_count = 1;
 
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_END, (uint32_t)mutex, 0, 0, 0, 0);
@@ -1318,29 +992,34 @@ ml1:
  * Attempt to lock a mutex, but don't block if this isn't possible.
  */
 int
-_new_pthread_mutex_trylock(pthread_mutex_t *omutex)
+pthread_mutex_trylock(pthread_mutex_t *omutex)
 {
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
 	int sig = mutex->sig;
-	uint32_t oldval, newval;
 	int error = 0;
 	pthread_t self;
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
+	uint64_t selfid;
+	int gotlock = 0;
+	uint32_t lgenval, ugenval, nval, uval;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	uint64_t oldval64, newval64;
 	
 	/* To provide backwards compat for apps using mutex incorrectly */
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init)) {
+	if ((sig != _PTHREAD_MUTEX_SIG) && ((sig & _PTHREAD_MUTEX_SIG_init_MASK) != _PTHREAD_MUTEX_SIG_CMP)) {
 		PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 		return(EINVAL);
 	}
 	
-	if (sig != _PTHREAD_MUTEX_SIG) {
+	if ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_CMP) {
 		LOCK(mutex->lock);
-		if ((sig != _PTHREAD_MUTEX_SIG) && (sig == _PTHREAD_MUTEX_SIG_init)) {
+		if (mutex->sig == _PTHREAD_MUTEX_SIG_init) {
 			/* static initializer, init the mutex */
-			_new_pthread_mutex_init(omutex, NULL);
-			self = _PTHREAD_MUTEX_OWNER_SELF;
-		} else {
+			if((error = _pthread_mutex_init(omutex, NULL, (mutex->sig & 0xf))) != 0){
+                                UNLOCK(mutex->lock);
+				PLOCKSTAT_MUTEX_ERROR(omutex, error);
+                                return(error);
+                        }
+		} else if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 			UNLOCK(mutex->lock);
 			PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 			return(EINVAL);
@@ -1348,16 +1027,13 @@ _new_pthread_mutex_trylock(pthread_mutex_t *omutex)
 		UNLOCK(mutex->lock);
 	}
 	
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
 
 	self = pthread_self();
+	(void) pthread_threadid_np(self, &selfid); 
+
 	if (mutex->mtxopts.options.type != PTHREAD_MUTEX_NORMAL) {
-		if (mutex->m_tid == (uint64_t)((uintptr_t)self)) {
+		if (mutex->m_tid == selfid) {
 			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
 			{
 				if (mutex->mtxopts.options.lock_count < USHRT_MAX)
@@ -1376,26 +1052,53 @@ _new_pthread_mutex_trylock(pthread_mutex_t *omutex)
 			return (error);
 		}
 	}
-retry: 
-	oldval = *lseqaddr;
-
-	if ((oldval & PTHRW_EBIT) != 0) {
-		newval = oldval | PTHRW_TRYLKBIT;
-		if (OSAtomicCompareAndSwap32(oldval, newval, (volatile int32_t *)lseqaddr) == TRUE) {
-			error = EBUSY;
-		} else
-			goto retry;
-	} else {
-		newval = (oldval  + PTHRW_INC)| PTHRW_EBIT;
-		if ((OSAtomicCompareAndSwap32(oldval, newval, (volatile int32_t *)lseqaddr) == TRUE)) {
-			mutex->m_tid  = (uint64_t)((uintptr_t)self);
-			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
-				mutex->mtxopts.options.lock_count++;
-		} else
-			goto retry;
-	}
+retry:
+	lgenval = *lseqaddr;
+	ugenval = *useqaddr;
 	
-	return(error);
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, lgenval, ugenval, 0);
+#endif /* _KSYN_TRACE_ */
+	
+
+	oldval64 = (((uint64_t)ugenval) << 32);
+	oldval64 |= lgenval;
+	uval = ugenval;
+
+	/* if we can acquire go ahead otherwise ensure it is still busy */
+	if((lgenval & PTH_RWL_EBIT) == 0) {
+		gotlock = 1;
+		nval = (lgenval + PTHRW_INC) | (PTH_RWL_EBIT|PTH_RWL_KBIT);
+	} else {
+		nval = (lgenval | PTH_RWL_TRYLKBIT);
+		gotlock = 0;
+	}
+
+	newval64 = (((uint64_t)uval) << 32);
+	newval64 |= nval;
+
+	/* set s and b bit */
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)lseqaddr) == TRUE) {
+#if _KSYN_TRACE_
+		(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_NONE, (uint32_t)mutex, 2, nval, uval, 0);
+#endif
+		if (gotlock != 0) {
+			mutex->m_tid = selfid;
+			if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
+				mutex->mtxopts.options.lock_count = 1;
+			PLOCKSTAT_MUTEX_ACQUIRE(omutex, 1, 0);
+		} else  {
+			error = EBUSY;
+			PLOCKSTAT_MUTEX_ERROR(omutex, error);
+		}
+	} else 
+		goto retry;
+	
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_LOCK | DBG_FUNC_END, (uint32_t)mutex, 0xfafafafa, 0, error, 0);
+#endif
+	return (error);
 }
 
 /*
@@ -1403,64 +1106,82 @@ retry:
  * TODO: Priority inheritance stuff
  */
 int
-_new_pthread_mutex_unlock(pthread_mutex_t *omutex)
+pthread_mutex_unlock(pthread_mutex_t *omutex)
 {
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
 	int retval;
-	uint32_t mtxgen, mtxugen, flags, notify;
+	uint32_t mtxgen, mtxugen, flags, notify, updateval;
 	int sig = mutex->sig; 
-	pthread_t self = pthread_self();
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
+	pthread_t self;
+	uint64_t selfid;
+	volatile uint32_t * lseqaddr, *useqaddr;
+	int firstfit = 0;
 	
 	/* To provide backwards compat for apps using mutex incorrectly */
 	
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_UNLOCK | DBG_FUNC_START, (uint32_t)mutex, 0, 0, 0, 0);
 #endif
-	if ((sig != _PTHREAD_MUTEX_SIG) && (sig != _PTHREAD_MUTEX_SIG_init)) {
+	if ((sig != _PTHREAD_MUTEX_SIG) && ((sig & _PTHREAD_MUTEX_SIG_init_MASK) != _PTHREAD_MUTEX_SIG_CMP)) {
 		PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 		return(EINVAL);
 	}
-	if (sig != _PTHREAD_MUTEX_SIG) {
+	
+	if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 		LOCK(mutex->lock);
-		if ((sig != _PTHREAD_MUTEX_SIG) && (sig == _PTHREAD_MUTEX_SIG_init)) {
+		if ((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK) == _PTHREAD_MUTEX_SIG_CMP) {
 			/* static initializer, init the mutex */
-			_new_pthread_mutex_init(omutex, NULL);
-			self = _PTHREAD_MUTEX_OWNER_SELF;
-		} else {
+                        if((retval = _pthread_mutex_init(omutex, NULL, (mutex->sig & 0xf))) != 0){
+                                UNLOCK(mutex->lock);
+				PLOCKSTAT_MUTEX_ERROR(omutex, retval);
+                                return(retval);
+                        }		
+	} else if (mutex->sig != _PTHREAD_MUTEX_SIG) {
 			UNLOCK(mutex->lock);
 			PLOCKSTAT_MUTEX_ERROR(omutex, EINVAL);
 			return(EINVAL);
 		}
 		UNLOCK(mutex->lock);
 	}
-	
-	if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-	} else {
-		lseqaddr = mutex->m_lseqaddr;
-		useqaddr = mutex->m_useqaddr;
-	}
+
+	MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
+
 	notify = 0;
-	retval = __mtx_droplock(mutex, 1, &flags, NULL, &mtxgen, &mtxugen, &notify);
+	retval = __mtx_droplock(mutex, PTHRW_INC, &flags, NULL, &mtxgen, &mtxugen);
 	if (retval != 0)
 		return(retval);
 	
-	if ((notify & 1) != 0) {
+	if ((flags & _PTHREAD_MTX_OPT_NOTIFY) != 0) {
+		firstfit = (mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT);
+
+		self = pthread_self();
+		(void) pthread_threadid_np(self, &selfid); 
+
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_UNLOCK | DBG_FUNC_NONE, (uint32_t)mutex, 1, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_UNLOCK | DBG_FUNC_NONE, (uint32_t)mutex, 1, mtxgen, mtxugen, 0);
 #endif
 #if  USE_COMPAGE /* [ */
-		if ( __psynch_mutexdrop((pthread_mutex_t *)lseqaddr, mtxgen, mtxugen, (uint64_t)0, flags)== (uint32_t)-1) 
+		if ((updateval = __psynch_mutexdrop((pthread_mutex_t *)lseqaddr, mtxgen, mtxugen, mutex->m_tid, flags)) == (uint32_t)-1) 
 #else /* USECOMPAGE ][ */
-		if ( __psynch_mutexdrop(omutex, mtxgen, mtxugen, (uint64_t)0, flags)== (uint32_t)-1) 
+		if ((updateval = __psynch_mutexdrop(omutex, mtxgen, mtxugen, mutex->m_tid, flags))== (uint32_t)-1) 
 #endif /* USE_COMPAGE ] */
 		{
-			if (errno == EINTR)
+			retval = errno;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_UNLOCK | DBG_FUNC_END, (uint32_t)mutex, retval, 0, 0, 0);
+#endif
+			if (retval == 0)
 				return(0);
-			else
-				return(errno);
+			else if (errno == EINTR)
+				return(0);
+			else {
+				LIBC_ABORT("__p_mutexdrop failed with error %d\n", retval);
+				return(retval);
+			}
+		} else if (firstfit == 1) {
+			if ((updateval & PTH_RWL_PBIT) != 0) {
+				__mtx_markprepost(mutex, updateval, firstfit);
+			}
 		}
 	}
 #if _KSYN_TRACE_
@@ -1474,7 +1195,7 @@ _new_pthread_mutex_unlock(pthread_mutex_t *omutex)
  * Initialize a mutex variable, possibly with additional attributes.
  */
 int
-_new_pthread_mutex_init(pthread_mutex_t *omutex, const pthread_mutexattr_t *attr)
+_pthread_mutex_init(pthread_mutex_t *omutex, const pthread_mutexattr_t *attr, uint32_t static_type)
 {
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
 		
@@ -1488,13 +1209,35 @@ _new_pthread_mutex_init(pthread_mutex_t *omutex, const pthread_mutexattr_t *attr
 		mutex->mtxopts.options.type = attr->type;
 		mutex->mtxopts.options.pshared = attr->pshared;
 	} else {
+                switch(static_type) {
+                        case 1:
+                                mutex->mtxopts.options.type = PTHREAD_MUTEX_ERRORCHECK;
+                                break;
+                        case 2:
+                                mutex->mtxopts.options.type = PTHREAD_MUTEX_RECURSIVE;
+                                break;
+                        case 3:
+				/* firstfit  fall thru */
+                        case 7:
+                                mutex->mtxopts.options.type = PTHREAD_MUTEX_DEFAULT;
+                                break;
+                        default:
+                                return(EINVAL);
+                }
+
 		mutex->prioceiling = _PTHREAD_DEFAULT_PRIOCEILING;
 		mutex->mtxopts.options.protocol = _PTHREAD_DEFAULT_PROTOCOL;
-		mutex->mtxopts.options.policy = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
-		mutex->mtxopts.options.type = PTHREAD_MUTEX_DEFAULT;
+		if (static_type != 3)
+			mutex->mtxopts.options.policy = _PTHREAD_MUTEX_POLICY_FAIRSHARE;
+		else
+			mutex->mtxopts.options.policy = _PTHREAD_MUTEX_POLICY_FIRSTFIT;
 		mutex->mtxopts.options.pshared = _PTHREAD_DEFAULT_PSHARED;
 	}
 	
+	mutex->mtxopts.options.notify = 0;
+	mutex->mtxopts.options.rfu = 0;
+	mutex->mtxopts.options.hold = 0;
+	mutex->mtxopts.options.mutex = 1;
 	mutex->mtxopts.options.lock_count = 0;
 	/* address 8byte aligned? */
 	if (((uintptr_t)mutex & 0x07) != 0) {
@@ -1524,64 +1267,66 @@ _new_pthread_mutex_init(pthread_mutex_t *omutex, const pthread_mutexattr_t *attr
 	mutex->m_seq[2] = 0;
 	mutex->prioceiling = 0;
 	mutex->priority = 0;
-	mutex->sig = _PTHREAD_MUTEX_SIG;
+	/* 
+	 * For the new style mutex, interlocks are not held all the time.
+	 * We needed the signature to be set in the end. And we  need
+	 * to protect against the code getting reorganized by compiler.
+	 * mutex->sig = _PTHREAD_MUTEX_SIG;
+	 */
+	__pthread_mutex_set_signature(mutex);
 	return (0);
 }
-
 
 
 /*
  * Destroy a mutex variable.
  */
 int
-_new_pthread_mutex_destroy(pthread_mutex_t *omutex)
+pthread_mutex_destroy(pthread_mutex_t *omutex)
 {
 	int res;
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
 
 	LOCK(mutex->lock);
-	res = _new_pthread_mutex_destroy_locked(omutex);
+	res = _pthread_mutex_destroy_locked(omutex);
 	UNLOCK(mutex->lock);
 	
 	return(res);	
 }
 
 
-int
-_new_pthread_mutex_destroy_locked(pthread_mutex_t *omutex)
+static int
+_pthread_mutex_destroy_locked(pthread_mutex_t *omutex)
 {
 	int res;
 	npthread_mutex_t * mutex = (npthread_mutex_t *)omutex;
-	uint32_t lgenval;
-	uint32_t * lseqaddr;
-	uint32_t * useqaddr;
+	uint32_t lgenval, ugenval;
+	volatile uint32_t * lseqaddr, *useqaddr;
 
 
 	if (mutex->sig == _PTHREAD_MUTEX_SIG)
 	{
-		if (mutex->mtxopts.options.pshared == PTHREAD_PROCESS_SHARED) {
-			MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
-		} else {
-			lseqaddr = mutex->m_lseqaddr;
-			useqaddr = mutex->m_useqaddr;
-		}
+		MUTEX_GETSEQ_ADDR(mutex, lseqaddr, useqaddr);
 
 		lgenval = *(lseqaddr);
+		ugenval = *(useqaddr);
 		if ((mutex->m_tid == (uint64_t)0) &&
-		    ((lgenval &  PTHRW_COUNT_MASK) == 0))
+		    ((lgenval &  PTHRW_COUNT_MASK) == (ugenval &  PTHRW_COUNT_MASK)))
 		{
 			mutex->sig = _PTHREAD_NO_SIG;
 			res = 0;
 		}
 		else
 			res = EBUSY;
-	} else 
+	} else if((mutex->sig & _PTHREAD_MUTEX_SIG_init_MASK )== _PTHREAD_MUTEX_SIG_CMP) {
+		mutex->sig = _PTHREAD_NO_SIG;
+                res = 0;
+	} else
 		res = EINVAL;
 
 	return (res);
 }
 
-#endif /* __i386__ || __x86_64__ */
 
 #endif /* !BUILDING_VARIANT ] */
 

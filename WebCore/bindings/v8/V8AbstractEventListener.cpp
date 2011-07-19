@@ -38,6 +38,7 @@
 #include "V8Binding.h"
 #include "V8Event.h"
 #include "V8EventListenerList.h"
+#include "V8HiddenPropertyName.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "WorkerContext.h"
@@ -71,6 +72,10 @@ V8AbstractEventListener::~V8AbstractEventListener()
 
 void V8AbstractEventListener::handleEvent(ScriptExecutionContext* context, Event* event)
 {
+    // Don't reenter V8 if execution was terminated in this instance of V8.
+    if (context->isJSExecutionForbidden())
+        return;
+
     ASSERT(event);
 
     // The callback function on XMLHttpRequest can clear the event listener and destroys 'this' object. Keep a local reference to it.
@@ -126,7 +131,7 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
         return;
 
     // We push the event being processed into the global object, so that it can be exposed by DOMWindow's bindings.
-    v8::Local<v8::String> eventSymbol = v8::String::NewSymbol("event");
+    v8::Handle<v8::String> eventSymbol = V8HiddenPropertyName::event();
     v8::Local<v8::Value> returnValue;
 
     // In beforeunload/unload handlers, we want to avoid sleeps which do tight loops of calling Date.getTime().
@@ -146,12 +151,15 @@ void V8AbstractEventListener::invokeEventHandler(ScriptExecutionContext* context
         v8Context->Global()->SetHiddenValue(eventSymbol, jsEvent);
         tryCatch.Reset();
 
-        // Call the event handler.
         returnValue = callListenerFunction(context, jsEvent, event);
-        if (!tryCatch.CanContinue())
-            return;
+        if (tryCatch.HasCaught())
+            event->target()->uncaughtExceptionInEventHandler();
 
-        // If an error occurs while handling the event, it should be reported in a regular way.
+        if (!tryCatch.CanContinue()) { // Result of TerminateExecution().
+            if (context->isWorkerContext())
+                static_cast<WorkerContext*>(context)->script()->forbidExecution();
+            return;
+        }
         tryCatch.Reset();
 
         // Restore the old event. This must be done for all exit paths through this method.

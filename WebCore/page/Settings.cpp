@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,14 +26,19 @@
 #include "config.h"
 #include "Settings.h"
 
-#include "BackForwardList.h"
+#include "BackForwardController.h"
+#include "CachedResourceLoader.h"
+#include "CookieStorage.h"
+#include "DOMTimer.h"
 #include "Database.h"
+#include "Document.h"
 #include "Frame.h"
 #include "FrameTree.h"
 #include "FrameView.h"
 #include "HistoryItem.h"
 #include "Page.h"
 #include "PageCache.h"
+#include "ResourceHandle.h"
 #include "StorageMap.h"
 #include <limits>
 
@@ -41,19 +46,44 @@ using namespace std;
 
 namespace WebCore {
 
-static void setNeedsReapplyStylesInAllFrames(Page* page)
+static void setLoadsImagesAutomaticallyInAllFrames(Page* page)
 {
     for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
-        frame->setNeedsReapplyStyles();
+        frame->document()->cachedResourceLoader()->setAutoLoadImages(page->settings()->loadsImagesAutomatically());
 }
 
 #if USE(SAFARI_THEME)
 bool Settings::gShouldPaintNativeControls = true;
 #endif
 
+#if USE(AVFOUNDATION)
+bool Settings::gAVFoundationEnabled(false);
+#endif
+
 #if PLATFORM(WIN) || (OS(WINDOWS) && PLATFORM(WX))
 bool Settings::gShouldUseHighResolutionTimers = true;
 #endif
+
+// NOTEs
+//  1) EditingMacBehavior comprises Tiger, Leopard, SnowLeopard and iOS builds, as well QtWebKit and Chromium when built on Mac;
+//  2) EditingWindowsBehavior comprises Win32 and WinCE builds, as well as QtWebKit and Chromium when built on Windows;
+//  3) EditingUnixBehavior comprises all unix-based systems, but Darwin/MacOS (and then abusing the terminology);
+// 99) MacEditingBehavior is used a fallback.
+static EditingBehaviorType editingBehaviorTypeForPlatform()
+{
+    return
+#if OS(DARWIN)
+    EditingMacBehavior
+#elif OS(WINDOWS)
+    EditingWindowsBehavior
+#elif OS(UNIX)
+    EditingUnixBehavior
+#else
+    // Fallback
+    EditingMacBehavior
+#endif
+    ;
+}
 
 Settings::Settings(Page* page)
     : m_page(page)
@@ -63,16 +93,17 @@ Settings::Settings(Page* page)
     , m_minimumLogicalFontSize(0)
     , m_defaultFontSize(0)
     , m_defaultFixedFontSize(0)
+    , m_validationMessageTimerMagnification(50)
     , m_maximumDecodedImageSize(numeric_limits<size_t>::max())
-#if ENABLE(DOM_STORAGE)            
-    , m_localStorageQuota(5 * 1024 * 1024)  // Suggested by the HTML5 spec.
+#if ENABLE(DOM_STORAGE)
     , m_sessionStorageQuota(StorageMap::noQuota)
 #endif
     , m_pluginAllowedRunTime(numeric_limits<unsigned>::max())
-    , m_zoomMode(ZoomPage)
+    , m_editingBehaviorType(editingBehaviorTypeForPlatform())
     , m_isSpatialNavigationEnabled(false)
     , m_isJavaEnabled(false)
     , m_loadsImagesAutomatically(false)
+    , m_loadsSiteIconsIgnoringImageLoadingSetting(false)
     , m_privateBrowsingEnabled(false)
     , m_caretBrowsingEnabled(false)
     , m_areImagesEnabled(true)
@@ -110,30 +141,47 @@ Settings::Settings(Page* page)
     , m_inApplicationChromeMode(false)
     , m_offlineWebApplicationCacheEnabled(false)
     , m_shouldPaintCustomScrollbars(false)
-    , m_enforceCSSMIMETypeInStrictMode(true)
+    , m_enforceCSSMIMETypeInNoQuirksMode(true)
     , m_usesEncodingDetector(false)
     , m_allowScriptsToCloseWindows(false)
-    , m_editingBehavior(
-#if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
-        // (PLATFORM(MAC) is always false in Chromium, hence the extra condition.)
-        EditingMacBehavior
-#else
-        EditingWindowsBehavior
-#endif
-        )
+    , m_canvasUsesAcceleratedDrawing(false)
+    , m_acceleratedDrawingEnabled(false)
     // FIXME: This should really be disabled by default as it makes platforms that don't support the feature download files
     // they can't use by. Leaving enabled for now to not change existing behavior.
     , m_downloadableBinaryFontsEnabled(true)
     , m_xssAuditorEnabled(false)
     , m_acceleratedCompositingEnabled(true)
+    , m_acceleratedCompositingFor3DTransformsEnabled(true)
+    , m_acceleratedCompositingForVideoEnabled(true)
+    , m_acceleratedCompositingForPluginsEnabled(true)
+    , m_acceleratedCompositingForCanvasEnabled(true)
+    , m_acceleratedCompositingForAnimationEnabled(true)
     , m_showDebugBorders(false)
     , m_showRepaintCounter(false)
     , m_experimentalNotificationsEnabled(false)
     , m_webGLEnabled(false)
+    , m_openGLMultisamplingEnabled(true)
+    , m_webAudioEnabled(false)
+    , m_acceleratedCanvas2dEnabled(false)
+    , m_legacyAcceleratedCanvas2dEnabled(false)
     , m_loadDeferringEnabled(true)
     , m_tiledBackingStoreEnabled(false)
-    , m_dnsPrefetchingEnabled(true)
+    , m_paginateDuringLayoutEnabled(false)
+    , m_dnsPrefetchingEnabled(false)
+#if ENABLE(FULLSCREEN_API)
+    , m_fullScreenAPIEnabled(false)
+#endif
+    , m_asynchronousSpellCheckingEnabled(false)
+    , m_memoryInfoEnabled(false)
     , m_interactiveFormValidation(false)
+    , m_usePreHTML5ParserQuirks(false)
+    , m_hyperlinkAuditingEnabled(false)
+    , m_crossOriginCheckInGetMatchedCSSRulesDisabled(false)
+    , m_forceCompositingMode(false)
+    , m_shouldInjectUserScriptsInInitialEmptyDocument(false)
+    , m_allowDisplayOfInsecureContent(true)
+    , m_allowRunningOfInsecureContent(true)
+    , m_loadsImagesAutomaticallyTimer(this, &Settings::loadsImagesAutomaticallyTimerFired)
 {
     // A Frame may not have been created yet, so we initialize the AtomicString 
     // hash before trying to use it.
@@ -146,7 +194,7 @@ void Settings::setStandardFontFamily(const AtomicString& standardFontFamily)
         return;
 
     m_standardFontFamily = standardFontFamily;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFixedFontFamily(const AtomicString& fixedFontFamily)
@@ -155,7 +203,7 @@ void Settings::setFixedFontFamily(const AtomicString& fixedFontFamily)
         return;
         
     m_fixedFontFamily = fixedFontFamily;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setSerifFontFamily(const AtomicString& serifFontFamily)
@@ -164,7 +212,7 @@ void Settings::setSerifFontFamily(const AtomicString& serifFontFamily)
         return;
         
     m_serifFontFamily = serifFontFamily;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setSansSerifFontFamily(const AtomicString& sansSerifFontFamily)
@@ -173,7 +221,7 @@ void Settings::setSansSerifFontFamily(const AtomicString& sansSerifFontFamily)
         return;
         
     m_sansSerifFontFamily = sansSerifFontFamily; 
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setCursiveFontFamily(const AtomicString& cursiveFontFamily)
@@ -182,7 +230,7 @@ void Settings::setCursiveFontFamily(const AtomicString& cursiveFontFamily)
         return;
         
     m_cursiveFontFamily = cursiveFontFamily;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFantasyFontFamily(const AtomicString& fantasyFontFamily)
@@ -191,7 +239,7 @@ void Settings::setFantasyFontFamily(const AtomicString& fantasyFontFamily)
         return;
         
     m_fantasyFontFamily = fantasyFontFamily;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setMinimumFontSize(int minimumFontSize)
@@ -200,7 +248,7 @@ void Settings::setMinimumFontSize(int minimumFontSize)
         return;
 
     m_minimumFontSize = minimumFontSize;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setMinimumLogicalFontSize(int minimumLogicalFontSize)
@@ -209,7 +257,7 @@ void Settings::setMinimumLogicalFontSize(int minimumLogicalFontSize)
         return;
 
     m_minimumLogicalFontSize = minimumLogicalFontSize;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setDefaultFontSize(int defaultFontSize)
@@ -218,7 +266,7 @@ void Settings::setDefaultFontSize(int defaultFontSize)
         return;
 
     m_defaultFontSize = defaultFontSize;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setDefaultFixedFontSize(int defaultFontSize)
@@ -227,12 +275,31 @@ void Settings::setDefaultFixedFontSize(int defaultFontSize)
         return;
 
     m_defaultFixedFontSize = defaultFontSize;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setLoadsImagesAutomatically(bool loadsImagesAutomatically)
 {
     m_loadsImagesAutomatically = loadsImagesAutomatically;
+    
+    // Changing this setting to true might immediately start new loads for images that had previously had loading disabled.
+    // If this happens while a WebView is being dealloc'ed, and we don't know the WebView is being dealloc'ed, these new loads
+    // can cause crashes downstream when the WebView memory has actually been free'd.
+    // One example where this can happen is in Mac apps that subclass WebView then do work in their overridden dealloc methods.
+    // Starting these loads synchronously is not important.  By putting it on a 0-delay, properly closing the Page cancels them
+    // before they have a chance to really start.
+    // See http://webkit.org/b/60572 for more discussion.
+    m_loadsImagesAutomaticallyTimer.startOneShot(0);
+}
+
+void Settings::loadsImagesAutomaticallyTimerFired(Timer<Settings>*)
+{
+    setLoadsImagesAutomaticallyInAllFrames(m_page);
+}
+
+void Settings::setLoadsSiteIconsIgnoringImageLoadingSetting(bool loadsSiteIcons)
+{
+    m_loadsSiteIconsIgnoringImageLoadingSetting = loadsSiteIcons;
 }
 
 void Settings::setJavaScriptEnabled(bool isJavaScriptEnabled)
@@ -285,12 +352,7 @@ void Settings::setLocalStorageEnabled(bool localStorageEnabled)
     m_localStorageEnabled = localStorageEnabled;
 }
 
-#if ENABLE(DOM_STORAGE)        
-void Settings::setLocalStorageQuota(unsigned localStorageQuota)
-{
-    m_localStorageQuota = localStorageQuota;
-}
-
+#if ENABLE(DOM_STORAGE)
 void Settings::setSessionStorageQuota(unsigned sessionStorageQuota)
 {
     m_sessionStorageQuota = sessionStorageQuota;
@@ -301,6 +363,13 @@ void Settings::setPrivateBrowsingEnabled(bool privateBrowsingEnabled)
 {
     if (m_privateBrowsingEnabled == privateBrowsingEnabled)
         return;
+
+#if USE(CFURLSTORAGESESSIONS)
+    ResourceHandle::setPrivateBrowsingEnabled(privateBrowsingEnabled);
+#endif
+
+    // FIXME: We can only enable cookie private browsing mode globally, so it's misleading to have it as a per-page setting.
+    setCookieStoragePrivateBrowsingEnabled(privateBrowsingEnabled);
 
     m_privateBrowsingEnabled = privateBrowsingEnabled;
     m_page->privateBrowsingStateChanged();
@@ -342,7 +411,7 @@ void Settings::setTextAreasAreResizable(bool textAreasAreResizable)
         return;
 
     m_textAreasAreResizable = textAreasAreResizable;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setEditableLinkBehavior(EditableLinkBehavior editableLinkBehavior)
@@ -397,6 +466,26 @@ void Settings::setDOMPasteAllowed(bool DOMPasteAllowed)
     m_isDOMPasteAllowed = DOMPasteAllowed;
 }
 
+void Settings::setDefaultMinDOMTimerInterval(double interval)
+{
+    DOMTimer::setDefaultMinTimerInterval(interval);
+}
+
+double Settings::defaultMinDOMTimerInterval()
+{
+    return DOMTimer::defaultMinTimerInterval();
+}
+
+void Settings::setMinDOMTimerInterval(double interval)
+{
+    m_page->setMinimumTimerInterval(interval);
+}
+
+double Settings::minDOMTimerInterval()
+{
+    return m_page->minimumTimerInterval();
+}
+
 void Settings::setUsesPageCache(bool usesPageCache)
 {
     if (m_usesPageCache == usesPageCache)
@@ -404,9 +493,10 @@ void Settings::setUsesPageCache(bool usesPageCache)
         
     m_usesPageCache = usesPageCache;
     if (!m_usesPageCache) {
-        HistoryItemVector& historyItems = m_page->backForwardList()->entries();
-        for (unsigned i = 0; i < historyItems.size(); i++)
-            pageCache()->remove(historyItems[i].get());
+        int first = -m_page->backForward()->backCount();
+        int last = m_page->backForward()->forwardCount();
+        for (int i = first; i <= last; i++)
+            pageCache()->remove(m_page->backForward()->itemAtIndex(i));
         pageCache()->releaseAutoreleasedPagesNow();
     }
 }
@@ -442,7 +532,7 @@ void Settings::setAuthorAndUserStylesEnabled(bool authorAndUserStylesEnabled)
         return;
 
     m_authorAndUserStylesEnabled = authorAndUserStylesEnabled;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setFontRenderingMode(FontRenderingMode mode)
@@ -450,7 +540,7 @@ void Settings::setFontRenderingMode(FontRenderingMode mode)
     if (fontRenderingMode() == mode)
         return;
     m_fontRenderingMode = mode;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 FontRenderingMode Settings::fontRenderingMode() const
@@ -468,10 +558,12 @@ void Settings::setFrameFlatteningEnabled(bool frameFlatteningEnabled)
     m_frameFlatteningEnabled = frameFlatteningEnabled;
 }
 
+#if ENABLE(WEB_ARCHIVE)
 void Settings::setWebArchiveDebugModeEnabled(bool enabled)
 {
     m_webArchiveDebugModeEnabled = enabled;
 }
+#endif
 
 void Settings::setLocalFileContentSniffingEnabled(bool enabled)
 {
@@ -498,18 +590,9 @@ void Settings::setShouldPaintCustomScrollbars(bool shouldPaintCustomScrollbars)
     m_shouldPaintCustomScrollbars = shouldPaintCustomScrollbars;
 }
 
-void Settings::setZoomMode(ZoomMode mode)
+void Settings::setEnforceCSSMIMETypeInNoQuirksMode(bool enforceCSSMIMETypeInNoQuirksMode)
 {
-    if (mode == m_zoomMode)
-        return;
-    
-    m_zoomMode = mode;
-    setNeedsReapplyStylesInAllFrames(m_page);
-}
-
-void Settings::setEnforceCSSMIMETypeInStrictMode(bool enforceCSSMIMETypeInStrictMode)
-{
-    m_enforceCSSMIMETypeInStrictMode = enforceCSSMIMETypeInStrictMode;
+    m_enforceCSSMIMETypeInNoQuirksMode = enforceCSSMIMETypeInNoQuirksMode;
 }
 
 #if USE(SAFARI_THEME)
@@ -526,7 +609,11 @@ void Settings::setUsesEncodingDetector(bool usesEncodingDetector)
 
 void Settings::setDNSPrefetchingEnabled(bool dnsPrefetchingEnabled)
 {
+    if (m_dnsPrefetchingEnabled == dnsPrefetchingEnabled)
+        return;
+
     m_dnsPrefetchingEnabled = dnsPrefetchingEnabled;
+    m_page->dnsPrefetchingStateChanged();
 }
 
 void Settings::setAllowScriptsToCloseWindows(bool allowScriptsToCloseWindows)
@@ -555,7 +642,42 @@ void Settings::setAcceleratedCompositingEnabled(bool enabled)
         return;
         
     m_acceleratedCompositingEnabled = enabled;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
+}
+
+void Settings::setCanvasUsesAcceleratedDrawing(bool enabled)
+{
+    m_canvasUsesAcceleratedDrawing = enabled;
+}
+
+void Settings::setAcceleratedDrawingEnabled(bool enabled)
+{
+    m_acceleratedDrawingEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
+{
+    m_acceleratedCompositingFor3DTransformsEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForVideoEnabled(bool enabled)
+{
+    m_acceleratedCompositingForVideoEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForPluginsEnabled(bool enabled)
+{
+    m_acceleratedCompositingForPluginsEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForCanvasEnabled(bool enabled)
+{
+    m_acceleratedCompositingForCanvasEnabled = enabled;
+}
+
+void Settings::setAcceleratedCompositingForAnimationEnabled(bool enabled)
+{
+    m_acceleratedCompositingForAnimationEnabled = enabled;
 }
 
 void Settings::setShowDebugBorders(bool enabled)
@@ -564,7 +686,7 @@ void Settings::setShowDebugBorders(bool enabled)
         return;
         
     m_showDebugBorders = enabled;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setShowRepaintCounter(bool enabled)
@@ -573,7 +695,7 @@ void Settings::setShowRepaintCounter(bool enabled)
         return;
         
     m_showRepaintCounter = enabled;
-    setNeedsReapplyStylesInAllFrames(m_page);
+    m_page->setNeedsRecalcStyleInAllFrames();
 }
 
 void Settings::setExperimentalNotificationsEnabled(bool enabled)
@@ -594,9 +716,29 @@ void Settings::setShouldUseHighResolutionTimers(bool shouldUseHighResolutionTime
 }
 #endif
 
+void Settings::setWebAudioEnabled(bool enabled)
+{
+    m_webAudioEnabled = enabled;
+}
+
 void Settings::setWebGLEnabled(bool enabled)
 {
     m_webGLEnabled = enabled;
+}
+
+void Settings::setOpenGLMultisamplingEnabled(bool enabled)
+{
+    m_openGLMultisamplingEnabled = enabled;
+}
+
+void Settings::setAccelerated2dCanvasEnabled(bool enabled)
+{
+    m_acceleratedCanvas2dEnabled = enabled;
+}
+
+void Settings::setLegacyAccelerated2dCanvasEnabled(bool enabled)
+{
+    m_legacyAcceleratedCanvas2dEnabled = enabled;
 }
 
 void Settings::setLoadDeferringEnabled(bool enabled)

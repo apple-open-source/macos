@@ -358,11 +358,16 @@ WriteDispatcher(FILE *file)
       descr_count += rtCountArgDescriptors(rt->rtArgs, (int *) 0);
     }
   fprintf(file, "\n");
-  fprintf(file, "extern boolean_t %s(\n", ServerDemux);
+  /* 11/30/09 - gab: <rdar://problem/5679615>
+   * MIG-generated code should be consistent in its use of mig_external
+   */
+  WriteMigExternal(file);
+  fprintf(file, "boolean_t %s(\n", ServerDemux);
   fprintf(file, "\t\tmach_msg_header_t *InHeadP,\n");
   fprintf(file, "\t\tmach_msg_header_t *OutHeadP);\n\n");
 
-  fprintf(file, "extern mig_routine_t %s_routine(\n", ServerDemux);
+  WriteMigExternal(file);
+  fprintf(file, "mig_routine_t %s_routine(\n", ServerDemux);
   fprintf(file, "\t\tmach_msg_header_t *InHeadP);\n\n");
 
   fprintf(file, "\n/* Description of this subsystem, for use in direct RPC */\n");

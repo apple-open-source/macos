@@ -27,7 +27,7 @@ extern ID _relaxed_syntax_ID;
 @end
 #endif
 
-static RB_ID sel_to_mid(SEL a_sel)
+static RB_ID sel_to_mid(VALUE rcv, SEL a_sel)
 {
   int i, length;
   const char *selName;
@@ -42,7 +42,7 @@ static RB_ID sel_to_mid(SEL a_sel)
   for (i = 0; i < length; i++)
     if (mname[i] == ':') mname[i] = '_';
 
-  if (RTEST(rb_ivar_get(osx_s_module(), _relaxed_syntax_ID))) {
+  if (RTEST(rb_ivar_get(osx_s_module(), _relaxed_syntax_ID)) && !rb_respond_to(rcv, rb_intern(mname))) {
     // sub(/^(.*)_$/, "\1")
     for (i = length - 1; i >= 0; i--) {
       if (mname[i] != '_') break;
@@ -73,7 +73,7 @@ static RB_ID sel_to_mid_as_setter(SEL a_sel)
 
 static RB_ID rb_obj_sel_to_mid(VALUE rcv, SEL a_sel)
 {
-  RB_ID mid = sel_to_mid(a_sel);
+  RB_ID mid = sel_to_mid(rcv, a_sel);
   if (rb_respond_to(rcv, mid) == 0)
     mid = sel_to_mid_as_setter(a_sel);
   return mid;

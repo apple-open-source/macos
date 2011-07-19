@@ -37,9 +37,11 @@ skip; /* register */
 
 skip; /* look_up */
 
-simpleroutine job_mig_send_signal_reply(
-		__r_port	: mach_port_move_send_once_t;
-		__result	: kern_return_t, RetCode);
+simpleroutine
+job_mig_send_signal_reply(
+		rp		: mach_port_move_send_once_t;
+		kr		: kern_return_t, RetCode
+);
 
 skip; /* parent */
 
@@ -57,10 +59,7 @@ skip; /* getsocket */
 
 skip; /* spawn */
 
-simpleroutine job_mig_wait_reply(
-		__r_port	: mach_port_move_send_once_t;
-		__result	: kern_return_t, RetCode;
-		__wait		: integer_t);
+skip; /* wait */
 
 skip; /* uncork_fork */
 
@@ -74,10 +73,12 @@ skip; /* move_subset */
 
 skip; /* swap_complex */
 
-simpleroutine job_mig_log_drain_reply(
-		__r_port	: mach_port_move_send_once_t;
-		__result	: kern_return_t, RetCode;
-		__outval	: pointer_t);
+simpleroutine 
+job_mig_log_drain_reply(
+		rp		: mach_port_move_send_once_t;
+		kr		: kern_return_t, RetCode;
+		outval	: pointer_t
+);
 
 skip; /* log_forward */
 
@@ -97,8 +98,20 @@ skip; /* port_for_label */
 
 skip; /* init_session */
 
-simpleroutine job_mig_wait2_reply(
-		__r_port	: mach_port_move_send_once_t;
-		__result	: kern_return_t, RetCode;
-		__waitval	: integer_t;
-		__legacy	: boolean_t);
+skip; /* set_security_session */
+
+skip; /* wait2 */
+
+skip; /* event_source_check_in */
+
+skip; /* event_set_state */
+
+simpleroutine
+job_mig_spawn2_reply(
+		rp		: mach_port_move_send_once_t;
+		kr		: kern_return_t, RetCode;
+		pid		: pid_t;
+		obsrvp	: mach_port_move_receive_t
+);
+
+skip; /* get_root_bootstrap */

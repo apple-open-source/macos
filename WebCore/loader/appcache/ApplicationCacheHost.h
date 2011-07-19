@@ -33,6 +33,7 @@
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
 
+#include "KURL.h"
 #include <wtf/Deque.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -40,10 +41,9 @@
 #include <wtf/Vector.h>
 
 namespace WebCore {
-
     class DOMApplicationCache;
     class DocumentLoader;
-    class KURL;
+    class Frame;
     class ResourceLoader;
     class ResourceError;
     class ResourceRequest;
@@ -58,7 +58,8 @@ namespace WebCore {
     class ApplicationCacheStorage;
 #endif
 
-    class ApplicationCacheHost : public Noncopyable {
+    class ApplicationCacheHost {
+        WTF_MAKE_NONCOPYABLE(ApplicationCacheHost); WTF_MAKE_FAST_ALLOCATED;
     public:
         // The Status numeric values are specified in the HTML5 spec.
         enum Status {
@@ -81,6 +82,40 @@ namespace WebCore {
             OBSOLETE_EVENT  // Must remain the last value, this is used to size arrays.
         };
 
+#if ENABLE(INSPECTOR)
+        struct CacheInfo {
+            CacheInfo(const KURL& manifest, double creationTime, double updateTime, long long size)
+                : m_manifest(manifest)
+                , m_creationTime(creationTime)
+                , m_updateTime(updateTime)
+                , m_size(size) { }
+            KURL m_manifest;
+            double m_creationTime;
+            double m_updateTime;
+            long long m_size;
+        };
+
+        struct ResourceInfo {
+            ResourceInfo(const KURL& resource, bool isMaster, bool isManifest, bool isFallback, bool isForeign, bool isExplicit, long long size)
+                : m_resource(resource)
+                , m_isMaster(isMaster)
+                , m_isManifest(isManifest)
+                , m_isFallback(isFallback)
+                , m_isForeign(isForeign)
+                , m_isExplicit(isExplicit)
+                , m_size(size) { }
+            KURL m_resource;
+            bool m_isMaster;
+            bool m_isManifest;
+            bool m_isFallback;
+            bool m_isForeign;
+            bool m_isExplicit;
+            long long m_size;
+        };
+
+        typedef Vector<ResourceInfo> ResourceInfoList;
+#endif
+
         ApplicationCacheHost(DocumentLoader*);
         ~ApplicationCacheHost();
 
@@ -88,9 +123,10 @@ namespace WebCore {
         void selectCacheWithManifest(const KURL& manifestURL);
 
         void maybeLoadMainResource(ResourceRequest&, SubstituteData&);
+        void maybeLoadMainResourceForRedirect(ResourceRequest&, SubstituteData&);
         bool maybeLoadFallbackForMainResponse(const ResourceRequest&, const ResourceResponse&);
         bool maybeLoadFallbackForMainError(const ResourceRequest&, const ResourceError&);
-        void mainResourceDataReceived(const char* data, int length, long long lengthReceived, bool allAtOnce);
+        void mainResourceDataReceived(const char* data, int length, long long encodedDataLength, bool allAtOnce);
         void finishedLoadingMainResource();
         void failedLoadingMainResource();
 
@@ -108,19 +144,40 @@ namespace WebCore {
         bool update();
         bool swapCache();
 
-        void setDOMApplicationCache(DOMApplicationCache* domApplicationCache);
-        void notifyDOMApplicationCache(EventID id);
+        void setDOMApplicationCache(DOMApplicationCache*);
+        void notifyDOMApplicationCache(EventID, int progressTotal, int progressDone);
+
+        void stopLoadingInFrame(Frame*);
 
         void stopDeferringEvents(); // Also raises the events that have been queued up.
 
+#if ENABLE(INSPECTOR)
+        void fillResourceList(ResourceInfoList*);
+        CacheInfo applicationCacheInfo();
+#endif
+
+#if !PLATFORM(CHROMIUM)
+        bool shouldLoadResourceFromApplicationCache(const ResourceRequest&, ApplicationCacheResource*&);
+        bool getApplicationCacheFallbackResource(const ResourceRequest&, ApplicationCacheResource*&, ApplicationCache* = 0);
+#endif
+
     private:
         bool isApplicationCacheEnabled();
-        DocumentLoader* documentLoader() { return m_documentLoader; }
+        DocumentLoader* documentLoader() const { return m_documentLoader; }
+
+        struct DeferredEvent {
+            EventID eventID;
+            int progressTotal;
+            int progressDone;
+            DeferredEvent(EventID id, int total, int done) : eventID(id), progressTotal(total), progressDone(done) { }
+        };
 
         DOMApplicationCache* m_domApplicationCache;
         DocumentLoader* m_documentLoader;
         bool m_defersEvents; // Events are deferred until after document onload.
-        Vector<EventID> m_deferredEvents;
+        Vector<DeferredEvent> m_deferredEvents;
+
+        void dispatchDOMEvent(EventID, int progressTotal, int progressDone);
 
 #if PLATFORM(CHROMIUM)
         friend class ApplicationCacheHostInternal;
@@ -130,8 +187,6 @@ namespace WebCore {
         friend class ApplicationCacheStorage;
 
         bool scheduleLoadFallbackResourceFromApplicationCache(ResourceLoader*, ApplicationCache* = 0);
-        bool shouldLoadResourceFromApplicationCache(const ResourceRequest&, ApplicationCacheResource*&);
-        bool getApplicationCacheFallbackResource(const ResourceRequest&, ApplicationCacheResource*&, ApplicationCache* = 0);
         void setCandidateApplicationCacheGroup(ApplicationCacheGroup* group);
         ApplicationCacheGroup* candidateApplicationCacheGroup() const { return m_candidateApplicationCacheGroup; }
         void setApplicationCache(PassRefPtr<ApplicationCache> applicationCache);

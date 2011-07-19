@@ -78,9 +78,26 @@
 #include "Notification.h"
 #endif
 
+#if ENABLE(INDEXED_DATABASE)
+#include "IDBRequest.h"
+#include "JSIDBRequest.h"
+#endif
+
+#if ENABLE(WEB_AUDIO)
+#include "AudioContext.h"
+#include "JSAudioContext.h"
+#include "JSJavaScriptAudioNode.h"
+#include "JavaScriptAudioNode.h"
+#endif
+
 #if ENABLE(WEB_SOCKETS)
 #include "JSWebSocket.h"
 #include "WebSocket.h"
+#endif
+
+#if ENABLE(BLOB)
+#include "JSFileReader.h"
+#include "FileReader.h"
 #endif
 
 using namespace JSC;
@@ -141,12 +158,35 @@ JSValue toJS(ExecState* exec, JSDOMGlobalObject* globalObject, EventTarget* targ
 
 #if ENABLE(NOTIFICATIONS)
     if (Notification* notification = target->toNotification())
-        return toJS(exec, notification);
+        return toJS(exec, globalObject, notification);
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+    if (IDBDatabase* idbDatabase = target->toIDBDatabase())
+        return toJS(exec, globalObject, idbDatabase);
+
+    if (IDBRequest* idbRequest = target->toIDBRequest())
+        return toJS(exec, globalObject, idbRequest);
+
+    if (IDBTransaction* idbTransaction = target->toIDBTransaction())
+        return toJS(exec, globalObject, idbTransaction);
+#endif
+
+#if ENABLE(WEB_AUDIO)
+    if (JavaScriptAudioNode* jsAudioNode = target->toJavaScriptAudioNode())
+        return toJS(exec, globalObject, jsAudioNode);
+    if (AudioContext* audioContext = target->toAudioContext())
+        return toJS(exec, globalObject, audioContext);
 #endif
 
 #if ENABLE(WEB_SOCKETS)
     if (WebSocket* webSocket = target->toWebSocket())
-        return toJS(exec, webSocket);
+        return toJS(exec, globalObject, webSocket);
+#endif
+
+#if ENABLE(BLOB)
+    if (FileReader* fileReader = target->toFileReader())
+        return toJS(exec, globalObject, fileReader);
 #endif
 
     ASSERT_NOT_REACHED();

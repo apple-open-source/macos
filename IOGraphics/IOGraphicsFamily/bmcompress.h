@@ -524,13 +524,21 @@ static int CompressData(uint8_t *srcbase, bool vram,
     {
         for (idx = 0; idx < 256; idx++)
         {
+	    if (!gammaData)
+	    {
+	    	*gammaOut++ = idx;
+		continue;
+	    }
             idxIn = (idx * (gammaDataCount - 1)) / 255;
             if (gammaDataWidth <= 8)
                 *gammaOut++ = gammaData[idxIn] << (8 - gammaDataWidth);
             else
                 *gammaOut++ = ((uint16_t *) gammaData)[idxIn] >> (gammaDataWidth - 8);
         }
-        gammaData += gammaDataCount * ((gammaDataWidth + 7) / 8);
+	if (gammaData)
+	{
+	    gammaData += gammaDataCount * ((gammaDataWidth + 7) / 8);
+	}
     }
 
     cScan = (uint32_t *) gammaOut;

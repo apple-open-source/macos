@@ -46,8 +46,8 @@
 /* .ad
 /* .fi
 /* .IP "\fBcontent_filter (empty)\fR"
-/*	The name of a mail delivery transport that filters mail after
-/*	it is queued.
+/*	After the message is queued, send the entire message to the
+/*	specified \fItransport:destination\fR.
 /* .IP "\fBreceive_override_options (empty)\fR"
 /*	Enable or disable recipient validation, built-in content
 /*	filtering, or address mapping.
@@ -57,9 +57,6 @@
 /* .IP "\fBconfig_directory (see 'postconf -d' output)\fR"
 /*	The default location of the Postfix main.cf and master.cf
 /*	configuration files.
-/* .IP "\fBdaemon_timeout (18000s)\fR"
-/*	How much time a Postfix daemon process may take to handle a
-/*	request before it is terminated by a built-in watchdog timer.
 /* .IP "\fBipc_timeout (3600s)\fR"
 /*	The time limit for sending or receiving information over an internal
 /*	communication channel.
@@ -80,7 +77,7 @@
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* SEE ALSO
@@ -194,10 +191,15 @@ static int cleanup_service_error_reason(PICKUP_INFO *info, int status,
     /*
      * XXX If the cleanup server gave a reason, then it was already logged.
      * Don't bother logging it another time.
+     * 
+     * XXX Discard a message without recipient. This can happen with "postsuper
+     * -r" when a message is already delivered (or bounced). The Postfix
+     * sendmail command rejects submissions without recipients.
      */
-    if (reason == 0)
-	msg_warn("%s: %s", info->path, cleanup_strerror(status));
-    return ((status & CLEANUP_STAT_BAD) ?
+    if (reason == 0 || *reason == 0)
+	msg_warn("%s: error writing %s: %s",
+		  info->path, info->id, cleanup_strerror(status));
+    return ((status & (CLEANUP_STAT_BAD | CLEANUP_STAT_RCPT)) ?
 	    REMOVE_MESSAGE_FILE : KEEP_MESSAGE_FILE);
 }
 
@@ -591,10 +593,18 @@ int     main(int argc, char **argv)
     /*
      * Use the multi-threaded skeleton, because no-one else should be
      * monitoring our service socket while this process runs.
+     * 
+     * XXX The default watchdog timeout for trigger servers is 1000s, while the
+     * cleanup server watchdog timeout is $daemon_timeout (i.e. several
+     * hours). We override the default 1000s timeout to avoid problems with
+     * slow mail submission. The real problem is of course that the
+     * single-threaded pickup server is not a good solution for mail
+     * submissions.
      */
     trigger_server_main(argc, argv, pickup_service,
 			MAIL_SERVER_STR_TABLE, str_table,
 			MAIL_SERVER_POST_INIT, post_jail_init,
 			MAIL_SERVER_SOLITARY,
+			MAIL_SERVER_WATCHDOG, &var_daemon_timeout,
 			0);
 }

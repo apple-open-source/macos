@@ -32,21 +32,29 @@
 #define EditorClientGtk_h
 
 #include "EditorClient.h"
-
+#include "KeyBindingTranslator.h"
+#include "TextCheckerClient.h"
 #include <wtf/Deque.h>
 #include <wtf/Forward.h>
 #include <wtf/gobject/GOwnPtr.h>
+#include <wtf/gobject/GRefPtr.h>
+
+#if ENABLE(SPELLCHECK)
+#include "TextCheckerClientEnchant.h"
+#else
+#include "EmptyClients.h"
+#endif
 
 typedef struct _WebKitWebView WebKitWebView;
-typedef char gchar;
 
 namespace WebCore {
-    class Page;
+class Frame;
+class KeyboardEvent;
 }
 
 namespace WebKit {
 
-    class EditorClient : public WebCore::EditorClient {
+class EditorClient : public WebCore::EditorClient {
     protected:
         bool m_isInRedo;
 
@@ -58,9 +66,13 @@ namespace WebKit {
         ~EditorClient();
         WebKitWebView* webView() { return m_webView; }
         bool treatContextCommitAsKeyEvent() { return m_treatContextCommitAsKeyEvent; }
+        bool preventNextCompositionCommit() { return m_preventNextCompositionCommit; }
         void clearPendingComposition() { m_pendingComposition.set(0); }
         bool hasPendingComposition() { return m_pendingComposition; }
+        void addPendingEditorCommand(const char* command) { m_pendingEditorCommands.append(command); }
         void updatePendingComposition(const char*);
+        void generateEditorCommands(const WebCore::KeyboardEvent*);
+        bool executePendingEditorCommands(WebCore::Frame*, bool);
 
         // from EditorClient
         virtual void pageDestroyed();
@@ -75,12 +87,10 @@ namespace WebKit {
         virtual void toggleGrammarChecking();
         virtual int spellCheckerDocumentTag();
 
-        virtual bool isEditable();
-
         virtual bool shouldBeginEditing(WebCore::Range*);
         virtual bool shouldEndEditing(WebCore::Range*);
         virtual bool shouldInsertNode(WebCore::Node*, WebCore::Range*, WebCore::EditorInsertAction);
-        virtual bool shouldInsertText(const WebCore::String&, WebCore::Range*, WebCore::EditorInsertAction);
+        virtual bool shouldInsertText(const WTF::String&, WebCore::Range*, WebCore::EditorInsertAction);
         virtual bool shouldChangeSelectedRange(WebCore::Range* fromRange, WebCore::Range* toRange, WebCore::EAffinity, bool stillSelecting);
 
         virtual bool shouldApplyStyle(WebCore::CSSStyleDeclaration*, WebCore::Range*);
@@ -98,6 +108,8 @@ namespace WebKit {
         virtual void registerCommandForRedo(WTF::PassRefPtr<WebCore::EditCommand>);
         virtual void clearUndoRedoOperations();
 
+        virtual bool canCopyCut(WebCore::Frame*, bool defaultValue) const;
+        virtual bool canPaste(WebCore::Frame*, bool defaultValue) const;
         virtual bool canUndo() const;
         virtual bool canRedo() const;
 
@@ -106,6 +118,7 @@ namespace WebKit {
 
         virtual void handleKeyboardEvent(WebCore::KeyboardEvent*);
         virtual void handleInputMethodKeydown(WebCore::KeyboardEvent*);
+        virtual void handleInputMethodMousePress();
 
         virtual void textFieldDidBeginEditing(WebCore::Element*);
         virtual void textFieldDidEndEditing(WebCore::Element*);
@@ -114,22 +127,28 @@ namespace WebKit {
         virtual void textWillBeDeletedInTextField(WebCore::Element*);
         virtual void textDidChangeInTextArea(WebCore::Element*);
 
-        virtual void ignoreWordInSpellDocument(const WebCore::String&);
-        virtual void learnWord(const WebCore::String&);
-        virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength);
-        virtual WebCore::String getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&);
-        virtual void checkGrammarOfString(const UChar*, int length, WTF::Vector<WebCore::GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength);
-        virtual void updateSpellingUIWithGrammarString(const WebCore::String&, const WebCore::GrammarDetail&);
-        virtual void updateSpellingUIWithMisspelledWord(const WebCore::String&);
+        virtual WebCore::TextCheckerClient* textChecker() { return &m_textCheckerClient; }
+
+        virtual void updateSpellingUIWithGrammarString(const WTF::String&, const WebCore::GrammarDetail&);
+        virtual void updateSpellingUIWithMisspelledWord(const WTF::String&);
         virtual void showSpellingUI(bool show);
         virtual bool spellingUIIsShowing();
-        virtual void getGuessesForWord(const WebCore::String&, WTF::Vector<WebCore::String>& guesses);
+        virtual void willSetInputMethodState();
         virtual void setInputMethodState(bool enabled);
 
     private:
+#if ENABLE(SPELLCHECK)
+        TextCheckerClientEnchant m_textCheckerClient;
+#else
+        WebCore::EmptyTextCheckerClient m_textCheckerClient;
+#endif
         WebKitWebView* m_webView;
+        bool m_preventNextCompositionCommit;
         bool m_treatContextCommitAsKeyEvent;
         GOwnPtr<gchar> m_pendingComposition;
+
+        WebCore::KeyBindingTranslator m_keyBindingTranslator;
+        Vector<WTF::String> m_pendingEditorCommands;
     };
 }
 

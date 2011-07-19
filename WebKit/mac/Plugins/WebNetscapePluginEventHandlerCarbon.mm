@@ -49,8 +49,6 @@ static void getCarbonEvent(EventRecord* carbonEvent)
     carbonEvent->when = TickCount();
     
     GetGlobalMouse(&carbonEvent->where);
-    carbonEvent->where.h = static_cast<short>(carbonEvent->where.h * HIGetScaleFactor());
-    carbonEvent->where.v = static_cast<short>(carbonEvent->where.v * HIGetScaleFactor());
     carbonEvent->modifiers = GetCurrentKeyModifiers();
     if (!Button())
         carbonEvent->modifiers |= btnState;
@@ -87,11 +85,8 @@ static EventModifiers modifiersForEvent(NSEvent *event)
 
 static void getCarbonEvent(EventRecord *carbonEvent, NSEvent *cocoaEvent)
 {
-    if (WKConvertNSEventToCarbonEvent(carbonEvent, cocoaEvent)) {
-        carbonEvent->where.h = static_cast<short>(carbonEvent->where.h * HIGetScaleFactor());
-        carbonEvent->where.v = static_cast<short>(carbonEvent->where.v * HIGetScaleFactor());
+    if (WKConvertNSEventToCarbonEvent(carbonEvent, cocoaEvent))
         return;
-    }
     
     NSPoint where = [[cocoaEvent window] convertBaseToScreen:[cocoaEvent locationInWindow]];
         
@@ -99,7 +94,7 @@ static void getCarbonEvent(EventRecord *carbonEvent, NSEvent *cocoaEvent)
     carbonEvent->message = 0;
     carbonEvent->when = (UInt32)([cocoaEvent timestamp] * 60); // seconds to ticks
     carbonEvent->where.h = (short)where.x;
-    carbonEvent->where.v = (short)(NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - where.y);
+    carbonEvent->where.v = (short)(NSMaxY([(NSScreen *)[[NSScreen screens] objectAtIndex:0] frame]) - where.y);
     carbonEvent->modifiers = modifiersForEvent(cocoaEvent);
 }
 
@@ -174,7 +169,7 @@ void WebNetscapePluginEventHandlerCarbon::mouseEntered(NSEvent* theEvent)
     EventRecord event;
     
     getCarbonEvent(&event, theEvent);
-    event.what = adjustCursorEvent;
+    event.what = NPEventType_AdjustCursorEvent;
     
     BOOL acceptedEvent;
     acceptedEvent = sendEvent(&event);
@@ -187,7 +182,7 @@ void WebNetscapePluginEventHandlerCarbon::mouseExited(NSEvent* theEvent)
     EventRecord event;
     
     getCarbonEvent(&event, theEvent);
-    event.what = adjustCursorEvent;
+    event.what = NPEventType_AdjustCursorEvent;
     
     BOOL acceptedEvent;
     acceptedEvent = sendEvent(&event);
@@ -204,7 +199,7 @@ void WebNetscapePluginEventHandlerCarbon::mouseMoved(NSEvent* theEvent)
     EventRecord event;
     
     getCarbonEvent(&event, theEvent);
-    event.what = adjustCursorEvent;
+    event.what = NPEventType_AdjustCursorEvent;
     
     BOOL acceptedEvent;
     acceptedEvent = sendEvent(&event);
@@ -271,14 +266,14 @@ void WebNetscapePluginEventHandlerCarbon::focusChanged(bool hasFocus)
     getCarbonEvent(&event);
     bool acceptedEvent;
     if (hasFocus) {
-        event.what = getFocusEvent;
+        event.what = NPEventType_GetFocusEvent;
         acceptedEvent = sendEvent(&event);
-        LOG(PluginEvents, "NPP_HandleEvent(getFocusEvent): %d", acceptedEvent);
+        LOG(PluginEvents, "NPP_HandleEvent(NPEventType_GetFocusEvent): %d", acceptedEvent);
         installKeyEventHandler();
     } else {
-        event.what = loseFocusEvent;
+        event.what = NPEventType_LoseFocusEvent;
         acceptedEvent = sendEvent(&event);
-        LOG(PluginEvents, "NPP_HandleEvent(loseFocusEvent): %d", acceptedEvent);
+        LOG(PluginEvents, "NPP_HandleEvent(NPEventType_LoseFocusEvent): %d", acceptedEvent);
         removeKeyEventHandler();
     }
 }

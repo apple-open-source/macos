@@ -34,7 +34,10 @@
 #include "Element.h"
 #include "RenderBoxModelObject.h"
 #include "RenderObject.h"
+#include "ShadowRoot.h"
 #include <wtf/PassRefPtr.h>
+
+#include "WebNamedNodeMap.h"
 
 using namespace WebCore;
 
@@ -43,6 +46,11 @@ namespace WebKit {
 bool WebElement::isFormControlElement() const
 {
     return constUnwrap<Element>()->isFormControlElement();
+}
+
+bool WebElement::isTextFormControlElement() const
+{
+    return constUnwrap<Element>()->isTextFormControl();
 }
 
 WebString WebElement::tagName() const
@@ -73,9 +81,39 @@ bool WebElement::setAttribute(const WebString& attrName, const WebString& attrVa
     return !exceptionCode;
 }
 
+WebNamedNodeMap WebElement::attributes() const
+{
+    return WebNamedNodeMap(m_private->attributes());
+}
+
 WebString WebElement::innerText() const
 {
     return constUnwrap<Element>()->innerText();
+}
+
+WebNode WebElement::shadowRoot()
+{
+    return PassRefPtr<Node>(static_cast<Node*>(unwrap<Element>()->shadowRoot()));
+}
+
+WebNode WebElement::ensureShadowRoot()
+{
+    return PassRefPtr<Node>(static_cast<Node*>(unwrap<Element>()->ensureShadowRoot()));
+}
+
+void WebElement::removeShadowRoot()
+{
+    unwrap<Element>()->removeShadowRoot();
+}
+
+WebString WebElement::shadowPseudoId() const
+{
+    return WebString(constUnwrap<Element>()->shadowPseudoId().string());
+}
+
+WebString WebElement::computeInheritedLanguage() const
+{
+    return WebString(constUnwrap<Element>()->computeInheritedLanguage());
 }
 
 WebElement::WebElement(const PassRefPtr<Element>& elem)

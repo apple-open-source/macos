@@ -62,7 +62,7 @@ struct FDHandler_s {
 
 static void
 FDHandler_callback(CFSocketRef s, CFSocketCallBackType type, 
-		  CFDataRef address, const void *data, void *info)
+		   CFDataRef address, const void * data, void * info)
 {
     FDHandler * 	handler = (FDHandler *)info;
 

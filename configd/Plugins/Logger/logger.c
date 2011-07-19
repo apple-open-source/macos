@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,10 +55,14 @@
 #include <IOKit/IOMessage.h>
 #include <IOKit/pwr_mgt/IOPM.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
+#include <IOKit/pwr_mgt/IOPMLibPrivate.h>
 
 #include <dnsinfo.h>
 #include <notify.h>
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 #include <utmpx.h>
+#include <utmpx_thread.h>
+#endif	// !(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 
 
 /* generic MessageTracer keys */
@@ -133,7 +137,7 @@ copyInterfaceFlags(const char *if_name)
 	}
 
 	bzero((char *)&ifr, sizeof(ifr));
-	(void) strncpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
+	(void) strlcpy(ifr.ifr_name, if_name, sizeof(ifr.ifr_name));
 	if (ioctl(sock, SIOCGIFFLAGS, (caddr_t)&ifr) == 0) {
 		struct ifmediareq	ifm;
 
@@ -233,11 +237,10 @@ KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef add
 						switch (ev_msg->kev_subclass) {
 							case KEV_DL_SUBCLASS : {
 								struct net_event_data	*ev;
-								char			if_name[IFNAMSIZ+1];
+								char			if_name[IFNAMSIZ];
 
 								ev = (struct net_event_data *)event_data;
 
-								bzero(&if_name, sizeof(if_name));
 								snprintf(if_name, IFNAMSIZ, "%s%d",
 									 ev->if_name,
 									 ev->if_unit);
@@ -296,12 +299,11 @@ KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef add
 							case KEV_INET_SUBCLASS : {
 								char			addr[128];
 								struct kev_in_data	*ev;
-								char			if_name[IFNAMSIZ+1];
+								char			if_name[IFNAMSIZ];
 								char			mask[128];
 
 								ev = (struct kev_in_data *)event_data;
 
-								bzero(&if_name, sizeof(if_name));
 								snprintf(if_name, IFNAMSIZ, "%s%d",
 									 ev->link_data.if_name,
 									 ev->link_data.if_unit);
@@ -365,12 +367,11 @@ KernelEvent_notification(CFSocketRef s, CFSocketCallBackType type, CFDataRef add
 							case KEV_INET6_SUBCLASS : {
 								char			addr[128];
 								struct kev_in6_data	*ev;
-								char			if_name[IFNAMSIZ+1];
+								char			if_name[IFNAMSIZ];
 								int			plen	= 0;
 
 								ev = (struct kev_in6_data *)event_data;
 
-								bzero(&if_name, sizeof(if_name));
 								snprintf(if_name, IFNAMSIZ, "%s%d",
 									 ev->link_data.if_name,
 									 ev->link_data.if_unit);
@@ -459,9 +460,9 @@ add_KernelEvent_notification()
 	}
 
 	/* establish filter to return all events */
-	kev_req.vendor_code  = 0;
-	kev_req.kev_class    = 0;	/* Not used if vendor_code is 0 */
-	kev_req.kev_subclass = 0;	/* Not used if either kev_class OR vendor_code are 0 */
+	kev_req.vendor_code  = KEV_VENDOR_APPLE;
+	kev_req.kev_class    = KEV_NETWORK_CLASS;
+	kev_req.kev_subclass = KEV_ANY_SUBCLASS;
 	if (ioctl(so, SIOCSKEVFILT, &kev_req) == -1) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("ioctl(, SIOCSKEVFILT, ) failed"));
 		(void)close(so);
@@ -718,7 +719,8 @@ NetworkChange_notification(SCDynamicStoreRef store, CFArrayRef changedKeys, void
 			}
 			CFStringAppendFormat(str, NULL, CFSTR("\n%@ (%s)"), key, val);
 		} else if (CFStringHasSuffix(key, kSCEntNetIPv4) ||
-			   CFStringHasSuffix(key, kSCEntNetIPv6)) {
+			   CFStringHasSuffix(key, kSCEntNetIPv6) ||
+			   CFStringHasSuffix(key, kSCEntNetDNS)) {
 			CFDictionaryRef	dict;
 
 			dict = SCDynamicStoreCopyValue(store, key);
@@ -731,6 +733,20 @@ NetworkChange_notification(SCDynamicStoreRef store, CFArrayRef changedKeys, void
 				CFRelease(dict);
 			} else {
 				CFStringAppendFormat(str, NULL, CFSTR("\n%@ : removed"), key);
+			}
+		} else if (CFStringHasSuffix(key, CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix))) {
+			CFNumberRef	num;
+
+			num = SCDynamicStoreCopyValue(store, key);
+			if (num != NULL) {
+				IOPMSystemPowerStateCapabilities	capabilities;
+
+				if (isA_CFNumber(num) &&
+				    CFNumberGetValue(num, kCFNumberSInt32Type, &capabilities)) {
+					CFStringAppendFormat(str, NULL, CFSTR("\n%@ (0x%x)"), key, capabilities);
+				}
+
+				CFRelease(num);
 			}
 		} else {
 			CFStringAppendFormat(str, NULL, CFSTR("\n%@"), key);
@@ -798,6 +814,24 @@ add_NetworkChange_notification()
 	CFArrayAppendValue(patterns, pattern);
 	CFRelease(pattern);
 
+	// PPP, VPN
+
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetPPP);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetPPP);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	pattern = SCDynamicStoreKeyCreateNetworkServiceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetVPN);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
+	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetVPN);
+	CFArrayAppendValue(patterns, pattern);
+	CFRelease(pattern);
+
 	// Link
 
 	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL, kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetLink);
@@ -837,6 +871,12 @@ add_NetworkChange_notification()
 	CFRelease(key);
 
 	key = SCDynamicStoreKeyCreateHostNames(NULL);
+	CFArrayAppendValue(keys, key);
+	CFRelease(key);
+
+	key = SCDynamicStoreKeyCreate(NULL, CFSTR("%@%@"),
+				      kSCDynamicStoreDomainState,
+				      CFSTR(kIOPMSystemPowerCapabilitiesKeySuffix));
 	CFArrayAppendValue(keys, key);
 	CFRelease(key);
 
@@ -1270,7 +1310,7 @@ add_dnsinfo_notification()
 		return;
 	}
 
-	mp = CFMachPortCreateWithPort(NULL, notify_port, dnsinfo_notification, NULL, NULL);
+	mp = _SC_CFMachPortCreateWithPort("Logger/dns_configuration", notify_port, dnsinfo_notification, NULL);
 	if (mp == NULL) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
 		(void)notify_cancel(notify_token);
@@ -1327,7 +1367,7 @@ add_network_notification()
 		return;
 	}
 
-	mp = CFMachPortCreateWithPort(NULL, notify_port, network_notification, NULL, NULL);
+	mp = _SC_CFMachPortCreateWithPort("Logger/network_change", notify_port, network_notification, NULL);
 	if (mp == NULL) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
 		(void)notify_cancel(notify_token);
@@ -1386,7 +1426,7 @@ add_smbconf_notification()
 		return;
 	}
 
-	mp = CFMachPortCreateWithPort(NULL, notify_port, smbconf_notification, NULL, NULL);
+	mp = _SC_CFMachPortCreateWithPort("Logger/smb_configuration", notify_port, smbconf_notification, NULL);
 	if (mp == NULL) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
 		(void)notify_cancel(notify_token);
@@ -1413,7 +1453,7 @@ add_smbconf_notification()
 #pragma mark pututxline Events
 
 
-#if	!TARGET_OS_EMBEDDED
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 static const char *
 ut_time(struct utmpx *utmpx)
 {
@@ -1470,14 +1510,15 @@ pututxline_notification(CFMachPortRef port, void *msg, CFIndex size, void *info)
 {
 	CFMutableStringRef	str	= CFStringCreateMutable(NULL, 0);
 	struct utmpx		*utmpx;
+	utmpx_t			utx;
 
 	CFStringAppendFormat(str,
 			     NULL,
 			     CFSTR("%s pututxline notification"),
 			     elapsed());
 
-	setutxent();
-	while ((utmpx = getutxent()) != NULL) {
+	utx = _openutx(NULL);
+	while ((utmpx = _getutxent(utx)) != NULL) {
 		const char *	entry_id	= NULL;
 		const char *	entry_line	= NULL;
 		const char *	entry_pid	= NULL;
@@ -1565,7 +1606,7 @@ pututxline_notification(CFMachPortRef port, void *msg, CFIndex size, void *info)
 
 		CFStringAppendFormat(str, NULL, CFSTR("%s"), line);
 	}
-	endutxent();
+	_endutxent(utx);
 
 	SCLOG(NULL, log_msg, ~ASL_LEVEL_INFO, CFSTR("%@"), str);
 	CFRelease(str);
@@ -1588,7 +1629,7 @@ add_pututxline_notification()
 		return;
 	}
 
-	mp = CFMachPortCreateWithPort(NULL, notify_port, pututxline_notification, NULL, NULL);
+	mp = _SC_CFMachPortCreateWithPort("Logger/utmpx", notify_port, pututxline_notification, NULL);
 	if (mp == NULL) {
 		SCLOG(NULL, NULL, ASL_LEVEL_ERR, CFSTR("CFMachPortCreateWithPort() failed"));
 		(void)notify_cancel(notify_token);
@@ -1608,7 +1649,7 @@ add_pututxline_notification()
 	CFRelease(mp);
 	return;
 }
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 
 
 #pragma mark -
@@ -1704,7 +1745,7 @@ add_BTMM_notification()
 #pragma mark -
 
 
-static inline Boolean
+static __inline__ Boolean
 bValFromDictionary(CFDictionaryRef dict, CFStringRef key)
 {
 	CFBooleanRef	bVal;
@@ -1765,11 +1806,11 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 	}
 #endif	// !TARGET_OS_EMBEDDED
 
-#if	!TARGET_OS_EMBEDDED
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_NOTIFY_UTMPX_CHANGE"))) {
 		add_pututxline_notification();
 	}
-#endif	// !TARGET_OS_EMBEDDED
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070) && !TARGET_OS_EMBEDDED
 
 #if	!TARGET_OS_EMBEDDED
 	if (log_all || bValFromDictionary(config, CFSTR("LOG_SC_BTMM_CONFIGURATION"))) {
@@ -1805,6 +1846,10 @@ load(CFBundleRef bundle, Boolean bundleVerbose)
 		    !isA_CFArray(hosts) ||
 		    (CFArrayGetCount(hosts) == 0)) {
 			hosts = NULL;
+		}
+
+		if (verbose) {
+			_sc_debug = TRUE;
 		}
 
 		add_reachability_notification(hosts);

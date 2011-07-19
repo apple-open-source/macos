@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.13 2001/11/07 19:55:16 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.14 2009/02/03 17:58:20 danger Exp $");
 
 #include "xlocale_private.h"
 
@@ -37,9 +37,7 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.13 2001/11/07 19:55:16 obr
 #include "collate.h"
 
 int
-strcoll_l(s, s2, loc)
-	const char *s, *s2;
-	locale_t loc;
+strcoll_l(const char *s, const char *s2, locale_t loc)
 {
 	int ret;
 	const wchar_t *t = NULL, *t2 = NULL;
@@ -64,8 +62,7 @@ strcoll_l(s, s2, loc)
 }
 
 int
-strcoll(s, s2)
-	const char *s, *s2;
+strcoll(const char *s, const char *s2)
 {
 	return strcoll_l(s, s2, __current_locale());
 }

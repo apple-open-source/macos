@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002, 2004, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002, 2004, 2006, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +28,7 @@
  * - initial revision
  */
 
+#include <TargetConditionals.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>

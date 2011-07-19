@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,19 +31,14 @@
 #include "config.h"
 #include "WebIDBDatabaseError.h"
 
+#if ENABLE(INDEXED_DATABASE)
+
 #include "IDBDatabaseError.h"
 #include "WebString.h"
-
-#if ENABLE(INDEXED_DATABASE)
 
 using namespace WebCore;
 
 namespace WebKit {
-
-WebIDBDatabaseError::~WebIDBDatabaseError()
-{
-    m_private.reset();
-}
 
 void WebIDBDatabaseError::assign(const WebIDBDatabaseError& value)
 {
@@ -52,7 +47,12 @@ void WebIDBDatabaseError::assign(const WebIDBDatabaseError& value)
 
 void WebIDBDatabaseError::assign(unsigned short code, const WebString& message)
 {
-    m_private = IDBDatabaseError::create(code, message);
+    m_private = IDBDatabaseError::createWithoutOffset(code, message);
+}
+
+void WebIDBDatabaseError::reset()
+{
+    m_private.reset();
 }
 
 unsigned short WebIDBDatabaseError::code() const

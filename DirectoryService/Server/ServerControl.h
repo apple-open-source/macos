@@ -35,7 +35,6 @@
 
 #include "PrivateTypes.h"
 #include "SharedConsts.h"
-#include "CCachePlugin.h"
 #include "CRefTable.h"
 
 const UInt32 kMaxHandlerThreads			= 256; // this is used for both mach and TCP handler thread max
@@ -197,14 +196,12 @@ public:
 
 	virtual SInt32		StartUpServer		( void );
 	virtual SInt32		ShutDownServer		( void );
-			SInt32		StartTCPListener	( UInt32 inPort );
-			SInt32		StopTCPListener		( void );
 			void		StartKernelListener	( void );
 
 			SInt32		HandleSystemWillSleep	( void );
 			SInt32		HandleSystemWillPowerOn	( void );
 	
-	static	void		DoPeriodicTask			( dispatch_source_t );
+	static	void		DoPeriodicTask			( void *context);
 	static	void		HandleNetworkTransition	( void );
 	static	void		ResetDebugging			( void );
 	static	void		ToggleAPILogging		( bool fromSignal );
@@ -236,7 +233,6 @@ protected:
 			SInt32		UnRegisterForSystemPower	( void );
 			SInt32		RegisterForNetworkChange	( void );
 			SInt32		UnRegisterForNetworkChange	( void );
-	static	void		CreateDebugPrefFileIfNecessary	( bool bForceCreate = false );
 
 private:
 

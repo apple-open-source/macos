@@ -6,6 +6,7 @@ import os
 import re
 import sys
 import signal
+import codecs
 from fnmatch import fnmatch
 import unittest
 from distutils.util import get_platform
@@ -54,7 +55,12 @@ def parseDG(fdata):
         if item[0] == 'dg-do':
             result.append(('run', item[1]))
         elif item[2] == 'dg-output':
-            result.append(('expect', item[3].decode('string_escape')))
+            if sys.version_info[0] == 3:
+                value = codecs.decode(item[3], 'unicode_escape')
+            else:
+                value = item[3].decode('string_escape')
+            result.append(('expect', value))
+
     return result
 
 
@@ -103,16 +109,22 @@ class DgTestCase (unittest.TestCase):
         return "dejagnu.%s.%s"%(dn, fn)
 
     def compileTestCase(self):
-        libdir = os.path.join('build', 'temp.%s-%d.%d'%(get_platform(), sys.version_info[0], sys.version_info[1]), 'libffi-src')
+        libdir = os.path.join('build', 'temp.%s-%d.%d'%(get_platform(), sys.version_info[0], sys.version_info[1]))
+        if hasattr(sys, 'gettotalrefcount'):
+            libdir += "-pydebug"
+        libdir = os.path.join(libdir, 'libffi-src')
+
         libffiobjects = self.object_files(libdir)
+
 
         if self.filename.endswith('.m'):
             extra_link = '-framework Foundation'
         else:
             extra_link = ''
 
-        commandline='MACOSX_DEPLPOYMENT_TARGET=%s cc %s -g -DMACOSX -Ilibffi-src/include -Ilibffi-src/powerpc -o /tmp/test.bin %s %s %s 2>&1'%(
+        commandline='MACOSX_DEPLPOYMENT_TARGET=%s %s %s -g -DMACOSX -Ilibffi-src/include -Ilibffi-src/powerpc -o /tmp/test.bin %s %s %s 2>&1'%(
                 get_config_var('MACOSX_DEPLOYMENT_TARGET'),
+                get_config_var('CC'),
                 get_config_var('CFLAGS'), self.filename, ' '.join(libffiobjects),
 		extra_link)
 

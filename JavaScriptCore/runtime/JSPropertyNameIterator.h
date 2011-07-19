@@ -45,16 +45,14 @@ namespace JSC {
     public:
         static JSPropertyNameIterator* create(ExecState*, JSObject*);
         
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(CompoundType, OverridesMarkChildren), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(CompoundType, OverridesVisitChildren), AnonymousSlotCount, &s_info);
         }
-        
-        virtual ~JSPropertyNameIterator();
 
         virtual bool isPropertyNameIterator() const { return true; }
 
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
 
         bool getOffset(size_t i, int& offset)
         {
@@ -67,41 +65,43 @@ namespace JSC {
         JSValue get(ExecState*, JSObject*, size_t i);
         size_t size() { return m_jsStringsSize; }
 
-        void setCachedStructure(Structure* structure)
+        void setCachedStructure(JSGlobalData& globalData, Structure* structure)
         {
             ASSERT(!m_cachedStructure);
             ASSERT(structure);
-            m_cachedStructure = structure;
+            m_cachedStructure.set(globalData, this, structure);
         }
         Structure* cachedStructure() { return m_cachedStructure.get(); }
 
-        void setCachedPrototypeChain(NonNullPassRefPtr<StructureChain> cachedPrototypeChain) { m_cachedPrototypeChain = cachedPrototypeChain; }
+        void setCachedPrototypeChain(JSGlobalData& globalData, StructureChain* cachedPrototypeChain) { m_cachedPrototypeChain.set(globalData, this, cachedPrototypeChain); }
         StructureChain* cachedPrototypeChain() { return m_cachedPrototypeChain.get(); }
+        
+        static const ClassInfo s_info;
 
     private:
         JSPropertyNameIterator(ExecState*, PropertyNameArrayData* propertyNameArrayData, size_t numCacheableSlot);
 
-        RefPtr<Structure> m_cachedStructure;
-        RefPtr<StructureChain> m_cachedPrototypeChain;
+        WriteBarrier<Structure> m_cachedStructure;
+        WriteBarrier<StructureChain> m_cachedPrototypeChain;
         uint32_t m_numCacheableSlots;
         uint32_t m_jsStringsSize;
-        OwnArrayPtr<JSValue> m_jsStrings;
+        OwnArrayPtr<WriteBarrier<Unknown> > m_jsStrings;
     };
 
-    inline void Structure::setEnumerationCache(JSPropertyNameIterator* enumerationCache)
+    inline void Structure::setEnumerationCache(JSGlobalData& globalData, JSPropertyNameIterator* enumerationCache)
     {
         ASSERT(!isDictionary());
-        m_enumerationCache = enumerationCache;
-    }
-
-    inline void Structure::clearEnumerationCache(JSPropertyNameIterator* enumerationCache)
-    {
-        m_enumerationCache.clear(enumerationCache);
+        m_enumerationCache.set(globalData, this, enumerationCache);
     }
 
     inline JSPropertyNameIterator* Structure::enumerationCache()
     {
         return m_enumerationCache.get();
+    }
+
+    ALWAYS_INLINE JSPropertyNameIterator* Register::propertyNameIterator() const
+    {
+        return static_cast<JSPropertyNameIterator*>(jsValue().asCell());
     }
 
 } // namespace JSC

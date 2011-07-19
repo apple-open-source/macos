@@ -1,3 +1,6 @@
+2009-03-19  Bernard Desgraupes  <bdesgraupes@users.sourceforge.net>
+	* Fixes for Alpha Bugs 2362, 2363 and 2372
+
 2007-08-23  Daniel Steffen  <das@users.sourceforge.net>
 
 	* generic/tclAEAddress.c:	fix warnings.

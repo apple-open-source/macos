@@ -21,8 +21,6 @@
 #ifndef ewk_history_h
 #define ewk_history_h
 
-#include "ewk_eapi.h"
-
 #include <Eina.h>
 #include <Evas.h>
 #include <cairo.h>
@@ -32,7 +30,8 @@ extern "C" {
 #endif
 
 /**
- * The history (back-forward list) associated with a given ewk_view.
+ * @file ewk_history.h
+ * @brief The history (back-forward list) associated with a given ewk_view.
  *
  * Changing the history affects immediately the view, changing the
  * current uri, for example.

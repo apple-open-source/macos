@@ -1,27 +1,10 @@
---- isblank.3	2004-11-25 11:38:17.000000000 -0800
-+++ isblank.3.edit	2006-08-09 13:23:09.000000000 -0700
-@@ -54,13 +54,13 @@
- .It "\&``\et''\t`` ''"
- .El
- .Pp
--In the "C" locale
-+In the "C" locale,
- .Fn isblank
--successful test is limited to this characters only.
-+successful test is limited to these characters only.
- For single C
- .Va char Ns s
- locales (see
--.Xr multibyte 3 )
-+.Xr multibyte 3 ) ,
- the value of the argument is
- representable as an
- .Li unsigned char
-@@ -83,6 +83,7 @@
- returns non-zero if the character tests true.
+--- isblank.3.orig	2009-11-30 16:10:19.000000000 -0800
++++ isblank.3	2009-11-30 16:10:19.000000000 -0800
+@@ -74,6 +74,7 @@ The
+ function should be used instead.
  .Sh SEE ALSO
  .Xr ctype 3 ,
 +.Xr isalnum_l 3 ,
  .Xr iswblank 3 ,
- .Xr multibyte 3 ,
  .Xr ascii 7
+ .Sh STANDARDS

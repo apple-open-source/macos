@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,16 +26,13 @@
 #import "config.h"
 #import "Widget.h"
 
-#ifdef BUILDING_ON_TIGER
-#import "AutodrainedPool.h"
-#endif
 
 #import "BlockExceptions.h"
 #import "Chrome.h"
 #import "Cursor.h"
 #import "Document.h"
+#import "FloatConversion.h"
 #import "Font.h"
-#import "FoundationExtras.h"
 #import "Frame.h"
 #import "GraphicsContext.h"
 #import "NotImplemented.h"
@@ -100,7 +97,6 @@ Widget::Widget(NSView *view)
 
 Widget::~Widget()
 {
-    releasePlatformWidget();
     delete m_data;
 }
 
@@ -116,18 +112,20 @@ void Widget::setFocus(bool focused)
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
  
+    // Call this even when there is no platformWidget(). WK2 will focus on the widget in the UIProcess.
     NSView *view = [platformWidget() _webcore_effectiveFirstResponder];
     if (Page* page = frame->page())
         page->chrome()->focusNSView(view);
-    
+
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
- void Widget::setCursor(const Cursor& cursor)
- {
-    if ([NSCursor currentCursor] == cursor.impl())
+void Widget::setCursor(const Cursor& cursor)
+{
+    ScrollView* view = root();
+    if (!view)
         return;
-    [cursor.impl() set];
+    view->hostWindow()->setCursor(cursor);
 }
 
 void Widget::show()
@@ -171,25 +169,48 @@ void Widget::setFrameRect(const IntRect& rect)
     m_frame = rect;
 
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
-    NSView *v = getOuterView();
-    if (!v)
+    NSView *outerView = getOuterView();
+    if (!outerView)
         return;
 
-    NSRect visibleRect = [v visibleRect];
+    // Take a reference to this Widget, because sending messages to outerView can invoke arbitrary
+    // code, which can deref it.
+    RefPtr<Widget> protectedThis(this);
+
+    NSRect visibleRect = [outerView visibleRect];
     NSRect f = rect;
-    if (!NSEqualRects(f, [v frame])) {
-        [v setFrame:f];
-        [v setNeedsDisplay:NO];
-    } else if (!NSEqualRects(visibleRect, m_data->previousVisibleRect) && [v respondsToSelector:@selector(visibleRectDidChange)])
-        [v visibleRectDidChange];
+    if (!NSEqualRects(f, [outerView frame])) {
+        [outerView setFrame:f];
+        [outerView setNeedsDisplay:NO];
+    } else if (!NSEqualRects(visibleRect, m_data->previousVisibleRect) && [outerView respondsToSelector:@selector(visibleRectDidChange)])
+        [outerView visibleRectDidChange];
 
     m_data->previousVisibleRect = visibleRect;
     END_BLOCK_OBJC_EXCEPTIONS;
 }
 
-NSView* Widget::getOuterView() const
+void Widget::setBoundsSize(const IntSize& size)
 {
-    NSView* view = platformWidget();
+    NSSize nsSize = size;
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    NSView *outerView = getOuterView();
+    if (!outerView)
+        return;
+
+    // Take a reference to this Widget, because sending messages to outerView can invoke arbitrary
+    // code, which can deref it.
+    RefPtr<Widget> protectedThis(this);
+    if (!NSEqualSizes(nsSize, [outerView bounds].size)) {
+        [outerView setBoundsSize:nsSize];
+        [outerView setNeedsDisplay:NO];
+    }
+    END_BLOCK_OBJC_EXCEPTIONS;
+}
+
+NSView *Widget::getOuterView() const
+{
+    NSView *view = platformWidget();
 
     // If this widget's view is a WebCoreFrameScrollView then we
     // resize its containing view, a WebFrameView.
@@ -206,11 +227,35 @@ void Widget::paint(GraphicsContext* p, const IntRect& r)
     if (p->paintingDisabled())
         return;
     NSView *view = getOuterView();
+
+    // Take a reference to this Widget, because sending messages to the views can invoke arbitrary
+    // code, which can deref it.
+    RefPtr<Widget> protectedThis(this);
+
+    IntPoint transformOrigin = frameRect().location();
+    AffineTransform widgetToViewTranform = makeMapBetweenRects(IntRect(IntPoint(), frameRect().size()), [view bounds]);
+
     NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
     if (currentContext == [[view window] graphicsContext] || ![currentContext isDrawingToScreen]) {
         // This is the common case of drawing into a window or printing.
         BEGIN_BLOCK_OBJC_EXCEPTIONS;
-        [view displayRectIgnoringOpacity:[view convertRect:r fromView:[view superview]]];
+        
+        CGContextRef context = (CGContextRef)[currentContext graphicsPort];
+
+        CGContextSaveGState(context);
+        CGContextTranslateCTM(context, transformOrigin.x(), transformOrigin.y());
+        CGContextScaleCTM(context, narrowPrecisionToFloat(widgetToViewTranform.xScale()), narrowPrecisionToFloat(widgetToViewTranform.yScale()));
+        CGContextTranslateCTM(context, -transformOrigin.x(), -transformOrigin.y());
+
+        IntRect dirtyRect = r;
+        dirtyRect.move(-transformOrigin.x(), -transformOrigin.y());
+        if (![view isFlipped])
+            dirtyRect.setY([view bounds].size.height - dirtyRect.maxY());
+
+        [view displayRectIgnoringOpacity:dirtyRect];
+
+        CGContextRestoreGState(context);
+
         END_BLOCK_OBJC_EXCEPTIONS;
     } else {
         // This is the case of drawing into a bitmap context other than a window backing store. It gets hit beneath
@@ -235,6 +280,10 @@ void Widget::paint(GraphicsContext* p, const IntRect& r)
         ASSERT(cgContext == [currentContext graphicsPort]);
         CGContextSaveGState(cgContext);
 
+        CGContextTranslateCTM(cgContext, transformOrigin.x(), transformOrigin.y());
+        CGContextScaleCTM(cgContext, narrowPrecisionToFloat(widgetToViewTranform.xScale()), narrowPrecisionToFloat(widgetToViewTranform.yScale()));
+        CGContextTranslateCTM(cgContext, -transformOrigin.x(), -transformOrigin.y());
+
         NSRect viewFrame = [view frame];
         NSRect viewBounds = [view bounds];
         // Set up the translation and (flipped) orientation of the graphics context. In normal drawing, AppKit does it as it descends down
@@ -242,13 +291,15 @@ void Widget::paint(GraphicsContext* p, const IntRect& r)
         CGContextTranslateCTM(cgContext, viewFrame.origin.x - viewBounds.origin.x, viewFrame.origin.y + viewFrame.size.height + viewBounds.origin.y);
         CGContextScaleCTM(cgContext, 1, -1);
 
+        IntRect dirtyRect = r;
+        dirtyRect.move(-transformOrigin.x(), -transformOrigin.y());
+        if (![view isFlipped])
+            dirtyRect.setY([view bounds].size.height - dirtyRect.maxY());
+
         BEGIN_BLOCK_OBJC_EXCEPTIONS;
         {
-#ifdef BUILDING_ON_TIGER
-            AutodrainedPool pool;
-#endif
             NSGraphicsContext *nsContext = [NSGraphicsContext graphicsContextWithGraphicsPort:cgContext flipped:YES];
-            [view displayRectIgnoringOpacity:[view convertRect:r fromView:[view superview]] inContext:nsContext];
+            [view displayRectIgnoringOpacity:dirtyRect inContext:nsContext];
         }
         END_BLOCK_OBJC_EXCEPTIONS;
 
@@ -262,6 +313,7 @@ void Widget::paint(GraphicsContext* p, const IntRect& r)
 void Widget::setIsSelected(bool isSelected)
 {
     NSView *view = platformWidget();
+
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     if ([view respondsToSelector:@selector(webPlugInSetIsSelected:)])
         [view webPlugInSetIsSelected:isSelected];
@@ -353,16 +405,18 @@ IntPoint Widget::convertFromContainingWindowToRoot(const Widget* rootWidget, con
     return point;
 }
 
-void Widget::releasePlatformWidget()
+NSView *Widget::platformWidget() const
 {
-    HardRelease(m_widget);
+    return m_widget.get();
+}
+
+void Widget::setPlatformWidget(NSView *widget)
+{
+    if (widget == m_widget)
+        return;
+
+    m_widget = widget;
     m_data->previousVisibleRect = NSZeroRect;
 }
 
-void Widget::retainPlatformWidget()
-{
-    HardRetain(m_widget);
-}
-
 } // namespace WebCore
-

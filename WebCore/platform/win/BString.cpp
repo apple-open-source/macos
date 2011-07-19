@@ -26,13 +26,12 @@
 #include "config.h"
 #include "BString.h"
 
-#include "AtomicString.h"
 #include "KURL.h"
 #include "PlatformString.h"
-#include <tchar.h>
 #include <windows.h>
+#include <wtf/text/AtomicString.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 #include <CoreFoundation/CoreFoundation.h>
 #endif
 
@@ -90,10 +89,10 @@ BString::BString(const UString& s)
     if (s.isNull())
         m_bstr = 0;
     else
-        m_bstr = SysAllocStringLen(s.data(), s.size());
+        m_bstr = SysAllocStringLen(s.characters(), s.length());
 }
 
-#if PLATFORM(CF)
+#if USE(CF)
 BString::BString(CFStringRef cfstr)
     : m_bstr(0)
 {
@@ -102,7 +101,7 @@ BString::BString(CFStringRef cfstr)
 
     const UniChar* uniChars = CFStringGetCharactersPtr(cfstr);
     if (uniChars) {
-        m_bstr = SysAllocStringLen((LPCTSTR)uniChars, CFStringGetLength(cfstr));
+        m_bstr = SysAllocStringLen((LPCWSTR)uniChars, CFStringGetLength(cfstr));
         return;
     }
 
@@ -158,7 +157,7 @@ bool operator ==(const BString& a, const BString& b)
         return true;
     if (!(BSTR)a || !(BSTR)b)
         return false;
-    return !_tcscmp((BSTR)a, (BSTR)b);
+    return !wcscmp((BSTR)a, (BSTR)b);
 }
 
 bool operator !=(const BString& a, const BString& b)
@@ -174,7 +173,7 @@ bool operator ==(const BString& a, BSTR b)
         return true;
     if (!(BSTR)a || !b)
         return false;
-    return !_tcscmp((BSTR)a, b);
+    return !wcscmp((BSTR)a, b);
 }
 
 bool operator !=(const BString& a, BSTR b)
@@ -190,7 +189,7 @@ bool operator ==(BSTR a, const BString& b)
         return true;
     if (!a || !(BSTR)b)
         return false;
-    return !_tcscmp(a, (BSTR)b);
+    return !wcscmp(a, (BSTR)b);
 }
 
 bool operator !=(BSTR a, const BString& b)

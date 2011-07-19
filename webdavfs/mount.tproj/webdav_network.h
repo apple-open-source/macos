@@ -28,6 +28,8 @@
 
 #include <CoreServices/CoreServices.h>
 
+#define WEBDAV_MAX_REDIRECTS 5	/* avoids infinite 3xx redirection loops */
+
 enum
 {
 	kHttpDefaultPort = 80,	/* default port for HTTP */
@@ -63,12 +65,12 @@ int network_lookup(
 	struct node_entry *node,	/* -> parent node */
 	char *name,					/* -> filename to find */
 	size_t name_length,			/* -> length of name */
-	struct stat *statbuf);		/* <- stat information is returned in this buffer except for st_ino */
+	struct webdav_stat_attr *statbuf);	/* <- stat information is returned in this buffer except for st_ino */
 
 int network_getattr(
 	uid_t uid,					/* -> uid of the user making the request */
 	struct node_entry *node,	/* -> parent node */
-	struct stat *statbuf);		/* <- stat information is returned in this buffer */
+	struct webdav_stat_attr *statbuf);	/* <- stat information is returned in this buffer */
 
 int network_mount(
 	uid_t uid,					/* -> uid of the user making the request */
@@ -206,6 +208,10 @@ int network_read_seqwrite_rsp(
 	struct stream_put_ctx *ctx);	/* -> sequential write context */
 
 time_t DateBytesToTime(			/* <- time_t value; -1 if error */
+	const UInt8 *bytes,			/* -> pointer to bytes to parse */
+	CFIndex length);			/* -> number of bytes to parse */
+
+time_t ISO8601ToTime(			/* <- time_t value; -1 if error */
 	const UInt8 *bytes,			/* -> pointer to bytes to parse */
 	CFIndex length);			/* -> number of bytes to parse */
 

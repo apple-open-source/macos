@@ -24,6 +24,7 @@
 #ifndef _XLOCALE__WCHAR_H_
 #define _XLOCALE__WCHAR_H_
 
+/* Initially added in Issue 4 */
 __BEGIN_DECLS
 wint_t	btowc_l(int, locale_t);
 wint_t	fgetwc_l(FILE *, locale_t);
@@ -41,8 +42,6 @@ size_t	mbrlen_l(const char * __restrict, size_t, mbstate_t * __restrict,
 size_t	mbrtowc_l(wchar_t * __restrict, const char * __restrict, size_t,
 	    mbstate_t * __restrict, locale_t);
 int	mbsinit_l(const mbstate_t *, locale_t);
-size_t	mbsnrtowcs_l(wchar_t * __restrict, const char ** __restrict, size_t,
-	    size_t, mbstate_t * __restrict, locale_t);
 size_t	mbsrtowcs_l(wchar_t * __restrict, const char ** __restrict, size_t,
 	    mbstate_t * __restrict, locale_t);
 wint_t	putwc_l(wchar_t, FILE *, locale_t);
@@ -56,18 +55,11 @@ int	swscanf_l(const wchar_t * __restrict, locale_t,
 wint_t	ungetwc_l(wint_t, FILE *, locale_t);
 int	vfwprintf_l(FILE * __restrict, locale_t, const wchar_t * __restrict,
 		__darwin_va_list) __DARWIN_LDBL_COMPAT2(vfwprintf_l);
-int	vfwscanf_l(FILE * __restrict, locale_t, const wchar_t * __restrict,
-		__darwin_va_list) __DARWIN_LDBL_COMPAT2(vfwscanf_l);
 int	vswprintf_l(wchar_t * __restrict, size_t n, locale_t,
 		const wchar_t * __restrict, __darwin_va_list)
 		__DARWIN_LDBL_COMPAT2(vswprintf_l);
-int	vswscanf_l(const wchar_t * __restrict, locale_t,
-		const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vswscanf_l);
 int	vwprintf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
 		__DARWIN_LDBL_COMPAT2(vwprintf_l);
-int	vwscanf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
-		__DARWIN_LDBL_COMPAT2(vwscanf_l);
 size_t	wcrtomb_l(char * __restrict, wchar_t, mbstate_t * __restrict,
 	    locale_t);
 int	wcscoll_l(const wchar_t *, const wchar_t *, locale_t);
@@ -84,25 +76,13 @@ size_t	wcsftime_l(wchar_t * __restrict, size_t, const wchar_t * __restrict,
 		LIBC_ALIAS(wcsftime_l);
 #endif /* !LIBC_ALIAS_WCSFTIME_L */
 //End-Libc
-size_t	wcsnrtombs_l(char * __restrict, const wchar_t ** __restrict, size_t,
-	    size_t, mbstate_t * __restrict, locale_t);
 size_t	wcsrtombs_l(char * __restrict, const wchar_t ** __restrict, size_t,
 	    mbstate_t * __restrict, locale_t);
 double	wcstod_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t);
-float	wcstof_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t);
 long	wcstol_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
-	    locale_t);
-long double
-	wcstold_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t)
-	    __DARWIN_LDBL_COMPAT2(wcstold_l);
-long long
-	wcstoll_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
 	    locale_t);
 unsigned long
 	wcstoul_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
-	    locale_t);
-unsigned long long
-	wcstoull_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
 	    locale_t);
 int	wcswidth_l(const wchar_t *, size_t, locale_t);
 size_t	wcsxfrm_l(wchar_t * __restrict, const wchar_t * __restrict, size_t,
@@ -113,11 +93,70 @@ int	wprintf_l(locale_t, const wchar_t * __restrict, ...)
 		__DARWIN_LDBL_COMPAT2(wprintf_l);
 int	wscanf_l(locale_t, const wchar_t * __restrict, ...)
 		__DARWIN_LDBL_COMPAT2(wscanf_l);
+__END_DECLS
+ 
+ 
+ 
+/* Additional functionality provided by:
+ * POSIX.1-2001
+ */
+
+#if __DARWIN_C_LEVEL >= 200112L
+__BEGIN_DECLS
+int	vfwscanf_l(FILE * __restrict, locale_t, const wchar_t * __restrict,
+		__darwin_va_list) __DARWIN_LDBL_COMPAT2(vfwscanf_l);
+int	vswscanf_l(const wchar_t * __restrict, locale_t,
+		const wchar_t * __restrict, __darwin_va_list)
+		__DARWIN_LDBL_COMPAT2(vswscanf_l);
+int	vwscanf_l(locale_t, const wchar_t * __restrict, __darwin_va_list)
+		__DARWIN_LDBL_COMPAT2(vwscanf_l);
+float	wcstof_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t);
+long double
+	wcstold_l(const wchar_t * __restrict, wchar_t ** __restrict, locale_t)
+	    __DARWIN_LDBL_COMPAT2(wcstold_l);
+#if !__DARWIN_NO_LONG_LONG
+long long
+	wcstoll_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
+	    locale_t);
+unsigned long long
+	wcstoull_l(const wchar_t * __restrict, wchar_t ** __restrict, int,
+	    locale_t);
+#endif /* !__DARWIN_NO_LONG_LONG */
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 200112L */
+
+
+
+/* Additional functionality provided by:
+ * POSIX.1-2008
+ */
+
+#if __DARWIN_C_LEVEL >= 200809L
+__BEGIN_DECLS
+size_t	mbsnrtowcs_l(wchar_t * __restrict, const char ** __restrict, size_t,
+	    size_t, mbstate_t * __restrict, locale_t);
+int     wcscasecmp_l(const wchar_t *, const wchar_t *, locale_t) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+int     wcsncasecmp_l(const wchar_t *, const wchar_t *, size_t n, locale_t) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+size_t	wcsnrtombs_l(char * __restrict, const wchar_t ** __restrict, size_t,
+	    size_t, mbstate_t * __restrict, locale_t);
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 200809L */
+
+
+
+/* Darwin extensions */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+__BEGIN_DECLS
+wchar_t	*fgetwln_l(FILE * __restrict, size_t *, locale_t) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+
 
 /* Poison the following routines if -fshort-wchar is set */
 #if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
-#pragma GCC poison fgetws_l fputwc_l fputws_l fwprintf_l fwscanf_l mbrtowc_l mbsnrtowcs_l mbsrtowcs_l putwc_l putwchar_l swprintf_l swscanf_l vfwprintf_l vfwscanf_l vswprintf_l vswscanf_l vwprintf_l vwscanf_l wcrtomb_l wcscoll_l wcsftime_l wcsftime_l wcsnrtombs_l wcsrtombs_l wcstod_l wcstof_l wcstol_l wcstold_l wcstoll_l wcstoul_l wcstoull_l wcswidth_l wcsxfrm_l wcwidth_l wprintf_l wscanf_l
+#pragma GCC poison fgetwln_l fgetws_l fputwc_l fputws_l fwprintf_l fwscanf_l mbrtowc_l mbsnrtowcs_l mbsrtowcs_l putwc_l putwchar_l swprintf_l swscanf_l vfwprintf_l vfwscanf_l vswprintf_l vswscanf_l vwprintf_l vwscanf_l wcrtomb_l wcscoll_l wcsftime_l wcsftime_l wcsnrtombs_l wcsrtombs_l wcstod_l wcstof_l wcstol_l wcstold_l wcstoll_l wcstoul_l wcstoull_l wcswidth_l wcsxfrm_l wcwidth_l wprintf_l wscanf_l
 #endif
-__END_DECLS
 
 #endif /* _XLOCALE__WCHAR_H_ */

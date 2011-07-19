@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOSerialFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>Copyright © 1997-2008 Apple Inc. All rights reserved. IOKit Serial Port Family</string>
+	<string>Copyright © 1997-2010 Apple Inc. All rights reserved. IOKit Serial Port Family</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>10.0.3</string>
+	<string>10.0.5</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>10.0.3</string>
+	<string>10.0.5</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOSerialBSDClient</key>

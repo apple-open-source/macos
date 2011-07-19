@@ -4,7 +4,7 @@
 array set opts {-pkgdir .}; array set opts $argv
 lappend auto_path $opts(-pkgdir)
 
-package require XOTcl; namespace import -force xotcl::*
+package require XOTcl 1; namespace import -force xotcl::*
 package require xotcl::actiweb::htmlPlace
 package require xotcl::actiweb::webDocument
 

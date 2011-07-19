@@ -1,3 +1,26 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-06-05  Andreas Kupries  <andreask@activestate.com>
+
+	* jpeg.tcl (::jpeg::exif): Accepted (with slight changes) and
+	* pkgIndex.tcl: applied patch by Matt Plumlee <mdplumlee@users.sourceforge.net>
+	* jpeg.man: to parse GPS data in the EXIF block. Bumped the
+	  package to version 0.3.5. This fixes [Bug 2801896].
+
+	* jpeg.man: Added binary settings to the thumbnail example. This
+	  fixes [Bug 2801587].
+
+2009-03-02  Andreas Kupries  <andreask@activestate.com>
+
+	* jpeg.tcl (::jpeg::imageInfo): Accepted and applied patch by
+	* pkgIndex.tcl: Mikhail Teterin <kot@users.sourceforge.net> to
+	* jpeg.man: have imageInfo open the image only for reading. Bumped
+	  to version 0.3.4. This fixes [Bug 2646568].
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

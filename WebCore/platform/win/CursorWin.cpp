@@ -30,8 +30,10 @@
 #include "BitmapInfo.h"
 #include "Image.h"
 #include "IntPoint.h"
+#include "SystemInfo.h"
 
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 #include <windows.h>
 
@@ -39,28 +41,18 @@
 
 namespace WebCore {
 
-Cursor::Cursor(const Cursor& other)
-    : m_impl(other.m_impl)
+static PassRefPtr<SharedCursor> createSharedCursor(Image* img, const IntPoint& hotSpot)
 {
-}
+    RefPtr<SharedCursor> impl;
 
-static inline bool supportsAlphaCursors() 
-{
-    OSVERSIONINFO osinfo = {0};
-    osinfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    GetVersionEx(&osinfo);
-    return osinfo.dwMajorVersion > 5 || (osinfo.dwMajorVersion == 5 && osinfo.dwMinorVersion > 0);
-}
-
-Cursor::Cursor(Image* img, const IntPoint& hotspot) 
-{ 
-    static bool doAlpha = supportsAlphaCursors();
+    IntPoint effectiveHotSpot = determineHotSpot(img, hotSpot);
+    static bool doAlpha = windowsVersion() >= WindowsXP;
     BitmapInfo cursorImage = BitmapInfo::create(IntSize(img->width(), img->height()));
 
     HDC dc = GetDC(0);
     HDC workingDC = CreateCompatibleDC(dc);
     if (doAlpha) {
-        OwnPtr<HBITMAP> hCursor(CreateDIBSection(dc, (BITMAPINFO *)&cursorImage, DIB_RGB_COLORS, 0, 0, 0));
+        OwnPtr<HBITMAP> hCursor = adoptPtr(CreateDIBSection(dc, (BITMAPINFO *)&cursorImage, DIB_RGB_COLORS, 0, 0, 0));
         ASSERT(hCursor);
 
         img->getHBITMAP(hCursor.get()); 
@@ -70,28 +62,28 @@ Cursor::Cursor(Image* img, const IntPoint& hotspot)
 
         Vector<unsigned char, 128> maskBits;
         maskBits.fill(0xff, (img->width() + 7) / 8 * img->height());
-        OwnPtr<HBITMAP> hMask(CreateBitmap(img->width(), img->height(), 1, 1, maskBits.data()));
+        OwnPtr<HBITMAP> hMask = adoptPtr(CreateBitmap(img->width(), img->height(), 1, 1, maskBits.data()));
 
         ICONINFO ii;
         ii.fIcon = FALSE;
-        ii.xHotspot = hotspot.x();
-        ii.yHotspot = hotspot.y();
+        ii.xHotspot = effectiveHotSpot.x();
+        ii.yHotspot = effectiveHotSpot.y();
         ii.hbmMask = hMask.get();
         ii.hbmColor = hCursor.get();
 
-        m_impl = SharedCursor::create(CreateIconIndirect(&ii));
+        impl = SharedCursor::create(CreateIconIndirect(&ii));
     } else {
         // Platform doesn't support alpha blended cursors, so we need
         // to create the mask manually
         HDC andMaskDC = CreateCompatibleDC(dc);
         HDC xorMaskDC = CreateCompatibleDC(dc);
-        OwnPtr<HBITMAP> hCursor(CreateDIBSection(dc, &cursorImage, DIB_RGB_COLORS, 0, 0, 0));
+        OwnPtr<HBITMAP> hCursor = adoptPtr(CreateDIBSection(dc, &cursorImage, DIB_RGB_COLORS, 0, 0, 0));
         ASSERT(hCursor);
         img->getHBITMAP(hCursor.get()); 
         BITMAP cursor;
         GetObject(hCursor.get(), sizeof(BITMAP), &cursor);
-        OwnPtr<HBITMAP> andMask(CreateBitmap(cursor.bmWidth, cursor.bmHeight, 1, 1, NULL));
-        OwnPtr<HBITMAP> xorMask(CreateCompatibleBitmap(dc, cursor.bmWidth, cursor.bmHeight));
+        OwnPtr<HBITMAP> andMask = adoptPtr(CreateBitmap(cursor.bmWidth, cursor.bmHeight, 1, 1, NULL));
+        OwnPtr<HBITMAP> xorMask = adoptPtr(CreateCompatibleBitmap(dc, cursor.bmWidth, cursor.bmHeight));
         HBITMAP oldCursor = (HBITMAP)SelectObject(workingDC, hCursor.get());
         HBITMAP oldAndMask = (HBITMAP)SelectObject(andMaskDC, andMask.get());
         HBITMAP oldXorMask = (HBITMAP)SelectObject(xorMaskDC, xorMask.get());
@@ -110,302 +102,161 @@ Cursor::Cursor(Image* img, const IntPoint& hotspot)
 
         ICONINFO icon = {0};
         icon.fIcon = FALSE;
-        icon.xHotspot = hotspot.x();
-        icon.yHotspot = hotspot.y();
+        icon.xHotspot = effectiveHotSpot.x();
+        icon.yHotspot = effectiveHotSpot.y();
         icon.hbmMask = andMask.get();
         icon.hbmColor = xorMask.get();
-        m_impl = SharedCursor::create(CreateIconIndirect(&icon));
+        impl = SharedCursor::create(CreateIconIndirect(&icon));
 
         DeleteDC(xorMaskDC);
         DeleteDC(andMaskDC);
     }
     DeleteDC(workingDC);
     ReleaseDC(0, dc);
+
+    return impl.release();
 }
 
-Cursor::~Cursor()
+static PassRefPtr<SharedCursor> loadSharedCursor(HINSTANCE hInstance, LPCWSTR lpCursorName)
 {
+    return SharedCursor::create(::LoadCursorW(hInstance, lpCursorName));
 }
 
-Cursor& Cursor::operator=(const Cursor& other)
-{
-    m_impl = other.m_impl;
-    return *this;
-}
-
-Cursor::Cursor(PlatformCursor c)
-    : m_impl(c)
-{
-}
-
-static Cursor loadCursorByName(char* name, int x, int y) 
+static PassRefPtr<SharedCursor> loadCursorByName(char* name, int x, int y)
 {
     IntPoint hotSpot(x, y);
-    Cursor c;
     RefPtr<Image> cursorImage(Image::loadPlatformResource(name));
-    if (cursorImage && !cursorImage->isNull()) 
-        c = Cursor(cursorImage.get(), hotSpot);
-    else
-        c = pointerCursor();
-    return c;
+    if (cursorImage && !cursorImage->isNull())
+        return createSharedCursor(cursorImage.get(), hotSpot);
+    return loadSharedCursor(0, IDC_ARROW);
 }
 
-static PassRefPtr<SharedCursor> loadSharedCursor(HINSTANCE hInstance, LPCTSTR lpCursorName)
+void Cursor::ensurePlatformCursor() const
 {
-    return SharedCursor::create(LoadCursor(hInstance, lpCursorName));
-}
+    if (m_platformCursor)
+        return;
 
-const Cursor& pointerCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_ARROW);
-    return c;
-}
-
-const Cursor& crossCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_CROSS);
-    return c;
-}
-
-const Cursor& handCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_HAND);
-    return c;
-}
-
-const Cursor& iBeamCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_IBEAM);
-    return c;
-}
-
-const Cursor& waitCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_WAIT);
-    return c;
-}
-
-const Cursor& helpCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_HELP);
-    return c;
-}
-
-const Cursor& eastResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZEWE);
-    return c;
-}
-
-const Cursor& northResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENS);
-    return c;
-}
-
-const Cursor& northEastResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENESW);
-    return c;
-}
-
-const Cursor& northWestResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENWSE);
-    return c;
-}
-
-const Cursor& southResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENS);
-    return c;
-}
-
-const Cursor& southEastResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENWSE);
-    return c;
-}
-
-const Cursor& southWestResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENESW);
-    return c;
-}
-
-const Cursor& westResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZEWE);
-    return c;
-}
-
-const Cursor& northSouthResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENS);
-    return c;
-}
-
-const Cursor& eastWestResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZEWE);
-    return c;
-}
-
-const Cursor& northEastSouthWestResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENESW);
-    return c;
-}
-
-const Cursor& northWestSouthEastResizeCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZENWSE);
-    return c;
-}
-
-const Cursor& columnResizeCursor()
-{
-    // FIXME: Windows does not have a standard column resize cursor <rdar://problem/5018591>
-    static Cursor c = loadSharedCursor(0, IDC_SIZEWE);
-    return c;
-}
-
-const Cursor& rowResizeCursor()
-{
-    // FIXME: Windows does not have a standard row resize cursor <rdar://problem/5018591>
-    static Cursor c = loadSharedCursor(0, IDC_SIZENS);
-    return c;
-}
-
-const Cursor& middlePanningCursor()
-{
-    static const Cursor c = loadCursorByName("panIcon", 8, 8);
-    return c;
-}
-
-const Cursor& eastPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panEastCursor", 7, 7);
-    return c;
-}
-
-const Cursor& northPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panNorthCursor", 7, 7);
-    return c;
-}
-
-const Cursor& northEastPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panNorthEastCursor", 7, 7);
-    return c;
-}
-
-const Cursor& northWestPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panNorthWestCursor", 7, 7);
-    return c;
-}
-
-const Cursor& southPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panSouthCursor", 7, 7);
-    return c;
-}
-
-const Cursor& southEastPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panSouthEastCursor", 7, 7);
-    return c;
-}
-
-const Cursor& southWestPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panSouthWestCursor", 7, 7);
-    return c;
-}
-
-const Cursor& westPanningCursor()
-{
-    static const Cursor c = loadCursorByName("panWestCursor", 7, 7);
-    return c;
-}
-
-const Cursor& moveCursor() 
-{
-    static Cursor c = loadSharedCursor(0, IDC_SIZEALL);
-    return c;
-}
-
-const Cursor& verticalTextCursor()
-{
-    static const Cursor c = loadCursorByName("verticalTextCursor", 7, 7);
-    return c;
-}
-
-const Cursor& cellCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& contextMenuCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& aliasCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& progressCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_APPSTARTING);
-    return c;
-}
-
-const Cursor& noDropCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_NO);
-    return c;
-}
-
-const Cursor& copyCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& noneCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& notAllowedCursor()
-{
-    static Cursor c = loadSharedCursor(0, IDC_NO);
-    return c;
-}
-
-const Cursor& zoomInCursor()
-{
-    static const Cursor c = loadCursorByName("zoomInCursor", 7, 7);
-    return c;
-}
-
-const Cursor& zoomOutCursor()
-{
-    static const Cursor c = loadCursorByName("zoomOutCursor", 7, 7);
-    return c;
-}
-
-const Cursor& grabCursor()
-{
-    return pointerCursor();
-}
-
-const Cursor& grabbingCursor()
-{
-    return pointerCursor();
+    switch (m_type) {
+    case Cursor::Pointer:
+    case Cursor::Cell:
+    case Cursor::ContextMenu:
+    case Cursor::Alias:
+    case Cursor::Copy:
+    case Cursor::None:
+    case Cursor::Grab:
+    case Cursor::Grabbing:
+        m_platformCursor = loadSharedCursor(0, IDC_ARROW);
+        break;
+    case Cursor::Cross:
+        m_platformCursor = loadSharedCursor(0, IDC_CROSS);
+        break;
+    case Cursor::Hand:
+        m_platformCursor = loadSharedCursor(0, IDC_HAND);
+        break;
+    case Cursor::IBeam:
+        m_platformCursor = loadSharedCursor(0, IDC_IBEAM);
+        break;
+    case Cursor::Wait:
+        m_platformCursor = loadSharedCursor(0, IDC_WAIT);
+        break;
+    case Cursor::Help:
+        m_platformCursor = loadSharedCursor(0, IDC_HELP);
+        break;
+    case Cursor::Move:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZEALL);
+        break;
+    case Cursor::MiddlePanning:
+        m_platformCursor = loadCursorByName("panIcon", 8, 8);
+        break;
+    case Cursor::EastResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZEWE);
+        break;
+    case Cursor::EastPanning:
+        m_platformCursor = loadCursorByName("panEastCursor", 7, 7);
+        break;
+    case Cursor::NorthResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENS);
+        break;
+    case Cursor::NorthPanning:
+        m_platformCursor = loadCursorByName("panNorthCursor", 7, 7);
+        break;
+    case Cursor::NorthEastResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENESW);
+        break;
+    case Cursor::NorthEastPanning:
+        m_platformCursor = loadCursorByName("panNorthEastCursor", 7, 7);
+        break;
+    case Cursor::NorthWestResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENWSE);
+        break;
+    case Cursor::NorthWestPanning:
+        m_platformCursor = loadCursorByName("panNorthWestCursor", 7, 7);
+        break;
+    case Cursor::SouthResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENS);
+        break;
+    case Cursor::SouthPanning:
+        m_platformCursor = loadCursorByName("panSouthCursor", 7, 7);
+        break;
+    case Cursor::SouthEastResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENWSE);
+        break;
+    case Cursor::SouthEastPanning:
+        m_platformCursor = loadCursorByName("panSouthEastCursor", 7, 7);
+        break;
+    case Cursor::SouthWestResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENESW);
+        break;
+    case Cursor::SouthWestPanning:
+        m_platformCursor = loadCursorByName("panSouthWestCursor", 7, 7);
+        break;
+    case Cursor::WestResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZEWE);
+        break;
+    case Cursor::NorthSouthResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENS);
+        break;
+    case Cursor::EastWestResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZEWE);
+        break;
+    case Cursor::WestPanning:
+        m_platformCursor = loadCursorByName("panWestCursor", 7, 7);
+        break;
+    case Cursor::NorthEastSouthWestResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENESW);
+        break;
+    case Cursor::NorthWestSouthEastResize:
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENWSE);
+        break;
+    case Cursor::ColumnResize:
+        // FIXME: Windows does not have a standard column resize cursor <rdar://problem/5018591>
+        m_platformCursor = loadSharedCursor(0, IDC_SIZEWE);
+        break;
+    case Cursor::RowResize:
+        // FIXME: Windows does not have a standard row resize cursor <rdar://problem/5018591>
+        m_platformCursor = loadSharedCursor(0, IDC_SIZENS);
+        break;
+    case Cursor::VerticalText:
+        m_platformCursor = loadCursorByName("verticalTextCursor", 7, 7);
+        break;
+    case Cursor::Progress:
+        m_platformCursor = loadSharedCursor(0, IDC_APPSTARTING);
+        break;
+    case Cursor::NoDrop:
+        break;
+    case Cursor::NotAllowed:
+        m_platformCursor = loadSharedCursor(0, IDC_NO);
+        break;
+    case Cursor::ZoomIn:
+        m_platformCursor = loadCursorByName("zoomInCursor", 7, 7);
+        break;
+    case Cursor::ZoomOut:
+        m_platformCursor = loadCursorByName("zoomOutCursor", 7, 7);
+        break;
+    case Cursor::Custom:
+        m_platformCursor = createSharedCursor(m_image.get(), m_hotSpot);
+        break;
+    }
 }
 
 SharedCursor::~SharedCursor()
@@ -413,4 +264,25 @@ SharedCursor::~SharedCursor()
     DestroyIcon(m_nativeCursor);
 }
 
+Cursor::Cursor(const Cursor& other)
+    : m_type(other.m_type)
+    , m_image(other.m_image)
+    , m_hotSpot(other.m_hotSpot)
+    , m_platformCursor(other.m_platformCursor)
+{
 }
+
+Cursor& Cursor::operator=(const Cursor& other)
+{
+    m_type = other.m_type;
+    m_image = other.m_image;
+    m_hotSpot = other.m_hotSpot;
+    m_platformCursor = other.m_platformCursor;
+    return *this;
+}
+
+Cursor::~Cursor()
+{
+}
+
+} // namespace WebCore

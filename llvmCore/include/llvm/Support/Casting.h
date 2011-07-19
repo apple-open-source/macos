@@ -50,9 +50,11 @@ template<typename From> struct simplify_type<const From> {
 //  if (isa<Type*>(myVal)) { ... }
 //
 template <typename To, typename From>
-inline bool isa_impl(const From &Val) {
-  return To::classof(&Val);
-}
+struct isa_impl {
+  static inline bool doit(const From &Val) {
+    return To::classof(&Val);
+  }
+};
 
 template<typename To, typename From, typename SimpleType>
 struct isa_impl_wrap {
@@ -68,7 +70,7 @@ template<typename To, typename FromTy>
 struct isa_impl_wrap<To, const FromTy, const FromTy> {
   // When From == SimpleType, we are as simple as we are going to get.
   static bool doit(const FromTy &Val) {
-    return isa_impl<To,FromTy>(Val);
+    return isa_impl<To,FromTy>::doit(Val);
   }
 };
 
@@ -180,8 +182,9 @@ template<class To, class From, class SimpleFrom> struct cast_convert_val {
 template<class To, class FromTy> struct cast_convert_val<To,FromTy,FromTy> {
   // This _is_ a simple type, just cast it.
   static typename cast_retty<To, FromTy>::ret_type doit(const FromTy &Val) {
-    return reinterpret_cast<typename cast_retty<To, FromTy>::ret_type>(
-                         const_cast<FromTy&>(Val));
+    typename cast_retty<To, FromTy>::ret_type Res2
+     = (typename cast_retty<To, FromTy>::ret_type)const_cast<FromTy&>(Val);
+    return Res2;
   }
 };
 
@@ -235,7 +238,7 @@ inline typename cast_retty<X, Y>::ret_type dyn_cast_or_null(const Y &Val) {
 
 
 #ifdef DEBUG_CAST_OPERATORS
-#include "llvm/Support/Streams.h"
+#include "llvm/Support/raw_ostream.h"
 
 struct bar {
   bar() {}
@@ -250,10 +253,12 @@ struct foo {
     }*/
 };
 
-template <> inline bool isa_impl<foo,bar>(const bar &Val) {
-  cerr << "Classof: " << &Val << "\n";
-  return true;
-}
+template <> struct isa_impl<foo,bar> {
+  static inline bool doit(const bar &Val) {
+    dbgs() << "Classof: " << &Val << "\n";
+    return true;
+  }
+};
 
 
 bar *fub();

@@ -50,6 +50,9 @@ public:
     virtual PassRefPtr<StorageNamespace> copy() = 0;
     virtual void close() = 0;
     virtual void unlock() = 0;
+    virtual void clearOriginForDeletion(SecurityOrigin*) = 0;
+    virtual void clearAllOriginsForDeletion() = 0;
+    virtual void sync() = 0;
 };
 
 } // namespace WebCore

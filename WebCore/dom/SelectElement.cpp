@@ -21,39 +21,35 @@
 #include "config.h"
 #include "SelectElement.h"
 
-#include "CharacterNames.h"
+#include "Attribute.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "Element.h"
+#include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "FormDataList.h"
 #include "Frame.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
-#include "HTMLKeygenElement.h"
 #include "HTMLSelectElement.h"
 #include "KeyboardEvent.h"
-#include "MappedAttribute.h"
 #include "MouseEvent.h"
 #include "OptionElement.h"
 #include "OptionGroupElement.h"
 #include "Page.h"
 #include "RenderListBox.h"
 #include "RenderMenuList.h"
+#include "SpatialNavigation.h"
 #include <wtf/Assertions.h>
-
-#if ENABLE(WML)
-#include "WMLNames.h"
-#include "WMLSelectElement.h"
-#endif
+#include <wtf/unicode/CharacterNames.h>
 
 // Configure platform-specific behavior when focused pop-up receives arrow/space/return keystroke.
 // (PLATFORM(MAC) and PLATFORM(GTK) are always false in Chromium, hence the extra tests.)
 #if PLATFORM(MAC) || (PLATFORM(CHROMIUM) && OS(DARWIN))
 #define ARROW_KEYS_POP_MENU 1
 #define SPACE_OR_RETURN_POP_MENU 0
-#elif PLATFORM(GTK) || (PLATFORM(CHROMIUM) && OS(LINUX))
+#elif PLATFORM(GTK) || (PLATFORM(CHROMIUM) && OS(UNIX))
 #define ARROW_KEYS_POP_MENU 0
 #define SPACE_OR_RETURN_POP_MENU 1
 #else
@@ -69,6 +65,74 @@ using namespace Unicode;
 namespace WebCore {
 
 static const DOMTimeStamp typeAheadTimeout = 1000;
+
+enum SkipDirection {
+    SkipBackwards = -1,
+    SkipForwards = 1
+};
+
+// Returns the 1st valid item |skip| items from |listIndex| in direction |direction| if there is one.
+// Otherwise, it returns the valid item closest to that boundary which is past |listIndex| if there is one.
+// Otherwise, it returns |listIndex|.
+// Valid means that it is enabled and an option element.
+static int nextValidIndex(const Vector<Element*>& listItems, int listIndex, SkipDirection direction, int skip)
+{
+    ASSERT(direction == -1 || direction == 1);
+    int lastGoodIndex = listIndex;
+    int size = listItems.size();
+    for (listIndex += direction; listIndex >= 0 && listIndex < size; listIndex += direction) {
+        --skip;
+        if (!listItems[listIndex]->disabled() && isOptionElement(listItems[listIndex])) {
+            lastGoodIndex = listIndex;
+            if (skip <= 0)
+                break;
+        }
+    }
+    return lastGoodIndex;
+}
+
+static int nextSelectableListIndex(SelectElementData& data, Element* element, int startIndex)
+{
+    return nextValidIndex(data.listItems(element), startIndex, SkipForwards, 1);
+}
+
+static int previousSelectableListIndex(SelectElementData& data, Element* element, int startIndex)
+{
+    if (startIndex == -1)
+        startIndex = data.listItems(element).size();
+    return nextValidIndex(data.listItems(element), startIndex, SkipBackwards, 1);
+}
+
+static int firstSelectableListIndex(SelectElementData& data, Element* element)
+{
+    const Vector<Element*>& items = data.listItems(element);
+    int index = nextValidIndex(items, items.size(), SkipBackwards, INT_MAX);
+    if (static_cast<unsigned>(index) == items.size())
+        return -1;
+    return index;
+}
+
+static int lastSelectableListIndex(SelectElementData& data, Element* element)
+{
+    return nextValidIndex(data.listItems(element), -1, SkipForwards, INT_MAX);
+}
+
+// Returns the index of the next valid item one page away from |startIndex| in direction |direction|.
+static int nextSelectableListIndexPageAway(SelectElementData& data, Element* element, int startIndex, SkipDirection direction)
+{
+    const Vector<Element*>& items = data.listItems(element);
+    // Can't use data->size() because renderer forces a minimum size.
+    int pageSize = 0;
+    if (element->renderer()->isListBox())
+        pageSize = toRenderListBox(element->renderer())->size() - 1; // -1 so we still show context
+
+    // One page away, but not outside valid bounds.
+    // If there is a valid option item one page away, the index is chosen.
+    // If there is no exact one page away valid option, returns startIndex or the most far index.
+    int edgeIndex = (direction == SkipForwards) ? 0 : (items.size() - 1);
+    int skipAmount = pageSize + ((direction == SkipForwards) ? startIndex : (edgeIndex - startIndex));
+    return nextValidIndex(items, edgeIndex, direction, skipAmount);
+}
 
 void SelectElement::selectAll(SelectElementData& data, Element* element)
 {
@@ -104,30 +168,6 @@ void SelectElement::saveLastSelection(SelectElementData& data, Element* element)
     }
 }
 
-int SelectElement::nextSelectableListIndex(SelectElementData& data, Element* element, int startIndex)
-{
-    const Vector<Element*>& items = data.listItems(element);
-    int index = startIndex + 1;
-    while (index >= 0 && (unsigned) index < items.size() && (!isOptionElement(items[index]) || items[index]->disabled()))
-        ++index;
-    if ((unsigned) index == items.size())
-        return startIndex;
-    return index;
-}
-
-int SelectElement::previousSelectableListIndex(SelectElementData& data, Element* element, int startIndex)
-{
-    const Vector<Element*>& items = data.listItems(element);
-    if (startIndex == -1)
-        startIndex = items.size();
-    int index = startIndex - 1;
-    while (index >= 0 && (unsigned) index < items.size() && (!isOptionElement(items[index]) || items[index]->disabled()))
-        --index;
-    if (index == -1)
-        return startIndex;
-    return index;
-}
-
 void SelectElement::setActiveSelectionAnchorIndex(SelectElementData& data, Element* element, int index)
 {
     data.setActiveSelectionAnchorIndex(index);
@@ -151,7 +191,7 @@ void SelectElement::setActiveSelectionEndIndex(SelectElementData& data, int inde
 void SelectElement::updateListBoxSelection(SelectElementData& data, Element* element, bool deselectOtherOptions)
 {
     ASSERT(element->renderer() && (element->renderer()->isListBox() || data.multiple()));
-    ASSERT(data.activeSelectionAnchorIndex() >= 0);
+    ASSERT(!data.listItems(element).size() || data.activeSelectionAnchorIndex() >= 0);
 
     unsigned start = min(data.activeSelectionAnchorIndex(), data.activeSelectionEndIndex());
     unsigned end = max(data.activeSelectionAnchorIndex(), data.activeSelectionEndIndex());
@@ -171,6 +211,7 @@ void SelectElement::updateListBoxSelection(SelectElementData& data, Element* ele
             optionElement->setSelectedState(cachedStateForActiveSelection[i]);
     }
 
+    toSelectElement(element)->updateValidity();
     scrollToSelection(data, element);
 }
 
@@ -313,10 +354,13 @@ int SelectElement::selectedIndex(const SelectElementData& data, const Element* e
 
 void SelectElement::setSelectedIndex(SelectElementData& data, Element* element, int optionIndex, bool deselect, bool fireOnChangeNow, bool userDrivenChange)
 {
-    const Vector<Element*>& items = data.listItems(element);
-    int listIndex = optionToListIndex(data, element, optionIndex);
+    if (optionIndex == -1 && !deselect && !data.multiple())
+        optionIndex = nextSelectableListIndex(data, element, -1);
     if (!data.multiple())
         deselect = true;
+
+    const Vector<Element*>& items = data.listItems(element);
+    int listIndex = optionToListIndex(data, element, optionIndex);
 
     Element* excludeElement = 0;
     if (OptionElement* optionElement = (listIndex >= 0 ? toOptionElement(items[listIndex]) : 0)) {
@@ -448,10 +492,11 @@ void SelectElement::restoreFormControlState(SelectElementData& data, Element* el
     setOptionsChangedOnRenderer(data, element);
 }
 
-void SelectElement::parseMultipleAttribute(SelectElementData& data, Element* element, MappedAttribute* attribute)
+void SelectElement::parseMultipleAttribute(SelectElementData& data, Element* element, Attribute* attribute)
 {
     bool oldUsesMenuList = data.usesMenuList();
     data.setMultiple(!attribute->isNull());
+    toSelectElement(element)->updateValidity();
     if (oldUsesMenuList != data.usesMenuList() && element->attached()) {
         element->detach();
         element->attach();
@@ -492,7 +537,7 @@ void SelectElement::reset(SelectElementData& data, Element* element)
         if (!optionElement)
             continue;
 
-        if (!items[i]->getAttribute(HTMLNames::selectedAttr).isNull()) {
+        if (items[i]->fastHasAttribute(HTMLNames::selectedAttr)) {
             if (selectedOption && !data.multiple())
                 selectedOption->setSelectedState(false);
             optionElement->setSelectedState(true);
@@ -510,29 +555,6 @@ void SelectElement::reset(SelectElementData& data, Element* element)
     setOptionsChangedOnRenderer(data, element);
     element->setNeedsStyleRecalc();
 }
-    
-#if !ARROW_KEYS_POP_MENU
-enum SkipDirection {
-    SkipBackwards = -1,
-    SkipForwards = 1
-};
-
-// Returns the index of the next valid list item |skip| items past |listIndex| in direction |direction|.
-static int nextValidIndex(const Vector<Element*>& listItems, int listIndex, SkipDirection direction, int skip)
-{
-    int lastGoodIndex = listIndex;
-    int size = listItems.size();
-    for (listIndex += direction; listIndex >= 0 && listIndex < size; listIndex += direction) {
-        --skip;
-        if (!listItems[listIndex]->disabled() && isOptionElement(listItems[listIndex])) {
-            lastGoodIndex = listIndex;
-            if (skip <= 0)
-                break;
-        }
-    }
-    return lastGoodIndex;
-}
-#endif
 
 void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element* element, Event* event, HTMLFormElement* htmlForm)
 {
@@ -540,20 +562,35 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         if (!element->renderer() || !event->isKeyboardEvent())
             return;
 
-        String keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
+        const String& keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
         bool handled = false;
 
 #if ARROW_KEYS_POP_MENU
-        if (keyIdentifier == "Down" || keyIdentifier == "Up") {
-            element->focus();
-            // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
-            // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
-            saveLastSelection(data, element);
-            if (RenderMenuList* menuList = toRenderMenuList(element->renderer()))
-                menuList->showPopup();
-            handled = true;
+        if (!isSpatialNavigationEnabled(element->document()->frame())) {
+            if (keyIdentifier == "Down" || keyIdentifier == "Up") {
+                element->focus();
+
+                if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
+                    return;
+
+                // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
+                // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
+                saveLastSelection(data, element);
+                if (RenderMenuList* menuList = toRenderMenuList(element->renderer()))
+                    menuList->showPopup();
+
+                event->setDefaultHandled();
+            }
+            return;
         }
-#else
+#endif
+        // When using spatial navigation, we want to be able to navigate away from the select element
+        // when the user hits any of the arrow keys, instead of changing the selection.
+        if (isSpatialNavigationEnabled(element->document()->frame()))
+            if (!data.activeSelectionState())
+                return;
+
+        UNUSED_PARAM(htmlForm);
         const Vector<Element*>& listItems = data.listItems(element);
 
         int listIndex = optionToListIndex(data, element, selectedIndex(data, element));
@@ -576,10 +613,10 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
             listIndex = nextValidIndex(listItems, listItems.size(), SkipBackwards, 1);
             handled = true;
         }
-        
-        if (handled && listIndex >= 0 && (unsigned)listIndex < listItems.size())
+
+        if (handled && listIndex >= 0 && static_cast<unsigned>(listIndex) < listItems.size())
             setSelectedIndex(data, element, listToOptionIndex(data, element, listIndex));
-#endif
+
         if (handled)
             event->setDefaultHandled();
     }
@@ -593,9 +630,20 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
         int keyCode = static_cast<KeyboardEvent*>(event)->keyCode();
         bool handled = false;
 
+        if (keyCode == ' ' && isSpatialNavigationEnabled(element->document()->frame())) {
+            // Use space to toggle arrow key handling for selection change or spatial navigation.
+            data.setActiveSelectionState(!data.activeSelectionState());
+            event->setDefaultHandled();
+            return;
+        }
+
 #if SPACE_OR_RETURN_POP_MENU
         if (keyCode == ' ' || keyCode == '\r') {
             element->focus();
+
+            if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
+                return;
+
             // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
             // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
             saveLastSelection(data, element);
@@ -606,6 +654,10 @@ void SelectElement::menuListDefaultEventHandler(SelectElementData& data, Element
 #elif ARROW_KEYS_POP_MENU
         if (keyCode == ' ') {
             element->focus();
+
+            if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
+                return;
+
             // Save the selection so it can be compared to the new selection when dispatching change events during setSelectedIndex,
             // which gets called from RenderMenuList::valueChanged, which gets called after the user makes a selection from the menu.
             saveLastSelection(data, element);
@@ -701,6 +753,9 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
     if (event->type() == eventNames().mousedownEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton) {
         element->focus();
 
+        if (!element->renderer()) // Calling focus() may cause us to lose our renderer, in which case do not want to handle the event.
+            return;
+
         // Convert to coords relative to the list box if needed.
         MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
         IntPoint localOffset = roundedIntPoint(element->renderer()->absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
@@ -716,48 +771,87 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
 
             event->setDefaultHandled();
         }
-    } else if (event->type() == eventNames().mouseupEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton && element->document()->frame()->eventHandler()->autoscrollRenderer() != element->renderer())
+    } else if (event->type() == eventNames().mouseupEvent && event->isMouseEvent() && static_cast<MouseEvent*>(event)->button() == LeftButton && element->document()->frame()->eventHandler()->autoscrollRenderer() != element->renderer()) {
         // This makes sure we fire dispatchFormControlChangeEvent for a single click.  For drag selection, onChange will fire when the autoscroll timer stops.
         listBoxOnChange(data, element);
-    else if (event->type() == eventNames().keydownEvent) {
+    } else if (event->type() == eventNames().keydownEvent) {
         if (!event->isKeyboardEvent())
             return;
-        String keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
+        const String& keyIdentifier = static_cast<KeyboardEvent*>(event)->keyIdentifier();
 
-        int endIndex = 0;        
+        bool handled = false;
+        int endIndex = 0;
         if (data.activeSelectionEndIndex() < 0) {
             // Initialize the end index
-            if (keyIdentifier == "Down")
-                endIndex = nextSelectableListIndex(data, element, lastSelectedListIndex(data, element));
-            else if (keyIdentifier == "Up")
-                endIndex = previousSelectableListIndex(data, element, optionToListIndex(data, element, selectedIndex(data, element)));
+            if (keyIdentifier == "Down" || keyIdentifier == "PageDown") {
+                int startIndex = lastSelectedListIndex(data, element);
+                handled = true;
+                if (keyIdentifier == "Down")
+                    endIndex = nextSelectableListIndex(data, element, startIndex);
+                else
+                    endIndex = nextSelectableListIndexPageAway(data, element, startIndex, SkipForwards);
+            } else if (keyIdentifier == "Up" || keyIdentifier == "PageUp") {
+                int startIndex = optionToListIndex(data, element, selectedIndex(data, element));
+                handled = true;
+                if (keyIdentifier == "Up")
+                    endIndex = previousSelectableListIndex(data, element, startIndex);
+                else
+                    endIndex = nextSelectableListIndexPageAway(data, element, startIndex, SkipBackwards);
+            }
         } else {
             // Set the end index based on the current end index
-            if (keyIdentifier == "Down")
+            if (keyIdentifier == "Down") {
                 endIndex = nextSelectableListIndex(data, element, data.activeSelectionEndIndex());
-            else if (keyIdentifier == "Up")
-                endIndex = previousSelectableListIndex(data, element, data.activeSelectionEndIndex());    
+                handled = true;
+            } else if (keyIdentifier == "Up") {
+                endIndex = previousSelectableListIndex(data, element, data.activeSelectionEndIndex());
+                handled = true;
+            } else if (keyIdentifier == "PageDown") {
+                endIndex = nextSelectableListIndexPageAway(data, element, data.activeSelectionEndIndex(), SkipForwards);
+                handled = true;
+            } else if (keyIdentifier == "PageUp") {
+                endIndex = nextSelectableListIndexPageAway(data, element, data.activeSelectionEndIndex(), SkipBackwards);
+                handled = true;
+            }
         }
-        
-        if (keyIdentifier == "Down" || keyIdentifier == "Up") {
+        if (keyIdentifier == "Home") {
+            endIndex = firstSelectableListIndex(data, element);
+            handled = true;
+        } else if (keyIdentifier == "End") {
+            endIndex = lastSelectableListIndex(data, element);
+            handled = true;
+        }
+
+        if (isSpatialNavigationEnabled(element->document()->frame()))
+            // Check if the selection moves to the boundary.
+            if (keyIdentifier == "Left" || keyIdentifier == "Right" || ((keyIdentifier == "Down" || keyIdentifier == "Up") && endIndex == data.activeSelectionEndIndex()))
+                return;
+
+        if (endIndex >= 0 && handled) {
             // Save the selection so it can be compared to the new selection when dispatching change events immediately after making the new selection.
             saveLastSelection(data, element);
 
-            ASSERT_UNUSED(listItems, endIndex >= 0 && (unsigned) endIndex < listItems.size());
+            ASSERT_UNUSED(listItems, !listItems.size() || (endIndex >= 0 && static_cast<unsigned>(endIndex) < listItems.size()));
             setActiveSelectionEndIndex(data, endIndex);
-            
-            // If the anchor is unitialized, or if we're going to deselect all other options, then set the anchor index equal to the end index.
-            bool deselectOthers = !data.multiple() || !static_cast<KeyboardEvent*>(event)->shiftKey();
-            if (data.activeSelectionAnchorIndex() < 0 || deselectOthers) {
+
+            bool selectNewItem = !data.multiple() || static_cast<KeyboardEvent*>(event)->shiftKey() || !isSpatialNavigationEnabled(element->document()->frame());
+            if (selectNewItem)
                 data.setActiveSelectionState(true);
+            // If the anchor is unitialized, or if we're going to deselect all other options, then set the anchor index equal to the end index.
+            bool deselectOthers = !data.multiple() || (!static_cast<KeyboardEvent*>(event)->shiftKey() && selectNewItem);
+            if (data.activeSelectionAnchorIndex() < 0 || deselectOthers) {
                 if (deselectOthers)
                     deselectItems(data, element);
                 setActiveSelectionAnchorIndex(data, element, data.activeSelectionEndIndex());
             }
 
             toRenderListBox(element->renderer())->scrollToRevealElementAtListIndex(endIndex);
-            updateListBoxSelection(data, element, deselectOthers);
-            listBoxOnChange(data, element);
+            if (selectNewItem) {
+                updateListBoxSelection(data, element, deselectOthers);
+                listBoxOnChange(data, element);
+            } else
+                scrollToSelection(data, element);
+
             event->setDefaultHandled();
         }
     } else if (event->type() == eventNames().keypressEvent) {
@@ -769,7 +863,12 @@ void SelectElement::listBoxDefaultEventHandler(SelectElementData& data, Element*
             if (htmlForm)
                 htmlForm->submitImplicitly(event, false);
             event->setDefaultHandled();
-            return;
+        } else if (data.multiple() && keyCode == ' ' && isSpatialNavigationEnabled(element->document()->frame())) {
+            // Use space to toggle selection change.
+            data.setActiveSelectionState(!data.activeSelectionState());
+            updateSelectedState(data, element, listToOptionIndex(data, element, data.activeSelectionEndIndex()), true /*multi*/, false /*shift*/);
+            listBoxOnChange(data, element);
+            event->setDefaultHandled();
         }
     }
 }
@@ -912,8 +1011,12 @@ void SelectElement::accessKeySetSelectedIndex(SelectElementData& data, Element* 
         else
             setSelectedIndex(data, element, index, false, true);
     }
- 
-    listBoxOnChange(data, element);
+
+    if (data.usesMenuList())
+        menuListOnChange(data, element);
+    else
+        listBoxOnChange(data, element);
+
     scrollToSelection(data, element);
 }
 
@@ -941,6 +1044,10 @@ SelectElementData::SelectElementData()
     , m_recalcListItems(false)
     , m_repeatingChar(0)
     , m_lastCharTime(0)
+{
+}
+
+SelectElementData::~SelectElementData()
 {
 }
 
@@ -977,18 +1084,8 @@ const Vector<Element*>& SelectElementData::listItems(const Element* element) con
 
 SelectElement* toSelectElement(Element* element)
 {
-    if (element->isHTMLElement()) {
-        if (element->hasTagName(HTMLNames::selectTag))
-            return static_cast<HTMLSelectElement*>(element);
-        if (element->hasTagName(HTMLNames::keygenTag))
-            return static_cast<HTMLKeygenElement*>(element);
-    }
-
-#if ENABLE(WML)
-    if (element->isWMLElement() && element->hasTagName(WMLNames::selectTag))
-        return static_cast<WMLSelectElement*>(element);
-#endif
-
+    if (element->isHTMLElement() && element->hasTagName(HTMLNames::selectTag))
+        return static_cast<HTMLSelectElement*>(element);
     return 0;
 }
 

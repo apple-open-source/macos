@@ -8,7 +8,7 @@
  * deprecated APIs and other features.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_warn_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/warn.c,v 1.5 2006/11/01 23:54:54 wsfulton Exp $";
+char cvsroot_warn_c[] = "$Id: warn.c 9604 2006-12-05 21:57:44Z beazley $";
 
 #include "swig.h"
 

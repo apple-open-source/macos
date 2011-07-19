@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,286 +33,49 @@
  *
  * $Id: nbns_rq.c,v 1.13.140.1 2006/04/14 23:49:37 gcolley Exp $
  */
-#include <sys/param.h>
-#include <sys/socket.h>
-#include <sys/time.h>
-#include <sys/mchain.h>
-
-#include <ctype.h>
-#include <netdb.h>
-#include <err.h>
-#include <errno.h>
-#include <stdlib.h>
-#include <string.h>
-#include <stdio.h>
-#include <unistd.h>
-
 #include <netsmb/netbios.h>
+#include <sys/smb_byte_order.h>
+#include <netsmb/upi_mbuf.h>
+#include <sys/mchain.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
-#include "charsets.h"
+#include "preference.h"
 
-static int  nbns_rq_create(int opcode, struct nb_ctx *ctx, struct nbns_rq **rqpp);
-static void nbns_rq_done(struct nbns_rq *rqp);
-static int  nbns_rq_getrr(struct nbns_rq *rqp, struct nbns_rr *rrp);
-static int  nbns_rq_prepare(struct nbns_rq *rqp);
-static int  nbns_rq(struct nbns_rq *rqp);
+/*
+ * nbns request
+ */
+struct nbns_rq {
+	int		nr_opcode;
+	int		nr_nmflags;
+	int		nr_rcode;
+	int		nr_qdcount;
+	int		nr_ancount;
+	int		nr_nscount;
+	int		nr_arcount;
+	struct nb_name*	nr_qdname;
+	uint16_t	nr_qdtype;
+	uint16_t	nr_qdclass;
+	struct sockaddr_in nr_dest;	/* receiver of query */
+	struct sockaddr_in nr_sender;	/* sender of response */
+	int		nr_rpnmflags;
+	int		nr_rprcode;
+	uint16_t	nr_rpancount;
+	uint16_t	nr_rpnscount;
+	uint16_t	nr_rparcount;
+	uint16_t	nr_trnid;
+	struct nb_ctx *	nr_nbd;
+	struct mbchain	nr_rq;
+	struct mdchain	nr_rp;
+	struct nb_ifdesc *nr_if;
+	int		nr_flags; /* endian-ness depends on host */
+	int		nr_fd;
+	int32_t	nr_timo;
+};
 
 static struct nb_ifdesc *nb_iflist;
 
-/* 
- * Looks thru all of the interfaces on
- * this machine, returns 1 if any if matches.
- */
-static u_int32_t in_local_subnet(u_char *addr)
-{
 
-	struct nb_ifdesc * current_if;
-	u_int32_t current_mask;
-	
-	for (current_if = nb_iflist;current_if;current_if = current_if->id_next) {
-		current_mask = current_if->id_mask.s_addr;
-		if ((*(u_int32_t *)(addr) & current_mask) 
-			== ((u_int32_t)(current_if->id_addr.s_addr) 
-				& current_mask)) 
-			/* In subnet, return true */
-			return (1);
-	}
-	return (0); /* Not found, return flase */
-}
-
-/* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-static int nbns_resolvename_internal(const char *name, struct nb_ctx *ctx, 
-									 struct sockaddr **adpp, u_int16_t port)
-{
-	struct nbns_rq *rqp;
-	struct nb_name nn;
-	struct nbns_rr rr;
-	struct sockaddr_in *nameserver_sock, *session_sock;
-	int error, rdrcount, len;
-	char wkgrp[SMB_MAXNetBIOSNAMELEN + 1];
-	u_char *current_ip, *end_of_rr, *next_of_rr = NULL;
-
-	wkgrp[0] = '\0';
-	if (strlen(name) > NB_NAMELEN)
-		return ENAMETOOLONG;
-		
-	error = nbns_rq_create(NBNS_OPCODE_QUERY, ctx, &rqp);
-	if (error)
-		return error;
-	bzero(&nn, sizeof(nn));
-	strlcpy((char *)nn.nn_name, name, sizeof(nn.nn_name));
-	/* When doing a NetBIOS lookup the name needs to be uppercase */
-	str_upper((char *)nn.nn_name, (char *)nn.nn_name);
-	nn.nn_scope = (u_char *)ctx->nb_scope;
-	nn.nn_type = NBT_SERVER;
-	rqp->nr_nmflags = NBNS_NMFLAG_RD;
-	rqp->nr_qdname = &nn;
-	rqp->nr_qdtype = NBNS_QUESTION_TYPE_NB;
-	rqp->nr_qdclass = NBNS_QUESTION_CLASS_IN;
-	rqp->nr_qdcount = 1;
-	nameserver_sock = &rqp->nr_dest;
-	*nameserver_sock = ctx->nb_ns;
-	nameserver_sock->sin_family = AF_INET;
-	nameserver_sock->sin_len = sizeof(*nameserver_sock);
-	if (nameserver_sock->sin_port == 0)
-		nameserver_sock->sin_port = htons(NBNS_UDP_PORT_137);
-	if (nameserver_sock->sin_addr.s_addr == INADDR_ANY)
-		nameserver_sock->sin_addr.s_addr = htonl(INADDR_BROADCAST);
-	if (nameserver_sock->sin_addr.s_addr == INADDR_BROADCAST)
-		rqp->nr_flags |= NBRQF_BROADCAST;
-	error = nbns_rq_prepare(rqp);
-	if (error) {
-		nbns_rq_done(rqp);
-		return error;
-	}
-	rdrcount = NBNS_MAXREDIRECTS;
-	session_sock = 0;
-	for (;;) {
-		error = nbns_rq(rqp);
-		if (error)
-			break;
-		if ((rqp->nr_rpnmflags & NBNS_NMFLAG_AA) == 0) {
-			if (rdrcount-- == 0) {
-				error = ETOOMANYREFS;
-				break;
-			}
-			error = nbns_rq_getrr(rqp, &rr);
-			if (error)
-				break;
-			error = nbns_rq_getrr(rqp, &rr);
-			if (error)
-				break;
-			bcopy(rr.rr_data, &nameserver_sock->sin_addr, 4);
-			rqp->nr_flags &= ~NBRQF_BROADCAST;
-			continue;
-		}
-		if (rqp->nr_rpancount == 0) {
-			error = EHOSTUNREACH;
-			break;
-		}
-		error = nbns_rq_getrr(rqp, &rr);
-		if (error)
-			break;
-
-		/* Get socket ready except dest. address */	
-		len = (int)sizeof(struct sockaddr_in);
-		/* Does it need to be malloced? */
-		if (!session_sock) {
-			session_sock = malloc(len);
-			*adpp = (struct sockaddr*)session_sock;
-		}
-		if (session_sock == NULL)
-			return ENOMEM;
-		bzero(session_sock, len);
-		session_sock->sin_len = len;
-		session_sock->sin_family = AF_INET;
-		session_sock->sin_port = htons(port);
-		/* Used by smbutil lookup, should see if there a better way to hold this info */
-		ctx->nb_lastns = rqp->nr_sender;
-
-		end_of_rr = rr.rr_data + rr.rr_rdlength;
-		/*
-		 * We should use Radar 3916980 and 3165159 to clean up this code.  What to do with multiple 
-		 * address? Once we decide how to handle IPv6 and IPv4 address, then we should use that
-		 * same method here. 
-		 *
-		 * The code below doesn't make much sense to me. We have a list of address. If only one
-		 * address then aren't we done. If multiple address what does looking it up on port
-		 * 137 do for us? Seems like a performance issue to me.
-		 *
-		 * Since this work may go into a  software update lets only fix what is required.
-		 */
-
-		/*
-		 * If there is only one address looking it up at this point is a waste of time, let the
-		 * connect code decide if the server is present.
-		 *
-		 * NOTE: rr_data points at a list of entries. The entries contian a 2 byte flags field 
-		 * followed by a 4 byte IPv4 address field. So if there is only one address then next_of_rr
-		 * should equal end_of_rr, if not fall through and let the old code handle it.
-		 *
-		 */
-		current_ip = (rr.rr_data + 2); 	/* Points to the first ip address */
-		next_of_rr = current_ip + 4; 	/* Points to the next offset */
-#ifdef SMB_DEBUG
-		smb_log_info("rr_data = %p end_of_rr = %p current_ip = %p next_of_rr = %p", 0, ASL_LEVEL_DEBUG, 
-					 rr.rr_data, end_of_rr, current_ip, next_of_rr);
-#endif // SMB_DEBUG
-		if ((current_ip < end_of_rr) && (next_of_rr == end_of_rr)) {
-			/* Only one address so, we are really done here */
-			bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
-			error = 0;
-			break;			
-		}
-			
-		
-		/*
-		 * We should either have no address or multiple address at this point. In most case we should
-		 * have either one address or no address, so most of the code below will never get excuted.
-		 *
-		 * If multiple address then still try to use port 137 to see which should be the preferred
-		 * address.
-		 */
-		error = -1; /* So that we won't skip 2nd loop if no IPs */
-		/*
-		 * Look to see if any of the address are in our local subnet mask. Currently we always
-		 * prefer those address. See if we can connect to port 137 at that address, if not keep trying 
-		 * until we can or there are no more address.
-		 */
-		for(current_ip = rr.rr_data + 2; current_ip < end_of_rr; current_ip += 6)
-			if (in_local_subnet(current_ip)) {
-				bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
-				if (nbns_getnodestatus((struct sockaddr *)session_sock, ctx, NULL, wkgrp) == 0) {
-					error = 0;	/* Found something we can use. */
-					break;	/* We know we can connect to this one on port 137 use it. */
-				} else {
-					smb_log_info("Found 0x%x address on the local subnet, but couldn't connect to port 137!", 
-								 0, ASL_LEVEL_DEBUG, session_sock->sin_addr.s_addr);					
-				}
-			}	
-		/*
-		 * If no error at this point then we found an address and we should use that address,
-		 * even if we couldn't connect to port 137. If we have an error then search the list
-		 * again (crazy I know) to see if we can find it on a remote subnet.
-		 */
-		if (error) {
-			/* 
-			 * None of the IPs inside subnet worked. 
-			 * Try IPs outside the subnet. 
-			 * XXX If there are a bunch of these, 
-			 * this loop could take a long time.
-			 * Should we limit the number of 
-			 * out-of-subnet nbns_getnodestatus
-			 * calls to, say 8 or 10? Could do this
-			 * with a counter. 
-			 */
-			for(current_ip = rr.rr_data + 2; current_ip < end_of_rr; current_ip += 6)
-				if (!(in_local_subnet(current_ip))) {
-					bcopy(current_ip, &session_sock->sin_addr.s_addr, 4);
-					if (nbns_getnodestatus((struct sockaddr *)session_sock, ctx, NULL, wkgrp) == 0) {
-						error = 0;	/* Found something we can use. */
-						break;	/* We know we can connect to this one on port 137 use it. */
-					} else {
-						smb_log_info("Found 0x%x address on a remote subnet, but couldn't connect to port 137!", 
-									 0, ASL_LEVEL_DEBUG, session_sock->sin_addr.s_addr);						
-					}
-				}
-		}
-		/* If no error we are done, otherwise continue the loop because they didn't return an address */
-		if (!error)
-			break; 
-		smb_log_info("Didn't find any address in this list try again if %d > 0", 0, ASL_LEVEL_DEBUG, rdrcount);		
-	} /* end big for loop */
-	nbns_rq_done(rqp);
-		
-	/* 
-	 * After we exit the loop error = return 
-	 * code from last call to nbns_getnodestatus
-	 * or other nbns call
-	 */ 
-
-	return error;
-}
-
-
-/* When invoked from smb_ctx_resolve we need the smb_ctx structure */
-int nbns_resolvename(const char *name, struct nb_ctx *ctx, 
-					 struct sockaddr **adpp, int allow_local_conn, u_int16_t port)
-{
-	int error = nbns_resolvename_internal(name, ctx, adpp, port);
-	
-	/* We tried it with WINS and failed try broadcast now */
-	if (error && (ctx->nb_wins_name != NULL)) {
-		char *save_wins_name = ctx->nb_wins_name;
-		
-		ctx->nb_wins_name = NULL;	/* Force it to setup the broadcast address */
-		error = nb_ctx_resolve(ctx);
-		if (error == 0)
-			error = nbns_resolvename_internal(name, ctx, adpp, port);
-		ctx->nb_wins_name = save_wins_name; /* Restore the wins name */
-	}
-	/* Make sure we are not connecting to ourself */
-	if ((error == 0) && (*adpp) && (! allow_local_conn)) {
-		struct sockaddr_in *sinp = *(struct sockaddr_in **)adpp;
-
-		if (sinp->sin_addr.s_addr  == (u_int32_t)htonl(INADDR_LOOPBACK)) {
-			smb_log_info("The address for `%s' is a loopback address, not allowed!\n", 0, ASL_LEVEL_ERR, name);
-			/* AFP now returns ELOOP, so we will do the same */
-			return ELOOP;		
-		}
-		if (isLocalNetworkAddress(sinp->sin_addr.s_addr) == TRUE) {
-			smb_log_info("isLocalNetworkAddress: The address for `%s' is a local address, not allowed!\n", 0, ASL_LEVEL_ERR, name);			
-			/* AFP now returns ELOOP, so we will do the same */
-			return ELOOP;		
-		}		
-	}
-	
-	return error;
-}
-
-static char *
-smb_optstrncpy(char *d, char *s, unsigned maxlen)
+static char * smb_optstrncpy(char *d, char *s, unsigned maxlen)
 {
 	if (d && s) {
 		strncpy(d, s, maxlen);
@@ -321,136 +84,42 @@ smb_optstrncpy(char *d, char *s, unsigned maxlen)
 	return (d);
 }
 
-
-int
-nbns_getnodestatus(struct sockaddr *targethost,
-		   struct nb_ctx *ctx, 
-		   char *nbt_server,
-		   char *workgroup)
+static int nbns_rq_create(int opcode, struct smb_prefs *prefs, 
+						  struct nbns_rq **rqpp)
 {
 	struct nbns_rq *rqp;
-	struct nbns_rr rr;
-	struct nb_name nn;
-	struct nbns_nr *nrp;
-	char nrtype;
-	char *cp, *retname = NULL;
-	struct sockaddr_in *dest;
-	unsigned char nrcount;
-	int error, rdrcount, i, foundserver = 0, foundgroup = 0;
-
-	if (targethost->sa_family != AF_INET) return EINVAL;
-	error = nbns_rq_create(NBNS_OPCODE_QUERY, ctx, &rqp);
-	if (error)
-		return error;
-	bzero(&nn, sizeof(nn));
-	strlcpy((char *)nn.nn_name, "*", sizeof(nn.nn_name));
-	nn.nn_scope = (u_char *)(ctx->nb_scope);
-	nn.nn_type = NBT_WKSTA;
-	rqp->nr_nmflags = 0;
-	rqp->nr_qdname = &nn;
-	rqp->nr_qdtype = NBNS_QUESTION_TYPE_NBSTAT;
-	rqp->nr_qdclass = NBNS_QUESTION_CLASS_IN;
-	rqp->nr_qdcount = 1;
-	dest = &rqp->nr_dest;
-	*dest = *(struct sockaddr_in *)targethost;
-	dest->sin_family = AF_INET;		/* XXX isn't this set in the copy? */
-	dest->sin_len = sizeof(*dest);		/* XXX isn't this set in the copy? */
-	dest->sin_port = htons(NBNS_UDP_PORT_137);
-	if (dest->sin_addr.s_addr == INADDR_ANY)
-		dest->sin_addr.s_addr = htonl(INADDR_BROADCAST);
-	if (dest->sin_addr.s_addr == INADDR_BROADCAST)
-		rqp->nr_flags |= NBRQF_BROADCAST;
-	error = nbns_rq_prepare(rqp);
-	if (error) {
-		nbns_rq_done(rqp);
-		return error;
-	}
-	rdrcount = NBNS_MAXREDIRECTS;
-	for (;;) {
-		error = nbns_rq(rqp);
-		if (error)
-			break;
-		if (rqp->nr_rpancount == 0) {
-			error = EHOSTUNREACH;
-			break;
-		}
-		error = nbns_rq_getrr(rqp, &rr);
-		if (error)
-			break;
-		nrcount = (unsigned char)(*(rr.rr_data));
-		rr.rr_data++;
-		for (i = 1, nrp = (struct nbns_nr *)rr.rr_data;
-		     i <= nrcount; ++i, ++nrp) {
-			nrtype = nrp->nr_name[NB_NAMELEN-1];
-			/* Terminate the string: */
-			nrp->nr_name[NB_NAMELEN-1] = (char)0;
-			/* Strip off trailing spaces */
-			for (cp = &nrp->nr_name[NB_NAMELEN-2];
-			     cp >= nrp->nr_name; --cp) {
-				if (*cp != (char)0x20)
-					break;
-				*cp = (char)0;
-			}
-			if (betohs(nrp->nr_beflags) & NBNS_GROUPFLG) {
-				if (!foundgroup ||
-				    (foundgroup != NBT_WKSTA+1 &&
-				     nrtype == NBT_WKSTA)) {
-						if (workgroup)
-							smb_optstrncpy(workgroup, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
-					foundgroup = nrtype+1;
-				}
-			} else {
-				/* Track at least ONE name, in case
-				   no server name is found */
-				retname = nrp->nr_name;
-			}
-			if (nrtype == NBT_SERVER) {
-				if (nbt_server)
-					smb_optstrncpy(nbt_server, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
-				foundserver = 1;
-			}
-		}
-		if (!foundserver && nbt_server)
-			smb_optstrncpy(nbt_server, retname, SMB_MAXNetBIOSNAMELEN);
-		ctx->nb_lastns = rqp->nr_sender;
-		break;
-	}
-	nbns_rq_done(rqp);
-	return error;
-}
-
-int
-nbns_rq_create(int opcode, struct nb_ctx *ctx, struct nbns_rq **rqpp)
-{
-	struct nbns_rq *rqp;
-	static u_int16_t trnid;
+	static uint16_t trnid;
 	int error;
-
+	
 	rqp = malloc(sizeof(*rqp));
 	if (rqp == NULL)
 		return ENOMEM;
 	bzero(rqp, sizeof(*rqp));
-	error = mb_init(&rqp->nr_rq, NBDG_MAXSIZE);
+	error = mb_init(&rqp->nr_rq);
 	if (error) {
 		free(rqp);
 		return error;
 	}
+	if (prefs) {
+		rqp->nr_timo = prefs->NetBIOSResolverTimeout;
+	} else {
+		rqp->nr_timo = DefaultNetBIOSResolverTimeout;
+	}
+
 	rqp->nr_opcode = opcode;
-	rqp->nr_nbd = ctx;
 	rqp->nr_trnid = trnid++;
 	*rqpp = rqp;
 	return 0;
 }
 
-void
-nbns_rq_done(struct nbns_rq *rqp)
+static void nbns_rq_done(struct nbns_rq *rqp)
 {
 	if (rqp == NULL)
 		return;
 	if (rqp->nr_fd >= 0)
 		close(rqp->nr_fd);
 	mb_done(&rqp->nr_rq);
-	mb_done(&rqp->nr_rp);
+	md_done(&rqp->nr_rp);
 	free(rqp);
 }
 
@@ -458,106 +127,49 @@ nbns_rq_done(struct nbns_rq *rqp)
  * Extract resource record from the packet. Assume that there is only
  * one mbuf.
  */
-int
-nbns_rq_getrr(struct nbns_rq *rqp, struct nbns_rr *rrp)
+static int nbns_rq_getrr(struct nbns_rq *rqp, struct nbns_rr *rrp)
 {
-	struct mbdata *mbp = &rqp->nr_rp;
+	mdchain_t mdp = &rqp->nr_rp;
 	u_char *cp;
 	int error, len;
-
+	
 	bzero(rrp, sizeof(*rrp));
-	cp = (u_char *)(mbp->mb_pos);
+	cp = (u_char *)(mdp->md_pos);
 	len = nb_encname_len((char *)cp);
 	if (len < 1)
 		return EINVAL;
 	rrp->rr_name = cp;
-	error = mb_get_mem(mbp, NULL, len);
+	error = md_get_mem(mdp, NULL, len, MB_MSYSTEM);
 	if (error)
 		return error;
-	mb_get_uint16be(mbp, &rrp->rr_type);
-	mb_get_uint16be(mbp, &rrp->rr_class);
-	mb_get_uint32be(mbp, &rrp->rr_ttl);
-	mb_get_uint16be(mbp, &rrp->rr_rdlength);
-	rrp->rr_data = (u_char *)mbp->mb_pos;
-	error = mb_get_mem(mbp, NULL, rrp->rr_rdlength);
+	md_get_uint16be(mdp, &rrp->rr_type);
+	md_get_uint16be(mdp, &rrp->rr_class);
+	md_get_uint32be(mdp, &rrp->rr_ttl);
+	md_get_uint16be(mdp, &rrp->rr_rdlength);
+	rrp->rr_data = (u_char *)mdp->md_pos;
+	error = md_get_mem(mdp, NULL, rrp->rr_rdlength, MB_MSYSTEM);
 	return error;
 }
 
-int
-nbns_rq_prepare(struct nbns_rq *rqp)
+static int nbns_rq_recv(struct nbns_rq *rqp)
 {
-	struct nb_ctx *ctx = rqp->nr_nbd;
-	struct mbdata *mbp = &rqp->nr_rq;
-	u_int8_t nmflags;
-	u_char *cp;
-	int len, error;
-
-	error = mb_init(&rqp->nr_rp, NBDG_MAXSIZE);
-	if (error)
-		return error;
-	if (rqp->nr_dest.sin_addr.s_addr == INADDR_BROADCAST) {
-		rqp->nr_nmflags |= NBNS_NMFLAG_BCAST;
-		if (nb_iflist == NULL) {
-			error = nb_enum_if(&nb_iflist, 100);
-			if (error)
-				return error;
-		}
-	} else
-		rqp->nr_nmflags &= ~NBNS_NMFLAG_BCAST;
-	mb_put_uint16be(mbp, rqp->nr_trnid);
-	nmflags = ((rqp->nr_opcode & 0x1F) << 3) | ((rqp->nr_nmflags & 0x70) >> 4);
-	mb_put_uint8(mbp, nmflags);
-	mb_put_uint8(mbp, (rqp->nr_nmflags & 0x0f) << 4 /* rcode */);
-	mb_put_uint16be(mbp, rqp->nr_qdcount);
-	mb_put_uint16be(mbp, rqp->nr_ancount);
-	mb_put_uint16be(mbp, rqp->nr_nscount);
-	mb_put_uint16be(mbp, rqp->nr_arcount);
-	if (rqp->nr_qdcount) {
-		if (rqp->nr_qdcount > 1)
-			return EINVAL;
-		len = nb_name_len(rqp->nr_qdname);
-		error = mb_fit(mbp, len, (char**)&cp);
-		if (error)
-			return error;
-		/* 
-		 * tell nb_name encode NOT to uppercase 
-		 * the name. We know that calls from
-		 * mount_smbfs have uppercased the
-		 * name if appropriate (some codepages
-		 * should not be uppercased). I tested 
-		 * smbutil lookup and it still works
-		 * OK.  
-		 */
-		nb_name_encode(rqp->nr_qdname, cp,0);
-		mb_put_uint16be(mbp, rqp->nr_qdtype);
-		mb_put_uint16be(mbp, rqp->nr_qdclass);
-	}
-	smb_lib_m_lineup(mbp->mb_top, &mbp->mb_top);
-	if (ctx->nb_timo == 0)
-		ctx->nb_timo = 1;	/* by default 1 second */
-	return 0;
-}
-
-static int
-nbns_rq_recv(struct nbns_rq *rqp)
-{
-	struct mbdata *mbp = &rqp->nr_rp;
-	void *rpdata = SMB_LIB_MTODATA(mbp->mb_top, void *);
+	mdchain_t mdp = &rqp->nr_rp;
+	void *rpdata = mbuf_data(mdp->md_top);
 	fd_set rd, wr, ex;
 	struct timeval tv;
 	struct sockaddr_in sender;
 	int s = rqp->nr_fd;
 	int n;
 	socklen_t len;
-
+	
 	FD_ZERO(&rd);
 	FD_ZERO(&wr);
 	FD_ZERO(&ex);
 	FD_SET(s, &rd);
-
+	
 	tv.tv_sec = 0;
 	tv.tv_usec = 500000; /* We wait half a second for a response */
-
+	
 	n = select(s + 1, &rd, &wr, &ex, &tv);
 	if (n == -1)
 		return -1;
@@ -566,20 +178,19 @@ nbns_rq_recv(struct nbns_rq *rqp)
 	if (FD_ISSET(s, &rd) == 0)
 		return ETIMEDOUT;
 	len = (socklen_t)sizeof(sender);
-	n = (int)recvfrom(s, rpdata, mbp->mb_top->m_maxlen, 0, (struct sockaddr*)&sender, &len);
+	n = (int)recvfrom(s, rpdata, mbuf_maxlen(mdp->md_top), 0, (struct sockaddr*)&sender, &len);
 	if (n < 0)
 		return errno;
-	mbp->mb_top->m_len = mbp->mb_count = n;
+	mbuf_setlen(mdp->md_top, n);
 	rqp->nr_sender = sender;
 	return 0;
 }
 
-static int
-nbns_rq_opensocket(struct nbns_rq *rqp)
+static int nbns_rq_opensocket(struct nbns_rq *rqp)
 {
 	struct sockaddr_in locaddr;
 	int opt, s;
-
+	
 	s = rqp->nr_fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (s < 0)
 		return errno;
@@ -600,40 +211,40 @@ nbns_rq_opensocket(struct nbns_rq *rqp)
 	return 0;
 }
 
-static int
-nbns_rq_send(struct nbns_rq *rqp)
+static int nbns_rq_send(struct nbns_rq *rqp)
 {
-	struct mbdata *mbp = &rqp->nr_rq;
+	mbchain_t mbp = &rqp->nr_rq;
 	int s = rqp->nr_fd;
-
-	if (sendto(s, SMB_LIB_MTODATA(mbp->mb_top, char *), mbp->mb_count, 0,
-	      (struct sockaddr*)&rqp->nr_dest, (socklen_t)sizeof(rqp->nr_dest)) < 0)
+	
+	if (sendto(s, mbuf_data(mbp->mb_top), mbp->mb_count, 0,
+			   (struct sockaddr*)&rqp->nr_dest, (socklen_t)sizeof(rqp->nr_dest)) < 0)
 		return errno;
 	return 0;
 }
 
-int
-nbns_rq(struct nbns_rq *rqp)
+static int nbns_rq_run(struct nbns_rq *rqp, uint16_t *cancel)
 {
-	struct mbdata *mbp = &rqp->nr_rq;
-	u_int16_t rpid;
-	u_int8_t nmflags;
+	mdchain_t mdp;
+	uint16_t rpid;
+	uint8_t nmflags;
 	int error, retrycount;
-
+	
 	rqp->nr_if = nb_iflist;
 again:
 	error = nbns_rq_opensocket(rqp);
 	if (error)
 		return error;
 	/*
-	 * Really would like to change this in the future. Currently the configuration
-	 * file alwows the user to set the amount of time we will wait for a NetBIOS
-	 * name lookup to complete. So will always wait half a second per attempt. So nb_timo is the
-	 * number of seconds we want to wait. So nb_timo * 2 is the number of retries we
-	 * will attmept. Remmeber that nb_timo defaults to 1 second.
+	 * The configuration file alwows the user to set the total amount of time 
+	 * we will wait for a NetBIOS name lookup to complete. So will always wait 
+	 * half a second per attempt. So NetBIOSResolverTimeout is the number of seconds we want to 
+	 * wait. So NetBIOSResolverTimeout * 2 is the number of retries we will attmept.
 	 */
-	retrycount = rqp->nr_nbd->nb_timo * 2;
+	retrycount = rqp->nr_timo * 2;
 	for (;;) {
+		if (cancel && *cancel)
+			return ECANCELED;
+		
 		error = nbns_rq_send(rqp);
 		if (error)
 			return error;
@@ -651,25 +262,340 @@ again:
 			}
 			continue;
 		}
-		mbp = &rqp->nr_rp;
-		if (mbp->mb_count < 12)
+		mdp = &rqp->nr_rp;
+		if (md_get_uint16be(mdp, &rpid))
 			return EINVAL;
-		mb_get_uint16be(mbp, &rpid);
+		
 		if (rpid != rqp->nr_trnid)
 			return EINVAL;
 		break;
 	}
-	mb_get_uint8(mbp, &nmflags);
+	if (md_get_uint8(mdp, &nmflags))
+		return EINVAL;
+	
 	rqp->nr_rpnmflags = (nmflags & 7) << 4;
-	mb_get_uint8(mbp, &nmflags);
+	if (md_get_uint8(mdp, &nmflags))
+		return EINVAL;
 	rqp->nr_rpnmflags |= (nmflags & 0xf0) >> 4;
 	rqp->nr_rprcode = nmflags & 0xf;
 	if (rqp->nr_rprcode)
 		return nb_error_to_errno(rqp->nr_rprcode);
-
-	mb_get_uint16be(mbp, &rpid);	/* QDCOUNT */
-	mb_get_uint16be(mbp, &rqp->nr_rpancount);
-	mb_get_uint16be(mbp, &rqp->nr_rpnscount);
-	mb_get_uint16be(mbp, &rqp->nr_rparcount);
+	
+	if (md_get_uint16be(mdp, &rpid))	/* QDCOUNT */
+		return EINVAL;
+	if (md_get_uint16be(mdp, &rqp->nr_rpancount))
+		return EINVAL;
+	if (md_get_uint16be(mdp, &rqp->nr_rpnscount))
+		return EINVAL;
+	if (md_get_uint16be(mdp, &rqp->nr_rparcount))
+		return EINVAL;
 	return 0;
 }
+
+static int nbns_rq_prepare(struct nbns_rq *rqp)
+{
+	mbchain_t mbp = &rqp->nr_rq;
+	uint8_t nmflags;
+	u_char *cp;
+	int len, error;
+	
+	error = md_init_rcvsize(&rqp->nr_rp, NBDG_MAXSIZE);
+	if (error)
+		return error;
+	if (rqp->nr_dest.sin_addr.s_addr == htonl(INADDR_BROADCAST)) {
+		rqp->nr_nmflags |= NBNS_NMFLAG_BCAST;
+		rqp->nr_flags |= NBRQF_BROADCAST;
+		if (nb_iflist == NULL) {
+			error = nb_enum_if(&nb_iflist, 100);
+			if (error)
+				return error;
+		}
+	}
+	mb_put_uint16be(mbp, rqp->nr_trnid);
+	nmflags = ((rqp->nr_opcode & 0x1F) << 3) | ((rqp->nr_nmflags & 0x70) >> 4);
+	mb_put_uint8(mbp, nmflags);
+	mb_put_uint8(mbp, (rqp->nr_nmflags & 0x0f) << 4 /* rcode */);
+	mb_put_uint16be(mbp, rqp->nr_qdcount);
+	mb_put_uint16be(mbp, rqp->nr_ancount);
+	mb_put_uint16be(mbp, rqp->nr_nscount);
+	mb_put_uint16be(mbp, rqp->nr_arcount);
+	if (rqp->nr_qdcount) {
+		if (rqp->nr_qdcount > 1)
+			return EINVAL;
+		len = NB_ENCNAMELEN + 2;
+		cp = (u_char *)mb_reserve(mbp, len);
+		if (cp == NULL)
+			return ENOMEM;
+		
+		nb_name_encode(rqp->nr_qdname, cp);
+		mb_put_uint16be(mbp, rqp->nr_qdtype);
+		mb_put_uint16be(mbp, rqp->nr_qdclass);
+	}
+	mb_pullup(mbp);
+	return 0;
+}
+
+/* 
+ * Resolve a NetBIOS name to an set of address.
+ */
+static int nbns_resolvename_internal(struct nb_ctx *ctx, struct smb_prefs *prefs, 
+							  const char *name, uint8_t nodeType,
+							  CFMutableArrayRef *outAddressArray, uint16_t port, 
+							  int allowLocalConn, int tryBothPorts, uint16_t *cancel)
+{
+	CFMutableArrayRef addressArray = NULL;
+	CFMutableDataRef addressData;
+	struct connectAddress conn;
+	struct nbns_rq *rqp;
+	struct nb_name nn;
+	struct nbns_rr rr;
+	int error, rdrcount;
+	u_char *current_ip, *end_of_rr;
+
+	/* If we are trying both ports always put port 139 in after port 445 */
+	if (tryBothPorts && (port == NBSS_TCP_PORT_139))
+		port = SMB_TCP_PORT_445;
+
+	if (strlen(name) > NB_NAMELEN)
+		return ENAMETOOLONG;
+
+	addressArray = CFArrayCreateMutable(kCFAllocatorSystemDefault, 0, &kCFTypeArrayCallBacks);
+	if (!addressArray) {
+		return ENOMEM;
+	}
+	
+	error = nbns_rq_create(NBNS_OPCODE_QUERY, prefs, &rqp);
+	if (error) {
+		CFRelease(addressArray);
+		return error;
+	}
+
+	bzero(&nn, sizeof(nn));
+	strlcpy((char *)nn.nn_name, name, sizeof(nn.nn_name));
+	nn.nn_type = nodeType;
+	rqp->nr_nmflags = NBNS_NMFLAG_RD;
+	rqp->nr_qdname = &nn;
+	rqp->nr_qdtype = NBNS_QUESTION_TYPE_NB;
+	rqp->nr_qdclass = NBNS_QUESTION_CLASS_IN;
+	rqp->nr_qdcount = 1;
+	memcpy(&rqp->nr_dest, &ctx->nb_ns, sizeof(rqp->nr_dest));
+	error = nbns_rq_prepare(rqp);
+	if (error) {
+		goto done;
+	}
+	rdrcount = NBNS_MAXREDIRECTS;
+	for (;;) {
+		error = nbns_rq_run(rqp, cancel);
+		if (error)
+			break;
+		if ((rqp->nr_rpnmflags & NBNS_NMFLAG_AA) == 0) {
+			if (rdrcount-- == 0) {
+				error = ETOOMANYREFS;
+				break;
+			}
+			error = nbns_rq_getrr(rqp, &rr);
+			if (! error)
+				error = nbns_rq_getrr(rqp, &rr);
+			if (error)
+				break;
+			bcopy(rr.rr_data, &rqp->nr_dest.sin_addr, 4);
+			rqp->nr_flags &= ~NBRQF_BROADCAST;
+			continue;
+		}
+		if (rqp->nr_rpancount == 0) {
+			error = EHOSTUNREACH;
+			break;
+		}
+		error = nbns_rq_getrr(rqp, &rr);
+		if (error)
+			break;
+
+		/* We have an answer, so store away the address of the server that responded */
+		ctx->nb_sender = rqp->nr_sender;
+
+		end_of_rr = rr.rr_data + rr.rr_rdlength;
+		for(current_ip = rr.rr_data + 2; current_ip < end_of_rr; current_ip += 6) {
+			bzero(&conn, sizeof(conn));
+			conn.in4.sin_len = (int)sizeof(struct sockaddr_in);
+			conn.in4.sin_family = AF_INET;
+			conn.in4.sin_port = htons(port);
+			memcpy(&conn.in4.sin_addr, current_ip, 4);
+			/* Check to make sure we are not connecting to ourself */		
+			if (isLocalIPAddress((struct sockaddr *)&conn.addr, port, allowLocalConn)) {
+				smb_log_info("The address for `%s' is a loopback address, not allowed!", 
+							 ASL_LEVEL_DEBUG, name);
+				error = ELOOP;	/* AFP returns ELOOP, so we will do the same */
+				goto done; 
+			}
+			addressData = CFDataCreateMutable(NULL, 0);
+			if (addressData) {
+				/* The name is the netbios name, we need a netbios sockaddr */
+				if (port == NBSS_TCP_PORT_139)
+					convertToNetBIOSaddr(&conn.storage, name);
+				
+				CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
+				CFArrayAppendValue(addressArray, addressData);
+				CFRelease(addressData);
+			}
+			/* We only try both ports with IPv4 */
+			if (tryBothPorts) {
+				conn.in4.sin_port = htons(NBSS_TCP_PORT_139);
+				/* The name is the netbios name, we need a netbios sockaddr */
+				convertToNetBIOSaddr(&conn.storage, name);
+				
+				addressData = CFDataCreateMutable(NULL, 0);
+				if (addressData) {
+					CFDataAppendBytes(addressData, (const UInt8 *)&conn, (CFIndex)sizeof(conn));
+					CFArrayAppendValue(addressArray, addressData);
+					CFRelease(addressData);
+				}
+			}
+		}
+		break;
+	} /* end big for loop */
+
+	
+done:
+	if (CFArrayGetCount(addressArray) == 0) {
+		error = EHOSTUNREACH;
+	}
+	nbns_rq_done(rqp);
+	
+	if (error) {
+		if (addressArray)
+			CFRelease(addressArray);
+		addressArray = NULL;
+	}
+	*outAddressArray = addressArray;
+	
+	return error;
+}
+
+/* 
+ * Resolve a NetBIOS name to an set of address, We always try WINS first if a
+ * server is provide. If no WINS server or we fail to find one with the WINS
+ * server then try broadcast.
+ */
+int nbns_resolvename(struct nb_ctx *ctx, struct smb_prefs *prefs, const char *name, 
+					 uint8_t nodeType, CFMutableArrayRef *outAddressArray, uint16_t port, 
+					 int allowLocalConn, int tryBothPorts, uint16_t *cancel)
+{
+	int error;
+	
+	error = nb_ctx_resolve(ctx, prefs->WINSAddresses);
+	if (!error)
+		error = nbns_resolvename_internal(ctx, prefs, name, nodeType, outAddressArray, 
+										  port,  allowLocalConn, tryBothPorts, cancel);
+	/* We tried it with WINS and failed try broadcast now */
+	if (error && (prefs->WINSAddresses != NULL)) {
+		error = nb_ctx_resolve(ctx, NULL);
+		if (error == 0) {
+			error = nbns_resolvename_internal(ctx, prefs, name, nodeType, outAddressArray, 
+											  port, allowLocalConn, tryBothPorts, cancel);
+		}
+	}
+	return error;
+}
+
+int nbns_getnodestatus(struct sockaddr *targethost, struct nb_ctx *ctx,
+					   struct smb_prefs *prefs, uint16_t *cancel, char *nbt_server, 
+					   char *workgroup, CFMutableArrayRef nbrrArray)
+{
+	struct nbns_rq *rqp;
+	struct nbns_rr rr;
+	struct nb_name nn;
+	struct nbns_nr *nrp;
+	char nrtype;
+	char *cp, *retname = NULL;
+	unsigned char nrcount;
+	int error, i, foundserver = 0, foundgroup = 0;
+
+	if (targethost->sa_family != AF_INET) 
+		return EINVAL;
+	error = nbns_rq_create(NBNS_OPCODE_QUERY, prefs, &rqp);
+	if (error)
+		return error;
+	bzero(&nn, sizeof(nn));
+	strlcpy((char *)nn.nn_name, "*", sizeof(nn.nn_name));
+	nn.nn_type = NBT_WKSTA;
+	rqp->nr_nmflags = 0;
+	rqp->nr_qdname = &nn;
+	rqp->nr_qdtype = NBNS_QUESTION_TYPE_NBSTAT;
+	rqp->nr_qdclass = NBNS_QUESTION_CLASS_IN;
+	rqp->nr_qdcount = 1;
+	rqp->nr_dest = *(struct sockaddr_in *)(void *)targethost;
+	rqp->nr_dest.sin_port = htons(NBNS_UDP_PORT_137);
+	if (rqp->nr_dest.sin_addr.s_addr == INADDR_ANY)
+		rqp->nr_dest.sin_addr.s_addr = htonl(INADDR_BROADCAST);
+	error = nbns_rq_prepare(rqp);
+	if (error) {
+		nbns_rq_done(rqp);
+		return error;
+	}
+	for (;;) {
+		error = nbns_rq_run(rqp, cancel);
+		if (error)
+			break;
+		if (rqp->nr_rpancount == 0) {
+			error = EHOSTUNREACH;
+			break;
+		}
+		error = nbns_rq_getrr(rqp, &rr);
+		if (error)
+			break;
+		nrcount = (unsigned char)(*(rr.rr_data));
+		rr.rr_data++;
+		for (i = 1, nrp = (struct nbns_nr *)(void *)rr.rr_data;
+		     i <= nrcount; ++i, ++nrp) {
+			uint16_t	nbFlags = betohs(nrp->nr_beflags);
+			
+			/*
+			 * They want all the names in the format it came into from the 
+			 * network. Copy in the NetBIOS name and then the flags.
+			 */
+			 if (nbrrArray) {
+				CFMutableDataRef addressData = CFDataCreateMutable(NULL, 0);
+				CFDataAppendBytes(addressData, (const UInt8 *)nrp->nr_name, (CFIndex)NB_NAMELEN);
+				CFDataAppendBytes(addressData, (const UInt8 *)&nbFlags, (CFIndex)sizeof(uint16_t));
+				CFArrayAppendValue(nbrrArray, addressData);
+				CFRelease(addressData);				
+			}
+			
+			nrtype = nrp->nr_name[NB_NAMELEN-1];
+			/* Terminate the string: */
+			nrp->nr_name[NB_NAMELEN-1] = (char)0;
+			/* Strip off trailing spaces */
+			for (cp = &nrp->nr_name[NB_NAMELEN-2];
+			     cp >= nrp->nr_name; --cp) {
+				if (*cp != (char)0x20)
+					break;
+				*cp = (char)0;
+			}
+			if (nbFlags & NBNS_GROUPFLG) {
+				if (!foundgroup ||
+				    (foundgroup != NBT_WKSTA+1 &&
+				     nrtype == NBT_WKSTA)) {
+						if (workgroup)
+							smb_optstrncpy(workgroup, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
+					foundgroup = nrtype+1;
+				}
+			} else {
+				/* Track at least ONE name, in case
+				   no server name is found */
+				retname = nrp->nr_name;
+			}
+			if (nrtype == NBT_SERVER) {
+				if (nbt_server)
+					smb_optstrncpy(nbt_server, nrp->nr_name, SMB_MAXNetBIOSNAMELEN);
+				foundserver = 1;
+			}
+		}
+		if (!foundserver && nbt_server)
+			smb_optstrncpy(nbt_server, retname, SMB_MAXNetBIOSNAMELEN);
+		ctx->nb_sender = rqp->nr_sender;
+		break;
+	}
+	nbns_rq_done(rqp);
+	return error;
+}
+

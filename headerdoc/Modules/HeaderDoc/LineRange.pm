@@ -3,7 +3,7 @@
 # Class name: LineRange
 # Synopsis: Helper code for availability (line ranges)
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 2006 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,6 +27,34 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         <code>LineRange</code> class package file.
+#     @discussion
+#         This file contains the <code>LineRange</code> class, a class for
+#         storing a range of (raw) lines from a header file.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         Describes a range of lines in a header file.
+#     @discussion
+#         The <code>LineRange</code> class stores a range of (raw) lines from a
+#         header file, along with information about the line numbers
+#         that they came from within the header.  This is used to simplify
+#         handling of <code>#if</code> directives.
+#     @var _start
+#         The starting line number.
+#     @var _end
+#         The ending line number.
+#     @var _text
+#         A string containing the raw source code from this range
+#         of lines.
+#  */
 package HeaderDoc::LineRange;
 
 BEGIN {
@@ -36,14 +64,22 @@ BEGIN {
 }
 use HeaderDoc::HeaderElement;
 use HeaderDoc::DBLookup;
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash resolveLink quote sanitize);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash sanitize);
 use File::Basename;
 use Cwd;
 use Carp qw(cluck);
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::LineRange::VERSION = '$Revision: 1.4 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::LineRange::VERSION = '$Revision: 1298084578 $';
 
 # Inheritance
 # @ISA = qw(HeaderDoc::HeaderElement);
@@ -64,11 +100,19 @@ my ($sec, $min, $hour, $dom, $moy, $year, @rest);
 ($sec, $min, $hour, $dom, $moy, $year, @rest) = localtime($theTime);
 # $moy++;
 $year += 1900;
-my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year);
+my $dateStamp = HeaderDoc::HeaderElement::strdate($moy, $dom, $year, "UTF-8");
 ######################################################################
 
 my $depth = 0;
 
+# /*!
+#     @abstract
+#         Creates a new <code>LineRange</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::LineRange->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param; 
@@ -81,6 +125,12 @@ sub new {
 
 # class variables and accessors
 {
+    # /*!
+    #     @abstract
+    #         Initializes an instance of a <code>LineRange</code> object.
+    #     @param self
+    #         The object to initialize.
+    #  */
     sub _initialize
     {
 	my ($self) = shift;
@@ -88,6 +138,12 @@ sub new {
 	$self->{_end} = 0;
 	$self->{_text} = "";
     }
+
+    # /*! @abstract
+    #         Getter/setter for the start of the range.
+    #     @param self
+    #         This <code>LineRange</code> object.
+    #  */
     sub start
     {
 	my ($self) = shift;
@@ -96,6 +152,12 @@ sub new {
 	}
 	return $self->{_start};
     }
+
+    # /*! @abstract
+    #         Getter/setter for the end of the range.
+    #     @param self
+    #         This <code>LineRange</code> object.
+    #  */
     sub end
     {
 	my ($self) = shift;
@@ -104,6 +166,13 @@ sub new {
 	}
 	return $self->{_end};
     }
+
+    # /*!
+    #     @abstract
+    #         Getter/setter for text derived from range.
+    #     @discussion
+    #         Basically, this is the result of parsing
+    #         availabilty macros and similar. */
     sub text
     {
 	my ($self) = shift;
@@ -112,6 +181,14 @@ sub new {
 	}
 	return $self->{_text};
     }
+
+    # /*!
+    #     @abstract
+    #         Returns whether the specified line number falls within this
+    #         <code>LineRange</code>.
+    #     @param line
+    #         The line number to check.
+    #  */
     sub inrange
     {
 	my ($self) = shift;

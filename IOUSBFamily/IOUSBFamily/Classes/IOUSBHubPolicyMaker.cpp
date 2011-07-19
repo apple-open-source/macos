@@ -265,7 +265,7 @@ IOUSBHubPolicyMaker::start(IOService * provider)
 	}
 	
 	// After we have configure the hub, see if we have sleep-current -- the amount of power per port we can give during sleep
-	numberObj = OSDynamicCast(OSNumber,  _device->getProperty(kApplePortCurrentInSleep));
+	numberObj = OSDynamicCast(OSNumber,  _device->getProperty(kAppleStandardPortCurrentInSleep));
 	if ( numberObj )
 	{
 		UInt32	perPortPowerInSleep = 0;

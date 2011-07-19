@@ -81,22 +81,16 @@ For swap partitions, this field should be specified as ``none''.
 The third field,
 .Pq Fa fs_vfstype ,
 describes the type of the filesystem.
-The system currently supports these types of filesystems:
+The system currently supports different filesystem types, including the following:
 .Bl -tag -width indent -offset indent
-.It Em ufs 
-a local UNIX filesystem
+.It Em hfs 
+HFS+ is the Mac OS X default filesystem.
 .It Em nfs 
 a Sun Microsystems compatible ``Network File System''
-.It Em swap 
-a disk partition to be used for swapping
 .It Em msdos
 a DOS compatible filesystem
 .It Em cd9660
 a CD-ROM filesystem (as per ISO 9660)
-.It Em procfs
-a file system for accessing process data
-.It Em kernfs
-a file system for accessing kernel parameters
 .It Em fdesc
 an implementation of /dev/fd
 .It Em union
@@ -198,9 +192,11 @@ is to use the routines
 and
 .Xr getfsfile 3 .
 .Sh EXAMPLES
-UUID=DF000C7E-AE0C-3B15-B730-DFD2EF15CB91 /export ufs   ro
+.Bd -literal
+UUID=DF000C7E-AE0C-3B15-B730-DFD2EF15CB91 /export hfs   ro
 UUID=FAB060E9-79F7-33FF-BE85-E1D3ABD3EDEA none    hfs   rw,noauto
 LABEL=The\\040Volume\\040Name\\040Is\\040This none    msdos ro
+.Ed
 .Sh FILES
 .Bl -tag -width /etc/fstab -compact
 .It Pa /etc/fstab

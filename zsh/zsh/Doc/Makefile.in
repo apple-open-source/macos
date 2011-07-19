@@ -40,7 +40,7 @@ INSTALL         = @INSTALL@
 MAKEINFO = makeinfo
 TEXI2DVI = texi2dvi
 DVIPS = dvips
-TEXI2HTML = texi2html --output . --ifinfo --split=chapter
+TEXI2HTML = @TEXI2HTML@ --output . --ifinfo --split=chapter --node-files
 
 .SUFFIXES: .yo .1
 
@@ -55,7 +55,7 @@ zshall.1
 YODLDOC = $(MAN) texi
 
 MODDOCSRC = \
-Zsh/mod_cap.yo Zsh/mod_clone.yo \
+Zsh/mod_attr.yo Zsh/mod_cap.yo Zsh/mod_clone.yo \
 Zsh/mod_compctl.yo Zsh/mod_complete.yo Zsh/mod_complist.yo \
 Zsh/mod_computil.yo Zsh/mod_curses.yo \
 Zsh/mod_datetime.yo Zsh/mod_deltochar.yo \
@@ -329,14 +329,14 @@ uninstall.info:
 # install HTML manual
 install.html: html
 	${SHELL} $(sdir_top)/mkinstalldirs $(DESTDIR)$(htmldir)
-	for file in zsh*.html; do \
+	for file in *.html; do \
 	    $(INSTALL_DATA) $$file $(DESTDIR)$(htmldir) || exit 1; \
 	done
 .PHONY: install.html
 
 # uninstall HTML manual
 uninstall.html:
-	rm -f $(DESTDIR)$(htmldir)/zsh*.html
+	rm -f $(DESTDIR)$(htmldir)/*.html
 .PHONY: uninstall.html
 
 # ========== DEPENDENCIES FOR CLEANUP ==========

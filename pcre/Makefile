@@ -1,5 +1,5 @@
 Project        = pcre
-ProjectVersion = 7.9
+ProjectVersion = 8.02
 Patches        = Makefile.in.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
@@ -33,7 +33,7 @@ install::
 		$(STRIP) -x $(DSTROOT)$(PREFIX)/bin/$${bin}; \
 	done
 
-	for lib in .0.0.1 posix.0.0.0; do \
+	for lib in .0 posix.0; do \
 		$(CP) $(DSTROOT)$(LIBDIR)/libpcre$${lib}.dylib $(SYMROOT); \
 		$(STRIP) -x $(DSTROOT)$(LIBDIR)/libpcre$${lib}.dylib; \
 	done

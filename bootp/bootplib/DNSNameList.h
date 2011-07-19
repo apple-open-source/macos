@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005, 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2006 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -76,4 +76,4 @@ const char * *
 DNSNameListCreate(const uint8_t * buffer, int buffer_size,
 		  int * names_count);
 
-#endif _S_DNSNAMELIST_H
+#endif /* _S_DNSNAMELIST_H */

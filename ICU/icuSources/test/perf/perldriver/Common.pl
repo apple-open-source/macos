@@ -1,14 +1,14 @@
 #!/usr/bin/perl
 #  ********************************************************************
 #  * COPYRIGHT:
-#  * Copyright (c) 2008, International Business Machines Corporation and
+#  * Copyright (c) 2010, International Business Machines Corporation and
 #  * others. All Rights Reserved.
 #  ********************************************************************
 
 # Settings by user
-$ICULatestVersion = "4.0";     # Change to respective version number
-$ICUPreviousVersion = "3.8";   # Change to respective version number
-$ICUPrevious2Version = "3.6";  # Change to respective version number
+$ICULatestVersion = "";     # Change to respective version number
+$ICUPreviousVersion = "";   # Change to respective version number
+$ICUPrevious2Version = "";  # Change to respective version number
 
 $PerformanceDataPath = "";          #Change to Performance Data Path
 
@@ -17,6 +17,7 @@ $ICUPrevious = "";    # Change to path of previous ICU
 $ICUPrevious2 = "";   # Change to path of ICU before previous release
 
 $OnWindows = 0;           # Change to 1 if on Windows
+$Windows64 = 0;           # Change to 1 if on Windows and running 64 bit
 # End of settings by user
 
 $CollationDataPath = $PerformanceDataPath."/collation";    # Collation Performance Data Path
@@ -27,5 +28,11 @@ $ICUPathLatest = $ICULatest."/source/test/perf";
 $ICUPathPrevious = $ICUPrevious."/source/test/perf";
 $ICUPathPrevious2 = $ICUPrevious."/source/test/perf";
 
+$WindowsPlatform = "";
+if ($Windows64) {
+    $WindowsPlatform = "x64";
+} else {
+    $WindowsPlatform = "x86";
+}
 
 return 1;

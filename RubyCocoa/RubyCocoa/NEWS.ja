@@ -1,0 +1,48 @@
+
+= NEWS
+
+$Id: NEWS.ja 2285 2009-10-18 11:17:12Z kimuraw $
+
+== 1.0.0から1.0.1の変更点: 2009-10-18
+
+=== 改良
+
+  * 10.5用にビルドしたRubyCocoa.frameworkが10.6でも動作するようにした
+
+      $ ruby install.rb config \
+             --macosx-deployment-target=10.5 \
+             --sdkroot=/Developer/SDKs/MacOSX10.5.sdk \
+             --target-archs="ppc i386"
+      $ ruby install.rb setup
+
+  * NSStringをHashのキーとして利用できるようにした
+
+      str1 = OSX::NSString.alloc.initWithString("a")
+      str2 = OSX::NSString.alloc.initWithString("a")
+      hash = {}
+      hash[str1] = 1
+      hash[str2] = 2
+      p hash[str1] # => 2
+
+  * ユニバーサルバイナリ用のビルドシステムを見直し
+     * configオプション"--build-universal"を廃止
+     * configオプション"--target-archs"を導入
+
+        old) ruby install.rb config --build-universal=yes
+        new) ruby install.rb config --target-archs="i386 x86_64 ppc"
+
+  * プロジェクトテンプレートをXcode 3.x用に更新
+
+=== 修正
+
+  * Snow Leopard
+     * 次のようなメッセージでアプリケーションが停止してしまう問題を修正
+       "Assertion failed: (ctx->autoreleasePool ..."
+     * NSUndoManagerで呼び出しベースのアンドゥ管理をするときのエラーを修正
+  * x86_64
+     * OSX::NSNotFoundの値を訂正 (Foudation.bridgesupportの値が誤り)
+     * デバッグログ出力で整数値が正しくない値を出力することがある問題を修正
+     * BridgeSupportファイルから64bit値を得るときの処理を修正
+  * その他
+     * irbでrequire "osx/cocoa"したときにSEGVする問題を修正
+

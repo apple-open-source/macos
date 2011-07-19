@@ -6,7 +6,7 @@
         <key>OpenSourceWebsiteURL</key>
         <string>http://pypi.python.org/pypi/setuptools</string>
         <key>OpenSourceURL</key>
-        <string>http://svn.python.org/projects/sandbox/trunk/setuptools/</string>
+        <string>http://pypi.python.org/packages/source/s/setuptools/setuptools-0.6c9.tar.gz</string>
         <key>OpenSourceImportDate</key>
         <string>2008-09-27</string>
         <key>OpenSourceLicense</key>

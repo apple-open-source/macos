@@ -17,10 +17,6 @@
 #include <config.h>
 #include <compat.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: isblank.c,v 1.1 2008/11/06 00:05:24 millert Exp $";
-#endif /* lint */
-
 #undef isblank
 int
 isblank(ch)

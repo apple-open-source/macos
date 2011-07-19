@@ -25,6 +25,7 @@
 #define _OSTHERMALNOTIFICATION_H_
 
 #include <sys/cdefs.h>
+#include <Availability.h>
 
 /*
 **  OSThermalNotification.h
@@ -40,15 +41,34 @@ __BEGIN_DECLS
 typedef enum {
 	OSThermalNotificationLevelAny      = -1,
 	OSThermalNotificationLevelNormal   =  0,
-	OSThermalNotificationLevel70PercentTorch  =  1,
-	OSThermalNotificationLevel70PercentBacklight  =  3,
-	OSThermalNotificationLevel50PercentTorch  =  3,
-	OSThermalNotificationLevel50PercentBacklight  =  5,
-	OSThermalNotificationLevelDisableTorch  =  5,
-	OSThermalNotificationLevel25PercentBacklight = 7,
-	OSThermalNotificationLevelAppTerminate  =  12,
-	OSThermalNotificationLevelDeviceRestart = 16
 } OSThermalNotificationLevel;
+
+extern OSThermalNotificationLevel _OSThermalNotificationLevelForBehavior(int) __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_4_2);
+extern void _OSThermalNotificationSetLevelForBehavior(int, int) __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_4_2);
+
+enum {
+	kOSThermalMitigationNone,
+	kOSThermalMitigation70PercentTorch,
+	kOSThermalMitigation70PercentBacklight,
+	kOSThermalMitigation50PercentTorch,
+	kOSThermalMitigation50PercentBacklight,
+	kOSThermalMitigationDisableTorch,
+	kOSThermalMitigation25PercentBacklight,
+	kOSThermalMitigationDisableMapsHalo,
+	kOSThermalMitigationAppTerminate,
+	kOSThermalMitigationDeviceRestart,
+	kOSThermalMitigationCount
+};
+
+#define OSThermalNotificationLevel70PercentTorch _OSThermalNotificationLevelForBehavior(kOSThermalMitigation70PercentTorch)
+#define OSThermalNotificationLevel70PercentBacklight _OSThermalNotificationLevelForBehavior(kOSThermalMitigation70PercentBacklight)
+#define OSThermalNotificationLevel50PercentTorch _OSThermalNotificationLevelForBehavior(kOSThermalMitigation50PercentTorch)
+#define OSThermalNotificationLevel50PercentBacklight _OSThermalNotificationLevelForBehavior(kOSThermalMitigation50PercentBacklight)
+#define OSThermalNotificationLevelDisableTorch _OSThermalNotificationLevelForBehavior(kOSThermalMitigationDisableTorch)
+#define OSThermalNotificationLevel25PercentBacklight _OSThermalNotificationLevelForBehavior(kOSThermalMitigation25PercentBacklight)
+#define OSThermalNotificationLevelDisableMapsHalo _OSThermalNotificationLevelForBehavior(kOSThermalMitigationDisableMapsHalo)
+#define OSThermalNotificationLevelAppTerminate _OSThermalNotificationLevelForBehavior(kOSThermalMitigationAppTerminate)
+#define OSThermalNotificationLevelDeviceRestart _OSThermalNotificationLevelForBehavior(kOSThermalMitigationDeviceRestart)
 
 /* Backwards compatibility */
 #define OSThermalNotificationLevelWarning OSThermalNotificationLevel70PercentBacklight
@@ -59,13 +79,13 @@ typedef enum {
 ** Simple polling interface to detect current thermal level
 */
 
-OSThermalNotificationLevel OSThermalNotificationCurrentLevel(void);
+extern OSThermalNotificationLevel OSThermalNotificationCurrentLevel(void) __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0);
 
 /*
 ** External notify(3) string for manual notification setup
 */
 
-extern const char *kOSThermalNotificationName;
+extern const char * const kOSThermalNotificationName __OSX_AVAILABLE_STARTING(__MAC_NA, __IPHONE_2_0);
 
 __END_DECLS
 

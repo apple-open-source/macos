@@ -19,15 +19,15 @@
  */
 
 #include "config.h"
-
 #include "webkitwebhistoryitem.h"
-#include "webkitprivate.h"
-
-#include <glib.h>
-#include <glib/gi18n-lib.h>
 
 #include "HistoryItem.h"
+#include "KURL.h"
 #include "PlatformString.h"
+#include "webkitglobalsprivate.h"
+#include "webkitwebhistoryitemprivate.h"
+#include <glib.h>
+#include <glib/gi18n-lib.h>
 #include <wtf/text/CString.h>
 
 /**
@@ -61,8 +61,6 @@ struct _WebKitWebHistoryItemPrivate {
 
     gboolean disposed;
 };
-
-#define WEBKIT_WEB_HISTORY_ITEM_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_HISTORY_ITEM, WebKitWebHistoryItemPrivate))
 
 enum {
     PROP_0,
@@ -130,7 +128,7 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
     gobject_class->set_property = webkit_web_history_item_set_property;
     gobject_class->get_property = webkit_web_history_item_get_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
     * WebKitWebHistoryItem:title:
@@ -217,7 +215,7 @@ static void webkit_web_history_item_class_init(WebKitWebHistoryItemClass* klass)
 
 static void webkit_web_history_item_init(WebKitWebHistoryItem* webHistoryItem)
 {
-    webHistoryItem->priv = WEBKIT_WEB_HISTORY_ITEM_GET_PRIVATE(webHistoryItem);
+    webHistoryItem->priv = G_TYPE_INSTANCE_GET_PRIVATE(webHistoryItem, WEBKIT_TYPE_WEB_HISTORY_ITEM, WebKitWebHistoryItemPrivate);
 }
 
 static void webkit_web_history_item_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
@@ -301,7 +299,7 @@ WebKitWebHistoryItem* webkit_web_history_item_new_with_data(const gchar* uri, co
     WebKitWebHistoryItemPrivate* priv = webHistoryItem->priv;
 
     WebCore::KURL historyUri(WebCore::KURL(), uri);
-    WebCore::String historyTitle = WebCore::String::fromUTF8(title);
+    WTF::String historyTitle = WTF::String::fromUTF8(title);
     RefPtr<WebCore::HistoryItem> item = WebCore::HistoryItem::create(historyUri, historyTitle, 0);
     priv->historyItem = item.release().releaseRef();
     webkit_history_item_add(webHistoryItem, priv->historyItem);
@@ -365,7 +363,7 @@ void webkit_web_history_item_set_alternate_title(WebKitWebHistoryItem* webHistor
 
     WebCore::HistoryItem* item = core(webHistoryItem);
 
-    item->setAlternateTitle(WebCore::String::fromUTF8(title));
+    item->setAlternateTitle(WTF::String::fromUTF8(title));
     g_object_notify(G_OBJECT(webHistoryItem), "alternate-title");
 }
 
@@ -433,14 +431,14 @@ gdouble webkit_web_history_item_get_last_visited_time(WebKitWebHistoryItem* webH
 }
 
 /**
- * webkit_web_history_item_copy :
+ * webkit_web_history_item_copy:
  * @web_history_item: a #WebKitWebHistoryItem
  *
  * Makes a copy of the item for use with other WebView objects.
  *
  * Since: 1.1.18
  *
- * Return value: the new #WebKitWebHistoryItem.
+ * Return value: (transfer full): the new #WebKitWebHistoryItem.
  */
 WebKitWebHistoryItem* webkit_web_history_item_copy(WebKitWebHistoryItem* self)
 {

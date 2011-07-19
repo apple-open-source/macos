@@ -1,5 +1,5 @@
 /*******************************************************************************
-* Copyright (C) 2008, International Business Machines Corporation and
+* Copyright (C) 2008-2011, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -13,7 +13,7 @@
 
 #if !UCONFIG_NO_FORMATTING
 
-//FIXME: define it in compiler time
+//TODO: define it in compiler time
 //#define DTITVINF_DEBUG 1
 
 
@@ -23,6 +23,8 @@
 
 #include "cstring.h"
 #include "unicode/msgfmt.h"
+#include "unicode/uloc.h"
+#include "unicode/ures.h"
 #include "dtitv_impl.h"
 #include "hash.h"
 #include "gregoimp.h"
@@ -208,6 +210,7 @@ DateIntervalInfo::getFallbackIntervalPattern(UnicodeString& result) const {
     return result;
 }
 
+#define ULOC_LOCALE_IDENTIFIER_CAPACITY (ULOC_FULLNAME_CAPACITY + 1 + ULOC_KEYWORD_AND_VALUES_CAPACITY)
 
 void 
 DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& err)
@@ -221,16 +224,32 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& err)
   int32_t locNameLen;
   uprv_strcpy(parentLocale, locName);
   UErrorCode status = U_ZERO_ERROR;
-  Hashtable skeletonSet(TRUE, status);
+  Hashtable skeletonSet(FALSE, status);
   if ( U_FAILURE(status) ) {
       return;
   }
+
+  // determine calendar type
+  const char * calendarTypeToUse = gGregorianTag; // initial default
+  char         calendarType[ULOC_KEYWORDS_CAPACITY]; // to be filled in with the type to use, if all goes well
+  char         localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY];
+  // obtain a locale that always has the calendar key value that should be used
+  (void)ures_getFunctionalEquivalent(localeWithCalendarKey, ULOC_LOCALE_IDENTIFIER_CAPACITY, NULL,
+                                     "calendar", "calendar", locName, NULL, FALSE, &status);
+  localeWithCalendarKey[ULOC_LOCALE_IDENTIFIER_CAPACITY-1] = 0; // ensure null termination
+  // now get the calendar key value from that locale
+  int32_t calendarTypeLen = uloc_getKeywordValue(localeWithCalendarKey, "calendar", calendarType, ULOC_KEYWORDS_CAPACITY, &status);
+  if (U_SUCCESS(status) && calendarTypeLen < ULOC_KEYWORDS_CAPACITY) {
+    calendarTypeToUse = calendarType;
+  }
+  status = U_ZERO_ERROR;
+  
   do {
-    UResourceBundle *rb, *calBundle, *gregorianBundle, *itvDtPtnResource;
+    UResourceBundle *rb, *calBundle, *calTypeBundle, *itvDtPtnResource;
     rb = ures_open(NULL, parentLocale, &status);
     calBundle = ures_getByKey(rb, gCalendarTag, NULL, &status); 
-    gregorianBundle = ures_getByKey(calBundle, gGregorianTag, NULL, &status);
-    itvDtPtnResource = ures_getByKeyWithFallback(gregorianBundle, 
+    calTypeBundle = ures_getByKey(calBundle, calendarTypeToUse, NULL, &status);
+    itvDtPtnResource = ures_getByKeyWithFallback(calTypeBundle, 
                          gIntervalDateTimePatternTag, NULL, &status);
 
     if ( U_SUCCESS(status) ) {
@@ -298,7 +317,7 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& err)
                         calendarField = UCAL_DATE;
                     } else if ( !uprv_strcmp(key, "a") ) {
                         calendarField = UCAL_AM_PM;
-                    } else if ( !uprv_strcmp(key, "h") ) {
+                    } else if ( !uprv_strcmp(key, "h") || !uprv_strcmp(key, "H") ) {
                         calendarField = UCAL_HOUR;
                     } else if ( !uprv_strcmp(key, "m") ) {
                         calendarField = UCAL_MINUTE;
@@ -313,11 +332,12 @@ DateIntervalInfo::initializeData(const Locale& locale, UErrorCode& err)
         }
     }
     ures_close(itvDtPtnResource);
-    ures_close(gregorianBundle);
+    ures_close(calTypeBundle);
     ures_close(calBundle);
     ures_close(rb);
     status = U_ZERO_ERROR;
-    locNameLen = uloc_getParent(parentLocale, parentLocale,50,&status);
+    locNameLen = uloc_getParent(parentLocale, parentLocale,
+                                ULOC_FULLNAME_CAPACITY,&status);
   } while ( locNameLen > 0 );
 }
 
@@ -365,8 +385,8 @@ UBool
 DateIntervalInfo::stringNumeric(int32_t fieldWidth, int32_t anotherFieldWidth,
                                 char patternLetter) {
     if ( patternLetter == 'M' ) {
-        if ( fieldWidth <= 2 && anotherFieldWidth > 2 ||
-             fieldWidth > 2 && anotherFieldWidth <= 2 ) {
+        if ( (fieldWidth <= 2 && anotherFieldWidth > 2) ||
+             (fieldWidth > 2 && anotherFieldWidth <= 2 )) {
             return true;
         }
     }
@@ -574,22 +594,21 @@ U_CDECL_BEGIN
  * @param val2  the other value in comparison
  * @return      TRUE if 2 values are the same, FALSE otherwise
  */
-static UBool U_CALLCONV hashTableValueComparator(UHashTok val1, UHashTok val2);
+static UBool U_CALLCONV dtitvinfHashTableValueComparator(UHashTok val1, UHashTok val2);
 
-U_CDECL_END
-
-UBool 
-U_CALLCONV hashTableValueComparator(UHashTok val1, UHashTok val2) {
+static UBool 
+U_CALLCONV dtitvinfHashTableValueComparator(UHashTok val1, UHashTok val2) {
     const UnicodeString* pattern1 = (UnicodeString*)val1.pointer;
     const UnicodeString* pattern2 = (UnicodeString*)val2.pointer;
     UBool ret = TRUE;
     int8_t i;
-    for ( i = 0; i < DateIntervalInfo::kIPI_MAX_INDEX && ret == TRUE; ++i ) {
+    for ( i = 0; i < DateIntervalInfo::kMaxIntervalPatternIndex && ret == TRUE; ++i ) {
         ret = (pattern1[i] == pattern2[i]);
     }
     return ret;
 }
 
+U_CDECL_END
 
 
 Hashtable*
@@ -598,11 +617,15 @@ DateIntervalInfo::initHash(UErrorCode& status) {
         return NULL;
     }
     Hashtable* hTable;
-    if ( (hTable = new Hashtable(TRUE, status)) == NULL ) {
+    if ( (hTable = new Hashtable(FALSE, status)) == NULL ) {
         status = U_MEMORY_ALLOCATION_ERROR;
         return NULL;
     }
-    hTable->setValueCompartor(hashTableValueComparator);
+    if ( U_FAILURE(status) ) {
+        delete hTable; 
+        return NULL;
+    }
+    hTable->setValueComparator(dtitvinfHashTableValueComparator);
     return hTable;
 }
 

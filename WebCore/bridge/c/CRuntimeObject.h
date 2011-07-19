@@ -37,15 +37,17 @@ class CInstance;
 
 class CRuntimeObject : public RuntimeObject {
 public:
-    CRuntimeObject(ExecState*, PassRefPtr<CInstance>);
+    CRuntimeObject(ExecState*, JSGlobalObject*, PassRefPtr<CInstance>);
     virtual ~CRuntimeObject();
 
     CInstance* getInternalCInstance() const;
 
     static const ClassInfo s_info;
 
-private:
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    {
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
 };
 
 }

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -73,8 +73,10 @@ public:
     void TestCountChar32(void);
     void TestBogus();
     void TestStringEnumeration();
-    void TestCharString(void);
     void TestNameSpace(void);
+    void TestUTF32(void);
+    void TestUTF8(void);
+    void TestReadOnlyAlias(void);
 };
 
 class StringCaseTest: public IntlTest {

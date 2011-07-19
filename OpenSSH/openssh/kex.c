@@ -1,4 +1,4 @@
-/* $OpenBSD: kex.c,v 1.80 2008/09/06 12:24:13 djm Exp $ */
+/* $OpenBSD: kex.c,v 1.82 2009/10/24 11:13:54 andreas Exp $ */
 /*
  * Copyright (c) 2000, 2001 Markus Friedl.  All rights reserved.
  *
@@ -48,12 +48,12 @@
 #include "match.h"
 #include "dispatch.h"
 #include "monitor.h"
+#include "roaming.h"
 
+#define KEX_COOKIE_LEN	16
 #ifdef GSSAPI
 #include "ssh-gss.h"
 #endif
-
-#define KEX_COOKIE_LEN	16
 
 #if OPENSSL_VERSION_NUMBER >= 0x00907000L
 # if defined(HAVE_EVP_SHA256)
@@ -404,6 +404,16 @@ kex_choose_conf(Kex *kex)
 	} else {
 		cprop=my;
 		sprop=peer;
+	}
+
+	/* Check whether server offers roaming */
+	if (!kex->server) {
+		char *roaming;
+		roaming = match_list(KEX_RESUME, peer[PROPOSAL_KEX_ALGS], NULL);
+		if (roaming) {
+			kex->roaming = 1;
+			xfree(roaming);
+		}
 	}
 
 	/* Algorithm Negotiation */

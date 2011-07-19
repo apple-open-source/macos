@@ -64,4 +64,4 @@ typedef enum {
     kEAPTLSPacketFlagsStart 		= 0x20,
 } EAPTLSPacketFlags;
 
-#endif _EAP8021X_EAPTLS_H
+#endif /* _EAP8021X_EAPTLS_H */

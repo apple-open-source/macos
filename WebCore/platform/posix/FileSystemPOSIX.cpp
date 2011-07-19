@@ -30,8 +30,10 @@
 #include "FileSystem.h"
 
 #include "PlatformString.h"
+#include <dirent.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <fnmatch.h>
 #include <libgen.h>
 #include <sys/stat.h>
 #include <sys/types.h>
@@ -69,12 +71,17 @@ bool deleteFile(const String& path)
 
 PlatformFileHandle openFile(const String& path, FileOpenMode mode)
 {
+    CString fsRep = fileSystemRepresentation(path);
+
+    if (fsRep.isNull())
+        return invalidPlatformFileHandle;
+
     int platformFlag = 0;
     if (mode == OpenForRead)
         platformFlag |= O_RDONLY;
     else if (mode == OpenForWrite)
         platformFlag |= (O_WRONLY | O_CREAT | O_TRUNC);
-    return open(path.utf8().data(), platformFlag, 0666);
+    return open(fsRep.data(), platformFlag, 0666);
 }
 
 void closeFile(PlatformFileHandle& handle)
@@ -110,7 +117,6 @@ bool truncateFile(PlatformFileHandle handle, long long offset)
     return !ftruncate(handle, offset);
 }
 
-#if !PLATFORM(ANDROID)
 int writeToFile(PlatformFileHandle handle, const char* data, int length)
 {
     do {
@@ -120,7 +126,6 @@ int writeToFile(PlatformFileHandle handle, const char* data, int length)
     } while (errno == EINTR);
     return -1;
 }
-#endif
 
 int readFromFile(PlatformFileHandle handle, char* data, int length)
 {
@@ -224,10 +229,30 @@ String directoryName(const String& path)
     return dirname(fsRep.mutableData());
 }
 
-// OK to not implement listDirectory at the moment, because it's only used for plug-ins, and
-// all platforms that use the shared plug-in implementation have implementations. We'd need
-// to implement it if we wanted to use PluginDatabase.cpp on the Mac. Better to not implement
-// at all and get a link error in case this arises, rather than having a stub here, because
-// with a stub you learn about the problem at runtime instead of link time.
+#if !PLATFORM(EFL)
+Vector<String> listDirectory(const String& path, const String& filter)
+{
+    Vector<String> entries;
+    CString cpath = path.utf8();
+    CString cfilter = filter.utf8();
+    DIR* dir = opendir(cpath.data());
+    if (dir) {
+        struct dirent* dp;
+        while ((dp = readdir(dir))) {
+            const char* name = dp->d_name;
+            if (!strcmp(name, ".") || !strcmp(name, ".."))
+                continue;
+            if (fnmatch(cfilter.data(), name, 0))
+                continue;
+            char filePath[1024];
+            if (static_cast<int>(sizeof(filePath) - 1) < snprintf(filePath, sizeof(filePath), "%s/%s", cpath.data(), name))
+                continue; // buffer overflow
+            entries.append(filePath);
+        }
+        closedir(dir);
+    }
+    return entries;
+}
+#endif
 
 } // namespace WebCore

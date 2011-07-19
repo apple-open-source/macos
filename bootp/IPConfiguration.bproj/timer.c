@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,6 +41,11 @@
 #include <sys/time.h>
 #include <math.h>
 #include <syslog.h>
+#include <notify.h>
+#include <notify_keys.h>
+#ifndef kNotifyClockSet
+#define kNotifyClockSet "com.apple.system.clock_set"
+#endif
 #include "globals.h"
 #include "util.h"
 #include "timer.h"
@@ -55,23 +60,71 @@ struct timer_callout {
     void *		arg3;
     CFRunLoopTimerRef	timer_source;
     boolean_t		enabled;
+    uint32_t		time_generation;
 };
 
 #ifdef TEST_ARP_SESSION
 #define my_log	syslog
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
+
+/*
+ * Use notify(3) APIs to detect date/time changes
+ */
+
+static boolean_t	S_time_change_registered;
+static int		S_time_change_token;
+static uint32_t		S_time_generation;
+
+static void
+timer_notify_check(void)
+{
+    int		check = 0;
+    int		status;
+
+    if (S_time_change_registered == FALSE) {
+	return;
+    }
+    status = notify_check(S_time_change_token, &check);
+    if (status != NOTIFY_STATUS_OK) {
+	my_log(LOG_ERR, "timer: notify_check failed with %d", status);
+    }
+    else if (check != 0) {
+	S_time_generation++;
+    }
+    return;
+}
+
+static void
+timer_register_time_change(void)
+{
+    int		status;
+
+    if (S_time_change_registered) {
+	return;
+    }
+    status = notify_register_check(kNotifyClockSet, &S_time_change_token);
+    if (status != NOTIFY_STATUS_OK) {
+	my_log(LOG_ERR, "timer: notify_register_check(%s) failed, %d",
+	       kNotifyClockSet, status);
+	return;
+    }
+    S_time_change_registered = TRUE;
+
+    /* throw away the first check, since it always says check=1 */
+    timer_notify_check();
+    return;
+}
 
 /**
  ** Timer callout functions
  **/
-
 static void 
 timer_callout_process(CFRunLoopTimerRef timer_source, void * info)
 {
     timer_callout_t *	callout = (timer_callout_t *)info;
 
     if (callout->func && callout->enabled) {
-	callout->enabled = 0;
+	callout->enabled = FALSE;
 	(*callout->func)(callout->arg1, callout->arg2, callout->arg3);
     }
     return;
@@ -86,6 +139,8 @@ timer_callout_init()
     if (callout == NULL)
 	return (NULL);
     bzero(callout, sizeof(*callout));
+    timer_register_time_change();
+    callout->time_generation = S_time_generation;
     return (callout);
 }
 
@@ -104,9 +159,9 @@ timer_callout_free(timer_callout_t * * callout_p)
 }
 
 int
-timer_set_relative(timer_callout_t * callout, 
-		   struct timeval rel_time, timer_func_t * func, 
-		   void * arg1, void * arg2, void * arg3)
+timer_callout_set(timer_callout_t * callout, 
+		  CFAbsoluteTime relative_time, timer_func_t * func, 
+		  void * arg1, void * arg2, void * arg3)
 {
     CFRunLoopTimerContext 	context =  { 0, NULL, NULL, NULL, NULL };
     CFAbsoluteTime 		wakeup_time;
@@ -115,7 +170,6 @@ timer_set_relative(timer_callout_t * callout,
 	return (0);
     }
     timer_cancel(callout);
-    callout->enabled = 0;
     if (func == NULL) {
 	return (0);
     }
@@ -123,25 +177,37 @@ timer_set_relative(timer_callout_t * callout,
     callout->arg1 = arg1;
     callout->arg2 = arg2;
     callout->arg3 = arg3;
-    callout->enabled = 1;
-    if (rel_time.tv_sec < 0) {
-	rel_time.tv_sec = 0;
-	rel_time.tv_usec = 1;
-    }
-    wakeup_time = CFAbsoluteTimeGetCurrent() + rel_time.tv_sec 
-	  + ((double)rel_time.tv_usec / USECS_PER_SEC);
+    callout->enabled = TRUE;
+    callout->time_generation = S_time_generation;
     context.info = callout;
+    wakeup_time = CFAbsoluteTimeGetCurrent() + relative_time;
     callout->timer_source 
 	= CFRunLoopTimerCreate(NULL, wakeup_time,
 			       0.0, 0, 0,
 			       timer_callout_process,
 			       &context);
-    my_log(LOG_DEBUG, "timer: wakeup time is (%d.%06d) %0.09g", 
-	   rel_time.tv_sec, rel_time.tv_usec, wakeup_time);
+    my_log(LOG_DEBUG, "timer: wakeup time is (%0.09g) %0.09g", 
+	   relative_time, wakeup_time);
     my_log(LOG_DEBUG, "timer: adding timer source");
     CFRunLoopAddTimer(CFRunLoopGetCurrent(), callout->timer_source,
 		      kCFRunLoopDefaultMode);
     return (1);
+}
+
+int
+timer_set_relative(timer_callout_t * callout, 
+		   struct timeval rel_time, timer_func_t * func, 
+		   void * arg1, void * arg2, void * arg3)
+{
+    CFTimeInterval	relative_time;
+
+    if (rel_time.tv_sec < 0) {
+	rel_time.tv_sec = 0;
+	rel_time.tv_usec = 1;
+    }
+    relative_time = rel_time.tv_sec 
+	+ ((double)rel_time.tv_usec / USECS_PER_SEC);
+    return (timer_callout_set(callout, relative_time, func, arg1, arg2, arg3));
 }
 
 void
@@ -150,8 +216,9 @@ timer_cancel(timer_callout_t * callout)
     if (callout == NULL) {
 	return;
     }
-    callout->enabled = 0;
+    callout->enabled = FALSE;
     callout->func = NULL;
+    callout->time_generation = S_time_generation;
     if (callout->timer_source) {
 	my_log(LOG_DEBUG, "timer:  freeing timer source");
 	CFRunLoopTimerInvalidate(callout->timer_source);
@@ -180,4 +247,17 @@ timer_current_time()
     tv.tv_usec = (t - tv.tv_sec) * USECS_PER_SEC;
 
     return (tv);
+}
+
+boolean_t
+timer_time_changed(timer_callout_t * entry)
+{
+    timer_notify_check();
+    return (entry->time_generation != S_time_generation);
+}
+
+boolean_t
+timer_still_pending(timer_callout_t * entry)
+{
+    return (entry->enabled);
 }

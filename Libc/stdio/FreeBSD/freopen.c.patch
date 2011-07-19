@@ -1,6 +1,6 @@
---- freopen.c.orig	2009-02-15 03:11:22.000000000 -0800
-+++ freopen.c	2009-02-15 14:26:16.000000000 -0800
-@@ -99,7 +99,7 @@ freopen(file, mode, fp)
+--- freopen.c.bsdnew	2009-11-11 13:33:09.000000000 -0800
++++ freopen.c	2009-11-11 14:45:57.000000000 -0800
+@@ -98,7 +98,7 @@ freopen(file, mode, fp)
  		    (oflags & O_ACCMODE)) {
  			fclose(fp);
  			FUNLOCKFILE(fp);
@@ -8,8 +8,8 @@
 +			errno = EBADF;
  			return (NULL);
  		}
- 		if ((oflags ^ dflags) & O_APPEND) {
-@@ -136,6 +136,8 @@ freopen(file, mode, fp)
+ 		if (fp->_flags & __SWR)
+@@ -131,6 +131,8 @@ freopen(file, mode, fp)
  	 * descriptor (if any) was associated with it.  If it was attached to
  	 * a descriptor, defer closing it; freopen("/dev/stdin", "r", stdin)
  	 * should work.  This is unnecessary if it was not a Unix file.
@@ -18,7 +18,7 @@
  	 */
  	if (fp->_flags == 0) {
  		fp->_flags = __SEOF;	/* hold on to it */
-@@ -146,11 +148,18 @@ freopen(file, mode, fp)
+@@ -141,11 +143,18 @@ freopen(file, mode, fp)
  		if (fp->_flags & __SWR)
  			(void) __sflush(fp);
  		/* if close is NULL, closing is a no-op, hence pointless */
@@ -37,12 +37,21 @@
  	}
  
  	/* Get a new descriptor to refer to the new file. */
-@@ -191,7 +200,7 @@ finish:
- 	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
+@@ -186,7 +195,7 @@ finish:
+ 	memset(&fp->_mbstate, 0, sizeof(mbstate_t));
  
  	if (f < 0) {			/* did not get it after all */
 -		fp->_flags = 0;		/* set it free */
 +		__sfprelease(fp);	/* set it free */
- 		errno = sverrno;	/* restore in case _close clobbered */
  		FUNLOCKFILE(fp);
+ 		errno = sverrno;	/* restore in case _close clobbered */
+ 		return (NULL);
+@@ -212,7 +221,7 @@ finish:
+ 	 * open.
+ 	 */
+ 	if (f > SHRT_MAX) {
+-		fp->_flags = 0;		/* set it free */
++		__sfprelease(fp);	/* set it free */
+ 		FUNLOCKFILE(fp);
+ 		errno = EMFILE;
  		return (NULL);

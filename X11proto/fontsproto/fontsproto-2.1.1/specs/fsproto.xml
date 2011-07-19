@@ -1,0 +1,4084 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE book PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+                   "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd">
+
+
+<book id="fsproto">
+
+<bookinfo>
+   <title>The X Font Service Protocol</title>
+   <subtitle>X Window System Standard</subtitle>
+   <releaseinfo>Version 2.0</releaseinfo>
+   <authorgroup>
+      <author>
+         <firstname>Jim</firstname><surname>Fulton</surname>
+         <affiliation><orgname>
+Network Computing Devices, Inc.
+         </orgname></affiliation>
+      </author>
+   </authorgroup>
+   <corpname>X Consortium Standard</corpname>
+   <copyright><year>1991</year><holder>Network Computing Devices, Inc.</holder></copyright>
+   <copyright><year>1994</year><holder>X Consortium</holder></copyright>
+   <affiliation><orgname>X Consortium</orgname></affiliation>
+   <productnumber>X Version 11, Release 6.8</productnumber>
+   <edition>Revised May 2, 1994</edition>
+
+<legalnotice>
+
+<para>
+Permission to use, copy, modify, distribute, and sell this
+documentation for any purpose is hereby granted without fee,
+provided that the above copyright notice and this permission
+notice appear in all copies.  Network Computing Devices, Inc.
+makes no representations about the suitability for any purpose
+of the information in this document.  This documentation is
+provided "as is" without express or implied warranty.
+</para>
+<para>
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+</para>
+<para>
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+</para>
+
+<para>
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN
+AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+</para>
+
+<para>
+Except as contained in this notice, the name of the X Consortium shall not be
+used in advertising or otherwise to promote the sale, use or other dealings
+in this Software without prior written authorization from the X Consortium.
+</para>
+</legalnotice>
+</bookinfo>
+
+<chapter>
+<title>TITLE</title>
+<sect1 id="introduction">
+<title>Introduction</title>
+<para>
+The management of fonts in large, heterogeneous environments is one of the
+hardest aspects of using the X Window System
+<footnote><para>
+<emphasis remap='I'>X Window System</emphasis>
+is a trademark of The Open Group.
+</para></footnote>
+.  Multiple formats and the lack of
+a consistent mechanism for exporting font data to all displays on a network
+prevent the transparent use of applications across different display platforms.
+The X Font Service protocol is designed to address this and other issues, with
+specific emphasis on the needs of the core X protocol.  Upward-compatible
+changes (typically in the form of new requests) are expected as consensus is
+reached on new features (particularly outline font support).
+</para>
+<para>
+Currently, most X displays use network file protocols such as NFS and TFTP to
+obtain raw font data which they parse directly.  Since a common binary format
+for this data doesn't exist, displays must be able to interpret a variety of
+formats if they are to be used with different application hosts.  This leads to
+wasted code and data space and a loss of interoperability as displays are used
+in unforeseen environments.
+</para>
+<para>
+By moving the interpretation of font data out of the X server into a separate
+service on the network, these problems can be greatly reduced.  In addition,
+new technologies, such as dynamically generating bitmaps from scaled or outline
+fonts, can be provided to all displays transparently.  For horizontal text,
+caching techniques and increased processor power can potentially make
+rasterization more efficient on large, centralized hosts than on individual
+displays.
+</para>
+<para>
+Each font server provides sets of fonts that may be listed and queried for
+header, property, glyph extents, and bitmap information.  This data is
+transmitted over the network using a binary format (with variations to support
+different bit- and byte-orders) designed to minimize the amount of processing
+required by the display.  Since the font server, rather than the display, is
+responsible for parsing the raw font data, new formats can be used by all
+displays by modifying a single font server.
+</para>
+<para>
+From the user's point of view, font servers are simply a new type of name in
+the X font path.  Network name services allow descriptive names (such as
+DEPARTMENT-FONTS or APPLICATION-FONTS) to be translated into proper network
+addresses.  X displays send requests to and read replies from the font server
+rather than reading directly from files.  Since the X Font Service protocol is
+designed to allow subsets of the font data to be requested, displays may easily
+implement a variety of strategies for fine-grained demand-loading of glyphs.
+</para>
+</sect1>
+
+<sect1 id="architectural_model">
+<title>Architectural Model</title>
+<!-- .XS -->
+<!-- (SN Architectural Model -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+In this document, the words "client" and "server" refer to the consumer and
+provider of a font, respectively, unless otherwise indicated.  It is important
+to note that in this context, the X server is also a font client.
+</para>
+<para>
+The X Font Service protocol does not require any changes to the core X protocol
+or to any applications.  To the user, font servers are simply additional types
+of font path elements.  As such, X servers may connect to multiple font
+servers, as shown in Figure 2.1.  Although the font protocol is geared towards
+the X Window System, it may be also used by other consumers of font data (such
+as printer drivers).
+</para>
+
+<literallayout class="monospaced">
+ ┌────────┐              ┌───────────────┐
+ │   X1   ├──────────────┤               │
+ │ Server │              │  Font Server  │
+ └────────┘      ┌───────┤      1        │
+                 │       └───────────────┘
+ ┌────────┐      │
+ │   X2   ├──────┘       ┌───────────────┐
+ │ Server ├──────────────┤               │
+ └────────┘              │  Font Server  │
+                 ┌───────┤      2        │
+┌─────────┐      │       └───────────────┘
+│  other  │      │
+│ clients ├──────┘
+└─────────┘
+</literallayout>
+
+<para>
+Figure 2.1:  Connecting to a Font Server
+</para>
+
+<para>
+<!-- .LP  -->
+Clients communicate with the font server using the request/reply/event model
+over any mutually-understood virtual stream connection (such as TCP/IP, DECnet,
+<footnote><para>
+DECnet is a trademark of Digital Equipment Corporation.
+</para></footnote>
+etc.).  Font servers are responsible for providing data in the bit and byte
+orders requested by the client.  The set of requests and events provided in the
+first version of the X Font Service protocol is limited to supporting the needs
+of the bitmap-oriented core X Window System protocol.  Extensions are expected
+as new needs evolve.
+</para>
+<para>
+<!-- .LP -->
+A font server reads raw font data from a variety of sources (possibly
+including other font servers) and converts it into a common format that is
+transmitted to the client using the protocol described in Section 4.  New font
+formats are handled by adding new converters to a font server, as shown in
+Figure 2.2.
+</para>
+
+<literallayout class="monospaced">
+                ┌────────────┐
+                │   client   │
+                │ (X server) │
+                └─────┬──────┘
+                      │
+                   network
+                      │
+┌─────────────────────┴──────────────────────┐
+│                                            │
+│                font server 1               │
+│                                            │
+├─────┬─────┬─────┬─────┬────┬─────┬───┬─────┤
+│ bdf │ snf │ pcf │ atm │ f3 │ dwf │ │ │ ... │
+└─────┴─────┴─────┴─────┴────┴─────┴─│─┴─────┘
+                                     │
+                                  network
+                                     │
+                               ┌─────┴────┐
+                               │   font   │
+                               │ server 2 │
+                               └──────────┘
+</literallayout>
+
+<para>
+Figure 2.2:  Where Font Data Comes From
+</para>
+
+<para>
+The server may choose to provide named sets of fonts called "catalogues."
+Clients may specify which of the sets should be used in listing or opening a
+font.
+</para>
+
+<para>
+An event mechanism similar to that used in the X protocol is provided for
+asynchronous notification of clients by the server.
+</para>
+
+<para>
+<!-- .LP -->
+Clients may provide authorization data for the server to be used in determining
+(according to the server's licensing policy) whether or not access should be
+granted to particular fonts.  This is particularly useful for clients whose
+authorization changes over time (such as an X server that can verify the
+identity of the user).
+</para>
+<para>
+<!-- .LP -->
+Implementations that wish to provide additional requests or events may use the
+extension mechanism.  Adding to the core font service protocol (with the
+accompanying change in the major or minor version numbers) is reserved to the X
+Consortium.
+</para>
+</sect1>
+
+<sect1 id="font_server_naming">
+<title>Font Server Naming</title>
+<!-- .XS -->
+<!-- (SN Font Server Naming -->
+<!-- .XE -->
+<para>
+Font clients that expose font server names to the user are encouraged to
+provide ways of naming font servers symbolically (e.g. DEPARTMENT-FONTS).
+However, for environments that lack appropriate name services
+transport-specific names are necessary.  Since these names do occur in the
+protocol, clients and servers should support at least the applicable formats
+described below.  Formats for additional transports may be registered with the
+X Consortium.
+</para>
+
+<sect2 id="tcpip_names">
+<title>TCP/IP Names</title>
+<!-- .XS -->
+<!-- (SN TCP/IP Names -->
+<!-- .XE -->
+<para>
+The following syntax should be used for TCP/IP names:
+</para>
+
+<literallayout class="monospaced">
+    &lt;TCP name&gt;  ::=  "tcp/" &lt;hostname&gt;":" &lt;ipportnumber&gt; ["/" &lt;cataloguelist&gt;]
+</literallayout>
+
+<para>
+where &lt;hostname&gt; is either symbolic (such as expo.lcs.mit.edu) or numeric
+decimal (such as 18.30.0.212).  The &lt;ipportnumber&gt; is the port on
+which the
+font server is listening for connections.  The &lt;cataloguelist&gt; string at
+the end is optional and specifies a plus-separated list of catalogues
+that may be requested.  For example:
+</para>
+<literallayout class="monospaced">
+     tcp/expo.lcs.mit.edu:8012/available+special
+     tcp/18.30.0.212:7890
+</literallayout>
+</sect2>
+
+<sect2 id="decnet_names">
+<title>DECnet Names</title>
+<!-- .XS -->
+<!-- (SN DECnet Names -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The following syntax should be used for DECnet names:
+</para>
+<literallayout class="monospaced">
+    &lt;DECnet name&gt;  ::=  "decnet/" &lt;nodename&gt; "::font$" &lt;objname&gt;
+               ["/" &lt;cataloguelist&gt;]
+</literallayout>
+<para>
+where &lt;nodename&gt; is either symbolic (such as SRVNOD) or the
+numeric decimal
+form of the DECnet address (such as 44.70).  The &lt;objname&gt; is normal,
+case-insensitive DECnet object name.  The &lt;cataloguelist&gt; string
+at the end is
+optional and specifies a plus-separated list of catalogues that may be
+requested.  For example:
+</para>
+
+<literallayout class="monospaced">
+     DECNET/SRVNOD::FONT$DEFAULT/AVAILABLE
+     decnet/44.70::font$other
+</literallayout>
+</sect2>
+</sect1>
+
+<sect1 id="protocol">
+<title>Protocol</title>
+<!-- .XS -->
+<!-- (SN Protocol -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+The protocol described below uses the request/reply/error model and is
+specified using the same conventions outlined in Section 2 of the core X Window
+System protocol [1]:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+<!-- .IP \(bu 5 -->
+Data type names are spelled in upper case with no word separators,
+as in:  FONTID
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<!-- .IP \(bu 5 -->
+Alternate values are capitalized with no word separators,
+as in:  MaxWidth
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+<!-- .IP \(bu 5 -->
+Structure element declarations are in lower case with hyphens
+as word separators, as in:  byte-order-msb
+    </para>
+    <note>
+      <para>
+Structure element names are referred to in
+upper case (e.g. BYTE-ORDER-MSB) when used in
+descriptions to set them off from the surrounding
+text.  When this document is typeset they will be
+printed in lower case in a distinct font.
+      </para>
+    </note>
+  </listitem>
+  <listitem>
+    <para>
+Type declarations have the form "name: type",
+as in:  CARD8: 8-bit byte
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Comma-separated lists of alternate values are enclosed in
+braces, as in:  { Min, MaxWidth, Max }
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Comma-separated lists of structure elements are enclosed in
+brackets, as in:  [ byte1: CARD8, byte2: CARD8 ]
+    </para>
+  </listitem>
+</itemizedlist>
+
+<para>
+<!-- .LP -->
+A type with a prefix "LISTof" represents a counted list of
+elements of that type, as in:  LISTofCARD8
+</para>
+
+<sect2 id="data_types">
+<title>Data Types</title>
+<!-- .XS -->
+<!-- (SN Data Types -->
+<!-- .XE -->
+<para>
+The following data types are used in the core X Font Server protocol:
+</para>
+
+<literallayout class="monospaced">
+ACCESSCONTEXT:     ID
+</literallayout>
+<blockquote>
+<para>
+This value is specified in the CreateAC request as the identifier
+to be used when referring to a particular AccessContext resource
+within the server.  These resources are used by the server to
+store client-specified authorization information.  This
+information may be used by the server to determine whether or not
+the client should be granted access to particular font data.
+</para>
+<para>
+<!-- .sp -->
+In order to preserve the integrity of font licensing being performed by
+the font server, care must be taken by a client to properly represent the
+identity of the true user of the font.  Some font clients will in fact
+be servers (for example, X servers) requesting fonts for their own clients.
+Other font clients may be doing work on behalf of a number of different
+users over time (for example, print spoolers).
+</para>
+<para>
+<!-- .sp -->
+<function>AccessContexts </function>
+must be created (with
+<function>CreateAC ) </function>
+and switched among (with
+<function>SetAuthorization )</function>
+to represent all of these "font users" properly.
+    </para>
+</blockquote>
+
+<literallayout class="monospaced">
+ALTERNATESERVER:  [ name:  STRING8,
+                    subset:  BOOL ]
+</literallayout>
+
+<blockquote>
+    <para>
+This structure specifies the NAME, encoded in ISO 8859-1 according
+to Section 3, of another font server that may be useful as a
+substitute for this font server.  The SUBSET field indicates
+whether or not the alternate server is likely to only contain a
+subset of the fonts available from this font server.  This
+information is returned during the initial connection setup and
+may be used by the client to find a backup server in case of
+failure.
+    </para>
+</blockquote>
+
+<literallayout class="monospaced">
+AUTH:  [ name:  STRING8,
+         data:  LISTofBYTE ]
+</literallayout>
+
+<blockquote>
+<para>
+This structure specifies the name of an authorization protocol and
+initial data for that protocol.  It is used in the authorization
+negotiation in the initial connection setup and in the CreateAC
+request.
+</para>
+</blockquote>
+
+<literallayout class="monospaced">
+BITMAPFORMAT:
+</literallayout>
+
+<literallayout class="monospaced">
+   CARD32 containing the following fields defined by the
+   sets of values given further below
+   [
+     byte-order-msb:      1 bit,
+     bit-order-msb:       1 bit,
+     image-rect:          2 bits { Min,
+                          MaxWidth,
+                          Max },
+     zero-pad:            4 bits,
+     scanline-pad:        2 bits { ScanlinePad8,
+                          ScanlinePad16,
+                          ScanlinePad32,
+                          ScanlinePad64 },
+     zero-pad:            2 bits,
+     scanline-unit:       2 bits { ScanlineUnit8,
+                          ScanlineUnit16,
+                          ScanlineUnit32,
+                          ScanlineUnit64 },
+     zero-pad:            2 bits,
+     zero-pad:            16 bits,
+   ]
+</literallayout>
+
+<blockquote>
+<para>
+This structure specifies how glyph images are transmitted in
+response to
+<function>QueryXBitmaps8 </function>
+and
+<function>QueryXBitmaps16 </function>
+requests.
+</para>
+<para>
+<!-- .sp -->
+If the BYTE-ORDER-MSB bit (1 &lt;&lt; 0) is set, the Most Significant
+Byte of each scanline unit is returned first.  Otherwise, the
+Least Significant Byte is returned first.
+</para>
+<para>
+<!-- .sp -->
+If the BIT-ORDER-MSB bit (1 &lt;&lt; 1) is set, the left-most bit in
+each glyph scanline unit is stored in the Most Significant Bit of
+each transmitted scanline unit.  Otherwise, the left-most bit is
+stored in the Least Significant Bit.
+</para>
+<para>
+<!-- .sp -->
+The IMAGE-RECT field specifies a rectangle of pixels within the
+glyph image.  It contains one of the following alternate values:
+</para>
+
+<literallayout class="monospaced">
+     ImageRectMin          (0 &lt;&lt; 2)
+     ImageRectMaxWidth     (1 &lt;&lt; 2)
+     ImageRectMax          (2 &lt;&lt; 2)
+</literallayout>
+<para>
+For a glyph with extents XCHARINFO in a font with header information
+XFONTINFO, the IMAGE-RECT values have the following meanings:
+</para>
+<para>
+<function>ImageRectMin -</function>
+This refers to the minimal bounding rectangle
+surrounding the inked pixels in the glyph.  This is the
+most compact representation.  The edges of the rectangle
+are:
+</para>
+<literallayout class="monospaced">
+         left:     XCHARINFO.LBEARING
+         right:    XCHARINFO.RBEARING
+         top:      XCHARINFO.ASCENT
+         bottom:   XCHARINFO.DESCENT
+</literallayout>
+<para>
+
+<function>ImageRectMaxWidth - </function>
+This refers to the scanlines between the
+glyph's ascent and descent, padded on the left to the minimum
+left-bearing (or 0, whichever is less) and on the right to
+the maximum right-bearing (or logical-width, whichever is
+greater).  All glyph images share a common horizontal
+origin.  This is a combination of ImageRectMax in the
+horizontal direction and ImageRectMin in the vertical
+direction.  The edges of the rectangle are:
+</para>
+
+<literallayout class="monospaced">
+left:         min (XFONTINFO.MIN-BOUNDS.LBEARING, 0)
+right:        max (XFONTINFO.MAX-BOUNDS.RBEARING,
+                   XFONTINFO.MAX-BOUNDS.WIDTH)
+top:               XCHARINFO.ASCENT
+bottom:            XCHARINFO.DESCENT
+</literallayout>
+
+<para>
+ImageRectMax - This refers to all scanlines, from the maximum
+ascent (or the font ascent, whichever is greater) to the
+maximum descent (or the font descent, whichever is greater),
+padded to the same horizontal extents as MaxWidth.
+All glyph images have the same sized bitmap and share a
+common origin.  This is the least compact representation,
+but may be the easiest or most efficient (particularly for
+character cell fonts) for some clients to use.  The edges of
+the rectangle are:
+</para>
+
+<literallayout class="monospaced">
+left:         min (XFONTINFO.MIN-BOUNDS.LBEARING, 0)
+right:        max (XFONTINFO.MAX-BOUNDS.RBEARING,
+                   XFONTINFO.MAX-BOUNDS.WIDTH)
+top:          max (XFONTINFO.FONT-ASCENT,
+                   XFONTINFO.MAX-BOUNDS.ASCENT)
+bottom:       max (XFONTINFO.FONT-DESCENT,
+                   XFONTINFO.MAX-BOUNDS.DESCENT)
+</literallayout>
+<para>
+The SCANLINE-PAD field specifies the number of bits (8, 16, 32,
+or 64) to which each glyph scanline is padded before transmitting.
+It contains one of the following alternate values:
+</para>
+<literallayout class="monospaced">
+     ScanlinePad8          (0 &lt;&lt; 8)
+     ScanlinePad16         (1 &lt;&lt; 8)
+     ScanlinePad32         (2 &lt;&lt; 8)
+     ScanlinePad64         (3 &lt;&lt; 8)
+</literallayout>
+<para>
+The SCANLINE-UNIT field specifies the number of bits (8, 16, 32,
+or 64) that should be treated as a unit for swapping.  This value
+must be less than or equal to the number of bits specified by the
+SCANLINE-PAD.  It contains one of the following alternate values:
+</para>
+
+<literallayout class="monospaced">
+     ScanlineUnit8          (0 &lt;&lt; 12)
+     ScanlineUnit16         (1 &lt;&lt; 12)
+     ScanlineUnit32         (2 &lt;&lt; 12)
+     ScanlineUnit64         (3 &lt;&lt; 12)
+</literallayout>
+<para>
+BITMAPFORMATs are byte-swapped as CARD32s.  All unspecified bits
+must be zero.
+</para>
+<para>
+Use of an invalid BITMAPFORMAT causes a Format error to
+be returned.
+</para>
+</blockquote>
+<para>
+BITMAPFORMATMASK:     CARD32 mask
+</para>
+<blockquote>
+<para>
+This is a mask of bits representing the fields in a BITMAPFORMAT:
+</para>
+</blockquote>
+<literallayout class="monospaced">
+     ByteOrderMask          (1 &lt;&lt; 0)
+     BitOrderMask           (1 &lt;&lt; 1)
+     ImageRectMask          (1 &lt;&lt; 2)
+     ScanlinePadMask        (1 &lt;&lt; 3)
+     ScanlineUnitMask       (1 &lt;&lt; 4)
+</literallayout>
+<para>
+Unspecified bits are required to be zero or else a Format error
+is returned.
+</para>
+<para>
+BOOL:  CARD8
+</para>
+<blockquote>
+<para>
+This is a boolean value containing one of the following alternate
+values:
+</para>
+
+<literallayout class="monospaced">
+     False              0
+     True               1
+</literallayout>
+</blockquote>
+
+<para>
+BYTE:  8-bit value
+</para>
+
+<blockquote>
+<para>
+This is an unsigned byte of data whose encoding
+is determined by the context in which it is used.
+</para>
+</blockquote>
+
+<para>
+CARD8:  8-bit unsigned integer
+</para>
+
+<para>
+CARD16:  16-bit unsigned integer
+</para>
+
+<para>
+CARD32:  32-bit unsigned integer
+</para>
+
+<blockquote>
+<para>
+These are unsigned numbers.  The latter two are byte-swapped when
+the server and client have different byte orders.
+</para>
+</blockquote>
+
+<para>
+CHAR2B:  [ byte1, byte2:  CARD8 ]
+</para>
+<blockquote>
+<para>
+This structure specifies an individual character code within
+either a 2-dimensional matrix (using BYTE1 and BYTE2 as the row
+and column indices, respectively) or a vector (using BYTE1 and
+BYTE2 as most- and least-significant bytes, respectively).  This
+data type is treated as a pair of 8-bit values and is never
+byte-swapped.  Therefore, the client should always transmit BYTE1
+first.
+</para>
+</blockquote>
+
+<para>
+EVENTMASK:  CARD32 mask
+</para>
+
+<blockquote>
+<para>
+This is a mask of bits indicating which of an extension's (or the
+core's) maskable events the client would like to receive.  Each
+bit indicates one or more events, and a bit value of one indicates
+interest in a corresponding set of events.  The following bits are
+defined for event masks specified for the core protocol (i.e. an
+EXTENSION-OPCODE of zero in
+<function>SetEventMask </function>
+and
+<function>GetEventMask </function>
+requests):
+</para>
+
+<literallayout class="monospaced">
+     CatalogueListChangeMask          (1 &lt;&lt; 0)
+     FontListChangeMask               (1 &lt;&lt; 1)
+</literallayout>
+
+<para>
+If
+<function>CatalogueListChangeMask </function>
+is set, client is interested in
+receiving
+<function>CatalogueListNotify </function>
+events.  If
+<function>FontListChangeMask </function>
+is set, the client is interested in
+receiving
+<function>FontListNotify </function>
+events.
+</para>
+<para>
+<!-- .sp -->
+Extensions that provide additional events may define their own
+event masks.  These event masks have their own scope and may use
+the same bit values as the core or other extensions.
+<!-- .sp -->
+All unused bits must be set to zero.  In
+<function>SetEventMask </function>
+requests, if
+any bits are set that are not defined for the extension (or core)
+for which this EVENTMASK is intended (according to the EXTENSION-
+OPCODE given in the
+<function>SetEventMask </function>
+request), an
+<function>EventMask </function>
+error is generated.
+<!-- .sp -->
+This value is swapped as a CARD32.
+    </para>
+</blockquote>
+
+<para>
+FONTID:     ID
+</para>
+
+<blockquote>
+<para>
+This is specified by the client in the request
+<function>OpenBitmapFont </function>
+as the identifier to be used when referring to a particular open
+font.
+</para>
+</blockquote>
+
+<para>
+ID:  CARD32
+</para>
+
+<blockquote>
+<para>
+This is a 32-bit value in which the top 3 bits must be clear, and
+at least 1 other bit must be set (yielding a range of 1 through
+2^29-1).  It is specified by the client to represent objects in
+the server.  Identifiers are scoped according to their type are
+private to the client; thus, the same identifier may be used for
+both a FONTID and an ACCESSCONTEXT as well as by multiple clients.
+</para>
+<para>
+An ID of zero is referred to as None.
+</para>
+</blockquote>
+
+<para>
+INT8:  8-bit signed integer
+</para>
+
+<para>
+INT16:  16-bit signed integer
+</para>
+
+<para>
+INT32:  32-bit signed integer
+</para>
+
+<blockquote>
+<para>
+These are signed numbers.  The latter two are byte-swapped when
+the client and server have different byte orders.
+</para>
+</blockquote>
+
+<literallayout class="monospaced">
+OFFSET32:      [  position:     CARD32,
+                  length:       CARD32 ]
+</literallayout>
+
+<blockquote>
+    <para>
+This structure indicates a position and length within a block of
+data.
+    </para>
+</blockquote>
+
+<literallayout class="monospaced">
+PROPINFO:     [ offsets:          LISTofPROPOFFSET,
+                data:             LISTofBYTE ]
+</literallayout>
+
+<blockquote>
+    <para>
+This structure describes the list of properties provided by a
+font.  Strings for all of the properties names and values are
+stored within the data block and are located using a table of
+offsets and lengths.
+    </para>
+    <para>
+This structure is padded to 32-bit alignment.
+    </para>
+</blockquote>
+
+<literallayout class="monospaced">
+PROPOFFSET:     [ name:          OFFSET32,
+                 value:          OFFSET32,
+                 type:           CARD8,
+                 zero-pad3:      BYTE, BYTE, BYTE ]
+</literallayout>
+
+<blockquote>
+    <para>
+This structure specifies the position, length, and type of
+of data for a property.
+    </para>
+    <para>
+The NAME field specifies the position and length (which must be
+greater than zero) of the property name relative to the beginning
+of the PROPINFO.DATA block for this font.  The interpretation of
+the position and length of the VALUE field is determined by the
+TYPE field, which contains one of the following alternate values:
+    </para>
+</blockquote>
+
+<literallayout class="monospaced">
+     String          0
+     Unsigned        1
+     Signed          2
+</literallayout>
+
+<blockquote>
+    <para>
+which have the following meanings:
+    </para>
+    <blockquote>
+      <para>
+This property contains a counted string of bytes.  The
+data is stored in the PROPINFO.DATA block beginning at
+relative byte VALUE.POSITION (beginning with zero), extending
+for VALUE.LENGTH (at least zero) bytes.
+      </para>
+    </blockquote>
+    <para>
+This property contains a unsigned, 32-bit number stored
+as a CARD32 in VALUE.POSITION (VALUE.LENGTH is zero).
+    </para>
+    <blockquote>
+      <para>
+This property contains a signed, 32-bit number stored as
+an INT32 in VALUE.POSITION (VALUE.LENGTH is zero).
+This structure is zero-padded to 32-bit alignment.
+      </para>
+    </blockquote>
+</blockquote>
+
+<para>
+RANGE:     [ min-char, max-char:     CHAR2B ]
+</para>
+
+<blockquote>
+  <para>
+This structure specifies a range of character codes.  A single
+character is represented by MIN-CHAR equals MAX-CHAR.  If the
+linear interpretation of MAX-CHAR is less than that of MIN-CHAR,
+or if MIN-CHAR is less than the font's
+XFONTINFO.CHAR-RANGE.MIN-CHAR, or if MAX-CHAR is greater than the
+font's XFONTINFO.CHAR-RANGE.MAX-CHAR, the range is invalid.
+  </para>
+</blockquote>
+
+<literallayout class="monospaced">
+RESOLUTION:     [ x-resolution:          CARD16,
+                  y-resolution:          CARD16,
+                  decipoint-size:        CARD16 ]
+</literallayout>
+
+<blockquote>
+  <para>
+This structure specifies resolution and point size to be used in
+resolving partially-specified scaled font names.  The X-RESOLUTION
+and Y-RESOLUTION are measured in pixels-per-inch and must be
+greater than zero.  The DECIPOINT-SIZE is the preferred font
+size, measured in tenths of a point, and must be greater than zero.
+  </para>
+</blockquote>
+
+<para>
+STRING8:          LISTofCARD8
+</para>
+
+<blockquote>
+  <para>
+This is a counted list of 1-byte character codes, typically
+encoded in ISO 8859-1.  A character code "c" is equivalent to a
+CHAR2B structure whose BYTE1 is zero and whose BYTE2 is "c".
+  </para>
+</blockquote>
+
+<para>
+TIMESTAMP:     CARD32
+</para>
+
+<blockquote>
+  <para>
+This is the number of milliseconds that have passed since a server-
+dependent origin.  It is provided in errors and events and is
+permitted to wrap.
+  </para>
+</blockquote>
+
+<para>
+XCHARINFO:     [ lbearing, rbearing:     INT16,
+                 width:                  INT16,
+                 ascent, descent:        INT16,
+                 attributes:             CARD16 ]
+</para>
+
+<blockquote>
+  <para>
+This structure specifies the ink extents and horizontal escapement
+(also known as the set- or logical width) of an individual
+character.  The first five values represent directed distances in
+a coordinate system whose origin is aligned with the lower-left
+edge of the left-most pixel of the glyph baseline (i.e. the
+baseline falls between two pixels as shown in Figure 3-1 of the
+"Bitmap Distribution Format 2.1" Consortium standard [2]).
+  </para>
+<!-- .sp -->
+  <para>
+The LBEARING field specifies the directed distance measured to the
+right from the origin to the left edge of the left-most inked
+pixel in the glyph.
+<!-- .sp -->
+  </para>
+  <para>
+The RBEARING field specifies the directed distance (measured to
+the right) from the origin to the right edge of the right-most
+inked pixel in the glyph.
+<!-- .sp -->
+  </para>
+  <para>
+The WIDTH field specifies the directed distance (measured to the
+right) from the origin to the position where the next character
+should appear (called the "escapement point").  This distance
+includes any whitespace used for intercharacter padding and is
+also referred to as the "logical width" or "horizontal
+escapement."
+<!-- .sp -->
+  </para>
+  <para>
+The ASCENT field specifies the directed distance (measured up)
+from the baseline to the top edge of the top-most inked pixel
+in the glyph.
+<!-- .sp -->
+  </para>
+  <para>
+The DESCENT field specifies the directed distance (measured
+down) from the baseline to the bottom edge of the bottom-most
+inked pixel.
+<!-- .sp -->
+  </para>
+  <para>
+The ATTRIBUTES field specifies glyph-specific information that
+is passed through the application.  If this value is not being
+used, it should be zero.
+  </para>
+  <para>
+The ink bounding box of a glyph is defined to be the smallest
+rectangle that encloses all of the inked pixels.  This box has
+a width of RBEARING - LBEARING pixels and a height of
+ASCENT + DESCENT pixels.
+  </para>
+</blockquote>
+
+<literallayout class="monospaced">
+XFONTINFO:     [ flags:               CARD32,
+                 drawing-direction:   { LeftToRight, RightToLeft }
+                 char-range:          RANGE,
+                 default-char:        CHAR2B,
+                 min-bounds:          XCHARINFO,
+                 max-bounds:          XCHARINFO,
+                 font-ascent:         INT16,
+                 font-descent:        INT16,
+                 properties:          PROPINFO ]
+</literallayout>
+
+<blockquote>
+  <para>
+This structure specifies attributes related to the font as a
+whole.
+  </para>
+  <para>
+The FLAGS field is a bit mask containing zero or more of the
+following boolean values (unspecified bits must be zero):
+  </para>
+
+<literallayout class="monospaced">
+     AllCharactersExist     (1 &lt;&lt; 0)
+     InkInside              (1 &lt;&lt; 1)
+     HorizontalOverlap      (1 &lt;&lt; 2)
+</literallayout>
+
+    <para>
+which have the following meanings:
+    </para>
+    <para>
+AllCharactersExist
+    </para>
+
+<blockquote>
+    <para>
+If this bit is set, all of the characters
+in the range given by CHAR-RANGE have glyphs encoded in
+the font.  If this bit is clear, some of the characters
+may not have encoded glyphs.
+    </para>
+</blockquote>
+
+<para>
+InkInside
+</para>
+<blockquote>
+    <para>
+If this bit is set, the inked pixels of each glyph
+fall within the rectangle described by the font's ascent,
+descent, origin, and the glyph's escapement point.  If
+this bit is clear, there may be glyphs whose ink extends
+outside this rectangle.
+    </para>
+</blockquote>
+<para>
+HorizontalOverlap
+</para>
+<blockquote>
+    <para>
+If this bit is set, the two ink bounding
+boxes (smallest rectangle enclosing the inked pixels) of
+some pairs of glyphs in the font may overlap when displayed
+side-by-side (i.e. the second character is imaged at the
+escapement point of the first) on a common baseline.  If
+this bit is clear, there are no pairs of glyphs whose ink
+bounding boxes overlap.
+    </para>
+</blockquote>
+<para>
+The DRAWING-DIRECTION field contains a hint indicating whether
+most of the character metrics have a positive (or "LeftToRight")
+logical width or a negative ("RightToLeft") logical width.  It
+contains the following alternate values:
+</para>
+<literallayout class="monospaced">
+         LeftToRight          0
+         RightToLeft          1
+</literallayout>
+<para>
+The CHAR-RANGE.MIN-CHAR and CHAR-RANGE.MAX-CHAR fields specify the
+first and last character codes that have glyphs encoded in this font.
+All fonts must have at least one encoded glyph (in which case the
+MIN-CHAR and MAX-CHAR are equal), but are not required to have glyphs
+encoded at all positions between the first and last characters.
+</para>
+<para>
+The DEFAULT-CHAR field specifies the character code of the glyph
+that the client should substitute for unencoded characters.  Requests
+for extents or bitmaps for an unencoded character generate zero-filled
+metrics and a zero-length glyph bitmap, respectively.
+</para>
+<para>
+The MIN-BOUNDS and MAX-BOUNDS fields contain the minimum and maximum
+values of each of the extents field of all encoded characters in the
+font (i.e. non-existent characters are ignored).
+</para>
+<para>
+The FONT-ASCENT and FONT-DESCENT fields specify the font designer's
+logical height of the font, above and below the baseline,
+respectively.  The sum of the two values is often used as the
+vertical line spacing of the font.  Individual glyphs are permitted
+to have ascents and descents that are greater than these values.
+</para>
+<para>
+The PROPERTIES field contains the property data associated with
+this font.
+</para>
+<para>
+This structure is padded to 32-bit alignment.
+</para>
+</blockquote>
+</sect2>
+
+<sect2 id="requests">
+<title>Requests</title>
+<!-- .XS -->
+<!-- (SN Requests -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+This section describes the requests that may be sent by the client and the
+replies or errors that are generated in response.  Versions of the protocol
+with the same major version are required to be upward-compatible.
+</para>
+<para>
+<!-- .LP -->
+Every request on a given connection is implicitly assigned a sequence number,
+starting with 1, that is used in replies, error, and events.  Servers are
+required to generate replies and errors in the order in which the corresponding
+requests are received.  Servers are permitted to add or remove fonts to the
+list visible to the client between any two requests, but requests must be
+processed atomically.  Each request packet is at least 4 bytes long and
+contains the following fields:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+     major-opcode:               CARD8
+     minor-opcode:               CARD8
+     length:                    CARD16
+</literallayout>
+<para>
+<!-- .RE -->
+The MAJOR-OPCODE specifies which core request or extension package this packet
+represents.  If the MAJOR-OPCODE corresponds to a core request, the
+MINOR-OPCODE contains 8 bits of request-specific data.  Otherwise, the
+MINOR-OPCODE specifies which extension request this packet represents.  The
+LENGTH field specifies the number of 4-byte units contained within the packet
+and must be at least one.  If this field contains a value greater than one it
+is followed by (LENGTH - 1) * 4 bytes of request-specific data.  Unless
+otherwise specified, unused bytes are not required to be zero.
+</para>
+<para>
+<!-- .LP -->
+If a request packet contains too little or too much data, the server returns
+a Length error.  If the server runs out of internal resources (such as
+memory) while processing a request, it returns an Alloc error.  If a server is
+deficient (and therefore non-compliant) and is unable to process a request, it
+may return an Implementation error.  If a client uses an extension request
+without previously having issued a
+<function>QueryExtension </function>
+request for that extension, the server responds with a
+<function>Request </function>
+error.  If the server encounters a request
+with an unknown MAJOR-OPCODE or MINOR-OPCODE, it responds with a
+<function>Request </function>
+error.
+At most one error is generated per request.  If more than one error condition
+is encountered in processing a requests, the choice of which error is returned
+is server-dependent.
+</para>
+<para>
+<!-- .LP -->
+Core requests have MAJOR-OPCODE values between 0 and 127, inclusive.  Extension
+requests have MAJOR-OPCODE values between 128 and 255, inclusive, that are
+assigned by by the server.  All MINOR-OPCODE values in extension requests are
+between 0 and 255, inclusive.
+</para>
+<para>
+<!-- .LP -->
+Each reply is at least 8 bytes long and contains the following fields:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+     type:                 CARD8 value of 0
+     data-or-unused:       CARD8
+     sequence-number:      CARD16
+     length:               CARD32
+</literallayout>
+<para>
+<!-- .RE -->
+The TYPE field has a value of zero.  The DATA-OR-UNUSED field may be used to
+encode one byte of reply-specific data (see Section 5.2 on request encoding).
+The least-significant 16 bits of the sequence number of the request that
+generated the reply are stored in the SEQUENCE-NUMBER field.  The LENGTH field
+specifies the number of 4-byte units in this reply packet, including the fields
+described above, and must be at least two.  If LENGTH is greater than two, the
+fields described above are followed by (LENGTH - 2) * 4 bytes of additional
+data.
+</para>
+<para>
+<!-- .LP -->
+Requests that have replies are described using the following syntax:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+     RequestName
+         <emphasis remap='I'>arg1</emphasis>:  type1
+         <emphasis remap='I'>arg2</emphasis>:  type2
+         ...
+         <emphasis remap='I'>argN</emphasis>:  typeN
+           =&gt;
+        <emphasis remap='I'>result1</emphasis>:  type1
+         <emphasis remap='I'>result2</emphasis>:  type2
+         ...
+         <emphasis remap='I'>resultM</emphasis>:  typeM
+
+     Errors:  <emphasis remap='I'>kind1</emphasis>, <emphasis remap='I'>kind2</emphasis> ..., <emphasis remap='I'>kindK</emphasis>
+
+     Description
+</literallayout>
+<para>
+<!-- .RE -->
+If a request does not generate a reply, the"=&gt;" and result lines are
+omitted.  If a request may generate multiple replies, the "=&gt;" is replaced by
+a "=&gt;+".  In the authorization data exchanges in the initial connection setup
+and the CreateAC request, "-&gt;" indicates data sent by the client in response
+to data sent by the server.
+</para>
+<para>
+<!-- .LP -->
+The protocol begins with the establishment of a connection over a
+mutually-understood virtual stream:
+</para>
+
+<literallayout class="monospaced">
+
+  open connection
+     byte-order:                         BYTE
+     client-major-protocol-version:      CARD16
+     client-minor-protocol-version:      CARD16
+     authorization-protocols:            LISTofAUTH
+</literallayout>
+<para>
+The initial byte of the connection specifies the BYTE-ORDER in
+which subsequent 16-bit and 32-bit numeric values are to be
+transmitted.  The octal value 102 (ASCII uppercase `B')
+indicates that the most-significant byte is to be transmitted
+first; the octal value 154 (ASCII lowercase `l') indicates
+that the least-significant byte is to be transmitted first.
+If any other value is encountered the server closes the
+connection without any response.
+</para>
+
+<blockquote>
+  <para>
+The CLIENT-MAJOR-PROTOCOL-VERSION and
+CLIENT-MINOR-PROTOCOL-VERSION specify which version of the
+font service protocol the client would like to use.  If the
+client can support multiple versions, the highest version
+should be given.  This version of the protocol has a
+major version of 2 and a minor version of 0.
+  </para>
+  <para>
+The AUTHORIZATION-PROTOCOLS contains a list of protocol names and
+optional initial data for which the client can provide
+information.  The server may use this to determine which
+protocol to use or as part of the initial exchange of
+authorization data.
+  </para>
+<literallayout class="monospaced">
+=&gt;
+status:                         { Success, Continue,
+                                  Busy, Denied }
+server-major-protocol-version:  CARD16
+server-minor-protocol-version:  CARD16
+alternate-servers-hint:         LISTofALTERNATESERVER
+authorization-index:            CARD8
+authorization-data:             LISTofBYTE
+</literallayout>
+  <para>
+<!-- .RE -->
+The SERVER-MAJOR-PROTOCOL-VERSION and
+SERVER-MINOR-PROTOCOL-VERSION specify the version of the font
+service protocol that the server expects from the client.  If
+the server supports the version specified by the client, this
+version number should be returned.  If the client has
+requested a higher version than is supported by the server,
+the server's highest version should be returned.  Otherwise,
+if the client has requested a lower version than is supported
+by the server, the server's lowest version should be returned.
+It is the client's responsibility to decide whether or not it
+can match this version of the protocol.
+  </para>
+  <para>
+The ALTERNATE-SERVERS-HINT is a list of other font servers
+that may have related sets of fonts (determined by means
+outside this protocol, typically by the system administrator).
+Clients may choose to contact these font servers if the
+connection is rejected or lost.
+  </para>
+  <para>
+The STATUS field indicates whether the server accepted,
+rejected, or would like more information about the connection.
+It has one of the following alternate values:
+  </para>
+<literallayout class="monospaced">
+
+          Success          0
+          Continue         1
+          Busy             2
+          Denied           3
+</literallayout>
+  <para>
+<!-- .RE -->
+If STATUS is Denied, the server has rejected the client's
+authorization information.  If STATUS is Busy, the server has
+simply decided that it cannot provide fonts to this client at
+this time (it may be able to at a later time).  In both cases,
+AUTHORIZATION-INDEX is set to zero, no authorization-data is
+returned, and the server closes the connection after sending
+the data described so far.
+  </para>
+  <para>
+Otherwise the AUTHORIZATION-INDEX is set to the index
+(beginning with 1) into the AUTHORIZATION-PROTOCOLS list of
+the protocol that the server will use for this connection.  If
+the server does not want to use any of the given protocols,
+this value is set to zero.  The AUTHORIZATION-DATA field is
+used to send back authorization protocol-dependent data to the
+client (such as a challenge, authentication of the server,
+etc.).
+  </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+If STATUS is Success, the following section of protocol is
+omitted.  Otherwise, if STATUS is Continue, the server expects
+more authorization data from the client (i.e. the connection
+setup is not finished, so no requests or events may be sent):
+</para>
+
+<literallayout class="monospaced">
+-&gt;
+more-authorization-data:   STRING8
+=&gt;
+status:                    { Success, Continue,
+                           Busy, Denied }
+more-authorization-data:   LISTofBYTE
+</literallayout>
+
+<!-- .RE -->
+<para>
+The values in STATUS have the same meanings as described
+above.  This section of protocol is repeated until the server
+either accepts (sets STATUS to Success) or rejects (sets
+STATUS to Denied or Busy) the connection.
+</para>
+<para>
+<!-- .LP -->
+Once the connection has been accepted and STATUS is Success,
+an implicit AccessContext is created for the authorization
+data and the protocol continues with the following data sent
+from the server:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+=&gt;
+remaining-length:           CARD32
+maximum-request-length:     CARD16
+release-number:             CARD32
+vendor:                     STRING8
+</literallayout>
+<para>
+The REMAINING-LENGTH specifies the length in 4-byte units of
+the remaining data to be transmitted to the client.  The
+MAXIMUM-REQUEST-LENGTH specifies the largest request size in
+4-byte units that is accepted by the server and must have a
+value of at least 4096.  Requests with a length field larger
+than this value are ignored and a Length error is returned.
+The VENDOR string specifies the name of the manufacturer of
+the font server.  The RELEASE-NUMBER specifies the particular
+release of the server in a manufacturer-dependent manner.
+</para>
+<para>
+<!-- .LP -->
+After the connection is established and the setup information has been
+exchanged, the client may issue any of requests described below:
+</para>
+<blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "NoOp" "" "@DEF@" -->
+<function>NoOp</function>
+</para>
+    <para>
+Errors:  Alloc
+    </para>
+    <para>
+This request does nothing.  It is typically used in response
+to a
+<function>KeepAlive </function>
+event.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "ListExtensions" "" "@DEF@" -->
+<function>ListExtensions</function>
+</para>
+<para>
+=&gt;
+</para>
+
+<blockquote>
+  <para>
+<emphasis remap='I'>names</emphasis>:  LISTofSTRING8
+  </para>
+  <para>
+Errors:  Alloc
+  </para>
+  <para>
+This request returns the names of the extension packages
+that are supported by the server.  Extension names are
+case-sensitive and are encoded in ISO 8859-1.
+  </para>
+</blockquote>
+
+<para>
+<!-- .IN "QueryExtension" "" "@DEF@" -->
+<function>QueryExtension</function>
+</para>
+
+<blockquote>
+<para>
+<emphasis remap='I'>name</emphasis>:  STRING8
+</para>
+</blockquote>
+<para>
+=&gt;
+</para>
+
+<blockquote>
+  <para>
+<emphasis remap='I'>present</emphasis>:  BOOL
+    </para>
+    <para>
+<emphasis remap='I'>major-version</emphasis>:  CARD16
+    </para>
+    <para>
+<emphasis remap='I'>minor-version</emphasis>:  CARD16
+    </para>
+    <para>
+<emphasis remap='I'>major-opcode</emphasis>:  CARD8
+    </para>
+    <para>
+<emphasis remap='I'>first-event</emphasis>:  CARD8
+    </para>
+    <para>
+<emphasis remap='I'>number-events</emphasis>:  CARD8
+    </para>
+    <para>
+<emphasis remap='I'>first-error</emphasis>:  CARD8
+    </para>
+    <para>
+<emphasis remap='I'>number-errors</emphasis>:  CARD8
+  </para>
+  <para>
+Errors:
+<function>Alloc</function>
+  </para>
+  <para>
+This request determines whether or not the extension package
+specified by NAME (encoded in ISO 8859-1) is supported by the
+server and that there is sufficient number of major opcode,
+event, and error codes available.  If so, then PRESENT is set
+to True, MAJOR-VERSION and MINOR-VERSION are set to the
+respective major and minor version numbers of the protocol
+that the server would prefer; MAJOR-OPCODE is set to the value
+to use in extension requests; FIRST-EVENT is set to the value
+of the first extension-specific event code or zero if the
+extension does not have any events; NUMBER-EVENTS is set to
+the number of new events that the event defines; FIRST-ERROR
+is set to the value of the first extension-specific error code
+or zero if the extension does not define any new errors; and
+NUMBER-ERRORS is set to the number of new errors the extension
+defines.
+  </para>
+  <para>
+<!-- .sp -->
+Otherwise, PRESENT is set to False and the remaining fields are
+set to zero.
+  </para>
+  <para>
+<!-- .sp -->
+The server is free to return different values to different
+clients.  Therefore, clients must use this request before
+issuing any of the requests in the named extension package or
+using the
+<function>SetEventMask request to express interest in any of</function>
+this extension's events.  Otherwise, a
+<function>Request </function>
+error is returned.
+  </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "ListCatalogues" "" "@DEF@" -->
+<function>ListCatalogues</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>max-names</emphasis>:  CARD32
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+=&gt;+
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>replies-following-hint</emphasis>:  CARD32
+    </para>
+    <para>
+<emphasis remap='I'>names</emphasis>:      LISTofSTRING8
+    </para>
+    <para>
+Errors:
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns a list of at most MAX-NAMES names
+of collections (called catalogues) of fonts that match
+the specified PATTERN.  In the pattern (which is encoded
+in ISO 8859-1), the `?' character (octal 77) matches any
+single character; the `*' character (octal 52) matches
+any series of zero or more characters; and alphabetic
+characters match either upper- or lowercase.  The
+returned NAMES are encoded in ISO 8859-1 and may contain
+mixed character cases.
+    </para>
+    <para>
+If PATTERN is of zero length or MAX-NAMES is equal to zero,
+one reply containing a zero-length list of names is returned.
+This may be used to synchronize the client with the server.
+    </para>
+    <para>
+Servers are free to add or remove catalogues to the set returned by
+<function>ListCatalogues</function>
+between any two requests.  This request is not
+cumulative; repeated uses are processed in isolation and do
+result in an iteration through the list.
+    </para>
+    <para>
+To reduce the amount of buffering needed by the server, the
+list of names may be split across several reply packets, so
+long as the names arrive in the same order that they would
+have appeared had they been in a single packet.  The
+REPLIES-FOLLOWING-HINT field in all but the last reply
+contains a positive value that specifies the number of
+replies that are likely, but not required, to follow.  In the
+last reply, which may contain zero or more names, this field
+is set to zero.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "SetCatalogues" "" "@DEF@" -->
+<function>SetCatalogues</function>
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>names</emphasis>:  LISTofSTRING8
+    </para>
+    <para>
+Errors:
+<function>Alloc , </function>
+<function>Name</function>
+    </para>
+    <para>
+This request sets the list of catalogues whose fonts should be
+visible to the client.  The union of the fonts provided by
+each of the named catalogues forms the set of fonts whose
+names match patterns in
+<function>ListFonts , </function>
+<function>ListFontsWithXInfo , </function>
+and
+<function>OpenBitmapFont </function>
+requests.  The catalogue names are
+case-insensitive and are encoded in ISO 8859-1.  A zero-length
+list resets the client's catalogue list to the
+server-dependent default.
+<!-- .sp -->
+    </para>
+    <para>
+If any of the catalogue names are invalid, a
+<function>Name </function>
+error is returned and the request is ignored.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "GetCatalogues" "" "@DEF@" -->
+<function>GetCatalogues</function>
+</para>
+
+<para>
+=&gt;
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>names</emphasis>:  LISTofSTRING8
+    </para>
+    <para>
+Errors:
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns the current list of catalogue names
+(encoded in ISO 8859-1) associated with the client.  These
+catalogues determine the set of fonts that are visible
+to
+<function>ListFonts</function>,
+<function>ListFontsWithXInfo</function>,
+and
+<function>OpenBitmapFont</function>.
+A zero-length list indicates the server's default set of
+fonts.  Catalogue names are case-insensitive and may be
+returned in mixed case.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "SetEventMask" "" "@DEF@" -->
+<function>SetEventMask</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>extension-opcode</emphasis>:  CARD8
+    </para>
+    <para>
+<emphasis remap='I'>event-mask</emphasis>:  EVENTMASK
+    </para>
+    <para>
+Errors:
+<function>EventMask ,</function>
+<function>Request</function>
+    </para>
+    <para>
+This request specifies the set of maskable events that the
+extension indicated by EXTENSION-OPCODE (or zero for the core)
+should generate for the client.  Event masks are limited in
+scope to the extension (or core) for which they are defined,
+so expressing interest in events from one or more extensions
+requires multiple uses of this request.
+<!-- .sp -->
+    </para>
+    <para>
+The default event mask if
+<function>SetEventMask </function>
+has not been called
+is zero, indicating no interest in any maskable events.
+Some events are not maskable and cannot be blocked.
+<!-- .sp -->
+    </para>
+    <para>
+If EXTENSION-OPCODE is not a valid extension opcode previously
+returned by
+<function>QueryExtension </function>
+or zero, a
+<function>Request </function>
+error is
+returned.  If EVENT-MASK contains any bits that do not
+correspond to valid events for the specified extension (or
+core), an
+<function>EventMask</function>
+error is returned and the request is
+ignored.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "GetEventMask" "" "@DEF@" -->
+<function>GetEventMask</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>extension-opcode</emphasis>:  CARD8
+    </para>
+</blockquote>
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>event-mask</emphasis>:  EVENTMASK
+    </para>
+    <para>
+Errors:
+<function>Request</function>
+    </para>
+    <para>
+This request returns the set of maskable core events the
+extension indicated by EXTENSION-OPCODE (or the core if zero)
+should generate for the client.  Non-maskable events are
+always sent to the client.
+    </para>
+    <para>
+If EXTENSION-OPCODE is not a valid extension opcode
+previously returned by
+<function>QueryExtension </function>
+or zero, a
+<function>Request</function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "CreateAC" "" "@DEF@" -->
+<function>CreateAC</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>ac</emphasis>:  ACCESSCONTEXT
+    </para>
+    <para>
+<emphasis remap='I'>authorization-protocols</emphasis>:  LISTofAUTH
+    </para>
+</blockquote>
+<para>
+=&gt;
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>status</emphasis>:       { Success, Continue, Denied }
+    </para>
+    <para>
+<emphasis remap='I'>authorization-index</emphasis>:          CARD8
+    </para>
+    <para>
+<emphasis remap='I'>authorization-data</emphasis>:          LISTofBYTE
+    </para>
+    <para>
+Errors:
+<function>IDChoice</function>
+    </para>
+    <para>
+This request creates a new
+<function>AccessContext </function>
+object within the
+server containing the specified authorization data.  When
+this
+<function>AccessContext</function>
+is selected by the client using the
+<function>SetAuthorization </function>
+request, the data may be used by the server
+to determine whether or not the client should be granted
+access to particular font information.
+    </para>
+    <para>
+<!-- .sp -->
+If STATUS is Denied, the server rejects the client's
+authorization information and does not associate AC with any
+valid
+<function>AccessContext .  </function>
+In this case, AUTHORIZATION-INDEX is set
+to zero, and zero bytes of AUTHORIZATION-DATA is returned.
+    </para>
+    <para>
+<!-- .sp -->
+Otherwise, AUTHORIZATION-INDEX is set to the index (beginning
+with 1) into the AUTHORIZATION-PROTOCOLS list of the protocol
+that the server will use for this connection.  If the server
+does not want to use any of the given protocols, this value is
+set to zero.  The AUTHORIZATION-DATA field is used to send
+back authorization protocol-dependent data to the client (such
+as a challenge, authentication of the server, etc.).
+    </para>
+    <para>
+<!-- .sp -->
+If STATUS is Continue, the client is expected to continue
+the request by sending the following protocol and receiving
+the indicated response from the server.  This continues
+until STATUS is set to either Success or Denied.
+    </para>
+<literallayout class="monospaced">
+     -&gt;
+     more-authorization-data:          STRING8
+     =&gt;
+     status:                           { Success, Continue, Denied }
+     more-authorization-data:          LISTofBYTE
+</literallayout>
+    <para>
+Once the connection has been accepted and STATUS is Success,
+the request is complete.
+    </para>
+    <para>
+If AC is not in the range [1..2^29-1] or is already associated
+with an access context, an IDChoice error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "FreeAC" "" "@DEF@" -->
+<function>FreeAC</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>ac</emphasis>:  ACCESSCONTEXT
+    </para>
+    <para>
+Errors:
+<function>AccessContext , </function>
+<function>Alloc</function>
+    </para>
+    <para>
+This request indicates that the specified AC should no longer
+be associated with a valid access context.  If AC is also the
+current
+<function>AccessContext</function>
+(as set by the
+<function>SetAuthorization</function>
+request), an implicit
+<function>SetAuthorization</function>
+of None is done to
+restore the
+<function>AccessContext</function>
+established for the initial
+connection setup.  Operations on fonts that were opened under
+AC are not affected.  The client may reuse the value of AC in
+a subsequent
+<function>CreateAC </function>
+request.
+    </para>
+    <para>
+If AC isn't associated with any valid authorization previously
+created by
+<function>CreateAC , an </function>
+<function>AccessContext </function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "SetAuthorization" "" "@DEF@" -->
+<function>SetAuthorization</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>ac</emphasis>:  ACCESSCONTEXT
+    </para>
+    <para>
+Errors:
+<function>AccessContext</function>
+    </para>
+    <para>
+This request sets the
+<function>AccessContext </function>
+to be used for subsequent
+requests (except for
+<function>QueryXInfo</function>,
+<function>QueryXExtents8</function>,
+<function>QueryXExtents16</function>,
+<function>QueryXBitmaps8</function>,
+<function>QueryXBitmaps16</function>
+and
+<function>CloseFont </function>
+which are done under the
+<function>AccessContext </function>
+of the
+corresponding
+<function>OpenBitmapFont</function>
+")."
+An AC of None restores the
+<function>AccessContext</function>
+established for the initial connection setup.
+    </para>
+    <para>
+<!-- .sp -->
+If AC is neither None nor a value associated with a valid
+<function>AccessContext</function>
+previously created by
+<function>CreateAC</function>,
+an
+<function>AccessContext</function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "SetResolution" "" "@DEF@" -->
+<function>SetResolution</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>resolutions</emphasis>:  LISTofRESOLUTION
+    </para>
+    <para>
+Errors:
+<function>Resolution</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request provides a hint as to the resolution and
+preferred point size of the drawing surfaces for which the
+client will be requesting fonts.  The server may use this
+information to set the RESOLUTION_X and RESOLUTION_Y fields
+of scalable XLFD font names, to order sets of names based on
+their resolutions, and to choose the server-dependent
+instance that is used when a partially-specified scalable
+fontname is opened.
+    </para>
+    <para>
+If a zero-length list of RESOLUTIONS is given, the
+server-dependent default value is restored.  Otherwise, if
+elements of all of the specified RESOLUTIONS are non-zero, the
+default resolutions for this client are changed.
+    </para>
+    <para>
+If a RESOLUTION entry contains a zero, a Resolution error is
+returned and the default resolutions are not changed.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "GetResolution" "" "@DEF@" -->
+<function>GetResolution</function>
+</para>
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>resolutions</emphasis>:  LISTofRESOLUTION
+    </para>
+    <para>
+Errors:
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns the current list of default resolutions.
+If a client has not performed a
+<function>SetResolution</function>,
+a server-dependent default value is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "ListFonts" "" "@DEF@" -->
+<function>ListFonts</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>max-names</emphasis>:  CARD32
+    </para>
+</blockquote>
+<para>
+=&gt;+
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>replies-following-hint</emphasis>:  CARD32
+    </para>
+    <para>
+<emphasis remap='I'>names</emphasis>:  LISTofSTRING8
+    </para>
+    <para>
+Errors:
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns a list of at most MAX-NAMES font names
+that match the specified PATTERN, according to matching rules
+of the X Logical Font Description Conventions [3].  In the
+pattern (which is encoded in ISO 8859-1) the `?' character
+(octal 77) matches any single character; the `*' character
+(octal 52) matches any series of zero or more characters; and
+alphabetic characters match either upper- or lowercase.  The
+returned NAMES are encoded in ISO 8859-1 and may contain mixed
+character cases.  Font names are not required to be in XLFD
+format.
+    </para>
+    <para>
+If PATTERN is of zero length or MAX-NAMES is equal to zero,
+one reply containing a zero-length list of names is returned.
+This may be used to synchronize the client with the server.
+    </para>
+    <para>
+Servers are free to add or remove fonts to the set returned by
+<function>ListFonts </function>
+between any two requests.  This request is not
+cumulative; repeated uses are processed in isolation and do
+result in an iteration through the list.
+    </para>
+    <para>
+To reduce the amount of buffering needed by the server, the
+list of names may be split across several reply packets, so
+long as the names arrive in the same order that they would
+have appeared had they been in a single packet.  The
+REPLIES-FOLLOWING-HINT field in all but the last reply
+contains a positive value that specifies the number of
+replies that are likely, but not required, to follow.  In the
+last reply, which may contain zero or more names, this field
+is set to zero.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "ListFontsWithXInfo" "" "@DEF@" -->
+<function>ListFontsWithXInfo</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>max-names</emphasis>:  CARD32
+    </para>
+</blockquote>
+
+<para>
+=&gt;+
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>replies-following-hint</emphasis>:  CARD32
+    </para>
+    <para>
+<emphasis remap='I'>info</emphasis>:  XFONTINFO
+    </para>
+    <para>
+<emphasis remap='I'>name</emphasis>:  STRING8
+    </para>
+    <para>
+Errors:
+<function>Alloc</function>
+    </para>
+    <para>
+This request is similar to
+<function>ListFonts </function>
+except that a separate
+reply containing the name, header, and property data is
+generated for each matching font name.  Following these
+replies, if any, a final reply containing a zero-length NAME
+and no INFO is sent.
+    </para>
+    <para>
+<!-- .sp -->
+The REPLIES-FOLLOWING-HINT field in all but the last reply
+contains a positive value that specifies the number of replies
+that are likely, but not required, to follow.  In the last
+reply, this field is set to zero.
+    </para>
+    <para>
+<!-- .sp -->
+If PATTERN is of zero length or if MAX-NAMES is equal to
+zero, only the final reply containing a zero-length NAME and
+no INFO is returned.  This may be used to synchronize the
+client with the server.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "OpenBitmapFont" "" "@DEF@" -->
+<function>OpenBitmapFont</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+<emphasis remap='I'>pattern</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>format-mask</emphasis>:  BITMAPFORMATMASK
+    </para>
+    <para>
+<emphasis remap='I'>format-hint</emphasis>:  BITMAPFORMAT
+    </para>
+</blockquote>
+
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>otherid</emphasis>:  FONTID or None
+    </para>
+    <para>
+<emphasis remap='I'>otherid-valid</emphasis>:  BOOL
+    </para>
+    <para>
+<emphasis remap='I'>cachable</emphasis>:  BOOL
+    </para>
+    <para>
+Errors:
+<function>IDChoice</function>,
+<function>Name</function>,
+<function>Format</function>,
+<function>AccessContext</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request looks for a server-dependent choice of the
+font names that match the specified PATTERN according to the
+rules described for
+<function>ListFonts .  </function>
+If no matches are found, a
+<function>Name </function>
+error is returned.  Otherwise, the server attempts to
+open the font associated with the chosen name.
+    </para>
+    <para>
+Permission to access the font is determined by the server
+according the licensing policy used for this font.  The server
+may use the client's current
+<function>AccessContext</function>
+(as set by the most
+recent
+<function>SetAuthorization </function>
+request or the original connection
+setup) to determine any client-specific sets of permissions.
+After the font has been opened, the client is allowed to
+specify a new
+<function>AccessContext</function>
+with
+<function>SetAuthorization</function>
+or release
+the
+<function>AccessContext</function>
+using
+<function>FreeAC</function>
+.  Subsequent
+<function>QueryXInfo</function>,
+<function>QueryXExtents8</function>,
+<function>QueryXExtents16</function>,
+<function>QueryXBitmaps8</function>,
+<function>QueryXBitmaps16</function>
+and
+<function>CloseFont</function>
+requests on this FONTID are
+performed according to permissions granted at the time of the
+<function>OpenBitmapFont</function>
+request.
+    </para>
+    <para>
+If the server is willing and able to detect that the client
+has already opened the font successfully (possibly under a
+different name), the OTHERID field may be set to one of the
+identifiers previously used to open the font.  The
+OTHERID-VALID field indicates whether or not OTHERID is
+still associated with an open font: if it is True, the
+client may use OTHERID as an alternative to FONTID.
+Otherwise, if OTHERID-VALID is False, OTHERID is no longer
+open but has not been reused by a subsequent
+<function>OpenBitmapFont</function>
+request.
+<!-- .sp -->
+    </para>
+    <para>
+If OTHERID is set to None, then OTHERID-VALID should be set
+to False.
+<!-- .sp -->
+    </para>
+    <para>
+The FORMAT-MASK indicates which fields in FORMAT-HINT
+the client is likely to use in subsequent
+<function>GetXBitmaps8</function>
+and
+<function>GetXBitmaps16 </function>
+requests.  Servers may wish to use
+this information to precompute certain values.
+<!-- .sp -->
+    </para>
+    <para>
+If CACHABLE is set to True, the client may cache the font
+(so that redundant opens of the same font may be avoided)
+and use it with all
+<function>AccessContexts </function>
+during the life of the
+client without violating the font's licensing policy.  This
+flag is typically set whenever a font is unlicensed or is
+licensed on a per-display basis.  If CACHABLE is False, the
+client should reopen the font for each
+<function>AccessContext .</function>
+<!-- .sp -->
+    </para>
+    <para>
+The server is permitted to add to or remove from the set of
+fonts returned by
+<function>ListFonts </function>
+between any two requests, though
+mechanisms outside the protocol.  Therefore, it is possible
+for this request (which is atomic) to return a different font
+than would result from separate a
+<function> ListFonts </function>
+followed by an
+<function>OpenBitmapFont </function>
+with a non-wildcarded font name.
+<!-- .sp -->
+    </para>
+    <para>
+If FONTID is not in the range [1..2^29-1] or if it is already
+associated with an open font, an
+<function>IDChoice </function>
+error is returned.
+If no font is available that matches the specified PATTERN, a
+<function>Name </function>
+error is returned.  If the font is present but the client
+is not permitted access, an
+<function>AccessContext </function>
+error is returned.
+If FORMAT-MASK has any unspecified bits set or if any of the
+fields in FORMAT-HINT indicated by FORMAT-MASK are invalid, a
+<function>Format </function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "QueryXInfo" "" "@DEF@" -->
+<function>QueryXInfo</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+</blockquote>
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>info</emphasis>:  XFONTINFO
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns the font header and property information
+for the open font associated with FONTID.
+    </para>
+    <para>
+<!-- .sp -->
+If FONTID is not associated with any open fonts, a
+<function> Font </function>
+error
+is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "QueryXExtents8" "" "@DEF@" -->
+<function>QueryXExtents8</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+<emphasis remap='I'>range</emphasis>:  BOOL
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>chars</emphasis>:  STRING8
+    </para>
+</blockquote>
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>extents</emphasis>:  LISTofXCHARINFO
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Range</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request is equivalent to
+<function>QueryXExtents16 </function>
+except that it
+uses 1-byte character codes.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "QueryXExtents16" "" "@DEF@" -->
+<function>QueryXExtents16</function>
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>range</emphasis>:  BOOL
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>chars</emphasis>:  LISTofCHAR2B
+    </para>
+</blockquote>
+<para>
+=&gt;
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>extents</emphasis>:  LISTofXCHARINFO
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Range</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns a list of glyph extents from the open
+font associated with FONTID for the series of characters
+specified by RANGE and CHARS.
+    </para>
+    <para>
+<!-- .sp -->
+If RANGE is True, each succeeding pair of elements in CHARS is
+treated as a range of characters for which extents should be
+returned.  If CHARS contains an odd number of elements, the
+font's XFONTINFO.CHAR-RANGE.MAX-CHAR is implicitly appended to
+the list.  If CHARS contains no elements, the list is
+implicitly replaced with the font's XFONTINFO.CHAR-RANGE.  If
+any of the resulting character ranges are invalid, a Range
+error is returned.  Otherwise, the character ranges are
+concatenated in the order given by CHARS to produce a set of
+character codes for which extents are returned.
+    </para>
+    <para>
+<!-- .sp -->
+If RANGE is False, then CHARS specifies the set of character
+codes for which extents are returned.  If CHARS is of
+zero length, then a zero-length list of extents is returned.
+    </para>
+    <para>
+<!-- .sp -->
+The extents for each character code in the resulting set (which
+may contain duplicates) are returned in the order in
+which the character codes appear in the set.
+At least one metric for each character shall be non-zero
+unless the character is not encoded in the font, in which case
+all-zero metrics are returned.
+A blank, zero-width character can be encoded
+with non-zero but equal left and right bearings.
+    </para>
+    <para>
+<!-- .sp -->
+If FONTID is not associated with any open fonts, a
+<function>Font</function>
+error is
+returned.  If RANGE is True and CHARS contains any invalid
+ranges, a
+<function>Range</function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "QueryXBitmaps8" "" "@DEF@" -->
+<function>QueryXBitmaps8</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+<emphasis remap='I'>range</emphasis>:  BOOL
+    </para>
+    <para>
+<emphasis remap='I'>chars</emphasis>:  STRING8
+    </para>
+    <para>
+<emphasis remap='I'>format</emphasis>:  BITMAPFORMAT
+    </para>
+</blockquote>
+<para>
+=&gt;+
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>replies-following-hint</emphasis>:  CARD32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>offsets</emphasis>:  LISTofOFFSET32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>bitmaps</emphasis>:  LISTofBYTE
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Range</function>,
+<function>Format</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request is equivalent to
+<function>QueryXBitmaps16 </function>
+except that it
+uses 1-byte character codes.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "QueryXBitmaps16" "" "@DEF@" -->
+<function>QueryXBitmaps16</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>range</emphasis>:  BOOL
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>chars</emphasis>:  LISTofCHAR2B
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>format</emphasis>:  BITMAPFORMAT
+    </para>
+</blockquote>
+<para>
+=&gt;+
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>replies-following-hint</emphasis>:  CARD32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>offsets</emphasis>:  LISTofOFFSET32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>bitmaps</emphasis>:  LISTofBYTE
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Range</function>,
+<function>Format</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request returns a list of glyph bitmaps from the open
+font associated with FONTID for the series of characters
+specified by RANGE and CHARS.
+    </para>
+    <para>
+<!-- .sp -->
+If RANGE is True, each succeeding pair of elements in CHARS is
+treated as a range of characters for which bitmaps should be
+returned.  If CHARS contains an odd number of elements, the
+font's XFONTINFO.CHAR-RANGE.MAX-CHAR is implicitly appended to
+the list.  If CHARS contains no elements, the list is
+implicitly replaced with the font's XFONTINFO.CHAR-RANGE.  If
+any of the resulting character ranges are invalid, a Range
+error is returned.  Otherwise, the character ranges are
+concatenated in the order given by CHARS to produce a set of
+character codes for which bitmaps are returned.
+    </para>
+    <para>
+<!-- .sp -->
+If RANGE is False, then CHARS specifies the set of character
+codes for which bitmaps are returned.  If CHARS is of zero
+length, then a single reply containing a zero-length list of
+offsets and bitmaps is returned.
+    </para>
+    <para>
+<!-- .sp -->
+If any of the resulting character ranges are invalid, a Range
+error is returned.  Otherwise, the resulting character ranges
+are concatenated in the order given by CHARS to produce a set
+of character codes for which bitmaps are returned.
+    </para>
+    <para>
+<!-- .sp -->
+The server is free to return the glyph bitmaps in multiple
+replies to reduce the amount of buffering that is necessary.
+In this situation, the set of characters obtained above is
+partitioned into an implementation-dependent number of
+ordered, non-overlapping subsets containing runs of one or
+more consecutive characters.  The global ordering of
+characters must be maintained such that concatenating the
+subsets in order that they were produced yields the original
+set.  A reply is generated for each subset, in the order that
+it was produced.
+    </para>
+    <para>
+<!-- .sp -->
+For each character in a subset, an image of that character's
+glyph is described by a rectangle of bits corresponding to the
+pixels specified by FORMAT.IMAGE-RECT.  Within the image, set
+and clear bits represent inked and non-inked pixels,
+respectively.
+    </para>
+    <para>
+<!-- .sp -->
+Each scanline of a glyph image, from top to bottom, is zero-padded
+on the right to a multiple of the number of bits specified by
+FORMAT.SCANLINE-PAD.  The scanline is then divided from left
+to right into a sequence of FORMAT.SCANLINE-UNIT bits.  The
+bits of each unit are then arranged such that the left-most
+pixel is stored in the most- or least-significant bit,
+according to FORMAT.BIT-ORDER-MSB.  The bytes of each unit are
+then arranged such that the most- or least-significant byte,
+according to FORMAT.BYTE-ORDER-MSB, is transmitted first.
+Finally, the units are arranged such that the left-most is
+transmitted first and the right-most is transmitted last.
+    </para>
+    <para>
+<!-- .sp -->
+The individual images within a subset are then concatenated in
+a server-dependent order to form the BITMAPS data of the
+reply.  If a glyph image is duplicated within a reply, the
+server is free to return fewer (but at least one) copies of
+the image.  If a character is not encoded within the font, a
+zero-length bitmap is substituted for this character.  Each
+glyph image must begin at a bit position that is a multiple of
+the FORMAT.SCANLINE-UNIT.
+    </para>
+    <para>
+<!-- .sp -->
+The OFFSETS array in a reply contains one entry for each
+character in the subset being returned, in the order that the
+characters appear in the subset.  Each entry specifies the
+starting location in bytes and size in bytes of the
+corresponding glyph image in the BITMAPS data of that reply
+(i.e. an offset may not refer to data in another reply).
+    </para>
+    <para>
+<!-- .sp -->
+The REPLIES-FOLLOWING-HINT field in all but the last reply
+contains a positive value that specifies the number of replies
+that are likely, but not required, to follow.  In the last
+reply, which may contain data for zero or more characters,
+this field is set to zero.
+    </para>
+    <para>
+<!-- .sp -->
+If FONTID is not associated with any open fonts, a Font error
+is returned.  If RANGE is True and CHARS contains any invalid
+ranges, a Range error is returned.  If FORMAT is invalid, a
+Format error is returned.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "CloseFont" "" "@DEF@" -->
+<function>CloseFont</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID
+    </para>
+    <para>
+Errors:
+<function>Font</function>,
+<function>Alloc</function>
+    </para>
+    <para>
+This request indicates that the specified FONTID should no
+longer be associated with an open font.  The server is free to
+release any client-specific storage or licenses allocated for
+the font.  The client may reuse the value of FONTID in a
+subsequent
+<function>OpenBitmapFont </function>
+request.
+    </para>
+    <para>
+<!-- .sp -->
+If FONTID is not associated with any open fonts, a
+<function> Font </function>
+error is returned.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<function>"close connection"</function>
+<!-- .IN "close connection" "" "@DEF@" -->
+</para>
+
+<blockquote>
+    <para>
+When a connection is closed, a
+<function>CloseFont </function>
+is done on all fonts
+that are open on the connection.  In addition, the server is
+free to release any storage or licenses allocated on behalf of
+the client that made the connection.
+    </para>
+</blockquote>
+</sect2>
+
+<sect2 id="errors">
+<title>Errors</title>
+<!-- .XS -->
+<!-- (SN Errors -->
+<!-- .XE -->
+<para>
+All errors are at least 16 bytes long and contain the following fields:
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>type</emphasis>:  CARD8  value of 1
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>error-code</emphasis>:  CARD8
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>sequence-number</emphasis>:  CARD16
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>length</emphasis>:  CARD32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>timestamp</emphasis>:  TIMESTAMP
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>major-opcode</emphasis>:  CARD8
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>minor-opcode</emphasis>:  CARD8
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+The TYPE field has a value of one.  The ERROR-CODE field specifies which error
+occurred.  Core errors codes are in the range 0 through 127, extension error
+codes are in the range 128 through 255.  The SEQUENCE-NUMBER field contains the
+least significant 16 bits of the sequence number of the request that caused the
+error.  The LENGTH field specifies the length of the error packet in 4-byte
+units and must have a value of at least 4.  The TIMESTAMP specifies the server
+time when the error occurred.  The MAJOR-OPCODE and MINOR-OPCODE (zero for core
+requests) fields specify the type of request that generated the error.  The
+DATA-OR-UNUSED field may be used for 16 bits of error-specific information.  If
+LENGTH is greater than four, these fields are followed by (LENGTH - 4) * 4
+bytes of extra data.
+</para>
+<para>
+<!-- .LP -->
+The following errors are defined for the core protocol:
+</para>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Request" "@DEF@" -->
+<function>Request</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+This error is generated by any request that has an unknown
+combination of major and minor request numbers, or by any
+extension request that is issued before a
+<function>QueryExtension </function>
+of that extension.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Format" "@DEF@" -->
+<function>Format</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>format</emphasis>:  BITMAPFORMAT     bad format value
+    </para>
+    <para>
+This error is generated by the use of an invalid BITMAPFORMAT
+in the
+<function>OpenBitmapFont</function>,
+<function>QueryXBitmaps8</function>, and
+<function>QueryXBitmaps16</function>
+requests.
+The value that caused the error is included as extra data.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Font" "@DEF@" -->
+<function>Font</function>
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>fontid</emphasis>:  FONTID     bad font identifier
+    </para>
+    <para>
+This error is generated by an invalid FONTID in the
+<function>QueryXInfo</function>,
+<function>QueryXExtents8</function>,
+<function>QueryXExtents16</function>,
+<function>QueryXBitmaps8</function>,
+<function>QueryXBitmaps16</function>
+and
+<function>CloseFont </function>
+requests.  The value that caused
+the error is included as extra data.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Range" "@DEF@" -->
+<function>Range</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>range</emphasis>:  RANGE     bad range
+    </para>
+    <para>
+This error is generated by an invalid RANGE in the
+<function> QueryXExtents8</function>,
+<function>QueryXExtents16</function>,
+<function>QueryXBitmaps8</function>
+and
+<function>QueryXBitmaps16 </function>
+requests.  The
+value that caused the error is included as extra data.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "EventMask" "@DEF@" -->
+<function>EventMask</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>event-mask</emphasis>:  EVENTMASK     bad event mask
+    </para>
+    <para>
+This error is generated by an invalid EVENTMASK in the
+<function>SetEventMask </function>
+request.  The value that caused the error is
+included as extra data.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "AccessContext" "@DEF@" -->
+<function>AccessContext</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>ac</emphasis>:  ACCESSCONTEXT     unaccepted
+<function>AccessContext</function>
+    </para>
+    <para>
+This error is generated by an invalid ACCESSCONTEXT in the
+<function>FreeAC </function>
+or
+<function>SetAuthorization </function>
+request or by an
+<function>OpenBitmapFont</function>
+request performed without sufficient authorization.  In the
+first two cases, the ACCESSCONTEXT of the errant request is
+returned as extra data.  In the third case, the current
+ACCESSCONTEXT is returned as extra data.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "IDChoice" "@DEF@" -->
+<function>IDChoice</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>id</emphasis>:  ID     bad identifier
+    </para>
+    <para>
+This error is generated by an invalid or already associated
+ACCESSCONTEXT identifier in a
+<function>CreateAC </function>
+request or FONTID identifier
+in an
+<function>OpenBitmapFont </function>
+request.  The value that caused the error
+is included as extra data.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Name" "@DEF@" -->
+<function>Name</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+This error is generated by a font name pattern that matches
+no fonts in an
+<function>OpenBitmapFont </function>
+request or no catalogue names in a
+<function>SetCatalogues </function>
+request.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Resolution" "@DEF@" -->
+<function>Resolution</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     X value of errant resolution
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>y-resolution</emphasis>:  CARD16          Y value of errant resolution
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>point-size</emphasis>:  CARD16          point size of errant resolution
+    </para>
+    <para>
+This error is generated in response to an invalid RESOLUTION
+structure in a
+<function>SetResolution </function>
+request.  The value that caused the
+error is included in the DATA-OR-UNUSED field and as extra data.
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP      -->
+<!-- .IN "Error Codes" "Alloc" "@DEF@" -->
+<function>Alloc</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+This error is generated by any request for which the server
+lacks sufficient resources (especially memory).
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Length" "@DEF@" -->
+<function>Length</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+<emphasis remap='I'>length</emphasis>:  CARD32     bad length value
+    </para>
+    <para>
+This error is generated by any request that has a length field
+greater than (MAXIMUM-REQUEST-LENGTH * 4) bytes.  The value that
+caused the error is included as extra data.
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+<!-- .IN "Error Codes" "Implementation" "@DEF@" -->
+<function>Implementation</function>
+</para>
+
+<blockquote>
+    <para>
+<emphasis remap='I'>data-or-unused</emphasis>:  CARD16     unused
+    </para>
+    <para>
+This error may be generated in response to any request that
+the server is unable to process because it is deficient.  Use
+of this error is highly discouraged and indicates lack of
+conformance to the protocol.
+<!-- .sp -->
+Additional errors may be defined by extensions.
+    </para>
+</blockquote>
+</sect2>
+
+<sect2 id="events">
+<title>Events</title>
+<!-- .XS -->
+<!-- (SN Events -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Events may be generated in response to requests or at the server's discretion
+after the initial connection setup information has been exchanged.  Each event
+is at least 12 bytes long and contains the following fields:
+</para>
+<blockquote>
+    <para>
+<!-- .TA .75i .75i .75i .75i -->
+<emphasis remap='I'>type</emphasis>:  CARD8     value of 2
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>event-code</emphasis>:  CARD8
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>sequence-number</emphasis>:  CARD16
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>length</emphasis>:  CARD32
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>timestamp</emphasis>:  TIMESTAMP
+    </para>
+</blockquote>
+<para>
+<!-- .LP -->
+The TYPE field contains the value 2.  The EVENT-CODE field specifies the number
+of the event and is in the range 0-127 for core events or the range 128-255 for
+extensions.  The SEQUENCE-NUMBER field specifies the least significant 16 bits
+of the sequence number of the last request to have been processed by the
+server.  The LENGTH field specifies the number of 4-byte units in this event
+packet and must always have a value of at least 3.  The TIMESTAMP field
+specifies the server time when the event occurred.  If LENGTH is greater than
+three, these fields are followed by (LENGTH - 3) * 4 bytes of additional data.
+</para>
+<para>
+<!-- .LP -->
+Events are described using the following syntax:
+</para>
+<literallayout class="monospaced">
+<function>EventName</function>
+         <emphasis remap='I'>arg1</emphasis>: type1
+         ...
+         <emphasis remap='I'>argN</emphasis>: typeN
+
+          Description
+</literallayout>
+
+<para>
+If an event does not provide any extra arguments, the
+<emphasis remap='I'>arg1</emphasis>...<emphasis remap='I'>argN</emphasis>
+lines are omitted from the description.
+</para>
+<para>
+<!-- .LP -->
+The core X Font Service protocol defines the following events:
+</para>
+<para>
+<!-- .LP -->
+<!-- .IN "KeepAlive" "" "@DEF@" -->
+<function>KeepAlive</function>
+</para>
+<blockquote>
+    <para>
+This unsolicited, nonmaskable event may be sent by the
+server to verify that the connection has not been broken
+(for transports that do not provide this information).
+Clients should acknowledge receipt of this request
+by sending any request (such as
+<function>NoOp</function>
+ ")."
+    </para>
+</blockquote>
+
+<para>
+<!-- .LP -->
+<!-- .IN "CatalogueListNotify" "" "@DEF@" -->
+<function>CatalogueListNotify</function>
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>added</emphasis>:  BOOL
+    </para>
+    <para>
+<emphasis remap='I'>deleted</emphasis>:  BOOL
+    </para>
+    <para>
+This event is sent to clients that have included
+<function>CatalogueListChangeMask </function>
+in their core event mask
+whenever the list of catalogues that are available has
+changed.  The ADDED field is True if new catalogues have
+been added to the server, otherwise it is False.  The
+DELETED field is True if any existing catalogues have
+been removed from the server, otherwise it is False.
+    </para>
+</blockquote>
+<para>
+<!-- .LP      -->
+<!-- .IN "FontListNotify" "" "@DEF@" -->
+<function>FontListNotify</function>
+</para>
+<blockquote>
+    <para>
+<emphasis remap='I'>added</emphasis>:  BOOL
+    </para>
+    <para>
+<!-- .br -->
+<emphasis remap='I'>deleted</emphasis>:  BOOL
+    </para>
+    <para>
+This event is sent to clients that have included
+<function>FontListChangeMask </function>
+in their event mask whenever the
+list of fonts that are provided by the currently selected
+catalogues has changed.  The ADDED field is True if new
+fonts have been added to any of the catalogues currently
+used by the client, otherwise it is False.  The DELETED
+field is True if any existing fonts have been removed
+from any of catalogues used by the client, otherwise it
+is False.
+    </para>
+    <para>
+<!-- .sp -->
+Additional events may be defined by extensions.
+    </para>
+</blockquote>
+</sect2>
+</sect1>
+
+<sect1 id="protocol_encoding">
+<title>Protocol Encoding</title>
+<!-- .XS -->
+<!-- (SN Protocol Encoding -->
+<!-- .XE -->
+<para>
+<!-- .LP -->
+Numbers that are prefixed with "#x" are in hexadecimal (base 16).  All other
+numbers are in decimal.  Requests, replies, errors, events, and compound types
+are described using the syntax:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+
+    Name
+     <emphasis remap='I'>count</emphasis>          <emphasis remap='I'>contents</emphasis>     <emphasis remap='I'>name</emphasis>
+     ...
+     <emphasis remap='I'>count</emphasis>          <emphasis remap='I'>contents</emphasis>     <emphasis remap='I'>name</emphasis>
+</literallayout>
+
+<!-- .RE -->
+<para>
+where COUNT is the number of bytes in the data stream occupied by this
+field, CONTENTS is the name of the type as given in Section 4 or the value if
+this field contains a constant, and NAME is a description of this field.
+</para>
+<para>
+<!-- .LP -->
+Objects containing counted lists use a lowercase single-letter variable (whose
+scope is limited to the request, reply, event, or error in which it is found)
+to represent the number of objects in the list.  These variables, and any
+expressions in which they are used, should be treated as unsigned integers.
+Multiple copies of an object are indicated by CONTENTS prefix "LISTof".
+</para>
+<para>
+<!-- .LP -->
+Unused bytes (whose value is undefined) will have a blank CONTENTS field and a
+NAME field of "unused".  Zeroed bytes (whose value must be zero) will have a
+blank CONTENTS field and a NAME field of "zero".  The expression pad(e)
+refers to the number of bytes needed to round a value "e" up to the closed
+multiple of four:
+</para>
+<!-- .RS -->
+<literallayout class="monospaced">
+
+     pad(e) = (4 - (e mod 4)) mod 4
+</literallayout>
+
+<sect2 id="data_types_2">
+<title>Data Types</title>
+<!-- .XS -->
+<!-- (SN Data Types -->
+<!-- .XE -->
+<!-- .sp 6p -->
+<literallayout class="monospaced">
+ACCESSCONTEXT
+
+4 CARD32 access context with at least one of the following bits set:
+
+#x1fffffff
+
+but none of the following bits set:
+
+#xe0000000               zero
+
+
+ALTERNATESERVER
+1     BOOL               subset
+1     n                  length of name
+n     STRING8            name
+p                        unused, p=pad(n+2)
+
+AUTH
+
+2     n                  length of name
+2     d                  length of data
+n     STRING8            name
+p                        unused, p=pad(n)
+d     STRING8            data
+q                        unused, q=pad(d)
+
+
+BITMAPFORMAT
+
+4 CARD32 value, union of the following bits:
+     #x00000001           ByteOrderMSB
+     #x00000002           BitOrderMSB
+     #x00000000           ImageRectMin
+     #x00000004           ImageRectMaxWidth
+     #x00000008           ImageRectMax
+     #x00000000           ScanlinePad8
+     #x00000100           ScanlinePad16
+     #x00000200           ScanlinePad32
+     #x00000300           ScanlinePad64
+     #x00000000           ScanlineUnit8
+     #x00001000           ScanlineUnit16
+     #x00002000           ScanlineUnit32
+     #x00003000           ScanlineUnit64
+
+except for the following bits which must be zero:
+
+     #xffffccf0           zero
+
+and the following of which at most one bit may be set:
+
+     #x0000000c at most one bit can be set
+
+
+BITMAPFORMATMASK
+
+4 CARD32 value, mask of the following bits:
+
+     #x00000001           ByteOrderMask
+     #x00000002           BitOrderMask
+     #x00000004           ImageRectMask
+     #x00000008           ScanlinePadMask
+     #x00000010           ScanlineUnitMask
+
+except for the following bits which must be zero:
+
+     #xffffffe0           zero
+
+BOOL
+
+1    BOOL       boolean, one of the following values:
+0    False
+1    True
+
+BYTE
+1    BYTE       unsigned byte of data
+
+CARD8
+1    CARD8       8-bit unsigned integer
+
+CARD16
+2    CARD16      16-bit unsigned integer
+
+CARD32
+4    CARD32      32-bit unsigned integer
+
+CHAR2B
+1    CARD8       byte1
+1    CARD8       byte2
+
+EVENTMASK
+4    CARD32 event mask
+     for core events, this is union of the following bits:
+
+     #00000001   CatalogueListChangeMask
+     #00000002   FontListChangeMask
+
+but none of the following bits set:
+
+     #fffffffc
+
+extensions define their own sets of bits
+
+FONTID
+
+4 CARD32 font identifier with at least one of
+the following bits set:
+
+     #x1fffffff
+
+but none of the following bits set:
+
+     #xe0000000   zero
+
+INT8
+1    INT8         8-bit signed integer
+
+INT16
+2    INT16         16-bit signed integer
+
+INT32
+4    INT32         32-bit signed integer
+
+OFFSET32
+4    CARD32         position (or integer value)
+4    CARD32         length
+
+PROPINFO
+4    n                 number of PROPOFFSET components
+4    m                 number of bytes of property data
+20*n PROPOFFSET         property offsets into data block
+m    LISTofBYTE         property data block
+
+PROPOFFSET
+8    OFFSET32         name in data block
+8    OFFSET32         value in data block
+
+1 CARD8 type, one of the following values:
+0    String
+1    Unsigned
+2    Signed
+3    zero
+
+RANGE
+2    CHAR2B                 minimum character code
+2    CHAR2B         maximum character code
+
+RESOLUTION
+2    CARD16 x resolution in pixels per inch
+2    CARD16 y resolution in pixels per inch
+2    CARD16 point size in decipoints
+
+STRNAME
+1    n length of name
+n    STRING8 name
+
+STRING8
+n    LISTofBYTE         array of 8-bit character values
+
+TIMESTAMP
+4    CARD32         milliseconds since server time origin
+
+XCHARINFO
+2    INT16         left bearing
+2    INT16         right bearing
+2    INT16         width
+2    INT16         ascent
+2    INT16         descent
+2    CARD16         attributes
+
+XFONTINFO
+4 CARD32 flags, union of the following bits:
+     #x00000001         AllCharactersExist
+     #x00000002         InkInside
+     #x00000004         HorizontalOverlap
+
+but none of the following bits set:
+
+     #xfffffff8         zero
+4    RANGE              range of characters in font
+1    CARD8              drawing direction
+     0             LeftToRight
+     1             RightToLeft
+1                       unused
+2    CHAR2B             default character
+12   XCHARINFO          minimum bounds
+12   XCHARINFO          maximum bounds
+2    INT16              font ascent
+2    INT16              font descent
+n    PROPINFO           property data
+</literallayout>
+</sect2>
+
+<sect2 id="requests_2">
+<title>Requests</title>
+<para><emphasis role="bold">open connection</emphasis></para>
+<literallayout class="monospaced">
+1     BYTE                   byteorder, one of the values:
+      #x42                   MostSignificant Byte first
+      #x6c                   LeastSignificant Byte first
+1     CARD8                  numberof auth in auth-data
+2     2                      client-major-protocol-version
+2     0                      client-minor-protocol-version
+2     a/4 lengthof           auth-data
+a     LISTofAUTH             auth-data
+=>
+2     CARD16                 status
+0                            Success
+1                            Continue
+2                            Busy
+3                            Denied
+2     2                      major version
+2     0                      version
+1     CARD8                  numberof alternate-servers-hint
+1     CARD8                  authorization-index
+2     a/4                    lengthof alternate-servers-hint
+2     (d+q)/4                lengthof authorization-data
+a     LISTofALTERNATESERVER  alternate-servers-hint
+d     LISTofBYTE             authorization-data
+q                            unused, q=pad(d)
+</literallayout>
+
+<para>
+If STATUS is Busy or Denied, the protocol stops and the connection is
+closed. If STATUS is Continue, the client is expected to respond with
+additional data, to which the server responds with
+a new status value and more data. This dialog continues until the status
+is set to Success, or until the server sets STATUS to Busy or Denied
+and closes the connection:
+</para>
+
+<literallayout class="monospaced">
+->
+4     1+(d+q)/4              length
+d     LISTofBYTE             more-authorization-data
+q                            unused, q=pad(d)
+=>
+4     2+(d+q)/4              length
+2     CARD16                 status
+        0                    Success
+      1                      Continue
+      2                      Busy
+      3                      Denied
+      2                      unused
+d     LISTofBYTE             more-authorization-data
+q                            unused, q=pad(d)
+</literallayout>
+<para>
+When STATUS is Success, the protocol resumes with the following
+sent by the server:
+</para>
+
+<literallayout class="monospaced">
+4     3+(v+w)/4              length of rest of data
+2     CARD16                 maximum-request-length
+2     v                      length of vendor string
+4     CARD32                 release-number
+v     STRING8                vendor-string
+w                            unused, w=pad(v)
+</literallayout>
+<para>
+Once the connection has been established, the client may send the
+following requests:
+</para>
+
+<literallayout class="monospaced">
+<emphasis role="bold">NoOp</emphasis>
+1   0                        major-opcode
+1                            unused
+2   1                        length
+
+<emphasis role="bold">ListExtensions</emphasis>
+1   1                        major-opcode
+1                            unused
+2   1                        length
+=>
+1   0                        type reply
+1   CARD8                    numberof names
+2   CARD16                   sequence-number
+4   2+(n+p)/4                length
+n   LISTofSTRNAME            names
+p                            unused, p=pad(n)
+
+<emphasis role="bold">QueryExtension</emphasis>
+1   2                        major-opcode
+1   n                        length of name
+2   1+(n+p)/4                length
+n   STRING8                  name
+p                            unused, p=pad(n)
+=>
+1   0                        type reply
+1   BOOL                     present
+2   CARD16                   sequence-number
+4   5                        length
+2   CARD16                   major-version
+2   CARD16                   minor-version
+1   CARD8                    major-opcode
+1   CARD8                    first-event
+1   CARD8                    number-events
+1   CARD8                    first-error
+1   CARD8                    number-errors
+3                            unused
+
+<emphasis role="bold">ListCatalogues</emphasis>
+1   3                        major-opcode
+1                            unused
+2   3+(n+p)/4                length
+4   CARD32                   max-names
+2   n                        length of pattern
+2                            unused
+n   STRING8                  pattern
+p                            unused, p=pad(n)
+=>+
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   4+(n+p)/4                length
+4   CARD32                   replies-following-hint
+4   CARD32                   numberof catalogue-names
+n   LISTofSTRNAME            catalogue-names
+p                            unused, p=pad(n)
+
+<emphasis role="bold">SetCatalogues</emphasis>
+1   4                        major-opcode
+1   CARD8                    numberof catalogue-names
+2   1+(n+p)/4                length
+n   LISTofSTRNAME            catalogue-names
+p                            unused, p=pad(n)
+
+<emphasis role="bold">GetCatalogues</emphasis>
+1   5                        major-opcode
+1                            unused
+2   1                        length
+=>
+1   0                        type reply
+1   CARD8                    numberof catalogue-names
+2   CARD16                   sequence-number
+4   2+(n+p)/4                length
+n   LISTofSTRNAME            catalogue-names
+p                            unused, p=pad(n)
+
+<emphasis role="bold">SetEventMask</emphasis>
+1   6                        major-opcode
+1   CARD8                    extension-opcode
+2   2                        length
+4   EVENTMASK                event-mask
+
+<emphasis role="bold">GetEventMask</emphasis>
+1   7                        major-opcode
+1   CARD8                    extension-opcode
+2   1                        length
+=>
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   3                        length
+4   EVENTMASK                event-mask
+
+<emphasis role="bold">CreateAC</emphasis>
+1   8                        major-opcode
+1   CARD8                    numberof authorization-protocols
+2   2+a/4                    length
+4   ACCESSCONTEXT            ac
+a   LISTofAUTH               authorization-protocols
+=>
+1   0                        type reply
+1   CARD8                    authorization-index
+2   CARD16                   sequence-number
+4   3+(d+q)/4                length
+2   CARD16                   status
+    0 Success
+    1 Continue
+    2 Busy
+    3 Denied
+2                            unused
+d   LISTofBYTE               authorization-data
+q                            unused, q=pad(d)
+</literallayout>
+
+<para>
+If STATUS is Continue, the client is expected to respond with additional
+data, to which the server
+responds with a new status value and more data. This dialog continues
+until the status is set to
+Success, Busy, or Denied at which point the request is finished.
+</para>
+
+<literallayout class="monospaced">
+->
+4   1+(d+q)/4                length
+d   LISTofBYTE               more-authorization-data
+q                            unused, q=pad(d)
+=>
+4   2+(d+q)/4                length
+2   CARD16                   status
+    0 Success
+    1 Continue
+    2 Busy
+    3 Denied
+2                            unused
+d   LISTofBYTE               authorization-data
+q                            unused, q=pad(d)
+
+<emphasis role="bold">FreeAC</emphasis>
+1   9                        major-opcode
+1                            unused
+2   2                        length
+4   ACCESSCONTEXT            ac
+
+<emphasis role="bold">SetAuthorization</emphasis>
+1   10                       major-opcode
+1                            unused
+2   2                        length
+4   ACCESSCONTEXT            ac
+
+<emphasis role="bold">SetResolution</emphasis>
+1   11                       major-opcode
+1   n                        number of resolutions
+2   1+(6*n+p)/4              length
+6*n LISTofRESOLUTION         resolutions
+p   p=pad(6*n)
+
+<emphasis role="bold">GetResolution</emphasis>
+1   12                       major-opcode
+1                            unused
+2   1                        length
+=>
+1   0                        type reply
+1   n                        number of resolutions
+2   CARD16                   sequence-number
+4   2+(6*n+p)/4              length
+6*n LISTofRESOLUTION         resolutions
+p   p=pad(6*n)
+
+<emphasis role="bold">ListFonts</emphasis>
+1   13                       major-opcode
+1                            unused
+2   3+(n+p)/4                length
+4   CARD32                   max-names
+2   n                        length of pattern
+2                            unused
+n   STRING8                  pattern
+p                            unused, p=pad(n)
+=>+
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   4+(n+p)/4                length
+4   CARD32                   replies-following-hint
+4   CARD32                   numberof font-names
+n   LISTofSTRNAME            font-names
+p                            unused, p=pad(n)
+
+<emphasis role="bold">ListFontsWithXInfo</emphasis>
+1   14                       major-opcode
+1                            unused
+2   3+(n+p)/4                length
+4   CARD32                   max-names
+2   n                        length of pattern
+2                            unused
+n   STRING8                  pattern
+p                            unused, p=pad(n)
+=>+(except for last in series)
+1   0                        type reply
+1   n                        length of name
+2   CARD16                   sequence-number
+4   3+(n+p+f)/4              length
+4   CARD32                   replies-hint
+f   XFONTINFO                fontinfo
+n   STRING8                  name
+p                            unused, p=pad(n)
+=>(last in series)
+1   0                        type reply
+1   0                        last-reply indicator
+2   CARD16                   sequence-number
+4   2                        reply length
+
+<emphasis role="bold">OpenBitmapFont</emphasis>
+1   15                       major-opcode
+1                            unused
+2   4+(n+p)/4                length
+4   FONTID                   fontid
+4   BITMAPFORMATMASK         format-mask
+4   BITMAPFORMAT             format
+n   STRNAME                  pattern
+p                            unused, p=pad(n)
+=>
+1   0                        type reply
+1   BOOL                     otherid-valid
+2   CARD16                   sequence-number
+4   4                        length
+4   FONTID                   otherid
+1   BOOL                     cachable
+3                            unused
+
+<emphasis role="bold">QueryXInfo</emphasis>
+1   16                       major-opcode
+1                            unused
+2   2                        length
+4   FONTID                   fontid
+=>
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   2+f/4                    length
+f   XFONTINFO                fontinfo
+p                            unused, p=pad(f)
+
+<emphasis role="bold">QueryXExtents8</emphasis>
+1   17                       major-opcode
+1   BOOL                     range
+2   3+(n+p)/4                length
+4   FONTID                   fontid
+4   n                        number chars entries
+n   STRING8                  chars
+p                            unused, p=pad(n)
+=>
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   3+3*n                    length
+4   n                        number of extents
+12*n LISTofXCHARINFO         extents
+
+<emphasis role="bold">QueryXExtents16</emphasis>
+1   18                       major-opcode
+1   BOOL                     range
+2   3+(2*n+p)/4              length
+4   FONTID                   fontid
+4   n                        number chars entries
+2*n                          LISTofCHAR2B chars
+p                            unused, p=pad(2*n)
+=>
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   3+3*n                    length
+4   n                        number of extents
+12*n LISTofXCHARINFO         extents
+
+<emphasis role="bold">QueryXBitmaps8</emphasis>
+1   19                       major-opcode
+1   BOOL                     range
+2   4+(n+p)/4                length
+4   FONTID                   fontid
+4   BITMAPFORMAT             format
+4   n                        number of chars entries
+n   STRING8                  chars
+p                            unused, p=pad(n)
+=>+
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   5+2*n+(m+p)/4            length
+4   CARD32                   replies-following-hint
+4   n                        number of offsets
+4   m                        number of bytes of glyph images
+8*n LISTofOFFSET32           offsets
+m   LISTofBYTE               glyphimages
+p                            unused, p=pad(m)
+
+<emphasis role="bold">QueryXBitmaps16</emphasis>
+1   20                       major-opcode
+1   BOOL                     range
+2   4+(2*n+p)/4              length
+4   FONTID                   fontid
+4   BITMAPFORMAT             format
+4   n                        number of chars entries
+2*n LISTofCHAR2B             chars
+p                            unused, p=pad(2*n)
+=>
+1   0                        type reply
+1                            unused
+2   CARD16                   sequence-number
+4   5+2*n+(m+p)/4            length
+4   CARD32                   replies-following-hint
+4   n                        number of offsets
+4   m                        number of bytes of glyph images
+8*n LISTofOFFSET32           offsets
+m   LISTofBYTE               glyphimages
+p                            unused, p=pad(m)
+
+<emphasis role="bold">CloseFont</emphasis>
+1   21                       major-opcode
+1                            unused
+2   2                        length
+4   FONTID                   fontid
+</literallayout>
+</sect2>
+
+<sect2 id="errors_2">
+<title>Errors</title>
+<literallayout class="monospaced">
+
+<emphasis role="bold">Request</emphasis>
+1   1                        type error
+1   0                        Request
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+
+<emphasis role="bold">Format</emphasis>
+1   1                        type error
+1   1                        Format
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   BITMAPFORMAT             bad-format
+
+<emphasis role="bold">Font</emphasis>
+1   1                        type error
+1   2                        Font
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   FONTID bad-fontid
+
+<emphasis role="bold">Range</emphasis>
+1   1                        type error
+1   3                        Range
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   RANGE                    bad-range
+
+<emphasis role="bold">EventMask</emphasis>
+1   1                        type error
+1   4                        EventMask
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   EVENTMASK                event-mask
+
+<emphasis role="bold">AccessContext</emphasis>
+1   1                        type error
+1   5                        AccessContext
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   ACCESSCONTEXT            access context
+
+<emphasis role="bold">IDChoice</emphasis>
+1   1                        type error
+1   6                        IDChoice
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   FONTID                   bad-fontid
+
+<emphasis role="bold">Name</emphasis>
+1   1                        type error
+1   7                        Name
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+
+<emphasis role="bold">Resolution</emphasis>
+1   1                        type error
+1   8                        Resolution
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+6   RESOLUTION               resolution
+
+<emphasis role="bold">Alloc</emphasis>
+1   1                        type error
+1   9                        Alloc
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+
+<emphasis role="bold">Length</emphasis>
+1   1                        type error
+1   10                       Length
+2   CARD16                   sequence-number
+4   5                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+4   CARD32                   bad-length
+
+<emphasis role="bold">Implementation</emphasis>
+1   1                        type error
+1   11                       Implementation
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   CARD8                    major-opcode
+1   CARD8                    minor-opcode
+2                            unused
+
+</literallayout>
+</sect2>
+
+<sect2 id="events_2">
+<title>Events</title>
+<literallayout class="monospaced">
+<emphasis role="bold">KeepAlive</emphasis>
+1   2                        type event
+1   0                        event KeepAlive
+2   CARD16                   sequence-number
+4   3                        length
+4   TIMESTAMP                timestamp
+
+<emphasis role="bold">CatalogueListNotify</emphasis>
+1   2                        type event
+1   1                        event CatalogueListNotify
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   BOOL                     added
+1   BOOL                     deleted
+2                            unused
+
+<emphasis role="bold">FontListNotify</emphasis>
+1   2                        type event
+1   2                        event FontListNotify
+2   CARD16                   sequence-number
+4   4                        length
+4   TIMESTAMP                timestamp
+1   BOOL                     added
+1   BOOL                     deleted
+2                            unused
+
+</literallayout>
+</sect2>
+</sect1>
+
+<sect1 id="acknowledgements">
+<title>Acknowledgements</title>
+<!-- .XS -->
+<!-- (SN Acknowledgements -->
+<!-- .XE -->
+<para>
+This document represents the culmination of several years of debate and
+experiments done under the auspices of the MIT X Consortium font working group.
+Although this was a group effort, the author remains responsible for any errors
+or omissions.  The protocol presented here was primarily designed by Jim
+Fulton, Keith Packard, and Bob Scheifler.  Special thanks goes to Ned
+Batchelder, Jim Flowers, and Axel Deininger for their invigorating comments
+which never failed to make this a better document.
+Stephen Gildea edited version 2 of this document.
+Finally, David Lemke
+deserves great credit for designing and coding the sample implementation.
+</para>
+</sect1>
+
+<bibliography>
+<title>References</title>
+<para>
+All of the following documents are X Consortium standards available from
+the X Consortium.
+</para>
+<biblioentry>
+  <title>X Window System Protocol Version 11</title>
+  <author><firstname>Robert W.</firstname><surname>Scheifler</surname></author>
+</biblioentry>
+
+<biblioentry>
+  <title>Adobe System - Bitmap Distribution Format 2.1</title>
+</biblioentry>
+
+<biblioentry>
+  <title>X Consortium.  X Logical Font Description Conventions, Version 1.5</title>
+</biblioentry>
+
+</bibliography>
+</chapter>
+
+<appendix id="suggested_licensing_policies">
+<title>Suggested Licensing Policies</title>
+<para>
+The authorization data passed by the client in the initial connection
+setup information may be used by the font server to implement restrictions
+on which fonts may be accessed.  Furthermore, the font server is free to
+refuse new connections at any time.
+</para>
+<para>
+Configuration or management of the license restrictions is outside the scope of
+the font service protocol and is done in a server-dependent manner.  Possible
+policies might include, but are not limited to, combinations of the following:
+</para>
+
+<itemizedlist>
+  <listitem>
+    <para>
+No restrictions - anyone may access any fonts.  The server neither
+refuses any connections nor generates AccessContext errors on any
+fonts.  For environments without specially-licensed fonts, this is
+sufficient.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Per-machine - only those clients connecting from a known set of
+machines are permitted access.  The server could get the address
+of the connection and look in a list of allowed machines.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Per-user - only a known set of users may access the fonts.  The
+server can use the authorization data (such as a Kerberos ticket
+or a Secure RPC credential) to verify the identity of the user
+and then look in a list of allowed users.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Simultaneous Use - only a certain number of clients may use a given
+font at any one time.  Additional clients would receive AccessContext
+errors if they attempt to open the font.  This is only effective if
+the initial clients keep the font open for the entire time that it
+is being used (even if all of the data has been transmitted and is
+being cached).
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+Postage Meter - a particular font may only be accessed a limited
+number of times before its license must be renewed.  Each time
+the font is opened, the server decrements a counter.  When the
+counter reaches zero, all further attempts to open the font
+return an AccessContext error.
+    </para>
+  </listitem>
+</itemizedlist>
+
+<para>
+It should be noted that chaining of font servers (obtaining font data from
+other font servers) may conflict with certain license policies.
+</para>
+</appendix>
+
+<appendix id="implementation_suggestions">
+<title>Implementation Suggestions</title>
+<para>
+<!-- .LP -->
+Font server implementations will probably wish to use techniques such as the
+following to avoid limits on the number of simultaneous connections:
+</para>
+<itemizedlist>
+  <listitem>
+    <para>
+The initial connection information returned by the font
+server contains the names of other font servers that
+may be used as substitutes.  A font server may refuse to
+accept a connection, indicating that the client should
+try one of the alternatives instead.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+On operating systems that support processing forking, font
+servers might choose to fork so that the child can continue
+processing the existing connections and the parent can accept
+new connections.  Such implementations are encouraged to use
+shared memory so that in-memory font databases can be shared.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+On operating systems that support passing stream file descriptors
+between processes, cooperating font servers could collect
+connections in a single process when there are few connections
+and spread them among several processes as the load increases.
+    </para>
+  </listitem>
+  <listitem>
+    <para>
+If a font client is unable to connect to a server (as opposed
+to having the connection terminated), it should retry for an
+implementation-dependent length of time (see Xlib's
+handling of ECONNREFUSED in XConnDis.c).
+    </para>
+  </listitem>
+</itemizedlist>
+</appendix>
+</book>

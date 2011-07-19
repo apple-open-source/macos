@@ -129,6 +129,8 @@ public:
 	UInt32		GetActiveCount		( void );
 
 	sTableData*	GetPlugInInfo		( UInt32 inIndex );
+	
+	void		RegisterPlugins		(void);
 
 CServerPlugin*	Next				( UInt32 *inIndex );
 

@@ -5,11 +5,10 @@ exec tclsh "$0" ${1+"$@"}
 package require Tcl 8.4
 package require Tk
 
-source ../../modules/plotchart/plotchart.tcl
-package require Plotchart 1.5
+package require Plotchart
 
-#
-# Show a 3D bar chart
+# plotdemos4.tcl --
+#     Show a 3D bar chart
 #
 
 canvas .c  -width 400 -height 400 -bg white

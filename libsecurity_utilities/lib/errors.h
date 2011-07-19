@@ -28,8 +28,9 @@
 #ifndef _H_UTILITIES_ERROR
 #define _H_UTILITIES_ERROR
 
-#include <security_utilities/utilities.h>
 #include <exception>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
+#include <errno.h>
 
 #undef check
 

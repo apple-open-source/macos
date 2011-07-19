@@ -76,7 +76,7 @@ static char *rcsid = "$Id: pmap_clnt.c,v 1.5 2004/12/19 22:45:44 zarzycki Exp $"
 
 #include "pmap_wakeup.h"
 
-__private_extern__ CLIENT *clntudp_bufcreate_timeout(struct sockaddr_in *raddr, uint32_t program, uint32_t version, int *sockp, uint32_t sendsz, uint32_t recvsz, struct timeval *timeout, struct timeval *totaltimeout);
+extern CLIENT *clntudp_bufcreate_timeout(struct sockaddr_in *raddr, uint32_t program, uint32_t version, int *sockp, uint32_t sendsz, uint32_t recvsz, struct timeval *timeout, struct timeval *totaltimeout);
 
 static struct timeval set_retry_timeout = { 5, 0 };
 static struct timeval set_total_timeout = { 60, 0 };

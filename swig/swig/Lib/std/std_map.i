@@ -17,11 +17,8 @@
   void erase(iterator first, iterator last);
 
   iterator find(const key_type& x);
-  const_iterator find(const key_type& x) const;
   iterator lower_bound(const key_type& x);
-  const_iterator lower_bound(const key_type& x) const;
   iterator upper_bound(const key_type& x);
-  const_iterator upper_bound(const key_type& x) const;
 #endif
 %enddef
 
@@ -113,6 +110,8 @@ namespace std {
     }
 
     %typemap_traits_ptr(SWIG_TYPECHECK_MAP, std::map<_Key, _Tp, _Compare, _Alloc >);
+
+    map( const _Compare& );
 
 #ifdef %swig_map_methods
     // Add swig/language extra methods

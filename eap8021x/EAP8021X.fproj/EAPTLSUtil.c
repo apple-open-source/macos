@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -332,7 +331,7 @@ EAPSSLContextSetCipherRestrictions(SSLContextRef ctx, char cipherRestrict)
     return ortn;
 }
 
-#endif NOTYET
+#endif /* NOTYET */
 
 const char *
 EAPSSLErrorString(OSStatus err)
@@ -679,24 +678,12 @@ EAPSecPolicyCopy(SecPolicyRef * ret_policy)
 OSStatus
 EAPSecPolicyCopy(SecPolicyRef * ret_policy)
 {
-    SecPolicyRef	policy = NULL;
-    SecPolicySearchRef	policy_search = NULL;
-    OSStatus		status;
 
-    *ret_policy = NULL;
-    status = SecPolicySearchCreate(CSSM_CERT_X_509v3,
-				   &CSSMOID_APPLE_TP_EAP, NULL, &policy_search);
-    if (status != noErr) {
-	goto done;
+    *ret_policy = SecPolicyCreateWithOID(kSecPolicyAppleEAP);
+    if (*ret_policy != NULL) {
+	return (noErr);
     }
-    status = SecPolicySearchCopyNext(policy_search, &policy);
-    if (status != noErr) {
-	goto done;
-    }
-    *ret_policy = policy;
- done:
-    my_CFRelease(&policy_search);
-    return (status);
+    return (-1);
 }
 #endif /* TARGET_OS_EMBEDDED */
 
@@ -1241,7 +1228,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
 	proceed = copy_user_trust_proceed_certs(properties);
 	if (proceed != NULL
-	    && EAPSecCertificateListEqual(proceed, server_certs)) {
+	    && CFEqual(proceed, server_certs)) {
 	    bool	save_it;
 
 	    client_status = kEAPClientStatusOK;
@@ -1287,7 +1274,7 @@ cert_list_contains_cert(CFArrayRef list, SecCertificateRef cert)
 	SecCertificateRef	this_cert;
 
 	this_cert = (SecCertificateRef)CFArrayGetValueAtIndex(list, i);
-	if (EAPSecCertificateEqual(cert, this_cert)) {
+	if (CFEqual(cert, this_cert)) {
 	    return (TRUE);
 	}
     }
@@ -1297,18 +1284,23 @@ cert_list_contains_cert(CFArrayRef list, SecCertificateRef cert)
 static CFArrayRef
 EAPSecTrustCopyCertificateChain(SecTrustRef trust)
 {
-    CFArrayRef 				cert_chain = NULL;
-    CSSM_TP_APPLE_EVIDENCE_INFO * 	ignored;
-    SecTrustResultType 			result;
-    OSStatus				status;
-
-    status = SecTrustGetResult(trust, &result, &cert_chain, &ignored);
-    if (status != noErr) {
-	fprintf(stderr, "SecTrustGetResult failed: %s (%d)\n",
-		EAPSecurityErrorString(status), (int)status);
-	return (NULL);
+    CFMutableArrayRef	array = NULL;
+    int			count = SecTrustGetCertificateCount(trust);
+    int			i;
+    
+    if (count == 0) {
+	fprintf(stderr, "SecTrustGetCertificateCount returned 0)\n");
+	goto done;
     }
-    return (cert_chain);
+    array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    for (i = 0; i < count; i++) {
+	SecCertificateRef	s;
+	
+	s = SecTrustGetCertificateAtIndex(trust, i);
+	CFArrayAppendValue(array, s);
+    }
+ done:
+    return (array);
 }
 
 static bool
@@ -1445,7 +1437,9 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     bool		allow_trust_decisions;
     EAPClientStatus	client_status;
     int			count;
+    bool		is_recoverable;
     SecPolicyRef	policy = NULL;
+    CFStringRef		profileID;
     OSStatus		status = noErr;
     SecTrustRef		trust = NULL;
     SecTrustResultType 	trust_result;
@@ -1465,7 +1459,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 
 	proceed = copy_user_trust_proceed_certs(properties);
 	if (proceed != NULL
-	    && EAPSecCertificateListEqual(proceed, server_certs)) {
+	    && CFEqual(proceed, server_certs)) {
 	    /* user said it was OK to go */
 	    client_status = kEAPClientStatusOK;
 	}
@@ -1481,6 +1475,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
     if (count == 0) {
 	goto done;
     }
+    profileID = CFDictionaryGetValue(properties, kEAPClientPropProfileID);
     trusted_certs = copy_cert_list(properties,
 				   kEAPClientPropTLSTrustedCertificates);
     trusted_server_names = get_trusted_server_names(properties);
@@ -1511,8 +1506,18 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	syslog(LOG_NOTICE, 
 	       "EAPTLSVerifyServerCertificateChain: "
 	       "SecTrustCreateWithCertificates failed, %s (%d)",
-	       EAPSecurityErrorString(status), status);
+	       EAPSecurityErrorString(status), (int)status);
 	goto done;
+    }
+    if (profileID != NULL && trusted_certs != NULL) {
+	status = SecTrustSetAnchorCertificates(trust, trusted_certs);
+	if (status != noErr) {
+	    syslog(LOG_NOTICE, 
+		   "_EAPTLSCreateSecTrust:"
+		   " SecTrustSetAnchorCertificates failed, %s (%d)",
+		   EAPSecurityErrorString(status), (int)status);
+	    goto done;
+	}
     }
     status = SecTrustEvaluate(trust, &trust_result);
     switch (status) {
@@ -1524,7 +1529,7 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	    syslog(LOG_NOTICE, 
 		   "EAPTLSVerifyServerCertificateChain: "
 		   "SecKeychainSetPreferenceDomain failed, %s (%d)",
-		   EAPSecurityErrorString(status), status);
+		   EAPSecurityErrorString(status), (int)status);
 	    goto done;
 	}
 	status = SecTrustEvaluate(trust, &trust_result);
@@ -1536,10 +1541,11 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	syslog(LOG_NOTICE, 
 	       "EAPTLSVerifyServerCertificateChain: "
 	       "SecTrustEvaluate failed, %s (%d)",
-	       EAPSecurityErrorString(status), status);
+	       EAPSecurityErrorString(status), (int)status);
 	goto done;
 	break;
     }
+    is_recoverable = FALSE;
     switch (trust_result) {
     case kSecTrustResultProceed:
 	if (verify_server_certs(trust, server_certs, trusted_certs,
@@ -1548,21 +1554,42 @@ EAPTLSVerifyServerCertificateChain(CFDictionaryRef properties,
 	    client_status = kEAPClientStatusOK;
 	    break;
 	}
-	/* FALL THROUGH */
-    case kSecTrustResultRecoverableTrustFailure:
+	is_recoverable = TRUE;
+	break;
     case kSecTrustResultUnspecified:
+	if (profileID != NULL
+	    && (trusted_certs != NULL || trusted_server_names != NULL)) {
+	    /* still need to check server names */
+	    if (trusted_server_names != NULL) {
+		if (verify_server_certs(NULL, server_certs, NULL,
+					trusted_server_names)) {
+		    client_status = kEAPClientStatusOK;
+		    break;
+		}
+	    }
+	    else {
+		client_status = kEAPClientStatusOK;
+		break;
+	    }
+	}
+	is_recoverable = TRUE;
+	break;
+    case kSecTrustResultRecoverableTrustFailure:
     case kSecTrustResultConfirm:
+	is_recoverable = TRUE;
+	break;
+    case kSecTrustResultDeny:
+    default:
+	status = errSSLXCertChainInvalid;
+	break;
+    }
+    if (is_recoverable) {
 	if (allow_trust_decisions == FALSE) {
 	    client_status = kEAPClientStatusServerCertificateNotTrusted;
 	}
 	else {
 	    client_status = kEAPClientStatusUserInputRequired;
 	}
-	break;
-    case kSecTrustResultDeny:
-    default:
-	status = errSSLXCertChainInvalid;
-	break;
     }
 
  done:

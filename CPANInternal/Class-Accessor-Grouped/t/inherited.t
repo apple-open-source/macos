@@ -1,4 +1,4 @@
-use Test::More tests => 35;
+use Test::More tests => 36;
 use strict;
 use warnings;
 use lib 't/lib';
@@ -81,3 +81,14 @@ SuperInheritedGroups->basefield(undef);
 is(SuperInheritedGroups->basefield, 'base');
 
 is(BaseInheritedGroups->undefined, undef);
+
+# make sure run-time @ISA changes trigger an inheritance chain recalculation
+SuperInheritedGroups->basefield(undef);
+BaseInheritedGroups->basefield('your base');
+
+# dirty hack, emulate Class::C3::Componentised
+require ExtraInheritedGroups;
+unshift @SuperInheritedGroups::ISA, qw/ExtraInheritedGroups/;
+
+# this comes from ExtraInheritedGroups
+is(SuperInheritedGroups->basefield, 'your extra base!');

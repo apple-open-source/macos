@@ -38,7 +38,7 @@ public:
 
     virtual bool isCachedImage() const { return true; }
     
-    virtual PassRefPtr<CSSValue> cssValue();
+    virtual PassRefPtr<CSSValue> cssValue() const;
     
     CachedImage* cachedImage() const { return m_image.get(); }
 
@@ -52,7 +52,7 @@ public:
     virtual void setImageContainerSize(const IntSize&);
     virtual void addClient(RenderObject*);
     virtual void removeClient(RenderObject*);
-    virtual Image* image(RenderObject*, const IntSize&) const;
+    virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) const;
     
 private:
     StyleCachedImage(CachedImage* image)

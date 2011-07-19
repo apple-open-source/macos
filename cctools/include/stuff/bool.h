@@ -29,8 +29,10 @@
 #ifndef ENUM_DYLD_BOOL
 #define ENUM_DYLD_BOOL
 
-#define _STDBOOL_H
+#define _STDBOOL_H /* for gcc header */
+#define __STDBOOL_H /* for clang header */
 #undef bool
+
 
 #define DYLD_BOOL bool
 

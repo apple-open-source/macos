@@ -79,7 +79,7 @@ static childInfoRef	activeChildren	= NULL;
 static pthread_mutex_t	lock		= PTHREAD_MUTEX_INITIALIZER;
 
 
-static inline void
+static __inline__ void
 blockSignal()
 {
 	sigset_t	mask	= sigmask(SIGCHLD);
@@ -93,7 +93,7 @@ blockSignal()
 }
 
 
-static inline void
+static __inline__ void
 unblockSignal()
 {
 	sigset_t	mask	= sigmask(SIGCHLD);

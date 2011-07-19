@@ -155,13 +155,13 @@ apr_status_t more_finfo(apr_finfo_t *finfo, const void *ufile,
  *           correctly when writing to a file with this flag set TRUE.
  */
 
-// for apr_poll.c;
+/* for apr_poll.c */
 #define filedes filehand
 
 struct apr_file_t {
     apr_pool_t *pool;
     HANDLE filehand;
-    BOOLEAN pipe;              // Is this a pipe of a file?
+    BOOLEAN pipe;              /* Is this a pipe of a file? */
     OVERLAPPED *pOverlapped;
     apr_interval_time_t timeout;
     apr_int32_t flags;
@@ -251,5 +251,13 @@ apr_status_t filepath_root_case(char **rootpath, char *root, apr_pool_t *p);
 
 
 apr_status_t file_cleanup(void *);
+
+extern apr_status_t
+apr_file_socket_pipe_create(apr_file_t **in,
+                            apr_file_t **out,
+                            apr_pool_t *p);
+
+extern apr_status_t
+apr_file_socket_pipe_close(apr_file_t *file);
 
 #endif  /* ! FILE_IO_H */

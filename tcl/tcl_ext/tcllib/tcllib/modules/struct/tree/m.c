@@ -4,6 +4,7 @@
  *    Implementations for all tree methods.
  */
 
+#include <string.h>
 #include "util.h"
 #include "m.h"
 #include "t.h"

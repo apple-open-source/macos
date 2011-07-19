@@ -1,5 +1,4 @@
 # ---------------------------------------------------------------
-# $Header: /cvsroot/swig/SWIG/Lib/tcl/Makefile.in,v 1.3 2002/11/30 22:10:09 beazley Exp $
 # SWIG Tcl/Tk Makefile
 # 
 # This file can be used to build various Tcl extensions with SWIG.

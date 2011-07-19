@@ -46,7 +46,7 @@ both_ftw(const char *path,
 	const char *paths[2];
 	struct FTW ftw;
 	FTSENT *cur;
-	FTS *ftsp;
+	FTS *ftsp = NULL;
 	int ftsflags, fnflag, error, postorder, sverrno;
 	int cwd_fd = -1; /* cwd_fd != -1 means call chdir a lot */
 
@@ -64,7 +64,8 @@ both_ftw(const char *path,
 	/* XXX - nfds is currently unused */
 	if (nfds < 1 || nfds > OPEN_MAX) {
 		errno = EINVAL;
-		return (-1);
+		error = -1;
+		goto done;
 	}
 
 	ftsflags = FTS_COMFOLLOW;
@@ -85,7 +86,8 @@ both_ftw(const char *path,
 	if (ftwflags & FTW_CHDIR) {
 	    cwd_fd = open(".", O_RDONLY, 0);
 	    if (cwd_fd < 0) {
-		return -1;
+		error = -1;
+		goto done;
 	    }
 	    /* Prevent problems if fts ever starts using chdir when passed
 	      FTS_PHYSICAL */
@@ -102,16 +104,17 @@ both_ftw(const char *path,
 	  ENOTDIR, and EACCES */
 	{
 	    int rc = stat(path, &path_stat);
-	    int e = errno;
 	    if (rc < 0 
 	      && (errno == ELOOP || errno == ENAMETOOLONG || errno == ENOENT
 	      || errno == ENOTDIR || errno == EACCES)) {
-		    return -1;
+		    error = -1;
+		    goto done;
 	    }
 	    if (rc >= 0 && nfn) {
 		if (!S_ISDIR(path_stat.st_mode)) {
 		    errno = ENOTDIR;
-		    return -1;
+		    error = -1;
+		    goto done;
 		}
 	    }
 	}
@@ -120,7 +123,8 @@ both_ftw(const char *path,
 	paths[1] = NULL;
 	ftsp = fts_open((char * const *)paths, ftsflags, NULL);
 	if (ftsp == NULL) {
-	    return (-1);
+	    error = -1;
+	    goto done;
 	}
 	error = 0;
 	while ((cur = fts_read(ftsp)) != NULL) {
@@ -211,6 +215,14 @@ both_ftw(const char *path,
 			free(free_me);
 		    }
 		    if (rc < 0) {
+			if(cur->fts_pathlen == cur->fts_namelen &&
+			   fnflag == FTW_DNR) {
+			    /* If cwd_fd is our last FD, fts_read will give us FTS_DNR
+			     * and fts_path == fts_name == "."
+			     * This check results in the correct errno being returned.
+			     */
+			    errno = EMFILE;
+			}
 			error = -1;
 			goto done;
 		    }
@@ -234,7 +246,10 @@ both_ftw(const char *path,
 	}
 done:
 	sverrno = errno;
-	(void) fts_close(ftsp);
+	if(ftsp != NULL)
+		(void) fts_close(ftsp);
+	if(cwd_fd >= 0)
+		(void) close(cwd_fd);
 	errno = sverrno;
 	return (error);
 }

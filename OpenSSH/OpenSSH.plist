@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2009-02-23</string>
+	<string>2010-12-01</string>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>
@@ -14,7 +14,6 @@
 		<string>A getpwuid usage fix.</string>
 		<string>Some manpage fixes.</string>
 		<string>Added EAs to scp.</string>
-		<string>SACL support for sshd.</string>
 		<string>Corrected UsePAM comment in sshd config file.</string>
 		<string>An auth_error logging fix.</string>
 		<string>A fix to preserve EA mtime.</string>
@@ -26,15 +25,16 @@
 		<string>Modified scp to pre-allocate files.</string>
 		<string>Logging local IP for break in attempts.</string>
 		<string>Added cross-realm authorization mechanism.</string>
+		<string>CVE-2011-0539 patch.</string>
 	</array>
 	<key>OpenSourceProject</key>
 	<string>OpenSSH</string>
 	<key>OpenSourceSHA1</key>
-	<string>8273a0237db98179fbdc412207ff8eb14ff3d6de</string>
+	<string>347dd39c91c3529f41dae63714d452fb95efea1e</string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp5.usa.openbsd.org/pub/OpenBSD/OpenSSH/portable/</string>
+	<string>http://ftp.OpenBSD.org/pub/OpenBSD/OpenSSH/portable</string>
 	<key>OpenSourceVersion</key>
-	<string>5.2p1</string>
+	<string>5.6p1</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.openssh.org/</string>
 </dict>

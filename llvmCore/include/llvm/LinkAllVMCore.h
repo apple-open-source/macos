@@ -16,6 +16,7 @@
 #ifndef LLVM_LINKALLVMCORE_H
 #define LLVM_LINKALLVMCORE_H
 
+#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
@@ -31,9 +32,9 @@
 #include "llvm/System/Signals.h"
 #include "llvm/System/TimeValue.h"
 #include "llvm/Support/Dwarf.h"
-#include "llvm/Support/Mangler.h"
 #include "llvm/Support/MathExtras.h"
 #include "llvm/Support/SlowOperationInformer.h"
+#include <cstdlib>
 
 namespace {
   struct ForceVMCoreLinking {
@@ -44,10 +45,9 @@ namespace {
       // to know that getenv() never returns -1, this will do the job.
       if (std::getenv("bar") != (char*) -1)
         return;
-      llvm::Module* M = new llvm::Module("");
-      (void)new llvm::UnreachableInst();
+      (void)new llvm::Module("", llvm::getGlobalContext());
+      (void)new llvm::UnreachableInst(llvm::getGlobalContext());
       (void)    llvm::createVerifierPass(); 
-      (void) new llvm::Mangler(*M,"");
     }
   } ForceVMCoreLinking;
 }

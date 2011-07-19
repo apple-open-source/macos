@@ -33,13 +33,16 @@
 @class DOMClass3;
 @class DOMClass5;
 @class DOMClass6;
+@class DOMDOMStringList;
 @class NSString;
 
 @interface DOMTestCallback : DOMObject
+- (BOOL)callbackWithNoParam;
 - (BOOL)callbackWithClass1Param:(DOMClass1 *)class1Param;
 - (BOOL)callbackWithClass2Param:(DOMClass2 *)class2Param strArg:(NSString *)strArg;
 - (int)callbackWithNonBoolReturnType:(DOMClass3 *)class3Param;
 - (int)customCallback:(DOMClass5 *)class5Param class6Param:(DOMClass6 *)class6Param;
+- (BOOL)callbackWithStringList:(DOMDOMStringList *)listParam;
 @end
 
 #endif

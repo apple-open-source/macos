@@ -34,14 +34,14 @@
 
 using namespace std;
 
-typedef void DeallocateProc ( void *inData );
+typedef void (*DeallocateProc)( void *inData );
 
 struct sContinueEntry;
 
 class CContinue
 {
 	public:
-						CContinue				( DeallocateProc *inProcPtr );
+						CContinue				( DeallocateProc inProcPtr );
 		virtual		   ~CContinue				( void );
 
 		tContextData	AddPointer				( void *inPointer, UInt32 inRefNum );
@@ -56,7 +56,7 @@ class CContinue
 	private:
 		map<tContextData, sContinueEntry *>	fContextMap;
 		uint32_t							fNextContextID;
-		DeallocateProc						*fDeallocProcPtr;
+		DeallocateProc						fDeallocProcPtr;
 		DSMutexSemaphore					fMutex;
 };
 

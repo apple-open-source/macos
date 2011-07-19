@@ -25,11 +25,11 @@
 #include "config.h"
 #include "HTMLIFrameElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "Frame.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "RenderIFrame.h"
 
 namespace WebCore {
@@ -67,8 +67,7 @@ bool HTMLIFrameElement::mapToEntry(const QualifiedName& attrName, MappedAttribut
     return HTMLFrameElementBase::mapToEntry(attrName, result);
 }
 
-#if ENABLE(SANDBOX)
-static SandboxFlags parseSandboxAttribute(MappedAttribute* attribute)
+static SandboxFlags parseSandboxAttribute(Attribute* attribute)
 {
     if (attribute->isNull())
         return SandboxNone;
@@ -103,9 +102,8 @@ static SandboxFlags parseSandboxAttribute(MappedAttribute* attribute)
 
     return flags;
 }
-#endif
 
-void HTMLIFrameElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLIFrameElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == widthAttr)
         addCSSLength(attr, CSSPropertyWidth, attr->value());
@@ -127,11 +125,8 @@ void HTMLIFrameElement::parseMappedAttribute(MappedAttribute* attr)
         if (!attr->isNull() && !attr->value().toInt())
             // Add a rule that nulls out our border width.
             addCSSLength(attr, CSSPropertyBorderWidth, "0");
-    }
-#if ENABLE(SANDBOX)
-    else if (attr->name() == sandboxAttr)
+    } else if (attr->name() == sandboxAttr)
         setSandboxFlags(parseSandboxAttribute(attr));
-#endif
     else
         HTMLFrameElementBase::parseMappedAttribute(attr);
 }

@@ -24,12 +24,12 @@ $insert->execute(2, "Barney");
 
 sub make_sth {
 	my $sql = shift;
-	(my $sth = $dbh->prepare($sql))->execute;
+	my $sth = $dbh->prepare($sql);
 	return $sth;
 }
 
 {    # fetch
-	my $sth  = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth  = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my @got1 = $sth->fetch;
 	is $got1[1], "Fred", 'fetch @';
 	my $got2 = $sth->fetch;
@@ -37,7 +37,7 @@ sub make_sth {
 }
 
 {    # Fetch Hash
-	my $sth  = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth  = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my %got1 = $sth->fetch_hash;
 	is $got1{name}, "Fred", 'fetch_hash %';
 	my $got2 = $sth->fetch_hash;
@@ -48,25 +48,25 @@ sub make_sth {
 }
 
 {    # fetchall @
-	my $sth = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my @got = $sth->fetchall;
 	is $got[1]->[1], "Barney", 'fetchall @';
 }
 
 {    # fetchall $
-	my $sth = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my $got = $sth->fetchall;
 	is $got->[1]->[1], "Barney", 'fetchall $';
 }
 
 {    # fetchall_hash @
-	my $sth = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my @got = $sth->fetchall_hash;
 	is $got[1]->{name}, "Barney", 'fetchall_hash @';
 }
 
 {    # fetchall_hash $
-	my $sth = make_sth("SELECT * FROM foo ORDER BY id");
+	(my $sth = make_sth("SELECT * FROM foo ORDER BY id"))->execute;
 	my $got = $sth->fetchall_hash;
 	is $got->[1]->{name}, "Barney", 'fetchall_hash @';
 }

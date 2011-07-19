@@ -26,9 +26,10 @@
 #include "config.h"
 #include "ImageSource.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include "ImageSourceCG.h"
 
+#include "IntPoint.h"
 #include "IntSize.h"
 #include "MIMETypeRegistry.h"
 #include "SharedBuffer.h"
@@ -39,7 +40,12 @@ using namespace std;
 
 namespace WebCore {
 
-static const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
+const CFStringRef kCGImageSourceShouldPreferRGB32 = CFSTR("kCGImageSourceShouldPreferRGB32");
+
+// kCGImagePropertyGIFUnclampedDelayTime is available in the ImageIO framework headers on some versions
+// of SnowLeopard. It's not possible to detect whether the constant is available so we define our own here
+// that won't conflict with ImageIO's version when it is available.
+const CFStringRef WebCoreCGImagePropertyGIFUnclampedDelayTime = CFSTR("UnclampedDelayTime");
 
 #if !PLATFORM(MAC)
 size_t sharedBufferGetBytesAtPosition(void* info, void* buffer, off_t position, size_t count)
@@ -62,8 +68,11 @@ void sharedBufferRelease(void* info)
 }
 #endif
 
-ImageSource::ImageSource()
+ImageSource::ImageSource(ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
     : m_decoder(0)
+    // FIXME: m_premultiplyAlpha is ignored in cg at the moment.
+    , m_alphaOption(alphaOption)
+    , m_gammaAndColorProfileOption(gammaAndColorProfileOption)
 {
 }
 
@@ -74,7 +83,7 @@ ImageSource::~ImageSource()
 
 void ImageSource::clear(bool destroyAllFrames, size_t, SharedBuffer* data, bool allDataReceived)
 {
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_LEOPARD)
     // Recent versions of ImageIO discard previously decoded image frames if the client
     // application no longer holds references to them, so there's no need to throw away
     // the decoder unless we're explicitly asked to destroy all of the frames.
@@ -196,20 +205,56 @@ IntSize ImageSource::size() const
     return frameSizeAtIndex(0);
 }
 
+bool ImageSource::getHotSpot(IntPoint& hotSpot) const
+{
+    RetainPtr<CFDictionaryRef> properties(AdoptCF, CGImageSourceCopyPropertiesAtIndex(m_decoder, 0, imageSourceOptions()));
+    if (!properties)
+        return false;
+
+    int x = -1, y = -1;
+    CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(properties.get(), CFSTR("hotspotX"));
+    if (!num || !CFNumberGetValue(num, kCFNumberIntType, &x))
+        return false;
+
+    num = (CFNumberRef)CFDictionaryGetValue(properties.get(), CFSTR("hotspotY"));
+    if (!num || !CFNumberGetValue(num, kCFNumberIntType, &y))
+        return false;
+
+    if (x < 0 || y < 0)
+        return false;
+
+    hotSpot = IntPoint(x, y);
+    return true;
+}
+
+size_t ImageSource::bytesDecodedToDetermineProperties() const
+{
+    // Measured by tracing malloc/calloc calls on Mac OS 10.6.6, x86_64.
+    // A non-zero value ensures cached images with no decoded frames still enter
+    // the live decoded resources list when the CGImageSource decodes image
+    // properties, allowing the cache to prune the partially decoded image.
+    // This value is likely to be inaccurate on other platforms, but the overall
+    // behavior is unchanged.
+    return 13088;
+}
+    
 int ImageSource::repetitionCount()
 {
     int result = cAnimationLoopOnce; // No property means loop once.
     if (!initialized())
         return result;
 
-    // A property with value 0 means loop forever.
     RetainPtr<CFDictionaryRef> properties(AdoptCF, CGImageSourceCopyProperties(m_decoder, imageSourceOptions()));
     if (properties) {
         CFDictionaryRef gifProperties = (CFDictionaryRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyGIFDictionary);
         if (gifProperties) {
             CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(gifProperties, kCGImagePropertyGIFLoopCount);
-            if (num)
+            if (num) {
+                // A property with value 0 means loop forever.
                 CFNumberGetValue(num, kCFNumberIntType, &result);
+                if (!result)
+                    result = cAnimationLoopInfinite;
+            }
         } else
             result = cAnimationNone; // Turns out we're not a GIF after all, so we don't animate.
     }
@@ -272,16 +317,21 @@ float ImageSource::frameDurationAtIndex(size_t index)
     if (properties) {
         CFDictionaryRef typeProperties = (CFDictionaryRef)CFDictionaryGetValue(properties.get(), kCGImagePropertyGIFDictionary);
         if (typeProperties) {
-            CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(typeProperties, kCGImagePropertyGIFDelayTime);
-            if (num)
+            if (CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(typeProperties, WebCoreCGImagePropertyGIFUnclampedDelayTime)) {
+                // Use the unclamped frame delay if it exists.
                 CFNumberGetValue(num, kCFNumberFloatType, &duration);
+            } else if (CFNumberRef num = (CFNumberRef)CFDictionaryGetValue(typeProperties, kCGImagePropertyGIFDelayTime)) {
+                // Fall back to the clamped frame delay if the unclamped frame delay does not exist.
+                CFNumberGetValue(num, kCFNumberFloatType, &duration);
+            }
         }
     }
 
     // Many annoying ads specify a 0 duration to make an image flash as quickly as possible.
-    // We follow WinIE's behavior and use a duration of 100 ms for any frames that specify
-    // a duration of <= 50 ms. See <http://bugs.webkit.org/show_bug.cgi?id=14413> or Radar 4051389 for more.
-    if (duration < 0.051f)
+    // We follow Firefox's behavior and use a duration of 100 ms for any frames that specify
+    // a duration of <= 10 ms. See <rdar://problem/7689300> and <http://webkit.org/b/36082>
+    // for more information.
+    if (duration < 0.011f)
         return 0.100f;
     return duration;
 }
@@ -306,4 +356,4 @@ bool ImageSource::frameHasAlphaAtIndex(size_t)
 
 }
 
-#endif // PLATFORM(CG)
+#endif // USE(CG)

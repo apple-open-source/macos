@@ -299,8 +299,9 @@ GetThemeColor(
 int
 TkSetMacColor(
     unsigned long pixel,		/* Pixel value to convert. */
-    CGColorRef *macColor)		/* CGColorRef to modify. */
+    void *macColor)			/* CGColorRef to modify. */
 {
+    CGColorRef *color = (CGColorRef*)macColor;
     OSStatus err = -1;
     ThemeBrush brush;
     ThemeTextColor textColor;
@@ -309,7 +310,7 @@ TkSetMacColor(
     if (GetThemeFromPixelCode((pixel >> 24) & 0xff, &brush, &textColor,
 	    &background)) {
 	err = ChkErr(GetThemeColor, pixel, brush, textColor, background,
-		macColor);
+		color);
     }
     return (err == noErr);
 }

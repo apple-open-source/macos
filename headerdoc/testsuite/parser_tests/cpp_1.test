@@ -1,7 +1,7 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$16|#define foo bar
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$16|#define foo bar
 $20|/*! @define foo
  */
-_$6075|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+_$6198|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -52,6 +52,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -80,7 +81,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} => #define foo bar
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -89,7 +92,7 @@ $parserState->{sodname} => foo
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -162,8 +165,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -205,8 +208,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: foo (HeaderDoc::PDefine)
 +---#define
@@ -221,12 +224,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: foo (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/econst/foo //test_ref/c/struct/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/intf/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo" --><span class="preprocessor">foo</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/econst/bar //test_ref/c/struct/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/intf/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar" --><span class="preprocessor">bar</span><!-- /a --> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/struct/foo //test_ref/c/intf/foo //test_ref/c/econst/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="preprocessor">foo</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/struct/bar //test_ref/c/intf/bar //test_ref/c/econst/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="preprocessor">bar</span><!-- /a --> 
 END OF OBJECT
 
 
 
-$6075|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$6198|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -277,6 +280,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -305,7 +309,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} => #define foo bar
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -314,7 +320,7 @@ $parserState->{sodname} => foo
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -387,8 +393,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -430,8 +436,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: foo (HeaderDoc::PDefine)
 +---#define
@@ -446,459 +452,9 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: foo (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/econst/foo //test_ref/c/struct/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/intf/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo" --><span class="preprocessor">foo</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/econst/bar //test_ref/c/struct/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/intf/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar" --><span class="preprocessor">bar</span><!-- /a --> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/struct/foo //test_ref/c/intf/foo //test_ref/c/econst/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="preprocessor">foo</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/struct/bar //test_ref/c/intf/bar //test_ref/c/econst/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="preprocessor">bar</span><!-- /a --> 
 END OF OBJECT
 
 
 
-_$33|testsuite/parser_tests/cpp_1.test$1|C$5|cpp_1$6075|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 1
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/cpp_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/cpp_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => bar
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #define foo bar
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => foo
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: foo
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---foo
-|   +--- 
-|   +---bar
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{foo} => bar
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: cpp_1
-APIUID: //test_ref/doc/header/cpp_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: foo
-    APIUID: //test_ref/c/macro/foo
-    ABSTRACT: ""
-    DISCUSSION: ""
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: foo (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---foo
-|   +--- 
-|   +---bar
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: foo (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/econst/foo //test_ref/c/struct/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/intf/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo" --><span class="preprocessor">foo</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/econst/bar //test_ref/c/struct/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/intf/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar" --><span class="preprocessor">bar</span><!-- /a --> 
-END OF OBJECT
-
-
-
-$6075|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 1
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/cpp_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/cpp_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => bar
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #define foo bar
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => foo
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: foo
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---foo
-|   +--- 
-|   +---bar
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{foo} => bar
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: cpp_1
-APIUID: //test_ref/doc/header/cpp_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: foo
-    APIUID: //test_ref/c/macro/foo
-    ABSTRACT: ""
-    DISCUSSION: ""
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: foo (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---foo
-|   +--- 
-|   +---bar
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: foo (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/foo //test_ref/c/tdef/foo //test_ref/c/tag/foo //test_ref/c/econst/foo //test_ref/c/struct/foo //test_ref/c/data/foo //test_ref/c/clconst/foo //test_ref/c/intf/foo //test_ref/c/instm/foo //test_ref/c/clm/foo //test_ref/c/intfcm/foo //test_ref/c/intfm/foo //test_ref/c/func/foo //test_ref/c/ftmplt/foo //test_ref/c/defn/foo //test_ref/c/macro/foo //test_ref/doc/com/intfm/foo" --><span class="preprocessor">foo</span><!-- /a --><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/bar //test_ref/c/tdef/bar //test_ref/c/tag/bar //test_ref/c/econst/bar //test_ref/c/struct/bar //test_ref/c/data/bar //test_ref/c/clconst/bar //test_ref/c/intf/bar //test_ref/c/instm/bar //test_ref/c/clm/bar //test_ref/c/intfcm/bar //test_ref/c/intfm/bar //test_ref/c/func/bar //test_ref/c/ftmplt/bar //test_ref/c/defn/bar //test_ref/c/macro/bar //test_ref/doc/com/intfm/bar" --><span class="preprocessor">bar</span><!-- /a --> 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$87|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/cpp_1.test$1|C$5|cpp_1$1|C$6|parser

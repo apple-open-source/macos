@@ -27,9 +27,10 @@
 #include "config.h"
 #include "DOMTimer.h"
 
-#include "InspectorTimelineAgent.h"
+#include "InspectorInstrumentation.h"
 #include "ScheduledAction.h"
 #include "ScriptExecutionContext.h"
+#include "UserGestureIndicator.h"
 #include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
 
@@ -37,34 +38,41 @@ using namespace std;
 
 namespace WebCore {
 
+static const int maxIntervalForUserGestureForwarding = 1000; // One second matches Gecko.
 static const int maxTimerNestingLevel = 5;
 static const double oneMillisecond = 0.001;
-double DOMTimer::s_minTimerInterval = 0.010; // 10 milliseconds
+double DOMTimer::s_minDefaultTimerInterval = 0.010; // 10 milliseconds
 
 static int timerNestingLevel = 0;
-
-DOMTimer::DOMTimer(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int timeout, bool singleShot)
-    : SuspendableTimer(context)
-    , m_action(action)
+    
+static int timeoutId()
 {
     static int lastUsedTimeoutId = 0;
     ++lastUsedTimeoutId;
     // Avoid wraparound going negative on us.
     if (lastUsedTimeoutId <= 0)
         lastUsedTimeoutId = 1;
-    m_timeoutId = lastUsedTimeoutId;
+    return lastUsedTimeoutId;
+}
+    
+static inline bool shouldForwardUserGesture(int interval, int nestingLevel)
+{
+    return UserGestureIndicator::processingUserGesture()
+        && interval <= maxIntervalForUserGestureForwarding
+        && nestingLevel == 1; // Gestures should not be forwarded to nested timers.
+}
 
-    m_nestingLevel = timerNestingLevel + 1;
-
+DOMTimer::DOMTimer(ScriptExecutionContext* context, PassOwnPtr<ScheduledAction> action, int interval, bool singleShot)
+    : SuspendableTimer(context)
+    , m_timeoutId(timeoutId())
+    , m_nestingLevel(timerNestingLevel + 1)
+    , m_action(action)
+    , m_originalInterval(interval)
+    , m_shouldForwardUserGesture(shouldForwardUserGesture(interval, m_nestingLevel))
+{
     scriptExecutionContext()->addTimeout(m_timeoutId, this);
 
-    double intervalMilliseconds = max(oneMillisecond, timeout * oneMillisecond);
-
-    // Use a minimum interval of 10 ms to match other browsers, but only once we've
-    // nested enough to notice that we're repeating.
-    // Faster timers might be "better", but they're incompatible.
-    if (intervalMilliseconds < s_minTimerInterval && m_nestingLevel >= maxTimerNestingLevel)
-        intervalMilliseconds = s_minTimerInterval;
+    double intervalMilliseconds = intervalClampedToMinimum(interval, context->minimumTimerInterval());
     if (singleShot)
         startOneShot(intervalMilliseconds);
     else
@@ -84,10 +92,7 @@ int DOMTimer::install(ScriptExecutionContext* context, PassOwnPtr<ScheduledActio
     // or if it is a one-time timer and it has fired (DOMTimer::fired).
     DOMTimer* timer = new DOMTimer(context, action, timeout, singleShot);
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
-        timelineAgent->didInstallTimer(timer->m_timeoutId, timeout, singleShot);
-#endif    
+    InspectorInstrumentation::didInstallTimer(context, timer->m_timeoutId, timeout, singleShot);
 
     return timer->m_timeoutId;
 }
@@ -100,10 +105,7 @@ void DOMTimer::removeById(ScriptExecutionContext* context, int timeoutId)
     if (timeoutId <= 0)
         return;
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
-        timelineAgent->didRemoveTimer(timeoutId);
-#endif
+    InspectorInstrumentation::didRemoveTimer(context, timeoutId);
 
     delete context->findTimeout(timeoutId);
 }
@@ -112,41 +114,41 @@ void DOMTimer::fired()
 {
     ScriptExecutionContext* context = scriptExecutionContext();
     timerNestingLevel = m_nestingLevel;
+    
+    UserGestureIndicator gestureIndicator(m_shouldForwardUserGesture ? DefinitelyProcessingUserGesture : PossiblyProcessingUserGesture);
+    
+    // Only the first execution of a multi-shot timer should get an affirmative user gesture indicator.
+    m_shouldForwardUserGesture = false;
 
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
-        timelineAgent->willFireTimer(m_timeoutId);
-#endif
+    InspectorInstrumentationCookie cookie = InspectorInstrumentation::willFireTimer(context, m_timeoutId);
 
     // Simple case for non-one-shot timers.
     if (isActive()) {
-        if (repeatInterval() && repeatInterval() < s_minTimerInterval) {
+        double minimumInterval = context->minimumTimerInterval();
+        if (repeatInterval() && repeatInterval() < minimumInterval) {
             m_nestingLevel++;
             if (m_nestingLevel >= maxTimerNestingLevel)
-                augmentRepeatInterval(s_minTimerInterval - repeatInterval());
+                augmentRepeatInterval(minimumInterval - repeatInterval());
         }
 
         // No access to member variables after this point, it can delete the timer.
         m_action->execute(context);
-#if ENABLE(INSPECTOR)
-        if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
-            timelineAgent->didFireTimer();
-#endif
+
+        InspectorInstrumentation::didFireTimer(cookie);
+
         return;
     }
 
     // Delete timer before executing the action for one-shot timers.
-    ScheduledAction* action = m_action.release();
+    OwnPtr<ScheduledAction> action = m_action.release();
 
     // No access to member variables after this point.
     delete this;
 
     action->execute(context);
-#if ENABLE(INSPECTOR)
-    if (InspectorTimelineAgent* timelineAgent = InspectorTimelineAgent::retrieve(context))
-        timelineAgent->didFireTimer();
-#endif
-    delete action;
+
+    InspectorInstrumentation::didFireTimer(cookie);
+
     timerNestingLevel = 0;
 }
 
@@ -163,6 +165,32 @@ void DOMTimer::stop()
     // because they can form circular references back to the ScriptExecutionContext
     // which will cause a memory leak.
     m_action.clear();
+}
+
+void DOMTimer::adjustMinimumTimerInterval(double oldMinimumTimerInterval)
+{
+    if (m_nestingLevel < maxTimerNestingLevel)
+        return;
+
+    double newMinimumInterval = scriptExecutionContext()->minimumTimerInterval();
+    double newClampedInterval = intervalClampedToMinimum(m_originalInterval, newMinimumInterval);
+
+    if (repeatInterval()) {
+        augmentRepeatInterval(newClampedInterval - repeatInterval());
+        return;
+    }
+
+    double previousClampedInterval = intervalClampedToMinimum(m_originalInterval, oldMinimumTimerInterval);
+    augmentFireInterval(newClampedInterval - previousClampedInterval);
+}
+
+double DOMTimer::intervalClampedToMinimum(int timeout, double minimumTimerInterval) const
+{
+    double intervalMilliseconds = max(oneMillisecond, timeout * oneMillisecond);
+
+    if (intervalMilliseconds < minimumTimerInterval && m_nestingLevel >= maxTimerNestingLevel)
+        intervalMilliseconds = minimumTimerInterval;
+    return intervalMilliseconds;
 }
 
 } // namespace WebCore

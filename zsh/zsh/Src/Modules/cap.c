@@ -38,13 +38,14 @@ bin_cap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     int ret = 0;
     cap_t caps;
     if(*argv) {
+	unmetafy(*argv, NULL);
 	caps = cap_from_text(*argv);
 	if(!caps) {
 	    zwarnnam(nam, "invalid capability string");
 	    return 1;
 	}
 	if(cap_set_proc(caps)) {
-	    zwarnnam(nam, "can't change capabilites: %e", errno);
+	    zwarnnam(nam, "can't change capabilities: %e", errno);
 	    ret = 1;
 	}
     } else {
@@ -54,7 +55,7 @@ bin_cap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
 	if(caps)
 	    result = cap_to_text(caps, &length);
 	if(!caps || !result) {
-	    zwarnnam(nam, "can't get capabilites: %e", errno);
+	    zwarnnam(nam, "can't get capabilities: %e", errno);
 	    ret = 1;
 	} else
 	    puts(result);
@@ -71,7 +72,9 @@ bin_getcap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     do {
 	char *result = NULL;
 	ssize_t length;
-	cap_t caps = cap_get_file(*argv);
+	cap_t caps;
+
+	caps = cap_get_file(unmetafy(dupstring(*argv), NULL));
 	if(caps)
 	    result = cap_to_text(caps, &length);
 	if (!caps || !result) {
@@ -90,6 +93,7 @@ bin_setcap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     cap_t caps;
     int ret = 0;
 
+    unmetafy(*argv, NULL);
     caps = cap_from_text(*argv++);
     if(!caps) {
 	zwarnnam(nam, "invalid capability string");
@@ -97,7 +101,7 @@ bin_setcap(char *nam, char **argv, UNUSED(Options ops), UNUSED(int func))
     }
 
     do {
-	if(cap_set_file(*argv, caps)) {
+	if(cap_set_file(unmetafy(dupstring(*argv), NULL), caps)) {
 	    zwarnnam(nam, "%s: %e", *argv, errno);
 	    ret = 1;
 	}

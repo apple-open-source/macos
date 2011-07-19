@@ -1,0 +1,11 @@
+Revision history for Perl extension Unix::Getrusage.
+
+0.02  Sat Feb  4 00:47:19 CET 2006
+
+	- implemented getrusage() and getrusage_children()
+
+0.01  Fri Feb  3 23:31:23 2006
+	- original version; created by h2xs 1.23 with options
+		-cn Unix::Getrusage
+
+$Id: Changes 7 2006-02-03 23:52:32Z taffy $

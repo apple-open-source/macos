@@ -2,6 +2,7 @@
 [moddesc   {RFC 2289 A One-Time Password System}]
 [copyright {2006, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {One-Time Passwords}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require otp [opt 1.0.0]]
 [description]

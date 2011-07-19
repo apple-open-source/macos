@@ -1,0 +1,74 @@
+require "vnd.dovecot.testsuite";
+
+/*
+ * ## RFC 5228, Section 5.9. Test size (page 29) ##
+ */
+
+/*
+ * TEST: Basic functionality
+ */
+
+/* "The "size" test deals with the size of a message.  It takes either a
+ *  tagged argument of ":over" or ":under", followed by a number
+ *  representing the size of the message.
+ *
+ *  If the argument is ":over", and the size of the message is greater
+ *  than the number provided, the test is true; otherwise, it is false.
+
+ *  If the argument is ":under", and the size of the message is less than
+ *  the number provided, the test is true; otherwise, it is false.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+Subject:         Help        
+X-A:     Text
+X-B: Text            
+X-Multiline: This is a multi-line
+ header body, which should be
+ unfolded correctly.
+
+Text
+
+.
+;
+
+test "Basic functionality" {
+	if not size :under 1000 {
+		test_fail "size test produced unexpected result (1)";
+	}
+
+	if size :under 10 {
+		test_fail "size test produced unexpected result (2)";
+	}
+
+	if not size :over 10 {
+		test_fail "size test produced unexpected result (3)";
+	}
+
+	if size :over 1000 {
+		test_fail "size test produced unexpected result (4)";
+	}
+}
+
+/*
+ * TEST: Exact size
+ */
+
+/* "Note that for a message that is exactly 4,000 octets, the message is
+ *  neither ":over" nor ":under" 4000 octets.
+ * "
+ */
+
+test "Exact size" {
+	if size :under 221 {
+		test_fail "size :under matched exact limit";
+	}
+
+	if size :over 221 {
+		test_fail "size :over matched exact limit";
+	}
+}
+

@@ -111,7 +111,7 @@ In DBI v2 when a driver is loaded the ::db::prepare() method
 will be deleted if a ::st::reset method exists.
 
 Make $DBI::err etc plain (untied) variables.
-Set them in set_err() and when returing from dispatch.
+Set them in set_err() and when returning from dispatch.
 Clear them, if appropriate, when entering dispatch dispatch().
 
 Enable drivers to provide a hash to map err codes into state values.

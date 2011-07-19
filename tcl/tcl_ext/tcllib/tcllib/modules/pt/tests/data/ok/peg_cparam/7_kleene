@@ -1,0 +1,45 @@
+/*
+ * -*- tcl -*-
+ * Parsing Expression Grammar 'TEMPLATE'.
+ * Generated for unknown, from file 'TEST'
+ */
+
+/*
+ * Declaring the parse functions
+ */
+
+<<attributes>> void <<ns>>kleene_2 (<<STATE>> <<state>>);
+
+/*
+ * Precomputed table of strings (symbols, error messages, etc.).
+ */
+
+static char const* <<string-table>> [1] = {
+    /*        0 = */   "t a"
+};
+
+/*
+ * Grammar Start Expression
+ */
+
+<<attributes>> void <<ns>><<main>> (<<STATE>> <<state>>) { <<prelude>>
+    <<self>> <<ns>>kleene_2 (<<state>>);
+    return;
+}
+
+<<attributes>> void <<ns>>kleene_2 (<<STATE>> <<state>>) { <<prelude>>
+   /*
+    * *
+    *     'a'
+    */
+
+    while (1) {
+        rde_param_i_state_push_2 (<<state>>);
+        rde_param_i_next_char (<<state>>, "a", 0);
+        if (rde_param_i_kleene_close(<<state>>)) return;
+    }
+    return;
+}
+
+/*
+ */

@@ -92,6 +92,11 @@ and returns the result.
 [call [cmd tkcon] [arg new]]
 Creates a new tkcon widget.
 
+[call [cmd tkcon] [arg resultfilter] [opt [arg command]]]
+Specify a command to process the results before outputting it to the console
+window.  The command receives one argument (the result string) and the string
+returned is placed in the console.
+
 [call [cmd tkcon] [arg save] [opt "[arg filename] [opt [arg type]]"]]
 Saves the console buffer to the given filename.
 If no filename is given, it will attempt to call

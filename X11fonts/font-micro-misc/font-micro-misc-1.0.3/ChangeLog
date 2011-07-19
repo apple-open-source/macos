@@ -1,0 +1,234 @@
+commit 40e1e3efa32a769ae4f97b5726d1346a4554adb8
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Mon Nov 15 23:36:58 2010 +0100
+
+    font-micro-misc 1.0.3
+
+commit 4f9d02035ae7aa3a99548b28f7b78b7ecf2113a9
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:56 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 35893568c8dcd371264c640966805918c52e47f8
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Oct 5 00:10:13 2010 -0700
+
+    font-micro-misc 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 3259407052046a9de9761c8a331479f877a55486
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:51 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit da5135642b69d9f1e862d400a46a059de116c15f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit efa7104808ca06ec1dfbdd1478d309defbdc2e82
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 59a3df03c77fd32cc246eebcd00c8f77fdba2629
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 635c82ab0a5223e72bee558126075700c8d00249
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:40:52 2009 -0700
+
+    font-micro-misc 1.0.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f100670e03b0477f2af3643a2059ecb839ab4185
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 17:42:47 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ff8c506fc5cc2fc4a3900426e15e03baef7c3e59
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:28 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e6fae6dcf9f95cdb53bc7eaa51d56d543d6d5f1e
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 19:11:08 2009 -0200
+
+    Janitor: Correct make distcheck and configure.ac simplification
+
+commit ee17d9b930247724f9847ad9f17739f09e103bb0
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 7e03106b2be2a98542ec0e1828850f61baa1e600
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:00 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 190fe723fb1797acc3645eb1ffc23a6518987bc9
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:13 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit e3b646f40676ac33178cbb5ae5c76251927649a5
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:36 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit a81e62a9e9a50901630878f78d1a36915bdf5a58
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:24 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 499db8a6262fe0e218ba126ff550377760884503
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:53 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit bca2eb2eaeabda5ed10ed982f0bb51b7aefa81fa
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:40 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 26fe4380448a5717477f68ebbff50df6f061e4ac
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Nov 24 05:21:15 2005 +0000
+
+    Bug #5122: Use $< instead of $^ to be portable to FreeBSD's make.
+
+commit 1edb1b39f8e61e42990a080aa0fa290a03ef47e2
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:20 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit 57df2be1134a6618dab6dbc9e38d5e2e2a729ca6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:29:19 2005 +0000
+
+    Add configure option to change the installed font dir.
+
+commit e52b924c8a865a946c8e2c559a19b94056b5e2ff
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:48 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit b44cf9decf865974b56d28c5ca0e3393384c2e4c
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 19 02:40:06 2005 +0000
+
+    Convert $(foreach...) to more portable suffix substitution rules
+
+commit 1a18e57951271a7744b5596fa9b5021e2dbdca24
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jun 30 22:28:08 2005 +0000
+
+    Initial build system files for font module
+
+commit 8f1d8781c779d6f70b932a2f3f02d97d35deb6b0
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:02 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 457e39611f5ca74144351c6a3836e4e2ba6043b0
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:29:37 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 98ba535fba08426e4fe2ba969c4a73f852fd5a6e
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:23 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 062909b83d82c272d81ccf45ed8cd5bce6cf0b5d
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:34:54 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 8920ab612ddccf211aae468afd1f8d7aebe3f574
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:21:57 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 92a28b27eccab5163ffda9e636b84fe748f9c0eb
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 31d2ebb0addf0d7f415b29ce476ed7ea828384d4
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    Initial revision

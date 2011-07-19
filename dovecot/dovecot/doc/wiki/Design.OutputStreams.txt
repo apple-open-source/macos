@@ -1,0 +1,32 @@
+Output Streams
+==============
+
+'lib/ostream.h' describes Dovecot's output streams. Output streams can be
+stacked on top of each others as many times as wanted.
+
+Currently there are only two output streams:
+
+ * file: Write to given fd using 'pwrite()' for files and 'write()' for
+   non-files.
+ * buffer: Write to <buffer> [Design.Buffers.txt].
+
+Writes are non-buffered by default. To add buffering, use 'o_stream_cork()' to
+start buffering and 'o_stream_uncork()' to stop/flush. When output buffer gets
+full, it's automatically flushed even while the stream is corked. The term
+"cork" is used because with TCP connections the call actually sets/removes TCP
+cork option. It's quite easy to forget to enable the corking with files, making
+the performance worse.
+
+When doing a lot of writes, you can simplify the error handling by delaying the
+error checking. Simply do a lot of writes and finally check if
+'stream->last_failed_errno' is non-zero.
+
+If output buffer's size isn't unlimited, the writes can also fail because
+there's no more space in the buffer and 'write()' syscall is returning
+'EAGAIN'. This of course doesn't happen with blocking fds (e.g. files), but you
+need to handle this in some way with non-blocking network sockets. A common way
+in Dovecot to handle this is to just use unlimited buffer sizes and after each
+write check if the buffer size becomes too large, and when it does it stops
+writing until more space is available.
+
+(This file was created from the wiki on 2011-05-11 04:42)

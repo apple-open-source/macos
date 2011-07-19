@@ -31,21 +31,21 @@
 #include "config.h"
 #include "FontCache.h"
 
-#include "AtomicString.h"
-#include "ChromiumBridge.h"
 #include "Font.h"
 #include "FontDescription.h"
 #include "FontPlatformData.h"
 #include "Logging.h"
 #include "NotImplemented.h"
+#include "PlatformBridge.h"
 #include "SimpleFontData.h"
 
 #include "SkPaint.h"
 #include "SkTypeface.h"
 #include "SkUtils.h"
 
-#include <unicode/utf16.h>
+#include <unicode/locid.h>
 #include <wtf/Assertions.h>
+#include <wtf/text/AtomicString.h>
 #include <wtf/text/CString.h>
 
 namespace WebCore {
@@ -58,12 +58,13 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font,
                                                           const UChar* characters,
                                                           int length)
 {
-    String family = ChromiumBridge::getFontFamilyForCharacters(characters, length);
+    icu::Locale locale = icu::Locale::getDefault();
+    String family = PlatformBridge::getFontFamilyForCharacters(characters, length, locale.getLanguage());
     if (family.isEmpty())
         return 0;
 
     AtomicString atomicFamily(family);
-    return getCachedFontData(getCachedFontPlatformData(font.fontDescription(), atomicFamily, false));
+    return getCachedFontData(getCachedFontPlatformData(font.fontDescription(), atomicFamily, DoNotRetain));
 }
 
 SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
@@ -128,9 +129,10 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
                 break;
             }
         }
-        // if we fall out of the loop, it's ok for name to still be 0
-    }
-    else {    // convert the name to utf8
+        if (!name)
+            name = "";
+    } else {
+        // convert the name to utf8
         s = family.string().utf8();
         name = s.data();
     }
@@ -150,7 +152,9 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
                              name,
                              fontDescription.computedSize(),
                              (style & SkTypeface::kBold) && !tf->isBold(),
-                             (style & SkTypeface::kItalic) && !tf->isItalic());
+                             (style & SkTypeface::kItalic) && !tf->isItalic(),
+                             fontDescription.orientation(),
+                             fontDescription.textOrientation());
     tf->unref();
     return result;
 }

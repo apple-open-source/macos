@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -375,6 +375,7 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 		 * sin6_scope_id field of SA should be set in the future.
 		 */
 		if (IN6_IS_ADDR_LINKLOCAL(in6) ||
+		    IN6_IS_ADDR_MC_NODELOCAL(in6) ||
 		    IN6_IS_ADDR_MC_LINKLOCAL(in6)) {
 		    /* XXX: override is ok? */
 		    sa6->sin6_scope_id = (u_int32_t)ntohs(*(u_short *)&in6->s6_addr[2]);
@@ -396,7 +397,7 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 
 		if (sdl->sdl_nlen == 0 && sdl->sdl_alen == 0 &&
 		    sdl->sdl_slen == 0) {
-			(void) sprintf(workbuf, "link#%d", sdl->sdl_index);
+			(void) snprintf(workbuf, sizeof(workbuf), "link#%d", sdl->sdl_index);
 		} else {
 			switch (sdl->sdl_type) {
 
@@ -407,7 +408,7 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 
 				cplim = "";
 				for (i = 0; i < sdl->sdl_alen; i++, lla++) {
-					cp += sprintf(cp, "%s%x", cplim, *lla);
+					cp += snprintf(cp, sizeof(workbuf) - (cp - workbuf), "%s%x", cplim, *lla);
 					cplim = ":";
 				}
 				cp = workbuf;
@@ -427,11 +428,11 @@ p_sockaddr(struct sockaddr *sa, struct sockaddr *mask, int flags, int width)
 
 		slim =  sa->sa_len + (u_char *) sa;
 		cplim = cp + sizeof(workbuf) - 6;
-		cp += sprintf(cp, "(%d)", sa->sa_family);
+		cp += snprintf(cp, sizeof(workbuf) - (cp - workbuf), "(%d)", sa->sa_family);
 		while (s < slim && cp < cplim) {
-			cp += sprintf(cp, " %02x", *s++);
+			cp += snprintf(cp, sizeof(workbuf) - (cp - workbuf), " %02x", *s++);
 			if (s < slim)
-			    cp += sprintf(cp, "%02x", *s++);
+			    cp += snprintf(cp, sizeof(workbuf) - (cp - workbuf), "%02x", *s++);
 		}
 		cp = workbuf;
 	    }
@@ -481,7 +482,7 @@ routename(uint32_t in)
 	} else {
 #define C(x)	((x) & 0xff)
 		in = ntohl(in);
-		sprintf(line, "%u.%u.%u.%u",
+		snprintf(line, sizeof(line), "%u.%u.%u.%u",
 		    C(in >> 24), C(in >> 16), C(in >> 8), C(in));
 	}
 	return (line);
@@ -524,9 +525,9 @@ domask(char *dst, uint32_t addr, uint32_t mask)
 			break;
 		}
 	if (i == -1)
-		sprintf(dst, "&0x%x", mask);
+		snprintf(dst, sizeof(dst), "&0x%x", mask);
 	else
-		sprintf(dst, "/%d", 32-i);
+		snprintf(dst, sizeof(dst), "/%d", 32-i);
 }
 
 /*
@@ -560,26 +561,26 @@ netname(uint32_t in, uint32_t mask)
 		switch (dmask) {
 		case IN_CLASSA_NET:
 			if ((i & IN_CLASSA_HOST) == 0) {
-				sprintf(line, "%u", C(i >> 24));
+				snprintf(line, sizeof(line), "%u", C(i >> 24));
 				break;
 			}
 			/* FALLTHROUGH */
 		case IN_CLASSB_NET:
 			if ((i & IN_CLASSB_HOST) == 0) {
-				sprintf(line, "%u.%u",
+				snprintf(line, sizeof(line), "%u.%u",
 					C(i >> 24), C(i >> 16));
 				break;
 			}
 			/* FALLTHROUGH */
 		case IN_CLASSC_NET:
 			if ((i & IN_CLASSC_HOST) == 0) {
-				sprintf(line, "%u.%u.%u",
+				snprintf(line, sizeof(line), "%u.%u.%u",
 					C(i >> 24), C(i >> 16), C(i >> 8));
 				break;
 			}
 			/* FALLTHROUGH */
 		default:
-			sprintf(line, "%u.%u.%u.%u",
+			snprintf(line, sizeof(line), "%u.%u.%u.%u",
 				C(i >> 24), C(i >> 16), C(i >> 8), C(i));
 			break;
 		}
@@ -648,7 +649,7 @@ netname6(struct sockaddr_in6 *sa6, struct sockaddr *sam)
 		    NULL, 0, flag);
 
 	if (nflag)
-		sprintf(&line[strlen(line)], "/%d", masklen);
+		snprintf(&line[strlen(line)], sizeof(line) - strlen(line), "/%d", masklen);
 
 	return line;
 }

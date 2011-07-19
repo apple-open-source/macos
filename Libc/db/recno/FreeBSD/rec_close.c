@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)rec_close.c	8.6 (Berkeley) 8/18/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_close.c,v 1.7 2003/02/16 17:29:09 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_close.c,v 1.11 2009/03/28 05:45:29 delphij Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -61,8 +57,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_close.c,v 1.7 2003/02/16 17:29:09 
  *	RET_ERROR, RET_SUCCESS
  */
 int
-__rec_close(dbp)
-	DB *dbp;
+__rec_close(DB *dbp)
 {
 	BTREE *t;
 	int status;
@@ -87,9 +82,10 @@ __rec_close(dbp)
 		if (F_ISSET(t, R_CLOSEFP)) {
 			if (fclose(t->bt_rfp))
 				status = RET_ERROR;
-		} else
+		} else {
 			if (_close(t->bt_rfd))
 				status = RET_ERROR;
+		}
 	}
 
 	if (__bt_close(dbp) == RET_ERROR)
@@ -108,9 +104,7 @@ __rec_close(dbp)
  *	RET_SUCCESS, RET_ERROR.
  */
 int
-__rec_sync(dbp, flags)
-	const DB *dbp;
-	u_int flags;
+__rec_sync(const DB *dbp, u_int flags)
 {
 	struct iovec iov[2];
 	BTREE *t;
@@ -156,19 +150,19 @@ __rec_sync(dbp, flags)
 		status = (dbp->seq)(dbp, &key, &data, R_FIRST);
 		while (status == RET_SUCCESS) {
 			if (_write(t->bt_rfd, data.data, data.size) !=
-			    data.size)
+			    (ssize_t)data.size)
 				return (RET_ERROR);
 			status = (dbp->seq)(dbp, &key, &data, R_NEXT);
 		}
 	} else {
-		iov[1].iov_base = (char *)&t->bt_bval;
+		iov[1].iov_base = &t->bt_bval;
 		iov[1].iov_len = 1;
 
 		status = (dbp->seq)(dbp, &key, &data, R_FIRST);
 		while (status == RET_SUCCESS) {
 			iov[0].iov_base = data.data;
 			iov[0].iov_len = data.size;
-			if (_writev(t->bt_rfd, iov, 2) != data.size + 1)
+			if (_writev(t->bt_rfd, iov, 2) != (ssize_t)(data.size + 1))
 				return (RET_ERROR);
 			status = (dbp->seq)(dbp, &key, &data, R_NEXT);
 		}

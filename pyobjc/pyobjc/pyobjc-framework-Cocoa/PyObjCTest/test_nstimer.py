@@ -16,8 +16,8 @@ class TestNSTimer(TestCase):
 
     def _testHelp(self):
         obj = PythonClass()
-        pool = NSAutoreleasePool.new()
-        self.failUnlessArgIsBOOL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 4)
+        pool = NSAutoreleasePool.alloc().init()
+        self.assertArgIsBOOL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 4)
         timer = NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_(
                 0.1, obj, 'fire:', None, False)
         NSRunLoop.currentRunLoop().addTimer_forMode_(
@@ -25,7 +25,7 @@ class TestNSTimer(TestCase):
         NSRunLoop.currentRunLoop().runUntilDate_(
                 NSDate.dateWithTimeIntervalSinceNow_(0.5))
         timer.invalidate()
-        self.assertEquals(obj.fireCount, 1)
+        self.assertEqual(obj.fireCount, 1)
 
         del timer
         del pool
@@ -46,20 +46,26 @@ class TestNSTimer(TestCase):
         gc.collect()
         after = len(gc.get_objects())
 
-        self.assertEquals(after, before)
+        for i in range(10):
+            self._testHelp()
+
+        gc.collect()
+        after2 = len(gc.get_objects())
+
+        self.assertEqual(after, before, "%d - %d - %d"%(before, after, after2))
 
     def testMethods(self):
-        self.failUnlessArgIsBOOL(NSTimer.timerWithTimeInterval_invocation_repeats_, 2)
-        self.failUnlessArgIsBOOL(NSTimer.scheduledTimerWithTimeInterval_invocation_repeats_, 2)
-        self.failUnlessArgIsBOOL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 4)
-        self.failUnlessArgIsSEL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 2, 'v@:@')
-        self.failUnlessArgIsBOOL(NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_, 4)
-        self.failUnlessArgIsSEL(NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_, 2, 'v@:@')
+        self.assertArgIsBOOL(NSTimer.timerWithTimeInterval_invocation_repeats_, 2)
+        self.assertArgIsBOOL(NSTimer.scheduledTimerWithTimeInterval_invocation_repeats_, 2)
+        self.assertArgIsBOOL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 4)
+        self.assertArgIsSEL(NSTimer.timerWithTimeInterval_target_selector_userInfo_repeats_, 2, b'v@:@')
+        self.assertArgIsBOOL(NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_, 4)
+        self.assertArgIsSEL(NSTimer.scheduledTimerWithTimeInterval_target_selector_userInfo_repeats_, 2, b'v@:@')
 
-        self.failUnlessArgIsBOOL(NSTimer.initWithFireDate_interval_target_selector_userInfo_repeats_, 5)
-        self.failUnlessArgIsSEL(NSTimer.initWithFireDate_interval_target_selector_userInfo_repeats_, 3, 'v@:@')
+        self.assertArgIsBOOL(NSTimer.initWithFireDate_interval_target_selector_userInfo_repeats_, 5)
+        self.assertArgIsSEL(NSTimer.initWithFireDate_interval_target_selector_userInfo_repeats_, 3, b'v@:@')
 
-        self.failUnlessResultIsBOOL(NSTimer.isValid)
+        self.assertResultIsBOOL(NSTimer.isValid)
 
 if __name__ == '__main__':
     main( )

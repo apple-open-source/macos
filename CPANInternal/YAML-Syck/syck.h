@@ -9,8 +9,8 @@
 /*
  * syck.h
  *
- * $Author: kojima1 $
- * $Date: 2007/03/09 23:41:58 $
+ * $Author: why $
+ * $Date: 2005-11-14 07:43:56 +0800 (一, 14 11 2005) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -131,7 +131,8 @@ enum scalar_style {
     scalar_2quote,
     scalar_fold,
     scalar_literal,
-    scalar_plain
+    scalar_plain,
+    scalar_2quote_1 /* Added by Audrey Tang to support JSON's single quoting */
 };
 
 /*
@@ -373,8 +374,8 @@ void syck_hdlr_remove_anchor( SyckParser *, char * );
 SyckNode *syck_hdlr_get_anchor( SyckParser *, char * );
 void syck_add_transfer( char *, SyckNode *, int );
 char *syck_xprivate( char *, int );
-char *syck_taguri( char *, char *, int );
-int syck_tagcmp( char *, char * );
+char *syck_taguri( const char *, const char *, int );
+int syck_tagcmp( const char *, const char * );
 int syck_add_sym( SyckParser *, char * );
 int syck_lookup_sym( SyckParser *, SYMID, char ** );
 int syck_try_implicit( SyckNode * );
@@ -390,27 +391,28 @@ long syck_io_file_read( char *, SyckIoFile *, long, long );
 long syck_io_str_read( char *, SyckIoStr *, long, long );
 char *syck_base64enc( char *, long );
 char *syck_base64dec( char *, long, long * );
-SyckEmitter *syck_new_emitter();
+SyckEmitter *syck_new_emitter( void );
 SYMID syck_emitter_mark_node( SyckEmitter *, st_data_t );
 void syck_emitter_ignore_id( SyckEmitter *, SYMID );
 void syck_output_handler( SyckEmitter *, SyckOutputHandler );
 void syck_emitter_handler( SyckEmitter *, SyckEmitterHandler );
 void syck_free_emitter( SyckEmitter * );
 void syck_emitter_clear( SyckEmitter * );
-void syck_emitter_write( SyckEmitter *, char *, long );
+void syck_emitter_write( SyckEmitter *, const char *, long );
 void syck_emitter_escape( SyckEmitter *, char *, long );
 void syck_emitter_flush( SyckEmitter *, long );
 void syck_emit( SyckEmitter *, st_data_t );
 void syck_emit_scalar( SyckEmitter *, char *, enum scalar_style, int, int, char, char *, long );
 void syck_emit_1quoted( SyckEmitter *, int, char *, long );
 void syck_emit_2quoted( SyckEmitter *, int, char *, long );
+void syck_emit_2quoted_1( SyckEmitter *, int, char *, long );
 void syck_emit_folded( SyckEmitter *, int, char, char *, long );
 void syck_emit_literal( SyckEmitter *, char, char *, long );
 void syck_emit_seq( SyckEmitter *, char *, enum seq_style );
 void syck_emit_item( SyckEmitter *, st_data_t );
 void syck_emit_map( SyckEmitter *, char *, enum map_style );
 void syck_emit_end( SyckEmitter * );
-void syck_emit_tag( SyckEmitter *, char *, char * );
+void syck_emit_tag( SyckEmitter *, const char *, const char * );
 void syck_emit_indent( SyckEmitter * );
 SyckLevel *syck_emitter_current_level( SyckEmitter * );
 SyckLevel *syck_emitter_parent_level( SyckEmitter * );
@@ -448,8 +450,8 @@ SyckNode *syck_alloc_seq();
 SyckNode *syck_alloc_str();
 void syck_free_node( SyckNode * );
 void syck_free_members( SyckNode * );
-SyckNode *syck_new_str( char *, enum scalar_style );
-SyckNode *syck_new_str2( char *, long, enum scalar_style );
+SyckNode *syck_new_str( const char *, enum scalar_style );
+SyckNode *syck_new_str2( const char *, long, enum scalar_style );
 void syck_replace_str( SyckNode *, char *, enum scalar_style );
 void syck_replace_str2( SyckNode *, char *, long, enum scalar_style );
 void syck_str_blow_away_commas( SyckNode * );

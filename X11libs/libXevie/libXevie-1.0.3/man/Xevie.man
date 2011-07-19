@@ -1,0 +1,102 @@
+.\"
+.\" Copyright (c) 2005, Oracle and/or its affiliates. All rights reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation
+.\" the rights to use, copy, modify, merge, publish, distribute, sublicense,
+.\" and/or sell copies of the Software, and to permit persons to whom the
+.\" Software is furnished to do so, subject to the following conditions:
+.\"
+.\" The above copyright notice and this permission notice (including the next
+.\" paragraph) shall be included in all copies or substantial portions of the
+.\" Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+.\" THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+.\" LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+.\" FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+.\" DEALINGS IN THE SOFTWARE.
+.\"
+.de TQ
+.br
+.ns
+.TP \\$1
+..
+.TH XEVIE __libmansuffix__ __vendorversion__
+
+.SH NAME
+Xevie \- X Event Interception Extension (XEvIE)
+.SH SYNTAX
+\&#include <X11/extensions/Xevie.h>
+.nf    
+.sp
+Status XevieQueryVersion \^(\^Display *\fIdpy\fP,
+	int *\fImajor_versionp\fP,
+	int *\fIminor_versionp\fP\^);
+.sp
+Status XevieStart     \^(\^Display *\fIdpy\fp\^);
+.sp
+Status XevieSelectInput     \^(\^Display *\fIdpy\fP,
+	long \fIevent_mask\fP\^);
+.sp
+Status XevieSendEvent  \^(\^Display *\fIdpy\fP,
+    XEvent *\fIevent\fP,
+    char   *fIdataType\fP\^);
+.sp
+Status XevieEnd     \^(\^Display *\fIdpy\fp\^);
+.sp
+
+.SH ARGUMENTS
+.IP \fIdisplay\fP 1i
+Specifies the connection to the X server.
+.IP \fIevent_mask\fP 1i
+Specifies the mask of events to redirect.
+.IP \fIdatatype\fP 1i
+
+XEVIE_MODIFIED or XEVIE_UNMODIFIED - whether the Xevie client
+has changed or synthesised this event.
+
+.SH DESCRIPTION
+.B X Event Interception Extension (XEvIE) 
+is designed for users who need to intercept all the Keyboard and Mouse events.
+Programs can determine which events should be forwarded to other clients and
+modify the events if necessary.
+.PP
+
+.SH FUNCTIONS
+
+.B XevieQueryVersion
+The XevieQueryVersion function returns the major and minor protocol version 
+numbers supported by the server.
+XevieQueryVersion returns True if success, otherwise, it returns False.
+
+.B XevieStart
+The XevieStart function requests that the X server enable the XEvIE extension.
+Once XEvIE is successfully enabled, all the XevieSelectInput specified events 
+will be sent to the client which has enabled XEvIE.
+If XKB or AccessX is enabled, the events that are sent to the XEvIE clients
+are XKB/AccessX processed (filtered) ones.
+
+.B XevieSendEvent
+Events are sent back to the X server through XevieSendEvent.
+
+.B XevieEnd
+The XevieEnd function requests that the X server disables the XEvIE extension.
+Once XEvIE is disabled successfully, the X server stops sending events to the
+XEvIE client.
+
+.B XevieSelectInput
+The XevieSelectInput function requests that the X server reports the keyboard 
+and pointer events associated with the specified event mask.
+By default, X will report KeyPress, KeyRelease, ButtonPress, ButtonRelease
+and MotionNotify events.
+
+.SH RESTRICTIONS
+.B Xevie
+will remain upward compatible after the current 1.0 release.
+.SH AUTHORS
+Derek Wang and Stuart Kreitman, Sun Microsystems, Inc.
+

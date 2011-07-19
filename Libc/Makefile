@@ -23,6 +23,10 @@ LP64 = 1
 RC_TARGET_CONFIG = MacOSX
 .endif
 
+.ifndef RC_ProjectName
+RC_ProjectName = Libc
+.endif
+
 # Use default compiler, so comment out OTHERCC
 #OTHERCC = gcc-4.0
 # HOSTCC is the compiler on the local host, so we need to unset any SDKROOT
@@ -52,7 +56,7 @@ SYMROOTINC = ${SYMROOT}/include
 CFLAGS = -g -arch ${CCARCH} ${RC_NONARCH_CFLAGS} -std=gnu99 -fno-common -fno-builtin -Wmost
 CFLAGS += -D__LIBC__ -D__DARWIN_UNIX03=1 -D__DARWIN_64_BIT_INO_T=1 -D__DARWIN_NON_CANCELABLE=1 -D__DARWIN_VERS_1050=1 -D_FORTIFY_SOURCE=0
 CFLAGS += -DNOID -DLIBC_MAJOR=${SHLIB_MAJOR}
-CFLAGS += -I${.OBJDIR} -I${SYMROOTINC} -I${.CURDIR}/include
+CFLAGS += -I${.OBJDIR} ${VARIANTINC} -I${SYMROOTINC} -I${.CURDIR}/include
 AINC = -g -arch ${CCARCH} ${RC_NONARCH_CFLAGS}
 AINC += -I${.CURDIR}/${MACHINE_ARCH} ${PRIVINC}
 .if $(MACHINE_ARCH) != arm
@@ -64,10 +68,6 @@ CFLAGS += -isysroot '${SDKROOT}'
 AINC += -isysroot '${SDKROOT}'
 .endif # SDKROOT
 
-.if ${GCC_42} != YES
-CFLAGS += -no-cpp-precomp
-AINC += -no-cpp-precomp
-.endif
 CLEANFILES+=tags
 INSTALL_PIC_ARCHIVE=	yes
 PRECIOUSLIB=	yes
@@ -85,11 +85,12 @@ _x_ != ${TEST} -d ${SYMROOT} || ${MKDIR} ${SYMROOT}
 .endif
 DESTDIR ?= ${DSTROOT}
 MAKEOBJDIR ?= ${OBJROOT}
+PLATROOT != xcodebuild -version -sdk $(SDKROOT) PlatformPath | tr -d '\n'
 
 # add version string
 SRCS += libc_version.c
 libc_version.c:
-	${SDKROOT}/Developer/Makefiles/bin/version.pl Libc > $@
+	${PLATROOT}/Developer/Makefiles/bin/version.pl Libc > $@
 
 .include "Makefile.features"
 .include "${.CURDIR}/Makefile.inc"

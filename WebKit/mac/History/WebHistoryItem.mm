@@ -97,9 +97,7 @@ void WKNotifyHistoryItemChanged(HistoryItem*)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 - (id)init
@@ -185,12 +183,6 @@ void WKNotifyHistoryItemChanged(HistoryItem*)
 - (NSImage *)icon
 {
     return [[WebIconDatabase sharedIconDatabase] iconForURL:[self URLString] withSize:WebIconSmallSize];
-    
-    // FIXME: Ideally, this code should simply be the following -
-    // return core(_private)->icon()->getNSImage();
-    // Once radar -
-    // <rdar://problem/4906567> - NSImage returned from WebCore::Image may be incorrect size
-    // is resolved
 }
 
 - (NSTimeInterval)lastVisitedTimeInterval
@@ -219,7 +211,7 @@ void WKNotifyHistoryItemChanged(HistoryItem*)
     ASSERT_MAIN_THREAD();
     HistoryItem* coreItem = core(_private);
     NSMutableString *result = [NSMutableString stringWithFormat:@"%@ %@", [super description], (NSString*)coreItem->urlString()];
-    if (coreItem->target()) {
+    if (!coreItem->target().isEmpty()) {
         NSString *target = coreItem->target();
         [result appendFormat:@" in \"%@\"", target];
     }
@@ -384,7 +376,7 @@ static WebWindowWatcher *_windowWatcher = nil;
 
     if (NSArray *redirectURLs = [dict _webkit_arrayForKey:redirectURLsKey]) {
         NSUInteger size = [redirectURLs count];
-        OwnPtr<Vector<String> > redirectURLsVector(new Vector<String>(size));
+        OwnPtr<Vector<String> > redirectURLsVector = adoptPtr(new Vector<String>(size));
         for (NSUInteger i = 0; i < size; ++i)
             (*redirectURLsVector)[i] = String([redirectURLs _webkit_stringAtIndex:i]);
         core(_private)->setRedirectURLs(redirectURLsVector.release());

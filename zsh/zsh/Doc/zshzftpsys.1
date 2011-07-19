@@ -1,4 +1,4 @@
-.TH "ZSHZFTPSYS" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHZFTPSYS" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshzftpsys \- zftp function front\-end
 .\" Yodl file: Zsh/zftpsys.yo
@@ -216,8 +216,7 @@ The commands for retrieving files all take at least two options\&. \fB\-G\fP
 suppresses remote filename expansion which would otherwise be performed
 (see below for a more detailed description of that)\&.  \fB\-t\fP attempts
 to set the modification time of the local file to that of the remote file:
-this requires version 5 of \fBperl\fP, see the description of the function
-\fBzfrtime\fP below for more information\&.
+see the description of the function \fBzfrtime\fP below for more information\&.
 .PP
 .PD 0
 .TP
@@ -467,13 +466,9 @@ filenames on return\&.
 \fBzfrtime \fIlfile\fP \fIrfile\fP [ \fItime\fP ]\fP
 Set the local file \fIlfile\fP to have the same modification time as the
 remote file \fIrfile\fP, or the explicit time \fItime\fP in FTP format
-\fBCCYYMMDDhhmmSS\fP for the GMT timezone\&.
-.RS
-.PP
-Currently this requires \fBperl\fP version 5 to perform the conversion from
-GMT to local time\&.  This is unfortunately difficult to do using shell code
-alone\&.
-.RE
+\fBCCYYMMDDhhmmSS\fP for the GMT timezone\&.  This uses the shell\&'s
+\fBzsh/datetime\fP module to perform the conversion from
+GMT to local time\&.
 .TP
 \fBzftp_chpwd\fP
 This function is called every time a connection is opened, or closed, or

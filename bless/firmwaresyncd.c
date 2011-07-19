@@ -777,7 +777,7 @@ bool run_tool(char *argv[], CFDataRef *output)
     
     ret = posix_spawn_file_actions_init(&file_actions);
     if (ret < 0) {
-        syslog(LOG_DEBUG, "Could not call posix_spawn_file_actions_init: %d", errno);
+        syslog(LOG_DEBUG, "Could not call posix_spawn_file_actions_init: %d", ret);
         goto done;        
     }
     destroyFileActions = true;

@@ -1,14 +1,18 @@
 RC_OS = macos
-OFLAG = -O
+OFLAG = -Os
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 				  [ "$(RC_XBS)" != "YES" ]; then \
 	     echo YES ; else echo NO ; \
 	     fi; )
+ifneq "" "$(SDKROOT)"
+  SDK = -isysroot $(SDKROOT)
+  CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+endif
 	
 ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include
+  CFLAGS = $(OFLAG) -g -gccinc -I$(SRCROOT)/../include $(SDK)
 else
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(X_CFLAGS)
+  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -Wall $(X_CFLAGS) $(SDK)
 endif
 
 ifneq "" "$(wildcard /bin/mkdirs)"
@@ -71,7 +75,7 @@ else
 endif
 
 libsyminfo.a: libsyminfo.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/libsyminfo.o.tmp \
 		libsyminfo.o $(LIBSTUFF)
 	libtool -static -o $(SYMROOT)/libsyminfo.a \

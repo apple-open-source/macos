@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -23,7 +23,7 @@
 #include "unicode/schriter.h"
 #include "unicode/regex.h"
 #include "unicode/smpdtfmt.h"
-#include "unicode/dbgutil.h"
+#include "dbgutil.h"
 #include "fldset.h"
 
 
@@ -64,7 +64,7 @@ void DataDrivenFormatTest::runIndexedTest(int32_t index, UBool exec,
             name = "";
         }
     } else {
-        dataerrln("[DATA] format/DataDriven*Test data (format.res) not initialized!");
+        dataerrln("format/DataDriven*Test data (format.res) not initialized!");
         name = "";
     }
 
@@ -99,7 +99,7 @@ void DataDrivenFormatTest::testConvertDate(TestData *testData,
     SimpleDateFormat basicFmt(UnicodeString("EEE MMM dd yyyy / YYYY'-W'ww-ee"),
             status);
     if (U_FAILURE(status)) {
-        errln("FAIL: Couldn't create basic SimpleDateFormat: %s\n",
+        dataerrln("FAIL: Couldn't create basic SimpleDateFormat: %s",
                 u_errorName(status));
         return;
     }
@@ -180,11 +180,11 @@ void DataDrivenFormatTest::testConvertDate(TestData *testData,
         if(date.startsWith(kMILLIS)) {
             UnicodeString millis = UnicodeString(date, kMILLIS.length());
             useDate = TRUE;
-            fromDate = udbg_stoi(millis);
+            fromDate = udbg_stod(millis);
         } else if(date.startsWith(kRELATIVE_MILLIS)) {
             UnicodeString millis = UnicodeString(date, kRELATIVE_MILLIS.length());
             useDate = TRUE;
-            fromDate = udbg_stoi(millis) + now;
+            fromDate = udbg_stod(millis) + now;
         } else if(date.startsWith(kRELATIVE_ADD)) {
             UnicodeString add = UnicodeString(date, kRELATIVE_ADD.length());  // "add" is a string indicating which fields to add
             if(fromSet.parseFrom(add, status)<0 || U_FAILURE(status)) {
@@ -196,10 +196,10 @@ void DataDrivenFormatTest::testConvertDate(TestData *testData,
             cal->setTime(now, status);
             for (int q=0; q<UCAL_FIELD_COUNT; q++) {
                 if (fromSet.isSet((UCalendarDateFields)q)) {
-                    int32_t oldv = cal->get((UCalendarDateFields)q, status);
+                    //int32_t oldv = cal->get((UCalendarDateFields)q, status);
                     cal->add((UCalendarDateFields)q,
                                 fromSet.get((UCalendarDateFields)q), status);
-                    int32_t newv = cal->get((UCalendarDateFields)q, status);
+                    //int32_t newv = cal->get((UCalendarDateFields)q, status);
                 }
             }
             fromDate = cal->getTime(status);

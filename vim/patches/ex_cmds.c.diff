@@ -1,0 +1,24 @@
+Index: src/ex_cmds.c
+===================================================================
+--- src/ex_cmds.c	(revision 57762)
++++ src/ex_cmds.c	(working copy)
+@@ -2809,7 +2809,7 @@
+ 	    }
+ 	    swapname = makeswapname(fname, ffname, curbuf, dir);
+ 	    r = vim_fexists(swapname);
+-	    if (r)
++	    if (r && !eap->forceit)
+ 	    {
+ #if defined(FEAT_GUI_DIALOG) || defined(FEAT_CON_DIALOG)
+ 		if (p_confirm || cmdmod.confirm)
+@@ -5340,7 +5340,10 @@
+ 	    smsg((char_u *)_(e_patnotf2), pat);
+     }
+     else
++    {
++	global_last_cmd = 1;
+ 	global_exe(cmd);
++    }
+ 
+     ml_clearmarked();	   /* clear rest of the marks */
+     vim_free(regmatch.regprog);

@@ -1,0 +1,11 @@
+--- JSON-Any/t/02-JSON-XS.t	(revision 20835)
++++ JSON-Any/t/02-JSON-XS.t	(working copy)
+@@ -42,7 +42,7 @@
+         allow_nonref => 1,
+         ascii        => 1,
+         utf8         => 1,
+-        pretty       => 1
++        pretty       => 0
+     )
+ );
+ is( $json->encode( chr 0x10402 ), '"\ud801\udc02"' );

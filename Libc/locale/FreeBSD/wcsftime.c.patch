@@ -1,15 +1,15 @@
---- wcsftime.c.orig	2004-11-25 11:38:20.000000000 -0800
-+++ wcsftime.c	2005-02-24 00:53:36.000000000 -0800
+--- wcsftime.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ wcsftime.c	2009-11-09 17:45:28.000000000 -0800
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.4 2004/04/07 09:47:56 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcsftime.c,v 1.6 2009/01/15 20:45:59 rdivacky Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <errno.h>
  #include <limits.h>
  #include <stdlib.h>
-@@ -47,8 +49,9 @@
+@@ -47,8 +49,9 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * format specifications in the format string.
   */
  size_t
@@ -21,7 +21,7 @@
  {
  	static const mbstate_t initial;
  	mbstate_t mbs;
-@@ -56,6 +59,7 @@
+@@ -58,6 +61,7 @@ wcsftime(wchar_t * __restrict wcs, size_
  	size_t n, sflen;
  	int sverrno;
  
@@ -29,23 +29,23 @@
  	sformat = dst = NULL;
  
  	/*
-@@ -63,13 +67,13 @@
- 	 * for strftime(), which only handles single-byte characters.
+@@ -66,13 +70,13 @@ wcsftime(wchar_t * __restrict wcs, size_
  	 */
  	mbs = initial;
--	sflen = wcsrtombs(NULL, &format, 0, &mbs);
-+	sflen = wcsrtombs_l(NULL, &format, 0, &mbs, loc);
+ 	formatp = format;
+-	sflen = wcsrtombs(NULL, &formatp, 0, &mbs);
++	sflen = wcsrtombs_l(NULL, &formatp, 0, &mbs, loc);
  	if (sflen == (size_t)-1)
  		goto error;
  	if ((sformat = malloc(sflen + 1)) == NULL)
  		goto error;
  	mbs = initial;
--	wcsrtombs(sformat, &format, sflen + 1, &mbs);
-+	wcsrtombs_l(sformat, &format, sflen + 1, &mbs, loc);
+-	wcsrtombs(sformat, &formatp, sflen + 1, &mbs);
++	wcsrtombs_l(sformat, &formatp, sflen + 1, &mbs, loc);
  
  	/*
  	 * Allocate memory for longest multibyte sequence that will fit
-@@ -77,18 +81,18 @@
+@@ -80,18 +84,18 @@ wcsftime(wchar_t * __restrict wcs, size_
  	 * Then, copy and convert the result back into wide characters in
  	 * the caller's buffer.
  	 */
@@ -63,12 +63,12 @@
  		goto error;
  	dstp = dst;
  	mbs = initial;
--	n = mbsrtowcs(wcs, (const char **)&dstp, maxsize, &mbs);
-+	n = mbsrtowcs_l(wcs, (const char **)&dstp, maxsize, &mbs, loc);
+-	n = mbsrtowcs(wcs, &dstp, maxsize, &mbs);
++	n = mbsrtowcs_l(wcs, &dstp, maxsize, &mbs, loc);
  	if (n == (size_t)-2 || n == (size_t)-1 || dstp != NULL)
  		goto error;
  
-@@ -103,3 +107,10 @@
+@@ -106,3 +110,10 @@ error:
  	errno = sverrno;
  	return (0);
  }

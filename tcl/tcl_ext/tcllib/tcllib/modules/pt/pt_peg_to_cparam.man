@@ -1,0 +1,7 @@
+[comment {--- doctools ---}]
+[vset PACKAGE cparam]
+[vset NAME    CPARAM]
+[vset REQUIRE cparam]
+[vset CONFIG  cparam]
+[vset VERSION 1.0.1]
+[include include/export/to.inc]

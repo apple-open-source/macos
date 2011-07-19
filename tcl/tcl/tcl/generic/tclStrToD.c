@@ -14,7 +14,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclStrToD.c,v 1.33.2.1 2008/04/01 20:12:01 andreas_kupries Exp $
+ * RCS: @(#) $Id: tclStrToD.c,v 1.33.2.4 2010/05/21 12:51:26 nijtmans Exp $
  *
  *----------------------------------------------------------------------
  */
@@ -67,6 +67,15 @@ typedef unsigned int fpu_control_t __attribute__ ((__mode__ (__HI__)));
  */
 #if defined(__sun) && defined(__i386) && !defined(__GNUC__)
 #include <sunmath.h>
+#endif
+
+/*
+ * MIPS floating-point units need special settings in control registers
+ * to use gradual underflow as we expect.  This fix is for the MIPSpro
+ * compiler.  
+ */
+#if defined(__sgi) && defined(_COMPILER_VERSION)
+#include <sys/fpu.h>
 #endif
 /*
  * HP's PA_RISC architecture uses 7ff4000000000000 to represent a quiet NaN.
@@ -939,13 +948,14 @@ TclParseNumber(
 	case sINFIN:
 	case sINFINI:
 	case sINFINIT:
+#ifdef IEEE_FLOATING_POINT
 	case sN:
 	case sNA:
 	case sNANPAREN:
 	case sNANHEX:
 	    Tcl_Panic("TclParseNumber: bad acceptState %d parsing '%s'",
 		    acceptState, bytes);
-
+#endif
 	case BINARY:
 	    shift = numTrailZeros;
 	    if (!significandOverflow && significandWide != 0 &&
@@ -1126,12 +1136,13 @@ TclParseNumber(
 	    objPtr->typePtr = &tclDoubleType;
 	    break;
 
+#ifdef IEEE_FLOATING_POINT
 	case sNAN:
 	case sNANFINISH:
 	    objPtr->internalRep.doubleValue = MakeNaN(signum, significandWide);
 	    objPtr->typePtr = &tclDoubleType;
 	    break;
-
+#endif
 	case INITIAL:
 	    /* This case only to silence compiler warning */
 	    Tcl_Panic("TclParseNumber: state INITIAL can't happen here");
@@ -1223,7 +1234,7 @@ AccumulateDecimalDigit(
 	     * number to a bignum and fall through into the bignum case.
 	     */
 
-	    TclBNInitBignumFromWideUInt (bignumRepPtr, w);
+	    TclBNInitBignumFromWideUInt(bignumRepPtr, w);
 	} else {
 	    /*
 	     * Wide multiplication.
@@ -1333,7 +1344,7 @@ MakeLowPrecisionDouble(
 		 * without special handling.
 		 */
 
-		retval = (double)(Tcl_WideInt)significand * pow10vals[ exponent ];
+		retval = (double)(Tcl_WideInt)significand * pow10vals[exponent];
 		goto returnValue;
 	    } else {
 		int diff = DBL_DIG - numSigDigs;
@@ -1944,7 +1955,7 @@ TclDoubleDigits(
 	if (highOK) {
 	    tc2 = (tc2 >= 0);
 	} else {
-	    tc2= (tc2 > 0);
+	    tc2 = (tc2 > 0);
 	}
 	if (!tc1) {
 	    if (!tc2) {
@@ -2156,6 +2167,14 @@ TclInitDoubleConversion(void)
 	double dv;
 	Tcl_WideUInt iv;
     } bitwhack;
+#endif
+
+#if defined(__sgi) && defined(_COMPILER_VERSION)
+    union fpc_csr mipsCR;
+
+    mipsCR.fc_word = get_fpc_csr();
+    mipsCR.fc_struct.flush = 0;
+    set_fpc_csr(mipsCR.fc_word);
 #endif
 
     /*

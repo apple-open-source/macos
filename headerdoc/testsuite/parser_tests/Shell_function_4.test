@@ -1,0 +1,272 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$189|function shell_function_with_case_statement()
+{
+	echo case;
+
+	case $foo in
+		1) echo foo;;;
+		(2) echo foo;;;
+		3) echo foo;;;
+		4) echo bar;
+		   echo baz;
+		   echo esac;
+		   ;;
+	esac
+}
+$24|# /*! @abstract test */
+$0|$6812|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Shell_function_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Shell_function_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{afterSemi} => 1
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => shell_function_with_case_statement
+$parserState->{functionContents} => {
+        echo case;
+
+        case $foo in
+                1) echo foo;;;
+                (2) echo foo;;;
+                3) echo foo;;;
+                4) echo bar;
+                   echo baz;
+                   echo esac;
+                   ;;
+        esac
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inCase} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 14
+$parserState->{kr_c_function} => 1
+$parserState->{kr_c_name} => 
+$parserState->{lang} => shell
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => shell_function_with_case_statement
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => function
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => shell_function_with_case_statement
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => shell
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 14
+typelist: function
+namelist: shell_function_with_case_statement
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+        echo case;
+
+        case $foo in
+                1) echo foo;;;
+                (2) echo foo;;;
+                3) echo foo;;;
+                4) echo bar;
+                   echo baz;
+                   echo esac;
+                   ;;
+        esac
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---function
++--- 
++---shell_function_with_case_statement
++---(
+|   +---)
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Shell function 4
+APIUID: //test_ref/doc/header/Shell_function_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: shell_function_with_case_statement
+    APIUID: //test_ref/shell/func/shell_function_with_case_statement
+    ABSTRACT: "<p>test "
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: shell_function_with_case_statement (HeaderDoc::Function)
++---function
++--- 
++---shell_function_with_case_statement
++---(
+|   +---)
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: shell_function_with_case_statement (HeaderDoc::Function)
+	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/shell/instm/shell_function_with_case_statement //test_ref/shell/clm/shell_function_with_case_statement //test_ref/shell/intfcm/shell_function_with_case_statement //test_ref/shell/intfm/shell_function_with_case_statement //test_ref/shell/func/shell_function_with_case_statement //test_ref/shell/ftmplt/shell_function_with_case_statement //test_ref/shell/defn/shell_function_with_case_statement //test_ref/shell/macro/shell_function_with_case_statement //test_ref/doc/anysymbol/shell_function_with_case_statement" machineGenerated="true" --><span class="function">shell_function_with_case_statement</span><!-- /a -->() 
+END OF OBJECT
+
+
+
+__$98|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Shell_function_4.test$5|shell$16|Shell function 4$5|shell$6|parser

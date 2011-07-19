@@ -151,6 +151,7 @@ void AuthorizationDBPlist::save()
 void AuthorizationDBPlist::load()
 {
 	StLock<Mutex> _(mReadWriteLock);
+	CFDictionaryRef configPlist;
 
     secdebug("authdb", "(re)loading policy db from disk.");    
 	int fd = open(mFileName.c_str(), O_RDONLY, 0);
@@ -177,18 +178,16 @@ void AuthorizationDBPlist::load()
 		if (bytesRead == -1) {
 			Syslog::error("Problem reading rules file \"%s\": %s", 
                     mFileName.c_str(), strerror(errno));
-			CFRelease(xmlData);
-			return;
+			goto cleanup;
 		}
 		Syslog::error("Problem reading rules file \"%s\": "
                 "only read %ul out of %ul bytes",
 				bytesRead, fileSize, mFileName.c_str());
-		CFRelease(xmlData);
-		return;
+		goto cleanup;
 	}
 
 	CFStringRef errorString;
-	CFDictionaryRef configPlist = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(NULL, xmlData, kCFPropertyListMutableContainersAndLeaves, &errorString));
+	configPlist = reinterpret_cast<CFDictionaryRef>(CFPropertyListCreateFromXMLData(NULL, xmlData, kCFPropertyListMutableContainersAndLeaves, &errorString));
 	
 	if (!configPlist) {
 		char buffer[512];
@@ -205,8 +204,7 @@ void AuthorizationDBPlist::load()
 		if (errorString)
 			CFRelease(errorString);
 		
-		CFRelease(xmlData);
-		return;
+		goto cleanup;
 	}
 
 	if (CFGetTypeID(configPlist) != CFDictionaryGetTypeID()) {
@@ -214,15 +212,16 @@ void AuthorizationDBPlist::load()
 		Syslog::error("Rules file \"%s\": is not a dictionary", 
                 mFileName.c_str());
 
-		CFRelease(xmlData);
-		CFRelease(configPlist);
-		return;
+		goto cleanup;
 	}
 
 	parseConfig(configPlist);
 
-	CFRelease(xmlData);
-	CFRelease(configPlist);
+cleanup:
+	if (xmlData)
+		CFRelease(xmlData);
+	if (configPlist)
+		CFRelease(configPlist);
 
 	close(fd);
 

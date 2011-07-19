@@ -1,0 +1,7 @@
+// See directory /usr/share/sounds contents or example.cf for example on
+// how to used sounds
+soundDirectory = "/usr/share/sounds"
+
+Bell()			printEvent
+AccessX()		printEvent
+Message()		printEvent

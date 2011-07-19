@@ -1,6 +1,6 @@
---- icuSources/common/unicode/uconfig.h	2008-07-12 23:14:49.000000000 -0700
-+++ build/common/unicode/uconfig.h	2008-07-24 12:52:05.000000000 -0700
-@@ -222,7 +222,7 @@
+--- icuSources/common/unicode/uconfig.h	2009-09-15 17:06:26.000000000 -0700
++++ build/common/unicode/uconfig.h	2009-12-01 23:31:20.000000000 -0800
+@@ -225,7 +225,7 @@
   * @stable ICU 3.2
   */
  #ifndef UCONFIG_NO_SERVICE
@@ -9,9 +9,9 @@
  #endif
  
  #endif
---- icuSources/common/unicode/udata.h	2008-07-12 23:14:49.000000000 -0700
-+++ build/common/unicode/udata.h	2008-07-24 12:52:05.000000000 -0700
-@@ -367,7 +367,7 @@
+--- icuSources/common/unicode/udata.h	2010-03-10 16:47:27.000000000 -0800
++++ build/common/unicode/udata.h	2010-04-21 15:11:11.000000000 -0700
+@@ -393,7 +393,7 @@
      /** ICU does not access the file system for data loading. */
      UDATA_NO_FILES,
      /** An alias for the default access mode. */
@@ -20,3 +20,23 @@
      UDATA_FILE_ACCESS_COUNT
  } UDataFileAccess;
  
+--- icuSources/common/unicode/utypes.h	2010-03-11 20:47:35.000000000 -0800
++++ build/common/unicode/utypes.h	2010-04-21 15:02:44.000000000 -0700
+@@ -55,7 +55,7 @@
+  */
+ #ifdef XP_CPLUSPLUS
+ #   ifndef U_SHOW_CPLUSPLUS_API
+-#       define U_SHOW_CPLUSPLUS_API 1
++#       define U_SHOW_CPLUSPLUS_API 0
+ #   endif
+ #else
+ #   undef U_SHOW_CPLUSPLUS_API
+@@ -234,7 +234,7 @@
+  */
+ #define U_ICUDATA_NAME    "icudt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
+ #define U_USRDATA_NAME    "usrdt" U_ICU_VERSION_SHORT U_ICUDATA_TYPE_LETTER  /**< @internal */
+-#define U_USE_USRDATA     1  /**< @internal */
++#define U_USE_USRDATA     0  /**< @internal */
+ 
+ /**
+  *  U_ICU_ENTRY_POINT is the name of the DLL entry point to the ICU data library.

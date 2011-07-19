@@ -1,3 +1,33 @@
+/*
+ * Copyright © 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions are met:
+ * 
+ * 1.  Redistributions of source code must retain the above copyright notice,
+ * this list of conditions and the following disclaimer. 
+ * 2.  Redistributions in binary form must reproduce the above copyright notice,
+ * this list of conditions and the following disclaimer in the documentation
+ * and/or other materials provided with the distribution. 
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+ * contributors may be used to endorse or promote products derived from this
+ * software without specific prior written permission. 
+ * 
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
 #include "stdio.h"
 #include "stddef.h"
 #include "string.h"
@@ -328,8 +358,12 @@ struct section_info_64 {
     char *contents;
     uint64_t addr;
     uint64_t size;
+    uint32_t offset;
     struct relocation_info *relocs;
     uint32_t nrelocs;
+    enum bool cstring;
+    enum bool protected;
+    enum bool zerofill;
 };
 
 static void walk_pointer_list(
@@ -1677,13 +1711,14 @@ uint32_t *nsections,
 uint64_t *database) 
 {
     enum byte_sex host_byte_sex;
-    enum bool swapped, database_set, zerobased;
+    enum bool swapped, database_set, zerobased, encrypt_found;
 
     uint32_t i, j, left, size;
     struct load_command lcmd, *lc;
     char *p;
     struct segment_command_64 sg64;
     struct section_64 s64;
+    struct encryption_info_command encrypt;
 
 	host_byte_sex = get_host_byte_sex();
 	swapped = host_byte_sex != object_byte_sex;
@@ -1693,6 +1728,7 @@ uint64_t *database)
 	database_set = FALSE;
 	*database = 0;
 	zerobased = FALSE;
+	encrypt_found = FALSE;
 
 	lc = load_commands;
 	for(i = 0 ; i < ncmds; i++){
@@ -1747,6 +1783,9 @@ uint64_t *database)
 			   s64.sectname, 16);
 		    (*sections)[*nsections].addr = s64.addr;
 		    (*sections)[*nsections].contents = object_addr + s64.offset;
+		    (*sections)[*nsections].offset = s64.offset;
+		    (*sections)[*nsections].zerofill =
+			(s64.flags & SECTION_TYPE) == S_ZEROFILL ? TRUE : FALSE;
 		    if(s64.offset > object_size){
 			printf("section contents of: (%.16s,%.16s) is past "
 			       "end of file\n", s64.segname, s64.sectname);
@@ -1788,6 +1827,14 @@ uint64_t *database)
 				(*sections)[*nsections].nrelocs,
 				host_byte_sex);
 		    }
+		    if(sg64.flags & SG_PROTECTED_VERSION_1)
+			(*sections)[*nsections].protected = TRUE;
+		    else
+			(*sections)[*nsections].protected = FALSE;
+		    if((s64.flags & SECTION_TYPE) == S_CSTRING_LITERALS)
+			(*sections)[*nsections].cstring = TRUE;
+		    else
+			(*sections)[*nsections].cstring = FALSE;
 		    (*nsections)++;
 
 		    if(p + sizeof(struct section_64) >
@@ -1795,6 +1842,16 @@ uint64_t *database)
 			break;
 		    p += size;
 		}
+		break;
+	    case LC_ENCRYPTION_INFO:
+		memset((char *)&encrypt, '\0',
+		       sizeof(struct encryption_info_command));
+		size = left < sizeof(struct encryption_info_command) ?
+		       left : sizeof(struct encryption_info_command);
+		memcpy((char *)&encrypt, (char *)lc, size);
+		if(swapped)
+		    swap_encryption_command(&encrypt, host_byte_sex);
+		encrypt_found = TRUE;
 		break;
 	    }
 	    if(lcmd.cmdsize == 0){
@@ -1805,6 +1862,25 @@ uint64_t *database)
 	    lc = (struct load_command *)((char *)lc + lcmd.cmdsize);
 	    if((char *)lc > (char *)load_commands + sizeofcmds)
 		break;
+	}
+
+	if(encrypt_found == TRUE && encrypt.cryptid != 0){
+	    for(i = 0; i < *nsections; i++){
+		if((*sections)[i].size > 0 && (*sections)[i].zerofill == FALSE){
+		    if((*sections)[i].offset >
+		       encrypt.cryptoff + encrypt.cryptsize){
+			/* section starts past encryption area */ ;
+		    }
+		    else if((*sections)[i].offset + (*sections)[i].size <
+			encrypt.cryptoff){
+			/* section ends before encryption area */ ;
+		    }
+		    else{
+			/* section has part in the encrypted area */
+			(*sections)[i].protected = TRUE;
+		    }
+		}
+	    }
 	}
 }
 
@@ -1907,6 +1983,11 @@ struct section_info_64 *cstring_section)
 			}
 			else
 			    cstring_section->size = s64.size;
+			if(sg64.flags & SG_PROTECTED_VERSION_1)
+			    cstring_section->protected = TRUE;
+			else
+			    cstring_section->protected = FALSE;
+			cstring_section->cstring = TRUE;
 			return;
 		    }
 
@@ -1952,7 +2033,10 @@ uint32_t nsections)
 		    *offset = addr - sections[i].addr;
 		if(left != NULL)
 		    *left = sections[i].size - (addr - sections[i].addr);
-		r = sections[i].contents + (addr - sections[i].addr);
+		if(sections[i].protected == TRUE && sections[i].cstring == TRUE)
+		    r = "some string from a protected section";
+		else
+		    r = sections[i].contents + (addr - sections[i].addr);
 		return(r);
 	    }
 	}

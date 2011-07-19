@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  copyproperty.m
 //  bocktest
@@ -5,10 +11,11 @@
 //  Created by Blaine Garst on 3/21/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC RR
+// TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
-#include <stdio.h>
+#import <stdio.h>
+#import "test.h"
 
 @interface TestObject : NSObject {
     long (^getInt)(void);
@@ -32,20 +39,20 @@ int Retained = 0;
 }
 @end
 
-int main(char *argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     TestObject *to = [[TestObject alloc] init];
     TestObject *co = [[CountingObject alloc] init];
     long (^localBlock)(void) = ^{ return 10L + (long)[co self]; };
-    to.getInt = localBlock;
+    to.getInt = localBlock;    
     if (localBlock == to.getInt) {
-        printf("%s: ****block property not copied!!\n", argv[0]);
-        return 1;
+        fail("block property not copied!!");
     }
-    if (![NSGarbageCollector defaultCollector] && Retained == 0) {
-        printf("%s: ****didn't copy block import\n", argv[0]);
-        return 1;
+    if (!objc_collectingEnabled() && Retained == 0) {
+        fail("didn't copy block import");
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    [pool drain];
+
+    succeed(__FILE__);
 }

@@ -1,0 +1,10 @@
+_kmod_info
+_trigger_set_mount_to
+_trigger_new
+_trigger_new_autofs
+_trigger_free
+_unmount_triggered_mounts
+_SMBRemountServer
+_auto_get_automountd_port
+_auto_release_port
+_auto_new_thread

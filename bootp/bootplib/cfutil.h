@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,8 @@
 #include <netinet/in.h>
 #include <stdint.h>
 #include <stdbool.h>
+
+#include "symbol_scope.h"
 
 void
 my_CFRelease(void * t);
@@ -63,5 +65,33 @@ my_CFTypeToNumber(CFTypeRef element, uint32_t * l_p);
 
 bool
 my_CFStringToNumber(CFStringRef str, uint32_t * ret_val);
+
+void
+my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
+				   CFStringRef prop, CFTypeRef val);
+void
+my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
+					CFStringRef prop,
+					struct in_addr ip_addr);
+void
+my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new);
+
+CFStringRef
+my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
+			 CFIndex component_index);
+CFStringRef
+my_CFStringCreateWithIPAddress(const struct in_addr ip);
+
+CFStringRef
+my_CFStringCreateWithIPv6Address(const struct in6_addr * ip6_addr);
+
+void
+my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
+			    int length, char sep);
+char *
+my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding);
+
+Boolean
+my_CFEqual(CFTypeRef val1, CFTypeRef val2);
 
 #endif _S_CFUTIL_H

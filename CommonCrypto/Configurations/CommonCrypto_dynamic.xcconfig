@@ -1,0 +1,15 @@
+//
+//  CommonCrypto_dynamic.xcconfig
+//  CommonCrypto
+//
+//  Created by Jim Murphy on 1/11/10.
+//  Copyright 2010 Apple. All rights reserved.
+//
+
+// This XCCONFIG file defines settings that specific for dynamic libraries
+
+STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = Dynamic
+
+EXECUTABLE_EXTENSION = dylib
+
+LIBRARY_STYLE = Dynamic

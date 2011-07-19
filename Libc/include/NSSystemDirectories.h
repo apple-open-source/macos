@@ -65,7 +65,7 @@ typedef enum {
     NSDocumentationDirectory = 8,           // documentation (Library/Documentation)
     NSDocumentDirectory = 9,                // documents (Documents)
     NSCoreServiceDirectory = 10,            // location of core services (System/Library/CoreServices)
-    NSAutosavedInformationDirectory = 11,   // location of user's directory for use with autosaving (~/Documents/Autosaved)
+    NSAutosavedInformationDirectory = 11,   // location of user's directory for use with autosaving (Library/Autosave Information)
     NSDesktopDirectory = 12,                // location of user's Desktop (Desktop)
     NSCachesDirectory = 13,                 // location of discardable cache files (Library/Caches)
     NSApplicationSupportDirectory = 14,     // location of application support files (plug-ins, etc) (Library/Application Support)

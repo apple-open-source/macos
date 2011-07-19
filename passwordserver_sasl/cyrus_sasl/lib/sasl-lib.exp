@@ -69,6 +69,7 @@ _sasl_churn
 _sasl_client_add_plugin
 _sasl_client_init
 _sasl_client_new
+_sasl_client_plugin_info
 _sasl_client_start
 _sasl_client_step
 _sasl_config_getstring
@@ -96,6 +97,7 @@ _sasl_server_add_plugin
 _sasl_server_init
 _sasl_server_init_alt
 _sasl_server_new
+_sasl_server_plugin_info
 _sasl_server_start
 _sasl_server_step
 _sasl_set_alloc

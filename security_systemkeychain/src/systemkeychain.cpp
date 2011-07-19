@@ -33,6 +33,12 @@
 #include <Security/cssmapple.h>
 #include <cstdarg>
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
+#include <launch.h>
+#include <syslog.h>
+#include <sysexits.h>
+#include <dispatch/dispatch.h>
+#include <sys/socket.h>
+#include <sys/un.h>
 #include "TokenIDHelper.h"
 
 using namespace SecurityServer;
@@ -57,7 +63,7 @@ bool force = false;
 //
 static const CSSM_DB_ATTRIBUTE_INFO dlInfoLabel = {
 	CSSM_DB_ATTRIBUTE_NAME_AS_STRING,
-	{"Label"},
+	{(char*)"Label"},
 	CSSM_DB_ATTRIBUTE_FORMAT_BLOB
 };
 
@@ -82,6 +88,7 @@ void createAKeychain(const char *kcName, const char *passphrase, CSP &csp, DL &d
 OSStatus createTokenProtectedKeychain(const char *kcName);
 void createMasterKey(CSP &csp, Key &masterKeyRef);
 void flattenKey  (const CssmKey &rawKey, CssmDataContainer &flatKey);
+void systemKeychainCheck();
 
 //
 // Main program: parse options and dispatch, catching exceptions
@@ -93,20 +100,24 @@ int main (int argc, char * argv[])
 		setupSystem,
 		copyKey,
 		testUnlock,
-		tokenProtectedKCCreate
+		tokenProtectedKCCreate,
+		systemKeychainCheckDaemon
 	} action = showUsage;
 
 	extern int optind;
 	extern char *optarg;
 	int arg;
 	OSStatus status;
-	while ((arg = getopt(argc, argv, "cCfk:stvT:")) != -1) {
+	while ((arg = getopt(argc, argv, "cCdfk:stvT:")) != -1) {
 		switch (arg) {
 		case 'c':
 			createIfNeeded = true;
 			break;
 		case 'C':
 			action = setupSystem;
+			break;
+		case 'd':
+			action = systemKeychainCheckDaemon;
 			break;
 		case 'f':
 			force = true;
@@ -154,6 +165,10 @@ int main (int argc, char * argv[])
 				cssmPerror("unable to create token protected keychain", status);
 				exit(1);
 			}
+			break;
+		case systemKeychainCheckDaemon:
+			systemKeychainCheck();
+			exit(0);
 			break;
 		default:
 			usage();
@@ -531,6 +546,146 @@ void flattenKey(const CssmKey &rawKey, CssmDataContainer &flatKey)
 	memcpy(flatKey.Data + sizeof(CSSM_KEYHEADER) + sizeof(CSSM_DATA), rawKeyCopy.data(), keyDataLength);
 	// Note that the Data pointer in the CSSM_DATA portion will not be meaningful when unpacked later
 	// We will also fill in the unflattened key length based on the size of flatKey
+}
+
+void systemKeychainCheck()
+{
+	launch_data_t checkinRequest = launch_data_new_string(LAUNCH_KEY_CHECKIN);
+    launch_data_t checkinResponse = launch_msg(checkinRequest);
+	
+	if (!checkinResponse) {
+		syslog(LOG_ERR, "unable to check in with launchd %m");
+		exit(EX_UNAVAILABLE);
+	}
+	
+	launch_data_type_t replyType = launch_data_get_type(checkinResponse);
+	
+	if (LAUNCH_DATA_DICTIONARY == replyType) {
+		launch_data_t sockets = launch_data_dict_lookup(checkinResponse, LAUNCH_JOBKEY_SOCKETS);
+		if (NULL == sockets) {
+			syslog(LOG_ERR, "Unable to find sockets to listen to");
+			exit(EX_DATAERR);
+		}
+		launch_data_t listening_fd_array = launch_data_dict_lookup(sockets, "Listener");
+		if (NULL == listening_fd_array || launch_data_array_get_count(listening_fd_array) <= 0) {
+			syslog(LOG_ERR, "No sockets to listen to");
+			exit(EX_DATAERR);
+		}
+		
+		__block uint32 requestsProcessedSinceLastTimeoutCheck = 0;
+		dispatch_queue_t makeDoneFile = dispatch_queue_create("com.apple.security.make-done-file", NULL);
+		// Use low priority I/O for making the done files -- keeping this process running a little longer
+		// is cheaper then defering other I/O
+		dispatch_set_target_queue(makeDoneFile, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_BACKGROUND, 0));
+		// We suspend makeDoneFile until the keychain check is complete
+		dispatch_suspend(makeDoneFile);
+		
+		// In theory there can be multiple sockets to listen to, and for the sake of not letting you set something
+		// up in launchd that doesn't get handled we have a little loop.
+		for(unsigned int i = 0; i < launch_data_array_get_count(listening_fd_array); i++) {
+			int serverSocket = launch_data_get_fd(launch_data_array_get_index(listening_fd_array, i));
+			// Note the target queue is the main queue so the handler will not run until after we check the system keychain
+			dispatch_source_t connectRequest = dispatch_source_create(DISPATCH_SOURCE_TYPE_READ, serverSocket, 0, dispatch_get_main_queue());
+			dispatch_source_set_event_handler(connectRequest, ^{
+				sockaddr_un remoteAddress;
+				socklen_t remoteAddressLength = sizeof(remoteAddress);
+				int connection = accept(serverSocket, (sockaddr*)&remoteAddress, &remoteAddressLength);
+				if (connection < 0) {
+					syslog(LOG_NOTICE, "accept failure %m");
+				} else {
+					close(connection);
+				}
+				
+				if (requestsProcessedSinceLastTimeoutCheck < INT_MAX) {
+					requestsProcessedSinceLastTimeoutCheck++;
+				}
+			});
+			
+			dispatch_async(makeDoneFile, ^{
+				// All of the errors in here are "merely" logged, failure to write the done file just
+				// means we will be spawned at some future time and given a chance to do it again.
+				struct sockaddr_un socketName;
+				socklen_t socketNameLength = sizeof(socketName);
+				int rc = getsockname(serverSocket, (struct sockaddr *)&socketName, &socketNameLength);
+				if (0 != rc) {
+					syslog(LOG_ERR, "Can't getsockname fd#%d %m", serverSocket);
+					return;
+				}
+				
+				// If searchFor or replaceWith is ever changed, make sure strlen(searchFor) <= strlen(replaceWith),
+				// or change the code below to check for overflowing sun_path's length.
+				const char *searchFor = ".socket";
+				const char *replaceWith = ".done";
+				int searchForLength = strlen(searchFor);
+				int pathLength = strlen(socketName.sun_path);
+				if (pathLength > searchForLength && socketName.sun_path[0] == '/') {
+					strcpy(socketName.sun_path + pathLength - searchForLength, replaceWith);
+					syslog(LOG_ERR, "done file: %s", socketName.sun_path);
+					int fd = open(socketName.sun_path, O_CREAT | O_TRUNC | O_WRONLY, S_IRUSR|S_IRGRP|S_IROTH);
+					if (fd < 0) {
+						syslog(LOG_ERR, "Could not create done file %s: %m", socketName.sun_path);
+						return;
+					} else {
+						if (-1 == close(fd)) {
+							syslog(LOG_ERR, "Could not close file %s (fd#%d): %m", socketName.sun_path, fd);
+							return;
+						}
+					}
+				} else {
+					syslog(LOG_ERR, "Unexpected socket name %s", socketName.sun_path);
+				}
+			});
+			
+			dispatch_resume(connectRequest);
+		}
+		
+		launch_data_free(checkinResponse);
+		
+		int64_t timeoutInterval = 30 * NSEC_PER_SEC;
+		dispatch_source_t timeoutCheck = dispatch_source_create(DISPATCH_SOURCE_TYPE_TIMER, 0, 0, dispatch_get_main_queue());
+		dispatch_source_set_event_handler(timeoutCheck, ^{
+			if (requestsProcessedSinceLastTimeoutCheck) {
+				requestsProcessedSinceLastTimeoutCheck = 0;
+			} else {
+				exit(0);
+			}
+		});
+		dispatch_source_set_timer(timeoutCheck, dispatch_time(DISPATCH_TIME_NOW, timeoutInterval), timeoutInterval, timeoutInterval / 4);
+		dispatch_async(makeDoneFile, ^{
+			// The idle timeout starts after we write the done file 
+			dispatch_resume(timeoutCheck);
+		});
+				
+		int rc = system("/usr/libexec/security-checksystem");
+		if (rc) {
+			int exit_code = EX_SOFTWARE;
+			if (rc < 0) {
+				syslog(LOG_ERR, "Failure %d running security-checksystem");
+			} else {
+				syslog(LOG_ERR, "Could not run security-checksystem failure %m");
+				exit_code = EX_OSERR;
+			}
+			
+			exit(exit_code);
+		}
+		
+		// Start the first idle check after we handle the first batch of requests (this makes
+		// no difference unless the keychain check somehow takes more then timeoutInterval +/-25%,
+		// but will prevent a premature exit in that unlikely case).
+		dispatch_async(dispatch_get_main_queue(), ^{
+			dispatch_resume(makeDoneFile);
+		});
+		
+		dispatch_main();
+		// NOTE: dispatch_main does not return.
+	} else if (LAUNCH_DATA_ERRNO == replyType) {
+		errno = launch_data_get_errno(checkinResponse);
+		syslog(LOG_ERR, "launchd checkin error %m");
+		exit(EX_OSERR);		
+	} else {
+		syslog(LOG_ERR, "launchd unexpected message type: %d", launch_data_get_type(checkinResponse));
+		exit(EX_OSERR);
+	}
 }
 
 //

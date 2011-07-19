@@ -1,31 +1,29 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1999-2001,2005-2010 Apple Inc. All Rights Reserved.
  * 
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please obtain
- * a copy of the License at http://www.apple.com/publicsource and read it before
- * using this file.
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
- * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the
- * specific language governing rights and limitations under the License.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
-
 /*
-	File:		sslContext.h
-
-	Contains:	Private SSL typedefs: SSLContext and its components
-
-	Written by:	Doug Mitchell
-
-	Copyright: (c) 1999-2009 Apple Inc. All Rights Reserved.
-
-*/
+ * sslContext.h - Private SSL typedefs: SSLContext and its components
+ */
 
 #ifndef _SSLCONTEXT_H_
 #define _SSLCONTEXT_H_ 1
@@ -146,7 +144,7 @@ struct SSLContext
 	 * were a large number of these and/or we were adding new
 	 * protocol versions on a regular basis, we'd probably want
 	 * to implement these as a word of flags. For now, in the 
-	 * real world, this is the most straightfoprward implementation. 
+	 * real world, this is the most straightforward implementation. 
 	 */
     SSLProtocolVersion  negProtocolVersion;	/* negotiated */
     SSLProtocolVersion  clientReqProtocol;	/* requested by client in hello msg */
@@ -231,9 +229,9 @@ struct SSLContext
 	CSSM_KEY_PTR			ecdhPrivate;		/* our private key */
 	CSSM_CSP_HANDLE			ecdhPrivCspHand;
 	
-	Boolean				allowExpiredCerts;
-	Boolean				allowExpiredRoots;
-	Boolean				enableCertVerify;
+	Boolean					allowExpiredCerts;
+	Boolean					allowExpiredRoots;
+	Boolean					enableCertVerify;
 	
     SSLBuffer		    sessionID;
 	
@@ -314,6 +312,7 @@ struct SSLContext
 	#endif
 
 	Boolean				anonCipherEnable;
+	Boolean				weakCipherEnable;	// currently, 40 and 56 bit ciphers
 
 	/* optional switches to enable additional returns from SSLHandshake */
 	Boolean             breakOnServerAuth;
@@ -332,7 +331,6 @@ struct SSLContext
 	SSLClientAuthenticationType	negAuthType;
 };
 
-/** sslContext.c **/
 OSStatus SSLUpdateNegotiatedClientAuthType(SSLContextRef ctx);
 
 #ifdef __cplusplus

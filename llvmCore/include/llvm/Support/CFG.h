@@ -18,35 +18,36 @@
 #include "llvm/ADT/GraphTraits.h"
 #include "llvm/Function.h"
 #include "llvm/InstrTypes.h"
-#include "llvm/ADT/iterator.h"
 
 namespace llvm {
 
-//===--------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 // BasicBlock pred_iterator definition
-//===--------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
-template <class _Ptr,  class _USE_iterator> // Predecessor Iterator
-class PredIterator : public forward_iterator<_Ptr, ptrdiff_t> {
-  typedef forward_iterator<_Ptr, ptrdiff_t> super;
-  _USE_iterator It;
-public:
-  typedef PredIterator<_Ptr,_USE_iterator> _Self;
-  typedef typename super::pointer pointer;
+template <class Ptr, class USE_iterator> // Predecessor Iterator
+class PredIterator : public std::iterator<std::forward_iterator_tag,
+                                          Ptr, ptrdiff_t> {
+  typedef std::iterator<std::forward_iterator_tag, Ptr, ptrdiff_t> super;
+  typedef PredIterator<Ptr, USE_iterator> Self;
+  USE_iterator It;
 
   inline void advancePastNonTerminators() {
-    // Loop to ignore non terminator uses (for example PHI nodes)...
+    // Loop to ignore non terminator uses (for example PHI nodes).
     while (!It.atEnd() && !isa<TerminatorInst>(*It))
       ++It;
   }
 
-  inline PredIterator(_Ptr *bb) : It(bb->use_begin()) {
+public:
+  typedef typename super::pointer pointer;
+
+  explicit inline PredIterator(Ptr *bb) : It(bb->use_begin()) {
     advancePastNonTerminators();
   }
-  inline PredIterator(_Ptr *bb, bool) : It(bb->use_end()) {}
+  inline PredIterator(Ptr *bb, bool) : It(bb->use_end()) {}
 
-  inline bool operator==(const _Self& x) const { return It == x.It; }
-  inline bool operator!=(const _Self& x) const { return !operator==(x); }
+  inline bool operator==(const Self& x) const { return It == x.It; }
+  inline bool operator!=(const Self& x) const { return !operator==(x); }
 
   inline pointer operator*() const {
     assert(!It.atEnd() && "pred_iterator out of range!");
@@ -54,47 +55,53 @@ public:
   }
   inline pointer *operator->() const { return &(operator*()); }
 
-  inline _Self& operator++() {   // Preincrement
+  inline Self& operator++() {   // Preincrement
     assert(!It.atEnd() && "pred_iterator out of range!");
     ++It; advancePastNonTerminators();
     return *this;
   }
 
-  inline _Self operator++(int) { // Postincrement
-    _Self tmp = *this; ++*this; return tmp;
+  inline Self operator++(int) { // Postincrement
+    Self tmp = *this; ++*this; return tmp;
   }
 };
 
 typedef PredIterator<BasicBlock, Value::use_iterator> pred_iterator;
 typedef PredIterator<const BasicBlock,
-                     Value::use_const_iterator> pred_const_iterator;
+                     Value::const_use_iterator> const_pred_iterator;
 
 inline pred_iterator pred_begin(BasicBlock *BB) { return pred_iterator(BB); }
-inline pred_const_iterator pred_begin(const BasicBlock *BB) {
-  return pred_const_iterator(BB);
+inline const_pred_iterator pred_begin(const BasicBlock *BB) {
+  return const_pred_iterator(BB);
 }
 inline pred_iterator pred_end(BasicBlock *BB) { return pred_iterator(BB, true);}
-inline pred_const_iterator pred_end(const BasicBlock *BB) {
-  return pred_const_iterator(BB, true);
+inline const_pred_iterator pred_end(const BasicBlock *BB) {
+  return const_pred_iterator(BB, true);
 }
 
 
 
-//===--------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 // BasicBlock succ_iterator definition
-//===--------------------------------------------------------------------===//
+//===----------------------------------------------------------------------===//
 
 template <class Term_, class BB_>           // Successor Iterator
-class SuccIterator : public bidirectional_iterator<BB_, ptrdiff_t> {
+class SuccIterator : public std::iterator<std::bidirectional_iterator_tag,
+                                          BB_, ptrdiff_t> {
   const Term_ Term;
   unsigned idx;
-  typedef bidirectional_iterator<BB_, ptrdiff_t> super;
-public:
-  typedef SuccIterator<Term_, BB_> _Self;
-  typedef typename super::pointer pointer;
-  // TODO: This can be random access iterator, need operator+ and stuff tho
+  typedef std::iterator<std::bidirectional_iterator_tag, BB_, ptrdiff_t> super;
+  typedef SuccIterator<Term_, BB_> Self;
 
-  inline SuccIterator(Term_ T) : Term(T), idx(0) {         // begin iterator
+  inline bool index_is_valid(int idx) {
+    return idx >= 0 && (unsigned) idx < Term->getNumSuccessors();
+  }
+
+public:
+  typedef typename super::pointer pointer;
+  // TODO: This can be random access iterator, only operator[] missing.
+
+  explicit inline SuccIterator(Term_ T) : Term(T), idx(0) {// begin iterator
     assert(T && "getTerminator returned null!");
   }
   inline SuccIterator(Term_ T, bool)                       // end iterator
@@ -102,7 +109,7 @@ public:
     assert(T && "getTerminator returned null!");
   }
 
-  inline const _Self &operator=(const _Self &I) {
+  inline const Self &operator=(const Self &I) {
     assert(Term == I.Term &&"Cannot assign iterators to two different blocks!");
     idx = I.idx;
     return *this;
@@ -112,20 +119,82 @@ public:
   /// operate on terminator instructions directly.
   unsigned getSuccessorIndex() const { return idx; }
 
-  inline bool operator==(const _Self& x) const { return idx == x.idx; }
-  inline bool operator!=(const _Self& x) const { return !operator==(x); }
+  inline bool operator==(const Self& x) const { return idx == x.idx; }
+  inline bool operator!=(const Self& x) const { return !operator==(x); }
 
   inline pointer operator*() const { return Term->getSuccessor(idx); }
   inline pointer operator->() const { return operator*(); }
 
-  inline _Self& operator++() { ++idx; return *this; } // Preincrement
-  inline _Self operator++(int) { // Postincrement
-    _Self tmp = *this; ++*this; return tmp;
+  inline Self& operator++() { ++idx; return *this; } // Preincrement
+
+  inline Self operator++(int) { // Postincrement
+    Self tmp = *this; ++*this; return tmp;
   }
 
-  inline _Self& operator--() { --idx; return *this; }  // Predecrement
-  inline _Self operator--(int) { // Postdecrement
-    _Self tmp = *this; --*this; return tmp;
+  inline Self& operator--() { --idx; return *this; }  // Predecrement
+  inline Self operator--(int) { // Postdecrement
+    Self tmp = *this; --*this; return tmp;
+  }
+
+  inline bool operator<(const Self& x) const {
+    assert(Term == x.Term && "Cannot compare iterators of different blocks!");
+    return idx < x.idx;
+  }
+
+  inline bool operator<=(const Self& x) const {
+    assert(Term == x.Term && "Cannot compare iterators of different blocks!");
+    return idx <= x.idx;
+  }
+  inline bool operator>=(const Self& x) const {
+    assert(Term == x.Term && "Cannot compare iterators of different blocks!");
+    return idx >= x.idx;
+  }
+
+  inline bool operator>(const Self& x) const {
+    assert(Term == x.Term && "Cannot compare iterators of different blocks!");
+    return idx > x.idx;
+  }
+
+  inline Self& operator+=(int Right) {
+    unsigned new_idx = idx + Right;
+    assert(index_is_valid(new_idx) && "Iterator index out of bound");
+    idx = new_idx;
+    return *this;
+  }
+
+  inline Self operator+(int Right) {
+    Self tmp = *this;
+    tmp += Right;
+    return tmp;
+  }
+
+  inline Self& operator-=(int Right) {
+    return operator+=(-Right);
+  }
+
+  inline Self operator-(int Right) {
+    return operator+(-Right);
+  }
+
+  inline int operator-(const Self& x) {
+    assert(Term == x.Term && "Cannot work on iterators of different blocks!");
+    int distance = idx - x.idx;
+    return distance;
+  }
+
+  // This works for read access, however write access is difficult as changes
+  // to Term are only possible with Term->setSuccessor(idx). Pointers that can
+  // be modified are not available.
+  //
+  // inline pointer operator[](int offset) {
+  //  Self tmp = *this;
+  //  tmp += offset;
+  //  return tmp.operator*();
+  // }
+
+  /// Get the source BB of this iterator.
+  inline BB_ *getSource() {
+    return Term->getParent();
   }
 };
 
@@ -201,7 +270,7 @@ template <> struct GraphTraits<Inverse<BasicBlock*> > {
 
 template <> struct GraphTraits<Inverse<const BasicBlock*> > {
   typedef const BasicBlock NodeType;
-  typedef pred_const_iterator ChildIteratorType;
+  typedef const_pred_iterator ChildIteratorType;
   static NodeType *getEntryNode(Inverse<const BasicBlock*> G) {
     return G.Graph;
   }

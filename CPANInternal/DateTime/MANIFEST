@@ -1,20 +1,20 @@
+Build.PL
+c/leap_seconds.h
+c/ppport.h
 Changes
 CREDITS
-DateTime.xs
-leap_seconds.h
 leaptab.txt
 lib/DateTime.pm
+lib/DateTime.xs
 lib/DateTime/Duration.pm
+lib/DateTime/Helpers.pm
 lib/DateTime/Infinite.pm
 lib/DateTime/LeapSecond.pm
 lib/DateTimePP.pm
 lib/DateTimePPExtra.pm
 LICENSE
-Makefile.PL
 MANIFEST			This list of files
-MANIFEST.SKIP
 META.yml
-ppport.h
 README
 t/00load.t
 t/01sanity.t
@@ -54,6 +54,15 @@ t/35rd_values.t
 t/36invalid_local.t
 t/37local-add.t
 t/38local-subtract.t
-t/99-pod.t
+t/39no-so.t
+t/40leap-years.t
+t/41cldr_format.t
+t/42duration_class.t
+t/43new-params.t
 TODO
 tools/leap_seconds_header.pl
+xt/pod-coverage.t
+xt/pod-spell.t
+xt/pod.t
+xt/versions-match.t
+SIGNATURE    Added here by Module::Build

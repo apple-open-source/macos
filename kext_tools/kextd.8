@@ -32,16 +32,6 @@ Print a help message describing each option flag and exit with a success result,
 regardless of any other options on the command line.
 .It Fl q , Fl quiet
 Quiet mode; log no informational or error messages.
-.It Fl r Ar directory , Fl repository Ar directory
-Use
-.Ar directory
-as a repository of known kexts for handling load requests.
-This is not recursive;
-only the directory's immediate contents are scanned.
-By default
-.Nm
-uses only the kexts in
-.Pa /System/Library/Extensions/ .
 .It Fl v Li [ 0-6 | 0x#### Ns Li ] , Fl verbose Li [ 0-6 | 0x#### Ns Li ]
 Verbose mode; print information about program operation.
 Higher levels of verbosity include all lower levels.

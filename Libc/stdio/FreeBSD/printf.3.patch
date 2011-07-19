@@ -1,103 +1,14 @@
---- printf.3.orig	2008-02-29 10:45:39.000000000 -0800
-+++ printf.3	2008-02-29 12:19:06.000000000 -0800
-@@ -40,39 +40,83 @@
- .Dt PRINTF 3
- .Os
- .Sh NAME
--.Nm printf , fprintf , sprintf , snprintf , asprintf ,
--.Nm vprintf , vfprintf, vsprintf , vsnprintf , vasprintf
-+.Nm asprintf ,
-+.Nm fprintf ,
-+.Nm printf ,
-+.Nm snprintf ,
-+.Nm sprintf ,
-+.Nm vasprintf ,
-+.Nm vfprintf,
-+.Nm vprintf ,
-+.Nm vsnprintf ,
-+.Nm vsprintf
- .Nd formatted output conversion
+--- printf.3.orig	2009-12-15 17:50:20.000000000 -0800
++++ printf.3	2009-12-15 17:58:46.000000000 -0800
+@@ -42,7 +42,6 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
+-.Fd "#define _WITH_DPRINTF"
  .In stdio.h
  .Ft int
--.Fn printf "const char * restrict format" ...
-+.Fo asprintf
-+.Fa "char **ret"
-+.Fa "const char *format" ...
-+.Fc
- .Ft int
--.Fn fprintf "FILE * restrict stream" "const char * restrict format" ...
-+.Fo fprintf
-+.Fa "FILE *restrict stream"
-+.Fa "const char *restrict format" ...
-+.Fc
- .Ft int
--.Fn sprintf "char * restrict str" "const char * restrict format" ...
-+.Fo printf
-+.Fa "const char *restrict format" ...
-+.Fc
- .Ft int
--.Fn snprintf "char * restrict str" "size_t size" "const char * restrict format" ...
-+.Fo snprintf
-+.Fa "char *restrict s"
-+.Fa "size_t n"
-+.Fa "const char *restrict format" ...
-+.Fc
- .Ft int
--.Fn asprintf "char **ret" "const char *format" ...
-+.Fo sprintf
-+.Fa "char *restrict s"
-+.Fa "const char *restrict format" ...
-+.Fc
- .In stdarg.h
-+.In stdio.h
- .Ft int
--.Fn vprintf "const char * restrict format" "va_list ap"
-+.Fo vasprintf
-+.Fa "char **ret"
-+.Fa "const char *format"
-+.Fa "va_list ap"
-+.Fc
- .Ft int
--.Fn vfprintf "FILE * restrict stream" "const char * restrict format" "va_list ap"
-+.Fo vfprintf
-+.Fa "FILE *restrict stream"
-+.Fa "const char *restrict format"
-+.Fa "va_list ap"
-+.Fc
- .Ft int
--.Fn vsprintf "char * restrict str" "const char * restrict format" "va_list ap"
-+.Fo vprintf
-+.Fa "const char *restrict format"
-+.Fa "va_list ap"
-+.Fc
- .Ft int
--.Fn vsnprintf "char * restrict str" "size_t size" "const char * restrict format" "va_list ap"
-+.Fo vsnprintf
-+.Fa "char *restrict s"
-+.Fa "size_t n"
-+.Fa "const char *restrict format"
-+.Fa "va_list ap"
-+.Fc
- .Ft int
--.Fn vasprintf "char **ret" "const char *format" "va_list ap"
-+.Fo vsprintf
-+.Fa "char *restrict s"
-+.Fa "const char *restrict format"
-+.Fa "va_list ap"
-+.Fc
- .Sh DESCRIPTION
- The
- .Fn printf
- family of functions produces output according to a
--.Fa format
-+.Fa format ,
- as described below.
- The
- .Fn printf
-@@ -93,7 +137,7 @@
+ .Fn printf "const char * restrict format" ...
+@@ -98,7 +97,7 @@ write output to the given file descripto
  and
  .Fn vsnprintf
  write to the character string
@@ -106,7 +17,7 @@
  and
  .Fn asprintf
  and
-@@ -101,6 +145,12 @@
+@@ -106,6 +105,12 @@ and
  dynamically allocate a new string with
  .Xr malloc 3 .
  .Pp
@@ -119,7 +30,7 @@
  These functions write the output under the control of a
  .Fa format
  string that specifies how subsequent arguments
-@@ -117,7 +167,7 @@
+@@ -122,7 +127,7 @@ except for
  and
  .Fn vsnprintf ,
  which return the number of characters that would have been printed if the
@@ -128,7 +39,7 @@
  were unlimited
  (again, not including the final
  .Ql \e0 ) .
-@@ -149,14 +199,14 @@
+@@ -154,14 +159,14 @@ and
  .Fn vsnprintf
  functions
  will write at most
@@ -146,7 +57,7 @@
  argument, the string was too short
  and some of the printed characters were discarded.
  The output is always null-terminated.
-@@ -167,7 +217,11 @@
+@@ -172,7 +177,11 @@ and
  .Fn vsprintf
  functions
  effectively assume an infinite
@@ -159,7 +70,7 @@
  .Pp
  The format string is composed of zero or more directives:
  ordinary
-@@ -287,6 +341,20 @@
+@@ -291,6 +300,20 @@ the non-monetary separator returned by
  .Xr localeconv 3 .
  .El
  .It
@@ -180,7 +91,7 @@
  An optional decimal digit string specifying a minimum field width.
  If the converted value has fewer characters than the field width, it will
  be padded with spaces on the left (or right, if the left-adjustment
-@@ -379,6 +447,34 @@
+@@ -383,6 +406,34 @@ conversion:
  .It Sy Modifier Ta Cm c Ta Cm s
  .It Cm l No (ell) Ta Vt wint_t Ta Vt "wchar_t *"
  .El
@@ -215,20 +126,64 @@
  .It
  A character that specifies the type of conversion to be applied.
  .El
-@@ -790,14 +886,11 @@
+@@ -561,10 +612,9 @@ For example,
+ and
+ .Li 0xc.9p-2
+ are all equivalent.
+-.Fx 8.0
+-and later always prints finite non-zero numbers using
+-.Ql 1
+-as the digit before the hexadecimal point.
++The format chosen depends on the internal representation of the
++number, but the implementation guarantees that the length of the
++mantissa will be minimized.
+ Zeroes are always represented with a mantissa of 0 (preceded by a
+ .Ql -
+ if appropriate) and an exponent of
+@@ -781,34 +831,6 @@ Always use the proper secure idiom:
+ .Pp
+ .Dl "snprintf(buffer, sizeof(buffer), \*q%s\*q, string);"
+ .Sh COMPATIBILITY
+-Many application writers used the name
+-.Va dprintf
+-before the
+-.Fn dprintf
+-function was introduced in
+-.St -p1003.1 ,
+-so a prototype is not provided by default in order to avoid
+-compatibility problems.
+-Applications that wish to use the
+-.Fn dprintf
+-function described herein should either request a strict
+-.St -p1003.1-2008
+-environment by defining the macro
+-.Dv _POSIX_C_SOURCE
+-to the value 200809 or greater, or by defining the macro
+-.Dv _WITH_DPRINTF ,
+-prior to the inclusion of
+-.In stdio.h .
+-For compatibility with GNU libc, defining either
+-.Dv _BSD_SOURCE
+-or
+-.Dv _GNU_SOURCE
+-prior to the inclusion of
+-.In stdio.h
+-will also make
+-.Fn dprintf
+-available.
+-.Pp
+ The conversion formats
+ .Cm \&%D , \&%O ,
+ and
+@@ -845,9 +867,11 @@ Insufficient storage space is available.
+ .El
  .Sh SEE ALSO
  .Xr printf 1 ,
- .Xr fmtcheck 3 ,
 +.Xr printf_l 3 ,
+ .Xr fmtcheck 3 ,
  .Xr scanf 3 ,
  .Xr setlocale 3 ,
 +.Xr stdarg 3 ,
  .Xr wprintf 3
--.Rs
--.%T "The FreeBSD Security Architecture"
--.Re
--(See
--.Pa "/usr/share/doc/{to be determined}" . )
  .Sh STANDARDS
  Subject to the caveats noted in the
- .Sx BUGS

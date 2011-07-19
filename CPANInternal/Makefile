@@ -4,41 +4,42 @@ PERL5_10_OR_GREATER = $(shell perl -MConfig -e 'print ($$Config{PERL_REVISION} >
 
 # Perl major version must be at least 5.8
 ifneq ($(PERL5_8_OR_GREATER),YES)
-$(error You must have perl 5.8 or later)
+	$(error You must have perl 5.8 or later)
 endif
 
 # Determine our OS major version.
-SNOWLEOPARD = NO
-LEOPARD     = NO
-TIGER       = NO
-PANTHER     = NO
-UNKNOWN_OS  = YES
-OS_VERSION  = $(shell perl -e 'my $$osVersion = `/usr/bin/uname -r`; chomp($$osVersion); $$osVersion =~ s|^(\d+).*|$$1|; print "$$osVersion"')
+OS_VERSION  = $(shell perl -e 'my $$osVersion = `sw_vers -buildVersion`; chomp($$osVersion); $$osVersion =~ s|^(\d+).*|$$1|; print "$$osVersion"')
+SUPPORTED_OS     = NO
+LION           = NO
+LION_PLUS      = NO
+SNOWLEOPARD      = NO
+SNOWLEOPARD_PLUS = NO
+LEOPARD          = NO
+TIGER            = NO
+PANTHER          = NO
+ifeq ($(OS_VERSION),11)
+	LION           = YES
+	SUPPORTED_OS     = YES
+	LION_PLUS      = YES
+	SNOWLEOPARD_PLUS = YES
+endif
 ifeq ($(OS_VERSION),10)
-	SNOWLEOPARD = YES
-	UNKNOWN_OS  = NO
+	SNOWLEOPARD      = YES
+	SUPPORTED_OS     = YES
+	SNOWLEOPARD_PLUS = YES
 endif
 ifeq ($(OS_VERSION),9)
-	LEOPARD    = YES
-	UNKNOWN_OS = NO
+	LEOPARD      = YES
+	SUPPORTED_OS = YES
 endif
 ifeq ($(OS_VERSION),8)
-	TIGER      = YES
-	UNKNOWN_OS = NO
-endif
-ifeq ($(OS_VERSION),7)
-	PANTHER    = YES
-	UNKNOWN_OS = NO
+	TIGER        = YES
+	SUPPORTED_OS = YES
 endif
 
 # OS major version must be recognized
-ifeq ($(UNKNOWN_OS),YES)
-$(error Unknown OS version)
-endif
-
-# OS major version must be Tiger or newer
-ifeq ($(PANTHER),YES)
-$(error You must build on Tiger or later)
+ifneq ($(SUPPORTED_OS),YES)
+    $(error Unsupported OS version $(OS_VERSION))
 endif
 
 # This project builds various CPAN modules.  Each module is kept in its own subdirectory.
@@ -60,63 +61,85 @@ endif
 #
 
 
-# Modules that build on SnowLeopard or later
-ifeq ($(SNOWLEOPARD),YES)
+# Modules that build on Lion or later
+ifeq ($(LION_PLUS),YES)
 
 # These modules have fewer dependencies and can build early
+TEST_MODULES = 							\
+	Test-Tester							\
+	Test-use-ok							\
+	Test-NoWarnings						\
+	Test-Deep							\
+
 FIRST_MODULES =                         \
-    Algorithm-C3                        \
-    Authen-Krb5                         \
-    Bencode                             \
-    Class-Accessor-Chained              \
-    Class-Data-Accessor                 \
-    Class-Data-Inheritable              \
-    Class-Factory-Util-1.6              \
-    Class-Inspector                     \
-    Class-Singleton-1.03                \
-    Class-Std                           \
-    Class-Std-Utils                     \
-    Class-Trigger                       \
-    Class-WhiteHole                     \
-    Config-Std                          \
-    Crypt-OpenSSL-Random                \
-    Crypt-OpenSSL-RSA                   \
-    Crypt-Rijndael                      \
-    Crypt-SSLeay                        \
-    Data-Dump                           \
-    Data-UUID                           \
-    Error-0.15                          \
-    Exporter-Easy                       \
-    File-NFSLock                        \
-    Heap                                \
-    JSON-Any                            \
-    Lingua-EN-Inflect                   \
-    Lingua-EN-Inflect-Number            \
-    Mail-Sender                         \
-    Module-Find                         \
-    Params-Validate                     \
-    Perl-Tidy                           \
-    Readonly                            \
-    Readonly-XS                         \
-    Scope-Guard                         \
-    String-ShellQuote-1.00              \
-    Sub-Uplevel                         \
-    Term-ReadLine-Perl                  \
-    Test-Exception                      \
-    Text-LevenshteinXS                  \
-    Text-WordDiff                       \
-    Time-HiRes-Value                    \
-    Tree-Simple                         \
-    Tree-Simple-VisitorFactory          \
-    UNIVERSAL-moniker                   \
-    UNIVERSAL-require                   \
-    YAML-Syck                           \
+    Apache-DBI	                        \
+    Apache2-SOAP                        \
+	Authen-Krb5							\
+	Bencode								\
+	Class-Accessor-Chained				\
+	Class-Data-Accessor					\
+	Class-Factory-Util-1.6				\
+	Class-Singleton-1.03				\
+	Class-Std							\
+	Class-Std-Utils						\
+	Class-Trigger						\
+	Class-WhiteHole						\
+	Clone								\
+	common-sense                        \
+	Config-Std							\
+	Context-Preserve					\
+	Crypt-OpenSSL-Bignum				\
+	Crypt-Rijndael						\
+	Crypt-SSLeay						\
+	Data-Dump							\
+	Data-UUID							\
+	Exporter-Easy						\
+	File-NFSLock						\
+	File-VirtualPath					\
+	Heap								\
+	IPC-LDT								\
+	IPC-Signal							\
+	JSON								\
+	JSON-Any							\
+	JSON-RPC							\
+	JSON-XS							    \
+	Lingua-EN-Inflect					\
+	Lingua-EN-Inflect-Number			\
+	Mail-Sender							\
+	Module-Find							\
+	Net-Daemon							\
+	Net-Telnet							\
+	Params-Validate						\
+	Parse-Yapp							\
+	Perl-Tidy							\
+	PlRPC								\
+	Readonly							\
+	Readonly-XS							\
+	String-ShellQuote-1.00				\
+	Term-ReadLine-Perl					\
+	Term-ReadPassword					\
+	Text-LevenshteinXS					\
+	Text-WordDiff						\
+	Time-HiRes-Value					\
+	Tree-DAG_Node						\
+	Tree-Simple							\
+	Tree-Simple-VisitorFactory			\
+	UNIVERSAL-moniker					\
+	Unix-Getrusage						\
+	Variable-Magic						\
+
+# Modules that must build in order
+DEPENDENCY_ORDERED_LIST =				\
+	Test-Warn							\
+	Data-Dumper-Concise					\
+	B-Hooks-EndOfScope					\
+	Sub-Identify						\
 
 DATETIMESUBDIRS =                       \
     DateTime-Locale                     \
     DateTime-TimeZone                   \
     DateTime                            \
-    DateTime-Format-Strptime-1.04       \
+    DateTime-Format-Strptime	        \
     DateTime-Format-Builder             \
     DateTime-Format-Pg                  \
     DateTime-Format-W3CDTF              \
@@ -124,6 +147,147 @@ DATETIMESUBDIRS =                       \
 
 CLASS_DBI_MODULES =                     \
     DBIx-ContextualFetch                \
+    SQL-Abstract                        \
+    SQL-Abstract-Limit                  \
+    Ima-DBI                             \
+    Class-DBI                           \
+    Class-DBI-AbstractSearch            \
+
+SOAP_LITE_MODULES =                     \
+    Pod-WSDL                            \
+    SOAP-Lite                           \
+
+# Modules that have dependencies on earlier modules
+OTHERCPANSUBDIRS =                      \
+    Class-C3-XS                         \
+	Class-Inspector						\
+    Class-C3-Componentised              \
+    Class-Accessor-Grouped              \
+    Data-Page                           \
+    Graph                               \
+    HTTP-Proxy                          \
+    Log-Dispatch                        \
+    Log-Log4perl                        \
+
+DBIX_CLASS_MODULES =                    \
+	Class-Unload						\
+    DBIx-Class                          \
+    DBIx-Class-Schema-Loader            \
+
+# Modules that are temporarily disabled
+#	PathTools is included as part of the System install (7699376)
+DISABLED =                              \
+	PathTools                           \
+
+endif
+
+# Modules that build on SnowLeopard
+ifeq ($(SNOWLEOPARD),YES)
+
+# These modules have fewer dependencies and can build early
+TEST_MODULES = 							\
+	Test-Simple							\
+	Test-Tester							\
+	Test-use-ok							\
+	Test-NoWarnings						\
+	Test-Deep							\
+
+FIRST_MODULES =                         \
+	Algorithm-C3						\
+    Apache-DBI	                        \
+    Apache2-SOAP                        \
+	Authen-Krb5							\
+	Bencode								\
+	Class-Accessor-Chained				\
+	Class-Data-Accessor					\
+	Class-Factory-Util-1.6				\
+	Class-Singleton-1.03				\
+	Class-Std							\
+	Class-Std-Utils						\
+	Class-Trigger						\
+	Class-WhiteHole						\
+	Clone								\
+	common-sense                        \
+	Config-Std							\
+	Context-Preserve					\
+	Crypt-OpenSSL-Bignum				\
+	Crypt-OpenSSL-RSA					\
+	Crypt-OpenSSL-Random				\
+	Crypt-Rijndael						\
+	Crypt-SSLeay						\
+	Data-Dump							\
+	Data-UUID							\
+	Error-0.15							\
+	Exporter-Easy						\
+	File-NFSLock						\
+	File-Temp							\
+	File-VirtualPath					\
+	Heap								\
+	IPC-LDT								\
+	IPC-Signal							\
+	JSON								\
+	JSON-Any							\
+	JSON-RPC							\
+	JSON-XS							    \
+	Lingua-EN-Inflect					\
+	Lingua-EN-Inflect-Number			\
+	Mail-Sender							\
+	Module-Find							\
+	Net-Daemon							\
+	Net-Telnet							\
+	Params-Util							\
+	Params-Validate						\
+	Parse-Yapp							\
+	Path-Class							\
+	Perl-Tidy							\
+	PlRPC								\
+	Readonly							\
+	Readonly-XS							\
+	Scope-Guard							\
+	String-ShellQuote-1.00				\
+	Task-Weaken							\
+	Term-ReadLine-Perl					\
+	Term-ReadPassword					\
+	Text-LevenshteinXS					\
+	Text-WordDiff						\
+	Time-HiRes-Value					\
+	Tree-DAG_Node						\
+	Tree-Simple							\
+	Tree-Simple-VisitorFactory			\
+	Try-Tiny							\
+	UNIVERSAL-moniker					\
+	Unix-Getrusage						\
+	Variable-Magic						\
+
+# Modules that must build in order
+DEPENDENCY_ORDERED_LIST =				\
+	Test-Warn							\
+	Data-Dumper-Concise					\
+	Sub-Install							\
+	Data-OptList						\
+	Sub-Exporter						\
+	B-Hooks-EndOfScope					\
+	Devel-GlobalDestruction				\
+	Sub-Identify						\
+	Sub-Name							\
+	Sub-Uplevel							\
+	Test-Exception						\
+	Class-MOP							\
+
+DATETIMESUBDIRS =                       \
+    DateTime-Locale                     \
+    DateTime-TimeZone                   \
+    DateTime                            \
+    DateTime-Format-Builder             \
+    DateTime-Format-Pg                  \
+    DateTime-Format-W3CDTF              \
+    DateTime-Format-ISO8601             \
+    DateTime-Format-Strptime	        \
+
+CLASS_DBI_MODULES =                     \
+    DBIx-ContextualFetch                \
+    DBI			                        \
+    DBD-SQLite	                        \
     SQL-Abstract                        \
     SQL-Abstract-Limit                  \
     Ima-DBI                             \
@@ -148,13 +312,15 @@ OTHERCPANSUBDIRS =                      \
     Log-Log4perl                        \
 
 DBIX_CLASS_MODULES =                    \
+	Class-Inspector						\
+	Class-Unload						\
     DBIx-Class                          \
     DBIx-Class-Schema-Loader            \
-    PathTools                           \
 
-# Modules that are tempoarily disabled
+# Modules that are temporarily disabled
+#	PathTools is included as part of the System install (7699376)
 DISABLED =                              \
-    Apache2-SOAP                        \
+	PathTools                           \
 
 endif
 
@@ -162,12 +328,135 @@ endif
 # Modules that build on Leopard
 ifeq ($(LEOPARD),YES)
 
-DATETIMESUBDIRS = Module-Build-0.20 Params-Validate Class-Factory-Util-1.6 Class-Singleton-1.03  DateTime-TimeZone DateTime-Locale DateTime DateTime-Format-Strptime-1.04 DateTime-Format-Builder DateTime-Format-Pg DateTime-Format-W3CDTF DateTime-Format-ISO8601
-OTHERCPANSUBDIRS = Authen-Krb5 Readonly Readonly-XS String-ShellQuote-1.00 Error-0.15 Log-Log4perl Log-Dispatch Mail-Sender Crypt-Rijndael Crypt-OpenSSL-Random Crypt-OpenSSL-RSA Crypt-SSLeay File-NFSLock HTTP-Proxy Class-Std-Utils YAML-Syck Heap Graph Test-Exception Tree-Simple Tree-Simple-VisitorFactory Class-Std Config-Std Text-LevenshteinXS Text-WordDiff Apache2-SOAP Apache-DBI Digest-SHA Term-ReadLine-Perl Exporter-Easy Data-UUID Time-HiRes-Value Perl-Tidy Bencode
-DATETIMESUBDIRS = Module-Build-0.20 Params-Validate Class-Factory-Util-1.6 Class-Singleton-1.03  DateTime-TimeZone DateTime-Locale DateTime DateTime-Format-Strptime-1.04 DateTime-Format-Builder DateTime-Format-Pg DateTime-Format-W3CDTF DateTime-Format-ISO8601 
-SOAP_LITE_MODULES = SOAP-Lite Pod-WSDL
-CLASS_DBI_MODULES = DBI UNIVERSAL-moniker Class-Accessor Class-Data-Inheritable Class-Trigger Class-WhiteHole DBIx-ContextualFetch Ima-DBI Class-DBI SQL-Abstract Class-DBI-AbstractSearch
-DBIX_CLASS_MODULES = Sub-Uplevel Test-Simple Class-Accessor-Chained Class-Inspector Data-Page SQL-Abstract-Limit Module-Find Algorithm-C3 Class-C3-XS Class-C3 Class-C3-Componentised Class-Data-Accessor MRO-Compat Class-Accessor-Grouped ExtUtils-CBuilder PathTools Lingua-EN-Inflect Lingua-EN-Inflect-Number Data-Dump UNIVERSAL-require Scope-Guard JSON-Any DBIx-Class DBIx-Class-Schema-Loader
+FIRST_MODULES = 					\
+	ExtUtils-MakeMaker			\
+
+OTHERCPANSUBDIRS =  			\
+	Authen-Krb5 				\
+	Readonly					\
+	Readonly-XS 				\
+	String-ShellQuote-1.00  	\
+	Error-0.15  				\
+	Log-Log4perl				\
+	Log-Dispatch				\
+	Mail-Sender 				\
+	common-sense                \
+	Crypt-Rijndael  			\
+	Crypt-OpenSSL-Random		\
+	Crypt-OpenSSL-RSA   		\
+	Crypt-SSLeay				\
+	File-NFSLock				\
+	HTTP-Proxy  				\
+	Class-Std-Utils 			\
+	YAML-Syck   				\
+	Heap						\
+	Graph   					\
+	Test-Exception  			\
+	Tree-Simple 				\
+	Tree-Simple-VisitorFactory  \
+	Class-Std   				\
+	Config-Std  				\
+	Text-LevenshteinXS  		\
+	Text-WordDiff   			\
+	Apache2-SOAP				\
+	Apache-DBI  				\
+	Digest-SHA  				\
+	Term-ReadLine-Perl  		\
+	Term-ReadPassword   		\
+	Exporter-Easy   			\
+	Data-UUID   				\
+	Time-HiRes-Value			\
+	Perl-Tidy   				\
+	Bencode 					\
+	Net-Telnet  				\
+	Crypt-OpenSSL-Bignum		\
+	Net-Daemon  				\
+	PlRPC   					\
+	TimeDate					\
+	IPC-LDT 					\
+	IPC-Signal  				\
+	Parse-Yapp  				\
+	File-VirtualPath			\
+	FreezeThaw  				\
+	JSON-XS  					\
+	Unix-Getrusage				\
+	Compress-Raw-Bzip2			\
+	Compress-Raw-Zlib			\
+	IO-Compress					\
+
+DATETIMESUBDIRS =  				\
+	Module-Build-0.20 			\
+	Params-Validate   			\
+	Class-Factory-Util-1.6		\
+	Class-Singleton-1.03  		\
+	DateTime-TimeZone 			\
+	DateTime-Locale   			\
+	DateTime  					\
+	DateTime-Format-Strptime    \
+	DateTime-Format-Builder   	\
+	DateTime-Format-Pg			\
+	DateTime-Format-W3CDTF		\
+	DateTime-Format-ISO8601   	\
+
+SOAP_LITE_MODULES = 			\
+	SOAP-Lite 					\
+	Pod-WSDL  					\
+
+CLASS_DBI_MODULES =  			\
+	DBI 						\
+	UNIVERSAL-moniker   		\
+	Class-Accessor  			\
+	Class-Data-Inheritable  	\
+	Class-Trigger   			\
+	Class-WhiteHole 			\
+	DBIx-ContextualFetch		\
+	Ima-DBI 					\
+	Class-DBI   				\
+	Clone						\
+	Tree-DAG_Node				\
+	Test-Tester					\
+	Test-NoWarnings				\
+	Test-Deep					\
+	Test-Warn					\
+	SQL-Abstract				\
+	Class-DBI-AbstractSearch	\
+	Sub-Uplevel 				\
+	Test-Simple 				\
+	Class-Accessor-Chained  	\
+	Class-Inspector 			\
+	Data-Page   				\
+	SQL-Abstract-Limit  		\
+	Module-Find 				\
+	Algorithm-C3				\
+	Class-C3-XS 				\
+	Class-C3					\
+	MRO-Compat  				\
+	Class-C3-Componentised  	\
+	Sub-Identify				\
+	Sub-Name					\
+	Class-Data-Accessor 		\
+	Class-Accessor-Grouped  	\
+	ExtUtils-CBuilder   		\
+	PathTools   				\
+	Lingua-EN-Inflect   		\
+	Lingua-EN-Inflect-Number	\
+	Data-Dump   				\
+	UNIVERSAL-require   		\
+	Scope-Guard 				\
+	JSON-Any					\
+	JSON						\
+	JSON-RPC					\
+    DBD-SQLite	                \
+	File-Temp					\
+	Data-Dumper-Concise			\
+	Path-Class					\
+	DBIx-Class  				\
+
+DBIX_CLASS_MODULES = 			\
+	File-Path					\
+	Class-Unload				\
+	DBIx-Class-Schema-Loader	\
+
 
 endif
 
@@ -175,13 +464,157 @@ endif
 # Modules that build on Tiger
 ifeq ($(TIGER),YES)
 
-OTHERCPANSUBDIRS = Authen-Krb5 version Readonly Readonly-XS String-ShellQuote-1.00 Error-0.15 Log-Log4perl Log-Dispatch Mail-Sender Apache-DBI Crypt-Rijndael Crypt-OpenSSL-Random Crypt-OpenSSL-RSA Crypt-SSLeay File-NFSLock HTTP-Proxy Class-Std-Utils YAML-Syck Heap Graph Test-Exception Tree-Simple Tree-Simple-VisitorFactory Class-Std Config-Std Text-LevenshteinXS Text-WordDiff Term-ReadLine-Perl Digest-SHA Exporter-Easy Data-UUID Time-HiRes-Value Net-IP Digest-HMAC Net-DNS Perl-Tidy Bencode TermReadKey
-DATETIMESUBDIRS = Module-Build-0.20 Params-Validate Class-Factory-Util-1.6 Class-Singleton-1.03  DateTime-TimeZone DateTime-Locale DateTime DateTime-Format-Strptime-1.04 DateTime-Format-Builder DateTime-Format-Pg DateTime-Format-W3CDTF DateTime-Format-ISO8601
-SOAP_LITE_MODULES = URI libwww-perl SOAP-Lite Pod-WSDL
-CLASS_DBI_MODULES = DBI DBD-SQLite UNIVERSAL-moniker Class-Accessor Class-Data-Inheritable Class-Trigger Class-WhiteHole DBIx-ContextualFetch Ima-DBI Class-DBI SQL-Abstract Class-DBI-AbstractSearch
-DBIX_CLASS_MODULES = Sub-Uplevel Test-Simple Class-Accessor-Chained Class-Inspector Data-Page SQL-Abstract-Limit Carp-Clan Module-Find Algorithm-C3 Class-C3-XS Class-C3 Class-C3-Componentised Class-Data-Accessor MRO-Compat Class-Accessor-Grouped ExtUtils-CBuilder PathTools Lingua-EN-Inflect Lingua-EN-Inflect-Number Data-Dump UNIVERSAL-require Scope-Guard JSON-Any Digest-MD5 DBIx-Class DBIx-Class-Schema-Loader
-LDAP_MODULES = Convert-ASN1 Perl-Ldap
-XML_MODULES = XML-NamespaceSupport XML-SAX XML-LibXML-Common XML-LibXML XML-Writer XML-Parser XML-XPath
+FIRST_MODULES = 					\
+		IO-Tty						\
+		ExtUtils-MakeMaker			\
+
+OTHERCPANSUBDIRS = 					\
+		Authen-Krb5   				\
+		version   					\
+		Readonly  					\
+		Readonly-XS   				\
+		String-ShellQuote-1.00		\
+		Error-0.15					\
+		Log-Log4perl  				\
+		Log-Dispatch  				\
+		Mail-Sender   				\
+		Apache-DBI					\
+		Crypt-Rijndael				\
+		Crypt-OpenSSL-Random  		\
+		Crypt-OpenSSL-RSA 			\
+		Crypt-SSLeay  				\
+		File-NFSLock  				\
+		HTTP-Proxy					\
+		Class-Std-Utils   			\
+		YAML-Syck 					\
+		Heap  						\
+		Graph 						\
+		Test-Exception				\
+		Tree-Simple   				\
+		Tree-Simple-VisitorFactory	\
+		Class-Std 					\
+		Config-Std					\
+		Text-LevenshteinXS			\
+		Term-ReadLine-Perl			\
+		Term-ReadPassword 			\
+		Digest-SHA					\
+		Exporter-Easy 				\
+		Data-UUID 					\
+		Time-HiRes-Value  			\
+		Net-IP						\
+		Net-Telnet					\
+		Digest-HMAC   				\
+		Net-DNS   					\
+		Perl-Tidy 					\
+		Bencode   					\
+		TermReadKey   				\
+		Crypt-OpenSSL-Bignum  		\
+		Net-Daemon					\
+		PlRPC 						\
+		TimeDate  					\
+		Expect						\
+		IPC-LDT   					\
+		IPC-Signal					\
+		Parse-Yapp					\
+		File-VirtualPath  			\
+		FreezeThaw					\
+        common-sense                \
+        JSON-XS                     \
+		Unix-Getrusage				\
+
+DATETIMESUBDIRS = 					\
+		Module-Build-0.20 			\
+		Params-Validate   			\
+		Class-Factory-Util-1.6		\
+		Class-Singleton-1.03  		\
+		List-MoreUtils				\
+		DateTime-TimeZone 			\
+		DateTime-Locale   			\
+		DateTime  					\
+		DateTime-Format-Strptime-1.04 \
+		DateTime-Format-Builder   	\
+		DateTime-Format-Pg			\
+		DateTime-Format-W3CDTF		\
+		DateTime-Format-ISO8601   	\
+
+SOAP_LITE_MODULES = 				\
+		URI   						\
+		libwww-perl   				\
+		SOAP-Lite 					\
+		Pod-WSDL  					\
+
+CLASS_DBI_MODULES = 				\
+		DBI   						\
+		DBD-SQLite					\
+		UNIVERSAL-moniker 			\
+		Class-Accessor				\
+		Class-Data-Inheritable		\
+		Class-Trigger 				\
+		Class-WhiteHole   			\
+		DBIx-ContextualFetch  		\
+		Ima-DBI   					\
+		Class-DBI 					\
+		Clone						\
+		Tree-DAG_Node				\
+		Test-Tester					\
+		Test-NoWarnings				\
+		Test-Deep					\
+		Test-Warn					\
+		SQL-Abstract  				\
+		Class-DBI-AbstractSearch  	\
+
+DBIX_CLASS_MODULES = 				\
+		Sub-Uplevel   				\
+		Test-Simple   				\
+		Class-Accessor-Chained		\
+		Class-Inspector   			\
+		Data-Page 					\
+		SQL-Abstract-Limit			\
+		Carp-Clan 					\
+		Module-Find   				\
+		Algorithm-C3  				\
+		Class-C3-XS   				\
+		Class-C3  					\
+		MRO-Compat					\
+		Class-C3-Componentised		\
+		Sub-Identify				\
+		Sub-Name					\
+		Class-Data-Accessor   		\
+		Class-Accessor-Grouped		\
+		ExtUtils-CBuilder 			\
+		PathTools 					\
+		Lingua-EN-Inflect 			\
+		Lingua-EN-Inflect-Number  	\
+		Data-Dump 					\
+		UNIVERSAL-require 			\
+		Scope-Guard   				\
+		JSON-Any  					\
+		JSON  						\
+		JSON-RPC					\
+		Digest-MD5					\
+	    DBD-SQLite	                \
+		File-Temp					\
+		Data-Dumper-Concise			\
+		Path-Class					\
+		DBIx-Class					\
+		File-Path					\
+		Class-Unload				\
+		File-Slurp					\
+		DBIx-Class-Schema-Loader  	\
+
+LDAP_MODULES = 						\
+		Convert-ASN1  				\
+		Perl-Ldap 					\
+
+XML_MODULES = 						\
+		XML-NamespaceSupport  		\
+		XML-SAX   					\
+		XML-LibXML-Common 			\
+		XML-LibXML					\
+		XML-Writer					\
+		XML-Parser					\
+		XML-XPath 					\
+
 # XML-SAX needs this defined to test properly:
 export XMLVS_TEST_PARSER=XML::LibXML::SAX
 
@@ -191,43 +624,60 @@ endif
 # Define SUBDIRS as the complete set of modules
 # Leave them in this order since we don't want to go back to Tiger and Leopard and sort out dependencies
 SUBDIRS =                   \
+	$(TEST_MODULES)			\
     $(FIRST_MODULES)        \
+	$(DEPENDENCY_ORDERED_LIST)	\
     $(DATETIMESUBDIRS)      \
     $(CLASS_DBI_MODULES)    \
     $(LDAP_MODULES)         \
     $(XML_MODULES)          \
     $(SOAP_LITE_MODULES)    \
     $(OTHERCPANSUBDIRS)     \
-    $(DBIX_CLASS_MODULES)   \
+	$(DBIX_CLASS_MODULES)   \
+
+
+# On Lion and later, produce modules for all supported versions of Perl
+# Otherwise, just build for the default version
+ifeq ($(LION_PLUS),YES)
+    # Build for all supported versions
+    VERSIONS_FILE = /usr/local/versioner/perl/versions
+    # The value set as default might not exactly match the corresponding version entry
+    # Map it to the actual version entry (e.g. 5.10 -> 5.10.0)
+    DEFAULT_VALUE      = $(shell sed -n '/^DEFAULT = /s///p'   $(VERSIONS_FILE))
+    DEFAULT_VERSION    = $(shell grep '^$(DEFAULT_VALUE)'      $(VERSIONS_FILE))
+    VERSIONS_UNORDERED = $(shell grep -v '^DEFAULT = '         $(VERSIONS_FILE))
+    # Make sure $VERSIONS is ordered s.t. the default is last
+    VERSIONS = $(filter-out $(DEFAULT_VERSION),$(VERSIONS_UNORDERED)) $(DEFAULT_VERSION)
+    ifeq ($(strip $(VERSIONS)),)
+        $(error Error parsing $(VERSIONS_FILE))
+    endif
+else
+    VERSIONS = $(shell perl -MConfig -e 'print $$Config{version}')
+endif
 
 
 # Set INSTALLDIRS to "site" to enable all of the INSTALLSITE* variables
 INSTALLDIRS = site
 
 # Grab some configuration values from Perl
-CONFIG_INSTALLSITEARCH    = $(shell perl -MConfig -e 'print $$Config{installsitearch}')
 CONFIG_INSTALLSITEBIN     = $(shell perl -MConfig -e 'print $$Config{installsitebin}')
-CONFIG_INSTALLSITELIB     = $(shell perl -MConfig -e 'print $$Config{installsitelib}')
 CONFIG_INSTALLSITEMAN1DIR = $(shell perl -MConfig -e 'print $$Config{installsiteman1dir}')
 CONFIG_INSTALLSITEMAN3DIR = $(shell perl -MConfig -e 'print $$Config{installsiteman3dir}')
 CONFIG_INSTALLSITESCRIPT  = $(shell perl -MConfig -e 'print $$Config{installsitescript}')
 CONFIG_INSTALLPRIVLIB     = $(shell perl -MConfig -e 'print $$Config{installprivlib}')
+CONFIG_INSTALLSITELIB_DEFAULT = $(shell perl -MConfig -e 'print $$Config{installsitelib}')
 
 # Install in /AppleInternal/Library/Perl if the /S/L/Perl/Extras directory exists (because the
 # existence of that directory indicates support for the {Append,Prepend}ToPath @INC modification stuff)
 INSTALLEXTRAS = $(subst Perl,Perl/Extras,$(CONFIG_INSTALLPRIVLIB))
 ifeq "$(shell test -d $(INSTALLEXTRAS) && echo YES )" "YES" 
-    APPLE_INSTALLSITEARCH = /AppleInternal$(CONFIG_INSTALLSITEARCH)
-    APPLE_INSTALLSITELIB  = /AppleInternal$(CONFIG_INSTALLSITELIB)
+    INSTALL_LIB_PREFIX = /AppleInternal
 else
-	APPLE_INSTALLSITEARCH  = $(CONFIG_INSTALLSITEARCH)
-    APPLE_INSTALLSITELIB   = $(CONFIG_INSTALLSITELIB)
+    INSTALL_LIB_PREFIX = ""
 endif
 
 # prepend DSTROOT for use with ExtUtils::MakeMaker (Modules::Build does not want DSTROOT)
-INSTALLSITEARCH    = $(DSTROOT)$(APPLE_INSTALLSITEARCH)
 INSTALLSITEBIN     = $(DSTROOT)$(CONFIG_INSTALLSITEBIN)
-INSTALLSITELIB     = $(DSTROOT)$(APPLE_INSTALLSITELIB)
 INSTALLSITEMAN1DIR = $(DSTROOT)$(CONFIG_INSTALLSITEMAN1DIR)
 INSTALLSITEMAN3DIR = $(DSTROOT)$(CONFIG_INSTALLSITEMAN3DIR)
 INSTALLSITESCRIPT  = $(DSTROOT)$(CONFIG_INSTALLSITESCRIPT)
@@ -235,12 +685,8 @@ INSTALLSITESCRIPT  = $(DSTROOT)$(CONFIG_INSTALLSITESCRIPT)
 # Older versions of ExtUtils::MakeMaker don't support INSTALLSITESCRIPT
 INSTALLSCRIPT = $(DSTROOT)$(CONFIG_INSTALLSITESCRIPT)
 
-# This is a list of dirs to add to @INC, so that the building  modules can see other built modules
-INCARGS= -I$(INSTALLSITEARCH) -I$(INSTALLSITELIB)
-
-
 # set up ARCHFLAGS as per rdar://problem/5402242
-ifeq ($(SNOWLEOPARD),YES)
+ifeq ($(SNOWLEOPARD_PLUS),YES)
     DEFAULT_ARCHFLAGS = -arch i386 -arch x86_64
 endif
 ifeq ($(LEOPARD),YES)
@@ -275,79 +721,126 @@ export PERL_AUTOINSTALL    := --skipdeps
 
 Apache-DBI \
 Authen-Krb5 \
+B-Hooks-EndOfScope \
 Bencode \
 Carp-Clan \
 Class-Accessor \
 Class-Accessor-Grouped \
-Class-Data-Inheritable \
 Class-C3 \
 Class-C3-Componentised \
 Class-C3-XS \
 Class-DBI \
 Class-DBI-AbstractSearch \
+Class-Data-Inheritable \
 Class-Factory-Util-1.6 \
 Class-Inspector \
+Class-MOP \
 Class-Singleton-1.03 \
 Class-Std-Utils \
 Class-Trigger \
+Class-Unload \
 Class-WhiteHole \
+Clone \
+common-sense \
+Compress-Raw-Bzip2 \
+Compress-Raw-Zlib \
+Context-Preserve \
 Convert-ASN1 \
-Crypt-OpenSSL-Random \
+Crypt-OpenSSL-Bignum \
 Crypt-OpenSSL-RSA \
+Crypt-OpenSSL-Random \
 Crypt-Rijndael \
 Crypt-SSLeay \
-Data-Dump \
-Data-UUID \
-DateTime \
-DateTime-Format-Pg \
-DateTime-Format-Strptime-1.04 \
-DateTime-Format-W3CDTF \
 DBD-SQLite \
 DBI \
 DBIx-Class \
 DBIx-Class-Schema-Loader \
 DBIx-ContextualFetch \
+Data-Dump \
+Data-Dumper-Concise \
+Data-OptList \
+Data-UUID \
+DateTime-Format-Pg \
+DateTime-Format-Strptime \
+DateTime-Format-W3CDTF \
+Devel-GlobalDestruction \
 Digest-HMAC \
 Digest-MD5 \
 Digest-SHA \
 Error-0.15 \
+Expect \
 Exporter-Easy \
+ExtUtils-MakeMaker \
 File-NFSLock \
+File-Path \
+File-Slurp \
+File-Temp \
+File-VirtualPath \
+FreezeThaw \
 Graph \
-Heap \
 HTML-Tagset-3.03 \
 HTTP-Proxy \
+Heap \
+IO-Compress \
+IO-Tty \
+IPC-LDT \
+IPC-Signal \
 Ima-DBI \
+JSON \
 JSON-Any \
+JSON-RPC \
+JSON-XS \
 Lingua-EN-Inflect \
 Lingua-EN-Inflect-Number \
+List-MoreUtils \
 Log-Log4perl \
-Mail-Sender \
 MIME-Base64-2.20 \
-Module-Find \
 MRO-Compat \
+Mail-Sender \
+Module-Find \
+Net-Daemon \
 Net-IP \
+Net-Telnet \
+Params-Util \
 Params-Validate \
+Parse-Yapp \
 Perl-Ldap \
 Perl-Tidy \
+PlRPC \
 Pod-WSDL \
 Readonly \
 Readonly-XS \
-Scope-Guard \
 SQL-Abstract \
+Scope-Guard \
 String-ShellQuote-1.00 \
+Sub-Exporter \
+Sub-Identify \
+Sub-Install \
+Sub-Name \
+Task-Weaken \
 Term-ReadLine-Perl \
-Test-Simple \
+Term-ReadPassword \
 TermReadKey \
+Test-Deep \
+Test-NoWarnings \
+Test-Simple \
+Test-Tester \
+Test-Warn \
+Test-use-ok \
 Text-LevenshteinXS \
 Time-HiRes-Value \
+TimeDate \
+Tree-DAG_Node \
 Tree-Simple \
 Tree-Simple-VisitorFactory \
+Try-Tiny \
 UNIVERSAL-moniker \
 UNIVERSAL-require \
 URI \
-XML-LibXML-Common \
+Unix-Getrusage \
+Variable-Magic \
 XML-LibXML \
+XML-LibXML-Common \
 XML-NamespaceSupport \
 XML-Parser \
 XML-SAX \
@@ -355,25 +848,34 @@ XML-Writer \
 XML-XPath \
 YAML-Syck \
 ::
-	@echo "=============== Making $@ ==================";								\
-	cd $(OBJROOT)/$@;																	\
-	mv Makefile.PL Makefile.PL.orig;													\
-	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL;							\
-	if [ -d Expat ]; then																\
-		mv Expat/Makefile.PL Expat/Makefile.PL.orig;									\
-		cat Expat/Makefile.PL.orig ../add_rc_constants.pl > Expat/Makefile.PL;			\
-	fi;	 																				\
-	perl $(INCARGS) Makefile.PL 														\
-		"PERL=/usr/bin/perl $(INCARGS)"													\
-	    INSTALLDIRS=$(INSTALLDIRS)														\
-	    INSTALLSITEARCH=$(INSTALLSITEARCH)												\
-	    INSTALLSITEBIN=$(INSTALLSITEBIN)												\
-	    INSTALLSITELIB=$(INSTALLSITELIB)												\
-	    INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR)										\
-	    INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR)										\
-		INSTALLSITESCRIPT=$(INSTALLSITESCRIPT)											\
-		INSTALLSCRIPT=$(INSTALLSCRIPT);													\
-	make all test pure_install;									
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	cd $(OBJROOT)/$@ && \
+	mv Makefile.PL Makefile.PL.orig && \
+	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
+	if [ -d Expat ]; then \
+		mv Expat/Makefile.PL Expat/Makefile.PL.orig && \
+		cat Expat/Makefile.PL.orig ../add_rc_constants.pl > Expat/Makefile.PL || exit 1; \
+	fi && \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		perl $$INCARGS Makefile.PL \
+			"PERL=/usr/bin/perl $$INCARGS" \
+			INSTALLSITELIB=$(DSTROOT)/$$INSTALL_LIB \
+			INSTALLSITEARCH=$(DSTROOT)/$$INSTALL_ARCH \
+			INSTALLDIRS=$(INSTALLDIRS) \
+			INSTALLSITEBIN=$(INSTALLSITEBIN) \
+			INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR) \
+			INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR) \
+			INSTALLSITESCRIPT=$(INSTALLSITESCRIPT) \
+			INSTALLSCRIPT=$(INSTALLSCRIPT) && \
+		make all test pure_install clean || exit 1; \
+	done;
 	@echo "";
 
 # Net-DNS tries to determine if it can/should create XS code.
@@ -381,21 +883,30 @@ YAML-Syck \
 # "no table of contents, run ranlib" ... not sure how to update
 # the Makefile.PL to do this for us so for now just pass -noxs 
 Net-DNS::
-	@echo "=============== Making $@ ==================";								\
-	cd $(OBJROOT)/$@;																	\
-	mv Makefile.PL Makefile.PL.orig;													\
-	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL;							\
-	perl $(INCARGS) Makefile.PL -noxs -noonline-tests 									\
-		"PERL=/usr/bin/perl $(INCARGS)"													\
-	    INSTALLDIRS=$(INSTALLDIRS)														\
-	    INSTALLSITEARCH=$(INSTALLSITEARCH)												\
-	    INSTALLSITEBIN=$(INSTALLSITEBIN)												\
-	    INSTALLSITELIB=$(INSTALLSITELIB)												\
-	    INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR)										\
-	    INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR)										\
-		INSTALLSITESCRIPT=$(INSTALLSITESCRIPT)											\
-		INSTALLSCRIPT=$(INSTALLSCRIPT);													\
-	make all test pure_install;									
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	cd $(OBJROOT)/$@ && \
+	mv Makefile.PL Makefile.PL.orig && \
+	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		perl $$INCARGS Makefile.PL -noxs -noonline-tests \
+			"PERL=/usr/bin/perl $$INCARGS" \
+			INSTALLSITELIB=$(DSTROOT)/$$INSTALL_LIB \
+			INSTALLSITEARCH=$(DSTROOT)/$$INSTALL_ARCH \
+			INSTALLDIRS=$(INSTALLDIRS) \
+			INSTALLSITEBIN=$(INSTALLSITEBIN) \
+			INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR) \
+			INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR) \
+			INSTALLSITESCRIPT=$(INSTALLSITESCRIPT) \
+			INSTALLSCRIPT=$(INSTALLSCRIPT) && \
+		make all test pure_install clean || exit 1; \
+	done;
 	@echo "";
 
 #
@@ -404,21 +915,30 @@ Net-DNS::
 # for Apache2-SOAP so others running buildit don't have to remember this small tid-bit....
 #
 Apache2-SOAP::
-	@echo "=============== Making $@ ==================";								\
-	cd $(OBJROOT)/$@;																	\
-	mv Makefile.PL Makefile.PL.orig;													\
-	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL;							\
-	perl $(INCARGS) Makefile.PL 														\
-		"PERL=/usr/bin/perl $(INCARGS)"													\
-		INSTALLDIRS=$(INSTALLDIRS)														\
-		INSTALLSITEARCH=$(INSTALLSITEARCH)												\
-		INSTALLSITEBIN=$(INSTALLSITEBIN)												\
-		INSTALLSITELIB=$(INSTALLSITELIB)												\
-		INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR)										\
-		INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR)										\
-		INSTALLSITESCRIPT=$(INSTALLSITESCRIPT)											\
-		INSTALLSCRIPT=$(INSTALLSCRIPT);													\
-	make all test pure_install < /dev/null;									
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	cd $(OBJROOT)/$@ && \
+	mv Makefile.PL Makefile.PL.orig && \
+	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		perl $$INCARGS Makefile.PL \
+			"PERL=/usr/bin/perl $$INCARGS" \
+			INSTALLSITELIB=$(DSTROOT)/$$INSTALL_LIB \
+			INSTALLSITEARCH=$(DSTROOT)/$$INSTALL_ARCH \
+			INSTALLDIRS=$(INSTALLDIRS) \
+			INSTALLSITEBIN=$(INSTALLSITEBIN) \
+			INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR) \
+			INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR) \
+			INSTALLSITESCRIPT=$(INSTALLSITESCRIPT) \
+			INSTALLSCRIPT=$(INSTALLSCRIPT) && \
+		make all test pure_install clean < /dev/null || exit 1; \
+	done;
 	@echo "";
 
 
@@ -427,22 +947,31 @@ Apache2-SOAP::
 # needs to have the -n flag, so that it will be non-interactive
 #
 libwww-perl::
-	@echo "=============== Making $@ ==================";								\
-	cd $(OBJROOT)/$@;																	\
-	mv Makefile.PL Makefile.PL.orig;													\
-	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL;							\
-	perl $(INCARGS) Makefile.PL -n														\
-		"PERL=/usr/bin/perl $(INCARGS)"													\
-		INSTALLDIRS=$(INSTALLDIRS)														\
-		INSTALLSITEARCH=$(INSTALLSITEARCH)												\
-		INSTALLSITEBIN=$(INSTALLSITEBIN)												\
-		INSTALLSITELIB=$(INSTALLSITELIB)												\
-		INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR)										\
-		INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR)										\
-		INSTALLSITESCRIPT=$(INSTALLSITESCRIPT)											\
-		INSTALLSCRIPT=$(INSTALLSCRIPT);													\
-	make all test pure_install;									
-	echo "";
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	cd $(OBJROOT)/$@ && \
+	mv Makefile.PL Makefile.PL.orig && \
+	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		perl $$INCARGS Makefile.PL -n \
+			"PERL=/usr/bin/perl $$INCARGS" \
+			INSTALLSITELIB=$(DSTROOT)/$$INSTALL_LIB \
+			INSTALLSITEARCH=$(DSTROOT)/$$INSTALL_ARCH \
+			INSTALLDIRS=$(INSTALLDIRS) \
+			INSTALLSITEBIN=$(INSTALLSITEBIN) \
+			INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR) \
+			INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR) \
+			INSTALLSITESCRIPT=$(INSTALLSITESCRIPT) \
+			INSTALLSCRIPT=$(INSTALLSCRIPT) && \
+		make all test pure_install clean || exit 1; \
+	done;
+	@echo "";
 
 #
 # SOAP-Lite
@@ -451,35 +980,44 @@ libwww-perl::
 #
 
 SOAP-Lite::
-	@echo "=============== Making $@ ==================";								\
-	cd $(OBJROOT)/$@;																	\
-	mv Makefile.PL Makefile.PL.orig;													\
-	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL;							\
-	perl Makefile.PL --noprompt															\
-		"PERL=/usr/bin/perl $(INCARGS)"													\
-		INSTALLDIRS=$(INSTALLDIRS)														\
-		INSTALLSITEARCH=$(INSTALLSITEARCH)												\
-		INSTALLSITEBIN=$(INSTALLSITEBIN)												\
-		INSTALLSITELIB=$(INSTALLSITELIB)												\
-		INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR)										\
-		INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR)										\
-		INSTALLSITESCRIPT=$(INSTALLSITESCRIPT)											\
-		INSTALLSCRIPT=$(INSTALLSCRIPT)													\
-	    --HTTP-Client																	\
-	    --noHTTPS-Client																\
-	    --noMAILTO-Client																\
-	    --noFTP-Client																	\
-	    --noHTTP-Daemon																	\
-	    --noHTTP-Apache																	\
-	    --noHTTP-FCGI																	\
-	    --noPOP3-Server																	\
-	    --noIO-Server																	\
-	    --noMQ																			\
-	    --noJABBER																		\
-	    --noMIMEParser																	\
-	    --noTCP																			\
-	    --noHTTP;																		\
-	make all pure_install;									
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	cd $(OBJROOT)/$@ && \
+	mv Makefile.PL Makefile.PL.orig && \
+	cat Makefile.PL.orig ../add_rc_constants.pl > Makefile.PL && \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		perl Makefile.PL --noprompt \
+			"PERL=/usr/bin/perl $$INCARGS" \
+			INSTALLSITELIB=$(DSTROOT)/$$INSTALL_LIB \
+			INSTALLSITEARCH=$(DSTROOT)/$$INSTALL_ARCH \
+			INSTALLDIRS=$(INSTALLDIRS) \
+			INSTALLSITEBIN=$(INSTALLSITEBIN) \
+			INSTALLSITEMAN1DIR=$(INSTALLSITEMAN1DIR) \
+			INSTALLSITEMAN3DIR=$(INSTALLSITEMAN3DIR) \
+			INSTALLSITESCRIPT=$(INSTALLSITESCRIPT) \
+			INSTALLSCRIPT=$(INSTALLSCRIPT) \
+			--HTTP-Client \
+			--noHTTPS-Client \
+			--noMAILTO-Client \
+			--noFTP-Client \
+			--noHTTP-Daemon \
+			--noHTTP-Apache \
+			--noHTTP-FCGI \
+			--noPOP3-Server \
+			--noIO-Server \
+			--noMQ \
+			--noJABBER \
+			--noMIMEParser \
+			--noTCP \
+			--noHTTP; \
+		make all pure_install clean || exit 1; \
+	done;
 	@echo "";
 
 
@@ -490,41 +1028,52 @@ SOAP-Lite::
 # Add your Module::Build based modules here.
 #
 
-Algorithm-C3 				\
-Class-Accessor-Chained 		\
-Class-Data-Accessor 		\
-Class-Std 					\
-Config-Std 					\
-Data-Page 					\
-DateTime-Locale 			\
-DateTime-Format-Builder 	\
-DateTime-Format-ISO8601 	\
-DateTime-TimeZone 			\
-ExtUtils-CBuilder 			\
-Log-Dispatch 				\
-Module-Build-0.20 			\
-PathTools 					\
-SQL-Abstract-Limit 			\
-Sub-Uplevel 				\
-Test-Exception 				\
-Text-WordDiff 				\
-version 					\
+Algorithm-C3 \
+Class-Accessor-Chained \
+Class-Data-Accessor \
+Class-Std \
+Config-Std \
+Data-Page \
+DateTime \
+DateTime-Locale \
+DateTime-Format-Builder \
+DateTime-Format-ISO8601 \
+DateTime-TimeZone \
+ExtUtils-CBuilder \
+Log-Dispatch \
+Module-Build-0.20 \
+Path-Class \
+PathTools \
+SQL-Abstract-Limit \
+Sub-Uplevel \
+Test-Exception \
+Text-WordDiff \
+version \
 ::
-	@echo "=============== Making $@ ==================";				\
-	cd $(OBJROOT)/$@;													\
-	perl $(INCARGS) Build.PL											\
-	    destdir=$(DSTROOT)												\
-	    installdirs=$(INSTALLDIRS) 										\
-	    --install_path arch=$(APPLE_INSTALLSITEARCH)					\
-	    --install_path bin=$(CONFIG_INSTALLSITEBIN)						\
-	    --install_path lib=$(APPLE_INSTALLSITELIB)						\
-	    --install_path bindoc=$(CONFIG_INSTALLSITEMAN1DIR)				\
-	    --install_path libdoc=$(CONFIG_INSTALLSITEMAN3DIR)				\
-	    --install_path script=$(CONFIG_INSTALLSITESCRIPT);				\
-	perl $(INCARGS) Build;												\
-	perl $(INCARGS) Build test;											\
-	perl $(INCARGS) Build install;										\
-	echo
+	@echo "=============== Making $@ =================="; \
+	set -x; \
+	for vers in $(VERSIONS); do \
+		export VERSIONER_PERL_VERSION=$$vers; \
+		INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+		INSTALL_SITE_ARCH=`perl -MConfig -e 'print $$Config{installsitearch}'`; \
+		INSTALL_LIB=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB; \
+		INSTALL_ARCH=$(INSTALL_LIB_PREFIX)$$INSTALL_SITE_ARCH; \
+		INCARGS="-I$(DSTROOT)/$$INSTALL_ARCH -I$(DSTROOT)/$$INSTALL_LIB"; \
+		cd $(OBJROOT)/$@ && \
+		perl $$INCARGS Build.PL \
+			destdir=$(DSTROOT) \
+			installdirs=$(INSTALLDIRS) \
+			--install_path lib=$$INSTALL_LIB \
+			--install_path arch=$$INSTALL_ARCH \
+			--install_path bin=$(CONFIG_INSTALLSITEBIN) \
+			--install_path bindoc=$(CONFIG_INSTALLSITEMAN1DIR) \
+			--install_path libdoc=$(CONFIG_INSTALLSITEMAN3DIR) \
+			--install_path script=$(CONFIG_INSTALLSITESCRIPT) && \
+		perl $$INCARGS Build && \
+		perl $$INCARGS Build test && \
+		perl $$INCARGS Build install || exit 1; \
+	done;
+	@echo "";
 
 #
 # ConfigurationFiles target
@@ -533,8 +1082,8 @@ version 					\
 #
 
 ConfigurationFiles::
-	@echo "=============== Making $@ ==================";				\
-	cd $(OBJROOT)/$@;													\
+	@echo "=============== Making $@ =================="; \
+	cd $(OBJROOT)/$@; \
 	make install;									
 
 #
@@ -543,43 +1092,72 @@ ConfigurationFiles::
 #
 
 install:: echo-config-info install-ditto-phase $(SUBDIRS) ConfigurationFiles
-	@if [ $(DSTROOT) ]; then                                                                        \
-	    echo Stripping symbols from bundles ... ;                                                   \
+	@if [ $(DSTROOT) ]; then \
+	    echo Stripping symbols from bundles ... ; \
 	    echo find $(DSTROOT) -xdev -name '*.bundle' -print -exec strip -S {} \; ;                   \
-	    find $(DSTROOT) -xdev -name '*.bundle' -print -exec strip -S {} \; ;	                    \
-	    echo "" ;                                                                                   \
-	    echo Stripping packlists ... ;                                                              \
+	    find $(DSTROOT) -xdev -name '*.bundle' -print -exec strip -S {} \; ;                        \
+	    echo "" ; \
+	    echo Stripping packlists ... ; \
 	    find $(DSTROOT) -xdev -name '.packlist' -print -exec rm -f {} \; ;                          \
 	fi
-	@if [ -d $(INSTALLEXTRAS) ]; then                                                               \
-	    echo Creating PrependToPath ... ;                                                           \
-	    mkdir -p $(DSTROOT)$(CONFIG_INSTALLSITELIB);                                                \
-	    echo $(APPLE_INSTALLSITELIB) > $(DSTROOT)$(CONFIG_INSTALLSITELIB)/PrependToPath;   			\
-	fi
-	rm -f $(DSTROOT)"$$INSTALLSITEARCH"/perllocal.pod
 
+install_config::
+	@if [ -d $(INSTALLEXTRAS) ]; then \
+	    echo Creating PrependToPath ... ; \
+		if [ $(LION) == "YES" ]; then \
+			for vers in $(VERSIONS); do \
+				export VERSIONER_PERL_VERSION=$$vers; \
+				INSTALL_SITE_LIB=`perl -MConfig -e 'print $$Config{installsitelib}'`; \
+				mkdir -p $(DSTROOT)$$INSTALL_SITE_LIB; \
+				if echo $$vers | egrep -q '5\.10(\..*)?'; then \
+					echo "/AppleInternal/Library/Perl/5.10/darwin-thread-multi-2level"          >  $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/5.10"                                     >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10/darwin-thread-multi-2level"   >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10"                              >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/5.10.0/darwin-thread-multi-2level"        >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/5.10.0"                                   >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10.0/darwin-thread-multi-2level" >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10.0"                            >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/5.10.1/darwin-thread-multi-2level"        >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/5.10.1"                                   >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10.1/darwin-thread-multi-2level" >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+					echo "/AppleInternal/Library/Perl/Extras/5.10.1"                            >> $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+				else \
+					echo $(INSTALL_LIB_PREFIX)$$INSTALL_SITE_LIB								>  $(DSTROOT)$$INSTALL_SITE_LIB/PrependToPath; \
+				fi; \
+			done; \
+		else \
+			mkdir -p $(DSTROOT)$(CONFIG_INSTALLSITELIB_DEFAULT); \
+			echo $(INSTALL_LIB_PREFIX)$(CONFIG_INSTALLSITELIB_DEFAULT)                   		>  $(DSTROOT)$(CONFIG_INSTALLSITELIB_DEFAULT)/PrependToPath; \
+		fi; \
+	else \
+		echo "ERROR: INSTALLEXTRAS path '$(INSTALLEXTRAS)' does not exist"; \
+		exit 1; \
+	fi
 
 installhdrs::
 
 clean::
-	@for i in $(SUBDIRS); do						                	\
-	    (									                        	\
-			echo "=============== Cleaning $$i ==================";		\
-			cd $$i;								                        \
-			if [ -e Makefile ]; then					                \
-			    make realclean;					                    	\
-			fi;	 							                            \
-			rm -f Makefile.old;						                    \
-			echo "";							                        \
-	    )									                        	\
-	done									                        	\
+	@for i in $(SUBDIRS); do \
+	    ( \
+			echo "=============== Cleaning $$i =================="; \
+			cd $$i; \
+			if [ -e Makefile ]; then \
+			    make realclean; \
+			fi; \
+			rm -f Makefile.old; \
+			echo ""; \
+	    ) \
+	done \
 
 installsrc::
 	ditto . $(SRCROOT)
+	find $(SRCROOT) -type d -name CVS  -exec rm -rf {} \; -prune
+	find $(SRCROOT) -type d -name .svn -exec rm -rf {} \; -prune
 
 install-ditto-phase::
-	@if [ "$(OBJROOT)" != "." ]; then			\
-	    ditto . $(OBJROOT);						\
+	@if [ "$(OBJROOT)" != "." ]; then \
+	    ditto . $(OBJROOT); \
 	fi;
 	(cd $(OBJROOT) && ./applyPatches)
 
@@ -591,13 +1169,11 @@ echo-config-info::
 	@echo "Building on Tiger:       $(TIGER)"
 	@echo "Building on Leopard:     $(LEOPARD)"
 	@echo "Building on SnowLeopard: $(SNOWLEOPARD)"
+	@echo "Building on Lion:      $(LION)"
 	@echo ""
 	@echo "ARCHFLAGS:               $(ARCHFLAGS)"
-	@echo "INCARGS:                 $(INCARGS)"
 	@echo ""
-	@printf "%-20s%s\n" "INSTALLSITEARCH:"    $(INSTALLSITEARCH)
 	@printf "%-20s%s\n" "INSTALLSITEBIN:"     $(INSTALLSITEBIN)
-	@printf "%-20s%s\n" "INSTALLSITELIB:"     $(INSTALLSITELIB)
 	@printf "%-20s%s\n" "INSTALLSITEMAN1DIR:" $(INSTALLSITEMAN1DIR)
 	@printf "%-20s%s\n" "INSTALLSITEMAN3DIR:" $(INSTALLSITEMAN3DIR)
 	@printf "%-20s%s\n" "INSTALLSITESCRIPT:"  $(INSTALLSITESCRIPT)

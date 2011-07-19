@@ -1,6 +1,6 @@
---- isrune.3.orig	Fri Mar 11 19:25:22 2005
-+++ isrune.3	Fri Mar 11 19:26:33 2005
-@@ -55,7 +55,8 @@
+--- isrune.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ isrune.3	2009-11-09 15:05:26.000000000 -0800
+@@ -55,7 +55,8 @@ returns non-zero if the character tests 
  .Xr ctype 3 ,
  .Xr isascii 3 ,
  .Xr iswrune 3 ,

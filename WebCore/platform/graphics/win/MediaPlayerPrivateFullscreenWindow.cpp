@@ -10,7 +10,7 @@
  *    notice, this list of conditions and the following disclaimer in the 
  *    documentation and/or other materials provided with the distribution.
  * 
- * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS “AS IS” 
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
  * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
@@ -28,24 +28,32 @@
 
 #include "IntRect.h"
 #include "WebCoreInstanceHandle.h"
-#include <CoreGraphics/CGColor.h>
 #include <windows.h>
+
+#if USE(CG)
+#include <CoreGraphics/CGColor.h>
+#endif
+
+#if USE(ACCELERATED_COMPOSITING)
+#include "CACFLayerTreeHost.h"
+#include "PlatformCALayer.h"
+#endif
 
 namespace WebCore {
 
 MediaPlayerPrivateFullscreenWindow::MediaPlayerPrivateFullscreenWindow(MediaPlayerPrivateFullscreenClient* client)
     : m_client(client)
     , m_hwnd(0)
-#if USE(ACCELERATED_COMPOSITING)
-    , m_layerRenderer(WKCACFLayerRenderer::create(0))
-#endif
 {
 }
 
 MediaPlayerPrivateFullscreenWindow::~MediaPlayerPrivateFullscreenWindow()
 {
-    if (m_hwnd)
-        close();
+    if (!m_hwnd)
+        return;
+
+    ::DestroyWindow(m_hwnd);
+    ASSERT(!m_hwnd);
 }
 
 void MediaPlayerPrivateFullscreenWindow::createWindow(HWND parentHwnd)
@@ -62,8 +70,7 @@ void MediaPlayerPrivateFullscreenWindow::createWindow(HWND parentHwnd)
         windowAtom = ::RegisterClassEx(&wcex);
     }
 
-    if (m_hwnd)
-        close();
+    ASSERT(!m_hwnd);
 
     MONITORINFO mi = {0};
     mi.cbSize = sizeof(MONITORINFO);
@@ -72,22 +79,21 @@ void MediaPlayerPrivateFullscreenWindow::createWindow(HWND parentHwnd)
 
     IntRect monitorRect = mi.rcMonitor;
     
-    ::CreateWindowExW(WS_EX_TOOLWINDOW, windowClassName, L"", WS_POPUP | WS_VISIBLE, 
+    ::CreateWindowExW(WS_EX_TOOLWINDOW, windowClassName, L"", WS_POPUP, 
         monitorRect.x(), monitorRect.y(), monitorRect.width(), monitorRect.height(),
         parentHwnd, 0, WebCore::instanceHandle(), this);
     ASSERT(IsWindow(m_hwnd));
 
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_layerTreeHost)
+        m_layerTreeHost->setWindow(m_hwnd);
+#endif
+
     ::SetFocus(m_hwnd);
 }
 
-void MediaPlayerPrivateFullscreenWindow::close()
-{
-    ::DestroyWindow(m_hwnd);
-    ASSERT(!m_hwnd);
-}
-
 #if USE(ACCELERATED_COMPOSITING)
-void MediaPlayerPrivateFullscreenWindow::setRootChildLayer(PassRefPtr<WKCACFLayer> rootChild)
+void MediaPlayerPrivateFullscreenWindow::setRootChildLayer(PassRefPtr<PlatformCALayer> rootChild)
 {
     if (m_rootChild == rootChild)
         return;
@@ -97,14 +103,21 @@ void MediaPlayerPrivateFullscreenWindow::setRootChildLayer(PassRefPtr<WKCACFLaye
 
     m_rootChild = rootChild;
 
-    if (!m_rootChild)
+    if (!m_rootChild) {
+        m_layerTreeHost = nullptr;
         return;
+    }
 
-    m_layerRenderer->setRootChildLayer(m_rootChild.get());
-    WKCACFLayer* rootLayer = m_rootChild->rootLayer();
+    if (!m_layerTreeHost) {
+        m_layerTreeHost = CACFLayerTreeHost::create();
+        if (m_hwnd)
+            m_layerTreeHost->setWindow(m_hwnd);
+    }
+
+    m_layerTreeHost->setRootChildLayer(m_rootChild.get());
+    PlatformCALayer* rootLayer = m_rootChild->rootLayer();
     CGRect rootBounds = m_rootChild->rootLayer()->bounds();
     m_rootChild->setFrame(rootBounds);
-    m_layerRenderer->setScrollFrame(IntPoint(rootBounds.origin), IntSize(rootBounds.size));
     m_rootChild->setBackgroundColor(CGColorGetConstantColor(kCGColorBlack));
 #ifndef NDEBUG
     RetainPtr<CGColorRef> redColor(AdoptCF, CGColorCreateGenericRGB(1, 0, 0, 1));
@@ -137,18 +150,12 @@ LRESULT MediaPlayerPrivateFullscreenWindow::wndProc(HWND hWnd, UINT message, WPA
     switch (message) {
     case WM_CREATE:
         m_hwnd = hWnd;
-#if USE(ACCELERATED_COMPOSITING)
-        m_layerRenderer->setHostWindow(m_hwnd);
-        m_layerRenderer->createRenderer();
-        if (m_rootChild)
-            m_layerRenderer->setNeedsDisplay();
-#endif
         break;
     case WM_DESTROY:
         m_hwnd = 0;
 #if USE(ACCELERATED_COMPOSITING)
-        m_layerRenderer->destroyRenderer();
-        m_layerRenderer->setHostWindow(0);
+        if (m_layerTreeHost)
+            m_layerTreeHost->setWindow(0);
 #endif
         break;
     case WM_WINDOWPOSCHANGED:
@@ -157,22 +164,38 @@ LRESULT MediaPlayerPrivateFullscreenWindow::wndProc(HWND hWnd, UINT message, WPA
             if (wp->flags & SWP_NOSIZE)
                 break;
 #if USE(ACCELERATED_COMPOSITING)
-            m_layerRenderer->resize();
-            WKCACFLayer* rootLayer = m_rootChild->rootLayer();
-            CGRect rootBounds = m_rootChild->rootLayer()->bounds();
-            m_rootChild->setFrame(rootBounds);
-            m_rootChild->setNeedsLayout();
-            m_layerRenderer->setScrollFrame(IntPoint(rootBounds.origin), IntSize(rootBounds.size));
+            if (m_layerTreeHost) {
+                m_layerTreeHost->resize();
+                PlatformCALayer* rootLayer = m_rootChild->rootLayer();
+                CGRect rootBounds = m_rootChild->rootLayer()->bounds();
+                m_rootChild->setFrame(rootBounds);
+                m_rootChild->setNeedsLayout();
+            }
 #endif
         }
         break;
     case WM_PAINT:
 #if USE(ACCELERATED_COMPOSITING)
-        m_layerRenderer->renderSoon();
+        if (m_layerTreeHost) {
+            m_layerTreeHost->paint();
+            ::ValidateRect(m_hwnd, 0);
+        } else
 #endif
+        {
+            PAINTSTRUCT ps;
+            HDC hdc = ::BeginPaint(m_hwnd, &ps);
+            ::FillRect(hdc, &ps.rcPaint, (HBRUSH)::GetStockObject(BLACK_BRUSH));
+            ::EndPaint(m_hwnd, &ps);
+        }
         break;
+    case WM_PRINTCLIENT:
+        {
+            RECT clientRect;
+            HDC context = (HDC)wParam;
+            ::GetClientRect(m_hwnd, &clientRect);
+            ::FillRect(context, &clientRect, (HBRUSH)::GetStockObject(BLACK_BRUSH));
+        }
     }
-
     if (m_client)
         lResult = m_client->fullscreenClientWndProc(hWnd, message, wParam, lParam);
 

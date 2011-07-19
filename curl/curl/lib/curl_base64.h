@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curl_base64.h,v 1.2 2009-06-04 23:55:56 yangtse Exp $
  ***************************************************************************/
 
 size_t Curl_base64_encode(struct SessionHandle *data,

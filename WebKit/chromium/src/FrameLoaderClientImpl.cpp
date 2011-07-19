@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,12 +32,15 @@
 #include "config.h"
 #include "FrameLoaderClientImpl.h"
 
+#include "BackForwardListChromium.h"
 #include "Chrome.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "FormState.h"
 #include "FrameLoader.h"
 #include "FrameLoadRequest.h"
+#include "FrameNetworkingContextImpl.h"
+#include "FrameView.h"
 #include "HTTPParsers.h"
 #include "HistoryItem.h"
 #include "HitTestResult.h"
@@ -49,6 +53,8 @@
 #include "PlatformString.h"
 #include "PluginData.h"
 #include "PluginDataChromium.h"
+#include "ProgressTracker.h"
+#include "Settings.h"
 #include "StringExtras.h"
 #include "WebDataSourceImpl.h"
 #include "WebDevToolsAgentPrivate.h"
@@ -59,6 +65,7 @@
 #include "WebKitClient.h"
 #include "WebMimeRegistry.h"
 #include "WebNode.h"
+#include "WebPermissionClient.h"
 #include "WebPlugin.h"
 #include "WebPluginContainerImpl.h"
 #include "WebPluginLoadObserver.h"
@@ -144,6 +151,16 @@ void FrameLoaderClientImpl::didCreateIsolatedScriptContext()
         m_webFrame->client()->didCreateIsolatedScriptContext(m_webFrame);
 }
 
+bool FrameLoaderClientImpl::allowScriptExtension(const String& extensionName,
+                                                 int extensionGroup)
+{
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        return webview->permissionClient()->allowScriptExtension(m_webFrame, extensionName, extensionGroup);
+
+    return true;
+}
+
 void FrameLoaderClientImpl::didPerformFirstNavigation() const
 {
 }
@@ -160,38 +177,44 @@ void FrameLoaderClientImpl::didChangeScrollOffset()
 
 bool FrameLoaderClientImpl::allowJavaScript(bool enabledPerSettings)
 {
-    if (m_webFrame->client())
-        return m_webFrame->client()->allowScript(m_webFrame, enabledPerSettings);
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        return webview->permissionClient()->allowScript(m_webFrame, enabledPerSettings);
 
     return enabledPerSettings;
 }
 
 bool FrameLoaderClientImpl::allowPlugins(bool enabledPerSettings)
 {
-    if (m_webFrame->client())
-        return m_webFrame->client()->allowPlugins(m_webFrame, enabledPerSettings);
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        return webview->permissionClient()->allowPlugins(m_webFrame, enabledPerSettings);
 
     return enabledPerSettings;
 }
 
 bool FrameLoaderClientImpl::allowImages(bool enabledPerSettings)
 {
-    if (m_webFrame->client())
-        return m_webFrame->client()->allowImages(m_webFrame, enabledPerSettings);
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        return webview->permissionClient()->allowImages(m_webFrame, enabledPerSettings);
 
     return enabledPerSettings;
 }
 
 void FrameLoaderClientImpl::didNotAllowScript()
 {
-    if (m_webFrame->client())
-        m_webFrame->client()->didNotAllowScript(m_webFrame);
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        webview->permissionClient()->didNotAllowScript(m_webFrame);
 }
 
 void FrameLoaderClientImpl::didNotAllowPlugins()
 {
-    if (m_webFrame->client())
-        m_webFrame->client()->didNotAllowPlugins(m_webFrame);
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->permissionClient())
+        webview->permissionClient()->didNotAllowPlugins(m_webFrame);
+
 }
 
 bool FrameLoaderClientImpl::hasWebView() const
@@ -246,7 +269,12 @@ void FrameLoaderClientImpl::detachedFromParent3()
     // go to a page and then navigate to a new page without getting any asserts
     // or crashes.
     m_webFrame->frame()->script()->proxy()->clearForClose();
-    
+
+    // Alert the client that the frame is being detached. This is the last
+    // chance we have to communicate with the client.
+    if (m_webFrame->client())
+        m_webFrame->client()->frameDetached(m_webFrame);
+
     // Stop communicating with the WebFrameClient at this point since we are no
     // longer associated with the Page.
     m_webFrame->setClient(0);
@@ -272,7 +300,7 @@ void FrameLoaderClientImpl::assignIdentifierToInitialRequest(
 // this includes images and xmlhttp requests.  It is important to note that a
 // subresource is NOT limited to stuff loaded through the frame's subresource
 // loader. Synchronous xmlhttp requests for example, do not go through the
-// subresource loader, but we still label them as TargetIsSubResource.
+// subresource loader, but we still label them as TargetIsSubresource.
 //
 // The important edge cases to consider when modifying this function are
 // how synchronous resource loads are treated during load/unload threshold.
@@ -361,7 +389,7 @@ void FrameLoaderClientImpl::dispatchDidReceiveResponse(DocumentLoader* loader,
 void FrameLoaderClientImpl::dispatchDidReceiveContentLength(
     DocumentLoader* loader,
     unsigned long identifier,
-    int lengthReceived)
+    int dataLength)
 {
 }
 
@@ -695,10 +723,18 @@ void FrameLoaderClientImpl::dispatchDidStartProvisionalLoad()
         // m_expectedClientRedirectDest could be something like
         // "javascript:history.go(-1)" thus we need to exclude url starts with
         // "javascript:". See bug: 1080873
-        ASSERT(m_expectedClientRedirectDest.protocolIs("javascript")
-            || m_expectedClientRedirectDest == url);
-        ds->appendRedirect(m_expectedClientRedirectSrc);
-        completingClientRedirect = true;
+        if (m_expectedClientRedirectDest.protocolIs("javascript")
+            || m_expectedClientRedirectDest == url) {
+            ds->appendRedirect(m_expectedClientRedirectSrc);
+            completingClientRedirect = true;
+        } else {
+            // Any pending redirect is no longer in progress. This can happen
+            // if the navigation was canceled with PolicyIgnore, or if the
+            // redirect was scheduled on the wrong frame (e.g., due to a form
+            // submission targeted to _blank, as in http://webkit.org/b/44079).
+            m_expectedClientRedirectSrc = KURL();
+            m_expectedClientRedirectDest = KURL();
+        }
     }
     ds->appendRedirect(url);
 
@@ -715,16 +751,16 @@ void FrameLoaderClientImpl::dispatchDidStartProvisionalLoad()
     }
 }
 
-void FrameLoaderClientImpl::dispatchDidReceiveTitle(const String& title)
+void FrameLoaderClientImpl::dispatchDidReceiveTitle(const StringWithDirection& title)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didReceiveTitle(m_webFrame, title);
+        m_webFrame->client()->didReceiveTitle(m_webFrame, title.string(), title.direction() == LTR ? WebTextDirectionLeftToRight : WebTextDirectionRightToLeft);
 }
 
-void FrameLoaderClientImpl::dispatchDidChangeIcons()
+void FrameLoaderClientImpl::dispatchDidChangeIcons(WebCore::IconType type)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didChangeIcons(m_webFrame);
+        m_webFrame->client()->didChangeIcon(m_webFrame, static_cast<WebIconURL::Type>(type));
 }
 
 void FrameLoaderClientImpl::dispatchDidCommitLoad()
@@ -735,9 +771,6 @@ void FrameLoaderClientImpl::dispatchDidCommitLoad()
 
     if (m_webFrame->client())
         m_webFrame->client()->didCommitProvisionalLoad(m_webFrame, isNewNavigation);
-
-    if (webview->devToolsAgentPrivate())
-        webview->devToolsAgentPrivate()->didCommitProvisionalLoad(m_webFrame, isNewNavigation);
 }
 
 void FrameLoaderClientImpl::dispatchDidFailProvisionalLoad(
@@ -799,11 +832,12 @@ void FrameLoaderClientImpl::dispatchDidFirstVisuallyNonEmptyLayout()
         m_webFrame->client()->didFirstVisuallyNonEmptyLayout(m_webFrame);
 }
 
-Frame* FrameLoaderClientImpl::dispatchCreatePage()
+Frame* FrameLoaderClientImpl::dispatchCreatePage(const NavigationAction& action)
 {
     struct WindowFeatures features;
     Page* newPage = m_webFrame->frame()->page()->chrome()->createWindow(
-        m_webFrame->frame(), FrameLoadRequest(), features);
+        m_webFrame->frame(), FrameLoadRequest(m_webFrame->frame()->document()->securityOrigin()),
+        features, action);
 
     // Make sure that we have a valid disposition.  This should have been set in
     // the preceeding call to dispatchDecidePolicyForNewWindowAction.
@@ -826,14 +860,11 @@ void FrameLoaderClientImpl::dispatchShow()
         webView->client()->show(webView->initialNavigationPolicy());
 }
 
-void FrameLoaderClientImpl::dispatchDecidePolicyForMIMEType(
+void FrameLoaderClientImpl::dispatchDecidePolicyForResponse(
      FramePolicyFunction function,
-     const String& mimeType,
+     const ResourceResponse& response,
      const ResourceRequest&)
 {
-    const ResourceResponse& response =
-        m_webFrame->frame()->loader()->activeDocumentLoader()->response();
-
     PolicyAction action;
 
     int statusCode = response.httpStatusCode();
@@ -845,7 +876,7 @@ void FrameLoaderClientImpl::dispatchDecidePolicyForMIMEType(
         // Downloading is handled by the embedder, but we still get the initial
         // response so that we can ignore it and clean up properly.
         action = PolicyIgnore;
-    } else if (!canShowMIMEType(mimeType)) {
+    } else if (!canShowMIMEType(response.mimeType())) {
         // Make sure that we can actually handle this type internally.
         action = PolicyIgnore;
     } else {
@@ -997,7 +1028,12 @@ void FrameLoaderClientImpl::postProgressStartedNotification()
 
 void FrameLoaderClientImpl::postProgressEstimateChangedNotification()
 {
-    // FIXME
+    WebViewImpl* webview = m_webFrame->viewImpl();
+    if (webview && webview->client()) {
+        webview->client()->didChangeLoadProgress(
+            m_webFrame, m_webFrame->frame()->page()->progress()->estimatedProgress());
+    }
+
 }
 
 void FrameLoaderClientImpl::postProgressFinishedNotification()
@@ -1048,8 +1084,7 @@ void FrameLoaderClientImpl::committedLoad(DocumentLoader* loader, const char* da
 
     // If we are sending data to MediaDocument, we should stop here
     // and cancel the request.
-    if (m_webFrame->frame()->document()
-        && m_webFrame->frame()->document()->isMediaDocument())
+    if (m_webFrame->frame()->document()->isMediaDocument())
         loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 
     // The plugin widget could have been created in the m_webFrame->DidReceiveData
@@ -1060,7 +1095,11 @@ void FrameLoaderClientImpl::committedLoad(DocumentLoader* loader, const char* da
             m_pluginWidget->didReceiveResponse(
                 m_webFrame->frame()->loader()->activeDocumentLoader()->response());
         }
-        m_pluginWidget->didReceiveData(data, length);
+
+        // It's possible that the above call removed the pointer to the plugin, so
+        // check before calling it.
+        if (m_pluginWidget.get())
+            m_pluginWidget->didReceiveData(data, length);
     }
 }
 
@@ -1075,7 +1114,7 @@ void FrameLoaderClientImpl::finishedLoading(DocumentLoader* dl)
         // However, we only want to do this if makeRepresentation has been called, to
         // match the behavior on the Mac.
         if (m_hasRepresentation)
-            dl->frameLoader()->writer()->setEncoding("", false);
+            dl->writer()->setEncoding("", false);
     }
 }
 
@@ -1111,6 +1150,14 @@ bool FrameLoaderClientImpl::shouldGoToHistoryItem(HistoryItem* item) const
     return false;
 }
 
+bool FrameLoaderClientImpl::shouldStopLoadingForHistoryItem(HistoryItem* targetItem) const
+{
+    // Don't stop loading for pseudo-back-forward URLs, since they will get
+    // translated and then pass through again.
+    const KURL& url = targetItem->url();
+    return !url.protocolIs(backForwardNavigationScheme);
+}
+
 void FrameLoaderClientImpl::dispatchDidAddBackForwardItem(HistoryItem*) const
 {
 }
@@ -1129,10 +1176,10 @@ void FrameLoaderClientImpl::didDisplayInsecureContent()
         m_webFrame->client()->didDisplayInsecureContent(m_webFrame);
 }
 
-void FrameLoaderClientImpl::didRunInsecureContent(SecurityOrigin* origin)
+void FrameLoaderClientImpl::didRunInsecureContent(SecurityOrigin* origin, const KURL& insecureURL)
 {
     if (m_webFrame->client())
-        m_webFrame->client()->didRunInsecureContent(m_webFrame, WebSecurityOrigin(origin));
+        m_webFrame->client()->didRunInsecureContent(m_webFrame, WebSecurityOrigin(origin), insecureURL);
 }
 
 ResourceError FrameLoaderClientImpl::blockedError(const ResourceRequest&)
@@ -1200,6 +1247,12 @@ bool FrameLoaderClientImpl::canHandleRequest(const ResourceRequest& request) con
 {
     return m_webFrame->client()->canHandleRequest(
         m_webFrame, WrappedResourceRequest(request));
+}
+
+bool FrameLoaderClientImpl::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
 }
 
 bool FrameLoaderClientImpl::canShowMIMEType(const String& mimeType) const
@@ -1292,7 +1345,7 @@ PassRefPtr<DocumentLoader> FrameLoaderClientImpl::createDocumentLoader(
     return ds.release();
 }
 
-void FrameLoaderClientImpl::setTitle(const String& title, const KURL& url)
+void FrameLoaderClientImpl::setTitle(const StringWithDirection& title, const KURL& url)
 {
     // FIXME: inform consumer of changes to the title.
 }
@@ -1318,6 +1371,18 @@ void FrameLoaderClientImpl::transitionToCommittedFromCachedFrame(CachedFrame*)
 void FrameLoaderClientImpl::transitionToCommittedForNewPage()
 {
     makeDocumentView();
+}
+
+void FrameLoaderClientImpl::didSaveToPageCache()
+{
+}
+
+void FrameLoaderClientImpl::didRestoreFromPageCache()
+{
+}
+
+void FrameLoaderClientImpl::dispatchDidBecomeFrameset(bool)
+{
 }
 
 bool FrameLoaderClientImpl::canCachePage() const
@@ -1346,11 +1411,12 @@ PassRefPtr<Frame> FrameLoaderClientImpl::createFrame(
     int marginWidth,
     int marginHeight)
 {
-    FrameLoadRequest frameRequest(ResourceRequest(url, referrer), name);
+    FrameLoadRequest frameRequest(m_webFrame->frame()->document()->securityOrigin(),
+        ResourceRequest(url, referrer), name);
     return m_webFrame->createChildFrame(frameRequest, ownerElement);
 }
 
-void FrameLoaderClientImpl::didTransferChildFrameToNewDocument()
+void FrameLoaderClientImpl::didTransferChildFrameToNewDocument(Page*)
 {
     ASSERT(m_webFrame->frame()->ownerElement());
 
@@ -1363,6 +1429,15 @@ void FrameLoaderClientImpl::didTransferChildFrameToNewDocument()
     m_webFrame->setClient(newParent->client());
 }
 
+void FrameLoaderClientImpl::transferLoadingResourceFromPage(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request, Page* oldPage)
+{
+    assignIdentifierToInitialRequest(identifier, loader, request);
+
+    WebFrameImpl* oldWebFrame = WebFrameImpl::fromFrame(oldPage->mainFrame());
+    if (oldWebFrame && oldWebFrame->client())
+        oldWebFrame->client()->removeIdentifierForRequest(identifier);
+}
+
 PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     const IntSize& size, // FIXME: how do we use this?
     HTMLPlugInElement* element,
@@ -1372,20 +1447,6 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
     const String& mimeType,
     bool loadManually)
 {
-#if !OS(WINDOWS)
-    // WebCore asks us to make a plugin even if we don't have a
-    // registered handler, with a comment saying it's so we can display
-    // the broken plugin icon.  In Chromium, we normally register a
-    // fallback plugin handler that allows you to install a missing
-    // plugin.  Since we don't yet have a default plugin handler, we
-    // need to return null here rather than going through all the
-    // plugin-creation IPCs only to discover we don't have a plugin
-    // registered, which causes a crash.
-    // FIXME: remove me once we have a default plugin.
-    if (objectContentType(url, mimeType) != ObjectContentNetscapePlugin)
-        return 0;
-#endif
-
     if (!m_webFrame->client())
         return 0;
 
@@ -1418,7 +1479,8 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createPlugin(
 // (e.g., acrobat reader).
 void FrameLoaderClientImpl::redirectDataToPlugin(Widget* pluginWidget)
 {
-    m_pluginWidget = static_cast<WebPluginContainerImpl*>(pluginWidget);
+    if (pluginWidget->isPluginContainer())
+        m_pluginWidget = static_cast<WebPluginContainerImpl*>(pluginWidget);
     ASSERT(m_pluginWidget.get());
 }
 
@@ -1435,7 +1497,8 @@ PassRefPtr<Widget> FrameLoaderClientImpl::createJavaAppletWidget(
 
 ObjectContentType FrameLoaderClientImpl::objectContentType(
     const KURL& url,
-    const String& explicitMimeType)
+    const String& explicitMimeType,
+    bool shouldPreferPlugInsForImages)
 {
     // This code is based on Apple's implementation from
     // WebCoreSupport/WebFrameBridge.mm.
@@ -1459,12 +1522,14 @@ ObjectContentType FrameLoaderClientImpl::objectContentType(
             return ObjectContentFrame;
     }
 
-    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
-        return ObjectContentImage;
-
     // If Chrome is started with the --disable-plugins switch, pluginData is 0.
     PluginData* pluginData = m_webFrame->frame()->page()->pluginData();
-    if (pluginData && pluginData->supportsMimeType(mimeType))
+    bool plugInSupportsMIMEType = pluginData && pluginData->supportsMimeType(mimeType);
+
+    if (MIMETypeRegistry::isSupportedImageMIMEType(mimeType))
+        return shouldPreferPlugInsForImages && plugInSupportsMIMEType ? ObjectContentNetscapePlugin : ObjectContentImage;
+
+    if (plugInSupportsMIMEType)
         return ObjectContentNetscapePlugin;
 
     if (MIMETypeRegistry::isSupportedNonImageMIMEType(mimeType))
@@ -1505,7 +1570,18 @@ PassOwnPtr<WebPluginLoadObserver> FrameLoaderClientImpl::pluginLoadObserver()
 {
     WebDataSourceImpl* ds = WebDataSourceImpl::fromDocumentLoader(
         m_webFrame->frame()->loader()->activeDocumentLoader());
+    if (!ds) {
+        // We can arrive here if a popstate event handler detaches this frame.
+        // FIXME: Remove this code once http://webkit.org/b/36202 is fixed.
+        ASSERT(!m_webFrame->frame()->page());
+        return nullptr;
+    }
     return ds->releasePluginLoadObserver();
+}
+
+PassRefPtr<FrameNetworkingContext> FrameLoaderClientImpl::createNetworkingContext()
+{
+    return FrameNetworkingContextImpl::create(m_webFrame->frame());
 }
 
 } // namespace WebKit

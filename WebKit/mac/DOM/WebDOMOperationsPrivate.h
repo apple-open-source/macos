@@ -27,11 +27,27 @@
  */
 
 #import <WebKit/WebDOMOperations.h>
+#import <JavaScriptCore/JSBase.h>
+
+@interface DOMElement (WebDOMElementOperationsPrivate)
++ (DOMElement *)_DOMElementFromJSContext:(JSContextRef)context value:(JSValueRef)value;
+- (NSString *)_markerTextForListItem;
+- (JSValueRef)_shadowRoot:(JSContextRef)context;
+- (JSValueRef)_ensureShadowRoot:(JSContextRef)context;
+- (void)_removeShadowRoot;
+- (NSString *)_shadowPseudoId;
+@end
 
 @interface DOMDocument (WebDOMDocumentOperationsPrivate)
 - (NSArray *)_focusableNodes;
 @end
 
+@interface DOMHTMLInputElement (WebDOMHTMLInputElementOperationsPrivate)
+- (void)_setAutofilled:(BOOL)autofilled;
+- (void)_setValueForUser:(NSString *)value;
+@end
+
 @interface DOMNode (WebDOMNodeOperationsPendingPublic)
 - (NSString *)markupString;
+- (NSRect)_renderRect:(bool *)isReplaced;
 @end

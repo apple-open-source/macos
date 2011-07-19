@@ -27,7 +27,7 @@
 typedef long size_t;
 
 %wrapper %{
-;; $Id: uffi.swg,v 1.1 2005/08/09 15:07:44 mkoeppe Exp $
+;; $Id: uffi.swg 7358 2005-08-09 15:09:15Z mkoeppe $
 
 (eval-when (compile eval)
 

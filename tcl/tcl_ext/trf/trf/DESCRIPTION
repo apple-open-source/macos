@@ -34,9 +34,9 @@ extension trf {
     author       {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
     maintenance  {Andreas Kupries (andreas_kupries@users.sourceforge.net)}
 
-    version	   2.1.3
+    version	   2.1.4
     copying-policy {BSD-Style, see 'tcl'-license}
-    date           {DEC-06-2008}
+    date           {MAY-06-2009}
 
     primary-urls {
 	http://tcltrf.sourceforge.net/

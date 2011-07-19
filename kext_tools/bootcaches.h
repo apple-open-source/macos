@@ -40,14 +40,16 @@
 #include <mach-o/arch.h>
 
 
-// timestamp directory
-#define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps/"
-#define kTSCacheMask        0755        // Sec reviewed
-#define kSysCacheMask       0755
+// cache directories that we create (we also create kCSFDEPropertyCacheDir)
+#define kTSCacheDir         "/System/Library/Caches/com.apple.bootstamps"
+#define kCacheDirMode       0755        // Sec reviewed
+#define kCacheFileMode      0644
 #define kRPSDirMask         0755
 
 // bootcaches.plist and keys
-#define kBootCachesPath     "/usr/standalone/bootcaches.plist"
+
+#define kBootCachesPath             "/usr/standalone/bootcaches.plist"
+#define kBootCachesDisabledPath "/usr/standalone/bootcaches-cachesonly.plist"
 #define kBCPreBootKey               CFSTR("PreBootPaths")    // dict
 #define kBCLabelKey                 CFSTR("DiskLabel")       // ".disk_label"
 #define kBCBootersKey               CFSTR("BooterPaths")     // dict
@@ -56,11 +58,21 @@
 #define kBCPostBootKey              CFSTR("PostBootPaths")   // dict
 #define kBCMKextKey                 CFSTR("MKext")           // dict
 #define kBCMKext2Key                CFSTR("MKext2")          // dict
+#define kBCKernelcacheV1Key         CFSTR("Kernelcache v1.1")// dict
+#define kBCKernelPathKey            CFSTR("KernelPath")      // path string
 #define kBCArchsKey                 CFSTR("Archs")           //   ar: ppc, i386
 #define kBCExtensionsDirKey         CFSTR("ExtensionsDir")   //   /S/L/E
-#define kBCPathKey                  CFSTR("Path")            //   /S/L/E.mkext
+#define kBCPathKey                  CFSTR("Path")            //   path to cache
+// AdditionalPaths are optional w/PreBootPaths, required w/PostBootPaths
 #define kBCAdditionalPathsKey       CFSTR("AdditionalPaths") // array
-#define kBCBootConfigKey            CFSTR("BootConfig")      // path string
+#define kBCBootConfigKey            CFSTR("BootConfig")      // path to plist
+#define kBCEncryptedRootKey         CFSTR("EncryptedRoot")   // dict
+#define kBCCSFDEPropertyCache       CFSTR("EncryptedPropertyCache") // .wipekey
+#define kBCCSFDEDefaultResourcesDir CFSTR("DefaultResourcesDir") // EfiLoginUI
+#define kBCCSFDELocalizationSource  CFSTR("LocalizationSource")  // EFI.fr/Res
+#define kBCCSFDELanguagesPref       CFSTR("LanguagesPref")  // .Global...
+#define kBCCSFDELocalizedResourcesCache CFSTR("LocalizedResourcesCache")
+
 
 typedef enum {
     kMkextCRCError = -1,
@@ -68,69 +80,105 @@ typedef enum {
     kMkextCRCNotFound = 1,
 } MkextCRCResult;
 
-// 6486172 points out that went end up with a lot of these PATH_MAX-sized
-// buffers, especially on a system with multiple OS volumes.
-// for kextcache and watchvol.c
+// 6486172 points out that kextd ends up with a lot of these buffers
+// (especially w/multiple OS volumes).  8163405 adds BCPATH_MAX, etc.
+#define BCPATH_MAX      128
+#define TSPATH_MAX      (BCPATH_MAX + 1 + NCHARSUUID + 1 + BCPATH_MAX)
+#define NCHARSUUID      (2*sizeof(uuid_t) + 5)  // hex with 4 -'s and one NUL
+#define DEVMAXPATHSIZE  128                     // xnu/devfs/devfsdefs.h:
+#define ROOTPATH_MAX    (sizeof("/Volumes/") + NAME_MAX)
+
 typedef struct {
-    char rpath[PATH_MAX];       // real path in the root filesystem
-    char tspath[PATH_MAX];      // shadow timestamp path tracking Apple_Boot[s]
+    char rpath[BCPATH_MAX];     // (relative) source path in root filesystem
+    char tspath[TSPATH_MAX];    // shadow timestamp path tracking Apple_Boot[s]
     struct timeval tstamps[2];  // rpath's initial timestamp(s)
 } cachedPath;
 
-#define NCHARSUUID      (2*sizeof(uuid_t) + 5)  // hex with 4 -'s and one NUL
-#define DEVMAXPATHSIZE  128                     // devfs/devfsdefs.h:
-
-// XX this structure could be smaller (see 6486172)
 struct bootCaches {
     int cachefd;                // Sec: file descriptor to validate data
     char bsdname[DEVMAXPATHSIZE]; // for passing to bless to get helpers
-    char uuid_str[NCHARSUUID];  // optimized for cachedPaths (cf. 5114411, XX?)
-    char volname[NAME_MAX];     // for label
-    char root[PATH_MAX];        // needed to create absolute paths
+    char fsys_uuid[NCHARSUUID]; // optimized for cachedPaths (cf. 5114411, XX?)
+    CFStringRef csfde_uuid;     // encrypted volumes's LVF UUID
+    char volname[NAME_MAX];     // for label generation
+    char root[ROOTPATH_MAX];    // struct's paths relative to this root
     CFDictionaryRef cacheinfo;  // raw BootCaches.plist data (for archs, etc)
-    struct stat sb;             // caches stat(2) info for bootcaches.plist
+    struct timespec bcTime;     // cache the timestamp of bootcaches.plist
 
-    char exts[PATH_MAX];        // /Volumes/foo/S/L/E (watch only; no update)
-    int nrps;                   // number of RPS paths Apple_Boot
+    char kernel[BCPATH_MAX];    // /Volumes/foo/mach_kernel (watch only)
+    char exts[BCPATH_MAX];      // /Volumes/foo/S/L/E (only a source)
+    char locSource[BCPATH_MAX]; // only EFILogin.framework/Resources for now
+    char locPref[BCPATH_MAX];   // /L/P/.GlabalPreferences
+    unsigned nrps;              // number of RPS paths in Apple_Boot
     cachedPath *rpspaths;       // e.g. mkext, kernel, Boot.plist 
-    int nmisc;                  // "other" files (non-critical)
+    unsigned nmisc;             // "other" files (non-critical)
     cachedPath *miscpaths;      // e.g. icons, labels, etc
     cachedPath efibooter;       // booters get their own paths
     cachedPath ofbooter;        // (we have to bless them, etc)
 
     // pointers to special watched paths (stored in arrays above)
-    cachedPath *mkext;          // -> /Volumes/foo/S/L/E.mkext (in rpsPaths)
+    cachedPath *kext_boot_cache_file;     // -> mkext or kernelcache
     cachedPath *bootconfig;     // -> .../L/Prefs/SC/com.apple.Boot.plist
+    cachedPath *efidefrsrcs;    // -> usr/standalone/i386/EfiLoginUI
+    cachedPath *efiloccache;    // -> ...Caches/../EFILoginLocalizations
     cachedPath *label;          // -> .../S/L/CS/.disk_label (in miscPaths)
+    cachedPath *erpropcache;    // crypto metadata gets special treatment
 };
-
+/* use sizeof() to get it the right bounds */
+#undef TSPATH_MAX
+#undef BCPATH_MAX
+#undef ROOTPATH_MAX
 
 // inspectors
-Boolean hasBootRootBoots(struct bootCaches *caches,
-                         CFArrayRef *auxPartsCopy, Boolean *isAPM);
-Boolean bootedFromDifferentMkext(void);
+Boolean hasBootRootBoots(struct bootCaches *caches, CFArrayRef *auxPartsCopy,
+                         CFArrayRef *dataPartsCopy, Boolean *isAPM);
+// cslvf_uuid optional; set to NULL if not CoreStorage
+int copyVolumeUUIDs(const char *volPath, uuid_t vol_uuid,
+                    CFStringRef *cslvf_uuid);
 
 // ctors / dtors
-struct bootCaches* readCaches(DADiskRef dadisk);
+struct bootCaches* readBootCachesForDADisk(DADiskRef dadisk);
+struct bootCaches* readBootCachesForVolURL(CFURLRef volumeURL);
+
 void destroyCaches(struct bootCaches *caches);
-int fillCachedPath(cachedPath *cpath, char *uuidchars, char *relpath);
 DADiskRef createDiskForMount(DASessionRef session, const char *mount);
 
-// "stat" a cachedPath, setting tstamp, logging errors
-int needsUpdate(char *root, cachedPath* cpath, Boolean *outofdate);
+// "stat" a cachedPath, returning out-of-date & setting tstamp; logs errors
+// (currently only used in bootcaches.c)
+Boolean needsUpdate(char *root, cachedPath* cpath);
 // check all cached paths w/needsUpdate (exts/mkext not checked)
-int needUpdates(struct bootCaches *caches, Boolean *any,
-                    Boolean *rps, Boolean *booters, Boolean *misc);
-// apply the stored timestamps to the bootstamps (?unless the source changed?)
-int applyStamps(struct bootCaches *caches);
+Boolean needUpdates(struct bootCaches *caches, Boolean *rps, 
+                    Boolean *booters, Boolean *misc, OSKextLogSpec oodLogSpec);
+
+// update the bootstamp files from the tstamps stored in the bootCaches struct
+#define kBCStampsUnlinkOnly 0           // updateStamps always unlinks
+#define kBCStampsApplyTimes 1           // apply stored timestamps
+int updateStamps(struct bootCaches *caches, int command);
 
 // check to see if the plist cache/mkext needs rebuilding
 Boolean plistCachesNeedRebuild(const NXArchInfo * kernelArchInfo);
-Boolean check_mkext(struct bootCaches *caches);
-// build the mkext; waiting if instructed
-int rebuild_mkext(struct bootCaches *caches, Boolean wait);
+Boolean check_kext_boot_cache_file(
+    struct bootCaches * caches,
+    const char * cache_path,
+    const char * kernel_path);
+// build the mkext; waiting for the kextcache child if instructed
+int rebuild_kext_boot_cache_file(
+    struct bootCaches *caches,
+    Boolean wait,
+    const char * cache_path,
+    const char * kernel_path);
 
-// diskarb helper
+// check/rebuild CSFDE caches
+Boolean check_csfde(struct bootCaches *caches);
+int rebuild_csfde_cache(struct bootCaches *caches);
+Boolean check_loccache(struct bootCaches *caches);
+int rebuild_loccache(struct bootCaches *caches);
+
+// diskarb helpers
 void _daDone(DADiskRef disk, DADissenterRef dissenter, void *ctx);
+int updateMount(mountpoint_t mount, uint32_t mntgoal);
 
-#endif /* __BOOTCACHES_H__ */
+
+pid_t launch_rebuild_all(char * rootPath, Boolean force, Boolean wait);
+
+#endif
+

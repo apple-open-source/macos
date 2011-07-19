@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.3 2004/03/27 08:59:21 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.4 2008/03/17 18:22:23 antoine Exp $");
 
 #include "xlocale_private.h"
 
@@ -34,34 +34,33 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.3 2004/03/27 08:59:21 tjr E
 #include <wctype.h>
 #include <limits.h>
 
-static struct {
-	const char	*name;
-	wctype_t	 mask;
-} props[] = {
-	{ "alnum",	_CTYPE_A|_CTYPE_D },
-	{ "alpha",	_CTYPE_A },
-	{ "blank",	_CTYPE_B },
-	{ "cntrl",	_CTYPE_C },
-	{ "digit",	_CTYPE_D },
-	{ "graph",	_CTYPE_G },
-	{ "lower",	_CTYPE_L },
-	{ "print",	_CTYPE_R },
-	{ "punct",	_CTYPE_P },
-	{ "space",	_CTYPE_S },
-	{ "upper",	_CTYPE_U },
-	{ "xdigit",	_CTYPE_X },
-	{ "ideogram",	_CTYPE_I },	/* BSD extension */
-	{ "special",	_CTYPE_T },	/* BSD extension */
-	{ "phonogram",	_CTYPE_Q },	/* BSD extension */
-	{ "rune",	0xFFFFFFF0L },	/* BSD extension */
-	{ NULL,		0UL },		/* Default */
-};
-
 wctype_t
 wctype_l(const char *property, locale_t loc)
 {
-	int i;
 	_RuneLocale *rl;
+	static const struct {
+		const char	*name;
+		wctype_t	 mask;
+	} props[] = {
+		{ "alnum",	_CTYPE_A|_CTYPE_D },
+		{ "alpha",	_CTYPE_A },
+		{ "blank",	_CTYPE_B },
+		{ "cntrl",	_CTYPE_C },
+		{ "digit",	_CTYPE_D },
+		{ "graph",	_CTYPE_G },
+		{ "lower",	_CTYPE_L },
+		{ "print",	_CTYPE_R },
+		{ "punct",	_CTYPE_P },
+		{ "space",	_CTYPE_S },
+		{ "upper",	_CTYPE_U },
+		{ "xdigit",	_CTYPE_X },
+		{ "ideogram",	_CTYPE_I },	/* BSD extension */
+		{ "special",	_CTYPE_T },	/* BSD extension */
+		{ "phonogram",	_CTYPE_Q },	/* BSD extension */
+		{ "rune",	0xFFFFFF00L },	/* BSD extension */
+		{ NULL,		0UL },		/* Default */
+	};
+	int i;
 
 	i = 0;
 	while (props[i].name != NULL && strcmp(props[i].name, property) != 0)

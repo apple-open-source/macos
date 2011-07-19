@@ -24,12 +24,13 @@
 #include "config.h"
 #include "HTMLAppletElement.h"
 
+#include "Attribute.h"
 #include "HTMLDocument.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "RenderApplet.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
+#include "Widget.h"
 
 namespace WebCore {
 
@@ -46,7 +47,7 @@ PassRefPtr<HTMLAppletElement> HTMLAppletElement::create(const QualifiedName& tag
     return adoptRef(new HTMLAppletElement(tagName, document));
 }
 
-void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLAppletElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == altAttr ||
         attr->name() == archiveAttr ||
@@ -63,7 +64,7 @@ void HTMLAppletElement::parseMappedAttribute(MappedAttribute* attr)
             document->addNamedItem(newName);
         }
         m_name = newName;
-    } else if (attr->name() == idAttributeName()) {
+    } else if (isIdAttributeName(attr->name())) {
         const AtomicString& newId = attr->value();
         if (inDocument() && document()->isHTMLDocument()) {
             HTMLDocument* document = static_cast<HTMLDocument*>(this->document());
@@ -101,7 +102,7 @@ void HTMLAppletElement::removedFromDocument()
 
 bool HTMLAppletElement::rendererIsNeeded(RenderStyle* style)
 {
-    if (getAttribute(codeAttr).isNull())
+    if (!fastHasAttribute(codeAttr))
         return false;
 
     return HTMLPlugInElement::rendererIsNeeded(style);
@@ -118,7 +119,7 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
         if (!codeBase.isNull())
             args.set("codeBase", codeBase);
 
-        const AtomicString& name = getAttribute(document()->isHTMLDocument() ? nameAttr : idAttributeName());
+        const AtomicString& name = document()->isHTMLDocument() ? getAttribute(nameAttr) : getIdAttribute();
         if (!name.isNull())
             args.set("name", name);
         const AtomicString& archive = getAttribute(archiveAttr);
@@ -137,6 +138,17 @@ RenderObject* HTMLAppletElement::createRenderer(RenderArena*, RenderStyle* style
     }
 
     return RenderObject::createObject(this, style);
+}
+
+void HTMLAppletElement::defaultEventHandler(Event* event)
+{
+    RenderObject* r = renderer();
+    if (!r || !r->isWidget())
+        return;
+    Widget* widget = toRenderWidget(r)->widget();
+    if (!widget)
+        return;
+    widget->handleEvent(event);
 }
 
 RenderWidget* HTMLAppletElement::renderWidgetForJSBindings() const
@@ -166,26 +178,6 @@ void HTMLAppletElement::finishParsingChildren()
     HTMLPlugInElement::finishParsingChildren();
     if (renderer())
         renderer()->setNeedsLayout(true); // This will cause it to create its widget & the Java applet
-}
-
-String HTMLAppletElement::hspace() const
-{
-    return getAttribute(hspaceAttr);
-}
-
-void HTMLAppletElement::setHspace(const String &value)
-{
-    setAttribute(hspaceAttr, value);
-}
-
-String HTMLAppletElement::vspace() const
-{
-    return getAttribute(vspaceAttr);
-}
-
-void HTMLAppletElement::setVspace(const String &value)
-{
-    setAttribute(vspaceAttr, value);
 }
 
 }

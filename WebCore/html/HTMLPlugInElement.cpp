@@ -23,6 +23,7 @@
 #include "config.h"
 #include "HTMLPlugInElement.h"
 
+#include "Attribute.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
 #include "CSSPropertyNames.h"
@@ -31,11 +32,9 @@
 #include "FrameLoader.h"
 #include "FrameTree.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderEmbeddedObject.h"
 #include "RenderWidget.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "Widget.h"
 
@@ -49,11 +48,11 @@ using namespace HTMLNames;
 
 HTMLPlugInElement::HTMLPlugInElement(const QualifiedName& tagName, Document* doc)
     : HTMLFrameOwnerElement(tagName, doc)
-    , m_isCapturingMouseEvents(false)
     , m_inBeforeLoadEventHandler(false)
 #if ENABLE(NETSCAPE_PLUGIN_API)
     , m_NPObject(0)
 #endif
+    , m_isCapturingMouseEvents(false)
 {
 }
 
@@ -93,6 +92,14 @@ PassScriptInstance HTMLPlugInElement::getInstance() const
     if (m_instance)
         return m_instance;
 
+    if (Widget* widget = pluginWidget())
+        m_instance = frame->script()->createScriptInstanceForWidget(widget);
+
+    return m_instance;
+}
+
+Widget* HTMLPlugInElement::pluginWidget() const
+{
     if (m_inBeforeLoadEventHandler) {
         // The plug-in hasn't loaded yet, and it makes no sense to try to load if beforeload handler happened to touch the plug-in element.
         // That would recursively call beforeload for the same element.
@@ -100,30 +107,10 @@ PassScriptInstance HTMLPlugInElement::getInstance() const
     }
 
     RenderWidget* renderWidget = renderWidgetForJSBindings();
-    if (renderWidget && renderWidget->widget())
-        m_instance = frame->script()->createScriptInstanceForWidget(renderWidget->widget());
+    if (!renderWidget)
+        return 0;
 
-    return m_instance;
-}
-
-String HTMLPlugInElement::height() const
-{
-    return getAttribute(heightAttr);
-}
-
-void HTMLPlugInElement::setHeight(const String& value)
-{
-    setAttribute(heightAttr, value);
-}
-
-String HTMLPlugInElement::width() const
-{
-    return getAttribute(widthAttr);
-}
-
-void HTMLPlugInElement::setWidth(const String& value)
-{
-    setAttribute(widthAttr, value);
+    return renderWidget->widget();
 }
 
 bool HTMLPlugInElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -144,7 +131,7 @@ bool HTMLPlugInElement::mapToEntry(const QualifiedName& attrName, MappedAttribut
     return HTMLFrameOwnerElement::mapToEntry(attrName, result);
 }
 
-void HTMLPlugInElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLPlugInElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == widthAttr)
         addCSSLength(attr, CSSPropertyWidth, attr->value());
@@ -160,11 +147,6 @@ void HTMLPlugInElement::parseMappedAttribute(MappedAttribute* attr)
         addHTMLAlignment(attr);
     else
         HTMLFrameOwnerElement::parseMappedAttribute(attr);
-}
-
-bool HTMLPlugInElement::checkDTD(const Node* newChild)
-{
-    return newChild->hasTagName(paramTag) || HTMLFrameOwnerElement::checkDTD(newChild);
 }
 
 void HTMLPlugInElement::defaultEventHandler(Event* event)
@@ -183,7 +165,7 @@ void HTMLPlugInElement::defaultEventHandler(Event* event)
 
     if (!r || !r->isWidget())
         return;
-    Widget* widget = toRenderWidget(r)->widget();
+    RefPtr<Widget> widget = toRenderWidget(r)->widget();
     if (!widget)
         return;
     widget->handleEvent(event);
@@ -200,10 +182,5 @@ NPObject* HTMLPlugInElement::getNPObject()
 }
 
 #endif /* ENABLE(NETSCAPE_PLUGIN_API) */
-
-void HTMLPlugInElement::updateWidgetCallback(Node* n)
-{
-    static_cast<HTMLPlugInElement*>(n)->updateWidget();
-}
 
 }

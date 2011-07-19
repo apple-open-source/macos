@@ -1,28 +1,33 @@
 #######################################################################
-# $Header: /cvsroot/swig/SWIG/Examples/test-suite/ruby/Makefile.in,v 1.18 2006/09/23 22:39:39 olly Exp $
 # Makefile for ruby test-suite
 #######################################################################
 
 LANGUAGE     = ruby
-ifneq (,$(USE_VALGRIND))
-RUBY       = valgrind --leak-check=full @RUBY@
-else
-RUBY       = @RUBY@
-endif
+RUBY         = @RUBY@
 SCRIPTSUFFIX = _runme.rb
 srcdir       = @srcdir@
 top_srcdir   = @top_srcdir@
 top_builddir = @top_builddir@
 
 CPP_TEST_CASES = \
-	track_objects \
-	track_objects_directors \
-	primitive_types \
 	li_cdata \
 	li_cstring \
-	naming \
-	keywords \
-	li_factory 
+	li_factory \
+	li_std_functors \
+	li_std_map \
+	li_std_multimap \
+	li_std_pair_lang_object \
+	li_std_queue \
+	li_std_set \
+	li_std_stack \
+	primitive_types \
+	ruby_keywords \
+	ruby_naming \
+	ruby_track_objects \
+	ruby_track_objects_directors \
+	std_containers
+#	ruby_li_std_speed
+#	stl_new
 
 C_TEST_CASES += \
 	li_cdata \
@@ -31,35 +36,33 @@ C_TEST_CASES += \
 include $(srcdir)/../common.mk
 
 # Overridden variables here
-SWIGOPT += -noautorename
+SWIGOPT += -w801 -noautorename -features autodoc=4
 
+# Custom tests - tests with additional commandline options
+ruby_naming.cpptest: SWIGOPT += -autorename
 
 # Rules for the different types of tests
-
-# make sure -autorename is true for the naming test
-naming.cpptest: SWIGOPT = -autorename
-
 %.cpptest: 
-	$(setup) \
-	($(swig_and_compile_cpp); ) &&\
+	$(setup)
+	+$(swig_and_compile_cpp)
 	$(run_testcase)
 
 %.ctest:
-	$(setup) \
-	($(swig_and_compile_c); ) &&\
+	$(setup)
+	+$(swig_and_compile_c)
 	$(run_testcase)
 
 %.multicpptest: 
-	$(setup) \
-	($(swig_and_compile_multi_cpp); ) &&\
+	$(setup)
+	+$(swig_and_compile_multi_cpp)
 	$(run_testcase)
 
 # Runs the testcase. A testcase is only run if
 # a file is found which has _runme.rb appended after the testcase name.
 run_testcase = \
-	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then (	  \
-	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(RUBY) $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX);) \
-	fi;
+	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then \
+	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(RUNTOOL) $(RUBY) $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX); \
+	fi
 
 # Clean
 %.clean:

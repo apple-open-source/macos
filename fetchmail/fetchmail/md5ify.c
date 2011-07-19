@@ -17,7 +17,7 @@
 #include <string.h>
 #endif
 
-#include "md5.h"
+#include "fm_md5.h"
 
 char *
 MD5Digest (unsigned const char *s)

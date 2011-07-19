@@ -16,12 +16,11 @@
 
 #old cvs stuff.  please update before use.  may be deprecated.
 %define use_stable	1
+%define version 	5.6p1
 %if %{use_stable}
-  %define version 	5.2p1
   %define cvs		%{nil}
   %define release 	1
 %else
-  %define version 	5.2p1
   %define cvs		cvs20050315
   %define release 	0r1
 %endif
@@ -319,6 +318,7 @@ fi
 %{_bindir}/ssh-keyscan
 %dir %{_libexecdir}
 %attr(4711,root,root) %{_libexecdir}/ssh-keysign
+%{_libexecdir}/ssh-pkcs11-helper
 %{_sbindir}/ssh-host-keygen
 %dir %{_defaultdocdir}/%{name}-%{version}
 %{_defaultdocdir}/%{name}-%{version}/CREDITS
@@ -330,6 +330,7 @@ fi
 %{_defaultdocdir}/%{name}-%{version}/faq.html
 %{_mandir}/man1/*
 %{_mandir}/man8/ssh-keysign.8.gz
+%{_mandir}/man8/ssh-pkcs11-helper.8.gz
 %{_mandir}/man5/ssh_config.5.gz
  
 %Files server
@@ -358,4 +359,4 @@ fi
 * Mon Jan 01 1998 ...
 Template Version: 1.31
 
-$Id: openssh.spec,v 1.66 2009/02/21 07:03:05 djm Exp $
+$Id: openssh.spec,v 1.71 2010/08/08 16:32:09 djm Exp $

@@ -26,17 +26,17 @@
 #include "config.h"
 #include "ConstructData.h"
 
+#include "Executable.h"
+#include "Interpreter.h"
 #include "JSFunction.h"
+#include "JSGlobalObject.h"
 
 namespace JSC {
 
-JSObject* construct(ExecState* exec, JSValue object, ConstructType constructType, const ConstructData& constructData, const ArgList& args)
+JSObject* construct(ExecState* exec, JSValue constructorObject, ConstructType constructType, const ConstructData& constructData, const ArgList& args)
 {
-    if (constructType == ConstructTypeHost)
-        return constructData.native.function(exec, asObject(object), args);
-    ASSERT(constructType == ConstructTypeJS);
-    // FIXME: Can this be done more efficiently using the constructData?
-    return asFunction(object)->construct(exec, args);
+    ASSERT(constructType == ConstructTypeJS || constructType == ConstructTypeHost);
+    return exec->interpreter()->executeConstruct(exec, asObject(constructorObject), constructType, constructData, args);
 }
 
 } // namespace JSC

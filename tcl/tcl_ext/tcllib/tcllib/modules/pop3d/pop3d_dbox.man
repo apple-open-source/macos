@@ -3,6 +3,7 @@
 [copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl POP3 Server Package}]
 [titledesc {Simple mailbox database for pop3d}]
+[category  Networking]
 [require Tcl 8.3]
 [require pop3d::dbox [opt 1.0.2]]
 [description]

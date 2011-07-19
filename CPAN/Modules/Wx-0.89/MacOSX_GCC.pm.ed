@@ -1,4 +1,0 @@
-/INSTALLSITEARCH/s//INSTALLARCHLIB/
-/xcodebuild/s,$, LD=/usr/bin/cc,
-/-o wxPerl$/s/$(CC)/& $(RC_CFLAGS)/
-w

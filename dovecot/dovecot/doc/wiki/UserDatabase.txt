@@ -1,0 +1,39 @@
+User Databases
+==============
+
+After a user has been successfully authenticated, Dovecot looks up the user's
+userdb information. The userdb lookup is also done by <LDA.txt> to find out how
+to deliver mails for the user.
+
+The user database lookup returns these fields:
+
+ * *uid*: User's <UID> [UserIds.txt] (UNIX user ID)
+ * *gid*: User's <GID> [UserIds.txt] (UNIX group ID)
+ * *home*: <Home directory> [VirtualUsers.txt]. Although not required, it's
+   highly recommended even for virtual users (see the link).
+ * *mail*: <Mail location> [MailLocation.txt] (if needed to override the
+   default 'mail_location' setting)
+ * Optional <extra fields> [UserDatabase.ExtraFields.txt] which are passed to
+   the IMAP/POP3 process in environment variables.
+
+The user and <password databases> [PasswordDatabase.txt] may be the same or
+they may be different depending on your needs. You can also have <multiple
+databases> [Authentication.MultipleDatabases.txt].
+
+Currently supported user databases are:
+
+ * <Passwd> [AuthDatabase.Passwd.txt]: System users (NSS, '/etc/passwd', or
+   similiar)
+ * <Passwd-file> [AuthDatabase.PasswdFile.txt]: '/etc/passwd'-like file in
+   specified location
+ * <NSS> [UserDatabase.NSS.txt]: Name Service Switch
+ * <LDAP> [AuthDatabase.LDAP.txt]: Lightweight Directory Access Protocol
+ * <SQL> [AuthDatabase.SQL.txt]: SQL database (PostgreSQL, MySQL, SQLite)
+ * <Static> [UserDatabase.Static.txt]: Userdb information generated from a
+   given template
+ * <VPopMail> [AuthDatabase.VPopMail.txt]: External software used to handle
+   virtual domains
+ * <Prefetch> [UserDatabase.Prefetch.txt]: This assumes that the passdb already
+   returned also all the required user database information
+
+(This file was created from the wiki on 2011-05-11 04:42)

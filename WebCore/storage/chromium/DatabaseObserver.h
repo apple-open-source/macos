@@ -31,22 +31,27 @@
 #ifndef DatabaseObserver_h
 #define DatabaseObserver_h
 
+#if ENABLE(DATABASE)
+
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
-class Database;
+class AbstractDatabase;
 class ScriptExecutionContext;
-class String;
 
 // The implementation of this class is in the WebKit API (Chromium source tree)
 // in WebKit/chromium/src/DatabaseObserver.cpp.
 class DatabaseObserver {
 public:
     static bool canEstablishDatabase(ScriptExecutionContext*, const String&, const String&, unsigned long);
-    static void databaseOpened(Database*);
-    static void databaseModified(Database*);
-    static void databaseClosed(Database*);
+    static void databaseOpened(AbstractDatabase*);
+    static void databaseModified(AbstractDatabase*);
+    static void databaseClosed(AbstractDatabase*);
 };
 
 }
+
+#endif // ENABLE(DATABASE)
 
 #endif // DatabaseObserver_h

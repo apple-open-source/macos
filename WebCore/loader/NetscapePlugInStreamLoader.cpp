@@ -44,9 +44,15 @@ NetscapePlugInStreamLoader::~NetscapePlugInStreamLoader()
 {
 }
 
-PassRefPtr<NetscapePlugInStreamLoader> NetscapePlugInStreamLoader::create(Frame* frame, NetscapePlugInStreamLoaderClient* client)
+PassRefPtr<NetscapePlugInStreamLoader> NetscapePlugInStreamLoader::create(Frame* frame, NetscapePlugInStreamLoaderClient* client, const ResourceRequest& request)
 {
-    return adoptRef(new NetscapePlugInStreamLoader(frame, client));
+    RefPtr<NetscapePlugInStreamLoader> loader(adoptRef(new NetscapePlugInStreamLoader(frame, client)));
+    loader->setShouldBufferData(false);
+    loader->documentLoader()->addPlugInStreamLoader(loader.get());
+    if (!loader->init(request))
+        return 0;
+
+    return loader.release();
 }
 
 bool NetscapePlugInStreamLoader::isDone() const
@@ -83,25 +89,25 @@ void NetscapePlugInStreamLoader::didReceiveResponse(const ResourceResponse& resp
         return;
     
     if (response.httpStatusCode() < 100 || response.httpStatusCode() >= 400)
-        didCancel(frameLoader()->fileDoesNotExistError(response));
+        cancel(frameLoader()->fileDoesNotExistError(response));
 }
 
-void NetscapePlugInStreamLoader::didReceiveData(const char* data, int length, long long lengthReceived, bool allAtOnce)
+void NetscapePlugInStreamLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
 {
     RefPtr<NetscapePlugInStreamLoader> protect(this);
 
     m_client->didReceiveData(this, data, length);
     
-    ResourceLoader::didReceiveData(data, length, lengthReceived, allAtOnce);
+    ResourceLoader::didReceiveData(data, length, encodedDataLength, allAtOnce);
 }
 
-void NetscapePlugInStreamLoader::didFinishLoading()
+void NetscapePlugInStreamLoader::didFinishLoading(double finishTime)
 {
     RefPtr<NetscapePlugInStreamLoader> protect(this);
 
     m_documentLoader->removePlugInStreamLoader(this);
     m_client->didFinishLoading(this);
-    ResourceLoader::didFinishLoading();
+    ResourceLoader::didFinishLoading(finishTime);
 }
 
 void NetscapePlugInStreamLoader::didFail(const ResourceError& error)
@@ -113,23 +119,17 @@ void NetscapePlugInStreamLoader::didFail(const ResourceError& error)
     ResourceLoader::didFail(error);
 }
 
-void NetscapePlugInStreamLoader::didCancel(const ResourceError& error)
+void NetscapePlugInStreamLoader::willCancel(const ResourceError& error)
 {
-    RefPtr<NetscapePlugInStreamLoader> protect(this);
-
     m_client->didFail(this, error);
+}
 
-    // If calling didFail spins the run loop the stream loader can reach the terminal state.
-    // If that's the case we just return early.
-    if (reachedTerminalState())
-        return;
-    
+void NetscapePlugInStreamLoader::didCancel(const ResourceError&)
+{
     // We need to remove the stream loader after the call to didFail, since didFail can 
     // spawn a new run loop and if the loader has been removed it won't be deferred when
     // the document loader is asked to defer loading.
     m_documentLoader->removePlugInStreamLoader(this);
-
-    ResourceLoader::didCancel(error);
 }
 
 }

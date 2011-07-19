@@ -1,3 +1,9 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
 2006-12-11  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* as.tcl (style::as::CtrlMouseWheel): Use Command on OS X for +/-

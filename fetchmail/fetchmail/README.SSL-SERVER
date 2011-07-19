@@ -1,6 +1,10 @@
 SSL server requirements
 -----------------------
 
+This document is meant for Internet service providers as a check-list.  If
+fetchmail refers you to it, mail this file to the support address for the
+server that caused the reference.
+
 In order to let any mail client (not just fetchmail) verify server certificates 
 properly, so that users can be sure their connection is not eavesdropped, there 
 are several requirements that need to be fulfilled.

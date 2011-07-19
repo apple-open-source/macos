@@ -1,22 +1,14 @@
 package Test::Builder::Module;
 
+use strict;
+
 use Test::Builder;
 
 require Exporter;
-@ISA = qw(Exporter);
+our @ISA = qw(Exporter);
 
-$VERSION = '0.06';
-
-use strict;
-
-# 5.004's Exporter doesn't have export_to_level.
-my $_export_to_level = sub {
-      my $pkg = shift;
-      my $level = shift;
-      (undef) = shift;                  # redundant arg
-      my $callpkg = caller($level);
-      $pkg->export($callpkg, @_);
-};
+our $VERSION = '0.94';
+$VERSION = eval $VERSION;      ## no critic (BuiltinFunctions::ProhibitStringyEval)
 
 
 =head1 NAME
@@ -84,20 +76,22 @@ import_extra().
 sub import {
     my($class) = shift;
 
+    # Don't run all this when loading ourself.
+    return 1 if $class eq 'Test::Builder::Module';
+
     my $test = $class->builder;
 
     my $caller = caller;
 
     $test->exported_to($caller);
 
-    $class->import_extra(\@_);
-    my(@imports) = $class->_strip_imports(\@_);
+    $class->import_extra( \@_ );
+    my(@imports) = $class->_strip_imports( \@_ );
 
     $test->plan(@_);
 
-    $class->$_export_to_level(1, $class, @imports);
+    $class->export_to_level( 1, $class, @imports );
 }
-
 
 sub _strip_imports {
     my $class = shift;
@@ -105,12 +99,12 @@ sub _strip_imports {
 
     my @imports = ();
     my @other   = ();
-    my $idx = 0;
+    my $idx     = 0;
     while( $idx <= $#{$list} ) {
         my $item = $list->[$idx];
 
         if( defined $item and $item eq 'import' ) {
-            push @imports, @{$list->[$idx+1]};
+            push @imports, @{ $list->[ $idx + 1 ] };
             $idx++;
         }
         else {
@@ -124,7 +118,6 @@ sub _strip_imports {
 
     return @imports;
 }
-
 
 =head3 import_extra
 
@@ -143,8 +136,7 @@ feels like a bit of an ugly hack in its current form.
 
 =cut
 
-sub import_extra {}
-
+sub import_extra { }
 
 =head2 Builder
 
@@ -177,6 +169,5 @@ call builder() inside each function rather than store it in a global.
 sub builder {
     return Test::Builder->new;
 }
-
 
 1;

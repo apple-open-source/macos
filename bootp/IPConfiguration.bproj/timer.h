@@ -1,9 +1,5 @@
-
-#ifndef _S_TIMER_H
-#define _S_TIMER_H
-
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,11 +33,13 @@
  * - created
  */
 
-#ifndef CFRUNLOOP_NEW_API
-#define CFRUNLOOP_NEW_API	1
-#endif
+#ifndef _S_TIMER_H
+#define _S_TIMER_H
 
+#include <mach/boolean.h>
 #include "dynarray.h"
+#include "symbol_scope.h"
+#include <CoreFoundation/CFDate.h>
 
 typedef long absolute_time_t;
 
@@ -51,6 +49,12 @@ typedef void (timer_func_t)(void * arg1, void * arg2, void * arg3);
 
 struct timeval		timer_current_time();
 absolute_time_t		timer_current_secs();
+
+INLINE CFAbsoluteTime
+timer_get_current_time(void)
+{
+    return (CFAbsoluteTimeGetCurrent());
+}
 
 /**
  ** callout functions
@@ -63,6 +67,15 @@ int			timer_set_relative(timer_callout_t * entry,
 					   timer_func_t * func, 
 					   void * arg1, void * arg2, 
 					   void * arg3);
+int			timer_callout_set(timer_callout_t * callout, 
+					  CFAbsoluteTime relative_time,
+					  timer_func_t * func, 
+					  void * arg1, void * arg2,
+					  void * arg3);
 void			timer_cancel(timer_callout_t * entry);
 
-#endif _S_TIMER_H
+boolean_t		timer_time_changed(timer_callout_t * entry);
+
+boolean_t		timer_still_pending(timer_callout_t * entry);
+
+#endif /* _S_TIMER_H */

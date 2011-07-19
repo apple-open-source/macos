@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,7 +23,6 @@
 
 /*
  * CMSDecoder.cpp - Interface for decoding CMS messages.
- * Created 1/12/06 by Doug Mitchell.
  */
  
 #include "CMSDecoder.h"
@@ -382,10 +381,10 @@ OSStatus CMSDecoderCopyDetachedContent(
 }
 
 /*
- * Optionally specify a SecKeycainRef, or an array of them, containing
+ * Optionally specify a SecKeychainRef, or an array of them, containing
  * intermediate certs to be used in verifying a signed message's signer
  * certs. By default, the default keychain search list is used for this. 
- * SPecify an empty CFArrayRef to search *no* keychains for intermediate
+ * Specify an empty CFArrayRef to search *no* keychains for intermediate
  * certs. 
  * IF this is called, it must be called before CMSDecoderCopySignerStatus().
  */

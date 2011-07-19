@@ -1,0 +1,526 @@
+commit 97d0572191368f47854c795e524610e529787c85
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 13 22:00:11 2010 -0700
+
+    libXvMC 1.0.6
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9d2e636fa0fe21bfa483c18fa7ca63368a05ef35
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 13 22:01:39 2010 -0700
+
+    Remove unnecessary statements from configure.ac
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 4d78d748cbf4a393ef12222c44b5f7adb2d3539f
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Mon Jul 12 20:04:46 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e003c948a51af2d89a23fb697ec44aab970ce853
+Author: Fernando Carrijo <fcarrijo@yahoo.com.br>
+Date:   Thu Jul 1 07:06:17 2010 -0300
+
+    Purge macro NEED_REPLIES
+    
+    Signed-off-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+    Acked-by: Tiago Vignatti <tiago.vignatti@nokia.com>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit bea7d18c45b8d09c27a7e8c181b6efd27c4a36d7
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 14:53:49 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 92e902daab4eeb0acddd4e0def2d6009459e3220
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Jan 14 10:06:05 2010 -0500
+
+    COPYING: replace stub with actual copyright notices
+    
+    Refer to: XvMCWrapper.c
+    Copyright (c) 2004 The Unichrome project.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 52c17bfbe2a50c9117ad92843f34e94be4f09c5e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Dec 11 12:54:03 2009 -0800
+
+    Bug 25592: Use $(docdir) for XvMC_API.txt install path
+    
+    Bumps minimum autoconf version required to 2.60 for $(docdir)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+    Reviewed-by: Dan Nicholson <dbn.lists@gmail.com>
+
+commit c53bfd6679f842a5a061904740d86932bbbda6c6
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 27 20:56:04 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit a75f52662c22048dc80a9f8d310364c458da470c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:10 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 9c441d4a5438caa37dd413ab2acbb4a117125e44
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:26 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 3a75ec2dda5f065e4d3eca15653c652690f4aa38
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:43 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 5eccd90ff407b9f780b4a0d6d1e48e0891f56594
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:19 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 276759b34432cea1f6c7eda995d65140b72169c0
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Oct 21 12:47:26 2009 -0700
+
+    This is not a GNU project, so declare it foreign.
+    
+    On Wed, 2009-10-21 at 13:36 +1000, Peter Hutterer wrote:
+    > On Tue, Oct 20, 2009 at 08:23:55PM -0700, Jeremy Huddleston wrote:
+    > > I noticed an INSTALL file in xlsclients and libXvMC today, and it
+    > > was quite annoying to work around since 'autoreconf -fvi' replaces
+    > > it and git wants to commit it.  Should these files even be in git?
+    > > Can I nuke them for the betterment of humanity and since they get
+    > > created by autoreconf anyways?
+    >
+    > See https://bugs.freedesktop.org/show_bug.cgi?id=24206
+    
+    As an interim measure, replace AM_INIT_AUTOMAKE([dist-bzip2]) with
+    AM_INIT_AUTOMAKE([foreign dist-bzip2]). This will prevent the generation
+    of the INSTALL file. It is also part of the 24206 solution.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit efaafb5e74c7484f7e1c0f6f0fc34d75a0f7c14d
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Tue Oct 20 14:42:03 2009 -0700
+
+    Include XvMClib.h
+    
+    This fixes compilation breakage after 9190399907610486001f3676945958dbab4b837a in videoproto
+    
+    Found by tinderbox
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit 4c41a40c3e4344c67cda020fbc2eb479ba06fc9e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 13:20:36 2009 -0700
+
+    libXvMC 1.0.5
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 459a6ac9876b86533b17c996200a8a492e32841c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 13:19:45 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8a5876f71cbad2a02eb6c47772cf46c17bc1f451
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 23:14:51 2009 -0700
+
+    Move XvMC_API.txt from xorg-docs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c0ba39fd18a56adbbe7e2e4a1655aa1aaf5c1ed6
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Feb 2 20:34:37 2009 -0800
+
+    Add README with pointers to mailing list, bugzilla & git repos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 608a6db5a76c3638457e40a4bae7debb5318b905
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Mon Feb 2 14:17:21 2009 -0200
+
+    Janitor: make distcheck, compiler warnings, .gitignore.
+
+commit ae3564600219fb27e094805cc45991685d2e5504
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Fri Mar 14 02:01:31 2008 -0300
+
+    Add missing prototypes to XvMClibint.h
+    
+    This is done just to not generate compile warnings about functions without
+    prototype, but at some time the comment in XvMC.c should be addressed:
+    
+    /******************************************************************
+       These are intended as a protocol interface to be used by direct
+       rendering libraries.  They are not intended to be client viewable
+       functions.  These will stay in place until we have a mechanism in
+       place similar to that of OpenGL with an libXvMCcore library.
+    *******************************************************************/
+
+commit 08be10e6c26794ed1ffa21d7946ddcc3da007237
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Dec 16 01:33:11 2006 +0200
+
+    bump to 1.0.4
+
+commit eaaa31aa77f06249de137018ef85903b0ad4aa39
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Dec 6 19:00:54 2006 +0200
+
+    Makefile.am: make ChangeLog hook safer
+    Make ChangeLog hook as safe as possible.
+
+commit 93d7c1c797d8c74c18e78854fcf78a3f0d79b444
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 16:47:03 2006 -0700
+
+    Bump version to 1.0.3
+
+commit ddc72074e6389a64d5753621b48855137a8c3623
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 13:44:48 2006 -0700
+
+    Add XvMCWrapper to lint target
+
+commit 34b32e0f6773004138543e6f41f5639736493707
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 27 13:44:15 2006 -0700
+
+    Fix sparse warning: Using plain integer as NULL pointer
+
+commit 142aa1230c651bc70d192edbbfa6870488006d36
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 18:31:46 2006 -0700
+
+    Fix sparse warnings: Using plain integer as NULL pointer
+
+commit 945f89d551438298d9a09a4fd3e9e40ac6b1ad51
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 18:30:41 2006 -0700
+
+    Add hooks for checking code with sparse/lint/etc.
+
+commit 3cc151c221139869980bc33d5336ab75c04606bc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 17:28:45 2006 -0700
+
+    Replace static ChangeLog with disthook to generate from git log
+
+commit f856448323ad315f5301f1022e9ee75de7174dbd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 26 17:25:50 2006 -0700
+
+    Add *~ to .gitignore to skip over emacs droppings
+
+commit 25c9975510f7a7c4f1c18b72526bc2a9b97ff90e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:59:11 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 42226f6ba7fbccd7d7cb0f9ce431be477bdf9a0c
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 16 22:07:08 2006 +0000
+
+    Define HAS_SHM if shmat() is found
+    Include <config.h> to get HAS_SHM define.
+
+commit 9a93b2a2ace59e6c2ab8fec586561a136c06e664
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:24:15 2006 +0000
+
+    Bump to 1.0.2
+
+commit 987ac45a04fc6734096fd6469ef12a4b1d09f971
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Apr 3 19:35:40 2006 +0000
+
+    Bug #6479: Cygwin build fix. (Yaakov Selkowitz)
+
+commit 3b44259383a99f4db7d7c026638c6676d838229b
+Author: Donnie Berkholz <spyderous@gentoo.org>
+Date:   Wed Mar 22 17:53:58 2006 +0000
+
+    Set XVMC_CONFIGDIR to $(sysconfdir)/X11.
+
+commit 0e3081d35bcad1b5ee637c9b5d0292011c8536b4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:06 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 588b2f5642d0061f1e1954ce9f97bff71a27d75e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:28:27 2005 +0000
+
+    Stub COPYING files
+
+commit 479c508369c27e88145aab93016c6bcee5b6e71e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:35 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d7aa41b6025facaa98c827bea605de1aa77ffb5d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:45 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 68f34d7d3b1564d967f77127b68af6c3de26578b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:51 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit b679a08c793780c08a21af602e4e814cc24b1a93
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sat Nov 26 21:06:07 2005 +0000
+
+    Bug #5067 <https://bugs.freedesktop.org/show_bug.cgi?id=5067> Add dot
+        before revision definitions for libXvMCW (Cedric Berger)
+
+commit 7907128fae6bbb41e2e6cc6387afba857c75eb41
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 23:17:41 2005 +0000
+
+    Add/improve libs .cvsignores.
+
+commit 25b2dc7180677176005d65828d2bfde17119c7a6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:43 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 384001cc85ea7a77b2800fda7d4abc745135ad3c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:12 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 6140efabd4d1dc46f40d3bc15ad2d78307c5c6e3
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Sep 11 18:25:27 2005 +0000
+
+    XvMC depends on xv. (Bugzilla #4367, Joshua Baergen).
+
+commit cd5375fa75e1f232d23069a59a82f0bcf6ee2a9f
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 3 03:28:03 2005 +0000
+
+    Do PKG_CHECK_MODULES on a unique token instead of on "DEP", so builds with
+        a global configure cache don't get confused.
+
+commit 912ba3998aba2fd6e5e669f80a6ef205a613818e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:53 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit ad129004fe84555fa82286577b343188bd922971
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Jul 23 05:27:00 2005 +0000
+
+    Fix distchecks
+
+commit 50f1a745af62aadab1118b2c565e4f3c60ddcbd6
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jul 16 07:44:53 2005 +0000
+
+    Set soversion to 1.0.0 with -version-number.
+
+commit 46023798075bda8427b61ce57f8d5595abed89cb
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 12 01:17:49 2005 +0000
+
+    Set soversions to 1.0.0; add XvMClib.h.
+
+commit a27ff6109baf266d414db756549eba0b6e4dcaf5
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 12 00:38:53 2005 +0000
+
+    Change version to 1.1.0.
+
+commit 32a12b87526bdeeeadc6859cc2c440d74846d935
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 06:55:15 2005 +0000
+
+    Add .cvsignore files
+
+commit 05fd6003cbd18c04268a3ee8974a81fdcf1f7a74
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Jul 2 06:35:04 2005 +0000
+
+    Add appropriate lib*_CFLAGS to Makefile.am's -- fixes build problems
+
+commit 125b5cabb1980a3564c2567c0702a9adf32327bf
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Tue Jun 21 15:41:37 2005 +0000
+
+    lib/XScrnSaver/configure.ac
+    lib/XScrnSaver/src/Makefile.am
+    lib/Xfontcache/configure.ac
+    lib/Xfontcache/src/Makefile.am
+    lib/Xinerama/configure.ac
+    lib/Xinerama/src/Makefile.am
+    lib/Xtst/configure.ac
+    lib/Xv/configure.ac
+    lib/XvMC/configure.ac
+    lib/dmx/configure.ac Add missing xext.pc and xextproto.pc Add DEP_CFLAGS to
+        src/Makefile.am
+
+commit 0273d0113119cdefe148d58ddf3508bd9b20f2b8
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 20 22:39:13 2005 +0000
+
+    Add XvMC build system
+
+commit b4716fab0524c583daac7048f5d304af3b1589b5
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 20 22:38:12 2005 +0000
+
+    Fix some includes in xc/lib/XvMC
+
+commit 58fde9acdcc6256917089271537017dc28710988
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Dec 4 00:42:50 2004 +0000
+
+    Encoding of numerous files changed to UTF-8
+
+commit 359c8b9d75372ecd1f78cdb0bfccd134577d9c31
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Tue Nov 23 17:29:47 2004 +0000
+
+    Bugzilla #1883 (https://freedesktop.org/bugzilla/show_bug.cgi?id=1883): Fix
+        insufficient SHM detection in XvMC local test. Removed reference to
+        getpagesize() which caused linking problems on s390. Reported by Stefan
+        Dirsch <sndirsh@suse.de>
+
+commit 120c3035f60138ad15599b0b0c4468400e966423
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sat Nov 13 11:09:23 2004 +0000
+
+    lib/XvMC/Imake
+    Added support for automatic loading of the correct hardware XvMC driver.
+        This involves a protocol extension of the XvMC protocol. The XvMC
+        revision number was bumped.
+
+commit 0077c785f91a80d48216a969757bc3f3b607e7e2
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Wed Oct 20 16:35:16 2004 +0000
+
+    Imported via XvMC library release 0.13.0 from unichrome.sf.net. This
+        enables hardware mpeg2 decoding for the CLE266 chip using the
+        nonstandard VLD XvMC extension. Complete author information is
+        available at the unichrome site. Updated the XvMC wrapper to look for
+        version specific Xv and XvMC shared libraries.
+
+commit d6f84be6af28d2a316e05858f0b0571074314c2c
+Author: Thomas Hellstrom <unichrome@shipmail.org>
+Date:   Sun Sep 26 11:48:57 2004 +0000
+
+    Added the XvMC wrapper. First support for runtime loading of hardware-
+        specific XvMC libraries.
+
+commit b3d2a9cbcf27659b04eb0088c02de753dc43d5a8
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:55 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 1892f06c354c1b37308a5adc35cf6a4343148871
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:27 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 2cf814aa9975839c342fbb37c8cf34c8eaf83add
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:32 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 5fbd3ca2a0e419175a28d68cd00e00541ec51c02
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:34 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 6c01fc4ce83d0a401ac497a589ca7009824b2ee7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:48 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 023801d605d93ffdbd383b9f32df0a3213c829f1
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:54:21 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit 59642182406c19c9d17efd9d845cbbd65ad4654f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 204fb5fcf4292629677e3876bd449fb76e55fcdd
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    Initial revision

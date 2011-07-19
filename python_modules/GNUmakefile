@@ -123,7 +123,7 @@ build::
 	echo '</plist>') > $(DSTROOT)/usr/local/$(OSV)/$(Project).plist
 
 #merge: mergebegin mergedefault mergeversions mergebin mergeman
-merge: mergebegin mergeversions mergebin
+merge: mergebegin mergeversions mergebin mergeman
 
 mergebegin:
 	@echo ####### Merging #######
@@ -151,29 +151,6 @@ mergebin:
 	done
 	rm -f $(DSTROOT)$(MERGEBIN)/$(DUMMY)
 
-#MYVERSIONMANLIST = $(OBJROOT)/usr-share-man.list
-#VERSIONMANLIST = $(VERSIONERDIR)/$(PYTHONPROJECT)/usr-share-man.list
-#MERGEMAN = /usr/share/man
-#mergeman:
-#	@set -x && \
-#	for vers in $(ORDEREDVERS); do \
-#	    cd $(OBJROOT)/$$vers/DSTROOT$(MERGEMAN) && \
-#	    for d in man*; do \
-#		cd $$d && \
-#		for f in *.gz; do \
-#		    ff=`echo $$f | sed "s/\.[^.]*\.gz/$$vers&/"` && \
-#		    ditto $$f $(DSTROOT)$(MERGEMAN)/$$d/$$ff && \
-#		    if [ ! -e $(DSTROOT)$(MERGEMAN)/$$d/$$f ]; then \
-#			ln -fs $$ff $(DSTROOT)$(MERGEMAN)/$$d/$$f; \
-#		    fi || exit 1; \
-#		done && \
-#		cd .. || exit 1; \
-#	    done || exit 1; \
-#	done
-#	cd $(DSTROOT)$(MERGEMAN) && \
-#	find . ! -type d | sed 's,^\./,,' | sort > $(MYVERSIONMANLIST) && \
-#	rm -fv `comm -12 $(VERSIONMANLIST) $(MYVERSIONMANLIST)`
-
 MERGEVERSIONS = \
     System
 mergeversions:
@@ -182,3 +159,7 @@ mergeversions:
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
 	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
 	done
+
+MERGEMAN = usr/share/man
+mergeman:
+	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEMAN) $(DSTROOT)

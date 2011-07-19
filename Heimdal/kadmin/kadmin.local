@@ -1,0 +1,216 @@
+#!/bin/sh
+# trival implemention for now
+
+echo "kadmin.local $@" | logger
+
+cmd=""
+realm=""
+
+while true ; do
+    case $1 in
+    -r) realm="-r $2"; shift 2;;
+    -l) shift ;;
+    -q) cmd="$2" ; shift 2;;
+    --version) echo "kadmin.local: heimdal MIT emulation glue"; exit 0;;
+    -*) echo "$0: Bad option $1"; echo $usage; exit 1;;
+    *) break;;
+    esac
+done
+
+set -- $cmd
+
+case $1 in
+    add_principal)
+	shift
+	mod=''
+	while true ; do
+	    case $1 in
+	    +requires_preauth)
+		    mod="+requires-pre-auth${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -allow_svr)
+		    mod="+disallow-svr${mod:+,}${mod}"
+		    shift
+		    ;;
+	    *) break;;
+	    esac
+	done
+	if test $# -lt 1; then
+	    echo "add: no principal" | logger
+	    exit 1
+	fi
+	principal="$1"
+	# XXX we dont need the certhash user for Heimdal
+	# will pick up the entry from the record name
+	echo "principal: X${principal}X $(echo -n $principal | wc -c)" | logger
+	if test $(echo -n $principal | wc -c) = 40; then
+	    echo "Refusing to create a BTMM hash user for Heimdal" | logger
+	    exit 0
+	fi
+	mod="${mod:+--attributes=}${mod}"
+	cmd="/usr/sbin/kadmin -l $realm add --use-defaults --verbose $mod $principal"
+	echo "kadmin.local: $cmd" | logger
+	eval $cmd
+	res=$?
+	echo "kadmin.local: $res" | logger
+	exit $res
+	;;
+    modify_principal|modprinc)
+	shift
+	mod=''
+	expire=''
+	while true ; do
+	    case $1 in
+	    +requires_preauth)
+		    mod="+requires-pre-auth${mod:+,}${mod}"
+		    shift
+		    ;;
+	    +allow_tix)
+		    mod="-disallow-all-tix${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -allow_tix)
+		    mod="+disallow-all-tix${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -certhash)
+		    # just ignore certhash request for now
+		    exit 0
+		    shift 2
+		    ;;
+	    -allow_svr)
+		    mod="+disallow-svr${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -expire)
+		    #echo format on %m/%d/%Y %H:%M:%S GMT/never
+		    #Kerberos should pick up policy from policy data
+		    shift 2
+		    ;;
+	    -pwexpire)
+		    #echo format on %m/%d/%Y %H:%M:%S GMT/never
+		    #Kerberos should pick up policy from policy data
+		    shift 2
+		    ;;
+	    +needschange)
+		    mod="+requires-pw-change${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -needschange)
+		    mod="-requires-pw-change${mod:+,}${mod}"
+		    shift
+		    ;;
+	    -policy)
+		    # policy%dmin
+		    shift 2
+		    ;;
+	    *) break;;
+	    esac
+	done
+	if test $# -lt 1; then
+	    echo "mod: no principal" | logger
+	    exit 1
+	fi
+	principal="$1"
+	if test "X$mod" == "X"; then
+	    echo "kadmin.local: no mod changed" | logger
+	    exit 0
+	fi
+	mod="${mod:+--attributes=}${mod}"
+	cmd="/usr/sbin/kadmin -l $realm add --use-defaults $mod $principal"
+	echo "kadmin.local: $cmd" | logger
+	eval $cmd
+	res=$?
+	echo "kadmin.local: $res" | logger
+	exit $res
+	;;
+    delete_principal)
+	# dont delete anything, delete the OD node instead
+
+	shift
+	mod=''
+	while true ; do
+	    case $1 in
+	    -force) shift ;;
+	    *) break;;
+	    esac
+	done
+	if test $# -lt 1; then
+	    echo "delete: no principal" | logger
+	    exit 1
+	fi
+	principal="$1"
+	#if test $(echo -n "$principal" | wc -c) = 40; then
+	#    echo "Refusing to delete a BTMM hash user for Heimdal" | logger
+	#    exit 0
+	#fi
+	#cmd="/usr/sbin/kadmin -l $realm delete $principal"
+	#echo "kadmin.local: $cmd" | logger
+	#eval $cmd
+	#res=$?
+	#echo "kadmin.local: $res" | logger
+	#exit $res
+
+	exit 0
+	;;
+    get_principal)
+	shift
+	arg=''
+	while true ; do
+	    case $1 in
+	    -terse)
+		    arg="--terse"
+		    shift
+		    ;;
+	    *) break;;
+	    esac
+	done
+	if test $# -lt 1; then
+	    echo "get: no principal" | logger
+	    exit 1
+	fi
+	cmd="/usr/sbin/kadmin -l $realm get $arg $principal"
+	echo "kadmin.local: $cmd" | logger
+	eval $cmd
+	res=$?
+	echo "kadmin.local: $res" | logger
+	exit $res
+	;;
+    change_password)
+	shift
+	if test $# -lt 1; then
+	    echo "change_password: no principal" | logger
+	    exit 1
+	fi
+	principal="$1"
+	cmd="/usr/sbin/kadmin -l $realm cpw $principal"
+	echo "kadmin.local: $cmd" | logger
+	eval $cmd
+	res=$?
+	echo "kadmin.local: $res" | logger
+	exit $res
+	;;
+    delete_policy)
+	;;
+    add_policy)
+	;;
+
+    *)
+	echo "kadmin.local: unsupported command $@"
+	echo "kadmin.local: unsupported command: $@" | logger
+	exit 1
+	;;
+esac
+
+exit 0
+
+lkdc=LKDC:SHA1.D0ED2D7ACBDDF64B63A50BC871D427A18F39646B
+certhash=ABCEF0
+
+kadmin.local -r $lkdc -q modify_principal +allow_tix user
+kadmin.local -r $lkdc -q delete_principal -force $certhash
+kadmin.local -r $lkdc -q delete_principal -force $certhash@$lkdc
+kadmin.local -r $lkdc -q add_principal +requires_preauth -allow_svr $certhash
+kadmin.local -r $lkdc -q modprinc +requires_preauth -certhash $certhash $certhash
+kadmin.local -r $lkdc -q delete_principal -force foo

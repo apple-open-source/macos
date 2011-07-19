@@ -55,6 +55,7 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
     UInt32                  _fKeyMode;
     SecondaryKey    		_secondaryKeys[255];
     IOHIDElement *          _keyboardRollOverElement;
+    OSDictionary *          _keyboardMap;
 
     void                    findKeyboardRollOverElement(OSArray * reportElements);
         
@@ -71,6 +72,11 @@ class AppleEmbeddedKeyboard: public IOHIDEventDriver
                                 bool                        down);
                                 
     bool                    filterSecondaryNumLockKeyboardUsage(
+                                UInt32 *                    usagePage,
+                                UInt32 *                    usage,
+                                bool                        down);
+    
+    bool                    filterKeyboardUsage(
                                 UInt32 *                    usagePage,
                                 UInt32 *                    usage,
                                 bool                        down);
@@ -93,6 +99,7 @@ protected:
 
 public:
     virtual bool            init(OSDictionary * properties = 0);
+    virtual void            free();
 
     virtual IOReturn        setSystemProperties( OSDictionary * properties );
 

@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)rec_utils.c	8.6 (Berkeley) 7/16/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_utils.c,v 1.2 2002/03/22 21:52:02 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_utils.c,v 1.6 2009/03/05 00:57:01 delphij Exp $");
 
 #include <sys/param.h>
 
@@ -55,17 +51,13 @@ __FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_utils.c,v 1.2 2002/03/22 21:52:02 
  *	e:	key/data pair to be returned
  *   nrec:	record number
  *    key:	user's key structure
- *	data:	user's data structure
+ *   data:	user's data structure
  *
  * Returns:
  *	RET_SUCCESS, RET_ERROR.
  */
 int
-__rec_ret(t, e, nrec, key, data)
-	BTREE *t;
-	EPG *e;
-	recno_t nrec;
-	DBT *key, *data;
+__rec_ret(BTREE *t, EPG *e, recno_t nrec, DBT *key, DBT *data)
 {
 	RLEAF *rl;
 	void *p;
@@ -75,9 +67,7 @@ __rec_ret(t, e, nrec, key, data)
 
 	/* We have to copy the key, it's not on the page. */
 	if (sizeof(recno_t) > t->bt_rkey.size) {
-		p = (void *)(t->bt_rkey.data == NULL ?
-		    malloc(sizeof(recno_t)) :
-		    realloc(t->bt_rkey.data, sizeof(recno_t)));
+		p = realloc(t->bt_rkey.data, sizeof(recno_t));
 		if (p == NULL)
 			return (RET_ERROR);
 		t->bt_rkey.data = p;
@@ -105,9 +95,7 @@ dataonly:
 	} else if (F_ISSET(t, B_DB_LOCK)) {
 		/* Use +1 in case the first record retrieved is 0 length. */
 		if (rl->dsize + 1 > t->bt_rdata.size) {
-			p = (void *)(t->bt_rdata.data == NULL ?
-			    malloc(rl->dsize + 1) :
-			    realloc(t->bt_rdata.data, rl->dsize + 1));
+			p = realloc(t->bt_rdata.data, rl->dsize + 1);
 			if (p == NULL)
 				return (RET_ERROR);
 			t->bt_rdata.data = p;

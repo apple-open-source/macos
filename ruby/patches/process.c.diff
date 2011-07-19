@@ -1,0 +1,32 @@
+--- process.c.old	2010-03-30 20:13:41.000000000 -0700
++++ process.c	2010-03-30 21:10:07.000000000 -0700
+@@ -2579,7 +2579,7 @@
+ }
+ 
+ 
+-static size_t maxgroups = 32;
++static size_t maxgroups = NGROUPS_MAX;
+ 
+ 
+ /*
+@@ -2602,12 +2602,18 @@
+     rb_gid_t *groups;
+     int i;
+ 
+-    groups = ALLOCA_N(rb_gid_t, maxgroups);
++    ngroups = getgroups(0, NULL);
++    if (ngroups == -1)
++	rb_sys_fail(0);
+ 
+-    ngroups = getgroups(maxgroups, groups);
++    groups = ALLOCA_N(rb_gid_t, ngroups);
++    ngroups = getgroups(ngroups, groups);
+     if (ngroups == -1)
+ 	rb_sys_fail(0);
+ 
++    if (ngroups > maxgroups)
++	ngroups = maxgroups;
++
+     ary = rb_ary_new();
+     for (i = 0; i < ngroups; i++)
+ 	rb_ary_push(ary, INT2NUM(groups[i]));

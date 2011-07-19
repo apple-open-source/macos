@@ -117,7 +117,7 @@ FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& res
   {
     static const char *month_names = "JanFebMarAprMayJunJulAugSepOctNovDec";
     const char *tokens[16]; /* 16 is more than enough */
-    unsigned int toklen[(sizeof(tokens)/sizeof(tokens[0]))];
+    unsigned int toklen[WTF_ARRAY_LENGTH(tokens)];
     unsigned int linelen_sans_wsp;  // line length sans whitespace
     unsigned int numtoks = 0;
     unsigned int tokmarker = 0; /* extra info for lstyle handler */
@@ -133,7 +133,7 @@ FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& res
     }
 
     unsigned int pos = 0;
-    while (pos < linelen && numtoks < (sizeof(tokens)/sizeof(tokens[0])) )
+    while (pos < linelen && numtoks < WTF_ARRAY_LENGTH(tokens))
     {
       while (pos < linelen && 
             (line[pos] == ' ' || line[pos] == '\t' || line[pos] == '\r'))
@@ -156,7 +156,7 @@ FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& res
       return ParsingFailed(state);
 
     linelen_sans_wsp = &(tokens[numtoks-1][toklen[numtoks-1]]) - tokens[0];
-    if (numtoks == (sizeof(tokens)/sizeof(tokens[0])) )
+    if (numtoks == WTF_ARRAY_LENGTH(tokens))
     {
       pos = linelen;
       while (pos > 0 && (line[pos-1] == ' ' || line[pos-1] == '\t'))
@@ -188,9 +188,13 @@ FTPEntryType parseOneFTPLine(const char* line, ListState& state, ListResult& res
               if (pos < linelen && line[pos] == ',')
               {
                 unsigned long long seconds = 0;
+#if OS(WINDOWS)
+                sscanf(p + 1, "%I64u", &seconds);
+#else
                 sscanf(p + 1, "%llu", &seconds);
+#endif
                 time_t t = static_cast<time_t>(seconds);
-                
+
                 // FIXME: This code has the year 2038 bug
                 gmtime_r(&t, &result.modifiedTime);
                 result.modifiedTime.tm_year += 1900;

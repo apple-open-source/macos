@@ -1,0 +1,8 @@
+require "vnd.dovecot.testsuite";
+
+test "EOF Warnings" {
+	if not test_script_compile "warnings/eof.sieve" {
+		test_fail "compile should have succeeded.";
+	}
+}
+

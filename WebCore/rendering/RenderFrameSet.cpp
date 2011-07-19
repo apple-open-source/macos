@@ -34,6 +34,7 @@
 #include "HitTestRequest.h"
 #include "HitTestResult.h"
 #include "MouseEvent.h"
+#include "PaintInfo.h"
 #include "RenderFrame.h"
 #include "RenderView.h"
 #include "Settings.h"
@@ -92,8 +93,8 @@ void RenderFrameSet::paintColumnBorder(const PaintInfo& paintInfo, const IntRect
     // Now stroke the edges but only if we have enough room to paint both edges with a little
     // bit of the fill color showing through.
     if (borderRect.width() >= 3) {
-        context->fillRect(IntRect(borderRect.topLeft(), IntSize(1, height())), borderStartEdgeColor(), colorSpace);
-        context->fillRect(IntRect(borderRect.topRight(), IntSize(1, height())), borderEndEdgeColor(), colorSpace);
+        context->fillRect(IntRect(borderRect.location(), IntSize(1, height())), borderStartEdgeColor(), colorSpace);
+        context->fillRect(IntRect(IntPoint(borderRect.maxX() - 1, borderRect.y()), IntSize(1, height())), borderEndEdgeColor(), colorSpace);
     }
 }
 
@@ -112,8 +113,8 @@ void RenderFrameSet::paintRowBorder(const PaintInfo& paintInfo, const IntRect& b
     // Now stroke the edges but only if we have enough room to paint both edges with a little
     // bit of the fill color showing through.
     if (borderRect.height() >= 3) {
-        context->fillRect(IntRect(borderRect.topLeft(), IntSize(width(), 1)), borderStartEdgeColor(), colorSpace);
-        context->fillRect(IntRect(borderRect.bottomLeft(), IntSize(width(), 1)), borderEndEdgeColor(), colorSpace);
+        context->fillRect(IntRect(borderRect.location(), IntSize(width(), 1)), borderStartEdgeColor(), colorSpace);
+        context->fillRect(IntRect(IntPoint(borderRect.x(), borderRect.maxY() - 1), IntSize(width(), 1)), borderEndEdgeColor(), colorSpace);
     }
 }
 
@@ -157,12 +158,12 @@ void RenderFrameSet::paint(PaintInfo& paintInfo, int tx, int ty)
 }
 
 bool RenderFrameSet::nodeAtPoint(const HitTestRequest& request, HitTestResult& result,
-    int x, int y, int tx, int ty, HitTestAction action)
+    const IntPoint& pointInContainer, int tx, int ty, HitTestAction action)
 {
     if (action != HitTestForeground)
         return false;
 
-    bool inside = RenderBox::nodeAtPoint(request, result, x, y, tx, ty, action)
+    bool inside = RenderBox::nodeAtPoint(request, result, pointInContainer, tx, ty, action)
         || m_isResizing;
 
     if (inside && frameSet()->noResize()
@@ -379,6 +380,15 @@ void RenderFrameSet::layOutAxis(GridAxis& axis, const Length* grid, int availabl
     }
 }
 
+void RenderFrameSet::notifyFrameEdgeInfoChanged()
+{
+    if (needsLayout())
+        return;
+    // FIXME: We should only recompute the edge info with respect to the frame that changed
+    // and its adjacent frame(s) instead of recomputing the edge info for the entire frameset.
+    computeEdgeInfo();
+}
+
 void RenderFrameSet::fillFromEdgeInfo(const FrameEdgeInfo& edgeInfo, int r, int c)
 {
     if (edgeInfo.allowBorder(LeftFrameEdge))
@@ -508,7 +518,7 @@ void RenderFrameSet::positionFrames()
         int xPos = 0;
         int height = m_rows.m_sizes[r];
         for (int c = 0; c < cols; c++) {
-            child->setLocation(xPos, yPos);
+            child->setLocation(IntPoint(xPos, yPos));
             int width = m_cols.m_sizes[c];
 
             // has to be resized and itself resize its contents
@@ -605,7 +615,7 @@ void RenderFrameSet::positionFramesWithFlattening()
             // ensure the rows and columns are filled
             IntRect oldRect = child->frameRect();
 
-            child->setLocation(xPos, yPos);
+            child->setLocation(IntPoint(xPos, yPos));
             child->setHeight(m_rows.m_sizes[r]);
             child->setWidth(m_cols.m_sizes[c]);
 
@@ -646,7 +656,7 @@ void RenderFrameSet::positionFramesWithFlattening()
 
 bool RenderFrameSet::flattenFrameSet() const
 {
-    return document()->frame() && document()->frame()->settings()->frameFlatteningEnabled();
+    return frame() && frame()->settings()->frameFlatteningEnabled();
 }
 
 void RenderFrameSet::startResizing(GridAxis& axis, int position)
@@ -714,7 +724,7 @@ void RenderFrameSet::setIsResizing(bool isResizing)
         if (ancestor->isFrameSet())
             toRenderFrameSet(ancestor)->m_isChildResizing = isResizing;
     }
-    if (Frame* frame = document()->frame())
+    if (Frame* frame = this->frame())
         frame->eventHandler()->setResizingFrameSet(isResizing ? frameSet() : 0);
 }
 

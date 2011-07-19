@@ -9,11 +9,11 @@ include $(CoreOSMakefiles)/Standard/Standard.make
 
 tcl_ext_compiled      = thread tclx tclvfs expect incrtcl xotcl \
                         tbcload memchan mk4tcl tls tdom tclxml ffidl \
-                        tktable tkimg trf $(tcl_ext_compiled_84)
+                        tktable tkimg trf tclae $(tcl_ext_compiled_84)
 ifneq ($(Tcl84Ext),NO)
-tcl_ext_compiled_84   = tktreectrl quicktimetcl snack tclresource tclae tclapplescript
+tcl_ext_compiled_84   = tktreectrl quicktimetcl snack tclresource tclapplescript
 endif
-tcl_ext_puretcl       = tcllib tklib bwidget tkcon tclsoap
+tcl_ext_puretcl       = tcllib tklib bwidget tkcon tclsoap sdx
 
 ifndef PureTclExt
 SubProjects           = $(tcl_ext_compiled) $(tcl_ext_puretcl)

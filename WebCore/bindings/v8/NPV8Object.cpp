@@ -33,7 +33,8 @@
 #include "Frame.h"
 #include "OwnArrayPtr.h"
 #include "PlatformString.h"
-#include "ScriptController.h"
+#include "ScriptSourceCode.h"
+#include "UserGestureIndicator.h"
 #include "V8GCController.h"
 #include "V8Helpers.h"
 #include "V8NPUtils.h"
@@ -49,25 +50,16 @@
 #endif
 
 #include <stdio.h>
-#include <v8.h>
 #include <wtf/StringExtras.h>
 
-using WebCore::npObjectInternalFieldCount;
-using WebCore::toV8Context;
-using WebCore::toV8Proxy;
-using WebCore::V8DOMWrapper;
-using WebCore::V8GCController;
-using WebCore::V8Proxy;
-using WebCore::WrapperTypeInfo;
+using namespace WebCore;
 
 namespace WebCore {
 
 WrapperTypeInfo* npObjectTypeInfo()
 {
-    static WrapperTypeInfo typeInfo = { 0, 0, false };
+    static WrapperTypeInfo typeInfo = { 0, 0, 0 };
     return &typeInfo;
-}
-
 }
 
 // FIXME: Comments on why use malloc and free.
@@ -86,14 +78,14 @@ static void freeV8NPObject(NPObject* npObject)
     free(v8NpObject);
 }
 
-static v8::Handle<v8::Value>* createValueListFromVariantArgs(const NPVariant* arguments, uint32_t argumentCount, NPObject* owner)
+static PassOwnArrayPtr<v8::Handle<v8::Value> > createValueListFromVariantArgs(const NPVariant* arguments, uint32_t argumentCount, NPObject* owner)
 {
-    v8::Handle<v8::Value>* argv = new v8::Handle<v8::Value>[argumentCount];
+    OwnArrayPtr<v8::Handle<v8::Value> > argv = adoptArrayPtr(new v8::Handle<v8::Value>[argumentCount]);
     for (uint32_t index = 0; index < argumentCount; index++) {
         const NPVariant* arg = &arguments[index];
         argv[index] = convertNPVariantToV8Object(arg, owner);
     }
-    return argv;
+    return argv.release();
 }
 
 // Create an identifier (null terminated utf8 char*) from the NPIdentifier.
@@ -110,23 +102,23 @@ static v8::Local<v8::String> npIdentifierToV8Identifier(NPIdentifier name)
 
 NPObject* v8ObjectToNPObject(v8::Handle<v8::Object> object)
 {
-    return reinterpret_cast<NPObject*>(object->GetPointerFromInternalField(WebCore::v8DOMWrapperObjectIndex)); 
+    return reinterpret_cast<NPObject*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex)); 
 }
 
 static NPClass V8NPObjectClass = { NP_CLASS_STRUCT_VERSION,
                                    allocV8NPObject,
                                    freeV8NPObject,
-                                   0, 0, 0, 0, 0, 0, 0, 0, 0 };
+                                   0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
 
 // NPAPI's npruntime functions.
 NPClass* npScriptObjectClass = &V8NPObjectClass;
 
-NPObject* npCreateV8ScriptObject(NPP npp, v8::Handle<v8::Object> object, WebCore::DOMWindow* root)
+NPObject* npCreateV8ScriptObject(NPP npp, v8::Handle<v8::Object> object, DOMWindow* root)
 {
     // Check to see if this object is already wrapped.
     if (object->InternalFieldCount() == npObjectInternalFieldCount) {
-        WrapperTypeInfo* typeInfo = static_cast<WrapperTypeInfo*>(object->GetPointerFromInternalField(WebCore::v8DOMWrapperTypeIndex));
-        if (typeInfo == WebCore::npObjectTypeInfo()) {
+        WrapperTypeInfo* typeInfo = static_cast<WrapperTypeInfo*>(object->GetPointerFromInternalField(v8DOMWrapperTypeIndex));
+        if (typeInfo == npObjectTypeInfo()) {
 
             NPObject* returnValue = v8ObjectToNPObject(object);
             _NPN_RetainObject(returnValue);
@@ -137,11 +129,13 @@ NPObject* npCreateV8ScriptObject(NPP npp, v8::Handle<v8::Object> object, WebCore
     V8NPObject* v8npObject = reinterpret_cast<V8NPObject*>(_NPN_CreateObject(npp, &V8NPObjectClass));
     v8npObject->v8Object = v8::Persistent<v8::Object>::New(object);
 #ifndef NDEBUG
-    V8GCController::registerGlobalHandle(WebCore::NPOBJECT, v8npObject, v8npObject->v8Object);
+    V8GCController::registerGlobalHandle(NPOBJECT, v8npObject, v8npObject->v8Object);
 #endif
     v8npObject->rootObject = root;
     return reinterpret_cast<NPObject*>(v8npObject);
 }
+
+} // namespace WebCore
 
 bool _NPN_Invoke(NPP npp, NPObject* npObject, NPIdentifier methodName, const NPVariant* arguments, uint32_t argumentCount, NPVariant* result)
 {
@@ -162,6 +156,14 @@ bool _NPN_Invoke(NPP npp, NPObject* npObject, NPIdentifier methodName, const NPV
     if (!identifier->isString)
         return false;
 
+    if (!strcmp(identifier->value.string, "eval")) {
+        if (argumentCount != 1)
+            return false;
+        if (arguments[0].type != NPVariantType_String)
+            return false;
+        return _NPN_Evaluate(npp, npObject, const_cast<NPString*>(&arguments[0].value.stringValue), result);
+    }
+
     v8::HandleScope handleScope;
     // FIXME: should use the plugin's owner frame as the security context.
     v8::Handle<v8::Context> context = toV8Context(npp, npObject);
@@ -169,14 +171,7 @@ bool _NPN_Invoke(NPP npp, NPObject* npObject, NPIdentifier methodName, const NPV
         return false;
 
     v8::Context::Scope scope(context);
-
-    if (methodName == _NPN_GetStringIdentifier("eval")) {
-        if (argumentCount != 1)
-            return false;
-        if (arguments[0].type != NPVariantType_String)
-            return false;
-        return _NPN_Evaluate(npp, npObject, const_cast<NPString*>(&arguments[0].value.stringValue), result);
-    }
+    ExceptionCatcher exceptionCatcher;
 
     v8::Handle<v8::Value> functionObject = v8NpObject->v8Object->Get(v8::String::New(identifier->value.string));
     if (functionObject.IsEmpty() || functionObject->IsNull()) {
@@ -193,7 +188,7 @@ bool _NPN_Invoke(NPP npp, NPObject* npObject, NPIdentifier methodName, const NPV
 
     // Call the function object.
     v8::Handle<v8::Function> function = v8::Handle<v8::Function>::Cast(functionObject);
-    OwnArrayPtr<v8::Handle<v8::Value> > argv(createValueListFromVariantArgs(arguments, argumentCount, npObject));
+    OwnArrayPtr<v8::Handle<v8::Value> > argv = createValueListFromVariantArgs(arguments, argumentCount, npObject);
     v8::Local<v8::Value> resultObject = proxy->callFunction(function, v8NpObject->v8Object, argumentCount, argv.get());
 
     // If we had an error, return false.  The spec is a little unclear here, but says "Returns true if the method was
@@ -229,6 +224,7 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
         return false;
 
     v8::Context::Scope scope(context);
+    ExceptionCatcher exceptionCatcher;
 
     // Lookup the function object and call it.
     v8::Handle<v8::Object> functionObject(v8NpObject->v8Object);
@@ -241,7 +237,7 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
         V8Proxy* proxy = toV8Proxy(npObject);
         ASSERT(proxy);
 
-        OwnArrayPtr<v8::Handle<v8::Value> > argv(createValueListFromVariantArgs(arguments, argumentCount, npObject));
+        OwnArrayPtr<v8::Handle<v8::Value> > argv = createValueListFromVariantArgs(arguments, argumentCount, npObject);
         resultObject = proxy->callFunction(function, functionObject, argumentCount, argv.get());
     }
     // If we had an error, return false.  The spec is a little unclear here, but says "Returns true if the method was
@@ -255,7 +251,7 @@ bool _NPN_InvokeDefault(NPP npp, NPObject* npObject, const NPVariant* arguments,
 
 bool _NPN_Evaluate(NPP npp, NPObject* npObject, NPString* npScript, NPVariant* result)
 {
-    bool popupsAllowed = WebCore::PlatformBridge::popupsAllowed(npp);
+    bool popupsAllowed = PlatformBridge::popupsAllowed(npp);
     return _NPN_EvaluateHelper(npp, popupsAllowed, npObject, npScript, result);
 }
 
@@ -277,13 +273,23 @@ bool _NPN_EvaluateHelper(NPP npp, bool popupsAllowed, NPObject* npObject, NPStri
     ASSERT(proxy);
 
     v8::Context::Scope scope(context);
+    ExceptionCatcher exceptionCatcher;
 
-    WebCore::String filename;
+    String filename;
     if (!popupsAllowed)
         filename = "npscript";
 
-    WebCore::String script = WebCore::String::fromUTF8(npScript->UTF8Characters, npScript->UTF8Length);
-    v8::Local<v8::Value> v8result = proxy->evaluate(WebCore::ScriptSourceCode(script, WebCore::KURL(WebCore::ParsedURLString, filename)), 0);
+    // Set popupsAllowed flag to the current execution frame, so WebKit can get
+    // right gesture status for popups initiated from plugins.
+    Frame* frame = proxy->frame();
+    ASSERT(frame);
+    bool oldAllowPopups = frame->script()->allowPopupsFromPlugin();
+    frame->script()->setAllowPopupsFromPlugin(popupsAllowed);
+
+    String script = String::fromUTF8(npScript->UTF8Characters, npScript->UTF8Length);
+    v8::Local<v8::Value> v8result = proxy->evaluate(ScriptSourceCode(script, KURL(ParsedURLString, filename)), 0);
+    // Restore the old flag.
+    frame->script()->setAllowPopupsFromPlugin(oldAllowPopups);
 
     if (v8result.IsEmpty())
         return false;
@@ -306,6 +312,7 @@ bool _NPN_GetProperty(NPP npp, NPObject* npObject, NPIdentifier propertyName, NP
             return false;
 
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         v8::Handle<v8::Object> obj(object->v8Object);
         v8::Local<v8::Value> v8result = obj->Get(npIdentifierToV8Identifier(propertyName));
@@ -340,6 +347,7 @@ bool _NPN_SetProperty(NPP npp, NPObject* npObject, NPIdentifier propertyName, co
             return false;
 
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         v8::Handle<v8::Object> obj(object->v8Object);
         obj->Set(npIdentifierToV8Identifier(propertyName),
@@ -367,6 +375,7 @@ bool _NPN_RemoveProperty(NPP npp, NPObject* npObject, NPIdentifier propertyName)
     if (context.IsEmpty())
         return false;
     v8::Context::Scope scope(context);
+    ExceptionCatcher exceptionCatcher;
 
     v8::Handle<v8::Object> obj(object->v8Object);
     // FIXME: Verify that setting to undefined is right.
@@ -387,6 +396,7 @@ bool _NPN_HasProperty(NPP npp, NPObject* npObject, NPIdentifier propertyName)
         if (context.IsEmpty())
             return false;
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         v8::Handle<v8::Object> obj(object->v8Object);
         return obj->Has(npIdentifierToV8Identifier(propertyName));
@@ -410,6 +420,7 @@ bool _NPN_HasMethod(NPP npp, NPObject* npObject, NPIdentifier methodName)
         if (context.IsEmpty())
             return false;
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         v8::Handle<v8::Object> obj(object->v8Object);
         v8::Handle<v8::Value> prop = obj->Get(npIdentifierToV8Identifier(methodName));
@@ -435,6 +446,8 @@ void _NPN_SetException(NPObject* npObject, const NPUTF8 *message)
         return;
 
     v8::Context::Scope scope(context);
+    ExceptionCatcher exceptionCatcher;
+
     V8Proxy::throwError(V8Proxy::GeneralError, message);
 }
 
@@ -451,6 +464,7 @@ bool _NPN_Enumerate(NPP npp, NPObject* npObject, NPIdentifier** identifier, uint
         if (context.IsEmpty())
             return false;
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         v8::Handle<v8::Object> obj(object->v8Object);
 
@@ -505,6 +519,7 @@ bool _NPN_Construct(NPP npp, NPObject* npObject, const NPVariant* arguments, uin
         if (context.IsEmpty())
             return false;
         v8::Context::Scope scope(context);
+        ExceptionCatcher exceptionCatcher;
 
         // Lookup the constructor function.
         v8::Handle<v8::Object> ctorObj(object->v8Object);
@@ -518,7 +533,7 @@ bool _NPN_Construct(NPP npp, NPObject* npObject, const NPVariant* arguments, uin
             V8Proxy* proxy = toV8Proxy(npObject);
             ASSERT(proxy);
 
-            OwnArrayPtr<v8::Handle<v8::Value> > argv(createValueListFromVariantArgs(arguments, argumentCount, npObject));
+            OwnArrayPtr<v8::Handle<v8::Value> > argv = createValueListFromVariantArgs(arguments, argumentCount, npObject);
             resultObject = proxy->newInstance(ctor, argumentCount, argv.get());
         }
 

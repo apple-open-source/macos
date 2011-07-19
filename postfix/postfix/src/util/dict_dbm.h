@@ -1,5 +1,5 @@
-#ifndef _DICT_DBN_H_INCLUDED_
-#define _DICT_DBN_H_INCLUDED_
+#ifndef _DICT_DBM_H_INCLUDED_
+#define _DICT_DBM_H_INCLUDED_
 
 /*++
 /* NAME

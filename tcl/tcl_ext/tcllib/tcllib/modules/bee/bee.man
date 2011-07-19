@@ -3,6 +3,7 @@
 [copyright {2004 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {BitTorrent}]
 [titledesc {BitTorrent Serialization Format Encoder/Decoder}]
+[category  Networking]
 [require Tcl 8.4]
 [require bee [opt 0.1]]
 [description]

@@ -4,48 +4,54 @@ from CoreText import *
 
 class TestCTGlyphInfo (TestCase):
     def testTypes(self):
-        self.failUnlessIsInstance(CTGlyphInfoRef, objc.objc_class)
+        self.assertIsInstance(CTGlyphInfoRef, objc.objc_class)
 
     def testConstants(self):
-        self.failUnlessEqual(kCTIdentityMappingCharacterCollection, 0)
-        self.failUnlessEqual(kCTAdobeCNS1CharacterCollection, 1)
-        self.failUnlessEqual(kCTAdobeGB1CharacterCollection, 2)
-        self.failUnlessEqual(kCTAdobeJapan1CharacterCollection, 3)
-        self.failUnlessEqual(kCTAdobeJapan2CharacterCollection, 4)
-        self.failUnlessEqual(kCTAdobeKorea1CharacterCollection, 5)
+        self.assertEqual(kCTIdentityMappingCharacterCollection, 0)
+        self.assertEqual(kCTAdobeCNS1CharacterCollection, 1)
+        self.assertEqual(kCTAdobeGB1CharacterCollection, 2)
+        self.assertEqual(kCTAdobeJapan1CharacterCollection, 3)
+        self.assertEqual(kCTAdobeJapan2CharacterCollection, 4)
+        self.assertEqual(kCTAdobeKorea1CharacterCollection, 5)
 
 
     def testFunctions(self):
         v = CTGlyphInfoGetTypeID()
-        self.failUnlessIsInstance(v, (int, long))
+        self.assertIsInstance(v, (int, long))
 
         font = CTFontCreateWithName(u"Optima Bold", 14, None)
-        self.failUnless(isinstance(font, CTFontRef))
+        self.assertIsInstance(font, CTFontRef)
 
-        self.failUnlessResultIsCFRetained(CTGlyphInfoCreateWithGlyphName)
+        self.assertResultIsCFRetained(CTGlyphInfoCreateWithGlyphName)
         info = v = CTGlyphInfoCreateWithGlyphName(
-                u"copyright", 
-                font, 
+                u"copyright",
+                font,
                 u"(c)")
-        self.failUnlessIsInstance(v, CTGlyphInfoRef)
+        self.assertIsInstance(v, CTGlyphInfoRef)
 
-        self.failUnlessResultIsCFRetained(CTGlyphInfoCreateWithGlyph)
+        self.assertResultIsCFRetained(CTGlyphInfoCreateWithGlyph)
         v = CTGlyphInfoCreateWithGlyph(3254, font, "(c)")
-        self.failUnlessIsInstance(v, CTGlyphInfoRef)
+        self.assertIsInstance(v, CTGlyphInfoRef)
 
-        self.failUnlessResultIsCFRetained(CTGlyphInfoCreateWithCharacterIdentifier)
-        v = CTGlyphInfoCreateWithCharacterIdentifier(3254, kCTIdentityMappingCharacterCollection, "(c)")
-        self.failUnlessIsInstance(v, CTGlyphInfoRef)
+        self.assertResultIsCFRetained(CTGlyphInfoCreateWithCharacterIdentifier)
+
+        for collection in (kCTIdentityMappingCharacterCollection, kCTAdobeCNS1CharacterCollection,
+                kCTAdobeGB1CharacterCollection, kCTAdobeJapan1CharacterCollection, 
+                kCTAdobeJapan2CharacterCollection, kCTAdobeKorea1CharacterCollection):
+            v = CTGlyphInfoCreateWithCharacterIdentifier(3254, collection, "(c)")
+            if v is not None:
+                break
+        self.assertIsInstance(v, CTGlyphInfoRef)
 
         v = CTGlyphInfoGetGlyphName(info)
-        self.failUnlessIsInstance(v, unicode)
+        self.assertIsInstance(v, unicode)
 
         v = CTGlyphInfoGetCharacterIdentifier(info)
-        self.failUnlessIsInstance(v, (int, long))
+        self.assertIsInstance(v, (int, long))
 
-        self.failIfResultIsCFRetained(CTGlyphInfoGetCharacterCollection)
+        self.assertResultIsNotCFRetained(CTGlyphInfoGetCharacterCollection)
         v = CTGlyphInfoGetCharacterCollection(info)
-        self.failUnlessIsInstance(v, (int, long))
+        self.assertIsInstance(v, (int, long))
 
 
 if __name__ == "__main__":

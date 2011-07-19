@@ -104,11 +104,9 @@ getsainfo(src, dst, peer, use_nat_addr)
 		pass = 2;
     again:
 	LIST_FOREACH(s, &sitree, chain) {
-#ifdef __APPLE__
 		if (s->to_delete || s->to_remove) {
 			continue;
 		}
-#endif /* __APPLE__ */
 		if (s->idsrc != NULL) {
 			plog(LLV_DEBUG2, LOCATION, NULL, "getsainfo - sainfo id - src & dst:\n");
 			plogdump(LLV_DEBUG2, s->idsrc->v, s->idsrc->l);
@@ -157,21 +155,6 @@ getsainfo(src, dst, peer, use_nat_addr)
 	}
 
 	return anonymous;
-}
-
-#ifdef __APPLE__
-int
-link_sainfo_to_ph2 (struct sainfo *new)
-{
-	if (!new) {
-		return(-1);
-	}
-	if (new->to_delete ||
-		new->to_remove) {
-		return(-1);
-	}
-	new->linked_to_ph2++;
-	return(0);
 }
 
 /*
@@ -230,6 +213,20 @@ getsainfo_by_dst_id(dst, peer)
 }
 
 int
+link_sainfo_to_ph2 (struct sainfo *new)
+{
+	if (!new) {
+		return(-1);
+	}
+	if (new->to_delete ||
+		new->to_remove) {
+		return(-1);
+	}
+	new->linked_to_ph2++;
+	return(0);
+}
+
+int
 unlink_sainfo_from_ph2 (struct sainfo *old)
 {
 	if (!old) {
@@ -249,7 +246,6 @@ unlink_sainfo_from_ph2 (struct sainfo *old)
 	}
 	return(0);
 }
-#endif
 
 struct sainfo *
 newsainfo()
@@ -262,11 +258,9 @@ newsainfo()
 
 	new->lifetime = IPSECDOI_ATTR_SA_LD_SEC_DEFAULT;
 	new->lifebyte = IPSECDOI_ATTR_SA_LD_KB_MAX;
-#ifdef __APPLE__
 	new->to_remove = FALSE;
 	new->to_delete = FALSE;
 	new->linked_to_ph2 = 0;
-#endif
 
 	return new;
 }
@@ -277,12 +271,10 @@ delsainfo(si)
 {
 	int i;
 
-#ifdef __APPLE__
 	if (si->linked_to_ph2) {
 		si->to_delete = TRUE;
 		return;
 	}
-#endif
 	
 	for (i = 0; i < MAXALGCLASS; i++)
 		delsainfoalg(si->algs[i]);
@@ -311,12 +303,10 @@ void
 remsainfo(si)
 	struct sainfo *si;
 {
-#ifdef __APPLE__
 	if (si->linked_to_ph2) {
 		si->to_remove = TRUE;
 		return;
 	}
-#endif
 	LIST_REMOVE(si, chain);
 }
 

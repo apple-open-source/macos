@@ -31,17 +31,28 @@
 
 namespace WebCore {
 
-IntSize dragImageSize(DragImageRef)
+IntSize dragImageSize(DragImageRef image)
 {
-    return IntSize(0, 0);
+    if (!image)
+        return IntSize();
+
+    return image->size();
 }
 
-void deleteDragImage(DragImageRef)
+void deleteDragImage(DragImageRef image)
 {
+    delete image;
 }
 
-DragImageRef scaleDragImage(DragImageRef image, FloatSize)
+DragImageRef scaleDragImage(DragImageRef image, FloatSize scale)
 {
+    if (!image)
+        return 0;
+
+    int scaledWidth = image->width() * scale.width();
+    int scaledHeight = image->height() * scale.height();
+
+    *image = image->scaled(scaledWidth, scaledHeight);
     return image;
 }
 
@@ -50,9 +61,12 @@ DragImageRef dissolveDragImageToFraction(DragImageRef image, float)
     return image;
 }
 
-DragImageRef createDragImageFromImage(Image*)
+DragImageRef createDragImageFromImage(Image* image)
 {
-    return 0;
+    if (!image)
+        return 0;
+
+    return new QPixmap(*image->nativeImageForCurrentFrame());
 }
 
 DragImageRef createDragImageIconForCachedImage(CachedImage*)

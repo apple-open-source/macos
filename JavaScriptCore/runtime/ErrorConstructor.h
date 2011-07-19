@@ -30,14 +30,12 @@ namespace JSC {
 
     class ErrorConstructor : public InternalFunction {
     public:
-        ErrorConstructor(ExecState*, NonNullPassRefPtr<Structure>, ErrorPrototype*);
+        ErrorConstructor(ExecState*, JSGlobalObject*, Structure*, ErrorPrototype*);
 
     private:
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
     };
-
-    ErrorInstance* constructError(ExecState*, const ArgList&);
 
 } // namespace JSC
 

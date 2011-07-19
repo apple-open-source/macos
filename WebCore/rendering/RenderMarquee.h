@@ -53,9 +53,11 @@ namespace WebCore {
 class RenderLayer;
 
 // This class handles the auto-scrolling of layers with overflow: marquee.
-class RenderMarquee : public Noncopyable {
+class RenderMarquee {
+    WTF_MAKE_NONCOPYABLE(RenderMarquee); WTF_MAKE_FAST_ALLOCATED;
 public:
-    RenderMarquee(RenderLayer*);
+    explicit RenderMarquee(RenderLayer*);
+    virtual ~RenderMarquee();
 
     int speed() const { return m_speed; }
     int marqueeSpeed() const;

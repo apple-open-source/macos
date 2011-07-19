@@ -25,14 +25,17 @@
  *			events from being generated when this key is hit on ADB keyboards.
  */
 
+#include <AssertMacros.h>
 #include <IOKit/IOLib.h>
 #include <IOKit/hidsystem/IOHIKeyboardMapper.h>
 #include <IOKit/hidsystem/IOLLEvent.h>
 #include <IOKit/hidsystem/IOHIDParameter.h>
-#include "IOHIDSystem.h"
-#include "IOHIKeyboard.h"
+#include "IOKit/hidsystem/IOHIDSystem.h"
+#include "IOKit/hidsystem/IOHIKeyboard.h"
 #include "IOHIDKeyboardDevice.h"
 #include "IOHIDFamilyTrace.h"
+#include "IOHIDSecurePromptClient.h"
+#include "ev_private.h"
 
 //************************************************************************
 // KeyboardReserved
@@ -50,6 +53,7 @@ struct KeyboardReserved
     bool			dispatchEventCalled;
     bool			isSeized;
     bool			repeatMode;
+    bool            hasSecurePrompt;
     IOService *		openClient;
     IOHIDKeyboardDevice *	keyboardNub;
 };
@@ -189,6 +193,9 @@ void IOHIKeyboard::stop(IOService * provider)
 		if ( tempReservedStruct->keyboardNub )
 			tempReservedStruct->keyboardNub->release();
 		tempReservedStruct->keyboardNub = NULL;
+        
+		if ( tempReservedStruct->hasSecurePrompt )
+            tempReservedStruct->hasSecurePrompt = false;
 		
 		RemoveKeyboardReservedStructForService(this);
 	}
@@ -305,6 +312,13 @@ IOReturn IOHIKeyboard::setParamProperties( OSDictionary * dict )
     }
     if (NULL != (number = OSDynamicCast(OSNumber, dict->getObject(kIOHIDSubinterfaceIDKey))))
     {
+        if (!OSDynamicCast(OSNumber, getProperty(kIOHIDOriginalSubinterfaceIDKey))) {
+            // no original key
+            OSNumber *original = OSDynamicCast(OSNumber, getProperty(kIOHIDSubinterfaceIDKey));
+            if (original) {
+                setProperty(kIOHIDOriginalSubinterfaceIDKey, original);
+            }
+        }
         _deviceType = number->unsigned32BitValue();
         updated = true;
     }
@@ -429,30 +443,36 @@ void IOHIKeyboard::autoRepeat()
 // *	_deviceLock should be unlocked on entry.
 {    
     KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
-
+    
     IOLockLock( _deviceLock);
     if (( _calloutPending == false ) || 
         ((tempReservedStruct) && tempReservedStruct->dispatchEventCalled ))
     {
-	IOLockUnlock( _deviceLock);
-	return;
+        IOLockUnlock( _deviceLock);
+        return;
     }
     _calloutPending = false;
     _isRepeat = true;
-
+    
     if (tempReservedStruct) tempReservedStruct->dispatchEventCalled = true;
-
+    
     if ( AbsoluteTime_to_scalar(&_downRepeatTime) )
     {
-	// Device is due to generate a repeat
-	if (_keyMap)  _keyMap->translateKeyCode(_codeToRepeat,
-                                /* direction */ true,
-                                /* keyBits */   _keyState);
-	_downRepeatTime = _keyRepeat;
+        // Device is due to generate a repeat
+        // <rdar://problem/7415196> 
+        if (postSecureKey(_codeToRepeat, true)) {
+            // do nothing
+        }
+        else if (_keyMap) {
+            _keyMap->translateKeyCode(_codeToRepeat,
+                                      true, /* direction */
+                                      _keyState /* keyBits */);
+        }
+        _downRepeatTime = _keyRepeat;
     }
-
+    
     if (tempReservedStruct) tempReservedStruct->dispatchEventCalled = false;
-
+    
     _isRepeat = false;
     scheduleAutoRepeat();
     IOLockUnlock( _deviceLock);
@@ -520,26 +540,47 @@ void IOHIKeyboard::keyboardEvent(unsigned eventType,
 //		will be called while the KeyMap object is processing
 //		the key code we've sent it using deliverKey.
 {
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+    KeyboardReserved    *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+    bool                relock = false;
     
     if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
     {
+        relock = true;
         IOLockUnlock(_deviceLock);
+    }
+    
+    UInt16 usage = 0;
+    UInt16 usagePage = 0;
+    unsigned modifiedOrigCharCode = origCharCode;
+    unsigned modifiedOrigCharSet = origCharSet;
+    unsigned modifiedFlags = flags;
+
+    if ((origCharCode < 0xffff) && (origCharSet < 0xffff)) {
+        getLastPageAndUsage(usagePage, usage);
+        
+        if (usage || usagePage) {
+            modifiedOrigCharCode |= usage << 16;
+            modifiedOrigCharSet |= usagePage << 16;
+            modifiedFlags |= NX_HIGHCODE_ENCODING_MASK;
+        }
+    }
+    else {
+        IOLog("IOHIKeyboard::keyboardEvent original code/set unusually large %02x:%02x\n", origCharCode, origCharSet);
     }
 
     _keyboardEvent(	   this,
                            eventType,
-    /* flags */            flags,
+    /* flags */            modifiedFlags,
     /* keyCode */          keyCode,
     /* charCode */         charCode,
     /* charSet */          charSet,
-    /* originalCharCode */ origCharCode,
-    /* originalCharSet */  origCharSet,
+    /* originalCharCode */ modifiedOrigCharCode,
+    /* originalCharSet */  modifiedOrigCharSet,
     /* keyboardType */     _deviceType,
     /* repeat */           _isRepeat,
     /* atTime */           _lastEventTime);
 
-    if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
+    if (relock) 
     {
         IOLockLock(_deviceLock);
     }
@@ -574,10 +615,12 @@ void IOHIKeyboard::keyboardSpecialEvent(unsigned eventType,
 	/* specialty */                 unsigned flavor)
 // Description: See the description for keyboardEvent.
 {
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
-
+    KeyboardReserved    *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+    bool                relock = false;
+    
     if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
     {
+        relock = true;
         IOLockUnlock(_deviceLock);
     }
 
@@ -590,7 +633,7 @@ void IOHIKeyboard::keyboardSpecialEvent(unsigned eventType,
         /* repeat */	_isRepeat,
         /* atTime */	_lastEventTime);
                     
-    if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
+    if (relock) 
     {
         IOLockLock(_deviceLock);
     }
@@ -618,16 +661,18 @@ void IOHIKeyboard::updateEventFlags(unsigned flags)
 // Description:	Process non-event-generating flag changes. Simply pass this
 //		along to our owner.
 {
-    KeyboardReserved *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
-
+    KeyboardReserved    *tempReservedStruct = GetKeyboardReservedStructEventForService(this); 
+    bool                relock = false;
+    
     if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
     {
+        relock = true;
         IOLockUnlock(_deviceLock);
     }
 
     _updateEventFlags(this, flags);
                     
-    if (tempReservedStruct && tempReservedStruct->dispatchEventCalled) 
+    if (relock) 
     {
         IOLockLock(_deviceLock);
     }
@@ -732,12 +777,18 @@ void IOHIKeyboard::dispatchKeyboardEvent(unsigned int keyCode,
     IOLockLock( _deviceLock);
 
     _lastEventTime = time;
+    
+    // <rdar://problem/7415196>
+    if (postSecureKey(keyCode, goingDown)) {
+        IOLockUnlock( _deviceLock);
+        return;
+    }
 
-    // Post the event to the HID Manager
     if (tempReservedStruct)
     {
-        if (tempReservedStruct->keyboardNub )
+        if (tempReservedStruct->keyboardNub)
         {
+            // Post the event to the HID Manager
             tempReservedStruct->keyboardNub->postKeyboardEvent(keyCode, goingDown);
         }
         
@@ -746,10 +797,9 @@ void IOHIKeyboard::dispatchKeyboardEvent(unsigned int keyCode,
             IOLockUnlock( _deviceLock);
             return;
         }
+        
+        tempReservedStruct->dispatchEventCalled = true;
     }
-
-
-    if (tempReservedStruct) tempReservedStruct->dispatchEventCalled = true;
 
     if (_keyMap)  _keyMap->translateKeyCode(keyCode,
 			  /* direction */ goingDown,
@@ -934,6 +984,54 @@ IOReturn IOHIKeyboard::message( UInt32 type, IOService * provider,
             }
             break;
          
+        case IOHIDSecurePromptClient::gatheringMessage:
+        {
+            if (argument) {
+                // Only do things if someone is turning ON gathering.
+                AbsoluteTime ts;
+                clock_get_uptime(&ts);
+                
+                // kill any pending repeat
+                if (_codeToRepeat != ((unsigned)-1))
+                    dispatchKeyboardEvent(_codeToRepeat, false, ts);
+                
+                // now get rid of any other keys that might be down
+                UInt32 i, maxKeys = maxKeyCodes();
+                for (i=0; i<maxKeys; i++)
+                    if ( EVK_IS_KEYDOWN(i,_keyState) )
+                        dispatchKeyboardEvent(i, false, ts);
+
+                // continue to issue zero'ed out flags changed events
+                // just in case any of the flag bits were manually set
+                _updateEventFlags(this, 0);
+
+                _keyboardSpecialEvent(  this, 
+                                        NX_SYSDEFINED, 
+                                        0, 
+                                        NX_NOSPECIALKEY, 
+                                        NX_SUBTYPE_STICKYKEYS_RELEASE, 
+                                        _guid, 
+                                        0, 
+                                        _lastEventTime);
+                
+                // Now, disable gathering on all other secure clients
+                if (provider) {
+                    OSIterator *itr = getClientIterator();
+                    if (itr) {
+                    	IOHIDSecurePromptClient *client = NULL;
+                        do {
+                            client = IOHIDSecurePromptClient::nextForIterator(itr);
+                            if (client && (client != provider) && client->gathering()) {
+                                client->setGathering(0);
+                            }
+                        }
+                        while(client);
+                        itr->release();
+                    }
+                }
+            }
+        }
+
         default:
             ret = super::message(type, provider, argument);
             break;
@@ -1018,4 +1116,178 @@ void IOHIKeyboard::_updateEventFlags( IOHIKeyboard * self,
                     0);
 }
 
+/******************************************************************************/
+IOReturn IOHIKeyboard::newUserClient(task_t          owningTask,
+                                     void *          security_id,
+                                     UInt32          type,
+                                     OSDictionary *  properties,
+                                     IOUserClient ** handler )
+{
+    if ( type == IOHIDSecurePromptClient::clientID ) {
+        IOWorkLoop              *loop = getWorkLoop();
+        IOReturn                result = kIOReturnNotReady;
+        
+        if ( loop ) {
+            result = loop->runAction( OSMemberFunctionCast( IOWorkLoop::Action, this, &IOHIKeyboard::newUserClientGated ),
+                                     this, owningTask, security_id, NULL, handler );
+        }
+        else {
+            IOLog( "IOHIDDevice::newUserClient failed to get a workloop\n" );
+        }
+        
+        return result;
+    }
+    
+    return super::newUserClient( owningTask, security_id, type, properties, handler );
+}
 
+/******************************************************************************/
+static bool IOHIKeyboard_attachSecurePromptClient_Callback(void * target,
+                                                           void * refCon,
+                                                           IOService * newService,
+                                                           IONotifier * notifier )
+{
+    IOHIDSecurePromptClient *client = (IOHIDSecurePromptClient*)target;
+    IOHIKeyboard *keyboard = OSDynamicCast(IOHIKeyboard, newService);
+    
+    require(client, improper_call);
+    require(keyboard, improper_call);
+    
+    require(!client->dead(), invalid_client);
+    
+    return client->attach(keyboard);
+    
+invalid_client:
+improper_call:
+    return false;
+}
+
+/******************************************************************************/
+IOReturn IOHIKeyboard::newUserClientGated(task_t          owningTask,
+                                          void *          security_id,
+                                          OSDictionary *  properties,
+                                          IOUserClient ** handler )
+{
+    IOHIDSecurePromptClient * client = new IOHIDSecurePromptClient;
+        
+    if ( !client->initWithTask( owningTask, security_id, 0, properties ) ) {
+        client->release();
+        return kIOReturnBadArgument;
+    }
+    
+    if ( !client->start( this ) ) {
+        client->detach( this );
+        client->release();
+        return kIOReturnInternalError;
+    }
+    
+    *handler = client;
+    
+// vtn3 TODO: tell client to guess table
+    
+    // This user client must be attached to all keyboards
+    OSDictionary *match = IOService::serviceMatching(kIOHIKeyboardClass);
+
+    IONotifier *notifier = IOService::addMatchingNotification(gIOPublishNotification,
+                                                              match,
+                                                              IOHIKeyboard_attachSecurePromptClient_Callback,
+                                                              client);
+    client->setNotifier(notifier);
+    match->release();
+    notifier->release();
+    
+    return kIOReturnSuccess;
+}
+
+/******************************************************************************/
+bool IOHIKeyboard::
+postSecureKey(UInt8 key, bool down)
+{
+    KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
+    bool posted = false;
+    if (reservedStruct->hasSecurePrompt) {
+        IOHIDSecurePromptClient *client = NULL;
+        OSIterator *itr = getClientIterator();
+        if (itr) {
+            do {
+                client = IOHIDSecurePromptClient::nextForIterator(itr);
+                if (client && client->gathering()) {
+                    IOReturn result = client->postKey(key, down);
+                    client = NULL;
+                    if (result == kIOReturnSuccess) {
+                        // event was posted internally. needs suppression.
+                        posted = true;
+                    }
+                }
+            }
+            while(client);
+            itr->release();
+        }
+    }
+    return posted;
+}
+
+/******************************************************************************/
+bool IOHIKeyboard::
+attachToChild(IORegistryEntry * child,
+              const IORegistryPlane * plane )
+{
+    IOHIDSecurePromptClient *secureClient = OSDynamicCast(IOHIDSecurePromptClient, child);
+    if (secureClient) {
+        KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
+        if (reservedStruct) {
+            reservedStruct->hasSecurePrompt = true;
+        }
+    }
+    return super::attachToChild(child, plane);
+}
+
+/******************************************************************************/
+void IOHIKeyboard::
+detachFromChild(IORegistryEntry * child,
+                const IORegistryPlane * plane )
+{
+    IOHIDSecurePromptClient *secureClient = OSDynamicCast(IOHIDSecurePromptClient, child);
+
+    super::detachFromChild(child, plane);
+
+    if (secureClient) {
+        KeyboardReserved *reservedStruct = GetKeyboardReservedStructEventForService(this);
+        if (reservedStruct && reservedStruct->hasSecurePrompt) {
+            OSIterator *itr = getClientIterator();
+            if (itr) {
+                if (NULL == IOHIDSecurePromptClient::nextForIterator(itr)) {
+                    reservedStruct->hasSecurePrompt = false;
+                }
+                itr->release();
+            }
+        }
+    }
+}
+
+/******************************************************************************/
+void IOHIKeyboard::clearLastPageAndUsage()
+{
+    if (!_lastUsagePage && !_lastUsage)
+        IOLog("IOHIKeyboard::clearLastPageAndUsage called when not set %02x:%02x\n", _lastUsagePage, _lastUsage);
+    _lastUsagePage = 0;
+    _lastUsage = 0;
+}
+
+/******************************************************************************/
+void IOHIKeyboard::setLastPageAndUsage(UInt16 usagePage, UInt16 usage)
+{
+    if (_lastUsagePage || _lastUsage)
+        IOLog("IOHIKeyboard::setLastPageAndUsage called when already set %02x:%02x\n", _lastUsagePage, _lastUsage);
+    _lastUsagePage = usagePage;
+    _lastUsage = usage;
+}
+
+/******************************************************************************/
+void IOHIKeyboard::getLastPageAndUsage(UInt16 &usagePage, UInt16 &usage)
+{
+    usagePage = _lastUsagePage;
+    usage = _lastUsage;
+}
+
+/******************************************************************************/

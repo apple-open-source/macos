@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,7 +75,7 @@ extern const CFStringRef kSCNetworkInterfaceTypeBluetooth					__OSX_AVAILABLE_ST
 /*!
 	@const kSCNetworkInterfaceTypeBond
  */
-extern const CFStringRef kSCNetworkInterfaceTypeBond						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_NA);
+extern const CFStringRef kSCNetworkInterfaceTypeBond						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@const kSCNetworkInterfaceTypeEthernet
@@ -93,7 +93,7 @@ extern const CFStringRef kSCNetworkInterfaceTypeFireWire					__OSX_AVAILABLE_STA
 extern const CFStringRef kSCNetworkInterfaceTypeIEEE80211					__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0/*SPI*/);	// IEEE 802.11, AirPort
 
 /*!
- @const kSCNetworkInterfaceTypeIPSec
+	@const kSCNetworkInterfaceTypeIPSec
  */
 extern const CFStringRef kSCNetworkInterfaceTypeIPSec						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
@@ -130,7 +130,7 @@ extern const CFStringRef kSCNetworkInterfaceTypeSerial						__OSX_AVAILABLE_STAR
 /*!
 	@const kSCNetworkInterfaceTypeVLAN
  */
-extern const CFStringRef kSCNetworkInterfaceTypeVLAN						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_NA);
+extern const CFStringRef kSCNetworkInterfaceTypeVLAN						__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@const kSCNetworkInterfaceTypeWWAN
@@ -172,7 +172,6 @@ typedef SCNetworkInterfaceRef SCBondInterfaceRef;
  */
 typedef const struct __SCBondStatus *		SCBondStatusRef;
 
-#if	!TARGET_OS_IPHONE
 /*!
 	@enum Ethernet Bond Aggregation Status (kSCBondStatusDeviceAggregationStatus) codes
 	@discussion Returned status codes.
@@ -189,22 +188,21 @@ enum {
 	kSCBondStatusNotInActiveGroup	= 3,	/* We're talking to a partner, but the link aggregation group is different from the one that's active */
 	kSCBondStatusUnknown		= 999	/* Non-specific failure */
 };
-#endif	// !TARGET_OS_IPHONE
 
 /*!
-  @const kSCBondStatusDeviceAggregationStatus
+	@const kSCBondStatusDeviceAggregationStatus
  */
-extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_NA);
+extern const CFStringRef kSCBondStatusDeviceAggregationStatus	/* CFNumber */			__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
 
 /*!
-  @const kSCBondStatusDeviceCollecting
+	@const kSCBondStatusDeviceCollecting
  */
-extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_NA);
+extern const CFStringRef kSCBondStatusDeviceCollecting		/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
 
 /*!
-  @const kSCBondStatusDeviceDistributing
+	@const kSCBondStatusDeviceDistributing
  */
-extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_NA);
+extern const CFStringRef kSCBondStatusDeviceDistributing	/* CFNumber (0 or 1) */		__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@group Interface configuration (VLAN)
@@ -506,7 +504,7 @@ SCNetworkInterfaceCopyMediaSubTypes		(CFArrayRef			available)	__OSX_AVAILABLE_ST
 	@discussion For the provided interface configuration options and specific
 		subtype, return a list of available media options.
 	@param available The available options as returned by the
-		NetworkInterfaceCopyMediaOptions function.
+		SCNetworkInterfaceCopyMediaOptions function.
 	@param subType The subtype
 	@result An array of available media options.  Each of the available options
 		is returned as an array of CFString's (e.g. <half-duplex>,
@@ -545,7 +543,6 @@ SCNetworkInterfaceCopyMTU			(SCNetworkInterfaceRef		interface,
 	@param interface The desired network interface.
 	@param subtype The desired media subtype (e.g. "autoselect", "100baseTX", ...).
 	@param options The desired media options (e.g. "half-duplex", "full-duplex", ...).
-		If NULL, the active options will not be returned.
 	@result TRUE if the configuration was updated; FALSE if an error was encountered.
  */
 Boolean
@@ -603,7 +600,7 @@ SCNetworkInterfaceForceConfigurationRefresh	(SCNetworkInterfaceRef		interface)	_
 		You must release the returned value.
  */
 CFArrayRef /* of SCBondInterfaceRef's */
-SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceCopyAvailableMemberInterfaces
@@ -614,7 +611,7 @@ SCBondInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceCreate
@@ -624,7 +621,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces	(SCPreferencesRef		prefs)		__OSX_AV
 		You must release the returned value.
  */
 SCBondInterfaceRef
-SCBondInterfaceCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceRemove
@@ -633,7 +630,7 @@ SCBondInterfaceCreate				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__M
 	@result TRUE if the interface was removed; FALSE if an error was encountered.
  */
 Boolean
-SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceGetMemberInterfaces
@@ -642,7 +639,7 @@ SCBondInterfaceRemove				(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__
 	@result The list of interfaces.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceGetOptions
@@ -652,7 +649,7 @@ SCBondInterfaceGetMemberInterfaces		(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_
 		NULL if no changes to the default configuration have been saved.
  */
 CFDictionaryRef
-SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceSetMemberInterfaces
@@ -664,7 +661,7 @@ SCBondInterfaceGetOptions			(SCBondInterfaceRef		bond)		__OSX_AVAILABLE_STARTING
 Boolean
 SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef		bond,
 						 CFArrayRef			members) /* of SCNetworkInterfaceRef's */
-												__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+												__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceSetLocalizedDisplayName
@@ -675,7 +672,7 @@ SCBondInterfaceSetMemberInterfaces		(SCBondInterfaceRef		bond,
  */
 Boolean
 SCBondInterfaceSetLocalizedDisplayName		(SCBondInterfaceRef		bond,
-						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondInterfaceSetOptions
@@ -686,7 +683,7 @@ SCBondInterfaceSetLocalizedDisplayName		(SCBondInterfaceRef		bond,
  */
 Boolean
 SCBondInterfaceSetOptions			(SCBondInterfaceRef		bond,
-						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 #pragma mark -
 
@@ -698,14 +695,14 @@ SCBondInterfaceSetOptions			(SCBondInterfaceRef		bond,
 		You must release the returned value.
  */
 SCBondStatusRef
-SCBondInterfaceCopyStatus			(SCBondInterfaceRef	bond)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondInterfaceCopyStatus			(SCBondInterfaceRef	bond)			__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondStatusGetTypeID
 	@discussion Returns the type identifier of all SCBondStatus instances.
  */
 CFTypeID
-SCBondStatusGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondStatusGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondStatusGetMemberInterfaces
@@ -715,7 +712,7 @@ SCBondStatusGetTypeID				(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHON
 	@result The list of interfaces.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCBondStatusGetInterfaceStatus
@@ -732,7 +729,7 @@ SCBondStatusGetMemberInterfaces			(SCBondStatusRef	bondStatus)		__OSX_AVAILABLE_
  */
 CFDictionaryRef
 SCBondStatusGetInterfaceStatus			(SCBondStatusRef	bondStatus,
-						 SCNetworkInterfaceRef	interface)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 SCNetworkInterfaceRef	interface)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@group Interface configuration (VLAN)
@@ -748,7 +745,7 @@ SCBondStatusGetInterfaceStatus			(SCBondStatusRef	bondStatus,
 		You must release the returned value.
  */
 CFArrayRef /* of SCVLANInterfaceRef's */
-SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceCopyAvailablePhysicalInterfaces
@@ -758,7 +755,7 @@ SCVLANInterfaceCopyAll				(SCPreferencesRef		prefs)		__OSX_AVAILABLE_STARTING(__
 		You must release the returned value.
  */
 CFArrayRef /* of SCNetworkInterfaceRef's */
-SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceCreate
@@ -774,7 +771,7 @@ SCVLANInterfaceCopyAvailablePhysicalInterfaces	(void)						__OSX_AVAILABLE_START
 SCVLANInterfaceRef
 SCVLANInterfaceCreate				(SCPreferencesRef		prefs,
 						 SCNetworkInterfaceRef		physical,
-						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceRemove
@@ -783,7 +780,7 @@ SCVLANInterfaceCreate				(SCPreferencesRef		prefs,
 	@result TRUE if the interface was removed; FALSE if an error was encountered.
  */
 Boolean
-SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceGetPhysicalInterface
@@ -792,7 +789,7 @@ SCVLANInterfaceRemove				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__
 	@result The list of interfaces.
  */
 SCNetworkInterfaceRef
-SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceGetTag
@@ -801,7 +798,7 @@ SCVLANInterfaceGetPhysicalInterface		(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE
 	@result The tag.
  */
 CFNumberRef
-SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceGetOptions
@@ -811,7 +808,7 @@ SCVLANInterfaceGetTag				(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__
 		NULL if no changes to the default configuration have been saved.
  */
 CFDictionaryRef
-SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceSetPhysicalInterfaceAndTag
@@ -826,7 +823,7 @@ SCVLANInterfaceGetOptions			(SCVLANInterfaceRef		vlan)		__OSX_AVAILABLE_STARTING
 Boolean
 SCVLANInterfaceSetPhysicalInterfaceAndTag	(SCVLANInterfaceRef		vlan,
 						 SCNetworkInterfaceRef		physical,
-						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFNumberRef			tag)		__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceSetLocalizedDisplayName
@@ -837,7 +834,7 @@ SCVLANInterfaceSetPhysicalInterfaceAndTag	(SCVLANInterfaceRef		vlan,
  */
 Boolean
 SCVLANInterfaceSetLocalizedDisplayName		(SCVLANInterfaceRef		vlan,
-						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFStringRef			newName)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 /*!
 	@function SCVLANInterfaceSetOptions
@@ -848,7 +845,7 @@ SCVLANInterfaceSetLocalizedDisplayName		(SCVLANInterfaceRef		vlan,
  */
 Boolean
 SCVLANInterfaceSetOptions			(SCVLANInterfaceRef		vlan,
-						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_NA);
+						 CFDictionaryRef		newOptions)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_4_0/*SPI*/);
 
 
 /* --------------------------------------------------------------------------------

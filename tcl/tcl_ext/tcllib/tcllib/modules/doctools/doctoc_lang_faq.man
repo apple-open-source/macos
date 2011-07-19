@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctoc language faq}]
+[category  {Documentation tools}]
 [description]
 [para]
 

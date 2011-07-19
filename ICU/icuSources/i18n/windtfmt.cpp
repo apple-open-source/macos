@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 2005-2007, International Business Machines
+*   Copyright (C) 2005-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -31,7 +31,7 @@
 #include "cmemory.h"
 #include "uresimp.h"
 #include "windtfmt.h"
-#include "wintz.h"
+#include "wintzimpl.h"
 
 #   define WIN32_LEAN_AND_MEAN
 #   define VC_EXTRALEAN
@@ -52,7 +52,7 @@ UOBJECT_DEFINE_RTTI_IMPLEMENTATION(Win32DateFormat)
 
 #define STACK_BUFFER_SIZE 64
 
-UnicodeString *getTimeDateFormat(const Calendar *cal, const Locale *locale, UErrorCode &status)
+UnicodeString* Win32DateFormat::getTimeDateFormat(const Calendar *cal, const Locale *locale, UErrorCode &status) const
 {
     UnicodeString *result = NULL;
     const char *type = cal->getType();
@@ -74,7 +74,13 @@ UnicodeString *getTimeDateFormat(const Calendar *cal, const Locale *locale, UErr
     }
 
     int32_t resStrLen = 0;
-    const UChar *resStr = ures_getStringByIndex(patBundle, (int32_t)DateFormat::kDateTime, &resStrLen, &status);
+    int32_t glueIndex = DateFormat::kDateTime;
+    int32_t patSize = ures_getSize(patBundle);
+    if (patSize >= (DateFormat::kDateTimeOffset + DateFormat::kShort + 1)) {
+        // Get proper date time format
+        glueIndex = (int32_t)(DateFormat::kDateTimeOffset + (fDateStyle - DateFormat::kDateOffset));
+    }
+    const UChar *resStr = ures_getStringByIndex(patBundle, glueIndex, &resStrLen, &status);
 
     result = new UnicodeString(TRUE, resStr, resStrLen);
 

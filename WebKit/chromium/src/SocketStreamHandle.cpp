@@ -52,7 +52,7 @@ class SocketStreamHandleInternal : public WebSocketStreamHandleClient {
 public:
     static PassOwnPtr<SocketStreamHandleInternal> create(SocketStreamHandle* handle)
     {
-        return new SocketStreamHandleInternal(handle);
+        return adoptPtr(new SocketStreamHandleInternal(handle));
     }
     virtual ~SocketStreamHandleInternal();
 
@@ -89,7 +89,7 @@ SocketStreamHandleInternal::~SocketStreamHandleInternal()
 
 void SocketStreamHandleInternal::connect(const KURL& url)
 {
-    m_socket.set(webKitClient()->createSocketStreamHandle());
+    m_socket = adoptPtr(webKitClient()->createSocketStreamHandle());
     LOG(Network, "connect");
     ASSERT(m_socket.get());
     m_socket->connect(url, this);

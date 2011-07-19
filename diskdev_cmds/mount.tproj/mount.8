@@ -40,14 +40,14 @@
 .Sh SYNOPSIS
 .Nm mount
 .Op Fl adfruvw
-.Op Fl t Ar ufs | lfs | external_type
+.Op Fl t Ar lfs | external_type
 .Nm mount
 .Op Fl dfruvw
 .Ar special | node
 .Nm mount
 .Op Fl dfruvw
 .Op Fl o Ar options
-.Op Fl t Ar ufs | lfs | external_type
+.Op Fl t Ar lfs | external_type
 .Ar special node
 .Sh DESCRIPTION
 The
@@ -193,13 +193,12 @@ The same as the
 argument to the
 .Fl o
 option.
-.It Fl t Ar "ufs \\*(Ba lfs \\*(Ba external type"
+.It Fl t Ar "lfs \\*(Ba external type"
 The argument following the
 .Fl t
 is used to indicate the file system type.
-The type
-.Ar ufs
-is the default.
+There is no default local file system for use with mount. A type must
+be specified in order to mount a non-NFS filesystem.
 The \fI-t\fP option can be used
 to indicate that the actions should only be taken on
 filesystems of the specified type.

@@ -19,7 +19,6 @@
 
 namespace llvm {
 
-class FunctionPass;
 class ModulePass;
 class Pass;
 class Function;
@@ -67,13 +66,6 @@ ModulePass *createConstantMergePass();
 /// non-address taken internal globals.
 ///
 ModulePass *createGlobalOptimizerPass();
-
-
-//===----------------------------------------------------------------------===//
-/// createRaiseAllocationsPass - Return a new pass that transforms malloc and
-/// free function calls into malloc and free instructions.
-///
-ModulePass *createRaiseAllocationsPass();
 
 
 //===----------------------------------------------------------------------===//
@@ -174,21 +166,17 @@ ModulePass *createIPSCCPPass();
 /// createLoopExtractorPass - This pass extracts all natural loops from the
 /// program into a function if it can.
 ///
-FunctionPass *createLoopExtractorPass();
+Pass *createLoopExtractorPass();
 
 /// createSingleLoopExtractorPass - This pass extracts one natural loop from the
 /// program into a function if it can.  This is used by bugpoint.
 ///
-FunctionPass *createSingleLoopExtractorPass();
+Pass *createSingleLoopExtractorPass();
 
 /// createBlockExtractorPass - This pass extracts all blocks (except those
 /// specified in the argument list) from the functions in the module.
 ///
 ModulePass *createBlockExtractorPass(const std::vector<BasicBlock*> &BTNE);
-
-/// createIndMemRemPass - This pass removes potential indirect calls of
-/// malloc and free
-ModulePass *createIndMemRemPass();
 
 /// createStripDeadPrototypesPass - This pass removes any function declarations
 /// (prototypes) that are not used.
@@ -213,6 +201,11 @@ Pass *createFunctionAttrsPass();
 /// collapses them.
 ///
 ModulePass *createMergeFunctionsPass();
+
+//===----------------------------------------------------------------------===//
+/// createPartialInliningPass - This pass inlines parts of functions.
+///
+ModulePass *createPartialInliningPass();
 
 } // End llvm namespace
 

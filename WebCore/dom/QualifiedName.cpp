@@ -72,6 +72,11 @@ QualifiedName::QualifiedName(const AtomicString& p, const char* l, const AtomicS
     init(p, AtomicString(l), n);
 }
 
+QualifiedName::~QualifiedName()
+{
+    deref();
+}
+
 void QualifiedName::deref()
 {
 #ifdef QNAME_DEFAULT_CONSTRUCTOR
@@ -88,8 +93,12 @@ void QualifiedName::deref()
 String QualifiedName::toString() const
 {
     String local = localName();
-    if (hasPrefix())
-        return prefix() + ":" + local;
+    if (hasPrefix()) {
+        String result = prefix().string();
+        result.append(":");
+        result.append(local);
+        return result;
+    }
     return local;
 }
 

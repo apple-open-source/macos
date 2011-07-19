@@ -32,12 +32,4 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSProcessingInstruction::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-
-    if (StyleSheet* sheet = static_cast<ProcessingInstruction*>(impl())->sheet())
-        markDOMObjectWrapper(markStack, *Heap::heap(this)->globalData(), sheet);
-}
-
 }

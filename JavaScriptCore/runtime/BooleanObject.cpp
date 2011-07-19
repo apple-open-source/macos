@@ -25,11 +25,12 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(BooleanObject);
 
-const ClassInfo BooleanObject::info = { "Boolean", 0, 0, 0 };
+const ClassInfo BooleanObject::s_info = { "Boolean", &JSWrapperObject::s_info, 0, 0 };
 
-BooleanObject::BooleanObject(NonNullPassRefPtr<Structure> structure)
-    : JSWrapperObject(structure)
+BooleanObject::BooleanObject(JSGlobalData& globalData, Structure* structure)
+    : JSWrapperObject(globalData, structure)
 {
+    ASSERT(inherits(&s_info));
 }
 
 } // namespace JSC

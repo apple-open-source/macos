@@ -50,6 +50,15 @@
 #define XOTCL_BYTECODE
 */
 
+/* activate/deacticate profiling information at the end
+   of running the program
+#define PROFILE
+*/
+
+/* make self, proc and class in instproc and procs
+#define AUTOVARS
+*/
+
 #define KEEP_TCL_CMD_TYPE 1
 
 /* activate/deacticate assert 
@@ -61,21 +70,12 @@
 #define XOTCL_MEM_TRACE 1
 #define XOTCL_MEM_COUNT 1
 */
+
 /*#define REFCOUNTED 1*/
 
 /*
 #define XOTCLOBJ_TRACE 1
 #define REFCOUNT_TRACE 1
-#define DISPATCH_TRACE 1
-*/
-
-/* activate/deacticate profiling information at the end
-   of running the program
-#define PROFILE
-*/
-
-/* make self, proc and class in instproc and procs
-#define AUTOVARS
 */
 
 /* turn  tracing output on/off
@@ -131,6 +131,9 @@
 #if TCL_MAJOR_VERSION==8 && TCL_MINOR_VERSION<5
 # define PRE85
 #endif
+#if TCL_MAJOR_VERSION==8 && TCL_MINOR_VERSION<6
+# define PRE86
+#endif
 
 #if !defined(FORWARD_COMPATIBLE)
 # if defined(PRE85)
@@ -141,6 +144,16 @@
 #endif
 
 #define XOTCL_NONLEAF_METHOD (ClientData)0x01
+
+#if defined(PRE86)
+# define CONST86
+# define Tcl_GetErrorLine(interp) (interp)->errorLine
+# define Tcl_NRCallObjProc(interp, proc, cd, objc, objv) \
+  (*(proc))((cd), (interp), (objc), (objv))
+#else
+# define NRE
+#endif
+
 
 /* 
  * A special definition used to allow this header file to be included 

@@ -58,6 +58,15 @@ void CSError::throwMe(OSStatus rc, CFStringRef key, CFTypeRef value)
 
 
 //
+// Add a key/value pair to the dictionary
+//
+void CSError::augment(CFStringRef key, CFTypeRef value)
+{
+	mInfoDict.take(cfmake<CFDictionaryRef>("{+%O,%O=%O}", mInfoDict.get(), key, value));
+}
+
+
+//
 // Convert exception-carried error information to CFError form
 //
 OSStatus CSError::cfError(CFErrorRef *errors) const

@@ -29,6 +29,7 @@
 #include "config.h"
 #include "SubresourceLoader.h"
 
+#include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
@@ -51,7 +52,6 @@ SubresourceLoader::SubresourceLoader(Frame* frame, SubresourceLoaderClient* clie
 #ifndef NDEBUG
     subresourceLoaderCounter.increment();
 #endif
-    m_documentLoader->addSubresourceLoader(this);
 }
 
 SubresourceLoader::~SubresourceLoader()
@@ -61,7 +61,7 @@ SubresourceLoader::~SubresourceLoader()
 #endif
 }
 
-PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, SubresourceLoaderClient* client, const ResourceRequest& request, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks, bool shouldContentSniff)
+PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, SubresourceLoaderClient* client, const ResourceRequest& request, SecurityCheckPolicy securityCheck, bool sendResourceLoadCallbacks, bool shouldContentSniff, const String& optionalOutgoingReferrer, bool shouldBufferData)
 {
     if (!frame)
         return 0;
@@ -72,34 +72,37 @@ PassRefPtr<SubresourceLoader> SubresourceLoader::create(Frame* frame, Subresourc
 
     ResourceRequest newRequest = request;
 
-    if (securityCheck == DoSecurityCheck
-            && SecurityOrigin::restrictAccessToLocal()
-            && !SecurityOrigin::canLoad(request.url(), String(), frame->document())) {
+    if (securityCheck == DoSecurityCheck && !frame->document()->securityOrigin()->canDisplay(request.url())) {
         FrameLoader::reportLocalLoadFailed(frame, request.url().string());
         return 0;
     }
-    
-    if (SecurityOrigin::shouldHideReferrer(request.url(), fl->outgoingReferrer()))
+
+    // Note: We skip the Content-Security-Policy check here because we check
+    // the Content-Security-Policy at the CachedResourceLoader layer so we can
+    // handle different resource types differently.
+
+    String outgoingReferrer;
+    String outgoingOrigin;
+    if (optionalOutgoingReferrer.isNull()) {
+        outgoingReferrer = fl->outgoingReferrer();
+        outgoingOrigin = fl->outgoingOrigin();
+    } else {
+        outgoingReferrer = optionalOutgoingReferrer;
+        outgoingOrigin = SecurityOrigin::createFromString(outgoingReferrer)->toString();
+    }
+
+    if (SecurityOrigin::shouldHideReferrer(request.url(), outgoingReferrer))
         newRequest.clearHTTPReferrer();
     else if (!request.httpReferrer())
-        newRequest.setHTTPReferrer(fl->outgoingReferrer());
-    FrameLoader::addHTTPOriginIfNeeded(newRequest, fl->outgoingOrigin());
-
-    // Use the original request's cache policy for two reasons:
-    // 1. For POST requests, we mutate the cache policy for the main resource,
-    //    but we do not want this to apply to subresources
-    // 2. Delegates that modify the cache policy using willSendRequest: should
-    //    not affect any other resources. Such changes need to be done
-    //    per request.
-    if (newRequest.isConditional())
-        newRequest.setCachePolicy(ReloadIgnoringCacheData);
-    else
-        newRequest.setCachePolicy(fl->originalRequest().cachePolicy());
+        newRequest.setHTTPReferrer(outgoingReferrer);
+    FrameLoader::addHTTPOriginIfNeeded(newRequest, outgoingOrigin);
 
     fl->addExtraFieldsToSubresourceRequest(newRequest);
 
     RefPtr<SubresourceLoader> subloader(adoptRef(new SubresourceLoader(frame, client, sendResourceLoadCallbacks, shouldContentSniff)));
-    if (!subloader->load(newRequest))
+    subloader->setShouldBufferData(shouldBufferData);
+    subloader->documentLoader()->addSubresourceLoader(subloader.get());
+    if (!subloader->init(newRequest))
         return 0;
 
     return subloader.release();
@@ -153,17 +156,17 @@ void SubresourceLoader::didReceiveResponse(const ResourceResponse& r)
         
         // After the first multipart section is complete, signal to delegates that this load is "finished" 
         m_documentLoader->subresourceLoaderFinishedLoadingOnePart(this);
-        didFinishLoadingOnePart();
+        didFinishLoadingOnePart(0);
     }
 }
 
-void SubresourceLoader::didReceiveData(const char* data, int length, long long lengthReceived, bool allAtOnce)
+void SubresourceLoader::didReceiveData(const char* data, int length, long long encodedDataLength, bool allAtOnce)
 {
     // Reference the object in this method since the additional processing can do
     // anything including removing the last reference to this object; one example of this is 3266216.
     RefPtr<SubresourceLoader> protect(this);
     
-    ResourceLoader::didReceiveData(data, length, lengthReceived, allAtOnce);
+    ResourceLoader::didReceiveData(data, length, encodedDataLength, allAtOnce);
 
     // A subresource loader does not load multipart sections progressively.
     // So don't deliver any data to the loader yet.
@@ -171,7 +174,17 @@ void SubresourceLoader::didReceiveData(const char* data, int length, long long l
         m_client->didReceiveData(this, data, length);
 }
 
-void SubresourceLoader::didFinishLoading()
+void SubresourceLoader::didReceiveCachedMetadata(const char* data, int length)
+{
+    // Reference the object in this method since the additional processing can do
+    // anything including removing the last reference to this object; one example of this is 3266216.
+    RefPtr<SubresourceLoader> protect(this);
+    
+    if (m_client)
+        m_client->didReceiveCachedMetadata(this, data, length);
+}
+
+void SubresourceLoader::didFinishLoading(double finishTime)
 {
     if (cancelled())
         return;
@@ -181,14 +194,14 @@ void SubresourceLoader::didFinishLoading()
     RefPtr<SubresourceLoader> protect(this);
 
     if (m_client)
-        m_client->didFinishLoading(this);
+        m_client->didFinishLoading(this, finishTime);
     
     m_handle = 0;
 
     if (cancelled())
         return;
     m_documentLoader->removeSubresourceLoader(this);
-    ResourceLoader::didFinishLoading();
+    ResourceLoader::didFinishLoading(finishTime);
 }
 
 void SubresourceLoader::didFail(const ResourceError& error)
@@ -211,27 +224,15 @@ void SubresourceLoader::didFail(const ResourceError& error)
     ResourceLoader::didFail(error);
 }
 
-void SubresourceLoader::didCancel(const ResourceError& error)
+void SubresourceLoader::willCancel(const ResourceError& error)
 {
-    ASSERT(!reachedTerminalState());
-
-    // Calling removeSubresourceLoader will likely result in a call to deref, so we must protect ourselves.
-    RefPtr<SubresourceLoader> protect(this);
-
     if (m_client)
         m_client->didFail(this, error);
-    
-    if (cancelled())
-        return;
-    
-    // The only way the subresource loader can reach the terminal state here is if the run loop spins when calling
-    // m_client->didFail. This should in theory not happen which is why the assert is here. 
-    ASSERT(!reachedTerminalState());
-    if (reachedTerminalState())
-        return;
-    
+}
+
+void SubresourceLoader::didCancel(const ResourceError&)
+{
     m_documentLoader->removeSubresourceLoader(this);
-    ResourceLoader::didCancel(error);
 }
 
 bool SubresourceLoader::shouldUseCredentialStorage()
@@ -249,14 +250,20 @@ void SubresourceLoader::didReceiveAuthenticationChallenge(const AuthenticationCh
 {
     RefPtr<SubresourceLoader> protect(this);
 
+    ASSERT(handle()->hasAuthenticationChallenge());
+
     if (m_client)
         m_client->didReceiveAuthenticationChallenge(this, challenge);
     
     // The SubResourceLoaderClient may have cancelled this ResourceLoader in response to the challenge.  
-    // If that's the case, don't call didReceiveAuthenticationChallenge
+    // If that's the case, don't call didReceiveAuthenticationChallenge.
     if (reachedTerminalState())
         return;
-        
+
+    // It may have also handled authentication on its own.
+    if (!handle()->hasAuthenticationChallenge())
+        return;
+
     ResourceLoader::didReceiveAuthenticationChallenge(challenge);
 }
 

@@ -1,6 +1,6 @@
---- putenv.c.orig	2006-10-05 11:57:06.000000000 -0700
-+++ putenv.c	2006-11-02 11:15:33.000000000 -0800
-@@ -39,22 +39,65 @@
+--- putenv.c.orig	2011-04-12 22:08:20.000000000 -0700
++++ putenv.c	2011-04-13 14:33:50.000000000 -0700
+@@ -35,22 +35,81 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  
  #include <stdlib.h>
  #include <string.h>
@@ -9,10 +9,13 @@
 +#include <crt_externs.h>
 +#include <malloc/malloc.h>
 +#include <errno.h> 
- 
-+extern malloc_zone_t *__zone0;
-+extern void __malloc_check_env_name(const char *);
 +
++extern malloc_zone_t *__zone0;
++#ifdef LEGACY_CRT1_ENVIRON
++extern char **_saved_environ;
++#endif /* LEGACY_CRT1_ENVIRON */
++
++extern void __malloc_check_env_name(const char *);
 +__private_extern__ int __setenv(const char *, const char *, int, int, char ***, malloc_zone_t *);
 +
 +#ifndef BUILDING_VARIANT
@@ -21,13 +24,9 @@
 + * have been created with malloc) and an env state, created by _allocenvstate().
 + *	Returns ptr to value associated with name, if any, else NULL.
 + */
- int
--putenv(str)
--	const char *str;
++int
 +_putenvp(char *str, char ***envp, void *state)
- {
--	char *p, *equal;
--	int rval;
++{
 +	/* insure __zone0 is set up */
 +	if (!__zone0) {
 +	    __zone0 = malloc_create_zone(0, 0);
@@ -40,11 +39,18 @@
 +}
 +#endif /* BUILDING_VARIANT */
  
--	if ((p = strdup(str)) == NULL)
-+int
-+putenv(str)
+ int
+ putenv(str)
+-	const char *str;
 +	char *str;
-+{
+ {
+-	char *p, *equal;
+-	int rval;
++#ifdef LEGACY_CRT1_ENVIRON
++	int ret;
++#endif /* LEGACY_CRT1_ENVIRON */
+ 
+-	if ((p = strdup(str)) == NULL)
 +#if __DARWIN_UNIX03
 +	if (str == NULL || *str == 0 || index(str, '=') == NULL) {
 +		errno = EINVAL;
@@ -69,11 +75,20 @@
 -	(void)free(p);
 -	return (rval);
 +	__malloc_check_env_name(str); /* see if we are changing a malloc environment variable */
-+	return (__setenv(str, NULL, 1,
++#ifdef LEGACY_CRT1_ENVIRON
++	ret =
++#else /* !LEGACY_CRT1_ENVIRON */
++	return
++#endif /* !LEGACY_CRT1_ENVIRON */
++	    __setenv(str, NULL, 1,
 +#if __DARWIN_UNIX03
 +		0,
 +#else /* !__DARWIN_UNIX03 */
 +		-1,
 +#endif /* __DARWIN_UNIX03 */
-+	_NSGetEnviron(), __zone0));
++		_NSGetEnviron(), __zone0);
++#ifdef LEGACY_CRT1_ENVIRON
++	_saved_environ = *_NSGetEnviron();
++	return ret;
++#endif /* LEGACY_CRT1_ENVIRON */
  }

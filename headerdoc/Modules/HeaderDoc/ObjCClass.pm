@@ -5,7 +5,7 @@
 #
 # Initial modifications: SKoT McDonald <skot@tomandandy.com> Aug 2001
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -34,9 +34,33 @@ BEGIN {
 	    $MOD_AVAIL{$_} = eval "use $_; 1";
     }
 }
+
+# /*! @header
+#     @abstract
+#         <code>ObjCClass</code> class package file.
+#     @discussion
+#         This file contains the <code>ObjCClass</code> class, a class for content
+#         relating to an Objective-C class.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+# /*!
+#     @abstract
+#         API object that describes an Objective-C class.
+#     @discussion
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::ObjCContainer ObjCContainer},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found in
+#         those two classes.
+#  */
 package HeaderDoc::ObjCClass;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash);
 use HeaderDoc::ObjCContainer;
 
 # Inheritance
@@ -44,7 +68,15 @@ use HeaderDoc::ObjCContainer;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::ObjCClass::VERSION = '$Revision: 1.4 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::ObjCClass::VERSION = '$Revision: 1298084578 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -69,6 +101,12 @@ my $tocFrameName = "toc.html";
 # my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>ObjCClass</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
@@ -76,30 +114,22 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::ObjCClass";
 }
 
-sub getMethodType {
-    my $self = shift;
-	my $declaration = shift;
-	my $methodType = "";
-		
-	if ($declaration =~ /^\s*-/o) {
-	    $methodType = "instm";
-	} elsif ($declaration =~ /^\s*\+/o) {
-	    $methodType = "clm";
-	} else {
-		$methodType = HeaderDoc::CPPClass::getMethodType($self, $declaration);
-		## # my $filename = $HeaderDoc::headerObject->filename();
-		## my $filename = $self->filename();
-		## my $linenum = $self->linenum();
-		## if (!$HeaderDoc::ignore_apiuid_errors) {
-			## print STDERR "$filename:$linenum: warning: Unable to determine whether declaration is for an instance or class method[class]. '$declaration'\n";
-		## }
-	}
-	return $methodType;
-}
-
 # we add the apple_ref markup to the navigator comment to identify
 # to Project Builder and other applications indexing the documentation
 # that this is the entry point for documentation for this class
+# /*!
+#     @abstract
+#         Returns a comment marker for
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}.
+#     @discussion
+#         Returns an HTML comment that identifies the index file
+#         (Header vs. Class, name, and so on).  The 
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc} tool
+#         uses this information to create a master TOC for the
+#         generated doc.
+#     @param self
+#         The APIOwner object.
+# */
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
@@ -113,13 +143,6 @@ sub docNavigatorComment {
     my $appleRef = "<a name=\"$uid\"></a>";
     
     return "$navComment\n$appleRef";
-}
-
-################## Misc Functions ###################################
-sub objName { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->name()) cmp lc($obj2->name()));
 }
 
 

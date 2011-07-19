@@ -1,0 +1,24 @@
+---
+abstract: 'Parse and format strp and strf time patterns'
+author:
+  - 'Dave Rolsky <autarch@urth.org>'
+build_requires:
+  Test::More: 0.88
+configure_requires:
+  ExtUtils::MakeMaker: 6.31
+dynamic_config: 0
+generated_by: 'Dist::Zilla version 4.101790, CPAN::Meta::Converter version 2.101670'
+license: artistic_2
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Format-Strptime
+requires:
+  DateTime: 0.4304
+  DateTime::Locale: 0.45
+  DateTime::TimeZone: 0.79
+  Params::Validate: 0.64
+resources:
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=DateTime-Format-Strptime
+  repository: http://hg.urth.org/hg/DateTime-Format-Strptime
+version: 1.4000

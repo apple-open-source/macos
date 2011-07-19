@@ -1,3 +1,172 @@
+2010-07-09  Andreas Kupries  <andreask@activestate.com>
+
+	* support/installation/modules.tcl: [Bug 3027371]. Fixed typo
+	  'imap' -> 'imap4'. Thanks to Larry Virden <lvirden@users.sf.net>
+	  for reporting.
+
+2010-07-08  Andreas Kupries  <andreask@activestate.com>
+
+	* modules/gpx: New module 'gpx'.
+	* support/installation/modules.tcl:
+
+2010-07-06  Andreas Kupries  <andreask@activestate.com>
+
+	* support/installation/modules.tcl: Module 'imap4' activated.
+
+2010-03-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New module 'pt', for ParserTools. Requires Tcl 8.5. Supercedes
+	  grammar_peg, grammar_me, and page.
+
+2009-12-08  Andreas Kupries  <andreask@activestate.com>
+
+	* support/devel/sak/test/run.tcl (CaptureFailureCollectBody,
+	  CaptureFailureCollectError): Fixed issue with test result
+	  capture on failure. We failed on the capture of failure due to
+	  unexpected return codes, because the output syntax is different
+	  for that compared to failure due to result differences. Code has
+	  been added to recognize and capture this other syntax.
+
+	* support/devel/sak/test/run.tcl: Extended the test framework to
+	* support/devel/all.tcl: record time per .test file, count of
+	  tests per file, enabling it to compute a speed (microseconds per
+	  test), as a rough and crude benchmark of where we may have
+	  performance problems with either packages or tests.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-12-03  Andreas Kupries  <andreask@activestate.com>
+
+	* support/devel/sak/readme/readme.tcl: Strip trailing whitespace
+	  from the table formatted parts of the generated readme.
+
+2009-12-01  Andreas Kupries  <andreask@activestate.com>
+
+	* New modules 'virtchannel_{core,base,transform}' with packages
+	  providing core services to reflected channels and
+	  transformations, and basic reflected channels, and
+	  transforms. This is in essence the example code for the paper I
+	  presented at Tcl'2009 in Portland (Reflected and Transformed
+	  Channels).
+
+	* support/installation/modules.tcl: New modules 'virtchannel_*'.
+
+2009-11-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* New package 'json::write' in existing module 'json'.
+
+	* support/devel/sak/note/cmd.tcl: Extended note command to show
+	* support/devel/sak/note/note.tcl: saved hints when called without
+	  arguments.
+
+2009-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* support/installation/modules.tcl: Fix issue with examples for logger,
+	* support/installation/actions.tcl: which did not fit the
+	  expectations of action _exa, which assumed the module name,
+	  which is 'log'. Instead of wrestling CVS into renaming the
+	  directory a new action is made which takes the actual name as
+	  argument.
+
+	* support/devel/sak/note/cmd.tcl: New sak commands 'note' and 'readme'
+	* support/devel/sak/note/help.txt: for semi-automatic generation of
+	* support/devel/sak/note/note.tcl: the release README.txt from
+	* support/devel/sak/note/pkgIndex.tcl: current and last package
+	* support/devel/sak/note/topic.txt: versions, and note'd hints.
+	* support/devel/sak/readme/cmd.tcl:
+	* support/devel/sak/readme/help.txt:
+	* support/devel/sak/readme/pkgIndex.tcl:
+	* support/devel/sak/readme/readme.tcl:
+	* support/devel/sak/readme/topic.txt:
+
+2009-11-11  Andreas Kupries  <andreask@activestate.com>
+
+	* apps/dtplite: Updated the requirements to force use of doctools
+	  v1, this app is not doctools v2 ready yet.
+
+2009-11-10  Andreas Kupries  <andreask@activestate.com>
+
+	* support/devel/sak/validate/cmd.tcl: Extended argument processing
+	* support/devel/sak/validate/manpages.tcl: of the validation command
+	* support/devel/sak/validate/syntax.tcl: to enable a user to specify
+	* support/devel/sak/validate/testsuites.tcl: which version of Tcl
+	* support/devel/sak/validate/validate.tcl: to check against. Plus
+	* support/devel/sak/validate/versions.tcl: fix to handle modules
+	  without manpages.
+
+	* modules/coroutine: New module 'coroutine' providing to coroutine
+	  utility packages for easier use of channel operations. These
+	  packages are for Tcl 8.6+.
+
+	* support/installation/modules.tcl: New module 'coroutine'.
+
+2009-09-28  Andreas Kupries  <andreask@activestate.com>
+
+	* support/devel/sak/test/run.tcl (::sak::test::run::CaptureStack):
+	  Fix missing variable declaration, and tweak generated output a
+	  bit.
+
+	* support/devel/sak/test/run.tcl (Do): Reworked a bit to save
+	  captured error stacks and failed tests (body, actual, expected)
+	  into separate log files for quick access.
+
+2009-07-10  Andreas Kupries  <andreask@activestate.com>
+
+	* README.releasemgr: Added links to important places in the
+	  SourceForge site for managing Tcllib releases and uploading
+	  files (WebDAV), to avoid the ever more byzantine link sequences
+	  needed to find them on their site.
+
+2009-06-02  Andreas Kupries <andreask@activestate.com>
+
+	* README.developer: Extended with more information about the basic
+	  directory hierarchy and files to be found, testing and
+	  validating modules, writing of test cases, and documentation.
+
+2009-02-06  Andreas Kupries  <andreask@activestate.com>
+
+	* support/installation/modules.tcl (Module): Put 'exif' on the
+	  exclude list, deprecating it. Use 'jpeg' instead to access the
+	  exif information block in images.
+
+2009-01-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* examples/bibtex/bibtex.tcl: Modified examples to assume that
+	* examples/htmlparse/webviewer.tcl: they are run by a tclsh found
+	* examples/irc/irc_example.tcl: on the PATH, and that this shell
+	* examples/mapproj/tkmap.tcl: has access to the packages of
+	* examples/math/bigfloat.demo.tcl: Tcllib required by the example.
+	* examples/ntp/rdate.tcl: Stuart Cassoff <stwo@users.sourceforge.net>
+	* examples/sasl/saslclient.tcl: provided by the patches as
+	* examples/struct/diff.tcl: part of his work on making a Tcllib
+	* examples/struct/diff2.tcl: OpenBSD port.
+
+	* support/installation/modules.tcl: Added the examples for a
+	  number of modules to the installer. Patch by Stuart, see above.
+
+2009-01-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* apps/dtplite: Added missing EOL to last line of the generated
+	  .toc and .idx files. Bumped version to 1.0.1
+
+	* apps/*.man: Added category information to the majority of man
+	* modules/*/*.man: pages. 
+
+	* support/devel/sak/doc/cmd.tcl: Moved the main code for the
+	* support/devel/sak/doc/doc.tcl: imake/ishow commands into a
+	* support/devel/sak/doc/pkgIndex.tcl: separate package. Added a
+	* support/devel/sak/doc/doc_auto.tcl: new command 'doc index'
+	* support/devel/sak/doc/manpages.txt: which not only updates
+	* support/devel/sak/doc/kwic.txt: 'manpages.txt', but also
+	* support/devel/sak/doc/toc.txt: generates a keyword index
+	  ('kwic.txt'), and a table of contents ('idx.txt'). The first
+	  result are committed as part of this change. The newly generated
+	  files are in docidx and doctoc formats, respectively.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

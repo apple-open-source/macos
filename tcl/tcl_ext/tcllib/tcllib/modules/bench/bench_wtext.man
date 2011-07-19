@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Benchmarking/Performance tools}]
 [titledesc {bench::out::text - Formatting benchmark results as human readable text}]
+[category  {Benchmark tools}]
 [require Tcl 8.2]
 [require bench::out::text [opt 0.1.2]]
 [description]

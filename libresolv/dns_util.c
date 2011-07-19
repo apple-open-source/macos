@@ -1698,7 +1698,7 @@ _dns_print_resource_record_lock(const dns_resource_record_t *r, FILE *f, int loc
 		case ns_t_null:
 		default:
 			len = r->data.DNSNULL->length;
-			fprintf(f, " %hu ", len);
+			fprintf(f, " %u ", len);
 			for (i = 0; i < len; i++)
 			{
 				x = r->data.DNSNULL->data[i];
@@ -1813,7 +1813,7 @@ dns_print_reply(const dns_reply_t *r, FILE *f, uint16_t mask)
 			case ns_o_update: fprintf(f, "Update\n"); break;
 			default:
 				fprintf(f, "Reserved (%hu)\n",
-					(h->flags & DNS_FLAGS_OPCODE_MASK) >> 11);
+					(uint16_t)((h->flags & DNS_FLAGS_OPCODE_MASK) >> 11));
 		}
 	}
 
@@ -1889,7 +1889,7 @@ dns_print_reply(const dns_reply_t *r, FILE *f, uint16_t mask)
 				fprintf(f, "Invalid time\n");
 				break;
 			default:
-				fprintf(f, "Reserved (%hu)\n",h->flags & DNS_FLAGS_RCODE_MASK);
+				fprintf(f, "Reserved (%hu)\n",(uint16_t)(h->flags & DNS_FLAGS_RCODE_MASK));
 		}
 	}
 

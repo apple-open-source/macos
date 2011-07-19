@@ -64,12 +64,18 @@ programmatic interface discussed in
 .Pp
 The following options are available:
 .Bl -tag -width indent
+.It Fl d
+Run in debug-only mode, i.e., do not actually modify the routing table.
 .It Fl n
 Bypass attempts to print host and network names symbolically
 when reporting actions.  (The process of translating between symbolic
 names and numerical equivalents can be quite time consuming, and
 may require correct operation of the network; thus it may be expedient
 to forget this, especially when attempting to repair networking operations).
+.It Fl t
+Run in test-only mode.
+.Pa /dev/null
+is used instead of a socket.
 .It Fl v
 (verbose) Print additional details.
 .It Fl q
@@ -211,7 +217,7 @@ Alternately, if the interface is point to point the name of the interface
 itself may be given, in which case the route remains valid even
 if the local or remote addresses change.
 .Pp
-For AF_INET, the
+For AF_INET and AF_INET6, the
 .Fl ifscope
 modifier specifies the additional property of the route related to
 the interface scope derived from interface

@@ -40,6 +40,9 @@ static void launch_child(abts_case *tc, apr_proc_t *proc, const char *arg1, apr_
     rv = apr_procattr_error_check_set(procattr, 1);
     APR_ASSERT_SUCCESS(tc, "Couldn't set error check in procattr", rv);
 
+    rv = apr_procattr_cmdtype_set(procattr, APR_PROGRAM_ENV);
+    APR_ASSERT_SUCCESS(tc, "Couldn't set copy environment", rv);
+
     args[0] = "sockchild" EXTENSION;
     args[1] = arg1;
     args[2] = NULL;
@@ -195,6 +198,67 @@ static void test_recv(abts_case *tc, void *data)
     APR_ASSERT_SUCCESS(tc, "Problem closing socket", rv);
 }
 
+static void test_atreadeof(abts_case *tc, void *data)
+{
+    apr_status_t rv;
+    apr_socket_t *sock;
+    apr_socket_t *sock2;
+    apr_proc_t proc;
+    apr_size_t length = STRLEN;
+    char datastr[STRLEN];
+    int atreadeof = -1;
+
+    sock = setup_socket(tc);
+    if (!sock) return;
+
+    launch_child(tc, &proc, "write", p);
+
+    rv = apr_socket_accept(&sock2, sock, p);
+    APR_ASSERT_SUCCESS(tc, "Problem with receiving connection", rv);
+
+    /* Check that the remote socket is still open */
+    rv = apr_socket_atreadeof(sock2, &atreadeof);
+    APR_ASSERT_SUCCESS(tc, "Determine whether at EOF, #1", rv);
+    ABTS_INT_EQUAL(tc, 0, atreadeof);
+
+    memset(datastr, 0, STRLEN);
+    apr_socket_recv(sock2, datastr, &length);
+
+    /* Make sure that the server received the data we sent */
+    ABTS_STR_EQUAL(tc, DATASTR, datastr);
+    ABTS_SIZE_EQUAL(tc, strlen(datastr), wait_child(tc, &proc));
+
+    /* The child is dead, so should be the remote socket */
+    rv = apr_socket_atreadeof(sock2, &atreadeof);
+    APR_ASSERT_SUCCESS(tc, "Determine whether at EOF, #2", rv);
+    ABTS_INT_EQUAL(tc, 1, atreadeof);
+
+    rv = apr_socket_close(sock2);
+    APR_ASSERT_SUCCESS(tc, "Problem closing connected socket", rv);
+
+    launch_child(tc, &proc, "close", p);
+
+    rv = apr_socket_accept(&sock2, sock, p);
+    APR_ASSERT_SUCCESS(tc, "Problem with receiving connection", rv);
+
+    /* The child closed the socket as soon as it could... */
+    rv = apr_socket_atreadeof(sock2, &atreadeof);
+    APR_ASSERT_SUCCESS(tc, "Determine whether at EOF, #3", rv);
+    if (!atreadeof) { /* ... but perhaps not yet; wait a moment */
+        apr_sleep(apr_time_from_msec(5));
+        rv = apr_socket_atreadeof(sock2, &atreadeof);
+        APR_ASSERT_SUCCESS(tc, "Determine whether at EOF, #4", rv);
+    }
+    ABTS_INT_EQUAL(tc, 1, atreadeof);
+    wait_child(tc, &proc);
+
+    rv = apr_socket_close(sock2);
+    APR_ASSERT_SUCCESS(tc, "Problem closing connected socket", rv);
+
+    rv = apr_socket_close(sock);
+    APR_ASSERT_SUCCESS(tc, "Problem closing socket", rv);
+}
+
 static void test_timeout(abts_case *tc, void *data)
 {
     apr_status_t rv;
@@ -342,6 +406,7 @@ abts_suite *testsock(abts_suite *suite)
     abts_run_test(suite, test_create_bind_listen, NULL);
     abts_run_test(suite, test_send, NULL);
     abts_run_test(suite, test_recv, NULL);
+    abts_run_test(suite, test_atreadeof, NULL);
     abts_run_test(suite, test_timeout, NULL);
     abts_run_test(suite, test_print_addr, NULL);
     abts_run_test(suite, test_get_addr, NULL);

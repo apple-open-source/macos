@@ -4,49 +4,60 @@
 # This file contains a number of benchmarks for the 'struct::stack'
 # data structure to allow developers to monitor package performance.
 #
-# (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# (c) 2008-2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>
 
 
 # We need at least version 8.2 for the package and thus the
 # benchmarks.
 
-if {![package vsatisfies [package provide Tcl] 8.2]} {
+if {![package vsatisfies [package provide Tcl] 8.4]} {
     return
 }
 
 # ### ### ### ######### ######### ######### ###########################
 ## Setting up the environment ...
 
-set moddir [file dirname [file dirname [info script]]]
-lappend auto_path $moddir
+package require Tcl 8.4
 
-# Support package
 package forget struct::list
-catch {namespace delete ::struct::list}
-source [file join [file dirname [info script]] list.tcl]
-
-# Package to benchmark
 package forget struct::stack
-catch {namespace delete ::struct::stack}
-source [file join [file dirname [info script]] stack.tcl]
 
-namespace import struct::stack
+set self  [file join [pwd] [file dirname [info script]]]
+set mod   [file dirname $self]
+set index [file join [file dirname $self] tcllibc pkgIndex.tcl]
 
-set code tcl
-if {![catch {package present tcllibc}]} {
-    set code {C  }
+if 1 {
+    if {[file exists $index]} {
+	set ::dir [file dirname $index]
+	uplevel #0 [list source $index]
+	unset ::dir
+	package require tcllibc
+    }
 }
-#set code $struct::tree::loaded
-#set code $auto_path
+
+source [file join $mod  cmdline cmdline.tcl]
+source [file join $self list.tcl]
+source [file join $self stack.tcl]
+
+# ### ### ### ######### ######### ######### ###########################
+## Create a few helpers
 
 proc makeNcmd {n} {
     return [linsert [struct::list iota $n] 0 s push]
 }
 
 proc makeN {n} {
-    stack s
+    struct::stack s
     if {$n > 0} { eval [makeNcmd $n] }
     return
+}
+
+# ### ### ### ######### ######### ######### ###########################
+## Get all the possible implementations
+
+struct::stack::SwitchTo {}
+foreach e [struct::stack::KnownImplementations] {
+    ::struct::stack::LoadAccelerator $e
 }
 
 # ### ### ### ######### ######### ######### ###########################
@@ -60,6 +71,8 @@ proc makeN {n} {
 # * rotate - Rotate the top N elements K steps, N > 1, K > 0
 # * size   - Query the size of the stack.
 # * clear  - Remove all elements from the stack.
+# * get    - Alternate API to peek, retrieve whole stack
+# * trim   - Alternate API to pop, set to specific size, return deleted elements.
 
 # peek/pop:
 # - Time to retrieve/remove 1/10/100/1000 elements incrementally from a stack.
@@ -67,128 +80,160 @@ proc makeN {n} {
 # - Stack sizes 10/100/1000/1000 and pop only elements less than size.
 # Expected: Amortized linear time in number of retrieved/removed elements.
 
-foreach base {10 100 1000 10000} {
-    foreach remove {1 10 100 1000 10000} {
-	if {$remove > $base} continue
+foreach stackimpl [struct::stack::Implementations] {
+    struct::stack::SwitchTo $stackimpl
 
-	bench -desc "stack pop once $base/$remove" -ipre {
+    foreach base {10 100 1000 10000} {
+
+	bench -desc "stack trim once $base/0 stack($stackimpl)" -ipre {
 	    makeN $base
 	} -body {
-	    s pop $remove
+	    s trim 0
 	} -ipost {
 	    s destroy
 	}
 
-	bench -desc "stack pop incr $base/$remove" -pre {
-	    set cmd {}
-	    foreach x [struct::list iota $remove] {
-		lappend cmd [list s pop]
-	    }
-	    proc foo {} [join $cmd \n]
-	    catch {foo} ;# compile
-	} -ipre {
-	    makeN $base
-	} -body {
-	    foo
-	} -ipost {
-	    s destroy
-	} -post {
-	    rename foo {}
-	}
+	foreach remove {1 10 100 1000 10000} {
+	    if {$remove > $base} continue
 
-	bench -desc "stack peek $base/$remove" -ipre {
-	    makeN $base
-	} -body {
-	    s peek $remove
-	} -ipost {
-	    s destroy
-	}
-    }
-}
-
-# rotate
-# - Time to rotate 1,N/4,N/2,N-1 steps of 10/100/1000 elements atop 10/100/1000/10000
-# Expected: Linear time in number of rotating elements.
-# C:   As expected.
-# Tcl: Linear in both number of rotating elements and number of steps! Fix this.
-
-foreach n {10 100 1000 10000} {
-    foreach top {10 100 1000} {
-	if {$top > $n} continue
-	foreach s [list 1 [expr {$top >> 2}] [expr {$top >> 1}] [expr {$top - 1}]] {
-	    bench -desc "stack rotate $n/$top/$s" -pre {
-		makeN $n
+	    bench -desc "stack pop once $base/$remove stack($stackimpl)" -ipre {
+		makeN $base
 	    } -body {
-		s rotate $top $s
+		s pop $remove
+	    } -ipost {
+		s destroy
+	    }
+
+	    set newsize [expr {$base - $remove}]
+
+	    bench -desc "stack trim once $base/$remove stack($stackimpl)" -ipre {
+		makeN $base
+	    } -body {
+		s trim $newsize
+	    } -ipost {
+		s destroy
+	    }
+
+	    bench -desc "stack pop incr $base/$remove stack($stackimpl)" -pre {
+		set cmd {}
+		foreach x [struct::list iota $remove] {
+		    lappend cmd [list s pop]
+		}
+		proc foo {} [join $cmd \n]
+		catch {foo} ;# compile
+	    } -ipre {
+		makeN $base
+	    } -body {
+		foo
+	    } -ipost {
+		s destroy
 	    } -post {
+		rename foo {}
+	    }
+
+	    bench -desc "stack peek $base/$remove stack($stackimpl)" -ipre {
+		makeN $base
+	    } -body {
+		s peek $remove
+	    } -ipost {
 		s destroy
 	    }
 	}
-    }
-}
 
-# push:
-# - Time to add 1/10/100/1000 elements incrementally to an empty stack
-# - Time to add ............. elements at once to an empty stack.
-# - As above, to a stack containing 1/10/100/1000 elements already.
-# Expected: Amortized linear time in number of elements added.
-
-foreach base  {0 1 10 100 1000 10000} {
-    foreach add {1 10 100 1000 10000} {
-	bench -desc "stack push once $base/$add" -ipre {
+	bench -desc "stack get $base stack($stackimpl)" -ipre {
 	    makeN $base
-	    set cmd [makeNcmd $add]
 	} -body {
-	    eval $cmd
+	    s get
 	} -ipost {
 	    s destroy
 	}
-	bench -desc "stack push incr $base/$add" -pre {
-	    set cmd {}
-	    foreach x [struct::list iota $add] {
-		lappend cmd [list s push $x]
+    }
+
+    # rotate
+    # - Time to rotate 1,N/4,N/2,N-1 steps of 10/100/1000 elements atop 10/100/1000/10000
+    # Expected: Linear time in number of rotating elements.
+    # C:   As expected.
+    # Tcl: Linear in both number of rotating elements and number of steps! Fix this.
+
+    foreach n {10 100 1000 10000} {
+	foreach top {10 100 1000} {
+	    if {$top > $n} continue
+	    foreach s [list 1 [expr {$top >> 2}] [expr {$top >> 1}] [expr {$top - 1}]] {
+		bench -desc "stack rotate $n/$top/$s stack($stackimpl)" -pre {
+		    makeN $n
+		} -body {
+		    s rotate $top $s
+		} -post {
+		    s destroy
+		}
 	    }
-	    proc foo {} [join $cmd \n]
-	    catch {foo} ;# compile
-	} -ipre {
-	    makeN $base
-	} -body {
-	    foo
-	} -ipost {
-	    s destroy
-	} -post {
-	    rename foo {}
 	}
     }
-}
 
-# size
-# - Time to query size of stack containing 0/1/10/100/1000/10000 elements.
-# Expected: Constant time.
+    # push:
+    # - Time to add 1/10/100/1000 elements incrementally to an empty stack
+    # - Time to add ............. elements at once to an empty stack.
+    # - As above, to a stack containing 1/10/100/1000 elements already.
+    # Expected: Amortized linear time in number of elements added.
 
-foreach n {0 1 10 100 1000 10000} {
-    bench -desc "stack size $n" -pre {
-	makeN $n
-    } -body {
-	s size
-    } -post {
-	s destroy
+    foreach base  {0 1 10 100 1000 10000} {
+	foreach add {1 10 100 1000 10000} {
+	    bench -desc "stack push once $base/$add stack($stackimpl)" -ipre {
+		makeN $base
+		set cmd [makeNcmd $add]
+	    } -body {
+		eval $cmd
+	    } -ipost {
+		s destroy
+	    }
+	    bench -desc "stack push incr $base/$add stack($stackimpl)" -pre {
+		set cmd {}
+		foreach x [struct::list iota $add] {
+		    lappend cmd [list s push $x]
+		}
+		proc foo {} [join $cmd \n]
+		catch {foo} ;# compile
+	    } -ipre {
+		makeN $base
+	    } -body {
+		foo
+	    } -ipost {
+		s destroy
+	    } -post {
+		rename foo {}
+	    }
+	}
     }
-}
 
-# clear
-# - Time to clear a stack containing 0/1/10/100/1000/10000 elements.
-# Expected: Constant to linear time in number of elements to clear.
+    # size
+    # - Time to query size of stack containing 0/1/10/100/1000/10000 elements.
+    # Expected: Constant time.
 
-foreach n {0 1 10 100 1000 10000} {
-    bench -desc "stack clear $n" -ipre {
-	makeN $n
-    } -body {
-	s clear
-    } -ipost {
-	s destroy
+    foreach n {0 1 10 100 1000 10000} {
+	bench -desc "stack size $n stack($stackimpl)" -pre {
+	    makeN $n
+	} -body {
+	    s size
+	} -post {
+	    s destroy
+	}
     }
-}
+
+    # clear
+    # - Time to clear a stack containing 0/1/10/100/1000/10000 elements.
+    # Expected: Constant to linear time in number of elements to clear.
+
+    foreach n {0 1 10 100 1000 10000} {
+	bench -desc "stack clear $n stack($stackimpl)" -ipre {
+	    makeN $n
+	} -body {
+	    s clear
+	} -ipost {
+	    s destroy
+	}
+    }
+
+} ;# End of loop over stack implementations
 
 # ### ### ### ######### ######### ######### ###########################
 ## Complete
@@ -197,19 +242,3 @@ return
 
 # ### ### ### ######### ######### ######### ###########################
 ## Notes ...
-
-# :=, -->, =
-#
-# attr - filtered attr over all nodes
-#
-# walk, walkproc
-#
-# attr modifiers - append, lappend, unset
-# modifiers      - cut, delete, move, rename, splice, swap (insert)
-
-# Notes on optimizations we can do.
-#
-# Tcl - Cache structural data - depth, ancestors ...
-# C   - Cache results, like child lists (Tcl_Obj's!)
-#       Maybe use Tcl_Obj/List for child arrays instead
-#       of N* ? Effect on modification performance ?

@@ -26,7 +26,7 @@
 #import "config.h"
 #import "WebScriptObjectPrivate.h"
 
-#import "Bridge.h"
+#import "BridgeJSC.h"
 #import "Console.h"
 #import "DOMInternal.h"
 #import "DOMWindow.h"
@@ -34,6 +34,7 @@
 #import "JSDOMWindow.h"
 #import "JSDOMWindowCustom.h"
 #import "JSHTMLElement.h"
+#import "JSMainThreadExecState.h"
 #import "JSPluginElementFunctions.h"
 #import "ObjCRuntimeObject.h"
 #import "PlatformString.h"
@@ -51,9 +52,6 @@
 #import <runtime/Completion.h>
 #import <wtf/Threading.h>
 
-#ifdef BUILDING_ON_TIGER
-typedef unsigned NSUInteger;
-#endif
 
 using namespace JSC;
 using namespace JSC::Bindings;
@@ -111,9 +109,7 @@ static void addExceptionToConsole(ExecState* exec)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 + (id)scriptObjectForJSObject:(JSObjectRef)jsObject originRootObject:(RootObject*)originRootObject rootObject:(RootObject*)rootObject
@@ -293,7 +289,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
 
     JSValue function = [self _imp]->get(exec, Identifier(exec, stringToUString(String(name))));
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone)
         return nil;
 
@@ -303,9 +299,9 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     if (![self _isSafeScript])
         return nil;
 
-    [self _rootObject]->globalObject()->globalData()->timeoutChecker.start();
-    JSValue result = JSC::call(exec, function, callType, callData, [self _imp], argList);
-    [self _rootObject]->globalObject()->globalData()->timeoutChecker.stop();
+    [self _rootObject]->globalObject()->globalData().timeoutChecker.start();
+    JSValue result = JSMainThreadExecState::call(exec, function, callType, callData, [self _imp], argList);
+    [self _rootObject]->globalObject()->globalData().timeoutChecker.stop();
 
     if (exec->hadException()) {
         addExceptionToConsole(exec);
@@ -332,9 +328,9 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     JSValue result;
     JSLock lock(SilenceAssertionsOnly);
     
-    [self _rootObject]->globalObject()->globalData()->timeoutChecker.start();
-    Completion completion = JSC::evaluate([self _rootObject]->globalObject()->globalExec(), [self _rootObject]->globalObject()->globalScopeChain(), makeSource(String(script)), JSC::JSValue());
-    [self _rootObject]->globalObject()->globalData()->timeoutChecker.stop();
+    [self _rootObject]->globalObject()->globalData().timeoutChecker.start();
+    Completion completion = JSMainThreadExecState::evaluate([self _rootObject]->globalObject()->globalExec(), [self _rootObject]->globalObject()->globalScopeChain(), makeSource(String(script)), JSC::JSValue());
+    [self _rootObject]->globalObject()->globalData().timeoutChecker.stop();
     ComplType type = completion.complType();
     
     if (type == Normal) {
@@ -430,6 +426,27 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     }
 
     _didExecute(self);
+}
+
+- (BOOL)hasWebScriptKey:(NSString *)key
+{
+    if (![self _isSafeScript])
+        return NO;
+
+    ExecState* exec = [self _rootObject]->globalObject()->globalExec();
+    ASSERT(!exec->hadException());
+
+    JSLock lock(SilenceAssertionsOnly);
+    BOOL result = [self _imp]->hasProperty(exec, Identifier(exec, stringToUString(String(key))));
+
+    if (exec->hadException()) {
+        addExceptionToConsole(exec);
+        exec->clearException();
+    }
+
+    _didExecute(self);
+
+    return result;
 }
 
 - (NSString *)stringRepresentation
@@ -535,7 +552,7 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     if (value.isString()) {
         ExecState* exec = rootObject->globalObject()->globalExec();
         const UString& u = asString(value)->value(exec);
-        return [NSString stringWithCharacters:u.data() length:u.size()];
+        return [NSString stringWithCharacters:u.characters() length:u.length()];
     }
 
     if (value.isNumber())
@@ -627,13 +644,13 @@ static void getListFromNSArray(ExecState *exec, NSArray *array, RootObject* root
     return self;
 }
 
-- (void)release
+- (oneway void)release
 {
 }
 
 - (NSUInteger)retainCount
 {
-    return UINT_MAX;
+    return NSUIntegerMax;
 }
 
 - (id)autorelease

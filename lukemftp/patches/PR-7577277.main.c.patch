@@ -1,0 +1,11 @@
+--- src/main.c.orig	2007-08-06 00:33:23.000000000 -0400
++++ src/main.c	2010-02-23 15:06:03.000000000 -0500
+@@ -675,7 +675,7 @@
+ 					fprintf(ttyout, "%s ", p);
+ 			}
+ 			(void)fflush(ttyout);
+-			num = getline(stdin, line, sizeof(line), NULL);
++			num = get_line(stdin, line, sizeof(line), NULL);
+ 			switch (num) {
+ 			case -1:	/* EOF */
+ 			case -2:	/* error */

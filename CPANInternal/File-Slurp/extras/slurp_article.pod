@@ -1,0 +1,743 @@
+=head1 Perl Slurp Ease
+
+=head2 Introduction
+ 
+
+One of the common Perl idioms is processing text files line by line:
+
+	while( <FH> ) {
+		do something with $_
+	}
+
+This idiom has several variants, but the key point is that it reads in
+only one line from the file in each loop iteration. This has several
+advantages, including limiting memory use to one line, the ability to
+handle any size file (including data piped in via STDIN), and it is
+easily taught and understood to Perl newbies. In fact newbies are the
+ones who do silly things like this:
+
+	while( <FH> ) {
+		push @lines, $_ ;
+	}
+
+	foreach ( @lines ) {
+		do something with $_
+	}
+
+Line by line processing is fine, but it isn't the only way to deal with
+reading files. The other common style is reading the entire file into a
+scalar or array, and that is commonly known as slurping. Now, slurping has
+somewhat of a poor reputation, and this article is an attempt at
+rehabilitating it. Slurping files has advantages and limitations, and is
+not something you should just do when line by line processing is fine.
+It is best when you need the entire file in memory for processing all at
+once. Slurping with in memory processing can be faster and lead to
+simpler code than line by line if done properly.
+
+The biggest issue to watch for with slurping is file size. Slurping very
+large files or unknown amounts of data from STDIN can be disastrous to
+your memory usage and cause swap disk thrashing.  You can slurp STDIN if
+you know that you can handle the maximum size input without
+detrimentally affecting your memory usage. So I advocate slurping only
+disk files and only when you know their size is reasonable and you have
+a real reason to process the file as a whole.  Note that reasonable size
+these days is larger than the bad old days of limited RAM. Slurping in a
+megabyte is not an issue on most systems. But most of the
+files I tend to slurp in are much smaller than that. Typical files that
+work well with slurping are configuration files, (mini-)language scripts,
+some data (especially binary) files, and other files of known sizes
+which need fast processing.
+
+Another major win for slurping over line by line is speed. Perl's IO
+system (like many others) is slow. Calling C<< <> >> for each line
+requires a check for the end of line, checks for EOF, copying a line,
+munging the internal handle structure, etc. Plenty of work for each line
+read in. Whereas slurping, if done correctly, will usually involve only
+one I/O call and no extra data copying. The same is true for writing
+files to disk, and we will cover that as well (even though the term
+slurping is traditionally a read operation, I use the term ``slurp'' for
+the concept of doing I/O with an entire file in one operation).
+
+Finally, when you have slurped the entire file into memory, you can do
+operations on the data that are not possible or easily done with line by
+line processing. These include global search/replace (without regard for
+newlines), grabbing all matches with one call of C<//g>, complex parsing
+(which in many cases must ignore newlines), processing *ML (where line
+endings are just white space) and performing complex transformations
+such as template expansion.
+
+=head2 Global Operations
+
+Here are some simple global operations that can be done quickly and
+easily on an entire file that has been slurped in. They could also be
+done with line by line processing but that would be slower and require
+more code.
+
+A common problem is reading in a file with key/value pairs. There are
+modules which do this but who needs them for simple formats? Just slurp
+in the file and do a single parse to grab all the key/value pairs.
+
+	my $text = read_file( $file ) ;
+	my %config = $text =~ /^(\w+)=(.+)$/mg ;
+
+That matches a key which starts a line (anywhere inside the string
+because of the C</m> modifier), the '=' char and the text to the end of the
+line (again, C</m> makes that work). In fact the ending C<$> is not even needed
+since C<.> will not normally match a newline. Since the key and value are
+grabbed and the C<m//> is in list context with the C</g> modifier, it will
+grab all key/value pairs and return them. The C<%config>hash will be
+assigned this list and now you have the file fully parsed into a hash.
+
+Various projects I have worked on needed some simple templating and I
+wasn't in the mood to use a full module (please, no flames about your
+favorite template module :-). So I rolled my own by slurping in the
+template file, setting up a template hash and doing this one line:
+
+	$text =~ s/<%(.+?)%>/$template{$1}/g ;
+
+That only works if the entire file was slurped in. With a little
+extra work it can handle chunks of text to be expanded:
+
+	$text =~ s/<%(\w+)_START%>(.+?)<%\1_END%>/ template($1, $2)/sge ;
+
+Just supply a C<template> sub to expand the text between the markers and
+you have yourself a simple system with minimal code. Note that this will
+work and grab over multiple lines due the the C</s> modifier. This is
+something that is much trickier with line by line processing.
+
+Note that this is a very simple templating system, and it can't directly
+handle nested tags and other complex features. But even if you use one
+of the myriad of template modules on the CPAN, you will gain by having
+speedier ways to read and write files.
+
+Slurping in a file into an array also offers some useful advantages. 
+One simple example is reading in a flat database where each record has
+fields separated by a character such as C<:>:
+
+	my @pw_fields = map [ split /:/ ], read_file( '/etc/passwd' ) ;
+
+Random access to any line of the slurped file is another advantage. Also
+a line index could be built to speed up searching the array of lines.
+
+
+=head2 Traditional Slurping
+
+Perl has always supported slurping files with minimal code. Slurping of
+a file to a list of lines is trivial, just call the C<< <> >> operator
+in a list context:
+
+	my @lines = <FH> ;
+
+and slurping to a scalar isn't much more work. Just set the built in
+variable C<$/> (the input record separator to the undefined value and read
+in the file with C<< <> >>:
+
+	{
+		local( $/, *FH ) ;
+		open( FH, $file ) or die "sudden flaming death\n"
+		$text = <FH>
+	}
+
+Notice the use of C<local()>. It sets C<$/> to C<undef> for you and when
+the scope exits it will revert C<$/> back to its previous value (most
+likely "\n").
+
+Here is a Perl idiom that allows the C<$text> variable to be declared,
+and there is no need for a tightly nested block. The C<do> block will
+execute C<< <FH> >> in a scalar context and slurp in the file named by
+C<$text>:
+
+	local( *FH ) ;
+	open( FH, $file ) or die "sudden flaming death\n"
+	my $text = do { local( $/ ) ; <FH> } ;
+
+Both of those slurps used localized filehandles to be compatible with
+5.005. Here they are with 5.6.0 lexical autovivified handles:
+
+	{
+		local( $/ ) ;
+		open( my $fh, $file ) or die "sudden flaming death\n"
+		$text = <$fh>
+	}
+
+	open( my $fh, $file ) or die "sudden flaming death\n"
+	my $text = do { local( $/ ) ; <$fh> } ;
+
+And this is a variant of that idiom that removes the need for the open
+call:
+
+	my $text = do { local( @ARGV, $/ ) = $file ; <> } ;
+
+The filename in C<$file> is assigned to a localized C<@ARGV> and the
+null filehandle is used which reads the data from the files in C<@ARGV>.
+
+Instead of assigning to a scalar, all the above slurps can assign to an
+array and it will get the file but split into lines (using C<$/> as the
+end of line marker).
+
+There is one common variant of those slurps which is very slow and not
+good code. You see it around, and it is almost always cargo cult code:
+
+	my $text = join( '', <FH> ) ;
+
+That needlessly splits the input file into lines (C<join> provides a
+list context to C<< <FH> >>) and then joins up those lines again. The
+original coder of this idiom obviously never read I<perlvar> and learned
+how to use C<$/> to allow scalar slurping.
+
+=head2 Write Slurping
+
+While reading in entire files at one time is common, writing out entire
+files is also done. We call it ``slurping'' when we read in files, but
+there is no commonly accepted term for the write operation. I asked some
+Perl colleagues and got two interesting nominations. Peter Scott said to
+call it ``burping'' (rhymes with ``slurping'' and suggests movement in
+the opposite direction). Others suggested ``spewing'' which has a
+stronger visual image :-) Tell me your favorite or suggest your own. I
+will use both in this section so you can see how they work for you.
+
+Spewing a file is a much simpler operation than slurping. You don't have
+context issues to worry about and there is no efficiency problem with
+returning a buffer. Here is a simple burp subroutine:
+
+	sub burp {
+		my( $file_name ) = shift ;
+		open( my $fh, ">$file_name" ) || 
+				 die "can't create $file_name $!" ;
+		print $fh @_ ;
+	}
+
+Note that it doesn't copy the input text but passes @_ directly to
+print. We will look at faster variations of that later on.
+
+=head2 Slurp on the CPAN
+
+As you would expect there are modules in the CPAN that will slurp files
+for you. The two I found are called Slurp.pm (by Rob Casey - ROBAU on
+CPAN) and File::Slurp.pm (by David Muir Sharnoff - MUIR on CPAN).
+
+Here is the code from Slurp.pm:
+
+    sub slurp { 
+	local( $/, @ARGV ) = ( wantarray ? $/ : undef, @_ ); 
+	return <ARGV>;
+    }
+
+    sub to_array {
+	my @array = slurp( @_ );
+	return wantarray ? @array : \@array;
+    }
+
+    sub to_scalar {
+	my $scalar = slurp( @_ );
+	return $scalar;
+    }
+
++The subroutine C<slurp()> uses the magic undefined value of C<$/> and
+the magic file +handle C<ARGV> to support slurping into a scalar or
+array. It also provides two wrapper subs that allow the caller to
+control the context of the slurp. And the C<to_array()> subroutine will
+return the list of slurped lines or a anonymous array of them according
+to its caller's context by checking C<wantarray>. It has 'slurp' in
+C<@EXPORT> and all three subroutines in C<@EXPORT_OK>.
+
+<Footnote: Slurp.pm is poorly named and it shouldn't be in the top level
+namespace.>
+
+The original File::Slurp.pm has this code:
+
+sub read_file
+{
+	my ($file) = @_;
+
+	local($/) = wantarray ? $/ : undef;
+	local(*F);
+	my $r;
+	my (@r);
+
+	open(F, "<$file") || croak "open $file: $!";
+	@r = <F>;
+	close(F) || croak "close $file: $!";
+
+	return $r[0] unless wantarray;
+	return @r;
+}
+
+This module provides several subroutines including C<read_file()> (more
+on the others later). C<read_file()> behaves simularly to
+C<Slurp::slurp()> in that it will slurp a list of lines or a single
+scalar depending on the caller's context. It also uses the magic
+undefined value of C<$/> for scalar slurping but it uses an explicit
+open call rather than using a localized C<@ARGV> and the other module
+did. Also it doesn't provide a way to get an anonymous array of the
+lines but that can easily be rectified by calling it inside an anonymous
+array constuctor C<[]>.
+
+Both of these modules make it easier for Perl coders to slurp in
+files. They both use the magic C<$/> to slurp in scalar mode and the
+natural behavior of C<< <> >> in list context to slurp as lines. But
+neither is optmized for speed nor can they handle C<binmode()> to
+support binary or unicode files. See below for more on slurp features
+and speedups.
+
+=head2 Slurping API Design
+
+The slurp modules on CPAN are have a very simple API and don't support
+C<binmode()>. This section will cover various API design issues such as
+efficient return by reference, C<binmode()> and calling variations.
+
+Let's start with the call variations. Slurped files can be returned in
+four formats: as a single scalar, as a reference to a scalar, as a list
+of lines or as an anonymous array of lines. But the caller can only
+provide two contexts: scalar or list. So we have to either provide an
+API with more than one subroutine (as Slurp.pm did) or just provide one
+subroutine which only returns a scalar or a list (not an anonymous
+array) as File::Slurp does.
+
+I have used my own C<read_file()> subroutine for years and it has the
+same API as File::Slurp: a single subroutine that returns a scalar or a
+list of lines depending on context. But I recognize the interest of
+those that want an anonymous array for line slurping. For one thing, it
+is easier to pass around to other subs and for another, it eliminates
+the extra copying of the lines via C<return>. So my module provides only
+one slurp subroutine that returns the file data based on context and any
+format options passed in. There is no need for a specific
+slurp-in-as-a-scalar or list subroutine as the general C<read_file()>
+sub will do that by default in the appropriate context. If you want
+C<read_file()> to return a scalar reference or anonymous array of lines,
+you can request those formats with options. You can even pass in a
+reference to a scalar (e.g. a previously allocated buffer) and have that
+filled with the slurped data (and that is one of the fastest slurp
+modes. see the benchmark section for more on that).  If you want to
+slurp a scalar into an array, just select the desired array element and
+that will provide scalar context to the C<read_file()> subroutine.
+
+The next area to cover is what to name the slurp sub. I will go with
+C<read_file()>. It is descriptive and keeps compatibilty with the
+current simple and don't use the 'slurp' nickname (though that nickname
+is in the module name). Also I decided to keep the  File::Slurp
+namespace which was graciously handed over to me by its current owner,
+David Muir.
+
+Another critical area when designing APIs is how to pass in
+arguments. The C<read_file()> subroutine takes one required argument
+which is the file name. To support C<binmode()> we need another optional
+argument. A third optional argument is needed to support returning a
+slurped scalar by reference. My first thought was to design the API with
+3 positional arguments - file name, buffer reference and binmode. But if
+you want to set the binmode and not pass in a buffer reference, you have
+to fill the second argument with C<undef> and that is ugly. So I decided
+to make the filename argument positional and the other two named. The
+subroutine starts off like this:
+
+	sub read_file {
+
+		my( $file_name, %args ) = @_ ;
+
+		my $buf ;
+		my $buf_ref = $args{'buf'} || \$buf ;
+
+The other sub (C<read_file_lines()>) will only take an optional binmode
+(so you can read files with binary delimiters). It doesn't need a buffer
+reference argument since it can return an anonymous array if the called
+in a scalar context. So this subroutine could use positional arguments,
+but to keep its API similar to the API of C<read_file()>, it will also
+use pass by name for the optional arguments. This also means that new
+optional arguments can be added later without breaking any legacy
+code. A bonus with keeping the API the same for both subs will be seen
+how the two subs are optimized to work together.
+
+Write slurping (or spewing or burping :-)) needs to have its API
+designed as well. The biggest issue is not only needing to support
+optional arguments but a list of arguments to be written is needed. Perl
+6 will be able to handle that with optional named arguments and a final
+slurp argument. Since this is Perl 5 we have to do it using some
+cleverness. The first argument is the file name and it will be
+positional as with the C<read_file> subroutine. But how can we pass in
+the optional arguments and also a list of data? The solution lies in the
+fact that the data list should never contain a reference.
+Burping/spewing works only on plain data. So if the next argument is a
+hash reference, we can assume it cointains the optional arguments and
+the rest of the arguments is the data list. So the C<write_file()>
+subroutine will start off like this:
+
+	sub write_file {
+
+		my $file_name = shift ;
+
+		my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
+
+Whether or not optional arguments are passed in, we leave the data list
+in C<@_> to minimize any more copying. You call C<write_file()> like this:
+
+	write_file( 'foo', { binmode => ':raw' }, @data ) ;
+	write_file( 'junk', { append => 1 }, @more_junk ) ;
+	write_file( 'bar', @spew ) ;
+
+=head2 Fast Slurping
+
+Somewhere along the line, I learned about a way to slurp files faster
+than by setting $/ to undef. The method is very simple, you do a single
+read call with the size of the file (which the -s operator provides).
+This bypasses the I/O loop inside perl that checks for EOF and does all
+sorts of processing. I then decided to experiment and found that
+sysread is even faster as you would expect. sysread bypasses all of
+Perl's stdio and reads the file from the kernel buffers directly into a
+Perl scalar. This is why the slurp code in File::Slurp uses
+sysopen/sysread/syswrite. All the rest of the code is just to support
+the various options and data passing techniques.
+
+ 
+=head2 Benchmarks
+
+Benchmarks can be enlightening, informative, frustrating and
+deceiving. It would make no sense to create a new and more complex slurp
+module unless it also gained signifigantly in speed. So I created a
+benchmark script which compares various slurp methods with differing
+file sizes and calling contexts. This script can be run from the main
+directory of the tarball like this:
+
+	perl -Ilib extras/slurp_bench.pl
+
+If you pass in an argument on the command line, it will be passed to
+timethese() and it will control the duration. It defaults to -2 which
+makes each benchmark run to at least 2 seconds of cpu time.
+
+The following numbers are from a run I did on my 300Mhz sparc. You will
+most likely get much faster counts on your boxes but the relative speeds
+shouldn't change by much. If you see major differences on your
+benchmarks, please send me the results and your Perl and OS
+versions. Also you can play with the benchmark script and add more slurp
+variations or data files.
+
+The rest of this section will be discussing the results of the
+benchmarks. You can refer to extras/slurp_bench.pl to see the code for
+the individual benchmarks. If the benchmark name starts with cpan_, it
+is either from Slurp.pm or File::Slurp.pm. Those starting with new_ are
+from the new File::Slurp.pm. Those that start with file_contents_ are
+from a client's code base. The rest are variations I created to
+highlight certain aspects of the benchmarks.
+
+The short and long file data is made like this:
+
+	my @lines = ( 'abc' x 30 . "\n")  x 100 ;
+	my $text = join( '', @lines ) ;
+
+	@lines = ( 'abc' x 40 . "\n")  x 1000 ;
+	$text = join( '', @lines ) ;
+
+So the short file is 9,100 bytes and the long file is 121,000
+bytes. 
+
+=head3 	Scalar Slurp of Short File
+
+	file_contents        651/s
+	file_contents_no_OO  828/s
+	cpan_read_file      1866/s
+	cpan_slurp          1934/s
+	read_file           2079/s
+	new                 2270/s
+	new_buf_ref         2403/s
+	new_scalar_ref      2415/s
+	sysread_file        2572/s
+
+=head3 	Scalar Slurp of Long File
+
+	file_contents_no_OO 82.9/s
+	file_contents       85.4/s
+	cpan_read_file       250/s
+	cpan_slurp           257/s
+	read_file            323/s
+	new                  468/s
+	sysread_file         489/s
+	new_scalar_ref       766/s
+	new_buf_ref          767/s
+
+The primary inference you get from looking at the mumbers above is that
+when slurping a file into a scalar, the longer the file, the more time
+you save by returning the result via a scalar reference. The time for
+the extra buffer copy can add up. The new module came out on top overall
+except for the very simple sysread_file entry which was added to
+highlight the overhead of the more flexible new module which isn't that
+much. The file_contents entries are always the worst since they do a
+list slurp and then a join, which is a classic newbie and cargo culted
+style which is extremely slow. Also the OO code in file_contents slows
+it down even more (I added the file_contents_no_OO entry to show this).
+The two CPAN modules are decent with small files but they are laggards
+compared to the new module when the file gets much larger.
+
+=head3 	List Slurp of Short File
+
+	cpan_read_file          589/s
+	cpan_slurp_to_array     620/s
+	read_file               824/s
+	new_array_ref           824/s
+	sysread_file            828/s
+	new                     829/s
+	new_in_anon_array       833/s
+	cpan_slurp_to_array_ref 836/s
+
+=head3 	List Slurp of Long File
+
+	cpan_read_file          62.4/s
+	cpan_slurp_to_array     62.7/s
+	read_file               92.9/s
+	sysread_file            94.8/s
+	new_array_ref           95.5/s
+	new                     96.2/s
+	cpan_slurp_to_array_ref 96.3/s
+	new_in_anon_array       97.2/s
+
+This is perhaps the most interesting result of this benchmark. Five
+different entries have effectively tied for the lead. The logical
+conclusion is that splitting the input into lines is the bounding
+operation, no matter how the file gets slurped. This is the only
+benchmark where the new module isn't the clear winner (in the long file
+entries - it is no worse than a close second in the short file
+entries). 
+
+
+Note: In the benchmark information for all the spew entries, the extra
+number at the end of each line is how many wallclock seconds the whole
+entry took. The benchmarks were run for at least 2 CPU seconds per
+entry. The unusually large wallclock times will be discussed below.
+
+=head3 	Scalar Spew of Short File
+
+	cpan_write_file 1035/s	38
+	print_file      1055/s	41
+	syswrite_file   1135/s	44
+	new             1519/s	2
+	print_join_file 1766/s	2
+	new_ref         1900/s	2
+	syswrite_file2  2138/s	2
+
+=head3 	Scalar Spew of Long File
+
+	cpan_write_file 164/s	20
+	print_file      211/s	26
+	syswrite_file   236/s	25
+	print_join_file 277/s	2
+	new             295/s	2
+	syswrite_file2  428/s	2
+	new_ref         608/s	2
+
+In the scalar spew entries, the new module API wins when it is passed a
+reference to the scalar buffer. The C<syswrite_file2> entry beats it
+with the shorter file due to its simpler code. The old CPAN module is
+the slowest due to its extra copying of the data and its use of print.
+
+=head3 List Spew of Short File
+
+	cpan_write_file  794/s	29
+	syswrite_file   1000/s	38
+	print_file      1013/s	42
+	new             1399/s	2
+	print_join_file 1557/s	2
+
+=head3 	List Spew of Long File
+
+	cpan_write_file 112/s	12
+	print_file      179/s	21
+	syswrite_file   181/s	19
+	print_join_file 205/s	2
+	new             228/s	2
+
+Again, the simple C<print_join_file> entry beats the new module when
+spewing a short list of lines to a file. But is loses to the new module
+when the file size gets longer. The old CPAN module lags behind the
+others since it first makes an extra copy of the lines and then it calls
+C<print> on the output list and that is much slower than passing to
+C<print> a single scalar generated by join. The C<print_file> entry
+shows the advantage of directly printing C<@_> and the
+C<print_join_file> adds the join optimization.
+
+Now about those long wallclock times. If you look carefully at the
+benchmark code of all the spew entries, you will find that some always
+write to new files and some overwrite existing files. When I asked David
+Muir why the old File::Slurp module had an C<overwrite> subroutine, he
+answered that by overwriting a file, you always guarantee something
+readable is in the file. If you create a new file, there is a moment
+when the new file is created but has no data in it. I feel this is not a
+good enough answer. Even when overwriting, you can write a shorter file
+than the existing file and then you have to truncate the file to the new
+size. There is a small race window there where another process can slurp
+in the file with the new data followed by leftover junk from the
+previous version of the file. This reinforces the point that the only
+way to ensure consistant file data is the proper use of file locks.
+
+But what about those long times? Well it is all about the difference
+between creating files and overwriting existing ones. The former have to
+allocate new inodes (or the equivilent on other file systems) and the
+latter can reuse the exising inode. This mean the overwrite will save on
+disk seeks as well as on cpu time. In fact when running this benchmark,
+I could hear my disk going crazy allocating inodes during the spew
+operations. This speedup in both cpu and wallclock is why the new module
+always does overwriting when spewing files. It also does the proper
+truncate (and this is checked in the tests by spewing shorter files
+after longer ones had previously been written). The C<overwrite>
+subroutine is just an typeglob alias to C<write_file> and is there for
+backwards compatibilty with the old File::Slurp module.
+
+=head3 Benchmark Conclusion
+
+Other than a few cases where a simpler entry beat it out, the new
+File::Slurp module is either the speed leader or among the leaders. Its
+special APIs for passing buffers by reference prove to be very useful
+speedups. Also it uses all the other optimizations including using
+C<sysread/syswrite> and joining output lines. I expect many projects
+that extensively use slurping will notice the speed improvements,
+especially if they rewrite their code to take advantage of the new API
+features. Even if they don't touch their code and use the simple API
+they will get a significant speedup.
+
+=head2 Error Handling
+
+Slurp subroutines are subject to conditions such as not being able to
+open the file, or I/O errors. How these errors are handled, and what the
+caller will see, are important aspects of the design of an API. The
+classic error handling for slurping has been to call C<die()> or even
+better, C<croak()>. But sometimes you want the slurp to either
+C<warn()>/C<carp()> or allow your code to handle the error. Sure, this
+can be done by wrapping the slurp in a C<eval> block to catch a fatal
+error, but not everyone wants all that extra code. So I have added
+another option to all the subroutines which selects the error
+handling. If the 'err_mode' option is 'croak' (which is also the
+default), the called subroutine will croak. If set to 'carp' then carp
+will be called. Set to any other string (use 'quiet' when you want to
+be explicit) and no error handler is called. Then the caller can use the
+error status from the call.
+
+C<write_file()> doesn't use the return value for data so it can return a
+false status value in-band to mark an error. C<read_file()> does use its
+return value for data, but we can still make it pass back the error
+status. A successful read in any scalar mode will return either a
+defined data string or a reference to a scalar or array. So a bare
+return would work here. But if you slurp in lines by calling it in a
+list context, a bare C<return> will return an empty list, which is the
+same value it would get from an existing but empty file. So now,
+C<read_file()> will do something I normally strongly advocate against,
+i.e., returning an explicit C<undef> value. In the scalar context this
+still returns a error, and in list context, the returned first value
+will be C<undef>, and that is not legal data for the first element. So
+the list context also gets a error status it can detect:
+
+	my @lines = read_file( $file_name, err_mode => 'quiet' ) ;
+	your_handle_error( "$file_name can't be read\n" ) unless
+					@lines && defined $lines[0] ;
+
+
+=head2 File::FastSlurp
+
+	sub read_file {
+
+		my( $file_name, %args ) = @_ ;
+
+		my $buf ;
+		my $buf_ref = $args{'buf_ref'} || \$buf ;
+
+		my $mode = O_RDONLY ;
+		$mode |= O_BINARY if $args{'binmode'} ;
+
+		local( *FH ) ;
+		sysopen( FH, $file_name, $mode ) or
+					carp "Can't open $file_name: $!" ;
+
+		my $size_left = -s FH ;
+
+		while( $size_left > 0 ) {
+
+			my $read_cnt = sysread( FH, ${$buf_ref},
+					$size_left, length ${$buf_ref} ) ;
+
+			unless( $read_cnt ) {
+
+				carp "read error in file $file_name: $!" ;
+				last ;
+			}
+
+			$size_left -= $read_cnt ;
+		}
+
+	# handle void context (return scalar by buffer reference)
+
+		return unless defined wantarray ;
+
+	# handle list context
+
+		return split m|?<$/|g, ${$buf_ref} if wantarray ;
+
+	# handle scalar context
+
+		return ${$buf_ref} ;
+	}
+
+	sub write_file {
+
+		my $file_name = shift ;
+
+		my $args = ( ref $_[0] eq 'HASH' ) ? shift : {} ;
+		my $buf = join '', @_ ;
+
+
+		my $mode = O_WRONLY ;
+		$mode |= O_BINARY if $args->{'binmode'} ;
+		$mode |= O_APPEND if $args->{'append'} ;
+
+		local( *FH ) ;
+		sysopen( FH, $file_name, $mode ) or
+					carp "Can't open $file_name: $!" ;
+
+		my $size_left = length( $buf ) ;
+		my $offset = 0 ;
+
+		while( $size_left > 0 ) {
+
+			my $write_cnt = syswrite( FH, $buf,
+					$size_left, $offset ) ;
+
+			unless( $write_cnt ) {
+
+				carp "write error in file $file_name: $!" ;
+				last ;
+			}
+
+			$size_left -= $write_cnt ;
+			$offset += $write_cnt ;
+		}
+
+		return ;
+	}
+
+=head2 Slurping in Perl 6
+
+As usual with Perl 6, much of the work in this article will be put to
+pasture. Perl 6 will allow you to set a 'slurp' property on file handles
+and when you read from such a handle, the file is slurped. List and
+scalar context will still be supported so you can slurp into lines or a
+<scalar. I would expect that support for slurping in Perl 6 will be
+optimized and bypass the stdio subsystem since it can use the slurp
+property to trigger a call to special code. Otherwise some enterprising
+individual will just create a File::FastSlurp module for Perl 6. The
+code in the Perl 5 module could easily be modified to Perl 6 syntax and
+semantics. Any volunteers?
+
+=head2 In Summary
+
+We have compared classic line by line processing with munging a whole
+file in memory. Slurping files can speed up your programs and simplify
+your code if done properly. You must still be aware to not slurp
+humongous files (logs, DNA sequences, etc.) or STDIN where you don't
+know how much data you will read in. But slurping megabyte sized files
+is not an major issue on today's systems with the typical amount of RAM
+installed. When Perl was first being used in depth (Perl 4), slurping
+was limited by the smaller RAM size of 10 years ago. Now, you should be
+able to slurp almost any reasonably sized file, whether it contains
+configuration, source code, data, etc.
+
+=head2 Acknowledgements
+
+
+
+
+

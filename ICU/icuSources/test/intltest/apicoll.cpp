@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 //===============================================================================
@@ -31,6 +31,7 @@
 
 #if !UCONFIG_NO_COLLATION
 
+#include "unicode/localpointer.h"
 #include "unicode/coll.h"
 #include "unicode/tblcoll.h"
 #include "unicode/coleitr.h"
@@ -94,37 +95,42 @@ CollationAPITest::TestProperty(/* char* par */)
     UErrorCode success = U_ZERO_ERROR;
     Collator *col = 0;
     /*
-      All the collations have the same version in an ICU
-      version.
-      ICU 2.0 currVersionArray = {0x18, 0xC0, 0x02, 0x02};
-      ICU 2.1 currVersionArray = {0x19, 0x00, 0x03, 0x03};
-      ICU 2.2 currVersionArray = {0x21, 0x40, 0x04, 0x04};
-      ICU 2.4 currVersionArray = {0x21, 0x40, 0x04, 0x04};
-      ICU 2.6 currVersionArray = {0x21, 0x40, 0x03, 0x03};
-      ICU 2.8 currVersionArray = {0x29, 0x80, 0x00, 0x04};
-      ICU 3.4 currVersionArray = {0x31, 0xC0, 0x00, 0x04};
-    */
-    UVersionInfo currVersionArray = {0x31, 0xC0, 0x00, 0x05};
+     * Expected version of the English collator.
+     * Currently, the major/minor version numbers change when the builder code
+     * changes,
+     * number 2 is from the tailoring data version and
+     * number 3 is the UCA version.
+     * This changes with every UCA version change, and the expected value
+     * needs to be adjusted.
+     * Same in cintltst/capitst.c.
+     */
+    UVersionInfo currVersionArray = {0x31, 0xC0, 0x05, 0x2A};  // from ICU 4.4/UCA 5.2
     UVersionInfo versionArray;
-    int i = 0;
 
     logln("The property tests begin : ");
     logln("Test ctors : ");
     col = Collator::createInstance(Locale::getEnglish(), success);
-
-    if (U_FAILURE(success))
-    {
-        errln("Default Collator creation failed.");
+    if (U_FAILURE(success)){
+        errcheckln(success, "Default Collator creation failed. - %s", u_errorName(success));
         return;
     }
 
+    StringEnumeration* kwEnum = col->getKeywordValuesForLocale("", Locale::getEnglish(),true,success);
+    if (U_FAILURE(success)){
+        errcheckln(success, "Get Keyword Values for Locale failed. - %s", u_errorName(success));
+        return;
+    }
+    delete kwEnum;
+
     col->getVersion(versionArray);
-    for (i=0; i<4; ++i) {
-      if (versionArray[i] != currVersionArray[i]) {
-        errln("Testing ucol_getVersion() - unexpected result: %d.%d.%d.%d",
+    // Check for a version greater than some value rather than equality
+    // so that we need not update the expected version each time.
+    if (uprv_memcmp(versionArray, currVersionArray, 4)<0) {
+      errln("Testing Collator::getVersion() - unexpected result: %02x.%02x.%02x.%02x",
             versionArray[0], versionArray[1], versionArray[2], versionArray[3]);
-        break;
-      }
+    } else {
+      logln("Collator::getVersion() result: %02x.%02x.%02x.%02x",
+            versionArray[0], versionArray[1], versionArray[2], versionArray[3]);
     }
 
     doAssert((col->compare("ab", "abc") == Collator::LESS), "ab < abc comparison failed");
@@ -132,7 +138,19 @@ CollationAPITest::TestProperty(/* char* par */)
     doAssert((col->compare("blackbird", "black-bird") == Collator::GREATER), "black-bird > blackbird comparison failed");
     doAssert((col->compare("black bird", "black-bird") == Collator::LESS), "black bird > black-bird comparison failed");
     doAssert((col->compare("Hello", "hello") == Collator::GREATER), "Hello > hello comparison failed");
+    doAssert((col->compare("","",success) == UCOL_EQUAL), "Comparison between empty strings failed");
 
+    doAssert((col->compareUTF8("\x61\x62\xc3\xa4", "\x61\x62\xc3\x9f", success) == UCOL_LESS), "ab a-umlaut < ab sharp-s UTF-8 comparison failed");
+    success = U_ZERO_ERROR;
+    {
+        UnicodeString abau=UNICODE_STRING_SIMPLE("\\x61\\x62\\xe4").unescape();
+        UnicodeString abss=UNICODE_STRING_SIMPLE("\\x61\\x62\\xdf").unescape();
+        UCharIterator abauIter, abssIter;
+        uiter_setReplaceable(&abauIter, &abau);
+        uiter_setReplaceable(&abssIter, &abss);
+        doAssert((col->compare(abauIter, abssIter, success) == UCOL_LESS), "ab a-umlaut < ab sharp-s UCharIterator comparison failed");
+        success = U_ZERO_ERROR;
+    }
 
     /*start of update [Bertrand A. D. 02/10/98]*/
     doAssert((col->compare("ab", "abc", 2) == Collator::EQUAL), "ab = abc with length 2 comparison failed");
@@ -221,10 +239,10 @@ CollationAPITest::TestProperty(/* char* par */)
 
     doAssert(((RuleBasedCollator *)col)->getRules() == ((RuleBasedCollator *)junk)->getRules(),
                "The default collation should be returned.");
-    Collator *frCol = Collator::createInstance(Locale::getFrance(), success);
+    Collator *frCol = Collator::createInstance(Locale::getCanadaFrench(), success);
     if (U_FAILURE(success))
     {
-        errln("Creating French collator failed.");
+        errln("Creating fr_CA collator failed.");
         delete col;
         delete junk;
         return;
@@ -232,11 +250,11 @@ CollationAPITest::TestProperty(/* char* par */)
 
     // If the default locale isn't French, the French and non-French collators
     // should be different
-    if (frCol->getLocale(ULOC_ACTUAL_LOCALE, success) != Locale::getFrench()) {
-        doAssert((*frCol != *junk), "The junk is the same as the French collator.");
+    if (frCol->getLocale(ULOC_ACTUAL_LOCALE, success) != Locale::getCanadaFrench()) {
+        doAssert((*frCol != *junk), "The junk is the same as the fr_CA collator.");
     }
     Collator *aFrCol = frCol->clone();
-    doAssert((*frCol == *aFrCol), "The cloning of a French collator failed.");
+    doAssert((*frCol == *aFrCol), "The cloning of a fr_CA collator failed.");
     logln("Collator property test ended.");
 
     delete col;
@@ -275,7 +293,7 @@ CollationAPITest::TestRuleBasedColl()
 
     col1 = new RuleBasedCollator(ruleset1, status);
     if (U_FAILURE(status)) {
-        errln("RuleBased Collator creation failed.\n");
+        errcheckln(status, "RuleBased Collator creation failed. - %s", u_errorName(status));
         return;
     }
     else {
@@ -356,7 +374,7 @@ CollationAPITest::TestRules()
 
     coll = (RuleBasedCollator *)Collator::createInstance(Locale::getEnglish(), status);
     if (U_FAILURE(status)) {
-        errln("English Collator creation failed.\n");
+        errcheckln(status, "English Collator creation failed. - %s", u_errorName(status));
         return;
     }
     else {
@@ -364,8 +382,8 @@ CollationAPITest::TestRules()
     }
 
     coll->getRules(UCOL_TAILORING_ONLY, rules);
-    if (rules.length() != 0x0a) {
-      errln("English tailored rules failed - length is 0x%x expected 0x%x", rules.length(), 0x0e);
+    if (rules.length() != 0x00) {
+      errln("English tailored rules failed - length is 0x%x expected 0x%x", rules.length(), 0x00);
     }
 
     coll->getRules(UCOL_FULL_RULES, rules);
@@ -383,7 +401,7 @@ CollationAPITest::TestDecomposition() {
     *vi_VN = Collator::createInstance("vi_VN", status);
 
   if (U_FAILURE(status)) {
-    errln("ERROR: collation creation failed.\n");
+    errcheckln(status, "ERROR: collation creation failed. - %s", u_errorName(status));
     return;
   }
 
@@ -424,7 +442,7 @@ CollationAPITest::TestSafeClone() {
     someCollators[1] = Collator::createInstance("ko", err);
     someCollators[2] = Collator::createInstance("ja_JP", err);
     if(U_FAILURE(err)) {
-      errln("Couldn't instantiate collators. Error: %s", u_errorName(err));
+      errcheckln(err, "Couldn't instantiate collators. Error: %s", u_errorName(err));
       delete someCollators[0];
       delete someCollators[1];
       delete someCollators[2];
@@ -461,7 +479,7 @@ CollationAPITest::TestHashCode(/* char* par */)
     col1 = Collator::createInstance(Locale::getEnglish(), success);
     if (U_FAILURE(success))
     {
-        errln("Default collation creation failed.");
+        errcheckln(success, "Default collation creation failed. - %s", u_errorName(success));
         return;
     }
 
@@ -520,7 +538,7 @@ CollationAPITest::TestCollationKey(/* char* par */)
     col = Collator::createInstance(Locale::getEnglish(), success);
     if (U_FAILURE(success))
     {
-        errln("Default collation creation failed.");
+        errcheckln(success, "Default collation creation failed. - %s", u_errorName(success));
         return;
     }
     col->setStrength(Collator::TERTIARY);
@@ -576,16 +594,6 @@ CollationAPITest::TestCollationKey(/* char* par */)
     const uint8_t* byteArray1 = sortk1.getByteArray(cnt1);
     const uint8_t* byteArray2 = sortk2.getByteArray(cnt2);
 
-    /*
-    this is a bad test since it is dependent on the version of uca data,
-    which changes
-    will remove it.
-    const char sortk2_compat[] = {
-        // this is a 1.8 sortkey
-        0x17, 0x19, 0x1B, 0x1D, 0x17, 0x01, 0x08, 0x01, 0x08, 0x00
-    };
-    */
-
     const uint8_t* byteArray3 = 0;
     byteArray3 = sortk1.getByteArray(cnt3);
 
@@ -595,10 +603,6 @@ CollationAPITest::TestCollationKey(/* char* par */)
     CollationKey sortk4(byteArray1, cnt1), sortk5(byteArray2, cnt2);
     CollationKey sortk6(byteArray3, cnt3), sortk7(byteArray4, cnt4);
 
-    /*
-    doAssert(memcmp(byteArray2, sortk2_compat, strlen(sortk2_compat)) == 0,
-             "Binary format for 'abcda' sortkey different!");
-    */
     doAssert(sortk1.compareTo(sortk4) == Collator::EQUAL, "CollationKey::toByteArray(sortk1) Failed.");
     doAssert(sortk2.compareTo(sortk5) == Collator::EQUAL, "CollationKey::toByteArray(sortk2) Failed.");
     doAssert(sortk4.compareTo(sortk5) == Collator::GREATER, "sortk4 >>> sortk5 Failed");
@@ -643,7 +647,7 @@ CollationAPITest::TestElemIter(/* char* par */)
     col = Collator::createInstance(Locale::getEnglish(), success);
     if (U_FAILURE(success))
     {
-        errln("Default collation creation failed.");
+        errcheckln(success, "Default collation creation failed. - %s", u_errorName(success));
         return;
     }
 
@@ -836,7 +840,7 @@ CollationAPITest::TestOperators(/* char* par */)
     UnicodeString ruleset2("< a, A < b, B < c, C < d, D, e, E");
     RuleBasedCollator *col1 = new RuleBasedCollator(ruleset1, success);
     if (U_FAILURE(success)) {
-        errln("RuleBasedCollator creation failed.");
+        errcheckln(success, "RuleBasedCollator creation failed. - %s", u_errorName(success));
         return;
     }
     success = U_ZERO_ERROR;
@@ -968,7 +972,7 @@ CollationAPITest::TestCompare(/* char* par */)
     UErrorCode success = U_ZERO_ERROR;
     col = Collator::createInstance(Locale::getEnglish(), success);
     if (U_FAILURE(success)) {
-        errln("Default collation creation failed.");
+        errcheckln(success, "Default collation creation failed. - %s", u_errorName(success));
         return;
     }
     UnicodeString test1("Abcda"), test2("abcda");
@@ -1037,7 +1041,7 @@ CollationAPITest::TestGetAll(/* char* par */)
     }
 
     if (count1 == 0 || list == NULL) {
-        errln("getAvailableLocales(int&) returned an empty list");
+        dataerrln("getAvailableLocales(int&) returned an empty list");
     }
 
     logln("Trying Collator::getAvailableLocales()");
@@ -1047,7 +1051,7 @@ CollationAPITest::TestGetAll(/* char* par */)
     count2 = 0;
 
     if (localeEnum == NULL) {
-        errln("getAvailableLocales() returned NULL");
+        dataerrln("getAvailableLocales() returned NULL");
         return;
     }
 
@@ -1090,7 +1094,7 @@ void CollationAPITest::TestSortKey()
     */
     Collator *col = Collator::createInstance(Locale::getEnglish(), status);
     if (U_FAILURE(status)) {
-        errln("ERROR: Default collation creation failed.: %s\n", u_errorName(status));
+        errcheckln(status, "ERROR: Default collation creation failed.: %s\n", u_errorName(status));
         return;
     }
 
@@ -1101,53 +1105,6 @@ void CollationAPITest::TestSortKey()
 
     /* Need to use identical strength */
     col->setAttribute(UCOL_STRENGTH, UCOL_IDENTICAL, status);
-
-    uint8_t key2compat[] = {
-        /* 3.9 key, from UCA 5.1 */
-        0x2c, 0x2e, 0x30, 0x32, 0x2c, 0x01, 
-        0x09, 0x01, 0x09, 0x01, 0x2b, 0x01, 
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x0
-
-        /* 3.6 key, from UCA 5.0 */
-	/*
-        0x29, 0x2b, 0x2d, 0x2f, 0x29, 0x01, 
-        0x09, 0x01, 0x09, 0x01, 0x28, 0x01, 
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x00
-        */
-        /* 3.4 key, from UCA 4.1 */
-        /*
-        0x28, 0x2a, 0x2c, 0x2e, 0x28, 0x01, 
-        0x09, 0x01, 0x09, 0x01, 0x27, 0x01, 
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x00
-        */
-        /* 2.6.1 key */
-        /*
-        0x26, 0x28, 0x2A, 0x2C, 0x26, 0x01, 
-        0x09, 0x01, 0x09, 0x01, 0x25, 0x01, 
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x00 
-        */
-        /* 2.2 key */
-        /*
-        0x1D, 0x1F, 0x21, 0x23, 0x1D, 0x01,
-        0x09, 0x01, 0x09, 0x01, 0x1C, 0x01,
-        0x92, 0x93, 0x94, 0x95, 0x92, 0x00
-        */
-        /* 2.0 key */
-        /*
-        0x19, 0x1B, 0x1D, 0x1F, 0x19,
-        0x01, 0x09, 0x01, 0x09, 0x01,
-        0x18, 0x01,
-        0x92, 0x93, 0x94, 0x95, 0x92,
-        0x00
-        */
-        /* 1.8.1 key.*/
-        /*
-        0x19, 0x1B, 0x1D, 0x1F, 0x19,
-        0x01, 0x0A, 0x01, 0x0A, 0x01,
-        0x92, 0x93, 0x94, 0x95, 0x92,
-        0x00 
-        */
-    };
 
     UChar test1[6] = {0x41, 0x62, 0x63, 0x64, 0x61, 0},
           test2[6] = {0x61, 0x62, 0x63, 0x64, 0x61, 0},
@@ -1175,10 +1132,11 @@ void CollationAPITest::TestSortKey()
     doAssert(key2.compareTo(key3) == Collator::EQUAL,
         "Result should be \"abcda\" ==  \"abcda\"");
 
+    // Clone the key2 sortkey for later.
     int32_t keylength = 0;
-    doAssert(strcmp((const char *)(key2.getByteArray(keylength)),
-                    (const char *)key2compat) == 0,
-        "Binary format for 'abcda' sortkey different!");
+    const uint8_t *key2primary_alias = key2.getByteArray(keylength);
+    LocalArray<uint8_t> key2primary(new uint8_t[keylength]);
+    memcpy(key2primary.getAlias(), key2primary_alias, keylength);
 
     col->getSortKey(test1, sortkey1, 64);
     col->getSortKey(test2, sortkey2, 64);
@@ -1238,8 +1196,8 @@ void CollationAPITest::TestSortKey()
         "Result should be \"abcda\" ==  \"abcda\"");
 
     tempkey = key2.getByteArray(keylength);
-    doAssert(memcmp(tempkey, key2compat, keylength - 1) == 0,
-             "Binary format for 'abcda' sortkey different!");
+    doAssert(memcmp(tempkey, key2primary.getAlias(), keylength - 1) == 0,
+             "Binary format for 'abcda' sortkey different for secondary strength!");
 
     col->getSortKey(test1, sortkey1, 64);
     col->getSortKey(test2, sortkey2, 64);
@@ -1298,7 +1256,7 @@ void CollationAPITest::TestMaxExpansion()
     UnicodeString rule("&a < ab < c/aba < d < z < ch");
     RuleBasedCollator coll(rule, status);
     if(U_FAILURE(status)) {
-      errln("Collator creation failed with error %s", u_errorName(status));
+      errcheckln(status, "Collator creation failed with error %s", u_errorName(status));
       return;
     }
     UnicodeString str(ch);
@@ -1326,23 +1284,23 @@ void CollationAPITest::TestMaxExpansion()
 
         size = coll.getMaxExpansion(order);
         if (U_FAILURE(status) || size < count) {
-            errln("Failure at codepoint %d, maximum expansion count < %d\n",
-                  ch, count);
+            errln("Failure at codepoint U+%04X, maximum expansion count %d < %d",
+                  ch, size, count);
         }
     }
 
     /* testing for exact max expansion */
+    int32_t size;
     ch = 0;
     while (ch < 0x61) {
         uint32_t order;
-        int32_t  size;
         str.setCharAt(0, ch);
         iter->setText(str, status);
         order = iter->previous(status);
         size  = coll.getMaxExpansion(order);
         if (U_FAILURE(status) || size != 1) {
-            errln("Failure at codepoint %d, maximum expansion count < %d\n",
-                ch, 1);
+            errln("Failure at codepoint U+%04X, maximum expansion count %d < %d",
+                  ch, size, 1);
         }
         ch ++;
     }
@@ -1351,29 +1309,29 @@ void CollationAPITest::TestMaxExpansion()
     str.setTo(ch);
     iter->setText(str, status);
     temporder = iter->previous(status);
-
-    if (U_FAILURE(status) || coll.getMaxExpansion(temporder) != 3) {
-        errln("Failure at codepoint %d, maximum expansion count != %d\n",
-              ch, 3);
+    size = coll.getMaxExpansion(temporder);
+    if (U_FAILURE(status) || size != 3) {
+        errln("Failure at codepoint U+%04X, CE %08x, maximum expansion count %d != %d",
+              ch, temporder, size, 3);
     }
 
     ch = 0x64;
     str.setTo(ch);
     iter->setText(str, status);
     temporder = iter->previous(status);
-
-    if (U_FAILURE(status) || coll.getMaxExpansion(temporder) != 1) {
-        errln("Failure at codepoint %d, maximum expansion count != %d\n",
-                ch, 3);
+    size = coll.getMaxExpansion(temporder);
+    if (U_FAILURE(status) || size != 1) {
+        errln("Failure at codepoint U+%04X, CE %08x, maximum expansion count %d != %d",
+              ch, temporder, size, 1);
     }
 
     str.setTo(unassigned);
     iter->setText(str, status);
     sorder = iter->previous(status);
-
-    if (U_FAILURE(status) || coll.getMaxExpansion(sorder) != 2) {
-        errln("Failure at supplementary codepoints, maximum expansion count < %d\n",
-              2);
+    size = coll.getMaxExpansion(sorder);
+    if (U_FAILURE(status) || size != 2) {
+        errln("Failure at supplementary codepoints, maximum expansion count %d < %d",
+              size, 2);
     }
 
     /* testing jamo */
@@ -1381,9 +1339,10 @@ void CollationAPITest::TestMaxExpansion()
     str.setTo(ch);
     iter->setText(str, status);
     temporder = iter->previous(status);
-    if (U_FAILURE(status) || coll.getMaxExpansion(temporder) > 3) {
-        errln("Failure at codepoint %d, maximum expansion count > %d\n",
-              ch, 3);
+    size = coll.getMaxExpansion(temporder);
+    if (U_FAILURE(status) || size > 3) {
+        errln("Failure at codepoint U+%04X, maximum expansion count %d > %d",
+              ch, size, 3);
     }
 
     delete iter;
@@ -1394,9 +1353,10 @@ void CollationAPITest::TestMaxExpansion()
     RuleBasedCollator jamocoll(rule, status);
     iter = jamocoll.createCollationElementIterator(str);
     temporder = iter->previous(status);
-    if (U_FAILURE(status) || iter->getMaxExpansion(temporder) != 6) {
-        errln("Failure at codepoint %d, maximum expansion count > %d\n",
-              ch, 5);
+    size = iter->getMaxExpansion(temporder);
+    if (U_FAILURE(status) || size != 6) {
+        errln("Failure at codepoint U+%04X, maximum expansion count %d > %d",
+              ch, size, 5);
     }
 
     delete iter;
@@ -1407,7 +1367,7 @@ void CollationAPITest::TestDisplayName()
     UErrorCode error = U_ZERO_ERROR;
     Collator *coll = Collator::createInstance("en_US", error);
     if (U_FAILURE(error)) {
-        errln("Failure creating english collator");
+        errcheckln(error, "Failure creating english collator - %s", u_errorName(error));
         return;
     }
     UnicodeString name;
@@ -1432,7 +1392,7 @@ void CollationAPITest::TestAttribute()
     Collator *coll = Collator::createInstance(error);
 
     if (U_FAILURE(error)) {
-        errln("Creation of default collator failed");
+        errcheckln(error, "Creation of default collator failed - %s", u_errorName(error));
         return;
     }
 
@@ -1537,7 +1497,7 @@ void CollationAPITest::TestVariableTopSetting() {
   Collator *coll = Collator::createInstance(status);
   if(U_FAILURE(status)) {
     delete coll;
-    errln("Collator creation failed with error %s", u_errorName(status));
+    errcheckln(status, "Collator creation failed with error %s", u_errorName(status));
     return;
   }
 
@@ -1677,7 +1637,7 @@ void CollationAPITest::TestBounds(void) {
     Collator *coll = Collator::createInstance(Locale("sh"), status);
     if(U_FAILURE(status)) {
       delete coll;
-      errln("Collator creation failed with %s", u_errorName(status));
+      errcheckln(status, "Collator creation failed with %s", u_errorName(status));
       return;
     }
 
@@ -1838,7 +1798,7 @@ void CollationAPITest::TestGetTailoredSet()
       }
       delete set;
     } else {
-      errln("Couldn't open collator with rules %s\n", setTest[i].rules);
+      errcheckln(status, "Couldn't open collator with rules %s - %s", setTest[i].rules, u_errorName(status));
     }
     delete coll;
   }
@@ -1855,7 +1815,7 @@ void CollationAPITest::TestUClassID()
         = (RuleBasedCollator *)Collator::createInstance(status);
     if(U_FAILURE(status)) {
       delete coll;
-      errln("Collator creation failed with %s", u_errorName(status));
+      errcheckln(status, "Collator creation failed with %s", u_errorName(status));
       return;
     }
     id = *((char *)coll->getDynamicClassID());
@@ -2231,7 +2191,9 @@ void CollationAPITest::TestNULLCharTailoring()
     UnicodeString second((UChar)0);
     RuleBasedCollator *coll = new RuleBasedCollator(UnicodeString(buf, len), status);
     if(U_FAILURE(status)) {
-        errln("Failed to open collator");
+        delete coll;
+        errcheckln(status, "Failed to open collator - %s", u_errorName(status));
+        return;
     }
     UCollationResult res = coll->compare(first, second, status);
     if(res != UCOL_LESS) {
@@ -2246,7 +2208,7 @@ void CollationAPITest::TestClone() {
     RuleBasedCollator* c0 = (RuleBasedCollator*)Collator::createInstance(status);
 
     if (U_FAILURE(status)) {
-        errln("Collator::CreateInstance(status) failed with %s", u_errorName(status));
+        errcheckln(status, "Collator::CreateInstance(status) failed with %s", u_errorName(status));
         return;
     }
 

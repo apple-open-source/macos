@@ -18,11 +18,19 @@
 #ifdef HAVE_SYS_RESOURCE_H
 #include <sys/resource.h>
 #endif
-#ifdef HAVE_MALLOC_H
+// DragonFly BSD has deprecated <malloc.h> for <stdlib.h> instead,
+//  Unix.h includes this for us already.
+#if defined(HAVE_MALLOC_H) && !defined(__DragonFly__)
 #include <malloc.h>
 #endif
 #ifdef HAVE_MALLOC_MALLOC_H
 #include <malloc/malloc.h>
+#endif
+#ifdef HAVE_SYS_IOCTL_H
+#  include <sys/ioctl.h>
+#endif
+#ifdef HAVE_TERMIOS_H
+#  include <termios.h>
 #endif
 
 //===----------------------------------------------------------------------===//
@@ -36,10 +44,15 @@ using namespace sys;
 unsigned 
 Process::GetPageSize() 
 {
-#if defined(HAVE_GETPAGESIZE)
-  static const int page_size = ::getpagesize();
+#if defined(__CYGWIN__)
+  // On Cygwin, getpagesize() returns 64k but the page size for the purposes of
+  // memory protection and mmap() is 4k.
+  // See http://www.cygwin.com/ml/cygwin/2009-01/threads.html#00492
+  const int page_size = 0x1000;
+#elif defined(HAVE_GETPAGESIZE)
+  const int page_size = ::getpagesize();
 #elif defined(HAVE_SYSCONF)
-  static long page_size = ::sysconf(_SC_PAGE_SIZE);
+  long page_size = ::sysconf(_SC_PAGE_SIZE);
 #else
 #warning Cannot get the page size on this machine
 #endif
@@ -80,7 +93,7 @@ Process::GetTotalMemoryUsage()
   malloc_statistics_t Stats;
   malloc_zone_statistics(malloc_default_zone(), &Stats);
   return Stats.size_allocated;   // darwin
-#elif defined(HAVE_GETRUSAGE)
+#elif defined(HAVE_GETRUSAGE) && !defined(__HAIKU__)
   struct rusage usage;
   ::getrusage(RUSAGE_SELF, &usage);
   return usage.ru_maxrss;
@@ -168,25 +181,115 @@ void Process::PreventCoreFiles() {
 }
 
 bool Process::StandardInIsUserInput() {
-#if HAVE_ISATTY
-  return isatty(0);
-#endif
-  // If we don't have isatty, just return false.
-  return false;
+  return FileDescriptorIsDisplayed(STDIN_FILENO);
 }
 
 bool Process::StandardOutIsDisplayed() {
-#if HAVE_ISATTY
-  return isatty(1);
-#endif
-  // If we don't have isatty, just return false.
-  return false;
+  return FileDescriptorIsDisplayed(STDOUT_FILENO);
 }
 
 bool Process::StandardErrIsDisplayed() {
+  return FileDescriptorIsDisplayed(STDERR_FILENO);
+}
+
+bool Process::FileDescriptorIsDisplayed(int fd) {
 #if HAVE_ISATTY
-  return isatty(2);
-#endif
+  return isatty(fd);
+#else
   // If we don't have isatty, just return false.
   return false;
+#endif
+}
+
+static unsigned getColumns(int FileID) {
+  // If COLUMNS is defined in the environment, wrap to that many columns.
+  if (const char *ColumnsStr = std::getenv("COLUMNS")) {
+    int Columns = std::atoi(ColumnsStr);
+    if (Columns > 0)
+      return Columns;
+  }
+
+  unsigned Columns = 0;
+
+#if defined(HAVE_SYS_IOCTL_H) && defined(HAVE_TERMIOS_H)
+  // Try to determine the width of the terminal.
+  struct winsize ws;
+  if (ioctl(FileID, TIOCGWINSZ, &ws) == 0)
+    Columns = ws.ws_col;
+#endif
+
+  return Columns;
+}
+
+unsigned Process::StandardOutColumns() {
+  if (!StandardOutIsDisplayed())
+    return 0;
+
+  return getColumns(1);
+}
+
+unsigned Process::StandardErrColumns() {
+  if (!StandardErrIsDisplayed())
+    return 0;
+
+  return getColumns(2);
+}
+
+static bool terminalHasColors() {
+  if (const char *term = std::getenv("TERM")) {
+    // Most modern terminals support ANSI escape sequences for colors.
+    // We could check terminfo, or have a list of known terms that support
+    // colors, but that would be overkill.
+    // The user can always ask for no colors by setting TERM to dumb, or
+    // using a commandline flag.
+    return strcmp(term, "dumb") != 0;
+  }
+  return false;
+}
+
+bool Process::StandardOutHasColors() {
+  if (!StandardOutIsDisplayed())
+    return false;
+  return terminalHasColors();
+}
+
+bool Process::StandardErrHasColors() {
+  if (!StandardErrIsDisplayed())
+    return false;
+  return terminalHasColors();
+}
+
+bool Process::ColorNeedsFlush() {
+  // No, we use ANSI escape sequences.
+  return false;
+}
+
+#define COLOR(FGBG, CODE, BOLD) "\033[0;" BOLD FGBG CODE "m"
+
+#define ALLCOLORS(FGBG,BOLD) {\
+    COLOR(FGBG, "0", BOLD),\
+    COLOR(FGBG, "1", BOLD),\
+    COLOR(FGBG, "2", BOLD),\
+    COLOR(FGBG, "3", BOLD),\
+    COLOR(FGBG, "4", BOLD),\
+    COLOR(FGBG, "5", BOLD),\
+    COLOR(FGBG, "6", BOLD),\
+    COLOR(FGBG, "7", BOLD)\
+  }
+
+static const char colorcodes[2][2][8][10] = {
+ { ALLCOLORS("3",""), ALLCOLORS("3","1;") },
+ { ALLCOLORS("4",""), ALLCOLORS("4","1;") }
+};
+
+const char *Process::OutputColor(char code, bool bold, bool bg) {
+  return colorcodes[bg?1:0][bold?1:0][code&7];
+}
+
+const char *Process::OutputBold(bool bg) {
+  return "\033[1m";
+}
+
+const char *Process::ResetColor() {
+  return "\033[0m";
 }

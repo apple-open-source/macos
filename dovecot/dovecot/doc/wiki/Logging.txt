@@ -1,0 +1,147 @@
+Contents
+
+
+ 1. Dovecot Logging
+
+     1. Internal Errors
+
+     2. Changing Log File Paths
+
+     3. Syslog Example
+
+     4. Rotating Logs
+
+     5. Logging verbosity
+
+Dovecot Logging
+===============
+
+*Dovecot always logs a detailed error message* if something goes wrong. If it
+doesn't, it's considered a bug and will be fixed. However almost always the
+problem is that you're looking at the wrong log file; error messages may be
+logged to a different file than informational messages. By default Dovecot logs
+to syslog using *mail* facility. You can change the facility from
+'syslog_facility' setting. You can also configure Dovecot to write to log files
+directly, see below.
+
+When using syslog, Dovecot uses 5 different logging levels:
+
+ * *debug*: Debug-level message.
+ * *info*: Informational messages.
+ * *warning*: Warnings that don't cause an actual error, but are useful to know
+   about.
+ * *err*: Non-fatal errors.
+ * *crit*: Fatal errors that cause the process to die.
+
+Where exactly these messages are logged depends entirely on your syslog
+configuration. Often everything is logged to '/var/log/mail.log' or
+'/var/log/maillog', and *err* and *crit* are logged to '/var/log/mail.err'.
+This is not necessarily true for your configuration though.
+
+You can find the log file locations by running:
+
+---%<-------------------------------------------------------------------------
+doveadm log find
+---%<-------------------------------------------------------------------------
+
+You can also check your '/etc/syslog.conf' to see how it's configured.
+
+Internal Errors
+---------------
+
+If IMAP or POP3 processes encounter some error, they don't show the exact
+reason for clients. Instead they show:
+
+---%<-------------------------------------------------------------------------
+Internal error occurred. Refer to server log for more information. [2006-01-07
+22:35:11]
+---%<-------------------------------------------------------------------------
+
+The point is that whenever anything unexpected happens, Dovecot doesn't leak
+any extra information about it to clients. They don't need it and they might
+try to exploit it in some ways, so the less they know the better.
+
+The real error message is written to the error log file. The timestamp is meant
+for you to help you find it.
+
+Changing Log File Paths
+-----------------------
+
+If you don't want to use syslog, or if you just can't find the Dovecot's error
+logs, you can make Dovecot log elsewhere as well:
+
+---%<-------------------------------------------------------------------------
+log_path = /var/log/dovecot.log
+# If you want everything in one file, just don't specify info_log_path and
+debug_log_path
+info_log_path = /var/log/dovecot-info.log
+# Leave empty in order to send debug-level messages to info_log_path
+debug_log_path = /var/log/dovecot-debug.log
+---%<-------------------------------------------------------------------------
+
+The warning and error messages will go to file specified by 'log_path', while
+informative messages goes to 'info_log_path' and debug messages goes to
+'debug_log_path'. If you do this, make sure you're really looking at the
+'log_path' file for error messages, since the "Starting up" message is written
+to 'info_log_path' file.
+
+Syslog Example
+--------------
+
+Dovecot logging asynchronously via 'syslog_facility = local0' with basic rules:
+
+---%<-------------------------------------------------------------------------
+local0.* -/var/log/dovecot.log
+local0.info -/var/log/dovecot.info
+local0.warn -/var/log/dovecot.warn
+local0.err -/var/log/dovecot.err
+:msg,contains,"stored mail into mailbox"\
+                                  -/var/log/dovecot.lmtp
+---%<-------------------------------------------------------------------------
+
+Rotating Logs
+-------------
+
+If you change from syslog to an external log file, you can use logrotate
+(available on most recent linux distros) to maintain the Dovecot logfile so it
+doesn't grow beyond a manageable size. Save the below scriptlet as
+'/etc/logrotate.d/dovecot':
+
+---%<-------------------------------------------------------------------------
+/var/log/dovecot*.log {
+  missingok
+  notifempty
+  delaycompress
+  sharedscripts
+  postrotate
+    doveadm log reopen
+  endscript
+}
+---%<-------------------------------------------------------------------------
+
+Logging verbosity
+-----------------
+
+There are several settings that control logging verbosity. By default they're
+all disabled, but they may be useful for debugging.
+
+ * 'auth_verbose=yes' enables logging all failed authentication attempts.
+ * 'auth_debug=yes' enables all authentication debug logging (also enables
+   'auth_verbose'). Passwords are logged as '<hidden>'.
+ * 'auth_debug_passwords=yes' does everything that 'auth_debug=yes' does, but
+   it also removes password hiding (but only if you are not using PAM, since
+   PAM errors aren't written to Dovecot's own logs).
+ * 'mail_debug=yes' enables all kinds of mail related debug logging, such as
+   showing where Dovecot is looking for mails.
+ * 'verbose_ssl=yes' enables logging SSL errors and warnings. Even without this
+   setting if connection is closed because of an SSL error, the error is logged
+   as the disconnection reason.
+ * 'auth_verbose_passwords=no|plain|sha1' If authentication fails, this setting
+   logs the used password. If you don't really need to know what the password
+   itself was, but are more interested in knowing if the user is simply trying
+   to use the wrong password every single time or if it's a brute force attack,
+   you can set this to "sha1" and only the SHA1 of the password is logged.
+   That's enough to know if the password is same or different between login
+   attempts.
+
+(This file was created from the wiki on 2011-05-11 04:42)

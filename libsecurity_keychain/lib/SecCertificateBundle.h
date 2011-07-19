@@ -56,7 +56,7 @@ OSStatus SecCertificateBundleImport(
         CFArrayRef keychainListToSkipDuplicates);
         
 /*!
-	@function SecCertifcateBundleExport
+	@function SecCertificateBundleExport
 	@abstract Exports one or more certificates into a bundle with the specified encoding and bundle type.
     @param certificates An array of certificate and keychain items used to help build the bundle.
     @param type The bundle type as defined in cssmtype.h. If the bundle type is unknown, an attempt will be made to determine the type for you.
@@ -64,7 +64,7 @@ OSStatus SecCertificateBundleImport(
     @param data A pointer to data.  On return, this points to the bundle data.
     @result A result code.  See "Security Error Codes" (SecBase.h).
 */
-OSStatus SecCertifcateBundleExport(
+OSStatus SecCertificateBundleExport(
         CFArrayRef certificates,
         CSSM_CERT_BUNDLE_TYPE type,
         CSSM_CERT_BUNDLE_ENCODING encodingType,

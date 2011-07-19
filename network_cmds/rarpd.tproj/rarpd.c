@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -288,7 +288,7 @@ bpf_open()
 
 	/* Go through all the minors and find one that isn't in use. */
 	do {
-		(void) sprintf(device, "/dev/bpf%d", n++);
+		(void) snprintf(device, sizeof(device), "/dev/bpf%d", n++);
 		fd = open(device, O_RDWR);
 	} while (fd < 0 && errno == EBUSY);
 
@@ -491,7 +491,7 @@ rarp_bootable(addr)
 	char    ipname[9];
 	static DIR *dd = 0;
 
-	(void) sprintf(ipname, "%08X", addr);
+	(void) snprintf(ipname, sizeof(ipname), "%08X", addr);
 	/* If directory is already open, rewind it.  Otherwise, open it. */
 	if ((d = dd) != NULL)
 		rewinddir(d);

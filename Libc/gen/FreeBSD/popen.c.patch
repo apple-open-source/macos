@@ -1,6 +1,6 @@
---- popen.c.orig	2009-03-03 02:04:57.000000000 -0800
-+++ popen.c	2009-03-03 15:28:31.000000000 -0800
-@@ -34,6 +34,10 @@
+--- popen.c.orig	2009-12-02 15:21:37.000000000 -0800
++++ popen.c	2009-12-02 15:36:51.000000000 -0800
+@@ -30,6 +30,10 @@
   * SUCH DAMAGE.
   */
  
@@ -11,9 +11,9 @@
  #if defined(LIBC_SCCS) && !defined(lint)
  static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 5/3/95";
  #endif /* LIBC_SCCS and not lint */
-@@ -43,7 +47,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
- #include "namespace.h"
+@@ -40,7 +44,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
  #include <sys/param.h>
+ #include <sys/queue.h>
  #include <sys/wait.h>
 -
 +#include <sys/socket.h>
@@ -21,7 +21,7 @@
  #include <signal.h>
  #include <errno.h>
  #include <unistd.h>
-@@ -52,17 +57,29 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
+@@ -49,18 +54,39 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pop
  #include <string.h>
  #include <paths.h>
  #include <pthread.h>
@@ -32,30 +32,39 @@
 -extern char **environ;
 +#include <crt_externs.h>
 +#define environ (*_NSGetEnviron())
++
++/* Our queue.h doesn't have SLIST_REMOVE_AFTER in it yet
++ * <rdar://problem/7431558> API: Add SLIST_REMOVE_AFTER to sys/queue.h (from FreeBSD)
++ */
++#ifndef SLIST_REMOVE_AFTER
++#define SLIST_REMOVE_AFTER(elm, field) do {                             \
++        SLIST_NEXT(elm, field) =                                        \
++            SLIST_NEXT(SLIST_NEXT(elm, field), field);                  \
++} while (0)
++#endif
  
--static struct pid {
 +/* 3516149 - store file descriptor and use that to close to prevent blocking */
-+struct pid {
- 	struct pid *next;
+ struct pid {
+ 	SLIST_ENTRY(pid) next;
  	FILE *fp;
 +	int fd;
  	pid_t pid;
--} *pidlist;
+ };
+-static SLIST_HEAD(, pid) pidlist = SLIST_HEAD_INITIALIZER(pidlist);
 -static pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
-+};
 +#define pidlist		__popen_pidlist
 +#define pidlist_mutex	__popen_pidlist_mutex
 +#ifndef BUILDING_VARIANT
-+__private_extern__ struct pid *pidlist = NULL;
++__private_extern__ SLIST_HEAD(, pid) pidlist = SLIST_HEAD_INITIALIZER(pidlist);
 +__private_extern__ pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
 +#else /* BUILDING_VARIANT */
-+extern struct pid *pidlist;
++extern SLIST_HEAD(, pid) pidlist;
 +extern pthread_mutex_t pidlist_mutex;
 +#endif /* !BUILDING_VARIANT */
  
  #define	THREAD_LOCK()	if (__isthreaded) _pthread_mutex_lock(&pidlist_mutex)
  #define	THREAD_UNLOCK()	if (__isthreaded) _pthread_mutex_unlock(&pidlist_mutex)
-@@ -73,85 +90,109 @@ popen(command, type)
+@@ -71,84 +97,108 @@ popen(command, type)
  {
  	struct pid *cur;
  	FILE *iop;
@@ -145,9 +154,8 @@
 +		}
 +		(void)posix_spawn_file_actions_addclose(&file_actions, pdes[1]);
 +	}
-+	for (p = pidlist; p; p = p->next) {
++	SLIST_FOREACH(p, &pidlist, next)
 +		(void)posix_spawn_file_actions_addclose(&file_actions, p->fd);
-+	}
 +
  	argv[0] = "sh";
  	argv[1] = "-c";
@@ -195,9 +203,8 @@
 -			}
 -			(void)_close(pdes[1]);
 -		}
--		for (p = pidlist; p; p = p->next) {
+-		SLIST_FOREACH(p, &pidlist, next)
 -			(void)_close(fileno(p->fp));
--		}
 -		_execve(_PATH_BSHELL, argv, environ);
 -		_exit(127);
 -		/* NOTREACHED */
@@ -217,9 +224,9 @@
  		(void)_close(pdes[0]);
  	}
  
-@@ -162,10 +203,11 @@ popen(command, type)
- 	cur->next = pidlist;
- 	pidlist = cur;
+@@ -158,10 +208,11 @@ popen(command, type)
+ 	THREAD_LOCK();
+ 	SLIST_INSERT_HEAD(&pidlist, cur, next);
  	THREAD_UNLOCK();
 -
 +	fwide(iop, -1);		/* byte stream */
@@ -230,7 +237,7 @@
  /*
   * pclose --
   *	Pclose returns -1 if stream is not associated with a `popened' command,
-@@ -198,6 +240,10 @@ pclose(iop)
+@@ -196,6 +247,10 @@ pclose(iop)
  
  	(void)fclose(iop);
  
@@ -241,7 +248,7 @@
  	do {
  		pid = _wait4(cur->pid, &pstat, 0, (struct rusage *)0);
  	} while (pid == -1 && errno == EINTR);
-@@ -206,3 +252,4 @@ pclose(iop)
+@@ -204,3 +259,4 @@ pclose(iop)
  
  	return (pid == -1 ? -1 : pstat);
  }

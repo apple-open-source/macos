@@ -1,0 +1,213 @@
+dbox
+====
+
+dbox is Dovecot's own high-performance mailbox format. The original version was
+introduced in v1.0 alpha4, but since then it has been completely redesigned in
+v1.1 series and improved even further in v2.0.
+
+dbox can be used in two ways:
+
+ 1. *single-dbox* ('sdbox' in <mail location> [MailLocation.txt]): One message
+    per file, similar to <Maildir> [MailboxFormat.Maildir.txt]. For backwards
+    compatibility,'dbox' is an alias to 'sdbox' in <mail_location>
+    [MailLocation.txt].
+ 2. *multi-dbox* ('mdbox' in <mail location> [MailLocation.txt]): Multiple
+    messages per file, but unlike <mbox> [MailboxFormat.mbox.txt] multiple
+    files per mailbox.
+
+One of the main reasons for dbox's high performance is that it uses Dovecot's
+index files as the only storage for message flags and keywords. This means that
+indexes don't have to be "synchronized". Dovecot trusts that they're always
+up-to-date (unless it sees that something is clearly broken).
+
+dbox has a feature for transparently moving message data to an alternate
+storage area. See <Alternate storage> [MailboxFormat.dbox.txt] below.
+
+dbox storage is extensible, so in future there will be other extensions. Some
+things that are planned:
+
+ * Single instance attachment storage. If multiple mailboxes/users have the
+   same attachment, it's stored only once in disk.
+
+Layout
+------
+
+By default, the dbox filesystem layout will be as follows. Data which isn't the
+actual message content is stored in a layout common to both *single-dbox* and
+*multi-dbox*:
+
+ * <mail location root>'/mailboxes/INBOX/dbox-Mails/dovecot.index*' - Index
+   files for INBOX
+ * <mail location root>'/mailboxes/foo/dbox-Mails/dovecot.index*' - Index files
+   for mailbox "foo"
+ * <mail location root>'/mailboxes/foo/bar/dbox-Mails/dovecot.index*' - Index
+   files for mailbox "foo/bar"
+ * <mail location root>'/dovecot.mailbox.log*' - Mailbox changelog
+ * <mail location root>'/subscriptions' - subscribed mailboxes list
+ * <mail location root>'/dovecot-uidvalidity*' - IMAP UID validity
+
+Note that with dbox the Index files actually contain significant data which is
+held nowhere else. Index files for both *single-dbox* and *multi-dbox* contain
+message flags and keywords. For *multi-dbox*, the index file also contains the
+map_uids which link (via the "map index") to the actual message data. This data
+cannot be automatically recreated, so it is important that Index files are
+treated with the same care as message data files.
+
+Index files can be stored in a different location by using the INDEX parameter
+in the mail location specification. If the INDEX parameter is specified, it
+will make Dovecot look for the Index files as follows:
+
+ * <INDEX location>'/mailboxes/INBOX/dbox-Mails/dovecot.index*' - Index files
+   for INBOX
+ * <INDEX location>'/mailboxes/foo/dbox-Mails/dovecot.index*' - Index files for
+   mailbox "foo"
+ * <INDEX location>'/mailboxes/foo/bar/dbox-Mails/dovecot.index*' - Index files
+   for mailbox "foo/bar"
+
+Actual message content is stored differently depending on whether it is
+*single-dbox* or *multi-dbox*.
+
+Under *single-dbox* we have:
+
+ * <mail location root>'/mailboxes/INBOX/dbox-Mails/u.*' - Numbered files
+   ('u.1','u.2', ...) each containing one message of INBOX
+ * <mail location root>'/mailboxes/foo/dbox-Mails/u.*' - Files each containing
+   one message for mailbox "foo"
+ * <mail location root>'/mailboxes/foo/bar/dbox-Mails/u.*' - Files each
+   containing one message for for mailbox "foo/bar"
+
+Under *multi-dbox* we have:
+
+ * <mail location root>'/storage/dovecot.map.index*' - "Map index" containing a
+   record for each message stored
+ * <mail location root>'/storage/m.*' - Numbered files ('m.1', 'm.2', ...) each
+   containing one or multiple messages
+
+With Dovecot versions 2.0.4 and later, setting the INDEX parameter sets the
+location of the "map index" as well as the location of the mailbox indexes. So
+this would make the "map index" be stored as follows:
+
+ * <INDEX location>'/storage/dovecot.map.index*' - "Map index" containing a
+   record for each message stored
+
+Multi-dbox
+----------
+
+You can enable multi-dbox with:
+
+---%<-------------------------------------------------------------------------
+mail_location = mdbox:~/mdbox
+---%<-------------------------------------------------------------------------
+
+The directory layout (under '~/mdbox/') is:
+
+ * '~/mdbox/storage/' contains the actual mail data for all mailboxes
+ * '~/mdbox/mailboxes/' contains directories for mailboxes and their index
+   files
+
+The storage directory has files:
+
+ * 'dovecot.map.index*' files contain the "map index"
+ * 'm.*' files contain the mail data
+
+Each m.* file contains one or more messages. 'mdbox_rotate_size' setting can be
+used to configure how large the files can grow.
+
+The map index contains a record for each message:
+
+ * map_uid: Unique growing 32 bit number for the message.
+ * refcount: 16 bit reference counter for this message. Each time the message
+   is copied the refcount is increased.
+ * file_id: File number containing the message. For example if file_id=5, the
+   message is in file 'm.5'.
+ * offset: Offset to message within the file.
+ * size: Space used by the message in the file, including all metadata.
+
+Mailbox indexes refer to messages only using map_uids. This allows messages to
+be moved to different files by updating only the map index. Copying is done
+simply by appending a new record to mailbox index containing the existing
+map_uid and increasing its refcount. If refcount grows over 32768, currently
+Dovecot gives an error message. It's unlikely anyone really wants to copy the
+same message that many times.
+
+Expunging a message only decreases the message's refcount. The space is later
+freed in "purge" step. This is typically done in a nightly cronjob when there's
+less disk I/O activity. The purging first finds all files that have refcount=0
+mails. Then it goes through each file and copies the refcount>0 mails to other
+mdbox files (to the same files as where newly saved messages would also go),
+updates the map index and finally deletes the original file. So there is never
+any overwriting or file truncation.
+
+The purging can be invoked explicitly running <doveadm purge>
+[Tools.Doveadm.Purge.txt].
+
+There are several safety features built into dbox to avoid losing messages or
+their state if map index or mailbox index gets corrupted:
+
+ * Each message has a 128 bit globally unique identifier (GUID). The GUID is
+   saved to message metadata in m.* files and also to mailbox indexes. This
+   allows Dovecot to find messages even if map index gets corrupted.
+ * Whenever index file is rewritten, the old index is renamed to
+   'dovecot.index.backup'. If the main index becomes corrupted, this backup
+   index is used to restore flags and figure out what messages belong to the
+   mailbox.
+ * Initial mailbox where message was saved to is stored in the message metadata
+   in m.* files. So if all indexes get lost, the messages are put to their
+   initial mailboxes. This is better than placing everything into a single
+   mailbox.
+
+Alternate storage
+-----------------
+
+Unlike Maildir, with dbox the message file names don't change. This makes it
+possible to support storing files in multiple directories or mount points. dbox
+supports looking up files from "altpath" if they're not found from the primary
+path. This means that it's possible to move older mails that are rarely
+accessed to cheaper (slower) storage.
+
+To enable this functionality, use the 'ALT' parameter in the mail location. For
+example, specifying the mail location as:
+
+---%<-------------------------------------------------------------------------
+mail_location = mdbox:/var/vmail/%d/%n:ALT=/altstorage/vmail/%d/%n
+---%<-------------------------------------------------------------------------
+
+will make Dovecot look for message data first under '/var/vmail/%d/%n'
+("primary storage"), and if it is not found there it will look under
+'/altstorage/vmail/%d/%n' ("alternate storage") instead.
+
+Keep the unmounted '/altstorage' directory permissions such that Dovecot mail
+processes can't create directories under it (e.g. root:root 0755). This way if
+the alt storage isn't mounted for some reason, Dovecot won't think that all the
+messages in alt storage were deleted and lose their flags.
+
+When messages are moved from primary storage to alternate storage, only the
+actual message data (stored in files 'u.*' under *single-dbox* and 'm.*' under
+*multi-dbox*) is moved to alternate storage; everything else remains in the
+primary storage.
+
+Message data can be moved from primary storage to alternate storage using
+<doveadm altmove> [Tools.Doveadm.Altmove.txt].
+
+The granularity at which data is moved to alternate storage is individual
+messages. This is true even for *multi-dbox* when multiple messages are stored
+in a single 'm.*' storage file. If individual messages from an 'm.*' storage
+file need to be moved to alternate storage, the message data is written out to
+a different 'm.*' storage file (either new or existing) in the alternate
+storage area and the "map index" updated accordingly.
+
+Alternate storage is completely transparent at the IMAP/POP level. Users
+accessing mail through IMAP or POP cannot normally tell if any given message is
+stored in primary storage or alternate storage. Conceivably users might be able
+to measure a performance difference; the point is that there is no IMAP/POP
+command which could be used to expose this information. It is entirely possible
+to have a mail folder which contains a mix of messages stored in primary
+storage and alternate storage.
+
+An upshot of the way alternate storage works is that any given storage file
+('mailboxes/<folder>/dbox-Mails/u.*' (sdbox) or 'storage/m.*' (mdbox)) can only
+appear *either* in the primary storage area *or* the alternate storage area but
+not both — if the corresponding file appears in both areas then there is an
+inconsistency.
+
+(This file was created from the wiki on 2011-05-11 04:42)

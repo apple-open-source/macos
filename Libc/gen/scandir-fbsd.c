@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)scandir.c	8.3 (Berkeley) 1/2/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/scandir.c,v 1.7 2002/02/01 01:32:19 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/scandir.c,v 1.9 2008/03/16 19:08:53 das Exp $");
 
 /*
  * Scan the directory dirname calling select to make a list of selected
@@ -45,8 +41,6 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/scandir.c,v 1.7 2002/02/01 01:32:19 obrien 
  */
 
 #include "namespace.h"
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,20 +62,13 @@ scandir(dirname, namelist, select, dcomp)
 {
 	struct dirent *d, *p, **names = NULL;
 	size_t nitems = 0;
-	struct stat stb;
 	long arraysz;
 	DIR *dirp;
 
 	if ((dirp = opendir(dirname)) == NULL)
 		return(-1);
-	if (_fstat(dirp->dd_fd, &stb) < 0)
-		goto fail;
 
-	/*
-	 * estimate the array size by taking the size of the directory file
-	 * and dividing it by a multiple of the minimum size entry.
-	 */
-	arraysz = (stb.st_size / 24);
+	arraysz = 32;	/* initial estimate of the array size */
 	names = (struct dirent **)malloc(arraysz * sizeof(struct dirent *));
 	if (names == NULL)
 		goto fail;
@@ -105,17 +92,16 @@ scandir(dirname, namelist, select, dcomp)
 		 * realloc the maximum size.
 		 */
 		if (nitems >= arraysz) {
-			const int inc = 10;	/* increase by this much */
 			struct dirent **names2;
 
 			names2 = (struct dirent **)realloc((char *)names,
-				(arraysz + inc) * sizeof(struct dirent *));
+				(arraysz * 2) * sizeof(struct dirent *));
 			if (names2 == NULL) {
 				free(p);
 				goto fail;
 			}
 			names = names2;
-			arraysz += inc;
+			arraysz *= 2;
 		}
 		names[nitems++] = p;
 	}

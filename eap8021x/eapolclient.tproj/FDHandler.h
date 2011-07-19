@@ -61,4 +61,4 @@ FDHandler_disable(FDHandler * handler);
 int
 FDHandler_fd(FDHandler * handler);
 
-#endif _S_FDHANDLER_H
+#endif /* _S_FDHANDLER_H */

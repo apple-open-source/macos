@@ -29,25 +29,37 @@
 #include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
 #include "LinkHash.h"
-#include "StringHash.h"
 #include "UserScript.h"
 #include "UserStyleSheet.h"
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
     class KURL;
-    class IndexedDatabase;
+    class GroupSettings;
+    class IDBFactoryBackendInterface;
     class Page;
+    class SecurityOrigin;
     class StorageNamespace;
 
-    class PageGroup : public Noncopyable {
+    class PageGroup {
+        WTF_MAKE_NONCOPYABLE(PageGroup); WTF_MAKE_FAST_ALLOCATED;
     public:
         PageGroup(const String& name);
         PageGroup(Page*);
         ~PageGroup();
 
         static PageGroup* pageGroup(const String& groupName);
+
         static void closeLocalStorage();
+
+#if ENABLE(DOM_STORAGE)
+        static void clearLocalStorageForAllOrigins();
+        static void clearLocalStorageForOrigin(SecurityOrigin*);
+        // DumpRenderTree helper that triggers a StorageArea sync.
+        static void syncLocalStorage();
+#endif
+        static unsigned numberOfPageGroups();
         
         const HashSet<Page*>& pages() const { return m_pages; }
 
@@ -58,6 +70,7 @@ namespace WebCore {
 
         void addVisitedLink(const KURL&);
         void addVisitedLink(const UChar*, size_t);
+        void addVisitedLinkHash(LinkHash);
         void removeVisitedLinks();
 
         static void setShouldTrackVisitedLinks(bool);
@@ -70,30 +83,36 @@ namespace WebCore {
         StorageNamespace* localStorage();
         bool hasLocalStorage() { return m_localStorage; }
 #endif
-#if ENABLE(DOM_STORAGE)
-        IndexedDatabase* indexedDatabase();
+#if ENABLE(INDEXED_DATABASE)
+        IDBFactoryBackendInterface* idbFactory();
+        bool hasIDBFactory() { return m_factoryBackend; }
 #endif
 
-        void addUserScriptToWorld(DOMWrapperWorld*, const String& source, const KURL&, 
+        void addUserScriptToWorld(DOMWrapperWorld*, const String& source, const KURL&,
                                   PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist,
-                                  UserScriptInjectionTime);
+                                  UserScriptInjectionTime, UserContentInjectedFrames);
         void addUserStyleSheetToWorld(DOMWrapperWorld*, const String& source, const KURL&,
-                               PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist);
-        
+                                      PassOwnPtr<Vector<String> > whitelist, PassOwnPtr<Vector<String> > blacklist,
+                                      UserContentInjectedFrames,
+                                      UserStyleLevel level = UserStyleUserLevel,
+                                      UserStyleInjectionTime injectionTime = InjectInExistingDocuments);
         void removeUserScriptFromWorld(DOMWrapperWorld*, const KURL&);
         void removeUserStyleSheetFromWorld(DOMWrapperWorld*, const KURL&);
-        
+
         void removeUserScriptsFromWorld(DOMWrapperWorld*);
         void removeUserStyleSheetsFromWorld(DOMWrapperWorld*);
-    
+
         void removeAllUserContent();
-        
+
         const UserScriptMap* userScripts() const { return m_userScripts.get(); }
         const UserStyleSheetMap* userStyleSheets() const { return m_userStyleSheets.get(); }
 
+        GroupSettings* groupSettings() const { return m_groupSettings.get(); }
+
     private:
         void addVisitedLink(LinkHash stringHash);
-
+        void resetUserStyleCacheInAllFrames();
+  
         String m_name;
 
         HashSet<Page*> m_pages;
@@ -106,11 +125,13 @@ namespace WebCore {
         RefPtr<StorageNamespace> m_localStorage;
 #endif
 #if ENABLE(INDEXED_DATABASE)
-        RefPtr<IndexedDatabase> m_indexedDatabase;
+        RefPtr<IDBFactoryBackendInterface> m_factoryBackend;
 #endif
 
         OwnPtr<UserScriptMap> m_userScripts;
         OwnPtr<UserStyleSheetMap> m_userStyleSheets;
+
+        OwnPtr<GroupSettings> m_groupSettings;
     };
 
 } // namespace WebCore

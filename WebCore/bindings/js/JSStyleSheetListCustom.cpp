@@ -35,18 +35,6 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSStyleSheetList::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-
-    StyleSheetList* list = impl();
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
-
-    unsigned length = list->length();
-    for (unsigned i = 0; i < length; ++i)
-        markDOMObjectWrapper(markStack, globalData, list->item(i));
-}
-
 bool JSStyleSheetList::canGetItemsForName(ExecState*, StyleSheetList* styleSheetList, const Identifier& propertyName)
 {
     return styleSheetList->getNamedItem(identifierToString(propertyName));
@@ -57,7 +45,7 @@ JSValue JSStyleSheetList::nameGetter(ExecState* exec, JSValue slotBase, const Id
     JSStyleSheetList* thisObj = static_cast<JSStyleSheetList*>(asObject(slotBase));
     HTMLStyleElement* element = thisObj->impl()->getNamedItem(identifierToString(propertyName));
     ASSERT(element);
-    return toJS(exec, element->sheet());
+    return toJS(exec, thisObj->globalObject(), element->sheet());
 }
 
 } // namespace WebCore

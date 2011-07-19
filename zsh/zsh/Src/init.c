@@ -42,7 +42,7 @@ int noexitct = 0;
 /* buffer for $_ and its length */
 
 /**/
-char *underscore;
+char *zunderscore;
 
 /**/
 int underscorelen, underscoreused;
@@ -99,12 +99,15 @@ mod_export struct hookdef zshhooks[] = {
 /* keep executing lists until EOF found */
 
 /**/
-void
+enum loop_return
 loop(int toplevel, int justonce)
 {
     Eprog prog;
+    int err, non_empty = 0;
 
     pushheap();
+    if (!toplevel)
+	lexsave();
     for (;;) {
 	freeheap();
 	if (stophist == 3)	/* re-entry via preprompt() */
@@ -148,9 +151,10 @@ loop(int toplevel, int justonce)
 	if (hend(prog)) {
 	    int toksav = tok;
 
+	    non_empty = 1;
 	    if (toplevel &&
 		(getshfunc("preexec") ||
-		 paramtab->getnode(paramtab, "preexec_functions"))) {
+		 paramtab->getnode(paramtab, "preexec" HOOK_SUFFIX))) {
 		LinkList args;
 		char *cmdstr;
 
@@ -178,7 +182,7 @@ loop(int toplevel, int justonce)
 	    }
 	    if (stopmsg)	/* unset 'you have stopped jobs' flag */
 		stopmsg--;
-	    execode(prog, 0, 0);
+	    execode(prog, 0, 0, toplevel ? "toplevel" : "file");
 	    tok = toksav;
 	    if (toplevel)
 		noexitct = 0;
@@ -199,15 +203,24 @@ loop(int toplevel, int justonce)
 	if (justonce)
 	    break;
     }
+    err = errflag;
+    if (!toplevel)
+	lexrestore();
     popheap();
+
+    if (err)
+	return LOOP_ERROR;
+    if (!non_empty)
+	return LOOP_EMPTY;
+    return LOOP_OK;
 }
 
 static char *cmd;
 static int restricted;
 
 /**/
-void
-parseargs(char **argv)
+static void
+parseargs(char **argv, char **runscript)
 {
     int optionbreak = 0;
     char **x;
@@ -225,6 +238,11 @@ parseargs(char **argv)
      * be changed.  At the end of the function, a value of 2 gets        *
      * changed to 1.                                                     */
     opts[INTERACTIVE] = isatty(0) ? 2 : 0;
+    /*
+     * MONITOR is similar:  we initialise it to 2, and if it's
+     * still 2 at the end, we set it to the value of INTERACTIVE.
+     */
+    opts[MONITOR] = 2;   /* may be unset in init_io() */
     opts[SHINSTDIN] = 0;
     opts[SINGLECOMMAND] = 0;
 
@@ -317,15 +335,11 @@ parseargs(char **argv)
     }
     if (*argv) {
 	if (unset(SHINSTDIN)) {
-	    if (!cmd)
-		SHIN = movefd(open(unmeta(*argv), O_RDONLY | O_NOCTTY));
-	    if (SHIN == -1) {
-		zerr("can't open input file: %s", *argv);
-		exit(127);
-	    }
+	    if (cmd)
+		argzero = *argv;
+	    else
+		*runscript = *argv;
 	    opts[INTERACTIVE] &= 1;
-	    argzero = *argv;
-	    scriptfilename = argzero;
 	    argv++;
 	}
 	while (*argv)
@@ -335,6 +349,8 @@ parseargs(char **argv)
     if(isset(SINGLECOMMAND))
 	opts[INTERACTIVE] &= 1;
     opts[INTERACTIVE] = !!opts[INTERACTIVE];
+    if (opts[MONITOR] == 2)
+	opts[MONITOR] = opts[INTERACTIVE];
     pparams = x = (char **) zshcalloc((countlinknodes(paramlist) + 1) * sizeof(char *));
 
     while ((*x++ = (char *)getlinknode(paramlist)));
@@ -460,8 +476,16 @@ init_io(void)
     if (SHTTY == -1) {
 	zsfree(ttystrname);
 	ttystrname = ztrdup("");
-    } else if (!ttystrname) {
-	ttystrname = ztrdup("/dev/tty");
+    } else {
+#ifdef FD_CLOEXEC
+	long fdflags = fcntl(SHTTY, F_GETFD, 0);
+	if (fdflags != (long)-1) {
+	    fdflags |= FD_CLOEXEC;
+	    fcntl(SHTTY, F_SETFD, fdflags);
+	}
+#endif
+	if (!ttystrname)
+	    ttystrname = ztrdup("/dev/tty");
     }
 
     /* We will only use zle if shell is interactive, *
@@ -478,7 +502,7 @@ init_io(void)
      * process group leader.
      */
     mypid = (zlong)getpid();
-    if (opts[MONITOR] && interact && (SHTTY != -1)) {
+    if (opts[MONITOR] && (SHTTY != -1)) {
 	origpgrp = GETPGRP();
         acquire_pgrp(); /* might also clear opts[MONITOR] */
     } else
@@ -709,7 +733,6 @@ setupvals(void)
     zero_mnumber.type = MN_INTEGER;
     zero_mnumber.u.l = 0;
 
-    lineno = 1;
     noeval = 0;
     curhist = 0;
     histsiz = DEFAULT_HISTSIZE;
@@ -775,7 +798,7 @@ setupvals(void)
     if(unset(INTERACTIVE)) {
 	prompt = ztrdup("");
 	prompt2 = ztrdup("");
-    } else if (emulation == EMULATE_KSH || emulation == EMULATE_SH) {
+    } else if (EMULATION(EMULATE_KSH|EMULATE_SH)) {
 	prompt  = ztrdup(privasserted() ? "# " : "$ ");
 	prompt2 = ztrdup("> ");
     } else {
@@ -783,16 +806,17 @@ setupvals(void)
 	prompt2 = ztrdup("%_> ");
     }
     prompt3 = ztrdup("?# ");
-    prompt4 = (emulation == EMULATE_KSH || emulation == EMULATE_SH)
+    prompt4 = EMULATION(EMULATE_KSH|EMULATE_SH)
 	? ztrdup("+ ") : ztrdup("+%N:%i> ");
     sprompt = ztrdup("zsh: correct '%R' to '%r' [nyae]? ");
 
-    ifs         = ztrdup(DEFAULT_IFS);
+    ifs         = EMULATION(EMULATE_KSH|EMULATE_SH) ?
+	ztrdup(DEFAULT_IFS_SH) : ztrdup(DEFAULT_IFS);
     wordchars   = ztrdup(DEFAULT_WORDCHARS);
     postedit    = ztrdup("");
-    underscore  = (char *) zalloc(underscorelen = 32);
+    zunderscore  = (char *) zalloc(underscorelen = 32);
     underscoreused = 1;
-    *underscore = '\0';
+    *zunderscore = '\0';
 
     zoptarg = ztrdup("");
     zoptind = 1;
@@ -811,14 +835,14 @@ setupvals(void)
     /* Get password entry and set info for `USERNAME' */
 #ifdef USE_GETPWUID
     if ((pswd = getpwuid(cached_uid))) {
-	if (emulation == EMULATE_ZSH)
+	if (EMULATION(EMULATE_ZSH))
 	    home = metafy(pswd->pw_dir, -1, META_DUP);
 	cached_username = ztrdup(pswd->pw_name);
     }
     else
 #endif /* USE_GETPWUID */
     {
-	if (emulation == EMULATE_ZSH)
+	if (EMULATION(EMULATE_ZSH))
 	    home = ztrdup("/");
 	cached_username = ztrdup("");
     }
@@ -828,7 +852,7 @@ setupvals(void)
      * In non-native emulations HOME must come from the environment;
      * we're not allowed to set it locally.
      */
-    if (emulation == EMULATE_ZSH)
+    if (EMULATION(EMULATE_ZSH))
 	ptr = home;
     else
 	ptr = zgetenv("HOME");
@@ -837,8 +861,10 @@ setupvals(void)
     else if ((ptr = zgetenv("PWD")) && (strlen(ptr) < PATH_MAX) &&
 	     (ptr = metafy(ptr, -1, META_STATIC), ispwd(ptr)))
 	pwd = ztrdup(ptr);
-    else
+    else {
+	pwd = NULL;
 	pwd = metafy(zgetcwd(), -1, META_DUP);
+    }
 
     oldpwd = ztrdup(pwd);  /* initialize `OLDPWD' = `PWD' */
 
@@ -885,14 +911,7 @@ setupvals(void)
     bufstack = znewlinklist();
     hsubl = hsubr = NULL;
     lastpid = 0;
-    bshin = SHIN ? fdopen(SHIN, "r") : stdin;
-    if (isset(SHINSTDIN) && !SHIN && unset(INTERACTIVE)) {
-#ifdef _IONBF
-	setvbuf(stdin, NULL, _IONBF, 0);
-#else
-	setlinebuf(stdin);
-#endif
-    }
+    lastpid_status = -1L;
 
     get_usage();
 
@@ -903,6 +922,60 @@ setupvals(void)
 
     /* Colour sequences for outputting colours in prompts and zle */
     set_default_colour_sequences();
+}
+
+/*
+ * Setup shell input, opening any script file (runscript, may be NULL).
+ * This is deferred until we have a path to search, in case
+ * PATHSCRIPT is set for sh-compatible behaviour.
+ */
+static void
+setupshin(char *runscript)
+{
+    if (runscript) {
+	char *funmeta, *sfname = NULL;
+	struct stat st;
+
+	funmeta = unmeta(runscript);
+	/*
+	 * Always search the current directory first.
+	 */
+	if (access(funmeta, F_OK) == 0 &&
+	    stat(funmeta, &st) >= 0 &&
+	    !S_ISDIR(st.st_mode))
+	    sfname = runscript;
+	else if (isset(PATHSCRIPT) && !strchr(runscript, '/')) {
+	    /*
+	     * With the PATHSCRIPT option, search the path if no
+	     * path was given in the script name.
+	     */
+	    funmeta = pathprog(runscript, &sfname);
+	}
+	if (!sfname ||
+	    (SHIN = movefd(open(funmeta, O_RDONLY | O_NOCTTY)))
+	    == -1) {
+	    zerr("can't open input file: %s", runscript);
+	    exit(127);
+	}
+	scriptfilename = sfname;
+	argzero = runscript;
+    }
+    /*
+     * We only initialise line numbering once there is a script to
+     * read commands from.
+     */
+    lineno = 1;
+    /*
+     * Finish setting up SHIN and its relatives.
+     */
+    bshin = SHIN ? fdopen(SHIN, "r") : stdin;
+    if (isset(SHINSTDIN) && !SHIN && unset(INTERACTIVE)) {
+#ifdef _IONBF
+	setvbuf(stdin, NULL, _IONBF, 0);
+#else
+	setlinebuf(stdin);
+#endif
+    }
 }
 
 /* Initialize signal handling */
@@ -954,7 +1027,7 @@ run_init_scripts(void)
 {
     noerrexit = -1;
 
-    if (emulation == EMULATE_KSH || emulation == EMULATE_SH) {
+    if (EMULATION(EMULATE_KSH|EMULATE_SH)) {
 	if (islogin)
 	    source("/etc/profile");
 	if (unset(PRIVILEGED)) {
@@ -1036,7 +1109,7 @@ init_misc(void)
 	    fclose(bshin);
 	SHIN = movefd(open("/dev/null", O_RDONLY | O_NOCTTY));
 	bshin = fdopen(SHIN, "r");
-	execstring(cmd, 0, 1);
+	execstring(cmd, 0, 1, "cmdarg");
 	stopmsg = 1;
 	zexit(lastval, 0);
     }
@@ -1045,10 +1118,13 @@ init_misc(void)
 	readhistfile(NULL, 0, HFILE_USE_OPTIONS);
 }
 
-/* source a file */
+/*
+ * source a file
+ * Returns one of the SOURCE_* enum values.
+ */
 
 /**/
-mod_export int
+mod_export enum source_return
 source(char *s)
 {
     Eprog prog;
@@ -1062,11 +1138,12 @@ source(char *s)
     int ocsp;
     int otrap_return = trap_return, otrap_state = trap_state;
     struct funcstack fstack;
+    enum source_return ret = SOURCE_OK;
 
     if (!s || 
 	(!(prog = try_source_file((us = unmeta(s)))) &&
 	 (tempfd = movefd(open(us, O_RDONLY | O_NOCTTY))) == -1)) {
-	return 1;
+	return SOURCE_NOT_FOUND;
     }
 
     /* save the current shell state */
@@ -1093,6 +1170,11 @@ source(char *s)
     scriptname = s;
     scriptfilename = s;
 
+    if (isset(SOURCETRACE)) {
+	printprompt4();
+	fprintf(xtrerr ? xtrerr : stderr, "<sourcetrace>\n");
+    }
+
     /*
      * The special return behaviour of traps shouldn't
      * trigger in files sourced from traps; the return
@@ -1115,10 +1197,28 @@ source(char *s)
     if (prog) {
 	pushheap();
 	errflag = 0;
-	execode(prog, 1, 0);
+	execode(prog, 1, 0, "filecode");
 	popheap();
-    } else
-	loop(0, 0);		     /* loop through the file to be sourced  */
+	if (errflag)
+	    ret = SOURCE_ERROR;
+    } else {
+	/* loop through the file to be sourced  */
+	switch (loop(0, 0))
+	{
+	case LOOP_OK:
+	    /* nothing to do but compilers like a complete enum */
+	    break;
+
+	case LOOP_EMPTY:
+	    /* Empty code resets status */
+	    lastval = 0;
+	    break;
+
+	case LOOP_ERROR:
+	    ret = SOURCE_ERROR;
+	    break;
+	}
+    }
     funcstack = funcstack->prev;
     sourcelevel--;
 
@@ -1148,7 +1248,7 @@ source(char *s)
     cmdstack = ocs;
     cmdsp = ocsp;
 
-    return 0;
+    return ret;
 }
 
 /* Try to source a file in the home directory */
@@ -1160,8 +1260,7 @@ sourcehome(char *s)
     char *h;
 
     queue_signals();
-    if (emulation == EMULATE_SH || emulation == EMULATE_KSH ||
-	!(h = getsparam("ZDOTDIR"))) {
+    if (EMULATION(EMULATE_SH|EMULATE_KSH) || !(h = getsparam("ZDOTDIR"))) {
 	h = home;
 	if (!h)
 	    return;
@@ -1281,7 +1380,7 @@ VA_DCL
 	pptbuf = unmetafy(promptexpand(lp ? *lp : NULL, 0, NULL, NULL,
 				       NULL),
 			  &pptlen);
-	write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
+	write_loop(2, pptbuf, pptlen);
 	free(pptbuf);
 
 	ret = shingetline();
@@ -1333,7 +1432,7 @@ mod_export int use_exit_printed;
 mod_export int
 zsh_main(int argc, char **argv)
 {
-    char **t;
+    char **t, *runscript = NULL;
     int t0;
 #ifdef USE_LOCALE
     setlocale(LC_ALL, "");
@@ -1385,17 +1484,20 @@ zsh_main(int argc, char **argv)
     createoptiontable();
     emulate(zsh_name, 1);   /* initialises most options */
     opts[LOGINSHELL] = (**argv == '-');
-    opts[MONITOR] = 1;   /* may be unset in init_io() */
     opts[PRIVILEGED] = (getuid() != geteuid() || getgid() != getegid());
     opts[USEZLE] = 1;   /* may be unset in init_io() */
-    parseargs(argv);   /* sets INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
+    /* sets INTERACTIVE, SHINSTDIN and SINGLECOMMAND */
+    parseargs(argv, &runscript);
 
     SHTTY = -1;
     init_io();
     setupvals();
+
     init_signals();
     init_bltinmods();
+    init_builtins();
     run_init_scripts();
+    setupshin(runscript);
     init_misc();
 
     for (;;) {

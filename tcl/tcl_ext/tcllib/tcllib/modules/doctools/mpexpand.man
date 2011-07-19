@@ -4,6 +4,7 @@
 [copyright {2003 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation toolbox}]
 [titledesc {Markup processor}]
+[category  {Documentation tools}]
 [description]
 [para]
 

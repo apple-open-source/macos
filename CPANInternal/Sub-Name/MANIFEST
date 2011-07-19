@@ -1,0 +1,8 @@
+Changes
+MANIFEST
+META.yml
+Makefile.PL
+Name.xs
+README
+lib/Sub/Name.pm
+t/smoke.t

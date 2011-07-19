@@ -341,6 +341,9 @@ dtrace_setup(dtrace_hdl_t *dtp, dtrace_bufdesc_t ***agg_bufs)
 		if (errno == E2BIG)
 			return (dt_set_errno(dtp, EDT_ENDTOOBIG));
 
+		if (errno == EBUSY)
+			return (dt_set_errno(dtp, EDT_ENABLING_ERR));
+
 		if (errno == ENOSPC)
 			return (dt_set_errno(dtp, EDT_BUFTOOSMALL));
 

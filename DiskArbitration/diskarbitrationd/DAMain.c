@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,7 +48,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
 #include <IOKit/storage/IOMedia.h>
-#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 static const CFStringRef __kDABundlePath = CFSTR( "/System/Library/Frameworks/DiskArbitration.framework" );
 
@@ -64,6 +64,7 @@ CFURLRef               gDABundlePath                   = NULL;
 CFStringRef            gDAConsoleUser                  = NULL;
 gid_t                  gDAConsoleUserGID               = 0;
 uid_t                  gDAConsoleUserUID               = 0;
+CFArrayRef             gDAConsoleUserList              = NULL;
 CFMutableArrayRef      gDADiskList                     = NULL;
 Boolean                gDAExit                         = FALSE;
 CFMutableArrayRef      gDAFileSystemList               = NULL;
@@ -149,11 +150,11 @@ static Boolean __DAMainCreateMountPointFolder( void )
                          * Determine whether the mount point cookie file exists.
                          */
 
-                        strcpy( path, kDAMainMountPointFolder );
-                        strcat( path, "/" );
-                        strcat( path, item->d_name );
-                        strcat( path, "/" );
-                        strcat( path, kDAMainMountPointFolderCookieFile );
+                        strlcpy( path, kDAMainMountPointFolder,           sizeof( path ) );
+                        strlcat( path, "/",                               sizeof( path ) );
+                        strlcat( path, item->d_name,                      sizeof( path ) );
+                        strlcat( path, "/",                               sizeof( path ) );
+                        strlcat( path, kDAMainMountPointFolderCookieFile, sizeof( path ) );
 
                         if ( stat( path, &status ) == 0 )
                         {
@@ -176,9 +177,9 @@ static Boolean __DAMainCreateMountPointFolder( void )
                          * Remove the link.
                          */
 
-                        strcpy( path, kDAMainMountPointFolder );
-                        strcat( path, "/" );
-                        strcat( path, item->d_name );
+                        strlcpy( path, kDAMainMountPointFolder, sizeof( path ) );
+                        strlcat( path, "/",                     sizeof( path ) );
+                        strlcat( path, item->d_name,            sizeof( path ) );
 
                         unlink( path );
                     }
@@ -239,7 +240,8 @@ static void __DAMain( void )
      * Initialize console user.
      */
 
-    gDAConsoleUser = SCDynamicStoreCopyConsoleUser( NULL, &gDAConsoleUserUID, &gDAConsoleUserGID );
+    gDAConsoleUser     = SCDynamicStoreCopyConsoleUser( NULL, &gDAConsoleUserUID, &gDAConsoleUserGID );
+    gDAConsoleUserList = SCDynamicStoreCopyConsoleInformation( NULL );
 
     /*
      * Initialize log.
@@ -425,7 +427,7 @@ static void __DAMain( void )
      * Create the System Configuration notification run loop source.
      */
 
-    __gDAConfigurationPort = SCDynamicStoreCreate( kCFAllocatorDefault, CFSTR( _kDAServiceName ), _DAConfigurationCallback, NULL );
+    __gDAConfigurationPort = SCDynamicStoreCreate( kCFAllocatorDefault, CFSTR( _kDADaemonName ), _DAConfigurationCallback, NULL );
 
     if ( __gDAConfigurationPort == NULL )
     {
@@ -586,7 +588,7 @@ static void __DAMain( void )
      * Create the process ID file.
      */
 
-    sprintf( path, "/var/run/%s.pid", gDAProcessName );
+    snprintf( path, sizeof( path ), "/var/run/%s.pid", gDAProcessName );
 
     file = fopen( path, "w" );
 

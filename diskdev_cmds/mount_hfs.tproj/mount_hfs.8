@@ -32,14 +32,14 @@
 .Op Fl w
 .Op Fl x
 .Ar special 
-.Ar node
+.Ar directory
 .Sh DESCRIPTION
 The
 .Nm mount_hfs
 command attaches the HFS file system residing on the device
 .Pa special
 to the global file system namespace at the location indicated by
-.Pa node .
+.Pa directory .
 This command is normally executed by
 .Xr mount 8
 at boot time.

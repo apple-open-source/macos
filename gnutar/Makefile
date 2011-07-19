@@ -22,7 +22,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Makefile.in.diff tar-1.17-buildfix.diff \
                  EA.diff preallocate.diff quarantine.diff \
-                 PR5405409.diff PR5605786.diff PR6450027.diff
+                 PR5405409.diff PR5605786.diff PR6450027.diff \
+                 PR7691662.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j

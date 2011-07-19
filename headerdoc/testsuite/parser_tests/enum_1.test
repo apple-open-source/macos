@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$47|  enum {
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$47|  enum {
 	kSoda,
 	kBeer,
 	kMilk,
@@ -13,7 +13,7 @@ $358|/*!
   @constant kMilk Dairy beverages.
   @constant kWater Unflavored, non-sweet, non-caloric, non-alcoholic beverages.
 */
-$0|$10756|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$10910|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -107,6 +107,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => enum
@@ -205,8 +206,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -247,8 +248,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -290,8 +291,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -332,8 +333,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -374,8 +375,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -416,8 +417,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
 +---  
@@ -452,16 +453,16 @@ END OF OBJECT
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
 	<span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda" --><span class="var">kSoda</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer" --><span class="var">kBeer</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk" --><span class="var">kMilk</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater" --><span class="var">kWater</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda //test_ref/c/clconst/kSoda " machineGenerated="true" --><span class="var">kSoda</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer //test_ref/c/clconst/kBeer " machineGenerated="true" --><span class="var">kBeer</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk //test_ref/c/clconst/kMilk " machineGenerated="true" --><span class="var">kMilk</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater //test_ref/c/clconst/kWater " machineGenerated="true" --><span class="var">kWater</span><!-- /a --> 
 	};  
 END OF OBJECT
 
 
 
-$10756|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$10910|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -555,6 +556,7 @@ $parserState->{sodname} =>
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => enum
@@ -653,8 +655,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -695,8 +697,8 @@ LONG ATTRIBUTES: <p></p>
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -738,8 +740,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -780,8 +782,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -822,8 +824,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -864,8 +866,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
 +---  
@@ -900,909 +902,13 @@ END OF OBJECT
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
 	<span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda" --><span class="var">kSoda</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer" --><span class="var">kBeer</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk" --><span class="var">kMilk</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater" --><span class="var">kWater</span><!-- /a --> 
+	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda //test_ref/c/clconst/kSoda " machineGenerated="true" --><span class="var">kSoda</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer //test_ref/c/clconst/kBeer " machineGenerated="true" --><span class="var">kBeer</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk //test_ref/c/clconst/kMilk " machineGenerated="true" --><span class="var">kMilk</span><!-- /a -->, 
+	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater //test_ref/c/clconst/kWater " machineGenerated="true" --><span class="var">kWater</span><!-- /a --> 
 	};  
 END OF OBJECT
 
 
 
-_$34|testsuite/parser_tests/enum_1.test$1|C$6|enum 1$10756|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 1
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/enum_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/enum_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => enum
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 1
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 6
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  enum
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>    enum {
-             kSoda,
-             kBeer,
-             kMilk,
-         kWater   
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => enum
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 6
-typelist: enum
-namelist: 
-posstypes:  enum
-value: 
-returntype:    enum {             kSoda,             kBeer,             kMilk,         kWater   
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => kSoda
-Parsed Param 1 => kBeer
-Parsed Param 2 => kMilk
-Parsed Param 3 => kWater
--=: DUMP OF PARSE TREE :=-
-+---  
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kSoda
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kBeer
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kMilk
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kWater
-|   +---[ NEWLINE ]
-|   +---  
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: enum 1
-APIUID: //test_ref/doc/header/enum_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Enum
-    NAME: Beverage Categories Complete
-    APIUID: //test_ref/doc/title:tag/BeverageCategoriesComplete
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of anonymous enum with English name of more than one word.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Enum"
-    MASTERENUM: "1"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: "Categories Complete"
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kSoda
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kBeer
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kMilk
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kWater
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
-+---  
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kSoda
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kBeer
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kMilk
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kWater
-|   +---[ NEWLINE ]
-|   +---  
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
-	<span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda" --><span class="var">kSoda</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer" --><span class="var">kBeer</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk" --><span class="var">kMilk</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater" --><span class="var">kWater</span><!-- /a --> 
-	};  
-END OF OBJECT
-
-
-
-$10756|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 1
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/enum_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/enum_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => enum
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inEnum} => 1
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{inUnion} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 6
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} =>  enum
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>    enum {
-             kSoda,
-             kBeer,
-             kMilk,
-         kWater   
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => 
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => enum
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 6
-typelist: enum
-namelist: 
-posstypes:  enum
-value: 
-returntype:    enum {             kSoda,             kBeer,             kMilk,         kWater   
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => kSoda
-Parsed Param 1 => kBeer
-Parsed Param 2 => kMilk
-Parsed Param 3 => kWater
--=: DUMP OF PARSE TREE :=-
-+---  
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kSoda
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kBeer
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kMilk
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kWater
-|   +---[ NEWLINE ]
-|   +---  
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: enum 1
-APIUID: //test_ref/doc/header/enum_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Enum
-    NAME: Beverage Categories Complete
-    APIUID: //test_ref/doc/title:tag/BeverageCategoriesComplete
-    ABSTRACT: ""
-    DISCUSSION: "<p>Test of anonymous enum with English name of more than one word.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Enum"
-    MASTERENUM: "1"
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: "Categories Complete"
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kSoda
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kBeer
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kMilk
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: kWater
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
-+---  
-+---enum
-+--- 
-+---{
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kSoda
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kBeer
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kMilk
-|   +---,
-|   +---[ NEWLINE ]
-|   +---        
-|   +---kWater
-|   +---[ NEWLINE ]
-|   +---  
-|   +---}
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: Beverage Categories Complete (HeaderDoc::Enum)
-	<span class="keyword">enum</span> { 
-	    <!-- a logicalPath="//test_ref/c/econst/kSoda //test_ref/c/data/kSoda" --><span class="var">kSoda</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kBeer //test_ref/c/data/kBeer" --><span class="var">kBeer</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kMilk //test_ref/c/data/kMilk" --><span class="var">kMilk</span><!-- /a -->, 
-	    <!-- a logicalPath="//test_ref/c/econst/kWater //test_ref/c/data/kWater" --><span class="var">kWater</span><!-- /a --> 
-	};  
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$88|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/enum_1.test$1|C$6|enum 1$1|C$6|parser

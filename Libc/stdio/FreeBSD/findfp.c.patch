@@ -1,6 +1,14 @@
---- findfp.c.orig	2009-02-15 03:11:22.000000000 -0800
-+++ findfp.c	2009-02-15 18:45:19.000000000 -0800
-@@ -46,7 +46,10 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
+--- findfp.c.orig	2011-02-15 16:29:38.000000000 -0800
++++ findfp.c	2011-02-16 10:36:00.000000000 -0800
+@@ -36,13 +36,18 @@ static char sccsid[] = "@(#)findfp.c	8.2
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/findfp.c,v 1.34 2009/12/05 19:31:38 ed Exp $");
+ 
++#include <TargetConditionals.h>
++
+ #include <sys/param.h>
+ #include <machine/atomic.h>
+ #include <unistd.h>
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
@@ -11,37 +19,96 @@
  #include <spinlock.h>
  
  #include "libc_private.h"
-@@ -62,12 +65,19 @@ int	__sdidinit;
- 	 {0}, __sFX + file}
-   /*	 p r w flags file _bf z  cookie      close    read    seek    write */
-   /*     _ub _extra */
-+#define	__sFXInit	{0, PTHREAD_MUTEX_INITIALIZER}
+@@ -51,7 +56,11 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
+ 
+ int	__sdidinit;
+ 
++#if !TARGET_OS_EMBEDDED
+ #define	NDYNAMIC 10		/* add ten more whenever necessary */
++#else
++#define	NDYNAMIC 1		/* add one at a time on embedded */
++#endif
+ 
+ #define	std(flags, file) {		\
+ 	._flags = (flags),		\
+@@ -61,12 +70,32 @@ int	__sdidinit;
+ 	._read = __sread,		\
+ 	._seek = __sseek,		\
+ 	._write = __swrite,		\
++	._extra = __sFX + file,         \
+ }
++#define __sFXInit       {.fl_mutex = PTHREAD_MUTEX_INITIALIZER}
 +  /* set counted */
-+#define	__sFXInit3	{0, PTHREAD_MUTEX_INITIALIZER, 0, 0, 0, 1}
- 				/* the usual - (stdin + stdout + stderr) */
++#define __sFXInit3      {.fl_mutex = PTHREAD_MUTEX_INITIALIZER, .counted = 1}
 +
 +static int __scounted;		/* streams counted against STREAM_MAX */
 +static int __stream_max;
 +
++#if !TARGET_OS_EMBEDDED
++/* usual and usual_extra are data pigs. See 7929728. For embedded we should
++ * always allocate dynamically, and probably should for desktop too. */
+ 				/* the usual - (stdin + stdout + stderr) */
  static FILE usual[FOPEN_MAX - 3];
- static struct __sFILEX usual_extra[FOPEN_MAX - 3];
++static struct __sFILEX usual_extra[FOPEN_MAX - 3];
  static struct glue uglue = { NULL, FOPEN_MAX - 3, usual };
++#endif /* !TARGET_OS_EMBEDDED */
  
--static struct __sFILEX __sFX[3];
+-static FILE __sF[3] = {
 +static struct __sFILEX __sFX[3] = {__sFXInit3, __sFXInit3, __sFXInit3};
++
++/*
++ * We can't make this 'static' due to binary compatibility concerns.
++ * This also means we cannot change the sizeof(FILE) and must continue to
++ * use the __sFILEX stuff to add to FILE.
++ */
++FILE __sF[3] = {
+ 	std(__SRD, STDIN_FILENO),
+ 	std(__SWR, STDOUT_FILENO),
+ 	std(__SWR|__SNBF, STDERR_FILENO)
+@@ -76,8 +105,13 @@ FILE *__stdinp = &__sF[0];
+ FILE *__stdoutp = &__sF[1];
+ FILE *__stderrp = &__sF[2];
  
- /*
-  * We can't make this 'static' until 6.0-current due to binary
-@@ -113,7 +123,7 @@ moreglue(n)
- {
++#if !TARGET_OS_EMBEDDED
+ struct glue __sglue = { &uglue, 3, __sF };
+ static struct glue *lastglue = &uglue;
++#else
++struct glue __sglue = { NULL, 3, __sF };
++static struct glue *lastglue = &__sglue;
++#endif
+ 
+ static struct glue *	moreglue(int);
+ 
+@@ -98,16 +132,25 @@ moreglue(n)
  	struct glue *g;
  	static FILE empty;
--	static struct __sFILEX emptyx;
-+	static struct __sFILEX emptyx = __sFXInit;
  	FILE *p;
- 	struct __sFILEX *fx;
++	static struct __sFILEX emptyx = __sFXInit;
++	struct __sFILEX *fx;
  
-@@ -139,7 +149,7 @@ moreglue(n)
+-	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE));
++	g = (struct glue *)malloc(sizeof(*g) + ALIGNBYTES + n * sizeof(FILE) +
++	    n * sizeof(struct __sFILEX));
+ 	if (g == NULL)
+ 		return (NULL);
+ 	p = (FILE *)ALIGN(g + 1);
++	fx = (struct __sFILEX *)&p[n];
+ 	g->next = NULL;
+ 	g->niobs = n;
+ 	g->iobs = p;
+-	while (--n >= 0)
+-		*p++ = empty;
++        
++	while (--n >= 0) {
++		*p = empty;
++		p->_extra = fx;
++		*p->_extra = emptyx;
++		p++, fx++;
++	}
+ 	return (g);
+ }
+ 
+@@ -115,7 +158,7 @@ moreglue(n)
   * Find a free FILE for fopen et al.
   */
  FILE *
@@ -50,7 +117,7 @@
  {
  	FILE	*fp;
  	int	n;
-@@ -147,6 +157,15 @@ __sfp()
+@@ -123,6 +166,15 @@ __sfp()
  
  	if (!__sdidinit)
  		__sinit();
@@ -66,14 +133,14 @@
  	/*
  	 * The list must be locked because a FILE may be updated.
  	 */
-@@ -179,12 +198,27 @@ found:
+@@ -155,12 +207,25 @@ found:
  	fp->_lb._base = NULL;	/* no line buffer */
  	fp->_lb._size = 0;
  /*	fp->_lock = NULL; */	/* once set always set (reused) */
-+	fp->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER;
- 	fp->_extra->orientation = 0;
+-	fp->_orientation = 0;
+-	memset(&fp->_mbstate, 0, sizeof(mbstate_t));
++	INITEXTRA(fp);
 +	fp->_extra->counted = count ? 1 : 0;
- 	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
  	return (fp);
  }
  
@@ -83,9 +150,9 @@
 +__private_extern__ void
 +__sfprelease(FILE *fp)
 +{
-+	if (fp->_extra->counted) {
++	if (fp->_counted) {
 +		OSAtomicDecrement32(&__scounted);
-+		fp->_extra->counted = 0;
++		fp->_counted = 0;
 +	}
 +	fp->_flags = 0;
 +}
@@ -94,12 +161,32 @@
   * XXX.  Force immediate allocation of internal memory.  Not used by stdio,
   * but documented historically for certain applications.  Bad applications.
   */
-@@ -244,6 +278,8 @@ __sinit()
- 		/* Make sure we clean up on exit. */
- 		__cleanup = _cleanup;		/* conservative */
- 		__sdidinit = 1;
+@@ -209,8 +274,25 @@ _cleanup()
+ void
+ __sinit()
+ {
++	THREAD_LOCK();
++	if (__sdidinit == 0) {
++#if !TARGET_OS_EMBEDDED
++		int i;
++#endif
++		/* Make sure we clean up on exit. */
++		__cleanup = _cleanup;		/* conservative */
 +		__stream_max = sysconf(_SC_STREAM_MAX);
 +		__scounted = 3;			/* std{in,out,err} already exists */
- 	}
- 	THREAD_UNLOCK();
++
++#if !TARGET_OS_EMBEDDED
++		/* Set _extra for the usual suspects. */
++		for (i = 0; i < FOPEN_MAX - 3; i++) {
++			usual[i]._extra = &usual_extra[i];
++			INITEXTRA(&usual[i]);
++		}
++#endif
+ 
+-	/* Make sure we clean up on exit. */
+-	__cleanup = _cleanup;		/* conservative */
+-	__sdidinit = 1;
++		__sdidinit = 1;
++	}
++	THREAD_UNLOCK();
  }

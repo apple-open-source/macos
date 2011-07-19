@@ -120,6 +120,11 @@ pam_setenv(pam_handle_t *_pamh,
 	OPENPAM_NONNULL((1,2,3));
 
 int
+pam_unsetenv(pam_handle_t *_pamh,
+	const char *_name)
+	OPENPAM_NONNULL((1,2));
+
+int
 pam_vinfo(const pam_handle_t *_pamh,
 	const char *_fmt,
 	va_list _ap)

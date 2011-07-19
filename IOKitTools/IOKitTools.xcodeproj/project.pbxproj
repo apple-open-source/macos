@@ -312,8 +312,6 @@
 		2D7D900808F4AE49003CF2E8 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
@@ -329,8 +327,6 @@
 		2D7D900908F4AE49003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
-				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
@@ -345,8 +341,6 @@
 		2D7D902808F4AF47003CF2E8 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				PRODUCT_NAME = IOKitTools;
 			};
 			name = Development;
@@ -354,8 +348,6 @@
 		2D7D902908F4AF47003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				PRODUCT_NAME = IOKitTools;
 			};
 			name = Deployment;
@@ -364,9 +356,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioreg;
 				SKIP_INSTALL = NO;
 			};
@@ -375,10 +364,6 @@
 		2D7D903108F4AFE5003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioreg;
 				SKIP_INSTALL = NO;
 			};
@@ -388,9 +373,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
 			};
@@ -399,10 +381,6 @@
 		2D7D915408F4B04A003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioclasscount;
 				SKIP_INSTALL = NO;
 			};
@@ -412,9 +390,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioalloccount;
 				SKIP_INSTALL = NO;
 			};
@@ -423,10 +398,6 @@
 		2D7D916008F4B07A003CF2E8 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
-				GCC_MODEL_TUNING = G5;
-				PREBINDING = NO;
 				PRODUCT_NAME = ioalloccount;
 				SKIP_INSTALL = NO;
 			};

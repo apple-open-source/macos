@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,16 +26,14 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)alloca.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdlib/alloca.3,v 1.11 2003/06/28 22:12:30 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/alloca.3,v 1.13 2007/01/09 00:28:09 imp Exp $
 .\"
-.Dd June 4, 1993
+.Dd September 5, 2006
 .Dt ALLOCA 3
 .Os
 .Sh NAME
 .Nm alloca
 .Nd memory allocator
-.Sh LIBRARY
-.Lb libc
 .Sh SYNOPSIS
 .In alloca.h
 or
@@ -50,19 +44,15 @@ or
 .Sh DESCRIPTION
 The
 .Fn alloca
-function
+macro
 allocates
 .Fa size
 bytes of space in the stack frame of the caller.
 This temporary space is automatically freed on
 return.
 .Sh RETURN VALUES
-The
 .Fn alloca
-function returns a pointer to the beginning of the allocated space.
-If the allocation failed, a
-.Dv NULL
-pointer is returned.
+returns a pointer to the beginning of the allocated space.
 .Sh SEE ALSO
 .Xr brk 2 ,
 .Xr calloc 3 ,
@@ -70,17 +60,30 @@ pointer is returned.
 .Xr malloc 3 ,
 .Xr realloc 3
 .Sh HISTORY
-The
 .Fn alloca
-function appeared in
+appeared in
 .At 32v .
 .\" .Bx ?? .
 .\" The function appeared in 32v, pwb and pwb.2 and in 3bsd 4bsd
 .\" The first man page (or link to a man page that I can find at the
 .\" moment is 4.3...
 .Sh BUGS
-The
 .Fn alloca
-function
 is machine and compiler dependent;
 its use is discouraged.
+.Pp
+.Fn alloca
+is slightly unsafe because it cannot ensure that the pointer
+returned points to a valid and usable block of memory.
+The allocation made may exceed the bounds of the stack, or even go
+further into other objects in memory, and
+.Fn alloca
+cannot determine such an error.
+Avoid
+.Fn alloca
+with large unbounded allocations.
+.Pp
+The use of C99 variable-length arrays and
+.Fn alloca
+in the same function will cause the lifetime of alloca's storage to be limited to the block containing the
+.Fn alloca

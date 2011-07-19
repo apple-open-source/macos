@@ -342,29 +342,38 @@ static signal_jmp_buf suspend_jmp_buf;
 
 /**/
 int
-signal_suspend(UNUSED(int sig))
+signal_suspend(UNUSED(int sig), int wait_cmd)
 {
     int ret;
- 
-#ifdef POSIX_SIGNALS
+
+#if defined(POSIX_SIGNALS) || defined(BSD_SIGNALS)
     sigset_t set;
-#ifdef BROKEN_POSIX_SIGSUSPEND
+# if defined(POSIX_SIGNALS) && defined(BROKEN_POSIX_SIGSUSPEND)
     sigset_t oset;
-#endif /* BROKEN_POSIX_SIGSUSPEND */
+# endif
 
     sigemptyset(&set);
-#ifdef BROKEN_POSIX_SIGSUSPEND
+
+    /* SIGINT from the terminal driver needs to interrupt "wait"
+     * and to cause traps to fire, but otherwise should not be
+     * handled by the shell until after any foreground job has
+     * a chance to decide whether to exit on that signal.
+     */
+    if (!(wait_cmd || isset(TRAPSASYNC) ||
+	  (sigtrapped[SIGINT] & ~ZSIG_IGNORED)))
+	sigaddset(&set, SIGINT);
+#endif /* POSIX_SIGNALS || BSD_SIGNALS */
+
+#ifdef POSIX_SIGNALS
+# ifdef BROKEN_POSIX_SIGSUSPEND
     sigprocmask(SIG_SETMASK, &set, &oset);
     pause();
     sigprocmask(SIG_SETMASK, &oset, NULL);
-#else /* not BROKEN_POSIX_SIGSUSPEND */
+# else /* not BROKEN_POSIX_SIGSUSPEND */
     ret = sigsuspend(&set);
-#endif /* BROKEN_POSIX_SIGSUSPEND */
+# endif /* BROKEN_POSIX_SIGSUSPEND */
 #else /* not POSIX_SIGNALS */
 # ifdef BSD_SIGNALS
-    sigset_t set;
-
-    sigemptyset(&set);
     ret = sigpause(set);
 # else
 #  ifdef SYSV_SIGNALS
@@ -390,6 +399,129 @@ signal_suspend(UNUSED(int sig))
 /* last signal we handled: race prone, or what? */
 /**/
 int last_signal;
+
+/*
+ * Wait for any processes that have changed state.
+ *
+ * The main use for this is in the SIGCHLD handler.  However,
+ * we also use it to pick up status changes of jobs when
+ * updating jobs.
+ */
+/**/
+void
+wait_for_processes(void)
+{
+    /* keep WAITING until no more child processes to reap */
+    for (;;) {
+	/* save the errno, since WAIT may change it */
+	int old_errno = errno;
+	int status;
+	Job jn;
+	Process pn;
+	pid_t pid;
+	pid_t *procsubpid = &cmdoutpid;
+	int *procsubval = &cmdoutval;
+	int cont = 0;
+	struct execstack *es = exstack;
+
+	/*
+	 * Reap the child process.
+	 * If we want usage information, we need to use wait3.
+	 */
+#if defined(HAVE_WAIT3) || defined(HAVE_WAITPID)
+# ifdef WCONTINUED
+# define WAITFLAGS (WNOHANG|WUNTRACED|WCONTINUED)
+# else
+# define WAITFLAGS (WNOHANG|WUNTRACED)
+# endif
+#endif
+#ifdef HAVE_WAIT3
+# ifdef HAVE_GETRUSAGE
+	struct rusage ru;
+
+	pid = wait3((void *)&status, WAITFLAGS, &ru);
+# else
+	pid = wait3((void *)&status, WAITFLAGS, NULL);
+# endif
+#else
+# ifdef HAVE_WAITPID
+	pid = waitpid(-1, &status, WAITFLAGS);
+# else
+	pid = wait(&status);
+# endif
+#endif
+
+	if (!pid)  /* no more children to reap */
+	    break;
+
+	/* check if child returned was from process substitution */
+	for (;;) {
+	    if (pid == *procsubpid) {
+		*procsubpid = 0;
+		if (WIFSIGNALED(status))
+		    *procsubval = (0200 | WTERMSIG(status));
+		else
+		    *procsubval = WEXITSTATUS(status);
+		use_cmdoutval = 1;
+		get_usage();
+		cont = 1;
+		break;
+	    }
+	    if (!es)
+		break;
+	    procsubpid = &es->cmdoutpid;
+	    procsubval = &es->cmdoutval;
+	    es = es->next;
+	}
+	if (cont)
+	    continue;
+
+	/* check for WAIT error */
+	if (pid == -1) {
+	    if (errno != ECHILD)
+		zerr("wait failed: %e", errno);
+	    /* WAIT changed errno, so restore the original */
+	    errno = old_errno;
+	    break;
+	}
+
+	/*
+	 * Find the process and job containing this pid and
+	 * update it.
+	 */
+	pn = NULL;
+	if (findproc(pid, &jn, &pn, 0)) {
+#if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
+	    struct timezone dummy_tz;
+	    gettimeofday(&pn->endtime, &dummy_tz);
+	    pn->status = status;
+	    pn->ti = ru;
+#else
+	    update_process(pn, status);
+#endif
+	    update_job(jn);
+	} else if (findproc(pid, &jn, &pn, 1)) {
+	    pn->status = status;
+	    update_job(jn);
+	} else {
+	    /* If not found, update the shell record of time spent by
+	     * children in sub processes anyway:  otherwise, this
+	     * will get added on to the next found process that
+	     * terminates.
+	     */
+	    get_usage();
+	}
+	/*
+	 * Remember the status associated with $!, so we can
+	 * wait for it even if it's exited.  This value is
+	 * only used if we can't find the PID in the job table,
+	 * so it doesn't matter that the value we save here isn't
+	 * useful until the process has exited.
+	 */
+	if (pn != NULL && pid == lastpid && lastpid_status != -1L)
+	    lastpid_status = lastval2;
+    }
+}
 
 /* the signal handler */
  
@@ -449,99 +581,7 @@ zhandler(int sig)
  
     switch (sig) {
     case SIGCHLD:
-
-	/* keep WAITING until no more child processes to reap */
-	for (;;) {
-	    /* save the errno, since WAIT may change it */
-	    int old_errno = errno;
-	    int status;
-	    Job jn;
-	    Process pn;
-	    pid_t pid;
-	    pid_t *procsubpid = &cmdoutpid;
-	    int *procsubval = &cmdoutval;
-	    int cont = 0;
-	    struct execstack *es = exstack;
-
-	    /*
-	     * Reap the child process.
-	     * If we want usage information, we need to use wait3.
-	     */
-#ifdef HAVE_WAIT3
-# ifdef HAVE_GETRUSAGE
-	    struct rusage ru;
-
-	    pid = wait3((void *)&status, WNOHANG|WUNTRACED, &ru);
-# else
-	    pid = wait3((void *)&status, WNOHANG|WUNTRACED, NULL);
-# endif
-#else
-# ifdef HAVE_WAITPID
-	    pid = waitpid(-1, &status, WNOHANG|WUNTRACED);
-# else
-	    pid = wait(&status);
-# endif
-#endif
-
-	    if (!pid)  /* no more children to reap */
-		break;
-
-	    /* check if child returned was from process substitution */
-	    for (;;) {
-		if (pid == *procsubpid) {
-		    *procsubpid = 0;
-		    if (WIFSIGNALED(status))
-			*procsubval = (0200 | WTERMSIG(status));
-		    else
-			*procsubval = WEXITSTATUS(status);
-		    get_usage();
-		    cont = 1;
-		    break;
-		}
-		if (!es)
-		    break;
-		procsubpid = &es->cmdoutpid;
-		procsubval = &es->cmdoutval;
-		es = es->next;
-	    }
-	    if (cont)
-		continue;
-
-	    /* check for WAIT error */
-	    if (pid == -1) {
-		if (errno != ECHILD)
-		    zerr("wait failed: %e", errno);
-		/* WAIT changed errno, so restore the original */
-		errno = old_errno;
-		break;
-	    }
-
-	    /*
-	     * Find the process and job containing this pid and
-	     * update it.
-	     */
-	    if (findproc(pid, &jn, &pn, 0)) {
-#if defined(HAVE_WAIT3) && defined(HAVE_GETRUSAGE)
-		struct timezone dummy_tz;
-		gettimeofday(&pn->endtime, &dummy_tz);
-		pn->status = status;
-		pn->ti = ru;
-#else
-		update_process(pn, status);
-#endif
-		update_job(jn);
-	    } else if (findproc(pid, &jn, &pn, 1)) {
-		pn->status = status;
-		update_job(jn);
-	    } else {
-		/* If not found, update the shell record of time spent by
-		 * children in sub processes anyway:  otherwise, this
-		 * will get added on to the next found process that
-		 * terminates.
-		 */
-		get_usage();
-	    }
-	}
+	wait_for_processes();
         break;
  
     case SIGHUP:
@@ -560,6 +600,7 @@ zhandler(int sig)
                 breaks = loops;
                 errflag = 1;
 		inerrflush();
+		check_cursh_sig(SIGINT);
             }
         }
         break;
@@ -706,6 +747,7 @@ dosavetrap(int sig, int level)
 	    newshf->node.flags = shf->node.flags;
 	    newshf->funcdef = dupeprog(shf->funcdef, 0);
 	    newshf->filename = ztrdup(shf->filename);
+	    newshf->emulation = shf->emulation;
 	    if (shf->node.flags & PM_UNDEFINED)
 		newshf->funcdef->shf = newshf;
 	}
@@ -822,7 +864,8 @@ removetrap(int sig)
      * one, to aid in removing this one.  However, if there's
      * already one at the current locallevel we just overwrite it.
      */
-    if (!dontsavetrap && (isset(LOCALTRAPS) || sig == SIGEXIT) &&
+    if (!dontsavetrap &&
+	(sig == SIGEXIT ? !isset(POSIXTRAPS) : isset(LOCALTRAPS)) &&
 	locallevel &&
 	(!trapped || locallevel > (sigtrapped[sig] >> ZSIG_SHIFT)))
 	dosavetrap(sig, locallevel);
@@ -890,7 +933,7 @@ starttrapscope(void)
      * so give it the next higher one. dosavetrap() is called
      * automatically where necessary.
      */
-    if (sigtrapped[SIGEXIT]) {
+    if (sigtrapped[SIGEXIT] && !isset(POSIXTRAPS)) {
 	locallevel++;
 	unsettrap(SIGEXIT);
 	locallevel--;
@@ -908,7 +951,7 @@ endtrapscope(void)
 {
     LinkNode ln;
     struct savetrap *st;
-    int exittr;
+    int exittr = 0;
     void *exitfn = NULL;
 
     /*
@@ -916,9 +959,8 @@ endtrapscope(void)
      * after all the other traps have been put back.
      * Don't do this inside another trap.
      */
-    if (intrap)
-	exittr = 0;
-    else if ((exittr = sigtrapped[SIGEXIT])) {
+    if (!intrap &&
+	!isset(POSIXTRAPS) && (exittr = sigtrapped[SIGEXIT])) {
 	if (exittr & ZSIG_FUNC) {
 	    exitfn = removehashnode(shfunctab, "TRAPEXIT");
 	} else {
@@ -963,7 +1005,8 @@ endtrapscope(void)
     }
 
     if (exittr) {
-	dotrapargs(SIGEXIT, &exittr, exitfn);
+	if (!isset(POSIXTRAPS))
+	    dotrapargs(SIGEXIT, &exittr, exitfn);
 	if (exittr & ZSIG_FUNC)
 	    shfunctab->freenode((HashNode)exitfn);
 	else
@@ -1177,7 +1220,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 	trap_state = TRAP_STATE_PRIMED;
 	trapisfunc = isfunc = 0;
 
-	execode((Eprog)sigfn, 1, 0);
+	execode((Eprog)sigfn, 1, 0, "trap");
     }
     runhookdef(AFTERTRAPHOOK, NULL);
 
@@ -1201,7 +1244,7 @@ dotrapargs(int sig, int *sigtr, void *sigfn)
 	/* return triggered */
 	retflag = 1;
     } else {
-	if (traperr && emulation != EMULATE_SH)
+	if (traperr && !EMULATION(EMULATE_SH))
 	    lastval = 1;
 	if (try_tryflag)
 	    errflag = traperr;

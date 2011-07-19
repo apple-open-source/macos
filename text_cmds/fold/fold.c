@@ -184,6 +184,11 @@ fold(int width)
 		buf[indx++] = ch;
 	}
 
+	if (ferror(stdin)) {
+		fprintf(stderr, "Input error\n");
+		exit(EXIT_FAILURE);
+	}
+
 	if (indx != 0)
 		wprintf(L"%.*ls", indx, buf);
 }

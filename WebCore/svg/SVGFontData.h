@@ -15,7 +15,6 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- *
  */
 
 #ifndef SVGFontData_h
@@ -26,10 +25,11 @@
 
 namespace WebCore {
 
-class SVGFontData : public Noncopyable {
+class SVGFontData {
+    WTF_MAKE_NONCOPYABLE(SVGFontData); WTF_MAKE_FAST_ALLOCATED;
 public:
     SVGFontData(SVGFontFaceElement*);
-    virtual ~SVGFontData();
+    virtual ~SVGFontData() { }
 
     SVGFontFaceElement* svgFontFaceElement() const { return m_svgFontFaceElement; }
 

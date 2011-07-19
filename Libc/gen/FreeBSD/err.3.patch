@@ -1,15 +1,15 @@
---- err.3.orig	2009-05-12 11:21:55.000000000 -0700
-+++ err.3	2009-05-20 16:48:17.000000000 -0700
-@@ -32,7 +32,7 @@
+--- err.3.orig	2009-11-07 14:51:37.000000000 -0800
++++ err.3	2009-11-07 14:51:40.000000000 -0800
+@@ -28,7 +28,7 @@
  .\"	From: @(#)err.3	8.1 (Berkeley) 6/9/93
- .\" $FreeBSD: src/lib/libc/gen/err.3,v 1.20 2004/10/04 14:04:37 jkoshy Exp $
+ .\" $FreeBSD: src/lib/libc/gen/err.3,v 1.24 2008/10/31 15:14:40 rwatson Exp $
  .\"
 -.Dd March 6, 1999
 +.Dd May 20, 2008
  .Dt ERR 3
  .Os
  .Sh NAME
-@@ -49,6 +49,9 @@
+@@ -45,6 +45,9 @@
  .Nm warnx ,
  .Nm vwarnx ,
  .Nm err_set_exit ,
@@ -19,7 +19,7 @@
  .Nm err_set_file
  .Nd formatted error messages
  .Sh LIBRARY
-@@ -59,6 +62,10 @@
+@@ -55,6 +58,10 @@
  .Fn err "int eval" "const char *fmt" "..."
  .Ft void
  .Fn err_set_exit "void (*exitf)(int)"
@@ -30,7 +30,7 @@
  .Ft void
  .Fn err_set_file "void *vfp"
  .Ft void
-@@ -169,6 +176,24 @@
+@@ -165,6 +172,24 @@ function can be used to specify a functi
  to perform any necessary cleanup; passing a null function pointer for
  .Va exitf
  resets the hook to do nothing.
@@ -55,7 +55,7 @@
  The
  .Fn err_set_file
  function sets the output stream used by the other functions.
-@@ -234,3 +259,8 @@
+@@ -231,3 +256,8 @@ and
  .Fn warnc
  functions first appeared in
  .Fx 3.0 .

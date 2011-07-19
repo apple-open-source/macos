@@ -1,8 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin transfer::copy n 0.2]
-[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2006-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Data transfer facilities}]
 [titledesc {Data transfer foundation}]
+[category  {Transfer module}]
 [require Tcl 8.4]
 [require transfer::copy [opt 0.2]]
 [description]
@@ -162,16 +163,7 @@ output channel if not specified.
 [list_end][comment options]
 [list_end][comment definitions/api]
 
-[section {BUGS, IDEAS, FEEDBACK}]
 
-This document, and the package it describes, will undoubtedly contain
-bugs and other problems.
-
-Please report such in the category [emph transfer] of the
-[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
-
-Please also report any ideas for enhancements you may have for either
-package and/or documentation.
-
-
+[vset CATEGORY transfer]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

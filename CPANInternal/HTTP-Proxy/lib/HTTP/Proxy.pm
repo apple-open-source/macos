@@ -8,7 +8,6 @@ use Fcntl ':flock';         # import LOCK_* constants
 use IO::Select;
 use Sys::Hostname;          # hostname()
 use Carp;
-use HTTP::Proxy::Engine;
 
 use strict;
 use vars qw( $VERSION $AUTOLOAD @METHODS
@@ -21,7 +20,7 @@ require Exporter;
                  DATA  CONNECT ENGINE ALL );
 %EXPORT_TAGS = ( log => [@EXPORT_OK] );    # only one tag
 
-$VERSION = '0.19';
+$VERSION = '0.24';
 
 my $CRLF = "\015\012";                     # "\r\n" is not portable
 
@@ -41,6 +40,10 @@ use constant DATA    => 64;    # Data received by the filters
 use constant CONNECT => 128;   # Data transmitted by the CONNECT method
 use constant ENGINE  => 256;   # Internal information from the Engine
 use constant ALL     => 511;   # All of the above
+
+# modules that need those constants to be defined
+use HTTP::Proxy::Engine;
+use HTTP::Proxy::FilterStack;
 
 # Methods we can forward
 my %METHODS;
@@ -312,7 +315,9 @@ sub serve_connections {
 
         # Got a request?
         unless ( defined $req ) {
-            $self->log( ERROR, "ERROR", "Getting request failed:", $conn->reason );
+            $self->log( ERROR, "ERROR",
+                "Getting request failed: " . $conn->reason )
+                if $conn->reason ne 'No more requests from this connection';
             return;
         }
         $self->log( STATUS, "REQUEST", $req->method . ' '
@@ -459,8 +464,6 @@ sub serve_connections {
         # (empty body or error)
         # FIXME some error response headers might not be filtered
         if ( !$sent ) {
-            $self->{$_}{response}->select_filters( $response )
-              for qw( headers body );
             ($last, $chunked) = $self->_send_response_headers( $served );
             my $content = $response->content;
             if ($chunked) {
@@ -499,7 +502,7 @@ sub _send_response_headers {
 
     # correct headers
     $response->remove_header("Content-Length")
-      if $self->{body}{response}->active;
+      if $self->{body}{response}->will_modify();
     $response->header( Server => "HTTP::Proxy/$VERSION" )
       unless $response->header( 'Server' );
     $response->header( Date => time2str(time) )
@@ -510,7 +513,7 @@ sub _send_response_headers {
     else {
         my $code = $response->code;
         $conn->send_status_line( $code, $response->message,
-            $response->protocol );
+            $self->request()->protocol() );
         if ( $code =~ /^(1\d\d|[23]04)$/ ) {
 
             # make sure content is empty
@@ -548,13 +551,48 @@ sub _handle_CONNECT {
 
     my $conn = $self->client_socket;
     my $req  = $self->request;
-    my $upstream = IO::Socket::INET->new( PeerAddr => $req->uri->host_port );
-    unless( $upstream and $upstream->connected ) {
-        # 502 Bad Gateway / 504 Gateway Timeout
-        # Note to implementors: some deployed proxies are known to
-        # return 400 or 500 when DNS lookups time out.
-        my $response = HTTP::Response->new( 200 );
+    my $upstream;
+
+    # connect upstream
+    if ( my $up = $self->agent->proxy('http') ) {
+
+        # clean up authentication info from proxy URL
+        $up =~ s{^http://[^/\@]*\@}{http://};
+
+        # forward to upstream proxy
+        $self->log( PROXY, "PROXY",
+            "Forwarding CONNECT request to next proxy: $up" );
+        my $response = $self->agent->simple_request($req);
+
+        # check the upstream proxy's response
+        my $code = $response->code;
+        if ( $code == 407 ) {    # don't forward Proxy Authentication requests
+            my $response_407 = $response->as_string;
+            $response_407 =~ s/^Client-.*$//mg;
+            $response = HTTP::Response->new(502);
+            $response->content_type("text/plain");
+            $response->content( "Upstream proxy ($up) "
+                    . "requested authentication:\n\n"
+                    . $response_407 );
+            $self->response($response);
+            return $last;
+        }
+        elsif ( $code != 200 ) {    # forward every other failure
+            $self->response($response);
+            return $last;
+        }
+
+        $upstream = $response->{client_socket};
+    }
+    else {                                  # direct connection
+        $upstream = IO::Socket::INET->new( PeerAddr => $req->uri->host_port );
+    }
+
+    # no upstream socket obtained
+    if( !$upstream ) {
+        my $response = HTTP::Response->new( 500 );
         $response->content_type( "text/plain" );
+        $response->content( "CONNECT failed: $@");
         $self->response($response);
         return $last;
     }
@@ -729,150 +767,6 @@ sub log {
     flock( $fh, LOCK_UN );
 }
 
-#
-# This is an internal class to work more easily with filter stacks
-#
-# Here's a description of the class internals
-# - filters: the list of (sub, filter) pairs that match the message,
-#            and through which it must go
-# - current: the actual list of filters, which is computed during
-#            the first call to filter()
-# - buffers: the buffers associated with each (selected) filter
-# - body   : true if it's a HTTP::Proxy::BodyFilter stack
-#
-# a filter is actually a (matchsub, filterobj) pair
-# the matchsub is run againt the HTTP::Message object to find out if
-# the filter must be applied to it
-package HTTP::Proxy::FilterStack;
-
-use Carp;
-
-#
-# new( $isbody )
-# $isbody is true only for response-body filters stack
-sub new {
-    my $class = shift;
-    my $self  = {
-        body => shift || 0,
-        filters => [],
-        buffers => [],
-        current => undef,
-    };
-    $self->{type} = $self->{body} ? "HTTP::Proxy::BodyFilter"
-                                  : "HTTP::Proxy::HeaderFilter";
-    return bless $self, $class;
-}
-
-#
-# insert( $index, [ $matchsub, $filter ], ...)
-#
-sub insert {
-    my ( $self, $idx ) = ( shift, shift );
-    $_->[1]->isa( $self->{type} ) or croak("$_ is not a $self->{type}") for @_;
-    splice @{ $self->{filters} }, $idx, 0, @_;
-}
-
-#
-# remove( $index )
-#
-sub remove {
-    my ( $self, $idx ) = @_;
-    splice @{ $self->{filters} }, $idx, 1;
-}
-
-# 
-# push( [ $matchsub, $filter ], ... )
-# 
-sub push {
-    my $self = shift;
-    $_->[1]->isa( $self->{type} ) or croak("$_ is not a $self->{type}") for @_;
-    push @{ $self->{filters} }, @_;
-}
-
-sub all    { return @{ $_[0]->{filters} }; }
-sub active { return @{ $_[0]->{current} }; }
-
-#
-# select the filters that will be used on the message
-#
-sub select_filters {
-    my ($self, $message ) = @_;
-
-    # first time we're called this round
-    if ( not defined $self->{current} ) {
-
-        # select the filters that match
-        $self->{current} =
-          [ map { $_->[1] } grep { $_->[0]->() } @{ $self->{filters} } ];
-
-        # create the buffers
-        if ( $self->{body} ) {
-            $self->{buffers} = [ ( "" ) x @{ $self->{current} } ];
-            $self->{buffers} = [ \( @{ $self->{buffers} } ) ];
-        }
-
-        # start the filter if needed (and pass the message)
-        for ( @{ $self->{current} } ) {
-            if    ( $_->can('begin') ) { $_->begin( $message ); }
-            elsif ( $_->can('start') ) {
-                $_->proxy->log( HTTP::Proxy::ERROR, "DEPRECATION", "The start() filter method is *deprecated* and disappeared in 0.15!\nUse begin() in your filters instead!" );
-            }
-        }
-    }
-}
-
-#
-# the actual filtering is done here
-#
-sub filter {
-    my $self = shift;
-
-    # pass the body data through the filter
-    if ( $self->{body} ) {
-        my $i = 0;
-        my ( $data, $message, $protocol ) = @_;
-        for ( @{ $self->{current} } ) {
-            $$data = ${ $self->{buffers}[$i] } . $$data;
-            ${ $self->{buffers}[ $i ] } = "";
-            $_->filter( $data, $message, $protocol, $self->{buffers}[ $i++ ] );
-        }
-    }
-    else {
-        $_->filter(@_) for @{ $self->{current} };
-        $self->eod;
-    }
-}
-
-#
-# filter what remains in the buffers
-#
-sub filter_last {
-    my $self = shift;
-    return unless $self->{body};    # sanity check
-
-    my $i = 0;
-    my ( $data, $message, $protocol ) = @_;
-    for ( @{ $self->{current} } ) {
-        $$data = ${ $self->{buffers}[ $i ] } . $$data;
-        ${ $self->{buffers}[ $i++ ] } = "";
-        $_->filter( $data, $message, $protocol, undef );
-    }
-
-    # call the cleanup routine if needed
-    for ( @{ $self->{current} } ) { $_->end if $_->can('end'); }
-    
-    # clean up the mess for next time
-    $self->eod;
-}
-
-#
-# END OF DATA cleanup method
-#
-sub eod {
-    $_[0]->{buffers} = [];
-    $_[0]->{current} = undef;
-}
-
 1;
 
 __END__
@@ -995,8 +889,9 @@ the same match subroutine:
     $proxy->push_filter(
         mime     => 'text/html',
         response => HTTP::Proxy::BodyFilter::tags->new(),
-        response =>
-          HTTP::Proxy::BodyFilter::simple->new( sub { s!(</?)i>!$1b>!ig } )
+        response => HTTP::Proxy::BodyFilter::simple->new(
+            sub { ${ $_[1] } =~ s!(</?)i>!$1b>!ig }
+        )
     );
 
 For more details regarding the creation of new filters, check the
@@ -1464,7 +1359,7 @@ a lot for your confidence in my work!
 
 =head1 COPYRIGHT
 
-Copyright 2002-2005, Philippe Bruhat.
+Copyright 2002-2008, Philippe Bruhat.
 
 =head1 LICENSE
 

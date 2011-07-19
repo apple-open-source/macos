@@ -26,6 +26,10 @@
 #    To keep the axes in positive orientation, the x-axis appears
 #    on the right-hand side and the y-axis appears in front.
 #    This may not be the most "intuitive" presentation though.
+#
+#    If the step for the x-axis is zero or negative, it is not
+#    drawn - adopted from Keith Vetter's extension.
+#
 # Side effects:
 #    Axes drawn in canvas
 #
@@ -48,24 +52,17 @@ proc ::Plotchart::Draw3DAxes { w xmin  ymin  zmin
    foreach {pxymx2 pyymx2} [coords3DToPixel $w $scaling($w,xmin) $scaling($w,ymax) $scaling($w,zmin)] {break}
    foreach {pxzymx pyzymx} [coords3DToPixel $w $scaling($w,xmax) $scaling($w,ymax) $scaling($w,zmax)] {break}
 
-   $w create line $pxxmax $pyxmax $pxxmin $pyxmin \
-                  -fill black -tag axis3d
-   $w create line $pxxmax $pyxmax $pxymax $pyymax \
-                  -fill black -tag axis3d
-   $w create line $pxxmin $pyxmin $pxymx2 $pyymx2 \
-                  -fill black -tag axis3d
-   $w create line $pxymax $pyymax $pxymx2 $pyymx2 \
-                  -fill black -tag axis3d
-   $w create line $pxzmax $pyzmax $pxzymx $pyzymx \
-                  -fill black -tag axis3d
-   $w create line $pxxmax $pyxmax $pxzmax $pyzmax \
-                  -fill black -tag axis3d
-   $w create line $pxxmin $pyxmin $pxzmx2 $pyzmx2 \
-                  -fill black -tag axis3d
-   $w create line $pxzmax $pyzmax $pxzmx2 $pyzmx2 \
-                  -fill black -tag axis3d
-   $w create line $pxymax $pyymax $pxzymx $pyzymx \
-                  -fill black -tag axis3d
+   if { $xstep > 0 } {
+       $w create line $pxxmax $pyxmax $pxxmin $pyxmin -fill black -tag axis3d
+       $w create line $pxxmax $pyxmax $pxymax $pyymax -fill black -tag axis3d
+       $w create line $pxymax $pyymax $pxymx2 $pyymx2 -fill black -tag axis3d
+       $w create line $pxzmax $pyzmax $pxzymx $pyzymx -fill black -tag axis3d
+       $w create line $pxxmax $pyxmax $pxzmax $pyzmax -fill black -tag axis3d
+       $w create line $pxzmax $pyzmax $pxzmx2 $pyzmx2 -fill black -tag axis3d
+       $w create line $pxymax $pyymax $pxzymx $pyzymx -fill black -tag axis3d
+   }
+   $w create line $pxxmin $pyxmin $pxymx2 $pyymx2 -fill black -tag axis3d
+   $w create line $pxxmin $pyxmin $pxzmx2 $pyzmx2 -fill black -tag axis3d
 
    #
    # Numbers to the z-axis
@@ -84,25 +81,27 @@ proc ::Plotchart::Draw3DAxes { w xmin  ymin  zmin
    #
    # Numbers or labels to the x-axis (shown on the right!)
    #
-   if { $names eq "" } {
-       set x $xmin
-       while { $x < $xmax+0.5*$xstep } {
-           foreach {xcrd ycrd} [coords3DToPixel $w $x $ymax $zmin] {break}
-           set xcrd2 [expr {$xcrd+4}]
-           set xcrd3 [expr {$xcrd+6}]
+   if { $xstep > 0 } {
+       if { $names eq "" } {
+           set x $xmin
+           while { $x < $xmax+0.5*$xstep } {
+               foreach {xcrd ycrd} [coords3DToPixel $w $x $ymax $zmin] {break}
+               set xcrd2 [expr {$xcrd+4}]
+               set xcrd3 [expr {$xcrd+6}]
 
-           $w create line $xcrd2 $ycrd $xcrd $ycrd -tag axis3d
-           $w create text $xcrd3 $ycrd -text $x -tag axis3d -anchor w
-           set x [expr {$x+$xstep}]
-       }
-   } else {
-       set x [expr {$xmin+0.5*$xstep}]
-       foreach label $names {
-           foreach {xcrd ycrd} [coords3DToPixel $w $x $ymax $zmin] {break}
-           set xcrd2 [expr {$xcrd+6}]
+               $w create line $xcrd2 $ycrd $xcrd $ycrd -tag axis3d
+               $w create text $xcrd3 $ycrd -text $x -tag axis3d -anchor w
+               set x [expr {$x+$xstep}]
+           }
+       } else {
+           set x [expr {$xmin+0.5*$xstep}]
+           foreach label $names {
+               foreach {xcrd ycrd} [coords3DToPixel $w $x $ymax $zmin] {break}
+               set xcrd2 [expr {$xcrd+6}]
 
-           $w create text $xcrd2 $ycrd -text $label -tag axis3d -anchor w
-           set x [expr {$x+$xstep}]
+               $w create text $xcrd2 $ycrd -text $label -tag axis3d -anchor w
+               set x [expr {$x+$xstep}]
+           }
        }
    }
 
@@ -257,6 +256,51 @@ proc ::Plotchart::Draw3DData { w data } {
                            -fill $fill -outline $border
       }
    }
+}
+
+# Draw3DRibbon --
+#     Plot yz-data as a 3D ribbon
+#
+# Arguments:
+#     w               Widget to draw in
+#     yzData          List of duples, each of which is y,z pair
+#                     (y is left-to-right, z is up-and-down, x is front-to-back).
+#
+# Note:
+#     Contributed by Keith Vetter (see the Wiki)
+#
+proc ::Plotchart::Draw3DRibbon { w yzData } { variable scaling
+
+    set  nxcells 1
+    set  nycells [llength $yzData]
+    incr nxcells -1
+    incr nycells -1
+
+    set x1    $scaling($w,xmin)
+    set x2    [expr {($scaling($w,xmax) - $x1)/10.0}]
+
+    foreach {fill border} $scaling($w,colours) {break}
+
+    #
+    # Draw the quadrangles making up the data in the right order:
+    # first y from minimum to maximum
+    # then x from maximum to minimum
+    #
+    for { set j 0 } { $j < $nycells } { incr j } {
+        set jj [expr {$j+1}]
+        set y1 [lindex $yzData $j 0]
+        set y2 [lindex $yzData $jj 0]
+        set z1 [lindex $yzData $j 1]
+        set z2 [lindex $yzData $jj 1]
+
+        foreach {px11 py11} [::Plotchart::coords3DToPixel $w $x1 $y1 $z1] break
+        foreach {px12 py12} [::Plotchart::coords3DToPixel $w $x1 $y2 $z2] break
+        foreach {px21 py21} [::Plotchart::coords3DToPixel $w $x2 $y1 $z1] break
+        foreach {px22 py22} [::Plotchart::coords3DToPixel $w $x2 $y2 $z2] break
+        $w create polygon $px11 $py11 $px21 $py21 $px22 $py22 \
+            $px12 $py12 $px11 $py11 \
+            -fill $fill -outline $border
+    }
 }
 
 # Draw3DLineFrom3Dcoordinates --

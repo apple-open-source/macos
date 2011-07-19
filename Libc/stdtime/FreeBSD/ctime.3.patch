@@ -1,6 +1,6 @@
---- _SB/Libc/stdtime/FreeBSD/ctime.3	2004-11-25 11:38:44.000000000 -0800
-+++ _SB/Libc/stdtime/FreeBSD/ctime.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -56,31 +56,31 @@
+--- ctime.3.bsdnew	2009-11-14 13:55:43.000000000 -0800
++++ ctime.3	2009-11-14 14:01:29.000000000 -0800
+@@ -52,31 +52,31 @@
  .In time.h
  .Vt extern char *tzname[2] ;
  .Ft char *
@@ -46,7 +46,7 @@
  and
  .Fn localtime
  all take as an argument a time value representing the time in seconds since
-@@ -92,10 +92,10 @@
+@@ -88,10 +88,10 @@ January 1, 1970; see
  The function
  .Fn localtime
  converts the time value pointed at by
@@ -60,7 +60,7 @@
  the broken-out time information for the value after adjusting for the current
  time zone (and any other factors such as Daylight Saving Time).
  Time zone adjustments are performed as specified by the
-@@ -106,7 +106,7 @@
+@@ -102,7 +102,7 @@ The function
  .Fn localtime
  uses
  .Xr tzset 3
@@ -69,11 +69,11 @@
  .Xr tzset 3
  has not already been called by the process.
  .Pp
-@@ -118,36 +118,36 @@
+@@ -114,36 +114,36 @@ element of
  .Fa tzname
  to a pointer to an
  .Tn ASCII
--string that's the time zone abbreviation to be
+-string that is the time zone abbreviation to be
 +string containing the time zone abbreviation to be
  used with
  .Fn localtime Ns 's
@@ -116,7 +116,7 @@
  The
  .Fn localtime_r
  and
-@@ -156,17 +156,17 @@
+@@ -152,17 +152,17 @@ functions
  provide the same functionality as
  .Fn localtime
  and
@@ -138,7 +138,7 @@
  to the form
  shown in the example above.
  .Pp
-@@ -174,17 +174,19 @@
+@@ -170,17 +170,19 @@ The
  .Fn asctime_r
  function
  provides the same functionality as
@@ -163,7 +163,7 @@
  values returned by the
  .Xr time 3
  function (that is, seconds from the Epoch,
-@@ -197,17 +199,17 @@
+@@ -193,17 +195,17 @@ interprets the input structure according
  .Xr tzset 3 ) .
  The
  .Fn timegm
@@ -186,7 +186,7 @@
  For example,
  October 40 is changed into November 9,
  a
-@@ -223,7 +225,7 @@
+@@ -219,7 +221,7 @@ of \-2 means 2 months before January of
  causes
  .Fn mktime
  to presume initially that summer time (for example, Daylight Saving Time)
@@ -195,7 +195,7 @@
  A negative value for
  .Fa tm_isdst
  causes the
-@@ -265,7 +267,8 @@
+@@ -261,7 +263,8 @@ returns the difference between two calen
  .Fa time0 ) ,
  expressed in seconds.
  .Pp
@@ -205,7 +205,7 @@
  .In time.h
  include file.
  The tm structure includes at least the following fields:
-@@ -286,14 +289,14 @@
+@@ -282,14 +285,14 @@ long tm_gmtoff;	/\(** offset from UTC in
  The
  field
  .Fa tm_isdst

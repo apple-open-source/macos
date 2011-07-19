@@ -1,4 +1,4 @@
-.Dd July 28, 2005
+.Dd March 16, 2009
 .Dt ARCH 3
 .Sh NAME
 .Nm NXGetAllArchInfos ,
@@ -19,7 +19,7 @@
 .Ft extern const NXArchInfo *
 .Fn NXGetArchInfoFromCpuType "cpu_type_t cputype" "cpu_subtype_t cpusubtype"
 .Ft extern struct fat_arch *
-.Fn NXFindBestFatArch "cpu_type_t cputype" "cpu_subtype_t cpusubtype" "struct fat_arch *fat_archs" "unsigned long nfat_archs"
+.Fn NXFindBestFatArch "cpu_type_t cputype" "cpu_subtype_t cpusubtype" "struct fat_arch *fat_archs" "uint32_t nfat_archs"
 .Ft extern cpu_subtype_t
 .Fn NXCombineCpuSubtypes "cpu_type_t cputype" "cpu_subtype_t cpusubtype1" "cpu_subtype_t cpusubtype2"
 .Sh DESCRIPTION

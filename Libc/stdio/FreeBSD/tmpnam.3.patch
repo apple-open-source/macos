@@ -1,21 +1,21 @@
---- tmpnam.3.orig	2008-11-13 16:39:10.000000000 -0800
-+++ tmpnam.3	2008-11-13 16:45:15.000000000 -0800
-@@ -36,7 +36,7 @@
+--- tmpnam.3.bsdnew	2009-11-11 13:33:17.000000000 -0800
++++ tmpnam.3	2009-11-11 15:17:16.000000000 -0800
+@@ -32,7 +32,7 @@
  .\"     @(#)tmpnam.3	8.2 (Berkeley) 11/17/93
- .\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.16 2004/06/21 19:38:25 mpp Exp $
+ .\" $FreeBSD: src/lib/libc/stdio/tmpnam.3,v 1.20 2007/03/16 21:46:24 maxim Exp $
  .\"
--.Dd November 17, 1993
+-.Dd March 18, 2007
 +.Dd November 12, 2008
  .Dt TMPFILE 3
  .Os
  .Sh NAME
-@@ -49,11 +49,18 @@
+@@ -45,11 +45,18 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft FILE *
 -.Fn tmpfile void
 +.Fo tmpfile
-+.Fa void
++.Fa "void"
 +.Fc
  .Ft char *
 -.Fn tmpnam "char *str"
@@ -31,7 +31,7 @@
  .Sh DESCRIPTION
  The
  .Fn tmpfile
-@@ -67,12 +74,13 @@
+@@ -63,12 +70,13 @@ returns, causing the file to be automati
  reference to it is closed.
  The file is opened with the access value
  .Ql w+ .
@@ -49,7 +49,7 @@
  .Pa /tmp .
  .Pp
  The
-@@ -87,7 +95,7 @@
+@@ -83,7 +91,7 @@ past.
  is defined in the include file
  .In stdio.h .
  If the argument
@@ -58,7 +58,7 @@
  is
  .Pf non- Dv NULL ,
  the file name is copied to the buffer it references.
-@@ -97,7 +105,7 @@
+@@ -93,7 +101,7 @@ In either case,
  returns a pointer to the file name.
  .Pp
  The buffer referenced by
@@ -67,7 +67,7 @@
  is expected to be at least
  .Dv L_tmpnam
  bytes in length.
-@@ -113,21 +121,23 @@
+@@ -109,21 +117,23 @@ is similar to
  but provides the ability to specify the directory which will
  contain the temporary file and the file name prefix.
  .Pp
@@ -97,10 +97,10 @@
  if
  .Pf non- Dv NULL ,
  is used to specify a file name prefix, which will be the
-@@ -226,14 +236,15 @@
- interface should not be used in software expected to be used on other systems
- if there is any possibility that the user does not wish the temporary file to
- be publicly readable and writable.
+@@ -235,6 +245,12 @@ It is strongly suggested that
+ be used in place of these functions.
+ (See
+ the FSA.)
 +.Sh LEGACY DESCRIPTION
 +In legacy mode, the order directories are tried by the
 +.Fn tempnam
@@ -110,11 +110,3 @@
  .Sh SEE ALSO
  .Xr mkstemp 3 ,
  .Xr mktemp 3
--.Rs
--.%T "The FreeBSD Security Architecture"
--.Re
--(See
--.Pa "/usr/share/doc/{to be determined}" . )
- .Sh STANDARDS
- The
- .Fn tmpfile

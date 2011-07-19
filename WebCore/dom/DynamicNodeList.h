@@ -31,7 +31,6 @@
 
 namespace WebCore {
 
-    class AtomicString;
     class Element;
     class Node;
 
@@ -61,6 +60,7 @@ namespace WebCore {
 
         // Other methods (not part of DOM)
         void invalidateCache();
+        Node* rootNode() const { return m_rootNode.get(); }
 
     protected:
         DynamicNodeList(PassRefPtr<Node> rootNode);
@@ -73,6 +73,7 @@ namespace WebCore {
         bool m_ownsCaches;
 
     private:
+        virtual bool isDynamicNodeList() const;
         Node* itemForwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
         Node* itemBackwardsFromCurrent(Node* start, unsigned offset, int remainingOffset) const;
     };

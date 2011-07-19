@@ -405,7 +405,7 @@ upap_rauthreq(u, inp, id, len)
     int len;
 {
     u_char ruserlen, rpasswdlen;
-    char *ruser, *rpasswd;
+    u_char *ruser, *rpasswd;
     char rhostname[256];
     int retcode;
     char *msg;
@@ -440,14 +440,14 @@ upap_rauthreq(u, inp, id, len)
 	UPAPDEBUG(("pap_rauth: rcvd short packet."));
 	return;
     }
-    ruser = (char *) inp;
+    ruser = inp;
     INCPTR(ruserlen, inp);
     GETCHAR(rpasswdlen, inp);
     if (len < rpasswdlen) {
 	UPAPDEBUG(("pap_rauth: rcvd short packet."));
 	return;
     }
-    rpasswd = (char *) inp;
+    rpasswd = inp;
 
     /*
      * Check the username and password given.

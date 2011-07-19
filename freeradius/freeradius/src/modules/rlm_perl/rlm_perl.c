@@ -69,9 +69,14 @@ typedef struct perl_inst {
 	char	*func_pre_proxy;
 	char	*func_post_proxy;
 	char	*func_post_auth;
+#ifdef WITH_COA
+	char	*func_recv_coa;
+	char	*func_send_coa;
+#endif
 	char	*xlat_name;
 	char	*perl_flags;
 	PerlInterpreter *perl;
+	pthread_key_t	*thread_key;
 } PERL_INST;
 /*
  *	A mapping of configuration file names to internal variables.
@@ -105,6 +110,12 @@ static const CONF_PARSER module_config[] = {
 	  offsetof(PERL_INST,func_post_proxy), NULL, "post_proxy"},
 	{ "func_post_auth", PW_TYPE_STRING_PTR,
 	  offsetof(PERL_INST,func_post_auth), NULL, "post_auth"},
+#ifdef WITH_COA
+	{ "func_recv_coa", PW_TYPE_STRING_PTR,
+	  offsetof(PERL_INST,func_recv_coa), NULL, "recv_coa"},
+	{ "func_send_coa", PW_TYPE_STRING_PTR,
+	  offsetof(PERL_INST,func_send_coa), NULL, "send_coa"},
+#endif
 	{ "perl_flags", PW_TYPE_STRING_PTR,
 	  offsetof(PERL_INST,perl_flags), NULL, NULL},
 	{ "func_start_accounting", PW_TYPE_STRING_PTR,
@@ -194,7 +205,6 @@ static void rlm_perl_close_handles(void **handles)
 
 static void rlm_perl_destruct(PerlInterpreter *perl)
 {
-	char **orig_environ = NULL;
 	dTHXa(perl);
 
 	PERL_SET_CONTEXT(perl);
@@ -216,10 +226,6 @@ static void rlm_perl_destruct(PerlInterpreter *perl)
 
 	perl_destruct(perl);
 	perl_free(perl);
-
-	if (orig_environ) {
-		environ = orig_environ;
-	}
 }
 
 static void rlm_destroy_perl(PerlInterpreter *perl)
@@ -234,25 +240,20 @@ static void rlm_destroy_perl(PerlInterpreter *perl)
 	rlm_perl_close_handles(handles);
 }
 
-static pthread_key_t  rlm_perl_key;
-static pthread_once_t rlm_perl_once = PTHREAD_ONCE_INIT;
-
 /* Create Key */
-static void rlm_perl_make_key(void)
+static void rlm_perl_make_key(pthread_key_t *key)
 {
-	pthread_key_create(&rlm_perl_key, rlm_destroy_perl);
+	pthread_key_create(key, rlm_destroy_perl);
 }
 
-static PerlInterpreter *rlm_perl_clone(PerlInterpreter *perl)
+static PerlInterpreter *rlm_perl_clone(PerlInterpreter *perl, pthread_key_t *key)
 {
 	PerlInterpreter *interp;
 	UV clone_flags = 0;
 
 	PERL_SET_CONTEXT(perl);
 
-	pthread_once(&rlm_perl_once, rlm_perl_make_key);
-
-	interp = pthread_getspecific(rlm_perl_key);
+	interp = pthread_getspecific(*key);
 	if (interp) return interp;
 
 	interp = perl_clone(perl, clone_flags);
@@ -268,9 +269,7 @@ static PerlInterpreter *rlm_perl_clone(PerlInterpreter *perl)
 	PERL_SET_CONTEXT(aTHX);
     	rlm_perl_clear_handles(aTHX);
 
-	pthread_setspecific(rlm_perl_key, interp);
-
-	fprintf(stderr, "GOT CLONE %d %p\n", pthread_self(), interp);
+	pthread_setspecific(*key, interp);
 
 	return interp;
 }
@@ -337,7 +336,7 @@ static size_t perl_xlat(void *instance, REQUEST *request, char *fmt, char *out,
 #ifndef WITH_ITHREADS
 	perl = inst->perl;
 #else
-	perl = rlm_perl_clone(inst->perl);
+	perl = rlm_perl_clone(inst->perl,inst->thread_key);
 	{
 	  dTHXa(perl);
 	}
@@ -407,10 +406,13 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 	HV		*rad_request_proxy_reply_hv;
 	AV		*end_AV;
 
-	char *embed[4];
+	char **embed;
+        char **envp = NULL;
 	const char *xlat_name;
 	int exitstatus = 0, argc=0;
 
+        embed = rad_malloc(4*(sizeof(char *)));
+        memset(embed, 0, sizeof(4*(sizeof(char *))));
 	/*
 	 *	Set up a storage area for instance data
 	 */
@@ -425,8 +427,17 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 		free(inst);
 		return -1;
 	}
+	
+	/*
+	 *	Create pthread key. This key will be stored in instance
+	 */
 
-
+#ifdef USE_ITHREADS
+	inst->thread_key = rad_malloc(sizeof(*inst->thread_key));
+	memset(inst->thread_key,0,sizeof(*inst->thread_key));
+	
+	rlm_perl_make_key(inst->thread_key);
+#endif
 	embed[0] = NULL;
 	if (inst->perl_flags) {
 		embed[1] = inst->perl_flags;
@@ -439,6 +450,7 @@ static int perl_instantiate(CONF_SECTION *conf, void **instance)
 		argc = 3;
 	}
 
+        PERL_SYS_INIT3(&argc, &embed, &envp);
 #ifdef USE_ITHREADS
 	if ((inst->perl = perl_alloc()) == NULL) {
 		radlog(L_DBG, "rlm_perl: No memory for allocating new perl !");
@@ -518,6 +530,7 @@ static void perl_store_vps(VALUE_PAIR *vp, HV *rad_hv)
 {
         VALUE_PAIR	*nvp, *vpa, *vpn;
 	AV		*av;
+	char		namebuf[256], *name;
 	char            buffer[1024];
 	int		attr, len;
 
@@ -525,8 +538,10 @@ static void perl_store_vps(VALUE_PAIR *vp, HV *rad_hv)
 	nvp = paircopy(vp);
 
 	while (nvp != NULL) {
+		name = nvp->name;
 		attr = nvp->attribute;
 		vpa = paircopy2(nvp,attr);
+
 		if (vpa->next) {
 			av = newAV();
 			vpn = vpa;
@@ -539,10 +554,17 @@ static void perl_store_vps(VALUE_PAIR *vp, HV *rad_hv)
 			hv_store(rad_hv, nvp->name, strlen(nvp->name),
 					newRV_noinc((SV *) av), 0);
 		} else {
+			if ((vpa->flags.has_tag) &&
+			    (vpa->flags.tag != 0)) {
+				snprintf(namebuf, sizeof(namebuf), "%s:%d",
+					 nvp->name, nvp->flags.tag);
+				name = namebuf;
+			}
+
 			len = vp_prints_value(buffer, sizeof(buffer),
-					vpa, FALSE);
-			hv_store(rad_hv, vpa->name, strlen(vpa->name),
-					newSVpv(buffer, len), 0);
+					      vpa, FALSE);
+			hv_store(rad_hv, name, strlen(name),
+				 newSVpv(buffer, len), 0);
 		}
 
 		pairfree(&vpa);
@@ -631,7 +653,7 @@ static int rlmperl_call(void *instance, REQUEST *request, char *function_name)
 #ifdef USE_ITHREADS
 	PerlInterpreter *interp;
 
-	interp = rlm_perl_clone(inst->perl);
+	interp = rlm_perl_clone(inst->perl,inst->thread_key);
 	{
 	  dTHXa(interp);
 	  PERL_SET_CONTEXT(interp);
@@ -863,6 +885,24 @@ static int perl_post_auth(void *instance, REQUEST *request)
 	return rlmperl_call(instance, request,
 			((PERL_INST *)instance)->func_post_auth);
 }
+#ifdef WITH_COA
+/*
+ *	Recv CoA request
+ */
+static int perl_recv_coa(void *instance, REQUEST *request)
+{
+	return rlmperl_call(instance, request,
+			((PERL_INST *)instance)->func_recv_coa);
+}
+/*
+ *	Send CoA request
+ */
+static int perl_send_coa(void *instance, REQUEST *request)
+{
+	return rlmperl_call(instance, request,
+			((PERL_INST *)instance)->func_send_coa);
+}
+#endif
 /*
  * Detach a instance give a chance to a module to make some internal setup ...
  */
@@ -900,7 +940,7 @@ static int perl_detach(void *instance)
 		}
 #endif
 
-	{
+		if (inst->func_detach) {
 	dTHXa(inst->perl);
 	PERL_SET_CONTEXT(inst->perl);
 	{
@@ -932,6 +972,7 @@ static int perl_detach(void *instance)
 	perl_free(inst->perl);
 #endif
 
+        PERL_SYS_TERM();
 	free(inst);
 	return exitstatus;
 }
@@ -965,5 +1006,9 @@ module_t rlm_perl = {
 		perl_pre_proxy,		/* pre-proxy */
 		perl_post_proxy,	/* post-proxy */
 		perl_post_auth		/* post-auth */
+#ifdef WITH_COA
+		, perl_recv_coa,
+		perl_send_coa
+#endif
 	},
 };

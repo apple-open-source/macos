@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2005, 2006 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,17 +26,18 @@
 #include "config.h"
 #include "BitmapImage.h"
 
-#if PLATFORM(CG)
+#if USE(CG)
 
 #include "AffineTransform.h"
 #include "FloatConversion.h"
 #include "FloatRect.h"
-#include "GraphicsContext.h"
-#include "GraphicsContextPlatformPrivateCG.h"
+#include "GraphicsContextCG.h"
 #include "ImageObserver.h"
 #include "PDFDocumentImage.h"
 #include "PlatformString.h"
 #include <ApplicationServices/ApplicationServices.h>
+#include <CoreFoundation/CFArray.h>
+#include <wtf/RetainPtr.h>
 
 #if PLATFORM(MAC) || PLATFORM(CHROMIUM)
 #include "WebCoreSystemInterface.h"
@@ -112,8 +113,7 @@ void BitmapImage::checkForSolidColor()
     // Currently we only check for solid color in the important special case of a 1x1 image.
     if (image && CGImageGetWidth(image) == 1 && CGImageGetHeight(image) == 1) {
         unsigned char pixel[4]; // RGBA
-        static CGColorSpaceRef space = CGColorSpaceCreateDeviceRGB();
-        RetainPtr<CGContextRef> bmap(AdoptCF, CGBitmapContextCreate(pixel, 1, 1, 8, sizeof(pixel), space,
+        RetainPtr<CGContextRef> bmap(AdoptCF, CGBitmapContextCreate(pixel, 1, 1, 8, sizeof(pixel), deviceRGBColorSpaceRef(),
             kCGImageAlphaPremultipliedLast | kCGBitmapByteOrder32Big));
         if (!bmap)
             return;
@@ -138,11 +138,12 @@ static RetainPtr<CGImageRef> imageWithColorSpace(CGImageRef originalImage, Color
         return originalImage;
 
     switch (colorSpace) {
-    case DeviceColorSpace:
+    case ColorSpaceDeviceRGB:
         return originalImage;
-    case sRGBColorSpace:
-        return RetainPtr<CGImageRef>(AdoptCF, CGImageCreateCopyWithColorSpace(originalImage, 
-            sRGBColorSpaceRef()));
+    case ColorSpaceSRGB:
+        return RetainPtr<CGImageRef>(AdoptCF, CGImageCreateCopyWithColorSpace(originalImage, sRGBColorSpaceRef()));
+    case ColorSpaceLinearRGB:
+        return RetainPtr<CGImageRef>(AdoptCF, CGImageCreateCopyWithColorSpace(originalImage, linearRGBColorSpaceRef()));
     }
 
     ASSERT_NOT_REACHED();
@@ -152,6 +153,33 @@ static RetainPtr<CGImageRef> imageWithColorSpace(CGImageRef originalImage, Color
 CGImageRef BitmapImage::getCGImageRef()
 {
     return frameAtIndex(0);
+}
+
+CGImageRef BitmapImage::getFirstCGImageRefOfSize(const IntSize& size)
+{
+    size_t count = frameCount();
+    for (size_t i = 0; i < count; ++i) {
+        CGImageRef cgImage = frameAtIndex(i);
+        if (cgImage && IntSize(CGImageGetWidth(cgImage), CGImageGetHeight(cgImage)) == size)
+            return cgImage;
+    }
+
+    // Fallback to the default CGImageRef if we can't find the right size
+    return getCGImageRef();
+}
+
+RetainPtr<CFArrayRef> BitmapImage::getCGImageArray()
+{
+    size_t count = frameCount();
+    if (!count)
+        return 0;
+    
+    CFMutableArrayRef array = CFArrayCreateMutable(NULL, count, &kCFTypeArrayCallBacks);
+    for (size_t i = 0; i < count; ++i) {
+        if (CGImageRef currFrame = frameAtIndex(i))
+            CFArrayAppendValue(array, currFrame);
+    }
+    return RetainPtr<CFArrayRef>(AdoptCF, array);
 }
 
 void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator compositeOp)
@@ -172,7 +200,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         return;
 
     CGContextRef context = ctxt->platformContext();
-    ctxt->save();
+    GraphicsContextStateSaver stateSaver(*ctxt);
 
     bool shouldUseSubimage = false;
 
@@ -186,7 +214,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
         // containing only the portion we want to display. We need to do this because high-quality
         // interpolation smoothes sharp edges, causing pixels from outside the source rect to bleed
         // into the destination rect. See <rdar://problem/6112909>.
-        shouldUseSubimage = (interpolationQuality == kCGInterpolationHigh || interpolationQuality == kCGInterpolationDefault) && srcRect.size() != destRect.size();
+        shouldUseSubimage = (interpolationQuality != kCGInterpolationNone) && (srcRect.size() != destRect.size() || !ctxt->getCTM().isIdentityOrTranslationOrFlipped());
         float xScale = srcRect.width() / destRect.width();
         float yScale = srcRect.height() / destRect.height();
         if (shouldUseSubimage) {
@@ -204,7 +232,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
             adjustedDestRect.setHeight(subimageRect.height() / yScale);
 
             image.adoptCF(CGImageCreateWithImageInRect(image.get(), subimageRect));
-            if (currHeight < srcRect.bottom()) {
+            if (currHeight < srcRect.maxY()) {
                 ASSERT(CGImageGetHeight(image.get()) == currHeight - CGRectIntegral(srcRect).origin.y);
                 adjustedDestRect.setHeight(CGImageGetHeight(image.get()) / yScale);
             }
@@ -224,7 +252,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
 
     // Flip the coords.
     CGContextScaleCTM(context, 1, -1);
-    adjustedDestRect.setY(-adjustedDestRect.bottom());
+    adjustedDestRect.setY(-adjustedDestRect.maxY());
 
     // Adjust the color space.
     image = imageWithColorSpace(image.get(), styleColorSpace);
@@ -232,7 +260,7 @@ void BitmapImage::draw(GraphicsContext* ctxt, const FloatRect& destRect, const F
     // Draw the image.
     CGContextDrawImage(context, adjustedDestRect, image.get());
 
-    ctxt->restore();
+    stateSaver.restore();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -256,7 +284,7 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
         return;
 
     CGContextRef context = ctxt->platformContext();
-    ctxt->save();
+    GraphicsContextStateSaver stateSaver(*ctxt);
     CGContextClipToRect(context, destRect);
     ctxt->setCompositeOperation(op);
     CGContextTranslateCTM(context, destRect.x(), destRect.y() + destRect.height());
@@ -286,11 +314,9 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     // Adjust the color space.
     subImage = imageWithColorSpace(subImage.get(), styleColorSpace);
     
-#ifndef BUILDING_ON_TIGER
     // Leopard has an optimized call for the tiling of image patterns, but we can only use it if the image has been decoded enough that
     // its buffer is the same size as the overall image.  Because a partially decoded CGImageRef with a smaller width or height than the
     // overall image buffer needs to tile with "gaps", we can't use the optimized tiling call in that case.
-    // FIXME: Could create WebKitSystemInterface SPI for CGCreatePatternWithImage2 and probably make Tiger tile faster as well.
     // FIXME: We cannot use CGContextDrawTiledImage with scaled tiles on Leopard, because it suffers from rounding errors.  Snow Leopard is ok.
     float scaledTileWidth = tileRect.width() * narrowPrecisionToFloat(patternTransform.a());
     float w = CGImageGetWidth(tileImage);
@@ -301,12 +327,8 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
 #endif
         CGContextDrawTiledImage(context, FloatRect(adjustedX, adjustedY, scaledTileWidth, scaledTileHeight), subImage.get());
     else {
-#endif
 
-    // On Leopard, this code now only runs for partially decoded images whose buffers do not yet match the overall size of the image.
-    // On Tiger this code runs all the time.  This code is suboptimal because the pattern does not reference the image directly, and the
-    // pattern is destroyed before exiting the function.  This means any decoding the pattern does doesn't end up cached anywhere, so we
-    // redecode every time we paint.
+    // On Leopard and newer, this code now only runs for partially decoded images whose buffers do not yet match the overall size of the image.
     static const CGPatternCallbacks patternCallbacks = { 0, drawPatternCallback, NULL };
     CGAffineTransform matrix = CGAffineTransformMake(narrowPrecisionToCGFloat(patternTransform.a()), 0, 0, narrowPrecisionToCGFloat(patternTransform.d()), adjustedX, adjustedY);
     matrix = CGAffineTransformConcat(matrix, CGContextGetCTM(context));
@@ -315,10 +337,8 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     RetainPtr<CGPatternRef> pattern(AdoptCF, CGPatternCreate(subImage.get(), CGRectMake(0, 0, tileRect.width(), tileRect.height()),
                                              matrix, tileRect.width(), tileRect.height(), 
                                              kCGPatternTilingConstantSpacing, true, &patternCallbacks));
-    if (!pattern) {
-        ctxt->restore();
+    if (!pattern)
         return;
-    }
 
     RetainPtr<CGColorSpaceRef> patternSpace(AdoptCF, CGColorSpaceCreatePattern(0));
     
@@ -333,11 +353,9 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
     CGContextSetFillColorWithColor(context, color.get());
     CGContextFillRect(context, CGContextGetClipBoundingBox(context));
 
-#ifndef BUILDING_ON_TIGER
     }
-#endif
 
-    ctxt->restore();
+    stateSaver.restore();
 
     if (imageObserver())
         imageObserver()->didDraw(this);
@@ -346,4 +364,4 @@ void Image::drawPattern(GraphicsContext* ctxt, const FloatRect& tileRect, const 
 
 }
 
-#endif // PLATFORM(CG)
+#endif // USE(CG)

@@ -30,10 +30,16 @@
 
 #include "ScriptProfiler.h"
 
+#include "GCController.h"
 #include "JSDOMBinding.h"
 #include <profiler/Profiler.h>
 
 namespace WebCore {
+
+void ScriptProfiler::collectGarbage()
+{
+    gcController().garbageCollectNow();
+}
 
 void ScriptProfiler::start(ScriptState* state, const String& title)
 {
@@ -42,7 +48,8 @@ void ScriptProfiler::start(ScriptState* state, const String& title)
 
 PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String& title)
 {
-    return JSC::Profiler::profiler()->stopProfiling(state, stringToUString(title));
+    RefPtr<JSC::Profile> profile = JSC::Profiler::profiler()->stopProfiling(state, stringToUString(title));
+    return ScriptProfile::create(profile);
 }
 
 } // namespace WebCore

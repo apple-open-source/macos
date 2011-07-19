@@ -76,6 +76,8 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 #define LINESIZE 65536  //  NeXT_MOD
 
@@ -132,6 +134,9 @@ int expunge = 0;                /* first flush dependency stuff from makefile */
 
 
 char *name;
+
+static void scan_mak(FILE *, FILE *, char *);
+static void finish_mak(FILE *, FILE *);
 
 main(argc,argv)
 register char **argv;
@@ -248,7 +253,7 @@ newtoken: ;
 
                         parse_dep();
                         if (mak) scan_mak(mak, makout, dot_o);
-                        output_dep(out);
+                        if (out) output_dep(out);
 
                         if (delete)
                                 unlink(*argv);
@@ -311,7 +316,7 @@ struct stat statbuf;
         case S_IFBLK:
         case S_IFSOCK:
         default:
-                fprintf(stderr, "%s: bad mode: 0%o on \"%s%s\"\n",
+                fprintf(stderr, "%s: bad mode: 0%o on \"%s\"\n",
                         name, statbuf.st_mode, file);
                 fflush(stdout), fflush(stderr);
                 goto out;
@@ -586,9 +591,8 @@ register int oldlen = OLDSALUTATIONLEN;
                 printf("eof = %d str = \"%s\"", mak_eof, makbuf);
 }
 
-scan_mak(makin, makout, file)
-register FILE *makin, *makout;
-char *file;
+static void
+scan_mak(FILE *makin, FILE *makout, char *file)
 {
 register char *cp = &makbuf[SALUTATIONLEN+1];
 register int len = strlen(file);
@@ -634,8 +638,8 @@ register int ret;
         } while (1);
 }
 
-finish_mak(makin, makout)
-register FILE *makin, *makout;
+static void
+finish_mak(FILE *makin, FILE *makout)
 {
         if (mak_eof)            /* don't scan any more */
                 return;

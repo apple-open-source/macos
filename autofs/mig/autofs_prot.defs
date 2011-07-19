@@ -31,7 +31,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 subsystem KernelUser autofs 666;
@@ -62,9 +62,13 @@ routine autofs_mount(
 	in subdir	: autofs_pathname;	/* subdir within map */
 	in opts		: autofs_opts;
 	in isdirect	: boolean_t;		/* direct mountpoint? */
+	in issubtrigger	: boolean_t;		/* is this a subtrigger? */
+	in mntpnt_fsid	: fsid_t;		/* fsid of FS on which we're mounting */
 	in sendereuid	: uint32_t;		/* EUID of process sending request */
 	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
 	out mr_type	: int;			/* enum autofs_stat */
+	out fsid	: fsid_t;		/* fsid of FS we mounted */
+	out retflags	: uint32_t;		/* assorted MOUNT_RETF_ flags */
 	out actions	: byte_buffer, dealloc;	/* variable number of entries */
 	out err		: int;
 	out mr_verbose	: boolean_t;
@@ -79,8 +83,7 @@ routine autofs_mount(
  */
 routine autofs_unmount(
 	server		: mach_port_t;
-	in fsid_val0	: int32_t;		/* mntpnt fsid, first half */
-	in fsid_val1	: int32_t;		/* mntpnt fsid, second half */
+	in mntpnt_fsid	: fsid_t;		/* mntpnt fsid */
 	in mntresource	: autofs_pathname;	/* mntpnt source */
 	in mntpnt	: autofs_pathname;	/* mntpnt to unmount */
 	in fstype	: autofs_fstype;	/* filesystem type to unmount */
@@ -108,6 +111,29 @@ routine autofs_readdir(
 );
 
 /*
+ * Readdir request for subdirectories under a map.
+ * Request list of entries in 'rda_map' map entry 'rda_key' underneath
+ * the subdirectory 'rda_subdir',  starting at the given offset 'rda_offset',
+ * for 'rda_count' bytes.
+ */
+routine autofs_readsubdir(
+	server			: mach_port_t;
+	in rda_map		: autofs_pathname;
+	in rda_name		: autofs_component;	/* entry we're looking for */
+	in rda_subdir		: autofs_pathname;	/* subdir within map */
+	in rda_mntopts		: autofs_opts;		/* mntpnt options */
+	in rda_parentino	: uint32_t;		/* (lower 32 bits of) parent inode number */
+	in rda_offset		: int64_t;		/* starting offset */
+	in rda_count		: uint32_t;		/* total size requested */
+	out status		: int;
+	out rddir_offset	: int64_t;		/* last offset in list */
+	out rddir_eof		: boolean_t;		/* TRUE if last entry in result */
+	out rddir_entries	: byte_buffer, dealloc;
+							/* variable number of entries */
+	ServerSecToken token : security_token_t
+);
+
+/*
  * Lookup request.
  * Query automountd if 'subdir/name' exists in 'map'
  */
@@ -121,7 +147,7 @@ routine autofs_lookup(
 	in isdirect	: boolean_t;		/* direct mountpoint? */
 	in sendereuid	: uint32_t;		/* EUID of process sending request */
 	out err		: int;
-	out lu_action	: int;			/* enum autofs_action */
+	out node_type	: int;
 	out lu_verbose	: boolean_t;
 	ServerSecToken token : security_token_t
 );
@@ -131,7 +157,7 @@ routine autofs_lookup(
  * Request automountd to mount autofs as a trigger on submntpt under
  * mntpt.
  */
-routine autofs_mount_trigger(
+routine autofs_mount_subtrigger(
 	server		: mach_port_t;
 	in mntpt	: autofs_pathname;	/* top-level mount point */
 	in submntpt	: autofs_pathname;	/* submount point relative to mntpt */
@@ -142,42 +168,40 @@ routine autofs_mount_trigger(
 	in key		: autofs_pathname;	/* key mount argument */
 	in flags	: uint32_t;		/* flags argument to mount() */
 	in mntflags	: uint32_t;		/* mntflags mount argument */
-	in mount_to	: int32_t;		/* mount_to mount argument */
-	in mach_to	: int32_t;		/* mach_to mount argument */
 	in direct	: int32_t;		/* direct mount argument */
-	out fsid_val0	: int32_t;		/* mounted FS fsid, first half */
-	out fsid_val1	: int32_t;		/* mounted FS fsid, second half */
+	out fsid	: fsid_t;		/* fsid of FS we mounted */
 	out top_level	: boolean_t;		/* true if submntpt empty */
 	out err		: int;
 	ServerSecToken token : security_token_t
 );
 
 /*
- * Check-hostname request.
- * Ask automountd whether the specified name is our host name.
+ * "Mount URL" request.
+ * Request automountd to mount the specified URL at the specified mount
+ * point with the specified options.
  */
-routine autofs_check_thishost(
+routine autofs_mount_url(
 	server		: mach_port_t;
-	in name		: autofs_component;	/* name we're checking */
-	out is_us	: boolean_t;		/* true if it's us */
+	in url		: autofs_pathname;	/* URL to mount */
+	in mountpoint	: autofs_pathname;	/* mountpoint */
+	in opts		: autofs_opts;		/* mount options; null string if none */
+	in mntpnt_fsid	: fsid_t;		/* fsid of FS on which we're mounting */
+	in sendereuid	: uint32_t;		/* EUID of process sending request */
+	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
+	out fsid	: fsid_t;		/* fsid of FS we mounted */
+	out retflags	: uint32_t;		/* assorted MOUNT_RETF_ flags */
+	out err		: int;
 	ServerSecToken token : security_token_t
 );
 
 /*
- * Check-trigger request.
- * Request automountd to check the map entry associated with
- * 'path/subdir/name' in 'map' given 'opts' options to see
- * whether it'll trigger a mount or not.
+ * "Remount SMB server" request.
+ * Request that automountd call SMBRemountServer() with the blob passed
+ * in as an argument.
  */
-routine autofs_check_trigger(
+simpleroutine autofs_smb_remount_server(
 	server		: mach_port_t;
-	in map		: autofs_pathname;	/* context or map name */
-	in path		: autofs_pathname;	/* mountpoint */
-	in name		: autofs_component;	/* entry we're looking for */
-	in subdir	: autofs_pathname;	/* subdir within map */
-	in opts		: autofs_opts;
-	in isdirect	: boolean_t;		/* direct mountpoint? */
-	out err		: int;
-	out istrigger	: boolean_t;
+	in blob		: byte_buffer, dealloc;	/* opaque blob */
+	in gssd_port	: mach_port_t;		/* GSSD port of process sending request */
 	ServerSecToken token : security_token_t
 );

@@ -91,77 +91,77 @@ localised text.  The catalog requires the following messages:
 
 [list_begin definitions]
 
-[lst_item [const Apply]]
+[def [const Apply]]
 Text that will appear on the "Apply" button in the dialog that sets
 KHIM options.
 
-[lst_item [const Cancel]]
+[def [const Cancel]]
 Text that will appear on the "Cancel" button in several dialogs.
 
-[lst_item [const Change]]
+[def [const Change]]
 Text that will appear on the "Change" button, which alters the binding
 of a pair of composed characters (creating or replacing as
 appropriate).
 
-[lst_item [const Character]]
+[def [const Character]]
 Text that will appear on the label of the entry widget that accepts a
 character resulting from a composed sequence.
 
-[lst_item [const {{Compose Key}}]]
+[def [const {{Compose Key}}]]
 Window title for a dialog that prompts the user to strike the key that
 will be used for the "Compose" key.
 
-[lst_item [const {{Compose key:}}]]
+[def [const {{Compose key:}}]]
 Label that identifies a component showing the "Compose" key choice in
 the KHIM options dialog.
 
-[lst_item [const {{Composed sequence must be two characters long}}]]
+[def [const {{Composed sequence must be two characters long}}]]
 Error message that is displayed if the user attempts to define a
 "Compose" sequence that is shorter or longer than two characters.
 
-[lst_item [const Delete]]
+[def [const Delete]]
 Text for a button that deletes a "Compose" sequence.
 
-[lst_item [const Help...]]
+[def [const Help...]]
 Text for a button that displays the KHIM user help dialog.
 
-[lst_item [const HELPTEXT]]
+[def [const HELPTEXT]]
 Complete text for the user-level help for KHIM.  Refer to
 [file en.msg] for the English-language version of the help.
 
-[lst_item [const {{Input key sequence}}]]
+[def [const {{Input key sequence}}]]
 Text for a label of the entry widget that prompts the user for a
 two-character sequence to use with the "Compose" key.
 
-[lst_item [const {{Insert Character}}]]
+[def [const {{Insert Character}}]]
 Window title of the dialog box that displays a Unicode character map
 and prompts the user to select a character to insert.
 
-[lst_item [const {{Key sequences}}]]
+[def [const {{Key sequences}}]]
 Text for a label at the head of a listbox showing the composed
 sequences that are currently bound.
 
-[lst_item [const {{KHIM Controls}}]]
+[def [const {{KHIM Controls}}]]
 Window title for the dialog box that prompts for KHIM settings.
 
-[lst_item [const {{KHIM Help}}]]
+[def [const {{KHIM Help}}]]
 Window title for the window that display help text for KHIM.
 
-[lst_item [const OK]]
+[def [const OK]]
 Label for the OK button on several dialogs.
 
-[lst_item [const {Select code page:}]]
+[def [const {Select code page:}]]
 Label for a spinbox that prompts the user for a Unicode code page number.
 
-[lst_item [const {SELECT COMPOSE KEY}]]
+[def [const {SELECT COMPOSE KEY}]]
 A message, which should be composed in short lines, prompting the user
 to press the key that will become the "Compose" key in KHIM.
 
-[lst_item [const Unicode...]]
+[def [const Unicode...]]
 Text for a button that brings up the character map to select the
 character to which a composed sequence binds.
 
-[lst_item [const {{Use KHIM}}]]
+[def [const {{Use KHIM}}]]
 Text for a checkbutton that asks whether the user wishes to use KHIM
 to manage composed key sequences.
 

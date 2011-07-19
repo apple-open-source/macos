@@ -16,15 +16,10 @@
 .
 /^def get_config_vars/a
 .
-/if args:/i
-            if 'ARCHFLAGS' in os.environ:
-                archflags = os.environ['ARCHFLAGS']
-            else:
-                archflags = '@DEFARCHFLAGS@'
-            _config_vars['ARCHFLAGS'] = archflags
-            if archflags.strip() != '':
-                _config_vars['CFLAGS'] = _config_vars['CFLAGS'] + ' ' + archflags
-                _config_vars['LDFLAGS'] = _config_vars['LDFLAGS'] + ' ' + archflags
-
+/arch = os.environ\['ARCHFLAGS']/a
+                else:
+                    arch = '@DEFARCHFLAGS@'
+                _config_vars['ARCHFLAGS'] = arch
 .
+.+1,/if args:/-1s/^    //
 w

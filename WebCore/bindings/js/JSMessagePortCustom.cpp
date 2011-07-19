@@ -26,7 +26,6 @@
 #include "config.h"
 #include "JSMessagePort.h"
 
-#include "AtomicString.h"
 #include "Event.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
@@ -36,25 +35,29 @@
 #include "JSMessagePortCustom.h"
 #include "MessagePort.h"
 #include <runtime/Error.h>
+#include <wtf/text/AtomicString.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-void JSMessagePort::markChildren(MarkStack& markStack)
+void JSMessagePort::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
 
     // If we have a locally entangled port, we can directly mark it as reachable. Ports that are remotely entangled are marked in-use by markActiveObjectsForContext().
-    if (MessagePort* entangledPort = m_impl->locallyEntangledPort())
-        markDOMObjectWrapper(markStack, *Heap::heap(this)->globalData(), entangledPort);
+    if (MessagePort* port = m_impl->locallyEntangledPort())
+        visitor.addOpaqueRoot(port);
 
-    m_impl->markJSEventListeners(markStack);
+    m_impl->visitJSEventListeners(visitor);
 }
 
-JSC::JSValue JSMessagePort::postMessage(JSC::ExecState* exec, const JSC::ArgList& args)
+JSC::JSValue JSMessagePort::postMessage(JSC::ExecState* exec)
 {
-    return handlePostMessage(exec, args, impl());
+    return handlePostMessage(exec, impl());
 }
 
 void fillMessagePortArray(JSC::ExecState* exec, JSC::JSValue value, MessagePortArray& portArray)
@@ -86,7 +89,7 @@ void fillMessagePortArray(JSC::ExecState* exec, JSC::JSValue value, MessagePortA
         // Validation of Objects implementing an interface, per WebIDL spec 4.1.15.
         RefPtr<MessagePort> port = toMessagePort(value);
         if (!port) {
-            throwError(exec, TypeError);
+            throwTypeError(exec);
             return;
         }
         portArray[i] = port.release();

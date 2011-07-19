@@ -62,6 +62,7 @@ __RCSID("$FreeBSD: src/bin/ls/print.c,v 1.57 2002/08/29 14:29:09 keramida Exp $"
 #include <fts.h>
 #include <math.h>
 #include <langinfo.h>
+#include <libutil.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -287,17 +288,16 @@ printacl(acl_t acl, int isdir)
 	for (index = 0;
 	     acl_get_entry(acl, entry == NULL ? ACL_FIRST_ENTRY : ACL_NEXT_ENTRY, &entry) == 0;
 	     index++) {
-		if ((applicable = (uuid_t *) acl_get_qualifier(entry)) == NULL)
-			continue;
 		if (acl_get_tag_type(entry, &tag) != 0)
 			continue;
 		if (acl_get_flagset_np(entry, &flags) != 0)
 			continue;
 		if (acl_get_permset(entry, &perms) != 0)
 			continue;
+		if ((applicable = (uuid_t *) acl_get_qualifier(entry)) == NULL)
+			continue;
 		name = uuid_to_name(applicable);
 		acl_free(applicable);
-
 		switch(tag) {
 		case ACL_EXTENDED_ALLOW:
 			type = "allow";

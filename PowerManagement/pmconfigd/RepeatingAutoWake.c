@@ -309,7 +309,6 @@ scheduleNextRepeatingEvent(CFDictionaryRef   event)
     int                     days;
     int                     minutes_scheduled;
     int                     cf_day_of_week;
-    IOReturn                ret;
 
     if(!event) return;
     
@@ -339,7 +338,7 @@ scheduleNextRepeatingEvent(CFDictionaryRef   event)
     if( !_eventAlreadyScheduled(ev_date, CFSTR("Repeating"), 
             getRepeatingDictionaryType(event)) ) 
     { 
-        ret = IOPMSchedulePowerEvent(ev_date, CFSTR("Repeating"), 
+        IOPMSchedulePowerEvent(ev_date, CFSTR("Repeating"), 
                 getRepeatingDictionaryType(event));
     }
     

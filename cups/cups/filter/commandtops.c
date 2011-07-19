@@ -1,5 +1,5 @@
 /*
- * "$Id: commandtops.c 3027 2011-03-04 20:02:14Z msweet $"
+ * "$Id: commandtops.c 3277 2011-05-20 07:30:39Z msweet $"
  *
  *   PostScript command filter for CUPS.
  *
@@ -27,8 +27,8 @@
  * Include necessary headers...
  */
 
-#include <cups/cups.h>
-#include <cups/string.h>
+#include <cups/cups-private.h>
+#include <cups/ppd.h>
 #include <cups/sidechannel.h>
 
 
@@ -69,7 +69,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    fputs("ERROR: commandtops job-id user title copies options [file]\n", stderr);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options file"),
+                    argv[0]);
     return (1);
   }
 
@@ -110,11 +112,11 @@ main(int  argc,				/* I - Number of command-line arguments */
     * Parse the command...
     */
 
-    if (!strcasecmp(line, "AutoConfigure"))
+    if (!_cups_strcasecmp(line, "AutoConfigure"))
       auto_configure(ppd, argv[2]);
-    else if (!strcasecmp(line, "PrintSelfTestPage"))
+    else if (!_cups_strcasecmp(line, "PrintSelfTestPage"))
       print_self_test_page(ppd, argv[2]);
-    else if (!strcasecmp(line, "ReportLevels"))
+    else if (!_cups_strcasecmp(line, "ReportLevels"))
       report_levels(ppd, argv[2]);
     else
       fprintf(stderr, "ERROR: Invalid printer command \"%s\"!\n", line);
@@ -160,6 +162,19 @@ auto_configure(ppd_file_t *ppd,		/* I - PPD file */
   */
 
   begin_ps(ppd, user);
+  fflush(stdout);
+
+ /*
+  * Wait for the printer to become connected...
+  */
+
+  do
+  {
+    sleep(1);
+    datalen = 1;
+  }
+  while (cupsSideChannelDoRequest(CUPS_SC_CMD_GET_CONNECTED, buffer, &datalen,
+                                  5.0) == CUPS_SC_STATUS_OK && !buffer[0]);
 
  /*
   * Then loop through every option in the PPD file and ask for the current
@@ -352,5 +367,5 @@ report_levels(ppd_file_t *ppd,		/* I - PPD file */
 
 
 /*
- * End of "$Id: commandtops.c 3027 2011-03-04 20:02:14Z msweet $".
+ * End of "$Id: commandtops.c 3277 2011-05-20 07:30:39Z msweet $".
  */

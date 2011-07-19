@@ -1,3 +1,15 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-05-06  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* md5c.tcl: The md5c command was leaking a Tcl_Obj on each call
+	due to having one too many ref counts. Also use Tcl_Alloc rather
+	than malloc.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

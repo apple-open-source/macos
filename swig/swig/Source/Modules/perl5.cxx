@@ -1,3 +1,7 @@
+/* -*- mode: c++; c-basic-offset: 2; indent-tabs-mode: nil; -*-
+ *  vim:expandtab:shiftwidth=2:tabstop=8:smarttab:
+ */
+
 /* ----------------------------------------------------------------------------
  * See the LICENSE file for information on copyright, usage and redistribution
  * of SWIG, and the README file for authors - http://www.swig.org/release.html.
@@ -7,7 +11,7 @@
  * Perl5 language module for SWIG.
  * ------------------------------------------------------------------------- */
 
-char cvsroot_perl5_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/perl5.cxx,v 1.65 2006/11/15 23:45:47 wsfulton Exp $";
+char cvsroot_perl5_cxx[] = "$Id: perl5.cxx 11397 2009-07-15 07:43:16Z olly $";
 
 #include "swigmod.h"
 #include "cparse.h"
@@ -41,17 +45,21 @@ static String *pmfile = 0;
 /*
  * module
  *   set by the %module directive, e.g. "Xerces". It will determine
- *   the name of the .pm file, and the dynamic library.
+ *   the name of the .pm file, and the dynamic library, and the name
+ *   used by any module wanting to %import the module.
  */
 static String *module = 0;
 
 /*
- * fullmodule
- *   the fully namespace qualified name of the module, e.g. "XML::Xerces"
- *   it will be used to set the package namespace in the .pm file, as
- *   well as the name of the initialization methods in the glue library
+ * namespace_module
+ *   the fully namespace qualified name of the module. It will be used
+ *   to set the package namespace in the .pm file, as well as the name
+ *   of the initialization methods in the glue library. This will be
+ *   the same as module, above, unless the %module directive is given
+ *   the 'package' option, e.g. %module(package="Foo::Bar") "baz"
  */
-static String *fullmodule = 0;
+static String       *namespace_module = 0;
+
 /*
  * cmodule
  *   the namespace of the internal glue code, set to the value of
@@ -59,10 +67,18 @@ static String *fullmodule = 0;
  */
 static String *cmodule = 0;
 
+/*
+ * dest_package
+ *   an optional namespace to put all classes into. Specified by using
+ *   the %module(package="Foo::Bar") "baz" syntax
+ */
+static String       *dest_package = 0;
+
 static String *command_tab = 0;
 static String *constant_tab = 0;
 static String *variable_tab = 0;
 
+static File *f_begin = 0;
 static File *f_runtime = 0;
 static File *f_header = 0;
 static File *f_wrappers = 0;
@@ -71,7 +87,10 @@ static File *f_pm = 0;
 static String *pm;		/* Package initialization code */
 static String *magic;		/* Magic variable wrappers     */
 
-static int is_static = 0;
+static int staticoption = 0;
+
+// controlling verbose output
+static int          verbose = 0;
 
 /* The following variables are used to manage Perl5 classes */
 
@@ -135,18 +154,18 @@ public:
     for (i = 1; i < argc; i++) {
       if (argv[i]) {
 	if (strcmp(argv[i], "-package") == 0) {
-	  Printf(stderr,
-		 "*** -package is no longer supported\n*** use the directive '%module A::B::C' in your interface file instead\n*** see the Perl section in the manual for details.\n");
+	  Printv(stderr,
+		 "*** -package is no longer supported\n*** use the directive '%module A::B::C' in your interface file instead\n*** see the Perl section in the manual for details.\n", NIL);
 	  SWIG_exit(EXIT_FAILURE);
 	} else if (strcmp(argv[i], "-interface") == 0) {
-	  Printf(stderr,
-		 "*** -interface is no longer supported\n*** use the directive '%module A::B::C' in your interface file instead\n*** see the Perl section in the manual for details.\n");
+	  Printv(stderr,
+		 "*** -interface is no longer supported\n*** use the directive '%module A::B::C' in your interface file instead\n*** see the Perl section in the manual for details.\n", NIL);
 	  SWIG_exit(EXIT_FAILURE);
 	} else if (strcmp(argv[i], "-exportall") == 0) {
 	  export_all = 1;
 	  Swig_mark_arg(i);
 	} else if (strcmp(argv[i], "-static") == 0) {
-	  is_static = 1;
+	  staticoption = 1;
 	  Swig_mark_arg(i);
 	} else if ((strcmp(argv[i], "-shadow") == 0) || ((strcmp(argv[i], "-proxy") == 0))) {
 	  blessed = 1;
@@ -166,6 +185,9 @@ public:
 	  i++;
 	  pmfile = NewString(argv[i]);
 	  Swig_mark_arg(i);
+	} else if (strcmp(argv[i],"-v") == 0) {
+	    Swig_mark_arg(i);
+	    verbose++;
 	} else if (strcmp(argv[i], "-cppcast") == 0) {
 	  cppcast = 1;
 	  Swig_mark_arg(i);
@@ -186,6 +208,7 @@ public:
     }
 
     Preprocessor_define("SWIGPERL 1", 0);
+    // SWIGPERL5 is deprecated, and no longer documented.
     Preprocessor_define("SWIGPERL5 1", 0);
     SWIG_typemap_lang("perl5");
     SWIG_config_file("perl5.swg");
@@ -201,11 +224,12 @@ public:
     /* Initialize all of the output files */
     String *outfile = Getattr(n, "outfile");
 
-    f_runtime = NewFile(outfile, "w");
-    if (!f_runtime) {
+    f_begin = NewFile(outfile, "w", SWIG_output_files());
+    if (!f_begin) {
       FileErrorDisplay(outfile);
       SWIG_exit(EXIT_FAILURE);
     }
+    f_runtime = NewString("");
     f_init = NewString("");
     f_header = NewString("");
     f_wrappers = NewString("");
@@ -213,6 +237,7 @@ public:
     /* Register file targets with the SWIG file handler */
     Swig_register_filebyname("header", f_header);
     Swig_register_filebyname("wrapper", f_wrappers);
+    Swig_register_filebyname("begin", f_begin);
     Swig_register_filebyname("runtime", f_runtime);
     Swig_register_filebyname("init", f_init);
 
@@ -231,22 +256,50 @@ public:
     constant_tab = NewString("static swig_constant_info swig_constants[] = {\n");
     variable_tab = NewString("static swig_variable_info swig_variables[] = {\n");
 
-    Swig_banner(f_runtime);
+    Swig_banner(f_begin);
 
+    Printf(f_runtime, "\n");
     Printf(f_runtime, "#define SWIGPERL\n");
     Printf(f_runtime, "#define SWIG_CASTRANK_MODE\n");
+    Printf(f_runtime, "\n");
 
+    // Is the imported module in another package?  (IOW, does it use the
+    // %module(package="name") option and it's different than the package
+    // of this module.)
+    Node *mod = Getattr(n, "module");
+    Node *options = Getattr(mod, "options");
+    module = Copy(Getattr(n,"name"));
 
-    module = Copy(Getattr(n, "name"));
+    if (verbose > 0) {
+      fprintf(stdout, "top: using module: %s\n", Char(module));
+    }
+
+    dest_package = options ? Getattr(options, "package") : 0;
+    if (dest_package) {
+      namespace_module = Copy(dest_package);
+      if (verbose > 0) {
+	fprintf(stdout, "top: Found package: %s\n",Char(dest_package));
+      }
+    } else {
+      namespace_module = Copy(module);
+      if (verbose > 0) {
+	fprintf(stdout, "top: No package found\n");
+      }
+    }
+    String *underscore_module = Copy(module);
+    Replaceall(underscore_module,":","_");
+
+    if (verbose > 0) {
+      fprintf(stdout, "top: using namespace_module: %s\n", Char(namespace_module));
+    }
 
     /* If we're in blessed mode, change the package name to "packagec" */
 
     if (blessed) {
-      cmodule = NewStringf("%sc", module);
+      cmodule = NewStringf("%sc",namespace_module);
     } else {
-      cmodule = NewString(module);
+      cmodule = NewString(namespace_module);
     }
-    fullmodule = NewString(module);
 
     /* Create a .pm file
      * Need to strip off any prefixes that might be found in
@@ -267,7 +320,7 @@ public:
 	pmfile = NewStringf("%s.pm", m);
       }
       String *filen = NewStringf("%s%s", SWIG_output_directory(), pmfile);
-      if ((f_pm = NewFile(filen, "w")) == 0) {
+      if ((f_pm = NewFile(filen, "w", SWIG_output_files())) == 0) {
 	FileErrorDisplay(filen);
 	SWIG_exit(EXIT_FAILURE);
       }
@@ -277,36 +330,39 @@ public:
       Swig_register_filebyname("perl", f_pm);
     }
     {
-      String *tmp = NewString(fullmodule);
-      Replaceall(tmp, ":", "_");
-      Printf(f_header, "#define SWIG_init    boot_%s\n\n", tmp);
-      Printf(f_header, "#define SWIG_name   \"%s::boot_%s\"\n", cmodule, tmp);
-      Printf(f_header, "#define SWIG_prefix \"%s::\"\n", cmodule);
-      Delete(tmp);
+      String *boot_name = NewStringf("boot_%s", underscore_module);
+      Printf(f_header,"#define SWIG_init    %s\n\n", boot_name);
+      Printf(f_header,"#define SWIG_name   \"%s::%s\"\n", cmodule, boot_name);
+      Printf(f_header,"#define SWIG_prefix \"%s::\"\n", cmodule);
+      Delete(boot_name);
     }
 
-    Printf(f_pm, "# This file was automatically generated by SWIG (http://www.swig.org).\n");
-    Printf(f_pm, "# Version %s\n", Swig_package_version());
-    Printf(f_pm, "#\n");
-    Printf(f_pm, "# Don't modify this file, modify the SWIG interface instead.\n");
+    Swig_banner_target_lang(f_pm, "#");
     Printf(f_pm, "\n");
 
-    Printf(f_pm, "package %s;\n", fullmodule);
+    Printf(f_pm, "package %s;\n", module);
 
-    Printf(f_pm, "require Exporter;\n");
-    if (!is_static) {
-      Printf(f_pm, "require DynaLoader;\n");
-      Printf(f_pm, "@ISA = qw(Exporter DynaLoader);\n");
+    /* 
+     * If the package option has been given we are placing our
+     *   symbols into some other packages namespace, so we do not
+     *   mess with @ISA or require for that package
+     */
+    if (dest_package) {
+      Printf(f_pm,"use base qw(DynaLoader);\n");
     } else {
-      Printf(f_pm, "@ISA = qw(Exporter);\n");
+      Printf(f_pm,"use base qw(Exporter);\n");
+      if (!staticoption) {
+	Printf(f_pm,"use base qw(DynaLoader);\n");
+      }
     }
 
     /* Start creating magic code */
 
     Printv(magic,
+           "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n",
 	   "#ifdef PERL_OBJECT\n",
-	   "#define MAGIC_CLASS _wrap_", module, "_var::\n",
-	   "class _wrap_", module, "_var : public CPerlObj {\n",
+	   "#define MAGIC_CLASS _wrap_", underscore_module, "_var::\n",
+	   "class _wrap_", underscore_module, "_var : public CPerlObj {\n",
 	   "public:\n",
 	   "#else\n",
 	   "#define MAGIC_CLASS\n",
@@ -324,6 +380,7 @@ public:
     /* Dump out variable wrappers */
 
     Printv(magic, "\n\n#ifdef PERL_OBJECT\n", "};\n", "#endif\n", NIL);
+    Printv(magic, "\n#ifdef __cplusplus\n}\n#endif\n", NIL);
 
     Printf(f_header, "%s\n", magic);
 
@@ -372,61 +429,73 @@ public:
 
     Printf(f_pm, "package %s;\n", cmodule);
 
-    if (!is_static) {
-      Printf(f_pm, "bootstrap %s;\n", fullmodule);
+    if (!staticoption) {
+      Printf(f_pm,"bootstrap %s;\n", module);
     } else {
-      String *tmp = NewString(fullmodule);
-      Replaceall(tmp, ":", "_");
-      Printf(f_pm, "boot_%s();\n", tmp);
-      Delete(tmp);
+      Printf(f_pm,"package %s;\n", cmodule);
+      Printf(f_pm,"boot_%s();\n", underscore_module);
     }
-    Printf(f_pm, "package %s;\n", fullmodule);
-    Printf(f_pm, "@EXPORT = qw( %s);\n", exported);
+
+    Printf(f_pm, "package %s;\n", module);
+    /* 
+     * If the package option has been given we are placing our
+     *   symbols into some other packages namespace, so we do not
+     *   mess with @EXPORT
+     */
+    if (!dest_package) {
+      Printf(f_pm,"@EXPORT = qw(%s);\n", exported);
+    }
+
     Printf(f_pm, "%s", pragma_include);
 
     if (blessed) {
 
-      Printv(base, "\n# ---------- BASE METHODS -------------\n\n", "package ", fullmodule, ";\n\n", NIL);
+      /*
+       * These methods will be duplicated if package 
+       *   has been specified, so we do not output them
+       */
+      if (!dest_package) {
+	Printv(base, "\n# ---------- BASE METHODS -------------\n\n", "package ", namespace_module, ";\n\n", NIL);
 
-      /* Write out the TIE method */
+	/* Write out the TIE method */
 
-      Printv(base, "sub TIEHASH {\n", tab4, "my ($classname,$obj) = @_;\n", tab4, "return bless $obj, $classname;\n", "}\n\n", NIL);
+	Printv(base, "sub TIEHASH {\n", tab4, "my ($classname,$obj) = @_;\n", tab4, "return bless $obj, $classname;\n", "}\n\n", NIL);
 
-      /* Output a CLEAR method.   This is just a place-holder, but by providing it we
-       * can make declarations such as
-       *     %$u = ( x => 2, y=>3, z =>4 );
-       *
-       * Where x,y,z are the members of some C/C++ object. */
+	/* Output a CLEAR method.   This is just a place-holder, but by providing it we
+	 * can make declarations such as
+	 *     %$u = ( x => 2, y=>3, z =>4 );
+	 *
+	 * Where x,y,z are the members of some C/C++ object. */
 
-      Printf(base, "sub CLEAR { }\n\n");
+	Printf(base, "sub CLEAR { }\n\n");
 
-      /* Output default firstkey/nextkey methods */
+	/* Output default firstkey/nextkey methods */
 
-      Printf(base, "sub FIRSTKEY { }\n\n");
-      Printf(base, "sub NEXTKEY { }\n\n");
+	Printf(base, "sub FIRSTKEY { }\n\n");
+	Printf(base, "sub NEXTKEY { }\n\n");
 
-      /* Output a FETCH method.  This is actually common to all classes */
-      Printv(base,
-	     "sub FETCH {\n",
-	     tab4, "my ($self,$field) = @_;\n", tab4, "my $member_func = \"swig_${field}_get\";\n", tab4, "$self->$member_func();\n", "}\n\n", NIL);
+	/* Output a FETCH method.  This is actually common to all classes */
+	Printv(base,
+	       "sub FETCH {\n",
+	       tab4, "my ($self,$field) = @_;\n", tab4, "my $member_func = \"swig_${field}_get\";\n", tab4, "$self->$member_func();\n", "}\n\n", NIL);
 
-      /* Output a STORE method.   This is also common to all classes (might move to base class) */
+	/* Output a STORE method.   This is also common to all classes (might move to base class) */
 
-      Printv(base,
-	     "sub STORE {\n",
-	     tab4, "my ($self,$field,$newval) = @_;\n",
-	     tab4, "my $member_func = \"swig_${field}_set\";\n", tab4, "$self->$member_func($newval);\n", "}\n\n", NIL);
+	Printv(base,
+	       "sub STORE {\n",
+	       tab4, "my ($self,$field,$newval) = @_;\n",
+	       tab4, "my $member_func = \"swig_${field}_set\";\n", tab4, "$self->$member_func($newval);\n", "}\n\n", NIL);
 
-      /* Output a 'this' method */
+	/* Output a 'this' method */
 
-      Printv(base, "sub this {\n", tab4, "my $ptr = shift;\n", tab4, "return tied(%$ptr);\n", "}\n\n", NIL);
+	Printv(base, "sub this {\n", tab4, "my $ptr = shift;\n", tab4, "return tied(%$ptr);\n", "}\n\n", NIL);
 
-      Printf(f_pm, "%s", base);
+	Printf(f_pm, "%s", base);
+      }
 
       /* Emit function stubs for stand-alone functions */
-
       Printf(f_pm, "\n# ------- FUNCTION WRAPPERS --------\n\n");
-      Printf(f_pm, "package %s;\n\n", fullmodule);
+      Printf(f_pm, "package %s;\n\n", namespace_module);
       Printf(f_pm, "%s", func_stubs);
 
       /* Emit package code for different classes */
@@ -435,14 +504,14 @@ public:
       if (num_consts > 0) {
 	/* Emit constant stubs */
 	Printf(f_pm, "\n# ------- CONSTANT STUBS -------\n\n");
-	Printf(f_pm, "package %s;\n\n", fullmodule);
+	Printf(f_pm, "package %s;\n\n", namespace_module);
 	Printf(f_pm, "%s", const_stubs);
       }
 
       /* Emit variable stubs */
 
       Printf(f_pm, "\n# ------- VARIABLE STUBS --------\n\n");
-      Printf(f_pm, "package %s;\n\n", fullmodule);
+      Printf(f_pm, "package %s;\n\n", namespace_module);
       Printf(f_pm, "%s", var_stubs);
     }
 
@@ -453,16 +522,20 @@ public:
     Close(f_pm);
     Delete(f_pm);
     Delete(base);
+    Delete(dest_package);
+    Delete(underscore_module);
 
     /* Close all of the files */
-    Dump(f_header, f_runtime);
-    Dump(f_wrappers, f_runtime);
-    Wrapper_pretty_print(f_init, f_runtime);
+    Dump(f_runtime, f_begin);
+    Dump(f_header, f_begin);
+    Dump(f_wrappers, f_begin);
+    Wrapper_pretty_print(f_init, f_begin);
     Delete(f_header);
     Delete(f_wrappers);
     Delete(f_init);
-    Close(f_runtime);
+    Close(f_begin);
     Delete(f_runtime);
+    Delete(f_begin);
     return SWIG_OK;
   }
 
@@ -520,7 +593,7 @@ public:
     Printv(f->def, "XS(", wname, ") {\n", "{\n",	/* scope to destroy C++ objects before croaking */
 	   NIL);
 
-    emit_args(d, l, f);
+    emit_parameter_variables(l, f);
     emit_attach_parmmaps(l, f);
     Setattr(n, "wrap:parms", l);
 
@@ -653,9 +726,10 @@ public:
 
     /* Now write code to make the function call */
 
-    emit_action(n, f);
+    Swig_director_emit_dynamic_cast(n, f);
+    String *actioncode = emit_action(n);
 
-    if ((tm = Swig_typemap_lookup_new("out", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode))) {
       SwigType *t = Getattr(n, "type");
       Replaceall(tm, "$source", "result");
       Replaceall(tm, "$target", "ST(argvi)");
@@ -674,6 +748,7 @@ public:
     } else {
       Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s in function %s.\n", SwigType_str(d, 0), name);
     }
+    emit_return_variable(n, d, f);
 
     /* If there were any output args, take care of them. */
 
@@ -684,13 +759,13 @@ public:
     Printv(f->code, cleanup, NIL);
 
     if (GetFlag(n, "feature:new")) {
-      if ((tm = Swig_typemap_lookup_new("newfree", n, "result", 0))) {
+      if ((tm = Swig_typemap_lookup("newfree", n, "result", 0))) {
 	Replaceall(tm, "$source", "result");
 	Printf(f->code, "%s\n", tm);
       }
     }
 
-    if ((tm = Swig_typemap_lookup_new("ret", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup("ret", n, "result", 0))) {
       Replaceall(tm, "$source", "result");
       Printf(f->code, "%s\n", tm);
     }
@@ -765,9 +840,11 @@ public:
     SwigType *t = Getattr(n, "type");
     Wrapper *getf, *setf;
     String *tm;
+    String *getname = Swig_name_get(iname);
+    String *setname = Swig_name_set(iname);
 
-    String *set_name = Swig_name_wrapper(Swig_name_set(iname));
-    String *val_name = Swig_name_wrapper(Swig_name_get(iname));
+    String *get_name = Swig_name_wrapper(getname);
+    String *set_name = Swig_name_wrapper(setname);
 
     if (!addSymbol(iname, n))
       return SWIG_ERROR;
@@ -778,17 +855,18 @@ public:
     /* Create a Perl function for setting the variable value */
 
     if (!GetFlag(n, "feature:immutable")) {
+      Setattr(n, "wrap:name", set_name);
       Printf(setf->def, "SWIGCLASS_STATIC int %s(pTHX_ SV* sv, MAGIC * SWIGUNUSEDPARM(mg)) {\n", set_name);
       Printv(setf->code, tab4, "MAGIC_PPERL\n", NIL);
 
       /* Check for a few typemaps */
-      tm = Swig_typemap_lookup_new("varin", n, name, 0);
+      tm = Swig_typemap_lookup("varin", n, name, 0);
       if (tm) {
 	Replaceall(tm, "$source", "sv");
 	Replaceall(tm, "$target", name);
 	Replaceall(tm, "$input", "sv");
 	/* Printf(setf->code,"%s\n", tm); */
-	emit_action_code(n, setf, tm);
+	emit_action_code(n, setf->code, tm);
       } else {
 	Swig_warning(WARN_TYPEMAP_VARIN_UNDEF, input_file, line_number, "Unable to set variable of type %s.\n", SwigType_str(t, 0));
 	return SWIG_NOWRAP;
@@ -800,11 +878,12 @@ public:
     }
 
     /* Now write a function to evaluate the variable */
+    Setattr(n, "wrap:name", get_name);
     int addfail = 0;
-    Printf(getf->def, "SWIGCLASS_STATIC int %s(pTHX_ SV *sv, MAGIC *SWIGUNUSEDPARM(mg)) {\n", val_name);
+    Printf(getf->def, "SWIGCLASS_STATIC int %s(pTHX_ SV *sv, MAGIC *SWIGUNUSEDPARM(mg)) {\n", get_name);
     Printv(getf->code, tab4, "MAGIC_PPERL\n", NIL);
 
-    if ((tm = Swig_typemap_lookup_new("varout", n, name, 0))) {
+    if ((tm = Swig_typemap_lookup("varout", n, name, 0))) {
       Replaceall(tm, "$target", "sv");
       Replaceall(tm, "$result", "sv");
       Replaceall(tm, "$source", name);
@@ -814,9 +893,11 @@ public:
 	Replaceall(tm, "$shadow", "0");
       }
       /* Printf(getf->code,"%s\n", tm); */
-      addfail = emit_action_code(n, getf, tm);
+      addfail = emit_action_code(n, getf->code, tm);
     } else {
       Swig_warning(WARN_TYPEMAP_VAROUT_UNDEF, input_file, line_number, "Unable to read variable of type %s\n", SwigType_str(t, 0));
+      DelWrapper(setf);
+      DelWrapper(getf);
       return SWIG_NOWRAP;
     }
     Printf(getf->code, "    return 1;\n");
@@ -850,10 +931,10 @@ public:
     }
     /* Now add symbol to the PERL interpreter */
     if (GetFlag(n, "feature:immutable")) {
-      Printv(variable_tab, tab4, "{ \"", cmodule, "::", iname, "\", MAGIC_CLASS swig_magic_readonly, MAGIC_CLASS ", val_name, ",", tt, " },\n", NIL);
+      Printv(variable_tab, tab4, "{ \"", cmodule, "::", iname, "\", MAGIC_CLASS swig_magic_readonly, MAGIC_CLASS ", get_name, ",", tt, " },\n", NIL);
 
     } else {
-      Printv(variable_tab, tab4, "{ \"", cmodule, "::", iname, "\", MAGIC_CLASS ", set_name, ", MAGIC_CLASS ", val_name, ",", tt, " },\n", NIL);
+      Printv(variable_tab, tab4, "{ \"", cmodule, "::", iname, "\", MAGIC_CLASS ", set_name, ", MAGIC_CLASS ", get_name, ",", tt, " },\n", NIL);
     }
 
     /* If we're blessed, try to figure out what to do with the variable
@@ -876,8 +957,10 @@ public:
 
     DelWrapper(setf);
     DelWrapper(getf);
+    Delete(getname);
+    Delete(setname);
     Delete(set_name);
-    Delete(val_name);
+    Delete(get_name);
     return SWIG_OK;
   }
 
@@ -903,7 +986,7 @@ public:
       value = Char(wname);
     }
 
-    if ((tm = Swig_typemap_lookup_new("consttab", n, name, 0))) {
+    if ((tm = Swig_typemap_lookup("consttab", n, name, 0))) {
       Replaceall(tm, "$source", value);
       Replaceall(tm, "$target", name);
       Replaceall(tm, "$value", value);
@@ -913,7 +996,7 @@ public:
 	Replaceall(tm, "$shadow", "0");
       }
       Printf(constant_tab, "%s,\n", tm);
-    } else if ((tm = Swig_typemap_lookup_new("constcode", n, name, 0))) {
+    } else if ((tm = Swig_typemap_lookup("constcode", n, name, 0))) {
       Replaceall(tm, "$source", value);
       Replaceall(tm, "$target", name);
       Replaceall(tm, "$value", value);
@@ -970,7 +1053,7 @@ public:
     while (p != 0) {
       SwigType *pt = Getattr(p, "type");
       String *pn = Getattr(p, "name");
-      if (!Getattr(p, "ignore")) {
+      if (!checkAttribute(p,"tmap:in:numinputs","0")) {
 	/* If parameter has been named, use that.   Otherwise, just print a type  */
 	if (SwigType_type(pt) != T_VOID) {
 	  if (Len(pn) > 0) {
@@ -982,12 +1065,12 @@ public:
 	i++;
 	p = nextSibling(p);
 	if (p)
-	  if (!Getattr(p, "ignore"))
+	  if (!checkAttribute(p,"tmap:in:numinputs","0"))
 	    Putc(',', temp);
       } else {
 	p = nextSibling(p);
 	if (p)
-	  if ((i > 0) && (!Getattr(p, "ignore")))
+	  if ((i > 0) && (!checkAttribute(p,"tmap:in:numinputs","0")))
 	    Putc(',', temp);
       }
     }
@@ -1061,11 +1144,29 @@ public:
     }
 
     /* Do some work on the class name */
-    actualpackage = Getattr(clsmodule, "name");
-    if ((!compat) && (!Strchr(symname, ':'))) {
-      fullname = NewStringf("%s::%s", actualpackage, symname);
+    if (verbose > 0) {
+      String *modulename = Getattr(clsmodule, "name");
+      fprintf(stdout, "setclassname: Found sym:name: %s\n", Char(symname));
+      fprintf(stdout, "setclassname: Found module: %s\n", Char(modulename));
+      fprintf(stdout, "setclassname: No package found\n");
+    }
+
+    if (dest_package) {
+      fullname = NewStringf("%s::%s", namespace_module, symname);
     } else {
-      fullname = NewString(symname);
+      actualpackage = Getattr(clsmodule,"name");
+
+      if (verbose > 0) {
+	fprintf(stdout, "setclassname: Found actualpackage: %s\n", Char(actualpackage));
+      }
+      if ((!compat) && (!Strchr(symname,':'))) {
+	fullname = NewStringf("%s::%s",actualpackage,symname);
+      } else {
+	fullname = NewString(symname);
+      }
+    }
+    if (verbose > 0) {
+      fprintf(stdout, "setclassname: setting proxy: %s\n", Char(fullname));
     }
     Setattr(n, "perl5:proxy", fullname);
   }
@@ -1105,7 +1206,7 @@ public:
 
       /* Use the fully qualified name of the Perl class */
       if (!compat) {
-	fullclassname = NewStringf("%s::%s", fullmodule, class_name);
+	fullclassname = NewStringf("%s::%s", namespace_module, class_name);
       } else {
 	fullclassname = NewString(class_name);
       }
@@ -1135,51 +1236,63 @@ public:
 	  char *name = Char(ki.key);
 	  //        fprintf(stderr,"found name: <%s>\n", name);
 	  if (strstr(name, "__eq__")) {
-	    Printv(pm, tab4, "\"==\" => sub { $_[0]->__eq__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"==\" => sub { $_[0]->__eq__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__ne__")) {
-	    Printv(pm, tab4, "\"!=\" => sub { $_[0]->__ne__($_[1])},\n", NIL);
-	  } else if (strstr(name, "__assign__")) {
-	    Printv(pm, tab4, "\"=\" => sub { $_[0]->__assign__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"!=\" => sub { $_[0]->__ne__($_[1])},\n",NIL);
+	    // there are no tests for this in operator_overload_runme.pl
+	    // it is likely to be broken
+	    //	  } else if (strstr(name, "__assign__")) {
+	    //	    Printv(pm, tab4, "\"=\" => sub { $_[0]->__assign__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__str__")) {
-	    Printv(pm, tab4, "'\"\"' => sub { $_[0]->__str__()},\n", NIL);
+	    Printv(pm, tab4, "'\"\"' => sub { $_[0]->__str__()},\n",NIL);
 	  } else if (strstr(name, "__plusplus__")) {
-	    Printv(pm, tab4, "\"++\" => sub { $_[0]->__plusplus__()},\n", NIL);
+	    Printv(pm, tab4, "\"++\" => sub { $_[0]->__plusplus__()},\n",NIL);
 	  } else if (strstr(name, "__minmin__")) {
-	    Printv(pm, tab4, "\"--\" => sub { $_[0]->__minmin__()},\n", NIL);
+	    Printv(pm, tab4, "\"--\" => sub { $_[0]->__minmin__()},\n",NIL);
 	  } else if (strstr(name, "__add__")) {
-	    Printv(pm, tab4, "\"+\" => sub { $_[0]->__add__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"+\" => sub { $_[0]->__add__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__sub__")) {
-	    Printv(pm, tab4, "\"-\" => sub { $_[0]->__sub__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"-\" => sub {  if( not $_[2] ) { $_[0]->__sub__($_[1]) }\n",NIL);
+	    Printv(pm, tab8, "elsif( $_[0]->can('__rsub__') ) { $_[0]->__rsub__($_[1]) }\n",NIL);
+	    Printv(pm, tab8, "else { die(\"reverse subtraction not supported\") }\n",NIL);
+	    Printv(pm, tab8, "},\n",NIL);
 	  } else if (strstr(name, "__mul__")) {
-	    Printv(pm, tab4, "\"*\" => sub { $_[0]->__mul__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"*\" => sub { $_[0]->__mul__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__div__")) {
-	    Printv(pm, tab4, "\"/\" => sub { $_[0]->__div__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"/\" => sub { $_[0]->__div__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__mod__")) {
-	    Printv(pm, tab4, "\"%\" => sub { $_[0]->__mod__($_[1])},\n", NIL);
-	  } else if (strstr(name, "__and__")) {
-	    Printv(pm, tab4, "\"&\" => sub { $_[0]->__and__($_[1])},\n", NIL);
-	  } else if (strstr(name, "__or__")) {
-	    Printv(pm, tab4, "\"|\" => sub { $_[0]->__or__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"%\" => sub { $_[0]->__mod__($_[1])},\n",NIL);
+	    // there are no tests for this in operator_overload_runme.pl
+	    // it is likely to be broken
+	    //	  } else if (strstr(name, "__and__")) {
+	    //	    Printv(pm, tab4, "\"&\" => sub { $_[0]->__and__($_[1])},\n",NIL);
+
+	    // there are no tests for this in operator_overload_runme.pl
+	    // it is likely to be broken
+	    //	  } else if (strstr(name, "__or__")) {
+	    //	    Printv(pm, tab4, "\"|\" => sub { $_[0]->__or__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__gt__")) {
-	    Printv(pm, tab4, "\">\" => sub { $_[0]->__gt__($_[1])},\n", NIL);
-	  } else if (strstr(name, "__ge__")) {
-	    Printv(pm, tab4, "\">=\" => sub { $_[0]->__ge__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\">\" => sub { $_[0]->__gt__($_[1])},\n",NIL);
+          } else if (strstr(name, "__ge__")) {
+            Printv(pm, tab4, "\">=\" => sub { $_[0]->__ge__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__not__")) {
-	    Printv(pm, tab4, "\"!\" => sub { $_[0]->__not__()},\n", NIL);
+	    Printv(pm, tab4, "\"!\" => sub { $_[0]->__not__()},\n",NIL);
 	  } else if (strstr(name, "__lt__")) {
-	    Printv(pm, tab4, "\"<\" => sub { $_[0]->__lt__($_[1])},\n", NIL);
-	  } else if (strstr(name, "__le__")) {
-	    Printv(pm, tab4, "\"<=\" => sub { $_[0]->__le__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"<\" => sub { $_[0]->__lt__($_[1])},\n",NIL);
+          } else if (strstr(name, "__le__")) {
+            Printv(pm, tab4, "\"<=\" => sub { $_[0]->__le__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__pluseq__")) {
-	    Printv(pm, tab4, "\"+=\" => sub { $_[0]->__pluseq__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"+=\" => sub { $_[0]->__pluseq__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__mineq__")) {
-	    Printv(pm, tab4, "\"-=\" => sub { $_[0]->__mineq__($_[1])},\n", NIL);
+	    Printv(pm, tab4, "\"-=\" => sub { $_[0]->__mineq__($_[1])},\n",NIL);
 	  } else if (strstr(name, "__neg__")) {
-	    Printv(pm, tab4, "\"neg\" => sub { $_[0]->__neg__()},\n", NIL);
+	    Printv(pm, tab4, "\"neg\" => sub { $_[0]->__neg__()},\n",NIL);
 	  } else {
-	    fprintf(stderr, "Unknown operator: %s\n", name);
+	    fprintf(stderr,"Unknown operator: %s\n", name);
 	  }
 	}
+	Printv(pm, tab4,
+               "\"=\" => sub { my $class = ref($_[0]); $class->new($_[0]) },\n", NIL);
 	Printv(pm, tab4, "\"fallback\" => 1;\n", NIL);
       }
       // make use strict happy
@@ -1206,8 +1319,8 @@ public:
       }
 
       /* Module comes last */
-      if (!compat || Cmp(fullmodule, fullclassname)) {
-	Printv(pm, " ", fullmodule, NIL);
+      if (!compat || Cmp(namespace_module, fullclassname)) {
+	Printv(pm, " ", namespace_module, NIL);
       }
 
       Printf(pm, " );\n");
@@ -1398,7 +1511,7 @@ public:
 	  Printf(pcode, "sub new {\n");
 	} else {
 	  /* Constructor doesn't match classname so we'll just use the normal name  */
-	  Printv(pcode, "sub ", Swig_name_construct(symname), " () {\n", NIL);
+	  Printv(pcode, "sub ", Swig_name_construct(symname), " {\n", NIL);
 	}
 
 	Printv(pcode,
@@ -1516,7 +1629,7 @@ public:
 	} else if (Strcmp(code, "include") == 0) {
 	  /* Include a file into the .pm file */
 	  if (value) {
-	    FILE *f = Swig_open(value);
+	    FILE *f = Swig_include_open(value);
 	    if (!f) {
 	      Printf(stderr, "%s : Line %d. Unable to locate file %s\n", input_file, line_number, value);
 	    } else {
@@ -1525,6 +1638,7 @@ public:
 		Printf(pragma_include, "%s", buffer);
 	      }
 	    }
+	    fclose(f);
 	  }
 	} else {
 	  Printf(stderr, "%s : Line %d. Unrecognized pragma.\n", input_file, line_number);

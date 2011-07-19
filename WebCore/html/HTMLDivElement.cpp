@@ -1,7 +1,7 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,23 +23,29 @@
 #include "config.h"
 #include "HTMLDivElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLDivElement::HTMLDivElement(const QualifiedName& tagName, Document *doc)
-    : HTMLElement(tagName, doc)
+HTMLDivElement::HTMLDivElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
 {
     ASSERT(hasTagName(divTag));
 }
 
-HTMLDivElement::~HTMLDivElement()
+PassRefPtr<HTMLDivElement> HTMLDivElement::create(Document* document)
 {
+    return adoptRef(new HTMLDivElement(divTag, document));
+}
+
+PassRefPtr<HTMLDivElement> HTMLDivElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLDivElement(tagName, document));
 }
 
 bool HTMLDivElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -51,7 +57,7 @@ bool HTMLDivElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEn
     return HTMLElement::mapToEntry(attrName, result);
 }
 
-void HTMLDivElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLDivElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == alignAttr) {
         String v = attr->value();
@@ -65,16 +71,6 @@ void HTMLDivElement::parseMappedAttribute(MappedAttribute *attr)
             addCSSProperty(attr, CSSPropertyTextAlign, v);
     } else
         HTMLElement::parseMappedAttribute(attr);
-}
-
-String HTMLDivElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLDivElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
 }
 
 }

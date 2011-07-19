@@ -31,6 +31,7 @@
 #ifndef V8Utilities_h
 #define V8Utilities_h
 
+#include <wtf/Forward.h>
 #include <v8.h>
 
 namespace WebCore {
@@ -40,7 +41,6 @@ namespace WebCore {
     class KURL;
     class ScriptExecutionContext;
     class ScriptState;
-    class String;
 
     // Use an array to hold dependents. It works like a ref-counted scheme. A value can be added more than once to the DOM object.
     void createHiddenDependency(v8::Handle<v8::Object>, v8::Local<v8::Value>, int cacheIndex);
@@ -52,9 +52,38 @@ namespace WebCore {
     bool processingUserGesture();
     bool shouldAllowNavigation(Frame*);
     KURL completeURL(const String& relativeURL);
-    void navigateIfAllowed(Frame*, const KURL&, bool lockHistory, bool lockBackForwardList);
 
     ScriptExecutionContext* getScriptExecutionContext();
+
+    void throwTypeMismatchException();
+
+    enum CallbackAllowedValueFlag {
+        CallbackAllowUndefined = 1,
+        CallbackAllowNull = 1 << 1
+    };
+
+    typedef unsigned CallbackAllowedValueFlags;
+
+    // 'FunctionOnly' is assumed for the created callback.
+    template <typename V8CallbackType>
+    PassRefPtr<V8CallbackType> createFunctionOnlyCallback(v8::Local<v8::Value> value, bool& succeeded, CallbackAllowedValueFlags acceptedValues = 0)
+    {
+        succeeded = true;
+
+        if (value->IsUndefined() && (acceptedValues & CallbackAllowUndefined))
+            return 0;
+
+        if (value->IsNull() && (acceptedValues & CallbackAllowNull))
+            return 0;
+
+        if (!value->IsFunction()) {
+            succeeded = false;
+            throwTypeMismatchException();
+            return 0;
+        }
+
+        return V8CallbackType::create(value, getScriptExecutionContext());
+    }
 
     class AllowAllocation {
     public:

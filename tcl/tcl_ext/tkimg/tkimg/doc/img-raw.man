@@ -1,0 +1,170 @@
+[comment {-*- tcl -*- doctools}]
+[vset FORMATNAME raw]
+[vset FORMATFULLNAME {Raw Data Format}]
+
+[include format-header.inc]
+
+This handler provides new additional configuration options. See
+section [sectref {RAW OPTIONS}] for more detailed explanations.
+
+
+[include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {RAW OPTIONS}].
+
+[list_end]
+
+
+[section {NOTE}]
+
+This format handler must be loaded explicitly with
+[cmd "package require img::[vset FORMATNAME]"].
+
+
+[section {SUPPORTED RAW TYPES}]
+
+[example_begin]
+ Grayscale image:  1 channel  of 32-bit floating point   values.
+                   1 channel  of 16-bit unsigned integer values.
+                   1 channel  of  8-bit unsigned integer values.
+ True-color image: 3 channels of 32-bit floating point   values.
+                   3 channels of 16-bit unsigned integer values.
+                   3 channels of  8-bit unsigned integer values.
+
+ List of currently supported features:
+
+ Type   |     Read      |     Write     |
+        | -file | -data | -file | -data |
+ ----------------------------------------
+ Gray   | Yes   | Yes   | Yes   | Yes   |
+ RGB    | Yes   | Yes   | Yes   | Yes   |
+
+ There are 2 supported file formats:
+ One with the pure raw data only, the other with a 7 line ASCII header
+ of the following form:
+
+     Magic=RAW\n          File format identifier. Fixed value.
+     Width=128\n          Image width in pixels.
+     Height=128\n         Image height in pixels.
+     NumChan=1\n          Possible values: 1 or 3.
+     ByteOrder=Intel\n    Possible values: "Intel" or "Motorola".
+     ScanOrder=TopDown\n  Possible values: "TopDown" or "BottomUp".
+     PixelType=byte\n     Possible values: "float", "short" or "byte".
+
+[example_end]
+
+
+[section {RAW OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], additional information about the loaded/stored image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -useheader] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], use the file header information for reading and writing.
+Default is [const true].
+
+[lst_item "[option -nchan] [arg int]"]
+
+This option is supported for reading and writing image data without header.
+[nl]
+Specify the number of channels of the input image.
+Default is [const 1].
+
+[lst_item "[option -width] [arg int]"]
+
+This option is supported for reading image data without header only.
+[nl]
+Specify the width of the input image.
+Default is [const 128].
+
+[lst_item "[option -height] [arg int]"]
+
+This option is supported for reading image data without header only.
+[nl]
+Specify the height of the input image.
+Default is [const 128].
+
+[lst_item "[option -byteorder] [arg string]"]
+
+This option is supported for reading image data without header only.
+[nl]
+Specify the byteorder of the input image data.
+Possible values: [const Intel] or [const Motorola].
+Default is assuming the same byteorder as that of the host computer.
+
+[lst_item "[option -uuencode] [arg bool]"]
+This option is supported for reading image data without header only.
+[nl]
+If set to [const false], do not assume, that the image data stored in a
+Tcl variable is uuencoded. Default is [const true], i.e. the image data in
+a Tcl variable is assumed to be uuencoded.
+
+[lst_item "[option -scanorder] [arg string]"]
+
+This option is supported for reading and writing image data without header.
+[nl]
+Specify the scanline order of the input image.
+Possible values: [const TopDown] or [const BottomUp].
+Default is assuming the same byteorder as that of the host computer.
+
+[lst_item "[option -pixeltype] [arg string]"]
+
+This option is supported for reading image data without header only.
+[nl]
+Specify the type of the pixel values.
+Possible values: [const float] or [const short] or [const byte].
+Default is [const byte].
+[nl]
+RAW files are always written in [const byte] pixel format.
+
+[lst_item "[option -gamma] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify a gamma correction to be applied when mapping
+the input data to 8-bit image values.
+Default is [const 1.0].
+
+[lst_item "[option -nomap] [arg bool]"]
+
+This option is supported for reading only.
+[nl]
+If set to [const true], no mapping of input values is done.
+Use this option, if your image already contains RGB
+values in the range of [const 0] .. [const 255].
+Default is [const false].
+
+[lst_item "[option -min] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify the minimum pixel value to be used for mapping
+the input data to 8-bit image values.
+Default is the minimum value found in the image data.
+
+[lst_item "[option -max] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify the maximum pixel value to be used for mapping
+the input data to 8-bit image values.
+Default is the maximum value found in the image data.
+
+[list_end]
+
+[list_begin definitions]
+[include format-footer.inc]

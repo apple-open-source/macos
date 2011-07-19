@@ -93,11 +93,6 @@ _dns_resolver_add_nameserver	(dns_create_resolver_t	*_resolver,
 
 __private_extern__
 void
-_dns_resolver_set_port		(dns_create_resolver_t	*_resolver,
-				 uint16_t		port)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;	// host byte order
-
-__private_extern__
-void
 _dns_resolver_add_search	(dns_create_resolver_t	*_resolver,
 				 const char		*search)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
@@ -108,18 +103,33 @@ _dns_resolver_add_sortaddr	(dns_create_resolver_t	*_resolver,
 
 __private_extern__
 void
+_dns_resolver_set_flags		(dns_create_resolver_t	*_resolver,
+				 uint32_t		flags)			/*__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0)*/;
+
+__private_extern__
+void
+_dns_resolver_set_if_index	(dns_create_resolver_t	*_resolver,
+				 uint32_t		if_index)		/*__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_4_0)*/;
+
+__private_extern__
+void
 _dns_resolver_set_options	(dns_create_resolver_t	*_resolver,
 				 const char		*options)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 __private_extern__
 void
-_dns_resolver_set_timeout	(dns_create_resolver_t	*_resolver,
-				 uint32_t		timeout)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+_dns_resolver_set_order		(dns_create_resolver_t	*_resolver,
+				 uint32_t		order)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 __private_extern__
 void
-_dns_resolver_set_order		(dns_create_resolver_t	*_resolver,
-				 uint32_t		order)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
+_dns_resolver_set_port		(dns_create_resolver_t	*_resolver,
+				 uint16_t		port)			/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;	// host byte order
+
+__private_extern__
+void
+_dns_resolver_set_timeout	(dns_create_resolver_t	*_resolver,
+				 uint32_t		timeout)		/*__OSX_AVAILABLE_STARTING(__MAC_10_4,__IPHONE_2_0)*/;
 
 __private_extern__
 void

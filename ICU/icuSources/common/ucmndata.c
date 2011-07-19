@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2004, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************/
@@ -204,7 +204,7 @@ static const DataHeader *pointerTOCLookupFn(const UDataMemory *pData,
             else {
                 /* found it */
 #ifdef UDATA_DEBUG
-                fprintf(STDErr, "%s: Found.\n", toc->entry[number].entryName);
+                fprintf(stderr, "%s: Found.\n", toc->entry[number].entryName);
 #endif
                 *pLength=-1;
                 return UDataMemory_normalizeDataPointer(toc->entry[number].pHeader);
@@ -232,7 +232,7 @@ static const commonDataFuncs ToCPFuncs = {pointerTOCLookupFn, pointerTOCEntryCou
  *                    and set the appropriate error code.               *
  *                                                                      *
  *----------------------------------------------------------------------*/
-void udata_checkCommonData(UDataMemory *udm, UErrorCode *err) {
+U_CFUNC void udata_checkCommonData(UDataMemory *udm, UErrorCode *err) {
     if (U_FAILURE(*err)) {
         return;
     }

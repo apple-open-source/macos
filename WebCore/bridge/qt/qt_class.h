@@ -17,10 +17,10 @@
  *
  */
 
-#ifndef BINDINGS_QT_CLASS_H_
-#define BINDINGS_QT_CLASS_H_
+#ifndef qt_class_h
+#define qt_class_h
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "qglobal.h"
 
 QT_BEGIN_NAMESPACE

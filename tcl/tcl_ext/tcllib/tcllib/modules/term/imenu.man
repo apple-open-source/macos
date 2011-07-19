@@ -3,6 +3,7 @@
 [copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Terminal control}]
 [titledesc {Terminal widget, menu}]
+[category  {Terminal control}]
 [require Tcl 8.4]
 [require term::interact::menu [opt 0.1]]
 [description]

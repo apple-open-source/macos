@@ -1,0 +1,36 @@
+NAME
+    B::Hooks::EndOfScope - Execute code after a scope finished compilation
+
+SYNOPSIS
+        on_scope_end { ... };
+
+DESCRIPTION
+    This module allows you to execute code when perl finished compiling the
+    surrounding scope.
+
+FUNCTIONS
+  on_scope_end
+        on_scope_end { ... };
+
+        on_scope_end $code;
+
+    Registers $code to be executed after the surrounding scope has been
+    compiled.
+
+    This is exported by default. See Sub::Exporter on how to customize it.
+
+SEE ALSO
+    Sub::Exporter
+
+    Variable::Magic
+
+AUTHOR
+    Florian Ragwitz <rafl@debian.org>
+
+COPYRIGHT AND LICENSE
+    Copyright (c) 2008 Florian Ragwitz
+
+    This module is free software.
+
+    You may distribute this code under the same terms as Perl itself.
+

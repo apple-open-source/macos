@@ -13,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -34,7 +30,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)qsort.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.15 2004/07/02 23:52:12 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.17 2007/01/09 00:28:10 imp Exp $
 .\"
 .Dd September 30, 2003
 .Dt QSORT 3
@@ -232,7 +228,7 @@ time is O N lg N; its best case is O N.
 Normally,
 .Fn qsort
 is faster than
-.Fn mergesort ,
+.Fn mergesort
 which is faster than
 .Fn heapsort .
 Memory availability and pre-existing order in the data can make this
@@ -267,12 +263,18 @@ return no value.
 .ds MERGESORT_B mergesort_b
 #endif
 .Rv -std heapsort \*[HEAPSORT_B] mergesort \*[MERGESORT_B]
+.Sh COMPATIBILITY
+Previous versions of
+.Fn qsort
+did not permit the comparison routine itself to call
+.Fn qsort 3 .
+This is no longer true.
 .Sh ERRORS
 The
 #ifdef UNIFDEF_BLOCKS
 .Fn heapsort ,
 .Fn heapsort_b ,
-.Fn mergesort
+.Fn mergesort ,
 and
 .Fn mergesort_b
 #else
@@ -301,23 +303,17 @@ The
 #ifdef UNIFDEF_BLOCKS
 .Fn heapsort ,
 .Fn heapsort_b ,
-.Fn mergesort
-and
+.Fn mergesort ,
+or
 .Fn mergesort_b
 #else
 .Fn heapsort
-and
+or
 .Fn mergesort
 #endif
 functions
 were unable to allocate memory.
 .El
-.Sh COMPATIBILITY
-Previous versions of
-.Fn qsort
-did not permit the comparison routine itself to call
-.Fn qsort 3 .
-This is no longer true.
 .Sh SEE ALSO
 .Xr sort 1 ,
 .Xr radixsort 3

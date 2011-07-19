@@ -1,4 +1,4 @@
-//===-- ConstantFolding.h - Analyze constant folding possibilities --------===//
+//===-- ConstantFolding.h - Fold instructions into constants --------------===//
 //
 //                     The LLVM Compiler Infrastructure
 //
@@ -7,8 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This family of functions determines the possibility of performing constant
-// folding.
+// This file declares routines for folding instructions into constants.
+//
+// Also, to supplement the basic VMCore ConstantExpr simplifications,
+// this file declares some additional folding routines that can make use of
+// TargetData information. These functions cannot go in VMCore due to library
+// dependency issues.
 //
 //===----------------------------------------------------------------------===//
 
@@ -33,8 +37,8 @@ Constant *ConstantFoldInstruction(Instruction *I, const TargetData *TD = 0);
 /// ConstantFoldConstantExpression - Attempt to fold the constant expression
 /// using the specified TargetData.  If successful, the constant result is
 /// result is returned, if not, null is returned.
-Constant *ConstantFoldConstantExpression(ConstantExpr *CE,
-                                         const TargetData *TD);
+Constant *ConstantFoldConstantExpression(const ConstantExpr *CE,
+                                         const TargetData *TD = 0);
 
 /// ConstantFoldInstOperands - Attempt to constant fold an instruction with the
 /// specified operands.  If successful, the constant result is returned, if not,
@@ -43,7 +47,7 @@ Constant *ConstantFoldConstantExpression(ConstantExpr *CE,
 /// form.
 ///
 Constant *ConstantFoldInstOperands(unsigned Opcode, const Type *DestTy,
-                                   Constant*const * Ops, unsigned NumOps,
+                                   Constant *const *Ops, unsigned NumOps,
                                    const TargetData *TD = 0);
 
 /// ConstantFoldCompareInstOperands - Attempt to constant fold a compare
@@ -51,9 +55,13 @@ Constant *ConstantFoldInstOperands(unsigned Opcode, const Type *DestTy,
 /// returns a constant expression of the specified operands.
 ///
 Constant *ConstantFoldCompareInstOperands(unsigned Predicate,
-                                          Constant*const * Ops, unsigned NumOps,
+                                          Constant *LHS, Constant *RHS,
                                           const TargetData *TD = 0);
 
+/// ConstantFoldLoadFromConstPtr - Return the value that a load from C would
+/// produce if it is constant and determinable.  If this is not determinable,
+/// return null.
+Constant *ConstantFoldLoadFromConstPtr(Constant *C, const TargetData *TD = 0);
 
 /// ConstantFoldLoadThroughGEPConstantExpr - Given a constant and a
 /// getelementptr constantexpr, return the constant value being addressed by the
@@ -67,7 +75,7 @@ bool canConstantFoldCallTo(const Function *F);
 /// ConstantFoldCall - Attempt to constant fold a call to the specified function
 /// with the specified arguments, returning null if unsuccessful.
 Constant *
-ConstantFoldCall(Function *F, Constant* const* Operands, unsigned NumOperands);
+ConstantFoldCall(Function *F, Constant *const *Operands, unsigned NumOperands);
 }
 
 #endif

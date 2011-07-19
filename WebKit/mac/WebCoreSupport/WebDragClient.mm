@@ -32,13 +32,17 @@
 #import "WebHTMLViewInternal.h"
 #import "WebHTMLViewPrivate.h"
 #import "WebKitLogging.h"
+#import "WebKitNSStringExtras.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebNSURLExtras.h"
+#import "WebStringTruncator.h"
 #import "WebUIDelegate.h"
 #import "WebUIDelegatePrivate.h"
 #import "WebViewInternal.h"
 #import <WebCore/ClipboardMac.h>
 #import <WebCore/DragData.h>
+#import <WebCore/Editor.h>
+#import <WebCore/EditorClient.h>
 #import <WebCore/EventHandler.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
@@ -115,19 +119,6 @@ void WebDragClient::startDrag(DragImageRef dragImage, const IntPoint& at, const 
     } else
         [topHTMLView dragImage:dragNSImage at:at offset:NSZeroSize event:event pasteboard:pasteboard source:sourceHTMLView slideBack:YES];
 }
-
-DragImageRef WebDragClient::createDragImageForLink(KURL& url, const String& title, Frame* frame)
-{
-    if (!frame)
-        return nil;
-    WebHTMLView *htmlView = (WebHTMLView *)[[kit(frame) frameView] documentView];
-    NSString *label = 0;
-    if (!title.isEmpty())
-        label = title;
-    NSURL *cocoaURL = url;
-    return [htmlView _dragImageForURL:[cocoaURL _web_userVisibleString] withLabel:label];
-}
-
 
 void WebDragClient::declareAndWriteDragImage(NSPasteboard* pasteboard, DOMElement* element, NSURL* URL, NSString* title, WebCore::Frame* frame) 
 {

@@ -838,6 +838,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_START = "IOGraphicsFamilyModuleStart";
 				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -873,6 +874,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_START = "IOGraphicsFamilyModuleStart";
 				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -908,6 +910,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOGraphicsFamily;
+				MODULE_START = "IOGraphicsFamilyModuleStart";
 				MODULE_VERSION = 1.5.1;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";

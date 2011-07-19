@@ -1,8 +1,8 @@
---- strcasecmp.c.orig	2003-05-20 15:23:54.000000000 -0700
-+++ strcasecmp.c	2005-02-18 18:46:40.000000000 -0800
-@@ -37,41 +37,62 @@
+--- strcasecmp.c.bsdnew	2009-11-18 18:24:33.000000000 -0800
++++ strcasecmp.c	2009-11-18 18:24:33.000000000 -0800
+@@ -33,38 +33,59 @@ static char sccsid[] = "@(#)strcasecmp.c
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.6 2002/08/30 15:40:01 robert Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/string/strcasecmp.c,v 1.8 2009/02/03 17:58:20 danger Exp $");
  
 +#include "xlocale_private.h"
 +
@@ -12,9 +12,9 @@
  typedef unsigned char u_char;
  
  int
--strcasecmp(s1, s2)
+-strcasecmp(const char *s1, const char *s2)
 +strcasecmp_l(s1, s2, loc)
- 	const char *s1, *s2;
++	const char *s1, *s2;
 +	locale_t loc;
  {
  	const u_char
@@ -31,19 +31,18 @@
  }
  
  int
--strncasecmp(s1, s2, n)
-+strcasecmp(s1, s2)
-+	const char *s1, *s2;
-+{
+-strncasecmp(const char *s1, const char *s2, size_t n)
++strcasecmp(const char *s1, const char *s2)
+ {
 +	return strcasecmp_l(s1, s2, __current_locale());
 +}
 +
 +int
 +strncasecmp_l(s1, s2, n, loc)
- 	const char *s1, *s2;
- 	size_t n;
++	const char *s1, *s2;
++	size_t n;
 +	locale_t loc;
- {
++{
 +	NORMALIZE_LOCALE(loc);
  	if (n != 0) {
  		const u_char
@@ -63,9 +62,7 @@
  }
 +
 +int
-+strncasecmp(s1, s2, n)
-+	const char *s1, *s2;
-+	size_t n;
++strncasecmp(const char *s1, const char *s2, size_t n)
 +{
 +	return strncasecmp_l(s1, s2, n, __current_locale());
 +}

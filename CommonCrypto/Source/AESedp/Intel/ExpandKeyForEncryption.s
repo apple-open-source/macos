@@ -28,19 +28,19 @@
 			The following names must be locally defined so the assembler
 			can calculate certain offsets.
 
-			static const Word _AESSubBytesWordTable[4][256].
+			static const Word _OLDAESSubBytesWordTable[4][256].
 
-				_AESSubBytesWordTable[i][j] = SubBytes(j) << 8*i, where
-				SubBytes is defined in FIPS-197.  _AESSubBytesWordTable
-				differs from _AESEncryptTable in that it does not include
+				_OLDAESSubBytesWordTable[i][j] = SubBytes(j) << 8*i, where
+				SubBytes is defined in FIPS-197.  _OLDAESSubBytesWordTable
+				differs from _OLDAESEncryptTable in that it does not include
 				the MixColumn operation.  It is used in performing the last
 				round, which differs fromm the previous rounds in that it
 				does not include the MixColumn operation.
 
-			static const Byte _AESRcon[].
+			static const Byte _OLDAESRcon[].
 
-				Round constants, beginning with AESRcon[1] for the first round
-				(AESRcon[0] is padding.)
+				Round constants, beginning with OLDAESRcon[1] for the first round
+				(OLDAESRcon[0] is padding.)
 	
 		Arguments:
 
@@ -151,13 +151,13 @@ EKeyHas4Words:
 		0:
 			pop		STable		// Get program counter.
 
-		lea		_AESRcon-0b(STable), R
-		lea		_AESSubBytesWordTable-0b(STable), STable
+		lea		_OLDAESRcon-0b(STable), R
+		lea		_OLDAESSubBytesWordTable-0b(STable), STable
 
 	#elif defined __x86_64__
 
-		lea		_AESRcon(%rip), R
-		lea		_AESSubBytesWordTable(%rip), STable
+		lea		_OLDAESRcon(%rip), R
+		lea		_OLDAESSubBytesWordTable(%rip), STable
 
 	#endif
 
@@ -240,13 +240,13 @@ EKeyHas6Words:
 		0:
 			pop		STable		// Get program counter.
 
-		lea		_AESRcon-0b(STable), R
-		lea		_AESSubBytesWordTable-0b(STable), STable
+		lea		_OLDAESRcon-0b(STable), R
+		lea		_OLDAESSubBytesWordTable-0b(STable), STable
 
 	#elif defined __x86_64__
 
-		lea		_AESRcon(%rip), R
-		lea		_AESSubBytesWordTable(%rip), STable
+		lea		_OLDAESRcon(%rip), R
+		lea		_OLDAESSubBytesWordTable(%rip), STable
 
 	#endif
 
@@ -352,13 +352,13 @@ EKeyHas8Words:
 		0:
 			pop		STable		// Get program counter.
 
-		lea		_AESRcon-0b(STable), R
-		lea		_AESSubBytesWordTable-0b(STable), STable
+		lea		_OLDAESRcon-0b(STable), R
+		lea		_OLDAESSubBytesWordTable-0b(STable), STable
 
 	#elif defined __x86_64__
 
-		lea		_AESRcon(%rip), R
-		lea		_AESSubBytesWordTable(%rip), STable
+		lea		_OLDAESRcon(%rip), R
+		lea		_OLDAESSubBytesWordTable(%rip), STable
 
 	#endif
 

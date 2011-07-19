@@ -1,24 +1,41 @@
-This package contain the Data::Dump module.  It is a simplification of
-Sarathy's Data::Dumper.  I made it to demonstrate for Sarathy how I
-would like Data::Dumper to work, and found it useful myself.  Sarathy
-have plans to integrate this with his dumper, but while we wait, you
-can test this out.
+NAME
+    Data::Dump - Pretty printing of data structures
 
-The Data::Dump module provide a single function called dump() which
-you can import to your namespace if you wish:
+SYNOPSIS
+     use Data::Dump qw(dump ddx);
 
-     use Data::Dump qw(dump);
      $str = dump(@list);
      @copy_of_list = eval $str;
 
-No OO interface is available and there are no configuration options to
-worry about. Other benefits is that the dump produced does not try to
-set any variables. It only returns what is needed to produce a copy of
-the arguments passed in. It means that `dump("foo")' simply returns
-`"foo"', and `dump(1..5)' simply returns `(1, 2, 3, 4, 5)'.
+     # or use it for easy debug printout
+     ddx localtime;
 
-Copyright 1998-1999,2003-2004 Gisle Aas.
-Copyright 1996-1998 Gurusamy Sarathy.
+DESCRIPTION
+    This module provide functions that takes a list of values as their
+    argument and produces a string as its result. The string contains Perl
+    code that, when "eval"ed, produces a deep copy of the original
+    arguments.
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself.
+    The main feature of the module is that it strives to produce output that
+    is easy to read. Example:
+
+        @a = (1, [2, 3], {4 => 5});
+        dump(@a);
+
+    Produces:
+
+        (1, [2, 3], { 4 => 5 })
+
+    If you dump just a little data, it is output on a single line. If you
+    dump data that is more complex or there is a lot of it, line breaks are
+    automatically added to keep it easy to read.
+
+AUTHORS
+    The "Data::Dump" module is written by Gisle Aas <gisle@aas.no>, based on
+    "Data::Dumper" by Gurusamy Sarathy <gsar@umich.edu>.
+
+     Copyright 1998-2010 Gisle Aas.
+     Copyright 1996-1998 Gurusamy Sarathy.
+
+    This library is free software; you can redistribute it and/or modify it
+    under the same terms as Perl itself.

@@ -160,7 +160,7 @@
 /*	executes a command such as:
 /* .sp
 /* .nf
-/*	    command -f$sender -- $recipient (\fIbad\fR)
+/*	    \fIWrong\fR: command -f$sender -- $recipient
 /* .fi
 /* .IP
 /*	the command will mis-parse the -f option value when the
@@ -168,7 +168,7 @@
 /*	specify \fB$sender\fR as an argument by itself:
 /* .sp
 /* .nf
-/*	    command -f $sender -- $recipient (\fIgood\fR)
+/*	    \fIRight\fR: command -f $sender -- $recipient
 /* .fi
 /* .IP
 /*	This feature is available as of Postfix 2.3.
@@ -177,7 +177,7 @@
 /*	bytes); return them to the sender instead.
 /* .IP "\fBuser\fR=\fIusername\fR (required)"
 /* .IP "\fBuser\fR=\fIusername\fR:\fIgroupname\fR"
-/*	Execute the external command with the rights of the
+/*	Execute the external command with the user ID and group ID of the
 /*	specified \fIusername\fR.  The software refuses to execute
 /*	commands with root privileges, or with the privileges of the
 /*	mail system owner. If \fIgroupname\fR is specified, the
@@ -200,23 +200,23 @@
 /* .IP \fB${\fBclient_address\fR}\fR
 /*	This macro expands to the remote client network address.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBclient_helo\fR}\fR
 /*	This macro expands to the remote client HELO command parameter.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBclient_hostname\fR}\fR
 /*	This macro expands to the remote client hostname.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBclient_port\fR}\fR
 /*	This macro expands to the remote client TCP port number.
 /* .sp
-/*	This is available in Postfix 2.5 and later.
+/*	This feature is available as of Postfix 2.5.
 /* .IP \fB${\fBclient_protocol\fR}\fR
 /*	This macro expands to the remote client protocol.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBdomain\fR}\fR
 /*	This macro expands to the domain portion of the recipient
 /*	address.  For example, with an address \fIuser+foo@domain\fR
@@ -224,7 +224,7 @@
 /* .sp
 /*	This information is modified by the \fBh\fR flag for case folding.
 /* .sp
-/*	This is available in Postfix 2.5 and later.
+/*	This feature is available as of Postfix 2.5.
 /* .IP \fB${\fBextension\fR}\fR
 /*	This macro expands to the extension part of a recipient address.
 /*	For example, with an address \fIuser+foo@domain\fR the extension is
@@ -258,7 +258,7 @@
 /*	This information is modified by the \fBhqu\fR flags for quoting
 /*	and case folding.
 /* .sp
-/*	This feature is available in Postfix 2.5 and later.
+/*	This feature is available as of Postfix 2.5.
 /* .IP \fB${\fBrecipient\fR}\fR
 /*	This macro expands to the complete recipient address.
 /* .sp
@@ -268,22 +268,22 @@
 /*	This information is modified by the \fBhqu\fR flags for quoting
 /*	and case folding.
 /* .IP \fB${\fBsasl_method\fR}\fR
-/*	This macro expands to the SASL authentication mechanism used
-/*	during the reception of the message. An empty string is passed
-/*	if the message has been received without SASL authentication.
+/*	This macro expands to the name of the SASL authentication
+/*	mechanism in the AUTH command when the Postfix SMTP server
+/*	received the message.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBsasl_sender\fR}\fR
 /*	This macro expands to the SASL sender name (i.e. the original
-/*	submitter as per RFC 4954) used during the reception of the message.
+/*	submitter as per RFC 4954) in the MAIL FROM command when
+/*	the Postfix SMTP server received the message.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBsasl_username\fR}\fR
-/*	This macro expands to the SASL user name used during the reception
-/*	of the message. An empty string is passed if the message has been
-/*	received without SASL authentication.
+/*	This macro expands to the SASL user name in the AUTH command
+/*	when the Postfix SMTP server received the message.
 /* .sp
-/*	This is available in Postfix 2.2 and later.
+/*	This feature is available as of Postfix 2.2.
 /* .IP \fB${\fBsender\fR}\fR
 /*	This macro expands to the envelope sender address. By default,
 /*	the null sender address expands to MAILER-DAEMON; this can
@@ -311,11 +311,11 @@
 /*	follow the conventions defined in <\fBsysexits.h\fR>.
 /*	Exit status 0 means normal successful completion.
 /*
-/*	Postfix version 2.3 and later support RFC 3463-style enhanced
-/*	status codes.  If a command terminates with a non-zero exit
-/*	status, and the command output begins with an enhanced
-/*	status code, this status code takes precedence over the
-/*	non-zero exit status.
+/*	In the case of a non-zero exit status, a limited amount of
+/*	command output is reported in an delivery status notification.
+/*	When the output begins with a 4.X.X or 5.X.X enhanced status
+/*	code, the status code takes precedence over the non-zero
+/*	exit status (Postfix version 2.3 and later).
 /*
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /*	Corrupted message files are marked so that the queue manager
@@ -393,7 +393,7 @@
 /*	The separator between user names and address extensions (user+foo).
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* SEE ALSO
@@ -530,7 +530,7 @@
   * Tunable parameters. Values are taken from the config file, after
   * prepending the service name to _name, and so on.
   */
-int     var_command_maxtime;		/* system-wide */
+int     var_command_maxtime;		/* You can now leave this here. */
 
  /*
   * For convenience. Instead of passing around lists of parameters, bundle

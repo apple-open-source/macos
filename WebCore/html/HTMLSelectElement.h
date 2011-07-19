@@ -3,7 +3,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -27,6 +27,7 @@
 #define HTMLSelectElement_h
 
 #include "CollectionCache.h"
+#include "Event.h"
 #include "HTMLFormControlElement.h"
 #include "SelectElement.h"
 
@@ -34,25 +35,28 @@ namespace WebCore {
 
 class HTMLOptionElement;
 class HTMLOptionsCollection;
-class KeyboardEvent;
 
 class HTMLSelectElement : public HTMLFormControlElementWithState, public SelectElement {
 public:
-    HTMLSelectElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
+    static PassRefPtr<HTMLSelectElement> create(const QualifiedName&, Document*, HTMLFormElement*);
 
     virtual int selectedIndex() const;
     virtual void setSelectedIndex(int index, bool deselect = true);
-    virtual void setSelectedIndexByUser(int index, bool deselect = true, bool fireOnChangeNow = false);
+    virtual void setSelectedIndexByUser(int index, bool deselect = true, bool fireOnChangeNow = false, bool allowMultipleSelection = false);
+
+    // For ValidityState
+    bool valueMissing() const;
 
     unsigned length() const;
 
     virtual int size() const { return m_data.size(); }
     virtual bool multiple() const { return m_data.multiple(); }
 
-    void add(HTMLElement* element, HTMLElement* before, ExceptionCode&);
+    void add(HTMLElement*, HTMLElement* beforeElement, ExceptionCode&);
     void remove(int index);
+    void remove(HTMLOptionElement*);
 
-    String value();
+    String value() const;
     void setValue(const String&);
 
     PassRefPtr<HTMLOptionsCollection> options();
@@ -83,16 +87,19 @@ public:
 
     void listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow = true);
 
-private:
-    virtual int tagPriority() const { return 6; }
-    virtual bool checkDTD(const Node* newChild);
+    virtual void updateValidity() { setNeedsValidityCheck(); }
 
+    virtual bool canSelectAll() const;
+    virtual void selectAll();
+
+protected:
+    HTMLSelectElement(const QualifiedName&, Document*, HTMLFormElement*);
+
+private:
     virtual const AtomicString& formControlType() const;
     
     virtual bool isKeyboardFocusable(KeyboardEvent*) const;
     virtual bool isMouseFocusable() const;
-    virtual bool canSelectAll() const;
-    virtual void selectAll();
 
     virtual void recalcStyle(StyleChange);
 
@@ -106,7 +113,7 @@ private:
     virtual bool saveFormControlState(String& value) const;
     virtual void restoreFormControlState(const String&);
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle *);
     virtual bool appendFormData(FormDataList&, bool);
@@ -135,7 +142,10 @@ private:
 
     virtual void insertedIntoTree(bool);
 
-    virtual bool isOptionalFormControl() const { return true; }
+    virtual bool isOptionalFormControl() const { return !isRequiredFormControl(); }
+    virtual bool isRequiredFormControl() const;
+
+    bool hasPlaceholderLabelOption() const;
 
     SelectElementData m_data;
     CollectionCache m_collectionInfo;

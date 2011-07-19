@@ -24,10 +24,10 @@
 #include "config.h"
 #include "HTMLFrameElement.h"
 
+#include "Attribute.h"
 #include "Frame.h"
 #include "HTMLFrameSetElement.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "RenderFrame.h"
 
 namespace WebCore {
@@ -38,7 +38,6 @@ inline HTMLFrameElement::HTMLFrameElement(const QualifiedName& tagName, Document
     : HTMLFrameElementBase(tagName, document)
     , m_frameBorder(true)
     , m_frameBorderSet(false)
-    , m_noResize(false)
 {
     ASSERT(hasTagName(frameTag));
 }
@@ -68,6 +67,11 @@ static inline HTMLFrameSetElement* containingFrameSetElement(Node* node)
     return 0;
 }
 
+bool HTMLFrameElement::noResize() const
+{
+    return hasAttribute(noresizeAttr);
+}
+
 void HTMLFrameElement::attach()
 {
     HTMLFrameElementBase::attach();
@@ -75,31 +79,20 @@ void HTMLFrameElement::attach()
     if (HTMLFrameSetElement* frameSetElement = containingFrameSetElement(this)) {
         if (!m_frameBorderSet)
             m_frameBorder = frameSetElement->hasFrameBorder();
-        if (!m_noResize)
-            m_noResize = frameSetElement->noResize();
     }
 }
 
-void HTMLFrameElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLFrameElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == frameborderAttr) {
         m_frameBorder = attr->value().toInt();
         m_frameBorderSet = !attr->isNull();
         // FIXME: If we are already attached, this has no effect.
     } else if (attr->name() == noresizeAttr) {
-        m_noResize = true;
-        // FIXME: If we are already attached, this has no effect.
-        // FIXME: Since this does not check attr->isNull(), it can
-        // never reset m_noResize to false if the attribute is removed.
-        // FIXME: There seems to be no code that looks at this
-        // value and prevents resizing.
+        if (renderer())
+            renderer()->updateFromElement();
     } else
         HTMLFrameElementBase::parseMappedAttribute(attr);
-}
-
-void HTMLFrameElement::setNoResize(bool noResize)
-{
-    setAttribute(noresizeAttr, noResize ? "" : 0);
 }
 
 } // namespace WebCore

@@ -33,15 +33,17 @@
 #include <asl.h>
 #include <uuid/uuid.h>
 #include <pthread.h>
+#include <bsm/libbsm.h>
 
 #include "powermanagementServer.h" // mig generated
 
+#include "PMStore.h"
 #include "PMSettings.h"
 #include "PSLowPower.h"
 #include "BatteryTimeRemaining.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
-#include "SetActive.h"
+#include "PMAssertions.h"
 #include "PrivateLib.h"
 #include "TTYKeepAwake.h"
 #include "PMSystemEvents.h"
@@ -51,6 +53,7 @@
 
 #define kIOPMAppName        "Power Management configd plugin"
 #define kIOPMPrefsPath        "com.apple.PowerManagement.xml"
+#define pwrLogDirName       "/System/Library/PowerEvents"
 
 #ifndef kIOUPSDeviceKey
 // Also defined in ioupsd/IOUPSPrivate.h
@@ -78,6 +81,14 @@
 #define kLWLogoutPointOfNoReturn    "com.apple.system.loginwindow.logoutNoReturn"
 
 
+
+#define LogObjectRetainCount(x, y) do {} while(0)
+/* #define LogObjectRetainCount(x, y) do { \
+    asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: kernel retain = %d, user retain = %d\n", \
+        x, IOObjectGetKernelRetainCount(y), IOObjectGetUserRetainCount(y)); } while(0)
+*/
+
+
 // Global keys
 static CFStringRef              gTZNotificationNameString   = NULL;
 
@@ -87,8 +98,6 @@ static SCPreferencesRef         gAutoWakePreferences        = NULL;
 static io_connect_t             _pm_ack_port                = 0;
 static io_iterator_t            _ups_added_noteref          = 0;
 static int                      _alreadyRunningIOUPSD       = 0;
-static int                      gClientUID                  = -1;
-static int                      gClientGID                  = -1;
 
 static int                      gCPUPowerNotificationToken          = 0;
 static bool                     gExpectingWakeFromSleepClockResync  = false;
@@ -113,7 +122,6 @@ extern boolean_t powermanagement_server(mach_msg_header_t *, mach_msg_header_t *
 
 
 // foward declarations
-static void *pm_run_thread(void *arg);
 static void initializeESPrefsDynamicStore(void);
 static void initializePowerSourceChangeNotification(void);
 static void initializeInterestNotifications(void);
@@ -141,9 +149,8 @@ static void broadcastGMTOffset(void);
 
 static void pushNewSleepWakeUUID(void);
 static void persistentlyStoreCurrentUUID(void);
-static IOReturn copyPersistentlyStoredUUID(
-                CFStringRef *outUUID, 
-                CFDateRef *outTimestamp);
+static void makePrettyDate(CFAbsoluteTime t, char* _date, int len);
+
 
 static void calendarRTCDidResync(
                 CFMachPortRef port, 
@@ -183,6 +190,7 @@ static void mig_server_callback(
 
 kern_return_t _io_pm_set_active_profile(
                 mach_port_t         server,
+                audit_token_t       token,
                 vm_offset_t         profiles_ptr,
                 mach_msg_type_number_t    profiles_len,
                 int                 *result);
@@ -194,6 +202,12 @@ kern_return_t _io_pm_last_wake_time(
                 vm_offset_t             *out_delta_data,
                 mach_msg_type_number_t  *out_delta_len,
                 int                     *return_val);
+
+kern_return_t _io_pm_set_power_history_bookmark(
+                mach_port_t             server,
+                string_t                uuid_name);
+
+static void initializePowerDetailLog(void);
             
 static CFStringRef              
 serverMPCopyDescription(const void *info)
@@ -213,9 +227,10 @@ __private_extern__ void dynamicStoreNotifyCallBack(
  * configd entry point
  */
  
-void load(CFBundleRef bundle, Boolean bundleVerbose)
+int main(int argc __unused, char *argv[] __unused)
 {
-    pthread_t               pmThread;
+    CFRunLoopSourceRef      cfmp_rls = 0;
+    CFMachPortContext       context  = { 0, (void *)1, NULL, NULL, serverMPCopyDescription };
     kern_return_t           kern_result = 0;
 
     kern_result = bootstrap_check_in(
@@ -251,28 +266,14 @@ void load(CFBundleRef bundle, Boolean bundleVerbose)
                                 kIOPMServerBootstrapName, kern_result);
     }
 
-    pthread_create(&pmThread, NULL, pm_run_thread, NULL);
-    pthread_detach(pmThread);
-
-    return;
-}
-
-void *pm_run_thread(void *arg)
-{
-    SCDynamicStoreRef              _store = NULL;
-    CFRunLoopSourceRef             _storeRLS = NULL;
-    CFRunLoopSourceRef              cfmp_rls = 0;
-    CFMachPortContext               context  = { 0, (void *)1, NULL, NULL, 
-                                            serverMPCopyDescription };
-
     if (MACH_PORT_NULL != serverPort)
     {
         // Finish setting up mig handler callback on pmServerMachPort
-        pmServerMachPort = CFMachPortCreateWithPort(
-                                kCFAllocatorDefault, 
+        pmServerMachPort = _SC_CFMachPortCreateWithPort(
+                                "PowerManagement",
                                 serverPort, 
                                 mig_server_callback, 
-                                &context, false);
+                                &context);
     }
     if (pmServerMachPort) {
         cfmp_rls = CFMachPortCreateRunLoopSource(0, pmServerMachPort, 0);
@@ -282,6 +283,10 @@ void *pm_run_thread(void *arg)
         }
     }
 
+    _getPMRunLoop();
+    
+    PMStoreLoad();
+    
     initializePowerSourceChangeNotification();
     initializeESPrefsDynamicStore();
     initializeInterestNotifications();
@@ -289,32 +294,22 @@ void *pm_run_thread(void *arg)
     initializeCalendarResyncNotification();    
     initializeShutdownNotifications();
     initializeRootDomainInterestNotifications();
+    initializePowerDetailLog();
     
 #if !TARGET_OS_EMBEDDED
     initializeUserNotifications();
+    _oneOffHacksSetup();
 #endif
     
     initializeSleepWakeNotifications();
 
-    _oneOffHacksSetup();
 
-    // prime the SCDynamicStore pump
-    _store = _getSharedPMDynamicStore();
-    if (_store) {
-        _storeRLS = SCDynamicStoreCreateRunLoopSource(0, _store, 0);
-    }
-    if (_storeRLS) {
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), _storeRLS, kCFRunLoopDefaultMode);
-    }
 
     // Prime the messagetracer UUID pump
     pushNewSleepWakeUUID();
-    // Store the newly generated UUID on disk
-    persistentlyStoreCurrentUUID();
     
     BatteryTimeRemaining_prime();
     PMSettings_prime();
-    PSLowPower_prime();
     AutoWake_prime();
     RepeatingAutoWake_prime();
     PMAssertions_prime();
@@ -323,19 +318,22 @@ void *pm_run_thread(void *arg)
     PMConnection_prime();
 
 #if !TARGET_OS_EMBEDDED
+    PSLowPower_prime();
     TTYKeepAwake_prime();
     ExternalMedia_prime();
 #endif
 
     CFRunLoopRun();
-    return NULL;
+    return 0;
 }
+
+
+
 
 static void BatteryMatch(
     void *refcon, 
     io_iterator_t b_iter) 
 {
-    IOReturn                    ret;
     IOPMBattery                 *tracking;
     IONotificationPortRef       notify = (IONotificationPortRef)refcon;
     io_registry_entry_t         battery;
@@ -346,14 +344,20 @@ static void BatteryMatch(
         // Add battery to our list of batteries
         tracking = _newBatteryFound(battery);
         
+        LogObjectRetainCount("PM::BatteryMatch(M0) me", battery);
+        
         // And install an interest notification on it
-        ret = IOServiceAddInterestNotification(notify, battery, 
+        IOServiceAddInterestNotification(notify, battery, 
                             kIOGeneralInterest, BatteryInterest,
                             (void *)tracking, &notification_ref);
+
+        LogObjectRetainCount("PM::BatteryMatch(M1) me", battery);
+        LogObjectRetainCount("PM::BatteryMatch(M1) msg_port", notification_ref);
 
         tracking->msg_port = notification_ref;
         IOObjectRelease(battery);
     }
+    InternalEvaluateAssertions();
 }
 
 
@@ -363,28 +367,42 @@ static void BatteryInterest(
     natural_t messageType, 
     void *messageArgument)
 {
-    CFArrayRef          battery_info = NULL;
     IOPMBattery         *changed_batt = (IOPMBattery *)refcon;
     IOPMBattery         **batt_stats;
 
     if(kIOPMMessageBatteryStatusHasChanged == messageType)
     {
+#if 0
+        if (changed_batt->me != (io_registry_entry_t)batt) {
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "PM:BatteryInterest(Berr) me!=batt (%d, %d)\n", changed_batt->me, batt);
+        }
+#endif
+
         // Update the arbiter
         changed_batt->me = (io_registry_entry_t)batt;
         _batteryChanged(changed_batt);
 
+        LogObjectRetainCount("PM:BatteryInterest(B0) msg_port", changed_batt->msg_port);
+        LogObjectRetainCount("PM:BatteryInterest(B1) msg_port", changed_batt->me);
 
         batt_stats = _batteries();        
         BatteryTimeRemainingBatteriesHaveChanged(batt_stats);
-
         SystemLoadBatteriesHaveChanged(batt_stats);
+        InternalEvaluateAssertions();
+    }
 
-        // Get legacy battery info & pass control over to PMSettings
-        battery_info = isA_CFArray(_copyLegacyBatteryInfo());
-        if(!battery_info) return;
-        PMSettingsBatteriesHaveChanged(battery_info);
+    if (kIOMessageServiceIsTerminated == messageType
+        && changed_batt && IO_OBJECT_NULL != changed_batt->msg_port)
+    {
+        LogObjectRetainCount("PM:BatteryInterest(T0) msg_port", changed_batt->msg_port);
+        LogObjectRetainCount("PM:BatteryInterest(T0) me", changed_batt->me);
 
-        CFRelease(battery_info);
+// TODO: Clean up left over objects upon kext removal
+//        IOObjectRelease(changed_batt->msg_port);
+//        IOObjectRelease(changed_batt->me);
+
+        LogObjectRetainCount("PM:BatteryInterest(T1) msg_port", changed_batt->msg_port);
+        LogObjectRetainCount("PM:BatteryInterest(T1) me", changed_batt->me);
     }
 
     return;
@@ -422,30 +440,19 @@ SleepWakeCallback(
     natural_t       messageType,
     void            *acknowledgementToken)
 {
-    bool            cancel_sleep = false;
-
     BatteryTimeRemainingSleepWakeNotification(messageType);
     PMSettingsSleepWakeNotification(messageType);
-
-#if !TARGET_OS_EMBEDDED
-        cancel_sleep = TTYKeepAwakeSleepWakeNotification(messageType);
-#endif
 
     // Log Message to MessageTracer
 
     // Acknowledge message
     switch ( messageType ) {
+        case kIOMessageCanSystemSleep:
         case kIOMessageSystemWillSleep:
             IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
             break;
-
-        case kIOMessageCanSystemSleep:
-            if (cancel_sleep) {
-                IOCancelPowerChange(_pm_ack_port, (long)acknowledgementToken);
-            } else {
-                IOAllowPowerChange(_pm_ack_port, (long)acknowledgementToken);
-            }
-            break;
+		default:
+			break;
     }
 }
 
@@ -468,9 +475,9 @@ ESPrefsHaveChanged(
     {
         // Tell ES Prefs listeners that the prefs have changed
         PMSettingsPrefsHaveChanged();
-        PSLowPowerPrefsHaveChanged();
         SystemLoadPrefsHaveChanged();
 #if !TARGET_OS_EMBEDDED
+        PSLowPowerPrefsHaveChanged();
         TTYKeepAwakePrefsHaveChanged();
 #endif
     }
@@ -526,10 +533,9 @@ static void UPSDeviceAdded(void *refCon, io_iterator_t iterator)
         // If not running, launch the management process ioupsd now.
         if(!_alreadyRunningIOUPSD) {
             char *argv[2] = {"/usr/libexec/ioupsd", NULL};
-            pid_t           _ioupsd_pid;
 
             _alreadyRunningIOUPSD = 1;
-            _ioupsd_pid = _SCDPluginExecCommand(&_ioupsd_exited, 0, 0, 0,
+            _SCDPluginExecCommand(&_ioupsd_exited, 0, 0, 0,
                 "/usr/libexec/ioupsd", argv);
         }
         IOObjectRelease(upsDevice);
@@ -548,11 +554,14 @@ PowerSourcesHaveChanged(void *info)
 {
     CFTypeRef            ps_blob;
     
-    ps_blob = isA_CFDictionary(IOPSCopyPowerSourcesInfo());
-    if(!ps_blob) return;
-    
+    ps_blob = IOPSCopyPowerSourcesInfo();
+    if(!ps_blob)
+        return;
+
+#if !TARGET_OS_EMBEDDED
     // Notifiy PSLowPower of power sources change
     PSLowPowerPSChange(ps_blob);
+#endif
     
     // Notify PMSettings
     PMSettingsPSChange(ps_blob);
@@ -809,32 +818,27 @@ static void pushNewSleepWakeUUID(void)
 {
     uuid_t              new_uuid;
     uuid_string_t       new_uuid_string;
-    CFStringRef         uuidString = NULL;    
-    io_registry_entry_t root_domain = IO_OBJECT_NULL;
-    IOReturn            ret;
 
-    root_domain = getRootDomain();
+    io_registry_entry_t root_domain = getRootDomain();
+
     if (IO_OBJECT_NULL == root_domain) {
         return;
     }
     
     uuid_generate(new_uuid);
     uuid_unparse_upper(new_uuid, new_uuid_string);
-    uuidString = CFStringCreateWithCString(0, new_uuid_string, kCFStringEncodingUTF8);
-
-    if (gCachedNextSleepWakeUUIDString) {
+    
+    if (gCachedNextSleepWakeUUIDString) 
+    {
         CFRelease(gCachedNextSleepWakeUUIDString);
+
         gCachedNextSleepWakeUUIDString = NULL;
     }
 
-    if (uuidString) {
-        gCachedNextSleepWakeUUIDString = uuidString;
-
-        ret = IORegistryEntrySetCFProperty(
-                        root_domain, CFSTR(kIOPMSleepWakeUUIDKey),
-                        uuidString);
+    if ((gCachedNextSleepWakeUUIDString = CFStringCreateWithCString(0, new_uuid_string, kCFStringEncodingUTF8))) 
+    {
+        IORegistryEntrySetCFProperty(root_domain, CFSTR(kIOPMSleepWakeUUIDKey), gCachedNextSleepWakeUUIDString);
     }
-    
     return;
 }
 
@@ -900,58 +904,6 @@ exit:
     return;
 }
 
-/* copyPersistentlyStoredUUID
- *
- * Returns kIOReturn on success. If successful, both arguments are pointers to CF objects, and
- * it is the caller's responsibility to release them.
- * If an IO error is returned, both pointers will be set to NULL and should not be released.
- */
-static IOReturn copyPersistentlyStoredUUID(CFStringRef *outUUID, CFDateRef *outTimestamp)
-{
-    CFDictionaryRef         lastKnownDictionary = NULL;
-    CFStringRef             lastKnownUUID = NULL;
-    CFDateRef               lastKnownDate = NULL;
-    SCPreferencesRef        prefs = NULL;
-    IOReturn                ret = kIOReturnSuccess;
-    
-    if (NULL == outUUID || NULL == outTimestamp) {
-        ret = kIOReturnBadArgument;
-        goto exit;
-    }
-        
-    *outUUID = NULL;
-    *outTimestamp = NULL;
-
-    prefs = SCPreferencesCreate(0, CFSTR("PowerManagement UUID Temp Storage"),
-                                    CFSTR("com.apple.PowerManagement.plist"));
-    if (!prefs) {
-        ret = kIOReturnError;
-        goto exit;
-    }
-    lastKnownDictionary = isA_CFDictionary(SCPreferencesGetValue(prefs, CFSTR(kPMSettingsCachedUUIDKey)));
-    if (!lastKnownDictionary) {
-        ret = kIOReturnNotFound;
-        goto exit;    
-    }
-    
-    lastKnownUUID = isA_CFString(CFDictionaryGetValue(lastKnownDictionary, 
-                                        CFSTR(kPMSettingsDictionaryUUIDKey)));
-    lastKnownDate = isA_CFDate(CFDictionaryGetValue(lastKnownDictionary, 
-                                        CFSTR(kPMSettingsDictionaryDateKey)));
-
-    if (lastKnownUUID && lastKnownDate)
-    {
-        *outUUID = CFRetain(lastKnownUUID);
-        *outTimestamp = CFRetain(lastKnownDate);
-    } else {
-        ret = kIOReturnInternalError;
-    }
-
-exit:
-    if (prefs)
-        CFRelease(prefs);
-    return ret;
-}
 
 static boolean_t 
 pm_mig_demux(
@@ -962,52 +914,28 @@ pm_mig_demux(
                     (mach_dead_name_notification_t *)request;
     boolean_t processed = FALSE;
 
-    mach_msg_format_0_trailer_t * trailer;
-
-    if ((request->msgh_id >= _powermanagement_subsystem.start &&
-         request->msgh_id < _powermanagement_subsystem.end)) 
-     {
-
-        /*
-         * Get the caller's credentials (eUID/eGID) from the message trailer.
-         */
-        trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
-            round_msg(request->msgh_size));
-
-        if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
-           (trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-
-            gClientUID = trailer->msgh_sender.val[0];
-            gClientGID = trailer->msgh_sender.val[1];
-        } else {
-            //kextd_error_log("caller's credentials not available");
-            gClientUID = -1;
-            gClientGID = -1;
-        }
-    }
-    
     processed = powermanagement_server(request, reply);
-    if(processed) return true;
+
+    if (processed) 
+        return true;
     
-    // Check for tasks which have exited and clean-up PM assertions
-    if(MACH_NOTIFY_DEAD_NAME == request->msgh_id) 
+    if (MACH_NOTIFY_DEAD_NAME == request->msgh_id) 
     {
-        // Check whether this was a battery-owned mach port
         bool handled = false;
-		handled = PMAssertionsHandleDeadName(deadRequest->not_port);
+
+        __MACH_PORT_DEBUG(true, "pm_mig_demux: Dead name port should have 1+ send right(s)", deadRequest->not_port);
+
+        handled = BatteryHandleDeadName(deadRequest->not_port);
         if (!handled) {
-            handled = BatteryHandleDeadName(deadRequest->not_port);
-            if (!handled) {
-                handled = PMConnectionHandleDeadName(deadRequest->not_port);
-            }
+            handled = PMConnectionHandleDeadName(deadRequest->not_port);
         }
-
-		__MACH_PORT_DEBUG(true, "pm_mig_demux: Deallocating dead name port", deadRequest->not_port);
-
+        
+        __MACH_PORT_DEBUG(true, "pm_mig_demux: Deallocating dead name port", deadRequest->not_port);
         mach_port_deallocate(mach_task_self(), deadRequest->not_port);
+        
+        reply->msgh_bits            = 0;
+        reply->msgh_remote_port     = MACH_PORT_NULL;
 
-        reply->msgh_bits        = 0;
-        reply->msgh_remote_port    = MACH_PORT_NULL;
         return TRUE;
     }
 
@@ -1041,7 +969,7 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
     (void) pm_mig_demux(&bufRequest->Head, &bufReply->Head);
 
     if (!(bufReply->Head.msgh_bits & MACH_MSGH_BITS_COMPLEX) &&
-        (bufReply->RetCode != KERN_SUCCESS)) {
+         (bufReply->RetCode != KERN_SUCCESS)) {
 
         if (bufReply->RetCode == MIG_NO_REPLY) {
             /*
@@ -1087,13 +1015,13 @@ mig_server_callback(CFMachPortRef port, void *msg, CFIndex size, void *info)
     if (MACH_MSGH_BITS_REMOTE(bufReply->Head.msgh_bits) != MACH_MSG_TYPE_MOVE_SEND_ONCE) {
         options |= MACH_SEND_TIMEOUT;
     }
-    mr = mach_msg(&bufReply->Head,        /* msg */
-              options,            /* option */
-              bufReply->Head.msgh_size,    /* send_size */
-              0,            /* rcv_size */
-              MACH_PORT_NULL,        /* rcv_name */
-              MACH_MSG_TIMEOUT_NONE,    /* timeout */
-              MACH_PORT_NULL);        /* notify */
+    mr = mach_msg(&bufReply->Head,          /* msg */
+              options,                      /* option */
+              bufReply->Head.msgh_size,     /* send_size */
+              0,                            /* rcv_size */
+              MACH_PORT_NULL,               /* rcv_name */
+              MACH_MSG_TIMEOUT_NONE,        /* timeout */
+              MACH_PORT_NULL);              /* notify */
 
 
     /* Has a message error occurred? */
@@ -1143,32 +1071,36 @@ void dynamicStoreNotifyCallBack(
 
 kern_return_t _io_pm_force_active_settings(
     mach_port_t                 server,
+    audit_token_t               token,
     vm_offset_t                 settings_ptr,
     mach_msg_type_number_t      settings_len,
     int                         *result)
 {
     void                    *settings_buf = (void *)settings_ptr;
     CFDictionaryRef         force_settings = NULL;
+    uid_t                   callerUID;
+    
+    audit_token_to_au32(token, NULL, &callerUID, NULL, NULL, NULL, NULL, NULL, NULL);
 
-    /* requires root */
-    if(0 != gClientUID) {
+    if (0 != callerUID) {
+        // Caller must be root
         *result = kIOReturnNotPrivileged;
-    }
-    
-    force_settings = (CFDictionaryRef)IOCFUnserialize(settings_buf, 0, 0, 0);
-
-    if(isA_CFDictionary(force_settings)) 
-    {
-        *result = _activateForcedSettings(force_settings);
     } else {
-        *result = kIOReturnBadArgument;
-    }
-    
-    if(force_settings) 
-    {
-        CFRelease(force_settings);
-    }
+        force_settings = (CFDictionaryRef)IOCFUnserialize(settings_buf, 0, 0, 0);
 
+        if(isA_CFDictionary(force_settings)) 
+        {
+            *result = _activateForcedSettings(force_settings);
+        } else {
+            *result = kIOReturnBadArgument;
+        }
+        
+        if(force_settings) 
+        {
+            CFRelease(force_settings);
+        }
+    }
+        
     // deallocate client's memory
     vm_deallocate(mach_task_self(), (vm_address_t)settings_ptr, settings_len);
 
@@ -1176,17 +1108,22 @@ kern_return_t _io_pm_force_active_settings(
 }
 
 kern_return_t _io_pm_set_active_profile(
-                mach_port_t         server,
-                vm_offset_t         profiles_ptr,
-                mach_msg_type_number_t    profiles_len,
-                int                 *result)
+    mach_port_t         server,
+    audit_token_t       token,
+    vm_offset_t         profiles_ptr,
+    mach_msg_type_number_t    profiles_len,
+    int                 *result)
 {
-    void                    *profiles_buf = (void *)profiles_ptr;
-    CFDictionaryRef         power_profiles = NULL;
+    void                *profiles_buf = (void *)profiles_ptr;
+    CFDictionaryRef     power_profiles = NULL;
+    uid_t               callerUID;
+    gid_t               callerGID;
+    
+    audit_token_to_au32(token, NULL, &callerUID, &callerGID, NULL, NULL, NULL, NULL, NULL);
     
     power_profiles = (CFDictionaryRef)IOCFUnserialize(profiles_buf, 0, 0, 0);
     if(isA_CFDictionary(power_profiles)) {
-        *result = _IOPMSetActivePowerProfilesRequiresRoot(power_profiles, gClientUID, gClientGID);
+        *result = _IOPMSetActivePowerProfilesRequiresRoot(power_profiles, callerUID, callerGID);
         CFRelease(power_profiles);
     } else if(power_profiles) {
         CFRelease(power_profiles);
@@ -1199,63 +1136,16 @@ kern_return_t _io_pm_set_active_profile(
 }
 
 
-static bool _assertionRequiresRoot(CFStringRef   asst)
-{
-    if( CFEqual(asst, kIOPMInflowDisableAssertion)
-       || CFEqual(asst, kIOPMChargeInhibitAssertion) )
-    {
-        return true;
-    }
-    
-    return false;
-}
-
-kern_return_t _io_pm_assertion_create
-(
-    mach_port_t         server,
-    mach_port_t         task,
-    string_t            name,
-    string_t            profile,
-    int                 level,
-    int                 *assertion_id,
-    int                 *result
-)
-{
-    CFStringRef profileString = NULL;
-    profileString = CFStringCreateWithCString(0, profile,
-                        kCFStringEncodingMacRoman);
-
-    // Kick them out if this assertion requires root priviliges to run
-    if( _assertionRequiresRoot(profileString) )
-    {
-        // uid & gid set in global vars in pm_mig_demux above
-        if( ( !callerIsRoot(gClientUID, gClientGID) 
-            && !callerIsAdmin(gClientUID, gClientGID) )
-            || (-1 == gClientUID) || (-1 == gClientGID) )
-        {
-            *result = kIOReturnNotPrivileged;
-            goto exit;
-        }
-    }
-
-    *result = _IOPMAssertionCreateRequiresRoot(task, name, profile, 
-                                                level, assertion_id);
-
-exit:
-    if (profileString) CFRelease(profileString);
-    return KERN_SUCCESS;
-}
 
 
 /* initializeInteresteNotifications
  *
- * Sets up the notification of general interest from the PMU & RootDomain
+ * Sets up the notification of general interest from the RootDomain
  */
 static void
 initializeInterestNotifications()
 {
     IONotificationPortRef       notify_port = 0;
-    io_service_t                pmu_service_ref = 0;
     io_iterator_t               battery_iter = 0;
     io_iterator_t               display_iter = 0;
     CFRunLoopSourceRef          rlser = 0;
@@ -1269,6 +1159,7 @@ initializeInterestNotifications()
     rlser = IONotificationPortGetRunLoopSource(notify_port);
     if(!rlser) goto finish;
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rlser, kCFRunLoopDefaultMode);
+
 
     kr = IOServiceAddMatchingNotification(
                                 notify_port,
@@ -1327,7 +1218,6 @@ initializeInterestNotifications()
     }
     
 finish:   
-    if(pmu_service_ref) IOObjectRelease(pmu_service_ref);
     if(matchingDict) CFRelease(matchingDict);
     if(propertyDict) CFRelease(propertyDict);
     return;
@@ -1392,11 +1282,14 @@ static void initializeCalendarResyncNotification(void)
         goto exit;
     }
 
-    mpref = CFMachPortCreateWithPort(0, tport, calendarRTCDidResync, NULL, NULL);
+    mpref = _SC_CFMachPortCreateWithPort("PowerManagement/calendarResync", tport, calendarRTCDidResync, NULL);
     if (mpref) {
         mpsrc = CFMachPortCreateRunLoopSource(0, mpref, 0);
-        CFRunLoopAddSource(CFRunLoopGetCurrent(), mpsrc, kCFRunLoopDefaultMode);
-        CFRelease(mpsrc);
+        if (mpsrc) {
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), mpsrc, kCFRunLoopDefaultMode);
+            CFRelease(mpsrc);
+        }
+        CFRelease(mpref);
     }
 
 exit:
@@ -1518,8 +1411,6 @@ kern_return_t _io_pm_last_wake_time(
  *
  * Notification fires when IODisplayWranger object is created in the IORegistry.
  *
- * We tell the tz+dst offset to our timezone clients when display sleep kicks in. 
- *      (on PPC only)
  */
 static void displayMatched(
     void *note_port_in, 
@@ -1550,7 +1441,6 @@ initializeShutdownNotifications(void)
     CFMachPortRef       gNotifyMachPort = NULL;
     CFRunLoopSourceRef  gNotifyMachPortRLS = NULL;
     mach_port_t         our_port = MACH_PORT_NULL;
-    int                 notify_return = NOTIFY_STATUS_OK;
 
     // Tell the kernel that we are NOT shutting down at the moment, since
     // configd is just launching now.
@@ -1562,32 +1452,32 @@ initializeShutdownNotifications(void)
     
     // Sneak in our registration for CPU power notifications here; to piggy-back
     // with the other mach port registrations for LW.
-    notify_return = notify_register_mach_port( 
+    notify_register_mach_port( 
                         kIOPMCPUPowerNotificationKey, 
                         &our_port, 
                         0, /* flags */ 
                         &gCPUPowerNotificationToken);
     
     
-    notify_return = notify_register_mach_port( 
+    notify_register_mach_port( 
                         kLWShutdowntInitiated, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
                         &gLWShutdownNotificationToken);
 
-    notify_return = notify_register_mach_port( 
+    notify_register_mach_port( 
                         kLWRestartInitiated, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
                         &gLWRestartNotificationToken);
 
-    notify_return = notify_register_mach_port( 
+    notify_register_mach_port( 
                         kLWLogoutCancelled, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
                         &gLWLogoutCancelNotificationToken);
 
-    notify_return = notify_register_mach_port( 
+    notify_register_mach_port( 
                         kLWLogoutPointOfNoReturn, 
                         &our_port, 
                         NOTIFY_REUSE, /* flags */ 
@@ -1595,26 +1485,580 @@ initializeShutdownNotifications(void)
 
     /* * * * * * * * * * * * * */
 
-    gNotifyMachPort = CFMachPortCreateWithPort(
-                                kCFAllocatorDefault,
+    gNotifyMachPort = _SC_CFMachPortCreateWithPort(
+                                "PowerManagement/shutdown",
                                 our_port,
                                 lwShutdownCallback,
-                                NULL,  /* context */
-                                NULL); /* &shouldFreeInfo */
-    if (!gNotifyMachPort)
-        return;
+                                NULL);
+
+    if (gNotifyMachPort) {
+        gNotifyMachPortRLS = CFMachPortCreateRunLoopSource(0, gNotifyMachPort, 0);
+        if (gNotifyMachPortRLS) {        
+            CFRunLoopAddSource(CFRunLoopGetCurrent(), gNotifyMachPortRLS, kCFRunLoopDefaultMode);
+            CFRelease(gNotifyMachPortRLS);
+        }
+        CFRelease(gNotifyMachPort);
+    }
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+/******************  Power History  ******************************************/
+/*****************************************************************************/
+/*****************************************************************************/
+
+CFDictionaryRef dictionaryForEvent(IOPMSystemEventRecord *event)
+{
+    CFMutableDictionaryRef outD = NULL;
+
+    // 
+    char            *showString = NULL;
+    CFAbsoluteTime  evAbsoluteTime = 0.0;
+
+    bool            isASystemEvent = false;
+    bool            isADriverEvent = false;
+    bool            hasDeviceName = false;
+    bool            hasInterestedName = false;
+    bool            hasPowerStates = false;
+    bool            hasUUID = false;
+    bool            hasElapsed = false;
+    bool            hasResult = true;   // TRUE!
+    bool            hasReason = false;
+    bool            hasDisambiguationID = false;
+    int32_t         littleint = 0;
     
-    // Create RLS for mach port
-    gNotifyMachPortRLS = CFMachPortCreateRunLoopSource(
-                                        kCFAllocatorDefault,
-                                        gNotifyMachPort,
-                                        0); /* order */
-    if (!gNotifyMachPortRLS)
+
+    // These CF values go into dictionary
+    CFStringRef     evTypeString = NULL;
+    CFNumberRef     evReasonNum = NULL;
+    CFNumberRef     evResultNum = NULL;
+    CFStringRef     evDeviceNameString = NULL;
+    CFStringRef     evUUIDString = NULL;
+    CFStringRef     evInterestedDeviceNameString = NULL;
+    CFNumberRef     evTimestampDate = NULL;
+    CFNumberRef     evUniqueIDNum = NULL;
+    CFNumberRef     evElapsedTimeMicroSec = NULL;
+    CFNumberRef     evOldState = NULL;
+    CFNumberRef     evNewState = NULL;
+
+    if (!event) {
+        return NULL;
+    }
+
+/*****************************************************************************/
+    switch (event->eventType) 
+    {
+        case kIOPMEventTypeSetPowerStateImmediate:
+            showString = "SetPowerState_Immediate";
+            isADriverEvent = true;
+            break;
+        case kIOPMEventTypeSetPowerStateDelayed:
+            showString = "SetPowerState_Delayed";
+            isADriverEvent = true;
+            break;
+        case kIOPMEventTypePSWillChangeTo:
+            showString = "PowerStateWillChangeTo";
+            isADriverEvent = true;
+            hasInterestedName = true;
+            break;
+        case kIOPMEventTypePSDidChangeTo:
+            showString = "PowerStateDidChangeTo";
+            isADriverEvent = true;
+            hasInterestedName = true;
+            break;
+        case kIOPMEventTypeAppResponse:
+            showString = "AppResponse";
+            isADriverEvent = true;
+            break;
+        case kIOPMEventTypeSleep:
+            showString = "Sleep";
+            isASystemEvent = true;
+            break;        
+        case kIOPMEventTypeSleepDone:
+            showString = "SleepDone";
+            isASystemEvent = true;
+            break;        
+        case kIOPMEventTypeWake:
+             showString = "Wake";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeWakeDone:
+             showString = "WakeDone";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeDoze:            
+             showString = "LiteWakeDoze";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeDozeDone:
+            showString = "LiteWakeDozeDone";
+            isASystemEvent = true;
+            break;        
+        case kIOPMEventTypeLiteWakeUp:
+            showString = "LiteWakeUp";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeLiteWakeUpDone:
+             showString = "LiteWakeUpDone";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeLiteWakeDown:
+             showString = "LiteWakeDown";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeLiteWakeDownDone:
+             showString = "LiteWakeDownDone";
+            isASystemEvent = true;
+             break;        
+        case kIOPMEventTypeUUIDClear:
+             showString = "UUIDClear";
+            isASystemEvent = true;
+             break;
+        case kIOPMEventTypeUUIDSet:
+             showString = "UUIDSet";
+            isASystemEvent = true;
+            break;
+        case kIOPMEventTypeAppNotificationsFinished:
+        case kIOPMEventTypeDriverNotificationsFinished:
+        case kIOPMEventTypeCalTimeChange:
+        default:
+            showString = NULL;
+            break;
+    }
+    
+    if (isASystemEvent) {
+        hasUUID = true;
+        hasReason = true;
+        hasElapsed = true;
+        hasResult = true;
+    } else if (isADriverEvent) {
+        hasPowerStates = true;
+        hasDeviceName = true;
+        hasDisambiguationID = true;
+        hasElapsed = true;
+        hasResult = true;
+    }
+    
+    // Every event has an EventType
+    if (!showString) {
+        goto exit;
+    }
+    evTypeString = CFStringCreateWithCString(0, showString, kCFStringEncodingMacRoman);
+
+    // Every event has a timestamp
+    evAbsoluteTime = _CFAbsoluteTimeFromPMEventTimeStamp(event->timestamp);
+    if (0.0 != evAbsoluteTime) {
+        evTimestampDate = CFNumberCreate(0, kCFNumberDoubleType, &evAbsoluteTime);
+    }
+    if (hasPowerStates) {
+        int16_t    oldstate = (int16_t)event->oldState;
+        int16_t    newstate = (int16_t)event->newState;
+        evOldState = CFNumberCreate(0, kCFNumberSInt16Type, &oldstate);    
+        evNewState = CFNumberCreate(0, kCFNumberSInt16Type, &newstate);
+    }
+    if (hasUUID) {
+        evUUIDString = CFStringCreateWithCString(0, event->uuid, kCFStringEncodingUTF8);
+    }
+    if (hasElapsed) {
+        evElapsedTimeMicroSec = CFNumberCreate(0, kCFNumberIntType, &event->elapsedTimeUS);
+    }
+    if (hasResult) {
+        evResultNum = CFNumberCreate(0, kCFNumberIntType, &event->eventResult);
+    }
+    if (hasReason) {
+        littleint = (int32_t)event->eventReason;
+        evReasonNum = CFNumberCreate(0, kCFNumberIntType, &littleint);
+    }
+    if (hasDisambiguationID) {
+        // disambiguateID is a kernel pointer. Could be 32 or 64 bits. 
+        evUniqueIDNum = CFNumberCreate(0, kCFNumberLongLongType, &event->ownerDisambiguateID);
+    }
+    if (hasDeviceName) {
+        evDeviceNameString = CFStringCreateWithCString(0, event->ownerName, kCFStringEncodingUTF8);
+    }
+    if (hasInterestedName) {
+        evInterestedDeviceNameString = CFStringCreateWithCString(0, event->interestName, kCFStringEncodingUTF8);
+    }
+
+    /*
+     * Stuff dictionary
+     */
+
+    outD = CFDictionaryCreateMutable(0, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!outD) {
+        goto exit;
+    }
+
+    if (evTypeString) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryEventTypeKey), evTypeString);
+    }
+    if (evReasonNum) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryEventReasonKey), evReasonNum);
+    }
+    if (evResultNum) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryEventResultKey), evResultNum);
+    }
+    if (evDeviceNameString) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryDeviceNameKey), evDeviceNameString);
+    }
+    if (evUUIDString) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryUUIDKey), evUUIDString);
+    }
+    if (evInterestedDeviceNameString) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryInterestedDeviceNameKey), evInterestedDeviceNameString);
+    }
+    if (evTimestampDate) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryTimestampKey), evTimestampDate);
+    }
+    if (evElapsedTimeMicroSec) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryElapsedTimeUSKey), evElapsedTimeMicroSec);
+    }
+    if (evOldState) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryOldStateKey), evOldState);
+    }
+    if (evNewState) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryNewStateKey), evNewState);
+    }
+    if (evUniqueIDNum) {
+        CFDictionarySetValue(outD, CFSTR(kIOPMPowerHistoryDeviceUniqueIDKey), evUniqueIDNum);
+    }
+
+exit:
+    if (evTypeString) {
+        CFRelease(evTypeString);
+    }
+    if (evReasonNum) {
+        CFRelease(evReasonNum);
+    }
+    if (evResultNum) {
+        CFRelease(evResultNum);
+    }
+    if (evDeviceNameString) {
+        CFRelease(evDeviceNameString);
+    }
+    if (evUUIDString) {
+        CFRelease(evUUIDString);
+    }
+    if (evInterestedDeviceNameString) {
+        CFRelease(evInterestedDeviceNameString);
+    }
+    if (evTimestampDate) {
+        CFRelease(evTimestampDate);
+    }
+    if (evElapsedTimeMicroSec) {
+        CFRelease(evElapsedTimeMicroSec);
+    }
+    if (evOldState) {
+        CFRelease(evOldState);
+    }
+    if (evNewState) {
+        CFRelease(evNewState);
+    }
+    if (evUniqueIDNum) {
+        CFRelease(evUniqueIDNum);
+    }
+    return outD;
+}
+
+static IOPMTraceBufferHeader *gPowerLogHdr = NULL;
+static IOPMSystemEventRecord *gPowerLogRecords = NULL;
+
+/*****************************************************************************/
+static int incrementDetailLogIndex(int *i) {
+    *i = *i+1;
+    if (*i == gPowerLogHdr->sizeEntries) {
+        *i = 0;
+    }
+    return *i;
+}
+static int decrementDetailLogIndex(int *i) {
+    *i = *i -1;
+    if (*i < 0) {
+        *i = gPowerLogHdr->sizeEntries - 1;
+    }
+    return *i;
+}
+
+/*****************************************************************************/
+static void makePrettyDate(CFAbsoluteTime t, char* _date, int len)
+{
+
+  CFDateFormatterRef  date_format;
+  CFTimeZoneRef       tz;
+  CFStringRef         time_date;
+  CFLocaleRef         loc;
+
+  loc = CFLocaleCopyCurrent();
+  date_format = CFDateFormatterCreate(kCFAllocatorDefault, loc,
+                                      kCFDateFormatterShortStyle, kCFDateFormatterLongStyle);        
+  CFRelease(loc);
+
+  tz = CFTimeZoneCopySystem();
+  CFDateFormatterSetFormat(date_format, CFSTR("MM,dd,yy HH:mm:ss zzz"));
+  CFRelease(tz);
+
+  time_date = CFDateFormatterCreateStringWithAbsoluteTime(kCFAllocatorDefault,
+                                                          date_format, t);
+  CFRelease(date_format);
+
+  if(time_date)
+  {
+    CFStringGetCString(time_date, _date, len, kCFStringEncodingUTF8);
+    CFRelease(time_date); 
+  }
+}
+
+static void packagePowerDetailLogForUUID(CFStringRef uuid)
+{
+    char    uuid_cstr[50];
+    int     clearUUIDindex = -1;
+    int     setUUIDindex = -1;
+    int     index = 0;
+    int     startingIndex = 0;
+    CFMutableStringRef          fileName = NULL;
+    CFURLRef                    fileURL = NULL;
+    CFDataRef                   uuid_history_blob = NULL;
+    CFMutableDictionaryRef     _uuidDetails = NULL;
+    CFDictionaryRef            _eventDictionary = NULL;
+    CFMutableArrayRef          _eventsForUUIDArray = NULL;
+    CFNumberRef                set_time = NULL;
+    CFNumberRef                clear_time = NULL;
+    CFAbsoluteTime             st, ct;
+
+    if (!gPowerLogHdr || !gPowerLogRecords || !uuid)
         return;
 
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), 
-            gNotifyMachPortRLS, kCFRunLoopDefaultMode);
+    index = startingIndex = gPowerLogHdr->index;
+
+    if (!CFStringGetCString(uuid, uuid_cstr, sizeof(uuid_cstr), kCFStringEncodingUTF8))
+        return;
+
+    // Find the boundaries of this UUID in the sleep/wake log.
+    // We scan backwards from the last record entry looking for the CLEAR UUID event
+    // and the SET UUID events
+    do {
+				
+        if ((-1 == clearUUIDindex) 
+            && (kIOPMEventTypeUUIDClear == gPowerLogRecords[index].eventType)
+            && gPowerLogRecords[index].uuid
+            && !strncmp(uuid_cstr, gPowerLogRecords[index].uuid, sizeof(gPowerLogRecords[index].uuid)))
+        {
+            clearUUIDindex = index;
+        }
+    
+        if ((-1 == setUUIDindex) 
+            && (kIOPMEventTypeUUIDSet == gPowerLogRecords[index].eventType)
+            && gPowerLogRecords[index].uuid
+            && !strncmp(uuid_cstr, gPowerLogRecords[index].uuid, sizeof(gPowerLogRecords[index].uuid)))
+        {
+            setUUIDindex = index;
+        }
+
+    } while ( ((clearUUIDindex == -1)
+              || (setUUIDindex == -1))
+            && (decrementDetailLogIndex(&index) != startingIndex));
+
+    if ( -1 == clearUUIDindex || -1 == setUUIDindex) {
+        // Error - we should have found a pair of set UUID index and clear UUID index
+        // in the event log. 
+		    return;
+    }
+    
+    int expectCount = (clearUUIDindex - setUUIDindex) % gPowerLogHdr->sizeEntries;
+ 
+    _eventsForUUIDArray = CFArrayCreateMutable(0, expectCount+1, &kCFTypeArrayCallBacks);
+    if (!_eventsForUUIDArray) {
+        goto exit;
+    }
+
+    // Now we loop through the entries in the buffer from UUID START to UUID CLEAR
+    //   create a tracking dictionary for each event
+    //   and append that dictionary to an array
+    index = setUUIDindex;
+    do {
+        _eventDictionary = dictionaryForEvent(&gPowerLogRecords[index]);
+        if (_eventDictionary) {
+            CFArrayAppendValue(_eventsForUUIDArray, _eventDictionary);
+            
+            // We're interested in separately logging the UUIDSet time 
+            if(index == setUUIDindex) {
+              set_time = CFDictionaryGetValue(
+                                  _eventDictionary, 
+                                  CFSTR(kIOPMPowerHistoryTimestampKey));
+            }
+            CFRelease(_eventDictionary);
+        }
+    } while (clearUUIDindex != incrementDetailLogIndex(&index));
+    
+    // We're intrested in separately logging the UUIDClear time
+    _eventDictionary = dictionaryForEvent(&gPowerLogRecords[index]);
+    if(_eventDictionary) {
+      CFArrayAppendValue(_eventsForUUIDArray, _eventDictionary);
+      
+      clear_time = CFDictionaryGetValue(
+                          _eventDictionary,
+                          CFSTR(kIOPMPowerHistoryTimestampKey));    
+      
+      CFRelease(_eventDictionary);
+    }
+    // We now create one big CFDictionary that contains all metadata
+    // for this UUID cluster
+    _uuidDetails = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+                                             5, 
+                                             &kCFTypeDictionaryKeyCallBacks, 
+                                             &kCFTypeDictionaryValueCallBacks);
+    
+    if (!_uuidDetails || !clear_time || !set_time) {
+        goto exit;
+    }
+    CFDictionarySetValue(_uuidDetails, 
+                         CFSTR(kIOPMPowerHistoryUUIDKey), 
+                         uuid);
+
+    CFDictionarySetValue(_uuidDetails, 
+                         CFSTR(kIOPMPowerHistoryEventArrayKey), 
+                         _eventsForUUIDArray);
+    
+    CFDictionarySetValue(_uuidDetails, 
+                         CFSTR(kIOPMPowerHistoryTimestampKey), 
+                         set_time);
+    CFNumberGetValue(set_time, kCFNumberDoubleType, &st);
+
+    CFDictionarySetValue(_uuidDetails, 
+                         CFSTR(kIOPMPowerHistoryTimestampCompletedKey), 
+                         clear_time);
+    CFNumberGetValue(clear_time, kCFNumberDoubleType, &ct);
+    
+    CFRelease(_eventsForUUIDArray);
+
+    // We're now ready to write out details of current UUID to disk
+    fileName = CFStringCreateMutable(kCFAllocatorDefault,  255); 
+        
+    // No point in continuing 
+    if(!fileName)
+        goto exit;
+
+    // The filename we log the details of this UUID into is structured as
+    // follows:
+    //
+    // <UUID set time>_<UUID>_<UUID clear time>.plog
+    // This way, essential metadata associated with a UUID can be 
+    // discerned just from the filename, without having to open the 
+    // file
+    // UUID set time and UUID clear time are presented in human readable
+    // format using the Unicode date formatter:
+    // "MM,dd,yy HH:mm:ss zzz"
+    
+    char st_cstr[60];
+    char ct_cstr[60];
+    makePrettyDate(st, st_cstr, 60);
+    makePrettyDate(ct, ct_cstr, 60);
+    
+    CFStringRef st_string = CFStringCreateWithCString(0, 
+                                                      st_cstr, 
+                                                      kCFStringEncodingUTF8);
+    
+    CFStringRef ct_string = CFStringCreateWithCString(0, 
+                                                      ct_cstr, 
+                                                      kCFStringEncodingUTF8);
+    
+    // Build up the file name in parts
+    CFStringAppend(fileName, CFSTR(pwrLogDirName));
+    CFStringAppend(fileName, CFSTR("/"));
+    CFStringAppend(fileName, st_string);
+    CFStringAppend(fileName, CFSTR("_"));
+    CFStringAppend(fileName, uuid);
+    CFStringAppend(fileName, CFSTR("_"));
+    CFStringAppend(fileName, ct_string);
+    CFStringAppend(fileName, CFSTR(".plog"));
+	  
+    CFRelease(st_string);
+    CFRelease(ct_string);
+
+    struct stat dirInfo;
+    
+    // We may have to make a new directory to put logfiles into
+    if( stat(pwrLogDirName, &dirInfo) != 0) {
+        // Setting permissions to 0770 doesn't make pmset happy, so
+        // this'll have to do
+        if (mkdir(pwrLogDirName, 0777) != 0) {
+            goto exit;
+        }
+    }
+
+    // Write out the CFDictionary's contents in XML
+    fileURL = CFURLCreateWithFileSystemPath(
+                                            kCFAllocatorDefault,
+                                            fileName,
+                                            kCFURLPOSIXPathStyle,
+                                            false);
+    uuid_history_blob = CFPropertyListCreateData(0, 
+                                           _uuidDetails, 
+                                           kCFPropertyListXMLFormat_v1_0, 
+                                           0, 
+                                           NULL);
+
+    if (uuid_history_blob && fileURL) 
+    {
+        CFURLWriteDataAndPropertiesToResource (fileURL, uuid_history_blob, NULL, NULL);
+    }
+exit:
+    if(uuid_history_blob)
+        CFRelease(uuid_history_blob);
+    if(fileURL)
+        CFRelease(fileURL);
+    if (fileName)
+        CFRelease(fileName);
+    if (_uuidDetails)
+        CFRelease(_uuidDetails);
+    return;
 }
+
+/*****************************************************************************/
+static void initializePowerDetailLog(void)
+{
+    io_registry_entry_t     _root = IO_OBJECT_NULL;
+    io_connect_t            _connect = IO_OBJECT_NULL;
+    IOReturn                ret = kIOReturnSuccess;
+
+#if !__LP64__
+    vm_address_t            vm_ptr = 0;
+    vm_size_t               ofSize = 0;
+#else
+    mach_vm_address_t       vm_ptr = 0;
+    mach_vm_size_t          ofSize = 0;
+#endif
+    _root = getRootDomain();
+    ret = IOServiceOpen(_root, mach_task_self(), 0, &_connect);
+    if (kIOReturnSuccess != ret) 
+        goto exit;
+
+    ret = IOConnectMapMemory(_connect, 1, mach_task_self(), &vm_ptr, &ofSize, kIOMapAnywhere);
+    if (kIOReturnSuccess != ret) {
+        goto exit;
+    }
+    
+    gPowerLogHdr = (IOPMTraceBufferHeader *)vm_ptr;
+    gPowerLogRecords = (IOPMSystemEventRecord *)((uint8_t *)vm_ptr + sizeof(IOPMTraceBufferHeader));
+
+exit:
+    return;
+}
+
+kern_return_t _io_pm_set_power_history_bookmark(
+	mach_port_t server,
+	string_t uuid_name)
+{
+/* deprecated in lion */
+  	return kIOReturnSuccess;
+}
+
+/*****************************************************************************/
+/*****************************************************************************/
+/****************** /Power History/ ******************************************/
+/*****************************************************************************/
+/*****************************************************************************/
+
 
 static void 
 RootDomainInterest(
@@ -1623,6 +2067,23 @@ RootDomainInterest(
     natural_t messageType, 
     void *messageArgument)
 {
+    static CFStringRef  _uuidString = NULL;
+    
+    if (messageType == kIOPMMessageDriverAssertionsChanged)
+    {
+        CFNumberRef     driverAssertions = 0;
+        uint32_t        _driverAssertions = 0;
+
+        // Read driver assertion status
+        driverAssertions = IORegistryEntryCreateCFProperty(getRootDomain(), CFSTR(kIOPMAssertionsDriverKey), 0, 0);
+        
+        if (driverAssertions) {
+            CFNumberGetValue(driverAssertions, kCFNumberIntType, &_driverAssertions);
+            _PMAssertionsDriverAssertionsHaveChanged(_driverAssertions);
+            CFRelease(driverAssertions);
+        }
+    }
+    
     if (messageType == kIOPMMessageSystemPowerEventOccurred)
     {
         // Let System Events know about just-occurred thermal state change
@@ -1642,18 +2103,34 @@ RootDomainInterest(
     {
         if (kIOPMMessageSleepWakeUUIDSet == messageArgument)
         {
+            // We keep a copy of the newly published UUID string
+            _uuidString = IOPMSleepWakeCopyUUID();
+
             // xnu kernel PM has just published a sleep/Wake UUID. 
             // We must replenish it with a new one (which we generate in user space)
             // Kernel PM will use the UUID we provide here on the next sleep/wake event.
             pushNewSleepWakeUUID();
+
         } else
         if (kIOPMMessageSleepWakeUUIDCleared == messageArgument)
         {
-            // Note that at this point there are no active UUID's, 
-            // The kernel has cached one (gCachedNextSleepWakeUUIDString) 
-            // for the next sleep/wake.
-            // We write that cached UUID to disk.
+            // UUID cleared
+            if (_uuidString) {
+                // We're ready to parse out the newly acquired Power log and 
+                // package events that pertain to the current UUID
+                packagePowerDetailLogForUUID(_uuidString);
+                CFRelease(_uuidString);
+                _uuidString = NULL;
+            }
+            
             persistentlyStoreCurrentUUID();
+
+            // The kernel will have begun using its cached UUID (the one that we just stored)
+            // for its power events log. We need to replenish its (now empty) cache with another 
+            // UUID, which in turn will get used when the current one expires
+
+            pushNewSleepWakeUUID();
+
         }    
     }
 }
@@ -1711,7 +2188,7 @@ static void initializeUserNotifications(void)
             CFRelease(keys);
         }
     }
-
+                
     SystemLoadUserStateHasChanged();
 }
 #endif

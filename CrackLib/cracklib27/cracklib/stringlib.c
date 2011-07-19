@@ -10,7 +10,7 @@
 #include <string.h>
 #include <stdlib.h>
 
-static char vers_id[] = "stringlib.c : v2.3p2 Alec Muffett 18 May 1993";
+static char __unused vers_id[] = "stringlib.c : v2.3p2 Alec Muffett 18 May 1993";
 
 char
 Chop(string)
@@ -47,12 +47,12 @@ char *
 Clone(string)
     char *string;
 {
-	if (vers_id[0]) ;	// eliminate warning
     register char *retval;
-    retval = (char *) malloc(strlen(string) + 1);
+    int len = strlen(string)+1;
+    retval = (char *) malloc(len);
     if (retval)
     {
-	strcpy(retval, string);
+	strlcpy(retval, string, len);
     }
     return (retval);
 }

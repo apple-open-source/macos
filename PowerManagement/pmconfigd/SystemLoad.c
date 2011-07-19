@@ -27,6 +27,7 @@
 
 #include "PrivateLib.h"
 #include "SystemLoad.h"
+#include "PMStore.h"
 
 // Forwards
 const bool  kNoNotify  = false;
@@ -69,7 +70,6 @@ static int minOfThree(int a, int b, int c)
 
 static void shareTheSystemLoad(bool shouldNotify)
 {
-    SCDynamicStoreRef       localStore      = _getSharedPMDynamicStore();
     static uint64_t         lastSystemLoad  = 0;
     uint64_t                theseSystemLoad = 0;
     int                     userLevel       = kIOSystemLoadAdvisoryLevelGreat;
@@ -134,10 +134,7 @@ static void shareTheSystemLoad(bool shouldNotify)
 
         /* Publish the combinedLevel under our notify key 'kIOSystemLoadAdvisoryNotifyName'
          */
-        if (0 == gNotifyToken)
-            notify_register_check(kIOSystemLoadAdvisoryNotifyName, &gNotifyToken);
-        if (0 != gNotifyToken)
-            notify_set_state(gNotifyToken, (uint64_t)combinedLevel);        
+        notify_set_state(gNotifyToken, (uint64_t)combinedLevel);        
 
         /* Publish the SystemLoad key read by API
          * IOGetSystemLoadAdvisory();
@@ -145,9 +142,7 @@ static void shareTheSystemLoad(bool shouldNotify)
         publishNum = CFNumberCreate(0, kCFNumberSInt64Type, &theseSystemLoad);
         if (publishNum)
         {
-            if (localStore) {
-                SCDynamicStoreSetValue(localStore, systemLoadKey, publishNum);
-            }
+            PMStoreSetValue(systemLoadKey, publishNum);
             CFRelease(publishNum);
             publishNum = NULL;
         }
@@ -193,10 +188,8 @@ static void shareTheSystemLoad(bool shouldNotify)
         }
 
         // Publish SystemLoadDetailed
-        if (localStore) {
-            SCDynamicStoreSetValue(localStore, systemLoadDetailedKey, publishDetails);
-        }
-         CFRelease(publishDetails);
+        PMStoreSetValue(systemLoadDetailedKey, publishDetails);
+        CFRelease(publishDetails);
 
         // post notification
         if (shouldNotify) {
@@ -221,6 +214,8 @@ __private_extern__ void SystemLoad_prime(void)
                     CFSTR("%@%@"),
                     kSCDynamicStoreDomainState, 
                     CFSTR("/IOKit/PowerManagement/SystemLoad/Detailed"));
+
+    notify_register_check(kIOSystemLoadAdvisoryNotifyName, &gNotifyToken);
 
     // If this is a desktop, then we won't get any battery notifications.
     // Let's prime the battery pump right here with an initial coll.
@@ -452,12 +447,11 @@ exit:
  */
 __private_extern__ void SystemLoadUserStateHasChanged(void)
 {
-    SCDynamicStoreRef   localStore = _getSharedPMDynamicStore();
     CFStringRef         loggedInUserName;
 
     loggedInUser = false;
 
-    loggedInUserName = SCDynamicStoreCopyConsoleUser(localStore,
+    loggedInUserName = SCDynamicStoreCopyConsoleUser(_getSharedPMDynamicStore(),
                                                     NULL,  // uid
                                                     NULL); // gid
     if (loggedInUserName) {

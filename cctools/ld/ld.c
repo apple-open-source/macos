@@ -3453,11 +3453,11 @@ const char *args,
 #endif /* !defined(RLD) */
 
 /*
- * round() rounds v to a multiple of r.
+ * rnd() rounds v to a multiple of r.
  */
 __private_extern__
 unsigned long
-round(
+rnd(
 unsigned long v,
 unsigned long r)
 {

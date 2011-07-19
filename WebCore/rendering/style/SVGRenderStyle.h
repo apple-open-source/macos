@@ -28,6 +28,7 @@
 #include "DataRef.h"
 #include "GraphicsTypes.h"
 #include "Path.h"
+#include "RenderStyleConstants.h"
 #include "SVGPaint.h"
 #include "SVGRenderStyleDefs.h"
 
@@ -36,7 +37,6 @@ namespace WebCore {
 class FloatRect;
 class IntRect;
 class RenderObject;
-class RenderStyle;
 
 class SVGRenderStyle : public RefCounted<SVGRenderStyle> {    
 public:
@@ -47,75 +47,298 @@ public:
     bool inheritedNotEqual(const SVGRenderStyle*) const;
     void inheritFrom(const SVGRenderStyle*);
 
-    // FIXME: These functions should move to ShadowData.
-    void inflateForShadow(IntRect&) const;
-    void inflateForShadow(FloatRect&) const;
-    
+    StyleDifference diff(const SVGRenderStyle*) const;
+
     bool operator==(const SVGRenderStyle&) const;
     bool operator!=(const SVGRenderStyle& o) const { return !(*this == o); }
 
-    // SVG CSS Properties
-    SVG_RS_DEFINE_ATTRIBUTE(EAlignmentBaseline, AlignmentBaseline, alignmentBaseline, AB_AUTO)
-    SVG_RS_DEFINE_ATTRIBUTE(EDominantBaseline, DominantBaseline, dominantBaseline, DB_AUTO)
-    SVG_RS_DEFINE_ATTRIBUTE(EBaselineShift, BaselineShift, baselineShift, BS_BASELINE)
+    // Initial values for all the properties
+    static EAlignmentBaseline initialAlignmentBaseline() { return AB_AUTO; }
+    static EDominantBaseline initialDominantBaseline() { return DB_AUTO; }
+    static EBaselineShift initialBaselineShift() { return BS_BASELINE; }
+    static EVectorEffect initialVectorEffect() { return VE_NONE; }
+    static LineCap initialCapStyle() { return ButtCap; }
+    static WindRule initialClipRule() { return RULE_NONZERO; }
+    static EColorInterpolation initialColorInterpolation() { return CI_SRGB; }
+    static EColorInterpolation initialColorInterpolationFilters() { return CI_LINEARRGB; }
+    static EColorRendering initialColorRendering() { return CR_AUTO; }
+    static WindRule initialFillRule() { return RULE_NONZERO; }
+    static EImageRendering initialImageRendering() { return IR_AUTO; }
+    static LineJoin initialJoinStyle() { return MiterJoin; }
+    static EShapeRendering initialShapeRendering() { return SR_AUTO; }
+    static ETextAnchor initialTextAnchor() { return TA_START; }
+    static SVGWritingMode initialWritingMode() { return WM_LRTB; }
+    static EGlyphOrientation initialGlyphOrientationHorizontal() { return GO_0DEG; }
+    static EGlyphOrientation initialGlyphOrientationVertical() { return GO_AUTO; }
+    static float initialFillOpacity() { return 1; }
+    static SVGPaint::SVGPaintType initialFillPaintType() { return SVGPaint::SVG_PAINTTYPE_RGBCOLOR; }
+    static Color initialFillPaintColor() { return Color::black; }
+    static String initialFillPaintUri() { return String(); }
+    static float initialStrokeOpacity() { return 1; }
+    static SVGPaint::SVGPaintType initialStrokePaintType() { return SVGPaint::SVG_PAINTTYPE_NONE; }
+    static Color initialStrokePaintColor() { return Color(); }
+    static String initialStrokePaintUri() { return String(); }
+    static Vector<SVGLength> initialStrokeDashArray() { return Vector<SVGLength>(); }
+    static float initialStrokeMiterLimit() { return 4; }
+    static float initialStopOpacity() { return 1; }
+    static Color initialStopColor() { return Color(0, 0, 0); }
+    static float initialFloodOpacity() { return 1; }
+    static Color initialFloodColor() { return Color(0, 0, 0); }
+    static Color initialLightingColor() { return Color(255, 255, 255); }
+    static ShadowData* initialShadow() { return 0; }
+    static String initialClipperResource() { return String(); }
+    static String initialFilterResource() { return String(); }
+    static String initialMaskerResource() { return String(); }
+    static String initialMarkerStartResource() { return String(); }
+    static String initialMarkerMidResource() { return String(); }
+    static String initialMarkerEndResource() { return String(); }
 
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(LineCap, CapStyle, capStyle, ButtCap)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(WindRule, ClipRule, clipRule, RULE_NONZERO)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EColorInterpolation, ColorInterpolation, colorInterpolation, CI_SRGB)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EColorInterpolation, ColorInterpolationFilters, colorInterpolationFilters, CI_LINEARRGB)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EColorRendering, ColorRendering, colorRendering, CR_AUTO)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(WindRule, FillRule, fillRule, RULE_NONZERO)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EImageRendering, ImageRendering, imageRendering, IR_AUTO)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(LineJoin, JoinStyle, joinStyle, MiterJoin)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EShapeRendering, ShapeRendering, shapeRendering, SR_AUTO)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(ETextAnchor, TextAnchor, textAnchor, TA_START)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EWritingMode, WritingMode, writingMode, WM_LRTB)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EGlyphOrientation, GlyphOrientationHorizontal, glyphOrientationHorizontal, GO_0DEG)
-    SVG_RS_DEFINE_ATTRIBUTE_INHERITED(EGlyphOrientation, GlyphOrientationVertical, glyphOrientationVertical, GO_AUTO)
+    static SVGLength initialBaselineShiftValue()
+    {
+        SVGLength length;
+        ExceptionCode ec = 0;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ec);
+        ASSERT(!ec);
+        return length;
+    }
 
-    // SVG CSS Properties (using DataRef's)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(float, fill, opacity, FillOpacity, fillOpacity, 1.0f)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(SVGPaint, fill, paint, FillPaint, fillPaint, SVGPaint::defaultFill())
+    static SVGLength initialKerning()
+    {
+        SVGLength length;
+        ExceptionCode ec = 0;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ec);
+        ASSERT(!ec);
+        return length;
+    }
 
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(float, stroke, opacity, StrokeOpacity, strokeOpacity, 1.0f)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(SVGPaint, stroke, paint, StrokePaint, strokePaint, SVGPaint::defaultStroke())
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(CSSValueList, stroke, dashArray, StrokeDashArray, strokeDashArray, 0)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(float, stroke, miterLimit, StrokeMiterLimit, strokeMiterLimit, 4.0f)
+    static SVGLength initialStrokeDashOffset()
+    {
+        SVGLength length;
+        ExceptionCode ec = 0;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 0, ec);
+        ASSERT(!ec);
+        return length;
+    }
+
+    static SVGLength initialStrokeWidth()
+    {
+        SVGLength length;
+        ExceptionCode ec = 0;
+        length.newValueSpecifiedUnits(LengthTypeNumber, 1, ec);
+        ASSERT(!ec);
+        return length;
+    }
+
+    // SVG CSS Property setters
+    void setAlignmentBaseline(EAlignmentBaseline val) { svg_noninherited_flags.f._alignmentBaseline = val; }
+    void setDominantBaseline(EDominantBaseline val) { svg_noninherited_flags.f._dominantBaseline = val; }
+    void setBaselineShift(EBaselineShift val) { svg_noninherited_flags.f._baselineShift = val; }
+    void setVectorEffect(EVectorEffect val) { svg_noninherited_flags.f._vectorEffect = val; }
+    void setCapStyle(LineCap val) { svg_inherited_flags._capStyle = val; }
+    void setClipRule(WindRule val) { svg_inherited_flags._clipRule = val; }
+    void setColorInterpolation(EColorInterpolation val) { svg_inherited_flags._colorInterpolation = val; }
+    void setColorInterpolationFilters(EColorInterpolation val) { svg_inherited_flags._colorInterpolationFilters = val; }
+    void setColorRendering(EColorRendering val) { svg_inherited_flags._colorRendering = val; }
+    void setFillRule(WindRule val) { svg_inherited_flags._fillRule = val; }
+    void setImageRendering(EImageRendering val) { svg_inherited_flags._imageRendering = val; }
+    void setJoinStyle(LineJoin val) { svg_inherited_flags._joinStyle = val; }
+    void setShapeRendering(EShapeRendering val) { svg_inherited_flags._shapeRendering = val; }
+    void setTextAnchor(ETextAnchor val) { svg_inherited_flags._textAnchor = val; }
+    void setWritingMode(SVGWritingMode val) { svg_inherited_flags._writingMode = val; }
+    void setGlyphOrientationHorizontal(EGlyphOrientation val) { svg_inherited_flags._glyphOrientationHorizontal = val; }
+    void setGlyphOrientationVertical(EGlyphOrientation val) { svg_inherited_flags._glyphOrientationVertical = val; }
     
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(CSSValue, stroke, width, StrokeWidth, strokeWidth, 0)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(CSSValue, stroke, dashOffset, StrokeDashOffset, strokeDashOffset, 0);
+    void setFillOpacity(float obj)
+    {
+        if (!(fill->opacity == obj))
+            fill.access()->opacity = obj;
+    }
 
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(CSSValue, text, kerning, Kerning, kerning, 0)
+    void setFillPaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    {
+        if (!(fill->paintType == type))
+            fill.access()->paintType = type;
+        if (!(fill->paintColor == color))
+            fill.access()->paintColor = color;
+        if (!(fill->paintUri == uri))
+            fill.access()->paintUri = uri;
+    }
 
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(float, stops, opacity, StopOpacity, stopOpacity, 1.0f)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(Color, stops, color, StopColor, stopColor, Color(0, 0, 0))    
+    void setStrokeOpacity(float obj)
+    {
+        if (!(stroke->opacity == obj))
+            stroke.access()->opacity = obj;
+    }
 
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(float, misc, floodOpacity, FloodOpacity, floodOpacity, 1.0f)
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(Color, misc, floodColor, FloodColor, floodColor, Color(0, 0, 0))
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(Color, misc, lightingColor, LightingColor, lightingColor, Color(255, 255, 255))
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(CSSValue, misc, baselineShiftValue, BaselineShiftValue, baselineShiftValue, 0)
+    void setStrokePaint(SVGPaint::SVGPaintType type, const Color& color, const String& uri)
+    {
+        if (!(stroke->paintType == type))
+            stroke.access()->paintType = type;
+        if (!(stroke->paintColor == color))
+            stroke.access()->paintColor = color;
+        if (!(stroke->paintUri == uri))
+            stroke.access()->paintUri = uri;
+    }
 
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_OWNPTR(ShadowData, shadowSVG, shadow, Shadow, shadow, 0)
+    void setStrokeDashArray(const Vector<SVGLength>& obj)
+    {
+        if (!(stroke->dashArray == obj))
+            stroke.access()->dashArray = obj;
+    }
 
-    // Non-inherited resources
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, resources, clipper, ClipperResource, clipperResource, String())
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, resources, filter, FilterResource, filterResource, String())
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, resources, masker, MaskerResource, maskerResource, String())
+    void setStrokeMiterLimit(float obj)
+    {
+        if (!(stroke->miterLimit == obj))
+            stroke.access()->miterLimit = obj;
+    }
 
-    // Inherited resources
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, inheritedResources, markerStart, MarkerStartResource, markerStartResource, String())
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, inheritedResources, markerMid, MarkerMidResource, markerMidResource, String())
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(String, inheritedResources, markerEnd, MarkerEndResource, markerEndResource, String())
+    void setStrokeWidth(const SVGLength& obj)
+    {
+        if (!(stroke->width == obj))
+            stroke.access()->width = obj;
+    }
+
+    void setStrokeDashOffset(const SVGLength& obj)
+    {
+        if (!(stroke->dashOffset == obj))
+            stroke.access()->dashOffset = obj;
+    }
+
+    void setKerning(const SVGLength& obj)
+    {
+        if (!(text->kerning == obj))
+            text.access()->kerning = obj;
+    }
+
+    void setStopOpacity(float obj)
+    {
+        if (!(stops->opacity == obj))
+            stops.access()->opacity = obj;
+    }
+
+    void setStopColor(const Color& obj)
+    {
+        if (!(stops->color == obj))
+            stops.access()->color = obj;
+    }
+
+    void setFloodOpacity(float obj)
+    {
+        if (!(misc->floodOpacity == obj))
+            misc.access()->floodOpacity = obj;
+    }
+
+    void setFloodColor(const Color& obj)
+    {
+        if (!(misc->floodColor == obj))
+            misc.access()->floodColor = obj;
+    }
+
+    void setLightingColor(const Color& obj)
+    {
+        if (!(misc->lightingColor == obj))
+            misc.access()->lightingColor = obj;
+    }
+
+    void setBaselineShiftValue(const SVGLength& obj)
+    {
+        if (!(misc->baselineShiftValue == obj))
+            misc.access()->baselineShiftValue = obj;
+    }
+
+    void setShadow(PassOwnPtr<ShadowData> obj) { shadowSVG.access()->shadow = obj; }
+
+    // Setters for non-inherited resources
+    void setClipperResource(const String& obj)
+    {
+        if (!(resources->clipper == obj))
+            resources.access()->clipper = obj;
+    }
+
+    void setFilterResource(const String& obj)
+    {
+        if (!(resources->filter == obj))
+            resources.access()->filter = obj;
+    }
+
+    void setMaskerResource(const String& obj)
+    {
+        if (!(resources->masker == obj))
+            resources.access()->masker = obj;
+    }
+
+    // Setters for inherited resources
+    void setMarkerStartResource(const String& obj)
+    {
+        if (!(inheritedResources->markerStart == obj))
+            inheritedResources.access()->markerStart = obj;
+    }
+
+    void setMarkerMidResource(const String& obj)
+    {
+        if (!(inheritedResources->markerMid == obj))
+            inheritedResources.access()->markerMid = obj;
+    }
+
+    void setMarkerEndResource(const String& obj)
+    {
+        if (!(inheritedResources->markerEnd == obj))
+            inheritedResources.access()->markerEnd = obj;
+    }
+
+    // Read accessors for all the properties
+    EAlignmentBaseline alignmentBaseline() const { return (EAlignmentBaseline) svg_noninherited_flags.f._alignmentBaseline; }
+    EDominantBaseline dominantBaseline() const { return (EDominantBaseline) svg_noninherited_flags.f._dominantBaseline; }
+    EBaselineShift baselineShift() const { return (EBaselineShift) svg_noninherited_flags.f._baselineShift; }
+    EVectorEffect vectorEffect() const { return (EVectorEffect) svg_noninherited_flags.f._vectorEffect; }
+    LineCap capStyle() const { return (LineCap) svg_inherited_flags._capStyle; }
+    WindRule clipRule() const { return (WindRule) svg_inherited_flags._clipRule; }
+    EColorInterpolation colorInterpolation() const { return (EColorInterpolation) svg_inherited_flags._colorInterpolation; }
+    EColorInterpolation colorInterpolationFilters() const { return (EColorInterpolation) svg_inherited_flags._colorInterpolationFilters; }
+    EColorRendering colorRendering() const { return (EColorRendering) svg_inherited_flags._colorRendering; }
+    WindRule fillRule() const { return (WindRule) svg_inherited_flags._fillRule; }
+    EImageRendering imageRendering() const { return (EImageRendering) svg_inherited_flags._imageRendering; }
+    LineJoin joinStyle() const { return (LineJoin) svg_inherited_flags._joinStyle; }
+    EShapeRendering shapeRendering() const { return (EShapeRendering) svg_inherited_flags._shapeRendering; }
+    ETextAnchor textAnchor() const { return (ETextAnchor) svg_inherited_flags._textAnchor; }
+    SVGWritingMode writingMode() const { return (SVGWritingMode) svg_inherited_flags._writingMode; }
+    EGlyphOrientation glyphOrientationHorizontal() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationHorizontal; }
+    EGlyphOrientation glyphOrientationVertical() const { return (EGlyphOrientation) svg_inherited_flags._glyphOrientationVertical; }
+    float fillOpacity() const { return fill->opacity; }
+    const SVGPaint::SVGPaintType& fillPaintType() const { return fill->paintType; }
+    const Color& fillPaintColor() const { return fill->paintColor; }
+    const String& fillPaintUri() const { return fill->paintUri; }    
+    float strokeOpacity() const { return stroke->opacity; }
+    const SVGPaint::SVGPaintType& strokePaintType() const { return stroke->paintType; }
+    const Color& strokePaintColor() const { return stroke->paintColor; }
+    const String& strokePaintUri() const { return stroke->paintUri; }
+    Vector<SVGLength> strokeDashArray() const { return stroke->dashArray; }
+    float strokeMiterLimit() const { return stroke->miterLimit; }
+    SVGLength strokeWidth() const { return stroke->width; }
+    SVGLength strokeDashOffset() const { return stroke->dashOffset; }
+    SVGLength kerning() const { return text->kerning; }
+    float stopOpacity() const { return stops->opacity; }
+    Color stopColor() const { return stops->color; }
+    float floodOpacity() const { return misc->floodOpacity; }
+    Color floodColor() const { return misc->floodColor; }
+    Color lightingColor() const { return misc->lightingColor; }
+    SVGLength baselineShiftValue() const { return misc->baselineShiftValue; }
+    ShadowData* shadow() const { return shadowSVG->shadow.get(); }
+    String clipperResource() const { return resources->clipper; }
+    String filterResource() const { return resources->filter; }
+    String maskerResource() const { return resources->masker; }
+    String markerStartResource() const { return inheritedResources->markerStart; }
+    String markerMidResource() const { return inheritedResources->markerMid; }
+    String markerEndResource() const { return inheritedResources->markerEnd; }
 
     // convenience
     bool hasClipper() const { return !clipperResource().isEmpty(); }
     bool hasMasker() const { return !maskerResource().isEmpty(); }
     bool hasFilter() const { return !filterResource().isEmpty(); }
     bool hasMarkers() const { return !markerStartResource().isEmpty() || !markerMidResource().isEmpty() || !markerEndResource().isEmpty(); }
-    bool hasStroke() const { return strokePaint()->paintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
-    bool hasFill() const { return fillPaint()->paintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
-
-    static float cssPrimitiveToLength(const RenderObject*, CSSValue*, float defaultValue = 0.0f);
+    bool hasStroke() const { return strokePaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool hasFill() const { return fillPaintType() != SVGPaint::SVG_PAINTTYPE_NONE; }
+    bool isVerticalWritingMode() const { return writingMode() == WM_TBRL || writingMode() == WM_TB; }
 
 protected:
     // inherit
@@ -152,7 +375,7 @@ protected:
         unsigned _textAnchor : 2; // ETextAnchor
         unsigned _colorInterpolation : 2; // EColorInterpolation
         unsigned _colorInterpolationFilters : 2; // EColorInterpolation
-        unsigned _writingMode : 3; // EWritingMode
+        unsigned _writingMode : 3; // SVGWritingMode
         unsigned _glyphOrientationHorizontal : 3; // EGlyphOrientation
         unsigned _glyphOrientationVertical : 3; // EGlyphOrientation
     } svg_inherited_flags;
@@ -168,7 +391,8 @@ protected:
                 unsigned _alignmentBaseline : 4; // EAlignmentBaseline 
                 unsigned _dominantBaseline : 4; // EDominantBaseline
                 unsigned _baselineShift : 2; // EBaselineShift
-                // 22 bits unused
+                unsigned _vectorEffect: 1; // EVectorEffect
+                // 21 bits unused
             } f;
             uint32_t _niflags;
         };
@@ -213,6 +437,7 @@ private:
         svg_noninherited_flags.f._alignmentBaseline = initialAlignmentBaseline();
         svg_noninherited_flags.f._dominantBaseline = initialDominantBaseline();
         svg_noninherited_flags.f._baselineShift = initialBaselineShift();
+        svg_noninherited_flags.f._vectorEffect = initialVectorEffect();
     }
 };
 

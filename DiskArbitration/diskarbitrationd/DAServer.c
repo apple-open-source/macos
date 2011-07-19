@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,10 +48,7 @@
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/storage/IOMedia.h>
-///w:start
-#include <sys/stat.h>
-#include <SystemConfiguration/SCDynamicStoreCopySpecificPrivate.h>
-///w:stop
+#include <SystemConfiguration/SCPrivate.h>
 
 static CFMachPortRef       __gDAServer      = NULL;
 static mach_port_t         __gDAServerPort  = MACH_PORT_NULL;
@@ -140,15 +137,6 @@ static void __DAMediaChangedCallback( void * context, io_service_t service, natu
             break;
         }
     }
-}
-
-static void __DAMediaDisappearedUnmountCallback( int status, void * context )
-{
-    CFURLRef path = context;
-
-    DAMountRemoveMountPoint( path );
-
-    CFRelease( path );
 }
 
 static void __DAMediaPropertyChangedCallback( void * context, io_service_t service, void * argument )
@@ -289,226 +277,267 @@ static DASessionRef __DASessionListGetSession( mach_port_t sessionID )
 
 void _DAConfigurationCallback( SCDynamicStoreRef session, CFArrayRef keys, void * info )
 {
-    CFStringRef key;
+    /*
+     * A console user has logged in or logged out.
+     */
+
+    uid_t       previousUserUID;
+    CFStringRef user;
+    gid_t       userGID;
+    uid_t       userUID;
+    CFArrayRef  userList;
 
     DALogDebugHeader( "configd [0] -> %s", gDAProcessNameID );
 
-    key = SCDynamicStoreKeyCreateConsoleUser( kCFAllocatorDefault );
-
-    assert( key );
-
-    if ( ___CFArrayContainsValue( keys, key ) )
+    user     = SCDynamicStoreCopyConsoleUser( session, &userUID, &userGID );
+    userList = SCDynamicStoreCopyConsoleInformation( session );
+///w:start
+    if ( user ) /* if not logout */
     {
+        if ( userList ) /* if not Mac OS X Installer */
+        {
+            if ( session ) /* if not SystemUIServer */
+            {
+                if ( CFEqual( user, CFSTR( "loginwindow" ) ) == FALSE ) /* if not Login Window */
+                {
+                    CFIndex count;
+                    CFIndex index;
+
+                    count = 0;
+
+                    if ( gDAConsoleUserList )
+                    {
+                        count = CFArrayGetCount( gDAConsoleUserList );
+                    }
+                    
+                    for ( index = 0; index < count; index++ )
+                    {
+                        CFDictionaryRef dictionary;
+
+                        dictionary = ( void * ) CFArrayGetValueAtIndex( gDAConsoleUserList, index );
+
+                        if ( dictionary )
+                        {
+                            CFStringRef string;
+
+                            string = CFDictionaryGetValue( dictionary, kSCConsoleSessionUserName );
+
+                            if ( CFEqual( string, user ) )
+                            {
+                                break;
+                            }
+                        }
+                    }
+
+                    if ( index == count ) /* if not Fast User Switch */
+                    {
+                        CFRelease( user );
+                        CFRelease( userList );
+
+                        return; /* then wait for SystemUIServer */
+                    }
+                }
+            }
+        }
+    }
+///w:stop
+
+    if ( gDAConsoleUser )
+    {
+        CFRelease( gDAConsoleUser );
+    }
+
+    if ( gDAConsoleUserList )
+    {
+        CFRelease( gDAConsoleUserList );
+    }
+
+    previousUserUID = gDAConsoleUserUID;
+
+    gDAConsoleUser     = user;
+    gDAConsoleUserGID  = userGID;
+    gDAConsoleUserUID  = userUID;
+    gDAConsoleUserList = userList;
+
+    if ( gDAConsoleUser )
+    {
+        CFIndex count;
+        CFIndex index;
+
+        DALogDebug( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
+
         /*
-         * A console user has logged in or logged out.
+         * A console user has logged in.
          */
 
-        gid_t userGID;
-        uid_t userUID;
+        count = CFArrayGetCount( gDADiskList );
 
-        userGID = gDAConsoleUserGID;
-        userUID = gDAConsoleUserUID;
-
-        if ( gDAConsoleUser )
+        for ( index = 0; index < count; index++ )
         {
-            CFRelease( gDAConsoleUser );
-        }
+            DADiskRef disk;
 
-        gDAConsoleUser = SCDynamicStoreCopyConsoleUser( session, &gDAConsoleUserUID, &gDAConsoleUserGID );
-
-        if ( gDAConsoleUser )
-        {
-            CFIndex count;
-            CFIndex index;
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
 ///w:start
-            CFArrayRef users;
-
-            users = SCDynamicStoreCopyConsoleInformation( session );
-///w:stop
-
-            DALogDebug( "  console user = %@ [%d].", gDAConsoleUser, gDAConsoleUserUID );
-
             /*
-             * A console user has logged in.
+             * Set the BSD permissions for this media object.
              */
-
-            count = CFArrayGetCount( gDADiskList );
-
-            for ( index = 0; index < count; index++ )
+        
+            if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
             {
-                DADiskRef disk;
+                mode_t deviceMode;
+                uid_t  deviceUser;
 
-                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-///w:start
-                /*
-                 * Set the BSD permissions for this media object.
-                 */
-            
-                if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
+                deviceMode = 0640;
+                deviceUser = gDAConsoleUserUID;
+
+                if ( gDAConsoleUserList )
                 {
-                    mode_t deviceMode;
-                    uid_t  deviceUser;
-
-                    deviceMode = 0640;
-                    deviceUser = gDAConsoleUserUID;
-
-                    if ( users )
+                    if ( CFArrayGetCount( gDAConsoleUserList ) > 1 )
                     {
-                        if ( CFArrayGetCount( users ) > 1 )
-                        {
-                            deviceMode = 0666;
-                            deviceUser = ___UID_ROOT;
-                        }
+                        deviceMode = 0666;
+                        deviceUser = ___UID_ROOT;
                     }
-
-                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
-                    {
-                        deviceMode &= 0444;
-                    }
-
-                    chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
-                    chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
-
-                    chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
-                    chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
                 }
 
-                if ( users )
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
                 {
-                    if ( session )
-                    {
-                        continue;
-                    }
+                    deviceMode &= 0444;
                 }
-///w:stop
 
-                /*
-                 * Mount this volume.
-                 */
-            
-                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
-                {
-                    if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
-                    {
-                        DADiskMount( disk, NULL, CFSTR( "automatic" ), NULL );
-                    }
-                }
+                chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+
+                chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
             }
 
-            DAStageSignal( );
-///w:start
-            if ( users )
+            if ( gDAConsoleUserList )
             {
-                CFRelease( users );
+                if ( session )
+                {
+                    continue;
+                }
             }
 ///w:stop
-        }
-        else
-        {
-            CFIndex count;
-            CFIndex index;
-
-            DALogDebug( "  console user = none." );
 
             /*
-             * A console user has logged out.
+             * Mount this volume.
              */
 
-            count = CFArrayGetCount( gDADiskList );
-
-            for ( index = 0; index < count; index++ )
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
             {
-                DADiskRef disk;
-
-                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-///w:start
-                /*
-                 * Set the BSD permissions for this media object.
-                 */
-
-                if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
+                if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
-                    mode_t deviceMode;
-                    uid_t  deviceUser;
-
-                    deviceMode = 0640;
-                    deviceUser = ___UID_ROOT;
-
-                    if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
-                    {
-                        deviceMode &= 0444;
-                    }
-
-                    chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
-                    chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
-
-                    chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
-                    chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
+                    DADiskMountWithArguments( disk, NULL, kDADiskMountOptionDefault, NULL, CFSTR( "automatic" ) );
                 }
+            }
+        }
+
+        DAStageSignal( );
+    }
+    else
+    {
+        CFIndex count;
+        CFIndex index;
+
+        DALogDebug( "  console user = none." );
+
+        /*
+         * A console user has logged out.
+         */
+
+        count = CFArrayGetCount( gDADiskList );
+
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk;
+
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+///w:start
+            /*
+             * Set the BSD permissions for this media object.
+             */
+
+            if ( DADiskGetUserRUID( disk ) == ___UID_UNKNOWN )
+            {
+                mode_t deviceMode;
+                uid_t  deviceUser;
+
+                deviceMode = 0640;
+                deviceUser = ___UID_ROOT;
+
+                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanFalse )
+                {
+                    deviceMode &= 0444;
+                }
+
+                chmod( DADiskGetBSDPath( disk, TRUE  ), deviceMode );
+                chmod( DADiskGetBSDPath( disk, FALSE ), deviceMode );
+
+                chown( DADiskGetBSDPath( disk, TRUE  ), deviceUser, -1 );
+                chown( DADiskGetBSDPath( disk, FALSE ), deviceUser, -1 );
+            }
 ///w:stop
 
-                /*
-                 * Unmount this volume.
-                 */
+            /*
+             * Unmount this volume.
+             */
 
-                if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+            if ( DADiskGetDescription( disk, kDADiskDescriptionVolumeMountableKey ) == kCFBooleanTrue )
+            {
+                Boolean unmount;
+
+                unmount = FALSE;
+
+                if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
                 {
-                    Boolean unmount;
-
-                    unmount = FALSE;
-
-                    if ( DAMountGetPreference( disk, kDAMountPreferenceDefer ) )
-                    {
-                        if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) == FALSE )
-                        {
-                            unmount = TRUE;
-                        }
-                    }
-
-                    if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
+                    if ( DADiskGetOption( disk, kDADiskOptionMountAutomaticNoDefer ) == FALSE )
                     {
                         unmount = TRUE;
                     }
-
-                    if ( DADiskGetUserEUID( disk ) )
-                    {
-                        if ( DADiskGetUserEUID( disk ) == userUID )
-                        {
-                            unmount = TRUE;
-                        }
-                    }
-
-                    if ( unmount )
-                    {
-                        DADiskUnmount( disk, NULL );
-                    }
                 }
-            }
 
-            for ( index = 0; index < count; index++ )
-            {
-                DADiskRef disk;
-
-                disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
-
-                /*
-                 * Eject this disk.
-                 */
-
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+                if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
                 {
-                    if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
+                    unmount = TRUE;
+                }
+
+                if ( DADiskGetUserEUID( disk ) )
+                {
+                    if ( DADiskGetUserEUID( disk ) == previousUserUID )
                     {
-                        DADiskEject( disk, NULL );
+                        unmount = TRUE;
                     }
                 }
+
+                if ( unmount )
+                {
+                    DADiskUnmount( disk, kDADiskUnmountOptionDefault, NULL );
+                }
             }
-
-            DAStageSignal( );
         }
-    }
 
-    CFRelease( key );
+        for ( index = 0; index < count; index++ )
+        {
+            DADiskRef disk;
+
+            disk = ( void * ) CFArrayGetValueAtIndex( gDADiskList, index );
+
+            /*
+             * Eject this disk.
+             */
+
+            if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWholeKey ) == kCFBooleanTrue )
+            {
+                if ( DADiskGetOption( disk, kDADiskOptionEjectUponLogout ) )
+                {
+                    DADiskEject( disk, kDADiskEjectOptionDefault, NULL );
+                }
+            }
+        }
+
+        DAStageSignal( );
+    }
 }
 
 void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
@@ -518,11 +547,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
      */
 
     io_service_t media;
-///w:start
-    CFArrayRef users;
-
-    users = SCDynamicStoreCopyConsoleInformation( NULL );
-///w:stop
 
     /*
      * Iterate through the media objects.
@@ -574,7 +598,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                  * since the I/O Kit appearance queue is separate from the I/O Kit disappearance queue, and
                  * we are in the midst of processing the appearance queue when we see a duplicate, which is
                  * to say, there is a disappearance on the queue we have not processed yet and must process
-                 * it first.
+                 * it first.  The appearances and disappearances within each queue do occur in proper order.
                  */
 
                 if ( ___CFArrayContainsValue( gDADiskList, disk ) )
@@ -583,7 +607,7 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                      * Process the disappearance.
                      */
 
-                    _DAMediaDisappearedCallback( NULL, gDAMediaDisappearedNotification );
+                    _DAMediaDisappearedCallback( ( void * ) ___CFArrayGetValue( gDADiskList, disk ), IO_OBJECT_NULL );
 
                     assert( ___CFArrayContainsValue( gDADiskList, disk ) == FALSE );
                 }
@@ -623,9 +647,9 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
                         deviceMode = 0640;
                         deviceUser = gDAConsoleUserUID;
 
-                        if ( users )
+                        if ( gDAConsoleUserList )
                         {
-                            if ( CFArrayGetCount( users ) > 1 )
+                            if ( CFArrayGetCount( gDAConsoleUserList ) > 1 )
                             {
                                 deviceMode = 0666;
                                 deviceUser = ___UID_ROOT;
@@ -732,12 +756,6 @@ void _DAMediaAppearedCallback( void * context, io_iterator_t notification )
     }
 
     DAStageSignal( );
-///w:start
-    if ( users )
-    {
-        CFRelease( users );
-    }
-///w:stop
 }
 
 void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
@@ -752,7 +770,16 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
      * Iterate through the media objects.
      */
 
-    while ( ( media = IOIteratorNext( notification ) ) )
+    if ( context )
+    {
+        media = DADiskGetIOMedia( context );
+    }
+    else
+    {
+        media = IOIteratorNext( notification );
+    }
+
+    for ( ; media ; media = IOIteratorNext( notification ) )
     {
         DADiskRef disk;
 
@@ -767,7 +794,7 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
          * since the I/O Kit appearance queue is separate from the I/O Kit disappearance queue, and
          * we are in the midst of processing the disappearance queue when we see one missing, which
          * is to say, there is an appearance on the queue we haven't processed yet and must process
-         * it first.
+         * it first.  The appearances and disappearances within each queue do occur in proper order.
          */
 
         if ( disk == NULL )
@@ -776,6 +803,8 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
              * Process the appearance.
              */
 
+            assert( context == NULL );
+
             _DAMediaAppearedCallback( NULL, gDAMediaAppearedNotification );
 
             disk = __DADiskListGetDiskWithIOMedia( media );
@@ -783,8 +812,6 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
 
         if ( disk )
         {
-            CFURLRef path;
-
             /*
              * Remove the disk object from our tables.
              */
@@ -803,25 +830,6 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                 unlink( DADiskGetBSDLink( disk, FALSE ) );
             }
 
-            path = DADiskGetDescription( disk, kDADiskDescriptionVolumePathKey );
-
-            if ( path )
-            {
-                CFRetain( path );
-
-                if ( DADiskGetDescription( disk, kDADiskDescriptionMediaWritableKey ) == kCFBooleanTrue )
-                {
-                    DADialogShowDeviceRemoval( );
-                }
-
-                DAFileSystemUnmountWithArguments( DADiskGetFileSystem( disk ),
-                                                  path,
-                                                  __DAMediaDisappearedUnmountCallback,
-                                                  ( void * ) path,
-                                                  kDAFileSystemUnmountArgumentForce,
-                                                  NULL );
-            }
-
             DAQueueReleaseDisk( disk );
 
             if ( DADiskGetState( disk, kDADiskStateStagedAppear ) )
@@ -829,9 +837,19 @@ void _DAMediaDisappearedCallback( void * context, io_iterator_t notification )
                 DADiskDisappearedCallback( disk );
             }
 
+            if ( DADiskGetState( disk, kDADiskStateStagedMount ) )
+            {
+                DADiskUnmount( disk, kDADiskUnmountOptionForce, NULL );
+            }
+
             DADiskSetState( disk, kDADiskStateZombie, TRUE );
 
             ___CFArrayRemoveValue( gDADiskList, disk );
+        }
+
+        if ( context )
+        {
+            break;
         }
 
         IOObjectRelease( media );
@@ -1933,26 +1951,23 @@ void _DAVolumeMountedCallback( CFMachPortRef port, void * parameter, CFIndex mes
         }
         else
         {
-            if ( ( mountList[mountListIndex].f_flags & MNT_AUTOMOUNTED ) == 0 )
+            if ( ( mountList[mountListIndex].f_flags & MNT_UNION ) == 0 )
             {
-                if ( ( mountList[mountListIndex].f_flags & MNT_UNION ) == 0 )
+                if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )
                 {
-                    if ( strcmp( mountList[mountListIndex].f_fstypename, "devfs" ) )
+                    disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
+
+                    if ( disk )
                     {
-                        disk = DADiskCreateFromVolumePath( kCFAllocatorDefault, mountList + mountListIndex );
+                        DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
 
-                        if ( disk )
-                        {
-                            DALogDebugHeader( "bsd [0] -> %s", gDAProcessNameID );
+                        DALogDebug( "  created disk, id = %@.", disk );
 
-                            DALogDebug( "  created disk, id = %@.", disk );
+                        CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
 
-                            CFArrayInsertValueAtIndex( gDADiskList, 0, disk );
+                        DAStageSignal( );
 
-                            DAStageSignal( );
-
-                            CFRelease( disk );
-                        }
+                        CFRelease( disk );
                     }
                 }
             }
@@ -2000,7 +2015,7 @@ CFRunLoopSourceRef DAServerCreateRunLoopSource( CFAllocatorRef allocator, CFInde
 
         if ( __gDAServerPort == MACH_PORT_NULL )
         {
-            bootstrap_check_in( bootstrap_port, _kDAServiceName, &__gDAServerPort );
+            bootstrap_check_in( bootstrap_port, _kDADaemonName, &__gDAServerPort );
         }
 
         if ( __gDAServerPort )

@@ -26,20 +26,22 @@
 #endif
 
 // action names (commands only)
-#define ACTIONCLASS_NONE           @""
-#define ACTIONCLASS_SHOWUSAGE      @"JABShowHelpAction"
-#define ACTIONCLASS_SHOWVERSION    @"JABShowVersionAction"
-#define ACTIONCLASS_INITUSER       @"JABInitUserAction"
-#define ACTIONCLASS_DELETEUSER     @"JABDeleteUserAction"
-#define ACTIONCLASS_ADDBUDDY       @"JABAddRosterUserAction"
-#define ACTIONCLASS_REMOVEBUDDY    @"JABDeleteRosterUserAction"
-#define ACTIONCLASS_ALLBUDDIES     @"JABMakeAllBuddiesAction"
-#define ACTIONCLASS_GROUPBUDDIES   @"JABMakeGroupBuddiesAction"
-#define ACTIONCLASS_REMOVEGROUP    @"JABRemoveGroupBuddiesAction"
-#define ACTIONCLASS_MOVEDOMAIN     @"JABMoveDomainAction"
+#define ACTIONCLASS_NONE            @""
+#define ACTIONCLASS_SHOWUSAGE       @"JABShowHelpAction"
+#define ACTIONCLASS_SHOWVERSION     @"JABShowVersionAction"
+#define ACTIONCLASS_INITUSER        @"JABInitUserAction"
+#define ACTIONCLASS_DELETEUSER      @"JABDeleteUserAction"
+#define ACTIONCLASS_ADDBUDDY        @"JABAddRosterUserAction"
+#define ACTIONCLASS_REMOVEBUDDY     @"JABDeleteRosterUserAction"
+#define ACTIONCLASS_ALLBUDDIES      @"JABMakeAllBuddiesAction"
+#define ACTIONCLASS_GROUPBUDDIES    @"JABMakeGroupBuddiesAction"
+#define ACTIONCLASS_GROUP_BY_GUID   @"JABMakeGroupBuddiesByGuidAction"
+#define ACTIONCLASS_REMOVEGROUP     @"JABRemoveGroupBuddiesAction"
+#define ACTIONCLASS_UNGROUP_BY_GUID @"JABRemoveGroupBuddiesByGuidAction"
+#define ACTIONCLASS_MOVEDOMAIN      @"JABMoveDomainAction"
 #ifdef DEBUG
-#define ACTIONCLASS_INITTEST       @"JABInitTestUsersAction"
-#define ACTIONCLASS_DELETEALL      @"JABDeleteAllUsersAction"
+#define ACTIONCLASS_INITTEST        @"JABInitTestUsersAction"
+#define ACTIONCLASS_DELETEALL       @"JABDeleteAllUsersAction"
 #endif
 
 // command forms for parsing
@@ -62,8 +64,12 @@
 #define CMDFORM_L_ALLBUDDIES  @"--all"
 #define CMDFORM_S_GRPBUDDIES  @"-g"
 #define CMDFORM_L_GRPBUDDIES  @"--group"
+#define CMDFORM_S_GROUPBYGUID @"-G"
+#define CMDFORM_L_GROUPBYGUID @"--group-by-id"
 #define CMDFORM_S_UNGROUP     @"-u"
 #define CMDFORM_L_UNGROUP     @"--ungroup"
+#define CMDFORM_S_UNGROUPGUID @"-U"
+#define CMDFORM_L_UNGROUPGUID @"--ungroup-by-id"
 #define CMDFORM_S_MOVEDOMAIN  @"-M"
 #define CMDFORM_L_MOVEDOMAIN  @"--move-domain"
 // commands available only with --debug
@@ -85,6 +91,7 @@
 // required command argument help text
 #define OPTINFO_REQARG_JID       @"<JID>"
 #define OPTINFO_REQARG_GROUP     @"<GROUP>"
+#define OPTINFO_REQARG_GROUP_ID  @"<GROUP ID>"
 #define OPTINFO_REQARG_SRCDOMAIN @"<FROM-DOMAIN>"
 #define OPTINFO_REQARG_DSTDOMAIN @"<TO-DOMAIN>"
 #define OPTINFO_REQARG_DBPATH    @"<PATH>"
@@ -99,11 +106,13 @@
 #define OPTINFO_HTEXT_REMBUDDY    @"Delete a user from the buddy lists of all other user's in the jabberd database."
 #define OPTINFO_HTEXT_ALLBUDDIES  @"Make all existing users buddies."
 #define OPTINFO_HTEXT_GRPBUDDIES  @"Make buddies of existing users belonging to the Open Directory group."
+#define OPTINFO_HTEXT_GRPBYGUID   @"Make buddies of existing users belonging to the Open Directory group, using the group's GeneratedID."
 #define OPTINFO_HTEXT_UNGROUP     @"Remove all buddy pairings for the Open Directory group."
+#define OPTINFO_HTEXT_UNGROUPGUID @"Remove all buddy pairings for the Open Directory group, using the group's GeneratedID."
 #define OPTINFO_HTEXT_MOVEDOMAIN  @"Move all users from one jabber domain to another."
 #define OPTINFO_HTEXT_VERBOSE     @"Enable verbose (detailed) program output to standard error."
 #define OPTINFO_HTEXT_DBPATH1     @"DEBUG: Directs SQL queries to the selected database."
-#define OPTINFO_HTEXT_DBPATH2     @"       (default: /var/jabberd/sqlite/jabberd2.db)"
+#define OPTINFO_HTEXT_DBPATH2     @"       (default: /Library/Server/iChat/Data/sqlite/jabberd2.db)"
 #define OPTINFO_HTEXT_SHOWSQL     @"DEBUG: Display all generated SQL queries."
 #define OPTINFO_HTEXT_NOWRITE     @"DEBUG: Skip execution of queries which modify the database."
 #define OPTINFO_HTEXT_SUMMARY     @"DEBUG: Display a summary of database activity by query kind."
@@ -333,13 +342,31 @@ enum DupActionCodes{
 						  argsHelp: [NSArray arrayWithObjects: OPTINFO_REQARG_GROUP, nil]
 						  noteRefs: [NSArray arrayWithObjects: OPTINFO_NOTEREF_XORDER, 
 									 OPTINFO_NOTEREF_DUPCMDS, OPTINFO_NOTEREF_SINGLECMD, nil]];
-	
+
+	[self initCommandInfoForOpCode: OPCODE_GROUP_BY_GUID actionClass: ACTIONCLASS_GROUP_BY_GUID
+					  commandForms: [NSArray arrayWithObjects: CMDFORM_S_GROUPBYGUID, CMDFORM_L_GROUPBYGUID, nil]
+						 dupAction: DUP_WARN
+						  helpText: [NSArray arrayWithObjects: OPTINFO_HTEXT_GRPBYGUID, nil]
+							opArgs: [NSArray arrayWithObjects: CMDOPT_KEY_GROUPGUID, nil]
+						  argsHelp: [NSArray arrayWithObjects: OPTINFO_REQARG_GROUP_ID, nil]
+						  noteRefs: [NSArray arrayWithObjects: OPTINFO_NOTEREF_XORDER, 
+									 OPTINFO_NOTEREF_DUPCMDS, OPTINFO_NOTEREF_SINGLECMD, nil]];
+
 	[self initCommandInfoForOpCode: OPCODE_UNGROUP actionClass: ACTIONCLASS_REMOVEGROUP
 					  commandForms: [NSArray arrayWithObjects: CMDFORM_S_UNGROUP, CMDFORM_L_UNGROUP, nil]
 						 dupAction: DUP_WARN
 						  helpText: [NSArray arrayWithObjects: OPTINFO_HTEXT_UNGROUP, nil]
 							opArgs: [NSArray arrayWithObjects: CMDOPT_KEY_GROUPNAME, nil]
 						  argsHelp: [NSArray arrayWithObjects: OPTINFO_REQARG_GROUP, nil]
+						  noteRefs: [NSArray arrayWithObjects: OPTINFO_NOTEREF_XORDER, 
+									 OPTINFO_NOTEREF_DUPCMDS, OPTINFO_NOTEREF_SINGLECMD, nil]];
+
+	[self initCommandInfoForOpCode: OPCODE_UNGROUP_BY_GUID actionClass: ACTIONCLASS_UNGROUP_BY_GUID
+					  commandForms: [NSArray arrayWithObjects: CMDFORM_S_UNGROUPGUID, CMDFORM_L_UNGROUPGUID, nil]
+						 dupAction: DUP_WARN
+						  helpText: [NSArray arrayWithObjects: OPTINFO_HTEXT_UNGROUPGUID, nil]
+							opArgs: [NSArray arrayWithObjects: CMDOPT_KEY_GROUPGUID, nil]
+						  argsHelp: [NSArray arrayWithObjects: OPTINFO_REQARG_GROUP_ID, nil]
 						  noteRefs: [NSArray arrayWithObjects: OPTINFO_NOTEREF_XORDER, 
 									 OPTINFO_NOTEREF_DUPCMDS, OPTINFO_NOTEREF_SINGLECMD, nil]];
 	
@@ -446,7 +473,7 @@ enum DupActionCodes{
 	[self initNotesText: [NSArray arrayWithObjects: 
 						  [NSString stringWithFormat: 
 						   @"The %@, %@ and %@ commands may not be used in the same execution.", 
-						   CMDFORM_L_ALLBUDDIES, CMDFORM_L_GRPBUDDIES, CMDFORM_L_UNGROUP],
+						   CMDFORM_L_ALLBUDDIES, CMDFORM_L_GRPBUDDIES, CMDFORM_L_GROUPBYGUID, CMDFORM_L_UNGROUP, CMDFORM_L_UNGROUPGUID],
 						  nil]
 				 forRef: OPTINFO_NOTEREF_DUPCMDS];
 	
@@ -460,7 +487,7 @@ enum DupActionCodes{
 	[self initNotesText: [NSArray arrayWithObjects: 
 						  [NSString stringWithFormat: 
 						   @"Multiple uses of the %@, %@ or %@ commands are treated as a ", 
-						   CMDFORM_L_ALLBUDDIES, CMDFORM_L_GRPBUDDIES, CMDFORM_L_UNGROUP],
+						   CMDFORM_L_ALLBUDDIES, CMDFORM_L_GRPBUDDIES, CMDFORM_L_GROUPBYGUID, CMDFORM_L_UNGROUP, CMDFORM_L_UNGROUPGUID],
 						  @"single use of each command.",
 						  nil]
 				 forRef: OPTINFO_NOTEREF_SINGLECMD];
@@ -654,7 +681,9 @@ enum DupActionCodes{
 		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_ADDBUDDY]) break;
 		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_ALLBUDDIES]) break;
 		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_GRPBUDDIES]) break;
+		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_GROUP_BY_GUID]) break;
 		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_UNGROUP]) break;
+		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_UNGROUP_BY_GUID]) break;
 		if (OPRESULT_OK != [self performActionsForOpCode: OPCODE_MOVEDOMAIN]) break;
 	
 	} while (0); // not a loop
@@ -782,6 +811,21 @@ enum DupActionCodes{
 		if (bConflict) break;
 		bConflict = [self checkActionConflictForOpCode: OPCODE_GRPBUDDIES 
 											andOpCode: OPCODE_UNGROUP];
+		if (bConflict) break;
+		bConflict = [self checkActionConflictForOpCode: OPCODE_ALLBUDDIES 
+											andOpCode: OPCODE_UNGROUP_BY_GUID];
+		if (bConflict) break;
+		bConflict = [self checkActionConflictForOpCode: OPCODE_ALLBUDDIES 
+											andOpCode: OPCODE_GROUP_BY_GUID];
+		if (bConflict) break;
+		bConflict = [self checkActionConflictForOpCode: OPCODE_GROUP_BY_GUID 
+											andOpCode: OPCODE_UNGROUP_BY_GUID];
+		if (bConflict) break;
+		bConflict = [self checkActionConflictForOpCode: OPCODE_GRPBUDDIES 
+											andOpCode: OPCODE_UNGROUP_BY_GUID];
+		if (bConflict) break;
+		bConflict = [self checkActionConflictForOpCode: OPCODE_UNGROUP 
+											andOpCode: OPCODE_GROUP_BY_GUID];
 	} while (0); // not a loop
 
 	return bConflict;

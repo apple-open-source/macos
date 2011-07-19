@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Test-Requires</string>
+        <key>OpenSourceVersion</key>
+        <string>0.06</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/T/TO/TOKUHIROM/Test-Requires-0.06.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2011-05-11</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

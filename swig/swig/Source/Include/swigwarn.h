@@ -16,7 +16,7 @@
  * numbers in this file.
  * ----------------------------------------------------------------------------- */
 
-/* $Header: /cvsroot/swig/SWIG/Source/Include/swigwarn.h,v 1.42 2006/11/01 23:54:50 wsfulton Exp $ */
+/* $Id: swigwarn.h 11459 2009-07-28 11:47:36Z vmiklos $ */
 
 #ifndef SWIGWARN_H_
 #define SWIGWARN_H_
@@ -49,6 +49,7 @@
 #define WARN_DEPRECATED_NOEXTERN      122
 #define WARN_DEPRECATED_NODEFAULT     123
 #define WARN_DEPRECATED_TYPEMAP_LANG  124
+#define WARN_DEPRECATED_INPUT_FILE    125
 
 /* -- Preprocessor -- */
 
@@ -161,6 +162,8 @@
 #define WARN_TYPEMAP_DIRECTOROUT_UNDEF 471
 #define WARN_TYPEMAP_TYPECHECK_UNDEF   472
 #define WARN_TYPEMAP_DIRECTOROUT_PTR   473
+#define WARN_TYPEMAP_OUT_OPTIMAL_IGNORED  474
+#define WARN_TYPEMAP_OUT_OPTIMAL_MULTIPLE 475
 
 /* -- Fragments -- */
 #define WARN_FRAGMENT_NOT_FOUND       490
@@ -185,6 +188,7 @@
 #define WARN_LANG_OVERLOAD_IGNORED    516
 #define WARN_LANG_DIRECTOR_ABSTRACT   517
 #define WARN_LANG_PORTABILITY_FILENAME 518
+#define WARN_LANG_TEMPLATE_METHOD_IGNORE 519
 
 /* -- Reserved (600-799) -- */
 
@@ -244,10 +248,11 @@
 
 /* please leave 850-869 free for Modula 3 */
 
-#define WARN_PHP4_MULTIPLE_INHERITANCE         870
-#define WARN_PHP4_UNKNOWN_PRAGMA               871
+#define WARN_PHP_MULTIPLE_INHERITANCE         870
+#define WARN_PHP_UNKNOWN_PRAGMA               871
+#define WARN_PHP_PUBLIC_BASE                  872
 
-/* please leave 870-889 free for Php */
+/* please leave 870-889 free for PHP */
 
 
 /* Feel free to claim any number in this space that's not currently being used. Just make sure you

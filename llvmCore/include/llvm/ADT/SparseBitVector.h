@@ -15,13 +15,14 @@
 #ifndef LLVM_ADT_SPARSEBITVECTOR_H
 #define LLVM_ADT_SPARSEBITVECTOR_H
 
+#include "llvm/ADT/ilist.h"
+#include "llvm/ADT/ilist_node.h"
+#include "llvm/System/DataTypes.h"
+#include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <climits>
 #include <cstring>
-#include "llvm/Support/DataTypes.h"
-#include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/MathExtras.h"
-#include "llvm/ADT/ilist.h"
 
 namespace llvm {
 
@@ -41,7 +42,7 @@ namespace llvm {
 
 template <unsigned ElementSize = 128>
 struct SparseBitVectorElement
-  : ilist_node<SparseBitVectorElement<ElementSize> > {
+  : public ilist_node<SparseBitVectorElement<ElementSize> > {
 public:
   typedef unsigned long BitWord;
   enum {
@@ -55,7 +56,7 @@ private:
   unsigned ElementIndex;
   BitWord Bits[BITWORDS_PER_ELEMENT];
   // Needed for sentinels
-  friend class ilist_sentinel_traits<SparseBitVectorElement>;
+  friend struct ilist_sentinel_traits<SparseBitVectorElement>;
   SparseBitVectorElement() {
     ElementIndex = ~0U;
     memset(&Bits[0], 0, sizeof (BitWord) * BITWORDS_PER_ELEMENT);
@@ -641,8 +642,8 @@ public:
     return changed;
   }
 
-  // Intersect our bitmap with the complement of the RHS and return true if ours
-  // changed.
+  // Intersect our bitmap with the complement of the RHS and return true
+  // if ours changed.
   bool intersectWithComplement(const SparseBitVector &RHS) {
     bool changed = false;
     ElementListIter Iter1 = Elements.begin();
@@ -685,8 +686,8 @@ public:
   }
 
 
-  //  Three argument version of intersectWithComplement.  Result of RHS1 & ~RHS2
-  //  is stored into this bitmap.
+  //  Three argument version of intersectWithComplement.
+  //  Result of RHS1 & ~RHS2 is stored into this bitmap.
   void intersectWithComplement(const SparseBitVector<ElementSize> &RHS1,
                                const SparseBitVector<ElementSize> &RHS2)
   {
@@ -773,6 +774,14 @@ public:
       }
     }
     return false;
+  }
+
+  // Return true iff all bits set in this SparseBitVector are
+  // also set in RHS.
+  bool contains(const SparseBitVector<ElementSize> &RHS) const {
+    SparseBitVector<ElementSize> Result(*this);
+    Result &= RHS;
+    return (Result == RHS);
   }
 
   // Return the first set bit in the bitmap.  Return -1 if no bits are set.
@@ -875,9 +884,11 @@ operator-(const SparseBitVector<ElementSize> &LHS,
 }
 
 
+
+
 // Dump a SparseBitVector to a stream
 template <unsigned ElementSize>
-void dump(const SparseBitVector<ElementSize> &LHS, llvm::OStream &out) {
+void dump(const SparseBitVector<ElementSize> &LHS, raw_ostream &out) {
   out << "[ ";
 
   typename SparseBitVector<ElementSize>::iterator bi;

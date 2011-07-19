@@ -3,6 +3,7 @@
 [copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Terminal control}]
 [titledesc {Output of ANSI control sequences to terminals}]
+[category  {Terminal control}]
 [require Tcl 8.4]
 [require term::ansi::send [opt 0.1]]
 [description]

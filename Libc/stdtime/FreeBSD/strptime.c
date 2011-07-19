@@ -59,7 +59,7 @@ static char copyright[] __unused =
 static char sccsid[] __unused = "@(#)strptime.c	0.1 (Powerdog) 94/03/27";
 #endif /* !defined NOID */
 #endif /* not lint */
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.37 2009/09/02 04:56:30 ache Exp $");
 
 #include "namespace.h"
 #include <time.h>
@@ -512,6 +512,34 @@ label:
 				}
 				buf += cp - buf;
 			}
+			}
+			break;
+
+		case 'z':
+			{
+			int sign = 1;
+
+			if (*buf != '+') {
+				if (*buf == '-')
+					sign = -1;
+				else
+					return 0;
+			}
+
+			buf++;
+			i = 0;
+			for (len = 4; len > 0; len--) {
+				if (isdigit((unsigned char)*buf)) {
+					i *= 10;
+					i += *buf - '0';
+					buf++;
+				} else
+					return 0;
+			}
+
+			tm->tm_hour -= sign * (i / 100);
+			tm->tm_min  -= sign * (i % 100);
+			*GMTp = 1;
 			}
 			break;
 		}

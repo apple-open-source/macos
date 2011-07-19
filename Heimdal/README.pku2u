@@ -1,0 +1,29 @@
+draft comments:
+
+- tag for nameNotInCert (GeneralName is a choice)
+
+- TargetName.exportedTargName have spelling error on OCTET STRING
+
+- padata number is wrong (page 13)
+
+still missing:
+
+- storing credentials so we can skip pku2u
+- mapping server names into kerberos name
+- setting target asserted name
+- Make target name have a real meaning
+- Implemement GSS_C_NT_DN
+- Verify ad-pku2u-client-name in acceptor
+
+How to try:
+
+- sudo dscl . append /Users/lha RecordName 'description=MobileMe Sharing Certificate,CN=bitcollector,OU=me.com,O=Apple Inc.,C=US'
+
+- sudo chmod 644 /etc/krb5.keytab 
+
+- /usr/local/libexec/heimdal/bin/test_context --mech-type=PKU2U --mutual-auth --wrap service@host 
+
+
+
+sudo dscl . append  /Users/lha RecordName  55D20C14EE9EB4C41962801D1AD88AD7ACF34D72
+sudo dscl . append  /Users/lha dsAttrTypeStandard:AltSecurityIdentities 'X509:<T>CN=Apple Root Certificate Authority,OU=Apple Computer Certificate Authority,O=Apple Computer\, Inc.,C=US<S>description=MobileMe Sharing Certificate,CN=bitcollector,OU=me.com,O=Apple Inc.,C=US'

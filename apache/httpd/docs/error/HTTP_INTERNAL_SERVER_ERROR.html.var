@@ -84,29 +84,24 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Error en el servidor!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="Error del Servidor!" -->
+<!--#include virtual="include/top.html" -->
 
-  <!--#if expr="$REDIRECT_ERROR_NOTES" -->
+    Se produjo un error interno en el servidor y le
+   fue imposible completar su solicitud.
 
-	El servidor encontro un error interno y fue
-	imposible completar su solicitud. 
+   <!--#if expr="$REDIRECT_ERROR_NOTES" -->
 
-    <!--#include virtual="include/spacer.html" -->
+      <!--#include virtual="include/spacer.html" -->
+      Mensaje de error:<br />
+      <!--#echo var="REDIRECT_ERROR_NOTES" -->
 
-    Mensaje de error:
-    <br /><!--#echo encoding="none" var="REDIRECT_ERROR_NOTES" -->
+   <!--#else -->
 
-  <!--#else -->
-
-	El servidor encontro un error interno y fue
-	imposible completar su solicitud. 
-	Existe tambien la posibilidad de que el servidor 
-	este sobrecargado o de alg&uacute;n error en un 
-	programa de CGI.
+    El servidor puede estar sobrecargado, o hubo un
+    error en la ejecuci&oacute;n de un programa 'CGI'.
 
   <!--#endif -->
 
@@ -122,7 +117,7 @@ Body:----------fr--
 
   <!--#if expr="$REDIRECT_ERROR_NOTES" -->
 
-    Le serveur a &egrave;t&eacute; victime d'une erreur interne et n'a pas
+    Le serveur a &eacute;t&eacute; victime d'une erreur interne et n'a pas
     &eacute;t&eacute; capable de faire aboutir votre requ&ecirc;te.
 
     <!--#include virtual="include/spacer.html" -->
@@ -132,7 +127,7 @@ Body:----------fr--
 
   <!--#else -->
 
-    Le serveur a &egrave;t&eacute; victime d'une erreur interne et n'a pas
+    Le serveur a &eacute;t&eacute; victime d'une erreur interne et n'a pas
     &eacute;t&eacute; capable de faire aboutir votre requ&ecirc;te.
     Soit le server est surcharg&eacute; soit il s'agit d'une erreur dans
     le script CGI.
@@ -339,6 +334,33 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Erro interno do servidor!"
+--><!--#include virtual="include/top.html" -->
+
+  <!--#if expr="$REDIRECT_ERROR_NOTES" -->
+
+	O servidor encontrou um erro interno e n&atilde;o pode completar
+	o seu pedido.
+
+    <!--#include virtual="include/spacer.html" -->
+
+    Mensagem de erro:
+    <br /><!--#echo encoding="none" var="REDIRECT_ERROR_NOTES" -->
+
+  <!--#else -->
+
+	O servidor encontrou um erro interno e n&atilde;o pode completar
+	o seu pedido. Ou o servidor est&aacute; sobrecarregado, ou ocorreu
+	um erro num <i>script</i> CGI.
+
+  <!--#endif -->
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

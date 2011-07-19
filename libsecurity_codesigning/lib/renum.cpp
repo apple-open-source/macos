@@ -39,7 +39,7 @@ ResourceEnumerator::ResourceEnumerator(string path)
 {
 	assert(!mPath.empty());
 	const char * paths[2] = { path.c_str(), NULL };
-	mFTS = fts_open((char * const *)paths, FTS_PHYSICAL, NULL);
+	mFTS = fts_open((char * const *)paths, FTS_PHYSICAL | FTS_COMFOLLOW | FTS_NOCHDIR, NULL);
 	if (!mFTS)
 		UnixError::throwMe();
 }

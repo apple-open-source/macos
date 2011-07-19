@@ -29,6 +29,8 @@
 #include <QtGui/qpainter.h>
 #include <QtNetwork/qnetworkaccessmanager.h>
 
+#if !defined(QT_NO_GRAPHICSVIEW)
+
 class QWebPage;
 class QWebHistory;
 class QWebSettings;
@@ -48,6 +50,9 @@ class QWEBKIT_EXPORT QGraphicsWebView : public QGraphicsWidget {
     Q_PROPERTY(bool resizesToContents READ resizesToContents WRITE setResizesToContents)
     Q_PROPERTY(bool tiledBackingStoreFrozen READ isTiledBackingStoreFrozen WRITE setTiledBackingStoreFrozen)
 
+    Q_PROPERTY(QPainter::RenderHints renderHints READ renderHints WRITE setRenderHints)
+    Q_FLAGS(QPainter::RenderHints)
+
 public:
     explicit QGraphicsWebView(QGraphicsItem* parent = 0);
     ~QGraphicsWebView();
@@ -66,7 +71,7 @@ public:
 
     bool isModified() const;
 
-    void load(const QUrl &url);
+    void load(const QUrl& url);
     void load(const QNetworkRequest& request, QNetworkAccessManager::Operation operation = QNetworkAccessManager::GetOperation, const QByteArray& body = QByteArray());
 
     void setHtml(const QString& html, const QUrl& baseUrl = QUrl());
@@ -96,6 +101,10 @@ public:
     virtual QSizeF sizeHint(Qt::SizeHint which, const QSizeF& constraint) const;
 
     virtual QVariant inputMethodQuery(Qt::InputMethodQuery query) const;
+
+    QPainter::RenderHints renderHints() const;
+    void setRenderHints(QPainter::RenderHints);
+    void setRenderHint(QPainter::RenderHint, bool enabled = true);
 
 public Q_SLOTS:
     void stop();
@@ -142,7 +151,6 @@ protected:
 
 private:
     Q_PRIVATE_SLOT(d, void _q_doLoadFinished(bool success))
-    Q_PRIVATE_SLOT(d, void _q_updateMicroFocus())
     Q_PRIVATE_SLOT(d, void _q_pageDestroyed())
     // we don't want to change the moc based on USE() macro, so this function is here
     // but will be empty if ACCLERATED_COMPOSITING is disabled
@@ -153,5 +161,7 @@ private:
     QGraphicsWebViewPrivate* const d;
     friend class QGraphicsWebViewPrivate;
 };
+
+#endif // QT_NO_GRAPHICSVIEW
 
 #endif // QGraphicsWebView_h

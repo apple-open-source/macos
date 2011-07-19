@@ -19,26 +19,89 @@ package require transfer::connect           ; # Connection startup
 snit::type ::transfer::receiver {
 
     # ### ### ### ######### ######### #########
+    ## Convenient fire and forget file/channel reception operations.
+
+    typemethod {stream channel} {chan host port args} {
+	# Select stream configuration ( host => active, otherwise
+	# passive)
+	if {$host eq {}} {
+	    set cmd [linsert $args 0 $type %AUTO% \
+			 -channel $chan -port $port \
+			 -mode passive -translation binary]
+	} else {
+	    set cmd [linsert $args 0 $type %AUTO% \
+			 -channel $chan -host $host -port $port \
+			 -mode active -translation binary]
+	}
+
+	# Create a transient transmitter controller, and wrap our own
+	# internal completion handling around the user supplied
+	# callback.
+
+	set receiver [eval $cmd]
+	$receiver configure \
+	    -command [mytypemethod Done \
+			  [$receiver cget -command]]
+
+	# Begin transmission (or wait for other side to connect).
+	return [$receiver start]
+    }
+
+    typemethod {stream file} {file host port args} {
+	set chan [open $file w]
+	fconfigure $chan -translation binary
+
+	set receiver [eval [linsert $args 0 $type stream channel $chan $host $port]]
+
+	# Redo completion command callback.
+	$receiver configure \
+	    -command [mytypemethod DoneFile $chan \
+			  [lindex [$receiver cget -command] end]]
+	return $receiver
+    }
+
+    typemethod Done {command receiver n {err {}}} {
+	$receiver destroy
+
+	if {![llength $command]} return
+
+	after 0 [linsert $command end $n $err]
+	return
+    }
+
+    typemethod DoneFile {chan command receiver n {err {}}} {
+	close $chan
+	$receiver destroy
+
+	if {![llength $command]} return
+
+	after 0 [linsert $command end $n $err]
+	return
+    }
+
+    # ### ### ### ######### ######### #########
     ## API
 
     ## Data destination sub component
 
-    delegate option -channel  to dest
-    delegate option -file     to dest
-    delegate option -variable to dest
+    delegate option -channel  to mydestination
+    delegate option -file     to mydestination
+    delegate option -variable to mydestination
+    delegate option -progress to mydestination
 
     ## Connection management sub component
 
-    delegate option -host        to conn
-    delegate option -port        to conn
-    delegate option -mode        to conn
-    delegate option -translation to conn
-    delegate option -encoding    to conn
-    delegate option -eofchar     to conn
+    delegate option -host        to myconnect
+    delegate option -port        to myconnect
+    delegate option -mode        to myconnect
+    delegate option -translation to myconnect
+    delegate option -encoding    to myconnect
+    delegate option -eofchar     to myconnect
+    delegate option -socketcmd   to myconnect
 
     ## Receiver configuration, and API
 
-    option -command {}
+    option -command -default {}
 
     constructor {args} {}
 
@@ -49,20 +112,20 @@ snit::type ::transfer::receiver {
     ## Implementation
 
     constructor {args} {
-	set dest [::transfer::data::destination ${selfns}::dest]
-	set conn [::transfer::connect           ${selfns}::conn]
-	set busy 0
+	set mybusy 0
+	install mydestination using ::transfer::data::destination ${selfns}::dest
+	install myconnect     using ::transfer::connect           ${selfns}::conn
 
 	$self configurelist $args
 	return
     }
 
     method start {} {
-	if {$busy} {
+	if {$mybusy} {
 	    return -code error "Object is busy"
 	}
 
-	if {![$dest valid msg]} {
+	if {![$mydestination valid msg]} {
 	    return -code error $msg
 	}
 
@@ -70,20 +133,20 @@ snit::type ::transfer::receiver {
 	    return -code error "Completion callback is missing"
 	}
 
-	set busy 1
-	return [$conn connect [mymethod Begin]]
+	set mybusy 1
+	return [$myconnect connect [mymethod Begin]]
     }
 
     method busy {} {
-	return $busy
+	return $mybusy
     }
 
     # ### ### ### ######### ######### #########
     ## Internal helper commands.
 
     method Begin {__ sock} {
-	# __ == conn
-	$dest receive $sock \
+	# __ == myconnect
+	$mydestination receive $sock \
 		[mymethod Done $sock]
 	return
     }
@@ -92,29 +155,28 @@ snit::type ::transfer::receiver {
 	# args is either (n),
 	#             or (n errormessage)
 
-	set busy 0
+	set mybusy 0
 	close $sock
 	$self Complete $args
 	return
     }
 
-    method Complete {alist} {
+    method Complete {arguments} {
+	# 8.5: {*}$options(-command) $self {*}$arguments
 	set     cmd $options(-command)
 	lappend cmd $self
-	foreach a $alist {lappend cmd $a}
+	foreach a $arguments {lappend cmd $a}
 
 	uplevel #0 $cmd
 	return
-
-	# 8.5: {*}$options(-command) {*}$alist
     }
 
     # ### ### ### ######### ######### #########
     ## Data structures
 
-    variable dest
-    variable conn
-    variable busy
+    component mydestination   ; # Data destination the transfered bytes are delivered to
+    component myconnect	      ; # Connector controlling where to get the data from.
+    variable  mybusy        0 ; # Transfer status.
 
     ##
     # ### ### ### ######### ######### #########
@@ -123,4 +185,4 @@ snit::type ::transfer::receiver {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide transfer::receiver 0.1
+package provide transfer::receiver 0.2

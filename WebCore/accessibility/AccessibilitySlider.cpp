@@ -89,14 +89,33 @@ void AccessibilitySlider::addChildren()
     
     m_haveChildren = true;
 
-    AccessibilitySliderThumb* thumb = static_cast<AccessibilitySliderThumb*>(m_renderer->document()->axObjectCache()->getOrCreate(SliderThumbRole));
+    AXObjectCache* cache = m_renderer->document()->axObjectCache();
+
+    AccessibilitySliderThumb* thumb = static_cast<AccessibilitySliderThumb*>(cache->getOrCreate(SliderThumbRole));
     thumb->setParentObject(this);
-    m_children.append(thumb);
+
+    // Before actually adding the value indicator to the hierarchy,
+    // allow the platform to make a final decision about it.
+    if (thumb->accessibilityIsIgnored())
+        cache->remove(thumb->axObjectID());
+    else
+        m_children.append(thumb);
 }
 
 const AtomicString& AccessibilitySlider::getAttribute(const QualifiedName& attribute) const
 {
     return element()->getAttribute(attribute);
+}
+    
+AccessibilityObject* AccessibilitySlider::elementAccessibilityHitTest(const IntPoint& point) const
+{
+    if (m_children.size()) {
+        ASSERT(m_children.size() == 1);
+        if (m_children[0]->elementRect().contains(point))
+            return m_children[0].get();
+    }
+    
+    return axObjectCache()->getOrCreate(m_renderer);
 }
 
 bool AccessibilitySlider::accessibilityIsIgnored() const
@@ -117,12 +136,12 @@ float AccessibilitySlider::valueForRange() const
 
 float AccessibilitySlider::maxValueForRange() const
 {
-    return getAttribute(maxAttr).toFloat();
+    return static_cast<float>(element()->maximum());
 }
 
 float AccessibilitySlider::minValueForRange() const
 {
-    return getAttribute(minAttr).toFloat();
+    return static_cast<float>(element()->minimum());
 }
 
 void AccessibilitySlider::setValue(const String& value)
@@ -168,6 +187,17 @@ IntRect AccessibilitySliderThumb::elementRect() const
 IntSize AccessibilitySliderThumb::size() const
 {
     return elementRect().size();
+}
+
+bool AccessibilitySliderThumb::accessibilityIsIgnored() const
+{
+    AccessibilityObjectInclusion decision = accessibilityPlatformIncludesObject();
+    if (decision == IncludeObject)
+        return false;
+    if (decision == IgnoreObject)
+        return true;
+
+    return false;
 }
 
 } // namespace WebCore

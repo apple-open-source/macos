@@ -293,9 +293,9 @@ bootstrap_create_service(mach_port_t bp, name_t service_name, mach_port_t *sp);
  * bootstrap_check_in()
  *
  * Returns the receive right for the service named by service_name. The
- * service must have previously been declared in this bootstrap context via
- * a call to bootstrap_create_service().  Attempts to check_in a service
- * which is already active are not allowed.
+ * service must have been declared in the launchd.plist(5) file associated 
+ * with the job.  Attempts to check_in a service which is already active 
+ * are not allowed.
  *
  * If the service was declared as being associated with a server, the
  * check_in must come from the server's privileged port (server_port).

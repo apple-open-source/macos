@@ -57,8 +57,8 @@ namespace WebCore {
 
         virtual void willSendRequest(ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
-        virtual void didFinishLoading();
+        virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
+        virtual void didFinishLoading(double finishTime);
         virtual void didFail(const ResourceError&);
 
 #if HAVE(RUNLOOP_TIMER)
@@ -74,12 +74,13 @@ namespace WebCore {
     private:
         MainResourceLoader(Frame*);
 
+        virtual void willCancel(const ResourceError&);
         virtual void didCancel(const ResourceError&);
 
         bool loadNow(ResourceRequest&);
 
         void handleEmptyLoad(const KURL&, bool forURLScheme);
-        void handleDataLoadSoon(ResourceRequest& r);
+        void handleDataLoadSoon(const ResourceRequest& r);
 
         void startDataLoadTimer();
         void handleDataLoad(ResourceRequest&);
@@ -107,6 +108,7 @@ namespace WebCore {
 
         bool m_loadingMultipartContent;
         bool m_waitingForContentPolicy;
+        double m_timeOfLastDataReceived;
     };
 
 }

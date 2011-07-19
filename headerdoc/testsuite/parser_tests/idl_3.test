@@ -1,0 +1,1970 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$231|	interface bar.baz : foo {
+
+		/*! t type. */
+		typedef long t;
+
+		/*! k attribute. */
+		attribute long k;
+
+		/*! s string. */
+		attribute string<150> s;
+
+		/*! Function F */
+		void F(in long q);
+
+		/*! Instance */
+		bar.baz q;
+	};
+$21|/*! bar.baz class */
+$0|$23994|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/idl_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/idl_3.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameConcat} => 0
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => interface
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} =>  bar.baz
+$parserState->{forceClassSuper} =>   foo 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 17
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} =>         interface bar . baz : foo 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => foo
+$parserState->{sodtype} =>  bar . baz
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => IDL
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 17
+typelist: interface
+namelist:  bar.baz
+posstypes:   foo 
+value: 
+returntype: bar . baz
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---        
++---interface
++--- 
++---bar
++---.
++---baz
++--- 
++---:
++--- 
++---foo
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- t type. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-typedef (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---t
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- k attribute. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---k
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- s string. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---string
+|   +---<
+|   +---150
+|   +--->
+|   +--- 
+|   +---s
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Function F 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---F
+|   +---(
+|   |   +---in
+|   |   +--- 
+|   |   +---long
+|   |   +--- 
+|   |   +---q
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Instance 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-bar (HAS STATE)
+|   +---.
+|   +---baz
+|   +--- 
+|   +---q
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: idl 3
+APIUID: //test_ref/doc/header/idl_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: bar.baz
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>bar.baz class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/idl/cl/foo" machineGenerated="true" -->foo<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/idl_3.test" target="_top" machineGenerated="true">idl 3</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: F
+        APIUID: //test_ref/idl/instm/bar.baz/F/void/(inlong)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Function F "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: q
+            TYPE: in long
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Typedef
+        NAME: t
+        APIUID: //test_ref/idl/tdef/bar.baz/t
+        ABSTRACT: ""
+        DISCUSSION: "<p>t type. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Typedef"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: k
+        APIUID: //test_ref/idl/data/bar.baz/k
+        ABSTRACT: ""
+        DISCUSSION: "<p>k attribute. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute long"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: s
+        APIUID: //test_ref/idl/data/bar.baz/s
+        ABSTRACT: ""
+        DISCUSSION: "<p>s string. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute string < 150 >"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: q
+        APIUID: //test_ref/idl/data/bar.baz/q
+        ABSTRACT: ""
+        DISCUSSION: "<p>Instance "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "bar.baz"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: bar.baz (HeaderDoc::CPPClass)
++---        
++---interface
++--- 
++---bar
++---.
++---baz
++--- 
++---:
++--- 
++---foo
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- t type. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-typedef (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---t
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- k attribute. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---k
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- s string. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---string
+|   +---<
+|   +---150
+|   +--->
+|   +--- 
+|   +---s
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Function F 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---F
+|   +---(
+|   |   +---in
+|   |   +--- 
+|   |   +---long
+|   |   +--- 
+|   |   +---q
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Instance 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-bar (HAS STATE)
+|   +---.
+|   +---baz
+|   +--- 
+|   +---q
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: F (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: t (HeaderDoc::Typedef)
++-*-typedef (HAS STATE)
++--- 
++---long
++--- 
++---t
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- k attribute. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---long
++--- 
++---k
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- s string. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: k (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---long
++--- 
++---k
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- s string. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: s (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: q (HeaderDoc::Var)
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: bar.baz (HeaderDoc::CPPClass)
+	<span class="keyword">interface</span> <!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> : <!-- a logicalPath="//test_ref/idl/cl/foo //test_ref/idl/tdef/foo //test_ref/idl/tag/foo //test_ref/idl/struct/foo //test_ref/idl/intf/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="type">foo</span><!-- /a --> {  
+	    <span class="comment">/*! t type. */</span>
+	    <span class="keyword">typedef</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/t //test_ref/idl/data/t //test_ref/idl/clconst/t " machineGenerated="true" --><span class="var">t</span><!-- /a -->;  
+	    <span class="comment">/*! k attribute. */</span>
+	    <span class="keyword">attribute</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/k //test_ref/idl/data/k //test_ref/idl/clconst/k " machineGenerated="true" --><span class="var">k</span><!-- /a -->;  
+	    <span class="comment">/*! s string. */</span>
+	    <span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/idl/cl/string //test_ref/idl/tdef/string //test_ref/idl/tag/string //test_ref/idl/struct/string //test_ref/idl/intf/string //test_ref/doc/anysymbol/string" machineGenerated="true" --><span class="type">string</span><!-- /a -->&lt;<span class="number">150</span>&gt; <!-- a logicalPath="//test_ref/idl/econst/s //test_ref/idl/data/s //test_ref/idl/clconst/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->;  
+	    <span class="comment">/*! Function F */</span>
+	    <!-- a logicalPath="//test_ref/idl/cl/void //test_ref/idl/tdef/void //test_ref/idl/tag/void //test_ref/idl/struct/void //test_ref/idl/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/instm/F //test_ref/idl/clm/F //test_ref/idl/intfcm/F //test_ref/idl/intfm/F //test_ref/idl/func/F //test_ref/idl/ftmplt/F //test_ref/idl/defn/F //test_ref/idl/macro/F //test_ref/doc/anysymbol/F" machineGenerated="true" --><span class="function">F</span><!-- /a -->(
+	        <span class="keyword">in</span> <span class="keyword">long</span> <span class="param">q</span>);  
+	    <span class="comment">/*! Instance */</span>
+	    <!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/econst/q //test_ref/idl/data/q //test_ref/idl/clconst/q " machineGenerated="true" --><span class="var">q</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: F (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/idl/cl/void //test_ref/idl/tdef/void //test_ref/idl/tag/void //test_ref/idl/struct/void //test_ref/idl/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/instm/bar.baz/F //test_ref/idl/clm/bar.baz/F //test_ref/idl/intfcm/bar.baz/F //test_ref/idl/intfm/bar.baz/F //test_ref/idl/func/F //test_ref/idl/ftmplt/bar.baz/F //test_ref/idl/defn/F //test_ref/idl/macro/F //test_ref/doc/anysymbol/F" machineGenerated="true" --><span class="function">F</span><!-- /a -->(
+	    <span class="keyword">in</span> <span class="keyword">long</span> <span class="param">q</span>); 
+END OF OBJECT
+
+
+OBJECT: t (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/t //test_ref/idl/data/bar.baz/t //test_ref/idl/data/t //test_ref/idl/clconst/bar.baz/t " machineGenerated="true" --><span class="var">t</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: k (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/k //test_ref/idl/data/bar.baz/k //test_ref/idl/data/k //test_ref/idl/clconst/bar.baz/k " machineGenerated="true" --><span class="var">k</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: s (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/idl/cl/string //test_ref/idl/tdef/string //test_ref/idl/tag/string //test_ref/idl/struct/string //test_ref/idl/intf/string //test_ref/doc/anysymbol/string" machineGenerated="true" --><span class="type">string</span><!-- /a -->&lt;<span class="number">150</span>&gt; <!-- a logicalPath="//test_ref/idl/econst/s //test_ref/idl/data/bar.baz/s //test_ref/idl/data/s //test_ref/idl/clconst/bar.baz/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: q (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/econst/q //test_ref/idl/data/bar.baz/q //test_ref/idl/data/q //test_ref/idl/clconst/bar.baz/q " machineGenerated="true" --><span class="var">q</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$23994|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/idl_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/idl_3.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameConcat} => 0
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => interface
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} =>  bar.baz
+$parserState->{forceClassSuper} =>   foo 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 17
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} =>         interface bar . baz : foo 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => foo
+$parserState->{sodtype} =>  bar . baz
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => IDL
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 17
+typelist: interface
+namelist:  bar.baz
+posstypes:   foo 
+value: 
+returntype: bar . baz
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---        
++---interface
++--- 
++---bar
++---.
++---baz
++--- 
++---:
++--- 
++---foo
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- t type. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-typedef (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---t
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- k attribute. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---k
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- s string. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---string
+|   +---<
+|   +---150
+|   +--->
+|   +--- 
+|   +---s
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Function F 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---F
+|   +---(
+|   |   +---in
+|   |   +--- 
+|   |   +---long
+|   |   +--- 
+|   |   +---q
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Instance 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-bar (HAS STATE)
+|   +---.
+|   +---baz
+|   +--- 
+|   +---q
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: idl 3
+APIUID: //test_ref/doc/header/idl_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: bar.baz
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>bar.baz class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/idl/cl/foo" machineGenerated="true" -->foo<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/idl_3.test" target="_top" machineGenerated="true">idl 3</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: F
+        APIUID: //test_ref/idl/instm/bar.baz/F/void/(inlong)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Function F "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: q
+            TYPE: in long
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Typedef
+        NAME: t
+        APIUID: //test_ref/idl/tdef/bar.baz/t
+        ABSTRACT: ""
+        DISCUSSION: "<p>t type. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Typedef"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: k
+        APIUID: //test_ref/idl/data/bar.baz/k
+        ABSTRACT: ""
+        DISCUSSION: "<p>k attribute. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute long"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: s
+        APIUID: //test_ref/idl/data/bar.baz/s
+        ABSTRACT: ""
+        DISCUSSION: "<p>s string. "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute string < 150 >"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: q
+        APIUID: //test_ref/idl/data/bar.baz/q
+        ABSTRACT: ""
+        DISCUSSION: "<p>Instance "
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "bar.baz"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: bar.baz (HeaderDoc::CPPClass)
++---        
++---interface
++--- 
++---bar
++---.
++---baz
++--- 
++---:
++--- 
++---foo
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- t type. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-typedef (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---t
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- k attribute. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---long
+|   +--- 
+|   +---k
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- s string. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---string
+|   +---<
+|   +---150
+|   +--->
+|   +--- 
+|   +---s
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Function F 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-void (HAS STATE)
+|   +--- 
+|   +---F
+|   +---(
+|   |   +---in
+|   |   +--- 
+|   |   +---long
+|   |   +--- 
+|   |   +---q
+|   |   +---)
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- Instance 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---                
+|   +-*-bar (HAS STATE)
+|   +---.
+|   +---baz
+|   +--- 
+|   +---q
+|   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---        
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: F (HeaderDoc::Function)
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: t (HeaderDoc::Typedef)
++-*-typedef (HAS STATE)
++--- 
++---long
++--- 
++---t
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- k attribute. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---long
++--- 
++---k
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- s string. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: k (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---long
++--- 
++---k
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- s string. 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: s (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---string
++---<
++---150
++--->
++--- 
++---s
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Function F 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-void (HAS STATE)
++--- 
++---F
++---(
+|   +---in
+|   +--- 
+|   +---long
+|   +--- 
+|   +---q
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- Instance 
+|   +---*/
++---[ NEWLINE ]
++---                
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+OBJECT: q (HeaderDoc::Var)
++-*-bar (HAS STATE)
++---.
++---baz
++--- 
++---q
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---        
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: bar.baz (HeaderDoc::CPPClass)
+	<span class="keyword">interface</span> <!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> : <!-- a logicalPath="//test_ref/idl/cl/foo //test_ref/idl/tdef/foo //test_ref/idl/tag/foo //test_ref/idl/struct/foo //test_ref/idl/intf/foo //test_ref/doc/anysymbol/foo" machineGenerated="true" --><span class="type">foo</span><!-- /a --> {  
+	    <span class="comment">/*! t type. */</span>
+	    <span class="keyword">typedef</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/t //test_ref/idl/data/t //test_ref/idl/clconst/t " machineGenerated="true" --><span class="var">t</span><!-- /a -->;  
+	    <span class="comment">/*! k attribute. */</span>
+	    <span class="keyword">attribute</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/k //test_ref/idl/data/k //test_ref/idl/clconst/k " machineGenerated="true" --><span class="var">k</span><!-- /a -->;  
+	    <span class="comment">/*! s string. */</span>
+	    <span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/idl/cl/string //test_ref/idl/tdef/string //test_ref/idl/tag/string //test_ref/idl/struct/string //test_ref/idl/intf/string //test_ref/doc/anysymbol/string" machineGenerated="true" --><span class="type">string</span><!-- /a -->&lt;<span class="number">150</span>&gt; <!-- a logicalPath="//test_ref/idl/econst/s //test_ref/idl/data/s //test_ref/idl/clconst/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->;  
+	    <span class="comment">/*! Function F */</span>
+	    <!-- a logicalPath="//test_ref/idl/cl/void //test_ref/idl/tdef/void //test_ref/idl/tag/void //test_ref/idl/struct/void //test_ref/idl/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/instm/F //test_ref/idl/clm/F //test_ref/idl/intfcm/F //test_ref/idl/intfm/F //test_ref/idl/func/F //test_ref/idl/ftmplt/F //test_ref/idl/defn/F //test_ref/idl/macro/F //test_ref/doc/anysymbol/F" machineGenerated="true" --><span class="function">F</span><!-- /a -->(
+	        <span class="keyword">in</span> <span class="keyword">long</span> <span class="param">q</span>);  
+	    <span class="comment">/*! Instance */</span>
+	    <!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/econst/q //test_ref/idl/data/q //test_ref/idl/clconst/q " machineGenerated="true" --><span class="var">q</span><!-- /a -->; 
+	};  
+END OF OBJECT
+
+
+OBJECT: F (HeaderDoc::Function)
+	<!-- a logicalPath="//test_ref/idl/cl/void //test_ref/idl/tdef/void //test_ref/idl/tag/void //test_ref/idl/struct/void //test_ref/idl/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/instm/bar.baz/F //test_ref/idl/clm/bar.baz/F //test_ref/idl/intfcm/bar.baz/F //test_ref/idl/intfm/bar.baz/F //test_ref/idl/func/F //test_ref/idl/ftmplt/bar.baz/F //test_ref/idl/defn/F //test_ref/idl/macro/F //test_ref/doc/anysymbol/F" machineGenerated="true" --><span class="function">F</span><!-- /a -->(
+	    <span class="keyword">in</span> <span class="keyword">long</span> <span class="param">q</span>); 
+END OF OBJECT
+
+
+OBJECT: t (HeaderDoc::Typedef)
+	<span class="keyword">typedef</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/t //test_ref/idl/data/bar.baz/t //test_ref/idl/data/t //test_ref/idl/clconst/bar.baz/t " machineGenerated="true" --><span class="var">t</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: k (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <span class="keyword">long</span> <!-- a logicalPath="//test_ref/idl/econst/k //test_ref/idl/data/bar.baz/k //test_ref/idl/data/k //test_ref/idl/clconst/bar.baz/k " machineGenerated="true" --><span class="var">k</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: s (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/idl/cl/string //test_ref/idl/tdef/string //test_ref/idl/tag/string //test_ref/idl/struct/string //test_ref/idl/intf/string //test_ref/doc/anysymbol/string" machineGenerated="true" --><span class="type">string</span><!-- /a -->&lt;<span class="number">150</span>&gt; <!-- a logicalPath="//test_ref/idl/econst/s //test_ref/idl/data/bar.baz/s //test_ref/idl/data/s //test_ref/idl/clconst/bar.baz/s " machineGenerated="true" --><span class="var">s</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: q (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/idl/cl/bar //test_ref/idl/tdef/bar //test_ref/idl/tag/bar //test_ref/idl/struct/bar //test_ref/idl/intf/bar //test_ref/doc/anysymbol/bar" machineGenerated="true" --><span class="type">bar</span><!-- /a -->.<!-- a logicalPath="//test_ref/idl/cl/baz //test_ref/idl/tdef/baz //test_ref/idl/tag/baz //test_ref/idl/struct/baz //test_ref/idl/intf/baz //test_ref/doc/anysymbol/baz" machineGenerated="true" --><span class="type">baz</span><!-- /a --> <!-- a logicalPath="//test_ref/idl/econst/q //test_ref/idl/data/bar.baz/q //test_ref/idl/data/q //test_ref/idl/clconst/bar.baz/q " machineGenerated="true" --><span class="var">q</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$30|Tests periods in class names.
+$87|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/idl_3.test$1|C$5|idl 3$3|IDL$6|parser

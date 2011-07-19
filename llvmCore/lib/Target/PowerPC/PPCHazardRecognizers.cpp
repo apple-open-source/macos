@@ -17,6 +17,8 @@
 #include "PPCInstrInfo.h"
 #include "llvm/CodeGen/ScheduleDAG.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
@@ -51,7 +53,7 @@ PPCHazardRecognizer970::PPCHazardRecognizer970(const TargetInstrInfo &tii)
 }
 
 void PPCHazardRecognizer970::EndDispatchGroup() {
-  DOUT << "=== Start of dispatch group\n";
+  DEBUG(errs() << "=== Start of dispatch group\n");
   NumIssued = 0;
   
   // Structural hazard info.
@@ -116,7 +118,7 @@ isLoadOfStoredAddress(unsigned LoadSize, SDValue Ptr1, SDValue Ptr2) const {
 }
 
 /// getHazardType - We return hazard for any non-branch instruction that would
-/// terminate terminate the dispatch group.  We turn NoopHazard for any
+/// terminate the dispatch group.  We turn NoopHazard for any
 /// instructions that wouldn't terminate the dispatch group that would cause a
 /// pipeline flush.
 ScheduleHazardRecognizer::HazardType PPCHazardRecognizer970::
@@ -141,7 +143,7 @@ getHazardType(SUnit *SU) {
     return Hazard;
       
   switch (InstrType) {
-  default: assert(0 && "Unknown instruction type!");
+  default: llvm_unreachable("Unknown instruction type!");
   case PPCII::PPC970_FXU:
   case PPCII::PPC970_LSU:
   case PPCII::PPC970_FPU:
@@ -159,7 +161,7 @@ getHazardType(SUnit *SU) {
   }
   
   // Do not allow MTCTR and BCTRL to be in the same dispatch group.
-  if (HasCTRSet && (Opcode == PPC::BCTRL_Macho || Opcode == PPC::BCTRL_ELF))
+  if (HasCTRSet && (Opcode == PPC::BCTRL_Darwin || Opcode == PPC::BCTRL_SVR4))
     return NoopHazard;
   
   // If this is a load following a store, make sure it's not to the same or
@@ -167,7 +169,7 @@ getHazardType(SUnit *SU) {
   if (isLoad && NumStores) {
     unsigned LoadSize;
     switch (Opcode) {
-    default: assert(0 && "Unknown load!");
+    default: llvm_unreachable("Unknown load!");
     case PPC::LBZ:   case PPC::LBZU:
     case PPC::LBZX:
     case PPC::LBZ8:  case PPC::LBZU8:
@@ -235,7 +237,7 @@ void PPCHazardRecognizer970::EmitInstruction(SUnit *SU) {
   if (isStore) {
     unsigned ThisStoreSize;
     switch (Opcode) {
-    default: assert(0 && "Unknown store instruction!");
+    default: llvm_unreachable("Unknown store instruction!");
     case PPC::STB:    case PPC::STB8:
     case PPC::STBU:   case PPC::STBU8:
     case PPC::STBX:   case PPC::STBX8:
@@ -255,7 +257,7 @@ void PPCHazardRecognizer970::EmitInstruction(SUnit *SU) {
     case PPC::STWX:   case PPC::STWX8:
     case PPC::STWUX:
     case PPC::STW:    case PPC::STW8:
-    case PPC::STWU:   case PPC::STWU8:
+    case PPC::STWU:
     case PPC::STVEWX:
     case PPC::STFIWX:
     case PPC::STWBRX:

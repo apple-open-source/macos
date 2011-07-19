@@ -34,6 +34,7 @@
 
 #include "BTreePrivate.h"
 extern char debug;
+extern void plog(const char *fmt, ...);
 
 #define DEBUG_TREEOPS 0
 

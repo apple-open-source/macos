@@ -1,12 +1,12 @@
 
 package Tree::Simple;
 
-use 5.6.0;
+use 5.006;
 
 use strict;
 use warnings;
 
-our $VERSION = '1.17';
+our $VERSION = '1.18';
 
 use Scalar::Util qw(blessed);
 
@@ -99,6 +99,7 @@ sub _setHeight {
     my $child_height = $child->getHeight();
     return if ($self->{_height} >= $child_height + 1);
     $self->{_height} = $child_height + 1;
+    
     # and now bubble up to the parent (unless we are the root)
     $self->getParent()->_setHeight($self) unless $self->isRoot();
 }

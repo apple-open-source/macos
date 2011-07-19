@@ -797,7 +797,7 @@ void* dtrace_ld_create_dof(cpu_type_t cpu,             // [provided by linker] t
 		return NULL;
 	}
 		
-	dof_hdr_t* dof = dtrace_dof_create(dtp, program, DTRACE_D_PROBES);
+	dof_hdr_t* dof = dtrace_dof_create(dtp, program, DTRACE_D_PROBES | DTRACE_D_STRIP);
 	
 	if(register_offsets(dof, probeCount, offsetsInDOF)) {
 		fprintf(stderr, "error: Could not register DOF offsets\n");

@@ -27,20 +27,19 @@
 #ifndef WebGLGetInfo_h
 #define WebGLGetInfo_h
 
-#include "wtf/PassRefPtr.h"
-#include "wtf/RefPtr.h"
+#include "Float32Array.h"
+#include "Int32Array.h"
 #include "PlatformString.h"
-
+#include "Uint8Array.h"
 #include "WebGLBuffer.h"
-#include "WebGLFloatArray.h"
 #include "WebGLFramebuffer.h"
-#include "WebGLIntArray.h"
-// FIXME: implement WebGLObjectArray
-//#include "WebGLObjectArray.h"
 #include "WebGLProgram.h"
 #include "WebGLRenderbuffer.h"
 #include "WebGLTexture.h"
-#include "WebGLUnsignedByteArray.h"
+#include "WebGLVertexArrayObjectOES.h"
+
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
@@ -53,11 +52,12 @@ class WebGLGetInfo {
 public:
     enum Type {
         kTypeBool,
+        kTypeBoolArray,
         kTypeFloat,
-        kTypeLong,
+        kTypeInt,
         kTypeNull,
         kTypeString,
-        kTypeUnsignedLong,
+        kTypeUnsignedInt,
         kTypeWebGLBuffer,
         kTypeWebGLFloatArray,
         kTypeWebGLFramebuffer,
@@ -66,66 +66,73 @@ public:
         kTypeWebGLProgram,
         kTypeWebGLRenderbuffer,
         kTypeWebGLTexture,
-        kTypeWebGLUnsignedByteArray
+        kTypeWebGLUnsignedByteArray,
+        kTypeWebGLVertexArrayObjectOES,
     };
 
     WebGLGetInfo(bool value);
+    WebGLGetInfo(const bool* value, int size);
     WebGLGetInfo(float value);
-    WebGLGetInfo(long value);
-    // Represents the NULL value and type
+    WebGLGetInfo(int value);
+    // Represents the null value and type.
     WebGLGetInfo();
     WebGLGetInfo(const String& value);
-    WebGLGetInfo(unsigned long value);
+    WebGLGetInfo(unsigned int value);
     WebGLGetInfo(PassRefPtr<WebGLBuffer> value);
-    WebGLGetInfo(PassRefPtr<WebGLFloatArray> value);
+    WebGLGetInfo(PassRefPtr<Float32Array> value);
     WebGLGetInfo(PassRefPtr<WebGLFramebuffer> value);
-    WebGLGetInfo(PassRefPtr<WebGLIntArray> value);
+    WebGLGetInfo(PassRefPtr<Int32Array> value);
     // FIXME: implement WebGLObjectArray
     // WebGLGetInfo(PassRefPtr<WebGLObjectArray> value);
     WebGLGetInfo(PassRefPtr<WebGLProgram> value);
     WebGLGetInfo(PassRefPtr<WebGLRenderbuffer> value);
     WebGLGetInfo(PassRefPtr<WebGLTexture> value);
-    WebGLGetInfo(PassRefPtr<WebGLUnsignedByteArray> value);
+    WebGLGetInfo(PassRefPtr<Uint8Array> value);
+    WebGLGetInfo(PassRefPtr<WebGLVertexArrayObjectOES> value);
 
     virtual ~WebGLGetInfo();
 
     Type getType() const;
 
     bool getBool() const;
+    const Vector<bool>& getBoolArray() const;
     float getFloat() const;
-    long getLong() const;
+    int getInt() const;
     const String& getString() const;
-    unsigned long getUnsignedLong() const;
+    unsigned int getUnsignedInt() const;
     PassRefPtr<WebGLBuffer> getWebGLBuffer() const;
-    PassRefPtr<WebGLFloatArray> getWebGLFloatArray() const;
+    PassRefPtr<Float32Array> getWebGLFloatArray() const;
     PassRefPtr<WebGLFramebuffer> getWebGLFramebuffer() const;
-    PassRefPtr<WebGLIntArray> getWebGLIntArray() const;
+    PassRefPtr<Int32Array> getWebGLIntArray() const;
     // FIXME: implement WebGLObjectArray
     // PassRefPtr<WebGLObjectArray> getWebGLObjectArray() const;
     PassRefPtr<WebGLProgram> getWebGLProgram() const;
     PassRefPtr<WebGLRenderbuffer> getWebGLRenderbuffer() const;
     PassRefPtr<WebGLTexture> getWebGLTexture() const;
-    PassRefPtr<WebGLUnsignedByteArray> getWebGLUnsignedByteArray() const;
+    PassRefPtr<Uint8Array> getWebGLUnsignedByteArray() const;
+    PassRefPtr<WebGLVertexArrayObjectOES> getWebGLVertexArrayObjectOES() const;
 
 private:
     Type m_type;
     bool m_bool;
+    Vector<bool> m_boolArray;
     float m_float;
-    long m_long;
+    int m_int;
     String m_string;
-    unsigned long m_unsignedLong;
+    unsigned int m_unsignedInt;
     RefPtr<WebGLBuffer> m_webglBuffer;
-    RefPtr<WebGLFloatArray> m_webglFloatArray;
+    RefPtr<Float32Array> m_webglFloatArray;
     RefPtr<WebGLFramebuffer> m_webglFramebuffer;
-    RefPtr<WebGLIntArray> m_webglIntArray;
+    RefPtr<Int32Array> m_webglIntArray;
     // FIXME: implement WebGLObjectArray
     // RefPtr<WebGLObjectArray> m_webglObjectArray;
     RefPtr<WebGLProgram> m_webglProgram;
     RefPtr<WebGLRenderbuffer> m_webglRenderbuffer;
     RefPtr<WebGLTexture> m_webglTexture;
-    RefPtr<WebGLUnsignedByteArray> m_webglUnsignedByteArray;
+    RefPtr<Uint8Array> m_webglUnsignedByteArray;
+    RefPtr<WebGLVertexArrayObjectOES> m_webglVertexArrayObject;
 };
 
 } // namespace WebCore
 
-#endif  // WebGLGetInfo_h
+#endif // WebGLGetInfo_h

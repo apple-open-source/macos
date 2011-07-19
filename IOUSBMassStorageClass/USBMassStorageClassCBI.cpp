@@ -369,7 +369,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 		
    			STATUS_LOG(( 5, "%s[%p]: kCBIExecuteCommand status %x", getName(), this, resultingStatus ));
 			
-#if defined (__i386__) 
+#if defined (__i386__) || defined (__x86_64__)
 			// For UHCI.
 			// First check to see if an error occurred on sending the command to the device.
 			if ( resultingStatus == kIOUSBPipeStalled )
@@ -451,7 +451,7 @@ IOUSBMassStorageClass::CBIProtocolCommandCompletion(
 				SetRealizedDataTransferCount ( cbiRequestBlock->request, GetRequestedDataTransferCount( cbiRequestBlock->request ) - bufferSizeRemaining );
 			}
 			
-#if defined (__i386__) 
+#if defined (__i386__) || defined (__x86_64__)
 			// For UHCI.
 			if ( resultingStatus == kIOUSBPipeStalled )
 			{

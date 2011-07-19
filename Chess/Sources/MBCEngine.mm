@@ -2,7 +2,7 @@
 	File:		MBCEngine.mm
 	Contains:	An agent representing the sjeng chess engine
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCEngine.mm,v $
+		Revision 1.25  2011/03/13 00:05:45  neerache
+		<rdar://problem/9126277> Second white move gets made by engine when switching from Computer-Computer to Human-Computer
+		
+		Revision 1.24  2010/08/10 21:15:00  neerache
+		<rdar://problem/8248582> Chess hits a zombie when being enlivened
+		
+		Revision 1.23  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.22  2008/10/24 22:45:45  neerache
 		<rdar://problem/5844722> Chess: black may illegally move first in new game
 		
@@ -352,7 +361,7 @@ using std::max;
 	[fLastMove release];
 	fLastMove		= nil;
 
-	const char * s = [fen cString];
+	const char * s = [fen UTF8String];
 	while (isspace(*s))
 		++s;
 	while (!isspace(*s))
@@ -388,6 +397,7 @@ using std::max;
 	if (!fSetPosition) {
 		[self initGame:variant];
 		fLastSide = kBlackSide;
+		fNeedsGo  = false;
 	} else {
 		fNeedsGo	 = sideToPlay != kNeitherSide;
 		fSetPosition = false;
@@ -440,8 +450,8 @@ using std::max;
 		selector:@selector(moveDone:)
 		name:MBCEndMoveNotification
 		object:nil];
-	[self enableEngineMoves:YES];
 	fWaitForStart	= true;	// Suppress further moves until start
+	[self enableEngineMoves:YES];
 }
 
 - (void) moveDone:(NSNotification *)notification
@@ -541,7 +551,7 @@ int MBCReadInput(char * buf, int max_size)
 	ssize_t sz = read([f fileDescriptor], buf, max_size);
 	if (sz > 0)
 		[[MBCController controller] 
-			logFromEngine: [NSString stringWithCString:buf length:sz]];
+			logFromEngine: [NSString stringWithFormat:@"%.*s", sz, buf]];
 	return sz;
 }
 

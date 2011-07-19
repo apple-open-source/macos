@@ -41,6 +41,9 @@
 
 G_BEGIN_DECLS
 
+typedef struct _WebKitIconDatabase WebKitIconDatabase;
+typedef struct _WebKitIconDatabaseClass WebKitIconDatabaseClass;
+
 typedef struct _WebKitNetworkRequest WebKitNetworkRequest;
 typedef struct _WebKitNetworkRequestClass WebKitNetworkRequestClass;
 
@@ -91,6 +94,15 @@ typedef struct _WebKitHitTestResultClass WebKitHitTestResultClass;
 
 typedef struct _WebKitGeolocationPolicyDecision WebKitGeolocationPolicyDecision;
 typedef struct _WebKitGeolocationPolicyDecisionClass WebKitGeolocationPolicyDecisionClass;
+
+typedef struct _WebKitViewportAttributes WebKitViewportAttributes;
+typedef struct _WebKitViewportAttributesClass WebKitViewportAttributesClass;
+
+typedef struct _WebKitWebPluginDatabase        WebKitWebPluginDatabase;
+typedef struct _WebKitWebPluginDatabaseClass   WebKitWebPluginDatabaseClass;
+
+typedef struct _WebKitWebPlugin      WebKitWebPlugin;
+typedef struct _WebKitWebPluginClass WebKitWebPluginClass;
 
 G_END_DECLS
 

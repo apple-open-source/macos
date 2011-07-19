@@ -53,7 +53,6 @@
  * SUCH DAMAGE.
  */
 
-
 #include <sys/types.h>
 #include <utmp.h>
 #include <utmpx.h>

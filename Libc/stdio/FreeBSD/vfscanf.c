@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das Exp $");
 
 #include "namespace.h"
 #include <ctype.h>
@@ -98,9 +94,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das 
 #define	CT_FLOAT	4	/* %[efgEFG] conversion */
 
 static const u_char *__sccl(char *, const u_char *);
+#ifndef NO_FLOATING_POINT
 static int parsefloat(FILE *, char *, char *);
-
-int __scanfdebug = 0;
+#endif
 
 __weak_reference(__vfscanf, vfscanf);
 
@@ -138,7 +134,6 @@ __svfscanf(FILE *fp, const char *fmt0, va_list ap)
 	char ccltab[256];	/* character class table for %[...] */
 	char buf[BUF];		/* buffer for numeric and mb conversions */
 	wchar_t *wcp;		/* handy wide character pointer */
-	wchar_t *wcp0;		/* saves original value of wcp */
 	size_t nconv;		/* length of multibyte sequence converted */
 	static const mbstate_t initial;
 	mbstate_t mbs;
@@ -413,7 +408,7 @@ literal:
 				}
 				nread += sum;
 			} else {
-				size_t r = fread((void *)va_arg(ap, char *), 1,
+				size_t r = __fread((void *)va_arg(ap, char *), 1,
 				    width, fp);
 
 				if (r == 0)
@@ -434,9 +429,9 @@ literal:
 				int nchars;
 
 				if ((flags & SUPPRESS) == 0)
-					wcp = wcp0 = va_arg(ap, wchar_t *);
+					wcp = va_arg(ap, wchar_t *);
 				else
-					wcp = wcp0 = &twc;
+					wcp = &twc;
 				n = 0;
 				nchars = 0;
 				while (width != 0) {
@@ -784,8 +779,6 @@ literal:
 					float res = strtof(buf, &p);
 					*va_arg(ap, float *) = res;
 				}
-				if (__scanfdebug && p - buf != width)
-					abort();
 				nassigned++;
 			}
 			nread += width;
@@ -918,13 +911,13 @@ static int
 parsefloat(FILE *fp, char *buf, char *end)
 {
 	char *commit, *p;
-	int infnanpos = 0;
+	int infnanpos = 0, decptpos = 0;
 	enum {
-		S_START, S_GOTSIGN, S_INF, S_NAN, S_MAYBEHEX,
-		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS
+		S_START, S_GOTSIGN, S_INF, S_NAN, S_DONE, S_MAYBEHEX,
+		S_DIGITS, S_DECPT, S_FRAC, S_EXP, S_EXPDIGITS
 	} state = S_START;
 	unsigned char c;
-	char decpt = *localeconv()->decimal_point;
+	const char *decpt = localeconv()->decimal_point;
 	_Bool gotmantdig = 0, ishex = 0;
 
 	/*
@@ -977,8 +970,6 @@ reswitch:
 			break;
 		case S_NAN:
 			switch (infnanpos) {
-			case -1:	/* XXX kludge to deal with nan(...) */
-				goto parsedone;
 			case 0:
 				if (c != 'A' && c != 'a')
 					goto parsedone;
@@ -996,13 +987,15 @@ reswitch:
 			default:
 				if (c == ')') {
 					commit = p;
-					infnanpos = -2;
+					state = S_DONE;
 				} else if (!isalnum(c) && c != '_')
 					goto parsedone;
 				break;
 			}
 			infnanpos++;
 			break;
+		case S_DONE:
+			goto parsedone;
 		case S_MAYBEHEX:
 			state = S_DIGITS;
 			if (c == 'X' || c == 'x') {
@@ -1013,16 +1006,34 @@ reswitch:
 				goto reswitch;
 			}
 		case S_DIGITS:
-			if ((ishex && isxdigit(c)) || isdigit(c))
+			if ((ishex && isxdigit(c)) || isdigit(c)) {
 				gotmantdig = 1;
-			else {
-				state = S_FRAC;
-				if (c != decpt)
-					goto reswitch;
-			}
-			if (gotmantdig)
 				commit = p;
-			break;
+				break;
+			} else {
+				state = S_DECPT;
+				goto reswitch;
+			}
+		case S_DECPT:
+			if (c == decpt[decptpos]) {
+				if (decpt[++decptpos] == '\0') {
+					/* We read the complete decpt seq. */
+					state = S_FRAC;
+					if (gotmantdig)
+						commit = p;
+				}
+				break;
+			} else if (!decptpos) {
+				/* We didn't read any decpt characters. */
+				state = S_FRAC;
+				goto reswitch;
+			} else {
+				/*
+				 * We read part of a multibyte decimal point,
+				 * but the rest is invalid, so bail.
+				 */
+				goto parsedone;
+			}
 		case S_FRAC:
 			if (((c == 'E' || c == 'e') && !ishex) ||
 			    ((c == 'P' || c == 'p') && ishex)) {

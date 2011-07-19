@@ -1,0 +1,48 @@
+#!/usr/local/bin/perl
+#	Here we are doing this again only this time we'll do it
+#without Echoing the password.
+	
+
+$RSH='/usr/bin/ssh';
+
+$host_to_login_to=shift(@ARGV);
+
+use Expect;
+
+print "Enter password: ";
+# First we have to initialize STDIN in to an expect object.
+$stdin=Expect->exp_init(\*STDIN);
+# Now turn off echoing
+$stdin->exp_stty('-echo');
+# The easy way to do this is:
+#$password=<STDIN>;
+#chop $password;
+# The somewhat harder way is to use $stdin->expect. This would look like:
+#
+ ($match_num,$error,$match,$before,$after)=$stdin->expect(undef,"\r");
+ $password = $before;
+# Turn echo back on
+$stdin->exp_stty('echo');
+# print that newline that wasn't echoed
+print "\n";
+
+$rsh=Expect->spawn($RSH,$host_to_login_to);
+
+# Look for a password prompt.
+$rsh->expect(30,'-re','word:\s$')||(die"Never got password prompt\n");
+
+print $rsh "$password\r";
+
+# Look for a prompt. Prompt can be # $ > or ] followed by a whitespace.
+$prompt  = '[\]\$\>\#]\s$';
+
+# Note the use of -re
+$rsh->expect(30,'-re',$prompt)||(die "Never got prompt on host\n");
+
+# Start top
+print $rsh "exec top\r";
+
+# OK, now return control to user.
+$rsh->interact();
+
+

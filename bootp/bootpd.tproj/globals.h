@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2006 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,7 @@ extern const uint8_t	rfc_magic[4];
 extern char		server_name[MAXHOSTNAMELEN + 1];
 extern SubnetListRef	subnets;
 extern char *		testing_control;
-extern char		transmit_buffer[];
+extern char *		transmit_buffer;
 extern bool		use_open_directory;
 extern int		verbose;
 #endif _S_GLOBALS_H

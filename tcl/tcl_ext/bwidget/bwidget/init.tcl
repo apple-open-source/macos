@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+#  init.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: init.tcl,v 1.92 2009/10/25 20:55:36 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+#
 namespace eval Widget {}
 proc Widget::_opt_defaults {{prio widgetDefault}} {
     if {$::tcl_version >= 8.4} {
@@ -10,7 +16,6 @@ proc Widget::_opt_defaults {{prio widgetDefault}} {
 	}
 	"win32" -
 	"windows" {
-	    #option add *Listbox.background	SystemWindow $prio
 	    option add *ListBox.background	SystemWindow $prio
 	    #option add *Button.padY		0 $prio
 	    option add *ButtonBox.padY		0 $prio
@@ -31,10 +36,14 @@ Widget::_opt_defaults
 
 option read [file join $::BWIDGET::LIBRARY "lang" "en.rc"]
 
-## Add a TraverseIn binding to standard Tk widgets to handle some of
-## the BWidget-specific things we do.
+#  Add a TraverseIn binding to standard Tk widgets to handle some of
+#  the BWidget-specific things we do.
 bind Entry   <<TraverseIn>> { %W selection range 0 end; %W icursor end }
 bind Spinbox <<TraverseIn>> { %W selection range 0 end; %W icursor end }
 
 bind all <Key-Tab>       { Widget::traverseTo [Widget::focusNext %W] }
 bind all <<PrevWindow>>  { Widget::traverseTo [Widget::focusPrev %W] }
+
+
+::BWidget::createSystemFonts
+::BWidget::set_themedefaults "default"

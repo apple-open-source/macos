@@ -22,7 +22,7 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
@@ -31,15 +31,15 @@
 #include "GraphicsContext.h"
 #include "PlatformMouseEvent.h"
 #include "RenderThemeQt.h"
-#include "Scrollbar.h"
 #include "ScrollView.h"
+#include "Scrollbar.h"
 
 #include <QApplication>
 #include <QDebug>
+#include <QMenu>
 #include <QPainter>
 #include <QStyle>
 #include <QStyleOptionSlider>
-#include <QMenu>
 
 namespace WebCore {
 
@@ -56,20 +56,20 @@ ScrollbarThemeQt::~ScrollbarThemeQt()
 static QStyle::SubControl scPart(const ScrollbarPart& part)
 {
     switch (part) {
-        case NoPart:
-            return QStyle::SC_None;
-        case BackButtonStartPart:
-        case BackButtonEndPart:
-            return QStyle::SC_ScrollBarSubLine;
-        case BackTrackPart:
-            return QStyle::SC_ScrollBarSubPage;
-        case ThumbPart:
-            return QStyle::SC_ScrollBarSlider;
-        case ForwardTrackPart:
-            return QStyle::SC_ScrollBarAddPage;
-        case ForwardButtonStartPart:
-        case ForwardButtonEndPart:
-            return QStyle::SC_ScrollBarAddLine;
+    case NoPart:
+        return QStyle::SC_None;
+    case BackButtonStartPart:
+    case BackButtonEndPart:
+        return QStyle::SC_ScrollBarSubLine;
+    case BackTrackPart:
+        return QStyle::SC_ScrollBarSubPage;
+    case ThumbPart:
+        return QStyle::SC_ScrollBarSlider;
+    case ForwardTrackPart:
+        return QStyle::SC_ScrollBarAddPage;
+    case ForwardButtonStartPart:
+    case ForwardButtonEndPart:
+        return QStyle::SC_ScrollBarAddLine;
     }
 
     return QStyle::SC_None;
@@ -78,18 +78,18 @@ static QStyle::SubControl scPart(const ScrollbarPart& part)
 static ScrollbarPart scrollbarPart(const QStyle::SubControl& sc)
 {
     switch (sc) {
-        case QStyle::SC_None:
-            return NoPart;
-        case QStyle::SC_ScrollBarSubLine:
-            return BackButtonStartPart;
-        case QStyle::SC_ScrollBarSubPage:
-            return BackTrackPart;
-        case QStyle::SC_ScrollBarSlider:
-            return ThumbPart;
-        case QStyle::SC_ScrollBarAddPage:
-            return ForwardTrackPart;
-        case QStyle::SC_ScrollBarAddLine:
-            return ForwardButtonStartPart;
+    case QStyle::SC_None:
+        return NoPart;
+    case QStyle::SC_ScrollBarSubLine:
+        return BackButtonStartPart;
+    case QStyle::SC_ScrollBarSubPage:
+        return BackTrackPart;
+    case QStyle::SC_ScrollBarSlider:
+        return ThumbPart;
+    case QStyle::SC_ScrollBarAddPage:
+        return ForwardTrackPart;
+    case QStyle::SC_ScrollBarAddLine:
+        return ForwardButtonStartPart;
     }
     return NoPart;
 }
@@ -110,11 +110,15 @@ static QStyleOptionSlider* styleOptionSlider(Scrollbar* scrollbar, QWidget* widg
     if (scrollbar->controlSize() != RegularScrollbar)
         opt.state |= QStyle::State_Mini;
     opt.orientation = (scrollbar->orientation() == VerticalScrollbar) ? Qt::Vertical : Qt::Horizontal;
+
     if (scrollbar->orientation() == HorizontalScrollbar)
         opt.state |= QStyle::State_Horizontal;
+    else
+        opt.state &= ~QStyle::State_Horizontal;
+
     opt.sliderValue = scrollbar->value();
     opt.sliderPosition = opt.sliderValue;
-    opt.pageStep = scrollbar->visibleSize();
+    opt.pageStep = scrollbar->pageStep();
     opt.singleStep = scrollbar->lineStep();
     opt.minimum = 0;
     opt.maximum = qMax(0, scrollbar->maximum());
@@ -122,9 +126,9 @@ static QStyleOptionSlider* styleOptionSlider(Scrollbar* scrollbar, QWidget* widg
     ScrollbarPart hoveredPart = scrollbar->hoveredPart();
     if (pressedPart != NoPart) {
         opt.activeSubControls = scPart(scrollbar->pressedPart());
-        if (pressedPart == BackButtonStartPart || pressedPart == ForwardButtonStartPart ||
-            pressedPart == BackButtonEndPart || pressedPart == ForwardButtonEndPart ||
-            pressedPart == ThumbPart)
+        if (pressedPart == BackButtonStartPart || pressedPart == ForwardButtonStartPart
+            || pressedPart == BackButtonEndPart || pressedPart == ForwardButtonEndPart
+            || pressedPart == ThumbPart)
             opt.state |= QStyle::State_Sunken;
     } else
         opt.activeSubControls = scPart(hoveredPart);
@@ -190,6 +194,9 @@ void ScrollbarThemeQt::invalidatePart(Scrollbar* scrollbar, ScrollbarPart)
 
 int ScrollbarThemeQt::scrollbarThickness(ScrollbarControlSize controlSize)
 {
+#if USE(QT_MOBILE_THEME)
+    return 0;
+#endif
     QStyleOptionSlider o;
     o.orientation = Qt::Vertical;
     o.state &= ~QStyle::State_Horizontal;

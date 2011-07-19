@@ -50,6 +50,7 @@ static const char rcsid[] =
 #include <stdlib.h>
 #include <unistd.h>
 #include <vis.h>
+#include <sysexits.h>
 
 void process(FILE *, const char *);
 static void usage(void);
@@ -119,4 +120,7 @@ process(FILE *fp, const char *filename)
 	}
 	if (unvis(&outc, (char)0, &state, UNVIS_END) == UNVIS_VALID)
 		putchar(outc);
+	
+	if (ferror(fp))
+		errx(EX_IOERR, "Error reading %s", fp);
 }

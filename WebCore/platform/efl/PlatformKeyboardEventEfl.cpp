@@ -33,13 +33,14 @@
 #include "PlatformKeyboardEvent.h"
 
 #include "NotImplemented.h"
-#include "StringHash.h"
 #include "TextEncoding.h"
 #include "WindowsKeyboardCodes.h"
 
+#include <Evas.h>
 #include <stdio.h>
 #include <wtf/HashMap.h>
-#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -52,7 +53,7 @@ static WindowsKeyMap gWindowsKeyMap;
 static void createKeyMap()
 {
     for (unsigned int i = 1; i < 25; i++) {
-        String key = String::format("F%d", i);
+        String key = "F" + String::number(i);
         gKeyMap.set(key, key);
     }
     gKeyMap.set("Alt_L", "Alt");
@@ -130,15 +131,15 @@ static void createWindowsKeyMap()
     gWindowsKeyMap.set("quotedbl",     VK_OEM_7);
 
     // Alphabet
-    String alphabet = "abcdefghijklmnopqrstuvwxyz";
+    const char* alphabet = "abcdefghijklmnopqrstuvwxyz";
     for (unsigned int i = 0; i < 26; i++) {
-        String key = String::format("%c", alphabet[i]);
+        String key(alphabet + i, 1);
         gWindowsKeyMap.set(key, VK_A + i);
     }
 
     // Digits
     for (unsigned int i = 0; i < 10; i++) {
-        String key = String::format("%d", i);
+        String key = String::number(i);
         gWindowsKeyMap.set(key, VK_0 + i);
     }
 
@@ -160,7 +161,7 @@ static void createWindowsKeyMap()
 
     // F_XX
     for (unsigned int i = 1; i < 25; i++) {
-        String key = String::format("F%d", i);
+        String key = "F" + String::number(i);
         gWindowsKeyMap.set(key, VK_F1 + i);
     }
 }
@@ -187,15 +188,15 @@ static int windowsKeyCodeForEvasKeyName(String& keyName)
     return 0;
 }
 
-PlatformKeyboardEvent::PlatformKeyboardEvent(const Evas_Event_Key_Down* ev)
+PlatformKeyboardEvent::PlatformKeyboardEvent(const Evas_Event_Key_Down* event)
     : m_type(KeyDown)
-    , m_metaKey(evas_key_modifier_is_set(ev->modifiers, "Meta"))
-    , m_shiftKey(evas_key_modifier_is_set(ev->modifiers, "Shift"))
-    , m_ctrlKey(evas_key_modifier_is_set(ev->modifiers, "Control"))
-    , m_altKey(evas_key_modifier_is_set(ev->modifiers, "Alt"))
-    , m_text(String::fromUTF8(ev->string))
+    , m_text(String::fromUTF8(event->string))
+    , m_shiftKey(evas_key_modifier_is_set(event->modifiers, "Shift"))
+    , m_ctrlKey(evas_key_modifier_is_set(event->modifiers, "Control"))
+    , m_altKey(evas_key_modifier_is_set(event->modifiers, "Alt"))
+    , m_metaKey(evas_key_modifier_is_set(event->modifiers, "Meta"))
 {
-    String keyName = String(ev->key);
+    String keyName = String(event->key);
     m_keyIdentifier = keyIdentifierForEvasKeyName(keyName);
     m_windowsVirtualKeyCode = windowsKeyCodeForEvasKeyName(keyName);
 
@@ -204,15 +205,15 @@ PlatformKeyboardEvent::PlatformKeyboardEvent(const Evas_Event_Key_Down* ev)
     m_autoRepeat = false;
 }
 
-PlatformKeyboardEvent::PlatformKeyboardEvent(const Evas_Event_Key_Up* ev)
+PlatformKeyboardEvent::PlatformKeyboardEvent(const Evas_Event_Key_Up* event)
     : m_type(KeyUp)
-    , m_metaKey(evas_key_modifier_is_set(ev->modifiers, "Meta"))
-    , m_shiftKey(evas_key_modifier_is_set(ev->modifiers, "Shift"))
-    , m_ctrlKey(evas_key_modifier_is_set(ev->modifiers, "Control"))
-    , m_altKey(evas_key_modifier_is_set(ev->modifiers, "Alt"))
-    , m_text(String::fromUTF8(ev->string))
+    , m_text(String::fromUTF8(event->string))
+    , m_shiftKey(evas_key_modifier_is_set(event->modifiers, "Shift"))
+    , m_ctrlKey(evas_key_modifier_is_set(event->modifiers, "Control"))
+    , m_altKey(evas_key_modifier_is_set(event->modifiers, "Alt"))
+    , m_metaKey(evas_key_modifier_is_set(event->modifiers, "Meta"))
 {
-    String keyName = String(ev->key);
+    String keyName = String(event->key);
     m_keyIdentifier = keyIdentifierForEvasKeyName(keyName);
     m_windowsVirtualKeyCode = windowsKeyCodeForEvasKeyName(keyName);
 

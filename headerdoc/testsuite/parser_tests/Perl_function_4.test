@@ -1,0 +1,584 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$424|sub groupsort(@)
+{
+    my @arr = @_;
+    # foreach my $temp (@arr) { print STDERR "GROUP: $temp\n"; }
+
+    if ($manPageMode) {
+	my @resorted = ();
+	my $seenLegacy = 0;
+	foreach my $group (sort @arr) {
+		if ($group eq "Section legacy") {
+			$seenLegacy = 1;
+		} else {
+			push(@resorted, $group);
+		}
+	}
+	if ($seenLegacy) {
+		push(@resorted, "Section legacy");
+	}
+	return @resorted;
+    } else {
+	return sort @arr;
+    }
+
+}
+
+$50|/*! This tests an at sign in a parameter list. */
+$0|$6872|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_function_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_function_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => groupsort
+$parserState->{functionContents} => {
+    my @arr = @_;
+    # foreach my $temp (@arr) { print STDERR "GROUP: $temp\n"; }
+
+    if ($manPageMode) {
+        my @resorted = ();
+        my $seenLegacy = 0;
+        foreach my $group (sort @arr) {
+                if ($group eq "Section legacy") {
+                        $seenLegacy = 1;
+                } else {
+                        push(@resorted, $group);
+                }
+        }
+        if ($seenLegacy) {
+                push(@resorted, "Section legacy");
+        }
+        return @resorted;
+    } else {
+        return sort @arr;
+    }
+
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 24
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => groupsort
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => groupsort
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 24
+typelist: function
+namelist: groupsort
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+    my @arr = @_;
+    # foreach my $temp (@arr) { print STDERR "GROUP: $temp\n"; }
+
+    if ($manPageMode) {
+        my @resorted = ();
+        my $seenLegacy = 0;
+        foreach my $group (sort @arr) {
+                if ($group eq "Section legacy") {
+                        $seenLegacy = 1;
+                } else {
+                        push(@resorted, $group);
+                }
+        }
+        if ($seenLegacy) {
+                push(@resorted, "Section legacy");
+        }
+        return @resorted;
+    } else {
+        return sort @arr;
+    }
+
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---groupsort
++---(
+|   +---@
+|   +---)
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl function 4
+APIUID: //test_ref/doc/header/Perl_function_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: groupsort
+    APIUID: //test_ref/perl/func/groupsort
+    ABSTRACT: ""
+    DISCUSSION: "<p>This tests an at sign in a parameter list. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: groupsort (HeaderDoc::Function)
++---sub
++--- 
++---groupsort
++---(
+|   +---@
+|   +---)
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: groupsort (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/groupsort //test_ref/perl/clm/groupsort //test_ref/perl/intfcm/groupsort //test_ref/perl/intfm/groupsort //test_ref/perl/func/groupsort //test_ref/perl/ftmplt/groupsort //test_ref/perl/defn/groupsort //test_ref/perl/macro/groupsort //test_ref/doc/anysymbol/groupsort" machineGenerated="true" --><span class="function">groupsort</span><!-- /a -->(
+	    @) 
+END OF OBJECT
+
+
+
+$6872|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_function_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_function_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => groupsort
+$parserState->{functionContents} => {
+    my @arr = @_;
+    # foreach my $temp (@arr) { print STDERR "GROUP: $temp\n"; }
+
+    if ($manPageMode) {
+        my @resorted = ();
+        my $seenLegacy = 0;
+        foreach my $group (sort @arr) {
+                if ($group eq "Section legacy") {
+                        $seenLegacy = 1;
+                } else {
+                        push(@resorted, $group);
+                }
+        }
+        if ($seenLegacy) {
+                push(@resorted, "Section legacy");
+        }
+        return @resorted;
+    } else {
+        return sort @arr;
+    }
+
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 24
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => groupsort
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => groupsort
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 24
+typelist: function
+namelist: groupsort
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+    my @arr = @_;
+    # foreach my $temp (@arr) { print STDERR "GROUP: $temp\n"; }
+
+    if ($manPageMode) {
+        my @resorted = ();
+        my $seenLegacy = 0;
+        foreach my $group (sort @arr) {
+                if ($group eq "Section legacy") {
+                        $seenLegacy = 1;
+                } else {
+                        push(@resorted, $group);
+                }
+        }
+        if ($seenLegacy) {
+                push(@resorted, "Section legacy");
+        }
+        return @resorted;
+    } else {
+        return sort @arr;
+    }
+
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---groupsort
++---(
+|   +---@
+|   +---)
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl function 4
+APIUID: //test_ref/doc/header/Perl_function_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: groupsort
+    APIUID: //test_ref/perl/func/groupsort
+    ABSTRACT: ""
+    DISCUSSION: "<p>This tests an at sign in a parameter list. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: groupsort (HeaderDoc::Function)
++---sub
++--- 
++---groupsort
++---(
+|   +---@
+|   +---)
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: groupsort (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/groupsort //test_ref/perl/clm/groupsort //test_ref/perl/intfcm/groupsort //test_ref/perl/intfm/groupsort //test_ref/perl/func/groupsort //test_ref/perl/ftmplt/groupsort //test_ref/perl/defn/groupsort //test_ref/perl/macro/groupsort //test_ref/doc/anysymbol/groupsort" machineGenerated="true" --><span class="function">groupsort</span><!-- /a -->(
+	    @) 
+END OF OBJECT
+
+
+
+$210|In Perl, we now nuke the parsed parameters list/stack so that we don't
+get bogus attempts to treat them as declarations of variables (which
+in Perl, they are not).  This test makes sure this behavior persists.
+$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Perl_function_4.test$4|perl$15|Perl function 4$4|perl$6|parser

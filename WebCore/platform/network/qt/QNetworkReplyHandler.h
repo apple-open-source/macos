@@ -16,15 +16,17 @@
     the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
     Boston, MA 02110-1301, USA.
 */
-#ifndef QNETWORKREPLYHANDLER_H
-#define QNETWORKREPLYHANDLER_H
+#ifndef QNetworkReplyHandler_h
+#define QNetworkReplyHandler_h
 
 #include <QObject>
 
-#include <QNetworkRequest>
 #include <QNetworkAccessManager>
+#include <QNetworkReply>
+#include <QNetworkRequest>
 
 #include "FormData.h"
+#include "QtMIMETypeSniffer.h"
 
 QT_BEGIN_NAMESPACE
 class QFile;
@@ -34,55 +36,121 @@ QT_END_NAMESPACE
 namespace WebCore {
 
 class ResourceHandle;
+class ResourceRequest;
+class ResourceResponse;
+class QNetworkReplyHandler;
+
+class QNetworkReplyHandlerCallQueue {
+public:
+    QNetworkReplyHandlerCallQueue(QNetworkReplyHandler*, bool deferSignals);
+    bool deferSignals() const { return m_deferSignals; }
+    void setDeferSignals(bool);
+
+    typedef void (QNetworkReplyHandler::*EnqueuedCall)();
+    void push(EnqueuedCall method);
+    void clear() { m_enqueuedCalls.clear(); }
+
+    void lock();
+    void unlock();
+private:
+    QNetworkReplyHandler* m_replyHandler;
+    int m_locks;
+    bool m_deferSignals;
+    bool m_flushing;
+    QList<EnqueuedCall> m_enqueuedCalls;
+
+    void flush();
+};
+
+class QNetworkReplyWrapper : public QObject {
+    Q_OBJECT
+public:
+    QNetworkReplyWrapper(QNetworkReplyHandlerCallQueue*, QNetworkReply*, bool sniffMIMETypes, QObject* parent = 0);
+    ~QNetworkReplyWrapper();
+
+    QNetworkReply* reply() const { return m_reply; }
+    QNetworkReply* release();
+
+    void synchronousLoad();
+
+    QUrl redirectionTargetUrl() const { return m_redirectionTargetUrl; }
+    QString encoding() const { return m_encoding; }
+    QString advertisedMIMEType() const { return m_advertisedMIMEType; }
+    QString mimeType() const { return m_sniffedMIMEType.isEmpty() ? m_advertisedMIMEType : m_sniffedMIMEType; }
+
+    bool responseContainsData() const { return m_responseContainsData; }
+    bool wasRedirected() const { return m_redirectionTargetUrl.isValid(); }
+
+    // See setFinished().
+    bool isFinished() const { return m_reply->property("_q_isFinished").toBool(); }
+
+private Q_SLOTS:
+    void receiveMetaData();
+    void didReceiveFinished();
+    void didReceiveReadyRead();
+    void receiveSniffedMIMEType();
+    void setFinished();
+
+private:
+    void resetConnections();
+    void emitMetaDataChanged();
+
+    QNetworkReply* m_reply;
+    QUrl m_redirectionTargetUrl;
+
+    QString m_encoding;
+    QNetworkReplyHandlerCallQueue* m_queue;
+    bool m_responseContainsData;
+
+    QString m_advertisedMIMEType;
+
+    QString m_sniffedMIMEType;
+    OwnPtr<QtMIMETypeSniffer> m_sniffer;
+    bool m_sniffMIMETypes;
+};
 
 class QNetworkReplyHandler : public QObject
 {
     Q_OBJECT
 public:
-    enum LoadMode {
-        LoadNormal,
-        LoadDeferred,
-        LoadResuming
+    enum LoadType {
+        AsynchronousLoad,
+        SynchronousLoad
     };
 
-    QNetworkReplyHandler(ResourceHandle *handle, LoadMode);
-    void setLoadMode(LoadMode);
+    QNetworkReplyHandler(ResourceHandle*, LoadType, bool deferred = false);
+    void setLoadingDeferred(bool deferred) { m_queue.setDeferSignals(deferred); }
 
-    QNetworkReply* reply() const { return m_reply; }
+    QNetworkReply* reply() const { return m_replyWrapper ? m_replyWrapper->reply() : 0; }
 
     void abort();
 
     QNetworkReply* release();
 
-signals:
-    void processQueuedItems();
+    void finish();
+    void forwardData();
+    void sendResponseIfNeeded();
 
 private slots:
-    void finish();
-    void sendResponseIfNeeded();
-    void forwardData();
-    void sendQueuedItems();
     void uploadProgress(qint64 bytesSent, qint64 bytesTotal);
 
 private:
     void start();
-    void resetState();
+    String httpMethod() const;
+    void redirect(ResourceResponse&, const QUrl&);
+    bool wasAborted() const { return !m_resourceHandle; }
+    QNetworkReply* sendNetworkRequest(QNetworkAccessManager*, const ResourceRequest&);
 
-    QNetworkReply* m_reply;
+    OwnPtr<QNetworkReplyWrapper> m_replyWrapper;
     ResourceHandle* m_resourceHandle;
-    bool m_redirected;
-    bool m_responseSent;
-    bool m_responseDataSent;
-    LoadMode m_loadMode;
+    LoadType m_loadType;
     QNetworkAccessManager::Operation m_method;
     QNetworkRequest m_request;
 
     // defer state holding
-    bool m_shouldStart;
-    bool m_shouldFinish;
-    bool m_shouldSendResponse;
-    bool m_shouldForwardData;
     int m_redirectionTries;
+
+    QNetworkReplyHandlerCallQueue m_queue;
 };
 
 // Self destructing QIODevice for FormData
@@ -97,6 +165,7 @@ public:
     ~FormDataIODevice();
 
     bool isSequential() const;
+    qint64 getFormDataSize() const { return m_fileSize + m_dataSize; }
 
 protected:
     qint64 readData(char*, qint64);
@@ -104,13 +173,17 @@ protected:
 
 private:
     void moveToNextElement();
+    qint64 computeSize();
+    void openFileForCurrentElement();
 
 private:
     Vector<FormDataElement> m_formElements;
     QFile* m_currentFile;
     qint64 m_currentDelta;
+    qint64 m_fileSize;
+    qint64 m_dataSize;
 };
 
 }
 
-#endif // QNETWORKREPLYHANDLER_H
+#endif // QNetworkReplyHandler_h

@@ -1,4 +1,4 @@
-.\"	$Apple: headerdoc2html.1,v 1.1 2003/06/13 10:53:00 dgatwood Exp $
+.\"
 .\" Copyright (c) 2003 Apple Computer, Inc.
 .\" All rights reserved.
 .\"
@@ -57,15 +57,12 @@ option causes headerdoc to produce unsorted output.
 The
 .Fl v
 option causes headerdoc to print version information.
-.It Fl x
-The
-.Fl x
-option causes headerdoc to export fils in a format suitable for
-inclusion in a database.
 .El
 .Pp
 If no options are specified, headerdoc will produce directories
 containing its standard HTML output.
+.Pp
+For a complete list of flags, see the HeaderDoc User Guide.
 .Pp
 .Sh FILES
 .Bl -tag -width /$HOME/Library/Preferences/com.apple.headerDoc2HTML.config -compact
@@ -74,9 +71,11 @@ containing its standard HTML output.
 .Sh SEE ALSO
 .Xr gatherheaderdoc 1
 .Pp
-For more information, see the headerdoc documentation.
+For more information, see the HeaderDoc User Guide.
 It can be found in
-.Pa /Developer/Documentation/DeveloperTools
-if you have the developer tools package installed, or at
-.Pa http://developer.apple.com
-in the developer tools documentation section.
+.Pa /Developer/Documentation/
+if you have the Xcode Tools package installed, or at
+.UR http://developer.apple.com/mac/library/documentation/DeveloperTools/Conceptual/HeaderDoc/
+<http://developer.apple.com/mac/library/documentation/DeveloperTools/Conceptual/HeaderDoc/>
+.UE
+in the reference library.

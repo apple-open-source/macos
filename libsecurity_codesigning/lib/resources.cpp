@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,8 +37,8 @@ namespace CodeSigning {
 //
 // Construction and maintainance
 //
-ResourceBuilder::ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict)
-	: ResourceEnumerator(root)
+ResourceBuilder::ResourceBuilder(const std::string &root, CFDictionaryRef rulesDict, CodeDirectory::HashAlgorithm hashType)
+	: ResourceEnumerator(root), mHashType(hashType)
 {
 	CFDictionary rules(rulesDict, errSecCSResourceRulesInvalid);
 	rules.apply(this, &ResourceBuilder::addRule);
@@ -142,10 +142,11 @@ CFDictionaryRef ResourceBuilder::build()
 CFDataRef ResourceBuilder::hashFile(const char *path)
 {
 	UnixPlusPlus::AutoFileDesc fd(path);
-	SHA1 hasher;
-	hashFileData(fd, hasher);
-	SHA1::Digest digest;
-	hasher.finish(digest);
+	fd.fcntl(F_NOCACHE, true);		// turn off page caching (one-pass)
+	MakeHash<ResourceBuilder> hasher(this);
+	hashFileData(fd, hasher.get());
+	Hashing::Byte digest[hasher->digestLength()];
+	hasher->finish(digest);
 	return CFDataCreate(NULL, digest, sizeof(digest));
 }
 
@@ -205,8 +206,7 @@ ResourceSeal::ResourceSeal(CFTypeRef it)
 		mOptional = false;
 	} else {
 		mOptional = false;
-		if (!cfscan(it, "{hash=%XO,?optional=%B}", &mHash, &mOptional)
-				|| size_t(CFDataGetLength(mHash)) != SHA1::digestLength)
+		if (!cfscan(it, "{hash=%XO,?optional=%B}", &mHash, &mOptional))
 			MacOSError::throwMe(errSecCSResourcesInvalid);
 	}
 }

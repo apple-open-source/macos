@@ -1,14 +1,168 @@
+2010-08-30  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* license.terms: Fix DFARs note for number-adjusted rights clause
+
+2010-07-06  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* genStubs.tcl: "generic" argument is no longer necessary when
+	there are no suppressors.
+	* [tkimg-Bugs-3011001] Only support accessing tkImg
+	procs through stub table implemented for libpng
+
+2010-06-30  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to libtiff 3.9.4
+
+2010-06-28  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to libpng 1.4.3
+	* backport various ttkGenStubs.tcl improvements
+	  to genStubs.tcl
+
+2010-06-17  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to libjpeg version 8b
+
+2010-06-04  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* [tkimg-Bugs-3011001] Only support accessing tkImg
+	procs through stub table implemented for base and zlib
+
+2010-05-11  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to libpng 1.4.2
+
+2010-05-04  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Make type "boolean" available everywhere, so individual
+	  handlers don't need to define Boln any more.
+	* Formatting.
+	* Make --enable-symbols build on MSVC a little bit
+	  closer to reality and explain disabled warnings.
+
+2010-05-03  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Use PNGTCLAPI in stead of EXTERN in tkImg png package
+	* xbm fix unused variable
+
+2010-04-30  Andreas Kupries <andreask@activestate.com>
+
+	* Fix building tkimg --disable-shared
+
+2010-04-28  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* More MODULE_SCOPE functions in base
+	* Use TKIMGAPI in stead of EXTERN in tkImg base package
+	* Fix various gcc and MSVC warnings
+	* upgrade to libpng 1.4.1
+
+2010-04-23  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to zlib 1.2.5
+
+2010-04-14  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Regenerate all configure scripts with latest TEA tcl.m4
+
+2010-04-09  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Only build pkgIndex.tcl when something changed.
+
+2010-04-07  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* TkimgInitUtilities() always succeeds, and does not
+	  return TCL_ERROR/TCL_OK.
+	* Eliminate forced dependancy for aqua on
+	  ::tk::unsupported::MacWindowStyle
+	* Eliminate msgcat compatibility layer
+
+2010-04-01  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* [Bug 2975449] Kill the Tk 8.2/8.3 ifdeffery - at
+	  least the runtime swizzle (I don't consider
+	  this a bug at all, because it worked fine
+	  as long as it was needed!)
+	* [Bug 2907616] configure ignores --mandir switch
+
+2010-03-31  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Sync with latest TEA (tcl.m4), regenerated all
+	  configure scripts with autoconf-2.65.
+	* Sync genStubs.tcl with latest one from Tcl 8.6,
+	  regenerated all *Decls.h files. All stubs
+	  pointers are const now.
+    
+2009-07-26  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Sync with latest TEA (tcl.m4), regenerated all
+	  configure scripts.
+    
+2009-04-28  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Fix [Bug #82910] teacup requires libX11 to run
+    
+2009-03-12  Stuart Cassoff <stwo@users.sourceforge.net>
+
+	* various fixes to tcl.m4 [Bug #2669308] (Stuart Cassoff)
+	  (To be checked in in sampleextension as well.)
+	* fix [Bug #2669482] Can't 'make test'
+
+2009-03-12  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* fix "make checkstubs"
+	* a few CONST84 eliminations
+
+2009-03-09  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Revert to using "ld -b" in stead of "${CC} -b" for
+	  HP-UX-11; it doesn't work in 64-bit mode.
+
+2009-03-03  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* fix "make genstubs" for libpng, libtiff, libz, libjpeg
+	* PNG build fix
+
+2009-02-24  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* gif handler cleanup
+	* Allow -index N option for TIFF images too [Feature Request #706277]
+
+2009-02-23  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Attempt to fix HP-UX Itanium 64-bit build
+	* revert r177 change to pkgIndex.tcl: it broke TEApot package
+	  handling.
+
+2009-02-17  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Move ./libz to ./compat/zlib and ./libz/tcl to ./zlib
+	* Move ./libjpeg to ./compat/libjpeg and ./libjpeg/tcl to ./libjpeg
+	* Move ./libpng to ./compat/libpng and ./libpng/tcl to ./libpng
+	* Move ./libtiff to ./compat/libtiff and ./libtiff/tcl to ./libtiff
+	* Require Tcl/Tk 8.3 for libz, libpng, libtiff and libjpeg
+
+2009-01-12  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* upgrade to libpng 1.2.34
+
+2009-01-12	Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* No longer Panic when an out-of-memory error occurs,
+	  when compiled with Tcl/Tk 8.5 or later and running with
+	  Tcl/Tk 8.5 and later (Tk bug #2477446)
+
+2009-01-05  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* Two more stub functions for improved Tcl 8.5 support.
+	* Make sure that in C preprocessor directives the "#"
+	  character is the first character on the line.
+
 2008-11-13  Jan Nijtmans <nijtmans@users.sourceforge.net>
 
 	* For gcc, from now on use as standard CFLAGS:
 	    CFLAGS_OPTIMIZE="-O2 -fomit-frame-pointer"
 	    CFLAGS_WARNING="-Wall -Wwrite-strings"
 	* Upgrade to GNU Autoconf 2.63
-
-2008-11-13  Jan Nijtmans <nijtmans@users.sourceforge.net>
-
-	* Create 1.3.x branch. Now trunk is available for
-	  tkImg 1.4 development.
 
 2008-11-13  Jan Nijtmans <nijtmans@users.sourceforge.net>
 

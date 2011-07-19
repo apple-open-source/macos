@@ -24,7 +24,8 @@
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
-<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
+<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a> |
+<a href="../zh-cn/mod/directives.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div>
 
     <p>
@@ -115,6 +116,7 @@
 <li><a href="mod_proxy.html#balancermember" id="B" name="B">BalancerMember</a></li>
 <li><a href="mod_setenvif.html#browsermatch">BrowserMatch</a></li>
 <li><a href="mod_setenvif.html#browsermatchnocase">BrowserMatchNoCase</a></li>
+<li><a href="mod_log_config.html#bufferedlogs">BufferedLogs</a></li>
 <li><a href="mod_cache.html#cachedefaultexpire" id="C" name="C">CacheDefaultExpire</a></li>
 <li><a href="mod_disk_cache.html#cachedirlength">CacheDirLength</a></li>
 <li><a href="mod_disk_cache.html#cachedirlevels">CacheDirLevels</a></li>
@@ -124,16 +126,24 @@
 <li><a href="mod_cache.html#cacheignorecachecontrol">CacheIgnoreCacheControl</a></li>
 <li><a href="mod_cache.html#cacheignoreheaders">CacheIgnoreHeaders</a></li>
 <li><a href="mod_cache.html#cacheignorenolastmod">CacheIgnoreNoLastMod</a></li>
+<li><a href="mod_cache.html#cacheignorequerystring">CacheIgnoreQueryString</a></li>
+<li><a href="mod_cache.html#cacheignoreurlsessionidentifiers">CacheIgnoreURLSessionIdentifiers</a></li>
 <li><a href="mod_cache.html#cachelastmodifiedfactor">CacheLastModifiedFactor</a></li>
+<li><a href="mod_cache.html#cachelock">CacheLock</a></li>
+<li><a href="mod_cache.html#cachelockmaxage">CacheLockMaxAge</a></li>
+<li><a href="mod_cache.html#cachelockpath">CacheLockPath</a></li>
 <li><a href="mod_cache.html#cachemaxexpire">CacheMaxExpire</a></li>
 <li><a href="mod_disk_cache.html#cachemaxfilesize">CacheMaxFileSize</a></li>
 <li><a href="mod_disk_cache.html#cacheminfilesize">CacheMinFileSize</a></li>
 <li><a href="mod_negotiation.html#cachenegotiateddocs">CacheNegotiatedDocs</a></li>
 <li><a href="mod_disk_cache.html#cacheroot">CacheRoot</a></li>
+<li><a href="mod_cache.html#cachestorenostore">CacheStoreNoStore</a></li>
+<li><a href="mod_cache.html#cachestoreprivate">CacheStorePrivate</a></li>
 <li><a href="core.html#cgimapextension">CGIMapExtension</a></li>
 <li><a href="mod_charset_lite.html#charsetdefault">CharsetDefault</a></li>
 <li><a href="mod_charset_lite.html#charsetoptions">CharsetOptions</a></li>
 <li><a href="mod_charset_lite.html#charsetsourceenc">CharsetSourceEnc</a></li>
+<li><a href="mod_speling.html#checkcaseonly">CheckCaseOnly</a></li>
 <li><a href="mod_speling.html#checkspelling">CheckSpelling</a></li>
 <li><a href="mpm_common.html#chrootdir">ChrootDir</a></li>
 <li><a href="core.html#contentdigest">ContentDigest</a></li>
@@ -187,7 +197,8 @@
 <li><a href="mod_status.html#extendedstatus">ExtendedStatus</a></li>
 <li><a href="mod_ext_filter.html#extfilterdefine">ExtFilterDefine</a></li>
 <li><a href="mod_ext_filter.html#extfilteroptions">ExtFilterOptions</a></li>
-<li><a href="core.html#fileetag" id="F" name="F">FileETag</a></li>
+<li><a href="mod_dir.html#fallbackresource" id="F" name="F">FallbackResource</a></li>
+<li><a href="core.html#fileetag">FileETag</a></li>
 <li><a href="core.html#files">&lt;Files&gt;</a></li>
 <li><a href="core.html#filesmatch">&lt;FilesMatch&gt;</a></li>
 <li><a href="mod_filter.html#filterchain">FilterChain</a></li>
@@ -198,7 +209,8 @@
 <li><a href="mod_negotiation.html#forcelanguagepriority">ForceLanguagePriority</a></li>
 <li><a href="core.html#forcetype">ForceType</a></li>
 <li><a href="mod_log_forensic.html#forensiclog">ForensicLog</a></li>
-<li><a href="mpm_common.html#gracefulshutdowntimeout" id="G" name="G">GracefulShutdownTimeout</a></li>
+<li><a href="core.html#gprofdir" id="G" name="G">GprofDir</a></li>
+<li><a href="mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></li>
 <li><a href="mpm_common.html#group">Group</a></li>
 <li><a href="mod_headers.html#header" id="H" name="H">Header</a></li>
 <li><a href="mod_autoindex.html#headername">HeaderName</a></li>
@@ -212,6 +224,7 @@
 <li><a href="mod_imagemap.html#imapdefault">ImapDefault</a></li>
 <li><a href="mod_imagemap.html#imapmenu">ImapMenu</a></li>
 <li><a href="core.html#include">Include</a></li>
+<li><a href="mod_autoindex.html#indexheadinsert">IndexHeadInsert</a></li>
 <li><a href="mod_autoindex.html#indexignore">IndexIgnore</a></li>
 <li><a href="mod_autoindex.html#indexoptions">IndexOptions</a></li>
 <li><a href="mod_autoindex.html#indexorderdefault">IndexOrderDefault</a></li>
@@ -284,6 +297,7 @@
 <li><a href="mod_authz_host.html#order">Order</a></li>
 <li><a href="mod_env.html#passenv" id="P" name="P">PassEnv</a></li>
 <li><a href="mpm_common.html#pidfile">PidFile</a></li>
+<li><a href="core.html#protocol">Protocol</a></li>
 <li><a href="mod_echo.html#protocolecho">ProtocolEcho</a></li>
 <li><a href="mod_proxy.html#proxy">&lt;Proxy&gt;</a></li>
 <li><a href="mod_proxy.html#proxybadheader">ProxyBadHeader</a></li>
@@ -350,6 +364,7 @@
 <li><a href="mod_cgi.html#scriptloglength">ScriptLogLength</a></li>
 <li><a href="mod_cgid.html#scriptsock">ScriptSock</a></li>
 <li><a href="mod_nw_ssl.html#securelisten">SecureListen</a></li>
+<li><a href="mod_status.html#seerequesttail">SeeRequestTail</a></li>
 <li><a href="mpm_common.html#sendbuffersize">SendBufferSize</a></li>
 <li><a href="core.html#serveradmin">ServerAdmin</a></li>
 <li><a href="core.html#serveralias">ServerAlias</a></li>
@@ -418,6 +433,7 @@
 <li><a href="mpm_common.html#startservers">StartServers</a></li>
 <li><a href="mpm_common.html#startthreads">StartThreads</a></li>
 <li><a href="mod_substitute.html#substitute">Substitute</a></li>
+<li><a href="core.html#suexec">Suexec</a></li>
 <li><a href="mod_suexec.html#suexecusergroup">SuexecUserGroup</a></li>
 <li><a href="mpm_common.html#threadlimit" id="T" name="T">ThreadLimit</a></li>
 <li><a href="mpm_common.html#threadsperchild">ThreadsPerChild</a></li>
@@ -446,8 +462,9 @@
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
-<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
+<a href="../tr/mod/directives.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a> |
+<a href="../zh-cn/mod/directives.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div>
 </body></html>

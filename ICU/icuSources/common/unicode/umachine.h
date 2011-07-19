@@ -1,7 +1,7 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2006, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************
@@ -26,15 +26,15 @@
 
 /**
  * \file
- * \brief Basic types and constants for UTF 
- * 
+ * \brief Basic types and constants for UTF
+ *
  * <h2> Basic types and constants for UTF </h2>
  *   This file defines basic types and constants for utf.h to be
  *   platform-independent. umachine.h and utf.h are included into
  *   utypes.h to provide all the general definitions for ICU.
  *   All of these definitions used to be in utypes.h before
  *   the UTF-handling macros made this unmaintainable.
- * 
+ *
  */
 /*==========================================================================*/
 /* Include platform-dependent definitions                                   */
@@ -43,10 +43,13 @@
 
 #if defined(U_PALMOS)
 #   include "unicode/ppalmos.h"
-#elif defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64)
+#elif !defined(__MINGW32__) && (defined(WIN32) || defined(_WIN32) || defined(WIN64) || defined(_WIN64))
+#ifdef CYGWINMSVC
+#   include "unicode/platform.h"
+#endif
 #   include "unicode/pwin32.h"
 #else
-#   include "unicode/platform.h"
+#   include "unicode/ptypes.h" /* platform.h is included in ptypes.h */
 #endif
 
 /*
@@ -88,7 +91,7 @@
 
 /**
  * \def U_CDECL_END
- * This is used to end a declaration of a library private ICU C API 
+ * This is used to end a declaration of a library private ICU C API
  * @stable ICU 2.4
  */
 
@@ -102,12 +105,34 @@
 #   define U_CDECL_END
 #endif
 
+/**
+ * \def U_ATTRIBUTE_DEPRECATED
+ *  This is used for GCC specific attributes
+ * @internal
+ */
+#if defined(__GNUC__) && (__GNUC__ > 3 || (__GNUC__ == 3 && __GNUC_MINOR__ >= 2))
+#    define U_ATTRIBUTE_DEPRECATED __attribute__ ((deprecated))
+/**
+ * \def U_ATTRIBUTE_DEPRECATED
+ * This is used for Visual C++ specific attributes 
+ * @internal
+ */
+#elif defined(U_WINDOWS) && defined(_MSC_VER) && (_MSC_VER >= 1400)
+#    define U_ATTRIBUTE_DEPRECATED __declspec(deprecated)
+#else
+#    define U_ATTRIBUTE_DEPRECATED
+#endif
 /** This is used to declare a function as a public ICU C API @stable ICU 2.0*/
 #define U_CAPI U_CFUNC U_EXPORT
+/** This is used to declare a function as a stable public ICU C API*/
 #define U_STABLE U_CAPI
+/** This is used to declare a function as a draft public ICU C API  */
 #define U_DRAFT  U_CAPI
-#define U_DEPRECATED U_CAPI
+/** This is used to declare a function as a deprecated public ICU C API  */
+#define U_DEPRECATED U_CAPI U_ATTRIBUTE_DEPRECATED
+/** This is used to declare a function as an obsolete public ICU C API  */
 #define U_OBSOLETE U_CAPI
+/** This is used to declare a function as an internal ICU C API  */
 #define U_INTERNAL U_CAPI
 
 /*==========================================================================*/
@@ -243,7 +268,7 @@ typedef int8_t UBool;
  * @stable ICU 2.0
  */
 #if !defined(U_WCHAR_IS_UTF16) && !defined(U_WCHAR_IS_UTF32)
-#   ifdef __STDC_ISO_10646__ 
+#   ifdef __STDC_ISO_10646__
 #       if (U_SIZEOF_WCHAR_T==2)
 #           define U_WCHAR_IS_UTF16
 #       elif (U_SIZEOF_WCHAR_T==4)
@@ -258,7 +283,7 @@ typedef int8_t UBool;
 #           define U_WCHAR_IS_UTF32
 #       endif
 #   elif defined(U_WINDOWS)
-#       define U_WCHAR_IS_UTF16    
+#       define U_WCHAR_IS_UTF16
 #   endif
 #endif
 
@@ -270,17 +295,23 @@ typedef int8_t UBool;
 /**
  * \var UChar
  * Define UChar to be wchar_t if that is 16 bits wide; always assumed to be unsigned.
- * If wchar_t is not 16 bits wide, then define UChar to be uint16_t.
+ * If wchar_t is not 16 bits wide, then define UChar to be uint16_t or char16_t because GCC >=4.4
+ * can handle UTF16 string literals.
  * This makes the definition of UChar platform-dependent
  * but allows direct string type compatibility with platforms with
  * 16-bit wchar_t types.
  *
- * @stable ICU 2.0
+ * @draft ICU 4.4
  */
 
 /* Define UChar to be compatible with wchar_t if possible. */
 #if U_SIZEOF_WCHAR_T==2
     typedef wchar_t UChar;
+#elif U_GNUC_UTF16_STRING
+#if defined _GCC_
+    typedef __CHAR16_TYPE__ char16_t;
+#endif
+    typedef char16_t UChar;
 #else
     typedef uint16_t UChar;
 #endif
@@ -325,6 +356,11 @@ typedef int32_t UChar32;
 
 #endif /* U_HIDE_INTERNAL_API */
 
+/**
+ * \def U_INLINE
+ * This is used to request inlining of a function, on platforms and languages which support it.
+ */
+ 
 #ifndef U_INLINE
 #   ifdef XP_CPLUSPLUS
 #       define U_INLINE inline

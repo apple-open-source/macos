@@ -208,11 +208,27 @@
 #endif
 
 /* ---------------------------------------------------------------- */
+/*                            TYPE SIZES                            */
+/* ---------------------------------------------------------------- */
+
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT 4
+
+/* The size of `long double', as computed by sizeof. */
+#define SIZEOF_LONG_DOUBLE 16
+
+/* The size of `long long', as computed by sizeof. */
+/* #define SIZEOF_LONG_LONG 8 */
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT 2
+
+/* ---------------------------------------------------------------- */
 /*                          STRUCT RELATED                          */
 /* ---------------------------------------------------------------- */
 
 /* Define this if you have struct sockaddr_storage */
-#ifndef __SALFORDC__
+#if !defined(__SALFORDC__) && !defined(__BORLANDC__)
 #define HAVE_STRUCT_SOCKADDR_STORAGE 1
 #endif
 
@@ -327,17 +343,20 @@
    quite convoluted, compiler dependent and even build target dependent. */
 #if defined(HAVE_WS2TCPIP_H)
 #  if defined(__POCC__)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  elif defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0501)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  elif defined(_MSC_VER) && (_MSC_VER >= 1200)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  endif
 #endif
 
@@ -363,6 +382,10 @@
 #endif
 
 #if defined(__MINGW32__) && !defined(USE_WIN32_LARGE_FILES)
+#  define USE_WIN32_LARGE_FILES
+#endif
+
+#if defined(__WATCOMC__) && !defined(USE_WIN32_LARGE_FILES)
 #  define USE_WIN32_LARGE_FILES
 #endif
 

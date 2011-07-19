@@ -132,6 +132,7 @@
 #define __dr7 dr7
 
 #include <string.h>
+#include <libkern/OSByteOrder.h>
 #import <mach-o/i386/swap.h>
 
 void
@@ -139,22 +140,22 @@ swap_i386_thread_state(
 i386_thread_state_t *cpu,
 enum NXByteOrder target_byte_sex)
 {
-	cpu->eax = NXSwapLong(cpu->eax);
-	cpu->ebx = NXSwapLong(cpu->ebx);
-	cpu->ecx = NXSwapLong(cpu->ecx);
-	cpu->edx = NXSwapLong(cpu->edx);
-	cpu->edi = NXSwapLong(cpu->edi);
-	cpu->esi = NXSwapLong(cpu->esi);
-	cpu->ebp = NXSwapLong(cpu->ebp);
-	cpu->esp = NXSwapLong(cpu->esp);
-	cpu->ss = NXSwapLong(cpu->ss);
-	cpu->eflags = NXSwapLong(cpu->eflags);
-	cpu->eip = NXSwapLong(cpu->eip);
-	cpu->cs = NXSwapLong(cpu->cs);
-	cpu->ds = NXSwapLong(cpu->ds);
-	cpu->es = NXSwapLong(cpu->es);
-	cpu->fs = NXSwapLong(cpu->fs);
-	cpu->gs = NXSwapLong(cpu->gs);
+	cpu->eax = OSSwapInt32(cpu->eax);
+	cpu->ebx = OSSwapInt32(cpu->ebx);
+	cpu->ecx = OSSwapInt32(cpu->ecx);
+	cpu->edx = OSSwapInt32(cpu->edx);
+	cpu->edi = OSSwapInt32(cpu->edi);
+	cpu->esi = OSSwapInt32(cpu->esi);
+	cpu->ebp = OSSwapInt32(cpu->ebp);
+	cpu->esp = OSSwapInt32(cpu->esp);
+	cpu->ss = OSSwapInt32(cpu->ss);
+	cpu->eflags = OSSwapInt32(cpu->eflags);
+	cpu->eip = OSSwapInt32(cpu->eip);
+	cpu->cs = OSSwapInt32(cpu->cs);
+	cpu->ds = OSSwapInt32(cpu->ds);
+	cpu->es = OSSwapInt32(cpu->es);
+	cpu->fs = OSSwapInt32(cpu->fs);
+	cpu->gs = OSSwapInt32(cpu->gs);
 }
 
 #ifdef x86_THREAD_STATE64
@@ -163,27 +164,27 @@ swap_x86_thread_state64(
 x86_thread_state64_t *cpu,
 enum NXByteOrder target_byte_sex)
 {
-	cpu->rax = NXSwapLongLong(cpu->rax);
-	cpu->rbx = NXSwapLongLong(cpu->rbx);
-	cpu->rcx = NXSwapLongLong(cpu->rcx);
-	cpu->rdx = NXSwapLongLong(cpu->rdx);
-	cpu->rdi = NXSwapLongLong(cpu->rdi);
-	cpu->rsi = NXSwapLongLong(cpu->rsi);
-	cpu->rbp = NXSwapLongLong(cpu->rbp);
-	cpu->rsp = NXSwapLongLong(cpu->rsp);
-	cpu->rflags = NXSwapLongLong(cpu->rflags);
-	cpu->rip = NXSwapLongLong(cpu->rip);
-	cpu->r8 = NXSwapLongLong(cpu->r8);
-	cpu->r9 = NXSwapLongLong(cpu->r9);
-	cpu->r10 = NXSwapLongLong(cpu->r10);
-	cpu->r11 = NXSwapLongLong(cpu->r11);
-	cpu->r12 = NXSwapLongLong(cpu->r12);
-	cpu->r13 = NXSwapLongLong(cpu->r13);
-	cpu->r14 = NXSwapLongLong(cpu->r14);
-	cpu->r15 = NXSwapLongLong(cpu->r15);
-	cpu->cs = NXSwapLongLong(cpu->cs);
-	cpu->fs = NXSwapLongLong(cpu->fs);
-	cpu->gs = NXSwapLongLong(cpu->gs);
+	cpu->rax = OSSwapInt64(cpu->rax);
+	cpu->rbx = OSSwapInt64(cpu->rbx);
+	cpu->rcx = OSSwapInt64(cpu->rcx);
+	cpu->rdx = OSSwapInt64(cpu->rdx);
+	cpu->rdi = OSSwapInt64(cpu->rdi);
+	cpu->rsi = OSSwapInt64(cpu->rsi);
+	cpu->rbp = OSSwapInt64(cpu->rbp);
+	cpu->rsp = OSSwapInt64(cpu->rsp);
+	cpu->rflags = OSSwapInt64(cpu->rflags);
+	cpu->rip = OSSwapInt64(cpu->rip);
+	cpu->r8 = OSSwapInt64(cpu->r8);
+	cpu->r9 = OSSwapInt64(cpu->r9);
+	cpu->r10 = OSSwapInt64(cpu->r10);
+	cpu->r11 = OSSwapInt64(cpu->r11);
+	cpu->r12 = OSSwapInt64(cpu->r12);
+	cpu->r13 = OSSwapInt64(cpu->r13);
+	cpu->r14 = OSSwapInt64(cpu->r14);
+	cpu->r15 = OSSwapInt64(cpu->r15);
+	cpu->cs = OSSwapInt64(cpu->cs);
+	cpu->fs = OSSwapInt64(cpu->fs);
+	cpu->gs = OSSwapInt64(cpu->gs);
 }
 
 void
@@ -191,8 +192,8 @@ swap_x86_state_hdr(
 x86_state_hdr_t *hdr,
 enum NXByteOrder target_byte_sex)
 {
-	hdr->flavor = NXSwapLong(hdr->flavor);
-	hdr->count = NXSwapLong(hdr->count);
+	hdr->flavor = OSSwapInt32(hdr->flavor);
+	hdr->count = OSSwapInt32(hdr->count);
 }
 
 void
@@ -247,13 +248,13 @@ enum NXByteOrder target_byte_sex)
 
 	host_byte_sex = NXHostByteOrder();
 
-	fpu->fpu_reserved[0] = NXSwapLong(fpu->fpu_reserved[0]);
-	fpu->fpu_reserved[1] = NXSwapLong(fpu->fpu_reserved[1]);
+	fpu->fpu_reserved[0] = OSSwapInt32(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = OSSwapInt32(fpu->fpu_reserved[1]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->fpu_fcw),
 		   sizeof(struct swapped_fp_control));
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    fpu->fpu_fcw.rc = sfpc.u.fields.rc;
 	    fpu->fpu_fcw.pc = sfpc.u.fields.pc;
 	    fpu->fpu_fcw.precis = sfpc.u.fields.precis;
@@ -265,7 +266,7 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&sfps, &(fpu->fpu_fsw),
 		   sizeof(struct swapped_fp_status));
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    fpu->fpu_fsw.busy = sfps.u.fields.busy;
 	    fpu->fpu_fsw.c3 = sfps.u.fields.c3;
 	    fpu->fpu_fsw.tos = sfps.u.fields.tos;
@@ -290,7 +291,7 @@ enum NXByteOrder target_byte_sex)
 	    sfpc.u.fields.zdiv = fpu->fpu_fcw.zdiv;
 	    sfpc.u.fields.denorm = fpu->fpu_fcw.denorm;
 	    sfpc.u.fields.invalid = fpu->fpu_fcw.invalid;
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    memcpy(&(fpu->fpu_fcw), &sfpc,
 		   sizeof(struct swapped_fp_control));
 
@@ -308,20 +309,20 @@ enum NXByteOrder target_byte_sex)
 	    sfps.u.fields.zdiv = fpu->fpu_fsw.zdiv;
 	    sfps.u.fields.denorm = fpu->fpu_fsw.denorm;
 	    sfps.u.fields.invalid = fpu->fpu_fsw.invalid;
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    memcpy(&(fpu->fpu_fsw), &sfps,
 		   sizeof(struct swapped_fp_status));
 	}
-	fpu->fpu_fop = NXSwapShort(fpu->fpu_fop);
-	fpu->fpu_ip = NXSwapLong(fpu->fpu_ip);
-	fpu->fpu_cs = NXSwapShort(fpu->fpu_cs);
-	fpu->fpu_rsrv2 = NXSwapShort(fpu->fpu_rsrv2);
-	fpu->fpu_dp = NXSwapLong(fpu->fpu_dp);
-	fpu->fpu_ds = NXSwapShort(fpu->fpu_ds);
-	fpu->fpu_rsrv3 = NXSwapShort(fpu->fpu_rsrv3);
-	fpu->fpu_mxcsr = NXSwapLong(fpu->fpu_mxcsr);
-	fpu->fpu_mxcsrmask = NXSwapLong(fpu->fpu_mxcsrmask);
-	fpu->fpu_reserved1 = NXSwapLong(fpu->fpu_reserved1);
+	fpu->fpu_fop = OSSwapInt16(fpu->fpu_fop);
+	fpu->fpu_ip = OSSwapInt32(fpu->fpu_ip);
+	fpu->fpu_cs = OSSwapInt16(fpu->fpu_cs);
+	fpu->fpu_rsrv2 = OSSwapInt16(fpu->fpu_rsrv2);
+	fpu->fpu_dp = OSSwapInt32(fpu->fpu_dp);
+	fpu->fpu_ds = OSSwapInt16(fpu->fpu_ds);
+	fpu->fpu_rsrv3 = OSSwapInt16(fpu->fpu_rsrv3);
+	fpu->fpu_mxcsr = OSSwapInt32(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = OSSwapInt32(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = OSSwapInt32(fpu->fpu_reserved1);
 }
 
 void
@@ -329,9 +330,9 @@ swap_x86_exception_state64(
 x86_exception_state64_t *exc,
 enum NXByteOrder target_byte_sex)
 {
-	exc->trapno = NXSwapLong(exc->trapno);
-	exc->err = NXSwapLong(exc->err);
-    	exc->faultvaddr = NXSwapLongLong(exc->faultvaddr);
+	exc->trapno = OSSwapInt32(exc->trapno);
+	exc->err = OSSwapInt32(exc->err);
+    	exc->faultvaddr = OSSwapInt64(exc->faultvaddr);
 }
 
 void
@@ -370,9 +371,13 @@ enum NXByteOrder target_byte_sex)
 
 	swap_x86_state_hdr(&fpu->fsh, target_byte_sex);
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
 	if(hdr.flavor == x86_FLOAT_STATE32)
 	    swap_i386_float_state(&fpu->ufs.fs32, target_byte_sex);
-	else if(hdr.flavor == x86_FLOAT_STATE64)
+	else
+#endif
+	if(hdr.flavor == x86_FLOAT_STATE64)
 	    swap_x86_float_state64(&fpu->ufs.fs64, target_byte_sex);
 }
 
@@ -391,9 +396,13 @@ enum NXByteOrder target_byte_sex)
 
 	swap_x86_state_hdr(&exc->esh, target_byte_sex);
 
+/* current i386 thread states */
+#if i386_THREAD_STATE == 1
 	if(hdr.flavor == x86_EXCEPTION_STATE32)
 	    swap_i386_exception_state(&exc->ues.es32, target_byte_sex);
-	else if(hdr.flavor == x86_EXCEPTION_STATE64)
+	else
+#endif
+	if(hdr.flavor == x86_EXCEPTION_STATE64)
 	    swap_x86_exception_state64(&exc->ues.es64, target_byte_sex);
 }
 
@@ -402,14 +411,14 @@ swap_x86_debug_state32(
 x86_debug_state32_t *debug,
 enum NXByteOrder target_byte_sex)
 {
-	debug->dr0 = NXSwapLong(debug->dr0);
-	debug->dr1 = NXSwapLong(debug->dr1);
-	debug->dr2 = NXSwapLong(debug->dr2);
-	debug->dr3 = NXSwapLong(debug->dr3);
-	debug->dr4 = NXSwapLong(debug->dr4);
-	debug->dr5 = NXSwapLong(debug->dr5);
-	debug->dr6 = NXSwapLong(debug->dr6);
-	debug->dr7 = NXSwapLong(debug->dr7);
+	debug->dr0 = OSSwapInt32(debug->dr0);
+	debug->dr1 = OSSwapInt32(debug->dr1);
+	debug->dr2 = OSSwapInt32(debug->dr2);
+	debug->dr3 = OSSwapInt32(debug->dr3);
+	debug->dr4 = OSSwapInt32(debug->dr4);
+	debug->dr5 = OSSwapInt32(debug->dr5);
+	debug->dr6 = OSSwapInt32(debug->dr6);
+	debug->dr7 = OSSwapInt32(debug->dr7);
 }
 
 void
@@ -417,14 +426,14 @@ swap_x86_debug_state64(
 x86_debug_state64_t *debug,
 enum NXByteOrder target_byte_sex)
 {
-	debug->dr0 = NXSwapLongLong(debug->dr0);
-	debug->dr1 = NXSwapLongLong(debug->dr1);
-	debug->dr2 = NXSwapLongLong(debug->dr2);
-	debug->dr3 = NXSwapLongLong(debug->dr3);
-	debug->dr4 = NXSwapLongLong(debug->dr4);
-	debug->dr5 = NXSwapLongLong(debug->dr5);
-	debug->dr6 = NXSwapLongLong(debug->dr6);
-	debug->dr7 = NXSwapLongLong(debug->dr7);
+	debug->dr0 = OSSwapInt64(debug->dr0);
+	debug->dr1 = OSSwapInt64(debug->dr1);
+	debug->dr2 = OSSwapInt64(debug->dr2);
+	debug->dr3 = OSSwapInt64(debug->dr3);
+	debug->dr4 = OSSwapInt64(debug->dr4);
+	debug->dr5 = OSSwapInt64(debug->dr5);
+	debug->dr6 = OSSwapInt64(debug->dr6);
+	debug->dr7 = OSSwapInt64(debug->dr7);
 }
 
 void
@@ -506,13 +515,13 @@ enum NXByteOrder target_byte_sex)
 
 	host_byte_sex = NXHostByteOrder();
 
-	fpu->fpu_reserved[0] = NXSwapLong(fpu->fpu_reserved[0]);
-	fpu->fpu_reserved[1] = NXSwapLong(fpu->fpu_reserved[1]);
+	fpu->fpu_reserved[0] = OSSwapInt32(fpu->fpu_reserved[0]);
+	fpu->fpu_reserved[1] = OSSwapInt32(fpu->fpu_reserved[1]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->fpu_fcw),
 		   sizeof(struct swapped_fp_control));
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    fpu->fpu_fcw.rc = sfpc.u.fields.rc;
 	    fpu->fpu_fcw.pc = sfpc.u.fields.pc;
 	    fpu->fpu_fcw.precis = sfpc.u.fields.precis;
@@ -524,7 +533,7 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&sfps, &(fpu->fpu_fsw),
 		   sizeof(struct swapped_fp_status));
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    fpu->fpu_fsw.busy = sfps.u.fields.busy;
 	    fpu->fpu_fsw.c3 = sfps.u.fields.c3;
 	    fpu->fpu_fsw.tos = sfps.u.fields.tos;
@@ -549,7 +558,7 @@ enum NXByteOrder target_byte_sex)
 	    sfpc.u.fields.zdiv = fpu->fpu_fcw.zdiv;
 	    sfpc.u.fields.denorm = fpu->fpu_fcw.denorm;
 	    sfpc.u.fields.invalid = fpu->fpu_fcw.invalid;
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    memcpy(&(fpu->fpu_fcw), &sfpc,
 		   sizeof(struct swapped_fp_control));
 
@@ -567,20 +576,20 @@ enum NXByteOrder target_byte_sex)
 	    sfps.u.fields.zdiv = fpu->fpu_fsw.zdiv;
 	    sfps.u.fields.denorm = fpu->fpu_fsw.denorm;
 	    sfps.u.fields.invalid = fpu->fpu_fsw.invalid;
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    memcpy(&(fpu->fpu_fsw), &sfps,
 		   sizeof(struct swapped_fp_status));
 	}
-	fpu->fpu_fop = NXSwapShort(fpu->fpu_fop);
-	fpu->fpu_ip = NXSwapLong(fpu->fpu_ip);
-	fpu->fpu_cs = NXSwapShort(fpu->fpu_cs);
-	fpu->fpu_rsrv2 = NXSwapShort(fpu->fpu_rsrv2);
-	fpu->fpu_dp = NXSwapLong(fpu->fpu_dp);
-	fpu->fpu_ds = NXSwapShort(fpu->fpu_ds);
-	fpu->fpu_rsrv3 = NXSwapShort(fpu->fpu_rsrv3);
-	fpu->fpu_mxcsr = NXSwapLong(fpu->fpu_mxcsr);
-	fpu->fpu_mxcsrmask = NXSwapLong(fpu->fpu_mxcsrmask);
-	fpu->fpu_reserved1 = NXSwapLong(fpu->fpu_reserved1);
+	fpu->fpu_fop = OSSwapInt16(fpu->fpu_fop);
+	fpu->fpu_ip = OSSwapInt32(fpu->fpu_ip);
+	fpu->fpu_cs = OSSwapInt16(fpu->fpu_cs);
+	fpu->fpu_rsrv2 = OSSwapInt16(fpu->fpu_rsrv2);
+	fpu->fpu_dp = OSSwapInt32(fpu->fpu_dp);
+	fpu->fpu_ds = OSSwapInt16(fpu->fpu_ds);
+	fpu->fpu_rsrv3 = OSSwapInt16(fpu->fpu_rsrv3);
+	fpu->fpu_mxcsr = OSSwapInt32(fpu->fpu_mxcsr);
+	fpu->fpu_mxcsrmask = OSSwapInt32(fpu->fpu_mxcsrmask);
+	fpu->fpu_reserved1 = OSSwapInt32(fpu->fpu_reserved1);
 
 #endif /* !defined(i386_EXCEPTION_STATE_COUNT) */
 }
@@ -590,9 +599,9 @@ swap_i386_exception_state(
 i386_exception_state_t *exc,
 enum NXByteOrder target_byte_sex)
 {
-	exc->trapno = NXSwapLong(exc->trapno);
-	exc->err = NXSwapLong(exc->err);
-    	exc->faultvaddr = NXSwapLong(exc->faultvaddr);
+	exc->trapno = OSSwapInt32(exc->trapno);
+	exc->err = OSSwapInt32(exc->err);
+    	exc->faultvaddr = OSSwapInt32(exc->faultvaddr);
 }
 #endif /* i386_THREAD_STATE == 1 */
 
@@ -694,14 +703,14 @@ enum NXByteOrder target_byte_sex)
 
 	host_byte_sex = NXHostByteOrder();
 
-	fpu->environ.ip = NXSwapLong(fpu->environ.ip);
-	fpu->environ.opcode = NXSwapShort(fpu->environ.opcode);
-	fpu->environ.dp = NXSwapLong(fpu->environ.dp);
+	fpu->environ.ip = OSSwapInt32(fpu->environ.ip);
+	fpu->environ.opcode = OSSwapInt16(fpu->environ.opcode);
+	fpu->environ.dp = OSSwapInt32(fpu->environ.dp);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&sfpc, &(fpu->environ.control),
 		   sizeof(struct swapped_fp_control));
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    fpu->environ.control.rc = sfpc.u.fields.rc;
 	    fpu->environ.control.pc = sfpc.u.fields.pc;
 	    fpu->environ.control.precis = sfpc.u.fields.precis;
@@ -713,7 +722,7 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&sfps, &(fpu->environ.status),
 		   sizeof(struct swapped_fp_status));
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    fpu->environ.status.busy = sfps.u.fields.busy;
 	    fpu->environ.status.c3 = sfps.u.fields.c3;
 	    fpu->environ.status.tos = sfps.u.fields.tos;
@@ -731,7 +740,7 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&sfpt, &(fpu->environ.tag),
 		   sizeof(struct swapped_fp_tag));
-	    sfpt.u.half = NXSwapShort(sfpt.u.half);
+	    sfpt.u.half = OSSwapInt16(sfpt.u.half);
 	    fpu->environ.tag.tag7 = sfpt.u.fields.tag7;
 	    fpu->environ.tag.tag6 = sfpt.u.fields.tag6;
 	    fpu->environ.tag.tag5 = sfpt.u.fields.tag5;
@@ -743,14 +752,14 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&ss, &(fpu->environ.cs),
 		   sizeof(struct swapped_sel));
-	    ss.u.half = NXSwapShort(ss.u.half);
+	    ss.u.half = OSSwapInt16(ss.u.half);
 	    fpu->environ.cs.index = ss.u.fields.index;
 	    fpu->environ.cs.ti = ss.u.fields.ti;
 	    fpu->environ.cs.rpl = ss.u.fields.rpl;
 
 	    memcpy(&ss, &(fpu->environ.ds),
 		   sizeof(struct swapped_sel));
-	    ss.u.half = NXSwapShort(ss.u.half);
+	    ss.u.half = OSSwapInt16(ss.u.half);
 	    fpu->environ.ds.index = ss.u.fields.index;
 	    fpu->environ.ds.ti = ss.u.fields.ti;
 	    fpu->environ.ds.rpl = ss.u.fields.rpl;
@@ -758,11 +767,11 @@ enum NXByteOrder target_byte_sex)
 	    for(i = 0; i < 8; i++){
 		memcpy(&sfpd, &(fpu->stack.ST[i]),
 		       sizeof(struct swapped_fp_data_reg));
-		fpu->stack.ST[i].mant = NXSwapShort(sfpd.mant);
-		fpu->stack.ST[i].mant1 = NXSwapShort(sfpd.mant1);
-		fpu->stack.ST[i].mant2 = NXSwapShort(sfpd.mant2);
-		fpu->stack.ST[i].mant3 = NXSwapShort(sfpd.mant3);
-		sfpd.u.half = NXSwapShort(sfpd.u.half);
+		fpu->stack.ST[i].mant = OSSwapInt16(sfpd.mant);
+		fpu->stack.ST[i].mant1 = OSSwapInt16(sfpd.mant1);
+		fpu->stack.ST[i].mant2 = OSSwapInt16(sfpd.mant2);
+		fpu->stack.ST[i].mant3 = OSSwapInt16(sfpd.mant3);
+		sfpd.u.half = OSSwapInt16(sfpd.u.half);
 		fpu->stack.ST[i].exp = sfpd.u.fields.exp;
 		fpu->stack.ST[i].sign = sfpd.u.fields.sign;
 	    }
@@ -776,7 +785,7 @@ enum NXByteOrder target_byte_sex)
 	    sfpc.u.fields.zdiv = fpu->environ.control.zdiv;
 	    sfpc.u.fields.denorm = fpu->environ.control.denorm;
 	    sfpc.u.fields.invalid = fpu->environ.control.invalid;
-	    sfpc.u.half = NXSwapShort(sfpc.u.half);
+	    sfpc.u.half = OSSwapInt16(sfpc.u.half);
 	    memcpy(&(fpu->environ.control), &sfpc,
 		   sizeof(struct swapped_fp_control));
 
@@ -794,7 +803,7 @@ enum NXByteOrder target_byte_sex)
 	    sfps.u.fields.zdiv = fpu->environ.status.zdiv;
 	    sfps.u.fields.denorm = fpu->environ.status.denorm;
 	    sfps.u.fields.invalid = fpu->environ.status.invalid;
-	    sfps.u.half = NXSwapShort(sfps.u.half);
+	    sfps.u.half = OSSwapInt16(sfps.u.half);
 	    memcpy(&(fpu->environ.status), &sfps,
 		   sizeof(struct swapped_fp_status));
 
@@ -806,32 +815,32 @@ enum NXByteOrder target_byte_sex)
 	    sfpt.u.fields.tag2 = fpu->environ.tag.tag2;
 	    sfpt.u.fields.tag1 = fpu->environ.tag.tag1;
 	    sfpt.u.fields.tag0 = fpu->environ.tag.tag0;
-	    sfpt.u.half = NXSwapShort(sfpt.u.half);
+	    sfpt.u.half = OSSwapInt16(sfpt.u.half);
 	    memcpy(&(fpu->environ.tag), &sfpt,
 		   sizeof(struct swapped_fp_tag));
 
 	    ss.u.fields.index = fpu->environ.cs.index;
 	    ss.u.fields.ti = fpu->environ.cs.ti;
 	    ss.u.fields.rpl = fpu->environ.cs.rpl;
-	    ss.u.half = NXSwapShort(ss.u.half);
+	    ss.u.half = OSSwapInt16(ss.u.half);
 	    memcpy(&(fpu->environ.cs), &ss,
 		   sizeof(struct swapped_sel));
 
 	    ss.u.fields.index = fpu->environ.ds.index;
 	    ss.u.fields.ti = fpu->environ.ds.ti;
 	    ss.u.fields.rpl = fpu->environ.ds.rpl;
-	    ss.u.half = NXSwapShort(ss.u.half);
+	    ss.u.half = OSSwapInt16(ss.u.half);
 	    memcpy(&(fpu->environ.cs), &ss,
 		   sizeof(struct swapped_sel));
 
 	    for(i = 0; i < 8; i++){
-		sfpd.mant = NXSwapShort(fpu->stack.ST[i].mant);
-		sfpd.mant1 = NXSwapShort(fpu->stack.ST[i].mant1);
-		sfpd.mant2 = NXSwapShort(fpu->stack.ST[i].mant2);
-		sfpd.mant3 = NXSwapShort(fpu->stack.ST[i].mant3);
+		sfpd.mant = OSSwapInt16(fpu->stack.ST[i].mant);
+		sfpd.mant1 = OSSwapInt16(fpu->stack.ST[i].mant1);
+		sfpd.mant2 = OSSwapInt16(fpu->stack.ST[i].mant2);
+		sfpd.mant3 = OSSwapInt16(fpu->stack.ST[i].mant3);
 		sfpd.u.fields.exp = fpu->stack.ST[i].exp;
 		sfpd.u.fields.sign = fpu->stack.ST[i].sign;
-		sfpd.u.half = NXSwapShort(sfpd.u.half);
+		sfpd.u.half = OSSwapInt16(sfpd.u.half);
 		memcpy(&(fpu->stack.ST[i]), &sfpd,
 		       sizeof(struct swapped_fp_data_reg));
 	    }
@@ -865,11 +874,11 @@ enum NXByteOrder target_byte_sex)
 
 	host_byte_sex = NXHostByteOrder();
 
-	exc->trapno = NXSwapLong(exc->trapno);
+	exc->trapno = OSSwapInt32(exc->trapno);
 	if(exc->trapno == 14){
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sec, &(exc->err), sizeof(struct swapped_err_code));
-		sec.u.word = NXSwapLong(sec.u.word);
+		sec.u.word = OSSwapInt32(sec.u.word);
 		exc->err.pgfault.user   = sec.u.pgfault.user;
 		exc->err.pgfault.wrtflt = sec.u.pgfault.wrtflt;
 		exc->err.pgfault.prot   = sec.u.pgfault.prot;
@@ -878,16 +887,16 @@ enum NXByteOrder target_byte_sex)
 		sec.u.pgfault.prot   = exc->err.pgfault.prot;
 		sec.u.pgfault.wrtflt = exc->err.pgfault.wrtflt;
 		sec.u.pgfault.user   = exc->err.pgfault.user;
-		sec.u.word = NXSwapLong(sec.u.word);
+		sec.u.word = OSSwapInt32(sec.u.word);
 		memcpy(&(exc->err), &sec, sizeof(struct swapped_err_code));
 	    }
 	}
 	else{
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sec, &(exc->err), sizeof(struct swapped_err_code));
-		sec.u.word = NXSwapLong(sec.u.word);
+		sec.u.word = OSSwapInt32(sec.u.word);
 		word = sec.u.normal.index;
-		exc->err.normal.index = NXSwapLong(word);
+		exc->err.normal.index = OSSwapInt32(word);
 		exc->err.normal.tbl   = sec.u.normal.tbl;
 		exc->err.normal.ext   = sec.u.normal.ext;
 	    }
@@ -895,8 +904,8 @@ enum NXByteOrder target_byte_sex)
 		sec.u.normal.ext   = exc->err.normal.ext;
 		sec.u.normal.tbl   = exc->err.normal.tbl;
 		word = exc->err.normal.index;
-		sec.u.normal.index = NXSwapLong(word);
-		sec.u.word = NXSwapLong(sec.u.word);
+		sec.u.normal.index = OSSwapInt32(word);
+		sec.u.word = OSSwapInt32(sec.u.word);
 		memcpy(&(exc->err), &sec, sizeof(struct swapped_err_code));
 	    }
 	}
@@ -907,7 +916,7 @@ swap_i386_thread_cthreadstate(
 i386_thread_cthreadstate_t *user,
 enum NXByteOrder target_byte_sex)
 {
-	user->self = NXSwapLong(user->self);
+	user->self = OSSwapInt32(user->self);
 }
 #endif /* i386_THREAD_STATE == -1 */
 #endif /* !defined(RLD) */

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,6 +55,8 @@ public:
 	StorageManager();
     ~StorageManager() {}
 
+	Mutex* getStorageManagerMutex();
+	
     //bool onlist(const Keychain & keychain);
 
     // These will call addAndNotify() if the specified keychain already exists
@@ -84,12 +86,8 @@ public:
 
 	// Remove a keychain from the cache if it's in it.
 	void removeKeychain(const DLDbIdentifier &dLDbIdentifier, KeychainImpl *keychainImpl);
-	
 	// Be notified a (smart card) keychain was removed.
 	void didRemoveKeychain(const DLDbIdentifier &dLDbIdentifier);
-	
-	// cleanup items for which we hold the final reference
-	void cleanup();
 	
 	// Create KC if it doesn't exist, add it to the search list if it exists and is not already on it.
     Keychain makeKeychain(const DLDbIdentifier &dLDbIdentifier, bool add = true);
@@ -161,8 +159,7 @@ private:
 	// remove a keychain from the sync list
 	void removeKeychainFromSyncList (const DLDbIdentifier &id);
 
-	// mKeychains is protected by globals().apiLock
-    typedef map<DLDbIdentifier, KeychainImpl *> KeychainMap;
+    typedef map<DLDbIdentifier, __weak KeychainImpl *> KeychainMap;
 	// Weak reference map of all keychains we know about that aren't deleted
 	// or removed
     KeychainMap mKeychains;

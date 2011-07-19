@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1999 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1999 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: mprintf.c,v 1.81 2009-04-21 11:46:17 yangtse Exp $
  *
  * Purpose:
  *  A merge of Bjorn Reese's format() function and Daniel's dsprintf()
@@ -871,7 +870,7 @@ static int dprintf_formatf(
           len = strlen(str);
 
         if(prec != -1 && (size_t) prec < len)
-          len = prec;
+          len = (size_t)prec;
         width -= (long)len;
 
         if(p->flags & FLAGS_ALT)
@@ -911,7 +910,7 @@ static int dprintf_formatf(
           static const char strnil[] = "(nil)";
           const char *point;
 
-          width -= sizeof(strnil) - 1;
+          width -= (long)(sizeof(strnil) - 1);
           if(p->flags & FLAGS_LEFT)
             while(width-- > 0)
               OUTCHAR(' ');
@@ -964,7 +963,6 @@ static int dprintf_formatf(
           /* RECURSIVE USAGE */
           len = curl_msnprintf(fptr, left, ".%ld", prec);
           fptr += len;
-          left -= len;
         }
         if(p->flags & FLAGS_LONG)
           *fptr++ = 'l';
@@ -1219,7 +1217,7 @@ int main()
 
   curl_mprintf("%3d %5d\n", 10, 1998);
 
-  ptr=curl_maprintf("test this then baby %s%s%s%s%s%s %d %d %d loser baby get a hit in yer face now!", "", "pretty long string pretty long string pretty long string pretty long string pretty long string", "/", "/", "/", "pretty long string", 1998, 1999, 2001);
+  ptr=curl_maprintf("test this then baby %s%s%s%s%s%s %d %d %d loser baby get a kiss in yer face now!", "", "pretty long string pretty long string pretty long string pretty long string pretty long string", "/", "/", "/", "pretty long string", 1998, 1999, 2001);
 
   puts(ptr);
 

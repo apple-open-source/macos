@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strchr.3	2004-11-25 11:38:47.000000000 -0800
-+++ _SB/Libc/string/FreeBSD/strchr.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -47,9 +47,15 @@
+--- strchr.3.bsdnew	2009-11-18 18:24:33.000000000 -0800
++++ strchr.3	2009-11-18 18:24:33.000000000 -0800
+@@ -43,9 +43,15 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft "char *"
@@ -18,7 +18,7 @@
  .Sh DESCRIPTION
  The
  .Fn strchr
-@@ -59,7 +65,7 @@
+@@ -55,7 +61,7 @@ function locates the first occurrence of
  .Vt char )
  in the string pointed to by
  .Fa s .
@@ -27,7 +27,7 @@
  therefore if
  .Fa c
  is
-@@ -70,7 +76,7 @@
+@@ -66,7 +72,7 @@ the functions locate the terminating
  The
  .Fn strrchr
  function is identical to

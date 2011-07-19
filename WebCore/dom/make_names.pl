@@ -3,6 +3,7 @@
 # Copyright (C) 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
 # Copyright (C) 2009, Julien Chaffraix <jchaffraix@webkit.org>
 # Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
+# Copyright (C) 2011 Ericsson AB. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -35,7 +36,9 @@ use Getopt::Long;
 use File::Path;
 use IO::File;
 use InFilesParser;
-use Switch;
+
+sub readTags($$);
+sub readAttrs($$);
 
 my $printFactory = 0; 
 my $printWrapperFactory = 0; 
@@ -43,18 +46,27 @@ my $printWrapperFactoryV8 = 0;
 my $tagsFile = "";
 my $attrsFile = "";
 my $outputDir = ".";
-my %tags = ();
-my %attrs = ();
+my %parsedTags = ();
+my %parsedAttrs = ();
+my %enabledTags = ();
+my %enabledAttrs = ();
+my %allTags = ();
+my %allAttrs = ();
 my %parameters = ();
 my $extraDefines = 0;
+my %extensionAttrs = ();
+
 require Config;
+
 my $gccLocation = "";
-if (($Config::Config{'osname'}) =~ /solaris/i) {
+if ($ENV{CC}) {
+    $gccLocation = $ENV{CC};
+} elsif (($Config::Config{'osname'}) =~ /solaris/i) {
     $gccLocation = "/usr/sfw/bin/gcc";
 } else {
     $gccLocation = "/usr/bin/gcc";
 }
-my $preprocessor = $gccLocation . " -E -P -x c++";
+my $preprocessor = $gccLocation . " -E -x c++";
 
 GetOptions(
     'tags=s' => \$tagsFile, 
@@ -69,8 +81,15 @@ GetOptions(
 
 die "You must specify at least one of --tags <file> or --attrs <file>" unless (length($tagsFile) || length($attrsFile));
 
-readNames($tagsFile, "tags") if length($tagsFile);
-readNames($attrsFile, "attrs") if length($attrsFile);
+if (length($tagsFile)) {
+    %allTags = %{readTags($tagsFile, 0)};
+    %enabledTags = %{readTags($tagsFile, 1)};
+}
+
+if (length($attrsFile)) {
+    %allAttrs = %{readAttrs($attrsFile, 0)};
+    %enabledAttrs = %{readAttrs($attrsFile, 1)};
+}
 
 die "You must specify a namespace (e.g. SVG) for <namespace>Names.h" unless $parameters{namespace};
 die "You must specify a namespaceURI (e.g. http://www.w3.org/2000/svg)" unless $parameters{namespaceURI};
@@ -110,7 +129,6 @@ sub defaultTagPropertyHash
     return (
         'constructorNeedsCreatedByParser' => 0,
         'constructorNeedsFormElement' => 0,
-        'createWithNew' => 0,
         'interfaceName' => defaultInterfaceName($_[0]),
         # By default, the JSInterfaceName is the same as the interfaceName.
         'JSInterfaceName' => defaultInterfaceName($_[0]),
@@ -147,31 +165,38 @@ sub tagsHandler
     $tag =~ s/-/_/g;
 
     # Initialize default property values.
-    $tags{$tag} = { defaultTagPropertyHash($tag) } if !defined($tags{$tag});
+    $parsedTags{$tag} = { defaultTagPropertyHash($tag) } if !defined($parsedTags{$tag});
 
     if ($property) {
-        die "Unknown property $property for tag $tag\n" if !defined($tags{$tag}{$property});
+        die "Unknown property $property for tag $tag\n" if !defined($parsedTags{$tag}{$property});
 
         # The code relies on JSInterfaceName deriving from interfaceName to check for custom JSInterfaceName.
         # So override JSInterfaceName if it was not already set.
-        $tags{$tag}{JSInterfaceName} = $value if $property eq "interfaceName" && $tags{$tag}{JSInterfaceName} eq $tags{$tag}{interfaceName};
+        $parsedTags{$tag}{JSInterfaceName} = $value if $property eq "interfaceName" && $parsedTags{$tag}{JSInterfaceName} eq $parsedTags{$tag}{interfaceName};
 
-        $tags{$tag}{$property} = $value;
+        $parsedTags{$tag}{$property} = $value;
     }
 }
 
 sub attrsHandler
 {
     my ($attr, $property, $value) = @_;
-
+    # Translate HTML5 extension attributes of the form 'x-webkit-feature' to 'webkitfeature'.
+    # We don't just check for the 'x-' prefix because there are attributes such as x-height
+    # which should follow the default path below.
+    if ($attr =~ m/^x-webkit-(.*)/) {
+        my $newAttr = "webkit$1";
+        $extensionAttrs{$newAttr} = $attr;
+        $attr = $newAttr;
+    }
     $attr =~ s/-/_/g;
 
     # Initialize default properties' values.
-    $attrs{$attr} = {} if !defined($attrs{$attr});
+    $parsedAttrs{$attr} = {} if !defined($parsedAttrs{$attr});
 
     if ($property) {
-        die "Unknown property $property for attribute $attr\n" if !defined($attrs{$attr}{$property});
-        $attrs{$attr}{$property} = $value;
+        die "Unknown property $property for attribute $attr\n" if !defined($parsedAttrs{$attr}{$property});
+        $parsedAttrs{$attr}{$property} = $value;
     }
 }
 
@@ -188,39 +213,43 @@ sub parametersHandler
 
 ## Support routines
 
-sub readNames
+sub preprocessorCommand()
 {
-    my ($namesFile, $type) = @_;
+    return $preprocessor if $extraDefines eq 0;
+    return $preprocessor . " -D" . join(" -D", split(" ", $extraDefines));
+}
+
+sub readNames($$$$)
+{
+    my ($namesFile, $hashToFillRef, $handler, $usePreprocessor) = @_;
 
     my $names = new IO::File;
-
-    if ($extraDefines eq 0) {
-        open($names, $preprocessor . " " . $namesFile . "|") or die "Failed to open file: $namesFile";
+    if ($usePreprocessor) {
+        open($names, preprocessorCommand() . " " . $namesFile . "|") or die "Failed to open file: $namesFile";
     } else {
-        open($names, $preprocessor . " -D" . join(" -D", split(" ", $extraDefines)) . " " . $namesFile . "|") or die "Failed to open file: $namesFile";
+        open($names, $namesFile) or die "Failed to open file: $namesFile";
     }
-
-    # Store hashes keys count to know if some insertion occured.
-    my $tagsCount = keys %tags;
-    my $attrsCount = keys %attrs;
 
     my $InParser = InFilesParser->new();
-
-    switch ($type) {
-        case "tags" {
-            $InParser->parse($names, \&parametersHandler, \&tagsHandler);
-        }
-        case "attrs" {
-            $InParser->parse($names, \&parametersHandler, \&attrsHandler);
-        }
-        else {
-            die "Do not know how to parse $type";
-        }
-    }
+    $InParser->parse($names, \&parametersHandler, $handler);
 
     close($names);
+    die "Failed to read names from file: $namesFile" if (keys %{$hashToFillRef} == 0);
+    return $hashToFillRef;
+}
 
-    die "Failed to read names from file: $namesFile" if ((keys %tags == $tagsCount) && (keys %attrs == $attrsCount));
+sub readAttrs($$)
+{
+    my ($namesFile, $usePreprocessor) = @_;
+    %parsedAttrs = ();
+    return readNames($namesFile, \%parsedAttrs, \&attrsHandler, $usePreprocessor);
+}
+
+sub readTags($$)
+{
+    my ($namesFile, $usePreprocessor) = @_;
+    %parsedTags = ();
+    return readNames($namesFile, \%parsedTags, \&tagsHandler, $usePreprocessor);
 }
 
 sub printMacros
@@ -244,13 +273,13 @@ sub usesDefaultWrapper
 sub buildConstructorMap
 {
     my %tagConstructorMap = ();
-    for my $tagName (keys %tags) {
-        my $interfaceName = $tags{$tagName}{interfaceName};
+    for my $tagName (keys %enabledTags) {
+        my $interfaceName = $enabledTags{$tagName}{interfaceName};
         next if (usesDefaultWrapper($interfaceName));
 
-        if ($tags{$tagName}{mapToTagName}) {
-            die "Cannot handle multiple mapToTagName for $tagName\n" if $tags{$tags{$tagName}{mapToTagName}}{mapToTagName};
-            $interfaceName = $tags{ $tags{$tagName}{mapToTagName} }{interfaceName};
+        if ($enabledTags{$tagName}{mapToTagName}) {
+            die "Cannot handle multiple mapToTagName for $tagName\n" if $enabledTags{$enabledTags{$tagName}{mapToTagName}}{mapToTagName};
+            $interfaceName = $enabledTags{ $enabledTags{$tagName}{mapToTagName} }{interfaceName};
         }
 
         # Chop the string to keep the interesting part.
@@ -270,10 +299,10 @@ sub printConstructorSignature
     print F "static PassRefPtr<$parameters{namespace}Element> ${constructorName}Constructor(const QualifiedName& $constructorTagName, Document* document";
     if ($parameters{namespace} eq "HTML") {
         print F ", HTMLFormElement*";
-        print F " formElement" if $tags{$tagName}{constructorNeedsFormElement};
+        print F " formElement" if $enabledTags{$tagName}{constructorNeedsFormElement};
     }
     print F ", bool";
-    print F " createdByParser" if $tags{$tagName}{constructorNeedsCreatedByParser};
+    print F " createdByParser" if $enabledTags{$tagName}{constructorNeedsCreatedByParser};
     print F ")\n{\n";
 }
 
@@ -285,7 +314,7 @@ sub printConstructorInterior
     my ($F, $tagName, $interfaceName, $constructorTagName) = @_;
 
     # Handle media elements.
-    if ($tags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
+    if ($enabledTags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
         print F <<END
     Settings* settings = document->settings();
     if (!MediaPlayer::isAvailable() || (settings && !settings->isMediaEnabled()))
@@ -295,18 +324,10 @@ END
 ;
     }
 
-    my $newPrefix = "";
-    my $createSuffix = "::create";
-
-    if ($tags{$tagName}{createWithNew}) {
-        $newPrefix = "new ";
-        $createSuffix = "";
-    }
-
     # Call the constructor with the right parameters.
-    print F "    return $newPrefix$interfaceName${createSuffix}($constructorTagName, document";
-    print F ", formElement" if $tags{$tagName}{constructorNeedsFormElement};
-    print F ", createdByParser" if $tags{$tagName}{constructorNeedsCreatedByParser};
+    print F "    return ${interfaceName}::create($constructorTagName, document";
+    print F ", formElement" if $enabledTags{$tagName}{constructorNeedsFormElement};
+    print F ", createdByParser" if $enabledTags{$tagName}{constructorNeedsCreatedByParser};
     print F ");\n}\n\n";
 }
 
@@ -315,20 +336,18 @@ sub printConstructors
     my ($F, $tagConstructorMapRef) = @_;
     my %tagConstructorMap = %$tagConstructorMapRef;
 
-    print F "#if $parameters{guardFactoryWith}\n" if $parameters{guardFactoryWith};
-
     # This is to avoid generating the same constructor several times.
     my %uniqueTags = ();
     for my $tagName (sort keys %tagConstructorMap) {
-        my $interfaceName = $tags{$tagName}{interfaceName};
+        my $interfaceName = $enabledTags{$tagName}{interfaceName};
 
         # Ignore the mapped tag
         # FIXME: It could be moved inside this loop but was split for readibility.
-        next if (defined($uniqueTags{$interfaceName}) || $tags{$tagName}{mapToTagName});
+        next if (defined($uniqueTags{$interfaceName}) || $enabledTags{$tagName}{mapToTagName});
 
         $uniqueTags{$interfaceName} = '1';
 
-        my $conditional = $tags{$tagName}{conditional};
+        my $conditional = $enabledTags{$tagName}{conditional};
         if ($conditional) {
             my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
             print F "#if ${conditionalString}\n\n";
@@ -344,14 +363,12 @@ sub printConstructors
 
     # Mapped tag name uses a special wrapper to keep their prefix and namespaceURI while using the mapped localname.
     for my $tagName (sort keys %tagConstructorMap) {
-        if ($tags{$tagName}{mapToTagName}) {
-            my $mappedName = $tags{$tagName}{mapToTagName};
+        if ($enabledTags{$tagName}{mapToTagName}) {
+            my $mappedName = $enabledTags{$tagName}{mapToTagName};
             printConstructorSignature($F, $mappedName, $mappedName . "To" . $tagName, "tagName");
-            printConstructorInterior($F, $mappedName, $tags{$mappedName}{interfaceName}, "QualifiedName(tagName.prefix(), ${mappedName}Tag.localName(), tagName.namespaceURI())");
+            printConstructorInterior($F, $mappedName, $enabledTags{$mappedName}{interfaceName}, "QualifiedName(tagName.prefix(), ${mappedName}Tag.localName(), tagName.namespaceURI())");
         }
     }
-
-    print F "#endif\n" if $parameters{guardFactoryWith};
 }
 
 sub printFunctionInits
@@ -361,14 +378,14 @@ sub printFunctionInits
 
     for my $tagName (sort keys %tagConstructorMap) {
 
-        my $conditional = $tags{$tagName}{conditional};
+        my $conditional = $enabledTags{$tagName}{conditional};
         if ($conditional) {
             my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
             print F "#if ${conditionalString}\n";
         }
 
-        if ($tags{$tagName}{mapToTagName}) {
-            print F "    addTag(${tagName}Tag, $tags{$tagName}{mapToTagName}To${tagName}Constructor);\n";
+        if ($enabledTags{$tagName}{mapToTagName}) {
+            print F "    addTag(${tagName}Tag, $enabledTags{$tagName}{mapToTagName}To${tagName}Constructor);\n";
         } else {
             print F "    addTag(${tagName}Tag, $tagConstructorMap{$tagName}Constructor);\n";
         }
@@ -452,24 +469,24 @@ sub printNamesHeaderFile
     my $lowerNamespace = lc($parameters{namespacePrefix});
     print F "#ifndef DOM_$parameters{namespace}NAMES_HIDE_GLOBALS\n";
     print F "// Namespace\n";
-    print F "extern const WebCore::AtomicString ${lowerNamespace}NamespaceURI;\n\n";
+    print F "extern const WTF::AtomicString ${lowerNamespace}NamespaceURI;\n\n";
 
-    if (keys %tags) {
+    if (keys %allTags) {
         print F "// Tags\n";
-        printMacros($F, "extern const WebCore::QualifiedName", "Tag", \%tags);
+        printMacros($F, "extern const WebCore::QualifiedName", "Tag", \%allTags);
     }
     
-    if (keys %attrs) {
+    if (keys %allAttrs) {
         print F "// Attributes\n";
-        printMacros($F, "extern const WebCore::QualifiedName", "Attr", \%attrs);
+        printMacros($F, "extern const WebCore::QualifiedName", "Attr", \%allAttrs);
     }
     print F "#endif\n\n";
 
-    if (keys %tags) {
+    if (keys %allTags) {
         print F "WebCore::QualifiedName** get$parameters{namespace}Tags(size_t* size);\n";
     }
 
-    if (keys %attrs) {
+    if (keys %allAttrs) {
         print F "WebCore::QualifiedName** get$parameters{namespace}Attrs(size_t* size);\n";
     }
 
@@ -509,35 +526,35 @@ using namespace WebCore;
 DEFINE_GLOBAL(AtomicString, ${lowerNamespace}NamespaceURI, \"$parameters{namespaceURI}\")
 ";
 
-    if (keys %tags) {
+    if (keys %allTags) {
         print F "// Tags\n";
-        for my $name (sort keys %tags) {
+        for my $name (sort keys %allTags) {
             print F "DEFINE_GLOBAL(QualifiedName, ", $name, "Tag, nullAtom, \"$name\", ${lowerNamespace}NamespaceURI);\n";
         }
         
         print F "\n\nWebCore::QualifiedName** get$parameters{namespace}Tags(size_t* size)\n";
         print F "{\n    static WebCore::QualifiedName* $parameters{namespace}Tags[] = {\n";
-        for my $name (sort keys %tags) {
+        for my $name (sort keys %allTags) {
             print F "        (WebCore::QualifiedName*)&${name}Tag,\n";
         }
         print F "    };\n";
-        print F "    *size = ", scalar(keys %tags), ";\n";
+        print F "    *size = ", scalar(keys %allTags), ";\n";
         print F "    return $parameters{namespace}Tags;\n";
         print F "}\n";
     }
 
-    if (keys %attrs) {
+    if (keys %allAttrs) {
         print F "\n// Attributes\n";
-        for my $name (sort keys %attrs) {
+        for my $name (sort keys %allAttrs) {
             print F "DEFINE_GLOBAL(QualifiedName, ", $name, "Attr, nullAtom, \"$name\", ${lowerNamespace}NamespaceURI);\n";
         }
         print F "\n\nWebCore::QualifiedName** get$parameters{namespace}Attrs(size_t* size)\n";
         print F "{\n    static WebCore::QualifiedName* $parameters{namespace}Attr[] = {\n";
-        for my $name (sort keys %attrs) {
+        for my $name (sort keys %allAttrs) {
             print F "        (WebCore::QualifiedName*)&${name}Attr,\n";
         }
         print F "    };\n";
-        print F "    *size = ", scalar(keys %attrs), ";\n";
+        print F "    *size = ", scalar(keys %allAttrs), ";\n";
         print F "    return $parameters{namespace}Attr;\n";
         print F "}\n";
     }
@@ -558,13 +575,13 @@ print F "\nvoid init()
 
     print(F "    // Namespace\n");
     print(F "    new ((void*)&${lowerNamespace}NamespaceURI) AtomicString(${lowerNamespace}NS);\n\n");
-    if (keys %tags) {
+    if (keys %allTags) {
         my $tagsNamespace = $parameters{tagsNullNamespace} ? "nullAtom" : "${lowerNamespace}NS";
-        printDefinitions($F, \%tags, "tags", $tagsNamespace);
+        printDefinitions($F, \%allTags, "tags", $tagsNamespace);
     }
-    if (keys %attrs) {
+    if (keys %allAttrs) {
         my $attrsNamespace = $parameters{attrsNullNamespace} ? "nullAtom" : "${lowerNamespace}NS";
-        printDefinitions($F, \%attrs, "attributes", $attrsNamespace);
+        printDefinitions($F, \%allAttrs, "attributes", $attrsNamespace);
     }
 
     print F "}\n\n} }\n\n";
@@ -577,9 +594,13 @@ sub printJSElementIncludes
     my $wrapperFactoryType = shift;
 
     my %tagsSeen;
-    for my $tagName (sort keys %tags) {
-        my $JSInterfaceName = $tags{$tagName}{JSInterfaceName};
+    for my $tagName (sort keys %enabledTags) {
+        my $JSInterfaceName = $enabledTags{$tagName}{JSInterfaceName};
         next if defined($tagsSeen{$JSInterfaceName}) || usesDefaultJSWrapper($tagName);
+        if ($enabledTags{$tagName}{conditional}) {
+            # We skip feature-define-specific #includes here since we handle them separately.
+            next;
+        }
         $tagsSeen{$JSInterfaceName} = 1;
 
         print F "#include \"${wrapperFactoryType}${JSInterfaceName}.h\"\n";
@@ -591,12 +612,54 @@ sub printElementIncludes
     my $F = shift;
 
     my %tagsSeen;
-    for my $tagName (sort keys %tags) {
-        my $interfaceName = $tags{$tagName}{interfaceName};
+    for my $tagName (sort keys %enabledTags) {
+        my $interfaceName = $enabledTags{$tagName}{interfaceName};
         next if defined($tagsSeen{$interfaceName});
+        if ($enabledTags{$tagName}{conditional}) {
+            # We skip feature-define-specific #includes here since we handle them separately.
+            next;
+        }
         $tagsSeen{$interfaceName} = 1;
 
         print F "#include \"${interfaceName}.h\"\n";
+    }
+}
+
+sub printConditionalElementIncludes
+{
+    my ($F, $wrapperFactoryType) = @_;
+
+    my %conditionals;
+    my %unconditionalElementIncludes;
+    my %unconditionalJSElementIncludes;
+
+    for my $tagName (keys %enabledTags) {
+        my $conditional = $enabledTags{$tagName}{conditional};
+        my $interfaceName = $enabledTags{$tagName}{interfaceName};
+        my $JSInterfaceName = $enabledTags{$tagName}{JSInterfaceName};
+
+        if ($conditional) {
+            $conditionals{$conditional}{interfaceNames}{$interfaceName} = 1;
+            $conditionals{$conditional}{JSInterfaceNames}{$JSInterfaceName} = 1;
+        } else {
+            $unconditionalElementIncludes{$interfaceName} = 1;
+            $unconditionalJSElementIncludes{$JSInterfaceName} = 1;
+        }
+    }
+
+    for my $conditional (sort keys %conditionals) {
+        print F "\n#if ENABLE($conditional)\n";
+        for my $interfaceName (sort keys %{$conditionals{$conditional}{interfaceNames}}) {
+            next if $unconditionalElementIncludes{$interfaceName};
+            print F "#include \"$interfaceName.h\"\n";
+        }
+        if ($wrapperFactoryType) {
+            for my $JSInterfaceName (sort keys %{$conditionals{$conditional}{JSInterfaceNames}}) {
+                next if $unconditionalJSElementIncludes{$JSInterfaceName};
+                print F "#include \"$wrapperFactoryType$JSInterfaceName.h\"\n";
+            }
+        }
+        print F "#endif\n";
     }
 }
 
@@ -611,8 +674,11 @@ sub printDefinitions
     print F "    // " . ucfirst($type) . "\n";
 
     for my $name (sort keys %$namesRef) {
-        my $realName = $name;
-        $realName =~ s/_/-/g;
+        my $realName = $extensionAttrs{$name};
+        if (!$realName) {
+            $realName = $name;
+            $realName =~ s/_/-/g;
+        }
         print F "    new ((void*)&$name","${shortCamelType}) QualifiedName(nullAtom, \"$realName\", $namespaceURI);\n";
     }
 }
@@ -629,16 +695,24 @@ printLicenseHeader($F);
 
 print F <<END
 #include "config.h"
-#include "$parameters{namespace}ElementFactory.h"
+END
+;
 
+print F "\n#if $parameters{guardFactoryWith}\n\n" if $parameters{guardFactoryWith};
+
+print F <<END
+#include "$parameters{namespace}ElementFactory.h"
 #include "$parameters{namespace}Names.h"
 END
 ;
 
 printElementIncludes($F);
 
+print F "\n#include <wtf/HashMap.h>\n";
+
+printConditionalElementIncludes($F);
+
 print F <<END
-#include <wtf/HashMap.h>
 
 #if ENABLE(DASHBOARD_SUPPORT) || ENABLE(VIDEO)
 #include "Document.h"
@@ -667,8 +741,6 @@ my %tagConstructorMap = buildConstructorMap();
 
 printConstructors($F, \%tagConstructorMap);
 
-print F "#if $parameters{guardFactoryWith}\n" if $parameters{guardFactoryWith};
-
 print F <<END
 static void addTag(const QualifiedName& tag, ConstructorFunction func)
 {
@@ -689,13 +761,10 @@ END
 printFunctionInits($F, \%tagConstructorMap);
 
 print F "}\n";
-print F "#endif\n" if $parameters{guardFactoryWith};
 
 print F "\nPassRefPtr<$parameters{namespace}Element> $parameters{namespace}ElementFactory::create$parameters{namespace}Element(const QualifiedName& qName, Document* document";
 print F ", HTMLFormElement* formElement" if $parameters{namespace} eq "HTML";
 print F ", bool createdByParser)\n{\n";
-
-print F "#if $parameters{guardFactoryWith}\n" if $parameters{guardFactoryWith};
 
 print F <<END
     if (!document)
@@ -731,17 +800,6 @@ if ($parameters{namespace} eq "HTML") {
 
 print F "    return $parameters{namespace}Element::create(qName, document);\n";
 
-if ($parameters{guardFactoryWith}) {
-
-print F <<END
-#else
-    return 0;
-#endif
-END
-;
-
-}
-
 print F <<END
 }
 
@@ -749,6 +807,8 @@ print F <<END
 
 END
 ;
+
+    print F "#endif\n" if $parameters{guardFactoryWith};
 
     close F;
 }
@@ -765,13 +825,13 @@ sub printFactoryHeaderFile
 #ifndef $parameters{namespace}ElementFactory_h
 #define $parameters{namespace}ElementFactory_h
 
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
     class Element;
     class Document;
     class QualifiedName;
-    class AtomicString;
 }
 
 namespace WebCore {
@@ -792,7 +852,7 @@ END
 ;
 print F "        static PassRefPtr<$parameters{namespace}Element> create$parameters{namespace}Element(const WebCore::QualifiedName&, WebCore::Document*";
 print F ", HTMLFormElement* = 0" if $parameters{namespace} eq "HTML";
-print F ", bool /*createdByParser*/ = true);\n";
+print F ", bool createdByParser = true);\n";
 
 printf F<<END
     };
@@ -813,7 +873,7 @@ sub usesDefaultJSWrapper
     my $name = shift;
 
     # A tag reuses the default wrapper if its JSInterfaceName matches the default namespace Element.
-    return $tags{$name}{JSInterfaceName} eq $parameters{namespace} . "Element" || $tags{$name}{JSInterfaceName} eq "HTMLNoScriptElement";
+    return $enabledTags{$name}{JSInterfaceName} eq $parameters{namespace} . "Element" || $enabledTags{$name}{JSInterfaceName} eq "HTMLNoScriptElement";
 }
 
 sub printWrapperFunctions
@@ -822,13 +882,13 @@ sub printWrapperFunctions
     my $wrapperFactoryType = shift;
 
     my %tagsSeen;
-    for my $tagName (sort keys %tags) {
+    for my $tagName (sort keys %enabledTags) {
         # Avoid defining the same wrapper method twice.
-        my $JSInterfaceName = $tags{$tagName}{JSInterfaceName};
+        my $JSInterfaceName = $enabledTags{$tagName}{JSInterfaceName};
         next if defined($tagsSeen{$JSInterfaceName}) || usesDefaultJSWrapper($tagName);
         $tagsSeen{$JSInterfaceName} = 1;
 
-        my $conditional = $tags{$tagName}{conditional};
+        my $conditional = $enabledTags{$tagName}{conditional};
         if ($conditional) {
             my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
             print F "#if ${conditionalString}\n\n";
@@ -837,36 +897,36 @@ sub printWrapperFunctions
         if ($wrapperFactoryType eq "JS") {
             # Hack for the media tags
             # FIXME: This should have been done via a CustomWrapper attribute and a separate *Custom file.
-            if ($tags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
+            if ($enabledTags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
                 print F <<END
-static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
+static JSDOMWrapper* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
 {
     Settings* settings = element->document()->settings();
     if (!MediaPlayer::isAvailable() || (settings && !settings->isMediaEnabled()))
-        return CREATE_DOM_NODE_WRAPPER(exec, globalObject, $parameters{namespace}Element, element.get());
-    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
+        return CREATE_DOM_WRAPPER(exec, globalObject, $parameters{namespace}Element, element.get());
+    return CREATE_DOM_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
 }
 
 END
 ;
             } else {
                 print F <<END
-static JSNode* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
+static JSDOMWrapper* create${JSInterfaceName}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
 {
-    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
+    return CREATE_DOM_WRAPPER(exec, globalObject, ${JSInterfaceName}, element.get());
 }
 
 END
 ;
             }
         } elsif ($wrapperFactoryType eq "V8") {
-            if ($tags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
+            if ($enabledTags{$tagName}{wrapperOnlyIfMediaIsAvailable}) {
                 print F <<END
 static v8::Handle<v8::Value> create${JSInterfaceName}Wrapper($parameters{namespace}Element* element)
 {
     Settings* settings = element->document()->settings();
     if (!MediaPlayer::isAvailable() || (settings && !settings->isMediaEnabled()))
-        return toV8(static_cast<$parameters{namespace}Element*>(element));
+        return V8$parameters{namespace}Element::wrap(element);
     return toV8(static_cast<${JSInterfaceName}*>(element));
 }
 
@@ -901,11 +961,10 @@ sub printWrapperFactoryCppFile
 
     printLicenseHeader($F);
 
-    print F "#include \"config.h\"\n\n";
-
-    print F "#if $parameters{guardFactoryWith}\n\n" if $parameters{guardFactoryWith};
-
+    print F "#include \"config.h\"\n";
     print F "#include \"$wrapperFactoryType$parameters{namespace}ElementWrapperFactory.h\"\n";
+
+    print F "\n#if $parameters{guardFactoryWith}\n\n" if $parameters{guardFactoryWith};
 
     printJSElementIncludes($F, $wrapperFactoryType);
 
@@ -913,8 +972,11 @@ sub printWrapperFactoryCppFile
 
     printElementIncludes($F);
 
+    print F "\n#include <wtf/StdLibExtras.h>\n";
+
+    printConditionalElementIncludes($F, $wrapperFactoryType);
+
     print F <<END
-#include <wtf/StdLibExtras.h>
 
 #if ENABLE(VIDEO)
 #include "Document.h"
@@ -948,7 +1010,7 @@ END
 ;
     if ($wrapperFactoryType eq "JS") {
         print F <<END
-typedef JSNode* (*Create$parameters{namespace}ElementWrapperFunction)(ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{namespace}Element>);
+typedef JSDOMWrapper* (*Create$parameters{namespace}ElementWrapperFunction)(ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{namespace}Element>);
 
 END
 ;
@@ -964,9 +1026,9 @@ END
 
     if ($wrapperFactoryType eq "JS") {
         print F <<END
-JSNode* createJS$parameters{namespace}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
+JSDOMWrapper* createJS$parameters{namespace}Wrapper(ExecState* exec, JSDOMGlobalObject* globalObject, PassRefPtr<$parameters{namespace}Element> element)
 {
-    typedef HashMap<WebCore::AtomicStringImpl*, Create$parameters{namespace}ElementWrapperFunction> FunctionMap;
+    typedef HashMap<WTF::AtomicStringImpl*, Create$parameters{namespace}ElementWrapperFunction> FunctionMap;
     DEFINE_STATIC_LOCAL(FunctionMap, map, ());
     if (map.isEmpty()) {
 END
@@ -975,24 +1037,24 @@ END
         print F <<END
 v8::Handle<v8::Value> createV8$parameters{namespace}Wrapper($parameters{namespace}Element* element, bool forceNewObject)
 {
-    typedef HashMap<WebCore::AtomicStringImpl*, Create$parameters{namespace}ElementWrapperFunction> FunctionMap;
+    typedef HashMap<WTF::AtomicStringImpl*, Create$parameters{namespace}ElementWrapperFunction> FunctionMap;
     DEFINE_STATIC_LOCAL(FunctionMap, map, ());
     if (map.isEmpty()) {
 END
 ;
     }
 
-    for my $tag (sort keys %tags) {
+    for my $tag (sort keys %enabledTags) {
         # Do not add the name to the map if it does not have a JS wrapper constructor or uses the default wrapper.
-        next if usesDefaultJSWrapper($tag, \%tags);
+        next if usesDefaultJSWrapper($tag, \%enabledTags);
 
-        my $conditional = $tags{$tag}{conditional};
+        my $conditional = $enabledTags{$tag}{conditional};
         if ($conditional) {
             my $conditionalString = "ENABLE(" . join(") && ENABLE(", split(/&/, $conditional)) . ")";
             print F "#if ${conditionalString}\n";
         }
 
-        my $ucTag = $tags{$tag}{JSInterfaceName};
+        my $ucTag = $enabledTags{$tag}{JSInterfaceName};
         print F "       map.set(${tag}Tag.localName().impl(), create${ucTag}Wrapper);\n";
 
         if ($conditional) {
@@ -1009,7 +1071,7 @@ END
     if ($wrapperFactoryType eq "JS") {
         print F <<END
         return createWrapperFunction(exec, globalObject, element);
-    return CREATE_DOM_NODE_WRAPPER(exec, globalObject, $parameters{namespace}Element, element.get());
+    return CREATE_DOM_WRAPPER(exec, globalObject, $parameters{namespace}Element, element.get());
 END
 ;
     } elsif ($wrapperFactoryType eq "V8") {
@@ -1057,11 +1119,11 @@ namespace JSC {
                                              
 namespace WebCore {
 
-    class JSNode;
+    class JSDOMWrapper;
     class JSDOMGlobalObject;
     class $parameters{namespace}Element;
 
-    JSNode* createJS$parameters{namespace}Wrapper(JSC::ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{namespace}Element>);
+    JSDOMWrapper* createJS$parameters{namespace}Wrapper(JSC::ExecState*, JSDOMGlobalObject*, PassRefPtr<$parameters{namespace}Element>);
 
 }
  

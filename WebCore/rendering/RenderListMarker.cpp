@@ -26,12 +26,13 @@
 #include "RenderListMarker.h"
 
 #include "CachedImage.h"
-#include "CharacterNames.h"
 #include "Document.h"
 #include "GraphicsContext.h"
 #include "RenderLayer.h"
 #include "RenderListItem.h"
 #include "RenderView.h"
+#include "TextRun.h"
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace std;
 using namespace WTF;
@@ -48,8 +49,7 @@ static String toRoman(int number, bool upper)
     // FIXME: CSS3 describes how to make this work for much larger numbers,
     // using overbars and special characters. It also specifies the characters
     // in the range U+2160 to U+217F instead of standard ASCII ones.
-    if (number < 1 || number > 3999)
-        return String::number(number);
+    ASSERT(number >= 1 && number <= 3999);
 
     // Big enough to store largest roman number less than 3999 which
     // is 3888 (MMMDCCCLXXXVIII)
@@ -80,7 +80,7 @@ static String toRoman(int number, bool upper)
     return String(&letters[lettersSize - length], length);
 }
 
-static inline String toAlphabeticOrNumeric(int number, const UChar* sequence, int sequenceSize, SequenceType type)
+static inline String toAlphabeticOrNumeric(int number, const UChar* sequence, unsigned sequenceSize, SequenceType type)
 {
     ASSERT(sequenceSize >= 2);
 
@@ -116,15 +116,28 @@ static inline String toAlphabeticOrNumeric(int number, const UChar* sequence, in
     return String(&letters[lettersSize - length], length);
 }
 
-static String toAlphabetic(int number, const UChar* alphabet, int alphabetSize)
+static String toSymbolic(int number, const UChar* symbols, unsigned symbolsSize)
 {
-    if (number < 1)
-        return String::number(number);
+    ASSERT(number > 0);
+    ASSERT(symbolsSize >= 1);
+    unsigned numberShadow = number;
+    --numberShadow;
 
+    // The asterisks list-style-type is the worst case; we show |numberShadow| asterisks.
+    Vector<UChar> letters;
+    letters.append(symbols[numberShadow % symbolsSize]);
+    unsigned numSymbols = numberShadow / symbolsSize;
+    while (numSymbols--)
+        letters.append(symbols[numberShadow % symbolsSize]);
+    return String::adopt(letters);
+}
+
+static String toAlphabetic(int number, const UChar* alphabet, unsigned alphabetSize)
+{
     return toAlphabeticOrNumeric(number, alphabet, alphabetSize, AlphabeticSequence);
 }
 
-static String toNumeric(int number, const UChar* numerals, int numeralsSize)
+static String toNumeric(int number, const UChar* numerals, unsigned numeralsSize)
 {
     return toAlphabeticOrNumeric(number, numerals, numeralsSize, NumericSequence);
 }
@@ -137,6 +150,11 @@ template <size_t size> static inline String toAlphabetic(int number, const UChar
 template <size_t size> static inline String toNumeric(int number, const UChar(&alphabet)[size])
 {
     return toNumeric(number, alphabet, size);
+}
+
+template <size_t size> static inline String toSymbolic(int number, const UChar(&alphabet)[size])
+{    
+    return toSymbolic(number, alphabet, size);
 }
 
 static int toHebrewUnder1000(int number, UChar letters[5])
@@ -170,8 +188,7 @@ static int toHebrewUnder1000(int number, UChar letters[5])
 static String toHebrew(int number)
 {
     // FIXME: CSS3 mentions ways to make this work for much larger numbers.
-    if (number < 0 || number > 999999)
-        return String::number(number);
+    ASSERT(number >= 0 && number <= 999999);
 
     if (number == 0) {
         static const UChar hebrewZero[3] = { 0x05D0, 0x05E4, 0x05E1 };
@@ -238,8 +255,7 @@ static int toArmenianUnder10000(int number, bool upper, bool addCircumflex, UCha
 
 static String toArmenian(int number, bool upper)
 {
-    if (number < 1 || number > 99999999)
-        return String::number(number);
+    ASSERT(number >= 1 && number <= 99999999);
 
     const int lettersSize = 18; // twice what toArmenianUnder10000 needs
     UChar letters[lettersSize];
@@ -253,8 +269,7 @@ static String toArmenian(int number, bool upper)
 
 static String toGeorgian(int number)
 {
-    if (number < 1 || number > 19999)
-        return String::number(number);
+    ASSERT(number >= 1 && number <= 19999);
 
     const int lettersSize = 5;
     UChar letters[lettersSize];
@@ -300,8 +315,7 @@ static String toGeorgian(int number)
 // first 3 group markers, then 3 digit markers, then ten digits.
 static String toCJKIdeographic(int number, const UChar table[16])
 {
-    if (number < 0)
-        return String::number(number);
+    ASSERT(number >= 0);
 
     enum AbstractCJKChar {
         noChar,
@@ -379,16 +393,120 @@ static String toCJKIdeographic(int number, const UChar table[16])
     return String(characters, length);
 }
 
-static UChar listMarkerSuffix(EListStyleType type)
+static EListStyleType effectiveListMarkerType(EListStyleType type, int value)
 {
+    // Note, the following switch statement has been explicitly grouped
+    // by list-style-type ordinal range.
+    switch (type) {
+    case ArabicIndic:
+    case Bengali:
+    case BinaryListStyle:
+    case Cambodian:
+    case Circle:
+    case DecimalLeadingZero:
+    case DecimalListStyle:
+    case Devanagari:
+    case Disc:
+    case Gujarati:
+    case Gurmukhi:
+    case Kannada:
+    case Khmer:
+    case Lao:
+    case LowerHexadecimal:
+    case Malayalam:
+    case Mongolian:
+    case Myanmar:
+    case NoneListStyle:
+    case Octal:
+    case Oriya:
+    case Persian:
+    case Square:
+    case Telugu:
+    case Thai:
+    case Tibetan:
+    case UpperHexadecimal:
+    case Urdu:
+        return type; // Can represent all ordinals.
+    case Armenian:
+        return (value < 1 || value > 99999999) ? DecimalListStyle : type;
+    case CJKIdeographic:
+        return (value < 0) ? DecimalListStyle : type;
+    case Georgian:
+        return (value < 1 || value > 19999) ? DecimalListStyle : type;
+    case Hebrew:
+        return (value < 0 || value > 999999) ? DecimalListStyle : type;
+    case LowerRoman:
+    case UpperRoman:
+        return (value < 1 || value > 3999) ? DecimalListStyle : type;
+    case Afar:
+    case Amharic:
+    case AmharicAbegede:
+    case Asterisks:
+    case CjkEarthlyBranch:
+    case CjkHeavenlyStem:
+    case Ethiopic:
+    case EthiopicAbegede:
+    case EthiopicAbegedeAmEt:
+    case EthiopicAbegedeGez:
+    case EthiopicAbegedeTiEr:
+    case EthiopicAbegedeTiEt:
+    case EthiopicHalehameAaEr:
+    case EthiopicHalehameAaEt:
+    case EthiopicHalehameAmEt:
+    case EthiopicHalehameGez:
+    case EthiopicHalehameOmEt:
+    case EthiopicHalehameSidEt:
+    case EthiopicHalehameSoEt:
+    case EthiopicHalehameTiEr:
+    case EthiopicHalehameTiEt:
+    case EthiopicHalehameTig:
+    case Footnotes:
+    case Hangul:
+    case HangulConsonant:
+    case Hiragana:
+    case HiraganaIroha:
+    case Katakana:
+    case KatakanaIroha:
+    case LowerAlpha:
+    case LowerArmenian:
+    case LowerGreek:
+    case LowerLatin:
+    case LowerNorwegian:
+    case Oromo:
+    case Sidama:
+    case Somali:
+    case Tigre:
+    case TigrinyaEr:
+    case TigrinyaErAbegede:
+    case TigrinyaEt:
+    case TigrinyaEtAbegede:
+    case UpperAlpha:
+    case UpperArmenian:
+    case UpperGreek:
+    case UpperLatin:
+    case UpperNorwegian:
+        return (value < 1) ? DecimalListStyle : type;
+    }
+
+    ASSERT_NOT_REACHED();
+    return type;
+}
+
+static UChar listMarkerSuffix(EListStyleType type, int value)
+{
+    // If the list-style-type cannot represent |value| because it's outside its
+    // ordinal range then we fall back to some list style that can represent |value|.
+    EListStyleType effectiveType = effectiveListMarkerType(type, value);
+
     // Note, the following switch statement has been explicitly
     // grouped by list-style-type suffix.
-    switch (type) {
-    case NoneListStyle:
-    case Disc:
+    switch (effectiveType) {
+    case Asterisks:
     case Circle:
+    case Disc:
+    case Footnotes:
+    case NoneListStyle:
     case Square:
-        ASSERT_NOT_REACHED();
         return ' ';
     case Afar:
     case Amharic:
@@ -443,6 +561,7 @@ static UChar listMarkerSuffix(EListStyleType type)
     case Khmer:
     case Lao:
     case LowerAlpha:
+    case LowerArmenian:
     case LowerGreek:
     case LowerHexadecimal:
     case LowerLatin:
@@ -458,6 +577,7 @@ static UChar listMarkerSuffix(EListStyleType type)
     case Thai:
     case Tibetan:
     case UpperAlpha:
+    case UpperArmenian:
     case UpperGreek:
     case UpperHexadecimal:
     case UpperLatin:
@@ -473,16 +593,30 @@ static UChar listMarkerSuffix(EListStyleType type)
 
 String listMarkerText(EListStyleType type, int value)
 {
-    switch (type) {
+    // If the list-style-type, say hebrew, cannot represent |value| because it's outside
+    // its ordinal range then we fallback to some list style that can represent |value|.
+    switch (effectiveListMarkerType(type, value)) {
         case NoneListStyle:
             return "";
 
+        case Asterisks: {
+            static const UChar asterisksSymbols[1] = {
+                0x002A
+            };
+            return toSymbolic(value, asterisksSymbols);
+        }
         // We use the same characters for text security.
         // See RenderText::setInternalString.
         case Circle:
             return String(&whiteBullet, 1);
         case Disc:
             return String(&bullet, 1);
+        case Footnotes: {
+            static const UChar footnotesSymbols[4] = {
+                0x002A, 0x2051, 0x2020, 0x2021
+            };
+            return toSymbolic(value, footnotesSymbols);
+        }
         case Square:
             // The CSS 2.1 test suite uses U+25EE BLACK MEDIUM SMALL SQUARE
             // instead, but I think this looks better.
@@ -891,10 +1025,13 @@ String listMarkerText(EListStyleType type, int value)
             return toRoman(value, true);
 
         case Armenian:
+        case UpperArmenian:
             // CSS3 says "armenian" means "lower-armenian".
             // But the CSS2.1 test suite contains uppercase test results for "armenian",
             // so we'll match the test suite.
             return toArmenian(value, true);
+        case LowerArmenian:
+            return toArmenian(value, false);
         case Georgian:
             return toGeorgian(value);
         case Hebrew:
@@ -957,9 +1094,12 @@ IntRect RenderListMarker::localSelectionRect()
 {
     InlineBox* box = inlineBoxWrapper();
     if (!box)
-        return IntRect();
-    RootInlineBox* root = box->root();
-    return IntRect(x(), root->selectionTop() - y(), width(), root->selectionHeight());
+        return IntRect(0, 0, width(), height());
+    RootInlineBox* root = m_inlineBoxWrapper->root();
+    int newLogicalTop = root->block()->style()->isFlippedBlocksWritingMode() ? m_inlineBoxWrapper->logicalBottom() - root->selectionBottom() : root->selectionTop() - m_inlineBoxWrapper->logicalTop();
+    if (root->block()->style()->isHorizontalWritingMode())
+        return IntRect(0, newLogicalTop, width(), root->selectionHeight());
+    return IntRect(newLogicalTop, 0, root->selectionHeight(), height());
 }
 
 void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
@@ -970,16 +1110,18 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
     if (style()->visibility() != VISIBLE)
         return;
 
-    IntRect marker = getRelativeMarkerRect();
-    marker.move(tx, ty);
+    IntPoint boxOrigin(tx + x(), ty + y());
+    IntRect overflowRect(visualOverflowRect());
+    overflowRect.move(boxOrigin.x(), boxOrigin.y());
+    overflowRect.inflate(maximalOutlineSize(paintInfo.phase));
 
-    IntRect box(tx + x(), ty + y(), width(), height());
-
-    if (box.y() > paintInfo.rect.bottom() || box.y() + box.height() < paintInfo.rect.y())
+    if (!paintInfo.rect.intersects(overflowRect))
         return;
 
-    if (hasBoxDecorations()) 
-        paintBoxDecorations(paintInfo, box.x(), box.y());
+    IntRect box(boxOrigin, IntSize(width(), height()));
+    
+    IntRect marker = getRelativeMarkerRect();
+    marker.move(boxOrigin.x(), boxOrigin.y());
 
     GraphicsContext* context = paintInfo.context;
 
@@ -988,10 +1130,10 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         if (style()->highlight() != nullAtom && !paintInfo.context->paintingDisabled())
             paintCustomHighlight(tx, ty, style()->highlight(), true);
 #endif
-        context->drawImage(m_image->image(this, marker.size()), style()->colorSpace(), marker.location());
+        context->drawImage(m_image->image(this, marker.size()).get(), style()->colorSpace(), marker);
         if (selectionState() != SelectionNone) {
             IntRect selRect = localSelectionRect();
-            selRect.move(tx, ty);
+            selRect.move(boxOrigin.x(), boxOrigin.y());
             context->fillRect(selRect, selectionBackgroundColor(), style()->colorSpace());
         }
         return;
@@ -1005,7 +1147,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
 
     if (selectionState() != SelectionNone) {
         IntRect selRect = localSelectionRect();
-        selRect.move(tx, ty);
+        selRect.move(boxOrigin.x(), boxOrigin.y());
         context->fillRect(selRect, selectionBackgroundColor(), style()->colorSpace());
     }
 
@@ -1021,7 +1163,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
             context->drawEllipse(marker);
             return;
         case Circle:
-            context->setFillColor(Color::transparent, DeviceColorSpace);
+            context->setFillColor(Color::transparent, ColorSpaceDeviceRGB);
             context->drawEllipse(marker);
             return;
         case Square:
@@ -1073,6 +1215,7 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         case Khmer:
         case Lao:
         case LowerAlpha:
+        case LowerArmenian:
         case LowerGreek:
         case LowerHexadecimal:
         case LowerLatin:
@@ -1096,12 +1239,15 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
         case TigrinyaEt:
         case TigrinyaEtAbegede:
         case UpperAlpha:
+        case UpperArmenian:
         case UpperGreek:
         case UpperHexadecimal:
         case UpperLatin:
         case UpperNorwegian:
         case UpperRoman:
         case Urdu:
+        case Asterisks:
+        case Footnotes:
             break;
     }
     if (m_text.isEmpty())
@@ -1109,54 +1255,72 @@ void RenderListMarker::paint(PaintInfo& paintInfo, int tx, int ty)
 
     TextRun textRun(m_text);
 
-    // Text is not arbitrary. We can judge whether it's RTL from the first character,
-    // and we only need to handle the direction RightToLeft for now.
-    bool textNeedsReversing = direction(m_text[0]) == RightToLeft;
-    Vector<UChar> reversedText;
-    if (textNeedsReversing) {
-        int length = m_text.length();
-        reversedText.grow(length);
-        for (int i = 0; i < length; ++i)
-            reversedText[length - i - 1] = m_text[i];
-        textRun = TextRun(reversedText.data(), length);
+    GraphicsContextStateSaver stateSaver(*context, false);
+    if (!style()->isHorizontalWritingMode()) {
+        marker.move(-boxOrigin.x(), -boxOrigin.y());
+        marker = marker.transposedRect();
+        marker.move(box.x(), box.y() - logicalHeight());
+        stateSaver.save();
+        context->translate(marker.x(), marker.maxY());
+        context->rotate(static_cast<float>(deg2rad(90.)));
+        context->translate(-marker.x(), -marker.maxY());
     }
 
-    const Font& font = style()->font();
-    const UChar suffix = listMarkerSuffix(type);
-    if (style()->direction() == LTR) {
-        int width = font.width(textRun);
-        context->drawText(style()->font(), textRun, marker.location());
-        UChar suffixSpace[2] = { suffix, ' ' };
-        context->drawText(style()->font(), TextRun(suffixSpace, 2), marker.location() + IntSize(width, 0));
-    } else {
-        UChar spaceSuffix[2] = { ' ', suffix };
-        TextRun spaceSuffixRun(spaceSuffix, 2);
-        int width = font.width(spaceSuffixRun);
-        context->drawText(style()->font(), spaceSuffixRun, marker.location());
-        context->drawText(style()->font(), textRun, marker.location() + IntSize(width, 0));
+    IntPoint textOrigin = IntPoint(marker.x(), marker.y() + style()->fontMetrics().ascent());
+
+    if (type == Asterisks || type == Footnotes)
+        context->drawText(style()->font(), textRun, textOrigin);
+    else {
+        // Text is not arbitrary. We can judge whether it's RTL from the first character,
+        // and we only need to handle the direction RightToLeft for now.
+        bool textNeedsReversing = direction(m_text[0]) == RightToLeft;
+        Vector<UChar> reversedText;
+        if (textNeedsReversing) {
+            int length = m_text.length();
+            reversedText.grow(length);
+            for (int i = 0; i < length; ++i)
+                reversedText[length - i - 1] = m_text[i];
+            textRun = TextRun(reversedText.data(), length);
+        }
+
+        const Font& font = style()->font();
+        const UChar suffix = listMarkerSuffix(type, m_listItem->value());
+        if (style()->isLeftToRightDirection()) {
+            int width = font.width(textRun);
+            context->drawText(style()->font(), textRun, textOrigin);
+            UChar suffixSpace[2] = { suffix, ' ' };
+            context->drawText(style()->font(), TextRun(suffixSpace, 2), textOrigin + IntSize(width, 0));
+        } else {
+            UChar spaceSuffix[2] = { ' ', suffix };
+            TextRun spaceSuffixRun(spaceSuffix, 2);
+            int width = font.width(spaceSuffixRun);
+            context->drawText(style()->font(), spaceSuffixRun, textOrigin);
+            context->drawText(style()->font(), textRun, textOrigin + IntSize(width, 0));
+        }
     }
 }
 
 void RenderListMarker::layout()
 {
     ASSERT(needsLayout());
-
+ 
     if (isImage()) {
         setWidth(m_image->imageSize(this, style()->effectiveZoom()).width());
         setHeight(m_image->imageSize(this, style()->effectiveZoom()).height());
     } else {
-        setWidth(minPrefWidth());
-        setHeight(style()->font().height());
+        setLogicalWidth(minPreferredLogicalWidth());
+        setLogicalHeight(style()->fontMetrics().height());
     }
 
-    m_marginLeft = m_marginRight = 0;
+    setMarginStart(0);
+    setMarginEnd(0);
 
-    Length leftMargin = style()->marginLeft();
-    Length rightMargin = style()->marginRight();
-    if (leftMargin.isFixed())
-        m_marginLeft = leftMargin.value();
-    if (rightMargin.isFixed())
-        m_marginRight = rightMargin.value();
+    Length startMargin = style()->marginStart();
+    Length endMargin = style()->marginEnd();
+    if (startMargin.isFixed())
+        setMarginStart(startMargin.value());
+    if (endMargin.isFixed())
+        setMarginEnd(endMargin.value());
 
     setNeedsLayout(false);
 }
@@ -1173,35 +1337,42 @@ void RenderListMarker::imageChanged(WrappedImagePtr o, const IntRect*)
         repaint();
 }
 
-void RenderListMarker::calcPrefWidths()
+void RenderListMarker::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
 
     m_text = "";
 
     const Font& font = style()->font();
+    const FontMetrics& fontMetrics = font.fontMetrics();
 
     if (isImage()) {
         // FIXME: This is a somewhat arbitrary width.  Generated images for markers really won't become particularly useful
         // until we support the CSS3 marker pseudoclass to allow control over the width and height of the marker box.
-        int bulletWidth = font.ascent() / 2;
+        int bulletWidth = fontMetrics.ascent() / 2;
         m_image->setImageContainerSize(IntSize(bulletWidth, bulletWidth));
-        m_minPrefWidth = m_maxPrefWidth = m_image->imageSize(this, style()->effectiveZoom()).width();
-        setPrefWidthsDirty(false);
+        IntSize imageSize = m_image->imageSize(this, style()->effectiveZoom());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = style()->isHorizontalWritingMode() ? imageSize.width() : imageSize.height();
+        setPreferredLogicalWidthsDirty(false);
         updateMargins();
         return;
     }
 
-    int width = 0;
+    int logicalWidth = 0;
     EListStyleType type = style()->listStyleType();
     switch (type) {
         case NoneListStyle:
+            break;
+        case Asterisks:
+        case Footnotes:
+            m_text = listMarkerText(type, m_listItem->value());
+            logicalWidth = font.width(m_text); // no suffix for these types
             break;
         case Circle:
         case Disc:
         case Square:
             m_text = listMarkerText(type, 0); // value is ignored for these types
-            width = (font.ascent() * 2 / 3 + 1) / 2 + 2;
+            logicalWidth = (fontMetrics.ascent() * 2 / 3 + 1) / 2 + 2;
             break;
         case Afar:
         case Amharic:
@@ -1247,6 +1418,7 @@ void RenderListMarker::calcPrefWidths()
         case Khmer:
         case Lao:
         case LowerAlpha:
+        case LowerArmenian:
         case LowerGreek:
         case LowerHexadecimal:
         case LowerLatin:
@@ -1270,6 +1442,7 @@ void RenderListMarker::calcPrefWidths()
         case TigrinyaEt:
         case TigrinyaEtAbegede:
         case UpperAlpha:
+        case UpperArmenian:
         case UpperGreek:
         case UpperHexadecimal:
         case UpperLatin:
@@ -1278,109 +1451,120 @@ void RenderListMarker::calcPrefWidths()
         case Urdu:
             m_text = listMarkerText(type, m_listItem->value());
             if (m_text.isEmpty())
-                width = 0;
+                logicalWidth = 0;
             else {
                 int itemWidth = font.width(m_text);
-                UChar suffixSpace[2] = { listMarkerSuffix(type), ' ' };
+                UChar suffixSpace[2] = { listMarkerSuffix(type, m_listItem->value()), ' ' };
                 int suffixSpaceWidth = font.width(TextRun(suffixSpace, 2));
-                width = itemWidth + suffixSpaceWidth;
+                logicalWidth = itemWidth + suffixSpaceWidth;
             }
             break;
     }
 
-    m_minPrefWidth = width;
-    m_maxPrefWidth = width;
+    m_minPreferredLogicalWidth = logicalWidth;
+    m_maxPreferredLogicalWidth = logicalWidth;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
     
     updateMargins();
 }
 
 void RenderListMarker::updateMargins()
 {
-    const Font& font = style()->font();
+    const FontMetrics& fontMetrics = style()->fontMetrics();
 
-    int marginLeft = 0;
-    int marginRight = 0;
+    int marginStart = 0;
+    int marginEnd = 0;
 
     if (isInside()) {
-        if (isImage()) {
-            if (style()->direction() == LTR)
-                marginRight = cMarkerPadding;
-            else
-                marginLeft = cMarkerPadding;
-        } else switch (style()->listStyleType()) {
+        if (isImage())
+            marginEnd = cMarkerPadding;
+        else switch (style()->listStyleType()) {
             case Disc:
             case Circle:
             case Square:
-                if (style()->direction() == LTR) {
-                    marginLeft = -1;
-                    marginRight = font.ascent() - minPrefWidth() + 1;
-                } else {
-                    marginLeft = font.ascent() - minPrefWidth() + 1;
-                    marginRight = -1;
-                }
+                marginStart = -1;
+                marginEnd = fontMetrics.ascent() - minPreferredLogicalWidth() + 1;
                 break;
             default:
                 break;
         }
     } else {
-        if (style()->direction() == LTR) {
+        if (style()->isLeftToRightDirection()) {
             if (isImage())
-                marginLeft = -minPrefWidth() - cMarkerPadding;
+                marginStart = -minPreferredLogicalWidth() - cMarkerPadding;
             else {
-                int offset = font.ascent() * 2 / 3;
+                int offset = fontMetrics.ascent() * 2 / 3;
                 switch (style()->listStyleType()) {
                     case Disc:
                     case Circle:
                     case Square:
-                        marginLeft = -offset - cMarkerPadding - 1;
+                        marginStart = -offset - cMarkerPadding - 1;
                         break;
                     case NoneListStyle:
                         break;
                     default:
-                        marginLeft = m_text.isEmpty() ? 0 : -minPrefWidth() - offset / 2;
+                        marginStart = m_text.isEmpty() ? 0 : -minPreferredLogicalWidth() - offset / 2;
                 }
             }
+            marginEnd = -marginStart - minPreferredLogicalWidth();
         } else {
             if (isImage())
-                marginLeft = cMarkerPadding;
+                marginEnd = cMarkerPadding;
             else {
-                int offset = font.ascent() * 2 / 3;
+                int offset = fontMetrics.ascent() * 2 / 3;
                 switch (style()->listStyleType()) {
                     case Disc:
                     case Circle:
                     case Square:
-                        marginLeft = offset + cMarkerPadding + 1 - minPrefWidth();
+                        marginEnd = offset + cMarkerPadding + 1 - minPreferredLogicalWidth();
                         break;
                     case NoneListStyle:
                         break;
                     default:
-                        marginLeft = m_text.isEmpty() ? 0 : offset / 2;
+                        marginEnd = m_text.isEmpty() ? 0 : offset / 2;
                 }
             }
+            marginStart = -marginEnd - minPreferredLogicalWidth();
         }
-        marginRight = -marginLeft - minPrefWidth();
+        
     }
 
-    style()->setMarginLeft(Length(marginLeft, Fixed));
-    style()->setMarginRight(Length(marginRight, Fixed));
+    style()->setMarginStart(Length(marginStart, Fixed));
+    style()->setMarginEnd(Length(marginEnd, Fixed));
 }
 
-int RenderListMarker::lineHeight(bool, bool) const
+int RenderListMarker::lineHeight(bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
     if (!isImage())
-        return m_listItem->lineHeight(false, true);
-    return height();
+        return m_listItem->lineHeight(firstLine, direction, PositionOfInteriorLineBoxes);
+    return RenderBox::lineHeight(firstLine, direction, linePositionMode);
 }
 
-int RenderListMarker::baselinePosition(bool, bool) const
+int RenderListMarker::baselinePosition(FontBaseline baselineType, bool firstLine, LineDirectionMode direction, LinePositionMode linePositionMode) const
 {
-    if (!isImage()) {
-        const Font& font = style()->font();
-        return font.ascent() + (lineHeight(false) - font.height())/2;
+    if (!isImage())
+        return m_listItem->baselinePosition(baselineType, firstLine, direction, PositionOfInteriorLineBoxes);
+    return RenderBox::baselinePosition(baselineType, firstLine, direction, linePositionMode);
+}
+
+String RenderListMarker::suffix() const
+{
+    EListStyleType type = style()->listStyleType();
+    const UChar suffix = listMarkerSuffix(type, m_listItem->value());
+
+    Vector<UChar> resultVector;
+    resultVector.append(suffix);
+
+    // If the suffix is not ' ', an extra space is needed
+    if (suffix != ' ') {
+        if (style()->isLeftToRightDirection())
+            resultVector.append(' ');
+        else
+            resultVector.prepend(' ');
     }
-    return height();
+
+    return String::adopt(resultVector);
 }
 
 bool RenderListMarker::isInside() const
@@ -1391,18 +1575,26 @@ bool RenderListMarker::isInside() const
 IntRect RenderListMarker::getRelativeMarkerRect()
 {
     if (isImage())
-        return IntRect(x(), y(), m_image->imageSize(this, style()->effectiveZoom()).width(), m_image->imageSize(this, style()->effectiveZoom()).height());
-
+        return IntRect(0, 0, m_image->imageSize(this, style()->effectiveZoom()).width(), m_image->imageSize(this, style()->effectiveZoom()).height());
+    
+    IntRect relativeRect;
     EListStyleType type = style()->listStyleType();
     switch (type) {
+        case Asterisks:
+        case Footnotes: {
+            const Font& font = style()->font();
+            relativeRect = IntRect(0, 0, font.width(m_text), font.fontMetrics().height());
+            break;
+        }
         case Disc:
         case Circle:
         case Square: {
             // FIXME: Are these particular rounding rules necessary?
-            const Font& font = style()->font();
-            int ascent = font.ascent();
+            const FontMetrics& fontMetrics = style()->fontMetrics();
+            int ascent = fontMetrics.ascent();
             int bulletWidth = (ascent * 2 / 3 + 1) / 2;
-            return IntRect(x() + 1, y() + 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
+            relativeRect = IntRect(1, 3 * (ascent - ascent * 2 / 3) / 2, bulletWidth, bulletWidth);
+            break;
         }
         case NoneListStyle:
             return IntRect();
@@ -1450,6 +1642,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
         case Khmer:
         case Lao:
         case LowerAlpha:
+        case LowerArmenian:
         case LowerGreek:
         case LowerHexadecimal:
         case LowerLatin:
@@ -1473,6 +1666,7 @@ IntRect RenderListMarker::getRelativeMarkerRect()
         case TigrinyaEt:
         case TigrinyaEtAbegede:
         case UpperAlpha:
+        case UpperArmenian:
         case UpperGreek:
         case UpperHexadecimal:
         case UpperLatin:
@@ -1483,12 +1677,17 @@ IntRect RenderListMarker::getRelativeMarkerRect()
                 return IntRect();
             const Font& font = style()->font();
             int itemWidth = font.width(m_text);
-            UChar suffixSpace[2] = { listMarkerSuffix(type), ' ' };
+            UChar suffixSpace[2] = { listMarkerSuffix(type, m_listItem->value()), ' ' };
             int suffixSpaceWidth = font.width(TextRun(suffixSpace, 2));
-            return IntRect(x(), y() + font.ascent(), itemWidth + suffixSpaceWidth, font.height());
+            relativeRect = IntRect(0, 0, itemWidth + suffixSpaceWidth, font.fontMetrics().height());
     }
 
-    return IntRect();
+    if (!style()->isHorizontalWritingMode()) {
+        relativeRect = relativeRect.transposedRect();
+        relativeRect.setX(width() - relativeRect.x() - relativeRect.width());
+    }
+
+    return relativeRect;
 }
 
 void RenderListMarker::setSelectionState(SelectionState state)

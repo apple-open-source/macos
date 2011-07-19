@@ -143,7 +143,6 @@ doProps(const char *dev, char **args) {
 					warnx("Property `%s' does not exist in metadata", arg);
 				} else {
 					PrintValue(k, v, NULL);
-					CFRelease(v);
 				}
 				CFRelease(k);
 				continue;

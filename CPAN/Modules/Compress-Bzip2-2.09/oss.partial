@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2009-02-04</string>
+        <key>OpenSourceProject</key>
+        <string>Compress-Bzip2</string>
+        <key>OpenSourceVersion</key>
+        <string>2.09</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/A/AR/ARJAY/Compress-Bzip2-2.09.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Other</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

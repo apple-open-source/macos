@@ -47,15 +47,30 @@ public:
 
     void addCell(RenderTableCell*, RenderTableRow* row);
 
-    void setCellWidths();
-    int calcRowHeight();
-    int layoutRows(int height);
+    void setCellLogicalWidths();
+    int calcRowLogicalHeight();
+    int layoutRows(int logicalHeight);
 
     RenderTable* table() const { return toRenderTable(parent()); }
 
     struct CellStruct {
-        RenderTableCell* cell;
+        Vector<RenderTableCell*, 1> cells; 
         bool inColSpan; // true for columns after the first in a colspan
+
+        CellStruct():
+          inColSpan(false) {}
+        
+        RenderTableCell* primaryCell()
+        {
+            return hasCells() ? cells[cells.size() - 1] : 0;
+        }
+
+        const RenderTableCell* primaryCell() const
+        {
+            return hasCells() ? cells[cells.size() - 1] : 0;
+        }
+
+        bool hasCells() const { return cells.size() > 0; }
     };
 
     typedef Vector<CellStruct> Row;
@@ -64,25 +79,30 @@ public:
         Row* row;
         RenderTableRow* rowRenderer;
         int baseline;
-        Length height;
+        Length logicalHeight;
     };
 
     CellStruct& cellAt(int row,  int col) { return (*m_grid[row].row)[col]; }
     const CellStruct& cellAt(int row, int col) const { return (*m_grid[row].row)[col]; }
+    RenderTableCell* primaryCellAt(int row, int col)
+    {
+        CellStruct& c = (*m_grid[row].row)[col];
+        return c.primaryCell();
+    }
 
     void appendColumn(int pos);
-    void splitColumn(int pos, int newSize);
+    void splitColumn(int pos, int first);
 
-    int calcOuterBorderTop() const;
-    int calcOuterBorderBottom() const;
-    int calcOuterBorderLeft(bool rtl) const;
-    int calcOuterBorderRight(bool rtl) const;
+    int calcOuterBorderBefore() const;
+    int calcOuterBorderAfter() const;
+    int calcOuterBorderStart() const;
+    int calcOuterBorderEnd() const;
     void recalcOuterBorder();
 
-    int outerBorderTop() const { return m_outerBorderTop; }
-    int outerBorderBottom() const { return m_outerBorderBottom; }
-    int outerBorderLeft() const { return m_outerBorderLeft; }
-    int outerBorderRight() const { return m_outerBorderRight; }
+    int outerBorderBefore() const { return m_outerBorderBefore; }
+    int outerBorderAfter() const { return m_outerBorderAfter; }
+    int outerBorderStart() const { return m_outerBorderStart; }
+    int outerBorderEnd() const { return m_outerBorderEnd; }
 
     int numRows() const { return m_gridRows; }
     int numColumns() const;
@@ -94,11 +114,7 @@ public:
     }
 
     bool needsCellRecalc() const { return m_needsCellRecalc; }
-    void setNeedsCellRecalc()
-    {
-        m_needsCellRecalc = true;
-        table()->setNeedsSectionRecalc();
-    }
+    void setNeedsCellRecalc();
 
     int getBaseline(int row) { return m_grid[row].baseline; }
 
@@ -116,18 +132,13 @@ private:
 
     virtual void removeChild(RenderObject* oldChild);
 
-    virtual int lowestPosition(bool includeOverflowInterior, bool includeSelf) const;
-    virtual int rightmostPosition(bool includeOverflowInterior, bool includeSelf) const;
-    virtual int leftmostPosition(bool includeOverflowInterior, bool includeSelf) const;
-
     virtual void paint(PaintInfo&, int tx, int ty);
+    virtual void paintCell(RenderTableCell*, PaintInfo&, int tx, int ty);
     virtual void paintObject(PaintInfo&, int tx, int ty);
 
     virtual void imageChanged(WrappedImagePtr, const IntRect* = 0);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
-
-    virtual int lineHeight(bool, bool) const { return 0; }
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
     bool ensureRows(int);
     void clearGrid();
@@ -143,13 +154,15 @@ private:
     int m_cCol;
     int m_cRow;
 
-    int m_outerBorderLeft;
-    int m_outerBorderRight;
-    int m_outerBorderTop;
-    int m_outerBorderBottom;
+    int m_outerBorderStart;
+    int m_outerBorderEnd;
+    int m_outerBorderBefore;
+    int m_outerBorderAfter;
 
     bool m_needsCellRecalc;
     bool m_hasOverflowingCell;
+
+    bool m_hasMultipleCellLevels;
 };
 
 inline RenderTableSection* toRenderTableSection(RenderObject* object)

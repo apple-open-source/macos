@@ -14,7 +14,7 @@ sub clean_INC {
 
 	$inc =~ s/#ifdef\s+USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS\s*.*?\n#include\s+<SystemConfiguration\/.*?>.*?\n#else.*?\n//;
 	$inc =~ s/#endif\s+.*?USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS.*?\n//;
-	
+
 	return $inc;
 }
 
@@ -24,9 +24,7 @@ sub clean_API {
 
 	$api_new = $DO_SPLIT ? $api : clean_INC($api);
 	$api_new =~ s/(__MAC)_\w+\/\*SPI\*\//\1_NA/g;
-	$api_new =~ s/(\(__MAC_OS_X_VERSION_MIN_REQUIRED >= \d+\)\/\*SPI\*\/ \|\| )//g;
 	$api_new =~ s/(__IPHONE)_\w+\/\*SPI\*\//\1_NA/g;
-	$api_new =~ s/( \|\| \(__IPHONE_OS_VERSION_MIN_REQUIRED >= \d+\))\/\*SPI\*\///g;
 
 	return $api_new;
 }
@@ -37,9 +35,7 @@ sub clean_SPI {
 
 	$spi_new = clean_INC($spi);
 	$spi_new =~ s/(__MAC_\w+)\/\*SPI\*\//\1/g;
-	$api_new =~ s/(\(__MAC_OS_X_VERSION_MIN_REQUIRED >= \d+\))\/\*SPI\*\/( \|\| )/\1\2/g;
 	$spi_new =~ s/(__IPHONE_\w+)\/\*SPI\*\//\1/g;
-	$spi_new =~ s/( \|\| )(\(__IPHONE_OS_VERSION_MIN_REQUIRED >= \d+\))\/\*SPI\*\//\1\2/g;
 
 	return $spi_new;
 }
@@ -67,7 +63,7 @@ for (@headers) {
 
 	$spi_new = clean_SPI($spi);
 	if ($spi ne $spi_new) {
-#		printf "cleaning .../PrivateHeaders/%s\n", $spi_header;
+		printf "cleaning .../PrivateHeaders/%s\n", $spi_header;
 		open(SPI, ">", $spi_path);
 		print SPI $spi_new;
 		close(SPI);
@@ -98,7 +94,7 @@ for (@headers) {
 
 	$api_new = clean_API($api);
 	if ($api ne $api_new) {
-#		printf "cleaning .../Headers/%s\n", $api_header;
+		printf "cleaning .../Headers/%s\n", $api_header;
 		open(API, ">", $api_path);
 		print API $api_new;
 		close(API);
@@ -116,7 +112,7 @@ for (@headers) {
 #					$spi_header =~ s/\.h$/PRIVATE.h/;
 				}
 
-#				printf "  adding .../PrivateHeaders/%s\n", $spi_header;
+				printf "  adding .../PrivateHeaders/%s\n", $spi_header;
 				$spi_path = $SPI_BASE . "/" . $spi_header;
 				open(SPI, ">", $spi_path);
 				print SPI $spi_new;

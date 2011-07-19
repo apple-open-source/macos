@@ -1,0 +1,33 @@
+#!/bin/sh
+#
+# Script to build from a common directory and install to separate directories
+# to verify build output for B&I.
+#
+
+# Common stuff
+BUILDDIR="/tmp/cups.roots"
+RC_CFLAGS="-arch i386 -arch x86_64 -arch ppc"
+RC_ARCHS="i386 x86_64 ppc"
+SRCROOT="`pwd`"
+
+# Clean out old builddir
+if test -d $BUILDDIR; then
+	rm -rf $BUILDDIR
+fi
+
+mkdir -p $BUILDDIR
+mkdir -p $BUILDDIR/common~obj
+mkdir -p $BUILDDIR/cups~dst
+mkdir -p $BUILDDIR/cups~sym
+mkdir -p $BUILDDIR/cups_libs~dst
+mkdir -p $BUILDDIR/cups_libs~sym
+
+# Make cups_libs
+make DSTROOT="$BUILDDIR/cups_libs~dst" SYMROOT="$BUILDDIR/cups_libs~sym" \
+	OBJROOT="$BUILDDIR/common~obj" SRCROOT="$SRCROOT" \
+	RC_CFLAGS="$RC_CFLAGS" RC_ARCHS="$RC_ARCHS" install-libs
+
+# Make cups
+make DSTROOT="$BUILDDIR/cups~dst" SYMROOT="$BUILDDIR/cups~sym" \
+	OBJROOT="$BUILDDIR/common~obj" SRCROOT="$SRCROOT" \
+	RC_CFLAGS="$RC_CFLAGS" RC_ARCHS="$RC_ARCHS" install

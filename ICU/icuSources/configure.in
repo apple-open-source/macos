@@ -1,54 +1,150 @@
-dnl -*-m4-*-
-dnl configure.in for ICU
-dnl Copyright (c) 1999-2008, International Business Machines Corporation and
-dnl others. All Rights Reserved.
-dnl Stephen F. Booth, heavily modified by Yves and others
+# -*-autoconf-*-
+AC_COPYRIGHT([ Copyright (c) 1999-2010, International Business Machines Corporation and others. All Rights Reserved. ])
+# configure.in for ICU
+# Stephen F. Booth, heavily modified by Yves and others
 
-dnl Process this file with autoconf to produce a configure script
-AC_INIT(common/unicode/utypes.h)
+# Check for autoconf version
+AC_PREREQ(2.67)
 
-AC_CONFIG_HEADER(common/icucfg.h)
+
+# Process this file with autoconf to produce a configure script
+AC_INIT
+AC_CONFIG_SRCDIR([common/unicode/utypes.h])
+
+AC_CONFIG_HEADERS(common/icucfg.h)
 PACKAGE="icu"
 AC_SUBST(PACKAGE)
 
+# Use custom echo test for newline option
+# Current autoconf (2.65) gives incorrect echo newline option
+# for icu-config
+# This may be removed later - mow (June 17, 2010)
+ICU_ECHO_C= ICU_ECHO_N= ICU_ECHO_T=
+case `/bin/sh -c "echo -n x"` in
+-n*)
+  case `/bin/sh -c "echo 'x\c'"` in
+  *c*) ICU_ECHO_T=' ';;     # ECHO_T is single tab character.
+  *)   ICU_ECHO_C='\c';;
+  esac;;
+*)
+  ICU_ECHO_N='-n';;
+esac
+AC_SUBST(ICU_ECHO_N)
+AC_SUBST(ICU_ECHO_C)
+AC_SUBST(ICU_ECHO_T)
+
 AC_MSG_CHECKING(for ICU version numbers)
 
-dnl Get the ICU version from uversion.h or other headers
+# Get the ICU version from uversion.h or other headers
 geticuversion() {
     [sed -n 's/^[ 	]*#[ 	]*define[ 	]*U_ICU_VERSION[ 	]*"\([^"]*\)".*/\1/p' "$@"]
 }
-VERSION=`geticuversion $srcdir/common/unicode/uversion.h`
+getuversion() {
+    [sed -n 's/^[ 	]*#[ 	]*define[ 	]*U_UNICODE_VERSION[ 	]*"\([^"]*\)".*/\1/p' "$@"]
+}
+VERSION=`geticuversion $srcdir/common/unicode/uvernum.h`
 if test x"$VERSION" = x; then
     VERSION=`geticuversion $srcdir/common/unicode/*.h`
     if test x"$VERSION" = x; then
-        AC_MSG_ERROR([Cannot determine ICU version number from header files])
+        AC_MSG_ERROR([Cannot determine ICU version number from uvernum.h header file])
     fi
 fi
-dnl Compute a reasonable library version from the release version. This is
-dnl very bad, but that's wanted... We want to make sure that the LIB_VERSION
-dnl has at least a dot in it, so we'll add a .0 if needed.
+
+UNICODE_VERSION=`getuversion $srcdir/common/unicode/uchar.h`
+if test x"$UNICODE_VERSION" = x; then
+    UNICODE_VERSION=`getuversion $srcdir/common/unicode/*.h`
+    if test x"$UNICODE_VERSION" = x; then
+        AC_MSG_ERROR([Cannot determine Unicode version number from uchar.h header file])
+    fi
+fi
+# Compute a reasonable library version from the release version. This is
+# very bad, but that's wanted... We want to make sure that the LIB_VERSION
+# has at least a dot in it, so we'll add a .0 if needed.
 [LIB_VERSION=`echo $VERSION | sed -e 's/\.//' -e 's/^\([^.]*\)$/\1.0/'`]
 LIB_VERSION_MAJOR=`echo $LIB_VERSION | sed 's/\..*//'`
 AC_SUBST(VERSION)
 AC_SUBST(LIB_VERSION)
 AC_SUBST(LIB_VERSION_MAJOR)
-AC_MSG_RESULT([release $VERSION, library $LIB_VERSION])
+AC_MSG_RESULT([release $VERSION, library $LIB_VERSION, unicode version $UNICODE_VERSION])
 
-UNICODE_VERSION="5.1"
 AC_SUBST(UNICODE_VERSION)
 
-dnl Determine the host system
-AC_CANONICAL_HOST
+# Determine the host system
+AC_CANONICAL_SYSTEM
 
 AC_SUBST(CPPFLAGS)
 
-dnl This variable is needed on z/OS because the C++ compiler only recognizes .C
-_CXX_CXXSUFFIX=cc
+# This variable is needed on z/OS because the C++ compiler only recognizes .C
+_CXX_CXXSUFFIX=cpp
 export _CXX_CXXSUFFIX
-dnl Checks for programs
+
+# Check whether to build debug libraries
+AC_MSG_CHECKING([whether to build debug libraries])
+enabled=no
+ENABLE_DEBUG=0
+AC_ARG_ENABLE(debug,
+    [  --enable-debug          build debug libraries [default=no]],
+    [ case "${enableval}" in
+         yes|"") enabled=yes; ENABLE_DEBUG=1 ;;
+         *) ;;   
+    esac],  
+)
+AC_MSG_RESULT($enabled)
+AC_SUBST(ENABLE_DEBUG)
+
+# Check whether to build release libraries
+AC_MSG_CHECKING([whether to build release libraries])
+enabled=yes
+ENABLE_RELEASE=1
+AC_ARG_ENABLE(release,
+    [  --enable-release        build release libraries [default=yes]],
+    [ case "${enableval}" in
+         no) enabled=no; ENABLE_RELEASE=0 ;;
+         *) ;;   
+    esac],  
+)
+AC_MSG_RESULT($enabled)
+AC_SUBST(ENABLE_RELEASE)
+
+# Don't use the default C/CXXFLags
+: ${CFLAGS=""}
+: ${CXXFLAGS=""}
+
+# Checks for programs
 AC_PROG_CC
 AC_PROG_CXX
+
+# Ensure that if CXXFLAGS/CFLAGS were not set when calling configure, set it correctly based on (enable/disable) debug or release option
+# The release mode use is the default one for autoconf
+if test "$GCC" = yes; then
+    if test "$CFLAGS" = ""; then
+        if test "$ENABLE_DEBUG" = 1; then
+            CFLAGS=-g
+        fi
+        if test "$ENABLE_RELEASE" = 1; then
+            CFLAGS="$CFLAGS -O2"
+        fi
+    fi
+    if test "$CXXFLAGS" = ""; then
+        if test "$ENABLE_DEBUG" = 1; then
+            CXXFLAGS=-g
+        fi
+        if test "$ENABLE_RELEASE" = 1; then
+            CXXFLAGS="$CXXFLAGS -O2"
+        fi
+    fi
+fi
+
+AC_PROG_CPP
+
 AC_PROG_INSTALL
+
+AC_SUBST(cross_compiling)
+
+dnl use the pld hack to get ac_fn_cxx_try_link defined globally and not local
+AC_LANG_PUSH([C++])
+AC_LINK_IFELSE([AC_LANG_PROGRAM()])
+AC_LANG_POP([C++])
 
 # make sure install is relative to srcdir - if a script
 if test "$srcdir" = "."; then
@@ -61,19 +157,43 @@ fi
 #AC_CHECK_PROG(AUTOCONF, autoconf, autoconf, true)
 #AC_CHECK_PROG(STRIP, strip, strip, true)
 
-dnl Check for the platform make
+# Check for the platform make
 AC_PATH_PROGS(U_MAKE, gmake gnumake, make)
 AC_SUBST(U_MAKE)
 
-dnl Check for doxygen to generate documentation
+
+AC_ARG_WITH(cross-build,
+	[  --with-cross-build=dir specify an absolute path to the build directory of an ICU built for the current platform [default=no cross dir]],
+	[cross_buildroot="${withval}"], 
+        [cross_buildroot=""])
+
+if test "X$cross_buildroot" = "X"; then
+    if test "$cross_compiling" = "yes"; then
+        AC_MSG_ERROR([Error! Cross compiling but no --with-cross-build option specified - please supply the path to an executable ICU's build root])
+	dnl '
+    fi
+else
+    if test -f "${cross_buildroot}/config/icucross.mk"; then
+        AC_MSG_RESULT([Using cross buildroot: $cross_buildroot])
+    else
+        if test -d "${cross_buildroot}"; then
+            AC_MSG_ERROR([${cross_buildroot}/config/icucross.mk not found. Please build ICU in ${cross_buildroot} first.])
+        else
+            AC_MSG_ERROR([No such directory ${cross_buildroot} supplied as the argument to --with-cross-build. Use an absolute path.])
+        fi
+    fi
+fi
+AC_SUBST(cross_buildroot)
+
+# Check for doxygen to generate documentation
 AC_PATH_PROG(DOXYGEN,doxygen,,$PATH:/usr/local/bin:/usr/bin)
 
-dnl Check that the linker is usable
+# Check that the linker is usable
 ICU_PROG_LINK
 
-dnl Determine the executable suffix
-dnl We don't use AC_EXEEXT because some compilers output separate debugging
-dnl files, which confuses the AC_EXEEXT macro.
+# Determine the executable suffix
+# We don't use AC_EXEEXT because some compilers output separate debugging
+# files, which confuses the AC_EXEEXT macro.
 AC_MSG_CHECKING(checking for executable suffix)
 case "${host}" in
     *-*-cygwin*|*-*-mingw*)  EXEEXT=.exe ;;
@@ -83,20 +203,20 @@ ac_exeext=$EXEEXT
 AC_MSG_RESULT($EXEEXT)
 AC_SUBST(EXEEXT)
 
-dnl Determine how strict we want to be when compiling
+# Determine how strict we want to be when compiling
 AC_CHECK_STRICT_COMPILE
 
-dnl Check if we can build and use 64-bit libraries
+# Check if we can build and use 64-bit libraries
 AC_CHECK_64BIT_LIBS
 AC_SUBST(ARFLAGS)
 AC_SUBST(COMPILE_LINK_ENVVAR)
 
-dnl Determine the Makefile fragment
+# Determine the Makefile fragment
 ICU_CHECK_MH_FRAG
 
-dnl Checks for libraries and other host specific stuff
-dnl On HP/UX, don't link to -lm from a shared lib because it isn't
-dnl  PIC (at least on 10.2)
+# Checks for libraries and other host specific stuff
+# On HP/UX, don't link to -lm from a shared lib because it isn't
+#  PIC (at least on 10.2)
 case "${host}" in
 	*-*-hpux*) 	AC_CHECK_LIB(m, floor, LIB_M="-lm") ;;
 	
@@ -105,7 +225,7 @@ case "${host}" in
 esac
 AC_SUBST(LIB_M)
 
-dnl Check whether to build shared libraries
+# Check whether to build shared libraries
 AC_MSG_CHECKING([whether to build shared libraries])
 enabled=no
 AC_ARG_ENABLE(shared,
@@ -120,7 +240,7 @@ AC_ARG_ENABLE(shared,
 AC_MSG_RESULT($enabled)
 AC_SUBST(ENABLE_SHARED)
 
-dnl Check whether to build static libraries
+# Check whether to build static libraries
 AC_MSG_CHECKING([whether to build static libraries])
 enabled=no
 AC_ARG_ENABLE(static,
@@ -134,53 +254,57 @@ AC_ARG_ENABLE(static,
 AC_MSG_RESULT($enabled)
 AC_SUBST(ENABLE_STATIC)
 
-dnl Check whether to build debug libraries
-AC_MSG_CHECKING([whether to build debug libraries])
+# Check whether to enable auto cleanup of libraries
+AC_MSG_CHECKING([whether to enable auto cleanup of libraries])
 enabled=no
-ENABLE_DEBUG=0
-AC_ARG_ENABLE(debug,
-    [  --enable-debug          build debug libraries [default=no]],
+UCLN_NO_AUTO_CLEANUP=1
+AC_ARG_ENABLE(auto-cleanup,
+    [  --enable-auto-cleanup   enable auto cleanup of libraries [default=no]],
     [ case "${enableval}" in
-         yes|"") enabled=yes; ENABLE_DEBUG=1 ;;
+         yes) enabled=yes; UCLN_NO_AUTO_CLEANUP=0 ;;
          *) ;;
     esac],
 )
 AC_MSG_RESULT($enabled)
-AC_SUBST(ENABLE_DEBUG)
+AC_SUBST(UCLN_NO_AUTO_CLEANUP)
 
-dnl Check whether to build release libraries
-AC_MSG_CHECKING([whether to build release libraries])
-enabled=yes
-ENABLE_RELEASE=1
-AC_ARG_ENABLE(release,
-    [  --enable-release        build release libraries [default=yes]],
-    [ case "${enableval}" in
-         no) enabled=no; ENABLE_RELEASE=0 ;;
-         *) ;;
-    esac],
-)
-AC_MSG_RESULT($enabled)
-AC_SUBST(ENABLE_RELEASE)
+# MSVC floating-point option
+MSVC_RELEASE_FLAG=""
+if test $enabled = yes
+then  
+    if test $icu_cv_host_frag = mh-cygwin-msvc
+    then
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+    #if defined _MSC_VER && _MSC_VER >= 1400
+    #else
+    Microsoft Visual C++ < 2005
+    #endif
+        ]], [[]])],[MSVC_RELEASE_FLAG="/fp:precise"],[MSVC_RELEASE_FLAG="/Op"])
+        
+        CFLAGS="${CFLAGS} ${MSVC_RELEASE_FLAG}"
+        CXXFLAGS="${CXXFLAGS} ${MSVC_RELEASE_FLAG}"
+    fi
+fi
 
-dnl Check whether to enabled draft APIs
+# Check whether to enabled draft APIs
 AC_MSG_CHECKING([whether to enable draft APIs])
 enabled=yes
 U_DEFAULT_SHOW_DRAFT=1
 AC_ARG_ENABLE(draft,
-    [  --enable-draft          enable draft APIs [default=yes]],
+    [  --enable-draft          enable draft APIs (and internal APIs) [default=yes]],
     [ case "${enableval}" in
          no) enabled=no; U_DEFAULT_SHOW_DRAFT=0 ;;
          *) ;;
     esac],
 )
 AC_MSG_RESULT($enabled)
-dnl Make sure that we can use draft API in ICU.
+# Make sure that we can use draft API in ICU.
 if test "$U_DEFAULT_SHOW_DRAFT" = 0; then
     CPPFLAGS="$CPPFLAGS -DU_SHOW_DRAFT_API"
 fi
 AC_SUBST(U_DEFAULT_SHOW_DRAFT)
 
-dnl Check if we can hide variables from 
+# Check if we can hide variables from 
 AC_MSG_CHECKING([for library API export])
 SHAREDLIBEXPORT=no
 U_USE_GCC_VISIBILITY_ATTRIBUTE=0
@@ -191,9 +315,8 @@ if test "$ac_cv_c_compiler_gnu" = yes; then
     LIBCXXFLAGS="-fvisibility=hidden"
     CFLAGS="${CFLAGS} ${LIBCFLAGS}"
     CXXFLAGS="${CXXFLAGS} ${LIBCXXFLAGS}"
-    AC_TRY_LINK([__attribute__ ((visibility ("default"))) void f(void);
-#include <stdlib.h>],[exit(0);],
-        [SHAREDLIBEXPORT=yes],[SHAREDLIBEXPORT=no])
+    AC_LINK_IFELSE([AC_LANG_PROGRAM([[__attribute__ ((visibility ("default"))) void f(void);
+#include <stdlib.h>]], [[exit(0);]])],[SHAREDLIBEXPORT=yes],[SHAREDLIBEXPORT=no])
     if test "$SHAREDLIBEXPORT" = no; then
         LIBCFLAGS=
         LIBCXXFLAGS=
@@ -207,16 +330,15 @@ else
         LIBCXXFLAGS="-xldscope=hidden"
         CFLAGS="${CFLAGS} ${LIBCFLAGS}"
         CXXFLAGS="${CXXFLAGS} ${LIBCXXFLAGS}"
-        AC_TRY_LINK([__global void f(void);
-#include <stdlib.h>],[exit(0);],
-            [SHAREDLIBEXPORT=yes],[SHAREDLIBEXPORT=no])
+        AC_LINK_IFELSE([AC_LANG_PROGRAM([[__global void f(void);
+#include <stdlib.h>]], [[exit(0);]])],[SHAREDLIBEXPORT=yes],[SHAREDLIBEXPORT=no])
         if test "$SHAREDLIBEXPORT" = no; then
             LIBCFLAGS=
             LIBCXXFLAGS=
         fi
         ;;
     *-*-hpux*)
-        dnl ICU isn't set up to follow the HP syntax yet.
+        # ICU isn't set up to follow the HP syntax yet.
         ;;
     *)
     esac
@@ -232,7 +354,14 @@ AC_SUBST(LIBCFLAGS)
 AC_SUBST(LIBCXXFLAGS)
 
 AC_PROG_RANLIB
-AC_PATH_PROG(AR,ar,[echo archiver ar not found re-run configure ; false],$PATH:/bin:/usr/bin:/usr/ccs/bin)
+
+# look for 'ar' the proper way
+#AC_PATH_PROG(AR,ar,[echo archiver ar not found re-run configure ; false],$PATH:/bin:/usr/bin:/usr/ccs/bin)
+AC_CHECK_TOOL(AR, ar)
+if test "x$AR" = "x"; then
+  AC_MSG_ERROR(Archiver ar not found. Set AR= or fix PATH)
+fi
+
 
 AC_MSG_CHECKING([whether to enable renaming of symbols])
 enabled=yes
@@ -249,12 +378,12 @@ AC_MSG_RESULT($enabled)
 AC_SUBST(U_DISABLE_RENAMING)
 
 AC_MSG_CHECKING([whether to enable function and data tracing])
-enabled=yes
+enabled=no
 U_ENABLE_TRACING=0
 AC_ARG_ENABLE(tracing,
     [  --enable-tracing        enable function and data tracing [default=no]],
     [ case "${enableval}" in
-	     yes|"") enabled=yes ;;
+	     yes|"") enabled=yes; U_ENABLE_TRACING=1 ;;
 	     no) enabled=no; U_ENABLE_TRACING=0 ;;
 	     *) ;;
     esac],
@@ -262,7 +391,43 @@ AC_ARG_ENABLE(tracing,
 AC_MSG_RESULT($enabled)
 AC_SUBST(U_ENABLE_TRACING)
 
-dnl Check whether to use the evil rpath or not
+
+U_ENABLE_DYLOAD=1
+AC_MSG_CHECKING([whether to enable dynamic loading of plugins])
+enabled=check
+AC_ARG_ENABLE(dyload,
+    [  --disable-dyload        disable dynamic loading [default=no]],
+    [ case "${enableval}" in
+	     yes|"") 
+		     U_ENABLE_DYLOAD=1
+		     enabled=check ;;
+	     no) 
+	     	 U_ENABLE_DYLOAD=0;
+	     	 enabled=disabled ;;
+	     *) ;;
+    esac],
+)
+AC_SUBST(U_ENABLE_DYLOAD)
+
+# goes into icucfg.h
+AC_CHECK_HEADERS([dlfcn.h])
+U_CHECK_DYLOAD=0
+#AC_MSG_RESULT($enabled)
+if test "$enabled" = "check"; then
+    AC_SEARCH_LIBS([dlopen], [dl])
+    AC_CHECK_FUNCS([dlopen])
+    U_CHECK_DYLOAD=1
+fi
+AC_SUBST(U_CHECK_DYLOAD)
+
+# Check for miscellanous functions.
+# These only go into common/icucfg.h and are NOT exported with ICU builds.
+# So, use for putil / tools only.
+# Note that this will generate HAVE_GETTIMEOFDAY, not U_HAVE_GETTIMEOFDAY
+# rerun 'autoheader' to regenerate icucfg.h.in
+AC_CHECK_FUNCS([gettimeofday])
+
+# Check whether to use the evil rpath or not
 AC_ARG_ENABLE(rpath,
     [  --enable-rpath          use rpath when linking [default is only if necessary]],
     [ case "${enableval}" in
@@ -275,13 +440,13 @@ AC_ARG_ENABLE(rpath,
 AC_SUBST(ENABLE_RPATH)
 
 
-dnl set up U_INLINE.  
-dnl Copy the definition of AC_C_INLINE, with slight mods.
-dnl
+# set up U_INLINE.  
+# Copy the definition of AC_C_INLINE, with slight mods.
+#
 AC_CACHE_CHECK([for definition of U_INLINE for C], ac_cv_c_inline,
 [ac_cv_c_inline=no
 for ac_kw in inline __inline__ __inline; do
-  AC_TRY_COMPILE(, [return 0;} $ac_kw int foo() {], [ac_cv_c_inline=$ac_kw; break])
+  AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[return 0;} $ac_kw int foo() {]])],[ac_cv_c_inline=$ac_kw; break],[])
   done
   ])
 case "$ac_cv_c_inline" in
@@ -291,9 +456,34 @@ case "$ac_cv_c_inline" in
 esac
 AC_SUBST(U_INLINE)
 
+# set up U_HAVE_STD_STRING.
+# Copy the definition of AC_C_INLINE, with slight mods.
+#
+U_HAVE_STD_STRING=0
+AC_LANG_PUSH([C++])
+AC_MSG_CHECKING([[if we have a C++ compiler]])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]],[[]])],[cxx_okay=yes],[cxx_okay=no])
+if test $cxx_okay = yes
+then
+	AC_MSG_RESULT([[congratulations]])
+else
+	AC_MSG_RESULT([[no]])
+	AC_MSG_ERROR([[C++ compiler $CXX does not work or no compiler found]])
+fi
+
+AC_MSG_CHECKING([[if #include <string> works]])
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <string>]], [[]])], [ac_cv_header_stdstring=yes], [ac_cv_header_stdstring=no])
+AC_MSG_RESULT($ac_cv_header_stdstring)
+if test $ac_cv_header_stdstring = yes
+then
+	U_HAVE_STD_STRING=1
+fi
+AC_SUBST(U_HAVE_STD_STRING)
+AC_LANG_POP([C++])
+
 threads=true
 
-dnl Enable/disable threads
+# Enable/disable threads
 AC_ARG_ENABLE(threads,
 	[  --enable-threads        build ICU with thread safety [default=yes]],
 	[case "${enableval}" in
@@ -308,28 +498,28 @@ ICU_USE_THREADS=0
 OLD_LIBS=${LIBS}
 
 if test $threads = true; then
-  dnl For Compaq Tru64 (OSF1), we must look for pthread_attr_init
-  dnl and must do this before seaching for pthread_mutex_destroy, or
-  dnl we will pick up libpthreads.so not libpthread.so
-  dnl If this fails, then we must test for HPUX specials, before
-  dnl moving on to a more generic test
+  # For Compaq Tru64 (OSF1), we must look for pthread_attr_init
+  # and must do this before seaching for pthread_mutex_destroy, or
+  # we will pick up libpthreads.so not libpthread.so
+  # If this fails, then we must test for HPUX specials, before
+  # moving on to a more generic test
  
   AC_CHECK_LIB(pthread, pthread_attr_init)
   if test $ac_cv_lib_pthread_pthread_attr_init = yes; then
     ICU_USE_THREADS=1
   else
-    dnl Locate the right library for POSIX threads. We look for the
-    dnl symbols in the libraries first, because on Solaris libc provides
-    dnl pthread_create but libpthread has the real code :(
-    dnl AIX uses libpthreads instead of libpthread, and HP/UX uses libpthread
-    dnl FreeBSD users may need libpthread if they do not have libc_r.
+    # Locate the right library for POSIX threads. We look for the
+    # symbols in the libraries first, because on Solaris libc provides
+    # pthread_create but libpthread has the real code :(
+    # AIX uses libpthreads instead of libpthread, and HP/UX uses libpthread
+    # FreeBSD users may need libpthread if they do not have libc_r.
 
     AC_SEARCH_LIBS_FIRST(pthread_mutex_destroy, pthread pthreads c_r )
 
     if test "$ac_cv_search_pthread_mutex_destroy" != no; then
       ICU_USE_THREADS=1
     else
-      dnl For HP 11
+      # For HP 11
       AC_CHECK_LIB(pthread, pthread_mutex_init)
       if test $ac_cv_lib_pthread_pthread_mutex_init = yes; then
         ICU_USE_THREADS=1
@@ -342,26 +532,15 @@ if test $threads = true; then
       ICU_USE_THREADS=1
     fi
   fi
-  dnl Check to see if we are using CygWin with MSVC
+  # Check to see if we are using CygWin with MSVC
   case "${host}" in
   *-pc-cygwin*|*-pc-mingw*)
-    dnl For gcc, the thread options are set by mh-mingw/mh-cygwin
+    # For gcc, the thread options are set by mh-mingw/mh-cygwin
+    # For msvc, the thread options are set by runConfigureICU
     ICU_USE_THREADS=1
-    if test "$ac_cv_prog_gcc" = no; then
-      dnl We're using normal windows compilers. Threading is available.
-      ICU_USE_THREADS=1
-      if test $ENABLE_DEBUG = 1; then
-        dnl /MDd means 'compiles and links a debugable multithreaded program with DLL'
-        CFLAGS="${CFLAGS} /MDd"
-        CXXFLAGS="${CXXFLAGS} /MDd"
-      else
-        dnl /MD means 'compiles and links a multithreaded program with DLL'
-        CFLAGS="${CFLAGS} /MD"
-        CXXFLAGS="${CXXFLAGS} /MD"
-      fi
-    fi ;;
+    ;;
   *-*-hpux*)
-    dnl Add -mt because it does several nice things on newer compilers.
+    # Add -mt because it does several nice things on newer compilers.
     case "${icu_cv_host_frag}" in
       mh-hpux-acc)
         OLD_CXXFLAGS="${CXXFLAGS}"
@@ -369,6 +548,13 @@ if test $threads = true; then
         if test x"`${CXX} ${CXXFLAGS} 2>&1`" != x""; then
            CXXFLAGS="${OLD_CXXFLAGS}"
        fi
+      ;;
+    esac
+    ;;
+  *-*-solaris*)
+    case "${icu_cv_host_frag}" in
+      mh-solaris)
+           LIBS="${LIBS} -mt"
       ;;
     esac
     ;;
@@ -389,25 +575,17 @@ AC_ARG_ENABLE(weak-threads,
 		esac])
 AC_SUBST(LIB_THREAD)
 
-dnl Check for mmap()
+# Check for mmap()
 
 # The AC_FUNC_MMAP macro doesn't work properly.  It seems to be too specific.
 # Do this check instead.
 HAVE_MMAP=0
 AC_MSG_CHECKING([for mmap])
 AC_CACHE_VAL(ac_cv_func_mmap_ok,
-    [AC_TRY_LINK(
-    changequote(<<, >>)dnl
-    <<
-#include <unistd.h>
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <unistd.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
-#include <fcntl.h>
-    >>,
-    changequote([, ])dnl
-    [mmap((void *)0, 0, PROT_READ, 0, 0, 0);],
-    ac_cv_func_mmap_ok=yes,
-    ac_cv_func_mmap_ok=no)] )
+#include <fcntl.h>], [mmap((void *)0, 0, PROT_READ, 0, 0, 0);])],[ac_cv_func_mmap_ok=yes],[ac_cv_func_mmap_ok=no])] )
 AC_MSG_RESULT($ac_cv_func_mmap_ok)
 if test $ac_cv_func_mmap_ok = yes
 then
@@ -415,18 +593,20 @@ then
 fi
 AC_SUBST(HAVE_MMAP)
 
-dnl Check to see if genccode can generate simple assembly.
+AC_MSG_CHECKING([for genccode assembly])
+
+# Check to see if genccode can generate simple assembly.
 GENCCODE_ASSEMBLY=
 case "${host}" in
-i*86-*-linux*|x86_64-*-linux*|powerpc*-*-linux*|i*86-*-*bsd*|i*86-pc-gnu)
+*-linux*|i*86-*-*bsd*|i*86-pc-gnu)
     if test "$GCC" = yes; then
-        dnl We're using gcc, and the simple -a gcc command line works for genccode
+        # We're using gcc, and the simple -a gcc command line works for genccode
         GENCCODE_ASSEMBLY="-a gcc"
     fi ;;
 i*86-*-solaris*)
     if test "$GCC" = yes; then
-        dnl When using gcc, look if we're also using GNU as.
-        dnl When using GNU as, the simple -a gcc command line works for genccode.
+        # When using gcc, look if we're also using GNU as.
+        # When using GNU as, the simple -a gcc command line works for genccode.
         asv=`"${CC}" -print-prog-name=as 2>/dev/null`
         asv=`"${asv}" --version 2>/dev/null`
         case "X${asv}" in
@@ -446,8 +626,9 @@ ia64-*-hpux*)
 esac
 AC_SUBST(GENCCODE_ASSEMBLY)
 
+AC_MSG_RESULT($GENCCODE_ASSEMBLY)
 
-dnl Checks for header files
+# Checks for header files
 AC_CHECK_HEADERS(inttypes.h)
 if test $ac_cv_header_inttypes_h = no; then
  U_HAVE_INTTYPES_H=0
@@ -463,6 +644,16 @@ fi
 
 AC_SUBST(U_HAVE_INTTYPES_H)
 
+AC_CHECK_HEADERS(dirent.h)
+if test $ac_cv_header_dirent_h = no; then
+ U_HAVE_DIRENT_H=0
+else
+ U_HAVE_DIRENT_H=1
+fi
+
+AC_SUBST(U_HAVE_DIRENT_H)
+
+
 AC_ARG_WITH(iostream,
 	[  --with-iostream=version specify the version of iostream to use (none, old, std, auto) [default=auto]],
 	[case "${withval}" in
@@ -477,8 +668,7 @@ AC_ARG_WITH(iostream,
 U_IOSTREAM_SOURCE=0
 if test x$streams != xnone
 then
-    AC_LANG_SAVE
-    AC_LANG_CPLUSPLUS
+    AC_LANG_PUSH(C++)
     OLD_CXXFLAGS="${CXXFLAGS}"
     case "${icu_cv_host_frag}" in
         mh-hpux-acc)
@@ -486,13 +676,12 @@ then
         ;;
     esac
     AC_MSG_CHECKING([for iostream usability])
-    AC_TRY_COMPILE([#include <iostream>],[],
-        [ac_cv_header_iostream=yes],[ac_cv_header_iostream=no])
+    AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <iostream>]], [[]])],[ac_cv_header_iostream=yes],[ac_cv_header_iostream=no])
     if test $icu_cv_host_frag = mh-cygwin-msvc
     then
-        dnl <iostream> is always there on Windows.
-        dnl We do this to prevent the C++ preprocessor from being used because
-        dnl autoconf can't deal with the Windows C++ preprocessor 
+        # <iostream> is always there on Windows.
+        # We do this to prevent the C++ preprocessor from being used because
+        # autoconf can't deal with the Windows C++ preprocessor 
         ac_cv_header_iostream=yes
     fi
     AC_MSG_RESULT($ac_cv_header_iostream)
@@ -503,7 +692,7 @@ then
         CXXFLAGS="${OLD_CXXFLAGS}"
         AC_MSG_CHECKING([whether ostream in iostream.h is really defined])
         AC_CACHE_VAL(ac_cv_iostream_ok,
-            AC_TRY_LINK([#include <iostream.h>],[ostream &testout = cout; testout << "test" << endl;],ac_cv_iostream_ok=yes,ac_cv_iostream_ok=no))
+            AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <iostream.h>]], [[ostream &testout = cout; testout << "test" << endl;]])],[ac_cv_iostream_ok=yes],[ac_cv_iostream_ok=no]))
         AC_MSG_RESULT($ac_cv_iostream_ok)
         if test $ac_cv_iostream_ok = yes
         then
@@ -528,9 +717,9 @@ then
     fi
 fi
 AC_SUBST(U_IOSTREAM_SOURCE)
-AC_LANG_RESTORE
+AC_LANG_POP
 
-dnl Check for endianness
+# Check for endianness
 AC_C_BIGENDIAN()
 if test $ac_cv_c_bigendian = no; then
 U_IS_BIG_ENDIAN=0
@@ -541,7 +730,7 @@ U_ENDIAN_CHAR="b"
 fi
 AC_SUBST(U_IS_BIG_ENDIAN)
 
-dnl Do various POSIX related checks
+# Do various POSIX related checks
 U_HAVE_NL_LANGINFO_CODESET=0
 U_NL_LANGINFO_CODESET=-1
 AC_CHECK_FUNC(nl_langinfo,[U_HAVE_NL_LANGINFO=1],[U_HAVE_NL_LANGINFO=0])
@@ -551,7 +740,7 @@ if test $U_HAVE_NL_LANGINFO -eq 1; then
   ac_cv_nl_langinfo_codeset,
   [ac_cv_nl_langinfo_codeset="unknown"
   for a in CODESET _NL_CTYPE_CODESET_NAME; do
-  AC_TRY_LINK([#include <langinfo.h>],[nl_langinfo($a);],[ac_cv_nl_langinfo_codeset="$a"; break])]
+  AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <langinfo.h>]], [[nl_langinfo($a);]])],[ac_cv_nl_langinfo_codeset="$a"; break],[])]
   done)
   if test x$ac_cv_nl_langinfo_codeset != xunknown
   then
@@ -562,18 +751,14 @@ fi
 AC_SUBST(U_HAVE_NL_LANGINFO_CODESET)
 AC_SUBST(U_NL_LANGINFO_CODESET)
 
-dnl Namespace support checks
-AC_LANG_CPLUSPLUS
+# Namespace support checks
+AC_LANG(C++)
 AC_MSG_CHECKING([for namespace support])
 AC_CACHE_VAL(ac_cv_namespace_ok,
-    [AC_TRY_LINK(
-    changequote(<<, >>)dnl
-    <<namespace x_version {void f(){}}
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([namespace x_version {void f(){}}
     namespace x = x_version;
     using namespace x_version;
-    >>,
-    changequote([, ])dnl
-    [f();], ac_cv_namespace_ok=yes, ac_cv_namespace_ok=no)] )
+    ], [f();])],[ac_cv_namespace_ok=yes],[ac_cv_namespace_ok=no])] )
 AC_MSG_RESULT($ac_cv_namespace_ok)
 U_HAVE_NAMESPACE=1
 if test $ac_cv_namespace_ok = no
@@ -586,9 +771,7 @@ AC_MSG_CHECKING([for properly overriding new and delete])
 U_OVERRIDE_CXX_ALLOCATION=0
 U_HAVE_PLACEMENT_NEW=0
 AC_CACHE_VAL(ac_cv_override_cxx_allocation_ok,
-    [AC_TRY_LINK(
-    changequote(<<, >>)dnl
-    <<#include <stdlib.h>
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
     class UMemory {
     public:
     void *operator new(size_t size) {return malloc(size);}
@@ -596,18 +779,14 @@ AC_CACHE_VAL(ac_cv_override_cxx_allocation_ok,
     void operator delete(void *p) {free(p);}
     void operator delete[](void *p) {free(p);}
     };
-    >>,
-    changequote([, ])dnl
-    [], ac_cv_override_cxx_allocation_ok=yes, ac_cv_override_cxx_allocation_ok=no)] )
+    ]], [])],[ac_cv_override_cxx_allocation_ok=yes],[ac_cv_override_cxx_allocation_ok=no])] )
 AC_MSG_RESULT($ac_cv_override_cxx_allocation_ok)
 if test $ac_cv_override_cxx_allocation_ok = yes
 then
     U_OVERRIDE_CXX_ALLOCATION=1
     AC_MSG_CHECKING([for placement new and delete])
     AC_CACHE_VAL(ac_cv_override_placement_new_ok,
-        [AC_TRY_LINK(
-        changequote(<<, >>)dnl
-        <<#include <stdlib.h>
+        [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
         class UMemory {
         public:
         void *operator new(size_t size) {return malloc(size);}
@@ -617,9 +796,7 @@ then
         void * operator new(size_t, void *ptr) { return ptr; }
         void operator delete(void *, void *) {}
         };
-        >>,
-        changequote([, ])dnl
-        [], ac_cv_override_placement_new_ok=yes, ac_cv_override_placement_new_ok=no)] )
+        ]], [])],[ac_cv_override_placement_new_ok=yes],[ac_cv_override_placement_new_ok=no])] )
     AC_MSG_RESULT($ac_cv_override_placement_new_ok)
     if test $ac_cv_override_placement_new_ok = yes
     then
@@ -629,7 +806,26 @@ fi
 AC_SUBST(U_OVERRIDE_CXX_ALLOCATION)
 AC_SUBST(U_HAVE_PLACEMENT_NEW)
 
-AC_LANG_C
+# gcc atomic built-in functions check
+# AC_TRY_LINK([], [int foo, bar; bar = __sync_val_compare_and_swap(&foo, 0, 1);],, 
+AC_LANG(C)
+AC_MSG_CHECKING([for gcc atomic functions])
+AC_LINK_IFELSE([AC_LANG_PROGRAM(
+    [[
+        void *p;
+        int   i;
+    ]],
+    [[
+        __sync_fetch_and_add(&i, 1);
+        __sync_fetch_and_sub(&i, 1);
+        __sync_val_compare_and_swap(&p, 0, 0);
+    ]]
+)],
+[U_HAVE_GCC_ATOMICS=1; AC_MSG_RESULT([yes])],
+[U_HAVE_GCC_ATOMICS=0; AC_MSG_RESULT([no])])
+AC_SUBST(U_HAVE_GCC_ATOMICS)
+
+AC_LANG(C)
 AC_CHECK_FUNC(popen)
 if test x$ac_cv_func_popen = xyes
 then
@@ -658,31 +854,22 @@ AC_SUBST(U_TZSET)
 
 U_HAVE_TZNAME=0
 AC_CACHE_CHECK(for tzname,ac_cv_var_tzname,
-[AC_TRY_LINK(
-changequote(<<, >>)dnl
-<<#ifndef __USE_POSIX
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([[#ifndef __USE_POSIX
 #define __USE_POSIX
 #endif
 #include <stdlib.h>
 #include <time.h>
 #ifndef tzname /* For SGI.  */
 extern char *tzname[]; /* RS6000 and others reject char **tzname.  */
-#endif>>,
-changequote([, ])dnl
-[atoi(*tzname);], ac_cv_var_tzname=yes, ac_cv_var_tzname=no)])
+#endif]], [atoi(*tzname);])],[ac_cv_var_tzname=yes],[ac_cv_var_tzname=no])])
 if test $ac_cv_var_tzname = yes; then
   U_TZNAME=tzname
   U_HAVE_TZNAME=1
 else
   AC_CACHE_CHECK(for _tzname,ac_cv_var__tzname,
-  [AC_TRY_LINK(
-  changequote(<<, >>)dnl
-  <<#include <stdlib.h>
+  [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <stdlib.h>
   #include <time.h>
-  extern char *_tzname[];
-  >>,
-  changequote([, ])dnl
-  [atoi(*_tzname);], ac_cv_var__tzname=yes, ac_cv_var__tzname=no)])
+  extern char *_tzname[];]], [atoi(*_tzname);])],[ac_cv_var__tzname=yes],[ac_cv_var__tzname=no])])
     if test $ac_cv_var__tzname = yes; then
       U_TZNAME=_tzname
       U_HAVE_TZNAME=1
@@ -692,33 +879,27 @@ AC_SUBST(U_HAVE_TZNAME)
 AC_SUBST(U_TZNAME)
 
 AC_CACHE_CHECK(for timezone,ac_cv_var_timezone,
-[AC_TRY_LINK(
-changequote(<<, >>)dnl
-<<#ifndef __USE_POSIX
+[AC_LINK_IFELSE([AC_LANG_PROGRAM([#ifndef __USE_POSIX
 #define __USE_POSIX
 #endif
 #ifndef __USE_XOPEN
 #define __USE_XOPEN
 #endif
 #include <time.h>
->>,
-changequote([, ])dnl
-[timezone = 1;], ac_cv_var_timezone=yes, ac_cv_var_timezone=no)])
+], [[timezone = 1;]])],[ac_cv_var_timezone=yes],[ac_cv_var_timezone=no])])
 U_HAVE_TIMEZONE=0
 if test $ac_cv_var_timezone = yes; then
   U_TIMEZONE=timezone
   U_HAVE_TIMEZONE=1
 else
   AC_CACHE_CHECK(for __timezone,ac_cv_var___timezone,
-  [AC_TRY_LINK([#include <time.h>], 
-  [__timezone = 1;], ac_cv_var___timezone=yes, ac_cv_var___timezone=no)])
+  [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[__timezone = 1;]])],[ac_cv_var___timezone=yes],[ac_cv_var___timezone=no])])
   if test $ac_cv_var___timezone = yes; then
     U_TIMEZONE=__timezone
     U_HAVE_TIMEZONE=1
   else
     AC_CACHE_CHECK(for _timezone,ac_cv_var__timezone,
-    [AC_TRY_LINK([#include <time.h>],
-    [_timezone = 1;], ac_cv_var__timezone=yes, ac_cv_var__timezone=no)])
+    [AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <time.h>]], [[_timezone = 1;]])],[ac_cv_var__timezone=yes],[ac_cv_var__timezone=no])])
     if test $ac_cv_var__timezone = yes; then
       U_TIMEZONE=_timezone
       U_HAVE_TIMEZONE=1
@@ -728,7 +909,7 @@ fi
 AC_SUBST(U_HAVE_TIMEZONE)
 AC_SUBST(U_TIMEZONE)
 
-dnl Checks for typedefs
+# Checks for typedefs
 AC_CHECK_TYPE(int8_t,signed char)
 AC_CHECK_TYPE(uint8_t,unsigned char)
 AC_CHECK_TYPE(int16_t,signed short)
@@ -794,16 +975,16 @@ HAVE_UINT64_T=1
 fi
 AC_SUBST(HAVE_UINT64_T)
 
-dnl Do various wchar_t related checks
+# Do various wchar_t related checks
 AC_CHECK_HEADER(wchar.h)
 if test "$ac_cv_header_wchar_h" = no
 then
     U_HAVE_WCHAR_H=0
     U_HAVE_WCSCPY=0
 else
-    AC_DEFINE(HAVE_WCHAR_H)
+    AC_DEFINE([HAVE_WCHAR_H], [1], [wchar.h was found.])
     U_HAVE_WCHAR_H=1
-    dnl Some broken systems have wchar.h but not some of its functions...
+    # Some broken systems have wchar.h but not some of its functions...
     AC_SEARCH_LIBS(wcscpy, wcs w)
     if test "$ac_cv_search_wcscpy" != no; then
       U_HAVE_WCSCPY=1
@@ -835,15 +1016,15 @@ AC_SUBST(U_SIZEOF_WCHAR_T)
 AC_MSG_CHECKING([for UTF-16 string literal support])
 U_CHECK_UTF16_STRING=1
 CHECK_UTF16_STRING_RESULT="unknown"
+
 case "${host}" in
 *-*-aix*|powerpc64-*-linux*)
-    if test "$ac_cv_prog_gcc" = no; then
+    if test "$ac_cv_c_compiler_gnu" = no; then
         OLD_CFLAGS="${CFLAGS}"
         OLD_CXXFLAGS="${CXXFLAGS}"
         CFLAGS="${CFLAGS} -qutf"
         CXXFLAGS="${CXXFLAGS} -qutf"
-        AC_TRY_COMPILE([const unsigned short hello[] = u"hello";],[],
-            [U_CHECK_UTF16_STRING=1],[U_CHECK_UTF16_STRING=0])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[const unsigned short hello[] = u"hello";]], [[]])],[U_CHECK_UTF16_STRING=1],[U_CHECK_UTF16_STRING=0])
         if test "$U_CHECK_UTF16_STRING" = 0; then
             CFLAGS="${OLD_CFLAGS}"
             CXXFLAGS="${OLD_CXXFLAGS}"
@@ -853,13 +1034,12 @@ case "${host}" in
     fi
     ;;
 *-*-solaris*)
-    if test "$ac_cv_prog_gcc" = no; then
+    if test "$ac_cv_c_compiler_gnu" = no; then
         OLD_CFLAGS="${CFLAGS}"
         OLD_CXXFLAGS="${CXXFLAGS}"
         CFLAGS="${CFLAGS} -xustr=ascii_utf16_ushort"
         CXXFLAGS="${CXXFLAGS} -xustr=ascii_utf16_ushort"
-        AC_TRY_COMPILE([const unsigned short hello[] = U"hello";],[],
-            [U_CHECK_UTF16_STRING=1],[U_CHECK_UTF16_STRING=0])
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[const unsigned short hello[] = U"hello";]], [[]])],[U_CHECK_UTF16_STRING=1],[U_CHECK_UTF16_STRING=0])
         if test "$U_CHECK_UTF16_STRING" = 0; then
             CFLAGS="${OLD_CFLAGS}"
             CXXFLAGS="${OLD_CXXFLAGS}"
@@ -877,22 +1057,53 @@ case "${host}" in
     fi
     ;;
 *-*-hpux*)
-    if test "$ac_cv_prog_gcc" = no; then
-        dnl The option will be detected at compile time without additional compiler options.
+    if test "$ac_cv_c_compiler_gnu" = no; then
+        # The option will be detected at compile time without additional compiler options.
         CHECK_UTF16_STRING_RESULT="available"
     fi
     ;;
 *-*-cygwin)
-    dnl wchar_t can be used
+    # wchar_t can be used
     CHECK_UTF16_STRING_RESULT="available"
     ;;
 *)
     ;;
 esac
+
+# GCC >= 4.4 supports UTF16 string literals. The CFLAGS and CXXFLAGS may change in the future.
+# Since we have to use a different standard, if strict is enable, don't enable UTF16 string literals.
+U_CHECK_GNUC_UTF16_STRING=0
+if test "$ac_use_strict_options" = no && test "$CHECK_UTF16_STRING_RESULT" = "unknown"; then
+    if test "$ac_cv_c_compiler_gnu" = yes; then
+        OLD_CFLAGS="${CFLAGS}"
+        OLD_CXXFLAGS="${CXXFLAGS}"
+        CFLAGS="${CFLAGS} -std=gnu99 -D_GCC_"
+        CXXFLAGS="${CXXFLAGS} -std=c++0x"
+        AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[
+#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 4)
+#ifdef _GCC_
+typedef __CHAR16_TYPE__ char16_t;
+#endif
+char16_t test[] = u"This is a UTF16 literal string.";
+#else
+GCC IS TOO OLD!
+#endif
+        ]], [[]])],[U_CHECK_UTF16_STRING=1],[U_CHECK_UTF16_STRING=0])
+        if test "$U_CHECK_UTF16_STRING" = 1; then
+            CHECK_UTF16_STRING_RESULT="available";
+            U_CHECK_GNUC_UTF16_STRING=1
+        else
+            CFLAGS="${OLD_CFLAGS}"
+            CXXFLAGS="${OLD_CXXFLAGS}"
+        fi
+    fi
+fi
+AC_SUBST(U_CHECK_GNUC_UTF16_STRING)
+
 AC_MSG_RESULT($CHECK_UTF16_STRING_RESULT)
 AC_SUBST(U_CHECK_UTF16_STRING)
 
-dnl Enable/disable extras
+# Enable/disable extras
 AC_ARG_ENABLE(extras,
 	[  --enable-extras         build ICU extras [default=yes]],
 	[case "${enableval}" in
@@ -912,7 +1123,7 @@ AC_ARG_ENABLE(icuio,
 	icuio=true)
 ICU_CONDITIONAL(ICUIO, test "$icuio" = true)
 
-dnl Enable/disable layout
+# Enable/disable layout
 AC_ARG_ENABLE(layout,
 	[  --enable-layout         build ICU's layout library [default=yes]],
 	[case "${enableval}" in
@@ -924,7 +1135,7 @@ AC_ARG_ENABLE(layout,
 ICU_CONDITIONAL(LAYOUT, test "$layout" = true)
 
 AC_ARG_WITH(data-packaging,
-	[  --with-data-packaging=type specify how to package ICU data (files, archive, library, auto) [default=auto]],
+	[  --with-data-packaging=type specify how to package ICU data (files, archive, library, static, auto) [default=auto]],
 	[case "${withval}" in
                 files|archive|library) datapackaging=$withval ;;
 		auto) datapackaging=$withval ;;
@@ -935,39 +1146,70 @@ AC_ARG_WITH(data-packaging,
 		esac], 
         [datapackaging=])
 
-dnl Note:  'thesysconfdir' is an evaluated version, for Man pages, so also for thedatadir, thelibdir, etc.. 
-dnl thesysconfdir=`eval echo $sysconfdir`
-dnl AC_SUBST(thesysconfdir)
-dnl thelibdir=`test "x$exec_prefix" = xNONE && exec_prefix="$prefix"; eval echo $libdir`
-dnl AC_SUBST(thelibdir)
+# Note:  'thesysconfdir' is an evaluated version, for Man pages, so also for thedatadir, thelibdir, etc.. 
+# thesysconfdir=`eval echo $sysconfdir`
+dnl# AC_SUBST(thesysconfdir)
+dnl# thelibdir=`test "x$exec_prefix" = xNONE && exec_prefix="$prefix"; eval echo $libdir`
+dnl# AC_SUBST(thelibdir)
 thedatadir=`eval echo $datadir`
-dnl AC_SUBST(thedatadir)
-dnl Always put raw data files in share/icu/{version}, etc.   Never use lib/icu/{version} for data files.. Actual shared libraries will go in {libdir}. 
+dnl# AC_SUBST(thedatadir)
+# Always put raw data files in share/icu/{version}, etc.   Never use lib/icu/{version} for data files.. Actual shared libraries will go in {libdir}. 
 pkgicudatadir=$datadir
 thepkgicudatadir=$thedatadir
 AC_SUBST(pkgicudatadir)
 AC_SUBST(thepkgicudatadir)
 
-dnl Shouldn't need the AC_SUBST
+dnl# Shouldn't need the AC_SUBST
 
 if test x"$datapackaging" = x -o x"$datapackaging" = xauto; then
+	# default to library
 	datapackaging=library
+	if test "$ENABLE_STATIC" = "YES"; then
+		if test "$ENABLE_SHARED" != "YES"; then
+			datapackaging=static
+		fi
+	fi
 fi
+
+datapackaging_dir=`eval echo $thedatadir`"/icu/${VERSION}"
+
+datapackaging_msg="(No explaination for mode $datapackaging.)"
+
+datapackaging_msg_path="ICU will look in $datapackaging_dir which is the installation location. Call u_setDataDirectory() or use the ICU_DATA environment variable to override."
+datapackaging_msg_set="ICU will use the linked data library. If linked with the stub library located in stubdata/, the application can use udata_setCommonData() or set a data path to override." 
+datapackaging_howfound="(unknown)"
 
 case "$datapackaging" in
     files)
-	DATA_PACKAGING_MODE=files
-	;;
+    DATA_PACKAGING_MODE=files
+    datapackaging_msg="ICU data will be stored in individual files."
+    datapackaging_howfound="$datapackaging_msg_path"
+    ;;
     archive)
-	DATA_PACKAGING_MODE=common
-	;;
+    DATA_PACKAGING_MODE=common
+    datapackaging_msg="ICU data will be stored in a single .dat file."
+    datapackaging_howfound="$datapackaging_msg_path"
+    ;;
     library)
-	DATA_PACKAGING_MODE=dll
-	;;
+    DATA_PACKAGING_MODE=dll
+    datapackaging_msg="ICU data will be linked with ICU."
+    if test "$ENABLE_STATIC" = "YES"; then
+        datapackaging_msg="$datapackaging_msg A static data library will be built. "
+    fi
+    if test "$ENABLE_SHARED" = "YES"; then
+        datapackaging_msg="$datapackaging_msg A shared data library will be built. "
+    fi
+    datapackaging_howfound="$datapackaging_msg_set"
+    ;;
+    static)
+    DATA_PACKAGING_MODE=static
+    datapackaging_msg="ICU data will be stored in a static library."
+    datapackaging_howfound="$datapackaging_msg_set"
+    ;;
 esac
 AC_SUBST(DATA_PACKAGING_MODE)
 
-dnl Sets a library suffix
+# Sets a library suffix
 AC_MSG_CHECKING([for a library suffix to use])
 AC_ARG_WITH(library-suffix,
 	[  --with-library-suffix=suffix    tag a suffix to the library names [default=]],
@@ -979,7 +1221,6 @@ if test "$msg" = ""; then
 fi
 AC_MSG_RESULT($msg)
 AC_SUBST(ICULIBSUFFIX)
-changequote(<<, >>)dnl
 if test "$ICULIBSUFFIX" != ""
 then
     U_HAVE_LIB_SUFFIX=1
@@ -987,11 +1228,10 @@ then
 else
     U_HAVE_LIB_SUFFIX=0
 fi
-changequote([, ])dnl
 AC_SUBST(U_HAVE_LIB_SUFFIX)
 AC_SUBST(ICULIBSUFFIXCNAME)
 
-dnl Enable/disable tests
+# Enable/disable tests
 AC_ARG_ENABLE(tests,
 	[  --enable-tests          build ICU tests [default=yes]],
 	[case "${enableval}" in
@@ -1002,7 +1242,7 @@ AC_ARG_ENABLE(tests,
 	tests=true)
 ICU_CONDITIONAL(TESTS, test "$tests" = true)
 
-dnl Enable/disable samples
+# Enable/disable samples
 AC_ARG_ENABLE(samples,
 	[  --enable-samples        build ICU samples [default=yes]  
 
@@ -1018,12 +1258,11 @@ ICU_CONDITIONAL(SAMPLES, test "$samples" = true)
 
 ICUDATA_CHAR=$U_ENDIAN_CHAR
 
-dnl Platform-specific Makefile setup
-dnl set ICUDATA_CHAR to 'e' for any EBCDIC (which should be big endian) platform.
+# Platform-specific Makefile setup
+# set ICUDATA_CHAR to 'e' for any EBCDIC (which should be big endian) platform.
 case "${host}" in
 	*-*-solaris*) 	platform=U_SOLARIS ;;
-	*-*-linux*) 	platform=U_LINUX ;;
-	*-pc-gnu) 	platform=U_HURD ;;
+	*-*-linux*|*-*-gnu|*-*-k*bsd*-gnu|*-*-kopensolaris*-gnu)        platform=U_LINUX ;;
 	*-*-*bsd*|*-*-dragonfly*) 	platform=U_BSD ;;
 	*-*-aix*) 	platform=U_AIX ;;
 	*-*-hpux*) 	platform=U_HPUX ;;
@@ -1057,8 +1296,8 @@ if test "${FORCE_LIBS}" != ""; then
 fi
 
 
-dnl Now that we're done using CPPFLAGS etc. for tests, we can change it
-dnl for build.
+# Now that we're done using CPPFLAGS etc. for tests, we can change it
+# for build.
 
 if test $ICU_USE_THREADS -ne 0
 then
@@ -1067,11 +1306,13 @@ then
     CXXFLAGS="$CXXFLAGS \$(THREADSCXXFLAGS)"
 fi
 
-dnl output the Makefiles
-AC_OUTPUT([icudefs.mk \
+# output the Makefiles
+AC_CONFIG_FILES([icudefs.mk \
 		Makefile \
-		data/icupkg.inc \
+		data/pkgdataMakefile \
 		config/Makefile.inc \
+		config/icu.pc \
+		config/pkgdataMakefile \
 		data/Makefile \
 		stubdata/Makefile \
 		common/Makefile \
@@ -1081,34 +1322,31 @@ AC_OUTPUT([icudefs.mk \
 		io/Makefile \
 		extra/Makefile \
 		extra/uconv/Makefile \
+		extra/uconv/pkgdataMakefile \
 		extra/scrptrun/Makefile \
 		tools/Makefile \
 		tools/ctestfw/Makefile \
 		tools/toolutil/Makefile \
 		tools/makeconv/Makefile \
 		tools/genrb/Makefile \
-		tools/genuca/Makefile \
 		tools/genccode/Makefile \
 		tools/gencmn/Makefile \
 		tools/gencnval/Makefile \
 		tools/genctd/Makefile \
-		tools/gennames/Makefile \
 		tools/gentest/Makefile \
-		tools/gennorm/Makefile \
-		tools/genprops/Makefile \
-		tools/gencase/Makefile \
-		tools/genbidi/Makefile \
-		tools/genpname/Makefile \
+		tools/gennorm2/Makefile \
 		tools/genbrk/Makefile \
 		tools/gensprep/Makefile \
+		tools/icuinfo/Makefile \
 		tools/icupkg/Makefile \
 		tools/icuswap/Makefile \
 		tools/pkgdata/Makefile \
 		tools/tzcode/Makefile \
+		tools/gencfu/Makefile \
 		test/Makefile \
 		test/compat/Makefile \
 		test/testdata/Makefile \
-		test/testdata/pkgdata.inc \
+		test/testdata/pkgdataMakefile \
 		test/hdrtst/Makefile \
 		test/intltest/Makefile \
 		test/cintltst/Makefile \
@@ -1120,25 +1358,45 @@ AC_OUTPUT([icudefs.mk \
 		test/perf/charperf/Makefile \
 		test/perf/convperf/Makefile \
 		test/perf/normperf/Makefile \
+		test/perf/DateFmtPerf/Makefile \
 		test/perf/strsrchperf/Makefile \
 		test/perf/unisetperf/Makefile \
 		test/perf/usetperf/Makefile \
 		test/perf/ustrperf/Makefile \
 		test/perf/utfperf/Makefile \
+		test/perf/utrie2perf/Makefile \
 		samples/Makefile samples/date/Makefile \
 		samples/cal/Makefile samples/layout/Makefile \
 		common/unicode/platform.h])
+AC_OUTPUT
+
+echo 
+echo "ICU for C/C++ $VERSION is ready to be built."
+echo "=== Important Notes: ==="
 
 if test $ICU_USE_THREADS = 0; then
-  echo  " *** Note: configuring the ICU without pthread support or testing. If this isn't what you want, then run configure with --enable-threads=yes or check the messages [above] to see why we couldn't find pthread_create()" 1>&6
+  echo
+  echo  "** ICU was configured without mutex or thread support. Multithread-safe operation will not be tested. If this is unexpected, then run configure with --enable-threads=yes or check the messages [above] to see why thread support was not found." 1>&6
+  echo
 fi
 
+echo "Data Packaging: $datapackaging"
+echo " This means: $datapackaging_msg"
+echo " To locate data: $datapackaging_howfound"
+
 if test -n "`$U_MAKE -v 2>&1 | grep '^GNU Make'`"; then
-echo "You must use $U_MAKE to build ICU."
+echo "Building ICU: Use a GNU make such as $U_MAKE to build ICU."
 else
-echo "WARNING: $U_MAKE may not be GNU make."
+echo "** WARNING: $U_MAKE may not be GNU make."
 echo "This may cause ICU to fail to build. Please make sure that GNU make"
-echo "is in your PATH so that this configure script can detect its location."
+echo "is in your PATH so that the configure script can detect its location."
+fi
+
+AC_MSG_CHECKING([the version of "$U_MAKE"])
+if "$U_MAKE" -f "$srcdir/config/gmakever.mk" PLATFORM="$platform"; then
+AC_MSG_RESULT([ok])
+else
+AC_MSG_RESULT([too old or test failed - try upgrading GNU Make])
 fi
 
 $as_unset _CXX_CXXSUFFIX

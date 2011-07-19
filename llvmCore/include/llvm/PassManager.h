@@ -24,7 +24,6 @@ namespace llvm {
 class Pass;
 class ModulePass;
 class Module;
-class ModuleProvider;
 
 class PassManagerImpl;
 class FunctionPassManagerImpl;
@@ -61,6 +60,9 @@ public:
   bool run(Module &M);
 
 private:
+  /// addImpl - Add a pass to the queue of passes to run, without
+  /// checking whether to add a printer pass.
+  void addImpl(Pass *P);
 
   /// PassManagerImpl_New is the actual class. PassManager is just the 
   /// wraper to publish simple pass manager interface
@@ -71,8 +73,8 @@ private:
 class FunctionPassManager : public PassManagerBase {
 public:
   /// FunctionPassManager ctor - This initializes the pass manager.  It needs,
-  /// but does not take ownership of, the specified module provider.
-  explicit FunctionPassManager(ModuleProvider *P);
+  /// but does not take ownership of, the specified Module.
+  explicit FunctionPassManager(Module *M);
   ~FunctionPassManager();
  
   /// add - Add a pass to the queue of passes to run.  This passes
@@ -96,15 +98,13 @@ public:
   ///
   bool doFinalization();
   
-  /// getModuleProvider - Return the module provider that this passmanager is
-  /// currently using.  This is the module provider that it uses when a function
-  /// is optimized that is non-resident in the module.
-  ModuleProvider *getModuleProvider() const { return MP; }
-  void setModuleProvider(ModuleProvider *NewMP) { MP = NewMP; }
-
 private:
+  /// addImpl - Add a pass to the queue of passes to run, without
+  /// checking whether to add a printer pass.
+  void addImpl(Pass *P);
+
   FunctionPassManagerImpl *FPM;
-  ModuleProvider *MP;
+  Module *M;
 };
 
 } // End llvm namespace

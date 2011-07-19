@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,6 @@
 
 #define streq(A,B) (strcmp(A,B)==0)
 #define forever for(;;)
-#define IndexNull ((uint32_t)-1)
 
 #define ASL_MSG_TYPE_MASK 0x0000000f
 #define ASL_TYPE_ERROR 2
@@ -62,7 +61,7 @@
 #define VERIFY_STATUS_INVALID_MESSAGE 1
 #define VERIFY_STATUS_EXCEEDED_QUOTA 2
 
-extern void disaster_message(asl_msg_t *m);
+extern void disaster_message(aslmsg m);
 static char myname[MAXHOSTNAMELEN + 1] = {0};
 
 static OSSpinLock count_lock = 0;
@@ -232,7 +231,7 @@ freeList(char **l)
  */
  
 static uint32_t
-quota_check(pid_t pid, time_t now, asl_msg_t *msg)
+quota_check(pid_t pid, time_t now, aslmsg msg)
 {
 	int i, x, maxx, max;
 	char *str;
@@ -305,6 +304,7 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 	}
 
 	/* can't find the pid and no slots were available - reuse slot with highest remaining quota */
+	asldebug("Quotas: reused slot %d pid %d quota %d for new pid %d\n", maxx, (int)quota_table_pid[maxx], quota_table_quota[maxx], (int)pid);
 	quota_table_pid[maxx] = pid;
 	quota_table_quota[maxx] = global.mps_limit;
 
@@ -313,7 +313,7 @@ quota_check(pid_t pid, time_t now, asl_msg_t *msg)
 }
 
 int
-asl_check_option(asl_msg_t *msg, const char *opt)
+asl_check_option(aslmsg msg, const char *opt)
 {
 	const char *p;
 	uint32_t len;
@@ -355,7 +355,7 @@ aslevent_init(void)
 }
 
 int
-aslevent_log(asl_msg_t *msg, char *outid)
+aslevent_log(aslmsg msg, char *outid)
 {
 	struct asloutput *i;
 	int status = -1;
@@ -365,6 +365,7 @@ aslevent_log(asl_msg_t *msg, char *outid)
 		if ((outid != NULL) && (strcmp(i->outid, outid) == 0))
 		{
 			status = i->sendmsg(msg, outid);
+			if (status < 0) break;
 		}
 	}
 
@@ -390,17 +391,19 @@ aslevent_addmatch(asl_msg_t *query, char *outid)
 }
 
 void
-asl_message_match_and_log(asl_msg_t *msg)
+asl_message_match_and_log(aslmsg msg)
 {
 	struct aslmatch *i;
+	int status = -1;
 
 	if (msg == NULL) return;
 
 	for (i = Matchq.tqh_first; i != NULL; i = i->entries.tqe_next)
 	{
-		if (asl_msg_cmp(i->query, msg) != 0)
+		if (asl_msg_cmp(i->query, (asl_msg_t *)msg) != 0)
 		{
-			aslevent_log(msg, i->outid);
+			status = aslevent_log(msg, i->outid);
+			if (status < 0) break;
 		}
 	}
 }
@@ -425,6 +428,53 @@ aslevent_removefd(int fd)
 	}
 
 	return -1;
+}
+
+static const char *_source_name(int n)
+{
+	switch (n)
+	{
+		case SOURCE_INTERNAL: return "internal";
+		case SOURCE_ASL_SOCKET: return "ASL socket";
+		case SOURCE_BSD_SOCKET: return "BSD socket";
+		case SOURCE_UDP_SOCKET: return "UDP socket";
+		case SOURCE_KERN: return "kernel";
+		case SOURCE_ASL_MESSAGE: return "ASL message";
+		case SOURCE_LAUNCHD: return "launchd";
+		case SOURCE_SESSION: return "session";
+		default: return "unknown";
+	}
+
+	return "unknown";
+}
+
+void
+aslevent_check()
+{
+	struct aslevent *e, *next;
+	fd_set test;
+	struct timeval zero = {0};
+	int max;
+
+	e = Eventq.tqh_first;
+
+	while (e != NULL)
+	{
+		next = e->entries.tqe_next;
+		if (e->fd >= 0)
+		{
+			FD_ZERO(&test);
+			FD_SET(e->fd, &test);
+			max = e->fd + 1;
+
+			if (select(max, &test, NULL, NULL, &zero) < 0)
+			{
+				asldebug("aslevent_check: fd %d source %d (%s) errno %d\n", e->fd, e->source, _source_name(e->source), e->fd);
+			}
+		}
+
+		e = next;
+	}
 }
 
 const char *
@@ -594,9 +644,9 @@ aslevent_addfd(int source, int fd, uint32_t flags, aslreadfn readfn, aslwritefn 
  */
 
 static uint32_t
-aslmsg_verify(uint32_t source, struct aslevent *e, asl_msg_t *msg, int32_t *kern_post_level)
+aslmsg_verify(uint32_t source, struct aslevent *e, aslmsg msg, int32_t *kern_post_level)
 {
-	const char *val, *fac;
+	const char *val, *fac, *ruval, *rgval;
 	char buf[64];
 	time_t tick, now;
 	uid_t uid;
@@ -643,8 +693,11 @@ aslmsg_verify(uint32_t source, struct aslevent *e, asl_msg_t *msg, int32_t *kern
 		if (val != NULL) pid = (pid_t)atoi(val);
 	}
 
-	/* if quotas are enabled and pid > 1 (not kernel or launchd) check quota */
-	if ((global.mps_limit > 0) && (pid > 1))
+	/*
+	 * if quotas are enabled and pid > 1 (not kernel or launchd)
+	 * and no processes are watching, then check quota
+	 */
+	if ((global.mps_limit > 0) && (pid > 1) && (global.watchers_active == 0))
 	{
 		status = quota_check(pid, now, msg);
 		if (status != VERIFY_STATUS_OK) return status;
@@ -806,17 +859,24 @@ aslmsg_verify(uint32_t source, struct aslevent *e, asl_msg_t *msg, int32_t *kern
 
 	/*
 	 * kernel messages are only readable by root and admin group.
+	 * all other messages are admin-only readable unless they already
+	 * have specific read access controls set.
 	 */
 	if (source == SOURCE_KERN)
 	{
 		asl_set(msg, ASL_KEY_READ_UID, "0");
 		asl_set(msg, ASL_KEY_READ_GID, "80");
 	}
+	else
+	{
+		ruval = asl_get(msg, ASL_KEY_READ_UID);
+		rgval = asl_get(msg, ASL_KEY_READ_GID);
 
-	/*
-	 * Access Control: only UID 0 may use facility com.apple.system (or anything with that prefix).
-	 * N.B. kernel can use any facility name.
-	 */
+		if ((ruval == NULL) && (rgval == NULL))
+		{
+			asl_set(msg, ASL_KEY_READ_GID, "80");
+		}
+	}
 
 	/* Set DB Expire Time for com.apple.system.utmpx and lastlog */
 	if ((!strcmp(fac, "com.apple.system.utmpx")) || (!strcmp(fac, "com.apple.system.lastlog")))
@@ -921,7 +981,7 @@ aslevent_cleanup()
 }
 
 void
-list_append_msg(asl_search_result_t *list, asl_msg_t *msg)
+list_append_msg(asl_search_result_t *list, aslmsg msg)
 {
 	if (list == NULL) return;
 	if (msg == NULL) return;
@@ -951,12 +1011,12 @@ list_append_msg(asl_search_result_t *list, asl_msg_t *msg)
 		list->curr += LIST_SIZE_DELTA;
 	}
 
-	list->msg[list->count] = msg;
+	list->msg[list->count] = (asl_msg_t *)msg;
 	list->count++;
 }
 
 void
-work_enqueue(asl_msg_t *m)
+work_enqueue(aslmsg m)
 {
 	pthread_mutex_lock(global.work_queue_lock);
 	list_append_msg(global.work_queue, m);
@@ -965,15 +1025,12 @@ work_enqueue(asl_msg_t *m)
 }
 
 void
-asl_enqueue_message(uint32_t source, struct aslevent *e, asl_msg_t *msg)
+asl_enqueue_message(uint32_t source, struct aslevent *e, aslmsg msg)
 {
 	int32_t kplevel;
 	uint32_t status;
 
 	if (msg == NULL) return;
-
-	/* set retain count to 1 */
-	msg->type |= 0x10;
 
 	kplevel = -1;
 	status = aslmsg_verify(source, e, msg, &kplevel);
@@ -984,17 +1041,20 @@ asl_enqueue_message(uint32_t source, struct aslevent *e, asl_msg_t *msg)
 	}
 	else
 	{
-		asl_msg_release(msg);
+		asl_free(msg);
 	}
 }
 
-asl_msg_t **
-asl_work_dequeue(uint32_t *count)
+aslmsg *
+work_dequeue(uint32_t *count)
 {
-	asl_msg_t **work;
+	aslmsg *work;
 
 	pthread_mutex_lock(global.work_queue_lock);
-	pthread_cond_wait(&global.work_queue_cond, global.work_queue_lock);
+	if (global.work_queue->count == 0)
+	{
+		pthread_cond_wait(&global.work_queue_cond, global.work_queue_lock);
+	}
 
 	work = NULL;
 	*count = 0;
@@ -1005,7 +1065,7 @@ asl_work_dequeue(uint32_t *count)
 		return NULL;
 	}
 
-	work = global.work_queue->msg;
+	work = (aslmsg *)(global.work_queue->msg);
 	*count = global.work_queue->count;
 
 	global.work_queue->count = 0;
@@ -1021,7 +1081,7 @@ aslevent_handleevent(fd_set *rd, fd_set *wr, fd_set *ex)
 {
 	struct aslevent *e;
 	char *out = NULL;
-	asl_msg_t *msg;
+	aslmsg msg;
 	int32_t cleanup;
 
 //	asldebug("--> aslevent_handleevent\n");
@@ -1061,11 +1121,11 @@ aslevent_handleevent(fd_set *rd, fd_set *wr, fd_set *ex)
 int
 asl_log_string(const char *str)
 {
-	asl_msg_t *msg;
+	aslmsg msg;
 
 	if (str == NULL) return 1;
 
-	msg = asl_msg_from_string(str);
+	msg = (aslmsg)asl_msg_from_string(str);
 	if (msg == NULL) return 1;
 
 	asl_enqueue_message(SOURCE_INTERNAL, NULL, msg);
@@ -1121,14 +1181,14 @@ asl_mark(void)
 	if (str != NULL) free(str);
 }
 
-asl_msg_t *
-asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
+aslmsg 
+asl_syslog_input_convert(const char *in, int len, char *rhost, uint32_t source)
 {
 	int pf, pri, index, n;
-	char *p, *colon, *brace, *tmp, *tval, *sval, *pval, *mval;
+	char *p, *colon, *brace, *space, *tmp, *tval, *hval, *sval, *pval, *mval;
 	char prival[8];
 	const char *fval;
-	asl_msg_t *msg;
+	aslmsg msg;
 	struct tm time;
 	time_t tick;
 
@@ -1137,6 +1197,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 
 	pri = LOG_DEBUG;
 	tval = NULL;
+	hval = NULL;
 	sval = NULL;
 	pval = NULL;
 	mval = NULL;
@@ -1145,6 +1206,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 	index = 0;
 	p = (char *)in;
 
+	/* skip leading whitespace */
 	while ((index < len) && ((*p == ' ') || (*p == '\t')))
 	{
 		p++;
@@ -1153,6 +1215,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 
 	if (index >= len) return NULL;
 
+	/* parse "<NN>" priority (level and facility) */
 	if (*p == '<')
 	{
 		p++;
@@ -1180,6 +1243,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 
 	snprintf(prival, sizeof(prival), "%d", pri);
 
+	/* check if a timestamp is included */
 	if (((len - index) > 15) && (p[9] == ':') && (p[12] == ':') && (p[15] == ' '))
 	{
 		tmp = malloc(16);
@@ -1204,26 +1268,42 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 		index += 16;
 	}
 
-	if (kern != 0)
+	/* stop here for kernel messages */
+	if (source == SOURCE_KERN)
 	{
-		msg = (asl_msg_t *)calloc(1, sizeof(asl_msg_t));
+		msg = asl_new(ASL_TYPE_MSG);
 		if (msg == NULL) return NULL;
 
-
 		asl_set(msg, ASL_KEY_MSG, p);
-
 		asl_set(msg, ASL_KEY_LEVEL, prival);
-
 		asl_set(msg, ASL_KEY_PID, "0");
-
 		asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
 
 		return msg;
 	}
 
+	/* if message is from a network socket, hostname follows */
+	if (source == SOURCE_UDP_SOCKET)
+	{
+		space = strchr(p, ' ');
+		if (space != NULL)
+		{
+			n = space - p;
+			hval = malloc(n + 1);
+			if (hval == NULL) return NULL;
+
+			memcpy(hval, p, n);
+			hval[n] = '\0';
+
+			p = space + 1;
+			index += (n + 1);
+		}
+	}
+
 	colon = strchr(p, ':');
 	brace = strchr(p, '[');
 
+	/* check for "sender:" or sender[pid]:"  */
 	if (colon != NULL)
 	{
 		if ((brace != NULL) && (brace < colon))
@@ -1275,7 +1355,7 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 
 	if (fval == NULL) fval = asl_syslog_faciliy_num_to_name(LOG_USER);
 
-	msg = (asl_msg_t *)calloc(1, sizeof(asl_msg_t));
+	msg = asl_new(ASL_TYPE_MSG);
 	if (msg == NULL) return NULL;
 
 	if (tval != NULL)
@@ -1298,7 +1378,10 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 		asl_set(msg, ASL_KEY_PID, pval);
 		free(pval);
 	}
-	else asl_set(msg, ASL_KEY_PID, "-1");
+	else
+	{
+		asl_set(msg, ASL_KEY_PID, "-1");
+	}
 
 	if (mval != NULL)
 	{
@@ -1311,21 +1394,18 @@ asl_syslog_input_convert(const char *in, int len, char *rhost, int kern)
 	asl_set(msg, ASL_KEY_GID, "-2");
 
 	if (rhost == NULL) asl_set(msg, ASL_KEY_HOST, whatsmyhostname());
+	else if (hval != NULL)  asl_set(msg, ASL_KEY_HOST, hval);
 	else asl_set(msg, ASL_KEY_HOST, rhost);
 
-	if (msg->count == 0)
-	{
-		asl_msg_release(msg);
-		return NULL;
-	}
+	if (hval != NULL) free(hval);
 
 	return msg;
 }
 
-asl_msg_t *
-asl_input_parse(const char *in, int len, char *rhost, int kern)
+aslmsg 
+asl_input_parse(const char *in, int len, char *rhost, uint32_t source)
 {
-	asl_msg_t *m;
+	aslmsg msg;
 	int status, x, legacy;
 
 	asldebug("asl_input_parse: %s\n", (in == NULL) ? "NULL" : in);
@@ -1333,7 +1413,7 @@ asl_input_parse(const char *in, int len, char *rhost, int kern)
 	if (in == NULL) return NULL;
 
 	legacy = 1;
-	m = NULL;
+	msg = NULL;
 
 	/* calculate length if not provided */
 	if (len == 0) len = strlen(in);
@@ -1349,14 +1429,14 @@ asl_input_parse(const char *in, int len, char *rhost, int kern)
 		if ((status == 1) && (in[10] == ' ') && (in[11] == '[')) legacy = 0;
 	}
 
-	if (legacy == 1) return asl_syslog_input_convert(in, len, rhost, kern);
+	if (legacy == 1) return asl_syslog_input_convert(in, len, rhost, source);
 
-	m = asl_msg_from_string(in + 11);
-	if (m == NULL) return NULL;
+	msg = (aslmsg)asl_msg_from_string(in + 11);
+	if (msg == NULL) return NULL;
 
-	if (rhost != NULL) asl_set(m, ASL_KEY_HOST, rhost);
+	if (rhost != NULL) asl_set(msg, ASL_KEY_HOST, rhost);
 
-	return m;
+	return msg;
 }
 
 char *
@@ -1378,45 +1458,10 @@ get_line_from_file(FILE *f)
 	return s;
 }
 
-uint32_t
-asl_msg_type(asl_msg_t *m)
-{
-	if (m == NULL) return ASL_TYPE_ERROR;
-	return (m->type & ASL_MSG_TYPE_MASK);
-}
-
-void
-asl_msg_release(asl_msg_t *m)
-{
-	int32_t newval;
-
-	if (m == NULL) return;
-
-	newval = OSAtomicAdd32(-0x10, (int32_t*)&m->type) >> 4;
-	assert(newval >= 0);
-
-	if (newval > 0) return;
-
-	asl_free(m);
-}
-
-asl_msg_t *
-asl_msg_retain(asl_msg_t *m)
-{
-	int32_t newval;
-
-	if (m == NULL) return NULL;
-
-	newval = OSAtomicAdd32(0x10, (int32_t*)&m->type) >> 4;
-	assert(newval > 0);
-
-	return m;
-}
-
 void
 launchd_callback(struct timeval *when, pid_t from_pid, pid_t about_pid, uid_t sender_uid, gid_t sender_gid, int priority, const char *from_name, const char *about_name, const char *session_name, const char *msg)
 {
-	asl_msg_t *m;
+	aslmsg m;
 	char str[256];
 	time_t now;
 

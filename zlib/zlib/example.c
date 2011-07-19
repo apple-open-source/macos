@@ -1,13 +1,12 @@
 /* example.c -- usage example of the zlib compression library
- * Copyright (C) 1995-2004 Jean-loup Gailly.
+ * Copyright (C) 1995-2006 Jean-loup Gailly.
  * For conditions of distribution and use, see copyright notice in zlib.h
  */
 
 /* @(#) $Id$ */
 
-#include <stdio.h>
 #include "zlib.h"
-#include "local.h"
+#include <stdio.h>
 
 #ifdef STDC
 #  include <string.h>
@@ -67,7 +66,7 @@ void test_compress(compr, comprLen, uncompr, uncomprLen)
     err = compress(compr, &comprLen, (const Bytef*)hello, len);
     CHECK_ERR(err, "compress");
 
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     err = uncompress(uncompr, &uncomprLen, compr, comprLen);
     CHECK_ERR(err, "uncompress");
@@ -118,7 +117,7 @@ void test_gzio(fname, uncompr, uncomprLen)
         fprintf(stderr, "gzopen error\n");
         exit(1);
     }
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     if (gzread(file, uncompr, (unsigned)uncomprLen) != len) {
         fprintf(stderr, "gzread err: %s\n", gzerror(file, &err));
@@ -212,7 +211,7 @@ void test_inflate(compr, comprLen, uncompr, uncomprLen)
     int err;
     z_stream d_stream; /* decompression stream */
 
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     d_stream.zalloc = (alloc_func)0;
     d_stream.zfree = (free_func)0;
@@ -308,7 +307,7 @@ void test_large_inflate(compr, comprLen, uncompr, uncomprLen)
     int err;
     z_stream d_stream; /* decompression stream */
 
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     d_stream.zalloc = (alloc_func)0;
     d_stream.zfree = (free_func)0;
@@ -387,7 +386,7 @@ void test_sync(compr, comprLen, uncompr, uncomprLen)
     int err;
     z_stream d_stream; /* decompression stream */
 
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     d_stream.zalloc = (alloc_func)0;
     d_stream.zfree = (free_func)0;
@@ -468,7 +467,7 @@ void test_dict_inflate(compr, comprLen, uncompr, uncomprLen)
     int err;
     z_stream d_stream; /* decompression stream */
 
-    STRLCPY((char*)uncompr, "garbage", uncomprLen);
+    strcpy((char*)uncompr, "garbage");
 
     d_stream.zalloc = (alloc_func)0;
     d_stream.zfree = (free_func)0;

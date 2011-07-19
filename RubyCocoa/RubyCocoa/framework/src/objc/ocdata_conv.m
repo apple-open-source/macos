@@ -752,7 +752,7 @@ rbobj_to_cselstr (VALUE obj)
   if (rb_ivar_defined(str, rb_intern("@__is_sel__")) == Qtrue)
     return sel_registerName(RSTRING(str)->ptr);
 
-  sel = (char *)alloca(RSTRING(str)->len);
+  sel = (char *)alloca(RSTRING(str)->len + 1);
   sel[0] = RSTRING(str)->ptr[0];
   for (i = 1; i < RSTRING(str)->len; i++) {
     char c = RSTRING(str)->ptr[i];

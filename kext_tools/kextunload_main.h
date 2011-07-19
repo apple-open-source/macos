@@ -124,4 +124,4 @@ ExitStatus unloadKextWithIdentifier(
 ExitStatus   formatKernResult(kern_return_t kernResult);
 void         usage(UsageLevel usageLevel);
 
-#endif /* _KEXTUNLOAD_MAIN_H */
+#endif

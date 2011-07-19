@@ -35,6 +35,7 @@ __FBSDID("$FreeBSD: src/sbin/md5/md5.c,v 1.34 2005/03/09 19:23:04 cperciva Exp $
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 /*
  * Length of test block, number of test blocks.
@@ -352,6 +353,9 @@ MDFilter(Algorithm_t *alg, int tee)
 		if (tee && len != fwrite(buffer, 1, len, stdout))
 			err(1, "stdout");
 		alg->Update(&context, buffer, len);
+	}
+	if (ferror(stdin)) {
+		errx(EX_IOERR, NULL);
 	}
 	printf("%s\n", alg->End(&context, buf));
 }

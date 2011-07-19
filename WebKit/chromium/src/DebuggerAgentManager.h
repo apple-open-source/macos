@@ -34,6 +34,7 @@
 #include "WebCString.h"
 #include "WebDevToolsAgent.h"
 #include <v8-debug.h>
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/Vector.h>
@@ -41,7 +42,6 @@
 namespace WebCore {
 class Page;
 class PageGroupLoadDeferrer;
-class String;
 }
 
 namespace WebKit {
@@ -63,13 +63,15 @@ class WebViewImpl;
 // would expect some actions from the handler. If there is no appropriate
 // debugger agent to handle such messages the manager will perform the action
 // itself, otherwise v8 may hang waiting for the action.
-class DebuggerAgentManager : public Noncopyable {
+class DebuggerAgentManager {
+    WTF_MAKE_NONCOPYABLE(DebuggerAgentManager);
 public:
     static void debugAttach(DebuggerAgentImpl* debuggerAgent);
     static void debugDetach(DebuggerAgentImpl* debuggerAgent);
     static void pauseScript();
-    static void executeDebuggerCommand(const WebCore::String& command, int callerId);
+    static void executeDebuggerCommand(const WTF::String& command, int callerId);
     static void setMessageLoopDispatchHandler(WebDevToolsAgent::MessageLoopDispatchHandler handler);
+    static void setExposeV8DebuggerProtocol(bool);
 
     // Sets |hostId| as the frame context data. This id is used to filter scripts
     // related to the inspected page.
@@ -79,31 +81,13 @@ public:
 
     static void onNavigate();
 
-    class UtilityContextScope : public Noncopyable {
-    public:
-        UtilityContextScope()
-        {
-            ASSERT(!s_inUtilityContext);
-            s_inUtilityContext = true;
-        }
-        ~UtilityContextScope()
-        {
-            if (s_debugBreakDelayed) {
-              v8::Debug::DebugBreak();
-              s_debugBreakDelayed = false;
-            }
-            s_inUtilityContext = false;
-        }
-    };
-
 private:
     DebuggerAgentManager();
     ~DebuggerAgentManager();
 
-    static void hostDispatchHandler(const Vector<WebCore::Page*>&);
     static void debugHostDispatchHandler();
     static void onV8DebugMessage(const v8::Debug::Message& message);
-    static void sendCommandToV8(const WebCore::String& cmd,
+    static void sendCommandToV8(const WTF::String& cmd,
                                 v8::Debug::ClientData* data);
     static void sendContinueCommandToV8();
 
@@ -118,8 +102,7 @@ private:
     typedef HashMap<WebViewImpl*, WebCore::PageGroupLoadDeferrer*> DeferrersMap;
     static DeferrersMap s_pageDeferrers;
 
-    static bool s_inUtilityContext;
-    static bool s_debugBreakDelayed;
+    static bool s_exposeV8DebuggerProtocol;
 };
 
 } // namespace WebKit

@@ -27,7 +27,8 @@
 #include "AppleCSPContext.h"
 #include "AppleCSPSession.h"
 #include "BlockCryptor.h"
-#include <CommonCrypto/aesopt.h>
+#include <CommonCrypto/CommonCryptor.h>
+#include "/usr/local/include/CommonCrypto/CommonCryptorSPI.h"
 #include "aesCommon.h"
 
 #define GLADMAN_BLOCK_SIZE_BYTES	DEFAULT_AES_BLOCK_BYTES
@@ -36,7 +37,7 @@
 class GAESContext : public BlockCryptor {
 public:
 	GAESContext(AppleCSPSession &session);
-	~GAESContext();
+	virtual ~GAESContext();
 	
 	// called by CSPFullPluginSession
 	void init(const Context &context, bool encoding = true);
@@ -64,7 +65,7 @@ private:
 	void deleteKey();
 	
 	/* scheduled key */
-	aes_cc_ctx			mAesKey;
+    CCCryptorRef	mAesKey;	
 	bool				mInitFlag;			// for easy reuse
 	
 	/* 

@@ -32,7 +32,6 @@ RCSID("$Id$")
 int		fr_dns_lookups = 0;
 int		fr_debug_flag = 0;
 
-
 /*
  *	Return an IP address in standard dot notation
  *
@@ -64,7 +63,7 @@ int rad_lockfd(int fd, int lock_len)
 #elif defined(LOCK_EX)
 	lock_len = lock_len;	/* -Wunused */
 	return flock(fd, LOCK_EX);
-#else
+#elif defined(F_WRLCK)
 	struct flock fl;
 	fl.l_start = 0;
 	fl.l_len = lock_len;
@@ -72,6 +71,8 @@ int rad_lockfd(int fd, int lock_len)
 	fl.l_type = F_WRLCK;
 	fl.l_whence = SEEK_CUR;
 	return fcntl(fd, F_SETLKW, (void *)&fl);
+#else
+	return -1;
 #endif
 }
 
@@ -88,7 +89,7 @@ int rad_lockfd_nonblock(int fd, int lock_len)
 #elif defined(LOCK_EX)
 	lock_len = lock_len;	/* -Wunused */
 	return flock(fd, LOCK_EX | LOCK_NB);
-#else
+#elif defined(F_WRLCK)
 	struct flock fl;
 	fl.l_start = 0;
 	fl.l_len = lock_len;
@@ -96,6 +97,8 @@ int rad_lockfd_nonblock(int fd, int lock_len)
 	fl.l_type = F_WRLCK;
 	fl.l_whence = SEEK_CUR;
 	return fcntl(fd, F_SETLK, (void *)&fl);
+#else
+	return -1;
 #endif
 }
 
@@ -112,7 +115,7 @@ int rad_unlockfd(int fd, int lock_len)
 #elif defined(LOCK_EX)
 	lock_len = lock_len;	/* -Wunused */
 	return flock(fd, LOCK_UN);
-#else
+#elif defined(F_WRLCK)
 	struct flock fl;
 	fl.l_start = 0;
 	fl.l_len = lock_len;
@@ -120,6 +123,8 @@ int rad_unlockfd(int fd, int lock_len)
 	fl.l_type = F_WRLCK;
 	fl.l_whence = SEEK_CUR;
 	return fcntl(fd, F_UNLCK, (void *)&fl);
+#else
+	return -1;
 #endif
 }
 
@@ -405,14 +410,14 @@ const char *inet_ntop(int af, const void *src, char *dst, size_t cnt)
  */
 int ip_hton(const char *src, int af, fr_ipaddr_t *dst)
 {
-	int error;
+	int rcode;
 	struct addrinfo hints, *ai = NULL, *res = NULL;
 
 	memset(&hints, 0, sizeof(hints));
 	hints.ai_family = af;
 
-	if ((error = getaddrinfo(src, NULL, &hints, &res)) != 0) {
-		fr_strerror_printf("ip_nton: %s", gai_strerror(error));
+	if ((rcode = getaddrinfo(src, NULL, &hints, &res)) != 0) {
+		fr_strerror_printf("ip_hton: %s", gai_strerror(rcode));
 		return -1;
 	}
 
@@ -427,32 +432,11 @@ int ip_hton(const char *src, int af, fr_ipaddr_t *dst)
 		return -1;
 	}
 
-	switch (ai->ai_family) {
-	case AF_INET :
-		dst->af = AF_INET;
-		memcpy(&dst->ipaddr,
-		       &((struct sockaddr_in*)ai->ai_addr)->sin_addr,
-		       sizeof(struct in_addr));
-		break;
-
-#ifdef HAVE_STRUCT_SOCKADDR_IN6
-	case AF_INET6 :
-		dst->af = AF_INET6;
-		memcpy(&dst->ipaddr,
-		       &((struct sockaddr_in6*)ai->ai_addr)->sin6_addr,
-		       sizeof(struct in6_addr));
-		break;
-#endif
-
-		/* Flow should never reach here */
-	case AF_UNSPEC :
-	default :
-		fr_strerror_printf("ip_hton found unusable information for host %.100s", src);
-		freeaddrinfo(ai);
-		return -1;
-	}
-
+	rcode = fr_sockaddr2ipaddr((struct sockaddr_storage *)ai->ai_addr,
+				   ai->ai_addrlen, dst, NULL);
 	freeaddrinfo(ai);
+	if (!rcode) return -1;
+
 	return 0;
 }
 
@@ -573,6 +557,9 @@ int fr_ipaddr_cmp(const fr_ipaddr_t *a, const fr_ipaddr_t *b)
 
 #ifdef HAVE_STRUCT_SOCKADDR_IN6
 	case AF_INET6:
+		if (a->scope < b->scope) return -1;
+		if (a->scope > b->scope) return +1;
+
 		return memcmp(&a->ipaddr.ip6addr,
 			      &b->ipaddr.ip6addr,
 			      sizeof(a->ipaddr.ip6addr));
@@ -611,6 +598,7 @@ int fr_ipaddr2sockaddr(const fr_ipaddr_t *ipaddr, int port,
 		s6.sin6_family = AF_INET6;
 		s6.sin6_addr = ipaddr->ipaddr.ip6addr;
 		s6.sin6_port = htons(port);
+		s6.sin6_scope_id = ipaddr->scope;
 		memset(sa, 0, sizeof(*sa));
 		memcpy(sa, &s6, sizeof(s6));
 #endif
@@ -623,15 +611,15 @@ int fr_ipaddr2sockaddr(const fr_ipaddr_t *ipaddr, int port,
 
 
 int fr_sockaddr2ipaddr(const struct sockaddr_storage *sa, socklen_t salen,
-		       fr_ipaddr_t *ipaddr, int * port)
+		       fr_ipaddr_t *ipaddr, int *port)
 {
-	/*
-	 *	FIXME: Check salen against sizeof socket structures.
-	 */
-	salen = salen;		/* -Wunused */
-
 	if (sa->ss_family == AF_INET) {
 		struct sockaddr_in	s4;
+
+		if (salen < sizeof(s4)) {
+			fr_strerror_printf("IPv4 address is too small");
+			return 0;
+		}
 		
 		memcpy(&s4, sa, sizeof(s4));
 		ipaddr->af = AF_INET;
@@ -642,13 +630,21 @@ int fr_sockaddr2ipaddr(const struct sockaddr_storage *sa, socklen_t salen,
 	} else if (sa->ss_family == AF_INET6) {
 		struct sockaddr_in6	s6;
 		
+		if (salen < sizeof(s6)) {
+			fr_strerror_printf("IPv6 address is too small");
+			return 0;
+		}
+		
 		memcpy(&s6, sa, sizeof(s6));
 		ipaddr->af = AF_INET6;
 		ipaddr->ipaddr.ip6addr = s6.sin6_addr;
 		if (port) *port = ntohs(s6.sin6_port);
+		ipaddr->scope = s6.sin6_scope_id;
 #endif
 
 	} else {
+		fr_strerror_printf("Unsupported address famility %d",
+				   sa->ss_family);
 		return 0;
 	}
 

@@ -60,6 +60,7 @@ __FBSDID("$FreeBSD: src/usr.bin/paste/paste.c,v 1.14 2004/06/25 01:48:43 tjr Exp
 #include <string.h>
 #include <unistd.h>
 #include <wchar.h>
+#include <sysexits.h>
 
 wchar_t *delim;
 int delimcnt;
@@ -191,6 +192,9 @@ parallel(char **argv)
 			do {
 				putwchar(ich);
 			} while ((ich = getwc(lp->fp)) != WEOF && ich != '\n');
+			if (ferror(lp->fp)) {
+				errx(EX_IOERR, "Error reading %s", lp->name);
+			}
 		}
 		if (output)
 			putwchar('\n');

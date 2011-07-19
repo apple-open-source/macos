@@ -21,10 +21,11 @@
 #include  <unistd.h>
 #include  <ctype.h>
 #include  <string.h>
+#include  <sys/types.h>
 
 #include  "socket.h"
 #include  "fetchmail.h"
-#include  "md5.h"
+#include  "fm_md5.h"
 #include  "i18n.h"
 
 #ifdef TESTMODE
@@ -48,8 +49,8 @@ extern int linecount;
   static void GenChallenge(unsigned char* buf, int len);
   static int  DigestPassphrase(char* passphrase,
 			       unsigned char* rbuf, int unicodeit);
-  static void CompUserResp();
-  static int  CheckUserAuth();
+  static void CompUserResp(void);
+  static int  CheckUserAuth(void);
   static void md5(const void* in, int len, unsigned char* out);
 #endif
 
@@ -114,7 +115,7 @@ int POP3_auth_rpa (char *userid, char *passphrase, int socket)
     char buf [POPBUFSIZE];
     char *bufp;
     int      status,aulin,kuslin;
-    char* stdec[4] = { N_("Success") ,
+    const char* stdec[4] = { N_("Success") ,
 		       N_("Restricted user (something wrong with account)") ,
 		       N_("Invalid userid or passphrase") ,
 		       N_("Deity error") };
@@ -883,7 +884,7 @@ static void md5(const void *in_,int len,unsigned char *out)
     MD5Final(  out, &md5context );
     if (outlevel >= O_DEBUG)
     {
-	report(stdout, GT_("MD5 result is: \n"));
+	report(stdout, GT_("MD5 result is:\n"));
 	for (i=0; i<16; i++)
 	{
 	    report_build(stdout, "%02X ",out[i]);

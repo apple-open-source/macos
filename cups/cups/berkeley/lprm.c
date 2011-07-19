@@ -1,9 +1,9 @@
 /*
- * "$Id: lprm.c 7261 2008-01-28 23:09:31Z mike $"
+ * "$Id: lprm.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   "lprm" command for the Common UNIX Printing System (CUPS).
+ *   "lprm" command for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -21,12 +21,7 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-
-#include <cups/cups.h>
-#include <cups/i18n.h>
-#include <cups/string.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -69,8 +64,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
             _cupsLangPrintf(stderr,
-	                    _("%s: Sorry, no encryption support compiled in!\n"),
-	                    argv[0]);
+	                    _("%s: Sorry, no encryption support."), argv[0]);
 #endif /* HAVE_SSL */
 	    break;
 
@@ -90,7 +84,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	                                 NULL)) == NULL)
 	    {
 	      _cupsLangPrintf(stderr,
-	                      _("%s: Error - unknown destination \"%s\"!\n"),
+	                      _("%s: Error - unknown destination \"%s\"."),
 			      argv[0], name);
               goto error;
 	    }
@@ -108,8 +102,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		                _("%s: Error - expected username after "
-				  "\'-U\' option!\n"),
-		        	argv[0]);
+				  "\"-U\" option."), argv[0]);
 	        goto error;
 	      }
 
@@ -128,8 +121,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		        	_("%s: Error - expected hostname after "
-			          "\'-h\' option!\n"),
-				argv[0]);
+			          "\"-h\" option."), argv[0]);
 		goto error;
               }
 	      else
@@ -144,8 +136,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 	    break;
 
 	default :
-	    _cupsLangPrintf(stderr,
-	                    _("%s: Error - unknown option \'%c\'!\n"),
+	    _cupsLangPrintf(stderr, _("%s: Error - unknown option \"%c\"."),
 			    argv[0], argv[i][1]);
             goto error;
       }
@@ -178,15 +169,14 @@ main(int  argc,			/* I - Number of command-line arguments */
       }
       else
       {
-	_cupsLangPrintf(stderr,
-			_("%s: Error - unknown destination \"%s\"!\n"),
+	_cupsLangPrintf(stderr, _("%s: Error - unknown destination \"%s\"."),
 			argv[0], argv[i]);
 	goto error;
       }
 
       if (cupsCancelJob2(CUPS_HTTP_DEFAULT, name, job_id, 0) != IPP_OK)
       {
-        _cupsLangPrintf(stderr, "%s: %s\n", argv[0], cupsLastErrorString());
+        _cupsLangPrintf(stderr, "%s: %s", argv[0], cupsLastErrorString());
 	goto error;
       }
 
@@ -200,7 +190,7 @@ main(int  argc,			/* I - Number of command-line arguments */
 
   if (!did_cancel && cupsCancelJob2(CUPS_HTTP_DEFAULT, name, 0, 0) != IPP_OK)
     {
-      _cupsLangPrintf(stderr, "%s: %s\n", argv[0], cupsLastErrorString());
+      _cupsLangPrintf(stderr, "%s: %s", argv[0], cupsLastErrorString());
       goto error;
     }
 
@@ -223,5 +213,5 @@ main(int  argc,			/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: lprm.c 7261 2008-01-28 23:09:31Z mike $".
+ * End of "$Id: lprm.c 9042 2010-03-24 00:45:34Z mike $".
  */

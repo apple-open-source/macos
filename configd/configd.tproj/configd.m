@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,6 +34,8 @@
  * - created
  */
 
+//#define DO_NOT_INFORM
+
 #include <getopt.h>
 #include <stdio.h>
 #include <sysexits.h>
@@ -52,6 +54,10 @@
 #include "configd.h"
 #include "configd_server.h"
 #include "plugin_support.h"
+
+#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#include <CoreFoundation/CFUserNotification.h>
+#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
 
 __private_extern__
 Boolean	_configd_verbose		= FALSE;	/* TRUE if verbose logging enabled */
@@ -75,6 +81,7 @@ static const struct option longopts[] = {
 //	{ "no-bundles",		no_argument,		0,	'b' },
 //	{ "exclude-plugin",	required_argument,	0,	'B' },
 //	{ "no-fork",		no_argument,		0,	'd' },
+//	{ "fork-all",		no_argument,		0,	'f' },
 //	{ "test-bundle",	required_argument,      0,	't' },
 //	{ "verbose",		no_argument,		0,	'v' },
 //	{ "verbose-bundle",	required_argument,	0,	'V' },
@@ -91,6 +98,7 @@ usage(const char *prog)
 	SCPrint(TRUE, stderr, CFSTR("\t-d\tdisable daemon/run in foreground\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-v\tenable verbose logging\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-V\tenable verbose logging for the specified plug-in\n"));
+	SCPrint(TRUE, stderr, CFSTR("\t-f\tload ALL plug-ins in a separate process\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-b\tdisable loading of ALL plug-ins\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-B\tdisable loading of the specified plug-in\n"));
 	SCPrint(TRUE, stderr, CFSTR("\t-t\tload/test the specified plug-in\n"));
@@ -348,6 +356,33 @@ main(int argc, char * const argv[])
 
 	/* check if we have been started by launchd */
 	vproc_swap_integer(NULL, VPROC_GSK_IS_MANAGED, NULL, &is_launchd_job);
+
+#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+	// if launchd job, check to see if we have been restarted
+	if (is_launchd_job) {
+		int64_t	status	= 0;
+
+		vproc_swap_integer(NULL, VPROC_GSK_LAST_EXIT_STATUS, NULL, &status);
+		if ((status != 0) && _SC_isAppleInternal()) {
+			int	fd;
+
+			// if we've been restarted
+			fd = open("/var/run/configd-crash-reported", O_WRONLY|O_CREAT|O_EXCL, 0644);
+			if (fd >= 0) {
+				// if we have not yet alerted the user
+				CFUserNotificationDisplayNotice(0,
+								kCFUserNotificationStopAlertLevel,
+								NULL,
+								NULL,
+								NULL,
+								CFSTR("\"configd\" restarted"),
+								CFSTR("Please collect the crash report and file a Radar."),
+								NULL);
+				close(fd);
+			}
+		}
+	}
+#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
 
 	/* ensure that forked plugins behave */
 	if ((testBundle != NULL) && (getenv("__FORKED_PLUGIN__") != NULL)) {

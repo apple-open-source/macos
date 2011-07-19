@@ -4,7 +4,7 @@
 
 # Project info
 Project           = curl
-ProjectVersion    = 7.19.7
+ProjectVersion    = 7.21.4
 UserType          = Developer
 ToolType          = Commands
 GnuAfterInstall   = install-fixup install-plist compat-symlink strip-binaries
@@ -14,16 +14,14 @@ Patches = configure.diff \
           docs__curl.1.diff \
           src__Makefile.in.diff \
           lib__md5.c.diff \
-          libcurl.pc.in.diff \
           LDAP-5648196.patch \
-          configure-5709172.patch \
           Kerberos-4258093.patch \
           DiskImages-6103805.patch \
           curl-config.in.diff \
           tests__runtests.pl.diff \
-          libcurl-contentencoding.patch
+          GAI-9112664.diff
 
-Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static
+Extra_Configure_Flags = --with-gssapi --enable-hidden-symbols --disable-static --enable-threaded-resolver
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
@@ -72,14 +70,11 @@ install-plist:
 	$(INSTALL_FILE) $(SRCROOT)/$(Project)/COPYING $(OSL)/$(Project).txt
 
 compat-symlink:
-	$(LN) -s libcurl.4.dylib $(DSTROOT)/usr/lib/libcurl.2.dylib
 	$(LN) -s libcurl.4.dylib $(DSTROOT)/usr/lib/libcurl.3.dylib
 
 strip-binaries:
-	$(MKDIR) $(SYMROOT)/usr/bin
-	$(CP) $(DSTROOT)/usr/bin/curl $(SYMROOT)/usr/bin
+	$(CP) $(DSTROOT)/usr/bin/curl $(SYMROOT)
 	$(STRIP) $(DSTROOT)/usr/bin/curl
 
-	$(MKDIR) $(SYMROOT)/usr/lib
-	$(CP) $(DSTROOT)/usr/lib/libcurl.4.dylib $(SYMROOT)/usr/lib
+	$(CP) $(DSTROOT)/usr/lib/libcurl.4.dylib $(SYMROOT)
 	$(STRIP) -S $(DSTROOT)/usr/lib/libcurl.4.dylib

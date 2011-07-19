@@ -3,7 +3,7 @@
   object.c -
 
   $Author: shyouhei $
-  $Date: 2008-07-03 20:14:50 +0900 (Thu, 03 Jul 2008) $
+  $Date: 2009-12-14 12:53:19 +0900 (Mon, 14 Dec 2009) $
   created at: Thu Jul 15 12:01:24 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -2494,13 +2494,8 @@ rb_Float(val)
 	break;
 
       default:
-      {
-	  VALUE f = rb_convert_type(val, T_FLOAT, "Float", "to_f");
-	  if (isnan(RFLOAT(f)->value)) {
-	      rb_raise(rb_eArgError, "invalid value for Float()");
-	  }
-	  return f;
-      }
+	return rb_convert_type(val, T_FLOAT, "Float", "to_f");
+
     }
 }
 

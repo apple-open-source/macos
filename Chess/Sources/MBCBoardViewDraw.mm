@@ -2,9 +2,9 @@
 	File:		MBCBoardViewDraw.mm
 	Contains:	Draw chess board
 	Version:	1.0
-	Copyright:	© 2002-2006 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2011 by Apple Computer, Inc., all rights reserved.
 	
-	Derived from glChess, Copyright © 2002 Robert Ancell and Michael Duelli
+	Derived from glChess, Copyright Â© 2002 Robert Ancell and Michael Duelli
 	Permission granted to Apple to relicense under the following terms:
 
 	File Ownership:
@@ -18,6 +18,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardViewDraw.mm,v $
+		Revision 1.44  2011/03/14 21:10:27  neerache
+		<rdar://problem/9129384> HiDPI adoption for Chess.app
+		
+		Revision 1.43  2010/10/08 00:15:36  neerache
+		Tweak window background
+		
 		Revision 1.42  2008/10/24 01:17:14  neerache
 		<rdar://problem/5973744> Chess Needs To Move from SGI Format Images to PNG or JPEG
 		
@@ -204,12 +210,21 @@ using std::min;
 
 - (void) setupPerspective
 {
+	NSRect bounds = [self bounds];
 	fIsFloating			= ![[self window] styleMask];
 	if (!fIsFloating) {
 		//
-		// Regular window, draw background
+		// Regular window, draw background (grey in window, black in full screen)
 		//
-		const float kBrightness = 0.6f;
+		const float		kAspect					= bounds.size.width / bounds.size.height;
+		const float		kScreenAspect			= 4.0 / 3.0;
+		const float		kDefaultAspect			= 740.0 / 680.0;
+		const float		kWindowBrightness		= 0.6f;
+		const float		kFullScreenBrightness	= 0.0f;
+		float			kBrightness				= std::max(kWindowBrightness +
+			((kAspect-kDefaultAspect) / (kScreenAspect-kDefaultAspect))
+		  * (kFullScreenBrightness-kWindowBrightness), kFullScreenBrightness);
+
 		glClearColor(kBrightness, kBrightness, kBrightness, 1.0);
 	} else {
 		//
@@ -238,15 +253,13 @@ using std::min;
 
 	glDisable(GL_FOG);
 
-	const float	kUserSpaceScale = 1.0f / [[self window] userSpaceScaleFactor];
 	const float kDistance 		= 300.0f;
 	const float kBoardSize 		= fVariant==kVarCrazyhouse ? 55.0f : 50.0f;
 	const float kDeg2Rad  		= M_PI / 180.0f;
 	const float kRad2Deg		= 180.0f / M_PI;
 	const float kAngleOfView	= 2.0f * atan2(kBoardSize, kDistance) * kRad2Deg;
 
-	NSRect bounds = [self bounds];
-	glViewport(0, 0, (long)(kUserSpaceScale*bounds.size.width), (long)(kUserSpaceScale*bounds.size.height));
+	glViewport(0, 0, (GLsizei)(bounds.size.width), (GLsizei)(bounds.size.height));
 
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
@@ -948,8 +961,8 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	bool	    horizontal		= 
 		fabs(fCurMouse.x-fOrigMouse.x) > fabs(fCurMouse.y-fOrigMouse.y);
-	const float	kUserSpaceScale		= [[self window] userSpaceScaleFactor];
-	const float	kScale			= kUserSpaceScale*kUserSpaceScale;
+	const float	kUserSpaceScale	= [[self superview] convertSizeToBacking:NSMakeSize(1, 1)].width;
+	const float	kScale			= kUserSpaceScale;
 	const float	kCircleSize		= 10.0f*kScale;
 	const float	kArrowClearance	= 15.0f*kScale;
 	const float	kArrowLength	= 30.0f*kScale;
@@ -957,7 +970,6 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	const float	kThreshold		= 10.0f*kScale;
 	const float kWellSize		= 55.0f*kScale;
 	const float kWellRound		= 20.0f*kScale;
-	NSPoint kScaledMouse	 = NSMakePoint(fOrigMouse.x*kUserSpaceScale, fOrigMouse.y*kUserSpaceScale);
 
 	GLfloat on_color[4] 		= {1.0f, 1.0f, 1.0f, 1.0f};
 	GLfloat off_color[4] 		= {1.0f, 1.0f, 1.0f, 0.4f};
@@ -977,7 +989,7 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 
 	glPushMatrix();
     glRotatef(90.0, 1.0, 0.0, 0.0);
-	glTranslatef(kScaledMouse.x, kScaledMouse.y, 0.01f);
+	glTranslatef(fOrigMouse.x, fOrigMouse.y, 0.01f);
 	
 	glColor4fv(well_color);
 	glBegin(GL_QUADS);
@@ -1007,7 +1019,7 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	glColor4fv(fabs(fCurMouse.x-fOrigMouse.x)<kThreshold 
 			&& fabs(fCurMouse.y-fOrigMouse.y)<kThreshold 
 			   ? on_color : off_color);
-	gluDisk(q, 0.0, kCircleSize, 10, 1);
+	gluDisk(q, 0.0, kCircleSize, 40, 1);
 	glPopMatrix();
 	gluDeleteQuadric(q);
 
@@ -1016,9 +1028,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Up
 	//
-	fromPos[0] = kScaledMouse.x;
+	fromPos[0] = fOrigMouse.x;
 	fromPos[1] = 0;
-	fromPos[2] = kScaledMouse.y+kArrowClearance;
+	fromPos[2] = fOrigMouse.y+kArrowClearance;
 	toPos	   = fromPos;
 	toPos[2]  += kArrowLength;
 	glColor4fv((!horizontal && (fCurMouse.y > fOrigMouse.y+kThreshold))
@@ -1028,9 +1040,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Down
 	//
-	fromPos[0] = kScaledMouse.x;
+	fromPos[0] = fOrigMouse.x;
 	fromPos[1] = 0;
-	fromPos[2] = kScaledMouse.y-kArrowClearance;
+	fromPos[2] = fOrigMouse.y-kArrowClearance;
 	toPos	   = fromPos;
 	toPos[2]  -= kArrowLength;
 	glColor4fv((!horizontal && (fCurMouse.y < fOrigMouse.y-kThreshold))
@@ -1040,9 +1052,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Right
 	//
-	fromPos[0] = kScaledMouse.x+kArrowClearance;
+	fromPos[0] = fOrigMouse.x+kArrowClearance;
 	fromPos[1] = 0;
-	fromPos[2] = kScaledMouse.y;
+	fromPos[2] = fOrigMouse.y;
 	toPos	   = fromPos;
 	toPos[0]  += kArrowLength;
 	glColor4fv((horizontal && (fCurMouse.x > fOrigMouse.x+kThreshold))
@@ -1052,9 +1064,9 @@ MBCPieceCode gInHandOrder[] = {PAWN, BISHOP, KNIGHT, ROOK, QUEEN};
 	//
 	// Left
 	//
-	fromPos[0] = kScaledMouse.x-kArrowClearance;
+	fromPos[0] = fOrigMouse.x-kArrowClearance;
 	fromPos[1] = 0;
-	fromPos[2] = kScaledMouse.y;
+	fromPos[2] = fOrigMouse.y;
 	toPos	   = fromPos;
 	toPos[0]  -= kArrowLength;
 	glColor4fv((horizontal && (fCurMouse.x < fOrigMouse.x-kThreshold))

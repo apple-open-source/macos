@@ -41,12 +41,8 @@ protected:
     BatteryFakerObject          *batteries[kNumMaxBatteries];
     
 public:
-    virtual bool init(void);
-
     virtual bool start(IOService *provider);
-
     virtual void stop( IOService *provider );
-
     virtual IOReturn setProperties(OSObject *properties);
 };
 
@@ -55,19 +51,8 @@ public:
 class BatteryFakerObject : public IOPMPowerSource {
     OSDeclareDefaultStructors(BatteryFakerObject)
     
-protected:
-    IOService                   *fProvider;
-    uint16_t                    fBatteryIndex;
-    
 public:
-
     static BatteryFakerObject  *fakerObject(int i);
-
-    virtual bool init( void );
-
-    virtual bool start( IOService *provider );
-    virtual void stop( IOService *provider );
-
     IOReturn    setBatteryProperties(OSDictionary *);
 };
 

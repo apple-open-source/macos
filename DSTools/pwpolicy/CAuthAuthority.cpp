@@ -24,7 +24,6 @@
 #include "CAuthAuthority.h"
 #include <DirectoryService/DirServicesConst.h>
 #include <DirectoryService/DirServicesUtilsPriv.h>
-#include <DirectoryServiceCore/PrivateTypes.h>
 
 CAuthAuthority::CAuthAuthority()
 {
@@ -42,8 +41,14 @@ CAuthAuthority::CAuthAuthority(CAuthAuthority &inAuthAuthority)
 
 CAuthAuthority::~CAuthAuthority()
 {
-	DSCFRelease( mValueArray );
-	DSCFRelease( mDisabledAuthorityStorage );
+	if (mValueArray) {
+		CFRelease(mValueArray);
+		mValueArray = NULL;
+	}
+	if (mDisabledAuthorityStorage) {
+		CFRelease(mDisabledAuthorityStorage);
+		mDisabledAuthorityStorage = NULL;
+	}
 }
 
 
@@ -216,8 +221,10 @@ CAuthAuthority::GetDataForTag( const char *inTagStr, CFIndex inDataSegmentIndex 
 			if ( retStr == NULL )
 				return NULL;
 			
-			if ( !CFStringGetCString(aaDataString, retStr, needSize, kCFStringEncodingUTF8) )
-				DSFreeString( retStr );
+			if ( !CFStringGetCString(aaDataString, retStr, needSize, kCFStringEncodingUTF8) ) {
+				free(retStr);
+				retStr = NULL;
+			}
 		}
 	}
 	

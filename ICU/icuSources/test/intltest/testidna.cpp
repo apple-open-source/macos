@@ -1,7 +1,7 @@
 /*
  *******************************************************************************
  *
- *   Copyright (C) 2003-2008, International Business Machines
+ *   Copyright (C) 2003-2010, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *
  *******************************************************************************
@@ -22,6 +22,7 @@
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include "unicode/localpointer.h"
 #include "unicode/ustring.h"
 #include "unicode/usprep.h"
 #include "unicode/uniset.h"
@@ -417,7 +418,7 @@ void TestIDNA::debug(const UChar* src, int32_t srcLength, int32_t options){
     UErrorCode prepStatus  = U_ZERO_ERROR;
     NamePrepTransform* trans = NamePrepTransform::createInstance(parseError,transStatus);
     int32_t prepOptions = (((options & UIDNA_ALLOW_UNASSIGNED) != 0) ? USPREP_ALLOW_UNASSIGNED: 0);
-    UStringPrepProfile* prep = usprep_open(NULL,"uidna",&prepStatus);
+    LocalUStringPrepProfilePointer prep(usprep_openByType(USPREP_RFC3491_NAMEPREP,&prepStatus));
     UChar *transOut=NULL, *prepOut=NULL;
     int32_t transOutLength=0, prepOutLength=0;
     
@@ -429,12 +430,12 @@ void TestIDNA::debug(const UChar* src, int32_t srcLength, int32_t options){
         transOutLength = trans->process(src,srcLength,transOut, transOutLength, prepOptions>0, &parseError, transStatus);
     }
 
-    prepOutLength  = usprep_prepare(prep, src, srcLength, prepOut, 0, prepOptions, &parseError, &prepStatus);
+    prepOutLength  = usprep_prepare(prep.getAlias(), src, srcLength, prepOut, 0, prepOptions, &parseError, &prepStatus);
 
     if( prepStatus == U_BUFFER_OVERFLOW_ERROR){
         prepStatus = U_ZERO_ERROR;
         prepOut    = (UChar*) malloc(U_SIZEOF_UCHAR * prepOutLength);
-        prepOutLength  = usprep_prepare(prep, src, srcLength, prepOut, prepOutLength, prepOptions, &parseError, &prepStatus);
+        prepOutLength  = usprep_prepare(prep.getAlias(), src, srcLength, prepOut, prepOutLength, prepOptions, &parseError, &prepStatus);
     }
 
     if(UnicodeString(transOut,transOutLength)!= UnicodeString(prepOut, prepOutLength)){
@@ -444,7 +445,6 @@ void TestIDNA::debug(const UChar* src, int32_t srcLength, int32_t options){
     free(transOut);
     free(prepOut);
     delete trans;
-
 }
 
 void TestIDNA::testAPI(const UChar* src, const UChar* expected, const char* testName, 
@@ -487,7 +487,7 @@ void TestIDNA::testAPI(const UChar* src, const UChar* expected, const char* test
     }
 
     if(status != expectedStatus){
-        errln( "Did not get the expected error for "+
+        errcheckln(status, "Did not get the expected error for "+
                 UnicodeString(testName)+
                 " null terminated source. Expected: " +UnicodeString(u_errorName(expectedStatus))
                 + " Got: "+ UnicodeString(u_errorName(status))
@@ -655,7 +655,7 @@ void TestIDNA::testCompare(const UChar* s1, int32_t s1Len,
         errln("Did not get the expected result for %s with null termniated strings.\n",testName);
     }
     if(U_FAILURE(status)){
-        errln( "%s null terminated source failed. Error: %s\n", testName,u_errorName(status));
+        errcheckln(status, "%s null terminated source failed. Error: %s", testName,u_errorName(status));
     }
 
     status = U_ZERO_ERROR;
@@ -665,7 +665,7 @@ void TestIDNA::testCompare(const UChar* s1, int32_t s1Len,
         errln("Did not get the expected result for %s with null termniated strings with options set.\n", testName);
     }
     if(U_FAILURE(status)){
-        errln( "%s null terminated source and options set failed. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s null terminated source and options set failed. Error: %s",testName, u_errorName(status));
     }
     
     status = U_ZERO_ERROR;
@@ -675,7 +675,7 @@ void TestIDNA::testCompare(const UChar* s1, int32_t s1Len,
         errln("Did not get the expected result for %s with string length.\n",testName);
     }
     if(U_FAILURE(status)){
-        errln( "%s with string length. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s with string length. Error: %s",testName, u_errorName(status));
     }
     
     status = U_ZERO_ERROR;
@@ -685,7 +685,7 @@ void TestIDNA::testCompare(const UChar* s1, int32_t s1Len,
         errln("Did not get the expected result for %s with string length and options set.\n",testName);
     }
     if(U_FAILURE(status)){
-        errln( "%s with string length and options set. Error: %s\n", u_errorName(status), testName);
+        errcheckln(status, "%s with string length and options set. Error: %s", u_errorName(status), testName);
     }
 }
 
@@ -725,7 +725,7 @@ void TestIDNA::testIDNToUnicode(const char* testName, TestFunc func){
         bufLen = u_unescape(domainNames[i],buf, bufLen+1);
         func(buf,bufLen,expected,MAX_DEST_SIZE, UIDNA_ALLOW_UNASSIGNED, &parseError,&status);
         if(U_FAILURE(status)){
-            errln( "%s failed to convert domainNames[%i].Error: %s \n",testName, i, u_errorName(status));
+            errcheckln(status, "%s failed to convert domainNames[%i].Error: %s",testName, i, u_errorName(status));
             break;
         }
         testAPI(buf,expected,testName,FALSE,U_ZERO_ERROR, TRUE, TRUE, func);
@@ -751,7 +751,7 @@ void TestIDNA::testIDNToASCII(const char* testName, TestFunc func){
         bufLen = u_unescape(domainNames[i],buf, bufLen+1);
         func(buf,bufLen,expected,MAX_DEST_SIZE, UIDNA_ALLOW_UNASSIGNED, &parseError,&status);
         if(U_FAILURE(status)){
-            errln( "%s failed to convert domainNames[%i].Error: %s \n",testName,i, u_errorName(status));
+            errcheckln(status, "%s failed to convert domainNames[%i].Error: %s",testName,i, u_errorName(status));
             break;
         }
         testAPI(buf,expected,testName, FALSE,U_ZERO_ERROR, TRUE, TRUE, func);
@@ -1004,7 +1004,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
     // test null-terminated source 
     expectedLen = func(src,-1,expected,MAX_DEST_SIZE, options, &parseError, &status);
     if(U_FAILURE(status)){
-        errln("%s null terminated source failed. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s null terminated source failed. Error: %s",testName, u_errorName(status));
     }
     memcpy(odd,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
     memcpy(even,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
@@ -1012,7 +1012,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
         if((i%2) ==0){
             evenLen = func(odd,-1,even,MAX_DEST_SIZE,options, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s null terminated source failed\n",testName);
+                errcheckln(status, "%s null terminated source failed - %s",testName, u_errorName(status));
                 break;
             }
         }else{
@@ -1041,7 +1041,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
     status = U_ZERO_ERROR;
     expectedLen = func(src,-1,expected,MAX_DEST_SIZE,options|UIDNA_ALLOW_UNASSIGNED, &parseError, &status);
     if(U_FAILURE(status)){
-        errln("%s null terminated source with options set failed. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s null terminated source with options set failed. Error: %s",testName, u_errorName(status));
     }
     memcpy(odd,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
     memcpy(even,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
@@ -1049,7 +1049,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
         if((i%2) ==0){
             evenLen = func(odd,-1,even,MAX_DEST_SIZE,options|UIDNA_ALLOW_UNASSIGNED, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s null terminated source with options set failed\n",testName);
+                errcheckln(status, "%s null terminated source with options set failed - %s",testName, u_errorName(status));
                 break;
             }
         }else{
@@ -1079,7 +1079,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
     status = U_ZERO_ERROR;
     expectedLen = func(src,srcLen,expected,MAX_DEST_SIZE,options, &parseError, &status);
     if(U_FAILURE(status)){
-        errln("%s null terminated source failed. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s null terminated source failed. Error: %s",testName, u_errorName(status));
     }
     memcpy(odd,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
     memcpy(even,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
@@ -1087,13 +1087,13 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
         if((i%2) ==0){
             evenLen = func(odd,oddLen,even,MAX_DEST_SIZE,options, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s source with source length failed\n",testName);
+                errcheckln(status, "%s source with source length failed - %s",testName, u_errorName(status));
                 break;
             }
         }else{
             oddLen = func(even,evenLen,odd,MAX_DEST_SIZE,options, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s source with source length failed\n",testName);
+                errcheckln(status, "%s source with source length failed - %s",testName, u_errorName(status));
                 break;
             }
         }
@@ -1114,7 +1114,7 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
     status = U_ZERO_ERROR;
     expectedLen = func(src,srcLen,expected,MAX_DEST_SIZE,options|UIDNA_ALLOW_UNASSIGNED, &parseError, &status);
     if(U_FAILURE(status)){
-        errln("%s null terminated source with options set failed. Error: %s\n",testName, u_errorName(status));
+        errcheckln(status, "%s null terminated source with options set failed. Error: %s",testName, u_errorName(status));
     }
     memcpy(odd,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
     memcpy(even,expected,(expectedLen+1) * U_SIZEOF_UCHAR);
@@ -1122,13 +1122,13 @@ void TestIDNA::testChaining(const UChar* src,int32_t numIterations,const char* t
         if((i%2) ==0){
             evenLen = func(odd,oddLen,even,MAX_DEST_SIZE,options|UIDNA_ALLOW_UNASSIGNED, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s source with source length and options set failed\n",testName);
+                errcheckln(status, "%s source with source length and options set failed - %s",testName, u_errorName(status));
                 break;
             }
         }else{
             oddLen = func(even,evenLen,odd,MAX_DEST_SIZE,options|UIDNA_ALLOW_UNASSIGNED, &parseError, &status);
             if(U_FAILURE(status)){
-                errln("%s  source with source length and options set failed\n",testName);
+                errcheckln(status, "%s  source with source length and options set failed - %s",testName, u_errorName(status));
                 break;
             }
         }
@@ -1236,6 +1236,8 @@ void TestIDNA::testRootLabelSeparator(const char* testName, CompareFunc func,
 // runIndexedTest
 //---------------------------------------------
 
+extern IntlTest *createUTS46Test();
+
 void TestIDNA::runIndexedTest( int32_t index, UBool exec, const char* &name, char* par)
 {
     if (exec) logln((UnicodeString)"TestSuite IDNA API ");
@@ -1251,8 +1253,12 @@ void TestIDNA::runIndexedTest( int32_t index, UBool exec, const char* &name, cha
         case 7: name = "TestRootLabelSeparator"; if(exec) TestRootLabelSeparator(); break;
         case 8: name = "TestCompareReferenceImpl"; if(exec) TestCompareReferenceImpl(); break;
         case 9: name = "TestDataFile"; if(exec) TestDataFile(); break;
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
         case 10: name = "TestRefIDNA"; if(exec) TestRefIDNA(); break;
         case 11: name = "TestIDNAMonkeyTest"; if(exec) TestIDNAMonkeyTest(); break;
+#else
+        case 10: case 11: name = "skip"; break;
+#endif
         case 12: 
             {
                 name = "TestConformanceTestVectors";
@@ -1263,6 +1269,14 @@ void TestIDNA::runIndexedTest( int32_t index, UBool exec, const char* &name, cha
                 }
                 break;
             }
+        case 13:
+            name = "UTS46Test";
+            if (exec) {
+                logln("TestSuite UTS46Test---"); logln();
+                LocalPointer<IntlTest> test(createUTS46Test());
+                callTest(*test, par);
+            }
+            break;
         default: name = ""; break; /*needed to end loop*/
     }
 }
@@ -1460,11 +1474,7 @@ void TestIDNA::TestIDNAMonkeyTest(){
 
     getInstance(status);    // Init prep
     if (U_FAILURE(status)) {
-        if (status == U_FILE_ACCESS_ERROR) {
-            dataerrln("[DATA] Test could not initialize.");
-        } else {
-            errln("Test could not initialize. Got %s", u_errorName(status));
-        }
+        dataerrln("Test could not initialize. Got %s", u_errorName(status));
         return;
     }
 
@@ -1540,9 +1550,7 @@ void TestIDNA::TestRefIDNA(){
     getInstance(status);    // Init prep
     if (U_FAILURE(status)) {
         if (status == U_FILE_ACCESS_ERROR) {
-            dataerrln("[DATA] Test could not initialize.");
-        } else {
-            errln("Test could not initialize. Got %s", u_errorName(status));
+            dataerrln("Test could not initialize. Got %s", u_errorName(status));
         }
         return;
     }

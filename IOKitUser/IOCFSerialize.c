@@ -33,13 +33,25 @@
 #include <assert.h>
 #include <syslog.h>
 
-
 typedef struct {
-    int       			idrefNumRefs;
-    CFMutableDictionaryRef	idrefDict;
-    CFMutableDictionaryRef	idrefCountDict;
-    CFMutableDictionaryRef	defined;  // whether original def'n output
-    CFMutableDataRef		data;
+    CFMutableDataRef   data;
+
+    int                idrefNumRefs;
+    
+/* For each CFType, we track whether a given plist value hasRefs,
+ * and what the ids used for those refs are. 'hasRefs' is set to
+ * kCFBooleanFalse the first time we see a given value, so we know
+ * we saw it, and then kCFBooleanTrue if we see it again, so we know
+ * we need an id for it. On writing out the XML, we generate ids as
+ * we encounter the need.
+ */
+    CFMutableDictionaryRef stringIDRefDictionary;
+    CFMutableDictionaryRef numberIDRefDictionary;
+    CFMutableDictionaryRef dataIDRefDictionary;
+    CFMutableDictionaryRef dictionaryIDRefDictionary;
+    CFMutableDictionaryRef arrayIDRefDictionary;
+    CFMutableDictionaryRef setIDRefDictionary;
+
 } IOCFSerializeState;
 
 
@@ -72,111 +84,179 @@ getTagString(CFTypeRef object)
 
 	type = CFGetTypeID(object);
 
+	if (type == CFStringGetTypeID()) return "string";
+	if (type == CFNumberGetTypeID()) return "integer";
+	if (type == CFDataGetTypeID()) return "data";
 	if (type == CFDictionaryGetTypeID()) return "dict";
 	if (type == CFArrayGetTypeID()) return "array";
 	if (type == CFSetGetTypeID()) return "set";
-	if (type == CFStringGetTypeID()) return "string";
-	if (type == CFDataGetTypeID()) return "data";
-	if (type == CFNumberGetTypeID()) return "integer";
 
 	return "internal error";
 }
 
-static void
-recordIdref(CFTypeRef object,
-	    IOCFSerializeState * state)
+static CFMutableDictionaryRef
+idRefDictionaryForObject(
+    CFTypeRef              object,
+    IOCFSerializeState   * state)
 {
-	CFNumberRef idref;
-	CFNumberRef refCount;
-	int count;
+    CFMutableDictionaryRef result     = NULL;
+    CFTypeID               objectType = CFNullGetTypeID();  // do not release
 
-	idref = CFDictionaryGetValue(state->idrefDict, object);
-	if (idref) {
-		refCount = CFDictionaryGetValue(state->idrefCountDict, object);
-		if (refCount) {
-			assert(CFNumberGetValue(refCount, kCFNumberIntType, &count));
-			count++;
-		} else {
-			count = 1;
-		}
-		// ok to lose original refCount, we are replacing it
-		refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &count);
-		assert(refCount);
-		CFDictionarySetValue(state->idrefCountDict, object, refCount);
-                CFRelease(refCount);
-		return;
-	}
+    objectType = CFGetTypeID(object);
 
-	idref = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &state->idrefNumRefs);
-	CFDictionaryAddValue(state->idrefDict, object, idref);
-	CFRelease(idref);
-	state->idrefNumRefs++;
-	count = 0;
-	refCount = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &count);
-	assert(refCount);
-	CFDictionarySetValue(state->idrefCountDict, object, refCount);
-	CFRelease(refCount);
-	return;
+   /* Sorted by rough order of % occurence in big plists.
+    */
+	if (objectType == CFDictionaryGetTypeID()) {
+        result = state->dictionaryIDRefDictionary;
+    } else if (objectType == CFStringGetTypeID()) {
+        result = state->stringIDRefDictionary;
+    } else if (objectType == CFArrayGetTypeID()) {
+        result = state->arrayIDRefDictionary;
+    } else if (objectType == CFNumberGetTypeID()) {
+        result = state->numberIDRefDictionary;
+    } else if (objectType == CFDataGetTypeID()) {
+        result = state->dataIDRefDictionary;
+    } else if (objectType == CFSetGetTypeID()) {
+        result = state->setIDRefDictionary;
+    }
+
+	return result;
 }
 
-static Boolean 
-previouslySerialized(CFTypeRef object,
-		     IOCFSerializeState * state)
+void
+recordObjectInIDRefDictionary(
+    CFTypeRef              object,
+    IOCFSerializeState   * state)
 {
-	CFBooleanRef defined;
-	CFNumberRef refCount;
-	int count = 0;
-	CFNumberRef idref;
+    CFTypeRef              refEntry        = NULL;  // do not release
+    CFMutableDictionaryRef idRefDictionary = NULL;  // do not release
 
-	defined = CFDictionaryGetValue(state->defined, object);
-	if (!defined || !CFBooleanGetValue(defined)) {
-		return false;
-	}
-	refCount = CFDictionaryGetValue(state->idrefCountDict, object);
-	if (!refCount) {
-		return false;
-	}
-	CFNumberGetValue(refCount, kCFNumberIntType, &count);
-	if (!count) {
-		return false;
-	}
-	idref = CFDictionaryGetValue(state->idrefDict, object);
-	if (idref) {
-		char temp[64];
-		int id = -1;
-		CFNumberGetValue(idref, kCFNumberIntType, &id);
-		snprintf(temp, sizeof(temp), "<%s IDREF=\"%d\"/>", getTagString(object), id);
-		return addString(temp, state);
-	}
+    if (!object || !state) {
+        goto finish;
+    }
 
-	return false;
+    idRefDictionary = idRefDictionaryForObject(object, state);
+    if (!idRefDictionary) {
+        goto finish;
+    }
+
+	refEntry = CFDictionaryGetValue(idRefDictionary, object);
+
+   /* If we have never seen this object value, then add an entry
+    * in the dictionary with value false, indicating we have seen
+    * it once.
+    *
+    * If we have seen this object value, then set its entry to true
+    * to indicate that we have now seen a second occurrence
+    * of the object value, which means we will generate an ID and IDREFs
+    * in the XML.
+    */
+    if (!refEntry) {
+       /* Use AddValue here so as not to overwrite.
+        */
+        CFDictionaryAddValue(idRefDictionary, object, kCFBooleanFalse);
+    } else {
+        CFDictionarySetValue(idRefDictionary, object, kCFBooleanTrue);
+    }
+
+finish:
+    return;
+}
+
+Boolean 
+previouslySerialized(
+    CFTypeRef            object,
+    IOCFSerializeState * state)
+{
+    Boolean                result     = FALSE;
+    CFMutableDictionaryRef idRefDict  = NULL;  // do not release
+    CFTypeRef              idRefEntry = NULL;  // do not release
+    CFTypeID               idRefType  = CFNullGetTypeID();  // do not release
+    char                   temp[64];
+    int                    idInt      = -1;
+
+    if (!object || !state) {
+        goto finish;
+    }
+
+   /* If we don't get a lookup dict or an entry for the object,
+    * then no ID or IDREF will be involved,
+    * so treat is if never before serialized.
+    */
+    idRefDict = idRefDictionaryForObject(object, state);
+    if (!idRefDict) {
+        goto finish;
+    }
+
+    idRefEntry = (CFTypeRef)CFDictionaryGetValue(idRefDict, object);
+    if (!idRefEntry) {
+        goto finish;
+    }
+
+    idRefType = CFGetTypeID(idRefEntry);
+
+   /* If the entry is of Boolean type, then an ID/IDREF may be involved,
+    * but we haven't created one yet, so not yet serialized.
+    */
+    if (idRefType == CFBooleanGetTypeID()) {
+        goto finish;
+    }
+
+   /* At this point the entry should be a CFNumber.
+    */
+    if (idRefType != CFNumberGetTypeID()) {
+        goto finish;
+    }
+
+   /* Finally, get the IDREF value out of the idRef entry and write the
+    * XML for it. Bail on extraction error.
+    */
+    if (!CFNumberGetValue((CFNumberRef)idRefEntry, kCFNumberIntType, &idInt)) {
+        goto finish;
+    }
+    snprintf(temp, sizeof(temp), "<%s IDREF=\"%d\"/>", getTagString(object), idInt);
+    result = addString(temp, state);
+
+finish:
+	return result;
 }
 
 static Boolean
-addStartTag(CFTypeRef object,
-	    const char *additionalTags,
-	    IOCFSerializeState * state)
+addStartTag(
+    CFTypeRef            object,
+    const char         * additionalTags,
+    IOCFSerializeState * state)
 {
-	CFNumberRef idref;
-	CFNumberRef refCount;
-	char temp[128];
-	int id = -1;
-	int count = 0;
+    CFMutableDictionaryRef idRefDict  = NULL;  // do not release
+    CFTypeRef              idRefEntry = NULL;  // do not release
+	CFNumberRef            idRef = NULL;  // must release
+	char                   temp[128];
 
-	idref = CFDictionaryGetValue(state->idrefDict, object);
-	refCount = CFDictionaryGetValue(state->idrefCountDict, object);
-	if (refCount) {
-		CFNumberGetValue(refCount, kCFNumberIntType, &count);
-	}
-	if (idref && count) {
-		CFNumberGetValue(idref, kCFNumberIntType, &id);
+    idRefDict = idRefDictionaryForObject(object, state);
+    if (idRefDict) {
+        idRefEntry = (CFTypeRef)CFDictionaryGetValue(idRefDict, object);
+    }
+
+   /* If the IDRef entry is 'true', then we know we have an object value
+    * with multiple references and need to emit an ID. So we create one
+    * by incrementing the state's counter, making a CFNumber, and *replacing*
+    * the boolean value in the IDRef dictionary with that number.
+    */
+	if (idRefEntry == kCFBooleanTrue) {
+        int idInt = state->idrefNumRefs++;
+        
+        idRef = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &idInt);
+        assert(idRef);
+
+        CFDictionarySetValue(idRefDict, object, idRef);
+        CFRelease(idRef);
 
 		if (additionalTags) {
 			snprintf(temp, sizeof(temp) * sizeof(char),
-                        	"<%s ID=\"%d\" %s>", getTagString(object), id, additionalTags);
+                        	"<%s ID=\"%d\" %s>", getTagString(object), idInt, additionalTags);
 		} else {
 			snprintf(temp, sizeof(temp) * sizeof(char),
-                        	"<%s ID=\"%d\">", getTagString(object), id);
+                        	"<%s ID=\"%d\">", getTagString(object), idInt);
 		}
 	} else {
 		if (additionalTags) {
@@ -187,7 +267,7 @@ addStartTag(CFTypeRef object,
                         	"<%s>", getTagString(object));
 		}
 	}
-        CFDictionarySetValue(state->defined, object, kCFBooleanTrue);
+
 	return addString(temp, state);
 }
 
@@ -212,8 +292,9 @@ DoCFSerializeNumber(CFNumberRef object, IOCFSerializeState * state)
 
 	if (previouslySerialized(object, state)) return true;
 
-	if (!CFNumberGetValue(object, kCFNumberLongLongType, &value))
+	if (!CFNumberGetValue(object, kCFNumberLongLongType, &value)) {
 		return(false);
+    }
 
 	switch(CFNumberGetType(object)) {
 	case kCFNumberSInt8Type:
@@ -543,11 +624,32 @@ DoIdrefScan(CFTypeRef object, IOCFSerializeState * state)
 
 	assert(object);
 
-	recordIdref(object, state);
+	recordObjectInIDRefDictionary(object, state);
 
 	type = CFGetTypeID(object);
 
-	if (type == CFArrayGetTypeID()) {
+	if (type == CFDictionaryGetTypeID()) {
+		CFDictionaryRef dict = (CFDictionaryRef)object;
+		count = CFDictionaryGetCount(dict);
+		if (count) {
+			keys = (const void **)malloc(count * sizeof(void *));
+			values = (const void **)malloc(count * sizeof(void *));
+			if (!keys || !values) {
+				return false;
+			}
+			CFDictionaryGetKeysAndValues(dict, keys, values);
+			for (i = 0; ok && (i < count); i++) {
+				// don't record dictionary keys
+				ok &= DoIdrefScan((CFTypeRef)values[i], state);
+			}
+
+			free(keys);
+			free(values);
+			if (!ok) {
+				return ok;
+			}
+		}
+    } else if (type == CFArrayGetTypeID()) {
 		CFArrayRef array = (CFArrayRef)object;
 		count = CFArrayGetCount(array);
 		for (i = 0; i < count; i++) {
@@ -574,28 +676,8 @@ DoIdrefScan(CFTypeRef object, IOCFSerializeState * state)
 			if (!ok) {
 				return ok;
 			}
-                }
-	} else if (type == CFDictionaryGetTypeID()) {
-		CFDictionaryRef dict = (CFDictionaryRef)object;
-		count = CFDictionaryGetCount(dict);
-		if (count) {
-			keys = (const void **)malloc(count * sizeof(void *));
-			values = (const void **)malloc(count * sizeof(void *));
-			if (!keys || !values) {
-				return false;
-			}
-			CFDictionaryGetKeysAndValues(dict, keys, values);
-			for (i = 0; ok && (i < count); i++) {
-				// don't record dictionary keys
-				ok &= DoIdrefScan((CFTypeRef)values[i], state);
-			}
+        }
 
-			free(keys);
-			free(values);
-			if (!ok) {
-				return ok;
-			}
-		}
 	}
 
 	return ok;
@@ -611,21 +693,23 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state)
 
     type = CFGetTypeID(object);
 
-    if (type == CFNumberGetTypeID())
-	ok = DoCFSerializeNumber((CFNumberRef) object, state);
-    else if (type == CFBooleanGetTypeID())
-	ok = DoCFSerializeBoolean((CFBooleanRef) object, state);
-    else if (type == CFStringGetTypeID())
-	ok = DoCFSerializeString((CFStringRef) object, state);
-    else if (type == CFDataGetTypeID())
-	ok = DoCFSerializeData((CFDataRef) object, state);
-    else if (type == CFArrayGetTypeID())
-	ok = DoCFSerializeArray((CFArrayRef) object, state);
-    else if (type == CFSetGetTypeID())
-	ok = DoCFSerializeSet((CFSetRef) object, state);
-    else if (type == CFDictionaryGetTypeID())
-	ok = DoCFSerializeDictionary((CFDictionaryRef) object, state);
-    else {
+   /* Sorted by rough order of % occurrence in big plists.
+    */
+    if (type == CFDictionaryGetTypeID()) {
+        ok = DoCFSerializeDictionary((CFDictionaryRef) object, state);
+    } else if (type == CFStringGetTypeID()) {
+        ok = DoCFSerializeString((CFStringRef) object, state);
+    } else if (type == CFArrayGetTypeID()) {
+        ok = DoCFSerializeArray((CFArrayRef) object, state);
+    } else if (type == CFNumberGetTypeID()) {
+        ok = DoCFSerializeNumber((CFNumberRef) object, state);
+    } else if (type == CFDataGetTypeID()) {
+        ok = DoCFSerializeData((CFDataRef) object, state);
+    } else if (type == CFBooleanGetTypeID()) {
+        ok = DoCFSerializeBoolean((CFBooleanRef) object, state);
+    } else if (type == CFSetGetTypeID()) {
+        ok = DoCFSerializeSet((CFSetRef) object, state);
+    } else {
         CFStringRef temp = NULL;
         temp = CFStringCreateWithFormat(kCFAllocatorDefault, NULL,
 				CFSTR("<string>typeID 0x%x not serializable</string>"), (int) type);
@@ -644,36 +728,50 @@ DoCFSerialize(CFTypeRef object, IOCFSerializeState * state)
 CFDataRef
 IOCFSerialize(CFTypeRef object, CFOptionFlags options)
 {
-    IOCFSerializeState		state;
-    CFMutableDataRef		data;
-    CFMutableDictionaryRef	idrefDict;
-    CFMutableDictionaryRef	idrefCountDict;
-    CFMutableDictionaryRef	defined;
-    Boolean			ok;
-    CFDictionaryKeyCallBacks	idrefCallbacks;
+    IOCFSerializeState       state;
+    Boolean			         ok   = FALSE;
+    CFDictionaryKeyCallBacks idrefKeyCallbacks;
 
     if ((!object) || (options)) return 0;
 
-    idrefCallbacks = kCFTypeDictionaryKeyCallBacks;
-    // only use pointer equality for these keys
-    idrefCallbacks.equal = NULL;
-    idrefDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                              &idrefCallbacks,
-                              &kCFTypeDictionaryValueCallBacks);
-    idrefCountDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                              &idrefCallbacks,
-                              &kCFTypeDictionaryValueCallBacks);
-    defined = CFDictionaryCreateMutable(kCFAllocatorDefault, 0,
-                              &idrefCallbacks,
-                              &kCFTypeDictionaryValueCallBacks);
-    data = CFDataCreateMutable(kCFAllocatorDefault, 0);
-    assert(data && idrefDict && idrefCountDict);
+    state.data = CFDataCreateMutable(kCFAllocatorDefault, 0);
+    assert(state.data);
 
-    state.data = data;
     state.idrefNumRefs = 0;
-    state.idrefDict = idrefDict;
-    state.idrefCountDict = idrefCountDict;
-    state.defined = defined;
+
+    idrefKeyCallbacks = kCFTypeDictionaryKeyCallBacks;
+    // only use pointer equality for these keys
+    idrefKeyCallbacks.equal = NULL;
+
+    state.stringIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.stringIDRefDictionary);
+
+    state.numberIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.numberIDRefDictionary);
+
+    state.dataIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.dataIDRefDictionary);
+
+    state.dictionaryIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.dictionaryIDRefDictionary);
+
+    state.arrayIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.arrayIDRefDictionary);
+
+    state.setIDRefDictionary = CFDictionaryCreateMutable(
+        kCFAllocatorDefault, 0,
+        &idrefKeyCallbacks, &kCFTypeDictionaryValueCallBacks);
+    assert(state.setIDRefDictionary);
 
     ok = DoIdrefScan(object, &state);
     if (!ok) {
@@ -683,20 +781,24 @@ IOCFSerialize(CFTypeRef object, CFOptionFlags options)
     ok = DoCFSerialize(object, &state);
 
     if (ok) {
-	ok = addChar(0, &state);
+        ok = addChar(0, &state);
     }
     if (!ok) {
         goto finish;
     }
 
 finish:
-    if (!ok && data) {
-        CFRelease(data);
-        data = 0;
+    if (!ok && state.data) {
+        CFRelease(state.data);
+        state.data = NULL;  // it's returned
     }
-    if (idrefDict) CFRelease(idrefDict);
-    if (idrefCountDict) CFRelease(idrefCountDict);
-    if (defined) CFRelease(defined);
 
-    return data;
+    if (state.stringIDRefDictionary)     CFRelease(state.stringIDRefDictionary);
+    if (state.numberIDRefDictionary)     CFRelease(state.numberIDRefDictionary);
+    if (state.dataIDRefDictionary)       CFRelease(state.dataIDRefDictionary);
+    if (state.dictionaryIDRefDictionary) CFRelease(state.dictionaryIDRefDictionary);
+    if (state.arrayIDRefDictionary)      CFRelease(state.arrayIDRefDictionary);
+    if (state.setIDRefDictionary)        CFRelease(state.setIDRefDictionary);
+
+    return state.data;
 }

@@ -44,11 +44,19 @@
 
 #if !COMPILER(MSVC)
 #include <limits.h>
+#include <sched.h>
 #include <sys/time.h>
 #endif
 
 #if OS(ANDROID)
-#include "jni_utility.h"
+#include "JNIUtility.h"
+#include "ThreadFunctionInvocation.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
+#endif
+
+#if OS(MAC_OS_X) && !defined(BUILDING_ON_LEOPARD)
+#include <objc/objc-auto.h>
 #endif
 
 namespace WTF {
@@ -135,38 +143,34 @@ void clearPthreadHandleForIdentifier(ThreadIdentifier id)
 }
 
 #if OS(ANDROID)
-// On the Android platform, threads must be registered with the VM before they run.
-struct ThreadData {
-    ThreadFunction entryPoint;
-    void* arg;
-};
-
 static void* runThreadWithRegistration(void* arg)
 {
-    ThreadData* data = static_cast<ThreadData*>(arg);
+    OwnPtr<ThreadFunctionInvocation> invocation = adoptPtr(static_cast<ThreadFunctionInvocation*>(arg));
     JavaVM* vm = JSC::Bindings::getJavaVM();
     JNIEnv* env;
     void* ret = 0;
     if (vm->AttachCurrentThread(&env, 0) == JNI_OK) {
-        ret = data->entryPoint(data->arg);
+        ret = invocation->function(invocation->data);
         vm->DetachCurrentThread();
     }
-    delete data;
     return ret;
 }
 
 ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, const char*)
 {
     pthread_t threadHandle;
-    ThreadData* threadData = new ThreadData();
-    threadData->entryPoint = entryPoint;
-    threadData->arg = data;
 
-    if (pthread_create(&threadHandle, 0, runThreadWithRegistration, static_cast<void*>(threadData))) {
+    // On the Android platform, threads must be registered with the VM before they run.
+    OwnPtr<ThreadFunctionInvocation> invocation = adoptPtr(new ThreadFunctionInvocation(entryPoint, data));
+
+    if (pthread_create(&threadHandle, 0, runThreadWithRegistration, invocation.get())) {
         LOG_ERROR("Failed to create pthread at entry point %p with data %p", entryPoint, data);
-        delete threadData;
         return 0;
     }
+
+    // The thread will take ownership of invocation.
+    invocation.leakPtr();
+
     return establishIdentifierForPthreadHandle(threadHandle);
 }
 #else
@@ -188,6 +192,12 @@ void initializeCurrentThreadInternal(const char* threadName)
     pthread_setname_np(threadName);
 #else
     UNUSED_PARAM(threadName);
+#endif
+
+#if OS(MAC_OS_X) && !defined(BUILDING_ON_LEOPARD)
+    // All threads that potentially use APIs above the BSD layer must be registered with the Objective-C
+    // garbage collector in case API implementations use garbage-collected memory.
+    objc_registerThreadWithCollector();
 #endif
 
     ThreadIdentifier id = identifierByPthreadHandle(pthread_self());
@@ -221,6 +231,11 @@ void detachThread(ThreadIdentifier threadID)
     pthread_detach(pthreadHandle);
 }
 
+void yield()
+{
+    sched_yield();
+}
+
 ThreadIdentifier currentThread()
 {
     ThreadIdentifier id = ThreadIdentifierData::identifier();
@@ -235,7 +250,13 @@ ThreadIdentifier currentThread()
 
 Mutex::Mutex()
 {
-    pthread_mutex_init(&m_mutex, NULL);
+    pthread_mutexattr_t attr;
+    pthread_mutexattr_init(&attr);
+    pthread_mutexattr_settype(&attr, PTHREAD_MUTEX_NORMAL);
+
+    pthread_mutex_init(&m_mutex, &attr);
+
+    pthread_mutexattr_destroy(&attr);
 }
 
 Mutex::~Mutex()

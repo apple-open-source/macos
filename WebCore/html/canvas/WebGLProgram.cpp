@@ -25,27 +25,38 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLProgram.h"
+
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLProgram> WebGLProgram::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLProgram(ctx));
 }
 
 WebGLProgram::WebGLProgram(WebGLRenderingContext* ctx)
-    : CanvasObject(ctx)
+    : WebGLObject(ctx)
+    , m_linkStatus(false)
+    , m_linkCount(0)
 {
     setObject(context()->graphicsContext3D()->createProgram());
 }
 
-void WebGLProgram::_deleteObject(Platform3DObject object)
+void WebGLProgram::deleteObjectImpl(Platform3DObject obj)
 {
-    context()->graphicsContext3D()->deleteProgram(object);
+    context()->graphicsContext3D()->deleteProgram(obj);
+    if (m_vertexShader) {
+        m_vertexShader->onDetached();
+        m_vertexShader = 0;
+    }
+    if (m_fragmentShader) {
+        m_fragmentShader->onDetached();
+        m_fragmentShader = 0;
+    }
 }
 
 bool WebGLProgram::cacheActiveAttribLocations()
@@ -54,35 +65,96 @@ bool WebGLProgram::cacheActiveAttribLocations()
     if (!object())
         return false;
     GraphicsContext3D* context3d = context()->graphicsContext3D();
-    int linkStatus;
-    context3d->getProgramiv(this, GraphicsContext3D::LINK_STATUS, &linkStatus);
-    if (!linkStatus)
+
+    // Assume link status has already been cached.
+    if (!m_linkStatus)
         return false;
 
-    int numAttribs = 0;
-    context3d->getProgramiv(this, GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
+    GC3Dint numAttribs = 0;
+    context3d->getProgramiv(object(), GraphicsContext3D::ACTIVE_ATTRIBUTES, &numAttribs);
     m_activeAttribLocations.resize(static_cast<size_t>(numAttribs));
     for (int i = 0; i < numAttribs; ++i) {
         ActiveInfo info;
-        context3d->getActiveAttrib(this, i, info);
-        m_activeAttribLocations[i] = context3d->getAttribLocation(this, info.name.charactersWithNullTermination());
+        context3d->getActiveAttrib(object(), i, info);
+        m_activeAttribLocations[i] = context3d->getAttribLocation(object(), info.name.charactersWithNullTermination());
     }
 
     return true;
 }
 
-int WebGLProgram::numActiveAttribLocations()
+unsigned WebGLProgram::numActiveAttribLocations() const
 {
-    return static_cast<int>(m_activeAttribLocations.size());
+    return m_activeAttribLocations.size();
 }
 
-int WebGLProgram::getActiveAttribLocation(int index)
+GC3Dint WebGLProgram::getActiveAttribLocation(GC3Duint index) const
 {
-    if (index < 0 || index >= numActiveAttribLocations())
+    if (index >= numActiveAttribLocations())
         return -1;
-    return m_activeAttribLocations[static_cast<size_t>(index)];
+    return m_activeAttribLocations[index];
+}
+
+bool WebGLProgram::isUsingVertexAttrib0() const
+{
+    for (unsigned ii = 0; ii < numActiveAttribLocations(); ++ii) {
+        if (!getActiveAttribLocation(ii))
+            return true;
+    }
+    return false;
+}
+
+WebGLShader* WebGLProgram::getAttachedShader(GC3Denum type)
+{
+    switch (type) {
+    case GraphicsContext3D::VERTEX_SHADER:
+        return m_vertexShader.get();
+    case GraphicsContext3D::FRAGMENT_SHADER:
+        return m_fragmentShader.get();
+    default:
+        return 0;
+    }
+}
+
+bool WebGLProgram::attachShader(WebGLShader* shader)
+{
+    if (!shader || !shader->object())
+        return false;
+    switch (shader->getType()) {
+    case GraphicsContext3D::VERTEX_SHADER:
+        if (m_vertexShader)
+            return false;
+        m_vertexShader = shader;
+        return true;
+    case GraphicsContext3D::FRAGMENT_SHADER:
+        if (m_fragmentShader)
+            return false;
+        m_fragmentShader = shader;
+        return true;
+    default:
+        return false;
+    }
+}
+
+bool WebGLProgram::detachShader(WebGLShader* shader)
+{
+    if (!shader || !shader->object())
+        return false;
+    switch (shader->getType()) {
+    case GraphicsContext3D::VERTEX_SHADER:
+        if (m_vertexShader != shader)
+            return false;
+        m_vertexShader = 0;
+        return true;
+    case GraphicsContext3D::FRAGMENT_SHADER:
+        if (m_fragmentShader != shader)
+            return false;
+        m_fragmentShader = 0;
+        return true;
+    default:
+        return false;
+    }
 }
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

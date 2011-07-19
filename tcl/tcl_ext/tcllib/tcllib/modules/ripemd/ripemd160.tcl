@@ -23,15 +23,15 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
 #
-# $Id: ripemd160.tcl,v 1.7 2005/02/24 03:25:50 patthoyts Exp $
+# $Id: ripemd160.tcl,v 1.8 2009/05/07 01:12:59 patthoyts Exp $
 
 package require Tcl 8.2;                # tcl minimum version
 #catch {package require ripemdc 1.0};   # tcllib critcl alternative
 
 namespace eval ::ripemd {
     namespace eval ripemd160 {
-        variable version 1.0.3
-        variable rcsid {$Id: ripemd160.tcl,v 1.7 2005/02/24 03:25:50 patthoyts Exp $}
+        variable version 1.0.4
+        variable rcsid {$Id: ripemd160.tcl,v 1.8 2009/05/07 01:12:59 patthoyts Exp $}
         variable accel
         array set accel {cryptkit 0 trf 0}
 
@@ -637,6 +637,8 @@ namespace eval ::ripemd::ripemd160 {
 proc ::ripemd::ripemd160::RIPEMD160Hash {token msg} \
     $::ripemd::ripemd160::RIPEMD160Hash_body
 
+unset ::ripemd::ripemd160::RIPEMD160Hash_body
+
 # -------------------------------------------------------------------------
 
 proc ::ripemd::ripemd160::Hex {data} {
@@ -851,6 +853,7 @@ namespace eval ::ripemd {
 # Try and load a compiled extension to help.
 namespace eval ::ripemd::ripemd160 {
     foreach e {cryptkit trf} { if {[LoadAccelerator $e]} { break } }
+    unset e
 }
 
 package provide ripemd160 $::ripemd::ripemd160::version

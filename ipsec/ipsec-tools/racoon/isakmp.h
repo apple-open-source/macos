@@ -413,9 +413,9 @@ struct isakmp_pl_attr {
 
 /* IKE fragmentation payload */
 struct isakmp_frag {
-	u_int16_t unknown0;	/* always set to zero? */
+	u_int16_t unknown0; /* Next Payload (1st u_int8_t) and RESERVED (2nd u_int8_t), both must set to 0 */
 	u_int16_t len;
-	u_int16_t unknown1;	/* always set to 1? */
+	u_int16_t unknown1;	/* fragid */
 	u_int8_t index;
 	u_int8_t flags;
 } __attribute__((__packed__)); 

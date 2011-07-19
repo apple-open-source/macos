@@ -137,7 +137,7 @@ IsVSD(udfVSD *vsd) {
 
 int
 CheckUDF(int fd, int blockSize) {
-	int err;
+	ssize_t err;
 	char buf[blockSize];
 	off_t curr, max;
 	char found = 0;
@@ -154,9 +154,9 @@ CheckUDF(int fd, int blockSize) {
 		err = read(fd, buf, sizeof(buf));
 		if (err != sizeof(buf)) {
 			if (err == -1) {
-				warn("Cannot read %d bytes", sizeof(buf));
+				warn("Cannot read %zu bytes", sizeof(buf));
 			} else {
-				warn("Cannot read %d bytes, only read %d", sizeof(buf), err);
+				warn("Cannot read %zd bytes, only read %zd", sizeof(buf), err);
 			}
 			return -1;
 		}
@@ -182,9 +182,9 @@ CheckUDF(int fd, int blockSize) {
 		err = read(fd, buf, sizeof(buf));
 		if (err != sizeof(buf)) {
 			if (err == -1) {
-				warn("Cannot read %d bytes", sizeof(buf));
+				warn("Cannot read %zu bytes", sizeof(buf));
 			} else {
-				warn("Cannot read %d bytes, only read %d", sizeof(buf), err);
+				warn("Cannot read %zu bytes, only read %zd", sizeof(buf), err);
 			}
 			return -1;
 		}

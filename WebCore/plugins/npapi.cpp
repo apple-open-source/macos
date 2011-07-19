@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#include "PluginInfoStore.h"
+#include "Page.h"
 #include "PluginMainThreadScheduler.h"
 #include "PluginView.h"
 #include "npruntime_internal.h"
@@ -61,7 +61,7 @@ uint32_t NPN_MemFlush(uint32_t size)
 
 void NPN_ReloadPlugins(NPBool reloadPages)
 {
-    refreshPlugins(reloadPages);
+    Page::refreshPlugins(reloadPages);
 }
 
 NPError NPN_RequestRead(NPStream* stream, NPByteRange* rangeList)
@@ -171,7 +171,24 @@ void NPN_PopPopupsEnabledState(NPP instance)
     pluginViewForInstance(instance)->popPopupsEnabledState();
 }
 
-void NPN_PluginThreadAsyncCall(NPP instance, void (*func) (void *), void *userData)
+extern "C" typedef void PluginThreadAsyncCallFunction(void*);
+void NPN_PluginThreadAsyncCall(NPP instance, PluginThreadAsyncCallFunction func, void* userData)
 {
-    PluginMainThreadScheduler::scheduler().scheduleCall(instance, func, userData);
+    // Callback function type only differs from MainThreadFunction by being extern "C", which doesn't affect calling convention on any compilers we use.
+    PluginMainThreadScheduler::scheduler().scheduleCall(instance, reinterpret_cast<PluginMainThreadScheduler::MainThreadFunction*>(func), userData);
+}
+
+NPError NPN_GetValueForURL(NPP instance, NPNURLVariable variable, const char* url, char** value, uint32_t* len)
+{
+    return pluginViewForInstance(instance)->getValueForURL(variable, url, value, len);
+}
+
+NPError NPN_SetValueForURL(NPP instance, NPNURLVariable variable, const char* url, const char* value, uint32_t len)
+{
+    return pluginViewForInstance(instance)->setValueForURL(variable, url, value, len);
+}
+
+NPError NPN_GetAuthenticationInfo(NPP instance, const char* protocol, const char* host, int32_t port, const char* scheme, const char* realm, char** username, uint32_t* ulen, char** password, uint32_t* plen)
+{
+    return pluginViewForInstance(instance)->getAuthenticationInfo(protocol, host, port, scheme, realm, username, ulen, password, plen);
 }

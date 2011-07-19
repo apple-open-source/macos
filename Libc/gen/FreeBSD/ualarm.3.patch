@@ -1,6 +1,6 @@
---- _SB/Libc/gen/FreeBSD/ualarm.3	2004-11-25 11:38:02.000000000 -0800
-+++ _SB/Libc/gen/FreeBSD/ualarm.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -43,7 +43,10 @@
+--- ualarm.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ ualarm.3	2009-11-07 14:51:40.000000000 -0800
+@@ -39,7 +39,10 @@
  .Sh SYNOPSIS
  .In unistd.h
  .Ft useconds_t
@@ -12,7 +12,7 @@
  .Sh DESCRIPTION
  .Bf -symbolic
  This is a simplified interface to
-@@ -54,7 +57,7 @@
+@@ -50,7 +53,7 @@ The
  .Fn ualarm
  function
  waits a count of
@@ -21,7 +21,7 @@
  before asserting the terminating signal
  .Dv SIGALRM .
  System activity or time used in processing the call may cause a slight
-@@ -67,17 +70,17 @@
+@@ -63,17 +66,17 @@ argument is non-zero, the
  signal will be sent
  to the process every
  .Fa interval

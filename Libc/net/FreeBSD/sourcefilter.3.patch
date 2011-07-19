@@ -1,0 +1,13 @@
+--- sourcefilter.3.orig	2010-05-19 12:42:53.000000000 -0700
++++ sourcefilter.3	2010-05-19 12:43:19.000000000 -0700
+@@ -219,9 +219,7 @@ operation.
+ .El
+ .Sh SEE ALSO
+ .Xr ip 4 ,
+-.Xr ip6 4 ,
+-.Xr multicast 4, 
+-.Xr ifmcstat 8
++.Xr ip6 4
+ .Rs
+ .%A D. Thaler
+ .%A B. Fenner

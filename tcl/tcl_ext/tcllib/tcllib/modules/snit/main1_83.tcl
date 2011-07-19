@@ -496,6 +496,10 @@ proc ::snit::Comp.Init {} {
 
         # Initialize the interpreter
 	$compiler eval {
+	    catch {close stdout}
+	    catch {close stderr}
+	    catch {close stdin}
+
             # Load package information
             # TBD: see if this can be moved outside.
 	    # @mdgen NODEP: ::snit::__does_not_exist__
@@ -2573,6 +2577,8 @@ proc snit::RT.CacheTypemethodCommand {type method} {
         } else {
             return [list ]
         }
+    } elseif {[llength $method] > 1} {
+	return [list ]
     } elseif {$Snit_info(hasinstances)} {
         # Assume the unknown name is an instance name to create, unless
         # this is a widget and the style of the name is wrong, or the

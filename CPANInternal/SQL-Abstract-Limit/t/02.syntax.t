@@ -24,7 +24,7 @@ SKIP: {
     Top             SQL/Server, MS Access
     RowNum          Oracle
     FetchFirst      DB2         # not implemented yet
-    First           Informix    # not implemented yet
+    Skip            Informix    
     GenericSubQ     Sybase, plus any databases not recognised by this module
 
     $dbh            a DBI database handle

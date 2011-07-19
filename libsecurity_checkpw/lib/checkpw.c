@@ -1,6 +1,6 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
- * 
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
+ *
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
  * You may not use this file except in compliance with the License. Please obtain
@@ -15,43 +15,65 @@
  * specific language governing rights and limitations under the License.
  */
 
-/*
- *  checkpw.c
- *  utility to authenticate users using crypt with a fallback on Directory Services
- *
- *    Copyright:  (c) 2000 by Apple Computer, Inc., all rights reserved
- *
- */
+#include <security/pam_appl.h>
+#include <security/openpam.h>
 
-#include <pwd.h>
-#include <stddef.h>		// for offsetof()
-#include <stdlib.h> // for malloc()
-#include <string.h> // for strcmp()
-#include <time.h>
-#include <unistd.h> // for usleep(), sleep(), getpid()
-#include <mach/mach.h>
-#include <mach/mach_error.h>
-#include <mach/message.h>
-#include <servers/bootstrap.h>
-#include <DirectoryServiceMIG.h>    // kDSStdMachPortName, etc.
 #include "checkpw.h"
 #include <syslog.h>
 
-int32_t checkpw_internal_mig( const char* username, const char* password )
+#define PAM_STACK_NAME "checkpw"
+
+int checkpw_internal_pam( const char* uname, const char* password )
 {
-	int32_t			result			= CHECKPW_FAILURE;
-	mach_port_t		dsMachServer	= MACH_PORT_NULL;
-	
-	if ( bootstrap_look_up(bootstrap_port, kDSStdMachPortName, &dsMachServer) == KERN_SUCCESS )
+	int checkpwret = CHECKPW_FAILURE;
+
+	int pamret = PAM_SUCCESS;
+	pam_handle_t *pamh;
+	struct pam_conv pamc;
+	pamc.conv = &openpam_nullconv;
+
+	pamret = pam_start(PAM_STACK_NAME, uname, &pamc, &pamh);
+	if (PAM_SUCCESS != pamret)
 	{
-		if ( dsmig_checkUsernameAndPassword(dsMachServer, (char *)username, (char *)password, &result) != KERN_SUCCESS )
-		{
-			syslog(LOG_ALERT, "dsmig_checkUsernameAndPassword mach IPC error");
-			result = CHECKPW_FAILURE;
-		}
+		syslog(LOG_WARNING,"PAM: Unable to start pam.");
+		goto pamerr_no_end;
 	}
-	
-	return result;
+
+	pamret = pam_set_item(pamh, PAM_AUTHTOK, password);
+	if (PAM_SUCCESS != pamret)
+	{
+		syslog(LOG_WARNING,"PAM: Unable to set password.");
+		goto pamerr;
+	}
+
+	pamret = pam_authenticate(pamh, 0);
+	if (PAM_SUCCESS != pamret)
+	{
+		syslog(LOG_WARNING,"PAM: Unable to authenticate.");
+		checkpwret = CHECKPW_BADPASSWORD;
+		goto pamerr;
+	}
+
+	pamret = pam_acct_mgmt(pamh, 0);
+	if (PAM_SUCCESS != pamret)
+	{
+		if (PAM_NEW_AUTHTOK_REQD == pamret)
+		{
+			syslog(LOG_WARNING,"PAM: Unable to authorize, password needs to be changed.");
+		} else {
+			syslog(LOG_WARNING,"PAM: Unable to authorize.");
+		}
+
+		goto pamerr;
+	}
+
+	checkpwret = CHECKPW_SUCCESS;
+
+pamerr:
+	pam_end(pamh, pamret);
+pamerr_no_end:
+	return checkpwret;
+
 }
 
 int checkpw_internal( const struct passwd* pw, const char* password )
@@ -68,7 +90,7 @@ int checkpw( const char* userName, const char* password )
 	if (userName == NULL)
 		return CHECKPW_UNKNOWNUSER;
 	
-	siResult = checkpw_internal_mig(userName, thePassword);
+	siResult = checkpw_internal_pam(userName, thePassword);
 	switch (siResult) {
 		case CHECKPW_SUCCESS:
 		case CHECKPW_UNKNOWNUSER:
@@ -76,7 +98,7 @@ int checkpw( const char* userName, const char* password )
 			break;
 		default:
 			usleep(500000);
-			siResult = checkpw_internal_mig(userName, thePassword);
+			siResult = checkpw_internal_pam(userName, thePassword);
 			break;
 	}
 	

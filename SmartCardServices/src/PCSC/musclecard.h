@@ -752,7 +752,7 @@ extern "C"
 #ifdef WIN32
 	PCSC_API
 #endif
-	MSC_RV MSCCallbackCancelEvent();
+	MSC_RV MSCCallbackCancelEvent(void);
 
 	/*
 	 * Locks a transaction to the token 

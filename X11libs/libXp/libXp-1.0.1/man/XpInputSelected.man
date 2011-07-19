@@ -1,0 +1,99 @@
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004, Oracle and/or its affiliates. All rights reserved.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpInputSelected 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+XpInputSelected \- Queries which X Print events the client has selected to 
+receive 
+from the specific print context.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B unsigned long XpInputSelected
+(
+.I display, 
+.I context, 
+.I event_mask
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      XPContext \fIcontext\fP\^;
+.br
+      unsigned long *\fIall_event_mask_return\fP\^;
+.if n .ti +5n
+.if t .ti +.5i
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I context
+Specifies the print context to which the query is being made.
+.TP
+.I all_event_mask_return
+Returns the set of events that any client has selected.
+.SH DESCRIPTION
+.LP
+XpInputSelected returns a bit mask describing which event classes the client has 
+selected to receive. The value returned to 
+.I
+all_event_mask_return 
+is the union of every client's event mask.
+XpInputSelected queries which X Print events from the specified print context 
+the 
+client has selected to receive. The X Print Events are generated from a print 
+context, and not from a window as is the case with XSelectInput. As events 
+arrive, 
+the context field in the event is used to determine which print context 
+generated 
+the event.
+.\"--- The following line; all_event_mask is not in either XpSelectInput or 
+.\"--- XpInputSelected!!!!
+See XpSelectInput for the 
+.I event_mask 
+and 
+.I all_event_mask
+(??return??) values.
+.SH DIAGNOSTICS
+.TP 15
+.SM XPBadContext
+The specified print context is not valid.
+.SH "SEE ALSO"
+.BR XpSelectInput (3Xp)
+
+

@@ -6,8 +6,8 @@ print << '_';
 
 *** WARNING ***
 
-This release breaks compatibility with versions earlier than version 0.60 of
-YAML::Syck and YAML.pm when serializing blessed references.
+YAML::Syck version >=0.60 breaks compatibility with earlier versions of
+YAML::Syck and YAML.pm (<0.60) when serializing blessed references.
 
 See the COMPATIBILITY file for more information.
 
@@ -37,6 +37,7 @@ cc_files        (glob("*.c"), (-e 'Syck.c' ? () : 'Syck.c'));
 
 can_cc or die "This module requires a C compiler";
 
-include_deps 'Test::More';
-build_requires 'Devel::Leak' if defined $ENV{'AUTOMATED_TESTING'};
-sign; WriteAll;
+include_deps    'Test::More';
+requires        'Scalar::Util';
+build_requires  'Devel::Leak' if defined $ENV{'AUTOMATED_TESTING'};
+WriteAll;

@@ -1,0 +1,64 @@
+Linuxconf Migration
+===================
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+For those of you who still remember it and use it, Linuxconf
+[http://www.solucorp.qc.ca/linuxconf/] and its patched UW-IMAP companion VIMAP
+[http://vimap.sourceforge.net/] had a really simple way of doing virtual
+domains. They use standard passwd/shadow files, except each domain has its own
+files, such as:
+
+---%<-------------------------------------------------------------------------
+/etc/vmail/passwd.domain1.com
+/etc/vmail/shadow.domain1.com
+/etc/vmail/passwd.domain2.com
+/etc/vmail/shadow.domain2.com
+---%<-------------------------------------------------------------------------
+
+The mail is stored in <mbox format> [MailboxFormat.mbox.txt]. The INBOX exists
+in '/var/spool/vmail/domain.com/user' and the other mailboxes in
+'/vhome/domain.com/home/user'.
+
+To make Dovecot Linuxconf compatible, use these settings:
+
+---%<-------------------------------------------------------------------------
+# passwd-like file for use with Linuxconf virtual domains
+passdb {
+  driver = passwd-file
+  # Path for passwd-file
+  args = /etc/vmail/shadow.%d
+}
+userdb {
+  driver = passwd-file
+  # Path for passwd-file
+  args = /etc/vmail/passwd.%d
+}
+
+mail_location = mbox:%h:INBOX=/var/spool/vmail/%d/%n
+# Or if you want to place Dovecot's index/cache files to a separate directory
+# to avoid adding them to backups:
+#mail_location =
+mbox:%h:INBOX=/var/spool/vmail/%d/%n:INDEX=/nobackup/imap-indexes/%d/%n
+# Note that you may need to modify imap-indexes directory's permissions so
+# that Dovecot can create the directories.
+---%<-------------------------------------------------------------------------
+
+You also need to rename all the '.mailboxlist' files to '.subscriptions' to
+preserve the mailbox subscriptions.
+
+The Linuxconf virtual email system is actually pretty good especially if you
+are merging several existing single domain servers into one virtual domain
+server. All you have to do is copy over your existing passwd/shadow files into
+the /etc/vmail folder and rename them. You will need to do some editing on the
+passwd file to point to where you wish to store your email.
+
+Exim works very well with this configuration. The Exim Wiki has a detailed
+description of how to configure Exim [http://www.exim.org/eximwiki/Linuxconf]
+to work with this virtual user structure.
+
+More information about Linuxconf can be found at their Home Site
+[http://www.solucorp.qc.ca/linuxconf/]. Exim [http://www.exim.org] info here.
+
+(This file was created from the wiki on 2011-05-11 04:42)

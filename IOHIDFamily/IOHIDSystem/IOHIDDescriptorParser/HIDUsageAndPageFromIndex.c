@@ -27,7 +27,7 @@
 
 	Version:	xxx put version here xxx
 
-	Copyright:	© 1999-2000 by Apple Computer, Inc., all rights reserved.
+	Copyright:	ï¿½ 1999-2000 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -78,12 +78,16 @@ void HIDUsageAndPageFromIndex (HIDPreparsedDataRef preparsedDataRef,
 /*
  *	Disallow NULL Pointers
 */
-	if ((ptUsageAndPage == NULL) || (ptReportItem == NULL) || (ptPreparsedData == NULL))
+	if (ptUsageAndPage == NULL)
 	{
-		ptUsageAndPage->usagePage = 0;
 		return;	// kHIDNullPointerErr;
 	}
-
+	if ((ptReportItem == NULL) || (ptPreparsedData == NULL))
+	{
+        ptUsageAndPage->usagePage = 0;
+		return;	// kHIDNullPointerErr;
+	}
+    
 /*
  *	Index through the usage Items for this ReportItem
 */

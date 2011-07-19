@@ -37,6 +37,7 @@
 #import "Frame.h"
 #import "HTMLElement.h"
 #import "HTMLNames.h"
+#import "HTMLParserIdioms.h"
 #import "Image.h"
 #import "NodeFilter.h"
 #import "RenderImage.h"
@@ -130,7 +131,6 @@ static void createElementClassMap()
     addElementClass(HTMLNames::preTag, [DOMHTMLPreElement class]);
     addElementClass(HTMLNames::qTag, [DOMHTMLQuoteElement class]);
     addElementClass(HTMLNames::scriptTag, [DOMHTMLScriptElement class]);
-    addElementClass(HTMLNames::keygenTag, [DOMHTMLSelectElement class]);
     addElementClass(HTMLNames::selectTag, [DOMHTMLSelectElement class]);
     addElementClass(HTMLNames::styleTag, [DOMHTMLStyleElement class]);
     addElementClass(HTMLNames::tableTag, [DOMHTMLTableElement class]);
@@ -165,9 +165,11 @@ static void createElementClassMap()
     addElementClass(SVGNames::feColorMatrixTag, [DOMSVGFEColorMatrixElement class]);
     addElementClass(SVGNames::feComponentTransferTag, [DOMSVGFEComponentTransferElement class]);
     addElementClass(SVGNames::feCompositeTag, [DOMSVGFECompositeElement class]);
+    addElementClass(SVGNames::feConvolveMatrixTag, [DOMSVGFEConvolveMatrixElement class]);
     addElementClass(SVGNames::feDiffuseLightingTag, [DOMSVGFEDiffuseLightingElement class]);
     addElementClass(SVGNames::feDisplacementMapTag, [DOMSVGFEDisplacementMapElement class]);
     addElementClass(SVGNames::feDistantLightTag, [DOMSVGFEDistantLightElement class]);
+    addElementClass(SVGNames::feDropShadowTag, [DOMSVGFEDropShadowElement class]);
     addElementClass(SVGNames::feFloodTag, [DOMSVGFEFloodElement class]);
     addElementClass(SVGNames::feFuncATag, [DOMSVGFEFuncAElement class]);
     addElementClass(SVGNames::feFuncBTag, [DOMSVGFEFuncBElement class]);
@@ -325,6 +327,8 @@ Class kitClass(WebCore::Node* impl)
             // FIXME: Create an XPath objective C wrapper
             // See http://bugs.webkit.org/show_bug.cgi?id=8755
             return nil;
+        case WebCore::Node::SHADOW_ROOT_NODE:
+            return [DOMNode class];
     }
     ASSERT_NOT_REACHED();
     return nil;
@@ -376,7 +380,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     WebCore::Frame* frame = node->document()->frame();
     if (!frame)
         return nil;
-    return frame->nodeImage(node);
+    return frame->nodeImage(node).get();
 }
 
 - (NSArray *)textRects
@@ -468,7 +472,7 @@ id <DOMEventTarget> kit(WebCore::EventTarget* eventTarget)
     ASSERT(name);
     WebCore::Element* element = core(self);
     ASSERT(element);
-    return element->document()->completeURL(deprecatedParseURL(element->getAttribute(name)));
+    return element->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(element->getAttribute(name)));
 }
 
 - (BOOL)isFocused

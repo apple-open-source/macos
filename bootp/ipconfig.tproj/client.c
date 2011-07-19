@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,8 @@
  * February 24, 2003	Dieter Siegmund (dieter@apple.com)
  * - added support to retrieve information about the netboot (bsdp)
  *   packet stored in the device tree
+ * September 10, 2009	Dieter Siegmund (dieter@apple.com)
+ * - added IPv6 support
  */
 #include <stdio.h>
 #include <unistd.h>
@@ -52,6 +54,8 @@
 #include <netinet/ip.h>
 #include <netinet/bootp.h>
 #include <arpa/inet.h>
+#include <SystemConfiguration/SystemConfiguration.h>
+#include <SystemConfiguration/SCValidation.h>
 
 #include "ipconfig_ext.h"
 #include "ipconfig_types.h"
@@ -61,8 +65,16 @@
 #include "bsdplib.h"
 #include "ioregpath.h"
 #include "ipconfig.h"
-#include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCValidation.h>
+#include "cfutil.h"
+#include "DHCPv6.h"
+#include "DHCPv6Options.h"
+
+#define METHOD_LIST_V4			"BOOTP, MANUAL, DHCP, INFORM"
+#define METHOD_LIST_V4_WITH_NONE	METHOD_LIST_V4 ", NONE"
+#define METHOD_LIST_V6			"AUTOMATIC-V6, MANUAL-V6, 6TO4"
+#define METHOD_LIST_V6_WITH_NONE	METHOD_LIST_V6 ", NONE-V6"
+#define METHOD_LIST			METHOD_LIST_V4 ", " METHOD_LIST_V6
+#define METHOD_LIST_WITH_NONE		METHOD_LIST_V4_WITH_NONE ", " METHOD_LIST_V6_WITH_NONE
 
 typedef int func_t(mach_port_t server, int argc, char * argv[]);
 typedef func_t * funcptr_t;
@@ -136,28 +148,10 @@ S_wait_all(mach_port_t server, int argc, char * argv[])
 	CFRunLoopRun();
 	return (0);
     }
+    CFRelease(value);
     CFRelease(session);
     return (0);
 }
-
-#if 0
-static int
-S_wait_if(mach_port_t server, int argc, char * argv[])
-{
-    return (0);
-    if_name_t		name;
-    kern_return_t	status;
-
-    strlcpy(name, argv[0], sizeof(name));
-    status = ipconfig_wait_if(server, name);
-    if (status == KERN_SUCCESS) {
-	return (0);
-    }
-    fprintf(stderr, "wait if %s failed, %s\n", name,
-	    mach_error_string(status));
-    return (1);
-}
-#endif 0
 
 static int
 S_bsdp_get_packet(mach_port_t server, int argc, char * argv[])
@@ -188,6 +182,9 @@ S_bsdp_get_packet(mach_port_t server, int argc, char * argv[])
     bsdp_print_packet(dhcp, length, 0);
     ret = 0;
  done:
+    if (chosen != NULL) {
+	CFRelease(chosen);
+    }
     return (ret);
 }
 
@@ -248,7 +245,7 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
 	if (dhcpol_parse_vendor(&vendor_options, &options, NULL) == FALSE) {
 	    goto done;
 	}
-	data = dhcpol_get(&vendor_options, vendor_tag, &data_len);
+	data = dhcpol_option_copy(&vendor_options, vendor_tag, &data_len);
 	if (data != NULL) {
 	    dhcptype_print(bsdptag_type(vendor_tag), data, data_len);
 	    ret = 0;
@@ -262,7 +259,7 @@ S_bsdp_option(mach_port_t server, int argc, char * argv[])
 	if (entry == NULL) {
 	    goto done;
 	}
-	data = dhcpol_get(&options, tag, &data_len);
+	data = dhcpol_option_copy(&options, tag, &data_len);
 	if (data != NULL) {
 	    dhcptype_print(entry->type, data, data_len);
 	    ret = 0;
@@ -282,17 +279,20 @@ static int
 S_if_addr(mach_port_t server, int argc, char * argv[])
 {
     struct in_addr	ip;
+    kern_return_t	kret;
     if_name_t		name;
-    kern_return_t	status;
+    ipconfig_status_t	status;
 
     strlcpy(name, argv[0], sizeof(name));
-    status = ipconfig_if_addr(server, name, (ip_address_t *)&ip);
-    if (status == KERN_SUCCESS) {
+    kret = ipconfig_if_addr(server, name, (ip_address_t *)&ip, &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "get if addr %s failed, %s\n", name,
+		mach_error_string(status));
+    }
+    if (status == ipconfig_status_success_e) {
 	printf("%s\n", inet_ntoa(ip));
 	return (0);
     }
-    fprintf(stderr, "get if addr %s failed, %s\n", name,
-	    mach_error_string(status));
     return (1);
 }
 
@@ -317,29 +317,35 @@ S_get_option(mach_port_t server, int argc, char * argv[])
     char		buf[1024];
     inline_data_t 	data;
     unsigned int 	data_len = sizeof(data);
-    if_name_t		name;
     dhcpo_err_str_t	err;
+    kern_return_t	kret;
+    if_name_t		name;
+    ipconfig_status_t	status;
     int			tag;
-    kern_return_t	status;
 
     strlcpy(name, argv[0], sizeof(name));
 
     tag = dhcptag_with_name(argv[1]);
-    if (tag == -1)
+    if (tag == -1) {
 	tag = atoi(argv[1]);
-    status = ipconfig_get_option(server, name, tag, data, &data_len);
-    if (status == KERN_SUCCESS) {
-	if (dhcptag_to_str(buf, sizeof(buf), tag, data, data_len, &err)) {
-	    printf("%s\n", buf);
-	    return (0);
-	}
-	fprintf(stderr, "couldn't convert the option, %s\n",
-		err.str);
     }
-    else {
+    kret = ipconfig_get_option(server, name, tag, data, &data_len,
+			       &status);
+    if (kret != KERN_SUCCESS) {
 	fprintf(stderr, "ipconfig_get_option failed, %s\n", 
-		mach_error_string(status));
+		mach_error_string(kret));
+	goto done;
     }
+    if (status != ipconfig_status_success_e) {
+	goto done;
+    }
+    if (dhcptag_to_str(buf, sizeof(buf), tag, data, data_len, &err)) {
+	printf("%s\n", buf);
+	return (0);
+    }
+    fprintf(stderr, "couldn't convert the option, %s\n",
+	    err.str);
+ done:
     return (1);
 }
 
@@ -348,144 +354,375 @@ S_get_packet(mach_port_t server, int argc, char * argv[])
 {
     inline_data_t 	data;
     unsigned int 	data_len = sizeof(data);
+    kern_return_t	kret;
     if_name_t		name;
-    int			ret = 1;
-    kern_return_t	status;
+    int			ret;
+    ipconfig_status_t	status;
 
+    ret = 1;
     strlcpy(name, argv[0], sizeof(name));
-    status = ipconfig_get_packet(server, name, data, &data_len);
-    if (status == KERN_SUCCESS) {
-	dhcp_print_packet((struct dhcp *)data, data_len);
-	ret = 0;
+    kret = ipconfig_get_packet(server, name, data, &data_len, &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_packet failed, %s\n", 
+		mach_error_string(kret));
+	goto done;
     }
+    if (status != ipconfig_status_success_e) {
+	goto done;
+    }
+    dhcp_print_packet((struct dhcp *)data, data_len);
+    ret = 0;
+
+ done:
     return (ret);
 }
 
-static __inline__ boolean_t
-ipconfig_method_from_string(const char * m, ipconfig_method_t * method)
+static int
+S_get_v6_packet(mach_port_t server, int argc, char * argv[])
 {
-    if (strcmp(m, "BOOTP") == 0) {
-	*method = ipconfig_method_bootp_e;
+    inline_data_t 		data;
+    unsigned int 		data_len = sizeof(data);
+    DHCPv6OptionErrorString 	err;
+    kern_return_t		kret;
+    if_name_t			name;
+    DHCPv6OptionListRef		options;
+    int				ret;
+    ipconfig_status_t		status;
+
+    ret = 1;
+    strlcpy(name, argv[0], sizeof(name));
+    kret = ipconfig_get_v6_packet(server, name, data, &data_len, &status);
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_get_v6_packet failed, %s\n", 
+		mach_error_string(kret));
+	goto done;
     }
-    else if (strcmp(m, "DHCP") == 0) {
-	*method = ipconfig_method_dhcp_e;
+    if (status != ipconfig_status_success_e) {
+	goto done;
     }
-    else if (strcmp(m, "MANUAL") == 0) {
-	*method = ipconfig_method_manual_e;
+    DHCPv6PacketFPrint(stdout, (DHCPv6PacketRef)data, data_len);
+    options = DHCPv6OptionListCreateWithPacket((DHCPv6PacketRef)data,
+					       data_len, &err);
+    if (options != NULL) {
+	DHCPv6OptionListFPrint(stdout, options);
+	DHCPv6OptionListRelease(&options);
     }
-    else if (strcmp(m, "INFORM") == 0) {
-	*method = ipconfig_method_inform_e;
+    ret = 0;
+
+ done:
+    return (ret);
+}
+
+#ifndef kSCValNetIPv6ConfigMethodLinkLocal
+static const CFStringRef kIPConfigurationIPv6ConfigMethodLinkLocal = CFSTR("LinkLocal");
+#define kSCValNetIPv6ConfigMethodLinkLocal kIPConfigurationIPv6ConfigMethodLinkLocal
+#endif /* kSCValNetIPv6ConfigMethodLinkLocal */
+
+#ifndef kSCValNetIPv4ConfigMethodFailover
+static const CFStringRef kIPConfigurationConfigMethodFailover = CFSTR("Failover");
+#define kSCValNetIPv4ConfigMethodFailover kIPConfigurationConfigMethodFailover
+#endif /* kSCValNetIPv4ConfigMethodFailover */
+
+#ifndef kSCPropNetIPv4FailoverAddressTimeout
+static const CFStringRef kIPConfigurationFailoverAddressTimeout = CFSTR("FailoverAddressTimeout");
+#define kSCPropNetIPv4FailoverAddressTimeout	kIPConfigurationFailoverAddressTimeout
+#endif /* kSCPropNetIPv4FailoverAddressTimeout */
+
+static CFStringRef
+IPv4ConfigMethodGet(const char * m)
+{
+    if (strcasecmp("bootp", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodBOOTP);
     }
-    else if (strcmp(m, "LINKLOCAL") == 0) {
-	*method = ipconfig_method_linklocal_e;
+    if (strcasecmp("dhcp", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodDHCP);
     }
-    else if (strcmp(m, "FAILOVER") == 0) {
-	*method = ipconfig_method_failover_e;
+    if (strcasecmp("manual", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodManual);
     }
-    else if (strcmp(m, "NONE") == 0) {
-	*method = ipconfig_method_none_e;
+    if (strcasecmp("inform", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodINFORM);
     }
-    else {
-	return (FALSE);
+    if (strcasecmp("linklocal", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodLinkLocal);
     }
-    return (TRUE);
+    if (strcasecmp("failover", m) == 0) {
+	return (kSCValNetIPv4ConfigMethodFailover);
+    }
+    return (NULL);
+}
+
+static CFDictionaryRef
+IPv4ConfigDictCreate(const char * ifname,
+		     int argc, char * argv[], const char * cmd,
+		     const char * method_name,
+		     CFStringRef config_method)
+{
+    CFMutableDictionaryRef	dict;
+
+    dict = CFDictionaryCreateMutable(NULL, 0,
+				     &kCFTypeDictionaryKeyCallBacks,
+				     &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(dict, kSCPropNetIPv4ConfigMethod,
+			 config_method);
+    if (config_method == kSCValNetIPv4ConfigMethodFailover
+	|| config_method == kSCValNetIPv4ConfigMethodINFORM
+	|| config_method == kSCValNetIPv4ConfigMethodManual) {
+	struct in_addr		ip_address;
+
+	if (config_method == kSCValNetIPv4ConfigMethodFailover) {
+	    if (argc < 1 || argc > 3) {
+		fprintf(stderr, "usage: ipconfig %s %s "
+			"%s <ip-address> [ <subnet-mask> [ <timeout> ] ]\n",
+			cmd, ifname, method_name);
+		goto failed;
+	    }
+	}
+	else if (argc < 1 || argc > 2) {
+	    fprintf(stderr, "usage: ipconfig %s %s "
+		    "%s <ip-address> [ <subnet-mask> ]\n",
+		    cmd, ifname, method_name);
+	    goto failed;
+	}
+	if (inet_aton(argv[0], &ip_address) == 0) {
+	    fprintf(stderr, "Invalid IP address %s\n", argv[0]);
+	    goto failed;
+	}
+	my_CFDictionarySetIPAddressAsArrayValue(dict,
+						kSCPropNetIPv4Addresses,
+						ip_address);
+	if (argc >= 2) {
+	    if (inet_aton(argv[1], &ip_address) != 1) {
+		fprintf(stderr, "Invalid IP mask %s\n", argv[1]);
+		goto failed;
+	    }
+	    my_CFDictionarySetIPAddressAsArrayValue(dict,
+						    kSCPropNetIPv4SubnetMasks,
+						    ip_address);
+	}
+	if (argc >= 3) {
+	    int32_t	timeout;
+	    
+	    timeout = (int32_t)strtol(argv[2], NULL, 0);
+	    if (timeout > 0) {
+		CFNumberRef	num;
+		
+		num = CFNumberCreate(NULL, kCFNumberSInt32Type, &timeout);
+		CFDictionarySetValue(dict, 
+				     kSCPropNetIPv4FailoverAddressTimeout,
+				     num);
+		CFRelease(num);
+	    }
+	}
+    }
+    else if (argc != 0) {
+	fprintf(stderr, "too many arguments for method\n");
+	goto failed;
+    }
+    return (dict);
+
+ failed:
+    my_CFRelease(&dict);
+    return (NULL);
+}
+
+static CFStringRef
+IPv6ConfigMethodGet(const char * m)
+{
+    if (strcasecmp(m, "automatic-v6") == 0) {
+	return (kSCValNetIPv6ConfigMethodAutomatic);
+    }
+    else if (strcasecmp(m, "manual-v6") == 0) {
+	return (kSCValNetIPv6ConfigMethodManual);
+    }
+    else if (strcasecmp(m, "6to4") == 0) {
+	return (kSCValNetIPv6ConfigMethod6to4);
+    }
+    if (strcasecmp(m, "linklocal-v6") == 0) {
+	return (kSCValNetIPv6ConfigMethodLinkLocal);
+    }
+    return (NULL);
 }
 
 static void
-get_method_information(int argc, char * argv[],
-		       const char * cmd, ipconfig_method_t * method_p,
-		       ipconfig_method_data_t * data, int * data_len_p)
+my_CFDictionarySetIPv6AddressAsArrayValue(CFMutableDictionaryRef dict,
+					  CFStringRef prop,
+					  const struct in6_addr * ipaddr_p)
 {
-    char *			method_name;
-    
-    method_name = argv[0];
-    if (ipconfig_method_from_string(method_name, method_p) == FALSE) {
-	fprintf(stderr, "ipconfig: %s: method '%s' unknown\n", 
-		cmd, method_name);
-	fprintf(stderr, 
-		"must be MANUAL, INFORM, BOOTP, DHCP, FAILOVER, or NONE\n");
-	exit(1);
-    }
-    argc--;
-    argv++;
-    switch (*method_p) {
-      case ipconfig_method_failover_e:
-	  if (argc != 1 && argc != 2 && argc != 3) {
-	      fprintf(stderr, "usage: ipconfig %s en0 %s <ip> "
-		      "[ <mask> [ <timeout> ] ]\n",
-		      cmd, method_name);
-	      exit(1);
-	  }
-	  goto common;
-      case ipconfig_method_inform_e:
-      case ipconfig_method_manual_e:
-	  if (argc != 1 && argc != 2) {
-	      fprintf(stderr, "usage: ipconfig %s en0 %s <ip> [ <mask> ]\n",
-		      cmd, method_name);
-	      exit(1);
-	  }
-      common:
-	  bzero(data, *data_len_p);
-	  if (*data_len_p < (sizeof(*data) + sizeof(data->ip[0]))) {
-	      fprintf(stderr, "Invalid size passed %d < %ld\n",
-		      *data_len_p, sizeof(*data) + sizeof(data->ip[0]));
-	      exit(1);
-	  }
-	  data->n_ip = 1;
-	  if (inet_aton(argv[0], &data->ip[0].addr) == 0) {
-	      fprintf(stderr, "Invalid IP address %s\n", argv[0]);
-	      exit(1);
-	  }
-	  if (argc >= 2) {
-	      if (inet_aton(argv[1], &data->ip[0].mask) == 0) {
-		  fprintf(stderr, "Invalid IP mask %s\n", argv[1]);
-		  exit(1);
-	      }
-	  }
-	  if (argc >= 3) {
-	      data->u.failover_timeout = strtoul(argv[2], NULL, 0);
-	  }
-	  *data_len_p = sizeof(*data) + sizeof(data->ip[0]);
-	  break;
-      default:
-	  if (argc) {
-	      fprintf(stderr, "too many arguments for method\n");
-	      exit(1);
-	  }
-	  *data_len_p = 0;
-	  break;
-    }
+    CFStringRef		str;
+
+    str = my_CFStringCreateWithIPv6Address(ipaddr_p);
+    my_CFDictionarySetTypeAsArrayValue(dict, prop, str);
+    CFRelease(str);
     return;
+}
+
+static void
+my_CFDictionarySetIntegerAsArrayValue(CFMutableDictionaryRef dict,
+				      CFStringRef prop, int val)
+{
+    CFNumberRef		num;
+
+    num = CFNumberCreate(NULL, kCFNumberIntType, &val);
+    my_CFDictionarySetTypeAsArrayValue(dict, prop, num);
+    CFRelease(num);
+    return;
+}
+
+
+static CFDictionaryRef
+IPv6ConfigDictCreate(const char * ifname, 
+		     int argc, char * argv[], const char * cmd,
+		     const char * method_name,
+		     CFStringRef config_method)
+{
+    CFDictionaryRef		dict;
+    CFMutableDictionaryRef	ipv6_dict;
+    CFStringRef			ipv6_key;
+
+    ipv6_dict = CFDictionaryCreateMutable(NULL, 0,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+    CFDictionarySetValue(ipv6_dict, kSCPropNetIPv6ConfigMethod,
+			 config_method);
+    if (config_method == kSCValNetIPv6ConfigMethodManual) {
+	struct in6_addr		ip_address;
+	int			prefix_length;
+
+	if (argc != 2) {
+	    fprintf(stderr, "usage: ipconfig %s %s "
+		    "%s6 <ipv6-address> <prefix-length>\n", 
+		    cmd, ifname, method_name);
+	    goto failed;
+	}
+	if (inet_pton(AF_INET6, argv[0], &ip_address) != 1) {
+	    fprintf(stderr, "Invalid IPv6 address %s\n", argv[0]);
+	    goto failed;
+	}
+	my_CFDictionarySetIPv6AddressAsArrayValue(ipv6_dict,
+						  kSCPropNetIPv6Addresses,
+						  &ip_address);
+	prefix_length = (int)strtol(argv[1], NULL, 0);
+	if (prefix_length < 0 || prefix_length > 128) {
+	    fprintf(stderr, "Invalid prefix_length %s\n", argv[1]);
+	    goto failed;
+	}
+	my_CFDictionarySetIntegerAsArrayValue(ipv6_dict,
+					      kSCPropNetIPv6PrefixLength,
+					      prefix_length);
+    }
+    else if (argc != 0) {
+	fprintf(stderr, "too many arguments for method\n");
+	goto failed;
+    }
+    ipv6_key = kSCEntNetIPv6;
+    dict = CFDictionaryCreate(NULL,
+			      (const void * *)&ipv6_key,
+			      (const void * *)&ipv6_dict, 1,
+			      &kCFTypeDictionaryKeyCallBacks,
+			      &kCFTypeDictionaryValueCallBacks);
+    CFRelease(ipv6_dict);
+    return (dict);
+
+ failed:
+    my_CFRelease(&ipv6_dict);
+    return (NULL);
+}
+
+static CFDictionaryRef
+ConfigDictCreate(const char * ifname, int argc, char * argv[], const char * cmd,
+		 const char * method_name, boolean_t allow_none)
+{
+    CFStringRef		config_method;
+    
+    config_method = IPv4ConfigMethodGet(method_name);
+    if (config_method != NULL) {
+	return (IPv4ConfigDictCreate(ifname, argc, argv, cmd, method_name, 
+				     config_method));
+    }
+    config_method = IPv6ConfigMethodGet(method_name);
+    if (config_method == NULL) {
+	fprintf(stderr,
+		"ipconfig %s: invalid method '%s'\n<method> is one of %s\n", 
+		cmd, method_name,
+		(allow_none) ? METHOD_LIST_WITH_NONE : METHOD_LIST);
+	return (NULL);
+    }
+    return (IPv6ConfigDictCreate(ifname, argc, argv, cmd, 
+				 method_name, config_method));
 }
 
 static int
 S_set(mach_port_t server, int argc, char * argv[])
 {
-    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
-    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
-    int				data_len;
-    if_name_t			name;
-    char *			method_name;
-    ipconfig_method_t		method;
-    kern_return_t		status;
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    CFDataRef			data = NULL;
+    CFDictionaryRef		dict = NULL;
+    const char *		method_name;
+    if_name_t			if_name;
+    kern_return_t		kret;
+    ipconfig_status_t		status = ipconfig_status_success_e;
+    void *			xml_data_ptr = NULL;
+    int				xml_data_len = 0;
 
-    strcpy(name, argv[0]);
-    argv++;
-    argc--;
+    strlcpy(if_name, argv[0], sizeof(if_name));
+    method_name = argv[1];
+    argv += 2;
+    argc -= 2;
 
-    method_name = argv[0];
-    data_len = sizeof(buf);
-    get_method_information(argc, argv, command_name, &method, data, &data_len);
-    status = ipconfig_set(server, name, method, (void *)data, data_len,
-			  &ipstatus);
-    if (status != KERN_SUCCESS) {
-	mach_error("ipconfig_set failed", status);
+    if (strcasecmp(method_name, "NONE") == 0) {
+	/* nothing to do, NONE implies NULL method data */
+    }
+    else if (strcasecmp(method_name, "NONE-V6") == 0
+	     || strcasecmp(method_name, "NONE-V4") == 0) {
+
+	CFDictionaryRef		empty_dict;
+	CFStringRef		ip_key;
+
+	/* NONE-V{4,6} is represented as an empty IPv{4,6} dictionary */
+	empty_dict = CFDictionaryCreate(NULL,
+					NULL, NULL, 0,
+					&kCFTypeDictionaryKeyCallBacks,
+					&kCFTypeDictionaryValueCallBacks);
+	if (strcasecmp(method_name, "NONE-V6") == 0) {
+	    ip_key = kSCEntNetIPv6;
+	}
+	else {
+	    ip_key = kSCEntNetIPv4;
+	}
+	dict = CFDictionaryCreate(NULL,
+				  (const void * *)&ip_key,
+				  (const void * *)&empty_dict, 1,
+				  &kCFTypeDictionaryKeyCallBacks,
+				  &kCFTypeDictionaryValueCallBacks);
+	CFRelease(empty_dict);
+    }
+    else {
+	dict = ConfigDictCreate(if_name, argc, argv, command_name, method_name,
+				TRUE);
+	if (dict == NULL) {
+	    return (1);
+	}
+    }
+    if (dict != NULL) {
+	data = CFPropertyListCreateXMLData(NULL, dict);
+	if (data == NULL) {
+	    CFRelease(dict);
+	    fprintf(stderr, "failed to allocate memory\n");
+	    return (1);
+	}
+	xml_data_ptr = (void *)CFDataGetBytePtr(data);
+	xml_data_len = CFDataGetLength(data);
+    }
+    kret = ipconfig_set(server, if_name, xml_data_ptr, xml_data_len, &status);
+    my_CFRelease(&dict);
+    my_CFRelease(&data);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_set failed", kret);
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_set %s %s failed: %s\n",
-		name, method_name, ipconfig_status_string(ipstatus));
+		if_name, method_name, ipconfig_status_string(status));
 	return (1);
     }
     return (0);
@@ -494,8 +731,8 @@ S_set(mach_port_t server, int argc, char * argv[])
 static int
 S_set_verbose(mach_port_t server, int argc, char * argv[])
 {
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
-    kern_return_t		status;
+    kern_return_t		kret;
+    ipconfig_status_t		status = ipconfig_status_success_e;
     int				verbose;
 
     verbose = strtol(argv[0], NULL, 0);
@@ -504,13 +741,14 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
 	return (1);
     }
-    status = ipconfig_set_verbose(server, verbose, &ipstatus);
-    if (status != KERN_SUCCESS) {
+    kret = ipconfig_set_verbose(server, verbose, &status);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_set_verbose failed", kret);
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "setverbose failed: %s\n",
-		ipconfig_status_string(ipstatus));
+		ipconfig_status_string(status));
 	return (1);
     }
     return (0);
@@ -520,8 +758,8 @@ S_set_verbose(mach_port_t server, int argc, char * argv[])
 static int
 S_set_something(mach_port_t server, int argc, char * argv[])
 {
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
-    kern_return_t		status;
+    kern_return_t		kret;
+    ipconfig_status_t		status = ipconfig_status_success_e;
     int				verbose;
 
     verbose = strtol(argv[0], NULL, 0);
@@ -530,13 +768,13 @@ S_set_something(mach_port_t server, int argc, char * argv[])
 	fprintf(stderr, "conversion to integer of %s failed\n", argv[0]);
 	return (1);
     }
-    status = ipconfig_set_something(server, verbose, &ipstatus);
-    if (status != KERN_SUCCESS) {
+    kret = ipconfig_set_something(server, verbose, &status);
+    if (kret != KERN_SUCCESS) {
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "setsomething failed: %s\n",
-		ipconfig_status_string(ipstatus));
+		ipconfig_status_string(status));
 	return (1);
     }
     return (0);
@@ -546,43 +784,55 @@ S_set_something(mach_port_t server, int argc, char * argv[])
 static int
 S_add_or_set_service(mach_port_t server, int argc, char * argv[], bool add)
 {
-    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
-    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
-    int				data_len;
-    if_name_t			name;
+    CFDataRef			data = NULL;
+    CFDictionaryRef		dict;
     char *			method_name;
-    ipconfig_method_t		method;
+    if_name_t			if_name;
+    kern_return_t		kret;
     inline_data_t 		service_id;
-    unsigned int 		service_id_len = sizeof(service_id);
-    kern_return_t		status;
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    unsigned int 		service_id_len;
+    ipconfig_status_t		status = ipconfig_status_success_e;
+    void *			xml_data_ptr = NULL;
+    int				xml_data_len = 0;
 
-    strcpy(name, argv[0]);
-    argv++;
-    argc--;
+    strlcpy(if_name, argv[0], sizeof(if_name));
+    method_name = argv[1];
+    argv += 2;
+    argc -= 2;
 
-    method_name = argv[0];
-    data_len = sizeof(buf);
-    get_method_information(argc, argv, command_name, &method, data, &data_len);
-    if (add) {
-	status = ipconfig_add_service(server, name, method,
-				      (void *)data, data_len,
-				      service_id, &service_id_len, &ipstatus);
-    }
-    else {
-	status = ipconfig_set_service(server, name, method,
-				      (void *)data, data_len,
-				      service_id, &service_id_len, &ipstatus);
-    }
-    if (status != KERN_SUCCESS) {
-	fprintf(stderr, "ipconfig_%s_service failed, %s\n", add ? "add" : "set",
-		mach_error_string(status));
+    dict = ConfigDictCreate(if_name, argc, argv, command_name, method_name,
+			    FALSE);
+    if (dict == NULL) {
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    data = CFPropertyListCreateXMLData(NULL, dict);
+    if (data == NULL) {
+	CFRelease(dict);
+	fprintf(stderr, "failed to allocate memory\n");
+	return (1);
+    }
+    xml_data_ptr = (void *)CFDataGetBytePtr(data);
+    xml_data_len = CFDataGetLength(data);
+    if (add) {
+	kret = ipconfig_add_service(server, if_name, xml_data_ptr, xml_data_len,
+				    service_id, &service_id_len, &status);
+    }
+    else {
+	kret = ipconfig_set_service(server, if_name, xml_data_ptr, xml_data_len,
+				    service_id, &service_id_len, &status);
+    }
+    CFRelease(dict);
+    CFRelease(data);
+    
+    if (kret != KERN_SUCCESS) {
+	fprintf(stderr, "ipconfig_%s_service failed, %s\n", add ? "add" : "set",
+		mach_error_string(kret));
+	return (1);
+    }
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_%s_service %s %s failed: %s\n",
 		add ? "add" : "set",
-		name, method_name, ipconfig_status_string(ipstatus));
+		if_name, method_name, ipconfig_status_string(status));
 	return (1);
     }
     printf("%.*s\n", service_id_len, service_id);
@@ -604,25 +854,25 @@ S_set_service(mach_port_t server, int argc, char * argv[])
 static int
 S_remove_service_with_id(mach_port_t server, int argc, char * argv[])
 {
+    kern_return_t		kret;
     inline_data_t 		service_id;
     unsigned int 		service_id_len;
-    kern_return_t		status;
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    ipconfig_status_t		status = ipconfig_status_success_e;
 
     service_id_len = strlen(argv[0]);
     if (service_id_len > sizeof(service_id)) {
 	service_id_len = sizeof(service_id); 
     }
     memcpy(service_id, argv[0], service_id_len);
-    status = ipconfig_remove_service_with_id(server, service_id, service_id_len,
-					     &ipstatus);
-    if (status != KERN_SUCCESS) {
-	mach_error("ipconfig_remove_service_with_id failed", status);
+    kret = ipconfig_remove_service_with_id(server, service_id, service_id_len,
+					   &status);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_remove_service_with_id failed", kret);
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_remove_service_with_id %s failed: %s\n",
-		argv[0], ipconfig_status_string(ipstatus));
+		argv[0], ipconfig_status_string(status));
 	return (1);
     }
     return (0);
@@ -631,40 +881,54 @@ S_remove_service_with_id(mach_port_t server, int argc, char * argv[])
 static int
 S_find_service(mach_port_t server, int argc, char * argv[])
 {
-    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
-    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
-    int				data_len;
-    if_name_t			name;
+    CFDataRef			data = NULL;
+    CFDictionaryRef		dict;
     boolean_t			exact = FALSE;
     char *			method_name;
-    ipconfig_method_t		method;
+    if_name_t			if_name;
+    kern_return_t		kret;
     inline_data_t 		service_id;
     unsigned int 		service_id_len = sizeof(service_id);
-    kern_return_t		status;
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    ipconfig_status_t		status = ipconfig_status_success_e;
+    void *			xml_data_ptr = NULL;
+    int				xml_data_len = 0;
 
-    strcpy(name, argv[0]);
+    strlcpy(if_name, argv[0], sizeof(if_name));
     argv++;
     argc--;
-
-    if (strcasecmp(argv[0], "exact") == 0) {
+    if (argc > 1 && strcasecmp(argv[0], "exact") == 0) {
 	exact = TRUE;
 	argc--;
 	argv++;
     }
     method_name = argv[0];
-    data_len = sizeof(buf);
-    get_method_information(argc, argv, command_name, &method, data, &data_len);
-    status = ipconfig_find_service(server, name, exact,
-				   method, (void *)data, data_len,
-				   service_id, &service_id_len, &ipstatus);
-    if (status != KERN_SUCCESS) {
-	mach_error("ipconfig_find_service failed", status);
+    argc--;
+    argv++;
+    dict = ConfigDictCreate(if_name, argc, argv, command_name, method_name,
+			    FALSE);
+    if (dict == NULL) {
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    data = CFPropertyListCreateXMLData(NULL, dict);
+    if (data == NULL) {
+	CFRelease(dict);
+	fprintf(stderr, "failed to allocate memory\n");
+	return (1);
+    }
+    xml_data_ptr = (void *)CFDataGetBytePtr(data);
+    xml_data_len = CFDataGetLength(data);
+    kret = ipconfig_find_service(server, if_name, exact,
+				 xml_data_ptr, xml_data_len,
+				 service_id, &service_id_len, &status);
+    my_CFRelease(&dict);
+    my_CFRelease(&data);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_find_service failed", kret);
+	return (1);
+    }
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_find_service %s %s failed: %s\n",
-		name, method_name, ipconfig_status_string(ipstatus));
+		if_name, method_name, ipconfig_status_string(status));
 	return (1);
     }
     printf("%.*s\n", service_id_len, service_id);
@@ -674,36 +938,48 @@ S_find_service(mach_port_t server, int argc, char * argv[])
 static int
 S_remove_service(mach_port_t server, int argc, char * argv[])
 {
-    char			buf[IPCONFIG_METHOD_DATA_MIN_SIZE];
-    ipconfig_method_data_t *	data = (ipconfig_method_data_t *)buf;
-    int				data_len;
-    if_name_t			name;
+    CFDataRef			data = NULL;
+    CFDictionaryRef		dict;
     char *			method_name;
-    ipconfig_method_t		method;
-    kern_return_t		status;
-    ipconfig_status_t		ipstatus = ipconfig_status_success_e;
+    if_name_t			if_name;
+    kern_return_t		kret;
+    ipconfig_status_t		status = ipconfig_status_success_e;
+    void *			xml_data_ptr = NULL;
+    int				xml_data_len = 0;
 
-    strcpy(name, argv[0]);
-    argv++;
-    argc--;
+    strlcpy(if_name, argv[0], sizeof(if_name));
+    method_name = argv[1];
+    argv += 2;
+    argc -= 2;
 
-    method_name = argv[0];
-    data_len = sizeof(buf);
-    get_method_information(argc, argv, command_name, &method, data, &data_len);
-    status = ipconfig_remove_service(server, name, method,
-				     (void *)data, data_len, &ipstatus);
-    if (status != KERN_SUCCESS) {
-	mach_error("ipconfig_remove_service failed", status);
+    dict = ConfigDictCreate(if_name, argc, argv, command_name, method_name,
+			    FALSE);
+    if (dict == NULL) {
 	return (1);
     }
-    if (ipstatus != ipconfig_status_success_e) {
+    data = CFPropertyListCreateXMLData(NULL, dict);
+    if (data == NULL) {
+	CFRelease(dict);
+	fprintf(stderr, "failed to allocate memory\n");
+	return (1);
+    }
+    xml_data_ptr = (void *)CFDataGetBytePtr(data);
+    xml_data_len = CFDataGetLength(data);
+    kret = ipconfig_remove_service(server, if_name, xml_data_ptr, xml_data_len,
+				   &status);
+    my_CFRelease(&dict);
+    my_CFRelease(&data);
+    if (kret != KERN_SUCCESS) {
+	mach_error("ipconfig_remove_service failed", kret);
+	return (1);
+    }
+    if (status != ipconfig_status_success_e) {
 	fprintf(stderr, "ipconfig_remove_service %s %s failed: %s\n",
-		name, method_name, ipconfig_status_string(ipstatus));
+		if_name, method_name, ipconfig_status_string(status));
 	return (1);
     }
     return (0);
 }
-
 
 static const struct command_info {
     const char *command;
@@ -722,8 +998,11 @@ static const struct command_info {
     { "getoption", S_get_option, 2, 
       " <interface name | \"\" > <option name> | <option code>", 1, 0 },
     { "getpacket", S_get_packet, 1, " <interface name>", 1, 0 },
+    { "getv6packet", S_get_v6_packet, 1, " <interface name>", 1, 0 },
     { "set", S_set, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 1, 0 },
+      "<interface name> <method> <method args>\n"
+      "<method> is one of " METHOD_LIST_WITH_NONE,
+      1, 0 },
     { "netbootoption", S_bsdp_option, 1, "<option> [<vendor option>] | " 
       SHADOW_MOUNT_PATH_COMMAND " | " SHADOW_FILE_PATH_COMMAND
       " | " MACHINE_NAME_COMMAND, 0, 1 },
@@ -733,15 +1012,23 @@ static const struct command_info {
     { "setsomething", S_set_something, 1, "0 | 1", 1, 0 },
 #endif IPCONFIG_TEST_NO_ENTRY
     { "addService", S_add_service, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+      "<interface name> <method> <method args>\n"
+      "<method> is one of " METHOD_LIST,
+      0, 0 },
     { "setService", S_set_service, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+      "<interface name> <method> <method args>\n"
+      "<method> is one of " METHOD_LIST,
+      0, 0 },
     { "findService", S_find_service, 2, 
-      " <interface name> [ noexact ] < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+      "<interface name> [ exact ] <method> <method args>\n"
+      "<method> is one of " METHOD_LIST,
+      0, 0 },
     { "removeServiceWithId", S_remove_service_with_id, 1, 
-      " <service ID>", 0, 0 },
+      "<service ID>", 0, 0 },
     { "removeService", S_remove_service, 2, 
-      " <interface name> < BOOTP | MANUAL | DHCP | INFORM | FAILOVER | NONE > <method args>", 0, 0 },
+      "<interface name> <method> <method args>\n" 
+      "<method> is one of " METHOD_LIST,
+      0, 0 },
     { NULL, NULL, 0, NULL, 0, 0 },
 };
 
@@ -769,10 +1056,8 @@ S_lookup_command(char * cmd, int argc)
     for (i = 0; commands[i].command; i++) {
 	if (strcasecmp(cmd, commands[i].command) == 0) {
 	    if (argc < commands[i].argc) {
-		if (commands[i].display) {
-		    fprintf(stderr, "usage: %s %s\n", commands[i].command,
-			    commands[i].usage ? commands[i].usage : "");
-		}
+		fprintf(stderr, "usage: ipconfig %s %s\n", commands[i].command,
+			commands[i].usage ? commands[i].usage : "");
 		exit(1);
 	    }
 	    return commands + i;
@@ -785,52 +1070,24 @@ int
 main(int argc, char * argv[])
 {
     const struct command_info *	command;
-    mach_port_t			server;
-    kern_return_t		status;
+    mach_port_t			server = MACH_PORT_NULL;
+    kern_return_t		kret;
 
     progname = argv[0];
     if (argc < 2)
 	usage();
 
     argv++; argc--;
-
-#if 0
-    {
-	struct in_addr	dhcp_ni_addr;
-	char		dhcp_ni_tag[128];
-	int		len;
-	kern_return_t	status;
-
-	len = sizeof(dhcp_ni_addr);
-	status = ipconfig_get_option(server, IPCONFIG_IF_ANY,
-				     112, (void *)&dhcp_ni_addr, &len);
-	if (status != KERN_SUCCESS) {
-	    fprintf(stderr, "get 112 failed, %s\n", mach_error_string(status));
-	}
-	else {
-	    fprintf(stderr, "%d bytes:%s\n", len, inet_ntoa(dhcp_ni_addr));
-	}
-	len = sizeof(dhcp_ni_tag) - 1;
-	status = ipconfig_get_option(server, IPCONFIG_IF_ANY,
-				     113, (void *)&dhcp_ni_tag, &len);
-	if (status != KERN_SUCCESS) {
-	    fprintf(stderr, "get 113 failed, %s\n", mach_error_string(status));
-	}
-	else {
-	    dhcp_ni_tag[len] = '\0';
-	    fprintf(stderr, "%d bytes:%s\n", len, dhcp_ni_tag);
-	}
-	
-    }
-#endif 0
     command_name = argv[0];
     command = S_lookup_command(command_name, argc - 1);
-    if (command == NULL)
+    if (command == NULL) {
 	usage();
+	exit(1);
+    }
     argv++; argc--;
     if (command->no_server == 0) {
-	status = ipconfig_server_port(&server);
-	switch (status) {
+	kret = ipconfig_server_port(&server);
+	switch (kret) {
 	case BOOTSTRAP_SUCCESS:
 	    break;
 	case BOOTSTRAP_UNKNOWN_SERVICE:
@@ -838,7 +1095,7 @@ main(int argc, char * argv[])
 	    /* start it maybe??? */
 	    exit(1);
 	default:
-	    mach_error("ipconfig_server_port failed", status);
+	    mach_error("ipconfig_server_port failed", kret);
 	    exit(1);
 	}
     }

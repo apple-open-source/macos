@@ -1,0 +1,26 @@
+#!/bin/sh
+# Copyright 2009 Apple.  All rights reserved.
+
+#echo "source package path: $1"
+#echo "package destination: $2"
+#echo "mount point of dest: $3"
+#echo "installer framework: $4"
+
+dstdir=${3:-/}
+tmpdir=${INSTALLER_TEMP:-/tmp}
+cookie="$tmpdir/mail-services-cookie"
+serveradmin=/usr/sbin/serveradmin
+
+if [ "$dstdir" = "/" -a -x $serveradmin -a ! -e "$cookie" ]
+then
+	status=`$serveradmin status mail 2>/dev/null`
+	case "$status" in
+	*STARTING*|*RUNNING*)
+		echo RUNNING > "$cookie" || exit 1
+		logger -p install.info "Stopping mail services for upgrade."
+		$serveradmin stop mail || exit 1
+		;;
+	esac
+fi
+
+exit 0

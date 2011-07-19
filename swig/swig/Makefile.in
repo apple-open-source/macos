@@ -1,6 +1,8 @@
 #######################################################################
-# $Header: /cvsroot/swig/SWIG/Makefile.in,v 1.109 2006/10/24 20:15:26 wsfulton Exp $
+# $Id: Makefile.in 11602 2009-08-17 01:10:04Z wsfulton $
 #######################################################################
+
+.PHONY: ccache source swig
 
 prefix      = @prefix@
 exec_prefix = @exec_prefix@
@@ -14,19 +16,39 @@ datarootdir = @datarootdir@
 SHELL       = /bin/sh
 SWIG_LIB    = @swig_lib@
 BIN_DIR     = @bindir@
+ENABLE_CCACHE = @ENABLE_CCACHE@
 TARGET_NOEXE= swig
 TARGET      = $(TARGET_NOEXE)@EXEEXT@
 SOURCE      = Source
+CCACHE      = CCache
 DOCS        = Doc/Manual
 
-swig: libfiles source
+swig: libfiles source ccache
 
 source:
 	@cd $(SOURCE) && $(MAKE)
 
+ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE))
+
 libfiles: Lib/swigwarn.swg
 
-.PHONY: source libfiles
+# Files required just for the tarball
+maintainer: libfiles
+	@cd $(SOURCE) && $(MAKE) CParse/parser.h
+
+#####################################################################
+# Documentation
+#####################################################################
+
+docs: docs-main docs-ccache
+
+docs-main:
+	@echo making docs
+	@test -d $(DOCS) || exit 0; cd $(DOCS) && $(MAKE) all clean-baks
+
+docs-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) docs)
 
 #####################################################################
 # All the languages SWIG speaks (when it wants to)
@@ -40,8 +62,9 @@ skip-guilescm   = test -n "@SKIP_GUILESCM@"
 skip-guile	= test -n "@SKIP_GUILE@"
 skip-mzscheme	= test -n "@SKIP_MZSCHEME@"
 skip-ruby	= test -n "@SKIP_RUBY@"
-skip-php4	= test -n "@SKIP_PHP4@"
+skip-php	= test -n "@SKIP_PHP@"
 skip-ocaml      = test -n "@SKIP_OCAML@"
+skip-octave     = test -n "@SKIP_OCTAVE@"
 skip-pike       = test -n "@SKIP_PIKE@"
 skip-chicken	= test -n "@SKIP_CHICKEN@"
 skip-csharp	= test -n "@SKIP_CSHARP@"
@@ -61,12 +84,11 @@ skip-gcj        = test -n "@SKIP_GCJ@"
 #####################################################################
 
 ACTION = check
+NOSKIP =
 
 chk-set-swiglib		= SWIG_LIB=@ROOT_DIR@/Lib
 chk-set-swig		= SWIG=@ROOT_DIR@/$(TARGET)
 chk-set-env = $(chk-set-swiglib) $(chk-set-swig)
-
-chk = $(MAKE) -k -s $(chk-set-env) $(ACTION)
 
 check-aliveness:
 	test -x ./$(TARGET)
@@ -80,13 +102,17 @@ check-aliveness:
 	@$(skip-mzscheme) || ./$(TARGET) -mzscheme -help
 	@$(skip-ruby)     || ./$(TARGET) -ruby     -help
 	@$(skip-ocaml)    || ./$(TARGET) -ocaml    -help
-	@$(skip-php4)     || ./$(TARGET) -php4     -help
+	@$(skip-octave)   || ./$(TARGET) -octave   -help
+	@$(skip-php)      || ./$(TARGET) -php      -help
 	@$(skip-pike)     || ./$(TARGET) -pike     -help
 	@$(skip-chicken)  || ./$(TARGET) -chicken  -help
 	@$(skip-csharp)   || ./$(TARGET) -csharp   -help
 	@$(skip-modula3)  || ./$(TARGET) -modula3  -help
 	@$(skip-lua)      || ./$(TARGET) -lua      -help
 	@$(skip-r) 	  || ./$(TARGET) -r        -help
+
+check-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) check)
 
 # Checks examples for compilation (does not run them)
 check-examples:					\
@@ -98,7 +124,8 @@ check-examples:					\
 	check-mzscheme-examples			\
 	check-ruby-examples			\
 	check-ocaml-examples			\
-	check-php4-examples			\
+	check-octave-examples			\
+	check-php-examples			\
 	check-pike-examples			\
 	check-chicken-examples                  \
 	check-csharp-examples                   \
@@ -110,26 +137,52 @@ check-examples:					\
 	check-cffi-examples			\
 	check-r-examples
 
-check-%-examples:
-	@passed=true;						\
-	dir="Examples/$*";					\
-	if $(skip-$*); then					\
+tcl_examples       :=$(shell sed '/^\#/d' $(srcdir)/Examples/tcl/check.list)
+perl5_examples     :=$(shell sed '/^\#/d' $(srcdir)/Examples/perl5/check.list)
+python_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/python/check.list)
+java_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/java/check.list)
+guile_examples     :=$(shell sed '/^\#/d' $(srcdir)/Examples/guile/check.list)
+mzscheme_examples  :=$(shell sed '/^\#/d' $(srcdir)/Examples/mzscheme/check.list)
+ruby_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/ruby/check.list)
+ocaml_examples     :=$(shell sed '/^\#/d' $(srcdir)/Examples/ocaml/check.list)
+octave_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/octave/check.list)
+php_examples       :=$(shell sed '/^\#/d' $(srcdir)/Examples/php/check.list)
+pike_examples      :=$(shell sed '/^\#/d' $(srcdir)/Examples/pike/check.list)
+chicken_examples   :=$(shell sed '/^\#/d' $(srcdir)/Examples/chicken/check.list)
+csharp_examples    :=$(shell sed '/^\#/d' $(srcdir)/Examples/csharp/check.list)
+modula3_examples   :=$(shell sed '/^\#/d' $(srcdir)/Examples/modula3/check.list)
+lua_examples       :=$(shell sed '/^\#/d' $(srcdir)/Examples/lua/check.list)
+allegrocl_examples :=
+clisp_examples     :=
+uffi_examples      :=
+cffi_examples      :=
+r_examples         :=$(shell sed '/^\#/d' $(srcdir)/Examples/r/check.list)
+
+# all examples
+check-%-examples :
+	@if test -z "$(skip-$*)"; then				\
+	  echo $* unknown;					\
+	  exit 1;						\
+	fi
+	@if $(skip-$*); then					\
 	  echo skipping $* $(ACTION);				\
-	elif [ ! -f $$dir/check.list ]; then			\
-	  echo skipping $* $(ACTION) "(no $$dir/check.list)";	\
 	else							\
-	  all=`sed '/^#/d' $$dir/check.list`;			\
-	  for a in $$all; do					\
-            if $(skip-gcj) && test $$a = "java"; then		\
-              echo "skipping $* $$dir/$$a $(ACTION) (gcj test)";\
-            else						\
-	    echo $(ACTION)ing $$dir/$$a;			\
-	    (cd $$dir/$$a && $(chk))				\
-	    || passed=false;					\
-	    fi;							\
-	  done;							\
-	fi;							\
-	test $$passed = true
+	  $(MAKE) -k -s $($*_examples:=.actionexample) LANGUAGE=$* ACTION=$(ACTION); \
+	fi
+
+# individual example
+%.actionexample:
+	@echo $(ACTION)ing Examples/$(LANGUAGE)/$*
+	@(cd Examples/$(LANGUAGE)/$* && $(MAKE) -s $(chk-set-env) $(ACTION))
+
+# gcj individual example
+java.actionexample:
+	@if $(skip-gcj); then					\
+          echo "skipping Examples/$(LANGUAGE)/java $(ACTION) (gcj test)";	\
+        else							\
+	  echo $(ACTION)ing Examples/$(LANGUAGE)/java;		\
+	  (cd Examples/$(LANGUAGE)/java && $(MAKE) -s $(chk-set-env) $(ACTION)) \
+	fi
 
 gifplot-library:
 	@echo $(ACTION)ing Examples/GIFPlot/Lib
@@ -144,7 +197,8 @@ check-gifplot:					\
 	check-mzscheme-gifplot			\
 	check-ruby-gifplot			\
 	check-ocaml-gifplot			\
-	check-php4-gifplot			\
+	check-octave-gifplot			\
+	check-php-gifplot			\
 	check-pike-gifplot			\
 	check-chicken-gifplot                   \
 #	check-lua-gifplot                  	\
@@ -152,6 +206,10 @@ check-gifplot:					\
 #	check-modula3-gifplot
 
 check-%-gifplot: gifplot-library
+	@if test -z "$(skip-$*)"; then				\
+	  echo $* unknown;					\
+	  exit 1;						\
+	fi
 	@passed=true;						\
 	up=`$(srcdir)/Tools/capitalize $*`;			\
 	dir="Examples/GIFPlot/$$up";				\
@@ -163,7 +221,8 @@ check-%-gifplot: gifplot-library
 	  all=`sed '/^#/d' $$dir/check.list`;			\
 	  for a in $$all; do					\
 	    echo $(ACTION)ing $$dir/$$a;			\
-	    (cd $$dir/$$a && $(chk))				\
+	    (cd $$dir/$$a &&					\
+	    $(MAKE) -k -s $(chk-set-env) $(ACTION))		\
 	    || passed=false;					\
 	  done;							\
 	fi;							\
@@ -180,7 +239,8 @@ check-test-suite:				\
 	check-mzscheme-test-suite		\
 	check-ruby-test-suite			\
 	check-ocaml-test-suite			\
-	check-php4-test-suite			\
+	check-octave-test-suite			\
+	check-php-test-suite			\
 	check-pike-test-suite			\
 	check-csharp-test-suite			\
 	check-modula3-test-suite		\
@@ -193,9 +253,13 @@ check-test-suite:				\
 	check-r-test-suite
 
 check-%-test-suite:
+	@if test -z "$(skip-$*)"; then					\
+	  echo $* unknown;						\
+	  exit 1;							\
+	fi
 	@passed=true;							\
 	dir="Examples/test-suite/$*";					\
-	if $(skip-$*); then						\
+	if $(skip-$*) -a "$(NOSKIP)" != "1"; then			\
 	  echo skipping $* test-suite $(ACTION);			\
 	elif [ ! -d $$dir ]; then					\
 	  echo warning: cannot $(ACTION) $* test-suite "(no dir $$dir)";\
@@ -206,7 +270,14 @@ check-%-test-suite:
 	fi;								\
 	test $$passed = true
 
-check: check-aliveness check-examples check-gifplot check-test-suite
+# Partial test-suite check - it only invokes SWIG, ie no compilation and no runtime testing
+partialcheck-test-suite:
+	@$(MAKE) -k -s check-test-suite ACTION=partialcheck NOSKIP=1
+
+partialcheck-%-test-suite:
+	@$(MAKE) -k -s check-$*-test-suite ACTION=partialcheck NOSKIP=1
+
+check: check-aliveness check-ccache check-examples check-gifplot check-test-suite
 
 # Run known-to-be-broken as well as not broken testcases in the test-suite
 all-test-suite:					\
@@ -219,7 +290,8 @@ all-test-suite:					\
 	all-mzscheme-test-suite			\
 	all-ruby-test-suite			\
 	all-ocaml-test-suite			\
-	all-php4-test-suite			\
+	all-octave-test-suite			\
+	all-php-test-suite			\
 	all-pike-test-suite			\
 	all-csharp-test-suite			\
 	all-modula3-test-suite			\
@@ -245,7 +317,8 @@ broken-test-suite:				\
 	broken-mzscheme-test-suite		\
 	broken-ruby-test-suite			\
 	broken-ocaml-test-suite			\
-	broken-php4-test-suite			\
+	broken-octave-test-suite		\
+	broken-php-test-suite			\
 	broken-pike-test-suite			\
 	broken-csharp-test-suite		\
 	broken-modula3-test-suite		\
@@ -266,7 +339,7 @@ broken-%-test-suite:
 
 clean: clean-objects clean-libfiles clean-examples clean-gifplot clean-test-suite clean-docs
 
-clean-objects: clean-source
+clean-objects: clean-source clean-ccache
 
 clean-source:
 	@echo cleaning Source
@@ -283,20 +356,31 @@ clean-gifplot:
 	@$(MAKE) -k -s check-gifplot ACTION=clean
 
 clean-test-suite:
-	@$(MAKE) -k -s check-test-suite ACTION=clean
+	@$(MAKE) -k -s check-test-suite ACTION=clean NOSKIP=1
 
 clean-%-examples:
 	@$(MAKE) -k -s check-$*-examples ACTION=clean
 
 clean-%-test-suite:
-	@$(MAKE) -k -s check-$*-test-suite ACTION=clean
+	@$(MAKE) -k -s check-$*-test-suite ACTION=clean NOSKIP=1
 
 clean-%-gifplot:
 	@$(MAKE) -k -s check-$*-gifplot ACTION=clean
 
-clean-docs:
+clean-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) -s clean)
+
+clean-docs: clean-docs-main clean-docs-ccache
+
+clean-docs-main:
 	@echo cleaning Docs
-	@test -d $(DOCS) || exit 0; cd $(DOCS) && $(MAKE) -s clean
+	@test -d $(DOCS) || exit 0; cd $(DOCS) && $(MAKE) clean
+
+clean-docs-ccache:
+	@# Use distclean-docs-ccache, else a user requires the yodl tools to generate the docs after a clean
+
+maintainer-clean: clean-libfiles
+	@cd $(SOURCE) && $(MAKE) maintainer-clean
 
 #####################################################################
 # DISTCLEAN
@@ -304,7 +388,7 @@ clean-docs:
 
 DISTCLEAN-DEAD = config.status config.log config.cache swig.spec Makefile mkmf.log libtool
 
-distclean: distclean-objects clean-examples clean-gifplot distclean-test-suite clean-docs distclean-dead
+distclean: distclean-objects clean-examples clean-gifplot distclean-test-suite clean-docs distclean-dead distclean-ccache
 
 distclean-objects: distclean-source
 
@@ -315,37 +399,13 @@ distclean-source:
 
 distclean-test-suite:
 	@echo distcleaning Examples/test-suite
-	@$(MAKE) -k -s noskip-test-suite ACTION=distclean
+	@$(MAKE) -k -s check-test-suite ACTION=distclean NOSKIP=1
 
-noskip-test-suite:				\
-	noskip-tcl-test-suite			\
-	noskip-perl5-test-suite			\
-	noskip-python-test-suite		\
-	noskip-java-test-suite			\
-	noskip-guilescm-test-suite		\
-	noskip-guile-test-suite			\
-	noskip-mzscheme-test-suite		\
-	noskip-ruby-test-suite			\
-	noskip-ocaml-test-suite			\
-	noskip-php4-test-suite			\
-	noskip-pike-test-suite			\
-	noskip-csharp-test-suite		\
-	noskip-lua-test-suite			\
-	noskip-allegrocl-test-suite		\
-	noskip-clisp-test-suite			\
-	noskip-uffi-test-suite			\
-	noskip-cffi-test-suite			\
-	noskip-chicken-test-suite		\
-	noskip-r-test-suite
+distclean-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) -s distclean)
 
-noskip-%-test-suite:
-	dir="Examples/test-suite/$*";					\
-	if [ ! -d $$dir ]; then						\
-	  echo warning: cannot $(ACTION) $* test-suite "(no dir $$dir)";\
-	else								\
-	  echo $(ACTION)ing $$dir;					\
-	  (cd $$dir && $(MAKE) -k -s $(ACTION))				\
-	fi;
+distclean-docs-ccache:
+	@test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) distclean-docs)
 
 distclean-dead:
 	rm -f $(DISTCLEAN-DEAD)
@@ -375,7 +435,7 @@ MKINSTDIRS      = @abs_srcdir@/Tools/config/install-sh -m 0755 -d
 # Use standard autoconf approach to transform executable name using --program-prefix and --program-suffix
 transform	= @program_transform_name@
 
-install: install-main install-lib
+install: install-main install-lib install-ccache
 	@echo "Installation complete"
 
 install-main:
@@ -384,7 +444,7 @@ install-main:
 	@echo "Installing $(DESTDIR)$(BIN_DIR)/`echo $(TARGET_NOEXE) | sed '$(transform)'`@EXEEXT@"
 	@$(INSTALL_PROGRAM) $(TARGET) $(DESTDIR)$(BIN_DIR)/`echo $(TARGET_NOEXE) | sed '$(transform)'`@EXEEXT@
 
-lib-languages = gcj typemaps tcl perl5 python guile java mzscheme ruby php4 ocaml \
+lib-languages = gcj typemaps tcl perl5 python guile java mzscheme ruby php ocaml octave \
 	pike chicken csharp modula3 allegrocl clisp lua cffi uffi r
 
 lib-modules = std
@@ -419,12 +479,15 @@ install-lib:
 	      fi) ; 						\
 	done
 
+install-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) install)
+
 
 #####################################################################
 # TARGETS: uninstall & friends
 #####################################################################
 
-uninstall: uninstall-main uninstall-lib
+uninstall: uninstall-main uninstall-lib uninstall-ccache
 	@echo "Uninstall complete"
 
 uninstall-main:
@@ -435,6 +498,9 @@ uninstall-lib:
 	@echo "Uninstalling the SWIG library"
 	rm -rf $(DESTDIR)$(SWIG_LIB)/
 
+uninstall-ccache:
+	test -z "$(ENABLE_CCACHE)" || (cd $(CCACHE) && $(MAKE) uninstall)
+
 ############################################################################
 # DIST and other maintenance
 ############################################################################
@@ -444,19 +510,12 @@ dd = @PACKAGE_NAME@-@PACKAGE_VERSION@
 srpm = @PACKAGE_NAME@-@PACKAGE_VERSION@
 
 dist:
-	@echo 'Dave, what do you want to do w/ "make dist"?'
-	@echo 'See Makefile.in target "dist-suggested" for an idea.'
-	@echo '    --thi'
+	@echo "not implemented"
 	false
-
-dist-suggested:
-	rm -rf $(dd) $(dd).tar.gz
-	cvs export -d $(dd) -r HEAD SWIG
-	tar cf - $(dd) | gzip --best > $(dd).tar.gz
-	rm -rf $(dd)
 
 srcrpm:
 	rm -fr $(srpm) $(srpm).src.rpm
+	echo "TODO: update to use svn instead of cvs"
 	cvs export -d $(srpm) -r HEAD SWIG
 	cp swig.spec $(srpm)
 	tar -cf - $(srpm) | gzip --best > $(srpm).tar.gz
@@ -472,10 +531,17 @@ configfiles:
 	wget ftp://ftp.gnu.org/pub/gnu/config/config.sub -O Tools/config/config.sub
 	chmod a+x Tools/config/config.sub
 
-# This target is usually called from Source/Makefile when configure.in has changed
-am--refresh:
-	@echo "Build system is out of date. Please reconfigure (rerun: ./autogen.sh && ./configure)"
-	@exit 1
+# Regenerate Makefile if Makefile.in or config.status have changed.
+Makefile: $(srcdir)/Makefile.in config.status
+	$(SHELL) ./config.status
+
+# This target is usually called from Source/Makefile when configure.in has
+# changed.
+am--refresh: $(srcdir)/configure
+
+$(srcdir)/configure: $(srcdir)/configure.in
+	@echo "Build system is out of date.  If the following commands fail, please reconfigure by hand (rerun: ./autogen.sh && ./configure)"
+	cd $(srcdir) && ./autogen.sh
+	$(SHELL) ./config.status --recheck
 
 # Makefile ends here
-

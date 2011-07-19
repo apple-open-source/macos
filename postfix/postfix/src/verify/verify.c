@@ -30,7 +30,8 @@
 /* .IP "\fBupdate\fI address status text\fR"
 /*	Update the status and text of the specified address.
 /* .IP "\fBquery\fI address\fR"
-/*	Look up the \fIstatus\fR and \fItext\fR for the specified address.
+/*	Look up the \fIstatus\fR and \fItext\fR for the specified
+/*	\fIaddress\fR.
 /*	If the status is unknown, a probe is sent and an "in progress"
 /*	status is returned.
 /* SECURITY
@@ -41,7 +42,8 @@
 /*	The verify server can run chrooted at fixed low privilege.
 /*
 /*	The address verification server can be coerced to store
-/*	unlimited amounts of garbage. Limiting the cache size
+/*	unlimited amounts of garbage. Limiting the cache expiry
+/*	time
 /*	trades one problem (disk space exhaustion) for another
 /*	one (poor response time to client requests).
 /*
@@ -55,11 +57,13 @@
 /* DIAGNOSTICS
 /*	Problems and transactions are logged to \fBsyslogd\fR(8).
 /* BUGS
-/*	The address verification service is suitable only for sites that
-/*	handle a low mail volume. Verification probes add additional
-/*	traffic to the mail queue and perform poorly under high load.
-/*	Servers may blacklist sites that probe excessively, or that
-/*	probe excessively for non-existent recipient addresses.
+/*	Address verification probe messages add additional traffic
+/*	to the mail queue.
+/*	Recipient verification may cause an increased load on
+/*	down-stream servers in the case of a dictionary attack or
+/*	a flood of backscatter bounces.
+/*	Sender address verification may cause your site to be
+/*	blacklisted by some providers.
 /*
 /*	If the persistent database ever gets corrupted then the world
 /*	comes to an end and human intervention is needed. This violates
@@ -69,7 +73,7 @@
 /* .fi
 /*	Changes to \fBmain.cf\fR are not picked up automatically,
 /*	as \fBverify\fR(8)
-/*	processes are persistent. Use the command "\fBpostfix reload\fR" after
+/*	processes are long-lived. Use the command "\fBpostfix reload\fR" after
 /*	a configuration change.
 /*
 /*	The text below provides only a parameter summary. See
@@ -77,8 +81,8 @@
 /* CACHE CONTROLS
 /* .ad
 /* .fi
-/* .IP "\fBaddress_verify_map (empty)\fR"
-/*	Optional lookup table for persistent address verification status
+/* .IP "\fBaddress_verify_map (see 'postconf -d' output)\fR"
+/*	Lookup table for persistent address verification status
 /*	storage.
 /* .IP "\fBaddress_verify_sender ($double_bounce_sender)\fR"
 /*	The sender address to use in address verification probes; prior
@@ -97,6 +101,11 @@
 /* .IP "\fBaddress_verify_negative_refresh_time (3h)\fR"
 /*	The time after which a failed address verification probe needs to
 /*	be refreshed.
+/* .PP
+/*	Available with Postfix 2.7 and later:
+/* .IP "\fBaddress_verify_cache_cleanup_interval (12h)\fR"
+/*	The amount of time between \fBverify\fR(8) address verification
+/*	database cleanup runs.
 /* PROBE MESSAGE ROUTING CONTROLS
 /* .ad
 /* .fi
@@ -121,6 +130,16 @@
 /* .IP "\fBaddress_verify_default_transport ($default_transport)\fR"
 /*	Overrides the default_transport parameter setting for address
 /*	verification probes.
+/* .PP
+/*	Available in Postfix 2.3 and later:
+/* .IP "\fBaddress_verify_sender_dependent_relayhost_maps ($sender_dependent_relayhost_maps)\fR"
+/*	Overrides the sender_dependent_relayhost_maps parameter setting for address
+/*	verification probes.
+/* .PP
+/*	Available in Postfix 2.7 and later:
+/* .IP "\fBaddress_verify_sender_dependent_default_transport_maps ($sender_dependent_default_transport_maps)\fR"
+/*	Overrides the sender_dependent_default_transport_maps parameter
+/*	setting for address verification probes.
 /* MISCELLANEOUS CONTROLS
 /* .ad
 /* .fi
@@ -141,7 +160,7 @@
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* SEE ALSO
@@ -187,10 +206,11 @@
 #include <mymalloc.h>
 #include <htable.h>
 #include <dict_ht.h>
-#include <dict.h>
+#include <dict_cache.h>
 #include <split_at.h>
 #include <stringops.h>
 #include <set_eugid.h>
+#include <events.h>
 
 /* Global library. */
 
@@ -216,12 +236,13 @@ int     var_verify_pos_exp;
 int     var_verify_pos_try;
 int     var_verify_neg_exp;
 int     var_verify_neg_try;
+int     var_verify_scan_cache;
 char   *var_verify_sender;
 
  /*
   * State.
   */
-static DICT *verify_map;
+static DICT_CACHE *verify_map;
 
  /*
   * Silly little macros.
@@ -344,7 +365,7 @@ static void verify_update_service(VSTREAM *client_stream)
 	     * some probes succeed the address will remain cached as OK.
 	     */
 	    if (addr_status == DEL_RCPT_STAT_OK
-		|| (raw_data = dict_get(verify_map, STR(addr))) == 0
+		|| (raw_data = dict_cache_lookup(verify_map, STR(addr))) == 0
 		|| STATUS_FROM_RAW_ENTRY(raw_data) != DEL_RCPT_STAT_OK) {
 		probed = 0;
 		updated = (long) time((time_t *) 0);
@@ -352,7 +373,7 @@ static void verify_update_service(VSTREAM *client_stream)
 		if (msg_verbose)
 		    msg_info("PUT %s status=%d probed=%ld updated=%ld text=%s",
 			STR(addr), addr_status, probed, updated, STR(text));
-		dict_put(verify_map, STR(addr), STR(buf));
+		dict_cache_update(verify_map, STR(addr), STR(buf));
 	    }
 	    attr_print(client_stream, ATTR_FLAG_NONE,
 		       ATTR_TYPE_INT, MAIL_ATTR_STATUS, VRFY_STAT_OK,
@@ -419,7 +440,7 @@ static void verify_query_service(VSTREAM *client_stream)
 
 	/* FIX 200501 IPv6 patch did not neuter ":" in address literals. */
 	translit(STR(addr), ":", "_");
-	if ((raw_data = dict_get(verify_map, STR(addr))) == 0	/* not found */
+	if ((raw_data = dict_cache_lookup(verify_map, STR(addr))) == 0	/* not found */
 	    || ((get_buf = vstring_alloc(10)),
 		vstring_strcpy(get_buf, raw_data),	/* malformed */
 		verify_parse_entry(STR(get_buf), &addr_status, &probed,
@@ -432,7 +453,7 @@ static void verify_query_service(VSTREAM *client_stream)
 	    updated = 0;
 	    text = "Address verification in progress";
 	    if (raw_data != 0 && var_verify_neg_cache == 0)
-		dict_del(verify_map, STR(addr));
+		dict_cache_delete(verify_map, STR(addr));
 	}
 	if (msg_verbose)
 	    msg_info("GOT %s status=%d probed=%ld updated=%ld text=%s",
@@ -471,7 +492,7 @@ static void verify_query_service(VSTREAM *client_stream)
 			 STR(addr), addr_status, now, updated);
 	    post_mail_fopen_async(strcmp(var_verify_sender, "<>") == 0 ?
 				  "" : var_verify_sender, STR(addr),
-				  INT_FILT_NONE,
+				  INT_FILT_MASK_NONE,
 				  DEL_REQ_FLAG_MTA_VRFY,
 				  (VSTRING *) 0,
 				  verify_post_mail_action,
@@ -482,7 +503,7 @@ static void verify_query_service(VSTREAM *client_stream)
 		if (msg_verbose)
 		    msg_info("PUT %s status=%d probed=%ld updated=%ld text=%s",
 			     STR(addr), addr_status, now, updated, text);
-		dict_put(verify_map, STR(addr), STR(put_buf));
+		dict_cache_update(verify_map, STR(addr), STR(put_buf));
 	    }
 	}
     }
@@ -491,6 +512,29 @@ static void verify_query_service(VSTREAM *client_stream)
 	vstring_free(get_buf);
     if (put_buf)
 	vstring_free(put_buf);
+}
+
+/* verify_cache_validator - cache cleanup validator */
+
+static int verify_cache_validator(const char *addr, const char *raw_data,
+			            char *context)
+{
+    VSTRING *get_buf = (VSTRING *) context;
+    int     addr_status;
+    long    probed;
+    long    updated;
+    char   *text;
+    long    now = (long) event_time();
+
+#define POS_OR_NEG_ENTRY_EXPIRED(stat, stamp) \
+	(POSITIVE_ENTRY_EXPIRED((stat), (stamp)) \
+	    || NEGATIVE_ENTRY_EXPIRED((stat), (stamp)))
+
+    vstring_strcpy(get_buf, raw_data);
+    return (verify_parse_entry(STR(get_buf), &addr_status,	/* syntax OK */
+			       &probed, &updated, &text) == 0
+	    && (now - probed < PROBE_TTL	/* probe in progress */
+		|| !POS_OR_NEG_ENTRY_EXPIRED(addr_status, updated)));
 }
 
 /* verify_service - perform service for client */
@@ -530,6 +574,21 @@ static void verify_service(VSTREAM *client_stream, char *unused_service,
     vstring_free(request);
 }
 
+/* verify_dump - dump some statistics */
+
+static void verify_dump(void)
+{
+
+    /*
+     * Dump preliminary cache cleanup statistics when the process commits
+     * suicide while a cache cleanup run is in progress. We can't currently
+     * distinguish between "postfix reload" (we should restart) or "maximal
+     * idle time reached" (we could finish the cache cleanup first).
+     */
+    dict_cache_close(verify_map);
+    verify_map = 0;
+}
+
 /* post_jail_init - post-jail initialization */
 
 static void post_jail_init(char *unused_name, char **unused_argv)
@@ -543,6 +602,23 @@ static void post_jail_init(char *unused_name, char **unused_argv)
     if (*var_verify_map == 0) {
 	var_use_limit = 0;
 	var_idle_limit = 0;
+    }
+
+    /*
+     * Start the cache cleanup thread.
+     */
+    if (var_verify_scan_cache > 0) {
+	int     cache_flags;
+
+	cache_flags = DICT_CACHE_FLAG_STATISTICS;
+	if (msg_verbose)
+	    cache_flags |= DICT_CACHE_FLAG_VERBOSE;
+	dict_cache_control(verify_map,
+			   DICT_CACHE_CTL_FLAGS, cache_flags,
+			   DICT_CACHE_CTL_INTERVAL, var_verify_scan_cache,
+			   DICT_CACHE_CTL_VALIDATOR, verify_cache_validator,
+			DICT_CACHE_CTL_CONTEXT, (char *) vstring_alloc(100),
+			   DICT_CACHE_CTL_END);
     }
 }
 
@@ -572,7 +648,7 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
      * 
      * The solution is to query a map type and obtain its properties before
      * opening it. A clean solution is to add a dict_info() API that is
-     * simlar to dict_open() except it returns properties (dict flags) only.
+     * similar to dict_open() except it returns properties (dict flags) only.
      * A pragmatic solution is to overload the existing API and have
      * dict_open() return a dummy map when given a null map name.
      * 
@@ -585,18 +661,18 @@ static void pre_jail_init(char *unused_name, char **unused_argv)
 
     /*
      * Keep state in persistent (external) or volatile (internal) map.
+     * 
+     * Start the cache cleanup thread after permanently dropping privileges.
      */
 #define VERIFY_DICT_OPEN_FLAGS (DICT_FLAG_DUP_REPLACE | DICT_FLAG_SYNC_UPDATE)
 
-    if (*var_verify_map) {
-	saved_mask = umask(022);
-	verify_map = dict_open(data_redirect_map(redirect, var_verify_map),
-			       O_CREAT | O_RDWR,
-			       VERIFY_DICT_OPEN_FLAGS);
-	(void) umask(saved_mask);
-    } else {
-	verify_map = dict_ht_open("verify", htable_create(0), myfree);
-    }
+    saved_mask = umask(022);
+    verify_map =
+	dict_cache_open(*var_verify_map ?
+			data_redirect_map(redirect, var_verify_map) :
+			"internal:verify",
+			O_CREAT | O_RDWR, VERIFY_DICT_OPEN_FLAGS);
+    (void) umask(saved_mask);
 
     /*
      * Clean up and restore privilege.
@@ -621,6 +697,7 @@ int     main(int argc, char **argv)
 	VAR_VERIFY_POS_TRY, DEF_VERIFY_POS_TRY, &var_verify_pos_try, 1, 0,
 	VAR_VERIFY_NEG_EXP, DEF_VERIFY_NEG_EXP, &var_verify_neg_exp, 1, 0,
 	VAR_VERIFY_NEG_TRY, DEF_VERIFY_NEG_TRY, &var_verify_neg_try, 1, 0,
+	VAR_VERIFY_SCAN_CACHE, DEF_VERIFY_SCAN_CACHE, &var_verify_scan_cache, 0, 0,
 	0,
     };
 
@@ -635,5 +712,6 @@ int     main(int argc, char **argv)
 		      MAIL_SERVER_PRE_INIT, pre_jail_init,
 		      MAIL_SERVER_POST_INIT, post_jail_init,
 		      MAIL_SERVER_SOLITARY,
+		      MAIL_SERVER_EXIT, verify_dump,
 		      0);
 }

@@ -569,14 +569,19 @@ int modeFolder(BLContextPtr context, struct clarg actargs[klast]) {
 			// to point at, should you use actargs[kfile]
             
 
-            ret = setefifilepath(context, ( !shouldBless && actargs[kfile].present ?
+            if (actargs[klegacy].present) {
+                ret = setefilegacypath(context, actargs[kmount].argument, actargs[knextonly].present,
+									   actargs[klegacydrivehint].present ? actargs[klegacydrivehint].argument : NULL,
+									   actargs[koptions].present ? actargs[koptions].argument : NULL);
+
+            } else {
+                ret = setefifilepath(context, ( !shouldBless && actargs[kfile].present ?
 											actargs[kfile].argument :
 											actargs[kmount].argument),
                                  actargs[knextonly].present,
-                                 actargs[klegacy].present,
-                                 actargs[klegacydrivehint].present ? actargs[klegacydrivehint].argument : NULL,
                                  actargs[koptions].present ? actargs[koptions].argument : NULL,
                                  actargs[kshortform].present ? true : false);
+            }
             if(ret) {
                 return 3;
             }

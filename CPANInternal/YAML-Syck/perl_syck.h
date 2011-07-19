@@ -37,12 +37,15 @@ static enum scalar_style json_quote_style = scalar_2quote;
 #  define PERL_SYCK_INDENT_LEVEL 0
 #else
 #  define PACKAGE_NAME  "YAML::Syck"
+#  define REGEXP_LITERAL  "REGEXP"
+#  define REGEXP_LITERAL_LENGTH 6
 #  define REF_LITERAL  "="
 #  define REF_LITERAL_LENGTH 1
 #  define NULL_LITERAL  "~"
 #  define NULL_LITERAL_LENGTH 1
 #  define SCALAR_NUMBER scalar_none
-#  define SCALAR_STRING scalar_none
+static enum scalar_style yaml_quote_style = scalar_none;
+#  define SCALAR_STRING yaml_quote_style
 #  define SCALAR_QUOTED scalar_1quote
 #  define SCALAR_UTF8   scalar_fold
 #  define SEQ_NONE      seq_none
@@ -70,7 +73,7 @@ json_syck_parser_handler
 yaml_syck_parser_handler
 #endif
 (SyckParser *p, SyckNode *n) {
-    SV *sv;
+    SV *sv = NULL;
     AV *seq;
     HV *map;
     long i;
@@ -174,36 +177,54 @@ yaml_syck_parser_handler
                 syck_str_blow_away_commas( n );
                 sv = newSVuv( grok_oct( n->data.str->ptr, &len, &flags, NULL) );
             } else if (strEQ( id, "int" ) ) {
-                UV uv = 0;
+                UV uv;
+                int flags;
+
                 syck_str_blow_away_commas( n );
-                if (grok_number( n->data.str->ptr, n->data.str->len, &uv) & IS_NUMBER_NEG) {
-                    sv = newSViv(-uv);
+                flags = grok_number( n->data.str->ptr, n->data.str->len, &uv);
+
+                if (flags == IS_NUMBER_IN_UV) {
+                    if (uv <= IV_MAX) {
+                        sv = newSViv(uv);
+                    }
+                    else {
+                        sv = newSVuv(uv);
+                    }
+                }
+                else if ((flags == (IS_NUMBER_IN_UV | IS_NUMBER_NEG)) && (uv <= (UV) IV_MIN)) {
+                    sv = newSViv(-(IV)uv);
                 }
                 else {
-                    sv = newSVuv(uv);
+                    sv = newSVnv(Atof( n->data.str->ptr ));
                 }
             } else if (strEQ( id, "binary" )) {
                 long len = 0;
                 char *blob = syck_base64dec(n->data.str->ptr, n->data.str->len, &len);
                 sv = newSVpv(blob, len);
-#ifdef PERL_LOADMOD_NOIMPORT
 #ifndef YAML_IS_JSON
-            } else if (load_code && (strEQ(id, "perl/code") || strnEQ(id, "perl/code:", 10))) {
+#ifdef PERL_LOADMOD_NOIMPORT
+            } else if (strEQ(id, "perl/code") || strnEQ(id, "perl/code:", 10)) {
                 SV *cv;
-                SV *text, *sub;
+                SV *sub;
                 char *pkg = id + 10;
 
-                /* This code is copypasted from Storable.xs */
+                if (load_code) {
+                    SV *text;
 
-                /*
-                 * prepend "sub " to the source
-                 */
+                    /* This code is copypasted from Storable.xs */
 
-                text = newSVpvn(n->data.str->ptr, n->data.str->len);
+                    /*
+                     * prepend "sub " to the source
+                     */
 
-                sub = newSVpvn("sub ", 4);
-                sv_catpv(sub, SvPV_nolen(text)); /* XXX no sv_catsv! */
-                SvREFCNT_dec(text);
+                    text = newSVpvn(n->data.str->ptr, n->data.str->len);
+
+                    sub = newSVpvn("sub ", 4);
+                    sv_catpv(sub, SvPV_nolen(text)); /* XXX no sv_catsv! */
+                    SvREFCNT_dec(text);
+                } else {
+                    sub = newSVpvn("sub {}", 6);
+                }
 
                 ENTER;
                 SAVETMPS;
@@ -214,18 +235,19 @@ yaml_syck_parser_handler
 
                 if (cv && SvROK(cv) && SvTYPE(SvRV(cv)) == SVt_PVCV) {
                     sv = cv;
-                } else {
-                    croak("code %s did not evaluate to a subroutine reference\n", SvPV_nolen(sub));
                 }
-
-                if ( (*(pkg - 1) != '\0') && (*pkg != '\0') ) {
-                    sv_bless(sv, gv_stashpv(pkg, TRUE));
+                else {
+                    croak("code %s did not evaluate to a subroutine reference\n", SvPV_nolen(sub));
                 }
 
                 SvREFCNT_inc(sv); /* XXX seems to be necessary */
 
                 FREETMPS;
                 LEAVE;
+
+                if ( (*(pkg - 1) != '\0') && (*pkg != '\0') ) {
+                    sv_bless(sv, gv_stashpv(pkg, TRUE));
+                }
 
                 /* END Storable */
 
@@ -256,8 +278,43 @@ yaml_syck_parser_handler
                 if ( (*(pkg - 1) != '\0') && (*pkg != '\0') ) {
                     sv_bless(sv, gv_stashpv(id + 12, TRUE));
                 }
-#endif
-#endif
+            } else if ( (strEQ(id, "perl/regexp") || strnEQ( id, "perl/regexp:", 12 ) ) ) {
+                dSP;
+                SV *val = newSVpvn(n->data.str->ptr, n->data.str->len);
+                char *lang = strtok(id, "/:");
+                char *type = strtok(NULL, "");
+
+                ENTER;
+                SAVETMPS;
+                PUSHMARK(sp);
+                XPUSHs(val);
+                PUTBACK;
+                call_pv("YAML::Syck::__qr_helper", G_SCALAR);
+                SPAGAIN;
+
+                sv = newSVsv(POPs);
+
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+
+                /* bless it if necessary */
+                if ( type != NULL && strnEQ(type, "regexp:", 7)) {
+                    /* !perl/regexp:Foo::Bar blesses into Foo::Bar */
+                    type += 7;
+                }
+
+                if (lang == NULL || (strEQ(lang, "perl"))) {
+                    /* !perl/regexp on it's own causes no blessing */
+                    if ( (type != NULL) && strNE(type, "regexp") && (*type != '\0')) {
+                        sv_bless(sv, gv_stashpv(type, TRUE));
+                    }
+                }
+                else {
+                    sv_bless(sv, gv_stashpv(form((type == NULL) ? "%s" : "%s::%s", lang, type), TRUE));
+                }
+#endif /* PERL_LOADMOD_NOIMPORT */
+#endif /* !YAML_IS_JSON */
             } else {
                 /* croak("unknown node type: %s", id); */
                 sv = newSVpvn(n->data.str->ptr, n->data.str->len);
@@ -341,6 +398,52 @@ yaml_syck_parser_handler
                     }
                 }
             }
+            else if ( (id != NULL) && (strEQ(id, "perl/regexp") || strnEQ( id, "perl/regexp:", 12 ) ) ) {
+                /* handle regexp references, that are a weird type of mappings */
+                dSP;
+                SV* key = perl_syck_lookup_sym(p, syck_map_read(n, map_key, 0));
+                SV* val = perl_syck_lookup_sym(p, syck_map_read(n, map_value, 0));
+                char *ref_type = SvPVX(key);
+
+                ENTER;
+                SAVETMPS;
+                PUSHMARK(sp);
+                XPUSHs(val);
+                PUTBACK;
+                call_pv("YAML::Syck::__qr_helper", G_SCALAR);
+                SPAGAIN;
+
+                sv = newSVsv(POPs);
+
+                PUTBACK;
+                FREETMPS;
+                LEAVE;
+
+                if (strnNE(ref_type, REGEXP_LITERAL, REGEXP_LITERAL_LENGTH+1)) {
+                    /* handle the weird audrey scalar ref stuff */
+                    sv_bless(sv, gv_stashpv(ref_type, TRUE));
+                }
+                else {
+                    /* bless it if necessary */
+                    char *lang = strtok(id, "/:");
+                    char *type = strtok(NULL, "");
+
+                    if ( type != NULL && strnEQ(type, "regexp:", 7)) {
+                        /* !perl/regexp:Foo::Bar blesses into Foo::Bar */
+                        type += 7;
+                    }
+
+                    if (lang == NULL || (strEQ(lang, "perl"))) {
+                        /* !perl/regexp on it's own causes no blessing */
+                        if ( (type != NULL) && strNE(type, "regexp") && (*type != '\0')) {
+                            sv_bless(sv, gv_stashpv(type, TRUE));
+                        }
+                    }
+                    else {
+                        sv_bless(sv, gv_stashpv(form((type == NULL) ? "%s" : "%s::%s", lang, type), TRUE));
+                    }
+                }
+            }
             else
 #endif
             {
@@ -401,7 +504,7 @@ static char* perl_json_preprocess(char *s) {
     int i;
     char *out;
     char ch;
-    bool in_string = 0;
+    char in_string = '\0';
     bool in_quote  = 0;
     char *pos;
     STRLEN len = strlen(s);
@@ -421,11 +524,16 @@ static char* perl_json_preprocess(char *s) {
         else if (ch == '\\') {
             in_quote = 1;
         }
-        else if (ch == json_quote_char) {
-            in_string = !in_string;
+        else if (in_string == '\0') {
+            switch (ch) {
+                case ':':  { *pos++ = ' '; break; }
+                case ',':  { *pos++ = ' '; break; }
+                case '"':  { in_string = '"'; break; }
+                case '\'': { in_string = '\''; break; }
+            }
         }
-        else if ((ch == ':' || ch == ',') && !in_string) {
-            *pos++ = ' ';
+        else if (ch == in_string) {
+            in_string = '\0';
         }
     }
 
@@ -486,15 +594,14 @@ static SV * LoadYAML (char *s) {
     SYMID v;
     SyckParser *parser;
     struct parser_xtra bonus;
-    SV *obj = &PL_sv_undef;
-    SV *implicit = GvSV(gv_fetchpv(form("%s::ImplicitTyping", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *use_code = GvSV(gv_fetchpv(form("%s::UseCode", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *load_code = GvSV(gv_fetchpv(form("%s::LoadCode", PACKAGE_NAME), TRUE, SVt_PV));
+
+    SV *obj              = &PL_sv_undef;
+    SV *use_code         = GvSV(gv_fetchpv(form("%s::UseCode", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *load_code        = GvSV(gv_fetchpv(form("%s::LoadCode", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *implicit_typing  = GvSV(gv_fetchpv(form("%s::ImplicitTyping", PACKAGE_NAME), TRUE, SVt_PV));
     SV *implicit_unicode = GvSV(gv_fetchpv(form("%s::ImplicitUnicode", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *implicit_binary = GvSV(gv_fetchpv(form("%s::ImplicitBinary", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *singlequote = GvSV(gv_fetchpv(form("%s::SingleQuote", PACKAGE_NAME), TRUE, SVt_PV));
-    json_quote_char = (SvTRUE(singlequote) ? '\'' : '"' );
-    json_quote_style = (SvTRUE(singlequote) ? scalar_1quote : scalar_2quote );
+    SV *singlequote      = GvSV(gv_fetchpv(form("%s::SingleQuote", PACKAGE_NAME), TRUE, SVt_PV));
+    json_quote_char      = (SvTRUE(singlequote) ? '\'' : '"' );
 
     ENTER; SAVETMPS;
 
@@ -515,13 +622,13 @@ static SV * LoadYAML (char *s) {
     syck_parser_handler(parser, PERL_SYCK_PARSER_HANDLER);
     syck_parser_error_handler(parser, perl_syck_error_handler);
     syck_parser_bad_anchor_handler( parser, perl_syck_bad_anchor_handler );
-    syck_parser_implicit_typing(parser, SvTRUE(implicit));
+    syck_parser_implicit_typing(parser, SvTRUE(implicit_typing));
     syck_parser_taguri_expansion(parser, 0);
 
-    bonus.objects = (AV*)sv_2mortal((SV*)newAV());
+    bonus.objects          = (AV*)sv_2mortal((SV*)newAV());
     bonus.implicit_unicode = SvTRUE(implicit_unicode);
-    bonus.load_code = SvTRUE(use_code) || SvTRUE(load_code);
-    parser->bonus = &bonus;
+    bonus.load_code        = SvTRUE(use_code) || SvTRUE(load_code);
+    parser->bonus          = &bonus;
 
 #ifndef YAML_IS_JSON
     if (GIMME_V == G_ARRAY) {
@@ -630,14 +737,14 @@ yaml_syck_emitter_handler
 #endif
 (SyckEmitter *e, st_data_t data) {
     I32  len, i;
-    SV*  sv = (SV*)data;
+    SV*  sv                    = (SV*)data;
     struct emitter_xtra *bonus = (struct emitter_xtra *)e->bonus;
-    char* tag = bonus->tag;
-    svtype ty = SvTYPE(sv);
+    char* tag                  = bonus->tag;
+    svtype ty                  = SvTYPE(sv);
 #ifndef YAML_IS_JSON
-    char dump_code = bonus->dump_code;
-    char implicit_binary = bonus->implicit_binary;
-    char* ref = NULL;
+    char dump_code             = bonus->dump_code;
+    char implicit_binary       = bonus->implicit_binary;
+    char* ref                  = NULL;
 #endif
 
 #define OBJECT_TAG     "tag:!perl:"
@@ -659,18 +766,53 @@ yaml_syck_emitter_handler
             case SVt_PVHV: { strcat(tag, "hash:");   break; }
             case SVt_PVCV: { strcat(tag, "code:");   break; }
             case SVt_PVGV: { strcat(tag, "glob:");   break; }
+#if PERL_VERSION > 10
+            case SVt_REGEXP: {
+                if (strEQ(ref, "Regexp")) {
+                    strcat(tag, "regexp");
+                    ref += 6; /* empty string */
+                } else {
+                    strcat(tag, "regexp:");
+                }
+                break;
+            }
+#endif
 
             /* flatten scalar ref objects so that they dump as !perl/scalar:Foo::Bar foo */
             case SVt_PVMG: {
-                if ( !SvROK(SvRV(sv)) ) {
+                if ( SvROK(SvRV(sv)) ) {
+                    strcat(tag, "ref:");
+                    break;
+                }
+#if PERL_VERSION > 10
+                else {
                     strcat(tag, "scalar:");
                     sv = SvRV(sv);
                     ty = SvTYPE(sv);
                     break;
-                } else {
-                    strcat(tag, "ref:");
+                }
+#else
+                else {
+                    MAGIC *mg;
+                    if ( (mg = mg_find(SvRV(sv), PERL_MAGIC_qr) ) ) {
+                        if (strEQ(ref, "Regexp")) {
+                            strcat(tag, "regexp");
+                            ref += 6; /* empty string */
+                        }
+                        else {
+                            strcat(tag, "regexp:");
+                        }
+                        sv = newSVpvn(SvPV_nolen(sv), sv_len(sv));
+                        ty = SvTYPE(sv);
+                    }
+                    else {
+                        strcat(tag, "scalar:");
+                        sv = SvRV(sv);
+                        ty = SvTYPE(sv);
+                    }
                     break;
                 }
+#endif
             }
         }
         strcat(tag, ref);
@@ -692,6 +834,14 @@ yaml_syck_emitter_handler
                 e->indent = PERL_SYCK_INDENT_LEVEL;
                 break;
             }
+#if PERL_VERSION > 10
+            case SVt_REGEXP: {
+                STRLEN len = sv_len(sv);
+                syck_emit_scalar( e, OBJOF("tag:!perl:regexp"), SCALAR_STRING, 0, 0, 0, SvPV_nolen(sv), len );
+                syck_emit_end(e);
+                break;
+            }
+#endif
             default: {
                 syck_emit_map(e, OBJOF("tag:!perl:ref"), MAP_NONE);
                 *tag = '\0';
@@ -704,11 +854,11 @@ yaml_syck_emitter_handler
     }
     else if (ty == SVt_NULL) {
         /* emit an undef */
-        syck_emit_scalar(e, "str", scalar_none, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
+        syck_emit_scalar(e, "str", scalar_plain, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
     }
     else if ((ty == SVt_PVMG) && !SvOK(sv)) {
         /* emit an undef (typically pointed from a blesed SvRV) */
-        syck_emit_scalar(e, OBJOF("str"), scalar_none, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
+        syck_emit_scalar(e, OBJOF("str"), scalar_plain, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
     }
     else if (SvNIOKp(sv) && (sv_len(sv) != 0)) {
         /* emit a number with a stringified version */
@@ -720,12 +870,6 @@ yaml_syck_emitter_handler
         if (len == 0) {
             syck_emit_scalar(e, OBJOF("str"), SCALAR_QUOTED, 0, 0, 0, "", 0);
         }
-#ifndef YAML_IS_JSON
-        else if (strEQ(SvPV_nolen(sv), NULL_LITERAL)) {
-            /* escape ~ as a quoted string */
-            syck_emit_scalar(e, OBJOF("str"), SCALAR_QUOTED, 0, 0, 0, NULL_LITERAL, 1);
-        }
-#endif
         else if (IS_UTF8(sv)) {
             /* if we support UTF8 and the string contains UTF8 */
             enum scalar_style old_s = e->style;
@@ -834,7 +978,7 @@ yaml_syck_emitter_handler
             }
             case SVt_PVCV: { /* code */
 #ifdef YAML_IS_JSON
-                syck_emit_scalar(e, "str", scalar_none, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
+                syck_emit_scalar(e, "str", scalar_plain, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
 #else
 
                 /* This following code is mostly copypasted from Storable */
@@ -909,7 +1053,7 @@ yaml_syck_emitter_handler
                 break;
             }
             default: {
-                syck_emit_scalar(e, "str", scalar_none, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
+                syck_emit_scalar(e, "str", scalar_plain, 0, 0, 0, NULL_LITERAL, NULL_LITERAL_LENGTH);
             }
         }
     }
@@ -925,19 +1069,22 @@ DumpYAML
 #endif
 (SV *sv) {
     struct emitter_xtra bonus;
-    SV* out = newSVpvn("", 0);
     SyckEmitter *emitter = syck_new_emitter();
-    SV *headless = GvSV(gv_fetchpv(form("%s::Headless", PACKAGE_NAME), TRUE, SVt_PV));
+    SV* out              = newSVpvn("", 0);
+    SV *headless         = GvSV(gv_fetchpv(form("%s::Headless", PACKAGE_NAME), TRUE, SVt_PV));
     SV *implicit_unicode = GvSV(gv_fetchpv(form("%s::ImplicitUnicode", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *implicit_binary = GvSV(gv_fetchpv(form("%s::ImplicitBinary", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *use_code = GvSV(gv_fetchpv(form("%s::UseCode", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *dump_code = GvSV(gv_fetchpv(form("%s::DumpCode", PACKAGE_NAME), TRUE, SVt_PV));
-    SV *sortkeys = GvSV(gv_fetchpv(form("%s::SortKeys", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *implicit_binary  = GvSV(gv_fetchpv(form("%s::ImplicitBinary", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *use_code         = GvSV(gv_fetchpv(form("%s::UseCode", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *dump_code        = GvSV(gv_fetchpv(form("%s::DumpCode", PACKAGE_NAME), TRUE, SVt_PV));
+    SV *sortkeys         = GvSV(gv_fetchpv(form("%s::SortKeys", PACKAGE_NAME), TRUE, SVt_PV));
 #ifdef YAML_IS_JSON
-    SV *singlequote = GvSV(gv_fetchpv(form("%s::SingleQuote", PACKAGE_NAME), TRUE, SVt_PV));
-    json_quote_char = (SvTRUE(singlequote) ? '\'' : '"' );
-    json_quote_style = (SvTRUE(singlequote) ? scalar_1quote : scalar_2quote );
-    emitter->indent = PERL_SYCK_INDENT_LEVEL;
+    SV *singlequote      = GvSV(gv_fetchpv(form("%s::SingleQuote", PACKAGE_NAME), TRUE, SVt_PV));
+    json_quote_char      = (SvTRUE(singlequote) ? '\'' : '"' );
+    json_quote_style     = (SvTRUE(singlequote) ? scalar_2quote_1 : scalar_2quote );
+    emitter->indent      = PERL_SYCK_INDENT_LEVEL;
+#else
+    SV *singlequote      = GvSV(gv_fetchpv(form("%s::SingleQuote", PACKAGE_NAME), TRUE, SVt_PV));
+    yaml_quote_style     = (SvTRUE(singlequote) ? scalar_1quote : scalar_none);
 #endif
 
     ENTER; SAVETMPS;

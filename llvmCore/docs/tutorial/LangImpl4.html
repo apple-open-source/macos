@@ -65,7 +65,7 @@ ready&gt; <b>def test(x) 1+2+x;</b>
 Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = add double 3.000000e+00, %x
+        %addtmp = fadd double 3.000000e+00, %x
         ret double %addtmp
 }
 </pre>
@@ -80,8 +80,8 @@ ready&gt; <b>def test(x) 1+2+x;</b>
 Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = add double 2.000000e+00, 1.000000e+00
-        %addtmp1 = add double %addtmp, %x
+        %addtmp = fadd double 2.000000e+00, 1.000000e+00
+        %addtmp1 = fadd double %addtmp, %x
         ret double %addtmp1
 }
 </pre>
@@ -113,9 +113,9 @@ ready&gt; <b>def test(x) (1+2+x)*(x+(1+2));</b>
 ready> Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = add double 3.000000e+00, %x
-        %addtmp1 = add double %x, 3.000000e+00
-        %multmp = mul double %addtmp, %addtmp1
+        %addtmp = fadd double 3.000000e+00, %x
+        %addtmp1 = fadd double %x, 3.000000e+00
+        %multmp = fmul double %addtmp, %addtmp1
         ret double %multmp
 }
 </pre>
@@ -171,42 +171,37 @@ add a set of optimizations to run.  The code looks like this:</p>
 
 <div class="doc_code">
 <pre>
-    ExistingModuleProvider OurModuleProvider(TheModule);
-    FunctionPassManager OurFPM(&amp;OurModuleProvider);
-      
-    // Set up the optimizer pipeline.  Start with registering info about how the
-    // target lays out data structures.
-    OurFPM.add(new TargetData(*TheExecutionEngine->getTargetData()));
-    // Do simple "peephole" optimizations and bit-twiddling optzns.
-    OurFPM.add(createInstructionCombiningPass());
-    // Reassociate expressions.
-    OurFPM.add(createReassociatePass());
-    // Eliminate Common SubExpressions.
-    OurFPM.add(createGVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    OurFPM.add(createCFGSimplificationPass());
+  FunctionPassManager OurFPM(TheModule);
 
-    // Set the global so the code gen can use this.
-    TheFPM = &amp;OurFPM;
+  // Set up the optimizer pipeline.  Start with registering info about how the
+  // target lays out data structures.
+  OurFPM.add(new TargetData(*TheExecutionEngine->getTargetData()));
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  OurFPM.add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  OurFPM.add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  OurFPM.add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  OurFPM.add(createCFGSimplificationPass());
 
-    // Run the main "interpreter loop" now.
-    MainLoop();
+  OurFPM.doInitialization();
+
+  // Set the global so the code gen can use this.
+  TheFPM = &amp;OurFPM;
+
+  // Run the main "interpreter loop" now.
+  MainLoop();
 </pre>
 </div>
 
-<p>This code defines two objects, an <tt>ExistingModuleProvider</tt> and a
-<tt>FunctionPassManager</tt>.  The former is basically a wrapper around our
-<tt>Module</tt> that the PassManager requires.  It provides certain flexibility
-that we're not going to take advantage of here, so I won't dive into any details 
-about it.</p>
-
-<p>The meat of the matter here, is the definition of "<tt>OurFPM</tt>".  It
-requires a pointer to the <tt>Module</tt> (through the <tt>ModuleProvider</tt>)
-to construct itself.  Once it is set up, we use a series of "add" calls to add
-a bunch of LLVM passes.  The first pass is basically boilerplate, it adds a pass
-so that later optimizations know how the data structures in the program are
-layed out.  The "<tt>TheExecutionEngine</tt>" variable is related to the JIT,
-which we will get to in the next section.</p>
+<p>This code defines a <tt>FunctionPassManager</tt>, "<tt>OurFPM</tt>".  It
+requires a pointer to the <tt>Module</tt> to construct itself.  Once it is set
+up, we use a series of "add" calls to add a bunch of LLVM passes.  The first
+pass is basically boilerplate, it adds a pass so that later optimizations know
+how the data structures in the program are laid out.  The
+"<tt>TheExecutionEngine</tt>" variable is related to the JIT, which we will get
+to in the next section.</p>
 
 <p>In this case, we choose to add 4 optimization passes.  The passes we chose
 here are a pretty standard set of "cleanup" optimizations that are useful for
@@ -245,8 +240,8 @@ ready&gt; <b>def test(x) (1+2+x)*(x+(1+2));</b>
 ready> Read function definition:
 define double @test(double %x) {
 entry:
-        %addtmp = add double %x, 3.000000e+00
-        %multmp = mul double %addtmp, %addtmp
+        %addtmp = fadd double %x, 3.000000e+00
+        %multmp = fmul double %addtmp, %addtmp
         ret double %multmp
 }
 </pre>
@@ -298,8 +293,8 @@ by adding a global variable and a call in <tt>main</tt>:</p>
 ...
 int main() {
   ..
-  <b>// Create the JIT.
-  TheExecutionEngine = ExecutionEngine::create(TheModule);</b>
+  <b>// Create the JIT.  This takes ownership of the module.
+  TheExecutionEngine = EngineBuilder(TheModule).create();</b>
   ..
 }
 </pre>
@@ -320,7 +315,7 @@ top-level expression to look like this:</p>
 <div class="doc_code">
 <pre>
 static void HandleTopLevelExpression() {
-  // Evaluate a top level expression into an anonymous function.
+  // Evaluate a top-level expression into an anonymous function.
   if (FunctionAST *F = ParseTopLevelExpr()) {
     if (Function *LF = F-&gt;Codegen()) {
       LF->dump();  // Dump the function for exposition purposes.
@@ -330,7 +325,7 @@ static void HandleTopLevelExpression() {
       
       // Cast it to the right type (takes no arguments, returns a double) so we
       // can call it as a native function.
-      double (*FP)() = (double (*)())FPtr;
+      double (*FP)() = (double (*)())(intptr_t)FPtr;
       fprintf(stderr, "Evaluated to %f\n", FP());</b>
     }
 </pre>
@@ -359,7 +354,7 @@ entry:
 
 <p>Well this looks like it is basically working.  The dump of the function
 shows the "no argument function that always returns double" that we synthesize
-for each top level expression that is typed in.  This demonstrates very basic
+for each top-level expression that is typed in.  This demonstrates very basic
 functionality, but can we do more?</p>
 
 <div class="doc_code">
@@ -368,8 +363,8 @@ ready&gt; <b>def testfunc(x y) x + y*2; </b>
 Read function definition:
 define double @testfunc(double %x, double %y) {
 entry:
-        %multmp = mul double %y, 2.000000e+00
-        %addtmp = add double %multmp, %x
+        %multmp = fmul double %y, 2.000000e+00
+        %addtmp = fadd double %multmp, %x
         ret double %addtmp
 }
 
@@ -384,24 +379,19 @@ entry:
 </pre>
 </div>
 
-<p>This illustrates that we can now call user code, but there is something a bit subtle
-going on here.  Note that we only invoke the JIT on the anonymous functions
-that <em>call testfunc</em>, but we never invoked it on <em>testfunc
-</em>itself.</p>
+<p>This illustrates that we can now call user code, but there is something a bit
+subtle going on here.  Note that we only invoke the JIT on the anonymous
+functions that <em>call testfunc</em>, but we never invoked it
+on <em>testfunc</em> itself.  What actually happened here is that the JIT
+scanned for all non-JIT'd functions transitively called from the anonymous
+function and compiled all of them before returning
+from <tt>getPointerToFunction()</tt>.</p>
 
-<p>What actually happened here is that the anonymous function was
-JIT'd when requested.  When the Kaleidoscope app calls through the function
-pointer that is returned, the anonymous function starts executing.  It ends up
-making the call to the "testfunc" function, and ends up in a stub that invokes
-the JIT, lazily, on testfunc.  Once the JIT finishes lazily compiling testfunc,
-it returns and the code re-executes the call.</p>
-
-<p>In summary, the JIT will lazily JIT code, on the fly, as it is needed.  The
-JIT provides a number of other more advanced interfaces for things like freeing
-allocated machine code, rejit'ing functions to update them, etc.  However, even
-with this simple code, we get some surprisingly powerful capabilities - check
-this out (I removed the dump of the anonymous functions, you should get the idea
-by now :) :</p>
+<p>The JIT provides a number of other more advanced interfaces for things like
+freeing allocated machine code, rejit'ing functions to update them, etc.
+However, even with this simple code, we get some surprisingly powerful
+capabilities - check this out (I removed the dump of the anonymous functions,
+you should get the idea by now :) :</p>
 
 <div class="doc_code">
 <pre>
@@ -421,10 +411,10 @@ Read function definition:
 define double @foo(double %x) {
 entry:
         %calltmp = call double @sin( double %x )
-        %multmp = mul double %calltmp, %calltmp
+        %multmp = fmul double %calltmp, %calltmp
         %calltmp2 = call double @cos( double %x )
-        %multmp4 = mul double %calltmp2, %calltmp2
-        %addtmp = add double %multmp, %multmp4
+        %multmp4 = fmul double %calltmp2, %calltmp2
+        %addtmp = fadd double %multmp, %multmp4
         ret double %addtmp
 }
 
@@ -449,8 +439,8 @@ directly.</p>
 resolved.  It allows you to establish explicit mappings between IR objects and
 addresses (useful for LLVM global variables that you want to map to static
 tables, for example), allows you to dynamically decide on the fly based on the
-function name, and even allows you to have the JIT abort itself if any lazy
-compilation is attempted.</p>
+function name, and even allows you to have the JIT compile functions lazily the
+first time they're called.</p>
 
 <p>One interesting application of this is that we can now extend the language
 by writing arbitrary C++ code to implement operations.  For example, if we add:
@@ -512,11 +502,13 @@ at runtime.</p>
 <pre>
 #include "llvm/DerivedTypes.h"
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
+#include "llvm/ExecutionEngine/JIT.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Module.h"
-#include "llvm/ModuleProvider.h"
 #include "llvm/PassManager.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetSelect.h"
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Support/IRBuilder.h"
 #include &lt;cstdio&gt;
@@ -538,7 +530,7 @@ enum Token {
   tok_def = -2, tok_extern = -3,
 
   // primary
-  tok_identifier = -4, tok_number = -5,
+  tok_identifier = -4, tok_number = -5
 };
 
 static std::string IdentifierStr;  // Filled in if tok_identifier
@@ -640,7 +632,8 @@ public:
 };
 
 /// PrototypeAST - This class represents the "prototype" for a function,
-/// which captures its argument names as well as if it is an operator.
+/// which captures its name, and its argument names (thus implicitly the number
+/// of arguments the function takes).
 class PrototypeAST {
   std::string Name;
   std::vector&lt;std::string&gt; Args;
@@ -667,7 +660,7 @@ public:
 //===----------------------------------------------------------------------===//
 
 /// CurTok/getNextToken - Provide a simple token buffer.  CurTok is the current
-/// token the parser it looking at.  getNextToken reads another token from the
+/// token the parser is looking at.  getNextToken reads another token from the
 /// lexer and updates CurTok with its results.
 static int CurTok;
 static int getNextToken() {
@@ -715,9 +708,9 @@ static ExprAST *ParseIdentifierExpr() {
       ExprAST *Arg = ParseExpression();
       if (!Arg) return 0;
       Args.push_back(Arg);
-    
+
       if (CurTok == ')') break;
-    
+
       if (CurTok != ',')
         return Error("Expected ')' or ',' in argument list");
       getNextToken();
@@ -861,14 +854,14 @@ static PrototypeAST *ParseExtern() {
 //===----------------------------------------------------------------------===//
 
 static Module *TheModule;
-static IRBuilder&lt;&gt; Builder;
+static IRBuilder&lt;&gt; Builder(getGlobalContext());
 static std::map&lt;std::string, Value*&gt; NamedValues;
 static FunctionPassManager *TheFPM;
 
 Value *ErrorV(const char *Str) { Error(Str); return 0; }
 
 Value *NumberExprAST::Codegen() {
-  return ConstantFP::get(APFloat(Val));
+  return ConstantFP::get(getGlobalContext(), APFloat(Val));
 }
 
 Value *VariableExprAST::Codegen() {
@@ -889,7 +882,8 @@ Value *BinaryExprAST::Codegen() {
   case '&lt;':
     L = Builder.CreateFCmpULT(L, R, "cmptmp");
     // Convert bool 0/1 to double 0.0 or 1.0
-    return Builder.CreateUIToFP(L, Type::DoubleTy, "booltmp");
+    return Builder.CreateUIToFP(L, Type::getDoubleTy(getGlobalContext()),
+                                "booltmp");
   default: return ErrorV("invalid binary operator");
   }
 }
@@ -915,8 +909,10 @@ Value *CallExprAST::Codegen() {
 
 Function *PrototypeAST::Codegen() {
   // Make the function type:  double(double,double) etc.
-  std::vector&lt;const Type*&gt; Doubles(Args.size(), Type::DoubleTy);
-  FunctionType *FT = FunctionType::get(Type::DoubleTy, Doubles, false);
+  std::vector&lt;const Type*&gt; Doubles(Args.size(),
+                                   Type::getDoubleTy(getGlobalContext()));
+  FunctionType *FT = FunctionType::get(Type::getDoubleTy(getGlobalContext()),
+                                       Doubles, false);
   
   Function *F = Function::Create(FT, Function::ExternalLinkage, Name, TheModule);
   
@@ -961,7 +957,7 @@ Function *FunctionAST::Codegen() {
     return 0;
   
   // Create a new basic block to start insertion into.
-  BasicBlock *BB = BasicBlock::Create("entry", TheFunction);
+  BasicBlock *BB = BasicBlock::Create(getGlobalContext(), "entry", TheFunction);
   Builder.SetInsertPoint(BB);
   
   if (Value *RetVal = Body-&gt;Codegen()) {
@@ -1013,7 +1009,7 @@ static void HandleExtern() {
 }
 
 static void HandleTopLevelExpression() {
-  // Evaluate a top level expression into an anonymous function.
+  // Evaluate a top-level expression into an anonymous function.
   if (FunctionAST *F = ParseTopLevelExpr()) {
     if (Function *LF = F-&gt;Codegen()) {
       // JIT the function, returning a function pointer.
@@ -1021,7 +1017,7 @@ static void HandleTopLevelExpression() {
       
       // Cast it to the right type (takes no arguments, returns a double) so we
       // can call it as a native function.
-      double (*FP)() = (double (*)())FPtr;
+      double (*FP)() = (double (*)())(intptr_t)FPtr;
       fprintf(stderr, "Evaluated to %f\n", FP());
     }
   } else {
@@ -1036,15 +1032,13 @@ static void MainLoop() {
     fprintf(stderr, "ready&gt; ");
     switch (CurTok) {
     case tok_eof:    return;
-    case ';':        getNextToken(); break;  // ignore top level semicolons.
+    case ';':        getNextToken(); break;  // ignore top-level semicolons.
     case tok_def:    HandleDefinition(); break;
     case tok_extern: HandleExtern(); break;
     default:         HandleTopLevelExpression(); break;
     }
   }
 }
-
-
 
 //===----------------------------------------------------------------------===//
 // "Library" functions that can be "extern'd" from user code.
@@ -1062,6 +1056,9 @@ double putchard(double X) {
 //===----------------------------------------------------------------------===//
 
 int main() {
+  InitializeNativeTarget();
+  LLVMContext &amp;Context = getGlobalContext();
+
   // Install standard binary operators.
   // 1 is lowest precedence.
   BinopPrecedence['&lt;'] = 10;
@@ -1074,39 +1071,43 @@ int main() {
   getNextToken();
 
   // Make the module, which holds all the code.
-  TheModule = new Module("my cool jit");
-  
-  // Create the JIT.
-  TheExecutionEngine = ExecutionEngine::create(TheModule);
+  TheModule = new Module("my cool jit", Context);
 
-  {
-    ExistingModuleProvider OurModuleProvider(TheModule);
-    FunctionPassManager OurFPM(&amp;OurModuleProvider);
-      
-    // Set up the optimizer pipeline.  Start with registering info about how the
-    // target lays out data structures.
-    OurFPM.add(new TargetData(*TheExecutionEngine-&gt;getTargetData()));
-    // Do simple "peephole" optimizations and bit-twiddling optzns.
-    OurFPM.add(createInstructionCombiningPass());
-    // Reassociate expressions.
-    OurFPM.add(createReassociatePass());
-    // Eliminate Common SubExpressions.
-    OurFPM.add(createGVNPass());
-    // Simplify the control flow graph (deleting unreachable blocks, etc).
-    OurFPM.add(createCFGSimplificationPass());
+  // Create the JIT.  This takes ownership of the module.
+  std::string ErrStr;
+  TheExecutionEngine = EngineBuilder(TheModule).setErrorStr(&ErrStr).create();
+  if (!TheExecutionEngine) {
+    fprintf(stderr, "Could not create ExecutionEngine: %s\n", ErrStr.c_str());
+    exit(1);
+  }
 
-    // Set the global so the code gen can use this.
-    TheFPM = &amp;OurFPM;
+  FunctionPassManager OurFPM(TheModule);
 
-    // Run the main "interpreter loop" now.
-    MainLoop();
-    
-    TheFPM = 0;
-    
-    // Print out all of the generated code.
-    TheModule-&gt;dump();
-  }  // Free module provider (and thus the module) and pass manager.
-                                   
+  // Set up the optimizer pipeline.  Start with registering info about how the
+  // target lays out data structures.
+  OurFPM.add(new TargetData(*TheExecutionEngine-&gt;getTargetData()));
+  // Do simple "peephole" optimizations and bit-twiddling optzns.
+  OurFPM.add(createInstructionCombiningPass());
+  // Reassociate expressions.
+  OurFPM.add(createReassociatePass());
+  // Eliminate Common SubExpressions.
+  OurFPM.add(createGVNPass());
+  // Simplify the control flow graph (deleting unreachable blocks, etc).
+  OurFPM.add(createCFGSimplificationPass());
+
+  OurFPM.doInitialization();
+
+  // Set the global so the code gen can use this.
+  TheFPM = &amp;OurFPM;
+
+  // Run the main "interpreter loop" now.
+  MainLoop();
+
+  TheFPM = 0;
+
+  // Print out all of the generated code.
+  TheModule-&gt;dump();
+
   return 0;
 }
 </pre>
@@ -1125,7 +1126,7 @@ int main() {
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2007-10-17 11:05:13 -0700 (Wed, 17 Oct 2007) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 </body>
 </html>

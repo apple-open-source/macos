@@ -7,7 +7,7 @@ templatevfs.tcl --
 
 Written by Stephen Huntley (stephen.huntley@alum.mit.edu)
 License: Tcl license
-Version 1.5.2
+Version 1.5.4
 
 The template virtual filesystem is designed as a prototype on which to build new virtual 
 filesystems.  Only a few simple, abstract procedures have to be overridden to produce a new
@@ -54,7 +54,7 @@ set vfs::posix(load) x
 vfs::posixError load
 unset vfs::posix(load)
 
-package provide vfs::template 1.5.2
+package provide vfs::template 1.5.4
 
 namespace eval ::vfs::template {
 
@@ -185,7 +185,13 @@ proc mount {args} {
 	set [namespace current]::cache($to) $cache
 
 # register location with Tclvfs package:
-	eval ::vfs::filesystem mount $volume \$to \[list [namespace current]::handler \$path\]
+	set div {}
+	if {$volume ne {}} {
+		if {[string index $to end] ne "/"} {
+			set div /
+		}
+	}
+	eval ::vfs::filesystem mount $volume \$to$div \[list [namespace current]::handler \$path\]
 	::vfs::RegisterMount $to [list [namespace current]::unmount]
 
 # ensure close callback background error appears at script execution level:
@@ -199,7 +205,9 @@ proc mount {args} {
 
 # undo Tclvfs API hooks:
 proc unmount {to} {
-	set to [::file normalize $to]
+	if {[lsearch [::vfs::filesystem info] $to] < 0} {
+		set to [::file normalize $to]
+	}
 	set path [lindex [::vfs::filesystem info $to] end]
 
 # call custom unmount procedure:
@@ -550,7 +558,7 @@ proc memchan {args} {
 		set chan [uplevel 1 ::memchan $args]
 		return $chan
 	} else {
-		return ::vfs::memchan $args
+		return [eval [linsert $args 0 ::vfs::memchan]]
 	}
 }
 
@@ -562,12 +570,12 @@ proc memchan {args} {
  
 catch {rename ::exit ::vfs::template::exit}
 
-proc ::exit {} {
+proc ::exit {args} {
 	foreach vfs [::vfs::filesystem info] {
-		if [catch {$::vfs::_unmountCmd($vfs) $vfs} result] {
+		if [catch {$::vfs::_unmountCmd([file normalize $vfs]) $vfs} result] {
 			puts "$vfs: $result"
 		}		
 	}
-	::vfs::template::exit
+	::vfs::template::exit [lindex $args 0]
 }
 

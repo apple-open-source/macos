@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,15 @@
 #include "session.h"
 #include "notifications.h"
 
+
+static void
+reconnected(SCDynamicStoreRef store, void *info)
+{
+	SCPrint(TRUE, stdout, CFSTR("SCDynamicStore server restarted, session reconnected\n"));
+	return;
+}
+
+
 __private_extern__
 void
 do_open(int argc, char **argv)
@@ -67,6 +76,8 @@ do_open(int argc, char **argv)
 		return;
 	}
 
+	(void) SCDynamicStoreSetDisconnectCallBack(store, reconnected);
+
 	watchedKeys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	watchedPatterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
@@ -78,18 +89,22 @@ __private_extern__
 void
 do_close(int argc, char **argv)
 {
-	if (notifyRls) {
-		CFRunLoopSourceInvalidate(notifyRls);
-		CFRelease(notifyRls);
+	if (notifyRls != NULL) {
+		if (doDispatch) {
+			(void) SCDynamicStoreSetDispatchQueue(store, NULL);
+		} else {
+			CFRunLoopSourceInvalidate(notifyRls);
+			CFRelease(notifyRls);
+		}
 		notifyRls = NULL;
 	}
 
-	if (notifyRl) {
+	if (notifyRl != NULL) {
 		CFRunLoopStop(notifyRl);
 		notifyRl  = NULL;
 	}
 
-	if (store) {
+	if (store != NULL) {
 		CFRelease(store);
 		store = NULL;
 		CFRelease(watchedKeys);

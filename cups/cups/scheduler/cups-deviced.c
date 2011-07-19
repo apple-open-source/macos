@@ -1,9 +1,9 @@
 /*
  * "$Id: cups-deviced.c 7816 2008-07-30 20:53:31Z mike $"
  *
- *   Device scanning mini-daemon for the Common UNIX Printing System (CUPS).
+ *   Device scanning mini-daemon for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -457,10 +457,10 @@ compare_devices(cupsd_device_t *d0,	/* I - First device */
 
   if ((diff = cupsdCompareNames(d0->device_info, d1->device_info)) != 0)
     return (diff);
-  else if ((diff = strcasecmp(d0->device_class, d1->device_class)) != 0)
+  else if ((diff = _cups_strcasecmp(d0->device_class, d1->device_class)) != 0)
     return (diff);
   else
-    return (strcasecmp(d0->device_uri, d1->device_uri));
+    return (_cups_strcasecmp(d0->device_uri, d1->device_uri));
 }
 
 
@@ -766,6 +766,10 @@ start_backend(const char *name,		/* I - Backend to run */
     server_bin = CUPS_SERVERBIN;
 
   snprintf(program, sizeof(program), "%s/backend/%s", server_bin, name);
+
+  if (_cupsFileCheck(program, _CUPS_FILE_CHECK_PROGRAM, !geteuid(),
+                     _cupsFileCheckFilter, NULL))
+    return (-1);
 
   backend = backends + num_backends;
 

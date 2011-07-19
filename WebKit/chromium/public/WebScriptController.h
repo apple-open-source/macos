@@ -52,9 +52,6 @@ public:
     // Will only affect v8 contexts initialized after this call. Takes ownership
     // of the v8::Extension object passed.
     WEBKIT_API static void registerExtension(v8::Extension*);
-    WEBKIT_API static void registerExtension(v8::Extension*,
-                                             const WebString& schemeRestriction);
-    WEBKIT_API static void registerExtension(v8::Extension*, int extensionGroup);
 
     // Enables special settings which are only applicable if V8 is executed
     // in the single thread which must be the main thread.

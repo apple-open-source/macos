@@ -27,13 +27,14 @@
 #include <sys/syscall.h>
 #include <bsm/audit.h>
 #include "launch.h"
-#include "bootstrap.h"
+#include "bootstrap_priv.h"
 #include "vproc.h"
 
 typedef char * _internal_string_t;
 typedef char * logmsg_t;
 typedef pid_t * pid_array_t;
 typedef mach_port_t vproc_mig_t;
+typedef uint64_t event_token_array_t[1024];
 
 #define VPROC_SHMEM_EXITING	0x1
 
@@ -44,7 +45,7 @@ struct vproc_shmem_s {
 	int32_t vp_shmem_flags;
 };
 
-#ifdef protocol_vproc_MSG_COUNT
+#if defined(protocol_vproc_MSG_COUNT) || defined (xpc_domain_MSG_COUNT) || defined (xpc_events_MSG_COUNT)
 /* HACK */
 #include "launchd_core_logic.h"
 #endif

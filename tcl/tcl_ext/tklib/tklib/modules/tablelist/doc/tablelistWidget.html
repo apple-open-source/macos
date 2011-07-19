@@ -82,19 +82,32 @@
     <i>color</i></code></dd>
 
     <dd><code><b><a href="#arrowstyle">-arrowstyle</a></b>
-    <b>flat7x4</b>|<b>flat7x5</b>|<b>flat7x7</b>|<b>flat8x5</b>|<b>flat9x5</b>|<b>sunken8x7</b>|<b>sunken10x9</b>|<b>sunken12x11</b></code></dd>
+    <b>flat6x4</b>|<b>flat7x4</b>|<b>flat7x5</b>|<b>flat7x7</b>|<b>flat8x5</b>|<b>flat9x5</b>|<br>
+    &nbsp;<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;flat9x7</b>|<b>flat10x6</b>|<b>sunken8x7</b>|<b>sunken10x9</b>|<b>sunken12x11</b></code></dd>
 
     <dd><code><b><a href="#arrowdisabledcolor">-arrowdisabledcolor</a></b>
     <i>color</i></code></dd>
+
+    <dd><code><b><a href="#collapsecommand">-collapsecommand</a></b>
+    <i>command</i></code></dd>
 
     <dd><code><b><a href="#columns">-columns</a></b> {<i>width</i> <i>title</i>
     ?<b>left</b>|<b>right</b>|<b>center</b>? <i>width</i> <i>title</i>
     ?<b>left</b>|<b>right</b>|<b>center</b>? ...}</code></dd>
 
+    <dd><code><b><a href="#columntitles">-columntitles</a></b> {<i>title</i>
+    <i>title</i> ...}</code></dd>
+
     <dd><code><b><a href="#editendcommand">-editendcommand</a></b>
     <i>command</i></code></dd>
 
+    <dd><code><b><a href="#editselectedonly">-editselectedonly</a></b>
+    <i>boolean</i></code></dd>
+
     <dd><code><b><a href="#editstartcommand">-editstartcommand</a></b>
+    <i>command</i></code></dd>
+
+    <dd><code><b><a href="#expandcommand">-expandcommand</a></b>
     <i>command</i></code></dd>
 
     <dd><code><b><a href="#forceeditendcommand">-forceeditendcommand</a></b>
@@ -171,8 +184,8 @@
     <dd><code><b><a href="#resizecursor">-resizecursor</a></b>
     <i>cursor</i></code></dd>
 
-    <dd><code><b><a href="#selectmode">-selectmode</a></b> <i>mode</i>
-    (<b>single</b>|<b>browse</b>|<b>multiple</b>|<b>extended</b>)</code></dd>
+    <dd><code><b><a href="#selectmode">-selectmode</a></b>
+    <b>single</b>|<b>browse</b>|<b>multiple</b>|<b>extended</b></code></dd>
 
     <dd><code><b><a href="#selecttype">-selecttype</a></b>
     <b>row</b>|<b>cell</b></code></dd>
@@ -229,6 +242,14 @@
 
     <dd><code><b><a href="#tooltipdelcommand">-tooltipdelcommand</a></b>
     <i>command</i></code></dd>
+
+    <dd><code><b><a href="#treecolumn">-treecolumn</a></b>
+    <i>columnIndex</i></code></dd>
+
+    <dd><code><b><a href="#treestyle">-treestyle</a></b>
+    <b>aqua</b>|<b>baghira</b>|<b>gtk</b>|<b>klearlooks</b>|<b>oxygen1</b>|<b>oxygen2</b>|<b>phase</b>|<br>
+    &nbsp;<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;plastique</b>|<b>vistaAero</b>|<b>vistaClassic</b>|<b>win7Aero</b>|<b>win7Classic</b>|<br>
+    &nbsp;<b>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;winnative</b>|<b>winxpBlue</b>|<b>winxpOlive</b>|<b>winxpSilver</b></code></dd>
 
     <dd><code><b><a href="#width">-width</a></b> <i>characters</i></code></dd>
 
@@ -328,7 +349,7 @@
     <i>command</i></code></dd>
 
     <dd><code><b><a href="#col_sortmode">-sortmode</a></b>
-    <b>ascii</b>|<b>command</b>|<b>dictionary</b>|<b>integer</b>|<b>real</b></code></dd>
+    <b>ascii</b>|<b>asciinocase</b>|<b>command</b>|<b>dictionary</b>|<b>integer</b>|<b>real</b></code></dd>
 
     <dd><code><b><a href="#col_stretchable">-stretchable</a></b>
     <i>boolean</i></code></dd>
@@ -407,6 +428,9 @@
     <i>command</i></code></dd>
 
     <dt><br>
+    <a href="#tree_widget">USING A TABLELIST AS MULTI-COLUMN TREE WIDGET</a></dt>
+
+    <dt><br>
     <a href="#cell_editing">INTERACTIVE CELL EDITING</a></dt>
 
     <dt><br>
@@ -415,6 +439,14 @@
     <dd>
       <pre>
 <i>number</i>  <b>k</b><i>number</i>  <b>active</b>  <b>anchor</b>  <b>end</b>  <b>@</b><i>x</i><b>,</b><i>y</i>  <i>name</i>
+</pre>
+    </dd>
+
+    <dt><a href="#node_indices">NODE INDICES</a></dt>
+
+    <dd>
+      <pre>
+<b>root</b> <i>number</i>  <b>k</b><i>number</i>  <b>active</b>  <b>anchor</b>  <b>end</b>  <b>@</b><i>x</i><b>,</b><i>y</i>  <i>name</i>
 </pre>
     </dd>
 
@@ -444,6 +476,9 @@
 
     <dd><code><i>pathName</i> <b><a href="#activatecell">activatecell</a></b>
     <i>cellIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#applysorting">applysorting</a></b>
+    <i>itemList</i></code></dd>
 
     <dd><code><i>pathName</i> <b><a href="#attrib">attrib</a></b> ?<i>name</i>?
     ?<i>value</i> <i>name</i> <i>value</i> ...?</code></dd>
@@ -500,6 +535,21 @@
 
     <dd><code><i>pathName</i> <b><a href="#cget">cget</a></b>
     <i>option</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#childcount">childcount</a></b>
+    <i>nodeIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#childindex">childindex</a></b>
+    <i>index</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#childkeys">childkeys</a></b>
+    <i>nodeIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#collapse">collapse</a></b>
+    <i>index</i> ?<b>-fully</b>|<b>-partly</b>?</code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#collapseall">collapseall</a></b>
+    ?<b>-fully</b>|<b>-partly</b>?</code></dd>
 
     <dd><code><i>pathName</i> <b><a href="#columnattrib">columnattrib</a></b>
     <i>columnIndex</i> ?<i>name</i>? ?<i>value</i> <i>name</i> <i>value</i>
@@ -577,6 +627,12 @@
     <dd><code><i>pathName</i> <b><a href="#deletecolumns">deletecolumns</a></b>
     <i>columnIndexList</i></code></dd>
 
+    <dd><code><i>pathName</i> <b><a href="#depth">depth</a></b>
+    <i>nodeIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href=
+    "#descendantcount">descendantcount</a></b> <i>nodeIndex</i></code></dd>
+
     <dd><code><i>pathName</i> <b><a href="#editcell">editcell</a></b>
     <i>cellIndex</i></code></dd>
 
@@ -588,6 +644,15 @@
 
     <dd><code><i>pathName</i> <b><a href=
     "#entrypath">entrypath</a></b></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#expand">expand</a></b>
+    <i>index</i> ?<b>-fully</b>|<b>-partly</b>?</code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#expandall">expandall</a></b>
+    ?<b>-fully</b>|<b>-partly</b>?</code></dd>
+
+    <dd><code><i>pathName</i> <b><a href=
+    "#expandedkeys">expandedkeys</a></b></code></dd>
 
     <dd><code><i>pathName</i> <b><a href="#fillcolumn">fillcolumn</a></b>
     <i>columnIndex</i> <i>text</i></code></dd>
@@ -615,6 +680,12 @@
 
     <dd><code><i>pathName</i> <b><a href="#getcolumns">getcolumns</a></b>
     <i>columnIndexList</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#getfullkeys">getfullkeys</a></b>
+    <i>first</i> <i>last</i></code><br></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#getfullkeys">getfullkeys</a></b>
+    <i>indexList</i></code></dd>
 
     <dd><code><i>pathName</i> <b><a href="#getkeys">getkeys</a></b>
     <i>first</i> <i>last</i></code><br></dd>
@@ -645,6 +716,14 @@
     ?<i>item</i> <i>item</i> ...?</code></dd>
 
     <dd><code><i>pathName</i> <b><a href=
+    "#insertchildlist">insertchildlist</a></b> <i>parentNodeIndex</i>
+    <i>childIndex</i> <i>itemList</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href=
+    "#insertchildren">insertchild(ren)</a></b> <i>parentNodeIndex</i>
+    <i>childIndex</i> ?<i>item</i> <i>item</i> ...?</code></dd>
+
+    <dd><code><i>pathName</i> <b><a href=
     "#insertcolumnlist">insertcolumnlist</a></b> <i>columnIndex</i>
     {<i>width</i> <i>title</i> ?<b>left</b>|<b>right</b>|<b>center</b>?
     <i>width</i> <i>title</i> ?<b>left</b>|<b>right</b>|<b>center</b>?
@@ -673,6 +752,9 @@
 
     <dd><code><i>pathName</i> <b><a href="#labels">labels</a></b></code></dd>
 
+    <dd><code><i>pathName</i> <b><a href=
+    "#labeltag">labeltag</a></b></code></dd>
+
     <dd><code><i>pathName</i> <b><a href="#move">move</a></b> <i>source</i>
     <i>target</i></code></dd>
 
@@ -687,6 +769,16 @@
 
     <dd><code><i>pathName</i> <b><a href="#nearestcolumn">nearestcolumn</a></b>
     <i>x</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#noderow">noderow</a></b>
+    <i>parentNodeIndex</i> <i>childIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href="#parentkey">parentkey</a></b>
+    <i>nodeIndex</i></code></dd>
+
+    <dd><code><i>pathName</i> <b><a href=
+    "#refreshsorting">refreshsorting</a></b>
+    ?<i>parentNodeIndex</i>?</code></dd>
 
     <dd><code><i>pathName</i> <b><a href=
     "#rejectinput">rejectinput</a></b></code></dd>
@@ -786,6 +878,9 @@
     <dd><code><i>pathName</i> <b><a href="#togglerowhide">togglerowhide</a></b>
     <i>indexList</i></code></dd>
 
+    <dd><code><i>pathName</i> <b><a href="#toplevelkey">toplevelkey</a></b>
+    <i>index</i></code><br></dd>
+
     <dd><code><i>pathName</i> <b><a href="#unsetattrib">unsetattrib</a></b>
     <i>name</i></code></dd>
 
@@ -843,7 +938,8 @@
     BODY</a></dt>
 
     <dt><br>
-    <a href="#label_bindings">DEFAULT BINDINGS FOR THE HEADER LABELS</a></dt>
+    <a href="#label_bindings">DEFAULT AND INDIVIDUAL BINDINGS FOR THE HEADER
+    LABELS</a></dt>
 
     <dt><br>
     <a href="#edit_bindings">DEFAULT BINDINGS FOR INTERACTIVE CELL
@@ -943,7 +1039,7 @@
 
       <blockquote>
         <p>Specifies how to diplay the active item or element (depending on the
-        value of the <code><b><a href="selecttype">-selecttype</a></b></code>
+        value of the <code><b><a href="#selecttype">-selecttype</a></b></code>
         configuration option) when the tablelist has the keyboard focus.&nbsp;
         The allowed values are <code><b>frame</b></code>,
         <code><b>none</b></code>, and <code><b>underline</b></code>.&nbsp; The
@@ -996,13 +1092,15 @@
         case the <code><b><a href="#arrowstyle">-arrowstyle</a></b></code>
         option has the default value <code><b>sunken10x9</b></code>).&nbsp; On
         the windowing system <code><b>win32</b></code>, the default arrow color
-        is <code>#aca899</code> for Windows XP and an empty string for older
-        Windows versions, paired with the default arrow style
-        <code><b>flat9x5</b></code> and <code><b>sunken8x7</b></code>,
-        respectively.&nbsp; Finally, for the windowing systems
-        <code><b>classic</b></code> and <code><b>aqua</b></code> on the
-        Macintosh, the default arrow color is <code>#777777</code> and the
-        default arrow style is <code><b>flat7x7</b></code>.</p>
+        is <code>#aca899</code> for Windows XP, <code>#569bc0</code> for
+        Windows Vista and Windows 7, and an empty string for older Windows
+        versions, paired with the default arrow style
+        <code><b>flat9x5</b></code>, <code><b>flat7x4</b></code>, and
+        <code><b>sunken8x7</b></code>, respectively.&nbsp; Finally, for the
+        windowing systems <code><b>classic</b></code> and
+        <code><b>aqua</b></code> on the Macintosh, the default arrow color is
+        <code>#777777</code> and the default arrow style is
+        <code><b>flat7x7</b></code>.</p>
       </blockquote>
     </dd>
 
@@ -1033,14 +1131,23 @@
         Tcl command associated with the widget.&nbsp; This option is only
         relevant if the value of the <code><b><a href=
         "#showarrow">-showarrow</a></b></code> option is true.&nbsp; The
-        currently supported values are <code><b>flat7x4</b></code>,
-        <code><b>flat7x5</b></code>, <code><b>flat7x7</b></code>,
-        <code><b>flat8x5</b></code>, <code><b>flat9x5</b></code>,
-        <code><b>sunken8x7</b></code>, <code><b>sunken10x9</b></code>, and
+        currently supported values are <code><b>flat6x4</b></code>,
+        <code><b>flat7x4</b></code>, <code><b>flat7x5</b></code>,
+        <code><b>flat7x7</b></code>, <code><b>flat8x5</b></code>,
+        <code><b>flat9x5</b></code>, <code><b>flat9x7</b></code>,
+        <code><b>flat10x6</b></code>, <code><b>sunken8x7</b></code>,
+        <code><b>sunken10x9</b></code>, and
         <code><b>sunken12x11</b></code>.&nbsp; The default value depends on the
         windowing system in the Tablelist package and on the current theme in
         Tablelist_tile; see the description of the <code><b><a href=
         "#arrowcolor">-arrowcolor</a></b></code> option for details.</p>
+
+        <p>Notice that, while the up- and down-arrows of most of the styles
+        listed above are drawn as triangles with flat or sunken relief, the
+        arrow styles <code><b>flat7x5</b></code>, <code><b>flat9x7</b></code>,
+        and <code><b>flat10x6</b></code> give rise to arrows displayed as
+        angles similar to the <code><b>&gt;</b></code> and
+        <code><b>&lt;</b></code> characters rotated by 90&deg;.</p>
       </blockquote>
     </dd>
 
@@ -1078,6 +1185,41 @@
         option, too; otherwise the latter's default value equals the default
         foreground color of the header labels in <code><b>disabled</b></code>
         state.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
+      <a name="collapsecommand"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-collapsecommand</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;collapseCommand</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;CollapseCommand</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>Specifies a Tcl command to be invoked when collapsing a row of a
+        tablelist used as a tree widget (with the aid of the <code><b><a href=
+        "#collapse">collapse</a></b></code> or <code><b><a href=
+        "#collapseall">collapseall</a></b></code> subcommand).&nbsp; The
+        specified command is automatically concatenated with the name of the
+        tablelist widget and the row index, and the resulting script is
+        evaluated in the global scope, before hiding the descendants of the row
+        in question.</p>
+
+        <p>For technical reasons (the use of the <code><b>-elide</b></code>
+        text widget tag option for collapsing a row), this option is not
+        supported for Tk versions earlier than 8.3.</p>
       </blockquote>
     </dd>
 
@@ -1146,6 +1288,62 @@
     </dd>
 
     <dd>
+      <a name="columntitles"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-columntitles</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;columnTitles</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;ColumnTitles</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>This option provides a simplified form of specifying dynamic-width,
+        left-aligned tablelist columns.&nbsp; Its value is viewed as a list of
+        column titles.&nbsp; The default is an empty list.</p>
+
+        <p>In the simplest case that no columns have been specified yet,
+        setting this option to the value given by the list</p>
+
+        <blockquote>
+          <pre>
+<i>title</i> <i>title</i> ...
+</pre>
+        </blockquote>
+        
+        <p>is equivalent to setting the <code><b><a href=
+        "#columns">-columns</a></b></code> option to the value given by the
+        list</p>
+
+        <blockquote>
+          <pre>
+0 <i>title</i> left 0 <i>title</i> left ...
+</pre>
+        </blockquote>
+
+        <p>If the columns have already been specified then this option updates
+        their titles (as many of them as possible) and, if the number of
+        elements of its value is greater than the number of columns then it
+        uses the remaining elements as titles of additional dynamic-width,
+        left-aligned columns.&nbsp; For example, if the widget has 3 columns
+        and the option's value is a list of length 5 then the option will
+        update the titles of the 3 columns and will append 2 new dynamic-width,
+        left-aligned columns having as titles the last 2 elements of the
+        list.&nbsp; If the widget has 3 columns and the option specifies just 2
+        texts then it will update the titles of the first 2 columns only.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
       <a name="editendcommand"></a>
       <table border="0" cellpadding="0" cellspacing="0">
         <tr>
@@ -1184,6 +1382,39 @@
     </dd>
 
     <dd>
+      <a name="editselectedonly"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-editselectedonly</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;editSelectedOnly</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;EditSelectedOnly</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>Specifies a boolean value that controls whether to start the
+        interactive cell editing when mouse button 1 is pressed in an editable
+        cell.&nbsp; If this value is true then the editing will only be started
+        if the cell has previously been selected (interactively or
+        programmatically).&nbsp; In this case, a first left-click will usually
+        just select the cell (or its row, depending on the value of the
+        <code><b><a href="#selecttype">-selecttype</a></b></code> option), and
+        a second mouse click will start the editing session.&nbsp; The default
+        is <code>0</code>, meaning that the editing will be started regardless
+        of whether the cell is selected or not.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
       <a name="editstartcommand"></a>
       <table border="0" cellpadding="0" cellspacing="0">
         <tr>
@@ -1213,6 +1444,45 @@
         validations for the edit window's contents.&nbsp; See the <a href=
         "#cell_editing">INTERACTIVE CELL EDITING</a> section for details on the
         editing process.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
+      <a name="expandcommand"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-expandcommand</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;expandCommand</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;ExpandCommand</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>Specifies a Tcl command to be invoked when expanding a row of a
+        tablelist used as a tree widget (with the aid of the <code><b><a href=
+        "#expand">expand</a></b></code> or <code><b><a href=
+        "#expandall">expandall</a></b></code> subcommand).&nbsp; The specified
+        command is automatically concatenated with the name of the tablelist
+        widget and the row index, and the resulting script is evaluated in the
+        global scope, before displaying the children of the row in
+        question.</p>
+
+        <p>For technical reasons (the use of the <code><b>-elide</b></code>
+        text widget tag option for collapsing a row), this option is not
+        supported for Tk versions earlier than 8.3.</p>
+
+        <p><b>REMARK:</b>&nbsp; It is common practice to use the command
+        specified as the value of this option to insert the children of the row
+        that is about to be expanded, if it has no children yet.</p>
       </blockquote>
     </dd>
 
@@ -1723,7 +1993,7 @@
         <code><b>-listvariable</b></code> will fail but will not generate an
         error.</p>
 
-        <p><b>REMARK:</b>&nbsp; For increased efficiency, updating the widget
+        <p><b>REMARK 1:</b>&nbsp; For increased efficiency, updating the widget
         to reflect a changed value of the variable specified with this option
         is, whenever possible, done at idle time (i.e., when there are no
         events to process).&nbsp; On the other hand, most tablelist subcommands
@@ -1765,6 +2035,15 @@ for {set row 0} {$row &lt; 1000} {incr row} {
         1000 updates of the widget's internal list.&nbsp; The second method
         performs incomparably faster, because it needs only one synchronization
         (at the beginning of the second loop).</p>
+
+        <p><b>REMARK 2:</b>&nbsp; It is not recommended to set this option for
+        a tablelist used as a tree widget, because adding new items to the
+        list specified as its value will result in inserting those list
+        elements into the widget without respecting the tree's internal
+        structure.&nbsp; There is no problem if you access the variable for
+        reading only, but for that purpose it is more efficient to use the
+        <code><b><a href="#itemlistvar">itemlistvar</a></b></code> subcommand
+        rather than the <code><b>-listvariable</b></code> option.</p>
       </blockquote>
     </dd>
 
@@ -1790,9 +2069,9 @@ for {set row 0} {$row &lt; 1000} {incr row} {
       <blockquote>
         <p>Specifies a boolean value that determines whether the columns can be
         moved interactively.&nbsp; See the <a href="#label_bindings">DEFAULT
-        BINDINGS FOR THE HEADER LABELS</a> section below for information on
-        moving a column interactively.&nbsp; The default value is
-        <code>0</code>.</p>
+        AND INDIVIDUAL BINDINGS FOR THE HEADER LABELS</a> section below for
+        information on moving a column interactively.&nbsp; The default value
+        is <code>0</code>.</p>
       </blockquote>
     </dd>
 
@@ -1898,8 +2177,8 @@ for {set row 0} {$row &lt; 1000} {incr row} {
         <p>Specifies a boolean value that determines whether the boundary of
         the title column area shall be protected from being crossed when moving
         a column interactively.&nbsp; See the <a href="#label_bindings">DEFAULT
-        BINDINGS FOR THE HEADER LABELS</a> section below for information on
-        moving a column interactively.&nbsp; The default value is
+        AND INDIVIDUAL BINDINGS FOR THE HEADER LABELS</a> section below for
+        information on moving a column interactively.&nbsp; The default value is
         <code>0</code>, specifying that non-title columns can be moved into the
         title column area and vice-versa.</p>
       </blockquote>
@@ -1927,8 +2206,8 @@ for {set row 0} {$row &lt; 1000} {incr row} {
       <blockquote>
         <p>Specifies a boolean value that determines whether the columns can be
         resized interactively.&nbsp; See the <a href="#label_bindings">DEFAULT
-        BINDINGS FOR THE HEADER LABELS</a> section below for information on
-        interactive column resizing.&nbsp; The default value is
+        AND INDIVIDUAL BINDINGS FOR THE HEADER LABELS</a> section below for
+        information on interactive column resizing.&nbsp; The default value is
         <code>1</code>.</p>
       </blockquote>
     </dd>
@@ -2514,8 +2793,8 @@ for {set row 0} {$row &lt; 1000} {incr row} {
         independently of the value of the <code><b><a href=
         "#showseparators">-showseparators</a></b></code> option.&nbsp; The user
         can easily distinguish it from the other separators by means of its
-        background color, which is different from that of the other separator
-        frames.</p>
+        background color, which is different from that of the other
+        separators.</p>
 
         <p>For technical reasons (the use of the <code><b>-elide</b></code>
         option for a text widget tag), this option is not supported for Tk
@@ -2577,7 +2856,7 @@ proc tooltipAddCmd {tbl row col} {
 
         <blockquote>
           <pre>
--tooltipaddcommand tooltipAddCmd -tooltipdelcommand DynamicHelp::delete
+... -tooltipaddcommand tooltipAddCmd -tooltipdelcommand DynamicHelp::delete
 </pre>
         </blockquote>
 
@@ -2599,11 +2878,24 @@ proc tooltipAddCmd {tbl row col} {
 
         <blockquote>
           <pre>
--tooltipaddcommand tooltipAddCmd -tooltipdelcommand "tooltip::tooltip clear"
+... -tooltipaddcommand tooltipAddCmd -tooltipdelcommand "tooltip::tooltip clear"
 </pre>
         </blockquote>
 
-        <p>Both versions above make use of the <code><b><a href=
+        <p>Please note that in the less common case that the name of your
+        tablelist widget contains spaces, the<code> tooltip::tooltip clear
+        </code>command won't work as expected.&nbsp; As a workaround you can
+        use the slightly modified approach shown below:</p>
+
+        <blockquote>
+          <pre>
+proc tooltipDelCmd tbl { tooltip::tooltip $tbl "" }
+
+... -tooltipaddcommand tooltipAddCmd -tooltipdelcommand tooltipDelCmd
+</pre>
+        </blockquote>
+
+        <p>Both examples above make use of the <code><b><a href=
         "#iselemsnipped">iselemsnipped</a></b></code> and <code><b><a href=
         "#istitlesnipped">istitlesnipped</a></b></code> subcommands, to make
         sure that the full cell and label texts will only be displayed for
@@ -2643,6 +2935,354 @@ proc tooltipAddCmd {tbl row col} {
         and&nbsp; <code>"tooltip::tooltip clear"</code>&nbsp; (which requires
         the tooltip package contained in tklib).&nbsp; Their usage is shown in
         the examples above.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
+      <a name="treecolumn"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-treecolumn</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;treeColumn</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;TreeColumn</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>Specifies the column to contain the indentations and expand/collapse
+        controls for a tablelist used as a tree widget.&nbsp; The option's
+        value may be a column index in any of the forms described in the
+        <a href="#col_indices">COLUMN INDICES</a> section below.&nbsp; The
+        specified column index is replaced with its numerical equivalent, and
+        it will be updated automatically whenever columns are inserted,
+        deleted, or moved.&nbsp; The default value is <code>0</code>.</p>
+
+        <p>For technical reasons (the use of the <code><b>-elide</b></code>
+        text widget tag option for collapsing a row), this option is not
+        supported for Tk versions earlier than 8.3.</p>
+
+        <p><b>REMARK:</b>&nbsp; Please note that the tree structure will only
+        be displayed as expected if the column specified by this option is
+        left-aligned.&nbsp; It is your responsibility to make sure that this
+        restriction is fulfilled when using a tablelist as a tree widget.</p>
+      </blockquote>
+    </dd>
+
+    <dd>
+      <a name="treestyle"></a>
+      <table border="0" cellpadding="0" cellspacing="0">
+        <tr>
+          <td>Command-Line Name:&nbsp;</td>
+          <td><code><b>-treestyle</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Name:</td>
+          <td><code><b>&nbsp;treeStyle</b></code></td>
+        </tr>
+
+        <tr>
+          <td>Database Class:</td>
+          <td><code><b>&nbsp;TreeStyle</b></code></td>
+        </tr>
+      </table>
+
+      <blockquote>
+        <p>Specifies the look &amp; feel of the column containing the
+        indentations and expand/collapse controls for a tablelist used as a
+        tree widget.&nbsp; This includes, among others, the images used for
+        displaying the expand/collapse controls, the indentation width, and
+        whether expand/collapse controls and indentations are to be protected
+        when selecting a row or cell.&nbsp; The currently supported values are
+        shown in the table below:</p>
+
+        <table border="2" cellspacing="0" cellpadding="3">
+          <tr bgcolor="#FFFFE0">
+            <th align="left">Value</th>
+            <th align="center">Screenshot</th>
+            <th align="left">Comments</th>
+          </tr>
+
+          <tr>
+            <td><code><b>aqua</b></code></td>
+            <td><img src="aqua.png" width="117" height="54"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing systems
+                  <code><b>aqua</b></code> and
+                  <code><b>classic</b></code>.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the themes <code><b>aqua</b></code> and
+                  <code><b>Aquativo</b></code>.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>baghira</b></code></td>
+            <td><img src="baghira.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the Qt style <code><b>baghira</b></code>
+                  within the <code><b>tileqt</b></code> theme.&nbsp; Also used
+                  by some flavors of <code><b>qtcurve</b></code>.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>gtk</b></code></td>
+            <td><img src="gtk.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>x11</b></code>.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the themes <code><b>blue</b></code>,
+                  <code><b>clam</b></code>, <code><b>classic</b></code>,
+                  <code><b>default</b></code>, <code><b>kroc</b></code>,
+                  <code><b>sriv</b></code>, <code><b>srivlg</b></code>, and
+                  <code><b>step</b></code>.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>klearlooks</b></code></td>
+            <td><img src="klearlooks.png" width="117" height="51"></td>
+            <td>
+              Inspired by the KDE 4 style Klearlooks.<br>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the Qt style <code><b>qtcurve</b></code>
+                  within the <code><b>tileqt</b></code> theme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>oxygen1</b></code></td>
+            <td><img src="oxygen1.png" width="117" height="51"></td>
+            <td>Inspired by the KDE 4 style Oxygen.</td>
+          </tr>
+
+          <tr>
+            <td><code><b>oxygen2</b></code></td>
+            <td><img src="oxygen2.png" width="117" height="51"></td>
+            <td>Inspired by the KDE 4 style Oxygen.</td>
+          </tr>
+
+          <tr>
+            <td><code><b>phase</b></code></td>
+            <td><img src="phase.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the Qt style <code><b>phase</b></code>
+                  within the <code><b>tileqt</b></code> theme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>plastique</b></code></td>
+            <td><img src="plastique.png" width="117" height="51"></td>
+            <td>Inspired by the Qt and KDE 4 style Plastique.</td>
+          </tr>
+
+          <tr>
+            <td><code><b>vistaAero</b></code></td>
+            <td><img src="vistaAero.png" width="117" height="54"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows Vista.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>vista</b></code> theme on
+                  Windows Vista with the Vista Aero style.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>vistaClassic</b></code></td>
+            <td><img src="vistaClassic.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows Vista with the Windows
+                  Classic style.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>vista</b></code> theme on
+                  Windows Vista with the Windows Classic style.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>win7Aero</b></code></td>
+            <td><img src="win7Aero.png" width="117" height="54"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows 7.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>vista</b></code> theme on
+                  Windows 7 with the Windows 7 Aero style.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>win7Classic</b></code></td>
+            <td><img src="win7Classic.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows 7 with the Windows
+                  Classic style.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>vista</b></code> theme on
+                  Windows 7 with the Windows Classic style.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>winnative</b></code></td>
+            <td><img src="winnative.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows 2000 and Windows XP with
+                  the Windows Classic style.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the themes <code><b>alt</b></code>,
+                  <code><b>keramik</b></code>, <code><b>keramik_alt</b></code>,
+                  <code><b>plastik</b></code>, <code><b>winnative</b></code>,
+                  and <code><b>xpnative</b></code> with the Windows Classic
+                  style, as well as for most Qt styles within the
+                  <code><b>tileqt</b></code> theme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>winxpBlue</b></code></td>
+            <td><img src="winxpBlue.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows XP with the Blue color
+                  scheme.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>winxpblue</b></code> theme and
+                  the <code><b>xpnative</b></code> theme on Windows XP with the
+                  Blue color scheme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>winxpOlive</b></code></td>
+            <td><img src="winxpOlive.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows XP with the Olive Green
+                  color scheme.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>xpnative</b></code> theme on
+                  Windows XP with the Olive Green color scheme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+
+          <tr>
+            <td><code><b>winxpSilver</b></code></td>
+            <td><img src="winxpSilver.png" width="117" height="51"></td>
+            <td>
+              <table border="0" cellpadding="0" cellspacing="0">
+                <tr valign="top">
+                  <td>Tablelist:&nbsp;</td>
+                  <td>Default for the windowing system
+                  <code><b>win32</b></code> on Windows XP with the Silver color
+                  scheme.</td>
+                </tr>
+                <tr valign="top">
+                  <td>Tablelist_tile:&nbsp;</td>
+                  <td>Default for the <code><b>xpnative</b></code> theme on
+                  Windows XP with the Silver color scheme.</td>
+                </tr>
+              </table>
+            </td>
+          </tr>
+        </table>
+
+        <p>For technical reasons (the use of the <code><b>-elide</b></code>
+        text widget tag option for collapsing a row), this option is not
+        supported for Tk versions earlier than 8.3.</p>
       </blockquote>
     </dd>
 
@@ -2687,14 +3327,15 @@ proc tooltipAddCmd {tbl row col} {
     but <code><i>pathName</i></code>'s parent must exist.</dd>
 
     <dd><br>
-    A tablelist is a multi-column listbox, implemented as a mega-widget,
-    consisting of a <b>body</b> and a <b>header</b>.&nbsp; The body displays a
-    list of <b>items</b>, one per line.&nbsp; Each item is a list of
-    <b>elements</b>, which are aligned in columns.&nbsp; In other words, an
-    item is the contents of a row, and an element is the text contained in a
-    cell.&nbsp; The header consists of label widgets displaying the column
-    titles.&nbsp; The labels can be used, among others, for interactive column
-    resizing and column-based sorting of the items, as described below.</dd>
+    A tablelist is a multi-column listbox and tree widget, implemented as a
+    mega-widget, consisting of a <b>body</b> and a <b>header</b>.&nbsp; The
+    body displays a list of <b>items</b>, one per line.&nbsp; Each item is a
+    list of <b>elements</b>, which are aligned in columns.&nbsp; In other
+    words, an item is the contents of a row, and an element is the text
+    contained in a cell.&nbsp; The header consists of label widgets displaying
+    the column titles.&nbsp; The labels can be used, among others, for
+    interactive column resizing and column-based sorting of the items, as
+    described below.</dd>
 
     <dd><br>
     Each cell and each header label of a tablelist widget can also contain an
@@ -2702,6 +3343,18 @@ proc tooltipAddCmd {tbl row col} {
     column's alignment.&nbsp; Instead of an image, a tablelist cell can also
     contain an embedded window, placed to the left or right of the text, just
     like an embedded image.</dd>
+
+    <dd><br>
+    When a tablelist is used as a tree widget, one of its columns will display
+    the tree hierarchy with the aid of indentations and expand/collapse
+    controls.&nbsp; The Tablelist package provides a great variety of tree
+    styles controlling the look &amp; feel of that column, and chooses the
+    correct default style depending on the windowing system, operating system
+    version, and tile theme.&nbsp; In a tablelist used as a multi-column tree
+    widget, every row is at the same time a tree <b>node</b>, having exactly
+    one <b>parent</b> node and any number of <b>child</b> nodes.&nbsp; The
+    tree's origin is the invisible <b>root</b> node, which has no parent itself
+    and whose children are the <b>top-level</b> nodes.</dd>
 
     <dd><br>
     The elements of a tablelist widget can, per default, be only edited
@@ -2712,10 +3365,10 @@ proc tooltipAddCmd {tbl row col} {
     during the editing process.&nbsp; A great variety of widgets from the
     packages BWidget, Iwidgets, combobox (by Bryan Oakley), and Mentry (or
     Mentry_tile), as well as Tk core text, spinbox and checkbutton widgets
-    along with tile entry, combobox, and checkbutton widgets are also supported
-    as temporary embedded widgets used for cell editing.&nbsp; In addition, a
-    rich set of keyboard bindings is provided for a comfortable navigation
-    between the editable cells.</dd>
+    along with tile entry, spinbox, combobox, and checkbutton widgets are also
+    supported as temporary embedded widgets used for cell editing.&nbsp; In
+    addition, a rich set of keyboard bindings is provided for a comfortable
+    navigation between the editable cells.</dd>
 
     <dd><br>
     When first created, a new tablelist widget has no items.&nbsp; Items may be
@@ -2755,14 +3408,20 @@ proc tooltipAddCmd {tbl row col} {
       <code><b>-foreground</b></code>, <code><b>-selectbackground</b></code>,
       and <code><b>-selectforeground</b></code> options can also be specified
       at column, row, and cell level, by using the <code><b><a href=
-      "#columnconfigure">columnconfigure</a></b></code>, <code><b><a href=
-      "#rowconfigure">rowconfigure</a></b></code>, and <code><b><a href=
-      "#cellconfigure">cellconfigure</a></b></code> subcommands of the Tcl
-      command associated with the tablelist widget.&nbsp; For this reason, a
-      particular cell can have up to four values for one and the same color or
-      font option.&nbsp; If these values conflict, then the option specified at
-      the highest priority level is used.&nbsp; The decreasing priority order
-      is cell, row, column, widget.&nbsp;
+      "#columnconfigure">columnconfigure</a></b></code> (or <code><b><a href=
+      "#configcolumnlist">configcolumnlist</a></b></code>, or <code><b><a href=
+      "#configcolumns">configcolumns</a></b></code>), <code><b><a href=
+      "#rowconfigure">rowconfigure</a></b></code> (or <code><b><a href=
+      "#configrowlist">configrowlist</a></b></code>, or <code><b><a href=
+      "#configrows">configrows</a></b></code>), and <code><b><a href=
+      "#cellconfigure">cellconfigure</a></b></code> (or <code><b><a href=
+      "#configcelllist">configcelllist</a></b></code>, or <code><b><a href=
+      "#configcells">configcells</a></b></code>) subcommands of the Tcl command
+      associated with the tablelist widget.&nbsp; For this reason, a particular
+      cell can have up to four values for one and the same color or font
+      option.&nbsp; If these values conflict, then the option specified at the
+      highest priority level is used.&nbsp; The decreasing priority order is
+      cell, row, column, widget.
 
       <p>If one of these options hasn't been specified at cell, row, or column
       level, or if its value for that level is an empty string (this is
@@ -2835,7 +3494,7 @@ proc tooltipAddCmd {tbl row col} {
         is the default), <code><b>text</b></code>, <code><b>spinbox</b></code>
         (the latter for Tk version 8.4 or higher),
         <code><b>checkbutton</b></code>, <code><b>ttk::entry</b></code>,
-        <code><b>ttk::combobox</b></code>, or
+        <code><b>ttk::spinbox</b></code>, <code><b>ttk::combobox</b></code>, or
         <code><b>ttk::checkbutton</b></code> (the latter three only in the
         presence of the tile widget engine), or the value returned by one of
         the registration commands for widgets from the packages <a href=
@@ -2880,10 +3539,11 @@ proc tooltipAddCmd {tbl row col} {
           nonempty string, then it is automatically concatenated with the
           cell's text, the resulting script is evaluated in the global scope,
           and the return value is displayed in the cell or added to the
-          selection instead of the original data.&nbsp; For example, if a time
-          value in seconds is being inserted into the cell and
-          <code><i>command</i></code> is the procedure <code>formatDate</code>
-          defined as
+          selection instead of the original data.
+
+          <p>For example, if a time value in seconds is being inserted into the
+          cell and <code><i>command</i></code> is the procedure
+          <code>formatDate</code> defined as</p>
 
           <blockquote>
             <pre>
@@ -2894,24 +3554,26 @@ proc formatDate clockVal {
           </blockquote>
 
           <p>then the text displayed in the cell will be the date in the
-          specified format, not the time value in seconds.&nbsp; Notice that
-          this option is only used for preparing the text to be displayed or
-          returned when exporting the selection, and does not affect the
-          internal cell contents.&nbsp; For example, the <code><b><a href=
-          "#get">get</a></b></code>, <code><b><a href=
+          specified format, not the time value in seconds.</p>
+          
+          <p>Notice that this option is only used for preparing the text to be
+          displayed or returned when exporting the selection, and does not
+          affect the internal cell contents.&nbsp; For example, the
+          <code><b><a href="#get">get</a></b></code>, <code><b><a href=
           "#getcolumns">getcolumns</a></b></code>, <code><b><a href=
           "#getcells">getcells</a></b></code>, <code><b><a href=
           "#rowcget">rowcget</a></b></code>, <code><b><a href=
           "#columncget">columncget</a></b></code>, <code><b><a href=
           "#cellcget">cellcget</a></b></code>, <code><b><a href=
           "#sort">sort</a></b></code>, <code><b><a href=
-          "#sortbycolumn">sortbycolumn</a></b></code>, and <code><b><a href=
-          "#sortbycolumnlist">sortbycolumnlist</a></b></code> subcommands all
-          operate on the original cell text, which is contained in the widget's
-          internal list.&nbsp; In the case of the above example, this will make
-          it possible to sort the items very easily by time, with a second's
-          precision, even if their visual representation only contains the
-          year, month, and day.</p>
+          "#sortbycolumn">sortbycolumn</a></b></code>, <code><b><a href=
+          "#sortbycolumnlist">sortbycolumnlist</a></b></code>, and
+          <code><b><a href="#refreshsorting">refreshsorting</a></b></code>
+          subcommands all operate on the original cell text, which is contained
+          in the widget's internal list.&nbsp; In the case of the above
+          example, this will make it possible to sort the items very easily by
+          time, with a second's precision, even if their visual representation
+          only contains the year, month, and day.</p>
 
           <p>The <code><b>-formatcommand</b></code> option comes in handy if
           only images or embedded windows are to be displayed in a column but
@@ -2920,6 +3582,11 @@ proc formatDate clockVal {
           editing).&nbsp; In such cases, a procedure returning an empty string
           can be used as the option's value, thus making sure that the textual
           information contained in that column remains hidden.</p>
+
+          <p>The demo scripts included in the Tablelist distribution contain
+          further examples demonstrating the use of this option.&nbsp; The most
+          interesting ones are also described in <a href=
+          "tablelist.html">Tablelist Programmer's Guide</a>.</p>
 
           <p>In the more sophisticated case that the result of the formatting
           should also depend on the cell's row, you will have to invoke the
@@ -2933,7 +3600,9 @@ proc formatDate clockVal {
 
         <dd>Specifies whether to hide the column when displaying the widget or
         exporting its selection.&nbsp; The default value is
-        <code>0</code>.</dd>
+        <code>0</code>.&nbsp; After toggling the hidden state of a column, the
+        <code><b>&lt;&lt;TablelistColHiddenStateChanged&gt;&gt;</b></code>
+        virtual event is generated.</dd>
 
         <dt><br>
         <a name="col_labelalign"></a><code><b>-labelalign</b>
@@ -3034,8 +3703,8 @@ proc formatDate clockVal {
         <i>boolean</i></code></dt>
 
         <dd>Specifies whether the column can be resized interactively.&nbsp;
-        See the <a href="#label_bindings">DEFAULT BINDINGS FOR THE HEADER
-        LABELS</a> section for information on interactive column
+        See the <a href="#label_bindings">DEFAULT AND INDIVIDUAL BINDINGS FOR
+        THE HEADER LABELS</a> section for information on interactive column
         resizing.&nbsp; The default value is <code>1</code>.&nbsp; This option
         is only relevant if the value of the <code><b><a href=
         "#resizablecolumns">-resizablecolumns</a></b></code> widget
@@ -3143,10 +3812,19 @@ proc formatDate clockVal {
 
           <table border="0" cellpadding="0" cellspacing="0">
             <tr valign="top">
-              <td width="90"><code><b>ascii</b></code></td>
+              <td><code><b>ascii</b></code></td>
 
-              <td>Use string comparison with ASCII collation order.&nbsp; This
-              is the default.<br>
+              <td>Use string comparison with Unicode code-point collation order
+              (the name is for backward-compatibility reasons).&nbsp; This is
+              the default.<br>
+              &nbsp;</td>
+            </tr>
+
+            <tr valign="top">
+              <td><code><b>asciinocase&nbsp;&nbsp;</b></code></td>
+
+              <td>This is the same as <code><b>ascii</b></code>, except that
+              comparisons are handled in a case-insensitive manner.<br>
               &nbsp;</td>
             </tr>
 
@@ -3299,9 +3977,13 @@ proc formatDate clockVal {
         <dd>
           Specifies whether to hide the row when displaying the widget or
           exporting its selection.&nbsp; The default value is
-          <code>0</code>.&nbsp; For technical reasons (the use of the
-          <code><b>-elide</b></code> option for a text widget tag), this option
-          is not supported for Tk versions earlier than 8.3.
+          <code>0</code>.&nbsp; After toggling the hidden state of a row, the
+          <code><b>&lt;&lt;TablelistRowHiddenStateChanged&gt;&gt;</b></code>
+          virtual event is generated.&nbsp;
+          
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          option for a text widget tag), this option is not supported for Tk
+          versions earlier than 8.3.</p>
 
           <p><b>CAUTION:</b>&nbsp; Tk versions 8.3 - 8.4.12 had a bug that
           caused a segmentation fault if the whole content of a text widget was
@@ -3310,6 +3992,15 @@ proc formatDate clockVal {
           crash if all the rows of a tablelist widget are hidden.&nbsp; It is
           your responsibility to avoid such situations when using a Tk version
           having this bug!</p>
+
+          <p><b>REMARK:</b>&nbsp; Tablelist currently makes use of this row
+          configuration option in the implementation of the <code><b><a href=
+          "#collapse">collapse</a></b></code>, <code><b><a href=
+          "#collapseall">collapseall</a></b></code>, <code><b><a href=
+          "#expand">expand</a></b></code>, and <code><b><a href=
+          "#expandall">expandall</a></b></code> subcommands.&nbsp; For this
+          reason, it is not expected to use this option in application code for
+          tablelist widgets designed to display a tree hierarchy.</p>
         </dd>
 
         <dt><a name="row_name"></a><code><b>-name</b> <i>name</i></code></dt>
@@ -3323,9 +4014,9 @@ proc formatDate clockVal {
         <code><i>row</i><b>,</b><i>col</i></code>, as described in the <a href=
         "#cell_indices">CELL INDICES</a> section.&nbsp; To avoid ambiguities,
         row names should be different from any other forms of row indices (like
-        numbers, keys, <code><b>active</b></code>, <code><b>anchor</b></code>,
-        <code><b>end</b></code>, or any of their abbreviations).&nbsp; The
-        default value is an empty string.</dd>
+        numbers, full keys, <code><b>active</b></code>,
+        <code><b>anchor</b></code>, <code><b>end</b></code>, or any of their
+        abbreviations).&nbsp; The default value is an empty string.</dd>
 
         <dt><br>
         <a name="row_selectable"></a><code><b>-selectable</b>
@@ -3519,11 +4210,11 @@ proc formatDate clockVal {
           If the tablelist's <code><b><a href="#state">state</a></b></code> is
           <code><b>disabled</b></code> then this option will be ignored.
 
-          <p>There are several situations where the embedded window will be
-          destroyed and later recreated by invoking the script mentioned
-          above.&nbsp; For example, when changing the value of some of the
-          tablelist widget or column configuration options, sorting the items,
-          or moving a row or a column, the widget's contents will be
+          <p><b>REMARK:</b>&nbsp; There are several situations where the
+          embedded window will be destroyed and later recreated by invoking the
+          script mentioned above.&nbsp; For example, when changing the value of
+          some of the tablelist widget or column configuration options, sorting
+          the items, or moving a row or a column, the widget's contents will be
           redisplayed, which makes it necessary to recreate the embedded
           windows.&nbsp; This operation won't preserve the changes made on the
           embedded windows after their creation.&nbsp; For this reason, you
@@ -3556,6 +4247,50 @@ proc formatDate clockVal {
     </dd>
 
     <dt><br>
+    <a name="tree_widget"></a><b>USING A TABLELIST AS MULTI-COLUMN TREE WIDGET</b></dt>
+
+    <dd>
+      When using a tablelist widget to display a tree hierarchy, there are a
+      few rules to follow:<br>
+      &nbsp;
+
+      <ol>
+        <li>Do not use the the widget's <code><b><a href=
+        "#listvariable">-listvariable</a></b></code> option, or at least do not
+        add new items to the variable specified as its value, because adding
+        new items to that list will result in inserting those list elements
+        into the widget without respecting the tree's internal structure.<br>
+        &nbsp;</li>
+
+        <li>Make sure that the column specified by the <code><b><a href=
+        "#treecolumn">-treecolumn</a></b></code> option is left-aligned so the
+        tree structure can be displayed as expected.<br>
+        &nbsp;</li>
+
+        <li>Do not set the <code><b><a href="#row_hide">-hide</a></b></code>
+        row configuration option for any item of the widget with the aid of the
+        <code><b><a href="#rowconfigure">rowconfigure</a></b></code>,
+        <code><b><a href="#configrowlist">configrowlist</a></b></code>,
+        <code><b><a href="#configrows">configrows</a></b></code>, or
+        <code><b><a href="#togglerowhide">togglerowhide</a></b></code>
+        subcommand, because Tablelist currently makes use of this row
+        configuration option in the implementation of the <code><b><a href=
+        "#collapse">collapse</a></b></code>, <code><b><a href=
+        "#collapseall">collapseall</a></b></code>, <code><b><a href=
+        "#expand">expand</a></b></code>, and <code><b><a href=
+        "#expandall">expandall</a></b></code> subcommands.<br>
+        &nbsp;</li>
+
+        <li>Use the <code><b><a href=
+        "#insertchildren">insertchild(ren)</a></b></code> or <code><b><a href=
+        "#insertchildlist">insertchildlist</a></b></code> subcommand rather
+        than <code><b><a href="#insert">insert</a></b></code> or
+        <code><b><a href="#insertlist">insertlist</a></b></code> for inserting
+        new items into the widget.</li>
+      </ol>
+    </dd>
+
+    <dt><br>
     <a name="cell_editing"></a><b>INTERACTIVE CELL EDITING</b></dt>
 
     <dd>Whether or not the contents of a cell of a tablelist widget can be
@@ -3573,20 +4308,21 @@ proc formatDate clockVal {
     <dd><br>
     The interactive cell editing is started by the <code><b><a href=
     "#editcell">editcell</a></b></code> subcommand, which is invoked implicitly
-    by clicking with the left mouse button into an editable cell or using
-    keyboard navigation to move from one editable cell into another.&nbsp; If
-    the selection type is <code><b>cell</b></code> and the location cursor is
-    in an editable cell, then the interactive editing of the active element can
-    also be started by pressing <code>Return</code> or
-    <code>KP_Enter</code>.&nbsp; Per default, the <code><b>editcell</b></code>
-    subcommand creates a temporary entry widget and embeds it into the cell
-    whose index was passed to it as argument.&nbsp; You can, however, use the
-    <code><b>-editwindow</b></code> <a href="#col_editwindow">column</a> or
-    <a href="#cell_editwindow">cell</a> configuration option to specify another
-    widget instead of an entry, like a Tk core text, spinbox, or checkbutton
-    widget, or a tile entry, combobox, or checkbutton, or one of the 16
-    currently supported widgets from the packages <a href=
-    "tablelistBWidget.html">BWidget</a>, <a href=
+    by clicking with the left mouse button into an editable cell (see the
+    <code><b><a href="#editselectedonly">-editselectedonly</a></b></code>
+    option for details) or using keyboard navigation to move from one editable
+    cell into another.&nbsp; If the selection type is <code><b>cell</b></code>
+    and the location cursor is in an editable cell, then the interactive
+    editing of the active element can also be started by pressing
+    <code>Return</code> or <code>KP_Enter</code>.&nbsp; Per default, the
+    <code><b>editcell</b></code> subcommand creates a temporary entry widget
+    and embeds it into the cell whose index was passed to it as argument.&nbsp;
+    You can, however, use the <code><b>-editwindow</b></code> <a href=
+    "#col_editwindow">column</a> or <a href="#cell_editwindow">cell</a>
+    configuration option to specify another widget instead of an entry, like a
+    Tk core text, spinbox, or checkbutton widget, or a tile entry, spinbox,
+    combobox, or checkbutton, or one of the 18 currently supported widgets from
+    the packages <a href= "tablelistBWidget.html">BWidget</a>, <a href=
     "tablelistIwidgets.html">Iwidgets</a>, <a href=
     "tablelistCombobox.html">combobox</a> (by Bryan Oakley), and <a href=
     "tablelistMentry.html">Mentry (or Mentry_tile)</a>.&nbsp; Before specifying
@@ -3594,8 +4330,9 @@ proc formatDate clockVal {
     <code><b>-editwindow</b></code> column or cell configuration option, you
     must register it for interactive cell editing by invoking the corresponding
     <code><b>tablelist::add*</b></code> command.&nbsp; The Tk core entry, text,
-    spinbox, and checkbutton widgets, as well as the tile entry, combobox, and
-    checkbutton widgets are automatically registered for cell editing.</dd>
+    spinbox, and checkbutton widgets, as well as the tile entry, spinbox,
+    combobox, and checkbutton widgets are automatically registered for cell
+    editing.</dd>
 
     <dd><br>
     In the simplest case, the text automatically inserted into the temporary
@@ -3701,7 +4438,7 @@ proc formatDate clockVal {
 
       <table border="0" cellpadding="0" cellspacing="0">
         <tr valign="top">
-          <td width="75"><code><i>number</i></code></td>
+          <td><code><i>number</i></code></td>
 
           <td>Specifies the item as a numerical index, where <code>0</code>
           corresponds to the first item in the tablelist.<br>
@@ -3713,13 +4450,22 @@ proc formatDate clockVal {
 
           <td>Specifies the item by its full key, composed of the letter
           <code><b>k</b></code> and the sequence number associated with the
-          item, as returned by the <code><b><a href=
-          "#getkeys">getkeys</a></b></code> widget command.<br>
+          item.&nbsp; You can use the <code><b><a href=
+          "#getkeys">getkeys</a></b></code> widget command to get this sequence
+          number, or the <code><b><a href=
+          "#getfullkeys">getfullkeys</a></b></code> widget command to retrieve
+          the full key.&nbsp; In addition, the <code><b><a href=
+          "#insert">insert</a></b></code>, <code><b><a href=
+          "#insertlist">insertlist</a></b></code>, <code><b><a href=
+          "#insertchildren">insertchildren</a></b></code>, and
+          <code><b><a href="#insertchildlist">insertchildlist</a></b></code>
+          subcommands return the list of full keys associated with the items
+          just inserted.<br>
           &nbsp;</td>
         </tr>
 
         <tr valign="top">
-          <td><code><b>active</b></code></td>
+          <td><code><b>active</b>&nbsp;&nbsp;&nbsp;</code></td>
 
           <td>Indicates the item containing the element that has the location
           cursor.&nbsp; Depending on the selection type, this item as a whole
@@ -3790,17 +4536,31 @@ proc formatDate clockVal {
       forms.</p>
     </dd>
 
+    <dt><a name="node_indices"></a><b>NODE INDICES</b></dt>
+
+    <dd>
+      Many of the widget commands for tablelist widgets take a node index as
+      argument.&nbsp; A node index is either the word <code><b>root</b></code>,
+      denoting the invisible root node of a tablelist used as a tree widget, or
+      a regular row index in one of the above forms, specifying a particular
+      item of the tablelist.
+
+      <p>In the widget command descriptions below, arguments named
+      <code><i>nodeIndex</i></code> and <code><i>parentNodeIndex</i></code>
+      always contain node indices.</p>
+    </dd>
+
     <dt><a name="col_indices"></a><b>COLUMN INDICES</b></dt>
 
     <dd>
-      Many of the widget commands for tablelist widgets take a column index as
-      argument.&nbsp; A column index specifies a particular column of the
-      tablelist, in any of the following ways:<br>
+      Many of the widget commands for tablelist widgets take one or more column
+      indices as arguments.&nbsp; A column index specifies a particular column
+      of the tablelist, in any of the following ways:<br>
       &nbsp;
 
       <table border="0" cellpadding="0" cellspacing="0">
         <tr valign="top">
-          <td width="75"><code><i>number</i></code></td>
+          <td><code><i>number</i></code></td>
 
           <td>Specifies the column as a numerical index, where <code>0</code>
           corresponds to the first column in the tablelist.<br>
@@ -3808,7 +4568,7 @@ proc formatDate clockVal {
         </tr>
 
         <tr valign="top">
-          <td><code><b>active</b></code></td>
+          <td><code><b>active</b>&nbsp;&nbsp;&nbsp;</code></td>
 
           <td>Indicates the column containing the element that has the location
           cursor.&nbsp; If the selection type is <code><b>cell</b></code> then
@@ -3877,14 +4637,14 @@ proc formatDate clockVal {
     <dt><a name="cell_indices"></a><b>CELL INDICES</b></dt>
 
     <dd>
-      Many of the widget commands for tablelist widgets take a cell index as
-      argument.&nbsp; A cell index specifies a particular cell of the
-      tablelist, in any of the following ways:<br>
+      Many of the widget commands for tablelist widgets take one or more cell
+      indices as arguments.&nbsp; A cell index specifies a particular cell of
+      the tablelist, in any of the following ways:<br>
       &nbsp;
 
       <table border="0" cellpadding="0" cellspacing="0">
         <tr valign="top">
-          <td width="75"><code><i>row</i><b>,</b><i>col</i></code></td>
+          <td><code><i>row</i><b>,</b><i>col</i></code></td>
 
           <td>Indicates the cell having the row index <code><i>row</i></code>
           and column index <code><i>col</i></code>.&nbsp;
@@ -3899,7 +4659,7 @@ proc formatDate clockVal {
         </tr>
 
         <tr valign="top">
-          <td><code><b>active</b></code></td>
+          <td><code><b>active</b>&nbsp;&nbsp;&nbsp;</code></td>
 
           <td>Indicates the element that has the location cursor.&nbsp; If the
           selection type is <code><b>cell</b></code> then this element will be
@@ -4001,8 +4761,38 @@ proc formatDate clockVal {
         string.</dd>
 
         <dt><br>
-        <a name="attrib"></a><code><i>pathName</i> <b>attrib</b> ?<i>name</i>?
-        ?<i>value</i> <i>name</i> <i>value</i> ...?</code></dt>
+        <a name="applysorting"></a><code><i>pathName</i> <b>applysorting</b>
+        <i>itemList</i></code></dt>
+
+        <dd>
+          Sorts the elements of <code><i>itemList</i></code> according to the
+          parameters of the most recent <code><b><a href=
+          "#sort">sort</a></b></code>, <code><b><a href=
+          "#sortbycolumn">sortbycolumn</a></b></code>, or <code><b><a href=
+          "#sortbycolumnlist">sortbycolumnlist</a></b></code> invocation and
+          returns a new list in sorted order.&nbsp; The
+          <code><i>itemList</i></code> argument is supposed to be a well-formed
+          list of lists, where the length of each sublist is expected to be no
+          less than the number of columns of the tablelist widget.&nbsp; If the
+          items haven't been sorted at all, or the sort information was reset
+          by invoking <code><b><a href=
+          "#resetsortinfo">resetsortinfo</a></b></code>, then no sorting takes
+          place and the return value will be identical to
+          <code><i>itemList</i></code>.
+
+          <p><b>REMARK:</b>&nbsp; This subcommand is usually invoked from
+          within the command specified as the value of the <code><b><a href=
+          "#expandcommand">-expandcommand</a></b></code> configuration option,
+          for a tablelist row whose children have not yet been inserted into
+          the widget.&nbsp; The most efficient way to insert the child items in
+          the correct order is to add them to a list, sort this list via
+          <code><b>applysorting</b></code>, and then insert the items of the
+          sorted list by invoking the <code><b><a href=
+          "#insertchildlist">insertchildlist</a></b></code> subcommand.</p>
+        </dd>
+
+        <dt><a name="attrib"></a><code><i>pathName</i> <b>attrib</b>
+        ?<i>name</i>? ?<i>value</i> <i>name</i> <i>value</i> ...?</code></dt>
 
         <dd>Queries or modifies the attributes of the widget.&nbsp; If no
         <code><i>name</i></code> is specified, the command returns a list of
@@ -4024,14 +4814,15 @@ proc formatDate clockVal {
         <i>index</i></code></dt>
 
         <dd>Returns a list of four numbers describing the bounding box of the
-        row given by <i>index</i>.&nbsp; The first two elements of the list
-        give the x and y coordinates of the upper-left corner of the screen
-        area covered by the row (specified in pixels relative to the widget)
-        and the last two elements give the width and height of the area, in
-        pixels.&nbsp; If no part of the row given by <i>index</i> is visible on
-        the screen, or if <i>index</i> refers to a non-existent row, then the
-        result is an empty string; if the row is partially visible, the result
-        gives the full area of the row, including any parts that are not
+        row given by <code><i>index</i></code>.&nbsp; The first two elements of
+        the list give the x and y coordinates of the upper-left corner of the
+        screen area covered by the row (specified in pixels relative to the
+        widget) and the last two elements give the width and height of the
+        area, in pixels.&nbsp; If no part of the row given by
+        <code><i>index</i></code> is visible on the screen, or if
+        <code><i>index</i></code> refers to a non-existent row, then the result
+        is an empty string; if the row is partially visible, the result gives
+        the full area of the row, including any parts that are not
         visible.</dd>
 
         <dt><br>
@@ -4219,9 +5010,84 @@ proc formatDate clockVal {
         by the <code><b>tablelist::tablelist</b></code> command.</dd>
 
         <dt><br>
-        <a name="columnattrib"></a><code><i>pathName</i> <b>columnattrib</b>
-        <i>columnIndex</i> ?<i>name</i>? ?<i>value</i> <i>name</i> <i>value</i>
-        ...?</code></dt>
+        <a name="childcount"></a><code><i>pathName</i> <b>childcount</b>
+        <i>nodeIndex</i></code></dt>
+
+        <dd>Returns the number of children of the tree node indicated by
+        <code><i>nodeIndex</i></code>.&nbsp; If this argument is specified as
+        <code><b>root</b></code> then the return value will be the number of
+        top-level items of the tablelist widget.</dd>
+
+        <dt><br>
+        <a name="childindex"></a><code><i>pathName</i> <b>childindex</b>
+        <i>index</i></code></dt>
+
+        <dd>Returns the numerical index of the row given by
+        <code><i>index</i></code> in the list of children of its parent
+        node.</dd>
+
+        <dt><br>
+        <a name="childkeys"></a><code><i>pathName</i> <b>childkeys</b>
+        <i>nodeIndex</i></code></dt>
+
+        <dd>Returns the list of full keys of the children of the tree node
+        indicated by <code><i>nodeIndex</i></code>.&nbsp; If this argument is
+        specified as <code><b>root</b></code> then the return value will be the
+        list of full keys of the top-level items contained in the tablelist
+        widget.</dd>
+
+        <dt><br>
+        <a name="collapse"></a><code><i>pathName</i> <b>collapse</b>
+        <i>index</i> ?<b>-fully</b>|<b>-partly</b>?</code></dt>
+
+        <dd>
+          This subcommand collapses the specified row of a tablelist used as a
+          tree widget, i.e., hides all its descendants.&nbsp; The optional
+          argument <code><b>-fully</b></code> (which is the default) indicates
+          that the command will be performed recursively, i.e., all of the
+          descendants of the node specified by <code><i>index</i></code> will
+          be collapsed, so that a subsequent invocation of the non-recursive
+          version of the <code><b><a href="#expand">expand(all)</a></b></code>
+          subcommand will only display the row's children but no further
+          descendants of it.&nbsp; The <code><b>-partly</b></code> option
+          (which is used by the default bindings) restricts the operation to
+          just one hierarchy level, implying that by a subsequent invocation of
+          the non-recursive version of the <code><b>expand(all)</b></code>
+          subcommand exactly the same descendants will be displayed again that
+          were visible prior to collapsing the row.
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+        </dd>
+
+        <dt><a name="collapseall"></a><code><i>pathName</i> <b>collapseall</b>
+        ?<b>-fully</b>|<b>-partly</b>?</code></dt>
+
+        <dd>
+          This subcommand collapses all top-level rows of a tablelist used as
+          a tree widget, i.e., hides all their descendants.&nbsp; The optional
+          argument <code><b>-fully</b></code> (which is the default) indicates
+          that the command will be performed recursively, i.e., all of the
+          descendants of the top-level nodes will be collapsed, so that a
+          subsequent invocation of the non-recursive version of the
+          <code><b><a href="#expandall">expandall</a></b></code> subcommand
+          will only display ther children but no further descendants of
+          them.&nbsp; The <code><b>-partly</b></code> option restricts the
+          operation to just one hierarchy level, implying that by a subsequent
+          invocation of the non-recursive version of the
+          <code><b>expandall</b></code> subcommand exactly the same items will
+          be displayed again that were visible prior to collapsing the
+          top-level ones.
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+        </dd>
+
+        <dt><a name="columnattrib"></a><code><i>pathName</i>
+        <b>columnattrib</b> <i>columnIndex</i> ?<i>name</i>? ?<i>value</i>
+        <i>name</i> <i>value</i> ...?</code></dt>
 
         <dd>Queries or modifies the attributes of the column given by
         <code><i>columnIndex</i></code>.&nbsp; If no <code><i>name</i></code>
@@ -4337,8 +5203,8 @@ proc formatDate clockVal {
 
           <blockquote>
             <pre>
-eval [list $<i>pathName</i> <a href=
-"#configcells">configcells</a>] $<i>cellConfigSpecList</i>
+eval [list <i>pathName</i> <a href=
+"#configcells">configcells</a>] <i>cellConfigSpecList</i>
 </pre>
           </blockquote>
 
@@ -4381,8 +5247,8 @@ eval [list $<i>pathName</i> <a href=
 
           <blockquote>
             <pre>
-eval [list $<i>pathName</i> <a href=
-"#configcolumns">configcolumns</a>] $<i>columnConfigSpecList</i>
+eval [list <i>pathName</i> <a href=
+"#configcolumns">configcolumns</a>] <i>columnConfigSpecList</i>
 </pre>
           </blockquote>
 
@@ -4424,8 +5290,8 @@ eval [list $<i>pathName</i> <a href=
 
           <blockquote>
             <pre>
-eval [list $<i>pathName</i> <a href=
-"#configrows">configrows</a>] $<i>rowConfigSpecList</i>
+eval [list <i>pathName</i> <a href=
+"#configrows">configrows</a>] <i>rowConfigSpecList</i>
 </pre>
           </blockquote>
 
@@ -4528,8 +5394,9 @@ eval [list $<i>pathName</i> <a href=
         <code><i>first</i></code> and <code><i>last</i></code> are indices
         specifying the first and last items in the range to delete.&nbsp; The
         command's second form accepts a list <code><i>indexList</i></code> of
-        indices specifying the items to be deleted.&nbsp; Returns an empty
-        string.</dd>
+        indices specifying the items to be deleted.&nbsp; In both cases, all
+        descendants of the specified items will be deleted, too.&nbsp; The
+        return value is an empty string.</dd>
 
         <dt><br>
         <a name="deletecolumns"></a><code><i>pathName</i> <b>deletecolumns</b>
@@ -4545,6 +5412,24 @@ eval [list $<i>pathName</i> <a href=
         delete.&nbsp; The command's second form accepts a list
         <code><i>columnIndexList</i></code> of indices specifying the columns
         to be deleted.&nbsp; Returns an empty string.</dd>
+
+        <dt><br>
+        <a name="depth"></a><code><i>pathName</i> <b>depth</b>
+        <i>nodeIndex</i></code></dt>
+
+        <dd>Returns the number of steps from the tree node indicated by
+        <code><i>nodeIndex</i></code> to the <code><b>root</b></code>
+        node.&nbsp; The latter's depth is 0, that of the top-level rows is 1,
+        and so on.</dd>
+
+        <dt><br>
+        <a name="descendantcount"></a><code><i>pathName</i>
+        <b>descendantcount</b> <i>nodeIndex</i></code></dt>
+
+        <dd>Returns the number of descendants of the tree node indicated by
+        <code><i>nodeIndex</i></code>.&nbsp; If this argument is specified as
+        <code><b>root</b></code> then the return value will be the number of
+        items of the tablelist widget.</dd>
 
         <dt><br>
         <a name="editcell"></a><code><i>pathName</i> <b>editcell</b>
@@ -4574,10 +5459,12 @@ eval [list $<i>pathName</i> <a href=
           <code><b><a href="#edit_bindings">TablelistEdit</a></b></code> in the
           list of binding tags of the edit window components mentioned above,
           and is designed to be used when defining individual binding scripts
-          for controlling the interactive cell editing.&nbsp; For example, the
-          following command will replace the standard behavior of the
-          <code>Return</code> key during cell editing in the tablelist widget
-          <code>.tbl</code> with that of the <code>Tab</code> key:
+          for controlling the interactive cell editing.
+          
+          <p>For example, the following command will replace the standard
+          behavior of the <code>Return</code> key during cell editing in the
+          tablelist widget <code>.tbl</code> with that of the
+          <code>Tab</code> key:</p>
 
           <blockquote>
             <pre>
@@ -4609,14 +5496,59 @@ bind [.tbl editwintag] &lt;Return&gt; "[bind TablelistEdit &lt;Tab&gt;]; break"
         subcommand.&nbsp; If no cell is currently being edited or the editing
         is taking place with the aid of a Tk or tile checkbutton or mentry
         widget then the return value is an empty string; otherwise it is the
-        path name of a Tk or tile entry, Tk text or spinbox, or BWidget Entry
-        widget, which can be the edit window itself or one of its
+        path name of a Tk or tile entry, Tk text, Tk or tile spinbox, or
+        BWidget Entry widget, which can be the edit window itself or one of its
         descendants.&nbsp; This subcommand enables you to access the entry or
         entry-like component of the temporary embedded widget from within the
         commands specified by the <code><b><a href=
         "#editstartcommand">-editstartcommand</a></b></code> and
         <code><b><a href="#editendcommand">-editendcommand</a></b></code>
         configuration options.</dd>
+
+        <dt><br>
+        <a name="expand"></a><code><i>pathName</i> <b>expand</b>
+        <i>index</i> ?<b>-fully</b>|<b>-partly</b>?</code></dt>
+
+        <dd>
+          This subcommand expands the specified row of a tablelist used as a
+          tree widget, i.e., makes all its children visible.&nbsp; The optional
+          argument <code><b>-fully</b></code> (which is the default) indicates
+          that the command will be performed recursively, i.e., all of the
+          descendants of the node specified by <code><i>index</i></code> will
+          be displayed.&nbsp; The <code><b>-partly</b></code> option (which is
+          used by the default bindings) restricts the operation to just one
+          hierarchy level, indicating that only the children of the specified
+          node will be displayed, without changing the expanded/collapsed state
+          of the child nodes.
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+        </dd>
+
+        <dt><a name="expandall"></a><code><i>pathName</i> <b>expandall</b>
+        ?<b>-fully</b>|<b>-partly</b>?</code></dt>
+
+        <dd>
+          This subcommand expands all top-level rows of a tablelist used as a
+          tree widget, i.e., makes all their children visible.&nbsp; The
+          optional argument <code><b>-fully</b></code> (which is the default)
+          indicates that the commnd will be performed recursively, i.e., all of
+          the descendants of the top-level nodes will be displayed.&nbsp; The
+          <code><b>-partly</b></code> option restricts the operation to just
+          one hierarchy level, indicating that only the children of the
+          top-level nodes will be displayed, without changing the
+          expanded/collapsed state of the child nodes.
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+        </dd>
+
+        <dt><a name="expandedkeys"></a><code><i>pathName</i>
+        <b>expandedkeys</b></code></dt>
+
+        <dd>Returns the list of full keys of the expanded items.</dd>
 
         <dt><br>
         <a name="fillcolumn"></a><code><i>pathName</i> <b>fillcolumn</b>
@@ -4663,14 +5595,15 @@ bind [.tbl editwintag] &lt;Return&gt; "[bind TablelistEdit &lt;Tab&gt;]; break"
           the tablelist's body, outside the cell just being edited, or moving
           into another editable cell by using keyboard navigation.</p>
 
-          <p>There are also situations where an <i>explicit</i> invocation of
-          this subcommand is needed, in order to make sure that the cell just
-          being edited gets updated with the text entered by the user.&nbsp;
-          For example, if a tablelist widget is part of a dialog used for
-          editing some data, then the binding script associated with the button
-          designed to accept the data should call this subcommand, because
-          otherwise, if the button is pressed during interactive cell editing
-          then the text entered into the edit window will get lost.</p>
+          <p><b>REMARK:</b>&nbsp; There are also situations where an
+          <i>explicit</i> invocation of this subcommand is needed, in order to
+          make sure that the cell just being edited gets updated with the text
+          entered by the user.&nbsp; For example, if a tablelist widget is part
+          of a dialog used for editing some data, then the binding script
+          associated with the button designed to accept the data should call
+          this subcommand, because otherwise, if the button is pressed during
+          interactive cell editing then the text entered into the edit window
+          will get lost.</p>
         </dd>
 
         <dt><a name="formatinfo"></a><code><i>pathName</i>
@@ -4689,12 +5622,12 @@ bind [.tbl editwintag] &lt;Return&gt; "[bind TablelistEdit &lt;Tab&gt;]; break"
           second and third elements of the list are the cell's row and column
           indices.
 
-          <p>This subcommand is needed in cases where the result of the
-          formatting should depend on the cell's row.&nbsp; To be able to use
-          it, specify the value of the <code><b>-formatcommand</b></code>
-          column configuration option as&nbsp; <code>[<b>list</b>
-          <i>formatCommand</i> <i>pathName</i>]</code>,&nbsp; like in the
-          following example:</p>
+          <p><b>REMARK:</b>&nbsp; This subcommand is needed in cases where the
+          result of the formatting should depend on the cell's row.&nbsp; To be
+          able to use it, specify the value of the
+          <code><b>-formatcommand</b></code> column configuration option
+          as&nbsp; <code>[<b>list</b> <i>formatCommand</i>
+          <i>pathName</i>]</code>,&nbsp; like in the following example:</p>
 
           <blockquote>
             <pre>
@@ -4762,28 +5695,56 @@ proc formatValue {tbl val} {
         of the tablelist elements contained in that column.</dd>
 
         <dt><br>
-        <a name="getkeys"></a><code><i>pathName</i> <b>getkeys</b> <i>first</i>
-        <i>last</i></code><br>
+        <a name="getfullkeys"></a><code><i>pathName</i> <b>getfullkeys</b>
+        <i>first</i> <i>last</i></code><br>
+        <code><i>pathName</i> <b>getfullkeys</b> <i>indexList</i></code></dt>
+
+        <dd>
+          The first form of the command returns a list whose elements are all
+          of the full keys associated with the tablelist items between
+          <code><i>first</i></code> and <code><i>last</i></code>,
+          inclusive.&nbsp; The value returned by the second form depends on the
+          number of elements in the list <code><i>indexList</i></code>: if the
+          latter contains exactly one index then the return value is the full
+          key associated with the tablelist item indicated by that index (or an
+          empty string if the index refers to a non-existent item); otherwise
+          the command returns the list of all of the full keys associated with
+          the tablelist items corresponding to the indices specified by
+          <code><i>indexList</i></code>.
+          
+          <p>Each item of a tablelist widget has a unique sequence number that
+          remains unchanged until the item is deleted, thus acting as a key
+          that uniquely identifies the item even if the latter's position
+          (i.e., numerical row index) changes.&nbsp; This command provides
+          read-only access to the full keys obtained by prepending the letter
+          <code><b>k</b></code> to these internal item IDs.</p>
+        </dd>
+
+        <dt><a name="getkeys"></a><code><i>pathName</i> <b>getkeys</b>
+        <i>first</i> <i>last</i></code><br>
         <code><i>pathName</i> <b>getkeys</b> <i>indexList</i></code></dt>
 
-        <dd>The first form of the command returns a list whose elements are all
-        of the sequence numbers associated with the tablelist items between
-        <code><i>first</i></code> and <code><i>last</i></code>,
-        inclusive.&nbsp; The value returned by the second form depends on the
-        number of elements in the list <code><i>indexList</i></code>: if the
-        latter contains exactly one index then the return value is the sequence
-        number associated with the tablelist item indicated by that index (or
-        an empty string if the index refers to a non-existent item); otherwise
-        the command returns the list of all of the sequence numbers associated
-        with the tablelist items corresponding to the indices specified by
-        <code><i>indexList</i></code>.&nbsp; Each item of a tablelist widget
-        has a unique sequence number that remains unchanged until the item is
-        deleted, thus acting as a key that uniquely identifies the item even if
-        the latter's position (i.e., row index) changes.&nbsp; This command
-        provides read-only access to these internal item IDs.</dd>
+        <dd>
+          The first form of the command returns a list whose elements are all
+          of the sequence numbers associated with the tablelist items between
+          <code><i>first</i></code> and <code><i>last</i></code>,
+          inclusive.&nbsp; The value returned by the second form depends on the
+          number of elements in the list <code><i>indexList</i></code>: if the
+          latter contains exactly one index then the return value is the
+          sequence number associated with the tablelist item indicated by that
+          index (or an empty string if the index refers to a non-existent
+          item); otherwise the command returns the list of all of the sequence
+          numbers associated with the tablelist items corresponding to the
+          indices specified by <code><i>indexList</i></code>.
+          
+          <p>Each item of a tablelist widget has a unique sequence number that
+          remains unchanged until the item is deleted, thus acting as a key
+          that uniquely identifies the item even if the latter's position
+          (i.e., numerical row index) changes.&nbsp; This command provides
+          read-only access to these internal item IDs.</p>
+        </dd>
 
-        <dt><br>
-        <a name="hasattrib"></a><code><i>pathName</i> <b>hasattrib</b>
+        <dt><a name="hasattrib"></a><code><i>pathName</i> <b>hasattrib</b>
         <i>name</i></code></dt>
 
         <dd>Returns <code>1</code> if the attribute <code><i>name</i></code>
@@ -4838,21 +5799,104 @@ proc formatValue {tbl val} {
         <a name="insert"></a><code><i>pathName</i> <b>insert</b> <i>index</i>
         ?<i>item</i> <i>item</i> ...?</code></dt>
 
-        <dd>Inserts zero or more new items in the widget's internal list just
-        before the item given by <code><i>index</i></code> if the tablelist's
-        <code><b><a href="#state">state</a></b></code> is not
-        <code><b>disabled</b></code>.&nbsp; If <code><i>index</i></code> equals
-        the number of items or is specified as <code><b>end</b></code> then the
-        new items are added to the end of the widget's list.&nbsp; Tabulator
-        characters are displayed as <code>\t</code> (i.e., a backslash followed
-        by a <code>t</code>) but are inserted unchanged into the internal
-        list.&nbsp; Newline characters will force line breaks, i.e., will give
-        rise to multi-line elements (which are displayed in embedded message
-        widgets, created on demand).&nbsp; The return value is an empty
-        string.</dd>
+        <dd>
+          Inserts zero or more new items in the widget's internal list just
+          before the item given by <code><i>index</i></code> if the tablelist's
+          <code><b><a href="#state">state</a></b></code> is not
+          <code><b>disabled</b></code>.&nbsp; If <code><i>index</i></code>
+          equals the number of items or is specified as <code><b>end</b></code>
+          then the new items are added to the end of the widget's list.&nbsp;
+          Tabulator characters are displayed as <code>\t</code> (i.e., a
+          backslash followed by a <code>t</code>) but are inserted unchanged
+          into the internal list.&nbsp; Newline characters will force line
+          breaks, i.e., will give rise to multi-line elements (which are
+          displayed in embedded message widgets, created on demand).&nbsp; The
+          return value is the list of full keys associated with the items just
+          inserted.
 
-        <dt><br>
-        <a name="insertcolumnlist"></a><code><i>pathName</i>
+          <p><b>REMARK:</b>&nbsp; This subcommand is not suitable for inserting
+          items into a tablelist designed for displaying a tree
+          hierarchy.&nbsp; For such tablelist widgets use the <code><b><a href=
+          "#insertchildren">insertchildren</a></b></code> or <code><b><a href=
+          "#insertchildlist">insertchildlist</a></b></code> subcommand.</p>
+        </dd>
+
+        <dt><a name="insertchildlist"></a><code><i>pathName</i>
+        <b>insertchildlist</b> <i>parentNodeIndex</i> <i>childIndex</i>
+        <i>itemList</i></code></dt>
+
+        <dd>
+          Inserts the items of the list <code><i>itemList</i></code> in the
+          widget's internal list of children of the node specified by
+          <code><i>parentNodeIndex</i></code> just before the item given by
+          <code><i>childIndex</i></code> if the tablelist's <code><b><a href=
+          "#state">state</a></b></code> is not
+          <code><b>disabled</b></code>.&nbsp; <code><i>childIndex</i></code>
+          must be a number or <code><b>end</b></code>; if it equals the number
+          of children of the node given by <code><i>parentNodeIndex</i></code>
+          or is specified as <code><b>end</b></code> then the new items are
+          added to the end of the parent's list of children.&nbsp; Tabulator
+          characters are displayed as <code>\t</code> (i.e., a backslash
+          followed by a <code>t</code>) but are inserted unchanged into the
+          internal list.&nbsp; Newline characters will force line breaks, i.e.,
+          will give rise to multi-line elements (which are displayed in
+          embedded message widgets, created on demand).&nbsp; The return value
+          is the list of full keys associated with the items just inserted.
+
+          <p>This command has the same effect as</p>
+
+          <blockquote>
+            <pre>
+eval [list <i>pathName</i> <a href=
+"#insertchildren">insertchildren</a> <i>parentNodeIndex</i> <i>childIndex</i>] <i>itemList</i>
+</pre>
+          </blockquote>
+
+          <p>but it is more efficient and easier to use.</p>
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+
+          <p><b>REMARK:</b>&nbsp; You can achieve a quite significant speadup
+          by using this subcommand to insert a whole list of items rather than
+          using multiple invocations of <code><b><a href=
+          "#insertchildren">insertchildren</a></b></code>.</p>
+        </dd>
+
+        <dt><a name="insertchildren"></a><code><i>pathName</i>
+        <b>insertchildren</b> <i>parentNodeIndex</i> <i>childIndex</i>
+        ?<i>item</i> <i>item</i> ...?</code></dt>
+
+        <dd>
+          Inserts zero or more new items in the widget's internal list of
+          children of the node specified by
+          <code><i>parentNodeIndex</i></code> just before the item given by
+          <code><i>childIndex</i></code> if the tablelist's <code><b><a href=
+          "#state">state</a></b></code> is not
+          <code><b>disabled</b></code>.&nbsp; <code><i>childIndex</i></code>
+          must be a number or <code><b>end</b></code>; if it equals the number
+          of children of the node given by <code><i>parentNodeIndex</i></code>
+          or is specified as <code><b>end</b></code> then the new items are
+          added to the end of the parent's list of children.&nbsp; Tabulator
+          characters are displayed as <code>\t</code> (i.e., a backslash
+          followed by a <code>t</code>) but are inserted unchanged into the
+          internal list.&nbsp; Newline characters will force line breaks, i.e.,
+          will give rise to multi-line elements (which are displayed in
+          embedded message widgets, created on demand).&nbsp; The return value
+          is the list of full keys associated with the items just inserted.
+
+          <p>For technical reasons (the use of the <code><b>-elide</b></code>
+          text widget tag option for collapsing a row), this subcommand is not
+          supported for Tk versions earlier than 8.3.</p>
+
+          <p><b>REMARK:</b>&nbsp; It is explicitly allowed to abbreviate the
+          name <code><b>insertchildren</b></code> as
+          <code><b>insertchild</b></code>.&nbsp; This comes in handy when
+          using this subcommand to insert just one child item.</p>
+        </dd>
+
+        <dt><a name="insertcolumnlist"></a><code><i>pathName</i>
         <b>insertcolumnlist</b> <i>columnIndex</i>
         <i>columnList</i></code></dt>
 
@@ -4880,8 +5924,8 @@ proc formatValue {tbl val} {
 
           <blockquote>
             <pre>
-eval [list $<i>pathName</i> <a href=
-"#insertcolumns">insertcolumns</a> $<i>columnIndex</i>] $<i>columnList</i>
+eval [list <i>pathName</i> <a href=
+"#insertcolumns">insertcolumns</a> <i>columnIndex</i>] <i>columnList</i>
 </pre>
           </blockquote>
 
@@ -4925,18 +5969,31 @@ eval [list $<i>pathName</i> <a href=
           into the internal list.&nbsp; Newline characters will force line
           breaks, i.e., will give rise to multi-line elements (which are
           displayed in embedded message widgets, created on demand).&nbsp; The
-          return value is an empty string.
+          return value is the list of full keys associated with the items just
+          inserted.
 
           <p>This command has the same effect as</p>
 
           <blockquote>
             <pre>
-eval [list $<i>pathName</i> <a href=
-"#insert">insert</a> $<i>index</i>] $<i>itemList</i>
+eval [list <i>pathName</i> <a href=
+"#insert">insert</a> <i>index</i>] <i>itemList</i>
 </pre>
           </blockquote>
 
           <p>but it is more efficient and easier to use.</p>
+
+          <p><b>REMARK 1:</b>&nbsp; You can achieve a quite significant speadup
+          by using this subcommand to insert a whole list of items rather than
+          using multiple invocations of <code><b><a href=
+          "#insert">insert</a></b></code>.</p>
+
+          <p><b>REMARK 2:</b>&nbsp; This subcommand is not suitable for
+          inserting items into a tablelist designed for displaying a tree
+          hierarchy.&nbsp; For such tablelist widgets use the <code><b><a href=
+          "#insertchildlist">insertchildlist</a></b></code> or
+          <code><b><a href="#insertchildren">insertchildren</a></b></code>
+          subcommand.</p>
         </dd>
 
         <dt><a name="iselemsnipped"></a><code><i>pathName</i>
@@ -4989,12 +6046,12 @@ upvar #0 [.tbl itemlistvar] itemList
           <code>.tbl</code>.&nbsp; Each element of the widget's internal list
           corresponds to one item, and it is in turn a list whose elements
           correspond to the elements of that item, except that it has one
-          additional element, holding the item's key.</p>
+          additional element, holding the item's full key.</p>
 
-          <p>The <code><b>itemlistvar</b></code> command provides an efficient
-          way for accessing this internal list, instead of retrieving the items
-          with the <code><b><a href="#get">get</a></b></code> subcommand or
-          using the <code><b><a href=
+          <p><b>REMARK:</b>&nbsp; The <code><b>itemlistvar</b></code> command
+          provides an efficient way for accessing this internal list, instead
+          of retrieving the items with the <code><b><a href=
+          "#get">get</a></b></code> subcommand or using the <code><b><a href=
           "#listvariable">-listvariable</a></b></code> option (these methods
           consume significantly more memory).&nbsp; It can be useful in
           situations where the elements of a tablelist widget are to be
@@ -5016,19 +6073,41 @@ upvar #0 [.tbl itemlistvar] itemList
         the widget.</dd>
 
         <dt><br>
+        <a name="labeltag"></a><code><i>pathName</i>
+        <b>labeltag</b></code></dt>
+
+        <dd>Returns the name of a binding tag whose name depends on the path
+        name of the tablelist widget and which is associated with the header
+        labels as well as with the additional widgets placed by Tablelist into
+        the latters for displaying header images and sort arrows.&nbsp; This
+        binding tag is designed to be used when defining non-default binding
+        scripts for the header labels.&nbsp; From within such event handling
+        scripts you can retrieve the column number and the tablelist widget's
+        path name with the aid of the helper commands <code><b><a href=
+        "tablelistBinding.html#getTablelistColumn">tablelist::getTablelistColumn</a></b></code>
+        and <code><b><a href=
+        "tablelistBinding.html#getTablelistPath">tablelist::getTablelistPath</a></b></code>.</dd>
+
+        <dt><br>
         <a name="move"></a><code><i>pathName</i> <b>move</b> <i>source</i>
         <i>target</i></code></dt>
 
-        <dd>Moves the item indicated by <code><i>source</i></code> just before
-        the one given by <code><i>target</i></code> if the tablelist's
-        <code><b><a href="#state">state</a></b></code> is not
-        <code><b>disabled</b></code>.&nbsp; If <code><i>target</i></code>
-        equals the nunber of items or is specified as <code><b>end</b></code>
-        then the source item is moved after the last one.&nbsp; Returns an
-        empty string.</dd>
+        <dd>
+          Moves the item indicated by <code><i>source</i></code> just before
+          the one given by <code><i>target</i></code> if the tablelist's
+          <code><b><a href="#state">state</a></b></code> is not
+          <code><b>disabled</b></code>.&nbsp; If <code><i>target</i></code>
+          equals the nunber of items or is specified as <code><b>end</b></code>
+          then the source item is moved after the last one.&nbsp; Returns an
+          empty string.
 
-        <dt><br>
-        <a name="movecolumn"></a><code><i>pathName</i> <b>movecolumn</b>
+          <p><b>REMARK:</b>&nbsp; In the current implementation, the items
+          specified by <code><i>source</i></code> and
+          <code><i>target</i></code> must have the same parent.&nbsp; This
+          restriction will be eliminated in some future Tablelist release.</p>
+        </dd>
+
+        <dt><a name="movecolumn"></a><code><i>pathName</i> <b>movecolumn</b>
         <i>sourceColumn</i> <i>targetColumn</i></code></dt>
 
         <dd>Moves the column indicated by <code><i>sourceColumn</i></code> just
@@ -5070,6 +6149,47 @@ upvar #0 [.tbl itemlistvar] itemList
         component).</dd>
 
         <dt><br>
+        <a name="noderow"></a><code><i>pathName</i> <b>noderow</b>
+        <i>parentNodeIndex</i> <i>childIndex</i></code></dt>
+
+        <dd>Returns the numerical row index of the node having the parent
+        indicated by <code><i>parentNodeIndex</i></code> and the index
+        <code><i>childIndex</i></code> in the parent's list of children.&nbsp;
+        <code><i>childIndex</i></code> must be a number or
+        <code><b>end</b></code>; if it equals the number of children of the
+        parent node or is specified as <code><b>end</b></code> then the return
+        value will be the row index of the item following the parent node's
+        last descendant.</dd>
+
+        <dt><br>
+        <a name="parentkey"></a><code><i>pathName</i> <b>parentkey</b>
+        <i>nodeIndex</i></code></dt>
+
+        <dd>Returns the full key of the tree node indicated by
+        <code><i>nodeIndex</i></code>.&nbsp; If this argument is specified as
+        <code><b>root</b></code> then the return value will be an empty
+        string.&nbsp; If <code><i>nodeIndex</i></code> identifies a top-level
+        item then the subcommand will return <code><b>root</b></code>.&nbsp;
+        For all other items the return value will be a full key of the form
+        <code><b>k</b><i>number</i></code>.</dd>
+
+        <dt><br>
+        <a name="refreshsorting"></a><code><i>pathName</i>
+        <b>refreshsorting</b> ?<i>parentNodeIndex</i>?</code></dt>
+
+        <dd>Sorts the children of the tablelist node specified by
+        <code><i>parentNodeIndex</i></code> according to the parameters of the
+        most recent <code><b><a href="#sort">sort</a></b></code>,
+        <code><b><a href="#sortbycolumn">sortbycolumn</a></b></code>, or
+        <code><b><a href="#sortbycolumnlist">sortbycolumnlist</a></b></code>
+        invocation.&nbsp; If the items haven't been sorted at all, or the sort
+        information was reset by invoking <code><b><a href=
+        "#resetsortinfo">resetsortinfo</a></b></code>, then no sorting takes
+        place.&nbsp; The optional argument <code><i>parentNodeIndex</i></code>
+        defaults to <code><b>root</b></code>, meaning that all the items are to
+        be sorted per default.&nbsp; The return value is an empty string.</dd>
+
+        <dt><br>
         <a name="rejectinput"></a><code><i>pathName</i>
         <b>rejectinput</b></code></dt>
 
@@ -5084,7 +6204,7 @@ upvar #0 [.tbl itemlistvar] itemList
         and sets the focus to the temporary widget embedded into the
         cell.&nbsp; This command enables you to reject the widget's text during
         the final validation of the string intended to become the new cell
-        contents.</dd>
+        contents.&nbsp; The return value is an empty string.</dd>
 
         <dt><br>
         <a name="resetsortinfo"></a><code><i>pathName</i>
@@ -5449,7 +6569,12 @@ upvar #0 [.tbl itemlistvar] itemList
         <code>-1</code> if they were last sorted with the <code><b><a href=
         "#sort">sort</a></b></code> command or haven't been sorted at all, or
         the sort information was reset by invoking <code><b><a href=
-        "#resetsortinfo">resetsortinfo</a></b></code>.</dd>
+        "#resetsortinfo">resetsortinfo</a></b></code>.&nbsp; If called from
+        within the command specified as the value of the
+        <code><b>-sortcommand</b></code> <a href="#sortcommand">widget</a> or
+        <a href="#col_sortcommand">column</a> configuration option, then the
+        return value of this subcommand refers to the sorting in progress
+        rather than the most recent one.</dd>
 
         <dt><br>
         <a name="sortcolumnlist"></a><code><i>pathName</i>
@@ -5463,7 +6588,12 @@ upvar #0 [.tbl itemlistvar] itemList
         empty string if they were last sorted with the <code><b><a href=
         "#sort">sort</a></b></code> command or haven't been sorted at all, or
         the sort information was reset by invoking <code><b><a href=
-        "#resetsortinfo">resetsortinfo</a></b></code>.</dd>
+        "#resetsortinfo">resetsortinfo</a></b></code>.&nbsp; If called from
+        within the command specified as the value of the
+        <code><b>-sortcommand</b></code> <a href="#sortcommand">widget</a> or
+        <a href="#col_sortcommand">column</a> configuration option, then the
+        return value of this subcommand refers to the sorting in progress
+        rather than the most recent one.</dd>
 
         <dt><br>
         <a name="sortorder"></a><code><i>pathName</i>
@@ -5476,7 +6606,12 @@ upvar #0 [.tbl itemlistvar] itemList
         "#sortbycolumnlist">sortbycolumnlist</a></b></code> command, or an
         empty string if the items haven't been sorted at all, or the sort
         information was reset by invoking <code><b><a href=
-        "#resetsortinfo">resetsortinfo</a></b></code>.</dd>
+        "#resetsortinfo">resetsortinfo</a></b></code>.&nbsp; If called from
+        within the command specified as the value of the
+        <code><b>-sortcommand</b></code> <a href="#sortcommand">widget</a> or
+        <a href="#col_sortcommand">column</a> configuration option, then the
+        return value of this subcommand refers to the sorting in progress
+        rather than the most recent one.</dd>
 
         <dt><br>
         <a name="sortorderlist"></a><code><i>pathName</i>
@@ -5491,7 +6626,12 @@ upvar #0 [.tbl itemlistvar] itemList
         empty string if the items were last sorted with the <code><b><a href=
         "#sort">sort</a></b></code> command or haven't been sorted at all, or
         the sort information was reset by invoking <code><b><a href=
-        "#resetsortinfo">resetsortinfo</a></b></code>.</dd>
+        "#resetsortinfo">resetsortinfo</a></b></code>.&nbsp; If called from
+        within the command specified as the value of the
+        <code><b>-sortcommand</b></code> <a href="#sortcommand">widget</a> or
+        <a href="#col_sortcommand">column</a> configuration option, then the
+        return value of this subcommand refers to the sorting in progress
+        rather than the most recent one.</dd>
 
         <dt><br>
         <a name="togglecolumnhide"></a><code><i>pathName</i>
@@ -5501,14 +6641,16 @@ upvar #0 [.tbl itemlistvar] itemList
 
         <dd>Toggles the value of the <code><b><a href=
         "#col_hide">-hide</a></b></code> option for one or more columns of the
-        tablelist.&nbsp; In the first form of the command,
+        tablelist widget.&nbsp; In the first form of the command,
         <code><i>firstColumn</i></code> and <code><i>lastColumn</i></code> are
         indices specifying the first and last columns in the range whose
         visibility is to be toggled.&nbsp; The command's second form accepts a
         list <code><i>columnIndexList</i></code> of indices specifying the
         columns whose visibility is to be toggled.&nbsp; Returns an empty
-        string.&nbsp; The main advantage of using this command instead of
-        invoking <code><b><a href=
+        string.&nbsp; After toggling the hidden state of the specified columns,
+        the <code><b>&lt;&lt;TablelistColHiddenStateChanged&gt;&gt;</b></code>
+        virtual event is generated.&nbsp; The main advantage of using this
+        command instead of invoking <code><b><a href=
         "#columnconfigure">columnconfigure</a></b></code> for each of the
         specified columns is that it causes only one redisplay of the widget's
         contents, thus being significantly faster.</dd>
@@ -5521,14 +6663,17 @@ upvar #0 [.tbl itemlistvar] itemList
         <dd>
           Toggles the value of the <code><b><a href=
           "#row_hide">-hide</a></b></code> option for one or more rows of the
-          tablelist.&nbsp; In the first form of the command,
+          tablelist widget.&nbsp; In the first form of the command,
           <code><i>first</i></code> and <code><i>last</i></code> are indices
           specifying the first and last rows in the range whose visibility is
           to be toggled.&nbsp; The command's second form accepts a list
           <code><i>indexList</i></code> of indices specifying the rows whose
           visibility is to be toggled.&nbsp; Returns an empty string.&nbsp;
-          Just like the <code><b>-hide</b></code> row configuration option,
-          this subcommand is not supported for Tk versions earlier than 8.3.
+          After toggling the hidden state of the specified rows, the
+          <code><b>&lt;&lt;TablelistRowHiddenStateChanged&gt;&gt;</b></code>
+          virtual event is generated.&nbsp; Just like the
+          <code><b>-hide</b></code> row configuration option, this subcommand
+          is not supported for Tk versions earlier than 8.3.
 
           <p><b>CAUTION:</b>&nbsp; Tk versions 8.3 - 8.4.12 had a bug that
           caused a segmentation fault if the whole content of a text widget was
@@ -5539,7 +6684,16 @@ upvar #0 [.tbl itemlistvar] itemList
           having this bug!</p>
         </dd>
 
-        <dt><a name="unsetattrib"></a><code><i>pathName</i> <b>unsetattrib</b>
+        <dt><a name="toplevelkey"></a><code><i>pathName</i> <b>toplevelkey</b>
+        <i>index</i></code></dt>
+
+        <dd>If the item identified by <code><i>index</i></code> is a top-level
+        one then the subcommand returns the full key of that item.&nbsp;
+        Otherwise the return value is the full key of the unique top-level item
+        having the given item among its descendants.</dd>
+
+        <dt><br>
+        <a name="unsetattrib"></a><code><i>pathName</i> <b>unsetattrib</b>
         <i>name</i></code></dt>
 
         <dd>Unsets the attribute <code><i>name</i></code>.&nbsp; Returns an
@@ -5885,10 +7039,34 @@ bind [.tbl bodytag] &lt;Button-1&gt; {
       mouse button 1, the source item is moved before the one indicated by the
       gap mentioned above and the virtual event
       <code><b>&lt;&lt;TablelistRowMoved&gt;&gt;</b></code> is generated.</p>
+
+      <p>Finally, the following bindings associated with the binding tag
+      <code><b>TablelistBody</b></code> apply to tablelists used as tree
+      widgets:</p>
+
+      <ol>
+        <li>Pressing mouse button 1 over an expand/collapse control toggles the
+        expanded/collapsed state of the corresponding row.<br>
+        &nbsp;</li>
+
+        <li>If the current active row contains an expand/collapse control in
+        collapsed state then the <code>Right</code>, <code>plus</code>, and
+        <code>KP_Add</code> keys expand the corresponding row by invoking the
+        non-recursive version of the <code><b><a href=
+        "#expand">expand</a></b></code> subcommand.<br>
+        &nbsp;</li>
+
+        <li>If the current active row contains an expand/collapse control in
+        expanded state then the <code>Left</code>, <code>minus</code>, and
+        <code>KP_Subtract</code> keys collapse the corresponding row by
+        invoking the non-recursive version of the <code><b><a href=
+        "#collapse">collapse</a></b></code> subcommand.</li>
+      </ol>
     </dd>
 
-    <dt><a name="label_bindings"></a><b>DEFAULT BINDINGS FOR THE HEADER
-    LABELS</b></dt>
+    <dt><br>
+    <a name="label_bindings"></a><b>DEFAULT AND INDIVIDUAL BINDINGS FOR THE
+    HEADER LABELS</b></dt>
 
     <dd>
       The <code><b>tablelist::tablelist</b></code> command automatically
@@ -5969,7 +7147,8 @@ bind [.tbl bodytag] &lt;Button-1&gt; {
         "#col_maxwidth">-maxwidth</a></b></code> column configuration option),
         and the virtual event
         <code><b>&lt;&lt;TablelistColumnResized&gt;&gt;</b></code> is
-        generated.<br>
+        generated.&nbsp; The same action is triggered by double-clicking the
+        resize area of a header label.<br>
         &nbsp;</li>
 
         <li>The Tablelist package defines the virtual event
@@ -5984,12 +7163,35 @@ bind [.tbl bodytag] &lt;Button-1&gt; {
         corresponding to that label are true, then the width of that column is
         set to its last static width (if any) and the virtual event
         <code><b>&lt;&lt;TablelistColumnResized&gt;&gt;</b></code> is
-        generated.</li>
+        generated.&nbsp; The same action is triggered by double-clicking the
+        resize area of a header label with the <code>Shift</code> key held
+        down.</li>
       </ol>
 
       <p>If the tablelist's <code><b><a href="#state">state</a></b></code> is
       <code><b>disabled</b></code> then none of the above actions occur: the
       labels are completely insensitive.</p>
+
+      <p>If you want to define non-default bindings for the header labels, it
+      is recommended to associate them with the binding tag whose name is
+      returned by the <code><b><a href="#labeltag">labeltag</a></b></code>
+      subcommand and make use of the helper commands <code><b><a href=
+      "tablelistBinding.html#getTablelistColumn">tablelist::getTablelistColumn</a></b></code>
+      and <code><b><a href=
+      "tablelistBinding.html#getTablelistPath">tablelist::getTablelistPath</a></b></code>.&nbsp;
+      For example, to replace the default binding for
+      <code><b>&lt;Button-3&gt;</b></code> with a script that performs a
+      column-dependent action, you can proceed like in the code shown
+      below:</p>
+
+      <blockquote>
+        <pre>
+bind [.tbl labeltag] &lt;Button-3&gt; {
+    puts "right-clicked on header label no. [tablelist::getTablelistColumn %W]"
+    break
+}
+</pre>
+      </blockquote>
     </dd>
 
     <dt><a name="edit_bindings"></a><b>DEFAULT BINDINGS FOR INTERACTIVE CELL
@@ -5999,11 +7201,13 @@ bind [.tbl bodytag] &lt;Button-1&gt; {
       The <code><b>tablelist::tablelist</b></code> command extends and
       partially redefines the bindings of some of the components of the
       temporary embedded widget used for interactive cell editing, which is
-      started by clicking mouse button 1 in an editable cell or using keyboard
-      navigation to move from one editable cell into another.&nbsp; If the
-      selection type is <code><b>cell</b></code> and the location cursor is in
-      an editable cell, then the interactive editing of the active element can
-      also be started by pressing <code>Return</code> or <code>KP_Enter</code>.
+      started by pressing mouse button 1 in an editable cell (see the
+      <code><b><a href="#editselectedonly">-editselectedonly</a></b></code>
+      option for details) or using keyboard navigation to move from one
+      editable cell into another.&nbsp; If the selection type is
+      <code><b>cell</b></code> and the location cursor is in an editable cell,
+      then the interactive editing of the active element can also be started by
+      pressing <code>Return</code> or <code>KP_Enter</code>.
 
       <p>The affected components of the temporary embedded widget depend on the
       edit window: the widget itself in case of a Tk or tile checkbutton; the
@@ -6123,9 +7327,9 @@ bind [.tbl bodytag] &lt;Button-1&gt; {
         same effect as <code>Alt-Prior</code>/<code>Alt-Next</code>.&nbsp; If
         the edit window is not a text widget, BWidget SpinBox, Oakley combobox,
         or a mentry widget of type <code>"Date"</code>, <code>"Time"</code>,
-        <code>"DateTime"</code>, or <code>"IPAddr"</code>, then
-        <code>Prior</code>/<code>Next</code> has the same effect as
-        <code>Alt-Prior</code>/<code>Alt-Next</code>.<br>
+        <code>"DateTime"</code>, <code>"IPAddr"</code>, or
+        <code>"IPv6Addr"</code>, then <code>Prior</code>/<code>Next</code> has
+        the same effect as <code>Alt-Prior</code>/<code>Alt-Next</code>.<br>
         &nbsp;</li>
 
         <li>When editing a cell that is not the only editable cell of the

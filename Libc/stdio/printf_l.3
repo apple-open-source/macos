@@ -36,16 +36,18 @@
 .\"     @(#)printf.3	8.1 (Berkeley) 6/4/93
 .\" $FreeBSD: src/lib/libc/stdio/printf.3,v 1.58 2004/10/16 16:00:01 stefanf Exp $
 .\"
-.Dd March 11, 2005
+.Dd December 15, 2009
 .Dt PRINTF_L 3
 .Os
 .Sh NAME
 .Nm asprintf_l ,
+.Nm dprintf_l ,
 .Nm fprintf_l ,
 .Nm printf_l ,
 .Nm snprintf_l ,
 .Nm sprintf_l ,
 .Nm vasprintf_l ,
+.Nm vdprintf_l ,
 .Nm vfprintf_l ,
 .Nm vprintf_l ,
 .Nm vsnprintf_l ,
@@ -61,6 +63,13 @@
 .Fa "char **ret"
 .Fa "locale_t loc"
 .Fa "const char *format"
+.Fa ...
+.Fc
+.Ft int
+.Fo dprintf_l
+.Fa "int fd"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
 .Fa ...
 .Fc
 .Ft int
@@ -101,6 +110,13 @@
 .Fa "va_list ap"
 .Fc
 .Ft int
+.Fo vdprintf_l
+.Fa "int fd"
+.Fa "locale_t loc"
+.Fa "const char * restrict format"
+.Fa "va_list ap"
+.Fc
+.Ft int
 .Fo vfprintf_l
 .Fa "FILE * restrict stream"
 .Fa "locale_t loc"
@@ -131,11 +147,13 @@
 .Sh DESCRIPTION
 The
 .Fn printf_l ,
+.Fn dprintf_l ,
 .Fn fprintf_l ,
 .Fn sprintf_l ,
 .Fn snprintf_l ,
 .Fn asprintf_l ,
 .Fn vprintf_l ,
+.Fn vdprintf_l ,
 .Fn vfprintf_l ,
 .Fn vsprintf_l ,
 .Fn vsnprintf_l ,
@@ -143,11 +161,13 @@ and
 .Fn vasprintf_l
 functions are extended locale versions of the
 .Fn printf ,
+.Fn dprintf ,
 .Fn fprintf ,
 .Fn sprintf ,
 .Fn snprintf ,
 .Fn asprintf ,
 .Fn vprintf ,
+.Fn vdprintf ,
 .Fn vfprintf ,
 .Fn vsprintf ,
 .Fn vsnprintf ,

@@ -61,7 +61,7 @@ eval AC_DEFINE_UNQUOTED(TCLDOMXML_VERSION, "${TCLDOMXML_VERSION}")
 # This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file

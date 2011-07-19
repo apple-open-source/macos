@@ -1,0 +1,22 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>apache_mod_bw</string>
+        <key>OpenSourceVersion</key>
+        <string>0.8</string>
+        <key>OpenSourceURL</key>
+        <string>http://apache.ivn.cl</string>
+        <key>OpenSourceSHA1</key>
+        <string>eee7c45e06f54f143980ed61e9883d725412e28a</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-05-07</string>
+        <key>OpenSourceModifications</key>
+        <array/>
+        <key>OpenSourceLicense</key>
+        <string>Apache</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>apache_mod_bw.txt</string>
+</dict>
+</array>
+</plist>

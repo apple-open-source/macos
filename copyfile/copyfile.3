@@ -106,7 +106,7 @@ functions can also have their behavior modified by the following flags:
 .It Dv COPYFILE_RECURSIVE
 Causes
 .Fn copyfile
-to recursively copy a hierachy.
+to recursively copy a hierarchy.
 This flag is not used by
 .Fn fcopyfile ;
 see below for more information.
@@ -160,11 +160,18 @@ file, if it is a symbolic link.  (This is only applicable for the
 .Fn copyfile
 function.)
 .It Dv COPYFILE_MOVE
-Unlink (remove) the
+Unlink (using 
+.Xr remove 3 )
+the
 .Fa from
 file.  (This is only applicable for the
 .Fn copyfile
-function.)
+function.)  No error is returned if
+.Xr remove 3
+fails.  Note that
+.Xr remove 3
+removes a symbolic link itself, not the
+target of the link.
 .It Dv COPYFILE_UNLINK
 Unlink the
 .Va to
@@ -263,6 +270,13 @@ parameter is a pointer to
 .Vt off_t
 (type
 .Vt off_t\ * ).
+.It Dv COPYFILE_STATE_XATTRNAME
+Get the name of the extended attribute during a callback
+for
+.Dv COPYFILE_COPY_XATTR
+(see below for details).  This field cannot be set,
+and may be
+.Dv NULL .
 .El
 .Sh Recursive Copies
 When given the
@@ -398,14 +412,14 @@ In addition to the recursive callbacks described above,
 .Fn copyfile
 and
 .Fn fcopyfile
-will also use a callback to report data (i.e.,
+will also use a callback to report data (e.g.,
 .Dv COPYFILE_DATA )
 progress.  If given, the callback will be invoked on each
 .Xr write 2
 call.  The first argument to the callback function will be
 .Dv COPYFILE_COPY_DATA .
 The second argument will either be
-.Dv COPYFILE_COPY_PROGRESS
+.Dv COPYFILE_PROGRESS
 (indicating that the write was successful), or
 .Dv COPYFILE_ERR
 (indicating that there was an error of some sort).
@@ -417,6 +431,37 @@ with the
 requestor (the argument type is a pointer to
 .Vt off_t ).
 .Pp
+When copying extended attributes, the first argument to the
+callback function will be
+.Dv COPYFILE_COPY_XATTR .
+The other arguments will be as described for
+.Dv COPYFILE_COPY_DATA ;
+the name of the extended attribute being copied may be
+retrieved using
+.Fn copyfile_state_get
+and the parameter
+.Dv COPYFILE_STATE_XATTRNAME .
+When using
+.Dv COPYFILE_PACK ,
+the callback may be called with
+.Dv COPYFILE_START
+for each of the extended attributes first, followed by
+.Dv COPYFILE_PROGRESS
+before getting and packing the data for each
+individual attribute, and then
+.Dv COPYFILE_FINISH
+when finished with each individual attribute.
+(That is,
+.Dv COPYFILE_START
+may be called for all of the extended attributes, before
+the first callback with
+.Dv COPYFILE_PROGRESS
+is invoked.)  Any attribute skipped by returning
+.Dv COPYFILE_SKIP
+from the
+.Dv COPYFILE_START
+callback will not be placed into the packed output file.
+.Pp
 The return value for the data callback must be one of
 .Bl -tag -width COPYFILE_CONTINUE
 .It Dv COPYFILE_CONTINUE
@@ -426,7 +471,7 @@ The copy will continue as expected.
 The data copy will be aborted, but without error.
 .It Dv COPYFILE_QUIT
 The data copy will be aborted; in the case of
-.Dv COPYFILE_COPY_PROGRESS ,
+.Dv COPYFILE_PROGRESS ,
 .Dv errno
 will be set to
 .Dv ECANCELED .
@@ -456,12 +501,17 @@ Both
 and
 .Fn fcopyfile
 can copy symbolic links; there is a gap between when the source
-link is examnined and the actual copy is started, and this can
+link is examined and the actual copy is started, and this can
 be a potential security risk, especially if the process has
 elevated privileges.
 .Pp
 When performing a recursive copy, if the source hierarchy
 changes while the copy is occurring, the results are undefined.
+.Pp
+.Fn fcopyfile
+does not reset the seek position for either source or destination.
+This can result in the destination file being a different size
+than the source file.
 .Sh ERRORS
 .Fn copyfile
 and

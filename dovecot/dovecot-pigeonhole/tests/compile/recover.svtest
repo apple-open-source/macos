@@ -1,0 +1,50 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Test parser's recover capability
+ */
+
+/*
+ * Commands 
+ */
+
+/* Missing semicolon */
+
+test "Missing semicolons" {
+	if test_script_compile "recover/commands-semicolon.sieve" {
+		test_fail "compile should have failed.";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/* End of block recovery*/
+
+test "Missing semicolon at end of block" {
+	if test_script_compile "recover/commands-endblock.sieve" {
+		test_fail "compile should have failed.";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "4" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/*
+ * Tests
+ */
+
+test "Spurious comma at end of test list" {
+	if test_script_compile "recover/tests-endcomma.sieve" {
+		test_fail "compile should have failed.";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}

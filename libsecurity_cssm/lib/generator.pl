@@ -50,11 +50,14 @@ $warning = "This file was automatically generated. Do not edit on penalty of fut
 #
 # Parse API headers and extract function names and argument lists
 #
+# Jim Muprhy I added [^;]* to the end of the %formals variable to
+# allow for deprecation macros.
+#
 $/=undef;	# big gulp mode
 foreach $_ (@API_H) {
   open(API_H, "$SOURCEDIR/$_") or die "Cannot open $SOURCEDIR/$_: $^E";
   $_ = <API_H>;		# glglgl... aaaaah
-  %formals = /CSSM_RETURN CSSMAPI\s*([A-Za-z_]+)\s+\(([^)]*)\);/gs;
+  %formals = /CSSM_RETURN CSSMAPI\s*([A-Za-z_]+)\s+\(([^)]*)\)[^;]*;/gs;
   while (($name, $args) = each %formals) {
     $args =~ s/^.*[ *]([A-Za-z_]+,?)$/$tabs$1/gm;	# remove type declarators
     $args =~ s/^$tabs//o;	# chop intial tabs		# so now we have...
@@ -127,9 +130,10 @@ for $name (sort keys %formals) {
   $prefix = "";
 
   # match the SPI; take care of the Privilege variants of some calls
-  ($args) = $spi{$type} =~ /CSSM_RETURN \(CSSM${type}I \*$barename\)\s+\(([^)]*)\);/s
+  # Jim Murphy Added [^;]* before the ; to allow for deprecation macros
+  ($args) = $spi{$type} =~ /CSSM_RETURN \(CSSM${type}I \*$barename\)\s+\(([^)]*)\)[^;]*;/s
     or $barename =~ s/P$// &&	# second chance for FooBarP() API functions
-      (($args) = $spi{$type} =~ /CSSM_RETURN \(CSSM${type}I \*$barename\)\s+\(([^)]*)\);/s)
+      (($args) = $spi{$type} =~ /CSSM_RETURN \(CSSM${type}I \*$barename\)\s+\(([^)]*)\)[^;]*;/s)
     or do { ignored "not in $SPI_H{$type}"; next; };
 
   # take care of CSP calls taking context handles
@@ -190,7 +194,7 @@ while (($name, $_) = each %spi) {
   print "extern const char *const ${name}NameTable[] = {";
   s/^.*struct cssm_spi.*{(.*)} CSSM_SPI.*$/$1/s
     or die "bad format in $SPI_H{$name}";
-  s/CSSM_RETURN \(CSSM[A-Z]*I \*([A-Za-z_]+)\)\s+\([^)]+\);/\t"$1",/g;
+  s/CSSM_RETURN \(CSSM[A-Z]*I \*([A-Za-z_]+)\)\s+\([^)]+\)[^;]*;/\t"$1",/g;
   print;
   print "};\n\n";
 };

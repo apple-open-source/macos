@@ -20,7 +20,8 @@
 #if PHP_MAJOR_VERSION < 5
 # define SWIG_exception(code, msg) { zend_error(E_ERROR, msg); }
 #else
-# define SWIG_exception(code, msg) { zend_throw_exception(NULL, msg, code TSRMLS_CC); }
+# include "zend_exceptions.h"
+# define SWIG_exception(code, msg) { zend_throw_exception(NULL, (char*)msg, code TSRMLS_CC); }
 #endif
 %}
 #endif
@@ -261,9 +262,15 @@ SWIGINTERN void SWIG_CSharpException(int code, const char *msg) {
 
 /* rethrow the unknown exception */
 
+#ifdef SWIGCSHARP
+%typemap(throws,noblock=1, canthrow=1) (...) {
+  SWIG_exception(SWIG_RuntimeError,"unknown exception");
+}
+#else
 %typemap(throws,noblock=1) (...) {
   SWIG_exception(SWIG_RuntimeError,"unknown exception");
 }
+#endif
 
 #endif /* __cplusplus */
 

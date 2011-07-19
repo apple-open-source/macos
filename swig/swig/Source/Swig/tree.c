@@ -8,10 +8,9 @@
  * parse trees.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_tree_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/tree.c,v 1.25 2006/11/01 23:54:54 wsfulton Exp $";
+char cvsroot_tree_c[] = "$Id: tree.c 11080 2009-01-24 13:15:51Z bhy $";
 
 #include "swig.h"
-#include "swigkeys.h"
 #include <stdarg.h>
 #include <assert.h>
 
@@ -83,10 +82,10 @@ void Swig_print_node(Node *obj) {
       print_indent(2);
       if (DohIsString(Getattr(obj, k))) {
 	o = Str(Getattr(obj, k));
-	if (Len(o) > 40) {
+	if (Len(o) > 80) {
 	  trunc = "...";
 	}
-	Printf(stdout, "%-12s - \"%(escape)-0.40s%s\"\n", k, o, trunc);
+	Printf(stdout, "%-12s - \"%(escape)-0.80s%s\"\n", k, o, trunc);
 	Delete(o);
       } else {
 	Printf(stdout, "%-12s - 0x%x\n", k, Getattr(obj, k));
@@ -147,12 +146,12 @@ void appendChild(Node *node, Node *chd) {
 }
 
 /* -----------------------------------------------------------------------------
- * preppendChild()
+ * prependChild()
  *
- * Preppends a new child to a node
+ * Prepends a new child to a node
  * ----------------------------------------------------------------------------- */
 
-void preppendChild(Node *node, Node *chd) {
+void prependChild(Node *node, Node *chd) {
   Node *fc;
 
   if (!chd)
@@ -171,17 +170,19 @@ void preppendChild(Node *node, Node *chd) {
 }
 
 /* -----------------------------------------------------------------------------
- * deleteNode()
+ * removeNode()
  *
- * Deletes a node.
+ * Removes a node from the parse tree.  Detaches it from its parent's child list.
  * ----------------------------------------------------------------------------- */
 
-void deleteNode(Node *n) {
+void removeNode(Node *n) {
   Node *parent;
   Node *prev;
   Node *next;
 
   parent = parentNode(n);
+  if (!parent) return;
+
   prev = previousSibling(n);
   next = nextSibling(n);
   if (prev) {
@@ -198,6 +199,11 @@ void deleteNode(Node *n) {
       set_lastChild(parent, prev);
     }
   }
+
+  /* Delete attributes */
+  Delattr(n,"parentNode");
+  Delattr(n,"nextSibling");
+  Delattr(n,"prevSibling");
 }
 
 /* -----------------------------------------------------------------------------
@@ -220,25 +226,10 @@ Node *copyNode(Node *n) {
 }
 
 /* -----------------------------------------------------------------------------
- * Swig_tag_nodes()
- *
- * Tags a collection of nodes with an attribute.   Used by the parser to mark
- * subtypes with extra information.
- * ----------------------------------------------------------------------------- */
-
-void Swig_tag_nodes(Node *n, const String_or_char *attrname, DOH *value) {
-  while (n) {
-    Setattr(n, attrname, value);
-    Swig_tag_nodes(firstChild(n), attrname, value);
-    n = nextSibling(n);
-  }
-}
-
-/* -----------------------------------------------------------------------------
  * checkAttribute()
  * ----------------------------------------------------------------------------- */
 
-int checkAttribute(Node *n, const String_or_char *name, const String_or_char *value) {
+int checkAttribute(Node *n, const_String_or_char_ptr name, const_String_or_char_ptr value) {
   String *v = Getattr(n, name);
   return v ? Equal(v, value) : 0;
 }
@@ -257,7 +248,7 @@ int checkAttribute(Node *n, const String_or_char *name, const String_or_char *va
  * This function can be called more than once with different namespaces.
  * ----------------------------------------------------------------------------- */
 
-int Swig_require(const char *ns, Node *n, ...) {
+void Swig_require(const char *ns, Node *n, ...) {
   va_list ap;
   char *name;
   DOH *obj;
@@ -292,18 +283,16 @@ int Swig_require(const char *ns, Node *n, ...) {
 
   /* Save the view */
   {
-    String *view = Getattr(n, k_view);
+    String *view = Getattr(n, "view");
     if (view) {
       if (Strcmp(view, ns) != 0) {
 	Setattr(n, NewStringf("%s:view", ns), view);
-	Setattr(n, k_view, ns);
+	Setattr(n, "view", ns);
       }
     } else {
-      Setattr(n, k_view, ns);
+      Setattr(n, "view", ns);
     }
   }
-
-  return 1;
 }
 
 
@@ -313,7 +302,7 @@ int Swig_require(const char *ns, Node *n, ...) {
  * are saved, ie behaves as if all the attribute names were prefixed by ?.
  * ----------------------------------------------------------------------------- */
 
-int Swig_save(const char *ns, Node *n, ...) {
+void Swig_save(const char *ns, Node *n, ...) {
   va_list ap;
   char *name;
   DOH *obj;
@@ -340,18 +329,16 @@ int Swig_save(const char *ns, Node *n, ...) {
 
   /* Save the view */
   {
-    String *view = Getattr(n, k_view);
+    String *view = Getattr(n, "view");
     if (view) {
       if (Strcmp(view, ns) != 0) {
 	Setattr(n, NewStringf("%s:view", ns), view);
-	Setattr(n, k_view, ns);
+	Setattr(n, "view", ns);
       }
     } else {
-      Setattr(n, k_view, ns);
+      Setattr(n, "view", ns);
     }
   }
-
-  return 1;
 }
 
 /* -----------------------------------------------------------------------------
@@ -366,7 +353,7 @@ void Swig_restore(Node *n) {
   String *ns;
   Iterator ki;
 
-  ns = Getattr(n, k_view);
+  ns = Getattr(n, "view");
   assert(ns);
 
   l = NewList();

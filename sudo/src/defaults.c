@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2005, 2007-2008
+ * Copyright (c) 1999-2005, 2007-2008, 2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -34,11 +34,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 # ifdef HAVE_UNISTD_H
 #include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -48,10 +47,6 @@
 #include "sudo.h"
 #include "parse.h"
 #include <gram.h>
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: defaults.c,v 1.73 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
 
 /*
  * For converting between syslog numbers and strings.
@@ -104,6 +99,7 @@ static int store_syslogfac __P((char *, struct sudo_defs_types *, int));
 static int store_syslogpri __P((char *, struct sudo_defs_types *, int));
 static int store_tuple __P((char *, struct sudo_defs_types *, int));
 static int store_uint __P((char *, struct sudo_defs_types *, int));
+static int store_float __P((char *, struct sudo_defs_types *, int));
 static void list_op __P((char *, size_t, struct sudo_defs_types *, enum list_ops));
 static const char *logfac2str __P((int));
 static const char *logpri2str __P((int));
@@ -151,6 +147,10 @@ dump_defaults()
 		case T_UINT:
 		case T_INT:
 		    (void) printf(cur->desc, cur->sd_un.ival);
+		    putchar('\n');
+		    break;
+		case T_FLOAT:
+		    (void) printf(cur->desc, cur->sd_un.fval);
 		    putchar('\n');
 		    break;
 		case T_MODE:
@@ -294,6 +294,19 @@ set_default(var, val, op)
 		return(FALSE);
 	    }
 	    break;
+	case T_FLOAT:
+	    if (!val) {
+		/* Check for bogus boolean usage or lack of a value. */
+		if (!ISSET(cur->type, T_BOOL) || op != FALSE) {
+		    warningx("no value specified for `%s'", var);
+		    return(FALSE);
+		}
+	    }
+	    if (!store_float(val, cur, op)) {
+		warningx("value `%s' is invalid for option `%s'", val, var);
+		return(FALSE);
+	    }
+	    break;
 	case T_MODE:
 	    if (!val) {
 		/* Check for bogus boolean usage or lack of a value. */
@@ -313,10 +326,6 @@ set_default(var, val, op)
 		return(FALSE);
 	    }
 	    cur->sd_un.flag = op;
-
-	    /* Special action for I_FQDN.  Move to own switch if we get more */
-	    if (num == I_FQDN && op)
-		set_fqdn();
 	    break;
 	case T_LIST:
 	    if (!val) {
@@ -391,8 +400,8 @@ init_defaults()
 #ifdef SEND_MAIL_WHEN_NOT_OK
     def_mail_no_perms = TRUE;
 #endif
-#ifdef USE_TTY_TICKETS
-    def_tty_tickets = TRUE;
+#ifndef NO_TTY_TICKETS
+    def_tty_tickets = FALSE;
 #endif
 #ifndef NO_LECTURE
     def_lecture = once;
@@ -455,6 +464,9 @@ init_defaults()
     def_timestamp_timeout = TIMEOUT;
     def_passwd_timeout = PASSWORD_TIMEOUT;
     def_passwd_tries = TRIES_FOR_PASSWORD;
+#ifdef HAVE_ZLIB_H
+    def_compress_io = TRUE;
+#endif
 
     /* Now do the strings */
     def_mailto = estrdup(MAILTO);
@@ -489,48 +501,49 @@ init_defaults()
 
 /*
  * Update the defaults based on what was set by sudoers.
- * Pass in a an OR'd list of which default types to update.
+ * Pass in an OR'd list of which default types to update.
  */
 int
 update_defaults(what)
     int what;
 {
     struct defaults *def;
+    int rc = TRUE;
 
     tq_foreach_fwd(&defaults, def) {
 	switch (def->type) {
 	    case DEFAULTS:
 		if (ISSET(what, SETDEF_GENERIC) &&
 		    !set_default(def->var, def->val, def->op))
-		    return(FALSE);
+		    rc = FALSE;
 		break;
 	    case DEFAULTS_USER:
 		if (ISSET(what, SETDEF_USER) &&
 		    userlist_matches(sudo_user.pw, &def->binding) == ALLOW &&
 		    !set_default(def->var, def->val, def->op))
-		    return(FALSE);
+		    rc = FALSE;
 		break;
 	    case DEFAULTS_RUNAS:
 		if (ISSET(what, SETDEF_RUNAS) &&
 		    runaslist_matches(&def->binding, NULL) == ALLOW &&
 		    !set_default(def->var, def->val, def->op))
-		    return(FALSE);
+		    rc = FALSE;
 		break;
 	    case DEFAULTS_HOST:
 		if (ISSET(what, SETDEF_HOST) &&
 		    hostlist_matches(&def->binding) == ALLOW &&
 		    !set_default(def->var, def->val, def->op))
-		    return(FALSE);
+		    rc = FALSE;
 		break;
 	    case DEFAULTS_CMND:
 		if (ISSET(what, SETDEF_CMND) &&
 		    cmndlist_matches(&def->binding) == ALLOW &&
 		    !set_default(def->var, def->val, def->op))
-		    return(FALSE);
+		    rc = FALSE;
 		break;
 	}
     }
-    return(TRUE);
+    return(rc);
 }
 
 static int
@@ -549,7 +562,7 @@ store_int(val, def, op)
 	if (*endp != '\0')
 	    return(FALSE);
 	/* XXX - should check against INT_MAX */
-	def->sd_un.ival = (unsigned int)l;
+	def->sd_un.ival = (int)l;
     }
     if (def->callback)
 	return(def->callback(val));
@@ -573,6 +586,29 @@ store_uint(val, def, op)
 	    return(FALSE);
 	/* XXX - should check against INT_MAX */
 	def->sd_un.ival = (unsigned int)l;
+    }
+    if (def->callback)
+	return(def->callback(val));
+    return(TRUE);
+}
+
+static int
+store_float(val, def, op)
+    char *val;
+    struct sudo_defs_types *def;
+    int op;
+{
+    char *endp;
+    double d;
+
+    if (op == FALSE) {
+	def->sd_un.fval = 0.0;
+    } else {
+	d = strtod(val, &endp);
+	if (*endp != '\0')
+	    return(FALSE);
+	/* XXX - should check against HUGE_VAL */
+	def->sd_un.fval = d;
     }
     if (def->callback)
 	return(def->callback(val));

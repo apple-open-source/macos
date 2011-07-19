@@ -206,7 +206,12 @@ UInt32						IOUSBController::gExtraCurrentPropertiesInitialized = 0;
 //================================================================================================
 //
 //  Table for MacModels and their corresponding wake and sleep current properties.  If a number is non-zero, it will
-//  override whatever is in EFI.  This allows us to override bogus values in EFI
+//  override whatever is in EFI.  This allows us to override bogus values in EFI.
+//
+//  If you add any machines past the iMac11,3 you will break IOUSBHubDevice::InitializeExtraPower that keys
+//  off the current list of machines here via the UpdatedSleepPropertiesExists property.  Caveat emptor.  If you
+//  absolutely need to add a machine to this list, then you might need to update the plist in AppleUSBMergeNub to
+//  include the MacModel property & locationID of the internal hub for that machine (if it has one).
 //
 //================================================================================================
 static SleepCurrentPerModel  gSleepCurrentInfo[] = {
@@ -244,6 +249,7 @@ static SleepCurrentPerModel  gSleepCurrentInfo[] = {
 	{	"Macmini4,1",		1100,					0,						500,					1000 },
 	{	"iMac11,2",			0,						0,						1000,					1000 },
 	{	"iMac11,3",			0,						0,						1000,					1000 }
+	// Do not add more models to this table
 };
 
 #define sleepCurrentPerModelLength (sizeof(gSleepCurrentInfo)/sizeof(SleepCurrentPerModel))
@@ -3529,10 +3535,10 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 
 	// 2505931 If the provider has an APPL,current-available property, then stick it in the new root hub device
     //
-    aProperty = provider->copyProperty(kAppleCurrentAvailable);
+    aProperty = provider->copyProperty(kAppleMaxPortCurrent);
     if (aProperty)
 	{
-        (*rootHubDevice)->setProperty(kAppleCurrentAvailable, aProperty);
+        (*rootHubDevice)->setProperty(kAppleMaxPortCurrent, aProperty);
 		aProperty->release();
 	}
 	
@@ -3581,7 +3587,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 	{
 		sleepExtraCurrentExists = true;
         (*rootHubDevice)->setProperty(kAppleCurrentExtraInSleep, aProperty);
-		(*rootHubDevice)->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+		(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
 		aProperty->release();
 	}
 	
@@ -3610,7 +3616,7 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			if (matched)
 			{
 				// Update our properties with those from the table.  Also, for root hubs, we do always provide at least 500mA in sleep
-				(*rootHubDevice)->setProperty(kApplePortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
+				(*rootHubDevice)->setProperty(kAppleStandardPortCurrentInSleep, kUSB2MaxPowerPerPort, 32);
 
 				if ( gSleepCurrentInfo[i].totalExtraWakeCurrent != 0)
 				{
@@ -3620,8 +3626,8 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 				
 				if ( gSleepCurrentInfo[i].maxWakeCurrentPerPort != 0)
 				{
-					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleCurrentAvailable for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].maxWakeCurrentPerPort);
-					(*rootHubDevice)->setProperty(kAppleCurrentAvailable, gSleepCurrentInfo[i].maxWakeCurrentPerPort, 32);
+					USBLog(5, "%s[%p]::CreateRootHubDevice  Overriding kAppleMaxPortCurrent for %s with %d", getName(), this, gSleepCurrentInfo[i].model, (uint32_t)gSleepCurrentInfo[i].maxWakeCurrentPerPort);
+					(*rootHubDevice)->setProperty(kAppleMaxPortCurrent, gSleepCurrentInfo[i].maxWakeCurrentPerPort, 32);
 				}
 				
 				if ( gSleepCurrentInfo[i].totalExtraSleepCurrent != 0)
@@ -3638,6 +3644,12 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			}
 		}
 	}
+	else
+	{
+		// Note that if someone adds to the gSleepCurrentInfo, this check might not be correct.
+		setProperty("UpdatedSleepPropertiesExists",kOSBooleanTrue);
+	}
+
 	
 	// Now, add the pertinent properties to IOResources.  Do this only once per system, since ALL root hubs will share those properties.  This will avoid any race condition in initializing those properties.
 
@@ -3654,8 +3666,8 @@ IOUSBController::CreateRootHubDevice( IOService * provider, IOUSBRootHubDevice *
 			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentExtra);
 			ioResources->setProperty(kAppleCurrentExtra, aProperty);
 			
-			aProperty = (*rootHubDevice)->getProperty(kAppleCurrentAvailable);
-			ioResources->setProperty(kAppleCurrentAvailable, aProperty);
+			aProperty = (*rootHubDevice)->getProperty(kAppleMaxPortCurrent);
+			ioResources->setProperty(kAppleMaxPortCurrent, aProperty);
 			
 			aProperty = (*rootHubDevice)->getProperty(kAppleMaxPortCurrentInSleep);
 			ioResources->setProperty(kAppleMaxPortCurrentInSleep, aProperty);

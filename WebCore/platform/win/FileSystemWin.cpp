@@ -31,9 +31,10 @@
 #include "FileSystem.h"
 
 #include "NotImplemented.h"
-#include "PlatformString.h"
+#include "PathWalker.h"
 #include <wtf/HashMap.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 #include <windows.h>
 #include <winbase.h>
@@ -134,10 +135,12 @@ String pathGetFileName(const String& path)
 
 String directoryName(const String& path)
 {
-    String fileName = pathGetFileName(path);
-    String dirName = String(path);
-    dirName.truncate(dirName.length() - pathGetFileName(path).length());
-    return dirName;
+    String name = path.left(path.length() - pathGetFileName(path).length());
+    if (name.characterStartingAt(name.length() - 1) == '\\') {
+        // Remove any trailing "\".
+        name.truncate(name.length() - 1);
+    }
+    return name;
 }
 
 static String bundleName()
@@ -187,18 +190,18 @@ static String cachedStorageDirectory(DWORD pathIdentifier)
     return directory;
 }
 
-CString openTemporaryFile(const char*, PlatformFileHandle& handle)
+String openTemporaryFile(const String&, PlatformFileHandle& handle)
 {
     handle = INVALID_HANDLE_VALUE;
 
     char tempPath[MAX_PATH];
-    int tempPathLength = ::GetTempPathA(_countof(tempPath), tempPath);
-    if (tempPathLength <= 0 || tempPathLength > _countof(tempPath))
-        return CString();
+    int tempPathLength = ::GetTempPathA(WTF_ARRAY_LENGTH(tempPath), tempPath);
+    if (tempPathLength <= 0 || tempPathLength > WTF_ARRAY_LENGTH(tempPath))
+        return String();
 
     HCRYPTPROV hCryptProv = 0;
     if (!CryptAcquireContext(&hCryptProv, 0, 0, PROV_RSA_FULL, CRYPT_VERIFYCONTEXT))
-        return CString();
+        return String();
 
     char proposedPath[MAX_PATH];
     while (1) {
@@ -229,9 +232,30 @@ CString openTemporaryFile(const char*, PlatformFileHandle& handle)
     CryptReleaseContext(hCryptProv, 0);
 
     if (!isHandleValid(handle))
-        return CString();
+        return String();
 
-    return proposedPath;
+    return String::fromUTF8(proposedPath);
+}
+
+PlatformFileHandle openFile(const String& path, FileOpenMode mode)
+{
+    DWORD desiredAccess = 0;
+    DWORD creationDisposition = 0;
+    switch (mode) {
+    case OpenForRead:
+        desiredAccess = GENERIC_READ;
+        creationDisposition = OPEN_EXISTING;
+        break;
+    case OpenForWrite:
+        desiredAccess = GENERIC_WRITE;
+        creationDisposition = CREATE_ALWAYS;
+        break;
+    default:
+        ASSERT_NOT_REACHED();
+    }
+
+    String destination = path;
+    return CreateFile(destination.charactersWithNullTermination(), desiredAccess, 0, 0, creationDisposition, FILE_ATTRIBUTE_NORMAL, 0);
 }
 
 void closeFile(PlatformFileHandle& handle)
@@ -274,7 +298,7 @@ bool safeCreateFile(const String& path, CFDataRef data)
 {
     // Create a temporary file.
     WCHAR tempDirPath[MAX_PATH];
-    if (!GetTempPathW(ARRAYSIZE(tempDirPath), tempDirPath))
+    if (!GetTempPathW(WTF_ARRAY_LENGTH(tempDirPath), tempDirPath))
         return false;
 
     WCHAR tempPath[MAX_PATH];
@@ -300,10 +324,21 @@ bool safeCreateFile(const String& path, CFDataRef data)
     return true;
 }
 
-Vector<String> listDirectory(const String& path, const String& filter)
+Vector<String> listDirectory(const String& directory, const String& filter)
 {
     Vector<String> entries;
-    notImplemented();
+
+    PathWalker walker(directory, filter);
+    if (!walker.isValid())
+        return entries;
+
+    do {
+        if (walker.data().dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY)
+            continue;
+
+        entries.append(directory + "\\" + reinterpret_cast<const UChar*>(walker.data().cFileName));
+    } while (walker.step());
+
     return entries;
 }
 

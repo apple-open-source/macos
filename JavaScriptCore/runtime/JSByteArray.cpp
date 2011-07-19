@@ -33,14 +33,13 @@ using namespace WTF;
 
 namespace JSC {
 
-const ClassInfo JSByteArray::s_defaultInfo = { "ByteArray", 0, 0, 0 };
+const ClassInfo JSByteArray::s_defaultInfo = { "ByteArray", &Base::s_info, 0, 0 };
 
-JSByteArray::JSByteArray(ExecState* exec, NonNullPassRefPtr<Structure> structure, ByteArray* storage, const JSC::ClassInfo* classInfo)
-    : JSObject(structure)
+JSByteArray::JSByteArray(ExecState* exec, Structure* structure, ByteArray* storage)
+    : JSNonFinalObject(exec->globalData(), structure)
     , m_storage(storage)
-    , m_classInfo(classInfo)
 {
-    putDirect(exec->globalData().propertyNames->length, jsNumber(exec, m_storage->length()), ReadOnly | DontDelete);
+    putDirect(exec->globalData(), exec->globalData().propertyNames->length, jsNumber(m_storage->length()), ReadOnly | DontDelete);
 }
 
 #if !ASSERT_DISABLED
@@ -51,16 +50,15 @@ JSByteArray::~JSByteArray()
 #endif
 
 
-PassRefPtr<Structure> JSByteArray::createStructure(JSValue prototype)
+Structure* JSByteArray::createStructure(JSGlobalData& globalData, JSValue prototype, const JSC::ClassInfo* classInfo)
 {
-    PassRefPtr<Structure> result = Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
-    return result;
+    return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, classInfo);
 }
 
 bool JSByteArray::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
 {
     bool ok;
-    unsigned index = propertyName.toUInt32(&ok, false);
+    unsigned index = propertyName.toUInt32(ok);
     if (ok && canAccessIndex(index)) {
         slot.setValue(getIndex(exec, index));
         return true;
@@ -71,7 +69,7 @@ bool JSByteArray::getOwnPropertySlot(ExecState* exec, const Identifier& property
 bool JSByteArray::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
 {
     bool ok;
-    unsigned index = propertyName.toUInt32(&ok, false);
+    unsigned index = propertyName.toUInt32(ok);
     if (ok && canAccessIndex(index)) {
         descriptor.setDescriptor(getIndex(exec, index), DontDelete);
         return true;
@@ -91,7 +89,7 @@ bool JSByteArray::getOwnPropertySlot(ExecState* exec, unsigned propertyName, Pro
 void JSByteArray::put(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot& slot)
 {
     bool ok;
-    unsigned index = propertyName.toUInt32(&ok, false);
+    unsigned index = propertyName.toUInt32(ok);
     if (ok) {
         setIndex(exec, index, value);
         return;

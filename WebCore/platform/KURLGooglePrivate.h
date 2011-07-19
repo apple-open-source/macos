@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
+ * Copyright (c) 2008, 2009, 2011 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,27 +41,26 @@ namespace WebCore {
     class KURL;
     class TextEncoding;
 
-    // Wraps the internals related to using Google-URL as the bnackend for KURL.
+    // Wraps the internals related to using Google-URL as the backend for KURL.
     // This maintains the state and has auxiliary functions so that we don't need
     // to uglify KURL.h while allowing Google-URL to be evaluated.
     class KURLGooglePrivate {
     public:
         KURLGooglePrivate();
         KURLGooglePrivate(const url_parse::Parsed&, bool isValid);
+        KURLGooglePrivate(WTF::HashTableDeletedValueType);
 
-        // Initializes the object. This will call through to one of the backend
-        // initializers below depending on whether the string's internal
-        // representation is 8 or 16 bit.
+        // Initializes the object. This will call through the backend initializer
+        // below.
         void init(const KURL& base, const String& relative,
                   const TextEncoding* queryEncoding);
 
-        // Backend initializers. The query encoding parameters are optional and can
-        // be NULL (this implies UTF-8). These initializers require that the object
-        // has just been created and the strings are NULL. Do not call on an
+        // Backend initializer. The query encoding parameters are optional and can
+        // be 0 (this implies UTF-8). This initializer requires that the object
+        // has just been created and the strings are null. Do not call on an
         // already-constructed object.
-        void init(const KURL& base, const char* rel, int relLength,
-                  const TextEncoding* queryEncoding);
-        void init(const KURL& base, const UChar* rel, int relLength,
+        template <typename CHAR>
+        void init(const KURL& base, const CHAR* rel, int relLength,
                   const TextEncoding* queryEncoding);
 
         // Does a deep copy to the given output object.
@@ -92,11 +91,11 @@ namespace WebCore {
         const String& string() const;
 
         bool m_isValid;
-        bool m_protocolInHTTPFamily;
+        bool m_protocolIsInHTTPFamily;
         url_parse::Parsed m_parsed; // Indexes into the UTF-8 version of the string.
 
     private:
-        void initProtocolInHTTPFamily();
+        void initProtocolIsInHTTPFamily();
 
         CString m_utf8;
 

@@ -1,0 +1,146 @@
+Migration to Dovecot
+====================
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read this page carefully.*
+
+This page contains generic information related to migrating from another IMAP
+or POP3 server to Dovecot. You should read this page, and then look at the
+server-specific instructions:
+
+ * <UW-IMAP / UW-POP3> [Migration.UW.txt]
+ * <Linuxconf / VIMAP> [Migration.Linuxconf.txt]
+ * <Courier IMAP and POP3> [Migration.Courier.txt]
+ * <Cyrus IMAP and POP3> [Migration.Cyrus.txt]
+ * <vm-pop3d> [Migration.Vm-pop3d.txt]
+ * <teapop> [Migration.Teapop.txt]
+ * <Binc IMAP> [Migration.BincIMAP.txt]
+
+Dovecot is one of the easiest IMAP servers to migrate to because of its
+powerful configuration options. Dovecot can store email in both <mbox>
+[MailboxFormat.mbox.txt] and <Maildir> [MailboxFormat.Maildir.txt] formats,
+making it compatible with many existing servers. Dovecot is also very flexible
+as to where it stores the email. It supports many different databases for
+storing <passwords> [PasswordDatabase.txt] <user information>
+[UserDatabase.txt].
+
+Migration involves several separate tasks. You either need to convert your data
+or make Dovecot read your existing data. Dovecot is very good at being
+compatible and configurable, so it is likely to read your existing mailboxes
+and user and password configurations. Tasks for conversion include:
+
+ * <Where and how to store the email> [MailLocation.txt]
+ * <User authentication> [PasswordDatabase.txt]
+ * <User database configuration> [UserDatabase.txt] (home directory structure,
+   UID and GID)
+
+IMAP migration
+--------------
+
+When migrating mails from another IMAP server, you should make sure that these
+are preserved:
+
+ 1. Message flags
+     * Lost flags can be really annoying, you most likely want to avoid it.
+ 2. Message UIDs and UIDVALIDITY value
+     * If UIDs are lost, at the minimum clients' message cache gets cleaned and
+       messages are re-downloaded as new.
+     * Some IMAP clients store metadata by assigning it to specific UID, if
+       UIDs are changed these will be lost.
+ 3. Mailbox subscription list
+     * Users would be able to manually subscribe them again if you don't want
+       to mess with it.
+
+POP3 migration
+--------------
+
+When migrating mails from another POP3 server, you should try to preserve the
+old UIDLs. If POP3 client is configured to keep mails in the server and the
+messages' UIDLs change, all the messages are downloaded again as new messages.
+
+*Don't trust the migration scripts or anything you see in this wiki. Verify
+manually that the UIDLs are correct before exposing real clients to Dovecot.*
+You can do this by logging in using your old POP3 server, issuing UIDL command
+and saving the output. Then log in using Dovecot and save its UIDL output as
+well. Use e.g.'diff' command to verify that the lists are identical. Note that:
+
+ * *If a client already saw changed UIDLs and decided to start re-downloading
+   mails, it's unlikely there is anything you can do to stop it. Even going
+   back to your old server is unlikely to help at that point.*
+ * Some (many?) POP3 clients also require that the message ordering is
+   preserved.
+ * Some clients re-download all mails if you change the hostname in the client
+   configuration. Be aware of this when testing.
+
+Some servers (UW, Cyrus) implementing both IMAP and POP3 protocols use the IMAP
+UID and UIDVALIDITY values for generating the POP3 UIDL values. To preserve the
+POP3 UIDL from such servers you'll need to preserve the IMAP UIDs and set
+'pop3_uidl_format' properly.
+
+If the server doesn't use IMAP UIDs for the POP3 UIDL, you'll need to figure
+out another way to do it. One way is to put the UIDL value into X-UIDL: header
+in the mails and set 'pop3_reuse_xuidl=yes'. Some POP3 servers (QPopper) write
+the X-UIDL: header themselves, making the migration easy.
+
+Some POP3 servers using Maildir uses the maildir base filename as the UIDL. You
+can use 'pop3_uidl_format = %f' to do this.
+
+Here is a list of POP3 servers and how they generate their UIDs. Please update
+if you know more:
+
+ * UW-POP3: 'pop3_uidl_format = %08Xv%08Xu'
+ * qmail-pop3d: 'pop3_uidl_format = %f'
+ * Cyrus <= 2.1.3: 'pop3_uidl_format = %u'
+ * Cyrus >= 2.1.4: 'pop3_uidl_format = %v.%u'
+ * Citadel [http://www.citadel.org] (all versions): 'pop3_uidl_format = %u'
+ * Dovecot 0.99: 'pop3_uidl_format = %v.%u'
+ * tpop3d [http://www.ex-parrot.com/~chris/tpop3d/]:
+    * Maildir: 'pop3_uidl_format = %Mf' (MD5 sum of the maildir base filename
+      in hex)
+    * mbox: MD5 sum in hex of first 512 bytes of the message (or of the full
+      message if it's less than 512 bytes).
+ * popa3d [http://www.openwall.com/popa3d/] Generates MD5 sum from a couple of
+   headers. Dovecot uses compatible MD5 sums internally, but converts them into
+   UIDL strings in a bit different way.
+ * teapop [http://www.toontown.org/teapop/] 0.3.8:
+    * Maildir: 'pop3_uidl_format = %Mf' (MD5 sum of the maildir base filename
+      in hex)
+    * mbox: MD5 sum of the message without the following lines:
+      Status,X-Status,Lines and Content-Length.
+ * Cucipop mbox: v1.31 uses its own homebrew checksum based on headers and
+   body. Injection of X-UIDL: headers and pop3_reuse_xuidl=yes is the way to
+   go.
+ * qpopper: 'pop3_reuse_xuidl=yes'
+
+IMAP <-> IMAP copying
+---------------------
+
+If you don't care about preserving messages' UIDs, or if there isn't a simple
+way to preserve them, you can always migrate from another IMAP server to
+Dovecot by downloading the messages via IMAP from the old server and then
+uploading them to Dovecot via IMAP.
+
+There are several different tools for this, for example UW-IMAP
+[http://www.washington.edu/imap/]'s mailutil, imapsync
+[http://freshmeat.net/projects/imapsync] and YippieMove
+[http://www.yippiemove.com].
+
+imapsync
+--------
+
+Here's an example of how to run imapsync for a single user:
+
+---%<-------------------------------------------------------------------------
+imapsync --syncinternaldates \
+  --host1 192.168.1.57 --authmech1 LOGIN --user1 leah@example.com --password1
+secret \
+  --host2 127.0.0.1    --authmech2 LOGIN --user2 leah@example.com --password2
+secret
+---%<-------------------------------------------------------------------------
+
+It is quite easy to script this for a number of users, assuming you have their
+passwords. Even if you do not, imapsync also supports logging in as an admin
+user that has the ability to copy message for sub users, and a variety of other
+authentication options.
+
+(This file was created from the wiki on 2011-05-11 04:42)

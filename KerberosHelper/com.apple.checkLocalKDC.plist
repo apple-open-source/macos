@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.checkLocalKDC</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/libexec/checkLocalKDC</string>
+		<string>--sleep</string>
+	</array>
+	<key>LaunchOnlyOnce</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/var/db/.checkLocalKDC</key>
+			<false/>
+		</dict>
+	</dict>
+</dict>
+</plist>

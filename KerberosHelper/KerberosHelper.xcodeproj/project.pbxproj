@@ -13,17 +13,22 @@
 			buildPhases = (
 			);
 			dependencies = (
+				EBCD59CC11431D9600B964AB /* PBXTargetDependency */,
+				EB234258108FCEF600FFFF56 /* PBXTargetDependency */,
 				EBE3B4210EDA2236005F37A5 /* PBXTargetDependency */,
 				721AF2F30BCCFB08005B0702 /* PBXTargetDependency */,
 				721AF2F50BCCFB08005B0702 /* PBXTargetDependency */,
 				721AF2F70BCCFB08005B0702 /* PBXTargetDependency */,
 				721AF2F90BCCFB08005B0702 /* PBXTargetDependency */,
+				745AE65211DA7D09000BAE71 /* PBXTargetDependency */,
 				727B594A0C7A6DAA00A23451 /* PBXTargetDependency */,
 				72538B520C8A3BBE00AC2601 /* PBXTargetDependency */,
 				72538B540C8A3BC300AC2601 /* PBXTargetDependency */,
 				7263B0430CBAE0A70058A52B /* PBXTargetDependency */,
 				EB9CC4460E1B8FB2009B3162 /* PBXTargetDependency */,
 				EB98FFF30E840C1B003DAF03 /* PBXTargetDependency */,
+				EB8BFC8611798C2A0003BE65 /* PBXTargetDependency */,
+				727C13E511F62430003772C6 /* PBXTargetDependency */,
 			);
 			name = "Installable Targets";
 			productName = "Installable Targets";
@@ -38,6 +43,17 @@
 			);
 			name = "configureLocalKDC-LaunchDaemon.plist";
 			productName = "configureLocalKDC-LaunchDaemon.plist";
+		};
+		727C12FE11F62134003772C6 /* migration-test */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 727C130711F62152003772C6 /* Build configuration list for PBXAggregateTarget "migration-test" */;
+			buildPhases = (
+				727C12FD11F62134003772C6 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "migration-test";
+			productName = MigrationTests;
 		};
 		72859FDA0C8A02A40024051E /* LKDCHelper-LaunchAgent.plist */ = {
 			isa = PBXAggregateTarget;
@@ -60,6 +76,7 @@
 				721AF3000BCCFB30005B0702 /* PBXTargetDependency */,
 				72C4B65D0CB178BF0075E546 /* PBXTargetDependency */,
 				EB1A3B890E7611CA00D37DF1 /* PBXTargetDependency */,
+				EBCD5B08114340B800B964AB /* PBXTargetDependency */,
 			);
 			name = Everything;
 			productName = Everything;
@@ -76,6 +93,41 @@
 			name = configureLocalKDC;
 			productName = configureLocalKDC;
 		};
+		745AE62F11DA7C0B000BAE71 /* checkLocalKDC-LaunchDaemon.plist */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 745AE63211DA7C0B000BAE71 /* Build configuration list for PBXAggregateTarget "checkLocalKDC-LaunchDaemon.plist" */;
+			buildPhases = (
+				745AE63011DA7C0B000BAE71 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "checkLocalKDC-LaunchDaemon.plist";
+			productName = "configureLocalKDC-LaunchDaemon.plist";
+		};
+		745AE63A11DA7C8F000BAE71 /* configureLocalKDC copy */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 745AE64111DA7C8F000BAE71 /* Build configuration list for PBXAggregateTarget "configureLocalKDC copy" */;
+			buildPhases = (
+				745AE63B11DA7C8F000BAE71 /* CopyFiles */,
+				745AE63E11DA7C8F000BAE71 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = "configureLocalKDC copy";
+			productName = configureLocalKDC;
+		};
+		745AE64711DA7CA4000BAE71 /* checkLocalKDC */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 745AE64E11DA7CA4000BAE71 /* Build configuration list for PBXAggregateTarget "checkLocalKDC" */;
+			buildPhases = (
+				745AE64811DA7CA4000BAE71 /* CopyFiles */,
+				745AE64B11DA7CA4000BAE71 /* CopyFiles */,
+			);
+			dependencies = (
+			);
+			name = checkLocalKDC;
+			productName = configureLocalKDC;
+		};
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
@@ -87,6 +139,7 @@
 		72626AF30C8E973C0009FFEC /* LKDCHelper-lookup.c in Sources */ = {isa = PBXBuildFile; fileRef = D176D0BE0BC3B9EC00424D2A /* LKDCHelper-lookup.c */; };
 		72626AF40C8E973C0009FFEC /* LKDCHelper-lookup.h in Headers */ = {isa = PBXBuildFile; fileRef = D176D0BD0BC3B9EC00424D2A /* LKDCHelper-lookup.h */; };
 		7263B0410CBAE0910058A52B /* com.apple.configureLocalKDC.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7263B0400CBAE0910058A52B /* com.apple.configureLocalKDC.plist */; };
+		727C154B11F6268E003772C6 /* migration in CopyFiles */ = {isa = PBXBuildFile; fileRef = 727C143D11F6268E003772C6 /* migration */; };
 		7281B8CB0C61756400044330 /* DeconstructServiceName.c in Sources */ = {isa = PBXBuildFile; fileRef = 7281B8C90C61756400044330 /* DeconstructServiceName.c */; };
 		7281B8CC0C61756400044330 /* DeconstructServiceName.h in Headers */ = {isa = PBXBuildFile; fileRef = 7281B8CA0C61756400044330 /* DeconstructServiceName.h */; };
 		72859FE00C8A04870024051E /* LKDCHelper.c in Sources */ = {isa = PBXBuildFile; fileRef = 72859FD40C8A02220024051E /* LKDCHelper.c */; };
@@ -133,27 +186,59 @@
 		72DEA5F20BCC5745001BADAB /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = D176CEA10BC38EEF00424D2A /* utils.c */; };
 		72DEA5F30BCC574E001BADAB /* libLocalKDC.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5A50BCC54B6001BADAB /* libLocalKDC.a */; };
 		72DEA5F50BCC5752001BADAB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
-		72DEA5F60BCC5753001BADAB /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728E3F3C0BCC521A0006AFEB /* Kerberos.framework */; };
 		72DEA62A0BCC5D70001BADAB /* configureLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DEA6290BCC5D70001BADAB /* configureLocalKDC */; };
 		72FA35DA0BE2939E008FAFF6 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72FA35D90BE2939E008FAFF6 /* Security.framework */; };
 		742DA2C10C8A631900B48D61 /* migrateLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 742DA2BE0C8A62CB00B48D61 /* migrateLocalKDC.1 */; };
+		745AE63611DA7C26000BAE71 /* com.apple.checkLocalKDC.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 745AE62D11DA7BD8000BAE71 /* com.apple.checkLocalKDC.plist */; };
+		745AE63C11DA7C8F000BAE71 /* configureLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72DEA6290BCC5D70001BADAB /* configureLocalKDC */; };
+		745AE63D11DA7C8F000BAE71 /* migrateLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84970F1701A7004CB289 /* migrateLocalKDC */; };
+		745AE63F11DA7C8F000BAE71 /* configureLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84AF0F1702F3004CB289 /* configureLocalKDC.1 */; };
+		745AE64011DA7C8F000BAE71 /* migrateLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 742DA2BE0C8A62CB00B48D61 /* migrateLocalKDC.1 */; };
+		745AE65311DA7D2D000BAE71 /* checkLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = 745AE63911DA7C67000BAE71 /* checkLocalKDC */; };
+		745AE65F11DA7DC6000BAE71 /* checkLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 745AE65E11DA7DBF000BAE71 /* checkLocalKDC.1 */; };
+		EB04AF08123EF7B900AA6C31 /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
+		EB04AF13123EF7DF00AA6C31 /* NSURLConnection.m in Sources */ = {isa = PBXBuildFile; fileRef = EB04AEFC123EF78D00AA6C31 /* NSURLConnection.m */; };
 		EB1A3B870E7611B000D37DF1 /* dns-register.c in Sources */ = {isa = PBXBuildFile; fileRef = EB1A3B7D0E76115E00D37DF1 /* dns-register.c */; };
 		EB1A3B8D0E76133800D37DF1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
+		EB234255108FCEF100FFFF56 /* lkdc-cert-hash.m in Sources */ = {isa = PBXBuildFile; fileRef = EB234254108FCEF100FFFF56 /* lkdc-cert-hash.m */; };
+		EB2342B1108FDD6600FFFF56 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB2342B0108FDD6600FFFF56 /* Foundation.framework */; };
+		EB2342B5108FDD7A00FFFF56 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B1FD7D0BCC46070015ABA8 /* OpenDirectory.framework */; };
+		EB2342B9108FDD8C00FFFF56 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72FA35D90BE2939E008FAFF6 /* Security.framework */; };
+		EB2342BD108FDD9A00FFFF56 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728E3F3C0BCC521A0006AFEB /* Kerberos.framework */; };
 		EB2C84990F1701EC004CB289 /* migrateLocalKDC in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84970F1701A7004CB289 /* migrateLocalKDC */; };
 		EB2C84B00F170302004CB289 /* configureLocalKDC.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = EB2C84AF0F1702F3004CB289 /* configureLocalKDC.1 */; };
+		EB344AA711782CC00071D316 /* na.c in Sources */ = {isa = PBXBuildFile; fileRef = EB344AA511782CC00071D316 /* na.c */; };
+		EB344AA811782CC00071D316 /* NetworkAuthenticationHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = EB344AA611782CC00071D316 /* NetworkAuthenticationHelper.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB3642FE11DE314B00FB1F2E /* CoreServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB3642FD11DE314B00FB1F2E /* CoreServices.framework */; };
 		EB41C0800F672E5500453B45 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = D176CEA00BC38EEF00424D2A /* utils.h */; };
 		EB41C0810F672E5500453B45 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = D176CEA10BC38EEF00424D2A /* utils.c */; };
+		EB7FD23C130C9F1D006FB7F6 /* NetworkAuthenticationHelperGSS.h in Headers */ = {isa = PBXBuildFile; fileRef = EB7FD23B130C9EE9006FB7F6 /* NetworkAuthenticationHelperGSS.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB8BFC8711798C390003BE65 /* test-na.c in Sources */ = {isa = PBXBuildFile; fileRef = EB8BFC7011798BD70003BE65 /* test-na.c */; };
+		EB8BFC8C11798C5E0003BE65 /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
+		EB8BFC9311798C770003BE65 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
 		EB98FFD10E83FE96003DAF03 /* kcc-debug.c in Sources */ = {isa = PBXBuildFile; fileRef = EB98FFD00E83FE96003DAF03 /* kcc-debug.c */; };
-		EB98FFD50E83FEC4003DAF03 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728E3F3C0BCC521A0006AFEB /* Kerberos.framework */; };
-		EB9CC3950E1B8C77009B3162 /* lkdc_acl.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9CC38A0E1B8C2C009B3162 /* lkdc_acl.c */; };
+		EB9CC3950E1B8C77009B3162 /* lkdc_acl.c in Sources */ = {isa = PBXBuildFile; fileRef = EB9CC38A0E1B8C2C009B3162 /* lkdc_acl.c */; settings = {COMPILER_FLAGS = "-Wno-error"; }; };
 		EB9CC40E0E1B8CD2009B3162 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72FA35D90BE2939E008FAFF6 /* Security.framework */; };
 		EB9CC4160E1B8D6B009B3162 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
+		EB9E5BCC0F8EED5D00CC9075 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
+		EB9E5BE20F8EED9E00CC9075 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
+		EB9E5D060F8FD77600CC9075 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
 		EBB59D130F8C1D7D00D324F6 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */; };
+		EBCD59A911431B9700B964AB /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
+		EBCD59AA11431B9700B964AB /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
+		EBCD59AB11431B9700B964AB /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */; };
+		EBCD59B511431C0300B964AB /* DiskUnmountWatcher.c in Sources */ = {isa = PBXBuildFile; fileRef = EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */; };
+		EBCD5AA2114335D800B964AB /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD5AA1114335D800B964AB /* GSS.framework */; };
+		EBCD5AD811433FF100B964AB /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
+		EBCD5AF81143400000B964AB /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */; };
+		EBCD5AF91143400000B964AB /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBCD5AA1114335D800B964AB /* GSS.framework */; };
+		EBCD5AFD1143400A00B964AB /* KRBDecodeNegTokenInit.c in Sources */ = {isa = PBXBuildFile; fileRef = EBCD5ACC11433FAE00B964AB /* KRBDecodeNegTokenInit.c */; };
 		EBE0FCF50F66FE78002B9EE7 /* KerberosHelper.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */; };
 		EBE0FCF80F66FEA1002B9EE7 /* KerberosHelper.h in Headers */ = {isa = PBXBuildFile; fileRef = D176CE600BC379A600424D2A /* KerberosHelper.h */; };
 		EBE0FCFC0F66FEBF002B9EE7 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
-		EBE3B3D30EDA1E32005F37A5 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 728E3F3C0BCC521A0006AFEB /* Kerberos.framework */; };
 		EBE3B3D40EDA1E43005F37A5 /* get-friendly-name.c in Sources */ = {isa = PBXBuildFile; fileRef = EBE3B3C70EDA1DFE005F37A5 /* get-friendly-name.c */; };
+		EBE570310FAE7B4B0066F82F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D176D0380BC3A42600424D2A /* CoreFoundation.framework */; };
+		EBE570370FAE7B600066F82F /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B1FD7D0BCC46070015ABA8 /* OpenDirectory.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -241,6 +326,13 @@
 			remoteGlobalIDString = 72C36BA80BE29662002813A1;
 			remoteInfo = lkdc_lookup;
 		};
+		727C13E411F62430003772C6 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 727C12FE11F62134003772C6;
+			remoteInfo = "migration-test";
+		};
 		7287D2680BCCF7A80084DD0D /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
@@ -283,12 +375,47 @@
 			remoteGlobalIDString = 72DEA5A40BCC54B6001BADAB;
 			remoteInfo = LocalKDC;
 		};
+		745AE65111DA7D09000BAE71 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 745AE64711DA7CA4000BAE71;
+			remoteInfo = checkLocalKDC;
+		};
+		EB04AF0A123EF7BD00AA6C31 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72DEA5E20BCC56F4001BADAB;
+			remoteInfo = KerberosHelper;
+		};
 		EB1A3B880E7611CA00D37DF1 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
 			proxyType = 1;
 			remoteGlobalIDString = EB1A3B810E76119F00D37DF1;
 			remoteInfo = "dns-register";
+		};
+		EB234257108FCEF600FFFF56 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB23424E108FCED500FFFF56;
+			remoteInfo = "lkdc-cert-hash";
+		};
+		EB8BFC8511798C2A0003BE65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB8BFC7F11798BE80003BE65;
+			remoteInfo = "test-na";
+		};
+		EB8BFC8A11798C580003BE65 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72DEA5E20BCC56F4001BADAB;
+			remoteInfo = KerberosHelper;
 		};
 		EB98FFF20E840C1B003DAF03 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -303,6 +430,34 @@
 			proxyType = 1;
 			remoteGlobalIDString = EB9CC38F0E1B8C54009B3162;
 			remoteInfo = lkdc_acl;
+		};
+		EBCD59A711431B7500B964AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72DEA5E20BCC56F4001BADAB;
+			remoteInfo = KerberosHelper;
+		};
+		EBCD59CB11431D9600B964AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBCD59A111431B6D00B964AB;
+			remoteInfo = DiskUnmountWatcher;
+		};
+		EBCD5AD611433FE900B964AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72DEA5E20BCC56F4001BADAB;
+			remoteInfo = KerberosHelper;
+		};
+		EBCD5B07114340B800B964AB /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 0867D690FE84028FC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBCD5AD111433FCE00B964AB;
+			remoteInfo = KRBDecodeNegTokenInit;
 		};
 		EBE0FCF30F66FE75002B9EE7 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -328,6 +483,16 @@
 			dstSubfolderSpec = 0;
 			files = (
 				7263B0410CBAE0910058A52B /* com.apple.configureLocalKDC.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		727C12FD11F62134003772C6 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/libexec/kerberoshelper/;
+			dstSubfolderSpec = 0;
+			files = (
+				727C154B11F6268E003772C6 /* migration in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -363,12 +528,65 @@
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
+		745AE63011DA7C0B000BAE71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				745AE63611DA7C26000BAE71 /* com.apple.checkLocalKDC.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		745AE63B11DA7C8F000BAE71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				745AE63C11DA7C8F000BAE71 /* configureLocalKDC in CopyFiles */,
+				745AE63D11DA7C8F000BAE71 /* migrateLocalKDC in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		745AE63E11DA7C8F000BAE71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				745AE63F11DA7C8F000BAE71 /* configureLocalKDC.1 in CopyFiles */,
+				745AE64011DA7C8F000BAE71 /* migrateLocalKDC.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		745AE64811DA7CA4000BAE71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/libexec;
+			dstSubfolderSpec = 0;
+			files = (
+				745AE65311DA7D2D000BAE71 /* checkLocalKDC in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		745AE64B11DA7CA4000BAE71 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				745AE65F11DA7DC6000BAE71 /* checkLocalKDC.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		089C1667FE841158C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		32DBCF5E0370ADEE00C91783 /* KerberosHelper_Prefix.pch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = KerberosHelper_Prefix.pch; sourceTree = "<group>"; };
 		7263B0400CBAE0910058A52B /* com.apple.configureLocalKDC.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.configureLocalKDC.plist; sourceTree = "<group>"; };
+		727C143D11F6268E003772C6 /* migration */ = {isa = PBXFileReference; lastKnownFileType = folder; name = migration; path = Tests/migration; sourceTree = "<group>"; };
 		7281B8C90C61756400044330 /* DeconstructServiceName.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DeconstructServiceName.c; path = Source/DeconstructServiceName.c; sourceTree = "<group>"; };
 		7281B8CA0C61756400044330 /* DeconstructServiceName.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DeconstructServiceName.h; path = Source/DeconstructServiceName.h; sourceTree = "<group>"; };
 		72859FCC0C8A012C0024051E /* LKDCHelper */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = LKDCHelper; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -402,6 +620,9 @@
 		72DEA6290BCC5D70001BADAB /* configureLocalKDC */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.sh; name = configureLocalKDC; path = Source/configureLocalKDC; sourceTree = "<group>"; };
 		72FA35D90BE2939E008FAFF6 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		742DA2BE0C8A62CB00B48D61 /* migrateLocalKDC.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = migrateLocalKDC.1; path = Source/migrateLocalKDC.1; sourceTree = "<group>"; };
+		745AE62D11DA7BD8000BAE71 /* com.apple.checkLocalKDC.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.checkLocalKDC.plist; sourceTree = "<group>"; };
+		745AE63911DA7C67000BAE71 /* checkLocalKDC */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = checkLocalKDC; path = Source/checkLocalKDC; sourceTree = "<group>"; };
+		745AE65E11DA7DBF000BAE71 /* checkLocalKDC.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = checkLocalKDC.1; path = Source/checkLocalKDC.1; sourceTree = "<group>"; };
 		8DC2EF5A0486A6940098B216 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		D176CE5F0BC379A600424D2A /* KerberosHelper.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = KerberosHelper.c; path = Source/KerberosHelper.c; sourceTree = "<group>"; };
 		D176CE600BC379A600424D2A /* KerberosHelper.h */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 30; name = KerberosHelper.h; path = Source/KerberosHelper.h; sourceTree = "<group>"; };
@@ -414,16 +635,34 @@
 		D176D0560BC3A5F300424D2A /* KerberosHelper.exports */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = KerberosHelper.exports; sourceTree = "<group>"; };
 		D176D0BD0BC3B9EC00424D2A /* LKDCHelper-lookup.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "LKDCHelper-lookup.h"; path = "Source/LKDCHelper-lookup.h"; sourceTree = "<group>"; };
 		D176D0BE0BC3B9EC00424D2A /* LKDCHelper-lookup.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "LKDCHelper-lookup.c"; path = "Source/LKDCHelper-lookup.c"; sourceTree = "<group>"; };
+		EB04AEFC123EF78D00AA6C31 /* NSURLConnection.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = NSURLConnection.m; path = CFNetwork/NSURLConnection.m; sourceTree = "<group>"; };
+		EB04AF03123EF7B400AA6C31 /* NSURLConnection */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = NSURLConnection; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB1A3B7D0E76115E00D37DF1 /* dns-register.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "dns-register.c"; path = "Tests/dns-register.c"; sourceTree = "<group>"; };
 		EB1A3B820E76119F00D37DF1 /* dns-register */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "dns-register"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB23424F108FCED500FFFF56 /* lkdc-cert-hash */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "lkdc-cert-hash"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB234254108FCEF100FFFF56 /* lkdc-cert-hash.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = "lkdc-cert-hash.m"; path = "Source/lkdc-cert-hash.m"; sourceTree = "<group>"; };
+		EB2342B0108FDD6600FFFF56 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = /System/Library/Frameworks/Foundation.framework; sourceTree = "<absolute>"; };
 		EB2C84970F1701A7004CB289 /* migrateLocalKDC */ = {isa = PBXFileReference; explicitFileType = text.script.perl; fileEncoding = 4; name = migrateLocalKDC; path = Source/migrateLocalKDC; sourceTree = "<group>"; };
 		EB2C84AF0F1702F3004CB289 /* configureLocalKDC.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; name = configureLocalKDC.1; path = Source/configureLocalKDC.1; sourceTree = "<group>"; };
+		EB344AA511782CC00071D316 /* na.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = na.c; path = Source/na.c; sourceTree = "<group>"; };
+		EB344AA611782CC00071D316 /* NetworkAuthenticationHelper.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NetworkAuthenticationHelper.h; path = Source/NetworkAuthenticationHelper.h; sourceTree = "<group>"; };
+		EB3642FD11DE314B00FB1F2E /* CoreServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreServices.framework; path = /System/Library/Frameworks/CoreServices.framework; sourceTree = "<absolute>"; };
+		EB7FD23B130C9EE9006FB7F6 /* NetworkAuthenticationHelperGSS.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = NetworkAuthenticationHelperGSS.h; sourceTree = "<group>"; };
+		EB8BFC7011798BD70003BE65 /* test-na.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-na.c"; path = "Source/test-na.c"; sourceTree = "<group>"; };
+		EB8BFC8011798BE80003BE65 /* test-na */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-na"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB98FFC50E83FE5E003DAF03 /* kcc-debug */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kcc-debug"; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB98FFD00E83FE96003DAF03 /* kcc-debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "kcc-debug.c"; path = "Source/kcc-debug.c"; sourceTree = "<group>"; };
 		EB9CC38A0E1B8C2C009B3162 /* lkdc_acl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = lkdc_acl.c; path = Source/lkdc_acl.c; sourceTree = "<group>"; };
 		EB9CC3900E1B8C54009B3162 /* lkdc_acl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = lkdc_acl; sourceTree = BUILT_PRODUCTS_DIR; };
 		EB9CC41F0E1B8DC8009B3162 /* libSystem.B.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libSystem.B.dylib; path = /usr/lib/libSystem.B.dylib; sourceTree = "<absolute>"; };
+		EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
 		EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DiskUnmountWatcher.c; path = Source/DiskUnmountWatcher.c; sourceTree = "<group>"; };
+		EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = DiskUnmountWatcher.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBCD59A311431B6D00B964AB /* DiskUnmountWatcher-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "DiskUnmountWatcher-Info.plist"; sourceTree = "<group>"; };
+		EBCD5AA1114335D800B964AB /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
+		EBCD5ACC11433FAE00B964AB /* KRBDecodeNegTokenInit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = KRBDecodeNegTokenInit.c; path = Tests/KRBDecodeNegTokenInit.c; sourceTree = "<group>"; };
+		EBCD5AD211433FCE00B964AB /* KRBDecodeNegTokenInit */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = KRBDecodeNegTokenInit; sourceTree = BUILT_PRODUCTS_DIR; };
 		EBE3B3C70EDA1DFE005F37A5 /* get-friendly-name.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "get-friendly-name.c"; path = "Tests/get-friendly-name.c"; sourceTree = "<group>"; };
 		EBE3B3CC0EDA1E22005F37A5 /* kget-friendly-name */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "kget-friendly-name"; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -477,6 +716,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				72DEA5DB0BCC5675001BADAB /* libLocalKDC.a in Frameworks */,
+				EBE570310FAE7B4B0066F82F /* CoreFoundation.framework in Frameworks */,
+				EBE570370FAE7B600066F82F /* OpenDirectory.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -486,9 +727,19 @@
 			files = (
 				72DEA5F30BCC574E001BADAB /* libLocalKDC.a in Frameworks */,
 				72DEA5F50BCC5752001BADAB /* CoreFoundation.framework in Frameworks */,
-				72DEA5F60BCC5753001BADAB /* Kerberos.framework in Frameworks */,
 				72FA35DA0BE2939E008FAFF6 /* Security.framework in Frameworks */,
 				728B00250C9623DB006C59A2 /* OpenDirectory.framework in Frameworks */,
+				EB9E5BE20F8EED9E00CC9075 /* Heimdal.framework in Frameworks */,
+				EBCD5AA2114335D800B964AB /* GSS.framework in Frameworks */,
+				EB3642FE11DE314B00FB1F2E /* CoreServices.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB04AF01123EF7B400AA6C31 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB04AF08123EF7B900AA6C31 /* KerberosHelper.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -500,11 +751,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EB23424D108FCED500FFFF56 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB2342B1108FDD6600FFFF56 /* Foundation.framework in Frameworks */,
+				EB2342B5108FDD7A00FFFF56 /* OpenDirectory.framework in Frameworks */,
+				EB2342B9108FDD8C00FFFF56 /* Security.framework in Frameworks */,
+				EB2342BD108FDD9A00FFFF56 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB8BFC7E11798BE80003BE65 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB8BFC8C11798C5E0003BE65 /* KerberosHelper.framework in Frameworks */,
+				EB8BFC9311798C770003BE65 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EB98FFC30E83FE5E003DAF03 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EB98FFD50E83FEC4003DAF03 /* Kerberos.framework in Frameworks */,
+				EB9E5D060F8FD77600CC9075 /* Heimdal.framework in Frameworks */,
 				EBE0FCF50F66FE78002B9EE7 /* KerberosHelper.framework in Frameworks */,
 				EBE0FCFC0F66FEBF002B9EE7 /* CoreFoundation.framework in Frameworks */,
 				EBB59D130F8C1D7D00D324F6 /* DiskArbitration.framework in Frameworks */,
@@ -520,11 +791,31 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		EBCD59A011431B6D00B964AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBCD59A911431B9700B964AB /* KerberosHelper.framework in Frameworks */,
+				EBCD59AA11431B9700B964AB /* CoreFoundation.framework in Frameworks */,
+				EBCD59AB11431B9700B964AB /* DiskArbitration.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBCD5AD011433FCE00B964AB /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBCD5AF81143400000B964AB /* Heimdal.framework in Frameworks */,
+				EBCD5AF91143400000B964AB /* GSS.framework in Frameworks */,
+				EBCD5AD811433FF100B964AB /* KerberosHelper.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		EBE3B3CA0EDA1E22005F37A5 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				EBE3B3D30EDA1E32005F37A5 /* Kerberos.framework in Frameworks */,
+				EB9E5BCC0F8EED5D00CC9075 /* Heimdal.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -545,6 +836,11 @@
 				EB1A3B820E76119F00D37DF1 /* dns-register */,
 				EB98FFC50E83FE5E003DAF03 /* kcc-debug */,
 				EBE3B3CC0EDA1E22005F37A5 /* kget-friendly-name */,
+				EB23424F108FCED500FFFF56 /* lkdc-cert-hash */,
+				EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */,
+				EBCD5AD211433FCE00B964AB /* KRBDecodeNegTokenInit */,
+				EB8BFC8011798BE80003BE65 /* test-na */,
+				EB04AF03123EF7B400AA6C31 /* NSURLConnection */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -552,6 +848,7 @@
 		0867D691FE84028FC02AAC07 /* KerberosHelper */ = {
 			isa = PBXGroup;
 			children = (
+				745AE62D11DA7BD8000BAE71 /* com.apple.checkLocalKDC.plist */,
 				7263B0400CBAE0910058A52B /* com.apple.configureLocalKDC.plist */,
 				72C1B7DE0BCC73A3009C2F5E /* Test Source */,
 				08FB77AEFE84172EC02AAC07 /* Source */,
@@ -559,9 +856,12 @@
 				089C1665FE841158C02AAC07 /* Resources */,
 				0867D69AFE84028FC02AAC07 /* External Frameworks and Libraries */,
 				034768DFFF38A50411DB9C8B /* Products */,
-				72DEA5E40BCC56F4001BADAB /* KerberosHelper-Info.plist */,
 				EB9CC41F0E1B8DC8009B3162 /* libSystem.B.dylib */,
 				EBB59D120F8C1D7D00D324F6 /* DiskArbitration.framework */,
+				EB9E5BCB0F8EED5D00CC9075 /* Heimdal.framework */,
+				EB2342B0108FDD6600FFFF56 /* Foundation.framework */,
+				EBCD5AA1114335D800B964AB /* GSS.framework */,
+				EB3642FD11DE314B00FB1F2E /* CoreServices.framework */,
 			);
 			name = KerberosHelper;
 			sourceTree = "<group>";
@@ -578,10 +878,12 @@
 		089C1665FE841158C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				EBCD59A311431B6D00B964AB /* DiskUnmountWatcher-Info.plist */,
 				D176D0560BC3A5F300424D2A /* KerberosHelper.exports */,
 				8DC2EF5A0486A6940098B216 /* Info.plist */,
 				72859FD80C8A02680024051E /* com.apple.KerberosHelper.LKDCHelper.plist */,
 				72B1FD050BCC42720015ABA8 /* LKDCLocate-Info.plist */,
+				72DEA5E40BCC56F4001BADAB /* KerberosHelper-Info.plist */,
 				089C1666FE841158C02AAC07 /* InfoPlist.strings */,
 			);
 			name = Resources;
@@ -590,6 +892,14 @@
 		08FB77AEFE84172EC02AAC07 /* Source */ = {
 			isa = PBXGroup;
 			children = (
+				745AE65E11DA7DBF000BAE71 /* checkLocalKDC.1 */,
+				745AE63911DA7C67000BAE71 /* checkLocalKDC */,
+				EB8BFC7011798BD70003BE65 /* test-na.c */,
+				EB344AA511782CC00071D316 /* na.c */,
+				EB344AA611782CC00071D316 /* NetworkAuthenticationHelper.h */,
+				EB7FD23B130C9EE9006FB7F6 /* NetworkAuthenticationHelperGSS.h */,
+				EBCD599111431B3900B964AB /* DiskUnmountWatcher.c */,
+				EB234254108FCEF100FFFF56 /* lkdc-cert-hash.m */,
 				EB2C84970F1701A7004CB289 /* migrateLocalKDC */,
 				742DA2BE0C8A62CB00B48D61 /* migrateLocalKDC.1 */,
 				72DEA6290BCC5D70001BADAB /* configureLocalKDC */,
@@ -654,6 +964,9 @@
 		72C1B7DE0BCC73A3009C2F5E /* Test Source */ = {
 			isa = PBXGroup;
 			children = (
+				EB04AEFC123EF78D00AA6C31 /* NSURLConnection.m */,
+				727C143D11F6268E003772C6 /* migration */,
+				EBCD5ACC11433FAE00B964AB /* KRBDecodeNegTokenInit.c */,
 				EBE3B3C70EDA1DFE005F37A5 /* get-friendly-name.c */,
 				72C1B7E00BCC7431009C2F5E /* kerberos-helper-tests.c */,
 				72C4B64E0CB1759D0075E546 /* KRBCreateSession.c */,
@@ -700,6 +1013,8 @@
 				72D11C890C8A134700499A2D /* LKDCHelper.h in Headers */,
 				72D11C910C8A14FA00499A2D /* LKDCHelper-types.h in Headers */,
 				728B00200C96236C006C59A2 /* lookupDSLocalKDC.h in Headers */,
+				EB344AA811782CC00071D316 /* NetworkAuthenticationHelper.h in Headers */,
+				EB7FD23C130C9F1D006FB7F6 /* NetworkAuthenticationHelperGSS.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -839,6 +1154,23 @@
 			productReference = 72DEA5E30BCC56F4001BADAB /* KerberosHelper.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		EB04AF02123EF7B400AA6C31 /* NSURLConnection */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB04AF18123EF7FD00AA6C31 /* Build configuration list for PBXNativeTarget "NSURLConnection" */;
+			buildPhases = (
+				EB04AF00123EF7B400AA6C31 /* Sources */,
+				EB04AF01123EF7B400AA6C31 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB04AF0B123EF7BD00AA6C31 /* PBXTargetDependency */,
+			);
+			name = NSURLConnection;
+			productName = NSURLConnection;
+			productReference = EB04AF03123EF7B400AA6C31 /* NSURLConnection */;
+			productType = "com.apple.product-type.tool";
+		};
 		EB1A3B810E76119F00D37DF1 /* dns-register */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EB1A3B8C0E7611F900D37DF1 /* Build configuration list for PBXNativeTarget "dns-register" */;
@@ -853,6 +1185,39 @@
 			name = "dns-register";
 			productName = "dns-register";
 			productReference = EB1A3B820E76119F00D37DF1 /* dns-register */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB23424E108FCED500FFFF56 /* lkdc-cert-hash */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB234256108FCEF100FFFF56 /* Build configuration list for PBXNativeTarget "lkdc-cert-hash" */;
+			buildPhases = (
+				EB23424C108FCED500FFFF56 /* Sources */,
+				EB23424D108FCED500FFFF56 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "lkdc-cert-hash";
+			productName = "lkdc-cert-hash";
+			productReference = EB23424F108FCED500FFFF56 /* lkdc-cert-hash */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB8BFC7F11798BE80003BE65 /* test-na */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB8BFC8411798C220003BE65 /* Build configuration list for PBXNativeTarget "test-na" */;
+			buildPhases = (
+				EB8BFC7D11798BE80003BE65 /* Sources */,
+				EB8BFC7E11798BE80003BE65 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB8BFC8B11798C580003BE65 /* PBXTargetDependency */,
+			);
+			name = "test-na";
+			productName = "test-na";
+			productReference = EB8BFC8011798BE80003BE65 /* test-na */;
 			productType = "com.apple.product-type.tool";
 		};
 		EB98FFC40E83FE5E003DAF03 /* kcc-debug */ = {
@@ -889,6 +1254,41 @@
 			productReference = EB9CC3900E1B8C54009B3162 /* lkdc_acl */;
 			productType = "com.apple.product-type.tool";
 		};
+		EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBCD59A611431B7000B964AB /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */;
+			buildPhases = (
+				EBCD599E11431B6D00B964AB /* Resources */,
+				EBCD599F11431B6D00B964AB /* Sources */,
+				EBCD59A011431B6D00B964AB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBCD59A811431B7500B964AB /* PBXTargetDependency */,
+			);
+			name = DiskUnmountWatcher;
+			productName = DiskUnmountWatcher;
+			productReference = EBCD59A211431B6D00B964AB /* DiskUnmountWatcher.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBCD5B061143402500B964AB /* Build configuration list for PBXNativeTarget "KRBDecodeNegTokenInit" */;
+			buildPhases = (
+				EBCD5ACF11433FCE00B964AB /* Sources */,
+				EBCD5AD011433FCE00B964AB /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBCD5AD711433FE900B964AB /* PBXTargetDependency */,
+			);
+			name = KRBDecodeNegTokenInit;
+			productName = KRBDecodeNegTokenInit;
+			productReference = EBCD5AD211433FCE00B964AB /* KRBDecodeNegTokenInit */;
+			productType = "com.apple.product-type.tool";
+		};
 		EBE3B3CB0EDA1E22005F37A5 /* kget-friendly-name */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = EBE3B3D70EDA1E64005F37A5 /* Build configuration list for PBXNativeTarget "kget-friendly-name" */;
@@ -912,7 +1312,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB91B108733DA50010E9CD /* Build configuration list for PBXProject "KerberosHelper" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 0867D691FE84028FC02AAC07 /* KerberosHelper */;
 			productRefGroup = 034768DFFF38A50411DB9C8B /* Products */;
 			projectDirPath = "";
@@ -924,16 +1331,25 @@
 				72DEA5B00BCC5534001BADAB /* LKDCLocate */,
 				72DEA5E20BCC56F4001BADAB /* KerberosHelper */,
 				72DEA6240BCC5D4B001BADAB /* configureLocalKDC */,
+				745AE64711DA7CA4000BAE71 /* checkLocalKDC */,
 				72C1B7D30BCC72F0009C2F5E /* KerberosHelperTests */,
 				72C36BA80BE29662002813A1 /* lkdc_lookup */,
 				72859FCB0C8A012C0024051E /* LKDCHelper */,
 				72859FDA0C8A02A40024051E /* LKDCHelper-LaunchAgent.plist */,
 				72C4B6460CB174FC0075E546 /* KRBCreateSession */,
 				7263B03B0CBADFFD0058A52B /* configureLocalKDC-LaunchDaemon.plist */,
+				745AE62F11DA7C0B000BAE71 /* checkLocalKDC-LaunchDaemon.plist */,
 				EB9CC38F0E1B8C54009B3162 /* lkdc_acl */,
 				EB1A3B810E76119F00D37DF1 /* dns-register */,
 				EB98FFC40E83FE5E003DAF03 /* kcc-debug */,
 				EBE3B3CB0EDA1E22005F37A5 /* kget-friendly-name */,
+				EB23424E108FCED500FFFF56 /* lkdc-cert-hash */,
+				EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */,
+				EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */,
+				EB8BFC7F11798BE80003BE65 /* test-na */,
+				745AE63A11DA7C8F000BAE71 /* configureLocalKDC copy */,
+				727C12FE11F62134003772C6 /* migration-test */,
+				EB04AF02123EF7B400AA6C31 /* NSURLConnection */,
 			);
 		};
 /* End PBXProject section */
@@ -947,6 +1363,13 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		72DEA5DF0BCC56F4001BADAB /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBCD599E11431B6D00B964AB /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1025,6 +1448,15 @@
 				72DEA5F20BCC5745001BADAB /* utils.c in Sources */,
 				7281B8CB0C61756400044330 /* DeconstructServiceName.c in Sources */,
 				728B00210C96236D006C59A2 /* lookupDSLocalKDC.c in Sources */,
+				EB344AA711782CC00071D316 /* na.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB04AF00123EF7B400AA6C31 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB04AF13123EF7DF00AA6C31 /* NSURLConnection.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1033,6 +1465,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB1A3B870E7611B000D37DF1 /* dns-register.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB23424C108FCED500FFFF56 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB234255108FCEF100FFFF56 /* lkdc-cert-hash.m in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB8BFC7D11798BE80003BE65 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB8BFC8711798C390003BE65 /* test-na.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1050,6 +1498,22 @@
 			buildActionMask = 2147483647;
 			files = (
 				EB9CC3950E1B8C77009B3162 /* lkdc_acl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBCD599F11431B6D00B964AB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBCD59B511431C0300B964AB /* DiskUnmountWatcher.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBCD5ACF11433FCE00B964AB /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBCD5AFD1143400A00B964AB /* KRBDecodeNegTokenInit.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1124,6 +1588,11 @@
 			target = 72C36BA80BE29662002813A1 /* lkdc_lookup */;
 			targetProxy = 727B59490C7A6DAA00A23451 /* PBXContainerItemProxy */;
 		};
+		727C13E511F62430003772C6 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 727C12FE11F62134003772C6 /* migration-test */;
+			targetProxy = 727C13E411F62430003772C6 /* PBXContainerItemProxy */;
+		};
 		7287D2690BCCF7A80084DD0D /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 72DEA5A40BCC54B6001BADAB /* libLKDCHelper */;
@@ -1154,10 +1623,35 @@
 			target = 72DEA5A40BCC54B6001BADAB /* libLKDCHelper */;
 			targetProxy = 72DEA5EA0BCC5703001BADAB /* PBXContainerItemProxy */;
 		};
+		745AE65211DA7D09000BAE71 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 745AE64711DA7CA4000BAE71 /* checkLocalKDC */;
+			targetProxy = 745AE65111DA7D09000BAE71 /* PBXContainerItemProxy */;
+		};
+		EB04AF0B123EF7BD00AA6C31 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72DEA5E20BCC56F4001BADAB /* KerberosHelper */;
+			targetProxy = EB04AF0A123EF7BD00AA6C31 /* PBXContainerItemProxy */;
+		};
 		EB1A3B890E7611CA00D37DF1 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = EB1A3B810E76119F00D37DF1 /* dns-register */;
 			targetProxy = EB1A3B880E7611CA00D37DF1 /* PBXContainerItemProxy */;
+		};
+		EB234258108FCEF600FFFF56 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB23424E108FCED500FFFF56 /* lkdc-cert-hash */;
+			targetProxy = EB234257108FCEF600FFFF56 /* PBXContainerItemProxy */;
+		};
+		EB8BFC8611798C2A0003BE65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB8BFC7F11798BE80003BE65 /* test-na */;
+			targetProxy = EB8BFC8511798C2A0003BE65 /* PBXContainerItemProxy */;
+		};
+		EB8BFC8B11798C580003BE65 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72DEA5E20BCC56F4001BADAB /* KerberosHelper */;
+			targetProxy = EB8BFC8A11798C580003BE65 /* PBXContainerItemProxy */;
 		};
 		EB98FFF30E840C1B003DAF03 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1168,6 +1662,26 @@
 			isa = PBXTargetDependency;
 			target = EB9CC38F0E1B8C54009B3162 /* lkdc_acl */;
 			targetProxy = EB9CC4450E1B8FB2009B3162 /* PBXContainerItemProxy */;
+		};
+		EBCD59A811431B7500B964AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72DEA5E20BCC56F4001BADAB /* KerberosHelper */;
+			targetProxy = EBCD59A711431B7500B964AB /* PBXContainerItemProxy */;
+		};
+		EBCD59CC11431D9600B964AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBCD59A111431B6D00B964AB /* DiskUnmountWatcher */;
+			targetProxy = EBCD59CB11431D9600B964AB /* PBXContainerItemProxy */;
+		};
+		EBCD5AD711433FE900B964AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72DEA5E20BCC56F4001BADAB /* KerberosHelper */;
+			targetProxy = EBCD5AD611433FE900B964AB /* PBXContainerItemProxy */;
+		};
+		EBCD5B08114340B800B964AB /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBCD5AD111433FCE00B964AB /* KRBDecodeNegTokenInit */;
+			targetProxy = EBCD5B07114340B800B964AB /* PBXContainerItemProxy */;
 		};
 		EBE0FCF40F66FE75002B9EE7 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1196,6 +1710,11 @@
 		1DEB91B208733DA50010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					x86_64,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1213,6 +1732,11 @@
 		1DEB91B308733DA50010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					x86_64,
+					i386,
+				);
+				FRAMEWORK_SEARCH_PATHS = /System/Library/PrivateFrameworks;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
@@ -1289,6 +1813,27 @@
 			};
 			name = Release;
 		};
+		727C12FF11F62134003772C6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = MigrationTests;
+			};
+			name = Debug;
+		};
+		727C130011F62134003772C6 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = MigrationTests;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
 		72859FCE0C8A012D0024051E /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1302,7 +1847,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources/;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = LKDCHelper;
 				ZERO_LINK = YES;
@@ -1321,7 +1866,7 @@
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources/;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = LKDCHelper;
 				ZERO_LINK = NO;
@@ -1485,6 +2030,11 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_ENABLE_OBJC_GC = YES;
@@ -1497,6 +2047,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = LKDCLocate;
+				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = YES;
 			};
@@ -1507,6 +2058,11 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1517,6 +2073,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = LKDCLocate;
+				SKIP_INSTALL = YES;
 				WRAPPER_EXTENSION = bundle;
 				ZERO_LINK = NO;
 			};
@@ -1533,9 +2090,11 @@
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1563,9 +2122,11 @@
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				FRAMEWORK_VERSION = A;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
@@ -1648,6 +2209,151 @@
 			};
 			name = Release;
 		};
+		745AE63311DA7C0B000BAE71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = "checkLocalKDC-LaunchDaemon.plist";
+			};
+			name = Debug;
+		};
+		745AE63411DA7C0B000BAE71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = "checkLocalKDC-LaunchDaemon.plist";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		745AE64211DA7C8F000BAE71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = configureLocalKDC;
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		745AE64311DA7C8F000BAE71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = configureLocalKDC;
+				SDKROOT = "";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		745AE64F11DA7CA4000BAE71 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = checkLocalKDC;
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		745AE65011DA7CA4000BAE71 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = checkLocalKDC;
+				SDKROOT = "";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB04AF06123EF7B400AA6C31 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = NSURLConnection;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		EB04AF07123EF7B400AA6C31 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				GCC_PREFIX_HEADER = "$(SYSTEM_LIBRARY_DIR)/Frameworks/AppKit.framework/Headers/AppKit.h";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = NSURLConnection;
+				SKIP_INSTALL = YES;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
 		EB1A3B840E7611A000D37DF1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -1678,7 +2384,47 @@
 			};
 			name = Release;
 		};
-		EB98FFC70E83FE5F003DAF03 /* Debug */ = {
+		EB234252108FCED500FFFF56 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
+				PREBINDING = NO;
+				PRODUCT_NAME = "lkdc-cert-hash";
+			};
+			name = Debug;
+		};
+		EB234253108FCED500FFFF56 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
+				PREBINDING = NO;
+				PRODUCT_NAME = "lkdc-cert-hash";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB8BFC8211798BE90003BE65 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
@@ -1687,7 +2433,42 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources;
+				INSTALL_PATH = /usr/local/libexec/kerberoshelper;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-na";
+			};
+			name = Debug;
+		};
+		EB8BFC8311798BE90003BE65 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/kerberoshelper;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-na";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB98FFC70E83FE5F003DAF03 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = "kcc-debug";
 			};
@@ -1699,9 +2480,14 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = "kcc-debug";
 				ZERO_LINK = NO;
@@ -1717,7 +2503,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = lkdc_acl;
 			};
@@ -1731,9 +2517,83 @@
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Resources;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/KerberosHelper.framework/Helpers;
 				PREBINDING = NO;
 				PRODUCT_NAME = lkdc_acl;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EBCD59A411431B7000B964AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				INFOPLIST_FILE = "DiskUnmountWatcher-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PREBINDING = NO;
+				PRODUCT_NAME = DiskUnmountWatcher;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Debug;
+		};
+		EBCD59A511431B7000B964AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INFOPLIST_FILE = "DiskUnmountWatcher-Info.plist";
+				INSTALL_PATH = /System/Library/UserEventPlugins;
+				PREBINDING = NO;
+				PRODUCT_NAME = DiskUnmountWatcher;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Release;
+		};
+		EBCD5AD411433FD300B964AB /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = KRBDecodeNegTokenInit;
+				SKIP_INSTALL = YES;
+			};
+			name = Debug;
+		};
+		EBCD5AD511433FD300B964AB /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				INSTALL_PATH = /usr/local/bin;
+				OTHER_LDFLAGS = (
+					"-framework",
+					Foundation,
+					"-framework",
+					AppKit,
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = KRBDecodeNegTokenInit;
+				SKIP_INSTALL = YES;
 				ZERO_LINK = NO;
 			};
 			name = Release;
@@ -1743,6 +2603,11 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1759,6 +2624,11 @@
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+				);
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = /usr/local/bin;
@@ -1794,6 +2664,15 @@
 			buildConfigurations = (
 				7263B03C0CBADFFD0058A52B /* Debug */,
 				7263B03D0CBADFFD0058A52B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		727C130711F62152003772C6 /* Build configuration list for PBXAggregateTarget "migration-test" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				727C12FF11F62134003772C6 /* Debug */,
+				727C130011F62134003772C6 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1888,11 +2767,65 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
+		745AE63211DA7C0B000BAE71 /* Build configuration list for PBXAggregateTarget "checkLocalKDC-LaunchDaemon.plist" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				745AE63311DA7C0B000BAE71 /* Debug */,
+				745AE63411DA7C0B000BAE71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		745AE64111DA7C8F000BAE71 /* Build configuration list for PBXAggregateTarget "configureLocalKDC copy" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				745AE64211DA7C8F000BAE71 /* Debug */,
+				745AE64311DA7C8F000BAE71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		745AE64E11DA7CA4000BAE71 /* Build configuration list for PBXAggregateTarget "checkLocalKDC" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				745AE64F11DA7CA4000BAE71 /* Debug */,
+				745AE65011DA7CA4000BAE71 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB04AF18123EF7FD00AA6C31 /* Build configuration list for PBXNativeTarget "NSURLConnection" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB04AF06123EF7B400AA6C31 /* Debug */,
+				EB04AF07123EF7B400AA6C31 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		EB1A3B8C0E7611F900D37DF1 /* Build configuration list for PBXNativeTarget "dns-register" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				EB1A3B840E7611A000D37DF1 /* Debug */,
 				EB1A3B850E7611A000D37DF1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB234256108FCEF100FFFF56 /* Build configuration list for PBXNativeTarget "lkdc-cert-hash" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB234252108FCED500FFFF56 /* Debug */,
+				EB234253108FCED500FFFF56 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB8BFC8411798C220003BE65 /* Build configuration list for PBXNativeTarget "test-na" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB8BFC8211798BE90003BE65 /* Debug */,
+				EB8BFC8311798BE90003BE65 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -1911,6 +2844,24 @@
 			buildConfigurations = (
 				EB9CC3920E1B8C55009B3162 /* Debug */,
 				EB9CC3930E1B8C55009B3162 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBCD59A611431B7000B964AB /* Build configuration list for PBXNativeTarget "DiskUnmountWatcher" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBCD59A411431B7000B964AB /* Debug */,
+				EBCD59A511431B7000B964AB /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBCD5B061143402500B964AB /* Build configuration list for PBXNativeTarget "KRBDecodeNegTokenInit" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBCD5AD411433FD300B964AB /* Debug */,
+				EBCD5AD511433FD300B964AB /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

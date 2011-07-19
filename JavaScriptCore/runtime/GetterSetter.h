@@ -26,6 +26,7 @@
 #include "JSCell.h"
 
 #include "CallFrame.h"
+#include "Structure.h"
 
 namespace JSC {
 
@@ -37,35 +38,36 @@ namespace JSC {
         friend class JIT;
     public:
         GetterSetter(ExecState* exec)
-            : JSCell(exec->globalData().getterSetterStructure.get())
-            , m_getter(0)
-            , m_setter(0)
+            : JSCell(exec->globalData(), exec->globalData().getterSetterStructure.get())
         {
         }
 
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
 
-        JSObject* getter() const { return m_getter; }
-        void setGetter(JSObject* getter) { m_getter = getter; }
-        JSObject* setter() const { return m_setter; }
-        void setSetter(JSObject* setter) { m_setter = setter; }
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        JSObject* getter() const { return m_getter.get(); }
+        void setGetter(JSGlobalData& globalData, JSObject* getter) { m_getter.set(globalData, this, getter); }
+        JSObject* setter() const { return m_setter.get(); }
+        void setSetter(JSGlobalData& globalData, JSObject* setter) { m_setter.set(globalData, this, setter); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(GetterSetterType, OverridesMarkChildren), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(GetterSetterType, OverridesVisitChildren), AnonymousSlotCount, &s_info);
         }
+        
+        static const ClassInfo s_info;
+
     private:
         virtual bool isGetterSetter() const;
 
-        JSObject* m_getter;
-        JSObject* m_setter;  
+        WriteBarrier<JSObject> m_getter;
+        WriteBarrier<JSObject> m_setter;  
     };
 
     GetterSetter* asGetterSetter(JSValue);
 
     inline GetterSetter* asGetterSetter(JSValue value)
     {
-        ASSERT(asCell(value)->isGetterSetter());
-        return static_cast<GetterSetter*>(asCell(value));
+        ASSERT(value.asCell()->isGetterSetter());
+        return static_cast<GetterSetter*>(value.asCell());
     }
 
 

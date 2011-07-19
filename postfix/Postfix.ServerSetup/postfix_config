@@ -12,6 +12,7 @@ _master_cf_default="/etc/postfix/master.cf.default"
 _postfix_data_dir="/var/run/postfix"
 _other_plist="/etc/MailServicesOther.plist"
 _other_plist_default="/etc/MailServicesOther.plist.default"
+_mail_user_settings="/var/db/.mailusersettings.plist"
 
 echo "Configuring Postfix..."
 
@@ -25,6 +26,13 @@ if [ -e "$_mail_log" ] ; then
   chown root:admin "$_mail_log"
   chmod 640 "$_mail_log"
 fi
+
+# Create the mail user settings file if it doesn't exist
+if [ ! -e "$_mail_user_settings" ] ; then
+  touch "$_mail_user_settings"
+fi
+chown _postfix:mail $_mail_user_settings
+chmod 660 $_mail_user_settings
 
 # Create main.cf file
 if [ ! -e "$_main_cf" ] ; then
@@ -86,21 +94,39 @@ fi
 /usr/sbin/postconf -e mail_owner=_postfix
 /usr/sbin/postconf -e setgid_group=_postdrop
 /usr/sbin/postconf -e mailbox_size_limit=0
+/usr/sbin/postconf -e mydestination='$myhostname, localhost.$mydomain, localhost, $mydomain'
+
+# Set credentials for using URLAUTH with IMAP servers.
+/usr/sbin/postconf -e imap_submit_cred_file=/private/etc/postfix/submit.cred
+# Create submit.cred with either the same password dovecot is
+# configured for, or an unguessable random password.
+if [ ! -e /private/etc/postfix/submit.cred ] ; then
+	hostname=`grep "^myhostname *=" /private/etc/postfix/main.cf | sed 's,.*= *,,'`
+	if [ ! "$hostname" ] ; then
+		hostname=`hostname`
+	fi
+	if [ -s /private/etc/dovecot/submit.passdb ] ; then
+		pw=`grep "^submit:" /private/etc/dovecot/submit.passdb | sed 's,.*},,'`
+	fi
+	if [ ! "$pw" ] ; then
+		pw=`dd if=/dev/urandom bs=256 count=1 | env LANG=C tr -dc a-zA-Z0-9 | cut -b 1-22`
+	fi
+	if [ "$pw" -a "$hostname" ]; then
+		echo "submitcred version 1" > /private/etc/postfix/submit.cred
+		echo "$hostname|submit|$pw" >> /private/etc/postfix/submit.cred
+	fi
+	chmod 600 /private/etc/postfix/submit.cred
+fi
 
 # Set spool permissions
 /usr/sbin/postfix check > /dev/null 2>&1
-/usr/sbin/postfix set-permissions > /dev/null 2>&1
 
 # If postfix is not running we want to give it a quick start/stop so it creates all necessary sockets & pipes
 POSTFIX_PID=`ps -cxU root | grep master | sed -n -e "s/[^0-9]*\([0-9]*\).*/\1/p"`
 if [ "$POSTFIX_PID" = "" ] ; then
-  /usr/sbin/postfix start
-  sleep 2
-  /usr/sbin/postfix stop
+  /usr/sbin/postfix start > /dev/null 2>&1
+  /usr/sbin/postfix stop > /dev/null 2>&1
 fi
 
-# set default auth setting
-serveradmin settings mail:postfix:smtpd_pw_server_security_options:_array_index:0 = "cram-md5"
-
 # Set log level to critical
-sed 's/^mail\.\*/mail.crit/' < /etc/syslog.conf > /etc/syslog.conf.$$ && mv /etc/syslog.conf.$$ /etc/syslog.conf
+sed 's/^mail\.\*/mail.warn/' < /etc/syslog.conf > /etc/syslog.conf.$$ && mv /etc/syslog.conf.$$ /etc/syslog.conf

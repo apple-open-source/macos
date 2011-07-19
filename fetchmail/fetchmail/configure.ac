@@ -3,12 +3,13 @@ dnl Autoconfigure input file for fetchmail
 # Fetchmail automatic configuration support
 #
 # Eric S. Raymond <esr@thyrsus.com>
-# 2004 - 2009 Matthias Andree <matthias.andree@gmx.de>
+# 2004 - 2010 Matthias Andree <matthias.andree@gmx.de>
 #
 dnl Process this file with autoconf to produce a configure script.
 dnl
 
-AC_INIT([fetchmail],[6.3.11],[fetchmail-users@lists.berlios.de])
+dnl XXX - if bumping version here, check fetchmail.man, too!
+AC_INIT([fetchmail],[6.3.18],[fetchmail-users@lists.berlios.de])
 AC_CONFIG_SRCDIR([fetchmail.h])
 AC_CONFIG_HEADERS([config.h])
 AC_CONFIG_LIBOBJ_DIR([.])
@@ -31,6 +32,7 @@ AM_CONDITIONAL([HAVE_PYTHON], [test "$PYTHON" != :])
 
 AC_PROG_AWK
 AC_PROG_CC
+AM_PROG_CC_C_O
 AC_PROG_INSTALL
 AC_PROG_CPP			dnl Later checks need this.
 AC_PROG_RANLIB
@@ -45,6 +47,24 @@ dnl INTERACTIVE Systems Corporation Unix on 2006-07-23.  New programs
 dnl need not use this macro.  It is implemented as
 dnl `AC_SEARCH_LIBS([strerror], [cposix])'
 
+dnl check for b0rked Solaris (and other shells) and find one that works
+AC_MSG_CHECKING(for a working shell...)
+for i in /usr/xpg6/bin/sh /usr/xpg4/bin/sh /usr/ccs/bin/sh /bin/sh /usr/bin/sh /bin/ksh /bin/bash /usr/local/bin/bash ; do
+    $i -c 'if ! false ; then echo $(echo ok) ; fi' >config.$$ 2>/dev/null
+    j=`cat config.$$`
+    rm -f config.$$
+    if test "x$j" = "xok" ; then
+        SHELL=$i
+        AC_SUBST(SHELL)
+        break
+    fi
+done
+AC_MSG_RESULT($SHELL)
+if test "x$SHELL" = "x" ; then
+    AC_MSG_ERROR(no SUS compliant shell found - on Solaris, install SUNWxcu4)
+fi
+
+
 AC_HEADER_STDC
 AC_HEADER_TIME
 AC_TYPE_SIZE_T
@@ -53,7 +73,7 @@ AC_TYPE_SIGNAL
 AC_CHECK_HEADERS([unistd.h termios.h termio.h sgtty.h stdarg.h \
 	sys/itimer.h fcntl.h sys/fcntl.h memory.h sys/wait.h \
 	arpa/inet.h arpa/nameser.h netinet/in.h net/socket.h netdb.h \
-	sys/select.h sys/socket.h sys/time.h langinfo.h])
+	sys/select.h sys/socket.h sys/time.h langinfo.h md5.h])
 if test _$ac_cv_header_stdarg_h != _yes ; then
 AC_MSG_WARN([stdarg.h is not defined. Unsupported configuration, proceed at your own risk.])
 fi
@@ -74,6 +94,13 @@ AC_CHECK_HEADERS([resolv.h],,,[
 #endif
 ])
 
+AC_CHECK_DECLS([h_errno],,,[
+	AC_INCLUDES_DEFAULT
+	#ifdef HAVE_NETDB_H
+	#include <netdb.h>
+	#endif
+])
+
 AC_C_CONST			dnl getopt needs this.
 
 AM_PROG_LEX
@@ -88,8 +115,8 @@ darwin*)
     ;;
 # Check for FreeBSD special case: more libs needed
 freebsd*)
-    AC_MSG_NOTICE(found FreeBSD - Adding -lmd -lkvm -lcom_err to standard libraries)
-    LIBS="$LIBS -lmd -lkvm -lcom_err"
+    AC_MSG_NOTICE(found FreeBSD - Adding -lkvm -lcom_err to standard libraries)
+    LIBS="$LIBS -lkvm -lcom_err"
     ;;
 # Check for LynxOS special case: -lbsd needed (at least on 2.3.0) and -s
 # not working.
@@ -144,9 +171,15 @@ dnl 		[LIBS="$LIBS -lintl"])
 
 AC_REPLACE_FUNCS([strstr strcasecmp memmove stpcpy strlcpy strlcat])
 
-AC_CHECK_FUNC(MD5Init, [],
-	      [AC_LIBSOURCE(md5c.c)
-               EXTRAOBJ="$EXTRAOBJ md5c.\$(OBJEXT)"])
+have_md5=no
+if test "$ac_cv_header_md5_h" != no ; then
+    AC_SEARCH_LIBS(MD5Init, [md], [have_md5=yes])
+fi
+
+if test "$have_md5" != yes ; then
+    AC_LIBSOURCE(md5c.c)
+    EXTRAOBJ="$EXTRAOBJ md5c.\$(OBJEXT)"
+fi
 
 AC_CHECK_FUNC(getopt_long, [],
               [AC_LIBSOURCES([getopt.c, getopt1.c])
@@ -161,7 +194,7 @@ AC_CHECK_FUNCS(tcsetattr stty setsid geteuid seteuid dnl
   atexit inet_aton strftime setrlimit socketpair dnl
   sigaction strdup setlocale)
 
-AC_CHECK_DECLS(strerror)
+AC_CHECK_DECLS([strerror,getenv])
 dnl INET6 is used by KAME/getnameinfo
 AC_CACHE_CHECK(for AF_INET6/PF_INET6,ac_cv_inet6,
 AC_COMPILE_IFELSE([
@@ -217,11 +250,6 @@ done
 
 dnl Check for libcrypt -- it may live in libc or libcrypt, as on IRIX
 AC_CHECK_FUNC(crypt, , AC_CHECK_LIB(crypt,crypt))
-
-dnl Check for RSA refersence library in case we're using SSL
-AC_CHECK_LIB(rsaref, RSAPublicDecrypt)
-
-dnl AC_FUNC_SETVBUF_REVERSED
 
 dnl Check for usable void pointer type
 AC_MSG_CHECKING(use of void pointer type)
@@ -415,6 +443,7 @@ AC_ARG_ENABLE(NTLM,
 	[with_NTLM=$enableval],
 	[with_NTLM=no])
 test "$with_NTLM" = "yes" && AC_DEFINE(NTLM_ENABLE,1,Define if you want NTLM authentication)
+AM_CONDITIONAL(NTLM_ENABLE, test "$with_NTLM" = yes)
 
 ###	use option --enable-SDPS to compile in the SDPS support
 AC_ARG_ENABLE(SDPS,
@@ -476,7 +505,7 @@ AC_CACHE_CHECK([for getnameinfo],[fm_cv_getnameinfo],[
 #include <netdb.h>
 #endif
 #ifndef NULL
-#define NULL ((void *)0)
+#define NULL 0
 #endif
   ], [getnameinfo(NULL,0, NULL,0, NULL, 0, 0);],
     [ fm_cv_getnameinfo=yes],
@@ -572,7 +601,7 @@ else
            AC_CHECK_LIB(db2, db_open, ac_krblibs="$ac_krblibs -ldb2", [],
                 ${LDFLAGS})
            AC_CHECK_LIB(des, des_string_to_key, libk5crypto=-ldes,
-              AC_CHECK_LIB(ssl, MD5_Init, [],
+              AC_CHECK_LIB(crypto, MD5_Init, [],
                 AC_MSG_ERROR([DES libraries not found. Try adding --with-ssl to enable OpenSSL support]),
                 ${LDFLAGS} ${ac_krblibs}),
            ${LDFLAGS} ${ac_krblibs})
@@ -765,7 +794,7 @@ then
   save_LIBS="$LIBS"
   for i in "" "-ldl" ; do
       LIBS="$LDFLAGS $save_LIBS $i"
-      AC_LINK_IFELSE([AC_LANG_PROGRAM(,[SSL_library_init()])],[found=1; break])
+      AC_LINK_IFELSE([AC_LANG_PROGRAM([#include <openssl/ssl.h>],[SSL_library_init()])],[found=1; break])
   done
   if test $found = 0 ; then
       AC_MSG_RESULT([error])
@@ -818,6 +847,7 @@ then
   LDFLAGS="$ac_savedLDFLAGS"
 fi])
 
+dnl for libesmtp/ modules:
 ACX_WHICH_GETHOSTBYNAME_R
 
 ###	use option --with-hesiod=DIR to point at a HESIOD directory
@@ -870,7 +900,7 @@ then
   fi
   AC_DEFINE(GSSAPI,1,Define if you want GSSAPI authentication)
   if test "$with_gssapi" != yes ; then
-    CPPFLAGS="$CPPFLAGS-I$with_gssapi/include"
+    CPPFLAGS="$CPPFLAGS -I$with_gssapi/include"
   fi
   AC_CHECK_HEADERS(gss.h gssapi.h gssapi/gssapi.h gssapi/gssapi_generic.h)
   if test "$ac_cv_header_gssapi_h" = "yes"; then

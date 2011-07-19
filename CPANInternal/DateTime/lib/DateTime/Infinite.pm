@@ -1,6 +1,9 @@
 package DateTime::Infinite;
 
 use strict;
+use warnings;
+
+our $VERSION = '0.53';
 
 use DateTime;
 use DateTime::TimeZone;
@@ -126,7 +129,7 @@ Dave Rolsky <autarch@urth.org>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2005 David Rolsky.  All rights reserved.  This
+Copyright (c) 2003-2009 David Rolsky.  All rights reserved.  This
 program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 

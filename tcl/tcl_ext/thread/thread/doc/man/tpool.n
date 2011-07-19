@@ -63,7 +63,7 @@
 '\" .UL arg1 arg2
 '\"	Print arg1 underlined, then print arg2 normally.
 '\"
-'\" RCS: @(#) $Id: tpool.n,v 1.15 2006/10/07 09:19:39 vasiljevic Exp $
+'\" RCS: @(#) $Id: tpool.n,v 1.16 2009/05/04 21:56:51 ferrieux Exp $
 '\"
 '\"	# Set up traps and other miscellaneous stuff for Tcl/Tk man pages.
 .if t .wh -1.3i ^B
@@ -286,8 +286,8 @@ The command returns the ID of the newly created threadpool.
 Following options are supported:
 .RS
 .TP
--minthreads number
-Minimum number of threads needed for this threadpool instance.
+-minworkers number
+Minimum number of worker threads needed for this threadpool instance.
 During threadpool creation, the implementation will create somany
 worker threads upfront and will keep at least number of them alive
 during the lifetime of the threadpool instance.
@@ -296,8 +296,8 @@ threadpool will have no worker threads initialy. All worker threads
 will be started on demand by callers running \fBtpool::post\fR command
 and posting jobs to the job queue.
 .TP
--maxthreads number
-Maximum number of threads allowed for this threadpool instance.
+-maxworkers number
+Maximum number of worker threads allowed for this threadpool instance.
 If a new job is pending and there are no idle worker threads available,
 the implementation will try to create new worker thread. If the number
 of available worker threads is lower than the given number,

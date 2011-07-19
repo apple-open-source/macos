@@ -59,6 +59,8 @@ public:
     {
         m_selectIndex = listIndex;
     }
+    virtual void selectionChanged(unsigned, bool) {}
+    virtual void selectionCleared() {}
 
     virtual String itemText(unsigned listIndex) const
     {
@@ -66,13 +68,15 @@ public:
         str.append(String::number(listIndex));
         return str;
     }
+    virtual String itemLabel(unsigned) const { return String(); }
+    virtual String itemIcon(unsigned) const { return String(); }
     virtual String itemToolTip(unsigned listIndex) const { return itemText(listIndex); }
     virtual String itemAccessibilityText(unsigned listIndex) const { return itemText(listIndex); }
     virtual bool itemIsEnabled(unsigned listIndex) const { return true; }
     virtual PopupMenuStyle itemStyle(unsigned listIndex) const
     {
         Font font(FontPlatformData(12.0, false, false), false);
-        return PopupMenuStyle(Color::black, Color::white, font, true, Length(), TextDirection());
+        return PopupMenuStyle(Color::black, Color::white, font, true, false, Length(), TextDirection(), false /* has text direction override */);
     }
     virtual PopupMenuStyle menuStyle() const { return itemStyle(0); }
     virtual int clientInsetLeft() const { return 0; }
@@ -92,7 +96,7 @@ public:
     virtual FontSelector* fontSelector() const { return 0; }
     virtual HostWindow* hostWindow() const { return 0; }
     
-    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize) { return 0; }
+    virtual PassRefPtr<Scrollbar> createScrollbar(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize) { return 0; }
 
 private:
     unsigned m_selectIndex;
@@ -105,36 +109,23 @@ public:
 
 class TestWebPopupMenuImpl : public WebPopupMenuImpl {
 public:
-    TestWebPopupMenuImpl(WebWidgetClient* client) : WebPopupMenuImpl(client) { }
-    ~TestWebPopupMenuImpl() { }
-};
+    static PassRefPtr<TestWebPopupMenuImpl> create(WebWidgetClient* client)
+    {
+        return adoptRef(new TestWebPopupMenuImpl(client));
+    }
 
-class TestWebWidget : public WebWidget {
-public:
-    virtual ~TestWebWidget() { }
-    virtual void close() { }
-    virtual WebSize size() { return WebSize(100, 100); }
-    virtual void resize(const WebSize&) { }
-    virtual void layout() { }
-    virtual void paint(WebCanvas*, const WebRect&) { }
-    virtual bool handleInputEvent(const WebInputEvent&) { return true; }
-    virtual void mouseCaptureLost() { }
-    virtual void setFocus(bool) { }
-    virtual bool handleCompositionEvent(WebCompositionCommand command,
-                                        int cursorPosition,
-                                        int targetStart,
-                                        int targetEnd,
-                                        const WebString& text) { return true; }
-    virtual bool queryCompositionStatus(bool* enabled, WebRect* caretBounds) { return true; }
-    virtual void setTextDirection(WebTextDirection) { }
+    ~TestWebPopupMenuImpl() { }
+
+private:
+    TestWebPopupMenuImpl(WebWidgetClient* client) : WebPopupMenuImpl(client) { }
 };
 
 class TestWebViewClient : public WebViewClient {
 public:
-    TestWebViewClient() : m_webPopupMenu(&m_webWidgetClient) { }
+    TestWebViewClient() : m_webPopupMenu(TestWebPopupMenuImpl::create(&m_webWidgetClient)) { }
     ~TestWebViewClient() { }
 
-    virtual WebWidget* createPopupMenu(WebPopupType) { return &m_webPopupMenu; }
+    virtual WebWidget* createPopupMenu(WebPopupType) { return m_webPopupMenu.get(); }
 
     // We need to override this so that the popup menu size is not 0
     // (the layout code checks to see if the popup fits on the screen).
@@ -148,7 +139,7 @@ public:
 
 private:
     TestWebWidgetClient m_webWidgetClient;
-    TestWebPopupMenuImpl m_webPopupMenu;
+    RefPtr<TestWebPopupMenuImpl> m_webPopupMenu;
 };
 
 class TestWebFrameClient : public WebFrameClient {
@@ -167,7 +158,7 @@ protected:
     {
         m_webView = static_cast<WebViewImpl*>(WebView::create(&m_webviewClient));
         m_webView->initializeMainFrame(&m_webFrameClient);
-        m_popupMenu = PopupMenu::create(&m_popupMenuClient);
+        m_popupMenu = adoptRef(new PopupMenuChromium(&m_popupMenuClient));
     }
 
     virtual void TearDown()

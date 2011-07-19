@@ -46,10 +46,13 @@ Red Hat Inc.: Cygwin
 	`binmode'). There are various issues with Cygwin versions before
 	1.3.2 - you are adviced to update to the latest release.
 
-	Dynamic loading works as of cygwin-1.1.3 and binutils-20000722-1.
-	It was not tested for earlier versions. This does not imply
-	that every module will work. New completion and in
-	particular zsh/zftp and zsh/mathfunc are known to work.
+	Process substitution using <(...), >(...), =(...) may be
+	problematic.  Different versions of zsh and Cygwin have
+	a different mix of issues.
+
+	Problems handling subprocesses have been reported with Cygwin
+	1.7.5.  It is not currently known how the problems split between
+	Cygwin and zsh.
 
 	Some of the tests in the Test subdirectory are known to fail:
 	this is because the UNIX environment is not completely implemented.
@@ -94,11 +97,13 @@ HP: HP-UX 9, 10.20, 11.x (PA-RISC, Itanium)
 	  have been found to stop functioning.  One suggested fix is
 	  to alter the way the curses library is linked in the Makefile.
 	  Replacing `-lcurses' with `-lHcurses -lcurses' in the libraries
-	  is reported to fix.  An attempt to fix this in configure
-	  is apparently ineffective; more information would be appreciated
-	  as the maintainers do not have access to an HP-UX system.
-	  Recent reports indicated this is not necessary on recent versions
-	  of HP-UX 11.
+	  is reported to fix this on 11.0, but is no longer necessary on
+	  more recent versions of HP-UX 11, i.e. 11.11+.
+
+	  Typical gcc installations on HP-UX use HP's linker rather than
+	  the GNU one.  Configure will fail to set up dynamic linking in
+	  this situation.  The following should allow building of modules:
+	    DLLD=/usr/ccs/bin/ld DLLDFLAGS=-b DLCFLAGS=-fpic ./configure ...
 
 	  Compiling with gcc 2.7.1 is known to fail with header file
 	  conflicts.  Use the HP ANSI C compiler.

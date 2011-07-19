@@ -122,6 +122,7 @@ enum
 //-----------------------------------------------------------------------------
 
 int					gBiasSeconds		= 0;
+int					gNumCPUs			= 1;
 double				gDivisor 			= 0.0;		/* Trace divisor converts to microseconds */
 kd_buf *			gTraceBuffer		= NULL;
 boolean_t			gTraceEnabled 		= FALSE;
@@ -404,7 +405,19 @@ static void
 AllocateTraceBuffer ( void )
 {
 	
-	gTraceBuffer = ( kd_buf * ) malloc ( kTraceBufferSampleSize * sizeof ( kd_buf ) );
+	size_t	len;
+	int		mib[3];
+	
+	// grab the number of cpus
+	mib[0] = CTL_HW;
+	mib[1] = HW_NCPU;
+	mib[2] = 0;
+	
+	len = sizeof ( gNumCPUs );
+	
+	sysctl ( mib, 2, &gNumCPUs, &len, NULL, 0 );
+	
+	gTraceBuffer = ( kd_buf * ) malloc ( gNumCPUs * kTraceBufferSampleSize * sizeof ( kd_buf ) );
 	if ( gTraceBuffer == NULL )
 	{
 		Quit ( "Can't allocate memory for tracing info\n" );

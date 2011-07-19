@@ -31,14 +31,15 @@
 #include <wtf/StdLibExtras.h>
 #include <wtf/WTFThreadData.h>
 
-using namespace WTF;
 using namespace std;
+
+namespace WTF {
 
 using namespace Unicode;
 
-namespace WebCore {
-
 static const unsigned minLengthToShare = 20;
+
+COMPILE_ASSERT(sizeof(StringImpl) == 2 * sizeof(int) + 3 * sizeof(void*), StringImpl_should_stay_small);
 
 StringImpl::~StringImpl()
 {
@@ -47,8 +48,10 @@ StringImpl::~StringImpl()
     if (isAtomic())
         AtomicString::remove(this);
 #if USE(JSC)
-    if (isIdentifier())
-        wtfThreadData().currentIdentifierTable()->remove(this);
+    if (isIdentifier()) {
+        if (!wtfThreadData().currentIdentifierTable()->remove(this))
+            CRASH();
+    }
 #endif
 
     BufferOwnership ownership = bufferOwnership();
@@ -144,7 +147,7 @@ SharedUChar* StringImpl::sharedBuffer()
         return m_substringBuffer->sharedBuffer();
     if (ownership == BufferOwned) {
         ASSERT(!m_sharedBuffer);
-        m_sharedBuffer = SharedUChar::create(new SharableUChar(m_data)).releaseRef();
+        m_sharedBuffer = SharedUChar::create(new SharableUChar(m_data)).leakRef();
         m_refCountAndFlags = (m_refCountAndFlags & ~s_refCountMaskBufferOwnership) | BufferShared;
     }
 
@@ -267,12 +270,17 @@ PassRefPtr<StringImpl> StringImpl::upper()
     return newImpl.release();
 }
 
-PassRefPtr<StringImpl> StringImpl::secure(UChar character)
+PassRefPtr<StringImpl> StringImpl::secure(UChar character, LastCharacterBehavior behavior)
 {
+    if (!m_length)
+        return this;
+
     UChar* data;
     RefPtr<StringImpl> newImpl = createUninitialized(m_length, data);
-    for (unsigned i = 0; i < m_length; ++i)
+    unsigned lastCharacterIndex = m_length - 1;
+    for (unsigned i = 0; i < lastCharacterIndex; ++i)
         data[i] = character;
+    data[lastCharacterIndex] = (behavior == ObscureLastCharacter) ? character : m_data[lastCharacterIndex];
     return newImpl.release();
 }
 
@@ -450,14 +458,14 @@ intptr_t StringImpl::toIntPtr(bool* ok)
     return charactersToIntPtr(m_data, m_length, ok);
 }
 
-double StringImpl::toDouble(bool* ok)
+double StringImpl::toDouble(bool* ok, bool* didReadNumber)
 {
-    return charactersToDouble(m_data, m_length, ok);
+    return charactersToDouble(m_data, m_length, ok, didReadNumber);
 }
 
-float StringImpl::toFloat(bool* ok)
+float StringImpl::toFloat(bool* ok, bool* didReadNumber)
 {
-    return charactersToFloat(m_data, m_length, ok);
+    return charactersToFloat(m_data, m_length, ok, didReadNumber);
 }
 
 static bool equal(const UChar* a, const char* b, int length)
@@ -487,178 +495,279 @@ static inline bool equalIgnoringCase(const UChar* a, const UChar* b, int length)
     return umemcasecmp(a, b, length) == 0;
 }
 
-int StringImpl::find(const char* chs, int index, bool caseSensitive)
+int codePointCompare(const StringImpl* s1, const StringImpl* s2)
 {
-    if (!chs || index < 0)
-        return -1;
+    const unsigned l1 = s1 ? s1->length() : 0;
+    const unsigned l2 = s2 ? s2->length() : 0;
+    const unsigned lmin = l1 < l2 ? l1 : l2;
+    const UChar* c1 = s1 ? s1->characters() : 0;
+    const UChar* c2 = s2 ? s2->characters() : 0;
+    unsigned pos = 0;
+    while (pos < lmin && *c1 == *c2) {
+        c1++;
+        c2++;
+        pos++;
+    }
 
-    size_t matchStringLength = strlen(chs);
+    if (pos < lmin)
+        return (c1[0] > c2[0]) ? 1 : -1;
+
+    if (l1 == l2)
+        return 0;
+
+    return (l1 > l2) ? 1 : -1;
+}
+
+size_t StringImpl::find(UChar c, unsigned start)
+{
+    return WTF::find(m_data, m_length, c, start);
+}
+
+size_t StringImpl::find(CharacterMatchFunctionPtr matchFunction, unsigned start)
+{
+    return WTF::find(m_data, m_length, matchFunction, start);
+}
+
+size_t StringImpl::find(const char* matchString, unsigned index)
+{
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    size_t matchStringLength = strlen(matchString);
     if (matchStringLength > numeric_limits<unsigned>::max())
         CRASH();
-    int chsLength = matchStringLength;
-    int n = m_length - index;
-    if (n < 0)
-        return -1;
-    n -= chsLength - 1;
-    if (n <= 0)
-        return -1;
+    unsigned matchLength = matchStringLength;
+    if (!matchLength)
+        return min(index, length());
 
-    const char* chsPlusOne = chs + 1;
-    int chsLengthMinusOne = chsLength - 1;
-    
-    const UChar* ptr = m_data + index - 1;
-    if (caseSensitive) {
-        UChar c = *chs;
-        do {
-            if (*++ptr == c && equal(ptr + 1, chsPlusOne, chsLengthMinusOne))
-                return m_length - chsLength - n + 1;
-        } while (--n);
-    } else {
-        UChar lc = Unicode::foldCase(*chs);
-        do {
-            if (Unicode::foldCase(*++ptr) == lc && equalIgnoringCase(ptr + 1, chsPlusOne, chsLengthMinusOne))
-                return m_length - chsLength - n + 1;
-        } while (--n);
+    // Optimization 1: fast case for strings of length 1.
+    if (matchLength == 1)
+        return WTF::find(characters(), length(), *(const unsigned char*)matchString, index);
+
+    // Check index & matchLength are in range.
+    if (index > length())
+        return notFound;
+    unsigned searchLength = length() - index;
+    if (matchLength > searchLength)
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = searchLength - matchLength;
+
+    const UChar* searchCharacters = characters() + index;
+    const unsigned char* matchCharacters = (const unsigned char*)matchString;
+
+    // Optimization 2: keep a running hash of the strings,
+    // only call memcmp if the hashes match.
+    unsigned searchHash = 0;
+    unsigned matchHash = 0;
+    for (unsigned i = 0; i < matchLength; ++i) {
+        searchHash += searchCharacters[i];
+        matchHash += matchCharacters[i];
     }
 
-    return -1;
-}
-
-int StringImpl::find(UChar c, int start)
-{
-    return WebCore::find(m_data, m_length, c, start);
-}
-
-int StringImpl::find(CharacterMatchFunctionPtr matchFunction, int start)
-{
-    return WebCore::find(m_data, m_length, matchFunction, start);
-}
-
-int StringImpl::find(StringImpl* str, int index, bool caseSensitive)
-{
-    /*
-      We use a simple trick for efficiency's sake. Instead of
-      comparing strings, we compare the sum of str with that of
-      a part of this string. Only if that matches, we call memcmp
-      or ucstrnicmp.
-    */
-    ASSERT(str);
-    if (index < 0)
-        index += m_length;
-    int lstr = str->m_length;
-    int lthis = m_length - index;
-    if ((unsigned)lthis > m_length)
-        return -1;
-    int delta = lthis - lstr;
-    if (delta < 0)
-        return -1;
-
-    const UChar* uthis = m_data + index;
-    const UChar* ustr = str->m_data;
-    unsigned hthis = 0;
-    unsigned hstr = 0;
-    if (caseSensitive) {
-        for (int i = 0; i < lstr; i++) {
-            hthis += uthis[i];
-            hstr += ustr[i];
-        }
-        int i = 0;
-        while (1) {
-            if (hthis == hstr && memcmp(uthis + i, ustr, lstr * sizeof(UChar)) == 0)
-                return index + i;
-            if (i == delta)
-                return -1;
-            hthis += uthis[i + lstr];
-            hthis -= uthis[i];
-            i++;
-        }
-    } else {
-        for (int i = 0; i < lstr; i++ ) {
-            hthis += toASCIILower(uthis[i]);
-            hstr += toASCIILower(ustr[i]);
-        }
-        int i = 0;
-        while (1) {
-            if (hthis == hstr && equalIgnoringCase(uthis + i, ustr, lstr))
-                return index + i;
-            if (i == delta)
-                return -1;
-            hthis += toASCIILower(uthis[i + lstr]);
-            hthis -= toASCIILower(uthis[i]);
-            i++;
-        }
+    unsigned i = 0;
+    // keep looping until we match
+    while (searchHash != matchHash || !equal(searchCharacters + i, matchString, matchLength)) {
+        if (i == delta)
+            return notFound;
+        searchHash += searchCharacters[i + matchLength];
+        searchHash -= searchCharacters[i];
+        ++i;
     }
+    return index + i;
 }
 
-int StringImpl::reverseFind(UChar c, int index)
+size_t StringImpl::findIgnoringCase(const char* matchString, unsigned index)
 {
-    return WebCore::reverseFind(m_data, m_length, c, index);
-}
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    size_t matchStringLength = strlen(matchString);
+    if (matchStringLength > numeric_limits<unsigned>::max())
+        CRASH();
+    unsigned matchLength = matchStringLength;
+    if (!matchLength)
+        return min(index, length());
 
-int StringImpl::reverseFind(StringImpl* str, int index, bool caseSensitive)
-{
-    /*
-     See StringImpl::find() for explanations.
-     */
-    ASSERT(str);
-    int lthis = m_length;
-    if (index < 0)
-        index += lthis;
-    
-    int lstr = str->m_length;
-    int delta = lthis - lstr;
-    if ( index < 0 || index > lthis || delta < 0 )
-        return -1;
-    if ( index > delta )
-        index = delta;
-    
-    const UChar *uthis = m_data;
-    const UChar *ustr = str->m_data;
-    unsigned hthis = 0;
-    unsigned hstr = 0;
-    int i;
-    if (caseSensitive) {
-        for ( i = 0; i < lstr; i++ ) {
-            hthis += uthis[index + i];
-            hstr += ustr[i];
-        }
-        i = index;
-        while (1) {
-            if (hthis == hstr && memcmp(uthis + i, ustr, lstr * sizeof(UChar)) == 0)
-                return i;
-            if (i == 0)
-                return -1;
-            i--;
-            hthis -= uthis[i + lstr];
-            hthis += uthis[i];
-        }
-    } else {
-        for (i = 0; i < lstr; i++) {
-            hthis += toASCIILower(uthis[index + i]);
-            hstr += toASCIILower(ustr[i]);
-        }
-        i = index;
-        while (1) {
-            if (hthis == hstr && equalIgnoringCase(uthis + i, ustr, lstr) )
-                return i;
-            if (i == 0)
-                return -1;
-            i--;
-            hthis -= toASCIILower(uthis[i + lstr]);
-            hthis += toASCIILower(uthis[i]);
-        }
+    // Check index & matchLength are in range.
+    if (index > length())
+        return notFound;
+    unsigned searchLength = length() - index;
+    if (matchLength > searchLength)
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = searchLength - matchLength;
+
+    const UChar* searchCharacters = characters() + index;
+
+    unsigned i = 0;
+    // keep looping until we match
+    while (!equalIgnoringCase(searchCharacters + i, matchString, matchLength)) {
+        if (i == delta)
+            return notFound;
+        ++i;
     }
-    
-    // Should never get here.
-    return -1;
+    return index + i;
 }
 
-bool StringImpl::endsWith(StringImpl* m_data, bool caseSensitive)
+size_t StringImpl::find(StringImpl* matchString, unsigned index)
 {
-    ASSERT(m_data);
-    int start = m_length - m_data->m_length;
-    if (start >= 0)
-        return (find(m_data, start, caseSensitive) == start);
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    unsigned matchLength = matchString->length();
+    if (!matchLength)
+        return min(index, length());
+
+    // Optimization 1: fast case for strings of length 1.
+    if (matchLength == 1)
+        return WTF::find(characters(), length(), matchString->characters()[0], index);
+
+    // Check index & matchLength are in range.
+    if (index > length())
+        return notFound;
+    unsigned searchLength = length() - index;
+    if (matchLength > searchLength)
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = searchLength - matchLength;
+
+    const UChar* searchCharacters = characters() + index;
+    const UChar* matchCharacters = matchString->characters();
+
+    // Optimization 2: keep a running hash of the strings,
+    // only call memcmp if the hashes match.
+    unsigned searchHash = 0;
+    unsigned matchHash = 0;
+    for (unsigned i = 0; i < matchLength; ++i) {
+        searchHash += searchCharacters[i];
+        matchHash += matchCharacters[i];
+    }
+
+    unsigned i = 0;
+    // keep looping until we match
+    while (searchHash != matchHash || memcmp(searchCharacters + i, matchCharacters, matchLength * sizeof(UChar))) {
+        if (i == delta)
+            return notFound;
+        searchHash += searchCharacters[i + matchLength];
+        searchHash -= searchCharacters[i];
+        ++i;
+    }
+    return index + i;
+}
+
+size_t StringImpl::findIgnoringCase(StringImpl* matchString, unsigned index)
+{
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    unsigned matchLength = matchString->length();
+    if (!matchLength)
+        return min(index, length());
+
+    // Check index & matchLength are in range.
+    if (index > length())
+        return notFound;
+    unsigned searchLength = length() - index;
+    if (matchLength > searchLength)
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = searchLength - matchLength;
+
+    const UChar* searchCharacters = characters() + index;
+    const UChar* matchCharacters = matchString->characters();
+
+    unsigned i = 0;
+    // keep looping until we match
+    while (!equalIgnoringCase(searchCharacters + i, matchCharacters, matchLength)) {
+        if (i == delta)
+            return notFound;
+        ++i;
+    }
+    return index + i;
+}
+
+size_t StringImpl::reverseFind(UChar c, unsigned index)
+{
+    return WTF::reverseFind(m_data, m_length, c, index);
+}
+
+size_t StringImpl::reverseFind(StringImpl* matchString, unsigned index)
+{
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    unsigned matchLength = matchString->length();
+    if (!matchLength)
+        return min(index, length());
+
+    // Optimization 1: fast case for strings of length 1.
+    if (matchLength == 1)
+        return WTF::reverseFind(characters(), length(), matchString->characters()[0], index);
+
+    // Check index & matchLength are in range.
+    if (matchLength > length())
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = min(index, length() - matchLength);
+
+    const UChar *searchCharacters = characters();
+    const UChar *matchCharacters = matchString->characters();
+
+    // Optimization 2: keep a running hash of the strings,
+    // only call memcmp if the hashes match.
+    unsigned searchHash = 0;
+    unsigned matchHash = 0;
+    for (unsigned i = 0; i < matchLength; ++i) {
+        searchHash += searchCharacters[delta + i];
+        matchHash += matchCharacters[i];
+    }
+
+    // keep looping until we match
+    while (searchHash != matchHash || memcmp(searchCharacters + delta, matchCharacters, matchLength * sizeof(UChar))) {
+        if (!delta)
+            return notFound;
+        delta--;
+        searchHash -= searchCharacters[delta + matchLength];
+        searchHash += searchCharacters[delta];
+    }
+    return delta;
+}
+
+size_t StringImpl::reverseFindIgnoringCase(StringImpl* matchString, unsigned index)
+{
+    // Check for null or empty string to match against
+    if (!matchString)
+        return notFound;
+    unsigned matchLength = matchString->length();
+    if (!matchLength)
+        return min(index, length());
+
+    // Check index & matchLength are in range.
+    if (matchLength > length())
+        return notFound;
+    // delta is the number of additional times to test; delta == 0 means test only once.
+    unsigned delta = min(index, length() - matchLength);
+    
+    const UChar *searchCharacters = characters();
+    const UChar *matchCharacters = matchString->characters();
+
+    // keep looping until we match
+    while (!equalIgnoringCase(searchCharacters + delta, matchCharacters, matchLength)) {
+        if (!delta)
+            return notFound;
+        delta--;
+    }
+    return delta;
+}
+
+bool StringImpl::endsWith(StringImpl* matchString, bool caseSensitive)
+{
+    ASSERT(matchString);
+    if (m_length >= matchString->m_length) {
+        unsigned start = m_length - matchString->m_length;
+        return (caseSensitive ? find(matchString, start) : findIgnoringCase(matchString, start)) == start;
+    }
     return false;
 }
 
@@ -712,12 +821,12 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
     if (!replacement)
         return this;
         
-    int repStrLength = replacement->length();
-    int srcSegmentStart = 0;
+    unsigned repStrLength = replacement->length();
+    size_t srcSegmentStart = 0;
     unsigned matchCount = 0;
     
     // Count the matches
-    while ((srcSegmentStart = find(pattern, srcSegmentStart)) >= 0) {
+    while ((srcSegmentStart = find(pattern, srcSegmentStart)) != notFound) {
         ++matchCount;
         ++srcSegmentStart;
     }
@@ -740,12 +849,12 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
     RefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
 
     // Construct the new data
-    int srcSegmentEnd;
-    int srcSegmentLength;
+    size_t srcSegmentEnd;
+    unsigned srcSegmentLength;
     srcSegmentStart = 0;
-    int dstOffset = 0;
+    unsigned dstOffset = 0;
     
-    while ((srcSegmentEnd = find(pattern, srcSegmentStart)) >= 0) {
+    while ((srcSegmentEnd = find(pattern, srcSegmentStart)) != notFound) {
         srcSegmentLength = srcSegmentEnd - srcSegmentStart;
         memcpy(data + dstOffset, m_data + srcSegmentStart, srcSegmentLength * sizeof(UChar));
         dstOffset += srcSegmentLength;
@@ -757,7 +866,7 @@ PassRefPtr<StringImpl> StringImpl::replace(UChar pattern, StringImpl* replacemen
     srcSegmentLength = m_length - srcSegmentStart;
     memcpy(data + dstOffset, m_data + srcSegmentStart, srcSegmentLength * sizeof(UChar));
 
-    ASSERT(dstOffset + srcSegmentLength == static_cast<int>(newImpl->length()));
+    ASSERT(dstOffset + srcSegmentLength == newImpl->length());
 
     return newImpl.release();
 }
@@ -767,16 +876,16 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
     if (!pattern || !replacement)
         return this;
 
-    int patternLength = pattern->length();
+    unsigned patternLength = pattern->length();
     if (!patternLength)
         return this;
         
-    int repStrLength = replacement->length();
-    int srcSegmentStart = 0;
+    unsigned repStrLength = replacement->length();
+    size_t srcSegmentStart = 0;
     unsigned matchCount = 0;
     
     // Count the matches
-    while ((srcSegmentStart = find(pattern, srcSegmentStart)) >= 0) {
+    while ((srcSegmentStart = find(pattern, srcSegmentStart)) != notFound) {
         ++matchCount;
         srcSegmentStart += patternLength;
     }
@@ -798,12 +907,12 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
     RefPtr<StringImpl> newImpl = createUninitialized(newSize, data);
     
     // Construct the new data
-    int srcSegmentEnd;
-    int srcSegmentLength;
+    size_t srcSegmentEnd;
+    unsigned srcSegmentLength;
     srcSegmentStart = 0;
-    int dstOffset = 0;
+    unsigned dstOffset = 0;
     
-    while ((srcSegmentEnd = find(pattern, srcSegmentStart)) >= 0) {
+    while ((srcSegmentEnd = find(pattern, srcSegmentStart)) != notFound) {
         srcSegmentLength = srcSegmentEnd - srcSegmentStart;
         memcpy(data + dstOffset, m_data + srcSegmentStart, srcSegmentLength * sizeof(UChar));
         dstOffset += srcSegmentLength;
@@ -815,7 +924,7 @@ PassRefPtr<StringImpl> StringImpl::replace(StringImpl* pattern, StringImpl* repl
     srcSegmentLength = m_length - srcSegmentStart;
     memcpy(data + dstOffset, m_data + srcSegmentStart, srcSegmentLength * sizeof(UChar));
 
-    ASSERT(dstOffset + srcSegmentLength == static_cast<int>(newImpl->length()));
+    ASSERT(dstOffset + srcSegmentLength == newImpl->length());
 
     return newImpl.release();
 }
@@ -896,29 +1005,23 @@ bool equalIgnoringNullity(StringImpl* a, StringImpl* b)
     return false;
 }
 
-Vector<char> StringImpl::ascii()
-{
-    Vector<char> buffer(m_length + 1);
-    for (unsigned i = 0; i != m_length; ++i) {
-        UChar c = m_data[i];
-        if ((c >= 0x20 && c < 0x7F) || c == 0x00)
-            buffer[i] = static_cast<char>(c);
-        else
-            buffer[i] = '?';
-    }
-    buffer[m_length] = '\0';
-    return buffer;
-}
-
-WTF::Unicode::Direction StringImpl::defaultWritingDirection()
+WTF::Unicode::Direction StringImpl::defaultWritingDirection(bool* hasStrongDirectionality)
 {
     for (unsigned i = 0; i < m_length; ++i) {
         WTF::Unicode::Direction charDirection = WTF::Unicode::direction(m_data[i]);
-        if (charDirection == WTF::Unicode::LeftToRight)
+        if (charDirection == WTF::Unicode::LeftToRight) {
+            if (hasStrongDirectionality)
+                *hasStrongDirectionality = true;
             return WTF::Unicode::LeftToRight;
-        if (charDirection == WTF::Unicode::RightToLeft || charDirection == WTF::Unicode::RightToLeftArabic)
+        }
+        if (charDirection == WTF::Unicode::RightToLeft || charDirection == WTF::Unicode::RightToLeftArabic) {
+            if (hasStrongDirectionality)
+                *hasStrongDirectionality = true;
             return WTF::Unicode::RightToLeft;
+        }
     }
+    if (hasStrongDirectionality)
+        *hasStrongDirectionality = false;
     return WTF::Unicode::LeftToRight;
 }
 
@@ -975,4 +1078,4 @@ PassRefPtr<StringImpl> StringImpl::crossThreadString()
     return threadsafeCopy();
 }
 
-} // namespace WebCore
+} // namespace WTF

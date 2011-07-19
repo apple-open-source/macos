@@ -1,0 +1,270 @@
+require "vnd.dovecot.testsuite";
+
+/*
+ * ## RFC 5228, Section 5.7. Test header (page 29) ##
+ */
+
+/*
+ * TEST: Basic functionality
+ */
+
+/* "The "header" test evaluates to true if the value of any of the named
+ *  headers, ignoring leading and trailing whitespace, matches any key.
+ *  The type of match is specified by the optional match argument, which
+ *  defaults to ":is" if not specified, as specified in section 2.6.
+ *
+ *  Like address and envelope, this test returns true if any combination
+ *  of the header-names list and key-list arguments match and returns
+ *  false otherwise.
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.com
+To: nico@nl.example.com, harry@de.example.com
+Subject: Frobnitzm
+Comments: This is nonsense.
+Keywords: nonsense, strange, testing
+X-Spam: Yes
+
+Test.
+.
+;
+
+test "Basic functionality" {
+	/* Must match */
+	if not header :contains ["Subject", "Comments"] "Frobnitzm" {
+		test_fail "failed to match header (1)";
+	}
+
+	if not header :contains ["Subject", "Comments"] "nonsense" {
+		test_fail "failed to match header(2)";
+	}
+
+	if not header :matches "Keywords" "*, strange, *" {
+		test_fail "failed to match header (3)";
+	}
+
+	if not header :is "Comments" "This is nonsense." {
+		test_fail "failed to match header (4)";
+	}
+
+	/* Must not match */
+	if header ["subject", "comments", "keywords"] "idiotic" {
+		test_fail "matched nonsense";
+	}
+
+	/* Match first key */
+	if not header :contains ["keywords"] ["strange", "snot", "vreemd"] {
+		test_fail "failed to match first key";
+	}
+
+	/* Match second key */
+	if not header :contains ["keywords"] ["raar", "strange", "vreemd"] {
+		test_fail "failed to match second key";
+	}
+
+	/* Match last key */
+	if not header :contains ["keywords"] ["raar", "snot", "strange"] {
+		test_fail "failed to match last key";
+	}
+
+	/* First header */
+	if not header :contains ["keywords", "subject"]
+		["raar", "strange", "vreemd"] {
+		test_fail "failed to match first header";
+	}	
+
+	/* Second header */
+	if not header :contains ["subject", "keywords"]
+		["raar", "strange", "vreemd"] {
+		test_fail "failed to match second header";
+	}	
+}
+
+/*
+ * TEST: Matching empty key
+ */
+
+/* "If a header listed in the header-names argument exists, it contains
+ *  the empty key ("").  However, if the named header is not present, it
+ *  does not match any key, including the empty key.  So if a message
+ *  contained the header
+ *
+ *          X-Caffeine: C8H10N4O2
+ *
+ *  these tests on that header evaluate as follows:
+ *
+ *          header :is ["X-Caffeine"] [""]         => false
+ *          header :contains ["X-Caffeine"] [""]   => true
+ * "
+ */
+
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+X-Caffeine: C8H10N4O2
+Subject: I need coffee!
+Comments: 
+
+Text
+.
+;
+
+test "Matching empty key" {
+	if header :is "X-Caffeine" "" {
+		test_fail ":is-matched non-empty header with empty string";
+	}
+
+	if not header :contains "X-Caffeine" "" {
+		test_fail "failed to match existing header with empty string";
+	}
+
+	if not header :is "comments" "" {
+		test_fail "failed to match empty header with empty string";
+	}
+
+	if header :contains "X-Nonsense" "" {
+		test_fail ":contains-matched non-existent header with empty string";
+	}
+}
+
+/*
+ * TEST: Ignoring whitespace
+ */
+
+/* "The "header" test evaluates to true if the value of any of the named
+ *  headers, ignoring leading and trailing whitespace, matches any key.
+ *  ...
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+Subject:         Help        
+X-A:     Text
+X-B: Text            
+
+Text
+.
+;
+
+test "Ignoring whitespace" {
+	if not header :is "x-a" "Text" {
+		test_fail "header test does not strip leading whitespace";
+	}
+
+	if not header :is "x-b" "Text" {
+		test_fail "header test does not strip trailing whitespace";
+	}
+
+	if not header :is "subject" "Help" {
+		test_fail "header test does not strip both leading and trailing whitespace";
+	}
+}
+
+/*
+ * TEST: Absent or empty header
+ */
+
+/* "Testing whether a given header is either absent or doesn't contain
+ *  any non-whitespace characters can be done using a negated "header"
+ *  test:
+ *
+ *          not header :matches "Cc" "?*"
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+CC: harry@nonsense.ex
+Subject:      
+Comments:
+
+Text
+.
+;
+
+test "Absent or empty header" {
+	if not header :matches "Cc" "?*" {
+		test_fail "CC header is not absent or empty";
+	}
+
+	if header :matches "Subject" "?*" {
+		test_fail "Subject header is empty, but matched otherwise";
+	}
+
+	if header :matches "Comment" "?*" {
+		test_fail "Comment header is empty, but matched otherwise";
+	}
+} 
+
+/*
+ * ## RFC 5228, Section 2.4.2.2. Headers (page 9)
+ */
+
+/*
+ * TEST: Invalid header name
+ */
+
+/* "A header name never contains a colon.  The "From" header refers to a
+ *  line beginning "From:" (or "From   :", etc.).  No header will match
+ *  the string "From:" due to the trailing colon.
+ *
+ *  Similarly, no header will match a syntactically invalid header name.
+ *  An implementation MUST NOT cause an error for syntactically invalid
+ *  header names in tests.
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+Subject: Valid message
+X-Multiline: This is a multi-line
+ header body, which should be
+ unfolded correctly.
+
+Text
+.
+;
+
+test "Invalid header name" {
+	if header :contains "subject:" "" {
+		test_fail "matched invalid header name";
+	}
+
+	if header :contains "to!" "" {
+		test_fail "matched invalid header name";
+	}
+}
+
+/*
+ * TEST: Folded headers
+ */
+
+/* "Header lines are unfolded as described in [RFC 2822] section 2.2.3.
+ *  ...
+ * "
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.com
+Subject: Not enough space on a line!        
+X-Multiline: This is a multi-line
+ header body, which should be
+ unfolded correctly.
+
+Text
+.
+;
+
+test "Folded header" {
+	if not header :is "x-multiline" 
+		"This is a multi-line header body, which should be unfolded correctly." {
+		test_fail "failed to properly unfold folded header.";
+	}
+}

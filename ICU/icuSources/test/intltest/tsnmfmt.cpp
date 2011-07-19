@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2004, International Business Machines Corporation
+ * Copyright (c) 1997-2009, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -93,6 +93,12 @@ IntlTestNumberFormat::testLocale(/* char* par, */const Locale& locale, const Uni
     fStatus = U_ZERO_ERROR;
     fFormat = NumberFormat::createPercentInstance(locale, fStatus);
     testFormat(/* par */);
+	
+    name = "Scientific test";
+    logln((UnicodeString)name + " (" + localeName + ")");
+    fStatus = U_ZERO_ERROR;
+    fFormat = NumberFormat::createScientificInstance(locale, fStatus);
+    testFormat(/* par */);
 }
 
 double IntlTestNumberFormat::randDouble()
@@ -150,7 +156,7 @@ IntlTestNumberFormat::testFormat(/* char* par */)
 {
     if (U_FAILURE(fStatus))
     { 
-        errln((UnicodeString)"**** FAIL: createXxxInstance failed.");
+        dataerrln((UnicodeString)"**** FAIL: createXxxInstance failed. - " + u_errorName(fStatus));
         if (fFormat != 0)
             errln("**** FAIL: Non-null format returned by createXxxInstance upon failure.");
         delete fFormat;
@@ -211,6 +217,8 @@ IntlTestNumberFormat::testFormat(/* char* par */)
     tryIt(9.99999999999996);
     tryIt(9.999999999999996);
 
+	tryIt(5.06e-27);
+	
     tryIt((int32_t)INT32_MIN);
     tryIt((int32_t)INT32_MAX);
     tryIt((double)INT32_MIN);
@@ -401,7 +409,7 @@ void IntlTestNumberFormat::testAvailableLocales(/* char* par */)
         logln(all);
     }
     else
-        errln((UnicodeString)"**** FAIL: Zero available locales or null array pointer");
+        dataerrln((UnicodeString)"**** FAIL: Zero available locales or null array pointer");
 }
 
 void IntlTestNumberFormat::monsterTest(/* char* par */)

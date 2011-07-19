@@ -1,0 +1,15 @@
+#******************************************************************************
+#
+#   Copyright (c) 2010, Apple Inc. All Rights Reserved.
+#
+#******************************************************************************
+## Makefile.local for Apple Inc.
+
+ifeq "$(WINDOWS)" "YES"
+else
+	OBJECTS += uplrule.o udatintv.o
+	
+	STATIC_OBJECTS += uplrule.$(STATIC_O) udatintv.$(STATIC_O)
+	
+	DEPS += uplrule.d udatintv.d
+endif

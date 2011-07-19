@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -72,10 +72,11 @@ Supplicant_control(SupplicantRef supp,
 
 bool
 Supplicant_update_configuration(SupplicantRef supp,
-				CFDictionaryRef config_dict);
+				CFDictionaryRef config_dict,
+				bool * should_stop);
 
 void
 Supplicant_stop(SupplicantRef supp);
 
-#endif _S_SUPPLICANT_H
+#endif /* _S_SUPPLICANT_H */
 

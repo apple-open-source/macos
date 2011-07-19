@@ -34,7 +34,7 @@ end
 # Property list API.
 module OSX
   def load_plist(data)
-    nsdata = OSX::NSData.alloc.initWithBytes_length(data.to_s)
+    nsdata = data.to_s.to_ns.dataUsingEncoding(OSX::NSUTF8StringEncoding)
     obj, error = OSX::NSPropertyListSerialization.objc_send \
       :propertyListFromData, nsdata,
       :mutabilityOption, OSX::NSPropertyListImmutable,

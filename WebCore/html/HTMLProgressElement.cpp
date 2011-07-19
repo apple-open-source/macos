@@ -22,33 +22,51 @@
 #if ENABLE(PROGRESS_TAG)
 #include "HTMLProgressElement.h"
 
+#include "Attribute.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "FormDataList.h"
+#include "HTMLDivElement.h"
 #include "HTMLFormElement.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
-#include "MappedAttribute.h"
+#include "HTMLParserIdioms.h"
+#include "ProgressShadowElement.h"
 #include "RenderProgress.h"
+#include "ShadowRoot.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
+const double HTMLProgressElement::IndeterminatePosition = -1;
+const double HTMLProgressElement::InvalidPosition = -2;
+
 HTMLProgressElement::HTMLProgressElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
-    : HTMLFormControlElement(tagName, document, form, CreateHTMLElement)
+    : HTMLFormControlElement(tagName, document, form)
 {
     ASSERT(hasTagName(progressTag));
 }
 
+HTMLProgressElement::~HTMLProgressElement()
+{
+}
+
 PassRefPtr<HTMLProgressElement> HTMLProgressElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
 {
-    return adoptRef(new HTMLProgressElement(tagName, document, form));
+    RefPtr<HTMLProgressElement> progress = adoptRef(new HTMLProgressElement(tagName, document, form));
+    progress->createShadowSubtree();
+    return progress;
 }
 
 RenderObject* HTMLProgressElement::createRenderer(RenderArena* arena, RenderStyle*)
 {
     return new (arena) RenderProgress(this);
+}
+
+bool HTMLProgressElement::supportsFocus() const
+{
+    return Node::supportsFocus() && !disabled();
 }
 
 const AtomicString& HTMLProgressElement::formControlType() const
@@ -57,16 +75,20 @@ const AtomicString& HTMLProgressElement::formControlType() const
     return progress;
 }
 
-void HTMLProgressElement::parseMappedAttribute(MappedAttribute* attribute)
+void HTMLProgressElement::parseMappedAttribute(Attribute* attribute)
 {
-    if (attribute->name() == valueAttr) {
-        if (renderer())
-            renderer()->updateFromElement();
-    } else if (attribute->name() == maxAttr) {
-        if (renderer())
-            renderer()->updateFromElement();
-    } else
+    if (attribute->name() == valueAttr)
+        didElementStateChange();
+    else if (attribute->name() == maxAttr)
+        didElementStateChange();
+    else
         HTMLFormControlElement::parseMappedAttribute(attribute);
+}
+
+void HTMLProgressElement::attach()
+{
+    HTMLFormControlElement::attach();
+    didElementStateChange();
 }
 
 double HTMLProgressElement::value() const
@@ -109,8 +131,24 @@ void HTMLProgressElement::setMax(double max, ExceptionCode& ec)
 double HTMLProgressElement::position() const
 {
     if (!hasAttribute(valueAttr))
-        return -1;
+        return HTMLProgressElement::IndeterminatePosition;
     return value() / max();
+}
+
+void HTMLProgressElement::didElementStateChange()
+{
+    m_value->setWidthPercentage(position()*100);
+    if (renderer())
+        renderer()->updateFromElement();
+}
+
+void HTMLProgressElement::createShadowSubtree()
+{
+    RefPtr<ProgressBarElement> bar = ProgressBarElement::create(document());
+    m_value = ProgressValueElement::create(document());
+    ExceptionCode ec = 0;
+    bar->appendChild(m_value, ec);
+    ensureShadowRoot()->appendChild(bar, ec);
 }
 
 } // namespace

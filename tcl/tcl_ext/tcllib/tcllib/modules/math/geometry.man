@@ -1,11 +1,14 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin math::geometry n 1.0.3]
-[copyright {2004 by Ideogramic ApS and other parties}]
+[manpage_begin math::geometry n 1.1.2]
+[copyright {2001 by Ideogramic ApS and other parties}]
+[copyright {2004 by Arjen Markus}]
+[copyright {2010 by Andreas Kupries}]
+[copyright {2010 by Kevin Kenny}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Geometrical computations}]
-
+[category  Mathematics]
 [require Tcl [opt 8.3]]
-[require math::geometry [opt 1.0.3]]
+[require math::geometry [opt 1.1.2]]
 
 [description]
 [para]
@@ -62,6 +65,97 @@ the points are regarded without any ordering.
 The package defines the following public procedures:
 
 [list_begin definitions]
+
+[call [cmd ::math::geometry::+] [arg point1] [arg point2]]
+
+Compute the sum of the two vectors given as points and return it.
+The result is a vector as well.
+
+[call [cmd ::math::geometry::-] [arg point1] [arg point2]]
+
+Compute the difference (point1 - point2) of the two vectors
+given as points and return it. The result is a vector as well.
+
+[call [cmd ::math::geometry::p] [arg x] [arg y]]
+
+Construct a point from its coordinates and return it as the
+result of the command.
+
+[call [cmd ::math::geometry::distance] [arg point1] [arg point2]]
+
+Compute the distance between the two points and return it as the
+result of the command. This is in essence the same as
+
+[example {
+    math::geometry::length [math::geomtry::- point1 point2]
+}]
+
+[call [cmd ::math::geometry::length] [arg point]]
+
+Compute the length of the vector and return it as the
+result of the command.
+
+
+[call [cmd ::math::geometry::s*] [arg factor] [arg point]]
+
+Scale the vector by the factor and return it as the
+result of the command. This is a vector as well.
+
+[call [cmd ::math::geometry::direction] [arg angle]]
+
+Given the angle in degrees this command computes and returns
+the unit vector pointing into this direction. The vector for
+angle == 0 points to the right (up), and for angle == 90 up (north).
+
+[call [cmd ::math::geometry::h] [arg length]]
+
+Returns a horizontal vector on the X-axis of the specified length.
+Positive lengths point to the right (east).
+
+
+[call [cmd ::math::geometry::v] [arg length]]
+
+Returns a vertical vector on the Y-axis of the specified length.
+Positive lengths point down (south).
+
+[call [cmd ::math::geometry::between] [arg point1] [arg point2] [arg s]]
+
+Compute the point which is at relative distance [arg s] between the two
+points and return it as the result of the command. A relative distance of
+[const 0] returns [arg point1], the distance [const 1] returns [arg point2].
+Distances < 0 or > 1 extrapolate along the line between the two point.
+
+
+[call [cmd ::math::geometry::octant] [arg point]]
+
+Compute the octant of the circle the point is in and return it as the result
+of the command. The possible results are
+
+[list_begin enum]
+[enum] east
+[enum] northeast
+[enum] north
+[enum] northwest
+[enum] west
+[enum] southwest
+[enum] south
+[enum] southeast
+[list_end]
+
+Each octant is the arc of the circle +/- 22.5 degrees from the cardinal direction
+the octant is named for.
+
+
+[call [cmd ::math::geometry::rect] [arg nw] [arg se]]
+
+Construct a rectangle from its northwest and southeast corners and return
+it as the result of the command.
+
+[call [cmd ::math::geometry::nwse] [arg rect]]
+
+Extract the northwest and southeast corners of the rectangle and return
+them as the result of the command (a 2-element list containing the
+points, in the named order).
 
 [call [cmd ::math::geometry::angle] [arg line]]
 
@@ -219,6 +313,8 @@ have no points in common (in two dimensions only).
 [arg_def list line2] Second line
 [list_end]
 
+See section [sectref References] for details on the algorithm and math behind it.
+
 [para]
 
 [call [cmd ::math::geometry::polylinesIntersect] [arg polyline1] [arg polyline2]]
@@ -328,6 +424,14 @@ Calculate the area of a polygon.
 [arg_def list polygon] The polygon in question
 [list_end]
 
+[list_end]
+
+[section References]
+
+[list_begin enumerated]
+[enum] [uri http:/wiki.tcl.tk/12070 {Polygon Intersection}]
+[enum] [uri http://en.wikipedia.org/wiki/Line-line_intersection]
+[enum] [uri http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/]
 [list_end]
 
 [section {BUGS, IDEAS, FEEDBACK}]

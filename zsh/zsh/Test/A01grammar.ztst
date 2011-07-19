@@ -23,6 +23,22 @@
   true | false
 1:Exit status of pipeline with builtins (false)
 
+  false
+  $nonexistent_variable
+0:Executing command that evaluates to empty resets status
+
+  false
+  sleep 1 &
+  print $?
+  # a tidy test is a happy test
+  wait $!
+0:Starting background command resets status
+>0
+
+  false
+  . /dev/null
+0:Sourcing empty file resets status
+
   fn() { local foo; read foo; print $foo; }
   coproc fn
   print -p coproc test output
@@ -62,9 +78,9 @@
   (exec /bin/sh; echo bar)
 0:`exec' precommand modifier
 
-  (exec -l /bin/sh -c 'echo $0')
+  (exec -l $ZTST_testdir/../Src/zsh -fc 'echo $0' | sed 's%/.*/%%' )
 0:`exec' with -l option
->-/bin/sh
+>-zsh
 
   (exec -a /bin/SPLATTER /bin/sh -c 'echo $0')
 0:`exec' with -a option
@@ -378,9 +394,14 @@
 >true-2
 >false
 
-  if true; print true
+  if { true } print true
+  if { false } print false
 0:Short form of `if'
 >true
+
+  eval "if"
+1:Short form of `if' can't be too short
+?(eval):1: parse error near `if'
 
   for name ( word1 word2 word3 ) print $name
 0:Form of `for' with parentheses.
@@ -503,3 +524,56 @@
   $ZTST_testdir/../Src/zsh -f NonExistentScript
 127q:Non-existent script causes exit status 127
 ?$ZTST_testdir/../Src/zsh: can't open input file: NonExistentScript
+
+  (setopt nonomatch
+  # use this to get stuff at start of line
+  contents=$'# comment \'\necho value #with " stuff\n# comment\n#comment
+  echo not#comment\n'
+  eval 'VAR=$('"$contents"')'
+  print -l $VAR)
+0:comments within $(...)
+>value
+>not#comment
+
+  . ./nonexistent
+127: Attempt to "." non-existent file.
+?(eval):.:1: no such file or directory: ./nonexistent
+
+  echo '[[' >bad_syntax
+  . ./bad_syntax
+126: Attempt to "." file with bad syntax.
+?./bad_syntax:2: parse error near `\n'
+
+  echo 'false' >dot_false
+  . ./dot_false
+  print $?
+  echo 'true' >dot_true
+  . ./dot_true
+  print $?
+0:Last status of successfully executed "." file is retained
+>1
+>0
+
+  echo 'echo $?' >dot_status
+  false
+  . ./dot_status
+0:"." file sees status from previous command
+>1
+
+  mkdir test_path_script
+  print "#!/bin/sh\necho Found the script." >test_path_script/myscript
+  chmod u+x test_path_script/myscript
+  path=($PWD/test_path_script $path)
+  export PATH
+  $ZTST_testdir/../Src/zsh -f -o pathscript myscript
+0:PATHSCRIPT option
+>Found the script.
+
+  $ZTST_testdir/../Src/zsh -f myscript
+127q:PATHSCRIPT option not used.
+?$ZTST_testdir/../Src/zsh: can't open input file: myscript
+
+  $ZTST_testdir/../Src/zsh -fc 'echo $0; echo $1' myargzero myargone
+0:$0 is traditionally if bizarrely set to the first argument with -c
+>myargzero
+>myargone

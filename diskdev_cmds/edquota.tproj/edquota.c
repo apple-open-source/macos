@@ -189,7 +189,7 @@ main(argc, argv)
 			qup->dqblk.dqb_itime = 0;
 		}
 		while (argc-- > 0) {
-			if ((id = getentry(*argv++, quotatype)) < 0)
+			if ((id = getentry(*argv++, quotatype)) == -1)
 				continue;
 			putprivs(id, quotatype, protoprivs);
 		}
@@ -338,7 +338,6 @@ getprivs(id, quotatype)
 
 	for (i=0; i<nfst; i++) {
 	        if (strcmp(fst[i].f_fstypename, "hfs")) {
-		    if (strcmp(fst[i].f_fstypename, "ufs"))
 		        continue;
 		}
 		if (!hasquota(&fst[i], quotatype, &qfpathname))
@@ -415,8 +414,6 @@ getprivs(id, quotatype)
 	quphead = (struct quotause *)0;
 	qcmd = QCMD(Q_GETQUOTA, quotatype);
 	while (fs = getfsent()) {
-		if (strcmp(fs->fs_vfstype, "ufs"))
-			continue;
 		if (!hasquota(fs, quotatype, &qfpathname))
 			continue;
 		qupsize = sizeof(*qup) + strlen(qfpathname);
@@ -829,7 +826,7 @@ readprivs(quplist, infd)
 	int cnt;
 	register char *cp;
 	struct dqblk dqblk;
-	char *fsp, line1[BUFSIZ], line2[BUFSIZ];
+	char fsp[BUFSIZ], line1[BUFSIZ], line2[BUFSIZ];
 
 	lseek(infd, 0, L_SET);
 	fd = fdopen(dup(infd), "r");
@@ -843,15 +840,15 @@ readprivs(quplist, infd)
 	(void) fgets(line1, sizeof (line1), fd);
 	while (fgets(line1, sizeof (line1), fd) != NULL &&
 	       fgets(line2, sizeof (line2), fd) != NULL) {
-		if ((fsp = strtok(line1, " \t:")) == NULL) {
-			fprintf(stderr, "%s: bad format\n", line1);
-			return (0);
+		cp = strstr(line1, ": 1K blocks in use:");
+		if (cp == NULL) {
+			fprintf(stderr, "%s:  bad format for line\n", line1);
+			return 0;
 		}
-		if ((cp = strtok((char *)0, "\n")) == NULL) {
-			fprintf(stderr, "%s: %s: bad format\n", fsp,
-			    &fsp[strlen(fsp) + 1]);
-			return (0);
-		}
+		/* Copy up to the template text */
+		strlcpy(fsp, line1, cp - line1 + 1);
+		/* And point cp right after it. */
+		cp = line1 + strlen(fsp) + 1;
 #ifdef __APPLE__
 		/* We expect input to be in 1K blocks */
 		cnt = sscanf(cp,

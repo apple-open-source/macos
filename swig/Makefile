@@ -1,7 +1,9 @@
 Project        = swig
-ProjectVersion = 1.3.31
+ProjectVersion = 1.3.40
 Patches        = Makefile.in.diff \
                  Source__Makefile.in.diff
+
+INSTALL_PREFIX = /usr/local
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -18,14 +20,14 @@ install_source::
 	done
 
 install::
-	cd $(OBJROOT) && $(Environment) $(SRCROOT)/$(Project)/configure --disable-dependency-tracking --prefix=/usr --without-maximum-compile-warnings
+	cd $(OBJROOT) && $(Environment) $(SRCROOT)/$(Project)/configure --disable-dependency-tracking --prefix=$(INSTALL_PREFIX) --without-maximum-compile-warnings --disable-ccache
 	$(MAKE) -C $(OBJROOT)
 	$(MAKE) -C $(OBJROOT) install DESTDIR=$(DSTROOT)
-	$(INSTALL_FILE) $(OBJROOT)/Lib/swigwarn.swg $(DSTROOT)/usr/share/swig/$(ProjectVersion)
-	$(CP) $(DSTROOT)$(USRBINDIR)/swig $(SYMROOT)
-	$(STRIP) -x $(DSTROOT)$(USRBINDIR)/swig
+	$(INSTALL_FILE) $(OBJROOT)/Lib/swigwarn.swg $(DSTROOT)$(INSTALL_PREFIX)/share/swig/$(ProjectVersion)
+	$(CP) $(DSTROOT)$(INSTALL_PREFIX)/bin/swig $(SYMROOT)
+	$(STRIP) -x $(DSTROOT)$(INSTALL_PREFIX)/bin/swig
 	$(MKDIR) $(OSV) $(OSL)
 	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
 	$(INSTALL_FILE) $(SRCROOT)/$(Project)/LICENSE $(OSL)/$(Project).txt
-	$(MKDIR) $(DSTROOT)/usr/share/man/man1
-	$(INSTALL_FILE) $(SRCROOT)/swig.1 $(DSTROOT)/usr/share/man/man1/swig.1
+	$(MKDIR) $(DSTROOT)$(INSTALL_PREFIX)/share/man/man1
+	$(INSTALL_FILE) $(SRCROOT)/swig.1 $(DSTROOT)$(INSTALL_PREFIX)/share/man/man1/swig.1

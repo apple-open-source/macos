@@ -1,6 +1,6 @@
 #!/bin/sh
-# The next line restarts using wish8.0 \
-exec wish8.0 $0 ${1+"$@"}
+# The next line restarts using wish \
+exec wish $0 ${1+"$@"}
 #
 # Initialization of some global variables
 

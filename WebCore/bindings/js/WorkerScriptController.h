@@ -29,8 +29,8 @@
 
 #if ENABLE(WORKERS)
 
-#include <runtime/Protect.h>
-#include <wtf/Noncopyable.h>
+#include <heap/Strong.h>
+#include <wtf/Forward.h>
 #include <wtf/Threading.h>
 
 namespace JSC {
@@ -42,10 +42,10 @@ namespace WebCore {
     class JSWorkerContext;
     class ScriptSourceCode;
     class ScriptValue;
-    class String;
     class WorkerContext;
 
-    class WorkerScriptController : public Noncopyable {
+    class WorkerScriptController {
+        WTF_MAKE_NONCOPYABLE(WorkerScriptController); WTF_MAKE_FAST_ALLOCATED;
     public:
         WorkerScriptController(WorkerContext*);
         ~WorkerScriptController();
@@ -53,7 +53,7 @@ namespace WebCore {
         JSWorkerContext* workerContextWrapper()
         {
             initScriptIfNeeded();
-            return m_workerContextWrapper;
+            return m_workerContextWrapper.get();
         }
 
         ScriptValue evaluate(const ScriptSourceCode&);
@@ -61,9 +61,17 @@ namespace WebCore {
 
         void setException(ScriptValue);
 
-        enum ForbidExecutionOption { TerminateRunningScript, LetRunningScriptFinish };
-        void forbidExecution(ForbidExecutionOption);
-        bool isExecutionForbidden() const { return m_executionForbidden; }
+        // Async request to terminate a JS run execution. Eventually causes termination
+        // exception raised during JS execution, if the worker thread happens to run JS.
+        // After JS execution was terminated in this way, the Worker thread has to use
+        // forbidExecution()/isExecutionForbidden() to guard against reentry into JS.
+        // Can be called from any thread.
+        void scheduleExecutionTermination();
+
+        // Called on Worker thread when JS exits with termination exception caused by forbidExecution() request,
+        // or by Worker thread termination code to prevent future entry into JS.
+        void forbidExecution();
+        bool isExecutionForbidden() const;
 
         JSC::JSGlobalData* globalData() { return m_globalData.get(); }
 
@@ -77,9 +85,7 @@ namespace WebCore {
 
         RefPtr<JSC::JSGlobalData> m_globalData;
         WorkerContext* m_workerContext;
-        JSC::ProtectedPtr<JSWorkerContext> m_workerContextWrapper;
-
-        Mutex m_sharedDataMutex;
+        JSC::Strong<JSWorkerContext> m_workerContextWrapper;
         bool m_executionForbidden;
     };
 

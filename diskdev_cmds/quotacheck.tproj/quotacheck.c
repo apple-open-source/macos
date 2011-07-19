@@ -200,8 +200,7 @@ main(argc, argv)
 
 	for (i=0; i<nfst; i++) {
 		if(strcmp(fst[i].f_fstypename, "hfs")) {
-			if (strcmp(fst[i].f_fstypename, "ufs"))
-				continue;
+			continue;
 		}
 
 		if (aflag) {
@@ -284,8 +283,7 @@ needchk(fst)
 	char *qfnp;
 
 	if(strcmp(fst->f_fstypename, "hfs")) {
-		if (strcmp(fst->f_fstypename, "ufs"))
-			return(NULL);
+		return(NULL);
 	}
 	if(fst->f_flags & MNT_RDONLY)
 		return (NULL);
@@ -313,9 +311,9 @@ needchk(fs)
 	register struct quotaname *qnp;
 	char *qfnp;
 
-	if (strcmp(fs->fs_vfstype, "ufs") ||
-	    strcmp(fs->fs_type, FSTAB_RW))
+	if (strcmp(fs->fs_type, FSTAB_RW))
 		return (NULL);
+	
 	if ((qnp = malloc(sizeof(*qnp))) == NULL)
 		err(1, "%s", strerror(errno));
 	qnp->flags = 0;
@@ -337,7 +335,6 @@ needchk(fs)
 /*
  * Scan the specified filesystem to check quota(s) present on it.
  */
-#ifdef __APPLE__
 int
 chkquota(fstype, fsname, mntpt, qnp)
 	char *fstype, *fsname, *mntpt;
@@ -357,23 +354,9 @@ chkquota(fstype, fsname, mntpt, qnp)
 
 	if(strcmp(fstype, "hfs") == 0)
 		errs = chkquota_hfs(fsname, mntpt, qnp);
-	else if(strcmp(fstype, "ufs") == 0)
-		errs = chkquota_ufs(fsname, mntpt, qnp);
 
 	return (errs);
 }
-#else
-int
-chkquota(fsname, mntpt, qnp)
-	char *fsname, *mntpt;
-	register struct quotaname *qnp;
-{
-        int errs = 0;
-
-	errs = chkquota_ufs(fsname, mntpt, qnp);
-	return(errs);
-}
-#endif /* __APPLE__ */
 
 /*
  * Update a specified quota file.

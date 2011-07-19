@@ -25,7 +25,7 @@
  */
 
 #include "archive_platform.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/archive_write_set_format_shar.c,v 1.20 2008/08/31 07:10:40 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/archive_write_set_format_shar.c 189438 2009-03-06 05:58:56Z kientzle $");
 
 #ifdef HAVE_ERRNO_H
 #include <errno.h>
@@ -121,6 +121,7 @@ archive_write_set_format_shar(struct archive *_a)
 	a->format_data = shar;
 
 	a->pad_uncompressed = 0;
+	a->format_name = "shar";
 	a->format_write_header = archive_write_shar_header;
 	a->format_finish = archive_write_shar_finish;
 	a->format_destroy = archive_write_shar_destroy;

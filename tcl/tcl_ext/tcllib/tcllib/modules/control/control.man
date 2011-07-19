@@ -1,6 +1,7 @@
 [manpage_begin control n 0.1.3]
 [moddesc   {Tcl Control Flow Commands}]
 [titledesc {Procedures for control flow structures.}]
+[category  {Programming tools}]
 [require Tcl 8.2]
 [require control [opt 0.1.3]]
 [description]

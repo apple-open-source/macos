@@ -1,0 +1,60 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "timo@example.net";
+
+test "Redirect" {
+	redirect "cras@example.net";
+
+	if not test_result_execute {
+		test_fail "failed to execute redirect";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "to" "tss@example.net" {
+		test_fail "to address incorrect (strange forward)";
+	}
+
+	if not address :is "from" "stephan@example.org" {
+		test_fail "from address incorrect (strange forward)";
+	}
+
+	if not envelope :is "to" "cras@example.net" {
+		test_fail "envelope recipient incorrect";
+	}
+
+	if not envelope :is "from" "sirius@example.org" {
+		test_fail "envelope sender incorrect";
+	}
+}
+
+test_result_reset;
+
+test "Redirect from <>" {
+	test_set "envelope.from" "<>";
+
+	redirect "cras@example.net";
+
+	if not test_result_execute {
+		test_fail "failed to execute redirect";
+	}
+
+	if envelope :is "from" "sirius@example.org" {
+		test_fail "envelope sender incorrect (not changed)";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender incorrect";
+	}
+}

@@ -7,7 +7,7 @@
  * See the file "license.txt" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * Rcsid: @(#)$Id: threadSvCmd.h,v 1.14 2005/01/03 09:00:06 vasiljevic Exp $
+ * Rcsid: @(#)$Id: threadSvCmd.h,v 1.17 2010/03/31 08:50:24 vasiljevic Exp $
  * ---------------------------------------------------------------------------
  */
 
@@ -39,15 +39,15 @@
 
 #ifdef NS_AOLSERVER
 # ifdef NSV_COMPAT
-#  define N "nsv_"  /* Compatiblity prefix for AOLserver */
+#  define TSV_CMD_PREFIX "nsv_"  /* Compatiblity prefix for AOLserver */
 # else
-#  define N "sv_"   /* Regular command prefix for AOLserver */
+#  define TSV_CMD_PREFIX "sv_"   /* Regular command prefix for AOLserver */
 # endif
 #else
 # ifdef OLD_COMPAT
-#  define N  "thread::sv_" /* Old command prefix for Tcl */
+#  define TSV_CMD_PREFIX "thread::sv_" /* Old command prefix for Tcl */
 # else
-#  define N  "tsv::" /* Regular command prefix for Tcl */
+#  define TSV_CMD_PREFIX "tsv::" /* Regular command prefix for Tcl */
 # endif
 #endif
 
@@ -188,7 +188,7 @@ typedef struct SvCmdInfo {
  */
 
 typedef struct RegType {
-    Tcl_ObjType *typePtr;       /* Type of the registered object */
+    const Tcl_ObjType *typePtr;       /* Type of the registered object */
     Tcl_DupInternalRepProc *dupIntRepProc; /* Special deep-copy duper */
     struct RegType *nextPtr;    /* Next in chain of registered types */
 } RegType;
@@ -198,16 +198,16 @@ typedef struct RegType {
  */
 
 void 
-Sv_RegisterCommand(char*,Tcl_ObjCmdProc*,Tcl_CmdDeleteProc*,ClientData);
+Sv_RegisterCommand(const char*,Tcl_ObjCmdProc*,Tcl_CmdDeleteProc*,ClientData);
 
 void 
-Sv_RegisterObjType(Tcl_ObjType*, Tcl_DupInternalRepProc*);
+Sv_RegisterObjType(const Tcl_ObjType*, Tcl_DupInternalRepProc*);
 
 void 
 Sv_RegisterPsStore(PsStore*);
 
 int
-Sv_GetContainer(Tcl_Interp*,int,Tcl_Obj*CONST objv[],Container**,int*,int);
+Sv_GetContainer(Tcl_Interp*,int,Tcl_Obj*const objv[],Container**,int*,int);
 
 int
 Sv_PutContainer(Tcl_Interp*, Container*, int);

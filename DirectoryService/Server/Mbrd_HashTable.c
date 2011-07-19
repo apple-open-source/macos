@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if !defined(DISABLE_SEARCH_PLUGIN) || !defined(DISABLE_MEMBERSHIP_CACHE)
+
 #include "Mbrd_HashTable.h"
 #include "Mbrd_UserGroup.h"
 #include <strings.h>
@@ -74,9 +76,9 @@ static int rbt_compare_name_nodes( const struct rb_node *n1, const struct rb_nod
 {
 	const char *name1 = RBNODE_TO_USERGROUP(n1)->fName;
 	const char *name2 = RBNODE_TO_USERGROUP(n2)->fName;
-	if (name1 == NULL || name2 == NULL) {
-		return 0;
-	}
+	
+	assert(name1);
+	assert(name2);
 	return strcmp( name1, name2 );
 }
 
@@ -85,9 +87,8 @@ static int rbt_compare_name_key( const struct rb_node *n, const void *v )
 	const char *name1 = RBNODE_TO_USERGROUP(n)->fName;
 	const char *name2 = (const char *) v;
 	
-	if (name1 == NULL || name2 == NULL) {
-		return 0;
-	}
+	assert(name1);
+	assert(name2);
 	return strcmp( name1, name2 );
 }
 
@@ -498,38 +499,33 @@ void HashTable_FreeContents( HashTable *hash )
 	hash->fQueue = NULL;
 }
 
-void
-_HashTable_Reset(HashTable *hash)
-{
-    struct rb_tree *tree = &hash->fRBtree;
-    struct rb_node *node = RB_TREE_MIN( tree );
-    
-    // we have to delete after we iterate forward
-    while ( node != NULL ) {
-        struct rb_node	*delNode	= node;
-        struct UserGroup *entry		= RBNODE_TO_USERGROUP( delNode );
-        
-        node = rb_tree_iterate( tree, node, RB_DIR_RIGHT );
-        
-        // now let's remove the node
-        rb_tree_remove_node( tree, delNode );
-        DSFree( delNode );
-        
-        // release it if owner and entry are not the same (don't self release)
-        if ( entry != hash->fOwner ) {
-            UserGroup_Release( entry );
-            entry = NULL;
-        }
-    };
-    
-    hash->fNumEntries = 0;
-}
-
 void HashTable_Reset( HashTable* hash )
 {
-	dispatch_sync(hash->fQueue, ^(void) {
-        _HashTable_Reset(hash);
-    });
+	dispatch_sync( hash->fQueue, 
+				   ^(void) {
+					   struct rb_tree *tree = &hash->fRBtree;
+					   struct rb_node *node = RB_TREE_MIN( tree );
+						
+					   // we have to delete after we iterate forward
+					   while ( node != NULL ) {
+						   struct rb_node	*delNode	= node;
+						   struct UserGroup *entry		= RBNODE_TO_USERGROUP( delNode );
+							
+						   node = rb_tree_iterate( tree, node, RB_DIR_RIGHT );
+
+						   // now let's remove the node
+						   rb_tree_remove_node( tree, delNode );
+						   DSFree( delNode );
+						   
+						   // release it if owner and entry are not the same (don't self release)
+						   if ( entry != hash->fOwner ) {
+							   UserGroup_Release( entry );
+							   entry = NULL;
+						   }
+					   };
+						
+					   hash->fNumEntries = 0;
+				   } );
 }
 
 int HashTable_ResetMemberships( HashTable *hash )
@@ -643,7 +639,7 @@ void HashTable_Remove( HashTable* hash, UserGroup* item )
 				   } );
 }
 
-void HashTable_Replace( HashTable* destination, HashTable* source )
+void HashTable_Merge( HashTable* destination, HashTable* source )
 {
 	UserGroup **tempArray = NULL;
 	
@@ -657,7 +653,6 @@ void HashTable_Replace( HashTable* destination, HashTable* source )
 					   ^(void) {
 						   int i;
 							
-                           _HashTable_Reset(destination);
 						   for ( i = 0; i < count; i++ ) {
 							   __HashTable_Add( destination, tempArray[i], true );
 							   UserGroup_Release( tempArray[i] );
@@ -666,8 +661,6 @@ void HashTable_Replace( HashTable* destination, HashTable* source )
 							
 						   free( tempArray );
 					   } );
-	} else {
-        HashTable_Reset(destination);
 	}
 }
 
@@ -703,3 +696,4 @@ int HashTable_CreateItemArray( HashTable *hash, UserGroup*** itemArray )
 	return numResults;
 }
 
+#endif // DISABLE_SEARCH_PLUGIN

@@ -9,9 +9,10 @@ Project               = tktreectrl
 ProjectName           = TkTreeCtrl
 
 # Fetch info
-Release               = 2.2.8
-TEApotVersion         = 0.0.0.2008.10.20.18.16.44
-TEApotProject         = treectrl
+Release               = 2.2.10
+Url                   = $(UrlBase)/$(Project)/$(Project)/$(UrlFile)/$(UrlFile)$(UrlExt)
+#TEApotVersion         = 0.0.0.2010.08.18.09.08.36
+#TEApotProject         = treectrl
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)

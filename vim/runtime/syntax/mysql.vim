@@ -1,7 +1,7 @@
 " Vim syntax file
 " Language:     mysql
 " Maintainer:   Kenneth J. Pronovici <pronovic@ieee.org>
-" Last Change:  $LastChangedDate: 2007-12-19 10:59:39 -0600 (Wed, 19 Dec 2007) $
+" Last Change:  $LastChangedDate: 2010-04-22 09:48:02 -0500 (Thu, 22 Apr 2010) $
 " Filenames:    *.mysql
 " URL:          ftp://cedar-solutions.com/software/mysql.vim
 " Note:         The definitions below are taken from the mysql user manual as of April 2002, for version 3.23
@@ -36,7 +36,7 @@ syn keyword mysqlKeyword         match max_rows middleint min_rows minute minute
 syn keyword mysqlKeyword         natural no
 syn keyword mysqlKeyword         on optimize option optionally order outer outfile
 syn keyword mysqlKeyword         pack_keys partial password primary privileges procedure process processlist
-syn keyword mysqlKeyword         read references reload rename replace restrict returns revoke row rows
+syn keyword mysqlKeyword         read references reload rename replace restrict returns revoke right row rows
 syn keyword mysqlKeyword         second select show shutdown soname sql_big_result sql_big_selects sql_big_tables sql_log_off
 syn keyword mysqlKeyword         sql_log_update sql_low_priority_updates sql_select_limit sql_small_result sql_warnings starting
 syn keyword mysqlKeyword         status straight_join string
@@ -57,12 +57,12 @@ syn region mysqlString           start=+'+  skip=+\\\\\|\\'+  end=+'+
 " Numbers and hexidecimal values
 syn match mysqlNumber            "-\=\<[0-9]*\>"
 syn match mysqlNumber            "-\=\<[0-9]*\.[0-9]*\>"
-syn match mysqlNumber            "-\=\<[0-9]*e[+-]\=[0-9]*\>"
+syn match mysqlNumber            "-\=\<[0-9][0-9]*e[+-]\=[0-9]*\>"
 syn match mysqlNumber            "-\=\<[0-9]*\.[0-9]*e[+-]\=[0-9]*\>"
 syn match mysqlNumber            "\<0x[abcdefABCDEF0-9]*\>"
 
 " User variables
-syn match mysqlVariable          "@\a*[A-Za-z0-9]*[._]*[A-Za-z0-9]*"
+syn match mysqlVariable          "@\a*[A-Za-z0-9]*\([._]*[A-Za-z0-9]\)*"
 
 " Comments (c-style, mysql-style and modified sql-style)
 syn region mysqlComment          start="/\*"  end="\*/"
@@ -75,7 +75,7 @@ syn sync ccomment mysqlComment
 " This gets a bit ugly.  There are two different problems we have to
 " deal with.
 "
-" The first problem is that some keywoards like 'float' can be used
+" The first problem is that some keywords like 'float' can be used
 " both with and without specifiers, i.e. 'float', 'float(1)' and
 " 'float(@var)' are all valid.  We have to account for this and we
 " also have to make sure that garbage like floatn or float_(1) is not

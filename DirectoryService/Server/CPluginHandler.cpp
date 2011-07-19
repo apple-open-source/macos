@@ -38,7 +38,6 @@
 #include "CLog.h"
 #include "CServerPlugin.h"
 #include "CDSPluginUtils.h"
-#include "CCachePlugin.h"
 #include "DSEventSemaphore.h"
 #include "CInternalDispatch.h"
 
@@ -64,7 +63,9 @@ enum ePluginIndex
 extern	dsBool			gDSLocalOnlyMode;
 extern	bool			gNetInfoPluginIsLoaded;
 extern	dsBool			gDSInstallDaemonMode;
+#ifndef DISABLE_CACHE_PLUGIN
 extern  DSEventSemaphore gKickCacheRequests;
+#endif
 
 //--------------------------------------------------------------------------------------------------
 //	* CPluginHandler()
@@ -135,60 +136,74 @@ SInt32 CPluginHandler::ThreadMain ( void )
 	
 	if (gDSLocalOnlyMode)
 	{
+#ifndef DISABLE_CONFIGURE_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginConfigure],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
+#ifndef DISABLE_LOCAL_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginLocal],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
 		statPluginCnt = uiPluginCnt;
 
-		DbgLog( kLogApplication, "%d Plugins processed.", uiPluginCnt );
+		DbgLog( kLogApplication, "%d static plugins processed.", uiPluginCnt );
 
 		DbgLog( kLogApplication, "Initializing static plugins." );
 		gPlugins->InitPlugIns(kStaticPlugin);		
 	}
 	else if (gDSInstallDaemonMode)
 	{
+#ifndef DISABLE_CACHE_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginCache],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
+#ifndef DISABLE_CONFIGURE_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginConfigure],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
+#ifndef DISABLE_LOCAL_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginLocal],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
+#ifndef DISABLE_SEARCH_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginSearch],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
+#ifndef DISABLE_BSD_PLUGIN
 		status = CServerPlugin::ProcessStaticPlugin(	sStaticPluginList[kPluginBSD],
 														gStrDaemonAppleVersion);
 		if (status == eDSNoErr)
 		{
 			uiPluginCnt++;
 		}
+#endif
 		statPluginCnt = uiPluginCnt;
 
-		DbgLog( kLogApplication, "%d Plugins processed.", uiPluginCnt );
+		DbgLog( kLogApplication, "%d static plugins processed.", uiPluginCnt );
 
 		DbgLog( kLogApplication, "Initializing static plugins." );
 		gPlugins->InitPlugIns(kStaticPlugin);		
@@ -207,14 +222,16 @@ SInt32 CPluginHandler::ThreadMain ( void )
 		}
 		statPluginCnt = uiPluginCnt;
 		
-		DbgLog( kLogApplication, "%d Plugins processed.", uiPluginCnt );
+		DbgLog( kLogApplication, "%d static plugins processed.", uiPluginCnt );
 
 		DbgLog( kLogApplication, "Initializing static plugins." );
 		gPlugins->InitPlugIns(kStaticPlugin);
 
+#ifndef DISABLE_CACHE_PLUGIN
         DbgLog( kLogApplication, "Waiting on Cache node initialization" );
         gKickCacheRequests.WaitForEvent();
         DbgLog( kLogApplication, "Cache node initialization - succeeded" );
+#endif
 		
 		uiPluginCnt = LoadPlugins(uiPluginCnt);
 	}
@@ -247,79 +264,19 @@ UInt32 CPluginHandler::LoadPlugins ( UInt32 inCount )
 {
 	SInt32				status	= eDSNoErr;
 	UInt32				uiCount	= inCount;
-	CString				cSubPath( COSUtils::GetStringFromList( kAppStringsListID, kStrPlugInsFolder ) );
 	CString				cOtherSubPath( COSUtils::GetStringFromList( kAppStringsListID, kStrOtherPlugInsFolder ) );
 	CString				cPlugExt( COSUtils::GetStringFromList( kAppStringsListID, kStrPluginExtension ) );
 	CFStringRef			sType	= nil;
 	char				string	[ PATH_MAX ];
-
-
-	//KW now we need to know which plugins are lazily loaded and which
-	//are required now to be loaded
-	
-	//Retrieve all the Apple developed plugins
-	sType = ::CFStringCreateWithCString( kCFAllocatorDefault, cPlugExt.GetData(), kCFStringEncodingMacRoman );
-
 	CFURLRef	urlPath = 0;
-	CFStringRef	sBase, sPath;
+	CFStringRef	sPath;
 	CFArrayRef	aBundles;
-
-	// Append the subpath.
-	sBase = CFSTR( "/System/Library" );
-	sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, cSubPath.GetData() );
-	sBase = nil;
-
-	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
-	DbgLog( kLogApplication, "Checking for plugins in:" );
-	DbgLog( kLogApplication, "  %s", string );
-
-	// Convert it back into a CFURL.
-	urlPath = ::CFURLCreateWithFileSystemPath( kCFAllocatorDefault, sPath, kCFURLPOSIXPathStyle, true );
-
-	CFDebugLog( kLogApplication, "LoadPlugins:CFURLCreateWithFileSystemPath called on path <%@>", sPath );
-
-	::CFRelease( sPath );
-	sPath = nil;
-
-	// Enumerate all the plugins in this system directory.
-	aBundles = ::CFBundleCopyResourceURLsOfTypeInDirectory( urlPath, sType, NULL );
-	::CFRelease( urlPath );
-	urlPath = nil;
-
-	CFDebugLog( kLogApplication, "LoadPlugins:CFBundleCopyResourceURLsOfTypeInDirectory called on urlPath" );
-
-	if ( aBundles != nil )
-	{
-		register CFIndex bundleCount = CFArrayGetCount( aBundles );
-		for ( register CFIndex j = 0; j < bundleCount; ++j )
-		{
-CFDebugLog( kLogApplication, "LoadPlugins:CServerPlugin::ProcessURL about to be called on index <%d>", j );
-			status = CServerPlugin::ProcessURL( (CFURLRef)::CFArrayGetValueAtIndex( aBundles, j ) );
-			if ( status == eDSNoErr )
-			{
-				uiCount++;
-			}
-			else
-				SrvrLog( kLogApplication, "\tError loading plugin, see DirectoryService.error.log for details" );
-		}
-	
-		::CFRelease( aBundles );
-		aBundles = nil;
-	}
-
-	if ( sType != nil )
-	{
-		::CFRelease( sType );
-		sType = nil;
-	}
-
-	//Now retrieve any Third party developed plugins
+    
+	// retrieve any Third party developed plugins
 	sType = ::CFStringCreateWithCString( kCFAllocatorDefault, cPlugExt.GetData(), kCFStringEncodingMacRoman );
 
 	// Append the subpath.
-	sBase = CFSTR( "/Library" );
-	sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "%@/%s" ), sBase, cOtherSubPath.GetData() );
-	sBase = nil;
+	sPath = ::CFStringCreateWithFormat( kCFAllocatorDefault, NULL, CFSTR( "/Library/%s" ), cOtherSubPath.GetData() );
 
 	::CFStringGetCString( sPath, string, sizeof( string ), kCFStringEncodingMacRoman );
 	DbgLog( kLogApplication, "Checking for plugins in:" );
@@ -346,7 +303,7 @@ CFDebugLog( kLogApplication, "LoadPlugins:CServerPlugin::ProcessURL about to be 
 				uiCount++;
 			}
 			else
-				SrvrLog( kLogApplication, "\tError loading 3rd party plugin, see DirectoryService.error.log for details" );
+				SrvrLog( kLogApplication, "\tError loading 3rd party plugin, see /var/log/opendirectoryd.log for details" );
 		}
 
 		::CFRelease( aBundles );

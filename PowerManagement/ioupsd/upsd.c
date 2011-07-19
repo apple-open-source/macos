@@ -409,7 +409,6 @@ void DeviceNotification(void *		refCon,
                         natural_t 	messageType,
                         void *		messageArgument )
 {
-    kern_return_t	kr;
     UPSDataRef		upsDataRef = (UPSDataRef) refCon;
 
     if ( (upsDataRef != NULL) &&
@@ -435,13 +434,13 @@ void DeviceNotification(void *		refCon,
 
         if (upsDataRef->upsPlugInInterface != NULL)
         {
-            kr = (*(upsDataRef->upsPlugInInterface))->Release (upsDataRef->upsPlugInInterface);
+            (*(upsDataRef->upsPlugInInterface))->Release (upsDataRef->upsPlugInInterface);
             upsDataRef->upsPlugInInterface = NULL;
         }
         
         if (upsDataRef->notification != MACH_PORT_NULL)
         {
-            kr = IOObjectRelease(upsDataRef->notification);
+            IOObjectRelease(upsDataRef->notification);
             upsDataRef->notification = MACH_PORT_NULL;
         }
 
@@ -698,11 +697,16 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef, CFDictionaryRef prope
         CFStringCreateWithCStringNoCopy(NULL, upsLabelString, kCFStringEncodingMacRoman, kCFAllocatorNull));
     #endif
 
-    upsStoreKey = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@%@"), 
-        kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePath), 
-        CFStringCreateWithCStringNoCopy(NULL, upsLabelString, kCFStringEncodingMacRoman, kCFAllocatorNull));
+    CFStringRef     upsLabelCF = NULL;
+    
+    upsLabelCF = CFStringCreateWithCStringNoCopy(NULL, upsLabelString, kCFStringEncodingMacRoman, kCFAllocatorNull);
+    if (upsLabelCF) {
+        upsStoreKey = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@%@"), 
+                                              kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePath), upsLabelCF);
+        CFRelease(upsLabelCF);
+    }
 
-    if(!SCDynamicStoreSetValue(upsStore, upsStoreKey, upsStoreDict))
+    if(!upsStoreKey || !SCDynamicStoreSetValue(upsStore, upsStoreKey, upsStoreDict))
     {
         status = SCError();
         #if UPS_DEBUG
@@ -710,12 +714,21 @@ IOReturn CreatePowerManagerUPSEntry(UPSDataRef upsDataRef, CFDictionaryRef prope
         #endif
     }
 
-    // Store our SystemConfiguration variables in our private data
-    //
-    upsDataRef->upsStoreDict 	= upsStoreDict;
-    upsDataRef->upsStore 	= upsStore;
-    upsDataRef->upsStoreKey 	= upsStoreKey;
-
+    if (kIOReturnSuccess == status)
+    {
+        // Store our SystemConfiguration variables in our private data
+        //
+        upsDataRef->upsStoreDict 	= upsStoreDict;
+        upsDataRef->upsStore 	= upsStore;
+        upsDataRef->upsStoreKey 	= upsStoreKey;
+    } else {
+        if (upsStoreDict)
+            CFRelease(upsStoreDict);
+        if (upsStore)
+            CFRelease(upsStore);
+        if (upsStoreKey)
+            CFRelease(upsStoreKey);
+    }
     return status;
 }
 

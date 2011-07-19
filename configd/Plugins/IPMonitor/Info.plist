@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.10.8</string>
+	<string>1.11</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.10.2</string>
+	<string>1.11</string>
 	<key>Requires</key>
 	<array>
 		<string>com.apple.SystemConfiguration.IPConfiguration</string>
@@ -28,7 +28,7 @@
 	<key>Builtin</key>
 	<true/>
 	<key>mdns_timeout</key>
-	<integer>2</integer>
+	<integer>5</integer>
 	<key>pdns_timeout</key>
 	<integer>5</integer>
 	<key>AppendStateArrayToSetupArray</key>

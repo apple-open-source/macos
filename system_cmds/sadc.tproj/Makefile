@@ -8,7 +8,7 @@ MANPAGES = sa1.8 sa2.8 sadc.8
 OTHERSRCS = Makefile.preamble Makefile Makefile.postamble sa1.8 sa1.sh\
             sa2.8 sa2.sh sadc.8
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 Extra_CC_Flags += -I.

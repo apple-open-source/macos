@@ -40,21 +40,24 @@ struct WebDevToolsMessageData;
 
 class WebDevToolsAgentClient {
 public:
-    virtual void sendMessageToFrontend(const WebDevToolsMessageData&) { }
-
-    // Invalidates widget which leads to the repaint.
-    virtual void forceRepaint() { }
+    virtual void sendMessageToInspectorFrontend(const WebString&) { }
+    virtual void sendDebuggerOutput(const WebString&) { }
 
     // Returns the identifier of the entity hosting this agent.
     virtual int hostIdentifier() { return -1; }
 
     // Notifies host upon runtime feature being enabled/disabled.
-    virtual void runtimeFeatureStateChanged(const WebString& feature, bool enabled) { }
+    virtual void runtimePropertyChanged(const WebString& name, const WebString& value) { }
 
-    WEBKIT_API static void sendMessageToFrontendOnIOThread(const WebDevToolsMessageData&);
+    class WebKitClientMessageLoop {
+    public:
+        virtual ~WebKitClientMessageLoop() { }
+        virtual void run() = 0;
+        virtual void quitNow() = 0;
+    };
+    virtual WebKitClientMessageLoop* createClientMessageLoop() { return 0; }
 
-    virtual WebCString injectedScriptSource() { return WebCString(); }
-    virtual WebCString injectedScriptDispatcherSource() { return WebCString(); }
+    virtual bool exposeV8DebuggerProtocol() { return false; }
 
 protected:
     ~WebDevToolsAgentClient() { }

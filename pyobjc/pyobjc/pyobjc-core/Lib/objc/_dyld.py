@@ -8,7 +8,7 @@ __all__ = [
 ]
 
 import os, sys
-from _framework import infoForFramework
+from objc._framework import infoForFramework
 
 
 # These are the defaults as per man dyld(1)
@@ -29,7 +29,7 @@ DEFAULT_LIBRARY_FALLBACK = u':'.join([
 
 def ensure_unicode(s):
     """Not all of PyObjC understands unicode paths very well yet"""
-    if isinstance(s, str):
+    if isinstance(s, bytes):
         return unicode(s, 'utf8')
     return s
 

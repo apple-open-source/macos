@@ -149,7 +149,8 @@ ainsi que leurs équivalents acceptant les
 <a class="glossarylink" href="./glossary.html#regex" title="voir glossaire">expressions rationnelles</a>,
 appliquent des directives à certaines parties du système de fichiers.
 Les directives contenues dans une section <code class="directive"><a href="./mod/core.html#directory">&lt;Directory&gt;</a></code> s'appliquent au répertoire
-précisé, ainsi qu'à tous ses sous-répertoires.
+précisé, ainsi qu'à tous ses sous-répertoires et aux fichiers que ces
+derniers contiennent.
 Le même effet peut être obtenu en utilisant les <a href="howto/htaccess.html">fichiers .htaccess</a>.  Par exemple, avec la
 configuration suivante, l'indexation sera activée pour le répertoire
 <code>/var/web/dir1</code> et tous ses sous-répertoires.</p>
@@ -210,10 +211,10 @@ En particulier, l'interdiction s'appliquera aux requêtes pour :
 toute requête commençant par la chaîne de caractères <code>/private</code>.</p>
 
 <div class="example"><p><code>
-&lt;Location /private&gt;<br />
+&lt;LocationMatch ^/private&gt;<br />
 Order Allow,Deny<br />
 Deny from all<br />
-&lt;/Location&gt;
+&lt;/LocationMatch&gt;
 </code></p></div>
 
 <p>Le conteneur <code class="directive"><a href="./mod/core.html#location">&lt;Location&gt;</a></code>
@@ -525,6 +526,6 @@ Deny from badguy.example.com<br />
 <a href="./ko/sections.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="./tr/sections.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Autorisé sous <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="./mod/">Modules</a> | <a href="./mod/directives.html">Directives</a> | <a href="./faq/">FAQ</a> | <a href="./glossary.html">Glossaire</a> | <a href="./sitemap.html">Plan du site</a></p></div>
 </body></html>

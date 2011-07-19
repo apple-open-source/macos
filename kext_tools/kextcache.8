@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd March 6, 2009
 .Os Darwin
 .Dt KEXTCACHE 8
 .Sh NAME
@@ -10,11 +10,6 @@
 .Op Ar options
 .Op Fl -
 .Ar kext_or_directory Li \&.\|.\|.
-.Nm
-.Fl system-mkext
-.Op Ar options
-.Op Fl -
-.Op Ar kext_or_directory Li \&.\|.\|.
 .Nm
 .Fl prelinked-kernel Ar filename
 .Op Ar options
@@ -55,57 +50,48 @@ for information on updating kext caches on prior releases of Mac OS X.
 .Pp
 .Nm
 creates several kinds of kext caches.
-The first is the mkext cache,
-which contains the essential files (Info plist and executable)
-for an arbitrary set of kexts;
-executables are unrelocated.
-Mkext caches are used during early system startup
-to load drivers essential for mounting the root filesystem
-and providing basic hardware services.
-To create an mkext cache use one of the
-.Fl mkext ,
-.Fl mkext1 ,
-.Fl mkext2 ,
-or
-.Fl system-mkext
-(with
-.Fl local-root )
-options.
-.Pp
-The second type of cache is the prelinked kernel,
-which contains the kernel code,
-kext executables already linked for their run-time locations,
-and other essential kext files for an arbitrary set of kexts.
-To create or update a prelinked kernel use the
+The first is the prelinked kernel (also known as a \*(Lqkernelcache\*(Rq),
+which contains the kernel code
+and the essential files (info dictionary and executable)
+for an arbitrary set of kexts,
+with kext executables linked for their run-time locations.
+A prelinked kernel speeds early system startup
+by collecting these many files in one place for the booter to locate,
+and by having each kext linked in place and ready to start as needed.
+To create or update a prelinked kernel, use the
 .Fl prelinked-kernel
 or
 .Fl system-prelinked-kernel
 option.
 .Pp
-The remaining caches contain specific information from the info dictionaries
-of system kexts, and are used to optimize disk I/O when working with kexts.
+Other kext caches collect specific data
+from the info dictionaries of kexts.
+There are many individual caches for specific subsets of data;
+they care collectively called system info caches.
+These caches are used to optimize disk I/O when working with kexts
+during late system startup and beyond.
 To update the system kext info caches for the root volume,
 use the
 .Fl system-caches
 option.
+.Pp
+The last type of kext cache is the mkext cache,
+which contains the essential files (info dictionary and executable)
+for an arbitrary set of kexts;
+executables are unrelocated.
+Mkext is a legacy format that was used on prior releases of Mac OS X.
+To create an mkext cache, use one of the
+.Fl mkext ,
+.Fl mkext1 ,
+or
+.Fl mkext2
+options,
+with appropriate filtering options, described below.
 .Sh PRIMARY OPTIONS
 You must specify one of these options to have
 .Nm
 do anything:
 .Bl -tag -width -indent
-.It Fl m Ar filename , Fl mkext Ar filename
-Create an mkext of the latest supported format.
-.It Fl mkext1 Ar filename
-Create an mkext of format 1, used on Mac OS X versions 10.5 (Leopard)
-and earlier.
-.It Fl mkext2 Ar filename
-Create an mkext of format 2, used on Mac OS X versions 10.6 (Snow Leopard)
-and later.
-.It Fl e , Fl system-mkext
-This option is a convenience to update the startup mkext for the root volume.
-Using this option with
-.Fl local-root
-updates the startup mkext for a local disk startup.
 .It Fl c [ Ar filename ] , Fl prelinked-kernel Ar [ filename ]
 Create a prelinked kernel.
 .Ar filename
@@ -121,31 +107,51 @@ This option is a convenience to update the prelinked kernel
 used for startup on the root volume,
 with all kexts in the system extensions folder
 that have been loaded to date.
-This option implies 
+This option implies
 .Fl all-loaded .
 .It Fl system-caches
 Rebuild the info caches for system kexts on the root volume.
 .It Fl u Ar os_volume , Fl update-volume Ar os_volume
-Rebuild out-of-date caches and any helper partitions associated with
+Rebuild out-of-date caches and update any helper partitions associated
+with
 .Ar os_volume .
-The mkext is first checked and updated if needed.
-Then any modified files that belong
-in the helper partitions are updated.
+.Ar os_volume Ns Pa /System/Library/Caches/com.apple.bootstamps/
+is used to track whether any helper partitions are up to date.
+See
+.Fl caches-only
+and
+.Fl force .
+.Pp
+Which caches are rebuilt depends on the Mac OS X release installed on
+.Ar os_volume .
 If
-.Fl force
-is also specified, all helper partition are fully updated regardless of
-whether the data in
-.Pa /System/Library/Caches/com.apple.bootstamps/
-suggests that they are up to date.
-OS volumes without a
-.Pa /usr/standalone/bootcaches.plist
-file are ignored (success is returned).
+.Nm
+cannot find or make sense of
+.Ar os_volume Ns Pa /usr/standalone/bootcaches.plist
+the volume is treated as if no caches need updating: success is returned.
 .It Fl U Ar os_volume
 Used by the system to update volumes during startup.
 Not for use otherwise.
+.It Fl m Ar filename , Fl mkext Ar filename
+Create an mkext of the latest supported format.
+.It Fl mkext1 Ar filename
+Create an mkext of format 1, used on Mac OS X versions 10.5 (Leopard)
+and earlier.
+.It Fl mkext2 Ar filename
+Create an mkext of format 2, used on Mac OS X version 10.6 (Snow Leopard).
+.It Fl e , Fl system-mkext
+This option is provided for legacy compatibility, and is simply an alias to
+.Fl system-prelinked-kernel .
 .El
-.Sh MKEXT FILTERING OPTIONS
-These options restrict which kexts are included in an mkext.
+.Sh PRELINKED KERNEL AND MKEXT FILTERING OPTIONS
+These options restrict which kexts are included in a prelinked kernel or mkext.
+The options
+.Fl arch
+and
+.Fl bundle-id
+select kexts by supported architecture and bundle identifier;
+the remaining filtering options select kexts based on the value
+of their OSBundleRequired property.
 If these options are specified,
 the cache will contain only kexts
 whose OSBundleRequired property matches any of these options,
@@ -154,14 +160,57 @@ or whose OSBundleRequired property is
 or
 .Dq Console .
 .Pp
-An mkext cache intended for a startup from a local disk
+A prelinked kernel or mkext cache intended for a startup from a local disk
 should be created with the
 .Fl local-root
 option, while a cache intended for startup from the network
 should be created with the
 .Fl network-root
 option.
+When creating a prelinked kernel,
+if the
+.Fl all-loaded
+option is specified,
+kexts requested by the kernel are always included
+regardless of these filtering options.
 .Bl -tag -width -indent
+.It Fl a Ar arch , Fl arch Ar arch
+Include in an mkext or prelinked kernel only kexts
+loadable on
+.Ar arch ,
+thinning executables to that architecture before inclusion.
+Multiple architectures are allowed;
+in this case a multi-architecture file is created
+containing an embedded cache
+for each of the specified architectures.
+If no architectures are specified,
+a default set of architectures supported
+by the current Mac OS X version is used (Mac OS X 10.6 and later).
+.It Fl b Ar identifier , Fl bundle-id Ar identifier
+Find the kext whose CFBundleIdentifier is
+.Ar identifier
+amongst known kexts and repository directories
+and include it in the mkext or prelinked kernel.
+The kext of the highest CFBundleVersion with the given identifier is used;
+in the case of version ties,
+the last such kext specified on the command line is used.
+This option may be specified multiple times;
+if so, the specified bundle identifiers select
+a subset from all named repositories and kexts,
+to which the remaining filters
+described in this section are then applied.
+.It Fl caches-only
+With
+.Fl update-volume ,
+skips updating any helper partitions even if they appear out of to date.
+.It Fl force
+With
+.Fl update-volume ,
+rebuilds any helper partitions even if they appear up to date.
+.It Fl Installer
+Currently used with
+.Fl update-volume
+to trigger "best effort" behaviors for Apple's Installer.
 .It Fl l , Fl local-root
 Specifies that for directory arguments,
 only extensions required for local disk boot
@@ -218,32 +267,12 @@ option.
 .Bl -tag -width -indent
 .It Ar kext_or_directory
 A kext bundle or a repository directory containing kexts
-to include in an mkext or prelinked kernel.
+to consider for inclusion in an mkext or prelinked kernel.
 The filtering options described under
-.Dq MKEXT FILTERING OPTIONS
-may prevent a kext from being included in an mkext.
-.It Fl a Ar arch , Fl arch Ar arch
-Include in an mkext or prelinked kernel only kexts
-whose executable files contain code for
-.Ar arch ,
-thinning the executables to that architecture before inclusion.
-Only one architecture is allowed when creating a prelinked kernel.
-Multiple architectures are allowed when creating an mkext;
-in this case a multi-architecture file is created
-containing an embedded mkext archive
-for each of the specified architectures.
-If no architectures are specified,
-a default set of architectures supported
-by the current Mac OS X version is used (Mac OS X 10.6 and later).
-.It Fl b Ar identifier , Fl bundle-id Ar identifier
-Find the kext whose CFBundleIdentifier is
-.Ar identifier
-amongst known kexts and repository directories
-and include it in the mkext or prelinked kernel.
-This option may be specified multiple times.
-The filtering options described under
-.Dq MKEXT FILTERING OPTIONS
-may prevent a kext from being included in an mkext.
+.Dq PRELINKED KERNEL AND MKEXT FILTERING OPTIONS
+select the individual kexts to be included in the archive.
+If no filtering options are specified, then all kexts
+named as arguments are included (this is probably not what you want).
 .It Fl F
 Run in low-priority mode, as when forked and executed by
 .Xr kextd 8 .
@@ -271,10 +300,10 @@ that have been loaded by the machine running
 this command during this startup session.
 This include kexts loaded and later unloaded.
 .It Fl compressed
-Compress the mkext or prelinked kernel.  (Enabled by default.)
+Compress the mkext or prelinked kernel (enabled by default).
 .It Fl uncompressed
-Do not compress the mkext or prelinked kernel.  If specified as the only other
-argument with 
+Do not compress the mkext or prelinked kernel.
+If specified as the only other argument with
 .Fl c ,
 uncompresses an existing prelinked kernel file in place.
 .It Fl symbols Ar symbol_directory
@@ -343,8 +372,8 @@ This ensures that the kext paths stored in the kernel are accurate
 when the caches are used for startup with that volume.
 .It Fl z , Fl no-authenticate
 Don't authenticate kexts.
-This option is for convenience in building archive and cache files.
-Mkext archives and kext repository caches must have
+This option is for convenience in building cache files.
+Caches used for startup must have
 proper ownership (root:wheel) and permissions (0644)
 in order to be used by the system.
 .It Fl -
@@ -373,7 +402,7 @@ and exits with a nonzero status.
 Many single-letter options are inconsistent in meaning
 with (or directly contradictory to) the same letter options
 in other kext tools.
-.Sh SEE ALSO 
+.Sh SEE ALSO
 .Xr mkextunpack 8 ,
 .Xr kext_logging 8 ,
 .Xr kextd 8 ,

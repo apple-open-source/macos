@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: escape.c,v 1.45 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 /* Escape and unescape URL encoding in strings. The functions return a new
@@ -35,6 +34,7 @@
 /* urldata.h and easyif.h are included for Curl_convert_... prototypes */
 #include "urldata.h"
 #include "easyif.h"
+#include "warnless.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -43,8 +43,10 @@
 #include "memdebug.h"
 
 /* Portable character check (remember EBCDIC). Do not use isalnum() because
-its behavior is altered by the current locale. */
-static bool Curl_isalnum(unsigned char in)
+   its behavior is altered by the current locale.
+   See http://tools.ietf.org/html/rfc3986#section-2.3
+*/
+static bool Curl_isunreserved(unsigned char in)
 {
   switch (in) {
     case '0': case '1': case '2': case '3': case '4':
@@ -59,6 +61,7 @@ static bool Curl_isalnum(unsigned char in)
     case 'K': case 'L': case 'M': case 'N': case 'O':
     case 'P': case 'Q': case 'R': case 'S': case 'T':
     case 'U': case 'V': case 'W': case 'X': case 'Y': case 'Z':
+    case '-': case '.': case '_': case '~':
       return TRUE;
     default:
       break;
@@ -100,10 +103,11 @@ char *curl_easy_escape(CURL *handle, const char *string, int inlength)
   while(length--) {
     in = *string;
 
-    if (Curl_isalnum(in)) {
+    if (Curl_isunreserved(in)) {
       /* just copy this */
       ns[strindex++]=in;
-    } else {
+    }
+    else {
       /* encode it */
       newlen += 2; /* the size grows with two, since this'll become a %XX */
       if(newlen > alloc) {
@@ -151,7 +155,7 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
   char *ns = malloc(alloc);
   unsigned char in;
   int strindex=0;
-  long hex;
+  unsigned long hex;
 
 #ifndef CURL_DOES_CONVERSIONS
   /* avoid compiler warnings */
@@ -170,9 +174,9 @@ char *curl_easy_unescape(CURL *handle, const char *string, int length,
       hexstr[1] = string[2];
       hexstr[2] = 0;
 
-      hex = strtol(hexstr, &ptr, 16);
+      hex = strtoul(hexstr, &ptr, 16);
 
-      in = (unsigned char)hex; /* this long is never bigger than 255 anyway */
+      in = curlx_ultouc(hex); /* this long is never bigger than 255 anyway */
 
 #ifdef CURL_DOES_CONVERSIONS
 /* escape sequences are always in ASCII so convert them on non-ASCII hosts */

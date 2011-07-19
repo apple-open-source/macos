@@ -32,8 +32,20 @@
 #include <sys/syslog.h>
 #include <sys/stat.h>
 #include <pthread.h>
+#include <stdlib.h>
 
 #include "protocol_vproc.h"
+
+mach_port_t	bootstrap_port = MACH_PORT_NULL;
+
+void
+bootstrap_init(void)
+{
+	kern_return_t kr = task_get_special_port(task_self_trap(), TASK_BOOTSTRAP_PORT, &bootstrap_port);
+	if (kr != KERN_SUCCESS) {
+		abort();
+	}
+}
 
 kern_return_t
 bootstrap_create_server(mach_port_t bp, cmd_t server_cmd, uid_t server_uid, boolean_t on_demand, mach_port_t *server_port)
@@ -124,13 +136,15 @@ bootstrap_create_service(mach_port_t bp, name_t service_name, mach_port_t *sp)
 kern_return_t
 bootstrap_check_in(mach_port_t bp, const name_t service_name, mach_port_t *sp)
 {
-	return vproc_mig_check_in2(bp, (char *)service_name, sp, 0);
+	uuid_t junk;
+	return vproc_mig_check_in2(bp, (char *)service_name, sp, junk, 0);
 }
 
 kern_return_t
 bootstrap_check_in2(mach_port_t bp, const name_t service_name, mach_port_t *sp, uint64_t flags)
 {
-	return vproc_mig_check_in2(bp, (char *)service_name, sp, flags);
+	uuid_t junk;
+	return vproc_mig_check_in2(bp, (char *)service_name, sp, junk, flags);
 }
 
 kern_return_t
@@ -146,10 +160,11 @@ bootstrap_look_up_per_user(mach_port_t bp, const name_t service_name, uid_t targ
 		return kr;
 	}
 
-	if( !service_name ) {
+	if (!service_name) {
 		*sp = puc;
 	} else {
-		kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, 0, 0);
+		uuid_t junk;
+		kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, 0, junk, 0);
 		mach_port_deallocate(mach_task_self(), puc);
 	}
 
@@ -172,35 +187,21 @@ bootstrap_look_up(mach_port_t bp, const name_t service_name, mach_port_t *sp)
 kern_return_t
 bootstrap_look_up2(mach_port_t bp, const name_t service_name, mach_port_t *sp, pid_t target_pid, uint64_t flags)
 {
-	static pthread_mutex_t bslu2_lock = PTHREAD_MUTEX_INITIALIZER;
-	static mach_port_t prev_bp;
-	static mach_port_t prev_sp;
-	static name_t prev_name;
+	uuid_t instance_id;
+	return bootstrap_look_up3(bp, service_name, sp, target_pid, instance_id, flags);
+}
+
+kern_return_t
+bootstrap_look_up3(mach_port_t bp, const name_t service_name, mach_port_t *sp, pid_t target_pid, const uuid_t instance_id, uint64_t flags)
+{
 	audit_token_t au_tok;
-	bool per_pid_lookup = flags & BOOTSTRAP_PER_PID_SERVICE;
 	bool privileged_server_lookup = flags & BOOTSTRAP_PRIVILEGED_SERVER;
 	kern_return_t kr = 0;
 	mach_port_t puc;
-	
-	pthread_mutex_lock(&bslu2_lock);
-	
-	if (per_pid_lookup || privileged_server_lookup) {
-		goto skip_cache;
-	}
-	
-	if (prev_sp) {
-       	if ((bp == prev_bp) && (strncmp(prev_name, service_name, sizeof(name_t)) == 0)
-			&& (mach_port_mod_refs(mach_task_self(), prev_sp, MACH_PORT_RIGHT_SEND, 1) == 0)) {
-			*sp = prev_sp;
-			goto out;
-		} else {
-			mach_port_deallocate(mach_task_self(), prev_sp);
-			prev_sp = 0;
-		}
-	}
-	
-skip_cache:
-	if ((kr = vproc_mig_look_up2(bp, (char *)service_name, sp, &au_tok, target_pid, flags)) != VPROC_ERR_TRY_PER_USER) {
+
+	// We have to cast instance_id here because the MIG-generated method
+	// doesn't expect a const parameter.
+	if ((kr = vproc_mig_look_up2(bp, (char *)service_name, sp, &au_tok, target_pid, (unsigned char*)instance_id, flags)) != VPROC_ERR_TRY_PER_USER) {
 		goto out;
 	}
 	
@@ -208,17 +209,10 @@ skip_cache:
 		goto out;
 	}
 	
-	kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, target_pid, flags);
+	kr = vproc_mig_look_up2(puc, (char *)service_name, sp, &au_tok, target_pid, (unsigned char*)instance_id, flags);
 	mach_port_deallocate(mach_task_self(), puc);
-	
+
 out:
-	if (!(per_pid_lookup || privileged_server_lookup) && kr == 0 && prev_sp == 0 && mach_port_mod_refs(mach_task_self(), *sp, MACH_PORT_RIGHT_SEND, 1) == 0) {
-		/* We're going to hold on to a send right as a MRU cache */
-		prev_bp = bp;
-		prev_sp = *sp;
-		strlcpy(prev_name, service_name, sizeof(name_t));
-	}
-	
 	if ((kr == 0) && privileged_server_lookup) {
 		uid_t server_euid;
 		
@@ -235,13 +229,24 @@ out:
 		
 		if (server_euid) {
 			mach_port_deallocate(mach_task_self(), *sp);
+			*sp = MACH_PORT_NULL;
 			kr = BOOTSTRAP_NOT_PRIVILEGED;
 		}
 	}
-	/* If performance becomes a problem, we should restructure this. */
-	pthread_mutex_unlock(&bslu2_lock);
-	
+
 	return kr;
+}
+
+kern_return_t
+bootstrap_check_in3(mach_port_t bp, const name_t service_name, mach_port_t *sp, uuid_t instance_id, uint64_t flags)
+{
+	return vproc_mig_check_in2(bp, (char *)service_name, sp, instance_id, flags);
+}
+
+kern_return_t
+bootstrap_get_root(mach_port_t bp, mach_port_t *root)
+{
+	return vproc_mig_get_root_bootstrap(bp, root);
 }
 
 kern_return_t

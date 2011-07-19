@@ -452,7 +452,7 @@ OcspRespStatus tpVerifyOcspResp(
 			else {
 				/* 
 				 * At least add this cert to certGroup for verification.
-				 * OcspCertwill own the TPCertInfo .
+				 * OcspCert will own the TPCertInfo.
 				 */
 				try {
 					respCert = new TPCertInfo(vfyCtx.clHand, vfyCtx.cspHand, certData,

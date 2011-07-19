@@ -37,7 +37,10 @@ includes
 #include <mach/mach_error.h>
 #include <CoreFoundation/CFMachPort.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
+#include <SystemConfiguration/VPNPrivate.h>      
 #include <SystemConfiguration/SCValidation.h>
+#include <Security/SecItem.h>
+#include <Security/SecCertificatePriv.h>
 #include "bsm/libbsm.h"
 
 #include "scnc_client.h"
@@ -55,12 +58,14 @@ definitions
 #define kSCStatusConnectionNoService 5001
 #endif
 
+
+#define	IPCSENDTIMEOUT	120				// timeout value for sending IPC message to client
+
 /* -----------------------------------------------------------------------------
 forward declarations
 ----------------------------------------------------------------------------- */
 
 void server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info);
-
 
 /* -----------------------------------------------------------------------------
 globals
@@ -72,6 +77,7 @@ extern struct mig_subsystem	_pppcontroller_subsystem;
 extern boolean_t		pppcontroller_server(mach_msg_header_t *, 
 						       mach_msg_header_t *);
 
+
 extern CFRunLoopRef			gControllerRunloop;
 extern CFRunLoopSourceRef	gPluginRunloop;
 extern CFRunLoopSourceRef	gTerminalrls;
@@ -79,6 +85,7 @@ extern CFRunLoopSourceRef	gTerminalrls;
 
 static uid_t S_uid = -1;
 static gid_t S_gid = -1;
+static pid_t S_pid = -1;
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -89,6 +96,7 @@ _pppcontroller_attach(mach_port_t server,
 	    mach_msg_type_number_t nameLen,
 		mach_port_t bootstrap,
 		mach_port_t notify,
+		mach_port_t au_session,
 		mach_port_t *session,
 		int * result)
 {
@@ -125,7 +133,7 @@ _pppcontroller_attach(mach_port_t server,
      *       right present to ensure that CF does not establish
      *       it's dead name notification.
      */
-	port = CFMachPortCreateWithPort(NULL, *session, server_handle_request, NULL, NULL);
+	port = _SC_CFMachPortCreateWithPort("PPPController/PPP", *session, server_handle_request, NULL);
 
     /* insert send right that will be moved to the client */
 	(void) mach_port_insert_right(mach_task_self(),
@@ -146,7 +154,15 @@ _pppcontroller_attach(mach_port_t server,
 	rls = CFMachPortCreateRunLoopSource(NULL, port, 0);
 	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
 
-	client = client_new_mach(port, rls, serviceID, S_uid, S_gid, bootstrap, notify);
+	if (au_session != MACH_PORT_NULL) {
+		if ((audit_session_join(au_session)) == AU_DEFAUDITSID) {
+			SCLog(TRUE, LOG_ERR, CFSTR("_pppcontroller_attach audit_session_join fails"));
+		}
+	}else {
+		SCLog(TRUE, LOG_ERR, CFSTR("_pppcontroller_attach au_session == NULL"));
+	}
+
+	client = client_new_mach(port, rls, serviceID, S_uid, S_gid, S_pid, bootstrap, notify, au_session);
 	if (client == 0) {
 		*result = kSCStatusFailed;
 		goto failed;
@@ -382,7 +398,7 @@ _pppcontroller_start(mach_port_t session,
 		}
 	}
 	
-    err = scnc_start(serv, optRef, client, linger ? 0 : 1, client->uid, client->gid, client->bootstrap_port);
+    err = scnc_start(serv, optRef, client, linger ? 0 : 1, client->uid, client->gid, client->pid, client->bootstrap_port);
 	if (err) {
 		*result = kSCStatusFailed;
 		goto failed;
@@ -647,6 +663,73 @@ _pppcontroller_iscontrolled(mach_port_t server,
     return (KERN_SUCCESS);
 }
 
+
+#if TARGET_OS_EMBEDDED
+#include <Security/Security.h>
+#include <Security/SecTask.h>
+
+/* -----------------------------------------------------------------------------
+----------------------------------------------------------------------------- */
+static Boolean
+hasEntitlement(audit_token_t audit_token, CFStringRef entitlement, CFStringRef vpntype)
+{
+	Boolean		hasEntitlement	= FALSE;
+	SecTaskRef	task;
+
+	/* Create the security task from the audit token. */
+	task = SecTaskCreateWithAuditToken(NULL, audit_token);
+	if (task != NULL) {
+		CFErrorRef	error	= NULL;
+		CFTypeRef	value;
+
+		/* Get the value for the entitlement. */
+		value = SecTaskCopyValueForEntitlement(task, entitlement, &error);
+		if (value != NULL) {
+			if (isA_CFBoolean(value)) {
+				if (CFBooleanGetValue(value)) {
+					/* if client DOES have entitlement */
+					hasEntitlement = TRUE;
+				}
+			} else if (isA_CFArray(value)){
+				if (vpntype == NULL){
+					/* we don't care about subtype */
+					hasEntitlement = TRUE;
+				}else {
+					if (CFArrayContainsValue(value,
+											 CFRangeMake(0, CFArrayGetCount(value)),
+											 vpntype)) {
+						// if client DOES have entitlement
+						hasEntitlement = TRUE;
+					}
+				}
+			} else {
+				SCLog(TRUE, LOG_ERR,
+				      CFSTR("SCNC Controller: entitlement not valid: %@"),
+				      entitlement);
+			}
+
+			CFRelease(value);
+		} else if (error != NULL) {
+			SCLog(TRUE, LOG_ERR,
+			      CFSTR("SCNC Controller: SecTaskCopyValueForEntitlement() failed, error=%@: %@"),
+			      error,
+			      entitlement);
+			CFRelease(error);
+		}
+
+		CFRelease(task);
+	} else {
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("SCNC Controller: SecTaskCreateWithAuditToken() failed: %@"),
+		      entitlement);
+	}
+
+	return hasEntitlement;
+}
+
+#endif	// TARGET_OS_EMBEDDED
+
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, u_long error)
@@ -672,23 +755,32 @@ void mach_client_notify (mach_port_t port, CFStringRef serviceID, u_long event, 
 		mach_msg_destroy(&msg.header);
 }
 
+
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 static __inline__ void
 read_trailer(mach_msg_header_t * request)
 {
-    mach_msg_format_0_trailer_t	*trailer;
-    trailer = (mach_msg_security_trailer_t *)((vm_offset_t)request +
+    mach_msg_audit_trailer_t	*trailer;
+    trailer = (__typeof__(trailer))((vm_offset_t)request +
 					      round_msg(request->msgh_size));
 
     if ((trailer->msgh_trailer_type == MACH_MSG_TRAILER_FORMAT_0) &&
 	(trailer->msgh_trailer_size >= MACH_MSG_TRAILER_FORMAT_0_SIZE)) {
-	S_uid = trailer->msgh_sender.val[0];
-	S_gid = trailer->msgh_sender.val[1];
+	audit_token_to_au32(trailer->msgh_audit,
+							NULL,			// auidp
+							&S_uid,			// euid
+							&S_gid,			// egid
+							NULL,			// ruid
+							NULL,			// rgid
+							&S_pid,		// pid
+							NULL,			// asid
+							NULL);			// tid
     }
     else {
 	S_uid = -1;
 	S_gid = -1;
+	S_pid = -1;
     }
 }
 
@@ -785,6 +877,7 @@ server_handle_request(CFMachPortRef port, void *msg, CFIndex size, void *info)
     return;
 }
 
+#if !TARGET_OS_EMBEDDED
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
 static CFStringRef
@@ -792,11 +885,13 @@ serverMPCopyDescription(const void *info)
 {
 	return CFStringCreateWithFormat(NULL, NULL, CFSTR("PPPController"));
 }
+#endif
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 /* Radar 6386278 New launchd api is npot on embedded yet */
+int
 ppp_mach_start_server()
 {
     boolean_t		active;
@@ -824,7 +919,9 @@ ppp_mach_start_server()
 	
     gServer_cfport = CFMachPortCreate(NULL, server_handle_request, NULL, NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, gServer_cfport, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	gControllerRunloop = CFRunLoopGetCurrent();
+    CFRunLoopAddSource(gControllerRunloop, rls, kCFRunLoopDefaultMode);
+	CFRunLoopAddSource(gControllerRunloop, gTerminalrls, kCFRunLoopDefaultMode);	
     CFRelease(rls);
 	
     status = bootstrap_register(bootstrap_port, PPPCONTROLLER_SERVER, 
@@ -852,7 +949,7 @@ ppp_mach_start_server()
 		return -1;
 	}
 	
-	gServer_cfport = CFMachPortCreateWithPort(0, our_port, server_handle_request, &context, 0);
+	gServer_cfport = _SC_CFMachPortCreateWithPort("PPPController", our_port, server_handle_request, &context);
 	if (!gServer_cfport) {
 		SCLog(TRUE, LOG_ERR, CFSTR("PPPController: cannot create mach port"));
 		return -1;

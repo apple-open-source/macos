@@ -59,7 +59,7 @@ static char copyright[] __unused =
 static char sccsid[] __unused = "@(#)strptime.c	0.1 (Powerdog) 94/03/27";
 #endif /* !defined NOID */
 #endif /* not lint */
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.37 2009/09/02 04:56:30 ache Exp $");
 
 #include "xlocale_private.h"
 
@@ -77,7 +77,6 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/strptime.c,v 1.35 2003/11/17 04:19:15 n
 #include "libc_private.h"
 #include "timelocal.h"
 
-static char * _strptime(const char *, const char *, struct tm *, int *, locale_t) __DARWIN_ALIAS(_strptime);
 time_t _mktime(struct tm *, const char *);
 
 #define asizeof(a)	(sizeof (a) / sizeof ((a)[0]))
@@ -103,7 +102,7 @@ _strptime0(const char *buf, const char *fmt, struct tm *tm, int *convp, locale_t
 			while (isspace_l((unsigned char)*ptr, loc)) {
 				ptr++;
 			}
-			return ((*ptr)==0) ? fmt : 0; /* trailing whitespace is ok */
+			return ((*ptr)==0) ? (char *)fmt : 0; /* trailing whitespace is ok */
 		}
 
 		c = *ptr++;
@@ -629,21 +628,29 @@ label:
 
 		case 'z':
 			{
-			char sign;
-			int hr, min;
+			int sign = 1;
 
-			if ((buf[0] != '+' && buf[0] != '-')
-			 || !isdigit_l((unsigned char)buf[1], loc)
-			 || !isdigit_l((unsigned char)buf[2], loc)
-			 || !isdigit_l((unsigned char)buf[3], loc)
-			 || !isdigit_l((unsigned char)buf[4], loc))
-				return 0;
-			sscanf(buf, "%c%2d%2d", &sign, &hr, &min);
-			*convp = CONVERT_ZONE;
-			tm->tm_gmtoff = 60 * (60 * hr + min);
-			if (sign == '-')
-			    tm->tm_gmtoff = -tm->tm_gmtoff;
-			buf += 5;
+			if (*buf != '+') {
+				if (*buf == '-')
+					sign = -1;
+				else
+					return 0;
+			}
+
+			buf++;
+			i = 0;
+			for (len = 4; len > 0; len--) {
+				if (isdigit_l((unsigned char)*buf, loc)) {
+					i *= 10;
+					i += *buf - '0';
+					buf++;
+				} else
+					return 0;
+			}
+
+			tm->tm_hour -= sign * (i / 100);
+			tm->tm_min  -= sign * (i % 100);
+			*convp = CONVERT_GMT;
 			}
 			break;
 		}

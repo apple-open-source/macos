@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009 Google Inc. All Rights Reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,7 +33,6 @@
 #include "KURL.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "ScriptString.h"
 #include "TextResourceDecoder.h"
 #include "ThreadableLoader.h"
 #include "ThreadableLoaderClient.h"
@@ -54,12 +53,13 @@ namespace WebCore {
 
         const String& script() const { return m_script; }
         const KURL& url() const { return m_url; }
+        const KURL& responseURL() const;
         bool failed() const { return m_failed; }
         unsigned long identifier() const { return m_identifier; }
 
         virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char* data, int lengthReceived);
-        virtual void didFinishLoading(unsigned long identifier);
+        virtual void didReceiveData(const char* data, int dataLength);
+        virtual void didFinishLoading(unsigned long identifier, double);
         virtual void didFail(const ResourceError&);
         virtual void didFailRedirectCheck();
         virtual void didReceiveAuthenticationCancellation(const ResourceResponse&);
@@ -74,6 +74,7 @@ namespace WebCore {
         RefPtr<TextResourceDecoder> m_decoder;
         String m_script;
         KURL m_url;
+        KURL m_responseURL;
         bool m_failed;
         unsigned long m_identifier;
         ResourceRequestBase::TargetType m_targetType;

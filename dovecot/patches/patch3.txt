@@ -1,0 +1,30 @@
+diff -ur dovecot-1.1.7/src/lib/ioloop-notify-kqueue.c dovecot-patch/src/lib/ioloop-notify-kqueue.c
+--- dovecot-1.1.7/src/lib/ioloop-notify-kqueue.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib/ioloop-notify-kqueue.c	2008-12-15 09:46:36.000000000 -0600
+@@ -61,13 +61,26 @@
+ 		i_fatal("gettimeofday() failed: %m");
+ 	ioloop_time = ioloop_timeval.tv_sec;
+ 
++	/* APPLE - remove duplicates */
++	for (i = 1; i < ret; i++) {
++		int j;
++		for (j = 0; j < i; j++) {
++			if (events[i].udata == events[j].udata) {
++				events[i].udata = NULL;
++				break;
++			}
++		}
++	}
++
+ 	for (i = 0; i < ret; i++) {
+ 		io = (void *)events[i].udata;
++		if (io == NULL) continue;			/* APPLE */
+ 		i_assert(io->refcount == 1);
+ 		io->refcount++;
+ 	}
+ 	for (i = 0; i < ret; i++) {
+ 		io = (void *)events[i].udata;
++		if (io == NULL) continue;			/* APPLE */
+ 		/* there can be multiple events for a single io.
+ 		   call the callback only once if that happens. */
+ 		if (io->refcount == 2 && io->io.callback != NULL)

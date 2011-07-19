@@ -3,7 +3,7 @@
 %warnfilter(SWIGWARN_RUBY_MULTIPLE_INHERITANCE,
 	    SWIGWARN_JAVA_MULTIPLE_INHERITANCE,
 	    SWIGWARN_CSHARP_MULTIPLE_INHERITANCE,
-	    SWIGWARN_PHP4_MULTIPLE_INHERITANCE) C; /* Ruby, C#, Java, Php4 multiple inheritance */
+	    SWIGWARN_PHP_MULTIPLE_INHERITANCE) C; /* Ruby, C#, Java, PHP multiple inheritance */
 
 #ifdef SWIGCSHARP
 %ignore B::bar; // otherwise get a warning: `C.bar' no suitable methods found to override
@@ -176,7 +176,6 @@ public:
   };
   
   class D : public C {
-  public:
    public:
     virtual int foo(int a, int b, int c, int d, int e) {
       return C::foo(a,b,c,d,e);
@@ -186,4 +185,49 @@ public:
     }
   };
   %}
+
+%extend E {
+  %contract manipulate_i(int i) {
+  require:
+  i <= $self->m_i;
+  }
+}
+
+%inline %{
+struct E {
+  int m_i;
+  void manipulate_i(int i) {
+  }
+};
+%}
+
+
+// Namespace
+
+%{
+namespace myNames {
+
+class myClass
+{
+    public:
+    	myClass(int i) {}
+};
+
+}
+%}
+
+namespace myNames {
+
+%contract myClass::myClass( int i ) {
+require:
+    i > 0;
+}
+
+class myClass
+{
+    public:
+    	myClass(int i) {}
+};
+
+}
 

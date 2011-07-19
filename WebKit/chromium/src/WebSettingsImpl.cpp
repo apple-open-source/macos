@@ -35,6 +35,7 @@
 #include "Settings.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include <wtf/UnusedParam.h>
 
 #if defined(OS_WIN)
 #include "RenderThemeChromiumWin.h"
@@ -46,6 +47,9 @@ namespace WebKit {
 
 WebSettingsImpl::WebSettingsImpl(Settings* settings)
     : m_settings(settings)
+    , m_compositeToTextureEnabled(false)
+    , m_showFPSCounter(false)
+    , m_showPlatformLayerTree(false)
 {
     ASSERT(settings);
 }
@@ -210,6 +214,11 @@ void WebSettingsImpl::setXSSAuditorEnabled(bool enabled)
     m_settings->setXSSAuditorEnabled(enabled);
 }
 
+void WebSettingsImpl::setDNSPrefetchingEnabled(bool enabled)
+{
+    m_settings->setDNSPrefetchingEnabled(enabled);
+}
+
 void WebSettingsImpl::setLocalStorageEnabled(bool enabled)
 {
     m_settings->setLocalStorageEnabled(enabled);
@@ -221,6 +230,11 @@ void WebSettingsImpl::setEditableLinkBehaviorNeverLive()
     //        define an enum in WebSettings.h and have a switch statement that
     //        translates.  Until then, this is probably fine, though.
     m_settings->setEditableLinkBehavior(WebCore::EditableLinkNeverLive);
+}
+
+void WebSettingsImpl::setFrameFlatteningEnabled(bool enabled)
+{
+    m_settings->setFrameFlatteningEnabled(enabled);
 }
 
 void WebSettingsImpl::setFontRenderingModeNormal()
@@ -259,14 +273,148 @@ void WebSettingsImpl::setOfflineWebApplicationCacheEnabled(bool enabled)
     m_settings->setOfflineWebApplicationCacheEnabled(enabled);
 }
 
+void WebSettingsImpl::setWebAudioEnabled(bool enabled)
+{
+    m_settings->setWebAudioEnabled(enabled);
+}
+
 void WebSettingsImpl::setExperimentalWebGLEnabled(bool enabled)
 {
     m_settings->setWebGLEnabled(enabled);
 }
 
+void WebSettingsImpl::setOpenGLMultisamplingEnabled(bool enabled)
+{
+    m_settings->setOpenGLMultisamplingEnabled(enabled);
+}
+
 void WebSettingsImpl::setShowDebugBorders(bool show)
 {
     m_settings->setShowDebugBorders(show);
+}
+
+void WebSettingsImpl::setShowFPSCounter(bool show)
+{
+    m_showFPSCounter = show;
+}
+
+void WebSettingsImpl::setShowPlatformLayerTree(bool show)
+{
+    m_showPlatformLayerTree = show;
+}
+
+void WebSettingsImpl::setEditingBehavior(EditingBehavior behavior)
+{
+    m_settings->setEditingBehaviorType(static_cast<WebCore::EditingBehaviorType>(behavior));
+}
+
+void WebSettingsImpl::setAcceleratedCompositingEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingEnabled(enabled);
+}
+
+void WebSettingsImpl::setForceCompositingMode(bool enabled)
+{
+    m_settings->setForceCompositingMode(enabled);
+}
+
+void WebSettingsImpl::setCompositeToTextureEnabled(bool enabled)
+{
+    m_compositeToTextureEnabled = enabled;
+}
+
+void WebSettingsImpl::setAcceleratedCompositingFor3DTransformsEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingFor3DTransformsEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedCompositingForVideoEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingForVideoEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedCompositingForPluginsEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingForPluginsEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedCompositingForCanvasEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingForCanvasEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedCompositingForAnimationEnabled(bool enabled)
+{
+    m_settings->setAcceleratedCompositingForAnimationEnabled(enabled);
+}
+
+void WebSettingsImpl::setAcceleratedDrawingEnabled(bool enabled)
+{
+    m_settings->setAcceleratedDrawingEnabled(enabled);
+}
+
+void WebSettingsImpl::setAccelerated2dCanvasEnabled(bool enabled)
+{
+    m_settings->setAccelerated2dCanvasEnabled(enabled);
+}
+
+void WebSettingsImpl::setLegacyAccelerated2dCanvasEnabled(bool enabled)
+{
+    m_settings->setLegacyAccelerated2dCanvasEnabled(enabled);
+}
+
+void WebSettingsImpl::setMemoryInfoEnabled(bool enabled)
+{
+    m_settings->setMemoryInfoEnabled(enabled);
+}
+
+void WebSettingsImpl::setHyperlinkAuditingEnabled(bool enabled)
+{
+    m_settings->setHyperlinkAuditingEnabled(enabled);
+}
+
+void WebSettingsImpl::setAsynchronousSpellCheckingEnabled(bool enabled)
+{
+    m_settings->setAsynchronousSpellCheckingEnabled(enabled);
+}
+
+void WebSettingsImpl::setCaretBrowsingEnabled(bool enabled)
+{
+    m_settings->setCaretBrowsingEnabled(enabled);
+}
+
+void WebSettingsImpl::setInteractiveFormValidationEnabled(bool enabled)
+{
+    m_settings->setInteractiveFormValidationEnabled(enabled);
+}
+
+void WebSettingsImpl::setValidationMessageTimerMagnification(int newValue)
+{
+    m_settings->setValidationMessageTimerMagnification(newValue);
+}
+
+void WebSettingsImpl::setMinimumTimerInterval(double interval)
+{
+    m_settings->setMinDOMTimerInterval(interval);
+}
+
+void WebSettingsImpl::setFullScreenEnabled(bool enabled)
+{
+#if ENABLE(FULLSCREEN_API)
+    m_settings->setFullScreenEnabled(enabled);
+#else
+    UNUSED_PARAM(enabled);
+#endif
+}
+
+void WebSettingsImpl::setAllowDisplayOfInsecureContent(bool enabled)
+{
+    m_settings->setAllowDisplayOfInsecureContent(enabled);
+}
+
+void WebSettingsImpl::setAllowRunningOfInsecureContent(bool enabled)
+{
+    m_settings->setAllowRunningOfInsecureContent(enabled);
 }
 
 } // namespace WebKit

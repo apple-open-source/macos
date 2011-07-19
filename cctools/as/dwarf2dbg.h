@@ -39,10 +39,38 @@ struct dwarf2_line_info {
   unsigned int flags;
 };
 
+/* When creating dwarf2 debugging information for assembly files, the variable
+   dwarf2_file_number is used to generate a .file for each assembly source file
+   in read_a_source_file() in read.c .  */
+extern uint32_t dwarf2_file_number;
+
+/* Info that is needed to be gathered for each symbol that will have a 
+   dwarf2_subprogram when generating debug info directly for assembly files.
+   This is done in make_subprogram_for_symbol() in symbols.c . */
+struct dwarf2_subprogram_info {
+    char *name; /* without a leading underbar, if any */
+    uint32_t file_number; /* the dwarf file number this symbol is in */
+    uint32_t line_number; /* the line number this symbol is at */
+    /*
+     * The low_pc for the dwarf2_subprogram is taken from the symbol's
+     * n_value.  The high_pc is taken from the next symbol's value or
+     * the end of the section for the last symbol.
+     */
+    symbolS *symbol;
+    struct dwarf2_subprogram_info *next;
+};
+extern struct dwarf2_subprogram_info *dwarf2_subprograms_info;
+
 /* Implements the .file FILENO "FILENAME" directive.  FILENO can be 0
    to indicate that no file number has been assigned.  All real file
    number must be >0.  */
 extern char *dwarf2_directive_file (uintptr_t dummy);
+
+/*
+ * dwarf2_file() is what is called when generating
+ * debug info directly for assembly files with --gdwarf2.
+ */
+extern void dwarf2_file (char *filename, offsetT num);
 
 /* Implements the .loc FILENO LINENO [COLUMN] directive.  FILENO is
    the file number, LINENO the line number and the (optional) COLUMN
@@ -51,6 +79,12 @@ extern char *dwarf2_directive_file (uintptr_t dummy);
    specified by the textually most recent .file directive should be
    used.  */
 extern void dwarf2_directive_loc (uintptr_t dummy);
+
+/*
+ * dwarf2_loc() is what is called when generating
+ * debug info directly for assembly files with --gdwarf2.
+ */
+extern void dwarf2_loc (offsetT filenum, offsetT line);
 
 /* Implements the .loc_mark_labels {0,1} directive.  */
 extern void dwarf2_directive_loc_mark_labels (uintptr_t dummy);

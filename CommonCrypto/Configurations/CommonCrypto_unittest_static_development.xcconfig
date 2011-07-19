@@ -1,0 +1,11 @@
+//
+//  CommonCrypto_unittest_static_development.xcconfig
+//  CommonCrypto
+//
+//  Created by Jim Murphy on 1/13/10.
+//  Copyright 2010 Apple. All rights reserved.
+//
+
+#include "CommonCrypto_unittest_development.xcconfig"
+
+LIBRARY_STYLE = Static

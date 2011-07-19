@@ -1,0 +1,26 @@
+add_llvm_library(LLVMMC
+  MCAsmInfo.cpp
+  MCAsmInfoCOFF.cpp
+  MCAsmInfoDarwin.cpp
+  MCAsmStreamer.cpp
+  MCAssembler.cpp
+  MCCodeEmitter.cpp
+  MCContext.cpp
+  MCDisassembler.cpp
+  MCExpr.cpp
+  MCInst.cpp
+  MCInstPrinter.cpp
+  MCLabel.cpp
+  MCMachOStreamer.cpp
+  MCNullStreamer.cpp
+  MCObjectWriter.cpp
+  MCSection.cpp
+  MCSectionCOFF.cpp
+  MCSectionELF.cpp
+  MCSectionMachO.cpp
+  MCStreamer.cpp
+  MCSymbol.cpp
+  MCValue.cpp
+  MachObjectWriter.cpp
+  TargetAsmBackend.cpp
+  )

@@ -26,10 +26,15 @@ static char sccsid[] = "@(#) safe_finger.c 1.4 94/12/28 17:42:41";
 #include <stdio.h>
 #include <ctype.h>
 #include <pwd.h>
+#include <fcntl.h>
+#include <stdlib.h>
+#include <unistd.h>
 
 extern void exit();
 
 /* Local stuff */
+
+int pipe_stdin(char **argv);
 
 char    path[] = "PATH=/bin:/usr/bin:/usr/ucb:/usr/bsd:/etc:/usr/etc:/usr/sbin";
 

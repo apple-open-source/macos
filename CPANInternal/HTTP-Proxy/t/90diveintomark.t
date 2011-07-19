@@ -30,8 +30,7 @@ BEGIN {
     $tests += @$_ - 1 for @url;
 }
 
-use Test::More skip_all => "disabling all tests";
-# use Test::More tests => $tests;
+use Test::More tests => $tests;
 use HTTP::Proxy;
 use HTTP::Request::Common;
 use t::Utils;
@@ -43,8 +42,11 @@ SKIP:
     skip "$base is not available", $tests unless web_ok( $base );
 
     # $tests + 2, because of the duplicate 401
-    my $proxy =
-      HTTP::Proxy->new( port => 0, max_keep_alive_requests => $tests + 2, max_connections => 1 );
+    my $proxy = HTTP::Proxy->new(
+        port                    => 0,
+        max_keep_alive_requests => $tests + 2,
+        max_connections         => 1,
+    );
     $proxy->init;
 
     # the auto-authenticating client

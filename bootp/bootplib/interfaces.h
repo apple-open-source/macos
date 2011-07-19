@@ -1,7 +1,5 @@
-#ifndef _S_INTERFACES_H
-#define _S_INTERFACES_H
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +25,9 @@
  * - get the list of inet interfaces in the system
  */
 
+#ifndef _S_INTERFACES_H
+#define _S_INTERFACES_H
+
 /*
  * Modification History
  * 02/23/98	Dieter Siegmund (dieter@apple.com)
@@ -51,6 +52,11 @@
 #include "dynarray.h"
 
 #define INDEX_BAD	((int)(-1))
+
+typedef struct {
+    boolean_t			valid;
+    boolean_t			active;
+} link_status_t;
 
 /*
  * Type: interface_t
@@ -81,6 +87,7 @@ typedef struct {
     dynarray_t		inet;
     link_addr_t		link_address;
     uint32_t		user_defined;
+    link_status_t	link_status;
 } interface_t;
 
 typedef struct {
@@ -124,10 +131,6 @@ void			if_setflags(interface_t * if_p, uint16_t flags);
 int			if_inet_count(interface_t * if_p);
 int			if_inet_find_ip(interface_t * if_p, 
 					struct in_addr iaddr);
-boolean_t		if_inet_addr_add(interface_t * if_p, 
-					 inet_addrinfo_t * info);
-boolean_t		if_inet_addr_remove(interface_t * if_p, 
-					    struct in_addr iaddr);
 struct in_addr		if_inet_addr(interface_t * if_p);
 struct in_addr		if_inet_netmask(interface_t * if_p);
 struct in_addr		if_inet_netaddr(interface_t * if_p);
@@ -147,6 +150,8 @@ void			if_link_copy(interface_t * dest,
 				     const interface_t * source);
 boolean_t		if_is_wireless(interface_t * if_p);
 int			if_link_index(interface_t * if_p);
+link_status_t		if_link_status_update(interface_t * if_p);
+link_status_t		if_get_link_status(interface_t * if_p);
 
 static __inline__ int
 dl_to_arp_hwtype(int dltype)

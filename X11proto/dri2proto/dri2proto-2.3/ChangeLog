@@ -1,0 +1,257 @@
+commit 41045095bddfe460a76fb560e1d087430d8fd76f
+Author: Francisco Jerez <currojerez@riseup.net>
+Date:   Mon Feb 8 19:24:37 2010 +0100
+
+    Define an event to notify clients about the validity of their buffers.
+    
+    Bumps the protocol and package versions.
+    
+    Signed-off-by: Francisco Jerez <currojerez@riseup.net>
+
+commit bd6f2584d3d55746bb56bf923b35e85adfd0dc3b
+Merge: 84eac7f 9c1a8f1
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Tue Dec 8 16:03:11 2009 -0800
+
+    Merge branch 'dri2-swapbuffers'
+
+commit 84eac7f37646d36c2644b8f6880c10c249068450
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:47 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 499241b74322b984bbbee0803513e32b6f83bb31
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Mon Oct 12 13:11:47 2009 -0700
+
+    Add a DRI2DriverVDPAU driver type.
+    
+    Signed-off-by: Aaron Plattner <aplattner@nvidia.com>
+    Acked-by: Kristian Høgsberg <krh@bitplanet.net>
+
+commit 0a5e388ae9c1306bb253c161071424e0282ea8f5
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:29 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit 1b648b29caea1540abcb0ea7c35c45f749e160b4
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:26 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 77eefcd20b38392a75e7c71a7e182dcfcaf3e7c3
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:28 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit 2ddb34caa23048083232e592300cfee7b8c2f04f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 363595cd28af5ff820e0790525108685bebf7275
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:25 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit 9e8c94f5a55b0ba97cc1f8b34c1d58e50ea2c7f8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:46 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 9c1a8f1d074bd7b87c4edf8b689c13c93fba9aaa
+Author: Jesse Barnes <jbarnes@jbarnes-desktop.localdomain>
+Date:   Thu Nov 12 17:23:03 2009 +0000
+
+    Fix cut & paste error: Extension Requests -> Extension Events
+
+commit 7c7e9bbf4ab6177e9623f3c4d667ed83789167b4
+Author: Jesse Barnes <jbarnes@jbarnes-desktop.localdomain>
+Date:   Thu Nov 12 15:26:40 2009 +0000
+
+    Add DRI2 event support for DRI2BufferSwapComplete
+
+commit f9e6b17debd2f69821bd8d412cccf02dd9ba17af
+Author: Jesse Barnes <jbarnes@jbarnes-desktop.localdomain>
+Date:   Wed Nov 11 15:26:40 2009 -0800
+
+    Pad out DRI2 swap buffers reply
+
+commit 516a1ff1f8ceca9ddefce21303e65d873aeeba14
+Author: Jesse Barnes <jbarnes@jbarnes-desktop.localdomain>
+Date:   Tue Nov 10 12:12:07 2009 -0800
+
+    Add DRI2SwapInterval protocol
+    
+    Needed to handle swap interval in the direct rendered case.
+
+commit 5e059038a95b5bad7f41a2019beaad913ed29502
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Thu Oct 29 12:45:48 2009 -0700
+
+    Bump package version to 2.2
+
+commit 1102a9199db8aa08e891f808f8921a5d312e3197
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Fri Oct 2 22:23:09 2009 -0700
+
+    Fix DRI2SwapBuffers reply length
+    
+    Length should be a CARD32 and match the endianness annotation.
+    
+    Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+
+commit 29c7fcbf10508ec822ad528928b72702e4c9af01
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Thu Oct 1 22:13:34 2009 -0700
+
+    Add swap interval and synchronization support
+    
+    Based on SGI_video_sync, SGI_swap_control and OML_sync_control, add swap
+    interval and synchronization support to DRI2.  Useful for throttling rendering
+    and basic performance metrics.
+    
+    Signed-off-by: Jesse Barnes <jbarnes@virtuousgeek.org>
+
+commit 00c15f92c1f294d762f2052f1d775c393ebd2432
+Author: Jesse Barnes <jbarnes@jbarnes-x200.(none)>
+Date:   Mon Jun 8 16:12:50 2009 -0700
+
+    Update protocol description for swapbuffers
+
+commit aaee5f8af4f0fe63498cd8ae507f8d33edba280c
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Jun 3 17:36:43 2009 -0400
+
+    Make swapbuffers an async request
+    
+    The protocol now require a DRI2GetBuffersWithFormat request to follow the
+    swapbuffer request so.
+
+commit 9b5ef83c0b9ef0239ac82adfa9a816f195074dcb
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Fri May 1 14:41:55 2009 -0700
+
+    Add SwapBuffers request
+    
+    Add a SwapBuffers request for requesting a front<->back swap.  Returns a
+    whole new set of buffers to the client to allow for triple buffering
+    etc.
+
+commit 66c56ab10d917e3f47f93178d7eac6430970d3c4
+Author: Ian Romanick <idr@freedesktop.org>
+Date:   Mon Apr 20 21:16:24 2009 -0700
+
+    Add protocol for DRI2GetBuffersWithFormat
+    
+    This function replaces DRI2GetBuffers.
+    
+    Signed-off-by: Ian Romanick <ian.d.romanick@intel.com>
+    Reviewed-by: Kristian Høgsberg <krh@redhat.com>
+
+commit a223ab5e6a215d86e4bf072369b331506f689f83
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Apr 20 14:08:19 2009 -0400
+
+    Bump to 2.0 and release
+
+commit f46b6ca29b2da54cf6e6db57d464bea9476594c6
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Fri Jan 9 06:07:59 2009 +0100
+
+    Distribute the protocol documentation
+
+commit ac787752bf67f8f1ea8167191e5fb9d7fbbe7c7f
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 65c7097d549ada25d11738b15996b18c9e57a847
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Dec 1 20:57:40 2008 -0500
+
+    Bump to 1.99.3 and back out the value bitmask from the CopyRegion request.
+
+commit f7b737bef90df4430ac491d65accc7742bc6ca38
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Dec 1 14:01:42 2008 -0500
+
+    Bump version to 1.99.2.
+
+commit 8cab3f0e6f551220bd11074779f4ccec1e948e00
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Tue Oct 14 23:19:15 2008 -0400
+
+    Add protocol documentation, update to DRI2CopyRegion request.
+
+commit abb1edc487543c26856afdbe6a7e2c088a1e82ee
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Tue Aug 12 12:52:33 2008 -0400
+
+    Update to 1.99.1 - drop sarea and perform swap buffer in X server.
+    
+    Still to resolve is the swap buffer request.  It should probably be
+    broken into two requests, one to post the swap request and one to wait
+    for it to be completed.  Also, need to find a good solution to
+    CopySubBuffer that doesn't require a roundtrip per rectangle.
+    
+    Don't need to solve all this for 2.0, though, can add requests later on.
+
+commit b9d7a0c1b0f5b40dfe8ca7a33693198bf91244ca
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Apr 2 19:11:32 2008 -0400
+
+    Adjust pkg-config cflags to match other proto modules.
+
+commit b515bee843d5ab91fc0fe30b8eb13aadd69b5131
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Mar 26 16:00:05 2008 -0400
+
+    Add reemitDrawableInfo protocol.
+    
+    Also, remove the screen number where it's redundant and rename
+    drmDrawable in the create drawable request to just 'handle' now that
+    we don't rely on drm drawables.
+
+commit d2c2ffde8f3762af30ea6953d8a10b487f78733e
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Mar 12 17:50:34 2008 -0400
+
+    Fix typo in xDRI2QueryVersionReq req type field.
+
+commit 672baf47cc5dfcdad4e70b4745e3316b209089a3
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Tue Mar 11 00:12:55 2008 -0400
+
+    Initial commit.

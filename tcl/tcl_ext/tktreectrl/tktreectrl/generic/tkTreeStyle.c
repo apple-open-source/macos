@@ -3,9 +3,9 @@
  *
  *	This module implements styles for treectrl widgets.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeStyle.c,v 1.78 2008/02/29 20:49:22 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeStyle.c,v 1.80 2010/03/21 20:47:06 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -4229,6 +4229,10 @@ Style_Deleted(
 	}
     }
 #endif /* DEPRECATED */
+
+#ifdef DRAGIMAGE_STYLE
+    TreeDragImage_StyleDeleted(tree->dragImage, (TreeStyle) masterStyle);
+#endif
 }
 
 /*

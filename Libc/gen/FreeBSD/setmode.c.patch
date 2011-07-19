@@ -1,6 +1,6 @@
---- setmode.c.orig	2008-02-08 00:45:35.000000000 -0800
-+++ setmode.c	2008-02-17 19:36:02.000000000 -0800
-@@ -70,12 +70,15 @@ typedef struct bitcmd {
+--- setmode.c.orig	2009-11-08 14:13:46.000000000 -0800
++++ setmode.c	2009-11-08 14:13:39.000000000 -0800
+@@ -66,12 +66,15 @@ typedef struct bitcmd {
  #define	CMD2_OBITS	0x08
  #define	CMD2_UBITS	0x10
  
@@ -17,7 +17,7 @@
  /*
   * Given the old mode and an array of bitcmd structures, apply the operations
   * described in the bitcmd structures to the old mode, and return the new mode.
-@@ -151,6 +154,7 @@ common:			if (set->cmd2 & CMD2_CLR) {
+@@ -145,6 +148,7 @@ common:			if (set->cmd2 & CMD2_CLR) {
  			return (newmode);
  		}
  }
@@ -25,7 +25,7 @@
  
  #define	ADDCMD(a, b, c, d)						\
  	if (set >= endset) {						\
-@@ -169,7 +173,11 @@ common:			if (set->cmd2 & CMD2_CLR) {
+@@ -163,7 +167,11 @@ common:			if (set->cmd2 & CMD2_CLR) {
  	}								\
  	set = addcmd(set, (a), (b), (c), (d))
  
@@ -36,8 +36,8 @@
 +#endif /* !VARIANT_LEGACY */
  
  void *
- setmode(p)
-@@ -211,12 +219,21 @@ setmode(p)
+ setmode(const char *p)
+@@ -204,12 +212,21 @@ setmode(const char *p)
  	 */
  	if (isdigit((unsigned char)*p)) {
  		perml = strtol(p, &ep, 8);
@@ -60,7 +60,7 @@
  		set->cmd = 0;
  		return (saveset);
  	}
-@@ -253,7 +270,9 @@ getop:		if ((op = *p++) != '+' && op != 
+@@ -246,7 +263,9 @@ getop:		if ((op = *p++) != '+' && op != 
  		if (op == '=')
  			equalopdone = 0;
  
@@ -70,7 +70,7 @@
  		for (perm = 0, permXbits = 0;; ++p) {
  			switch (*p) {
  			case 'r':
-@@ -267,7 +286,9 @@ getop:		if ((op = *p++) != '+' && op != 
+@@ -260,7 +279,9 @@ getop:		if ((op = *p++) != '+' && op != 
  			case 't':
  				/* If only "other" bits ignore sticky. */
  				if (!who || who & ~S_IRWXO) {
@@ -80,7 +80,7 @@
  					perm |= S_ISTXT;
  				}
  				break;
-@@ -402,13 +423,14 @@ dumpmode(set)
+@@ -390,13 +411,14 @@ dumpmode(BITCMD *set)
  }
  #endif
  
@@ -93,10 +93,10 @@
   */
 -static void
 +__private_extern__ void
- compress_mode(set)
- 	BITCMD *set;
+ compress_mode(BITCMD *set)
  {
-@@ -457,3 +479,4 @@ compress_mode(set)
+ 	BITCMD *nset;
+@@ -444,3 +466,4 @@ compress_mode(BITCMD *set)
  		}
  	}
  }

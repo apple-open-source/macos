@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -48,33 +48,40 @@
 #include <grp.h>
 #include <unistd.h>
 
-/*#include <netnb/netbios.h>*/
-
+#include <netsmb/upi_mbuf.h>
+#include <sys/mchain.h>
 #include <netsmb/smb_lib.h>
+#include <netsmb/rq.h>
 #include <netsmb/smb_conn.h>
-#include <cflib.h>
+#include <netsmb/smb_converter.h>
 
 int
 smb_smb_open_print_file(struct smb_ctx *ctx, int setuplen, int mode,
 	const char *ident, smbfh *fhp)
 {
 	struct smb_rq *rqp;
-	struct mbdata *mbp;
+	mbchain_t mbp;
 	int error;
 
-	error = smb_rq_init(ctx, SMB_COM_OPEN_PRINT_FILE, 2, &rqp);
+	error = smb_rq_init(ctx, SMB_COM_OPEN_PRINT_FILE, 0, &rqp);
 	if (error)
 		return error;
 	mbp = smb_rq_getrequest(rqp);
+	smb_rq_wstart(rqp);
 	mb_put_uint16le(mbp, setuplen);
 	mb_put_uint16le(mbp, mode);
 	smb_rq_wend(rqp);
+	smb_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_ASCII);
-	smb_rq_dstring(mbp, ident);
+	smb_rq_put_dstring(ctx, mbp, ident, strlen(ident), SMB_UTF_SFM_CONVERSIONS, NULL);
+	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
 	if (!error) {
-		mbp = smb_rq_getreply(rqp);
-		mb_get_uint16(mbp, fhp);
+		mdchain_t mdp;
+
+		mdp = smb_rq_getreply(rqp);
+		md_get_uint8(mdp, NULL);	/* Word Count */
+		md_get_uint16(mdp, fhp);
 	}
 	smb_rq_done(rqp);
 	return error;
@@ -84,15 +91,18 @@ int
 smb_smb_close_print_file(struct smb_ctx *ctx, smbfh fh)
 {
 	struct smb_rq *rqp;
-	struct mbdata *mbp;
+	mbchain_t mbp;
 	int error;
 
 	error = smb_rq_init(ctx, SMB_COM_CLOSE_PRINT_FILE, 0, &rqp);
 	if (error)
 		return error;
 	mbp = smb_rq_getrequest(rqp);
-	mb_put_mem(mbp, (char*)&fh, 2);
+	smb_rq_wstart(rqp);
+	mb_put_mem(mbp, (char*)&fh, 2, MB_MSYSTEM);
 	smb_rq_wend(rqp);
+	smb_rq_bstart(rqp);
+	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
 	smb_rq_done(rqp);
 	return error;

@@ -1,0 +1,33 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+# Knowledge about demo environment here ... Need in-language control
+# for the controller, or the 'new direction' etc. commands.
+::D new direction b1 angle 210 opposite b4
+::D new direction b2 angle 270 opposite b5
+::D new direction b3 angle 330 opposite b6
+::D new direction b4 angle  30 opposite b1
+::D new direction b5 angle  90 opposite b2
+::D new direction b6 angle 150 opposite b3
+
+proc benzene {{size {}}} {
+    if {$size eq {}} {
+	variable movelength
+	set size $movelength
+    }
+    return [block {
+	line from [0 0] \
+	    then [by $size 330] \
+	    then [by $size  30] \
+	    then [by $size  90] \
+	    then [by $size 150] \
+	    then [by $size 210] \
+	    then [by $size 270]
+	circle dotted radius [expr {0.7 * $size}] \
+	    at [0.5 between [last line 1] [last line 4]]
+	# Propagate the ring corners into the block
+	foreach p {1 2 3 4 5 6} { set b$p [last line $p] }
+    }]
+}
+
+proc bond {} { line noturn }
+
+benzene; b3; bond; benzene ; bond ; text text CH3

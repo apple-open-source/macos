@@ -72,9 +72,11 @@ Find_Cruft            := '(' '(' $(Find_Cruft) ')' -or '(' -mindepth 1 -type d -
 strip::
 	$(_v) shopt -s nullglob && cd "$(DSTROOT)" && \
 	$(RM) -f "./$(TclExtLibDir)"/$(TclExtDir)*/lib*stub*.a && \
+	$(CP) "./$(TclExtLibDir)"/$(TclExtDir)*/*.dylib "$(SYMROOT)" && \
 	$(STRIP) -S "./$(TclExtLibDir)"/$(TclExtDir)*/*.{dylib,a} && \
 	for f in "./$(TclExtLibDir)"/$(TclExtDir)*/*.dylib; do \
-	install_name_tool -id "$${f:2}" "$${f}"; done
+	install_name_tool -id "$${f:2}" "$${f}"; done && \
+	cd "$(SYMROOT)" && for f in *.dylib; do $(DSYMUTIL) "$${f}"; done
 
 # delete stub config file
 fix-config:

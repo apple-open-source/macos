@@ -38,12 +38,13 @@
  */
 
 #include <errno.h>
+#include <dirent.h>
 #include <fcntl.h>
 #include <fts.h>
 #include <libgen.h>
 #include <limits.h>
 #include <sys/mount.h>
-#include <sys/param.h>  // MAXBSIZE
+#include <sys/param.h>  // MAXBSIZE, MIN
 #include <sys/stat.h>
 #include <string.h>
 #include <stdio.h>      // rename(2)?
@@ -69,13 +70,32 @@
                      "%s: ALERT: couldn't restore CWD", __func__); \
     } while(0)
 
+// Seed errno since strlXXX routines do not set it.  This will make
+// downstream error messages more meaningful (since we're often logging the
+// errno value and message).  COMPILE_TIME_ASSERT() break schdirparent().
+#define PATHCPY(dst, src) do { \
+	    /* COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); */ \
+	    Boolean useErrno = (errno == 0); \
+	    if (useErrno)	errno = ENAMETOOLONG; \
+	    if (strlcpy(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
+	    if (useErrno)	errno = 0; \
+} while(0)
+#define PATHCAT(dst, src) do { \
+	    COMPILE_TIME_ASSERT(sizeof(dst) == PATH_MAX); \
+	    Boolean useErrno = (errno == 0); \
+	    if (useErrno)	errno = ENAMETOOLONG; \
+	    if (strlcat(dst, src, PATH_MAX) >= PATH_MAX)  goto finish; \
+	    if (useErrno)	errno = 0; \
+} while(0)
+
 // given that we call this function twice on an error path, it is tempting
 // to use getmntinfo(3) but it's not threadsafe ... :P
+// called on error paths; shouldn't use PATH*()
 static int findmnt(dev_t devid, char mntpt[MNAMELEN])
 {
     int rval = ELAST + 1;
     int i, nmnts = getfsstat(NULL, 0, MNT_NOWAIT);
-    size_t bufsz;
+    int bufsz;
     struct statfs *mounts = NULL;
 
     if (nmnts <= 0)     goto finish;
@@ -89,9 +109,7 @@ static int findmnt(dev_t devid, char mntpt[MNAMELEN])
         struct statfs *sfs = &mounts[i];
         
         if (sfs->f_fsid.val[0] == devid) {
-            if (strlcpy(mntpt, sfs->f_mntonname, MNAMELEN) >= MNAMELEN) {
-                goto finish;
-            }
+            strlcpy(mntpt, sfs->f_mntonname, PATH_MAX);   
             rval = 0;
             break;
         }
@@ -127,6 +145,10 @@ static int spolicy(int scopefd, int candfd)
             kOSKextLogErrorLevel | kOSKextLogCacheFlag | kOSKextLogFileAccessFlag,
             "ALERT: %s does not appear to be on %s.", path, scopemnt);
         } else {
+            OSKextLog(NULL, 
+                      kOSKextLogErrorLevel,
+                      "%s - find mount failed: errno %d %s.", 
+                      __FUNCTION__, errno, strerror(errno));
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag | kOSKextLogFileAccessFlag,
                 "ALERT: dev_t mismatch (%d != %d).",
@@ -161,8 +183,8 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
     if (!path)      goto finish;
 
     // make a copy of path in case our dirname() ever modifies the buffer
-    if (strlcpy(parent, path, PATH_MAX) >= PATH_MAX)    goto finish;
-    if (strlcpy(parent, dirname(parent), PATH_MAX) >= PATH_MAX)    goto finish;
+    PATHCPY(parent, path);      
+    PATHCPY(parent, dirname(parent));      
 
     // make sure parent is on specified volume
     if (-1 == (dirfd = open(parent, O_RDONLY, 0)))  goto finish;
@@ -177,10 +199,9 @@ int schdirparent(int fdvol, const char *path, int *olddir, char child[PATH_MAX])
 
     // output parameters
     if (child) {
-        if (strlcpy(child, path, PATH_MAX) >= PATH_MAX)    goto finish;
-        if (strlcpy(child, basename(child), PATH_MAX) >= PATH_MAX)
-            goto finish;
-    }
+        PATHCPY(child, path);      
+        PATHCPY(child, basename(child));      
+   }
     if (olddir) {
         if (-1 == (savedir = open(".", O_RDONLY)))  goto finish;
         *olddir = savedir;
@@ -235,10 +256,13 @@ int schdir(int fdvol, const char *path, int *savedir)
     char cpath[PATH_MAX];
 
     // X could switch to snprintf()
-    if (strlcpy(cpath, path, PATH_MAX) >= PATH_MAX ||
-        strlcat(cpath, "/.", PATH_MAX) >= PATH_MAX)   return -1;
+    PATHCPY(cpath, path);      
+    PATHCAT(cpath, "/.");      
 
     return schdirparent(fdvol, cpath, savedir, NULL);
+
+finish:
+    return -1;
 }
 
 int restoredir(int savedir)
@@ -297,6 +321,7 @@ finish:
     return bsderr;
 }
 
+
 // taking a path and a filename is sort of annoying for clients
 // so we "auto-strip" newname if it happens to be a path
 int srename(int fdvol, const char *oldpath, const char *newpath)
@@ -307,8 +332,8 @@ int srename(int fdvol, const char *oldpath, const char *newpath)
     char newname[PATH_MAX];
 
     // calculate netname first since schdirparent uses basename
-    if (strlcpy(newname, newpath, PATH_MAX) >= PATH_MAX)    goto finish;
-    if (strlcpy(newname, basename(newname), PATH_MAX) >= PATH_MAX)goto finish;
+    PATHCPY(newname, newpath);      
+    PATHCPY(newname, basename(newname));      
     if (schdirparent(fdvol, oldpath, &savedir, oldname))        goto finish;
 
     bsderr = rename(oldname, newname);
@@ -318,10 +343,55 @@ finish:
     return bsderr;
 }
 
+
+int szerofile(int fdvol, const char *toErase)
+{
+    int bsderr = -1;
+    int zfd = -1;
+    struct stat sb;
+    off_t bytesLeft;
+    ssize_t bufsize, thisTime;
+    void *buf = NULL;
+
+    zfd = sopen(fdvol, toErase, O_WRONLY, 0);
+    if (zfd == -1) {
+        if (errno == ENOENT)
+            bsderr = 0;
+        goto finish;
+    }
+
+    if (fstat(zfd, &sb))                    goto finish;
+    if (sb.st_size == 0) {
+        bsderr = 0;
+        goto finish;
+    }
+    bufsize = MIN(sb.st_size, MAXBSIZE);
+    if (!(buf = calloc(1, bufsize)))        goto finish;
+
+    // and loop writing the zeros
+    for (bytesLeft = sb.st_size; bytesLeft > 0; bytesLeft -= thisTime) {
+        thisTime = MIN(bytesLeft, (unsigned int)bufsize);
+
+        if (write(zfd, buf, thisTime) != thisTime)    goto finish;
+    }
+
+    // our job is done, but the space is useless so attempt to truncate
+    (void)ftruncate(zfd, 0LL);
+
+    bsderr = 0;
+
+finish:
+    if (zfd != -1)      close(zfd);
+    if (buf)            free(buf);
+
+    return bsderr;
+}
+
 // stolen with gratitude from TAOcommon's TAOCFURLDelete
 int sdeepunlink(int fdvol, char *path)
 {
     int             rval = ELAST + 1;
+    int             firstErrno = 0; 	// FTS clears errno at the end :P
 
     char        *   const pathv[2] = { path, NULL };
     int             ftsoptions = 0;
@@ -336,10 +406,11 @@ int sdeepunlink(int fdvol, char *path)
 //  ftsoptions |= FTS_NOCHDIR;          // chdir is fine
 //  ftsoptions |= FTS_SEEDOT;           // we don't need "."
 
+    rval = -1;
     if ((fts = fts_open(pathv, ftsoptions, NULL)) == NULL)  goto finish;
-
-    // and here we go (accumulating errors, though that usu ends in ENOTEMPTY)
     rval = 0;
+
+    // and here we go
     while ((fent = fts_read(fts)) /* && !rval ?? */) {
         switch (fent->fts_info) {
             case FTS_DC:        // directory that causes a cycle in the tree
@@ -350,7 +421,8 @@ int sdeepunlink(int fdvol, char *path)
             case FTS_DNR:       // directory which cannot be read
             case FTS_ERR:       // generic fcts_errno-borne error
             case FTS_NS:        // file for which stat(s) failed (not requested)
-                rval |= fent->fts_errno;
+                // rval |= fent->fts_errno;
+                if (!firstErrno) 	firstErrno = fent->fts_errno;
                 break;
 
             case FTS_SL:        // symbolic link
@@ -359,16 +431,18 @@ int sdeepunlink(int fdvol, char *path)
             case FTS_F:         // regular file
             case FTS_NSOK:      // no stat(2) requested (but not a dir?)
             default:            // in case FTS gets smarter in the future
+		// XX need to port RECERR() from update_boot.c
                 rval |= sunlink(fdvol, fent->fts_accpath);
+                if (!firstErrno)        firstErrno = errno;
                 break;
 
             case FTS_DP:        // directory being visited in post-order
+		// XX need to port RECERR() from update_boot.c
                 rval |= srmdir(fdvol, fent->fts_accpath);
+                if (!firstErrno)        firstErrno = errno;
                 break;
         } // switch
-    } // while
-
-    if (!rval)  rval = errno;   // fts_read() clears if all went well
+    } // while (fts_read())
 
     // close the iterator now
     if (fts_close(fts) < 0) {
@@ -377,7 +451,16 @@ int sdeepunlink(int fdvol, char *path)
             "fts_close failed - %s.", strerror(errno));
     }
 
+    if (firstErrno) {
+	rval = -1;
+	errno = firstErrno;
+    }
+
 finish:
+    // fts_read() clears errno if it completed
+    if (rval == 0 && errno) {
+	rval = -1;
+    }
 
     return rval;
 }
@@ -392,7 +475,7 @@ int sdeepmkdir(int fdvol, const char *path, mode_t mode)
 
     // trusting that stat(".") will always do the right thing
     if (0 == stat(path, &sb)) {
-        if (sb.st_mode & S_IFDIR == 0) {
+        if ((sb.st_mode & S_IFMT) != S_IFDIR) {
             bsderr = ENOTDIR;
             goto finish;
         } else {
@@ -402,8 +485,8 @@ int sdeepmkdir(int fdvol, const char *path, mode_t mode)
     } else if (errno != ENOENT) {
         goto finish;                // bsderr = -1 -> errno
     } else {
-        if (strlcpy(parent, path, PATH_MAX) >= PATH_MAX)            goto finish;
-        if (strlcpy(parent, dirname(parent), PATH_MAX) >= PATH_MAX) goto finish;
+        PATHCPY(parent, path);      
+        PATHCPY(parent, dirname(parent));      
 
         // and recurse since it wasn't there
         if ((bsderr = sdeepmkdir(fdvol, parent, mode)))     goto finish;
@@ -416,18 +499,96 @@ finish:
     return bsderr;
 }
 
-#define     min(a,b)        ((a) < (b) ? (a) : (b))
-int scopyfile(int srcfdvol, const char *srcpath, int dstfdvol, const char *dstpath)
+
+static int
+_copyfiledata(int srcfd, struct stat *srcsb, int dstfdvol, const char *dstpath)
 {
     int bsderr = -1;
-    int srcfd = -1, dstfd = -1;
+    int dstfd = -1;
+    void *buf = NULL;       // up to MAXBSIZE on the stack is a bad idea
+    ssize_t bufsize, thisTime;
+    off_t bytesLeft;
+
+    // nuke/open the destination
+    (void)sunlink(dstfdvol, dstpath);
+    dstfd = sopen(dstfdvol, dstpath, O_CREAT|O_WRONLY, srcsb->st_mode|S_IWUSR);
+    if (dstfd == -1)        goto finish;
+
+    // and loop with our handy buffer
+    bufsize = MIN(srcsb->st_size, MAXBSIZE);
+    if (!(buf = malloc(bufsize)))      goto finish;;
+    for (bytesLeft = srcsb->st_size; bytesLeft > 0; bytesLeft -= thisTime) {
+        thisTime = MIN(bytesLeft, (unsigned int)bufsize);
+
+        if (read(srcfd, buf, thisTime) != thisTime)     goto finish;
+        if (write(dstfd, buf, thisTime) != thisTime)    goto finish;
+    }
+
+    // apply final permissions
+    if ((bsderr = fchmod(dstfd, srcsb->st_mode)))  goto finish;
+    // kextcache doesn't currently look into the Apple_Boot, so we'll skip times
+
+finish:
+    if (dstfd != -1)    close(dstfd);
+    if (buf)            free(buf);
+
+    return bsderr;
+}
+
+// for now, we only support a flat set of files; no recursion
+static int
+_copysubitems(int srcfdvol, const char *srcdir, int dstfdvol,const char *dstdir)
+{
+    int bsderr = -1;
+    DIR *dir = NULL;
+    struct dirent dentry, *dp;
+    char srcpath[PATH_MAX], dstpath[PATH_MAX];
+
+    // scopyitem() will also validate srcfdvol for each entry
+    if (!(dir = opendir(srcdir)))
+        goto finish;
+    if (spolicy(srcfdvol, dirfd(dir)))
+        goto finish;
+
+    while (0 == (bsderr = readdir_r(dir, &dentry, &dp)) && dp) {
+        char *fname = dp->d_name;
+
+        // skip "." and ".."
+        if ((fname[0] == '.' && fname[1] == '\0') ||
+            (fname[0] == '.' && fname[1] == '.' && fname[2] == '\0'))
+                continue;
+
+        // set up source path for child file
+        PATHCPY(srcpath, srcdir);      
+        PATHCAT(srcpath, "/");
+        PATHCAT(srcpath, fname);
+
+        // and corresponding destination path
+        PATHCPY(dstpath, dstdir);      
+        PATHCAT(dstpath, "/");
+        PATHCAT(dstpath, fname);
+
+        // recurse back to scopyitem()
+        bsderr = scopyitem(srcfdvol, srcpath, dstfdvol, dstpath);
+        if (bsderr)   goto finish;
+    }
+
+finish:
+    if (dir)            closedir(dir);
+
+    return bsderr;
+}
+
+int
+scopyitem(int srcfdvol, const char *srcpath, int dstfdvol, const char *dstpath)
+{
+    int bsderr = -1;
+    int srcfd = -1;
     struct stat srcsb;
     char dstparent[PATH_MAX];
     mode_t dirmode;
-    void *buf = NULL;       // MAXBSIZE on the stack is a bad idea
-    off_t bytesLeft, thisTime;
 
-    // figure out directory mode
+    // figure out parent directory mode
     if (-1 == (srcfd = sopen(srcfdvol, srcpath, O_RDONLY, 0)))    goto finish;
     if (fstat(srcfd, &srcsb))                       goto finish;
     dirmode = ((srcsb.st_mode&~S_IFMT) | S_IWUSR | S_IXUSR /* u+wx */);
@@ -435,33 +596,28 @@ int scopyfile(int srcfdvol, const char *srcpath, int dstfdvol, const char *dstpa
     if (dirmode & S_IROTH)      dirmode |= S_IXOTH;
 
     // and recursively create the parent directory
-    if (strlcpy(dstparent, dstpath, PATH_MAX) >= PATH_MAX)          goto finish;
-    if (strlcpy(dstparent, dirname(dstparent), PATH_MAX)>=PATH_MAX) goto finish;
-    if ((sdeepmkdir(dstfdvol, dstparent, dirmode)))         goto finish;
+    PATHCPY(dstparent, dstpath);      
+    PATHCPY(dstparent, dirname(dstparent));      
 
-    // nuke/open the destination
-    (void)sunlink(dstfdvol, dstpath);
-    dstfd = sopen(dstfdvol, dstpath, O_CREAT|O_WRONLY, srcsb.st_mode | S_IWUSR);
-    if (dstfd == -1)        goto finish;
+    if ((bsderr = sdeepmkdir(dstfdvol, dstparent, dirmode)))        goto finish;
 
-    // and loop with our handy buffer
-    if (!(buf = malloc(MAXBSIZE)))      goto finish;;
-    for (bytesLeft = srcsb.st_size; bytesLeft > 0; bytesLeft -= thisTime) {
-        thisTime = min(bytesLeft, MAXBSIZE);
+    // should we let _copysubitems will call us back
+    switch ((srcsb.st_mode & S_IFMT)) {
+        case S_IFREG:
+            bsderr = _copyfiledata(srcfd, &srcsb, dstfdvol, dstpath);
+            break;
 
-        if (read(srcfd, buf, thisTime) != thisTime)     goto finish;
-        if (write(dstfd, buf, thisTime) != thisTime)    goto finish;
+        case S_IFDIR:
+            bsderr = _copysubitems(srcfdvol, srcpath, dstfdvol, dstpath);
+            break;
+
+        default:
+            bsderr = EFTYPE;
+            break;
     }
-
-    // apply final permissions
-    if (bsderr = fchmod(dstfd, srcsb.st_mode))  goto finish;
-    // kextcache doesn't currently look into the Apple_Boot, so we'll skip times
 
 finish:
     if (srcfd != -1)    close(srcfd);
-    if (dstfd != -1)    close(dstfd);
-
-    if (buf)            free(buf);
 
     return bsderr;
 }

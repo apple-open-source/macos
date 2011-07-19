@@ -29,7 +29,6 @@ RCSID("$Id$")
 #include <freeradius-devel/radiusd.h>
 #include <freeradius-devel/modules.h>
 #include <freeradius-devel/rad_assert.h>
-#include <ltdl.h>
 
 #include <sys/stat.h>
 
@@ -50,6 +49,8 @@ static const CONF_PARSER module_config[] = {
 	 offsetof(SQL_CONFIG,sql_password), NULL, ""},
 	{"radius_db", PW_TYPE_STRING_PTR,
 	 offsetof(SQL_CONFIG,sql_db), NULL, "radius"},
+	{"filename", PW_TYPE_FILENAME, /* for sqlite */
+	 offsetof(SQL_CONFIG,sql_file), NULL, NULL},
 	{"read_groups", PW_TYPE_BOOLEAN,
 	 offsetof(SQL_CONFIG,read_groups), NULL, "yes"},
 	{"sqltrace", PW_TYPE_BOOLEAN,
@@ -62,6 +63,10 @@ static const CONF_PARSER module_config[] = {
 	 offsetof(SQL_CONFIG,deletestalesessions), NULL, "yes"},
 	{"num_sql_socks", PW_TYPE_INTEGER,
 	 offsetof(SQL_CONFIG,num_sql_socks), NULL, "5"},
+	{"lifetime", PW_TYPE_INTEGER,
+	 offsetof(SQL_CONFIG,lifetime), NULL, "0"},
+	{"max_queries", PW_TYPE_INTEGER,
+	 offsetof(SQL_CONFIG,max_queries), NULL, "0"},
 	{"sql_user_name", PW_TYPE_STRING_PTR,
 	 offsetof(SQL_CONFIG,query_user), NULL, ""},
 	{"default_user_profile", PW_TYPE_STRING_PTR,
@@ -104,6 +109,12 @@ static const CONF_PARSER module_config[] = {
 	 offsetof(SQL_CONFIG,allowed_chars), NULL,
 	"@abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-_: /"},
 
+	/*
+	 *	This only works for a few drivers.
+	 */
+	{"query_timeout", PW_TYPE_INTEGER,
+	 offsetof(SQL_CONFIG,query_timeout), NULL, NULL},
+	 
 	{NULL, -1, 0, NULL, NULL}
 };
 
@@ -129,6 +140,9 @@ static size_t sql_escape_func(char *out, size_t outlen, const char *in);
 /*
  *	sql xlat function. Right now only SELECTs are supported. Only
  *	the first element of the SELECT result will be used.
+ *
+ *	For other statements (insert, update, delete, etc.), the
+ *	number of affected rows will be returned.
  */
 static int sql_xlat(void *instance, REQUEST *request,
 		    char *fmt, char *out, size_t freespace,
@@ -162,6 +176,59 @@ static int sql_xlat(void *instance, REQUEST *request,
 	sqlsocket = sql_get_socket(inst);
 	if (sqlsocket == NULL)
 		return 0;
+
+	/*
+	 *	If the query starts with any of the following prefixes,
+	 *	then return the number of rows affected
+	 */
+	if ((strncasecmp(querystr, "insert", 6) == 0) ||
+	    (strncasecmp(querystr, "update", 6) == 0) ||
+	    (strncasecmp(querystr, "delete", 6) == 0)) {
+		int numaffected;
+		char buffer[21]; /* 64bit max is 20 decimal chars + null byte */
+
+		if (rlm_sql_query(sqlsocket,inst,querystr)) {
+			radlog(L_ERR, "rlm_sql (%s): database query error, %s: %s",
+				inst->config->xlat_name, querystr,
+				(inst->module->sql_error)(sqlsocket,
+							  inst->config));
+			sql_release_socket(inst,sqlsocket);
+			return 0;
+		}
+	       
+		numaffected = (inst->module->sql_affected_rows)(sqlsocket,
+								inst->config);
+		if (numaffected < 1) {
+			RDEBUG("rlm_sql (%s): SQL query affected no rows",
+				inst->config->xlat_name);
+		}
+
+		/*
+		 *	Don't chop the returned number if freespace is
+		 *	too small.  This hack is necessary because
+		 *	some implementations of snprintf return the
+		 *	size of the written data, and others return
+		 *	the size of the data they *would* have written
+		 *	if the output buffer was large enough.
+		 */
+		snprintf(buffer, sizeof(buffer), "%d", numaffected);
+		ret = strlen(buffer);
+		if (ret >= freespace){
+			RDEBUG("rlm_sql (%s): Can't write result, insufficient string space",
+			       inst->config->xlat_name);
+			(inst->module->sql_finish_query)(sqlsocket,
+							 inst->config);
+			sql_release_socket(inst,sqlsocket);
+			return 0;
+		}
+		
+		memcpy(out, buffer, ret + 1); /* we did bounds checking above */
+
+		(inst->module->sql_finish_query)(sqlsocket, inst->config);
+		sql_release_socket(inst,sqlsocket);
+		return ret;
+	} /* else it's a SELECT statement */
+
 	if (rlm_sql_select_query(sqlsocket,inst,querystr)){
 		radlog(L_ERR, "rlm_sql (%s): database query error, %s: %s",
 		       inst->config->xlat_name,querystr,
@@ -333,12 +400,13 @@ static int generate_sql_clients(SQL_INST *inst)
 			c->nastype = strdup(row[3]);
 
 		numf = (inst->module->sql_num_fields)(sqlsocket, inst->config);
-		if ((numf > 5) && (row[5] != NULL)) c->server = strdup(row[5]);
+		if ((numf > 5) && (row[5] != NULL) && *row[5]) c->server = strdup(row[5]);
 
 		DEBUG("rlm_sql (%s): Adding client %s (%s, server=%s) to clients list",
 		      inst->config->xlat_name,
 		      c->longname,c->shortname, c->server ? c->server : "<none>");
 		if (!client_add(NULL, c)) {
+			sql_release_socket(inst, sqlsocket);
 			DEBUG("rlm_sql (%s): Failed to add client %s (%s) to clients list.  Maybe there's a duplicate?",
 			      inst->config->xlat_name,
 			      c->longname,c->shortname);
@@ -500,6 +568,7 @@ static int sql_get_grouplist (SQL_INST *inst, SQLSOCK *sqlsocket, REQUEST *reque
 			*group_list = rad_malloc(sizeof(SQL_GROUPLIST));
 			group_list_tmp = *group_list;
 		} else {
+			rad_assert(group_list_tmp != NULL);
 			group_list_tmp->next = rad_malloc(sizeof(SQL_GROUPLIST));
 			group_list_tmp = group_list_tmp->next;
 		}
@@ -760,7 +829,12 @@ static int rlm_sql_detach(void *instance)
 			free(*p);
 			*p = NULL;
 		}
-		allowed_chars = NULL;
+		/*
+		 *	Catch multiple instances of the module.
+		 */
+		if (allowed_chars == inst->config->allowed_chars) {
+			allowed_chars = NULL;
+		}
 		free(inst->config);
 		inst->config = NULL;
 	}
@@ -795,6 +869,9 @@ static int rlm_sql_instantiate(CONF_SECTION * conf, void **instance)
 	inst->sql_get_socket = sql_get_socket;
 	inst->sql_release_socket = sql_release_socket;
 	inst->sql_escape_func = sql_escape_func;
+	inst->sql_query = rlm_sql_query;
+	inst->sql_select_query = rlm_sql_select_query;
+	inst->sql_fetch_row = rlm_sql_fetch_row;
 
 	/*
 	 * If the configuration parameters can't be parsed, then
@@ -806,8 +883,38 @@ static int rlm_sql_instantiate(CONF_SECTION * conf, void **instance)
 	}
 
 	xlat_name = cf_section_name2(conf);
-	if (xlat_name == NULL)
+	if (xlat_name == NULL) {
 		xlat_name = cf_section_name1(conf);
+	} else {
+		char *group_name;
+		DICT_ATTR *dattr;
+		ATTR_FLAGS flags;
+
+		/*
+		 * Allocate room for <instance>-SQL-Group
+		 */
+		group_name = rad_malloc((strlen(xlat_name) + 1 + 11) * sizeof(char));
+		sprintf(group_name,"%s-SQL-Group",xlat_name);
+		DEBUG("rlm_sql Creating new attribute %s",group_name);
+
+		memset(&flags, 0, sizeof(flags));
+		dict_addattr(group_name, 0, PW_TYPE_STRING, -1, flags);
+		dattr = dict_attrbyname(group_name);
+		if (dattr == NULL){
+			radlog(L_ERR, "rlm_ldap: Failed to create attribute %s",group_name);
+			free(group_name);
+			free(inst);	/* FIXME: detach */
+			return -1;
+		}
+
+		if (inst->config->groupmemb_query && 
+		    inst->config->groupmemb_query[0]) {
+			DEBUG("rlm_sql: Registering sql_groupcmp for %s",group_name);
+			paircompare_register(dattr->attr, PW_USER_NAME, sql_groupcmp, inst);
+		}
+
+		free(group_name);
+	}
 	if (xlat_name){
 		inst->config->xlat_name = strdup(xlat_name);
 		xlat_register(xlat_name, (RAD_XLAT_FUNC)sql_xlat, inst);
@@ -862,7 +969,10 @@ static int rlm_sql_instantiate(CONF_SECTION * conf, void **instance)
 		return -1;
 	}
 
-	paircompare_register(PW_SQL_GROUP, PW_USER_NAME, sql_groupcmp, inst);
+	if (inst->config->groupmemb_query && 
+	    inst->config->groupmemb_query[0]) {
+		paircompare_register(PW_SQL_GROUP, PW_USER_NAME, sql_groupcmp, inst);
+	}
 
 	if (inst->config->do_clients){
 		if (generate_sql_clients(inst) == -1){
@@ -1247,9 +1357,9 @@ static int rlm_sql_accounting(void *instance, REQUEST * request) {
 
 						if (acctsessiontime <= 0) {
 							radius_xlat(logstr, sizeof(logstr), "stop packet with zero session length. [user '%{User-Name}', nas '%{NAS-IP-Address}']", request, NULL);
-							radlog_request(L_ERR, 0, request, "%s", logstr);
+							radlog_request(L_DBG, 0, request, "%s", logstr);
 							sql_release_socket(inst, sqlsocket);
-							ret = RLM_MODULE_NOOP;
+							return RLM_MODULE_NOOP;
 						}
 #endif
 

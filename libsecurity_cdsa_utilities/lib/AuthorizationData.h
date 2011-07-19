@@ -161,15 +161,21 @@ public:
     AuthItemSet();
     ~AuthItemSet();
     AuthItemSet(const AuthorizationItemSet *item);
+    AuthItemSet(const AuthItemSet& itemSet);
 
     AuthItemSet &operator = (const AuthorizationItemSet& itemSet);
+    AuthItemSet &operator = (const AuthItemSet& itemSet);
 
 	void copy(AuthorizationItemSet *&data, size_t &length, Allocator &alloc = Allocator::standard()) const;
 	AuthorizationItemSet *copy() const;
 	
+	char *firstItemName;	
+
 public:
 	AuthItem *find(const char *name);
 
+private:
+	void duplicate(const AuthItemSet& itemSet);
 };
 
 class FindAuthItemByRightName

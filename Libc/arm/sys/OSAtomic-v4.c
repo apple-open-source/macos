@@ -289,4 +289,27 @@ bool    OSAtomicCompareAndSwapPtr( void *__oldValue, void *__newValue, void * vo
     return result;
 }
 
+void    OSAtomicEnqueue( OSQueueHead *__list, void *__new, size_t __offset )
+{
+    OSSpinLockLock(&_atomic_lock);
+    *((void **)((char *)__new + __offset)) = __list->opaque1;
+    __list->opaque1 = __new;
+    OSSpinLockUnlock(&_atomic_lock);
+}
+
+void*   OSAtomicDequeue( OSQueueHead *__list, size_t __offset )
+{
+    void *head;
+    
+    OSSpinLockLock(&_atomic_lock);
+    head = __list->opaque1;
+    if (head != NULL) {
+      void **next = (void **)((char *)head + __offset);
+        __list->opaque1 = *next;
+    }
+    OSSpinLockUnlock(&_atomic_lock);
+
+    return head;
+}
+
 #endif /* !defined(_ARM_ARCH_6) */

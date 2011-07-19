@@ -1,5 +1,23 @@
 #include <ruby.h>
 
+/* Remove global macros defined in Ruby's win32.h */
+#ifdef write
+# undef write
+#endif
+#ifdef read
+# undef read
+#endif
+#ifdef bind
+# undef bind
+#endif
+#ifdef close
+# undef close
+#endif
+#ifdef connect
+# undef connect
+#endif
+
+
 /* Ruby 1.7 defines NUM2LL(), LL2NUM() and ULL2NUM() macros */
 #ifndef NUM2LL
 #define NUM2LL(x) NUM2LONG((x))
@@ -28,12 +46,44 @@
 #ifndef RSTRING_PTR
 # define RSTRING_PTR(x) RSTRING(x)->ptr
 #endif
+#ifndef RSTRING_END
+# define RSTRING_END(x) (RSTRING_PTR(x) + RSTRING_LEN(x))
+#endif
 #ifndef RARRAY_LEN
 # define RARRAY_LEN(x) RARRAY(x)->len
 #endif
 #ifndef RARRAY_PTR
 # define RARRAY_PTR(x) RARRAY(x)->ptr
 #endif
+#ifndef RFLOAT_VALUE
+# define RFLOAT_VALUE(x) RFLOAT(x)->value
+#endif
+#ifndef DOUBLE2NUM
+# define DOUBLE2NUM(x) rb_float_new(x)
+#endif
+#ifndef RHASH_TBL
+# define RHASH_TBL(x) (RHASH(x)->tbl)
+#endif
+#ifndef RHASH_ITER_LEV
+# define RHASH_ITER_LEV(x) (RHASH(x)->iter_lev)
+#endif
+#ifndef RHASH_IFNONE
+# define RHASH_IFNONE(x) (RHASH(x)->ifnone)
+#endif
+#ifndef RHASH_SIZE
+# define RHASH_SIZE(x) (RHASH(x)->tbl->num_entries)
+#endif
+#ifndef RHASH_EMPTY_P
+# define RHASH_EMPTY_P(x) (RHASH_SIZE(x) == 0)
+#endif
+#ifndef RSTRUCT_LEN
+# define RSTRUCT_LEN(x) RSTRUCT(x)->len
+#endif
+#ifndef RSTRUCT_PTR
+# define RSTRUCT_PTR(x) RSTRUCT(x)->ptr
+#endif
+
+
 
 /*
  * Need to be very careful about how these macros are defined, especially
@@ -95,3 +145,4 @@
 #define rb_undef_alloc_func(klass) rb_undef_method(CLASS_OF((klass)), "new")
 #endif
 
+static VALUE _mSWIG = Qnil;

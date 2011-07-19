@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -726,7 +754,7 @@ setifflags(const char *vname, int value, int s, const struct afswtch *afp)
 		Perror(vname);
 }
 
-#ifndef __APPLE__
+#ifdef SIOCGIFCAP
 void
 setifcap(const char *vname, int value, int s, const struct afswtch *afp)
 {
@@ -795,11 +823,11 @@ setifname(const char *val, int dummy __unused, int s,
 #define	IFFBITS \
 "\020\1UP\2BROADCAST\3DEBUG\4LOOPBACK\5POINTOPOINT\6SMART\7RUNNING" \
 "\10NOARP\11PROMISC\12ALLMULTI\13OACTIVE\14SIMPLEX\15LINK0\16LINK1\17LINK2" \
-"\20MULTICAST\22PPROMISC\23MONITOR\24STATICARP\25NEEDSGIANT"
+"\20MULTICAST"
 
 #define	IFCAPBITS \
-"\020\1RXCSUM\2TXCSUM\3NETCONS\4VLAN_MTU\5VLAN_HWTAGGING\6JUMBO_MTU\7POLLING" \
-"\10VLAN_HWCSUM\11TSO4\12TSO6\13LRO\14WOL_UCAST\15WOL_MCAST\16WOL_MAGIC"
+"\020\1RXCSUM\2TXCSUM\3VLAN_MTU\4VLAN_HWTAGGING\5JUMBO_MTU" \
+"\6TSO4\7TSO6\10LRO\11AV"
 
 /*
  * Print the status of the interface.  If an address family was
@@ -839,7 +867,7 @@ status(const struct afswtch *afp, const struct sockaddr_dl *sdl,
 #endif
 	putchar('\n');
 
-#ifndef __APPLE__	
+#ifdef SIOCGIFCAP	
 	if (ioctl(s, SIOCGIFCAP, (caddr_t)&ifr) == 0) {
 		if (ifr.ifr_curcap != 0) {
 			printb("\toptions", ifr.ifr_curcap, IFCAPBITS);
@@ -975,7 +1003,7 @@ ifmaybeload(const char *name)
 		}
 
 	/* turn interface and unit into module name */
-	strcpy(ifkind, "if_");
+	strlcpy(ifkind, "if_", sizeof(ifkind));
 	strlcpy(ifkind + MOD_PREFIX_LEN, ifname,
 	    sizeof(ifkind) - MOD_PREFIX_LEN);
 
@@ -1012,10 +1040,10 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-arp",		IFF_NOARP,	setifflags),
 	DEF_CMD("debug",	IFF_DEBUG,	setifflags),
 	DEF_CMD("-debug",	-IFF_DEBUG,	setifflags),
-#ifdef notdef
+#ifdef IFF_PPROMISC
 	DEF_CMD("promisc",	IFF_PPROMISC,	setifflags),
 	DEF_CMD("-promisc",	-IFF_PPROMISC,	setifflags),
-#endif
+#endif /* IFF_PPROMISC */
 	DEF_CMD("add",		IFF_UP,		notealias),
 	DEF_CMD("alias",	IFF_UP,		notealias),
 	DEF_CMD("-alias",	-IFF_UP,	notealias),
@@ -1039,39 +1067,65 @@ static struct cmd basic_cmds[] = {
 	DEF_CMD("-link1",	-IFF_LINK1,	setifflags),
 	DEF_CMD("link2",	IFF_LINK2,	setifflags),
 	DEF_CMD("-link2",	-IFF_LINK2,	setifflags),
-#ifdef notdef
+#ifdef IFF_MONITOR
 	DEF_CMD("monitor",	IFF_MONITOR:,	setifflags),
 	DEF_CMD("-monitor",	-IFF_MONITOR,	setifflags),
+#endif /* IFF_MONITOR */
+#ifdef IFF_STATICARP
 	DEF_CMD("staticarp",	IFF_STATICARP,	setifflags),
 	DEF_CMD("-staticarp",	-IFF_STATICARP,	setifflags),
+#endif /* IFF_STATICARP */
+#ifdef IFCAP_RXCSUM
 	DEF_CMD("rxcsum",	IFCAP_RXCSUM,	setifcap),
 	DEF_CMD("-rxcsum",	-IFCAP_RXCSUM,	setifcap),
+#endif /* IFCAP_RXCSUM */
+#ifdef IFCAP_TXCSUM
 	DEF_CMD("txcsum",	IFCAP_TXCSUM,	setifcap),
 	DEF_CMD("-txcsum",	-IFCAP_TXCSUM,	setifcap),
+#endif /* IFCAP_TXCSUM */
+#ifdef IFCAP_NETCONS
 	DEF_CMD("netcons",	IFCAP_NETCONS,	setifcap),
 	DEF_CMD("-netcons",	-IFCAP_NETCONS,	setifcap),
+#endif /* IFCAP_NETCONS */
+#ifdef IFCAP_POLLING
 	DEF_CMD("polling",	IFCAP_POLLING,	setifcap),
 	DEF_CMD("-polling",	-IFCAP_POLLING,	setifcap),
+#endif /* IFCAP_POLLING */
+#ifdef IFCAP_TSO
 	DEF_CMD("tso",		IFCAP_TSO,	setifcap),
 	DEF_CMD("-tso",		-IFCAP_TSO,	setifcap),
+#endif /* IFCAP_TSO */
+#ifdef IFCAP_LRO
 	DEF_CMD("lro",		IFCAP_LRO,	setifcap),
 	DEF_CMD("-lro",		-IFCAP_LRO,	setifcap),
+#endif /* IFCAP_LRO */
+#ifdef IFCAP_WOL
 	DEF_CMD("wol",		IFCAP_WOL,	setifcap),
 	DEF_CMD("-wol",		-IFCAP_WOL,	setifcap),
+#endif /* IFCAP_WOL */
+#ifdef IFCAP_WOL_UCAST
 	DEF_CMD("wol_ucast",	IFCAP_WOL_UCAST,	setifcap),
 	DEF_CMD("-wol_ucast",	-IFCAP_WOL_UCAST,	setifcap),
+#endif /* IFCAP_WOL_UCAST */
+#ifdef IFCAP_WOL_MCAST
 	DEF_CMD("wol_mcast",	IFCAP_WOL_MCAST,	setifcap),
 	DEF_CMD("-wol_mcast",	-IFCAP_WOL_MCAST,	setifcap),
+#endif /* IFCAP_WOL_MCAST */
+#ifdef IFCAP_WOL_MAGIC
 	DEF_CMD("wol_magic",	IFCAP_WOL_MAGIC,	setifcap),
 	DEF_CMD("-wol_magic",	-IFCAP_WOL_MAGIC,	setifcap),
-#endif
+#endif /* IFCAP_WOL_MAGIC */
 	DEF_CMD("normal",	-IFF_LINK0,	setifflags),
 	DEF_CMD("compress",	IFF_LINK0,	setifflags),
 	DEF_CMD("noicmp",	IFF_LINK1,	setifflags),
 	DEF_CMD_ARG("mtu",			setifmtu),
 #ifdef notdef
 	DEF_CMD_ARG("name",			setifname),
-#endif
+#endif /* notdef */
+#ifdef IFCAP_AV
+	DEF_CMD("av", IFCAP_AV, setifcap),
+	DEF_CMD("-av", -IFCAP_AV, setifcap),
+#endif /* IFCAP_AV */
 };
 
 static __constructor void

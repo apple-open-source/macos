@@ -57,13 +57,13 @@ namespace WebCore {
         NETWORK_ERR = 19,
         ABORT_ERR = 20,
         URL_MISMATCH_ERR = 21,
-        QUOTA_EXCEEDED_ERR = 22,
+        QUOTA_EXCEEDED_ERR = 22
 
         // Introduced in File API:
         // http://www.w3.org/TR/file-upload/#dfn-fileerror
-#if ENABLE(FILE_READER) || ENABLE(FILE_WRITER)
-        NOT_READABLE_ERR = 24,
-        ENCODING_ERR = 26,
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+        , NOT_READABLE_ERR = 24
+        , ENCODING_ERR = 26
 #endif
     };
 
@@ -78,8 +78,17 @@ namespace WebCore {
 #if ENABLE(SVG)
         , SVGExceptionType
 #endif
-    };        
-    
+#if ENABLE(DATABASE)
+        , SQLExceptionType
+#endif
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+        , FileExceptionType
+#endif
+#if ENABLE(INDEXED_DATABASE)
+        , IDBDatabaseExceptionType
+#endif
+    };
+
 
     struct ExceptionCodeDescription {
         const char* typeName; // has spaces and is suitable for use in exception description strings; maximum length is 10 characters

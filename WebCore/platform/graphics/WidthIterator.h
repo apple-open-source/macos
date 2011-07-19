@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2008, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Holger Hans Peter Freyther
  *
  * This library is free software; you can redistribute it and/or
@@ -33,7 +33,7 @@ class SimpleFontData;
 class TextRun;
 
 struct WidthIterator {
-    WidthIterator(const Font*, const TextRun&, HashSet<const SimpleFontData*>* fallbackFonts = 0, bool accountForGlyphBounds = false);
+    WidthIterator(const Font*, const TextRun&, HashSet<const SimpleFontData*>* fallbackFonts = 0, bool accountForGlyphBounds = false, bool forTextEmphasis = false);
 
     void advance(int to, GlyphBuffer* = 0);
     bool advanceOneCharacter(float& width, GlyphBuffer* = 0);
@@ -50,9 +50,9 @@ struct WidthIterator {
 
     unsigned m_currentCharacter;
     float m_runWidthSoFar;
-    float m_padding;
-    float m_padPerSpace;
-    float m_finalRoundingWidth;
+    float m_expansion;
+    float m_expansionPerOpportunity;
+    bool m_isAfterExpansion;
 
 private:
     UChar32 normalizeVoicingMarks(int currentCharacter);
@@ -63,6 +63,7 @@ private:
     float m_minGlyphBoundingBoxY;
     float m_firstGlyphOverflow;
     float m_lastGlyphOverflow;
+    bool m_forTextEmphasis;
 };
 
 }

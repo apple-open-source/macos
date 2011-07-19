@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2008
+ * Copyright (c) 1996, 1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -40,11 +40,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -70,11 +69,6 @@
 # include "emul/fnmatch.h"
 #endif /* HAVE_FNMATCH */
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: testsudoers.c,v 1.128 2008/11/19 17:01:20 millert Exp $";
-#endif /* lint */
-
-
 /*
  * Globals
  */
@@ -85,16 +79,6 @@ struct interface *interfaces;
 struct sudo_user sudo_user;
 struct passwd *list_pw;
 extern int parse_error;
-
-/* passwd/group redirection for pwutil.c */
-void (*my_setgrent) __P((void)) = setgrent;
-void (*my_endgrent) __P((void)) = endgrent;
-struct group *(*my_getgrnam) __P((const char *)) = getgrnam;
-struct group *(*my_getgrgid) __P((gid_t)) = getgrgid;
-void (*my_setpwent) __P((void)) = setpwent;
-void (*my_endpwent) __P((void)) = endpwent;
-struct passwd *(*my_getpwnam) __P((const char *)) = getpwnam;
-struct passwd *(*my_getpwuid) __P((uid_t)) = getpwuid;
 
 /* For getopt(3) */
 extern char *optarg;
@@ -116,18 +100,18 @@ void usage __P((void)) __attribute__((__noreturn__));
 void set_runasgr __P((char *));
 void set_runaspw __P((char *));
 
-extern void ts_setgrfile __P((const char *));
-extern void ts_setgrent __P((void));
-extern void ts_endgrent __P((void));
-extern struct group *ts_getgrent __P((void));
-extern struct group *ts_getgrnam __P((const char *));
-extern struct group *ts_getgrgid __P((gid_t));
-extern void ts_setpwfile __P((const char *));
-extern void ts_setpwent __P((void));
-extern void ts_endpwent __P((void));
-extern struct passwd *ts_getpwent __P((void));
-extern struct passwd *ts_getpwnam __P((const char *));
-extern struct passwd *ts_getpwuid __P((uid_t));
+extern void setgrfile __P((const char *));
+extern void setgrent __P((void));
+extern void endgrent __P((void));
+extern struct group *getgrent __P((void));
+extern struct group *getgrnam __P((const char *));
+extern struct group *getgrgid __P((gid_t));
+extern void setpwfile __P((const char *));
+extern void setpwent __P((void));
+extern void endpwent __P((void));
+extern struct passwd *getpwent __P((void));
+extern struct passwd *getpwnam __P((const char *));
+extern struct passwd *getpwuid __P((uid_t));
 
 int
 main(argc, argv)
@@ -184,20 +168,10 @@ main(argc, argv)
     NewArgv = argv;
 
     /* Set group/passwd file and init the cache. */
-    if (grfile) {
-	my_setgrent = ts_setgrent;
-	my_endgrent = ts_endgrent;
-	my_getgrnam = ts_getgrnam;
-	my_getgrgid = ts_getgrgid;
-	ts_setgrfile(grfile);
-    }
-    if (pwfile) {
-	my_setpwent = ts_setpwent;
-	my_endpwent = ts_endpwent;
-	my_getpwnam = ts_getpwnam;
-	my_getpwuid = ts_getpwuid;
-	ts_setpwfile(pwfile);
-    }
+    if (grfile)
+	setgrfile(grfile);
+    if (pwfile)
+	setpwfile(pwfile);
     sudo_setpwent();
     sudo_setgrent();
 
@@ -373,8 +347,9 @@ set_fqdn()
 }
 
 FILE *
-open_sudoers(path, keepopen)
+open_sudoers(path, isdir, keepopen)
     const char *path;
+    int isdir;
     int *keepopen;
 {
     return(fopen(path, "r"));
@@ -386,11 +361,11 @@ init_envtables()
     return;
 }
 
-void
+int
 set_perms(perm)
     int perm;
 {
-    return;
+    return(1);
 }
 
 void

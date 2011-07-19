@@ -28,6 +28,7 @@
 
 #include <list>
 #include <security_utilities/globalizer.h>
+#include <auto_zone.h>
 
 SecPointerBase::SecPointerBase(const SecPointerBase& p)
 {
@@ -38,6 +39,18 @@ SecPointerBase::SecPointerBase(const SecPointerBase& p)
 	ptr = p.ptr;
 }
 
+
+
+
+static void CheckForRelease(SecCFObject* ptr)
+{
+	CFTypeRef tr = ptr->operator CFTypeRef();
+	int retainCount = CFGetRetainCount(tr);
+	if (retainCount == 1 || retainCount == -1)
+	{
+		ptr->aboutToDestruct();
+	}
+}
 
 
 
@@ -56,6 +69,7 @@ SecPointerBase::~SecPointerBase()
 {
 	if (ptr)
 	{
+		CheckForRelease(ptr);
 		CFRelease(ptr->operator CFTypeRef());
 	}
 }
@@ -71,6 +85,7 @@ SecPointerBase& SecPointerBase::operator = (const SecPointerBase& p)
 	}
 	if (ptr)
 	{
+		CheckForRelease(ptr);
 		CFRelease(ptr->operator CFTypeRef());
 	}
 	ptr = p.ptr;
@@ -87,6 +102,7 @@ void SecPointerBase::assign(SecCFObject * p)
 	}
 	if (ptr)
 	{
+		CheckForRelease(ptr);
 		CFRelease(ptr->operator CFTypeRef());
 	}
 	ptr = p;
@@ -98,6 +114,7 @@ void SecPointerBase::copy(SecCFObject * p)
 {
 	if (ptr)
 	{
+		CheckForRelease(ptr);
 		CFRelease(ptr->operator CFTypeRef());
 	}
 	
@@ -128,8 +145,6 @@ SecCFObject::required(CFTypeRef cfTypeRef, OSStatus error)
 	return object;
 }
 
-
-				
 void *
 SecCFObject::allocate(size_t size, const CFClass &cfclass) throw(std::bad_alloc)
 {
@@ -153,8 +168,47 @@ void
 SecCFObject::operator delete(void *object) throw()
 {
 	CFTypeRef cfType = reinterpret_cast<CFTypeRef>(reinterpret_cast<const uint8_t *>(object) - kAlignedRuntimeSize);
-	CFRelease(cfType);
+    if (CF_IS_COLLECTABLE(cfType))
+    {
+        return;
+    }
+    
+    CFAllocatorRef allocator = CFGetAllocator(cfType);
+    CFAllocatorDeallocate(allocator, (void*) cfType);
 }
+
+SecCFObject::SecCFObject()
+{
+    mRetainCount = 1;
+    mRetainSpinLock = OS_SPINLOCK_INIT;
+}
+
+uint32_t SecCFObject::updateRetainCount(intptr_t direction, uint32_t *oldCount)
+{
+    OSSpinLockLock(&mRetainSpinLock);
+
+    if (oldCount != NULL)
+    {
+        *oldCount = mRetainCount;
+    }
+    
+    if (direction != -1 || mRetainCount != 0)
+    {
+        // if we are decrementing
+        if (direction == -1 || UINT32_MAX != mRetainCount)
+        {
+            mRetainCount += direction;
+        }
+    }
+    
+    uint32_t result = mRetainCount;
+
+    OSSpinLockUnlock(&mRetainSpinLock);
+    
+    return result;
+}
+
+
 
 SecCFObject::~SecCFObject()
 {
@@ -198,4 +252,12 @@ SecCFObject::handle(bool retain) throw()
 void
 SecCFObject::aboutToDestruct()
 {
+}
+
+
+
+Mutex*
+SecCFObject::getMutexForObject()
+{
+	return NULL; // we only worry about descendants of KeychainImpl and ItemImpl
 }

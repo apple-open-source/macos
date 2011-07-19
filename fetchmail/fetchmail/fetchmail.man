@@ -10,7 +10,7 @@
 .\" Load www macros to process .URL requests, this requires groff:
 .mso www.tmac
 .\"
-.TH fetchmail 1 "fetchmail 6.3.10" "fetchmail" "fetchmail reference manual"
+.TH fetchmail 1 "fetchmail 6.3.18" "fetchmail" "fetchmail reference manual"
 
 .SH NAME
 fetchmail \- fetch mail from a POP, IMAP, ETRN, or ODMR-capable server
@@ -38,7 +38,40 @@ While \fBfetchmail\fP is primarily intended to be used over on-demand
 TCP/IP links (such as SLIP or PPP connections), it may also be useful as
 a message transfer agent for sites which refuse for security reasons to
 permit (sender-initiated) SMTP transactions with sendmail.
+
+.SS SUPPORT, TROUBLESHOOTING
 .PP
+For troubleshooting, tracing and debugging, you need to increase
+fetchmail's verbosity to actually see what happens. To do that, please
+run \fBboth of the two following commands,
+adding all of the options you'd normally use.\fP
+
+.IP
+.nf
+env LC_ALL=C fetchmail -V -v --nodetach --nosyslog
+.fi
+.IP
+(This command line prints in English how fetchmail understands your
+configuration.)
+
+.IP
+.nf
+env LC_ALL=C fetchmail -vvv  --nodetach --nosyslog
+.fi
+.IP
+(This command line actually runs fetchmail with verbose English output.)
+.PP
+Also see 
+.URL "http://fetchmail.berlios.de/fetchmail-FAQ.html#G3" "item #G3 in fetchmail's FAQ"
+.PP
+You can omit the LC_ALL=C part above if you want output in the local
+language (if supported). However if you are posting to mailing lists,
+please leave it in. The maintainers do not necessarily understand your
+language, please use English.
+
+
+
+.SS CONCEPTS
 If \fBfetchmail\fP is used with a POP or an IMAP server (but not with
 ETRN or ODMR), it has two fundamental modes of operation for each user
 account from which it retrieves mail: \fIsingledrop\fP- and
@@ -312,7 +345,8 @@ Obsolete version of \-\-service that does not take service names.
 .br
 The principal option permits you to specify a service principal for
 mutual authentication.  This is applicable to POP3 or IMAP with Kerberos
-authentication.
+4 authentication only.  It does not apply to Kerberos 5 or GSSAPI.  This
+option may be removed in a future fetchmail version.
 .TP
 .B \-t <seconds> | \-\-timeout <seconds>
 (Keyword: timeout)
@@ -462,10 +496,10 @@ to try appropriate protocols depending on context.
 (Keyword: sslcertck)
 .br
 Causes fetchmail to strictly check the server certificate against a set of
-local trusted certificates (see the \fBsslcertpath\fP option). If the server
-certificate cannot be obtained or is not signed by one of the trusted ones
-(directly or indirectly), the SSL connection will fail, regardless of
-the \fBsslfingerprint\fP option.
+local trusted certificates (see the \fBsslcertfile\fP and \fBsslcertpath\fP
+options). If the server certificate cannot be obtained or is not signed by one
+of the trusted ones (directly or indirectly), the SSL connection will fail,
+regardless of the \fBsslfingerprint\fP option.
 .IP
 Note that CRL (certificate revocation lists) are only supported in
 OpenSSL 0.9.7 and newer! Your system clock should also be reasonably
@@ -474,17 +508,41 @@ accurate when using this option.
 Note that this optional behavior may become default behavior in future
 fetchmail versions.
 .TP
+.B \-\-sslcertfile <file>
+(Keyword: sslcertfile, since v6.3.17)
+.br
+Sets the file fetchmail uses to look up local certificates.  The default is
+empty.  This can be given in addition to \fB\-\-sslcertpath\fP below, and
+certificates specified in \fB\-\-sslcertfile\fP will be processed before those
+in \fB\-\-sslcertpath\fP.  The option can be used in addition to
+\fB\-\-sslcertpath\fP.
+.IP
+The file is a text file. It contains the concatenation of trusted CA
+certificates in PEM format.
+.IP
+Note that using this option will suppress loading the default SSL trusted CA
+certificates file unless you set the environment variable
+\fBFETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS\fP to a non-empty value.
+.TP
 .B \-\-sslcertpath <directory>
 (Keyword: sslcertpath)
 .br
-Sets the directory fetchmail uses to look up local certificates. The default
-is your OpenSSL default one. The directory must be hashed as OpenSSL expects
-it - every time you add or modify a certificate in the directory, you need
-to use the \fBc_rehash\fP tool (which comes with OpenSSL in the tools/
-subdirectory).
+Sets the directory fetchmail uses to look up local certificates. The default is
+your OpenSSL default directory. The directory must be hashed the way OpenSSL
+expects it - every time you add or modify a certificate in the directory, you
+need to use the \fBc_rehash\fP tool (which comes with OpenSSL in the tools/
+subdirectory). Also, after OpenSSL upgrades, you may need to run
+\fBc_rehash\fP; particularly when upgrading from 0.9.X to 1.0.0.
+.IP
+This can be given in addition to \fB\-\-sslcertfile\fP above, which see for
+precedence rules.
+.IP
+Note that using this option will suppress adding the default SSL trusted CA
+certificates directory unless you set the environment variable
+\fBFETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS\fP to a non-empty value.
 .TP
 .B \-\-sslcommonname <common name>
-(Keyword: sslcommonname)
+(Keyword: sslcommonname; since v6.3.9)
 .br
 Use of this option is discouraged. Before using it, contact the
 administrator of your upstream server and ask for a proper SSL
@@ -579,19 +637,32 @@ be comma-separated.
 .B \-m <command> | \-\-mda <command>
 (Keyword: mda)
 .br
-You can force mail to be passed to an MDA directly
-(rather than forwarded to port 25) with the \-\-mda or \-m option.
+This option lets \fBfetchmail\fP use a Message or Local Delivery Agent
+(MDA or LDA) directly, rather than forward via SMTP or LMTP.
 
-To
-avoid losing mail, use this option only with MDAs like maildrop or
-MTAs like sendmail that return a nonzero status on disk-full and other
-resource-exhaustion errors; the nonzero status tells fetchmail that
-delivery failed and prevents the message from being deleted off the
-server.
+To avoid losing mail, use this option only with MDAs like maildrop or
+MTAs like sendmail that exit with a nonzero status on disk-full and other
+delivery errors; the nonzero status tells fetchmail that delivery failed
+and prevents the message from being deleted on the server.
 
-If \fBfetchmail\fP is running as root, it sets its user id to
-that of the target user while delivering mail through an MDA.  Some
-possible MDAs are "/usr/sbin/sendmail \-i \-f %F \-\- %T" (\fBNote:\fP
+If \fBfetchmail\fP is running as root, it sets its user id while
+delivering mail through an MDA as follows:  First, the FETCHMAILUSER,
+LOGNAME, and USER environment variables are checked in this order. The
+value of the first variable from his list that is defined (even if it is
+empty!) is looked up in the system user database. If none of the
+variables is defined, fetchmail will use the real user id it was started
+with. If one of the variables was defined, but the user stated there
+isn't found, fetchmail continues running as root, without checking
+remaining variables on the list.  Practically, this means that if you
+run fetchmail as root (not recommended), it is most useful to define the
+FETCHMAILUSER environment variable to set the user that the MDA should
+run as. Some MDAs (such as maildrop) are designed to be setuid root and
+setuid to the recipient's user id, so you don't lose functionality this
+way even when running fetchmail as unprivileged user.  Check the MDA's
+manual for details.
+
+Some possible MDAs are "/usr/sbin/sendmail \-i \-f %F \-\- %T"
+(\fBNote:\fP
 some several older or vendor sendmail versions mistake \-\- for an
 address, rather than an indicator to mark the end of the option arguments),
 "/usr/bin/deliver" and "/usr/bin/maildrop \-d %T".  Local delivery
@@ -648,11 +719,27 @@ port 25 will (in accordance with RFC 2033) not be accepted.
 .br
 Append fetched mail to a BSMTP file.  This simply contains the SMTP
 commands that would normally be generated by fetchmail when passing
-mail to an SMTP listener daemon.  An argument of '\-' causes the mail
-to be written to standard output.  Note that fetchmail's
-reconstruction of MAIL FROM and RCPT TO lines is not guaranteed
-correct; the caveats discussed under THE USE AND ABUSE OF MULTIDROP
-MAILBOXES below apply.
+mail to an SMTP listener daemon.
+
+An argument of '\-' causes the SMTP batch to be written to standard
+output, which is of limited use: this only makes sense for debugging,
+because fetchmail's regular output is interspersed on the same channel,
+so this isn't suitable for mail delivery. This special mode may be
+removed in a later release.
+
+Note that fetchmail's reconstruction of MAIL FROM and RCPT TO lines is
+not guaranteed correct; the caveats discussed under THE USE AND ABUSE OF
+MULTIDROP MAILBOXES below apply.  This mode has precedence before
+\-\-mda and SMTP/LMTP.
+.TP
+.B \-\-bad\-header {reject|accept}
+(Keyword: bad\-header; since v6.3.15)
+.br
+Specify how fetchmail is supposed to treat messages with bad headers,
+i. e. headers with bad syntax. Traditionally, fetchmail has rejected such
+messages, but some distributors modified fetchmail to accept them. You can now
+configure fetchmail's behaviour per server.
+
 .SS Resource Limit Control Options
 .TP
 .B \-l <maxbytes> | \-\-limit <maxbytes>
@@ -831,8 +918,8 @@ excruciating exactness, \fBkerberos_v4\fP), \fBgssapi\fP,
 When \fBany\fP (the default) is specified, fetchmail tries
 first methods that don't require a password (EXTERNAL, GSSAPI, KERBEROS\ IV,
 KERBEROS\ 5); then it looks for methods that mask your password
-(CRAM-MD5, X\-OTP - note that NTLM and MSN are not autoprobed for POP3
-and MSN is only supported for POP3); and only if the server doesn't
+(CRAM-MD5, NTLM, X\-OTP - note that MSN is only supported for POP3, but not
+autoprobed); and only if the server doesn't
 support any of those will it ship your password en clair.  Other values
 may be used to force various authentication methods
 (\fBssh\fP suppresses authentication and is thus useful for IMAP PREAUTH).
@@ -1111,6 +1198,15 @@ username and the part to the right as the NTLM domain.
 
 .SS Secure Socket Layers (SSL) and Transport Layer Security (TLS)
 .PP
+Note that fetchmail currently uses the OpenSSL library, which is
+severely underdocumented, so failures may occur just because the
+programmers are not aware of OpenSSL's requirement of the day.
+For instance, since v6.3.16, fetchmail calls
+OpenSSL_add_all_algorithms(), which is necessary to support certificates
+with SHA256 on OpenSSL 0.9.8 -- this information is deeply hidden in the
+documentation and not at all obvious.  Please do not hesitate to report
+subtle SSL failures.
+.PP
 You can access SSL encrypted services by specifying the \-\-ssl option.
 You can also do this using the "ssl" user option in the .fetchmailrc
 file. With SSL encryption enabled, queries are initiated over a
@@ -1130,7 +1226,8 @@ protocol and negotiate TLS via special command. The \-\-sslcertck
 command line or sslcertck run control file option should be used to
 force strict certificate checking - see below.
 .PP
-.B \-\-sslcertck is recommended: When connecting to an SSL or TLS encrypted server, the 
+.B \-\-sslcertck is recommended:
+When connecting to an SSL or TLS encrypted server, the
 server presents a certificate to the client for validation.  The
 certificate is checked to verify that the common name in the certificate
 matches the name of the server being contacted and that the effective
@@ -1142,7 +1239,7 @@ certificate. If the \-\-sslcertck command line option or sslcertck run
 control file option is used, fetchmail will instead abort if any of
 these checks fail, because it must assume that there is a
 man-in-the-middle attack in this scenario, hence fetchmail must not
-expose cleartest passwords. Use of the sslcertck or \-\-sslcertck option
+expose cleartext passwords. Use of the sslcertck or \-\-sslcertck option
 is therefore advised.
 .PP
 Some SSL encrypted servers may request a client side certificate.  A client
@@ -1595,7 +1692,7 @@ set no softbounce	\&	\&	T{
 Delete permanently undeliverable mail. It is recommended to use this
 option if the configuration has been thoroughly tested.
 T}
-set    spambounce	\&	\&	T{
+set    softbounce	\&	\&	T{
 Keep permanently undeliverable mail as though a temporary error had
 occurred (default).
 T}
@@ -1703,6 +1800,9 @@ T}
 esmtppassword	\&	\&	T{
 Set password for RFC2554 authentication to the ESMTP server.
 T}
+bad-header	\&	\&	T{
+How to treat messages with a bad header. Can be reject (default) or accept.
+T}
 .TE
 
 Here are the legal user descriptions and options:
@@ -1731,10 +1831,16 @@ ssl     	\&	\&	T{
 Connect to server over the specified base protocol using SSL encryption
 T}
 sslcert 	\&	\&	T{
-Specify file for client side public SSL certificate
+Specify file for \fBclient side\fP public SSL certificate
+T}
+sslcertfile	\&	\&	T{
+Specify file with trusted CA certificates
+T}
+sslcertpath	\&	\&	T{
+Specify c_rehash-ed directory with trusted CA certificates.
 T}
 sslkey  	\&	\&	T{
-Specify file for client side private SSL key
+Specify file for \fBclient side\fP private SSL key
 T}
 sslproto	\&	\&	T{
 Force ssl protocol for connection
@@ -2652,8 +2758,16 @@ lock file to help prevent concurrent runs (root mode, Linux systems).
 lock file to help prevent concurrent runs (root mode, systems without /var/run).
 
 .SH ENVIRONMENT
-.B FETCHMAILUSER:
-If the FETCHMAILUSER variable is set, it is used as the name of the
+.IP \fBFETCHMAILHOME\fP
+If this environment variable is set to a valid and
+existing directory name, fetchmail will read $FETCHMAILHOME/fetchmailrc
+(the dot is missing in this case), $FETCHMAILHOME/.fetchids and
+$FETCHMAILHOME/.fetchmail.pid rather than from the user's home
+directory.  The .netrc file is always looked for in the the invoking
+user's home directory regardless of FETCHMAILHOME's setting.
+
+.IP \fBFETCHMAILUSER\fP
+If this environment variable is set, it is used as the name of the
 calling user (default local name) for purposes such as mailing error
 notifications.  Otherwise, if either the LOGNAME or USER variable is
 correctly set (e.g. the corresponding UID matches the session user ID)
@@ -2662,37 +2776,34 @@ then that name is used as the default local name.  Otherwise
 session ID (this elaborate logic is designed to handle the case of
 multiple names per userid gracefully).
 
-.B FETCHMAILHOME:
-If the environment variable FETCHMAILHOME is set to a valid and
-existing directory name, fetchmail will read $FETCHMAILHOME/fetchmailrc
-(the dot is missing in this case), $FETCHMAILHOME/.fetchids and
-$FETCHMAILHOME/.fetchmail.pid rather than from the user's home
-directory.  The .netrc file is always looked for in the the invoking
-user's home directory regardless of FETCHMAILHOME's setting.
+.IP \fBFETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS\fP
+(since v6.3.17):
+If this environment variable is set and not empty, fetchmail will always load
+the default X.509 trusted certificate locations for SSL/TLS CA certificates,
+even if \fB\-\-sslcertfile\fP and \fB\-\-sslcertpath\fP are given.  The latter locations take precedence over the system default locations.
+This is useful in case there are broken certificates in the system directories
+and the user has no administrator privileges to remedy the problem.
 
-.B HOME_ETC:
+.IP \fBHOME_ETC\fP
 If the HOME_ETC variable is set, fetchmail will read
 $HOME_ETC/.fetchmailrc instead of ~/.fetchmailrc.
 
 If HOME_ETC and FETCHMAILHOME are both set, HOME_ETC will be ignored.
 
-.B SOCKS_CONF:
+.IP \fBSOCKS_CONF\fP
 (only if SOCKS support is compiled in) this variable is used by the
 socks library to find out which configuration file it should read. Set
 this to /dev/null to bypass the SOCKS proxy.
 
 .SH SIGNALS
-If a
-\fBfetchmail\fP
-daemon is running as root, SIGUSR1 wakes it up from its sleep phase and
-forces a poll of all non-skipped servers. For compatibility reasons,
-SIGHUP can also be used in 6.3.X but may not be available in future
+If a \fBfetchmail\fP daemon is running as root, SIGUSR1 wakes it up from its
+sleep phase and forces a poll of all non-skipped servers. For compatibility
+reasons, SIGHUP can also be used in 6.3.X but may not be available in future
 fetchmail versions.
 .PP
-If
-\fBfetchmail\fP
-is running in daemon mode as non-root, use SIGUSR1 to wake it (this is
-so SIGHUP due to logout can retain the default action of killing it).
+If \fBfetchmail\fP is running in daemon mode as non-root, use SIGUSR1 to wake
+it (this is so SIGHUP due to logout can retain the default action of killing
+it).
 .PP
 Running \fBfetchmail\fP in foreground while a background fetchmail is
 running will do whichever of these is appropriate to wake it up.

@@ -1,8 +1,8 @@
---- creat.c.orig	2006-09-16 19:12:44.000000000 -0700
-+++ creat.c	2006-09-17 00:17:18.000000000 -0700
-@@ -37,14 +37,26 @@
+--- creat.c.orig	2009-11-06 10:36:38.000000000 -0800
++++ creat.c	2009-11-06 10:39:44.000000000 -0800
+@@ -33,14 +33,26 @@ static char sccsid[] = "@(#)creat.c	8.1 
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/compat-43/creat.c,v 1.7 2002/03/22 21:51:56 obrien Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/compat-43/creat.c,v 1.8 2007/01/09 00:27:49 imp Exp $");
  
 +
  #include "namespace.h"

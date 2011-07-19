@@ -12,65 +12,85 @@
 //===----------------------------------------------------------------------===//
 
 #include "CodeGenInstruction.h"
+#include "CodeGenTarget.h"
 #include "Record.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/STLExtras.h"
 #include <set>
 using namespace llvm;
 
 static void ParseConstraint(const std::string &CStr, CodeGenInstruction *I) {
-  // FIXME: Only supports TIED_TO for now.
+  // EARLY_CLOBBER: @early $reg
+  std::string::size_type wpos = CStr.find_first_of(" \t");
+  std::string::size_type start = CStr.find_first_not_of(" \t");
+  std::string Tok = CStr.substr(start, wpos - start);
+  if (Tok == "@earlyclobber") {
+    std::string Name = CStr.substr(wpos+1);
+    wpos = Name.find_first_not_of(" \t");
+    if (wpos == std::string::npos)
+      throw "Illegal format for @earlyclobber constraint: '" + CStr + "'";
+    Name = Name.substr(wpos);
+    std::pair<unsigned,unsigned> Op =
+      I->ParseOperandName(Name, false);
+
+    // Build the string for the operand
+    if (!I->OperandList[Op.first].Constraints[Op.second].isNone())
+      throw "Operand '" + Name + "' cannot have multiple constraints!";
+    I->OperandList[Op.first].Constraints[Op.second] =
+      CodeGenInstruction::ConstraintInfo::getEarlyClobber();
+    return;
+  }
+
+  // Only other constraint is "TIED_TO" for now.
   std::string::size_type pos = CStr.find_first_of('=');
   assert(pos != std::string::npos && "Unrecognized constraint");
-  std::string::size_type start = CStr.find_first_not_of(" \t");
-  std::string Name = CStr.substr(start, pos);
-  
+  start = CStr.find_first_not_of(" \t");
+  std::string Name = CStr.substr(start, pos - start);
+
   // TIED_TO: $src1 = $dst
-  std::string::size_type wpos = Name.find_first_of(" \t");
+  wpos = Name.find_first_of(" \t");
   if (wpos == std::string::npos)
     throw "Illegal format for tied-to constraint: '" + CStr + "'";
   std::string DestOpName = Name.substr(0, wpos);
   std::pair<unsigned,unsigned> DestOp = I->ParseOperandName(DestOpName, false);
-  
+
   Name = CStr.substr(pos+1);
   wpos = Name.find_first_not_of(" \t");
   if (wpos == std::string::npos)
     throw "Illegal format for tied-to constraint: '" + CStr + "'";
-  
+
   std::pair<unsigned,unsigned> SrcOp =
   I->ParseOperandName(Name.substr(wpos), false);
   if (SrcOp > DestOp)
     throw "Illegal tied-to operand constraint '" + CStr + "'";
-  
-  
+
+
   unsigned FlatOpNo = I->getFlattenedOperandNumber(SrcOp);
-  // Build the string for the operand.
-  std::string OpConstraint =
-  "((" + utostr(FlatOpNo) + " << 16) | (1 << TOI::TIED_TO))";
-  
-  
-  if (!I->OperandList[DestOp.first].Constraints[DestOp.second].empty())
+
+  if (!I->OperandList[DestOp.first].Constraints[DestOp.second].isNone())
     throw "Operand '" + DestOpName + "' cannot have multiple constraints!";
-  I->OperandList[DestOp.first].Constraints[DestOp.second] = OpConstraint;
+  I->OperandList[DestOp.first].Constraints[DestOp.second] =
+    CodeGenInstruction::ConstraintInfo::getTied(FlatOpNo);
 }
 
 static void ParseConstraints(const std::string &CStr, CodeGenInstruction *I) {
   // Make sure the constraints list for each operand is large enough to hold
   // constraint info, even if none is present.
-  for (unsigned i = 0, e = I->OperandList.size(); i != e; ++i) 
+  for (unsigned i = 0, e = I->OperandList.size(); i != e; ++i)
     I->OperandList[i].Constraints.resize(I->OperandList[i].MINumOperands);
-  
+
   if (CStr.empty()) return;
-  
+
   const std::string delims(",");
   std::string::size_type bidx, eidx;
-  
+
   bidx = CStr.find_first_not_of(delims);
   while (bidx != std::string::npos) {
     eidx = CStr.find_first_of(delims, bidx);
     if (eidx == std::string::npos)
       eidx = CStr.length();
-    
-    ParseConstraint(CStr.substr(bidx, eidx), I);
+
+    ParseConstraint(CStr.substr(bidx, eidx - bidx), I);
     bidx = CStr.find_first_not_of(delims, eidx);
   }
 }
@@ -94,45 +114,53 @@ CodeGenInstruction::CodeGenInstruction(Record *R, const std::string &AsmStr)
   isTerminator = R->getValueAsBit("isTerminator");
   isReMaterializable = R->getValueAsBit("isReMaterializable");
   hasDelaySlot = R->getValueAsBit("hasDelaySlot");
-  usesCustomDAGSchedInserter = R->getValueAsBit("usesCustomDAGSchedInserter");
+  usesCustomInserter = R->getValueAsBit("usesCustomInserter");
   hasCtrlDep   = R->getValueAsBit("hasCtrlDep");
   isNotDuplicable = R->getValueAsBit("isNotDuplicable");
   hasSideEffects = R->getValueAsBit("hasSideEffects");
-  mayHaveSideEffects = R->getValueAsBit("mayHaveSideEffects");
   neverHasSideEffects = R->getValueAsBit("neverHasSideEffects");
   isAsCheapAsAMove = R->getValueAsBit("isAsCheapAsAMove");
+  hasExtraSrcRegAllocReq = R->getValueAsBit("hasExtraSrcRegAllocReq");
+  hasExtraDefRegAllocReq = R->getValueAsBit("hasExtraDefRegAllocReq");
   hasOptionalDef = false;
   isVariadic = false;
+  ImplicitDefs = R->getValueAsListOfDefs("Defs");
+  ImplicitUses = R->getValueAsListOfDefs("Uses");
 
-  if (mayHaveSideEffects + neverHasSideEffects + hasSideEffects > 1)
+  if (neverHasSideEffects + hasSideEffects > 1)
     throw R->getName() + ": multiple conflicting side-effect flags set!";
 
-  DagInit *DI;
-  try {
-    DI = R->getValueAsDag("OutOperandList");
-  } catch (...) {
-    // Error getting operand list, just ignore it (sparcv9).
-    AsmString.clear();
-    OperandList.clear();
-    return;
-  }
-  NumDefs = DI->getNumArgs();
+  DagInit *OutDI = R->getValueAsDag("OutOperandList");
 
-  DagInit *IDI;
-  try {
-    IDI = R->getValueAsDag("InOperandList");
-  } catch (...) {
-    // Error getting operand list, just ignore it (sparcv9).
-    AsmString.clear();
-    OperandList.clear();
-    return;
-  }
-  DI = (DagInit*)(new BinOpInit(BinOpInit::CONCAT, DI, IDI, new DagRecTy))->Fold(R, 0);
-
+  if (DefInit *Init = dynamic_cast<DefInit*>(OutDI->getOperator())) {
+    if (Init->getDef()->getName() != "outs")
+      throw R->getName() + ": invalid def name for output list: use 'outs'";
+  } else
+    throw R->getName() + ": invalid output list: use 'outs'";
+    
+  NumDefs = OutDI->getNumArgs();
+    
+  DagInit *InDI = R->getValueAsDag("InOperandList");
+  if (DefInit *Init = dynamic_cast<DefInit*>(InDI->getOperator())) {
+    if (Init->getDef()->getName() != "ins")
+      throw R->getName() + ": invalid def name for input list: use 'ins'";
+  } else
+    throw R->getName() + ": invalid input list: use 'ins'";
+    
   unsigned MIOperandNo = 0;
   std::set<std::string> OperandNames;
-  for (unsigned i = 0, e = DI->getNumArgs(); i != e; ++i) {
-    DefInit *Arg = dynamic_cast<DefInit*>(DI->getArg(i));
+  for (unsigned i = 0, e = InDI->getNumArgs()+OutDI->getNumArgs(); i != e; ++i){
+    Init *ArgInit;
+    std::string ArgName;
+    if (i < NumDefs) {
+      ArgInit = OutDI->getArg(i);
+      ArgName = OutDI->getArgName(i);
+    } else {
+      ArgInit = InDI->getArg(i-NumDefs);
+      ArgName = InDI->getArgName(i-NumDefs);
+    }
+    
+    DefInit *Arg = dynamic_cast<DefInit*>(ArgInit);
     if (!Arg)
       throw "Illegal operand for the '" + R->getName() + "' instruction!";
 
@@ -143,7 +171,7 @@ CodeGenInstruction::CodeGenInstruction(Record *R, const std::string &AsmStr)
     if (Rec->isSubClassOf("Operand")) {
       PrintMethod = Rec->getValueAsString("PrintMethod");
       MIOpInfo = Rec->getValueAsDag("MIOperandInfo");
-      
+
       // Verify that MIOpInfo has an 'ops' root value.
       if (!dynamic_cast<DefInit*>(MIOpInfo->getOperator()) ||
           dynamic_cast<DefInit*>(MIOpInfo->getOperator())
@@ -163,46 +191,42 @@ CodeGenInstruction::CodeGenInstruction(Record *R, const std::string &AsmStr)
     } else if (Rec->getName() == "variable_ops") {
       isVariadic = true;
       continue;
-    } else if (!Rec->isSubClassOf("RegisterClass") && 
+    } else if (!Rec->isSubClassOf("RegisterClass") &&
                Rec->getName() != "ptr_rc" && Rec->getName() != "unknown")
       throw "Unknown operand class '" + Rec->getName() +
             "' in '" + R->getName() + "' instruction!";
 
     // Check that the operand has a name and that it's unique.
-    if (DI->getArgName(i).empty())
+    if (ArgName.empty())
       throw "In instruction '" + R->getName() + "', operand #" + utostr(i) +
         " has no name!";
-    if (!OperandNames.insert(DI->getArgName(i)).second)
+    if (!OperandNames.insert(ArgName).second)
       throw "In instruction '" + R->getName() + "', operand #" + utostr(i) +
         " has the same name as a previous operand!";
-    
-    OperandList.push_back(OperandInfo(Rec, DI->getArgName(i), PrintMethod, 
+
+    OperandList.push_back(OperandInfo(Rec, ArgName, PrintMethod,
                                       MIOperandNo, NumOps, MIOpInfo));
     MIOperandNo += NumOps;
   }
 
   // Parse Constraints.
   ParseConstraints(R->getValueAsString("Constraints"), this);
-  
+
   // For backward compatibility: isTwoAddress means operand 1 is tied to
   // operand 0.
   if (isTwoAddress) {
-    if (!OperandList[1].Constraints[0].empty())
+    if (!OperandList[1].Constraints[0].isNone())
       throw R->getName() + ": cannot use isTwoAddress property: instruction "
             "already has constraint set!";
-    OperandList[1].Constraints[0] = "((0 << 16) | (1 << TOI::TIED_TO))";
+    OperandList[1].Constraints[0] =
+      CodeGenInstruction::ConstraintInfo::getTied(0);
   }
-  
-  // Any operands with unset constraints get 0 as their constraint.
-  for (unsigned op = 0, e = OperandList.size(); op != e; ++op)
-    for (unsigned j = 0, e = OperandList[op].MINumOperands; j != e; ++j)
-      if (OperandList[op].Constraints[j].empty())
-        OperandList[op].Constraints[j] = "0";
-  
+
   // Parse the DisableEncoding field.
   std::string DisableEncoding = R->getValueAsString("DisableEncoding");
   while (1) {
-    std::string OpName = getToken(DisableEncoding, " ,\t");
+    std::string OpName;
+    tie(OpName, DisableEncoding) = getToken(DisableEncoding, " ,\t");
     if (OpName.empty()) break;
 
     // Figure out which operand this is.
@@ -227,15 +251,15 @@ unsigned CodeGenInstruction::getOperandNamed(const std::string &Name) const {
         "' does not have an operand named '$" + Name + "'!";
 }
 
-std::pair<unsigned,unsigned> 
+std::pair<unsigned,unsigned>
 CodeGenInstruction::ParseOperandName(const std::string &Op,
                                      bool AllowWholeOp) {
   if (Op.empty() || Op[0] != '$')
     throw TheDef->getName() + ": Illegal operand name: '" + Op + "'";
-  
+
   std::string OpName = Op.substr(1);
   std::string SubOpName;
-  
+
   // Check to see if this is $foo.bar.
   std::string::size_type DotIdx = OpName.find_first_of(".");
   if (DotIdx != std::string::npos) {
@@ -244,7 +268,7 @@ CodeGenInstruction::ParseOperandName(const std::string &Op,
       throw TheDef->getName() + ": illegal empty suboperand name in '" +Op +"'";
     OpName = OpName.substr(0, DotIdx);
   }
-  
+
   unsigned OpIdx = getOperandNamed(OpName);
 
   if (SubOpName.empty()) {  // If no suboperand name was specified:
@@ -253,16 +277,16 @@ CodeGenInstruction::ParseOperandName(const std::string &Op,
         SubOpName.empty())
       throw TheDef->getName() + ": Illegal to refer to"
             " whole operand part of complex operand '" + Op + "'";
-  
+
     // Otherwise, return the operand.
     return std::make_pair(OpIdx, 0U);
   }
-  
+
   // Find the suboperand number involved.
   DagInit *MIOpInfo = OperandList[OpIdx].MIOperandInfo;
   if (MIOpInfo == 0)
     throw TheDef->getName() + ": unknown suboperand name in '" + Op + "'";
-  
+
   // Find the operand with the right name.
   for (unsigned i = 0, e = MIOpInfo->getNumArgs(); i != e; ++i)
     if (MIOpInfo->getArgName(i) == SubOpName)
@@ -271,3 +295,22 @@ CodeGenInstruction::ParseOperandName(const std::string &Op,
   // Otherwise, didn't find it!
   throw TheDef->getName() + ": unknown suboperand name in '" + Op + "'";
 }
+
+
+/// HasOneImplicitDefWithKnownVT - If the instruction has at least one
+/// implicit def and it has a known VT, return the VT, otherwise return
+/// MVT::Other.
+MVT::SimpleValueType CodeGenInstruction::
+HasOneImplicitDefWithKnownVT(const CodeGenTarget &TargetInfo) const {
+  if (ImplicitDefs.empty()) return MVT::Other;
+  
+  // Check to see if the first implicit def has a resolvable type.
+  Record *FirstImplicitDef = ImplicitDefs[0];
+  assert(FirstImplicitDef->isSubClassOf("Register"));
+  const std::vector<MVT::SimpleValueType> &RegVTs = 
+    TargetInfo.getRegisterVTs(FirstImplicitDef);
+  if (RegVTs.size() == 1)
+    return RegVTs[0];
+  return MVT::Other;
+}
+

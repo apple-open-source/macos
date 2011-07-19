@@ -25,7 +25,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: bz2_opt.c,v 1.4 2000/11/18 22:42:31 aku Exp $
+ * CVS: $Id: bz2_opt.c,v 1.5 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -117,7 +117,7 @@ ClientData clientData;
 {
   TrfZipOptionBlock* o;
 
-  o = (TrfZipOptionBlock*) Tcl_Alloc (sizeof (TrfZipOptionBlock));
+  o = (TrfZipOptionBlock*) ckalloc (sizeof (TrfZipOptionBlock));
 
   o->mode  = TRF_UNKNOWN_MODE;
   o->level = 9;
@@ -149,7 +149,7 @@ DeleteOptions (options, clientData)
 Trf_Options options;
 ClientData  clientData;
 {
-  Tcl_Free ((VOID*) options);
+  ckfree ((VOID*) options);
 }
 
 /*

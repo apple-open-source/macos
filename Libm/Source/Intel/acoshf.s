@@ -471,4 +471,3 @@ acoshf_body:
 	flds		FRAME_SIZE( STACKP )
 #endif
 	ret
-	

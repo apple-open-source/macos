@@ -153,7 +153,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
                 }
             } else {
                 svgstyle->setBaselineShift(BS_LENGTH);
-                svgstyle->setBaselineShiftValue(primitiveValue);
+                svgstyle->setBaselineShiftValue(SVGLength::fromCSSPrimitiveValue(primitiveValue));
             }
 
             break;
@@ -162,7 +162,7 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         {
             HANDLE_INHERIT_AND_INITIAL(kerning, Kerning);
             if (primitiveValue)
-                svgstyle->setKerning(primitiveValue);
+                svgstyle->setKerning(SVGLength::fromCSSPrimitiveValue(primitiveValue));
             break;
         }
         case CSSPropertyDominantBaseline:
@@ -231,24 +231,43 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
         // end of ident only properties
         case CSSPropertyFill:
         {
-            HANDLE_INHERIT_AND_INITIAL(fillPaint, FillPaint)
-            if (value->isSVGPaint())
-                svgstyle->setFillPaint(static_cast<SVGPaint*>(value));
+            if (isInherit) {
+                const SVGRenderStyle* svgParentStyle = m_parentStyle->svgStyle();
+                svgstyle->setFillPaint(svgParentStyle->fillPaintType(), svgParentStyle->fillPaintColor(), svgParentStyle->fillPaintUri());
+                return;
+            }
+            if (isInitial) {
+                svgstyle->setFillPaint(SVGRenderStyle::initialFillPaintType(), SVGRenderStyle::initialFillPaintColor(), SVGRenderStyle::initialFillPaintUri());
+                return;
+            }
+            if (value->isSVGPaint()) {
+                SVGPaint* svgPaint = static_cast<SVGPaint*>(value);
+                svgstyle->setFillPaint(svgPaint->paintType(), colorFromSVGColorCSSValue(svgPaint, m_style->color()), svgPaint->uri());
+            }
             break;
         }
         case CSSPropertyStroke:
         {
-            HANDLE_INHERIT_AND_INITIAL(strokePaint, StrokePaint)
-            if (value->isSVGPaint())
-                svgstyle->setStrokePaint(static_cast<SVGPaint*>(value));
-            
+            if (isInherit) {
+                const SVGRenderStyle* svgParentStyle = m_parentStyle->svgStyle();
+                svgstyle->setStrokePaint(svgParentStyle->strokePaintType(), svgParentStyle->strokePaintColor(), svgParentStyle->strokePaintUri());
+                return;
+            }
+            if (isInitial) {
+                svgstyle->setStrokePaint(SVGRenderStyle::initialStrokePaintType(), SVGRenderStyle::initialStrokePaintColor(), SVGRenderStyle::initialStrokePaintUri());
+                return;
+            }
+            if (value->isSVGPaint()) {
+                SVGPaint* svgPaint = static_cast<SVGPaint*>(value);
+                svgstyle->setStrokePaint(svgPaint->paintType(), colorFromSVGColorCSSValue(svgPaint, m_style->color()), svgPaint->uri());
+            }
             break;
         }
         case CSSPropertyStrokeWidth:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeWidth, StrokeWidth)
             if (primitiveValue)
-                svgstyle->setStrokeWidth(primitiveValue);
+                svgstyle->setStrokeWidth(SVGLength::fromCSSPrimitiveValue(primitiveValue));
             break;
         }
         case CSSPropertyStrokeDasharray:
@@ -259,24 +278,25 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
 
             CSSValueList* dashes = static_cast<CSSValueList*>(value);
 
-            RefPtr<CSSValueList> array = CSSValueList::createCommaSeparated();
+            Vector<SVGLength> array;
             size_t length = dashes->length();
             for (size_t i = 0; i < length; ++i) {
                 CSSValue* currValue = dashes->itemWithoutBoundsCheck(i);
                 if (!currValue->isPrimitiveValue())
                     continue;
 
-                array->append(currValue);
+                CSSPrimitiveValue* dash = static_cast<CSSPrimitiveValue*>(dashes->itemWithoutBoundsCheck(i));
+                array.append(SVGLength::fromCSSPrimitiveValue(dash));
             }
 
-            svgstyle->setStrokeDashArray(array.release());
+            svgstyle->setStrokeDashArray(array);
             break;
         }
         case CSSPropertyStrokeDashoffset:
         {
             HANDLE_INHERIT_AND_INITIAL(strokeDashOffset, StrokeDashOffset)
             if (primitiveValue)
-                svgstyle->setStrokeDashOffset(primitiveValue);
+                svgstyle->setStrokeDashOffset(SVGLength::fromCSSPrimitiveValue(primitiveValue));
             break;
         }
         case CSSPropertyFillOpacity:
@@ -542,9 +562,9 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             break;
         case CSSPropertyWebkitSvgShadow: {
             if (isInherit)
-                return svgstyle->setShadow(m_parentStyle->svgStyle()->shadow() ? new ShadowData(*m_parentStyle->svgStyle()->shadow()) : 0);
+                return svgstyle->setShadow(adoptPtr(m_parentStyle->svgStyle()->shadow() ? new ShadowData(*m_parentStyle->svgStyle()->shadow()) : 0));
             if (isInitial || primitiveValue) // initial | none
-                return svgstyle->setShadow(0);
+                return svgstyle->setShadow(nullptr);
 
             if (!value->isValueList())
                 return;
@@ -568,9 +588,17 @@ void CSSStyleSelector::applySVGProperty(int id, CSSValue* value)
             ASSERT(!item->spread);
             ASSERT(!item->style);
                 
-            ShadowData* shadowData = new ShadowData(x, y, blur, 0, Normal, color.isValid() ? color : Color::transparent);
-            svgstyle->setShadow(shadowData);
+            OwnPtr<ShadowData> shadowData = adoptPtr(new ShadowData(x, y, blur, 0, Normal, false, color.isValid() ? color : Color::transparent));
+            svgstyle->setShadow(shadowData.release());
             return;
+        }
+        case CSSPropertyVectorEffect: {
+            HANDLE_INHERIT_AND_INITIAL(vectorEffect, VectorEffect)
+            if (!primitiveValue)
+                break;
+
+            svgstyle->setVectorEffect(*primitiveValue);
+            break;
         }
         default:
             // If you crash here, it's because you added a css property and are not handling it

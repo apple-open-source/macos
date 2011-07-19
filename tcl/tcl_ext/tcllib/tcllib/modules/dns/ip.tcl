@@ -9,17 +9,17 @@
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
 #
-# $Id: ip.tcl,v 1.12 2007/08/20 20:03:04 andreas_kupries Exp $
+# $Id: ip.tcl,v 1.14 2010/08/16 17:35:18 andreas_kupries Exp $
 
 # @mdgen EXCLUDE: ipMoreC.tcl
 
 package require Tcl 8.2;                # tcl minimum version
 
 namespace eval ip {
-    variable version 1.1.2
-    variable rcsid {$Id: ip.tcl,v 1.12 2007/08/20 20:03:04 andreas_kupries Exp $}
+    variable version 1.2
+    variable rcsid {$Id: ip.tcl,v 1.14 2010/08/16 17:35:18 andreas_kupries Exp $}
 
-    namespace export is version normalize equal type contract mask
+    namespace export is version normalize equal type contract mask collapse subtract
     #catch {namespace ensemble create}
 
     variable IPv4Ranges
@@ -68,7 +68,7 @@ proc ::ip::is {class ip} {
 proc ::ip::version {ip} {
     set version -1
     foreach {addr mask} [split $ip /] break
-    if {[string first $addr :] < 0 && [IPv4? $addr]} {
+    if {[IPv4? $addr]} {
         set version 4
     } elseif {[IPv6? $addr]} {
         set version 6
@@ -93,6 +93,81 @@ proc ::ip::equal {lhs rhs} {
     }
     return 1
 }
+
+proc ::ip::collapse {prefixlist} {
+    #puts **[llength $prefixlist]||$prefixlist
+
+    # Force mask parts into length notation for the following merge
+    # loop to work.
+    foreach ip $prefixlist {
+        foreach {addr mask} [SplitIp $ip] break
+        set nip $addr/[maskToLength [maskToInt $mask]]
+        #puts "prefix $ip = $nip"
+        lappend tmp $nip
+    }
+    set prefixlist $tmp
+
+    #puts @@[llength $prefixlist]||$prefixlist
+
+    set ret {}
+    set can_normalize_more 1
+    while {$can_normalize_more} {
+        set prefixlist [lsort -dict $prefixlist]
+
+        #puts ||[llength $prefixlist]||$prefixlist
+
+        set can_normalize_more 0
+
+        for {set idx 0} {$idx < [llength $prefixlist]} {incr idx} {
+            set nextidx [expr {$idx + 1}]
+
+            set item     [lindex $prefixlist $idx]
+            set nextitem [lindex $prefixlist $nextidx]
+
+            if {$nextitem eq ""} {
+                lappend ret $item
+                continue
+            }
+
+            set itemmask     [mask $item]
+            set nextitemmask [mask $nextitem]
+
+            set item [prefix $item]
+
+            if {$itemmask ne $nextitemmask} {
+                lappend ret $item/$itemmask
+                continue
+            }
+
+            set adjacentitem [intToString [nextNet $item $itemmask]]/$itemmask
+
+            if {$nextitem ne $adjacentitem} {
+                lappend ret $item/$itemmask
+                continue
+            }
+
+            set upmask [expr {$itemmask - 1}]
+            set upitem "$item/$upmask"
+
+            # Maybe just checking the llength of the result is enough ?
+            if {[reduceToAggregates [list $item $nextitem $upitem]] != [list $upitem]} {
+                lappend ret $item/$itemmask
+                continue
+            }
+
+            set can_normalize_more 1
+
+            incr idx
+            lappend ret $upitem
+        }
+
+	set prefixlist $ret
+        set ret {}
+    }
+
+    return $prefixlist
+}
+
 
 proc ::ip::normalize {ip {Ip4inIp6 0}} {
     foreach {ip mask} [SplitIp $ip] break
@@ -119,6 +194,116 @@ proc ::ip::contract {ip} {
         set r [string trimright $s .0]
     }
     return $r
+}
+
+proc ::ip::subtract {hosts} {
+    set positives {}
+    set negatives {}
+
+    foreach host $hosts {
+        foreach {addr mask} [SplitIp $host] break
+        set host $addr/[maskToLength [maskToInt $mask]]
+
+	if {[string match "-*" $host]} {
+	    set host [string trimleft $host "-"]
+	    lappend negatives $host
+	} else {
+	    lappend positives $host
+	}
+    }
+
+    # Reduce to aggregates if needed
+    if {[llength $positives] > 1} {
+	set positives [reduceToAggregates $positives]
+    }
+
+    if {![llength $positives]} {
+	return {}
+    }
+
+    if {[llength $negatives] > 1} {
+	set negatives [reduceToAggregates $negatives]
+    }
+
+    if {![llength $negatives]} {
+	return $positives
+    }
+
+    # Remove positives that are cancelled out entirely
+    set new_positives {}
+    foreach positive $positives {
+	set found 0
+	foreach negative $negatives {
+            # Do we need the exact check, i.e. ==, or 'eq', or would
+            # checking the length of result == 1 be good enough?
+	    if {[reduceToAggregates [list $positive $negative]] == [list $negative]} {
+		set found 1
+		break
+	    }
+	}
+
+	if {!$found} {
+	    lappend new_positives $positive
+	}
+    }
+    set positives $new_positives
+
+    set retval {}
+    foreach positive $positives {
+	set negatives_found {}
+	foreach negative $negatives {
+	    if {[isOverlap $positive $negative]} {
+		lappend negatives_found $negative
+	    }
+	}
+
+	if {![llength $negatives_found]} {
+	    lappend retval $positive
+	    continue
+	}
+
+	# Convert the larger subnet
+	## Determine smallest subnet involved
+	set maxmask 0
+	foreach subnet [linsert $negatives 0 $positive] {
+	    set mask [mask $subnet]
+	    if {$mask > $maxmask} {
+		set maxmask $mask
+	    }
+	}
+
+	set positive_list [ExpandSubnet $positive $maxmask]
+	set negative_list {}
+	foreach negative $negatives_found {
+	    foreach negative_subnet [ExpandSubnet $negative $maxmask] {
+		lappend negative_list $negative_subnet
+	    }
+	}
+
+	foreach positive_sub $positive_list {
+	    if {[lsearch -exact $negative_list $positive_sub] < 0} {
+		lappend retval $positive_sub
+	    }
+	}
+    }
+
+    return $retval
+}
+
+proc ::ip::ExpandSubnet {subnet newmask} {
+    #set oldmask [maskToLength [maskToInt [mask $subnet]]]
+    set oldmask [mask $subnet]
+    set subnet  [prefix $subnet]
+
+    set numsubnets [expr {round(pow(2, ($newmask - $oldmask)))}]
+
+    set ret {}
+    for {set idx 0} {$idx < $numsubnets} {incr idx} {
+	lappend ret "${subnet}/${newmask}"
+	set subnet [intToString [nextNet $subnet $newmask]]
+    }
+
+    return $ret
 }
 
 # Returns an IP address prefix.
@@ -165,6 +350,9 @@ proc ::ip::mask {ip} {
 # Returns true is the argument can be converted into an IPv4 address.
 #
 proc ::ip::IPv4? {ip} {
+    if {[string first : $ip] >= 0} {
+        return 0
+    }
     if {[catch {Normalize4 $ip}]} {
         return 0
     }

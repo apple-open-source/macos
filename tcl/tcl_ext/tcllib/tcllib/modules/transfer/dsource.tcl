@@ -18,13 +18,14 @@ snit::type ::transfer::data::source {
     # ### ### ### ######### ######### #########
     ## API
 
-    #                       Source is ...
-    option -string   {} ; # a string.
-    option -channel  {} ; # an open & readable channel.
-    option -file     {} ; # a file.
-    option -variable {} ; # a string held by the named variable.
+    #                                                        Source is ...
+    option -string   -default {} -configuremethod C-str  ; # a string.
+    option -channel  -default {} -configuremethod C-chan ; # an open & readable channel.
+    option -file     -default {} -configuremethod C-file ; # a file.
+    option -variable -default {} -configuremethod C-var  ; # a string held by the named variable.
 
-    option -size -1     ; # number of characters to transfer.
+    option -size     -default -1 ; # number of characters to transfer.
+    option -progress -default {}
 
     method type  {} {}
     method data  {} {}
@@ -37,38 +38,38 @@ snit::type ::transfer::data::source {
     ## Implementation
 
     method type {} {
-	return $xtype
+	return $myxtype
     }
 
     method data {} {
-	switch -exact -- $etype {
+	switch -exact -- $myetype {
 	    undefined {
 		return -code error "Data source is undefined"
 	    }
 	    string - chan {
-		return $value
+		return $mysrc
 	    }
 	    variable {
-		upvar \#0 $value thevalue
+		upvar \#0 $mysrc thevalue
 		return $thevalue
 	    }
 	    file {
-		return [open $value r]
+		return [open $mysrc r]
 	    }
 	}
     }
 
     method size {} {
 	if {$options(-size) < 0} {
-	    switch -exact -- $etype {
+	    switch -exact -- $myetype {
 		undefined {
 		    return -code error "Data source is undefined"
 		}
 		string {
-		    return [string length $value]
+		    return [string length $mysrc]
 		}
 		variable {
-		    upvar \#0 $value thevalue
+		    upvar \#0 $mysrc thevalue
 		    return [string length $thevalue]
 		}
 		chan - file {
@@ -86,7 +87,7 @@ snit::type ::transfer::data::source {
     method valid {mv} {
 	upvar 1 $mv message
 
-	switch -exact -- $etype {
+	switch -exact -- $myetype {
 	    undefined {
 		set message "Data source is undefined"
 		return 0
@@ -112,43 +113,44 @@ snit::type ::transfer::data::source {
 	    [$self type] [$self data] $sock \
 	    -size      [$self size] \
 	    -blocksize $blocksize \
-	    -command   $done
+	    -command   $done \
+	    -progress  $options(-progress)
 	return
     }
 
     # ### ### ### ######### ######### #########
     ## Internal helper commands.
 
-    onconfigure -string {newvalue} {
-	set etype string
-	set xtype string
-	set value $newvalue
+    method C-str {o newvalue} {
+	set myetype string
+	set myxtype string
+	set mysrc   $newvalue
 	return
     }
 
-    onconfigure -variable {newvalue} {
-	set etype variable
-	set xtype string
+    method C-var {o newvalue} {
+	set myetype variable
+	set myxtype string
 
 	if {![uplevel \#0 {info exists $newvalue}]} {
 	    return -code error "Bad variable \"$newvalue\", does not exist"
 	}
 
-	set value $newvalue
+	set mysrc $newvalue
 	return
     }
 
-    onconfigure -channel {newvalue} {
+    method C-chan {o newvalue} {
 	if {![llength [file channels $newvalue]]} {
 	    return -code error "Bad channel handle \"$newvalue\", does not exist"
 	}
-	set etype chan
-	set xtype chan
-	set value $newvalue
+	set myetype chan
+	set myxtype chan
+	set mysrc   $newvalue
 	return
     }
 
-    onconfigure -file {newvalue} {
+    method C-file {o newvalue} {
 	if {![file exists $newvalue]} {
 	    return -code error "File \"$newvalue\" does not exist"
 	}
@@ -158,18 +160,18 @@ snit::type ::transfer::data::source {
 	if {![file isfile $newvalue]} {
 	    return -code error "File \"$newvalue\" not a file"
 	}
-	set etype file
-	set xtype chan
-	set value $newvalue
+	set myetype file
+	set myxtype chan
+	set mysrc   $newvalue
 	return
     }
 
     # ### ### ### ######### ######### #########
     ## Data structures
 
-    variable etype undefined
-    variable xtype undefined
-    variable value
+    variable myetype undefined
+    variable myxtype undefined
+    variable mysrc
 
     ##
     # ### ### ### ######### ######### #########
@@ -178,4 +180,4 @@ snit::type ::transfer::data::source {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide transfer::data::source 0.1
+package provide transfer::data::source 0.2

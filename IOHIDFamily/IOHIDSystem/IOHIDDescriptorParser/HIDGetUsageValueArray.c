@@ -94,7 +94,7 @@ OSStatus HIDGetUsageValueArray(HIDReportType reportType,
 	OSStatus iStatus;
 	int i;
 	int iR;
-	long iValue;
+	SInt32 iValue;
 	int iStart;
 	int iReportItem;
 	UInt32 iUsageIndex;

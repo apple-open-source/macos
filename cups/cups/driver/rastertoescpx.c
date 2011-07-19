@@ -1,9 +1,9 @@
 /*
- * "$Id: rastertoescpx.c 1230 2009-02-17 19:29:23Z msweet $"
+ * "$Id: rastertoescpx.c 2875 2010-11-30 03:22:54Z msweet $"
  *
  *   Advanced EPSON ESC/P raster driver for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,11 +31,10 @@
  */
 
 #include "driver.h"
-#include <cups/i18n.h>
-#include <cups/string.h>
+#include <cups/language-private.h>
+#include <cups/string-private.h>
 #include "data/escp.h"
 #include <signal.h>
-#include <errno.h>
 
 
 /*
@@ -917,7 +916,7 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 
     if (!DotAvailList)
     {
-      fputs("ERROR: Unable to allocate band list!\n", stderr);
+      fputs("ERROR: Unable to allocate band list\n", stderr);
       exit(1);
     }
 
@@ -1772,9 +1771,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (argc < 6 || argc > 7)
   {
-    _cupsLangPrintf(stderr,
-                    _("ERROR: %s job-id user title copies options [file]\n"),
-                    "rastertoescpx");
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("%s job-id user title copies options [file]"),
+			 "rastertoescpx");
     return (1);
   }
 
@@ -1788,7 +1787,16 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (!ppd)
   {
-    _cupsLangPuts(stderr, _("ERROR: Unable to open PPD file!\n"));
+    ppd_status_t	status;		/* PPD error */
+    int			linenum;	/* Line number */
+
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("The PPD file could not be opened."));
+
+    status = ppdLastError(&linenum);
+
+    fprintf(stderr, "DEBUG: %s on line %d.\n", ppdErrorString(status), linenum);
+
     return (1);
   }
 
@@ -1803,8 +1811,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
-                      strerror(errno));
+      _cupsLangPrintError("ERROR", _("Unable to open raster file"));
       return (1);
     }
   }
@@ -1856,7 +1863,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     page ++;
 
     fprintf(stderr, "PAGE: %d 1\n", page);
-    _cupsLangPrintf(stderr, _("INFO: Starting page %d...\n"), page);
+    _cupsLangPrintFilter(stderr, "INFO", _("Starting page %d."), page);
 
     StartPage(ppd, &header);
 
@@ -1870,8 +1877,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 127) == 0)
-        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
-                        page, 100 * y / header.cupsHeight);
+      {
+        _cupsLangPrintFilter(stderr, "INFO",
+	                     _("Printing page %d, %d%% complete."),
+			     page, 100 * y / header.cupsHeight);
+        fprintf(stderr, "ATTR: job-media-progress=%d\n",
+		100 * y / header.cupsHeight);
+      }
 
      /*
       * Read and write a line of graphics or whitespace...
@@ -1884,7 +1896,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     * Eject the page...
     */
 
-    _cupsLangPrintf(stderr, _("INFO: Finished page %d...\n"), page);
+    _cupsLangPrintFilter(stderr, "INFO", _("Finished page %d."), page);
 
     EndPage(ppd, &header);
 
@@ -1903,17 +1915,17 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (page == 0)
   {
-    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    _cupsLangPrintFilter(stderr, "ERROR", _("No pages were found."));
     return (1);
   }
   else
   {
-    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
     return (0);
   }
 }
 
 
 /*
- * End of "$Id: rastertoescpx.c 1230 2009-02-17 19:29:23Z msweet $".
+ * End of "$Id: rastertoescpx.c 2875 2010-11-30 03:22:54Z msweet $".
  */

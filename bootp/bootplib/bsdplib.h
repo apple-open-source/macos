@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,4 +29,4 @@
 void
 bsdp_print_packet(struct dhcp * pkt, int length, int options_only);
 
-#endif _S_BSDPLIB_H
+#endif /* _S_BSDPLIB_H */

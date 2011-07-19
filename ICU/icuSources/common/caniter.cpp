@@ -1,6 +1,6 @@
 /*
  *****************************************************************************
- * Copyright (C) 1996-2006, International Business Machines Corporation and  *
+ * Copyright (C) 1996-2010, International Business Machines Corporation and  *
  * others. All Rights Reserved.                                              *
  *****************************************************************************
  */
@@ -9,14 +9,15 @@
 
 #if !UCONFIG_NO_NORMALIZATION
 
-#include "unicode/uset.h"
-#include "unicode/ustring.h"
-#include "hash.h"
-#include "unormimp.h"
 #include "unicode/caniter.h"
-#include "unicode/normlzr.h"
+#include "unicode/normalizer2.h"
 #include "unicode/uchar.h"
+#include "unicode/uniset.h"
+#include "unicode/usetiter.h"
+#include "unicode/ustring.h"
 #include "cmemory.h"
+#include "hash.h"
+#include "normalizer2impl.h"
 
 /**
  * This class allows one to iterate through all the strings that are canonically equivalent to a given
@@ -68,9 +69,11 @@ CanonicalIterator::CanonicalIterator(const UnicodeString &sourceStr, UErrorCode 
     pieces_length(0),
     pieces_lengths(NULL),
     current(NULL),
-    current_length(0)
+    current_length(0),
+    nfd(*Normalizer2Factory::getNFDInstance(status)),
+    nfcImpl(*Normalizer2Factory::getNFCImpl(status))
 {
-    if(U_SUCCESS(status)) {
+    if(U_SUCCESS(status) && nfcImpl.ensureCanonIterData(status)) {
       setSource(sourceStr, status);
     }
 }
@@ -166,7 +169,7 @@ void CanonicalIterator::setSource(const UnicodeString &newSource, UErrorCode &st
     int32_t i = 0;
     UnicodeString *list = NULL;
 
-    Normalizer::normalize(newSource, UNORM_NFD, 0, source, status);
+    nfd.normalize(newSource, source, status);
     if(U_FAILURE(status)) {
       return;
     }
@@ -213,7 +216,7 @@ void CanonicalIterator::setSource(const UnicodeString &newSource, UErrorCode &st
     // on the NFD form - see above).
     for (; i < source.length(); i += UTF16_CHAR_LENGTH(cp)) {
         cp = source.char32At(i);
-        if (unorm_isCanonSafeStart(cp)) {
+        if (nfcImpl.isCanonSegmentStarter(cp)) {
             source.extract(start, i-start, list[list_length++]); // add up to i
             start = i;
         }
@@ -375,7 +378,7 @@ UnicodeString* CanonicalIterator::getEquivalents(const UnicodeString &segment, i
             //UnicodeString *possible = new UnicodeString(*((UnicodeString *)(ne2->value.pointer)));
             UnicodeString possible(*((UnicodeString *)(ne2->value.pointer)));
             UnicodeString attempt;
-            Normalizer::normalize(possible, UNORM_NFD, 0, attempt, status);
+            nfd.normalize(possible, attempt, status);
 
             // TODO: check if operator == is semanticaly the same as attempt.equals(segment)
             if (attempt==segment) {
@@ -435,28 +438,29 @@ Hashtable *CanonicalIterator::getEquivalents2(Hashtable *fillinResult, const UCh
 
     fillinResult->put(toPut, new UnicodeString(toPut), status);
 
-    USerializedSet starts;
+    UnicodeSet starts;
 
     // cycle through all the characters
-    UChar32 cp, end = 0;
-    int32_t i = 0, j;
-    for (i = 0; i < segLen; i += UTF16_CHAR_LENGTH(cp)) {
+    UChar32 cp;
+    for (int32_t i = 0; i < segLen; i += UTF16_CHAR_LENGTH(cp)) {
         // see if any character is at the start of some decomposition
         UTF_GET_CHAR(segment, 0, i, segLen, cp);
-        if (!unorm_getCanonStartSet(cp, &starts)) {
+        if (!nfcImpl.getCanonStartSet(cp, starts)) {
             continue;
         }
-        // if so, see which decompositions match 
-        for(j = 0, cp = end+1; cp <= end || uset_getSerializedRange(&starts, j++, &cp, &end); ++cp) {
+        // if so, see which decompositions match
+        UnicodeSetIterator iter(starts);
+        while (iter.next()) {
+            UChar32 cp2 = iter.getCodepoint();
             Hashtable remainder(status);
             remainder.setValueDeleter(uhash_deleteUnicodeString);
-            if (extract(&remainder, cp, segment, segLen, i, status) == NULL) {
+            if (extract(&remainder, cp2, segment, segLen, i, status) == NULL) {
                 continue;
             }
 
             // there were some matches, so add all the possibilities to the set.
             UnicodeString prefix(segment, i);
-            prefix += cp;
+            prefix += cp2;
 
             int32_t el = -1;
             const UHashElement *ne = remainder.nextElement(el);
@@ -499,73 +503,39 @@ Hashtable *CanonicalIterator::extract(Hashtable *fillinResult, UChar32 comp, con
         return NULL;
     }
 
-    const int32_t bufSize = 256;
-    int32_t bufLen = 0;
-    UChar temp[bufSize];
-
-    int32_t inputLen = 0, decompLen;
-    UChar stackBuffer[4];
-    const UChar *decomp;
-
-    U16_APPEND_UNSAFE(temp, inputLen, comp);
-    decomp = unorm_getCanonicalDecomposition(comp, stackBuffer, &decompLen);
-    if(decomp == NULL) {
-        /* copy temp */
-        stackBuffer[0] = temp[0];
-        if(inputLen > 1) {
-            stackBuffer[1] = temp[1];
-        }
-        decomp = stackBuffer;
-        decompLen = inputLen;
-    }
-
-    UChar *buff = temp+inputLen;
+    UnicodeString temp(comp);
+    int32_t inputLen=temp.length();
+    UnicodeString decompString;
+    nfd.normalize(temp, decompString, status);
+    const UChar *decomp=decompString.getBuffer();
+    int32_t decompLen=decompString.length();
 
     // See if it matches the start of segment (at segmentPos)
     UBool ok = FALSE;
     UChar32 cp;
     int32_t decompPos = 0;
     UChar32 decompCp;
-    UTF_NEXT_CHAR(decomp, decompPos, decompLen, decompCp);
+    U16_NEXT(decomp, decompPos, decompLen, decompCp);
 
-    int32_t i;
-    UBool overflow = FALSE;
-
-    i = segmentPos;
+    int32_t i = segmentPos;
     while(i < segLen) {
-        UTF_NEXT_CHAR(segment, i, segLen, cp);
+        U16_NEXT(segment, i, segLen, cp);
 
         if (cp == decompCp) { // if equal, eat another cp from decomp
 
             //if (PROGRESS) printf("  matches: %s\n", UToS(Tr(UnicodeString(cp))));
 
             if (decompPos == decompLen) { // done, have all decomp characters!
-                //u_strcat(buff+bufLen, segment+i);
-                uprv_memcpy(buff+bufLen, segment+i, (segLen-i)*sizeof(UChar));
-                bufLen+=segLen-i;
-
+                temp.append(segment+i, segLen-i);
                 ok = TRUE;
                 break;
             }
-            UTF_NEXT_CHAR(decomp, decompPos, decompLen, decompCp);
+            U16_NEXT(decomp, decompPos, decompLen, decompCp);
         } else {
             //if (PROGRESS) printf("  buffer: %s\n", UToS(Tr(UnicodeString(cp))));
 
             // brute force approach
-
-            U16_APPEND(buff, bufLen, bufSize, cp, overflow);
-
-            if(overflow) {
-                /*
-                 * ### TODO handle buffer overflow
-                 * The buffer is large, but an overflow may still happen with
-                 * unusual input (many combining marks?).
-                 * Reallocate buffer and continue.
-                 * markus 20020929
-                 */
-
-                overflow = FALSE;
-            }
+            temp.append(cp);
 
             /* TODO: optimize
             // since we know that the classes are monotonically increasing, after zero
@@ -585,25 +555,20 @@ Hashtable *CanonicalIterator::extract(Hashtable *fillinResult, UChar32 comp, con
 
     //if (PROGRESS) printf("Matches\n");
 
-    if (bufLen == 0) {
+    if (inputLen == temp.length()) {
         fillinResult->put(UnicodeString(), new UnicodeString(), status);
         return fillinResult; // succeed, but no remainder
     }
 
     // brute force approach
     // check to make sure result is canonically equivalent
-    int32_t tempLen = inputLen + bufLen;
-
-    UChar trial[bufSize];
-    unorm_decompose(trial, bufSize, temp, tempLen, FALSE, 0, &status);
-
-    if(U_FAILURE(status)
-        || uprv_memcmp(segment+segmentPos, trial, (segLen - segmentPos)*sizeof(UChar)) != 0)
-    {
+    UnicodeString trial;
+    nfd.normalize(temp, trial, status);
+    if(U_FAILURE(status) || trial.compare(segment+segmentPos, segLen - segmentPos) != 0) {
         return NULL;
     }
 
-    return getEquivalents2(fillinResult, buff, bufLen, status);
+    return getEquivalents2(fillinResult, temp.getBuffer()+inputLen, temp.length()-inputLen, status);
 }
 
 U_NAMESPACE_END

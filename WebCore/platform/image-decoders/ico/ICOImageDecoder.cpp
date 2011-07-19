@@ -35,6 +35,7 @@
 
 #include "BMPImageReader.h"
 #include "PNGImageDecoder.h"
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -44,8 +45,10 @@ namespace WebCore {
 static const size_t sizeOfDirectory = 6;
 static const size_t sizeOfDirEntry = 16;
 
-ICOImageDecoder::ICOImageDecoder()
-    : m_decodedOffset(0)
+ICOImageDecoder::ICOImageDecoder(ImageSource::AlphaOption alphaOption,
+                                 ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
+    , m_decodedOffset(0)
 {
 }
 
@@ -96,24 +99,34 @@ bool ICOImageDecoder::setSize(unsigned width, unsigned height)
 size_t ICOImageDecoder::frameCount()
 {
     decode(0, true);
-    if (m_frameBufferCache.isEmpty())
+    if (m_frameBufferCache.isEmpty()) {
         m_frameBufferCache.resize(m_dirEntries.size());
+        for (size_t i = 0; i < m_dirEntries.size(); ++i)
+            m_frameBufferCache[i].setPremultiplyAlpha(m_premultiplyAlpha);
+    }
     // CAUTION: We must not resize m_frameBufferCache again after this, as
     // decodeAtIndex() may give a BMPImageReader a pointer to one of the
     // entries.
     return m_frameBufferCache.size();
 }
 
-RGBA32Buffer* ICOImageDecoder::frameBufferAtIndex(size_t index)
+ImageFrame* ICOImageDecoder::frameBufferAtIndex(size_t index)
 {
     // Ensure |index| is valid.
     if (index >= frameCount())
         return 0;
 
-    RGBA32Buffer* buffer = &m_frameBufferCache[index];
-    if (buffer->status() != RGBA32Buffer::FrameComplete)
+    ImageFrame* buffer = &m_frameBufferCache[index];
+    if (buffer->status() != ImageFrame::FrameComplete)
         decode(index, false);
     return buffer;
+}
+
+bool ICOImageDecoder::setFailed()
+{
+    m_bmpReaders.clear();
+    m_pngDecoders.clear();
+    return ImageDecoder::setFailed();
 }
 
 // static
@@ -147,6 +160,13 @@ void ICOImageDecoder::decode(size_t index, bool onlySize)
     // has failed.
     if ((!decodeDirectory() || (!onlySize && !decodeAtIndex(index))) && isAllDataReceived())
         setFailed();
+    // If we're done decoding this frame, we don't need the BMPImageReader or
+    // PNGImageDecoder anymore.  (If we failed, these have already been
+    // cleared.)
+    else if ((m_frameBufferCache.size() > index) && (m_frameBufferCache[index].status() == ImageFrame::FrameComplete)) {
+        m_bmpReaders[index].clear();
+        m_pngDecoders[index].clear();
+    }
 }
 
 bool ICOImageDecoder::decodeDirectory()
@@ -172,7 +192,7 @@ bool ICOImageDecoder::decodeAtIndex(size_t index)
             // We need to have already sized m_frameBufferCache before this, and
             // we must not resize it again later (see caution in frameCount()).
             ASSERT(m_frameBufferCache.size() == m_dirEntries.size());
-            m_bmpReaders[index].set(new BMPImageReader(this, dirEntry.m_imageOffset, 0, true));
+            m_bmpReaders[index] = adoptPtr(new BMPImageReader(this, dirEntry.m_imageOffset, 0, true));
             m_bmpReaders[index]->setData(m_data.get());
             m_bmpReaders[index]->setBuffer(&m_frameBufferCache[index]);
         }
@@ -183,7 +203,9 @@ bool ICOImageDecoder::decodeAtIndex(size_t index)
     }
 
     if (!m_pngDecoders[index]) {
-        m_pngDecoders[index].set(new PNGImageDecoder());
+        m_pngDecoders[index] = adoptPtr(
+            new PNGImageDecoder(m_premultiplyAlpha ? ImageSource::AlphaPremultiplied : ImageSource::AlphaNotPremultiplied,
+                                m_ignoreGammaAndColorProfile ? ImageSource::GammaAndColorProfileIgnored : ImageSource::GammaAndColorProfileApplied));
         setDataForPNGDecoderAtIndex(index);
     }
     // Fail if the size the PNGImageDecoder calculated does not match the size
@@ -241,8 +263,9 @@ bool ICOImageDecoder::processDirectoryEntries()
 
     // The image size is the size of the largest entry.
     const IconDirectoryEntry& dirEntry = m_dirEntries.first();
-    setSize(dirEntry.m_size.width(), dirEntry.m_size.height());
-    return true;
+    // Technically, this next call shouldn't be able to fail, since the width
+    // and height here are each <= 256, and |m_frameSize| is empty.
+    return setSize(dirEntry.m_size.width(), dirEntry.m_size.height());
 }
 
 ICOImageDecoder::IconDirectoryEntry ICOImageDecoder::readDirectoryEntry()

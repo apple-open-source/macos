@@ -22,12 +22,15 @@
 #define CSSProperty_h
 
 #include "CSSValue.h"
+#include "RenderStyleConstants.h"
+#include "TextDirection.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class CSSProperty : public FastAllocBase {
+class CSSProperty {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     CSSProperty(int propID, PassRefPtr<CSSValue> value, bool important = false, int shorthandID = 0, bool implicit = false)
         : m_id(propID)
@@ -57,6 +60,8 @@ public:
     CSSValue* value() const { return m_value.get(); }
     
     String cssText() const;
+
+    static int resolveDirectionAwareProperty(int propertyID, TextDirection, WritingMode);
 
     friend bool operator==(const CSSProperty&, const CSSProperty&);
 

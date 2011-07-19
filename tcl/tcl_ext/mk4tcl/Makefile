@@ -11,7 +11,7 @@ ProjectPlistName      = mk4tcl
 
 # Fetch info
 Release               = 2.4.9.7
-ImportDate            = 2008-09-06
+ImportDate            = 2009-02-11
 SvnUrl                = svn://svn.equi4.com/$(Project)/trunk
 
 Configure             = $(Sources)/tcl/configure

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -37,10 +37,10 @@
 
 #include "DedicatedWorkerContext.h"
 #include "Event.h"
+#include "ScriptCallStack.h"
 #include "SharedWorker.h"
 #include "SharedWorkerContext.h"
 #include "V8Binding.h"
-#include "V8ConsoleMessage.h"
 #include "V8DOMMap.h"
 #include "V8DedicatedWorkerContext.h"
 #include "V8Proxy.h"
@@ -49,6 +49,7 @@
 #include "WorkerContext.h"
 #include "WorkerScriptController.h"
 #include "WrapperTypeInfo.h"
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -72,7 +73,7 @@ static void v8MessageHandler(v8::Handle<v8::Message> message, v8::Handle<v8::Val
         String errorMessage = toWebCoreString(message->Get());
         int lineNumber = message->GetLineNumber();
         String sourceURL = toWebCoreString(message->GetScriptResourceName());
-        context->reportException(errorMessage, lineNumber, sourceURL);
+        context->reportException(errorMessage, lineNumber, sourceURL, 0);
     }
 
     isReportingException = false;
@@ -149,6 +150,9 @@ bool WorkerContextExecutionProxy::initContextIfNeeded()
 
     v8::Context::Scope scope(context);
 
+    // Set DebugId for the new context.
+    context->SetData(v8::String::New("worker"));
+
     // Create a new JS object and use it as the prototype for the shadow global object.
     WrapperTypeInfo* contextType = &V8DedicatedWorkerContext::info;
 #if ENABLE(SHARED_WORKERS)
@@ -184,7 +188,7 @@ bool WorkerContextExecutionProxy::forgetV8EventObject(Event* event)
     return false;
 }
 
-ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, int baseLine, WorkerContextExecutionState* state)
+ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const String& fileName, const TextPosition0& scriptStartPosition, WorkerContextExecutionState* state)
 {
     v8::HandleScope hs;
 
@@ -196,19 +200,25 @@ ScriptValue WorkerContextExecutionProxy::evaluate(const String& script, const St
     v8::TryCatch exceptionCatcher;
 
     v8::Local<v8::String> scriptString = v8ExternalString(script);
-    v8::Handle<v8::Script> compiledScript = V8Proxy::compileScript(scriptString, fileName, baseLine);
+    v8::Handle<v8::Script> compiledScript = V8Proxy::compileScript(scriptString, fileName, scriptStartPosition);
     v8::Local<v8::Value> result = runScript(compiledScript);
 
-    if (!exceptionCatcher.CanContinue())
+    if (!exceptionCatcher.CanContinue()) {
+        m_workerContext->script()->forbidExecution();
         return ScriptValue();
+    }
 
     if (exceptionCatcher.HasCaught()) {
         v8::Local<v8::Message> message = exceptionCatcher.Message();
         state->hadException = true;
-        state->exception = ScriptValue(exceptionCatcher.Exception());
         state->errorMessage = toWebCoreString(message->Get());
         state->lineNumber = message->GetLineNumber();
         state->sourceURL = toWebCoreString(message->GetScriptResourceName());
+        if (m_workerContext->sanitizeScriptError(state->errorMessage, state->lineNumber, state->sourceURL))
+            state->exception = V8Proxy::throwError(V8Proxy::GeneralError, state->errorMessage.utf8().data());
+        else
+            state->exception = ScriptValue(exceptionCatcher.Exception());
+
         exceptionCatcher.Reset();
     } else
         state->hadException = false;
@@ -227,7 +237,7 @@ v8::Local<v8::Value> WorkerContextExecutionProxy::runScript(v8::Handle<v8::Scrip
     // Compute the source string and prevent against infinite recursion.
     if (m_recursion >= kMaxRecursionDepth) {
         v8::Local<v8::String> code = v8ExternalString("throw RangeError('Recursion too deep')");
-        script = V8Proxy::compileScript(code, "", 0);
+        script = V8Proxy::compileScript(code, "", TextPosition0::minimumPosition());
     }
 
     if (V8Proxy::handleOutOfMemory())

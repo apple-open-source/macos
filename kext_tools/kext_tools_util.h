@@ -61,6 +61,7 @@ typedef struct {
 
 #define RANGE_ALL(a)   CFRangeMake(0, CFArrayGetCount(a))
 
+#define COMPILE_TIME_ASSERT(pred)   switch(0){case 0:case pred:;}
 
 /*********************************************************************
 *********************************************************************/
@@ -145,21 +146,22 @@ void log_CFError(
 
 const char * safe_mach_error_string(mach_error_t error_code);
 
-int user_approve(int default_answer, const char * format, ...);
+#define REPLY_ERROR (-1)
+#define REPLY_NO     (0)
+#define REPLY_YES    (1)
+#define REPLY_ALL    (2)
+
+int user_approve(Boolean ask_all, int default_answer, const char * format, ...);
+
 const char * user_input(Boolean * eof, const char * format, ...);
 void saveFile(const void * vKey, const void * vValue, void * vContext);
 
 CFStringRef copyKextPath(OSKextRef aKext);
-Boolean readKextPropertyValuesForDirectory(
-    CFURLRef           directoryURL,
+Boolean readSystemKextPropertyValues(
     CFStringRef        propertyKey,
     const NXArchInfo * arch,
     Boolean            forceUpdateFlag,
     CFArrayRef       * valuesOut);
-OSReturn writePersonalitiesCache(
-    CFArrayRef         kexts,
-    const NXArchInfo * arch,
-    CFURLRef           folderURL);
 
 /*********************************************************************
 * From IOKitUser/kext.subproj/OSKext.c.
@@ -167,4 +169,4 @@ OSReturn writePersonalitiesCache(
 
 extern char * createUTF8CStringForCFString(CFStringRef aString);
 
-#endif /* _KEXT_TOOLS_UTIL_H */
+#endif

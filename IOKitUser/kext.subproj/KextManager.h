@@ -72,7 +72,7 @@ __BEGIN_DECLS
  */
 CFURLRef KextManagerCreateURLForBundleIdentifier(
     CFAllocatorRef allocator,
-    CFStringRef    kextIdentifier);
+    CFStringRef    kextIdentifier) AVAILABLE_MAC_OS_X_VERSION_10_2_AND_LATER;
 
 /*!
  * @function KextManagerLoadKextWithIdentifier
@@ -101,7 +101,7 @@ CFURLRef KextManagerCreateURLForBundleIdentifier(
  */
 OSReturn KextManagerLoadKextWithIdentifier(
     CFStringRef    kextIdentifier,
-    CFArrayRef     dependencyKextAndFolderURLs);
+    CFArrayRef     dependencyKextAndFolderURLs) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 
 /*!
  * @function KextManagerLoadKextWithURL
@@ -128,7 +128,82 @@ OSReturn KextManagerLoadKextWithIdentifier(
  */
 OSReturn KextManagerLoadKextWithURL(
     CFURLRef    kextURL,
-    CFArrayRef  dependencyKextAndFolderURLs);
+    CFArrayRef  dependencyKextAndFolderURLs) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
+
+/*!
+ * @function KextManagerUnloadKextWithIdentifier
+ * @abstract
+ * Request the kernel to unload a kext with a given bundle identifier.
+ *
+ * @param    kextIdentifier
+ *           The bundle identifier of the kext to unload.
+ *
+ * @result
+ * <code>kOSReturnSuccess</code> if the kext is
+ * found and successfully unloaded,
+ * otherwise returns on error.
+ * See <code>/usr/include/libkern/OSKextLib.h</code>
+ * for error codes.
+ *
+ * @discussion
+ * The calling process must have an effective user id of 0 (superuser).
+ */
+OSReturn KextManagerUnloadKextWithIdentifier(
+    CFStringRef kextIdentifier) AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
+
+/*!
+ * @function KextManagerCopyLoadedKextInfo
+ * @abstract Returns information about loaded kexts in a dictionary.
+ *
+ * @param    kextIdentifiers   An array of kext identifiers to read from the kernel.
+ *                             Pass <code>NULL</code> to read info for all loaded kexts.
+ * @param    infoKeys          An array of info keys to read from the kernel.
+ *                             Pass <code>NULL</code> to read all information.
+ * @result
+ * A dictionary, keyed by bundle identifier,
+ * of dictionaries containing information about loaded kexts.
+ *
+ * @discussion
+ * The information keys returned by this function are listed below.
+ * Some are taken directly from the kext's information property list,
+ * and some are generated at run time.
+ * Never assume a given key will be present for a kext.
+ *
+ * <ul>
+ *   <li><code>CFBundleIdentifier</code> - CFString</li>
+ *   <li><code>CFBundleVersion</code> - CFString (note: version strings may be canonicalized
+ *       but their numeric values will be the same; "1.2.0" may become "1.2", for example)</li>
+ *   <li><code>OSBundleCompatibleVersion</code> - CFString</li>
+ *   <li><code>OSBundleIsInterface</code> - CFBoolean</li>
+ *   <li><code>OSKernelResource</code> - CFBoolean</li>
+ *   <li><code>OSBundleCPUType</code> - CFNumber</li>
+ *   <li><code>OSBundleCPUSubtype</code> - CFNumber</li>
+ *   <li><code>OSBundlePath</code> - CFString (this is merely a hint stored in the kernel;
+ *       the kext is not guaranteed to be at this path)</li>
+ *   <li><code>OSBundleExecutablePath</code> - CFString
+ *       (the absolute path to the executable within the kext bundle; a hint as above)</li>
+ *   <li><code>OSBundleUUID</code> - CFData (the UUID of the kext executable, if it has one)</li>
+ *   <li><code>OSBundleStarted</code> - CFBoolean (true if the kext is running)</li>
+ *   <li><code>OSBundlePrelinked</code> - CFBoolean (true if the kext is loaded from a prelinked kernel)</li>
+ *   <li><code>OSBundleLoadTag</code> - CFNumber (the "Index" given by kextstat)</li>
+ *   <li><code>OSBundleLoadAddress</code> - CFNumber</li>
+ *   <li><code>OSBundleLoadSize</code> - CFNumber</li>
+ *   <li><code>OSBundleWiredSize</code> - CFNumber</li>
+ *   <li><code>OSBundleDependencies</code> - CFArray of load tags identifying immediate link dependencies</li>
+ *   <li><code>OSBundleRetainCount</code> - CFNumber (the OSObject retain count of the kext itself)</li>
+ *   <li><code>OSBundleClasses</code> - CFArray of CFDictionary containing info on C++ classes
+ *       defined by the kext:</li>
+ *       <ul>
+ *         <li><code>OSMetaClassName</code> - CFString</li>
+ *         <li><code>OSMetaClassSuperclassName</code> - CFString, absent for root classes</li>
+ *         <li><code>OSMetaClassTrackingCount</code> - CFNumber giving the instance count
+ *             of the class itself, <i>plus</i> 1 for each direct subclass with any instances</li>
+ *       </ul>
+ * </ul>
+ */
+CFDictionaryRef KextManagerCopyLoadedKextInfo(
+    CFArrayRef  kextIdentifiers,
+    CFArrayRef  infoKeys) AVAILABLE_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 
 __END_DECLS

@@ -65,11 +65,15 @@
 // -----------------------------------------------------------------------------
 // Exported symbols need to be annotated with WEBKIT_API
 
-#if defined(WIN32) && defined(WEBKIT_DLL)
-    #if defined(WEBKIT_IMPLEMENTATION)
-        #define WEBKIT_API __declspec(dllexport)
+#if defined(WEBKIT_DLL)
+    #if defined(WIN32)
+        #if WEBKIT_IMPLEMENTATION
+            #define WEBKIT_API __declspec(dllexport)
+        #else
+            #define WEBKIT_API __declspec(dllimport)
+        #endif
     #else
-        #define WEBKIT_API __declspec(dllimport)
+        #define WEBKIT_API __attribute__((visibility("default")))
     #endif
 #else
     #define WEBKIT_API
@@ -80,9 +84,17 @@
 
 #include <stddef.h> // For size_t
 
+#if defined(WIN32)
+// Visual Studio doesn't have stdint.h.
+typedef short int16_t;
+typedef unsigned short uint16_t;
+typedef int int32_t;
+typedef unsigned int uint32_t;
+#endif
+
 namespace WebKit {
 
-    // UTF-16 character type
+// UTF-16 character type
 #if defined(WIN32)
 typedef wchar_t WebUChar;
 #else
@@ -105,5 +117,7 @@ WEBKIT_API void failedAssertion(const char* file, int line, const char* function
         failedAssertion(__FILE__, __LINE__, __FUNCTION__, #assertion); \
 } while (0)
 #endif
+
+#define WEBKIT_ASSERT_NOT_REACHED() WEBKIT_ASSERT(0)
 
 #endif

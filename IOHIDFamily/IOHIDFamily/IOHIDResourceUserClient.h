@@ -179,6 +179,8 @@ public:
 	*/
 	virtual bool start(IOService * provider);
     
+	virtual void stop(IOService * provider);
+
     virtual void free();
 
     virtual IOReturn registerNotificationPort(mach_port_t port, UInt32 type, io_user_reference_t refCon);

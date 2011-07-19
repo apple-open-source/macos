@@ -6,8 +6,8 @@
  * and upwards.
  */
 
-static char vers_id[] = "rules.c : v5.0p3 Alec Muffett 20 May 1993";
 #include <string.h>
+#include <stdarg.h>
 
 #ifndef IN_CRACKLIB
 
@@ -17,13 +17,15 @@ static char vers_id[] = "rules.c : v5.0p3 Alec Muffett 20 May 1993";
 
 #include "packer.h"
 
+static char __unused vers_id[] = "rules.c : v5.0p3 Alec Muffett 20 May 1993";
+
 static void
-Debug(val, a, b, c, d, e, f, g)
-    int val;
-    char *a, *b, *c, *d, *e, *f, *g;
+Debug(int __unused val, const char *fmt, ...)
 {
-    fprintf(stderr, a, b, c, d, e, f);
-	if (vers_id[0]) ;	// eliminate warning
+	va_list args;
+	va_start(args, fmt);
+	vfprintf(stderr, fmt, args);
+	va_end(args);
 }
 
 #endif
@@ -150,7 +152,7 @@ Pluralise(string)		/* returns a pointer to a plural */
     register int length;
     static char area[STRINGSIZE];
     length = strlen(string);
-    strcpy(area, string);
+    strlcpy(area, string, sizeof(area));
 
     if (!Suffix(string, "ch") ||
 	!Suffix(string, "ex") ||
@@ -159,26 +161,26 @@ Pluralise(string)		/* returns a pointer to a plural */
 	!Suffix(string, "ss"))
     {
 	/* bench -> benches */
-	strcat(area, "es");
+	strlcat(area, "es", sizeof(area));
     } else if (length > 2 && string[length - 1] == 'y')
     {
 	if (strchr("aeiou", string[length - 2]))
 	{
 	    /* alloy -> alloys */
-	    strcat(area, "s");
+	    strlcat(area, "s", sizeof(area));
 	} else
 	{
 	    /* gully -> gullies */
-	    strcpy(area + length - 1, "ies");
+	    strlcpy(area + length - 1, "ies", sizeof(area)-length+1);
 	}
     } else if (string[length - 1] == 's')
     {
 	/* bias -> biases */
-	strcat(area, "es");
+	strlcat(area, "es", sizeof(area));
     } else
     {
 	/* catchall */
-	strcat(area, "s");
+	strlcat(area, "s", sizeof(area));
     }
 
     return (area);
@@ -430,7 +432,7 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
     static char area[STRINGSIZE];
     char area2[STRINGSIZE];
     area[0] = '\0';
-    strcpy(area, input);
+    strlcpy(area, input, sizeof(area));
 
     for (ptr = control; *ptr; ptr++)
     {
@@ -439,26 +441,26 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 	case RULE_NOOP:
 	    break;
 	case RULE_REVERSE:
-	    strcpy(area, Reverse(area));
+	    strlcpy(area, Reverse(area), sizeof(area));
 	    break;
 	case RULE_UPPERCASE:
-	    strcpy(area, Uppercase(area));
+	    strlcpy(area, Uppercase(area), sizeof(area));
 	    break;
 	case RULE_LOWERCASE:
-	    strcpy(area, Lowercase(area));
+	    strlcpy(area, Lowercase(area), sizeof(area));
 	    break;
 	case RULE_CAPITALISE:
-	    strcpy(area, Capitalise(area));
+	    strlcpy(area, Capitalise(area), sizeof(area));
 	    break;
 	case RULE_PLURALISE:
-	    strcpy(area, Pluralise(area));
+	    strlcpy(area, Pluralise(area), sizeof(area));
 	    break;
 	case RULE_REFLECT:
-	    strcat(area, Reverse(area));
+	    strlcat(area, Reverse(area), sizeof(area));
 	    break;
 	case RULE_DUPLICATE:
-	    strcpy(area2, area);
-	    strcat(area, area2);
+	    strlcpy(area2, area, sizeof(area2));
+	    strlcat(area, area2, sizeof(area));
 	    break;
 	case RULE_GT:
 	    if (!ptr[1])
@@ -506,8 +508,8 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 	    } else
 	    {
 		area2[0] = *(++ptr);
-		strcpy(area2 + 1, area);
-		strcpy(area, area2);
+		strlcpy(area2 + 1, area, sizeof(area2)-1);
+		strlcpy(area, area2, sizeof(area));
 	    }
 	    break;
 	case RULE_APPEND:
@@ -541,7 +543,7 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 		    Debug(1, "Mangle: extract: weird argument in '%s'\n", control);
 		    return ((char *) 0);
 		}
-		strcpy(area2, area);
+		strlcpy(area2, area, sizeof(area2));
 		for (i = 0; length-- && area2[start + i]; i++)
 		{
 		    area[i] = area2[start + i];
@@ -599,8 +601,8 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 		    *(p2++) = *(p1++);
 		}
 		*(p2++) = *(++ptr);
-		strcpy(p2, p1);
-		strcpy(area, area2);
+		strlcpy(p2, p1, STRINGSIZE);
+		strlcpy(area, area2, sizeof(area));
 	    }
 	    break;
 	    /* THE FOLLOWING RULES REQUIRE CLASS MATCHING */
@@ -612,10 +614,10 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 		return ((char *) 0);
 	    } else if (ptr[1] != RULE_CLASS)
 	    {
-		strcpy(area, Purge(area, *(++ptr)));
+		strlcpy(area, Purge(area, *(++ptr)), sizeof(area));
 	    } else
 	    {
-		strcpy(area, PolyPurge(area, ptr[2]));
+		strlcpy(area, PolyPurge(area, ptr[2]), sizeof(area));
 		ptr += 2;
 	    }
 	    break;
@@ -626,11 +628,11 @@ Mangle(input, control)		/* returns a pointer to a controlled Mangle */
 		return ((char *) 0);
 	    } else if (ptr[1] != RULE_CLASS)
 	    {
-		strcpy(area, Substitute(area, ptr[1], ptr[2]));
+		strlcpy(area, Substitute(area, ptr[1], ptr[2]), sizeof(area));
 		ptr += 2;
 	    } else
 	    {
-		strcpy(area, PolySubst(area, ptr[2], ptr[3]));
+		strlcpy(area, PolySubst(area, ptr[2], ptr[3]), sizeof(area));
 		ptr += 3;
 	    }
 	    break;

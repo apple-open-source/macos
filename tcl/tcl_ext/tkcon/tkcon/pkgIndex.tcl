@@ -8,4 +8,4 @@
 #  * using '.tkcon' as the root toplevel
 #  * not displaying itself at 'package require' time
 #
-package ifneeded tkcon 2.5 [list source [file join $dir tkcon.tcl]]
+package ifneeded tkcon 2.6 [list source [file join $dir tkcon.tcl]]

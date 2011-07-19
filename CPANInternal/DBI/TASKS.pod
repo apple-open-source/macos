@@ -33,4 +33,23 @@ The official bug list is here:
 Naturally I'll offer direction and guidance on any you want to tackle.
 I've also got a few that could be entered into rt.cpan.org.
 
+=head2 Others
+
+General:
+
+    Protect trace_msg from SIGPIPE?
+    prepare(...,{ Err=>\my $isolated_err, ...})
+    Add trace module that just records the last N trace messages into an array
+        and prepends them to any error message to provide context for the error.
+    Document DBI_PROFILE_FLOCK and LockFile attrib in DBI::ProfileData and DBI::ProfileDumper
+
+Performance:
+
+    Move _new_sth to DBI::db::_new_sth (leave alias) and implement in C
+        Or call _new_child and move to DBI::common?
+
+    Implement FETCH_many() in C
+
+    Add high-res dbi_time for windows - via Time::HiRes glob replace dbi_time()?
+
 =cut

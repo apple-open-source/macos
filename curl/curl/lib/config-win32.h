@@ -333,18 +333,31 @@
 /*                            TYPE SIZES                            */
 /* ---------------------------------------------------------------- */
 
-/* The number of bytes in a long double.  */
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT 4
+
+/* The size of `long double', as computed by sizeof. */
 #define SIZEOF_LONG_DOUBLE 16
 
-/* The number of bytes in a long long.  */
+/* The size of `long long', as computed by sizeof. */
 /* #define SIZEOF_LONG_LONG 8 */
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT 2
+
+/* The size of `size_t', as computed by sizeof. */
+#if defined(_WIN64)
+#  define SIZEOF_SIZE_T 8
+#else
+#  define SIZEOF_SIZE_T 4
+#endif
 
 /* ---------------------------------------------------------------- */
 /*                          STRUCT RELATED                          */
 /* ---------------------------------------------------------------- */
 
 /* Define this if you have struct sockaddr_storage */
-#ifndef __SALFORDC__
+#if !defined(__SALFORDC__) && !defined(__BORLANDC__)
 #define HAVE_STRUCT_SOCKADDR_STORAGE 1
 #endif
 
@@ -456,17 +469,20 @@
    quite convoluted, compiler dependent and even build target dependent. */
 #if defined(HAVE_WS2TCPIP_H)
 #  if defined(__POCC__)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  elif defined(_WIN32_WINNT) && (_WIN32_WINNT >= 0x0501)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  elif defined(_MSC_VER) && (_MSC_VER >= 1200)
-#    define HAVE_FREEADDRINFO 1
-#    define HAVE_GETADDRINFO  1
-#    define HAVE_GETNAMEINFO  1
+#    define HAVE_FREEADDRINFO           1
+#    define HAVE_GETADDRINFO            1
+#    define HAVE_GETADDRINFO_THREADSAFE 1
+#    define HAVE_GETNAMEINFO            1
 #  endif
 #endif
 
@@ -495,6 +511,10 @@
 #  define USE_WIN32_LARGE_FILES
 #endif
 
+#if defined(__WATCOMC__) && !defined(USE_WIN32_LARGE_FILES)
+#  define USE_WIN32_LARGE_FILES
+#endif
+
 #if defined(__POCC__)
 #  undef USE_WIN32_LARGE_FILES
 #endif
@@ -504,22 +524,44 @@
 #endif
 
 /* ---------------------------------------------------------------- */
+/*                       DNS RESOLVER SPECIALTY                     */
+/* ---------------------------------------------------------------- */
+
+/*
+ * Undefine both USE_ARES and USE_THREADS_WIN32 for synchronous DNS
+ */
+
+/* Define USE_ARES to enable c-ares asynchronous DNS lookups */
+/* #define USE_ARES 1 */
+
+/* Define USE_THREADS_WIN32 to enable threaded asynchronous DNS lookups */
+#define USE_THREADS_WIN32 1
+
+#if defined(USE_ARES) && defined(USE_THREADS_WIN32)
+#  error "Only one DNS lookup specialty may be defined at most"
+#endif
+
+/* ---------------------------------------------------------------- */
 /*                           LDAP SUPPORT                           */
 /* ---------------------------------------------------------------- */
 
 #if defined(CURL_HAS_NOVELL_LDAPSDK) || defined(CURL_HAS_MOZILLA_LDAPSDK)
-#undef CURL_LDAP_HYBRID
 #undef CURL_LDAP_WIN
 #define HAVE_LDAP_SSL_H 1
 #define HAVE_LDAP_URL_PARSE 1
 #elif defined(CURL_HAS_OPENLDAP_LDAPSDK)
-#undef CURL_LDAP_HYBRID
 #undef CURL_LDAP_WIN
 #define HAVE_LDAP_URL_PARSE 1
 #else
-#undef CURL_LDAP_HYBRID
 #undef HAVE_LDAP_URL_PARSE
 #define CURL_LDAP_WIN 1
+#endif
+
+#if defined(__WATCOMC__) && defined(CURL_LDAP_WIN)
+#if __WATCOMC__ < 1280
+#define WINBERAPI  __declspec(cdecl)
+#define WINLDAPAPI __declspec(cdecl)
+#endif
 #endif
 
 #if defined(__POCC__) && defined(CURL_LDAP_WIN)
@@ -545,7 +587,7 @@
 /* Name of package */
 #define PACKAGE "curl"
 
-#if defined(__POCC__)
+#if defined(__POCC__) || (USE_IPV6)
 #  define ENABLE_IPV6 1
 #endif
 

@@ -71,7 +71,7 @@ static const CONF_PARSER module_config[] = {
 /*
  *	The Group = handler.
  */
-static int groupcmp(void *instance, UNUSED REQUEST *req, VALUE_PAIR *request,
+static int groupcmp(void *instance, REQUEST *req, VALUE_PAIR *request,
 		    VALUE_PAIR *check, VALUE_PAIR *check_pairs,
 		    VALUE_PAIR **reply_pairs)
 {
@@ -89,23 +89,18 @@ static int groupcmp(void *instance, UNUSED REQUEST *req, VALUE_PAIR *request,
 	/*
 	 *	No user name, doesn't compare.
 	 */
-	vp = pairfind(request, PW_STRIPPED_USER_NAME);
-	if (!vp) {
-		vp = pairfind(request, PW_USER_NAME);
-		if (!vp) {
-			return -1;
-		}
+	if (!req->username) {
+		return -1;
 	}
-	username = (char *)vp->vp_strvalue;
 
-	pwd = getpwnam(username);
+	pwd = getpwnam(req->username->vp_strvalue);
 	if (pwd == NULL)
 		return -1;
 
-	grp = getgrnam((char *)check->vp_strvalue);
+	grp = getgrnam(check->vp_strvalue);
 	if (grp == NULL)
 		return -1;
-
+	
 	retval = (pwd->pw_gid == grp->gr_gid) ? 0 : -1;
 	if (retval < 0) {
 		for (member = grp->gr_mem; *member && retval; member++) {
@@ -421,10 +416,11 @@ static int unix_accounting(void *instance, REQUEST *request)
 	int		status = -1;
 	int		nas_address = 0;
 	int		framed_address = 0;
+#ifdef USER_PROCESS
 	int		protocol = -1;
+#endif
 	int		nas_port = 0;
 	int		port_seen = 0;
-	int		nas_port_type = 0;
 	struct unix_instance *inst = (struct unix_instance *) instance;
 
 	/*
@@ -460,7 +456,7 @@ static int unix_accounting(void *instance, REQUEST *request)
 	 *	We're only interested in accounting messages
 	 *	with a username in it.
 	 */
-	if ((vp = pairfind(request->packet->vps, PW_USER_NAME)) == NULL)
+	if (pairfind(request->packet->vps, PW_USER_NAME) == NULL)
 		return RLM_MODULE_NOOP;
 
 	t = request->timestamp;
@@ -482,9 +478,11 @@ static int unix_accounting(void *instance, REQUEST *request)
 			case PW_FRAMED_IP_ADDRESS:
 				framed_address = vp->vp_ipaddr;
 				break;
+#ifdef USER_PROCESS
 			case PW_FRAMED_PROTOCOL:
 				protocol = vp->vp_integer;
 				break;
+#endif
 			case PW_NAS_IP_ADDRESS:
 				nas_address = vp->vp_ipaddr;
 				break;
@@ -495,9 +493,6 @@ static int unix_accounting(void *instance, REQUEST *request)
 			case PW_ACCT_DELAY_TIME:
 				delay = vp->vp_ipaddr;
 				break;
-			case PW_NAS_PORT_TYPE:
-				nas_port_type = vp->vp_ipaddr;
-				break;
 		}
 	}
 
@@ -507,8 +502,6 @@ static int unix_accounting(void *instance, REQUEST *request)
 	 */
 	if (strncmp(ut.ut_name, "!root", sizeof(ut.ut_name)) == 0 || !port_seen)
 		return RLM_MODULE_NOOP;
-
-	s = "";
 
 	/*
 	 *	If we didn't find out the NAS address, use the

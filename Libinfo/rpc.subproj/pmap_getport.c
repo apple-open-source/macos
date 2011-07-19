@@ -77,7 +77,7 @@ static struct timeval default_timeout = { 5, 0 };
  * Calls the pmap service remotely to do the lookup.
  * Returns 0 if no map exists.
  */
-__private_extern__ u_short
+u_short
 pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout)
 {
 	u_short port;

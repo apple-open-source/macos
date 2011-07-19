@@ -3,7 +3,7 @@ License
 
 Copyright (C) 
 2002-2004   Dave Smith (dizzyd@jabber.org)
-2007        Fabio Forno (xmpp:ff@jabber.bluendo.com)
+2007-2008   Fabio Forno (xmpp:ff@jabber.bluendo.com)
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -23,22 +23,25 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 THE SOFTWARE.
 
-$Id: proxy65.py 33 2008-01-14 17:05:32Z fabio.forno $
+$Id: proxy65.py 34 2008-12-14 12:48:21Z fabio.forno@gmail.com $
 
 -------------------------------------------------------------------------
 
 Portions Copyright 2008 Apple, Inc.  All rights reserved.
 """
-
 import os
 import sys, socket
 sys.path.append('/usr/share/proxy65');
-import socks5
-from twisted.application import service, internet
-from twisted.words.protocols.jabber import component,jid
-from twisted.python import usage, log
-from twisted.internet import protocol, reactor
 from plistlib import readPlist, writePlist
+from twisted.internet import protocol, reactor
+from twisted.python import usage, log
+from twisted.words.protocols.jabber import component,jid
+from twisted.application import app, service, internet
+try:
+    from twisted.internet.endpoints import _parse; from twisted.application import strports; strports._parse = _parse
+except ImportError:
+    raise ImportError("Import failed for twisted 10.2 workaround")
+import socks5
 
 configPath = '/Library/Preferences/com.apple.Proxy65.plist';
 config = {'jid':'',

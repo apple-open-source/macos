@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2006 Alexey Proskuryakov (ap@webkit.org)
+ * Copyright (C) 2006 Alexey Proskuryakov <ap@webkit.org>
+ * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,16 +28,44 @@
 #define Base64_h
 
 #include <wtf/Vector.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
-void base64Encode(const Vector<char>&, Vector<char>&, bool insertLFs = false);
+enum Base64DecodePolicy { FailOnInvalidCharacter, IgnoreWhitespace, IgnoreInvalidCharacters };
+
 void base64Encode(const char*, unsigned, Vector<char>&, bool insertLFs = false);
+void base64Encode(const Vector<char>&, Vector<char>&, bool insertLFs = false);
+void base64Encode(const CString&, Vector<char>&, bool insertLFs = false);
+String base64Encode(const char*, unsigned, bool insertLFs = false);
+String base64Encode(const Vector<char>&, bool insertLFs = false);
+String base64Encode(const CString&, bool insertLFs = false);
 
-// this decoder is not general purpose - it returns an error if it encounters a linefeed, as needed for window.atob
-bool base64Decode(const Vector<char>&, Vector<char>&);
-bool base64Decode(const char*, unsigned, Vector<char>&);
+bool base64Decode(const String&, Vector<char>&, Base64DecodePolicy = FailOnInvalidCharacter);
+bool base64Decode(const Vector<char>&, Vector<char>&, Base64DecodePolicy = FailOnInvalidCharacter);
+bool base64Decode(const char*, unsigned, Vector<char>&, Base64DecodePolicy = FailOnInvalidCharacter);
 
+inline void base64Encode(const Vector<char>& in, Vector<char>& out, bool insertLFs)
+{
+    base64Encode(in.data(), in.size(), out, insertLFs);
 }
+
+inline void base64Encode(const CString& in, Vector<char>& out, bool insertLFs)
+{
+    base64Encode(in.data(), in.length(), out, insertLFs);
+}
+
+inline String base64Encode(const Vector<char>& in, bool insertLFs)
+{
+    return base64Encode(in.data(), in.size(), insertLFs);
+}
+
+inline String base64Encode(const CString& in, bool insertLFs)
+{
+    return base64Encode(in.data(), in.length(), insertLFs);
+}
+
+} // namespace WebCore
 
 #endif // Base64_h

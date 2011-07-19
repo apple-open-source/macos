@@ -1,5 +1,7 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2009, 2010, 2011 Appcelerator, Inc. All rights reserved.
+ * Copyright (C) 2011 Brent Fulgham. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -12,7 +14,7 @@
  *
  * THIS SOFTWARE IS PROVIDED BY APPLE COMPUTER, INC. ``AS IS'' AND ANY
  * EXPRESS OR IMPLIED WARRANTIES, INCfLUDING, BUT NOT LIMITED TO, THE
- * IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * IMPLIED WARRANTIES OF MERCHANTABIuLITY AND FITNESS FOR A PARTICULAR
  * PURPOSE ARE DISCLAIMED.  IN NO EVENT SHALL APPLE COMPUTER, INC. OR
  * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
  * EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
@@ -26,20 +28,38 @@
 #ifndef WebView_H
 #define WebView_H
 
-#include "COMPtr.h"
 #include "WebKit.h"
 #include "WebFrame.h"
 #include "WebPreferences.h"
+#include <WebCore/COMPtr.h>
 #include <WebCore/DragActions.h>
 #include <WebCore/IntRect.h>
 #include <WebCore/RefCountedGDIHandle.h>
 #include <WebCore/SuspendableTimer.h>
 #include <WebCore/WindowMessageListener.h>
-#include <WebCore/WKCACFLayer.h>
-#include <WebCore/WKCACFLayerRenderer.h>
 #include <wtf/HashSet.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefPtr.h>
+
+#if USE(ACCELERATED_COMPOSITING)
+#include <WebCore/CACFLayerTreeHostClient.h>
+#include <WebCore/GraphicsLayerClient.h>
+#endif
+
+#if ENABLE(FULLSCREEN_API)
+#include <WebCore/FullScreenControllerClient.h>
+#endif
+
+namespace WebCore {
+#if USE(ACCELERATED_COMPOSITING)
+    class CACFLayerTreeHost;
+#endif
+    class FullScreenController;
+}
+
+namespace WebCore {
+    class HistoryItem;
+}
 
 class FullscreenVideoController;
 class WebBackForwardList;
@@ -67,7 +87,11 @@ class WebView
     , public IDropTarget
     , WebCore::WindowMessageListener
 #if USE(ACCELERATED_COMPOSITING)
-    , WebCore::WKCACFLayerRendererClient
+    , WebCore::GraphicsLayerClient
+    , WebCore::CACFLayerTreeHostClient
+#endif
+#if ENABLE(FULLSCREEN_API)
+    , WebCore::FullScreenControllerClient
 #endif
 {
 public:
@@ -111,7 +135,7 @@ public:
         /* [in] */ RECT frame,
         /* [in] */ BSTR frameName,
         /* [in] */ BSTR groupName);
-    
+
     virtual HRESULT STDMETHODCALLTYPE setUIDelegate( 
         /* [in] */ IWebUIDelegate *d);
     
@@ -697,7 +721,7 @@ public:
         /* [in] */ RECT rect,
         /* [in] */ OLE_HANDLE dc);
 
-    virtual HRESULT STDMETHODCALLTYPE paintDocumentRectToContextAtPoint(
+    virtual HRESULT STDMETHODCALLTYPE paintScrollViewRectToContextAtPoint(
         /* [in] */ RECT rect,
         /* [in] */ POINT pt,
         /* [in] */ OLE_HANDLE dc);
@@ -705,6 +729,11 @@ public:
     virtual HRESULT STDMETHODCALLTYPE reportException(
         /* [in] */ JSContextRef context,
         /* [in] */ JSValueRef exception);
+
+    virtual HRESULT STDMETHODCALLTYPE elementFromJS(
+        /* [in] */ JSContextRef context,
+        /* [in] */ JSValueRef nodeObject,
+        /* [retval][out] */ IDOMElement **element);
 
     virtual HRESULT STDMETHODCALLTYPE setCustomHTMLTokenizerTimeDelay(
         /* [in] */ double timeDelay);
@@ -800,8 +829,23 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE nextDisplayIsSynchronous();
 
+    virtual HRESULT STDMETHODCALLTYPE defaultMinimumTimerInterval(
+        /* [retval][out] */ double *interval);
+
+    virtual HRESULT STDMETHODCALLTYPE setMinimumTimerInterval(
+        /* [in] */ double);
+
+    virtual HRESULT STDMETHODCALLTYPE httpPipeliningEnabled(
+        /* [out, retval] */ BOOL* enabled);
+
+    virtual HRESULT STDMETHODCALLTYPE setHTTPPipeliningEnabled(
+        /* [in] */ BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE setUsesLayeredWindow(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE usesLayeredWindow(BOOL*);
+
     // WebView
-    bool shouldUseEmbeddedView(const WebCore::String& mimeType) const;
+    bool shouldUseEmbeddedView(const WTF::String& mimeType) const;
 
     WebCore::Page* page();
     bool handleMouseEvent(UINT, WPARAM, LPARAM);
@@ -836,6 +880,7 @@ public:
     bool didClose() const { return m_didClose; }
 
     bool transparent() const { return m_transparent; }
+    bool usesLayeredWindow() const { return m_usesLayeredWindow; }
 
     bool onIMEStartComposition();
     bool onIMEComposition(LPARAM);
@@ -854,13 +899,13 @@ public:
 
     // Convenient to be able to violate the rules of COM here for easy movement to the frame.
     WebFrame* topLevelFrame() const { return m_mainFrame; }
-    const WebCore::String& userAgentForKURL(const WebCore::KURL& url);
+    const WTF::String& userAgentForKURL(const WebCore::KURL& url);
 
     static bool canHandleRequest(const WebCore::ResourceRequest&);
 
-    static WebCore::String standardUserAgentWithApplicationName(const WebCore::String&);
+    static WTF::String standardUserAgentWithApplicationName(const WTF::String&);
 
-    void setIsBeingDestroyed() { m_isBeingDestroyed = true; }
+    void setIsBeingDestroyed();
     bool isBeingDestroyed() const { return m_isBeingDestroyed; }
 
     const char* interpretKeyEvent(const WebCore::KeyboardEvent*);
@@ -868,7 +913,7 @@ public:
 
     bool isPainting() const { return m_paintCount > 0; }
 
-    void setToolTip(const WebCore::String&);
+    void setToolTip(const WTF::String&);
 
     void registerForIconNotification(bool listen);
     void dispatchDidReceiveIconFromWebFrame(WebFrame*);
@@ -896,12 +941,24 @@ public:
     void downloadURL(const WebCore::KURL&);
 
 #if USE(ACCELERATED_COMPOSITING)
-    void setRootLayerNeedsDisplay() { if (m_layerRenderer) m_layerRenderer->setNeedsDisplay(); }
-    void setRootChildLayer(WebCore::WKCACFLayer* layer);
+    void flushPendingGraphicsLayerChangesSoon();
+    void setRootChildLayer(WebCore::GraphicsLayer*);
 #endif
 
     void enterFullscreenForNode(WebCore::Node*);
     void exitFullscreen();
+
+    void setLastCursor(HCURSOR cursor) { m_lastSetCursor = cursor; }
+
+    void setGlobalHistoryItem(WebCore::HistoryItem*);
+
+#if ENABLE(FULLSCREEN_API)
+    bool supportsFullScreenForElement(const WebCore::Element*, bool withKeyboard) const;
+    bool isFullScreen() const;
+    WebCore::FullScreenController* fullScreenController();
+    void setFullScreenElement(PassRefPtr<WebCore::Element>);
+    WebCore::Element* fullScreenElement() const { return m_fullScreenElement.get(); }
+#endif
 
 private:
     void setZoomMultiplier(float multiplier, bool isTextOnly);
@@ -914,9 +971,13 @@ private:
     HRESULT resetZoom(bool isTextOnly);
     bool active();
 
+    void sizeChanged(const WebCore::IntSize&);
+
     enum WindowsToPaint { PaintWebViewOnly, PaintWebViewAndChildren };
     void paintIntoBackingStore(WebCore::FrameView*, HDC bitmapDC, const WebCore::IntRect& dirtyRect, WindowsToPaint);
     void updateBackingStore(WebCore::FrameView*, HDC = 0, bool backingStoreCompletelyDirty = false, WindowsToPaint = PaintWebViewOnly);
+
+    void performLayeredWindowUpdate();
 
     WebCore::DragOperation keyStateToDragOperation(DWORD grfKeyState) const;
 
@@ -927,8 +988,15 @@ private:
     DWORD m_lastDropEffect;
 
 #if USE(ACCELERATED_COMPOSITING)
-    // WKCACFLayerRendererClient
-    virtual bool shouldRender() const;
+    // GraphicsLayerClient
+    virtual void notifyAnimationStarted(const WebCore::GraphicsLayer*, double time);
+    virtual void notifySyncRequired(const WebCore::GraphicsLayer*);
+    virtual void paintContents(const WebCore::GraphicsLayer*, WebCore::GraphicsContext&, WebCore::GraphicsLayerPaintingPhase, const WebCore::IntRect& inClip);
+    virtual bool showDebugBorders() const;
+    virtual bool showRepaintCounter() const;
+
+    // CACFLayerTreeHostClient
+    virtual void flushPendingGraphicsLayerChanges();
 #endif
 
 protected:
@@ -954,6 +1022,17 @@ protected:
     void removeFromAllWebViewsSet();
 
     virtual void windowReceivedMessage(HWND, UINT message, WPARAM, LPARAM);
+
+#if ENABLE(FULLSCREEN_API)
+    virtual HWND fullScreenClientWindow() const;
+    virtual HWND fullScreenClientParentWindow() const;
+    virtual void fullScreenClientSetParentWindow(HWND);
+    virtual void fullScreenClientWillEnterFullScreen();
+    virtual void fullScreenClientDidEnterFullScreen();
+    virtual void fullScreenClientWillExitFullScreen();
+    virtual void fullScreenClientDidExitFullScreen();
+    virtual void fullScreenClientForceRepaint();
+#endif
 
     ULONG m_refCount;
 #if !ASSERT_DISABLED
@@ -985,11 +1064,12 @@ protected:
 
     bool m_userAgentOverridden;
     bool m_useBackForwardList;
-    WebCore::String m_userAgentCustom;
-    WebCore::String m_userAgentStandard;
+    WTF::String m_userAgentCustom;
+    WTF::String m_userAgentStandard;
     float m_zoomMultiplier;
-    WebCore::String m_overrideEncoding;
-    WebCore::String m_applicationName;
+    bool m_zoomsTextOnly;
+    WTF::String m_overrideEncoding;
+    WTF::String m_applicationName;
     bool m_mouseActivated;
     // WebCore dragging logic needs to be able to inspect the drag data
     // this is updated in DragEnter/Leave/Drop
@@ -1005,7 +1085,7 @@ protected:
     bool m_hasCustomDropTarget;
     unsigned m_inIMEComposition;
     HWND m_toolTipHwnd;
-    WebCore::String m_toolTip;
+    WTF::String m_toolTip;
     bool m_deleteBackingStoreTimerActive;
 
     bool m_transparent;
@@ -1017,7 +1097,7 @@ protected:
 
     HWND m_topLevelParent;
 
-    OwnPtr<HashSet<WebCore::String> > m_embeddedViewMIMETypes;
+    OwnPtr<HashSet<WTF::String> > m_embeddedViewMIMETypes;
 
     //Variables needed to store gesture information
     RefPtr<WebCore::Node> m_gestureTargetNode;
@@ -1027,21 +1107,29 @@ protected:
     long m_yOverpan;
 
 #if ENABLE(VIDEO)
-    OwnPtr<FullscreenVideoController> m_fullscreenController;
+    OwnPtr<FullscreenVideoController> m_fullScreenVideoController;
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
     bool isAcceleratedCompositing() const { return m_isAcceleratedCompositing; }
     void setAcceleratedCompositing(bool);
-    void updateRootLayerContents();
-    void resizeLayerRenderer() { m_layerRenderer->resize(); }
-    void layerRendererBecameVisible() { m_layerRenderer->createRenderer(); }
 
-    OwnPtr<WebCore::WKCACFLayerRenderer> m_layerRenderer;
+    RefPtr<WebCore::CACFLayerTreeHost> m_layerTreeHost;
+    OwnPtr<WebCore::GraphicsLayer> m_backingLayer;
     bool m_isAcceleratedCompositing;
 #endif
 
     bool m_nextDisplayIsSynchronous;
+    bool m_usesLayeredWindow;
+
+    HCURSOR m_lastSetCursor;
+
+    RefPtr<WebCore::HistoryItem> m_globalHistoryItem;
+
+#if ENABLE(FULLSCREEN_API)
+    RefPtr<WebCore::Element> m_fullScreenElement;
+    OwnPtr<WebCore::FullScreenController> m_fullscreenController;
+#endif
 };
 
 #endif

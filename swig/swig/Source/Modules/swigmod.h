@@ -7,7 +7,7 @@
  * Main header file for SWIG modules.
  * ----------------------------------------------------------------------------- */
 
-/* $Header: /cvsroot/swig/SWIG/Source/Modules/swigmod.h,v 1.48 2006/11/09 22:32:28 wsfulton Exp $ */
+/* $Id: swigmod.h 11470 2009-07-29 20:50:39Z wsfulton $ */
 
 #ifndef SWIG_SWIGMOD_H_
 #define SWIG_SWIGMOD_H_
@@ -26,7 +26,7 @@ typedef int bool;
 #define PLAIN_VIRTUAL   1
 #define PURE_VIRTUAL    2
 
-extern char *input_file;
+extern String *input_file;
 extern int line_number;
 extern int start_line;
 extern int CPlusPlus;		// C++ mode
@@ -53,7 +53,8 @@ class Dispatcher {
 public:
 
   Dispatcher ():cplus_mode(PUBLIC) {
-  } virtual ~ Dispatcher () {
+  }
+  virtual ~ Dispatcher () {
   }
 
   virtual int emit_one(Node *n);
@@ -113,8 +114,8 @@ protected:
 
 class Language:public Dispatcher {
 public:
-  Language ();
-   virtual ~ Language ();
+  Language();
+  virtual ~Language();
   virtual int emit_one(Node *n);
 
   /* Parse command line options */
@@ -215,6 +216,13 @@ public:
   virtual int is_assignable(Node *n);	/* Is variable assignable? */
   virtual String *runtimeCode();	/* returns the language specific runtime code */
   virtual String *defaultExternalRuntimeFilename();	/* the default filename for the external runtime */
+  virtual void replaceSpecialVariables(String *method, String *tm, Parm *parm); /* Language specific special variable substitutions for $typemap() */
+
+  /* Runtime is C++ based, so extern "C" header section */
+  void enable_cplus_runtime_mode();
+
+  /* Returns the cplus_runtime mode */
+  int cplus_runtime_mode();
 
   /* Allow director related code generation */
   void allow_directors(int val = 1);
@@ -224,6 +232,9 @@ public:
 
   /* Allow director protected members related code generation */
   void allow_dirprot(int val = 1);
+
+  /* Allow all protected members code generation (for directors) */
+  void allow_allprotected(int val = 0);
 
   /* Returns the dirprot mode */
   int dirprot_mode() const;
@@ -239,6 +250,9 @@ public:
 
   /* Set overload variable templates argc and argv */
   void setOverloadResolutionTemplates(String *argc, String *argv);
+
+  /* Language instance is a singleton - get instance */
+  static Language* instance();
 
 protected:
   /* Allow multiple-input typemaps */
@@ -258,6 +272,9 @@ protected:
 
   /* Return the real name of the current class */
   String *getClassName() const;
+
+  /* Return the classes hash */
+  Hash *getClassHash() const;
 
   /* Return the current class prefix */
   String *getClassPrefix() const;
@@ -292,15 +309,21 @@ private:
   Hash *enumtypes;
   int overloading;
   int multiinput;
+  int cplus_runtime;
   int directors;
+  static Language *this_;
 };
 
 int SWIG_main(int, char **, Language *);
-void emit_args(SwigType *, ParmList *, Wrapper *f);
+void emit_parameter_variables(ParmList *l, Wrapper *f);
+void emit_return_variable(Node *n, SwigType *rt, Wrapper *f);
 void SWIG_exit(int);		/* use EXIT_{SUCCESS,FAILURE} */
-void SWIG_config_file(const String_or_char *);
+void SWIG_config_file(const_String_or_char_ptr );
 const String *SWIG_output_directory();
 void SWIG_config_cppext(const char *ext);
+
+/* get the list of generated files */
+List *SWIG_output_files();
 
 void SWIG_library_directory(const char *);
 int emit_num_arguments(ParmList *);
@@ -308,27 +331,30 @@ int emit_num_required(ParmList *);
 int emit_isvarargs(ParmList *);
 void emit_attach_parmmaps(ParmList *, Wrapper *f);
 void emit_mark_varargs(ParmList *l);
-void emit_action(Node *n, Wrapper *f);
-int emit_action_code(Node *n, Wrapper *f, String *action);
+String *emit_action(Node *n);
+int emit_action_code(Node *n, String *wrappercode, String *action);
 void Swig_overload_check(Node *n);
-String *Swig_overload_dispatch(Node *n, const String_or_char *fmt, int *);
-String *Swig_overload_dispatch_cast(Node *n, const String_or_char *fmt, int *);
-String *Swig_overload_dispatch_fast(Node *n, const String_or_char *fmt, int *);
+String *Swig_overload_dispatch(Node *n, const_String_or_char_ptr fmt, int *);
+String *Swig_overload_dispatch_cast(Node *n, const_String_or_char_ptr fmt, int *);
+String *Swig_overload_dispatch_fast(Node *n, const_String_or_char_ptr fmt, int *);
 SwigType *cplus_value_type(SwigType *t);
 
 /* directors.cxx start */
 String *Swig_csuperclass_call(String *base, String *method, ParmList *l);
 String *Swig_class_declaration(Node *n, String *name);
 String *Swig_class_name(Node *n);
-String *Swig_method_call(String_or_char *name, ParmList *parms);
-String *Swig_method_decl(SwigType *rtype, SwigType *decl, const String_or_char *id, List *args, int strip, int values);
+String *Swig_method_call(const_String_or_char_ptr name, ParmList *parms);
+String *Swig_method_decl(SwigType *rtype, SwigType *decl, const_String_or_char_ptr id, List *args, int strip, int values);
 String *Swig_director_declaration(Node *n);
+void Swig_director_emit_dynamic_cast(Node *n, Wrapper *f);
 /* directors.cxx end */
 
 extern "C" {
   void SWIG_typemap_lang(const char *);
   typedef Language *(*ModuleFactory) (void);
-} void Swig_register_module(const char *name, ModuleFactory fac);
+} 
+
+void Swig_register_module(const char *name, ModuleFactory fac);
 ModuleFactory Swig_find_module(const char *name);
 
 /* Utilities */
@@ -338,11 +364,10 @@ int is_private(Node *n);
 int is_protected(Node *n);
 int is_member_director(Node *parentnode, Node *member);
 int is_member_director(Node *member);
+int is_non_virtual_protected_access(Node *n); /* Check if the non-virtual protected members are required (for directors) */
 int use_naturalvar_mode(Node *n);
 
 void Wrapper_virtual_elimination_mode_set(int);
-void Wrapper_director_mode_set(int);
-void Wrapper_director_protected_mode_set(int);
 void Wrapper_fast_dispatch_mode_set(int);
 void Wrapper_cast_dispatch_mode_set(int);
 void Wrapper_naturalvar_mode_set(int);

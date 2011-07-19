@@ -3,9 +3,9 @@
  *
  *	This module implements misc routines for treectrl widgets.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeUtils.c,v 1.75 2008/07/21 18:35:38 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeUtils.c,v 1.80 2010/03/08 17:06:12 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -14,20 +14,24 @@
 #include "tkWinInt.h"
 #endif
 
-/* OffsetRgn() on Mac */
-#if defined(MAC_OSX_TK)
+#if defined(MAC_TK_CARBON)
 #include <Carbon/Carbon.h>
 #include "tkMacOSXInt.h"
 static PixPatHandle gPenPat = NULL;
 
 /* TkRegion changed from RgnHandle to HIShapeRef in 8.4.17/8.5.0 */
 #if (TK_MAJOR_VERSION == 8) && (TK_MINOR_VERSION >= 5)
-#define MAC_OSX_HISHAPE 1
+#  define MAC_OSX_HISHAPE 1
 #elif (TK_MAJOR_VERSION == 8) && (TK_MINOR_VERSION == 4) && (TK_RELEASE_SERIAL >= 17)
-#define MAC_OSX_HISHAPE 1
+#  define MAC_OSX_HISHAPE 1
 #endif
 
-#endif
+#endif /* MAC_TK_CARBON */
+
+#if defined(MAC_TK_COCOA)
+#  define MAC_OSX_HISHAPE 1
+#import <Cocoa/Cocoa.h>
+#endif /* MAC_TK_COCOA */
 
 struct dbwinterps {
     int count;
@@ -508,7 +512,9 @@ Tree_DrawActiveOutline(
     sw = !(wx & 1) == !((wy + height - 1) & 1);
     se = !((wx + width - 1) & 1) == !((wy + height - 1) & 1);
 
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_TK_COCOA)
+    gcValues.function = GXcopy;
+#elif defined(MAC_TK_CARBON)
     gcValues.function = GXxor;
 #else
     gcValues.function = GXinvert;
@@ -555,7 +561,7 @@ struct DotStatePriv
     HDC dc;
     TkWinDCState dcState;
     HRGN rgn;
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_CARBON)
     CGrafPtr saveWorld;
     GDHandle saveDevice;
     RgnHandle rgn;
@@ -593,7 +599,7 @@ TreeDotRect_Setup(
 {
     struct DotStatePriv *dotState = (struct DotStatePriv *) p;
 #ifdef WIN32
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_CARBON)
     MacDrawable *macWin = (MacDrawable *) drawable;
     GWorldPtr destPort;
     Rect bounds;
@@ -622,7 +628,7 @@ TreeDotRect_Setup(
 	Tree_ContentRight(tree),
 	Tree_ContentBottom(tree));
     SelectClipRgn(dotState->dc, dotState->rgn);
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_CARBON)
     /* NOTE: OSX doesn't support XOR drawing except in Quickdraw.  That is
      * why the X11 wrapper isn't used here. */
     tree->display->request++;
@@ -634,7 +640,7 @@ TreeDotRect_Setup(
     /* Save the old clip region. */
 #ifdef MAC_OSX_HISHAPE
     /* NOTE: Tree_GetRegion returns a HIShapeRef which isn't wanted. */
-    dotState->rgn = NewRgn(); // FIXME: want to cache these regions.
+    dotState->rgn = NewRgn(); /* FIXME: want to cache these regions. */
 #else
     dotState->rgn = (RgnHandle) Tree_GetRegion(tree);
 #endif
@@ -642,7 +648,7 @@ TreeDotRect_Setup(
 
     /* Keep drawing inside the contentbox. */
 #ifdef MAC_OSX_HISHAPE
-    clipRgn = NewRgn(); // FIXME: want to cache these regions.
+    clipRgn = NewRgn(); /* FIXME: want to cache these regions. */
 #else
     clipRgn = (RgnHandle) Tree_GetRegion(tree);
 #endif
@@ -669,8 +675,8 @@ TreeDotRect_Setup(
     gcValues.line_width = 1;
     gcValues.dash_offset = 0;
     gcValues.dashes = 1;
-#if defined(MAC_TCL)
-    gcValues.function = GXxor;
+#if defined(MAC_TK_COCOA)
+    gcValues.function = GXcopy;
 #else
     gcValues.function = GXinvert;
 #endif
@@ -751,7 +757,7 @@ TreeDotRect_Draw(
 	LineTo(dc, x + i + 1, y + height - 1);
     }
 #endif
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_CARBON)
     MacDrawable *macWin = (MacDrawable *) dotState->drawable;
     int i;
     int wx = x + dotState->tree->drawableXOrigin;
@@ -783,7 +789,7 @@ TreeDotRect_Draw(
 	MoveTo(x + i, y + height - 1);
 	LineTo(x + i, y + height - 1);
     }
-#else /* MAC_OSX_TK */
+#else /* MAC_TK_CARBON */
     XDrawRectangle(dotState->tree->display, dotState->drawable, dotState->gc,
 	x, y, width - 1, height - 1);
 #endif
@@ -816,7 +822,7 @@ TreeDotRect_Restore(
     SelectClipRgn(dotState->dc, NULL);
     DeleteObject(dotState->rgn);
     TkWinReleaseDrawableDC(dotState->drawable, dotState->dc, &dotState->dcState);
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_CARBON)
     HidePen();
     SetClip(dotState->rgn);
 #ifdef MAC_OSX_HISHAPE
@@ -832,7 +838,7 @@ TreeDotRect_Restore(
 #endif
 }
 
-#ifdef MAC_OSX_TK
+#ifdef MAC_TK_CARBON
 
 /*
  *----------------------------------------------------------------------
@@ -882,7 +888,7 @@ DrawXORLine(
     SetGWorld(saveWorld, saveDevice);
 }
 
-#endif /* MAC_OSX_TK */
+#endif /* MAC_TK_CARBON */
 
 /*
  *----------------------------------------------------------------------
@@ -911,7 +917,7 @@ Tree_GetRegion(
 	return TkCreateRegion();
     }
     region = tree->regionStack[--tree->regionStackLen];
-    TkSubtractRegion(region, region, region);
+    Tree_SetEmptyRegion(region);
     return region;
 }
 
@@ -1037,10 +1043,94 @@ Tree_OffsetRegion(
     OffsetRgn((HRGN) region, xOffset, yOffset);
 #elif defined(MAC_OSX_HISHAPE)
     HIShapeOffset((HIMutableShapeRef) region, xOffset, yOffset);
-#elif defined(MAC_TCL) || defined(MAC_OSX_TK)
+#elif defined(MAC_OSX_TK)
     OffsetRgn((RgnHandle) region, (short) xOffset, (short) yOffset);
 #else
     XOffsetRegion((Region) region, xOffset, yOffset);
+#endif
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tree_SetEmptyRegion --
+ *
+ *	Set a region to empty.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+Tree_SetEmptyRegion(
+    TkRegion region		/* Region to modify. */
+    )
+{
+    TkSubtractRegion(region, region, region);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tree_SetRectRegion --
+ *
+ *	Set a region to a single rectangle.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+Tree_SetRectRegion(
+    TkRegion region,		/* Region to modify. */
+    XRectangle *rect		/* Rectangle */
+    )
+{
+    Tree_SetEmptyRegion(region);
+    TkUnionRectWithRegion(rect, region, region);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * Tree_UnionRegion --
+ *
+ *	Compute the union of 2 regions.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+Tree_UnionRegion(
+    TkRegion rgnA,
+    TkRegion rgnB,
+    TkRegion rgnOut)
+{
+#ifdef WIN32
+    CombineRgn((HRGN) rgnA, (HRGN) rgnB, (HRGN) rgnOut, RGN_OR);
+#elif defined(MAC_OSX_HISHAPE)
+    HIShapeUnion((HIShapeRef) rgnA, (HIShapeRef) rgnB,
+	(HIMutableShapeRef) rgnOut);
+#elif defined(MAC_TK)
+    UnionRgn((RgnHandle) rgnA, (RgnHandle) rgnB, (RgnHandle) rgnOut);
+#else
+    XUnionRegion((Region) rgnA, (Region) rgnB, (Region) rgnOut);
 #endif
 }
 
@@ -1125,7 +1215,7 @@ Tree_ScrollWindow(
     int result = TkScrollWindow(tree->tkwin, gc, x, y, width, height, dx, dy,
 	damageRgn);
 #endif /* WIN32 */
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_TK_CARBON)
     {
 	MacDrawable *macWin = (MacDrawable *) Tk_WindowId(tree->tkwin);
 	/* BUG IN TK? */
@@ -1377,20 +1467,22 @@ Tree_DrawBitmap(
  *----------------------------------------------------------------------
  */
 
-#if defined(WIN32) || defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(WIN32) || defined(MAC_OSX_TK)
 
 void
 Tree_XImage2Photo(
     Tcl_Interp *interp,		/* Current interpreter. */
     Tk_PhotoHandle photoH,	/* Existing photo image. */
     XImage *ximage,		/* XImage to copy pixels from. */
+    unsigned long trans,	/* Pixel value in ximage that should be
+				 * considered transparent. */
     int alpha			/* Desired transparency of photo image.*/
     )
 {
     Tk_PhotoImageBlock photoBlock;
     unsigned char *pixelPtr;
     int x, y, w = ximage->width, h = ximage->height;
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_OSX_TK)
     unsigned long red_shift, green_shift, blue_shift;
 #endif
 
@@ -1398,7 +1490,7 @@ Tree_XImage2Photo(
 
     /* See TkPoscriptImage */
 
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_OSX_TK)
     red_shift = green_shift = blue_shift = 0;
     while ((0x0001 & (ximage->red_mask >> red_shift)) == 0)
 	red_shift++;
@@ -1426,12 +1518,18 @@ Tree_XImage2Photo(
 
 	    /* FIXME: I think this blows up on classic Mac??? */
 	    pixel = XGetPixel(ximage, x, y);
+
+	    /* Set alpha=0 for transparent pixel in the source XImage */
+	    if (trans != 0 && pixel == trans) {
+		pixelPtr[y * photoBlock.pitch + x * 4 + 3] = 0;
+		continue;
+	    }
 #ifdef WIN32
 	    r = GetRValue(pixel);
 	    g = GetGValue(pixel);
 	    b = GetBValue(pixel);
 #endif
-#if defined(MAC_TCL) || defined(MAC_OSX_TK)
+#if defined(MAC_OSX_TK)
 	    r = (pixel & ximage->red_mask) >> red_shift;
 	    g = (pixel & ximage->green_mask) >> green_shift;
 	    b = (pixel & ximage->blue_mask) >> blue_shift;
@@ -1456,6 +1554,8 @@ Tree_XImage2Photo(
     Tcl_Interp *interp,		/* Current interpreter. */
     Tk_PhotoHandle photoH,	/* Existing photo image. */
     XImage *ximage,		/* XImage to copy pixels from. */
+    unsigned long trans,	/* Pixel value in ximage that should be
+				 * considered transparent. */
     int alpha			/* Desired transparency of photo image.*/
     )
 {
@@ -1518,6 +1618,13 @@ Tree_XImage2Photo(
 	    unsigned long pixel;
 
 	    pixel = XGetPixel(ximage, x, y);
+
+	    /* Set alpha=0 for transparent pixel in the source XImage */
+	    if (trans != 0 && pixel == trans) {
+		pixelPtr[y * photoBlock.pitch + x * 4 + 3] = 0;
+		continue;
+	    }
+
 	    if (separated) {
 		r = (pixel & visual->red_mask) >> red_shift;
 		g = (pixel & visual->green_mask) >> green_shift;
@@ -1673,6 +1780,7 @@ TextLayout TextLayout_Compute(
 				** just let lines get as long as needed. */
     Tk_Justify justify,		/* How to justify lines. */
     int maxLines,
+    int lMargin1, int lMargin2, /* Extra indentation or zero */
     int flags	/* Flag bits OR-ed together.
 		 ** TK_IGNORE_TABS means that tab characters
 		 ** should not be expanded.  TK_IGNORE_NEWLINES
@@ -1727,8 +1835,7 @@ TextLayout TextLayout_Compute(
     baseline = fm.ascent;
     maxWidth = 0;
 
-    curX = 0;
-
+    curX = lMargin1;
     end = Tcl_UtfAtIndex(string, numChars);
     special = string;
 
@@ -1830,7 +1937,14 @@ wrapLine:
 
 	Tcl_DStringAppend(&lineBuffer, (char *) &curX, sizeof(curX));
 
-	curX = 0;
+	chunkPtr = layoutPtr->numChunks ?
+	    &layoutPtr->chunks[layoutPtr->numChunks - 1] : NULL;
+	if ((chunkPtr != NULL) && !(flags & TK_IGNORE_NEWLINES) &&
+		(chunkPtr->start[0] == '\n'))
+	    curX = lMargin1;
+	else
+	    curX = lMargin2;
+
 	baseline += height;
 	layoutPtr->numLines++;
 
@@ -1838,8 +1952,8 @@ wrapLine:
 	    break;
     }
 
-    if (start >= end)
-    if ((layoutPtr->numChunks > 0) && !(flags & TK_IGNORE_NEWLINES)) {
+    if ((start >= end) && (layoutPtr->numChunks > 0) &&
+	    !(flags & TK_IGNORE_NEWLINES)) {
 	if (layoutPtr->chunks[layoutPtr->numChunks - 1].start[0] == '\n') {
 	    chunkPtr =
 #ifdef TEXTLAYOUT_ALLOCHAX
@@ -1930,7 +2044,7 @@ finish:
 
     layoutPtr->width = maxWidth;
     layoutPtr->height = baseline - fm.ascent;
-layoutPtr->totalWidth = 0;
+    layoutPtr->totalWidth = 0;
     if (layoutPtr->numChunks == 0) {
 	layoutPtr->height = height;
 
@@ -1962,13 +2076,14 @@ layoutPtr->totalWidth = 0;
 	    else if (justify == TK_JUSTIFY_RIGHT) {
 		chunkPtr->x += extra;
 	    }
-if (chunkPtr->x + chunkPtr->totalWidth > layoutPtr->totalWidth)
-    layoutPtr->totalWidth = chunkPtr->x + chunkPtr->totalWidth;
+	    if (chunkPtr->x + chunkPtr->totalWidth > layoutPtr->totalWidth)
+		layoutPtr->totalWidth = chunkPtr->x + chunkPtr->totalWidth;
 	    chunkPtr++;
 	}
 /* dbwin("totalWidth %d displayWidth %d\n", layoutPtr->totalWidth, maxWidth); */
-    Tcl_DStringFree(&lineBuffer);
     }
+
+    Tcl_DStringFree(&lineBuffer);
 
     /* We don't want single-line text layouts for text elements, but it happens for column titles */
 /*	if (layoutPtr->numLines == 1)
@@ -4246,7 +4361,7 @@ TagInfo_FromObj(
     return TCL_OK;
 }
 
-Tcl_Obj *
+static Tcl_Obj *
 TagInfo_ToObj(
     TreeCtrl *tree,		/* Widget info. */
     TagInfo *tagInfo
@@ -5308,7 +5423,7 @@ static CONST char *DynamicOptionUid = "DynamicOption";
  *----------------------------------------------------------------------
  */
 
-DynamicOption *
+static DynamicOption *
 DynamicOption_Find(
     DynamicOption *first,	/* Head of linked list. */
     int id			/* Unique id. */

@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)termios.c	8.2 (Berkeley) 2/21/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.13 2002/05/28 16:59:39 alfred Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.16 2009/05/07 13:49:48 ed Exp $");
 
 #if __DARWIN_UNIX03
 #ifdef VARIANT_CANCELABLE
@@ -117,6 +113,31 @@ tcgetpgrp(fd)
 
 	return ((pid_t)s);
 }
+
+#if 0 // Needs API review first
+pid_t
+tcgetsid(int fd)
+{
+	int s;
+
+	if (_ioctl(fd, TIOCGSID, &s) < 0)
+		return ((pid_t)-1);
+
+	return ((pid_t)s);
+}
+
+int
+tcsetsid(int fd, pid_t pid)
+{
+
+	if (pid != getsid(0)) {
+		errno = EINVAL;
+		return (-1);
+	}
+
+	return (_ioctl(fd, TIOCSCTTY, NULL));
+}
+#endif
 
 speed_t
 cfgetospeed(t)

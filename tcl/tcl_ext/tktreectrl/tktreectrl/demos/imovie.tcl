@@ -1,4 +1,4 @@
-# RCS: @(#) $Id: imovie.tcl,v 1.16 2006/11/30 02:41:38 treectrl Exp $
+# RCS: @(#) $Id: imovie.tcl,v 1.17 2009/05/17 18:39:54 treectrl Exp $
 
 #
 # Demo: iMovie
@@ -147,4 +147,23 @@ proc iMovieButton1 {T x y} {
 	}
     }
     return -code break
+}
+
+#
+# Demo: iMovie (Wrap)
+#
+proc DemoIMovieWrap {} {
+
+    DemoIMovie
+
+    set T [DemoList]
+    $T configure -wrap ""
+    $T item configure "root child 4" -wrap yes
+    $T item configure "root child 5" -wrap yes
+    $T item configure "root child 8" -wrap yes
+    $T item configure "root child 10" -wrap yes
+    $T item configure "root child 15" -wrap yes
+#    $T item configure "root child 15" -wrap yes
+    $T item configure "root child 25" -wrap yes
+    return
 }

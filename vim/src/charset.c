@@ -14,10 +14,13 @@ static int win_chartabsize __ARGS((win_T *wp, char_u *p, colnr_T col));
 #endif
 
 #ifdef FEAT_MBYTE
+# if defined(HAVE_WCHAR_H)
+#  include <wchar.h>	    /* for towupper() and towlower() */
+# endif
 static int win_nolbr_chartabsize __ARGS((win_T *wp, char_u *s, colnr_T col, int *headp));
 #endif
 
-static int nr2hex __ARGS((int c));
+static unsigned nr2hex __ARGS((unsigned c));
 
 static int    chartab_initialized = FALSE;
 
@@ -174,6 +177,11 @@ buf_init_chartab(buf, global)
 	    if (VIM_ISDIGIT(*p))
 		c = getdigits(&p);
 	    else
+#ifdef FEAT_MBYTE
+		 if (has_mbyte)
+		c = mb_ptr2char_adv(&p);
+	    else
+#endif
 		c = *p++;
 	    c2 = -1;
 	    if (*p == '-' && p[1] != NUL)
@@ -182,9 +190,14 @@ buf_init_chartab(buf, global)
 		if (VIM_ISDIGIT(*p))
 		    c2 = getdigits(&p);
 		else
+#ifdef FEAT_MBYTE
+		     if (has_mbyte)
+		    c2 = mb_ptr2char_adv(&p);
+		else
+#endif
 		    c2 = *p++;
 	    }
-	    if (c <= 0 || (c2 < c && c2 != -1) || c2 >= 256
+	    if (c <= 0 || c >= 256 || (c2 < c && c2 != -1) || c2 >= 256
 						 || !(*p == NUL || *p == ','))
 		return FAIL;
 
@@ -664,7 +677,7 @@ transchar_hex(buf, c)
     }
 #endif
     buf[++i] = nr2hex((unsigned)c >> 4);
-    buf[++i] = nr2hex(c);
+    buf[++i] = nr2hex((unsigned)c);
     buf[++i] = '>';
     buf[++i] = NUL;
 }
@@ -674,9 +687,9 @@ transchar_hex(buf, c)
  * Lower case letters are used to avoid the confusion of <F1> being 0xf1 or
  * function key 1.
  */
-    static int
+    static unsigned
 nr2hex(c)
-    int		c;
+    unsigned	c;
 {
     if ((c & 0xf) <= 9)
 	return (c & 0xf) + '0';
@@ -829,14 +842,25 @@ win_chartabsize(wp, p, col)
 #endif
 
 /*
- * return the number of characters the string 's' will take on the screen,
- * taking into account the size of a tab
+ * Return the number of characters the string 's' will take on the screen,
+ * taking into account the size of a tab.
  */
     int
 linetabsize(s)
     char_u	*s;
 {
-    colnr_T	col = 0;
+    return linetabsize_col(0, s);
+}
+
+/*
+ * Like linetabsize(), but starting at column "startcol".
+ */
+    int
+linetabsize_col(startcol, s)
+    int		startcol;
+    char_u	*s;
+{
+    colnr_T	col = startcol;
 
     while (*s != NUL)
 	col += lbr_chartabsize_adv(&s, col);
@@ -884,7 +908,7 @@ vim_iswordc(c)
     if (c >= 0x100)
     {
 	if (enc_dbcs != 0)
-	    return dbcs_class((unsigned)c >> 8, c & 0xff) >= 2;
+	    return dbcs_class((unsigned)c >> 8, (unsigned)(c & 0xff)) >= 2;
 	if (enc_utf8)
 	    return utf_class(c) >= 2;
     }
@@ -1026,13 +1050,12 @@ lbr_chartabsize_adv(s, col)
  * string at start of line.  Warning: *headp is only set if it's a non-zero
  * value, init to 0 before calling.
  */
-/*ARGSUSED*/
     int
 win_lbr_chartabsize(wp, s, col, headp)
     win_T	*wp;
     char_u	*s;
     colnr_T	col;
-    int		*headp;
+    int		*headp UNUSED;
 {
 #ifdef FEAT_LINEBREAK
     int		c;
@@ -1090,7 +1113,7 @@ win_lbr_chartabsize(wp, s, col, headp)
 	 */
 	numberextra = win_col_off(wp);
 	col2 = col;
-	colmax = W_WIDTH(wp) - numberextra;
+	colmax = (colnr_T)(W_WIDTH(wp) - numberextra);
 	if (col >= colmax)
 	{
 	    n = colmax + win_col_off2(wp);
@@ -1201,19 +1224,21 @@ in_win_border(wp, vcol)
     win_T	*wp;
     colnr_T	vcol;
 {
-    colnr_T	width1;		/* width of first line (after line number) */
-    colnr_T	width2;		/* width of further lines */
+    int		width1;		/* width of first line (after line number) */
+    int		width2;		/* width of further lines */
 
 #ifdef FEAT_VERTSPLIT
     if (wp->w_width == 0)	/* there is no border */
 	return FALSE;
 #endif
     width1 = W_WIDTH(wp) - win_col_off(wp);
-    if (vcol < width1 - 1)
+    if ((int)vcol < width1 - 1)
 	return FALSE;
-    if (vcol == width1 - 1)
+    if ((int)vcol == width1 - 1)
 	return TRUE;
     width2 = width1 + win_col_off2(wp);
+    if (width2 <= 0)
+	return FALSE;
     return ((vcol - width1) % width2 == width2 - 1);
 }
 #endif /* FEAT_MBYTE */
@@ -1244,7 +1269,10 @@ getvcol(wp, pos, start, cursor, end)
 
     vcol = 0;
     ptr = ml_get_buf(wp->w_buffer, pos->lnum, FALSE);
-    posptr = ptr + pos->col;
+    if (pos->col == MAXCOL)
+	posptr = NULL;  /* continue until the NUL */
+    else
+	posptr = ptr + pos->col;
 
     /*
      * This function is used very often, do some speed optimizations.
@@ -1302,7 +1330,7 @@ getvcol(wp, pos, start, cursor, end)
 		    incr = CHARSIZE(c);
 	    }
 
-	    if (ptr >= posptr)	/* character at pos->col */
+	    if (posptr != NULL && ptr >= posptr) /* character at pos->col */
 		break;
 
 	    vcol += incr;
@@ -1323,7 +1351,7 @@ getvcol(wp, pos, start, cursor, end)
 		break;
 	    }
 
-	    if (ptr >= posptr)	/* character at pos->col */
+	    if (posptr != NULL && ptr >= posptr) /* character at pos->col */
 		break;
 
 	    vcol += incr;
@@ -1396,13 +1424,13 @@ getvvcol(wp, pos, start, cursor, end)
 # ifdef FEAT_MBYTE
 	/* Cannot put the cursor on part of a wide character. */
 	ptr = ml_get_buf(wp->w_buffer, pos->lnum, FALSE);
-	if (pos->col < STRLEN(ptr))
+	if (pos->col < (colnr_T)STRLEN(ptr))
 	{
 	    int c = (*mb_ptr2char)(ptr + pos->col);
 
 	    if (c != TAB && vim_isprintc(c))
 	    {
-		endadd = char2cells(c) - 1;
+		endadd = (colnr_T)(char2cells(c) - 1);
 		if (coladd > endadd)	/* past end of line */
 		    endadd = 0;
 		else

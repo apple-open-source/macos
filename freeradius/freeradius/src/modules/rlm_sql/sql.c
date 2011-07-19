@@ -51,14 +51,15 @@ RCSID("$Id$")
 static int connect_single_socket(SQLSOCK *sqlsocket, SQL_INST *inst)
 {
 	int rcode;
-	radlog(L_DBG, "rlm_sql (%s): Attempting to connect %s #%d",
+	radlog(L_INFO, "rlm_sql (%s): Attempting to connect %s #%d",
 	       inst->config->xlat_name, inst->module->name, sqlsocket->id);
-
 	rcode = (inst->module->sql_init_socket)(sqlsocket, inst->config);
 	if (rcode == 0) {
-		radlog(L_DBG, "rlm_sql (%s): Connected new DB handle, #%d",
+		radlog(L_INFO, "rlm_sql (%s): Connected new DB handle, #%d",
 		       inst->config->xlat_name, sqlsocket->id);
 		sqlsocket->state = sockconnected;
+		if (inst->config->lifetime) time(&sqlsocket->connected);
+		sqlsocket->queries = 0;
 		return(0);
 	}
 
@@ -165,7 +166,7 @@ void sql_poolfree(SQL_INST * inst)
  *************************************************************************/
 int sql_close_socket(SQL_INST *inst, SQLSOCK * sqlsocket)
 {
-	radlog(L_DBG, "rlm_sql (%s): Closing sqlsocket %d",
+	radlog(L_INFO, "rlm_sql (%s): Closing sqlsocket %d",
 	       inst->config->xlat_name, sqlsocket->id);
 	if (sqlsocket->state == sockconnected) {
 		(inst->module->sql_close)(sqlsocket, inst->config);
@@ -195,7 +196,7 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 	SQLSOCK *cur, *start;
 	int tried_to_connect = 0;
 	int unconnected = 0;
-	time_t now;
+	time_t now = time(NULL);
 
 	/*
 	 *	Start at the last place we left off.
@@ -219,12 +220,38 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 #endif
 
 		/*
+		 *	If the socket has outlived its lifetime, and
+		 *	is connected, close it, and mark it as open for
+		 *	reconnections.
+		 */
+		if (inst->config->lifetime && (cur->state == sockconnected) &&
+		    ((cur->connected + inst->config->lifetime) < now)) {
+			DEBUG2("Closing socket %d as its lifetime has been exceeded", cur->id);
+			(inst->module->sql_close)(cur, inst->config);
+			cur->state = sockunconnected;
+			goto reconnect;
+		}
+
+		/*
+		 *	If we have performed too many queries over this
+		 *	socket, then close it.
+		 */
+		if (inst->config->max_queries && (cur->state == sockconnected) &&
+		    (cur->queries >= inst->config->max_queries)) {
+			DEBUG2("Closing socket %d as its max_queries has been exceeded", cur->id);
+			(inst->module->sql_close)(cur, inst->config);
+			cur->state = sockunconnected;
+			goto reconnect;
+		}
+
+		/*
 		 *	If we happen upon an unconnected socket, and
 		 *	this instance's grace period on
 		 *	(re)connecting has expired, then try to
 		 *	connect it.  This should be really rare.
 		 */
-		if ((cur->state == sockunconnected) && (time(NULL) > inst->connect_after)) {
+		if ((cur->state == sockunconnected) && (now > inst->connect_after)) {
+		reconnect:
 			radlog(L_INFO, "rlm_sql (%s): Trying to (re)connect unconnected handle %d..", inst->config->xlat_name, cur->id);
 			tried_to_connect++;
 			connect_single_socket(cur, inst);
@@ -232,7 +259,7 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 
 		/* if we still aren't connected, ignore this handle */
 		if (cur->state == sockunconnected) {
-			radlog(L_DBG, "rlm_sql (%s): Ignoring unconnected handle %d..", inst->config->xlat_name, cur->id);
+			DEBUG("rlm_sql (%s): Ignoring unconnected handle %d..", inst->config->xlat_name, cur->id);
 		        unconnected++;
 #ifdef HAVE_PTHREAD_H
 			pthread_mutex_unlock(&cur->mutex);
@@ -241,10 +268,10 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 		}
 
 		/* should be connected, grab it */
-		radlog(L_DBG, "rlm_sql (%s): Reserving sql socket id: %d", inst->config->xlat_name, cur->id);
+		DEBUG("rlm_sql (%s): Reserving sql socket id: %d", inst->config->xlat_name, cur->id);
 
 		if (unconnected != 0 || tried_to_connect != 0) {
-			radlog(L_INFO, "rlm_sql (%s): got socket %d after skipping %d unconnected handles, tried to reconnect %d though", inst->config->xlat_name, cur->id, unconnected, tried_to_connect);
+			DEBUG("rlm_sql (%s): got socket %d after skipping %d unconnected handles, tried to reconnect %d though", inst->config->xlat_name, cur->id, unconnected, tried_to_connect);
 		}
 
 		/*
@@ -260,6 +287,7 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 		 *	as it's a pointer only used for reading.
 		 */
 		inst->last_used = cur->next;
+		cur->queries++;
 		return cur;
 
 		/* move along the list */
@@ -292,7 +320,6 @@ SQLSOCK * sql_get_socket(SQL_INST * inst)
 	 *	This code has race conditions when threaded, but the
 	 *	only result is that a few more messages are logged.
 	 */
-	now = time(NULL);
 	if (now <= last_logged_failure) return NULL;
 	last_logged_failure = now;
 
@@ -350,8 +377,13 @@ int sql_userparse(VALUE_PAIR ** first_pair, SQL_ROW row)
 	if (row[4] != NULL && row[4][0] != '\0') {
 		ptr = row[4];
 		operator = gettoken(&ptr, buf, sizeof(buf));
-	}
-	if (operator <= T_EOL) {
+		if ((operator < T_OP_ADD) ||
+		    (operator > T_OP_CMP_EQ)) {
+			radlog(L_ERR, "rlm_sql: Invalid operator \"%s\" for attribute %s", row[4], row[2]);
+			return -1;
+		}
+
+	} else {
 		/*
 		 *  Complain about empty or invalid 'op' field
 		 */
@@ -481,7 +513,11 @@ int rlm_sql_query(SQLSOCK *sqlsocket, SQL_INST *inst, char *query)
 		return -1;
 	}
 
-	ret = (inst->module->sql_query)(sqlsocket, inst->config, query);
+	if (sqlsocket->conn) {
+		ret = (inst->module->sql_query)(sqlsocket, inst->config, query);
+	} else {
+		ret = SQL_DOWN;
+	}
 
 	if (ret == SQL_DOWN) {
 	        /* close the socket that failed */
@@ -526,7 +562,12 @@ int rlm_sql_select_query(SQLSOCK *sqlsocket, SQL_INST *inst, char *query)
 		return -1;
 	}
 
-	ret = (inst->module->sql_select_query)(sqlsocket, inst->config, query);
+	if (sqlsocket->conn) {
+		ret = (inst->module->sql_select_query)(sqlsocket, inst->config,
+						       query);
+	} else {
+		ret = SQL_DOWN;
+	}
 
 	if (ret == SQL_DOWN) {
 	        /* close the socket that failed */
@@ -565,13 +606,6 @@ int sql_getvpdata(SQL_INST * inst, SQLSOCK * sqlsocket, VALUE_PAIR **pair, char 
 {
 	SQL_ROW row;
 	int     rows = 0;
-
-	/*
-	 *	If there's no query, return an error.
-	 */
-	if (!query || !*query) {
-		return -1;
-	}
 
 	if (rlm_sql_select_query(sqlsocket, inst, query)) {
 		radlog(L_ERR, "rlm_sql_getvpdata: database query error");

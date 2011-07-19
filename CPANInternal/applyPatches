@@ -3,13 +3,33 @@
 # These are the patches to apply.
 # Paths in patch files are relative to the root of the CPAN project
 my (@patchesToApply) = (
-	# Evolution's Exception.pm module uses a customized version of Error.pm
-	# The modifications to Error.pm are to support the additional features.
-	# The other main modification to Error.pm is to support a catch clause
-	# that operates the same as the standard Error's otherwise clause
-	# (this is used by Evolution's Exception).
-	# Radar 3623559	has been written to back this patch out later.
-	'./PatchFiles/Error.pm.diff',
+    # <rdar://problem/9559834> CPANInternal-103 (and earlier?) no longer builds
+    # Disables all HTTP-Proxy tests which seem to depend on external web servers.
+    './PatchFiles/HTTP-Proxy.diff',
+
+    # <rdar://problem/8302449> CPANInternal build ignores test failure in Path-Class
+    # A long-standing oversight in the Makefile caused test results for all Module::Build modules
+    # to be ignored. This patch disables a test which is broken when OBJROOT is somewhere in /tmp/.
+    # A long-standing failure which is probably safe to ignore.
+    './PatchFiles/Path-Class.diff',
+
+    # <rdar://problem/7812410> CBL Tiger can't find _normalize_tai_seconds
+    # DateTime's Build.PL is patched to accept linker/compiler flags. Without these, the
+    # DateTime.bundle will build thin (esp. important for Tiger)
+    './PatchFiles/DateTime-Build.PL.diff',
+
+	# <rdar://problem/7817393> CPANInternal JSON-Any project fails running buildit on SnowLeopard
+	# The test fails because it sets the pretty_print option on the JSON object, which results in a
+	# trailing return placed in the 'actual' value, but is not specified in the 'expected' value.
+	'./PatchFiles/JSON-Any-02-JSON-XS.t.diff',
+
+    # Evolution's Exception.pm module uses a customized version of Error.pm
+    # The modifications to Error.pm are to support the additional features.
+    # The other main modification to Error.pm is to support a catch clause
+    # that operates the same as the standard Error's otherwise clause
+    # (this is used by Evolution's Exception).
+    # Radar 3623559 has been written to back this patch out later.
+    './PatchFiles/Error.pm.diff',
 
 
     # We used to patch DBD-SQLite-1.07, but now that we've updated to
@@ -24,10 +44,11 @@ my (@patchesToApply) = (
     # Also, work around unitialized variable warnings in dbdimp.c
     #'./PatchFiles/DBD-SQLite.diff',
     
-    
+
     ## the self test trys to connect to a unreliable server. 
     ## so we skip those test
-    './PatchFiles/23connect.t.diff',
+    # disabled 3/9/2010 by DJW (<rdar://problem/7720374> Upgrade httpProxy on buildcentral to a newer version)
+    # './PatchFiles/23connect.t.diff',      
 
     ## expat has to be set up for XML-Parser
     './PatchFiles/Makefile.PL.diff', 
@@ -39,6 +60,12 @@ my (@patchesToApply) = (
     
     # <rdar://problem/5460193> SOAP::Lite isn't compressing
     './PatchFiles/SOAP-Transport-HTTP.pm.diff',
+
+    # <rdar://problem/6319392> SS2 fails to submit when submission notes contain "http:"
+    './PatchFiles/SOAP-Lite-Serializer.pm.diff',
+
+	# radar://8453094
+	'./PatchFiles/SOAP-Lite.pm.diff',
 
    ## JSON-Syck is replaced by YAML-Syck 0.82 which includes JSON-Syck
    ## 0.21.  It doesn't require this patch.
@@ -62,8 +89,8 @@ my (@patchesToApply) = (
     # file in Lingua-EN-Inflect
     './PatchFiles/Inflect.pm.diff',
 
-	# Added krb5_set_default_realm function to Authen::Krb5.xs
-	'./PatchFiles/Authen-Krb5.diff',
+    # Added krb5_set_default_realm function to Authen::Krb5.xs
+    './PatchFiles/Authen-Krb5.diff',
 
     # DBIx-Class-Storage-DBI doesn't like to txn_commit when AutoCommit
     # is NOT on ... odd really. Simple patch to workaround this
@@ -73,6 +100,38 @@ my (@patchesToApply) = (
     # Net-IP installs a couple of executable perl scripts into
     # /usr/bin which we don't need or want to ship...
     './PatchFiles/Net-IP-Makefile.PL.diff',
+    
+    # Address a bogus warning we see in SnowLeopard inside Class::Std (6783174)
+    './PatchFiles/Class-Std.diff',
+
+    # Net::Daemon patch for CPAN bug 39759 
+    # http://rt.cpan.org/Public/Bug/Display.html?id=39759
+    './PatchFiles/Net-Daemon-Daemon.pm.diff',
+
+    # Temporarily disable Net::Daemon ithread tests
+    './PatchFiles/Net-Daemon-t-ithread.t.diff',
+
+    # Temporarily disable Net::Daemon ithreadm tests 
+    './PatchFiles/Net-Daemon-t-ithreadm.t.diff',
+
+    # The First Rule of Sys::Syslog is: You do not call "setlogsock". 
+    # The Second Rule of Sys::Syslog is: You do not call "setlogsock". 
+    # In the chroot environment, there is no unix domain socket for syslog
+    # without launchd plist hackery and other build-time implications.  
+    # Don't call setlogsock to force the use of /var/run/syslog if it doesn't exist.
+    './PatchFiles/Net-Daemon-Log.pm.diff',
+
+    # PlRPC tests fail due to failure to create a server inside the chroot
+    # environment on 5.8/Leopard (see Net::Daemon, above).  Temporarily disable.
+    './PatchFiles/PlRPC-t-methods.t',
+
+    # IPC::LDT changes - replace use of fields / pseudohash with Perl 5.10
+    # compatible hash; add can_read method as implemented in Evolution's site_perl_custom.
+    './PatchFiles/IPC-LDT-LDT.pm.diff',
+
+    # Make JSON::RPC happy with CumulusDB. It shouldn't pass in $self needlessly.
+    './PatchFiles/JSON-RPC-Server.pm.diff',
+
 );
 
 

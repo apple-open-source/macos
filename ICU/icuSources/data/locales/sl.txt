@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sl.xml
@@ -10,463 +10,88 @@
  *  ICU <specials> source: <path>/xml/main/sl.xml
  */
 sl{
-    AuxExemplarCharacters{"[q w-y]"}
-    Countries{
-        001{"Svet"}
-        002{"Afrika"}
-        005{"Južna Amerika"}
-        009{"Oceanija"}
-        011{"Zahodna Afrika"}
-        013{"Centralna Amerika"}
-        014{"Vzhodna Afrika"}
-        015{"Severna Afrika"}
-        017{"Centralna Afrika"}
-        018{"Južna Afrika [018]"}
-        019{"Amerike"}
-        021{"Severna Amerika"}
-        029{"Karibi"}
-        030{"Vzhodna Azija"}
-        035{"Jugovzhodna Azija"}
-        039{"Južna Evropa"}
-        053{"Avstralija i Nova Zelandija"}
-        054{"Melanezija"}
-        057{"Micronezija"}
-        061{"Polinezija"}
-        062{"Južno-centralna Azija"}
-        142{"Azija"}
-        143{"Osrednja Azija"}
-        145{"Zahodna Azija"}
-        150{"Evropa"}
-        151{"Vzhodna Evropa"}
-        154{"Severna Evropa"}
-        155{"Zapadna Evropa"}
-        172{"Skupnost neodvisnih držav"}
-        419{"Latinska Amerika in Karibsko otočje"}
-        830{"Kanalski otoki"}
-        AD{"Andora"}
-        AE{"Združeni arabski emirati"}
-        AF{"Afganistan"}
-        AG{"Antigva in Barbuda"}
-        AI{"Angvila"}
-        AL{"Albanija"}
-        AM{"Armenija"}
-        AN{"Nizozemski Antili"}
-        AO{"Angola"}
-        AQ{"Antarktika"}
-        AR{"Argentina"}
-        AS{"Ameriška Samoa"}
-        AT{"Avstrija"}
-        AU{"Avstralija"}
-        AW{"Aruba"}
-        AX{"Alandski otoki"}
-        AZ{"Azerbajdžan"}
-        BA{"Bosna in Hercegovina"}
-        BB{"Barbados"}
-        BD{"Bangladeš"}
-        BE{"Belgija"}
-        BF{"Burkina Faso"}
-        BG{"Bolgarija"}
-        BH{"Bahrajn"}
-        BI{"Burundi"}
-        BJ{"Benin"}
-        BM{"Bermuda"}
-        BN{"Brunej"}
-        BO{"Bolivija"}
-        BR{"Brazilija"}
-        BS{"Bahami"}
-        BT{"Butan"}
-        BV{"Otok Bouvet"}
-        BW{"Bocvana"}
-        BY{"Belorusija"}
-        BZ{"Belize"}
-        CA{"Kanada"}
-        CC{"Kokosovi otoki"}
-        CD{"Demokratična republika Kongo"}
-        CF{"Centralnoafriška republika"}
-        CG{"Kongo"}
-        CH{"Švica"}
-        CI{"Slonokoščena obala"}
-        CK{"Cookovi otoki"}
-        CL{"Čile"}
-        CM{"Kamerun"}
-        CN{"Kitajska"}
-        CO{"Kolumbija"}
-        CR{"Kostarika"}
-        CS{"Srbija in Črna gora"}
-        CU{"Kuba"}
-        CV{"Kapverdski otoki"}
-        CX{"Božični otok"}
-        CY{"Ciper"}
-        CZ{"Češka"}
-        DE{"Nemčija"}
-        DJ{"Džibuti"}
-        DK{"Danska"}
-        DM{"Dominika"}
-        DO{"Dominikanska republika"}
-        DZ{"Alžirija"}
-        EC{"Ekvador"}
-        EE{"Estonija"}
-        EG{"Egipt"}
-        EH{"Zahodna Sahara"}
-        ER{"Eritreja"}
-        ES{"Španija"}
-        ET{"Etiopija"}
-        FI{"Finska"}
-        FJ{"Fidži"}
-        FK{"Falklandski (Malvinski) otoki"}
-        FM{"Mikronezija"}
-        FO{"Fererski otoki"}
-        FR{"Francija"}
-        GA{"Gabon"}
-        GB{"Velika Britanija"}
-        GD{"Grenada"}
-        GE{"Gruzija"}
-        GF{"Francoska Gvajana"}
-        GG{"Guernsey"}
-        GH{"Gana"}
-        GI{"Gibraltar"}
-        GL{"Grenlandija"}
-        GM{"Gambija"}
-        GN{"Gvineja"}
-        GP{"Guadeloupe"}
-        GQ{"Ekvatorialna Gvineja"}
-        GR{"Grčija"}
-        GS{"Južna Georgija in Južni Sandwich Islands"}
-        GT{"Gvatemala"}
-        GU{"Guam"}
-        GW{"Gvineja Bissau"}
-        GY{"Gvajana"}
-        HK{"Hong Kong S.A.R. Kitajske"}
-        HM{"Heardov otok in McDonaldovi otoki"}
-        HN{"Honduras"}
-        HR{"Hrvaška"}
-        HT{"Haiti"}
-        HU{"Madžarska"}
-        ID{"Indonezija"}
-        IE{"Irska"}
-        IL{"Izrael"}
-        IM{"Otok Man"}
-        IN{"Indija"}
-        IO{"Britanska Indija"}
-        IQ{"Irak"}
-        IR{"Iran"}
-        IS{"Islandija"}
-        IT{"Italija"}
-        JE{"Jersey"}
-        JM{"Jamajka"}
-        JO{"Jordan"}
-        JP{"Japonska"}
-        KE{"Kenija"}
-        KG{"Kirgizistan"}
-        KH{"Kambodža"}
-        KI{"Kiribati"}
-        KM{"Komori"}
-        KN{"Saint Kitts in Nevis"}
-        KP{"Severna Koreja"}
-        KR{"Južna Koreja"}
-        KW{"Kuvajt"}
-        KY{"Kajmanski otoki"}
-        KZ{"Kazahstan"}
-        LA{"Ljudska demokratična republika Laos"}
-        LB{"Libanon"}
-        LC{"Saint Lucia"}
-        LI{"Liechtenstein"}
-        LK{"Šrilanka"}
-        LR{"Liberija"}
-        LS{"Lesoto"}
-        LT{"Litva"}
-        LU{"Luxemburg"}
-        LV{"Latvija"}
-        LY{"Libija"}
-        MA{"Maroko"}
-        MC{"Monako"}
-        MD{"Republika Moldova"}
-        ME{"Črna gora"}
-        MG{"Madagaskar"}
-        MH{"Marshallovi otoki"}
-        MK{"Republika Makedonija"}
-        ML{"Mali"}
-        MM{"Myanmar"}
-        MN{"Mongolija"}
-        MO{"Makao S.A.R. Kitajske"}
-        MP{"Severni Marianski otoki"}
-        MQ{"Martinik"}
-        MR{"Mavretanija"}
-        MS{"Montserrat"}
-        MT{"Malta"}
-        MU{"Mauritius"}
-        MV{"Maldivi"}
-        MW{"Malavi"}
-        MX{"Mehika"}
-        MY{"Malezija"}
-        MZ{"Mozambik"}
-        NA{"Namibija"}
-        NC{"Nova Kaledonija"}
-        NE{"Niger"}
-        NF{"Otok Norfolk"}
-        NG{"Nigerija"}
-        NI{"Nikaragva"}
-        NL{"Nizozemska"}
-        NO{"Norveška"}
-        NP{"Nepal"}
-        NR{"Nauru"}
-        NU{"Niue"}
-        NZ{"Nova Zelandija"}
-        OM{"Oman"}
-        PA{"Panama"}
-        PE{"Peru"}
-        PF{"Francoska Polinezija"}
-        PG{"Papua Nova Gvineja"}
-        PH{"Filipini"}
-        PK{"Pakistan"}
-        PL{"Poljska"}
-        PM{"Saint Pierre in Miquelon"}
-        PN{"Pitcairn"}
-        PR{"Portoriko"}
-        PS{"Palestinsko ozemlje"}
-        PT{"Portugalska"}
-        PW{"Palau"}
-        PY{"Paragvaj"}
-        QA{"Katar"}
-        QO{"Ostala oceanija"}
-        QU{"Evropska unija"}
-        RE{"Reunion"}
-        RO{"Romunija"}
-        RS{"Srbija"}
-        RU{"Ruska federacija"}
-        RW{"Ruanda"}
-        SA{"Saudova Arabija"}
-        SB{"Salomonovo otočje"}
-        SC{"Sejšeli"}
-        SD{"Sudan"}
-        SE{"Švedska"}
-        SG{"Singapur"}
-        SH{"Sveta Helena"}
-        SI{"Slovenija"}
-        SJ{"Svalbard in Jan Mayen"}
-        SK{"Slovaška"}
-        SL{"Sierra Leone"}
-        SM{"San Marino"}
-        SN{"Senegal"}
-        SO{"Somalija"}
-        SR{"Surinam"}
-        ST{"Sao Tome in Principe"}
-        SV{"Salvador"}
-        SY{"Sirija"}
-        SZ{"Svazi"}
-        TC{"Otočji Turks in Caicos"}
-        TD{"Čad"}
-        TF{"Francoski južni teritorij"}
-        TG{"Togo"}
-        TH{"Tajska"}
-        TJ{"Tadžikistan"}
-        TK{"Tokelau"}
-        TL{"Vzhodni Timor"}
-        TM{"Turkmenistan"}
-        TN{"Tunizija"}
-        TO{"Tonga"}
-        TR{"Turčija"}
-        TT{"Trinidad in Tobago"}
-        TV{"Tuvalu"}
-        TW{"Tajvan"}
-        TZ{"Tanzanija"}
-        UA{"Ukrajina"}
-        UG{"Uganda"}
-        UM{"Ameriški manjši oddaljeni otoki"}
-        US{"Združene države Amerike"}
-        UY{"Urugvaj"}
-        UZ{"Uzbekistan"}
-        VA{"Vatikan"}
-        VC{"Saint Vincent in Grenadine"}
-        VE{"Venezuela"}
-        VG{"Britanski Deviški otoki"}
-        VI{"Ameriški Deviški otoki"}
-        VN{"Vietnam"}
-        VU{"Vanuatu"}
-        WF{"Wallis in Futuna"}
-        WS{"Samoa"}
-        YE{"Jemen"}
-        YT{"Mayotte"}
-        ZA{"Južna Afrika"}
-        ZM{"Zambija"}
-        ZW{"Zimbabve"}
-        ZZ{"Neznana ali neveljavna regija"}
+    AuxExemplarCharacters{
+        "[á à ă â å ä ā æ ç ć đ é è ĕ ê ë ē í ì ĭ î ï ī ñ ó ò ŏ ô ö ø ō œ q ú ù ŭ û ü"
+        " ū w x y ÿ]"
     }
-    Currencies{
-        BRL{
-            "R$",
-            "Brazilski Real",
-        }
-        CNY{
-            "CNY",
-            "Kitajski Yuan Renminbi",
-        }
-        EUR{
-            "€",
-            "Evro",
-        }
-        GBP{
-            "UK£",
-            "Britanski Funt Sterling",
-        }
-        INR{
-            "=0#Rs.|1#Re.|1<Rs." /** (choice)  */,
-            "Indijski Rupi",
-        }
-        JPY{
-            "JP¥",
-            "Japonski Jen",
-        }
-        RUB{
-            "RUB",
-            "Ruska Rublja",
-        }
-        SIT{
-            "SIT",
-            "Slovenski tolar",
-        }
-        USD{
-            "US$",
-            "Ameriški Dolar",
-        }
-    }
-    ExemplarCharacters{"[a-c č d-p r s š t-v z ž]"}
-    Keys{
-        calendar{"Kolendar"}
-        collation{"Zlaganje"}
-        currency{"Valuta"}
-    }
-    Languages{
-        af{"afrikanščina"}
-        ar{"arabščina"}
-        be{"beloruščina"}
-        bg{"bolgarščina"}
-        br{"bretonščina"}
-        bs{"bosanščina"}
-        ca{"katalonščina"}
-        cs{"češčina"}
-        cy{"valižanščina"}
-        da{"danščina"}
-        de{"nemščina"}
-        el{"grščina"}
-        en{"angleščina"}
-        eo{"esperanto"}
-        es{"španščina"}
-        et{"estonščina"}
-        eu{"baskovščina"}
-        fi{"finščina"}
-        fo{"ferščina"}
-        fr{"francoščina"}
-        ga{"irščina"}
-        gd{"škotska galščina"}
-        gl{"galicijščina"}
-        he{"hebrejščina"}
-        hi{"hindijščina"}
-        hr{"hrvaščina"}
-        hu{"madžarščina"}
-        ia{"interlingua"}
-        id{"indonezijščina"}
-        is{"islandščina"}
-        it{"italijanščina"}
-        ja{"japonščina"}
-        ka{"gruzinščina"}
-        ko{"korejščina"}
-        ku{"kurdščina"}
-        ky{"kirgizijščina"}
-        lb{"luksemburščina"}
-        lo{"laoščina"}
-        lt{"litovščina"}
-        lv{"letonščina"}
-        mk{"makedonščina"}
-        mt{"malteščina"}
-        nl{"nizozemščina"}
-        no{"norveščina"}
-        pl{"poljščina"}
-        pt{"portugalščina"}
-        pt_PT{"iberska portugalščina"}
-        ro{"romunščina"}
-        ru{"ruščina"}
-        sh{"srbohrvaščina"}
-        sk{"slovaščina"}
-        sl{"slovenščina"}
-        sq{"albanščina"}
-        sr{"srbščina"}
-        sv{"švedščina"}
-        tlh{"klingonščina"}
-        tr{"turščina"}
-        tw{"tvi (dialekt jezika akan)"}
-        uk{"ukrajinščina"}
-        und{"Neznan ali neveljaven jezik"}
-        uz{"uzbekistanščina"}
-        zh{"kitajščina"}
-        zh_Hans{"poenostavljena kitajščina"}
-    }
+    ExemplarCharacters{"[a b c č d e f g h i j k l m n o p r s š t u v z ž]"}
+    ExemplarCharactersCurrency{"[a b c č d e f g h i j k l ł m n o º p q r s t u v w x y z]"}
+    ExemplarCharactersIndex{"[A B C Č Ć D Đ E F G H I J K L M N O P Q R S Š T U V W X Y Z Ž]"}
     LocaleScript{
         "Latn",
     }
     NumberElements{
-        ",",
-        ".",
-        ";",
-        "%",
-        "0",
-        "#",
-        "-",
-        "E",
-        "‰",
-        "∞",
-        "NaN",
-        "+",
-    }
-    Scripts{
-        Latn{"Latinski"}
-    }
-    Types{
-        calendar{
-            buddhist{"Budistični kolendar"}
-            chinese{"Kitajski kolendar"}
-            gregorian{"Gregorijanski kolendar"}
-            hebrew{"Hebrejski kolendar"}
-            islamic{"Islamski kolendar"}
-            islamic-civil{"Islamski civilni kolendar"}
-            japanese{"Japonski kolendar"}
-        }
-        collation{
-            big5han{"Razvrščanje po sistemu tradicionalne kitajščine - Big5"}
-            direct{"Direktno zlaganje"}
-            phonebook{"Zlaganje po abecedi"}
-            pinyin{"Pinyin zlaganje"}
-            stroke{"Stroke order zlaganje"}
-            traditional{"Tradicionano zlaganje"}
+        latn{
+            patterns{
+                currencyFormat{"#,##0.00 ¤"}
+                decimalFormat{"#,##0.###"}
+                percentFormat{"#,##0%"}
+                scientificFormat{"#E0"}
+            }
+            symbols{
+                decimal{","}
+                exponential{"e"}
+                group{"."}
+                infinity{"∞"}
+                list{";"}
+                minusSign{"-"}
+                nan{"NaN"}
+                perMille{"‰"}
+                percentSign{"%"}
+                plusSign{"+"}
+            }
         }
     }
-    Version{"1.94"}
+    Version{"2.0.50.94"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "dop.",
+                "pop.",
+            }
             DateTimePatterns{
-                "H:mm:ss v",
-                "H:mm:ss z",
-                "H:mm:ss",
-                "H:mm",
-                "EEEE, dd. MMMM yyyy",
-                "dd. MMMM yyyy",
-                "d.M.yyyy",
-                "d.M.yy",
+                "HH:mm:ss zzzz",
+                "HH:mm:ss z",
+                "HH:mm:ss",
+                "HH:mm",
+                "EEEE, dd. MMMM y",
+                "dd. MMMM y",
+                "d. MMM yyyy",
+                "d. MM. yy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
                 "{1} {0}",
             }
             availableFormats{
-                MMMMd{"d MMMM"}
+                Ed{"E, d."}
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                MEd{"E, d. MM."}
+                MMMEd{"E, d. MMM"}
+                MMMd{"d. MMM"}
+                Md{"d. M."}
+                mmss{"mm:ss"}
+                ms{"mm:ss"}
+                y{"y"}
+                yMEd{"E, d. M. y"}
+                yMMM{"MMM y"}
+                yMMMEd{"E, d. MMM y"}
+                yyQ{"Q/yy"}
+                yyyyM{"M/yyyy"}
+                yyyyMMMM{"MMMM y"}
             }
             dayNames{
                 format{
                     abbreviated{
-                        "ned",
-                        "pon",
-                        "tor",
-                        "sre",
-                        "čet",
-                        "pet",
-                        "sob",
+                        "ned.",
+                        "pon.",
+                        "tor.",
+                        "sre.",
+                        "čet.",
+                        "pet.",
+                        "sob.",
                     }
                     wide{
                         "nedelja",
@@ -479,6 +104,15 @@ sl{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "ned",
+                        "pon",
+                        "tor",
+                        "sre",
+                        "čet",
+                        "pet",
+                        "sob",
+                    }
                     narrow{
                         "n",
                         "p",
@@ -492,25 +126,153 @@ sl{
             }
             eras{
                 abbreviated{
-                    "pr.n.š.",
+                    "pr. n. št.",
                     "po Kr.",
+                }
+                wide{
+                    "pred našim štetjem",
+                    "naše štetje",
+                }
+            }
+            fields{
+                day{
+                    dn{"Dan"}
+                    relative{
+                        "-1"{"Včeraj"}
+                        "-2"{"Predvčerajšnjim"}
+                        "-3"{"Pred tremi dnevi"}
+                        "0"{"Danes"}
+                        "1"{"Jutri"}
+                        "2"{"Pojutrišnjem"}
+                        "3"{"Čez tri dni"}
+                    }
+                }
+                dayperiod{
+                    dn{"Čas dneva"}
+                }
+                era{
+                    dn{"Doba"}
+                }
+                hour{
+                    dn{"Ura"}
+                }
+                minute{
+                    dn{"Minuta"}
+                }
+                month{
+                    dn{"Mesec"}
+                }
+                second{
+                    dn{"Sekunda"}
+                }
+                week{
+                    dn{"Teden"}
+                }
+                weekday{
+                    dn{"Dan v tednu"}
+                }
+                year{
+                    dn{"Leto"}
+                }
+                zone{
+                    dn{"Območje"}
+                }
+            }
+            intervalFormats{
+                M{
+                    M{"M.–M."}
+                }
+                MEd{
+                    M{"E, d. M. – E, d. M."}
+                    d{"E, d. – E, d. M."}
+                }
+                MMM{
+                    M{"MMM–MMM"}
+                }
+                MMMEd{
+                    M{"E, d. MMM – E, d. MMM"}
+                    d{"E, d. – E, d. MMM"}
+                }
+                MMMM{
+                    M{"LLLL–LLLL"}
+                }
+                MMMd{
+                    M{"d. MMM – d. MMM"}
+                    d{"d.–d. MMM"}
+                }
+                Md{
+                    M{"d. M. – d. M."}
+                    d{"d. – d. M."}
+                }
+                d{
+                    d{"d.–d."}
+                }
+                fallback{"{0} – {1}"}
+                h{
+                    a{"h a – h a"}
+                    h{"h–h a"}
+                }
+                hm{
+                    a{"h:mm a – h:mm a"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
+                }
+                hmv{
+                    a{"h:mm a – h:mm a v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
+                }
+                hv{
+                    a{"h a – h a v"}
+                    h{"h–h a v"}
+                }
+                y{
+                    y{"y–y"}
+                }
+                yM{
+                    M{"M.–M. yy"}
+                    y{"M. yy – M. yy"}
+                }
+                yMEd{
+                    M{"E, d. M. – E, d. M. yy"}
+                    d{"E, d. – E, d. M. yy"}
+                    y{"E, d. M. yy – E, d. M. yy"}
+                }
+                yMMM{
+                    M{"MMM – MMM y"}
+                    y{"MMM y – MMM y"}
+                }
+                yMMMEd{
+                    M{"E, d. MMM – E, d. MMM y"}
+                    d{"E, d. MMM – E, d. MMM y"}
+                    y{"E, d. MMM y – E, d. MMM y"}
+                }
+                yMMMd{
+                    M{"d. MMM – d. MMM y"}
+                    d{"d.–d. MMM y"}
+                    y{"d. MMM y – d. MMM y"}
+                }
+                yMd{
+                    M{"d. M. – d. M. yy"}
+                    d{"d. M. yy – d. M. yy"}
+                    y{"d. M. yy – d. M. yy"}
                 }
             }
             monthNames{
                 format{
                     abbreviated{
-                        "jan",
-                        "feb",
-                        "mar",
-                        "apr",
+                        "jan.",
+                        "feb.",
+                        "mar.",
+                        "apr.",
                         "maj",
-                        "jun",
-                        "jul",
-                        "avg",
-                        "sep",
-                        "okt",
-                        "nov",
-                        "dec",
+                        "jun.",
+                        "jul.",
+                        "avg.",
+                        "sep.",
+                        "okt.",
+                        "nov.",
+                        "dec.",
                     }
                     wide{
                         "januar",
@@ -528,6 +290,20 @@ sl{
                     }
                 }
                 stand-alone{
+                    abbreviated{
+                        "jan",
+                        "feb",
+                        "mar",
+                        "apr",
+                        "maj",
+                        "jun",
+                        "jul",
+                        "avg",
+                        "sep",
+                        "okt",
+                        "nov",
+                        "dec",
+                    }
                     narrow{
                         "j",
                         "f",
@@ -544,11 +320,23 @@ sl{
                     }
                 }
             }
+            quarters{
+                format{
+                    abbreviated{
+                        "Q1",
+                        "Q2",
+                        "Q3",
+                        "Q4",
+                    }
+                    wide{
+                        "1. četrtletje",
+                        "2. četrtletje",
+                        "3. četrtletje",
+                        "4. četrtletje",
+                    }
+                }
+            }
         }
-    }
-    codePatterns{
-        language{"Jezik: {0}"}
-        territory{"Regija: {0}"}
     }
     delimiters{
         alternateQuotationEnd{"“"}
@@ -556,13 +344,15 @@ sl{
         quotationEnd{"«"}
         quotationStart{"»"}
     }
-    localeDisplayPattern{
-        pattern{"{0} ({1})"}
-        separator{", "}
+    listPattern{
+        standard{
+            2{"{0} in {1}"}
+            end{"{0} in {1}"}
+        }
     }
     measurementSystemNames{
-        US{"Imperialni"}
-        metric{"Metrični"}
+        US{"imperialni"}
+        metric{"metrični"}
     }
     units{
         day{
@@ -586,7 +376,7 @@ sl{
         month{
             few{"{0} meseci"}
             one{"{0} mesec"}
-            other{"{0} meseci"}
+            other{"{0} mesecev"}
             two{"{0} meseca"}
         }
         second{
@@ -608,114 +398,48 @@ sl{
             two{"{0} leti"}
         }
     }
-    zoneStrings{
-        "Africa:Kinshasa"{
-            ec{"Kinšasa"}
+    unitsShort{
+        day{
+            few{"{0} d"}
+            one{"{0} d"}
+            other{"{0} d"}
+            two{"{0} d"}
         }
-        "Africa:Lubumbashi"{
-            ec{"Lubumbaši"}
+        hour{
+            few{"{0} h"}
+            one{"{0} h"}
+            other{"{0} h"}
+            two{"{0} h"}
         }
-        "America:Indiana:Knox"{
-            ec{"Knox"}
+        minute{
+            few{"{0} min"}
+            one{"{0} min"}
+            other{"{0} min"}
+            two{"{0} min"}
         }
-        "America:Indiana:Marengo"{
-            ec{"Marengo"}
+        month{
+            few{"{0} m"}
+            one{"{0} m"}
+            other{"{0} m"}
+            two{"{0} m"}
         }
-        "America:Indiana:Petersburg"{
-            ec{"Petersburg"}
+        second{
+            few{"{0} s"}
+            one{"{0} s"}
+            other{"{0} s"}
+            two{"{0} s"}
         }
-        "America:Indiana:Tell_City"{
-            ec{"Tell City"}
+        week{
+            few{"{0} t"}
+            one{"{0} t"}
+            other{"{0} t"}
+            two{"{0} t"}
         }
-        "America:Indiana:Vevay"{
-            ec{"Vevay"}
+        year{
+            few{"{0} l"}
+            one{"{0} l"}
+            other{"{0} l"}
+            two{"{0} l"}
         }
-        "America:Indiana:Vincennes"{
-            ec{"Vincennes"}
-        }
-        "America:Indiana:Winamac"{
-            ec{"Winamac"}
-        }
-        "America:Kentucky:Monticello"{
-            ec{"Monticello"}
-        }
-        "America:North_Dakota:Center"{
-            ec{"Center"}
-        }
-        "America:North_Dakota:New_Salem"{
-            ec{"New Salem"}
-        }
-        "America:St_Johns"{
-            ec{"St Johns"}
-        }
-        "Antarctica:DumontDUrville"{
-            ec{"Dumont D'Urville"}
-        }
-        "Antarctica:South_Pole"{
-            ec{"Južni pol"}
-        }
-        "Asia:Almaty"{
-            ec{"Almati"}
-        }
-        "Asia:Anadyr"{
-            ec{"Anadir"}
-        }
-        "Asia:Jakarta"{
-            ec{"Džakarta"}
-        }
-        "Asia:Kamchatka"{
-            ec{"Kamčatka"}
-        }
-        "Asia:Krasnoyarsk"{
-            ec{"Krasnojarsk"}
-        }
-        "Asia:Shanghai"{
-            ec{"Šangaj"}
-        }
-        "Asia:Tashkent"{
-            ec{"Taškent"}
-        }
-        "Asia:Ulaanbaatar"{
-            ec{"Ulan Bator"}
-        }
-        "Asia:Yekaterinburg"{
-            ec{"Jekaterinburg"}
-        }
-        "Atlantic:Azores"{
-            ec{"Azori"}
-        }
-        "Atlantic:Canary"{
-            ec{"Kanarski otoki"}
-        }
-        "Etc:Unknown"{
-            ec{"Neznano"}
-        }
-        "Europe:Kiev"{
-            ec{"Kijev"}
-        }
-        "Europe:Moscow"{
-            ec{"Moskva"}
-        }
-        "Europe:Uzhgorod"{
-            ec{"Užgorod"}
-        }
-        "Europe:Zaporozhye"{
-            ec{"Zaporožje"}
-        }
-        "Pacific:Easter"{
-            ec{"Velikonočni otok"}
-        }
-        "meta:Europe_Central"{
-            ld{"Srednjeevropski poletni čas"}
-            ls{"Srednjeevropski čas"}
-        }
-        "meta:Europe_Eastern"{
-            ld{"Vzhodnoevropski poletni čas"}
-            ls{"Vzhodnoevropski čas"}
-        }
-        fallbackFormat{"{1} ({0})"}
-        gmtFormat{"GMT{0}"}
-        hourFormat{"+HHmm;-HHmm"}
-        regionFormat{"{0}"}
     }
 }

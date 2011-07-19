@@ -1,8 +1,8 @@
 /* init.c - initialize bdb backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/init.c,v 1.247.2.11 2008/02/11 23:26:45 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/init.c,v 1.247.2.25 2010/04/14 22:59:10 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -24,7 +24,6 @@
 #include <sys/stat.h>
 #include "back-bdb.h"
 #include <lutil.h>
-#include <ldif.h>
 #include <ldap_rq.h>
 #include "alock.h"
 #include "config.h"
@@ -49,7 +48,6 @@ typedef void * db_realloc(void *, size_t);
 
 #if defined(__APPLE__)
 #include <fcntl.h>
-
 /*
  * A custom sync() function for BDB.  This one ensures that the data is
  * written out faster than normal ldapadds (skips f_fullfsync) during slapdd
@@ -57,7 +55,7 @@ typedef void * db_realloc(void *, size_t);
  static int
 apple_bdb_db_fsync(int fd)
 {
-	return (fsync(fd));
+        return (fsync(fd));
 }
 #endif /* __APPLE__ */
 
@@ -76,7 +74,7 @@ bdb_db_init( BackendDB *be, ConfigReply *cr )
 
 	/* DBEnv parameters */
 	bdb->bi_dbenv_home = ch_strdup( SLAPD_DEFAULT_DB_DIR );
-	bdb->bi_dbenv_xflags = 0;
+	bdb->bi_dbenv_xflags = DB_TIME_NOTGRANTED;
 	bdb->bi_dbenv_mode = SLAPD_DEFAULT_DB_MODE;
 
 	bdb->bi_cache.c_maxsize = DEFAULT_CACHE_SIZE;
@@ -126,8 +124,8 @@ bdb_db_open( BackendDB *be, ConfigReply *cr )
 	Entry *e = NULL;
 	int do_recover = 0, do_alock_recover = 0;
 	int alockt, quick = 0;
-	int replaceWithLdif = 0;
-	
+	int do_retry = 1;
+
 	if ( be->be_suffix == NULL ) {
 		Debug( LDAP_DEBUG_ANY,
 			LDAP_XSTRING(bdb_db_open) ": need suffix.\n",
@@ -171,7 +169,6 @@ bdb_db_open( BackendDB *be, ConfigReply *cr )
 			be->be_suffix[0].bv_val, 0, 0 );
 		do_alock_recover = 1;
 		do_recover = DB_RECOVER;
-		replaceWithLdif = 1;
 	} else if( rc == ALOCK_BUSY ) {
 		Debug( LDAP_DEBUG_ANY,
 			LDAP_XSTRING(bdb_db_open) ": database \"%s\": "
@@ -185,6 +182,8 @@ bdb_db_open( BackendDB *be, ConfigReply *cr )
 			be->be_suffix[0].bv_val, 0, 0 );
 		return -1;
 	}
+	if ( rc == ALOCK_CLEAN )
+		be->be_flags |= SLAP_DBFLAG_CLEAN;
 
 	/*
 	 * The DB_CONFIG file may have changed. If so, recover the
@@ -237,6 +236,7 @@ bdb_db_open( BackendDB *be, ConfigReply *cr )
 			"Run manual recovery if errors are encountered.\n",
 			be->be_suffix[0].bv_val, 0, 0 );
 		do_recover = 0;
+		do_alock_recover = 0;
 		quick = alockt;
 	}
 
@@ -247,7 +247,6 @@ bdb_db_open( BackendDB *be, ConfigReply *cr )
 			"cannot recover, database must be reinitialized.\n", 
 			be->be_suffix[0].bv_val, 0, 0 );
 		rc = -1;
-		replaceWithLdif = 1;
 		goto fail;
 	}
 
@@ -297,12 +296,12 @@ shm_retry:
 
 	bdb->bi_dbenv->set_lk_detect( bdb->bi_dbenv, bdb->bi_lock_detect );
 
-#if defined(__APPLE__)	
-	if(slapAddMode || bdb->bi_disable_fullfsync_mode ) {
-		Debug( LDAP_DEBUG_ANY, "slapd is running in import mode - only use if importing large data \n", 0, 0, 0 );
-		(void) db_env_set_func_fsync(apple_bdb_db_fsync);
-	}
-#endif /* __APPLE__ */	
+#if defined(__APPLE__)        
+        if(slapAddMode || bdb->bi_disable_fullfsync_mode ) {
+                Debug( LDAP_DEBUG_ANY, "slapd is running in import mode - only use if importing large data \n", 0, 0, 0 );
+                (void) db_env_set_func_fsync(apple_bdb_db_fsync);
+        }
+#endif /* __APPLE__ */
 	if ( !BER_BVISNULL( &bdb->bi_db_crypt_key )) {
 		rc = bdb->bi_dbenv->set_encrypt( bdb->bi_dbenv, bdb->bi_db_crypt_key.bv_val,
 			DB_ENCRYPT_AES );
@@ -317,7 +316,7 @@ shm_retry:
 
 	/* One long-lived TXN per thread, two TXNs per write op */
 	bdb->bi_dbenv->set_tx_max( bdb->bi_dbenv, connection_pool_max * 3 );
-	
+
 	if( bdb->bi_dbenv_xflags != 0 ) {
 		rc = bdb->bi_dbenv->set_flags( bdb->bi_dbenv,
 			bdb->bi_dbenv_xflags, 1);
@@ -354,7 +353,7 @@ shm_retry:
 		/* Regular open failed, probably a missing shm environment.
 		 * Start over, do a recovery.
 		 */
-		if ( !do_recover && bdb->bi_shm_key ) {
+		if ( !do_recover && bdb->bi_shm_key && do_retry ) {
 			bdb->bi_dbenv->close( bdb->bi_dbenv, 0 );
 			rc = db_env_create( &bdb->bi_dbenv, 0 );
 			if( rc == 0 ) {
@@ -362,6 +361,7 @@ shm_retry:
 					": database \"%s\": "
 					"shared memory env open failed, assuming stale env.\n",
 					be->be_suffix[0].bv_val, 0, 0 );
+				do_retry = 0;
 				goto shm_retry;
 			}
 		}
@@ -369,12 +369,9 @@ shm_retry:
 			LDAP_XSTRING(bdb_db_open) ": database \"%s\" cannot be %s, err %d. "
 			"Restore from backup!\n",
 			be->be_suffix[0].bv_val, do_recover ? "recovered" : "opened", rc );
-		if(do_recover)
-			replaceWithLdif = 1;
 		goto fail;
 	}
-	
-	
+
 	if ( do_alock_recover && alock_recover (&bdb->bi_alock_info) != 0 ) {
 		Debug( LDAP_DEBUG_ANY,
 			LDAP_XSTRING(bdb_db_open) ": database \"%s\": alock_recover failed\n",
@@ -391,9 +388,11 @@ shm_retry:
 	}
 #endif
 
-	/* Default dncache to 2x entrycache */
-	if ( bdb->bi_cache.c_maxsize && !bdb->bi_cache.c_eimax ) {
-		bdb->bi_cache.c_eimax = bdb->bi_cache.c_maxsize * 2;
+	/* dncache defaults to 0 == unlimited
+	 * must be >= entrycache
+	 */
+	if ( bdb->bi_cache.c_eimax && bdb->bi_cache.c_eimax < bdb->bi_cache.c_maxsize ) {
+		bdb->bi_cache.c_eimax = bdb->bi_cache.c_maxsize;
 	}
 
 	if ( bdb->bi_idl_cache_max_size ) {
@@ -443,19 +442,40 @@ shm_retry:
 			}
 		}
 
+		if( bdb->bi_flags & BDB_CHKSUM ) {
+			rc = db->bdi_db->set_flags( db->bdi_db, DB_CHKSUM );
+			if ( rc ) {
+				snprintf(cr->msg, sizeof(cr->msg),
+					"database \"%s\": db set_flags(DB_CHKSUM)(%s) failed: %s (%d).",
+					be->be_suffix[0].bv_val, 
+					bdb->bi_dbenv_home, db_strerror(rc), rc );
+				Debug( LDAP_DEBUG_ANY,
+					LDAP_XSTRING(bdb_db_open) ": %s\n",
+					cr->msg, 0, 0 );
+				goto fail;
+			}
+		}
+
+		rc = bdb_db_findsize( bdb, (struct berval *)&bdbi_databases[i].name );
+
 		if( i == BDB_ID2ENTRY ) {
+			if ( !rc ) rc = BDB_ID2ENTRY_PAGESIZE;
+			rc = db->bdi_db->set_pagesize( db->bdi_db, rc );
+
 			if ( slapMode & SLAP_TOOL_MODE )
 				db->bdi_db->mpf->set_priority( db->bdi_db->mpf,
 					DB_PRIORITY_VERY_LOW );
 
-			rc = db->bdi_db->set_pagesize( db->bdi_db,
-				BDB_ID2ENTRY_PAGESIZE );
 			if ( slapMode & SLAP_TOOL_READMAIN ) {
 				flags |= DB_RDONLY;
 			} else {
 				flags |= DB_CREATE;
 			}
 		} else {
+			/* Use FS default size if not configured */
+			if ( rc )
+				rc = db->bdi_db->set_pagesize( db->bdi_db, rc );
+
 			rc = db->bdi_db->set_flags( db->bdi_db, 
 				DB_DUP | DB_DUPSORT );
 #ifndef BDB_HIER
@@ -473,8 +493,6 @@ shm_retry:
 				flags |= DB_CREATE;
 			}
 #endif
-			rc = db->bdi_db->set_pagesize( db->bdi_db,
-				BDB_PAGESIZE );
 		}
 
 #ifdef HAVE_EBCDIC
@@ -530,13 +548,7 @@ shm_retry:
 	}
 
 	if ( !quick ) {
-#if DB_VERSION_FULL >= 0x04060012
-		u_int32_t lid;
-		XLOCK_ID(bdb->bi_dbenv, &lid);
-		__lock_getlocker(bdb->bi_dbenv->lk_handle, lid, 0, &bdb->bi_cache.c_locker);
-#else
-		XLOCK_ID(bdb->bi_dbenv, &bdb->bi_cache.c_locker);
-#endif
+		TXN_BEGIN(bdb->bi_dbenv, NULL, &bdb->bi_cache.c_txn, DB_READ_COMMITTED | DB_TXN_NOWAIT);
 	}
 
 	entry_prealloc( bdb->bi_cache.c_maxsize );
@@ -544,13 +556,26 @@ shm_retry:
 
 	/* setup for empty-DN contexts */
 	if ( BER_BVISEMPTY( &be->be_nsuffix[0] )) {
-		rc = bdb_id2entry( be, NULL, 0, 0, &e );
+		rc = bdb_id2entry( be, NULL, 0, &e );
 	}
 	if ( !e ) {
+		struct berval gluebv = BER_BVC("glue");
+		Operation op = {0};
+		Opheader ohdr = {0};
 		e = entry_alloc();
 		e->e_id = 0;
 		ber_dupbv( &e->e_name, (struct berval *)&slap_empty_bv );
 		ber_dupbv( &e->e_nname, (struct berval *)&slap_empty_bv );
+		attr_merge_one( e, slap_schema.si_ad_objectClass,
+			&gluebv, NULL );
+		attr_merge_one( e, slap_schema.si_ad_structuralObjectClass,
+			&gluebv, NULL );
+		op.o_hdr = &ohdr;
+		op.o_bd = be;
+		op.ora_e = e;
+		op.o_dn = be->be_rootdn;
+		op.o_ndn = be->be_rootndn;
+		slap_add_opattrs( &op, NULL, NULL, 0, 0 );
 	}
 	e->e_ocflags = SLAP_OC_GLUE|SLAP_OC__END;
 	e->e_private = &bdb->bi_cache.c_dntree;
@@ -567,135 +592,8 @@ shm_retry:
 	return 0;
 
 fail:
-	
-	
-/*	if(replaceWithLdif)
-	{
-		int dbOpened = 0;
-		Debug( LDAP_DEBUG_ANY,
-			  "bdb_db_open: restoring from the ldif backend as bdb is unrecoverable\n",0,0,0);
-		if(be->be_suffix != NULL)
-		{
-			if((strncmp(be->be_suffix[0].bv_val,"cn=accesslog",sizeof("cn=accesslog"))) == 0)
-			{
-				rc = rename(bdb->bi_db_config_path, "/tmp/DB_CONFIG");
-				if(rc == 0)
-				{
-					remove(bdb->bi_dbenv_home);
-					rc = mkdir(bdb->bi_dbenv_home,0700);	
-					if(rc == 0)
-					{
-						rc = rename("/tmp/DB_CONFIG",bdb->bi_db_config_path);
-						if(rc != 0)
-							Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not copy DB_CONFIG file to bdb database %d", errno, 0, 0);
-						remove("/tmp/DB_CONFIG");
-					}
-					else {
-						Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not mkdir bdb database dir %d", errno, 0, 0);
-					}
-				}		
-			}
-			else if(be->be_next.stqe_next != NULL)
-			{
-				BackendDB *ldifbe = be->be_next.stqe_next;
-				if((strncmp(ldifbe->bd_info->bi_type,"ldif",sizeof("ldif"))) == 0)
-				{
-					char* path_to_ldif = "/tmp/bdbrestore.ldif";
-					char* temp_path_to_ldif = "/tmp/tempbdbrestore.ldif";				
-					pid_t childPid;
-					int status;
-					const char *slapcat_argv[] = { "/usr/sbin/slapcat", "-c", "-l", path_to_ldif, "-b",ldifbe->be_suffix->bv_val,  NULL };				
-					struct stat sb;
-					
-					if ( posix_spawn( &childPid, slapcat_argv[0], NULL, NULL, (char **)slapcat_argv, NULL ) == 0 )
-						while ( waitpid(childPid, &status, 0) == -1 && errno != ECHILD );
-					
-					if(stat(path_to_ldif,&sb) == 0)
-					{
-						if(sb.st_size > 0 )
-						{
-							Debug( LDAP_DEBUG_ANY,
-								  "bdb_db_open: slapcat succesful\n",0,0,0);		
-							LDIFFP *rfp = ldif_open(path_to_ldif, "r");
-							LDIFFP *wfp = ldif_open(temp_path_to_ldif, "w");
-							char linebuf[BUFSIZ], *line;
-							ber_len_t linesize;
-							int flag = 0;
-							linesize = sizeof(linebuf);
-							line = linebuf;
-							while(!feof(rfp->fp)) {
-								while(fgets(line,linesize,rfp->fp) != NULL) {
-									if(((strcmp(line,"\n")) == 0) && (flag == 0))
-										flag = 1;
-									else {
-										if(flag == 0)
-											continue;
-										else {
-											fputs(line,wfp->fp);
-										}
-									}
-								}
-							}
-							ldif_close(rfp);
-							ldif_close(wfp);
-							rc = 0;	
-							struct tm *localTime;
-							time_t secs;
-							(void)time(&secs);
-							localTime = localtime(&secs);
-							char dateStr[200];
-							strftime( dateStr, sizeof(dateStr), "%F%k%M%S", localTime );
-							char backup_dir_name[200];						
-							strncpy(backup_dir_name, "/var/db/openldap/bdbbackup", sizeof(backup_dir_name));
-							strncat(backup_dir_name, dateStr, sizeof(backup_dir_name));
-							
-							rc = rename(bdb->bi_dbenv_home, backup_dir_name);
-							if(rc == 0)
-							{
-								rc = mkdir(bdb->bi_dbenv_home,0700);	
-								if(rc == 0)
-								{
-									char dbconfigpath[200];
-									strlcpy(dbconfigpath, bdb->bi_dbenv_home,strlen(bdb->bi_dbenv_home) + 1);
-									strcat(dbconfigpath, "/DB_CONFIG");
-									strcat(backup_dir_name,"/DB_CONFIG");
-									rc = rename(backup_dir_name, dbconfigpath);
-									if(rc == 0)
-									{
-										const char *slapadd_argv[] = { "/usr/sbin/slapadd", "-c", "-l", temp_path_to_ldif, NULL };
-										if ( posix_spawn( &childPid, slapadd_argv[0], NULL, NULL, (char **)slapadd_argv, NULL ) == 0 )
-											while ( waitpid(childPid, &status, 0) == -1 && errno != ECHILD );
-										remove(path_to_ldif);
-										remove(temp_path_to_ldif);
-										chmod(bdb->bi_dbenv_home, 0600);
-										rc = bdb_db_open(be, cr);
-										dbOpened = 1;
-										
-									}//copied DB_CONFIG back to bdb dir
-									else {
-										Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not copy DB_CONFIG file to bdb database %d", errno, 0, 0);
-									}
-								}// mkdir of bdb dir
-								else {
-									Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not mkdir bdb database dir %d", errno, 0, 0);
-								}
-							}// backup current bdb dir
-							else {
-								Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not backup bdb database %d", errno, 0, 0);
-							}
-						}// if sb.st_size > 0
-					}// file exists
-				}// ldif backend
-				if((rc !=0) && (!dbOpened)) {
-					bdb_db_close( be, NULL );
-					return rc;
-				}
-			}// !cn=accesslog
-		}//suffix != null
-	} //replaceWithldif
-	*/
-	Debug(LDAP_DEBUG_ANY, "bdb_db_open: could not restore bdb backend %d", rc, 0, 0);
-	return 0;
+	bdb_db_close( be, NULL );
+	return rc;
 }
 
 static int
@@ -722,6 +620,17 @@ bdb_db_close( BackendDB *be, ConfigReply *cr )
 
 	ber_bvarray_free( bdb->bi_db_config );
 	bdb->bi_db_config = NULL;
+
+	if( bdb->bi_dbenv ) {
+		/* Free cache locker if we enabled locking.
+		 * TXNs must all be closed before DBs...
+		 */
+		if ( !( slapMode & SLAP_TOOL_QUICK ) && bdb->bi_cache.c_txn ) {
+			TXN_ABORT( bdb->bi_cache.c_txn );
+			bdb->bi_cache.c_txn = NULL;
+		}
+		bdb_reader_flush( bdb->bi_dbenv );
+	}
 
 	while( bdb->bi_databases && bdb->bi_ndatabases-- ) {
 		db = bdb->bi_databases[bdb->bi_ndatabases];
@@ -753,18 +662,6 @@ bdb_db_close( BackendDB *be, ConfigReply *cr )
 
 	/* close db environment */
 	if( bdb->bi_dbenv ) {
-		/* Free cache locker if we enabled locking */
-		if ( !( slapMode & SLAP_TOOL_QUICK ) && bdb->bi_cache.c_locker ) {
-#if DB_VERSION_FULL >= 0x04060012
-			XLOCK_ID_FREE(bdb->bi_dbenv, bdb->bi_cache.c_locker->id);
-#else
-			XLOCK_ID_FREE(bdb->bi_dbenv, bdb->bi_cache.c_locker);
-#endif
-			bdb->bi_cache.c_locker = 0;
-		}
-#ifdef BDB_REUSE_LOCKERS
-		bdb_locker_flush( bdb->bi_dbenv );
-#endif
 		/* force a checkpoint, but not if we were ReadOnly,
 		 * and not in Quick mode since there are no transactions there.
 		 */
@@ -804,6 +701,17 @@ static int
 bdb_db_destroy( BackendDB *be, ConfigReply *cr )
 {
 	struct bdb_info *bdb = (struct bdb_info *) be->be_private;
+
+	/* stop and remove checkpoint task */
+	if ( bdb->bi_txn_cp_task ) {
+		struct re_s *re = bdb->bi_txn_cp_task;
+		bdb->bi_txn_cp_task = NULL;
+		ldap_pvt_thread_mutex_lock( &slapd_rq.rq_mutex );
+		if ( ldap_pvt_runqueue_isrunning( &slapd_rq, re ) )
+			ldap_pvt_runqueue_stoptask( &slapd_rq, re );
+		ldap_pvt_runqueue_remove( &slapd_rq, re );
+		ldap_pvt_thread_mutex_unlock( &slapd_rq.rq_mutex );
+	}
 
 	/* monitor handling */
 	(void)bdb_monitor_db_destroy( be );
@@ -899,9 +807,10 @@ bdb_back_initialize(
 	db_env_set_func_free( ber_memfree );
 	db_env_set_func_malloc( (db_malloc *)ber_memalloc );
 	db_env_set_func_realloc( (db_realloc *)ber_memrealloc );
-#ifndef NO_THREAD
+#if !defined(NO_THREAD) && DB_VERSION_FULL <= 0x04070000
 	/* This is a no-op on a NO_THREAD build. Leave the default
 	 * alone so that BDB will sleep on interprocess conflicts.
+	 * Don't bother on BDB 4.7...
 	 */
 	db_env_set_func_yield( ldap_pvt_thread_yield );
 #endif
@@ -940,7 +849,8 @@ bdb_back_initialize(
 	 */
 	bi->bi_tool_entry_open = bdb_tool_entry_open;
 	bi->bi_tool_entry_close = bdb_tool_entry_close;
-	bi->bi_tool_entry_first = bdb_tool_entry_next;
+	bi->bi_tool_entry_first = backend_tool_entry_first;
+	bi->bi_tool_entry_first_x = bdb_tool_entry_first_x;
 	bi->bi_tool_entry_next = bdb_tool_entry_next;
 	bi->bi_tool_entry_get = bdb_tool_entry_get;
 	bi->bi_tool_entry_put = bdb_tool_entry_put;

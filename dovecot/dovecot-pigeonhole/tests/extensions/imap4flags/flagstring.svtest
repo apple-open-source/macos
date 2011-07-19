@@ -1,0 +1,82 @@
+require "vnd.dovecot.testsuite";
+require "imap4flags";
+require "variables";
+
+test "Duplicates: setflag" {
+	setflag "flags" "\\seen \\seen";
+
+	if not string "${flags}" "\\seen" {
+		test_fail "duplicate \\seen flag item not removed (1)";
+	}
+
+	setflag "flags" "\\seen $frop \\seen";
+
+	if not string "${flags}" "\\seen $frop" {
+		test_fail "duplicate \\seen flag item not removed (2)";
+	}
+
+	setflag "flags" "\\seen $frop $frop \\seen";
+
+	if not string "${flags}" "\\seen $frop" {
+		test_fail "duplicate \\seen flag item not removed (3)";
+	}
+
+	setflag "flags" "$frop \\seen $frop \\seen";
+
+	if not string "${flags}" "$frop \\seen" {
+		test_fail "duplicate \\seen flag item not removed (4)";
+	}
+
+	setflag "flags" "$frop \\seen \\seen \\seen \\seen $frop $frop $frop \\seen";
+
+	if not string "${flags}" "$frop \\seen" {
+		test_fail "duplicate \\seen flag item not removed (5)";
+	}
+}
+
+test "Duplicates: addflag" {
+	setflag "flags" "";
+	addflag "flags" "\\seen \\seen";
+
+	if not string "${flags}" "\\seen" {
+		test_fail "duplicate \\seen flag item not removed (1)";
+	}
+
+	setflag "flags" "";
+	addflag "flags" "\\seen $frop \\seen";
+
+	if not string "${flags}" "\\seen $frop" {
+		test_fail "duplicate \\seen flag item not removed (2)";
+	}
+
+	setflag "flags" "";
+	addflag "flags" "\\seen $frop $frop \\seen";
+
+	if not string "${flags}" "\\seen $frop" {
+		test_fail "duplicate \\seen flag item not removed (3)";
+	}
+
+	setflag "flags" "";
+	addflag "flags" "$frop \\seen $frop \\seen";
+
+	if not string "${flags}" "$frop \\seen" {
+		test_fail "duplicate \\seen flag item not removed (4)";
+	}
+
+	setflag "flags" "";
+	addflag "flags" "$frop \\seen \\seen \\seen \\seen $frop $frop $frop \\seen";
+
+	if not string "${flags}" "$frop \\seen" {
+		test_fail "duplicate \\seen flag item not removed (5)";
+	}
+
+	setflag "flags" "$frop \\seen";
+	addflag "flags" "\\seen \\seen \\seen $frop $frop $frop \\seen";
+
+	if not string "${flags}" "$frop \\seen" {
+		test_fail "duplicate \\seen flag item not removed (6)";
+	}
+}
+
+
+

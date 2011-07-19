@@ -1,5 +1,8 @@
-# ------------------------------------------------------------------------
-#  statusbar.tcl
+# ----------------------------------------------------------------------------
+#  statusbar.tcl ---
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: statusbar.tcl,v 1.91 2009/09/06 21:42:14 oberdorfer Exp $
+# ----------------------------------------------------------------------------
 #	Create a status bar Tk widget
 #
 #  Provides a status bar to be placed at the bottom of a toplevel.
@@ -9,6 +12,7 @@
 #  Ensure that the widget is placed at the very bottom of the toplevel,
 #  otherwise the resize behavior may behave oddly.
 # ------------------------------------------------------------------------
+# 
 
 package require Tk 8.3
 
@@ -42,7 +46,7 @@ namespace eval StatusBar {
     Widget::define StatusBar statusbar
 
     Widget::declare StatusBar {
-	{-background  TkResource ""	0 frame}
+	{-background  Color      "SystemWindow"	0}
 	{-borderwidth TkResource 0	0 frame}
 	{-relief      TkResource flat	0 frame}
 	{-showseparator Boolean	 1	0}
@@ -127,7 +131,7 @@ proc StatusBar::create { path args } {
     foreach {padx pady} [_padval [Widget::cget $path -pad]] \
 	{ipadx ipady} [_padval [Widget::cget $path -ipad]] { break }
 
-    if {[Widget::theme]} {
+    if {[BWidget::using ttk]} {
 	set sbar   [ttk::frame $path.sbar -padding [list $padx $pady]]
     } else {
 	set sbar   [eval [list frame $path.sbar -padx $padx -pady $pady] \
@@ -149,7 +153,7 @@ proc StatusBar::create { path args } {
     }
     bindtags $resize [list all [winfo toplevel $path] StatusResize $resize]
 
-    if {[Widget::theme]} {
+    if {[BWidget::using ttk]} {
 	set fsep [ttk::separator $path.hsep -orient horizontal]
     } else {
 	set fsep [eval [list frame $path.hsep -bd 1 -height 2 -relief sunken] \
@@ -344,7 +348,7 @@ proc StatusBar::items {path} {
 }
 
 proc StatusBar::_sep {path name {sub .sbar}} {
-    if {[Widget::theme]} {
+    if {[BWidget::using ttk]} {
 	return [ttk::separator $path$sub.$name -orient vertical]
     } else {
 	return [frame $path$sub.$name -bd 1 -width 2 -relief sunken]
@@ -410,6 +414,10 @@ proc StatusBar::continue_resize {w rootx rooty} {
     if {$width  < 0} { set width 0 }
     if {$height < 0} { set height 0 }
     wm geometry $t ${width}x${height}
+
+    if {[string equal $::tcl_platform(platform) "windows"]} {
+      update idletasks
+    }
 }
 
 # The following proc cleans up when the user releases the mouse button.

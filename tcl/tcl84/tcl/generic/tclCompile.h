@@ -139,16 +139,22 @@ typedef struct ECL {
   int  srcOffset; /* cmd location to find the entry */
   int  nline;     /* Number of words in the command */
   int* line;      /* line information for all words in the command */
+  int** next;     /* Transient information during compile, ICL tracking */
 } ECL;
+
 typedef struct ExtCmdLoc {
   int      type;  /* Context type */
   Tcl_Obj* path;  /* Path of the sourced file the command is in */
   ECL*     loc;   /* Command word locations (lines) */
   int      nloc;  /* Number of allocated entries in 'loc' */
   int      nuloc; /* Number of used entries in 'loc' */
-  ExtIndex* eiloc;
-  int neiloc;
-  int nueiloc;
+  Tcl_HashTable litInfo; /* Indexed by bytecode 'PC', to have the
+			  * information accessible per command and
+			  * argument, not per whole bytecode. Value is
+			  * index of command in 'loc', giving us the
+			  * literals to associate with line
+			  * information as command argument, see
+			  * TclArgumentBCEnter() */
 } ExtCmdLoc;
 #endif
 
@@ -302,6 +308,13 @@ typedef struct CompileEnv {
     int        line;            /* First line of the script, based on the
 				 * invoking context, then the line of the
 				 * command currently compiled. */
+    ContLineLoc* clLoc;  /* If not NULL, the table holding the
+			  * locations of the invisible continuation
+			  * lines in the input script, to adjust the
+			  * line counter. */
+    int*         clNext; /* If not NULL, it refers to the next slot in
+			  * clLoc to check for an invisible
+			  * continuation line. */
 #endif
 } CompileEnv;
 

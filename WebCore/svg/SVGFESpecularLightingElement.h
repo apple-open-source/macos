@@ -1,54 +1,61 @@
 /*
-    Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-                  2005 Oliver Hunt <oliver@nerget.com>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
+ * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2005 Oliver Hunt <oliver@nerget.com>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #ifndef SVGFESpecularLightingElement_h
 #define SVGFESpecularLightingElement_h
 
 #if ENABLE(SVG) && ENABLE(FILTERS)
-#include "SVGFESpecularLighting.h"
+#include "FESpecularLighting.h"
+#include "SVGAnimatedNumber.h"
+#include "SVGFELightElement.h"
 #include "SVGFilterPrimitiveStandardAttributes.h"
 
 namespace WebCore {
 
-extern char SVGKernelUnitLengthXIdentifier[];
-extern char SVGKernelUnitLengthYIdentifier[];
-
 class SVGFESpecularLightingElement : public SVGFilterPrimitiveStandardAttributes {
 public:
-    SVGFESpecularLightingElement(const QualifiedName&, Document*);
-    virtual ~SVGFESpecularLightingElement();
-    
-    virtual void parseMappedAttribute(MappedAttribute*);
-    virtual void synchronizeProperty(const QualifiedName&);
-    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*);
+    static PassRefPtr<SVGFESpecularLightingElement> create(const QualifiedName&, Document*);
+    void lightElementAttributeChanged(const SVGFELightElement*, const QualifiedName&);
 
 private:
-    DECLARE_ANIMATED_PROPERTY(SVGFESpecularLightingElement, SVGNames::inAttr, String, In1, in1)
-    DECLARE_ANIMATED_PROPERTY(SVGFESpecularLightingElement, SVGNames::specularConstantAttr, float, SpecularConstant, specularConstant)
-    DECLARE_ANIMATED_PROPERTY(SVGFESpecularLightingElement, SVGNames::specularExponentAttr, float, SpecularExponent, specularExponent)
-    DECLARE_ANIMATED_PROPERTY(SVGFESpecularLightingElement, SVGNames::surfaceScaleAttr, float, SurfaceScale, surfaceScale)
-    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, SVGKernelUnitLengthXIdentifier, float, KernelUnitLengthX, kernelUnitLengthX)
-    DECLARE_ANIMATED_PROPERTY_MULTIPLE_WRAPPERS(SVGFESpecularLightingElement, SVGNames::kernelUnitLengthAttr, SVGKernelUnitLengthYIdentifier, float, KernelUnitLengthY, kernelUnitLengthY)
+    SVGFESpecularLightingElement(const QualifiedName&, Document*);
+    
+    virtual void parseMappedAttribute(Attribute*);
+    virtual bool setFilterEffectAttribute(FilterEffect*, const QualifiedName&);
+    virtual void svgAttributeChanged(const QualifiedName&);
+    virtual void synchronizeProperty(const QualifiedName&);
+    virtual void fillAttributeToPropertyTypeMap();
+    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
+    virtual PassRefPtr<FilterEffect> build(SVGFilterBuilder*, Filter*);
 
-    PassRefPtr<LightSource> findLights() const;
+    static const AtomicString& kernelUnitLengthXIdentifier();
+    static const AtomicString& kernelUnitLengthYIdentifier();
+
+    // Animated property declarations
+    DECLARE_ANIMATED_STRING(In1, in1)
+    DECLARE_ANIMATED_NUMBER(SpecularConstant, specularConstant)
+    DECLARE_ANIMATED_NUMBER(SpecularExponent, specularExponent)
+    DECLARE_ANIMATED_NUMBER(SurfaceScale, surfaceScale)
+    DECLARE_ANIMATED_NUMBER(KernelUnitLengthX, kernelUnitLengthX)
+    DECLARE_ANIMATED_NUMBER(KernelUnitLengthY, kernelUnitLengthY)
 };
 
 } // namespace WebCore

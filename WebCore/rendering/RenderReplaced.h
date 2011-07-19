@@ -37,6 +37,10 @@ protected:
 
     virtual IntSize intrinsicSize() const;
 
+    virtual int computeReplacedLogicalWidth(bool includeMaxWidth = true) const;
+    virtual int computeReplacedLogicalHeight() const;
+    virtual int minimumReplacedHeight() const { return 0; }
+
     virtual void setSelectionState(SelectionState);
 
     bool isSelected() const;
@@ -45,22 +49,21 @@ protected:
 
     void setIntrinsicSize(const IntSize&);
     virtual void intrinsicSizeChanged();
+    void setHasIntrinsicSize() { m_hasIntrinsicSize = true; }
 
     virtual void paint(PaintInfo&, int tx, int ty);
     bool shouldPaint(PaintInfo&, int& tx, int& ty);
-    IntRect localSelectionRect(bool checkWhetherSelected = true) const;
+    IntRect localSelectionRect(bool checkWhetherSelected = true) const; // This is in local coordinates, but it's a physical rect (so the top left corner is physical top left).
 
 private:
     virtual const char* renderName() const { return "RenderReplaced"; }
 
     virtual bool canHaveChildren() const { return false; }
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
+    virtual void computePreferredLogicalWidths();
 
-    virtual void calcPrefWidths();
-
-    virtual int minimumReplacedHeight() const { return 0; }
+    int calcAspectRatioLogicalWidth() const;
+    int calcAspectRatioLogicalHeight() const;
 
     virtual void paintReplaced(PaintInfo&, int /*tx*/, int /*ty*/) { }
 
@@ -74,6 +77,7 @@ private:
     virtual IntRect selectionRectForRepaint(RenderBoxModelObject* repaintContainer, bool clipToVisibleContent = true);
 
     IntSize m_intrinsicSize;
+    bool m_hasIntrinsicSize;
 };
 
 }

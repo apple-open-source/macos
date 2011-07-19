@@ -8,7 +8,7 @@ CFILES = sort.c error.c getopt.c getopt1.c long-options.c version.c xstrtod.c \
 	quotearg.c umaxtostr.c version-etc-fsf.c xalloc-die.c xstrtoumax.c
 MANPAGES = sort.1
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Wall \
 	-D__FBSDID=__RCSID \
 	-DHAVE_CONFIG_H \
 	-I.

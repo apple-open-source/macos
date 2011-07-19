@@ -32,6 +32,7 @@
 #include "Database.h"
 #include "ExceptionCode.h"
 #include "PlatformString.h"
+#include "SQLTransaction.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
@@ -40,16 +41,10 @@
 
 namespace WebCore {
 
-class DatabaseTask;
-class DatabaseThread;
-class SQLValue;
-class SQLCallback;
-class SQLTransaction;
-class VersionChangeCallback;
-
 // Can be used to wait until DatabaseTask is completed.
 // Has to be passed into DatabaseTask::create to be associated with the task.
-class DatabaseTaskSynchronizer : public Noncopyable {
+class DatabaseTaskSynchronizer {
+    WTF_MAKE_NONCOPYABLE(DatabaseTaskSynchronizer);
 public:
     DatabaseTaskSynchronizer();
 
@@ -58,21 +53,33 @@ public:
 
     // Called by the task.
     void taskCompleted();
-private:
 
+#ifndef NDEBUG
+    bool hasCheckedForTermination() const { return m_hasCheckedForTermination; }
+    void setHasCheckedForTermination() { m_hasCheckedForTermination = true; }
+#endif
+
+private:
     bool m_taskCompleted;
     Mutex m_synchronousMutex;
     ThreadCondition m_synchronousCondition;
+#ifndef NDEBUG
+    bool m_hasCheckedForTermination;
+#endif
 };
 
-class DatabaseTask : public Noncopyable {
-    friend class Database;
+class DatabaseTask {
+    WTF_MAKE_NONCOPYABLE(DatabaseTask); WTF_MAKE_FAST_ALLOCATED;
 public:
     virtual ~DatabaseTask();
 
     void performTask();
 
     Database* database() const { return m_database; }
+#ifndef NDEBUG
+    bool hasSynchronizer() const { return m_synchronizer; }
+    bool hasCheckedForTermination() const { return m_synchronizer->hasCheckedForTermination(); }
+#endif
 
 protected:
     DatabaseTask(Database*, DatabaseTaskSynchronizer*);
@@ -84,59 +91,57 @@ private:
     DatabaseTaskSynchronizer* m_synchronizer;
 
 #ifndef NDEBUG
-     virtual const char* debugTaskName() const = 0;
-     bool m_complete;
+    virtual const char* debugTaskName() const = 0;
+    bool m_complete;
 #endif
 };
 
-class DatabaseOpenTask : public DatabaseTask {
+class Database::DatabaseOpenTask : public DatabaseTask {
 public:
-    static PassOwnPtr<DatabaseOpenTask> create(Database* db, DatabaseTaskSynchronizer* synchronizer, ExceptionCode& code, bool& success)
+    static PassOwnPtr<DatabaseOpenTask> create(Database* db, bool setVersionInNewDatabase, DatabaseTaskSynchronizer* synchronizer, ExceptionCode& code, bool& success)
     {
-        return new DatabaseOpenTask(db, synchronizer, code, success);
+        return adoptPtr(new DatabaseOpenTask(db, setVersionInNewDatabase, synchronizer, code, success));
     }
 
 private:
-    DatabaseOpenTask(Database*, DatabaseTaskSynchronizer*, ExceptionCode&, bool& success);
+    DatabaseOpenTask(Database*, bool setVersionInNewDatabase, DatabaseTaskSynchronizer*, ExceptionCode&, bool& success);
 
     virtual void doPerformTask();
 #ifndef NDEBUG
     virtual const char* debugTaskName() const;
 #endif
 
+    bool m_setVersionInNewDatabase;
     ExceptionCode& m_code;
     bool& m_success;
 };
 
-class DatabaseCloseTask : public DatabaseTask {
+class Database::DatabaseCloseTask : public DatabaseTask {
 public:
-    static PassOwnPtr<DatabaseCloseTask> create(Database* db, Database::ClosePolicy closePolicy, DatabaseTaskSynchronizer* synchronizer)
-    { 
-        return new DatabaseCloseTask(db, closePolicy, synchronizer);
+    static PassOwnPtr<DatabaseCloseTask> create(Database* db, DatabaseTaskSynchronizer* synchronizer)
+    {
+        return adoptPtr(new DatabaseCloseTask(db, synchronizer));
     }
 
 private:
-    DatabaseCloseTask(Database*, Database::ClosePolicy, DatabaseTaskSynchronizer*);
+    DatabaseCloseTask(Database*, DatabaseTaskSynchronizer*);
 
     virtual void doPerformTask();
 #ifndef NDEBUG
     virtual const char* debugTaskName() const;
 #endif
-
-    Database::ClosePolicy m_closePolicy;
 };
 
-class DatabaseTransactionTask : public DatabaseTask {
+class Database::DatabaseTransactionTask : public DatabaseTask {
 public:
     // Transaction task is never synchronous, so no 'synchronizer' parameter.
     static PassOwnPtr<DatabaseTransactionTask> create(PassRefPtr<SQLTransaction> transaction)
     {
-        return new DatabaseTransactionTask(transaction);
+        return adoptPtr(new DatabaseTransactionTask(transaction));
     }
 
     SQLTransaction* transaction() const { return m_transaction.get(); }
 
-    virtual ~DatabaseTransactionTask();
 private:
     DatabaseTransactionTask(PassRefPtr<SQLTransaction>);
 
@@ -148,11 +153,11 @@ private:
     RefPtr<SQLTransaction> m_transaction;
 };
 
-class DatabaseTableNamesTask : public DatabaseTask {
+class Database::DatabaseTableNamesTask : public DatabaseTask {
 public:
     static PassOwnPtr<DatabaseTableNamesTask> create(Database* db, DatabaseTaskSynchronizer* synchronizer, Vector<String>& names)
     {
-        return new DatabaseTableNamesTask(db, synchronizer, names);
+        return adoptPtr(new DatabaseTableNamesTask(db, synchronizer, names));
     }
 
 private:

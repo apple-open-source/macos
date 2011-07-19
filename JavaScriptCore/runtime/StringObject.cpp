@@ -27,24 +27,27 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(StringObject);
 
-const ClassInfo StringObject::info = { "String", 0, 0, 0 };
+const ClassInfo StringObject::s_info = { "String", &JSWrapperObject::s_info, 0, 0 };
 
-StringObject::StringObject(ExecState* exec, NonNullPassRefPtr<Structure> structure)
-    : JSWrapperObject(structure)
+StringObject::StringObject(ExecState* exec, Structure* structure)
+    : JSWrapperObject(exec->globalData(), structure)
 {
-    setInternalValue(jsEmptyString(exec));
+    ASSERT(inherits(&s_info));
+    setInternalValue(exec->globalData(), jsEmptyString(exec));
 }
 
-StringObject::StringObject(NonNullPassRefPtr<Structure> structure, JSString* string)
-    : JSWrapperObject(structure)
+StringObject::StringObject(JSGlobalData& globalData, Structure* structure, JSString* string)
+    : JSWrapperObject(globalData, structure)
 {
-    setInternalValue(string);
+    ASSERT(inherits(&s_info));
+    setInternalValue(globalData, string);
 }
 
-StringObject::StringObject(ExecState* exec, NonNullPassRefPtr<Structure> structure, const UString& string)
-    : JSWrapperObject(structure)
+StringObject::StringObject(ExecState* exec, Structure* structure, const UString& string)
+    : JSWrapperObject(exec->globalData(), structure)
 {
-    setInternalValue(jsString(exec, string));
+    ASSERT(inherits(&s_info));
+    setInternalValue(exec->globalData(), jsString(exec, string));
 }
 
 bool StringObject::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -80,7 +83,7 @@ bool StringObject::deleteProperty(ExecState* exec, const Identifier& propertyNam
     if (propertyName == exec->propertyNames().length)
         return false;
     bool isStrictUInt32;
-    unsigned i = propertyName.toStrictUInt32(&isStrictUInt32);
+    unsigned i = propertyName.toUInt32(isStrictUInt32);
     if (isStrictUInt32 && internalValue()->canGetIndex(i))
         return false;
     return JSObject::deleteProperty(exec, propertyName);
@@ -90,7 +93,7 @@ void StringObject::getOwnPropertyNames(ExecState* exec, PropertyNameArray& prope
 {
     int size = internalValue()->length();
     for (int i = 0; i < size; ++i)
-        propertyNames.add(Identifier(exec, UString::from(i)));
+        propertyNames.add(Identifier(exec, UString::number(i)));
     if (mode == IncludeDontEnumProperties)
         propertyNames.add(exec->propertyNames().length);
     return JSObject::getOwnPropertyNames(exec, propertyNames, mode);

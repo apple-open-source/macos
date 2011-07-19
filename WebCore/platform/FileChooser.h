@@ -44,6 +44,9 @@ public:
     virtual void valueChanged() = 0;
     virtual void repaint() = 0;
     virtual bool allowsMultipleFiles() = 0;
+#if ENABLE(DIRECTORY_UPLOAD)
+    virtual bool allowsDirectoryUpload() = 0;
+#endif
     virtual String acceptTypes() = 0;
     virtual void chooseIconForFiles(FileChooser*, const Vector<String>&) = 0;
     virtual ~FileChooserClient();
@@ -70,11 +73,15 @@ public:
     void iconLoaded(PassRefPtr<Icon>);
 
     bool allowsMultipleFiles() const { return m_client ? m_client->allowsMultipleFiles() : false; }
+#if ENABLE(DIRECTORY_UPLOAD)
+    bool allowsDirectoryUpload() const { return m_client ? m_client->allowsDirectoryUpload() : false; }
+#endif
     // Acceptable MIME types.  It's an 'accept' attribute value of the corresponding INPUT element.
     String acceptTypes() const { return m_client ? m_client->acceptTypes() : String(); }
 
 private:
     FileChooser(FileChooserClient*, const Vector<String>& initialFilenames);
+    void initialize();
     void loadIcon();
 
     FileChooserClient* m_client;

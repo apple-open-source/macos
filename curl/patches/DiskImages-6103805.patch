@@ -1,10 +1,10 @@
---- lib/transfer.c.orig	2009-03-02 15:18:02.000000000 -0800
-+++ lib/transfer.c	2009-03-02 15:18:16.000000000 -0800
-@@ -910,6 +910,7 @@
+--- lib/http.c.orig	2010-02-24 15:18:26.000000000 -0800
++++ lib/http.c	2010-02-24 15:18:37.000000000 -0800
+@@ -3247,6 +3247,7 @@
          k->header = FALSE; /* no more header to parse! */
  
          if((k->size == -1) && !k->chunk && !conn->bits.close &&
 +           (data->set.httpreq != HTTPREQ_HEAD) &&
-            (conn->httpversion >= 11) ) {
+            (conn->httpversion >= 11) && !(conn->protocol & PROT_RTSP)) {
            /* On HTTP 1.1, when connection is not to get closed, but no
               Content-Length nor Content-Encoding chunked have been

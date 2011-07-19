@@ -1,0 +1,30 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2008-11-27  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* crosshair.tcl: Split the two crosshair lines into four, one per
+	* crosshair.man: direction, and changed the locations so that the
+	* pkgIndex.tcl: canvas will not pick the crosshairs as the
+	'current' object under the cursor. Bumped version to 1.0.2
+
+2008-11-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* crosshair.tcl: Fixed missing namespace before first
+	* crosshair.man: procedure definition. My fault. Made
+	* pkgIndex.tcl: namespace use fully qualified. Bumped
+	  version to 1.0.1.
+
+2008-11-10  Andreas Kupries  <andreask@activestate.com>
+
+	* crosshair.man: Fixed doc bugs found by Larry Virden
+	  [Bug 2255255]. These were my bad, not Kevin's.
+
+2008-11-04  Andreas Kupries  <andreask@activestate.com>
+
+	* crosshair.man: New module and package, crosshairs for
+	* crosshair.tcl: Tk canvas. By Kevin Kenny.
+	* pkgIndex.tcl: 

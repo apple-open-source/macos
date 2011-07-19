@@ -275,7 +275,7 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 		require ( ( args->structureInputSize == sizeof ( EmulatorTargetParamsStruct ) ), ErrorExit );
 		require ( ( args->structureOutputSize == 0 ), ErrorExit );
 		
-		STATUS_LOG ( ( "args->structureInputSize = %ld\n", args->structureInputSize ) );
+		STATUS_LOG ( ( "args->structureInputSize = %u\n", args->structureInputSize ) );
 		
 		status = ( ( AppleSCSIEmulatorAdapter * ) fProvider )->CreateLUN ( ( EmulatorTargetParamsStruct * ) args->structureInput, fTask );
 		
@@ -287,7 +287,7 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 		require ( ( args->scalarInputCount == 2 ), ErrorExit );
 		require ( ( args->scalarOutputCount == 0 ), ErrorExit );
 		
-		STATUS_LOG ( ( "args->scalarInputCount = %ld\n", args->scalarInputCount ) );
+		STATUS_LOG ( ( "args->scalarInputCount = %u\n", args->scalarInputCount ) );
 		STATUS_LOG ( ( "args->scalarInput[0] = %qd, args->scalarInput[1] = %qd\n", args->scalarInput[0], args->scalarInput[1] ) );
 		
 		status = ( ( AppleSCSIEmulatorAdapter * ) fProvider )->DestroyLUN ( args->scalarInput[0], args->scalarInput[1] );
@@ -300,7 +300,7 @@ AppleSCSIEmulatorAdapterUserClient::externalMethod (
 		require ( ( args->scalarInputCount == 1 ), ErrorExit );
 		require ( ( args->scalarOutputCount == 0 ), ErrorExit );
 		
-		STATUS_LOG ( ( "args->scalarInputCount = %ld\n", args->scalarInputCount ) );
+		STATUS_LOG ( ( "args->scalarInputCount = %u\n", args->scalarInputCount ) );
 		STATUS_LOG ( ( "args->scalarInput[0] = %qd\n", args->scalarInput[0] ) );
 		
 		status = ( ( AppleSCSIEmulatorAdapter * ) fProvider )->DestroyTarget ( args->scalarInput[0] );

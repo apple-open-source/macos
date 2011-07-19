@@ -68,7 +68,7 @@
 #endif
 
 /* Hook for a plugin to validate CHAP challenge */
-int (*chap_verify_hook)(char *name, char *ourname, int id,
+int (*chap_verify_hook)(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space) = NULL;
@@ -152,7 +152,7 @@ static void chap_timeout(void *arg);
 static void chap_generate_challenge(struct chap_server_state *ss);
 static void chap_handle_response(struct chap_server_state *ss, int code,
 		unsigned char *pkt, int len);
-static int chap_verify_response(char *name, char *ourname, int id,
+static int chap_verify_response(u_char *name, u_char *ourname, int id,
 		struct chap_digest_type *digest,
 		unsigned char *challenge, unsigned char *response,
 		unsigned char *message, int message_space);
@@ -392,7 +392,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 	int response_len, ok = 0, mlen;
 	unsigned char *response, *p;
 	unsigned char *name = NULL;	/* initialized to shut gcc up */
-	int (*verifier)(char *, char *, int, struct chap_digest_type *,
+	int (*verifier)(u_char *, u_char *, int, struct chap_digest_type *,
 		unsigned char *, unsigned char *, unsigned char *, int);
 	char rname[MAXNAMELEN+1];
 
@@ -414,18 +414,18 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		}
 
 		if (explicit_remote) {
-			name = remote_name;
+			name = (u_char*)remote_name;
 		} else {
 			/* Null terminate and clean remote name. */
 			slprintf(rname, sizeof(rname), "%.*v", len, name);
-			name = rname;
+			name = (u_char*)rname;
 		}
 
 		if (chap_verify_hook)
 			verifier = chap_verify_hook;
 		else
 			verifier = chap_verify_response;
-		ok = (*verifier)(name, ss->name, id, ss->digest,
+		ok = (*verifier)(name, (u_char*)ss->name, id, ss->digest,
 				 ss->challenge + PPP_HDRLEN + CHAP_HDRLEN,
 				 response, ss->message, sizeof(ss->message));
 		if (!ok || !auth_number()) {
@@ -438,7 +438,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 	/* send the response */
 	p = outpacket_buf;
 	MAKEHEADER(p, PPP_CHAP);
-	mlen = strlen(ss->message);
+	mlen = strlen((char*)ss->message);
 	len = CHAP_HDRLEN + mlen;
 	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
 	p[1] = id;
@@ -455,7 +455,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		ss->flags |= CHALLENGE_VALID; // challenge is still valid
 		ss->challenge[PPP_HDRLEN+1]++;  // but bump packet id
 		
-		strlcpy(prev_name, name, sizeof(prev_name));
+		strlcpy(prev_name, (char*)name, sizeof(prev_name));
 		return;		/* just return */
 	}
 #endif
@@ -469,7 +469,7 @@ chap_handle_response(struct chap_server_state *ss, int id,
 		} else {
 			notice("CHAP peer authentication succeeded for %q", name);
 			auth_peer_success(0, PPP_CHAP, ss->digest->code,
-					  name, strlen(name));
+					  name, strlen((char*)name));
 			if (chap_rechallenge_time) {
 				ss->flags |= TIMEOUT_PENDING;
 				TIMEOUT(chap_timeout, ss,
@@ -516,7 +516,7 @@ chap_handle_default(struct chap_server_state *ss, int code, int id,
 	/* send the response */
 	p = outpacket_buf;
 	MAKEHEADER(p, PPP_CHAP);
-	mlen = strlen(ss->message);
+	mlen = strlen((char*)ss->message);
 	len = CHAP_HDRLEN + mlen;
 	p[0] = ((ss->flags & AUTH_FAILED) || (ok == -1)) ? CHAP_FAILURE: CHAP_SUCCESS;
 	p[1] = id;
@@ -537,7 +537,7 @@ chap_handle_default(struct chap_server_state *ss, int code, int id,
 		} else {
 			notice("CHAP peer authentication succeeded for %q", prev_name);
 			auth_peer_success(0, PPP_CHAP, ss->digest->code,
-					  prev_name, strlen(prev_name));
+					  (u_char*)prev_name, strlen(prev_name));
 			if (chap_rechallenge_time) {
 				ss->flags |= TIMEOUT_PENDING;
 				TIMEOUT(chap_timeout, ss,
@@ -554,13 +554,13 @@ chap_handle_default(struct chap_server_state *ss, int code, int id,
  * succeeded), or 0 if it doesn't.
  */
 static int
-chap_verify_response(char *name, char *ourname, int id,
+chap_verify_response(u_char *name, u_char *ourname, int id,
 		     struct chap_digest_type *digest,
 		     unsigned char *challenge, unsigned char *response,
 		     unsigned char *message, int message_space)
 {
 	int ok;
-	char secret[MAXSECRETLEN];
+	u_char secret[MAXSECRETLEN];
 	int secret_len;
 
 	/* Get the secret that the peer is supposed to know */
@@ -569,8 +569,8 @@ chap_verify_response(char *name, char *ourname, int id,
 		return 0;
 	}
 
-	ok = digest->verify_response(id, name, secret, secret_len, challenge,
-				     response, message, message_space);
+	ok = digest->verify_response(id, (char*)name, secret, secret_len, challenge,
+				     response, (char*)message, message_space);
 	memset(secret, 0, sizeof(secret));
 
 	return ok;
@@ -587,8 +587,8 @@ chap_respond(struct chap_client_state *cs, int id,
 	int secret_len;
 	unsigned char *p;
 	unsigned char response[RESP_MAX_PKTLEN];
-	char rname[MAXNAMELEN+1];
-	char secret[MAXSECRETLEN+1];
+	u_char rname[MAXNAMELEN+1];
+	u_char secret[MAXSECRETLEN+1];
 
 	if ((cs->flags & (LOWERUP | AUTH_STARTED)) != (LOWERUP | AUTH_STARTED))
 		return;		/* not ready */
@@ -603,14 +603,14 @@ chap_respond(struct chap_client_state *cs, int id,
 	nlen = len - (clen + 1);
 
 	/* Null terminate and clean remote name. */
-	slprintf(rname, sizeof(rname), "%.*v", nlen, pkt + clen + 1);
+	slprintf((char*)rname, sizeof(rname), "%.*v", nlen, pkt + clen + 1);
 
 	/* Microsoft doesn't send their name back in the PPP packet */
 	if (explicit_remote || (remote_name[0] != 0 && rname[0] == 0))
-		strlcpy(rname, remote_name, sizeof(rname));
+		strlcpy((char*)rname, remote_name, sizeof(rname));
 	
 	/* get secret for authenticating ourselves with the specified host */
-	if (!get_secret(0, cs->name, rname, secret, &secret_len, 0)) {
+	if (!get_secret(0, (u_char*)cs->name, rname, secret, &secret_len, 0)) {
 		secret_len = 0;	/* assume null secret if can't find one */
 		warning("No CHAP secret found for authenticating us to %q", rname);
 	}
@@ -639,6 +639,7 @@ chap_respond(struct chap_client_state *cs, int id,
 	output(0, response, PPP_HDRLEN + len);
     cs->response_pktlen = PPP_HDRLEN + len;
     memcpy(cs->response, response, cs->response_pktlen);
+    cs->flags &= ~AUTH_DONE;
     cs->flags |= TIMEOUT_PENDING;
     TIMEOUT(chap_status_timeout, cs,
             chap_timeout_time);
@@ -652,8 +653,8 @@ chap_wait_input_fd(void)
 	int secret_len;
 	unsigned char *p;
 	unsigned char response[CHGPWD_MAX_PKTLEN];
-	char rname[MAXNAMELEN+1];
-	char secret[MAXSECRETLEN+1];
+	u_char rname[MAXNAMELEN+1];
+	u_char secret[MAXSECRETLEN+1];
 	struct chap_client_state *cs = &client;
 	
     if (chap_ui_fds[0] != -1 && is_ready_fd(chap_ui_fds[0])) {
@@ -687,10 +688,10 @@ chap_wait_input_fd(void)
 
 		/* Microsoft doesn't send their name back in the PPP packet */
 		if (explicit_remote || (remote_name[0] != 0 && rname[0] == 0))
-			strlcpy(rname, remote_name, sizeof(rname));
+			strlcpy((char*)rname, remote_name, sizeof(rname));
 
 		/* get secret for authenticating ourselves with the specified host */
-		if (!get_secret(0, cs->name, rname, secret, &secret_len, 0)) {
+		if (!get_secret(0, (u_char*)cs->name, rname, secret, &secret_len, 0)) {
 			secret_len = 0;	/* assume null secret if can't find one */
 			warning("No CHAP secret found for authenticating us to %q", rname);
 		}
@@ -700,7 +701,7 @@ chap_wait_input_fd(void)
 
 		if (ask_password_mode == 1) {
 			err = cs->digest->make_change_password(p, cs->name, chap_saved_packet, 
-					  secret, secret_len, new_passwd, strlen(new_passwd),  cs->priv);
+					  secret, secret_len, (u_char *)new_passwd, strlen(new_passwd),  cs->priv);
 			/* save new password if possible */
 			if (!err)
 				save_new_password();
@@ -742,7 +743,7 @@ static void
 		if (ask_password_mode == 1)
 			err = (*change_password_hook)(chap_last_message[0] ? chap_last_message : 0);
 		else 
-			err = (*retry_password_hook)(chap_last_message[0] ? chap_last_message : 0);
+			err = (*retry_password_hook)(chap_last_message[0] ? (u_char*)chap_last_message : 0);
 
 		if (err == 0)
 			result = 0;
@@ -836,7 +837,7 @@ chap_handle_status(struct chap_client_state *cs, int code, int id,
 		if (cs->digest->handle_failure != NULL) {
 			int ret;
 			chap_last_message[0] = 0;
-			ret = (*cs->digest->handle_failure)(pkt, len, chap_last_message, sizeof(chap_last_message));
+			ret = (*cs->digest->handle_failure)(pkt, len, (char*)chap_last_message, sizeof(chap_last_message));
 			if (ret == 1) {
 				if (chap_ignore_failure) {
 					chap_ignore_failure = 0;

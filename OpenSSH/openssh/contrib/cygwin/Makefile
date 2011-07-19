@@ -1,8 +1,10 @@
 srcdir=../..
+copyidsrcdir=..
 prefix=/usr
 exec_prefix=$(prefix)
 bindir=$(prefix)/bin
 datadir=$(prefix)/share
+mandir=$(datadir)/man
 docdir=$(datadir)/doc
 sshdocdir=$(docdir)/openssh
 cygdocdir=$(docdir)/Cygwin
@@ -40,11 +42,13 @@ install-sshdoc:
 	$(INSTALL) -m 644 $(srcdir)/OVERVIEW $(DESTDIR)$(sshdocdir)/OVERVIEW
 	$(INSTALL) -m 644 $(srcdir)/PROTOCOL $(DESTDIR)$(sshdocdir)/PROTOCOL
 	$(INSTALL) -m 644 $(srcdir)/PROTOCOL.agent $(DESTDIR)$(sshdocdir)/PROTOCOL.agent
+	$(INSTALL) -m 644 $(srcdir)/PROTOCOL.certkeys $(DESTDIR)$(sshdocdir)/PROTOCOL.certkeys
+	$(INSTALL) -m 644 $(srcdir)/PROTOCOL.mux $(DESTDIR)$(sshdocdir)/PROTOCOL.mux
 	$(INSTALL) -m 644 $(srcdir)/README $(DESTDIR)$(sshdocdir)/README
 	$(INSTALL) -m 644 $(srcdir)/README.dns $(DESTDIR)$(sshdocdir)/README.dns
 	$(INSTALL) -m 644 $(srcdir)/README.platform $(DESTDIR)$(sshdocdir)/README.platform
 	$(INSTALL) -m 644 $(srcdir)/README.privsep $(DESTDIR)$(sshdocdir)/README.privsep
-	$(INSTALL) -m 644 $(srcdir)/README.smartcard $(DESTDIR)$(sshdocdir)/README.smartcard
+	$(INSTALL) -m 644 $(srcdir)/README.tun $(DESTDIR)$(sshdocdir)/README.tun
 	$(INSTALL) -m 644 $(srcdir)/TODO $(DESTDIR)$(sshdocdir)/TODO
 	$(INSTALL) -m 644 $(srcdir)/WARNING.RNG $(DESTDIR)$(sshdocdir)/WARNING.RNG
 
@@ -59,5 +63,16 @@ install-scripts: ssh-host-config ssh-user-config
 	$(INSTALL) -m 755 ssh-host-config $(DESTDIR)$(bindir)/ssh-host-config
 	$(INSTALL) -m 755 ssh-user-config $(DESTDIR)$(bindir)/ssh-user-config
 
-cygwin-postinstall: move-config-files remove-empty-dir install-inetd-config install-doc install-scripts
+install-copy-id: $(copyidsrcdir)/ssh-copy-id $(copyidsrcdir)/ssh-copy-id.1
+	$(INSTALL) -m 755 $(copyidsrcdir)/ssh-copy-id $(DESTDIR)$(bindir)/ssh-copy-id
+	$(INSTALL) -m 644 $(copyidsrcdir)/ssh-copy-id.1 $(DESTDIR)$(mandir)/man1/ssh-copy-id.1
+
+gzip-man-pages:
+	rm $(DESTDIR)$(mandir)/man1/slogin.1
+	gzip $(DESTDIR)$(mandir)/man1/*.1
+	gzip $(DESTDIR)$(mandir)/man5/*.5
+	gzip $(DESTDIR)$(mandir)/man8/*.8
+	cd $(DESTDIR)$(mandir)/man1 && ln -s ssh.1.gz slogin.1.gz
+
+cygwin-postinstall: move-config-files remove-empty-dir install-inetd-config install-doc install-scripts install-copy-id gzip-man-pages
 	@echo "Cygwin specific configuration finished."

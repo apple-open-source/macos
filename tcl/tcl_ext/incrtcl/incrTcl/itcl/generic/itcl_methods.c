@@ -23,7 +23,7 @@
  *           mmclennan@lucent.com
  *           http://www.tcltk.com/itcl
  *
- *     RCS:  $Id: itcl_methods.c,v 1.23 2008/06/13 22:14:44 hobbs Exp $
+ *     RCS:  $Id: itcl_methods.c,v 1.24 2008/12/15 20:02:58 andreas_kupries Exp $
  * ========================================================================
  *           Copyright (c) 1993-1998  Lucent Technologies, Inc.
  * ------------------------------------------------------------------------
@@ -2501,7 +2501,7 @@ Itcl_ReportFuncErrors(interp, mfunc, contextObj, result)
 
             if ((mfunc->member->code->flags & ITCL_IMPLEMENT_TCL) != 0) {
                 Tcl_AppendToObj(objPtr, "body line ", -1);
-                sprintf(num, "%d", iPtr->errorLine);
+                sprintf(num, "%d", ERRORLINE(iPtr));
                 Tcl_AppendToObj(objPtr, num, -1);
                 Tcl_AppendToObj(objPtr, ")", -1);
             } else {

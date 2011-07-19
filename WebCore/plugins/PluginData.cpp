@@ -24,40 +24,58 @@
 #include "config.h"
 #include "PluginData.h"
 
+#if USE(PLATFORM_STRATEGIES)
+#include "PlatformStrategies.h"
+#include "PluginStrategy.h"
+#endif
+
 namespace WebCore {
 
 PluginData::PluginData(const Page* page)
-    : m_page(page)
 {
-    initPlugins();
+    initPlugins(page);
 
     for (unsigned i = 0; i < m_plugins.size(); ++i) {
-        const PluginInfo* plugin = m_plugins[i];
-        for (unsigned j = 0; j < plugin->mimes.size(); ++j)
-            m_mimes.append(plugin->mimes[j]);
+        const PluginInfo& plugin = m_plugins[i];
+        for (unsigned j = 0; j < plugin.mimes.size(); ++j) {
+            m_mimes.append(plugin.mimes[j]);
+            m_mimePluginIndices.append(i);
+        }
     }
-}
-
-PluginData::~PluginData()
-{
-    deleteAllValues(m_plugins);
-    deleteAllValues(m_mimes);
 }
 
 bool PluginData::supportsMimeType(const String& mimeType) const
 {
     for (unsigned i = 0; i < m_mimes.size(); ++i)
-        if (m_mimes[i]->type == mimeType)
+        if (m_mimes[i].type == mimeType)
             return true;
     return false;
 }
 
 String PluginData::pluginNameForMimeType(const String& mimeType) const
 {
-    for (unsigned i = 0; i < m_mimes.size(); ++i)
-        if (m_mimes[i]->type == mimeType)
-            return m_mimes[i]->plugin->name;
+    for (unsigned i = 0; i < m_mimes.size(); ++i) {
+        const MimeClassInfo& info = m_mimes[i];
+    
+        if (info.type == mimeType)
+            return m_plugins[m_mimePluginIndices[i]].name;
+    }
+
     return String();
 }
+
+#if USE(PLATFORM_STRATEGIES)
+void PluginData::refresh()
+{
+    platformStrategies()->pluginStrategy()->refreshPlugins();
+}
+
+void PluginData::initPlugins(const Page* page)
+{
+    ASSERT(m_plugins.isEmpty());
+    
+    platformStrategies()->pluginStrategy()->getPluginInfo(page, m_plugins);
+}
+#endif
 
 }

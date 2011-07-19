@@ -1,10 +1,6 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static const void* 
-mod_retain(const void* info) 
+mod_socket_retain(const void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +9,7 @@ mod_retain(const void* info)
 }
 
 static void
-mod_release(const void* info)
+mod_socket_release(const void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -24,8 +20,8 @@ mod_release(const void* info)
 static CFSocketContext mod_CFSocketContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_socket_retain,
+	mod_socket_release,
 	NULL
 };
 
@@ -362,7 +358,7 @@ mod_CFSocketGetContext(
 
 	PyObjC_ENDHANDLER
 
-        if (context.retain != mod_retain) {
+        if (context.retain != mod_socket_retain) {
 		PyErr_SetString(PyExc_ValueError,
 			"retrieved context is not supported");
 		return NULL;
@@ -378,45 +374,34 @@ mod_CFSocketGetContext(
 	return PyTuple_GetItem(context.info, 1);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFSocketCreate",
-		(PyCFunction)mod_CFSocketCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_SOCKET_METHODS \
+        {	\
+		"CFSocketCreate",	\
+		(PyCFunction)mod_CFSocketCreate,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFSocketCreateWithNative",	\
+		(PyCFunction)mod_CFSocketCreateWithNative,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFSocketCreateWithSocketSignature",	\
+		(PyCFunction)mod_CFSocketCreateWithSocketSignature,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFSocketCreateConnectedToSocketSignature",	\
+		(PyCFunction)mod_CFSocketCreateConnectedToSocketSignature,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFSocketGetContext",	\
+		(PyCFunction)mod_CFSocketGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFSocketCreateWithNative",
-		(PyCFunction)mod_CFSocketCreateWithNative,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFSocketCreateWithSocketSignature",
-		(PyCFunction)mod_CFSocketCreateWithSocketSignature,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFSocketCreateConnectedToSocketSignature",
-		(PyCFunction)mod_CFSocketCreateConnectedToSocketSignature,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFSocketGetContext",
-		(PyCFunction)mod_CFSocketGetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFSocket(void);
-void init_CFSocket(void)
-{
-	PyObject* m = Py_InitModule4("_CFSocket", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

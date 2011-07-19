@@ -1,0 +1,47 @@
+#!/bin/sh
+#
+# Script to configure and make CUPS with the standard build options.  When no
+# targets are specified, the "clean" and "check" targets are used.
+#
+# Usage:
+#
+#   makecups [configure option(s)] [make target(s)]
+#
+
+# Scan the command-line arguments...
+confopts=""
+makeopts=""
+
+while test $# -gt 0; do
+	opt="$1"
+	shift
+
+	case "$opt" in
+		-*)
+			confopts="$confopts $opt"
+			;;
+		*)
+			makeopts="$makeopts $opt"
+			;;
+	esac
+done
+
+if test "x$makeopts" = x; then
+	makeopts="clean check"
+fi
+makeopts="-j`sysctl -n hw.activecpu` $makeopts"
+
+# Run the configure script...
+echo ./configure ... $confopts
+./configure --enable-debug --enable-unit-tests \
+	--enable-pie --with-pam-module=opendirectory \
+	--with-archflags="-arch i386 -arch x86_64 -arch ppc" \
+	--with-ldarchflags="-arch i386 -arch x86_64" \
+	--with-adminkey="system.print.admin" \
+	--with-operkey="system.print.operator" \
+	--disable-bannertops --disable-pdftops --disable-texttops \
+	$confopts || exit 1
+
+# Build the software...
+echo make $makeopts
+make $makeopts

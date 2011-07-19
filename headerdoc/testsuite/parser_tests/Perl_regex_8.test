@@ -1,0 +1,881 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$2128|sub runtests {
+    my $mode = shift;
+    my $argref = shift;
+    my @args = @{$argref};
+
+    # my $filename = "testsuite/parser_tests/test.test";
+    my $ok_count = 0;
+    my $fail_count = 0;
+    my @testlist = undef;
+
+    my $update = 0;
+    if ($mode eq "update") {
+	$update = 1;
+    }
+
+
+    my %config = (
+	cCompiler => "/usr/bin/gcc"
+    );
+
+    my $localConfigFileName = "headerDoc2HTML.config";
+    my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+
+    my $CWD = cwd();
+    my @configFiles = ($systemPreferencesPath.$pathSeparator.$preferencesConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName, $CWD.$pathSeparator.$localConfigFileName);
+
+    %config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+    $HeaderDoc::c_compiler = $config{cCompiler};
+
+    print STDERR "Using C compiler: ".$HeaderDoc::c_compiler."\n";
+
+    if ($#args == -1) {
+	print "-= Running parser tests =-\n\n";
+	@testlist = <testsuite/parser_tests/*.test>;
+
+	my $dump;
+	if ($mode eq "dump" || $mode eq "dump_parser") {
+		$dump = 1;
+	} else {
+		$dump = 0;
+	}
+	my ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+	$ok_count += $newok;
+	$fail_count += $newfail;
+
+	print "-= Running C preprocessor tests =-\n\n";
+	@testlist = <testsuite/c_preprocessor_tests/*.test>;
+	if ($mode eq "dump" || $mode eq "dump_cpp") {
+		$dump = 1;
+	} else {
+		$dump = 0;
+	}
+	($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+	$ok_count += $newok;
+	$fail_count += $newfail;
+
+    } else {
+	my $dump;
+	if ($mode eq "dump") {
+		$dump = 1;
+	} else {
+		$dump = 0;
+	}
+	my ($newok, $newfail) = runtestlist($argref, $dump, $update);
+	$ok_count += $newok;
+	$fail_count += $newfail;
+    }
+
+    print "\n\n-= SUMMARY =-\n\n";
+    print "Tests passed: $ok_count\n";
+    print "Tests failed: $fail_count\n";
+
+    print "Percent passed: ";
+    if ($fail_count != 0) {
+	print "\e[31m";
+    } else {
+	print "\e[32m";
+    }
+    print "".(($ok_count / ($fail_count + $ok_count)) * 100)."\%\n";
+
+    print "\e[39m\n";
+
+    if ($fail_count) { $HeaderDoc::exitstatus = -1; }
+}
+$56|/*! This is a test of something that is not a regex. */
+$0|$10479|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_regex_8.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_regex_8.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => ***
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => runtests
+$parserState->{functionContents} => {
+    my $mode = shift;
+    my $argref = shift;
+    my @args = @{$argref};
+
+    # my $filename = "testsuite/parser_tests/test.test";
+    my $ok_count = 0;
+    my $fail_count = 0;
+    my @testlist = undef;
+
+    my $update = 0;
+    if ($mode eq "update") {
+        $update = 1;
+    }
+
+
+    my %config = (
+        cCompiler => "/usr/bin/gcc"
+    );
+
+    my $localConfigFileName = "headerDoc2HTML.config";
+    my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+
+    my $CWD = cwd();
+    my @configFiles = ($systemPreferencesPath.$pathSeparator.$preferencesConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName, $CWD.$pathSeparator.$localConfigFileName);
+
+    %config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+    $HeaderDoc::c_compiler = $config{cCompiler};
+
+    print STDERR "Using C compiler: ".$HeaderDoc::c_compiler."\n";
+
+    if ($#args == -1) {
+        print "-= Running parser tests =-\n\n";
+        @testlist = <testsuite/parser_tests/*.test>;
+
+        my $dump;
+        if ($mode eq "dump" || $mode eq "dump_parser") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+        print "-= Running C preprocessor tests =-\n\n";
+        @testlist = <testsuite/c_preprocessor_tests/*.test>;
+        if ($mode eq "dump" || $mode eq "dump_cpp") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+    } else {
+        my $dump;
+        if ($mode eq "dump") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist($argref, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+    }
+
+    print "\n\n-= SUMMARY =-\n\n";
+    print "Tests passed: $ok_count\n";
+    print "Tests failed: $fail_count\n";
+
+    print "Percent passed: ";
+    if ($fail_count != 0) {
+        print "\e[31m";
+    } else {
+        print "\e[32m";
+    }
+    print "".(($ok_count / ($fail_count + $ok_count)) * 100)."\%\n";
+
+    print "\e[39m\n";
+
+    if ($fail_count) { $HeaderDoc::exitstatus = -1; }
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 85
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => runtests
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub runtests
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => runtests
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 85
+typelist: function
+namelist: runtests
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+    my $mode = shift;
+    my $argref = shift;
+    my @args = @{$argref};
+
+    # my $filename = "testsuite/parser_tests/test.test";
+    my $ok_count = 0;
+    my $fail_count = 0;
+    my @testlist = undef;
+
+    my $update = 0;
+    if ($mode eq "update") {
+        $update = 1;
+    }
+
+
+    my %config = (
+        cCompiler => "/usr/bin/gcc"
+    );
+
+    my $localConfigFileName = "headerDoc2HTML.config";
+    my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+
+    my $CWD = cwd();
+    my @configFiles = ($systemPreferencesPath.$pathSeparator.$preferencesConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName, $CWD.$pathSeparator.$localConfigFileName);
+
+    %config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+    $HeaderDoc::c_compiler = $config{cCompiler};
+
+    print STDERR "Using C compiler: ".$HeaderDoc::c_compiler."\n";
+
+    if ($#args == -1) {
+        print "-= Running parser tests =-\n\n";
+        @testlist = <testsuite/parser_tests/*.test>;
+
+        my $dump;
+        if ($mode eq "dump" || $mode eq "dump_parser") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+        print "-= Running C preprocessor tests =-\n\n";
+        @testlist = <testsuite/c_preprocessor_tests/*.test>;
+        if ($mode eq "dump" || $mode eq "dump_cpp") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+    } else {
+        my $dump;
+        if ($mode eq "dump") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist($argref, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+    }
+
+    print "\n\n-= SUMMARY =-\n\n";
+    print "Tests passed: $ok_count\n";
+    print "Tests failed: $fail_count\n";
+
+    print "Percent passed: ";
+    if ($fail_count != 0) {
+        print "\e[31m";
+    } else {
+        print "\e[32m";
+    }
+    print "".(($ok_count / ($fail_count + $ok_count)) * 100)."\%\n";
+
+    print "\e[39m\n";
+
+    if ($fail_count) { $HeaderDoc::exitstatus = -1; }
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---runtests
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl regex 8
+APIUID: //test_ref/doc/header/Perl_regex_8.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: runtests
+    APIUID: //test_ref/perl/func/runtests
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test of something that is not a regex. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: runtests (HeaderDoc::Function)
++---sub
++--- 
++---runtests
++--- 
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: runtests (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/runtests //test_ref/perl/clm/runtests //test_ref/perl/intfcm/runtests //test_ref/perl/intfm/runtests //test_ref/perl/func/runtests //test_ref/perl/ftmplt/runtests //test_ref/perl/defn/runtests //test_ref/perl/macro/runtests //test_ref/doc/anysymbol/runtests" machineGenerated="true" --><span class="function">runtests</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$10479|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_regex_8.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_regex_8.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{curvarstars} => ***
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => runtests
+$parserState->{functionContents} => {
+    my $mode = shift;
+    my $argref = shift;
+    my @args = @{$argref};
+
+    # my $filename = "testsuite/parser_tests/test.test";
+    my $ok_count = 0;
+    my $fail_count = 0;
+    my @testlist = undef;
+
+    my $update = 0;
+    if ($mode eq "update") {
+        $update = 1;
+    }
+
+
+    my %config = (
+        cCompiler => "/usr/bin/gcc"
+    );
+
+    my $localConfigFileName = "headerDoc2HTML.config";
+    my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+
+    my $CWD = cwd();
+    my @configFiles = ($systemPreferencesPath.$pathSeparator.$preferencesConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName, $CWD.$pathSeparator.$localConfigFileName);
+
+    %config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+    $HeaderDoc::c_compiler = $config{cCompiler};
+
+    print STDERR "Using C compiler: ".$HeaderDoc::c_compiler."\n";
+
+    if ($#args == -1) {
+        print "-= Running parser tests =-\n\n";
+        @testlist = <testsuite/parser_tests/*.test>;
+
+        my $dump;
+        if ($mode eq "dump" || $mode eq "dump_parser") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+        print "-= Running C preprocessor tests =-\n\n";
+        @testlist = <testsuite/c_preprocessor_tests/*.test>;
+        if ($mode eq "dump" || $mode eq "dump_cpp") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+    } else {
+        my $dump;
+        if ($mode eq "dump") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist($argref, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+    }
+
+    print "\n\n-= SUMMARY =-\n\n";
+    print "Tests passed: $ok_count\n";
+    print "Tests failed: $fail_count\n";
+
+    print "Percent passed: ";
+    if ($fail_count != 0) {
+        print "\e[31m";
+    } else {
+        print "\e[32m";
+    }
+    print "".(($ok_count / ($fail_count + $ok_count)) * 100)."\%\n";
+
+    print "\e[39m\n";
+
+    if ($fail_count) { $HeaderDoc::exitstatus = -1; }
+}
+
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 85
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => runtests
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => sub runtests
+$parserState->{seenBraces} => 1
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => function
+$parserState->{sodname} => runtests
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 1
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{typestring} => function
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 85
+typelist: function
+namelist: runtests
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: {
+    my $mode = shift;
+    my $argref = shift;
+    my @args = @{$argref};
+
+    # my $filename = "testsuite/parser_tests/test.test";
+    my $ok_count = 0;
+    my $fail_count = 0;
+    my @testlist = undef;
+
+    my $update = 0;
+    if ($mode eq "update") {
+        $update = 1;
+    }
+
+
+    my %config = (
+        cCompiler => "/usr/bin/gcc"
+    );
+
+    my $localConfigFileName = "headerDoc2HTML.config";
+    my $preferencesConfigFileName = "com.apple.headerDoc2HTML.config";
+
+    my $CWD = cwd();
+    my @configFiles = ($systemPreferencesPath.$pathSeparator.$preferencesConfigFileName, $usersPreferencesPath.$pathSeparator.$preferencesConfigFileName, $Bin.$pathSeparator.$localConfigFileName, $CWD.$pathSeparator.$localConfigFileName);
+
+    %config = &updateHashFromConfigFiles(\%config,\@configFiles);
+
+    $HeaderDoc::c_compiler = $config{cCompiler};
+
+    print STDERR "Using C compiler: ".$HeaderDoc::c_compiler."\n";
+
+    if ($#args == -1) {
+        print "-= Running parser tests =-\n\n";
+        @testlist = <testsuite/parser_tests/*.test>;
+
+        my $dump;
+        if ($mode eq "dump" || $mode eq "dump_parser") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+        print "-= Running C preprocessor tests =-\n\n";
+        @testlist = <testsuite/c_preprocessor_tests/*.test>;
+        if ($mode eq "dump" || $mode eq "dump_cpp") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        ($newok, $newfail) = runtestlist(\@testlist, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+
+    } else {
+        my $dump;
+        if ($mode eq "dump") {
+                $dump = 1;
+        } else {
+                $dump = 0;
+        }
+        my ($newok, $newfail) = runtestlist($argref, $dump, $update);
+        $ok_count += $newok;
+        $fail_count += $newfail;
+    }
+
+    print "\n\n-= SUMMARY =-\n\n";
+    print "Tests passed: $ok_count\n";
+    print "Tests failed: $fail_count\n";
+
+    print "Percent passed: ";
+    if ($fail_count != 0) {
+        print "\e[31m";
+    } else {
+        print "\e[32m";
+    }
+    print "".(($ok_count / ($fail_count + $ok_count)) * 100)."\%\n";
+
+    print "\e[39m\n";
+
+    if ($fail_count) { $HeaderDoc::exitstatus = -1; }
+}
+
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---sub
++--- 
++---runtests
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl regex 8
+APIUID: //test_ref/doc/header/Perl_regex_8.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Function
+    NAME: runtests
+    APIUID: //test_ref/perl/func/runtests
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a test of something that is not a regex. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: "default_function_group"
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Function"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: runtests (HeaderDoc::Function)
++---sub
++--- 
++---runtests
++--- 
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: runtests (HeaderDoc::Function)
+	<span class="keyword">sub</span> <!-- a logicalPath="//test_ref/perl/instm/runtests //test_ref/perl/clm/runtests //test_ref/perl/intfcm/runtests //test_ref/perl/intfm/runtests //test_ref/perl/func/runtests //test_ref/perl/ftmplt/runtests //test_ref/perl/defn/runtests //test_ref/perl/macro/runtests //test_ref/doc/anysymbol/runtests" machineGenerated="true" --><span class="function">runtests</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$193|This used to cause a parse failure.  It no longer does.
+The line containing a division was incorrectly interpreted
+as a regular expression because of a misunderstanding about
+the regex syntax.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Perl_regex_8.test$4|perl$12|Perl regex 8$4|perl$6|parser

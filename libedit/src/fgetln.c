@@ -34,7 +34,7 @@
 #endif
 
 #if !HAVE_FGETLN
-#include <config.h>
+#include "config.h"
 #include <stdlib.h>
 #ifndef HAVE_NBTOOL_CONFIG_H
 /* These headers are required, but included from nbtool_config.h */

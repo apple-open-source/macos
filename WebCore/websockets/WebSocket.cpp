@@ -34,19 +34,24 @@
 
 #include "WebSocket.h"
 
+#include "CloseEvent.h"
 #include "DOMWindow.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventListener.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "Logging.h"
 #include "MessageEvent.h"
+#include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
-#include "StringBuilder.h"
+#include "SecurityOrigin.h"
 #include "ThreadableWebSocketChannel.h"
 #include "WebSocketChannel.h"
-#include <wtf/text/CString.h>
 #include <wtf/StdLibExtras.h>
+#include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
@@ -78,8 +83,6 @@ static String encodeProtocolString(const String& protocol)
     return builder.toString();
 }
 
-#if USE(V8)
-
 static bool webSocketsAvailable = false;
 
 void WebSocket::setIsAvailable(bool available)
@@ -91,8 +94,6 @@ bool WebSocket::isAvailable()
 {
     return webSocketsAvailable;
 }
-
-#endif
 
 WebSocket::WebSocket(ScriptExecutionContext* context)
     : ActiveDOMObject(context, this)
@@ -107,44 +108,44 @@ WebSocket::~WebSocket()
         m_channel->disconnect();
 }
 
-void WebSocket::connect(const KURL& url, ExceptionCode& ec)
+void WebSocket::connect(const String& url, ExceptionCode& ec)
 {
     connect(url, String(), ec);
 }
 
-void WebSocket::connect(const KURL& url, const String& protocol, ExceptionCode& ec)
+void WebSocket::connect(const String& url, const String& protocol, ExceptionCode& ec)
 {
-    LOG(Network, "WebSocket %p connect to %s protocol=%s", this, url.string().utf8().data(), protocol.utf8().data());
-    m_url = url;
+    LOG(Network, "WebSocket %p connect to %s protocol=%s", this, url.utf8().data(), protocol.utf8().data());
+    m_url = KURL(KURL(), url);
     m_protocol = protocol;
 
     if (!m_url.isValid()) {
-        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Invalid url for WebSocket " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
+        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Invalid url for WebSocket " + m_url.string(), 0, scriptExecutionContext()->securityOrigin()->toString(), 0);
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
 
     if (!m_url.protocolIs("ws") && !m_url.protocolIs("wss")) {
-        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong url scheme for WebSocket " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
+        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong url scheme for WebSocket " + m_url.string(), 0, scriptExecutionContext()->securityOrigin()->toString(), 0);
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (m_url.hasFragmentIdentifier()) {
-        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "URL has fragment component " + url.string(), 0, scriptExecutionContext()->securityOrigin()->toString());
+        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "URL has fragment component " + m_url.string(), 0, scriptExecutionContext()->securityOrigin()->toString(), 0);
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
     if (!isValidProtocolString(m_protocol)) {
-        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong protocol for WebSocket '" + encodeProtocolString(m_protocol) + "'", 0, scriptExecutionContext()->securityOrigin()->toString());
+        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "Wrong protocol for WebSocket '" + encodeProtocolString(m_protocol) + "'", 0, scriptExecutionContext()->securityOrigin()->toString(), 0);
         m_state = CLOSED;
         ec = SYNTAX_ERR;
         return;
     }
-    if (!portAllowed(url)) {
-        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, String::format("WebSocket port %d blocked", url.port()), 0, scriptExecutionContext()->securityOrigin()->toString());
+    if (!portAllowed(m_url)) {
+        scriptExecutionContext()->addMessage(JSMessageSource, LogMessageType, ErrorMessageLevel, "WebSocket port " + String::number(m_url.port()) + " blocked", 0, scriptExecutionContext()->securityOrigin()->toString(), 0);
         m_state = CLOSED;
         ec = SECURITY_ERR;
         return;
@@ -179,7 +180,10 @@ void WebSocket::close()
         return;
     m_state = CLOSED;
     m_bufferedAmountAfterClose = m_channel->bufferedAmount();
-    m_channel->close();
+    // didClose notification may be already queued, which we will inadvertently process while waiting for bufferedAmount() to return.
+    // In this case m_channel will be set to null during didClose() call, thus we need to test validness of m_channel here.
+    if (m_channel)
+        m_channel->close();
 }
 
 const KURL& WebSocket::url() const
@@ -217,7 +221,7 @@ bool WebSocket::canSuspend() const
     return !m_channel;
 }
 
-void WebSocket::suspend()
+void WebSocket::suspend(ReasonForSuspension)
 {
     if (m_channel)
         m_channel->suspend();
@@ -281,8 +285,13 @@ void WebSocket::didClose(unsigned long unhandledBufferedAmount)
     m_state = CLOSED;
     m_bufferedAmountAfterClose += unhandledBufferedAmount;
     ASSERT(scriptExecutionContext());
-    dispatchEvent(Event::create(eventNames().closeEvent, false, false));
-    m_channel = 0;
+    RefPtr<CloseEvent> event = CloseEvent::create(false);
+    event->initCloseEvent(eventNames().closeEvent, false, false, false);
+    dispatchEvent(event);
+    if (m_channel) {
+        m_channel->disconnect();
+        m_channel = 0;
+    }
     if (hasPendingActivity())
         ActiveDOMObject::unsetPendingActivity(this);
 }

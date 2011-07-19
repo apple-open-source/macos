@@ -1,4 +1,4 @@
-# Copyright (c) 1999-2007, International Business Machines Corporation and
+# Copyright (c) 1999-2010, International Business Machines Corporation and
 # others. All Rights Reserved.
 # A list of UCM's to build
 # Note: 
@@ -15,6 +15,14 @@
 #  * To add an additional converter to the list: 
 #    _____________________________________________________
 #    |  UCM_SOURCE_LOCAL =  myconverter.ucm ...
+#
+#  * To add EBCDIC converters that uses different SI/SO characters:
+#    Note: ICU is updated to handle three EBCDIC converters (JIPS, KEIS, and JEF) which uses 
+#          different SI/SO characters than the "standard" ones:  0xf/0xe.
+#          This behaviour is done in the mbcs converter code and is turned on if for that converter
+#          if the name contains either JIPS, KEIS, or JEF. (e.g. my_KEIS_converter.ucm) 
+#    _____________________________________________________
+#    |  UCM_SOURCE_EBCDIC_IGNORE_SISO_LOCAL = my_KEIS_converter.ucm
 #
 #  * To REPLACE the default list and only build with a few
 #     converters:
@@ -104,5 +112,8 @@ windows-950-2000.ucm\
 jisx-212.ucm\
 iso-ir-165.ucm cns-11643-1992.ucm\
 ibm-5478_P100-1995.ucm\
-icu-internal-25546.ucm lmb-excp.ucm
+icu-internal-25546.ucm lmb-excp.ucm \
+icu-internal-compound-d1.ucm icu-internal-compound-d2.ucm icu-internal-compound-d3.ucm icu-internal-compound-d4.ucm\
+icu-internal-compound-d5.ucm icu-internal-compound-d6.ucm icu-internal-compound-d7.ucm \
+icu-internal-compound-s1.ucm icu-internal-compound-s2.ucm icu-internal-compound-s3.ucm icu-internal-compound-t.ucm
 

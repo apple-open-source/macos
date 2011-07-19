@@ -21,11 +21,11 @@
 #include "config.h"
 #include "webkitnetworkrequest.h"
 
+#include "GRefPtr.h"
 #include "ResourceRequest.h"
-#include "webkitprivate.h"
-#include <wtf/text/CString.h>
-
+#include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitnetworkrequest
@@ -47,8 +47,6 @@ struct _WebKitNetworkRequestPrivate {
     gchar* uri;
     SoupMessage* message;
 };
-
-#define WEBKIT_NETWORK_REQUEST_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_NETWORK_REQUEST, WebKitNetworkRequestPrivate))
 
 enum {
     PROP_0,
@@ -122,7 +120,7 @@ static void webkit_network_request_class_init(WebKitNetworkRequestClass* request
     objectClass->get_property = webkit_network_request_get_property;
     objectClass->set_property = webkit_network_request_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitNetworkRequest:uri:
@@ -157,18 +155,8 @@ static void webkit_network_request_class_init(WebKitNetworkRequestClass* request
 
 static void webkit_network_request_init(WebKitNetworkRequest* request)
 {
-    WebKitNetworkRequestPrivate* priv = WEBKIT_NETWORK_REQUEST_GET_PRIVATE(request);
+    WebKitNetworkRequestPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(request, WEBKIT_TYPE_NETWORK_REQUEST, WebKitNetworkRequestPrivate);
     request->priv = priv;
-}
-
-// for internal use only
-WebKitNetworkRequest* webkit_network_request_new_with_core_request(const WebCore::ResourceRequest& resourceRequest)
-{
-    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceRequest.toSoupMessage()));
-    if (soupMessage)
-        return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "message", soupMessage.get(), NULL));
-
-    return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "uri", resourceRequest.url().string().utf8().data(), NULL));
 }
 
 /**
@@ -241,7 +229,7 @@ G_CONST_RETURN gchar* webkit_network_request_get_uri(WebKitNetworkRequest* reque
 }
 
 /**
- * webkit_network_request_get_soup_message:
+ * webkit_network_request_get_message:
  * @request: a #WebKitNetworkRequest
  *
  * Obtains the #SoupMessage held and used by the given request. Notice
@@ -249,7 +237,7 @@ G_CONST_RETURN gchar* webkit_network_request_get_uri(WebKitNetworkRequest* reque
  * handlers is only supported (as in, will only affect what is
  * actually sent to the server) where explicitly documented.
  *
- * Returns: the #SoupMessage
+ * Returns: (transfer none): the #SoupMessage
  * Since: 1.1.9
  */
 SoupMessage* webkit_network_request_get_message(WebKitNetworkRequest* request)
@@ -259,4 +247,27 @@ SoupMessage* webkit_network_request_get_message(WebKitNetworkRequest* request)
     WebKitNetworkRequestPrivate* priv = request->priv;
 
     return priv->message;
+}
+
+namespace WebKit {
+
+WebKitNetworkRequest* kitNew(const WebCore::ResourceRequest& resourceRequest)
+{
+    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceRequest.toSoupMessage()));
+    if (soupMessage)
+        return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "message", soupMessage.get(), NULL));
+
+    return WEBKIT_NETWORK_REQUEST(g_object_new(WEBKIT_TYPE_NETWORK_REQUEST, "uri", resourceRequest.url().string().utf8().data(), NULL));
+}
+
+WebCore::ResourceRequest core(WebKitNetworkRequest* request)
+{
+    SoupMessage* soupMessage = webkit_network_request_get_message(request);
+    if (soupMessage)
+        return WebCore::ResourceRequest(soupMessage);
+
+    WebCore::KURL url = WebCore::KURL(WebCore::KURL(), String::fromUTF8(webkit_network_request_get_uri(request)));
+    return WebCore::ResourceRequest(url);
+}
+
 }

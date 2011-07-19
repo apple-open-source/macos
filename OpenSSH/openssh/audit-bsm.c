@@ -236,6 +236,8 @@ bsm_audit_session_setup(void)
 		return;
 	}
 
+	bzero(&info, sizeof (info));
+
 	if (the_authctxt->valid)
 		info.ai_auid = the_authctxt->pw->pw_uid;
 	else

@@ -1,0 +1,42 @@
+.TH XvSelectVideoNotify __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvSelectVideoNotify \- enable or disable VideoNotify events
+.\"
+.SH SYNOPSIS
+.B #include <X11/extensions/Xvlib.h>
+.sp
+.nf
+.BI "int XvSelectVideoNotify(Display *" dpy ", Drawable " drawable ", Bool " onoff ");"
+.fi
+.SH ARGUMENTS
+.IP \fIdpy\fR 15
+Specifies the connection to the X server.
+.IP \fIdrawable\fR 15
+Defines the drawable in which video activity is to be reported.
+.IP \fIonoff\fR 15
+Selects whether video notification is enabled or disabled.
+.\"
+.SH DESCRIPTION
+.BR XvSelectVideoNotify (__libmansuffix__)
+enables or disables
+.BR XvVideoNotify (__libmansuffix__)
+events to be reported for video activity in a drawable.
+.\"
+.SH RETURN VALUES
+.IP [Success] 8
+Returned if
+.BR XvSelectVideoNotify (__libmansuffix__)
+completed successfully.
+.IP [XvBadExtension] 8
+Returned if the Xv extension is unavailable.
+.IP [XvBadAlloc] 8
+Returned if
+.BR XvSelectVideoNotify (__libmansuffix__)
+failed to allocate memory to process the request.
+.SH DIAGNOSTICS
+.IP [BadDrawable] 8
+Generated if the requested drawable does not exist.
+.SH SEE ALSO
+.\"
+.BR XvVideoNotify (__libmansuffix__)
+

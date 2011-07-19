@@ -500,7 +500,13 @@ bool IODisplay::start( IOService * provider )
 
     initPowerManagement( provider );
 
-    framebuffer->displayOnline(this, +1);
+	uint32_t options = 0;
+	if (NULL != OSDynamicCast(IOBacklightDisplay, this))
+		options |= kIODisplayOptionBacklight;
+	if (fDisplayPMVars->minDimState)
+		options |= kIODisplayOptionDimDisable;
+
+    framebuffer->displayOnline(this, +1, options);
 
     fNotifier = framebuffer->addFramebufferNotification(
                     &IODisplay::_framebufferEvent, this, NULL );
@@ -562,7 +568,7 @@ void IODisplay::stop( IOService * provider )
 {
     if (fConnection)
     {
-        fConnection->getFramebuffer()->displayOnline(this, -1);
+        fConnection->getFramebuffer()->displayOnline(this, -1, 0);
         fConnection = 0;
     }
 
@@ -1099,7 +1105,6 @@ void IODisplay::initPowerManagement( IOService * provider )
             if ((max >= kIODisplayBlankValue)
                 || (kIOGDbgK59Mode & gIOGDebugFlags))
             {
-                ourPowerStates[1].inputPowerRequirement |= kIOPMPowerOn;
                 fDisplayPMVars->minDimState = 1;
             }
         }

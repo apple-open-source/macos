@@ -37,11 +37,10 @@
 #include "FocusController.h"
 #include "Frame.h"
 #include "KeyboardEvent.h"
+#include "NotImplemented.h"
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "WindowsKeyboardCodes.h"
-
-#include "NotImplemented.h"
 
 
 namespace WebCore {
@@ -112,12 +111,6 @@ int EditorClientHaiku::spellCheckerDocumentTag()
 {
     notImplemented();
     return 0;
-}
-
-bool EditorClientHaiku::isEditable()
-{
-    // FIXME: should be controllable
-    return false;
 }
 
 bool EditorClientHaiku::shouldBeginEditing(WebCore::Range*)
@@ -211,6 +204,16 @@ void EditorClientHaiku::clearUndoRedoOperations()
     notImplemented();
 }
 
+bool EditorClientHaiku::canCopyCut(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientHaiku::canPaste(WebCore::Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
 bool EditorClientHaiku::canUndo() const
 {
     notImplemented();
@@ -247,50 +250,50 @@ void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent* event)
     if (!kevent || kevent->type() == PlatformKeyboardEvent::KeyUp)
         return;
 
-    Node* start = frame->selection()->start().node();
+    Node* start = frame->selection()->start().containerNode();
     if (!start)
         return;
 
     if (start->isContentEditable()) {
-        switch(kevent->windowsVirtualKeyCode()) {
+        switch (kevent->windowsVirtualKeyCode()) {
         case VK_BACK:
-            frame->editor()->deleteWithDirection(SelectionController::BACKWARD,
+            frame->editor()->deleteWithDirection(DirectionBackward,
                                                  kevent->ctrlKey() ? WordGranularity : CharacterGranularity,
                                                  false, true);
             break;
         case VK_DELETE:
-            frame->editor()->deleteWithDirection(SelectionController::FORWARD,
+            frame->editor()->deleteWithDirection(DirectionForward,
                                                  kevent->ctrlKey() ? WordGranularity : CharacterGranularity,
                                                  false, true);
             break;
         case VK_LEFT:
-            frame->selection()->modify(kevent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                                       SelectionController::LEFT,
+            frame->selection()->modify(kevent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                                       DirectionLeft,
                                        kevent->ctrlKey() ? WordGranularity : CharacterGranularity,
                                        true);
             break;
         case VK_RIGHT:
-            frame->selection()->modify(kevent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                                       SelectionController::RIGHT,
+            frame->selection()->modify(kevent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                                       DirectionRight,
                                        kevent->ctrlKey() ? WordGranularity : CharacterGranularity,
                                        true);
             break;
         case VK_UP:
-            frame->selection()->modify(kevent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                                       SelectionController::BACKWARD,
+            frame->selection()->modify(kevent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                                       DirectionBackward,
                                        kevent->ctrlKey() ? ParagraphGranularity : LineGranularity,
                                        true);
             break;
         case VK_DOWN:
-            frame->selection()->modify(kevent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                                       SelectionController::FORWARD,
+            frame->selection()->modify(kevent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                                       DirectionForward,
                                        kevent->ctrlKey() ? ParagraphGranularity : LineGranularity,
                                        true);
             break;
-        case VK_PRIOR:  // PageUp
+        case VK_PRIOR: // PageUp
             frame->editor()->command("MoveUpByPageAndModifyCaret");
             break;
-        case VK_NEXT:  // PageDown
+        case VK_NEXT: // PageDown
             frame->editor()->command("MoveDownByPageAndModifyCaret");
             break;
         case VK_RETURN:
@@ -336,7 +339,8 @@ void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent* event)
                 default:
                     return;
                 }
-            } else return;
+            } else
+                return;
         }
     } else {
         switch (kevent->windowsVirtualKeyCode()) {
@@ -346,10 +350,10 @@ void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent* event)
         case VK_DOWN:
             frame->editor()->command("MoveDown");
             break;
-        case VK_PRIOR:  // PageUp
+        case VK_PRIOR: // PageUp
             frame->editor()->command("MoveUpByPageAndModifyCaret");
             break;
-        case VK_NEXT:  // PageDown
+        case VK_NEXT: // PageDown
             frame->editor()->command("MoveDownByPageAndModifyCaret");
             break;
         case VK_HOME:
@@ -362,17 +366,18 @@ void EditorClientHaiku::handleKeyboardEvent(KeyboardEvent* event)
             break;
         default:
             if (kevent->ctrlKey()) {
-                switch(kevent->windowsVirtualKeyCode()) {
-                    case VK_A:
-                        frame->editor()->command("SelectAll");
-                        break;
-                    case VK_C: case VK_X:
-                        frame->editor()->command("Copy");
-                        break;
-                    default:
-                        return;
+                switch (kevent->windowsVirtualKeyCode()) {
+                case VK_A:
+                    frame->editor()->command("SelectAll");
+                    break;
+                case VK_C: case VK_X:
+                    frame->editor()->command("Copy");
+                    break;
+                default:
+                    return;
                 }
-            } else return;
+            } else
+                return;
         }
     }
     event->setDefaultHandled();
@@ -460,7 +465,12 @@ bool EditorClientHaiku::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientHaiku::getGuessesForWord(const String&, Vector<String>&)
+void EditorClientHaiku::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
+{
+    notImplemented();
+}
+
+void EditorClientHaiku::willSetInputMethodState()
 {
     notImplemented();
 }
@@ -476,4 +486,3 @@ bool EditorClientHaiku::isEditing() const
 }
 
 } // namespace WebCore
-

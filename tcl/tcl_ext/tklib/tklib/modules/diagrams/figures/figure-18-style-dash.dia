@@ -1,0 +1,11 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+box text solid
+move
+box dotted text dotted
+move
+box dashed text dashed
+move
+box dash-dot text dash-dot
+move
+box dash-dot-dot text dash-dot-dot width [3 cm]

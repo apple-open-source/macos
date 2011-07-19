@@ -81,7 +81,7 @@ typedef IOReturn (*IOFWAVCRequestCallback)( void *refCon, UInt32 generation, UIn
     @param refcon refcon supplied when a client is registered
     @param generation Bus generation command was received in
 	@param nodeID is the node originating the request
-	@param plugNo is the plug number
+	@param plug is the plug number
 	@param oldVal is the value the plug used to contain
     @param newVal is the quad written into the plug
  */
@@ -93,7 +93,7 @@ typedef void (*IOFWAVCPCRCallback)(void *refcon, UInt32 generation, UInt16 nodeI
     @abstract Callback called when a incoming AVC command matching a registered command handler is received.
     @param refCon The refcon supplied when a client is registered
     @param generation The FireWire bus generation value at the time the command was received
-    @param scrNodeID The node ID of the device who sent us this command
+    @param srcNodeID The node ID of the device who sent us this command
     @param speed The speed the AVC command packet
     @param command A pointer to the command bytes
     @param cmdLen The length of the AVC command bytes buffer in bytes
@@ -180,14 +180,9 @@ typedef struct
 	IOReturn (*openWithSessionRef)( void * self, IOFireWireSessionRef sessionRef );
 
     /*!
-		@function openWithSessionRef
-		@abstract Opens a connection to a device that is not already open.
-		@discussion Sometimes it is desirable to open multiple user clients on a device.  In the case 
-        of FireWire sometimes we wish to have both the FireWire User Client and the AVC User Client 
-        open at the same time.  The technique to arbitrate this is as follows:<br>First open normally 
-        the device furthest from the root in the IORegistry.<br>Second, get its sessionRef with the 
-        with a call to this method.<br>Third, open the device further up the chain by calling 
-        openWithSessionRef and passing the sessionRef returned from this call.
+		@function getSessionRef
+		@abstract Get the session reference.
+		@discussion Gets the sessionRef to be used with openWithSessionRef.
         @param self Pointer to IOFireWireAVCLibUnitInterface.
         @result Returns a sessionRef on success.
     */
@@ -279,7 +274,7 @@ typedef struct
         @abstract Creates a plug-in object for an ancestor (in the I/O Registry) of the AVC unit and returns an interface to it.
         @discussion This function is only available if the interface version is > 1 (MacOSX 10.2.0 or later?).
         @param self Pointer to IOFireWireAVCLibUnitInterface.
-        @param class Class name of ancestor of the device to get an interface for.
+        @param object_class Class name of ancestor of the device to get an interface for.
         @param pluginType An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the type of plug-in service to be returned for the ancestor.
         @param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the type of interface to be returned for the created plug-in object.
         @result Returns a COM-style interface pointer. Returns 0 upon failure.
@@ -287,7 +282,7 @@ typedef struct
 	void * (*getAncestorInterface)( void * self, char * object_class, REFIID pluginType, REFIID iid) ;
 
 	/*!	
-        @function getBusProtocolInterface
+        @function getProtocolInterface
         @abstract Creates a plug-in object for a protocol driver for the FireWire bus the AVC unit
         is connected to and returns an interface to it.
         @discussion This function is only available if the interface version is > 1 (MacOSX 10.2.0 or later?).
@@ -323,21 +318,21 @@ typedef struct
     IOReturn (*makeP2PInputConnection)(void * self, UInt32 inputPlug, UInt32 chan);
     
     /*!
-        @function breakLocalP2PInputConnection
+        @function breakP2PInputConnection
         @abstract Decrements the point-to-point connection count of a unit input plug.
         @discussion This function is only available if the interface version is > 3.
     */
     IOReturn (*breakP2PInputConnection)(void * self, UInt32 inputPlug);
 
     /*!
-        @function makeLocalP2POutputConnection
+        @function makeP2POutputConnection
         @abstract Increments the point-to-point connection count of a unit output plug.
         @discussion This function is only available if the interface version is > 3.
     */
     IOReturn (*makeP2POutputConnection)(void * self, UInt32 outputPlug, UInt32 chan, IOFWSpeed speed);
     
     /*!
-        @function breakLocalP2POutputConnection
+        @function breakP2POutputConnection
         @abstract Decrements the point-to-point connection count of a unit output plug.
         @discussion This function is only available if the interface version is > 3.
     */
@@ -553,7 +548,7 @@ typedef struct _IOFireWireAVCLibProtocolInterface
     @param self Pointer to IOFireWireAVCLibProtocolInterface.
     @param subUnitTypeAndID The subunit type and ID for this command handler.
     @param opCode The opcode for this command handler.
-    @param refcon Arbitrary value passed back as first argument of callback.
+    @param refCon Arbitrary value passed back as first argument of callback.
     @param callback A pointer to the callback function
 */
 	IOReturn (*installAVCCommandHandler)(void *self,
@@ -584,7 +579,7 @@ typedef struct _IOFireWireAVCLibProtocolInterface
     @param subunitType The type of subunit to create.
     @param numSourcePlugs The number of source plugs for this subunit.
     @param numDestPlugs The number of destination plugs for this subunit.
-    @param refcon Arbitrary value passed back as first argument of callback.
+    @param refCon Arbitrary value passed back as first argument of callback.
     @param callback A pointer to the callback to receive plug management messages.
     @param pSubunitTypeAndID A pointer to a byte to hold the returned subunit address for the new subunit.
  */
@@ -655,10 +650,10 @@ typedef struct _IOFireWireAVCLibProtocolInterface
     @param self Pointer to IOFireWireAVCLibProtocolInterface.
     @param sourceSubunitTypeAndID The subunit type and ID for the source plug.
     @param sourcePlugType The source plug type.
-    @param pSourcePlugNum The source plug num.
+    @param sourcePlugNum The source plug num.
     @param destSubunitTypeAndID The subunit type and ID for the destination plug.
     @param destPlugType The dest plug type.
-    @param pDestPlugNum The dest plug num.
+    @param destPlugNum The dest plug num.
 */
 	IOReturn (*disconnectTargetPlugs)(void *self,
 								   UInt32 sourceSubunitTypeAndID,

@@ -32,7 +32,7 @@ static int getexactdigraph __ARGS((int, int, int));
 static void printdigraph __ARGS((digr_T *));
 
 /* digraphs added by the user */
-static garray_T	user_digraphs = {0, 0, sizeof(digr_T), 10, NULL};
+static garray_T	user_digraphs = {0, 0, (int)sizeof(digr_T), 10, NULL};
 
 /*
  * Note: Characters marked with XX are not included literally, because some
@@ -1933,45 +1933,8 @@ static digr_T digraphdefault[] =
 	{'7', 'c', 0x3226},
 	{'8', 'c', 0x3227},
 	{'9', 'c', 0x3228},
-	{' ', ' ', 0xe000},
-	{'/', 'c', 0xe001},
-	{'U', 'A', 0xe002},
-	{'U', 'B', 0xe003},
-	{'"', '3', 0xe004},
-	{'"', '1', 0xe005},
-	{'"', '!', 0xe006},
-	{'"', '\'', 0xe007},
-	{'"', '>', 0xe008},
-	{'"', '?', 0xe009},
-	{'"', '-', 0xe00a},
-	{'"', '(', 0xe00b},
-	{'"', '.', 0xe00c},
-	{'"', ':', 0xe00d},
-	{'"', '0', 0xe00e},
-	{'"', '"', 0xe00f},
-	{'"', '<', 0xe010},
-	{'"', ',', 0xe011},
-	{'"', ';', 0xe012},
-	{'"', '_', 0xe013},
-	{'"', '=', 0xe014},
-	{'"', '/', 0xe015},
-	{'"', 'i', 0xe016},
-	{'"', 'd', 0xe017},
-	{'"', 'p', 0xe018},
-	{';', ';', 0xe019},
-	{',', ',', 0xe01a},
-	{'b', '3', 0xe01b},
-	{'C', 'i', 0xe01c},
-	{'f', '(', 0xe01d},
-	{'e', 'd', 0xe01e},
-	{'a', 'm', 0xe01f},
-	{'p', 'm', 0xe020},
-	{'F', 'l', 0xe023},
-	{'G', 'F', 0xe024},
-	{'>', 'V', 0xe025},
-	{'!', '*', 0xe026},
-	{'?', '*', 0xe027},
-	{'J', '<', 0xe028},
+	/* code points 0xe000 - 0xefff excluded, they have no assigned
+	 * characters, only used in proposals. */
 	{'f', 'f', 0xfb00},
 	{'f', 'i', 0xfb01},
 	{'f', 'l', 0xfb02},
@@ -2371,10 +2334,10 @@ printdigraph(dp)
 	}
 	else
 #endif
-	    *p++ = dp->result;
+	    *p++ = (char_u)dp->result;
 	if (char2cells(dp->result) == 1)
 	    *p++ = ' ';
-	sprintf((char *)p, " %3d", dp->result);
+	vim_snprintf((char *)p, sizeof(buf) - (p - buf), " %3d", dp->result);
 	msg_outtrans(buf);
     }
 }
@@ -2395,7 +2358,10 @@ typedef struct
 static void keymap_unload __ARGS((void));
 
 /*
- * Set up key mapping tables for the 'keymap' option
+ * Set up key mapping tables for the 'keymap' option.
+ * Returns NULL if OK, an error message for failure.  This only needs to be
+ * used when setting the option, not later when the value has already been
+ * checked.
  */
     char_u *
 keymap_init()
@@ -2412,25 +2378,29 @@ keymap_init()
     else
     {
 	char_u	*buf;
+	size_t  buflen;
 
 	/* Source the keymap file.  It will contain a ":loadkeymap" command
 	 * which will call ex_loadkeymap() below. */
-	buf = alloc((unsigned)(STRLEN(curbuf->b_p_keymap)
+	buflen = STRLEN(curbuf->b_p_keymap)
 # ifdef FEAT_MBYTE
-						       + STRLEN(p_enc)
+					   + STRLEN(p_enc)
 # endif
-						       + 14));
+						       + 14;
+	buf = alloc((unsigned)buflen);
 	if (buf == NULL)
 	    return e_outofmem;
 
 # ifdef FEAT_MBYTE
 	/* try finding "keymap/'keymap'_'encoding'.vim"  in 'runtimepath' */
-	sprintf((char *)buf, "keymap/%s_%s.vim", curbuf->b_p_keymap, p_enc);
+	vim_snprintf((char *)buf, buflen, "keymap/%s_%s.vim",
+						   curbuf->b_p_keymap, p_enc);
 	if (source_runtime(buf, FALSE) == FAIL)
 # endif
 	{
 	    /* try finding "keymap/'keymap'.vim" in 'runtimepath'  */
-	    sprintf((char *)buf, "keymap/%s.vim", curbuf->b_p_keymap);
+	    vim_snprintf((char *)buf, buflen, "keymap/%s.vim",
+							  curbuf->b_p_keymap);
 	    if (source_runtime(buf, FALSE) == FAIL)
 	    {
 		vim_free(buf);

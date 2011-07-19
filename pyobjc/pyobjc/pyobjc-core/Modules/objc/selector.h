@@ -7,13 +7,14 @@
  */
 
 #define PyObjCSelector_kCLASS_METHOD          0x000001
+#define PyObjCSelector_kHIDDEN                0x000002
 #define PyObjCSelector_kREQUIRED              0x000004
 #define PyObjCSelector_kRETURNS_UNINITIALIZED 0x000010
 
 #define PyObjCSelector_HEAD \
 	PyObject_HEAD 			\
-	char*		sel_python_signature;  \
-	char* 		sel_native_signature; \
+	const char*	sel_python_signature;  \
+	const char* 	sel_native_signature; \
 	SEL		sel_selector;	\
 	PyObject*	sel_self;	\
 	Class		sel_class;	\
@@ -55,12 +56,14 @@ extern PyTypeObject PyObjCPythonSelector_Type;
 #define PyObjCPythonSelector_Check(obj) PyObject_TypeCheck(obj, &PyObjCPythonSelector_Type)
 
 PyObject* PyObjCSelector_Copy(PyObject* obj);
-char* PyObjCSelector_Signature(PyObject* obj);
+const char* PyObjCSelector_Signature(PyObject* obj);
+#define PyObjCSelector_GetNativeSignature(obj) (((PyObjCSelector*)obj)->sel_native_signature)
 SEL   PyObjCSelector_GetSelector(PyObject* obj);
 int   PyObjCSelector_GetFlags(PyObject* obj);
 Class PyObjCSelector_GetClass(PyObject* obj);
 int   PyObjCSelector_Required(PyObject* obj);
 int   PyObjCSelector_IsClassMethod(PyObject* obj);
+int   PyObjCSelector_IsHidden(PyObject* obj);
 int ObjC_SignatureForSelector(char* class_name, SEL selector, char* signature);
 PyObjCMethodSignature* PyObjCSelector_GetMetadata(PyObject* _self);
 
@@ -72,8 +75,9 @@ PyObject* PyObjCSelector_FindNative(PyObject* self, const char* name);
 #define PyObjCSelector_GET_CLASS(obj) (((PyObjCSelector*)(obj))->sel_class)
 #define PyObjCSelector_GET_SELECTOR(obj) (((PyObjCSelector*)(obj))->sel_selector)
 
-PyObject* PyObjCSelector_New(PyObject* callable, SEL selector, char* signature, int class_method, Class class) ;
+PyObject* PyObjCSelector_New(PyObject* callable, SEL selector, const char* signature, int class_method, Class class) ;
 SEL PyObjCSelector_DefaultSelector(const char* methname);
+
 
 PyObject* 
 PyObjCSelector_FromFunction(

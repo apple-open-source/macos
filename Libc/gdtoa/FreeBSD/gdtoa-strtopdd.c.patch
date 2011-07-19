@@ -1,5 +1,5 @@
---- gdtoa-strtopdd.c.orig	2008-10-28 12:43:22.000000000 -0700
-+++ gdtoa-strtopdd.c	2008-10-28 12:51:49.000000000 -0700
+--- gdtoa-strtopdd.c.orig	2010-01-12 10:59:42.000000000 -0800
++++ gdtoa-strtopdd.c	2010-01-12 11:09:40.000000000 -0800
 @@ -29,13 +29,25 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
@@ -56,7 +56,7 @@
 @@ -106,6 +124,9 @@ strtopdd(CONST char *s, char **sp, doubl
  			}
  		u->L[2+_1] = bits[0];
- 		u->L[2+_0] = bits[1] & 0xfffff | exp << 20;
+ 		u->L[2+_0] = (bits[1] & 0xfffff) | (exp << 20);
 +#ifdef __APPLE__
 +		fixLDBL(u->ld);
 +#endif /* __APPLE__ */
@@ -65,7 +65,7 @@
  	  case STRTOG_Denormal:
 @@ -129,6 +150,9 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[2] << i | bits[1] >> j) & 0xffffffffL;
- 		u->L[2+_0] = bits[1] & (1L << j) - 1;
+ 		u->L[2+_0] = bits[1] & ((1L << j) - 1);
  		u->L[2+_1] = bits[0];
 +#ifdef __APPLE__
 +		fixLDBL(u->ld);
@@ -74,8 +74,8 @@
  
  	  partly_normal:
 @@ -140,6 +164,9 @@ strtopdd(CONST char *s, char **sp, doubl
- 			u->L[_1] = (bits[2] << i | bits[1] >> j) & 0xffffffffL;
- 			u->L[2+_0] = bits[1] & (1L << j) - 1;
+ 			u->L[_1] = ((bits[2] << i) | (bits[1] >> j)) & 0xffffffffL;
+ 			u->L[2+_0] = bits[1] & ((1L << j) - 1);
  			u->L[2+_1] = bits[0];
 +#ifdef __APPLE__
 +			fixLDBL(u->ld);
@@ -96,7 +96,7 @@
 @@ -155,6 +185,9 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
  		u->L[2+_0] = 0;
- 		u->L[2+_1] = bits[0] & (1L << j) - 1;
+ 		u->L[2+_1] = bits[0] & ((1L << j) - 1);
 +#ifdef __APPLE__
 +		fixLDBL(u->ld);
 +#endif /* __APPLE__ */
@@ -106,7 +106,7 @@
 @@ -164,20 +197,45 @@ strtopdd(CONST char *s, char **sp, doubl
  		u->L[_1] = (bits[1] << i | bits[0] >> j) & 0xffffffffL;
  		u->L[2+_0] = 0;
- 		u->L[2+_1] = bits[0] & (1L << j) - 1;
+ 		u->L[2+_1] = bits[0] & ((1L << j) - 1);
 +#ifdef __APPLE__
 +		fixLDBL(u->ld);
 +#endif /* __APPLE__ */

@@ -31,26 +31,26 @@
 
 #if ENABLE(DATABASE)
 
-#include "ChromeClient.h"
 #include "Database.h"
 #include "DatabaseAuthorizer.h"
-#include "DatabaseDetails.h"
 #include "DatabaseThread.h"
-#include "ExceptionCode.h"
 #include "Logging.h"
-#include "Page.h"
 #include "PlatformString.h"
 #include "ScriptExecutionContext.h"
-#include "Settings.h"
 #include "SQLError.h"
 #include "SQLiteTransaction.h"
-#include "SQLResultSet.h"
 #include "SQLStatement.h"
 #include "SQLStatementCallback.h"
 #include "SQLStatementErrorCallback.h"
+#include "SQLTransactionCallback.h"
 #include "SQLTransactionClient.h"
 #include "SQLTransactionCoordinator.h"
+#include "SQLTransactionErrorCallback.h"
 #include "SQLValue.h"
+#include "VoidCallback.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 // There's no way of knowing exactly how much more space will be required when a statement hits the quota limit.
 // For now, we'll arbitrarily choose currentQuota + 1mb.
@@ -65,15 +65,15 @@ PassRefPtr<SQLTransaction> SQLTransaction::create(Database* db, PassRefPtr<SQLTr
     return adoptRef(new SQLTransaction(db, callback, errorCallback, successCallback, wrapper, readOnly));
 }
 
-SQLTransaction::SQLTransaction(Database* db, PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback, PassRefPtr<VoidCallback> successCallback,
-                               PassRefPtr<SQLTransactionWrapper> wrapper, bool readOnly)
+SQLTransaction::SQLTransaction(Database* db, PassRefPtr<SQLTransactionCallback> callback, PassRefPtr<SQLTransactionErrorCallback> errorCallback,
+                               PassRefPtr<VoidCallback> successCallback, PassRefPtr<SQLTransactionWrapper> wrapper, bool readOnly)
     : m_nextStep(&SQLTransaction::acquireLock)
     , m_executeSqlAllowed(false)
     , m_database(db)
     , m_wrapper(wrapper)
-    , m_callback(callback)
-    , m_successCallback(successCallback)
-    , m_errorCallback(errorCallback)
+    , m_callbackWrapper(callback, db->scriptExecutionContext())
+    , m_successCallbackWrapper(successCallback, db->scriptExecutionContext())
+    , m_errorCallbackWrapper(errorCallback, db->scriptExecutionContext())
     , m_shouldRetryCurrentStatement(false)
     , m_modifiedDatabase(false)
     , m_lockAcquired(false)
@@ -89,18 +89,18 @@ SQLTransaction::~SQLTransaction()
 
 void SQLTransaction::executeSQL(const String& sqlStatement, const Vector<SQLValue>& arguments, PassRefPtr<SQLStatementCallback> callback, PassRefPtr<SQLStatementErrorCallback> callbackError, ExceptionCode& e)
 {
-    if (!m_executeSqlAllowed || m_database->stopped()) {
+    if (!m_executeSqlAllowed || !m_database->opened()) {
         e = INVALID_STATE_ERR;
         return;
     }
 
-    bool readOnlyMode = m_readOnly;
-    if (!readOnlyMode) {
-        if (m_database->scriptExecutionContext()->isDatabaseReadOnly())
-            readOnlyMode = true;
-    }
+    int permissions = DatabaseAuthorizer::ReadWriteMask;
+    if (!m_database->scriptExecutionContext()->allowDatabaseAccess())
+        permissions |= DatabaseAuthorizer::NoAccessMask;
+    else if (m_readOnly)
+        permissions |= DatabaseAuthorizer::ReadOnlyMask;
 
-    RefPtr<SQLStatement> statement = SQLStatement::create(sqlStatement, arguments, callback, callbackError, readOnlyMode);
+    RefPtr<SQLStatement> statement = SQLStatement::create(m_database.get(), sqlStatement, arguments, callback, callbackError, permissions);
 
     if (m_database->deleted())
         statement->setDatabaseDeletedError();
@@ -147,16 +147,21 @@ const char* SQLTransaction::debugStepName(SQLTransaction::TransactionStepMethod 
 }
 #endif
 
-void SQLTransaction::checkAndHandleClosedDatabase()
+void SQLTransaction::checkAndHandleClosedOrInterruptedDatabase()
 {
-    if (!m_database->stopped())
+    if (m_database->opened() && !m_database->isInterrupted())
         return;
 
     // If the database was stopped, don't do anything and cancel queued work
-    LOG(StorageAPI, "Database was stopped - cancelling work for this transaction");
+    LOG(StorageAPI, "Database was stopped or interrupted - cancelling work for this transaction");
     MutexLocker locker(m_statementMutex);
     m_statementQueue.clear();
     m_nextStep = 0;
+
+    // Release the unneeded callbacks, to break reference cycles.
+    m_callbackWrapper.clear();
+    m_successCallbackWrapper.clear();
+    m_errorCallbackWrapper.clear();
 
     // The next steps should be executed only if we're on the DB thread.
     if (currentThread() != database()->scriptExecutionContext()->databaseThread()->getThreadID())
@@ -184,7 +189,7 @@ bool SQLTransaction::performNextStep()
            m_nextStep == &SQLTransaction::cleanupAfterSuccessCallback ||
            m_nextStep == &SQLTransaction::cleanupAfterTransactionErrorCallback);
 
-    checkAndHandleClosedDatabase();
+    checkAndHandleClosedOrInterruptedDatabase();
 
     if (m_nextStep)
         (this->*m_nextStep)();
@@ -203,7 +208,7 @@ void SQLTransaction::performPendingCallback()
            m_nextStep == &SQLTransaction::deliverQuotaIncreaseCallback ||
            m_nextStep == &SQLTransaction::deliverSuccessCallback);
 
-    checkAndHandleClosedDatabase();
+    checkAndHandleClosedOrInterruptedDatabase();
 
     if (m_nextStep)
         (this->*m_nextStep)();
@@ -234,45 +239,45 @@ void SQLTransaction::lockAcquired()
 
 void SQLTransaction::openTransactionAndPreflight()
 {
-    ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
+    ASSERT(!m_database->sqliteDatabase().transactionInProgress());
     ASSERT(m_lockAcquired);
 
     LOG(StorageAPI, "Opening and preflighting transaction %p", this);
 
     // If the database was deleted, jump to the error callback
     if (m_database->deleted()) {
-        m_transactionError = SQLError::create(0, "unable to open a transaction, because the user deleted the database");
+        m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "unable to open a transaction, because the user deleted the database");
         handleTransactionError(false);
         return;
     }
 
     // Set the maximum usage for this transaction if this transactions is not read-only
     if (!m_readOnly)
-        m_database->m_sqliteDatabase.setMaximumSize(m_database->maximumSize());
+        m_database->sqliteDatabase().setMaximumSize(m_database->maximumSize());
 
     ASSERT(!m_sqliteTransaction);
-    m_sqliteTransaction.set(new SQLiteTransaction(m_database->m_sqliteDatabase, m_readOnly));
+    m_sqliteTransaction = adoptPtr(new SQLiteTransaction(m_database->sqliteDatabase(), m_readOnly));
 
-    m_database->m_databaseAuthorizer->disable();
+    m_database->resetDeletes();
+    m_database->disableAuthorizer();
     m_sqliteTransaction->begin();
-    m_database->m_databaseAuthorizer->enable();
+    m_database->enableAuthorizer();
 
     // Transaction Steps 1+2 - Open a transaction to the database, jumping to the error callback if that fails
     if (!m_sqliteTransaction->inProgress()) {
-        ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
+        ASSERT(!m_database->sqliteDatabase().transactionInProgress());
         m_sqliteTransaction.clear();
-        m_transactionError = SQLError::create(0, "unable to open a transaction to the database");
+        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "unable to open a transaction to the database");
         handleTransactionError(false);
         return;
     }
 
     // Transaction Steps 3 - Peform preflight steps, jumping to the error callback if they fail
     if (m_wrapper && !m_wrapper->performPreflight(this)) {
-        ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
         m_sqliteTransaction.clear();
         m_transactionError = m_wrapper->sqlError();
         if (!m_transactionError)
-            m_transactionError = SQLError::create(0, "unknown error occured setting up transaction");
+            m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "unknown error occured setting up transaction");
 
         handleTransactionError(false);
         return;
@@ -288,16 +293,16 @@ void SQLTransaction::deliverTransactionCallback()
 {
     bool shouldDeliverErrorCallback = false;
 
-    if (m_callback) {
+    RefPtr<SQLTransactionCallback> callback = m_callbackWrapper.unwrap();
+    if (callback) {
         m_executeSqlAllowed = true;
-        shouldDeliverErrorCallback = !m_callback->handleEvent(m_database->scriptExecutionContext(), this);
+        shouldDeliverErrorCallback = !callback->handleEvent(this);
         m_executeSqlAllowed = false;
-    } else
-        shouldDeliverErrorCallback = true;
+    }
 
     // Transaction Step 5 - If the transaction callback was null or raised an exception, jump to the error callback
     if (shouldDeliverErrorCallback) {
-        m_transactionError = SQLError::create(0, "the SQLTransactionCallback was null or threw an exception");
+        m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "the SQLTransactionCallback was null or threw an exception");
         deliverTransactionErrorCallback();
     } else
         scheduleToRunStatements();
@@ -326,7 +331,7 @@ void SQLTransaction::runStatements()
             // m_shouldRetryCurrentStatement is set to true only when a statement exceeds
             // the quota, which can happen only in a read-write transaction. Therefore, there
             // is no need to check here if the transaction is read-write.
-            m_database->m_sqliteDatabase.setMaximumSize(m_database->maximumSize());
+            m_database->sqliteDatabase().setMaximumSize(m_database->maximumSize());
         } else {
             // If the current statement has already been run, failed due to quota constraints, and we're not retrying it,
             // that means it ended in an error.  Handle it now
@@ -353,8 +358,7 @@ void SQLTransaction::getNextStatement()
 
     MutexLocker locker(m_statementMutex);
     if (!m_statementQueue.isEmpty()) {
-        m_currentStatement = m_statementQueue.first();
-        m_statementQueue.removeFirst();
+        m_currentStatement = m_statementQueue.takeFirst();
     }
 }
 
@@ -363,14 +367,14 @@ bool SQLTransaction::runCurrentStatement()
     if (!m_currentStatement)
         return false;
 
-    m_database->m_databaseAuthorizer->reset();
+    m_database->resetAuthorizer();
 
     if (m_currentStatement->execute(m_database.get())) {
-        if (m_database->m_databaseAuthorizer->lastActionChangedDatabase()) {
+        if (m_database->lastActionChangedDatabase()) {
             // Flag this transaction as having changed the database for later delegate notification
             m_modifiedDatabase = true;
             // Also dirty the size of this database file for calculating quota usage
-            m_database->transactionClient()->didExecuteStatement(this);
+            m_database->transactionClient()->didExecuteStatement(database());
         }
 
         if (m_currentStatement->hasStatementCallback()) {
@@ -405,7 +409,7 @@ void SQLTransaction::handleCurrentStatementError()
     } else {
         m_transactionError = m_currentStatement->sqlError();
         if (!m_transactionError)
-            m_transactionError = SQLError::create(1, "the statement failed to execute");
+            m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "the statement failed to execute");
         handleTransactionError(false);
     }
 }
@@ -421,7 +425,7 @@ void SQLTransaction::deliverStatementCallback()
     m_executeSqlAllowed = false;
 
     if (result) {
-        m_transactionError = SQLError::create(0, "the statement callback raised an exception or statement error callback did not return false");
+        m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "the statement callback raised an exception or statement error callback did not return false");
         handleTransactionError(true);
     } else
         scheduleToRunStatements();
@@ -432,7 +436,7 @@ void SQLTransaction::deliverQuotaIncreaseCallback()
     ASSERT(m_currentStatement);
     ASSERT(!m_shouldRetryCurrentStatement);
 
-    m_shouldRetryCurrentStatement = m_database->transactionClient()->didExceedQuota(this);
+    m_shouldRetryCurrentStatement = m_database->transactionClient()->didExceedQuota(database());
 
     m_nextStep = &SQLTransaction::runStatements;
     LOG(StorageAPI, "Scheduling runStatements for transaction %p\n", this);
@@ -447,7 +451,7 @@ void SQLTransaction::postflightAndCommit()
     if (m_wrapper && !m_wrapper->performPostflight(this)) {
         m_transactionError = m_wrapper->sqlError();
         if (!m_transactionError)
-            m_transactionError = SQLError::create(0, "unknown error occured setting up transaction");
+            m_transactionError = SQLError::create(SQLError::UNKNOWN_ERR, "unknown error occured setting up transaction");
         handleTransactionError(false);
         return;
     }
@@ -455,30 +459,31 @@ void SQLTransaction::postflightAndCommit()
     // Transacton Step 8+9 - Commit the transaction, jumping to the error callback if that fails
     ASSERT(m_sqliteTransaction);
 
-    m_database->m_databaseAuthorizer->disable();
+    m_database->disableAuthorizer();
     m_sqliteTransaction->commit();
-    m_database->m_databaseAuthorizer->enable();
+    m_database->enableAuthorizer();
 
     // If the commit failed, the transaction will still be marked as "in progress"
     if (m_sqliteTransaction->inProgress()) {
-        m_transactionError = SQLError::create(0, "failed to commit the transaction");
+        m_successCallbackWrapper.clear();
+        m_transactionError = SQLError::create(SQLError::DATABASE_ERR, "failed to commit the transaction");
         handleTransactionError(false);
         return;
     }
 
-    // The commit was successful, so vacuum the database if needed
-    m_database->incrementalVacuumIfNeeded();
+    // Vacuum the database if anything was deleted.
+    if (m_database->hadDeletes())
+        m_database->incrementalVacuumIfNeeded();
 
-    // The commit was successful, notify the delegates if the transaction modified this database
+    // The commit was successful. If the transaction modified this database, notify the delegates.
     if (m_modifiedDatabase)
-        m_database->transactionClient()->didCommitTransaction(this);
+        m_database->transactionClient()->didCommitWriteTransaction(database());
 
     // Now release our unneeded callbacks, to break reference cycles.
-    m_callback = 0;
-    m_errorCallback = 0;
+    m_errorCallbackWrapper.clear();
 
     // Transaction Step 10 - Deliver success callback, if there is one
-    if (m_successCallback) {
+    if (m_successCallbackWrapper.hasCallback()) {
         m_nextStep = &SQLTransaction::deliverSuccessCallback;
         LOG(StorageAPI, "Scheduling deliverSuccessCallback for transaction %p\n", this);
         m_database->scheduleTransactionCallback(this);
@@ -489,11 +494,9 @@ void SQLTransaction::postflightAndCommit()
 void SQLTransaction::deliverSuccessCallback()
 {
     // Transaction Step 10 - Deliver success callback
-    ASSERT(m_successCallback);
-    m_successCallback->handleEvent();
-
-    // Release the last callback to break reference cycle
-    m_successCallback = 0;
+    RefPtr<VoidCallback> successCallback = m_successCallbackWrapper.unwrap();
+    if (successCallback)
+        successCallback->handleEvent();
 
     // Schedule a "post-success callback" step to return control to the database thread in case there
     // are further transactions queued up for this Database
@@ -509,7 +512,7 @@ void SQLTransaction::cleanupAfterSuccessCallback()
     // Transaction Step 11 - End transaction steps
     // There is no next step
     LOG(StorageAPI, "Transaction %p is complete\n", this);
-    ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
+    ASSERT(!m_database->sqliteDatabase().transactionInProgress());
     m_sqliteTransaction.clear();
     m_nextStep = 0;
 
@@ -519,7 +522,7 @@ void SQLTransaction::cleanupAfterSuccessCallback()
 
 void SQLTransaction::handleTransactionError(bool inCallback)
 {
-    if (m_errorCallback) {
+    if (m_errorCallbackWrapper.hasCallback()) {
         if (inCallback)
             deliverTransactionErrorCallback();
         else {
@@ -547,8 +550,9 @@ void SQLTransaction::deliverTransactionErrorCallback()
 
     // Transaction Step 12 - If exists, invoke error callback with the last
     // error to have occurred in this transaction.
-    if (m_errorCallback)
-        m_errorCallback->handleEvent(m_database->scriptExecutionContext(), m_transactionError.get());
+    RefPtr<SQLTransactionErrorCallback> errorCallback = m_errorCallbackWrapper.unwrap();
+    if (errorCallback)
+        errorCallback->handleEvent(m_transactionError.get());
 
     m_nextStep = &SQLTransaction::cleanupAfterTransactionErrorCallback;
     LOG(StorageAPI, "Scheduling cleanupAfterTransactionErrorCallback for transaction %p\n", this);
@@ -559,15 +563,15 @@ void SQLTransaction::cleanupAfterTransactionErrorCallback()
 {
     ASSERT(m_lockAcquired);
 
-    m_database->m_databaseAuthorizer->disable();
+    m_database->disableAuthorizer();
     if (m_sqliteTransaction) {
         // Transaction Step 12 - Rollback the transaction.
         m_sqliteTransaction->rollback();
 
-        ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
+        ASSERT(!m_database->sqliteDatabase().transactionInProgress());
         m_sqliteTransaction.clear();
     }
-    m_database->m_databaseAuthorizer->enable();
+    m_database->enableAuthorizer();
 
     // Transaction Step 12 - Any still-pending statements in the transaction are discarded.
     {
@@ -577,12 +581,8 @@ void SQLTransaction::cleanupAfterTransactionErrorCallback()
 
     // Transaction is complete!  There is no next step
     LOG(StorageAPI, "Transaction %p is complete with an error\n", this);
-    ASSERT(!m_database->m_sqliteDatabase.transactionInProgress());
+    ASSERT(!m_database->sqliteDatabase().transactionInProgress());
     m_nextStep = 0;
-
-    // Now release our callbacks, to break reference cycles.
-    m_callback = 0;
-    m_errorCallback = 0;
 
     // Now release the lock on this database
     m_database->transactionCoordinator()->releaseLock(this);

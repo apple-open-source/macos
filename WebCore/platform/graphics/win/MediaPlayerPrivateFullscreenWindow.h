@@ -10,7 +10,7 @@
  *    notice, this list of conditions and the following disclaimer in the 
  *    documentation and/or other materials provided with the distribution.
  * 
- * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS “AS IS” 
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
  * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
  * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR 
  * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
@@ -26,11 +26,11 @@
 #ifndef MediaPlayerPrivateFullscreenWindow_h
 #define MediaPlayerPrivateFullscreenWindow_h
 
+#include <wtf/RefPtr.h>
+
 #if USE(ACCELERATED_COMPOSITING)
-#include "WKCACFLayer.h"
-#include "WKCACFLayerRenderer.h"
+#include "CACFLayerTreeHostClient.h"
 #endif
-#include <wtf/OwnPtr.h>
 
 typedef unsigned WPARAM;
 typedef long LPARAM;
@@ -40,6 +40,11 @@ typedef LONG_PTR LRESULT;
 typedef unsigned int UINT;
 
 namespace WebCore {
+
+#if USE(ACCELERATED_COMPOSITING)
+class CACFLayerTreeHost;
+class PlatformCALayer;
+#endif
 
 class MediaPlayerPrivateFullscreenClient {
 public:
@@ -54,15 +59,12 @@ public:
     ~MediaPlayerPrivateFullscreenWindow();
 
     void createWindow(HWND ownerWindow);
-    void close();
     
     HWND hwnd() const { return m_hwnd; }
 
 #if USE(ACCELERATED_COMPOSITING)
-    WKCACFLayerRenderer* layerRenderer() const { return m_layerRenderer.get(); }
-
-    WKCACFLayer* rootChildLayer() const { return m_rootChild.get(); }
-    void setRootChildLayer(PassRefPtr<WKCACFLayer>);
+    PlatformCALayer* rootChildLayer() const { return m_rootChild.get(); }
+    void setRootChildLayer(PassRefPtr<PlatformCALayer>);
 #endif
 
 private:
@@ -71,8 +73,8 @@ private:
 
     MediaPlayerPrivateFullscreenClient* m_client;
 #if USE(ACCELERATED_COMPOSITING)
-    OwnPtr<WKCACFLayerRenderer> m_layerRenderer;
-    RefPtr<WKCACFLayer> m_rootChild;
+    RefPtr<CACFLayerTreeHost> m_layerTreeHost;
+    RefPtr<PlatformCALayer> m_rootChild;
 #endif
     HWND m_hwnd;
 };

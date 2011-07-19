@@ -260,7 +260,7 @@
 			/>
 			<Tool
 				Name="VCPostBuildEventTool"
-				CommandLine="if not &quot;%RC_XBS%&quot; == &quot;YES&quot; goto END&#x0D;&#x0A;if not exist &quot;$(DSTROOT)\Program Files\Bonjour\$(PlatformName)&quot;   mkdir &quot;$(DSTROOT)\Program Files\Bonjour\$(PlatformName)&quot;&#x0D;&#x0A;xcopy /I/Y &quot;$(TargetPath)&quot;                                                                  &quot;$(DSTROOT)\Program Files\Bonjour\$(PlatformName)&quot;&#x0D;&#x0A;:END&#x0D;&#x0A;"
+				CommandLine=""
 			/>
 		</Configuration>
 		<Configuration
@@ -1302,6 +1302,10 @@
 				</FileConfiguration>
 			</File>
 			<File
+				RelativePath="..\cups\sspi.c"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\string.c"
 				>
 				<FileConfiguration
@@ -1372,6 +1376,10 @@
 						PreprocessorDefinitions="WIN32"
 					/>
 				</FileConfiguration>
+			</File>
+			<File
+				RelativePath="..\cups\thread.c"
+				>
 			</File>
 			<File
 				RelativePath="..\cups\transcode.c"
@@ -1516,6 +1524,10 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cups\file-private.h"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\file.h"
 				>
 			</File>
@@ -1568,7 +1580,15 @@
 				>
 			</File>
 			<File
+				RelativePath="..\cups\sspi-private.h"
+				>
+			</File>
+			<File
 				RelativePath="..\cups\string.h"
+				>
+			</File>
+			<File
+				RelativePath="..\cups\thread-private.h"
 				>
 			</File>
 			<File

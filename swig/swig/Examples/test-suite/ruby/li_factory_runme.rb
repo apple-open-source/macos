@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'li_factory'
 
 circle = Li_factory::Geometry.create(Li_factory::Geometry::CIRCLE)

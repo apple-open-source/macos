@@ -1,4 +1,4 @@
-.Dd Aug 10, 2008
+.Dd Apr 17, 2010
 .Dt PERL 1
 .Os
 .Sh NAME
@@ -18,37 +18,36 @@ now just selects the real version of Perl to run, and the program named
 now just selects the real version of the awk-to-perl translator to run,
 depending on various settings.
 The current supported versions are
-.Sy 5.8.8
-(provided for backward-compatibility with the Perl 5.8 family)
+.Sy @VERSION_DEFAULT@
 and
-.Sy 5.10.0 ,
+.Sy @VERSION_ALT@ ,
 with the default being
-.Sy 5.10.0 .
+.Sy @VERSION_DEFAULT@
+(older alternate versions are provided for backward-compatibility, while newer
+alternate versions are provided before we are ready to make it the default).
 Use
 .Pp
-.Dl % man perl5.8.8
-.Dl % man perl5.10.0
-.Dl % man a2p5.8.8
-.Dl % man a2p5.10.0
+.Dl % man perl@VERSION_DEFAULT@
+.Dl % man perl@VERSION_ALT@
+.Dl % man a2p@VERSION_DEFAULT@
+.Dl % man a2p@VERSION_ALT@
 .Pp
 to see the man page for a specific version.
-Without a version specified,
+When the version is unspecified, as in:
 .Pp
 .Dl % man perldoc
 .Pp
-and the like, will show the man page for the (unmodified) default
+the man page for the (unmodified) default
 version of Perl
-.Sy ( 5.10.0 ) .
-To see the man page for a specific version, use, for example,
-.Pp
-.Dl % man perldoc5.8.8
-.Sh CHANGING THE DEFAULT PERL
+.Sy ( @VERSION_DEFAULT@ )
+will be shown.
+.Sh CHANGING THE DEFAULT PERL VERSION
 Using
 .Pp
-.Dl % defaults write com.apple.versioner.perl Version 5.8.8
+.Dl % defaults write com.apple.versioner.perl Version @VERSION_ALT@
 .Pp
 will make version
-.Sy 5.8.8
+.Sy @VERSION_ALT@
 the user default when running the both the
 .Nm perl
 and
@@ -71,23 +70,18 @@ and
 .Nm a2p
 version:
 .Pp
-.D1 Li % export VERSIONER_PERL_VERSION=5.8.8 Em # Bourne-like shells
+.D1 Li % export VERSIONER_PERL_VERSION=@VERSION_ALT@ Em # Bourne-like shells
 .D1 Li "    " Sy or
-.D1 Li % setenv VERSIONER_PERL_VERSION 5.8.8 Em # C-like shells
+.D1 Li % setenv VERSIONER_PERL_VERSION @VERSION_ALT@ Em # C-like shells
 .Dl % perl ...
 .Pp
-This environment variable takes precedence over the preference file settings.
+This environment variable takes precedence over the setting in any preference file.
 .Sh 64-BIT SUPPORT
-Version
-.Sy 5.10.0
-supports 64-bit execution (which is on by default).
-Version
-.Sy 5.8.8
-only supports 32-bit execution.
-.Pp
-Like the version of Perl, the
+Both versions of perl
+support 64-bit execution (which is the default).
+Like the setting the version of Perl, the
 .Nm perl
-command can select between 32 and 64-bit execution (when both are available).
+command can select between 32 and 64-bit execution.
 Use:
 .Pp
 .Dl % defaults write com.apple.versioner.perl Prefer-32-Bit -bool yes
@@ -112,9 +106,9 @@ Rather than using the
 .Nm perl
 command, one can use a specific version directly.
 For example, running
-.Nm perl5.8.8
+.Nm perl@VERSION_ALT@
 from the command line will run the
-.Sy 5.8.8
+.Sy @VERSION_ALT@
 version of Perl, independent of what the default version of Perl is.
 .Pp
 One can use a specific version of Perl on the
@@ -127,14 +121,14 @@ command, do
 .Sy not
 apply when running a specific version of Perl.
 In particular, running
-.Nm perl5.10.0
+.Nm perl@VERSION_DEFAULT@
 will always default to 64-bit execution
 (unless one uses the
 .Xr arch 1
 command to specifically select a 32-bit architecture).
 .Sh SEE ALSO
-.Xr perl5.8.8 1 ,
-.Xr perl5.10.0 1 ,
-.Xr a2p5.8.8 1 ,
-.Xr a2p5.10.0 1 ,
+.Xr perl@VERSION_DEFAULT@ 1 ,
+.Xr perl@VERSION_ALT@ 1 ,
+.Xr a2p@VERSION_DEFAULT@ 1 ,
+.Xr a2p@VERSION_ALT@ 1 ,
 .Xr arch 1

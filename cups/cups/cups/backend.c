@@ -1,9 +1,9 @@
 /*
  * "$Id: backend.c 7810 2008-07-29 01:11:15Z mike $"
  *
- *   Backend functions for the Common UNIX Printing System (CUPS).
+ *   Backend functions for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -25,9 +25,8 @@
  * Include necessary headers...
  */
 
-#include <stdlib.h>
+#include "cups-private.h"
 #include "backend.h"
-#include "globals.h"
 
 
 /*
@@ -51,8 +50,10 @@ static void	quote_string(const char *s);
 const char *				/* O - Device URI or @code NULL@ */
 cupsBackendDeviceURI(char **argv)	/* I - Command-line arguments */
 {
-  const char	*device_uri;		/* Device URI */
+  const char	*device_uri,		/* Device URI */
+		*auth_info_required;	/* AUTH_INFO_REQUIRED env var */
   _cups_globals_t *cg = _cupsGlobals();	/* Global info */
+  int		options;		/* Resolve options */
 
 
   if ((device_uri = getenv("DEVICE_URI")) == NULL)
@@ -63,8 +64,13 @@ cupsBackendDeviceURI(char **argv)	/* I - Command-line arguments */
     device_uri = argv[0];
   }
 
+  options = _HTTP_RESOLVE_STDERR;
+  if ((auth_info_required = getenv("AUTH_INFO_REQUIRED")) != NULL &&
+      !strcmp(auth_info_required, "negotiate"))
+    options |= _HTTP_RESOLVE_FQDN;
+
   return (_httpResolveURI(device_uri, cg->resolved_uri,
-                          sizeof(cg->resolved_uri), 1));
+                          sizeof(cg->resolved_uri), options, NULL, NULL));
 }
 
 

@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: acinclude.m4,v 1.239 2009-09-02 17:48:26 bagder Exp $
 #***************************************************************************
 
 
@@ -167,7 +166,7 @@ AC_DEFUN([CURL_CHECK_AIX_ALL_SOURCE], [
 
 dnl CURL_CHECK_HEADER_WINDOWS
 dnl -------------------------------------------------
-dnl Check for compilable and valid windows.h header 
+dnl Check for compilable and valid windows.h header
 
 AC_DEFUN([CURL_CHECK_HEADER_WINDOWS], [
   AC_CACHE_CHECK([for windows.h], [ac_cv_header_windows_h], [
@@ -240,7 +239,7 @@ AC_DEFUN([CURL_CHECK_NATIVE_WINDOWS], [
 
 dnl CURL_CHECK_HEADER_WINSOCK
 dnl -------------------------------------------------
-dnl Check for compilable and valid winsock.h header 
+dnl Check for compilable and valid winsock.h header
 
 AC_DEFUN([CURL_CHECK_HEADER_WINSOCK], [
   AC_REQUIRE([CURL_CHECK_HEADER_WINDOWS])dnl
@@ -277,7 +276,7 @@ AC_DEFUN([CURL_CHECK_HEADER_WINSOCK], [
 
 dnl CURL_CHECK_HEADER_WINSOCK2
 dnl -------------------------------------------------
-dnl Check for compilable and valid winsock2.h header 
+dnl Check for compilable and valid winsock2.h header
 
 AC_DEFUN([CURL_CHECK_HEADER_WINSOCK2], [
   AC_REQUIRE([CURL_CHECK_HEADER_WINDOWS])dnl
@@ -966,13 +965,13 @@ AC_DEFUN([CURL_CHECK_HEADER_MEMORY], [
 
 dnl CURL_CHECK_FUNC_GETNAMEINFO
 dnl -------------------------------------------------
-dnl Test if the getnameinfo function is available, 
+dnl Test if the getnameinfo function is available,
 dnl and check the types of five of its arguments.
 dnl If the function succeeds HAVE_GETNAMEINFO will be
 dnl defined, defining the types of the arguments in
 dnl GETNAMEINFO_TYPE_ARG1, GETNAMEINFO_TYPE_ARG2,
 dnl GETNAMEINFO_TYPE_ARG46 and GETNAMEINFO_TYPE_ARG7,
-dnl and also defining the type qualifier of first 
+dnl and also defining the type qualifier of first
 dnl argument in GETNAMEINFO_QUAL_ARG1.
 
 AC_DEFUN([CURL_CHECK_FUNC_GETNAMEINFO], [
@@ -1056,7 +1055,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETNAMEINFO], [
               if test "$curl_cv_func_getnameinfo_args" = "unknown"; then
                 AC_COMPILE_IFELSE([
                   AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1067,7 +1066,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETNAMEINFO], [
 #endif
 #include <windows.h>
 #ifdef HAVE_WINSOCK2_H
-#include <winsock2.h> 
+#include <winsock2.h>
 #ifdef HAVE_WS2TCPIP_H
 #include <ws2tcpip.h>
 #endif
@@ -1167,7 +1166,7 @@ AC_DEFUN([CURL_CHECK_FUNC_GETNAMEINFO], [
 
 dnl TYPE_SOCKADDR_STORAGE
 dnl -------------------------------------------------
-dnl Check for struct sockaddr_storage. Most IPv6-enabled 
+dnl Check for struct sockaddr_storage. Most IPv6-enabled
 dnl hosts have it, but AIX 4.3 is one known exception.
 
 AC_DEFUN([TYPE_SOCKADDR_STORAGE],
@@ -1213,7 +1212,7 @@ AC_DEFUN([CURL_CHECK_NI_WITHSCOPEID], [
   AC_CHECK_HEADERS(stdio.h sys/types.h sys/socket.h \
                    netdb.h netinet/in.h arpa/inet.h)
   #
-  AC_CACHE_CHECK([for working NI_WITHSCOPEID], 
+  AC_CACHE_CHECK([for working NI_WITHSCOPEID],
     [ac_cv_working_ni_withscopeid], [
     AC_RUN_IFELSE([
       AC_LANG_PROGRAM([[
@@ -1305,11 +1304,11 @@ AC_DEFUN([CURL_CHECK_NI_WITHSCOPEID], [
 
 dnl CURL_CHECK_FUNC_RECV
 dnl -------------------------------------------------
-dnl Test if the socket recv() function is available, 
-dnl and check its return type and the types of its 
-dnl arguments. If the function succeeds HAVE_RECV 
-dnl will be defined, defining the types of the arguments 
-dnl in RECV_TYPE_ARG1, RECV_TYPE_ARG2, RECV_TYPE_ARG3 
+dnl Test if the socket recv() function is available,
+dnl and check its return type and the types of its
+dnl arguments. If the function succeeds HAVE_RECV
+dnl will be defined, defining the types of the arguments
+dnl in RECV_TYPE_ARG1, RECV_TYPE_ARG2, RECV_TYPE_ARG3
 dnl and RECV_TYPE_ARG4, defining the type of the function
 dnl return value in RECV_TYPE_RETV.
 
@@ -1321,7 +1320,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECV], [
   AC_MSG_CHECKING([for recv])
   AC_LINK_IFELSE([
     AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1365,7 +1364,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECV], [
                 if test "$curl_cv_func_recv_args" = "unknown"; then
                   AC_COMPILE_IFELSE([
                     AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1438,13 +1437,13 @@ AC_DEFUN([CURL_CHECK_FUNC_RECV], [
 
 dnl CURL_CHECK_FUNC_SEND
 dnl -------------------------------------------------
-dnl Test if the socket send() function is available, 
-dnl and check its return type and the types of its 
-dnl arguments. If the function succeeds HAVE_SEND 
-dnl will be defined, defining the types of the arguments 
-dnl in SEND_TYPE_ARG1, SEND_TYPE_ARG2, SEND_TYPE_ARG3 
+dnl Test if the socket send() function is available,
+dnl and check its return type and the types of its
+dnl arguments. If the function succeeds HAVE_SEND
+dnl will be defined, defining the types of the arguments
+dnl in SEND_TYPE_ARG1, SEND_TYPE_ARG2, SEND_TYPE_ARG3
 dnl and SEND_TYPE_ARG4, defining the type of the function
-dnl return value in SEND_TYPE_RETV, and also defining the 
+dnl return value in SEND_TYPE_RETV, and also defining the
 dnl type qualifier of second argument in SEND_QUAL_ARG2.
 
 AC_DEFUN([CURL_CHECK_FUNC_SEND], [
@@ -1455,7 +1454,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SEND], [
   AC_MSG_CHECKING([for send])
   AC_LINK_IFELSE([
     AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1499,7 +1498,7 @@ AC_DEFUN([CURL_CHECK_FUNC_SEND], [
                 if test "$curl_cv_func_send_args" = "unknown"; then
                   AC_COMPILE_IFELSE([
                     AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1623,7 +1622,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECVFROM], [
   AC_MSG_CHECKING([for recvfrom])
   AC_LINK_IFELSE([
     AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1669,7 +1668,7 @@ AC_DEFUN([CURL_CHECK_FUNC_RECVFROM], [
                     if test "$curl_cv_func_recvfrom_args" = "unknown"; then
                       AC_COMPILE_IFELSE([
                         AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1805,7 +1804,7 @@ AC_DEFUN([CURL_CHECK_MSG_NOSIGNAL], [
   AC_CACHE_CHECK([for MSG_NOSIGNAL], [ac_cv_msg_nosignal], [
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -1856,7 +1855,7 @@ AC_DEFUN([CURL_CHECK_STRUCT_TIMEVAL], [
   AC_CACHE_CHECK([for struct timeval], [ac_cv_struct_timeval], [
     AC_COMPILE_IFELSE([
       AC_LANG_PROGRAM([[
-#undef inline 
+#undef inline
 #ifdef HAVE_WINDOWS_H
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
@@ -2146,6 +2145,7 @@ AC_DEFUN([CURL_CHECK_LIBS_CLOCK_GETTIME_MONOTONIC], [
         else
           LIBS="$curl_cv_gclk_LIBS $curl_cv_save_LIBS"
         fi
+        CURL_LIBS="$CURL_LIBS $curl_cv_gclk_LIBS"
         AC_MSG_RESULT([$curl_cv_gclk_LIBS])
         ac_cv_func_clock_gettime="yes"
         ;;
@@ -2815,8 +2815,8 @@ AC_HELP_STRING([--without-ca-path], [Don't use a default CA path]),
       done
     fi
   fi
-        
-    
+
+
 
   if test "x$ca" != "xno"; then
     CURL_CA_BUNDLE='"'$ca'"'
@@ -3043,7 +3043,7 @@ AC_DEFUN([CURL_CONFIGURE_CURL_OFF_T], [
       '__int32'        \
       'int'            ; do
       DO_CURL_OFF_T_CHECK([$t4], [4])
-    done 
+    done
     AC_MSG_RESULT([$curl_typeof_curl_off_t])
   fi
   if test "$curl_typeof_curl_off_t" = "unknown"; then
@@ -3181,7 +3181,7 @@ AC_DEFUN([CURL_CHECK_WIN32_LARGEFILE], [
       ;;
     win32_small_files)
       AC_MSG_RESULT([yes (large file disabled)])
-      AC_DEFINE_UNQUOTED(USE_WIN32_LARGE_FILES, 1,
+      AC_DEFINE_UNQUOTED(USE_WIN32_SMALL_FILES, 1,
         [Define to 1 if you are building a Windows target without large file support.])
       ;;
     *)
@@ -3190,13 +3190,30 @@ AC_DEFUN([CURL_CHECK_WIN32_LARGEFILE], [
   esac
 ])
 
-dnl CURL_CHECK_PKGCONFIG ($module)
+dnl CURL_EXPORT_PCDIR ($pcdir)
+dnl ------------------------
+dnl if $pcdir is not empty, set PKG_CONFIG_LIBDIR to $pcdir and export
+dnl
+dnl we need this macro since pkg-config distinguishes among empty and unset
+dnl variable while checking PKG_CONFIG_LIBDIR
+dnl
+
+AC_DEFUN([CURL_EXPORT_PCDIR], [
+    if test -n "$1"; then
+      PKG_CONFIG_LIBDIR="$1"
+      export PKG_CONFIG_LIBDIR
+    fi
+])
+
+dnl CURL_CHECK_PKGCONFIG ($module, [$pcdir])
 dnl ------------------------
 dnl search for the pkg-config tool (if not cross-compiling). Set the PKGCONFIG
 dnl variable to hold the path to it, or 'no' if not found/present.
 dnl
 dnl If pkg-config is present, check that it has info about the $module or
 dnl return "no" anyway!
+dnl
+dnl Optionally PKG_CONFIG_LIBDIR may be given as $pcdir.
 dnl
 
 AC_DEFUN([CURL_CHECK_PKGCONFIG], [
@@ -3216,8 +3233,10 @@ AC_DEFUN([CURL_CHECK_PKGCONFIG], [
     if test x$PKGCONFIG != xno; then
       AC_MSG_CHECKING([for $1 options with pkg-config])
       dnl ask pkg-config about $1
-      $PKGCONFIG --exists $1
-      if test "$?" -ne "0"; then
+      itexists=`CURL_EXPORT_PCDIR([$2]) dnl
+        $PKGCONFIG --exists $1 >/dev/null 2>&1 && echo 1`
+
+      if test -z "$itexists"; then
         dnl pkg-config does not have info about the given module! set the
         dnl variable to 'no'
         PKGCONFIG="no"
@@ -3226,4 +3245,45 @@ AC_DEFUN([CURL_CHECK_PKGCONFIG], [
         AC_MSG_RESULT([found])
       fi
     fi
+])
+
+
+dnl CURL_GENERATE_CONFIGUREHELP_PM
+dnl -------------------------------------------------
+dnl Generate test harness configurehelp.pm module, defining and
+dnl initializing some perl variables with values which are known
+dnl when the configure script runs. For portability reasons, test
+dnl harness needs information on how to run the C preprocessor.
+
+AC_DEFUN([CURL_GENERATE_CONFIGUREHELP_PM], [
+  AC_REQUIRE([AC_PROG_CPP])dnl
+  tmp_cpp=`eval echo "$ac_cpp" 2>/dev/null`
+  if test -z "$tmp_cpp"; then
+    tmp_cpp='cpp'
+  fi
+  cat >./tests/configurehelp.pm <<_EOF
+[@%:@] This is a generated file.  Do not edit.
+
+package configurehelp;
+
+use strict;
+use warnings;
+use Exporter;
+
+use vars qw(
+    @ISA
+    @EXPORT_OK
+    \$Cpreprocessor
+    );
+
+@ISA = qw(Exporter);
+
+@EXPORT_OK = qw(
+    \$Cpreprocessor
+    );
+
+\$Cpreprocessor = '$tmp_cpp';
+
+1;
+_EOF
 ])

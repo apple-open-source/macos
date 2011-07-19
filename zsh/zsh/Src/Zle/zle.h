@@ -380,6 +380,10 @@ enum suffixtype {
     SUFTYP_NEGRNG		/* Range of characters not to match */
 };
 
+/* Additional flags to suffixes */
+enum suffixflags {
+    SUFFLAGS_SPACE = 0x0001	/* Add a space when removing suffix */
+};
 
 #ifdef MULTIBYTE_SUPPORT
 /*
@@ -413,6 +417,20 @@ typedef struct {
 
 /* A string of screen cells */
 typedef REFRESH_ELEMENT *REFRESH_STRING;
+
+
+#if defined(MULTIBYTE_SUPPORT) && defined(__STDC_ISO_10646__)
+#define ZSH_INVALID_WCHAR_BASE	(0xe000U)
+#define ZSH_INVALID_WCHAR_TEST(x)			\
+    ((unsigned)(x) >= ZSH_INVALID_WCHAR_BASE &&		\
+     (unsigned)(x) <= (ZSH_INVALID_WCHAR_BASE + 255u))
+#define ZSH_INVALID_WCHAR_TO_CHAR(x)			\
+    ((char)((unsigned)(x) - ZSH_INVALID_WCHAR_BASE))
+#define ZSH_INVALID_WCHAR_TO_INT(x)			\
+    ((int)((unsigned)(x) - ZSH_INVALID_WCHAR_BASE))
+#define ZSH_CHAR_TO_INVALID_WCHAR(x)		\
+    ((wchar_t)(STOUC(x) + ZSH_INVALID_WCHAR_BASE))
+#endif
 
 
 #ifdef DEBUG

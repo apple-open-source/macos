@@ -1,5 +1,3 @@
-"#.o names are from the ppc build, and probably don't map properly to other archs"	
-
 #libm.a(complex.o):	
 _cabsf	_cabsf$fenv_access_off
 _cacos	_cacos$fenv_access_off
@@ -179,6 +177,7 @@ _fmodf	_fmodf$fenv_access_off
 _remainder	_remainder$fenv_access_off
 _remainderf	_remainderf$fenv_access_off
 _remquof	_remquof$fenv_access_off
+_remainder	_drem
 
 #libm.a(rndint.o):
 _llrint	_llrint$fenv_access_off
@@ -296,4 +295,4 @@ _cbrt	_cbrt$fenv_access_off
 #_nanf	_nanf$fenv_access_off
 #_remquo	_remquo$fenv_access_off
 
-___Libm_version
+#___Libm_version

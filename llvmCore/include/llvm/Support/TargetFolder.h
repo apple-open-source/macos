@@ -9,8 +9,10 @@
 //
 // This file defines the TargetFolder class, a helper for IRBuilder.
 // It provides IRBuilder with a set of methods for creating constants with
-// target dependent folding.  For general constant creation and folding,
-// use ConstantExpr and the routines in llvm/Analysis/ConstantFolding.h.
+// target dependent folding, in addition to the same target-independent
+// folding that the ConstantFolder class provides.  For general constant
+// creation and folding, use ConstantExpr and the routines in
+// llvm/Analysis/ConstantFolding.h.
 //
 //===----------------------------------------------------------------------===//
 
@@ -18,6 +20,7 @@
 #define LLVM_SUPPORT_TARGETFOLDER_H
 
 #include "llvm/Constants.h"
+#include "llvm/InstrTypes.h"
 #include "llvm/Analysis/ConstantFolding.h"
 
 namespace llvm {
@@ -26,18 +29,18 @@ class TargetData;
 
 /// TargetFolder - Create constants with target dependent folding.
 class TargetFolder {
-  const TargetData &TD;
+  const TargetData *TD;
 
   /// Fold - Fold the constant using target specific information.
   Constant *Fold(Constant *C) const {
     if (ConstantExpr *CE = dyn_cast<ConstantExpr>(C))
-      if (Constant *CF = ConstantFoldConstantExpression(CE, &TD))
+      if (Constant *CF = ConstantFoldConstantExpression(CE, TD))
         return CF;
     return C;
   }
 
 public:
-  TargetFolder(const TargetData &TheTD) : TD(TheTD) {}
+  explicit TargetFolder(const TargetData *TheTD) : TD(TheTD) {}
 
   //===--------------------------------------------------------------------===//
   // Binary Operators
@@ -46,17 +49,47 @@ public:
   Constant *CreateAdd(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getAdd(LHS, RHS));
   }
+  Constant *CreateNSWAdd(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNSWAdd(LHS, RHS));
+  }
+  Constant *CreateNUWAdd(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNUWAdd(LHS, RHS));
+  }
+  Constant *CreateFAdd(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getFAdd(LHS, RHS));
+  }
   Constant *CreateSub(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getSub(LHS, RHS));
   }
+  Constant *CreateNSWSub(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNSWSub(LHS, RHS));
+  }
+  Constant *CreateNUWSub(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNUWSub(LHS, RHS));
+  }
+  Constant *CreateFSub(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getFSub(LHS, RHS));
+  }
   Constant *CreateMul(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getMul(LHS, RHS));
+  }
+  Constant *CreateNSWMul(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNSWMul(LHS, RHS));
+  }
+  Constant *CreateNUWMul(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getNUWMul(LHS, RHS));
+  }
+  Constant *CreateFMul(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getFMul(LHS, RHS));
   }
   Constant *CreateUDiv(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getUDiv(LHS, RHS));
   }
   Constant *CreateSDiv(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getSDiv(LHS, RHS));
+  }
+  Constant *CreateExactSDiv(Constant *LHS, Constant *RHS) const {
+    return Fold(ConstantExpr::getExactSDiv(LHS, RHS));
   }
   Constant *CreateFDiv(Constant *LHS, Constant *RHS) const {
     return Fold(ConstantExpr::getFDiv(LHS, RHS));
@@ -101,6 +134,15 @@ public:
   Constant *CreateNeg(Constant *C) const {
     return Fold(ConstantExpr::getNeg(C));
   }
+  Constant *CreateNSWNeg(Constant *C) const {
+    return Fold(ConstantExpr::getNSWNeg(C));
+  }
+  Constant *CreateNUWNeg(Constant *C) const {
+    return Fold(ConstantExpr::getNUWNeg(C));
+  }
+  Constant *CreateFNeg(Constant *C) const {
+    return Fold(ConstantExpr::getFNeg(C));
+  }
   Constant *CreateNot(Constant *C) const {
     return Fold(ConstantExpr::getNot(C));
   }
@@ -116,6 +158,15 @@ public:
   Constant *CreateGetElementPtr(Constant *C, Value* const *IdxList,
                                 unsigned NumIdx) const {
     return Fold(ConstantExpr::getGetElementPtr(C, IdxList, NumIdx));
+  }
+
+  Constant *CreateInBoundsGetElementPtr(Constant *C, Constant* const *IdxList,
+                                        unsigned NumIdx) const {
+    return Fold(ConstantExpr::getInBoundsGetElementPtr(C, IdxList, NumIdx));
+  }
+  Constant *CreateInBoundsGetElementPtr(Constant *C, Value* const *IdxList,
+                                        unsigned NumIdx) const {
+    return Fold(ConstantExpr::getInBoundsGetElementPtr(C, IdxList, NumIdx));
   }
 
   //===--------------------------------------------------------------------===//
@@ -134,7 +185,9 @@ public:
       return C; // avoid calling Fold
     return Fold(ConstantExpr::getIntegerCast(C, DestTy, isSigned));
   }
-
+  Constant *CreatePointerCast(Constant *C, const Type *DestTy) const {
+    return ConstantExpr::getPointerCast(C, DestTy);
+  }
   Constant *CreateBitCast(Constant *C, const Type *DestTy) const {
     return CreateCast(Instruction::BitCast, C, DestTy);
   }
@@ -143,6 +196,16 @@ public:
   }
   Constant *CreatePtrToInt(Constant *C, const Type *DestTy) const {
     return CreateCast(Instruction::PtrToInt, C, DestTy);
+  }
+  Constant *CreateZExtOrBitCast(Constant *C, const Type *DestTy) const {
+    if (C->getType() == DestTy)
+      return C; // avoid calling Fold
+    return Fold(ConstantExpr::getZExtOrBitCast(C, DestTy));
+  }
+  Constant *CreateSExtOrBitCast(Constant *C, const Type *DestTy) const {
+    if (C->getType() == DestTy)
+      return C; // avoid calling Fold
+    return Fold(ConstantExpr::getSExtOrBitCast(C, DestTy));
   }
   Constant *CreateTruncOrBitCast(Constant *C, const Type *DestTy) const {
     if (C->getType() == DestTy)
@@ -160,14 +223,6 @@ public:
   }
   Constant *CreateFCmp(CmpInst::Predicate P, Constant *LHS,
                        Constant *RHS) const {
-    return Fold(ConstantExpr::getCompare(P, LHS, RHS));
-  }
-  Constant *CreateVICmp(CmpInst::Predicate P, Constant *LHS,
-                        Constant *RHS) const {
-    return Fold(ConstantExpr::getCompare(P, LHS, RHS));
-  }
-  Constant *CreateVFCmp(CmpInst::Predicate P, Constant *LHS,
-                        Constant *RHS) const {
     return Fold(ConstantExpr::getCompare(P, LHS, RHS));
   }
 

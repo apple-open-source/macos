@@ -101,8 +101,13 @@ int Error::unixError() const
 Database::Database(const char *path, int flags)
 	: mMutex(Mutex::recursive)
 {
-	check(::sqlite3_open_v2(path, &mDb, flags, NULL));
-	check(::sqlite3_extended_result_codes(mDb, true));
+	try {
+		check(::sqlite3_open_v2(path, &mDb, flags, NULL));
+		check(::sqlite3_extended_result_codes(mDb, true));
+	} catch (...) {
+		sqlite3_close(mDb);		// allocated even if open fails(!)
+		throw;
+	}
 }
 
 Database::~Database()

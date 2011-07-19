@@ -28,11 +28,8 @@
  * and their ilk.
  */
 
-/* "C++ implementations should define these macros only when
- *  __STDC_FORMAT_MACROS is defined before <inttypes.h> is included."
- */
-#if (!defined(__cplusplus) || defined(__STDC_FORMAT_MACROS)) && !defined(__STDC_FORMAT_MACROS_DEFINED)
-#define __STDC_FORMAT_MACROS_DEFINED
+#if !defined(_INTTYPES_H_)
+#define _INTTYPES_H_
 
 #  undef __PRI_8_LENGTH_MODIFIER__
 #  undef __PRI_64_LENGTH_MODIFIER__
@@ -244,11 +241,6 @@
 #  define SCNoMAX       __SCN_MAX_LENGTH_MODIFIER__ "o"
 #  define SCNuMAX       __SCN_MAX_LENGTH_MODIFIER__ "u"
 #  define SCNxMAX       __SCN_MAX_LENGTH_MODIFIER__ "x"
-
-#endif /* if C++, then __STDC_FORMAT_MACROS enables the above macros */
-
-#if !defined(_INTTYPES_H_)
-#define _INTTYPES_H_
 
 #include <sys/cdefs.h>		/* For __BEGIN_DECLS and __END_DECLS */
 #include <_types.h>		/* For __darwin_wchar_t */

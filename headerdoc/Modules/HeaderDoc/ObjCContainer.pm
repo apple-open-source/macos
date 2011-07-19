@@ -3,7 +3,7 @@
 # Class name: ObjCContainer
 # Synopsis: Container for doc declared in an Objective-C interface.
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -32,9 +32,40 @@ BEGIN {
 	    $MOD_AVAIL{$_} = eval "use $_; 1";
     }
 }
+
+# /*! @header
+#     @abstract
+#         <code>ObjCContainer</code> class package file.
+#     @discussion
+#         This file contains the <code>ObjCContainer</code> class, a class for content
+#         relating to an Objective-C class, category, or protocol.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+# /*!
+#     @abstract
+#         Intermediate API object base class for Objective-C
+#         classes, categories, and protocols.
+#     @discussion
+#         This class is subclassed by
+#         {@link //apple_ref/perl/cl/HeaderDoc::ObjCClass ObjCClass},
+#         {@link //apple_ref/perl/cl/HeaderDoc::ObjCCategory ObjCCategory}, and
+#         {@link //apple_ref/perl/cl/HeaderDoc::ObjCProtocol ObjCProtocol}.
+#
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found in
+#         those two classes.
+#
+#     This API object type should never actually be emitted as output; only
+#     its subclasses are relevant.
+#  */
 package HeaderDoc::ObjCContainer;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash);
 use HeaderDoc::APIOwner;
 
 # Inheritance
@@ -42,7 +73,15 @@ use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::ObjCContainer::VERSION = '$Revision: 1.9 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::ObjCContainer::VERSION = '$Revision: 1298084578 $';
 
 ################ Portability ###################################
 my $isMacOS;
@@ -67,6 +106,12 @@ my $tocFrameName = "toc.html";
 # my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>ObjCContainer</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
@@ -74,63 +119,15 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::ObjCContainer";
 }
 
-sub _old_getCompositePageString { 
-    my $self = shift;
-    my $name = $self->name();
-    my $compositePageString;
-    my $contentString;
-
-    $compositePageString .= $self->compositePageAPIRef();
-
-    my $abstract = $self->abstract();
-    if (length($abstract)) {
-	    $compositePageString .= "<h2>Abstract</h2>\n";
-	    $compositePageString .= $abstract;
-    }
-
-    my $discussion = $self->discussion();
-    my $checkDisc = $self->halfbaked_discussion();
-    if (length($checkDisc)) {
-	    $compositePageString .= "<h2>Discussion</h2>\n";
-	    $compositePageString .= $discussion;
-    }
-    
-    # if ((length($abstract)) || (length($discussion))) {
-    # ALWAYS....
-	    $compositePageString .= "<hr><br>";
-    # }
-
-    my $etoc = $self->_getClassEmbeddedTOC(1);
-    if (length($etoc)) {
-	$compositePageString .= $etoc;
-	$compositePageString .= "<hr><br>";
-    }
-
-    $contentString= $self->_getMethodDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Methods</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-
-    $contentString= $self->_getVarDetailString();
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Variables</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-
-    $contentString= $self->_getConstantDetailString();
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Constants</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    return $compositePageString;
-}
-
-
+# /*!
+#     @abstract
+#         Returns +/- depending on whether a
+#         method is a class method or instance method.
+#     @param self
+#         This ObjC class, category, or protocol object.
+#     @param obj
+#         The method object to check.
+#  */
 sub getMethodPrefix {
     my $self = shift;
 	my $obj = shift;
@@ -150,6 +147,19 @@ sub getMethodPrefix {
 	return $prefix;
 }
 
+# /*!
+#     @abstract
+#         Returns a comment marker for
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}.
+#     @discussion
+#         Returns an HTML comment that identifies the index file
+#         (Header vs. Class, name, and so on).  The
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}
+#         tool uses this information to create a master TOC for the
+#         generated doc.
+#     @param self
+#         The APIOwner object.
+# */
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
@@ -159,39 +169,12 @@ sub docNavigatorComment {
 }
 
 ################## Misc Functions ###################################
-sub objName { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
 
-    return (lc($obj1->name()) cmp lc($obj2->name()));
-}
-
-sub byMethodType { # used for sorting
-   my $obj1 = $a;
-   my $obj2 = $b;
-   if ($HeaderDoc::sort_entries) {
-        return ($obj1->isInstanceMethod() cmp $obj2->isInstanceMethod());
-   } else {
-        return (1 cmp 2);
-   }
-}
-
-sub byAccessControl { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->accessControl()) cmp lc($obj2->accessControl()));
-}
-
-sub objGroup { # used for sorting
-   my $obj1 = $a;
-   my $obj2 = $b;
-   # if ($HeaderDoc::sort_entries) {
-        return (lc($obj1->group()) cmp lc($obj2->group()));
-   # } else {
-        # return (1 cmp 2);
-   # }
-}
-
+# /*!
+#     @abstract
+#         Sets the list of protocols to which this class
+#         conforms.
+#  */
 sub conformsToList {
     my $self = shift;
     my $string = shift;
@@ -208,6 +191,12 @@ sub conformsToList {
 
 ##################### Debugging ####################################
 
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub printObject {
     my $self = shift;
  

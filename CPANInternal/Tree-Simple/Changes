@@ -1,5 +1,9 @@
 Revision history for Perl extension Tree::Simple.
 
+1.18 Sun. Nov. 11, 2007
+    - fixing version string to not choke on 5.10
+      (RT #29746)
+
 1.17 Mon Oct. 23, 2006
     - make loading of Scalar::Util::weaken, completely 
       optional

@@ -138,7 +138,7 @@ typedef uint32_t opaque_id;
  * either the WebDAV file system's kernel or user-land code which require both
  * executables to be released as a set.
  */
-#define kCurrentWebdavArgsVersion 4
+#define kCurrentWebdavArgsVersion 5
 
 #pragma options align=packed
 
@@ -164,6 +164,8 @@ struct user_webdav_args
 	u_int32_t pa_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	opaque_id pa_root_id;						/* root opaque_id */
 	webdav_ino_t pa_root_fileid;				/* root fileid */
+	uid_t		pa_uid;							/* effective uid of the mounting user */
+	gid_t		pa_gid;							/* effective gid of the mounting user */
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	int pa_link_max;							/* maximum value of a file's link count */
@@ -187,6 +189,8 @@ struct webdav_args
 	u_int32_t pa_server_ident;					/* identifies some (not all) types of servers we are connected to */
 	opaque_id pa_root_id;						/* root opaque_id */
 	webdav_ino_t pa_root_fileid;				/* root fileid */
+	uid_t		pa_uid;							/* effective uid of the mounting user */
+	gid_t		pa_gid;							/* effective gid of the mounting user */	
 	off_t pa_dir_size;							/* size of directories */
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	int pa_link_max;							/* maximum value of a file's link count */
@@ -211,8 +215,6 @@ struct webdav_args
 struct webdav_cred
 {
 	uid_t pcr_uid;								/* From ucred */
-	short pcr_ngroups;							/* From ucred */
-	gid_t pcr_groups[NGROUPS];					/* From ucred */
 };
 
 /* WEBDAV_LOOKUP */
@@ -239,6 +241,7 @@ struct webdav_reply_lookup
 	struct webdav_timespec64 obj_atime;		/* time of last access */
 	struct webdav_timespec64 obj_mtime;		/* time of last data modification */
 	struct webdav_timespec64 obj_ctime;		/* time of last file status change */
+	struct webdav_timespec64 obj_createtime; /* file creation time */	
 	off_t			obj_filesize;		/* filesize of object */
 };	
 
@@ -310,6 +313,7 @@ struct webdav_stat {
 	struct	webdav_timespec64 st_atimespec;	/* time of last access */
 	struct	webdav_timespec64 st_mtimespec;	/* time of last data modification */
 	struct	webdav_timespec64 st_ctimespec;	/* time of last status change */
+	struct	webdav_timespec64 st_createtimespec;	/* time file was created */
 	off_t		st_size;	/* [XSI] file size, in bytes */
 	blkcnt_t	st_blocks;	/* [XSI] blocks allocated for file */
 	blksize_t	st_blksize;	/* [XSI] optimal blocksize for I/O */
@@ -597,6 +601,12 @@ struct WebdavWriteSequential {
  *		name[2] = fd of cache file
  */
 #define WEBDAV_ASSOCIATECACHEFILE_SYSCTL   1
+/*
+ * If name[0] is WEBDAV_NOTIFY_RECONNECTED_SYSCTL, then 
+ *		name[1] = fsid.value[0]		// fsid byte 0 of reconnected file system
+ *		name[2] = fsid.value[1]		// fsid byte 1 of reconnected file system 
+ */
+#define WEBDAV_NOTIFY_RECONNECTED_SYSCTL   2
 
 #define WEBDAV_MAX_KEXT_CONNECTIONS 128			/* maximum number of open connections to user-land server */
 
@@ -620,6 +630,8 @@ struct webdavmount
 	int pm_chown_restricted;					/* Return _POSIX_CHOWN_RESTRICTED if appropriate privileges are required for the chown(2); otherwise 0 */
 	int pm_no_trunc;							/* Return _POSIX_NO_TRUNC if file names longer than KERN_NAME_MAX are truncated; otherwise 0 */
 	size_t pm_iosize;							/* saved iosize to use */
+	uid_t		pm_uid;						/* effective uid of the mounting user */
+	gid_t		pm_gid;						/* effective gid of the mounting user */	
 	lck_mtx_t pm_mutex;							/* Protects pm_status adn pm_open_connections fields */
 };
 
@@ -638,6 +650,7 @@ struct webdavnode
 	struct webdav_timespec64 pt_atime;					/* time of last access */
 	struct webdav_timespec64 pt_mtime;					/* time of last data modification */
 	struct webdav_timespec64 pt_ctime;					/* time of last file status change */
+	struct webdav_timespec64 pt_createtime;				/* file creation time */	
 	struct webdav_timespec64 pt_mtime_old;				/* previous pt_mtime value (directory nodes only, used for negative name cache) */
 	struct webdav_timespec64 pt_timestamp_refresh;		/* time of last timestamp refresh */
 	
@@ -788,6 +801,7 @@ extern int webdav_get(
 	struct webdav_timespec64 obj_atime,  /* time of last access */
 	struct webdav_timespec64 obj_mtime,  /* time of last data modification */
 	struct webdav_timespec64 obj_ctime,  /* time of last file status change */
+	struct webdav_timespec64 obj_createtime,  /* file creation time */					  
 	off_t obj_filesize,			/* object's filesize */
 	vnode_t *vpp);				/* vnode returned here */
 

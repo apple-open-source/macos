@@ -43,7 +43,7 @@ jobmgr_t jobmgr_delete_anything_with_port(jobmgr_t jm, mach_port_t port);
 launch_data_t job_export_all(void);
 
 job_t job_dispatch(job_t j, bool kickstart); /* returns j on success, NULL on job removal */
-job_t job_find(const char *label);
+job_t job_find(jobmgr_t jm, const char *label);
 job_t job_find_by_service_port(mach_port_t p);
 bool job_ack_port_destruction(mach_port_t p);
 bool job_is_anonymous(job_t j);

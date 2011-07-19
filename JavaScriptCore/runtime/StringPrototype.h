@@ -29,13 +29,23 @@ namespace JSC {
 
     class StringPrototype : public StringObject {
     public:
-        StringPrototype(ExecState*, NonNullPassRefPtr<Structure>);
+        StringPrototype(ExecState*, JSGlobalObject*, Structure*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+        static const ClassInfo s_info;
+        
+    protected:
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | StringObject::StructureFlags;
+
+        COMPILE_ASSERT(!StringObject::AnonymousSlotCount, StringPrototype_stomps_on_your_anonymous_slot);
+        static const unsigned AnonymousSlotCount = 1;
     };
 
 } // namespace JSC

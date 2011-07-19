@@ -1,0 +1,89 @@
+Index: ascii.c
+===================================================================
+--- ascii.c	(revision 47445)
++++ ascii.c	(working copy)
+@@ -45,33 +45,32 @@
+ #include "mblocal.h"
+ 
+ static size_t	_ascii_mbrtowc(wchar_t * __restrict, const char * __restrict,
+-		    size_t, mbstate_t * __restrict);
+-static int	_ascii_mbsinit(const mbstate_t *);
++		    size_t, mbstate_t * __restrict, locale_t);
++static int	_ascii_mbsinit(const mbstate_t *, locale_t);
+ static size_t	_ascii_mbsnrtowcs(wchar_t * __restrict dst,
+ 		    const char ** __restrict src, size_t nms, size_t len,
+-		    mbstate_t * __restrict ps __unused);
++		    mbstate_t * __restrict ps __unused, locale_t);
+ static size_t	_ascii_wcrtomb(char * __restrict, wchar_t,
+-		    mbstate_t * __restrict);
++		    mbstate_t * __restrict, locale_t);
+ static size_t	_ascii_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
+-		    size_t, size_t, mbstate_t * __restrict);
++		    size_t, size_t, mbstate_t * __restrict, locale_t);
+ 
+-int
+-_ascii_init(_RuneLocale *rl)
++__private_extern__ int
++_ascii_init(struct __xlocale_st_runelocale *xrl)
+ {
+ 
+-	__mbrtowc = _ascii_mbrtowc;
+-	__mbsinit = _ascii_mbsinit;
+-	__mbsnrtowcs = _ascii_mbsnrtowcs;
+-	__wcrtomb = _ascii_wcrtomb;
+-	__wcsnrtombs = _ascii_wcsnrtombs;
+-	_CurrentRuneLocale = rl;
+-	__mb_cur_max = 1;
+-	__mb_sb_limit = 128;
++	xrl->__mbrtowc = _ascii_mbrtowc;
++	xrl->__mbsinit = _ascii_mbsinit;
++	xrl->__mbsnrtowcs = _ascii_mbsnrtowcs;
++	xrl->__wcrtomb = _ascii_wcrtomb;
++	xrl->__wcsnrtombs = _ascii_wcsnrtombs;
++	xrl->__mb_cur_max = 1;
++	xrl->__mb_sb_limit = 128;
+ 	return(0);
+ }
+ 
+ static int
+-_ascii_mbsinit(const mbstate_t *ps __unused)
++_ascii_mbsinit(const mbstate_t *ps __unused, locale_t loc __unused)
+ {
+ 
+ 	/*
+@@ -83,7 +82,7 @@
+ 
+ static size_t
+ _ascii_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
+-    mbstate_t * __restrict ps __unused)
++    mbstate_t * __restrict ps __unused, locale_t loc __unused)
+ {
+ 
+ 	if (s == NULL)
+@@ -103,7 +102,7 @@
+ 
+ static size_t
+ _ascii_wcrtomb(char * __restrict s, wchar_t wc,
+-    mbstate_t * __restrict ps __unused)
++    mbstate_t * __restrict ps __unused, locale_t loc __unused)
+ {
+ 
+ 	if (s == NULL)
+@@ -119,7 +118,7 @@
+ 
+ static size_t
+ _ascii_mbsnrtowcs(wchar_t * __restrict dst, const char ** __restrict src,
+-    size_t nms, size_t len, mbstate_t * __restrict ps __unused)
++    size_t nms, size_t len, mbstate_t * __restrict ps __unused, locale_t loc __unused)
+ {
+ 	const char *s;
+ 	size_t nchr;
+@@ -153,7 +152,7 @@
+ 
+ static size_t
+ _ascii_wcsnrtombs(char * __restrict dst, const wchar_t ** __restrict src,
+-    size_t nwc, size_t len, mbstate_t * __restrict ps __unused)
++    size_t nwc, size_t len, mbstate_t * __restrict ps __unused, locale_t loc __unused)
+ {
+ 	const wchar_t *s;
+ 	size_t nchr;

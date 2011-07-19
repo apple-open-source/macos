@@ -30,30 +30,38 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(NativeErrorConstructor);
 
-const ClassInfo NativeErrorConstructor::info = { "Function", &InternalFunction::info, 0, 0 };
+const ClassInfo NativeErrorConstructor::s_info = { "Function", &InternalFunction::s_info, 0, 0 };
 
-NativeErrorConstructor::NativeErrorConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, NonNullPassRefPtr<Structure> prototypeStructure, const UString& nameAndMessage)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, nameAndMessage))
+NativeErrorConstructor::NativeErrorConstructor(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, Structure* prototypeStructure, const UString& nameAndMessage)
+    : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, nameAndMessage))
 {
-    NativeErrorPrototype* prototype = new (exec) NativeErrorPrototype(exec, prototypeStructure, nameAndMessage, this);
+    ASSERT(inherits(&s_info));
 
-    putDirect(exec->propertyNames().length, jsNumber(exec, 1), DontDelete | ReadOnly | DontEnum); // ECMA 15.11.7.5
-    putDirect(exec->propertyNames().prototype, prototype, DontDelete | ReadOnly | DontEnum);
-    m_errorStructure = ErrorInstance::createStructure(prototype);
+    NativeErrorPrototype* prototype = new (exec) NativeErrorPrototype(exec, globalObject, prototypeStructure, nameAndMessage, this);
+
+    putDirect(exec->globalData(), exec->propertyNames().length, jsNumber(1), DontDelete | ReadOnly | DontEnum); // ECMA 15.11.7.5
+    putDirect(exec->globalData(), exec->propertyNames().prototype, prototype, DontDelete | ReadOnly | DontEnum);
+    m_errorStructure.set(exec->globalData(), this, ErrorInstance::createStructure(exec->globalData(), prototype));
+    ASSERT(m_errorStructure);
+    ASSERT(m_errorStructure->typeInfo().type() == ObjectType);
 }
 
-
-ErrorInstance* NativeErrorConstructor::construct(ExecState* exec, const ArgList& args)
+void NativeErrorConstructor::visitChildren(SlotVisitor& visitor)
 {
-    ErrorInstance* object = new (exec) ErrorInstance(m_errorStructure);
-    if (!args.at(0).isUndefined())
-        object->putDirect(exec->propertyNames().message, jsString(exec, args.at(0).toString(exec)));
-    return object;
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    InternalFunction::visitChildren(visitor);
+    if (m_errorStructure)
+        visitor.append(&m_errorStructure);
 }
 
-static JSObject* constructWithNativeErrorConstructor(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithNativeErrorConstructor(ExecState* exec)
 {
-    return static_cast<NativeErrorConstructor*>(constructor)->construct(exec, args);
+    JSValue message = exec->argumentCount() ? exec->argument(0) : jsUndefined();
+    Structure* errorStructure = static_cast<NativeErrorConstructor*>(exec->callee())->errorStructure();
+    ASSERT(errorStructure);
+    return JSValue::encode(ErrorInstance::create(exec, errorStructure, message));
 }
 
 ConstructType NativeErrorConstructor::getConstructData(ConstructData& constructData)
@@ -62,9 +70,11 @@ ConstructType NativeErrorConstructor::getConstructData(ConstructData& constructD
     return ConstructTypeHost;
 }
     
-static JSValue JSC_HOST_CALL callNativeErrorConstructor(ExecState* exec, JSObject* constructor, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callNativeErrorConstructor(ExecState* exec)
 {
-    return static_cast<NativeErrorConstructor*>(constructor)->construct(exec, args);
+    JSValue message = exec->argumentCount() ? exec->argument(0) : jsUndefined();
+    Structure* errorStructure = static_cast<NativeErrorConstructor*>(exec->callee())->errorStructure();
+    return JSValue::encode(ErrorInstance::create(exec, errorStructure, message));
 }
 
 CallType NativeErrorConstructor::getCallData(CallData& callData)

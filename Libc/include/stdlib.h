@@ -178,7 +178,7 @@ void	*malloc(size_t);
 int	 mblen(const char *, size_t);
 size_t	 mbstowcs(wchar_t * __restrict , const char * __restrict, size_t);
 int	 mbtowc(wchar_t * __restrict, const char * __restrict, size_t);
-int 	 posix_memalign(void **, size_t, size_t);
+int 	 posix_memalign(void **, size_t, size_t) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
 void	 qsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 int	 rand(void);
@@ -330,12 +330,15 @@ typedef	__darwin_mode_t	mode_t;
 
 u_int32_t
 	 arc4random(void);
-void	 arc4random_addrandom(unsigned char *dat, int datlen);
+void	 arc4random_addrandom(unsigned char * /*dat*/, int /*datlen*/);
+void	 arc4random_buf(void * /*buf*/, size_t /*nbytes*/) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 void	 arc4random_stir(void);
+u_int32_t
+	 arc4random_uniform(u_int32_t /*upper_bound*/) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 #ifdef __BLOCKS__
-int	 atexit_b(void (^)(void));
+int	 atexit_b(void (^)(void)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 void	*bsearch_b(const void *, const void *, size_t,
-	    size_t, int (^)(const void *, const void *));
+	    size_t, int (^)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 
 	 /* getcap(3) functions */
@@ -350,7 +353,7 @@ int	 cgetset(const char *);
 int	 cgetstr(char *, const char *, char **);
 int	 cgetustr(char *, const char *, char **);
 
-int	 daemon(int, int) __DARWIN_1050(daemon) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0,__MAC_10_5,__IPHONE_2_0,__IPHONE_2_0);
+int	 daemon(int, int) __DARWIN_1050(daemon) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_5, __IPHONE_2_0, __IPHONE_2_0);
 char	*devname(dev_t, mode_t);
 char	*devname_r(dev_t, mode_t, char *buf, int len);
 char	*getbsize(int *, long *);
@@ -362,25 +365,25 @@ int	 heapsort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 #ifdef __BLOCKS__
 int	 heapsort_b(void *, size_t, size_t,
-	    int (^)(const void *, const void *));
+	    int (^)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 int	 mergesort(void *, size_t, size_t,
 	    int (*)(const void *, const void *));
 #ifdef __BLOCKS__
 int	 mergesort_b(void *, size_t, size_t,
-	    int (^)(const void *, const void *));
+	    int (^)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 void	 psort(void *, size_t, size_t,
-	    int (*)(const void *, const void *));
+	    int (*)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #ifdef __BLOCKS__
 void	 psort_b(void *, size_t, size_t,
-	    int (^)(const void *, const void *));
+	    int (^)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 void	 psort_r(void *, size_t, size_t, void *,
-	    int (*)(void *, const void *, const void *));
+	    int (*)(void *, const void *, const void *))  __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #ifdef __BLOCKS__
 void	 qsort_b(void *, size_t, size_t,
-	    int (^)(const void *, const void *));
+	    int (^)(const void *, const void *)) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 #endif /* __BLOCKS__ */
 void	 qsort_r(void *, size_t, size_t, void *,
 	    int (*)(void *, const void *, const void *));

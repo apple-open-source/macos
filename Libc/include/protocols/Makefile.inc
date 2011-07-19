@@ -1,5 +1,4 @@
-PROTO_INSTHDRS += dumprestore.h \
-                  routed.h \
+PROTO_INSTHDRS += routed.h \
                   rwhod.h \
                   talkd.h \
                   timed.h

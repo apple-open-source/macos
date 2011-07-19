@@ -1,5 +1,15 @@
 Revision history for Class-C3-Componentised
 
+1.0006   08 Sep 2009
+        Allow derived classes without component_base_class(), given all
+        arguments to load_components are absolute class names (+Classname)
+
+1.0005   22 Apr 2009
+        Add load_optional_class method
+
+1.0004   18 Mar 2009
+        Port to use MRO::Compat (rafl)
+
 1.0003    5 Mar 2008
         Fix tests on perl 5.10.0
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Computer, Inc.
+ * Copyright (C) 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,23 +21,26 @@
 #include "config.h"
 #include "FontCustomPlatformData.h"
 
-#include <ApplicationServices/ApplicationServices.h>
-#include "SharedBuffer.h"
 #include "FontPlatformData.h"
 #include "OpenTypeSanitizer.h"
+#include "SharedBuffer.h"
+#include "WOFFFileFormat.h"
+#include <ApplicationServices/ApplicationServices.h>
 
 namespace WebCore {
 
 FontCustomPlatformData::~FontCustomPlatformData()
 {
+#ifdef BUILDING_ON_LEOPARD
     if (m_atsContainer)
         ATSFontDeactivate(m_atsContainer, NULL, kATSOptionFlagsDefault);
+#endif
     CGFontRelease(m_cgFont);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation orientation, TextOrientation textOrientation, FontWidthVariant widthVariant, FontRenderingMode)
 {
-    return FontPlatformData(m_cgFont, (ATSUFontID)m_atsFont, size, bold, italic);
+    return FontPlatformData(m_cgFont, size, bold, italic, orientation, textOrientation, widthVariant);
 }
 
 FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
@@ -50,17 +53,26 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     if (!transcodeBuffer)
         return 0; // validation failed.
     buffer = transcodeBuffer.get();
+#else
+    RefPtr<SharedBuffer> sfntBuffer;
+    if (isWOFF(buffer)) {
+        Vector<char> sfnt;
+        if (!convertWOFFToSfnt(buffer, sfnt))
+            return 0;
+
+        sfntBuffer = SharedBuffer::adoptVector(sfnt);
+        buffer = sfntBuffer.get();
+    }
 #endif
 
     ATSFontContainerRef containerRef = 0;
-    ATSFontRef fontRef = 0;
 
     RetainPtr<CGFontRef> cgFontRef;
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     RetainPtr<CFDataRef> bufferData(AdoptCF, buffer->createCFData());
     RetainPtr<CGDataProviderRef> dataProvider(AdoptCF, CGDataProviderCreateWithCFData(bufferData.get()));
-    
+
     cgFontRef.adoptCF(CGFontCreateWithDataProvider(dataProvider.get()));
     if (!cgFontRef)
         return 0;
@@ -80,6 +92,7 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
         return 0;
     }
     
+    ATSFontRef fontRef = 0;
     ATSFontFindFromContainer(containerRef, kATSOptionFlagsDefault, 1, &fontRef, NULL);
     if (!fontRef) {
         ATSFontDeactivate(containerRef, NULL, kATSOptionFlagsDefault);
@@ -87,18 +100,21 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     }
     
     cgFontRef.adoptCF(CGFontCreateWithPlatformFont(&fontRef));
-#ifndef BUILDING_ON_TIGER
     // Workaround for <rdar://problem/5675504>.
     if (cgFontRef && !CGFontGetNumberOfGlyphs(cgFontRef.get()))
         cgFontRef = 0;
-#endif
     if (!cgFontRef) {
         ATSFontDeactivate(containerRef, NULL, kATSOptionFlagsDefault);
         return 0;
     }
-#endif // !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#endif // !defined(BUILDING_ON_LEOPARD)
 
-    return new FontCustomPlatformData(containerRef, fontRef, cgFontRef.releaseRef());
+    return new FontCustomPlatformData(containerRef, cgFontRef.releaseRef());
+}
+
+bool FontCustomPlatformData::supportsFormat(const String& format)
+{
+    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype") || equalIgnoringCase(format, "woff");
 }
 
 }

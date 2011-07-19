@@ -27,6 +27,7 @@
 .Op Fl U Ar uid
 .Op Fl G Ar gid
 .Op Fl M Ar mask
+.Op Fl P
 .Op Fl s
 .Op Fl b Ar block-size
 .Op Fl c Ar clump-size-list
@@ -40,6 +41,7 @@
 .Op Fl U Ar uid
 .Op Fl G Ar gid
 .Op Fl M Ar mask
+.Op Fl P
 .Op Fl h | w
 .Op Fl s
 .Op Fl b Ar block-size
@@ -93,6 +95,9 @@ Set the group of the file system's root directory to
 .It Fl M Ar mask
 Specify the octal access permissions mask for the file system's root
 directory.
+.It Fl P
+Set kHFSContentProtectionBit in the volume's attributes, which will cause the 
+volume to be mounted with the "protect" option if the kernel supports it.
 .It Fl s
 Creates a case-sensitive HFS Plus filesystem. By
 default a case-insensitive filesystem is created.

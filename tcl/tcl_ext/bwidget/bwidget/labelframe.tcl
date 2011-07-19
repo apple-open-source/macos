@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 #  labelframe.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: labelframe.tcl,v 1.6 2003/10/20 21:23:52 damonc Exp $
+#  $Id: labelframe.tcl,v 1.61 2009/09/06 21:19:09 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - LabelFrame::create
@@ -30,8 +30,12 @@ namespace eval LabelFrame {
         {-bd          Synonym    -borderwidth}
     }
 
-    Widget::addmap LabelFrame "" :cmd {-background {}}
-    Widget::addmap LabelFrame "" .f   {-background {} -relief {} -borderwidth {}}
+    if { ![BWidget::using ttk] } {
+        Widget::addmap LabelFrame "" :cmd {-background {}}
+        Widget::addmap LabelFrame "" .f   {-background {} -relief {} -borderwidth {}}
+    } else {
+        Widget::addmap LabelFrame "" .f   {-relief {} -borderwidth {}}
+    }
 
     Widget::syncoptions LabelFrame Label .l {-text {} -underline {}}
 
@@ -46,15 +50,19 @@ namespace eval LabelFrame {
 proc LabelFrame::create { path args } {
     Widget::init LabelFrame $path $args
 
-    set path  [eval [list frame $path] [Widget::subcget $path :cmd] \
-	    -relief flat -bd 0 -takefocus 0 -highlightthickness 0 \
-	    -class LabelFrame]
+    set path  [eval [list BWidget::wrap frame $path] \
+                         [Widget::subcget $path :cmd] \
+                         -relief flat -bd 0 -takefocus 0 -highlightthickness 0 \
+	                 -class LabelFrame]
 
-    set label [eval [list Label::create $path.l] [Widget::subcget $path .l] \
-                   -takefocus 0 -highlightthickness 0 -relief flat \
-		   -borderwidth 0 -dropenabled 0 -dragenabled 0]
-    set frame [eval [list frame $path.f] [Widget::subcget $path .f] \
-                   -highlightthickness 0 -takefocus 0]
+    set label [eval [list Label::create $path.l] \
+                         [Widget::subcget $path .l] \
+                         -takefocus 0 -highlightthickness 0 -relief flat \
+		         -borderwidth 0 -dropenabled 0 -dragenabled 0]
+
+    set frame [eval [list BWidget::wrap frame $path.f] \
+                         [Widget::subcget $path .f] \
+                         -highlightthickness 0 -takefocus 0]
 
     switch  [Widget::getoption $path -side] {
         left   {set packopt "-side left"}

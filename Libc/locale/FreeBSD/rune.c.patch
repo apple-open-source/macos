@@ -1,6 +1,8 @@
---- rune.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ rune.c	2005-04-12 17:18:12.000000000 -0700
-@@ -34,28 +34,98 @@
+Index: rune.c
+===================================================================
+--- rune.c	(revision 59751)
++++ rune.c	(working copy)
+@@ -34,28 +34,100 @@
   * SUCH DAMAGE.
   */
  
@@ -16,8 +18,10 @@
  #include "namespace.h"
  #include <arpa/inet.h>
  #include <errno.h>
-+#endif /* !RUNEOFF32 */
  #include <runetype.h>
++#else
++#include "runetype.h"
++#endif /* !RUNEOFF32 */
  #include <stdio.h>
 +#ifndef RUNEOFF32
  #include <string.h>
@@ -101,7 +105,7 @@
  	void *lastp;
  	_RuneLocale *rl;
  	_RuneEntry *rr;
-@@ -65,13 +135,20 @@
+@@ -65,13 +137,20 @@
  	if (_fstat(fileno(fp), &sb) < 0)
  		return (NULL);
  
@@ -124,7 +128,7 @@
  
  	errno = 0;
  	rewind(fp); /* Someone might have read the magic number once already */
-@@ -82,26 +159,43 @@
+@@ -82,26 +161,43 @@
  		return (NULL);
  	}
  
@@ -172,7 +176,7 @@
  	rl->__runetype_ext.__nranges = ntohl(rl->__runetype_ext.__nranges);
  	rl->__maplower_ext.__nranges = ntohl(rl->__maplower_ext.__nranges);
  	rl->__mapupper_ext.__nranges = ntohl(rl->__mapupper_ext.__nranges);
-@@ -111,7 +205,54 @@
+@@ -111,7 +207,54 @@
  		rl->__maplower[x] = ntohl(rl->__maplower[x]);
  		rl->__mapupper[x] = ntohl(rl->__mapupper[x]);
  	}
@@ -227,7 +231,7 @@
  	rl->__runetype_ext.__ranges = (_RuneEntry *)rl->__variable;
  	rl->__variable = rl->__runetype_ext.__ranges +
  	    rl->__runetype_ext.__nranges;
-@@ -142,8 +283,10 @@
+@@ -142,8 +285,10 @@
  	for (x = 0; x < rl->__runetype_ext.__nranges; ++x) {
  		rr = rl->__runetype_ext.__ranges;
  
@@ -238,7 +242,7 @@
  		if ((rr[x].__map = ntohl(rr[x].__map)) == 0) {
  			int len = rr[x].__max - rr[x].__min + 1;
  			rr[x].__types = rl->__variable;
-@@ -153,12 +296,15 @@
+@@ -153,12 +298,15 @@
  				errno = EFTYPE;
  				return (NULL);
  			}
@@ -254,7 +258,7 @@
  	for (x = 0; x < rl->__maplower_ext.__nranges; ++x) {
  		rr = rl->__maplower_ext.__ranges;
  
-@@ -174,6 +320,22 @@
+@@ -174,6 +322,22 @@
  		rr[x].__max = ntohl(rr[x].__max);
  		rr[x].__map = ntohl(rr[x].__map);
  	}
@@ -277,7 +281,7 @@
  	if (((char *)rl->__variable) + rl->__variable_len > (char *)lastp) {
  		free(data);
  		errno = EFTYPE;
-@@ -195,5 +357,7 @@
+@@ -195,5 +359,7 @@
  	if (!rl->__mapupper_ext.__nranges)
  		rl->__mapupper_ext.__ranges = 0;
  

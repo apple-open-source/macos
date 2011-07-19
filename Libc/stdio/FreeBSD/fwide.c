@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fwide.c,v 1.1 2002/08/13 09:30:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fwide.c,v 1.2 2008/04/17 22:17:54 jhb Exp $");
 
 #include "namespace.h"
 #include <errno.h>
@@ -42,9 +42,9 @@ fwide(FILE *fp, int mode)
 
 	FLOCKFILE(fp);
 	/* Only change the orientation if the stream is not oriented yet. */
-	if (mode != 0 && fp->_extra->orientation == 0)
-		fp->_extra->orientation = mode > 0 ? 1 : -1;
-	m = fp->_extra->orientation;
+	if (mode != 0 && fp->_orientation == 0)
+		fp->_orientation = mode > 0 ? 1 : -1;
+	m = fp->_orientation;
 	FUNLOCKFILE(fp);
 
 	return (m);

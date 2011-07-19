@@ -20,24 +20,25 @@ session can use a persistent (also known as "keep-alive")
 connection.</para></listitem>
 
 	<listitem><para>Modern HTTP authentication support: a complete
-implementation of the new authentication standard, RFC2617,
-supporting the Digest (MD5) and Basic schemes, including integrity
-checking.  Credentials are supplied by an application-defined
-callback.</para></listitem>
+implementation of the new authentication standard, RFC2617, supporting
+the Digest, Basic, and Negotiate protocols.  Credentials are supplied
+by an application-defined callback as appropriate.</para></listitem>
 
 	<listitem><para>Proxy server support; a session can be set to
 use a proxy server.  Authentication is supported for the Proxy as well
-as the origin server.</para></listitem>
+as the origin server.  The system's proxy configuration can be
+optionally used, on some platforms.</para></listitem>
 
 	<listitem><para>Complete SSL support; a simple interface for
 enabling SSL, hiding the complexity of using an SSL library directly.
 Client certificate support, callback-based server certificate
-verification, along with functions to load trusted CA
-certificates.</para></listitem>
+verification, along with functions to load trusted CA certificates.
+Smartcard-based client certs are also supported via a wrapper
+interface for PKCS#11 modules.</para></listitem>
 
-<!--
-	<listitem><para>Compression support.</para></listitem>
--->
+	<listitem><para>Compressed response support: responses
+	compressed using the "deflate" algorithm can be transparently
+	decompressed.</para></listitem>
 
 	<listitem><para>Generic XML parsing interface for handling XML
 response bodies using SAX-like callbacks.  Both the expat and libxml
@@ -46,7 +47,7 @@ XML parser libraries are supported.</para></listitem>
 	<listitem><para>WebDAV metadata support; set and remove
 properties, query properties (PROPFIND); simple interface for
 retrieving "flat" byte-string properties, more advanced support for
-parsing "complex" XML structured properties.</para></listitem>
+parsing "complex" structured XML properties.</para></listitem>
 
 <!--
 	<listitem><para>WebDAV locking support</para></listitem>

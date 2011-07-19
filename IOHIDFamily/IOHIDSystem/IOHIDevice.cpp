@@ -64,7 +64,7 @@ bool IOHIDevice::start(IOService * provider)
 
         while (provider)
         {
-            if ( prop = OSDynamicCast(OSBoolean, provider->getProperty(kIOHIDVirtualHIDevice)) )
+            if ( ( prop = OSDynamicCast(OSBoolean, provider->getProperty(kIOHIDVirtualHIDevice)) ) )
             {
                 setProperty(kIOHIDVirtualHIDevice, prop);
                 break;
@@ -209,7 +209,7 @@ IOReturn IOHIDevice::setParamProperties( OSDictionary * dict )
             if ( iterator ) {
                 OSSymbol * key;
 
-                while ( key = (OSSymbol *)iterator->getNextObject() )
+                while ( ( key = (OSSymbol *)iterator->getNextObject() ) )
                     if (    !key->isEqualTo(kIOHIDResetKeyboardKey) && 
                             !key->isEqualTo(kIOHIDResetPointerKey) && 
                             !key->isEqualTo(kIOHIDScrollResetKey) && 

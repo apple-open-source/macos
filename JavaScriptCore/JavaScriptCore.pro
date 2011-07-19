@@ -16,20 +16,6 @@ CONFIG += depend_includepath
 
 contains(QT_CONFIG, embedded):CONFIG += embedded
 
-CONFIG(QTDIR_build) {
-    # Make sure we compile both debug and release on mac when inside Qt.
-    # This line was extracted from qbase.pri instead of including the whole file
-    win32|mac:!macx-xcode:CONFIG += debug_and_release
-} else {
-    CONFIG(debug, debug|release) {
-        OBJECTS_DIR = obj/debug
-    } else { # Release
-        OBJECTS_DIR = obj/release
-    }
-    # Make sure that build_all follows the build_all config in WebCore
-    mac:contains(QT_CONFIG, qt_framework):!CONFIG(webkit_no_framework):!build_pass:CONFIG += build_all
-}
-
 # WebCore adds these config only when in a standalone build.
 # qbase.pri takes care of that when in a QTDIR_build
 # Here we add the config for both cases since we don't include qbase.pri
@@ -40,14 +26,6 @@ CONFIG(QTDIR_build) {
     # Remove the following 2 lines if you want debug information in JavaScriptCore
     CONFIG -= separate_debug_info
     CONFIG += no_debug_info
-}
-
-# Pick up 3rdparty libraries from INCLUDE/LIB just like with MSVC
-win32-g++ {
-    TMPPATH            = $$quote($$(INCLUDE))
-    QMAKE_INCDIR_POST += $$split(TMPPATH,";")
-    TMPPATH            = $$quote($$(LIB))
-    QMAKE_LIBDIR_POST += $$split(TMPPATH,";")
 }
 
 *-g++*:QMAKE_CXXFLAGS_RELEASE -= -O2
@@ -65,7 +43,10 @@ wince* {
     SOURCES += $$QT_SOURCE_TREE/src/3rdparty/ce-compat/ce_time.c
 }
 
-include(pcre/pcre.pri)
+include(yarr/yarr.pri)
+include(wtf/wtf.pri)
+
+INSTALLDEPS += all
 
 SOURCES += \
     API/JSBase.cpp \
@@ -79,7 +60,11 @@ SOURCES += \
     API/JSValueRef.cpp \
     API/OpaqueJSString.cpp \
     assembler/ARMAssembler.cpp \
+    assembler/ARMv7Assembler.cpp \
     assembler/MacroAssemblerARM.cpp \
+    assembler/MacroAssemblerSH4.h \
+    assembler/MacroAssemblerSH4.cpp \
+    assembler/SH4Assembler.h \
     bytecode/CodeBlock.cpp \
     bytecode/JumpTable.cpp \
     bytecode/Opcode.cpp \
@@ -87,20 +72,36 @@ SOURCES += \
     bytecode/StructureStubInfo.cpp \
     bytecompiler/BytecodeGenerator.cpp \
     bytecompiler/NodesCodegen.cpp \
+    heap/ConservativeRoots.cpp \
+    heap/HandleHeap.cpp \
+    heap/HandleStack.cpp \
+    heap/Heap.cpp \
+    heap/MachineStackMarker.cpp \
+    heap/MarkStack.cpp \
+    heap/MarkStackPosix.cpp \
+    heap/MarkStackSymbian.cpp \
+    heap/MarkStackWin.cpp \
+    heap/MarkedBlock.cpp \
+    heap/MarkedSpace.cpp \
     debugger/DebuggerActivation.cpp \
     debugger/DebuggerCallFrame.cpp \
     debugger/Debugger.cpp \
+    dfg/DFGByteCodeParser.cpp \
+    dfg/DFGGraph.cpp \
+    dfg/DFGJITCodeGenerator.cpp \
+    dfg/DFGJITCompiler.cpp \
+    dfg/DFGNonSpeculativeJIT.cpp \
+    dfg/DFGOperations.cpp \
+    dfg/DFGSpeculativeJIT.cpp \
     interpreter/CallFrame.cpp \
     interpreter/Interpreter.cpp \
     interpreter/RegisterFile.cpp \
     jit/ExecutableAllocatorFixedVMPool.cpp \
-    jit/ExecutableAllocatorPosix.cpp \
-    jit/ExecutableAllocatorSymbian.cpp \
-    jit/ExecutableAllocatorWin.cpp \
     jit/ExecutableAllocator.cpp \
     jit/JITArithmetic.cpp \
     jit/JITArithmetic32_64.cpp \
     jit/JITCall.cpp \
+    jit/JITCall32_64.cpp \
     jit/JIT.cpp \
     jit/JITOpcodes.cpp \
     jit/JITOpcodes32_64.cpp \
@@ -108,10 +109,12 @@ SOURCES += \
     jit/JITPropertyAccess32_64.cpp \
     jit/JITStubs.cpp \
     jit/ThunkGenerators.cpp \
+    parser/JSParser.cpp \
     parser/Lexer.cpp \
     parser/Nodes.cpp \
     parser/ParserArena.cpp \
     parser/Parser.cpp \
+    parser/SourceProviderCache.cpp \
     profiler/Profile.cpp \
     profiler/ProfileGenerator.cpp \
     profiler/ProfileNode.cpp \
@@ -124,7 +127,6 @@ SOURCES += \
     runtime/BooleanObject.cpp \
     runtime/BooleanPrototype.cpp \
     runtime/CallData.cpp \
-    runtime/Collector.cpp \
     runtime/CommonIdentifiers.cpp \
     runtime/Completion.cpp \
     runtime/ConstructData.cpp \
@@ -140,8 +142,8 @@ SOURCES += \
     runtime/Executable.cpp \
     runtime/FunctionConstructor.cpp \
     runtime/FunctionPrototype.cpp \
+    runtime/GCActivityCallback.cpp \
     runtime/GetterSetter.cpp \
-    runtime/GlobalEvalFunction.cpp \
     runtime/Identifier.cpp \
     runtime/InitializeThreading.cpp \
     runtime/InternalFunction.cpp \
@@ -154,11 +156,10 @@ SOURCES += \
     runtime/JSGlobalData.cpp \
     runtime/JSGlobalObject.cpp \
     runtime/JSGlobalObjectFunctions.cpp \
-    runtime/JSImmediate.cpp \
     runtime/JSLock.cpp \
     runtime/JSNotAnObject.cpp \
-    runtime/JSNumberCell.cpp \
     runtime/JSObject.cpp \
+    runtime/JSObjectWithGlobalObject.cpp \
     runtime/JSONObject.cpp \
     runtime/JSPropertyNameIterator.cpp \
     runtime/JSStaticScopeObject.cpp \
@@ -168,10 +169,6 @@ SOURCES += \
     runtime/JSWrapperObject.cpp \
     runtime/LiteralParser.cpp \
     runtime/Lookup.cpp \
-    runtime/MarkStackPosix.cpp \
-    runtime/MarkStackSymbian.cpp \
-    runtime/MarkStackWin.cpp \
-    runtime/MarkStack.cpp \
     runtime/MathObject.cpp \
     runtime/NativeErrorConstructor.cpp \
     runtime/NativeErrorPrototype.cpp \
@@ -184,7 +181,6 @@ SOURCES += \
     runtime/PropertyDescriptor.cpp \
     runtime/PropertyNameArray.cpp \
     runtime/PropertySlot.cpp \
-    runtime/PrototypeFunction.cpp \
     runtime/RegExpConstructor.cpp \
     runtime/RegExp.cpp \
     runtime/RegExpObject.cpp \
@@ -193,51 +189,36 @@ SOURCES += \
     runtime/RopeImpl.cpp \
     runtime/ScopeChain.cpp \
     runtime/SmallStrings.cpp \
+    runtime/StrictEvalActivation.cpp \
     runtime/StringConstructor.cpp \
     runtime/StringObject.cpp \
     runtime/StringPrototype.cpp \
+    runtime/StringRecursionChecker.cpp \
     runtime/StructureChain.cpp \
     runtime/Structure.cpp \
     runtime/TimeoutChecker.cpp \
     runtime/UString.cpp \
-    wtf/Assertions.cpp \
-    wtf/ByteArray.cpp \
-    wtf/CurrentTime.cpp \
-    wtf/DateMath.cpp \
-    wtf/dtoa.cpp \
-    wtf/FastMalloc.cpp \
-    wtf/HashTable.cpp \
-    wtf/MD5.cpp \
-    wtf/MainThread.cpp \
-    wtf/qt/MainThreadQt.cpp \
-    wtf/qt/StringQt.cpp \
-    wtf/qt/ThreadingQt.cpp \
-    wtf/RandomNumber.cpp \
-    wtf/RefCountedLeakCounter.cpp \
-    wtf/symbian/BlockAllocatorSymbian.cpp \
-    wtf/ThreadingNone.cpp \
-    wtf/Threading.cpp \
-    wtf/TypeTraits.cpp \
-    wtf/WTFThreadData.cpp \
-    wtf/text/AtomicString.cpp \
-    wtf/text/CString.cpp \
-    wtf/text/StringImpl.cpp \
-    wtf/text/StringStatics.cpp \
-    wtf/text/WTFString.cpp \
-    wtf/unicode/CollatorDefault.cpp \
-    wtf/unicode/icu/CollatorICU.cpp \
-    wtf/unicode/UTF8.cpp \
-    yarr/RegexCompiler.cpp \
-    yarr/RegexInterpreter.cpp \
-    yarr/RegexJIT.cpp
+    yarr/YarrJIT.cpp \
 
-# Generated files, simply list them for JavaScriptCore
-SOURCES += \
-    $${JSC_GENERATED_SOURCES_DIR}/Grammar.cpp
-
-!contains(DEFINES, USE_SYSTEM_MALLOC) {
-    SOURCES += wtf/TCSystemAlloc.cpp
+*sh4* {
+    QMAKE_CXXFLAGS += -mieee -w
+    QMAKE_CFLAGS   += -mieee -w
 }
 
-# Disable C++0x mode in JSC for those who enabled it in their Qt's mkspec
-*-g++*:QMAKE_CXXFLAGS -= -std=c++0x -std=gnu++0x
+# Generated files, simply list them for JavaScriptCore
+
+symbian: {
+    symbian-abld|symbian-sbsv2 {
+        MMP_RULES += ALWAYS_BUILD_AS_ARM
+    }  else {
+        QMAKE_CFLAGS -= --thumb
+        QMAKE_CXXFLAGS -= --thumb
+    }
+    QMAKE_CXXFLAGS.ARMCC += -OTime -O3
+}
+
+lessThan(QT_GCC_MAJOR_VERSION, 5):lessThan(QT_GCC_MINOR_VERSION, 6) {
+    # Disable C++0x mode in JSC for those who enabled it in their Qt's mkspec.
+    *-g++*:QMAKE_CXXFLAGS -= -std=c++0x -std=gnu++0x
+}
+

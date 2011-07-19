@@ -43,8 +43,15 @@ typedef enum {
     WebTextDirectionSubmenuAlwaysIncluded
 } WebTextDirectionSubmenuInclusionBehavior;
 
+typedef enum {
+    WebKitEditingMacBehavior,
+    WebKitEditingWinBehavior,
+    WebKitEditingUnixBehavior
+} WebKitEditingBehavior;
+
 extern NSString *WebPreferencesChangedNotification;
 extern NSString *WebPreferencesRemovedNotification;
+extern NSString *WebPreferencesChangedInternalNotification;
 
 @interface WebPreferences (WebPrivate)
 
@@ -125,12 +132,24 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)isFrameFlatteningEnabled;
 - (void)setFrameFlatteningEnabled:(BOOL)flag;
 
+- (BOOL)isSpatialNavigationEnabled;
+- (void)setSpatialNavigationEnabled:(BOOL)flag;
+
 // zero means do AutoScale
 - (float)PDFScaleFactor;
 - (void)setPDFScaleFactor:(float)scale;
 
+- (int64_t)applicationCacheTotalQuota;
+- (void)setApplicationCacheTotalQuota:(int64_t)quota;
+
+- (int64_t)applicationCacheDefaultOriginQuota;
+- (void)setApplicationCacheDefaultOriginQuota:(int64_t)quota;
+
 - (WebKitEditableLinkBehavior)editableLinkBehavior;
 - (void)setEditableLinkBehavior:(WebKitEditableLinkBehavior)behavior;
+
+- (WebKitEditingBehavior)editingBehavior;
+- (void)setEditingBehavior:(WebKitEditingBehavior)behavior;
 
 - (WebTextDirectionSubmenuInclusionBehavior)textDirectionSubmenuInclusionBehavior;
 - (void)setTextDirectionSubmenuInclusionBehavior:(WebTextDirectionSubmenuInclusionBehavior)behavior;
@@ -158,6 +177,12 @@ extern NSString *WebPreferencesRemovedNotification;
 - (NSString *)_localStorageDatabasePath;
 - (void)_setLocalStorageDatabasePath:(NSString *)path;
 
+- (BOOL)acceleratedDrawingEnabled;
+- (void)setAcceleratedDrawingEnabled:(BOOL)enabled;
+
+- (BOOL)canvasUsesAcceleratedDrawing;
+- (void)setCanvasUsesAcceleratedDrawing:(BOOL)enabled;
+
 - (BOOL)acceleratedCompositingEnabled;
 - (void)setAcceleratedCompositingEnabled:(BOOL)enabled;
 
@@ -167,14 +192,27 @@ extern NSString *WebPreferencesRemovedNotification;
 - (BOOL)showRepaintCounter;
 - (void)setShowRepaintCounter:(BOOL)show;
 
+- (BOOL)webAudioEnabled;
+- (void)setWebAudioEnabled:(BOOL)enabled;
+
 - (BOOL)webGLEnabled;
 - (void)setWebGLEnabled:(BOOL)enabled;
 
-- (BOOL)usesProxiedOpenPanel;
-- (void)setUsesProxiedOpenPanel:(BOOL)enabled;
+- (BOOL)accelerated2dCanvasEnabled;
+- (void)setAccelerated2dCanvasEnabled:(BOOL)enabled;
+
+- (BOOL)paginateDuringLayoutEnabled;
+- (void)setPaginateDuringLayoutEnabled:(BOOL)flag;
+
+- (BOOL)memoryInfoEnabled;
+- (void)setMemoryInfoEnabled:(BOOL)enabled;
+
+- (BOOL)hyperlinkAuditingEnabled;
+- (void)setHyperlinkAuditingEnabled:(BOOL)enabled;
 
 // Other private methods
-- (void)_postPreferencesChangesNotification;
+- (void)_postPreferencesChangedNotification;
+- (void)_postPreferencesChangedAPINotification;
 + (WebPreferences *)_getInstanceForIdentifier:(NSString *)identifier;
 + (void)_setInstance:(WebPreferences *)instance forIdentifier:(NSString *)identifier;
 + (void)_removeReferenceForIdentifier:(NSString *)identifier;
@@ -183,7 +221,29 @@ extern NSString *WebPreferencesRemovedNotification;
 + (void)_setInitialDefaultTextEncodingToSystemEncoding;
 + (void)_setIBCreatorID:(NSString *)string;
 
++ (void)setWebKitLinkTimeVersion:(int)version;
+
 // For WebView's use only.
 - (void)willAddToWebView;
 - (void)didRemoveFromWebView;
+
+// Full screen support is dependent on WebCore/WebKit being
+// compiled with ENABLE_FULLSCREEN_API. 
+- (void)setFullScreenEnabled:(BOOL)flag;
+- (BOOL)fullScreenEnabled;
+
+- (void)setAsynchronousSpellCheckingEnabled:(BOOL)flag;
+- (BOOL)asynchronousSpellCheckingEnabled;
+
+- (void)setUsePreHTML5ParserQuirks:(BOOL)flag;
+- (BOOL)usePreHTML5ParserQuirks;
+
+- (void)setLoadsSiteIconsIgnoringImageLoadingPreference: (BOOL)flag;
+- (BOOL)loadsSiteIconsIgnoringImageLoadingPreference;
+
+// AVFoundation support is dependent on WebCore/WebKit being
+// compiled with USE_AVFOUNDATION.
+- (void)setAVFoundationEnabled:(BOOL)flag;
+- (BOOL)isAVFoundationEnabled;
+
 @end

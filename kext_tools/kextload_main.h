@@ -33,14 +33,6 @@ enum {
     kKextloadExitHelp        = 33,
 };
 
-#if 1 // <rdar://problem/8980953>
-#if !TARGET_OS_EMBEDDED
-
-#define LOG_32BIT_KEXT_LOAD_INFO_8980953
-
-#endif /* !TARGET_OS_EMBEDDED */
-#endif 
-
 #pragma mark Command-line Option Definitions
 /*******************************************************************************
 * Command-line options. This data is used by getopt_long_only().
@@ -124,4 +116,4 @@ ExitStatus exitStatusForOSReturn(OSReturn osReturn);
 
 static void usage(UsageLevel usageLevel);
 
-#endif /* _KEXTLOAD_MAIN_H */
+#endif

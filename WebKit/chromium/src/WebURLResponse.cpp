@@ -32,11 +32,16 @@
 #include "WebURLResponse.h"
 
 #include "ResourceResponse.h"
+#include "ResourceLoadTiming.h"
 
 #include "WebHTTPHeaderVisitor.h"
+#include "WebHTTPLoadInfo.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include "WebURLLoadTiming.h"
 #include "WebURLResponsePrivate.h"
+
+#include <wtf/RefPtr.h>
 
 using namespace WebCore;
 
@@ -91,6 +96,57 @@ WebURL WebURLResponse::url() const
 void WebURLResponse::setURL(const WebURL& url)
 {
     m_private->m_resourceResponse->setURL(url);
+}
+
+unsigned WebURLResponse::connectionID() const
+{
+    return m_private->m_resourceResponse->connectionID();
+}
+
+void WebURLResponse::setConnectionID(unsigned connectionID)
+{
+    m_private->m_resourceResponse->setConnectionID(connectionID);
+}
+
+bool WebURLResponse::connectionReused() const
+{
+    return m_private->m_resourceResponse->connectionReused();
+}
+
+void WebURLResponse::setConnectionReused(bool connectionReused)
+{
+    m_private->m_resourceResponse->setConnectionReused(connectionReused);
+}
+
+WebURLLoadTiming WebURLResponse::loadTiming()
+{
+    return WebURLLoadTiming(m_private->m_resourceResponse->resourceLoadTiming());
+}
+
+void WebURLResponse::setLoadTiming(const WebURLLoadTiming& timing)
+{
+    RefPtr<ResourceLoadTiming> loadTiming = PassRefPtr<ResourceLoadTiming>(timing);
+    m_private->m_resourceResponse->setResourceLoadTiming(loadTiming.release());
+}
+
+WebHTTPLoadInfo WebURLResponse::httpLoadInfo()
+{
+    return WebHTTPLoadInfo(m_private->m_resourceResponse->resourceLoadInfo());
+}
+
+void WebURLResponse::setHTTPLoadInfo(const WebHTTPLoadInfo& value)
+{
+    m_private->m_resourceResponse->setResourceLoadInfo(value);
+}
+
+double WebURLResponse::responseTime() const
+{
+    return m_private->m_resourceResponse->responseTime();
+}
+
+void WebURLResponse::setResponseTime(double responseTime)
+{
+    m_private->m_resourceResponse->setResponseTime(responseTime);
 }
 
 WebString WebURLResponse::mimeType() const
@@ -200,16 +256,6 @@ void WebURLResponse::setLastModifiedDate(double lastModifiedDate)
     m_private->m_resourceResponse->setLastModifiedDate(static_cast<time_t>(lastModifiedDate));
 }
 
-bool WebURLResponse::isContentFiltered() const
-{
-    return m_private->m_resourceResponse->isContentFiltered();
-}
-
-void WebURLResponse::setIsContentFiltered(bool isContentFiltered)
-{
-    m_private->m_resourceResponse->setIsContentFiltered(isContentFiltered);
-}
-
 long long WebURLResponse::appCacheID() const
 {
     return m_private->m_resourceResponse->appCacheID();
@@ -257,6 +303,16 @@ const ResourceResponse& WebURLResponse::toResourceResponse() const
     return *m_private->m_resourceResponse;
 }
 
+bool WebURLResponse::wasCached() const
+{
+    return m_private->m_resourceResponse->wasCached();
+}
+
+void WebURLResponse::setWasCached(bool value)
+{
+    m_private->m_resourceResponse->setWasCached(value);
+}
+
 bool WebURLResponse::wasFetchedViaSPDY() const
 {
     return m_private->m_resourceResponse->wasFetchedViaSPDY();
@@ -267,6 +323,36 @@ void WebURLResponse::setWasFetchedViaSPDY(bool value)
     m_private->m_resourceResponse->setWasFetchedViaSPDY(value);
 }
 
+bool WebURLResponse::wasNpnNegotiated() const
+{
+    return m_private->m_resourceResponse->wasNpnNegotiated();
+}
+
+void WebURLResponse::setWasNpnNegotiated(bool value)
+{
+    m_private->m_resourceResponse->setWasNpnNegotiated(value);
+}
+
+bool WebURLResponse::wasAlternateProtocolAvailable() const
+{
+    return m_private->m_resourceResponse->wasAlternateProtocolAvailable();
+}
+
+void WebURLResponse::setWasAlternateProtocolAvailable(bool value)
+{
+    m_private->m_resourceResponse->setWasAlternateProtocolAvailable(value);
+}
+
+bool WebURLResponse::wasFetchedViaProxy() const
+{
+    return m_private->m_resourceResponse->wasFetchedViaProxy();
+}
+
+void WebURLResponse::setWasFetchedViaProxy(bool value)
+{
+    m_private->m_resourceResponse->setWasFetchedViaProxy(value);
+}
+
 bool WebURLResponse::isMultipartPayload() const
 {
     return m_private->m_resourceResponse->isMultipartPayload();
@@ -275,6 +361,39 @@ bool WebURLResponse::isMultipartPayload() const
 void WebURLResponse::setIsMultipartPayload(bool value)
 {
     m_private->m_resourceResponse->setIsMultipartPayload(value);
+}
+
+WebString WebURLResponse::downloadFilePath() const
+{
+    const File* downloadedFile = m_private->m_resourceResponse->downloadedFile();
+    if (downloadedFile)
+        return downloadedFile->path();
+    return WebString();
+}
+
+void WebURLResponse::setDownloadFilePath(const WebString& downloadFilePath)
+{
+    m_private->m_resourceResponse->setDownloadedFile(File::create(downloadFilePath));
+}
+
+WebString WebURLResponse::remoteIPAddress() const
+{
+    return m_private->m_resourceResponse->remoteIPAddress();
+}
+
+void WebURLResponse::setRemoteIPAddress(const WebString& remoteIPAddress)
+{
+    m_private->m_resourceResponse->setRemoteIPAddress(remoteIPAddress);
+}
+
+unsigned short WebURLResponse::remotePort() const
+{
+    return m_private->m_resourceResponse->remotePort();
+}
+
+void WebURLResponse::setRemotePort(unsigned short remotePort)
+{
+    m_private->m_resourceResponse->setRemotePort(remotePort);
 }
 
 void WebURLResponse::assign(WebURLResponsePrivate* p)

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  layout.m
 //  bocktest
@@ -6,16 +12,18 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
+// TEST_CONFIG SDK=macosx
+// TEST_CFLAGS -framework Foundation
+
 #include <Foundation/Foundation.h>
 #include <objc/runtime.h>
-
-// CONFIG GC
+#include "test.h"
 
 @interface TestObject : NSObject {
     int (^getInt)(void);
     int object;
 }
-@property(assign, readonly) int (^getInt)(void);
+@property(copy) int (^getInt)(void);
 @end
 
 @implementation TestObject
@@ -23,13 +31,17 @@
 @end
 
 
-int main(char *argc, char *argv[]) {
+int main() {
+    [[NSAutoreleasePool alloc] init];
+    if (! [NSGarbageCollector defaultCollector]) {
+        succeed(__FILE__);
+    }
+
     TestObject *to = [[TestObject alloc] init];
     //to = [NSCalendarDate new];
-    const char *layout = class_getIvarLayout(*(Class *)to);
+    const uint8_t *layout = (const uint8_t *)class_getIvarLayout(*(Class *)to);
     if (!layout) {
-        printf("%s: **** no layout for class TestObject!!!\n", argv[0]);
-        exit(1);
+        fail("no layout for class TestObject!!!");
     }
     //printf("layout is:\n");
     int cursor = 0;
@@ -41,12 +53,11 @@ int main(char *argc, char *argv[]) {
         //printf("(%x) skip %d, process %d\n", (*layout), skip, process);
         cursor += skip;
         if ((cursor <= seeking) && ((cursor + process) > seeking)) {
-            printf("%s: Success!\n", argv[0]);
-            return 0;
+            succeed(__FILE__);
         }
         cursor += process;
         ++layout;
     }
-    printf("%s: ***failure, didn't scan slot %d\n", argv[0], seeking);
-    return 1;
+
+    fail("didn't scan slot %d\n", seeking);
 }

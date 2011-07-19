@@ -29,11 +29,7 @@
 #define INFO_PAM 4
 #endif
 
-#ifndef __SLICK__
 #define _PASSWD_FILE "/etc/master.passwd"
-#else
-#define _PASSWD_FILE "/etc/passwd"
-#endif
 
 #include <stdio.h>
 #include <errno.h>
@@ -41,7 +37,6 @@
 #include <libc.h>
 #include <ctype.h>
 #include <string.h>
-#include "stringops.h"
 
 #ifdef __SLICK__
 #define _PASSWORD_LEN 8

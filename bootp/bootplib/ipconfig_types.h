@@ -1,9 +1,5 @@
-
-#ifndef _S_IPCONFIG_TYPES_H
-#define _S_IPCONFIG_TYPES_H
-
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +21,9 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_IPCONFIG_TYPES_H
+#define _S_IPCONFIG_TYPES_H
+
 #include <sys/types.h>
 #include <netinet/in.h>
 
@@ -34,7 +33,7 @@
 
 typedef char if_name_t[MAX_IF_NAMELEN];
 typedef char inline_data_t[MAX_INLINE_DATA];
-typedef char *ooline_data_t;
+typedef uint8_t * xmlData_t;
 typedef u_int32_t ip_address_t;
 
 typedef enum {
@@ -55,6 +54,9 @@ typedef enum {
     ipconfig_status_no_such_service_e = 14,
     ipconfig_status_duplicate_service_e = 15,
     ipconfig_status_address_timed_out_e = 16,
+    ipconfig_status_not_found_e = 17,
+    ipconfig_status_resource_unavailable_e = 18,
+    ipconfig_status_network_changed_e = 19,
     ipconfig_status_last_e,
 } ipconfig_status_t;
 
@@ -62,7 +64,7 @@ static __inline__ const char *
 ipconfig_status_string(ipconfig_status_t status)
 {
     static const char * str[] = {
-	"operation succeded",
+	"success",
 	"permission denied",
 	"interface doesn't exist",
 	"invalid parameter",
@@ -79,93 +81,13 @@ ipconfig_status_string(ipconfig_status_t status)
 	"no such service",
 	"duplicate service",
 	"address timed out",
+	"not found",
+	"resource unavailable",
+	"network changed"
     };
     if (status < 0 || status >= ipconfig_status_last_e)
 	return ("<unknown>");
     return (str[status]);
 }
     
-typedef enum {
-    ipconfig_method_none_e = 0,
-    ipconfig_method_manual_e = 1,
-    ipconfig_method_bootp_e = 2,
-    ipconfig_method_dhcp_e = 3,
-    ipconfig_method_inform_e = 4,
-    ipconfig_method_linklocal_e = 5,
-    ipconfig_method_failover_e = 6,
-    ipconfig_method_last_e,
-} ipconfig_method_t;
-
-static __inline__ const char *
-ipconfig_method_string(ipconfig_method_t m)
-{
-    static const char * str[] = {
-	"NONE",
-	"MANUAL",
-	"BOOTP",
-	"DHCP",
-	"INFORM",
-	"LINKLOCAL",
-	"FAILOVER"
-    };
-    if (m < 0 || m >= ipconfig_method_last_e)
-	return ("<unknown>");
-    return (str[m]);
-}
-
-static __inline__ boolean_t
-ipconfig_method_is_dynamic(ipconfig_method_t method)
-{
-    if (method == ipconfig_method_dhcp_e
-	|| method == ipconfig_method_bootp_e) {
-	return (TRUE);
-    }
-    return (FALSE);
-}
-
-static __inline__ boolean_t
-ipconfig_method_is_manual(ipconfig_method_t method)
-{
-    if (method == ipconfig_method_manual_e
-	|| method == ipconfig_method_failover_e
-	|| method == ipconfig_method_inform_e) {
-	return (TRUE);
-    }
-    return (FALSE);
-}
-
-typedef struct {
-    struct in_addr		addr;
-    struct in_addr		mask;
-} ip_addr_mask_t;
-
-enum {
-    ipconfig_method_data_flags_ignore_link_status_e = 0x1
-};
-
-/*
- * Type: ipconfig_method_data_t
- * Purpose:
- *   Communicate the configuration data from ipconfig tool to IPConfiguration.
- *   Also used internally by IPConfiguration to communicate the config to
- *   the various methods.
- * Note:
- *   This structure is not very flexible, and should probably change to have
- *   a specific data structure for each configuration method.
- */
-typedef struct {
-    uint8_t		n_ip;
-    uint8_t		n_dhcp_client_id;
-    uint8_t		reserved_0;
-    uint8_t		flags;
-    union {
-	struct in_addr	manual_router;
-	uint32_t	failover_timeout;
-    } u;
-    ip_addr_mask_t	ip[0];
-    /* 
-    char		dhcp_client_id[0];
-    */
-} ipconfig_method_data_t;
-#define IPCONFIG_METHOD_DATA_MIN_SIZE	(sizeof(ipconfig_method_data_t) + sizeof(ip_addr_mask_t))
-#endif _S_IPCONFIG_TYPES_H
+#endif /* _S_IPCONFIG_TYPES_H */

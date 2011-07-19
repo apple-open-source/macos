@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,4 +81,21 @@ CFStringRef
 SCNetworkSignatureCopyActiveIdentifierForAddress(CFAllocatorRef alloc,
 						 const struct sockaddr * addr)	__OSX_AVAILABLE_STARTING(__MAC_10_5,__IPHONE_2_0/*SPI*/);
 
+/*!
+	@function SCNetworkSignatureCopyIdentifierForConnectedSocket
+	@discussion Find the identifier for the given file descriptor
+		corresponding to a connected socket.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for the local dynamic store object.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used. If this reference is not
+		a valid CFAllocator, the behavior is undefined.
+	@param sock_fd The socket file descriptor, must be either AF_INET
+		or AF_INET6.
+	@result The unique (string) identifier associated with the address,
+		NULL if no network is known.
+ */
+CFStringRef
+SCNetworkSignatureCopyIdentifierForConnectedSocket(CFAllocatorRef alloc,
+						   int sock_fd) __OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
 #endif	/* _SCNETWORKSIGNATURE_H */

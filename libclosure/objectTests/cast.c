@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  cast.c
  *  testObjects
  *
@@ -8,13 +14,12 @@
  */
 
 // PURPOSE should allow casting of a Block reference to an arbitrary pointer and back
-// CONFIG open
+// TEST_DISABLED
 
 #include <stdio.h>
+#include "test.h"
 
-
-
-int main(int argc, char *argv[]) {
+int main() {
 
     void (^aBlock)(void);
     int *ip;
@@ -27,6 +32,6 @@ int main(int argc, char *argv[]) {
     aBlock = (void (^)(void))ip;
     aBlock = (void (^)(void))cp;
     aBlock = (void (^)(void))dp;
-    printf("%s: success", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

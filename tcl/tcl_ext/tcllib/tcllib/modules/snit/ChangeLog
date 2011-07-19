@@ -1,3 +1,83 @@
+2010-06-07  Andreas Kupries  <andreask@activestate.com>
+
+	* validate.tcl (snit::double, validate): Applied patch by Will
+	* pkgIndex.tcl: fixing the error message for max-limited
+	* snit.man: double types. Bumped versions to 2.3.2 and 1.4.2.
+	* snit.tcl: Extended testsuite.
+	* snit2.tcl:
+	* snit.test:
+
+2010-04-30  Andreas Kupries  <andreask@activestate.com>
+
+	* snitfaq.man: Fixed typo in 'package require' commands, reported
+	  by sigzero@gmail.com.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-16  Andreas Kupries  <andreask@activestate.com>
+
+	* main2.tcl (::snit::RT.typemethod.destroy) 
+	(::snit::RT.typemethod.info.instances): 
+	* main1.tcl (::snit::RT.typemethod.info.instances) 
+	(::snit::RT.typemethod.destroy): [Bug 2898640]. Fixed handling of
+	* snit.tcl: unrelated namespaces by restricting the set of
+	* snit2.tcl: children to look at. Bumped versions of v1 and v2 to
+	* pkgIndex.tcl: 1.4.1 and 2.3.1 respectively.
+	* snit.man:
+
+2009-11-02  Andreas Kupries  <andreask@activestate.com>
+
+	* snit.tcl: Bumped versions of v1 and v2 to 1.4 and 2.3
+	* snit2.tcl: respectively, taking the backward compatible
+	* snit.man: API changes to validation types into account.
+	* pkgIndex.tcl:
+
+2009-10-31  Will Duquette  <will@wjduquette.com>
+
+        * validate.tcl: Updated all Snit validation types to return the
+	* snit.tcl: validated value, and to throw -errorcode INVALID
+	            on error.
+	* snit.man: Relevant changes.
+
+2009-09-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* snit.test: Updated to handle changes in command error messages
+	  done in Tcl 8.6+.
+
+2009-09-28  Andreas Kupries  <andreask@activestate.com>
+
+	* snit.man: Committed a long-standing fix to a bug in the
+	* snit.tcl: last entry. Wrap the close commands into catch
+	* snit2.tcl: to handle the possibility of the std channels
+	* pkgIndex.tcl: not existing. Bumped versions to 1.3.4 and
+	* main1_83.tcl 2.2.4.
+	* main1.tcl:
+	* main2.tcl:
+
+2009-06-22  Andreas Kupries  <andreask@activestate.com>
+
+	* main1.tcl: Fix handling of hierarchical typemethods for missing
+	* main1_83.tcl: subcommands. If a toplevel hmethod is not found
+	* main2.tcl: we can assume it to be an instance name and do an
+	* pkgIndex.tcl: implicit 'create' of it. If the toplevel hmethod
+	* snit.tcl: has already been accepted however a missing submethod
+	* snit2.tcl: has to error out, an implicit create is not possible
+	* snit.test: any longer. Extended the testsuite to cover this
+	  case. Bumped the package versions to 2.2.3, and 1.3.3.
+
+2009-04-21  Andreas Kupries  <andreask@activestate.com>
+
+	* main1.tcl (::snit::Comp.Init): Close unused standard channels
+	* main1_83.tcl (::snit::Comp.Init): to prevent the internal compile
+	* main2.tcl (::snit::Comp.Init): interp from blocking a close/open
+	* snit.tcl: dance to replace them in the main interp. Bumped the
+	* snit2.tcl: packages to versions 1.3.2 and 2.2.2 respectively.
+	* pkgIndex.tcl:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

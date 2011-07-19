@@ -1,12 +1,11 @@
-diff -r -u -N --exclude='*.orig' fetchmail-6.3.11.orig/configure fetchmail-6.3.11/configure
---- fetchmail-6.3.11.orig/configure	2009-08-05 16:33:55.000000000 -0700
-+++ fetchmail-6.3.11/configure	2009-09-24 15:46:49.000000000 -0700
-@@ -2691,7 +2691,7 @@
- if test "${am_cv_python_pythondir+set}" = set; then
-   $as_echo_n "(cached) " >&6
- else
--  am_cv_python_pythondir=`$PYTHON -c "from distutils import sysconfig; print sysconfig.get_python_lib(0,0,prefix='$PYTHON_PREFIX')" 2>/dev/null ||
-+  am_cv_python_pythondir=`$PYTHON -c "import sys, os; print os.path.join(sys.prefix,'Extras/lib/python')" 2>/dev/null ||
+--- fetchmail-6.3.14.orig/configure	2010-02-04 15:34:35.000000000 -0800
++++ fetchmail-6.3.14/configure	2010-02-16 11:17:23.000000000 -0800
+@@ -2734,7 +2734,7 @@
+      else
+        am_py_prefix=$prefix
+      fi
+-     am_cv_python_pythondir=`$PYTHON -c "import sys; from distutils import sysconfig; sys.stdout.write(sysconfig.get_python_lib(0,0,prefix='$am_py_prefix'))" 2>/dev/null ||
++     am_cv_python_pythondir=`$PYTHON -c "$PYTHON -c "import sys, os; print os.path.join(sys.prefix,'Extras/lib/python')" 2>/dev/null ||
       echo "$PYTHON_PREFIX/lib/python$PYTHON_VERSION/site-packages"`
- fi
- { $as_echo "$as_me:$LINENO: result: $am_cv_python_pythondir" >&5
+      case $am_cv_python_pythondir in
+      $am_py_prefix*)

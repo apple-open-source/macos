@@ -17,10 +17,10 @@
  *
  */
 
-#ifndef BINDINGS_QT_INSTANCE_H_
-#define BINDINGS_QT_INSTANCE_H_
+#ifndef qt_instance_h
+#define qt_instance_h
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "runtime_root.h"
 #include <QtScript/qscriptengine.h>
 #include <qhash.h>
@@ -48,10 +48,10 @@ public:
     virtual JSValue valueOf(ExecState*) const;
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
 
-    void markAggregate(MarkStack&);
+    void visitAggregate(SlotVisitor&);
 
     virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName);
-    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*, const ArgList&);
+    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*);
 
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
@@ -83,9 +83,9 @@ private:
     mutable QtClass* m_class;
     QPointer<QObject> m_object;
     QObject* m_hashkey;
-    mutable QHash<QByteArray, JSObject*> m_methods;
+    mutable QHash<QByteArray, WriteBarrier<JSObject> > m_methods;
     mutable QHash<QString, QtField*> m_fields;
-    mutable QtRuntimeMetaMethod* m_defaultMethod;
+    mutable WriteBarrier<QtRuntimeMetaMethod> m_defaultMethod;
     QScriptEngine::ValueOwnership m_ownership;
 };
 

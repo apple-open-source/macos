@@ -1,0 +1,77 @@
+.\" Copyright 2004 Red Hat Inc., Durham, North Carolina.
+.\" All Rights Reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation on the rights to use, copy, modify, merge,
+.\" publish, distribute, sublicense, and/or sell copies of the Software,
+.\" and to permit persons to whom the Software is furnished to do so,
+.\" subject to the following conditions:
+.\"
+.\" he above copyright notice and this permission notice (including the
+.\" next paragraph) shall be included in all copies or substantial
+.\" portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+.\" NON-INFRINGEMENT.  IN NO EVENT SHALL RED HAT AND/OR THEIR SUPPLIERS
+.\" BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
+.\" ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+.\" CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+.\" SOFTWARE.
+.TH DMX __libmansuffix__ __vendorversion__
+.SH NAME
+DMX \- X Window System DMX (Distributed Multihead X) extension
+.SH DESCRIPTION
+The DMX extension provides support for communication with and control of
+.BR Xdmx (1)
+server.  Attributes of the
+.BR Xdmx (1)
+server and of the back-end screens attached to the server can be queried
+and modified via this protocol.
+.SH "SUMMARY OF LIBRARY FUNCTIONS"
+The following is a summary of DMX library functions:
+.sp
+DMXQueryExtension(__libmansuffix__) \- determine if DMX is available
+.sp
+DMXQueryVersion(__libmansuffix__) \- determine DMX extension version
+.sp
+DMXSync(__libmansuffix__) \- flush protocol requests between
+.BR Xdmx (1)
+and back-end X servers
+.sp
+DMXForceWindowCreation(__libmansuffix__) \- force immediate back-end window creation
+.sp
+DMXGetScreenCount(__libmansuffix__) \- determine number of back-end screens
+.sp
+DMXGetScreenAttributes(__libmansuffix__) \- determine back-end screen attributes
+.sp
+DMXChangeScreensAttributes(__libmansuffix__) \- change back-end screen attributes
+.sp
+DMXAddScreen(__libmansuffix__) \- attach a new back-end screen
+.sp
+DMXRemoveScreen(__libmansuffix__) \- detach a back-end screen
+.sp
+DMXGetWindowAttributes(__libmansuffix__) \- determine back-end window attributes
+.sp
+DMXGetDesktopAttributes(__libmansuffix__) \- determine global bounding box
+.sp
+DMXChangeDesktopAttributes(__libmansuffix__) \- change global bounding box
+.sp
+DMXGetInputCount(__libmansuffix__) \- determine number of input devices
+.sp
+DMXGetInputAttributes(__libmansuffix__) \- determine input device attributes
+.sp
+DMXAddInput(__libmansuffix__) \- attach a new backend or console input
+.sp
+DMXRemoveInput(__libmansuffix__) \- detach an input
+.sp
+DMXAddBackendInput(__libmansuffix__) \- attach a new back-end input
+.sp
+DMXAddConsoleInput(__libmansuffix__) \- attach a new console input
+.PP
+Each of these functions is described in its own man page.
+.SH "SEE ALSO"
+.BR Xdmx "(1), " xdmxconfig "(1), " vdltodmx (1)

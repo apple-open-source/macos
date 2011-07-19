@@ -124,7 +124,7 @@ HIDOpenReportDescriptor	   (void *					hidReportDescriptor,
 							HIDPreparsedDataRef *	preparsedDataRef,
 							UInt32					flags)
 {
-	HIDPreparsedDataPtr ptPreparsedData = (HIDPreparsedDataPtr) preparsedDataRef;
+	HIDPreparsedDataPtr ptPreparsedData = NULL;
 	OSStatus iStatus;
 	HIDReportDescriptor tDescriptor;
 

@@ -1,11 +1,15 @@
-[manpage_begin comm n 4.5.7]
+[manpage_begin comm n 4.6.1]
 [copyright {1995-1998 The Open Group. All Rights Reserved.}]
 [copyright {2003-2004 ActiveState Corporation.}]
-[copyright {2006-2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2006-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Remote communication}]
 [titledesc {A remote communication facility for Tcl (8.3 and later)}]
+[category  {Programming tools}]
+[see_also  send(n)]
+[keywords  socket {remote execution} {remote communication} send]
+[keywords  communication ipc message rpc comm ssl tls secure]
 [require Tcl 8.3]
-[require comm [opt 4.5.7]]
+[require comm [opt 4.6.1]]
 [description]
 
 [para]
@@ -31,7 +35,7 @@ These commands work just like [cmd send] and [cmd {winfo interps}] :
 This is all that is really needed to know in order to use
 [package comm]
 
-[subsection COMMANDS]
+[subsection Commands]
 
 The package initializes [cmd ::comm::comm] as the default [emph chan].
 
@@ -90,7 +94,7 @@ sending a command.  After this, the remote [emph id] will appear in
 
 [list_end]
 
-[subsection {EVAL SEMANTICS}]
+[subsection {Eval Semantics}]
 [para]
 
 The evaluation semantics of [cmd {::comm::comm send}] are intended to
@@ -118,7 +122,7 @@ same error.
 The [cmd eval] hook (described below) can be used to change from
 [cmd send]'s double eval semantics to single eval semantics.
 
-[subsection {MULTIPLE CHANNELS}]
+[subsection {Multiple Channels}]
 [para]
 
 More than one [cmd comm] channel (or [emph listener]) can be created
@@ -158,7 +162,7 @@ The default channel [cmd ::comm::comm] is created with:
     "::comm::comm new ::comm::comm -port 0 -local 1 -listen 1 -silent 0"
 }]
 
-[subsection {CHANNEL CONFIGURATION}]
+[subsection {Channel Configuration}]
 [para]
 
 The [cmd config] method acts similar to [cmd fconfigure] in that it
@@ -186,6 +190,7 @@ elsewhere in this manual page):
 [def "[option -local]  [opt [arg 0|1]]"]
 [def "[option -port]   [opt [arg port]]"]
 [def "[option -silent] [opt [arg 0|1]]"]
+[def "[option -socketcmd] [opt [arg commandname]]"]
 
 [def "[option -interp] [opt [arg interpreter]]"]
 [def "[option -events] [opt [arg eventlist]]"]
@@ -213,7 +218,7 @@ Recycling the socket is done by invoking [cmd {::comm::comm abort}],
 which causes all active sends to terminate.
 
 
-[subsection {ID/PORT ASSIGNMENTS}]
+[subsection {Id/port Assignments}]
 [para]
 
 [package comm] uses a TCP port for endpoint [emph id].  The
@@ -247,7 +252,7 @@ As another special case, if the channel is configured with
 attempts where the protocol negotiation phase failed, instead of
 throwing an error.
 
-[subsection {EXECUTION ENVIRONMENT}]
+[subsection {Execution Environment}]
 
 A communication channel in its default configuration will use the
 current interpreter for the execution of all received scripts, and of
@@ -292,7 +297,7 @@ communication channel is configured to execute received scripts in the
 current interpreter.
 
 
-[subsection {REMOTE INTERPRETERS}]
+[subsection {Remote Interpreters}]
 [para]
 
 By default, each channel is restricted to accepting connections from
@@ -308,7 +313,7 @@ the local system.  This can be overridden by using the
 form (e.g., as either a fully qualified domain name, plain hostname or
 an IP address).
 
-[subsection {CLOSING CONNECTIONS}]
+[subsection {Closing Connections}]
 [para]
 
 These methods give control over closing connections:
@@ -349,7 +354,7 @@ When a remote connection is lost (because the remote exited or called
 This can be used to cleanup or restart an ancillary process, for
 instance.  See the [term lost] callback below.
 
-[subsection  CALLBACKS]
+[subsection Callbacks]
 [para]
 This is a mechanism for setting hooks for particular events:
 
@@ -631,7 +636,7 @@ string indicating why the connection was lost.  Example:
 
 [list_end]
 
-[subsection  UNSUPPORTED]
+[subsection Unsupported]
 [para]
 These interfaces may change or go away in subsequence releases.
 
@@ -666,11 +671,40 @@ Invoking this procedure will substitute the Tk [cmd send] and
 
 [list_end]
 
-[subsection  SECURITY]
-[para]
-Something here soon.
+[subsection Security]
 
-[subsection {BLOCKING SEMANTICS}]
+Starting with version 4.6 of the package an option [option -socketcmd]
+is supported, allowing the user of a comm channel to specify which
+command to use when opening a socket. Anything which is API-compatible
+with the builtin [cmd ::socket] (the default) can be used.
+
+[para]
+
+The envisioned main use is the specification of the [cmd tls::socket]
+command, see package [package tls], to secure the communication.
+
+[para]
+[example {
+	# Load and initialize tls
+	package require tls
+	tls::init  -cafile /path/to/ca/cert -keyfile ...
+
+	# Create secured comm channel
+	::comm::comm new SECURE -socketcmd tls::socket -listen 1
+	...
+}]
+
+
+
+[para]
+
+The sections [sectref {Execution Environment}] and [sectref Callbacks]
+are also relevant to the security of the system, providing means to
+restrict the execution to a specific environment, perform additional
+authentication, and the like.
+
+
+[subsection {Blocking Semantics}]
 
 [para]
 
@@ -707,7 +741,7 @@ event loop (since [package comm] doesn't require Tk).  One of these
 approaches will be available in a future [package comm] release as an
 optional component.
 
-[subsection {ASYNCHRONOUS RESULT GENERATION}]
+[subsection {Asynchronous Result Generation}]
 
 By default the result returned by a remotely invoked command is the
 result sent back to the invoker. This means that the result is
@@ -824,7 +858,7 @@ called if the connection the future belongs to has been lost.
 
 [list_end]
 
-[subsection COMPATIBILITY]
+[subsection Compatibility]
 [para]
 
 [package comm] exports itself as a package.  The package version number
@@ -845,6 +879,27 @@ Note that requiring no version (or a specific version) can also be done.
 The revision history of [package comm] includes these releases:
 
 [list_begin definitions]
+
+[def 4.6.1]
+
+Changed the implementation of [cmd comm::commCollect] to emulate
+lindex's pre-Tcl 8 behaviour, i.e. it was given the ability to parse
+out the first word of a list, even if the whole buffer is not a
+well-formed list. Without this change the first word could only be
+extracted if the whole buffer was a well-formed list (ever since Tcl
+8), and in a ver-high-load situation, i.e. a server sending lots
+and/or large commands very fast, this may never happen, eventually
+crashing the receiver when it runs out of memory. With the change the
+receiver is always able to process the first word when it becomes
+well-formed, regardless of the structure of the remainder of the
+buffer.
+
+[def 4.6]
+
+Added the option [option -socketcmd] enabling users to override how a
+socket is opened. The envisioned main use is the specification of the
+[cmd tls::socket] command, see package [package tls], to secure the
+communication.
 
 [def 4.5.7]
 
@@ -900,7 +955,7 @@ switch comm from the standard synchronous return of its result to an
 asynchronous (defered) return. Due to the use of snit to implement the
 [term future] objects used by this feature from this version on comm
 requires at least Tcl 8.3 to run. Please read the section
-[sectref {ASYNCHRONOUS RESULT GENERATION}] for more details.
+[sectref {Asynchronous Result Generation}] for more details.
 
 [def 4.4.1]
 
@@ -1045,7 +1100,7 @@ with Comm 1.0, without the requirement to use obTcl).
 
 [list_end]
 
-[section  AUTHOR]
+[section  Author]
 
 John LoVerso, John@LoVerso.Southborough.MA.US
 
@@ -1054,7 +1109,7 @@ John LoVerso, John@LoVerso.Southborough.MA.US
 [emph http://www.opengroup.org/~loverso/tcl-tk/#comm]
 
 
-[section  LICENSE]
+[section  License]
 
 Please see the file [emph comm.LICENSE] that accompanied this source,
 or
@@ -1066,7 +1121,7 @@ This license for [package comm], new as of version 3.2, allows it to be
 used for free, without any licensing fee or royalty.
 
 
-[section BUGS]
+[section Bugs]
 [list_begin itemized]
 [item]
 
@@ -1120,7 +1175,7 @@ canonical hostnames.  This requires fixes to Tcl to resolve hostnames!
 This man page is bigger than the source file.
 
 
-[section {ON USING OLD VERSIONS OF TCL}]
+[section {On Using Old Versions Of Tcl}]
 
 [para]
 Tcl7.5 under Windows contains a bug that causes the interpreter to
@@ -1145,7 +1200,7 @@ Tcl8.0 on UNIX contains a socket bug that can crash Tcl.  It is recommended
 you use Tcl8.0p1 (or Tcl7.6p2).
 
 
-[section {RELATED WORK}]
+[section {Related Work}]
 [para]
 Tcl-DP provides an RPC-based remote execution interface, but is a
 compiled Tcl extension.  See
@@ -1160,17 +1215,7 @@ Andreas Kupries <andreas_kupries@users.sourceforge.net> uses
 [package comm] and has built a simple nameserver as part of his Pool
 library.  See [uri http://www.purl.org/net/akupries/soft/pool/index.htm].
 
-[section {BUGS, IDEAS, FEEDBACK}]
 
-This document, and the package it describes, will undoubtedly contain
-bugs and other problems.
-
-Please report such in the category [emph comm] of the
-[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
-
-Please also report any ideas for enhancements you may have for either
-package and/or documentation.
-
-
-[see_also send(n)]
+[vset CATEGORY comm]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'rename_scope'
 
 include Rename_scope

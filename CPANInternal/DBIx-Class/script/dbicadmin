@@ -1,221 +1,343 @@
 #!/usr/bin/perl
+
 use strict;
 use warnings;
 
-use Getopt::Long;
-use Pod::Usage;
-use JSON::Any;
+BEGIN {
+  use DBIx::Class;
+  die (  'The following modules are required for the dbicadmin utility: '
+       . DBIx::Class::Optional::Dependencies->req_missing_for ('admin_script')
+       . "\n"
+  ) unless DBIx::Class::Optional::Dependencies->req_ok_for ('admin_script');
+}
 
+use DBIx::Class::Admin::Descriptive;
+#use Getopt::Long::Descriptive;
+use DBIx::Class::Admin;
 
-my $json = JSON::Any->new(allow_barekey => 1, allow_singlequote => 1);
+my $short_description = "utility for administrating DBIx::Class schemata";
+my $synopsis_text =q|
+  deploy a schema to a database
+  %c --schema=MyApp::Schema \
+    --connect='["dbi:SQLite:my.db", "", ""]' \
+    --deploy
 
-GetOptions(
-    'schema=s'  => \my $schema_class,
-    'class=s'   => \my $resultset_class,
-    'connect=s' => \my $connect,
-    'op=s'      => \my $op,
-    'set=s'     => \my $set,
-    'where=s'   => \my $where,
-    'attrs=s'   => \my $attrs,
-    'format=s'  => \my $format,
-    'force'     => \my $force,
-    'trace'     => \my $trace,
-    'quiet'     => \my $quiet,
-    'help'      => \my $help,
-    'tlibs'      => \my $t_libs,
+  update an existing record
+  %c --schema=MyApp::Schema --class=Employee \
+    --connect='["dbi:SQLite:my.db", "", ""]' \
+    --op=update --set='{ "name": "New_Employee" }'
+|;
+
+my ($opts, $usage) = describe_options(
+    "%c: %o",
+  (
+    ['Actions'],
+    ["action" => hidden => { one_of => [
+      ['create' => 'Create version diffs needs preversion',],
+      ['upgrade' => 'Upgrade the database to the current schema '],
+      ['install' => 'Install the schema version tables to an existing database',],
+      ['deploy' => 'Deploy the schema to the database',],
+      ['select'   => 'Select data from the schema', ],
+      ['insert'   => 'Insert data into the schema', ],
+      ['update'   => 'Update data in the schema', ], 
+      ['delete'   => 'Delete data from the schema',],
+      ['op:s' => 'compatiblity option all of the above can be suppied as --op=<action>'],
+      ['help' => 'display this help', { implies => { schema_class => '__dummy__' } } ],
+      ['selfinject-pod' => 'hidden', { implies => { schema_class => '__dummy__' } } ],
+    ], required=> 1 }],
+    ['Arguments'],
+    ['schema-class:s' => 'The class of the schema to load', { required => 1 } ],
+    ['resultset|resultset-class|class:s' => 'The resultset to operate on for data manipulation' ],
+    ['config-stanza:s' => 'Where in the config to find the connection_info, supply in form MyApp::Model::DB',],
+    ['config:s' => 'Supply the config file for parsing by Config::Any', { depends => 'config_stanza'} ],
+    ['connect-info:s%' => 'Supply the connect info as additonal options ie -I dsn=<dsn> user=<user> password=<pass> '],
+    ['connect:s' => 'Supply the connect info as a json string' ],
+    ['sql-dir:s' => 'The directory where sql diffs will be created'],
+    ['sql-type:s' => 'The RDBMs flavour you wish to use'],
+    ['version:i' => 'Supply a version install'],
+    ['preversion:s' => 'The previous version to diff against',],
+    ['set:s' => 'JSON data used to perform data operations' ],
+    ['attrs:s' => 'JSON string to be used for the second argument for search'],
+    ['where:s' => 'JSON string to be used for the where clause of search'],
+    ['force' => 'Be forceful with some operations'],
+    ['trace' => 'Turn on DBIx::Class trace output'],
+    ['quiet' => 'Be less verbose'],
+  )
 );
 
-if ($t_libs) {
-    unshift( @INC, 't/lib', 'lib' );
+die "please only use one of --config or --connect-info\n" if ($opts->{config} and $opts->{connect_info});
+
+if($opts->{selfinject_pod}) {
+
+    die "This is an internal method, do not call!!!\n"
+      unless $ENV{MAKELEVEL};
+
+    $usage->synopsis($synopsis_text);
+    $usage->short_description($short_description);
+    exec (
+      $^X,
+      qw/-p -0777 -i -e/,
+      (
+        's/^# auto_pod_begin.*^# auto_pod_end/'
+      . quotemeta($usage->pod)
+      . '/ms'
+      ),
+      __FILE__
+    );
 }
 
-pod2usage(1) if ($help);
-$ENV{DBIX_CLASS_STORAGE_DBI_DEBUG} = 1 if ($trace);
-
-die('No op specified') if(!$op);
-die('Invalid op') if ($op!~/^insert|update|delete|select$/s);
-my $csv_class;
-if ($op eq 'select') {
-    $format ||= 'tsv';
-    die('Invalid format') if ($format!~/^tsv|csv$/s);
-    $csv_class = 'Text::CSV_XS';
-    eval{ require Text::CSV_XS };
-    if ($@) {
-        $csv_class = 'Text::CSV_PP';
-        eval{ require Text::CSV_PP };
-        die('The select op requires either the Text::CSV_XS or the Text::CSV_PP module') if ($@);
-    }
+if($opts->{help}) {
+    $usage->die();
 }
 
-die('No schema specified') if(!$schema_class);
-eval("require $schema_class");
-die('Unable to load schema') if ($@);
-$connect = $json->jsonToObj( $connect ) if ($connect);
-my $schema = $schema_class->connect(
-    ( $connect ? @$connect : () )
-);
-
-die('No class specified') if(!$resultset_class);
-my $resultset = eval{ $schema->resultset($resultset_class) };
-die('Unable to load the class with the schema') if ($@);
-
-$set = $json->jsonToObj( $set ) if ($set);
-$where = $json->jsonToObj( $where ) if ($where);
-$attrs = $json->jsonToObj( $attrs ) if ($attrs);
-
-if ($op eq 'insert') {
-    die('Do not use the where option with the insert op') if ($where);
-    die('Do not use the attrs option with the insert op') if ($attrs);
-    my $obj = $resultset->create( $set );
-    print ''.ref($resultset).' ID: '.join(',',$obj->id())."\n" if (!$quiet);
+# option compatability mangle
+if($opts->{connect}) {
+  $opts->{connect_info} = delete $opts->{connect};
 }
-elsif ($op eq 'update') {
-    $resultset = $resultset->search( ($where||{}) );
-    my $count = $resultset->count();
-    print "This action will modify $count ".ref($resultset)." records.\n" if (!$quiet);
-    if ( $force || confirm() ) {
-        $resultset->update_all( $set );
-    }
-}
-elsif ($op eq 'delete') {
-    die('Do not use the set option with the delete op') if ($set);
-    $resultset = $resultset->search( ($where||{}), ($attrs||()) );
-    my $count = $resultset->count();
-    print "This action will delete $count ".ref($resultset)." records.\n" if (!$quiet);
-    if ( $force || confirm() ) {
-        $resultset->delete_all();
-    }
-}
-elsif ($op eq 'select') {
-    die('Do not use the set option with the select op') if ($set);
-    my $csv = $csv_class->new({
-        sep_char => ( $format eq 'tsv' ? "\t" : ',' ),
-    });
-    $resultset = $resultset->search( ($where||{}), ($attrs||()) );
-    my @columns = $resultset->result_source->columns();
-    $csv->combine( @columns );
+
+my $admin = DBIx::Class::Admin->new( %$opts );
+
+
+my $action = $opts->{action};
+
+$action = $opts->{op} if ($action eq 'op');
+
+print "Performig action $action...\n";
+
+my $res = $admin->$action();
+if ($action eq 'select') {
+
+  my $format = $opts->{format} || 'tsv';
+  die('Invalid format') if ($format!~/^tsv|csv$/s);
+
+  require Text::CSV;
+
+  my $csv = Text::CSV->new({
+    sep_char => ( $format eq 'tsv' ? "\t" : ',' ),
+  });
+
+  foreach my $row (@$res) {
+    $csv->combine( @$row );
     print $csv->string()."\n";
-    while (my $row = $resultset->next()) {
-        my @fields;
-        foreach my $column (@columns) {
-            push( @fields, $row->get_column($column) );
-        }
-        $csv->combine( @fields );
-        print $csv->string()."\n";
-    }
+  }
 }
 
-sub confirm {
-    print "Are you sure you want to do this? (type YES to confirm) ";
-    my $response = <STDIN>;
-    return 1 if ($response=~/^YES/);
-    return;
-}
 
 __END__
 
 =head1 NAME
 
-dbicadmin - Execute operations upon DBIx::Class objects.
+dbicadmin - utility for administrating DBIx::Class schemata
 
 =head1 SYNOPSIS
 
-  dbicadmin --op=insert --schema=My::Schema --class=Class --set=JSON
-  dbicadmin --op=update --schema=My::Schema --class=Class --set=JSON --where=JSON
-  dbicadmin --op=delete --schema=My::Schema --class=Class --where=JSON
-  dbicadmin --op=select --schema=My::Schema --class=Class --where=JSON --format=tsv
+dbicadmin: [long options...]
 
-=head1 DESCRIPTION
+  deploy a schema to a database
+  dbicadmin --schema=MyApp::Schema \
+    --connect='["dbi:SQLite:my.db", "", ""]' \
+    --deploy
 
-This utility provides the ability to run INSERTs, UPDATEs, 
-DELETEs, and SELECTs on any DBIx::Class object.
+  update an existing record
+  dbicadmin --schema=MyApp::Schema --class=Employee \
+    --connect='["dbi:SQLite:my.db", "", ""]' \
+    --op=update --set='{ "name": "New_Employee" }'
+
+
 
 =head1 OPTIONS
 
-=head2 op
+=over
 
-The type of operation.  Valid values are insert, update, delete, 
-and select.
+=back
 
-=head2 schema
+=head2 Actions
 
-The name of your schema class.
+=cut
 
-=head2 class
+=over
 
-The name of the class, within your schema, that you want to run 
-the operation on.
+=item B<--create>
 
-=head2 connect
+Create version diffs needs preversion
 
-A JSON array to be passed to your schema class upon connecting.  
-The array will need to be compatible with whatever the DBIC 
-->connect() method requires.
+=cut
 
-=head2 set
+=item B<--upgrade>
 
-This option must be valid JSON data string and is passed in to 
-the DBIC update() method.  Use this option with the update 
-and insert ops.
+Upgrade the database to the current schema 
 
-=head2 where
+=cut
 
-This option must be valid JSON data string and is passed in as 
-the first argument to the DBIC search() method.  Use this 
-option with the update, delete, and select ops.
+=item B<--install>
 
-=head2 attrs
+Install the schema version tables to an existing database
 
-This option must be valid JSON data string and is passed in as 
-the second argument to the DBIC search() method.  Use this 
-option with the update, delete, and select ops.
+=cut
 
-=head2 help
+=item B<--deploy>
 
-Display this help page.
+Deploy the schema to the database
 
-=head2 force
+=cut
 
-Suppresses the confirmation dialogues that are usually displayed 
-when someone runs a DELETE or UPDATE action.
+=item B<--select>
 
-=head2 quiet
+Select data from the schema
 
-Do not display status messages.
+=cut
 
-=head2 trace
+=item B<--insert>
 
-Turns on tracing on the DBI storage, thus printing SQL as it is 
-executed.
+Insert data into the schema
 
-=head2 tlibs
+=cut
 
-This option is purely for testing during the DBIC installation.  Do 
-not use it.
+=item B<--update>
 
-=head1 JSON
+Update data in the schema
 
-JSON is a lightweight data-interchange format.  It allows you 
-to express complex data structures for use in the where and 
-set options.
+=cut
 
-This module turns on L<JSON>'s BareKey and QuotApos options so 
-that your data can look a bit more readable.
+=item B<--delete>
 
-  --where={"this":"that"} # generic JSON
-  --where={this:'that'}   # with BareKey and QuoteApos
+Delete data from the schema
 
-Consider wrapping your JSON in outer quotes so that you don't 
-have to escape your inner quotes.
+=cut
 
-  --where={this:\"that\"} # no outer quote
-  --where='{this:"that"}' # outer quoted
+=item B<--op>
 
-=head1 AUTHOR
+compatiblity option all of the above can be suppied as --op=<action>
 
-Aran Deltac <bluefeet@cpan.org>
+=cut
+
+=item B<--help>
+
+display this help
+
+=cut
+
+=item B<--selfinject-pod>
+
+hidden
+
+=cut
+
+=back
+
+=head2 Arguments
+
+=cut
+
+=over
+
+=item B<--schema-class>
+
+The class of the schema to load
+
+=cut
+
+=item B<--resultset> or B<--resultset-class> or B<--class>
+
+The resultset to operate on for data manipulation
+
+=cut
+
+=item B<--config-stanza>
+
+Where in the config to find the connection_info, supply in form MyApp::Model::DB
+
+=cut
+
+=item B<--config>
+
+Supply the config file for parsing by Config::Any
+
+=cut
+
+=item B<--connect-info>
+
+Supply the connect info as additonal options ie -I dsn=<dsn> user=<user> password=<pass> 
+
+=cut
+
+=item B<--connect>
+
+Supply the connect info as a json string
+
+=cut
+
+=item B<--sql-dir>
+
+The directory where sql diffs will be created
+
+=cut
+
+=item B<--sql-type>
+
+The RDBMs flavour you wish to use
+
+=cut
+
+=item B<--version>
+
+Supply a version install
+
+=cut
+
+=item B<--preversion>
+
+The previous version to diff against
+
+=cut
+
+=item B<--set>
+
+JSON data used to perform data operations
+
+=cut
+
+=item B<--attrs>
+
+JSON string to be used for the second argument for search
+
+=cut
+
+=item B<--where>
+
+JSON string to be used for the where clause of search
+
+=cut
+
+=item B<--force>
+
+Be forceful with some operations
+
+=cut
+
+=item B<--trace>
+
+Turn on DBIx::Class trace output
+
+=cut
+
+=item B<--quiet>
+
+Be less verbose
+
+=cut
+
+=back
+
+
+=head1 AUTHORS
+
+See L<DBIx::Class/CONTRIBUTORS>
 
 =head1 LICENSE
 
-You may distribute this code under the same terms as Perl itself.
+You may distribute this code under the same terms as Perl itself
 
+=cut
+
+# vim: et ft=perl

@@ -109,7 +109,7 @@
 		126DFF8B01BFAF3303A87B01 /* CD-RW.icns */ = {isa = PBXFileReference; lastKnownFileType = image.icns; path = "CD-RW.icns"; sourceTree = "<group>"; };
 		12BF9C9C00D858A003CA2AA4 /* IOCDMediaBSDClient.cpp */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.cpp.cpp; path = IOCDMediaBSDClient.cpp; sourceTree = "<group>"; tabWidth = 4; usesTabs = 0; };
 		12BF9C9D00D858A003CA2AA4 /* IOCDMediaBSDClient.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = IOCDMediaBSDClient.h; sourceTree = "<group>"; };
-		6033BF0C0738279600FC5AD5 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		6033BF0C0738279600FC5AD5 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		6033BF0D0738279600FC5AD5 /* IOCDStorageFamily.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IOCDStorageFamily.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		6033BF2E07382A2900FC5AD5 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
 /* End PBXFileReference section */
@@ -301,8 +301,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOCDStorageFamily;
-				MODULE_VERSION = 1.6.1;
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;
@@ -315,8 +313,6 @@
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.apple.iokit.IOCDStorageFamily;
-				MODULE_VERSION = 1.6.1;
 				PRODUCT_NAME = IOCDStorageFamily;
 				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = kext;

@@ -30,25 +30,24 @@
 #define JSDOMWindowShell_h
 
 #include "JSDOMWindow.h"
-#include "JSDOMBinding.h"
 
 namespace WebCore {
 
     class DOMWindow;
     class Frame;
 
-    class JSDOMWindowShell : public DOMObject {
-        typedef DOMObject Base;
+    class JSDOMWindowShell : public JSC::JSNonFinalObject {
+        typedef JSC::JSNonFinalObject Base;
     public:
         JSDOMWindowShell(PassRefPtr<DOMWindow>, DOMWrapperWorld* world);
         virtual ~JSDOMWindowShell();
 
-        JSDOMWindow* window() const { return m_window; }
-        void setWindow(JSDOMWindow* window)
+        JSDOMWindow* window() const { return m_window.get(); }
+        void setWindow(JSC::JSGlobalData& globalData, JSDOMWindow* window)
         {
             ASSERT_ARG(window, window);
-            m_window = window;
-            setPrototype(window->prototype());
+            m_window.set(globalData, this, window);
+            setPrototype(globalData, window->prototype());
         }
         void setWindow(PassRefPtr<DOMWindow>);
 
@@ -58,17 +57,17 @@ namespace WebCore {
 
         void* operator new(size_t);
 
-        static PassRefPtr<JSC::Structure> createStructure(JSC::JSValue prototype) 
+        static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype) 
         {
-            return JSC::Structure::create(prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount); 
+            return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
         DOMWrapperWorld* world() { return m_world.get(); }
 
     private:
-        static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::OverridesMarkChildren | JSC::OverridesGetPropertyNames | DOMObject::StructureFlags;
+        static const unsigned StructureFlags = JSC::OverridesGetOwnPropertySlot | JSC::OverridesVisitChildren | JSC::OverridesGetPropertyNames | Base::StructureFlags;
 
-        virtual void markChildren(JSC::MarkStack&);
+        virtual void visitChildren(JSC::SlotVisitor&);
         virtual JSC::UString className() const;
         virtual bool getOwnPropertySlot(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertySlot&);
         virtual bool getOwnPropertyDescriptor(JSC::ExecState*, const JSC::Identifier& propertyName, JSC::PropertyDescriptor&);
@@ -83,9 +82,8 @@ namespace WebCore {
         virtual JSC::JSValue lookupGetter(JSC::ExecState*, const JSC::Identifier& propertyName);
         virtual JSC::JSValue lookupSetter(JSC::ExecState*, const JSC::Identifier& propertyName);
         virtual JSC::JSObject* unwrappedObject();
-        virtual const JSC::ClassInfo* classInfo() const { return &s_info; }
 
-        JSDOMWindow* m_window;
+        JSC::WriteBarrier<JSDOMWindow> m_window;
         RefPtr<DOMWrapperWorld> m_world;
     };
 

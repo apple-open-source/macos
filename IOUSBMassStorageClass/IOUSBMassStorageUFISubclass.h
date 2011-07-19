@@ -352,4 +352,4 @@ protected:
 	virtual	bool		EndProvidedServices( void );
 };
 
-#endif _IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H
+#endif //_IOKIT_IOUSBMASSSTORAGEUFISUBCLASS_H

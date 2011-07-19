@@ -132,8 +132,8 @@ class RegisterClass<string namespace, list<ValueType> regTypes, int alignment,
 //===----------------------------------------------------------------------===//
 // DwarfRegNum - This class provides a mapping of the llvm register enumeration
 // to the register numbering used by gcc and gdb.  These values are used by a
-// debug information writer (ex. DwarfWriter) to describe where values may be
-// located during execution.
+// debug information writer to describe where values may be located during
+// execution.
 class DwarfRegNum<list<int> Numbers> {
   // DwarfNumbers - Numbers used internally by gcc/gdb to identify the register.
   // These values can be determined by locating the <target>.h file in the
@@ -199,35 +199,38 @@ class Instruction {
   bit isReMaterializable = 0; // Is this instruction re-materializable?
   bit isPredicable = 0;     // Is this instruction predicable?
   bit hasDelaySlot = 0;     // Does this instruction have an delay slot?
-  bit usesCustomDAGSchedInserter = 0; // Pseudo instr needing special help.
+  bit usesCustomInserter = 0; // Pseudo instr needing special help.
   bit hasCtrlDep   = 0;     // Does this instruction r/w ctrl-flow chains?
   bit isNotDuplicable = 0;  // Is it unsafe to duplicate this instruction?
   bit isAsCheapAsAMove = 0; // As cheap (or cheaper) than a move instruction.
+  bit hasExtraSrcRegAllocReq = 0; // Sources have special regalloc requirement?
+  bit hasExtraDefRegAllocReq = 0; // Defs have special regalloc requirement?
 
   // Side effect flags - When set, the flags have these meanings:
   //
   //  hasSideEffects - The instruction has side effects that are not
   //    captured by any operands of the instruction or other flags.
   //
-  //  mayHaveSideEffects  - Some instances of the instruction can have side
-  //    effects. The virtual method "isReallySideEffectFree" is called to
-  //    determine this. Load instructions are an example of where this is
-  //    useful. In general, loads always have side effects. However, loads from
-  //    constant pools don't. Individual back ends make this determination.
-  //
   //  neverHasSideEffects - Set on an instruction with no pattern if it has no
   //    side effects.
   bit hasSideEffects = 0;
-  bit mayHaveSideEffects = 0;
   bit neverHasSideEffects = 0;
+
+  // Is this instruction a "real" instruction (with a distinct machine
+  // encoding), or is it a pseudo instruction used for codegen modeling
+  // purposes.
+  bit isCodeGenOnly = 0;
 
   InstrItinClass Itinerary = NoItinerary;// Execution steps used for scheduling.
 
   string Constraints = "";  // OperandConstraint, e.g. $src = $dst.
-  
+
   /// DisableEncoding - List of operand names (e.g. "$op1,$op2") that should not
   /// be encoded into the output machineinstr.
   string DisableEncoding = "";
+
+  /// Target-specific flags. This becomes the TSFlags field in TargetInstrDesc.
+  bits<32> TSFlags = 0;
 }
 
 /// Predicates - These are extra conditionals which are turned into instruction
@@ -258,23 +261,81 @@ def ins;
 /// of operands.
 def variable_ops;
 
+
+/// PointerLikeRegClass - Values that are designed to have pointer width are
+/// derived from this.  TableGen treats the register class as having a symbolic
+/// type that it doesn't know, and resolves the actual regclass to use by using
+/// the TargetRegisterInfo::getPointerRegClass() hook at codegen time.
+class PointerLikeRegClass<int Kind> {
+  int RegClassKind = Kind;
+}
+
+
 /// ptr_rc definition - Mark this operand as being a pointer value whose
 /// register class is resolved dynamically via a callback to TargetInstrInfo.
 /// FIXME: We should probably change this to a class which contain a list of
 /// flags. But currently we have but one flag.
-def ptr_rc;
+def ptr_rc : PointerLikeRegClass<0>;
 
 /// unknown definition - Mark this operand as being of unknown type, causing
 /// it to be resolved by inference in the context it is used.
 def unknown;
 
+/// AsmOperandClass - Representation for the kinds of operands which the target
+/// specific parser can create and the assembly matcher may need to distinguish.
+///
+/// Operand classes are used to define the order in which instructions are
+/// matched, to ensure that the instruction which gets matched for any
+/// particular list of operands is deterministic.
+///
+/// The target specific parser must be able to classify a parsed operand into a
+/// unique class which does not partially overlap with any other classes. It can
+/// match a subset of some other class, in which case the super class field
+/// should be defined.
+class AsmOperandClass {
+  /// The name to use for this class, which should be usable as an enum value.
+  string Name = ?;
+
+  /// The super class of this operand.
+  AsmOperandClass SuperClass = ?;
+
+  /// The name of the method on the target specific operand to call to test
+  /// whether the operand is an instance of this class. If not set, this will
+  /// default to "isFoo", where Foo is the AsmOperandClass name. The method
+  /// signature should be:
+  ///   bool isFoo() const;
+  string PredicateMethod = ?;
+
+  /// The name of the method on the target specific operand to call to add the
+  /// target specific operand to an MCInst. If not set, this will default to
+  /// "addFooOperands", where Foo is the AsmOperandClass name. The method
+  /// signature should be:
+  ///   void addFooOperands(MCInst &Inst, unsigned N) const;
+  string RenderMethod = ?;
+}
+
+def ImmAsmOperand : AsmOperandClass {
+  let Name = "Imm";
+}
+   
 /// Operand Types - These provide the built-in operand types that may be used
 /// by a target.  Targets can optionally provide their own operand types as
 /// needed, though this should not be needed for RISC targets.
 class Operand<ValueType ty> {
   ValueType Type = ty;
   string PrintMethod = "printOperand";
+  string AsmOperandLowerMethod = ?;
   dag MIOperandInfo = (ops);
+
+  // ParserMatchClass - The "match class" that operands of this type fit
+  // in. Match classes are used to define the order in which instructions are
+  // match, to ensure that which instructions gets matched is deterministic.
+  //
+  // The target specific parser must be able to classify an parsed operand 
+  // into a unique class, which does not partially overlap with any other 
+  // classes. It can match a subset of some other class, in which case 
+  // ParserMatchSuperClass should be set to the name of that class.
+  AsmOperandClass ParserMatchClass = ImmAsmOperand;
 }
 
 def i1imm  : Operand<i1>;
@@ -301,8 +362,8 @@ class PredicateOperand<ValueType ty, dag OpTypes, dag AlwaysVal>
 }
 
 /// OptionalDefOperand - This is used to define a optional definition operand
-/// for an instruction. DefaultOps is the register the operand represents if none
-/// is supplied, e.g. zero_reg.
+/// for an instruction. DefaultOps is the register the operand represents if
+/// none is supplied, e.g. zero_reg.
 class OptionalDefOperand<ValueType ty, dag OpTypes, dag defaultops>
   : Operand<ty> {
   let MIOperandInfo = OpTypes;
@@ -311,16 +372,9 @@ class OptionalDefOperand<ValueType ty, dag OpTypes, dag defaultops>
 
 
 // InstrInfo - This class should only be instantiated once to provide parameters
-// which are global to the the target machine.
+// which are global to the target machine.
 //
 class InstrInfo {
-  // If the target wants to associate some target-specific information with each
-  // instruction, it should provide these two lists to indicate how to assemble
-  // the target specific information into the 32 bits available.
-  //
-  list<string> TSFlagsFields = [];
-  list<int>    TSFlagsShifts = [];
-
   // Target can specify its instructions in either big or little-endian formats.
   // For instance, while both Sparc and PowerPC are big-endian platforms, the
   // Sparc manual specifies its instructions in the format [31..0] (big), while
@@ -328,86 +382,148 @@ class InstrInfo {
   bit isLittleEndianEncoding = 0;
 }
 
-// Standard Instructions.
+// Standard Pseudo Instructions.
+let isCodeGenOnly = 1 in {
 def PHI : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops variable_ops);
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
   let AsmString = "PHINODE";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
 }
 def INLINEASM : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops variable_ops);
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
 }
 def DBG_LABEL : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops i32imm:$id);
+  let OutOperandList = (outs);
+  let InOperandList = (ins i32imm:$id);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let hasCtrlDep = 1;
+  let isNotDuplicable = 1;
 }
 def EH_LABEL : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops i32imm:$id);
+  let OutOperandList = (outs);
+  let InOperandList = (ins i32imm:$id);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let hasCtrlDep = 1;
+  let isNotDuplicable = 1;
 }
 def GC_LABEL : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops i32imm:$id);
+  let OutOperandList = (outs);
+  let InOperandList = (ins i32imm:$id);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let hasCtrlDep = 1;
+  let isNotDuplicable = 1;
 }
-def DECLARE : Instruction {
-  let OutOperandList = (ops);
-  let InOperandList = (ops variable_ops);
+def KILL : Instruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
-  let hasCtrlDep = 1;
+  let Namespace = "TargetOpcode";
+  let neverHasSideEffects = 1;
 }
 def EXTRACT_SUBREG : Instruction {
-  let OutOperandList = (ops unknown:$dst);
-  let InOperandList = (ops unknown:$supersrc, i32imm:$subidx);
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$supersrc, i32imm:$subidx);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let neverHasSideEffects = 1;
 }
 def INSERT_SUBREG : Instruction {
-  let OutOperandList = (ops unknown:$dst);
-  let InOperandList = (ops unknown:$supersrc, unknown:$subsrc, i32imm:$subidx);
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$supersrc, unknown:$subsrc, i32imm:$subidx);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let neverHasSideEffects = 1;
   let Constraints = "$supersrc = $dst";
 }
 def IMPLICIT_DEF : Instruction {
-  let OutOperandList = (ops unknown:$dst);
-  let InOperandList = (ops);
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let neverHasSideEffects = 1;
   let isReMaterializable = 1;
   let isAsCheapAsAMove = 1;
 }
 def SUBREG_TO_REG : Instruction {
-  let OutOperandList = (ops unknown:$dst);
-  let InOperandList = (ops unknown:$implsrc, unknown:$subsrc, i32imm:$subidx);
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$implsrc, unknown:$subsrc, i32imm:$subidx);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let neverHasSideEffects = 1;
 }
 def COPY_TO_REGCLASS : Instruction {
-  let OutOperandList = (ops unknown:$dst);
-  let InOperandList = (ops unknown:$src, i32imm:$regclass);
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins unknown:$src, i32imm:$regclass);
   let AsmString = "";
-  let Namespace = "TargetInstrInfo";
+  let Namespace = "TargetOpcode";
   let neverHasSideEffects = 1;
   let isAsCheapAsAMove = 1;
 }
+def DBG_VALUE : Instruction {
+  let OutOperandList = (outs);
+  let InOperandList = (ins variable_ops);
+  let AsmString = "DBG_VALUE";
+  let Namespace = "TargetOpcode";
+  let isAsCheapAsAMove = 1;
+}
+
+def REG_SEQUENCE : Instruction {
+  let OutOperandList = (outs unknown:$dst);
+  let InOperandList = (ins variable_ops);
+  let AsmString = "";
+  let Namespace = "TargetOpcode";
+  let neverHasSideEffects = 1;
+  let isAsCheapAsAMove = 1;
+}
+}
+
+//===----------------------------------------------------------------------===//
+// AsmParser - This class can be implemented by targets that wish to implement
+// .s file parsing.
+//
+// Subtargets can have multiple different assembly parsers (e.g. AT&T vs Intel
+// syntax on X86 for example).
+//
+class AsmParser {
+  // AsmParserClassName - This specifies the suffix to use for the asmparser
+  // class.  Generated AsmParser classes are always prefixed with the target
+  // name.
+  string AsmParserClassName  = "AsmParser";
+
+  // AsmParserInstCleanup - If non-empty, this is the name of a custom function on the
+  // AsmParser class to call on every matched instruction. This can be used to
+  // perform target specific instruction post-processing.
+  string AsmParserInstCleanup  = "";
+
+  // MatchInstructionName - The name of the instruction matching function to
+  // generate.
+  string MatchInstructionName  = "MatchInstruction";
+
+  // Variant - AsmParsers can be of multiple different variants.  Variants are
+  // used to support targets that need to parser multiple formats for the
+  // assembly language.
+  int Variant = 0;
+
+  // CommentDelimiter - If given, the delimiter string used to recognize
+  // comments which are hard coded in the .td assembler strings for individual
+  // instructions.
+  string CommentDelimiter = "";
+
+  // RegisterPrefix - If given, the token prefix which indicates a register
+  // token. This is used by the matcher to automatically recognize hard coded
+  // register tokens as constrained registers, instead of tokens, for the
+  // purposes of matching.
+  string RegisterPrefix = "";
+}
+def DefaultAsmParser : AsmParser;
+
 
 //===----------------------------------------------------------------------===//
 // AsmWriter - This class can be implemented by targets that need to customize
@@ -433,6 +549,17 @@ class AsmWriter {
   // will specify which alternative to use.  For example "{x|y|z}" with Variant
   // == 1, will expand to "y".
   int Variant = 0;
+  
+  
+  // FirstOperandColumn/OperandSpacing - If the assembler syntax uses a columnar
+  // layout, the asmwriter can actually generate output in this columns (in
+  // verbose-asm mode).  These two values indicate the width of the first column
+  // (the "opcode" area) and the width to reserve for subsequent operands.  When
+  // verbose asm mode is enabled, operands will be indented to respect this.
+  int FirstOperandColumn = -1;
+  
+  // OperandSpacing - Space between operand columns.
+  int OperandSpacing = -1;
 }
 def DefaultAsmWriter : AsmWriter;
 
@@ -443,6 +570,9 @@ def DefaultAsmWriter : AsmWriter;
 class Target {
   // InstructionSet - Instruction set description for this target.
   InstrInfo InstructionSet;
+
+  // AssemblyParsers - The AsmParser instances available for this target.
+  list<AsmParser> AssemblyParsers = [DefaultAsmParser];
 
   // AssemblyWriters - The AsmWriter instances available for this target.
   list<AsmWriter> AssemblyWriters = [DefaultAsmWriter];

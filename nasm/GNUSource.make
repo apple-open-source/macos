@@ -93,6 +93,7 @@ Environment += CC="$(CC) -arch $$arch" CXX="$(CXX) -arch $$arch"
 Environment += AS="$(AS) -arch $$arch" LD="$(LD) -arch $$arch"
 Environment += NM="nm -arch $$arch"
 Environment += AR=$(AR) STRIP=$(STRIP) RANLIB=ranlib
+Environment += PERL=perl5.10
 
 CC_Archs      = # set by CC
 # FIXME: Common.make shouldn't be setting this in the first place.

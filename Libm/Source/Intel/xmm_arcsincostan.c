@@ -13,8 +13,6 @@
 #include "xmmLibm_prefix.h"
 #include <math.h>
 
-
-#warning ******* CHEESY HACK TO GET LIBM BUILDING *********
 double atan2( double x, double y )
 {
 	return atan2l( (long double) x, (long double) y );

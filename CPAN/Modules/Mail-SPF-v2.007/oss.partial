@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2010-03-25</string>
+        <key>OpenSourceProject</key>
+        <string>Mail-SPF</string>
+        <key>OpenSourceVersion</key>
+        <string>v2.007</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/J/JM/JMEHNLE/mail-spf/Mail-SPF-v2.007.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

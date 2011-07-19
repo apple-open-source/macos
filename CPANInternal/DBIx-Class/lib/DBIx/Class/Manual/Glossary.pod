@@ -9,6 +9,17 @@ explain them.
 
 =head1 TERMS
 
+=head2 DB schema
+
+Refers to a single physical schema within an RDBMS. Synonymous with the terms
+'database', for MySQL; and 'schema', for most other RDBMS(s).
+
+In other words, it's the 'xyz' _thing_ you're connecting to when using any of
+the following L<DSN|DBI/connect>(s):
+
+  dbi:DriverName:xyz@hostname:port
+  dbi:DriverName:database=xyz;host=hostname;port=port
+
 =head2 Inflation
 
 The act of turning database row data into objects in
@@ -35,6 +46,18 @@ can be found in L<DBIx::Class::Manual::FAQ|the FAQ>.
 Object-relational mapping, or Object-relationship modelling. Either
 way it's a method of mapping the contents of database tables (rows),
 to objects in programming-language-space. DBIx::Class is an ORM.
+
+=head2 Relationship
+
+In DBIx::Class a relationship defines the connection between exactly
+two tables. The relationship condition lists the columns in each table
+that contain the same values. It is used to output an SQL JOIN
+condition between the tables.
+
+=head2 Relationship bridge
+
+A relationship bridge, such as C<many_to_many> defines an accessor to
+retrieve row contents across multiple relationships.
 
 =head2 ResultSet
 

@@ -68,12 +68,8 @@
 #include <sys/stat.h>
 #include <sys/queue.h>
 
-#ifdef __APPLE__
 #include <sys/quota.h>
 #include <libkern/OSByteOrder.h>
-#else
-#include <ufs/ufs/quota.h>
-#endif /* __APPLE__ */
 
 #include <ctype.h>
 #include <errno.h>
@@ -340,35 +336,41 @@ showquotas(type, id, name)
 			continue;
 		msgi = (char *)0;
 		if (qup->dqblk.dqb_ihardlimit &&
-		    qup->dqblk.dqb_curinodes >= qup->dqblk.dqb_ihardlimit)
+		    qup->dqblk.dqb_curinodes >= qup->dqblk.dqb_ihardlimit) {
 			msgi = "File limit reached on";
-		else if (qup->dqblk.dqb_isoftlimit &&
-		    qup->dqblk.dqb_curinodes >= qup->dqblk.dqb_isoftlimit)
-			if (qup->dqblk.dqb_itime > now)
+		} else if (qup->dqblk.dqb_isoftlimit &&
+		    qup->dqblk.dqb_curinodes >= qup->dqblk.dqb_isoftlimit) {
+			if (qup->dqblk.dqb_itime > now) {
 				msgi = "In file grace period on";
-			else
+			} else {
 				msgi = "Over file quota on";
+			}
+		}
 		msgb = (char *)0;
 #ifdef __APPLE__
 		if (qup->dqblk.dqb_bhardlimit &&
-		    qup->dqblk.dqb_curbytes >= qup->dqblk.dqb_bhardlimit)
+		    qup->dqblk.dqb_curbytes >= qup->dqblk.dqb_bhardlimit) {
 			msgb = "Block limit reached on";
-		else if (qup->dqblk.dqb_bsoftlimit &&
-		    qup->dqblk.dqb_curbytes >= qup->dqblk.dqb_bsoftlimit)
-			if (qup->dqblk.dqb_btime > now)
+		} else if (qup->dqblk.dqb_bsoftlimit &&
+		    qup->dqblk.dqb_curbytes >= qup->dqblk.dqb_bsoftlimit) {
+			if (qup->dqblk.dqb_btime > now) {
 				msgb = "In block grace period on";
-			else
+			} else {
 				msgb = "Over block quota on";
+			}
+		}
 #else
 		if (qup->dqblk.dqb_bhardlimit &&
-		    qup->dqblk.dqb_curblocks >= qup->dqblk.dqb_bhardlimit)
+		    qup->dqblk.dqb_curblocks >= qup->dqblk.dqb_bhardlimit) {
 			msgb = "Block limit reached on";
-		else if (qup->dqblk.dqb_bsoftlimit &&
-		    qup->dqblk.dqb_curblocks >= qup->dqblk.dqb_bsoftlimit)
-			if (qup->dqblk.dqb_btime > now)
+		} else if (qup->dqblk.dqb_bsoftlimit &&
+		    qup->dqblk.dqb_curblocks >= qup->dqblk.dqb_bsoftlimit) {
+			if (qup->dqblk.dqb_btime > now) {
 				msgb = "In block grace period on";
-			else
+			} else {
 				msgb = "Over block quota on";
+			}
+		}
 #endif /* __APPLE__ */
 
 		if (qflag) {
@@ -528,7 +530,6 @@ static int
 hasseen(void *tmp, const char *mp)
 {
 	int retval = 0;
-	int indx;
 	mount_list_t *list = tmp;
 	int i;
 
@@ -597,8 +598,7 @@ getprivs(id, quotatype)
 			continue;
 		error = quotactl(fst[i].f_mntonname, qcmd, id, (char *)&dqb);
 		if (error) {
-			if (strcmp(fst[i].f_fstypename, "hfs") &&
-			    strcmp(fst[i].f_fstypename, "ufs"))
+			if (strcmp(fst[i].f_fstypename, "hfs")) 
 				continue;
 			if (!hasquota(&fst[i], quotatype, &qfpathname))
 				continue;
@@ -854,6 +854,6 @@ alldigits(s)
 	do {
 		if (!isdigit(c))
 			return (0);
-	} while (c = *s++);
+	} while ((c = *s++));
 	return (1);
 }

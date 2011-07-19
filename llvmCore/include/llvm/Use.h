@@ -11,14 +11,23 @@
 // instruction or some other User instance which refers to a Value.  The Use
 // class keeps the "use list" of the referenced value up to date.
 //
+// Pointer tagging is used to efficiently find the User corresponding
+// to a Use without having to store a User pointer in every Use. A
+// User is preceded in memory by all the Uses corresponding to its
+// operands, and the low bits of one of the fields (Prev) of the Use
+// class are used to encode offsets to be able to find that User given
+// a pointer to any Use. For details, see:
+//
+//   http://www.llvm.org/docs/ProgrammersManual.html#UserLayout
+//
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_USE_H
 #define LLVM_USE_H
 
 #include "llvm/Support/Casting.h"
-#include "llvm/ADT/iterator.h"
 #include "llvm/ADT/PointerIntPair.h"
+#include <iterator>
 
 namespace llvm {
 
@@ -149,8 +158,9 @@ template<> struct simplify_type<const Use> {
 
 
 template<typename UserTy>  // UserTy == 'User' or 'const User'
-class value_use_iterator : public forward_iterator<UserTy*, ptrdiff_t> {
-  typedef forward_iterator<UserTy*, ptrdiff_t> super;
+class value_use_iterator : public std::iterator<std::forward_iterator_tag,
+                                                UserTy*, ptrdiff_t> {
+  typedef std::iterator<std::forward_iterator_tag, UserTy*, ptrdiff_t> super;
   typedef value_use_iterator<UserTy> _Self;
 
   Use *U;

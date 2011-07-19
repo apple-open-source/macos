@@ -80,7 +80,7 @@ namespace eval ::xotcl { namespace export @ myproc myvar Attribute}
 ::xotcl::setrelation ::xotcl::MetaSlot superclass ::xotcl::Class
 ::xotcl::MetaSlot instproc new args {
   set slotobject [self callingobject]::slot
-  if {![my isobject $slotobject]} {Object create $slotobject}
+  if {![my isobject $slotobject]} {Object create $slotobject; namespace eval $slotobject {namespace import ::xotcl::*; puts stderr IMPORT}}
   #namespace eval [self]::slot $cmds
   #puts "metaslot $args // [namespace current] // [self callingobject]"
   eval next -childof $slotobject $args
@@ -294,7 +294,11 @@ unset p
   $domain unset -nocomplain __defaults($name) 
   set __initcmd ""
   if {[my exists default]} {
-    $domain set __defaults($name) [my default]
+    if {[my per-object] && ![$domain exists $name]} {
+      $domain set $name [my default]
+    } elseif {![my per-object]} {
+      $domain set __defaults($name) [my default]
+    }
   } elseif [my exists initcmd] {
     append __initcmd "my trace add variable [list $name] read \
 	\[list [self] __default_from_cmd \[self\] [list [my initcmd]]\]\n"
@@ -308,7 +312,11 @@ unset p
 	\[list [self] __value_changed_cmd \[self\] [list [my valuechangedcmd]]\]"
   }
   if {$__initcmd ne ""} {
-    $domain set __initcmds($name) $__initcmd
+    if {[my per-object]} {
+      $domain eval $__initcmd
+    } else {
+      $domain set __initcmds($name) $__initcmd
+    } 
     #puts stderr "$domain set __initcmds($name) $__initcmd"
   }
 }
@@ -362,8 +370,11 @@ unset p
   {-class ::xotcl::Object} 
   cmds} {
     if {![info exists object]} {set object [::xotcl::self]}
-    if {![::xotcl::my isobject $object]} {$class create $object}
-    $object requireNamespace
+    if {![::xotcl::my isobject $object]} {
+      $class create $object
+      $object requireNamespace
+      #namespace eval $object {namespace import ::xotcl::*}
+    }
     if {$withnew} {
       set m [::xotcl::ScopedNew new \
                  -inobject $object -withclass $class -volatile]

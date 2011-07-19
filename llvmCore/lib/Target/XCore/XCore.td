@@ -24,22 +24,7 @@ include "XCoreRegisterInfo.td"
 include "XCoreInstrInfo.td"
 include "XCoreCallingConv.td"
 
-def XCoreInstrInfo : InstrInfo {
-  let TSFlagsFields = [];
-  let TSFlagsShifts = [];
-}
-
-//===----------------------------------------------------------------------===//
-// XCore Subtarget features.
-//===----------------------------------------------------------------------===//
-
-def FeatureXS1A
-  : SubtargetFeature<"xs1a", "IsXS1A", "true",
-                     "Enable XS1A instructions">;
-
-def FeatureXS1B
-  : SubtargetFeature<"xs1b", "IsXS1B", "true",
-                     "Enable XS1B instructions">;
+def XCoreInstrInfo : InstrInfo;
 
 //===----------------------------------------------------------------------===//
 // XCore processors supported.
@@ -48,9 +33,8 @@ def FeatureXS1B
 class Proc<string Name, list<SubtargetFeature> Features>
  : Processor<Name, NoItineraries, Features>;
 
-def : Proc<"generic",      [FeatureXS1A]>;
-def : Proc<"xs1a-generic", [FeatureXS1A]>;
-def : Proc<"xs1b-generic", [FeatureXS1B]>;
+def : Proc<"generic",      []>;
+def : Proc<"xs1b-generic", []>;
 
 //===----------------------------------------------------------------------===//
 // Declare the target which we are implementing

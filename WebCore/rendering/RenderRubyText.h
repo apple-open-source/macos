@@ -31,8 +31,6 @@
 #ifndef RenderRubyText_h
 #define RenderRubyText_h
 
-#if ENABLE(RUBY)
-
 #include "RenderBlock.h"
 
 namespace WebCore {
@@ -47,10 +45,12 @@ public:
     virtual bool isRubyText() const { return true; }
 
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
+
+private:
+    virtual ETextAlign textAlignmentForLine(bool endsWithSoftBreak) const;
+    virtual void adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const;
 };
 
 } // namespace WebCore
-
-#endif
 
 #endif // RenderRubyText_h

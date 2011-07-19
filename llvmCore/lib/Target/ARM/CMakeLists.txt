@@ -10,18 +10,34 @@ tablegen(ARMGenAsmWriter.inc -gen-asm-writer)
 tablegen(ARMGenDAGISel.inc -gen-dag-isel)
 tablegen(ARMGenCallingConv.inc -gen-callingconv)
 tablegen(ARMGenSubtarget.inc -gen-subtarget)
+tablegen(ARMGenEDInfo.inc -gen-enhanced-disassembly-info)
 
 add_llvm_target(ARMCodeGen
+  ARMBaseInstrInfo.cpp
+  ARMBaseRegisterInfo.cpp
   ARMCodeEmitter.cpp
   ARMConstantIslandPass.cpp
   ARMConstantPoolValue.cpp
-  ARMInstrInfo.cpp
+  ARMExpandPseudoInsts.cpp
   ARMISelDAGToDAG.cpp
   ARMISelLowering.cpp
+  ARMInstrInfo.cpp
   ARMJITInfo.cpp
   ARMLoadStoreOptimizer.cpp
+  ARMMCAsmInfo.cpp
   ARMRegisterInfo.cpp
   ARMSubtarget.cpp
-  ARMTargetAsmInfo.cpp
   ARMTargetMachine.cpp
+  ARMTargetObjectFile.cpp
+  NEONMoveFix.cpp
+  NEONPreAllocPass.cpp
+  Thumb1InstrInfo.cpp
+  Thumb1RegisterInfo.cpp
+  Thumb2ITBlockPass.cpp
+  Thumb2InstrInfo.cpp
+  Thumb2RegisterInfo.cpp
+  Thumb2SizeReduction.cpp
+  ARMSelectionDAGInfo.cpp
   )
+
+target_link_libraries (LLVMARMCodeGen LLVMSelectionDAG)

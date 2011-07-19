@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -92,6 +92,7 @@ copyMyExecutablePath(void)
 #pragma mark Keychain helper APIs
 
 
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 /*
  * Create a SecAccessRef with a custom form.
  *
@@ -182,6 +183,7 @@ _SCSecAccessCreateForUID(uid_t uid)
 
 	return access;
 }
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 
 
 // one example would be to pass a URL for "/System/Library/CoreServices/SystemUIServer.app"
@@ -235,29 +237,6 @@ _SCSecAccessCreateForExecutables(CFStringRef	label,
 	if (status != noErr) {
 		goto done;
 	}
-
-#ifdef	NOT_NEEDED
-	// get the access control list for decryption operations (this controls access to an item's data)
-	status = SecAccessCopySelectedACLList(access, CSSM_ACL_AUTHORIZATION_DECRYPT, &aclList);
-	if (status == noErr) {
-		SecACLRef				acl;
-		CFArrayRef				applicationList	= NULL;
-		CFStringRef				description	= NULL;
-		CSSM_ACL_KEYCHAIN_PROMPT_SELECTOR	promptSelector;
-
-		// get the first entry in the access control list
-		acl = (SecACLRef)CFArrayGetValueAtIndex(aclList, 0);
-
-		// get the description and prompt selector
-		status = SecACLCopySimpleContents(acl, &applicationList, &description, &promptSelector);
-
-		// modify the application list
-		status = SecACLSetSimpleContents(acl, (CFArrayRef)trustedApplications, description, &promptSelector);
-
-		if (applicationList != NULL)	CFRelease(applicationList);
-		if (description != NULL)	CFRelease(description);
-	}
-#endif	// NOT_NEEDED
 
     done :
 
@@ -315,29 +294,28 @@ _SCSecKeychainCopySystemKeychain(void)
 #if	!TARGET_OS_IPHONE
 static OSStatus
 findKeychainItem(SecKeychainRef		keychain,
-		 UInt32			serviceNameLength,
-		 void			*serviceName,
+		 CFStringRef		unique_id,
 		 SecKeychainItemRef	*item)
 {
-	SecKeychainAttribute		attributes[1];
-	SecKeychainAttributeList	attributeList	= { 1, attributes };
-	SecKeychainSearchRef		search		= NULL;
-	OSStatus			status;
+	CFMutableDictionaryRef	query;
+	OSStatus		status;
 
-	attributes[0].tag    = kSecServiceItemAttr;
-	attributes[0].data   = serviceName;
-	attributes[0].length = serviceNameLength;
+	query = CFDictionaryCreateMutable(NULL,
+					  0,
+					  &kCFTypeDictionaryKeyCallBacks,
+					  &kCFTypeDictionaryValueCallBacks);
+	if (keychain != NULL) {
+		CFArrayRef	keychains;
 
-	status = SecKeychainSearchCreateFromAttributes(keychain,
-						       kSecGenericPasswordItemClass,
-						       &attributeList,
-						       &search);
-	if (status != noErr) {
-		return status;
+		keychains = CFArrayCreate(NULL, (const void **)&keychain, 1, &kCFTypeArrayCallBacks);
+		CFDictionarySetValue(query, kSecMatchSearchList, keychains);
+		CFRelease(keychains);
 	}
-
-	status = SecKeychainSearchCopyNext(search, item);
-	CFRelease(search);
+	CFDictionarySetValue(query, kSecClass      , kSecClassGenericPassword);
+	CFDictionarySetValue(query, kSecAttrService, unique_id);
+	CFDictionarySetValue(query, kSecReturnRef  , kCFBooleanTrue);
+	status = SecItemCopyMatching(query, (CFTypeRef *)item);
+	CFRelease(query);
 
 	return status;
 }
@@ -351,15 +329,9 @@ _SCSecKeychainPasswordItemCopy(SecKeychainRef	keychain,
 #if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item			= NULL;
 	CFDataRef		keychain_password	= NULL;
-	const char		*keychain_serviceName;
 	OSStatus		status;
 
-	keychain_serviceName = _SC_cfstring_to_cstring(unique_id, NULL, 0, kCFStringEncodingUTF8);
-	status = findKeychainItem(keychain,
-				  strlen(keychain_serviceName),
-				  (void *)keychain_serviceName,
-				  &item);
-	CFAllocatorDeallocate(NULL, (void *)keychain_serviceName);
+	status = findKeychainItem(keychain, unique_id, &item);
 	if (status == noErr) {
 		void *		pw	= NULL;
 		UInt32 		pw_len	= 0;
@@ -388,15 +360,9 @@ _SCSecKeychainPasswordItemExists(SecKeychainRef keychain, CFStringRef unique_id)
 {
 #if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item;
-	const char		*keychain_serviceName;
 	OSStatus		status;
 
-	keychain_serviceName = _SC_cfstring_to_cstring(unique_id, NULL, 0, kCFStringEncodingUTF8);
-	status = findKeychainItem(keychain,
-				  strlen(keychain_serviceName),
-				  (void *)keychain_serviceName,
-				  &item);
-	CFAllocatorDeallocate(NULL, (void *)keychain_serviceName);
+	status = findKeychainItem(keychain, unique_id, &item);
 	if (status != noErr) {
 		_SCErrorSet(status);
 		return FALSE;
@@ -416,15 +382,9 @@ _SCSecKeychainPasswordItemRemove(SecKeychainRef keychain, CFStringRef unique_id)
 {
 #if	!TARGET_OS_IPHONE
 	SecKeychainItemRef	item;
-	const char		*keychain_serviceName;
 	OSStatus		status;
 
-	keychain_serviceName = _SC_cfstring_to_cstring(unique_id, NULL, 0, kCFStringEncodingUTF8);
-	status = findKeychainItem(keychain,
-				  strlen(keychain_serviceName),
-				  (void *)keychain_serviceName,
-				  &item);
-	CFAllocatorDeallocate(NULL, (void *)keychain_serviceName);
+	status = findKeychainItem(keychain, unique_id, &item);
 	if (status != noErr) {
 		_SCErrorSet(status);
 		return FALSE;
@@ -488,10 +448,27 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 	}
 
 	if ((allowRoot != NULL) && CFBooleanGetValue(allowRoot)) {
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 		access = _SCSecAccessCreateForUID(0);
 		if (access == NULL) {
 			return FALSE;
 		}
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
+		CFErrorRef	error	= NULL;
+
+		access = SecAccessCreateWithOwnerAndACL(0, 0, kSecUseOnlyUID, NULL, &error);
+		if (access == NULL) {
+			CFIndex	code	= kSCStatusAccessError;
+
+			if (error != NULL) {
+
+				code = CFErrorGetCode(error);
+				CFRelease(error);
+			}
+			_SCErrorSet(code);
+			return FALSE;
+		}
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 	} else if (allowedExecutables != NULL) {
 		access = _SCSecAccessCreateForExecutables(label, allowedExecutables);
 		if (access == NULL) {
@@ -532,10 +509,7 @@ _SCSecKeychainPasswordItemSet(SecKeychainRef	keychain,
 		n++;
 	}
 
-	status = findKeychainItem(keychain,
-				  attributes[0].length,
-				  attributes[0].data,
-				  &item);
+	status = findKeychainItem(keychain, unique_id, &item);
 	switch (status) {
 		case noErr : {
 			const void	*pw	= NULL;
@@ -623,7 +597,7 @@ __SCPreferencesSystemKeychainPasswordItemCopy_helper(SCPreferencesRef	prefs,
 	uint32_t		status		= kSCStatusOK;
 	CFDataRef		reply		= NULL;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		ok = __SCPreferencesCreate_helper(prefs);
 		if (!ok) {
 			return FALSE;
@@ -636,7 +610,7 @@ __SCPreferencesSystemKeychainPasswordItemCopy_helper(SCPreferencesRef	prefs,
 	}
 
 	// have the helper set the "System" Keychain password
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_KEYCHAIN_COPY,
 			   data,
 			   &status,
@@ -655,9 +629,8 @@ __SCPreferencesSystemKeychainPasswordItemCopy_helper(SCPreferencesRef	prefs,
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
 
 	status = kSCStatusAccessError;
@@ -769,7 +742,7 @@ __SCPreferencesSystemKeychainPasswordItemRemove_helper(SCPreferencesRef	prefs,
 	uint32_t		status		= kSCStatusOK;
 	CFDataRef		reply		= NULL;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		ok = __SCPreferencesCreate_helper(prefs);
 		if (!ok) {
 			return FALSE;
@@ -782,7 +755,7 @@ __SCPreferencesSystemKeychainPasswordItemRemove_helper(SCPreferencesRef	prefs,
 	}
 
 	// have the helper set the "System" Keychain password
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_KEYCHAIN_REMOVE,
 			   data,
 			   &status,
@@ -801,9 +774,8 @@ __SCPreferencesSystemKeychainPasswordItemRemove_helper(SCPreferencesRef	prefs,
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
 
 	status = kSCStatusAccessError;
@@ -878,7 +850,7 @@ __SCPreferencesSystemKeychainPasswordItemSet_helper(SCPreferencesRef	prefs,
 	uint32_t		status		= kSCStatusOK;
 	CFDataRef		reply		= NULL;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		ok = __SCPreferencesCreate_helper(prefs);
 		if (!ok) {
 			return FALSE;
@@ -964,7 +936,7 @@ __SCPreferencesSystemKeychainPasswordItemSet_helper(SCPreferencesRef	prefs,
 	}
 
 	// have the helper create the "System" Keychain password
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_KEYCHAIN_SET,
 			   data,
 			   &status,
@@ -983,9 +955,8 @@ __SCPreferencesSystemKeychainPasswordItemSet_helper(SCPreferencesRef	prefs,
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
 
 	status = kSCStatusAccessError;

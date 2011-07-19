@@ -1,28 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
- *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the "License").  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
- * 
- * The Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
- * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
- * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON- INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
- */
-/*
- * Copyright (c) 1992, 1993 Theo de Raadt <deraadt@fsa.ca>
+ * Copyright (c) 1992/3 Theo de Raadt <deraadt@fsa.ca>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,11 +10,9 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by Theo de Raadt.
- * 4. The name of the author may not be used to endorse or promote products
- *    derived from this software without specific prior written permission.
+ * 3. The name of the author may not be used to endorse or promote
+ *    products derived from this software without specific prior written
+ *    permission.
  *
  * THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS
  * OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
@@ -50,6 +25,8 @@
  * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
+ *
+ * $FreeBSD: src/include/rpcsvc/yp_prot.h,v 1.13 2005/12/06 02:01:06 peter Exp $
  */
 
 #ifndef _RPCSVC_YP_PROT_H_
@@ -57,9 +34,9 @@
 
 /*
  * YPSERV PROTOCOL:
- * 
+ *
  * ypserv supports the following procedures:
- * 
+ *
  * YPPROC_NULL		takes (void), returns (void).
  * 			called to check if server is alive.
  * YPPROC_DOMAIN	takes (char *), returns (bool_t).
@@ -90,20 +67,15 @@
  * YPPROC_MAPLIST	takes (char *), returns (struct ypmaplist *).
  */
 
-#ifndef BOOL_DEFINED
-typedef unsigned int bool;
-#define BOOL_DEFINED
-#endif
-
-
 /* Program and version symbols, magic numbers */
-#define YPPROG		((unsigned long)100004)
-#define YPVERS		((unsigned long)2)
-#define YPVERS_ORIG	((unsigned long)1)
-#define YPMAXRECORD	((unsigned long)1024)
-#define YPMAXDOMAIN	((unsigned long)64)
-#define YPMAXMAP	((unsigned long)64)
-#define YPMAXPEER	((unsigned long)256)
+
+#define YPPROG		((u_long)100004)
+#define YPVERS		((u_long)2)
+#define YPVERS_ORIG	((u_long)1)
+#define YPMAXRECORD	((u_long)1024)
+#define YPMAXDOMAIN	((u_long)64)
+#define YPMAXMAP	((u_long)64)
+#define YPMAXPEER	((u_long)256)
 
 /*
  * I don't know if anything of sun's depends on this, or if they
@@ -114,35 +86,35 @@ typedef unsigned int bool;
 
 #ifndef DATUM
 typedef struct {
-	const char	*dptr;
-	int		 dsize;
+	char	*dptr;
+	int	dsize;
 } datum;
 #define DATUM
 #endif
 
 struct ypmap_parms {
-	const char *domain;
-	const char *map;
-	unsigned long ordernum;
+	char *domain;
+	char *map;
+	u_int ordernum;
 	char *owner;
 };
 
 struct ypreq_key {
-	const char *domain;
-	const char *map;
+	char *domain;
+	char *map;
 	datum keydat;
 };
 
 struct ypreq_nokey {
-	const char *domain;
-	const char *map;
+	char *domain;
+	char *map;
 };
 
 struct ypreq_xfr {
 	struct ypmap_parms map_parms;
-	unsigned long transid;
-	unsigned long proto;
-	unsigned short port;
+	u_int transid;
+	u_int proto;
+	u_int port;
 };
 #define ypxfr_domain	map_parms.domain
 #define ypxfr_map	map_parms.map
@@ -150,24 +122,24 @@ struct ypreq_xfr {
 #define ypxfr_owner	map_parms.owner
 
 struct ypresp_val {
-	unsigned long status;
+	u_int status;
 	datum valdat;
 };
 
 struct ypresp_key_val {
-	unsigned long status;
+	u_int status;
 	datum keydat;
 	datum valdat;
 };
 
 struct ypresp_master {
-	unsigned long status;
+	u_int status;
 	char *master;
 };
 
 struct ypresp_order {
-	unsigned long status;
-	unsigned long ordernum;
+	u_int status;
+	u_int ordernum;
 };
 
 struct ypresp_all {
@@ -178,28 +150,28 @@ struct ypresp_all {
 };
 
 struct ypmaplist {
-	char ypml_name[YPMAXMAP + 1];
+	char *ypml_name;
 	struct ypmaplist *ypml_next;
 };
 
 struct ypresp_maplist {
-	unsigned long status;
+	u_int status;
 	struct ypmaplist *list;
 };
 
 /* ypserv procedure numbers */
-#define YPPROC_NULL		((unsigned long)0)
-#define YPPROC_DOMAIN		((unsigned long)1)
-#define YPPROC_DOMAIN_NONACK	((unsigned long)2)
-#define YPPROC_MATCH		((unsigned long)3)
-#define YPPROC_FIRST		((unsigned long)4)
-#define YPPROC_NEXT		((unsigned long)5)
-#define YPPROC_XFR		((unsigned long)6)
-#define YPPROC_CLEAR		((unsigned long)7)
-#define YPPROC_ALL		((unsigned long)8)
-#define YPPROC_MASTER		((unsigned long)9)
-#define YPPROC_ORDER		((unsigned long)10)
-#define YPPROC_MAPLIST		((unsigned long)11)
+#define YPPROC_NULL		((u_long)0)
+#define YPPROC_DOMAIN		((u_long)1)
+#define YPPROC_DOMAIN_NONACK	((u_long)2)
+#define YPPROC_MATCH		((u_long)3)
+#define YPPROC_FIRST		((u_long)4)
+#define YPPROC_NEXT		((u_long)5)
+#define YPPROC_XFR		((u_long)6)
+#define YPPROC_CLEAR		((u_long)7)
+#define YPPROC_ALL		((u_long)8)
+#define YPPROC_MASTER		((u_long)9)
+#define YPPROC_ORDER		((u_long)10)
+#define YPPROC_MAPLIST		((u_long)11)
 
 /* ypserv procedure return status values */
 #define YP_TRUE	 	((long)1)	/* general purpose success code */
@@ -220,7 +192,7 @@ struct ypresp_maplist {
  * Users of the ypclnt package (or of this protocol) don't HAVE to know about
  * it, but it must be available to users because _yp_dobind is a public
  * interface."
- * 
+ *
  * This is totally bogus! Nowhere else does Sun state that _yp_dobind() is
  * a public interface, and I don't know any reason anyone would want to call
  * it. But, just in case anyone does actually expect it to be available..
@@ -230,16 +202,16 @@ struct dom_binding {
 	struct dom_binding *dom_pnext;
 	char dom_domain[YPMAXDOMAIN + 1];
 	struct sockaddr_in dom_server_addr;
-	unsigned short dom_server_port;
+	u_short dom_server_port;
 	int dom_socket;
 	CLIENT *dom_client;
-	unsigned short dom_local_port;
+	u_short dom_local_port;
 	long dom_vers;
 };
 
 /*
  * YPBIND PROTOCOL:
- * 
+ *
  * ypbind supports the following procedures:
  *
  * YPBINDPROC_NULL	takes (void), returns (void).
@@ -250,15 +222,15 @@ struct dom_binding {
  * YPBINDPROC_SETDOM	takes (struct ypbind_setdom), returns (void).
  *			used by ypset.
  */
- 
-#define YPBINDPROG		((unsigned long)100007)
-#define YPBINDVERS		((unsigned long)2)
-#define YPBINDVERS_ORIG		((unsigned long)1)
+
+#define YPBINDPROG		((u_long)100007)
+#define YPBINDVERS		((u_long)2)
+#define YPBINDVERS_ORIG		((u_long)1)
 
 /* ypbind procedure numbers */
-#define YPBINDPROC_NULL		((unsigned long)0)
-#define YPBINDPROC_DOMAIN	((unsigned long)1)
-#define YPBINDPROC_SETDOM	((unsigned long)2)
+#define YPBINDPROC_NULL		((u_long)0)
+#define YPBINDPROC_DOMAIN	((u_long)1)
+#define YPBINDPROC_SETDOM	((u_long)2)
 
 /* error code in ypbind_resp.ypbind_status */
 enum ypbind_resptype {
@@ -269,13 +241,13 @@ enum ypbind_resptype {
 /* network order, of course */
 struct ypbind_binding {
 	struct in_addr	ypbind_binding_addr;
-	unsigned short		ypbind_binding_port;
+	u_short		ypbind_binding_port;
 };
 
 struct ypbind_resp {
 	enum ypbind_resptype	ypbind_status;
 	union {
-		unsigned long			ypbind_error;
+		u_int			ypbind_error;
 		struct ypbind_binding	ypbind_bindinfo;
 	} ypbind_respbody;
 };
@@ -291,33 +263,33 @@ struct ypbind_resp {
 struct ypbind_setdom {
 	char ypsetdom_domain[YPMAXDOMAIN + 1];
 	struct ypbind_binding ypsetdom_binding;
-	unsigned short ypsetdom_vers;
+	u_int ypsetdom_vers;
 };
 #define ypsetdom_addr ypsetdom_binding.ypbind_binding_addr
 #define ypsetdom_port ypsetdom_binding.ypbind_binding_port
 
 /*
  * YPPUSH PROTOCOL:
- * 
+ *
  * Sun says:
  * "Protocol between clients (ypxfr, only) and yppush
  *  yppush speaks a protocol in the transient range, which
  *  is supplied to ypxfr as a command-line parameter when it
  *  is activated by ypserv."
- * 
- * This protocol is not implimented, naturally, because this YP
- * implimentation only does the client side.
+ *
+ * This protocol is not implemented, naturally, because this YP
+ * implementation only does the client side.
  */
-#define YPPUSHVERS		((unsigned long)1)
-#define YPPUSHVERS_ORIG		((unsigned long)1)
+#define YPPUSHVERS		((u_long)1)
+#define YPPUSHVERS_ORIG		((u_long)1)
 
 /* yppush procedure numbers */
-#define YPPUSHPROC_NULL		((unsigned long)0)
-#define YPPUSHPROC_XFRRESP	((unsigned long)1)
+#define YPPUSHPROC_NULL		((u_long)0)
+#define YPPUSHPROC_XFRRESP	((u_long)1)
 
 struct yppushresp_xfr {
-	unsigned long	transid;
-	unsigned long	status;
+	u_int	transid;
+	u_int	status;
 };
 
 /* yppush status value in yppushresp_xfr.status */
@@ -325,7 +297,7 @@ struct yppushresp_xfr {
 #define YPPUSH_AGE	((long)2)	/* Master's version not newer */
 #define YPPUSH_NOMAP 	((long)-1)	/* Can't find server for map */
 #define YPPUSH_NODOM 	((long)-2)	/* Domain not supported */
-#define YPPUSH_RSRC 	((long)-3)	/* Local resouce alloc failure */
+#define YPPUSH_RSRC 	((long)-3)	/* Local resource alloc failure */
 #define YPPUSH_RPC 	((long)-4)	/* RPC failure talking to server */
 #define YPPUSH_MADDR	((long)-5)	/* Can't get master address */
 #define YPPUSH_YPERR 	((long)-6)	/* YP server/map db error */

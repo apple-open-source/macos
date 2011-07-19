@@ -93,6 +93,8 @@ int get_task_info (KINFO *ki)
         pid_t				pid;
 	int j, err = 0;
 
+	ki->state = STATE_MAX;
+
 	pid = KI_PROC(ki)->p_pid;
 	if (task_for_pid(mach_task_self(), pid, &ki->task) != KERN_SUCCESS) {
                 return(1);
@@ -193,7 +195,6 @@ int get_task_info (KINFO *ki)
 		return(1);
 	}
 	err=0;
-	ki->state = STATE_MAX;
 	//ki->curpri = 255;
 	//ki->basepri = 255;
 	ki->swapped = 1;
@@ -232,7 +233,7 @@ int get_task_info (KINFO *ki)
 	 /* Deallocate the list of threads. */
 	error = vm_deallocate(mach_task_self(), 
 		(vm_address_t)(ki->thread_list),
-		 sizeof(thread_port_array_t) * ki->thread_count);
+		 sizeof(*ki->thread_list) * ki->thread_count);
 	if (error != KERN_SUCCESS) {
 #ifdef DEBUG
 		 mach_error("Trouble freeing thread_list", error);

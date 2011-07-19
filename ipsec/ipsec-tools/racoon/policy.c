@@ -287,7 +287,6 @@ cmpspidxwild(a, b)
 	if (a->dst.ss_family != b->dst.ss_family)
 		return 1;
 
-#ifndef __linux__
 	/* compare src address */
 	if (sizeof(sa1) < a->src.ss_len || sizeof(sa2) < b->src.ss_len) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -296,7 +295,6 @@ cmpspidxwild(a, b)
 			a->src.ss_len, b->src.ss_len);
 		return 1;
 	}
-#endif
 	mask_sockaddr((struct sockaddr *)&sa1, (struct sockaddr *)&a->src,
 		b->prefs);
 	mask_sockaddr((struct sockaddr *)&sa2, (struct sockaddr *)&b->src,
@@ -308,13 +306,11 @@ cmpspidxwild(a, b)
 	if (cmpsaddrwild((struct sockaddr *)&sa1, (struct sockaddr *)&sa2))
 		return 1;
 
-#ifndef __linux__
 	/* compare dst address */
 	if (sizeof(sa1) < a->dst.ss_len || sizeof(sa2) < b->dst.ss_len) {
 		plog(LLV_ERROR, LOCATION, NULL, "unexpected error\n");
 		exit(1);
 	}
-#endif
 	mask_sockaddr((struct sockaddr *)&sa1, (struct sockaddr *)&a->dst,
 		b->prefd);
 	mask_sockaddr((struct sockaddr *)&sa2, (struct sockaddr *)&b->dst,

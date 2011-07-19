@@ -276,7 +276,7 @@ main(argc, argv)
 	if(run_ranlib){
 	    /* run ranlib -f or -q on the archive */
 	    reset_execute_list();
-	    add_execute_list("ranlib");
+	    add_execute_list_with_prefix("ranlib");
 	    if(options & AR_S)
 		add_execute_list("-f");
 	    else

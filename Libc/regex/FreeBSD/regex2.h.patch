@@ -1,6 +1,6 @@
---- regex2.h.orig	2005-04-19 14:43:24.000000000 -0700
-+++ regex2.h	2005-04-19 14:41:08.000000000 -0700
-@@ -124,16 +124,26 @@
+--- regex2.h.bsdnew	2009-11-11 11:29:04.000000000 -0800
++++ regex2.h	2009-11-11 12:18:35.000000000 -0800
+@@ -120,14 +120,23 @@ typedef struct {
  	int		nranges;
  	int		invert;
  	int		icase;
@@ -11,11 +11,8 @@
 +#include "collate.h"
 +
  static int
--CHIN1(cs, ch)
-+CHIN1(cs, ch, loc)
- cset *cs;
- wint_t ch;
-+locale_t loc;
+-CHIN1(cset *cs, wint_t ch)
++CHIN1(cset *cs, wint_t ch, locale_t loc)
  {
  	int i;
  
@@ -28,7 +25,7 @@
  	if (ch < NC)
  		return (((cs->bmp[ch >> 3] & (1 << (ch & 7))) != 0) ^
  		    cs->invert);
-@@ -144,26 +154,27 @@
+@@ -138,24 +147,24 @@ CHIN1(cset *cs, wint_t ch)
  		if (cs->ranges[i].min <= ch && ch <= cs->ranges[i].max)
  			return (!cs->invert);
  	for (i = 0; i < cs->ntypes; i++)
@@ -39,11 +36,8 @@
  }
  
  static __inline int
--CHIN(cs, ch)
-+CHIN(cs, ch, loc)
- cset *cs;
- wint_t ch;
-+locale_t loc;
+-CHIN(cset *cs, wint_t ch)
++CHIN(cset *cs, wint_t ch, locale_t loc)
  {
  
  	assert(ch >= 0);
@@ -62,7 +56,7 @@
  }
  
  /*
-@@ -193,8 +204,9 @@
+@@ -185,8 +194,9 @@ struct re_guts {
  	size_t nsub;		/* copy of re_nsub */
  	int backrefs;		/* does it use back references? */
  	sopno nplus;		/* how deep does it nest +s? */
@@ -70,7 +64,7 @@
  };
  
  /* misc utilities */
--#define	OUT	(-2)	/* a non-character value */
+-#define	OUT	(CHAR_MIN - 1)	/* a non-character value */
 -#define ISWORD(c)       (iswalnum((uch)(c)) || (c) == '_')
-+#define	OUT	(-130)	/* a non-character value */
++#define	OUT	(CHAR_MIN - 2)	/* a non-character value */
 +#define ISWORD(c,l)     (iswalnum_l((uch)(c), l) || (c) == '_')

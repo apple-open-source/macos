@@ -604,6 +604,12 @@ t2isakmpsa(trns, sa)
 				p = (u_char *)&d->lorv;
 			} else {	/*TLV*/
 				len = ntohs(d->lorv);
+				if (len > tlen) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "invalid ISAKMP-SA attr, attr-len %d, overall-len %d\n",
+						 len, tlen);
+					return -1;
+				}
 				p = (u_char *)(d + 1);
 			}
 			val = vmalloc(len);
@@ -3201,7 +3207,6 @@ ipsecdoi_setph2proposal(iph2)
 	return 0;
 }
 
-#ifdef __APPLE__
 /*
  * return 1 if all of the given protocols are tunnel mode.
  */
@@ -3244,7 +3249,6 @@ struct saprop *pp;
 	
 	return 0;
 }
-#endif
 
 /*
  * return 1 if all of the given protocols are transport mode.
@@ -3406,6 +3410,7 @@ ipsecdoi_subnetisaddr_v6( subnet, address )
 
 #endif
 
+#ifdef NOT_USED
 /*
  * Check and Compare two IDs
  * - specify 0 for exact if wildcards are allowed
@@ -3601,6 +3606,7 @@ cmpid_invalid:
 
 	return -1;
 }
+#endif
 
 /*
  * check the following:
@@ -3731,10 +3737,15 @@ ipsecdoi_checkid1(iph1)
 
 			switch (id->idtype) {
 			case IDTYPE_ASN1DN:
+#ifdef HAVE_OPENSSL
 				ident.v = iph1->id_p->v + sizeof(*id_b);
 				ident.l = iph1->id_p->l - sizeof(*id_b);
 				if (eay_cmp_asn1dn(ident0, &ident) == 0)
 					goto matched;
+#else
+					plog(LLV_WARNING, LOCATION, NULL, "ASN1DN ID matching not implemented - passed.\n");
+					goto matched;	//%%%%%% hack for now until we have code to do this.
+#endif
 				break;
 			case IDTYPE_ADDRESS:
 				sa = (struct sockaddr *)ident0->v;
@@ -3810,9 +3821,7 @@ ipsecdoi_setid1(iph1)
 		ident = getidval(iph1->rmconf->idvtype, iph1->rmconf->idv);
 		break;
 	case IDTYPE_KEYID:
-#ifdef __APPLE__
 	case IDTYPE_KEYIDUSE:
-#endif
 		id_b.type = IPSECDOI_ID_KEY_ID;
 		ident = getidval(iph1->rmconf->idvtype, iph1->rmconf->idv);
 		break;
@@ -3827,7 +3836,44 @@ ipsecdoi_setid1(iph1)
 					"failed to get own CERT.\n");
 				goto err;
 			}
+#if TARGET_OS_EMBEDDED
+			{
+				SecCertificateRef certificate;
+				CFDataRef subject;
+				UInt8* namePtr;
+				int len;
+				
+				certificate = crypto_cssm_x509cert_get_SecCertificateRef(&iph1->cert->cert);
+				if (certificate == NULL) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to get SecCertificateRef\n");
+					break;
+				}
+				subject = SecCertificateCopySubjectSequence(certificate);
+				if (subject == NULL) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to get subjectName\n");
+					CFRelease(certificate);
+					break;
+				}
+				len = CFDataGetLength(subject);
+				namePtr = CFDataGetBytePtr(subject);
+				ident = vmalloc(len);
+				if (ident == NULL) {
+					plog(LLV_ERROR, LOCATION, NULL,
+						 "failed to get subjectName\n");
+					CFRelease(certificate);
+					CFRelease(subject);
+					break;
+				}
+				memcpy(ident->v, namePtr, len);
+				CFRelease(certificate);
+				CFRelease(subject);
+				break;
+			}
+#else
 			ident = eay_get_x509asn1subjectname(&iph1->cert->cert);
+#endif
 		}
 		break;
 	case IDTYPE_ADDRESS:
@@ -3897,6 +3943,7 @@ ipsecdoi_setid1(iph1)
 
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"use ID type of %s\n", s_ipsecdoi_ident(id_b.type));
+	plogdump(LLV_DEBUG, iph1->id->v, iph1->id->l);
 	if (ident)
 		vfree(ident);
 	return 0;
@@ -3958,9 +4005,7 @@ set_identifier_qual(vpp, type, value, qual)
 				 "Empty %s\n", type == IDTYPE_FQDN ? "fqdn":"user fqdn");
 			return -1;
 		}
-#ifdef __APPLE__
 	case IDTYPE_KEYIDUSE:
-#endif
 #ifdef ENABLE_HYBRID
 	case IDTYPE_LOGIN:
 #endif
@@ -4043,6 +4088,7 @@ set_identifier_qual(vpp, type, value, qual)
 		break;
 	}
 	case IDTYPE_ASN1DN:
+#ifdef HAVE_OPENSSL
 		if (value->v[0] == '~')
 			/* Hex-encoded ASN1 strings */
 			new = eay_hex2asn1dn(value->v + 1, - 1);
@@ -4072,6 +4118,10 @@ set_identifier_qual(vpp, type, value, qual)
 			X509_NAME_free(xn);
 			BIO_free(bio);
 		}
+#else
+			plog(LLV_DEBUG, LOCATION, NULL, "Setting ID type ASN1DN from string not supported\n");
+			return -1;
+#endif
 
 		break;
 	}
@@ -4110,8 +4160,19 @@ ipsecdoi_setid2(iph2)
 			spidx2str(&sp->spidx));
 		return -1;
 	}
+	if ((((struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR ||
+		((struct ipsecdoi_id_b *)iph2->id->v)->type == IPSECDOI_ID_IPV4_ADDR_SUBNET) &&
+		iph2->side == RESPONDER &&
+		iph2->ph1 && (iph2->ph1->natt_flags & NAT_DETECTED_ME) &&
+		lcconf->ext_nat_id) {
+		vfree(iph2->id);
+		if (!(iph2->id = vdup(lcconf->ext_nat_id))) {
+			return -1;
+		}
+	}
 	plog(LLV_DEBUG, LOCATION, NULL, "use local ID type %s\n",
 		s_ipsecdoi_ident(((struct ipsecdoi_id_b *)iph2->id->v)->type));
+	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
 
 	/* remote side */
 	iph2->id_p = ipsecdoi_sockaddr2id((struct sockaddr *)&sp->spidx.dst,
@@ -4126,6 +4187,7 @@ ipsecdoi_setid2(iph2)
 	plog(LLV_DEBUG, LOCATION, NULL,
 		"use remote ID type %s\n",
 		s_ipsecdoi_ident(((struct ipsecdoi_id_b *)iph2->id_p->v)->type));
+	plogdump(LLV_DEBUG, iph2->id->v, iph2->id->l);
 
 	return 0;
 }
@@ -4316,9 +4378,7 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 	switch (id_b->type) {
 	case IPSECDOI_ID_IPV4_ADDR:
 	case IPSECDOI_ID_IPV4_ADDR_SUBNET:
-#ifndef __linux__
 		saddr->sa_len = sizeof(struct sockaddr_in);
-#endif
 		saddr->sa_family = AF_INET;
 		((struct sockaddr_in *)saddr)->sin_port =
 			(id_b->port == 0
@@ -4330,9 +4390,7 @@ ipsecdoi_id2sockaddr(buf, saddr, prefixlen, ul_proto)
 #ifdef INET6
 	case IPSECDOI_ID_IPV6_ADDR:
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
-#ifndef __linux__
 		saddr->sa_len = sizeof(struct sockaddr_in6);
-#endif
 		saddr->sa_family = AF_INET6;
 		((struct sockaddr_in6 *)saddr)->sin6_port =
 			(id_b->port == 0
@@ -4443,9 +4501,7 @@ ipsecdoi_id2str(id)
 	case IPSECDOI_ID_IPV4_ADDR_SUBNET:
 	case IPSECDOI_ID_IPV4_ADDR_RANGE:
 
-#ifndef __linux__
 		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in);
-#endif
 		((struct sockaddr *)&saddr)->sa_family = AF_INET;
 		((struct sockaddr_in *)&saddr)->sin_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in *)&saddr)->sin_addr,
@@ -4455,10 +4511,7 @@ ipsecdoi_id2str(id)
 	case IPSECDOI_ID_IPV6_ADDR:
 	case IPSECDOI_ID_IPV6_ADDR_SUBNET:
 	case IPSECDOI_ID_IPV6_ADDR_RANGE:
-
-#ifndef __linux__
 		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in6);
-#endif
 		((struct sockaddr *)&saddr)->sa_family = AF_INET6;
 		((struct sockaddr_in6 *)&saddr)->sin6_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
@@ -4540,9 +4593,7 @@ ipsecdoi_id2str(id)
 
 		len = snprintf( buf, sizeof(buf), "%s-", saddrwop2str((struct sockaddr *)&saddr));
 
-#ifndef __linux__
 		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in);
-#endif
 		((struct sockaddr *)&saddr)->sa_family = AF_INET;
 		((struct sockaddr_in *)&saddr)->sin_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in *)&saddr)->sin_addr,
@@ -4560,9 +4611,7 @@ ipsecdoi_id2str(id)
 
 		len = snprintf( buf, sizeof(buf), "%s-", saddrwop2str((struct sockaddr *)&saddr));
 
-#ifndef __linux__
 		((struct sockaddr *)&saddr)->sa_len = sizeof(struct sockaddr_in6);
-#endif
 		((struct sockaddr *)&saddr)->sa_family = AF_INET6;
 		((struct sockaddr_in6 *)&saddr)->sin6_port = IPSEC_PORT_ANY;
 		memcpy(&((struct sockaddr_in6 *)&saddr)->sin6_addr,
@@ -4591,11 +4640,13 @@ ipsecdoi_id2str(id)
 	case IPSECDOI_ID_DER_ASN1_DN:
 	case IPSECDOI_ID_DER_ASN1_GN:
 	{
+#ifdef HAVE_OPENSSL
 		X509_NAME *xn = NULL;
+#endif
 
 		dat = id->v + sizeof(*id_b);
 		len = id->l - sizeof(*id_b);
-
+#ifdef HAVE_OPENSSL
 		if (d2i_X509_NAME(&xn, (void*) &dat, len) != NULL) {
 			BIO *bio = BIO_new(BIO_s_mem());
 			X509_NAME_print_ex(bio, xn, 0, 0);
@@ -4605,7 +4656,10 @@ ipsecdoi_id2str(id)
 			memcpy(buf,dat,len);
 			BIO_free(bio);
 			X509_NAME_free(xn);
-		} else {
+		} else 
+#endif
+		{
+		
 			plog(LLV_ERROR, LOCATION, NULL,
 				"unable to extract asn1dn from id\n");
 

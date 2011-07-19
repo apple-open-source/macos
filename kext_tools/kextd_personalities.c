@@ -40,85 +40,31 @@
 #include "kextd_usernotification.h"
 #include "kextd_globals.h"
 
-OSReturn sendDirectoryPersonaltiesToKernel(
-    CFURLRef           directoryURL,
-    const NXArchInfo * arch);
-OSReturn sendCachedPersonalitiesToKernel(
-    CFURLRef           folderURL,
-    const NXArchInfo * arch);
+static OSReturn sendCachedPersonalitiesToKernel(Boolean resetFlag);
 
 /*******************************************************************************
 *******************************************************************************/
-OSReturn sendPersonalitiesToKernel(void)
+OSReturn sendSystemKextPersonalitiesToKernel(
+    CFArrayRef kexts,
+    Boolean    resetFlag)
 {
-    OSReturn   result                     = kOSReturnSuccess;  // optimistic
-    CFArrayRef systemExtensionsFolderURLs = NULL;  // need not release
-    CFIndex    count, i;
+    OSReturn          result         = kOSReturnSuccess;  // optimistic
+    CFArrayRef        personalities  = NULL;  // must release
+    CFMutableArrayRef authenticKexts = NULL; // must release
+    CFIndex           count, i;
 
-    systemExtensionsFolderURLs = OSKextGetSystemExtensionsFolderURLs();
-    if (!systemExtensionsFolderURLs ||
-        !CFArrayGetCount(systemExtensionsFolderURLs)) {
-
-        result = kOSReturnError;
-        goto finish;
-    }
-
-    count = CFArrayGetCount(systemExtensionsFolderURLs);
-    for (i = 0; i < count; i++) {
-        OSReturn directoryResult = sendDirectoryPersonaltiesToKernel(
-            CFArrayGetValueAtIndex(systemExtensionsFolderURLs, i),
-            gKernelArchInfo);
-        if (directoryResult != kOSReturnSuccess) {
-            result = kOSReturnError;
-        }
-    }
-
-finish:
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-OSReturn sendDirectoryPersonaltiesToKernel(
-    CFURLRef           directoryURL,
-    const NXArchInfo * arch)
-{
-    OSReturn          result                  = kOSReturnError;
-    char              directoryPath[PATH_MAX] = "";
-    CFArrayRef        kexts                   = NULL;  // must release
-    CFMutableArrayRef authenticKexts          = NULL;  // must release
-    CFIndex    count, i;
-
-    if (!CFURLGetFileSystemRepresentation(directoryURL,
-        /* resolveToBase */ true, (UInt8 *)directoryPath, sizeof(directoryPath))) {
-
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-
-   /* Note that we are going to finish on success here! If we
-    * sent personalities we are done.
+   /* Note that we are going to finish on success here!
+    * If we sent personalities we are done.
     * sendCachedPersonalitiesToKernel() logs a msg on failure.
     */
-    result = sendCachedPersonalitiesToKernel(directoryURL, arch);
+    result = sendCachedPersonalitiesToKernel(resetFlag);
     if (result == kOSReturnSuccess) {
         goto finish;
     }
-    // not sure we should try to rebuild the cache if the send to kernel fails
-    // sendCachedPersonalitiesToKernel logged a msg
-    // do not goto finish, try to send from kexts
 
    /* If we didn't send from cache, send from the kexts. This will cause
     * lots of I/O.
     */
-    kexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, directoryURL);
-    if (!kexts) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't read kexts from %s.", directoryPath);
-        goto finish;
-    }
-
     if (!createCFMutableArray(&authenticKexts, &kCFTypeArrayCallBacks)) {
         OSKextLogMemError();
         goto finish;
@@ -137,69 +83,72 @@ OSReturn sendDirectoryPersonaltiesToKernel(
         }
     }
 
-    result = OSKextSendPersonalitiesOfKextsToKernel(authenticKexts);
+    result = OSKextSendPersonalitiesOfKextsToKernel(authenticKexts,
+        resetFlag);
     if (result != kOSReturnSuccess) {
         goto finish;
     }
+
+    personalities = OSKextCopyPersonalitiesOfKexts(authenticKexts);
 
    /* Now try to write the cache file. Don't save the return value
     * of that function, we're more concerned with whether personalities
     * have actually gone to the kernel.
     */
-    writePersonalitiesCache(authenticKexts, /* arch */ gKernelArchInfo,
-        directoryURL);
+    _OSKextWriteCache(OSKextGetSystemExtensionsFolderURLs(),
+            CFSTR(kIOKitPersonalitiesKey), gKernelArchInfo,
+            _kOSKextCacheFormatIOXML, personalities);
 
 finish:
-    SAFE_RELEASE(kexts);
+    if (result != kOSReturnSuccess) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+           "Error: Couldn't send kext personalities to the IOCatalogue.");
+    } else if (personalities) {
+        OSKextLog(/* kext */ NULL,
+            kOSKextLogProgressLevel | kOSKextLogIPCFlag |
+            kOSKextLogKextBookkeepingFlag,
+            "Sent %ld kext personalities to the IOCatalogue.",
+            CFArrayGetCount(personalities));
+    }
+    SAFE_RELEASE(personalities);
     SAFE_RELEASE(authenticKexts);
-
     return result;
 }
 
 /*******************************************************************************
 *******************************************************************************/
-OSReturn sendCachedPersonalitiesToKernel(
-    CFURLRef           folderURL,
-    const NXArchInfo * arch)
+static OSReturn sendCachedPersonalitiesToKernel(Boolean resetFlag)
 {
-    OSReturn    result    = kOSReturnError;
-    CFDataRef   cacheData = NULL;  // must release
-    char        folderPath[PATH_MAX] = "";
+    OSReturn  result    = kOSReturnError;
+    CFDataRef cacheData = NULL;  // must release
     
-    if (!CFURLGetFileSystemRepresentation(folderURL,
-        /* resolveToBase */ true, (UInt8 *)folderPath, sizeof(folderPath))) {
-
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-
-    if (!_OSKextReadCache(folderURL, CFSTR(kIOKitPersonalitiesKey),
-        arch, _kOSKextCacheFormatIOXML, /* parseXML? */ false,
-        (CFPropertyListRef *)&cacheData)) {
+    if (!_OSKextReadCache(gRepositoryURLs, CFSTR(kIOKitPersonalitiesKey),
+        gKernelArchInfo, _kOSKextCacheFormatIOXML,
+        /* parseXML? */ false, (CFPropertyListRef *)&cacheData)) {
 
         goto finish;
     }
 
-    OSKextLog(/* kext */ NULL,
+    OSKextLogCFString(/* kext */ NULL,
         kOSKextLogProgressLevel | kOSKextLogIPCFlag |
         kOSKextLogKextBookkeepingFlag,
-        "Sending cached personalities for %s to IOCatalogue.",
-        folderPath);
+        CFSTR("%@"), CFSTR("Sending cached kext personalities to IOCatalogue."));
 
-    result = IOCatalogueSendData(kIOMasterPortDefault, kIOCatalogAddDrivers,
+    result = IOCatalogueSendData(kIOMasterPortDefault,
+        resetFlag ? kIOCatalogResetDrivers : kIOCatalogAddDrivers,
         (char *)CFDataGetBytePtr(cacheData), CFDataGetLength(cacheData));
     if (result != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-           "error: couldn't send personalities to the kernel");
+           "error: couldn't send personalities to the kernel.");
         goto finish;
-    } else {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogProgressLevel | kOSKextLogIPCFlag |
-            kOSKextLogKextBookkeepingFlag,
-            "Sent cached personalities for %s to the IOCatalogue.",
-            folderPath);
     }
+
+    OSKextLogCFString(/* kext */ NULL,
+        kOSKextLogProgressLevel | kOSKextLogIPCFlag |
+        kOSKextLogKextBookkeepingFlag,
+        CFSTR("%@"), CFSTR("Sent cached kext personalities to the IOCatalogue."));
     
     result = kOSReturnSuccess;
 

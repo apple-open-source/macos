@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  nestedimport.m
 //  testObjects
@@ -5,13 +11,11 @@
 //  Created by Blaine Garst on 6/24/08.
 //  Copyright 2008 Apple, Inc. All rights reserved.
 //
-// pure C nothing more needed
-// CONFIG 
-
+// TEST_CONFIG 
 
 #include <stdio.h>
 #include <stdlib.h>
-
+#include "test.h"
 
 int Global = 0;
 
@@ -19,7 +23,7 @@ void callVoidVoid(void (^closure)(void)) {
     closure();
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc, char **argv __unused) {
     int i = 1;
     
     void (^vv)(void) = ^{
@@ -31,9 +35,8 @@ int main(int argc, char *argv[]) {
     i = 2;
     vv();
     if (Global != 1) {
-        printf("%s: error, Global not set to captured value\n", argv[0]);
-        exit(1);
+        fail("Global not set to captured value");
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

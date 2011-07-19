@@ -29,13 +29,16 @@
 
 module window {
 
-    interface [OmitConstructor] Screen {
+    interface [
+        GenerateIsReachable=ImplFrame,
+        OmitConstructor
+    ] Screen {
         readonly attribute unsigned long height;
         readonly attribute unsigned long width;
         readonly attribute unsigned long colorDepth;
         readonly attribute unsigned long pixelDepth;
-        readonly attribute unsigned long availLeft;
-        readonly attribute unsigned long availTop;
+        readonly attribute long availLeft;
+        readonly attribute long availTop;
         readonly attribute unsigned long availHeight;
         readonly attribute unsigned long availWidth;
     };

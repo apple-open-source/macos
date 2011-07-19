@@ -7,7 +7,7 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: threadSvListCmd.c,v 1.10 2003/11/27 19:53:10 vasiljevic Exp $
+ * RCS: @(#) $Id: threadSvListCmd.c,v 1.11 2009/07/22 11:25:34 nijtmans Exp $
  * ----------------------------------------------------------------------------
  */
 
@@ -42,7 +42,7 @@ static Tcl_ObjCmdProc SvLsetObjCmd;      /* lset        */
  * I was just too lazy to rewrite them from scratch.
  */
 
-static int SvCheckBadOctal(Tcl_Interp*, char *);
+static int SvCheckBadOctal(Tcl_Interp*, const char *);
 static int SvGetIntForIndex(Tcl_Interp*,  Tcl_Obj *, int, int*);
 
 /*
@@ -132,7 +132,7 @@ SvLpopObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int ret, off, llen, index = 0, iarg = 0;
     Tcl_Obj *elPtr = NULL;
@@ -211,7 +211,7 @@ SvLpushObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int off, ret, flg, llen, index = 0;
     Tcl_Obj *args[1];
@@ -283,7 +283,7 @@ SvLappendObjCmd(arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int i, ret, flg, off;
     Tcl_Obj *dup;
@@ -343,9 +343,9 @@ SvLreplaceObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
-    char *firstArg;
+    const char *firstArg;
     int argLen, ret, off, llen, first, last, ndel, nargs, i, j;
     Tcl_Obj **args = NULL;
     Container *svObj = (Container*)arg;
@@ -440,7 +440,7 @@ SvLrangeObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int ret, off, llen, first, last, nargs, i, j;
     Tcl_Obj **elPtrs, **args;
@@ -521,7 +521,7 @@ SvLinsertObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int off, ret, flg, llen, nargs, index = 0, i, j;
     Tcl_Obj **args;
@@ -600,7 +600,7 @@ SvLlengthObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int llen, off, ret;
     Container *svObj = (Container*)arg;
@@ -650,10 +650,10 @@ SvLsearchObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     int ret, off, listc, mode, imode, ipatt, length, index, match, i;
-    char *patBytes;
+    const char *patBytes;
     Tcl_Obj **listv;
     Container *svObj = (Container*)arg;
 
@@ -706,7 +706,7 @@ SvLsearchObjCmd (arg, interp, objc, objv)
 
         case LS_EXACT: {
             int elemLen;
-            char *bytes = Tcl_GetStringFromObj(listv[i], &elemLen);
+            const char *bytes = Tcl_GetStringFromObj(listv[i], &elemLen);
             if (length == elemLen) {
                 match = (memcmp(bytes, patBytes, (size_t)length) == 0);
             }
@@ -756,7 +756,7 @@ SvLindexObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     Tcl_Obj **elPtrs;
     int ret, off, llen, index;
@@ -816,7 +816,7 @@ SvLsetObjCmd (arg, interp, objc, objv)
     ClientData arg;
     Tcl_Interp *interp;
     int objc;
-    Tcl_Obj *CONST objv[];
+    Tcl_Obj *const objv[];
 {
     Tcl_Obj *lPtr;
     int ret, argc, off;
@@ -918,9 +918,9 @@ SvCheckBadOctal(interp, value)
     Tcl_Interp *interp;     /* Interpreter to use for error reporting.
                              * If NULL, then no error message is left
                              * after errors. */
-    char *value;            /* String to check. */
+    const char *value;      /* String to check. */
 {
-    register char *p = value;
+    register const char *p = value;
 
     /*
      * A frequent mistake is invalid octal values due to an unwanted
@@ -975,7 +975,7 @@ SvGetIntForIndex(interp, objPtr, endValue, indexPtr)
     int *indexPtr;          /* Location filled in with an integer
                              * representing an index. */
 {
-    char *bytes;
+    const char *bytes;
     int length, offset;
 
     bytes = Tcl_GetStringFromObj(objPtr, &length);

@@ -46,6 +46,8 @@ static void ClearOFVariables(void);
 static void ClearOFVariable(const void *key,const void *value,void *context);
 static CFTypeRef ConvertValueToCFTypeRef(CFTypeID typeID, char *value);
 
+static void NVRamSyncNow(char *name);
+
 // Global Variables
 static char                *gToolName;
 static io_registry_entry_t gOptionsRef;
@@ -325,7 +327,7 @@ static void ParseXMLFile(char *fileName)
                     NULL,      
                     NULL,
                     &errorCode) || data == NULL ) {
-          errx(1, "Error reading XML file (%d)", errorCode);
+          errx(1, "Error reading XML file (%d)", (int)errorCode);
         }
 
         CFRelease(fileURL);
@@ -382,6 +384,7 @@ static void SetOrGetOFVariable(char *str)
     value = str;
     
     result = SetOFVariable(name, value);
+	NVRamSyncNow(name);			/* Try syncing the new data to device, best effort! */
     if (result != KERN_SUCCESS) {
       errx(1, "Error setting variable - '%s': %s", name,
            mach_error_string(result));
@@ -495,6 +498,10 @@ static void DeleteOFVariable(char *name)
   SetOFVariable(kIONVRAMDeletePropertyKey, name);
 }
 
+static void NVRamSyncNow(char *name)
+{
+  SetOFVariable(kIONVRAMSyncNowPropertyKey, name);
+}
 
 // PrintOFVariables()
 //

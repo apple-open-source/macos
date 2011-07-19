@@ -146,7 +146,7 @@ getsectbynamefromheaderwithswap(
 	sgp = (struct segment_command *)
 	      ((char *)mhp + sizeof(struct mach_header));
 	for(i = 0; i < mhp->ncmds; i++){
-	    if(sgp->cmd == (fSwap ? NXSwapLong(LC_SEGMENT) : LC_SEGMENT)) {
+	    if(sgp->cmd == (fSwap ? OSSwapInt32(LC_SEGMENT) : LC_SEGMENT)) {
 	    
 		if (fSwap) {
 #ifdef __LITTLE_ENDIAN__
@@ -182,7 +182,7 @@ getsectbynamefromheaderwithswap(
 		sgp = (struct segment_command *)((char *)sgp + sgp->cmdsize);
 	    } else {
 		sgp = (struct segment_command *)((char *)sgp +
-		    (fSwap ? NXSwapLong(sgp->cmdsize) : sgp->cmdsize));
+		    (fSwap ? OSSwapInt32(sgp->cmdsize) : sgp->cmdsize));
 	    }
 	}
 	return((struct section *)0);
@@ -254,6 +254,185 @@ unsigned long *size)
 	*size = sp->size;
 	return((char *)(sp->addr));
 }
+
+/*
+ * This routine returns the a pointer to the section contents of the named
+ * section in the named segment if it exists in the image pointed to by the
+ * mach header.  Otherwise it returns zero.
+ */
+#ifndef __LP64__
+
+uint8_t * 
+getsectiondata(
+const struct mach_header *mhp,
+const char *segname,
+const char *sectname,
+unsigned long *size)
+{
+    struct segment_command *sgp, *zero;
+    struct section *sp, *find;
+    uint32_t i, j;
+
+	zero = 0;
+	find = 0;
+	sp = 0;
+	sgp = (struct segment_command *)
+	      ((char *)mhp + sizeof(struct mach_header));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT){
+		if(zero == 0 && sgp->fileoff == 0 && sgp->nsects != 0){
+		    zero = sgp;
+		    if(find != 0)
+			goto done;
+		}
+		if(find == 0 &&
+		   strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0){
+		    sp = (struct section *)((char *)sgp +
+			 sizeof(struct segment_command));
+		    for(j = 0; j < sgp->nsects; j++){
+			if(strncmp(sp->sectname, sectname,
+			   sizeof(sp->sectname)) == 0 &&
+			   strncmp(sp->segname, segname,
+			   sizeof(sp->segname)) == 0){
+			    find = sp;
+			    if(zero != 0)
+				goto done;
+			}
+			sp = (struct section *)((char *)sp +
+			     sizeof(struct section));
+		    }
+		}
+	    }
+	    sgp = (struct segment_command *)((char *)sgp + sgp->cmdsize);
+	}
+	return(0);
+done:
+	*size = sp->size;
+	return((uint8_t *)((uintptr_t)mhp - zero->vmaddr + sp->addr));
+}
+
+uint8_t * 
+getsegmentdata(
+const struct mach_header *mhp,
+const char *segname,
+unsigned long *size)
+{
+    struct segment_command *sgp, *zero, *find;
+    uint32_t i;
+
+	zero = 0;
+	find = 0;
+	sgp = (struct segment_command *)
+	      ((char *)mhp + sizeof(struct mach_header));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT){
+		if(zero == 0 && sgp->fileoff == 0 && sgp->nsects != 0){
+		    zero = sgp;
+		    if(find != 0)
+			goto done;
+		}
+		if(find == 0 &&
+		   strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0){
+		    find = sgp;
+		    if(zero != 0)
+			goto done;
+		}
+	    }
+	    sgp = (struct segment_command *)((char *)sgp + sgp->cmdsize);
+	}
+	return(0);
+done:
+	*size = sgp->vmsize;
+	return((uint8_t *)((uintptr_t)mhp - zero->vmaddr + sgp->vmaddr));
+}
+
+#else /* defined(__LP64__) */
+
+uint8_t * 
+getsectiondata(
+const struct mach_header_64 *mhp,
+const char *segname,
+const char *sectname,
+unsigned long *size)
+{
+    struct segment_command_64 *sgp, *zero;
+    struct section_64 *sp, *find;
+    uint32_t i, j;
+
+	zero = 0;
+	find = 0;
+	sp = 0;
+	sgp = (struct segment_command_64 *)
+	      ((char *)mhp + sizeof(struct mach_header_64));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT_64){
+		if(zero == 0 && sgp->fileoff == 0 && sgp->nsects != 0){
+		    zero = sgp;
+		    if(find != 0)
+			goto done;
+		}
+		if(find == 0 &&
+		   strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0){
+		    sp = (struct section_64 *)((char *)sgp +
+			 sizeof(struct segment_command_64));
+		    for(j = 0; j < sgp->nsects; j++){
+			if(strncmp(sp->sectname, sectname,
+			   sizeof(sp->sectname)) == 0 &&
+			   strncmp(sp->segname, segname,
+			   sizeof(sp->segname)) == 0){
+			    find = sp;
+			    if(zero != 0)
+				goto done;
+			}
+			sp = (struct section_64 *)((char *)sp +
+			     sizeof(struct section_64));
+		    }
+		}
+	    }
+	    sgp = (struct segment_command_64 *)((char *)sgp + sgp->cmdsize);
+	}
+	return(0);
+done:
+	*size = sp->size;
+	return((uint8_t *)((uintptr_t)mhp - zero->vmaddr + sp->addr));
+}
+
+uint8_t * 
+getsegmentdata(
+const struct mach_header_64 *mhp,
+const char *segname,
+unsigned long *size)
+{
+    struct segment_command_64 *sgp, *zero, *find;
+    uint32_t i;
+
+	zero = 0;
+	find = 0;
+	sgp = (struct segment_command_64 *)
+	      ((char *)mhp + sizeof(struct mach_header_64));
+	for(i = 0; i < mhp->ncmds; i++){
+	    if(sgp->cmd == LC_SEGMENT_64){
+		if(zero == 0 && sgp->fileoff == 0 && sgp->nsects != 0){
+		    zero = sgp;
+		    if(find != 0)
+			goto done;
+		}
+		if(find == 0 &&
+		   strncmp(sgp->segname, segname, sizeof(sgp->segname)) == 0){
+		    find = sgp;
+		    if(zero != 0)
+			goto done;
+		}
+	    }
+	    sgp = (struct segment_command_64 *)((char *)sgp + sgp->cmdsize);
+	}
+	return(0);
+done:
+	*size = sgp->vmsize;
+	return((uint8_t *)((uintptr_t)mhp - zero->vmaddr + sgp->vmaddr));
+}
+
+#endif /* defined(__LP64__) */
 
 /*
  * This routine returns the a pointer to the data for the named section in the

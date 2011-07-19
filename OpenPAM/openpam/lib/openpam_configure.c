@@ -141,7 +141,7 @@ openpam_read_chain(pam_handle_t *pamh,
 	FILE *f;
 
 	if ((f = fopen(filename, "r")) == NULL) {
-		openpam_log(errno == ENOENT ? PAM_LOG_DEBUG : PAM_LOG_NOTICE,
+		openpam_log(errno == ENOENT ? PAM_LOG_LIBDEBUG : PAM_LOG_NOTICE,
 		    "%s: %m", filename);
 		return (0);
 	}

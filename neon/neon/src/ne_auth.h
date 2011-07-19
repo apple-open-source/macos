@@ -1,6 +1,6 @@
 /* 
    HTTP authentication routines
-   Copyright (C) 1999-2007, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -65,19 +65,35 @@ void ne_set_proxy_auth(ne_session *sess, ne_auth_creds creds, void *userdata);
  * to steal the credentials if using an unsecured channel
  * (i.e. non-SSL). */
 #define NE_AUTH_BASIC (0x0001)
+
 /* NE_AUTH_DIGEST: Digest authentication uses a hash of the username,
  * password, and certain aspects of the request, so prevents passive
  * attackers from obtaining the credentials; active attackers can
  * still modify most of the request/response if using an unsecured
  * channel. */ 
 #define NE_AUTH_DIGEST (0x0002)
-/* NE_AUTH_NEGOTIATE: Negotiate uses GSSAPI/SSPI to authenticate the
- * user; an active attacker can modify any of the request/response at
- * will, so this must not be used over an unsecured channel. */
+
+/* NE_AUTH_NEGOTIATE: Negotiate uses GSSAPI/SSPI, or NTLM, to
+ * authenticate the user; an active attacker can modify any of the
+ * request/response at will, so this must not be used over an
+ * unsecured channel.  NE_AUTH_NEGOTIATE is currently equivalent to
+ * use of (NE_AUTH_GSSAPI | NE_AUTH_NTLM). */
 #define NE_AUTH_NEGOTIATE (0x0004)
+
+/* NE_AUTH_GSSAPI: Use GSSAPI or SSPI to authenticate the user; an
+ * active attacker can modify any of the request/response at will, so
+ * this must not be used over an unsecured channel. */
+#define NE_AUTH_GSSAPI (0x0008)
+
+/* NE_AUTH_NTLM: Use NTLM to authenticate the user; an active attacker
+ * can modify any of the request/response at will, so this must not be
+ * used over an unsecured channel. */
+#define NE_AUTH_NTLM (0x0010)
+
 /* The default set of supported protocols, as deemed appropriate for
  * the given session scheme. */
 #define NE_AUTH_DEFAULT (0x1000)
+
 /* All protocols supported by the library. */
 #define NE_AUTH_ALL (0x2000)
 

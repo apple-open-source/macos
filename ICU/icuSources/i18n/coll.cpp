@@ -1,7 +1,7 @@
 /*
  ******************************************************************************
- * Copyright (C) 1996-2008, International Business Machines Corporation and   *
- * others. All Rights Reserved.                                               *
+ * Copyright (C) 1996-2010, International Business Machines Corporation and
+ * others. All Rights Reserved.
  ******************************************************************************
  */
 
@@ -235,8 +235,8 @@ Collator::createUCollator(const char *loc,
     if (status && U_SUCCESS(*status) && hasService()) {
         Locale desiredLocale(loc);
         Collator *col = (Collator*)gService->get(desiredLocale, *status);
-        if (col && col->getDynamicClassID() == RuleBasedCollator::getStaticClassID()) {
-            RuleBasedCollator *rbc = (RuleBasedCollator *)col;
+        RuleBasedCollator *rbc;
+        if (col && (rbc = dynamic_cast<RuleBasedCollator *>(col))) {
             if (!rbc->dataIsOwned) {
                 result = ucol_safeClone(rbc->ucollator, NULL, NULL, status);
             } else {
@@ -281,8 +281,8 @@ static UBool isAvailableLocaleListInitialized(UErrorCode &status) {
                 umtx_lock(NULL);
                 if (availableLocaleList == NULL)
                 {
-                    availableLocaleList = temp;
                     availableLocaleListCount = localeCount;
+                    availableLocaleList = temp;
                     temp = NULL;
                     ucln_i18n_registerCleanup(UCLN_I18N_COLLATOR, collator_cleanup);
                 } 
@@ -428,6 +428,28 @@ Collator::EComparisonResult Collator::compare(const UChar* source, int32_t sourc
 {
     UErrorCode ec = U_ZERO_ERROR;
     return (Collator::EComparisonResult)compare(source, sourceLength, target, targetLength, ec);
+}
+
+UCollationResult Collator::compare(UCharIterator &/*sIter*/,
+                                   UCharIterator &/*tIter*/,
+                                   UErrorCode &status) const {
+    if(U_SUCCESS(status)) {
+        // Not implemented in the base class.
+        status = U_UNSUPPORTED_ERROR;
+    }
+    return UCOL_EQUAL;
+}
+
+UCollationResult Collator::compareUTF8(const StringPiece &source,
+                                       const StringPiece &target,
+                                       UErrorCode &status) const {
+    if(U_FAILURE(status)) {
+        return UCOL_EQUAL;
+    }
+    UCharIterator sIter, tIter;
+    uiter_setUTF8(&sIter, source.data(), source.length());
+    uiter_setUTF8(&tIter, target.data(), target.length());
+    return compare(sIter, tIter, status);
 }
 
 UBool Collator::equals(const UnicodeString& source, 
@@ -721,7 +743,7 @@ public:
         if(index < availableLocaleListCount) {
             result = availableLocaleList[index++].getName();
             if(resultLength != NULL) {
-                *resultLength = uprv_strlen(result);
+                *resultLength = (int32_t)uprv_strlen(result);
             }
         } else {
             if(resultLength != NULL) {
@@ -785,6 +807,19 @@ Collator::getKeywordValues(const char *keyword, UErrorCode& status) {
     return new UStringEnumeration(uenum);
 }
 
+StringEnumeration* U_EXPORT2
+Collator::getKeywordValuesForLocale(const char* key, const Locale& locale,
+                                    UBool commonlyUsed, UErrorCode& status) {
+    // This is a wrapper over ucol_getKeywordValuesForLocale
+    UEnumeration *uenum = ucol_getKeywordValuesForLocale(key, locale.getName(),
+                                                        commonlyUsed, &status);
+    if (U_FAILURE(status)) {
+        uenum_close(uenum);
+        return NULL;
+    }
+    return new UStringEnumeration(uenum);
+}
+
 Locale U_EXPORT2
 Collator::getFunctionalEquivalent(const char* keyword, const Locale& locale,
                                   UBool& isAvailable, UErrorCode& status) {
@@ -796,6 +831,25 @@ Collator::getFunctionalEquivalent(const char* keyword, const Locale& locale,
         *loc = 0; // root
     }
     return Locale::createFromName(loc);
+}
+
+int32_t Collator::getReorderCodes(int32_t *dest,
+                                 int32_t destCapacity,
+                                 UErrorCode& status) const
+{
+    if (U_SUCCESS(status)) {
+        status = U_UNSUPPORTED_ERROR;
+    }
+    return 0;
+}
+
+void Collator::setReorderCodes(const int32_t *reorderCodes,
+                              int32_t reorderCodesLength,
+                              UErrorCode& status)
+{
+    if (U_SUCCESS(status)) {
+        status = U_UNSUPPORTED_ERROR;
+    }
 }
 
 // UCollator private data members ----------------------------------------

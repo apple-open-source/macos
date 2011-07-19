@@ -1,0 +1,295 @@
+Ver .92 -
+	Finally figured out how to generate an EOF on a terminal (stty 0 but 
+you knew that already ;). Whole module needs a spring cleaning but seems to be
+pretty functional. After the (later) introduction of a POSIX stty function the
+code involving stty should get a little cleaner.
+	Interact, interconnect and expect should all benefit from the EOF fix.
+interconnect also looks for FH exceptions, which it treats as EOFs.
+Ver .94 -
+	Think I fixed the problem of opening /dev/tty. Should work now. Also 
+fixed a typo which caused the initial value of Log_Stdout to be set wrong.
+Ver .95 -
+	Linux had this bizarre problem of stty occasionally not returning when
+setting raw -echo. My solution was to run it twice, once for raw and once for
+echo. The real solution is of course to write an stty function using the POSIX
+module.. any volunteers? :-)
+ver .96 -
+	Fixed a couple of idiot mistakes concerning DEBUG mode and printing
+debug info to STDERR. Changed some debugging spots so debugging info will 
+always be printed in readable escaped format rather than raw input.
+ver .97 -
+	Forced baud rate to get set at startup to make sure it wasn't set to 0
+and sending EOFs. Linux now hangs consistently. It will probably not work until
+I get to the stty module. Sigh. Time to stop being lazy :)
+	Also forced complete handle flushing after handles are opened. Probably
+a bit anal but I'd rather err on the side of safety.
+	After the stty problem gets fixed I'll probably change over eveything
+to use the IO::Pty module. 
+ver .972 -
+	Fixed setpgrp to be setsid. Oops. Processes opening /dev/tty should be
+much happier now.
+ver .98 -
+	Changed everything. Now requires IO::Tty and uses IO::Stty. This
+should make it work on any posix-supporting platform that includes a method
+of obtaining a pty. Got rid of the 'detach' stuff, as it cluttered stuff up
+too much. Do your own forking.
+	Default settings are now done by directly setting Expect::Values, such
+as $Expect::Debug and $Expect::Log_Stdout. Things now use 'spawn ids' and
+'handle ids' instead of handle numbers. This makes debugging a little more 
+sensible.
+	Though there may be more bugs in the ver. I'm hopeful it should prove
+to be much more stable, reliable, intuitive and portable than previously.
+ver .99 -
+	Changed expect() to return the index of the matched pattern + 1. This
+enables the 'quick and dirty'   $process->expect($timeout,'patern') || die;
+sort of behavior.
+ver 1.00 -
+	exp_close no longer sends an exp_kill() to the process. This was kind
+of a dumb thing to do in the first place. Processes should go away after they
+are close()d. In fact, there really isn't any point in using exp_close. Just
+use $process->close();. -This isn't true as of 1.03, where soft and hard close
+were added to help deal with buffering issues.
+ver 1.01 -
+	Dropped process still alive during expect. Sometimes the process dies
+before the handle finishes getting read. Fixed a typo that caused a response
+of 'child process died' if a successfull pattern had a null value.
+	Added the ability to do expect() literals instead of regular
+expressions. see $process->use_regexps and the package global 
+$Expect::Use_Regexps.
+	Fixed internals to work with the documented fashion for using file
+ojects. everything is internally represented as ${*$process}{exp_variable} 
+instead of ${*$process}{variable}. Pids should be checked with 
+$process->pid() now, since $process->{Pid} no longer exists.
+	exp_kill() is obsolete. Use kill($signal,$process->pid()).
+ver 1.02 -
+	Killed the $Expect::Use_Regexps stuff. Changed expect to look for '-re'
+strings indicating the subsequent pattern is to be matched as a regular
+expression.
+ver 1.03 -
+	Reworked expect() to make the code more fluid. Removed ~50 lines of
+cruft. Added soft_close() and hard_close() (see Expect.pod for details).
+ver 1.04 -
+	Made all handles exp_inited autoflush. IO::Pty does the spawned 
+processes for us. All regexp patterns passed to expect() are now 
+multiline matched-- this makes matching ^ work for the beginning of lines.
+Unfortunately due to limitations in perl matching $ as the end of a line
+doesn't work if you are being returned \r\n instead of just \n. In this case
+you can use \r?$ to match the end of a line.
+	exp_stty now checks to make sure the FH is a tty.
+ver 1.05 -
+	Added debug level '3'. Fixed/added to tutorial, fixed a couple of
+minor bugs.
+ver 1.06 -
+	Added exp_before(), exp_after(), exp_match(), exp_match_number(),
+exp_error().
+ver 1.07 -
+	Changed the ver by .01 so I could get it up on CPAN :P
+
+ver 1.08 -
+	Added multi-match functionality (see docu)  --Roland
+
+ver 1.09 -
+	Various small bugfixes: exp_before didn't get set on timeout,
+the expect call didn't return on matching EOF, spawn didn't die when
+exec failed, Expect crashed in certain cases.
+
+v1.10
+	I cannot believe it: a syntax error in Expect.pm slipped through 
+(probably when I changed the version number after testing the patches),
+forcing me to do anouther release. >:-(
+
+
+Expect v1.11
+============
+
+
+	Bugs fixed:
+
+! max_accum (match_max) finally really restricts the match-buffer-size.
+
+! expect() didn't return the correct error state upon EOF
+
+! soft_close() was re-reading the filehandle even when an EOF
+  had already been detected, resulting in a very long delay.
+
+! exp_continue() returned a value that got truncated with certain
+  perl versions (5.6 :-( ) on certain systems.
+
+
+	Features added:
+
++ Lee Eakin <leakin@japh.itg.ti.com>contributed a perl version of the
+  kibitz script which might be of common interest.  See the
+  examples/kibitz subdir.  Thanks Lee!
+
++ Expect got it's own print() so we can show what's getting
+  sent to the spawned program when exp_internal is set.
+  (suggested by horos@earth.he.net)
+
++ a session can now be logged to a file by setting log_file().  Thanks to
+  Marcel Widjaja <marcel.widjaja@sun.com> for suggesting this.
+
++ I added some aliases for certain methods to help Tcl/Expect users
+  to a WLIE experience (Work Like I Expect).  'exp_pid', 'match_max',
+  'log_file', 'log_user', even 'send' (which is an alias for 'print')
+  are all there now.  But I won't make 'send_user' an alias for
+  'print STDOUT', you have to draw a line somewhere.
+
++ some diagnosis messages now use cluck to print a stacktrace
+  (suggested by horos@earth.he.net)
+
++ there is a new option 'restart_timeout_upon_receive', that, when
+  set to 1, will restart the timeout within the expect call.  This is
+  useful when supervising an application that produces periodic, but
+  not well-defined output and you still want to react to certain
+  patterns.  Just say
+
+    $exp->restart_timeout_upon_receive(1);
+    $exp->expect($timeout,
+                 [ timeout => \&report_timeout ],
+		 [ qr/pattern/ => \&handle_pattern ]);
+
+  (suggested by horos@earth.he.net)
+
+
+Expect v1.12
+============
+
+! exp_Max_Accum didn't work for interact.
+
+- removed soft_close() from DESTROY.  Being overly nice to a doomed process
+  doesn't pay off.  Old behaviour is available via
+  $Expect::Do_Soft_Close = 1;
+
+! cleanup of log and exp_internal output
+
++ added various aliases for functions starting with 'exp_'
+
+! moved FAQ and intro into the main pod as I got the impression
+  that many users didn't bother to read all the documentation
+  or didn't know that it was there.
+
++ added a hook for log_file: can be set to a code ref.
+
+
+Expect v1.13
+============
+
+! changed tests to check out pty behaviour (max. string length)
+
++ added various FAQ entries
+
++ added autoflush(1) to log_file
+
++ split 'new' and 'spawn' to be able to set slave pty params via stty
+  before actually spawning the program
+
++ added slave_pty()
+
++ added print_log_file(), send() now no longer prints to log file or
+  stdout.
+
++ added alarm to test.pl to avoid blocking on cygwin.
+
+! spawn() now uses IO::Pty spawn, thus exec errors are reported and
+  ssh should work too!
+
+
+Expect v1.13_06
+===============
+
+! spawn is back again
+
++ rearranged and changed tests to better suit the various systems
+
++ added rudimentary 'notransfer' option; global only, not on
+  per-pattern-basis; workaround available in FAQ
+
++ timeout handlers now also can exp_continue
+
++ added 'raw_pty' option, also setting master to raw if isatty()
+
+
+Expect v1.13_07
+===============
+
++ added and corrected test for exit status; got rid of Test.pm
+
+! use 'set_raw' instead of stty("raw"); IO::Stty now optional
+
++ updated docs & FAQs; explained how terminal sizes and SIGWINCH
+  should be propagated
+
+
+Expect v1.13_08
+===============
+
+! fixed bug in log_file, parameter now gets set to undef.
+
+
+Expect v1.13_10 = v1.14
+=======================
+
+! fixed select in interconnect, may return -1 if interrupted by signal.
+
+
+Expect v1.15
+============
+
+! fixed bug in _multi_expect, pattern weren't tried against accum due
+  to exp_New_Data not set.
+
+
+Expect v1.16
+============
+
+! fixed hangup with pipe sync upon spawn by adding close-on-exec to pipe handle
+
+! fixed log_file(undef) when logging to CODE ref
+
+! fixed $? mangling in DESTROY by saving & restoring status
+
+! fixed hangup in send_slow
+
+! fixed ugly solaris hack by disabling it for raw ptys
+
++ added param check for expect()
+
+
+Expect v1.17
+============
+
+! fixed param check for expect() to allow expect(undef) et al
+
+
+Expect v1.18
+============
+
+! added another pipe to synchronize spawning. Closing the slave in the
+  parent can lead to a hang if the child already wrote something into
+  it...
+
+! fixed REs in test to deal with shell prompts
+
+Expect v1.19
+============
+
+! fixed non-localized usage of $_
+
++ added new example ssh.pl
+
+Expect v1.20
+============
+
++ added early return to send and send_slow if filehandle was closed
+
++ added test for send_slow
+
+! fixed bug in expect() param handling (exact pattern "0" was ignored)
+
+! fixed bug in _make_readable()
+
++ now included example ssh.pl in MANIFEST so it gets packaged :-(
+
+
+

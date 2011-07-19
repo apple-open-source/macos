@@ -65,6 +65,9 @@ option.
 Look up the kext whose CFBundleIdentifier is
 .Ar identifier
 within the set of known kexts and load it.
+The kext of the highest CFBundleVersion with the given identifier is used;
+in the case of version ties,
+the last such kext specified on the command line is used.
 See the
 .Fl dependency
 and

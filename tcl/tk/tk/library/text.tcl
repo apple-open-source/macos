@@ -208,20 +208,20 @@ bind Text <Return> {
     }
 }
 bind Text <Delete> {
-    if {[%W tag nextrange sel 1.0 end] ne ""} {
+    if {[tk::TextCursorInSelection %W]} {
 	%W delete sel.first sel.last
-    } else {
+    } elseif {[%W compare end != insert+1c]} {
 	%W delete insert
-	%W see insert
     }
+    %W see insert
 }
 bind Text <BackSpace> {
-    if {[%W tag nextrange sel 1.0 end] ne ""} {
+    if {[tk::TextCursorInSelection %W]} {
 	%W delete sel.first sel.last
     } elseif {[%W compare insert != 1.0]} {
 	%W delete insert-1c
-	%W see insert
     }
+    %W see insert
 }
 
 bind Text <Control-space> {
@@ -296,7 +296,7 @@ bind Text <Control-b> {
     }
 }
 bind Text <Control-d> {
-    if {!$tk_strictMotif} {
+    if {!$tk_strictMotif && [%W compare end != insert+1c]} {
 	%W delete insert
     }
 }
@@ -311,7 +311,7 @@ bind Text <Control-f> {
     }
 }
 bind Text <Control-k> {
-    if {!$tk_strictMotif} {
+    if {!$tk_strictMotif && [%W compare end != insert+1c]} {
 	if {[%W compare insert == {insert lineend}]} {
 	    %W delete insert
 	} else {
@@ -355,7 +355,7 @@ bind Text <Meta-b> {
     }
 }
 bind Text <Meta-d> {
-    if {!$tk_strictMotif} {
+    if {!$tk_strictMotif && [%W compare end != insert+1c]} {
 	%W delete insert [tk::TextNextWord %W insert]
     }
 }
@@ -742,7 +742,6 @@ proc ::tk::TextAutoScan {w} {
 # pos -		The desired new position for the cursor in the window.
 
 proc ::tk::TextSetCursor {w pos} {
-
     if {[$w compare $pos == end]} {
 	set pos {end - 1 chars}
     }
@@ -765,7 +764,6 @@ proc ::tk::TextSetCursor {w pos} {
 #		actually been moved to this position yet).
 
 proc ::tk::TextKeySelect {w new} {
-
     set anchorname [tk::TextAnchor $w]
     if {[$w tag nextrange sel 1.0 end] eq ""} {
 	if {[$w compare $new < insert]} {
@@ -847,6 +845,21 @@ proc ::tk::TextResetAnchor {w index} {
     }
 }
 
+# ::tk::TextCursorInSelection --
+# Check whether the selection exists and contains the insertion cursor. Note
+# that it assumes that the selection is contiguous.
+#
+# Arguments:
+# w -		The text widget whose selection is to be checked
+
+proc ::tk::TextCursorInSelection {w} {
+    expr {
+	[llength [$w tag ranges sel]]
+	&& [$w compare sel.first <= insert]
+	&& [$w compare sel.last >= insert]
+    }
+}
+
 # ::tk::TextInsert --
 # Insert a string into a text at the point of the insertion cursor.
 # If there is a selection in the text, and it covers the point of the
@@ -861,21 +874,17 @@ proc ::tk::TextInsert {w s} {
 	return
     }
     set compound 0
-    if {[llength [set range [$w tag ranges sel]]]} {
-	if {[$w compare [lindex $range 0] <= insert] \
-		&& [$w compare [lindex $range end] >= insert]} {
-	    set oldSeparator [$w cget -autoseparators]
-	    if {$oldSeparator} {
-		$w configure -autoseparators 0
-		$w edit separator
-		set compound 1
-	    }
-	    $w delete [lindex $range 0] [lindex $range end]
+    if {[TextCursorInSelection $w]} {
+	set compound [$w cget -autoseparators]
+	if {$compound} {
+	    $w configure -autoseparators 0
+	    $w edit separator
 	}
+	$w delete sel.first sel.last
     }
     $w insert insert $s
     $w see insert
-    if {$compound && $oldSeparator} {
+    if {$compound} {
 	$w edit separator
 	$w configure -autoseparators 1
     }

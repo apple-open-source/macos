@@ -3,7 +3,7 @@
 #
 #   See http://www.yaml.org/spec/1.1/
 #
-#   yaml.tcl,v 0.3.3 2008-06-05 17:51:27 KATO Kanryu(kanryu6@users.sourceforge.net)
+#   yaml.tcl,v 0.3.5 2009-05-24 11:52:34 KATO Kanryu(kanryu6@users.sourceforge.net)
 #
 #   It is published with the terms of tcllib's BSD-style license.
 #   See the file named license.terms.
@@ -16,7 +16,7 @@ if {$::tcl_version < 8.5} {
     package require dict
 }
 
-package provide yaml 0.3.3
+package provide yaml 0.3.5
 package require cmdline
 package require huddle
 
@@ -179,6 +179,8 @@ proc ::yaml::_getOption {argv} {
     set data(buffer) $buffer
     set data(start)  0
     set data(length) [string length $buffer]
+    set data(current) 0
+    set data(finished) 0
 }
 
 proc ::yaml::_imp_getOptions {{argvvar argv}} {
@@ -301,18 +303,23 @@ proc ::yaml::_toType {value} {
 # Block Node parser
 ####################
 proc ::yaml::_parseBlockNode {{status ""} {indent -1}} {
+    variable data
     set prev {}
     set result {}
     set scalar 0
     set pos 0
     set tag ""
     while {1} {
+        if {$data(finished) == 1} {
+            break
+        }
         _skipSpaces 1
         set type [_getc]
         set current [_getCurrent]
         if {$type eq "-"} {
             set cc "[_getc][_getc]"
             if {"$type$cc" eq "---" && $current == 0} {
+                set result {}
                 continue
             } else {
                 _ungetc 2
@@ -323,6 +330,22 @@ proc ::yaml::_parseBlockNode {{status ""} {indent -1}} {
                 # to compensate, except, of course, 
                 # if nested inside another block sequence.
                 incr current
+            }
+        }
+        if {$type eq "."} {
+            set cc "[_getc][_getc]"
+            if {"$type$cc" eq "..." && $current == 0} {
+                set data(finished) 1
+                break
+            } else {
+                _ungetc 2
+                
+#                 # [Spec]
+#                 # Since people perceive theg-hindicator as indentation, 
+#                 # nested block sequences may be indented by one less space 
+#                 # to compensate, except, of course, 
+#                 # if nested inside another block sequence.
+#                 incr current
             }
         }
         if {$type eq ""  || $current <= $indent} { ; # end document
@@ -570,7 +593,10 @@ proc ::yaml::_parseBlockIndicator {} {
 }
 
 # [162]    ns-plain-multi(n,c)
-proc ::yaml::_parsePlainScalarInBlock {base} {
+proc ::yaml::_parsePlainScalarInBlock {base {loop 0}} {
+    if {$loop == 5} { return }
+    variable data
+    set start $data(start)
     set reStr {(?:[^:#\t \n]*(?::[^\t \n]+)*(?:#[^\t \n]+)* *)*[^:#\t \n]*}
     set result [_getFoldedString $reStr]
 
@@ -589,13 +615,18 @@ proc ::yaml::_parsePlainScalarInBlock {base} {
             append lb "\n"
         }
         set lb [string range $lb 1 end]
-        _setpos $fpos
+        if {!$yaml::data(finished)} {
+            _setpos $fpos
+        }
+        if {$start == $data(start)} {
+            return $result
+        }
         if {$base <= $indent} {
             if {$lb eq ""} {
                 set lb " "
             }
-            set subs [_parsePlainScalarInBlock $base]
-            if {$subs ne ""} {
+            set subs [_parsePlainScalarInBlock $base [expr {$loop+1}]]
+           if {$subs ne ""} {
                 append result "$lb$subs"
             }
         }
@@ -907,8 +938,8 @@ proc ::yaml::_getFoldedString {reStr} {
     if {![info exists token]} {return}
     
     set len [string length $token]
-    if {[string first $token "\n"] >= 0} { ; # multi-line
-        set data(current) [expr {$len - [string last $token "\n"]}]
+    if {[string first "\n" $token] >= 0} { ; # multi-line
+        set data(current) [expr {$len - [string last "\n" $token]}]
     } else {
         incr data(current) $len
     }
@@ -963,10 +994,16 @@ proc ::yaml::_getLine {{scrolled 1}} {
         set pos $data(length)
     }
     set line [string range $data(buffer) $data(start) [expr {$pos-1}]]
+    if {$line eq "..." && $data(current) == 0} {
+        set data(finished) 1
+    }
     regexp {^( *)(.*)} $line nop space result
     if {$scrolled} {
         set data(start) [expr {$pos + 1}]
         set data(current) 0
+    }
+    if {$line == "" && $data(start) == $data(length)} {
+        set data(finished) 1
     }
     return [list [string length $space] [string index $result 0] $result]
 }
@@ -999,7 +1036,7 @@ proc ::yaml::_getc {{scrolled 1}} {
 
 proc ::yaml::_eof {} {
     variable data
-    return [expr {$data(start) == $data(length)}]
+    return [expr {$data(finished) || $data(start) == $data(length)}]
 }
 
 

@@ -1,0 +1,19 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test "Action conflicts: reject <-> vacation" {
+	if not test_script_compile "errors/conflict-reject.sieve" {
+		test_fail "compile failed";
+	}
+
+	if test_script_run {
+		test_fail "execution should have failed";
+	}
+
+	if test_error :count "gt" :comparator "i;ascii-numeric" "1" {
+		test_fail "too many runtime errors reported";
+	}
+}
+

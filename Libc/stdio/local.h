@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,7 +30,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)local.h	8.3 (Berkeley) 7/3/94
- * $FreeBSD: src/lib/libc/stdio/local.h,v 1.26 2004/07/16 05:52:51 tjr Exp $
+ * $FreeBSD: src/lib/libc/stdio/local.h,v 1.33 2008/05/05 16:03:52 jhb Exp $
  */
 
 #include <sys/cdefs.h>
@@ -56,10 +52,11 @@ extern fpos_t	_sseek(FILE *, fpos_t, int);
 extern int	_ftello(FILE *, fpos_t *);
 extern int	_fseeko(FILE *, off_t, int, int);
 extern int	__fflush(FILE *fp);
+extern void	__fcloseall(void);
 extern wint_t	__fgetwc(FILE *, locale_t);
 extern wint_t	__fputwc(wchar_t, FILE *, locale_t);
 extern int	__sflush(FILE *);
-extern FILE	*__sfp(int);		/* arg is whether to count against STREAM_MAX or not */
+extern FILE	*__sfp(int);
 extern void	__sfprelease(FILE *);	/* mark free and update count as needed */
 extern int	__slbexpand(FILE *, size_t);
 extern int	__srefill(FILE *);
@@ -85,13 +82,14 @@ extern int	__vfscanf(FILE *, const char *, __va_list) __DARWIN_LDBL_COMPAT(__vfs
 extern int	__vfwprintf(FILE *, locale_t, const wchar_t *, __va_list) __DARWIN_LDBL_COMPAT(__vfwprintf);
 extern int	__vfwscanf(FILE * __restrict, locale_t, const wchar_t * __restrict,
 		    __va_list) __DARWIN_LDBL_COMPAT(__vfwscanf);
-
+extern size_t	__fread(void * __restrict buf, size_t size, size_t count,
+		FILE * __restrict fp);
 extern int	__sdidinit;
 
 
 /* hold a buncha junk that would grow the ABI */
 struct __sFILEX {
-	unsigned char	*_up;	/* saved _p when _p is doing ungetc data */
+	unsigned char	*up;	/* saved _p when _p is doing ungetc data */
 	pthread_mutex_t	fl_mutex;	/* used for MT-safety */
 	pthread_t	fl_owner;	/* current owner */
 	int		fl_count;	/* recursive lock count */
@@ -99,6 +97,24 @@ struct __sFILEX {
 	int		counted:1;	/* stream counted against STREAM_MAX */
 	mbstate_t	mbstate;	/* multibyte conversion state */
 };
+
+#define _up 		_extra->up
+#define _fl_mutex	_extra->fl_mutex
+#define _fl_owner	_extra->fl_owner
+#define _fl_count	_extra->fl_count
+#define _orientation	_extra->orientation
+#define _mbstate	_extra->mbstate
+#define _counted	_extra->counted
+
+#define	INITEXTRA(fp) do { \
+	(fp)->_extra->up = NULL; \
+	(fp)->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER; \
+	(fp)->_extra->fl_owner = NULL; \
+	(fp)->_extra->fl_count = 0; \
+	(fp)->_extra->orientation = 0; \
+	memset(&(fp)->_extra->mbstate, 0, sizeof(mbstate_t)); \
+	(fp)->_extra->counted = 0; \
+} while(0);
 
 /*
  * Prepare the given FILE for writing, and return 0 iff it
@@ -129,20 +145,11 @@ struct __sFILEX {
 	(fp)->_lb._base = NULL; \
 }
 
-#define	INITEXTRA(fp) { \
-	(fp)->_extra->_up = NULL; \
-	(fp)->_extra->fl_mutex = (pthread_mutex_t)PTHREAD_MUTEX_INITIALIZER; \
-	(fp)->_extra->fl_owner = NULL; \
-	(fp)->_extra->fl_count = 0; \
-	(fp)->_extra->orientation = 0; \
-	memset(&(fp)->_extra->mbstate, 0, sizeof(mbstate_t)); \
-}
-
 /*
  * Set the orientation for a stream. If o > 0, the stream has wide-
  * orientation. If o < 0, the stream has byte-orientation.
  */
 #define	ORIENT(fp, o)	do {				\
-	if ((fp)->_extra->orientation == 0)		\
-		(fp)->_extra->orientation = (o);	\
+	if ((fp)->_orientation == 0)			\
+		(fp)->_orientation = (o);		\
 } while (0)

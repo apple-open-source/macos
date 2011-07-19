@@ -29,15 +29,22 @@
 #include "JSArray.h"
 #include "JSString.h"
 #include "Lexer.h"
-#include "StringBuilder.h"
+#include "UStringBuilder.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/dtoa.h>
 
 namespace JSC {
 
+static inline bool isJSONWhiteSpace(const UChar& c)
+{
+    // The JSON RFC 4627 defines a list of allowed characters to be considered
+    // insignificant white space: http://www.ietf.org/rfc/rfc4627.txt (2. JSON Grammar).
+    return c == ' ' || c == 0x9 || c == 0xA || c == 0xD;
+}
+
 LiteralParser::TokenType LiteralParser::Lexer::lex(LiteralParserToken& token)
 {
-    while (m_ptr < m_end && isASCIISpace(*m_ptr))
+    while (m_ptr < m_end && isJSONWhiteSpace(*m_ptr))
         ++m_ptr;
 
     ASSERT(m_ptr <= m_end);
@@ -135,7 +142,7 @@ template <LiteralParser::ParserMode mode> inline LiteralParser::TokenType Litera
 {
     ++m_ptr;
     const UChar* runStart;
-    StringBuilder builder;
+    UStringBuilder builder;
     do {
         runStart = m_ptr;
         while (m_ptr < m_end && isSafeStringCharacter<mode>(*m_ptr))
@@ -200,7 +207,7 @@ template <LiteralParser::ParserMode mode> inline LiteralParser::TokenType Litera
     if (m_ptr >= m_end || *m_ptr != '"')
         return TokError;
 
-    token.stringToken = builder.build();
+    token.stringToken = builder.toUString();
     token.type = TokString;
     token.end = ++m_ptr;
     return TokString;
@@ -366,7 +373,7 @@ JSValue LiteralParser::parse(ParserState initialState)
             }
             case DoParseObjectEndExpression:
             {
-                asObject(objectStack.last())->putDirect(identifierStack.last(), lastValue);
+                asObject(objectStack.last())->putDirect(m_exec->globalData(), identifierStack.last(), lastValue);
                 identifierStack.removeLast();
                 if (m_lexer.currentToken().type == TokComma)
                     goto doParseObjectStartExpression;
@@ -393,7 +400,7 @@ JSValue LiteralParser::parse(ParserState initialState)
                     case TokNumber: {
                         Lexer::LiteralParserToken numberToken = m_lexer.currentToken();
                         m_lexer.next();
-                        lastValue = jsNumber(m_exec, numberToken.numberToken);
+                        lastValue = jsNumber(numberToken.numberToken);
                         break;
                     }
                     case TokNull:

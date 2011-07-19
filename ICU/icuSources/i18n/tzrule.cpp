@@ -1,9 +1,11 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007, International Business Machines Corporation and         *
-* others. All Rights Reserved.                                                *
+* Copyright (C) 2007-2010, International Business Machines Corporation and
+* others. All Rights Reserved.
 *******************************************************************************
 */
+
+#include <typeinfo>  // for 'typeid' to work
 
 #include "unicode/utypes.h"
 
@@ -52,7 +54,7 @@ TimeZoneRule::operator=(const TimeZoneRule& right) {
 UBool
 TimeZoneRule::operator==(const TimeZoneRule& that) const {
     return ((this == &that) ||
-            (getDynamicClassID() == that.getDynamicClassID() &&
+            (typeid(*this) == typeid(that) &&
             fName == that.fName &&
             fRawOffset == that.fRawOffset &&
             fDSTSavings == that.fDSTSavings));
@@ -82,7 +84,7 @@ TimeZoneRule::getDSTSavings(void) const {
 UBool
 TimeZoneRule::isEquivalentTo(const TimeZoneRule& other) const {
     return ((this == &other) ||
-            (getDynamicClassID() == other.getDynamicClassID() &&
+            (typeid(*this) == typeid(other) &&
             fRawOffset == other.fRawOffset &&
             fDSTSavings == other.fDSTSavings));
 }
@@ -119,7 +121,7 @@ InitialTimeZoneRule::operator=(const InitialTimeZoneRule& right) {
 UBool
 InitialTimeZoneRule::operator==(const TimeZoneRule& that) const {
     return ((this == &that) ||
-            (getDynamicClassID() == that.getDynamicClassID() &&
+            (typeid(*this) == typeid(that) &&
             TimeZoneRule::operator==(that)));
 }
 
@@ -133,8 +135,7 @@ InitialTimeZoneRule::isEquivalentTo(const TimeZoneRule& other) const {
     if (this == &other) {
         return TRUE;
     }
-    if (getDynamicClassID() != other.getDynamicClassID() ||
-        TimeZoneRule::isEquivalentTo(other) == FALSE) {
+    if (typeid(*this) != typeid(other) || TimeZoneRule::isEquivalentTo(other) == FALSE) {
         return FALSE;
     }
     return TRUE;
@@ -155,7 +156,7 @@ InitialTimeZoneRule::getFinalStart(int32_t /*prevRawOffset*/,
 }
 
 UBool
-InitialTimeZoneRule::getNextStart(const UDate /*base*/,
+InitialTimeZoneRule::getNextStart(UDate /*base*/,
                                  int32_t /*prevRawOffset*/,
                                  int32_t /*prevDSTSavings*/,
                                  UBool /*inclusive*/,
@@ -164,7 +165,7 @@ InitialTimeZoneRule::getNextStart(const UDate /*base*/,
 }
 
 UBool
-InitialTimeZoneRule::getPreviousStart(const UDate /*base*/,
+InitialTimeZoneRule::getPreviousStart(UDate /*base*/,
                                      int32_t /*prevRawOffset*/,
                                      int32_t /*prevDSTSavings*/,
                                      UBool /*inclusive*/,
@@ -228,7 +229,7 @@ AnnualTimeZoneRule::operator==(const TimeZoneRule& that) const {
     if (this == &that) {
         return TRUE;
     }
-    if (getDynamicClassID() != that.getDynamicClassID()) {
+    if (typeid(*this) != typeid(that)) {
         return FALSE;
     }
     AnnualTimeZoneRule *atzr = (AnnualTimeZoneRule*)&that;
@@ -320,8 +321,7 @@ AnnualTimeZoneRule::isEquivalentTo(const TimeZoneRule& other) const {
     if (this == &other) {
         return TRUE;
     }
-    if (getDynamicClassID() != other.getDynamicClassID() ||
-        TimeZoneRule::isEquivalentTo(other) == FALSE) {
+    if (typeid(*this) != typeid(other) || TimeZoneRule::isEquivalentTo(other) == FALSE) {
         return FALSE;
     }
     AnnualTimeZoneRule* that = (AnnualTimeZoneRule*)&other;
@@ -348,7 +348,7 @@ AnnualTimeZoneRule::getFinalStart(int32_t prevRawOffset,
 }
 
 UBool
-AnnualTimeZoneRule::getNextStart(const UDate base,
+AnnualTimeZoneRule::getNextStart(UDate base,
                                  int32_t prevRawOffset,
                                  int32_t prevDSTSavings,
                                  UBool inclusive,
@@ -372,7 +372,7 @@ AnnualTimeZoneRule::getNextStart(const UDate base,
 }
 
 UBool
-AnnualTimeZoneRule::getPreviousStart(const UDate base,
+AnnualTimeZoneRule::getPreviousStart(UDate base,
                                      int32_t prevRawOffset,
                                      int32_t prevDSTSavings,
                                      UBool inclusive,
@@ -448,8 +448,7 @@ TimeArrayTimeZoneRule::operator==(const TimeZoneRule& that) const {
     if (this == &that) {
         return TRUE;
     }
-    if (getDynamicClassID() != that.getDynamicClassID()
-        || TimeZoneRule::operator==(that) == FALSE) {
+    if (typeid(*this) != typeid(that) || TimeZoneRule::operator==(that) == FALSE) {
         return FALSE;
     }
     TimeArrayTimeZoneRule *tatzr = (TimeArrayTimeZoneRule*)&that;
@@ -497,8 +496,7 @@ TimeArrayTimeZoneRule::isEquivalentTo(const TimeZoneRule& other) const {
     if (this == &other) {
         return TRUE;
     }
-    if (getDynamicClassID() != other.getDynamicClassID()
-        || TimeZoneRule::isEquivalentTo(other) == FALSE) {
+    if (typeid(*this) != typeid(other) || TimeZoneRule::isEquivalentTo(other) == FALSE) {
         return FALSE;
     }
     TimeArrayTimeZoneRule* that = (TimeArrayTimeZoneRule*)&other;
@@ -540,7 +538,7 @@ TimeArrayTimeZoneRule::getFinalStart(int32_t prevRawOffset,
 }
 
 UBool
-TimeArrayTimeZoneRule::getNextStart(const UDate base,
+TimeArrayTimeZoneRule::getNextStart(UDate base,
                                     int32_t prevRawOffset,
                                     int32_t prevDSTSavings,
                                     UBool inclusive,
@@ -560,7 +558,7 @@ TimeArrayTimeZoneRule::getNextStart(const UDate base,
 }
 
 UBool
-TimeArrayTimeZoneRule::getPreviousStart(const UDate base,
+TimeArrayTimeZoneRule::getPreviousStart(UDate base,
                                         int32_t prevRawOffset,
                                         int32_t prevDSTSavings,
                                         UBool inclusive,

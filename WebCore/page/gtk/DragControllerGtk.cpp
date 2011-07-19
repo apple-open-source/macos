@@ -42,7 +42,7 @@ const int DragController::DragIconBottomInset = 3;
 
 const float DragController::DragImageAlpha = 0.75f;
 
-bool DragController::isCopyKeyDown()
+bool DragController::isCopyKeyDown(DragData*)
 {
     return false;
 }
@@ -50,7 +50,7 @@ bool DragController::isCopyKeyDown()
 DragOperation DragController::dragOperation(DragData* dragData)
 {
     //FIXME: This logic is incomplete
-     if (dragData->containsURL())
+     if (dragData->containsURL(0))
         return DragOperationCopy;
 
     return DragOperationNone;
@@ -58,8 +58,7 @@ DragOperation DragController::dragOperation(DragData* dragData)
 
 const IntSize& DragController::maxDragImageSize()
 {
-    static const IntSize maxDragImageSize(400, 400);
-
+    static const IntSize maxDragImageSize(200, 200);
     return maxDragImageSize;
 }
 

@@ -43,6 +43,11 @@ WebSerializedScriptValue WebSerializedScriptValue::fromString(const WebString& s
     return SerializedScriptValue::createFromWire(s);
 }
 
+WebSerializedScriptValue WebSerializedScriptValue::createInvalid()
+{
+    return SerializedScriptValue::create();
+}
+
 void WebSerializedScriptValue::reset()
 {
     m_private.reset();

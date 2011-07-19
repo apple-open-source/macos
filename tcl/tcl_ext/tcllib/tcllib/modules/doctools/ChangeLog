@@ -1,3 +1,221 @@
+2010-07-06  Andreas Kupries  <andreask@activestate.com>
+
+	* checker.tcl: [RFE 2915921] Accepted the RFE, adding
+	* mpformats/fmt.wiki: commands to portably write em- and
+	* mpformats/fmt.text: en-dashes. Bumped version to 1.4.10.
+	* mpformats/fmt.latex:
+	* mpformats/fmt.tmml:
+	* mpformats/fmt.html:
+	* mpformats/fmt.nroff:
+	* mpformats/fmt.null:
+	* doctools.man: 
+	* pkgIndex.tcl:
+	* doctools.tcl:
+
+2010-06-17  Andreas Kupries  <andreask@activestate.com>
+
+	* mpformats/fmt.html: Tweaked formatting of images when no
+	* mpformats/fmt.latex: data was found. Especially for HTML
+	* mpformats/fmt.text: accept http and ftp uris and format
+	* mpformats/fmt.wiki: them as links, allowing the embedding
+	* mpformats/fmt.nroff: of images without requiring a local
+	* doctools.man: file. Bumped version to 1.4.9
+	* pkgIndex.tcl:
+	* doctools.tcl:
+
+2010-06-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* doctools.tcl: Extended the plugin API to the image map to
+	* mpformats/fmt.nroff: allow querying the image data instead of
+	* mpformats/fmt.wiki: its paths. Fixed the nroff, wiki, and text
+	* mpformats/fmt.text: plugins to use this new command, as they
+	* doctools_plugin_apiref.man: are in a restricted environment
+	* doctools.man: which does not allow them to 'open' files on their
+	* pkgIndex.tcl: own. Documented the command now. nroff further
+	  extended to accept .txt images as well as .pic, and do a bit of
+	  formatting of their own to make them fit (.nf/.fi). Version
+	  bumped to 1.4.8.
+
+	* ../../apps/dtplite: Fixes for problems with the handling of
+	  relative paths. Version bumped to 1.0.2.
+
+2010-06-08  Andreas Kupries  <andreask@activestate.com>
+
+	* ../../apps/dtplite: Fix the min version requirements.
+
+	* checker.tcl: Added 'image' command to doctools, and the
+	* doctools.man: various backends. Bumped to version 1.4.7.
+	* doctools_lang_cmdref.man: Images are specified through
+	* doctools.tcl: symbolic name. Tools like dtp(lite) specify
+	* pkgIndex.tcl: possible mappings, and the backends select
+	* mpformats/fmt.html: a proper variant (png, jpeg, text, ...)
+	* mpformats/fmt.latex: or fallback to a 'here should be this
+	* mpformats/fmt.nroff: image' markup, if no proper variant
+	* mpformats/fmt.null: for them was found.
+	* mpformats/fmt.wiki:
+	* mpformats/fmt.text: Future/Todo - Recognize uris as symbolic
+	* mpformats/_html.tcl: name and treat as external reference.
+	* ../../apps/dtplite:
+
+	* docidx.man: Added missing dt_package and restricted 'file'
+	* docidx.tcl: support to doctool::toc and doctools::idx. Versions
+	* doctoc.man: bumped to 1.1.3 and 1.0.4.
+	* doctoc.tcl: 
+	* pkgIndex.tcl: 
+
+	* mpformats/toc.text: Fixed command names using various textutil
+	* mpformats/idx.text: functionality.
+
+2010-02-05  Andreas Kupries  <andreask@activestate.com>
+
+	* checker.tcl: Gave the checking layer access to dt_file,
+	* doctools.tcl: and extended it to provide the file name
+	* doctools.man: as part of the location information in
+	* doctools.test: errors and warnings. Bumped version to
+	* pkgIndex.tcl: 1.4.6.
+
+2010-02-04  Andreas Kupries  <andreask@activestate.com>
+
+	* doctools.tcl: Extended with new plugin API command
+	* doctools.man: [dt_mainfile], which always returns 
+	* doctools_plugin_apiref.man: the toplevel file currently
+	* pkgIndex.tcl: processed, in contrast to [dt_file] which
+	  returns the currently processed file, which may be included.
+	  Bumped version to 1.4.5.
+
+	* mpformats/fmt.html: Fixed bug in inter-document link generation
+	  caused by computing links relative to the active (include) file,
+	  instead of the toplevel.
+
+2009-12-09  Andreas Kupries  <andreask@activestate.com>
+
+	* doctools.tcl: Bumped version to 1.4.4.
+	* doctools.man: 
+	* pkgIndex.tcl:
+
+	* mpformats/fmt.html: Extended to support the engine variable
+	* doctools.test: 'raw' (boolean flag). The default is off, causing
+	  the engine to generate the full html, as usual. If set, the
+	  engine will generate only the HTML normally between the <body>
+	  and </body> tags, excluding these two tags. This allows for
+	  easier embedding of the result in other HTML. Thanks to Jos
+	  DeCoster for the idea. Extended the testsuite to cover raw mode
+	  results.
+
+	* mpformats/fmt.wiki: Thanks to Jos DeCoster for updating the Wiki
+	* tests/wiki/00: formatter to generate text making better use of
+	* tests/wiki/01: Wikit's new features, and also fixing bugs in the
+	* tests/wiki/02: use of the older features. Updated test results.
+	* tests/wiki/03:
+	* tests/wiki/04:
+	* tests/wiki/05:
+	* tests/wiki/06:
+	* tests/wiki/07:
+	* tests/wiki/08:
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-07-21  Andreas Kupries  <andreask@activestate.com>
+
+	* doctools.tcl: Fixed @mdgen instructions, added forgotten
+	  ownership reference to man.macros. See ActiveState Bug 83781,
+	  reported by Nicolas Castagne. Bumped to version 1.4.3.
+	* docidx.tcl: See above, bumped to version 1.0.3.
+	* doctoc.tcl: See above, bumped to version 1.1.2.
+
+2009-03-30  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* checker.tcl (manpage): Added new markup command for document
+	  references (manpage). For now formatted like a 'term'.
+
+	* doctools.tcl: Fixed handling of include files. Search relative
+	* doctools.man: to processed file, and run the command through
+	  'subst' first, to resolve embedded commands (vset uses). Bumped
+	  to version 1.4.2.
+
+	* docidx.tcl: Fixed handling of include files. Search relative
+	* docidx.man: to processed file, and run the command through
+	  'subst' first, to resolve embedded commands (vset uses). Bumped
+	  to version 1.0.2
+
+	* doctoc.tcl: Fixed handling of include files. Search relative
+	* doctoc.man: to processed file, and run the command through
+	  'subst' first, to resolve embedded commands (vset uses). Bumped
+	  to version 1.1.1.
+
+	* docidx_lang_syntax.man: Added notes about command arguments.
+
+2009-02-11  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* checker_toc.tcl: TOC language extended to allow empty tocs, empty
+	* docidx.test: divisions, and the mixing of items and divisions at
+	* doctoc.tcl: every level. Extended testsuite. Updated documentation.
+	* doctoc.test: Bumped version to 1.1. Fixed bug in the documentation
+	* doctoc_lang_cmdref.man: of markup command 'item' (arguments were
+	* doctoc_lang_intro.man: missing).
+	* doctoc_lang_syntax.man:
+	* doctoc.man:
+	* pkgIndex.tcl:
+
+2009-02-10  Andreas Kupries  <andreask@activestate.com>
+
+	* checker_idx.tcl (index_end): Allow empty index (no keys).
+	* docidx.tcl: Bumped package to vrsion 1.0.1. Updated the
+	* docidx.test: documentation, where not already in alignment.
+	* docidx_lang_intro.man: Extended testsuite. Fixed small typo
+	* docidx_lang_syntax.man: orthogonal to this change.
+	* pkgIndex.tcl: Fixes [SF Tcllib Bug 2557107].
+
+2009-01-29  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* docidx.tcl: Extended the plugin APIs for all formats with a new
+	* docidx_plugin_apiref.man: command "dt_read" to read a file's
+	* doctoc.tcl: contents into a plugin. Modified the nroff plugins
+	* doctoc_plugin_apiref.man: to inline the man.macros file into
+	* doctools.tcl: their result instead of generating a
+	* doctools.test: '.so man.macros' command. Stuart Cassoff
+	* doctools_plugin_apiref.man: <stwo@users.sourceforge.net> did the
+	* mpformats/_nroff.tcl: work and provided the patches as part of
+	* mpformats/fmt.nroff: his effort on making a Tcllib OpenBSD port.
+	* mpformats/idx.nroff: 
+	* mpformats/toc.nroff:
+
+2009-01-28  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* checker.tcl: Fixed bug in handling 'category' command. Bumped
+	* doctools.tcl: version to 1.4.1
+	* doctools.man:
+	* pkgIndex.tcl:
+
+	* changelog.man: Added 'category' information to all manpages.
+	* cvs.man:
+	* docidx.man:
+	* docidx_intro.man:
+	* docidx_lang_cmdref.man:
+	* docidx_lang_faq.man:
+	* docidx_lang_intro.man:
+	* docidx_lang_syntax.man:
+	* docidx_plugin_apiref.man:
+	* doctoc.man:
+	* doctoc_intro.man:
+	* doctoc_lang_cmdref.man:
+	* doctoc_lang_faq.man:
+	* doctoc_lang_intro.man:
+	* doctoc_lang_syntax.man:
+	* doctoc_plugin_apiref.man:
+	* doctools.man:
+	* doctools_intro.man:
+	* doctools_lang_cmdref.man:
+	* doctools_lang_faq.man:
+	* doctools_lang_intro.man:
+	* doctools_lang_syntax.man:
+	* doctools_plugin_apiref.man:
+	* mpexpand.man:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

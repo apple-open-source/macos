@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -177,6 +177,25 @@ IOBlockStorageDevice::doAsyncReadWrite(IOMemoryDescriptor *buffer,
     }
 }
 #endif /* !__LP64__ */
+
+IOReturn
+IOBlockStorageDevice::doLockUnlockMedia(bool doLock)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOBlockStorageDevice::reportLockability(bool *isLockable)
+{
+    return(kIOReturnUnsupported);
+}
+
+IOReturn
+IOBlockStorageDevice::reportPollRequirements(bool *pollRequired,
+                                             bool *pollIsExpensive)
+{
+    return(kIOReturnUnsupported);
+}
 
 IOReturn
 IOBlockStorageDevice::requestIdle(void)

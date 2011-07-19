@@ -1,0 +1,2049 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$653|Class tclClass1: {superclass_1} {
+    constructor
+    #     /*!
+    #     Attribute 1
+    #  */
+    attribute my_att_1
+    # /*!
+    #     Attribute 2
+    #  */
+    attribute my_att_2
+    # /*!
+    #     Attribute 3
+    #  */
+    attribute my_att_3
+    method cm1
+    method cm2
+}
+
+# /*!
+#     tclClass1 contructor
+#  */
+constructor tclClass1 { arg_1 arg_2 } {
+	contents of constructor do not matter.
+}
+
+# /*!
+#     cm1 in class tclClass1
+#  */
+method tclClass1::cm1 { arg_1 arg_2 } {
+	contents of constructor do not matter.
+}
+
+# /*!
+#     cm2 in class tclClass1
+#  */
+method tclClass1::cm2 { arg_1 arg_2 } {
+	contents of constructor do not matter.
+}
+
+
+$33|# /*!
+#     Class number 1
+#  */
+$0|$17560|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/TCL_class_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/TCL_class_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => tclClass1
+$parserState->{forceClassSuper} =>  {superclass_1} 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 11
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => tcl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{pendingBracedParameters} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => Class
+$parserState->{returntype} => Class tclClass1: { superclass_1 } 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => tclClass1
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => Class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 0
+$parserState->{storeDec} => 
+$parserState->{sublang} => tcl
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 11
+typelist: class
+namelist: tclClass1
+posstypes: superclass_1
+value: 
+returntype: superclass_1
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => superclass_1
+-=: DUMP OF PARSE TREE :=-
++---Class
++--- 
++---tclClass1
++---:
++--- 
++---{
+|   +---superclass_1
+|   +---}
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-constructor (HAS STATE)
+|   +---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 1
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_1
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 2
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_2
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 3
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_3
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm1
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm2
+|   +---[ NEWLINE ]
+|   +---}
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: TCL class 1
+APIUID: //test_ref/doc/header/TCL_class_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: tclClass1
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>Class number 1
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/tcl/cl/superclass_1" machineGenerated="true" -->superclass_1<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/TCL_class_1.test" target="_top" machineGenerated="true">TCL class 1</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_1
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 1"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_2
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 2"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_3
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 3"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: tclClass1 (HeaderDoc::CPPClass)
++---Class
++--- 
++---tclClass1
++---:
++--- 
++---{
+|   +---superclass_1
+|   +---}
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-constructor (HAS STATE)
+|   +---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 1
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_1
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 2
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_2
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 3
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_3
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm1
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm2
+|   +---[ NEWLINE ]
+|   +---}
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: my_att_1 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_1
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 2
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_2
++---[ NEWLINE ]
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 3
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: my_att_2 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_2
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 3
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: my_att_3 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: tclClass1 (HeaderDoc::CPPClass)
+	<!-- a logicalPath="//test_ref/tcl/econst/Class //test_ref/tcl/data/Class //test_ref/tcl/clconst/Class " machineGenerated="true" --><span class="var">Class</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/cl/tclClass1 //test_ref/tcl/tdef/tclClass1 //test_ref/tcl/tag/tclClass1 //test_ref/tcl/struct/tclClass1 //test_ref/tcl/intf/tclClass1 //test_ref/doc/anysymbol/tclClass1" machineGenerated="true" --><span class="type">tclClass1</span><!-- /a -->: {
+	    <span class="param">superclass_1</span>
+	} {
+	    <span class="keyword">constructor</span> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 1</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_1 //test_ref/tcl/clm/my_att_1 //test_ref/tcl/intfcm/my_att_1 //test_ref/tcl/intfm/my_att_1 //test_ref/tcl/func/my_att_1 //test_ref/tcl/ftmplt/my_att_1 //test_ref/tcl/defn/my_att_1 //test_ref/tcl/macro/my_att_1 //test_ref/doc/anysymbol/my_att_1" machineGenerated="true" --><span class="function">my_att_1</span><!-- /a --> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 2</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_2 //test_ref/tcl/clm/my_att_2 //test_ref/tcl/intfcm/my_att_2 //test_ref/tcl/intfm/my_att_2 //test_ref/tcl/func/my_att_2 //test_ref/tcl/ftmplt/my_att_2 //test_ref/tcl/defn/my_att_2 //test_ref/tcl/macro/my_att_2 //test_ref/doc/anysymbol/my_att_2" machineGenerated="true" --><span class="function">my_att_2</span><!-- /a --> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 3</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_3 //test_ref/tcl/clm/my_att_3 //test_ref/tcl/intfcm/my_att_3 //test_ref/tcl/intfm/my_att_3 //test_ref/tcl/func/my_att_3 //test_ref/tcl/ftmplt/my_att_3 //test_ref/tcl/defn/my_att_3 //test_ref/tcl/macro/my_att_3 //test_ref/doc/anysymbol/my_att_3" machineGenerated="true" --><span class="function">my_att_3</span><!-- /a --> <span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/cm1 //test_ref/tcl/clm/cm1 //test_ref/tcl/intfcm/cm1 //test_ref/tcl/intfm/cm1 //test_ref/tcl/func/cm1 //test_ref/tcl/ftmplt/cm1 //test_ref/tcl/defn/cm1 //test_ref/tcl/macro/cm1 //test_ref/doc/anysymbol/cm1" machineGenerated="true" --><span class="function">cm1</span><!-- /a --> <span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/cm2 //test_ref/tcl/clm/cm2 //test_ref/tcl/intfcm/cm2 //test_ref/tcl/intfm/cm2 //test_ref/tcl/func/cm2 //test_ref/tcl/ftmplt/cm2 //test_ref/tcl/defn/cm2 //test_ref/tcl/macro/cm2 //test_ref/doc/anysymbol/cm2" machineGenerated="true" --><span class="function">cm2</span><!-- /a --> 
+	} 
+END OF OBJECT
+
+
+OBJECT: my_att_1 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_1 //test_ref/tcl/data/tclClass1/my_att_1 //test_ref/tcl/data/my_att_1 //test_ref/tcl/clconst/tclClass1/my_att_1 " machineGenerated="true" --><span class="var">my_att_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: my_att_2 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_2 //test_ref/tcl/data/tclClass1/my_att_2 //test_ref/tcl/data/my_att_2 //test_ref/tcl/clconst/tclClass1/my_att_2 " machineGenerated="true" --><span class="var">my_att_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: my_att_3 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_3 //test_ref/tcl/data/tclClass1/my_att_3 //test_ref/tcl/data/my_att_3 //test_ref/tcl/clconst/tclClass1/my_att_3 " machineGenerated="true" --><span class="var">my_att_3</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$37651|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/TCL_class_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/TCL_class_1.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => tclClass1
+$parserState->{forceClassSuper} =>  {superclass_1} 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 11
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => tcl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{pendingBracedParameters} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => Class
+$parserState->{returntype} => Class tclClass1: { superclass_1 } 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => tclClass1
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => Class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 0
+$parserState->{storeDec} => 
+$parserState->{sublang} => tcl
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 11
+typelist: class
+namelist: tclClass1
+posstypes: superclass_1
+value: 
+returntype: superclass_1
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => superclass_1
+-=: DUMP OF PARSE TREE :=-
++---Class
++--- 
++---tclClass1
++---:
++--- 
++---{
+|   +---superclass_1
+|   +---}
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-constructor (HAS STATE)
+|   +---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 1
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_1
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 2
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_2
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 3
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_3
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm1
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm2
+|   +---[ NEWLINE ]
+|   +---}
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: TCL class 1
+APIUID: //test_ref/doc/header/TCL_class_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: tclClass1
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>Class number 1
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/tcl/cl/superclass_1" machineGenerated="true" -->superclass_1<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/TCL_class_1.test" target="_top" machineGenerated="true">TCL class 1</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: constructor
+        APIUID: //test_ref/tcl/instm/tclClass1/constructor/constructor/()
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "    constructor"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: cm1
+        APIUID: //test_ref/tcl/instm/tclClass1/cm1//()
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: cm2
+        APIUID: //test_ref/tcl/instm/tclClass1/cm2//()
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: tclClass1
+        APIUID: //test_ref/tcl/instm/tclClass1/tclClass1//(arg_1,arg_2)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Class number 1
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "default_function_group"
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected:"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_1
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_2
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: cm1
+        APIUID: //test_ref/tcl/instm/tclClass1/cm1/tclClass1::/(arg_1,arg_2)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Class number 1
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "default_function_group"
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected:"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " tclClass1 ::"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_1
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_2
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: cm2
+        APIUID: //test_ref/tcl/instm/tclClass1/cm2/tclClass1::/(arg_1,arg_2)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Class number 1
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "default_function_group"
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "protected:"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " tclClass1 ::"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_1
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  arg_2
+            APIUID: //test_ref/tcl/internal_temporary_object/tclClass1
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_1
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_1
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 1"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_2
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_2
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 2"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: my_att_3
+        APIUID: //test_ref/tcl/data/tclClass1/my_att_3
+        ABSTRACT: ""
+        DISCUSSION: "<p>Attribute 3"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "attribute"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: tclClass1 (HeaderDoc::CPPClass)
++---Class
++--- 
++---tclClass1
++---:
++--- 
++---{
+|   +---superclass_1
+|   +---}
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-constructor (HAS STATE)
+|   +---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 1
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_1
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 2
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_2
+|   +---[ NEWLINE ]
+|   +---#
+|   |   +---/*
+|   |   +---!
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---Attribute
+|   |   +--- 3
+|   |   +---[ NEWLINE ]
+|   +---#
+|   |   +---*/
+|   |   +---[ NEWLINE ]
+|   +---    
+|   +-*-attribute (HAS STATE)
+|   +--- 
+|   +---my_att_3
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm1
+|   +---[ NEWLINE ]
+|   +---    
+|   +-*-method (HAS STATE)
+|   +--- 
+|   +---cm2
+|   +---[ NEWLINE ]
+|   +---}
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: constructor (HeaderDoc::Function)
++-*-constructor (HAS STATE)
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 1
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_1
++---[ NEWLINE ]
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 2
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_2
++---[ NEWLINE ]
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 3
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: cm1 (HeaderDoc::Function)
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: cm2 (HeaderDoc::Function)
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---}
+END OF OBJECT
+
+
+OBJECT: tclClass1 (HeaderDoc::Function)
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---tclClass1
+|   +--- contructor
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---constructor
++--- 
++---tclClass1
++--- 
++---{
+|   +--- 
+|   +---arg_1
+|   +--- 
+|   +---arg_2
+|   +--- 
+|   +---}
++--- 
+END OF OBJECT
+
+
+OBJECT: cm1 (HeaderDoc::Function)
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---cm1
+|   +--- in class tclClass1
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---method
++--- 
++---tclClass1
++---::
++---cm1
++--- 
++---{
+|   +--- 
+|   +---arg_1
+|   +--- 
+|   +---arg_2
+|   +--- 
+|   +---}
++--- 
+END OF OBJECT
+
+
+OBJECT: cm2 (HeaderDoc::Function)
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---cm2
+|   +--- in class tclClass1
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---method
++--- 
++---tclClass1
++---::
++---cm2
++--- 
++---{
+|   +--- 
+|   +---arg_1
+|   +--- 
+|   +---arg_2
+|   +--- 
+|   +---}
++--- 
+END OF OBJECT
+
+
+OBJECT: my_att_1 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_1
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 2
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_2
++---[ NEWLINE ]
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 3
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: my_att_2 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_2
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---#
+|   +---/*
+|   +---!
+|   +---[ NEWLINE ]
++---#
+|   +---Attribute
+|   +--- 3
+|   +---[ NEWLINE ]
++---#
+|   +---*/
+|   +---[ NEWLINE ]
++---    
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: my_att_3 (HeaderDoc::Var)
++-*-attribute (HAS STATE)
++--- 
++---my_att_3
++---[ NEWLINE ]
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---    
++-*-method (HAS STATE)
++--- 
++---cm1
++---[ NEWLINE ]
++---    
++-*-method (HAS STATE)
++--- 
++---cm2
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: tclClass1 (HeaderDoc::CPPClass)
+	<!-- a logicalPath="//test_ref/tcl/econst/Class //test_ref/tcl/data/Class //test_ref/tcl/clconst/Class " machineGenerated="true" --><span class="var">Class</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/cl/tclClass1 //test_ref/tcl/tdef/tclClass1 //test_ref/tcl/tag/tclClass1 //test_ref/tcl/struct/tclClass1 //test_ref/tcl/intf/tclClass1 //test_ref/doc/anysymbol/tclClass1" machineGenerated="true" --><span class="type">tclClass1</span><!-- /a -->: {
+	    <span class="param">superclass_1</span>
+	} {
+	    <span class="keyword">constructor</span> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 1</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_1 //test_ref/tcl/clm/my_att_1 //test_ref/tcl/intfcm/my_att_1 //test_ref/tcl/intfm/my_att_1 //test_ref/tcl/func/my_att_1 //test_ref/tcl/ftmplt/my_att_1 //test_ref/tcl/defn/my_att_1 //test_ref/tcl/macro/my_att_1 //test_ref/doc/anysymbol/my_att_1" machineGenerated="true" --><span class="function">my_att_1</span><!-- /a --> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 2</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_2 //test_ref/tcl/clm/my_att_2 //test_ref/tcl/intfcm/my_att_2 //test_ref/tcl/intfm/my_att_2 //test_ref/tcl/func/my_att_2 //test_ref/tcl/ftmplt/my_att_2 //test_ref/tcl/defn/my_att_2 //test_ref/tcl/macro/my_att_2 //test_ref/doc/anysymbol/my_att_2" machineGenerated="true" --><span class="function">my_att_2</span><!-- /a --> <span class="comment">#/*!</span> 
+	    <span class="comment">#Attribute 3</span> 
+	    <span class="comment">#*/</span> 
+	    <!-- a logicalPath="//test_ref/tcl/instm/attribute //test_ref/tcl/clm/attribute //test_ref/tcl/intfcm/attribute //test_ref/tcl/intfm/attribute //test_ref/tcl/func/attribute //test_ref/tcl/ftmplt/attribute //test_ref/tcl/defn/attribute //test_ref/tcl/macro/attribute //test_ref/doc/anysymbol/attribute" machineGenerated="true" --><span class="function">attribute</span><!-- /a --> <!-- a logicalPath="//test_ref/tcl/instm/my_att_3 //test_ref/tcl/clm/my_att_3 //test_ref/tcl/intfcm/my_att_3 //test_ref/tcl/intfm/my_att_3 //test_ref/tcl/func/my_att_3 //test_ref/tcl/ftmplt/my_att_3 //test_ref/tcl/defn/my_att_3 //test_ref/tcl/macro/my_att_3 //test_ref/doc/anysymbol/my_att_3" machineGenerated="true" --><span class="function">my_att_3</span><!-- /a --> <span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/cm1 //test_ref/tcl/clm/cm1 //test_ref/tcl/intfcm/cm1 //test_ref/tcl/intfm/cm1 //test_ref/tcl/func/cm1 //test_ref/tcl/ftmplt/cm1 //test_ref/tcl/defn/cm1 //test_ref/tcl/macro/cm1 //test_ref/doc/anysymbol/cm1" machineGenerated="true" --><span class="function">cm1</span><!-- /a --> <span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/cm2 //test_ref/tcl/clm/cm2 //test_ref/tcl/intfcm/cm2 //test_ref/tcl/intfm/cm2 //test_ref/tcl/func/cm2 //test_ref/tcl/ftmplt/cm2 //test_ref/tcl/defn/cm2 //test_ref/tcl/macro/cm2 //test_ref/doc/anysymbol/cm2" machineGenerated="true" --><span class="function">cm2</span><!-- /a --> 
+	} 
+END OF OBJECT
+
+
+OBJECT: constructor (HeaderDoc::Function)
+	<span class="keyword">constructor</span> 
+END OF OBJECT
+
+
+OBJECT: cm1 (HeaderDoc::Function)
+	<span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/tclClass1/cm1 //test_ref/tcl/clm/tclClass1/cm1 //test_ref/tcl/intfcm/tclClass1/cm1 //test_ref/tcl/intfm/tclClass1/cm1 //test_ref/tcl/func/cm1 //test_ref/tcl/ftmplt/tclClass1/cm1 //test_ref/tcl/defn/cm1 //test_ref/tcl/macro/cm1 //test_ref/doc/anysymbol/cm1" machineGenerated="true" --><span class="function">cm1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: cm2 (HeaderDoc::Function)
+	<span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/tclClass1/cm2 //test_ref/tcl/clm/tclClass1/cm2 //test_ref/tcl/intfcm/tclClass1/cm2 //test_ref/tcl/intfm/tclClass1/cm2 //test_ref/tcl/func/cm2 //test_ref/tcl/ftmplt/tclClass1/cm2 //test_ref/tcl/defn/cm2 //test_ref/tcl/macro/cm2 //test_ref/doc/anysymbol/cm2" machineGenerated="true" --><span class="function">cm2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: tclClass1 (HeaderDoc::Function)
+	<span class="comment">#/*!</span> 
+	<span class="comment">#tclClass1 contructor</span> 
+	<span class="comment">#*/</span> 
+	<span class="keyword">constructor</span> <!-- a logicalPath="//test_ref/tcl/instm/tclClass1/tclClass1 //test_ref/tcl/clm/tclClass1/tclClass1 //test_ref/tcl/intfcm/tclClass1/tclClass1 //test_ref/tcl/intfm/tclClass1/tclClass1 //test_ref/tcl/func/tclClass1 //test_ref/tcl/ftmplt/tclClass1/tclClass1 //test_ref/tcl/defn/tclClass1 //test_ref/tcl/macro/tclClass1 //test_ref/doc/anysymbol/tclClass1" machineGenerated="true" --><span class="function">tclClass1</span><!-- /a --> {
+	    <span class="param">arg_1</span> 
+	    <span class="param">arg_2</span> 
+	} 
+END OF OBJECT
+
+
+OBJECT: cm1 (HeaderDoc::Function)
+	<span class="comment">#/*!</span> 
+	<span class="comment">#cm1 in class tclClass1</span> 
+	<span class="comment">#*/</span> 
+	<span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/tclClass1/tclClass1 //test_ref/tcl/clm/tclClass1/tclClass1 //test_ref/tcl/intfcm/tclClass1/tclClass1 //test_ref/tcl/intfm/tclClass1/tclClass1 //test_ref/tcl/func/tclClass1 //test_ref/tcl/ftmplt/tclClass1/tclClass1 //test_ref/tcl/defn/tclClass1 //test_ref/tcl/macro/tclClass1 //test_ref/doc/anysymbol/tclClass1" machineGenerated="true" --><span class="function">tclClass1</span><!-- /a -->::<!-- a logicalPath="//test_ref/tcl/instm/tclClass1/cm1 //test_ref/tcl/clm/tclClass1/cm1 //test_ref/tcl/intfcm/tclClass1/cm1 //test_ref/tcl/intfm/tclClass1/cm1 //test_ref/tcl/func/cm1 //test_ref/tcl/ftmplt/tclClass1/cm1 //test_ref/tcl/defn/cm1 //test_ref/tcl/macro/cm1 //test_ref/doc/anysymbol/cm1" machineGenerated="true" --><span class="function">cm1</span><!-- /a --> {
+	    <span class="param">arg_1</span> 
+	    <span class="param">arg_2</span> 
+	} 
+END OF OBJECT
+
+
+OBJECT: cm2 (HeaderDoc::Function)
+	<span class="comment">#/*!</span> 
+	<span class="comment">#cm2 in class tclClass1</span> 
+	<span class="comment">#*/</span> 
+	<span class="keyword">method</span> <!-- a logicalPath="//test_ref/tcl/instm/tclClass1/tclClass1 //test_ref/tcl/clm/tclClass1/tclClass1 //test_ref/tcl/intfcm/tclClass1/tclClass1 //test_ref/tcl/intfm/tclClass1/tclClass1 //test_ref/tcl/func/tclClass1 //test_ref/tcl/ftmplt/tclClass1/tclClass1 //test_ref/tcl/defn/tclClass1 //test_ref/tcl/macro/tclClass1 //test_ref/doc/anysymbol/tclClass1" machineGenerated="true" --><span class="function">tclClass1</span><!-- /a -->::<!-- a logicalPath="//test_ref/tcl/instm/tclClass1/cm2 //test_ref/tcl/clm/tclClass1/cm2 //test_ref/tcl/intfcm/tclClass1/cm2 //test_ref/tcl/intfm/tclClass1/cm2 //test_ref/tcl/func/cm2 //test_ref/tcl/ftmplt/tclClass1/cm2 //test_ref/tcl/defn/cm2 //test_ref/tcl/macro/cm2 //test_ref/doc/anysymbol/cm2" machineGenerated="true" --><span class="function">cm2</span><!-- /a --> {
+	    <span class="param">arg_1</span> 
+	    <span class="param">arg_2</span> 
+	} 
+END OF OBJECT
+
+
+OBJECT: my_att_1 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_1 //test_ref/tcl/data/tclClass1/my_att_1 //test_ref/tcl/data/my_att_1 //test_ref/tcl/clconst/tclClass1/my_att_1 " machineGenerated="true" --><span class="var">my_att_1</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: my_att_2 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_2 //test_ref/tcl/data/tclClass1/my_att_2 //test_ref/tcl/data/my_att_2 //test_ref/tcl/clconst/tclClass1/my_att_2 " machineGenerated="true" --><span class="var">my_att_2</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: my_att_3 (HeaderDoc::Var)
+	<span class="keyword">attribute</span> <!-- a logicalPath="//test_ref/tcl/econst/my_att_3 //test_ref/tcl/data/tclClass1/my_att_3 //test_ref/tcl/data/my_att_3 //test_ref/tcl/clconst/tclClass1/my_att_3 " machineGenerated="true" --><span class="var">my_att_3</span><!-- /a --> 
+END OF OBJECT
+
+
+
+$15|TCL class test
+$93|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/TCL_class_1.test$3|tcl$11|TCL class 1$3|tcl$6|parser

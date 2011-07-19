@@ -157,7 +157,7 @@
 		29B97313FDCFA39411CA2CEA /* Project object */ = {
 			isa = PBXProject;
 			buildConfigurationList = 4D2267290ABF74BD004C5C31 /* Build configuration list for PBXProject "CocoaApp" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.0";
 			hasScannedForEncodings = 1;
 			mainGroup = 29B97314FDCFA39411CA2CEA /* «PROJECTNAMEASXML» */;
 			projectDirPath = "";
@@ -229,6 +229,11 @@
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
 				PREBINDING = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ARCHS = (
+					ppc,
+					i386,
+				);
 			};
 			name = Release;
 		};
@@ -251,12 +256,15 @@
 		4D22672F0ABF74BD004C5C31 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				INFOPLIST_FILE = Info.plist;
 				INSTALL_PATH = "$(HOME)/Applications";
 				PRODUCT_NAME = "«PROJECTNAME»";
 				WRAPPER_EXTENSION = app;
+				ARCHS = (
+					ppc,
+					i386,
+				);
 			};
 			name = Release;
 		};

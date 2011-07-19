@@ -22,6 +22,7 @@
  */
 
 
+#include <mach/mach.h>
 #include <dns_sd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,6 +31,7 @@
 #include <errno.h>
 
 #include "LKDCHelper.h"
+#include "LKDCHelper-main.h"
 #include "LKDCHelper-lookup.h"
 
 typedef struct _lookupContext {
@@ -40,6 +42,16 @@ typedef struct _lookupContext {
 
 // Lookup timeout for LKDC.  The following constant is certain to be "wrong"
 #define LKDC_DNS_TIMEOUT	11
+
+static LKDCLocator localRealm = {
+	.next = NULL,
+	.realmName = NULL,
+	.serviceHost = "localhost",
+	.servicePort = 88,
+	.ttl = 0,
+	.absoluteTTL = 0
+};
+
 
 static LKDCHelperErrorType HandleEvents(DNSServiceRef serviceRef, lookupContext *context)
 {
@@ -124,7 +136,8 @@ static void LookupRealmCallBack(
 	} else {
 		if (rdlen > 1 && rdlen < 1024 /* max realm name? */) {
 			size = *(const unsigned char *)rdata;
-			if (size >= rdlen) /* XXX bad yo */;
+			if (size >= rdlen)
+			    size = rdlen - 1;
 			realm = malloc (size + 1);
 			
 			memcpy (realm, rdata + 1, size);
@@ -284,6 +297,12 @@ LKDCHelperErrorType LKDCHostnameForRealm (const char *realm, LKDCLocator **l)
 
 	if (NULL == l || NULL == realm) { error = kLKDCHelperParameterError; goto Done; }
 
+	if (LocalLKDCRealm && strcmp(LocalLKDCRealm, realm) == 0) {
+		localRealm.realmName = LocalLKDCRealm;
+		p = &localRealm;
+		goto Found;
+	}
+
 	for (p = root; p != NULL; p = p->next) {
 		if (strcmp (p->realmName, realm) == 0 && p->absoluteTTL > now) {
 			LKDCLog ("Cache hit: %lus left", (unsigned long)(p->absoluteTTL - now));
@@ -353,12 +372,12 @@ LKDCHelperErrorType LKDCDumpCacheStatus ()
 	LKDCLocator *p = NULL;
 	LKDCHelperErrorType error = kLKDCHelperSuccess;
 	
-	LKDCLog ("Cache root node = %08p", root);
+	LKDCLog ("Cache root node = %p", root);
 
 	for (p = root; p != NULL; p = p->next) {
-		LKDCLog ("node = %08p {", p);
-		LKDCLog ("                 realmName   = (%08p) %s", p->realmName, p->realmName);
-		LKDCLog ("                 serviceHost = (%08p) %s", p->serviceHost,  p->serviceHost);
+		LKDCLog ("node = %p {", p);
+		LKDCLog ("                 realmName   = (%p) %s", p->realmName, p->realmName);
+		LKDCLog ("                 serviceHost = (%p) %s", p->serviceHost,  p->serviceHost);
 		LKDCLog ("                 servicePort = %u", p->servicePort);
 		LKDCLog ("                 TTL         = %u", p->ttl);
 		LKDCLog ("                }");

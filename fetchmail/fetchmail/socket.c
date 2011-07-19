@@ -75,20 +75,15 @@ static ssize_t cygwin_read(int sock, void *buf, size_t count);
 
 /* We need to define h_errno only if it is not already */
 #ifndef h_errno
-
-#ifdef HAVE_RES_SEARCH
-/* some versions of FreeBSD should declare this but don't */
+# if !HAVE_DECL_H_ERRNO
 extern int h_errno;
-#else
-/* pretend we have h_errno to avoid some #ifdef's later */
-static int h_errno;
-#endif
-
+# endif
 #endif /* ndef h_errno */
 
 #ifdef HAVE_SOCKETPAIR
 static char *const *parse_plugin(const char *plugin, const char *host, const char *service)
-{	const char **argvec;
+{
+	char **argvec;
 	const char *c, *p;
 	char *cp, *plugin_copy;
 	unsigned int plugin_copy_len;
@@ -135,25 +130,25 @@ static char *const *parse_plugin(const char *plugin, const char *host, const cha
 	}
 	plugin_copy[plugin_copy_len] = 0;
 
-	argvec = (const char **)malloc(s);
+	argvec = (char **)malloc(s);
 	if (!argvec)
 	{
 		report(stderr, GT_("fetchmail: malloc failed\n"));
 		return NULL;
 	}
 	memset(argvec, 0, s);
-	for (c = p = plugin_copy, i = 0; *c; c++)
-	{	if ((!isspace((unsigned char)*c)) && (c == p ? 1 : isspace((unsigned char)*p))) {
-			argvec[i] = c;
+	for (p = cp = plugin_copy, i = 0; *cp; cp++)
+	{	if ((!isspace((unsigned char)*cp)) && (cp == p ? 1 : isspace((unsigned char)*p))) {
+			argvec[i] = cp;
 			i++;
 		}
-		p = c;
+		p = cp;
 	}
 	for (cp = plugin_copy; *cp; cp++)
 	{	if (isspace((unsigned char)*cp))
 			*cp = 0;
 	}
-	return (char *const*)argvec;
+	return argvec;
 }
 
 static int handle_plugin(const char *host,
@@ -269,6 +264,8 @@ int SockOpen(const char *host, const char *service,
 {
     struct addrinfo *ai, req;
     int i, acterr = 0;
+    int ord;
+    char errbuf[8192] = "";
 
 #ifdef HAVE_SOCKETPAIR
     if (plugin)
@@ -290,10 +287,13 @@ int SockOpen(const char *host, const char *service,
 	return -1;
     }
 
+    /* NOTE a Linux bug here - getaddrinfo will happily return 127.0.0.1
+     * twice if no IPv6 is configured */
     i = -1;
-    for (ai = *ai0; ai; ai = ai->ai_next) {
-	char buf[80],pb[80];
-	int gnie;
+    for (ord = 0, ai = *ai0; ai; ord++, ai = ai->ai_next) {
+	char buf[256]; /* hostname */
+	char pb[256];  /* service name */
+	int gnie;      /* getnameinfo result code */
 
 	gnie = getnameinfo(ai->ai_addr, ai->ai_addrlen, buf, sizeof(buf), NULL, 0, NI_NUMERICHOST);
 	if (gnie)
@@ -304,14 +304,17 @@ int SockOpen(const char *host, const char *service,
 
 	if (outlevel >= O_VERBOSE)
 	    report_build(stdout, GT_("Trying to connect to %s/%s..."), buf, pb);
-	i = socket(ai->ai_family, ai->ai_socktype, 0);
+	i = socket(ai->ai_family, ai->ai_socktype, ai->ai_protocol);
 	if (i < 0) {
+	    int e = errno;
 	    /* mask EAFNOSUPPORT errors, they confuse users for
 	     * multihomed hosts */
 	    if (errno != EAFNOSUPPORT)
 		acterr = errno;
 	    if (outlevel >= O_VERBOSE)
-		report_complete(stdout, GT_("cannot create socket: %s\n"), strerror(errno));
+		report_complete(stdout, GT_("cannot create socket: %s\n"), strerror(e));
+	    snprintf(errbuf+strlen(errbuf), sizeof(errbuf)-strlen(errbuf),\
+		     GT_("name %d: cannot create socket family %d type %d: %s\n"), ord, ai->ai_family, ai->ai_socktype, strerror(e));
 	    continue;
 	}
 
@@ -328,8 +331,9 @@ int SockOpen(const char *host, const char *service,
 
 	    if (outlevel >= O_VERBOSE)
 		report_complete(stdout, GT_("connection failed.\n"));
-	    if (outlevel > O_SILENT)
+	    if (outlevel >= O_VERBOSE)
 		report(stderr, GT_("connection to %s:%s [%s/%s] failed: %s.\n"), host, service, buf, pb, strerror(e));
+	    snprintf(errbuf+strlen(errbuf), sizeof(errbuf)-strlen(errbuf), GT_("name %d: connection to %s:%s [%s/%s] failed: %s.\n"), ord, host, service, buf, pb, strerror(e));
 	    fm_close(i);
 	    i = -1;
 	    continue;
@@ -347,8 +351,10 @@ int SockOpen(const char *host, const char *service,
     fm_freeaddrinfo(*ai0);
     *ai0 = NULL;
 
-    if (i == -1)
+    if (i == -1) {
+	report(stderr, GT_("Connection errors for this poll:\n%s"), errbuf);
 	errno = acterr;
+    }
 
     return i;
 }
@@ -391,7 +397,7 @@ static	SSL *_ssl_context[FD_SETSIZE];
 static SSL	*SSLGetContext( int );
 #endif /* SSL_ENABLE */
 
-int SockWrite(int sock, char *buf, int len)
+int SockWrite(int sock, const char *buf, int len)
 {
     int n, wrlen = 0;
 #ifdef	SSL_ENABLE
@@ -462,7 +468,7 @@ int SockRead(int sock, char *buf, int len)
 			/* SSL_peek says no data...  Does he mean no data
 			or did the connection blow up?  If we got an error
 			then bail! */
-			if( 0 != ( n = SSL_get_error(ssl, n) ) ) {
+			if (0 != SSL_get_error(ssl, n)) {
 				return -1;
 			}
 			/* We didn't get an error so read at least one
@@ -542,7 +548,7 @@ int SockPeek(int sock)
 			/* SSL_peek says 0...  Does that mean no data
 			or did the connection blow up?  If we got an error
 			then bail! */
-			if( 0 != ( n = SSL_get_error(ssl, n) ) ) {
+			if(0 != SSL_get_error(ssl, n)) {
 				return -1;
 			}
 
@@ -574,7 +580,9 @@ static	int _check_fp;
 static	char *_check_digest;
 static 	char *_server_label;
 static	int _depth0ck;
+static	int _firstrun;
 static	int _prev_err;
+static	int _verify_ok;
 
 SSL *SSLGetContext( int sock )
 {
@@ -585,12 +593,12 @@ SSL *SSLGetContext( int sock )
 	return _ssl_context[sock];
 }
 
-
 /* ok_return (preverify_ok) is 1 if this stage of certificate verification
    passed, or 0 if it failed. This callback lets us display informative
    errors, and perform additional validation (e.g. CN matches) */
 static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 {
+#define SSLverbose (((outlevel) >= O_DEBUG) || ((outlevel) >= O_VERBOSE && (depth) == 0)) 
 	char buf[257];
 	X509 *x509_cert;
 	int err, depth, i;
@@ -608,10 +616,21 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 	subj = X509_get_subject_name(x509_cert);
 	issuer = X509_get_issuer_name(x509_cert);
 
-	if (depth == 0 && !_depth0ck) {
-		_depth0ck = 1;
+	if (outlevel >= O_VERBOSE) {
+		if (depth == 0 && SSLverbose)
+			report(stderr, GT_("Server certificate:\n"));
+		else {
+			if (_firstrun) {
+				_firstrun = 0;
+				if (SSLverbose)
+					report(stdout, GT_("Certificate chain, from root to peer, starting at depth %d:\n"), depth);
+			} else {
+				if (SSLverbose)
+					report(stdout, GT_("Certificate at depth %d:\n"), depth);
+			}
+		}
 
-		if (outlevel >= O_VERBOSE) {
+		if (SSLverbose) {
 			if ((i = X509_NAME_get_text_by_NID(issuer, NID_organizationName, buf, sizeof(buf))) != -1) {
 				report(stdout, GT_("Issuer Organization: %s\n"), (tt = sdump(buf, i)));
 				xfree(tt);
@@ -627,29 +646,39 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 			} else
 				report(stdout, GT_("Unknown Issuer CommonName\n"));
 		}
-		if ((i = X509_NAME_get_text_by_NID(subj, NID_commonName, buf, sizeof(buf))) != -1) {
-			if (outlevel >= O_VERBOSE)
-				report(stdout, GT_("Server CommonName: %s\n"), (tt = sdump(buf, i)));
+	}
+
+	if ((i = X509_NAME_get_text_by_NID(subj, NID_commonName, buf, sizeof(buf))) != -1) {
+		if (SSLverbose) {
+			report(stdout, GT_("Subject CommonName: %s\n"), (tt = sdump(buf, i)));
 			xfree(tt);
-			if ((size_t)i >= sizeof(buf) - 1) {
-				/* Possible truncation. In this case, this is a DNS name, so this
-				 * is really bad. We do not tolerate this even in the non-strict case. */
-				report(stderr, GT_("Bad certificate: Subject CommonName too long!\n"));
-				return (0);
-			}
-			if ((size_t)i > strlen(buf)) {
-				/* Name contains embedded NUL characters, so we complain. This is likely
-				 * a certificate spoofing attack. */
-				report(stderr, GT_("Bad certificate: Subject CommonName contains NUL, aborting!\n"));
-				return 0;
-			}
+		}
+		if ((size_t)i >= sizeof(buf) - 1) {
+			/* Possible truncation. In this case, this is a DNS name, so this
+			 * is really bad. We do not tolerate this even in the non-strict case. */
+			report(stderr, GT_("Bad certificate: Subject CommonName too long!\n"));
+			return (0);
+		}
+		if ((size_t)i > strlen(buf)) {
+			/* Name contains embedded NUL characters, so we complain. This is likely
+			 * a certificate spoofing attack. */
+			report(stderr, GT_("Bad certificate: Subject CommonName contains NUL, aborting!\n"));
+			return 0;
+		}
+	}
+
+	if (depth == 0) { /* peer certificate */
+		if (!_depth0ck) {
+			_depth0ck = 1;
+		}
+
+		if ((i = X509_NAME_get_text_by_NID(subj, NID_commonName, buf, sizeof(buf))) != -1) {
 			if (_ssl_server_cname != NULL) {
 				char *p1 = buf;
 				char *p2 = _ssl_server_cname;
-				int n;
 				int matched = 0;
 				STACK_OF(GENERAL_NAME) *gens;
-				
+
 				/* RFC 2595 section 2.4: find a matching name
 				 * first find a match among alternative names */
 				gens = (STACK_OF(GENERAL_NAME) *)X509_get_ext_d2i(x509_cert, NID_subject_alt_name, NULL, NULL);
@@ -658,48 +687,37 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 					for (j = 0, r = sk_GENERAL_NAME_num(gens); j < r; ++j) {
 						const GENERAL_NAME *gn = sk_GENERAL_NAME_value(gens, j);
 						if (gn->type == GEN_DNS) {
-							char *p1 = (char *)gn->d.ia5->data;
-							char *p2 = _ssl_server_cname;
+							char *pp1 = (char *)gn->d.ia5->data;
+							char *pp2 = _ssl_server_cname;
 							if (outlevel >= O_VERBOSE) {
-								report(stdout, GT_("Subject Alternative Name: %s\n"), (tt = sdump(p1, (size_t)gn->d.ia5->length)));
+								report(stdout, GT_("Subject Alternative Name: %s\n"), (tt = sdump(pp1, (size_t)gn->d.ia5->length)));
 								xfree(tt);
 							}
 							/* Name contains embedded NUL characters, so we complain. This
 							 * is likely a certificate spoofing attack. */
-							if ((size_t)gn->d.ia5->length != strlen(p1)) {
+							if ((size_t)gn->d.ia5->length != strlen(pp1)) {
 								report(stderr, GT_("Bad certificate: Subject Alternative Name contains NUL, aborting!\n"));
 								sk_GENERAL_NAME_free(gens);
 								return 0;
 							}
-							if (*p1 == '*') {
-								++p1;
-								n = strlen(p2) - strlen(p1);
-								if (n >= 0)
-									p2 += n;
-							}
-							if (0 == strcasecmp(p1, p2)) {
-								matched = 1;
+							if (name_match(pp1, pp2)) {
+							    matched = 1;
 							}
 						}
 					}
 					sk_GENERAL_NAME_free(gens);
 				}
-				if (*p1 == '*') {
-					++p1;
-					n = strlen(p2) - strlen(p1);
-					if (n >= 0)
-						p2 += n;
-				}
-				if (0 == strcasecmp(p1, p2)) {
+				if (name_match(p1, p2)) {
 					matched = 1;
 				}
 				if (!matched) {
-					report(stderr,
-					    GT_("Server CommonName mismatch: %s != %s\n"),
-					    (tt = sdump(buf, i)), _ssl_server_cname );
-					xfree(tt);
-					if (ok_return && strict)
-						return (0);
+					if (strict || SSLverbose) {
+						report(stderr,
+								GT_("Server CommonName mismatch: %s != %s\n"),
+								(tt = sdump(buf, i)), _ssl_server_cname );
+						xfree(tt);
+					}
+					ok_return = 0;
 				}
 			} else if (ok_return) {
 				report(stderr, GT_("Server name not set, could not verify certificate!\n"));
@@ -754,13 +772,30 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 
 	if (err != X509_V_OK && err != _prev_err && !(_check_fp != 0 && _check_digest && !strict)) {
 		_prev_err = err;
-		report(stderr, GT_("Server certificate verification error: %s\n"), X509_verify_cert_error_string(err));
-		/* We gave the error code, but maybe we can add some more details for debugging */
+					
+                report(stderr, GT_("Server certificate verification error: %s\n"), X509_verify_cert_error_string(err));
+                /* We gave the error code, but maybe we can add some more details for debugging */
+
 		switch (err) {
 		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT:
 			X509_NAME_oneline(issuer, buf, sizeof(buf));
 			buf[sizeof(buf) - 1] = '\0';
 			report(stderr, GT_("unknown issuer (first %d characters): %s\n"), (int)(sizeof(buf)-1), buf);
+			report(stderr, GT_("This error usually happens when the server provides an incomplete certificate "
+						"chain, which is nothing fetchmail could do anything about.  For details, "
+						"please see the README.SSL-SERVER document that comes with fetchmail.\n"));
+			break;
+		case X509_V_ERR_DEPTH_ZERO_SELF_SIGNED_CERT:
+		case X509_V_ERR_UNABLE_TO_GET_ISSUER_CERT_LOCALLY:
+		case X509_V_ERR_SELF_SIGNED_CERT_IN_CHAIN:
+			X509_NAME_oneline(subj, buf, sizeof(buf));
+			buf[sizeof(buf) - 1] = '\0';
+			report(stderr, GT_("This means that the root signing certificate (issued for %s) is not in the "
+						"trusted CA certificate locations, or that c_rehash needs to be run "
+						"on the certificate directory. For details, please "
+						"see the documentation of --sslcertpath and --sslcertfile in the manual page.\n"), buf);
+			break;
+		default:
 			break;
 		}
 	}
@@ -768,6 +803,7 @@ static int SSL_verify_callback( int ok_return, X509_STORE_CTX *ctx, int strict )
 	 * If not in strict checking mode (--sslcertck), override this
 	 * and pretend that verification had succeeded.
 	 */
+	_verify_ok &= ok_return;
 	if (!strict)
 		ok_return = 1;
 	return (ok_return);
@@ -818,16 +854,17 @@ static const char *SSLCertGetCN(const char *mycert,
  * uses SSL *ssl global variable, which is currently defined
  * in this file
  */
-int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char *certpath,
+int SSLOpen(int sock, char *mycert, char *mykey, const char *myproto, int certck,
+    char *cacertfile, char *certpath,
     char *fingerprint, char *servercname, char *label, char **remotename)
 {
         struct stat randstat;
         int i;
 
 	SSL_load_error_strings();
-	SSLeay_add_ssl_algorithms(); /* synonym for SSL_library_init() */
-	
-#ifdef SSL_ENABLE
+	SSL_library_init();
+	OpenSSL_add_all_algorithms(); /* see Debian Bug#576430 and manpage */
+
         if (stat("/dev/random", &randstat)  &&
             stat("/dev/urandom", &randstat)) {
           /* Neither /dev/random nor /dev/urandom are present, so add
@@ -843,8 +880,6 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
             RAND_add (buf, sizeof buf, 0.1);
           }
         }
-#endif /* SSL_ENABLE */
-
 
 	if( sock < 0 || (unsigned)sock > FD_SETSIZE ) {
 		report(stderr, GT_("File descriptor out of range for SSL") );
@@ -881,13 +916,28 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 		SSL_CTX_set_verify(_ctx[sock], SSL_VERIFY_PEER, SSL_ck_verify_callback);
 	} else {
 		/* In this case, we do not fail if verification fails. However,
-		 *  we provide the callback for output and possible fingerprint checks. */
+		 * we provide the callback for output and possible fingerprint
+		 * checks. */
 		SSL_CTX_set_verify(_ctx[sock], SSL_VERIFY_PEER, SSL_nock_verify_callback);
 	}
-	if (certpath)
-		SSL_CTX_load_verify_locations(_ctx[sock], NULL, certpath);
-	else
-		SSL_CTX_set_default_verify_paths(_ctx[sock]);
+
+	/* Check which trusted X.509 CA certificate store(s) to load */
+	{
+		char *tmp;
+		int want_default_cacerts = 0;
+
+		/* Load user locations if any is given */
+		if (certpath || cacertfile)
+			SSL_CTX_load_verify_locations(_ctx[sock],
+						cacertfile, certpath);
+		else
+			want_default_cacerts = 1;
+
+		tmp = getenv("FETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS");
+		if (want_default_cacerts || (tmp && tmp[0])) {
+			SSL_CTX_set_default_verify_paths(_ctx[sock]);
+		}
+	}
 	
 	_ssl_context[sock] = SSL_new(_ctx[sock]);
 	
@@ -904,6 +954,8 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 	_check_fp = 1;
 	_check_digest = fingerprint;
 	_depth0ck = 0;
+	_firstrun = 1;
+	_verify_ok = 1;
 	_prev_err = -1;
 
 	if( mycert || mykey ) {
@@ -952,6 +1004,11 @@ int SSLOpen(int sock, char *mycert, char *mykey, char *myproto, int certck, char
 			}
 			return(-1);
 		}
+	}
+
+	if (!certck && !fingerprint &&
+		(SSL_get_verify_result(_ssl_context[sock]) != X509_V_OK || !_verify_ok)) {
+		report(stderr, GT_("Warning: the connection is insecure, continuing anyways. (Better use --sslcertck!)\n"));
 	}
 
 	return(0);
@@ -1009,17 +1066,17 @@ int SockClose(int sock)
 static ssize_t cygwin_read(int sock, void *buf, size_t count)
 {
     char *bp = buf;
-    int n = 0;
+    size_t n = 0;
 
-    if ((n = read(sock, bp, count)) == -1)
+    if ((n = read(sock, bp, count)) == (size_t)-1)
 	return(-1);
 
     if (n != count) {
-	int n2 = 0;
+	size_t n2 = 0;
 	if (outlevel >= O_VERBOSE)
 	    report(stdout, GT_("Cygwin socket read retry\n"));
 	n2 = read(sock, bp + n, count - n);
-	if (n2 == -1 || n + n2 != count) {
+	if (n2 == (size_t)-1 || n + n2 != count) {
 	    report(stderr, GT_("Cygwin socket read retry failed!\n"));
 	    return(-1);
 	}

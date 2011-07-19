@@ -1,11 +1,12 @@
-[manpage_begin jpeg n 0.3.3]
+[manpage_begin jpeg n 0.3.5]
 [copyright {2004-2005, Code: Aaron Faupell <afaupell@users.sourceforge.net>}]
 [copyright {2007, Code:  Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
-[copyright {2004-2007, Doc:  Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2004-2009, Doc:  Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {JPEG image manipulation}]
 [titledesc {JPEG querying and manipulation of meta data}]
+[category  {File formats}]
 [require Tcl 8.2]
-[require jpeg [opt 0.3.3]]
+[require jpeg [opt 0.3.5]]
 [description]
 [para]
 
@@ -53,6 +54,7 @@ Throws an error if [arg file] is not a JPEG image.
 
 [example {
     set fh [open thumbnail.jpg w+]
+    fconfigure $fh -translation binary -encoding binary
     puts -nonewline $fh [::jpeg::getThumbnail photo.jpg]
     close $fh
 }]

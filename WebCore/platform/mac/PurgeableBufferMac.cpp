@@ -25,7 +25,7 @@
 
 #include "config.h"
 
-#ifndef BUILDING_ON_TIGER
+#if ENABLE(PURGEABLE_MEMORY)
 
 #include "PurgeableBuffer.h"
 
@@ -35,7 +35,9 @@
 
 namespace WebCore {
 
-static const size_t minPurgeableBufferSize = 4096; // one page
+// Purgeable buffers are allocated in multiples of the page size (4KB in common CPUs) so
+// it does not make sense for very small buffers. Set our minimum size to 16KB.
+static const size_t minPurgeableBufferSize = 4 * 4096;
 
 PurgeableBuffer::PurgeableBuffer(char* data, size_t size)
     : m_data(data)
@@ -50,27 +52,27 @@ PurgeableBuffer::~PurgeableBuffer()
     vm_deallocate(mach_task_self(), reinterpret_cast<vm_address_t>(m_data), m_size);
 }
 
-PurgeableBuffer* PurgeableBuffer::create(const char* data, size_t size)
+PassOwnPtr<PurgeableBuffer> PurgeableBuffer::create(const char* data, size_t size)
 {
     if (size < minPurgeableBufferSize)
-        return 0;
+        return nullptr;
 
     vm_address_t buffer = 0;
     kern_return_t ret = vm_allocate(mach_task_self(), &buffer, size, VM_FLAGS_PURGABLE | VM_FLAGS_ANYWHERE | VM_TAG_FOR_WEBCORE_PURGEABLE_MEMORY);
 
     ASSERT(ret == KERN_SUCCESS);
     if (ret != KERN_SUCCESS)
-        return 0;
+        return nullptr;
 
     ret = vm_copy(mach_task_self(), reinterpret_cast<vm_address_t>(data), size, buffer);
 
     ASSERT(ret == KERN_SUCCESS);
     if (ret != KERN_SUCCESS) {
         vm_deallocate(mach_task_self(), buffer, size);
-        return 0;
+        return nullptr;
     }
 
-    return new PurgeableBuffer(reinterpret_cast<char*>(buffer), size);
+    return adoptPtr(new PurgeableBuffer(reinterpret_cast<char*>(buffer), size));
 }
 
 bool PurgeableBuffer::makePurgeable(bool purgeable)
@@ -143,17 +145,6 @@ bool PurgeableBuffer::wasPurged() const
     return false;
 }
 
-void PurgeableBuffer::setPurgePriority(PurgePriority priority)
-{
-    if (priority == m_purgePriority)
-        return;
-    m_purgePriority = priority;
-    if (m_state != Volatile)
-        return;
-    m_state = NonVolatile;
-    makePurgeable(true);
-}
-    
 const char* PurgeableBuffer::data() const
 {
     ASSERT(m_state == NonVolatile);
@@ -162,4 +153,4 @@ const char* PurgeableBuffer::data() const
     
 }
 
-#endif // BUILDING_ON_TIGER
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -132,4 +132,4 @@
 #define BOOTPD_PLIST_NETBOOT	CFSTR("NetBoot")
 #define BOOTPD_PLIST_SUBNETS	CFSTR("Subnets")
 
-#endif _S_BOOTPD_PLIST_H
+#endif /* _S_BOOTPD_PLIST_H */

@@ -6,11 +6,46 @@ use warnings;
 use base qw/DBIx::Class::ResultSourceProxy/;
 
 use DBIx::Class::ResultSource::Table;
+use Scalar::Util ();
 
 __PACKAGE__->mk_classdata(table_class => 'DBIx::Class::ResultSource::Table');
 
 __PACKAGE__->mk_classdata('table_alias'); # FIXME: Doesn't actually do
                                           # anything yet!
+
+sub _init_result_source_instance {
+    my $class = shift;
+
+    $class->mk_classdata('result_source_instance')
+        unless $class->can('result_source_instance');
+
+    my $table = $class->result_source_instance;
+    my $class_has_table_instance = ($table and $table->result_class eq $class);
+    return $table if $class_has_table_instance;
+
+    my $table_class = $class->table_class;
+    $class->ensure_class_loaded($table_class);
+
+    if( $table ) {
+        $table = $table_class->new({
+            %$table,
+            result_class => $class,
+            source_name => undef,
+            schema => undef
+        });
+    }
+    else {
+        $table = $table_class->new({
+            name            => undef,
+            result_class    => $class,
+            source_name     => undef,
+        });
+    }
+
+    $class->result_source_instance($table);
+
+    return $table;
+}
 
 =head1 NAME
 
@@ -36,7 +71,7 @@ Adds columns to the current class and creates accessors for them.
 =head2 table
 
   __PACKAGE__->table('tbl_name');
-  
+
 Gets or sets the table name.
 
 =cut
@@ -44,10 +79,15 @@ Gets or sets the table name.
 sub table {
   my ($class, $table) = @_;
   return $class->result_source_instance->name unless $table;
-  unless (ref $table) {
-    $table = $class->table_class->new({
+
+  unless (Scalar::Util::blessed($table) && $table->isa($class->table_class)) {
+
+    my $table_class = $class->table_class;
+    $class->ensure_class_loaded($table_class);
+
+    $table = $table_class->new({
         $class->can('result_source_instance') ?
-          %{$class->result_source_instance} : (),
+          %{$class->result_source_instance||{}} : (),
         name => $table,
         result_class => $class,
         source_name => undef,
@@ -59,10 +99,6 @@ sub table {
 
   $class->result_source_instance($table);
 
-  if ($class->can('schema_instance')) {
-    $class =~ m/([^:]+)$/;
-    $class->schema_instance->register_class($class, $class);
-  }
   return $class->result_source_instance->name;
 }
 

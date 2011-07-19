@@ -31,15 +31,15 @@
 
 #include "WorkerMessagingProxy.h"
 
+#include "CrossThreadTask.h"
 #include "DedicatedWorkerContext.h"
 #include "DedicatedWorkerThread.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "ErrorEvent.h"
 #include "ExceptionCode.h"
-#include "GenericWorkerTask.h"
-#include "InspectorController.h"
 #include "MessageEvent.h"
+#include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
 #include "Worker.h"
 
@@ -49,12 +49,12 @@ class MessageWorkerContextTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<MessageWorkerContextTask> create(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels)
     {
-        return new MessageWorkerContextTask(message, channels);
+        return adoptPtr(new MessageWorkerContextTask(message, channels));
     }
 
 private:
     MessageWorkerContextTask(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels)
-        : m_message(message->release())
+        : m_message(message)
         , m_channels(channels)
     {
     }
@@ -77,12 +77,12 @@ class MessageWorkerTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<MessageWorkerTask> create(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels, WorkerMessagingProxy* messagingProxy)
     {
-        return new MessageWorkerTask(message, channels, messagingProxy);
+        return adoptPtr(new MessageWorkerTask(message, channels, messagingProxy));
     }
 
 private:
     MessageWorkerTask(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels, WorkerMessagingProxy* messagingProxy)
-        : m_message(message->release())
+        : m_message(message)
         , m_channels(channels)
         , m_messagingProxy(messagingProxy)
     {
@@ -108,7 +108,7 @@ class WorkerExceptionTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerExceptionTask> create(const String& errorMessage, int lineNumber, const String& sourceURL, WorkerMessagingProxy* messagingProxy)
     {
-        return new WorkerExceptionTask(errorMessage, lineNumber, sourceURL, messagingProxy);
+        return adoptPtr(new WorkerExceptionTask(errorMessage, lineNumber, sourceURL, messagingProxy));
     }
 
 private:
@@ -131,7 +131,7 @@ private:
 
         bool errorHandled = !workerObject->dispatchEvent(ErrorEvent::create(m_errorMessage, m_sourceURL, m_lineNumber));
         if (!errorHandled)
-            context->reportException(m_errorMessage, m_lineNumber, m_sourceURL);
+            context->reportException(m_errorMessage, m_lineNumber, m_sourceURL, 0);
     }
 
     String m_errorMessage;
@@ -144,7 +144,7 @@ class WorkerContextDestroyedTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerContextDestroyedTask> create(WorkerMessagingProxy* messagingProxy)
     {
-        return new WorkerContextDestroyedTask(messagingProxy);
+        return adoptPtr(new WorkerContextDestroyedTask(messagingProxy));
     }
 
 private:
@@ -165,7 +165,7 @@ class WorkerTerminateTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerTerminateTask> create(WorkerMessagingProxy* messagingProxy)
     {
-        return new WorkerTerminateTask(messagingProxy);
+        return adoptPtr(new WorkerTerminateTask(messagingProxy));
     }
 
 private:
@@ -186,7 +186,7 @@ class WorkerThreadActivityReportTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerThreadActivityReportTask> create(WorkerMessagingProxy* messagingProxy, bool confirmingMessage, bool hasPendingActivity)
     {
-        return new WorkerThreadActivityReportTask(messagingProxy, confirmingMessage, hasPendingActivity);
+        return adoptPtr(new WorkerThreadActivityReportTask(messagingProxy, confirmingMessage, hasPendingActivity));
     }
 
 private:
@@ -243,7 +243,7 @@ void WorkerMessagingProxy::startWorkerContext(const KURL& scriptURL, const Strin
 
 void WorkerMessagingProxy::postMessageToWorkerObject(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels)
 {
-    m_scriptExecutionContext->postTask(MessageWorkerTask::create(message, channels.release(), this));
+    m_scriptExecutionContext->postTask(MessageWorkerTask::create(message, channels, this));
 }
 
 void WorkerMessagingProxy::postMessageToWorkerContext(PassRefPtr<SerializedScriptValue> message, PassOwnPtr<MessagePortChannelArray> channels)
@@ -253,9 +253,9 @@ void WorkerMessagingProxy::postMessageToWorkerContext(PassRefPtr<SerializedScrip
 
     if (m_workerThread) {
         ++m_unconfirmedMessageCount;
-        m_workerThread->runLoop().postTask(MessageWorkerContextTask::create(message, channels.release()));
+        m_workerThread->runLoop().postTask(MessageWorkerContextTask::create(message, channels));
     } else
-        m_queuedEarlyTasks.append(MessageWorkerContextTask::create(message, channels.release()));
+        m_queuedEarlyTasks.append(MessageWorkerContextTask::create(message, channels));
 }
 
 void WorkerMessagingProxy::postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutionContext::Task> task, const String& mode)
@@ -283,12 +283,14 @@ static void postConsoleMessageTask(ScriptExecutionContext* context, WorkerMessag
 {
     if (messagingProxy->askedToTerminate())
         return;
-    context->addMessage(source, type, level, message, lineNumber, sourceURL);
+    context->addMessage(source, type, level, message, lineNumber, sourceURL, 0);
 }
 
 void WorkerMessagingProxy::postConsoleMessageToWorkerObject(MessageSource source, MessageType type, MessageLevel level, const String& message, int lineNumber, const String& sourceURL)
 {
-    m_scriptExecutionContext->postTask(createCallbackTask(&postConsoleMessageTask, this, source, type, level, message, lineNumber, sourceURL));
+    m_scriptExecutionContext->postTask(
+        createCallbackTask(&postConsoleMessageTask, AllowCrossThreadAccess(this),
+                           source, type, level, message, lineNumber, sourceURL));
 }
 
 void WorkerMessagingProxy::workerThreadCreated(PassRefPtr<DedicatedWorkerThread> workerThread)

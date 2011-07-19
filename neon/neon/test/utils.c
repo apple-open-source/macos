@@ -171,3 +171,12 @@ int serve_infinite(ne_socket *sock, void *ud)
     
     return OK;
 }
+
+int full_write(ne_socket *sock, const char *data, size_t len)
+{
+    int ret = ne_sock_fullwrite(sock, data, len);
+    NE_DEBUG(NE_DBG_SOCKET, "wrote: [%.*s]\n", (int)len, data);
+    ONV(ret, ("write failed (%d): %s", ret, ne_sock_error(sock)));
+    return OK;
+}
+

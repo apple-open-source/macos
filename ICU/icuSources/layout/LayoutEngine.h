@@ -1,7 +1,7 @@
 
 /*
  *
- * (C) Copyright IBM Corp. 1998-2007 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2008 - All Rights Reserved
  *
  */
 
@@ -124,13 +124,18 @@ protected:
      * @param languageCode - the language for the text
      * @param typoFlags - the typographic control flags for the text.  Set bit 1 if kerning
      * is desired, set bit 2 if ligature formation is desired.  Others are reserved.
+     * @param success - set to an error code if the operation fails
      *
      * @see LEFontInstance
      * @see ScriptAndLanguageTags.h
      *
      * @internal
      */
-    LayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode, le_int32 typoFlags);
+    LayoutEngine(const LEFontInstance *fontInstance, 
+                 le_int32 scriptCode, 
+                 le_int32 languageCode, 
+                 le_int32 typoFlags,
+                 LEErrorCode &success);
 
     /**
      * This overrides the default no argument constructor to make it

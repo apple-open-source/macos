@@ -1,4 +1,4 @@
-/* $Id: res.h,v 1.1.1.1 2003/06/04 00:25:45 marka Exp $ */
+/* $Id: res.h,v 1.1.1.1 2003-06-04 00:25:45 marka Exp $ */
 /*
  * Copyright (c) 2001,2002 Japan Network Information Center.
  * All rights reserved.

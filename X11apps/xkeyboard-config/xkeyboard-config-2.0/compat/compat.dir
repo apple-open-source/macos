@@ -1,0 +1,5 @@
+-d------ -------- pc98(basic)
+-d------ -------- xtest(xtest)
+-dp----- -------- misc(misc)
+--p----- -------- misc(assign_shift_left_action)
+-dp----- -------- mousekeys(mousekeys)

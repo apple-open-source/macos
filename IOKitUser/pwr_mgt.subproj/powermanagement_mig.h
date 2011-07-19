@@ -21,10 +21,29 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-
 #ifndef	_powermanagement_mig_h_
 #define	_powermanagement_mig_h_
 
+#define kPMMIGStringLength      1024
+
 typedef char * string_t;
+
+/*
+ * Arguments to powermanagement.defs MIG call io_pm_assertion_copy_details
+ *    parameter "whichData"
+ */
+enum {
+    kIOPMAssertionMIGCopyOneAssertionProperties     = 1
+};
+
+/*
+ * Arguments to powermanagement.defs MIG call io_pm_assertion_retain_release
+ *    parameter "action"
+ */
+enum {
+    kIOPMAssertionMIGDoRetain                       = 1,
+    kIOPMAssertionMIGDoRelease                      = -1
+};
+
 
 #endif

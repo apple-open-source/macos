@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -113,6 +111,7 @@ struct winentry {
 	u_int8_t	wePart1[10];
 	u_int8_t	weAttributes;
 #define	ATTR_WIN95	0x0f
+#define	ATTR_WIN95_MASK	0x3f
 	u_int8_t	weReserved1;
 	u_int8_t	weChksum;
 	u_int8_t	wePart2[12];
@@ -160,18 +159,17 @@ struct winentry {
 
 #ifdef KERNEL
 struct dirent;
-void unix2dostime __P((struct timespec *tsp, u_int16_t *ddp, 
-	     u_int16_t *dtp, u_int8_t *dhp));
-void dos2unixtime __P((u_int dd, u_int dt, u_int dh, struct timespec *tsp));
-size_t dos2unicodefn (u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower);
-int unicode2dosfn __P((const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case));
-int unicode2winfn __P((const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum));
-int compareUnicodeNames(u_int16_t *x, u_int16_t *y, int length);
-int winChkName __P((const u_int16_t *un, int unlen, struct winentry *wep, int chksum));
-int getunicodefn __P((struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum));
-u_int8_t winChksum __P((u_int8_t *name));
-int winSlotCnt __P((const u_int16_t *un, int unlen));
-u_char unicode2dos(u_int16_t uc);
+void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp, 
+	     u_int16_t *dtp, u_int8_t *dhp);
+void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp);
+size_t msdosfs_dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower);
+int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case);
+int msdosfs_unicode2winfn(const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum);
+int msdosfs_winChkName(const u_int16_t *un, int unlen, struct winentry *wep, int chksum);
+int msdosfs_getunicodefn(struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum);
+u_int8_t msdosfs_winChksum(u_int8_t *name);
+int msdosfs_winSlotCnt(const u_int16_t *un, int unlen);
+u_char msdosfs_unicode2dos(u_int16_t uc);
 int msdosfs_fsync_internal(vnode_t vp, int sync, int do_dirs, vfs_context_t context);
 
 #endif	/* KERNEL */

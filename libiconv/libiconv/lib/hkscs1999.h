@@ -2954,7 +2954,7 @@ hkscs1999_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;
-    if (wc >= 0x0000 && wc < 0x02d0)
+    if (/* wc >= 0x0000 && */ wc < 0x02d0)
       summary = &hkscs1999_uni2indx_page00[(wc>>4)];
     else if (wc >= 0x0400 && wc < 0x0460)
       summary = &hkscs1999_uni2indx_page04[(wc>>4)-0x040];

@@ -68,7 +68,7 @@ DiskRep *DiskRep::base()
 //
 DiskRep::Writer *DiskRep::writer()
 {
-	MacOSError::throwMe(errSecCSBadObjectFormat);
+	MacOSError::throwMe(errSecCSUnimplemented);
 }
 
 
@@ -177,29 +177,14 @@ string DiskRep::resourcesRootPath()
 	return "";		// has no resources directory
 }
 
-CFDictionaryRef DiskRep::defaultResourceRules()
-{
-	return NULL;	// none
-}
-
 void DiskRep::adjustResources(ResourceBuilder &builder)
 {
 	// do nothing
 }
 
-const Requirements *DiskRep::defaultRequirements(const Architecture *)
-{
-	return NULL;	// none
-}
-
 Universal *DiskRep::mainExecutableImage()
 {
 	return NULL;	// no Mach-O executable
-}
-
-size_t DiskRep::pageSize()
-{
-	return monolithicPageSize;	// unpaged (monolithic)
 }
 
 size_t DiskRep::signingBase()
@@ -217,6 +202,72 @@ CFArrayRef DiskRep::modifiedFiles()
 void DiskRep::flush()
 {
 	// nothing cached
+}
+
+
+CFDictionaryRef DiskRep::defaultResourceRules(const SigningContext &)
+{
+	return NULL;	// none
+}
+
+const Requirements *DiskRep::defaultRequirements(const Architecture *, const SigningContext &)
+{
+	return NULL;	// none
+}
+
+size_t DiskRep::pageSize(const SigningContext &)
+{
+	return monolithicPageSize;	// unpaged (monolithic)
+}
+
+
+//
+// Given some string (usually a pathname), derive a suggested signing identifier
+// in a canonical way (so there's some consistency).
+//
+// This is a heuristic. First we lop off any leading directories and final (non-numeric)
+// extension. Then we walk backwards, eliminating numeric extensions except the first one.
+// Thus, libfrotz7.3.5.dylib becomes libfrotz7, mumble.77.plugin becomes mumble.77,
+// and rumble.rb becomes rumble. This isn't perfect, but it ought to handle 98%+ of
+// the common varieties out there. Specify an explicit identifier for the oddballs.
+//
+// This is called by the various recommendedIdentifier() methods, who are
+// free to modify or override it.
+//
+// Note: We use strchr("...") instead of is*() here because we do not
+// wish to be influenced by locale settings.
+//
+std::string DiskRep::canonicalIdentifier(const std::string &name)
+{
+	string s = name;
+	string::size_type p;
+	
+	// lop off any directory prefixes
+	if ((p = s.rfind('/')) != string::npos)
+		s = s.substr(p+1);
+
+	// remove any final extension (last dot) unless it's numeric
+	if ((p = s.rfind('.')) != string::npos && !strchr("0123456789", s[p+1]))
+		s = s.substr(0, p);
+	
+	// eat numeric suffixes except the first one; roughly:
+	// foo.2.3.4 => foo.2, foo2.3 => foo2, foo.9 => foo.9, foo => foo
+	if (strchr("0123456789.", s[0]))			// starts with digit or .
+		return s;								// ... so don't mess with it
+	p = s.size()-1;
+	// foo3.5^, foo.3.5^, foo3^, foo.3^, foo^
+	while (strchr("0123456789.", s[p]))
+		p--;
+	// fo^o3.5, fo^o.3.5, fo^o3, fo^o.3, fo^o
+	p++;
+	// foo^3.5, foo^.3.5, foo^3, foo^.3, foo^
+	if (s[p] == '.')
+		p++;
+	// foo^3.5, foo.^3.5, foo^3, foo.^3, foo^
+	while (p < s.size() && strchr("0123456789", s[p]))
+		p++;
+	// foo3^.5, foo.3^.5, foo3^, foo.3^, foo^
+	return s.substr(0, p);
 }
 
 

@@ -32,30 +32,60 @@
 #define WebView_h
 
 #include "WebDragOperation.h"
+#include "WebPageVisibilityState.h"
+#include "WebString.h"
+#include "WebVector.h"
 #include "WebWidget.h"
 
 namespace WebKit {
 
 class WebAccessibilityObject;
+class WebAutoFillClient;
 class WebDevToolsAgent;
+class WebDevToolsAgentClient;
 class WebDragData;
 class WebFrame;
 class WebFrameClient;
+class WebGraphicsContext3D;
 class WebNode;
+class WebPermissionClient;
 class WebSettings;
+class WebSpellCheckClient;
 class WebString;
 class WebViewClient;
 struct WebMediaPlayerAction;
 struct WebPoint;
-template <typename T> class WebVector;
 
 class WebView : public WebWidget {
 public:
+    WEBKIT_API static const double textSizeMultiplierRatio;
+    WEBKIT_API static const double minTextSizeMultiplier;
+    WEBKIT_API static const double maxTextSizeMultiplier;
+
+    // Controls the time that user scripts injected into the document run.
+    enum UserScriptInjectAt {
+        UserScriptInjectAtDocumentStart,
+        UserScriptInjectAtDocumentEnd
+    };
+
+    // Controls which frames user content is injected into.
+    enum UserContentInjectIn {
+        UserContentInjectInAllFrames,
+        UserContentInjectInTopFrameOnly
+    };
+
+    // Controls which documents user styles are injected into.
+    enum UserStyleInjectionTime {
+        UserStyleInjectInExistingDocuments,
+        UserStyleInjectInSubsequentDocuments
+    };
+
+
     // Initialization ------------------------------------------------------
 
     // Creates a WebView that is NOT yet initialized.  You will need to
     // call initializeMainFrame to finish the initialization.  It is valid
-    // to pass a null WebViewClient pointer.
+    // to pass null client pointers.
     WEBKIT_API static WebView* create(WebViewClient*);
 
     // After creating a WebView, you should immediately call this method.
@@ -63,6 +93,12 @@ public:
     // The WebFrameClient will receive events for the main frame and any
     // child frames.  It is valid to pass a null WebFrameClient pointer.
     virtual void initializeMainFrame(WebFrameClient*) = 0;
+
+    // Initializes the various client interfaces.
+    virtual void setAutoFillClient(WebAutoFillClient*) = 0;
+    virtual void setDevToolsAgentClient(WebDevToolsAgentClient*) = 0;
+    virtual void setPermissionClient(WebPermissionClient*) = 0;
+    virtual void setSpellCheckClient(WebSpellCheckClient*) = 0;
 
 
     // Options -------------------------------------------------------------
@@ -93,6 +129,9 @@ public:
     // of elements on the page (i.e., tinting of input elements).
     virtual bool isActive() const = 0;
     virtual void setIsActive(bool) = 0;
+
+    // Allows disabling domain relaxation.
+    virtual void setDomainRelaxationForbidden(bool, const WebString& scheme) = 0;
 
 
     // Closing -------------------------------------------------------------
@@ -132,13 +171,18 @@ public:
     // send it.
     virtual void clearFocusedNode() = 0;
 
+    // Scrolls the node currently in focus into view.
+    virtual void scrollFocusedNodeIntoView() = 0;
+
 
     // Zoom ----------------------------------------------------------------
 
     // Returns the current zoom level.  0 is "original size", and each increment
-    // above or below represents zooming 20% larger or smaller to limits of 300%
-    // and 50% of original size, respectively.
-    virtual int zoomLevel() = 0;
+    // above or below represents zooming 20% larger or smaller to default limits
+    // of 300% and 50% of original size, respectively.  Only plugins use
+    // non whole-numbers, since they might choose to have specific zoom level so
+    // that fixed-width content is fit-to-page-width, for example.
+    virtual double zoomLevel() = 0;
 
     // Changes the zoom level to the specified level, clamping at the limits
     // noted above, and returns the current zoom level after applying the
@@ -148,7 +192,16 @@ public:
     // page will be zoomed. You can only have either text zoom or full page zoom
     // at one time.  Changing the mode while the page is zoomed will have odd
     // effects.
-    virtual int setZoomLevel(bool textOnly, int zoomLevel) = 0;
+    virtual double setZoomLevel(bool textOnly, double zoomLevel) = 0;
+
+    // Updates the zoom limits for this view.
+    virtual void zoomLimitsChanged(double minimumZoomLevel,
+                                   double maximumZoomLevel) = 0;
+
+    // Helper functions to convert between zoom level and zoom factor.  zoom
+    // factor is zoom percent / 100, so 300% = 3.0.
+    WEBKIT_API static double zoomLevelToZoomFactor(double zoomLevel);
+    WEBKIT_API static double zoomFactorToZoomLevel(double factor);
 
 
     // Media ---------------------------------------------------------------
@@ -169,13 +222,18 @@ public:
         const WebPoint& clientPoint, const WebPoint& screenPoint,
         WebDragOperation operation) = 0;
 
+    // Notifies the WebView that a drag is going on.
+    virtual void dragSourceMovedTo(
+        const WebPoint& clientPoint, const WebPoint& screenPoint,
+        WebDragOperation operation) = 0;
+
     // Notfies the WebView that the system drag and drop operation has ended.
     virtual void dragSourceSystemDragEnded() = 0;
 
     // Callback methods when a drag-and-drop operation is trying to drop
     // something on the WebView.
     virtual WebDragOperation dragTargetDragEnter(
-        const WebDragData&, int identity,
+        const WebDragData&,
         const WebPoint& clientPoint, const WebPoint& screenPoint,
         WebDragOperationsMask operationsAllowed) = 0;
     virtual WebDragOperation dragTargetDragOver(
@@ -184,13 +242,6 @@ public:
     virtual void dragTargetDragLeave() = 0;
     virtual void dragTargetDrop(
         const WebPoint& clientPoint, const WebPoint& screenPoint) = 0;
-
-    virtual int dragIdentity() = 0;
-
-    // Helper method for drag and drop target operations: override the
-    // default drop effect with either a "copy" (accept true) or "none"
-    // (accept false) effect.  Return true on success.
-    virtual bool setDropEffect(bool accept) = 0;
 
 
     // Support for resource loading initiated by plugins -------------------
@@ -210,11 +261,14 @@ public:
     // Settings used by the inspector.
     virtual WebString inspectorSettings() const = 0;
     virtual void setInspectorSettings(const WebString&) = 0;
+    virtual bool inspectorSetting(const WebString& key,
+                                  WebString* value) const = 0;
+    virtual void setInspectorSetting(const WebString& key,
+                                     const WebString& value) = 0;
 
     // The embedder may optionally engage a WebDevToolsAgent.  This may only
     // be set once per WebView.
     virtual WebDevToolsAgent* devToolsAgent() = 0;
-    virtual void setDevToolsAgent(WebDevToolsAgent*) = 0;
 
 
     // Accessibility -------------------------------------------------------
@@ -223,21 +277,22 @@ public:
     virtual WebAccessibilityObject accessibilityObject() = 0;
 
 
-    // AutoFill / Autocomplete ---------------------------------------------
+    // AutoFill  -----------------------------------------------------------
 
     // Notifies the WebView that AutoFill suggestions are available for a node.
+    // |uniqueIDs| is a vector of IDs that represent the unique ID of each
+    // AutoFill profile in the suggestions popup.  If a unique ID is 0, then the
+    // corresponding suggestion comes from Autocomplete rather than AutoFill.
+    // If a unique ID is negative, then the corresponding "suggestion" is
+    // actually a user-facing warning, e.g. explaining why AutoFill is
+    // unavailable for the current form.
     virtual void applyAutoFillSuggestions(
         const WebNode&,
         const WebVector<WebString>& names,
         const WebVector<WebString>& labels,
-        int defaultSuggestionIndex) = 0;
-
-    // Notifies the WebView that Autocomplete suggestions are available for a
-    // node.
-    virtual void applyAutocompleteSuggestions(
-        const WebNode&,
-        const WebVector<WebString>& suggestions,
-        int defaultSuggestionIndex) = 0;
+        const WebVector<WebString>& icons,
+        const WebVector<int>& uniqueIDs,
+        int separatorIndex) = 0;
 
     // Hides any popup (suggestions, selects...) that might be showing.
     virtual void hidePopups() = 0;
@@ -246,6 +301,12 @@ public:
     // Context menu --------------------------------------------------------
 
     virtual void performCustomContextMenuAction(unsigned action) = 0;
+
+
+    // Popup menu ----------------------------------------------------------
+
+    // Sets whether select popup menus should be rendered by the browser.
+    WEBKIT_API static void setUseExternalPopupMenus(bool);
 
 
     // Visited link state --------------------------------------------------
@@ -271,10 +332,15 @@ public:
                                     unsigned inactiveForegroundColor) = 0;
 
     // User scripts --------------------------------------------------------
-    virtual void addUserScript(const WebString& sourceCode,
-                               bool runAtStart) = 0;
-    virtual void addUserStyleSheet(const WebString& sourceCode) = 0;
-    virtual void removeAllUserContent() = 0;
+    WEBKIT_API static void addUserScript(const WebString& sourceCode,
+                                         const WebVector<WebString>& patterns,
+                                         UserScriptInjectAt injectAt,
+                                         UserContentInjectIn injectIn);
+    WEBKIT_API static void addUserStyleSheet(const WebString& sourceCode,
+                                             const WebVector<WebString>& patterns,
+                                             UserContentInjectIn injectIn,
+                                             UserStyleInjectionTime injectionTime = UserStyleInjectInSubsequentDocuments);
+    WEBKIT_API static void removeAllUserContent();
 
     // Modal dialog support ------------------------------------------------
 
@@ -282,6 +348,21 @@ public:
     // to suspend script callbacks and resource loads.
     WEBKIT_API static void willEnterModalLoop();
     WEBKIT_API static void didExitModalLoop();
+
+    // GPU acceleration support --------------------------------------------
+
+    // Returns the (on-screen) WebGraphicsContext3D associated with
+    // this WebView. One will be created if it doesn't already exist.
+    // This is used to set up sharing between this context (which is
+    // that used by the compositor) and contexts for WebGL and other
+    // APIs.
+    virtual WebGraphicsContext3D* graphicsContext3D() = 0;
+
+    // Visibility -----------------------------------------------------------
+
+    // Sets the visibility of the WebView.
+    virtual void setVisibilityState(WebPageVisibilityState visibilityState,
+                                    bool isInitialState) { }
 
 protected:
     ~WebView() {}

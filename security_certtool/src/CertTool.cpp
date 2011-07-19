@@ -50,6 +50,7 @@
 #include <CoreFoundation/CoreFoundation.h>
 
 #define KC_DB_PATH			"Library/Keychains"		/* relative to home */
+#define SYSTEM_KDC			"com.apple.kerberos.kdc"
 
 /* 
  * defaults for undocumented 'Z' option 
@@ -1016,7 +1017,7 @@ static OSStatus createCertCsr(
 	const char			*systemDomain,		// domain name for system identities
 	CSSM_DATA_PTR		certData)			// cert or CSR: mallocd and RETURNED
 {
-	CE_DataAndType 				exts[3];
+	CE_DataAndType 				exts[4];
 	CE_DataAndType 				*extp = exts;
 	unsigned					numExts;
 	
@@ -1032,6 +1033,7 @@ static OSStatus createCertCsr(
 	CSSM_TP_CALLERAUTH_CONTEXT 	CallerAuthContext;
 	CSSM_FIELD					policyId;
 	unsigned char				serialNum[SERIAL_NUM_LENGTH];
+	CSSM_BOOL			isSystemKDC = CSSM_FALSE;
 	
 	/* Note a lot of the CSSM_APPLE_TP_CERT_REQUEST fields are not 
 	 * used for the createCsr option, but we'll fill in as much as is practical
@@ -1043,6 +1045,10 @@ static OSStatus createCertCsr(
 	}
 	
 	numExts = 0;
+
+	if (systemDomain != NULL && strncmp(SYSTEM_KDC, systemDomain, strlen(SYSTEM_KDC)) == 0) {
+		isSystemKDC = CSSM_TRUE;
+	}
 	
 	char challengeBuf[400];
 	if(createCsr) {
@@ -1065,20 +1071,28 @@ static OSStatus createCertCsr(
 		certReq.challengeString = NULL;
 		
 		/* KeyUsage extension */
-		if(!systemDomain) {
+		if(systemDomain) {
 			extp->type = DT_KeyUsage;
 			extp->critical = CSSM_FALSE;
 			extp->extension.keyUsage = 0;
 			if(keyUsage & kKeyUseSigning) {
 				extp->extension.keyUsage |= 
-					(CE_KU_DigitalSignature | CE_KU_KeyCertSign | CE_KU_CRLSign);
+					(CE_KU_DigitalSignature);
 			}
-			if(keyUsage & kKeyUseEncrypting) {
+			if (isSystemKDC) {
+			    if(keyUsage & kKeyUseEncrypting) {
+				extp->extension.keyUsage |= 
+					(CE_KU_KeyEncipherment);
+			    }			    
+			}
+			else {
+			    if(keyUsage & kKeyUseEncrypting) {
 				extp->extension.keyUsage |= 
 					(CE_KU_KeyEncipherment | CE_KU_DataEncipherment);
-			}
-			if(keyUsage & kKeyUseDerive) {
+			    }
+			    if(keyUsage & kKeyUseDerive) {
 				extp->extension.keyUsage |= CE_KU_KeyAgreement;
+			    }
 			}
 			extp++;
 			numExts++;
@@ -1095,7 +1109,7 @@ static OSStatus createCertCsr(
 		}
 		
 		/* Extended Key Usage, optional */
-		if(extendedKeyUse != NULL) {
+		if (extendedKeyUse != NULL) {
 			extp->type = DT_ExtendedKeyUsage;
 			extp->critical = CSSM_FALSE;
 			extp->extension.extendedKeyUsage.numPurposes = 1;
@@ -1103,6 +1117,19 @@ static OSStatus createCertCsr(
 			extp++;
 			numExts++;
 		}
+
+	    if (isSystemKDC) {
+		uint8_t	    oidData[] = {0x2B, 0x6, 0x1, 0x5, 0x2, 0x3, 0x5};
+		CSSM_OID    oid = {sizeof(oidData), oidData};
+		extp->type = DT_ExtendedKeyUsage;
+		extp->critical = CSSM_FALSE;
+		extp->extension.extendedKeyUsage.numPurposes = 1;
+		extp->extension.extendedKeyUsage.purposes = &oid;
+		extp++;
+		numExts++;
+	    }
+	    
+		
 	}
 	
 	/* name array */

@@ -198,7 +198,7 @@ static struct segalign *new_segalign(
 static int cmp_qsort(
     const struct thin_file *thin1,
     const struct thin_file *thin2);
-static uint32_t round(
+static uint32_t rnd(
     uint32_t v,
     uint32_t r);
 static enum bool ispoweroftwo(
@@ -627,7 +627,7 @@ unknown_flag:
 	    /* remove those thin files not marked for extraction */
 	    for(i = 0; i < nthin_files; ){
 		if(thin_files[i].extract == FALSE){
-		    for(j = i; j < nthin_files; j++)
+		    for(j = i; j < nthin_files - 1; j++)
 			thin_files[j] = thin_files[j + 1];
 		    nthin_files--;
 		}
@@ -868,7 +868,7 @@ create_fat(void)
 	offset = sizeof(struct fat_header) +
 		 nthin_files * sizeof(struct fat_arch);
 	for(i = 0; i < nthin_files; i++){
-	    offset = round(offset, 1 << thin_files[i].fat_arch.align);
+	    offset = rnd(offset, 1 << thin_files[i].fat_arch.align);
 	    thin_files[i].fat_arch.offset = offset;
 	    offset += thin_files[i].fat_arch.size;
 	}
@@ -935,7 +935,7 @@ process_input_file(
 struct input_file *input)
 {
     int fd;
-    struct stat stat_buf;
+    struct stat stat_buf, stat_buf2;
     uint32_t size, i, j;
     char *addr;
     struct thin_file *thin;
@@ -985,6 +985,17 @@ struct input_file *input)
 			fd, 0);
 	if((intptr_t)addr == -1)
 	    system_fatal("Can't map input file: %s", input->name);
+
+	/*
+	 * Because of rdar://8087586 we do a second stat to see if the file
+	 * is still there and the same file.
+	 */
+	if(fstat(fd, &stat_buf2) == -1)
+	    system_fatal("Can't stat input file: %s", input->name);
+	if(stat_buf2.st_size != size ||
+	   stat_buf2.st_mtime != stat_buf.st_mtime)
+	    system_fatal("Input file: %s changed since opened", input->name);
+
 	close(fd);
 
 	/* Try to figure out what kind of file this is */
@@ -1038,7 +1049,7 @@ struct input_file *input)
 		if(input->fat_arches[i].offset %
 		   (1 << input->fat_arches[i].align) != 0)
 		    fatal("offset %u of fat file %s (cputype (%d) cpusubtype "
-			  "(%d)) not aligned on it's alignment (2^%u)",
+			  "(%d)) not aligned on its alignment (2^%u)",
 			  input->fat_arches[i].offset, input->name,
 			  input->fat_arches[i].cputype,
 			  input->fat_arches[i].cpusubtype & ~CPU_SUBTYPE_MASK,
@@ -1415,7 +1426,7 @@ cpu_subtype_t *cpusubtype)
 		    }
 		}
 	    }
-	    offset += round(strtoul(ar_hdr->ar_size, NULL, 10),
+	    offset += rnd(strtoul(ar_hdr->ar_size, NULL, 10),
 			    sizeof(short));
 	}
 }
@@ -1855,6 +1866,9 @@ struct fat_arch *fat_arch)
 	    case CPU_SUBTYPE_ARM_V6:
 		printf("armv6");
 		break;
+	    case CPU_SUBTYPE_ARM_V7:
+		printf("armv7");
+		break;
 	    default:
 		goto print_arch_unknown;
 	    }
@@ -2266,11 +2280,11 @@ const struct thin_file *thin2)
 }
 
 /*
- * round() rounds v to a multiple of r.
+ * rnd() rounds v to a multiple of r.
  */
 static
 uint32_t
-round(
+rnd(
 uint32_t v,
 uint32_t r)
 {
@@ -2313,7 +2327,7 @@ struct thin_file *thin)
 {
 	if(input->arch_flag.cputype != thin->fat_arch.cputype)
 	    fatal("specifed architecture type (%s) for file (%s) does "
-		  "not match it's cputype (%d) and cpusubtype (%d) "
+		  "not match its cputype (%d) and cpusubtype (%d) "
 		  "(should be cputype (%d) and cpusubtype (%d))",
 		  input->arch_flag.name, input->name,
 		  thin->fat_arch.cputype, thin->fat_arch.cpusubtype &

@@ -3,7 +3,7 @@
 # Class name: Header
 # Synopsis: Holds header-wide comments parsed by headerDoc
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:58 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -27,6 +27,41 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         <code>Header</code> class package file.
+#     @discussion
+#         This file contains the <code>Header</code> class, a class for content
+#         relating to a header file.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         API object that describes a header file.
+#     @discussion
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner},
+#         which is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found in
+#         those two classes.
+#     @var FULLPATH
+#         The (relative) path to this header, as specified on the
+#         command line.
+#     @var COPYRIGHT
+#         The copyright information (from the <code>\@copyright</code> tag)
+#         for this header.
+#     @var HTMLMETA
+#         HTML "meta" tags to add to this header's output.
+#     @var CATEGORIES
+#         An array of categories in this header.
+#     @var PROTOCOLS
+#         An array of protocols in this header.
+#  */
 package HeaderDoc::Header;
 
 BEGIN {
@@ -35,12 +70,21 @@ BEGIN {
     }
 }
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash sanitize);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash sanitize objName byLinkage byAccessControl objGroup linkageAndObjName byMethodType
+);
 use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::Header::VERSION = '$Revision: 1.15 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Header::VERSION = '$Revision: 1298084578 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -61,22 +105,19 @@ my $outputExtension = ".html";
 my $tocFrameName = "toc.html";
 ######################################################################
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
-    
-    bless($self, $class);
-    $self->_initialize();
-    return($self);
-}
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>Header</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
 
     $self->SUPER::_initialize();
 
-    $self->{CLASSES} = ();
+    # $self->{CLASSES} = (); # Initialized in APIOwner
     # $self->{CLASSESDIR} = undef;
     # $self->{UPDATED}= undef;
     $self->{COPYRIGHT}= "";
@@ -91,20 +132,14 @@ sub _initialize {
     $self->tocTitlePrefix('Header:');
 }
 
-sub outputDir {
-    my $self = shift;
-
-    if (@_) {
-        my $rootOutputDir = shift;
-        $self->SUPER::outputDir($rootOutputDir);
-        $self->{OUTPUTDIR} = $rootOutputDir;
-	    $self->classesDir("$rootOutputDir$pathSeparator"."Classes");
-	    $self->protocolsDir("$rootOutputDir$pathSeparator"."Protocols");
-	    $self->categoriesDir("$rootOutputDir$pathSeparator"."Categories");
-    }
-    return $self->{OUTPUTDIR};
-}
-
+# /*!
+#     @abstract
+#         Gets/sets the full path of the header.
+#     @param self
+#         The <code>Header</code> object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub fullpath {
     my $self = shift;
 
@@ -171,6 +206,14 @@ sub fullpath {
     ### return $self->{CATEGORIESDIR};
 ### }
 
+# /*!
+#     @abstract
+#         Gets/sets the availability for the header.
+#     @param self
+#         The <code>Header</code> object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub availability {
     my $self = shift;
 
@@ -180,6 +223,14 @@ sub availability {
     return $self->{AVAILABILITY};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the updated date for the header.
+#     @param self
+#         The <code>Header</code> object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub updated {
     my $self = shift;
     my $localDebug = 0;
@@ -264,7 +315,7 @@ sub updated {
 		print STDERR "$fullpath:$linenum: warning: Invalid date (year = $year, month = $month, day = $day). Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
+		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year, $self->encoding());
 		print STDERR "date set to ".$self->{UPDATED}."\n" if ($localDebug);
 	}
     }
@@ -294,6 +345,18 @@ sub updated {
 # removes a maximum of one object per invocation
 # we remove a catagory if we've been successful finding 
 # the associated class and adding the category methods to it.
+# /*!
+#     @abstract
+#         Removes one object from the categories list.
+#     @param self
+#         The <code>Header</code> object.
+#     @param object
+#         The object to remove.
+#     @discussion
+#         A category gets removed if HeadeDoc finds the
+#         associated class and merges the category's
+#         methods into it.
+#  */
 sub removeFromCategories {
     my $self = shift;
     my $objToRemove = shift;
@@ -318,6 +381,14 @@ sub removeFromCategories {
 	@{ $self->{CATEGORIES} } = @tempArray;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the copyright owner info for a header.
+#     @param self
+#         The <code>Header</code> object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub headerCopyrightOwner {
     my $self = shift;
 
@@ -328,6 +399,14 @@ sub headerCopyrightOwner {
     return $self->{COPYRIGHT};
 }
 
+# /*!
+#     @abstract
+#         Gets/appends to the HTML meta tag list for a header.
+#     @param self
+#         The <code>Header</code> object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub HTMLmeta {
     my $self = shift;
 
@@ -361,37 +440,6 @@ sub HTMLmeta {
     return $extendedmeta;
 }
 
-sub metaFileText {
-    my $self = shift;
-    my $encoding = $self->encoding();
-    my $text = "<?xml version=\"1.0\" encoding=\"$encoding\"?>\n";
-
-    $text .= "<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">\n";
-    $text .= "<plist version=\"1.0\">\n";
-    $text .= "<dict>\n";
-
-    my $title = $self->name();
-
-    if (!("$title" eq "")) {
-	$text .= "<key>BookTitle</key>\n";
-	$text .= "<string>$title HeaderDoc Reference</string>\n";
-    }
-    $text .= "<key>WriterEmail</key>\n";
-    $text .= "<string>techpubs\@group.apple.com</string>\n";
-    $text .= "<key>EDD_Name</key>\n";
-    $text .= "<string>ProceduralC.EDD</string>\n";
-    $text .= "<key>EDD_Version</key>\n";
-    $text .= "<string>3.31</string>\n";
-    $text .= "<key>ReleaseDateFooter</key>\n";
-    my $date = `date +"%B %Y"`;
-    $date =~ s/\n//smog;
-    $text .= "<string>$date</string>\n";
-    $text .= "</dict>\n";
-    $text .= "</plist>\n";
-
-    return $text;
-}
-
 ### sub writeHeaderElements {
     ### my $self = shift;
     ### my $classesDir = $self->classesDir();
@@ -419,6 +467,12 @@ sub metaFileText {
     ### # }
 ### }
 
+# /*!
+#     @abstract
+#         Writes the contents of a header object to a composite page.
+#     @param self
+#         The <code>Header</code> object.
+# */
 sub writeHeaderElementsToCompositePage {
     my $self = shift;
     my @classObjs = $self->classes();
@@ -443,54 +497,21 @@ sub writeHeaderElementsToCompositePage {
     }
 }
 
-sub writeProtocols {
-    my $self = shift;
-    my @protocolObjs = $self->protocols();
-    my $protocolsRootDir = $self->protocolsDir();
-        
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @protocolObjs;
-    } else {
-	@tempobjs = @protocolObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $protocolName = $obj->name();
-        # for now, always shorten long names since some files may be moved to a Mac for browsing
-        if (1 || $isMacOS) {$protocolName = &safeName(filename => $protocolName);};
-        $obj->outputDir("$protocolsRootDir$pathSeparator$protocolName");
-        $obj->createFramesetFile();
-        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
-        $obj->createTOCFile();
-        $obj->writeHeaderElements(); 
-    }
-}
-
-sub writeCategories {
-    my $self = shift;
-    my @categoryObjs = $self->categories();
-    my $categoriesRootDir = $self->categoriesDir();
-        
-    my @tempobjs = ();
-    if ($HeaderDoc::sort_entries) {
-	@tempobjs = sort objName @categoryObjs;
-    } else {
-	@tempobjs = @categoryObjs;
-    }
-    foreach my $obj (@tempobjs) {
-        my $categoryName = $obj->name();
-        # for now, always shorten long names since some files may be moved to a Mac for browsing
-        if (1 || $isMacOS) {$categoryName = &safeName(filename => $categoryName);};
-        $obj->outputDir("$categoriesRootDir$pathSeparator$categoryName");
-        $obj->createFramesetFile();
-        $obj->createContentFile() if (!$HeaderDoc::ClassAsComposite);
-        $obj->createTOCFile();
-        $obj->writeHeaderElements(); 
-    }
-}
-
 # use Devel::Peek;
 
+# /*!
+#     @abstract
+#         Returns a comment marker for
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}.
+#     @discussion
+#         Returns an HTML comment that identifies the index file
+#         (header vs. class, name, and so on).  The
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}
+#         tool uses this information to create a master TOC for the
+#         generated doc.
+#     @param self
+#         The APIOwner object.
+# */
 sub docNavigatorComment {
     my $self = shift;
     # print STDERR "IX0\n"; Dump($self);
@@ -513,17 +534,15 @@ sub docNavigatorComment {
     }
 }
 
-################## Misc Functions ###################################
-
-
-sub objName { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->name()) cmp lc($obj2->name()));
-}
 
 ##################### Debugging ####################################
 
+# /*!
+#     @abstract
+#         Prints an object for debugging purposes.
+#     @param self
+#         The <code>Header</code> object.
+# */
 sub printObject {
     my $self = shift;
     my $classesDir = $self->{CLASSESDIR};

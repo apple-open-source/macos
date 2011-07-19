@@ -904,6 +904,19 @@ test execute-8.1 {Stack protection} -setup {
     rename whatever {}
 } -returnCodes error -match glob -result *
 
+test execute-10.2 {Bug 2802881} -setup {
+    interp create slave
+} -body {
+    # If [Bug 2802881] is not fixed, this will segfault
+    slave eval {
+	trace add variable ::errorInfo write {expr {$foo} ;#}
+	proc demo {} {a {}{}}
+	demo
+    }
+} -cleanup {
+    interp delete slave
+} -returnCodes error -match glob -result *
+
 # cleanup
 if {[info commands testobj] != {}} {
    testobj freeallvars

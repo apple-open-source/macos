@@ -28,7 +28,8 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include "JNIBridgeJSC.h"
+#include "BridgeJSC.h"
+#include "JNIUtility.h"
 #include <wtf/HashMap.h>
 
 namespace JSC {

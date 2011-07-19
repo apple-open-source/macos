@@ -30,12 +30,12 @@
 #include <windows.h>
 #include <vsstyle.h>
 
-#include "ChromiumBridge.h"
 #include "GraphicsContext.h"
+#include "PlatformBridge.h"
 #include "PlatformContextSkia.h"
 #include "PlatformMouseEvent.h"
 #include "Scrollbar.h"
-#include "WindowsVersion.h"
+#include "SystemInfo.h"
 
 namespace WebCore {
 
@@ -57,29 +57,11 @@ static const int kMacScrollbarSize[3] = { 15, 11, 15 };
 static const int kOffEndMultiplier = 3;
 static const int kOffSideMultiplier = 8;
 
-IntRect ScrollbarThemeChromium::trackRect(Scrollbar* scrollbar, bool)
-{
-    IntSize bs = buttonSize(scrollbar);
-    // The buttons at the top and bottom of the scrollbar are square, so the
-    // thickness of the scrollbar is also their height.
-    int thickness = scrollbarThickness(scrollbar->controlSize());
-    if (scrollbar->orientation() == HorizontalScrollbar) {
-        // Once the scrollbar becomes smaller than the natural size of the
-        // two buttons, the track disappears.
-        if (scrollbar->width() < 2 * thickness)
-            return IntRect();
-        return IntRect(scrollbar->x() + bs.width(), scrollbar->y(), scrollbar->width() - 2 * bs.width(), thickness);
-    }
-    if (scrollbar->height() < 2 * thickness)
-        return IntRect();
-    return IntRect(scrollbar->x(), scrollbar->y() + bs.height(), thickness, scrollbar->height() - 2 * bs.height());
-}
-
 int ScrollbarThemeChromiumWin::scrollbarThickness(ScrollbarControlSize controlSize)
 {
     static int thickness;
     if (!thickness) {
-        if (ChromiumBridge::layoutTestMode())
+        if (PlatformBridge::layoutTestMode())
             return kMacScrollbarSize[controlSize];
         thickness = GetSystemMetrics(SM_CXVSCROLL);
     }
@@ -88,7 +70,7 @@ int ScrollbarThemeChromiumWin::scrollbarThickness(ScrollbarControlSize controlSi
 
 bool ScrollbarThemeChromiumWin::invalidateOnMouseEnterExit()
 {
-    return isVistaOrNewer();
+    return windowsVersion() >= WindowsVista;
 }
 
 bool ScrollbarThemeChromiumWin::shouldSnapBackToDragOrigin(Scrollbar* scrollbar, const PlatformMouseEvent& evt)
@@ -122,7 +104,7 @@ void ScrollbarThemeChromiumWin::paintTrackPiece(GraphicsContext* gc, Scrollbar* 
     IntRect alignRect = trackRect(scrollbar, false);
 
     // Draw the track area before/after the thumb on the scroll bar.
-    ChromiumBridge::paintScrollbarTrack(
+    PlatformBridge::paintScrollbarTrack(
         gc,
         partId,
         getThemeState(scrollbar, partType),
@@ -142,7 +124,7 @@ void ScrollbarThemeChromiumWin::paintButton(GraphicsContext* gc, Scrollbar* scro
         partId = horz ? DFCS_SCROLLRIGHT : DFCS_SCROLLDOWN;
 
     // Draw the thumb (the box you drag in the scroll bar to scroll).
-    ChromiumBridge::paintScrollbarArrow(
+    PlatformBridge::paintScrollbarArrow(
         gc,
         getThemeArrowState(scrollbar, part),
         partId | getClassicThemeState(scrollbar, part),
@@ -154,7 +136,7 @@ void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, Scrollbar* scrol
     bool horz = scrollbar->orientation() == HorizontalScrollbar;
 
     // Draw the thumb (the box you drag in the scroll bar to scroll).
-    ChromiumBridge::paintScrollbarThumb(
+    PlatformBridge::paintScrollbarThumb(
         gc,
         horz ? SBP_THUMBBTNHORZ : SBP_THUMBBTNVERT,
         getThemeState(scrollbar, ThumbPart),
@@ -162,7 +144,7 @@ void ScrollbarThemeChromiumWin::paintThumb(GraphicsContext* gc, Scrollbar* scrol
         rect);
 
     // Draw the gripper (the three little lines on the thumb).
-    ChromiumBridge::paintScrollbarThumb(
+    PlatformBridge::paintScrollbarThumb(
         gc,
         horz ? SBP_GRIPPERHORZ : SBP_GRIPPERVERT,
         getThemeState(scrollbar, ThumbPart),
@@ -178,12 +160,12 @@ int ScrollbarThemeChromiumWin::getThemeState(Scrollbar* scrollbar, ScrollbarPart
     if (scrollbar->pressedPart() == ThumbPart) {
         if (part == ThumbPart)
             return SCRBS_PRESSED;
-        return isVistaOrNewer() ? SCRBS_HOVER : SCRBS_NORMAL;
+        return (windowsVersion() < WindowsVista) ? SCRBS_NORMAL : SCRBS_HOVER;
     }
     if (!scrollbar->enabled())
         return SCRBS_DISABLED;
     if (scrollbar->hoveredPart() != part || part == BackTrackPart || part == ForwardTrackPart)
-        return (scrollbar->hoveredPart() == NoPart || !isVistaOrNewer()) ? SCRBS_NORMAL : SCRBS_HOVER;
+        return (scrollbar->hoveredPart() == NoPart || (windowsVersion() < WindowsVista)) ? SCRBS_NORMAL : SCRBS_HOVER;
     if (scrollbar->pressedPart() == NoPart)
         return SCRBS_HOT;
     return (scrollbar->pressedPart() == part) ? SCRBS_PRESSED : SCRBS_NORMAL;
@@ -197,43 +179,43 @@ int ScrollbarThemeChromiumWin::getThemeArrowState(Scrollbar* scrollbar, Scrollba
     if (part == BackButtonStartPart || part == ForwardButtonStartPart) {
         if (scrollbar->orientation() == HorizontalScrollbar) {
             if (scrollbar->pressedPart() == ThumbPart)
-                return !isVistaOrNewer() ? ABS_LEFTNORMAL : ABS_LEFTHOVER;
+                return (windowsVersion() < WindowsVista) ? ABS_LEFTNORMAL : ABS_LEFTHOVER;
             if (!scrollbar->enabled())
                 return ABS_LEFTDISABLED;
             if (scrollbar->hoveredPart() != part)
-                return ((scrollbar->hoveredPart() == NoPart) || !isVistaOrNewer()) ? ABS_LEFTNORMAL : ABS_LEFTHOVER;
+                return ((scrollbar->hoveredPart() == NoPart) || (windowsVersion() < WindowsVista)) ? ABS_LEFTNORMAL : ABS_LEFTHOVER;
             if (scrollbar->pressedPart() == NoPart)
                 return ABS_LEFTHOT;
             return (scrollbar->pressedPart() == part) ?
                 ABS_LEFTPRESSED : ABS_LEFTNORMAL;
         }
         if (scrollbar->pressedPart() == ThumbPart)
-            return !isVistaOrNewer() ? ABS_UPNORMAL : ABS_UPHOVER;
+            return (windowsVersion() < WindowsVista) ? ABS_UPNORMAL : ABS_UPHOVER;
         if (!scrollbar->enabled())
             return ABS_UPDISABLED;
         if (scrollbar->hoveredPart() != part)
-            return ((scrollbar->hoveredPart() == NoPart) || !isVistaOrNewer()) ? ABS_UPNORMAL : ABS_UPHOVER;
+            return ((scrollbar->hoveredPart() == NoPart) || (windowsVersion() < WindowsVista)) ? ABS_UPNORMAL : ABS_UPHOVER;
         if (scrollbar->pressedPart() == NoPart)
             return ABS_UPHOT;
         return (scrollbar->pressedPart() == part) ? ABS_UPPRESSED : ABS_UPNORMAL;
     }
     if (scrollbar->orientation() == HorizontalScrollbar) {
         if (scrollbar->pressedPart() == ThumbPart)
-            return !isVistaOrNewer() ? ABS_RIGHTNORMAL : ABS_RIGHTHOVER;
+            return (windowsVersion() < WindowsVista) ? ABS_RIGHTNORMAL : ABS_RIGHTHOVER;
         if (!scrollbar->enabled())
             return ABS_RIGHTDISABLED;
         if (scrollbar->hoveredPart() != part)
-            return ((scrollbar->hoveredPart() == NoPart) || !isVistaOrNewer()) ? ABS_RIGHTNORMAL : ABS_RIGHTHOVER;
+            return ((scrollbar->hoveredPart() == NoPart) || (windowsVersion() < WindowsVista)) ? ABS_RIGHTNORMAL : ABS_RIGHTHOVER;
         if (scrollbar->pressedPart() == NoPart)
             return ABS_RIGHTHOT;
         return (scrollbar->pressedPart() == part) ? ABS_RIGHTPRESSED : ABS_RIGHTNORMAL;
     }
     if (scrollbar->pressedPart() == ThumbPart)
-        return !isVistaOrNewer() ? ABS_DOWNNORMAL : ABS_DOWNHOVER;
+        return (windowsVersion() < WindowsVista) ? ABS_DOWNNORMAL : ABS_DOWNHOVER;
     if (!scrollbar->enabled())
         return ABS_DOWNDISABLED;
     if (scrollbar->hoveredPart() != part)
-        return ((scrollbar->hoveredPart() == NoPart) || !isVistaOrNewer()) ? ABS_DOWNNORMAL : ABS_DOWNHOVER;
+        return ((scrollbar->hoveredPart() == NoPart) || (windowsVersion() < WindowsVista)) ? ABS_DOWNNORMAL : ABS_DOWNHOVER;
     if (scrollbar->pressedPart() == NoPart)
         return ABS_DOWNHOT;
     return (scrollbar->pressedPart() == part) ? ABS_DOWNPRESSED : ABS_DOWNNORMAL;
@@ -274,7 +256,7 @@ IntSize ScrollbarThemeChromiumWin::buttonSize(Scrollbar* scrollbar)
     // test mode so that should be enough to result in repeatable results, but
     // preserving this hack avoids having to rebaseline pixel tests.
     const int kLayoutTestModeGirth = 17;
-    int girth = ChromiumBridge::layoutTestMode() ? kLayoutTestModeGirth : thickness;
+    int girth = PlatformBridge::layoutTestMode() ? kLayoutTestModeGirth : thickness;
 
     if (scrollbar->orientation() == HorizontalScrollbar) {
         int width = scrollbar->width() < 2 * girth ? scrollbar->width() / 2 : girth;

@@ -8,7 +8,7 @@
 # Copyright (c) 2002-2006 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: pop3.test,v 1.25 2007/08/08 21:23:01 andreas_kupries Exp $
+# RCS: @(#) $Id: pop3.test,v 1.27 2009/09/28 20:44:17 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -18,6 +18,8 @@ source [file join \
 
 testsNeedTcl     8.3 ; # for snit below
 testsNeedTcltest 1.0
+
+tcltest::testConstraint hastls [expr {![catch {package require tls}]}]
 
 support {
     #use           snit/snit.tcl snit ;# comm futures, not used, still a dependency
@@ -291,7 +293,7 @@ test pop3-0.8 {open pop3 channel} {
     # the prescribed api command.
     lappend msg [peek $psock]
     set msg
-} {sock {limit 11 msex 0 retr_mode retr}}
+} {sock {limit 11 msex 0 retr_mode retr socketcmd ::socket}}
 
 test pop3-0.9 {outside close} {
     dialog::dialog_set loginStatusOk
@@ -308,7 +310,6 @@ test pop3-0.10 {multiple open pop3 channel to same maildrop} {
     dialog::waitdone
     set msg
 } {POP3 LOGIN ERROR:  could not aquire lock for maildrop ak}
-
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
@@ -342,7 +343,7 @@ test pop3-1.2 {status ok} {
     pop3::close $psock
     dialog::waitdone
     set status
-} {11 176 {limit 11 msex 0 retr_mode retr}}
+} {11 176 {limit 11 msex 0 retr_mode retr socketcmd ::socket}}
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------
@@ -579,6 +580,30 @@ test pop3-6.1 {uidl} {
     dialog::waitdone
     set msg
 } {POP3 UIDL ERROR:  unknown command 'UIDL'}
+
+test pop3-7.0 {open pop3 channel secured via package tls} hastls {
+    dialog::shutdown
+    dialog::setup server {Pop3 Fake Server} 1
+
+    tls::init \
+	-keyfile  [tcllibPath devtools/receiver.key] \
+	-certfile [tcllibPath devtools/receiver.crt] \
+	-cafile   [tcllibPath devtools/ca.crt] \
+	-ssl2 1    \
+	-ssl3 1    \
+	-tls1 0    \
+	-require 1
+
+    dialog::dialog_set loginStatusOk
+    set psock [pop3::open -socketcmd tls::socket localhost ak smash [dialog::listener]]
+    close $psock
+    dialog::waitdone
+    regsub -all {[0-9]} $psock {} msg
+    # status data is retained if the connection is not closed through
+    # the prescribed api command.
+    lappend msg [peek $psock]
+    set msg
+} {sock {limit 11 msex 0 retr_mode retr socketcmd tls::socket}}
 
 # ----------------------------------------------------------------------
 # ----------------------------------------------------------------------

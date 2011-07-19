@@ -1,8 +1,3 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static PyObject*
 mod_CFNumberGetValue(
 	PyObject* self __attribute__((__unused__)),
@@ -29,7 +24,7 @@ mod_CFNumberGetValue(
 		CFIndex indexv;
 	} buf;
 
-	if (!PyArg_ParseTuple(args, "OiO", &py_number, &type, &py_buf)) {
+	if (!PyArg_ParseTuple(args, "O"Py_ARG_SIZE_T"O", &py_number, &type, &py_buf)) {
 		return NULL;
 	}
 	if (py_buf != Py_None) {
@@ -151,7 +146,7 @@ mod_CFNumberCreate(
 		CFIndex indexv;
 	} buf;
 
-	if (!PyArg_ParseTuple(args, "OiO", &py_allocator, &type, &py_value)) {
+	if (!PyArg_ParseTuple(args, "O"Py_ARG_SIZE_T"O", &py_allocator, &type, &py_value)) {
 		return NULL;
 	}
 	if (PyObjC_PythonToObjC(@encode(CFAllocatorRef), py_allocator, &allocator) < 0) {
@@ -246,27 +241,16 @@ mod_CFNumberCreate(
 
 
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFNumberGetValue",
-		(PyCFunction)mod_CFNumberGetValue,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_NUMBER_METHODS \
+        {	\
+		"CFNumberGetValue",	\
+		(PyCFunction)mod_CFNumberGetValue,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFNumberCreate",	\
+		(PyCFunction)mod_CFNumberCreate,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFNumberCreate",
-		(PyCFunction)mod_CFNumberCreate,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFNumber(void);
-void init_CFNumber(void)
-{
-	PyObject* m = Py_InitModule4("_CFNumber", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

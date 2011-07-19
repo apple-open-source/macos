@@ -46,7 +46,7 @@ namespace swig {
   struct traits_asptr {   
     static int asptr(PyObject *obj, Type **val) {
       Type *p;
-      int res = (SWIG_ConvertPtr(obj, (void**)&p, type_info<Type>(), 0) == SWIG_OK) ? SWIG_OLDOBJ : 0;
+      int res = SWIG_ConvertPtr(obj, (void**)&p, type_info<Type>(), 0);
       if (SWIG_IsOK(res)) {
 	if (val) *val = p;
       }
@@ -111,7 +111,7 @@ namespace swig {
       int res = asval(obj, &v);
       if (!obj || !SWIG_IsOK(res)) {
 	if (!PyErr_Occurred()) {
-	  %type_error(swig::type_name<Type>());
+	  ::%type_error(swig::type_name<Type>());
 	}
 	if (throw_error) throw std::invalid_argument("bad type");
       }

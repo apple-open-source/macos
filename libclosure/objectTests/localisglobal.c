@@ -1,15 +1,22 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  localisglobal.c
  *  testObjects
  *
  *  Created by Blaine Garst on 9/29/08.
  *  Copyright 2008 __MyCompanyName__. All rights reserved.
- *
- *  works in all configurations
- *  CONFIG   rdar://6230297
  */
 
+// TEST_CONFIG
+// rdar://6230297
+
 #include <stdio.h>
+#include "test.h"
 
 void (^global)(void) = ^{ printf("hello world\n"); };
 
@@ -18,20 +25,17 @@ int aresame(void *first, void *second) {
     long *s = (long *)second;
     return *f == *s;
 }
-int main(int argc, char *argv[]) {
+int main() {
     int i = 10;
     void (^local)(void) = ^ { printf("hi %d\n", i); };
     void (^localisglobal)(void) = ^ { printf("hi\n"); };
     
     if (aresame(local, localisglobal)) {
-        printf("local block could be global, but isn't\n");
-        return 1;
+        fail("local block could be global, but isn't");
     }
     if (!aresame(global, localisglobal)) {
-        printf("local block is not global, not stack, what is it??\n");
-        return 1;
+        fail("local block is not global, not stack, what is it??");
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
-    
+
+    succeed(__FILE__);
 }

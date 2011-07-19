@@ -38,11 +38,20 @@ licensed under the terms of the GNU GPL; see test/COPYING for terms.
 The autoconf macros in the "macros" directory are under a less
 restrictive license, see each file for details.
 
-neon is Copyright (C) 1999-2006 Joe Orton <joe@manyfish.co.uk>
+neon is Copyright (C) 1999-2008 Joe Orton <joe@manyfish.co.uk>
 Portions are:
-Copyright (C) 1999-2000 Tommi Komulainen <Tommi.Komulainen@iki.fi>
-Copyright (C) 1999-2000 Peter Boos <pedib@colorfullife.com>
-Copyright (C) 1991, 1995, 1996, 1997 Free Software Foundation, Inc.
-Copyright (C) 2004 Aleix Conchillo Flaque <aleix@member.fsf.org>
-Copyright (C) 2004 Jiang Lei <tristone@deluxe.ocn.ne.jp>
-Copyright (C) 2004-2005 Vladimir Berezniker @ http://public.xdi.org/=vmpn
+Copyright (C) Aleix Conchillo Flaque <aleix@member.fsf.org>
+Copyright (C) Arfrever Frehtes Taifersar Arahesis
+Copyright (C) Arun Garg <arung@pspl.co.in>
+Copyright (C) Daniel Stenberg <daniel@haxx.se>
+Copyright (C) Free Software Foundation, Inc.
+Copyright (C) Henrik Holst <henrik.holst2@gmail.com>
+Copyright (C) Jiang Lei <tristone@deluxe.ocn.ne.jp>
+Copyright (C) Kai Sommerfeld <kso@openoffice.org>
+Copyright (C) Karl Ove Hufthammer.
+Copyright (C) Michael Sobolev
+Copyright (C) Nobuyuki Tsuchimura <tutimura@nn.iij4u.or.jp>
+Copyright (C) Sylvain Glaize <mokona@puupuu.org>
+Copyright (C) Thomas Schultz <tststs@gmx.de>
+Copyright (C) Vladimir Berezniker @ http://public.xdi.org/=vmpn
+Copyright (C) Yves Martin  <ymartin59@free.fr>

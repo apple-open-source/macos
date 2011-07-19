@@ -1,10 +1,10 @@
 /*
- * "$Id: cupsaccept.c 1012 2008-10-10 21:11:39Z msweet $"
+ * "$Id: cupsaccept.c 2875 2010-11-30 03:22:54Z msweet $"
  *
  *   "cupsaccept", "cupsdisable", "cupsenable", and "cupsreject" commands for
- *   the Common UNIX Printing System (CUPS).
+ *   CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -22,12 +22,7 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <cups/string.h>
-#include <cups/cups.h>
-#include <cups/i18n.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -70,8 +65,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     op = IPP_RESUME_PRINTER;
   else
   {
-    _cupsLangPrintf(stderr, _("%s: Don't know what to do!\n"),
-                    command);
+    _cupsLangPrintf(stderr, _("%s: Don't know what to do."), command);
     return (1);
   }
 
@@ -91,8 +85,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
             _cupsLangPrintf(stderr,
-	                    _("%s: Sorry, no encryption support compiled in!\n"),
-	        	    command);
+	                    _("%s: Sorry, no encryption support."), command);
 #endif /* HAVE_SSL */
 	    break;
 
@@ -106,8 +99,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		                _("%s: Error - expected username after "
-				  "\'-U\' option!\n"),
-		        	command);
+				  "\"-U\" option."), command);
 	        return (1);
 	      }
 
@@ -129,8 +121,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		                _("%s: Error - expected hostname after "
-				  "\'-h\' option!\n"),
-		        	command);
+				  "\"-h\" option."), command);
 	        return (1);
 	      }
 
@@ -148,8 +139,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		                _("%s: Error - expected reason text after "
-				  "\'-r\' option!\n"),
-				command);
+				  "\"-r\" option."), command);
 		return (1);
 	      }
 
@@ -164,14 +154,14 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      op = IPP_RELEASE_HELD_NEW_JOBS;
 	    else
 	    {
-	      _cupsLangPrintf(stderr, _("%s: Error - unknown option \'%s\'!\n"),
+	      _cupsLangPrintf(stderr, _("%s: Error - unknown option \"%s\"."),
 			      command, argv[i]);
 	      return (1);
 	    }
 	    break;
 
 	default :
-	    _cupsLangPrintf(stderr, _("%s: Error - unknown option \'%c\'!\n"),
+	    _cupsLangPrintf(stderr, _("%s: Error - unknown option \"%c\"."),
 	                    command, argv[i][1]);
 	    return (1);
       }
@@ -205,7 +195,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       if (cupsLastError() > IPP_OK_CONFLICT)
       {
 	_cupsLangPrintf(stderr,
-			_("%s: Operation failed: %s\n"),
+			_("%s: Operation failed: %s"),
 			command, ippErrorString(cupsLastError()));
 	return (1);
       }
@@ -234,7 +224,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
         if (cupsLastError() > IPP_OK_CONFLICT)
 	{
-	  _cupsLangPrintf(stderr, "%s: %s\n", command, cupsLastErrorString());
+	  _cupsLangPrintf(stderr, "%s: %s", command, cupsLastErrorString());
 	  return (1);
 	}
       }
@@ -245,5 +235,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: cupsaccept.c 1012 2008-10-10 21:11:39Z msweet $".
+ * End of "$Id: cupsaccept.c 2875 2010-11-30 03:22:54Z msweet $".
  */

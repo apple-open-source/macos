@@ -10,7 +10,7 @@
  * See the file LICENSE for information on usage and redistribution.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_base_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/base.c,v 1.20 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_base_c[] = "$Id: base.c 11097 2009-01-30 10:27:37Z bhy $";
 
 #include "dohint.h"
 
@@ -351,6 +351,16 @@ int DohDelattr(DOH *obj, const DOH *name) {
     return (objinfo->doh_hash->doh_delattr) (b, (DOH *) name);
   }
   return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * DohCheckattr()
+ * ----------------------------------------------------------------------------- */
+
+int DohCheckattr(DOH *obj, const DOH *name, const DOH *value) {
+  DOH *attr = Getattr(obj,name);
+  if (!attr) return 0;
+  return DohEqual(attr,value);
 }
 
 /* -----------------------------------------------------------------------------
@@ -817,7 +827,7 @@ void DohSetfile(DOH *ho, DOH *file) {
 /* -----------------------------------------------------------------------------
  * DohGetFile()
  * ----------------------------------------------------------------------------- */
-DOH *DohGetfile(DOH *ho) {
+DOH *DohGetfile(const DOH *ho) {
   DohBase *h = (DohBase *) ho;
   DohObjInfo *objinfo;
   if (!h)
@@ -844,7 +854,7 @@ void DohSetline(DOH *ho, int l) {
 /* -----------------------------------------------------------------------------
  * DohGetLine()
  * ----------------------------------------------------------------------------- */
-int DohGetline(DOH *ho) {
+int DohGetline(const DOH *ho) {
   DohBase *h = (DohBase *) ho;
   DohObjInfo *objinfo;
   if (!h)

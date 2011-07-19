@@ -158,35 +158,11 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             if (ctx->state != SSL_HdskStateCert &&
                 ctx->state != SSL_HdskStateClientCert)
                 goto wrongMessage;
-            err = SSLProcessCertificate(message.contents, ctx);
-			if(ctx->protocolSide == SSL_ServerSide) {
-				if(err) {
-					/*
-					 * Error could be from no cert (when we require one) 
-					 * or invalid cert
-					 */
-					if(ctx->peerCert != NULL) {
-						ctx->clientCertState = kSSLClientCertRejected;
-					}
-				}
-				else if(ctx->peerCert != NULL) {
-					/* 
-					 * This still might change if cert verify msg
-					 * fails. Note we avoid going to state
-					 * if we get en empty cert message which is
-					 * otherwise valid.
-					 */
-					ctx->clientCertState = kSSLClientCertSent;
-				}
-			} else {
-                /* 
-                 * Schedule return to the caller to verify the server's identity.
-                 * Note that an error during processing will cause early 
-                 * termination of the handshake.
-                 */
-                if (ctx->breakOnServerAuth)
-                    ctx->signalServerAuth = true;
-            }
+			err = SSLProcessCertificate(message.contents, ctx);
+			/*
+			 * Note that cert evaluation can now be performed asynchronously,
+			 * so SSLProcessCertificate may return errSSLWouldBlock here.
+			 */
             break;
         case SSL_HdskCertRequest:
             if (((ctx->state != SSL_HdskStateHelloDone) && 
@@ -246,7 +222,9 @@ SSLProcessHandshakeMessage(SSLHandshakeMsg message, SSLContext *ctx)
             SSLFatalSessionAlert(SSL_AlertIllegalParam, ctx);
         else if (err == errSSLNegotiation)
             SSLFatalSessionAlert(SSL_AlertHandshakeFail, ctx);
-        else
+        else if (err != errSSLWouldBlock &&
+				 err != errSSLServerAuthCompleted &&
+				 err != errSSLClientCertRequested)
             SSLFatalSessionAlert(SSL_AlertCloseNotify, ctx);
     }
     return err;
@@ -681,7 +659,7 @@ SSLAdvanceHandshake(SSLHandshakeType processed, SSLContext *ctx)
                 return err;
 			}
             if (ctx->certSent) {
-				/* Not all client auth mechansims require a cert verify message */
+				/* Not all client auth mechanisms require a cert verify message */
 				switch(ctx->negAuthType) {
 					case SSLClientAuth_RSASign:
 					case SSLClientAuth_ECDSASign:

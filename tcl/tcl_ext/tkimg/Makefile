@@ -10,8 +10,11 @@ ProjectName           = TkImg
 
 # Fetch info
 Release               = 1.4
-TEApotVersion         = 0.0.0.2008.12.02.10.57.38
-TEApotProject         = Img
+ImportDate            = 2010-08-31
+SvnUrl                = https://$(Project).svn.sourceforge.net/svnroot/$(Project)/trunk
+
+#TEApotVersion         = 0.0.0.2008.12.02.10.57.38
+#TEApotProject         = Img
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment) CONFIG_SITE=
@@ -40,7 +43,6 @@ install-doc:
 	done
 
 extract::
-	$(_v) $(RM) $(SRCROOT)/$(Project)/libtiff/libtiff/{tif_config.h,tiffconf.h}
-	$(_v) $(MV) $(SRCROOT)/$(Project)/libz/tcl $(SRCROOT)/$(Project)/libz-tcl
-	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/libz/*
-	$(_v) $(MV) $(SRCROOT)/$(Project)/libz-tcl $(SRCROOT)/$(Project)/libz/tcl
+	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/compat/zlib
+	$(_v) $(RM) $(SRCROOT)/$(Project)/compat/libjpeg/ansi2knr.c
+	$(_v) $(RMDIR) $(SRCROOT)/$(Project)/compat/libpng/contrib/gregbook

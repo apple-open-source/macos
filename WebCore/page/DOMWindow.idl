@@ -38,14 +38,14 @@ module window {
         CustomNativeConverter,
         CustomPutFunction,
         EventTarget,
-        OmitConstructor,
         ExtendsDOMGlobalObject,
         GenerateNativeConverter,
+        ReplaceableConstructor,
         LegacyParent=JSDOMWindowBase
     ] DOMWindow {
         // DOM Level 0
-        readonly attribute Screen screen;
-        readonly attribute [DoNotCheckDomainSecurity, JSCCustomGetter] History history;
+        attribute [Replaceable] Screen screen;
+        attribute [Replaceable, DoNotCheckDomainSecurityOnGet, JSCCustomGetter] History history;
         attribute [Replaceable] BarInfo locationbar;
         attribute [Replaceable] BarInfo menubar;
         attribute [Replaceable] BarInfo personalbar;
@@ -54,11 +54,11 @@ module window {
         attribute [Replaceable] BarInfo toolbar;
         attribute [Replaceable] Navigator navigator;
         attribute [Replaceable] Navigator clientInformation;
-        attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing] Location location;
+        readonly attribute Crypto crypto;
+        attribute [DoNotCheckDomainSecurity, JSCCustom, V8CustomSetter, V8DisallowShadowing, CPPCustom] Location location;
 
         attribute [Replaceable, CustomGetter, V8CustomSetter] Event event;
 
-        readonly attribute [Custom] Crypto crypto;
 
         DOMSelection getSelection();
 
@@ -141,11 +141,14 @@ module window {
         readonly attribute Document document;
 
         // CSSOM View Module
+        MediaQueryList matchMedia(in DOMString query);
+
+        // styleMedia has been removed from the CSSOM View specification.
         readonly attribute StyleMedia styleMedia;
 
         // DOM Level 2 Style Interface
         CSSStyleDeclaration getComputedStyle(in Element element,
-                                             in DOMString pseudoElement);
+                                             in [ConvertUndefinedOrNullToNullString] DOMString pseudoElement);
 
         // WebKit extensions
 #if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
@@ -162,7 +165,7 @@ module window {
         readonly attribute [EnabledAtRuntime] DOMApplicationCache applicationCache;
 #endif    
 #if defined(ENABLE_DATABASE) && ENABLE_DATABASE
-        [EnabledAtRuntime, Custom] Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize, in DatabaseCallback creationCallback)
+        [EnabledAtRuntime, RequiresAllArguments=Raise] Database openDatabase(in DOMString name, in DOMString version, in DOMString displayName, in unsigned long estimatedSize, in [Callback, Optional] DatabaseCallback creationCallback)
             raises(DOMException);
 #endif
 #if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
@@ -175,7 +178,26 @@ module window {
         readonly attribute [EnabledAtRuntime] NotificationCenter webkitNotifications;
 #endif
 #if defined(ENABLE_INDEXED_DATABASE) && ENABLE_INDEXED_DATABASE
-        readonly attribute [EnabledAtRuntime] IndexedDatabaseRequest indexedDB;
+        readonly attribute [EnabledAtRuntime] IDBFactory webkitIndexedDB;
+
+        attribute [EnabledAtRuntime] IDBCursorConstructor webkitIDBCursor;
+        attribute [EnabledAtRuntime] IDBDatabaseConstructor webkitIDBDatabase;
+        attribute [EnabledAtRuntime] IDBDatabaseErrorConstructor webkitIDBDatabaseError;
+        attribute [EnabledAtRuntime] IDBDatabaseExceptionConstructor webkitIDBDatabaseException;
+        attribute [EnabledAtRuntime] IDBFactoryConstructor webkitIDBFactory;
+        attribute [EnabledAtRuntime] IDBIndexConstructor webkitIDBIndex;
+        attribute [EnabledAtRuntime] IDBKeyRangeConstructor webkitIDBKeyRange;
+        attribute [EnabledAtRuntime] IDBObjectStoreConstructor webkitIDBObjectStore;
+        attribute [EnabledAtRuntime] IDBRequestConstructor webkitIDBRequest;
+        attribute [EnabledAtRuntime] IDBTransactionConstructor webkitIDBTransaction;
+#endif
+#if defined(ENABLE_FILE_SYSTEM) && ENABLE_FILE_SYSTEM
+        const unsigned short TEMPORARY = 0;
+        const unsigned short PERSISTENT = 1;
+        [EnabledAtRuntime=FileSystem] void webkitRequestFileSystem(in unsigned short type, in long long size, in [Callback, Optional] FileSystemCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+        [EnabledAtRuntime=FileSystem] void webkitResolveLocalFileSystemURL(in DOMString url, in [Callback, Optional] EntryCallback successCallback, in [Callback, Optional] ErrorCallback errorCallback);
+
+        attribute [EnabledAtRuntime=FileSystem] WebKitFlagsConstructor WebKitFlags;
 #endif
 
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
@@ -197,6 +219,10 @@ module window {
             raises(DOMException);
 #endif
 
+#if defined(ENABLE_WEB_TIMING) && ENABLE_WEB_TIMING
+        attribute [Replaceable] Performance performance;
+#endif
+
         // Timers
         [Custom] long setTimeout(in TimeoutHandler handler, in long timeout);
         // [Custom] long setTimeout(in TimeoutHandler handler, in long timeout, arguments...);
@@ -206,6 +232,12 @@ module window {
         // [Custom] long setInterval(in TimeoutHandler handler, in long timeout, arguments...);
         // [Custom] long setInterval(in DOMString code, in long timeout);
         void clearInterval(in long handle);
+
+#if defined(ENABLE_REQUEST_ANIMATION_FRAME)
+        // WebKit animation extensions
+        long webkitRequestAnimationFrame(in [Callback] RequestAnimationFrameCallback callback, in Element element);
+        void webkitCancelRequestAnimationFrame(in long id);
+#endif
 
         // Base64
         DOMString atob(in [ConvertNullToNullString] DOMString string)
@@ -279,8 +311,6 @@ module window {
         // Not implemented yet.
         // attribute EventListener onafterprint;
         // attribute EventListener onbeforeprint;
-        // attribute EventListener onformchange;
-        // attribute EventListener onforminput;
         // attribute EventListener onreadystatechange;
         // attribute EventListener onredo;
         // attribute EventListener onshow;
@@ -296,10 +326,15 @@ module window {
 #if defined(ENABLE_ORIENTATION_EVENTS) && ENABLE_ORIENTATION_EVENTS
         attribute EventListener onorientationchange;
 #endif
-        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchstart;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
-        attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+        attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchstart;
+        attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
+        attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
+        attribute [Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+
+        attribute [Conditional=DEVICE_ORIENTATION,EnabledAtRuntime] DeviceMotionEventConstructor DeviceMotionEvent;
+        attribute [Conditional=DEVICE_ORIENTATION,EnabledAtRuntime] EventListener ondevicemotion;
+        attribute [Conditional=DEVICE_ORIENTATION,EnabledAtRuntime] DeviceOrientationEventConstructor DeviceOrientationEvent;
+        attribute [Conditional=DEVICE_ORIENTATION,EnabledAtRuntime] EventListener ondeviceorientation;
 
         // EventTarget interface
         [Custom] void addEventListener(in DOMString type,
@@ -332,9 +367,6 @@ module window {
         attribute CSSPageRuleConstructor CSSPageRule;
         attribute CSSStyleRuleConstructor CSSStyleRule;
         
-        attribute CSSVariablesRuleConstructor CSSVariablesRule;
-        attribute CSSVariablesDeclarationConstructor CSSVariablesDeclaration;
-
         attribute CSSStyleDeclarationConstructor CSSStyleDeclaration;
         attribute MediaListConstructor MediaList;
         attribute CounterConstructor Counter;
@@ -345,11 +377,13 @@ module window {
 
         // FIXME: Implement the commented-out global constructors for interfaces listed in DOM Level 3 Core specification.
         attribute DOMCoreExceptionConstructor DOMException;
-//        attribute DOMStringListConstructor DOMStringList;
+        attribute DOMStringListConstructor DOMStringList;
 //        attribute NameListConstructor NameList;
 //        attribute DOMImplementationListConstructor DOMImplementationList;
 //        attribute DOMImplementationSourceConstructor DOMImplementationSource;
         attribute DOMImplementationConstructor DOMImplementation;
+        attribute DOMSettableTokenListConstructor DOMSettableTokenList;
+        attribute DOMTokenListConstructor DOMTokenList;
         attribute DocumentFragmentConstructor DocumentFragment;
         attribute DocumentConstructor Document;
         attribute NodeConstructor Node;
@@ -386,9 +420,6 @@ module window {
         attribute HTMLBodyElementConstructor HTMLBodyElement;
         attribute HTMLButtonElementConstructor HTMLButtonElement;
         attribute HTMLCanvasElementConstructor HTMLCanvasElement;
-        attribute [Conditional=DATAGRID] HTMLDataGridElementConstructor HTMLDataGridElement;
-        attribute [Conditional=DATAGRID] HTMLDataGridCellElementConstructor HTMLDataGridCellElement;
-        attribute [Conditional=DATAGRID] HTMLDataGridColElementConstructor HTMLDataGridColElement;
         attribute HTMLDListElementConstructor HTMLDListElement;
         attribute HTMLDirectoryElementConstructor HTMLDirectoryElement;
         attribute HTMLDivElementConstructor HTMLDivElement;
@@ -406,6 +437,7 @@ module window {
         attribute HTMLImageElementConstructor HTMLImageElement;
         attribute HTMLInputElementConstructor HTMLInputElement;
         attribute HTMLIsIndexElementConstructor HTMLIsIndexElement;
+        attribute HTMLKeygenElementConstructor HTMLKeygenElement;
         attribute HTMLLIElementConstructor HTMLLIElement;
         attribute HTMLLabelElementConstructor HTMLLabelElement;
         attribute HTMLLegendElementConstructor HTMLLegendElement;
@@ -414,11 +446,15 @@ module window {
         attribute HTMLMarqueeElementConstructor HTMLMarqueeElement;
         attribute HTMLMenuElementConstructor HTMLMenuElement;
         attribute HTMLMetaElementConstructor HTMLMetaElement;
+#if defined(ENABLE_METER_TAG) && ENABLE_METER_TAG
+        attribute HTMLMeterElementConstructor HTMLMeterElement;
+#endif
         attribute HTMLModElementConstructor HTMLModElement;
         attribute HTMLOListElementConstructor HTMLOListElement;
         attribute HTMLObjectElementConstructor HTMLObjectElement;
         attribute HTMLOptGroupElementConstructor HTMLOptGroupElement;
         attribute HTMLOptionElementConstructor HTMLOptionElement;
+        attribute HTMLOutputElementConstructor HTMLOutputElement;
         attribute HTMLParagraphElementConstructor HTMLParagraphElement;
         attribute HTMLParamElementConstructor HTMLParamElement;
         attribute HTMLPreElementConstructor HTMLPreElement;
@@ -445,22 +481,39 @@ module window {
         attribute [CustomGetter] HTMLImageElementConstructor Image; // Usable with new operator
         attribute [CustomGetter] HTMLOptionElementConstructor Option; // Usable with new operator
 
+        attribute CanvasPatternConstructor CanvasPattern;
+        attribute CanvasGradientConstructor CanvasGradient;
         attribute CanvasRenderingContext2DConstructor CanvasRenderingContext2D;
         attribute ImageDataConstructor ImageData;
-        attribute [Conditional=3D_CANVAS,EnabledAtRuntime] WebGLRenderingContextConstructor WebGLRenderingContext;
+        attribute [Conditional=WEBGL] WebGLActiveInfoConstructor WebGLActiveInfo;
+        attribute [Conditional=WEBGL] WebGLBufferConstructor WebGLBuffer;
+        attribute [Conditional=WEBGL] WebGLFramebufferConstructor WebGLFramebuffer;
+        attribute [Conditional=WEBGL] WebGLProgramConstructor WebGLProgram;
+        attribute [Conditional=WEBGL] WebGLRenderbufferConstructor WebGLRenderbuffer;
+        attribute [Conditional=WEBGL] WebGLRenderingContextConstructor WebGLRenderingContext;
+        attribute [Conditional=WEBGL] WebGLShaderConstructor WebGLShader;
+        attribute [Conditional=WEBGL] WebGLTextureConstructor WebGLTexture;
+        attribute [Conditional=WEBGL] WebGLUniformLocationConstructor WebGLUniformLocation;
         attribute TextMetricsConstructor TextMetrics;
 
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLArrayBufferConstructor WebGLArrayBuffer; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLByteArrayConstructor WebGLByteArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedByteArrayConstructor WebGLUnsignedByteArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLShortArrayConstructor WebGLShortArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedShortArrayConstructor WebGLUnsignedShortArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLIntArrayConstructor WebGLIntArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLUnsignedIntArrayConstructor WebGLUnsignedIntArray; // Usable with new operator
-        attribute [JSCCustomGetter,Conditional=3D_CANVAS,EnabledAtRuntime] WebGLFloatArrayConstructor WebGLFloatArray; // Usable with new operator
+        attribute DOMStringMapConstructor DOMStringMap;
+
+        attribute [JSCCustomGetter] ArrayBufferConstructor ArrayBuffer; // Usable with new operator
+        attribute [JSCCustomGetter] Int8ArrayConstructor Int8Array; // Usable with new operator
+        attribute [JSCCustomGetter] Uint8ArrayConstructor Uint8Array; // Usable with new operator
+        attribute [JSCCustomGetter] Int16ArrayConstructor Int16Array; // Usable with new operator
+        attribute [JSCCustomGetter] Uint16ArrayConstructor Uint16Array; // Usable with new operator
+        attribute [JSCCustomGetter] Int32ArrayConstructor Int32Array; // Usable with new operator
+        attribute [JSCCustomGetter] Uint32ArrayConstructor Uint32Array; // Usable with new operator
+        attribute [JSCCustomGetter] Float32ArrayConstructor Float32Array; // Usable with new operator
+        attribute [JSCCustomGetter] DataViewConstructor DataView; // Usable with new operator
+
+        attribute [JSCCustomGetter,Conditional=WEB_AUDIO,EnabledAtRuntime] AudioContextConstructor webkitAudioContext; // Usable with new operator
+        attribute [Conditional=WEB_AUDIO] AudioPannerNodeConstructor webkitAudioPannerNode; // Needed for panning model constants
 
         attribute EventConstructor Event;
         attribute BeforeLoadEventConstructor BeforeLoadEvent;
+        attribute HashChangeEventConstructor HashChangeEvent;
         attribute KeyboardEventConstructor KeyboardEvent;
         attribute MouseEventConstructor MouseEvent;
         attribute MutationEventConstructor MutationEvent;
@@ -524,13 +577,14 @@ module window {
 
 #if defined(ENABLE_WEB_SOCKETS) && ENABLE_WEB_SOCKETS
         attribute [JSCCustomGetter,EnabledAtRuntime] WebSocketConstructor WebSocket; // Usable with the new operator
+        attribute CloseEventConstructor CloseEvent;
 #endif
 
-        attribute PluginConstructor Plugin;
-        attribute PluginArrayConstructor PluginArray;
+        attribute DOMPluginConstructor Plugin;
+        attribute DOMPluginArrayConstructor PluginArray;
 
-        attribute MimeTypeConstructor MimeType;
-        attribute MimeTypeArrayConstructor MimeTypeArray;
+        attribute DOMMimeTypeConstructor MimeType;
+        attribute DOMMimeTypeArrayConstructor MimeTypeArray;
 
         attribute ClientRectConstructor ClientRect;
         attribute ClientRectListConstructor ClientRectList;
@@ -545,6 +599,12 @@ module window {
         attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLMediaElementConstructor HTMLMediaElement;
         attribute [Conditional=VIDEO, EnabledAtRuntime] HTMLVideoElementConstructor HTMLVideoElement;
         attribute [Conditional=VIDEO, EnabledAtRuntime] MediaErrorConstructor MediaError;
+        attribute [Conditional=VIDEO, EnabledAtRuntime] TimeRangesConstructor TimeRanges;
+
+#if defined(ENABLE_ANIMATION_API) && ENABLE_ANIMATION_API
+        attribute WebKitAnimationConstructor WebKitAnimation;
+        attribute WebKitAnimationListConstructor WebKitAnimationList;
+#endif
 
 #if defined(ENABLE_XPATH) && ENABLE_XPATH
         attribute XPathEvaluatorConstructor XPathEvaluator;
@@ -661,7 +721,7 @@ module window {
         attribute SVGSetElementConstructor SVGSetElement;
 #endif
 
-#if ENABLE_SVG_FONTS && ENABLE_SVG_FONTS
+#if defined(ENABLE_SVG_FONTS) && ENABLE_SVG_FONTS
 //      attribute SVGAltGlyphDefElementConstructor SVGAltGlyphDefElement;
         attribute SVGAltGlyphElementConstructor SVGAltGlyphElement;
 //      attribute SVGAltGlyphItemElementConstructor SVGAltGlyphItemElement;
@@ -674,9 +734,9 @@ module window {
         attribute SVGFontFaceUriElementConstructor SVGFontFaceUriElement;
         attribute SVGGlyphElementConstructor SVGGlyphElement;
 //      attribute SVGGlyphRefElementConstructor SVGGlyphRefElement;
-//      attribute SVGHKernElementConstructor SVGHKernElement;
+        attribute SVGHKernElementConstructor SVGHKernElement;
         attribute SVGMissingGlyphElementConstructor SVGMissingGlyphElement;
-//      attribute SVGVKernElementConstructor SVGVKernElement;
+        attribute SVGVKernElementConstructor SVGVKernElement;
 #endif
 
 #if defined(ENABLE_SVG_FOREIGN_OBJECT) && ENABLE_SVG_FOREIGN_OBJECT
@@ -689,10 +749,11 @@ module window {
         attribute SVGFEColorMatrixElementConstructor SVGFEColorMatrixElement;
         attribute SVGFEComponentTransferElementConstructor SVGFEComponentTransferElement;
         attribute SVGFECompositeElementConstructor SVGFECompositeElement;
-//      attribute SVGFEConvolveMatrixElementConstructor SVGFEConvolveMatrixElement;
+        attribute SVGFEConvolveMatrixElementConstructor SVGFEConvolveMatrixElement;
         attribute SVGFEDiffuseLightingElementConstructor SVGFEDiffuseLightingElement;
         attribute SVGFEDisplacementMapElementConstructor SVGFEDisplacementMapElement;
         attribute SVGFEDistantLightElementConstructor SVGFEDistantLightElement;
+        attribute SVGFEDropShadowElementConstructor SVGFEDropShadowElement;
         attribute SVGFEFloodElementConstructor SVGFEFloodElement;
         attribute SVGFEFuncAElementConstructor SVGFEFuncAElement;
         attribute SVGFEFuncBElementConstructor SVGFEFuncBElement;
@@ -713,11 +774,22 @@ module window {
 #endif
 #endif
 
+        attribute [Conditional=DATABASE] SQLExceptionConstructor SQLException;
+
         attribute [Conditional=TOUCH_EVENTS] TouchEventConstructor TouchEvent;
 
         attribute DOMFormDataConstructor FormData;
 
-        attribute [Conditional=FILE_READER|FILE_WRITER] FileErrorConstructor FileError;
+        attribute [Conditional=BLOB|FILE_SYSTEM] FileErrorConstructor FileError;
+        attribute [Conditional=BLOB] FileReaderConstructor FileReader;
+
+        attribute [Conditional=BLOB] WebKitBlobBuilderConstructor WebKitBlobBuilder;
+
+        readonly attribute [Conditional=BLOB] DOMURL webkitURL;
+
+#if defined(ENABLE_QUOTA) && ENABLE_QUOTA
+        readonly attribute [EnabledAtRuntime=Quota] StorageInfo webkitStorageInfo;
+#endif
 
 #endif // defined(LANGUAGE_JAVASCRIPT)
 

@@ -6,6 +6,11 @@
 	<true/>
 	<key>Label</key>
 	<string>com.apple.notifyd</string>
+	<key>EnvironmentVariables</key>
+	<dict>
+		<key>ASL_DISABLE</key>
+		<string>1</string>
+	</dict>
 	<key>MachServices</key>
 	<dict>
 		<key>com.apple.system.notification_center</key>

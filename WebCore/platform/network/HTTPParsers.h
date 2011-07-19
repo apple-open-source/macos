@@ -30,9 +30,10 @@
 #ifndef HTTPParsers_h
 #define HTTPParsers_h
 
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
-class String;
 class ResourceResponseBase;
 
 enum XSSProtectionDisposition {
@@ -57,6 +58,9 @@ String extractCharsetFromMediaType(const String&);
 void findCharsetInMediaType(const String& mediaType, unsigned int& charsetPos, unsigned int& charsetLen, unsigned int start = 0);
 XSSProtectionDisposition parseXSSProtectionHeader(const String&);
 String extractReasonPhraseFromHTTPStatusLine(const String&);
+
+// -1 could be set to one of the return parameters to indicate the value is not specified.
+bool parseRange(const String&, long long& rangeOffset, long long& rangeEnd, long long& rangeSuffixLength);
 
 }
 

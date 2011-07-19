@@ -37,8 +37,7 @@ enum eAppResourceIDs {
 
 // Strings in the kAppInfo String List
 enum eAppInfoStringOffsets {
-	kStrPlugInsFolder					= 1,
-	kStrProductFolder,
+	kStrProductFolder       = 1,
 	kStrPluginFolder,
 	kStrLogFolder,
 	kStrServerLogFileName,

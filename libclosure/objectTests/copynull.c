@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  copynull.c
  *  testObjects
  *
@@ -6,27 +12,28 @@
  *  Copyright 2008 __MyCompanyName__. All rights reserved.
  *
  */
+
+// TEST_CONFIG
+
+// rdar://6295848
  
 #import <stdio.h>
 #import <Block.h>
-#import <Block_private.h>
- 
-// CONFIG rdar://6295848
+#import <Block_private.h> 
+#import "test.h"
 
-int main(int argc, char *argv[]) {
+int main() {
     
     void (^block)(void) = (void (^)(void))0;
     void (^blockcopy)(void) = Block_copy(block);
     
     if (blockcopy != (void (^)(void))0) {
-        printf("whoops, somehow we copied NULL!\n");
-        return 1;
+        fail("whoops, somehow we copied NULL!");
     }
     // make sure we can also
     Block_release(blockcopy);
     // and more secretly
     //_Block_destroy(blockcopy);
-    
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

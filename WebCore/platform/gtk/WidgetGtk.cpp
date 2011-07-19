@@ -28,19 +28,21 @@
 #include "config.h"
 #include "Widget.h"
 
+#include "Chrome.h"
 #include "Cursor.h"
+#include "Frame.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
+#include "GtkVersioning.h"
 #include "HostWindow.h"
 #include "IntRect.h"
+#include "Page.h"
 #include "RenderObject.h"
 
 #include <gdk/gdk.h>
 #include <gtk/gtk.h>
 
 namespace WebCore {
-
-static GdkCursor* lastSetCursor;
 
 Widget::Widget(PlatformWidget widget)
 {
@@ -55,30 +57,26 @@ Widget::~Widget()
 
 void Widget::setFocus(bool focused)
 {
-    if (focused)
-        gtk_widget_grab_focus(platformWidget() ? platformWidget() : GTK_WIDGET(root()->hostWindow()->platformPageClient()));
-}
-
-static GdkDrawable* gdkDrawable(PlatformWidget widget)
-{
-    return widget ? widget->window : 0;
-}
-    
-void Widget::setCursor(const Cursor& cursor)
-{
-    GdkCursor* platformCursor = cursor.impl();
-
-    // http://bugs.webkit.org/show_bug.cgi?id=16388
-    // [GTK] Widget::setCursor() gets called frequently
-    //
-    // gdk_window_set_cursor() in certain GDK backends seems to be an
-    // expensive operation, so avoid it if possible.
-
-    if (platformCursor == lastSetCursor)
+    if (!focused)
         return;
 
-    gdk_window_set_cursor(gdkDrawable(platformWidget()) ? GDK_WINDOW(gdkDrawable(platformWidget())) : GTK_WIDGET(root()->hostWindow()->platformPageClient())->window, platformCursor);
-    lastSetCursor = platformCursor;
+    GtkWidget* widget = platformWidget() ? platformWidget() : root()->hostWindow()->platformPageClient();
+    if (widget) {
+        gtk_widget_grab_focus(widget);
+        return;
+    }
+
+    // We are running WK2.
+    if (Frame* frame = Frame::frameForWidget(this))
+        frame->page()->chrome()->focus();
+}
+
+void Widget::setCursor(const Cursor& cursor)
+{
+    ScrollView* view = root();
+    if (!view)
+        return;
+    view->hostWindow()->setCursor(cursor);
 }
 
 void Widget::show()
@@ -124,6 +122,7 @@ IntRect Widget::frameRect() const
 void Widget::setFrameRect(const IntRect& rect)
 {
     m_frame = rect;
+    frameRectsChanged();
 }
 
 void Widget::releasePlatformWidget()

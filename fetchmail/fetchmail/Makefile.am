@@ -38,7 +38,11 @@ libfm_a_SOURCES=	xmalloc.c base64.c rfc822.c report.c rfc2047e.c \
 			smbencrypt.h smbdes.c smbencrypt.c smbmd4.c smbutil.c \
 			libesmtp/gethostbyname.h libesmtp/gethostbyname.c \
 			smbtypes.h fm_getaddrinfo.c tls.c rfc822valid.c \
-			xmalloc.h sdump.h sdump.c
+			xmalloc.h sdump.h sdump.c x509_name_match.c \
+			fm_strl.h
+if NTLM_ENABLE
+libfm_a_SOURCES += ntlmsubr.c
+endif
 libfm_a_LIBADD=		$(EXTRAOBJ)
 libfm_a_DEPENDENCIES=	$(EXTRAOBJ)
 LDADD	=		libfm.a @LIBINTL@ $(LIBOBJS)
@@ -46,8 +50,8 @@ DEPENDENCIES=		libfm.a $(LIBOBJS)
 
 check_PROGRAMS=
 
-TESTS=			t.smoke
-TESTS_ENVIRONMENT=	srcdir="@srcdir@" LC_ALL=C TZ=UTC
+TESTS=			t.smoke t.validate-xhtml t.x509_name_match
+TESTS_ENVIRONMENT=	srcdir="$(srcdir)" LC_ALL=C TZ=UTC SHELL="$(SHELL)" $(SHELL)
 
 if NEED_TRIO
 noinst_LIBRARIES+=	libtrio.a
@@ -56,21 +60,22 @@ libtrio_a_SOURCES=	trio/triostr.c trio/trio.c trio/trionan.c \
 			trio/trionan.h trio/triostr.h
 check_PROGRAMS+=	regression
 regression_SOURCES=	trio/regression.c
-LDADD +=		libtrio.a -lm
-TESTS+=			regression
+LDADD+=			libtrio.a -lm
+TESTS+=			t.regression
 endif
 
 fetchmail_SOURCES=	fetchmail.h getopt.h \
-		i18n.h kerberos.h md5.h mx.h netrc.h smtp.h \
+		i18n.h kerberos.h fm_md5.h mx.h netrc.h smtp.h \
 		socket.h tunable.h \
 		socket.c getpass.c \
 		fetchmail.c env.c idle.c options.c daemon.c \
 		driver.c transact.c sink.c smtp.c \
-		uid.c mxget.c md5ify.c cram.c gssapi.c \
+		idlist.c uid.c mxget.c md5ify.c cram.c gssapi.c \
 		opie.c interface.c netrc.c \
 		unmime.c conf.c checkalias.c \
 		lock.h lock.c \
-		rcfile_l.l rcfile_y.y ucs/norm_charmap.c
+		rcfile_l.l rcfile_y.y \
+		ucs/norm_charmap.c ucs/norm_charmap.h
 if POP2_ENABLE
 fetchmail_SOURCES += pop2.c
 endif
@@ -99,13 +104,16 @@ if NEED_GETADDRINFO
 fetchmail_SOURCES += libesmtp/getaddrinfo.h libesmtp/getaddrinfo.c
 endif
 
-check_PROGRAMS +=	rfc822 unmime netrc rfc2047e mxget rfc822valid
+check_PROGRAMS +=	rfc822 unmime netrc rfc2047e mxget rfc822valid \
+			x509_name_match
 
 rfc2047e_CFLAGS=	-DTEST
 
 rfc822valid_CFLAGS=	-DTEST
 
 rfc822_CFLAGS=		-DMAIN
+
+x509_name_match_CFLAGS=	-DTEST
 
 unmime_SOURCES=	unmime.c
 unmime_CFLAGS=	-DSTANDALONE -DHAVE_CONFIG_H -I$(builddir)
@@ -116,8 +124,6 @@ netrc_CFLAGS=	-DSTANDALONE -DHAVE_CONFIG_H -I$(builddir)
 mxget_SOURCES=	mxget.c
 mxget_CFLAGS=	-DSTANDALONE -DHAVE_CONFIG_H -I$(builddir)
 
-# For some losing Unix makes.
-SHELL = /bin/sh
 @SET_MAKE@
 
 fetchmail.spec: Makefile.in specgen.sh
@@ -128,6 +134,9 @@ DISTDOCS=	FAQ FEATURES NOTES OLDNEWS fetchmail-man.html \
 		fetchmail-features.html README.SSL README.NTLM \
 		README.packaging README.SSL-SERVER \
 		fetchmail-FAQ.book fetchmail-FAQ.pdf fetchmail-FAQ.html \
+		Mailbox-Names-UTF7.txt Mailbox-Names-UTF7.html \
+		fetchmail-SA-2010-02.txt \
+		fetchmail-SA-2010-01.txt \
 		fetchmail-SA-2009-01.txt \
 		fetchmail-SA-2008-01.txt \
 		fetchmail-SA-2007-02.txt \
@@ -142,7 +151,8 @@ DISTDOCS=	FAQ FEATURES NOTES OLDNEWS fetchmail-man.html \
 # extra directories to ship
 distdirs = rh-config contrib beos
 
-EXTRA_DIST+=	$(DISTDOCS) fetchmail.spec $(distdirs) ucs/README.svn \
+EXTRA_DIST+=	$(DISTDOCS) $(distdirs) \
+		fetchmail.spec fetchmail.xpm \
 		trio/CHANGES trio/README \
 		strlcpy.3 bighand.png \
 		m4/codeset.m4 \
@@ -175,7 +185,7 @@ EXTRA_DIST+=	$(DISTDOCS) fetchmail.spec $(distdirs) ucs/README.svn \
 		m4/xsize.m4 \
 		m4-local/ac-archive-license.txt \
 		m4-local/ac_ma_search_package.m4 \
-		t.smoke t.rc \
+		$(TESTS) t.rc t.regression \
 		dist-tools/html2txt \
 		dist-tools/manServer.pl \
 		Doxyfile
@@ -210,7 +220,7 @@ fetchmail-man.html: fetchmail.man $(srcdir)/dist-tools/manServer.pl
 	|| { rm -f $@ ; exit 1 ; }
 
 dist-hook:
-	cd $(distdir) && find $(distdirs) po -name .svn -type d -prune -exec rm -rf '{}' ';'
+	cd $(distdir) && find $(distdirs) po -name .git -type d -prune -exec rm -rf '{}' ';'
 	cd $(distdir) && find $(distdirs) po -name '*~' -exec rm -f '{}' ';'
 
 .PHONY: lsm
@@ -223,6 +233,15 @@ lsm: genlsm.sh dist
 # each of them, running them in parallel
 rsync:  distdir $(srcdir)/.rsyncs
 	@( cat $(srcdir)/.rsyncs | sed -e 's}^}rsync -aH --delete-after $(PACKAGE)-$(VERSION)/ }; s/\($$\)/ \&/;' ; echo "wait" ) | $(SHELL) -x
+
+.PHONY: import-translations
+import-translations:
+	rsync -Lrtvz translationproject.org::tp/latest/fetchmail/  $(top_srcdir)/po
+	cd $(top_builddir)/po && $(MAKE) update-po
+
+SUFFIXES = .html .txt
+.txt.html:
+	asciidoc --unsafe -a toc -a data-uri -o $@ $< || { rm -f $@ ; exit 1 ; }
 
 # The following sets edit modes for GNU EMACS.
 # Local Variables:

@@ -39,14 +39,8 @@
 #include <QPainterPath>
 #include <QTransform>
 #include <QString>
+#include <wtf/MathExtras.h>
 #include <wtf/OwnPtr.h>
-
-#define _USE_MATH_DEFINES
-#include <math.h>
-
-#ifndef M_PI
-#   define M_PI 3.14159265358979323846
-#endif
 
 namespace WebCore {
 
@@ -69,23 +63,35 @@ Path& Path::operator=(const Path& other)
     return *this;
 }
 
-// Check whether a point is on the border
-bool isPointOnPathBorder(const QPolygonF& border, const QPointF& p)
+static inline bool areCollinear(const QPointF& a, const QPointF& b, const QPointF& c)
 {
+    // Solved from comparing the slopes of a to b and b to c: (ay-by)/(ax-bx) == (cy-by)/(cx-bx)
+    return qFuzzyCompare((c.y() - b.y()) * (a.x() - b.x()), (a.y() - b.y()) * (c.x() - b.x()));
+}
+
+static inline bool withinRange(qreal p, qreal a, qreal b)
+{
+    return (p >= a && p <= b) || (p >= b && p <= a);
+}
+
+// Check whether a point is on the border
+static bool isPointOnPathBorder(const QPolygonF& border, const QPointF& p)
+{
+    // null border doesn't contain points
+    if (border.isEmpty())
+        return false;
+
     QPointF p1 = border.at(0);
     QPointF p2;
 
     for (int i = 1; i < border.size(); ++i) {
         p2 = border.at(i);
-        //  (x1<=x<=x2||x1=>x>=x2) && (y1<=y<=y2||y1=>y>=y2)  && (y2-y1)(x-x1) == (y-y1)(x2-x1)
-        //  In which, (y2-y1)(x-x1) == (y-y1)(x2-x1) is from (y2-y1)/(x2-x1) == (y-y1)/(x-x1)
-        //  it want to check the slope between p1 and p2 is same with slope between p and p1,
-        //  if so then the three points lie on the same line.
-        //  In which, (x1<=x<=x2||x1=>x>=x2) && (y1<=y<=y2||y1=>y>=y2) want to make sure p is
-        //  between p1 and p2, not outside.
-        if (((p.x() <= p1.x() && p.x() >= p2.x()) || (p.x() >= p1.x() && p.x() <= p2.x()))
-            && ((p.y() <= p1.y() && p.y() >= p2.y()) || (p.y() >= p1.y() && p.y() <= p2.y()))
-            && (p2.y() - p1.y()) * (p.x() - p1.x()) == (p.y() - p1.y()) * (p2.x() - p1.x())) {
+        if (areCollinear(p, p1, p2)
+                // Once we know that the points are collinear we
+                // only need to check one of the coordinates
+                && (qAbs(p2.x() - p1.x()) > qAbs(p2.y() - p1.y()) ?
+                        withinRange(p.x(), p1.x(), p2.x()) :
+                        withinRange(p.y(), p1.y(), p2.y()))) {
             return true;
         }
         p1 = p2;
@@ -109,18 +115,23 @@ bool Path::contains(const FloatPoint& point, WindRule rule) const
     return contains;
 }
 
+static GraphicsContext* scratchContext()
+{
+    static QImage image(1, 1, QImage::Format_ARGB32_Premultiplied);
+    static QPainter painter(&image);
+    static GraphicsContext* context = new GraphicsContext(&painter);
+    return context;
+}
+
 bool Path::strokeContains(StrokeStyleApplier* applier, const FloatPoint& point) const
 {
     ASSERT(applier);
 
-    // FIXME: We should try to use a 'shared Context' instead of creating a new ImageBuffer
-    // on each call.
-    OwnPtr<ImageBuffer> scratchImage = ImageBuffer::create(IntSize(1, 1));
-    GraphicsContext* gc = scratchImage->context();
     QPainterPathStroker stroke;
-    applier->strokeStyle(gc);
+    GraphicsContext* context = scratchContext();
+    applier->strokeStyle(context);
 
-    QPen pen = gc->pen();
+    QPen pen = context->platformContext()->pen();
     stroke.setWidth(pen.widthF());
     stroke.setCapStyle(pen.capStyle());
     stroke.setJoinStyle(pen.joinStyle());
@@ -143,17 +154,14 @@ FloatRect Path::boundingRect() const
     return m_path.boundingRect();
 }
 
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
-    // FIXME: We should try to use a 'shared Context' instead of creating a new ImageBuffer
-    // on each call.
-    OwnPtr<ImageBuffer> scratchImage = ImageBuffer::create(IntSize(1, 1));
-    GraphicsContext* gc = scratchImage->context();
+    GraphicsContext* context = scratchContext();
     QPainterPathStroker stroke;
     if (applier) {
-        applier->strokeStyle(gc);
+        applier->strokeStyle(context);
 
-        QPen pen = gc->pen();
+        QPen pen = context->platformContext()->pen();
         stroke.setWidth(pen.widthF());
         stroke.setCapStyle(pen.capStyle());
         stroke.setJoinStyle(pen.joinStyle());
@@ -188,28 +196,18 @@ void Path::addArcTo(const FloatPoint& p1, const FloatPoint& p2, float radius)
 {
     FloatPoint p0(m_path.currentPosition());
 
-    if ((p1.x() == p0.x() && p1.y() == p0.y()) || (p1.x() == p2.x() && p1.y() == p2.y()) || radius == 0.f) {
-        m_path.lineTo(p1);
-        return;
-    }
-
     FloatPoint p1p0((p0.x() - p1.x()), (p0.y() - p1.y()));
     FloatPoint p1p2((p2.x() - p1.x()), (p2.y() - p1.y()));
     float p1p0_length = sqrtf(p1p0.x() * p1p0.x() + p1p0.y() * p1p0.y());
     float p1p2_length = sqrtf(p1p2.x() * p1p2.x() + p1p2.y() * p1p2.y());
 
     double cos_phi = (p1p0.x() * p1p2.x() + p1p0.y() * p1p2.y()) / (p1p0_length * p1p2_length);
-    // all points on a line logic
-    if (cos_phi == -1) {
+
+    // The points p0, p1, and p2 are on the same straight line (HTML5, 4.8.11.1.8)
+    // We could have used areCollinear() here, but since we're reusing
+    // the variables computed above later on we keep this logic.
+    if (qFuzzyCompare(qAbs(cos_phi), 1.0)) {
         m_path.lineTo(p1);
-        return;
-    }
-    if (cos_phi == 1) {
-        // add infinite far away point
-        unsigned int max_length = 65535;
-        double factor_max = max_length / p1p0_length;
-        FloatPoint ep((p0.x() + factor_max * p1p0.x()), (p0.y() + factor_max * p1p0.y()));
-        m_path.lineTo(ep);
         return;
     }
 
@@ -259,7 +257,6 @@ void Path::closeSubpath()
     m_path.closeSubpath();
 }
 
-#define DEGREES(t) ((t) * 180.0 / M_PI)
 void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool anticlockwise)
 {
     qreal xc = p.x();
@@ -276,8 +273,8 @@ void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool antic
     anticlockwise = !anticlockwise;
     //end hack
 
-    float sa = DEGREES(sar);
-    float ea = DEGREES(ear);
+    float sa = rad2deg(sar);
+    float ea = rad2deg(ear);
 
     double span = 0;
 
@@ -286,21 +283,37 @@ void Path::addArc(const FloatPoint& p, float r, float sar, float ear, bool antic
     double width  = radius*2;
     double height = radius*2;
 
-    if (!anticlockwise && (ea < sa))
-        span += 360;
-    else if (anticlockwise && (sa < ea))
-        span -= 360;
+    if ((!anticlockwise && (ea - sa >= 360)) || (anticlockwise && (sa - ea >= 360))) {
+        // If the anticlockwise argument is false and endAngle-startAngle is equal to or greater than 2*PI, or, if the
+        // anticlockwise argument is true and startAngle-endAngle is equal to or greater than 2*PI, then the arc is the whole
+        // circumference of this circle.
+        span = 360;
 
-    // this is also due to switched coordinate system
-    // we would end up with a 0 span instead of 360
-    if (!(qFuzzyCompare(span + (ea - sa) + 1, 1.0) &&
-          qFuzzyCompare(qAbs(span), 360.0))) {
-        span += ea - sa;
+        if (anticlockwise)
+            span = -span;
+    } else {
+        if (!anticlockwise && (ea < sa))
+            span += 360;
+        else if (anticlockwise && (sa < ea))
+            span -= 360;
+
+        // this is also due to switched coordinate system
+        // we would end up with a 0 span instead of 360
+        if (!(qFuzzyCompare(span + (ea - sa) + 1, 1.0)
+            && qFuzzyCompare(qAbs(span), 360.0))) {
+            // mod 360
+            span += (ea - sa) - (static_cast<int>((ea - sa) / 360)) * 360;
+        }
     }
 
-    // connect to the previous point by a straight line
-    m_path.lineTo(QPointF(xc + radius  * cos(sar),
-                          yc - radius  * sin(sar)));
+    // If the path is empty, move to where the arc will start to avoid painting a line from (0,0)
+    // NOTE: QPainterPath::isEmpty() won't work here since it ignores a lone MoveToElement
+    if (!m_path.elementCount())
+        m_path.arcMoveTo(xs, ys, width, height, sa);
+    else if (!radius) {
+        m_path.lineTo(xc, yc);
+        return;
+    }
 
     m_path.arcTo(xs, ys, width, height, sa, span);
 
@@ -318,6 +331,8 @@ void Path::addEllipse(const FloatRect& r)
 
 void Path::clear()
 {
+    if (!m_path.elementCount())
+        return;
     m_path = QPainterPath();
 }
 
@@ -333,39 +348,9 @@ bool Path::hasCurrentPoint() const
     return !isEmpty();
 }
 
-String Path::debugString() const
+FloatPoint Path::currentPoint() const 
 {
-    QString ret;
-    for (int i = 0; i < m_path.elementCount(); ++i) {
-        const QPainterPath::Element &cur = m_path.elementAt(i);
-
-        switch (cur.type) {
-            case QPainterPath::MoveToElement:
-                ret += QString(QLatin1String("M%1,%2 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2);
-                break;
-            case QPainterPath::LineToElement:
-                ret += QString(QLatin1String("L%1,%2 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2);
-                break;
-            case QPainterPath::CurveToElement:
-            {
-                const QPainterPath::Element &c1 = m_path.elementAt(i + 1);
-                const QPainterPath::Element &c2 = m_path.elementAt(i + 2);
-
-                Q_ASSERT(c1.type == QPainterPath::CurveToDataElement);
-                Q_ASSERT(c2.type == QPainterPath::CurveToDataElement);
-
-                ret += QString(QLatin1String("C%1,%2,%3,%4,%5,%6 ")).arg(cur.x, 0, 'f', 2).arg(cur.y, 0, 'f', 2).arg(c1.x, 0, 'f', 2)
-                                                                    .arg(c1.y, 0, 'f', 2).arg(c2.x, 0, 'f', 2).arg(c2.y, 0, 'f', 2);
-                i += 2;
-                break;
-            }
-            case QPainterPath::CurveToDataElement:
-                Q_ASSERT(false);
-                break;
-        }
-    }
-
-    return ret.trimmed();
+    return m_path.currentPosition();
 }
 
 void Path::apply(void* info, PathApplierFunction function) const
@@ -412,7 +397,41 @@ void Path::apply(void* info, PathApplierFunction function) const
 
 void Path::transform(const AffineTransform& transform)
 {
-    m_path = QTransform(transform).map(m_path);
+    QTransform qTransform(transform);
+    m_path = qTransform.map(m_path);
+}
+
+float Path::length() const
+{
+    return m_path.length();
+}
+
+FloatPoint Path::pointAtLength(float length, bool& ok) const
+{
+    ok = (length >= 0 && length <= m_path.length());
+
+    qreal percent = m_path.percentAtLength(length);
+    QPointF point = m_path.pointAtPercent(percent);
+
+    return point;
+}
+
+float Path::normalAngleAtLength(float length, bool& ok) const
+{
+    ok = (length >= 0 && length <= m_path.length());
+
+    qreal percent = m_path.percentAtLength(length);
+    qreal angle = m_path.angleAtPercent(percent);
+
+    // Normalize angle value.
+    // QPainterPath returns angle values with the origo being at the top left corner.
+    // In case of moveTo(0, 0) and addLineTo(0, 10) the angle is 270,
+    // while the caller expects it to be 90.
+    // Normalize the value by mirroring it to the x-axis.
+    // For more info look at pathLengthApplierFunction().
+    if (angle > 0)
+        angle = 360 - angle;
+    return angle;
 }
 
 }

@@ -30,10 +30,14 @@
 #include <QCursor>
 #endif
 
+#if USE(ACCELERATED_COMPOSITING)
+#include <GraphicsLayer.h>
+#endif
+
+#include <QPalette>
 #include <QRect>
 
 QT_BEGIN_NAMESPACE
-class QGraphicsItem;
 class QStyle;
 QT_END_NAMESPACE
 
@@ -48,8 +52,7 @@ public:
     virtual void setInputMethodEnabled(bool enable) = 0;
     virtual bool inputMethodEnabled() const = 0;
 #if USE(ACCELERATED_COMPOSITING)
-    // this gets called when we start/stop compositing.
-    virtual void setRootGraphicsLayer(QGraphicsItem* layer) {}
+    virtual void setRootGraphicsLayer(WebCore::GraphicsLayer* layer) { }
 
     // this gets called when the compositor wants us to sync the layers
     // if scheduleSync is true, we schedule a sync ourselves. otherwise,
@@ -58,9 +61,7 @@ public:
     virtual bool allowsAcceleratedCompositing() const { return false; }
 #endif
 
-#if QT_VERSION >= 0x040600
-    virtual void setInputMethodHint(Qt::InputMethodHint hint, bool enable) = 0;
-#endif
+    virtual void setInputMethodHints(Qt::InputMethodHints hint) = 0;
 
 #ifndef QT_NO_CURSOR
     inline void resetCursor()
@@ -87,6 +88,12 @@ public:
     virtual QObject* pluginParent() const = 0;
 
     virtual QStyle* style() const = 0;
+
+    virtual QRectF graphicsItemVisibleRect() const { return QRectF(); }
+
+    virtual bool viewResizesToContentsEnabled() const = 0;
+
+    virtual QRectF windowRect() const = 0;
 
 protected:
 #ifndef QT_NO_CURSOR

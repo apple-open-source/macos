@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/mods.c,v 1.59.2.5 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/mods.c,v 1.59.2.10 2010/04/13 20:23:16 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,7 +59,7 @@ modify_add_values(
 	/* FIXME: Catch old code that doesn't set sm_numvals.
 	 */
 	if ( !BER_BVISNULL( &mod->sm_values[mod->sm_numvals] )) {
-		int i;
+		unsigned i;
 		for ( i = 0; !BER_BVISNULL( &mod->sm_values[i] ); i++ );
 		assert( mod->sm_numvals == i );
 	}
@@ -69,8 +69,8 @@ modify_add_values(
 	if ( a != NULL ) {
 		MatchingRule	*mr;
 		struct berval *cvals;
-		int		rc, i, p;
-		unsigned flags;
+		int		rc;
+		unsigned i, p, flags;
 
 		mr = mod->sm_desc->ad_type->sat_equality;
 		if( mr == NULL || !mr->smr_match ) {
@@ -99,7 +99,13 @@ modify_add_values(
 		 * server (whether from LDAP or from the underlying
 		 * database).
 		 */
-		flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX;
+		if ( a->a_desc == slap_schema.si_ad_objectClass ) {
+			/* Needed by ITS#5517 */
+			flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX;
+
+		} else {
+			flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX;
+		}
 		if ( mod->sm_nvalues ) {
 			flags |= SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH |
 				SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH;
@@ -116,7 +122,7 @@ modify_add_values(
 					/* value already exists */
 					*text = textbuf;
 					snprintf( textbuf, textlen,
-						"modify/%s: %s: value #%d already exists",
+						"modify/%s: %s: value #%u already exists",
 						op, mod->sm_desc->ad_cname.bv_val, i );
 					return LDAP_TYPE_OR_VALUE_EXISTS;
 				}
@@ -196,8 +202,8 @@ modify_delete_vindex(
 	MatchingRule 	*mr = mod->sm_desc->ad_type->sat_equality;
 	struct berval *cvals;
 	int		*id2 = NULL;
-	int		i, j, rc = 0;
-	unsigned flags;
+	int		rc = 0;
+	unsigned i, j, flags;
 	char		dummy = '\0';
 
 	/*
@@ -257,13 +263,18 @@ modify_delete_vindex(
 		goto return_result;
 	}
 
+	if ( a->a_desc == slap_schema.si_ad_objectClass ) {
+		/* Needed by ITS#5517,ITS#5963 */
+		flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ATTRIBUTE_SYNTAX;
+
+	} else {
+		flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX;
+	}
 	if ( mod->sm_nvalues ) {
-		flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX
-			| SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH
+		flags |= SLAP_MR_ASSERTED_VALUE_NORMALIZED_MATCH
 			| SLAP_MR_ATTRIBUTE_VALUE_NORMALIZED_MATCH;
 		cvals = mod->sm_nvalues;
 	} else {
-		flags = SLAP_MR_EQUALITY | SLAP_MR_VALUE_OF_ASSERTION_SYNTAX;
 		cvals = mod->sm_values;
 	}
 

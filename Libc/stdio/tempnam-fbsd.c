@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)tempnam.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/tempnam.c,v 1.10 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/tempnam.c,v 1.11 2007/01/09 00:28:07 imp Exp $");
 
 #include <sys/param.h>
 #include <errno.h>
@@ -107,14 +103,6 @@ tempnam(dir, pfx)
 	}
 #endif /* __DARWIN_UNIX03 */
 	f = _PATH_TMP;
-#if __DARWIN_UNIX03
-	if (access(f, W_OK) < 0) {	
-		f = "./";	/* directory inaccessible */
-		if (access(f, W_OK) < 0) {
-			return(NULL);
-		}
-	}
-#endif /* __DARWIN_UNIX03 */
 	(void)snprintf(name, MAXPATHLEN, "%s%sXXXXXX", f, pfx);
 	if ((f = _mktemp(name))) {
 		return(f);

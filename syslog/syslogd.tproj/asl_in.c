@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -41,11 +41,11 @@
 
 static int sock = -1;
 
-asl_msg_t *
+aslmsg
 asl_in_getmsg(int fd)
 {
 	char *out;
-	asl_msg_t *m;
+	aslmsg msg;
 	uint32_t len, n;
 	char tmp[16];
 	int status;
@@ -110,24 +110,24 @@ asl_in_getmsg(int fd)
 	gid = -2;
 
 	status = getpeereid(fd, &uid, &gid);
-	m = asl_msg_from_string(out);
-	if (m == NULL)
+	msg = (aslmsg)asl_msg_from_string(out);
+	if (msg == NULL)
 	{
 		free(out);
 		return NULL;
 	}
 
 	snprintf(tmp, sizeof(tmp), "%d", uid);
-	asl_set(m, ASL_KEY_UID, tmp);
+	asl_set(msg, ASL_KEY_UID, tmp);
 
 	snprintf(tmp, sizeof(tmp), "%d", gid);
-	asl_set(m, ASL_KEY_GID, tmp);
+	asl_set(msg, ASL_KEY_GID, tmp);
 
 	free(out);
-	return m;
+	return msg;
 }
 
-asl_msg_t *
+aslmsg
 asl_in_new_connection(int fd)
 {
 	int clientfd;
@@ -227,18 +227,19 @@ asl_in_init(void)
 }
 
 int
-asl_in_reset(void)
-{
-	return 0;
-}
-
-int
 asl_in_close(void)
 {
 	if (sock < 0) return 1;
 
+	aslevent_removefd(sock);
 	close(sock);
-	unlink(_PATH_ASL_IN);
+	sock = -1;
 
+	return 0;
+}
+
+int
+asl_in_reset(void)
+{
 	return 0;
 }

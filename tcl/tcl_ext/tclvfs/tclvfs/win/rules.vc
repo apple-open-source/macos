@@ -1,4 +1,4 @@
-#------------------------------------------------------------------------------
+#------------------------------------------------------------- -*- Makefile -*-
 # rules.vc --
 #
 #	Microsoft Visual C++ makefile include for decoding the commandline
@@ -14,7 +14,7 @@
 # Copyright (c) 2003-2008 Patrick Thoyts
 #
 #------------------------------------------------------------------------------
-# RCS: @(#) $Id: rules.vc,v 1.1 2008/04/30 15:18:56 patthoyts Exp $
+# RCS: @(#) $Id: rules.vc,v 1.2 2009/01/22 14:36:58 patthoyts Exp $
 #------------------------------------------------------------------------------
 
 !ifndef _RULES_VC
@@ -35,7 +35,7 @@ _INSTALLDIR	= $(INSTALLDIR:/=\)
 
 !ifndef MACHINE
 !if "$(CPU)" == "" || "$(CPU)" == "i386"
-MACHINE         = IX86
+MACHINE		= IX86
 !else
 MACHINE         = $(CPU)
 !endif
@@ -95,7 +95,7 @@ OPTIMIZING	= 1
 OPTIMIZING	= 0
 !endif
 
-OPTIMIZATIONS  =
+OPTIMIZATIONS   =
 
 !if [nmakehlp -c -Ot]
 OPTIMIZATIONS  = $(OPTIMIZATIONS) -Ot
@@ -192,6 +192,8 @@ VCVER=0
 !if ![echo VCVERSION=_MSC_VER > vercl.x] \
     && ![cl -nologo -TC -P vercl.x $(ERRNULL)]
 !include vercl.i
+!if ![del /q vercl.x vercl.i $(ERRNULL)]
+!endif
 !if $(VCVERSION) >= 1500
 VCVER=9
 !elseif $(VCVERSION) >= 1400
@@ -461,10 +463,14 @@ OPTDEFINES	= $(OPTDEFINES) -DTCL_CFG_DO64BIT
 
 
 #----------------------------------------------------------
-# Get common info used when building extensions.
+# Locate the Tcl headers to build against
 #----------------------------------------------------------
 
-!if "$(PROJECT)" != "tcl"
+!if "$(PROJECT)" == "tcl"
+
+_TCL_H          = ..\generic\tcl.h
+
+!else
 
 # If INSTALLDIR set to tcl root dir then reset to the lib dir.
 !if exist("$(_INSTALLDIR)\include\tcl.h")
@@ -496,46 +502,101 @@ Failed to find tcl.h.  The TCLDIR macro does not appear correct.
 !error $(MSG)
 !endif
 !endif
+!endif
 
-!if [echo REM = This file is generated from rules.vc > version.vc]
+#--------------------------------------------------------------
+# Extract various version numbers from tcl headers
+# The generated file is then included in the makefile.
+#--------------------------------------------------------------
+
+!if [echo REM = This file is generated from rules.vc > versions.vc]
 !endif
-!if exist("$(_TCL_H)")
-!if [echo TCL_DOTVERSION = \>> version.vc] \
-   && [nmakehlp -V "$(_TCL_H)" TCL_VERSION >> version.vc]
+!if [echo TCL_MAJOR_VERSION = \>> versions.vc] \
+   && [nmakehlp -V "$(_TCL_H)" TCL_MAJOR_VERSION >> versions.vc]
+!endif
+!if [echo TCL_MINOR_VERSION = \>> versions.vc] \
+   && [nmakehlp -V "$(_TCL_H)" TCL_MINOR_VERSION >> versions.vc]
+!endif
+!if [echo TCL_PATCH_LEVEL = \>> versions.vc] \
+   && [nmakehlp -V "$(_TCL_H)" TCL_PATCH_LEVEL >> versions.vc]
+!endif
+
+# If building the tcl core then we need additional package versions
+!if "$(PROJECT)" == "tcl"
+!if [echo PKG_HTTP_VER = \>> versions.vc] \
+   && [nmakehlp -V ..\library\http\pkgIndex.tcl http >> versions.vc]
+!endif
+!if [echo PKG_TCLTEST_VER = \>> versions.vc] \
+   && [nmakehlp -V ..\library\tcltest\pkgIndex.tcl tcltest >> versions.vc]
+!endif
+!if [echo PKG_MSGCAT_VER = \>> versions.vc] \
+   && [nmakehlp -V ..\library\msgcat\pkgIndex.tcl msgcat >> versions.vc]
+!endif
+!if [echo PKG_PLATFORM_VER = \>> versions.vc] \
+   && [nmakehlp -V ..\library\platform\pkgIndex.tcl "platform " >> versions.vc]
+!endif
+!if [echo PKG_SHELL_VER = \>> versions.vc] \
+   && [nmakehlp -V ..\library\platform\pkgIndex.tcl "platform::shell" >> versions.vc]
 !endif
 !endif
-!include version.vc
-TCL_VERSION	= $(TCL_DOTVERSION:.=)
+
+!include versions.vc
+
+#--------------------------------------------------------------
+# Setup tcl version dependent stuff headers
+#--------------------------------------------------------------
+
+!if "$(PROJECT)" != "tcl"
+
+TCL_VERSION	= $(TCL_MAJOR_VERSION)$(TCL_MINOR_VERSION)
+
+!if $(TCL_VERSION) < 81
+TCL_DOES_STUBS	= 0
+!else
+TCL_DOES_STUBS	= 1
+!endif
 
 !if $(TCLINSTALL)
-TCLSH		= "$(_TCLDIR)\bin\tclsh$(TCL_VERSION)$(SUFX).exe"
+_TCLBINDIR      = "$(_TCLDIR)\bin"
+TCLSH		= "$(_TCLBINDIR)\tclsh$(TCL_VERSION)$(SUFX).exe"
 !if !exist($(TCLSH)) && $(TCL_THREADS)
-TCLSH           = "$(_TCLDIR)\bin\tclsh$(TCL_VERSION)t$(SUFX).exe"
+TCLSH           = "$(_TCLBINDIR)\tclsh$(TCL_VERSION)t$(SUFX).exe"
 !endif
 TCLSTUBLIB	= "$(_TCLDIR)\lib\tclstub$(TCL_VERSION).lib"
 TCLIMPLIB	= "$(_TCLDIR)\lib\tcl$(TCL_VERSION)$(SUFX).lib"
 TCL_LIBRARY	= $(_TCLDIR)\lib
+TCLREGLIB	= "$(_TCLDIR)\lib\tclreg11$(SUFX:t=).lib"
+TCLDDELIB	= "$(_TCLDIR)\lib\tcldde12$(SUFX:t=).lib"
+COFFBASE	= \must\have\tcl\sources\to\build\this\target
+TCLTOOLSDIR	= \must\have\tcl\sources\to\build\this\target
 TCL_INCLUDES    = -I"$(_TCLDIR)\include"
 !else
-TCLSH		= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tclsh$(TCL_VERSION)$(SUFX).exe"
+_TCLBINDIR      = $(_TCLDIR)\win\$(BUILDDIRTOP)
+TCLSH		= "$(_TCLBINDIR)\tclsh$(TCL_VERSION)$(SUFX).exe"
 !if !exist($(TCLSH)) && $(TCL_THREADS)
-TCLSH		= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tclsh$(TCL_VERSION)t$(SUFX).exe"
+TCLSH		= "$(_TCLBINDIR)\tclsh$(TCL_VERSION)t$(SUFX).exe"
 !endif
 TCLSTUBLIB	= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tclstub$(TCL_VERSION).lib"
 TCLIMPLIB	= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tcl$(TCL_VERSION)$(SUFX).lib"
 TCL_LIBRARY	= $(_TCLDIR)\library
+TCLREGLIB	= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tclreg11$(SUFX:t=).lib"
+TCLDDELIB	= "$(_TCLDIR)\win\$(BUILDDIRTOP)\tcldde12$(SUFX:t=).lib"
+COFFBASE	= "$(_TCLDIR)\win\coffbase.txt"
+TCLTOOLSDIR	= $(_TCLDIR)\tools
 TCL_INCLUDES	= -I"$(_TCLDIR)\generic" -I"$(_TCLDIR)\win"
 !endif
 
 !endif
 
-#----------------------------------------------------------
-# Optionally check for Tk info for building extensions.
-#----------------------------------------------------------
+#-------------------------------------------------------------------------
+# Locate the Tk headers to build against
+#-------------------------------------------------------------------------
+
+!if "$(PROJECT)" == "tk"
+_TK_H          = ..\generic\tk.h
+!endif
 
 !ifdef PROJECT_REQUIRES_TK
-!if "$(PROJECT)" != "tcl" && "$(PROJECT)" != "tk"
-
 !if !defined(TKDIR)
 !if exist("$(_INSTALLDIR)\..\include\tk.h")
 TKINSTALL      = 1
@@ -562,40 +623,61 @@ Failed to find tk.h. The TKDIR macro does not appear correct.
 !error $(MSG)
 !endif
 !endif
-
-!if defined(TKDIR)
-TK_DOTVERSION = 8.4
-!if exist("$(_TK_H)")
-!if [echo TK_DOTVERSION = \>> version.vc] \
-   && [nmakehlp -V "$(_TK_H)" TK_VERSION >> version.vc]
 !endif
-!endif
-!include version.vc
-TK_VERSION = $(TK_DOTVERSION:.=)
 
+#-------------------------------------------------------------------------
+# Extract Tk version numbers
+#-------------------------------------------------------------------------
+
+!if defined(PROJECT_REQUIRES_TK) || "$(PROJECT)" == "tk"
+!if [echo TK_MAJOR_VERSION = \>> versions.vc] \
+   && [nmakehlp -V $(_TK_H) TK_MAJOR_VERSION >> versions.vc]
+!endif
+!if [echo TK_MINOR_VERSION = \>> versions.vc] \
+   && [nmakehlp -V $(_TK_H) TK_MINOR_VERSION >> versions.vc]
+!endif
+!if [echo TK_PATCH_LEVEL = \>> versions.vc] \
+   && [nmakehlp -V $(_TK_H) TK_PATCH_LEVEL >> versions.vc]
+!endif
+
+!include versions.vc
+
+TK_DOTVERSION	= $(TK_MAJOR_VERSION).$(TK_MINOR_VERSION)
+TK_VERSION	= $(TK_MAJOR_VERSION)$(TK_MINOR_VERSION)
+
+!if "$(PROJECT)" != "tk"
 !if $(TKINSTALL)
-WISH		= "$(_TKDIR)\bin\wish$(TK_VERSION)$(SUFX).exe"
+_TKBINDIR       = $(_TKDIR)\bin
+WISH		= "$(_TKBINDIR)\wish$(TK_VERSION)$(SUFX).exe"
 !if !exist($(WISH)) && $(TCL_THREADS)
-WISH		= "$(_TKDIR)\bin\wish$(TK_VERSION)t$(SUFX).exe"
+WISH		= "$(_TKBINDIR)\wish$(TK_VERSION)t$(SUFX).exe"
 !endif
 TKSTUBLIB	= "$(_TKDIR)\lib\tkstub$(TK_VERSION).lib"
+TK_LIBRARY	= $(_TKDIR)\lib
 TKIMPLIB	= "$(_TKDIR)\lib\tk$(TK_VERSION)$(SUFX).lib"
 TK_INCLUDES     = -I"$(_TKDIR)\include"
-TK_LIBRARY	= $(_TKDIR)\lib
 !else
-WISH		= "$(_TKDIR)\win\$(BUILDDIRTOP)\wish$(TCL_VERSION)$(SUFX).exe"
+_TKBINDIR       = $(_TKDIR)\win\$(BUILDDIRTOP)
+WISH		= "$(_TKBINDIR)\wish$(TCL_VERSION)$(SUFX).exe"
 !if !exist($(WISH)) && $(TCL_THREADS)
-WISH		= "$(_TKDIR)\win\$(BUILDDIRTOP)\wish$(TCL_VERSION)t$(SUFX).exe"
+WISH		= "$(_TKBINDIR)\wish$(TCL_VERSION)t$(SUFX).exe"
 !endif
 TKSTUBLIB	= "$(_TKDIR)\win\$(BUILDDIRTOP)\tkstub$(TCL_VERSION).lib"
 TKIMPLIB	= "$(_TKDIR)\win\$(BUILDDIRTOP)\tk$(TCL_VERSION)$(SUFX).lib"
-TK_INCLUDES     = -I"$(_TKDIR)\generic" -I"$(_TKDIR)\win" -I"$(_TKDIR)\xlib"
 TK_LIBRARY	= $(_TKDIR)\library
+TK_INCLUDES     = -I"$(_TKDIR)\generic" -I"$(_TKDIR)\win" -I"$(_TKDIR)\xlib"
+!endif
 !endif
 
 !endif
+
+#----------------------------------------------------------
+# Setup the fully qualified OUT_DIR path as OUT_DIR_PATH
+#----------------------------------------------------------
+!if [echo OUT_DIR_PATH = \>> versions.vc] \
+    && [nmakehlp -Q "$(OUT_DIR)" >> versions.vc]
 !endif
-!endif
+!include versions.vc
 
 #----------------------------------------------------------
 # Display stats being used.

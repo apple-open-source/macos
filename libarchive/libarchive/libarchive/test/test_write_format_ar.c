@@ -26,7 +26,7 @@
  */
 
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_write_format_ar.c,v 1.9 2008/12/17 19:03:44 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_write_format_ar.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 char buff[4096];
 char buff2[64];
@@ -46,7 +46,6 @@ DEFINE_TEST(test_write_format_ar)
 	 */
 	assert((a = archive_write_new()) != NULL);
 	assertA(0 == archive_write_set_format_ar_svr4(a));
-	assertA(0 == archive_write_set_compression_gzip(a));
 	assertA(0 == archive_write_open_memory(a, buff, sizeof(buff), &used));
 
 	/* write the filename table */
@@ -153,7 +152,6 @@ DEFINE_TEST(test_write_format_ar)
 	memset(buff, 0, sizeof(buff));
 	assert((a = archive_write_new()) != NULL);
 	assertEqualIntA(a, ARCHIVE_OK, archive_write_set_format_ar_bsd(a));
-	assertEqualIntA(a, ARCHIVE_OK, archive_write_set_compression_bzip2(a));
 	assertEqualIntA(a, ARCHIVE_OK, archive_write_open_memory(a, buff, sizeof(buff), &used));
 
 	/* write a entry need long name extension */

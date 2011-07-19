@@ -120,11 +120,19 @@ zlecharasstring(ZLE_CHAR_T inchar, char *buf)
     size_t ret;
     char *ptr;
 
-    ret = wctomb(buf, inchar);
-    if (ret <= 0) {
-	/* Ick. */
-	buf[0] = '?';
-	return 1;
+#ifdef __STDC_ISO_10646__
+    if (ZSH_INVALID_WCHAR_TEST(inchar)) {
+	buf[0] = ZSH_INVALID_WCHAR_TO_CHAR(inchar);
+	ret = 1;
+    } else
+#endif
+    {
+	ret = wctomb(buf, inchar);
+	if (ret <= 0) {
+	    /* Ick. */
+	    buf[0] = '?';
+	    return 1;
+	}
     }
     ptr = buf + ret - 1;
     for (;;) {
@@ -167,9 +175,10 @@ zlecharasstring(ZLE_CHAR_T inchar, char *buf)
  * instead of wide characters where appropriate and with the contents
  * metafied.
  *
- * If outll is non-NULL, assign the new length.  If outcs is non-NULL,
- * assign the new character position.  This is the conventional string
- * length, without the NULL byte.
+ * If outllp is non-NULL, assign the new length.  This is the conventional
+ * string length, without the NULL byte.
+ *
+ * If outcsp is non-NULL, assign the new character position.
  *
  * If useheap is 1, memory is returned from the heap, else is allocated
  * for later freeing.
@@ -195,13 +204,20 @@ zlelineasstring(ZLE_STRING_T instr, int inll, int incs, int *outllp,
     for (i=0; i < inll; i++, incs--) {
 	if (incs == 0)
 	    outcs = mb_len;
-	j = wcrtomb(s + mb_len, instr[i], &mbs);
-	if (j == -1) {
-	    /* invalid char; what to do? */
-	    s[mb_len++] = ZWC('?');
-	    memset(&mbs, 0, sizeof(mbs));
-	} else {
-	    mb_len += j;
+#ifdef __STDC_ISO_10646__
+	if (ZSH_INVALID_WCHAR_TEST(instr[i])) {
+	    s[mb_len++] = ZSH_INVALID_WCHAR_TO_CHAR(instr[i]);
+	} else
+#endif
+	{
+	    j = wcrtomb(s + mb_len, instr[i], &mbs);
+	    if (j == -1) {
+		/* invalid char */
+		s[mb_len++] = ZWC('?');
+		memset(&mbs, 0, sizeof(mbs));
+	    } else {
+		mb_len += j;
+	    }
 	}
     }
     if (incs == 0)
@@ -331,6 +347,13 @@ stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
 	while (ll > 0) {
 	    size_t cnt = mbrtowc(outptr, inptr, ll, &mbs);
 
+#ifdef __STDC_ISO_10646__
+	    if (cnt == MB_INCOMPLETE || cnt == MB_INVALID) {
+		/* Use private encoding for invalid single byte */
+		*outptr = ZSH_CHAR_TO_INVALID_WCHAR(*inptr);
+		cnt = 1;
+	    }
+#else
 	    /*
 	     * At this point we don't handle either incomplete (-2) or
 	     * invalid (-1) multibyte sequences.  Use the current length
@@ -338,6 +361,7 @@ stringaszleline(char *instr, int incs, int *outll, int *outsz, int *outcs)
 	     */
 	    if (cnt == MB_INCOMPLETE || cnt == MB_INVALID)
 		break;
+#endif
 
 	    if (cnt == 0) {
 		/* Converting '\0' returns 0, but a '\0' is a real
@@ -545,7 +569,7 @@ cuttext(ZLE_STRING_T line, int ct, int flags)
 	cutbuf.buf = (ZLE_STRING_T)zalloc(ZLE_CHAR_SIZE);
 	cutbuf.buf[0] = ZWC('\0');
 	cutbuf.len = cutbuf.flags = 0;
-    } else if (!(lastcmd & ZLE_KILL) || (flags & CUT_RAW)) {
+    } else if (!(lastcmd & ZLE_KILL) || (flags & CUT_REPLACE)) {
 	Cutbuffer kptr;
 	if (!kring) {
 	    kringsize = KRINGCTDEF;
@@ -1212,4 +1236,36 @@ viundochange(char **args)
 	return 0;
     } else
 	return undo(args);
+}
+
+/*
+ * Call a ZLE hook: a user-defined widget called at a specific point
+ * within the line editor.
+ *
+ * A single argument arg is passed to the function (in addition to the
+ * function name).  It may be NULL.
+ */
+
+/**/
+void
+zlecallhook(char *name, char *arg)
+{
+    Thingy thingy = rthingy_nocreate(name);
+    int saverrflag, savretflag;
+    char *args[3];
+
+    if (!thingy)
+	return;
+
+    saverrflag = errflag;
+    savretflag = retflag;
+
+    args[0] = thingy->nam;
+    args[1] = arg;
+    args[2] = NULL;
+    execzlefunc(thingy, args, 1);
+    unrefthingy(thingy);
+
+    errflag = saverrflag;
+    retflag = savretflag;
 }

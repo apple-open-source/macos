@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -136,6 +136,7 @@ configdCallback(CFMachPortRef port, void *msg, CFIndex size, void *info)
 	if (bufSize > sizeof(bufReply_q)) {
 		bufReply = CFAllocatorAllocate(NULL, _config_subsystem.maxsize, 0);
 	}
+	bufReply->RetCode = 0;
 
 	/* we have a request message */
 	(void) config_demux(&bufRequest->Head, &bufReply->Head);
@@ -269,19 +270,19 @@ int
 server_shutdown()
 {
 	if (configd_port != NULL) {
-		mach_port_t	service_port;
+		mach_port_t	service_port	= CFMachPortGetPort(configd_port);
 
-		service_port = CFMachPortGetPort(configd_port);
+		CFMachPortSetInvalidationCallBack(configd_port, NULL);
+		CFMachPortInvalidate(configd_port);
+		CFRelease(configd_port);
+		configd_port = NULL;
+
 		if (service_port != MACH_PORT_NULL) {
 			(void) mach_port_mod_refs(mach_task_self(),
 						  service_port,
 						  MACH_PORT_RIGHT_RECEIVE,
 						  -1);
 		}
-
-		CFMachPortInvalidate(configd_port);
-		CFRelease(configd_port);
-		configd_port = NULL;
 	}
 
 	return EX_OK;
@@ -293,6 +294,8 @@ void
 server_loop()
 {
 	CFStringRef	rlMode;
+
+	pthread_setname_np("SCDynamicStore");
 
 	while (TRUE) {
 		/*

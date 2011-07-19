@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,18 +34,22 @@
 #include "SecInternal.h"
 
 //#include <AssertMacros.h>
+#include <CommonCrypto/CommonDigest.h>
 
 //#include "p12import.h"
 #include "SecImportExport.h"
 
 CFStringRef kSecImportExportPassphrase = CFSTR("passphrase");
+CFStringRef kSecImportExportKeychain = CFSTR("keychain");
+CFStringRef kSecImportExportAccess = CFSTR("access");
+
 CFStringRef kSecImportItemLabel = CFSTR("label");
 CFStringRef kSecImportItemKeyID = CFSTR("keyid");
 CFStringRef kSecImportItemTrust = CFSTR("trust");
 CFStringRef kSecImportItemCertChain = CFSTR("chain");
 CFStringRef kSecImportItemIdentity = CFSTR("identity");
 
-
+#if 0
 static void collect_certs(const void *key, const void *value, void *context)
 {
     if (!CFDictionaryContainsKey(value, CFSTR("key"))) {
@@ -87,11 +91,11 @@ static void build_trust_chains(const void *key, const void *value,
 
     /* p12import only passes up rsa keys */
 //FIXME: needs SecKeyCreateRSAPrivateKey implementation
-#if 0
-	private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault, 
-        CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
-        kSecKeyEncodingPkcs1);
-#endif
+//#if 0
+//	private_key = SecKeyCreateRSAPrivateKey(kCFAllocatorDefault, 
+//        CFDataGetBytePtr(key_bytes), CFDataGetLength(key_bytes),
+//        kSecKeyEncodingPkcs1);
+//#endif
     if(!private_key) goto out; //require(private_key, out);
     cert = SecCertificateCreateWithData(kCFAllocatorDefault, cert_bytes);
 	if(!cert) goto out; //require(cert, out);
@@ -131,11 +135,168 @@ out:
     CFReleaseSafe(eval_chain);
     CFReleaseSafe(trust);
 }
+#endif // if 0
 
 OSStatus SecPKCS12Import(CFDataRef pkcs12_data, CFDictionaryRef options, CFArrayRef *items)
 {
-	return errSecUnimplemented;
+	// SecPKCS12Import is implemented on Mac OS X in terms of the existing
+	// SecKeychainItemImport API, which supports importing items into a
+	// specified keychain with initial access control settings for keys.
+	//
+	OSStatus status = noErr;
+	SecExternalFormat inputFormat = kSecFormatPKCS12;
+	SecExternalItemType itemType = kSecItemTypeAggregate;
+	SecItemImportExportFlags flags = 0; /* don't know if it's PEM armoured */
+	SecKeyImportExportParameters keyParams; /* filled in below... */
+	SecKeychainRef importKeychain = NULL;
+	SecAccessRef importAccess = NULL;
+	CFStringRef importPassword = NULL;
+	CFArrayRef tmpItems = NULL; /* items returned by SecKeychainItemImport */
+	CFMutableArrayRef certs = NULL; /* certificates imported by this function */
+	CFMutableArrayRef identities = NULL; /* items returned by this function */
 
+	if (options) {
+		importKeychain = (SecKeychainRef) CFDictionaryGetValue(options, kSecImportExportKeychain);
+		if (importKeychain)
+			CFRetain(importKeychain);
+		importAccess = (SecAccessRef) CFDictionaryGetValue(options, kSecImportExportAccess);
+		if (importAccess)
+			CFRetain(importAccess);
+		importPassword = (CFStringRef) CFDictionaryGetValue(options, kSecImportExportPassphrase);
+		if (importPassword)
+			CFRetain(importPassword);
+	}
+	
+	if (!importKeychain) {
+		// SecKeychainItemImport requires a keychain, so use default
+		status = SecKeychainCopyDefault(&importKeychain);
+	}
+	
+	memset(&keyParams, 0, sizeof(SecKeyImportExportParameters));
+	keyParams.version = SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION;
+	keyParams.passphrase = importPassword;
+	keyParams.accessRef = importAccess;
+
+	status = SecKeychainItemImport(pkcs12_data,
+								   NULL,		/* no filename */
+								   &inputFormat,
+								   &itemType,
+								   flags, 
+								   &keyParams,
+								   importKeychain,
+								   &tmpItems);
+	
+	// build an array of all non-identity certificates which were imported
+	if (!status) {
+		certs = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFIndex i, count = CFArrayGetCount(tmpItems);
+		for (i=0; i<count; i++) {
+			CFTypeRef anItem = (CFTypeRef)CFArrayGetValueAtIndex(tmpItems, i);
+			CFTypeID itemID = CFGetTypeID(anItem);
+			if (itemID == SecCertificateGetTypeID()) {
+				CFArrayAppendValue(certs, anItem);
+			}
+		}
+	}
+	
+	// now build the output items (array of dictionaries)
+	if (!status) {
+		identities = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+		CFIndex i, count = CFArrayGetCount(tmpItems);
+		for (i=0; i<count; i++) {
+			CFTypeRef anItem = (CFTypeRef)CFArrayGetValueAtIndex(tmpItems, i);
+			CFTypeID itemID = CFGetTypeID(anItem);
+			if (itemID == SecIdentityGetTypeID()) {
+				CFMutableDictionaryRef itemDict;
+				itemDict = CFDictionaryCreateMutable(kCFAllocatorDefault, 
+													 0,
+													 &kCFTypeDictionaryKeyCallBacks,
+													 &kCFTypeDictionaryValueCallBacks);
+
+				SecCertificateRef itemCert = NULL;
+				status = SecIdentityCopyCertificate((SecIdentityRef)anItem, &itemCert);
+				
+				// label
+				if (!status) {
+					CFStringRef label = SecCertificateCopySubjectSummary(itemCert);
+					if (label) {
+						CFDictionaryAddValue(itemDict, kSecImportItemLabel, label);
+						CFRelease(label);
+					}
+				}
+
+				// key ID
+				if (!status) {
+					SecKeyRef itemKey = NULL;
+					status = SecCertificateCopyPublicKey(itemCert, &itemKey);
+					if (!status) {
+						const CSSM_KEY *cssmKey;
+						status = SecKeyGetCSSMKey(itemKey, &cssmKey);
+						if (!status) {
+							unsigned char hash[CC_SHA1_DIGEST_LENGTH];
+							CC_SHA1(cssmKey->KeyData.Data, cssmKey->KeyData.Length, &hash[0]);
+							CFDataRef digest = CFDataCreate(NULL, (const UInt8 *)hash, CC_SHA1_DIGEST_LENGTH);
+							if (digest) {
+								CFDictionaryAddValue(itemDict, kSecImportItemKeyID, digest);
+								CFRelease(digest);
+							}
+						}
+						CFRelease(itemKey);
+					}
+				}
+
+				// trust
+				SecTrustRef trust = NULL;
+				SecPolicyRef policy = SecPolicyCreateBasicX509();
+				CFMutableArrayRef certArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+				CFArrayAppendValue(certArray, itemCert);
+				if (certs) {
+					CFArrayAppendArray(certArray, certs, CFRangeMake(0, CFArrayGetCount(certs)));
+				}
+				status = SecTrustCreateWithCertificates(certArray, policy, &trust);
+				if (policy) {
+					CFRelease(policy);
+				}
+				if (trust) {
+					CFDictionaryAddValue(itemDict, kSecImportItemTrust, trust);
+					CFRelease(trust);
+				}
+
+				// certificate chain
+				if (certArray) {
+					CFDictionaryAddValue(itemDict, kSecImportItemCertChain, certArray);
+					CFRelease(certArray);
+				}
+				
+				// identity
+				CFDictionaryAddValue(itemDict, kSecImportItemIdentity, anItem);
+				
+				if (itemCert)
+					CFRelease(itemCert);				
+				CFArrayAppendValue(identities, itemDict);
+				CFRelease(itemDict);
+			}
+		}
+	}
+	
+	if (items)
+		*items = identities;
+	else if (identities)
+		CFRelease(identities);
+
+	if (certs)
+		CFRelease(certs);
+	if (tmpItems)
+		CFRelease(tmpItems);
+	if (importKeychain)
+		CFRelease(importKeychain);
+	if (importAccess)
+		CFRelease(importAccess);
+	if (importPassword)
+		CFRelease(importPassword);
+	
+	return status;
+	
 //FIXME: needs SecAsn1Coder implementation
 #if 0
     pkcs12_context context = {};

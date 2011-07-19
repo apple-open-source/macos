@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: curlbuild.h.dist,v 1.29 2009-10-27 16:56:20 yangtse Exp $
  ***************************************************************************/
 
 /* ================================================================ */
@@ -90,7 +89,7 @@
  * when the libcurl source code distribution archive file is created.
  *
  * File include/curl/curlbuild.h.dist is not included in the distribution
- * archive. File include/curl/curlbuild.h is not present in the CVS tree.
+ * archive. File include/curl/curlbuild.h is not present in the git tree.
  *
  * The distributed include/curl/curlbuild.h file is only intended to be used
  * on systems which can not run the also distributed configure script.
@@ -100,7 +99,7 @@
  * is suitable and specific to the library being configured and built, which
  * is generated from the include/curl/curlbuild.h.in template file.
  *
- * If you check out from CVS on a non-configure platform, you must run the
+ * If you check out from git on a non-configure platform, you must run the
  * appropriate buildconf* script to set up curlbuild.h and other local files.
  *
  */
@@ -370,16 +369,7 @@
 #  define CURL_SIZEOF_CURL_SOCKLEN_T 4
 
 #elif defined(__VMS)
-#  if defined(__alpha) || defined(__ia64)
-#    define CURL_SIZEOF_LONG           4
-#    define CURL_TYPEOF_CURL_OFF_T     long long
-#    define CURL_FORMAT_CURL_OFF_T     "lld"
-#    define CURL_FORMAT_CURL_OFF_TU    "llu"
-#    define CURL_FORMAT_OFF_T          "%lld"
-#    define CURL_SIZEOF_CURL_OFF_T     8
-#    define CURL_SUFFIX_CURL_OFF_T     LL
-#    define CURL_SUFFIX_CURL_OFF_TU    ULL
-#  else
+#  if defined(__VAX)
 #    define CURL_SIZEOF_LONG           4
 #    define CURL_TYPEOF_CURL_OFF_T     long
 #    define CURL_FORMAT_CURL_OFF_T     "ld"
@@ -388,6 +378,15 @@
 #    define CURL_SIZEOF_CURL_OFF_T     4
 #    define CURL_SUFFIX_CURL_OFF_T     L
 #    define CURL_SUFFIX_CURL_OFF_TU    UL
+#  else
+#    define CURL_SIZEOF_LONG           4
+#    define CURL_TYPEOF_CURL_OFF_T     long long
+#    define CURL_FORMAT_CURL_OFF_T     "lld"
+#    define CURL_FORMAT_CURL_OFF_TU    "llu"
+#    define CURL_FORMAT_OFF_T          "%lld"
+#    define CURL_SIZEOF_CURL_OFF_T     8
+#    define CURL_SUFFIX_CURL_OFF_T     LL
+#    define CURL_SUFFIX_CURL_OFF_TU    ULL
 #  endif
 #  define CURL_TYPEOF_CURL_SOCKLEN_T unsigned int
 #  define CURL_SIZEOF_CURL_SOCKLEN_T 4

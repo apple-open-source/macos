@@ -1,25 +1,28 @@
 package Test::Builder;
 
-use 5.004;
-
-# $^C was only introduced in 5.005-ish.  We do this to prevent
-# use of uninitialized value warnings in older perls.
-$^C ||= 0;
-
+use 5.006;
 use strict;
-use vars qw($VERSION);
-$VERSION = '0.36';
-$VERSION = eval $VERSION;    # make the alpha version come out as a number
+use warnings;
+
+our $VERSION = '0.94';
+$VERSION = eval $VERSION;    ## no critic (BuiltinFunctions::ProhibitStringyEval)
+
+BEGIN {
+    if( $] < 5.008 ) {
+        require Test::Builder::IO::Scalar;
+    }
+}
+
 
 # Make Test::Builder thread-safe for ithreads.
 BEGIN {
     use Config;
     # Load threads::shared when threads are turned on.
     # 5.8.0's threads are so busted we no longer support them.
-    if( $] >= 5.008001 && $Config{useithreads} && $INC{'threads.pm'}) {
+    if( $] >= 5.008001 && $Config{useithreads} && $INC{'threads.pm'} ) {
         require threads::shared;
 
-        # Hack around YET ANOTHER threads::shared bug.  It would 
+        # Hack around YET ANOTHER threads::shared bug.  It would
         # occassionally forget the contents of the variable when sharing it.
         # So we first copy the data, then share, then put our copy back.
         *share = sub (\[$@%]) {
@@ -27,31 +30,31 @@ BEGIN {
             my $data;
 
             if( $type eq 'HASH' ) {
-                %$data = %{$_[0]};
+                %$data = %{ $_[0] };
             }
             elsif( $type eq 'ARRAY' ) {
-                @$data = @{$_[0]};
+                @$data = @{ $_[0] };
             }
             elsif( $type eq 'SCALAR' ) {
-                $$data = ${$_[0]};
+                $$data = ${ $_[0] };
             }
             else {
-                die("Unknown type: ".$type);
+                die( "Unknown type: " . $type );
             }
 
-            $_[0] = &threads::shared::share($_[0]);
+            $_[0] = &threads::shared::share( $_[0] );
 
             if( $type eq 'HASH' ) {
-                %{$_[0]} = %$data;
+                %{ $_[0] } = %$data;
             }
             elsif( $type eq 'ARRAY' ) {
-                @{$_[0]} = @$data;
+                @{ $_[0] } = @$data;
             }
             elsif( $type eq 'SCALAR' ) {
-                ${$_[0]} = $$data;
+                ${ $_[0] } = $$data;
             }
             else {
-                die("Unknown type: ".$type);
+                die( "Unknown type: " . $type );
             }
 
             return $_[0];
@@ -65,7 +68,6 @@ BEGIN {
     }
 }
 
-
 =head1 NAME
 
 Test::Builder - Backend for building test libraries
@@ -73,28 +75,15 @@ Test::Builder - Backend for building test libraries
 =head1 SYNOPSIS
 
   package My::Test::Module;
-  use Test::Builder;
-  require Exporter;
-  @ISA = qw(Exporter);
-  @EXPORT = qw(ok);
+  use base 'Test::Builder::Module';
 
-  my $Test = Test::Builder->new;
-  $Test->output('my_logfile');
-
-  sub import {
-      my($self) = shift;
-      my $pack = caller;
-
-      $Test->exported_to($pack);
-      $Test->plan(@_);
-
-      $self->export_to_level(1, $self, 'ok');
-  }
+  my $CLASS = __PACKAGE__;
 
   sub ok {
       my($test, $name) = @_;
+      my $tb = $CLASS->builder;
 
-      $Test->ok($test, $name);
+      $tb->ok($test, $name);
   }
 
 
@@ -117,7 +106,7 @@ Returns a Test::Builder object representing the current state of the
 test.
 
 Since you only run one test per program C<new> always returns the same
-Test::Builder object.  No matter how many times you call new(), you're
+Test::Builder object.  No matter how many times you call C<new()>, you're
 getting the same object.  This is called a singleton.  This is done so that
 multiple modules share such global information as the test counter and
 where test output is going.
@@ -127,13 +116,13 @@ singleton, use C<create>.
 
 =cut
 
-my $Test = Test::Builder->new;
+our $Test = Test::Builder->new;
+
 sub new {
     my($class) = shift;
     $Test ||= $class->create;
     return $Test;
 }
-
 
 =item B<create>
 
@@ -158,6 +147,184 @@ sub create {
     return $self;
 }
 
+=item B<child>
+
+  my $child = $builder->child($name_of_child);
+  $child->plan( tests => 4 );
+  $child->ok(some_code());
+  ...
+  $child->finalize;
+
+Returns a new instance of C<Test::Builder>.  Any output from this child will
+indented four spaces more than the parent's indentation.  When done, the
+C<finalize> method I<must> be called explicitly.
+
+Trying to create a new child with a previous child still active (i.e.,
+C<finalize> not called) will C<croak>.
+
+Trying to run a test when you have an open child will also C<croak> and cause
+the test suite to fail.
+
+=cut
+
+sub child {
+    my( $self, $name ) = @_;
+
+    if( $self->{Child_Name} ) {
+        $self->croak("You already have a child named ($self->{Child_Name}) running");
+    }
+
+    my $child = bless {}, ref $self;
+    $child->reset;
+
+    # Add to our indentation
+    $child->_indent( $self->_indent . '    ' );
+    $child->{$_} = $self->{$_} foreach qw{Out_FH Todo_FH Fail_FH};
+
+    # This will be reset in finalize. We do this here lest one child failure
+    # cause all children to fail.
+    $child->{Child_Error} = $?;
+    $?                    = 0;
+    $child->{Parent}      = $self;
+    $child->{Name}        = $name || "Child of " . $self->name;
+    $self->{Child_Name}   = $child->name;
+    return $child;
+}
+
+
+=item B<subtest>
+
+    $builder->subtest($name, \&subtests);
+
+See documentation of C<subtest> in Test::More.
+
+=cut
+
+sub subtest {
+    my $self = shift;
+    my($name, $subtests) = @_;
+
+    if ('CODE' ne ref $subtests) {
+        $self->croak("subtest()'s second argument must be a code ref");
+    }
+
+    # Turn the child into the parent so anyone who has stored a copy of
+    # the Test::Builder singleton will get the child.
+    my $child = $self->child($name);
+    my %parent = %$self;
+    %$self = %$child;
+
+    my $error;
+    if( !eval { $subtests->(); 1 } ) {
+        $error = $@;
+    }
+
+    # Restore the parent and the copied child.
+    %$child = %$self;
+    %$self = %parent;
+
+    # Die *after* we restore the parent.
+    die $error if $error and !eval { $error->isa('Test::Builder::Exception') };
+
+    return $child->finalize;
+}
+
+
+=item B<finalize>
+
+  my $ok = $child->finalize;
+
+When your child is done running tests, you must call C<finalize> to clean up
+and tell the parent your pass/fail status.
+
+Calling finalize on a child with open children will C<croak>.
+
+If the child falls out of scope before C<finalize> is called, a failure
+diagnostic will be issued and the child is considered to have failed.
+
+No attempt to call methods on a child after C<finalize> is called is
+guaranteed to succeed.
+
+Calling this on the root builder is a no-op.
+
+=cut
+
+sub finalize {
+    my $self = shift;
+
+    return unless $self->parent;
+    if( $self->{Child_Name} ) {
+        $self->croak("Can't call finalize() with child ($self->{Child_Name}) active");
+    }
+    $self->_ending;
+
+    # XXX This will only be necessary for TAP envelopes (we think)
+    #$self->_print( $self->is_passing ? "PASS\n" : "FAIL\n" );
+
+    my $ok = 1;
+    $self->parent->{Child_Name} = undef;
+    if ( $self->{Skip_All} ) {
+        $self->parent->skip($self->{Skip_All});
+    }
+    elsif ( not @{ $self->{Test_Results} } ) {
+        $self->parent->ok( 0, sprintf q[No tests run for subtest "%s"], $self->name );
+    }
+    else {
+        $self->parent->ok( $self->is_passing, $self->name );
+    }
+    $? = $self->{Child_Error};
+    delete $self->{Parent};
+
+    return $self->is_passing;
+}
+
+sub _indent      {
+    my $self = shift;
+
+    if( @_ ) {
+        $self->{Indent} = shift;
+    }
+
+    return $self->{Indent};
+}
+
+=item B<parent>
+
+ if ( my $parent = $builder->parent ) {
+     ...
+ }
+
+Returns the parent C<Test::Builder> instance, if any.  Only used with child
+builders for nested TAP.
+
+=cut
+
+sub parent { shift->{Parent} }
+
+=item B<name>
+
+ diag $builder->name;
+
+Returns the name of the current builder.  Top level builders default to C<$0>
+(the name of the executable).  Child builders are named via the C<child>
+method.  If no name is supplied, will be named "Child of $parent->name".
+
+=cut
+
+sub name { shift->{Name} }
+
+sub DESTROY {
+    my $self = shift;
+    if ( $self->parent ) {
+        my $name = $self->name;
+        $self->diag(<<"FAIL");
+Child ($name) exited without calling finalize()
+FAIL
+        $self->parent->{In_Destroy} = 1;
+        $self->parent->ok(0, $name);
+    }
+}
+
 =item B<reset>
 
   $Test->reset;
@@ -168,37 +335,48 @@ test might be run multiple times in the same process.
 
 =cut
 
-use vars qw($Level);
+our $Level;
 
-sub reset {
-    my ($self) = @_;
+sub reset {    ## no critic (Subroutines::ProhibitBuiltinHomonyms)
+    my($self) = @_;
 
     # We leave this a global because it has to be localized and localizing
     # hash keys is just asking for pain.  Also, it was documented.
     $Level = 1;
 
-    $self->{Test_Died}    = 0;
+    $self->{Name}         = $0;
+    $self->is_passing(1);
+    $self->{Ending}       = 0;
     $self->{Have_Plan}    = 0;
     $self->{No_Plan}      = 0;
-    $self->{Original_Pid} = $$;
+    $self->{Have_Output_Plan} = 0;
 
-    share($self->{Curr_Test});
-    $self->{Curr_Test}    = 0;
-    $self->{Test_Results} = &share([]);
+    $self->{Original_Pid} = $$;
+    $self->{Child_Name}   = undef;
+    $self->{Indent}     ||= '';
+
+    share( $self->{Curr_Test} );
+    $self->{Curr_Test} = 0;
+    $self->{Test_Results} = &share( [] );
 
     $self->{Exported_To}    = undef;
     $self->{Expected_Tests} = 0;
 
-    $self->{Skip_All}   = 0;
+    $self->{Skip_All} = 0;
 
-    $self->{Use_Nums}   = 1;
+    $self->{Use_Nums} = 1;
 
-    $self->{No_Header}  = 0;
-    $self->{No_Ending}  = 0;
+    $self->{No_Header} = 0;
+    $self->{No_Ending} = 0;
 
-    $self->_dup_stdhandles unless $^C;
+    $self->{Todo}       = undef;
+    $self->{Todo_Stack} = [];
+    $self->{Start_Todo} = 0;
+    $self->{Opened_Testhandles} = 0;
 
-    return undef;
+    $self->_dup_stdhandles;
+
+    return;
 }
 
 =back
@@ -210,25 +388,6 @@ are.  You usually only want to call one of these methods.
 
 =over 4
 
-=item B<exported_to>
-
-  my $pack = $Test->exported_to;
-  $Test->exported_to($pack);
-
-Tells Test::Builder what package you exported your functions to.
-This is important for getting TODO tests right.
-
-=cut
-
-sub exported_to {
-    my($self, $pack) = @_;
-
-    if( defined $pack ) {
-        $self->{Exported_To} = $pack;
-    }
-    return $self->{Exported_To};
-}
-
 =item B<plan>
 
   $Test->plan('no_plan');
@@ -238,53 +397,74 @@ sub exported_to {
 A convenient way to set up your tests.  Call this and Test::Builder
 will print the appropriate headers and take the appropriate actions.
 
-If you call plan(), don't call any of the other methods below.
+If you call C<plan()>, don't call any of the other methods below.
+
+If a child calls "skip_all" in the plan, a C<Test::Builder::Exception> is
+thrown.  Trap this error, call C<finalize()> and don't run any more tests on
+the child.
+
+ my $child = $Test->child('some child');
+ eval { $child->plan( $condition ? ( skip_all => $reason ) : ( tests => 3 )  ) };
+ if ( eval { $@->isa('Test::Builder::Exception') } ) {
+    $child->finalize;
+    return;
+ }
+ # run your tests
 
 =cut
 
+my %plan_cmds = (
+    no_plan     => \&no_plan,
+    skip_all    => \&skip_all,
+    tests       => \&_plan_tests,
+);
+
 sub plan {
-    my($self, $cmd, $arg) = @_;
+    my( $self, $cmd, $arg ) = @_;
 
     return unless $cmd;
 
     local $Level = $Level + 1;
 
-    if( $self->{Have_Plan} ) {
-        $self->croak("You tried to plan twice");
-    }
+    $self->croak("You tried to plan twice") if $self->{Have_Plan};
 
-    if( $cmd eq 'no_plan' ) {
-        $self->no_plan;
-    }
-    elsif( $cmd eq 'skip_all' ) {
-        return $self->skip_all($arg);
-    }
-    elsif( $cmd eq 'tests' ) {
-        if( $arg ) {
-            local $Level = $Level + 1;
-            return $self->expected_tests($arg);
-        }
-        elsif( !defined $arg ) {
-            $self->croak("Got an undefined number of tests");
-        }
-        elsif( !$arg ) {
-            $self->croak("You said to run 0 tests");
-        }
+    if( my $method = $plan_cmds{$cmd} ) {
+        local $Level = $Level + 1;
+        $self->$method($arg);
     }
     else {
-        my @args = grep { defined } ($cmd, $arg);
+        my @args = grep { defined } ( $cmd, $arg );
         $self->croak("plan() doesn't understand @args");
     }
 
     return 1;
 }
 
+
+sub _plan_tests {
+    my($self, $arg) = @_;
+
+    if($arg) {
+        local $Level = $Level + 1;
+        return $self->expected_tests($arg);
+    }
+    elsif( !defined $arg ) {
+        $self->croak("Got an undefined number of tests");
+    }
+    else {
+        $self->croak("You said to run 0 tests");
+    }
+
+    return;
+}
+
+
 =item B<expected_tests>
 
     my $max = $Test->expected_tests;
     $Test->expected_tests($max);
 
-Gets/sets the # of tests we expect this test to run and prints out
+Gets/sets the number of tests we expect this test to run and prints out
 the appropriate headers.
 
 =cut
@@ -293,81 +473,222 @@ sub expected_tests {
     my $self = shift;
     my($max) = @_;
 
-    if( @_ ) {
+    if(@_) {
         $self->croak("Number of tests must be a positive integer.  You gave it '$max'")
-          unless $max =~ /^\+?\d+$/ and $max > 0;
+          unless $max =~ /^\+?\d+$/;
 
         $self->{Expected_Tests} = $max;
         $self->{Have_Plan}      = 1;
 
-        $self->_print("1..$max\n") unless $self->no_header;
+        $self->_output_plan($max) unless $self->no_header;
     }
     return $self->{Expected_Tests};
 }
-
 
 =item B<no_plan>
 
   $Test->no_plan;
 
-Declares that this test will run an indeterminate # of tests.
+Declares that this test will run an indeterminate number of tests.
 
 =cut
 
 sub no_plan {
-    my $self = shift;
+    my($self, $arg) = @_;
+
+    $self->carp("no_plan takes no arguments") if $arg;
 
     $self->{No_Plan}   = 1;
     $self->{Have_Plan} = 1;
+
+    return 1;
 }
+
+
+=begin private
+
+=item B<_output_plan>
+
+  $tb->_output_plan($max);
+  $tb->_output_plan($max, $directive);
+  $tb->_output_plan($max, $directive => $reason);
+
+Handles displaying the test plan.
+
+If a C<$directive> and/or C<$reason> are given they will be output with the
+plan.  So here's what skipping all tests looks like:
+
+    $tb->_output_plan(0, "SKIP", "Because I said so");
+
+It sets C<< $tb->{Have_Output_Plan} >> and will croak if the plan was already
+output.
+
+=end private
+
+=cut
+
+sub _output_plan {
+    my($self, $max, $directive, $reason) = @_;
+
+    $self->carp("The plan was already output") if $self->{Have_Output_Plan};
+
+    my $plan = "1..$max";
+    $plan .= " # $directive" if defined $directive;
+    $plan .= " $reason"      if defined $reason;
+
+    $self->_print("$plan\n");
+
+    $self->{Have_Output_Plan} = 1;
+
+    return;
+}
+
+=item B<done_testing>
+
+  $Test->done_testing();
+  $Test->done_testing($num_tests);
+
+Declares that you are done testing, no more tests will be run after this point.
+
+If a plan has not yet been output, it will do so.
+
+$num_tests is the number of tests you planned to run.  If a numbered
+plan was already declared, and if this contradicts, a failing test
+will be run to reflect the planning mistake.  If C<no_plan> was declared,
+this will override.
+
+If C<done_testing()> is called twice, the second call will issue a
+failing test.
+
+If C<$num_tests> is omitted, the number of tests run will be used, like
+no_plan.
+
+C<done_testing()> is, in effect, used when you'd want to use C<no_plan>, but
+safer. You'd use it like so:
+
+    $Test->ok($a == $b);
+    $Test->done_testing();
+
+Or to plan a variable number of tests:
+
+    for my $test (@tests) {
+        $Test->ok($test);
+    }
+    $Test->done_testing(@tests);
+
+=cut
+
+sub done_testing {
+    my($self, $num_tests) = @_;
+
+    # If done_testing() specified the number of tests, shut off no_plan.
+    if( defined $num_tests ) {
+        $self->{No_Plan} = 0;
+    }
+    else {
+        $num_tests = $self->current_test;
+    }
+
+    if( $self->{Done_Testing} ) {
+        my($file, $line) = @{$self->{Done_Testing}}[1,2];
+        $self->ok(0, "done_testing() was already called at $file line $line");
+        return;
+    }
+
+    $self->{Done_Testing} = [caller];
+
+    if( $self->expected_tests && $num_tests != $self->expected_tests ) {
+        $self->ok(0, "planned to run @{[ $self->expected_tests ]} ".
+                     "but done_testing() expects $num_tests");
+    }
+    else {
+        $self->{Expected_Tests} = $num_tests;
+    }
+
+    $self->_output_plan($num_tests) unless $self->{Have_Output_Plan};
+
+    $self->{Have_Plan} = 1;
+
+    # The wrong number of tests were run
+    $self->is_passing(0) if $self->{Expected_Tests} != $self->{Curr_Test};
+
+    # No tests were run
+    $self->is_passing(0) if $self->{Curr_Test} == 0;
+
+    return 1;
+}
+
 
 =item B<has_plan>
 
   $plan = $Test->has_plan
 
-Find out whether a plan has been defined. $plan is either C<undef> (no plan has been set), C<no_plan> (indeterminate # of tests) or an integer (the number of expected tests).
+Find out whether a plan has been defined. C<$plan> is either C<undef> (no plan
+has been set), C<no_plan> (indeterminate # of tests) or an integer (the number
+of expected tests).
 
 =cut
 
 sub has_plan {
     my $self = shift;
 
-    return($self->{Expected_Tests}) if $self->{Expected_Tests};
+    return( $self->{Expected_Tests} ) if $self->{Expected_Tests};
     return('no_plan') if $self->{No_Plan};
     return(undef);
-};
-
+}
 
 =item B<skip_all>
 
   $Test->skip_all;
   $Test->skip_all($reason);
 
-Skips all the tests, using the given $reason.  Exits immediately with 0.
+Skips all the tests, using the given C<$reason>.  Exits immediately with 0.
 
 =cut
 
 sub skip_all {
-    my($self, $reason) = @_;
+    my( $self, $reason ) = @_;
 
-    my $out = "1..0";
-    $out .= " # Skip $reason" if $reason;
-    $out .= "\n";
+    $self->{Skip_All} = $self->parent ? $reason : 1;
 
-    $self->{Skip_All} = 1;
-
-    $self->_print($out) unless $self->no_header;
+    $self->_output_plan(0, "SKIP", $reason) unless $self->no_header;
+    if ( $self->parent ) {
+        die bless {} => 'Test::Builder::Exception';
+    }
     exit(0);
+}
+
+=item B<exported_to>
+
+  my $pack = $Test->exported_to;
+  $Test->exported_to($pack);
+
+Tells Test::Builder what package you exported your functions to.
+
+This method isn't terribly useful since modules which share the same
+Test::Builder object might get exported to different packages and only
+the last one will be honored.
+
+=cut
+
+sub exported_to {
+    my( $self, $pack ) = @_;
+
+    if( defined $pack ) {
+        $self->{Exported_To} = $pack;
+    }
+    return $self->{Exported_To};
 }
 
 =back
 
 =head2 Running tests
 
-These actually run the tests, analogous to the functions in
-Test::More.
+These actually run the tests, analogous to the functions in Test::More.
 
-$name is always optional.
+They all return true if the test passed, false if the test failed.
+
+C<$name> is always optional.
 
 =over 4
 
@@ -375,42 +696,48 @@ $name is always optional.
 
   $Test->ok($test, $name);
 
-Your basic test.  Pass if $test is true, fail if $test is false.  Just
-like Test::Simple's ok().
+Your basic test.  Pass if C<$test> is true, fail if $test is false.  Just
+like Test::Simple's C<ok()>.
 
 =cut
 
 sub ok {
-    my($self, $test, $name) = @_;
+    my( $self, $test, $name ) = @_;
 
+    if ( $self->{Child_Name} and not $self->{In_Destroy} ) {
+        $name = 'unnamed test' unless defined $name;
+        $self->is_passing(0);
+        $self->croak("Cannot run test ($name) with active children");
+    }
     # $test might contain an object which we don't want to accidentally
     # store, so we turn it into a boolean.
     $test = $test ? 1 : 0;
-
-    $self->_plan_check;
 
     lock $self->{Curr_Test};
     $self->{Curr_Test}++;
 
     # In case $name is a string overloaded object, force it to stringify.
-    $self->_unoverload_str(\$name);
+    $self->_unoverload_str( \$name );
 
-    $self->diag(<<ERR) if defined $name and $name =~ /^[\d\s]+$/;
+    $self->diag(<<"ERR") if defined $name and $name =~ /^[\d\s]+$/;
     You named your test '$name'.  You shouldn't use numbers for your test names.
     Very confusing.
 ERR
 
-    my($pack, $file, $line) = $self->caller;
+    # Capture the value of $TODO for the rest of this ok() call
+    # so it can more easily be found by other routines.
+    my $todo    = $self->todo();
+    my $in_todo = $self->in_todo;
+    local $self->{Todo} = $todo if $in_todo;
 
-    my $todo = $self->todo($pack);
-    $self->_unoverload_str(\$todo);
+    $self->_unoverload_str( \$todo );
 
     my $out;
-    my $result = &share({});
+    my $result = &share( {} );
 
-    unless( $test ) {
+    unless($test) {
         $out .= "not ";
-        @$result{ 'ok', 'actual_ok' } = ( ( $todo ? 1 : 0 ), 0 );
+        @$result{ 'ok', 'actual_ok' } = ( ( $self->in_todo ? 1 : 0 ), 0 );
     }
     else {
         @$result{ 'ok', 'actual_ok' } = ( 1, $test );
@@ -420,16 +747,16 @@ ERR
     $out .= " $self->{Curr_Test}" if $self->use_numbers;
 
     if( defined $name ) {
-        $name =~ s|#|\\#|g;     # # in a name can confuse Test::Harness.
-        $out   .= " - $name";
+        $name =~ s|#|\\#|g;    # # in a name can confuse Test::Harness.
+        $out .= " - $name";
         $result->{name} = $name;
     }
     else {
         $result->{name} = '';
     }
 
-    if( $todo ) {
-        $out   .= " # TODO $todo";
+    if( $self->in_todo ) {
+        $out .= " # TODO $todo";
         $result->{reason} = $todo;
         $result->{type}   = 'todo';
     }
@@ -438,405 +765,357 @@ ERR
         $result->{type}   = '';
     }
 
-    $self->{Test_Results}[$self->{Curr_Test}-1] = $result;
+    $self->{Test_Results}[ $self->{Curr_Test} - 1 ] = $result;
     $out .= "\n";
 
     $self->_print($out);
 
-    unless( $test ) {
-        my $msg = $todo ? "Failed (TODO)" : "Failed";
-        $self->_print_diag("\n") if $ENV{HARNESS_ACTIVE};
+    unless($test) {
+        my $msg = $self->in_todo ? "Failed (TODO)" : "Failed";
+        $self->_print_to_fh( $self->_diag_fh, "\n" ) if $ENV{HARNESS_ACTIVE};
 
-	if( defined $name ) {
-	    $self->diag(qq[  $msg test '$name'\n]);
-	    $self->diag(qq[  at $file line $line.\n]);
-	}
-	else {
-	    $self->diag(qq[  $msg test at $file line $line.\n]);
-	}
-    } 
+        my( undef, $file, $line ) = $self->caller;
+        if( defined $name ) {
+            $self->diag(qq[  $msg test '$name'\n]);
+            $self->diag(qq[  at $file line $line.\n]);
+        }
+        else {
+            $self->diag(qq[  $msg test at $file line $line.\n]);
+        }
+    }
+
+    $self->is_passing(0) unless $test || $self->in_todo;
+
+    # Check that we haven't violated the plan
+    $self->_check_is_passing_plan();
 
     return $test ? 1 : 0;
 }
 
 
+# Check that we haven't yet violated the plan and set
+# is_passing() accordingly
+sub _check_is_passing_plan {
+    my $self = shift;
+
+    my $plan = $self->has_plan;
+    return unless defined $plan;        # no plan yet defined
+    return unless $plan !~ /\D/;        # no numeric plan
+    $self->is_passing(0) if $plan < $self->{Curr_Test};
+}
+
+
 sub _unoverload {
-    my $self  = shift;
-    my $type  = shift;
+    my $self = shift;
+    my $type = shift;
 
-    local($@,$!);
-
-    eval { require overload } || return;
+    $self->_try(sub { require overload; }, die_on_fail => 1);
 
     foreach my $thing (@_) {
-        eval { 
-            if( _is_object($$thing) ) {
-                if( my $string_meth = overload::Method($$thing, $type) ) {
-                    $$thing = $$thing->$string_meth();
-                }
+        if( $self->_is_object($$thing) ) {
+            if( my $string_meth = overload::Method( $$thing, $type ) ) {
+                $$thing = $$thing->$string_meth();
             }
-        };
+        }
     }
-}
 
+    return;
+}
 
 sub _is_object {
-    my $thing = shift;
+    my( $self, $thing ) = @_;
 
-    return eval { ref $thing && $thing->isa('UNIVERSAL') } ? 1 : 0;
+    return $self->_try( sub { ref $thing && $thing->isa('UNIVERSAL') } ) ? 1 : 0;
 }
-
 
 sub _unoverload_str {
     my $self = shift;
 
-    $self->_unoverload(q[""], @_);
-}    
+    return $self->_unoverload( q[""], @_ );
+}
 
 sub _unoverload_num {
     my $self = shift;
 
-    $self->_unoverload('0+', @_);
+    $self->_unoverload( '0+', @_ );
 
     for my $val (@_) {
         next unless $self->_is_dualvar($$val);
-        $$val = $$val+0;
+        $$val = $$val + 0;
     }
-}
 
+    return;
+}
 
 # This is a hack to detect a dualvar such as $!
 sub _is_dualvar {
-    my($self, $val) = @_;
+    my( $self, $val ) = @_;
 
-    local $^W = 0;
-    my $numval = $val+0;
-    return 1 if $numval != 0 and $numval ne $val;
+    # Objects are not dualvars.
+    return 0 if ref $val;
+
+    no warnings 'numeric';
+    my $numval = $val + 0;
+    return $numval != 0 and $numval ne $val ? 1 : 0;
 }
-
-
 
 =item B<is_eq>
 
   $Test->is_eq($got, $expected, $name);
 
-Like Test::More's is().  Checks if $got eq $expected.  This is the
+Like Test::More's C<is()>.  Checks if C<$got eq $expected>.  This is the
 string version.
 
 =item B<is_num>
 
   $Test->is_num($got, $expected, $name);
 
-Like Test::More's is().  Checks if $got == $expected.  This is the
+Like Test::More's C<is()>.  Checks if C<$got == $expected>.  This is the
 numeric version.
 
 =cut
 
 sub is_eq {
-    my($self, $got, $expect, $name) = @_;
+    my( $self, $got, $expect, $name ) = @_;
     local $Level = $Level + 1;
 
-    $self->_unoverload_str(\$got, \$expect);
+    $self->_unoverload_str( \$got, \$expect );
 
     if( !defined $got || !defined $expect ) {
         # undef only matches undef and nothing else
         my $test = !defined $got && !defined $expect;
 
-        $self->ok($test, $name);
-        $self->_is_diag($got, 'eq', $expect) unless $test;
+        $self->ok( $test, $name );
+        $self->_is_diag( $got, 'eq', $expect ) unless $test;
         return $test;
     }
 
-    return $self->cmp_ok($got, 'eq', $expect, $name);
+    return $self->cmp_ok( $got, 'eq', $expect, $name );
 }
 
 sub is_num {
-    my($self, $got, $expect, $name) = @_;
+    my( $self, $got, $expect, $name ) = @_;
     local $Level = $Level + 1;
 
-    $self->_unoverload_num(\$got, \$expect);
+    $self->_unoverload_num( \$got, \$expect );
 
     if( !defined $got || !defined $expect ) {
         # undef only matches undef and nothing else
         my $test = !defined $got && !defined $expect;
 
-        $self->ok($test, $name);
-        $self->_is_diag($got, '==', $expect) unless $test;
+        $self->ok( $test, $name );
+        $self->_is_diag( $got, '==', $expect ) unless $test;
         return $test;
     }
 
-    return $self->cmp_ok($got, '==', $expect, $name);
+    return $self->cmp_ok( $got, '==', $expect, $name );
+}
+
+sub _diag_fmt {
+    my( $self, $type, $val ) = @_;
+
+    if( defined $$val ) {
+        if( $type eq 'eq' or $type eq 'ne' ) {
+            # quote and force string context
+            $$val = "'$$val'";
+        }
+        else {
+            # force numeric context
+            $self->_unoverload_num($val);
+        }
+    }
+    else {
+        $$val = 'undef';
+    }
+
+    return;
 }
 
 sub _is_diag {
-    my($self, $got, $type, $expect) = @_;
+    my( $self, $got, $type, $expect ) = @_;
 
-    foreach my $val (\$got, \$expect) {
-        if( defined $$val ) {
-            if( $type eq 'eq' ) {
-                # quote and force string context
-                $$val = "'$$val'"
-            }
-            else {
-                # force numeric context
-                $self->_unoverload_num($val);
-            }
-        }
-        else {
-            $$val = 'undef';
-        }
-    }
+    $self->_diag_fmt( $type, $_ ) for \$got, \$expect;
 
-    return $self->diag(sprintf <<DIAGNOSTIC, $got, $expect);
-         got: %s
-    expected: %s
+    local $Level = $Level + 1;
+    return $self->diag(<<"DIAGNOSTIC");
+         got: $got
+    expected: $expect
 DIAGNOSTIC
 
-}    
+}
+
+sub _isnt_diag {
+    my( $self, $got, $type ) = @_;
+
+    $self->_diag_fmt( $type, \$got );
+
+    local $Level = $Level + 1;
+    return $self->diag(<<"DIAGNOSTIC");
+         got: $got
+    expected: anything else
+DIAGNOSTIC
+}
 
 =item B<isnt_eq>
 
   $Test->isnt_eq($got, $dont_expect, $name);
 
-Like Test::More's isnt().  Checks if $got ne $dont_expect.  This is
+Like Test::More's C<isnt()>.  Checks if C<$got ne $dont_expect>.  This is
 the string version.
 
 =item B<isnt_num>
 
   $Test->isnt_num($got, $dont_expect, $name);
 
-Like Test::More's isnt().  Checks if $got ne $dont_expect.  This is
+Like Test::More's C<isnt()>.  Checks if C<$got ne $dont_expect>.  This is
 the numeric version.
 
 =cut
 
 sub isnt_eq {
-    my($self, $got, $dont_expect, $name) = @_;
+    my( $self, $got, $dont_expect, $name ) = @_;
     local $Level = $Level + 1;
 
     if( !defined $got || !defined $dont_expect ) {
         # undef only matches undef and nothing else
         my $test = defined $got || defined $dont_expect;
 
-        $self->ok($test, $name);
-        $self->_cmp_diag($got, 'ne', $dont_expect) unless $test;
+        $self->ok( $test, $name );
+        $self->_isnt_diag( $got, 'ne' ) unless $test;
         return $test;
     }
 
-    return $self->cmp_ok($got, 'ne', $dont_expect, $name);
+    return $self->cmp_ok( $got, 'ne', $dont_expect, $name );
 }
 
 sub isnt_num {
-    my($self, $got, $dont_expect, $name) = @_;
+    my( $self, $got, $dont_expect, $name ) = @_;
     local $Level = $Level + 1;
 
     if( !defined $got || !defined $dont_expect ) {
         # undef only matches undef and nothing else
         my $test = defined $got || defined $dont_expect;
 
-        $self->ok($test, $name);
-        $self->_cmp_diag($got, '!=', $dont_expect) unless $test;
+        $self->ok( $test, $name );
+        $self->_isnt_diag( $got, '!=' ) unless $test;
         return $test;
     }
 
-    return $self->cmp_ok($got, '!=', $dont_expect, $name);
+    return $self->cmp_ok( $got, '!=', $dont_expect, $name );
 }
-
 
 =item B<like>
 
   $Test->like($this, qr/$regex/, $name);
   $Test->like($this, '/$regex/', $name);
 
-Like Test::More's like().  Checks if $this matches the given $regex.
-
-You'll want to avoid qr// if you want your tests to work before 5.005.
+Like Test::More's C<like()>.  Checks if $this matches the given C<$regex>.
 
 =item B<unlike>
 
   $Test->unlike($this, qr/$regex/, $name);
   $Test->unlike($this, '/$regex/', $name);
 
-Like Test::More's unlike().  Checks if $this B<does not match> the
-given $regex.
+Like Test::More's C<unlike()>.  Checks if $this B<does not match> the
+given C<$regex>.
 
 =cut
 
 sub like {
-    my($self, $this, $regex, $name) = @_;
+    my( $self, $this, $regex, $name ) = @_;
 
     local $Level = $Level + 1;
-    $self->_regex_ok($this, $regex, '=~', $name);
+    return $self->_regex_ok( $this, $regex, '=~', $name );
 }
 
 sub unlike {
-    my($self, $this, $regex, $name) = @_;
+    my( $self, $this, $regex, $name ) = @_;
 
     local $Level = $Level + 1;
-    $self->_regex_ok($this, $regex, '!~', $name);
-}
-
-=item B<maybe_regex>
-
-  $Test->maybe_regex(qr/$regex/);
-  $Test->maybe_regex('/$regex/');
-
-Convenience method for building testing functions that take regular
-expressions as arguments, but need to work before perl 5.005.
-
-Takes a quoted regular expression produced by qr//, or a string
-representing a regular expression.
-
-Returns a Perl value which may be used instead of the corresponding
-regular expression, or undef if it's argument is not recognised.
-
-For example, a version of like(), sans the useful diagnostic messages,
-could be written as:
-
-  sub laconic_like {
-      my ($self, $this, $regex, $name) = @_;
-      my $usable_regex = $self->maybe_regex($regex);
-      die "expecting regex, found '$regex'\n"
-          unless $usable_regex;
-      $self->ok($this =~ m/$usable_regex/, $name);
-  }
-
-=cut
-
-
-sub maybe_regex {
-    my ($self, $regex) = @_;
-    my $usable_regex = undef;
-
-    return $usable_regex unless defined $regex;
-
-    my($re, $opts);
-
-    # Check for qr/foo/
-    if( ref $regex eq 'Regexp' ) {
-        $usable_regex = $regex;
-    }
-    # Check for '/foo/' or 'm,foo,'
-    elsif( ($re, $opts)        = $regex =~ m{^ /(.*)/ (\w*) $ }sx           or
-           (undef, $re, $opts) = $regex =~ m,^ m([^\w\s]) (.+) \1 (\w*) $,sx
-         )
-    {
-        $usable_regex = length $opts ? "(?$opts)$re" : $re;
-    }
-
-    return $usable_regex;
-};
-
-sub _regex_ok {
-    my($self, $this, $regex, $cmp, $name) = @_;
-
-    my $ok = 0;
-    my $usable_regex = $self->maybe_regex($regex);
-    unless (defined $usable_regex) {
-        $ok = $self->ok( 0, $name );
-        $self->diag("    '$regex' doesn't look much like a regex to me.");
-        return $ok;
-    }
-
-    {
-        my $test;
-        my $code = $self->_caller_context;
-
-        local($@, $!);
-
-        # Yes, it has to look like this or 5.4.5 won't see the #line directive.
-        # Don't ask me, man, I just work here.
-        $test = eval "
-$code" . q{$test = $this =~ /$usable_regex/ ? 1 : 0};
-
-        $test = !$test if $cmp eq '!~';
-
-        local $Level = $Level + 1;
-        $ok = $self->ok( $test, $name );
-    }
-
-    unless( $ok ) {
-        $this = defined $this ? "'$this'" : 'undef';
-        my $match = $cmp eq '=~' ? "doesn't match" : "matches";
-        $self->diag(sprintf <<DIAGNOSTIC, $this, $match, $regex);
-                  %s
-    %13s '%s'
-DIAGNOSTIC
-
-    }
-
-    return $ok;
+    return $self->_regex_ok( $this, $regex, '!~', $name );
 }
 
 =item B<cmp_ok>
 
   $Test->cmp_ok($this, $type, $that, $name);
 
-Works just like Test::More's cmp_ok().
+Works just like Test::More's C<cmp_ok()>.
 
     $Test->cmp_ok($big_num, '!=', $other_big_num);
 
 =cut
 
-
-my %numeric_cmps = map { ($_, 1) } 
-                       ("<",  "<=", ">",  ">=", "==", "!=", "<=>");
+my %numeric_cmps = map { ( $_, 1 ) } ( "<", "<=", ">", ">=", "==", "!=", "<=>" );
 
 sub cmp_ok {
-    my($self, $got, $type, $expect, $name) = @_;
+    my( $self, $got, $type, $expect, $name ) = @_;
+
+    my $test;
+    my $error;
+    {
+        ## no critic (BuiltinFunctions::ProhibitStringyEval)
+
+        local( $@, $!, $SIG{__DIE__} );    # isolate eval
+
+        my($pack, $file, $line) = $self->caller();
+
+        $test = eval qq[
+#line 1 "cmp_ok [from $file line $line]"
+\$got $type \$expect;
+];
+        $error = $@;
+    }
+    local $Level = $Level + 1;
+    my $ok = $self->ok( $test, $name );
 
     # Treat overloaded objects as numbers if we're asked to do a
     # numeric comparison.
-    my $unoverload = $numeric_cmps{$type} ? '_unoverload_num'
-                                          : '_unoverload_str';
+    my $unoverload
+      = $numeric_cmps{$type}
+      ? '_unoverload_num'
+      : '_unoverload_str';
 
-    $self->$unoverload(\$got, \$expect);
+    $self->diag(<<"END") if $error;
+An error occurred while using $type:
+------------------------------------
+$error
+------------------------------------
+END
 
+    unless($ok) {
+        $self->$unoverload( \$got, \$expect );
 
-    my $test;
-    {
-        local($@,$!);   # don't interfere with $@
-                        # eval() sometimes resets $!
-
-        my $code = $self->_caller_context;
-
-        # Yes, it has to look like this or 5.4.5 won't see the #line directive.
-        # Don't ask me, man, I just work here.
-        $test = eval "
-$code" . "\$got $type \$expect;";
-
-    }
-    local $Level = $Level + 1;
-    my $ok = $self->ok($test, $name);
-
-    unless( $ok ) {
         if( $type =~ /^(eq|==)$/ ) {
-            $self->_is_diag($got, $type, $expect);
+            $self->_is_diag( $got, $type, $expect );
+        }
+        elsif( $type =~ /^(ne|!=)$/ ) {
+            $self->_isnt_diag( $got, $type );
         }
         else {
-            $self->_cmp_diag($got, $type, $expect);
+            $self->_cmp_diag( $got, $type, $expect );
         }
     }
     return $ok;
 }
 
 sub _cmp_diag {
-    my($self, $got, $type, $expect) = @_;
-    
+    my( $self, $got, $type, $expect ) = @_;
+
     $got    = defined $got    ? "'$got'"    : 'undef';
     $expect = defined $expect ? "'$expect'" : 'undef';
-    return $self->diag(sprintf <<DIAGNOSTIC, $got, $type, $expect);
-    %s
-        %s
-    %s
+
+    local $Level = $Level + 1;
+    return $self->diag(<<"DIAGNOSTIC");
+    $got
+        $type
+    $expect
 DIAGNOSTIC
 }
-
 
 sub _caller_context {
     my $self = shift;
 
-    my($pack, $file, $line) = $self->caller(1);
+    my( $pack, $file, $line ) = $self->caller(1);
 
     my $code = '';
     $code .= "#line $line $file\n" if defined $file and defined $line;
@@ -844,6 +1123,14 @@ sub _caller_context {
     return $code;
 }
 
+=back
+
+
+=head2 Other Testing Methods
+
+These are methods which are used in the course of writing a test but are not themselves tests.
+
+=over 4
 
 =item B<BAIL_OUT>
 
@@ -858,7 +1145,7 @@ It will exit with 255.
 =cut
 
 sub BAIL_OUT {
-    my($self, $reason) = @_;
+    my( $self, $reason ) = @_;
 
     $self->{Bailed_Out} = 1;
     $self->_print("Bail out!  $reason");
@@ -870,54 +1157,55 @@ BAIL_OUT() used to be BAILOUT()
 
 =cut
 
-*BAILOUT = \&BAIL_OUT;
-
+{
+    no warnings 'once';
+    *BAILOUT = \&BAIL_OUT;
+}
 
 =item B<skip>
 
     $Test->skip;
     $Test->skip($why);
 
-Skips the current test, reporting $why.
+Skips the current test, reporting C<$why>.
 
 =cut
 
 sub skip {
-    my($self, $why) = @_;
+    my( $self, $why ) = @_;
     $why ||= '';
-    $self->_unoverload_str(\$why);
+    $self->_unoverload_str( \$why );
 
-    $self->_plan_check;
-
-    lock($self->{Curr_Test});
+    lock( $self->{Curr_Test} );
     $self->{Curr_Test}++;
 
-    $self->{Test_Results}[$self->{Curr_Test}-1] = &share({
-        'ok'      => 1,
-        actual_ok => 1,
-        name      => '',
-        type      => 'skip',
-        reason    => $why,
-    });
+    $self->{Test_Results}[ $self->{Curr_Test} - 1 ] = &share(
+        {
+            'ok'      => 1,
+            actual_ok => 1,
+            name      => '',
+            type      => 'skip',
+            reason    => $why,
+        }
+    );
 
     my $out = "ok";
-    $out   .= " $self->{Curr_Test}" if $self->use_numbers;
-    $out   .= " # skip";
-    $out   .= " $why"       if length $why;
-    $out   .= "\n";
+    $out .= " $self->{Curr_Test}" if $self->use_numbers;
+    $out .= " # skip";
+    $out .= " $why"               if length $why;
+    $out .= "\n";
 
     $self->_print($out);
 
     return 1;
 }
 
-
 =item B<todo_skip>
 
   $Test->todo_skip;
   $Test->todo_skip($why);
 
-Like skip(), only it will declare the test as failing and TODO.  Similar
+Like C<skip()>, only it will declare the test as failing and TODO.  Similar
 to
 
     print "not ok $tnum # TODO $why\n";
@@ -925,31 +1213,30 @@ to
 =cut
 
 sub todo_skip {
-    my($self, $why) = @_;
+    my( $self, $why ) = @_;
     $why ||= '';
 
-    $self->_plan_check;
-
-    lock($self->{Curr_Test});
+    lock( $self->{Curr_Test} );
     $self->{Curr_Test}++;
 
-    $self->{Test_Results}[$self->{Curr_Test}-1] = &share({
-        'ok'      => 1,
-        actual_ok => 0,
-        name      => '',
-        type      => 'todo_skip',
-        reason    => $why,
-    });
+    $self->{Test_Results}[ $self->{Curr_Test} - 1 ] = &share(
+        {
+            'ok'      => 1,
+            actual_ok => 0,
+            name      => '',
+            type      => 'todo_skip',
+            reason    => $why,
+        }
+    );
 
     my $out = "not ok";
-    $out   .= " $self->{Curr_Test}" if $self->use_numbers;
-    $out   .= " # TODO & SKIP $why\n";
+    $out .= " $self->{Curr_Test}" if $self->use_numbers;
+    $out .= " # TODO & SKIP $why\n";
 
     $self->_print($out);
 
     return 1;
 }
-
 
 =begin _unimplemented
 
@@ -958,10 +1245,10 @@ sub todo_skip {
   $Test->skip_rest;
   $Test->skip_rest($reason);
 
-Like skip(), only it skips all the rest of the tests you plan to run
+Like C<skip()>, only it skips all the rest of the tests you plan to run
 and terminates the test.
 
-If you're running under no_plan, it skips once and terminates the
+If you're running under C<no_plan>, it skips once and terminates the
 test.
 
 =end _unimplemented
@@ -969,7 +1256,184 @@ test.
 =back
 
 
+=head2 Test building utility methods
+
+These methods are useful when writing your own test methods.
+
+=over 4
+
+=item B<maybe_regex>
+
+  $Test->maybe_regex(qr/$regex/);
+  $Test->maybe_regex('/$regex/');
+
+This method used to be useful back when Test::Builder worked on Perls
+before 5.6 which didn't have qr//.  Now its pretty useless.
+
+Convenience method for building testing functions that take regular
+expressions as arguments.
+
+Takes a quoted regular expression produced by C<qr//>, or a string
+representing a regular expression.
+
+Returns a Perl value which may be used instead of the corresponding
+regular expression, or C<undef> if its argument is not recognised.
+
+For example, a version of C<like()>, sans the useful diagnostic messages,
+could be written as:
+
+  sub laconic_like {
+      my ($self, $this, $regex, $name) = @_;
+      my $usable_regex = $self->maybe_regex($regex);
+      die "expecting regex, found '$regex'\n"
+          unless $usable_regex;
+      $self->ok($this =~ m/$usable_regex/, $name);
+  }
+
+=cut
+
+sub maybe_regex {
+    my( $self, $regex ) = @_;
+    my $usable_regex = undef;
+
+    return $usable_regex unless defined $regex;
+
+    my( $re, $opts );
+
+    # Check for qr/foo/
+    if( _is_qr($regex) ) {
+        $usable_regex = $regex;
+    }
+    # Check for '/foo/' or 'm,foo,'
+    elsif(( $re, $opts )        = $regex =~ m{^ /(.*)/ (\w*) $ }sx              or
+          ( undef, $re, $opts ) = $regex =~ m,^ m([^\w\s]) (.+) \1 (\w*) $,sx
+    )
+    {
+        $usable_regex = length $opts ? "(?$opts)$re" : $re;
+    }
+
+    return $usable_regex;
+}
+
+sub _is_qr {
+    my $regex = shift;
+
+    # is_regexp() checks for regexes in a robust manner, say if they're
+    # blessed.
+    return re::is_regexp($regex) if defined &re::is_regexp;
+    return ref $regex eq 'Regexp';
+}
+
+sub _regex_ok {
+    my( $self, $this, $regex, $cmp, $name ) = @_;
+
+    my $ok           = 0;
+    my $usable_regex = $self->maybe_regex($regex);
+    unless( defined $usable_regex ) {
+        local $Level = $Level + 1;
+        $ok = $self->ok( 0, $name );
+        $self->diag("    '$regex' doesn't look much like a regex to me.");
+        return $ok;
+    }
+
+    {
+        ## no critic (BuiltinFunctions::ProhibitStringyEval)
+
+        my $test;
+        my $context = $self->_caller_context;
+
+        local( $@, $!, $SIG{__DIE__} );    # isolate eval
+
+        $test = eval $context . q{$test = $this =~ /$usable_regex/ ? 1 : 0};
+
+        $test = !$test if $cmp eq '!~';
+
+        local $Level = $Level + 1;
+        $ok = $self->ok( $test, $name );
+    }
+
+    unless($ok) {
+        $this = defined $this ? "'$this'" : 'undef';
+        my $match = $cmp eq '=~' ? "doesn't match" : "matches";
+
+        local $Level = $Level + 1;
+        $self->diag( sprintf <<'DIAGNOSTIC', $this, $match, $regex );
+                  %s
+    %13s '%s'
+DIAGNOSTIC
+
+    }
+
+    return $ok;
+}
+
+# I'm not ready to publish this.  It doesn't deal with array return
+# values from the code or context.
+
+=begin private
+
+=item B<_try>
+
+    my $return_from_code          = $Test->try(sub { code });
+    my($return_from_code, $error) = $Test->try(sub { code });
+
+Works like eval BLOCK except it ensures it has no effect on the rest
+of the test (ie. C<$@> is not set) nor is effected by outside
+interference (ie. C<$SIG{__DIE__}>) and works around some quirks in older
+Perls.
+
+C<$error> is what would normally be in C<$@>.
+
+It is suggested you use this in place of eval BLOCK.
+
+=cut
+
+sub _try {
+    my( $self, $code, %opts ) = @_;
+
+    my $error;
+    my $return;
+    {
+        local $!;               # eval can mess up $!
+        local $@;               # don't set $@ in the test
+        local $SIG{__DIE__};    # don't trip an outside DIE handler.
+        $return = eval { $code->() };
+        $error = $@;
+    }
+
+    die $error if $error and $opts{die_on_fail};
+
+    return wantarray ? ( $return, $error ) : $return;
+}
+
+=end private
+
+
+=item B<is_fh>
+
+    my $is_fh = $Test->is_fh($thing);
+
+Determines if the given C<$thing> can be used as a filehandle.
+
+=cut
+
+sub is_fh {
+    my $self     = shift;
+    my $maybe_fh = shift;
+    return 0 unless defined $maybe_fh;
+
+    return 1 if ref $maybe_fh  eq 'GLOB';    # its a glob ref
+    return 1 if ref \$maybe_fh eq 'GLOB';    # its a glob
+
+    return eval { $maybe_fh->isa("IO::Handle") } ||
+           eval { tied($maybe_fh)->can('TIEHANDLE') };
+}
+
+=back
+
+
 =head2 Test style
+
 
 =over 4
 
@@ -977,30 +1441,33 @@ test.
 
     $Test->level($how_high);
 
-How far up the call stack should $Test look when reporting where the
+How far up the call stack should C<$Test> look when reporting where the
 test failed.
 
 Defaults to 1.
 
-Setting $Test::Builder::Level overrides.  This is typically useful
+Setting L<$Test::Builder::Level> overrides.  This is typically useful
 localized:
 
-    {
-        local $Test::Builder::Level = 2;
-        $Test->ok($test);
+    sub my_ok {
+        my $test = shift;
+
+        local $Test::Builder::Level = $Test::Builder::Level + 1;
+        $TB->ok($test);
     }
+
+To be polite to other functions wrapping your own you usually want to increment C<$Level> rather than set it to a constant.
 
 =cut
 
 sub level {
-    my($self, $level) = @_;
+    my( $self, $level ) = @_;
 
     if( defined $level ) {
         $Level = $level;
     }
     return $Level;
 }
-
 
 =item B<use_numbers>
 
@@ -1026,7 +1493,7 @@ Defaults to on.
 =cut
 
 sub use_numbers {
-    my($self, $use_nums) = @_;
+    my( $self, $use_nums ) = @_;
 
     if( defined $use_nums ) {
         $self->{Use_Nums} = $use_nums;
@@ -1034,13 +1501,12 @@ sub use_numbers {
     return $self->{Use_Nums};
 }
 
-
 =item B<no_diag>
 
     $Test->no_diag($no_diag);
 
 If set true no diagnostics will be printed.  This includes calls to
-diag().
+C<diag()>.
 
 =item B<no_ending>
 
@@ -1063,7 +1529,7 @@ foreach my $attribute (qw(No_Header No_Ending No_Diag)) {
     my $method = lc $attribute;
 
     my $code = sub {
-        my($self, $no) = @_;
+        my( $self, $no ) = @_;
 
         if( defined $no ) {
             $self->{$attribute} = $no;
@@ -1071,10 +1537,9 @@ foreach my $attribute (qw(No_Header No_Ending No_Diag)) {
         return $self->{$attribute};
     };
 
-    no strict 'refs';
-    *{__PACKAGE__.'::'.$method} = $code;
+    no strict 'refs';    ## no critic
+    *{ __PACKAGE__ . '::' . $method } = $code;
 }
-
 
 =back
 
@@ -1091,11 +1556,11 @@ Test::Builder's default output settings will not be affected.
 
     $Test->diag(@msgs);
 
-Prints out the given @msgs.  Like C<print>, arguments are simply
+Prints out the given C<@msgs>.  Like C<print>, arguments are simply
 appended together.
 
-Normally, it uses the failure_output() handle, but if this is for a
-TODO test, the todo_output() handle is used.
+Normally, it uses the C<failure_output()> handle, but if this is for a
+TODO test, the C<todo_output()> handle is used.
 
 Output will be indented and marked with a # so as not to interfere
 with test output.  A newline will be put on the end if there isn't one
@@ -1103,7 +1568,7 @@ already.
 
 We encourage using this rather than calling print directly.
 
-Returns false.  Why?  Because diag() is often used in conjunction with
+Returns false.  Why?  Because C<diag()> is often used in conjunction with
 a failing test (C<ok() || diag()>) it "passes through" the failure.
 
     return ok(...) || diag(...);
@@ -1114,7 +1579,35 @@ Mark Fowler <mark@twoshortplanks.com>
 =cut
 
 sub diag {
-    my($self, @msgs) = @_;
+    my $self = shift;
+
+    $self->_print_comment( $self->_diag_fh, @_ );
+}
+
+=item B<note>
+
+    $Test->note(@msgs);
+
+Like C<diag()>, but it prints to the C<output()> handle so it will not
+normally be seen by the user except in verbose mode.
+
+=cut
+
+sub note {
+    my $self = shift;
+
+    $self->_print_comment( $self->output, @_ );
+}
+
+sub _diag_fh {
+    my $self = shift;
+
+    local $Level = $Level + 1;
+    return $self->in_todo ? $self->todo_output : $self->failure_output;
+}
+
+sub _print_comment {
+    my( $self, $fh, @msgs ) = @_;
 
     return if $self->no_diag;
     return unless @msgs;
@@ -1126,16 +1619,45 @@ sub diag {
     # Convert undef to 'undef' so its readable.
     my $msg = join '', map { defined($_) ? $_ : 'undef' } @msgs;
 
-    # Escape each line with a #.
-    $msg =~ s/^/# /gm;
-
-    # Stick a newline on the end if it needs it.
-    $msg .= "\n" unless $msg =~ /\n\Z/;
+    # Escape the beginning, _print will take care of the rest.
+    $msg =~ s/^/# /;
 
     local $Level = $Level + 1;
-    $self->_print_diag($msg);
+    $self->_print_to_fh( $fh, $msg );
 
     return 0;
+}
+
+=item B<explain>
+
+    my @dump = $Test->explain(@msgs);
+
+Will dump the contents of any references in a human readable format.
+Handy for things like...
+
+    is_deeply($have, $want) || diag explain $have;
+
+or
+
+    is_deeply($have, $want) || note explain $have;
+
+=cut
+
+sub explain {
+    my $self = shift;
+
+    return map {
+        ref $_
+          ? do {
+            $self->_try(sub { require Data::Dumper }, die_on_fail => 1);
+
+            my $dumper = Data::Dumper->new( [$_] );
+            $dumper->Indent(1)->Terse(1);
+            $dumper->Sortkeys(1) if $dumper->can("Sortkeys");
+            $dumper->Dump;
+          }
+          : $_
+    } @_;
 }
 
 =begin _private
@@ -1144,14 +1666,19 @@ sub diag {
 
     $Test->_print(@msgs);
 
-Prints to the output() filehandle.
+Prints to the C<output()> filehandle.
 
 =end _private
 
 =cut
 
 sub _print {
-    my($self, @msgs) = @_;
+    my $self = shift;
+    return $self->_print_to_fh( $self->output, @_ );
+}
+
+sub _print_to_fh {
+    my( $self, $fh, @msgs ) = @_;
 
     # Prevent printing headers when only compiling.  Mostly for when
     # tests are deparsed with B::Deparse
@@ -1159,70 +1686,53 @@ sub _print {
 
     my $msg = join '', @msgs;
 
-    local($\, $", $,) = (undef, ' ', '');
-    my $fh = $self->output;
+    local( $\, $", $, ) = ( undef, ' ', '' );
 
     # Escape each line after the first with a # so we don't
     # confuse Test::Harness.
-    $msg =~ s/\n(.)/\n# $1/sg;
+    $msg =~ s{\n(?!\z)}{\n# }sg;
 
     # Stick a newline on the end if it needs it.
-    $msg .= "\n" unless $msg =~ /\n\Z/;
+    $msg .= "\n" unless $msg =~ /\n\z/;
 
-    print $fh $msg;
+    return print $fh $self->_indent, $msg;
 }
-
-=begin private
-
-=item B<_print_diag>
-
-    $Test->_print_diag(@msg);
-
-Like _print, but prints to the current diagnostic filehandle.
-
-=end private
-
-=cut
-
-sub _print_diag {
-    my $self = shift;
-
-    local($\, $", $,) = (undef, ' ', '');
-    my $fh = $self->todo ? $self->todo_output : $self->failure_output;
-    print $fh @_;
-}    
 
 =item B<output>
 
-    $Test->output($fh);
-    $Test->output($file);
-
-Where normal "ok/not ok" test output should go.
-
-Defaults to STDOUT.
-
 =item B<failure_output>
-
-    $Test->failure_output($fh);
-    $Test->failure_output($file);
-
-Where diagnostic output on test failures and diag() should go.
-
-Defaults to STDERR.
 
 =item B<todo_output>
 
-    $Test->todo_output($fh);
-    $Test->todo_output($file);
+    my $filehandle = $Test->output;
+    $Test->output($filehandle);
+    $Test->output($filename);
+    $Test->output(\$scalar);
 
-Where diagnostics about todo test failures and diag() should go.
+These methods control where Test::Builder will print its output.
+They take either an open C<$filehandle>, a C<$filename> to open and write to
+or a C<$scalar> reference to append to.  It will always return a C<$filehandle>.
+
+B<output> is where normal "ok/not ok" test output goes.
+
+Defaults to STDOUT.
+
+B<failure_output> is where diagnostic output on test failures and
+C<diag()> goes.  It is normally not read by Test::Harness and instead is
+displayed to the user.
+
+Defaults to STDERR.
+
+C<todo_output> is used instead of C<failure_output()> for the
+diagnostics of a failing TODO test.  These will not be seen by the
+user.
 
 Defaults to STDOUT.
 
 =cut
 
 sub output {
-    my($self, $fh) = @_;
+    my( $self, $fh ) = @_;
 
     if( defined $fh ) {
         $self->{Out_FH} = $self->_new_fh($fh);
@@ -1231,7 +1741,7 @@ sub output {
 }
 
 sub failure_output {
-    my($self, $fh) = @_;
+    my( $self, $fh ) = @_;
 
     if( defined $fh ) {
         $self->{Fail_FH} = $self->_new_fh($fh);
@@ -1240,7 +1750,7 @@ sub failure_output {
 }
 
 sub todo_output {
-    my($self, $fh) = @_;
+    my( $self, $fh ) = @_;
 
     if( defined $fh ) {
         $self->{Todo_FH} = $self->_new_fh($fh);
@@ -1248,48 +1758,45 @@ sub todo_output {
     return $self->{Todo_FH};
 }
 
-
 sub _new_fh {
     my $self = shift;
     my($file_or_fh) = shift;
 
     my $fh;
-    if( $self->_is_fh($file_or_fh) ) {
+    if( $self->is_fh($file_or_fh) ) {
         $fh = $file_or_fh;
     }
+    elsif( ref $file_or_fh eq 'SCALAR' ) {
+        # Scalar refs as filehandles was added in 5.8.
+        if( $] >= 5.008 ) {
+            open $fh, ">>", $file_or_fh
+              or $self->croak("Can't open scalar ref $file_or_fh: $!");
+        }
+        # Emulate scalar ref filehandles with a tie.
+        else {
+            $fh = Test::Builder::IO::Scalar->new($file_or_fh)
+              or $self->croak("Can't tie scalar ref $file_or_fh");
+        }
+    }
     else {
-        $fh = do { local *FH };
-        open $fh, ">$file_or_fh" or
-            $self->croak("Can't open test output log $file_or_fh: $!");
-	_autoflush($fh);
+        open $fh, ">", $file_or_fh
+          or $self->croak("Can't open test output log $file_or_fh: $!");
+        _autoflush($fh);
     }
 
     return $fh;
 }
-
-
-sub _is_fh {
-    my $self = shift;
-    my $maybe_fh = shift;
-    return 0 unless defined $maybe_fh;
-
-    return 1 if ref \$maybe_fh eq 'GLOB'; # its a glob
-
-    return UNIVERSAL::isa($maybe_fh,               'GLOB')       ||
-           UNIVERSAL::isa($maybe_fh,               'IO::Handle') ||
-
-           # 5.5.4's tied() and can() doesn't like getting undef
-           UNIVERSAL::can((tied($maybe_fh) || ''), 'TIEHANDLE');
-}
-
 
 sub _autoflush {
     my($fh) = shift;
     my $old_fh = select $fh;
     $| = 1;
     select $old_fh;
+
+    return;
 }
 
+my( $Testout, $Testerr );
 
 sub _dup_stdhandles {
     my $self = shift;
@@ -1298,41 +1805,80 @@ sub _dup_stdhandles {
 
     # Set everything to unbuffered else plain prints to STDOUT will
     # come out in the wrong order from our own prints.
-    _autoflush(\*TESTOUT);
-    _autoflush(\*STDOUT);
-    _autoflush(\*TESTERR);
-    _autoflush(\*STDERR);
+    _autoflush($Testout);
+    _autoflush( \*STDOUT );
+    _autoflush($Testerr);
+    _autoflush( \*STDERR );
 
-    $self->output(\*TESTOUT);
-    $self->failure_output(\*TESTERR);
-    $self->todo_output(\*TESTOUT);
+    $self->reset_outputs;
+
+    return;
 }
 
-
-my $Opened_Testhandles = 0;
 sub _open_testhandles {
-    return if $Opened_Testhandles;
+    my $self = shift;
+
+    return if $self->{Opened_Testhandles};
+
     # We dup STDOUT and STDERR so people can change them in their
     # test suites while still getting normal test output.
-    open(TESTOUT, ">&STDOUT") or die "Can't dup STDOUT:  $!";
-    open(TESTERR, ">&STDERR") or die "Can't dup STDERR:  $!";
-    $Opened_Testhandles = 1;
+    open( $Testout, ">&STDOUT" ) or die "Can't dup STDOUT:  $!";
+    open( $Testerr, ">&STDERR" ) or die "Can't dup STDERR:  $!";
+
+    #    $self->_copy_io_layers( \*STDOUT, $Testout );
+    #    $self->_copy_io_layers( \*STDERR, $Testerr );
+
+    $self->{Opened_Testhandles} = 1;
+
+    return;
 }
 
+sub _copy_io_layers {
+    my( $self, $src, $dst ) = @_;
+
+    $self->_try(
+        sub {
+            require PerlIO;
+            my @src_layers = PerlIO::get_layers($src);
+
+            binmode $dst, join " ", map ":$_", @src_layers if @src_layers;
+        }
+    );
+
+    return;
+}
+
+=item reset_outputs
+
+  $tb->reset_outputs;
+
+Resets all the output filehandles back to their defaults.
+
+=cut
+
+sub reset_outputs {
+    my $self = shift;
+
+    $self->output        ($Testout);
+    $self->failure_output($Testerr);
+    $self->todo_output   ($Testout);
+
+    return;
+}
 
 =item carp
 
   $tb->carp(@message);
 
 Warns with C<@message> but the message will appear to come from the
-point where the original test function was called (C<$tb->caller>).
+point where the original test function was called (C<< $tb->caller >>).
 
 =item croak
 
   $tb->croak(@message);
 
 Dies with C<@message> but the message will appear to come from the
-point where the original test function was called (C<$tb->caller>).
+point where the original test function was called (C<< $tb->caller >>).
 
 =cut
 
@@ -1340,28 +1886,20 @@ sub _message_at_caller {
     my $self = shift;
 
     local $Level = $Level + 1;
-    my($pack, $file, $line) = $self->caller;
-    return join("", @_) . " at $file line $line.\n";
+    my( $pack, $file, $line ) = $self->caller;
+    return join( "", @_ ) . " at $file line $line.\n";
 }
 
 sub carp {
     my $self = shift;
-    warn $self->_message_at_caller(@_);
+    return warn $self->_message_at_caller(@_);
 }
 
 sub croak {
     my $self = shift;
-    die $self->_message_at_caller(@_);
+    return die $self->_message_at_caller(@_);
 }
 
-sub _plan_check {
-    my $self = shift;
-
-    unless( $self->{Have_Plan} ) {
-        local $Level = $Level + 2;
-        $self->croak("You tried to run a test without a plan");
-    }
-}
 
 =back
 
@@ -1385,28 +1923,26 @@ can erase history if you really want to.
 =cut
 
 sub current_test {
-    my($self, $num) = @_;
+    my( $self, $num ) = @_;
 
-    lock($self->{Curr_Test});
+    lock( $self->{Curr_Test} );
     if( defined $num ) {
-        unless( $self->{Have_Plan} ) {
-            $self->croak("Can't change the current test number without a plan!");
-        }
-
         $self->{Curr_Test} = $num;
 
         # If the test counter is being pushed forward fill in the details.
         my $test_results = $self->{Test_Results};
         if( $num > @$test_results ) {
             my $start = @$test_results ? @$test_results : 0;
-            for ($start..$num-1) {
-                $test_results->[$_] = &share({
-                    'ok'      => 1, 
-                    actual_ok => undef, 
-                    reason    => 'incrementing test number', 
-                    type      => 'unknown', 
-                    name      => undef 
-                });
+            for( $start .. $num - 1 ) {
+                $test_results->[$_] = &share(
+                    {
+                        'ok'      => 1,
+                        actual_ok => undef,
+                        reason    => 'incrementing test number',
+                        type      => 'unknown',
+                        name      => undef
+                    }
+                );
             }
         }
         # If backward, wipe history.  Its their funeral.
@@ -1415,6 +1951,33 @@ sub current_test {
         }
     }
     return $self->{Curr_Test};
+}
+
+=item B<is_passing>
+
+   my $ok = $builder->is_passing;
+
+Indicates if the test suite is currently passing.
+
+More formally, it will be false if anything has happened which makes
+it impossible for the test suite to pass.  True otherwise.
+
+For example, if no tests have run C<is_passing()> will be true because
+even though a suite with no tests is a failure you can add a passing
+test to it and start passing.
+
+Don't think about it too much.
+
+=cut
+
+sub is_passing {
+    my $self = shift;
+
+    if( @_ ) {
+        $self->{Is_Passing} = shift;
+    }
+
+    return $self->{Is_Passing};
 }
 
 
@@ -1439,7 +2002,7 @@ sub summary {
 
     my @tests = $Test->details;
 
-Like summary(), but with a lot more detail.
+Like C<summary()>, but with a lot more detail.
 
     $tests[$test_num - 1] = 
             { 'ok'       => is the test considered a pass?
@@ -1453,7 +2016,7 @@ Like summary(), but with a lot more detail.
 
 'actual_ok' is a reflection of whether or not the test literally
 printed 'ok' or 'not ok'.  This is for examining the result of 'todo'
-tests.  
+tests.
 
 'name' is the name of the test.
 
@@ -1466,16 +2029,16 @@ of ''.  Type can be one of the following:
     unknown     see below
 
 Sometimes the Test::Builder test counter is incremented without it
-printing any test output, for example, when current_test() is changed.
+printing any test output, for example, when C<current_test()> is changed.
 In these cases, Test::Builder doesn't know the result of the test, so
-it's type is 'unkown'.  These details for these tests are filled in.
-They are considered ok, but the name and actual_ok is left undef.
+its type is 'unknown'.  These details for these tests are filled in.
+They are considered ok, but the name and actual_ok is left C<undef>.
 
 For example "not ok 23 - hole count # TODO insufficient donuts" would
 result in this structure:
 
     $tests[22] =    # 23 - 1, since arrays start from 0.
-      { ok        => 1,   # logically, the test passed since it's todo
+      { ok        => 1,   # logically, the test passed since its todo
         actual_ok => 0,   # in absolute terms, it failed
         name      => 'hole count',
         type      => 'todo',
@@ -1494,30 +2057,154 @@ sub details {
     my $todo_reason = $Test->todo;
     my $todo_reason = $Test->todo($pack);
 
-todo() looks for a $TODO variable in your tests.  If set, all tests
-will be considered 'todo' (see Test::More and Test::Harness for
-details).  Returns the reason (ie. the value of $TODO) if running as
-todo tests, false otherwise.
+If the current tests are considered "TODO" it will return the reason,
+if any.  This reason can come from a C<$TODO> variable or the last call
+to C<todo_start()>.
 
-todo() is about finding the right package to look for $TODO in.  It
-uses the exported_to() package to find it.  If that's not set, it's
-pretty good at guessing the right package to look at based on $Level.
+Since a TODO test does not need a reason, this function can return an
+empty string even when inside a TODO block.  Use C<< $Test->in_todo >>
+to determine if you are currently inside a TODO block.
+
+C<todo()> is about finding the right package to look for C<$TODO> in.  It's
+pretty good at guessing the right package to look at.  It first looks for
+the caller based on C<$Level + 1>, since C<todo()> is usually called inside
+a test function.  As a last resort it will use C<exported_to()>.
 
 Sometimes there is some confusion about where todo() should be looking
-for the $TODO variable.  If you want to be sure, tell it explicitly
+for the C<$TODO> variable.  If you want to be sure, tell it explicitly
 what $pack to use.
 
 =cut
 
 sub todo {
-    my($self, $pack) = @_;
+    my( $self, $pack ) = @_;
 
-    $pack = $pack || $self->exported_to || $self->caller($Level);
-    return 0 unless $pack;
+    return $self->{Todo} if defined $self->{Todo};
 
-    no strict 'refs';
-    return defined ${$pack.'::TODO'} ? ${$pack.'::TODO'}
-                                     : 0;
+    local $Level = $Level + 1;
+    my $todo = $self->find_TODO($pack);
+    return $todo if defined $todo;
+
+    return '';
+}
+
+=item B<find_TODO>
+
+    my $todo_reason = $Test->find_TODO();
+    my $todo_reason = $Test->find_TODO($pack):
+
+Like C<todo()> but only returns the value of C<$TODO> ignoring
+C<todo_start()>.
+
+=cut
+
+sub find_TODO {
+    my( $self, $pack ) = @_;
+
+    $pack = $pack || $self->caller(1) || $self->exported_to;
+    return unless $pack;
+
+    no strict 'refs';    ## no critic
+    return ${ $pack . '::TODO' };
+}
+
+=item B<in_todo>
+
+    my $in_todo = $Test->in_todo;
+
+Returns true if the test is currently inside a TODO block.
+
+=cut
+
+sub in_todo {
+    my $self = shift;
+
+    local $Level = $Level + 1;
+    return( defined $self->{Todo} || $self->find_TODO ) ? 1 : 0;
+}
+
+=item B<todo_start>
+
+    $Test->todo_start();
+    $Test->todo_start($message);
+
+This method allows you declare all subsequent tests as TODO tests, up until
+the C<todo_end> method has been called.
+
+The C<TODO:> and C<$TODO> syntax is generally pretty good about figuring out
+whether or not we're in a TODO test.  However, often we find that this is not
+possible to determine (such as when we want to use C<$TODO> but
+the tests are being executed in other packages which can't be inferred
+beforehand).
+
+Note that you can use this to nest "todo" tests
+
+ $Test->todo_start('working on this');
+ # lots of code
+ $Test->todo_start('working on that');
+ # more code
+ $Test->todo_end;
+ $Test->todo_end;
+
+This is generally not recommended, but large testing systems often have weird
+internal needs.
+
+We've tried to make this also work with the TODO: syntax, but it's not
+guaranteed and its use is also discouraged:
+
+ TODO: {
+     local $TODO = 'We have work to do!';
+     $Test->todo_start('working on this');
+     # lots of code
+     $Test->todo_start('working on that');
+     # more code
+     $Test->todo_end;
+     $Test->todo_end;
+ }
+
+Pick one style or another of "TODO" to be on the safe side.
+
+=cut
+
+sub todo_start {
+    my $self = shift;
+    my $message = @_ ? shift : '';
+
+    $self->{Start_Todo}++;
+    if( $self->in_todo ) {
+        push @{ $self->{Todo_Stack} } => $self->todo;
+    }
+    $self->{Todo} = $message;
+
+    return;
+}
+
+=item C<todo_end>
+
+ $Test->todo_end;
+
+Stops running tests as "TODO" tests.  This method is fatal if called without a
+preceding C<todo_start> method call.
+
+=cut
+
+sub todo_end {
+    my $self = shift;
+
+    if( !$self->{Start_Todo} ) {
+        $self->croak('todo_end() called without todo_start()');
+    }
+
+    $self->{Start_Todo}--;
+
+    if( $self->{Start_Todo} && @{ $self->{Todo_Stack} } ) {
+        $self->{Todo} = pop @{ $self->{Todo_Stack} };
+    }
+    else {
+        delete $self->{Todo};
+    }
+
+    return;
 }
 
 =item B<caller>
@@ -1526,15 +2213,24 @@ sub todo {
     my($pack, $file, $line) = $Test->caller;
     my($pack, $file, $line) = $Test->caller($height);
 
-Like the normal caller(), except it reports according to your level().
+Like the normal C<caller()>, except it reports according to your C<level()>.
+
+C<$height> will be added to the C<level()>.
+
+If C<caller()> winds up off the top of the stack it report the highest context.
 
 =cut
 
-sub caller {
-    my($self, $height) = @_;
+sub caller {    ## no critic (Subroutines::ProhibitBuiltinHomonyms)
+    my( $self, $height ) = @_;
     $height ||= 0;
 
-    my @caller = CORE::caller($self->level + $height + 1);
+    my $level = $self->level + $height + 1;
+    my @caller;
+    do {
+        @caller = CORE::caller( $level );
+        $level--;
+    } until @caller;
     return wantarray ? @caller : $caller[0];
 }
 
@@ -1560,51 +2256,52 @@ error message.
 sub _sanity_check {
     my $self = shift;
 
-    $self->_whoa($self->{Curr_Test} < 0,  'Says here you ran a negative number of tests!');
-    $self->_whoa(!$self->{Have_Plan} and $self->{Curr_Test}, 
-          'Somehow your tests ran without a plan!');
-    $self->_whoa($self->{Curr_Test} != @{ $self->{Test_Results} },
-          'Somehow you got a different number of results than tests ran!');
+    $self->_whoa( $self->{Curr_Test} < 0, 'Says here you ran a negative number of tests!' );
+    $self->_whoa( $self->{Curr_Test} != @{ $self->{Test_Results} },
+        'Somehow you got a different number of results than tests ran!' );
+
+    return;
 }
 
 =item B<_whoa>
 
   $self->_whoa($check, $description);
 
-A sanity check, similar to assert().  If the $check is true, something
-has gone horribly wrong.  It will die with the given $description and
+A sanity check, similar to C<assert()>.  If the C<$check> is true, something
+has gone horribly wrong.  It will die with the given C<$description> and
 a note to contact the author.
 
 =cut
 
 sub _whoa {
-    my($self, $check, $desc) = @_;
-    if( $check ) {
+    my( $self, $check, $desc ) = @_;
+    if($check) {
         local $Level = $Level + 1;
         $self->croak(<<"WHOA");
 WHOA!  $desc
 This should never happen!  Please contact the author immediately!
 WHOA
     }
+
+    return;
 }
 
 =item B<_my_exit>
 
   _my_exit($exit_num);
 
-Perl seems to have some trouble with exiting inside an END block.  5.005_03
-and 5.6.1 both seem to do odd things.  Instead, this function edits $?
-directly.  It should ONLY be called from inside an END block.  It
-doesn't actually exit, that's your job.
+Perl seems to have some trouble with exiting inside an C<END> block.
+5.6.1 does some odd things.  Instead, this function edits C<$?>
+directly.  It should B<only> be called from inside an C<END> block.
+It doesn't actually exit, that's your job.
 
 =cut
 
 sub _my_exit {
-    $? = $_[0];
+    $? = $_[0];    ## no critic (Variables::RequireLocalizedPunctuationVars)
 
     return 1;
 }
-
 
 =back
 
@@ -1612,74 +2309,67 @@ sub _my_exit {
 
 =cut
 
-$SIG{__DIE__} = sub {
-    # We don't want to muck with death in an eval, but $^S isn't
-    # totally reliable.  5.005_03 and 5.6.1 both do the wrong thing
-    # with it.  Instead, we use caller.  This also means it runs under
-    # 5.004!
-    my $in_eval = 0;
-    for( my $stack = 1;  my $sub = (CORE::caller($stack))[3];  $stack++ ) {
-        $in_eval = 1 if $sub =~ /^\(eval\)/;
-    }
-    $Test->{Test_Died} = 1 unless $in_eval;
-};
-
 sub _ending {
     my $self = shift;
+    return if $self->no_ending;
+    return if $self->{Ending}++;
 
-    $self->_sanity_check();
+    my $real_exit_code = $?;
 
     # Don't bother with an ending if this is a forked copy.  Only the parent
     # should do the ending.
-    # Exit if plan() was never called.  This is so "require Test::Simple" 
-    # doesn't puke.
-    # Don't do an ending if we bailed out.
-    if( ($self->{Original_Pid} != $$) 			or
-	(!$self->{Have_Plan} && !$self->{Test_Died}) 	or
-	$self->{Bailed_Out}
-      )
-    {
-	_my_exit($?);
-	return;
+    if( $self->{Original_Pid} != $$ ) {
+        return;
     }
 
+    # Ran tests but never declared a plan or hit done_testing
+    if( !$self->{Have_Plan} and $self->{Curr_Test} ) {
+        $self->is_passing(0);
+        $self->diag("Tests were run but no plan was declared and done_testing() was not seen.");
+    }
+
+    # Exit if plan() was never called.  This is so "require Test::Simple"
+    # doesn't puke.
+    if( !$self->{Have_Plan} ) {
+        return;
+    }
+
+    # Don't do an ending if we bailed out.
+    if( $self->{Bailed_Out} ) {
+        $self->is_passing(0);
+        return;
+    }
     # Figure out if we passed or failed and print helpful messages.
     my $test_results = $self->{Test_Results};
-    if( @$test_results ) {
+    if(@$test_results) {
         # The plan?  We have no plan.
         if( $self->{No_Plan} ) {
-            $self->_print("1..$self->{Curr_Test}\n") unless $self->no_header;
+            $self->_output_plan($self->{Curr_Test}) unless $self->no_header;
             $self->{Expected_Tests} = $self->{Curr_Test};
         }
 
         # Auto-extended arrays and elements which aren't explicitly
         # filled in with a shared reference will puke under 5.8.0
         # ithreads.  So we have to fill them in by hand. :(
-        my $empty_result = &share({});
-        for my $idx ( 0..$self->{Expected_Tests}-1 ) {
+        my $empty_result = &share( {} );
+        for my $idx ( 0 .. $self->{Expected_Tests} - 1 ) {
             $test_results->[$idx] = $empty_result
               unless defined $test_results->[$idx];
         }
 
-        my $num_failed = grep !$_->{'ok'}, 
-                              @{$test_results}[0..$self->{Curr_Test}-1];
+        my $num_failed = grep !$_->{'ok'}, @{$test_results}[ 0 .. $self->{Curr_Test} - 1 ];
 
         my $num_extra = $self->{Curr_Test} - $self->{Expected_Tests};
 
-        if( $num_extra < 0 ) {
+        if( $num_extra != 0 ) {
             my $s = $self->{Expected_Tests} == 1 ? '' : 's';
             $self->diag(<<"FAIL");
-Looks like you planned $self->{Expected_Tests} test$s but only ran $self->{Curr_Test}.
+Looks like you planned $self->{Expected_Tests} test$s but ran $self->{Curr_Test}.
 FAIL
-        }
-        elsif( $num_extra > 0 ) {
-            my $s = $self->{Expected_Tests} == 1 ? '' : 's';
-            $self->diag(<<"FAIL");
-Looks like you planned $self->{Expected_Tests} test$s but ran $num_extra extra.
-FAIL
+            $self->is_passing(0);
         }
 
-        if ( $num_failed ) {
+        if($num_failed) {
             my $num_tests = $self->{Curr_Test};
             my $s = $num_failed == 1 ? '' : 's';
 
@@ -1688,18 +2378,19 @@ FAIL
             $self->diag(<<"FAIL");
 Looks like you failed $num_failed test$s of $num_tests$qualifier.
 FAIL
+            $self->is_passing(0);
         }
 
-        if( $self->{Test_Died} ) {
+        if($real_exit_code) {
             $self->diag(<<"FAIL");
-Looks like your test died just after $self->{Curr_Test}.
+Looks like your test exited with $real_exit_code just after $self->{Curr_Test}.
 FAIL
-
-            _my_exit( 255 ) && return;
+            $self->is_passing(0);
+            _my_exit($real_exit_code) && return;
         }
 
         my $exit_code;
-        if( $num_failed ) {
+        if($num_failed) {
             $exit_code = $num_failed <= 254 ? $num_failed : 254;
         }
         elsif( $num_extra != 0 ) {
@@ -1709,25 +2400,30 @@ FAIL
             $exit_code = 0;
         }
 
-        _my_exit( $exit_code ) && return;
+        _my_exit($exit_code) && return;
     }
-    elsif ( $self->{Skip_All} ) {
-        _my_exit( 0 ) && return;
+    elsif( $self->{Skip_All} ) {
+        _my_exit(0) && return;
     }
-    elsif ( $self->{Test_Died} ) {
-        $self->diag(<<'FAIL');
-Looks like your test died before it could output anything.
+    elsif($real_exit_code) {
+        $self->diag(<<"FAIL");
+Looks like your test exited with $real_exit_code before it could output anything.
 FAIL
-        _my_exit( 255 ) && return;
+        $self->is_passing(0);
+        _my_exit($real_exit_code) && return;
     }
     else {
         $self->diag("No tests run!\n");
-        _my_exit( 255 ) && return;
+        $self->is_passing(0);
+        _my_exit(255) && return;
     }
+
+    $self->is_passing(0);
+    $self->_whoa( 1, "We fell off the end of _ending()" );
 }
 
 END {
-    $Test->_ending if defined $Test and !$Test->no_ending;
+    $Test->_ending if defined $Test;
 }
 
 =head1 EXIT CODES
@@ -1748,18 +2444,32 @@ So the exit codes are...
 
 If you fail more than 254 tests, it will be reported as 254.
 
-
 =head1 THREADS
 
 In perl 5.8.1 and later, Test::Builder is thread-safe.  The test
 number is shared amongst all threads.  This means if one thread sets
-the test number using current_test() they will all be effected.
+the test number using C<current_test()> they will all be effected.
 
 While versions earlier than 5.8.1 had threads they contain too many
 bugs to support.
 
 Test::Builder is only thread-aware if threads.pm is loaded I<before>
 Test::Builder.
+
+=head1 MEMORY
+
+An informative hash, accessable via C<<details()>>, is stored for each
+test you perform.  So memory usage will scale linearly with each test
+run. Although this is not a problem for most test suites, it can
+become an issue if you do large (hundred thousands to million)
+combinatorics tests in the same run.
+
+In such cases, you are advised to either split the test file into smaller
+ones, or use a reverse approach, doing "normal" (code) compares and
+triggering fail() should anything go unexpected.
+
+Future versions of Test::Builder will have a way to turn history off.
+
 
 =head1 EXAMPLES
 
@@ -1777,10 +2487,10 @@ E<lt>schwern@pobox.comE<gt>
 
 =head1 COPYRIGHT
 
-Copyright 2002, 2004 by chromatic E<lt>chromatic@wgz.orgE<gt> and
-                        Michael G Schwern E<lt>schwern@pobox.comE<gt>.
+Copyright 2002-2008 by chromatic E<lt>chromatic@wgz.orgE<gt> and
+                       Michael G Schwern E<lt>schwern@pobox.comE<gt>.
 
-This program is free software; you can redistribute it and/or 
+This program is free software; you can redistribute it and/or
 modify it under the same terms as Perl itself.
 
 See F<http://www.perl.com/perl/misc/Artistic.html>
@@ -1788,3 +2498,4 @@ See F<http://www.perl.com/perl/misc/Artistic.html>
 =cut
 
 1;
+

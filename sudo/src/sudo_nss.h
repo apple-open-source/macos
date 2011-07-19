@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2007-2009 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -12,8 +12,6 @@
  * WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
  * ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
  * OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
- *
- * $Sudo: sudo_nss.h,v 1.5 2008/11/09 14:13:12 millert Exp $
  */
 
 struct lbuf;
@@ -32,7 +30,8 @@ struct sudo_nss {
     int (*display_bound_defaults) __P((struct sudo_nss *nss, struct passwd *, struct lbuf *));
     int (*display_privs) __P((struct sudo_nss *nss, struct passwd *, struct lbuf *));
     void *handle;
-    int ret_notfound;
+    short ret_if_found;
+    short ret_if_notfound;
 };
 
 TQ_DECLARE(sudo_nss)

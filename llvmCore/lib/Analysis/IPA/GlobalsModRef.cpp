@@ -23,7 +23,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
-#include "llvm/Support/Compiler.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/ADT/Statistic.h"
@@ -43,7 +43,7 @@ namespace {
   /// function in the program.  Later, the entries for these functions are
   /// removed if the function is found to call an external function (in which
   /// case we know nothing about it.
-  struct VISIBILITY_HIDDEN FunctionRecord {
+  struct FunctionRecord {
     /// GlobalInfo - Maintain mod/ref info for all of the globals without
     /// addresses taken that are read or written (transitively) by this
     /// function.
@@ -68,8 +68,7 @@ namespace {
   };
 
   /// GlobalsModRef - The actual analysis pass.
-  class VISIBILITY_HIDDEN GlobalsModRef
-      : public ModulePass, public AliasAnalysis {
+  class GlobalsModRef : public ModulePass, public AliasAnalysis {
     /// NonAddressTakenGlobals - The globals that do not have their addresses
     /// taken.
     std::set<GlobalValue*> NonAddressTakenGlobals;
@@ -112,7 +111,6 @@ namespace {
     ModRefResult getModRefInfo(CallSite CS1, CallSite CS2) {
       return AliasAnalysis::getModRefInfo(CS1,CS2);
     }
-    bool hasNoModRefInfoForCalls() const { return false; }
 
     /// getModRefBehavior - Return the behavior of the specified function if
     /// called from the specified call site.  The call site may be null in which
@@ -147,6 +145,16 @@ namespace {
     virtual void deleteValue(Value *V);
     virtual void copyValue(Value *From, Value *To);
 
+    /// getAdjustedAnalysisPointer - This method is used when a pass implements
+    /// an analysis interface through multiple inheritance.  If needed, it
+    /// should override this to adjust the this pointer as needed for the
+    /// specified pass info.
+    virtual void *getAdjustedAnalysisPointer(const PassInfo *PI) {
+      if (PI->isPassID(&AliasAnalysis::ID))
+        return (AliasAnalysis*)this;
+      return this;
+    }
+    
   private:
     /// getFunctionInfo - Return the function info for the function, or null if
     /// we don't have anything useful to say about it.
@@ -205,7 +213,7 @@ void GlobalsModRef::AnalyzeGlobals(Module &M) {
         ++NumNonAddrTakenGlobalVars;
 
         // If this global holds a pointer type, see if it is an indirect global.
-        if (isa<PointerType>(I->getType()->getElementType()) &&
+        if (I->getType()->getElementType()->isPointerTy() &&
             AnalyzeIndirectGlobalMemory(I))
           ++NumIndirectGlobalVars;
       }
@@ -223,7 +231,7 @@ bool GlobalsModRef::AnalyzeUsesOfPointer(Value *V,
                                          std::vector<Function*> &Readers,
                                          std::vector<Function*> &Writers,
                                          GlobalValue *OkayStoreDest) {
-  if (!isa<PointerType>(V->getType())) return true;
+  if (!V->getType()->isPointerTy()) return true;
 
   for (Value::use_iterator UI = V->use_begin(), E = V->use_end(); UI != E; ++UI)
     if (LoadInst *LI = dyn_cast<LoadInst>(*UI)) {
@@ -236,6 +244,11 @@ bool GlobalsModRef::AnalyzeUsesOfPointer(Value *V,
       }
     } else if (GetElementPtrInst *GEP = dyn_cast<GetElementPtrInst>(*UI)) {
       if (AnalyzeUsesOfPointer(GEP, Readers, Writers)) return true;
+    } else if (BitCastInst *BCI = dyn_cast<BitCastInst>(*UI)) {
+      if (AnalyzeUsesOfPointer(BCI, Readers, Writers, OkayStoreDest))
+        return true;
+    } else if (isFreeCall(*UI)) {
+      Writers.push_back(cast<Instruction>(*UI)->getParent()->getParent());
     } else if (CallInst *CI = dyn_cast<CallInst>(*UI)) {
       // Make sure that this is just the function being called, not that it is
       // passing into the function.
@@ -244,7 +257,7 @@ bool GlobalsModRef::AnalyzeUsesOfPointer(Value *V,
     } else if (InvokeInst *II = dyn_cast<InvokeInst>(*UI)) {
       // Make sure that this is just the function being called, not that it is
       // passing into the function.
-      for (unsigned i = 3, e = II->getNumOperands(); i != e; ++i)
+      for (unsigned i = 0, e = II->getNumOperands() - 3; i != e; ++i)
         if (II->getOperand(i) == V) return true;
     } else if (ConstantExpr *CE = dyn_cast<ConstantExpr>(*UI)) {
       if (CE->getOpcode() == Instruction::GetElementPtr ||
@@ -257,8 +270,6 @@ bool GlobalsModRef::AnalyzeUsesOfPointer(Value *V,
     } else if (ICmpInst *ICI = dyn_cast<ICmpInst>(*UI)) {
       if (!isa<ConstantPointerNull>(ICI->getOperand(1)))
         return true;  // Allow comparison against null.
-    } else if (FreeInst *F = dyn_cast<FreeInst>(*UI)) {
-      Writers.push_back(F->getParent()->getParent());
     } else {
       return true;
     }
@@ -299,7 +310,7 @@ bool GlobalsModRef::AnalyzeIndirectGlobalMemory(GlobalValue *GV) {
       // Check the value being stored.
       Value *Ptr = SI->getOperand(0)->getUnderlyingObject();
 
-      if (isa<MallocInst>(Ptr)) {
+      if (isMalloc(Ptr)) {
         // Okay, easy case.
       } else if (CallInst *CI = dyn_cast<CallInst>(Ptr)) {
         Function *F = CI->getCalledFunction();
@@ -435,7 +446,8 @@ void GlobalsModRef::AnalyzeCallGraph(CallGraph &CG, Module &M) {
           if (cast<StoreInst>(*II).isVolatile())
             // Treat volatile stores as reading memory somewhere.
             FunctionEffect |= Ref;
-        } else if (isa<MallocInst>(*II) || isa<FreeInst>(*II)) {
+        } else if (isMalloc(&cast<Instruction>(*II)) ||
+                   isFreeCall(&cast<Instruction>(*II))) {
           FunctionEffect |= ModRef;
         }
 
@@ -474,7 +486,7 @@ GlobalsModRef::alias(const Value *V1, unsigned V1Size,
     if (GV1 && !NonAddressTakenGlobals.count(GV1)) GV1 = 0;
     if (GV2 && !NonAddressTakenGlobals.count(GV2)) GV2 = 0;
 
-    // If the the two pointers are derived from two different non-addr-taken
+    // If the two pointers are derived from two different non-addr-taken
     // globals, or if one is and the other isn't, we know these can't alias.
     if ((GV1 || GV2) && GV1 != GV2)
       return NoAlias;

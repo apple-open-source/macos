@@ -1,0 +1,8 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set A [box "day"]
+move
+set B [box "night"]
+
+arrow right from [0.5 between [$A e] [$A ne]]
+arrow left  from [0.5 between [$B w] [$B sw]]

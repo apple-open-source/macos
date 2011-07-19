@@ -1,18 +1,34 @@
-//  -*- mode:C; c-basic-offset:4; tab-width:4; intent-tabs-mode:nil;  -*-
-// HACK ALERT: gcc and g++ give different errors, referencing the line number to ensure that it checks for the right error; MUST KEEP IN SYNC WITH THE TEST
-// CONFIG 27: error:
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG RUN=0
+
+/*
+TEST_BUILD_OUTPUT
+.*varargs-bad-assign.c: In function 'main':
+.*varargs-bad-assign.c:43: error: incompatible block pointer types assigning 'int \(\^\)\(int,  int,  int\)', expected 'int \(\^\)\(int\)'
+OR
+.*varargs-bad-assign.c: In function '.*main.*':
+.*varargs-bad-assign.c:43: error: cannot convert 'int \(\^\)\(int, int, int, \.\.\.\)' to 'int \(\^\)\(int, \.\.\.\)' in assignment
+OR
+.*varargs-bad-assign.c:31:10: error:( incompatible block pointer types)? assigning to 'int \(\^\)\(int, \.\.\.\)' from( incompatible type)? 'int \(\^\)\(int, int, int, \.\.\.\)'
+END
+*/
 
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
 #import <stdarg.h>
+#import "test.h"
 
-
-int main (int argc, const char * argv[]) {
+int main () {
     int (^sumn)(int n, ...);
     int six = 0;
     
-    sumn = ^(int a, int b, int n, ...){
+    sumn = ^(int a __unused, int b __unused, int n, ...){
         int result = 0;
         va_list numbers;
         int i;
@@ -29,10 +45,8 @@ int main (int argc, const char * argv[]) {
     six = sumn(3, 1, 2, 3);
 
     if ( six != 6 ) {
-        printf("%s: Expected 6 but got %d\n", argv[0], six);
-        exit(1);
+        fail("Expected 6 but got %d", six);
     }
     
-    printf("%s: success\n", argv[0]);
-    return 0;
+    succeed(__FILE__);
 }

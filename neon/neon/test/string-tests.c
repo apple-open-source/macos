@@ -1,6 +1,6 @@
 /* 
    String handling tests
-   Copyright (C) 2001-2007, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2007, 2009, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -610,6 +610,45 @@ static int buf_print(void)
     return OK;
 }
 
+static int qappend(void)
+{
+    static const struct {
+        const char *in;
+        size_t inlen;
+        const char *out;
+    } ts[] = {
+        { "", 0, "" },
+        { "a", 1, "a" },
+        { "b", 2, "b\\x00" },
+        { "alpha\0alpha", 11, "alpha\\x00alpha" },
+        { "a\tb", 3, "a\\x09b" },
+        { NULL }
+    };
+    unsigned n;
+
+    for (n = 0; ts[n].in; n++) {
+        ne_buffer *buf = ne_buffer_create();
+        char *s;
+        const unsigned char *in = (const unsigned char *)ts[n].in;
+
+        ne_buffer_qappend(buf, in, ts[n].inlen);
+
+        ONCMP(buf->data, ts[n].out);
+
+        ONV(strlen(buf->data) + 1 != buf->used,
+            ("bad buffer length for '%s': %" NE_FMT_SIZE_T, 
+             ts[n].out, buf->used));
+        
+        s = ne_strnqdup(in, ts[n].inlen);
+        
+        ONCMP(s, ts[n].out);
+
+        ne_free(s);
+        ne_buffer_destroy(buf);
+    }
+
+    return OK;
+}
 
 ne_test tests[] = {
     T(simple),
@@ -638,6 +677,7 @@ ne_test tests[] = {
     T(casecmp),
     T(casencmp),
     T(buf_print),
+    T(qappend),
     T(NULL)
 };
 

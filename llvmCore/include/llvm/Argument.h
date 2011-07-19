@@ -17,6 +17,7 @@
 #include "llvm/Value.h"
 #include "llvm/Attributes.h"
 #include "llvm/ADT/ilist_node.h"
+#include "llvm/ADT/Twine.h"
 
 namespace llvm {
 
@@ -38,8 +39,7 @@ public:
   /// Argument ctor - If Function argument is specified, this argument is
   /// inserted at the end of the argument list for the function.
   ///
-  explicit Argument(const Type *Ty, const std::string &Name = "",
-                    Function *F = 0);
+  explicit Argument(const Type *Ty, const Twine &Name = "", Function *F = 0);
 
   inline const Function *getParent() const { return Parent; }
   inline       Function *getParent()       { return Parent; }
@@ -51,6 +51,10 @@ public:
   /// hasByValAttr - Return true if this argument has the byval attribute on it
   /// in its containing function.
   bool hasByValAttr() const;
+
+  /// hasNestAttr - Return true if this argument has the nest attribute on
+  /// it in its containing function.
+  bool hasNestAttr() const;
 
   /// hasNoAliasAttr - Return true if this argument has the noalias attribute on
   /// it in its containing function.

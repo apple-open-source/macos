@@ -49,16 +49,51 @@ struct radclient_list {
 
 
 #ifdef WITH_STATS
-static rbtree_t		*tree_num;	/* client numbers 0..N */
-static int		tree_num_max;
+static rbtree_t		*tree_num = NULL;     /* client numbers 0..N */
+static int		tree_num_max = 0;
 #endif
-static RADCLIENT_LIST	*root_clients;
+static RADCLIENT_LIST	*root_clients = NULL;
+
+#ifdef WITH_DYNAMIC_CLIENTS
+static fr_fifo_t	*deleted_clients = NULL;
+#endif
 
 /*
  *	Callback for freeing a client.
  */
 void client_free(RADCLIENT *client)
 {
+#ifdef WITH_DYNAMIC_CLIENTS
+	if (client->dynamic == 2) {
+		time_t now;
+
+		if (!deleted_clients) {
+			deleted_clients = fr_fifo_create(1024,
+							 (void *) client_free);
+			if (!deleted_clients) return; /* MEMLEAK */
+		}
+
+		/*
+		 *	Mark it as in the fifo, and remember when we
+		 *	pushed it.
+		 */
+		client->dynamic = 3;
+		client->created = now = time(NULL); /* re-set it */
+		fr_fifo_push(deleted_clients, client);
+
+		/*
+		 *	Peek at the head of the fifo.  If it might
+		 *	still be in use, return.  Otherwise, pop it
+		 *	from the queue and delete it.
+		 */
+		client = fr_fifo_peek(deleted_clients);
+		if ((client->created + 120) >= now) return;
+
+		client = fr_fifo_pop(deleted_clients);
+		rad_assert(client != NULL);
+	}
+#endif
+
 	free(client->longname);
 	free(client->secret);
 	free(client->shortname);
@@ -125,6 +160,12 @@ void clients_free(RADCLIENT_LIST *clients)
 		root_clients = NULL;
 	}
 
+#ifdef WITH_DYNAMIC_CLIENTS
+	/*
+	 *	FIXME: No fr_fifo_delete()
+	 */
+#endif
+
 	free(clients);
 }
 
@@ -177,15 +218,34 @@ static int client_sane(RADCLIENT *client)
 			       sizeof(client->ipaddr.ipaddr.ip6addr));
 
 		} else if (client->prefix < 128) {
-			int i;
 			uint32_t mask, *addr;
 
 			addr = (uint32_t *) &client->ipaddr.ipaddr.ip6addr;
 
-			for (i = client->prefix; i < 128; i += 32) {
-				mask = ~0;
-				mask <<= ((128 - i) & 0x1f);
-				addr[i / 32] &= mask;
+			if ((client->prefix & 0x1f) == 0) {
+				mask = 0;
+			} else {
+				mask = ~ ((uint32_t) 0);
+				mask <<= (32 - (client->prefix & 0x1f));
+				mask = htonl(mask);
+			}
+
+			switch (client->prefix >> 5) {
+			case 0:
+				addr[0] &= mask;
+				mask = 0;
+				/* FALL-THROUGH */
+			case 1:
+				addr[1] &= mask;
+				mask = 0;
+				/* FALL-THROUGH */
+			case 2:
+				addr[2] &= mask;
+				mask = 0;
+				/* FALL-THROUGH */
+			case 3:
+				addr[3] &= mask;
+			  break;
 			}
 		}
 		break;
@@ -203,6 +263,8 @@ static int client_sane(RADCLIENT *client)
  */
 int client_add(RADCLIENT_LIST *clients, RADCLIENT *client)
 {
+	RADCLIENT *old;
+
 	if (!client) {
 		return 0;
 	}
@@ -238,14 +300,42 @@ int client_add(RADCLIENT_LIST *clients, RADCLIENT *client)
 		}
 	}
 
+#define namecmp(a) ((!old->a && !client->a) || (old->a && client->a && (strcmp(old->a, client->a) == 0)))
+
 	/*
 	 *	Cannot insert the same client twice.
 	 */
-	if (rbtree_find(clients->trees[client->prefix], client)) {
+	old = rbtree_finddata(clients->trees[client->prefix], client);
+	if (old) {
+		/*
+		 *	If it's a complete duplicate, then free the new
+		 *	one, and return "OK".
+		 */
+		if ((fr_ipaddr_cmp(&old->ipaddr, &client->ipaddr) == 0) &&
+		    (old->prefix == client->prefix) &&
+		    namecmp(longname) && namecmp(secret) &&
+		    namecmp(shortname) && namecmp(nastype) &&
+		    namecmp(login) && namecmp(password) && namecmp(server) &&
+#ifdef WITH_DYNAMIC_CLIENTS
+		    (old->lifetime == client->lifetime) &&
+		    namecmp(client_server) &&
+#endif
+#ifdef WITH_COA
+		    namecmp(coa_name) &&
+		    (old->coa_server == client->coa_server) &&
+		    (old->coa_pool == client->coa_pool) &&
+#endif
+		    (old->message_authenticator == client->message_authenticator)) {
+			DEBUG("WARNING: Ignoring duplicate client %s", client->longname);
+			client_free(client);
+			return 1;
+		}
+
 		radlog(L_ERR, "Failed to add duplicate client %s",
 		       client->shortname);
 		return 0;
 	}
+#undef namecmp
 
 	/*
 	 *	Other error adding client: likely is fatal.
@@ -313,10 +403,17 @@ int client_add(RADCLIENT_LIST *clients, RADCLIENT *client)
 #ifdef WITH_DYNAMIC_CLIENTS
 void client_delete(RADCLIENT_LIST *clients, RADCLIENT *client)
 {
-	if (!clients || !client) return;
+	if (!client) return;
+
+	if (!clients) clients = root_clients;
+
+	if (!client->dynamic) return;
 
 	rad_assert((client->prefix >= 0) && (client->prefix <= 128));
 
+	client->dynamic = 2;	/* signal to client_free */
+
+	rbtree_deletebydata(tree_num, client);
 	rbtree_deletebydata(clients->trees[client->prefix], client);
 }
 #endif
@@ -438,6 +535,13 @@ static const CONF_PARSER client_config[] = {
 	  offsetof(RADCLIENT, client_server), 0, NULL },
 	{ "lifetime",  PW_TYPE_INTEGER,
 	  offsetof(RADCLIENT, lifetime), 0, NULL },
+	{ "rate_limit",  PW_TYPE_BOOLEAN,
+	  offsetof(RADCLIENT, rate_limit), 0, NULL },
+#endif
+
+#ifdef WITH_COA
+	{ "coa_server",  PW_TYPE_STRING_PTR,
+	  offsetof(RADCLIENT, coa_name), 0, NULL },
 #endif
 
 	{ NULL, -1, 0, NULL, NULL }
@@ -629,6 +733,25 @@ static RADCLIENT *client_parse(CONF_SECTION *cs, int in_server)
 		return NULL;
 	}
 
+#ifdef WITH_COA
+	/*
+	 *	Point the client to the home server pool, OR to the
+	 *	home server.  This gets around the problem of figuring
+	 *	out which port to use.
+	 */
+	if (c->coa_name) {
+		c->coa_pool = home_pool_byname(c->coa_name, HOME_TYPE_COA);
+		if (!c->coa_pool) {
+			c->coa_server = home_server_byname(c->coa_name,
+							   HOME_TYPE_COA);
+		}
+		if (!c->coa_pool && !c->coa_server) {
+			client_free(c);
+			cf_log_err(cf_sectiontoitem(cs), "No such home_server or home_server_pool \"%s\"", c->coa_name);
+			return NULL;
+		}
+	}
+#endif
 
 	return c;
 }

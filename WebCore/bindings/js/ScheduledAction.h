@@ -20,10 +20,10 @@
 #ifndef ScheduledAction_h
 #define ScheduledAction_h
 
+#include "JSDOMBinding.h"
 #include "PlatformString.h"
-#include <JSDOMBinding.h>
+#include <heap/Strong.h>
 #include <runtime/JSCell.h>
-#include <runtime/Protect.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
 
@@ -34,6 +34,7 @@ namespace JSC {
 namespace WebCore {
 
     class Document;
+    class ContentSecurityPolicy;
     class ScriptExecutionContext;
     class WorkerContext;
 
@@ -41,28 +42,30 @@ namespace WebCore {
     * time interval, either once or repeatedly. Used for window.setTimeout()
     * and window.setInterval()
     */
-    class ScheduledAction : public Noncopyable {
+    class ScheduledAction {
+        WTF_MAKE_NONCOPYABLE(ScheduledAction); WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassOwnPtr<ScheduledAction> create(JSC::ExecState*, const JSC::ArgList&, DOMWrapperWorld* isolatedWorld);
+        static PassOwnPtr<ScheduledAction> create(JSC::ExecState*, DOMWrapperWorld* isolatedWorld, ContentSecurityPolicy*);
 
         void execute(ScriptExecutionContext*);
 
     private:
-        ScheduledAction(JSC::JSValue function, const JSC::ArgList&, DOMWrapperWorld* isolatedWorld);
+        ScheduledAction(JSC::ExecState*, JSC::JSValue function, DOMWrapperWorld* isolatedWorld);
         ScheduledAction(const String& code, DOMWrapperWorld* isolatedWorld)
-            : m_code(code)
+            : m_function(*isolatedWorld->globalData())
+            , m_code(code)
             , m_isolatedWorld(isolatedWorld)
         {
         }
 
-        void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValue thisValue);
+        void executeFunctionInContext(JSC::JSGlobalObject*, JSC::JSValue thisValue, ScriptExecutionContext*);
         void execute(Document*);
 #if ENABLE(WORKERS)
         void execute(WorkerContext*);
 #endif
 
-        JSC::ProtectedJSValue m_function;
-        Vector<JSC::ProtectedJSValue> m_args;
+        JSC::Strong<JSC::Unknown> m_function;
+        Vector<JSC::Strong<JSC::Unknown> > m_args;
         String m_code;
         RefPtr<DOMWrapperWorld> m_isolatedWorld;
     };

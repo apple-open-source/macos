@@ -27,7 +27,7 @@ m4_ifdef([SC_USE_CONFIG_HEADERS], [
 TK_VERSION=8.5
 TK_MAJOR_VERSION=8
 TK_MINOR_VERSION=5
-TK_PATCH_LEVEL=".7"
+TK_PATCH_LEVEL=".9"
 VERSION=${TK_VERSION}
 LOCALES="cs da de el en en_gb eo es fr hu it nl pl pt ru sv"
 
@@ -470,28 +470,38 @@ if test $tk_aqua = no; then
     tk_oldLibs=$LIBS
     LIBS="$tk_oldLibs $XLIBSW"
     xss_header_found=no
-    AC_CHECK_HEADER(X11/extensions/scrnsaver.h, [
-	xss_header_found=yes
-    ],,[#include <X11/Xlib.h>])
     xss_lib_found=no
-    AC_CHECK_FUNC(XScreenSaverQueryInfo,,[
-	AC_CHECK_LIB(Xext, XScreenSaverQueryInfo, [
-	    XLIBSW="$XLIBSW -lXext"
-	    xss_lib_found=yes
-	], [
-	    AC_CHECK_LIB(Xss,XScreenSaverQueryInfo, [
-		if test "$tcl_cv_ld_weak_l" = yes; then
-		    # On Darwin, weak link libXss if possible,
-		    # as it is only available on Tiger or later.
-		    XLIBSW="$XLIBSW -Wl,-weak-lXss -lXext"
-		else
-		    XLIBSW="$XLIBSW -lXss -lXext"
-		fi
+    AC_MSG_CHECKING([whether to try to use XScreenSaver])
+    AC_ARG_ENABLE(xss,
+	AC_HELP_STRING([--enable-xss],
+	    [use XScreenSaver for activity timer (default: on)]),
+	[enable_xss=$enableval], [enable_xss=yes])
+    if test "$enable_xss" = "no" ; then
+	AC_MSG_RESULT([$enable_xss])
+    else
+	AC_MSG_RESULT([$enable_xss])
+	AC_CHECK_HEADER(X11/extensions/scrnsaver.h, [
+	    xss_header_found=yes
+	],,[#include <X11/Xlib.h>])
+	AC_CHECK_FUNC(XScreenSaverQueryInfo,,[
+	    AC_CHECK_LIB(Xext, XScreenSaverQueryInfo, [
+		XLIBSW="$XLIBSW -lXext"
 		xss_lib_found=yes
-	    ],, -lXext)
+	    ], [
+		AC_CHECK_LIB(Xss, XScreenSaverQueryInfo, [
+		    if test "$tcl_cv_ld_weak_l" = yes; then
+			# On Darwin, weak link libXss if possible,
+			# as it is only available on Tiger or later.
+			XLIBSW="$XLIBSW -Wl,-weak-lXss -lXext"
+		    else
+			XLIBSW="$XLIBSW -lXss -lXext"
+		    fi
+		    xss_lib_found=yes
+		],, -lXext)
+	    ])
 	])
-    ])
-    if test $xss_lib_found = yes -a $xss_header_found = yes; then
+    fi
+    if test $enable_xss = yes -a $xss_lib_found = yes -a $xss_header_found = yes; then
 	AC_DEFINE(HAVE_XSS, 1, [Is XScreenSaver available?])
     fi
     CFLAGS=$tk_oldCFlags
@@ -661,6 +671,7 @@ if test "$FRAMEWORK_BUILD" = "1" ; then
         bindir="${libdir}/Resources/Wish.app/Contents/MacOS"
         EXTRA_INSTALL_BINARIES="$EXTRA_INSTALL_BINARIES"' && echo "Installing Info.plist to $(BIN_INSTALL_DIR)/.." && $(INSTALL_DATA) Wish-Info.plist "$(BIN_INSTALL_DIR)/../Info.plist" && mv -f "$(BIN_INSTALL_DIR)/wish$(VERSION)" "$(BIN_INSTALL_DIR)/Wish"'
         EXTRA_INSTALL_BINARIES="$EXTRA_INSTALL_BINARIES"' && echo "Installing Wish.icns to $(BIN_INSTALL_DIR)/../Resources" && mkdir -p "$(BIN_INSTALL_DIR)/../Resources" && $(INSTALL_DATA) "$(MAC_OSX_DIR)/Tk.icns" "$(BIN_INSTALL_DIR)/../Resources/Wish.icns"'
+        EXTRA_INSTALL_BINARIES="$EXTRA_INSTALL_BINARIES"' && echo "Installing Wish.sdef to $(BIN_INSTALL_DIR)/../Resources" && $(INSTALL_DATA) "$(MAC_OSX_DIR)/Wish.sdef" "$(BIN_INSTALL_DIR)/../Resources"'
     fi
     EXTRA_INSTALL_BINARIES="$EXTRA_INSTALL_BINARIES"' && echo "Finalizing Tk.framework" && rm -f "$(LIB_INSTALL_DIR)/../Current" && ln -s "$(VERSION)" "$(LIB_INSTALL_DIR)/../Current" && for f in "$(LIB_FILE)" tkConfig.sh Resources Headers PrivateHeaders; do rm -f "$(LIB_INSTALL_DIR)/../../$$f" && ln -s "Versions/Current/$$f" "$(LIB_INSTALL_DIR)/../.."; done && f="$(STUB_LIB_FILE)" && rm -f "$(LIB_INSTALL_DIR)/../../$$f" && ln -s "Versions/$(VERSION)/$$f" "$(LIB_INSTALL_DIR)/../.."'
     # Don't use AC_DEFINE for the following as the framework version define 
@@ -674,26 +685,13 @@ else
     fi
     # libdir must be a fully qualified path and not ${exec_prefix}/lib
     eval libdir="$libdir"
-    if test "$SHARED_BUILD" = "0" || test "$TCL_NEEDS_EXP_FILE" = "0"; then
-        if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
-            TK_LIB_FLAG="-ltk${TK_VERSION}"
-        else
-            TK_LIB_FLAG="-ltk`echo ${TK_VERSION} | tr -d .`"
-        fi
-        TK_BUILD_LIB_SPEC="-L`pwd | sed -e 's/ /\\\\ /g'` ${TK_LIB_FLAG}"
-        TK_LIB_SPEC="-L${libdir} ${TK_LIB_FLAG}"
+    if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
+        TK_LIB_FLAG="-ltk${TK_VERSION}"
     else
-        TK_BUILD_EXP_FILE="lib.exp"
-        eval "TK_EXP_FILE=libtk${TCL_EXPORT_FILE_SUFFIX}"
-    
-        if test "$GCC" = "yes" ; then
-            TK_BUILD_LIB_SPEC="-Wl,-bI:`pwd | sed -e 's/ /\\\\ /g'`/${TK_BUILD_EXP_FILE} -L`pwd | sed -e 's/ /\\\\ /g'`"
-            TK_LIB_SPEC="-Wl,-bI:${libdir}/${TK_EXP_FILE} -L${libdir}"
-        else
-            TK_BUILD_LIB_SPEC="-bI:`pwd | sed -e 's/ /\\\\ /g'`/${TK_BUILD_EXP_FILE}"
-            TK_LIB_SPEC="-bI:${libdir}/${TK_EXP_FILE}"
-        fi
+        TK_LIB_FLAG="-ltk`echo ${TK_VERSION} | tr -d .`"
     fi
+    TK_BUILD_LIB_SPEC="-L`pwd | sed -e 's/ /\\\\ /g'` ${TK_LIB_FLAG}"
+    TK_LIB_SPEC="-L${libdir} ${TK_LIB_FLAG}"
 fi
 
 #--------------------------------------------------------------------
@@ -748,8 +746,6 @@ AC_SUBST(TK_SHARED_BUILD)
 AC_SUBST(LD_LIBRARY_PATH_VAR)
 
 AC_SUBST(TK_BUILD_LIB_SPEC)
-AC_SUBST(TK_BUILD_EXP_FILE)
-AC_SUBST(TK_EXP_FILE)
 
 AC_SUBST(TCL_STUB_FLAGS)
 AC_SUBST(XINCLUDES)

@@ -30,7 +30,7 @@
 	$Log: IOFireWireUserClient.cpp,v $
 	Revision 1.161  2009/05/08 01:10:34  calderon
 	<rdar://6863576> FireWire tracepoints should be inlined for performance
-	
+
 	Revision 1.160  2009/03/07 00:37:23  calderon
 	Small change for 6641573 to give more useful debugging info
 	Add Firelog info.plist file

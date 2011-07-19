@@ -1,0 +1,30 @@
+This patch removes the "skip GSSAPI if no credentials" feature, and can
+be used to assist debugging.
+
+diff --git a/imap.c b/imap.c
+index d641586..575573f 100644
+--- a/imap.c
++++ b/imap.c
+@@ -566,7 +566,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
+     }
+ 
+ #ifdef GSSAPI
+-    if (((ctl->server.authenticate == A_ANY && check_gss_creds("imap", ctl->server.truename) == PS_SUCCESS)
++    if (((ctl->server.authenticate == A_ANY)
+ 	 || ctl->server.authenticate == A_GSSAPI)
+ 	&& strstr(capabilities, "AUTH=GSSAPI"))
+     {
+diff --git a/pop3.c b/pop3.c
+index f5e727c..bbefaf0 100644
+--- a/pop3.c
++++ b/pop3.c
+@@ -565,8 +565,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
+ #if defined(GSSAPI)
+ 	if (has_gssapi &&
+ 	    (ctl->server.authenticate == A_GSSAPI ||
+-	    (ctl->server.authenticate == A_ANY
+-	     && check_gss_creds("pop", ctl->server.truename) == PS_SUCCESS)))
++	    (ctl->server.authenticate == A_ANY)))
+ 	{
+ 	    ok = do_gssauth(sock,"AUTH","pop",ctl->server.truename,ctl->remotename);
+ 	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)

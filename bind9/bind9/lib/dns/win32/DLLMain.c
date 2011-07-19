@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: DLLMain.c,v 1.6 2007/06/18 23:47:44 tbox Exp $ */
+/* $Id: DLLMain.c,v 1.6 2007-06-18 23:47:44 tbox Exp $ */
 
 #include <windows.h>
 #include <signal.h>

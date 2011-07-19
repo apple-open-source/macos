@@ -1,6 +1,6 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -26,10 +26,10 @@
 
 namespace WebCore {
 
-class CSSNamespace;
+struct CSSNamespace;
 class CSSParser;
 class CSSRule;
-class DocLoader;
+class CachedResourceLoader;
 class Document;
 
 typedef int ExceptionCode;
@@ -81,11 +81,13 @@ public:
 
     virtual bool parseString(const String&, bool strict = true);
 
+    bool parseStringAtLine(const String&, bool strict, int startLineNumber);
+
     virtual bool isLoading();
 
     virtual void checkLoaded();
 
-    Document* doc() { return m_doc; }
+    Document* document();
 
     const String& charset() const { return m_charset; }
 
@@ -110,8 +112,7 @@ private:
     virtual bool isCSSStyleSheet() const { return true; }
     virtual String type() const { return "text/css"; }
 
-    Document* m_doc;
-    CSSNamespace* m_namespaces;
+    OwnPtr<CSSNamespace> m_namespaces;
     String m_charset;
     bool m_loadCompleted : 1;
     bool m_strictParsing : 1;

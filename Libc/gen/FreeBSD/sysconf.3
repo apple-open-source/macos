@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)sysconf.3	8.3 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/gen/sysconf.3,v 1.20 2003/12/23 18:42:55 trhodes Exp $
+.\" $FreeBSD: src/lib/libc/gen/sysconf.3,v 1.25 2007/01/09 00:27:55 imp Exp $
 .\"
-.Dd June 18, 2001
+.Dd December 14, 2006
 .Dt SYSCONF 3
 .Os
 .Sh NAME
@@ -89,6 +85,8 @@ The number of processors configured.
 The number of processors currently online.
 .It Li _SC_OPEN_MAX
 The maximum number of open files per user id.
+.It Li _SC_PAGESIZE
+The size of a system page in bytes.
 .It Li _SC_STREAM_MAX
 The minimum maximum number of streams that a process may have open
 at any one time.
@@ -165,6 +163,19 @@ otherwise \-1.
 Return 1 if the system supports the User Portability Utilities Option,
 otherwise \-1.
 .El
+.Pp
+These values also exist, but may not be standard:
+.Pp
+.Bl -tag -width 6n
+.Pp
+.It Li _SC_PHYS_PAGES
+The number of pages of physical memory.
+Note that it is possible that the product of this value and the value of
+.Li _SC_PAGESIZE
+will overflow a
+.Vt long
+in some configurations on a 32bit machine.
+.El
 .Sh RETURN VALUES
 If the call to
 .Fn sysconf
@@ -195,10 +206,6 @@ argument is invalid.
 .Xr pathconf 2 ,
 .Xr confstr 3 ,
 .Xr sysctl 3
-.Sh BUGS
-The value for _SC_STREAM_MAX is a minimum maximum, and required to be
-the same as ANSI C's FOPEN_MAX, so the returned value is a ridiculously
-small and misleading number.
 .Sh STANDARDS
 Except for the fact that values returned by
 .Fn sysconf
@@ -210,3 +217,7 @@ The
 .Fn sysconf
 function first appeared in
 .Bx 4.4 .
+.Sh BUGS
+The value for _SC_STREAM_MAX is a minimum maximum, and required to be
+the same as ANSI C's FOPEN_MAX, so the returned value is a ridiculously
+small and misleading number.

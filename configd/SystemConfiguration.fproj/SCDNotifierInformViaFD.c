@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -118,6 +118,8 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 		return FALSE;
 	}
 
+    retry :
+
 	status = notifyviafd(storePrivate->server,
 			     un.sun_path,
 			     strlen(un.sun_path),
@@ -125,7 +127,7 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 			     (int *)&sc_status);
 
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -133,6 +135,11 @@ SCDynamicStoreNotifyFileDescriptor(SCDynamicStoreRef	store,
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyFileDescriptor notifyviafd(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
 		_SCErrorSet(status);
 		return FALSE;
 	}

@@ -1589,7 +1589,7 @@ AP_DECLARE(int) ap_unescape_url(char *url)
         return OK;
 }
 
-AP_DECLARE(int) ap_unescape_url_keep2f(char *url)
+AP_DECLARE(int) ap_unescape_url_keep2f_ex(char *url, int decode_2f)
 {
     register int badesc, badpath;
     char *x, *y;
@@ -1617,6 +1617,10 @@ AP_DECLARE(int) ap_unescape_url_keep2f(char *url)
                 if (decoded == '\0') {
                     badpath = 1;
                 }
+                else if (IS_SLASH(decoded) && !decode_2f) {
+                    /* do not decode, just let it go by as-is */
+                    *x = *y;
+                }
                 else {
                     *x = decoded;
                     y += 2;
@@ -1634,6 +1638,11 @@ AP_DECLARE(int) ap_unescape_url_keep2f(char *url)
     else {
         return OK;
     }
+}
+
+AP_DECLARE(int) ap_unescape_url_keep2f(char *url)
+{
+    return ap_unescape_url_keep2f_ex(url, 1);
 }
 
 AP_DECLARE(char *) ap_construct_server(apr_pool_t *p, const char *hostname,

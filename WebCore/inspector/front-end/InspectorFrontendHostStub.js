@@ -40,7 +40,13 @@ WebInspector._platformFlavor = WebInspector.PlatformFlavor.MacLeopard;
 WebInspector.InspectorFrontendHostStub.prototype = {
     platform: function()
     {
-        return "mac";
+        var match = navigator.userAgent.match(/Windows NT/);
+        if (match)
+            return "windows";
+        match = navigator.userAgent.match(/Mac OS X/);
+        if (match)
+            return "mac";
+        return "linux";
     },
 
     port: function()
@@ -54,6 +60,11 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     },
 
     closeWindow: function()
+    {
+        this._windowVisible = false;
+    },
+
+    disconnectFromBackend: function()
     {
         this._windowVisible = false;
     },
@@ -75,6 +86,10 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     },
 
     moveWindowBy: function(x, y)
+    {
+    },
+
+    setExtensionAPI: function(script)
     {
     },
 
@@ -100,9 +115,31 @@ WebInspector.InspectorFrontendHostStub.prototype = {
     {
     },
 
+    saveAs: function(fileName, content)
+    {
+        var builder = new WebKitBlobBuilder();
+        builder.append(content);
+        var blob = builder.getBlob("application/octet-stream");
+    
+        var fr = new FileReader();
+        fr.onload = function(e) {
+            // Force download
+            window.location = this.result;
+        }
+        fr.readAsDataURL(blob);
+    },
+
     canAttachWindow: function()
     {
         return false;
+    },
+
+    sendMessageToBackend: function(message)
+    {
+    },
+
+    loadSessionSetting: function()
+    {
     }
 }
 

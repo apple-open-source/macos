@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib558.c,v 1.11 2009-04-21 11:46:17 yangtse Exp $
  */
 
 #include "test.h"
@@ -88,7 +87,7 @@ int test(char *URL)
   CURL *easyh = NULL;
   struct curl_hash *hp = NULL;
   int result = 0;
- 
+
   if(!strcmp(URL, "check")) {
     /* test harness script verifying if this test can run */
     return 0; /* sure, run this! */

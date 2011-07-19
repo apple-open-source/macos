@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2002-2006, International Business Machines
+*   Copyright (C) 2002-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  iotest.cpp
@@ -29,8 +29,10 @@
 #include <strstream>
 #endif
 #include <fstream>
+#include <iomanip>
 using namespace std;
 #elif U_IOSTREAM_SOURCE >= 198506
+#define USE_OLD_IOSTREAM 1
 #include <strstream.h>
 #include <fstream.h>
 #endif
@@ -49,6 +51,7 @@ const char C_NEW_LINE[] = {'\n',0};
 #endif
 U_CDECL_END
 
+#if U_IOSTREAM_SOURCE
 U_CDECL_BEGIN
 static void U_CALLCONV TestStream(void)
 {
@@ -124,6 +127,60 @@ static void U_CALLCONV TestStream(void)
         log_err("Can't get default converter");
         return;
     }
+
+    /* Test formatting when using '<<' and UnicodeString */
+#ifdef USE_SSTREAM
+    ostringstream outFormatStream;
+#else
+    char testFormatStreamBuf[512];
+    memset(testFormatStreamBuf, 0, sizeof(testFormatStreamBuf));
+    ostrstream outFormatStream(testFormatStreamBuf, sizeof(testFormatStreamBuf));
+#endif
+    UnicodeString ustr("string");
+
+    outFormatStream << "1234567890" << setw(10) << left << ustr << " " << "0123456789";
+
+#ifdef USE_SSTREAM
+    tempStr = outFormatStream.str();
+    const char *testFormatStreamBuf = tempStr.c_str();
+#endif
+    const char *format_test_expected = "1234567890string     0123456789";
+    if (strcmp(format_test_expected, testFormatStreamBuf) != 0) {
+        log_err("UnicodeString format test using << operator Got: '%s' Expected: '%s'\n", testFormatStreamBuf, format_test_expected);
+    }
+
+    /* Test large buffer (size > 200) when using '<<' and UnicodeString */
+#ifdef USE_SSTREAM
+    ostringstream outLargeStream;
+#else
+    char testLargeStreamBuf[512];
+    memset(testLargeStreamBuf, 0, sizeof(testLargeStreamBuf));
+    ostrstream outLargeStream(testLargeStreamBuf, sizeof(testLargeStreamBuf));
+#endif
+    UChar large_array[200];
+    int32_t large_array_length = sizeof(large_array)/sizeof(UChar);
+    for (int32_t i = 0; i < large_array_length; i++) {
+        large_array[i] = 0x41;
+    }
+    UnicodeString large_array_unistr(large_array, large_array_length);
+
+    outLargeStream << large_array_unistr;
+
+#ifdef USE_SSTREAM
+    string tmpString = outLargeStream.str();
+    const char *testLargeStreamBuf = tmpString.c_str();
+#endif
+    char expectedLargeStreamBuf[300];
+    int32_t expectedBufLength = sizeof(expectedLargeStreamBuf);
+
+    ucnv_fromUChars(defConv, expectedLargeStreamBuf, expectedBufLength, large_array, large_array_length, &status);
+    if (U_SUCCESS(status)) {
+        if (strcmp(testLargeStreamBuf, expectedLargeStreamBuf) != 0) {
+            log_err("Large UnicodeString operator << output incorrect.\n");
+        }
+    } else {
+        log_err("Error converting string for large stream buffer testing.\n");
+    }
     ucnv_close(defConv);
 #else
     log_info("U_IOSTREAM_SOURCE is disabled\n");
@@ -168,10 +225,10 @@ printBits(const iostream&  stream)
 
 void
 testString(
-            UnicodeString&        str,
+            UnicodeString&  str,
             const char*     testString,
-            const char* expectedString,
-            int32_t expectedStatus)
+            const UChar*    expectedString,
+            int32_t         expectedStatus)
 {
 #ifdef USE_SSTREAM
     stringstream sstrm;
@@ -191,12 +248,18 @@ testString(
 
     if (getBitStatus(sstrm) != expectedStatus) {
         printBits(sstrm);
-        log_err("Expected status %d, Got %d. See verbose output for details\n", getBitStatus(sstrm), expectedStatus);
+#ifdef USE_OLD_IOSTREAM
+        log_info("Warning. Expected status %d, Got %d. This maybe caused by the fact that the non-standardized iostream is being used.\n", expectedStatus, getBitStatus(sstrm));
+        log_info("See verbose output for details.\n");
+#else
+        log_err("Expected status %d, Got %d. See verbose output for details\n", expectedStatus, getBitStatus(sstrm));
+#endif
     }
     if (str != UnicodeString(expectedString)) {
         log_err("Did not get expected results from \"%s\", expected \"%s\"\n", testString, expectedString);
     }
 }
+
 
 static void U_CALLCONV TestStreamEOF(void)
 {
@@ -206,6 +269,11 @@ static void U_CALLCONV TestStreamEOF(void)
     stringstream ss;
 #else
     strstream ss;
+#endif
+
+#ifdef USE_OLD_IOSTREAM
+    log_info("Old non-standardized iostream being used. This may result in inconsistent state flag settings. (e.g. failbit may not be set properly)\n");
+    log_info("In such a case, warnings will be issued instead of errors.\n");
 #endif
 
     fs << "EXAMPLE";
@@ -229,14 +297,41 @@ static void U_CALLCONV TestStreamEOF(void)
 
     log_verbose("Testing operator >> for UnicodeString...\n");
 
+    /* The test cases needs to be converted to the default codepage.  However, the stream operator needs char* so U_STRING_* is called. */
+    U_STRING_DECL(testCase1, "", 0);
+    U_STRING_INIT(testCase1, "", 0);
+    U_STRING_DECL(testCase2, "foo", 3);
+    U_STRING_INIT(testCase2, "foo", 3);
+    U_STRING_DECL(testCase3, "   ", 3);
+    U_STRING_INIT(testCase3, "   ", 3);
+    U_STRING_DECL(testCase4, "   bar", 6);
+    U_STRING_INIT(testCase4, "   bar", 6);
+    U_STRING_DECL(testCase5, "bar   ", 6);
+    U_STRING_INIT(testCase5, "bar   ", 6);
+    U_STRING_DECL(testCase6, "   bar   ", 9);
+    U_STRING_INIT(testCase6, "   bar   ", 9);
+
+
+    U_STRING_DECL(expectedResultA, "", 0);
+    U_STRING_INIT(expectedResultA, "", 0);
+    U_STRING_DECL(expectedResultB, "foo", 3);
+    U_STRING_INIT(expectedResultB, "foo", 3);
+    U_STRING_DECL(expectedResultC, "unchanged", 9);
+    U_STRING_INIT(expectedResultC, "unchanged", 9);
+    U_STRING_DECL(expectedResultD, "bar", 3);
+    U_STRING_INIT(expectedResultD, "bar", 3);
+
+
     UnicodeString UStr;
-    testString(UStr, "", "", IOSTREAM_EOF|IOSTREAM_FAIL);
-    testString(UStr, "foo", "foo", IOSTREAM_EOF);
-    UStr = "unchanged";
-    testString(UStr, "   ", "unchanged", IOSTREAM_EOF|IOSTREAM_FAIL);
-    testString(UStr, "   bar", "bar", IOSTREAM_EOF);
-    testString(UStr, "bar   ", "bar", IOSTREAM_GOOD);
-    testString(UStr, "   bar   ", "bar", IOSTREAM_GOOD);
+    UnicodeString expectedResults;
+    char testcase[10];
+    testString(UStr, u_austrcpy(testcase, testCase1), expectedResultA, IOSTREAM_EOF|IOSTREAM_FAIL);
+    testString(UStr, u_austrcpy(testcase, testCase2), expectedResultB, IOSTREAM_EOF);
+    UStr = UnicodeString(expectedResultC);
+    testString(UStr, u_austrcpy(testcase, testCase3), expectedResultC, IOSTREAM_EOF|IOSTREAM_FAIL);
+    testString(UStr, u_austrcpy(testcase, testCase4), expectedResultD, IOSTREAM_EOF);
+    testString(UStr, u_austrcpy(testcase, testCase5), expectedResultD, IOSTREAM_GOOD);
+    testString(UStr, u_austrcpy(testcase, testCase6), expectedResultD, IOSTREAM_GOOD);
 }
 U_CDECL_END
 
@@ -244,4 +339,4 @@ U_CFUNC void addStreamTests(TestNode** root) {
     addTest(root, &TestStream, "stream/TestStream");
     addTest(root, &TestStreamEOF, "stream/TestStreamEOF");
 }
-
+#endif

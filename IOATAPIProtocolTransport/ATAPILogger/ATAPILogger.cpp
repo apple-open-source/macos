@@ -696,7 +696,7 @@ CollectTrace ( void )
 				SCSITaskLogEntry *	entry = NULL;
 				
 				// If this isn't asked for, don't do any work.
-				if ( gPrintfMask & ( 1 << kSAMClassSCSITask ) == 0 )
+				if ( ( gPrintfMask & ( 1 << kSAMClassSCSITask ) ) == 0 )
 					continue;
 				
 				entry = TAILQ_FIRST ( &gListHead );
@@ -741,7 +741,7 @@ CollectTrace ( void )
 			{
 				
 				// If this isn't asked for, don't do any work.
-				if ( gPrintfMask & ( 1 << kSAMClassSCSITask ) == 0 )
+				if ( ( gPrintfMask & ( 1 << kSAMClassSCSITask ) ) == 0 )
 					continue;
 				
 				if ( !TAILQ_EMPTY ( &gListHead ) )
@@ -787,7 +787,7 @@ CollectTrace ( void )
 			{
 
 				// If this isn't asked for, don't do any work.
-				if ( gPrintfMask & ( 1 << kSAMClassSCSITask ) == 0 )
+				if ( ( gPrintfMask & ( 1 << kSAMClassSCSITask ) ) == 0 )
 					continue;
 				
 				if ( !TAILQ_EMPTY ( &gListHead ) )
@@ -824,7 +824,7 @@ CollectTrace ( void )
 			{
 
 				// If this isn't asked for, don't do any work.
-				if ( gPrintfMask & ( 1 << kSAMClassSCSITask ) == 0 )
+				if ( ( gPrintfMask & ( 1 << kSAMClassSCSITask ) ) == 0 )
 					continue;
 
 				fflush ( stdout );

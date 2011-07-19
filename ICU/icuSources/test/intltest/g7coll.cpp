@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2006, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -60,7 +60,7 @@ static const int32_t results[G7CollationTest::TESTLOCALES][G7CollationTest::TOTA
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_US */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_GB */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* en_CA */
-    { 12, 13, 9, 0, 14, 1, 11, 3, 2, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_FR */
+    { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_FR */
     { 12, 13, 9, 0, 14, 1, 11, 3, 2, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* fr_CA */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* de_DE */
     { 12, 13, 9, 0, 14, 1, 11, 2, 3, 4, 5, 6, 8, 10, 7, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31, 31 }, /* it_IT */
@@ -102,7 +102,7 @@ void G7CollationTest::TestG7Locales(/* char* par */)
         myCollation = Collator::createInstance(locales[i], status);
         if(U_FAILURE(status)) {
           delete myCollation;
-          errln("Couldn't instantiate collator. Error: %s", u_errorName(status));
+          errcheckln(status, "Couldn't instantiate collator. Error: %s", u_errorName(status));
           return;
         }
         myCollation->setStrength(Collator::QUATERNARY);
@@ -162,7 +162,7 @@ void G7CollationTest::TestDemo1(/* char* par */)
     Collator *col = Collator::createInstance("en_US", status);
     if(U_FAILURE(status)) {
       delete col;
-      errln("Couldn't instantiate collator. Error: %s", u_errorName(status));
+      errcheckln(status, "Couldn't instantiate collator. Error: %s", u_errorName(status));
       return;
     }
     const UnicodeString baseRules = ((RuleBasedCollator*)col)->getRules();
@@ -196,7 +196,7 @@ void G7CollationTest::TestDemo2(/* char* par */)
     Collator *col = Collator::createInstance("en_US", status);
     if(U_FAILURE(status)) {
       delete col;
-      errln("Couldn't instantiate collator. Error: %s", u_errorName(status));
+      errcheckln(status, "Couldn't instantiate collator. Error: %s", u_errorName(status));
       return;
     }
     const UnicodeString baseRules = ((RuleBasedCollator*)col)->getRules();
@@ -229,7 +229,7 @@ void G7CollationTest::TestDemo3(/* char* par */)
     UErrorCode status = U_ZERO_ERROR;
     Collator *col = Collator::createInstance("en_US", status);
     if(U_FAILURE(status)) {
-      errln("Couldn't instantiate collator. Error: %s", u_errorName(status));
+      errcheckln(status, "Couldn't instantiate collator. Error: %s", u_errorName(status));
       delete col;
       return;
     }
@@ -264,7 +264,7 @@ void G7CollationTest::TestDemo4(/* char* par */)
     Collator *col = Collator::createInstance("en_US", status);
     if(U_FAILURE(status)) {
       delete col;
-      errln("Couldn't instantiate collator. Error: %s", u_errorName(status));
+      errcheckln(status, "Couldn't instantiate collator. Error: %s", u_errorName(status));
       return;
     }
 

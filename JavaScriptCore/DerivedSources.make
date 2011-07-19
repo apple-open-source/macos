@@ -1,4 +1,4 @@
-# Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+# Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions
@@ -27,7 +27,6 @@
 VPATH = \
     $(JavaScriptCore) \
     $(JavaScriptCore)/parser \
-    $(JavaScriptCore)/pcre \
     $(JavaScriptCore)/docs \
     $(JavaScriptCore)/runtime \
     $(JavaScriptCore)/interpreter \
@@ -36,19 +35,30 @@ VPATH = \
 
 .PHONY : all
 all : \
+    ArrayConstructor.lut.h \
     ArrayPrototype.lut.h \
-    chartables.c \
+    BooleanPrototype.lut.h \
+    DateConstructor.lut.h \
     DatePrototype.lut.h \
-    Grammar.cpp \
+    ErrorPrototype.lut.h \
+    HeaderDetection.h \
     JSONObject.lut.h \
+    JavaScriptCore.JSVALUE32_64.exp \
+    JavaScriptCore.JSVALUE64.exp \
+    JSGlobalObject.lut.h \
     Lexer.lut.h \
     MathObject.lut.h \
     NumberConstructor.lut.h \
+    NumberPrototype.lut.h \
+    ObjectConstructor.lut.h \
+    ObjectPrototype.lut.h \
     RegExpConstructor.lut.h \
+    RegExpPrototype.lut.h \
+    RegExpJitTables.h \
     RegExpObject.lut.h \
+    StringConstructor.lut.h \
     StringPrototype.lut.h \
     docs/bytecode.html \
-    RegExpJitTables.h \
 #
 
 # lookup tables for classes
@@ -58,24 +68,35 @@ all : \
 Lexer.lut.h: create_hash_table Keywords.table
 	$^ > $@
 
-# JavaScript language grammar
-
-Grammar.cpp: Grammar.y
-	bison -d -p jscyy $< -o $@ > bison_out.txt 2>&1
-	perl -p -e 'END { if ($$conflict) { unlink "Grammar.cpp"; die; } } $$conflict ||= /conflict/' < bison_out.txt
-	touch Grammar.cpp.h
-	touch Grammar.hpp
-	cat Grammar.cpp.h Grammar.hpp > Grammar.h
-	rm -f Grammar.cpp.h Grammar.hpp bison_out.txt
-
-# character tables for PCRE
-
-chartables.c : dftables
-	$^ $@
-
 docs/bytecode.html: make-bytecode-docs.pl Interpreter.cpp 
 	perl $^ $@
 
-#character tables for Yarr
+# character tables for Yarr
+
 RegExpJitTables.h: create_regex_tables
 	python $^ > $@
+
+# export files
+
+JavaScriptCore.JSVALUE32_64.exp: JavaScriptCore.exp JavaScriptCore.JSVALUE32_64only.exp
+	cat $^ > $@
+
+JavaScriptCore.JSVALUE64.exp: JavaScriptCore.exp JavaScriptCore.JSVALUE64only.exp
+	cat $^ > $@
+
+
+# header detection
+
+ifeq ($(OS),MACOS)
+
+HeaderDetection.h : DerivedSources.make /System/Library/CoreServices/SystemVersion.plist
+	rm -f $@
+	echo "/* This is a generated file. Do not edit. */" > $@
+	if [ -f $(SDKROOT)/System/Library/Frameworks/System.framework/PrivateHeaders/pthread_machdep.h ]; then echo "#define HAVE_PTHREAD_MACHDEP_H 1" >> $@; else echo >> $@; fi
+
+else
+
+HeaderDetection.h :
+	echo > $@
+
+endif

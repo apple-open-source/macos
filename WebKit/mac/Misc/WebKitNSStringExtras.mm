@@ -29,7 +29,9 @@
 #import "WebKitNSStringExtras.h"
 
 #import <WebCore/Font.h>
+#import <WebCore/FontCache.h>
 #import <WebCore/GraphicsContext.h>
+#import <WebCore/TextRun.h>
 #import <WebCore/WebCoreNSStringExtras.h>
 #import <WebKit/WebNSFileManagerExtras.h>
 #import <WebKit/WebNSObjectExtras.h>
@@ -62,12 +64,16 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
 
 - (void)_web_drawAtPoint:(NSPoint)point font:(NSFont *)font textColor:(NSColor *)textColor
 {
-    // FIXME: Would be more efficient to change this to C++ and use Vector<UChar, 2048>.
+    [self _web_drawAtPoint:point font:font textColor:textColor allowingFontSmoothing:YES];
+}
+
+- (void)_web_drawAtPoint:(NSPoint)point font:(NSFont *)font textColor:(NSColor *)textColor allowingFontSmoothing:(BOOL)fontSmoothingIsAllowed
+{
     unsigned length = [self length];
     Vector<UniChar, 2048> buffer(length);
 
     [self getCharacters:buffer.data()];
-    
+
     if (canUseFastRenderer(buffer.data(), length)) {
         // The following is a half-assed attempt to match AppKit's rounding rules for drawAtPoint.
         // It's probably incorrect for high DPI.
@@ -84,16 +90,17 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
         if (!flipped)
             CGContextScaleCTM(cgContext, 1, -1);
 
-        Font webCoreFont(FontPlatformData(font), ![nsContext isDrawingToScreen]);
+        FontCachePurgePreventer fontCachePurgePreventer;
+
+        Font webCoreFont(FontPlatformData(font, [font pointSize]), ![nsContext isDrawingToScreen], fontSmoothingIsAllowed ? AutoSmoothing : Antialiased);
         TextRun run(buffer.data(), length);
-        run.disableRoundingHacks();
 
         CGFloat red;
         CGFloat green;
         CGFloat blue;
         CGFloat alpha;
         [[textColor colorUsingColorSpaceName:NSDeviceRGBColorSpace] getRed:&red green:&green blue:&blue alpha:&alpha];
-        graphicsContext.setFillColor(makeRGBA(red * 255, green * 255, blue * 255, alpha * 255), DeviceColorSpace);
+        graphicsContext.setFillColor(makeRGBA(red * 255, green * 255, blue * 255, alpha * 255), ColorSpaceDeviceRGB);
 
         webCoreFont.drawText(&graphicsContext, run, FloatPoint(point.x, (flipped ? point.y : (-1 * point.y))));
 
@@ -116,17 +123,10 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
                      font:(NSFont *)font
 {
     // turn off font smoothing so translucent text draws correctly (Radar 3118455)
-    [NSGraphicsContext saveGraphicsState];
-    CGContextSetShouldSmoothFonts(static_cast<CGContextRef>([[NSGraphicsContext currentContext] graphicsPort]), false);
-    [self _web_drawAtPoint:textPoint
-                      font:font
-                 textColor:bottomColor];
+    [self _web_drawAtPoint:textPoint font:font textColor:bottomColor allowingFontSmoothing:NO];
 
     textPoint.y += 1;
-    [self _web_drawAtPoint:textPoint
-                      font:font
-                 textColor:topColor];
-    [NSGraphicsContext restoreGraphicsState];
+    [self _web_drawAtPoint:textPoint font:font textColor:topColor allowingFontSmoothing:NO];
 }
 
 - (float)_web_widthWithFont:(NSFont *)font
@@ -137,10 +137,11 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     [self getCharacters:buffer.data()];
 
     if (canUseFastRenderer(buffer.data(), length)) {
-        Font webCoreFont(FontPlatformData(font), ![[NSGraphicsContext currentContext] isDrawingToScreen]);
+        FontCachePurgePreventer fontCachePurgePreventer;
+
+        Font webCoreFont(FontPlatformData(font, [font pointSize]), ![[NSGraphicsContext currentContext] isDrawingToScreen]);
         TextRun run(buffer.data(), length);
-        run.disableRoundingHacks();
-        return webCoreFont.floatWidth(run);
+        return webCoreFont.width(run);
     }
 
     return [self sizeWithAttributes:[NSDictionary dictionaryWithObjectsAndKeys:font, NSFontAttributeName, nil]].width;
@@ -330,15 +331,11 @@ static BOOL canUseFastRenderer(const UniChar *buffer, unsigned length)
     NSString *cacheDir = [defaults objectForKey:WebKitLocalCacheDefaultsKey];
 
     if (!cacheDir || ![cacheDir isKindOfClass:[NSString class]]) {
-#ifdef BUILDING_ON_TIGER
-        cacheDir = [NSHomeDirectory() stringByAppendingPathComponent:@"Library/Caches"];
-#else
         char cacheDirectory[MAXPATHLEN];
         size_t cacheDirectoryLen = confstr(_CS_DARWIN_USER_CACHE_DIR, cacheDirectory, MAXPATHLEN);
     
         if (cacheDirectoryLen)
             cacheDir = [[NSFileManager defaultManager] stringWithFileSystemRepresentation:cacheDirectory length:cacheDirectoryLen - 1];
-#endif
     }
 
     return [cacheDir stringByAppendingPathComponent:bundleIdentifier];

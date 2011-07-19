@@ -46,7 +46,7 @@ g_objcmd (ClientData cd, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
 	"append",      "attr",   "delete",        "exists",        "flip",
 	"get",         "getall", "getunweighted", "getweight",     "hasweight", "insert",
 	"keyexists",   "keys",   "lappend",       "move",          "move-source",
-	"move-target", "rename", "set",           "setunweighted", "setweight",
+	"move-target", "nodes",	 "rename",	  "set",           "setunweighted", "setweight",
 	"source",      "target", "unset",         "unsetweight",   "weights",
 	NULL
     };
@@ -54,7 +54,7 @@ g_objcmd (ClientData cd, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
 	MA_APPEND,      MA_ATTR,        MA_DELETE,        MA_EXISTS,    MA_FLIP,
 	MA_GET,         MA_GETALL,      MA_GETUNWEIGHTED, MA_GETWEIGHT, MA_HASWEIGHT,
 	MA_INSERT,      MA_KEYEXISTS,   MA_KEYS,          MA_LAPPEND,   MA_MOVE,
-	MA_MOVE_SOURCE, MA_MOVE_TARGET, MA_RENAME,        MA_SET,       MA_SETUNWEIGHTED,
+	MA_MOVE_SOURCE, MA_MOVE_TARGET, MA_NODES,	  MA_RENAME,    MA_SET,       MA_SETUNWEIGHTED,
 	MA_SETWEIGHT,	MA_SOURCE,      MA_TARGET,        MA_UNSET,     MA_UNSETWEIGHT,
 	MA_WEIGHTS
     };
@@ -113,6 +113,7 @@ g_objcmd (ClientData cd, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
 	case MA_MOVE:          return gm_arc_MOVE       (g, interp, objc, objv);
 	case MA_MOVE_SOURCE:   return gm_arc_MOVE_SRC   (g, interp, objc, objv);
 	case MA_MOVE_TARGET:   return gm_arc_MOVE_TARG  (g, interp, objc, objv);
+	case MA_NODES:         return gm_arc_NODES      (g, interp, objc, objv);
 	case MA_RENAME:	       return gm_arc_RENAME     (g, interp, objc, objv);
 	case MA_SET:	       return gm_arc_SET	(g, interp, objc, objv);
 	case MA_SETUNWEIGHTED: return gm_arc_SETUNWEIGH (g, interp, objc, objv);

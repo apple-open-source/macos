@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,38 +58,6 @@ void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest)
 
 
 //
-// Calculate hashes of (a section of) a file.
-// Starts at the current file position.
-// Extends to end of file, or (if limit > 0) at most limit bytes.
-//
-size_t hashFileData(const char *path, SHA1 &hasher)
-{
-	UnixPlusPlus::AutoFileDesc fd(path);
-	return hashFileData(fd, hasher);
-}
-
-size_t hashFileData(UnixPlusPlus::FileDesc fd, SHA1 &hasher, size_t limit /* = 0 */)
-{
-	unsigned char buffer[4096];
-	size_t total = 0;
-	for (;;) {
-		size_t size = sizeof(buffer);
-		if (limit && limit < size)
-			size = limit;
-		size_t got = fd.read(buffer, size);
-		total += got;
-		if (fd.atEnd())
-			break;
-		hasher(buffer, got);
-		if (limit && (limit -= got) == 0)
-			break;
-	}
-	return total;
-}
-
-
-
-//
 // Check to see if a certificate contains a particular field, by OID. This works for extensions,
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
@@ -101,7 +69,7 @@ bool certificateHasField(SecCertificateRef cert, const CssmOid &oid)
 	case noErr:
 		MacOSError::check(SecCertificateReleaseFirstFieldValue(cert, &oid, value));
 		return true;					// extension found by oid
-	case CSSMERR_CL_UNKNOWN_TAG:
+	case errSecUnknownTag:
 		break;							// oid not recognized by CL - continue below
 	default:
 		MacOSError::throwMe(rc);		// error: fail
@@ -122,6 +90,35 @@ bool certificateHasField(SecCertificateRef cert, const CssmOid &oid)
 		}
 	MacOSError::check(SecCertificateReleaseFieldValues(cert, &CSSMOID_X509V3CertificateExtensionCStruct, values));
 	return found;
+}
+    
+    
+//
+// Retrieve X.509 policy extension OIDs, if any.
+// This currently ignores policy qualifiers.
+//
+bool certificateHasPolicy(SecCertificateRef cert, const CssmOid &policyOid)
+{
+	bool matched = false;
+	assert(cert);
+	CSSM_DATA *data;
+	if (OSStatus rc = SecCertificateCopyFirstFieldValue(cert, &CSSMOID_CertificatePolicies, &data))
+		MacOSError::throwMe(rc);
+	if (data && data->Data && data->Length == sizeof(CSSM_X509_EXTENSION)) {
+		const CSSM_X509_EXTENSION *ext = (const CSSM_X509_EXTENSION *)data->Data;
+		assert(ext->format == CSSM_X509_DATAFORMAT_PARSED);
+		const CE_CertPolicies *policies = (const CE_CertPolicies *)ext->value.parsedValue;
+		if (policies)
+			for (unsigned int n = 0; n < policies->numPolicies; n++) {
+				const CE_PolicyInformation &cp = policies->policies[n];
+				if (cp.certPolicyId == policyOid) {
+					matched = true;
+					break;
+				}
+			}
+	}
+	SecCertificateReleaseFirstFieldValue(cert, &CSSMOID_PolicyConstraints, data);
+	return matched;
 }
 
 

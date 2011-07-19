@@ -327,8 +327,16 @@ int eaptype_select(rlm_eap_t *inst, EAP_HANDLER *handler)
 
 			if ((eaptype->data[i] > PW_EAP_MAX_TYPES) ||
 			    !inst->types[eaptype->data[i]]) {
-				RDEBUG2("NAK asked for unsupported type %d",
-				       eaptype->data[i]);
+				DICT_VALUE *dv;
+
+				dv = dict_valbyattr(PW_EAP_TYPE, eaptype->data[i]);
+				if (dv) {
+					RDEBUG2("NAK asked for unsupported type %s",
+						dv->name);
+				} else {
+					RDEBUG2("NAK asked for unsupported type %d",
+						eaptype->data[i]);
+				}
 				continue;
 			}
 
@@ -607,7 +615,7 @@ int eap_start(rlm_eap_t *inst, REQUEST *request)
 		 *	to it.
 		 */
 		realm = realm_find(proxy->vp_strvalue);
-		if (realm && (realm->auth_pool == NULL)) {
+		if (!realm || (realm && (realm->auth_pool == NULL))) {
 			proxy = NULL;
 		}
 	}
@@ -1028,7 +1036,7 @@ EAP_HANDLER *eap_handler(rlm_eap_t *inst, eap_packet_t **eap_packet_p,
                        }
 	       }
 	} else {		/* packet was EAP identity */
-		handler = eap_handler_alloc();
+		handler = eap_handler_alloc(inst);
 		if (handler == NULL) {
 			RDEBUG("Out of memory.");
 			free(*eap_packet_p);
@@ -1044,7 +1052,7 @@ EAP_HANDLER *eap_handler(rlm_eap_t *inst, eap_packet_t **eap_packet_p,
 			RDEBUG("Identity Unknown, authentication failed");
 			free(*eap_packet_p);
 			*eap_packet_p = NULL;
-			eap_handler_free(handler);
+			eap_handler_free(inst, handler);
 			return NULL;
 		}
 
@@ -1063,7 +1071,7 @@ EAP_HANDLER *eap_handler(rlm_eap_t *inst, eap_packet_t **eap_packet_p,
                                RDEBUG("Out of memory");
                                free(*eap_packet_p);
                                *eap_packet_p = NULL;
-			       eap_handler_free(handler);
+			       eap_handler_free(inst, handler);
                                return NULL;
                        }
                        vp->next = request->packet->vps;
@@ -1080,7 +1088,7 @@ EAP_HANDLER *eap_handler(rlm_eap_t *inst, eap_packet_t **eap_packet_p,
                                RDEBUG("Identity does not match User-Name, setting from EAP Identity.");
                                free(*eap_packet_p);
                                *eap_packet_p = NULL;
-                               eap_handler_free(handler);
+                               eap_handler_free(inst, handler);
                                return NULL;
                        }
 	       }
@@ -1090,7 +1098,7 @@ EAP_HANDLER *eap_handler(rlm_eap_t *inst, eap_packet_t **eap_packet_p,
 	if (handler->eap_ds == NULL) {
 		free(*eap_packet_p);
 		*eap_packet_p = NULL;
-		eap_handler_free(handler);
+		eap_handler_free(inst, handler);
 		return NULL;
 	}
 

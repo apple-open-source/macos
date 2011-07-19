@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: parser.c,v 1.129 2008/09/25 04:02:39 tbox Exp $ */
+/* $Id: parser.c,v 1.132.104.3 2010-08-11 18:19:58 each Exp $ */
 
 /*! \file */
 
@@ -29,12 +29,12 @@
 #include <isc/mem.h>
 #include <isc/net.h>
 #include <isc/netaddr.h>
+#include <isc/netscope.h>
 #include <isc/print.h>
 #include <isc/string.h>
 #include <isc/sockaddr.h>
-#include <isc/netscope.h>
-#include <isc/util.h>
 #include <isc/symtab.h>
+#include <isc/util.h>
 
 #include <isccfg/cfg.h>
 #include <isccfg/grammar.h>
@@ -130,7 +130,7 @@ cfg_rep_t cfg_rep_void = { "void", free_noop };
 /*%
  * An implicit list.  These are formed by clauses that occur multiple times.
  */
-static cfg_type_t cfg_type_implicitlist = {
+cfg_type_t cfg_type_implicitlist = {
 	"implicitlist", NULL, print_list, NULL, &cfg_rep_list, NULL };
 
 /* Functions. */
@@ -316,6 +316,24 @@ cfg_tuple_get(const cfg_obj_t *tupleobj, const char* name) {
 }
 
 isc_result_t
+cfg_tuple_set(cfg_obj_t *tupleobj, const char* name, const cfg_obj_t *obj) {
+	unsigned int i;
+	const cfg_tuplefielddef_t *fields;
+	const cfg_tuplefielddef_t *f;
+
+	REQUIRE(tupleobj != NULL && tupleobj->type->rep == &cfg_rep_tuple);
+
+	fields = tupleobj->type->of;
+	for (f = fields, i = 0; f->name != NULL; f++, i++) {
+		if (strcmp(f->name, name) == 0) {
+			DE_CONST(obj, tupleobj->value.tuple[i]);
+			return (ISC_R_SUCCESS);
+		}
+	}
+	return (ISC_R_NOTFOUND);
+}
+
+isc_result_t
 cfg_parse_special(cfg_parser_t *pctx, int special) {
 	isc_result_t result;
 	CHECK(cfg_gettoken(pctx, 0));
@@ -387,6 +405,12 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 	if (pctx == NULL)
 		return (ISC_R_NOMEMORY);
 
+	result = isc_refcount_init(&pctx->references, 1);
+	if (result != ISC_R_SUCCESS) {
+		isc_mem_put(mctx, pctx, sizeof(*pctx));
+		return (result);
+	}
+
 	pctx->mctx = mctx;
 	pctx->lctx = lctx;
 	pctx->lexer = NULL;
@@ -400,6 +424,7 @@ cfg_parser_create(isc_mem_t *mctx, isc_log_t *lctx, cfg_parser_t **ret) {
 	pctx->callback = NULL;
 	pctx->callbackarg = NULL;
 	pctx->token.type = isc_tokentype_unknown;
+	pctx->flags = 0;
 
 	memset(specials, 0, sizeof(specials));
 	specials['{'] = 1;
@@ -526,17 +551,30 @@ cfg_parse_buffer(cfg_parser_t *pctx, isc_buffer_t *buffer,
 }
 
 void
+cfg_parser_attach(cfg_parser_t *src, cfg_parser_t **dest) {
+	REQUIRE(src != NULL);
+	REQUIRE(dest != NULL && *dest == NULL);
+	isc_refcount_increment(&src->references, NULL);
+	*dest = src;
+}
+
+void
 cfg_parser_destroy(cfg_parser_t **pctxp) {
 	cfg_parser_t *pctx = *pctxp;
-	isc_lex_destroy(&pctx->lexer);
-	/*
-	 * Cleaning up open_files does not
-	 * close the files; that was already done
-	 * by closing the lexer.
-	 */
-	CLEANUP_OBJ(pctx->open_files);
-	CLEANUP_OBJ(pctx->closed_files);
-	isc_mem_put(pctx->mctx, pctx, sizeof(*pctx));
+	unsigned int refs;
+
+	isc_refcount_decrement(&pctx->references, &refs);
+	if (refs == 0) {
+		isc_lex_destroy(&pctx->lexer);
+		/*
+		 * Cleaning up open_files does not
+		 * close the files; that was already done
+		 * by closing the lexer.
+		 */
+		CLEANUP_OBJ(pctx->open_files);
+		CLEANUP_OBJ(pctx->closed_files);
+		isc_mem_put(pctx->mctx, pctx, sizeof(*pctx));
+	}
 	*pctxp = NULL;
 }
 
@@ -686,6 +724,13 @@ create_string(cfg_parser_t *pctx, const char *contents, const cfg_type_t *type,
 	*ret = obj;
  cleanup:
 	return (result);
+}
+
+isc_result_t
+cfg_create_string(cfg_parser_t *pctx, const char *contents, const cfg_type_t *type,
+		  cfg_obj_t **ret)
+{
+    return create_string(pctx, contents, type, ret);
 }
 
 isc_result_t
@@ -926,10 +971,24 @@ create_listelt(cfg_parser_t *pctx, cfg_listelt_t **eltp) {
 	return (ISC_R_SUCCESS);
 }
 
+isc_result_t
+cfg_create_listelt(cfg_parser_t *pctx, cfg_listelt_t **eltp)
+{
+	return create_listelt(pctx, eltp);
+}
+
 static void
 free_list_elt(cfg_parser_t *pctx, cfg_listelt_t *elt) {
-	cfg_obj_destroy(pctx, &elt->obj);
+	if (elt->obj != NULL)
+		cfg_obj_destroy(pctx, &elt->obj);
 	isc_mem_put(pctx->mctx, elt, sizeof(*elt));
+}
+
+void
+cfg_destroy_listelt(cfg_parser_t *pctx, cfg_listelt_t **eltp)
+{
+	free_list_elt(pctx, *eltp);
+	*eltp = NULL;
 }
 
 static void
@@ -1132,15 +1191,147 @@ cfg_list_length(const cfg_obj_t *obj, isc_boolean_t recurse) {
 	return (count);
 }
 
-const cfg_obj_t *
+cfg_obj_t *
 cfg_listelt_value(const cfg_listelt_t *elt) {
 	REQUIRE(elt != NULL);
 	return (elt->obj);
 }
 
+void
+cfg_listelt_setvalue(cfg_listelt_t *elt, const cfg_obj_t *obj) {
+	REQUIRE(elt != NULL);
+	REQUIRE(obj != NULL);
+	DE_CONST(obj, elt->obj);
+}
+
 /*
  * Maps.
  */
+
+isc_result_t
+cfg_create_map(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret) {
+	isc_result_t result;
+	cfg_obj_t* mapobj;
+
+	REQUIRE(ret != NULL && *ret == NULL);
+
+	result = create_map(pctx, type, &mapobj);
+	if (result == ISC_R_SUCCESS) {
+		const cfg_clausedef_t * const *clausesets = type->of;
+		mapobj->value.map.clausesets = clausesets;
+
+		*ret = mapobj;
+	}
+
+	return (result);
+}
+
+isc_result_t
+cfg_map_set(cfg_obj_t *mapobj, const char* name, const cfg_obj_t *obj) {
+	isc_result_t result;
+	isc_symvalue_t val;
+	const cfg_map_t *map;
+
+	REQUIRE(mapobj != NULL && mapobj->type->rep == &cfg_rep_map);
+	REQUIRE(name != NULL);
+
+	map = &mapobj->value.map;
+
+	DE_CONST(obj, val.as_pointer);
+	result = isc_symtab_define(map->symtab, name, 1, val, isc_symexists_replace);
+	return (result);
+}
+
+isc_result_t
+cfg_map_delete(cfg_obj_t *mapobj, const char* name) {
+	isc_result_t result;
+	const cfg_map_t *map;
+
+	REQUIRE(mapobj != NULL && mapobj->type->rep == &cfg_rep_map);
+	REQUIRE(name != NULL);
+
+	map = &mapobj->value.map;
+
+        result = isc_symtab_undefine(map->symtab, name, 1);
+	return (result);
+}
+
+isc_result_t
+cfg_map_move(cfg_obj_t *mapobjdst, cfg_obj_t *mapobjsrc, const char* name) {
+	isc_result_t result;
+	isc_symvalue_t val;
+	const cfg_map_t *mapsrc, *mapdst;
+	isc_symtabaction_t saved_undef_action = NULL;
+	void* saved_undef_arg = NULL;
+
+	REQUIRE(mapobjsrc != NULL && mapobjsrc->type->rep == &cfg_rep_map);
+	REQUIRE(mapobjdst != NULL && mapobjdst->type->rep == &cfg_rep_map);
+	REQUIRE(name != NULL);
+
+	mapsrc = &mapobjsrc->value.map;
+	mapdst = &mapobjdst->value.map;
+
+	result = isc_symtab_lookup(mapsrc->symtab, name, MAP_SYM, &val);
+	if (result == ISC_R_SUCCESS) {
+		/* Don't want the object to get destroyed when it is removed from
+		 * the old map. So temporarily set the undefine_action to NULL which
+		 * will cause the map to forget about the object without actually
+		 * destroying the object.
+		 */
+		isc_symtab_getundefineaction(mapsrc->symtab, &saved_undef_action, &saved_undef_arg);
+		isc_symtab_setundefineaction(mapsrc->symtab, NULL, NULL);
+		isc_symtab_undefine(mapsrc->symtab, name, 1);
+		isc_symtab_setundefineaction(mapsrc->symtab, saved_undef_action, saved_undef_arg);
+
+		result = isc_symtab_define(mapdst->symtab, name, 1, val, isc_symexists_replace);
+	}
+	return result;
+}
+
+isc_result_t
+cfg_map_moveall(cfg_obj_t *mapobjdst, cfg_obj_t *mapobjsrc) {
+	isc_result_t result;
+	const cfg_clausedef_t * const *clauseset;
+	const cfg_map_t *mapsrc, *mapdst;
+	isc_symtabaction_t saved_undef_action = NULL;
+	void* saved_undef_arg = NULL;
+
+	REQUIRE(mapobjsrc != NULL && mapobjsrc->type->rep == &cfg_rep_map);
+	REQUIRE(mapobjdst != NULL && mapobjdst->type->rep == &cfg_rep_map);
+	REQUIRE(mapobjdst->type == mapobjsrc->type);
+
+	mapsrc = &mapobjsrc->value.map;
+	mapdst = &mapobjdst->value.map;
+
+	/* Don't want the object to get destroyed when it is removed from
+	 * the old map. So temporarily set the undefine_action to NULL which
+	 * will cause the map to forget about the object without actually
+	 * destroying the object.
+	 */
+	isc_symtab_getundefineaction(mapsrc->symtab, &saved_undef_action, &saved_undef_arg);
+	isc_symtab_setundefineaction(mapsrc->symtab, NULL, NULL);
+
+	for (clauseset = mapsrc->clausesets; *clauseset != NULL; clauseset++) {
+		isc_symvalue_t symval;
+		const cfg_clausedef_t *clause;
+
+		for (clause = *clauseset; clause->name != NULL; clause++) {
+			result = isc_symtab_lookup(mapsrc->symtab,
+						   clause->name, 0, &symval);
+			if (result == ISC_R_SUCCESS) {
+				isc_symtab_undefine(mapsrc->symtab, clause->name, 1);
+				CHECK(isc_symtab_define(mapdst->symtab, clause->name,
+							1, symval, isc_symexists_replace));
+			}
+		}
+	}
+
+	result = ISC_R_SUCCESS;
+
+cleanup:
+	isc_symtab_setundefineaction(mapsrc->symtab, saved_undef_action, saved_undef_arg);
+	return result;
+}
 
 /*
  * Parse a map body.  That's something like
@@ -1237,6 +1428,14 @@ cfg_parse_mapbody(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret)
 		if ((clause->flags & CFG_CLAUSEFLAG_NYI) != 0)
 			cfg_parser_warning(pctx, 0, "option '%s' is "
 				       "not implemented", clause->name);
+
+		if ((clause->flags & CFG_CLAUSEFLAG_NOTCONFIGURED) != 0) {
+			cfg_parser_warning(pctx, 0, "option '%s' is not "
+					   "configured", clause->name);
+			result = ISC_R_FAILURE;
+			goto cleanup;
+		}
+
 		/*
 		 * Don't log options with CFG_CLAUSEFLAG_NEWDEFAULT
 		 * set here - we need to log the *lack* of such an option,
@@ -1478,6 +1677,7 @@ static struct flagtext {
 	{ CFG_CLAUSEFLAG_OBSOLETE, "obsolete" },
 	{ CFG_CLAUSEFLAG_NEWDEFAULT, "default changed" },
 	{ CFG_CLAUSEFLAG_TESTONLY, "test only" },
+	{ CFG_CLAUSEFLAG_NOTCONFIGURED, "not configured" },
 	{ 0, NULL }
 };
 
@@ -2305,6 +2505,7 @@ cfg_obj_line(const cfg_obj_t *obj) {
 
 isc_result_t
 cfg_create_obj(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret) {
+	isc_result_t result;
 	cfg_obj_t *obj;
 
 	obj = isc_mem_get(pctx->mctx, sizeof(cfg_obj_t));
@@ -2313,9 +2514,15 @@ cfg_create_obj(cfg_parser_t *pctx, const cfg_type_t *type, cfg_obj_t **ret) {
 	obj->type = type;
 	obj->file = current_file(pctx);
 	obj->line = pctx->line;
+	result = isc_refcount_init(&obj->references, 1);
+	if (result != ISC_R_SUCCESS) {
+		isc_mem_put(pctx->mctx, obj, sizeof(cfg_obj_t));
+		return (result);
+	}
 	*ret = obj;
 	return (ISC_R_SUCCESS);
 }
+
 
 static void
 map_symtabitem_destroy(char *key, unsigned int type,
@@ -2370,9 +2577,23 @@ cfg_obj_istype(const cfg_obj_t *obj, const cfg_type_t *type) {
 void
 cfg_obj_destroy(cfg_parser_t *pctx, cfg_obj_t **objp) {
 	cfg_obj_t *obj = *objp;
-	obj->type->rep->free(pctx, obj);
-	isc_mem_put(pctx->mctx, obj, sizeof(cfg_obj_t));
+	unsigned int refs;
+
+	isc_refcount_decrement(&obj->references, &refs);
+	if (refs == 0) {
+		obj->type->rep->free(pctx, obj);
+		isc_refcount_destroy(&obj->references);
+		isc_mem_put(pctx->mctx, obj, sizeof(cfg_obj_t));
+	}
 	*objp = NULL;
+}
+
+void
+cfg_obj_attach(cfg_obj_t *src, cfg_obj_t **dest) {
+    REQUIRE(src != NULL);
+    REQUIRE(dest != NULL && *dest == NULL);
+    isc_refcount_increment(&src->references, NULL);
+    *dest = src;
 }
 
 static void

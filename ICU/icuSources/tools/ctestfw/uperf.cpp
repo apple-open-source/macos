@@ -1,13 +1,11 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 2002-2008, International Business Machines Corporation and
+ * Copyright (c) 2002-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
 /* z/OS needs this definition for timeval */
-#if !defined(_XOPEN_SOURCE_EXTENDED)
-#define _XOPEN_SOURCE_EXTENDED 1
-#endif
+#include "platform_xopen_source_extended.h"
 
 #include "unicode/uperf.h"
 #include "uoptions.h"

@@ -1,0 +1,808 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		053BA30F091C00B100A7007A /* World */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 4CD81A6D09BE1FD2000A9641 /* Build configuration list for PBXAggregateTarget "World" */;
+			buildPhases = (
+			);
+			dependencies = (
+				053BA317091C017E00A7007A /* PBXTargetDependency */,
+				053BA463091FE60E00A7007A /* PBXTargetDependency */,
+				058ECC54091FF0000050AA30 /* PBXTargetDependency */,
+				058F16680925224F009FA1C5 /* PBXTargetDependency */,
+				4C96C8DC113F4174005483E8 /* PBXTargetDependency */,
+			);
+			name = World;
+			productName = World;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		053BA324091C02B700A7007A /* DER_Decode.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA321091C02B700A7007A /* DER_Decode.h */; };
+		053BA325091C02B700A7007A /* libDER_config.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA322091C02B700A7007A /* libDER_config.h */; };
+		053BA326091C02B700A7007A /* libDER.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA323091C02B700A7007A /* libDER.h */; };
+		053BA344091C089B00A7007A /* asn1Types.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA342091C089B00A7007A /* asn1Types.h */; };
+		053BA345091C089B00A7007A /* DER_Decode.c in Sources */ = {isa = PBXBuildFile; fileRef = 053BA343091C089B00A7007A /* DER_Decode.c */; };
+		053BA399091C258100A7007A /* DER_CertCrl.c in Sources */ = {isa = PBXBuildFile; fileRef = 053BA397091C258100A7007A /* DER_CertCrl.c */; };
+		053BA39A091C258100A7007A /* DER_CertCrl.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA398091C258100A7007A /* DER_CertCrl.h */; };
+		053BA45D091FE5E700A7007A /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
+		053BA461091FE60700A7007A /* parseCert.c in Sources */ = {isa = PBXBuildFile; fileRef = 053BA460091FE60700A7007A /* parseCert.c */; };
+		053BA470091FE6C100A7007A /* fileIo.c in Sources */ = {isa = PBXBuildFile; fileRef = 053BA46E091FE6C100A7007A /* fileIo.c */; };
+		053BA471091FE6C100A7007A /* fileIo.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA46F091FE6C100A7007A /* fileIo.h */; };
+		053BA47D091FE7CC00A7007A /* libDERUtils.h in Headers */ = {isa = PBXBuildFile; fileRef = 053BA47B091FE7CC00A7007A /* libDERUtils.h */; };
+		053BA47E091FE7CC00A7007A /* libDERUtils.c in Sources */ = {isa = PBXBuildFile; fileRef = 053BA47C091FE7CC00A7007A /* libDERUtils.c */; };
+		0544AEA10940939C00DD6C0B /* DER_Encode.h in Headers */ = {isa = PBXBuildFile; fileRef = 0544AE9F0940939C00DD6C0B /* DER_Encode.h */; };
+		0544AEA20940939C00DD6C0B /* DER_Encode.c in Sources */ = {isa = PBXBuildFile; fileRef = 0544AEA00940939C00DD6C0B /* DER_Encode.c */; };
+		058ECC52091FEFF70050AA30 /* libDERUtils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA46B091FE63E00A7007A /* libDERUtils.a */; };
+		058ECD350920F5E30050AA30 /* DER_Keys.c in Sources */ = {isa = PBXBuildFile; fileRef = 058ECD330920F5E30050AA30 /* DER_Keys.c */; };
+		058ECD360920F5E30050AA30 /* DER_Keys.h in Headers */ = {isa = PBXBuildFile; fileRef = 058ECD340920F5E30050AA30 /* DER_Keys.h */; };
+		058F15C20922B73F009FA1C5 /* printFields.h in Headers */ = {isa = PBXBuildFile; fileRef = 058F15C00922B73F009FA1C5 /* printFields.h */; };
+		058F15C30922B73F009FA1C5 /* printFields.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F15C10922B73F009FA1C5 /* printFields.c */; };
+		058F163109250D16009FA1C5 /* oids.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F162D09250D0D009FA1C5 /* oids.c */; };
+		058F163209250D17009FA1C5 /* oids.h in Headers */ = {isa = PBXBuildFile; fileRef = 058F162E09250D0D009FA1C5 /* oids.h */; };
+		058F1659092513A7009FA1C5 /* parseCrl.c in Sources */ = {isa = PBXBuildFile; fileRef = 058F1658092513A7009FA1C5 /* parseCrl.c */; };
+		058F16710925230E009FA1C5 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
+		058F16720925230F009FA1C5 /* libDERUtils.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA46B091FE63E00A7007A /* libDERUtils.a */; };
+		05E0E40709228A5E005F4693 /* DER_Digest.h in Headers */ = {isa = PBXBuildFile; fileRef = 05E0E40509228A5E005F4693 /* DER_Digest.h */; };
+		05E0E40809228A5E005F4693 /* DER_Digest.c in Sources */ = {isa = PBXBuildFile; fileRef = 05E0E40609228A5E005F4693 /* DER_Digest.c */; };
+		4C96C8D6113F4165005483E8 /* DER_Ticket.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C96C8D3113F4165005483E8 /* DER_Ticket.c */; };
+		4C96C8D7113F4165005483E8 /* parseTicket.c in Sources */ = {isa = PBXBuildFile; fileRef = 4C96C8D5113F4165005483E8 /* parseTicket.c */; };
+		4C96C8E2113F4232005483E8 /* libDER.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 053BA314091C00BF00A7007A /* libDER.a */; };
+		4C96C8ED113F42D1005483E8 /* libcrypto.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 4C96C8EC113F42C4005483E8 /* libcrypto.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		053BA316091C017E00A7007A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
+		053BA458091FE59900A7007A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
+		053BA462091FE60E00A7007A /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA444091FE58C00A7007A;
+			remoteInfo = parseCert;
+		};
+		058ECC53091FF0000050AA30 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA46A091FE63E00A7007A;
+			remoteInfo = libDERUtils;
+		};
+		058ECC55091FF0090050AA30 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA46A091FE63E00A7007A;
+			remoteInfo = libDERUtils;
+		};
+		058F16670925224F009FA1C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 058F16530925135E009FA1C5;
+			remoteInfo = parseCrl;
+		};
+		058F1675092523D8009FA1C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
+		058F1677092523DD009FA1C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA46A091FE63E00A7007A;
+			remoteInfo = libDERUtils;
+		};
+		4C96C8DB113F4174005483E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C96C8CD113F4132005483E8;
+			remoteInfo = parseTicket;
+		};
+		4C96C8E0113F4223005483E8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 053BA30A091C00A400A7007A /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 053BA313091C00BF00A7007A;
+			remoteInfo = libDER;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		053BA314091C00BF00A7007A /* libDER.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDER.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		053BA321091C02B700A7007A /* DER_Decode.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DER_Decode.h; sourceTree = "<group>"; };
+		053BA322091C02B700A7007A /* libDER_config.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = libDER_config.h; sourceTree = "<group>"; };
+		053BA323091C02B700A7007A /* libDER.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = libDER.h; sourceTree = "<group>"; };
+		053BA342091C089B00A7007A /* asn1Types.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = asn1Types.h; sourceTree = "<group>"; };
+		053BA343091C089B00A7007A /* DER_Decode.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = DER_Decode.c; sourceTree = "<group>"; };
+		053BA397091C258100A7007A /* DER_CertCrl.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = DER_CertCrl.c; sourceTree = "<group>"; };
+		053BA398091C258100A7007A /* DER_CertCrl.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DER_CertCrl.h; sourceTree = "<group>"; };
+		053BA445091FE58C00A7007A /* parseCert */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseCert; sourceTree = BUILT_PRODUCTS_DIR; };
+		053BA460091FE60700A7007A /* parseCert.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = parseCert.c; sourceTree = "<group>"; };
+		053BA46B091FE63E00A7007A /* libDERUtils.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libDERUtils.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		053BA46E091FE6C100A7007A /* fileIo.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = fileIo.c; sourceTree = "<group>"; };
+		053BA46F091FE6C100A7007A /* fileIo.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = fileIo.h; sourceTree = "<group>"; };
+		053BA47B091FE7CC00A7007A /* libDERUtils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = libDERUtils.h; sourceTree = "<group>"; };
+		053BA47C091FE7CC00A7007A /* libDERUtils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = libDERUtils.c; sourceTree = "<group>"; };
+		0544AE9F0940939C00DD6C0B /* DER_Encode.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DER_Encode.h; sourceTree = "<group>"; };
+		0544AEA00940939C00DD6C0B /* DER_Encode.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DER_Encode.c; sourceTree = "<group>"; };
+		058ECD330920F5E30050AA30 /* DER_Keys.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = DER_Keys.c; sourceTree = "<group>"; };
+		058ECD340920F5E30050AA30 /* DER_Keys.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = DER_Keys.h; sourceTree = "<group>"; };
+		058ECE5C09211AE40050AA30 /* libGiants.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libGiants.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		058ECE5E09211AFB0050AA30 /* libgRSA.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libgRSA.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		058F15C00922B73F009FA1C5 /* printFields.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = printFields.h; sourceTree = "<group>"; };
+		058F15C10922B73F009FA1C5 /* printFields.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = printFields.c; sourceTree = "<group>"; };
+		058F162D09250D0D009FA1C5 /* oids.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = oids.c; sourceTree = "<group>"; };
+		058F162E09250D0D009FA1C5 /* oids.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = oids.h; sourceTree = "<group>"; };
+		058F16540925135E009FA1C5 /* parseCrl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseCrl; sourceTree = BUILT_PRODUCTS_DIR; };
+		058F1658092513A7009FA1C5 /* parseCrl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseCrl.c; sourceTree = "<group>"; };
+		05E0E40509228A5E005F4693 /* DER_Digest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DER_Digest.h; sourceTree = "<group>"; };
+		05E0E40609228A5E005F4693 /* DER_Digest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DER_Digest.c; sourceTree = "<group>"; };
+		4C86289E1137D5BE009EAB5A /* iPhoneFamily.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = iPhoneFamily.xcconfig; path = AppleInternal/XcodeConfig/iPhoneFamily.xcconfig; sourceTree = DEVELOPER_DIR; };
+		4C96C8CE113F4132005483E8 /* parseTicket */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = parseTicket; sourceTree = BUILT_PRODUCTS_DIR; };
+		4C96C8D2113F4165005483E8 /* AppleMobilePersonalizedTicket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = AppleMobilePersonalizedTicket.h; sourceTree = "<group>"; };
+		4C96C8D3113F4165005483E8 /* DER_Ticket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = DER_Ticket.c; sourceTree = "<group>"; };
+		4C96C8D4113F4165005483E8 /* DER_Ticket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = DER_Ticket.h; sourceTree = "<group>"; };
+		4C96C8D5113F4165005483E8 /* parseTicket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = parseTicket.c; sourceTree = "<group>"; };
+		4C96C8EC113F42C4005483E8 /* libcrypto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.dylib; path = /usr/lib/libcrypto.dylib; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		053BA312091C00BF00A7007A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		053BA443091FE58C00A7007A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				058ECC52091FEFF70050AA30 /* libDERUtils.a in Frameworks */,
+				053BA45D091FE5E700A7007A /* libDER.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		053BA469091FE63E00A7007A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		058F16520925135E009FA1C5 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				058F16720925230F009FA1C5 /* libDERUtils.a in Frameworks */,
+				058F16710925230E009FA1C5 /* libDER.a in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C96C8CC113F4132005483E8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C96C8E2113F4232005483E8 /* libDER.a in Frameworks */,
+				4C96C8ED113F42D1005483E8 /* libcrypto.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		053BA306091C00A400A7007A = {
+			isa = PBXGroup;
+			children = (
+				053BA31E091C029900A7007A /* libDER */,
+				053BA466091FE62100A7007A /* libDERUtils */,
+				053BA45C091FE5CE00A7007A /* Tests */,
+				4C86289E1137D5BE009EAB5A /* iPhoneFamily.xcconfig */,
+				058ECE5B09211AB20050AA30 /* External Libs */,
+				053BA315091C00BF00A7007A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		053BA315091C00BF00A7007A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				053BA314091C00BF00A7007A /* libDER.a */,
+				053BA445091FE58C00A7007A /* parseCert */,
+				053BA46B091FE63E00A7007A /* libDERUtils.a */,
+				058F16540925135E009FA1C5 /* parseCrl */,
+				4C96C8CE113F4132005483E8 /* parseTicket */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		053BA31E091C029900A7007A /* libDER */ = {
+			isa = PBXGroup;
+			children = (
+				058ECD330920F5E30050AA30 /* DER_Keys.c */,
+				058ECD340920F5E30050AA30 /* DER_Keys.h */,
+				053BA342091C089B00A7007A /* asn1Types.h */,
+				053BA397091C258100A7007A /* DER_CertCrl.c */,
+				053BA398091C258100A7007A /* DER_CertCrl.h */,
+				053BA343091C089B00A7007A /* DER_Decode.c */,
+				053BA321091C02B700A7007A /* DER_Decode.h */,
+				0544AEA00940939C00DD6C0B /* DER_Encode.c */,
+				0544AE9F0940939C00DD6C0B /* DER_Encode.h */,
+				053BA322091C02B700A7007A /* libDER_config.h */,
+				053BA323091C02B700A7007A /* libDER.h */,
+				05E0E40509228A5E005F4693 /* DER_Digest.h */,
+				05E0E40609228A5E005F4693 /* DER_Digest.c */,
+				058F162D09250D0D009FA1C5 /* oids.c */,
+				058F162E09250D0D009FA1C5 /* oids.h */,
+			);
+			path = libDER;
+			sourceTree = "<group>";
+		};
+		053BA45C091FE5CE00A7007A /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				4C96C8D2113F4165005483E8 /* AppleMobilePersonalizedTicket.h */,
+				4C96C8D3113F4165005483E8 /* DER_Ticket.c */,
+				4C96C8D4113F4165005483E8 /* DER_Ticket.h */,
+				4C96C8D5113F4165005483E8 /* parseTicket.c */,
+				053BA460091FE60700A7007A /* parseCert.c */,
+				058F1658092513A7009FA1C5 /* parseCrl.c */,
+			);
+			path = Tests;
+			sourceTree = "<group>";
+		};
+		053BA466091FE62100A7007A /* libDERUtils */ = {
+			isa = PBXGroup;
+			children = (
+				053BA47B091FE7CC00A7007A /* libDERUtils.h */,
+				053BA47C091FE7CC00A7007A /* libDERUtils.c */,
+				053BA46E091FE6C100A7007A /* fileIo.c */,
+				053BA46F091FE6C100A7007A /* fileIo.h */,
+				058F15C00922B73F009FA1C5 /* printFields.h */,
+				058F15C10922B73F009FA1C5 /* printFields.c */,
+			);
+			path = libDERUtils;
+			sourceTree = "<group>";
+		};
+		058ECE5B09211AB20050AA30 /* External Libs */ = {
+			isa = PBXGroup;
+			children = (
+				058ECE5E09211AFB0050AA30 /* libgRSA.a */,
+				058ECE5C09211AE40050AA30 /* libGiants.a */,
+				4C96C8EC113F42C4005483E8 /* libcrypto.dylib */,
+			);
+			name = "External Libs";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		053BA310091C00BF00A7007A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053BA324091C02B700A7007A /* DER_Decode.h in Headers */,
+				053BA325091C02B700A7007A /* libDER_config.h in Headers */,
+				053BA326091C02B700A7007A /* libDER.h in Headers */,
+				053BA344091C089B00A7007A /* asn1Types.h in Headers */,
+				053BA39A091C258100A7007A /* DER_CertCrl.h in Headers */,
+				058ECD360920F5E30050AA30 /* DER_Keys.h in Headers */,
+				05E0E40709228A5E005F4693 /* DER_Digest.h in Headers */,
+				058F163209250D17009FA1C5 /* oids.h in Headers */,
+				0544AEA10940939C00DD6C0B /* DER_Encode.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		053BA467091FE63E00A7007A /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053BA471091FE6C100A7007A /* fileIo.h in Headers */,
+				053BA47D091FE7CC00A7007A /* libDERUtils.h in Headers */,
+				058F15C20922B73F009FA1C5 /* printFields.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		053BA313091C00BF00A7007A /* libDER */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CD81A5D09BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "libDER" */;
+			buildPhases = (
+				053BA310091C00BF00A7007A /* Headers */,
+				053BA311091C00BF00A7007A /* Sources */,
+				053BA312091C00BF00A7007A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libDER;
+			productName = libDER;
+			productReference = 053BA314091C00BF00A7007A /* libDER.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		053BA444091FE58C00A7007A /* parseCert */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CD81A6509BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "parseCert" */;
+			buildPhases = (
+				053BA442091FE58C00A7007A /* Sources */,
+				053BA443091FE58C00A7007A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				053BA459091FE59900A7007A /* PBXTargetDependency */,
+				058ECC56091FF0090050AA30 /* PBXTargetDependency */,
+			);
+			name = parseCert;
+			productName = parseCert;
+			productReference = 053BA445091FE58C00A7007A /* parseCert */;
+			productType = "com.apple.product-type.tool";
+		};
+		053BA46A091FE63E00A7007A /* libDERUtils */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CD81A6109BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "libDERUtils" */;
+			buildPhases = (
+				053BA467091FE63E00A7007A /* Headers */,
+				053BA468091FE63E00A7007A /* Sources */,
+				053BA469091FE63E00A7007A /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libDERUtils;
+			productName = libDERUtils;
+			productReference = 053BA46B091FE63E00A7007A /* libDERUtils.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+		058F16530925135E009FA1C5 /* parseCrl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4CD81A6909BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "parseCrl" */;
+			buildPhases = (
+				058F16510925135E009FA1C5 /* Sources */,
+				058F16520925135E009FA1C5 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				058F1676092523D8009FA1C5 /* PBXTargetDependency */,
+				058F1678092523DD009FA1C5 /* PBXTargetDependency */,
+			);
+			name = parseCrl;
+			productName = parseCrl;
+			productReference = 058F16540925135E009FA1C5 /* parseCrl */;
+			productType = "com.apple.product-type.tool";
+		};
+		4C96C8CD113F4132005483E8 /* parseTicket */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4C96C8D8113F4165005483E8 /* Build configuration list for PBXNativeTarget "parseTicket" */;
+			buildPhases = (
+				4C96C8CB113F4132005483E8 /* Sources */,
+				4C96C8CC113F4132005483E8 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				4C96C8E1113F4223005483E8 /* PBXTargetDependency */,
+			);
+			name = parseTicket;
+			productName = parseTicket;
+			productReference = 4C96C8CE113F4132005483E8 /* parseTicket */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		053BA30A091C00A400A7007A /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 4CD81A7109BE1FD2000A9641 /* Build configuration list for PBXProject "libDER" */;
+			compatibilityVersion = "Xcode 2.4";
+			hasScannedForEncodings = 0;
+			mainGroup = 053BA306091C00A400A7007A;
+			productRefGroup = 053BA315091C00BF00A7007A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				053BA30F091C00B100A7007A /* World */,
+				053BA313091C00BF00A7007A /* libDER */,
+				053BA444091FE58C00A7007A /* parseCert */,
+				053BA46A091FE63E00A7007A /* libDERUtils */,
+				058F16530925135E009FA1C5 /* parseCrl */,
+				4C96C8CD113F4132005483E8 /* parseTicket */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		053BA311091C00BF00A7007A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053BA345091C089B00A7007A /* DER_Decode.c in Sources */,
+				053BA399091C258100A7007A /* DER_CertCrl.c in Sources */,
+				058ECD350920F5E30050AA30 /* DER_Keys.c in Sources */,
+				05E0E40809228A5E005F4693 /* DER_Digest.c in Sources */,
+				058F163109250D16009FA1C5 /* oids.c in Sources */,
+				0544AEA20940939C00DD6C0B /* DER_Encode.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		053BA442091FE58C00A7007A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053BA461091FE60700A7007A /* parseCert.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		053BA468091FE63E00A7007A /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				053BA470091FE6C100A7007A /* fileIo.c in Sources */,
+				053BA47E091FE7CC00A7007A /* libDERUtils.c in Sources */,
+				058F15C30922B73F009FA1C5 /* printFields.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		058F16510925135E009FA1C5 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				058F1659092513A7009FA1C5 /* parseCrl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4C96C8CB113F4132005483E8 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				4C96C8D6113F4165005483E8 /* DER_Ticket.c in Sources */,
+				4C96C8D7113F4165005483E8 /* parseTicket.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		053BA317091C017E00A7007A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = 053BA316091C017E00A7007A /* PBXContainerItemProxy */;
+		};
+		053BA459091FE59900A7007A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = 053BA458091FE59900A7007A /* PBXContainerItemProxy */;
+		};
+		053BA463091FE60E00A7007A /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA444091FE58C00A7007A /* parseCert */;
+			targetProxy = 053BA462091FE60E00A7007A /* PBXContainerItemProxy */;
+		};
+		058ECC54091FF0000050AA30 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA46A091FE63E00A7007A /* libDERUtils */;
+			targetProxy = 058ECC53091FF0000050AA30 /* PBXContainerItemProxy */;
+		};
+		058ECC56091FF0090050AA30 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA46A091FE63E00A7007A /* libDERUtils */;
+			targetProxy = 058ECC55091FF0090050AA30 /* PBXContainerItemProxy */;
+		};
+		058F16680925224F009FA1C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 058F16530925135E009FA1C5 /* parseCrl */;
+			targetProxy = 058F16670925224F009FA1C5 /* PBXContainerItemProxy */;
+		};
+		058F1676092523D8009FA1C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = 058F1675092523D8009FA1C5 /* PBXContainerItemProxy */;
+		};
+		058F1678092523DD009FA1C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA46A091FE63E00A7007A /* libDERUtils */;
+			targetProxy = 058F1677092523DD009FA1C5 /* PBXContainerItemProxy */;
+		};
+		4C96C8DC113F4174005483E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C96C8CD113F4132005483E8 /* parseTicket */;
+			targetProxy = 4C96C8DB113F4174005483E8 /* PBXContainerItemProxy */;
+		};
+		4C96C8E1113F4223005483E8 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 053BA313091C00BF00A7007A /* libDER */;
+			targetProxy = 4C96C8E0113F4223005483E8 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		4C96C8D0113F4132005483E8 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseTicket;
+			};
+			name = Debug;
+		};
+		4C96C8D1113F4132005483E8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseTicket;
+			};
+			name = Release;
+		};
+		792E01120CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib";
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = DER;
+			};
+			name = Debug;
+		};
+		792E01130CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = "$(INDIGO_INSTALL_PATH_PREFIX)/usr/local/lib";
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = DER;
+			};
+			name = Release;
+		};
+		792E01140CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = DERUtils;
+			};
+			name = Debug;
+		};
+		792E01150CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				LIBRARY_STYLE = STATIC;
+				PRODUCT_NAME = DERUtils;
+			};
+			name = Release;
+		};
+		792E01160CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseCert;
+			};
+			name = Debug;
+		};
+		792E01170CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseCert;
+			};
+			name = Release;
+		};
+		792E01180CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseCrl;
+			};
+			name = Debug;
+		};
+		792E01190CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = parseCrl;
+			};
+			name = Release;
+		};
+		792E011A0CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				OTHER_CFLAGS = "-DNDEBUG";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Debug;
+		};
+		792E011B0CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				OTHER_CFLAGS = "";
+				OTHER_LDFLAGS = "";
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = World;
+				SECTORDER_FLAGS = "";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Release;
+		};
+		792E011C0CBC0CE3007C00A0 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 1;
+				GCC_PREPROCESSOR_DEFINITIONS = "DEBUG=1";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/libDER",
+				);
+				"HEADER_SEARCH_PATHS[sdk=macosx*][arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				OTHER_CFLAGS = (
+					"-fconstant-cfstrings",
+					"-fno-inline",
+				);
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused-parameter",
+					"-Wno-missing-field-initializers",
+				);
+			};
+			name = Debug;
+		};
+		792E011D0CBC0CE3007C00A0 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_PREPROCESSOR_DEFINITIONS = "NDEBUG=1";
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_FOUR_CHARACTER_CONSTANTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					"$(SRCROOT)",
+					"$(SRCROOT)/libDER",
+				);
+				"HEADER_SEARCH_PATHS[sdk=macosx*][arch=*]" = (
+					"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework/Frameworks/CarbonCore.framework/Headers",
+					"$(HEADER_SEARCH_PATHS)",
+				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wextra",
+					"-Wno-unused-parameter",
+					"-Wno-missing-field-initializers",
+				);
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4C96C8D8113F4165005483E8 /* Build configuration list for PBXNativeTarget "parseTicket" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4C96C8D0113F4132005483E8 /* Debug */,
+				4C96C8D1113F4132005483E8 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A5D09BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "libDER" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E01120CBC0CE3007C00A0 /* Debug */,
+				792E01130CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A6109BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "libDERUtils" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E01140CBC0CE3007C00A0 /* Debug */,
+				792E01150CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A6509BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "parseCert" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E01160CBC0CE3007C00A0 /* Debug */,
+				792E01170CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A6909BE1FD2000A9641 /* Build configuration list for PBXNativeTarget "parseCrl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E01180CBC0CE3007C00A0 /* Debug */,
+				792E01190CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A6D09BE1FD2000A9641 /* Build configuration list for PBXAggregateTarget "World" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E011A0CBC0CE3007C00A0 /* Debug */,
+				792E011B0CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4CD81A7109BE1FD2000A9641 /* Build configuration list for PBXProject "libDER" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				792E011C0CBC0CE3007C00A0 /* Debug */,
+				792E011D0CBC0CE3007C00A0 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 053BA30A091C00A400A7007A /* Project object */;
+}

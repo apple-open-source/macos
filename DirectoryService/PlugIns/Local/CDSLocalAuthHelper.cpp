@@ -25,12 +25,12 @@
  * @header CDSLocalAuthHelper
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
 
 #include <CoreFoundation/CoreFoundation.h>
 
 #include "CDSLocalAuthHelper.h"
 #include "AuthHelperUtils.h"
-#include "CDSLocalPlugin.h"
 #include "CDSAuthDefs.h"
 #include "CAuthAuthority.h"
 #include "CDSLocalAuthParams.h"
@@ -47,9 +47,7 @@
 #include <CommonCrypto/CommonCryptor.h>
 #include <CommonCrypto/CommonDigest.h>
 #include <Security/Authorization.h>
-#include <PasswordServer/CAuthFileBase.h>
-#include <PasswordServer/CPolicyGlobalXML.h>
-#include <PasswordServer/CPolicyXML.h>
+#include <PasswordServer/AuthDBFileDefs.h>
 #include <PasswordServer/KerberosInterface.h>
 #include <DirectoryServiceCore/CContinue.h>
 #include <syslog.h>
@@ -4617,7 +4615,7 @@ tDirStatus CDSLocalAuthHelper::CRAM_MD5( const unsigned char *inHash, const char
 	HMAC_MD5_STATE md5state;
 	HMAC_MD5_CTX tmphmac;
 	unsigned char digest[MD5_DIGEST_LENGTH];
-	char correctAnswer[32];
+	char correctAnswer[HASHHEXLEN+1];
 	
 	memcpy(&md5state, inHash, sizeof(HMAC_MD5_STATE));
 	CDSLocalAuthHelper::hmac_md5_import(&tmphmac, (HMAC_MD5_STATE *) &md5state);
@@ -5554,8 +5552,8 @@ tDirStatus CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(	tDirNodeReference in
 	if ( inOKToModifyAuthAuthority && siResult == eDSAuthAccountDisabled )
 	{
 		inAuthAuthorityList.SetValueDisabledForTag( kDSTagAuthAuthorityLocalCachedUser );
-		siResult2 = SaveAuthAuthorities( inPlugin, inNodeRef, inParams.pUserName, inNativeRecType, inAuthAuthorityList );
-		if ( siResult2 != eDSNoErr )
+		siResult = SaveAuthAuthorities( inPlugin, inNodeRef, inParams.pUserName, inNativeRecType, inAuthAuthorityList );
+		if ( siResult != eDSNoErr )
 			DbgLog( kLogPlugin, "CDSLocalAuthHelper::DoLocalCachedUserAuthPhase2(): SaveAuthAuthorities = %d", siResult );
 	}
 	
@@ -5573,3 +5571,4 @@ cleanup:
 	return( siResult );
 }
 
+#endif // DISABLE_LOCAL_PLUGIN

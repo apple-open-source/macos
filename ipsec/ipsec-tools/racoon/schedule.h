@@ -83,5 +83,6 @@ void sched_kill __P((struct sched *));
 int sched_dump __P((caddr_t *, int *));
 void sched_init __P((void));
 void sched_scrub_param __P((void *));
+time_t current_time __P((void));
 
 #endif /* _SCHEDULE_H */

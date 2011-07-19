@@ -26,6 +26,7 @@ command-line. Example: ./proxy.pl port 3128 host 0.0.0.0
  * leet.pl
  * rot13.pl
  * rainbow.pl
+ * fudd.pl
 
    These filters do simple modifications of all HTML pages.
 
@@ -50,6 +51,8 @@ command-line. Example: ./proxy.pl port 3128 host 0.0.0.0
 
    This filter outputs the request URI and the form parameters of
    all POST requests.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
 
  * logger.pl
 
@@ -130,4 +133,34 @@ command-line. Example: ./proxy.pl port 3128 host 0.0.0.0
    hack in Perl Hacks (O'Reilly 2006).
 
    Filter:  HTTP::Proxy::HeaderFilter::simple
+
+ * switch.pl
+
+   Randomly switch proxies from a list given on the command line.
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * tracker.pl
+
+   This tracker proxy stores Referer, URL, CODE
+   and output them to STDOUT or the given file
+ 
+   Example output:
+      NULL http://www.perl.org/ 200
+      http://www.perl.org/ http://learn.perl.org/ 200
+
+   Filter: HTTP::Proxy::HeaderFilter::simple
+
+ * js.pl
+
+   Save JavaScript files as we browse them.
+
+   Filter: HTTP::Proxy::Body::save
+
+ * flv.pl
+
+   Saves all FLV files in the flv/ directory, with a computed
+   name (id taken from the URI, or MD5 hash of the URI).
+
+   Filter: HTTP::Proxy::Body::save
 

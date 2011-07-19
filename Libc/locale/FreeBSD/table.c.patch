@@ -1,8 +1,8 @@
---- table.c.orig	2004-11-25 11:38:19.000000000 -0800
-+++ table.c	2005-03-30 16:33:51.000000000 -0800
-@@ -40,13 +40,16 @@
+--- table.c.orig	2010-06-21 14:25:20.000000000 -0700
++++ table.c	2010-06-21 14:25:34.000000000 -0700
+@@ -36,13 +36,16 @@ static char sccsid[] = "@(#)table.c	8.1 
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.28 2007/01/09 00:28:00 imp Exp $");
  
 +#include "xlocale_private.h"
 +
@@ -11,23 +11,25 @@
  #include <wchar.h>
  #include "mblocal.h"
  
-+/* _DefaultRuneLocale is depreciated; _DefaultRuneXLocale is used instead */
- _RuneLocale _DefaultRuneLocale = {
+-_RuneLocale _DefaultRuneLocale = {
 -    _RUNE_MAGIC_1,
++/* _DefaultRuneLocale is depreciated; _DefaultRuneXLocale is used instead */
++_RuneLocale _DefaultRuneLocale __attribute__((section("__DATA,__constrw"))) = {
 +    _RUNE_MAGIC_A,
      "NONE",
      NULL,
      NULL,
-@@ -249,15 +252,222 @@
+@@ -245,5 +248,221 @@ _RuneLocale _DefaultRuneLocale = {
      },
  };
  
 -_RuneLocale *_CurrentRuneLocale = &_DefaultRuneLocale;
-+__private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale = {
++__private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale __attribute__((section("__DATA,__constrw"))) = {
 +    0,
 +    XPERMANENT,
 +    "C",
 +    1,
++    256,
 +    _none_mbrtowc,
 +    _none_mbsinit,
 +    _none_mbsnrtowcs,
@@ -238,16 +240,5 @@
 +	},
 +    },
 +};
-+
-+_RuneLocale *_CurrentRuneLocale = &_DefaultRuneXLocale._CurrentRuneLocale;
  
- int __mb_cur_max = 1;
--size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict, size_t,
--    mbstate_t * __restrict) = _none_mbrtowc;
--int (*__mbsinit)(const mbstate_t *) = _none_mbsinit;
--size_t (*__mbsnrtowcs)(wchar_t * __restrict, const char ** __restrict,
--    size_t, size_t, mbstate_t * __restrict) = _none_mbsnrtowcs;
--size_t (*__wcrtomb)(char * __restrict, wchar_t, mbstate_t * __restrict) =
--    _none_wcrtomb;
--size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
--    size_t, size_t, mbstate_t * __restrict) = _none_wcsnrtombs;
++_RuneLocale *_CurrentRuneLocale = &_DefaultRuneXLocale._CurrentRuneLocale;

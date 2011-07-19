@@ -23,16 +23,16 @@
 namespace llvm {
   class PPCTargetMachine;
   class FunctionPass;
-  class MachineCodeEmitter;
-  class raw_ostream;
+  class formatted_raw_ostream;
   
 FunctionPass *createPPCBranchSelectionPass();
 FunctionPass *createPPCISelDag(PPCTargetMachine &TM);
-FunctionPass *createPPCAsmPrinterPass(raw_ostream &OS,
-                                      PPCTargetMachine &TM,
-                                      CodeGenOpt::Level OptLevel, bool Verbose);
-FunctionPass *createPPCCodeEmitterPass(PPCTargetMachine &TM,
-                                       MachineCodeEmitter &MCE);
+FunctionPass *createPPCJITCodeEmitterPass(PPCTargetMachine &TM,
+                                          JITCodeEmitter &MCE);
+
+extern Target ThePPC32Target;
+extern Target ThePPC64Target;
+
 } // end namespace llvm;
 
 // Defines symbolic names for PowerPC registers.  This defines a mapping from

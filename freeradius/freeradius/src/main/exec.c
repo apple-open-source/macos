@@ -44,6 +44,27 @@ RCSID("$Id$")
 
 #define MAX_ARGV (256)
 
+#define USEC 1000000
+static void tv_sub(struct timeval *end, struct timeval *start,
+		   struct timeval *elapsed)
+{
+	elapsed->tv_sec = end->tv_sec - start->tv_sec;
+	if (elapsed->tv_sec > 0) {
+		elapsed->tv_sec--;
+		elapsed->tv_usec = USEC;
+	} else {
+		elapsed->tv_usec = 0;
+	}
+	elapsed->tv_usec += end->tv_usec;
+	elapsed->tv_usec -= start->tv_usec;
+	
+	if (elapsed->tv_usec >= USEC) {
+		elapsed->tv_usec -= USEC;
+		elapsed->tv_sec++;
+	}
+}
+
+
 /*
  *	Execute a program on successful authentication.
  *	Return 0 if exec_wait == 0.
@@ -71,6 +92,12 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	char *argv[MAX_ARGV];
 	char answer[4096];
 	char argv_buf[4096];
+#define MAX_ENVP 1024
+	char *envp[MAX_ENVP];
+	struct timeval start;
+#ifdef O_NONBLOCK
+	int nonblock = TRUE;
+#endif
 
 	if (user_msg) *user_msg = '\0';
 	if (output_pairs) *output_pairs = NULL;
@@ -148,6 +175,10 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 				}
 				break;
 
+			case '\\':
+				if (from[1] == ' ') from++;
+				/* FALL-THROUGH */
+
 			default:
 				*(to++) = *(from++);
 			}
@@ -222,6 +253,50 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		output_pairs = NULL;
 	}
 
+	envp[0] = NULL;
+
+	if (input_pairs) {
+		int envlen;
+		char buffer[1024];
+
+		/*
+		 *	Set up the environment variables in the
+		 *	parent, so we don't call libc functions that
+		 *	hold mutexes.  They might be locked when we fork,
+		 *	and will remain locked in the child.
+		 */
+		envlen = 0;
+
+		for (vp = input_pairs; vp != NULL; vp = vp->next) {
+			/*
+			 *	Hmm... maybe we shouldn't pass the
+			 *	user's password in an environment
+			 *	variable...
+			 */
+			snprintf(buffer, sizeof(buffer), "%s=", vp->name);
+			if (shell_escape) {
+				for (p = buffer; *p != '='; p++) {
+					if (*p == '-') {
+						*p = '_';
+					} else if (isalpha((int) *p)) {
+						*p = toupper(*p);
+					}
+				}
+			}
+
+			n = strlen(buffer);
+			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, shell_escape);
+
+			envp[envlen++] = strdup(buffer);
+
+			/*
+			 *	Don't add too many attributes.
+			 */
+			if (envlen == (MAX_ENVP - 1)) break;
+		}
+		envp[envlen] = NULL;
+	}
+
 	if (exec_wait) {
 		pid = rad_fork();	/* remember PID */
 	} else {
@@ -229,11 +304,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	}
 
 	if (pid == 0) {
-#define MAX_ENVP 1024
 		int devnull;
-		char *envp[MAX_ENVP];
-		int envlen;
-		char buffer[1024];
 
 		/*
 		 *	Child process.
@@ -302,46 +373,17 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		 */
 		closefrom(3);
 
-		/*
-		 *	Set up the environment variables.
-		 *	We're in the child, and it will exit in 4 lines
-		 *	anyhow, so memory allocation isn't an issue.
-		 */
-		envlen = 0;
-
-		for (vp = input_pairs; vp != NULL; vp = vp->next) {
-			/*
-			 *	Hmm... maybe we shouldn't pass the
-			 *	user's password in an environment
-			 *	variable...
-			 */
-			snprintf(buffer, sizeof(buffer), "%s=", vp->name);
-			if (shell_escape) {
-				for (p = buffer; *p != '='; p++) {
-					if (*p == '-') {
-						*p = '_';
-					} else if (isalpha((int) *p)) {
-						*p = toupper(*p);
-					}
-				}
-			}
-
-			n = strlen(buffer);
-			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, shell_escape);
-
-			envp[envlen++] = strdup(buffer);
-
-			/*
-			 *	Don't add too many attributes.
-			 */
-			if (envlen == (MAX_ENVP - 1)) break;
-		}
-		envp[envlen] = NULL;
-
 		execve(argv[0], argv, envp);
 		radlog(L_ERR, "Exec-Program: FAILED to execute %s: %s",
 		       argv[0], strerror(errno));
 		exit(1);
+	}
+
+	/*
+	 *	Free child environment variables
+	 */
+	for (i = 0; envp[i] != NULL; i++) {
+		free(envp[i]);
 	}
 
 	/*
@@ -376,14 +418,82 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		return -1;
 	}
 
+#ifdef O_NONBLOCK
+	/*
+	 *	Try to set it non-blocking.
+	 */
+	do {
+		int flags;
+		
+		if ((flags = fcntl(pd[0], F_GETFL, NULL)) < 0)  {
+			nonblock = FALSE;
+			break;
+		}
+		
+		flags |= O_NONBLOCK;
+		if( fcntl(pd[0], F_SETFL, flags) < 0) {
+			nonblock = FALSE;
+			break;
+		}
+	} while (0);
+#endif
+
+
 	/*
 	 *	Read from the pipe until we doesn't get any more or
 	 *	until the message is full.
 	 */
 	done = 0;
 	left = sizeof(answer) - 1;
+	gettimeofday(&start, NULL);
 	while (1) {
-		status = read(pd[0], answer + done, left);
+		int rcode;
+		fd_set fds;
+		struct timeval when, elapsed, wake;
+
+		FD_ZERO(&fds);
+		FD_SET(pd[0], &fds);
+
+		gettimeofday(&when, NULL);
+		tv_sub(&when, &start, &elapsed);
+		if (elapsed.tv_sec >= 10) goto too_long;
+		
+		when.tv_sec = 10;
+		when.tv_usec = 0;
+		tv_sub(&when, &elapsed, &wake);
+
+		rcode = select(pd[0] + 1, &fds, NULL, NULL, &wake);
+		if (rcode == 0) {
+		too_long:
+			radlog(L_ERR, "Child PID %u is taking too much time: forcing failure and killing child.", pid);
+			kill(pid, SIGTERM);
+			close(pd[0]); /* should give SIGPIPE to child, too */
+
+			/*
+			 *	Clean up the child entry.
+			 */
+			rad_waitpid(pid, &status);
+			return 1;			
+		}
+		if (rcode < 0) {
+			if (errno == EINTR) continue;
+			break;
+		}
+
+#ifdef O_NONBLOCK
+		/*
+		 *	Read as many bytes as possible.  The kernel
+		 *	will return the number of bytes available.
+		 */
+		if (nonblock) {
+			status = read(pd[0], answer + done, left);
+		} else 
+#endif
+			/*
+			 *	There's at least 1 byte ready: read it.
+			 */
+			status = read(pd[0], answer + done, 1);
+
 		/*
 		 *	Nothing more to read: stop.
 		 */
@@ -519,49 +629,7 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 	user_msg = NULL;
 	output_pairs = NULL;
 
-	/*
-	 *	FIXME: Move to a common routine.
-	 */
 	{
-#define MAX_ENVP 1024
-		char *envp[MAX_ENVP];
-		int envlen;
-		char buffer[1024];
-
-		/*
-		 *	Set up the environment variables.
-		 */
-		envlen = 0;
-
-		for (vp = input_pairs; vp != NULL; vp = vp->next) {
-			/*
-			 *	Hmm... maybe we shouldn't pass the
-			 *	user's password in an environment
-			 *	variable...
-			 */
-			snprintf(buffer, sizeof(buffer), "%s=", vp->name);
-			if (shell_escape) {
-				for (p = buffer; *p != '='; p++) {
-					if (*p == '-') {
-						*p = '_';
-					} else if (isalpha((int) *p)) {
-						*p = toupper(*p);
-					}
-				}
-			}
-
-			n = strlen(buffer);
-			vp_prints_value(buffer+n, sizeof(buffer) - n, vp, shell_escape);
-
-			envp[envlen++] = strdup(buffer);
-
-			/*
-			 *	Don't add too many attributes.
-			 */
-			if (envlen == (MAX_ENVP - 1)) break;
-		}
-		envp[envlen] = NULL;
-
 		/*
 		 *	The _spawn and _exec families of functions are
 		 *	found in Windows compiler libraries for
@@ -587,12 +655,6 @@ int radius_exec_program(const char *cmd, REQUEST *request,
 		 *	FIXME: check return code... what is it?
 		 */
 		_spawnve(_P_NOWAIT, argv[0], argv, envp);
-
-		for (i = 0; i < MAX_ENVP; i++) {
-			if (!envp[i]) break;
-			free(envp[i]);
-		}
-
 	}
 
 	return 0;

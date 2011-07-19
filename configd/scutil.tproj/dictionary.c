@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -176,7 +176,7 @@ do_dictSetKey(int argc, char **argv)
 	if (doArray) {
 		CFDictionarySetValue(newValue, key, array);
 		CFRelease(array);
-	} else {
+	} else if (val != NULL) {
 		CFDictionarySetValue(newValue, key, val);
 		CFRelease(val);
 	}

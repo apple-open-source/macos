@@ -4,7 +4,7 @@
 [copyright {2004 Arjen Markus <arjenmarkus at users dot sourceforge dot net>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Arbitrary precision integer numbers}]
-
+[category  Mathematics]
 [require Tcl [opt 8.4]]
 [require math::bignum [opt 3.1]]
 

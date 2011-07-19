@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 2004 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 2004 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: strerror.c,v 1.56 2009-07-22 22:49:02 bagder Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -80,6 +79,9 @@ curl_easy_strerror(CURLcode error)
 
   case CURLE_REMOTE_ACCESS_DENIED:
     return "Access denied to remote resource";
+
+  case CURLE_FTP_PRET_FAILED:
+    return "FTP: The server did not accept the PRET command.";
 
   case CURLE_FTP_WEIRD_PASS_REPLY:
     return "FTP: unknown PASS reply";
@@ -266,6 +268,18 @@ curl_easy_strerror(CURLcode error)
 
   case CURLE_AGAIN:
     return "Socket not ready for send/recv";
+
+  case CURLE_RTSP_CSEQ_ERROR:
+    return "RTSP CSeq mismatch or invalid CSeq";
+
+  case CURLE_RTSP_SESSION_ERROR:
+    return "RTSP session error";
+
+  case CURLE_FTP_BAD_FILE_LIST:
+    return "Unable to parse FTP file list";
+
+  case CURLE_CHUNK_FAILED:
+    return "Chunk callback failed";
 
     /* error codes not used by current libcurl */
   case CURLE_OBSOLETE4:

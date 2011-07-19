@@ -1,0 +1,43 @@
+#!/bin/bash
+
+declare -i iter_count total_count
+declare -i start_time stop_time
+
+user_name=$1
+user_pass=$2
+total_count=$3
+recursion_count=$4
+
+if [[ $# -ne 4 ]]
+then
+	echo "Usage: <user name> <password> <# logins> <# recursion>"
+	exit 1
+fi
+
+exec_prog="./test-auth"
+iter_count=0
+
+printf "\n"
+printf "Login count    : %d\n" ${total_count}
+printf "Recursion count: %d\n" ${recursion_count}
+printf "\n"
+printf "Starting test..."
+
+start_time=$(date +%s)
+
+while ((${iter_count} < ${total_count}))
+do
+	${exec_prog} ${user_name} ${user_pass} ${recursion_count} > /dev/null
+	iter_count=$((1+${iter_count}))
+done
+
+stop_time=$(date +%s)
+printf " done.\n"
+
+elap_time=$((${stop_time}-${start_time}))
+iter_total=$((${iter_count}*${recursion_count}))
+
+printf "\n"
+printf "Total iterations: %d = %d * %d \n" ${iter_total} ${iter_count} ${recursion_count}
+printf "Elapsed time    : %d seconds\n" ${elap_time}
+printf "Logins/second   : %d\n" $((iter_total/${elap_time}))

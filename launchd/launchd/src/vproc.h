@@ -97,7 +97,7 @@ typedef struct vproc_transaction_s *vproc_transaction_t;
  * Call this API before creating data that needs to be saved via I/O later.
  */
 vproc_transaction_t
-vproc_transaction_begin(vproc_t virtual_proc) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+vproc_transaction_begin(vproc_t virtual_proc) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
 
 /*!
  * @function vproc_transaction_end
@@ -115,7 +115,7 @@ vproc_transaction_begin(vproc_t virtual_proc) __OSX_AVAILABLE_STARTING(__MAC_10_
  * Calling this API with the same handle more than once is undefined.
  */
 void
-vproc_transaction_end(vproc_t virtual_proc, vproc_transaction_t handle) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_NA);
+vproc_transaction_end(vproc_t virtual_proc, vproc_transaction_t handle) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_5_0);
 
 /*!
  * @typedef	vproc_standby_t

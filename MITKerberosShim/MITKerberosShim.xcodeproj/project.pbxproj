@@ -1,0 +1,2429 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		EB6FCA8910A6602200D80A61 /* Test files */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Test files" */;
+			buildPhases = (
+				EB6FCA9110A6608D00D80A61 /* KLLAcquireCredUI raft */,
+				EB6FCA9810A660BF00D80A61 /* Copy Test Files */,
+			);
+			dependencies = (
+			);
+			name = "Test files";
+			productName = "Raft files";
+		};
+		EBA0D034100AA379002C4826 /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = EBA0D048100AA3E6002C4826 /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				EB6FCA8F10A6606000D80A61 /* PBXTargetDependency */,
+				EB17B66A106304FA0015DEB4 /* PBXTargetDependency */,
+				1C20F27A10F284E300C456B4 /* PBXTargetDependency */,
+				1C20F27810F284E300C456B4 /* PBXTargetDependency */,
+				1C20F27610F284E300C456B4 /* PBXTargetDependency */,
+				1C20F27410F284E300C456B4 /* PBXTargetDependency */,
+				1C20F27210F284E300C456B4 /* PBXTargetDependency */,
+				1C20F27010F284E300C456B4 /* PBXTargetDependency */,
+				1C20F26E10F284E300C456B4 /* PBXTargetDependency */,
+				1C20F26C10F284E300C456B4 /* PBXTargetDependency */,
+				1C20F26A10F284E300C456B4 /* PBXTargetDependency */,
+				1C20F26810F284E300C456B4 /* PBXTargetDependency */,
+				1C20F26610F284E300C456B4 /* PBXTargetDependency */,
+				EB7CE7CC1297557E0059CD86 /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		1C1A4FAF10DC3D1B001883EA /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1C20F24810F283E800C456B4 /* test-kll.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22B10F283C900C456B4 /* test-kll.c */; };
+		1C20F24F10F2845700C456B4 /* test-gss-common.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22710F283C900C456B4 /* test-gss-common.c */; };
+		1C20F25010F2846200C456B4 /* test-gss-client.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22610F283C900C456B4 /* test-gss-client.c */; };
+		1C20F25110F2846900C456B4 /* test-gss-common.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22710F283C900C456B4 /* test-gss-common.c */; };
+		1C20F25210F2846D00C456B4 /* test-gss-server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22910F283C900C456B4 /* test-gss-server.c */; };
+		1C20F25310F2847400C456B4 /* test-kClient.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22A10F283C900C456B4 /* test-kClient.c */; };
+		1C20F25710F2848700C456B4 /* test-kll2.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22C10F283C900C456B4 /* test-kll2.c */; };
+		1C20F25810F2848F00C456B4 /* test-krb.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22D10F283C900C456B4 /* test-krb.c */; };
+		1C20F25910F2849500C456B4 /* test-krb4.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22E10F283C900C456B4 /* test-krb4.c */; };
+		1C20F25A10F2849B00C456B4 /* test-krb5.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F22F10F283C900C456B4 /* test-krb5.c */; };
+		1C20F25B10F284A200C456B4 /* test-principal.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F23010F283C900C456B4 /* test-principal.c */; };
+		1C20F25F10F284A800C456B4 /* test-sd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C20F23110F283C900C456B4 /* test-sd.c */; };
+		1C20F2B310F28AEA00C456B4 /* test-gss.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 1C20F2B210F28AE600C456B4 /* test-gss.sh */; };
+		1C72629210F5AB22009BFC63 /* test_collection.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C72629010F5AB22009BFC63 /* test_collection.c */; };
+		1C82A79510C5C9E400115F67 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1C82A7AC10C5C9FE00115F67 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1C82A7C310C5CA1900115F67 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1C82A7DA10C5CA3900115F67 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1CC0D81D1108EDC600D084BB /* krb5.conf.in in Copy Test Files */ = {isa = PBXBuildFile; fileRef = 1CC0D8151108ED7600D084BB /* krb5.conf.in */; };
+		1CEDD250106303EE008A482B /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		1CF9E7CA10605843009E3024 /* Krb4DeprecatedAPIs.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */; };
+		EB029EBE109FC50000B1217A /* gss-glue.c in Sources */ = {isa = PBXBuildFile; fileRef = EB029EBD109FC50000B1217A /* gss-glue.c */; };
+		EB0F29C41000162300224B2D /* dummy.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F299D1000153400224B2D /* dummy.c */; };
+		EB0F29D01000164100224B2D /* mit-com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C61000164100224B2D /* mit-com_err.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB0F29D11000164100224B2D /* mit-CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C71000164100224B2D /* mit-CredentialsCache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB0F29D21000164100224B2D /* mit-CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C81000164100224B2D /* mit-CredentialsCache2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D31000164100224B2D /* mit-gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29C91000164100224B2D /* mit-gssapi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D41000164100224B2D /* mit-gssapi_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CA1000164100224B2D /* mit-gssapi_generic.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D51000164100224B2D /* mit-gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CB1000164100224B2D /* mit-gssapi_krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D61000164100224B2D /* mit-Kerberos.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CC1000164100224B2D /* mit-Kerberos.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D71000164100224B2D /* mit-KerberosLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CD1000164100224B2D /* mit-KerberosLogin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D81000164100224B2D /* mit-krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CE1000164100224B2D /* mit-krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29D91000164100224B2D /* mit-profile.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F29CF1000164100224B2D /* mit-profile.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB0F29FC10001D0000224B2D /* gss-symbols.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F29FB10001D0000224B2D /* gss-symbols.c */; };
+		EB0F2A101000221800224B2D /* ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2A0F1000221800224B2D /* ccache.c */; };
+		EB0F2A401000310300224B2D /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F2A3F1000310300224B2D /* Heimdal.framework */; };
+		EB0F2A6D1000373400224B2D /* heim.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F2A6C1000373400224B2D /* heim.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F2AA71000497D00224B2D /* heim-loader.c in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2AA21000492E00224B2D /* heim-loader.c */; };
+		EB0F2AA81000497D00224B2D /* heim-sym.h in Headers */ = {isa = PBXBuildFile; fileRef = EB0F2AA31000492E00224B2D /* heim-sym.h */; settings = {ATTRIBUTES = (); }; };
+		EB0F2AA91000497D00224B2D /* heim-sym.x86_64.s in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2AA41000492E00224B2D /* heim-sym.x86_64.s */; };
+		EB0F2AC510004C5600224B2D /* heim-sym.i386.s in Sources */ = {isa = PBXBuildFile; fileRef = EB0F2AC410004C5600224B2D /* heim-sym.i386.s */; };
+		EB15204010AA532E00B6446B /* password.c in Sources */ = {isa = PBXBuildFile; fileRef = EB15203F10AA532E00B6446B /* password.c */; };
+		EB1F5D4010A905F300B69A08 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EB2430D010586E42001A4FB8 /* heim-proxy.ppc.s in Sources */ = {isa = PBXBuildFile; fileRef = EB2430CE10586E42001A4FB8 /* heim-proxy.ppc.s */; };
+		EB2430D110586E42001A4FB8 /* heim-sym.ppc.s in Sources */ = {isa = PBXBuildFile; fileRef = EB2430CF10586E42001A4FB8 /* heim-sym.ppc.s */; };
+		EB27475510881A4400AAB294 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EB2747F610883A3700AAB294 /* com_err.h in install include */ = {isa = PBXBuildFile; fileRef = EB27476F10883A1500AAB294 /* com_err.h */; };
+		EB2747F710883A3700AAB294 /* gssapi.h in install include */ = {isa = PBXBuildFile; fileRef = EB27477410883A1500AAB294 /* gssapi.h */; };
+		EB2747F810883A3700AAB294 /* krb5.h in install include */ = {isa = PBXBuildFile; fileRef = EB27477910883A1500AAB294 /* krb5.h */; };
+		EB2747F910883A3700AAB294 /* profile.h in install include */ = {isa = PBXBuildFile; fileRef = EB27477A10883A1500AAB294 /* profile.h */; };
+		EB2747FA10883A4500AAB294 /* krb5.h in install include-krb5 */ = {isa = PBXBuildFile; fileRef = EB27477610883A1500AAB294 /* krb5.h */; };
+		EB2747FB10883A4500AAB294 /* locate_plugin.h in install include-krb5 */ = {isa = PBXBuildFile; fileRef = EB27477710883A1500AAB294 /* locate_plugin.h */; };
+		EB2747FC10883A4500AAB294 /* preauth_plugin.h in install include-krb5 */ = {isa = PBXBuildFile; fileRef = EB27477810883A1500AAB294 /* preauth_plugin.h */; };
+		EB2747FD10883A5100AAB294 /* gssapi.h in install include-gssapi */ = {isa = PBXBuildFile; fileRef = EB27477110883A1500AAB294 /* gssapi.h */; };
+		EB2747FE10883A5100AAB294 /* gssapi_generic.h in install include-gssapi */ = {isa = PBXBuildFile; fileRef = EB27477210883A1500AAB294 /* gssapi_generic.h */; };
+		EB2747FF10883A5100AAB294 /* gssapi_krb5.h in install include-gssapi */ = {isa = PBXBuildFile; fileRef = EB27477310883A1500AAB294 /* gssapi_krb5.h */; };
+		EB514CFF108D6AC500A2FFD7 /* rd_req.c in Sources */ = {isa = PBXBuildFile; fileRef = EB514CFE108D6AC500A2FFD7 /* rd_req.c */; };
+		EB514D4F108D81F300A2FFD7 /* mk_req.c in Sources */ = {isa = PBXBuildFile; fileRef = EB514D4E108D81F300A2FFD7 /* mk_req.c */; };
+		EB56891E10A1F0390065DD2D /* MITKerberosShim.plist in OpenSourceVersions */ = {isa = PBXBuildFile; fileRef = EB56890C10A1EFDF0065DD2D /* MITKerberosShim.plist */; };
+		EB56891F10A1F03E0065DD2D /* MITKerberosShim.txt in OpenSourceLicenses */ = {isa = PBXBuildFile; fileRef = EB56890D10A1EFDF0065DD2D /* MITKerberosShim.txt */; };
+		EB6EE8031086592700F92EAF /* keytab.c in Sources */ = {isa = PBXBuildFile; fileRef = EB6EE8021086592700F92EAF /* keytab.c */; };
+		EB6EE85E1086DC3100F92EAF /* heimdal-ify.sh in install heimdal-ify.sh */ = {isa = PBXBuildFile; fileRef = EB6EE85D1086DC2400F92EAF /* heimdal-ify.sh */; };
+		EB6EE86D1087CBC800F92EAF /* krb5-config in install krb5-config */ = {isa = PBXBuildFile; fileRef = EB6EE86B1087CBC200F92EAF /* krb5-config */; };
+		EB6EE89D1087D6FC00F92EAF /* authdata_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE88C1087D6FC00F92EAF /* authdata_plugin.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE89E1087D6FC00F92EAF /* KerberosDebug.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE88D1087D6FC00F92EAF /* KerberosDebug.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE89F1087D6FC00F92EAF /* KerberosLoginPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE88E1087D6FC00F92EAF /* KerberosLoginPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A01087D6FC00F92EAF /* kim_ccache.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE88F1087D6FC00F92EAF /* kim_ccache.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A11087D6FC00F92EAF /* kim_credential.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8901087D6FC00F92EAF /* kim_credential.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A21087D6FC00F92EAF /* kim_errors.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8911087D6FC00F92EAF /* kim_errors.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A31087D6FC00F92EAF /* kim_identity.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8921087D6FC00F92EAF /* kim_identity.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A41087D6FC00F92EAF /* kim_library.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8931087D6FC00F92EAF /* kim_library.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A51087D6FC00F92EAF /* kim_options.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8941087D6FC00F92EAF /* kim_options.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A61087D6FC00F92EAF /* kim_preferences.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8951087D6FC00F92EAF /* kim_preferences.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A71087D6FC00F92EAF /* kim_selection_hints.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8961087D6FC00F92EAF /* kim_selection_hints.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A81087D6FC00F92EAF /* kim_string.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8971087D6FC00F92EAF /* kim_string.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8A91087D6FC00F92EAF /* kim_types.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8981087D6FC00F92EAF /* kim_types.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8AA1087D6FC00F92EAF /* kim_ui_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE8991087D6FC00F92EAF /* kim_ui_plugin.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8AB1087D6FC00F92EAF /* kim.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE89A1087D6FC00F92EAF /* kim.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8AC1087D6FC00F92EAF /* krb5-ipc.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE89B1087D6FC00F92EAF /* krb5-ipc.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6EE8AD1087D6FC00F92EAF /* pkinit_cert_store.h in Headers */ = {isa = PBXBuildFile; fileRef = EB6EE89C1087D6FC00F92EAF /* pkinit_cert_store.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		EB6FCA5610A646BA00D80A61 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 0AA1909FFE8422F4C02AAC07 /* CoreFoundation.framework */; };
+		EB6FCA8D10A6605200D80A61 /* KLLAcquireCredUI.py in KLLAcquireCredUI raft */ = {isa = PBXBuildFile; fileRef = EB6FCA8210A65FEF00D80A61 /* KLLAcquireCredUI.py */; };
+		EB6FCA9410A660B100D80A61 /* MITKerberosShimTests.sh in Copy Test Files */ = {isa = PBXBuildFile; fileRef = EB6FCA9010A6608D00D80A61 /* MITKerberosShimTests.sh */; };
+		EB75B94E100135730009B251 /* gic.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75B94C100135730009B251 /* gic.c */; };
+		EB75B94F100135730009B251 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75B94D100135730009B251 /* misc.c */; };
+		EB75B98E100143F90009B251 /* principal.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75B98D100143F90009B251 /* principal.c */; };
+		EB75BA99100176B20009B251 /* heim-proxy.i386.s in Sources */ = {isa = PBXBuildFile; fileRef = EB75BA97100176B20009B251 /* heim-proxy.i386.s */; };
+		EB75BA9A100176B20009B251 /* heim-proxy.x86_64.s in Sources */ = {isa = PBXBuildFile; fileRef = EB75BA98100176B20009B251 /* heim-proxy.x86_64.s */; };
+		EB75BB1A1001BB3B0009B251 /* kll.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BB191001BB3B0009B251 /* kll.c */; };
+		EB75BBF710024FD30009B251 /* prof_err.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBED10024FD30009B251 /* prof_err.c */; };
+		EB75BBF810024FD30009B251 /* prof_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBEE10024FD30009B251 /* prof_err.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB75BBF910024FD30009B251 /* prof_file.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBEF10024FD30009B251 /* prof_file.c */; };
+		EB75BBFA10024FD30009B251 /* prof_FSp_glue.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF010024FD30009B251 /* prof_FSp_glue.c */; };
+		EB75BBFB10024FD30009B251 /* prof_get.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF110024FD30009B251 /* prof_get.c */; };
+		EB75BBFC10024FD30009B251 /* prof_init.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF210024FD30009B251 /* prof_init.c */; };
+		EB75BBFD10024FD30009B251 /* prof_int.h in Headers */ = {isa = PBXBuildFile; fileRef = EB75BBF310024FD30009B251 /* prof_int.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EB75BBFE10024FD30009B251 /* prof_parse.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF410024FD30009B251 /* prof_parse.c */; };
+		EB75BBFF10024FD30009B251 /* prof_set.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF510024FD30009B251 /* prof_set.c */; };
+		EB75BC0010024FD30009B251 /* prof_tree.c in Sources */ = {isa = PBXBuildFile; fileRef = EB75BBF610024FD30009B251 /* prof_tree.c */; };
+		EB7781A510AB9EBA00CF02BC /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EB90DFB410AB304800DCB939 /* crypto.c in Sources */ = {isa = PBXBuildFile; fileRef = EB90DFB310AB304800DCB939 /* crypto.c */; };
+		EBA0D009100A9F76002C4826 /* cache.c in Sources */ = {isa = PBXBuildFile; fileRef = EBA0D008100A9F76002C4826 /* cache.c */; };
+		EBA0D063100AA488002C4826 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EBBC53171083F7AA00F580FB /* com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530B1083F7AA00F580FB /* com_err.h */; };
+		EBBC53181083F7AA00F580FB /* CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530C1083F7AA00F580FB /* CredentialsCache.h */; };
+		EBBC53191083F7AA00F580FB /* CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530D1083F7AA00F580FB /* CredentialsCache2.h */; };
+		EBBC531A1083F7AA00F580FB /* gssapi_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530E1083F7AA00F580FB /* gssapi_generic.h */; };
+		EBBC531B1083F7AA00F580FB /* gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530F1083F7AA00F580FB /* gssapi_krb5.h */; };
+		EBBC531C1083F7AA00F580FB /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53101083F7AA00F580FB /* gssapi.h */; };
+		EBBC531D1083F7AA00F580FB /* Kerberos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53111083F7AA00F580FB /* Kerberos.h */; };
+		EBBC531E1083F7AA00F580FB /* KerberosLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53121083F7AA00F580FB /* KerberosLogin.h */; };
+		EBBC531F1083F7AA00F580FB /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53131083F7AA00F580FB /* krb5.h */; };
+		EBBC53201083F7AA00F580FB /* locate_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53141083F7AA00F580FB /* locate_plugin.h */; };
+		EBBC53211083F7AA00F580FB /* preauth_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53151083F7AA00F580FB /* preauth_plugin.h */; };
+		EBBC53221083F7AA00F580FB /* profile.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53161083F7AA00F580FB /* profile.h */; };
+		EBBC53231083F7C900F580FB /* com_err.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530B1083F7AA00F580FB /* com_err.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53241083F7C900F580FB /* CredentialsCache.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530C1083F7AA00F580FB /* CredentialsCache.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53251083F7C900F580FB /* CredentialsCache2.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530D1083F7AA00F580FB /* CredentialsCache2.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53261083F7C900F580FB /* gssapi_generic.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530E1083F7AA00F580FB /* gssapi_generic.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53271083F7C900F580FB /* gssapi_krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC530F1083F7AA00F580FB /* gssapi_krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53281083F7C900F580FB /* gssapi.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53101083F7AA00F580FB /* gssapi.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC53291083F7C900F580FB /* Kerberos.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53111083F7AA00F580FB /* Kerberos.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC532A1083F7C900F580FB /* KerberosLogin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53121083F7AA00F580FB /* KerberosLogin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC532B1083F7C900F580FB /* krb5.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53131083F7AA00F580FB /* krb5.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC532C1083F7C900F580FB /* locate_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53141083F7AA00F580FB /* locate_plugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC532D1083F7C900F580FB /* preauth_plugin.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53151083F7AA00F580FB /* preauth_plugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBC532E1083F7C900F580FB /* profile.h in Headers */ = {isa = PBXBuildFile; fileRef = EBBC53161083F7AA00F580FB /* profile.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		EBBFB0CF100D5E9500BF3DAE /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EBBFB0CE100D5E9500BF3DAE /* Security.framework */; };
+		EBC0CFC31083CEFE00B5BAAD /* test_ccapi_v2.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF6D1083B84A00B5BAAD /* test_ccapi_v2.c */; };
+		EBC0CFC41083CF0100B5BAAD /* test_ccapi_util.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF6B1083B84A00B5BAAD /* test_ccapi_util.c */; };
+		EBC0CFC51083CF0200B5BAAD /* test_ccapi_log.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF691083B84A00B5BAAD /* test_ccapi_log.c */; };
+		EBC0CFC61083CF0300B5BAAD /* test_ccapi_iterators.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF671083B84A00B5BAAD /* test_ccapi_iterators.c */; };
+		EBC0CFC71083CF0500B5BAAD /* test_ccapi_globals.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF651083B84A00B5BAAD /* test_ccapi_globals.c */; };
+		EBC0CFC81083CF0600B5BAAD /* test_ccapi_context.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF631083B84A00B5BAAD /* test_ccapi_context.c */; };
+		EBC0CFC91083CF0A00B5BAAD /* test_ccapi_constants.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF611083B84A00B5BAAD /* test_ccapi_constants.c */; };
+		EBC0CFCA1083CF0B00B5BAAD /* test_ccapi_check.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF5F1083B84A00B5BAAD /* test_ccapi_check.c */; };
+		EBC0CFCB1083CF0C00B5BAAD /* test_ccapi_ccache.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0CF5D1083B84A00B5BAAD /* test_ccapi_ccache.c */; };
+		EBC0D00A1083CF7000B5BAAD /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = EBC0D0091083CF7000B5BAAD /* main.c */; };
+		EBC0D0361083E49800B5BAAD /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EBD01FA6108D32DB00AECFF3 /* auth_context.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD01FA5108D32DB00AECFF3 /* auth_context.c */; };
+		EBD885B51056E258006242E9 /* creds.c in Sources */ = {isa = PBXBuildFile; fileRef = EBD885B41056E258006242E9 /* creds.c */; };
+		EBDB5B6C10A38B81003FD0F9 /* krb5-config.1 in install man1 */ = {isa = PBXBuildFile; fileRef = EBDB5B6510A38B47003FD0F9 /* krb5-config.1 */; };
+		EBDC3381108F33E0006C63C9 /* misc-mit.c in Sources */ = {isa = PBXBuildFile; fileRef = EBDC3380108F33E0006C63C9 /* misc-mit.c */; };
+		EBED4E5312958B840029A1B4 /* Kerberos.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = EB0F29BF1000160500224B2D /* Kerberos.framework */; };
+		EBED4E5F12958BC10029A1B4 /* test-KLAcquireInitialTickets.c in Sources */ = {isa = PBXBuildFile; fileRef = EBED4E4812958B4D0029A1B4 /* test-KLAcquireInitialTickets.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1C1A4FAA10DC3D1B001883EA /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		1C20F26510F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB274749108819F500AAB294;
+			remoteInfo = "test-sd";
+		};
+		1C20F26710F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB1F5D3810A905D200B69A08;
+			remoteInfo = "test-principal";
+		};
+		1C20F26910F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C82A7D210C5CA3900115F67;
+			remoteInfo = "test-krb5";
+		};
+		1C20F26B10F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C620D5B1062FE9800209602;
+			remoteInfo = "test-krb4";
+		};
+		1C20F26D10F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C82A7BB10C5CA1900115F67;
+			remoteInfo = "test-krb";
+		};
+		1C20F26F10F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB77819E10AB9EB000CF02BC;
+			remoteInfo = "test-kll2";
+		};
+		1C20F27110F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBA0D028100AA2AB002C4826;
+			remoteInfo = "test-kll";
+		};
+		1C20F27310F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C82A7A410C5C9FE00115F67;
+			remoteInfo = "test-kClient";
+		};
+		1C20F27510F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C1A4FA810DC3D1B001883EA;
+			remoteInfo = "test-gss-server";
+		};
+		1C20F27710F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1C82A78D10C5C9E400115F67;
+			remoteInfo = "test-gss-client";
+		};
+		1C20F27910F284E300C456B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBC0CFBB1083CEA800B5BAAD;
+			remoteInfo = "test-cc";
+		};
+		1C82A78F10C5C9E400115F67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		1C82A7A610C5C9FE00115F67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		1C82A7BD10C5CA1900115F67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		1C82A7D410C5CA3900115F67 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		1CEDD24E106303EB008A482B /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB17B669106304FA0015DEB4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB27475810881A4C00AAB294 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB5C490610A9277F001CD7E3 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB6FCA8E10A6606000D80A61 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB6FCA8910A6602200D80A61;
+			remoteInfo = "Raft files";
+		};
+		EB7781A310AB9EB700CF02BC /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EB7CE7CB1297557E0059CD86 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */;
+			remoteInfo = "test-KLAcquireInitialTickets";
+		};
+		EBA0D03B100AA382002C4826 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EBC0D0341083E48100B5BAAD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+		EBED4E5112958B790029A1B4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = EB0F29BE1000160500224B2D;
+			remoteInfo = Kerberos;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		EB274761108838DC00AAB294 /* install include-krb5 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "${HEIMDAL_ROOT}/usr/include/krb5";
+			dstSubfolderSpec = 0;
+			files = (
+				EB2747FA10883A4500AAB294 /* krb5.h in install include-krb5 */,
+				EB2747FB10883A4500AAB294 /* locate_plugin.h in install include-krb5 */,
+				EB2747FC10883A4500AAB294 /* preauth_plugin.h in install include-krb5 */,
+			);
+			name = "install include-krb5";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB27476C108839D500AAB294 /* install include */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(HEIMDAL_ROOT)/usr/include";
+			dstSubfolderSpec = 0;
+			files = (
+				EB2747F610883A3700AAB294 /* com_err.h in install include */,
+				EB2747F710883A3700AAB294 /* gssapi.h in install include */,
+				EB2747F810883A3700AAB294 /* krb5.h in install include */,
+				EB2747F910883A3700AAB294 /* profile.h in install include */,
+			);
+			name = "install include";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB27476D108839D500AAB294 /* install include-gssapi */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "$(HEIMDAL_ROOT)/usr/include/gssapi";
+			dstSubfolderSpec = 0;
+			files = (
+				EB2747FD10883A5100AAB294 /* gssapi.h in install include-gssapi */,
+				EB2747FE10883A5100AAB294 /* gssapi_generic.h in install include-gssapi */,
+				EB2747FF10883A5100AAB294 /* gssapi_krb5.h in install include-gssapi */,
+			);
+			name = "install include-gssapi";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB56891910A1EFED0065DD2D /* OpenSourceVersions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				EB56891E10A1F0390065DD2D /* MITKerberosShim.plist in OpenSourceVersions */,
+			);
+			name = OpenSourceVersions;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB56891C10A1F01C0065DD2D /* OpenSourceLicenses */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceLicenses;
+			dstSubfolderSpec = 0;
+			files = (
+				EB56891F10A1F03E0065DD2D /* MITKerberosShim.txt in OpenSourceLicenses */,
+			);
+			name = OpenSourceLicenses;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB6EE85B1086DBED00F92EAF /* install heimdal-ify.sh */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/libexec/heimdal/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				EB6EE85E1086DC3100F92EAF /* heimdal-ify.sh in install heimdal-ify.sh */,
+			);
+			name = "install heimdal-ify.sh";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB6EE86C1087CBC300F92EAF /* install krb5-config */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = "${HEIMDAL_ROOT}/usr/bin";
+			dstSubfolderSpec = 0;
+			files = (
+				EB6EE86D1087CBC800F92EAF /* krb5-config in install krb5-config */,
+			);
+			name = "install krb5-config";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB6FCA9110A6608D00D80A61 /* KLLAcquireCredUI raft */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/libexec/heimdal/raft/KLLAcquireCredUI;
+			dstSubfolderSpec = 0;
+			files = (
+				EB6FCA8D10A6605200D80A61 /* KLLAcquireCredUI.py in KLLAcquireCredUI raft */,
+			);
+			name = "KLLAcquireCredUI raft";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EB6FCA9810A660BF00D80A61 /* Copy Test Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/libexec/heimdal/bin;
+			dstSubfolderSpec = 0;
+			files = (
+				1CC0D81D1108EDC600D084BB /* krb5.conf.in in Copy Test Files */,
+				EB6FCA9410A660B100D80A61 /* MITKerberosShimTests.sh in Copy Test Files */,
+				1C20F2B310F28AEA00C456B4 /* test-gss.sh in Copy Test Files */,
+			);
+			name = "Copy Test Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		EBDB5B6B10A38B78003FD0F9 /* install man1 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				EBDB5B6C10A38B81003FD0F9 /* krb5-config.1 in install man1 */,
+			);
+			name = "install man1";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		089C167EFE841241C02AAC07 /* English */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.strings; name = English; path = English.lproj/InfoPlist.strings; sourceTree = "<group>"; };
+		0AA1909FFE8422F4C02AAC07 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		1C1A4FB310DC3D1B001883EA /* test-gss-server */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-gss-server"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C20F22510F283C900C456B4 /* test-authen::krb5.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; name = "test-authen::krb5.pl"; path = "test/test-authen::krb5.pl"; sourceTree = "<group>"; };
+		1C20F22610F283C900C456B4 /* test-gss-client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-gss-client.c"; path = "test/test-gss-client.c"; sourceTree = "<group>"; };
+		1C20F22710F283C900C456B4 /* test-gss-common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-gss-common.c"; path = "test/test-gss-common.c"; sourceTree = "<group>"; };
+		1C20F22810F283C900C456B4 /* test-gss-common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "test-gss-common.h"; path = "test/test-gss-common.h"; sourceTree = "<group>"; };
+		1C20F22910F283C900C456B4 /* test-gss-server.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-gss-server.c"; path = "test/test-gss-server.c"; sourceTree = "<group>"; };
+		1C20F22A10F283C900C456B4 /* test-kClient.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-kClient.c"; path = "test/test-kClient.c"; sourceTree = "<group>"; };
+		1C20F22B10F283C900C456B4 /* test-kll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-kll.c"; path = "test/test-kll.c"; sourceTree = "<group>"; };
+		1C20F22C10F283C900C456B4 /* test-kll2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-kll2.c"; path = "test/test-kll2.c"; sourceTree = "<group>"; };
+		1C20F22D10F283C900C456B4 /* test-krb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-krb.c"; path = "test/test-krb.c"; sourceTree = "<group>"; };
+		1C20F22E10F283C900C456B4 /* test-krb4.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-krb4.c"; path = "test/test-krb4.c"; sourceTree = "<group>"; };
+		1C20F22F10F283C900C456B4 /* test-krb5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-krb5.c"; path = "test/test-krb5.c"; sourceTree = "<group>"; };
+		1C20F23010F283C900C456B4 /* test-principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-principal.c"; path = "test/test-principal.c"; sourceTree = "<group>"; };
+		1C20F23110F283C900C456B4 /* test-sd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-sd.c"; path = "test/test-sd.c"; sourceTree = "<group>"; };
+		1C20F23210F283C900C456B4 /* test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test.h; path = test/test.h; sourceTree = "<group>"; };
+		1C20F2B210F28AE600C456B4 /* test-gss.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "test-gss.sh"; path = "test/test-gss.sh"; sourceTree = "<group>"; };
+		1C620D5C1062FE9800209602 /* test-krb4 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-krb4"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C72629010F5AB22009BFC63 /* test_collection.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_collection.c; path = test/test_collection.c; sourceTree = "<group>"; };
+		1C72629110F5AB22009BFC63 /* test_collection.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_collection.h; path = test/test_collection.h; sourceTree = "<group>"; };
+		1C7893C1105F14F0001C6781 /* exported-symbols */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "exported-symbols"; sourceTree = "<group>"; };
+		1C82A79910C5C9E400115F67 /* test-gss-client */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-gss-client"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C82A7B010C5C9FE00115F67 /* test-kClient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-kClient"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C82A7C710C5CA1900115F67 /* test-krb */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-krb"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1C82A7DE10C5CA3900115F67 /* test-krb5 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-krb5"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CC0D8151108ED7600D084BB /* krb5.conf.in */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = krb5.conf.in; path = test/krb5.conf.in; sourceTree = "<group>"; };
+		1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Krb4DeprecatedAPIs.c; sourceTree = "<group>"; };
+		8D576317048677EA00EA77CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		EB029EBD109FC50000B1217A /* gss-glue.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gss-glue.c"; sourceTree = "<group>"; };
+		EB0F299D1000153400224B2D /* dummy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = dummy.c; sourceTree = "<group>"; };
+		EB0F29BF1000160500224B2D /* Kerberos.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Kerberos.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB0F29C01000160500224B2D /* Kerberos-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Kerberos-Info.plist"; sourceTree = "<group>"; };
+		EB0F29C61000164100224B2D /* mit-com_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-com_err.h"; sourceTree = "<group>"; };
+		EB0F29C71000164100224B2D /* mit-CredentialsCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-CredentialsCache.h"; sourceTree = "<group>"; };
+		EB0F29C81000164100224B2D /* mit-CredentialsCache2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-CredentialsCache2.h"; sourceTree = "<group>"; };
+		EB0F29C91000164100224B2D /* mit-gssapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-gssapi.h"; sourceTree = "<group>"; };
+		EB0F29CA1000164100224B2D /* mit-gssapi_generic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-gssapi_generic.h"; sourceTree = "<group>"; };
+		EB0F29CB1000164100224B2D /* mit-gssapi_krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-gssapi_krb5.h"; sourceTree = "<group>"; };
+		EB0F29CC1000164100224B2D /* mit-Kerberos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-Kerberos.h"; sourceTree = "<group>"; };
+		EB0F29CD1000164100224B2D /* mit-KerberosLogin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-KerberosLogin.h"; sourceTree = "<group>"; };
+		EB0F29CE1000164100224B2D /* mit-krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-krb5.h"; sourceTree = "<group>"; };
+		EB0F29CF1000164100224B2D /* mit-profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "mit-profile.h"; sourceTree = "<group>"; };
+		EB0F29FB10001D0000224B2D /* gss-symbols.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "gss-symbols.c"; sourceTree = "<group>"; };
+		EB0F2A0F1000221800224B2D /* ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ccache.c; sourceTree = "<group>"; };
+		EB0F2A3F1000310300224B2D /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
+		EB0F2A6C1000373400224B2D /* heim.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = heim.h; sourceTree = "<group>"; };
+		EB0F2AA01000492E00224B2D /* gen.pl */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.perl; path = gen.pl; sourceTree = "<group>"; };
+		EB0F2AA11000492E00224B2D /* gen.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = gen.sh; sourceTree = "<group>"; };
+		EB0F2AA21000492E00224B2D /* heim-loader.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "heim-loader.c"; sourceTree = "<group>"; };
+		EB0F2AA31000492E00224B2D /* heim-sym.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "heim-sym.h"; sourceTree = "<group>"; };
+		EB0F2AA41000492E00224B2D /* heim-sym.x86_64.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-sym.x86_64.s"; sourceTree = "<group>"; };
+		EB0F2AC410004C5600224B2D /* heim-sym.i386.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-sym.i386.s"; sourceTree = "<group>"; };
+		EB15203F10AA532E00B6446B /* password.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = password.c; sourceTree = "<group>"; };
+		EB1F5D3910A905D200B69A08 /* test-principal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-principal"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB2430CE10586E42001A4FB8 /* heim-proxy.ppc.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-proxy.ppc.s"; sourceTree = "<group>"; };
+		EB2430CF10586E42001A4FB8 /* heim-sym.ppc.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-sym.ppc.s"; sourceTree = "<group>"; };
+		EB27474A108819F600AAB294 /* test-sd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-sd"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB27476F10883A1500AAB294 /* com_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = com_err.h; path = "mit-include/com_err.h"; sourceTree = "<group>"; };
+		EB27477110883A1500AAB294 /* gssapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gssapi.h; sourceTree = "<group>"; };
+		EB27477210883A1500AAB294 /* gssapi_generic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gssapi_generic.h; sourceTree = "<group>"; };
+		EB27477310883A1500AAB294 /* gssapi_krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gssapi_krb5.h; sourceTree = "<group>"; };
+		EB27477410883A1500AAB294 /* gssapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi.h; path = "mit-include/gssapi.h"; sourceTree = "<group>"; };
+		EB27477610883A1500AAB294 /* krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = krb5.h; sourceTree = "<group>"; };
+		EB27477710883A1500AAB294 /* locate_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = locate_plugin.h; sourceTree = "<group>"; };
+		EB27477810883A1500AAB294 /* preauth_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = preauth_plugin.h; sourceTree = "<group>"; };
+		EB27477910883A1500AAB294 /* krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb5.h; path = "mit-include/krb5.h"; sourceTree = "<group>"; };
+		EB27477A10883A1500AAB294 /* profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = profile.h; path = "mit-include/profile.h"; sourceTree = "<group>"; };
+		EB514CFE108D6AC500A2FFD7 /* rd_req.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rd_req.c; sourceTree = "<group>"; };
+		EB514D4E108D81F300A2FFD7 /* mk_req.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mk_req.c; sourceTree = "<group>"; };
+		EB56890C10A1EFDF0065DD2D /* MITKerberosShim.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; path = MITKerberosShim.plist; sourceTree = "<group>"; };
+		EB56890D10A1EFDF0065DD2D /* MITKerberosShim.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = MITKerberosShim.txt; sourceTree = "<group>"; };
+		EB6EE8021086592700F92EAF /* keytab.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = keytab.c; sourceTree = "<group>"; };
+		EB6EE85D1086DC2400F92EAF /* heimdal-ify.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "heimdal-ify.sh"; sourceTree = "<group>"; };
+		EB6EE86B1087CBC200F92EAF /* krb5-config */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = "krb5-config"; sourceTree = "<group>"; };
+		EB6EE88C1087D6FC00F92EAF /* authdata_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = authdata_plugin.h; path = PrivateKerberos/authdata_plugin.h; sourceTree = "<group>"; };
+		EB6EE88D1087D6FC00F92EAF /* KerberosDebug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KerberosDebug.h; path = PrivateKerberos/KerberosDebug.h; sourceTree = "<group>"; };
+		EB6EE88E1087D6FC00F92EAF /* KerberosLoginPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KerberosLoginPrivate.h; path = PrivateKerberos/KerberosLoginPrivate.h; sourceTree = "<group>"; };
+		EB6EE88F1087D6FC00F92EAF /* kim_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_ccache.h; path = PrivateKerberos/kim_ccache.h; sourceTree = "<group>"; };
+		EB6EE8901087D6FC00F92EAF /* kim_credential.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_credential.h; path = PrivateKerberos/kim_credential.h; sourceTree = "<group>"; };
+		EB6EE8911087D6FC00F92EAF /* kim_errors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_errors.h; path = PrivateKerberos/kim_errors.h; sourceTree = "<group>"; };
+		EB6EE8921087D6FC00F92EAF /* kim_identity.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_identity.h; path = PrivateKerberos/kim_identity.h; sourceTree = "<group>"; };
+		EB6EE8931087D6FC00F92EAF /* kim_library.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_library.h; path = PrivateKerberos/kim_library.h; sourceTree = "<group>"; };
+		EB6EE8941087D6FC00F92EAF /* kim_options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_options.h; path = PrivateKerberos/kim_options.h; sourceTree = "<group>"; };
+		EB6EE8951087D6FC00F92EAF /* kim_preferences.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_preferences.h; path = PrivateKerberos/kim_preferences.h; sourceTree = "<group>"; };
+		EB6EE8961087D6FC00F92EAF /* kim_selection_hints.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_selection_hints.h; path = PrivateKerberos/kim_selection_hints.h; sourceTree = "<group>"; };
+		EB6EE8971087D6FC00F92EAF /* kim_string.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_string.h; path = PrivateKerberos/kim_string.h; sourceTree = "<group>"; };
+		EB6EE8981087D6FC00F92EAF /* kim_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_types.h; path = PrivateKerberos/kim_types.h; sourceTree = "<group>"; };
+		EB6EE8991087D6FC00F92EAF /* kim_ui_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim_ui_plugin.h; path = PrivateKerberos/kim_ui_plugin.h; sourceTree = "<group>"; };
+		EB6EE89A1087D6FC00F92EAF /* kim.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = kim.h; path = PrivateKerberos/kim.h; sourceTree = "<group>"; };
+		EB6EE89B1087D6FC00F92EAF /* krb5-ipc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "krb5-ipc.h"; path = "PrivateKerberos/krb5-ipc.h"; sourceTree = "<group>"; };
+		EB6EE89C1087D6FC00F92EAF /* pkinit_cert_store.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pkinit_cert_store.h; path = PrivateKerberos/pkinit_cert_store.h; sourceTree = "<group>"; };
+		EB6FCA8210A65FEF00D80A61 /* KLLAcquireCredUI.py */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.python; name = KLLAcquireCredUI.py; path = raft/KLLAcquireCredUI/KLLAcquireCredUI.py; sourceTree = "<group>"; };
+		EB6FCA9010A6608D00D80A61 /* MITKerberosShimTests.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; path = MITKerberosShimTests.sh; sourceTree = "<group>"; };
+		EB75B94C100135730009B251 /* gic.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gic.c; sourceTree = "<group>"; };
+		EB75B94D100135730009B251 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
+		EB75B97D100143980009B251 /* TODO */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = TODO; sourceTree = "<group>"; };
+		EB75B98D100143F90009B251 /* principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = principal.c; sourceTree = "<group>"; };
+		EB75BA97100176B20009B251 /* heim-proxy.i386.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-proxy.i386.s"; sourceTree = "<group>"; };
+		EB75BA98100176B20009B251 /* heim-proxy.x86_64.s */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.asm; path = "heim-proxy.x86_64.s"; sourceTree = "<group>"; };
+		EB75BB191001BB3B0009B251 /* kll.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kll.c; sourceTree = "<group>"; };
+		EB75BBED10024FD30009B251 /* prof_err.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_err.c; path = profile/prof_err.c; sourceTree = "<group>"; };
+		EB75BBEE10024FD30009B251 /* prof_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = prof_err.h; path = profile/prof_err.h; sourceTree = "<group>"; };
+		EB75BBEF10024FD30009B251 /* prof_file.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_file.c; path = profile/prof_file.c; sourceTree = "<group>"; };
+		EB75BBF010024FD30009B251 /* prof_FSp_glue.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_FSp_glue.c; path = profile/prof_FSp_glue.c; sourceTree = "<group>"; };
+		EB75BBF110024FD30009B251 /* prof_get.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_get.c; path = profile/prof_get.c; sourceTree = "<group>"; };
+		EB75BBF210024FD30009B251 /* prof_init.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_init.c; path = profile/prof_init.c; sourceTree = "<group>"; };
+		EB75BBF310024FD30009B251 /* prof_int.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = prof_int.h; path = profile/prof_int.h; sourceTree = "<group>"; };
+		EB75BBF410024FD30009B251 /* prof_parse.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_parse.c; path = profile/prof_parse.c; sourceTree = "<group>"; };
+		EB75BBF510024FD30009B251 /* prof_set.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_set.c; path = profile/prof_set.c; sourceTree = "<group>"; };
+		EB75BBF610024FD30009B251 /* prof_tree.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = prof_tree.c; path = profile/prof_tree.c; sourceTree = "<group>"; };
+		EB77819F10AB9EB000CF02BC /* test-kll2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-kll2"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EB90DFB310AB304800DCB939 /* crypto.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = crypto.c; sourceTree = "<group>"; };
+		EBA0D008100A9F76002C4826 /* cache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = cache.c; sourceTree = "<group>"; };
+		EBA0D029100AA2AB002C4826 /* test-kll */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-kll"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBBC530B1083F7AA00F580FB /* com_err.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = com_err.h; path = Kerberos/com_err.h; sourceTree = "<group>"; };
+		EBBC530C1083F7AA00F580FB /* CredentialsCache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CredentialsCache.h; path = Kerberos/CredentialsCache.h; sourceTree = "<group>"; };
+		EBBC530D1083F7AA00F580FB /* CredentialsCache2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = CredentialsCache2.h; path = Kerberos/CredentialsCache2.h; sourceTree = "<group>"; };
+		EBBC530E1083F7AA00F580FB /* gssapi_generic.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_generic.h; path = Kerberos/gssapi_generic.h; sourceTree = "<group>"; };
+		EBBC530F1083F7AA00F580FB /* gssapi_krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi_krb5.h; path = Kerberos/gssapi_krb5.h; sourceTree = "<group>"; };
+		EBBC53101083F7AA00F580FB /* gssapi.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = gssapi.h; path = Kerberos/gssapi.h; sourceTree = "<group>"; };
+		EBBC53111083F7AA00F580FB /* Kerberos.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Kerberos.h; path = Kerberos/Kerberos.h; sourceTree = "<group>"; };
+		EBBC53121083F7AA00F580FB /* KerberosLogin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = KerberosLogin.h; path = Kerberos/KerberosLogin.h; sourceTree = "<group>"; };
+		EBBC53131083F7AA00F580FB /* krb5.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = krb5.h; path = Kerberos/krb5.h; sourceTree = "<group>"; };
+		EBBC53141083F7AA00F580FB /* locate_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = locate_plugin.h; path = Kerberos/locate_plugin.h; sourceTree = "<group>"; };
+		EBBC53151083F7AA00F580FB /* preauth_plugin.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = preauth_plugin.h; path = Kerberos/preauth_plugin.h; sourceTree = "<group>"; };
+		EBBC53161083F7AA00F580FB /* profile.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = profile.h; path = Kerberos/profile.h; sourceTree = "<group>"; };
+		EBBFB0CE100D5E9500BF3DAE /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		EBC0CF2E1083B84A00B5BAAD /* test_cc_ccache_clear_kdc_time_offset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_clear_kdc_time_offset.c; path = mittestcc/test_cc_ccache_clear_kdc_time_offset.c; sourceTree = "<group>"; };
+		EBC0CF2F1083B84A00B5BAAD /* test_cc_ccache_compare.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_compare.c; path = mittestcc/test_cc_ccache_compare.c; sourceTree = "<group>"; };
+		EBC0CF301083B84A00B5BAAD /* test_cc_ccache_destroy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_destroy.c; path = mittestcc/test_cc_ccache_destroy.c; sourceTree = "<group>"; };
+		EBC0CF311083B84A00B5BAAD /* test_cc_ccache_get_change_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_change_time.c; path = mittestcc/test_cc_ccache_get_change_time.c; sourceTree = "<group>"; };
+		EBC0CF321083B84A00B5BAAD /* test_cc_ccache_get_credentials_version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_credentials_version.c; path = mittestcc/test_cc_ccache_get_credentials_version.c; sourceTree = "<group>"; };
+		EBC0CF331083B84A00B5BAAD /* test_cc_ccache_get_kdc_time_offset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_kdc_time_offset.c; path = mittestcc/test_cc_ccache_get_kdc_time_offset.c; sourceTree = "<group>"; };
+		EBC0CF341083B84A00B5BAAD /* test_cc_ccache_get_last_default_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_last_default_time.c; path = mittestcc/test_cc_ccache_get_last_default_time.c; sourceTree = "<group>"; };
+		EBC0CF351083B84A00B5BAAD /* test_cc_ccache_get_name.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_name.c; path = mittestcc/test_cc_ccache_get_name.c; sourceTree = "<group>"; };
+		EBC0CF361083B84A00B5BAAD /* test_cc_ccache_get_principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_get_principal.c; path = mittestcc/test_cc_ccache_get_principal.c; sourceTree = "<group>"; };
+		EBC0CF371083B84A00B5BAAD /* test_cc_ccache_iterator_next.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_iterator_next.c; path = mittestcc/test_cc_ccache_iterator_next.c; sourceTree = "<group>"; };
+		EBC0CF381083B84A00B5BAAD /* test_cc_ccache_move.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_move.c; path = mittestcc/test_cc_ccache_move.c; sourceTree = "<group>"; };
+		EBC0CF391083B84A00B5BAAD /* test_cc_ccache_new_credentials_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_new_credentials_iterator.c; path = mittestcc/test_cc_ccache_new_credentials_iterator.c; sourceTree = "<group>"; };
+		EBC0CF3A1083B84A00B5BAAD /* test_cc_ccache_release.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_release.c; path = mittestcc/test_cc_ccache_release.c; sourceTree = "<group>"; };
+		EBC0CF3B1083B84A00B5BAAD /* test_cc_ccache_remove_credentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_remove_credentials.c; path = mittestcc/test_cc_ccache_remove_credentials.c; sourceTree = "<group>"; };
+		EBC0CF3C1083B84A00B5BAAD /* test_cc_ccache_set_default.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_set_default.c; path = mittestcc/test_cc_ccache_set_default.c; sourceTree = "<group>"; };
+		EBC0CF3D1083B84A00B5BAAD /* test_cc_ccache_set_kdc_time_offset.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_set_kdc_time_offset.c; path = mittestcc/test_cc_ccache_set_kdc_time_offset.c; sourceTree = "<group>"; };
+		EBC0CF3E1083B84A00B5BAAD /* test_cc_ccache_set_principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_set_principal.c; path = mittestcc/test_cc_ccache_set_principal.c; sourceTree = "<group>"; };
+		EBC0CF3F1083B84A00B5BAAD /* test_cc_ccache_store_credentials.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_ccache_store_credentials.c; path = mittestcc/test_cc_ccache_store_credentials.c; sourceTree = "<group>"; };
+		EBC0CF401083B84A00B5BAAD /* test_cc_close.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_close.c; path = mittestcc/test_cc_close.c; sourceTree = "<group>"; };
+		EBC0CF411083B84A00B5BAAD /* test_cc_context_compare.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_compare.c; path = mittestcc/test_cc_context_compare.c; sourceTree = "<group>"; };
+		EBC0CF421083B84A00B5BAAD /* test_cc_context_create_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_create_ccache.c; path = mittestcc/test_cc_context_create_ccache.c; sourceTree = "<group>"; };
+		EBC0CF431083B84A00B5BAAD /* test_cc_context_create_default_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_create_default_ccache.c; path = mittestcc/test_cc_context_create_default_ccache.c; sourceTree = "<group>"; };
+		EBC0CF441083B84A00B5BAAD /* test_cc_context_create_new_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_create_new_ccache.c; path = mittestcc/test_cc_context_create_new_ccache.c; sourceTree = "<group>"; };
+		EBC0CF451083B84A00B5BAAD /* test_cc_context_get_change_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_get_change_time.c; path = mittestcc/test_cc_context_get_change_time.c; sourceTree = "<group>"; };
+		EBC0CF461083B84A00B5BAAD /* test_cc_context_get_default_ccache_name.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_get_default_ccache_name.c; path = mittestcc/test_cc_context_get_default_ccache_name.c; sourceTree = "<group>"; };
+		EBC0CF471083B84A00B5BAAD /* test_cc_context_new_ccache_iterator.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_new_ccache_iterator.c; path = mittestcc/test_cc_context_new_ccache_iterator.c; sourceTree = "<group>"; };
+		EBC0CF481083B84A00B5BAAD /* test_cc_context_open_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_open_ccache.c; path = mittestcc/test_cc_context_open_ccache.c; sourceTree = "<group>"; };
+		EBC0CF491083B84A00B5BAAD /* test_cc_context_open_default_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_open_default_ccache.c; path = mittestcc/test_cc_context_open_default_ccache.c; sourceTree = "<group>"; };
+		EBC0CF4A1083B84A00B5BAAD /* test_cc_context_release.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_context_release.c; path = mittestcc/test_cc_context_release.c; sourceTree = "<group>"; };
+		EBC0CF4B1083B84A00B5BAAD /* test_cc_create.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_create.c; path = mittestcc/test_cc_create.c; sourceTree = "<group>"; };
+		EBC0CF4C1083B84A00B5BAAD /* test_cc_credentials_iterator_next.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_credentials_iterator_next.c; path = mittestcc/test_cc_credentials_iterator_next.c; sourceTree = "<group>"; };
+		EBC0CF4D1083B84A00B5BAAD /* test_cc_destroy.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_destroy.c; path = mittestcc/test_cc_destroy.c; sourceTree = "<group>"; };
+		EBC0CF4E1083B84A00B5BAAD /* test_cc_get_change_time.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_get_change_time.c; path = mittestcc/test_cc_get_change_time.c; sourceTree = "<group>"; };
+		EBC0CF4F1083B84A00B5BAAD /* test_cc_get_cred_version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_get_cred_version.c; path = mittestcc/test_cc_get_cred_version.c; sourceTree = "<group>"; };
+		EBC0CF501083B84A00B5BAAD /* test_cc_get_name.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_get_name.c; path = mittestcc/test_cc_get_name.c; sourceTree = "<group>"; };
+		EBC0CF511083B84A00B5BAAD /* test_cc_get_NC_info.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_get_NC_info.c; path = mittestcc/test_cc_get_NC_info.c; sourceTree = "<group>"; };
+		EBC0CF521083B84A00B5BAAD /* test_cc_get_principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_get_principal.c; path = mittestcc/test_cc_get_principal.c; sourceTree = "<group>"; };
+		EBC0CF531083B84A00B5BAAD /* test_cc_initialize.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_initialize.c; path = mittestcc/test_cc_initialize.c; sourceTree = "<group>"; };
+		EBC0CF541083B84A00B5BAAD /* test_cc_open.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_open.c; path = mittestcc/test_cc_open.c; sourceTree = "<group>"; };
+		EBC0CF551083B84A00B5BAAD /* test_cc_remove_cred.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_remove_cred.c; path = mittestcc/test_cc_remove_cred.c; sourceTree = "<group>"; };
+		EBC0CF561083B84A00B5BAAD /* test_cc_seq_fetch_creds_begin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_seq_fetch_creds_begin.c; path = mittestcc/test_cc_seq_fetch_creds_begin.c; sourceTree = "<group>"; };
+		EBC0CF571083B84A00B5BAAD /* test_cc_seq_fetch_creds_next.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_seq_fetch_creds_next.c; path = mittestcc/test_cc_seq_fetch_creds_next.c; sourceTree = "<group>"; };
+		EBC0CF581083B84A00B5BAAD /* test_cc_seq_fetch_NCs_begin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_seq_fetch_NCs_begin.c; path = mittestcc/test_cc_seq_fetch_NCs_begin.c; sourceTree = "<group>"; };
+		EBC0CF591083B84A00B5BAAD /* test_cc_seq_fetch_NCs_next.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_seq_fetch_NCs_next.c; path = mittestcc/test_cc_seq_fetch_NCs_next.c; sourceTree = "<group>"; };
+		EBC0CF5A1083B84A00B5BAAD /* test_cc_set_principal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_set_principal.c; path = mittestcc/test_cc_set_principal.c; sourceTree = "<group>"; };
+		EBC0CF5B1083B84A00B5BAAD /* test_cc_shutdown.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_shutdown.c; path = mittestcc/test_cc_shutdown.c; sourceTree = "<group>"; };
+		EBC0CF5C1083B84A00B5BAAD /* test_cc_store.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_cc_store.c; path = mittestcc/test_cc_store.c; sourceTree = "<group>"; };
+		EBC0CF5D1083B84A00B5BAAD /* test_ccapi_ccache.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_ccache.c; path = mittestcc/test_ccapi_ccache.c; sourceTree = "<group>"; };
+		EBC0CF5E1083B84A00B5BAAD /* test_ccapi_ccache.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_ccache.h; path = mittestcc/test_ccapi_ccache.h; sourceTree = "<group>"; };
+		EBC0CF5F1083B84A00B5BAAD /* test_ccapi_check.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_check.c; path = mittestcc/test_ccapi_check.c; sourceTree = "<group>"; };
+		EBC0CF601083B84A00B5BAAD /* test_ccapi_check.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_check.h; path = mittestcc/test_ccapi_check.h; sourceTree = "<group>"; };
+		EBC0CF611083B84A00B5BAAD /* test_ccapi_constants.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_constants.c; path = mittestcc/test_ccapi_constants.c; sourceTree = "<group>"; };
+		EBC0CF621083B84A00B5BAAD /* test_ccapi_constants.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_constants.h; path = mittestcc/test_ccapi_constants.h; sourceTree = "<group>"; };
+		EBC0CF631083B84A00B5BAAD /* test_ccapi_context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_context.c; path = mittestcc/test_ccapi_context.c; sourceTree = "<group>"; };
+		EBC0CF641083B84A00B5BAAD /* test_ccapi_context.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_context.h; path = mittestcc/test_ccapi_context.h; sourceTree = "<group>"; };
+		EBC0CF651083B84A00B5BAAD /* test_ccapi_globals.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_globals.c; path = mittestcc/test_ccapi_globals.c; sourceTree = "<group>"; };
+		EBC0CF661083B84A00B5BAAD /* test_ccapi_globals.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_globals.h; path = mittestcc/test_ccapi_globals.h; sourceTree = "<group>"; };
+		EBC0CF671083B84A00B5BAAD /* test_ccapi_iterators.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_iterators.c; path = mittestcc/test_ccapi_iterators.c; sourceTree = "<group>"; };
+		EBC0CF681083B84A00B5BAAD /* test_ccapi_iterators.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_iterators.h; path = mittestcc/test_ccapi_iterators.h; sourceTree = "<group>"; };
+		EBC0CF691083B84A00B5BAAD /* test_ccapi_log.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_log.c; path = mittestcc/test_ccapi_log.c; sourceTree = "<group>"; };
+		EBC0CF6A1083B84A00B5BAAD /* test_ccapi_log.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_log.h; path = mittestcc/test_ccapi_log.h; sourceTree = "<group>"; };
+		EBC0CF6B1083B84A00B5BAAD /* test_ccapi_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_util.c; path = mittestcc/test_ccapi_util.c; sourceTree = "<group>"; };
+		EBC0CF6C1083B84A00B5BAAD /* test_ccapi_util.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_util.h; path = mittestcc/test_ccapi_util.h; sourceTree = "<group>"; };
+		EBC0CF6D1083B84A00B5BAAD /* test_ccapi_v2.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_ccapi_v2.c; path = mittestcc/test_ccapi_v2.c; sourceTree = "<group>"; };
+		EBC0CF6E1083B84A00B5BAAD /* test_ccapi_v2.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = test_ccapi_v2.h; path = mittestcc/test_ccapi_v2.h; sourceTree = "<group>"; };
+		EBC0CF6F1083B84A00B5BAAD /* test_constants.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = test_constants.c; path = mittestcc/test_constants.c; sourceTree = "<group>"; };
+		EBC0CFBC1083CEA800B5BAAD /* test-cc */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-cc"; sourceTree = BUILT_PRODUCTS_DIR; };
+		EBC0D0091083CF7000B5BAAD /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = main.c; path = mittestcc/main.c; sourceTree = "<group>"; };
+		EBD01FA5108D32DB00AECFF3 /* auth_context.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_context.c; sourceTree = "<group>"; };
+		EBD885B41056E258006242E9 /* creds.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = creds.c; sourceTree = "<group>"; };
+		EBDB5B6510A38B47003FD0F9 /* krb5-config.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = "krb5-config.1"; sourceTree = "<group>"; };
+		EBDC3380108F33E0006C63C9 /* misc-mit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = "misc-mit.c"; sourceTree = "<group>"; };
+		EBED4E4812958B4D0029A1B4 /* test-KLAcquireInitialTickets.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-KLAcquireInitialTickets.c"; path = "test/test-KLAcquireInitialTickets.c"; sourceTree = "<group>"; };
+		EBED4E4D12958B720029A1B4 /* test-KLAcquireInitialTickets */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-KLAcquireInitialTickets"; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1C1A4FAE10DC3D1B001883EA /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C1A4FAF10DC3D1B001883EA /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C620D5A1062FE9800209602 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CEDD250106303EE008A482B /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A79410C5C9E400115F67 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C82A79510C5C9E400115F67 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7AB10C5C9FE00115F67 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C82A7AC10C5C9FE00115F67 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7C210C5CA1900115F67 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C82A7C310C5CA1900115F67 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7D910C5CA3900115F67 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C82A7DA10C5CA3900115F67 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB0F29BD1000160500224B2D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0F2A401000310300224B2D /* Heimdal.framework in Frameworks */,
+				EBBFB0CF100D5E9500BF3DAE /* Security.framework in Frameworks */,
+				EB6FCA5610A646BA00D80A61 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB1F5D3710A905D200B69A08 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB1F5D4010A905F300B69A08 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB274748108819F500AAB294 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB27475510881A4400AAB294 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB77819D10AB9EB000CF02BC /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB7781A510AB9EBA00CF02BC /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBA0D027100AA2AB002C4826 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBA0D063100AA488002C4826 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBC0CFBA1083CEA800B5BAAD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBC0D0361083E49800B5BAAD /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBED4E4B12958B720029A1B4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBED4E5312958B840029A1B4 /* Kerberos.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		089C166AFE841209C02AAC07 /* MITKerberosShim */ = {
+			isa = PBXGroup;
+			children = (
+				08FB77AFFE84173DC02AAC07 /* Source */,
+				089C167CFE841241C02AAC07 /* Resources */,
+				089C1671FE841209C02AAC07 /* External Frameworks and Libraries */,
+				19C28FB6FE9D52B211CA2CBB /* Products */,
+				EB0F29C01000160500224B2D /* Kerberos-Info.plist */,
+				EB0F2A3F1000310300224B2D /* Heimdal.framework */,
+				EBBFB0CE100D5E9500BF3DAE /* Security.framework */,
+			);
+			name = MITKerberosShim;
+			sourceTree = "<group>";
+		};
+		089C1671FE841209C02AAC07 /* External Frameworks and Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				0AA1909FFE8422F4C02AAC07 /* CoreFoundation.framework */,
+			);
+			name = "External Frameworks and Libraries";
+			sourceTree = "<group>";
+		};
+		089C167CFE841241C02AAC07 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				EB6FCA7D10A65F0900D80A61 /* raft */,
+				EB56890C10A1EFDF0065DD2D /* MITKerberosShim.plist */,
+				EB56890D10A1EFDF0065DD2D /* MITKerberosShim.txt */,
+				EBDB5B6510A38B47003FD0F9 /* krb5-config.1 */,
+				1C7893C1105F14F0001C6781 /* exported-symbols */,
+				EB75B97D100143980009B251 /* TODO */,
+				8D576317048677EA00EA77CD /* Info.plist */,
+				EB0F2AA01000492E00224B2D /* gen.pl */,
+				EB0F2AA11000492E00224B2D /* gen.sh */,
+				8D5B49A704867FD3000E48DA /* InfoPlist.strings */,
+				EB6EE85D1086DC2400F92EAF /* heimdal-ify.sh */,
+				EB6FCA9010A6608D00D80A61 /* MITKerberosShimTests.sh */,
+			);
+			name = Resources;
+			sourceTree = "<group>";
+		};
+		08FB77AFFE84173DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				1C20F22410F283AB00C456B4 /* test */,
+				EB90DFB310AB304800DCB939 /* crypto.c */,
+				EB15203F10AA532E00B6446B /* password.c */,
+				EB029EBD109FC50000B1217A /* gss-glue.c */,
+				EBDC3380108F33E0006C63C9 /* misc-mit.c */,
+				EB514D4E108D81F300A2FFD7 /* mk_req.c */,
+				EB514CFE108D6AC500A2FFD7 /* rd_req.c */,
+				EBD01FA5108D32DB00AECFF3 /* auth_context.c */,
+				EB6EE88B1087D6DF00F92EAF /* PrivateKerberos */,
+				EBBC530A1083F79500F580FB /* Kerberos */,
+				EB27476E108839F300AAB294 /* mit-include */,
+				EBC0CF2D1083B82400B5BAAD /* mittestcc */,
+				1CF9E7C910605843009E3024 /* Krb4DeprecatedAPIs.c */,
+				EBD885B41056E258006242E9 /* creds.c */,
+				EBA0D008100A9F76002C4826 /* cache.c */,
+				EB75BB191001BB3B0009B251 /* kll.c */,
+				EB75BA97100176B20009B251 /* heim-proxy.i386.s */,
+				EB75BA98100176B20009B251 /* heim-proxy.x86_64.s */,
+				EB2430CE10586E42001A4FB8 /* heim-proxy.ppc.s */,
+				EB75B98D100143F90009B251 /* principal.c */,
+				EB75B94C100135730009B251 /* gic.c */,
+				EB75B94D100135730009B251 /* misc.c */,
+				EB0F2AA31000492E00224B2D /* heim-sym.h */,
+				EB0F2AC410004C5600224B2D /* heim-sym.i386.s */,
+				EB0F2AA41000492E00224B2D /* heim-sym.x86_64.s */,
+				EB2430CF10586E42001A4FB8 /* heim-sym.ppc.s */,
+				EB0F2AA21000492E00224B2D /* heim-loader.c */,
+				EB0F2A6C1000373400224B2D /* heim.h */,
+				EB0F2A0F1000221800224B2D /* ccache.c */,
+				EB0F29FB10001D0000224B2D /* gss-symbols.c */,
+				EB0F299D1000153400224B2D /* dummy.c */,
+				EB6EE8021086592700F92EAF /* keytab.c */,
+				EB75BBEC10024FB50009B251 /* profile */,
+				EB0F29C51000164100224B2D /* include */,
+				EB6EE86B1087CBC200F92EAF /* krb5-config */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		19C28FB6FE9D52B211CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EB0F29BF1000160500224B2D /* Kerberos.framework */,
+				EBA0D029100AA2AB002C4826 /* test-kll */,
+				1C620D5C1062FE9800209602 /* test-krb4 */,
+				EBC0CFBC1083CEA800B5BAAD /* test-cc */,
+				EB27474A108819F600AAB294 /* test-sd */,
+				EB1F5D3910A905D200B69A08 /* test-principal */,
+				EB77819F10AB9EB000CF02BC /* test-kll2 */,
+				1C82A79910C5C9E400115F67 /* test-gss-client */,
+				1C82A7B010C5C9FE00115F67 /* test-kClient */,
+				1C82A7C710C5CA1900115F67 /* test-krb */,
+				1C82A7DE10C5CA3900115F67 /* test-krb5 */,
+				1C1A4FB310DC3D1B001883EA /* test-gss-server */,
+				EBED4E4D12958B720029A1B4 /* test-KLAcquireInitialTickets */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1C20F22410F283AB00C456B4 /* test */ = {
+			isa = PBXGroup;
+			children = (
+				EBED4E4812958B4D0029A1B4 /* test-KLAcquireInitialTickets.c */,
+				1CC0D8151108ED7600D084BB /* krb5.conf.in */,
+				1C72629010F5AB22009BFC63 /* test_collection.c */,
+				1C72629110F5AB22009BFC63 /* test_collection.h */,
+				1C20F2B210F28AE600C456B4 /* test-gss.sh */,
+				1C20F22510F283C900C456B4 /* test-authen::krb5.pl */,
+				1C20F22610F283C900C456B4 /* test-gss-client.c */,
+				1C20F22710F283C900C456B4 /* test-gss-common.c */,
+				1C20F22810F283C900C456B4 /* test-gss-common.h */,
+				1C20F22910F283C900C456B4 /* test-gss-server.c */,
+				1C20F22A10F283C900C456B4 /* test-kClient.c */,
+				1C20F22B10F283C900C456B4 /* test-kll.c */,
+				1C20F22C10F283C900C456B4 /* test-kll2.c */,
+				1C20F22D10F283C900C456B4 /* test-krb.c */,
+				1C20F22E10F283C900C456B4 /* test-krb4.c */,
+				1C20F22F10F283C900C456B4 /* test-krb5.c */,
+				1C20F23010F283C900C456B4 /* test-principal.c */,
+				1C20F23110F283C900C456B4 /* test-sd.c */,
+				1C20F23210F283C900C456B4 /* test.h */,
+			);
+			name = test;
+			sourceTree = "<group>";
+		};
+		EB0F29C51000164100224B2D /* include */ = {
+			isa = PBXGroup;
+			children = (
+				EB0F29C61000164100224B2D /* mit-com_err.h */,
+				EB0F29C71000164100224B2D /* mit-CredentialsCache.h */,
+				EB0F29C81000164100224B2D /* mit-CredentialsCache2.h */,
+				EB0F29C91000164100224B2D /* mit-gssapi.h */,
+				EB0F29CA1000164100224B2D /* mit-gssapi_generic.h */,
+				EB0F29CB1000164100224B2D /* mit-gssapi_krb5.h */,
+				EB0F29CC1000164100224B2D /* mit-Kerberos.h */,
+				EB0F29CD1000164100224B2D /* mit-KerberosLogin.h */,
+				EB0F29CE1000164100224B2D /* mit-krb5.h */,
+				EB0F29CF1000164100224B2D /* mit-profile.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		EB27476E108839F300AAB294 /* mit-include */ = {
+			isa = PBXGroup;
+			children = (
+				EB27477010883A1500AAB294 /* gssapi */,
+				EB27477510883A1500AAB294 /* krb5 */,
+				EB27476F10883A1500AAB294 /* com_err.h */,
+				EB27477410883A1500AAB294 /* gssapi.h */,
+				EB27477910883A1500AAB294 /* krb5.h */,
+				EB27477A10883A1500AAB294 /* profile.h */,
+			);
+			name = "mit-include";
+			sourceTree = "<group>";
+		};
+		EB27477010883A1500AAB294 /* gssapi */ = {
+			isa = PBXGroup;
+			children = (
+				EB27477110883A1500AAB294 /* gssapi.h */,
+				EB27477210883A1500AAB294 /* gssapi_generic.h */,
+				EB27477310883A1500AAB294 /* gssapi_krb5.h */,
+			);
+			name = gssapi;
+			path = "mit-include/gssapi";
+			sourceTree = "<group>";
+		};
+		EB27477510883A1500AAB294 /* krb5 */ = {
+			isa = PBXGroup;
+			children = (
+				EB27477610883A1500AAB294 /* krb5.h */,
+				EB27477710883A1500AAB294 /* locate_plugin.h */,
+				EB27477810883A1500AAB294 /* preauth_plugin.h */,
+			);
+			name = krb5;
+			path = "mit-include/krb5";
+			sourceTree = "<group>";
+		};
+		EB6EE88B1087D6DF00F92EAF /* PrivateKerberos */ = {
+			isa = PBXGroup;
+			children = (
+				EB6EE88C1087D6FC00F92EAF /* authdata_plugin.h */,
+				EB6EE88D1087D6FC00F92EAF /* KerberosDebug.h */,
+				EB6EE88E1087D6FC00F92EAF /* KerberosLoginPrivate.h */,
+				EB6EE88F1087D6FC00F92EAF /* kim_ccache.h */,
+				EB6EE8901087D6FC00F92EAF /* kim_credential.h */,
+				EB6EE8911087D6FC00F92EAF /* kim_errors.h */,
+				EB6EE8921087D6FC00F92EAF /* kim_identity.h */,
+				EB6EE8931087D6FC00F92EAF /* kim_library.h */,
+				EB6EE8941087D6FC00F92EAF /* kim_options.h */,
+				EB6EE8951087D6FC00F92EAF /* kim_preferences.h */,
+				EB6EE8961087D6FC00F92EAF /* kim_selection_hints.h */,
+				EB6EE8971087D6FC00F92EAF /* kim_string.h */,
+				EB6EE8981087D6FC00F92EAF /* kim_types.h */,
+				EB6EE8991087D6FC00F92EAF /* kim_ui_plugin.h */,
+				EB6EE89A1087D6FC00F92EAF /* kim.h */,
+				EB6EE89B1087D6FC00F92EAF /* krb5-ipc.h */,
+				EB6EE89C1087D6FC00F92EAF /* pkinit_cert_store.h */,
+			);
+			name = PrivateKerberos;
+			sourceTree = "<group>";
+		};
+		EB6FCA7D10A65F0900D80A61 /* raft */ = {
+			isa = PBXGroup;
+			children = (
+				EB6FCA8110A65FD500D80A61 /* KLLAcquireCredUI */,
+			);
+			name = raft;
+			sourceTree = "<group>";
+		};
+		EB6FCA8110A65FD500D80A61 /* KLLAcquireCredUI */ = {
+			isa = PBXGroup;
+			children = (
+				EB6FCA8210A65FEF00D80A61 /* KLLAcquireCredUI.py */,
+			);
+			name = KLLAcquireCredUI;
+			sourceTree = "<group>";
+		};
+		EB75BBEC10024FB50009B251 /* profile */ = {
+			isa = PBXGroup;
+			children = (
+				EB75BBED10024FD30009B251 /* prof_err.c */,
+				EB75BBEE10024FD30009B251 /* prof_err.h */,
+				EB75BBEF10024FD30009B251 /* prof_file.c */,
+				EB75BBF010024FD30009B251 /* prof_FSp_glue.c */,
+				EB75BBF110024FD30009B251 /* prof_get.c */,
+				EB75BBF210024FD30009B251 /* prof_init.c */,
+				EB75BBF310024FD30009B251 /* prof_int.h */,
+				EB75BBF410024FD30009B251 /* prof_parse.c */,
+				EB75BBF510024FD30009B251 /* prof_set.c */,
+				EB75BBF610024FD30009B251 /* prof_tree.c */,
+			);
+			name = profile;
+			sourceTree = "<group>";
+		};
+		EBBC530A1083F79500F580FB /* Kerberos */ = {
+			isa = PBXGroup;
+			children = (
+				EBBC530B1083F7AA00F580FB /* com_err.h */,
+				EBBC530C1083F7AA00F580FB /* CredentialsCache.h */,
+				EBBC530D1083F7AA00F580FB /* CredentialsCache2.h */,
+				EBBC530E1083F7AA00F580FB /* gssapi_generic.h */,
+				EBBC530F1083F7AA00F580FB /* gssapi_krb5.h */,
+				EBBC53101083F7AA00F580FB /* gssapi.h */,
+				EBBC53111083F7AA00F580FB /* Kerberos.h */,
+				EBBC53121083F7AA00F580FB /* KerberosLogin.h */,
+				EBBC53131083F7AA00F580FB /* krb5.h */,
+				EBBC53141083F7AA00F580FB /* locate_plugin.h */,
+				EBBC53151083F7AA00F580FB /* preauth_plugin.h */,
+				EBBC53161083F7AA00F580FB /* profile.h */,
+			);
+			name = Kerberos;
+			sourceTree = "<group>";
+		};
+		EBC0CF2D1083B82400B5BAAD /* mittestcc */ = {
+			isa = PBXGroup;
+			children = (
+				EBC0D0091083CF7000B5BAAD /* main.c */,
+				EBC0CF2E1083B84A00B5BAAD /* test_cc_ccache_clear_kdc_time_offset.c */,
+				EBC0CF2F1083B84A00B5BAAD /* test_cc_ccache_compare.c */,
+				EBC0CF301083B84A00B5BAAD /* test_cc_ccache_destroy.c */,
+				EBC0CF311083B84A00B5BAAD /* test_cc_ccache_get_change_time.c */,
+				EBC0CF321083B84A00B5BAAD /* test_cc_ccache_get_credentials_version.c */,
+				EBC0CF331083B84A00B5BAAD /* test_cc_ccache_get_kdc_time_offset.c */,
+				EBC0CF341083B84A00B5BAAD /* test_cc_ccache_get_last_default_time.c */,
+				EBC0CF351083B84A00B5BAAD /* test_cc_ccache_get_name.c */,
+				EBC0CF361083B84A00B5BAAD /* test_cc_ccache_get_principal.c */,
+				EBC0CF371083B84A00B5BAAD /* test_cc_ccache_iterator_next.c */,
+				EBC0CF381083B84A00B5BAAD /* test_cc_ccache_move.c */,
+				EBC0CF391083B84A00B5BAAD /* test_cc_ccache_new_credentials_iterator.c */,
+				EBC0CF3A1083B84A00B5BAAD /* test_cc_ccache_release.c */,
+				EBC0CF3B1083B84A00B5BAAD /* test_cc_ccache_remove_credentials.c */,
+				EBC0CF3C1083B84A00B5BAAD /* test_cc_ccache_set_default.c */,
+				EBC0CF3D1083B84A00B5BAAD /* test_cc_ccache_set_kdc_time_offset.c */,
+				EBC0CF3E1083B84A00B5BAAD /* test_cc_ccache_set_principal.c */,
+				EBC0CF3F1083B84A00B5BAAD /* test_cc_ccache_store_credentials.c */,
+				EBC0CF401083B84A00B5BAAD /* test_cc_close.c */,
+				EBC0CF411083B84A00B5BAAD /* test_cc_context_compare.c */,
+				EBC0CF421083B84A00B5BAAD /* test_cc_context_create_ccache.c */,
+				EBC0CF431083B84A00B5BAAD /* test_cc_context_create_default_ccache.c */,
+				EBC0CF441083B84A00B5BAAD /* test_cc_context_create_new_ccache.c */,
+				EBC0CF451083B84A00B5BAAD /* test_cc_context_get_change_time.c */,
+				EBC0CF461083B84A00B5BAAD /* test_cc_context_get_default_ccache_name.c */,
+				EBC0CF471083B84A00B5BAAD /* test_cc_context_new_ccache_iterator.c */,
+				EBC0CF481083B84A00B5BAAD /* test_cc_context_open_ccache.c */,
+				EBC0CF491083B84A00B5BAAD /* test_cc_context_open_default_ccache.c */,
+				EBC0CF4A1083B84A00B5BAAD /* test_cc_context_release.c */,
+				EBC0CF4B1083B84A00B5BAAD /* test_cc_create.c */,
+				EBC0CF4C1083B84A00B5BAAD /* test_cc_credentials_iterator_next.c */,
+				EBC0CF4D1083B84A00B5BAAD /* test_cc_destroy.c */,
+				EBC0CF4E1083B84A00B5BAAD /* test_cc_get_change_time.c */,
+				EBC0CF4F1083B84A00B5BAAD /* test_cc_get_cred_version.c */,
+				EBC0CF501083B84A00B5BAAD /* test_cc_get_name.c */,
+				EBC0CF511083B84A00B5BAAD /* test_cc_get_NC_info.c */,
+				EBC0CF521083B84A00B5BAAD /* test_cc_get_principal.c */,
+				EBC0CF531083B84A00B5BAAD /* test_cc_initialize.c */,
+				EBC0CF541083B84A00B5BAAD /* test_cc_open.c */,
+				EBC0CF551083B84A00B5BAAD /* test_cc_remove_cred.c */,
+				EBC0CF561083B84A00B5BAAD /* test_cc_seq_fetch_creds_begin.c */,
+				EBC0CF571083B84A00B5BAAD /* test_cc_seq_fetch_creds_next.c */,
+				EBC0CF581083B84A00B5BAAD /* test_cc_seq_fetch_NCs_begin.c */,
+				EBC0CF591083B84A00B5BAAD /* test_cc_seq_fetch_NCs_next.c */,
+				EBC0CF5A1083B84A00B5BAAD /* test_cc_set_principal.c */,
+				EBC0CF5B1083B84A00B5BAAD /* test_cc_shutdown.c */,
+				EBC0CF5C1083B84A00B5BAAD /* test_cc_store.c */,
+				EBC0CF5D1083B84A00B5BAAD /* test_ccapi_ccache.c */,
+				EBC0CF5E1083B84A00B5BAAD /* test_ccapi_ccache.h */,
+				EBC0CF5F1083B84A00B5BAAD /* test_ccapi_check.c */,
+				EBC0CF601083B84A00B5BAAD /* test_ccapi_check.h */,
+				EBC0CF611083B84A00B5BAAD /* test_ccapi_constants.c */,
+				EBC0CF621083B84A00B5BAAD /* test_ccapi_constants.h */,
+				EBC0CF631083B84A00B5BAAD /* test_ccapi_context.c */,
+				EBC0CF641083B84A00B5BAAD /* test_ccapi_context.h */,
+				EBC0CF651083B84A00B5BAAD /* test_ccapi_globals.c */,
+				EBC0CF661083B84A00B5BAAD /* test_ccapi_globals.h */,
+				EBC0CF671083B84A00B5BAAD /* test_ccapi_iterators.c */,
+				EBC0CF681083B84A00B5BAAD /* test_ccapi_iterators.h */,
+				EBC0CF691083B84A00B5BAAD /* test_ccapi_log.c */,
+				EBC0CF6A1083B84A00B5BAAD /* test_ccapi_log.h */,
+				EBC0CF6B1083B84A00B5BAAD /* test_ccapi_util.c */,
+				EBC0CF6C1083B84A00B5BAAD /* test_ccapi_util.h */,
+				EBC0CF6D1083B84A00B5BAAD /* test_ccapi_v2.c */,
+				EBC0CF6E1083B84A00B5BAAD /* test_ccapi_v2.h */,
+				EBC0CF6F1083B84A00B5BAAD /* test_constants.c */,
+			);
+			name = mittestcc;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		1C1A4FAB10DC3D1B001883EA /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A79010C5C9E400115F67 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7A710C5C9FE00115F67 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7BE10C5CA1900115F67 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7D510C5CA3900115F67 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB0F29BA1000160500224B2D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB6EE8AB1087D6FC00F92EAF /* kim.h in Headers */,
+				EB6EE8A01087D6FC00F92EAF /* kim_ccache.h in Headers */,
+				EB6EE8A11087D6FC00F92EAF /* kim_credential.h in Headers */,
+				EB6EE8A21087D6FC00F92EAF /* kim_errors.h in Headers */,
+				EB6EE8A31087D6FC00F92EAF /* kim_identity.h in Headers */,
+				EB6EE8A41087D6FC00F92EAF /* kim_library.h in Headers */,
+				EB6EE8A51087D6FC00F92EAF /* kim_options.h in Headers */,
+				EB6EE8A61087D6FC00F92EAF /* kim_preferences.h in Headers */,
+				EB6EE8A71087D6FC00F92EAF /* kim_selection_hints.h in Headers */,
+				EB6EE8A81087D6FC00F92EAF /* kim_string.h in Headers */,
+				EB6EE8A91087D6FC00F92EAF /* kim_types.h in Headers */,
+				EB6EE8AA1087D6FC00F92EAF /* kim_ui_plugin.h in Headers */,
+				EB0F29D01000164100224B2D /* mit-com_err.h in Headers */,
+				EB0F29D11000164100224B2D /* mit-CredentialsCache.h in Headers */,
+				EB0F29D21000164100224B2D /* mit-CredentialsCache2.h in Headers */,
+				EB0F29D31000164100224B2D /* mit-gssapi.h in Headers */,
+				EB0F29D41000164100224B2D /* mit-gssapi_generic.h in Headers */,
+				EB0F29D51000164100224B2D /* mit-gssapi_krb5.h in Headers */,
+				EB0F29D61000164100224B2D /* mit-Kerberos.h in Headers */,
+				EB0F29D71000164100224B2D /* mit-KerberosLogin.h in Headers */,
+				EB0F29D81000164100224B2D /* mit-krb5.h in Headers */,
+				EB0F29D91000164100224B2D /* mit-profile.h in Headers */,
+				EB0F2A6D1000373400224B2D /* heim.h in Headers */,
+				EB0F2AA81000497D00224B2D /* heim-sym.h in Headers */,
+				EB75BBF810024FD30009B251 /* prof_err.h in Headers */,
+				EB75BBFD10024FD30009B251 /* prof_int.h in Headers */,
+				EBBC53231083F7C900F580FB /* com_err.h in Headers */,
+				EBBC53241083F7C900F580FB /* CredentialsCache.h in Headers */,
+				EBBC53251083F7C900F580FB /* CredentialsCache2.h in Headers */,
+				EBBC53261083F7C900F580FB /* gssapi_generic.h in Headers */,
+				EBBC53271083F7C900F580FB /* gssapi_krb5.h in Headers */,
+				EBBC53281083F7C900F580FB /* gssapi.h in Headers */,
+				EBBC53291083F7C900F580FB /* Kerberos.h in Headers */,
+				EBBC532A1083F7C900F580FB /* KerberosLogin.h in Headers */,
+				EBBC532B1083F7C900F580FB /* krb5.h in Headers */,
+				EBBC532C1083F7C900F580FB /* locate_plugin.h in Headers */,
+				EBBC532D1083F7C900F580FB /* preauth_plugin.h in Headers */,
+				EBBC532E1083F7C900F580FB /* profile.h in Headers */,
+				EB6EE89D1087D6FC00F92EAF /* authdata_plugin.h in Headers */,
+				EB6EE89E1087D6FC00F92EAF /* KerberosDebug.h in Headers */,
+				EB6EE89F1087D6FC00F92EAF /* KerberosLoginPrivate.h in Headers */,
+				EB6EE8AC1087D6FC00F92EAF /* krb5-ipc.h in Headers */,
+				EB6EE8AD1087D6FC00F92EAF /* pkinit_cert_store.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB7781B410AB9F2600CF02BC /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBA0D047100AA3E6002C4826 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBC0D0201083E41C00B5BAAD /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBBC53171083F7AA00F580FB /* com_err.h in Headers */,
+				EBBC53181083F7AA00F580FB /* CredentialsCache.h in Headers */,
+				EBBC53191083F7AA00F580FB /* CredentialsCache2.h in Headers */,
+				EBBC531A1083F7AA00F580FB /* gssapi_generic.h in Headers */,
+				EBBC531B1083F7AA00F580FB /* gssapi_krb5.h in Headers */,
+				EBBC531C1083F7AA00F580FB /* gssapi.h in Headers */,
+				EBBC531D1083F7AA00F580FB /* Kerberos.h in Headers */,
+				EBBC531E1083F7AA00F580FB /* KerberosLogin.h in Headers */,
+				EBBC531F1083F7AA00F580FB /* krb5.h in Headers */,
+				EBBC53201083F7AA00F580FB /* locate_plugin.h in Headers */,
+				EBBC53211083F7AA00F580FB /* preauth_plugin.h in Headers */,
+				EBBC53221083F7AA00F580FB /* profile.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		1C1A4FA810DC3D1B001883EA /* test-gss-server */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C1A4FB010DC3D1B001883EA /* Build configuration list for PBXNativeTarget "test-gss-server" */;
+			buildPhases = (
+				1C1A4FAB10DC3D1B001883EA /* Headers */,
+				1C1A4FAC10DC3D1B001883EA /* Sources */,
+				1C1A4FAE10DC3D1B001883EA /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C1A4FA910DC3D1B001883EA /* PBXTargetDependency */,
+			);
+			name = "test-gss-server";
+			productName = "test-kll";
+			productReference = 1C1A4FB310DC3D1B001883EA /* test-gss-server */;
+			productType = "com.apple.product-type.tool";
+		};
+		1C620D5B1062FE9800209602 /* test-krb4 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C620D621062FEAC00209602 /* Build configuration list for PBXNativeTarget "test-krb4" */;
+			buildPhases = (
+				1C620D591062FE9800209602 /* Sources */,
+				1C620D5A1062FE9800209602 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1CEDD24F106303EB008A482B /* PBXTargetDependency */,
+			);
+			name = "test-krb4";
+			productName = "test-krb4";
+			productReference = 1C620D5C1062FE9800209602 /* test-krb4 */;
+			productType = "com.apple.product-type.tool";
+		};
+		1C82A78D10C5C9E400115F67 /* test-gss-client */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C82A79610C5C9E400115F67 /* Build configuration list for PBXNativeTarget "test-gss-client" */;
+			buildPhases = (
+				1C82A79010C5C9E400115F67 /* Headers */,
+				1C82A79210C5C9E400115F67 /* Sources */,
+				1C82A79410C5C9E400115F67 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C82A78E10C5C9E400115F67 /* PBXTargetDependency */,
+			);
+			name = "test-gss-client";
+			productName = "test-kll";
+			productReference = 1C82A79910C5C9E400115F67 /* test-gss-client */;
+			productType = "com.apple.product-type.tool";
+		};
+		1C82A7A410C5C9FE00115F67 /* test-kClient */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C82A7AD10C5C9FE00115F67 /* Build configuration list for PBXNativeTarget "test-kClient" */;
+			buildPhases = (
+				1C82A7A710C5C9FE00115F67 /* Headers */,
+				1C82A7A910C5C9FE00115F67 /* Sources */,
+				1C82A7AB10C5C9FE00115F67 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C82A7A510C5C9FE00115F67 /* PBXTargetDependency */,
+			);
+			name = "test-kClient";
+			productName = "test-kll";
+			productReference = 1C82A7B010C5C9FE00115F67 /* test-kClient */;
+			productType = "com.apple.product-type.tool";
+		};
+		1C82A7BB10C5CA1900115F67 /* test-krb */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C82A7C410C5CA1900115F67 /* Build configuration list for PBXNativeTarget "test-krb" */;
+			buildPhases = (
+				1C82A7BE10C5CA1900115F67 /* Headers */,
+				1C82A7C010C5CA1900115F67 /* Sources */,
+				1C82A7C210C5CA1900115F67 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C82A7BC10C5CA1900115F67 /* PBXTargetDependency */,
+			);
+			name = "test-krb";
+			productName = "test-kll";
+			productReference = 1C82A7C710C5CA1900115F67 /* test-krb */;
+			productType = "com.apple.product-type.tool";
+		};
+		1C82A7D210C5CA3900115F67 /* test-krb5 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C82A7DB10C5CA3900115F67 /* Build configuration list for PBXNativeTarget "test-krb5" */;
+			buildPhases = (
+				1C82A7D510C5CA3900115F67 /* Headers */,
+				1C82A7D710C5CA3900115F67 /* Sources */,
+				1C82A7D910C5CA3900115F67 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C82A7D310C5CA3900115F67 /* PBXTargetDependency */,
+			);
+			name = "test-krb5";
+			productName = "test-kll";
+			productReference = 1C82A7DE10C5CA3900115F67 /* test-krb5 */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB0F29BE1000160500224B2D /* Kerberos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB0F29C31000160500224B2D /* Build configuration list for PBXNativeTarget "Kerberos" */;
+			buildPhases = (
+				EB0F29BA1000160500224B2D /* Headers */,
+				EB0F29BC1000160500224B2D /* Sources */,
+				EB0F29BD1000160500224B2D /* Frameworks */,
+				EB6EE85B1086DBED00F92EAF /* install heimdal-ify.sh */,
+				EB6EE8631087C03C00F92EAF /* install dylibs */,
+				EB27476C108839D500AAB294 /* install include */,
+				EB27476D108839D500AAB294 /* install include-gssapi */,
+				EB274761108838DC00AAB294 /* install include-krb5 */,
+				EB6EE86C1087CBC300F92EAF /* install krb5-config */,
+				EB56891910A1EFED0065DD2D /* OpenSourceVersions */,
+				EB56891C10A1F01C0065DD2D /* OpenSourceLicenses */,
+				EBDB5B6B10A38B78003FD0F9 /* install man1 */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Kerberos;
+			productName = Kerberos;
+			productReference = EB0F29BF1000160500224B2D /* Kerberos.framework */;
+			productType = "com.apple.product-type.framework";
+		};
+		EB1F5D3810A905D200B69A08 /* test-principal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB1F5D3F10A905E800B69A08 /* Build configuration list for PBXNativeTarget "test-principal" */;
+			buildPhases = (
+				EB1F5D3610A905D200B69A08 /* Sources */,
+				EB1F5D3710A905D200B69A08 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB5C490710A9277F001CD7E3 /* PBXTargetDependency */,
+			);
+			name = "test-principal";
+			productName = "test-principal";
+			productReference = EB1F5D3910A905D200B69A08 /* test-principal */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB274749108819F500AAB294 /* test-sd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB27475010881A3200AAB294 /* Build configuration list for PBXNativeTarget "test-sd" */;
+			buildPhases = (
+				EB274747108819F500AAB294 /* Sources */,
+				EB274748108819F500AAB294 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB27475910881A4C00AAB294 /* PBXTargetDependency */,
+			);
+			name = "test-sd";
+			productName = "test-sd";
+			productReference = EB27474A108819F600AAB294 /* test-sd */;
+			productType = "com.apple.product-type.tool";
+		};
+		EB77819E10AB9EB000CF02BC /* test-kll2 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EB7781AE10AB9EFA00CF02BC /* Build configuration list for PBXNativeTarget "test-kll2" */;
+			buildPhases = (
+				EB7781B410AB9F2600CF02BC /* Headers */,
+				EB77819C10AB9EB000CF02BC /* Sources */,
+				EB77819D10AB9EB000CF02BC /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EB7781A410AB9EB700CF02BC /* PBXTargetDependency */,
+			);
+			name = "test-kll2";
+			productName = "test-kll2";
+			productReference = EB77819F10AB9EB000CF02BC /* test-kll2 */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBA0D028100AA2AB002C4826 /* test-kll */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBA0D02D100AA2BC002C4826 /* Build configuration list for PBXNativeTarget "test-kll" */;
+			buildPhases = (
+				EBA0D047100AA3E6002C4826 /* Headers */,
+				EBA0D026100AA2AB002C4826 /* Sources */,
+				EBA0D027100AA2AB002C4826 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBA0D03C100AA382002C4826 /* PBXTargetDependency */,
+			);
+			name = "test-kll";
+			productName = "test-kll";
+			productReference = EBA0D029100AA2AB002C4826 /* test-kll */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBC0CFBB1083CEA800B5BAAD /* test-cc */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBC0CFC11083CEEF00B5BAAD /* Build configuration list for PBXNativeTarget "test-cc" */;
+			buildPhases = (
+				EBC0D0201083E41C00B5BAAD /* Headers */,
+				EBC0CFB91083CEA800B5BAAD /* Sources */,
+				EBC0CFBA1083CEA800B5BAAD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBC0D0351083E48100B5BAAD /* PBXTargetDependency */,
+			);
+			name = "test-cc";
+			productName = "test-cc";
+			productReference = EBC0CFBC1083CEA800B5BAAD /* test-cc */;
+			productType = "com.apple.product-type.tool";
+		};
+		EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = EBED4E5A12958B9D0029A1B4 /* Build configuration list for PBXNativeTarget "test-KLAcquireInitialTickets" */;
+			buildPhases = (
+				EBED4E4A12958B720029A1B4 /* Sources */,
+				EBED4E4B12958B720029A1B4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				EBED4E5212958B790029A1B4 /* PBXTargetDependency */,
+			);
+			name = "test-KLAcquireInitialTickets";
+			productName = "test-KLAcquireInitialTickets";
+			productReference = EBED4E4D12958B720029A1B4 /* test-KLAcquireInitialTickets */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		089C1669FE841209C02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB911E08733D790010E9CD /* Build configuration list for PBXProject "MITKerberosShim" */;
+			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 089C166AFE841209C02AAC07 /* MITKerberosShim */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EBA0D034100AA379002C4826 /* All */,
+				EB0F29BE1000160500224B2D /* Kerberos */,
+				EB6FCA8910A6602200D80A61 /* Test files */,
+				EBC0CFBB1083CEA800B5BAAD /* test-cc */,
+				1C82A78D10C5C9E400115F67 /* test-gss-client */,
+				1C1A4FA810DC3D1B001883EA /* test-gss-server */,
+				1C82A7A410C5C9FE00115F67 /* test-kClient */,
+				EBA0D028100AA2AB002C4826 /* test-kll */,
+				EB77819E10AB9EB000CF02BC /* test-kll2 */,
+				1C82A7BB10C5CA1900115F67 /* test-krb */,
+				1C620D5B1062FE9800209602 /* test-krb4 */,
+				1C82A7D210C5CA3900115F67 /* test-krb5 */,
+				EB1F5D3810A905D200B69A08 /* test-principal */,
+				EB274749108819F500AAB294 /* test-sd */,
+				EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		EB6EE8631087C03C00F92EAF /* install dylibs */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "install dylibs";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mkdir -p ${DSTROOT}${HEIMDAL_ROOT}/usr/lib/\nfor a in com_err des425 gssapi_krb5 k5crypto krb4 krb5 krb524 krb5support ; do\n   ln -s /System/Library/Frameworks/Kerberos.framework/Kerberos ${DSTROOT}${HEIMDAL_ROOT}/usr/lib/lib${a}.dylib\ndone\n";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1C1A4FAC10DC3D1B001883EA /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25210F2846D00C456B4 /* test-gss-server.c in Sources */,
+				1C20F25110F2846900C456B4 /* test-gss-common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C620D591062FE9800209602 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25910F2849500C456B4 /* test-krb4.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A79210C5C9E400115F67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25010F2846200C456B4 /* test-gss-client.c in Sources */,
+				1C20F24F10F2845700C456B4 /* test-gss-common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7A910C5C9FE00115F67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25310F2847400C456B4 /* test-kClient.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7C010C5CA1900115F67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25810F2848F00C456B4 /* test-krb.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1C82A7D710C5CA3900115F67 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25A10F2849B00C456B4 /* test-krb5.c in Sources */,
+				1C72629210F5AB22009BFC63 /* test_collection.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB0F29BC1000160500224B2D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EB0F29C41000162300224B2D /* dummy.c in Sources */,
+				EB0F29FC10001D0000224B2D /* gss-symbols.c in Sources */,
+				EB0F2A101000221800224B2D /* ccache.c in Sources */,
+				EB0F2AA71000497D00224B2D /* heim-loader.c in Sources */,
+				EB0F2AA91000497D00224B2D /* heim-sym.x86_64.s in Sources */,
+				EB0F2AC510004C5600224B2D /* heim-sym.i386.s in Sources */,
+				EB75B94E100135730009B251 /* gic.c in Sources */,
+				EB75B94F100135730009B251 /* misc.c in Sources */,
+				EB75B98E100143F90009B251 /* principal.c in Sources */,
+				EB75BA99100176B20009B251 /* heim-proxy.i386.s in Sources */,
+				EB75BA9A100176B20009B251 /* heim-proxy.x86_64.s in Sources */,
+				EB75BB1A1001BB3B0009B251 /* kll.c in Sources */,
+				EB75BBF710024FD30009B251 /* prof_err.c in Sources */,
+				EB75BBF910024FD30009B251 /* prof_file.c in Sources */,
+				EB75BBFA10024FD30009B251 /* prof_FSp_glue.c in Sources */,
+				EB75BBFB10024FD30009B251 /* prof_get.c in Sources */,
+				EB75BBFC10024FD30009B251 /* prof_init.c in Sources */,
+				EB75BBFE10024FD30009B251 /* prof_parse.c in Sources */,
+				EB75BBFF10024FD30009B251 /* prof_set.c in Sources */,
+				EB75BC0010024FD30009B251 /* prof_tree.c in Sources */,
+				EBA0D009100A9F76002C4826 /* cache.c in Sources */,
+				EBD885B51056E258006242E9 /* creds.c in Sources */,
+				EB2430D010586E42001A4FB8 /* heim-proxy.ppc.s in Sources */,
+				EB2430D110586E42001A4FB8 /* heim-sym.ppc.s in Sources */,
+				1CF9E7CA10605843009E3024 /* Krb4DeprecatedAPIs.c in Sources */,
+				EB6EE8031086592700F92EAF /* keytab.c in Sources */,
+				EBD01FA6108D32DB00AECFF3 /* auth_context.c in Sources */,
+				EB514CFF108D6AC500A2FFD7 /* rd_req.c in Sources */,
+				EB514D4F108D81F300A2FFD7 /* mk_req.c in Sources */,
+				EBDC3381108F33E0006C63C9 /* misc-mit.c in Sources */,
+				EB029EBE109FC50000B1217A /* gss-glue.c in Sources */,
+				EB15204010AA532E00B6446B /* password.c in Sources */,
+				EB90DFB410AB304800DCB939 /* crypto.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB1F5D3610A905D200B69A08 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25B10F284A200C456B4 /* test-principal.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB274747108819F500AAB294 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25F10F284A800C456B4 /* test-sd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EB77819C10AB9EB000CF02BC /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F25710F2848700C456B4 /* test-kll2.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBA0D026100AA2AB002C4826 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C20F24810F283E800C456B4 /* test-kll.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBC0CFB91083CEA800B5BAAD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBC0CFC31083CEFE00B5BAAD /* test_ccapi_v2.c in Sources */,
+				EBC0CFC41083CF0100B5BAAD /* test_ccapi_util.c in Sources */,
+				EBC0CFC51083CF0200B5BAAD /* test_ccapi_log.c in Sources */,
+				EBC0CFC61083CF0300B5BAAD /* test_ccapi_iterators.c in Sources */,
+				EBC0CFC71083CF0500B5BAAD /* test_ccapi_globals.c in Sources */,
+				EBC0CFC81083CF0600B5BAAD /* test_ccapi_context.c in Sources */,
+				EBC0CFC91083CF0A00B5BAAD /* test_ccapi_constants.c in Sources */,
+				EBC0CFCA1083CF0B00B5BAAD /* test_ccapi_check.c in Sources */,
+				EBC0CFCB1083CF0C00B5BAAD /* test_ccapi_ccache.c in Sources */,
+				EBC0D00A1083CF7000B5BAAD /* main.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EBED4E4A12958B720029A1B4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				EBED4E5F12958BC10029A1B4 /* test-KLAcquireInitialTickets.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1C1A4FA910DC3D1B001883EA /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1C1A4FAA10DC3D1B001883EA /* PBXContainerItemProxy */;
+		};
+		1C20F26610F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB274749108819F500AAB294 /* test-sd */;
+			targetProxy = 1C20F26510F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F26810F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB1F5D3810A905D200B69A08 /* test-principal */;
+			targetProxy = 1C20F26710F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F26A10F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C82A7D210C5CA3900115F67 /* test-krb5 */;
+			targetProxy = 1C20F26910F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F26C10F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C620D5B1062FE9800209602 /* test-krb4 */;
+			targetProxy = 1C20F26B10F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F26E10F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C82A7BB10C5CA1900115F67 /* test-krb */;
+			targetProxy = 1C20F26D10F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27010F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB77819E10AB9EB000CF02BC /* test-kll2 */;
+			targetProxy = 1C20F26F10F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27210F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBA0D028100AA2AB002C4826 /* test-kll */;
+			targetProxy = 1C20F27110F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27410F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C82A7A410C5C9FE00115F67 /* test-kClient */;
+			targetProxy = 1C20F27310F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27610F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C1A4FA810DC3D1B001883EA /* test-gss-server */;
+			targetProxy = 1C20F27510F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27810F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1C82A78D10C5C9E400115F67 /* test-gss-client */;
+			targetProxy = 1C20F27710F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C20F27A10F284E300C456B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBC0CFBB1083CEA800B5BAAD /* test-cc */;
+			targetProxy = 1C20F27910F284E300C456B4 /* PBXContainerItemProxy */;
+		};
+		1C82A78E10C5C9E400115F67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1C82A78F10C5C9E400115F67 /* PBXContainerItemProxy */;
+		};
+		1C82A7A510C5C9FE00115F67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1C82A7A610C5C9FE00115F67 /* PBXContainerItemProxy */;
+		};
+		1C82A7BC10C5CA1900115F67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1C82A7BD10C5CA1900115F67 /* PBXContainerItemProxy */;
+		};
+		1C82A7D310C5CA3900115F67 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1C82A7D410C5CA3900115F67 /* PBXContainerItemProxy */;
+		};
+		1CEDD24F106303EB008A482B /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = 1CEDD24E106303EB008A482B /* PBXContainerItemProxy */;
+		};
+		EB17B66A106304FA0015DEB4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EB17B669106304FA0015DEB4 /* PBXContainerItemProxy */;
+		};
+		EB27475910881A4C00AAB294 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EB27475810881A4C00AAB294 /* PBXContainerItemProxy */;
+		};
+		EB5C490710A9277F001CD7E3 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EB5C490610A9277F001CD7E3 /* PBXContainerItemProxy */;
+		};
+		EB6FCA8F10A6606000D80A61 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB6FCA8910A6602200D80A61 /* Test files */;
+			targetProxy = EB6FCA8E10A6606000D80A61 /* PBXContainerItemProxy */;
+		};
+		EB7781A410AB9EB700CF02BC /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EB7781A310AB9EB700CF02BC /* PBXContainerItemProxy */;
+		};
+		EB7CE7CC1297557E0059CD86 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EBED4E4C12958B720029A1B4 /* test-KLAcquireInitialTickets */;
+			targetProxy = EB7CE7CB1297557E0059CD86 /* PBXContainerItemProxy */;
+		};
+		EBA0D03C100AA382002C4826 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EBA0D03B100AA382002C4826 /* PBXContainerItemProxy */;
+		};
+		EBC0D0351083E48100B5BAAD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EBC0D0341083E48100B5BAAD /* PBXContainerItemProxy */;
+		};
+		EBED4E5212958B790029A1B4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = EB0F29BE1000160500224B2D /* Kerberos */;
+			targetProxy = EBED4E5112958B790029A1B4 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin PBXVariantGroup section */
+		8D5B49A704867FD3000E48DA /* InfoPlist.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				089C167EFE841241C02AAC07 /* English */,
+			);
+			name = InfoPlist.strings;
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
+
+/* Begin XCBuildConfiguration section */
+		1C1A4FB110DC3D1B001883EA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin/;
+				PRODUCT_NAME = "test-gss-server";
+			};
+			name = Debug;
+		};
+		1C1A4FB210DC3D1B001883EA /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin/;
+				PRODUCT_NAME = "test-gss-server";
+			};
+			name = Release;
+		};
+		1C620D5E1062FE9900209602 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-krb4";
+				SKIP_INSTALL = NO;
+			};
+			name = Debug;
+		};
+		1C620D5F1062FE9900209602 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-krb4";
+				SKIP_INSTALL = NO;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		1C82A79710C5C9E400115F67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-gss-client";
+			};
+			name = Debug;
+		};
+		1C82A79810C5C9E400115F67 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-gss-client";
+			};
+			name = Release;
+		};
+		1C82A7AE10C5C9FE00115F67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-kClient";
+			};
+			name = Debug;
+		};
+		1C82A7AF10C5C9FE00115F67 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-kClient";
+			};
+			name = Release;
+		};
+		1C82A7C510C5CA1900115F67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-krb";
+			};
+			name = Debug;
+		};
+		1C82A7C610C5CA1900115F67 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-krb";
+			};
+			name = Release;
+		};
+		1C82A7DC10C5CA3900115F67 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-krb5";
+			};
+			name = Debug;
+		};
+		1C82A7DD10C5CA3900115F67 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-krb5";
+			};
+			name = Release;
+		};
+		1DEB911F08733D790010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEIMDAL_ROOT = "";
+				ONLY_ACTIVE_ARCH = YES;
+				PREBINDING = NO;
+				RUN_CLANG_STATIC_ANALYZER = YES;
+			};
+			name = Debug;
+		};
+		1DEB912008733D790010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEIMDAL_ROOT = "";
+				PREBINDING = NO;
+			};
+			name = Release;
+		};
+		EB0F29C11000160500224B2D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
+				DYLIB_CURRENT_VERSION = 6.0.0;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
+				FRAMEWORK_SEARCH_PATHS = (
+					"/System/Library/Frameworks/**",
+					"/System/Library/PrivateFrameworks/**",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "Kerberos-Info.plist";
+				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = Kerberos;
+				SDKROOT = "";
+			};
+			name = Debug;
+		};
+		EB0F29C21000160500224B2D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CODE_SIGN_IDENTITY = "-";
+				DYLIB_COMPATIBILITY_VERSION = 5.0.0;
+				DYLIB_CURRENT_VERSION = 6.0.0;
+				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/exported-symbols";
+				FRAMEWORK_SEARCH_PATHS = (
+					"/System/Library/Frameworks/**",
+					"/System/Library/PrivateFrameworks/**",
+				);
+				FRAMEWORK_VERSION = A;
+				GCC_MODEL_TUNING = G5;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = "Kerberos-Info.plist";
+				INSTALL_PATH = "$(HEIMDAL_ROOT)/System/Library/Frameworks";
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = Kerberos;
+				SDKROOT = "";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB1F5D3B10A905D300B69A08 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-principal";
+			};
+			name = Debug;
+		};
+		EB1F5D3C10A905D300B69A08 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-principal";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB27474D108819F600AAB294 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-sd";
+			};
+			name = Debug;
+		};
+		EB27474E108819F600AAB294 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-sd";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB6FCA8A10A6602200D80A61 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = "Raft files";
+			};
+			name = Debug;
+		};
+		EB6FCA8B10A6602200D80A61 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = "Raft files";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EB7781A110AB9EB100CF02BC /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-kll2";
+			};
+			name = Debug;
+		};
+		EB7781A210AB9EB100CF02BC /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-kll2";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EBA0D02B100AA2AC002C4826 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-kll";
+			};
+			name = Debug;
+		};
+		EBA0D02C100AA2AC002C4826 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PRODUCT_NAME = "test-kll";
+			};
+			name = Release;
+		};
+		EBA0D035100AA379002C4826 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = All;
+			};
+			name = Debug;
+		};
+		EBA0D036100AA379002C4826 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = All;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EBC0CFBE1083CEA900B5BAAD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-cc";
+			};
+			name = Debug;
+		};
+		EBC0CFBF1083CEA900B5BAAD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-cc";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		EBED4E4F12958B720029A1B4 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-KLAcquireInitialTickets";
+			};
+			name = Debug;
+		};
+		EBED4E5012958B720029A1B4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/libexec/heimdal/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = "test-KLAcquireInitialTickets";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1C1A4FB010DC3D1B001883EA /* Build configuration list for PBXNativeTarget "test-gss-server" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C1A4FB110DC3D1B001883EA /* Debug */,
+				1C1A4FB210DC3D1B001883EA /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C620D621062FEAC00209602 /* Build configuration list for PBXNativeTarget "test-krb4" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C620D5E1062FE9900209602 /* Debug */,
+				1C620D5F1062FE9900209602 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C82A79610C5C9E400115F67 /* Build configuration list for PBXNativeTarget "test-gss-client" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C82A79710C5C9E400115F67 /* Debug */,
+				1C82A79810C5C9E400115F67 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C82A7AD10C5C9FE00115F67 /* Build configuration list for PBXNativeTarget "test-kClient" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C82A7AE10C5C9FE00115F67 /* Debug */,
+				1C82A7AF10C5C9FE00115F67 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C82A7C410C5CA1900115F67 /* Build configuration list for PBXNativeTarget "test-krb" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C82A7C510C5CA1900115F67 /* Debug */,
+				1C82A7C610C5CA1900115F67 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1C82A7DB10C5CA3900115F67 /* Build configuration list for PBXNativeTarget "test-krb5" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C82A7DC10C5CA3900115F67 /* Debug */,
+				1C82A7DD10C5CA3900115F67 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB911E08733D790010E9CD /* Build configuration list for PBXProject "MITKerberosShim" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB911F08733D790010E9CD /* Debug */,
+				1DEB912008733D790010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB0F29C31000160500224B2D /* Build configuration list for PBXNativeTarget "Kerberos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB0F29C11000160500224B2D /* Debug */,
+				EB0F29C21000160500224B2D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB1F5D3F10A905E800B69A08 /* Build configuration list for PBXNativeTarget "test-principal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB1F5D3B10A905D300B69A08 /* Debug */,
+				EB1F5D3C10A905D300B69A08 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB27475010881A3200AAB294 /* Build configuration list for PBXNativeTarget "test-sd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB27474D108819F600AAB294 /* Debug */,
+				EB27474E108819F600AAB294 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB6FCA9210A6608D00D80A61 /* Build configuration list for PBXAggregateTarget "Test files" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB6FCA8A10A6602200D80A61 /* Debug */,
+				EB6FCA8B10A6602200D80A61 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EB7781AE10AB9EFA00CF02BC /* Build configuration list for PBXNativeTarget "test-kll2" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EB7781A110AB9EB100CF02BC /* Debug */,
+				EB7781A210AB9EB100CF02BC /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBA0D02D100AA2BC002C4826 /* Build configuration list for PBXNativeTarget "test-kll" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBA0D02B100AA2AC002C4826 /* Debug */,
+				EBA0D02C100AA2AC002C4826 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBA0D048100AA3E6002C4826 /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBA0D035100AA379002C4826 /* Debug */,
+				EBA0D036100AA379002C4826 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBC0CFC11083CEEF00B5BAAD /* Build configuration list for PBXNativeTarget "test-cc" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBC0CFBE1083CEA900B5BAAD /* Debug */,
+				EBC0CFBF1083CEA900B5BAAD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		EBED4E5A12958B9D0029A1B4 /* Build configuration list for PBXNativeTarget "test-KLAcquireInitialTickets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EBED4E4F12958B720029A1B4 /* Debug */,
+				EBED4E5012958B720029A1B4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 089C1669FE841209C02AAC07 /* Project object */;
+}

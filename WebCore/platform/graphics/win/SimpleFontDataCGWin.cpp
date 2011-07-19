@@ -29,20 +29,19 @@
 #include "config.h"
 #include "SimpleFontData.h"
 
-#include <winsock2.h>
 #include "Font.h"
 #include "FontCache.h"
 #include "FloatRect.h"
 #include "FontDescription.h"
 #include "PlatformString.h"
-#include <wtf/MathExtras.h>
-#include <wtf/RetainPtr.h>
-#include <unicode/uchar.h>
-#include <unicode/unorm.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #include <mlang.h>
-#include <tchar.h>
+#include <unicode/uchar.h>
+#include <unicode/unorm.h>
+#include <winsock2.h>
+#include <wtf/MathExtras.h>
+#include <wtf/RetainPtr.h>
 
 namespace WebCore {
 
@@ -64,19 +63,19 @@ void SimpleFontData::platformInit()
     int iAscent = CGFontGetAscent(font);
     int iDescent = CGFontGetDescent(font);
     int iLineGap = CGFontGetLeading(font);
-    m_unitsPerEm = CGFontGetUnitsPerEm(font);
+    unsigned unitsPerEm = CGFontGetUnitsPerEm(font);
     float pointSize = m_platformData.size();
-    float fAscent = scaleEmToUnits(iAscent, m_unitsPerEm) * pointSize;
-    float fDescent = -scaleEmToUnits(iDescent, m_unitsPerEm) * pointSize;
-    float fLineGap = scaleEmToUnits(iLineGap, m_unitsPerEm) * pointSize;
+    float fAscent = scaleEmToUnits(iAscent, unitsPerEm) * pointSize;
+    float fDescent = -scaleEmToUnits(iDescent, unitsPerEm) * pointSize;
+    float fLineGap = scaleEmToUnits(iLineGap, unitsPerEm) * pointSize;
 
     if (!isCustomFont()) {
         HDC dc = GetDC(0);
         HGDIOBJ oldFont = SelectObject(dc, m_platformData.hfont());
         int faceLength = GetTextFace(dc, 0, 0);
-        Vector<TCHAR> faceName(faceLength);
+        Vector<WCHAR> faceName(faceLength);
         GetTextFace(dc, faceLength, faceName.data());
-        m_isSystemFont = !_tcscmp(faceName.data(), _T("Lucida Grande"));
+        m_isSystemFont = !wcscmp(faceName.data(), L"Lucida Grande");
         SelectObject(dc, oldFont);
         ReleaseDC(0, dc);
 
@@ -88,32 +87,30 @@ void SimpleFontData::platformInit()
             // web standard. The AppKit adjustment of 20% is too big and is
             // incorrectly added to line spacing, so we use a 15% adjustment instead
             // and add it to the ascent.
-            if (!_tcscmp(faceName.data(), _T("Times")) || !_tcscmp(faceName.data(), _T("Helvetica")) || !_tcscmp(faceName.data(), _T("Courier")))
+            if (!wcscmp(faceName.data(), L"Times") || !wcscmp(faceName.data(), L"Helvetica") || !wcscmp(faceName.data(), L"Courier"))
                 fAscent += floorf(((fAscent + fDescent) * 0.15f) + 0.5f);
         }
     }
 
-    m_ascent = lroundf(fAscent);
-    m_descent = lroundf(fDescent);
-    m_lineGap = lroundf(fLineGap);
-    m_lineSpacing = m_ascent + m_descent + m_lineGap;
+    m_fontMetrics.setAscent(fAscent);
+    m_fontMetrics.setDescent(fDescent);
+    m_fontMetrics.setLineGap(fLineGap);
+    m_fontMetrics.setLineSpacing(lroundf(fAscent) + lroundf(fDescent) + lroundf(fLineGap));
 
-    // Measure the actual character "x", because AppKit synthesizes X height rather than getting it from the font.
-    // Unfortunately, NSFont will round this for us so we don't quite get the right value.
     GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
     Glyph xGlyph = glyphPageZero ? glyphPageZero->glyphDataForCharacter('x').glyph : 0;
     if (xGlyph) {
+        // Measure the actual character "x", since it's possible for it to extend below the baseline, and we need the
+        // reported x-height to only include the portion of the glyph that is above the baseline.
         CGRect xBox;
         CGFontGetGlyphBBoxes(font, &xGlyph, 1, &xBox);
-        // Use the maximum of either width or height because "x" is nearly square
-        // and web pages that foolishly use this metric for width will be laid out
-        // poorly if we return an accurate height. Classic case is Times 13 point,
-        // which has an "x" that is 7x6 pixels.
-        m_xHeight = scaleEmToUnits(max(CGRectGetMaxX(xBox), CGRectGetMaxY(xBox)), m_unitsPerEm) * pointSize;
+        m_fontMetrics.setXHeight(scaleEmToUnits(CGRectGetMaxY(xBox), unitsPerEm) * pointSize);
     } else {
         int iXHeight = CGFontGetXHeight(font);
-        m_xHeight = scaleEmToUnits(iXHeight, m_unitsPerEm) * pointSize;
+        m_fontMetrics.setXHeight(scaleEmToUnits(iXHeight, unitsPerEm) * pointSize);
     }
+
+    m_fontMetrics.setUnitsPerEm(unitsPerEm);
 }
 
 void SimpleFontData::platformCharWidthInit()
@@ -133,7 +130,7 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
     CGRect box;
     CGFontGetGlyphBBoxes(m_platformData.cgFont(), &glyph, 1, &box);
     float pointSize = m_platformData.size();
-    CGFloat scale = pointSize / unitsPerEm();
+    CGFloat scale = pointSize / fontMetrics().unitsPerEm();
     FloatRect boundingBox = CGRectApplyAffineTransform(box, CGAffineTransformMakeScale(scale, -scale));
     if (m_syntheticBoldOffset)
         boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);

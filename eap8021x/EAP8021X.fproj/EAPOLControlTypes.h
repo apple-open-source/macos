@@ -90,6 +90,10 @@ typedef uint32_t EAPOLControlState;
 #define kEAPOLControlTimestamp		CFSTR("Timestamp")	/* CFDate */
 #define kEAPOLControlRequiredProperties	CFSTR("RequiredProperties") /* CFArray[CFString] */
 #define kEAPOLControlAdditionalProperties	CFSTR("AdditionalProperties") /* CFDictionary */
+#define kEAPOLControlAuthenticatorMACAddress	CFSTR("AuthenticatorMACAddress") /* CFData */
+#define kEAPOLControlManagerName	CFSTR("ManagerName")
+#define kEAPOLControlUID		CFSTR("UID")
+
 
 /*
  * Property: kEAPOLControlMode
@@ -121,4 +125,4 @@ typedef uint32_t	EAPOLControlMode;
  * Deprecated:
  */
 #define kEAPOLControlSystemMode		CFSTR("SystemMode") /* CFBoolean */
-#endif _EAP8021X_EAPOLCONTROLTYPES_H
+#endif /* _EAP8021X_EAPOLCONTROLTYPES_H */

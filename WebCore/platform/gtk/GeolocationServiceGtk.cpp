@@ -19,6 +19,7 @@
 
 #include "config.h"
 #include "GeolocationServiceGtk.h"
+#if ENABLE(GEOLOCATION)
 
 #include "GOwnPtr.h"
 #include "NotImplemented.h"
@@ -37,7 +38,7 @@ namespace WTF {
 
 namespace WebCore {
 
-GeolocationService* GeolocationServiceGtk::create(GeolocationServiceClient* client)
+PassOwnPtr<GeolocationService> GeolocationServiceGtk::create(GeolocationServiceClient* client)
 {
     return new GeolocationServiceGtk(client);
 }
@@ -211,3 +212,4 @@ void GeolocationServiceGtk::setError(PositionError::ErrorCode errorCode, const c
 }
 
 }
+#endif // ENABLE(GEOLOCATION)

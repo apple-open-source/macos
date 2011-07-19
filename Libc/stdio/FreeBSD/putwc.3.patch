@@ -1,6 +1,6 @@
---- putwc.3	2004-11-25 11:38:35.000000000 -0800
-+++ putwc.3.edit	2006-08-09 13:41:39.000000000 -0700
-@@ -52,11 +52,19 @@
+--- putwc.3.bsdnew	2009-11-11 13:33:14.000000000 -0800
++++ putwc.3	2009-11-11 13:33:14.000000000 -0800
+@@ -48,11 +48,19 @@
  .In stdio.h
  .In wchar.h
  .Ft wint_t
@@ -23,7 +23,7 @@
  .Sh DESCRIPTION
  The
  .Fn fputwc
-@@ -79,6 +87,12 @@
+@@ -75,6 +83,12 @@ is identical to
  .Fn putwc
  with an output stream of
  .Dv stdout .
@@ -36,7 +36,7 @@
  .Sh RETURN VALUES
  The
  .Fn fputwc ,
-@@ -95,6 +109,7 @@
+@@ -91,6 +105,7 @@ is returned.
  .Xr fopen 3 ,
  .Xr getwc 3 ,
  .Xr putc 3 ,

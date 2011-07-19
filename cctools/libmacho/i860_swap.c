@@ -31,31 +31,31 @@ enum NXByteOrder target_byte_sex)
     int i;
 
 	for(i = 0; i < 31; i++)
-	    cpu->ireg[i] = NXSwapLong(cpu->ireg[i]);
+	    cpu->ireg[i] = OSSwapInt32(cpu->ireg[i]);
 	for(i = 0; i < 30; i++)
-	    cpu->freg[i] = NXSwapLong(cpu->freg[i]);
-	cpu->psr = NXSwapLong(cpu->psr);
-	cpu->epsr = NXSwapLong(cpu->epsr);
-	cpu->db = NXSwapLong(cpu->db);
-	cpu->pc = NXSwapLong(cpu->pc);
-	cpu->_padding_ = NXSwapLong(cpu->_padding_);
-	cpu->Mres3 = NXSwapDouble(cpu->Mres3);
-	cpu->Ares3 = NXSwapDouble(cpu->Ares3);
-	cpu->Mres2 = NXSwapDouble(cpu->Mres2);
-	cpu->Ares2 = NXSwapDouble(cpu->Ares2);
-	cpu->Mres1 = NXSwapDouble(cpu->Mres1);
-	cpu->Ares1 = NXSwapDouble(cpu->Ares1);
-	cpu->Ires1 = NXSwapDouble(cpu->Ires1);
-	cpu->Lres3m = NXSwapDouble(cpu->Lres3m);
-	cpu->Lres2m = NXSwapDouble(cpu->Lres2m);
-	cpu->Lres1m = NXSwapDouble(cpu->Lres1m);
-	cpu->KR = NXSwapDouble(cpu->KR);
-	cpu->KI = NXSwapDouble(cpu->KI);
-	cpu->T = NXSwapDouble(cpu->T);
-	cpu->Fsr3 = NXSwapLong(cpu->Fsr3);
-	cpu->Fsr2 = NXSwapLong(cpu->Fsr2);
-	cpu->Fsr1 = NXSwapLong(cpu->Fsr1);
-	cpu->Mergelo32 = NXSwapLong(cpu->Mergelo32);
-	cpu->Mergehi32 = NXSwapLong(cpu->Mergehi32);
+	    cpu->freg[i] = OSSwapInt32(cpu->freg[i]);
+	cpu->psr = OSSwapInt32(cpu->psr);
+	cpu->epsr = OSSwapInt32(cpu->epsr);
+	cpu->db = OSSwapInt32(cpu->db);
+	cpu->pc = OSSwapInt32(cpu->pc);
+	cpu->_padding_ = OSSwapInt32(cpu->_padding_);
+	cpu->Mres3 = OSSwapInt64(cpu->Mres3);
+	cpu->Ares3 = OSSwapInt64(cpu->Ares3);
+	cpu->Mres2 = OSSwapInt64(cpu->Mres2);
+	cpu->Ares2 = OSSwapInt64(cpu->Ares2);
+	cpu->Mres1 = OSSwapInt64(cpu->Mres1);
+	cpu->Ares1 = OSSwapInt64(cpu->Ares1);
+	cpu->Ires1 = OSSwapInt64(cpu->Ires1);
+	cpu->Lres3m = OSSwapInt64(cpu->Lres3m);
+	cpu->Lres2m = OSSwapInt64(cpu->Lres2m);
+	cpu->Lres1m = OSSwapInt64(cpu->Lres1m);
+	cpu->KR = OSSwapInt64(cpu->KR);
+	cpu->KI = OSSwapInt64(cpu->KI);
+	cpu->T = OSSwapInt64(cpu->T);
+	cpu->Fsr3 = OSSwapInt32(cpu->Fsr3);
+	cpu->Fsr2 = OSSwapInt32(cpu->Fsr2);
+	cpu->Fsr1 = OSSwapInt32(cpu->Fsr1);
+	cpu->Mergelo32 = OSSwapInt32(cpu->Mergelo32);
+	cpu->Mergehi32 = OSSwapInt32(cpu->Mergehi32);
 }
 #endif /* !defined(RLD) */

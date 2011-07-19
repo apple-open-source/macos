@@ -27,9 +27,11 @@
 #ifndef StyleMedia_h
 #define StyleMedia_h
 
-#include "DOMWindow.h"
+#include "PlatformString.h"
 
 namespace WebCore {
+
+class Frame;
 
 class StyleMedia : public RefCounted<StyleMedia> {
 public:
@@ -38,6 +40,7 @@ public:
         return adoptRef(new StyleMedia(frame));
     }
 
+    Frame* frame() { return m_frame; }
     void disconnectFrame() { m_frame = 0; }
 
     String type() const;

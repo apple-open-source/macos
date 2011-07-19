@@ -57,12 +57,12 @@ declare 10 generic {
 }
 declare 11 generic {
     void XOTclAddPMethod(Tcl_Interp* in, struct XOTcl_Object* obj, 
-                         char* nm, Tcl_ObjCmdProc* proc,
+                         CONST char* nm, Tcl_ObjCmdProc* proc,
 	                 ClientData cd, Tcl_CmdDeleteProc* dp)
 }
 declare 12 generic {
     void XOTclAddIMethod(Tcl_Interp* in, struct XOTcl_Class* cl, 
-                         char* nm, Tcl_ObjCmdProc* proc,
+                         CONST char* nm, Tcl_ObjCmdProc* proc,
 	                 ClientData cd, Tcl_CmdDeleteProc* dp)
 }
 declare 13 generic {

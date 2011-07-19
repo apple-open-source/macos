@@ -11,12 +11,12 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# $Id: cksum.tcl,v 1.10 2008/03/10 04:31:30 andreas_kupries Exp $
+# $Id: cksum.tcl,v 1.11 2009/04/21 20:06:19 andreas_kupries Exp $
 
 package require Tcl 8.2;                # tcl minimum version
 
 namespace eval ::crc {
-    variable cksum_version 1.1.2
+    variable cksum_version 1.1.3
 
     namespace export cksum
 
@@ -115,6 +115,7 @@ proc ::crc::CksumFinal {token} {
                          ^ [lindex $cksum_tbl \
                                 [expr {(($t >> 24) ^ $i) & 0xFF}]]}]
     }
+    unset state
     return [expr {~$t & 0xFFFFFFFF}]
 }
 

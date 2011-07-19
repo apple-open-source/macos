@@ -1,45 +1,47 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
-                  2005 Eric Seidel <eric@webkit.org>
-                  2009 Dirk Schulze <krit@webkit.org>
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    aint with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
+ * Copyright (C) 2005 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(FILTERS)
 #include "FEComponentTransfer.h"
 
-#include "CanvasPixelArray.h"
 #include "Filter.h"
 #include "GraphicsContext.h"
-#include "ImageData.h"
-#include <math.h>
+#include "RenderTreeAsText.h"
+#include "TextStream.h"
+
+#include <wtf/ByteArray.h>
+#include <wtf/MathExtras.h>
+#include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 typedef void (*TransferType)(unsigned char*, const ComponentTransferFunction&);
 
-FEComponentTransfer::FEComponentTransfer(FilterEffect* in, const ComponentTransferFunction& redFunc, 
-    const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc)
-    : FilterEffect()
-    , m_in(in)
+FEComponentTransfer::FEComponentTransfer(Filter* filter, const ComponentTransferFunction& redFunc, const ComponentTransferFunction& greenFunc,
+                                         const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc)
+    : FilterEffect(filter)
     , m_redFunc(redFunc)
     , m_greenFunc(greenFunc)
     , m_blueFunc(blueFunc)
@@ -47,10 +49,10 @@ FEComponentTransfer::FEComponentTransfer(FilterEffect* in, const ComponentTransf
 {
 }
 
-PassRefPtr<FEComponentTransfer> FEComponentTransfer::create(FilterEffect* in, const ComponentTransferFunction& redFunc, 
+PassRefPtr<FEComponentTransfer> FEComponentTransfer::create(Filter* filter, const ComponentTransferFunction& redFunc, 
     const ComponentTransferFunction& greenFunc, const ComponentTransferFunction& blueFunc, const ComponentTransferFunction& alphaFunc)
 {
-    return adoptRef(new FEComponentTransfer(in, redFunc, greenFunc, blueFunc, alphaFunc));
+    return adoptRef(new FEComponentTransfer(filter, redFunc, greenFunc, blueFunc, alphaFunc));
 }
 
 ComponentTransferFunction FEComponentTransfer::redFunction() const
@@ -148,13 +150,17 @@ static void gamma(unsigned char* values, const ComponentTransferFunction& transf
     }
 }
 
-void FEComponentTransfer::apply(Filter* filter)
+void FEComponentTransfer::apply()
 {
-    m_in->apply(filter);
-    if (!m_in->resultImage())
+    if (hasResult())
+        return;
+    FilterEffect* in = inputEffect(0);
+    in->apply();
+    if (!in->hasResult())
         return;
 
-    if (!getEffectContext())
+    ByteArray* pixelArray = createUnmultipliedImageResult();
+    if (!pixelArray)
         return;
 
     unsigned char rValues[256], gValues[256], bValues[256], aValues[256];
@@ -164,25 +170,79 @@ void FEComponentTransfer::apply(Filter* filter)
     ComponentTransferFunction transferFunction[] = {m_redFunc, m_greenFunc, m_blueFunc, m_alphaFunc};
     TransferType callEffect[] = {identity, identity, table, discrete, linear, gamma};
 
-    for (unsigned channel = 0; channel < 4; channel++)
+    for (unsigned channel = 0; channel < 4; channel++) {
+        ASSERT(static_cast<size_t>(transferFunction[channel].type) < WTF_ARRAY_LENGTH(callEffect));
         (*callEffect[transferFunction[channel].type])(tables[channel], transferFunction[channel]);
-
-    IntRect drawingRect = calculateDrawingIntRect(m_in->scaledSubRegion());
-    RefPtr<ImageData> imageData(m_in->resultImage()->getUnmultipliedImageData(drawingRect));
-    CanvasPixelArray* srcPixelArray(imageData->data());
-
-    for (unsigned pixelOffset = 0; pixelOffset < srcPixelArray->length(); pixelOffset += 4) {
-        for (unsigned channel = 0; channel < 4; ++channel) {
-            unsigned char c = srcPixelArray->get(pixelOffset + channel);
-            imageData->data()->set(pixelOffset + channel, tables[channel][c]);
-        }
     }
 
-    resultImage()->putUnmultipliedImageData(imageData.get(), IntRect(IntPoint(), resultImage()->size()), IntPoint());
+    IntRect drawingRect = requestedRegionOfInputImageData(in->absolutePaintRect());
+    in->copyUnmultipliedImage(pixelArray, drawingRect);
+
+    unsigned pixelArrayLength = pixelArray->length();
+    for (unsigned pixelOffset = 0; pixelOffset < pixelArrayLength; pixelOffset += 4) {
+        for (unsigned channel = 0; channel < 4; ++channel) {
+            unsigned char c = pixelArray->get(pixelOffset + channel);
+            pixelArray->set(pixelOffset + channel, tables[channel][c]);
+        }
+    }
 }
 
 void FEComponentTransfer::dump()
 {
+}
+
+static TextStream& operator<<(TextStream& ts, const ComponentTransferType& type)
+{
+    switch (type) {
+    case FECOMPONENTTRANSFER_TYPE_UNKNOWN:
+        ts << "UNKNOWN";
+        break;
+    case FECOMPONENTTRANSFER_TYPE_IDENTITY:
+        ts << "IDENTITY";
+        break;
+    case FECOMPONENTTRANSFER_TYPE_TABLE:
+        ts << "TABLE";
+        break;
+    case FECOMPONENTTRANSFER_TYPE_DISCRETE:
+        ts << "DISCRETE";
+        break;
+    case FECOMPONENTTRANSFER_TYPE_LINEAR:
+        ts << "LINEAR";
+        break;
+    case FECOMPONENTTRANSFER_TYPE_GAMMA:
+        ts << "GAMMA";
+        break;
+    }
+    return ts;
+}
+
+static TextStream& operator<<(TextStream& ts, const ComponentTransferFunction& function)
+{
+    ts << "type=\"" << function.type 
+       << "\" slope=\"" << function.slope
+       << "\" intercept=\"" << function.intercept
+       << "\" amplitude=\"" << function.amplitude
+       << "\" exponent=\"" << function.exponent
+       << "\" offset=\"" << function.offset << "\"";
+    return ts;
+}
+
+TextStream& FEComponentTransfer::externalRepresentation(TextStream& ts, int indent) const
+{
+    writeIndent(ts, indent);
+    ts << "[feComponentTransfer";
+    FilterEffect::externalRepresentation(ts);
+    ts << " \n";
+    writeIndent(ts, indent + 2);
+    ts << "{red: " << m_redFunc << "}\n";
+    writeIndent(ts, indent + 2);
+    ts << "{green: " << m_greenFunc << "}\n";
+    writeIndent(ts, indent + 2);
+    ts << "{blue: " << m_blueFunc << "}\n";    
+    writeIndent(ts, indent + 2);
+    ts << "{alpha: " << m_alphaFunc << "}]\n";
+    inputEffect(0)->externalRepresentation(ts, indent + 1);
+    return ts;
 }
 
 } // namespace WebCore

@@ -286,6 +286,8 @@ QMGR_TRANSPORT *qmgr_transport_select(void)
 	    continue;
 	need = xport->pending + 1;
 	for (queue = xport->queue_list.next; queue; queue = queue->peers.next) {
+	    if (QMGR_QUEUE_READY(queue) == 0)
+		continue;
 	    if ((need -= MIN5af51743e4eef(queue->window - queue->busy_refcount,
 					  queue->todo_refcount)) <= 0) {
 		QMGR_LIST_ROTATE(qmgr_transport_list, xport);
@@ -337,7 +339,8 @@ void    qmgr_transport_alloc(QMGR_TRANSPORT *transport, QMGR_TRANSPORT_ALLOC_NOT
     transport->pending += 1;
     if ((alloc->stream = mail_connect(MAIL_CLASS_PRIVATE, transport->name,
 				      NON_BLOCKING)) == 0) {
-	msg_warn("connect to transport %s: %m", transport->name);
+	msg_warn("connect to transport %s/%s: %m",
+		 MAIL_CLASS_PRIVATE, transport->name);
 	event_request_timer(qmgr_transport_event, (char *) alloc, 0);
 	return;
     }

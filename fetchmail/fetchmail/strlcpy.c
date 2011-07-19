@@ -21,6 +21,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "fm_strl.h"
+
 #ifndef HAVE_STRLCPY
 /*
  * Copy src to string dst of size siz.  At most siz-1 characters

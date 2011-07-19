@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,12 +36,16 @@
 #ifdef __cplusplus
 #import <WebCore/WebCoreKeyboardUIMode.h>
 
+#include <wtf/Forward.h>
+
 namespace WebCore {
-    class String;
+    class Element;
     class Frame;
+    class HistoryItem;
     class KURL;
     class KeyboardEvent;
     class Page;
+    class RenderBox;
     class Node;
 }
 #endif
@@ -52,7 +57,6 @@ namespace WebCore {
 #ifdef __cplusplus
 
 @interface WebView (WebViewEditingExtras)
-- (BOOL)_interceptEditingKeyEvent:(WebCore::KeyboardEvent*)event shouldSaveCommand:(BOOL)shouldSave;
 - (BOOL)_shouldChangeSelectedDOMRange:(DOMRange *)currentRange toDOMRange:(DOMRange *)proposedRange affinity:(NSSelectionAffinity)selectionAffinity stillSelecting:(BOOL)flag;
 @end
 
@@ -86,6 +90,10 @@ namespace WebCore {
 - (void)_scheduleCompositingLayerSync;
 #endif
 
+#if ENABLE(GLIB_SUPPORT)
+- (void)_scheduleGlibContextIterations;
+#endif
+
 @end
 
 #endif
@@ -106,6 +114,7 @@ namespace WebCore {
 
 #ifdef __cplusplus
 - (WebCore::Page*)page;
+- (void)_setGlobalHistoryItem:(WebCore::HistoryItem*)historyItem;
 #endif
 
 - (NSMenu *)_menuForElement:(NSDictionary *)element defaultItems:(NSArray *)items;
@@ -142,6 +151,9 @@ namespace WebCore {
 - (void)_didChangeValueForKey:(NSString *)key;
 - (WebBasePluginPackage *)_pluginForMIMEType:(NSString *)MIMEType;
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension;
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+- (WebBasePluginPackage *)_videoProxyPluginForMIMEType:(NSString *)MIMEType;
+#endif
 
 - (void)setCurrentNodeHighlight:(WebNodeHighlight *)nodeHighlight;
 - (WebNodeHighlight *)currentNodeHighlight;
@@ -171,11 +183,18 @@ namespace WebCore {
 
 - (void)_setInsertionPasteboard:(NSPasteboard *)pasteboard;
 
+- (void)_preferencesChanged:(WebPreferences *)preferences;
+
 #if ENABLE(VIDEO) && defined(__cplusplus)
 - (void)_enterFullscreenForNode:(WebCore::Node*)node;
 - (void)_exitFullscreen;
 #endif
 
-- (JSValueRef)_computedStyleIncludingVisitedInfo:(JSContextRef)context forElement:(JSValueRef)value;
+#if ENABLE(FULLSCREEN_API) && defined(__cplusplus)
+- (BOOL)_supportsFullScreenForElement:(WebCore::Element*)element withKeyboard:(BOOL)withKeyboard;
+- (void)_enterFullScreenForElement:(WebCore::Element*)element;
+- (void)_exitFullScreenForElement:(WebCore::Element*)element;
+- (void)_fullScreenRendererChanged:(WebCore::RenderBox*)renderer;
+#endif
 
 @end

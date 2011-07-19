@@ -59,9 +59,12 @@ IODestroyPlugInInterface(). Do not call Release() on it.
 */
 /*
 	$Log: IOFireWireLib.h,v $
+	Revision 1.78  2010/05/20 22:49:43  calderon
+	Fixes issues with offset argument of pseudo address space read handler being wrong.
+
 	Revision 1.77  2009/10/29 22:28:28  calderon
 	<rdar://7308574> IOFireWireLib.h and IOFireWireLibIsoch.h headerdoc markup patch
-	
+
 	Revision 1.76  2008/12/12 04:43:57  collin
 	user space compare swap command fixes
 	
@@ -1200,13 +1203,14 @@ typedef struct IOFireWireDeviceInterface_t
 		@abstract Creates a pseudo address space object and returns an interface to it. This
 			will create a pseudo address space (software-backed) on the local machine. 
 		@param self The device interface to use.
-		@param inSize The size in bytes of this address space
+		@param inSize The size in bytes of this address space.
 		@param inRefCon A user specified reference value. This will be passed to all callback functions.
 		@param inQueueBufferSize The size of the queue which receives packets from the bus before they are handed to
 			the client and/or put in the backing store. A larger queue can help eliminate dropped packets
 			when receiving large bursts of data. When a packet is received which can not fit into the queue, 
 			the packet dropped callback will be called. 
-		@param inBackingStore An optional block of allocated memory representing the contents of the address space.
+		@param inBackingStore An optional block of allocated memory representing the contents of the address space. This 
+			memory block must be of size inSize.
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
 			for this address space.
 			<ul>
@@ -1238,8 +1242,8 @@ typedef struct IOFireWireDeviceInterface_t
 		@abstract Creates a physical address space object and returns an interface to it. This
 			will create a physical address space on the local machine. 
 		@param self The device interface to use.
+		@param inSize The size in bytes of this address space.
 		@param inBackingStore An block of allocated memory representing the contents of the address space.
-		@param inSize The size in bytes of this address space
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
 			for this address space. For future use -- always pass 0.
 		@param iid An ID number, of type CFUUIDBytes (see CFUUID.h), identifying the
@@ -1423,13 +1427,14 @@ typedef struct IOFireWireDeviceInterface_t
 		@param self The device interface to use.
 		@param inAddressLo The lower 32 bits of the base address of the address space to be created. The address is always
 			in initial units space.
-		@param inSize The size in bytes of this address space
+		@param inSize The size in bytes of this address space.
 		@param inRefCon A user specified reference value. This will be passed to all callback functions.
 		@param inQueueBufferSize The size of the queue which receives packets from the bus before they are handed to
 			the client and/or put in the backing store. A larger queue can help eliminate dropped packets
 			when receiving large bursts of data. When a packet is received which can not fit into the queue, 
 			the packet dropped callback will be called. 
-		@param inBackingStore An optional block of allocated memory representing the contents of the address space.
+		@param inBackingStore An optional block of allocated memory representing the contents of the address space. This
+			memory block must be of size inSize.
 		@param inFlags A UInt32 with bits set corresponding to the flags that should be set
 			for this address space.
 			<ul>

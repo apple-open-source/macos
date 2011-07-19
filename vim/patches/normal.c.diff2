@@ -1,0 +1,14 @@
+Index: src/normal.c
+===================================================================
+--- src/normal.c	(revision 57763)
++++ src/normal.c	(working copy)
+@@ -6964,7 +6964,8 @@
+ #endif
+ 	stuffcharReadbuff('\r');
+ 	stuffcharReadbuff(ESC);
+-
++	if (curbuf->b_p_ai && Unix2003_compat)
++	    stuffcharReadbuff('^');
+ 	/* Give 'r' to edit(), to get the redo command right. */
+ 	invoke_edit(cap, TRUE, 'r', FALSE);
+     }

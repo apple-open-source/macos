@@ -116,6 +116,7 @@ static const CFRuntimeClass __IOHIDManagerClass = {
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
     NULL,
+    NULL,
     NULL
 };
 
@@ -170,14 +171,27 @@ void __IOHIDManagerRelease( CFTypeRef object )
         __IOHIDManagerSaveProperties(manager, NULL);
     }
     
-    if ( manager->isOpen )
+    if ( manager->isOpen ) {
+        // This will unschedule the manager if it was opened
         IOHIDManagerClose(manager, manager->openOptions);
+    }
+    
+    if ( manager->runLoop ) {
+        // This will unschedule the manager if it wasn't
+        IOHIDManagerUnscheduleFromRunLoop(manager, manager->runLoop, manager->runLoopMode);
+    }
         
-    if ( manager->notifyPort ) {
+    // Destroy the notification
+    if (manager->notifyPort) {
+        CFRunLoopSourceInvalidate(IONotificationPortGetRunLoopSource(manager->notifyPort));
+        if (manager->runLoop)
+            CFRunLoopRemoveSource(manager->runLoop, 
+                                  IONotificationPortGetRunLoopSource(manager->notifyPort), 
+                                  manager->runLoopMode);
         IONotificationPortDestroy(manager->notifyPort);
         manager->notifyPort = NULL;
     }
-    
+
     if ( manager->devices ) {
         CFRelease(manager->devices);
         manager->devices = NULL;
@@ -196,11 +210,6 @@ void __IOHIDManagerRelease( CFTypeRef object )
     if ( manager->properties ) {
         CFRelease(manager->properties);
         manager->properties = NULL;
-    }
-    
-    if ( manager->initEnumRunLoopSource ) {
-        CFRelease(manager->initEnumRunLoopSource);
-        manager->initEnumRunLoopSource = NULL;
     }
     
     if ( manager->initRetVals ) {
@@ -272,9 +281,10 @@ void __IOHIDManagerSetDeviceMatching(
         if ( !manager->iterators )
             return;
     }
-        
+    
     intptr_t temp = iterator;
     CFSetAddValue(manager->iterators, (void *)temp);
+    IOObjectRelease(iterator);
 
     __IOHIDManagerDeviceAdded(manager, iterator);
 }
@@ -439,9 +449,10 @@ void __IOHIDManagerInitialEnumCallback(void * info)
     }
     
     // After we have dispatched all of the enum callbacks, kill the source
-    CFRunLoopRemoveSource(  manager->runLoop, 
-                            manager->initEnumRunLoopSource, 
-                            manager->runLoopMode);
+    if (manager->runLoop)
+        CFRunLoopRemoveSource(manager->runLoop,
+                              manager->initEnumRunLoopSource, 
+                              manager->runLoopMode);
 
     CFRelease(manager->initEnumRunLoopSource);
     manager->initEnumRunLoopSource = NULL;
@@ -588,7 +599,7 @@ IOReturn IOHIDManagerOpen(
     IOReturn retVal = kIOReturnSuccess;
     
     if ( !manager->isOpen ) {
-        manager->isOpen         = TRUE;
+        manager->isOpen     = TRUE;
         manager->openOptions    = options;
 
         if ( manager->devices ) {
@@ -626,9 +637,13 @@ IOReturn IOHIDManagerClose(
                                 IOOptionBits                    options)
 {
     IOReturn retVal = kIOReturnSuccess;
+    
+    if (manager->runLoop) {
+        IOHIDManagerUnscheduleFromRunLoop(manager, manager->runLoop, manager->runLoopMode);
+    }
 
     if ( manager->isOpen ) {
-        manager->isOpen         = FALSE;
+        manager->isOpen     = FALSE;
         manager->openOptions    = options;
 
         if ( manager->devices ) {
@@ -931,12 +946,15 @@ void IOHIDManagerUnscheduleFromRunLoop(
                                         CFRunLoopRef            runLoop, 
                                         CFStringRef             runLoopMode)
 {
+    if (!manager->runLoop)
+        return;
+    
     if (!CFEqual(manager->runLoop, runLoop) || 
         !CFEqual(manager->runLoopMode, runLoopMode)) 
         return;
         
     if ( manager->devices ) {
-        // Schedule the devices
+        // Unschedule the devices
         DeviceApplierArgs args;
         
         args.manager = manager;
@@ -945,6 +963,16 @@ void IOHIDManagerUnscheduleFromRunLoop(
         CFSetApplyFunction( manager->devices, 
                             __IOHIDManagerDeviceApplier, 
                             &args);
+        
+        // Unschedule the initial enumeration routine
+        if (manager->initEnumRunLoopSource) {
+            CFRunLoopSourceInvalidate(manager->initEnumRunLoopSource);
+            CFRunLoopRemoveSource(manager->runLoop, 
+                                  manager->initEnumRunLoopSource, 
+                                  manager->runLoopMode);
+            CFRelease(manager->initEnumRunLoopSource);
+            manager->initEnumRunLoopSource = NULL;
+        }
     }
                             
     manager->runLoop        = NULL;
@@ -952,7 +980,7 @@ void IOHIDManagerUnscheduleFromRunLoop(
 }
 
 //------------------------------------------------------------------------------
-// IOHIDManagerUnscheduleFromRunLoop
+// IOHIDManagerSaveToPropertyDomain
 //------------------------------------------------------------------------------
 void IOHIDManagerSaveToPropertyDomain(IOHIDManagerRef                 manager,
                                       CFStringRef                     applicationID,

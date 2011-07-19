@@ -18,8 +18,11 @@
 #include "DragData.h"
 
 #include "Clipboard.h"
+#include "ClipboardGtk.h"
 #include "Document.h"
 #include "DocumentFragment.h"
+#include "Frame.h"
+#include "markup.h"
 
 namespace WebCore {
 
@@ -35,21 +38,22 @@ bool DragData::containsColor() const
 
 bool DragData::containsFiles() const
 {
-    return false;
+    return m_platformDragData->hasFilenames();
 }
 
 void DragData::asFilenames(Vector<String>& result) const
 {
+    result = m_platformDragData->filenames();
 }
 
 bool DragData::containsPlainText() const
 {
-    return false;
+    return m_platformDragData->hasText();
 }
 
-String DragData::asPlainText() const
+String DragData::asPlainText(Frame*) const
 {
-    return String();
+    return m_platformDragData->text();
 }
 
 Color DragData::asColor() const
@@ -57,30 +61,39 @@ Color DragData::asColor() const
     return Color();
 }
 
-PassRefPtr<Clipboard> DragData::createClipboard(ClipboardAccessPolicy) const
-{
-    return 0;
-}
-
 bool DragData::containsCompatibleContent() const
 {
-    return false;
+    return containsPlainText() || containsURL(0) || m_platformDragData->hasMarkup() || containsColor() || containsFiles();
 }
 
-bool DragData::containsURL() const
+bool DragData::containsURL(Frame* frame, FilenameConversionPolicy filenamePolicy) const
 {
-    return false;
+    return !asURL(frame, filenamePolicy).isEmpty();
 }
 
-String DragData::asURL(String* title) const
+String DragData::asURL(Frame*, FilenameConversionPolicy filenamePolicy, String* title) const
 {
-    return String();
+    if (!m_platformDragData->hasURL())
+        return String();
+    if (filenamePolicy != ConvertFilenames) {
+        KURL url(KURL(), m_platformDragData->url());
+        if (url.isLocalFile())
+            return String();
+    }
+
+    String url(m_platformDragData->url());
+    if (title)
+        *title = m_platformDragData->urlLabel();
+    return url;
 }
 
 
-PassRefPtr<DocumentFragment> DragData::asFragment(Document*) const
+PassRefPtr<DocumentFragment> DragData::asFragment(Frame* frame, PassRefPtr<Range>, bool, bool&) const
 {
-    return 0;
+    if (!m_platformDragData->hasMarkup())
+        return 0;
+
+    return createFragmentFromMarkup(frame->document(), m_platformDragData->markup(), "");
 }
 
 }

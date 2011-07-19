@@ -22,6 +22,21 @@
 	<string>$(IOHIDFAMILY_VERSION)</string>
 	<key>IOKitPersonalities</key>
 	<dict>
+		<key>IOHIDResource</key>
+		<dict>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.iokit.IOHIDFamily</string>
+			<key>IOClass</key>
+			<string>IOHIDResource</string>
+			<key>IOMatchCategory</key>
+			<string>IOHIDResource</string>
+			<key>IOProviderClass</key>
+			<string>IOResources</string>
+			<key>IOResourceMatch</key>
+			<string>IOBSD</string>
+			<key>IOUserClientClass</key>
+			<string>IOHIDResourceDeviceUserClient</string>
+		</dict>
 		<key>IOHIDLibUPSUserClient</key>
 		<dict>
 			<key>CFBundleIdentifier</key>

@@ -28,7 +28,7 @@
 void	login_fbtab(char *, uid_t, gid_t);
 
 #ifdef USE_BSM_AUDIT
-void	au_login_success(void);
+void	au_login_success(int fflag);
 void	au_login_fail(const char *errmsg, int na);
 void	audit_logout(void);
 #endif

@@ -8,7 +8,7 @@
 # Copyright (c) 2002 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: pop3d.test,v 1.21 2007/08/03 05:06:59 andreas_kupries Exp $
+# RCS: @(#) $Id: pop3d.test,v 1.22 2009/09/29 07:07:15 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -99,14 +99,14 @@ test pop3-srv-2.0 {base configuration} {
     set res [$srv configure]
     $srv destroy
     set res
-} {-port 110 -auth {} -storage {} -socket socket -state down}
+} {-port 110 -auth {} -storage {} -socket ::socket -state down}
 
 foreach {n opt val} {
     0 -port    110
     1 -state   down
     2 -auth    {}
     3 -storage {}
-    4 -socket  socket
+    4 -socket  ::socket
 } {
     test pop3-srv-2.1.$n {cget} {
 	set srv [::pop3d::new]

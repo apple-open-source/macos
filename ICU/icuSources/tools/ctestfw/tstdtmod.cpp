@@ -1,15 +1,73 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 2002-2008, International Business Machines Corporation and
+ * Copyright (c) 2002-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
 /* Created by weiv 05/09/2002 */
 
+#include <stdarg.h>
+
 #include "unicode/tstdtmod.h"
 #include "cmemory.h"
+#include <stdio.h>
 
 TestLog::~TestLog() {}
+
+IcuTestErrorCode::~IcuTestErrorCode() {
+    // Safe because our handleFailure() does not throw exceptions.
+    if(isFailure()) { handleFailure(); }
+}
+
+UBool IcuTestErrorCode::logIfFailureAndReset(const char *fmt, ...) {
+    if(isFailure()) {
+        char buffer[4000];
+        va_list ap;
+        va_start(ap, fmt);
+        vsprintf(buffer, fmt, ap);
+        va_end(ap);
+        UnicodeString msg(testName, -1, US_INV);
+        msg.append(UNICODE_STRING_SIMPLE(" failure: ")).append(UnicodeString(errorName(), -1, US_INV));
+        msg.append(UNICODE_STRING_SIMPLE(" - ")).append(UnicodeString(buffer, -1, US_INV));
+        testClass.errln(msg);
+        reset();
+        return TRUE;
+    } else {
+        reset();
+        return FALSE;
+    }
+}
+
+UBool IcuTestErrorCode::logDataIfFailureAndReset(const char *fmt, ...) {
+    if(isFailure()) {
+        char buffer[4000];
+        va_list ap;
+        va_start(ap, fmt);
+        vsprintf(buffer, fmt, ap);
+        va_end(ap);
+        UnicodeString msg(testName, -1, US_INV);
+        msg.append(UNICODE_STRING_SIMPLE(" failure: ")).append(UnicodeString(errorName(), -1, US_INV));
+        msg.append(UNICODE_STRING_SIMPLE(" - ")).append(UnicodeString(buffer, -1, US_INV));
+        testClass.dataerrln(msg);
+        reset();
+        return TRUE;
+    } else {
+        reset();
+        return FALSE;
+    }
+}
+
+void IcuTestErrorCode::handleFailure() const {
+    // testClass.errln("%s failure - %s", testName, errorName());
+    UnicodeString msg(testName, -1, US_INV);
+    msg.append(UNICODE_STRING_SIMPLE(" failure: ")).append(UnicodeString(errorName(), -1, US_INV));
+
+    if (get() == U_MISSING_RESOURCE_ERROR) {
+        testClass.dataerrln(msg);
+    } else {
+        testClass.errln(msg);
+    }
+}
 
 TestDataModule *TestDataModule::getTestDataModule(const char* name, TestLog& log, UErrorCode &status)
 {
@@ -158,7 +216,7 @@ RBTestDataModule::getTestBundle(const char* bundleName, UErrorCode &status)
     if (testBundle == NULL) {
         testBundle = ures_openDirect(icu_data, bundleName, &status);
         if (status != U_ZERO_ERROR) {
-            fLog.dataerrln(UNICODE_STRING_SIMPLE("[DATA] Could not load test data from resourcebundle: ") + UnicodeString(bundleName, -1, US_INV));
+            fLog.dataerrln(UNICODE_STRING_SIMPLE("Could not load test data from resourcebundle: ") + UnicodeString(bundleName, -1, US_INV));
             fDataTestValid = FALSE;
         }
     }

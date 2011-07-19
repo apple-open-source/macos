@@ -573,27 +573,6 @@ IOUFIStorageServices::doGetFormatCapacities (	UInt64 * capacities,
 
 
 //--------------------------------------------------------------------------------------------------
-//	  doLockUnlockMedia																		[PUBLIC]
-//--------------------------------------------------------------------------------------------------
-
-IOReturn
-IOUFIStorageServices::doLockUnlockMedia ( bool doLock )
-{
-
-	UNUSED ( doLock );
-	
-	// Return errors for incoming activity if we have been terminated
-	if ( isInactive() != false )
-	{
-		return kIOReturnNotAttached;
-	}
-	
-	return kIOReturnSuccess;
-	
-}
-
-
-//--------------------------------------------------------------------------------------------------
 //	  doSynchronizeCache																	[PUBLIC]
 //--------------------------------------------------------------------------------------------------
 
@@ -682,37 +661,6 @@ IOUFIStorageServices::reportEjectability ( bool * isEjectable )
 {
 
 	*isEjectable = true;
-	return kIOReturnSuccess;
-	
-}
-
-
-//--------------------------------------------------------------------------------------------------
-//	  reportLockability																		[PUBLIC]
-//--------------------------------------------------------------------------------------------------
-
-IOReturn
-IOUFIStorageServices::reportLockability ( bool * isLockable )
-{
-
-	*isLockable = true;
-	return kIOReturnSuccess;
-	
-}
-
-
-//--------------------------------------------------------------------------------------------------
-//	  reportPollRequirements																[PUBLIC]
-//--------------------------------------------------------------------------------------------------
-
-IOReturn
-IOUFIStorageServices::reportPollRequirements ( 	bool * pollIsRequired,
-													bool * pollIsExpensive )
-{
-
-	*pollIsRequired 	= false;
-	*pollIsExpensive 	= false;
-	
 	return kIOReturnSuccess;
 	
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,6 +30,7 @@
 #include <pthread.h>
 #include <pwd.h>
 #include <unistd.h>
+#include <sys/kauth.h>
 #include <sys/stat.h>
 #include <sys/sysctl.h>
 #include <sys/time.h>
@@ -45,7 +46,16 @@
 #include <launch.h>
 #include <dirhelper_priv.h>
 
+#include "dirhelper.h"
 #include "dirhelper_server.h"
+/*
+ * Uncomment the next line to define BOOTDEBUG, which will write timing
+ * info for clean_directories() to a file, /Debug.
+ */
+//#define BOOTDEBUG
+#ifdef BOOTDEBUG
+#include <mach/mach_time.h>
+#endif //BOOTDEBUG
 
 // globals for idle exit
 struct idle_globals {
@@ -56,12 +66,19 @@ struct idle_globals {
 
 struct idle_globals idle_globals;
 
+// argument structure for clean_thread
+struct clean_args {
+	const char** dirs;
+	int machineBoot;
+};
+
 void* idle_thread(void* param __attribute__((unused)));
 
-int file_check(const char* path, int mode, int uid, int gid);
-#define is_file(x) file_check((x), S_IFREG, -1, -1)
-#define is_directory(x) file_check((x), S_IFDIR, -1, -1)
-#define is_root_wheel_directory(x) file_check((x), S_IFDIR, 0, 0)
+int file_check(const char* path, int mode, int uid, int gid, uid_t* owner, gid_t* group);
+#define is_file(x) file_check((x), S_IFREG, -1, -1, NULL, NULL)
+#define is_directory(x) file_check((x), S_IFDIR, -1, -1, NULL, NULL)
+#define is_directory_get_owner_group(x,o,g) file_check((x), S_IFDIR, -1, -1, (o), (g))
+#define is_root_wheel_directory(x) file_check((x), S_IFDIR, 0, 0, NULL, NULL)
 
 int is_safeboot(void);
 
@@ -105,6 +122,11 @@ do___dirhelper_create_user_local(
 				"__user_local_dirname: %s", strerror(errno));
 			break;
 		}
+
+		// All dirhelper directories are now at the same level, so
+		// we need to remove the DIRHELPER_TOP_STR suffix to get the
+		// parent directory.
+		path[strlen(path) - (sizeof(DIRHELPER_TOP_STR) - 1)] = 0;
 		
 		//
 		// 1. Starting with VAR_FOLDERS_PATH, make each subdirectory
@@ -167,7 +189,7 @@ idle_thread(void* param __attribute__((unused))) {
 	return NULL;
 }
 
-// If when == 0, all files are removed.  Otherwise, only regular files older than when.
+// If when == 0, all files are removed.  Otherwise, only regular files that were both created _and_ last modified before `when`.
 void
 clean_files_older_than(const char* path, time_t when) {
 	FTS* fts;
@@ -181,23 +203,22 @@ clean_files_older_than(const char* path, time_t when) {
 			switch(ent->fts_info) {
 				case FTS_F:
 				case FTS_DEFAULT:
-					// Unlink the file if it has not been accessed since
-					// the specified time.  Obtain an exclusive lock so
-					// that we can avoid a race with other processes
-					// attempting to open the file.
 					if (when == 0) {
 #if DEBUG
 						asl_log(NULL, NULL, ASL_LEVEL_ALERT, "unlink(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
 #endif
 						(void)unlink(ent->fts_path);
-					} else if (S_ISREG(ent->fts_statp->st_mode) && ent->fts_statp->st_atime < when) {
+					} else if (S_ISREG(ent->fts_statp->st_mode) && (ent->fts_statp->st_birthtime < when) && (ent->fts_statp->st_atime < when)) {
 						int fd = open(ent->fts_path, O_RDONLY | O_NONBLOCK);
 						if (fd != -1) {
+							// Obtain an exclusive lock so
+        					// that we can avoid a race with other processes
+        					// attempting to open or modify the file.
 							int res = flock(fd, LOCK_EX | LOCK_NB);
 							if (res == 0) {
 								struct stat sb;
 								res = fstat(fd, &sb);
-								if (res == 0 && sb.st_atime < when) {
+								if ((res == 0) && (sb.st_birthtime < when) && (sb.st_atime < when)) {
 #if DEBUG
 									asl_log(NULL, NULL, ASL_LEVEL_ALERT, "unlink(" VAR_FOLDERS_PATH "%s)", ent->fts_path);
 #endif
@@ -245,13 +266,17 @@ clean_files_older_than(const char* path, time_t when) {
 }
 
 int
-file_check(const char* path, int mode, int uid, int gid) {
+file_check(const char* path, int mode, int uid, int gid, uid_t* owner, gid_t* group) {
 	int check = 1;
 	struct stat sb;
 	if (lstat(path, &sb) == 0) {
 		check = check && ((sb.st_mode & S_IFMT) == mode);
 		check = check && ((sb.st_uid == (uid_t)uid) || uid == -1);
 		check = check && ((sb.st_gid == (gid_t)gid) || gid == -1);
+		if (check) {
+			if (owner) *owner = sb.st_uid;
+			if (group) *group = sb.st_gid;
+		}
 	} else {
 		if (errno != ENOENT) {
 			/* This will print a shorter path after chroot() */
@@ -274,13 +299,14 @@ is_safeboot(void) {
 	}
 }
 
-void
-clean_directories(const char* dirs[], int machineBoot) {
+void *
+clean_thread(void *a) {
+	struct clean_args* args = (struct clean_args*)a;
 	DIR* d;
 	time_t when = 0;
 	int i;
 
-	if (!machineBoot) {
+	if (!args->machineBoot) {
 		struct timeval now;
 		long days = 3;
 		const char* str = getenv("CLEAN_FILES_OLDER_THAN_DAYS");
@@ -288,8 +314,8 @@ clean_directories(const char* dirs[], int machineBoot) {
 			days = strtol(str, NULL, 0);
 		}
 		(void)gettimeofday(&now, NULL);
-		for (i = 0; dirs[i]; i++)
-			asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning %s older than %ld days", dirs[i], days);
+		for (i = 0; args->dirs[i]; i++)
+			asl_log(NULL, NULL, ASL_LEVEL_INFO, "Cleaning %s older than %ld days", args->dirs[i], days);
 
 		when = now.tv_sec - (days * 60 * 60 * 24);
 	}
@@ -299,18 +325,19 @@ clean_directories(const char* dirs[], int machineBoot) {
 	size_t len = sizeof(boottime);
 	if (sysctlbyname("kern.boottime", &boottime, &len, NULL, 0) == -1) {
 		asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", "sysctl kern.boottime", strerror(errno));
-		return;
+		return NULL;
 	}
 
 	if (!is_root_wheel_directory(VAR_FOLDERS_PATH)) {
 		asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", VAR_FOLDERS_PATH, "invalid ownership");
-		return;
+		return NULL;
 	}
 
 	if (chroot(VAR_FOLDERS_PATH)) {
 		asl_log(NULL, NULL, ASL_LEVEL_ERR, "chroot(%s) failed: %s",
 			VAR_FOLDERS_PATH, strerror(errno));
 	}
+	chdir("/");
 	if ((d = opendir("/"))) {
 		struct dirent* e;
 		char path[PATH_MAX];
@@ -327,17 +354,33 @@ clean_directories(const char* dirs[], int machineBoot) {
 					
 					// /var/folders/*/*
 					while ((e2 = readdir(d2))) {
-						char temporary_items[PATH_MAX];
+						char dirbuf[PATH_MAX];
+						uid_t owner;
+						gid_t group;
 						if (strcmp(e2->d_name, ".") == 0 || strcmp(e2->d_name, "..") == 0) continue;
-						for (i = 0; dirs[i]; i++) {
-							const char *name = dirs[i];
-							snprintf(temporary_items, sizeof(temporary_items),
+						snprintf(dirbuf, sizeof(dirbuf),
+							"%s/%s", path, e2->d_name);
+						if (!is_directory_get_owner_group(dirbuf, &owner, &group)) continue;
+						if (pthread_setugid_np(owner, group) != 0) {
+							asl_log(NULL, NULL, ASL_LEVEL_ERR,
+								"skipping %s: pthread_setugid_np(%u, %u): %s",
+								dirbuf, owner, group, strerror(errno));
+							continue;
+						}
+						for (i = 0; args->dirs[i]; i++) {
+							const char *name = args->dirs[i];
+							snprintf(dirbuf, sizeof(dirbuf),
 								 "%s/%s/%s", path, e2->d_name, name);
-							if (is_directory(temporary_items)) {
+							if (is_directory(dirbuf)) {
 								// at boot time we clean all files,
 								// otherwise only clean regular files.
-								clean_files_older_than(temporary_items, when);
+								clean_files_older_than(dirbuf, when);
 							}
+						}
+						if (pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE) != 0) {
+							asl_log(NULL, NULL, ASL_LEVEL_ERR,
+								"%s: pthread_setugid_np(KAUTH_UID_NONE, KAUTH_GID_NONE): %s",
+								dirbuf, strerror(errno));
 						}
 					}
 					closedir(d2);
@@ -351,6 +394,48 @@ clean_directories(const char* dirs[], int machineBoot) {
 	} else {
 		asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s: %s", VAR_FOLDERS_PATH, strerror(errno));
 	}
+	return NULL;
+}
+
+void
+clean_directories(const char* dirs[], int machineBoot) {
+	struct clean_args args;
+	pthread_t t;
+	int ret;
+#ifdef BOOTDEBUG
+	double ratio;
+	struct mach_timebase_info info;
+	uint64_t begin, end;
+	FILE *debug;
+
+	mach_timebase_info(&info);
+	ratio = (double)info.numer / ((double)info.denom * NSEC_PER_SEC);
+	begin = mach_absolute_time();
+	if((debug = fopen("/Debug", "a")) != NULL) {
+	    fprintf(debug, "clean_directories: machineBoot=%d\n", machineBoot);
+	}
+#endif //BOOTDEBUG
+
+	args.dirs = dirs;
+	args.machineBoot = machineBoot;
+	ret = pthread_create(&t, NULL, clean_thread, &args);
+	if (ret == 0) {
+		ret = pthread_join(t, NULL);
+		if (ret) {
+			asl_log(NULL, NULL, ASL_LEVEL_ERR, "clean_directories: pthread_join: %s",
+				strerror(ret));
+		}
+	} else {
+		asl_log(NULL, NULL, ASL_LEVEL_ERR, "clean_directories: pthread_create: %s",
+			strerror(ret));
+	}
+#ifdef BOOTDEBUG
+	end = mach_absolute_time();
+	if(debug) {
+	    fprintf(debug, "clean_directories: %f secs\n", ratio * (end - begin));
+	    fclose(debug);
+	}
+#endif //BOOTDEBUG
 }
 
 int
@@ -359,6 +444,19 @@ main(int argc, char* argv[]) {
 	kern_return_t kr;
 	long idle_timeout = 30; // default 30 second timeout
 
+#ifdef BOOTDEBUG
+	{
+		FILE *debug;
+		int i;
+		if((debug = fopen("/Debug", "a")) != NULL) {
+		    for(i = 0; i < argc; i++) {
+			    fprintf(debug, " %s", argv[i]);
+		    }
+		    fputc('\n', debug);
+		    fclose(debug);
+		}
+	}
+#endif //BOOTDEBUG
 	// Clean up TemporaryItems directory when launched at boot.
 	// It is safe to clean all file types at this time.
 	if (argc > 1 && strcmp(argv[1], "-machineBoot") == 0) {

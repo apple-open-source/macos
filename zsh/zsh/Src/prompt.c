@@ -841,6 +841,7 @@ addbufspc(int need)
     if((bv->bp - bv->buf) + need > bv->bufspc) {
 	int bo = bv->bp - bv->buf;
 	int bo1 = bv->bp1 ? bv->bp1 - bv->buf : -1;
+	ptrdiff_t bufline_off = bv->bufline ? bv->bufline - bv->buf : -1;
 
 	if(need & 255)
 	    need = (need | 255) + 1;
@@ -848,6 +849,8 @@ addbufspc(int need)
 	bv->bp = bv->buf + bo;
 	if(bo1 != -1)
 	    bv->bp1 = bv->buf + bo1;
+	if (bufline_off != -1)
+	    bv->bufline = bv->buf + bufline_off;
     }
 }
 
@@ -1761,12 +1764,17 @@ struct colour_sequences {
 struct colour_sequences fg_bg_sequences[2];
 
 /*
- * We need a buffer for colour sequence compostion.  It may
+ * We need a buffer for colour sequence composition.  It may
  * vary depending on the sequences set.  However, it's inefficient
  * allocating it separately every time we send a colour sequence,
  * so do it once per refresh.
  */
 static char *colseq_buf;
+
+/*
+ * Count how often this has been allocated, for recursive usage.
+ */
+static int colseq_buf_allocs;
 
 /**/
 void
@@ -1798,9 +1806,13 @@ set_colour_code(char *str, char **var)
 mod_export void
 allocate_colour_buffer(void)
 {
-    char **atrs = getaparam("zle_highlight");
+    char **atrs;
     int lenfg, lenbg, len;
 
+    if (colseq_buf_allocs++)
+	return;
+
+    atrs = getaparam("zle_highlight");
     if (atrs) {
 	for (; *atrs; atrs++) {
 	    if (strpfx("fg_start_code:", *atrs)) {
@@ -1843,6 +1855,9 @@ allocate_colour_buffer(void)
 mod_export void
 free_colour_buffer(void)
 {
+    if (--colseq_buf_allocs)
+	return;
+
     DPUTS(!colseq_buf, "Freeing colour sequence buffer without alloc");
     /* Free buffer for colour code composition */
     free(colseq_buf);
@@ -1910,8 +1925,13 @@ set_colour_attribute(int atr, int fg_bg, int flags)
 	    } else {
 		tputs(tgoto(tcstr[tc], colour, colour), 1, putshout);
 	    }
+	    /* That worked. */
+	    return;
 	}
-	/* for 0 to 7 assume standard ANSI works, otherwise it won't. */
+	/*
+	 * Nope, that didn't work.
+	 * If 0 to 7, assume standard ANSI works, otherwise it won't.
+	 */
 	if (colour > 7)
 	    return;
     }

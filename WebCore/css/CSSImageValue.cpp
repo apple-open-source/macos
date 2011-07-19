@@ -22,10 +22,11 @@
 #include "CSSImageValue.h"
 
 #include "CSSValueKeywords.h"
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "CachedImage.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "StyleCachedImage.h"
+#include "StylePendingImage.h"
 
 namespace WebCore {
 
@@ -43,48 +44,53 @@ CSSImageValue::CSSImageValue()
 
 CSSImageValue::~CSSImageValue()
 {
-    if (m_image)
-        m_image->cachedImage()->removeClient(this);
+    if (m_image && m_image->isCachedImage())
+        static_cast<StyleCachedImage*>(m_image.get())->cachedImage()->removeClient(this);
 }
 
-StyleCachedImage* CSSImageValue::cachedImage(DocLoader* loader)
+StyleImage* CSSImageValue::cachedOrPendingImage()
+{
+    if (getIdent() == CSSValueNone)
+        return 0;
+
+    if (!m_image)
+        m_image = StylePendingImage::create(this);
+
+    return m_image.get();
+}
+
+StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader* loader)
 {
     return cachedImage(loader, getStringValue());
 }
 
-StyleCachedImage* CSSImageValue::cachedImage(DocLoader* loader, const String& url)
+StyleCachedImage* CSSImageValue::cachedImage(CachedResourceLoader* loader, const String& url)
 {
+    ASSERT(loader);
+
     if (!m_accessedImage) {
         m_accessedImage = true;
 
-        CachedImage* cachedImage = 0;
-        if (loader)
-            cachedImage = loader->requestImage(url);
-        else {
-            // FIXME: Should find a way to make these images sit in their own memory partition, since they are user agent images.
-            cachedImage = static_cast<CachedImage*>(cache()->requestResource(0, CachedResource::ImageResource, KURL(ParsedURLString, url), String()));
-        }
-
-        if (cachedImage) {
+        if (CachedImage* cachedImage = loader->requestImage(url)) {
             cachedImage->addClient(this);
             m_image = StyleCachedImage::create(cachedImage);
         }
     }
     
-    return m_image.get();
+    return (m_image && m_image->isCachedImage()) ? static_cast<StyleCachedImage*>(m_image.get()) : 0;
 }
 
 String CSSImageValue::cachedImageURL()
 {
-    if (!m_image)
+    if (!m_image || !m_image->isCachedImage())
         return String();
-    return m_image->cachedImage()->url();
+    return static_cast<StyleCachedImage*>(m_image.get())->cachedImage()->url();
 }
 
 void CSSImageValue::clearCachedImage()
 {
-    if (m_image)
-        m_image->cachedImage()->removeClient(this);
+    if (m_image && m_image->isCachedImage())
+        static_cast<StyleCachedImage*>(m_image.get())->cachedImage()->removeClient(this);
     m_image = 0;
     m_accessedImage = false;
 }

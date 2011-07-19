@@ -1,0 +1,238 @@
+# list of readers supported by the CCID driver
+# $Id: supported_readers.txt 4318 2009-07-17 13:43:45Z rousseau $
+
+# Gemplus
+0x08E6:0x2202:Gemplus Gem e-Seal Pro
+0x08E6:0x3437:Gemplus GemPC Twin
+0x08E6:0x3438:Gemplus GemPC Key
+0x08E6:0x3478:Gemplus GemPC Pinpad
+0x08E6:0x3479:Gemplus GemCore POS Pro
+0x08E6:0x3480:Gemplus GemCore SIM Pro
+0x08E6:0x34EC:Gemplus GemPC Express
+0x08E6:0x4433:Gemplus GemPC433 SL
+0x08E6:0x5503:Gemalto Prox Dual
+0x08E6:0x5504:Gemalto Prox SU
+0x08E6:0x8000:Smart Enterprise Guardian
+# Verisign branded
+0x08E6:0xACE0:Verisign Secure Token
+0x08E6:0x1359:VeriSign Secure Storage Token
+# Gemalto
+0x0973:0x1227:Gemalto PDT
+
+# SCM Microsystems
+0x04E6:0x5111:SCM SCR 331-DI
+0x04E6:0x5113:SCM SCR 333
+0x04E6:0x5115:SCM SCR 335
+0x04E6:0x5116:SCM SCR 3310
+0x04E6:0x5117:SCM SCR 3320
+0x04E6:0x5119:SCM SCR 3340 ExpressCard54
+0x04E6:0x511A:SCM SCR 3310 NTTCom
+0x04E6:0x511C:Axalto Reflex USB v3
+0x04E6:0x511D:SCM SCR 3311
+0x04E6:0x5120:SCM SCR 331-DI NTTCom
+0x04E6:0x5121:SCM SDI 010
+0x04E6:0xE001:SCM SCR 331
+0x04E6:0x5410:SCM SCR 355
+0x04E6:0xE003:SCM SPR 532
+
+# OmniKey
+0x076B:0x1021:OmniKey CardMan 1021
+0x076B:0x3021:OmniKey CardMan 3121
+0x076B:0x3621:OmniKey CardMan 3621
+0x076B:0x3821:OmniKey CardMan 3821
+0x076B:0x4321:OmniKey CardMan 4321
+0x076B:0x5121:OmniKey CardMan 5121
+0x076B:0x5125:OmniKey CardMan 5125
+0x076B:0x5321:OmniKey CardMan 5321
+0x076B:0x6622:OmniKey CardMan 6121
+0x076B:0xA021:Smart Card Reader
+0x076B:0xA022:Teo by Xiring
+
+# C3PO
+0x0783:0x0006:C3PO LTC31
+0x0783:0x0007:C3PO TLTC2USB
+0x0783:0x0008:C3PO LTC32 USBv2 with keyboard support
+0x0783:0x0009:C3PO KBR36
+0x0783:0x0010:C3PO LTC32
+0x0783:0x9002:C3PO TLTC2USB
+
+# ActivCard
+0x09C3:0x0013:ActivCard USB Reader 3.0
+0x09C3:0x0014:Activkey Sim
+
+# Silitek
+0x047B:0x020B:Silitek SK-3105
+
+# Dell
+0x413c:0x2100:Dell keyboard SK-3106
+0x413c:0X2101:Dell smart card reader keyboard
+
+# Cherry
+0x046a:0x0005:Cherry XX33
+0x046a:0x0010:Cherry XX44
+0x046a:0x002D:Cherry ST1044U
+0x046a:0x003E:Cherry SmartTerminal ST-2XXX
+0x046A:0x005B:Cherry SmartBoard XX1X
+0x046A:0x0070:Cherry SmartTerminal XX1X
+
+# Advanced Card Systems
+0x072f:0x90cc:ACS ACR 38U-CCID
+0x072F:0x2200:ACS ACR122U PICC Interface
+
+# O2 Micro
+0x0b97:0x7762:O2 Micro Oz776
+0x0b97:0x7772:O2 Micro Oz776
+
+# Kobil
+0x0D46:0x3001:KOBIL KAAN Base
+0x0D46:0x3002:KOBIL KAAN Advanced
+0x0d46:0x3003:KOBIL KAAN SIM III
+0x0d46:0x3010:KOBIL EMV CAP - SecOVID Reader III
+0x0d46:0x4000:KOBIL mIDentity M
+0x0d46:0x4001:KOBIL mIDentity XL
+
+# Eutron
+0x073D:0x0B00:Eutron Digipass 860
+0x073D:0x0C00:Eutron SIM Pocket Combo
+0x073D:0x0C01:Eutron Smart Pocket
+0x073D:0x0007:Eutron CryptoIdentity
+0x073D:0x0008:Eutron CryptoIdentity
+
+# Athena
+0x0DC3:0x1004:Athena ASE IIIe
+0x0DC3:0x1102:Athena ASEDrive IIIe KB
+
+# SmartEpad
+0x09BE:0x0002:SmartEpad
+
+# Winbond Electronics (for OEM only so the name may be different)
+0x0416:0x3815:Winbond
+
+# HP
+0x03F0:0x1024:HP USB Smart Card Keyboard
+0x03F0:0x0824:HP USB Smartcard Reader
+0x03F0:0x2924:HP MFP Smart Card Reader
+
+# id3 Semiconductors
+0x0B81:0x0200:id3 CL1356D
+0x0B81:0x0220:id3 CL1356A HID
+
+# Alcor Micro Corp.
+0x058F:0x9520:Alcor Micro AU9520
+0x058F:0x9520:Alcor Micro SCR001
+
+# RSA
+0x15E1:0x2007:RSA SecurID
+
+# Fujitsu Siemens Computers
+0x0BF8:0x1005:Fujitsu Siemens SmartCard Keyboard USB 2A
+0x0BF8:0x1006:Fujitsu Siemens SmartCard USB 2A
+
+# Sitecom
+0x0DF6:0x800A:Sitecom USB simcard reader MD-010
+
+# Schlumberger/Axlalto/Gemalto
+0x0973:0x0003:SchlumbergerSema Cyberflex Access
+
+# Philips
+0x0471:0x040F:Philips JCOP41V221
+
+# Philips SmartMX (Rainbow/SafeNet Key 4000?)
+0x04B9:0x1400:Philips SmartMX
+
+# Giesecke & Devrient
+0x1059:0x000C:GnD CardToken 350
+0x1059:0x000D:GnD CardToken 550
+
+# Lenovo
+0x17EF:0x1003:Lenovo Integrated Smart Card Reader
+
+# Charismathics
+0x19E7:0x0002:Charismathics token
+
+# Blutronics
+0x1B0E:0x1078:Blutronics Bludrive II CCID
+
+# Covadis
+0x0982:0x0007:Covadis Alya
+0x0982:0x0008:Covadis Vega
+
+# Vasco
+0x1A44:0x0001:Vasco DP905
+
+# Validy
+0x1CF0:0x0001:Validy TokenA sl vt
+
+# SpringCard
+0x1C34:0x7113:SpringCard CrazyWriter
+0x1C34:0x7121:SpringCard CSB6 Basic
+0x1C34:0x7123:SpringCard CSB6 Secure
+0x1C34:0x7124:SpringCard CSB6 Ultimate
+0x1C34:0x7136:SpringCard EasyFinger Standard
+0x1C34:0x7138:SpringCard EasyFinger Ultimate
+0x1C34:0x7141:SpringCard Prox'N'Roll
+
+# Oberthur
+0x1A74:0x6354:OCS ID-One Cosmo Card
+
+# Aladdin
+0x0529:0x0620:Aladdin eToken PRO USB 72K Java
+
+# Atmel
+0x03EB:0x6004:Atmel AT91SO
+0x03EB:0x6009:Atmel AT98SC032CT
+0x03EB:0x600B:Atmel AT91SC192192CT-USB ICCD
+
+# KEBTechnology
+0x04CC:0x5072:KONA USB SmartCard
+
+# Xiring
+0x0F14:0x0011:Xiring XI-SIGN USB V2
+
+# VMware
+0x0E0F:0x0004:VMware Virtual USB CCID
+
+# Realtek?
+0x0BDA:0x0161:MSI StarReader SMART
+0x0BDA:0x0169:Realtek
+
+# Aktiv Co., ProgramPark
+0x0A89:0x0060:Aktiv Rutoken Magistra
+0x0A89:0x0030:Aktiv Rutoken ECP
+
+# TianYu CCID Key
+0xA625:0x0801:TianYu CCID SmartKey
+
+# Precise Biometrics
+0x08C3:0x0401:Precise 250 MC
+0x08C3:0x0402:Precise 200 MC
+
+# Raritan
+0x14DD:0x1006:Raritan D2CIM-DVUSB VM/CCID
+
+# Feitian
+0x096E:0x0503:Feitian SCR301
+
+# Softforum
+0x04E8:0x0007:Softforum XecureHSM
+
+# Neowave
+0x1E0D:0x0013:Neowave Weneo
+0x1E0D:0x8033:Neowave Weneo
+
+# Synnix
+0x1206:0x2105:Synnix STD200
+
+# Panasonic
+0x04DA:0x117A:Panasonic USB Smart Card Reader 7A-Smart
+
+# Bogus readers but partly supported
+# See the README file for a bug description
+0x09C3:0x0008:ActivCard USB Reader 2.0
+0x0783:0x0003:C3PO LTC31
+#0x0C4B:0x0300:Reiner-SCT cyberJack pinpad(a)
+#0x0483:0x2010:jNet Technology jToken s1
+#0x0A5C:0x5800:Broadcom 5880
+#0x04E6:0x5291:SCM SCL010 Contactless Reader
+#0x062D:0x0001:iDream or ID-SMID01
+

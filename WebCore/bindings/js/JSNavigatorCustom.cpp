@@ -23,19 +23,41 @@
 #include "config.h"
 #include "JSNavigator.h"
 
+#include "CallbackFunction.h"
+#include "ExceptionCode.h"
+#include "JSNavigatorUserMediaErrorCallback.h"
+#include "JSNavigatorUserMediaSuccessCallback.h"
 #include "Navigator.h"
 
 namespace WebCore {
 
 using namespace JSC;
 
-void JSNavigator::markChildren(MarkStack& markStack)
+#if ENABLE(MEDIA_STREAM)
+JSValue JSNavigator::webkitGetUserMedia(ExecState* exec)
 {
-    Base::markChildren(markStack);
+    // Arguments: Options, successCallback, (optional)errorCallback
 
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
+    String options = ustringToString(exec->argument(0).toString(exec));
+    if (exec->hadException())
+        return jsUndefined();
 
-    markDOMObjectWrapper(markStack, globalData, impl()->optionalGeolocation());
+    RefPtr<NavigatorUserMediaSuccessCallback> successCallback = createFunctionOnlyCallback<JSNavigatorUserMediaSuccessCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(1));
+    if (exec->hadException())
+        return jsUndefined();
+
+    RefPtr<NavigatorUserMediaErrorCallback> errorCallback = createFunctionOnlyCallback<JSNavigatorUserMediaErrorCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(2), CallbackAllowUndefined);
+    if (exec->hadException())
+        return jsUndefined();
+
+    ExceptionCode ec;
+    m_impl->webkitGetUserMedia(options, successCallback.release(), errorCallback.release(), ec);
+
+    if (ec)
+        setDOMException(exec, ec);
+
+    return jsUndefined();
 }
+#endif // ENABLE(MEDIA_STREAM)
 
 }

@@ -53,7 +53,7 @@
 
 static CFBundleRef 	bundle = 0;
 
-static int dsaccess_authorize_user(char* user_name, int len);
+static int dsaccess_authorize_user(u_char* user_name, int len);
 
 /* -----------------------------------------------------------------------------
 plugin entry point, called by pppd
@@ -78,7 +78,7 @@ int start(CFBundleRef ref)
 //----------------------------------------------------------------------
 //	dsaccess_authorize_user
 //----------------------------------------------------------------------
-static int dsaccess_authorize_user(char* name, int len)
+static int dsaccess_authorize_user(u_char* name, int len)
 {
 
     tDirReference			dirRef;

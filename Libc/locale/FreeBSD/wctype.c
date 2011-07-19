@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.3 2004/03/27 08:59:21 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wctype.c,v 1.4 2008/03/17 18:22:23 antoine Exp $");
 
 #include <ctype.h>
 #include <string.h>
@@ -42,7 +42,7 @@ iswctype(wint_t wc, wctype_t charclass)
 wctype_t
 wctype(const char *property)
 {
-	struct {
+	static const struct {
 		const char	*name;
 		wctype_t	 mask;
 	} props[] = {

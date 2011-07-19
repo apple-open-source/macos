@@ -34,6 +34,7 @@ namespace WebCore {
 class Position;
 
 const EAffinity SEL_DEFAULT_AFFINITY = DOWNSTREAM;
+enum SelectionDirection { DirectionForward, DirectionBackward, DirectionRight, DirectionLeft };
 
 class VisibleSelection {
 public:
@@ -73,10 +74,12 @@ public:
     bool isCaret() const { return selectionType() == CaretSelection; }
     bool isRange() const { return selectionType() == RangeSelection; }
     bool isCaretOrRange() const { return selectionType() != NoSelection; }
+    bool isNonOrphanedRange() const { return isRange() && !start().isOrphan() && !end().isOrphan(); }
+    bool isNonOrphanedCaretOrRange() const { return isCaretOrRange() && !start().isOrphan() && !end().isOrphan(); }
 
     bool isBaseFirst() const { return m_baseIsFirst; }
 
-    bool isAll(StayInEditableContent) const;
+    bool isAll(EditingBoundaryCrossingRule) const;
 
     void appendTrailingWhitespace();
 
@@ -94,10 +97,9 @@ public:
     bool isContentEditable() const;
     bool isContentRichlyEditable() const;
     Node* shadowTreeRootNode() const;
-    
-    void debugPosition() const;
 
 #ifndef NDEBUG
+    void debugPosition() const;
     void formatForDebugger(char* buffer, unsigned length) const;
     void showTreeForThis() const;
 #endif
@@ -110,6 +112,7 @@ private:
     // Support methods for validate()
     void setBaseAndExtentToDeepEquivalents();
     void setStartAndEndFromBaseAndExtentRespectingGranularity(TextGranularity);
+    void adjustSelectionToAvoidCrossingShadowBoundaries();
     void adjustSelectionToAvoidCrossingEditingBoundaries();
     void updateSelectionType();
 

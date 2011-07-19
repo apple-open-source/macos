@@ -2,7 +2,7 @@
  * This file is part of the select element renderer in WebCore.
  *
  * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
- * Copyright (C) 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *               2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
  * This library is free software; you can redistribute it and/or
@@ -26,19 +26,22 @@
 #include "RenderMenuList.h"
 
 #include "AXObjectCache.h"
-#include "AccessibilityObject.h"
+#include "CSSFontSelector.h"
 #include "CSSStyleSelector.h"
+#include "Chrome.h"
 #include "Frame.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
 #include "NodeRenderStyle.h"
 #include "OptionElement.h"
 #include "OptionGroupElement.h"
+#include "Page.h"
 #include "PopupMenu.h"
 #include "RenderBR.h"
 #include "RenderScrollbar.h"
 #include "RenderTheme.h"
 #include "SelectElement.h"
+#include "TextRun.h"
 #include <math.h>
 
 using namespace std;
@@ -54,7 +57,6 @@ RenderMenuList::RenderMenuList(Element* element)
     , m_optionsChanged(true)
     , m_optionsWidth(0)
     , m_lastSelectedIndex(-1)
-    , m_popup(0)
     , m_popupIsVisible(false)
 {
 }
@@ -83,19 +85,26 @@ void RenderMenuList::createInnerBlock()
 
 void RenderMenuList::adjustInnerStyle()
 {
-    m_innerBlock->style()->setBoxFlex(1.0f);
+    RenderStyle* innerStyle = m_innerBlock->style();
+    innerStyle->setBoxFlex(1);
     
-    m_innerBlock->style()->setPaddingLeft(Length(theme()->popupInternalPaddingLeft(style()), Fixed));
-    m_innerBlock->style()->setPaddingRight(Length(theme()->popupInternalPaddingRight(style()), Fixed));
-    m_innerBlock->style()->setPaddingTop(Length(theme()->popupInternalPaddingTop(style()), Fixed));
-    m_innerBlock->style()->setPaddingBottom(Length(theme()->popupInternalPaddingBottom(style()), Fixed));
-        
-    if (PopupMenu::itemWritingDirectionIsNatural()) {
+    innerStyle->setPaddingLeft(Length(theme()->popupInternalPaddingLeft(style()), Fixed));
+    innerStyle->setPaddingRight(Length(theme()->popupInternalPaddingRight(style()), Fixed));
+    innerStyle->setPaddingTop(Length(theme()->popupInternalPaddingTop(style()), Fixed));
+    innerStyle->setPaddingBottom(Length(theme()->popupInternalPaddingBottom(style()), Fixed));
+
+    if (document()->page()->chrome()->selectItemWritingDirectionIsNatural()) {
         // Items in the popup will not respect the CSS text-align and direction properties,
         // so we must adjust our own style to match.
-        m_innerBlock->style()->setTextAlign(LEFT);
+        innerStyle->setTextAlign(LEFT);
         TextDirection direction = (m_buttonText && m_buttonText->text()->defaultWritingDirection() == WTF::Unicode::RightToLeft) ? RTL : LTR;
-        m_innerBlock->style()->setDirection(direction);
+        innerStyle->setDirection(direction);
+    } else if (m_optionStyle && document()->page()->chrome()->selectItemAlignmentFollowsMenuWritingDirection()) {
+        if ((m_optionStyle->direction() != innerStyle->direction() || m_optionStyle->unicodeBidi() != innerStyle->unicodeBidi()))
+            m_innerBlock->setNeedsLayoutAndPrefWidthsRecalc();
+        innerStyle->setTextAlign(style()->isLeftToRightDirection() ? LEFT : RIGHT);
+        innerStyle->setDirection(m_optionStyle->direction());
+        innerStyle->setUnicodeBidi(m_optionStyle->unicodeBidi());
     }
 }
 
@@ -103,6 +112,7 @@ void RenderMenuList::addChild(RenderObject* newChild, RenderObject* beforeChild)
 {
     createInnerBlock();
     m_innerBlock->addChild(newChild, beforeChild);
+    ASSERT(m_innerBlock == firstChild());
 }
 
 void RenderMenuList::removeChild(RenderObject* oldChild)
@@ -122,8 +132,6 @@ void RenderMenuList::styleDidChange(StyleDifference diff, const RenderStyle* old
         m_buttonText->setStyle(style());
     if (m_innerBlock) // RenderBlock handled updating the anonymous block's style.
         adjustInnerStyle();
-
-    setReplaced(isInline());
 
     bool fontChanged = !oldStyle || oldStyle->font() != style()->font();
     if (fontChanged)
@@ -148,10 +156,10 @@ void RenderMenuList::updateOptionsWidth()
             if (RenderStyle* optionStyle = element->renderStyle())
                 optionWidth += optionStyle->textIndent().calcMinValue(0);
             if (!text.isEmpty())
-                optionWidth += style()->font().floatWidth(text);
+                optionWidth += style()->font().width(text);
             maxOptionWidth = max(maxOptionWidth, optionWidth);
         } else if (!text.isEmpty())
-            maxOptionWidth = max(maxOptionWidth, style()->font().floatWidth(text));
+            maxOptionWidth = max(maxOptionWidth, style()->font().width(text));
     }
 
     int width = static_cast<int>(ceilf(maxOptionWidth));
@@ -185,8 +193,11 @@ void RenderMenuList::setTextFromOption(int optionIndex)
     int i = select->optionToListIndex(optionIndex);
     String text = "";
     if (i >= 0 && i < size) {
-        if (OptionElement* optionElement = toOptionElement(listItems[i]))
+        Element* element = listItems[i];
+        if (OptionElement* optionElement = toOptionElement(element)) {
             text = optionElement->textIndentedToRespectGroupLabel();
+            m_optionStyle = element->renderStyle();
+        }
     }
 
     setText(text.stripWhiteSpace());
@@ -239,34 +250,34 @@ IntRect RenderMenuList::controlClipRect(int tx, int ty) const
     return intersection(outerBox, innerBox);
 }
 
-void RenderMenuList::calcPrefWidths()
+void RenderMenuList::computePreferredLogicalWidths()
 {
-    m_minPrefWidth = 0;
-    m_maxPrefWidth = 0;
+    m_minPreferredLogicalWidth = 0;
+    m_maxPreferredLogicalWidth = 0;
     
     if (style()->width().isFixed() && style()->width().value() > 0)
-        m_minPrefWidth = m_maxPrefWidth = calcContentBoxWidth(style()->width().value());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeContentBoxLogicalWidth(style()->width().value());
     else
-        m_maxPrefWidth = max(m_optionsWidth, theme()->minimumMenuListSize(style())) + m_innerBlock->paddingLeft() + m_innerBlock->paddingRight();
+        m_maxPreferredLogicalWidth = max(m_optionsWidth, theme()->minimumMenuListSize(style())) + m_innerBlock->paddingLeft() + m_innerBlock->paddingRight();
 
     if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
-        m_maxPrefWidth = max(m_maxPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
-        m_minPrefWidth = max(m_minPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
+        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
     } else if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent()))
-        m_minPrefWidth = 0;
+        m_minPreferredLogicalWidth = 0;
     else
-        m_minPrefWidth = m_maxPrefWidth;
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
 
     if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength) {
-        m_maxPrefWidth = min(m_maxPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
-        m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
+        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
+        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
     }
 
     int toAdd = borderAndPaddingWidth();
-    m_minPrefWidth += toAdd;
-    m_maxPrefWidth += toAdd;
+    m_minPreferredLogicalWidth += toAdd;
+    m_maxPreferredLogicalWidth += toAdd;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
 }
 
 void RenderMenuList::showPopup()
@@ -279,7 +290,7 @@ void RenderMenuList::showPopup()
     // inside the showPopup call and it would fail.
     createInnerBlock();
     if (!m_popup)
-        m_popup = PopupMenu::create(this);
+        m_popup = document()->page()->chrome()->createPopupMenu(this);
     SelectElement* select = toSelectElement(static_cast<Element*>(node()));
     m_popupIsVisible = true;
 
@@ -314,7 +325,7 @@ void RenderMenuList::valueChanged(unsigned listIndex, bool fireOnChange)
 void RenderMenuList::listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow)
 {
     SelectElement* select = toSelectElement(static_cast<Element*>(node()));
-    select->listBoxSelectItem(select->listToOptionIndex(listIndex), allowMultiplySelections, shift, fireOnChangeNow);
+    select->listBoxSelectItem(listIndex, allowMultiplySelections, shift, fireOnChangeNow);
 }
 
 bool RenderMenuList::multiple()
@@ -350,6 +361,16 @@ String RenderMenuList::itemText(unsigned listIndex) const
     return String();
 }
 
+String RenderMenuList::itemLabel(unsigned) const
+{
+    return String();
+}
+
+String RenderMenuList::itemIcon(unsigned) const
+{
+    return String();
+}
+
 String RenderMenuList::itemAccessibilityText(unsigned listIndex) const
 {
     // Allow the accessible name be changed if necessary.
@@ -358,7 +379,7 @@ String RenderMenuList::itemAccessibilityText(unsigned listIndex) const
     if (listIndex >= listItems.size())
         return String();
 
-    return AccessibilityObject::getAttribute(listItems[listIndex], aria_labelAttr); 
+    return listItems[listIndex]->getAttribute(aria_labelAttr);
 }
     
 String RenderMenuList::itemToolTip(unsigned listIndex) const
@@ -409,7 +430,7 @@ PopupMenuStyle RenderMenuList::itemStyle(unsigned listIndex) const
     Element* element = listItems[listIndex];
     
     RenderStyle* style = element->renderStyle() ? element->renderStyle() : element->computedStyle();
-    return style ? PopupMenuStyle(style->visitedDependentColor(CSSPropertyColor), itemBackgroundColor(listIndex), style->font(), style->visibility() == VISIBLE, style->textIndent(), style->direction()) : menuStyle();
+    return style ? PopupMenuStyle(style->visitedDependentColor(CSSPropertyColor), itemBackgroundColor(listIndex), style->font(), style->visibility() == VISIBLE, style->display() == NONE, style->textIndent(), style->direction(), style->unicodeBidi() == Override) : menuStyle();
 }
 
 Color RenderMenuList::itemBackgroundColor(unsigned listIndex) const
@@ -439,7 +460,7 @@ Color RenderMenuList::itemBackgroundColor(unsigned listIndex) const
 PopupMenuStyle RenderMenuList::menuStyle() const
 {
     RenderStyle* s = m_innerBlock ? m_innerBlock->style() : style();
-    return PopupMenuStyle(s->visitedDependentColor(CSSPropertyColor), s->visitedDependentColor(CSSPropertyBackgroundColor), s->font(), s->visibility() == VISIBLE, s->textIndent(), s->direction());
+    return PopupMenuStyle(s->visitedDependentColor(CSSPropertyColor), s->visitedDependentColor(CSSPropertyBackgroundColor), s->font(), s->visibility() == VISIBLE, s->display() == NONE, s->textIndent(), style()->direction(), style()->unicodeBidi() == Override);
 }
 
 HostWindow* RenderMenuList::hostWindow() const
@@ -447,14 +468,14 @@ HostWindow* RenderMenuList::hostWindow() const
     return document()->view()->hostWindow();
 }
 
-PassRefPtr<Scrollbar> RenderMenuList::createScrollbar(ScrollbarClient* client, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
+PassRefPtr<Scrollbar> RenderMenuList::createScrollbar(ScrollableArea* scrollableArea, ScrollbarOrientation orientation, ScrollbarControlSize controlSize)
 {
     RefPtr<Scrollbar> widget;
     bool hasCustomScrollbarStyle = style()->hasPseudoStyle(SCROLLBAR);
     if (hasCustomScrollbarStyle)
-        widget = RenderScrollbar::createCustomScrollbar(client, orientation, this);
+        widget = RenderScrollbar::createCustomScrollbar(scrollableArea, orientation, this);
     else
-        widget = Scrollbar::createNativeScrollbar(client, orientation, controlSize);
+        widget = Scrollbar::createNativeScrollbar(scrollableArea, orientation, controlSize);
     return widget.release();
 }
 
@@ -470,7 +491,7 @@ int RenderMenuList::clientInsetRight() const
 
 int RenderMenuList::clientPaddingLeft() const
 {
-    return paddingLeft();
+    return paddingLeft() + m_innerBlock->paddingLeft();
 }
 
 const int endOfLinePadding = 2;
@@ -486,7 +507,7 @@ int RenderMenuList::clientPaddingRight() const
 
     // If the appearance isn't MenulistPart, then the select is styled (non-native), so
     // we want to return the user specified padding.
-    return paddingRight();
+    return paddingRight() + m_innerBlock->paddingRight();
 }
 
 int RenderMenuList::listSize() const

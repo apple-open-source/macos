@@ -1,0 +1,3186 @@
+commit 52f5021347d87289eeb77f992986a17ae0b28cdd
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Dec 18 20:55:06 2010 -0800
+
+    xorg-docs 1.6 (X11R7.6)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit fc35d5f86590fd33cdad09f6face76f824a3f4eb
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Dec 18 01:16:01 2010 -0800
+
+    ReleaseNotes: more credits updates
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit ea5fd6d15740d9e9285e8df3117fb74c42eee29c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 19:50:16 2010 -0800
+
+    appgroup: Fix section titles/nesting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e3d8d8f848fe28a51dd2d1dfdd1c851cf9fbf268
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 19:46:50 2010 -0800
+
+    CTEXT: Fix section titles/nesting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8e81e3a4eb24dcde839bdeb77fe908e0220c4b76
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 19:40:44 2010 -0800
+
+    specs: Fix some conversion of 2 argument .PN -> <function> tags
+    
+    perl -i -p -e 's{ (\W*?)\s*</function>}{</function>$1}g' specs/*/*.xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 7d03cd132e850fa8d7249742d1f09e55dbe845dd
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 19:35:34 2010 -0800
+
+    XLFD: Fix cross-references to other sections of the document
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 700a926c599be2b6915c4def72a9e9a2251bed0e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 19:24:29 2010 -0800
+
+    XLFD: Fix chapter titles/section nesting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d8846c1d47091c77605a6ca4e47b71614434d72c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 18:19:57 2010 -0800
+
+    Sun's copyrights belong to Oracle now
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 31a0694baaaba32dfe0afdd1e156f626bd13488a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 18:17:14 2010 -0800
+
+    ICCCM: Pair copyright notices with matching license notices
+    
+    Makes the legal notice layout like the troff version was
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 483568553b57f6ddd426b2ab5395365d863c64ed
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 18:03:56 2010 -0800
+
+    ICCCM: Update X Registry contact address
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 6d8405888a204047fa5e34898a70b1e02d44443e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 17:58:17 2010 -0800
+
+    ICCCM: Fix Preface titles & section nesting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a65219148f0cb6bbf798b3e6f4f91dc6c004f108
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat Dec 4 11:30:20 2010 +1000
+
+    MAINTAINERS: aiptek is unmaintained again
+    
+    CC: Rene van Paassen <rene.vanpaassen@gmail.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f871a55c5a8e84f2b1faea8ee26bcc506ad96727
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Dec 15 11:30:47 2010 -0800
+
+    ctext.xml: Replace incorrect fi ligature character with "fi"
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 3954402a111f39dd749db28abda72c5bf8bebaa3
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 14 18:33:45 2010 -0800
+
+    Update Xserver security docs from DocBook 4.1.2 to 4.3 to match the rest
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Reviewed-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit cd42d8704350bf73801d7d0277468648bb2e614e
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Dec 13 18:16:15 2010 -0800
+
+    ReleaseNotes: fix typos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d77dadafcd0ae10f4bbc918c80db4e865ad70caf
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Dec 13 12:37:49 2010 -0800
+
+    XKB-Enhancing: Fix URL for XKB spec
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 3af357433644e62f32174c8be6529193006176ee
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 29 14:26:51 2010 -0800
+
+    Release Notes: Add 7.6 dedication
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 28e928def5839189c8d340232fa881e0b7107722
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sun Nov 28 22:10:05 2010 -0800
+
+    ReleaseNotes: Comment out draft note for upcoming final release
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e795fa604dfca292029f36df6c03c02ed7b08440
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Dec 2 16:19:17 2010 -0500
+
+    specs: move SIAddresses docs to x11proto
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 0c5f693d6617a740faaceb657a1fda260316e414
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Dec 2 12:04:01 2010 -0500
+
+    specs: remove xtest1.info, no longer relevant
+    
+    This appears to be a text snippet regarding an implementation note
+    on the x11 input synthesis extension. The function referenced
+    can be found in the hw/hp/input directory of the server
+    in the xext1imp.c file.
+    
+    http://195.113.144.229/MIRRORS/ftp.xfree86.org/pub/mirror/X.Org/pub
+    /R6.6/xc/programs/Xserver/hw/hp/input/xtest1imp.c
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 0c176b97addf92a6ed4959dac2587b5b53efc74b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Dec 2 11:55:46 2010 -0500
+
+    specs: remove roff version of x11 input synthesis extension
+    
+    Now located in libXext in docBook/XML format
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6bc74d111f1aa80f3395ee06223e47c5f6d3a010
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Nov 30 11:21:02 2010 -0500
+
+    specs: XKB proto and lib specs are now in xextproto and libX11
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 1b51a0a2c25dd92fb61a0943a97e4152b54ff490
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Nov 30 11:17:34 2010 -0500
+
+    RX: remove the framemaker file from distribution
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit fa5ce8a189438ee6b19c09d67269ee18aff29d9d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Nov 30 09:10:00 2010 -0500
+
+    specs: move RX Mime spec to app/xrx
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 8bcf9fd199096f8be33b5139b0b8bac017aab073
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Nov 30 09:08:03 2010 -0500
+
+    specs: move low bandwith protocol specs to xextproto
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit dc570809bea74c65f0def809767f666f10c96479
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 29 17:25:41 2010 -0500
+
+    specs: remove Framemaker version of appgroup now in xextproto
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit beb347ae32e970b492e1ccd3ec27e8c7bb8f3bd9
+Author: Matt Dew <matt@osource.org>
+Date:   Mon Nov 29 17:19:49 2010 -0500
+
+    specs: convert low bandwidth extention from Framemaker to DocBook/XML
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit d98ed0b746a91c8154b893714b1bf8b8f373105f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Nov 11 17:24:33 2010 -0800
+
+    xorg-docs 1.5.99.901 (1.6 RC 1) snapshot for X11R7.6 RC1 docs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 20083aeb845a43bf1f358d041912e06b939d356b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 10 16:28:07 2010 -0800
+
+    ReleaseNotes.xml: Update credits section for 7.6 RC1
+    
+    The list of people to credit in this release was created by running
+    the script at https://gist.github.com/671819 with my current list of
+    katamari modules/versions to get a unified ChangeLog for all katamari
+    modules.   For xcb modules, since this is their first inclusion, this
+    went back to the dawn of the xcb project.
+    
+    From that list, everyone listed in the long form log output under either
+    Author: or *-by: was collected and added to the "These people contributed
+    in some way to X11R&relvers; since the release of X11R&prevrelvers;" list.
+    
+    The output was manually edited to remove duplicates which appeared to be
+    the same person, and non-identifiable usernames ("root", "xgi0007", etc.)
+    Additionally, the lead freedesktop.org sysadmin was manually added.
+    
+    For the second list, "This product includes software developed by",
+    the COPYING files in all katamari modules were mined for Copyright
+    notices and merged with the existing list.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8b52358bde047c9ecbd4a52c13591ce0df28be9e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 7 10:32:21 2010 -0500
+
+    Implement the --disable-docs option
+    
+    The XORG_ENABLE_DOCS macro provide a configure option to
+    disable the generation of general documentation.
+    
+    The makefiles need to use the Automake conditional ENABLE_DOCS
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit fdebf058052aca57361153687fcdb5cd29b68cae
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 5 17:24:24 2010 -0400
+
+    xmlrules.in: do not use --searchpath when sgml-doctools not installed
+    
+    The option to define a searchpath for css and xsl files is not
+    required when such files are known to be missing.
+    
+    The command emitted is:
+    /usr/bin/xmlto --searchpath /X11  xhtml-nochunks dps.xml
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit c8510a9a0bb10da9cfea6703aa38e5343a0d8b36
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 5 15:22:29 2010 -0400
+
+    HTML file generation: use the installed copy of xorg.css
+    
+    Currenlty the xorg.css file is copied in each location
+    where a DocBook/XML file resides. This produces about
+    70 copies in the $(docdir) install tree.
+    
+    With this patch the HTML file contains the following XML element:
+    <link rel="stylesheet"
+    href="/home/nadon/xorg/src/share/sgml/X11/xorg.css" type="text/css" />
+    when build from prefix /home/nadon/xorg/src.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 92d11dbaba41fc68ad6ba2af91e85de2f328d48c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 3 23:54:56 2010 -0700
+
+    First round of updates for X11R7.6 release notes
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Reviewed-by: Dan Nicholson <dbn.lists@gmail.com>
+
+commit 509ed4a982ed2e5232ef3f8d9f162a51a2939546
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 5 11:28:22 2010 -0400
+
+    specs: remove .gitignore, already covered by toplevel
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5ac02409a2b91cf0d55adfb9cd49555d28dc225f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 5 11:25:19 2010 -0400
+
+    xmlrules.in: add a clean-local target for chunked-html
+    
+    CLEANFILES does not work directories
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 33f568d915d8e36d2c9d1d36d630c28a9f2889e7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 3 20:14:27 2010 -0700
+
+    Versions.xml: Update to reflect current state
+    
+    - Explain xorg-server vs. X11R7.x numbering and why versions
+      reported by the server went backwards.
+    - Use 1.8.x instead of 6.8.x in examples to reinforce current versioning
+    - Show git tag/branch name format instead of CVS
+    - Stop claiming to speak for XFree86
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e0cabf2727539d216a097416a6ec8bfa0985b2a6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 3 19:33:24 2010 -0700
+
+    Update README now that most of the docs have moved out
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9f522ffff753fbf37630c1d2d4e365883809cef7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Nov 3 19:21:18 2010 -0700
+
+    Remove NetBSD & OpenBSD platform docs
+    
+    Matthieu Herrb explains:
+    
+    "I would rather remove this document (and its brother NetBSD.xml)
+    completely. It was written for times where XFree86 was not yet
+    included in OpenBSD binary distributions and people had to download,
+    build and install it by themselve.
+    
+    Now (well it's been more than 10 years) that X is included with
+    OpenBSD distributions, this document is mostly and contains many
+    other out of date information."
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8c9927593051c952b0a18616418519ca8b01db19
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Nov 2 19:25:40 2010 -0700
+
+    Convert platform docs from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/platform to new directory general/platform
+    
+    Delete SCO.sgml, since it's not been updated since the monolith
+    and the SCO port hasn't been maintained in a while.
+    
+    Since these were the last sgml documents, remove the sgml subdirectory,
+    and the configure.ac macros to find the docbook sgml tools.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a6f01f42733110b191d95cb9f48357c92a796f08
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Nov 2 18:32:35 2010 -0700
+
+    Convert Versions doc from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/Versions.sgml to general/Versions.xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 61aab1e0b6c5b4435e34f3aeb4ee0843ee1ce9b0
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Nov 2 14:46:32 2010 -0700
+
+    Convert README doc from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/README.sgml to general/README.xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 65c02da8c6b2e88eceeb418963ecc785e6245cc7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 20:31:45 2010 -0700
+
+    Convert license doc from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/LICENSE.sgml to general/License.xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 922bb8b668ef64514b906f8ab07bc6b81f35b75c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 18:59:25 2010 -0700
+
+    Convert font docs from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/fonts to new directory general/fonts
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b12e1b22c0ecb7009ce31aa34206a277aff12faf
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 18:32:43 2010 -0700
+
+    Use XML tools for release notes instead of SGML tools
+    
+    Document was already mostly xml-compatible
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/RELNOTES.sgml to general/release-notes.xml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d19d82db8672cc131be3060e80597d03c7606b0d
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 17:43:45 2010 -0700
+
+    Convert DPS docs from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/graphics to new directory general/graphics
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit f4bcf39835cffe404cee002735f7429a8e9c065c
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 17:35:12 2010 -0700
+
+    DPS.sgml: Trim down to just the obsolesence notice
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 20497d4f075203a20e78ec2ee50fce5a893160a7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 17:10:40 2010 -0700
+
+    XKB-Config.xml: update for current releases
+    
+    - Document xorg.conf.d keyboard matches instead of kbd driver entries
+      in xorg.conf
+    - Update to current xkb-config file names & paths, and link to the
+      xkb-config project site
+    - Add an example of enabling the ctrl-alt-bksp zapping sequence
+    - Delete "Direct XKB Configuration" section, since that no longer works
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Reviewed-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Julien Cristau <jcristau@debian.org>
+
+commit a3e5dbf687984c93c5585c3e24650fa0a81c5be9
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 16:13:48 2010 -0700
+
+    XKB-Config.xml: misc markup cleanups
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d98561ac2b8c36aec665c2b676705ec7e8d05b03
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 15:54:53 2010 -0700
+
+    XKB-Config.xml: convert itemizedlist to variablelist
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 939f07b30537a18795bd8101b6049d397a00470f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Nov 1 15:45:26 2010 -0700
+
+    Convert XKB docs from DocBook SGML to DocBook XML
+    
+    Uses newer tools for formatting, better matching other new docs
+    Moved from sgml/input to new directory general/input
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit dc55f8e10ed557083f15e57936f4115f689c211d
+Author: Samuel Thibault <samuel.thibault@ens-lyon.org>
+Date:   Sun Oct 24 14:26:53 2010 +0200
+
+    Add GNU/Hurd subsystem
+    
+    Signed-off-by: Samuel Thibault <samuel.thibault@ens-lyon.org>
+
+commit 99191ab80e2f34f8c897a17f8232786a1957f109
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Tue Sep 28 13:29:50 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 21dad83872bf308ac7fd9583a250b27e6b379ecb
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 28 20:19:54 2010 -0400
+
+    XACE spec: move from sgml/security to specs/Xserver directory
+    
+    This spec is a DocBook XML despite its sgml file extension.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 1a287268ed75cf115286686bac419b40915d9961
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 28 16:53:46 2010 -0400
+
+    xmlrules: make it accessible to more DocBook XML docs.
+    
+    Move it up at the toplevel and adjust existing makefiles.
+    Others will soon follow.
+    The "spec" dir stem has been renamed to "xml".
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 45d90e7846d1b0fe07627170e794c043bc9ae9da
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 28 16:35:19 2010 -0400
+
+    .gitignore: adjust to cover more generated files
+    
+    Now that more DocBook XML files are being generated.
+    Make an exception for a few manually edited text files.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6e39a2649210ba267c2674947a214686ef0ed586
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 28 09:35:13 2010 -0400
+
+    Remove Linuxdoc Japanese XFree86 PC98 Dependent Information
+    
+    Alan Coopersmith wrote:
+    
+    "I think we recently dropped PC98 support from the X server, so I'd be okay
+    with dropping the documentation now".
+    
+    These documents will always be available in previously shipped tarballs
+    matching older server versions. They have never been built or installed.
+    
+    Reviewed-by: Matt Turner <mattst88@gmail.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a66e77431b7ecbe762d6b0cf537e49dd12fc75fb
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Sep 22 15:44:35 2010 -0700
+
+    registry: Update paper mail address for registry submissions
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 5ba228b0bbe76b76dc6e61e5ab9926afc77934be
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Sep 22 10:22:38 2010 -0700
+
+    registry: Update Sun Microsystems contact information
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 4ad1771ca87392e69d843eef7340d56bc68591f1
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Sep 22 10:18:32 2010 -0700
+
+    registry: Update X.Org Foundation contact information
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit f66df8c08728382b33e048d6ea2b30c4de62bf8f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 14 14:31:00 2010 -0400
+
+    config: delete various accessory build files for old docs
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 49c27f4af739d5426cd43cff36c848929b574fcf
+Author: Marc Balmer <marc.balmer@arcapos.com>
+Date:   Sat Sep 18 14:12:48 2010 +0200
+
+    Add myself as maintainer for xf86-input-elographics.
+    
+    Acked-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit c9b0fe521bab59d602cae57a9fcdaba53a2a9a00
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 14 17:18:20 2010 -0400
+
+    Install.sgml: remove until suitable replacement is available
+    
+    The content is completely out of date (X11R6) and has not been
+    used since then.
+    
+    Reviewed-by: alan.coopersmith@oracle.com
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit cb2eae04b5edbc6c1d11a8903b30012a0cae1371
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Sep 14 16:55:56 2010 -0400
+
+    registry: update link to find latest version
+    
+    Unable to find the registry on the ftp site.
+    Use a link to git master.
+    
+    Reviewed-by: alan.coopersmith@oracle.com
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit df3782b81bfdac5a8aaaf96209af9d30f701bf38
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 16:40:27 2010 -0400
+
+    config: build XLFD spec now in DocBook XML format
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit ee362193126bafdb14b1bd7a7e7847f750ee27ec
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 16:31:14 2010 -0400
+
+    config: build ICCCM spec now in DocBook XML format
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 2f1e4820e6867fb3e7c1cf684200ed5d936dcaef
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 15:37:23 2010 -0400
+
+    config: build CTEXT spec now in DocBook XML format
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 31df41d34725f2d43e28a0247582992873ef6d5d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 08:55:54 2010 -0400
+
+    config: install the documents in $(docdir)
+    
+    They were installed in $(datadir)/X11/doc.
+    This is not the appropriate location for documents.
+    If a distro/OS has a reason for installating them in $(datadir)
+    they can configure with --docdir=DOCDIR which removes the need
+    for a custom configure option.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6ac3d9d7038bc65c3e3c98826a5b685827328886
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 08:54:09 2010 -0400
+
+    config: use the XORG_ENABLE_DOCS macro to control docs building
+    
+    As used in all modules containing docs.
+    It may look a bit over-kill in this case, but it will help
+    batch building if it is consistent.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 49e493163a6fafec93e37c221390d10518b04807
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Sep 13 08:51:34 2010 -0400
+
+    config: use XORG_CHECK_DOCBOOK macro as is.
+    
+    Only a few sgml files are left to be converted to DocBook XML.
+    The new doc macros in util-macros will, by default, build all
+    formats unless the tool to do the job is not found. This
+    is what XORG_CHECK_DOCBOOK does as well.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 0fd6a2b459a9ff2ecc9514f6d5dac466c3f450cd
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 22:30:13 2010 -0400
+
+    config: statement order for XORG_CHECK_DOCBOOK
+    
+    It should come after the configure options as they
+    modify the macro internal variable.
+    Found on MAC/OS as the docbook2 tools are missing.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 533956eaf9e60fdcde3cbc5536d89e41fea74c68
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 18:54:38 2010 -0400
+
+    config: duplicate specification to distribute MAINTAINERS
+    
+    No need to use both dist_ and EXTRA_DIST
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6e5eef2c17c0f8e321d97a9f62367570822374b8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 15:24:38 2010 -0400
+
+    config: fix automake waring, use AC_CONFIG_FILES
+    
+    AC_OUTPUT with parms is deprecated.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 946cebf428ab1a917aaf3f086717fc317390cfd4
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 15:16:21 2010 -0400
+
+    config: add AC_CONFIG_SRCDIR, layout and comment
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 7cf67b92cfdcbd4673b83960264b72a81d3ba16b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 15:04:24 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 090da909f923565b4a420d823af8bec32ed105d9
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 14:38:08 2010 -0400
+
+    man: remove whitespace as reported by git-diff
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit b110165be41eaeaec3b1fce1d0e9be9965193855
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Sep 12 13:29:34 2010 -0400
+
+    man: remove the "general" subdirectory
+    
+    Also remove old IMakefile revision tags.
+    The "man" subdir now consistent with all other modules.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 9993bc48ac187e341c6db2255fb44e165fcf3aab
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 16:26:58 2010 -0400
+
+    Replace converted roff files with DocBook XML files
+    
+    Gather the remaining DocBook XML files from www.osource.org/xorg/docbook.
+    Some will be build in this xorg-docs modules, other may be moved
+    closer to the module they document.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 2f7229674a2da3b9d4397fe99df25f9b795eb86e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 15:39:07 2010 -0400
+
+    Move X Input protocol specs to lib/libXi and proto/inputproto
+    
+    Following the DocBook conversion
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit b607108c265330454769f5dc6f3cef791c48bd38
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 14:51:20 2010 -0400
+
+    Move XDMCP extension spec to lib/libXdmcp
+    
+    Following the DocBook conversion.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit e788e0a580e42a411a90f802b35eff6289a8af82
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 14:48:07 2010 -0400
+
+    Move Screen Saver Extension spec to proto/scrnsaverproto
+    
+    Following the DocBook conversion
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5315569e2de5c37b4b303136d64af51da8ed1149
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 14:42:50 2010 -0400
+
+    Move Font Service protocol spec to proto/fontsproto/specs
+    
+    Following the DocBook XML conversion
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5490e43d4118ee6ef5c2557e5ee338f262dde980
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 14:22:28 2010 -0400
+
+    Move extension protocols specs from specs/Xext
+    
+    Following a DocBook XML conversions, bigreq, record and xc-misc
+    have moved to /proto in their respective directories.
+    
+    All others have moved to /proto/xextproto.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit d10df6087d1f759a6a9bec3026528fd45899bad0
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 13:07:33 2010 -0400
+
+    Move X Protocol spec to proto/x11proto
+    
+    As a result of DocBook conversion
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 0a33b798bbd8c04eab2e6258e6db500e65e12f9f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 11:23:25 2010 -0400
+
+    Remove check for PDF tooling for X protocol spec.
+    
+    The spec moved to proto/x11proto
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 2fc350853a1d4591b86aa2f4446779e776c1b1da
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 10:26:58 2010 -0400
+
+    Remove Makefile for specs/XProtocol. Now built in proto/x11proto
+    
+    As a result of the recent DocBook conversion.
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a4559b762c2f67b28d59e804ad6a1ed76913f689
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Sep 9 13:06:10 2010 -0400
+
+    config: xlogo.svg was missing in the tarball
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit bd575588e3ad149e5a967436f60f2de56cd5dde7
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Aug 19 20:13:16 2010 -0400
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit aab6187cadb5a642ec4a7d97daf99ce08d5966ff
+Author: Thomas Hellstrom <thellstrom@vmware.com>
+Date:   Wed Aug 18 09:57:54 2010 +0200
+
+    Add myself as maintainer of xf86-input-vmmouse
+    
+    Signed-off-by: Thomas Hellstrom <thellstrom@vmware.com>
+
+commit 3399ae70c5f6c44258c31f497f607929707d8d85
+Author: Thomas Hellstrom <thellstrom@vmware.com>
+Date:   Wed Aug 18 09:51:44 2010 +0200
+
+    Added myself as maintainer of xf86-video-vmware
+    
+    Signed-off-by: Thomas Hellstrom <thellstrom@vmware.com>
+
+commit 3c72169cde346fb14d73903818af9de4442ff0a5
+Author: Dirk Wallenstein <halsmit@t-online.de>
+Date:   Mon Jul 19 10:35:14 2010 +0200
+
+    Improve the section about available XKB options
+    
+    Signed-off-by: Dirk Wallenstein <halsmit@t-online.de>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit e16c615962e130bb251ff273bdb0e4c5df0c909a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Jul 10 13:32:18 2010 -0400
+
+    Add the X11 protocol spec to the build system - Part II
+    
+    There was an non-Automake Makefile checked-in for which
+    an override was needed in .gitignore. It can go now.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 7436f4f910deaed2825ce99438f98aef0e0f9f82
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Jun 12 08:49:29 2010 -0700
+
+    Move recordlib.ms & xtestlib.ms to libXtst module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a002cf8acbc1d0ac9f8c8beef0cd6111843d416d
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Jun 11 18:50:31 2010 -0700
+
+    Move several extension API specs to libXext module
+    
+    Only took those which had separate API vs. protocol specs.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 939250fa7e39c60f16ce648be07f3c6d11e79337
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Wed Jun 9 18:52:35 2010 +0200
+
+    Check for ps2pdf and pdftk in configure
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 59a7d41a255a6b9d7738245983e5c775a7147f08
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Wed Jun 9 17:49:25 2010 +0200
+
+    Add the X11 protocol spec to the build system
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 92e8aea8967bbe597cc7bd72ef3306fc482d0133
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Jun 8 20:22:02 2010 -0700
+
+    Move specs/Xt to lib/libXt module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 56e8de26f874417b307245044fe84959b3b59bb6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Jun 8 20:16:58 2010 -0700
+
+    Move specs/ICE to lib/libICE module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit fdab711a62793a9fd344cbaa6ceaa62626de973f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Jun 7 15:50:55 2010 -0700
+
+    Move specs/Xmu/Xmu.ms to libXmu module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 30b4460ffa138fded4b872eff6f0c02ac4188ae2
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Jun 7 15:45:30 2010 -0700
+
+    Remove out of date specs/GL/libGL.txt
+    
+    Mesa developers agreed that this documentation belongs with Mesa, not
+    xorg-docs, so an updated version should go there.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit c2d690a68aa39f34bee60240eac613d5e7dff38f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu May 20 18:48:39 2010 -0700
+
+    Move sgml/core/Xserver-spec.sgml to xserver module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b01740e07e96dce8def3dc97514110d19fd736ae
+Author: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+Date:   Sun Apr 4 13:56:44 2010 -0500
+
+    MAINTAINERS: update Cygwin and MinGW ports
+    
+    Signed-off-by: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+
+commit c707343c363c3fb9fd54d547796f66eae0dea5c4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 16 22:20:17 2010 -0700
+
+    Xsecurity.man: Removing Kerberos left 5 mechanisms implemented
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 5e046e3a62e2dfc633cd079d76fd105ebbb19faa
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Dec 23 19:58:35 2008 +0100
+
+    X.man: add manpage section to Xsecurity reference
+
+commit 51294b3eee4b059476a64ec71feb98b804195d5c
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Dec 23 19:57:48 2008 +0100
+
+    X.man: fix some minus vs hyphen confusions
+
+commit 39d3fd0fabd63a507aafbdfe13c6caaf393978ea
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Tue Dec 23 19:27:44 2008 +0100
+
+    X.man: X servers don't "generally" support DECnet connections anymore
+    
+    xtrans lost DECnet support in 2008, the server and libs before that.
+
+commit 185953fd217dc69f0af0ef8d513197ceee6753b3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 15 16:03:09 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c7ccb5d578c755e3e8e382867b43bbee53b0cce0
+Author: Tilman Sauerbeck <tilman@code-monkey.de>
+Date:   Tue Dec 29 18:22:54 2009 +0100
+
+    Removed myself from the mga maintainers list.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a55e2fd430efbdedd7b854aebdae4f4012d233f7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Dec 18 08:11:41 2009 +1000
+
+    MAINTAINERS: making myself the maintainer of xinput
+    
+    Given I've effectively maintained it since 1.3, it seems sensible to state
+    so.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b0e990b93b4189217be175a9a3bdc6cb04b61edd
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Dec 16 16:30:52 2009 -0500
+
+    MAINTAINERS: add video-mach64, update video-ati
+    
+    Reported-by: Alex Deucher <alexdeucher@gmail.com>
+    Acked-by: Mark Kettenis <mark.kettenis@xs4all.nl>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit de4f1bcbfcccf10887ca8bba7f8d4600be6a5aca
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Dec 10 21:06:46 2009 -0800
+
+    Grammar fix in X.man
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c70e059150213a00c76b5f10768c8ed5ab8c3d80
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 30 20:31:00 2009 -0500
+
+    sgml: add missing generated formats
+    
+    These are not build by default, so they can be missed. ps and html
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 49aa344ffad3e4f276f05b68169d9b857cf6437c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 30 20:27:39 2009 -0500
+
+    man: delete redundant .gitignore file for man pages
+    
+    This is now handled by the defaults section at the toplevel gitignore
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 130b53c632b71b1dd9ded154816743622930734a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 29 20:32:13 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 5370081e632c34bee523faca40e5763cfeb22868
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 15:43:41 2009 -0400
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+    For all X.Org components.
+
+commit 10fcd352ea6ea56f7bdea325e5f4ae2f08045d94
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:09 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 221061239b76a8c769a51edab009de6bd2492df4
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:40 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 9e7a10a089ec9dec1171268cf74aa2f8dd989fb6
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:16 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit e938abdd50f4801f2009927624813a23dbd29ef4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 26 00:08:03 2009 -0700
+
+    Mouse driver man page is now mousedrv(4), not mouse(4)
+    
+    Nothing like posting a finished release tarball to bring a mistake
+    to your attention...
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit df2c2f9b91f2a6a7708e2760d2ec45ce2efa002b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Oct 25 14:59:41 2009 -0700
+
+    xorg-docs 1.5 (X11R7.5)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f40bbed9f92dfd86168facdb874663aa0de63395
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Oct 25 14:52:57 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 570e2ff8736bbc977085c5b3e47d159d4dffd90b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 24 00:06:05 2009 -0700
+
+    More updates to Release Notes for X11R7.5
+    
+    - Try to explain the katamari & modules better in the introduction
+    - Add section about build system changes
+    - Add VPDAU to DRI2 description
+    - Move driver list after new feature list & server overview
+    - Update driver list for new & dropped drivers, add missing man page links
+    - Drop out-of-date XDarwin description
+    - Drop out-of-date warning that window managers don't support Xinerama
+    - Move DGA 2.0 to deprecated features section
+    - Add notes about changes to C-A-B default & blackroot/nocursor (-retro)
+    - Drop description of Luxi fonts that duplicates fonts.sgml
+    - Add note about new default font directory & compression options
+    - Update CID font support section to state it's been removed
+    - Add to removed features section: fontcache extension, libXaw8 (Xprint),
+      kdrive servers (Xvesa and friends)
+    - Add to future removals: HAL input device support, Xsdl, DGA 2.0
+    - Updates to contributor lists
+    - Change from DocBook/SGML 4.2 to DocBook/XML 4.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2c6eff5f97be03af4673c313033d7b28a7e5f1ed
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 24 00:05:11 2009 -0700
+
+    Make DTD version match DTD URL in XACE-Spec.sgml & Xserver-spec.sgml
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0107875923cb585e9ba0b86c11e14d94a0954f61
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 23 16:41:16 2009 -0700
+
+    Update BSD platform docs for 7.5 release
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 98b7aa8dd7d270f578144ba2e78c36c3bd57c0fd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 23 16:35:40 2009 -0700
+
+    Update fonts.sgml for the last few years worth of font changes
+    
+    - CID fonts are no longer supported
+    - font backends are no longer loadable modules
+    - font paths may be specified as catalogue: directories
+    - font paths are now optional in xorg.conf files
+    - default font dir change from /usr/X11R6/lib/X11/fonts
+      to /usr/share/fonts/X11
+    - the Type1 & X-TT font backends/modules are no longer available
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7fb8d99c74fc122313323de177f20ed2601bbbd7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 22 23:21:07 2009 -0700
+
+    Move description of XFree86 4.4 compose changes to Compose man page in libX11
+    
+    After 5 years, they no longer need to be called out as a new feature in
+    the release notes.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2f53384c7b3f2bdde1be530ef213f413a9e87e02
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Oct 18 00:20:01 2009 -0700
+
+    RELNOTES: Correct release for Compose file changes
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d8a9612d5d0855f711955cd1f4fbc9e5d6f44038
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sun Oct 18 00:16:57 2009 -0700
+
+    RELNOTES: Fix some character entity codes
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 47ab9a206702b732dfe9713d0425ab94a32cc8e9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 17 21:18:50 2009 -0700
+
+    xorg-docs 1.4.99.902 (1.5 RC 2) snapshot for X11R7.5 RC1 docs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 88790927611a794b9acd55d35886679a84c449c6
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 17 20:34:51 2009 -0700
+
+    RELNOTES: Update contributor list from git-log of all katamari modules
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit cb5a9694f696564173bcf247af2ab329c8e7ed8d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 17 14:08:38 2009 -0700
+
+    Move xtrans specs to lib/libxtrans module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 15d1cb348904f849c671926fa3a03ed2652b27e8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 14 20:02:00 2009 -0700
+
+    LICENSE: update license notes for 7.5 release
+    
+    - Copy introductory comments from README.sgml
+    - Add preferred license format from xserver/COPYING
+    - In sections with mixed license text & description, use blockquotes to
+      distinguish the license text
+    - Move XFree86 1.1 license statement from the top to the XFree86 license
+      section
+    - Update NetBSD Foundation license to current form (drop advertising clauses)
+    - Drop NVIDIA custom license now that they've moved to standard MIT
+    - Replace GLX Public License with SGI Free B
+    - Drop SGI CID Font Code Public License since the code is no longer shipped
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 11bc345d8693ed308ce2473c66f65d8fe4efaaf6
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 14 19:05:42 2009 -0700
+
+    Move libX11/XIM/locale specs to libX11 module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b32b02d3da0b1a197c249aa92d3a2c5f039f38d0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 13 13:37:41 2009 -0700
+
+    Move Xprint docs to printproto, libXp, & Xprint server modules
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e97bdda6d9ce4046b29afd6780ec1d8468f6f751
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 13 10:56:35 2009 -0700
+
+    Move rstart specs to app/rstart module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 35108198ceed3969ce89d7ea2499ced0b08fbfa6
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 12 22:54:38 2009 -0700
+
+    Move specs/PM/PM_spec to proto/pmproto module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0fb0e8edd5418f07a3f7144d5b2818efe2b748ac
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 16:37:10 2009 -0700
+
+    Move xv-protocol-v2.txt from xorg-docs to videoproto
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit fb6bf562b558b59a9d0e06dd8886ff93deeee1dd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 00:46:05 2009 -0700
+
+    Move session management specs to libSM module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2b2cf62524e99075b6c613e38310748e769efddb
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 9 22:14:54 2009 -0700
+
+    Bug 10274: X(7) manpage doesn't document %D for environment variables
+    
+    https://bugs.freedesktop.org/show_bug.cgi?id=10274
+    Reported to Debian by Julian Gilbey (Debian BTS #243597)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c10b0ac6f19778d6e8d0ce5033ee7e8710b02c17
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 9 16:01:18 2009 -0700
+
+    Move Xaw specs to libXaw repo
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d6c1d6f145c39981ae0757b419241c0d4bcc9919
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 21:31:39 2009 -0700
+
+    Replace old Xdarwin docs with pointer to current Xquartz website
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+    Reviewed-by: Jeremy Huddleston <jeremyhu@apple.com>
+
+commit f52d807aa18580b7b23ddf4d743d61c3df248052
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 11:01:41 2009 -0700
+
+    Remove very-out-of-date docs for Lynx & OS/2 platforms
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d3aa188d287fb449e620d9b8e5dddffabd321eee
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 10:53:40 2009 -0700
+
+    Move specs/Xserver/fontlib.ms to lib/libXfont
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ea742b44c81800616ba308c5a021bf4b32312947
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 10:52:33 2009 -0700
+
+    Mark XTrap as Obsolete in MAINTAINERS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c2f2503d2dd26b9306c5783a29785380bf531a24
+Author: Guillem Jover <guillem@hadrons.org>
+Date:   Wed Sep 23 02:55:53 2009 +0200
+
+    Add .gitignore files
+    
+    Signed-off-by: Guillem Jover <guillem@hadrons.org>
+
+commit 724b114c4eb98e505936455079864af23169cfdf
+Author: Guillem Jover <guillem@hadrons.org>
+Date:   Sat Sep 19 15:14:08 2009 +0200
+
+    MAINTAINERS: Use xorg-devel instead of xorg for mailing list
+    
+    Signed-off-by: Guillem Jover <guillem@hadrons.org>
+    Signed-off-by: Daniel Stone <daniel@fooishbar.org>
+
+commit 11d244cdb677447947aebdca6ea44a74a3480cfe
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 23:24:03 2009 -0700
+
+    Move specs/XvMC/XvMC_API.txt to libXvMC module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6143ef460e0f5c1aca28effa2f4ec0c0a9ebe26a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 23:21:32 2009 -0700
+
+    Move specs/Xv/xv-library-v2.2.txt to libXv module
+    
+    Remove library spec this time, not the protocol spec.   Oops.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit adaa4bdc67098f6ca26c214b7c62d8cacebc840b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 23:05:51 2009 -0700
+
+    Move specs/Xv/xv-library-v2.2.txt to libXv module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7aecfa578192aeb37e8f82ff827695fb4d4b5c1b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 22:18:24 2009 -0700
+
+    Move specs/Render/library to libXrender module
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 16e0cf42ff7d160c1b917c1e671d8832359986ca
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 21:25:09 2009 -0700
+
+    Remove hardcopy directory
+    
+    Almost all files in there were generated output, many of which were
+    generated from older versions and were now out of date.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit d905ce5cab6c4845e459e7f531233e50c9a1f543
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 11:44:06 2009 +1000
+
+    Remove X Input protocol spec.
+    
+    The protocol spec has moved to the inputproto component. Rather than having
+    two different specs that may become out-of-sync, remove it from here and
+    stick a reference in.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f0299dace37eb111bcc09cf6578bb4b16c874c7d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 11:50:23 2009 +1000
+
+    Remove out-dated XI2 stuff from Xi protocol spec.
+    
+    The protocol spec here represents the state after the MPX merge and has
+    changed considerably since. The new spec is over in the inputproto module.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f7fe7beb7a4d0509a23ffc34a4a5739b28d82850
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 21:19:15 2009 -0700
+
+    1.4.99.901 (1.5 RC 1) snapshot for X11R7.5 RC1 docs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ce15facd8bfac5abdf263c416be06665aeacad46
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 21:07:18 2009 -0700
+
+    Fix X11R version numbers in fonts document
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 5df216cea0c400f6e8ea6878907377d034e54de5
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 20:36:03 2009 -0700
+
+    Drop Bitstream Vera from license doc since we no longer ship those fonts
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c8690bf2becafef051445aae5a4a0e1b79494c2d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 19:51:22 2009 -0700
+
+    Add SVG conversion of misc/xlogo.epsi
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f670bbb87a4c9658d0257cb9c58b31e6a8fd870e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 18:48:34 2009 -0700
+
+    General man page updates for 7.5 release
+    
+    - Correct current default paths for many files/env vars
+    - Remove Xprint, XDarwin, lbxproxy, kbd_mode, & MIT-KERBEROS-5 references
+    - Add Xephyr, Xquartz, Xvnc & XWin to X server list in "See Also"
+    - Make display manager discussion more generic
+    - Displays can have more than one keyboard and mouse each now
+    - Note that Qt & GTK+ apps don't use X Resources
+    - Remove XFT_CONFIG from list of environment variables
+    - Strip trailing whitespace
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit b142c8140bf726246ef28ffc7e9438c32512b0bc
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 17:38:31 2009 -0700
+
+    Add pointers to wiki, bugzilla & git to the readme
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit eed6e609cc55ab30889de303fdb9ef9663e7709a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Sep 18 17:36:49 2009 -0700
+
+    MAINTAINERS: vga is obsolete, ati 3-way-split has been finished
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c469f170a9371171fac3abbaf5e398a5fd5535bf
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Sep 17 08:08:18 2009 -0700
+
+    Reformat credits list in RELNOTES for better readability
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit cc89c042e1143f276fe7ab22d2171d7569f5c902
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 16 20:53:26 2009 -0700
+
+    Start updating README & RELNOTES for X11R7.5
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 265aa0510d925efb59de9eea6b5da63ef2834483
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 16 17:30:13 2009 -0700
+
+    Strip trailing whitespace from sgml docs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 7b5518a9c3bb35f50fe2dd9f7be1a77549a05f54
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 16 11:26:13 2009 -0700
+
+    Solaris platform docs update for Xorg 1.7
+    
+    Drop long out of date information
+    Add updates for new virtual terminal support in OpenSolaris
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 8b49e7e5eca50f47c70639e74be72b71df9d0577
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Sep 9 13:52:22 2009 +1000
+
+    MAINTAINERS: Update input-void maintainer from ajax to me.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8bb6f8d72d67ace53771bbec9c748dd115b8dbcf
+Author: Keith Packard <keithp@keithp.com>
+Date:   Thu Sep 3 14:06:17 2009 -0700
+
+    Add Makefile to build x11.pdf
+    
+    Signed-off-by: Keith Packard <keithp@keithp.com>
+
+commit e73134d2e82b147c857e0c2bda8f16f7fff58142
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Mon Jun 29 16:05:09 2009 -0400
+
+    xace: property access hook documentation updates for Post hook.
+    
+    Signed-off-by: Eamon Walsh <ewalsh@tycho.nsa.gov>
+
+commit 3cc3a00d84ea54e659d93f0c5a1ba403be07f7ec
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Jun 19 18:17:59 2009 -0400
+
+    xace: device access hook documentation updates for XI2.
+    
+    Signed-off-by: Eamon Walsh <ewalsh@tycho.nsa.gov>
+
+commit 18556c4ba2840b94549630797fc10c26f344f387
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jun 4 21:35:48 2009 -0700
+
+    Move xfs/libFS docs to app/xfs & lib/libFS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 957e9fc847048b48b84f0aaca4f810724eca2fd1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 15 10:03:22 2009 +1000
+
+    Xi: DevicePropertyNotify events were introduced with 1.5, not 2.0
+    
+    Reported-by: Alan Coopersmith <alan.coopersmith@sun.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit dc85e859c5690d6d467c6b61653991ad289e4f15
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 15 10:02:09 2009 +1000
+
+    Xi: s/secifies/specifies/g
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 73ced6e24e28f97f1b4c5f6ec612e06c0c2c6477
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Feb 18 10:51:49 2009 +1000
+
+    Add "Deactivated" state, mark deactivated input drivers as such.
+    
+    "Deactivated" is a step down from unmaintained, but before obsolete. If users
+    come and require a deactivated package, this package may change back into
+    "unmaintained" (or in paradise, even "Maintained") state.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 00f4c1f5cbb16b819739f77e2b318a1b28973dcb
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Feb 2 09:15:39 2009 +1000
+
+    Add xf86-input-synaptics maintainers.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 4aa9abf958582588829c591a3f83420577301925
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Feb 17 17:19:43 2009 -0800
+
+    MAINTAINERS: Update lists of unmaintained and obsolete modules
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 83541f688b0e903f1c8c5b520ff0fd1b406f4420
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Feb 17 15:54:48 2009 -0800
+
+    MAINTAINERS: Remove compiz from X.Org apps
+    
+    They're moving away from X.Org/Freedesktop.Org hosting to their own
+    bugzilla/git/mailing lists - see
+    http://lists.freedesktop.org/archives/compiz/2009-February/003284.html
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 037374d93f7655bad76006c0f6e195974d079c21
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Feb 17 15:18:33 2009 -0800
+
+    MAINTAINERS: Add pointers to SubmittingPatches wiki page & xorg-devel list
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 026f0eae5357478cdf49449109d4c14c238ebad9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Feb 4 17:01:17 2009 -0800
+
+    Accept maintainership of keyboard & mouse drivers
+
+commit d1eb4c61b465e36c509358d3a1d8861f53059bb5
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 15:45:47 2009 -0200
+
+    Correct make distcheck.
+
+commit b7362d0bd77957d30fe16b14708643eea2a01acf
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 13:08:02 2008 +0930
+
+    Xi specs: Add JOYSTICK as predefined device type.
+
+commit 4d54bb7e109816f374ea0211aff0a82c38b59d4e
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 11:42:43 2008 +0930
+
+    Xi specs: Update device properties requests/event.
+    
+    ConfigureDeviceProperty and QueryDevicProperty have been removed, "pending"
+    does not exist anymore.
+    BadAccess may be returned for deletion or modification.
+    DevicePropertyNotify events are not XGE events.
+    
+    Label DPs as introduced with XI 1.5
+
+commit a1048ea88ad0bcb05cee9592039578ba3e89e648
+Author: Jerome Pinot <ngc891@gmail.com>
+Date:   Sun Sep 21 21:51:53 2008 +0200
+
+    Fix rgb.txt. Bug #17689.
+
+commit 372749a6871cefa3277407c5098fcdcd0c20c3d6
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jul 30 18:09:01 2008 -0300
+
+      Update configure.ac for removal of empty directories.
+    
+    This is a minor correction to commit 1cd356558d2748e4f8bca0d63c832cf5a623321e.
+
+commit 409c8df5fe657ef3700d5e475b4d07cb152ac807
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 29 18:10:24 2008 -0700
+
+    Update XOrgFoundation man page to point to git, not cvs
+
+commit 34c863c2ba2838d42ff88e5f008538d2a250dfb7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 29 17:56:21 2008 -0700
+
+    X(7) man page formatting & typo fixes
+
+commit a9fb8c55a03609c5314a4162a48007eb695eb66a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 29 09:47:29 2008 +0930
+
+    Xi specs: Update DevicePresence for DeviceControlChanged
+    
+    Also stick a comment into ChangeDeviceControl that it causes presence events.
+
+commit b5b6acedd659328206dc20ff08818fd11502b460
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Jul 27 14:24:37 2008 +0200
+
+    rename security.man to Xsecurity.man
+
+commit 1cd356558d2748e4f8bca0d63c832cf5a623321e
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Jul 27 14:14:48 2008 +0200
+
+    fix build in a builddir
+    
+    wildcards considered harmful
+    also remove empty subdirectories
+
+commit 3fcc6b06b64535550ea95582d3d5d70fb6490ee9
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 21 16:51:38 2008 +0930
+
+    Xi specs: Allow same mapping for multiple buttons in XI 2.
+
+commit b7f15e42b23264053f366770e514c1dd48420d6b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jul 9 12:40:25 2008 +0930
+
+    Xi specs: add protocol documation for input device properties.
+
+commit e445b3aaaa514813ce52ba775c62d2e2d97da1d1
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Wed Jul 2 14:52:24 2008 -0400
+
+    Various subsystem updates.
+
+commit 214b85c4fabc14aa53a8b8a94fb36567074f3df7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jul 2 21:51:22 2008 +0930
+
+    MAINTAINERS: update my email address.
+
+commit 790e697dd052ffabdf2b9489ec256be060b94605
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Jun 19 20:45:05 2008 +0930
+
+    Xi specs: update the description of the state field (device events).
+    
+    XI 2:
+    If dev is a master device: state == device state + state of paired master
+    If dev is attached: state == device state + state of device paired with master
+    if dev is floating: state == device state, all other bits 0
+
+commit 6c951a0c5ee439db66c350f7429460f81c3af497
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Jun 17 14:38:54 2008 +0930
+
+    MAINTAINERS: Looks like evdev is mine now.
+    
+    Complaints can be filed at every full moon but only before 3pm.
+
+commit 46335b4f4f55174ff72175ee3487902c20e21156
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Jun 12 01:11:39 2008 +0300
+
+    MAINTAINERS: Peter is really the input king these days
+    
+    Make this reflect the status quo.  Not checked with Peter for fear he'd
+    say no.
+
+commit 2e3ce4a2ca3e3ce1a29b9d78dffd8cf5029ce72c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu May 22 11:44:34 2008 +0930
+
+    Xi specs: Add note that we're including 2.0 as well now.
+
+commit b7b59362de9389d5d891eb77731ca8c260e0d845
+Merge: c86a9b7 4c4b977
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 17:46:58 2008 +0930
+
+    Merge branch 'master' into mpx
+    
+    Conflicts:
+    
+    	specs/Xi/protocol.xml
+
+commit 4c4b977b3f53b14a33028160bc3b43b6f49bba3c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 17:45:16 2008 +0930
+
+    Xi specs: note about deprecated Change[Keyboard|Pointer]Device.
+    
+    Server 1.4 (coincidentally also XI 1.4) always returns BadDevice.
+
+commit 019258abc5bb90afb725676510f76799b54be814
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 16:56:15 2008 +0930
+
+    Xi specs: add DevicePresence events.
+    (cherry picked from commit c86a9b7b93e8c47ff6382f3960b427bf2adb4861)
+
+commit c86a9b7b93e8c47ff6382f3960b427bf2adb4861
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 16:54:21 2008 +0930
+
+    Xi specs: add DevicePresence events.
+
+commit 3fc64c7b9699d628be5f148d3c78c0ec49bfa74e
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 16:43:33 2008 +0930
+
+    Xi specs: add XI 2.0 events.
+
+commit b8bfc9ad2d7cf1698dc7878ce892f1587e1cfd01
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 15:16:43 2008 +0930
+
+    Xi specs: add new requests for XI 2.
+
+commit c25407c99646ba6ac801f7e7bd6005bbe074a72b
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 14:01:54 2008 +0930
+
+    Xi specs: ListInputDevices, GetExtensionVersion and OpenDevice specs for XI2.
+
+commit 1653c34f80420024c3e3d82cbee4d9afb0a714ed
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 12:36:19 2008 +0930
+
+    Xi specs: add blurb about XI 2 device handling.
+
+commit 8d70d2e02231a535299ab48e88928d6c853bc71a
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 23:22:25 2008 +0930
+
+    Xi specs: clean up xml, try to get a readable output.
+    
+    doclifter isn't perfect.
+
+commit 3122c88092b11253ed8ee43d70d692fa5428fbce
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 23:08:19 2008 +0930
+
+    Xi specs: clean up the layout of the first page.
+
+commit d03eeef819d444504cae3f5135da2d3b3f0e5235
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 23:02:29 2008 +0930
+
+    Xi specs: remove double headers, clean a few things out.
+
+commit a869e62df356837200bd0aee3575ee59c4d5d4cf
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 16:32:48 2008 +0930
+
+    Xi specs: modify xml to parse through xmlto.
+    
+    Output isn't perfect, but at least is parses and spits out a PDF file.
+
+commit 023bac145790e87a2400bc6ad2fdf684f12a1098
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 16:26:46 2008 +0930
+
+    Xi specs: Doclifted protocol.xml.
+
+commit 2327364cf7d2b71455a5b4f5aa3600516533e376
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat May 10 16:25:39 2008 +0930
+
+    Remove a couple of tags unparseable by doclifter.
+
+commit b3c82abd3b1124dd27ab26a62b4135d74a24ed21
+Author: Ed Catmur <ed@catmur.co.uk>
+Date:   Tue May 6 17:49:20 2008 -0700
+
+    Bug 9842: "65533" is not a character number in the document character set
+    
+    X.Org Bugzilla #9842 <https://bugs.freedesktop.org/show_bug.cgi?id=9842>
+    Patch #9127 <https://bugs.freedesktop.org/attachment.cgi?id=9127>
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 48040b27fdc800498d302c019b2364af0bd327e8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue May 6 17:35:03 2008 -0700
+
+    Bug 4727: X(7) manpage is dated
+    
+    <http://bugs.freedesktop.org/show_bug.cgi?id=4727>
+
+commit e76d57030b7cf2bd1db6b3bb05d3b167b4180a4b
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Tue Apr 1 17:34:07 2008 -0400
+
+    Update the server spec revision history to reflect recent changes.
+
+commit 206be459e2dca389a24e44e40d63b6ccb0ee9871
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Tue Apr 1 17:21:33 2008 -0400
+
+    Update the server documentation for the devPrivates rework.
+
+commit d3ac8588bcd30c5bac145fb9913270e191e216fd
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Mar 28 18:11:34 2008 -0400
+
+    Attempt to banish the old DDX server documentation once more.
+
+commit b7a0378c908db6c4ce5744f143ab59df7416fdbd
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Fri Mar 28 17:44:16 2008 -0400
+
+    Document fb, not mfb or cfb.
+    Document changes to backing store and PaintWindow.
+    
+    Changes ported from old non-DocBook document.
+
+commit 5044891a7071dbcf85b77ba44b2e628d8fa3856a
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Mar 28 16:38:27 2008 -0400
+
+    Update XACE documentation for version 2.0.
+
+commit 9efacd15b8359cb4186717f148950020de3c7f75
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 11 15:04:28 2008 -0700
+
+    List pcpa as xedit maintainer
+
+commit 2a72f382c7685f9188f9c0eca8f14642f0fcdbf6
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sun Feb 17 09:33:46 2008 +1100
+
+    Document changes to backing store and PaintWindow.
+
+commit 9918fd466fac4fac80e4054157d42af955aefccd
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sun Feb 17 09:22:14 2008 +1100
+
+    Document fb, not mfb or cfb.
+
+commit 3852d7c82410bd1b4cbd6934f28a579d99794660
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sun Feb 17 09:05:12 2008 +1100
+
+    Nuke RCS tag.
+
+commit 74e2e3975a962bd468d321d09271cc1c23235871
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Sun Feb 17 08:47:40 2008 +1100
+
+    Import the source for the DDX documentation from old Xorg CVS.
+
+commit 27aa7a163ab71f0359a422d1fbf361af59e029e0
+Author: Ben Byer <bbyer@apple.com>
+Date:   Mon Feb 11 20:33:09 2008 -0800
+
+    Adding Jeremy Huddleston to Xquartz
+
+commit 0683f91831724a0ed4f58a87d2baf0b8f6421ac3
+Author: Eric Anholt <eric@anholt.net>
+Date:   Thu Jan 24 10:46:22 2008 -0800
+
+    Add xf86-input-aiptek maintainer per request.
+
+commit 28a07e8424a0493290ecfd443157e635a51d3cc5
+Author: Eric Anholt <eric@anholt.net>
+Date:   Thu Jan 24 10:44:46 2008 -0800
+
+    Update xf86-video-intel entry.
+
+commit 681c2c135e00a3f212a814842921c993bfe1fc09
+Author: Philip Langdale <philipl@fido2.homeip.net>
+Date:   Thu Dec 20 14:20:20 2007 -0800
+
+    MAINTAINERS: Add xinput maintainer
+
+commit 776ed20c42f93dc70c055b9f53112b3c827bf702
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:36 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 40a33d1fdfccecb1b5d5c88e75b0efa8c2bb0c57
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 4 15:09:09 2007 -0700
+
+    Remove more $XdotOrg$ CVS id tags
+
+commit 71d1526ff9296913a1c64790e7c087ff8b244f2a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 4 15:07:00 2007 -0700
+
+    Update server-interpreted address types registry
+
+commit a0dbd3543cdfc407c042c5e7ae28f00a6e1b893c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Sep 4 15:04:58 2007 -0700
+
+    Remove RCS/CVS id tags from registry
+
+commit 475c4c083591522d336cf63e88b6368b403388d8
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 22:31:38 2007 -0400
+
+    Add comment to X11.keysyms about what is missing
+
+commit c95f550eadc47b61b8709267f0fd06be7e3821f8
+Author: Matthieu Herrb <matthieu@bluenote.herrb.com>
+Date:   Fri Aug 10 11:12:17 2007 +0200
+
+    Add me as xsetroot maintainer
+
+commit 8f8a87978ba53597f89fde2e439f257a2bfea0b7
+Author: Jochen Voss <voss@debian.org>
+Date:   Wed May 30 09:35:06 2007 -0700
+
+    Bug 11104: misprint in xlib manual, broken example in X Toolkit intrinsics, etc.
+    
+    X.Org Bugzilla #11104 <https://bugs.freedesktop.org/show_bug.cgi?id=11104>
+    Patch #10137 <https://bugs.freedesktop.org/attachment.cgi?id=10137>
+    Contributed upstream from Debian's 023_specs_doc_fixes.diff
+
+commit 9707b3c3990690ea699cd1c2331ac9929e5c12e6
+Author: Giuseppe Bilotta <giuseppe.bilotta@gmail.com>
+Date:   Fri Apr 27 00:41:07 2007 +0200
+
+    Add myself as maintainer for xf86-input-acecad.
+
+commit df52a9aee5f24d9d464cb9345cc1bb00c90342da
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Apr 15 19:56:01 2007 +0200
+
+    Add my self as maintainer for a couple of applications.
+
+commit 1f00575247a08f389eeea3ca1d8abecbcb73e3ac
+Author: Sascha Hlusiak <saschahlusiak@arcor.de>
+Date:   Mon Mar 12 23:39:40 2007 -0400
+
+    MAINTAINERS: Add xf86-input-joystick maintainer
+
+commit b66ba1b856dfeb9a8a474f753118ba31bd599364
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Mar 10 20:18:10 2007 +0200
+
+    MAINTAINERS: Add xf86-video-glide maintainer
+    For some reason, someone's stepped up to maintain glide.
+
+commit 88e89743908cf8c271a2a8a4adadc064e9f9192d
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Mar 10 20:17:28 2007 +0200
+
+    Remove ChangeLog
+
+commit 8ba785a9defd823f8a3ccae052f53462f7141a05
+Merge: b3e029d e8dccc9
+Author: Ian Romanick <idr@us.ibm.com>
+Date:   Fri Feb 23 10:18:37 2007 -0800
+
+    Merge branch 'master' of git+ssh://git.freedesktop.org/git/xorg/doc/xorg-docs
+
+commit b3e029d998c3039f816a602ffd92cbda6a97ac39
+Author: Ian Romanick <idr@us.ibm.com>
+Date:   Fri Feb 23 10:18:25 2007 -0800
+
+    Add libpciaccess and xf86-video-xgi.  Update xf86-video-mga.
+    
+    Add entries for libpciaccess (I hope this is the correct place for it)
+    and xf86-video-xgi.  Mark myself as the maintainer for both.  Add
+    myself and Tilman Sauerbeck as maintainers for xf86-video-mga.
+
+commit e8dccc9b413f6c8e3fb46d451fcc555b55113302
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Thu Feb 15 11:41:20 2007 -0500
+
+    Bug #6988: Change behavior of Security extension per user feature request.
+
+commit 7b39be73bf4b92b6fa86d98d66d34e4d43d1edff
+Author: Ben Byer <bbyer@bbyer.apple.com>
+Date:   Sun Feb 11 17:09:04 2007 -0800
+
+    added my email address
+
+commit 2a98afc388150e18e06d18d3178b1229ef35cbc6
+Author: Jesse Barnes <jbarnes@hobbes.virtuousgeek.org>
+Date:   Sun Feb 11 14:04:38 2007 -0800
+
+    Update OS X maintainer and list OS X/Darwin port as maintained (still need email and possible co-maintainer entries for OS X though).
+
+commit 95fc2f18c07ce12e3a86395a96f70ffee96f2a02
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 30 13:31:24 2007 -0800
+
+    Update video driver table
+    
+    - Add wsfb
+    - Remove vmware man page from listings for voodoo & wfb
+
+commit 8cade4ba11c7793101a28671c8263a93a1ec307e
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jan 30 13:25:44 2007 -0800
+
+    Add missing closing tags to clear docbook2txt errors
+
+commit 303789056e7ffa648c01c476f60a4add8b27cee7
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Tue Jan 23 02:36:20 2007 -0500
+
+    Bump to 1.4.
+
+commit 845cea72f6a16a922762c32e3699840446eeeeca
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Tue Jan 23 02:34:05 2007 -0500
+
+    Fix distcheck.
+
+commit c81c8da44ca0123dc6db7d5ce9efbfa60bfb9d30
+Author: Eric Anholt <eric@anholt.net>
+Date:   Tue Jan 9 11:30:35 2007 -0800
+
+    Remove render protocol doc now that it's been moved back to renderproto.
+
+commit b18066caf3c0bd70b21565ab748aee988f774cde
+Author: Eric Anholt <eric@anholt.net>
+Date:   Tue Jan 9 10:58:22 2007 -0800
+
+    More .gitignores for autoconf stuff.
+
+commit 181ab067fdb5b55834cb6a8f3587f80f243dc401
+Author: Eric Anholt <eric@anholt.net>
+Date:   Tue Jan 9 10:52:55 2007 -0800
+
+    Remove duplicated specs from proto modules.
+    
+    Updates that happened to these files (assuming the initial import was already
+    from modular) have been propagated back to the proper locations in the
+    protocol modules.
+
+commit ac409b9b393c739fc49e193c15412848124dec32
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 20:55:05 2006 -0500
+
+    Revisions: reordering of sections.
+
+commit 55bf6ec04b8ec89b1c015da2ab4bdaed21f97938
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 20:10:32 2006 -0500
+
+    Docbook conversion: X "Porting Layer" server spec.
+
+commit 9c33bb06a7a4d62e3cca77d3e54985b285a1cd83
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 20:07:32 2006 -0500
+
+    Move SGML documents into category subdirectories.
+
+commit dcee0015b6c60e2c9d521491907da61e4c525a05
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 19:29:53 2006 -0500
+
+    Add some semblance of subdirectories for categorizing SGML docs.
+
+commit 74087020664d01d3aa28871276dc277308b0d9d4
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 19:18:50 2006 -0500
+
+    Put Makefile.am SGML build rules into a separate include file.
+
+commit 5c1ffdb7047f3daa453695c7568fe96b1f3b4050
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 17:43:04 2006 -0500
+
+    Don't need directory cleaning stuff now that HTML target is fixed.
+
+commit d48586d03a30cf09d8ff7d055fbd3c3d69a91d6c
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Dec 22 16:22:35 2006 -0500
+
+    Change version in docbook DTD header - possible typo.
+
+commit 23aeba70a63a42709afcd0ec3881d56150d1a3a8
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Dec 14 13:34:10 2006 -0800
+
+    Typo fixes in XFixes protocol spec
+
+commit 85494798ed73eaabf8e9c030199a9deb33d21380
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Dec 14 13:32:20 2006 -0800
+
+    Update XFixes protocol spec to match XFixes 4.0
+    
+    Add ExpandRegion, HideCursor & ShowCursor requests
+    Correct description of version numbering to match XFixes conventions
+
+commit 6910ace0a11f8596a67d2317e42da9bf3e0d4a48
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Dec 4 19:01:10 2006 -0500
+
+    Document that xkbdata is now deprecated.
+
+commit 8e604c3f7e991df4f99815e69cbb9b81a09c0d81
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Dec 3 11:16:26 2006 -0500
+
+    Spell check
+
+commit fb7d3dab570fee0d28afdfbfc7e49ce67cd63428
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Dec 3 11:10:37 2006 -0500
+
+    Rearrange configuration section. X -configure is the preferred method now.
+
+commit c1e6cecb9a3830bf5f3deee56d3b20a4af334d1f
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 22:01:30 2006 -0500
+
+    Update driver list
+
+commit d18bdc85a4da799b49f4a7896e030257ad9e89d8
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 21:41:48 2006 -0500
+
+    Comment out "Other extensions" section, which we don't need this time
+
+commit 480134a5cbc65aee820f9f499f2b72d2e3c6c739
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 21:22:02 2006 -0500
+
+    Format new additions so that we don't need titles for each bulletpoint
+
+commit c48136dd02607847e268921013f52de868e9d1d5
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 21:12:26 2006 -0500
+
+    Missing close bracket. Yay structured text.
+
+commit 1547c2ea9a0c9ac8182c787e7c903996c213a354
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 21:11:37 2006 -0500
+
+    * Modular isn't new any more
+    * Remove stuff about new platform support expected soon
+    * Remove the loader things. That change happened in 7.1 so we don't have
+      to belabor it now
+    * Put EXA information in the section about the various extensions
+    * Add information about system-wide DRM in the DRI section
+    * Remove old new features of Xv
+    * The keyboard -> kbd transition happened last release. Don't document it
+      now
+    * Formatting galore
+
+commit 3e00f62bc6961931e1138066f7a2a8fc2327d88c
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 20:46:50 2006 -0500
+
+    Reorder platform-specific fixes because I'm biased
+
+commit 7fcd6428d4ba6091f6ace340d48d902c0c73294b
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 20:46:00 2006 -0500
+
+    No extension protocol updates of note (just bugfixes) this release
+
+commit 75e15b618274396d712aa9c08c69d1b105c85192
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 20:22:34 2006 -0500
+
+    * Modular isn't new any more. Don't pretend that it is.
+    * Formatting fixes for the new features
+
+commit 6005194bc52ebd02af7df489e3b4884562375631
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Thu Nov 30 20:16:19 2006 -0500
+
+    * Document autoconfig improvements
+    * Document removal of LBX
+    * Document removal of CID font support and deprecation of mkcmf
+    * Massive amount of formatting cleanups
+
+commit 7fa58bbddb17224dbbda8354c929eb0cc14f64c7
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Nov 19 19:50:56 2006 -0500
+
+    Remove old big new features and add XACE info
+
+commit c0e11a6d03b9ce2950caaa1d322e804fad0ce568
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Nov 13 00:08:56 2006 -0500
+
+    Actually install the docs that we build
+    (cherry picked from commit e3b8dbd8ff459883a5f0500bbc1361e1f4e8ff74)
+
+commit f0985f447bfbb1582896a5b4c82519fc9b581aaa
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Nov 12 23:48:02 2006 -0500
+
+    Build html docs as one big doc rather than several with bizarre names
+    (cherry picked from commit a178dddc5114c1ad8fff7eb00f04ea062927b1ec)
+
+commit 1c263d078433f94135cb096e992fb15bb43c5964
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Nov 8 19:05:51 2006 +0200
+
+    bump to 1.3
+
+commit 4bdf33417bf381e7f06abd5d15051fd4d0d4005e
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Nov 5 13:26:11 2006 -0500
+
+    Format RELNOTES harder.
+
+commit 55e41efa4846b7cbe6698466bf8592b203ea8a3c
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Nov 3 13:20:48 2006 -0500
+
+    Add XACE documentation.
+
+commit d5bdb7df83b9763f7e4dd7f891ace7629c66ed31
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Nov 3 13:20:26 2006 -0500
+
+    Wildcard SGML files instead of having a hardcoded list.
+
+commit 32c2096e5ea92c440b7bc3fffe1f5925167b1d44
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Fri Nov 3 12:34:46 2006 -0500
+
+    Introduce separate configure switches for each output format.
+
+commit 9a79090915b30bedac2ed31ab3567f849b6eabc4
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Oct 30 21:12:03 2006 -0500
+
+    Update fonts and dps after merge
+
+commit c32459ffdc34cb02e5dbf9187e5d838ee34dc6ef
+Merge: 34b795c f1c534b
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Oct 30 20:56:08 2006 -0500
+
+    Merge branch 'master' of git+ssh://gravity@git.freedesktop.org/git/xorg/doc/xorg-docs
+    
+    Conflicts:
+    
+    	sgml/dps.sgml
+    	sgml/fonts.sgml
+
+commit 34b795ce4b40d0c3a7283c5fcf54ac954ad590ff
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Oct 30 20:50:07 2006 -0500
+
+    Look for defs.ent in the standard location on the system. Currently, that assumes that defs.ent is in /usr/share/sgml, but I need to figure out how to make that configurable so that /usr/local/share/ will work also.
+
+commit 519da606a99e253e7e3742e343dea53dc594cefc
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Mon Oct 30 20:34:49 2006 -0500
+
+    Put html files in a directory named after the sgml filename
+
+commit f1c534b0cf1924efdd714ca228a06e7b27ae02be
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Oct 31 02:33:43 2006 +0100
+
+    Update DPS docs.
+
+commit fe4734f5886eb04960f9100096ea142455acb787
+Author: Juliusz Chroboczek <jch@pps.jussieu.fr>
+Date:   Tue Oct 31 02:26:45 2006 +0100
+
+    Minor tweaks to fonts documentation.
+
+commit f497eaba3dd8af7de43edf8b3f0866e2c4c317c7
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Oct 29 18:47:27 2006 -0500
+
+    * Modify the build system to build docbook instead of linuxdoc
+    * Remove outdated dps docs
+
+commit 7aa9940c2ba03b8d2f68430c8205c774aa53c3cf
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Sun Oct 29 17:51:03 2006 -0500
+
+    Convert sgml docs to docbook. In classic xorg style, it's late 90's technology,
+    coming to you today!
+
+commit 9340e597d8a2050dc9612c56a9e397a0a1b5e4e7
+Author: David Nusinow <dnusinow@debian.org>
+Date:   Tue Oct 17 17:28:35 2006 -0400
+
+    Add switch to disable building pdfs. Enabled by default.
+
+commit 53a87bc802b954d74deb4dc923711f88f29559c9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 11 13:15:15 2006 -0700
+
+    Add .gitignore
+
+commit 568ad6c48eea8e28eb5c9bbef90b676fa94ead01
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 11 13:13:16 2006 -0700
+
+    Typo fixes in Render protocol spec
+
+commit 4e3cf7ab9f05ec3e5d9fa32176ff5a84ed03f231
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 11 13:08:51 2006 -0700
+
+    Update date/version on Render protocol spec to match last update (0.10)
+
+commit fcb1831985960cf1778f4b0b23aa39eaedb1da50
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 6 18:10:46 2006 -0700
+
+    Add MAINTAINERS entry for XACE subsystem of X server, Eamon Walsh as maintainer
+
+commit 83510b7ac42fbe2dbad45cd5e014b046516260da
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon May 22 23:05:48 2006 +0000
+
+    Bump to 1.2
+
+commit ed321adecf440b78713c3385341750cae3c37f79
+Author: Kevin E Martin <kem@kem.org>
+Date:   Mon May 22 20:03:26 2006 +0000
+
+    More updates for 7.1 release.
+
+commit 4e74365bef92cc02b2fb46984ca97dd469e559f2
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon May 22 15:39:58 2006 +0000
+
+    7.1 updates.
+
+commit 66b56616efe520a197efd41cdef973cb907500c5
+Author: Deron Johnson <deron.johnson@sun.com>
+Date:   Sat May 13 23:28:03 2006 +0000
+
+    Update for Composite protocol version 0.3 (Composite Overlay Window).
+
+commit c9bd5c8326eb6cc9192969f7cf1fa907cb22da16
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Mon Apr 17 14:57:42 2006 +0000
+
+    Fix a couple of email addresses; nominate atimisc/via maintainers.
+
+commit 2f3b4c15765c57b263af45155ee5b667dbe05d3a
+Author: Aaron Plattner <aplattner@nvidia.com>
+Date:   Fri Apr 7 17:51:05 2006 +0000
+
+    Add my email address.
+
+commit 26d548d350cbd471ec30891628215943aa9b408f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Apr 7 00:37:18 2006 +0000
+
+    Start splitting out maintained apps. (Accepted the xdm hot potato, stuck
+        xkbcomp on Daniel as part of his XKB master plan, compiz on Dave R. -
+        left the rest assigned to Jim, though probably should be listed as
+        "Seeking maintainers".)
+
+commit fe0b23cf1db86fca2f68a3758964974a35717b88
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sat Apr 1 23:38:43 2006 +0000
+
+    Bump to 1.1 for some reason.
+
+commit 56779f633a467efecd113ecb5b5913807fd906d9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Mar 16 21:53:03 2006 +0000
+
+    Add lists.x.org & www.x.org maintainers
+
+commit cfa448f026c95b24ae7ab6c473b7ea5e0bfff1d9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Mar 15 21:10:16 2006 +0000
+
+    Add xf86-video-ast
+
+commit 09629c068e27ec483dd7839f8afc85898c226bdc
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Mar 12 16:34:06 2006 +0000
+
+    Claim Xi for myself and Mercury. Note that XKB and Xi in the srever are in
+        the middle of some serious work. Acknowledge Luc's pivotal role in X
+        development. Some minor space -> tab reindenting of my sections.
+
+commit 15106550608d42a473d62fcd332e0f4e8ef80e37
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon Feb 20 12:16:27 2006 +0000
+
+    - Signed myself up for maintainance of drivers and DDX components.
+
+commit 3dc04b3d95bc3b7c7b5523f4bc45a2e6f9c39443
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Sun Feb 19 22:10:04 2006 +0000
+
+    keithp is the maintainer for libX11. he volunteered at the devconf but I
+        didn't note that in the initial checkin
+
+commit 2a77d4ac877c9a4a4580a88b937f8e7b4e74827c
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Feb 17 15:12:55 2006 +0000
+
+    Include Input shapes, update to version 1.1
+
+commit fd80ab2b8c5b520fb088eda13a4367b72aed2915
+Author: Zack Rusin <zack@kde.org>
+Date:   Thu Feb 16 18:03:16 2006 +0000
+
+    adding protocol specs for composite, damage and fixes
+
+commit 0533aeb5312985faf526f23e7b0351f382e0b9ab
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Feb 12 09:20:50 2006 +0000
+
+    Add myself as maintainer for the OpenBSD port (although 7.0 doesn't support
+        OpenBSD, I'm actively working to get in supported in the next release)
+        and the wsfb driver.
+
+commit aea395850796cde05347248a53c81f32649affab
+Author: Alex Deucher <agd5f@yahoo.com>
+Date:   Sun Feb 12 04:25:35 2006 +0000
+
+    - Add my email address for savage
+    - take on smi, it's interesting hardware with open docs
+
+commit 095d37bd948f99dcdf231c68bd69338b38a9ea75
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Feb 12 03:30:44 2006 +0000
+
+    URL fixes
+
+commit 9539619f6fb08e0b451a10a8867daccf70acf108
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Feb 12 03:28:33 2006 +0000
+
+    More maintainers, more obsoletes
+
+commit 794f7e790735982fbb7caaa0eccbc6b51f3c6a46
+Author: Kean Johnson <kean@armory.com>
+Date:   Sun Feb 12 03:19:36 2006 +0000
+
+    Added myself as maintainer for SCO / UnixWare platforms
+
+commit f190f253fef7d45745962c561a0bcd5f02317a62
+Author: Zephaniah E. Hull <warp@aehallh.com>
+Date:   Sat Feb 11 10:51:22 2006 +0000
+
+    Took over xf86-input-evdev in MAINTAINERS.
+
+commit bbd3b3a615a35097bd1a081c9fd593987b2fd77e
+Author: philipl <philipl>
+Date:   Sat Feb 11 02:19:40 2006 +0000
+
+    Add MAINTAINER info for the vmware drivers.
+
+commit cbfc0ee201ccb2c0b799a0f95e87caae49b439b5
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Sat Feb 11 01:15:56 2006 +0000
+
+    some more Unmaintained -> Maintained
+
+commit aaa7535e38d79573eed9e0511a7ec93f1969c63f
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Sat Feb 11 01:14:45 2006 +0000
+
+    Unmaintained -> Maintained
+
+commit 60354eb27613b5a67f1291e1af87104f6e21c3b1
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Sat Feb 11 01:13:49 2006 +0000
+
+    claim some of the drivers - nsc, trident, glint
+
+commit 302aaf03c1217790faa1e6d12b180aa7e3bcd904
+Author: Luc Verhaegen <libv@skynet.be>
+Date:   Sat Feb 11 01:05:37 2006 +0000
+
+    Sucker up for tseng.
+
+commit 5b0a50487a63517015711931a8db53f9a4bb8497
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Feb 11 00:37:04 2006 +0000
+
+    Solaris port *is* maintained (and has a website on opensolaris.org too)
+
+commit f6829d2d0f1851c33ea06268d1842b6af711bd25
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Feb 11 00:17:42 2006 +0000
+
+    Double-paragraph snafu.
+
+commit fdc1c5dfec8ea62b152b215b35862ebd171ae931
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Feb 11 00:14:47 2006 +0000
+
+    Change list to xorg@l.fd.o, site to wiki.x.org.
+
+commit a60bee818be497ac3e048fd444631af63379703d
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Feb 11 00:12:15 2006 +0000
+
+    Claim xkbfile and xkbui; fix my email address.
+
+commit 40fb1cfae38c69c9911592088d84a843b387dfd3
+Author: Jesse Barnes <jbarnes@virtuousgeek.org>
+Date:   Fri Feb 10 22:23:23 2006 +0000
+
+    add MAINTAINERS file
+
+commit c1279d1a135a2416895e90dbcd078e1343a48e58
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Dec 21 05:19:26 2005 +0000
+
+    Updated contributors list and copyright holders.
+
+commit 8a617d8138228672f1c8ff438cf85ce72c747f0e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:53:00 2005 +0000
+
+    Additional RELNOTES updates.
+
+commit 8662dfa92b6f3290876c5306007caba4de101fbb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:55 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 0185328e6e7b8d50f1449df842fca372d4edc16c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 00:19:54 2005 +0000
+
+    Update RELNOTES.sgml for X11R6.9/X11R7.0 release (Daniel Stone, Kevin
+        Martin).
+
+commit b502009fe3f7cb128aa551bc3bcd41112e139a2b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 20 21:54:57 2005 +0000
+
+    Bump hardcoded version numbers.
+
+commit 03c2547a6eaddcde5602ec48dbfa9b24d3ea979c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 20 18:24:23 2005 +0000
+
+    Update hardcopy specs for 6.9/7.0 release.
+
+commit 3a09ba5e6cafc45c6453a1cdf9973a64cd1a78c5
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Dec 19 08:26:18 2005 +0000
+
+    Typo fixes, mailing list & url updates, and other changes to prepare for
+        X11R6.9 & 7.0 releases.
+
+commit 47e95124420d376047b8602a43be88b78b39865e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Mon Dec 19 06:10:28 2005 +0000
+
+    Update README and RELNOTES from monolith.
+
+commit e2d3e1fbe8aba9ce2be76bc8501545d0c37e4e85
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:13 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 09250e7742a9c0577402920cdbd1fb4de61ece5d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Dec 14 23:38:14 2005 +0000
+
+    Correct spelling of X.Org Foundation name. Updates for 7.0 release.
+
+commit 5cd9a5e3793496f9f81166634e5ff28c39ce543c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Dec 9 03:02:57 2005 +0000
+
+    Initial revision.
+
+commit 237a97f9b7fd888bc5e53523ad9fe0f83010b592
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:28 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit 6ee822b4c151b026d5d3825fe58f96d8fcd410e2
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Sep 2 23:06:40 2005 +0000
+
+    Replace X.Org Group with X.Org Foundation Update contact info for Sun, The
+        Open Group, and the X.Org Foundation.
+
+commit fb22d052c01d7469032497725f02cf2b2e800896
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Aug 25 02:43:49 2005 +0000
+
+    Bugzilla #1045: Fix the DDX documentation to describe what is the defacto
+        current policy on GC wrappers, which is more liberal than the previous
+        policy, and hopefully more clear as well.
+    Reviewed by: keithp
+
+commit bb8460bfc11687ba769d8d8aaac05b98a0f2343f
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 8 18:52:30 2005 +0000
+
+    Bug #4017 <https://bugs.freedesktop.org/show_bug.cgi?id=4017> Grammatical &
+        typo fixes (reported as Debian bugs #315555 & #321946, by Daniel Hulme
+        & Adrian von Bidder, reported upstream to X.org by David Mart?nez
+        Moreno, additional changes by myself.)
+
+commit a93e74f17f5267d996c04a50e154732d59942e03
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 8 18:07:36 2005 +0000
+
+    Bug #4018 <https://bugs.freedesktop.org/show_bug.cgi?id=4018> Patch #3300
+        <https://bugs.freedesktop.org/attachment.cgi?id=3300> Typo fix (Debian
+        bug #320545 - A Costa, David Mart?nez Moreno)
+
+commit 69836d72471d8fb4c753f772ba815df6dcc415b3
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jul 29 22:07:54 2005 +0000
+
+    Bugzilla #3916 (https://bugs.freedesktop.org/show_bug.cgi?id=3916) Fix
+        broken link to comp.fonts FAQ (reported by Siward de Groot)
+
+commit c9bbc1800cea86873a3f9e8fd6c563e54e196be7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 5 18:42:31 2005 +0000
+
+    Remove Speedo font module documentation.
+    Remove Speedo from list of font directories
+    Update default font path to remove Speedo, add TTF.
+
+commit e14ec0603f19c12c7fe05f1b7d2f67bfbceddad1
+Author: Lars Knoll <lars@trolltech.com>
+Date:   Fri Jul 1 10:04:01 2005 +0000
+
+    sync with current spec from the modular tree.
+
+commit 9e04ff9918d949018d989f05d8a5206cfc1bb6f9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 8 22:58:08 2005 +0000
+
+    Damn. Try 3 (went 0 for 3 on correct spelling of maintenance in previous
+        attempts).
+
+commit 5707221f3d80243c3a5e01f75c2c26c24fe6eec0
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 8 22:38:24 2005 +0000
+
+    Fix typo (it's -> its) in last commit noticed by Daniel Stone
+
+commit ed948bcd91a7eb418b885c3ddb9513c87da1b198
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 8 22:19:32 2005 +0000
+
+    programs/Xserver/hw/xfree86/doc/README.dps
+    programs/Xserver/hw/xfree86/doc/RELNOTES
+    programs/Xserver/hw/xfree86/doc/sgml/RELNOTES.sgml
+    https://bugs.freedesktop.org/show_bug.cgi?id=3080 Patch #2636:
+        https://bugs.freedesktop.org/attachment.cgi?id=2636 Clearly document
+        impending demise of DPS.
+
+commit aa8a36ec2c2393308db49824a7a20a8db888820b
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Feb 6 16:38:40 2005 +0000
+
+    Doc updates for OpenBSD, reflecting X11R6.8.2.
+
+commit c7b803278c3c0ac1ac1751e4e1ac98a77a1e540e
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Wed Dec 8 13:42:01 2004 +0000
+
+    Bugzilla #1980 (https://bugs.freedesktop.org/show_bug.cgi?id=1980) Handle
+        XERRORDB only on WIN32 platform
+
+commit 1a015fcb005bc904e4840d7b9b3729e648607c2c
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Sat Dec 4 17:20:24 2004 +0000
+
+    Bugzilla #1980, https://bugs.freedesktop.org/show_bug.cgi?id=1980 Document
+        XERRORDB in X.man
+
+commit 875ba3e53ca6f11f9cc8de4c2a32213824a77bd9
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Fri Nov 26 09:00:08 2004 +0000
+
+    xc/doc/man/general/Imakefile
+    xc/doc/man/general/Xprint.html
+    xc/doc/man/general/Xprint.man
+    xc/doc/man/general/Xprint.sgml
+    xc/programs/Xserver/Xprint/Imakefile
+    xc/programs/Xserver/Xprint/Xprint.html
+    xc/programs/Xserver/Xprint/Xprint.man
+    //freedesktop.org/bugzilla/show_bug.cgi?id=811): Fixing "make install.man"
+        build bustage caused by previous checkin via moving the Xprint(7)
+        manual page it's correct location (=xc/doc/man/general/).
+
+commit 2f971dc44aa789a87d7f9fa256b3da1bb6eff578
+Author: Jim Gettys <jg@freedesktop.org>
+Date:   Wed Oct 27 20:42:11 2004 +0000
+
+    put the updated postscript in place.
+
+commit 84c5bca89066a89688c72c1f4396c85f8aa4f83b
+Author: Jim Gettys <jg@freedesktop.org>
+Date:   Wed Oct 27 20:37:04 2004 +0000
+
+    Document the Timer routines in the ddx interface, which are used by various
+        facilities, and have not been documented before.
+    Lots more work is needed to flesh out new facilities; this document hasn't
+        been touched in 10 years!!!
+
+commit f54753619b1781da2954c2e972372bce3840c115
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Fri Oct 8 02:39:39 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=1557 - Update
+        DocBook SGML+XML manual pages and docmentation and the in-tree copies
+        of the generated files (*.man, *.html) to get them properly working
+        with newer versions of the tools within the Xorg tree.
+
+commit a240049e57cf752fb3854e98a4af2de9d3b6d50b
+Author: Markus Kuhn <Markus.Kuhn@cl.cam.ac.uk>
+Date:   Sat Sep 25 16:37:21 2004 +0000
+
+    Revision of KEYSYM encoding to include Unicode KEYSYMs and Unicode mapping
+        of Legacy KEYSYMs
+
+commit f795d52f1be0b0fffc53f1f4b3b881f0a6f086cc
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Sep 18 15:04:29 2004 +0000
+
+    define dependencies for libXevie for *BSD systems.
+    fix spelling of my first name and remove duplicate.
+    build fix.
+
+commit 5dfffb32c1ea5a5df33938f6d9a396919c61b942
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Sep 8 01:54:29 2004 +0000
+
+    Fix dates for release.
+
+commit f02447159d5b422f2a925a672149f81b0e54eab6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Sep 4 00:22:32 2004 +0000
+
+    Update docs for Mac OS changes (Torrey T. Lyons).
+
+commit 15530878e2d52c027658e7d432406c0b2056a708
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Sep 3 23:26:19 2004 +0000
+
+    Updated release notes for bug #999.
+    Update Radeon man page to note that RenderAccel is now enabled by default
+        on certain chips.
+
+commit b0425304786b33196047e3e07da2a4932b366a9e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Sep 3 22:00:10 2004 +0000
+
+    Second round of documentation updates.
+
+commit f60c834b84e4a7c6b047bdf7e47dc3661bf20cd9
+Author: Keith Packard <keithp@keithp.com>
+Date:   Fri Sep 3 18:48:11 2004 +0000
+
+    Mostly fix version numbers and use symbolic release date.
+    Fix lots of version numbers. Change description of Composite extension a
+        bit. Add reference to Xaw8 as the version of Xaw which includes
+        XawPrintShell. Document Render additions to xclock. Document to XPrint
+        additions to xedit. Note disappearance of X-TrueType.
+    Add 'R' before &relvers;
+    Add reldate entity
+    Add 'R' before &relvers;
+    Fix version numbers. Note disapparance of X-TrueType
+
+commit 9507b7a223bf5ada5c92f280080df5a90d304c62
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Sep 3 16:18:22 2004 +0000
+
+    First set of documentation updates.
+    Include more correct fix for rootless interaction with damage (Bug #1168,
+        Keith Packard).
+
+commit 719ac6c84480381069b74220fc93500e1ed2c453
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Aug 30 21:01:21 2004 +0000
+
+    Update release notes
+
+commit 777ab97690f9145c95bfb433f51fd43493d59d4a
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Aug 27 19:27:12 2004 +0000
+
+    Added support for LynxOS 4.0 (Thomas Mueller).
+    Fix arm netwinder build (Donnie Berkholz).
+
+commit 78ba26404aa3320ac632c5ba6af7ee4225585288
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Aug 20 01:55:35 2004 +0000
+
+    Documentation only update:
+    Update documentation of authentication methods to cover the
+        ServerInterpreted access type added in X11R6.7 and the authentication
+        types available via its framework.
+
+commit 29173edcbc53a616b97a48ad104e30da30d31140
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Aug 19 16:28:42 2004 +0000
+
+    Fix the build on Solaris/sparc to use Xorg server instead of the deprecated
+        Xsun (Bug #1134, Alan Coopersmith).
+
+commit 4bf2b7f0742c1c874e697b96a9b0fee95a169cf3
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Wed Aug 11 17:51:24 2004 +0000
+
+    Updating FAQ
+
+commit de9676e191f5a31ea0920a194ec16966add70f55
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 17 01:13:31 2004 +0000
+
+    Fix typo in debug message in MakeAllCLTSServerListeners
+    Add $(GETPEER_DEFINES) to DEPEND_DEFINES for makedepend
+    Add "localuser" and "localgroup" access types to server-interpreted
+        authentication scheme.
+
+commit b67211135e61c1458a730fa66b56519cca6a702a
+Author: Thomas Winischhofer <thomas@winischhofer.net>
+Date:   Fri Jun 18 21:54:46 2004 +0000
+
+    Add my license (Could someone please "update the formatted docs"?)
+
+commit b3037a48b217914a1058ebb3d91571a7881a1eb6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Jun 13 04:50:21 2004 +0000
+
+    Manual page X(7) does not reference Xprt(1x), xplsprinters(1x), etc.
+    xc/config/cf/Imake.rules Correct comment to match rule name for
+        InstallDriverSDKObjectModule
+    xc/programs/Xserver/hw/xfree86/os-support/sunos/sun_kbd.c Log results of
+        ioctls to probe keyboard type & layout
+
+commit c188d608b9bb94133b4349e8d548e666eb84153a
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Wed May 26 02:58:41 2004 +0000
+
+    No bugid - Update FAQ for new bugzilla URLs and rebuild the HTML and
+        plaintext versions.
+
+commit 250f6d2ae21283f98a052d0a86fb4b10c0beb0ae
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:23:59 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 625cc4967802a36e9b0e7306928d293f12747fc4
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file Xprint_FAQ.html was initially added on branch XPRINT.
+
+commit 0ef59b27dfbbb6b39fd07fda6fa236be46fa7fad
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file Xprint_FAQ.txt was initially added on branch XPRINT.
+
+commit 1807071f968038bdf5b5f2ca4c47d9e1de68e2ae
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file docbook.css was initially added on branch XPRINT.
+
+commit 4338d020661bcf0ec46de4545ca84005040a7227
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file dtprint_fspec.PS.gz was initially added on branch XPRINT.
+
+commit 7c250a3dbf32171f0a170d25de277976d5bae235
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file Xprint_FAQ.xml was initially added on branch XPRINT.
+
+commit abceb5dc00aa43caaa88976700a3e0648ff94922
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Apr 13 03:16:30 2004 +0000
+
+    file Xprint_old_FAQ.txt was initially added on branch XPRINT.
+
+commit 5f1b72f41d60e401f045ad10528870c216f82a4a
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:33:16 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit b2f42889efb22ef39da5ab5b3ca5445ddc30978a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Mar 13 18:48:39 2004 +0000
+
+    file hostname.txt was initially added on branch IPv6-REVIEW.
+
+commit 40ab103f4e707c9b1936036f3076d7d5d0c8bd52
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Mar 13 18:48:39 2004 +0000
+
+    file README was initially added on branch IPv6-REVIEW.
+
+commit 72f58d0d330c06cb2bb8e1378a8590a6d8a5e8b9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Mar 13 18:48:39 2004 +0000
+
+    file IPv6.txt was initially added on branch IPv6-REVIEW.
+
+commit 933a6f1a89881bd37661e0b8b557fe5bb6be2672
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 0b6671edbecd1ef7de3d559c6efab4cca2320c22
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Mar 2 18:18:05 2004 +0000
+
+    file XOrgFoundation.man was initially added on branch XORG-CURRENT.
+
+commit 8d85cb567decc9911011de45f768f76959f752dd
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:46 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit c78de49b5ee6ba5f8a92c712fdc0f0668c015667
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 103d012ca409bc25af7f7c35f93f2aabbe5e89cb
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Mon Feb 23 20:35:02 2004 +0000
+
+    Import most of XFree86 4.4RC3. This import excludes files which have the
+        new license. If we want to, later we can import 4.4RC3 again and pick
+        up the files that have the new license, but for now the vendor branch
+        is "pure."
+
+commit 9073878116f165101309611a8161e39505e6d091
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:08:27 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 8b38d3043a35e843df9b3aa6790e7103d3301b33
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Dec 19 20:55:05 2003 +0000
+
+    XFree86 4.3.99.902 (RC 2)
+
+commit 0323a41d2c512c64fd0150096349ca9e9c9b5609
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:03:15 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit b1ee756a2b3769dedbcc7abbb94f560195bca4c7
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:33 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit b050d760f72956e04705abb6bbe69fb5e7a6a8c3
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:26:58 2003 +0000
+
+    Initial revision
+
+commit 83652d15f9f1692730e5d9457ddf4086dc70704f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:55 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 67f7a131c3e3616149d4775546dba04857607f96
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:55 2003 +0000
+
+    Initial revision
+
+commit 3e77e75b5a28b1b5a258396f4f15a61c9f3dc87c
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:49 2003 +0000
+
+    R6.6 is the Xorg base-line

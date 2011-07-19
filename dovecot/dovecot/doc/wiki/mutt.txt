@@ -1,0 +1,104 @@
+Contents
+
+
+ 1. Using mutt with IMAP
+
+     1. configuration
+
+     2. problems
+
+         1. Move read messages to mbox
+
+         2. New mail in a folder just left
+
+         3. Authentication realm
+
+ 2. References
+
+Using mutt with IMAP
+====================
+
+configuration
+-------------
+
+First, mutt needs to be told to use IMAP. To achieve this, edit '~/.muttrc' (or
+a file it 'source's) to contain:
+
+---%<-------------------------------------------------------------------------
+set spoolfile=imap://user@hostname/INBOX
+set folder=imap://user@hostname/
+---%<-------------------------------------------------------------------------
+
+problems
+--------
+
+Move read messages to mbox
+--------------------------
+
+If mutt asks 'Move read messages to /home/$user/mbox? ([no]/yes):'
+
+Your alternatives (to set in '~/.muttrc') are (pick one and ignore the others):
+
+ 1. don't ask about moving messages, just do it:
+
+    ---%<---------------------------------------------------------------------
+    set move=yes
+    ---%<---------------------------------------------------------------------
+
+ 2. don't ask about moving messages and _don't_ do it:
+
+    ---%<---------------------------------------------------------------------
+    set move=no
+    ---%<---------------------------------------------------------------------
+
+ 3. ask about moving message, default answer 'yes':
+
+    ---%<---------------------------------------------------------------------
+    set move=ask-yes
+    ---%<---------------------------------------------------------------------
+
+ 4. ask about moving message, default answer 'no':
+
+    ---%<---------------------------------------------------------------------
+    set move=ask-no
+    ---%<---------------------------------------------------------------------
+
+New mail in a folder just left
+------------------------------
+
+There is a bug with dovecot in <=0.99. It can sometimes make mutt think there
+is new email in a mailbox you just
+'left'...http://www.dovecot.org/list/dovecot/2004-February/002950.html
+
+Authentication realm
+--------------------
+
+If you are using IMAP with SASL and get error messages like 'Invalid realm' in
+your dovecot log files, try putting this in your '.muttrc' or '/etc/Muttrc]':
+
+---%<-------------------------------------------------------------------------
+set imap_authenticators="plain"
+---%<-------------------------------------------------------------------------
+
+It might be easier however to just put the following in your 'dovecot.conf':
+
+For Dovecot 1.0:
+  ---%<-----------------------------------------------------------------------
+  auth default {
+    mechanisms = plain
+  }
+  ---%<-----------------------------------------------------------------------
+
+For Dovecot 0.99:
+  ---%<-----------------------------------------------------------------------
+  auth_mechanisms = plain
+  ---%<-----------------------------------------------------------------------
+
+References
+==========
+
+ * Official mutt homepage [http://www.mutt.org/]
+ * mutt with IMAP documentation [http://mutt.sourceforge.net/imap/]
+ * http://jamespo.org.uk/blog/archives/000271.html
+
+(This file was created from the wiki on 2011-05-11 04:42)

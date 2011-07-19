@@ -1,7 +1,7 @@
 # testing mixinof
-package require XOTcl
+package require XOTcl 1
 namespace import -force xotcl::*
-package require xotcl::test
+package require xotcl::test 1
 
 proc ? {cmd expected} {
   set t [Test new -cmd $cmd]

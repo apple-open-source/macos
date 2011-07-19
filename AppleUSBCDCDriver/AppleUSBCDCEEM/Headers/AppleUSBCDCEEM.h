@@ -38,16 +38,16 @@
 
 #define Log IOLog
 #if USE_ELG
-	#undef Log
-	#define Log	kprintf
+    #undef Log
+    #define Log	kprintf
 #endif
 
 #if LDEBUG
     #if USE_ELG
-		#define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x " DEBUG_NAME ": " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf());}
+		#define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x " DEBUG_NAME ": " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B));}
     #else /* not USE_ELG */
         #if USE_IOL
-            #define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x " DEBUG_NAME ": " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
+            #define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x " DEBUG_NAME ": " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B)); IOSleep(Sleep_Time);}
         #else
             #define XTRACE(id, x, y, msg)
         #endif /* USE_IOL */
@@ -84,7 +84,7 @@ enum
     kDataNone
 };
 
-#define TRANSMIT_QUEUE_SIZE     256				// How does this relate to MAX_BLOCK_SIZE?
+#define TRANSMIT_QUEUE_SIZE     4096
 #define WATCHDOG_TIMER_MS       1000
 
 #define MAX_BLOCK_SIZE		PAGE_SIZE
@@ -213,6 +213,7 @@ public:
     
     UInt16			fInBufPool;
     UInt16			fOutBufPool;
+    bool			fTxStalled;
 	
 	UInt16			fMax_Block_Size;
     

@@ -147,6 +147,12 @@ static int sort_subcomp(int a_key, const libtop_psamp_t *a_a,
 
     case STATISTIC_PPID: return COMP(a_a->ppid, a_b->ppid);
 
+    case STATISTIC_KPRVT: return COMP(a_a->palloc - a_a->pfree,
+				     a_b->palloc + a_b->pfree);
+
+    case STATISTIC_KSHRD: return COMP(a_a->salloc - a_a->sfree,
+				     a_b->salloc + a_b->sfree);
+
     case STATISTIC_PSTATE: {
 	const char *a = libtop_state_str(a_a->state);
 	const char *b = libtop_state_str(a_b->state);

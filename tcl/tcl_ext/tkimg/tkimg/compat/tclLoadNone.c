@@ -516,33 +516,33 @@ static struct {
  *
  *----------------------------------------------------------------------
  */
-VOID *dlopen(path, mode)
+void *dlopen(path, mode)
     const char *path;
     int mode;
 {
-    return (VOID *) (dictionary[0].value != NULL);
+    return (void *) (dictionary[0].value != NULL);
 }
 
-VOID *dlsym(handle, symbol)
-    VOID *handle;
+void *dlsym(handle, symbol)
+    void *handle;
     const char *symbol;
 {
     int i;
     for (i = 0; dictionary[i].name != 0; ++i) {
       if (!strcmp(symbol, dictionary[i].name)) {
-	return (VOID *) dictionary [i].value;
+	return (void *) dictionary [i].value;
       }
     }
-    return (VOID *) NULL;
+    return (void *) NULL;
 }
 
 char *dlerror()
 {
-    return "dynamic loading is not currently available on this system";
+    return (char *) "dynamic loading is not currently available on this system";
 }
 
 int dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
     return 0;
 }

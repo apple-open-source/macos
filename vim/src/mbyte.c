@@ -26,7 +26,7 @@
  *		    Recognizing bytes is easy: 0xxx.xxxx is a single-byte
  *		    char, 10xx.xxxx is a trailing byte, 11xx.xxxx is a leading
  *		    byte of a multi-byte character.
- *		    To make things complicated, up to two composing characters
+ *		    To make things complicated, up to six composing characters
  *		    are allowed.  These are drawn on top of the first char.
  *		    For most editing the sequence of bytes with composing
  *		    characters included is considered to be one character.
@@ -100,7 +100,7 @@
 #include <X11/Xlocale.h>
 #endif
 
-#if defined(FEAT_GUI_GTK) && defined(FEAT_XIM) && defined(HAVE_GTK2)
+#if defined(FEAT_GUI_GTK) && defined(FEAT_XIM)
 # include <gdk/gdkkeysyms.h>
 # ifdef WIN3264
 #  include <gdk/gdkwin32.h>
@@ -127,22 +127,43 @@ static int enc_canon_search __ARGS((char_u *name));
 static int dbcs_char2len __ARGS((int c));
 static int dbcs_char2bytes __ARGS((int c, char_u *buf));
 static int dbcs_ptr2len __ARGS((char_u *p));
+static int dbcs_ptr2len_len __ARGS((char_u *p, int size));
+static int utf_ptr2cells_len __ARGS((char_u *p, int size));
 static int dbcs_char2cells __ARGS((int c));
+static int dbcs_ptr2cells_len __ARGS((char_u *p, int size));
 static int dbcs_ptr2char __ARGS((char_u *p));
 
-/* Lookup table to quickly get the length in bytes of a UTF-8 character from
- * the first byte of a UTF-8 string.  Bytes which are illegal when used as the
- * first byte have a one, because these will be used separately. */
+/*
+ * Lookup table to quickly get the length in bytes of a UTF-8 character from
+ * the first byte of a UTF-8 string.
+ * Bytes which are illegal when used as the first byte have a 1.
+ * The NUL byte has length 1.
+ */
 static char utf8len_tab[256] =
 {
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /*bogus*/
-    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1, /*bogus*/
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
     2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
     3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,6,6,1,1,
+};
+
+/*
+ * Like utf8len_tab above, but using a zero for illegal lead bytes.
+ */
+static char utf8len_tab_zero[256] =
+{
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,
+    2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,2,
+    3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,5,5,5,5,6,6,0,0,
 };
 
 /*
@@ -606,9 +627,11 @@ codepage_invalid:
     if (enc_utf8)
     {
 	mb_ptr2len = utfc_ptr2len;
+	mb_ptr2len_len = utfc_ptr2len_len;
 	mb_char2len = utf_char2len;
 	mb_char2bytes = utf_char2bytes;
 	mb_ptr2cells = utf_ptr2cells;
+	mb_ptr2cells_len = utf_ptr2cells_len;
 	mb_char2cells = utf_char2cells;
 	mb_off2cells = utf_off2cells;
 	mb_ptr2char = utf_ptr2char;
@@ -617,9 +640,11 @@ codepage_invalid:
     else if (enc_dbcs != 0)
     {
 	mb_ptr2len = dbcs_ptr2len;
+	mb_ptr2len_len = dbcs_ptr2len_len;
 	mb_char2len = dbcs_char2len;
 	mb_char2bytes = dbcs_char2bytes;
 	mb_ptr2cells = dbcs_ptr2cells;
+	mb_ptr2cells_len = dbcs_ptr2cells_len;
 	mb_char2cells = dbcs_char2cells;
 	mb_off2cells = dbcs_off2cells;
 	mb_ptr2char = dbcs_ptr2char;
@@ -628,9 +653,11 @@ codepage_invalid:
     else
     {
 	mb_ptr2len = latin_ptr2len;
+	mb_ptr2len_len = latin_ptr2len_len;
 	mb_char2len = latin_char2len;
 	mb_char2bytes = latin_char2bytes;
 	mb_ptr2cells = latin_ptr2cells;
+	mb_ptr2cells_len = latin_ptr2cells_len;
 	mb_char2cells = latin_char2cells;
 	mb_off2cells = latin_off2cells;
 	mb_ptr2char = latin_ptr2char;
@@ -1015,10 +1042,9 @@ dbcs_class(lead, trail)
  * Return length in bytes of character "c".
  * Returns 1 for a single-byte character.
  */
-/* ARGSUSED */
     int
 latin_char2len(c)
-    int		c;
+    int		c UNUSED;
 {
     return 1;
 }
@@ -1070,7 +1096,6 @@ dbcs_char2bytes(c, buf)
  * Get byte length of character at "*p" but stop at a NUL.
  * For UTF-8 this includes following composing characters.
  * Returns 0 when *p is NUL.
- *
  */
     int
 latin_ptr2len(p)
@@ -1092,10 +1117,44 @@ dbcs_ptr2len(p)
     return len;
 }
 
+/*
+ * mb_ptr2len_len() function pointer.
+ * Like mb_ptr2len(), but limit to read "size" bytes.
+ * Returns 0 for an empty string.
+ * Returns 1 for an illegal char or an incomplete byte sequence.
+ */
+    int
+latin_ptr2len_len(p, size)
+    char_u	*p;
+    int		size;
+{
+    if (size < 1 || *p == NUL)
+	return 0;
+    return 1;
+}
+
+    static int
+dbcs_ptr2len_len(p, size)
+    char_u	*p;
+    int		size;
+{
+    int		len;
+
+    if (size < 1 || *p == NUL)
+	return 0;
+    if (size == 1)
+	return 1;
+    /* Check that second byte is not missing. */
+    len = MB_BYTE2LEN(*p);
+    if (len == 2 && p[1] == NUL)
+	len = 1;
+    return len;
+}
+
 struct interval
 {
-    unsigned short first;
-    unsigned short last;
+    long first;
+    long last;
 };
 static int intable __ARGS((struct interval *table, size_t size, int c));
 
@@ -1141,62 +1200,234 @@ intable(table, size, c)
 utf_char2cells(c)
     int		c;
 {
-    /* sorted list of non-overlapping intervals of East Asian Ambiguous
-     * characters, generated with:
-     * "uniset +WIDTH-A -cat=Me -cat=Mn -cat=Cf c" */
-    static struct interval ambiguous[] = {
-	{0x00A1, 0x00A1}, {0x00A4, 0x00A4}, {0x00A7, 0x00A8},
-	{0x00AA, 0x00AA}, {0x00AE, 0x00AE}, {0x00B0, 0x00B4},
-	{0x00B6, 0x00BA}, {0x00BC, 0x00BF}, {0x00C6, 0x00C6},
-	{0x00D0, 0x00D0}, {0x00D7, 0x00D8}, {0x00DE, 0x00E1},
-	{0x00E6, 0x00E6}, {0x00E8, 0x00EA}, {0x00EC, 0x00ED},
-	{0x00F0, 0x00F0}, {0x00F2, 0x00F3}, {0x00F7, 0x00FA},
-	{0x00FC, 0x00FC}, {0x00FE, 0x00FE}, {0x0101, 0x0101},
-	{0x0111, 0x0111}, {0x0113, 0x0113}, {0x011B, 0x011B},
-	{0x0126, 0x0127}, {0x012B, 0x012B}, {0x0131, 0x0133},
-	{0x0138, 0x0138}, {0x013F, 0x0142}, {0x0144, 0x0144},
-	{0x0148, 0x014B}, {0x014D, 0x014D}, {0x0152, 0x0153},
-	{0x0166, 0x0167}, {0x016B, 0x016B}, {0x01CE, 0x01CE},
-	{0x01D0, 0x01D0}, {0x01D2, 0x01D2}, {0x01D4, 0x01D4},
-	{0x01D6, 0x01D6}, {0x01D8, 0x01D8}, {0x01DA, 0x01DA},
-	{0x01DC, 0x01DC}, {0x0251, 0x0251}, {0x0261, 0x0261},
-	{0x02C4, 0x02C4}, {0x02C7, 0x02C7}, {0x02C9, 0x02CB},
-	{0x02CD, 0x02CD}, {0x02D0, 0x02D0}, {0x02D8, 0x02DB},
-	{0x02DD, 0x02DD}, {0x02DF, 0x02DF}, {0x0391, 0x03A1},
-	{0x03A3, 0x03A9}, {0x03B1, 0x03C1}, {0x03C3, 0x03C9},
-	{0x0401, 0x0401}, {0x0410, 0x044F}, {0x0451, 0x0451},
-	{0x2010, 0x2010}, {0x2013, 0x2016}, {0x2018, 0x2019},
-	{0x201C, 0x201D}, {0x2020, 0x2022}, {0x2024, 0x2027},
-	{0x2030, 0x2030}, {0x2032, 0x2033}, {0x2035, 0x2035},
-	{0x203B, 0x203B}, {0x203E, 0x203E}, {0x2074, 0x2074},
-	{0x207F, 0x207F}, {0x2081, 0x2084}, {0x20AC, 0x20AC},
-	{0x2103, 0x2103}, {0x2105, 0x2105}, {0x2109, 0x2109},
-	{0x2113, 0x2113}, {0x2116, 0x2116}, {0x2121, 0x2122},
-	{0x2126, 0x2126}, {0x212B, 0x212B}, {0x2153, 0x2154},
-	{0x215B, 0x215E}, {0x2160, 0x216B}, {0x2170, 0x2179},
-	{0x2190, 0x2199}, {0x21B8, 0x21B9}, {0x21D2, 0x21D2},
-	{0x21D4, 0x21D4}, {0x21E7, 0x21E7}, {0x2200, 0x2200},
-	{0x2202, 0x2203}, {0x2207, 0x2208}, {0x220B, 0x220B},
-	{0x220F, 0x220F}, {0x2211, 0x2211}, {0x2215, 0x2215},
-	{0x221A, 0x221A}, {0x221D, 0x2220}, {0x2223, 0x2223},
-	{0x2225, 0x2225}, {0x2227, 0x222C}, {0x222E, 0x222E},
-	{0x2234, 0x2237}, {0x223C, 0x223D}, {0x2248, 0x2248},
-	{0x224C, 0x224C}, {0x2252, 0x2252}, {0x2260, 0x2261},
-	{0x2264, 0x2267}, {0x226A, 0x226B}, {0x226E, 0x226F},
-	{0x2282, 0x2283}, {0x2286, 0x2287}, {0x2295, 0x2295},
-	{0x2299, 0x2299}, {0x22A5, 0x22A5}, {0x22BF, 0x22BF},
-	{0x2312, 0x2312}, {0x2460, 0x24E9}, {0x24EB, 0x254B},
-	{0x2550, 0x2573}, {0x2580, 0x258F}, {0x2592, 0x2595},
-	{0x25A0, 0x25A1}, {0x25A3, 0x25A9}, {0x25B2, 0x25B3},
-	{0x25B6, 0x25B7}, {0x25BC, 0x25BD}, {0x25C0, 0x25C1},
-	{0x25C6, 0x25C8}, {0x25CB, 0x25CB}, {0x25CE, 0x25D1},
-	{0x25E2, 0x25E5}, {0x25EF, 0x25EF}, {0x2605, 0x2606},
-	{0x2609, 0x2609}, {0x260E, 0x260F}, {0x2614, 0x2615},
-	{0x261C, 0x261C}, {0x261E, 0x261E}, {0x2640, 0x2640},
-	{0x2642, 0x2642}, {0x2660, 0x2661}, {0x2663, 0x2665},
-	{0x2667, 0x266A}, {0x266C, 0x266D}, {0x266F, 0x266F},
-	{0x273D, 0x273D}, {0x2776, 0x277F}, {0xE000, 0xF8FF},
-	{0xFFFD, 0xFFFD}, /* {0xF0000, 0xFFFFD}, {0x100000, 0x10FFFD} */
+    /* Sorted list of non-overlapping intervals of East Asian double width
+     * characters, generated with ../runtime/tools/unicode.vim. */
+    static struct interval doublewidth[] =
+    {
+	{0x1100, 0x115f},
+	{0x11a3, 0x11a7},
+	{0x11fa, 0x11ff},
+	{0x2329, 0x232a},
+	{0x2e80, 0x2e99},
+	{0x2e9b, 0x2ef3},
+	{0x2f00, 0x2fd5},
+	{0x2ff0, 0x2ffb},
+	{0x3000, 0x3029},
+	{0x3030, 0x303e},
+	{0x3041, 0x3096},
+	{0x309b, 0x30ff},
+	{0x3105, 0x312d},
+	{0x3131, 0x318e},
+	{0x3190, 0x31b7},
+	{0x31c0, 0x31e3},
+	{0x31f0, 0x321e},
+	{0x3220, 0x3247},
+	{0x3250, 0x32fe},
+	{0x3300, 0x4dbf},
+	{0x4e00, 0xa48c},
+	{0xa490, 0xa4c6},
+	{0xa960, 0xa97c},
+	{0xac00, 0xd7a3},
+	{0xd7b0, 0xd7c6},
+	{0xd7cb, 0xd7fb},
+	{0xf900, 0xfaff},
+	{0xfe10, 0xfe19},
+	{0xfe30, 0xfe52},
+	{0xfe54, 0xfe66},
+	{0xfe68, 0xfe6b},
+	{0xff01, 0xff60},
+	{0xffe0, 0xffe6},
+	{0x1f200, 0x1f200},
+	{0x1f210, 0x1f231},
+	{0x1f240, 0x1f248},
+	{0x20000, 0x2fffd},
+	{0x30000, 0x3fffd}
+    };
+    /* Sorted list of non-overlapping intervals of East Asian Ambiguous
+     * characters, generated with ../runtime/tools/unicode.vim. */
+    static struct interval ambiguous[] =
+    {
+	{0x00a1, 0x00a1},
+	{0x00a4, 0x00a4},
+	{0x00a7, 0x00a8},
+	{0x00aa, 0x00aa},
+	{0x00ad, 0x00ae},
+	{0x00b0, 0x00b4},
+	{0x00b6, 0x00ba},
+	{0x00bc, 0x00bf},
+	{0x00c6, 0x00c6},
+	{0x00d0, 0x00d0},
+	{0x00d7, 0x00d8},
+	{0x00de, 0x00e1},
+	{0x00e6, 0x00e6},
+	{0x00e8, 0x00ea},
+	{0x00ec, 0x00ed},
+	{0x00f0, 0x00f0},
+	{0x00f2, 0x00f3},
+	{0x00f7, 0x00fa},
+	{0x00fc, 0x00fc},
+	{0x00fe, 0x00fe},
+	{0x0101, 0x0101},
+	{0x0111, 0x0111},
+	{0x0113, 0x0113},
+	{0x011b, 0x011b},
+	{0x0126, 0x0127},
+	{0x012b, 0x012b},
+	{0x0131, 0x0133},
+	{0x0138, 0x0138},
+	{0x013f, 0x0142},
+	{0x0144, 0x0144},
+	{0x0148, 0x014b},
+	{0x014d, 0x014d},
+	{0x0152, 0x0153},
+	{0x0166, 0x0167},
+	{0x016b, 0x016b},
+	{0x01ce, 0x01ce},
+	{0x01d0, 0x01d0},
+	{0x01d2, 0x01d2},
+	{0x01d4, 0x01d4},
+	{0x01d6, 0x01d6},
+	{0x01d8, 0x01d8},
+	{0x01da, 0x01da},
+	{0x01dc, 0x01dc},
+	{0x0251, 0x0251},
+	{0x0261, 0x0261},
+	{0x02c4, 0x02c4},
+	{0x02c7, 0x02c7},
+	{0x02c9, 0x02cb},
+	{0x02cd, 0x02cd},
+	{0x02d0, 0x02d0},
+	{0x02d8, 0x02db},
+	{0x02dd, 0x02dd},
+	{0x02df, 0x02df},
+	{0x0391, 0x03a1},
+	{0x03a3, 0x03a9},
+	{0x03b1, 0x03c1},
+	{0x03c3, 0x03c9},
+	{0x0401, 0x0401},
+	{0x0410, 0x044f},
+	{0x0451, 0x0451},
+	{0x2010, 0x2010},
+	{0x2013, 0x2016},
+	{0x2018, 0x2019},
+	{0x201c, 0x201d},
+	{0x2020, 0x2022},
+	{0x2024, 0x2027},
+	{0x2030, 0x2030},
+	{0x2032, 0x2033},
+	{0x2035, 0x2035},
+	{0x203b, 0x203b},
+	{0x203e, 0x203e},
+	{0x2074, 0x2074},
+	{0x207f, 0x207f},
+	{0x2081, 0x2084},
+	{0x20ac, 0x20ac},
+	{0x2103, 0x2103},
+	{0x2105, 0x2105},
+	{0x2109, 0x2109},
+	{0x2113, 0x2113},
+	{0x2116, 0x2116},
+	{0x2121, 0x2122},
+	{0x2126, 0x2126},
+	{0x212b, 0x212b},
+	{0x2153, 0x2154},
+	{0x215b, 0x215e},
+	{0x2160, 0x216b},
+	{0x2170, 0x2179},
+	{0x2189, 0x2189},
+	{0x2190, 0x2199},
+	{0x21b8, 0x21b9},
+	{0x21d2, 0x21d2},
+	{0x21d4, 0x21d4},
+	{0x21e7, 0x21e7},
+	{0x2200, 0x2200},
+	{0x2202, 0x2203},
+	{0x2207, 0x2208},
+	{0x220b, 0x220b},
+	{0x220f, 0x220f},
+	{0x2211, 0x2211},
+	{0x2215, 0x2215},
+	{0x221a, 0x221a},
+	{0x221d, 0x2220},
+	{0x2223, 0x2223},
+	{0x2225, 0x2225},
+	{0x2227, 0x222c},
+	{0x222e, 0x222e},
+	{0x2234, 0x2237},
+	{0x223c, 0x223d},
+	{0x2248, 0x2248},
+	{0x224c, 0x224c},
+	{0x2252, 0x2252},
+	{0x2260, 0x2261},
+	{0x2264, 0x2267},
+	{0x226a, 0x226b},
+	{0x226e, 0x226f},
+	{0x2282, 0x2283},
+	{0x2286, 0x2287},
+	{0x2295, 0x2295},
+	{0x2299, 0x2299},
+	{0x22a5, 0x22a5},
+	{0x22bf, 0x22bf},
+	{0x2312, 0x2312},
+	{0x2460, 0x24e9},
+	{0x24eb, 0x254b},
+	{0x2550, 0x2573},
+	{0x2580, 0x258f},
+	{0x2592, 0x2595},
+	{0x25a0, 0x25a1},
+	{0x25a3, 0x25a9},
+	{0x25b2, 0x25b3},
+	{0x25b6, 0x25b7},
+	{0x25bc, 0x25bd},
+	{0x25c0, 0x25c1},
+	{0x25c6, 0x25c8},
+	{0x25cb, 0x25cb},
+	{0x25ce, 0x25d1},
+	{0x25e2, 0x25e5},
+	{0x25ef, 0x25ef},
+	{0x2605, 0x2606},
+	{0x2609, 0x2609},
+	{0x260e, 0x260f},
+	{0x2614, 0x2615},
+	{0x261c, 0x261c},
+	{0x261e, 0x261e},
+	{0x2640, 0x2640},
+	{0x2642, 0x2642},
+	{0x2660, 0x2661},
+	{0x2663, 0x2665},
+	{0x2667, 0x266a},
+	{0x266c, 0x266d},
+	{0x266f, 0x266f},
+	{0x269e, 0x269f},
+	{0x26be, 0x26bf},
+	{0x26c4, 0x26cd},
+	{0x26cf, 0x26e1},
+	{0x26e3, 0x26e3},
+	{0x26e8, 0x26ff},
+	{0x273d, 0x273d},
+	{0x2757, 0x2757},
+	{0x2776, 0x277f},
+	{0x2b55, 0x2b59},
+	{0x3248, 0x324f},
+	{0xe000, 0xf8ff},
+	{0xfffd, 0xfffd},
+	{0x1f100, 0x1f10a},
+	{0x1f110, 0x1f12d},
+	{0x1f131, 0x1f131},
+	{0x1f13d, 0x1f13d},
+	{0x1f13f, 0x1f13f},
+	{0x1f142, 0x1f142},
+	{0x1f146, 0x1f146},
+	{0x1f14a, 0x1f14e},
+	{0x1f157, 0x1f157},
+	{0x1f15f, 0x1f15f},
+	{0x1f179, 0x1f179},
+	{0x1f17b, 0x1f17c},
+	{0x1f17f, 0x1f17f},
+	{0x1f18a, 0x1f18d},
+	{0x1f190, 0x1f190},
+	{0xf0000, 0xffffd},
+	{0x100000, 0x10fffd}
     };
 
     if (c >= 0x100)
@@ -1215,20 +1446,7 @@ utf_char2cells(c)
 #else
 	if (!utf_printable(c))
 	    return 6;		/* unprintable, displays <xxxx> */
-	if (c >= 0x1100
-	    && (c <= 0x115f			/* Hangul Jamo */
-		|| c == 0x2329
-		|| c == 0x232a
-		|| (c >= 0x2e80 && c <= 0xa4cf
-		    && c != 0x303f)		/* CJK ... Yi */
-		|| (c >= 0xac00 && c <= 0xd7a3)	/* Hangul Syllables */
-		|| (c >= 0xf900 && c <= 0xfaff)	/* CJK Compatibility
-						   Ideographs */
-		|| (c >= 0xfe30 && c <= 0xfe6f)	/* CJK Compatibility Forms */
-		|| (c >= 0xff00 && c <= 0xff60)	/* Fullwidth Forms */
-		|| (c >= 0xffe0 && c <= 0xffe6)
-		|| (c >= 0x20000 && c <= 0x2fffd)
-		|| (c >= 0x30000 && c <= 0x3fffd)))
+	if (intable(doublewidth, sizeof(doublewidth), c))
 	    return 2;
 #endif
     }
@@ -1248,10 +1466,9 @@ utf_char2cells(c)
  * Return the number of display cells character at "*p" occupies.
  * This doesn't take care of unprintable characters, use ptr2cells() for that.
  */
-/*ARGSUSED*/
     int
 latin_ptr2cells(p)
-    char_u	*p;
+    char_u	*p UNUSED;
 {
     return 1;
 }
@@ -1289,14 +1506,62 @@ dbcs_ptr2cells(p)
 }
 
 /*
+ * mb_ptr2cells_len() function pointer.
+ * Like mb_ptr2cells(), but limit string length to "size".
+ * For an empty string or truncated character returns 1.
+ */
+    int
+latin_ptr2cells_len(p, size)
+    char_u	*p UNUSED;
+    int		size UNUSED;
+{
+    return 1;
+}
+
+    static int
+utf_ptr2cells_len(p, size)
+    char_u	*p;
+    int		size;
+{
+    int		c;
+
+    /* Need to convert to a wide character. */
+    if (size > 0 && *p >= 0x80)
+    {
+	if (utf_ptr2len_len(p, size) < utf8len_tab[*p])
+	    return 1;  /* truncated */
+	c = utf_ptr2char(p);
+	/* An illegal byte is displayed as <xx>. */
+	if (utf_ptr2len(p) == 1 || c == NUL)
+	    return 4;
+	/* If the char is ASCII it must be an overlong sequence. */
+	if (c < 0x80)
+	    return char2cells(c);
+	return utf_char2cells(c);
+    }
+    return 1;
+}
+
+    static int
+dbcs_ptr2cells_len(p, size)
+    char_u	*p;
+    int		size;
+{
+    /* Number of cells is equal to number of bytes, except for euc-jp when
+     * the first byte is 0x8e. */
+    if (size <= 1 || (enc_dbcs == DBCS_JPNU && *p == 0x8e))
+	return 1;
+    return MB_BYTE2LEN(*p);
+}
+
+/*
  * mb_char2cells() function pointer.
  * Return the number of display cells character "c" occupies.
  * Only takes care of multi-byte chars, not "^C" and such.
  */
-/*ARGSUSED*/
     int
 latin_char2cells(c)
-    int		c;
+    int		c UNUSED;
 {
     return 1;
 }
@@ -1314,15 +1579,31 @@ dbcs_char2cells(c)
 }
 
 /*
+ * Return the number of cells occupied by string "p".
+ * Stop at a NUL character.  When "len" >= 0 stop at character "p[len]".
+ */
+    int
+mb_string2cells(p, len)
+    char_u  *p;
+    int	    len;
+{
+    int i;
+    int clen = 0;
+
+    for (i = 0; (len < 0 || i < len) && p[i] != NUL; i += (*mb_ptr2len)(p + i))
+	clen += (*mb_ptr2cells)(p + i);
+    return clen;
+}
+
+/*
  * mb_off2cells() function pointer.
  * Return number of display cells for char at ScreenLines[off].
  * We make sure that the offset used is less than "max_off".
  */
-/*ARGSUSED*/
     int
 latin_off2cells(off, max_off)
-    unsigned	off;
-    unsigned	max_off;
+    unsigned	off UNUSED;
+    unsigned	max_off UNUSED;
 {
     return 1;
 }
@@ -1386,7 +1667,7 @@ utf_ptr2char(p)
     if (p[0] < 0x80)	/* be quick for ASCII */
 	return p[0];
 
-    len = utf8len_tab[p[0]];
+    len = utf8len_tab_zero[p[0]];
     if (len > 1 && (p[1] & 0xc0) == 0x80)
     {
 	if (len == 2)
@@ -1591,6 +1872,7 @@ utfc_ptr2char_len(p, pcc, maxlen)
  * Convert the character at screen position "off" to a sequence of bytes.
  * Includes the composing characters.
  * "buf" must at least have the length MB_MAXBYTES.
+ * Only to be used when ScreenLinesUC[off] != 0.
  * Returns the produced number of bytes.
  */
     int
@@ -1636,6 +1918,7 @@ utf_ptr2len(p)
 /*
  * Return length of UTF-8 character, obtained from the first byte.
  * "b" must be between 0 and 255!
+ * Returns 1 for an invalid first byte value.
  */
     int
 utf_byte2len(b)
@@ -1650,6 +1933,7 @@ utf_byte2len(b)
  * Returns 1 for "".
  * Returns 1 for an illegal byte sequence (also in incomplete byte seq.).
  * Returns number > "size" for an incomplete byte sequence.
+ * Never returns zero.
  */
     int
 utf_ptr2len_len(p, size)
@@ -1660,11 +1944,13 @@ utf_ptr2len_len(p, size)
     int		i;
     int		m;
 
-    if (*p == NUL)
-	return 1;
-    m = len = utf8len_tab[*p];
+    len = utf8len_tab[*p];
+    if (len == 1)
+	return 1;	/* NUL, ascii or illegal lead byte */
     if (len > size)
 	m = size;	/* incomplete byte sequence. */
+    else
+	m = len;
     for (i = 1; i < m; ++i)
 	if ((p[i] & 0xc0) != 0x80)
 	    return 1;
@@ -1698,7 +1984,7 @@ utfc_ptr2len(p)
 	return 1;
 
     /*
-     * Check for composing characters.  We can handle only the first two, but
+     * Check for composing characters.  We can handle only the first six, but
      * skip all of them (otherwise the cursor would get stuck).
      */
 #ifdef FEAT_ARABIC
@@ -1720,6 +2006,7 @@ utfc_ptr2len(p)
 /*
  * Return the number of bytes the UTF-8 encoding of the character at "p[size]"
  * takes.  This includes following composing characters.
+ * Returns 0 for an empty string.
  * Returns 1 for an illegal char or an incomplete byte sequence.
  */
     int
@@ -1732,7 +2019,7 @@ utfc_ptr2len_len(p, size)
     int		prevlen;
 #endif
 
-    if (*p == NUL)
+    if (size < 1 || *p == NUL)
 	return 0;
     if (p[0] < 0x80 && (size == 1 || p[1] < 0x80)) /* be quick for ASCII */
 	return 1;
@@ -1745,7 +2032,7 @@ utfc_ptr2len_len(p, size)
 	return 1;
 
     /*
-     * Check for composing characters.  We can handle only the first two, but
+     * Check for composing characters.  We can handle only the first six, but
      * skip all of them (otherwise the cursor would get stuck).
      */
 #ifdef FEAT_ARABIC
@@ -1863,38 +2150,198 @@ utf_char2bytes(c, buf)
 utf_iscomposing(c)
     int		c;
 {
-    /* sorted list of non-overlapping intervals */
+    /* Sorted list of non-overlapping intervals.
+     * Generated by ../runtime/tools/unicode.vim. */
     static struct interval combining[] =
     {
-	{0x0300, 0x034f}, {0x0360, 0x036f}, {0x0483, 0x0486}, {0x0488, 0x0489},
-	{0x0591, 0x05a1}, {0x05a3, 0x05b9}, {0x05bb, 0x05bd}, {0x05bf, 0x05bf},
-	{0x05c1, 0x05c2}, {0x05c4, 0x05c4}, {0x0610, 0x0615}, {0x064b, 0x0658},
-	{0x0670, 0x0670}, {0x06d6, 0x06dc}, {0x06de, 0x06e4}, {0x06e7, 0x06e8},
-	{0x06ea, 0x06ed}, {0x0711, 0x0711}, {0x0730, 0x074a}, {0x07a6, 0x07b0},
-	{0x0901, 0x0903}, {0x093c, 0x093c}, {0x093e, 0x094d}, {0x0951, 0x0954},
-	{0x0962, 0x0963}, {0x0981, 0x0983}, {0x09bc, 0x09bc}, {0x09be, 0x09c4},
-	{0x09c7, 0x09c8}, {0x09cb, 0x09cd}, {0x09d7, 0x09d7}, {0x09e2, 0x09e3},
-	{0x0a01, 0x0a03}, {0x0a3c, 0x0a3c}, {0x0a3e, 0x0a42}, {0x0a47, 0x0a48},
-	{0x0a4b, 0x0a4d}, {0x0a70, 0x0a71}, {0x0a81, 0x0a83}, {0x0abc, 0x0abc},
-	{0x0abe, 0x0ac5}, {0x0ac7, 0x0ac9}, {0x0acb, 0x0acd}, {0x0ae2, 0x0ae3},
-	{0x0b01, 0x0b03}, {0x0b3c, 0x0b3c}, {0x0b3e, 0x0b43}, {0x0b47, 0x0b48},
-	{0x0b4b, 0x0b4d}, {0x0b56, 0x0b57}, {0x0b82, 0x0b82}, {0x0bbe, 0x0bc2},
-	{0x0bc6, 0x0bc8}, {0x0bca, 0x0bcd}, {0x0bd7, 0x0bd7}, {0x0c01, 0x0c03},
-	{0x0c3e, 0x0c44}, {0x0c46, 0x0c48}, {0x0c4a, 0x0c4d}, {0x0c55, 0x0c56},
-	{0x0c82, 0x0c83}, {0x0cbc, 0x0cbc}, {0x0cbe, 0x0cc4}, {0x0cc6, 0x0cc8},
-	{0x0cca, 0x0ccd}, {0x0cd5, 0x0cd6}, {0x0d02, 0x0d03}, {0x0d3e, 0x0d43},
-	{0x0d46, 0x0d48}, {0x0d4a, 0x0d4d}, {0x0d57, 0x0d57}, {0x0d82, 0x0d83},
-	{0x0dca, 0x0dca}, {0x0dcf, 0x0dd4}, {0x0dd6, 0x0dd6}, {0x0dd8, 0x0ddf},
-	{0x0df2, 0x0df3}, {0x0e31, 0x0e31}, {0x0e34, 0x0e3a}, {0x0e47, 0x0e4e},
-	{0x0eb1, 0x0eb1}, {0x0eb4, 0x0eb9}, {0x0ebb, 0x0ebc}, {0x0ec8, 0x0ecd},
-	{0x0f18, 0x0f19}, {0x0f35, 0x0f35}, {0x0f37, 0x0f37}, {0x0f39, 0x0f39},
-	{0x0f3e, 0x0f3f}, {0x0f71, 0x0f84}, {0x0f86, 0x0f87}, {0x0f90, 0x0f97},
-	{0x0f99, 0x0fbc}, {0x0fc6, 0x0fc6}, {0x102c, 0x1032}, {0x1036, 0x1039},
-	{0x1056, 0x1059}, {0x1712, 0x1714}, {0x1732, 0x1734}, {0x1752, 0x1753},
-	{0x1772, 0x1773}, {0x17b6, 0x17d3}, {0x17dd, 0x17dd}, {0x180b, 0x180d},
-	{0x18a9, 0x18a9}, {0x1920, 0x192b}, {0x1930, 0x193b}, {0x20d0, 0x20ea},
-	{0x302a, 0x302f}, {0x3099, 0x309a}, {0xfb1e, 0xfb1e}, {0xfe00, 0xfe0f},
-	{0xfe20, 0xfe23},
+	{0x0300, 0x036f},
+	{0x0483, 0x0489},
+	{0x0591, 0x05bd},
+	{0x05bf, 0x05bf},
+	{0x05c1, 0x05c2},
+	{0x05c4, 0x05c5},
+	{0x05c7, 0x05c7},
+	{0x0610, 0x061a},
+	{0x064b, 0x065e},
+	{0x0670, 0x0670},
+	{0x06d6, 0x06dc},
+	{0x06de, 0x06e4},
+	{0x06e7, 0x06e8},
+	{0x06ea, 0x06ed},
+	{0x0711, 0x0711},
+	{0x0730, 0x074a},
+	{0x07a6, 0x07b0},
+	{0x07eb, 0x07f3},
+	{0x0816, 0x0819},
+	{0x081b, 0x0823},
+	{0x0825, 0x0827},
+	{0x0829, 0x082d},
+	{0x0900, 0x0903},
+	{0x093c, 0x093c},
+	{0x093e, 0x094e},
+	{0x0951, 0x0955},
+	{0x0962, 0x0963},
+	{0x0981, 0x0983},
+	{0x09bc, 0x09bc},
+	{0x09be, 0x09c4},
+	{0x09c7, 0x09c8},
+	{0x09cb, 0x09cd},
+	{0x09d7, 0x09d7},
+	{0x09e2, 0x09e3},
+	{0x0a01, 0x0a03},
+	{0x0a3c, 0x0a3c},
+	{0x0a3e, 0x0a42},
+	{0x0a47, 0x0a48},
+	{0x0a4b, 0x0a4d},
+	{0x0a51, 0x0a51},
+	{0x0a70, 0x0a71},
+	{0x0a75, 0x0a75},
+	{0x0a81, 0x0a83},
+	{0x0abc, 0x0abc},
+	{0x0abe, 0x0ac5},
+	{0x0ac7, 0x0ac9},
+	{0x0acb, 0x0acd},
+	{0x0ae2, 0x0ae3},
+	{0x0b01, 0x0b03},
+	{0x0b3c, 0x0b3c},
+	{0x0b3e, 0x0b44},
+	{0x0b47, 0x0b48},
+	{0x0b4b, 0x0b4d},
+	{0x0b56, 0x0b57},
+	{0x0b62, 0x0b63},
+	{0x0b82, 0x0b82},
+	{0x0bbe, 0x0bc2},
+	{0x0bc6, 0x0bc8},
+	{0x0bca, 0x0bcd},
+	{0x0bd7, 0x0bd7},
+	{0x0c01, 0x0c03},
+	{0x0c3e, 0x0c44},
+	{0x0c46, 0x0c48},
+	{0x0c4a, 0x0c4d},
+	{0x0c55, 0x0c56},
+	{0x0c62, 0x0c63},
+	{0x0c82, 0x0c83},
+	{0x0cbc, 0x0cbc},
+	{0x0cbe, 0x0cc4},
+	{0x0cc6, 0x0cc8},
+	{0x0cca, 0x0ccd},
+	{0x0cd5, 0x0cd6},
+	{0x0ce2, 0x0ce3},
+	{0x0d02, 0x0d03},
+	{0x0d3e, 0x0d44},
+	{0x0d46, 0x0d48},
+	{0x0d4a, 0x0d4d},
+	{0x0d57, 0x0d57},
+	{0x0d62, 0x0d63},
+	{0x0d82, 0x0d83},
+	{0x0dca, 0x0dca},
+	{0x0dcf, 0x0dd4},
+	{0x0dd6, 0x0dd6},
+	{0x0dd8, 0x0ddf},
+	{0x0df2, 0x0df3},
+	{0x0e31, 0x0e31},
+	{0x0e34, 0x0e3a},
+	{0x0e47, 0x0e4e},
+	{0x0eb1, 0x0eb1},
+	{0x0eb4, 0x0eb9},
+	{0x0ebb, 0x0ebc},
+	{0x0ec8, 0x0ecd},
+	{0x0f18, 0x0f19},
+	{0x0f35, 0x0f35},
+	{0x0f37, 0x0f37},
+	{0x0f39, 0x0f39},
+	{0x0f3e, 0x0f3f},
+	{0x0f71, 0x0f84},
+	{0x0f86, 0x0f87},
+	{0x0f90, 0x0f97},
+	{0x0f99, 0x0fbc},
+	{0x0fc6, 0x0fc6},
+	{0x102b, 0x103e},
+	{0x1056, 0x1059},
+	{0x105e, 0x1060},
+	{0x1062, 0x1064},
+	{0x1067, 0x106d},
+	{0x1071, 0x1074},
+	{0x1082, 0x108d},
+	{0x108f, 0x108f},
+	{0x109a, 0x109d},
+	{0x135f, 0x135f},
+	{0x1712, 0x1714},
+	{0x1732, 0x1734},
+	{0x1752, 0x1753},
+	{0x1772, 0x1773},
+	{0x17b6, 0x17d3},
+	{0x17dd, 0x17dd},
+	{0x180b, 0x180d},
+	{0x18a9, 0x18a9},
+	{0x1920, 0x192b},
+	{0x1930, 0x193b},
+	{0x19b0, 0x19c0},
+	{0x19c8, 0x19c9},
+	{0x1a17, 0x1a1b},
+	{0x1a55, 0x1a5e},
+	{0x1a60, 0x1a7c},
+	{0x1a7f, 0x1a7f},
+	{0x1b00, 0x1b04},
+	{0x1b34, 0x1b44},
+	{0x1b6b, 0x1b73},
+	{0x1b80, 0x1b82},
+	{0x1ba1, 0x1baa},
+	{0x1c24, 0x1c37},
+	{0x1cd0, 0x1cd2},
+	{0x1cd4, 0x1ce8},
+	{0x1ced, 0x1ced},
+	{0x1cf2, 0x1cf2},
+	{0x1dc0, 0x1de6},
+	{0x1dfd, 0x1dff},
+	{0x20d0, 0x20f0},
+	{0x2cef, 0x2cf1},
+	{0x2de0, 0x2dff},
+	{0x302a, 0x302f},
+	{0x3099, 0x309a},
+	{0xa66f, 0xa672},
+	{0xa67c, 0xa67d},
+	{0xa6f0, 0xa6f1},
+	{0xa802, 0xa802},
+	{0xa806, 0xa806},
+	{0xa80b, 0xa80b},
+	{0xa823, 0xa827},
+	{0xa880, 0xa881},
+	{0xa8b4, 0xa8c4},
+	{0xa8e0, 0xa8f1},
+	{0xa926, 0xa92d},
+	{0xa947, 0xa953},
+	{0xa980, 0xa983},
+	{0xa9b3, 0xa9c0},
+	{0xaa29, 0xaa36},
+	{0xaa43, 0xaa43},
+	{0xaa4c, 0xaa4d},
+	{0xaa7b, 0xaa7b},
+	{0xaab0, 0xaab0},
+	{0xaab2, 0xaab4},
+	{0xaab7, 0xaab8},
+	{0xaabe, 0xaabf},
+	{0xaac1, 0xaac1},
+	{0xabe3, 0xabea},
+	{0xabec, 0xabed},
+	{0xfb1e, 0xfb1e},
+	{0xfe00, 0xfe0f},
+	{0xfe20, 0xfe26},
+	{0x101fd, 0x101fd},
+	{0x10a01, 0x10a03},
+	{0x10a05, 0x10a06},
+	{0x10a0c, 0x10a0f},
+	{0x10a38, 0x10a3a},
+	{0x10a3f, 0x10a3f},
+	{0x11080, 0x11082},
+	{0x110b0, 0x110ba},
+	{0x1d165, 0x1d169},
+	{0x1d16d, 0x1d172},
+	{0x1d17b, 0x1d182},
+	{0x1d185, 0x1d18b},
+	{0x1d1aa, 0x1d1ad},
+	{0x1d242, 0x1d244},
+	{0xe0100, 0xe01ef}
     };
 
     return intable(combining, sizeof(combining), c);
@@ -2042,15 +2489,16 @@ utf_class(c)
  * Code for Unicode case-dependent operations.  Based on notes in
  * http://www.unicode.org/Public/UNIDATA/CaseFolding.txt
  * This code uses simple case folding, not full case folding.
+ * Last updated for Unicode 5.2.
  */
 
 /*
- * The following table is built by foldExtract.pl < CaseFolding.txt .
- * It must be in numeric order, because we use binary search on it.
- * An entry such as {0x41,0x5a,1,32} means that UCS-4 characters in the range
- * from 0x41 to 0x5a inclusive, stepping by 1, are folded by adding 32.
+ * The following tables are built by ../runtime/tools/unicode.vim.
+ * They must be in numeric order, because we use binary search.
+ * An entry such as {0x41,0x5a,1,32} means that Unicode characters in the
+ * range from 0x41 to 0x5a inclusive, stepping by 1, are changed to
+ * folded/upper/lower by adding 32.
  */
-
 typedef struct
 {
     int rangeStart;
@@ -2061,41 +2509,161 @@ typedef struct
 
 static convertStruct foldCase[] =
 {
-	{0x41,0x5a,1,32}, {0xc0,0xd6,1,32}, {0xd8,0xde,1,32},
-	{0x100,0x12e,2,1}, {0x130,0x130,-1,-199}, {0x132,0x136,2,1},
-	{0x139,0x147,2,1}, {0x14a,0x176,2,1}, {0x178,0x178,-1,-121},
-	{0x179,0x17d,2,1}, {0x181,0x181,-1,210}, {0x182,0x184,2,1},
-	{0x186,0x186,-1,206}, {0x187,0x187,-1,1}, {0x189,0x18a,1,205},
-	{0x18b,0x18b,-1,1}, {0x18e,0x18e,-1,79}, {0x18f,0x18f,-1,202},
-	{0x190,0x190,-1,203}, {0x191,0x191,-1,1}, {0x193,0x193,-1,205},
-	{0x194,0x194,-1,207}, {0x196,0x196,-1,211}, {0x197,0x197,-1,209},
-	{0x198,0x198,-1,1}, {0x19c,0x19c,-1,211}, {0x19d,0x19d,-1,213},
-	{0x19f,0x19f,-1,214}, {0x1a0,0x1a4,2,1}, {0x1a6,0x1a6,-1,218},
-	{0x1a7,0x1a7,-1,1}, {0x1a9,0x1a9,-1,218}, {0x1ac,0x1ac,-1,1},
-	{0x1ae,0x1ae,-1,218}, {0x1af,0x1af,-1,1}, {0x1b1,0x1b2,1,217},
-	{0x1b3,0x1b5,2,1}, {0x1b7,0x1b7,-1,219}, {0x1b8,0x1bc,4,1},
-	{0x1c4,0x1c4,-1,2}, {0x1c5,0x1c5,-1,1}, {0x1c7,0x1c7,-1,2},
-	{0x1c8,0x1c8,-1,1}, {0x1ca,0x1ca,-1,2}, {0x1cb,0x1db,2,1},
-	{0x1de,0x1ee,2,1}, {0x1f1,0x1f1,-1,2}, {0x1f2,0x1f4,2,1},
-	{0x1f6,0x1f6,-1,-97}, {0x1f7,0x1f7,-1,-56}, {0x1f8,0x21e,2,1},
-	{0x220,0x220,-1,-130}, {0x222,0x232,2,1}, {0x386,0x386,-1,38},
-	{0x388,0x38a,1,37}, {0x38c,0x38c,-1,64}, {0x38e,0x38f,1,63},
-	{0x391,0x3a1,1,32}, {0x3a3,0x3ab,1,32}, {0x3d8,0x3ee,2,1},
-	{0x3f4,0x3f4,-1,-60}, {0x3f7,0x3f7,-1,1}, {0x3f9,0x3f9,-1,-7},
-	{0x3fa,0x3fa,-1,1}, {0x400,0x40f,1,80}, {0x410,0x42f,1,32},
-	{0x460,0x480,2,1}, {0x48a,0x4be,2,1}, {0x4c1,0x4cd,2,1},
-	{0x4d0,0x4f4,2,1}, {0x4f8,0x500,8,1}, {0x502,0x50e,2,1},
-	{0x531,0x556,1,48}, {0x1e00,0x1e94,2,1}, {0x1ea0,0x1ef8,2,1},
-	{0x1f08,0x1f0f,1,-8}, {0x1f18,0x1f1d,1,-8}, {0x1f28,0x1f2f,1,-8},
-	{0x1f38,0x1f3f,1,-8}, {0x1f48,0x1f4d,1,-8}, {0x1f59,0x1f5f,2,-8},
-	{0x1f68,0x1f6f,1,-8}, {0x1f88,0x1f8f,1,-8}, {0x1f98,0x1f9f,1,-8},
-	{0x1fa8,0x1faf,1,-8}, {0x1fb8,0x1fb9,1,-8}, {0x1fba,0x1fbb,1,-74},
-	{0x1fbc,0x1fbc,-1,-9}, {0x1fc8,0x1fcb,1,-86}, {0x1fcc,0x1fcc,-1,-9},
-	{0x1fd8,0x1fd9,1,-8}, {0x1fda,0x1fdb,1,-100}, {0x1fe8,0x1fe9,1,-8},
-	{0x1fea,0x1feb,1,-112}, {0x1fec,0x1fec,-1,-7}, {0x1ff8,0x1ff9,1,-128},
-	{0x1ffa,0x1ffb,1,-126}, {0x1ffc,0x1ffc,-1,-9}, {0x2126,0x2126,-1,-7517},
-	{0x212a,0x212a,-1,-8383}, {0x212b,0x212b,-1,-8262},
-	{0x2160,0x216f,1,16}, {0x24b6,0x24cf,1,26}, {0xff21,0xff3a,1,32},
+	{0x41,0x5a,1,32},
+	{0xb5,0xb5,-1,775},
+	{0xc0,0xd6,1,32},
+	{0xd8,0xde,1,32},
+	{0x100,0x12e,2,1},
+	{0x132,0x136,2,1},
+	{0x139,0x147,2,1},
+	{0x14a,0x176,2,1},
+	{0x178,0x178,-1,-121},
+	{0x179,0x17d,2,1},
+	{0x17f,0x17f,-1,-268},
+	{0x181,0x181,-1,210},
+	{0x182,0x184,2,1},
+	{0x186,0x186,-1,206},
+	{0x187,0x187,-1,1},
+	{0x189,0x18a,1,205},
+	{0x18b,0x18b,-1,1},
+	{0x18e,0x18e,-1,79},
+	{0x18f,0x18f,-1,202},
+	{0x190,0x190,-1,203},
+	{0x191,0x191,-1,1},
+	{0x193,0x193,-1,205},
+	{0x194,0x194,-1,207},
+	{0x196,0x196,-1,211},
+	{0x197,0x197,-1,209},
+	{0x198,0x198,-1,1},
+	{0x19c,0x19c,-1,211},
+	{0x19d,0x19d,-1,213},
+	{0x19f,0x19f,-1,214},
+	{0x1a0,0x1a4,2,1},
+	{0x1a6,0x1a6,-1,218},
+	{0x1a7,0x1a7,-1,1},
+	{0x1a9,0x1a9,-1,218},
+	{0x1ac,0x1ac,-1,1},
+	{0x1ae,0x1ae,-1,218},
+	{0x1af,0x1af,-1,1},
+	{0x1b1,0x1b2,1,217},
+	{0x1b3,0x1b5,2,1},
+	{0x1b7,0x1b7,-1,219},
+	{0x1b8,0x1bc,4,1},
+	{0x1c4,0x1c4,-1,2},
+	{0x1c5,0x1c5,-1,1},
+	{0x1c7,0x1c7,-1,2},
+	{0x1c8,0x1c8,-1,1},
+	{0x1ca,0x1ca,-1,2},
+	{0x1cb,0x1db,2,1},
+	{0x1de,0x1ee,2,1},
+	{0x1f1,0x1f1,-1,2},
+	{0x1f2,0x1f4,2,1},
+	{0x1f6,0x1f6,-1,-97},
+	{0x1f7,0x1f7,-1,-56},
+	{0x1f8,0x21e,2,1},
+	{0x220,0x220,-1,-130},
+	{0x222,0x232,2,1},
+	{0x23a,0x23a,-1,10795},
+	{0x23b,0x23b,-1,1},
+	{0x23d,0x23d,-1,-163},
+	{0x23e,0x23e,-1,10792},
+	{0x241,0x241,-1,1},
+	{0x243,0x243,-1,-195},
+	{0x244,0x244,-1,69},
+	{0x245,0x245,-1,71},
+	{0x246,0x24e,2,1},
+	{0x345,0x345,-1,116},
+	{0x370,0x372,2,1},
+	{0x376,0x376,-1,1},
+	{0x386,0x386,-1,38},
+	{0x388,0x38a,1,37},
+	{0x38c,0x38c,-1,64},
+	{0x38e,0x38f,1,63},
+	{0x391,0x3a1,1,32},
+	{0x3a3,0x3ab,1,32},
+	{0x3c2,0x3c2,-1,1},
+	{0x3cf,0x3cf,-1,8},
+	{0x3d0,0x3d0,-1,-30},
+	{0x3d1,0x3d1,-1,-25},
+	{0x3d5,0x3d5,-1,-15},
+	{0x3d6,0x3d6,-1,-22},
+	{0x3d8,0x3ee,2,1},
+	{0x3f0,0x3f0,-1,-54},
+	{0x3f1,0x3f1,-1,-48},
+	{0x3f4,0x3f4,-1,-60},
+	{0x3f5,0x3f5,-1,-64},
+	{0x3f7,0x3f7,-1,1},
+	{0x3f9,0x3f9,-1,-7},
+	{0x3fa,0x3fa,-1,1},
+	{0x3fd,0x3ff,1,-130},
+	{0x400,0x40f,1,80},
+	{0x410,0x42f,1,32},
+	{0x460,0x480,2,1},
+	{0x48a,0x4be,2,1},
+	{0x4c0,0x4c0,-1,15},
+	{0x4c1,0x4cd,2,1},
+	{0x4d0,0x524,2,1},
+	{0x531,0x556,1,48},
+	{0x10a0,0x10c5,1,7264},
+	{0x1e00,0x1e94,2,1},
+	{0x1e9b,0x1e9b,-1,-58},
+	{0x1e9e,0x1e9e,-1,-7615},
+	{0x1ea0,0x1efe,2,1},
+	{0x1f08,0x1f0f,1,-8},
+	{0x1f18,0x1f1d,1,-8},
+	{0x1f28,0x1f2f,1,-8},
+	{0x1f38,0x1f3f,1,-8},
+	{0x1f48,0x1f4d,1,-8},
+	{0x1f59,0x1f5f,2,-8},
+	{0x1f68,0x1f6f,1,-8},
+	{0x1f88,0x1f8f,1,-8},
+	{0x1f98,0x1f9f,1,-8},
+	{0x1fa8,0x1faf,1,-8},
+	{0x1fb8,0x1fb9,1,-8},
+	{0x1fba,0x1fbb,1,-74},
+	{0x1fbc,0x1fbc,-1,-9},
+	{0x1fbe,0x1fbe,-1,-7173},
+	{0x1fc8,0x1fcb,1,-86},
+	{0x1fcc,0x1fcc,-1,-9},
+	{0x1fd8,0x1fd9,1,-8},
+	{0x1fda,0x1fdb,1,-100},
+	{0x1fe8,0x1fe9,1,-8},
+	{0x1fea,0x1feb,1,-112},
+	{0x1fec,0x1fec,-1,-7},
+	{0x1ff8,0x1ff9,1,-128},
+	{0x1ffa,0x1ffb,1,-126},
+	{0x1ffc,0x1ffc,-1,-9},
+	{0x2126,0x2126,-1,-7517},
+	{0x212a,0x212a,-1,-8383},
+	{0x212b,0x212b,-1,-8262},
+	{0x2132,0x2132,-1,28},
+	{0x2160,0x216f,1,16},
+	{0x2183,0x2183,-1,1},
+	{0x24b6,0x24cf,1,26},
+	{0x2c00,0x2c2e,1,48},
+	{0x2c60,0x2c60,-1,1},
+	{0x2c62,0x2c62,-1,-10743},
+	{0x2c63,0x2c63,-1,-3814},
+	{0x2c64,0x2c64,-1,-10727},
+	{0x2c67,0x2c6b,2,1},
+	{0x2c6d,0x2c6d,-1,-10780},
+	{0x2c6e,0x2c6e,-1,-10749},
+	{0x2c6f,0x2c6f,-1,-10783},
+	{0x2c70,0x2c70,-1,-10782},
+	{0x2c72,0x2c75,3,1},
+	{0x2c7e,0x2c7f,1,-10815},
+	{0x2c80,0x2ce2,2,1},
+	{0x2ceb,0x2ced,2,1},
+	{0xa640,0xa65e,2,1},
+	{0xa662,0xa66c,2,1},
+	{0xa680,0xa696,2,1},
+	{0xa722,0xa72e,2,1},
+	{0xa732,0xa76e,2,1},
+	{0xa779,0xa77b,2,1},
+	{0xa77d,0xa77d,-1,-35332},
+	{0xa77e,0xa786,2,1},
+	{0xa78b,0xa78b,-1,1},
+	{0xff21,0xff3a,1,32},
 	{0x10400,0x10427,1,40}
 };
 
@@ -2143,85 +2711,306 @@ utf_fold(a)
     return utf_convert(a, foldCase, sizeof(foldCase));
 }
 
-/*
- * The following tables are built by upperLowerExtract.pl < UnicodeData.txt .
- * They must be in numeric order, because we use binary search on them.
- * An entry such as {0x41,0x5a,1,32} means that UCS-4 characters in the range
- * from 0x41 to 0x5a inclusive, stepping by 1, are switched to lower (for
- * example) by adding 32.
- */
 static convertStruct toLower[] =
 {
-	{0x41,0x5a,1,32}, {0xc0,0xd6,1,32}, {0xd8,0xde,1,32},
-	{0x100,0x12e,2,1}, {0x130,0x130,-1,-199}, {0x132,0x136,2,1},
-	{0x139,0x147,2,1}, {0x14a,0x176,2,1}, {0x178,0x178,-1,-121},
-	{0x179,0x17d,2,1}, {0x181,0x181,-1,210}, {0x182,0x184,2,1},
-	{0x186,0x186,-1,206}, {0x187,0x187,-1,1}, {0x189,0x18a,1,205},
-	{0x18b,0x18b,-1,1}, {0x18e,0x18e,-1,79}, {0x18f,0x18f,-1,202},
-	{0x190,0x190,-1,203}, {0x191,0x191,-1,1}, {0x193,0x193,-1,205},
-	{0x194,0x194,-1,207}, {0x196,0x196,-1,211}, {0x197,0x197,-1,209},
-	{0x198,0x198,-1,1}, {0x19c,0x19c,-1,211}, {0x19d,0x19d,-1,213},
-	{0x19f,0x19f,-1,214}, {0x1a0,0x1a4,2,1}, {0x1a6,0x1a6,-1,218},
-	{0x1a7,0x1a7,-1,1}, {0x1a9,0x1a9,-1,218}, {0x1ac,0x1ac,-1,1},
-	{0x1ae,0x1ae,-1,218}, {0x1af,0x1af,-1,1}, {0x1b1,0x1b2,1,217},
-	{0x1b3,0x1b5,2,1}, {0x1b7,0x1b7,-1,219}, {0x1b8,0x1bc,4,1},
-	{0x1c4,0x1ca,3,2}, {0x1cd,0x1db,2,1}, {0x1de,0x1ee,2,1},
-	{0x1f1,0x1f1,-1,2}, {0x1f4,0x1f4,-1,1}, {0x1f6,0x1f6,-1,-97},
-	{0x1f7,0x1f7,-1,-56}, {0x1f8,0x21e,2,1}, {0x220,0x220,-1,-130},
-	{0x222,0x232,2,1}, {0x386,0x386,-1,38}, {0x388,0x38a,1,37},
-	{0x38c,0x38c,-1,64}, {0x38e,0x38f,1,63}, {0x391,0x3a1,1,32},
-	{0x3a3,0x3ab,1,32}, {0x3d8,0x3ee,2,1}, {0x3f4,0x3f4,-1,-60},
-	{0x3f7,0x3f7,-1,1}, {0x3f9,0x3f9,-1,-7}, {0x3fa,0x3fa,-1,1},
-	{0x400,0x40f,1,80}, {0x410,0x42f,1,32}, {0x460,0x480,2,1},
-	{0x48a,0x4be,2,1}, {0x4c1,0x4cd,2,1}, {0x4d0,0x4f4,2,1},
-	{0x4f8,0x500,8,1}, {0x502,0x50e,2,1}, {0x531,0x556,1,48},
-	{0x1e00,0x1e94,2,1}, {0x1ea0,0x1ef8,2,1}, {0x1f08,0x1f0f,1,-8},
-	{0x1f18,0x1f1d,1,-8}, {0x1f28,0x1f2f,1,-8}, {0x1f38,0x1f3f,1,-8},
-	{0x1f48,0x1f4d,1,-8}, {0x1f59,0x1f5f,2,-8}, {0x1f68,0x1f6f,1,-8},
-	{0x1fb8,0x1fb9,1,-8}, {0x1fba,0x1fbb,1,-74}, {0x1fc8,0x1fcb,1,-86},
-	{0x1fd8,0x1fd9,1,-8}, {0x1fda,0x1fdb,1,-100}, {0x1fe8,0x1fe9,1,-8},
-	{0x1fea,0x1feb,1,-112}, {0x1fec,0x1fec,-1,-7}, {0x1ff8,0x1ff9,1,-128},
-	{0x1ffa,0x1ffb,1,-126}, {0x2126,0x2126,-1,-7517}, {0x212a,0x212a,-1,-8383},
-	{0x212b,0x212b,-1,-8262}, {0xff21,0xff3a,1,32}, {0x10400,0x10427,1,40}
+	{0x41,0x5a,1,32},
+	{0xc0,0xd6,1,32},
+	{0xd8,0xde,1,32},
+	{0x100,0x12e,2,1},
+	{0x130,0x130,-1,-199},
+	{0x132,0x136,2,1},
+	{0x139,0x147,2,1},
+	{0x14a,0x176,2,1},
+	{0x178,0x178,-1,-121},
+	{0x179,0x17d,2,1},
+	{0x181,0x181,-1,210},
+	{0x182,0x184,2,1},
+	{0x186,0x186,-1,206},
+	{0x187,0x187,-1,1},
+	{0x189,0x18a,1,205},
+	{0x18b,0x18b,-1,1},
+	{0x18e,0x18e,-1,79},
+	{0x18f,0x18f,-1,202},
+	{0x190,0x190,-1,203},
+	{0x191,0x191,-1,1},
+	{0x193,0x193,-1,205},
+	{0x194,0x194,-1,207},
+	{0x196,0x196,-1,211},
+	{0x197,0x197,-1,209},
+	{0x198,0x198,-1,1},
+	{0x19c,0x19c,-1,211},
+	{0x19d,0x19d,-1,213},
+	{0x19f,0x19f,-1,214},
+	{0x1a0,0x1a4,2,1},
+	{0x1a6,0x1a6,-1,218},
+	{0x1a7,0x1a7,-1,1},
+	{0x1a9,0x1a9,-1,218},
+	{0x1ac,0x1ac,-1,1},
+	{0x1ae,0x1ae,-1,218},
+	{0x1af,0x1af,-1,1},
+	{0x1b1,0x1b2,1,217},
+	{0x1b3,0x1b5,2,1},
+	{0x1b7,0x1b7,-1,219},
+	{0x1b8,0x1bc,4,1},
+	{0x1c4,0x1c4,-1,2},
+	{0x1c5,0x1c5,-1,1},
+	{0x1c7,0x1c7,-1,2},
+	{0x1c8,0x1c8,-1,1},
+	{0x1ca,0x1ca,-1,2},
+	{0x1cb,0x1db,2,1},
+	{0x1de,0x1ee,2,1},
+	{0x1f1,0x1f1,-1,2},
+	{0x1f2,0x1f4,2,1},
+	{0x1f6,0x1f6,-1,-97},
+	{0x1f7,0x1f7,-1,-56},
+	{0x1f8,0x21e,2,1},
+	{0x220,0x220,-1,-130},
+	{0x222,0x232,2,1},
+	{0x23a,0x23a,-1,10795},
+	{0x23b,0x23b,-1,1},
+	{0x23d,0x23d,-1,-163},
+	{0x23e,0x23e,-1,10792},
+	{0x241,0x241,-1,1},
+	{0x243,0x243,-1,-195},
+	{0x244,0x244,-1,69},
+	{0x245,0x245,-1,71},
+	{0x246,0x24e,2,1},
+	{0x370,0x372,2,1},
+	{0x376,0x376,-1,1},
+	{0x386,0x386,-1,38},
+	{0x388,0x38a,1,37},
+	{0x38c,0x38c,-1,64},
+	{0x38e,0x38f,1,63},
+	{0x391,0x3a1,1,32},
+	{0x3a3,0x3ab,1,32},
+	{0x3cf,0x3cf,-1,8},
+	{0x3d8,0x3ee,2,1},
+	{0x3f4,0x3f4,-1,-60},
+	{0x3f7,0x3f7,-1,1},
+	{0x3f9,0x3f9,-1,-7},
+	{0x3fa,0x3fa,-1,1},
+	{0x3fd,0x3ff,1,-130},
+	{0x400,0x40f,1,80},
+	{0x410,0x42f,1,32},
+	{0x460,0x480,2,1},
+	{0x48a,0x4be,2,1},
+	{0x4c0,0x4c0,-1,15},
+	{0x4c1,0x4cd,2,1},
+	{0x4d0,0x524,2,1},
+	{0x531,0x556,1,48},
+	{0x10a0,0x10c5,1,7264},
+	{0x1e00,0x1e94,2,1},
+	{0x1e9e,0x1e9e,-1,-7615},
+	{0x1ea0,0x1efe,2,1},
+	{0x1f08,0x1f0f,1,-8},
+	{0x1f18,0x1f1d,1,-8},
+	{0x1f28,0x1f2f,1,-8},
+	{0x1f38,0x1f3f,1,-8},
+	{0x1f48,0x1f4d,1,-8},
+	{0x1f59,0x1f5f,2,-8},
+	{0x1f68,0x1f6f,1,-8},
+	{0x1f88,0x1f8f,1,-8},
+	{0x1f98,0x1f9f,1,-8},
+	{0x1fa8,0x1faf,1,-8},
+	{0x1fb8,0x1fb9,1,-8},
+	{0x1fba,0x1fbb,1,-74},
+	{0x1fbc,0x1fbc,-1,-9},
+	{0x1fc8,0x1fcb,1,-86},
+	{0x1fcc,0x1fcc,-1,-9},
+	{0x1fd8,0x1fd9,1,-8},
+	{0x1fda,0x1fdb,1,-100},
+	{0x1fe8,0x1fe9,1,-8},
+	{0x1fea,0x1feb,1,-112},
+	{0x1fec,0x1fec,-1,-7},
+	{0x1ff8,0x1ff9,1,-128},
+	{0x1ffa,0x1ffb,1,-126},
+	{0x1ffc,0x1ffc,-1,-9},
+	{0x2126,0x2126,-1,-7517},
+	{0x212a,0x212a,-1,-8383},
+	{0x212b,0x212b,-1,-8262},
+	{0x2132,0x2132,-1,28},
+	{0x2160,0x216f,1,16},
+	{0x2183,0x2183,-1,1},
+	{0x24b6,0x24cf,1,26},
+	{0x2c00,0x2c2e,1,48},
+	{0x2c60,0x2c60,-1,1},
+	{0x2c62,0x2c62,-1,-10743},
+	{0x2c63,0x2c63,-1,-3814},
+	{0x2c64,0x2c64,-1,-10727},
+	{0x2c67,0x2c6b,2,1},
+	{0x2c6d,0x2c6d,-1,-10780},
+	{0x2c6e,0x2c6e,-1,-10749},
+	{0x2c6f,0x2c6f,-1,-10783},
+	{0x2c70,0x2c70,-1,-10782},
+	{0x2c72,0x2c75,3,1},
+	{0x2c7e,0x2c7f,1,-10815},
+	{0x2c80,0x2ce2,2,1},
+	{0x2ceb,0x2ced,2,1},
+	{0xa640,0xa65e,2,1},
+	{0xa662,0xa66c,2,1},
+	{0xa680,0xa696,2,1},
+	{0xa722,0xa72e,2,1},
+	{0xa732,0xa76e,2,1},
+	{0xa779,0xa77b,2,1},
+	{0xa77d,0xa77d,-1,-35332},
+	{0xa77e,0xa786,2,1},
+	{0xa78b,0xa78b,-1,1},
+	{0xff21,0xff3a,1,32},
+	{0x10400,0x10427,1,40}
 };
 
 static convertStruct toUpper[] =
 {
-	{0x61,0x7a,1,-32}, {0xb5,0xb5,-1,743}, {0xe0,0xf6,1,-32},
-	{0xf8,0xfe,1,-32}, {0xff,0xff,-1,121}, {0x101,0x12f,2,-1},
-	{0x131,0x131,-1,-232}, {0x133,0x137,2,-1}, {0x13a,0x148,2,-1},
-	{0x14b,0x177,2,-1}, {0x17a,0x17e,2,-1}, {0x17f,0x17f,-1,-300},
-	{0x183,0x185,2,-1}, {0x188,0x18c,4,-1}, {0x192,0x192,-1,-1},
-	{0x195,0x195,-1,97}, {0x199,0x199,-1,-1}, {0x19e,0x19e,-1,130},
-	{0x1a1,0x1a5,2,-1}, {0x1a8,0x1ad,5,-1}, {0x1b0,0x1b4,4,-1},
-	{0x1b6,0x1b9,3,-1}, {0x1bd,0x1bd,-1,-1}, {0x1bf,0x1bf,-1,56},
-	{0x1c5,0x1c6,1,-1}, {0x1c8,0x1c9,1,-1}, {0x1cb,0x1cc,1,-1},
-	{0x1ce,0x1dc,2,-1}, {0x1dd,0x1dd,-1,-79}, {0x1df,0x1ef,2,-1},
-	{0x1f2,0x1f3,1,-1}, {0x1f5,0x1f9,4,-1}, {0x1fb,0x21f,2,-1},
-	{0x223,0x233,2,-1}, {0x253,0x253,-1,-210}, {0x254,0x254,-1,-206},
-	{0x256,0x257,1,-205}, {0x259,0x259,-1,-202}, {0x25b,0x25b,-1,-203},
-	{0x260,0x260,-1,-205}, {0x263,0x263,-1,-207}, {0x268,0x268,-1,-209},
-	{0x269,0x26f,6,-211}, {0x272,0x272,-1,-213}, {0x275,0x275,-1,-214},
-	{0x280,0x283,3,-218}, {0x288,0x288,-1,-218}, {0x28a,0x28b,1,-217},
-	{0x292,0x292,-1,-219}, {0x3ac,0x3ac,-1,-38}, {0x3ad,0x3af,1,-37},
-	{0x3b1,0x3c1,1,-32}, {0x3c2,0x3c2,-1,-31}, {0x3c3,0x3cb,1,-32},
-	{0x3cc,0x3cc,-1,-64}, {0x3cd,0x3ce,1,-63}, {0x3d0,0x3d0,-1,-62},
-	{0x3d1,0x3d1,-1,-57}, {0x3d5,0x3d5,-1,-47}, {0x3d6,0x3d6,-1,-54},
-	{0x3d9,0x3ef,2,-1}, {0x3f0,0x3f0,-1,-86}, {0x3f1,0x3f1,-1,-80},
-	{0x3f2,0x3f2,-1,7}, {0x3f5,0x3f5,-1,-96}, {0x3f8,0x3fb,3,-1},
-	{0x430,0x44f,1,-32}, {0x450,0x45f,1,-80}, {0x461,0x481,2,-1},
-	{0x48b,0x4bf,2,-1}, {0x4c2,0x4ce,2,-1}, {0x4d1,0x4f5,2,-1},
-	{0x4f9,0x501,8,-1}, {0x503,0x50f,2,-1}, {0x561,0x586,1,-48},
-	{0x1e01,0x1e95,2,-1}, {0x1e9b,0x1e9b,-1,-59}, {0x1ea1,0x1ef9,2,-1},
-	{0x1f00,0x1f07,1,8}, {0x1f10,0x1f15,1,8}, {0x1f20,0x1f27,1,8},
-	{0x1f30,0x1f37,1,8}, {0x1f40,0x1f45,1,8}, {0x1f51,0x1f57,2,8},
-	{0x1f60,0x1f67,1,8}, {0x1f70,0x1f71,1,74}, {0x1f72,0x1f75,1,86},
-	{0x1f76,0x1f77,1,100}, {0x1f78,0x1f79,1,128}, {0x1f7a,0x1f7b,1,112},
-	{0x1f7c,0x1f7d,1,126}, {0x1f80,0x1f87,1,8}, {0x1f90,0x1f97,1,8},
-	{0x1fa0,0x1fa7,1,8}, {0x1fb0,0x1fb1,1,8}, {0x1fb3,0x1fb3,-1,9},
-	{0x1fbe,0x1fbe,-1,-7205}, {0x1fc3,0x1fc3,-1,9}, {0x1fd0,0x1fd1,1,8},
-	{0x1fe0,0x1fe1,1,8}, {0x1fe5,0x1fe5,-1,7}, {0x1ff3,0x1ff3,-1,9},
-	{0xff41,0xff5a,1,-32}, {0x10428,0x1044f,1,-40}
+	{0x61,0x7a,1,-32},
+	{0xb5,0xb5,-1,743},
+	{0xe0,0xf6,1,-32},
+	{0xf8,0xfe,1,-32},
+	{0xff,0xff,-1,121},
+	{0x101,0x12f,2,-1},
+	{0x131,0x131,-1,-232},
+	{0x133,0x137,2,-1},
+	{0x13a,0x148,2,-1},
+	{0x14b,0x177,2,-1},
+	{0x17a,0x17e,2,-1},
+	{0x17f,0x17f,-1,-300},
+	{0x180,0x180,-1,195},
+	{0x183,0x185,2,-1},
+	{0x188,0x18c,4,-1},
+	{0x192,0x192,-1,-1},
+	{0x195,0x195,-1,97},
+	{0x199,0x199,-1,-1},
+	{0x19a,0x19a,-1,163},
+	{0x19e,0x19e,-1,130},
+	{0x1a1,0x1a5,2,-1},
+	{0x1a8,0x1ad,5,-1},
+	{0x1b0,0x1b4,4,-1},
+	{0x1b6,0x1b9,3,-1},
+	{0x1bd,0x1bd,-1,-1},
+	{0x1bf,0x1bf,-1,56},
+	{0x1c5,0x1c5,-1,-1},
+	{0x1c6,0x1c6,-1,-2},
+	{0x1c8,0x1c8,-1,-1},
+	{0x1c9,0x1c9,-1,-2},
+	{0x1cb,0x1cb,-1,-1},
+	{0x1cc,0x1cc,-1,-2},
+	{0x1ce,0x1dc,2,-1},
+	{0x1dd,0x1dd,-1,-79},
+	{0x1df,0x1ef,2,-1},
+	{0x1f2,0x1f2,-1,-1},
+	{0x1f3,0x1f3,-1,-2},
+	{0x1f5,0x1f9,4,-1},
+	{0x1fb,0x21f,2,-1},
+	{0x223,0x233,2,-1},
+	{0x23c,0x23c,-1,-1},
+	{0x23f,0x240,1,10815},
+	{0x242,0x247,5,-1},
+	{0x249,0x24f,2,-1},
+	{0x250,0x250,-1,10783},
+	{0x251,0x251,-1,10780},
+	{0x252,0x252,-1,10782},
+	{0x253,0x253,-1,-210},
+	{0x254,0x254,-1,-206},
+	{0x256,0x257,1,-205},
+	{0x259,0x259,-1,-202},
+	{0x25b,0x25b,-1,-203},
+	{0x260,0x260,-1,-205},
+	{0x263,0x263,-1,-207},
+	{0x268,0x268,-1,-209},
+	{0x269,0x269,-1,-211},
+	{0x26b,0x26b,-1,10743},
+	{0x26f,0x26f,-1,-211},
+	{0x271,0x271,-1,10749},
+	{0x272,0x272,-1,-213},
+	{0x275,0x275,-1,-214},
+	{0x27d,0x27d,-1,10727},
+	{0x280,0x283,3,-218},
+	{0x288,0x288,-1,-218},
+	{0x289,0x289,-1,-69},
+	{0x28a,0x28b,1,-217},
+	{0x28c,0x28c,-1,-71},
+	{0x292,0x292,-1,-219},
+	{0x345,0x345,-1,84},
+	{0x371,0x373,2,-1},
+	{0x377,0x377,-1,-1},
+	{0x37b,0x37d,1,130},
+	{0x3ac,0x3ac,-1,-38},
+	{0x3ad,0x3af,1,-37},
+	{0x3b1,0x3c1,1,-32},
+	{0x3c2,0x3c2,-1,-31},
+	{0x3c3,0x3cb,1,-32},
+	{0x3cc,0x3cc,-1,-64},
+	{0x3cd,0x3ce,1,-63},
+	{0x3d0,0x3d0,-1,-62},
+	{0x3d1,0x3d1,-1,-57},
+	{0x3d5,0x3d5,-1,-47},
+	{0x3d6,0x3d6,-1,-54},
+	{0x3d7,0x3d7,-1,-8},
+	{0x3d9,0x3ef,2,-1},
+	{0x3f0,0x3f0,-1,-86},
+	{0x3f1,0x3f1,-1,-80},
+	{0x3f2,0x3f2,-1,7},
+	{0x3f5,0x3f5,-1,-96},
+	{0x3f8,0x3fb,3,-1},
+	{0x430,0x44f,1,-32},
+	{0x450,0x45f,1,-80},
+	{0x461,0x481,2,-1},
+	{0x48b,0x4bf,2,-1},
+	{0x4c2,0x4ce,2,-1},
+	{0x4cf,0x4cf,-1,-15},
+	{0x4d1,0x525,2,-1},
+	{0x561,0x586,1,-48},
+	{0x1d79,0x1d79,-1,35332},
+	{0x1d7d,0x1d7d,-1,3814},
+	{0x1e01,0x1e95,2,-1},
+	{0x1e9b,0x1e9b,-1,-59},
+	{0x1ea1,0x1eff,2,-1},
+	{0x1f00,0x1f07,1,8},
+	{0x1f10,0x1f15,1,8},
+	{0x1f20,0x1f27,1,8},
+	{0x1f30,0x1f37,1,8},
+	{0x1f40,0x1f45,1,8},
+	{0x1f51,0x1f57,2,8},
+	{0x1f60,0x1f67,1,8},
+	{0x1f70,0x1f71,1,74},
+	{0x1f72,0x1f75,1,86},
+	{0x1f76,0x1f77,1,100},
+	{0x1f78,0x1f79,1,128},
+	{0x1f7a,0x1f7b,1,112},
+	{0x1f7c,0x1f7d,1,126},
+	{0x1f80,0x1f87,1,8},
+	{0x1f90,0x1f97,1,8},
+	{0x1fa0,0x1fa7,1,8},
+	{0x1fb0,0x1fb1,1,8},
+	{0x1fb3,0x1fb3,-1,9},
+	{0x1fbe,0x1fbe,-1,-7205},
+	{0x1fc3,0x1fc3,-1,9},
+	{0x1fd0,0x1fd1,1,8},
+	{0x1fe0,0x1fe1,1,8},
+	{0x1fe5,0x1fe5,-1,7},
+	{0x1ff3,0x1ff3,-1,9},
+	{0x214e,0x214e,-1,-28},
+	{0x2170,0x217f,1,-16},
+	{0x2184,0x2184,-1,-1},
+	{0x24d0,0x24e9,1,-26},
+	{0x2c30,0x2c5e,1,-48},
+	{0x2c61,0x2c61,-1,-1},
+	{0x2c65,0x2c65,-1,-10795},
+	{0x2c66,0x2c66,-1,-10792},
+	{0x2c68,0x2c6c,2,-1},
+	{0x2c73,0x2c76,3,-1},
+	{0x2c81,0x2ce3,2,-1},
+	{0x2cec,0x2cee,2,-1},
+	{0x2d00,0x2d25,1,-7264},
+	{0xa641,0xa65f,2,-1},
+	{0xa663,0xa66d,2,-1},
+	{0xa681,0xa697,2,-1},
+	{0xa723,0xa72f,2,-1},
+	{0xa733,0xa76f,2,-1},
+	{0xa77a,0xa77c,2,-1},
+	{0xa77f,0xa787,2,-1},
+	{0xa78c,0xa78c,-1,-1},
+	{0xff41,0xff5a,1,-32},
+	{0x10428,0x1044f,1,-40}
 };
 
 /*
@@ -2404,7 +3193,8 @@ show_utf8()
 	    }
 	    clen = utf_ptr2len(line + i);
 	}
-	sprintf((char *)IObuff + rlen, "%02x ", line[i]);
+	sprintf((char *)IObuff + rlen, "%02x ",
+		(line[i] == NL) ? NUL : line[i]);  /* NUL is stored as NL */
 	--clen;
 	rlen += (int)STRLEN(IObuff + rlen);
 	if (rlen > IOSIZE - 20)
@@ -2417,13 +3207,13 @@ show_utf8()
 /*
  * mb_head_off() function pointer.
  * Return offset from "p" to the first byte of the character it points into.
+ * If "p" points to the NUL at the end of the string return 0.
  * Returns 0 when already at the first byte of a character.
  */
-/*ARGSUSED*/
     int
 latin_head_off(base, p)
-    char_u	*base;
-    char_u	*p;
+    char_u	*base UNUSED;
+    char_u	*p UNUSED;
 {
     return 0;
 }
@@ -2437,7 +3227,7 @@ dbcs_head_off(base, p)
 
     /* It can't be a trailing byte when not using DBCS, at the start of the
      * string or the previous byte can't start a double-byte. */
-    if (p <= base || MB_BYTE2LEN(p[-1]) == 1)
+    if (p <= base || MB_BYTE2LEN(p[-1]) == 1 || *p == NUL)
 	return 0;
 
     /* This is slow: need to start at the base and go forward until the
@@ -2465,7 +3255,8 @@ dbcs_screen_head_off(base, p)
      * lead byte in the current cell. */
     if (p <= base
 	    || (enc_dbcs == DBCS_JPNU && p[-1] == 0x8e)
-	    || MB_BYTE2LEN(p[-1]) == 1)
+	    || MB_BYTE2LEN(p[-1]) == 1
+	    || *p == NUL)
 	return 0;
 
     /* This is slow: need to start at the base and go forward until the
@@ -2491,6 +3282,7 @@ utf_head_off(base, p)
     char_u	*q;
     char_u	*s;
     int		c;
+    int		len;
 #ifdef FEAT_ARABIC
     char_u	*j;
 #endif
@@ -2510,8 +3302,8 @@ utf_head_off(base, p)
 	    --q;
 	/* Check for illegal sequence. Do allow an illegal byte after where we
 	 * started. */
-	if (utf8len_tab[*q] != (int)(s - q + 1)
-				       && utf8len_tab[*q] != (int)(p - q + 1))
+	len = utf8len_tab[*q];
+	if (len != (int)(s - q + 1) && len != (int)(p - q + 1))
 	    return 0;
 
 	if (q <= base)
@@ -2707,7 +3499,7 @@ theend:
     convert_setup(&vimconv, NULL, NULL);
 }
 
-#if defined(HAVE_GTK2) || defined(PROTO)
+#if defined(FEAT_GUI_GTK) || defined(PROTO)
 /*
  * Return TRUE if string "s" is a valid utf-8 string.
  * When "end" is NULL stop at the first NUL.
@@ -2723,9 +3515,9 @@ utf_valid_string(s, end)
 
     while (end == NULL ? *p != NUL : p < end)
     {
-	if ((*p & 0xc0) == 0x80)
+	l = utf8len_tab_zero[*p];
+	if (l == 0)
 	    return FALSE;	/* invalid lead byte */
-	l = utf8len_tab[*p];
 	if (end != NULL && p + l > end)
 	    return FALSE;	/* incomplete byte sequence */
 	++p;
@@ -3131,7 +3923,7 @@ enc_locale()
 	else
 	    s = p + 1;
     }
-    for (i = 0; s[i] != NUL && i < sizeof(buf) - 1; ++i)
+    for (i = 0; s[i] != NUL && i < (int)sizeof(buf) - 1; ++i)
     {
 	if (s[i] == '_' || s[i] == '-')
 	    buf[i] = '-';
@@ -3178,7 +3970,7 @@ encname2codepage(name)
 
 # if defined(USE_ICONV) || defined(PROTO)
 
-static char_u *iconv_string __ARGS((vimconv_T *vcp, char_u *str, int slen, int *unconvlenp));
+static char_u *iconv_string __ARGS((vimconv_T *vcp, char_u *str, int slen, int *unconvlenp, int *resultlenp));
 
 /*
  * Call iconv_open() with a check if iconv() works properly (there are broken
@@ -3239,13 +4031,15 @@ my_iconv_open(to, from)
  * If "unconvlenp" is not NULL handle the string ending in an incomplete
  * sequence and set "*unconvlenp" to the length of it.
  * Returns the converted string in allocated memory.  NULL for an error.
+ * If resultlenp is not NULL, sets it to the result length in bytes.
  */
     static char_u *
-iconv_string(vcp, str, slen, unconvlenp)
+iconv_string(vcp, str, slen, unconvlenp, resultlenp)
     vimconv_T	*vcp;
     char_u	*str;
     int		slen;
     int		*unconvlenp;
+    int		*resultlenp;
 {
     const char	*from;
     size_t	fromlen;
@@ -3331,6 +4125,9 @@ iconv_string(vcp, str, slen, unconvlenp)
 	/* Not enough room or skipping illegal sequence. */
 	done = to - (char *)result;
     }
+
+    if (resultlenp != NULL)
+	*resultlenp = (int)(to - (char *)result);
     return result;
 }
 
@@ -3425,7 +4222,7 @@ iconv_end()
 
 #if defined(FEAT_XIM) || defined(PROTO)
 
-# ifdef FEAT_GUI_GTK
+# if defined(FEAT_GUI_GTK) || defined(PROTO)
 static int xim_has_preediting INIT(= FALSE);  /* IM current status */
 
 /*
@@ -3441,9 +4238,6 @@ init_preedit_start_col(void)
     /* Prevent that preediting marks the buffer as changed. */
     xim_changed_while_preediting = curbuf->b_changed;
 }
-# endif
-
-# if defined(HAVE_GTK2) && !defined(PROTO)
 
 static int im_is_active	       = FALSE;	/* IM is enabled for current mode    */
 static int preedit_is_active   = FALSE;
@@ -3582,16 +4376,17 @@ im_show_info(void)
  * Callback invoked when the user finished preediting.
  * Put the final string into the input buffer.
  */
-/*ARGSUSED0*/
     static void
-im_commit_cb(GtkIMContext *context, const gchar *str, gpointer data)
+im_commit_cb(GtkIMContext *context UNUSED,
+	     const gchar *str,
+	     gpointer data UNUSED)
 {
-    int	slen = (int)STRLEN(str);
-    int	add_to_input = TRUE;
-    int	clen;
-    int	len = slen;
-    int	commit_with_preedit = TRUE;
-    char_u	*im_str, *p;
+    int		slen = (int)STRLEN(str);
+    int		add_to_input = TRUE;
+    int		clen;
+    int		len = slen;
+    int		commit_with_preedit = TRUE;
+    char_u	*im_str;
 
 #ifdef XIM_DEBUG
     xim_log("im_commit_cb(): %s\n", str);
@@ -3624,9 +4419,9 @@ im_commit_cb(GtkIMContext *context, const gchar *str, gpointer data)
     }
     else
 	im_str = (char_u *)str;
-    clen = 0;
-    for (p = im_str; p < im_str + len; p += (*mb_ptr2len)(p))
-	clen += (*mb_ptr2cells)(p);
+
+    clen = mb_string2cells(im_str, len);
+
     if (input_conv.vc_type != CONV_NONE)
 	vim_free(im_str);
     preedit_start_col += clen;
@@ -3670,9 +4465,8 @@ im_commit_cb(GtkIMContext *context, const gchar *str, gpointer data)
 /*
  * Callback invoked after start to the preedit.
  */
-/*ARGSUSED*/
     static void
-im_preedit_start_cb(GtkIMContext *context, gpointer data)
+im_preedit_start_cb(GtkIMContext *context UNUSED, gpointer data UNUSED)
 {
 #ifdef XIM_DEBUG
     xim_log("im_preedit_start_cb()\n");
@@ -3687,9 +4481,8 @@ im_preedit_start_cb(GtkIMContext *context, gpointer data)
 /*
  * Callback invoked after end to the preedit.
  */
-/*ARGSUSED*/
     static void
-im_preedit_end_cb(GtkIMContext *context, gpointer data)
+im_preedit_end_cb(GtkIMContext *context UNUSED, gpointer data UNUSED)
 {
 #ifdef XIM_DEBUG
     xim_log("im_preedit_end_cb()\n");
@@ -3748,9 +4541,8 @@ im_preedit_end_cb(GtkIMContext *context, gpointer data)
  * remaining input from within the "retrieve_surrounding" signal handler, this
  * might not be necessary.  Gotta ask on vim-dev for opinions.
  */
-/*ARGSUSED1*/
     static void
-im_preedit_changed_cb(GtkIMContext *context, gpointer data)
+im_preedit_changed_cb(GtkIMContext *context, gpointer data UNUSED)
 {
     char    *preedit_string = NULL;
     int	    cursor_index    = 0;
@@ -4094,7 +4886,7 @@ xim_reset(void)
 	 *
 	 * An alternative approach would be to destroy the IM context and
 	 * recreate it.  But that means loading/unloading the IM module on
-	 * every mode switch, which causes a quite noticable delay even on
+	 * every mode switch, which causes a quite noticeable delay even on
 	 * my rather fast box...
 	 * *
 	 * Moreover, there are some XIM which cannot respond to
@@ -4280,7 +5072,19 @@ im_get_status(void)
     return im_is_active;
 }
 
-# else /* !HAVE_GTK2 */
+    int
+preedit_get_status(void)
+{
+    return preedit_is_active;
+}
+
+    int
+im_is_preediting()
+{
+    return xim_has_preediting;
+}
+
+# else /* !FEAT_GUI_GTK */
 
 static int	xim_is_active = FALSE;  /* XIM should be active in the current
 					   mode */
@@ -4289,147 +5093,6 @@ static int	xim_has_focus = FALSE;	/* XIM is really being used for Vim */
 static XIMStyle	input_style;
 static int	status_area_enabled = TRUE;
 #endif
-
-#ifdef FEAT_GUI_GTK
-# ifdef WIN3264
-#  include <gdk/gdkwin32.h>
-# else
-#  include <gdk/gdkx.h>
-# endif
-#else
-# ifdef PROTO
-/* Define a few things to be able to generate prototypes while not configured
- * for GTK. */
-#  define GSList int
-#  define gboolean int
-   typedef int GdkEvent;
-   typedef int GdkEventKey;
-#  define GdkIC int
-# endif
-#endif
-
-#if defined(FEAT_GUI_GTK) || defined(PROTO)
-static int	preedit_buf_len = 0;
-static int	xim_can_preediting INIT(= FALSE);	/* XIM in showmode() */
-static int	xim_input_style;
-#ifndef FEAT_GUI_GTK
-# define gboolean int
-#endif
-static gboolean	use_status_area = 0;
-
-static int im_xim_str2keycode __ARGS((unsigned int *code, unsigned int *state));
-static void im_xim_send_event_imactivate __ARGS((void));
-
-/*
- * Convert string to keycode and state for XKeyEvent.
- * When string is valid return OK, when invalid return FAIL.
- *
- * See 'imactivatekey' documentation for the format.
- */
-    static int
-im_xim_str2keycode(code, state)
-    unsigned int *code;
-    unsigned int *state;
-{
-    int		retval = OK;
-    int		len;
-    unsigned	keycode = 0, keystate = 0;
-    Window	window;
-    Display	*display;
-    char_u	*flag_end;
-    char_u	*str;
-
-    if (*p_imak != NUL)
-    {
-	len = STRLEN(p_imak);
-	for (flag_end = p_imak + len - 1;
-			    flag_end > p_imak && *flag_end != '-'; --flag_end)
-	    ;
-
-	/* Parse modifier keys */
-	for (str = p_imak; str < flag_end; ++str)
-	{
-	    switch (*str)
-	    {
-		case 's': case 'S':
-		    keystate |= ShiftMask;
-		    break;
-		case 'l': case 'L':
-		    keystate |= LockMask;
-		    break;
-		case 'c': case 'C':
-		    keystate |= ControlMask;
-		    break;
-		case '1':
-		    keystate |= Mod1Mask;
-		    break;
-		case '2':
-		    keystate |= Mod2Mask;
-		    break;
-		case '3':
-		    keystate |= Mod3Mask;
-		    break;
-		case '4':
-		    keystate |= Mod4Mask;
-		    break;
-		case '5':
-		    keystate |= Mod5Mask;
-		    break;
-		case '-':
-		    break;
-		default:
-		    retval = FAIL;
-	    }
-	}
-	if (*str == '-')
-	    ++str;
-
-	/* Get keycode from string. */
-	gui_get_x11_windis(&window, &display);
-	if (display)
-	    keycode = XKeysymToKeycode(display, XStringToKeysym((char *)str));
-	if (keycode == 0)
-	    retval = FAIL;
-
-	if (code != NULL)
-	    *code = keycode;
-	if (state != NULL)
-	    *state = keystate;
-    }
-    return retval;
-}
-
-    static void
-im_xim_send_event_imactivate()
-{
-    /* Force turn on preedit state by symulate keypress event.
-     * Keycode and state is specified by 'imactivatekey'.
-     */
-    XKeyEvent ev;
-
-    gui_get_x11_windis(&ev.window, &ev.display);
-    ev.root = RootWindow(ev.display, DefaultScreen(ev.display));
-    ev.subwindow = None;
-    ev.time = CurrentTime;
-    ev.x = 1;
-    ev.y = 1;
-    ev.x_root = 1;
-    ev.y_root = 1;
-    ev.same_screen = 1;
-    ev.type = KeyPress;
-    if (im_xim_str2keycode(&ev.keycode, &ev.state) == OK)
-	XSendEvent(ev.display, ev.window, 1, KeyPressMask, (XEvent*)&ev);
-}
-
-/*
- * Return TRUE if 'imactivatekey' has a valid value.
- */
-    int
-im_xim_isvalid_imactivate()
-{
-    return im_xim_str2keycode(NULL, NULL) == OK;
-}
-#endif /* FEAT_GUI_GTK */
 
 /*
  * Switch using XIM on/off.  This is used by the code that changes "State".
@@ -4444,7 +5107,7 @@ im_set_active(active)
     /* If 'imdisable' is set, XIM is never active. */
     if (p_imdisable)
 	active = FALSE;
-#if !defined (FEAT_GUI_GTK)
+#if !defined(FEAT_GUI_GTK)
     else if (input_style & XIMPreeditPosition)
 	/* There is a problem in switching XIM off when preediting is used,
 	 * and it is not clear how this can be solved.  For now, keep XIM on
@@ -4454,124 +5117,6 @@ im_set_active(active)
 
     /* Remember the active state, it is needed when Vim gets keyboard focus. */
     xim_is_active = active;
-
-#ifdef FEAT_GUI_GTK
-    /* When 'imactivatekey' has valid key-string, try to control XIM preedit
-     * state.  When 'imactivatekey' has no or invalid string, try old XIM
-     * focus control.
-     */
-    if (*p_imak != NUL)
-    {
-	/* BASIC STRATEGY:
-	 * Destroy old Input Context (XIC), and create new one.  New XIC
-	 * would have a state of preedit that is off.  When argument:active
-	 * is false, that's all.  Else argument:active is true, send a key
-	 * event specified by 'imactivatekey' to activate XIM preedit state.
-	 */
-
-	xim_is_active = TRUE; /* Disable old XIM focus control */
-	/* If we can monitor preedit state with preedit callback functions,
-	 * try least creation of new XIC.
-	 */
-	if (xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS)
-	{
-	    if (xim_can_preediting && !active)
-	    {
-		/* Force turn off preedit state.  With some IM
-		 * implementations, we cannot turn off preedit state by
-		 * symulate keypress event.  It is why using such a method
-		 * that destroy old IC (input context), and create new one.
-		 * When create new IC, its preedit state is usually off.
-		 */
-		xim_reset();
-		xim_set_focus(FALSE);
-		gdk_ic_destroy(xic);
-		xim_init();
-		xim_can_preediting = FALSE;
-	    }
-	    else if (!xim_can_preediting && active)
-		im_xim_send_event_imactivate();
-	}
-	else
-	{
-	    /* First, force destroy old IC, and create new one.  It
-	     * symulates "turning off preedit state".
-	     */
-	    xim_set_focus(FALSE);
-	    gdk_ic_destroy(xic);
-	    xim_init();
-	    xim_can_preediting = FALSE;
-
-	    /* 2nd, when requested to activate IM, symulate this by sending
-	     * the event.
-	     */
-	    if (active)
-	    {
-		im_xim_send_event_imactivate();
-		xim_can_preediting = TRUE;
-	    }
-	}
-    }
-    else
-    {
-# ifndef XIMPreeditUnKnown
-	/* X11R5 doesn't have these, it looks safe enough to define here. */
-	typedef unsigned long XIMPreeditState;
-#  define XIMPreeditUnKnown	0L
-#  define XIMPreeditEnable	1L
-#  define XIMPreeditDisable	(1L<<1)
-#  define XNPreeditState	"preeditState"
-# endif
-	XIMPreeditState preedit_state = XIMPreeditUnKnown;
-	XVaNestedList preedit_attr;
-	XIC pxic;
-
-	preedit_attr = XVaCreateNestedList(0,
-				XNPreeditState, &preedit_state,
-				NULL);
-	pxic = ((GdkICPrivate *)xic)->xic;
-
-	if (!XGetICValues(pxic, XNPreeditAttributes, preedit_attr, NULL))
-	{
-	    XFree(preedit_attr);
-	    preedit_attr = XVaCreateNestedList(0,
-				XNPreeditState,
-				active ? XIMPreeditEnable : XIMPreeditDisable,
-				NULL);
-	    XSetICValues(pxic, XNPreeditAttributes, preedit_attr, NULL);
-	    xim_can_preediting = active;
-	    xim_is_active = active;
-	}
-	XFree(preedit_attr);
-    }
-    if (xim_input_style & XIMPreeditCallbacks)
-    {
-	preedit_buf_len = 0;
-	init_preedit_start_col();
-    }
-#else
-# if 0
-	/* When had tested kinput2 + canna + Athena GUI version with
-	 * 'imactivatekey' is "s-space", im_xim_send_event_imactivate() did not
-	 * work correctly.  It just inserted one space.  I don't know why we
-	 * couldn't switch state of XIM preediting.  This is reason why these
-	 * codes are commented out.
-	 */
-	/* First, force destroy old IC, and create new one.  It symulates
-	 * "turning off preedit state".
-	 */
-	xim_set_focus(FALSE);
-	XDestroyIC(xic);
-	xic = NULL;
-	xim_init();
-
-	/* 2nd, when requested to activate IM, symulate this by sending the
-	 * event.
-	 */
-	if (active)
-	    im_xim_send_event_imactivate();
-# endif
-#endif
     xim_set_preedit();
 }
 
@@ -4595,11 +5140,7 @@ xim_set_focus(focus)
 	if (!xim_has_focus)
 	{
 	    xim_has_focus = TRUE;
-#ifdef FEAT_GUI_GTK
-	    gdk_im_begin(xic, gui.drawarea->window);
-#else
 	    XSetICFocus(xic);
-#endif
 	}
     }
     else
@@ -4607,20 +5148,15 @@ xim_set_focus(focus)
 	if (xim_has_focus)
 	{
 	    xim_has_focus = FALSE;
-#ifdef FEAT_GUI_GTK
-	    gdk_im_end();
-#else
 	    XUnsetICFocus(xic);
-#endif
 	}
     }
 }
 
-/*ARGSUSED*/
     void
 im_set_position(row, col)
-    int		row;
-    int		col;
+    int		row UNUSED;
+    int		col UNUSED;
 {
     xim_set_preedit();
 }
@@ -4636,282 +5172,53 @@ xim_set_preedit()
 
     xim_set_focus(TRUE);
 
-#ifdef FEAT_GUI_GTK
-    if (gdk_im_ready())
+    XVaNestedList attr_list;
+    XRectangle spot_area;
+    XPoint over_spot;
+    int line_space;
+
+    if (!xim_has_focus)
     {
-	int		attrmask;
-	GdkICAttr	*attr;
+	/* hide XIM cursor */
+	over_spot.x = 0;
+	over_spot.y = -100; /* arbitrary invisible position */
+	attr_list = (XVaNestedList) XVaCreateNestedList(0,
+							XNSpotLocation,
+							&over_spot,
+							NULL);
+	XSetICValues(xic, XNPreeditAttributes, attr_list, NULL);
+	XFree(attr_list);
+	return;
+    }
 
-	if (!xic_attr)
-	    return;
-
-	attr = xic_attr;
-	attrmask = 0;
-
-# ifdef FEAT_XFONTSET
-	if ((xim_input_style & (int)GDK_IM_PREEDIT_POSITION)
-		&& gui.fontset != NOFONTSET
-		&& gui.fontset->type == GDK_FONT_FONTSET)
-	{
-	    if (!xim_has_focus)
-	    {
-		if (attr->spot_location.y >= 0)
-		{
-		    attr->spot_location.x = 0;
-		    attr->spot_location.y = -100;
-		    attrmask |= (int)GDK_IC_SPOT_LOCATION;
-		}
-	    }
-	    else
-	    {
-		gint	width, height;
-
-		if (attr->spot_location.x != TEXT_X(gui.col)
-		    || attr->spot_location.y != TEXT_Y(gui.row))
-		{
-		    attr->spot_location.x = TEXT_X(gui.col);
-		    attr->spot_location.y = TEXT_Y(gui.row);
-		    attrmask |= (int)GDK_IC_SPOT_LOCATION;
-		}
-
-		gdk_window_get_size(gui.drawarea->window, &width, &height);
-		width -= 2 * gui.border_offset;
-		height -= 2 * gui.border_offset;
-		if (xim_input_style & (int)GDK_IM_STATUS_AREA)
-		    height -= gui.char_height;
-		if (attr->preedit_area.width != width
-		    || attr->preedit_area.height != height)
-		{
-		    attr->preedit_area.x = gui.border_offset;
-		    attr->preedit_area.y = gui.border_offset;
-		    attr->preedit_area.width = width;
-		    attr->preedit_area.height = height;
-		    attrmask |= (int)GDK_IC_PREEDIT_AREA;
-		}
-
-		if (attr->preedit_fontset != gui.current_font)
-		{
-		    attr->preedit_fontset = gui.current_font;
-		    attrmask |= (int)GDK_IC_PREEDIT_FONTSET;
-		}
-	    }
-	}
-# endif /* FEAT_XFONTSET */
-
+    if (input_style & XIMPreeditPosition)
+    {
 	if (xim_fg_color == INVALCOLOR)
 	{
 	    xim_fg_color = gui.def_norm_pixel;
 	    xim_bg_color = gui.def_back_pixel;
 	}
-	if (attr->preedit_foreground.pixel != xim_fg_color)
-	{
-	    attr->preedit_foreground.pixel = xim_fg_color;
-	    attrmask |= (int)GDK_IC_PREEDIT_FOREGROUND;
-	}
-	if (attr->preedit_background.pixel != xim_bg_color)
-	{
-	    attr->preedit_background.pixel = xim_bg_color;
-	    attrmask |= (int)GDK_IC_PREEDIT_BACKGROUND;
-	}
-
-	if (attrmask != 0)
-	    gdk_ic_set_attr(xic, attr, (GdkICAttributesType)attrmask);
+	over_spot.x = TEXT_X(gui.col);
+	over_spot.y = TEXT_Y(gui.row);
+	spot_area.x = 0;
+	spot_area.y = 0;
+	spot_area.height = gui.char_height * Rows;
+	spot_area.width  = gui.char_width * Columns;
+	line_space = gui.char_height;
+	attr_list = (XVaNestedList) XVaCreateNestedList(0,
+					XNSpotLocation, &over_spot,
+					XNForeground, (Pixel) xim_fg_color,
+					XNBackground, (Pixel) xim_bg_color,
+					XNArea, &spot_area,
+					XNLineSpace, line_space,
+					NULL);
+	if (XSetICValues(xic, XNPreeditAttributes, attr_list, NULL))
+	    EMSG(_("E284: Cannot set IC values"));
+	XFree(attr_list);
     }
-#else /* FEAT_GUI_GTK */
-    {
-	XVaNestedList attr_list;
-	XRectangle spot_area;
-	XPoint over_spot;
-	int line_space;
-
-	if (!xim_has_focus)
-	{
-	    /* hide XIM cursor */
-	    over_spot.x = 0;
-	    over_spot.y = -100; /* arbitrary invisible position */
-	    attr_list = (XVaNestedList) XVaCreateNestedList(0,
-							    XNSpotLocation,
-							    &over_spot,
-							    NULL);
-	    XSetICValues(xic, XNPreeditAttributes, attr_list, NULL);
-	    XFree(attr_list);
-	    return;
-	}
-
-	if (input_style & XIMPreeditPosition)
-	{
-	    if (xim_fg_color == INVALCOLOR)
-	    {
-		xim_fg_color = gui.def_norm_pixel;
-		xim_bg_color = gui.def_back_pixel;
-	    }
-	    over_spot.x = TEXT_X(gui.col);
-	    over_spot.y = TEXT_Y(gui.row);
-	    spot_area.x = 0;
-	    spot_area.y = 0;
-	    spot_area.height = gui.char_height * Rows;
-	    spot_area.width  = gui.char_width * Columns;
-	    line_space = gui.char_height;
-	    attr_list = (XVaNestedList) XVaCreateNestedList(0,
-					    XNSpotLocation, &over_spot,
-					    XNForeground, (Pixel) xim_fg_color,
-					    XNBackground, (Pixel) xim_bg_color,
-					    XNArea, &spot_area,
-					    XNLineSpace, line_space,
-					    NULL);
-	    if (XSetICValues(xic, XNPreeditAttributes, attr_list, NULL))
-		EMSG(_("E284: Cannot set IC values"));
-	    XFree(attr_list);
-	}
-    }
-#endif /* FEAT_GUI_GTK */
 }
 
-/*
- * Set up the status area.
- *
- * This should use a separate Widget, but that seems not possible, because
- * preedit_area and status_area should be set to the same window as for the
- * text input.  Unfortunately this means the status area pollutes the text
- * window...
- */
-    void
-xim_set_status_area()
-{
-    if (xic == NULL)
-	return;
-
-#ifdef FEAT_GUI_GTK
-# if defined(FEAT_XFONTSET)
-    if (use_status_area)
-    {
-	GdkICAttr	*attr;
-	int		style;
-	gint		width, height;
-	GtkWidget	*widget;
-	int		attrmask;
-
-	if (!xic_attr)
-	    return;
-
-	attr = xic_attr;
-	attrmask = 0;
-	style = (int)gdk_ic_get_style(xic);
-	if ((style & (int)GDK_IM_STATUS_MASK) == (int)GDK_IM_STATUS_AREA)
-	{
-	    if (gui.fontset != NOFONTSET
-		    && gui.fontset->type == GDK_FONT_FONTSET)
-	    {
-		widget = gui.mainwin;
-		gdk_window_get_size(widget->window, &width, &height);
-
-		attrmask |= (int)GDK_IC_STATUS_AREA;
-		attr->status_area.x = 0;
-		attr->status_area.y = height - gui.char_height - 1;
-		attr->status_area.width = width;
-		attr->status_area.height = gui.char_height;
-	    }
-	}
-	if (attrmask != 0)
-	    gdk_ic_set_attr(xic, attr, (GdkICAttributesType)attrmask);
-    }
-# endif
-#else
-    {
-	XVaNestedList preedit_list = 0, status_list = 0, list = 0;
-	XRectangle pre_area, status_area;
-
-	if (input_style & XIMStatusArea)
-	{
-	    if (input_style & XIMPreeditArea)
-	    {
-		XRectangle *needed_rect;
-
-		/* to get status_area width */
-		status_list = XVaCreateNestedList(0, XNAreaNeeded,
-						  &needed_rect, NULL);
-		XGetICValues(xic, XNStatusAttributes, status_list, NULL);
-		XFree(status_list);
-
-		status_area.width = needed_rect->width;
-	    }
-	    else
-		status_area.width = gui.char_width * Columns;
-
-	    status_area.x = 0;
-	    status_area.y = gui.char_height * Rows + gui.border_offset;
-	    if (gui.which_scrollbars[SBAR_BOTTOM])
-		status_area.y += gui.scrollbar_height;
-#ifdef FEAT_MENU
-	    if (gui.menu_is_active)
-		status_area.y += gui.menu_height;
-#endif
-	    status_area.height = gui.char_height;
-	    status_list = XVaCreateNestedList(0, XNArea, &status_area, NULL);
-	}
-	else
-	{
-	    status_area.x = 0;
-	    status_area.y = gui.char_height * Rows + gui.border_offset;
-	    if (gui.which_scrollbars[SBAR_BOTTOM])
-		status_area.y += gui.scrollbar_height;
-#ifdef FEAT_MENU
-	    if (gui.menu_is_active)
-		status_area.y += gui.menu_height;
-#endif
-	    status_area.width = 0;
-	    status_area.height = gui.char_height;
-	}
-
-	if (input_style & XIMPreeditArea)   /* off-the-spot */
-	{
-	    pre_area.x = status_area.x + status_area.width;
-	    pre_area.y = gui.char_height * Rows + gui.border_offset;
-	    pre_area.width = gui.char_width * Columns - pre_area.x;
-	    if (gui.which_scrollbars[SBAR_BOTTOM])
-		pre_area.y += gui.scrollbar_height;
-#ifdef FEAT_MENU
-	    if (gui.menu_is_active)
-		pre_area.y += gui.menu_height;
-#endif
-	    pre_area.height = gui.char_height;
-	    preedit_list = XVaCreateNestedList(0, XNArea, &pre_area, NULL);
-	}
-	else if (input_style & XIMPreeditPosition)   /* over-the-spot */
-	{
-	    pre_area.x = 0;
-	    pre_area.y = 0;
-	    pre_area.height = gui.char_height * Rows;
-	    pre_area.width = gui.char_width * Columns;
-	    preedit_list = XVaCreateNestedList(0, XNArea, &pre_area, NULL);
-	}
-
-	if (preedit_list && status_list)
-	    list = XVaCreateNestedList(0, XNPreeditAttributes, preedit_list,
-				       XNStatusAttributes, status_list, NULL);
-	else if (preedit_list)
-	    list = XVaCreateNestedList(0, XNPreeditAttributes, preedit_list,
-				       NULL);
-	else if (status_list)
-	    list = XVaCreateNestedList(0, XNStatusAttributes, status_list,
-				       NULL);
-	else
-	    list = NULL;
-
-	if (list)
-	{
-	    XSetICValues(xic, XNVaNestedList, list, NULL);
-	    XFree(list);
-	}
-	if (status_list)
-	    XFree(status_list);
-	if (preedit_list)
-	    XFree(preedit_list);
-    }
-#endif
-}
-
-#if defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK)
+#if defined(FEAT_GUI_X11)
 static char e_xim[] = N_("E285: Failed to create input context");
 #endif
 
@@ -4927,12 +5234,11 @@ static int xim_real_init __ARGS((Window x11_window, Display *x11_display));
 static void xim_instantiate_cb __ARGS((Display *display, XPointer client_data, XPointer	call_data));
 static void xim_destroy_cb __ARGS((XIM im, XPointer client_data, XPointer call_data));
 
-/*ARGSUSED*/
     static void
 xim_instantiate_cb(display, client_data, call_data)
     Display	*display;
-    XPointer	client_data;
-    XPointer	call_data;
+    XPointer	client_data UNUSED;
+    XPointer	call_data UNUSED;
 {
     Window	x11_window;
     Display	*x11_display;
@@ -4952,12 +5258,11 @@ xim_instantiate_cb(display, client_data, call_data)
 					 xim_instantiate_cb, NULL);
 }
 
-/*ARGSUSED*/
     static void
 xim_destroy_cb(im, client_data, call_data)
-    XIM		im;
-    XPointer	client_data;
-    XPointer	call_data;
+    XIM		im UNUSED;
+    XPointer	client_data UNUSED;
+    XPointer	call_data UNUSED;
 {
     Window	x11_window;
     Display	*x11_display;
@@ -5223,485 +5528,6 @@ xim_real_init(x11_window, x11_display)
 
 #endif /* FEAT_GUI_X11 */
 
-#if defined(FEAT_GUI_GTK) || defined(PROTO)
-
-# ifdef FEAT_XFONTSET
-static char e_overthespot[] = N_("E290: over-the-spot style requires fontset");
-# endif
-
-# ifdef PROTO
-typedef int GdkIC;
-# endif
-
-    void
-xim_decide_input_style()
-{
-    /* GDK_IM_STATUS_CALLBACKS was disabled, enabled it to allow Japanese
-     * OverTheSpot. */
-    int supported_style = (int)GDK_IM_PREEDIT_NONE |
-				 (int)GDK_IM_PREEDIT_NOTHING |
-				 (int)GDK_IM_PREEDIT_POSITION |
-				 (int)GDK_IM_PREEDIT_CALLBACKS |
-				 (int)GDK_IM_STATUS_CALLBACKS |
-				 (int)GDK_IM_STATUS_AREA |
-				 (int)GDK_IM_STATUS_NONE |
-				 (int)GDK_IM_STATUS_NOTHING;
-
-#ifdef XIM_DEBUG
-    xim_log("xim_decide_input_style()\n");
-#endif
-
-    if (!gdk_im_ready())
-	xim_input_style = 0;
-    else
-    {
-	if (gtk_major_version > 1
-		|| (gtk_major_version == 1
-		    && (gtk_minor_version > 2
-			|| (gtk_minor_version == 2 && gtk_micro_version >= 3))))
-	    use_status_area = TRUE;
-	else
-	{
-	    EMSG(_("E291: Your GTK+ is older than 1.2.3. Status area disabled"));
-	    use_status_area = FALSE;
-	}
-#ifdef FEAT_XFONTSET
-	if (gui.fontset == NOFONTSET || gui.fontset->type != GDK_FONT_FONTSET)
-#endif
-	    supported_style &= ~((int)GDK_IM_PREEDIT_POSITION
-						   | (int)GDK_IM_STATUS_AREA);
-	if (!use_status_area)
-	    supported_style &= ~(int)GDK_IM_STATUS_AREA;
-	xim_input_style = (int)gdk_im_decide_style((GdkIMStyle)supported_style);
-    }
-}
-
-/*ARGSUSED*/
-    static void
-preedit_start_cbproc(XIC thexic, XPointer client_data, XPointer call_data)
-{
-#ifdef XIM_DEBUG
-    xim_log("xim_decide_input_style()\n");
-#endif
-
-    draw_feedback = NULL;
-    xim_can_preediting = TRUE;
-    xim_has_preediting = TRUE;
-    gui_update_cursor(TRUE, FALSE);
-    if (showmode() > 0)
-    {
-	setcursor();
-	out_flush();
-    }
-}
-
-    static void
-xim_back_delete(int n)
-{
-    char_u str[3];
-
-    str[0] = CSI;
-    str[1] = 'k';
-    str[2] = 'b';
-    while (n-- > 0)
-	add_to_input_buf(str, 3);
-}
-
-static GSList *key_press_event_queue = NULL;
-static gboolean processing_queued_event = FALSE;
-
-/*ARGSUSED*/
-    static void
-preedit_draw_cbproc(XIC thexic, XPointer client_data, XPointer call_data)
-{
-    XIMPreeditDrawCallbackStruct *draw_data;
-    XIMText	*text;
-    char	*src;
-    GSList	*event_queue;
-
-#ifdef XIM_DEBUG
-    xim_log("preedit_draw_cbproc()\n");
-#endif
-
-    draw_data = (XIMPreeditDrawCallbackStruct *) call_data;
-    text = (XIMText *) draw_data->text;
-
-    if ((text == NULL && draw_data->chg_length == preedit_buf_len)
-						      || preedit_buf_len == 0)
-    {
-	init_preedit_start_col();
-	vim_free(draw_feedback);
-	draw_feedback = NULL;
-    }
-    if (draw_data->chg_length > 0)
-    {
-	int bs_cnt;
-
-	if (draw_data->chg_length > preedit_buf_len)
-	    bs_cnt = preedit_buf_len;
-	else
-	    bs_cnt = draw_data->chg_length;
-	xim_back_delete(bs_cnt);
-	preedit_buf_len -= bs_cnt;
-    }
-    if (text != NULL)
-    {
-	int		len;
-#ifdef FEAT_MBYTE
-	char_u		*buf = NULL;
-	unsigned int	nfeedback = 0;
-#endif
-	char_u		*ptr;
-
-	src = text->string.multi_byte;
-	if (src != NULL && !text->encoding_is_wchar)
-	{
-	    len = strlen(src);
-	    ptr = (char_u *)src;
-	    /* Avoid the enter for decision */
-	    if (*ptr == '\n')
-		return;
-
-#ifdef FEAT_MBYTE
-	    if (input_conv.vc_type != CONV_NONE
-		    && (buf = string_convert(&input_conv,
-						 (char_u *)src, &len)) != NULL)
-	    {
-		/* Converted from 'termencoding' to 'encoding'. */
-		add_to_input_buf_csi(buf, len);
-		ptr = buf;
-	    }
-	    else
-#endif
-		add_to_input_buf_csi((char_u *)src, len);
-	    /* Add count of character to preedit_buf_len  */
-	    while (*ptr != NUL)
-	    {
-#ifdef FEAT_MBYTE
-		if (draw_data->text->feedback != NULL)
-		{
-		    if (draw_feedback == NULL)
-			draw_feedback = (char *)alloc(draw_data->chg_first
-							      + text->length);
-		    else
-			draw_feedback = vim_realloc(draw_feedback,
-					 draw_data->chg_first + text->length);
-		    if (draw_feedback != NULL)
-		    {
-			draw_feedback[nfeedback + draw_data->chg_first]
-				       = draw_data->text->feedback[nfeedback];
-			nfeedback++;
-		    }
-		}
-		if (has_mbyte)
-		    ptr += (*mb_ptr2len)(ptr);
-		else
-#endif
-		    ptr++;
-		preedit_buf_len++;
-	    }
-#ifdef FEAT_MBYTE
-	    vim_free(buf);
-#endif
-	    preedit_end_col = MAXCOL;
-	}
-    }
-    if (text != NULL || draw_data->chg_length > 0)
-    {
-	event_queue = key_press_event_queue;
-	processing_queued_event = TRUE;
-	while (event_queue != NULL && processing_queued_event)
-	{
-	    GdkEvent *ev = event_queue->data;
-
-	    gboolean *ret;
-	    gtk_signal_emit_by_name((GtkObject*)gui.mainwin, "key_press_event",
-								    ev, &ret);
-	    gdk_event_free(ev);
-	    event_queue = event_queue->next;
-	}
-	processing_queued_event = FALSE;
-	if (key_press_event_queue)
-	{
-	    g_slist_free(key_press_event_queue);
-	    key_press_event_queue = NULL;
-	}
-    }
-    if (gtk_main_level() > 0)
-	gtk_main_quit();
-}
-
-/*
- * Retrieve the highlighting attributes at column col in the preedit string.
- * Return -1 if not in preediting mode or if col is out of range.
- */
-    int
-im_get_feedback_attr(int col)
-{
-    if (draw_feedback != NULL && col < preedit_buf_len)
-    {
-	if (draw_feedback[col] & XIMReverse)
-	    return HL_INVERSE;
-	else if (draw_feedback[col] & XIMUnderline)
-	    return HL_UNDERLINE;
-	else
-	    return hl_attr(HLF_V);
-    }
-
-    return -1;
-}
-
-/*ARGSUSED*/
-    static void
-preedit_caret_cbproc(XIC thexic, XPointer client_data, XPointer call_data)
-{
-#ifdef XIM_DEBUG
-    xim_log("preedit_caret_cbproc()\n");
-#endif
-}
-
-/*ARGSUSED*/
-    static void
-preedit_done_cbproc(XIC thexic, XPointer client_data, XPointer call_data)
-{
-#ifdef XIM_DEBUG
-    xim_log("preedit_done_cbproc()\n");
-#endif
-
-    vim_free(draw_feedback);
-    draw_feedback = NULL;
-    xim_can_preediting = FALSE;
-    xim_has_preediting = FALSE;
-    gui_update_cursor(TRUE, FALSE);
-    if (showmode() > 0)
-    {
-	setcursor();
-	out_flush();
-    }
-}
-
-    void
-xim_reset(void)
-{
-    char *text;
-
-#ifdef XIM_DEBUG
-    xim_log("xim_reset()\n");
-#endif
-
-    if (xic != NULL)
-    {
-	text = XmbResetIC(((GdkICPrivate *)xic)->xic);
-	if (text != NULL && !(xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS))
-	    add_to_input_buf_csi((char_u *)text, strlen(text));
-	else
-	    preedit_buf_len = 0;
-	if (text != NULL)
-	    XFree(text);
-    }
-}
-
-/*ARGSUSED*/
-    int
-xim_queue_key_press_event(GdkEventKey *event, int down)
-{
-#ifdef XIM_DEBUG
-    xim_log("xim_queue_key_press_event()\n");
-#endif
-
-    if (preedit_buf_len <= 0)
-	return FALSE;
-    if (processing_queued_event)
-	processing_queued_event = FALSE;
-
-    key_press_event_queue = g_slist_append(key_press_event_queue,
-					   gdk_event_copy((GdkEvent *)event));
-    return TRUE;
-}
-
-/*ARGSUSED*/
-    static void
-preedit_callback_setup(GdkIC *ic)
-{
-    XIC xxic;
-    XVaNestedList preedit_attr;
-    XIMCallback preedit_start_cb;
-    XIMCallback preedit_draw_cb;
-    XIMCallback preedit_caret_cb;
-    XIMCallback preedit_done_cb;
-
-    xxic = ((GdkICPrivate*)xic)->xic;
-    preedit_start_cb.callback = (XIMProc)preedit_start_cbproc;
-    preedit_draw_cb.callback = (XIMProc)preedit_draw_cbproc;
-    preedit_caret_cb.callback = (XIMProc)preedit_caret_cbproc;
-    preedit_done_cb.callback = (XIMProc)preedit_done_cbproc;
-    preedit_attr
-	 = XVaCreateNestedList(0,
-			       XNPreeditStartCallback, &preedit_start_cb,
-			       XNPreeditDrawCallback, &preedit_draw_cb,
-			       XNPreeditCaretCallback, &preedit_caret_cb,
-			       XNPreeditDoneCallback, &preedit_done_cb,
-			       NULL);
-    XSetICValues(xxic, XNPreeditAttributes, preedit_attr, NULL);
-    XFree(preedit_attr);
-}
-
-/*ARGSUSED*/
-    static void
-reset_state_setup(GdkIC *ic)
-{
-#ifdef USE_X11R6_XIM
-    /* don't change the input context when we call reset */
-    XSetICValues(((GdkICPrivate *)ic)->xic, XNResetState, XIMPreserveState,
-									NULL);
-#endif
-}
-
-    void
-xim_init(void)
-{
-#ifdef XIM_DEBUG
-    xim_log("xim_init()\n");
-#endif
-
-    xic = NULL;
-    xic_attr = NULL;
-
-    if (!gdk_im_ready())
-    {
-	if (p_verbose > 0)
-	{
-	    verbose_enter();
-	    EMSG(_("E292: Input Method Server is not running"));
-	    verbose_leave();
-	}
-	return;
-    }
-    if ((xic_attr = gdk_ic_attr_new()) != NULL)
-    {
-#ifdef FEAT_XFONTSET
-	gint width, height;
-#endif
-	int		mask;
-	GdkColormap	*colormap;
-	GdkICAttr	*attr = xic_attr;
-	int		attrmask = (int)GDK_IC_ALL_REQ;
-	GtkWidget	*widget = gui.drawarea;
-
-	attr->style = (GdkIMStyle)xim_input_style;
-	attr->client_window = gui.mainwin->window;
-
-	if ((colormap = gtk_widget_get_colormap(widget)) !=
-	    gtk_widget_get_default_colormap())
-	{
-	    attrmask |= (int)GDK_IC_PREEDIT_COLORMAP;
-	    attr->preedit_colormap = colormap;
-	}
-	attrmask |= (int)GDK_IC_PREEDIT_FOREGROUND;
-	attrmask |= (int)GDK_IC_PREEDIT_BACKGROUND;
-	attr->preedit_foreground = widget->style->fg[GTK_STATE_NORMAL];
-	attr->preedit_background = widget->style->base[GTK_STATE_NORMAL];
-
-#ifdef FEAT_XFONTSET
-	if ((xim_input_style & (int)GDK_IM_PREEDIT_MASK)
-					      == (int)GDK_IM_PREEDIT_POSITION)
-	{
-	    if (gui.fontset == NOFONTSET
-		    || gui.fontset->type != GDK_FONT_FONTSET)
-	    {
-		EMSG(_(e_overthespot));
-	    }
-	    else
-	    {
-		gdk_window_get_size(widget->window, &width, &height);
-
-		attrmask |= (int)GDK_IC_PREEDIT_POSITION_REQ;
-		attr->spot_location.x = TEXT_X(0);
-		attr->spot_location.y = TEXT_Y(0);
-		attr->preedit_area.x = gui.border_offset;
-		attr->preedit_area.y = gui.border_offset;
-		attr->preedit_area.width = width - 2*gui.border_offset;
-		attr->preedit_area.height = height - 2*gui.border_offset;
-		attr->preedit_fontset = gui.fontset;
-	    }
-	}
-
-	if ((xim_input_style & (int)GDK_IM_STATUS_MASK)
-						   == (int)GDK_IM_STATUS_AREA)
-	{
-	    if (gui.fontset == NOFONTSET
-		    || gui.fontset->type != GDK_FONT_FONTSET)
-	    {
-		EMSG(_(e_overthespot));
-	    }
-	    else
-	    {
-		gdk_window_get_size(gui.mainwin->window, &width, &height);
-		attrmask |= (int)GDK_IC_STATUS_AREA_REQ;
-		attr->status_area.x = 0;
-		attr->status_area.y = height - gui.char_height - 1;
-		attr->status_area.width = width;
-		attr->status_area.height = gui.char_height;
-		attr->status_fontset = gui.fontset;
-	    }
-	}
-	else if ((xim_input_style & (int)GDK_IM_STATUS_MASK)
-					      == (int)GDK_IM_STATUS_CALLBACKS)
-	{
-	    /* FIXME */
-	}
-#endif
-
-	xic = gdk_ic_new(attr, (GdkICAttributesType)attrmask);
-
-	if (xic == NULL)
-	    EMSG(_(e_xim));
-	else
-	{
-	    mask = (int)gdk_window_get_events(widget->window);
-	    mask |= (int)gdk_ic_get_events(xic);
-	    gdk_window_set_events(widget->window, (GdkEventMask)mask);
-	    if (xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS)
-		preedit_callback_setup(xic);
-	    reset_state_setup(xic);
-	}
-    }
-}
-
-    void
-im_shutdown(void)
-{
-#ifdef XIM_DEBUG
-    xim_log("im_shutdown()\n");
-#endif
-
-    if (xic != NULL)
-    {
-	gdk_im_end();
-	gdk_ic_destroy(xic);
-	xic = NULL;
-    }
-    xim_is_active = FALSE;
-    xim_can_preediting = FALSE;
-    preedit_start_col = MAXCOL;
-    xim_has_preediting = FALSE;
-}
-
-#endif /* FEAT_GUI_GTK */
-
-    int
-xim_get_status_area_height()
-{
-#ifdef FEAT_GUI_GTK
-    if (xim_input_style & (int)GDK_IM_STATUS_AREA)
-	return gui.char_height;
-#else
-    if (status_area_enabled)
-	return gui.char_height;
-#endif
-    return 0;
-}
-
 /*
  * Get IM status.  When IM is on, return TRUE.  Else return FALSE.
  * FIXME: This doesn't work correctly: Having focus doesn't always mean XIM is
@@ -5711,30 +5537,126 @@ xim_get_status_area_height()
     int
 im_get_status()
 {
-#  ifdef FEAT_GUI_GTK
-    if (xim_input_style & (int)GDK_IM_PREEDIT_CALLBACKS)
-	return xim_can_preediting;
-#  endif
     return xim_has_focus;
 }
 
-# endif /* !HAVE_GTK2 */
+# endif /* !FEAT_GUI_GTK */
 
-# if defined(HAVE_GTK2) || defined(PROTO)
-    int
-preedit_get_status(void)
+# if !defined(FEAT_GUI_GTK) || defined(PROTO)
+/*
+ * Set up the status area.
+ *
+ * This should use a separate Widget, but that seems not possible, because
+ * preedit_area and status_area should be set to the same window as for the
+ * text input.  Unfortunately this means the status area pollutes the text
+ * window...
+ */
+    void
+xim_set_status_area()
 {
-    return preedit_is_active;
+    if (xic == NULL)
+	return;
+
+    XVaNestedList preedit_list = 0, status_list = 0, list = 0;
+    XRectangle pre_area, status_area;
+
+    if (input_style & XIMStatusArea)
+    {
+	if (input_style & XIMPreeditArea)
+	{
+	    XRectangle *needed_rect;
+
+	    /* to get status_area width */
+	    status_list = XVaCreateNestedList(0, XNAreaNeeded,
+					      &needed_rect, NULL);
+	    XGetICValues(xic, XNStatusAttributes, status_list, NULL);
+	    XFree(status_list);
+
+	    status_area.width = needed_rect->width;
+	}
+	else
+	    status_area.width = gui.char_width * Columns;
+
+	status_area.x = 0;
+	status_area.y = gui.char_height * Rows + gui.border_offset;
+	if (gui.which_scrollbars[SBAR_BOTTOM])
+	    status_area.y += gui.scrollbar_height;
+#ifdef FEAT_MENU
+	if (gui.menu_is_active)
+	    status_area.y += gui.menu_height;
+#endif
+	status_area.height = gui.char_height;
+	status_list = XVaCreateNestedList(0, XNArea, &status_area, NULL);
+    }
+    else
+    {
+	status_area.x = 0;
+	status_area.y = gui.char_height * Rows + gui.border_offset;
+	if (gui.which_scrollbars[SBAR_BOTTOM])
+	    status_area.y += gui.scrollbar_height;
+#ifdef FEAT_MENU
+	if (gui.menu_is_active)
+	    status_area.y += gui.menu_height;
+#endif
+	status_area.width = 0;
+	status_area.height = gui.char_height;
+    }
+
+    if (input_style & XIMPreeditArea)   /* off-the-spot */
+    {
+	pre_area.x = status_area.x + status_area.width;
+	pre_area.y = gui.char_height * Rows + gui.border_offset;
+	pre_area.width = gui.char_width * Columns - pre_area.x;
+	if (gui.which_scrollbars[SBAR_BOTTOM])
+	    pre_area.y += gui.scrollbar_height;
+#ifdef FEAT_MENU
+	if (gui.menu_is_active)
+	    pre_area.y += gui.menu_height;
+#endif
+	pre_area.height = gui.char_height;
+	preedit_list = XVaCreateNestedList(0, XNArea, &pre_area, NULL);
+    }
+    else if (input_style & XIMPreeditPosition)   /* over-the-spot */
+    {
+	pre_area.x = 0;
+	pre_area.y = 0;
+	pre_area.height = gui.char_height * Rows;
+	pre_area.width = gui.char_width * Columns;
+	preedit_list = XVaCreateNestedList(0, XNArea, &pre_area, NULL);
+    }
+
+    if (preedit_list && status_list)
+	list = XVaCreateNestedList(0, XNPreeditAttributes, preedit_list,
+				   XNStatusAttributes, status_list, NULL);
+    else if (preedit_list)
+	list = XVaCreateNestedList(0, XNPreeditAttributes, preedit_list,
+				   NULL);
+    else if (status_list)
+	list = XVaCreateNestedList(0, XNStatusAttributes, status_list,
+				   NULL);
+    else
+	list = NULL;
+
+    if (list)
+    {
+	XSetICValues(xic, XNVaNestedList, list, NULL);
+	XFree(list);
+    }
+    if (status_list)
+	XFree(status_list);
+    if (preedit_list)
+	XFree(preedit_list);
+}
+
+    int
+xim_get_status_area_height()
+{
+    if (status_area_enabled)
+	return gui.char_height;
+    return 0;
 }
 # endif
 
-# if defined(FEAT_GUI_GTK) || defined(PROTO)
-    int
-im_is_preediting()
-{
-    return xim_has_preediting;
-}
-# endif
 #endif /* FEAT_XIM */
 
 #if defined(FEAT_MBYTE) || defined(PROTO)
@@ -5754,8 +5676,25 @@ convert_setup(vcp, from, to)
     char_u	*from;
     char_u	*to;
 {
+    return convert_setup_ext(vcp, from, TRUE, to, TRUE);
+}
+
+/*
+ * As convert_setup(), but only when from_unicode_is_utf8 is TRUE will all
+ * "from" unicode charsets be considered utf-8.  Same for "to".
+ */
+    int
+convert_setup_ext(vcp, from, from_unicode_is_utf8, to, to_unicode_is_utf8)
+    vimconv_T	*vcp;
+    char_u	*from;
+    int		from_unicode_is_utf8;
+    char_u	*to;
+    int		to_unicode_is_utf8;
+{
     int		from_prop;
     int		to_prop;
+    int		from_is_utf8;
+    int		to_is_utf8;
 
     /* Reset to no conversion. */
 # ifdef USE_ICONV
@@ -5773,37 +5712,46 @@ convert_setup(vcp, from, to)
 
     from_prop = enc_canon_props(from);
     to_prop = enc_canon_props(to);
-    if ((from_prop & ENC_LATIN1) && (to_prop & ENC_UNICODE))
+    if (from_unicode_is_utf8)
+	from_is_utf8 = from_prop & ENC_UNICODE;
+    else
+	from_is_utf8 = from_prop == ENC_UNICODE;
+    if (to_unicode_is_utf8)
+	to_is_utf8 = to_prop & ENC_UNICODE;
+    else
+	to_is_utf8 = to_prop == ENC_UNICODE;
+
+    if ((from_prop & ENC_LATIN1) && to_is_utf8)
     {
 	/* Internal latin1 -> utf-8 conversion. */
 	vcp->vc_type = CONV_TO_UTF8;
 	vcp->vc_factor = 2;	/* up to twice as long */
     }
-    else if ((from_prop & ENC_LATIN9) && (to_prop & ENC_UNICODE))
+    else if ((from_prop & ENC_LATIN9) && to_is_utf8)
     {
 	/* Internal latin9 -> utf-8 conversion. */
 	vcp->vc_type = CONV_9_TO_UTF8;
 	vcp->vc_factor = 3;	/* up to three as long (euro sign) */
     }
-    else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_LATIN1))
+    else if (from_is_utf8 && (to_prop & ENC_LATIN1))
     {
 	/* Internal utf-8 -> latin1 conversion. */
 	vcp->vc_type = CONV_TO_LATIN1;
     }
-    else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_LATIN9))
+    else if (from_is_utf8 && (to_prop & ENC_LATIN9))
     {
 	/* Internal utf-8 -> latin9 conversion. */
 	vcp->vc_type = CONV_TO_LATIN9;
     }
 #ifdef WIN3264
     /* Win32-specific codepage <-> codepage conversion without iconv. */
-    else if (((from_prop & ENC_UNICODE) || encname2codepage(from) > 0)
-	    && ((to_prop & ENC_UNICODE) || encname2codepage(to) > 0))
+    else if ((from_is_utf8 || encname2codepage(from) > 0)
+	    && (to_is_utf8 || encname2codepage(to) > 0))
     {
 	vcp->vc_type = CONV_CODEPAGE;
 	vcp->vc_factor = 2;	/* up to twice as long */
-	vcp->vc_cpfrom = (from_prop & ENC_UNICODE) ? 0 : encname2codepage(from);
-	vcp->vc_cpto = (to_prop & ENC_UNICODE) ? 0 : encname2codepage(to);
+	vcp->vc_cpfrom = from_is_utf8 ? 0 : encname2codepage(from);
+	vcp->vc_cpto = to_is_utf8 ? 0 : encname2codepage(to);
     }
 #endif
 #ifdef MACOS_X
@@ -5811,7 +5759,7 @@ convert_setup(vcp, from, to)
     {
 	vcp->vc_type = CONV_MAC_LATIN1;
     }
-    else if ((from_prop & ENC_MACROMAN) && (to_prop & ENC_UNICODE))
+    else if ((from_prop & ENC_MACROMAN) && to_is_utf8)
     {
 	vcp->vc_type = CONV_MAC_UTF8;
 	vcp->vc_factor = 2;	/* up to twice as long */
@@ -5820,7 +5768,7 @@ convert_setup(vcp, from, to)
     {
 	vcp->vc_type = CONV_LATIN1_MAC;
     }
-    else if ((from_prop & ENC_UNICODE) && (to_prop & ENC_MACROMAN))
+    else if (from_is_utf8 && (to_prop & ENC_MACROMAN))
     {
 	vcp->vc_type = CONV_UTF8_MAC;
     }
@@ -5830,8 +5778,8 @@ convert_setup(vcp, from, to)
     {
 	/* Use iconv() for conversion. */
 	vcp->vc_fd = (iconv_t)my_iconv_open(
-		(to_prop & ENC_UNICODE) ? (char_u *)"utf-8" : to,
-		(from_prop & ENC_UNICODE) ? (char_u *)"utf-8" : from);
+		to_is_utf8 ? (char_u *)"utf-8" : to,
+		from_is_utf8 ? (char_u *)"utf-8" : from);
 	if (vcp->vc_fd != (iconv_t)-1)
 	{
 	    vcp->vc_type = CONV_ICONV;
@@ -6003,12 +5951,20 @@ string_convert_ext(vcp, ptr, lenp, unconvlenp)
 	    d = retval;
 	    for (i = 0; i < len; ++i)
 	    {
-		l = utf_ptr2len(ptr + i);
+		l = utf_ptr2len_len(ptr + i, len - i);
 		if (l == 0)
 		    *d++ = NUL;
 		else if (l == 1)
 		{
-		    if (unconvlenp != NULL && utf8len_tab[ptr[i]] > len - i)
+		    int l_w = utf8len_tab_zero[ptr[i]];
+
+		    if (l_w == 0)
+		    {
+			/* Illegal utf-8 byte cannot be converted */
+			vim_free(retval);
+			return NULL;
+		    }
+		    if (unconvlenp != NULL && l_w > len - i)
 		    {
 			/* Incomplete sequence at the end. */
 			*unconvlenp = len - i;
@@ -6087,9 +6043,7 @@ string_convert_ext(vcp, ptr, lenp, unconvlenp)
 
 # ifdef USE_ICONV
 	case CONV_ICONV:	/* conversion with output_conv.vc_fd */
-	    retval = iconv_string(vcp, ptr, len, unconvlenp);
-	    if (retval != NULL && lenp != NULL)
-		*lenp = (int)STRLEN(retval);
+	    retval = iconv_string(vcp, ptr, len, unconvlenp, lenp);
 	    break;
 # endif
 # ifdef WIN3264

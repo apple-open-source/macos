@@ -14,7 +14,7 @@
 #ifndef BITCODE_READER_H
 #define BITCODE_READER_H
 
-#include "llvm/ModuleProvider.h"
+#include "llvm/GVMaterializer.h"
 #include "llvm/Attributes.h"
 #include "llvm/Type.h"
 #include "llvm/OperandTraits.h"
@@ -26,6 +26,7 @@
 
 namespace llvm {
   class MemoryBuffer;
+  class LLVMContext;
   
 //===----------------------------------------------------------------------===//
 //                          BitcodeReaderValueList Class
@@ -43,8 +44,9 @@ class BitcodeReaderValueList {
   /// number that holds the resolved value.
   typedef std::vector<std::pair<Constant*, unsigned> > ResolveConstantsTy;
   ResolveConstantsTy ResolveConstants;
+  LLVMContext& Context;
 public:
-  BitcodeReaderValueList() {}
+  BitcodeReaderValueList(LLVMContext& C) : Context(C) {}
   ~BitcodeReaderValueList() {
     assert(ResolveConstants.empty() && "Constants not resolved?");
   }
@@ -84,8 +86,46 @@ public:
   void ResolveConstantForwardRefs();
 };
 
-class BitcodeReader : public ModuleProvider {
+
+//===----------------------------------------------------------------------===//
+//                          BitcodeReaderMDValueList Class
+//===----------------------------------------------------------------------===//
+
+class BitcodeReaderMDValueList {
+  std::vector<WeakVH> MDValuePtrs;
+  
+  LLVMContext &Context;
+public:
+  BitcodeReaderMDValueList(LLVMContext& C) : Context(C) {}
+
+  // vector compatibility methods
+  unsigned size() const       { return MDValuePtrs.size(); }
+  void resize(unsigned N)     { MDValuePtrs.resize(N); }
+  void push_back(Value *V)    { MDValuePtrs.push_back(V);  }
+  void clear()                { MDValuePtrs.clear();  }
+  Value *back() const         { return MDValuePtrs.back(); }
+  void pop_back()             { MDValuePtrs.pop_back(); }
+  bool empty() const          { return MDValuePtrs.empty(); }
+  
+  Value *operator[](unsigned i) const {
+    assert(i < MDValuePtrs.size());
+    return MDValuePtrs[i];
+  }
+  
+  void shrinkTo(unsigned N) {
+    assert(N <= size() && "Invalid shrinkTo request!");
+    MDValuePtrs.resize(N);
+  }
+
+  Value *getValueFwdRef(unsigned Idx);
+  void AssignValue(Value *V, unsigned Idx);
+};
+
+class BitcodeReader : public GVMaterializer {
+  LLVMContext &Context;
+  Module *TheModule;
   MemoryBuffer *Buffer;
+  bool BufferOwned;
   BitstreamReader StreamFile;
   BitstreamCursor Stream;
   
@@ -93,6 +133,9 @@ class BitcodeReader : public ModuleProvider {
   
   std::vector<PATypeHolder> TypeList;
   BitcodeReaderValueList ValueList;
+  BitcodeReaderMDValueList MDValueList;
+  SmallVector<Instruction *, 64> InstructionList;
+
   std::vector<std::pair<GlobalVariable*, unsigned> > GlobalInits;
   std::vector<std::pair<GlobalAlias*, unsigned> > AliasInits;
   
@@ -119,12 +162,19 @@ class BitcodeReader : public ModuleProvider {
   bool HasReversedFunctionsWithBodies;
   
   /// DeferredFunctionInfo - When function bodies are initially scanned, this
-  /// map contains info about where to find deferred function body (in the
-  /// stream) and what linkage the original function had.
-  DenseMap<Function*, std::pair<uint64_t, unsigned> > DeferredFunctionInfo;
+  /// map contains info about where to find deferred function body in the
+  /// stream.
+  DenseMap<Function*, uint64_t> DeferredFunctionInfo;
+  
+  /// BlockAddrFwdRefs - These are blockaddr references to basic blocks.  These
+  /// are resolved lazily when functions are loaded.
+  typedef std::pair<unsigned, GlobalVariable*> BlockAddrRefTy;
+  DenseMap<Function*, std::vector<BlockAddrRefTy> > BlockAddrFwdRefs;
+  
 public:
-  explicit BitcodeReader(MemoryBuffer *buffer)
-      : Buffer(buffer), ErrorString(0) {
+  explicit BitcodeReader(MemoryBuffer *buffer, LLVMContext &C)
+    : Context(C), TheModule(0), Buffer(buffer), BufferOwned(false),
+      ErrorString(0), ValueList(C), MDValueList(C) {
     HasReversedFunctionsWithBodies = false;
   }
   ~BitcodeReader() {
@@ -133,17 +183,15 @@ public:
   
   void FreeState();
   
-  /// releaseMemoryBuffer - This causes the reader to completely forget about
-  /// the memory buffer it contains, which prevents the buffer from being
-  /// destroyed when it is deleted.
-  void releaseMemoryBuffer() {
-    Buffer = 0;
-  }
+  /// setBufferOwned - If this is true, the reader will destroy the MemoryBuffer
+  /// when the reader is destroyed.
+  void setBufferOwned(bool Owned) { BufferOwned = Owned; }
   
-  virtual bool materializeFunction(Function *F, std::string *ErrInfo = 0);
-  virtual Module *materializeModule(std::string *ErrInfo = 0);
-  virtual void dematerializeFunction(Function *F);
-  virtual Module *releaseModule(std::string *ErrInfo = 0);
+  virtual bool isMaterializable(const GlobalValue *GV) const;
+  virtual bool isDematerializable(const GlobalValue *GV) const;
+  virtual bool Materialize(GlobalValue *GV, std::string *ErrInfo = 0);
+  virtual bool MaterializeModule(Module *M, std::string *ErrInfo = 0);
+  virtual void Dematerialize(GlobalValue *GV);
 
   bool Error(const char *Str) {
     ErrorString = Str;
@@ -153,11 +201,14 @@ public:
   
   /// @brief Main interface to parsing a bitcode buffer.
   /// @returns true if an error occurred.
-  bool ParseBitcode();
+  bool ParseBitcodeInto(Module *M);
 private:
   const Type *getTypeByID(unsigned ID, bool isTypeTable = false);
   Value *getFnValueByID(unsigned ID, const Type *Ty) {
-    return ValueList.getValueFwdRef(ID, Ty);
+    if (Ty == Type::getMetadataTy(Context))
+      return MDValueList.getValueFwdRef(ID);
+    else
+      return ValueList.getValueFwdRef(ID, Ty);
   }
   BasicBlock *getBasicBlock(unsigned ID) const {
     if (ID >= FunctionBBs.size()) return 0; // Invalid ID
@@ -198,7 +249,7 @@ private:
   }
 
   
-  bool ParseModule(const std::string &ModuleID);
+  bool ParseModule();
   bool ParseAttributeBlock();
   bool ParseTypeTable();
   bool ParseTypeSymbolTable();
@@ -207,6 +258,8 @@ private:
   bool RememberAndSkipFunctionBody();
   bool ParseFunctionBody(Function *F);
   bool ResolveGlobalAndAliasInits();
+  bool ParseMetadata();
+  bool ParseMetadataAttachment();
 };
   
 } // End llvm namespace

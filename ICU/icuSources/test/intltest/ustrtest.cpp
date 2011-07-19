@@ -1,15 +1,17 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
 #include "ustrtest.h"
+#include "unicode/std_string.h"
 #include "unicode/unistr.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
 #include "unicode/locid.h"
 #include "unicode/ucnv.h"
+#include "unicode/uenum.h"
 #include "cmemory.h"
 #include "charstr.h"
 
@@ -56,8 +58,10 @@ void UnicodeStringTest::runIndexedTest( int32_t index, UBool exec, const char* &
         case 13: name = "TestUnescape"; if (exec) TestUnescape(); break;
         case 14: name = "TestCountChar32"; if (exec) TestCountChar32(); break;
         case 15: name = "TestStringEnumeration"; if (exec) TestStringEnumeration(); break;
-        case 16: name = "TestCharString"; if (exec) TestCharString(); break;
-        case 17: name = "TestNameSpace"; if (exec) TestNameSpace(); break;
+        case 16: name = "TestNameSpace"; if (exec) TestNameSpace(); break;
+        case 17: name = "TestUTF32"; if (exec) TestUTF32(); break;
+        case 18: name = "TestUTF8"; if (exec) TestUTF8(); break;
+        case 19: name = "TestReadOnlyAlias"; if (exec) TestReadOnlyAlias(); break;
 
         default: name = ""; break; //needed to end loop
     }
@@ -229,6 +233,29 @@ UnicodeStringTest::TestBasicManipulation()
             errln("UnicodeString(const char *, length, cnv, errorCode) does not work with length==-1");
         }
     }
+
+#if U_CHARSET_IS_UTF8
+    {
+        // Test the hardcoded-UTF-8 UnicodeString optimizations.
+        static const uint8_t utf8[]={ 0x61, 0xC3, 0xA4, 0xC3, 0x9F, 0xE4, 0xB8, 0x80, 0 };
+        static const UChar utf16[]={ 0x61, 0xE4, 0xDF, 0x4E00 };
+        UnicodeString from8a = UnicodeString((const char *)utf8);
+        UnicodeString from8b = UnicodeString((const char *)utf8, (int32_t)sizeof(utf8)-1);
+        UnicodeString from16(FALSE, utf16, LENGTHOF(utf16));
+        if(from8a != from16 || from8b != from16) {
+            errln("UnicodeString(const char * U_CHARSET_IS_UTF8) failed");
+        }
+        char buffer[16];
+        int32_t length8=from16.extract(0, 0x7fffffff, buffer, (uint32_t)sizeof(buffer));
+        if(length8!=((int32_t)sizeof(utf8)-1) || 0!=uprv_memcmp(buffer, utf8, sizeof(utf8))) {
+            errln("UnicodeString::extract(char * U_CHARSET_IS_UTF8) failed");
+        }
+        length8=from16.extract(1, 2, buffer, (uint32_t)sizeof(buffer));
+        if(length8!=4 || buffer[length8]!=0 || 0!=uprv_memcmp(buffer, utf8+1, length8)) {
+            errln("UnicodeString::extract(substring to char * U_CHARSET_IS_UTF8) failed");
+        }
+    }
+#endif
 }
 
 void
@@ -979,6 +1006,16 @@ UnicodeStringTest::TestReverse()
     if(test.char32At(0)!=0x1ed0 || test.char32At(1)!=0xc4 || test.char32At(2)!=0x1d15f || test.char32At(4)!=0x2f999) {
         errln("reverse() failed with supplementary characters");
     }
+
+    // Test case for ticket #8091:
+    // UnicodeString::reverse() failed to see a lead surrogate in the middle of
+    // an odd-length string that contains no other lead surrogates.
+    test=UNICODE_STRING_SIMPLE("ab\\U0001F4A9e").unescape();
+    UnicodeString expected=UNICODE_STRING_SIMPLE("e\\U0001F4A9ba").unescape();
+    test.reverse();
+    if(test!=expected) {
+        errln("reverse() failed with only lead surrogate in the middle");
+    }
 }
 
 void
@@ -1092,6 +1129,30 @@ UnicodeStringTest::TestMiscellaneous()
 
     if(test1.hasMetaData() || UnicodeString().hasMetaData()) {
         errln("UnicodeString::hasMetaData() returns TRUE");
+    }
+
+    // test getTerminatedBuffer() on a truncated, shared, heap-allocated string
+    test1=UNICODE_STRING_SIMPLE("abcdefghijklmnopqrstuvwxyz0123456789.");
+    test1.truncate(36);  // ensure length()<getCapacity()
+    test2=test1;  // share the buffer
+    test1.truncate(5);
+    if(test1.length()!=5 || test1.getTerminatedBuffer()[5]!=0) {
+        errln("UnicodeString(shared buffer).truncate() failed");
+    }
+    if(test2.length()!=36 || test2[5]!=0x66 || u_strlen(test2.getTerminatedBuffer())!=36) {
+        errln("UnicodeString(shared buffer).truncate().getTerminatedBuffer() "
+              "modified another copy of the string!");
+    }
+    test1=UNICODE_STRING_SIMPLE("abcdefghijklmnopqrstuvwxyz0123456789.");
+    test1.truncate(36);  // ensure length()<getCapacity()
+    test2=test1;  // share the buffer
+    test1.remove();
+    if(test1.length()!=0 || test1.getTerminatedBuffer()[0]!=0) {
+        errln("UnicodeString(shared buffer).remove() failed");
+    }
+    if(test2.length()!=36 || test2[0]!=0x61 || u_strlen(test2.getTerminatedBuffer())!=36) {
+        errln("UnicodeString(shared buffer).remove().getTerminatedBuffer() "
+              "modified another copy of the string!");
     }
 }
 
@@ -1649,16 +1710,46 @@ UnicodeStringTest::TestStringEnumeration() {
     if(ten.clone()!=NULL) {
         errln("StringEnumeration.clone()!=NULL");
     }
-}
 
-void
-UnicodeStringTest::TestCharString() {
-    static const char originalCStr[] =
-        "This is a large string that is meant to over flow the internal buffer of CharString. At the time of writing this test, the internal buffer is 128 bytes.";
-    CharString chStr(originalCStr);
-    if (strcmp(originalCStr, chStr) != 0) {
-        errln("CharString doesn't work with large strings.");
+    // test that uenum_openFromStringEnumeration() works
+    // Need a heap allocated string enumeration because it is adopted by the UEnumeration.
+    StringEnumeration *newTen = new TestEnumeration;
+    status=U_ZERO_ERROR;
+    UEnumeration *uten = uenum_openFromStringEnumeration(newTen, &status);
+    if (uten==NULL || U_FAILURE(status)) {
+        errln("fail at file %s, line %d, UErrorCode is %s\n", __FILE__, __LINE__, u_errorName(status));
+        return;
     }
+    
+    // test  uenum_next()
+    for(i=0; i<LENGTHOF(testEnumStrings); ++i) {
+        status=U_ZERO_ERROR;
+        pc=uenum_next(uten, &length, &status);
+        if(U_FAILURE(status) || pc==NULL || strcmp(pc, testEnumStrings[i]) != 0) {
+            errln("File %s, line %d, StringEnumeration.next(%d) failed", __FILE__, __LINE__, i);
+        }
+    }
+    status=U_ZERO_ERROR;
+    if(uenum_next(uten, &length, &status)!=NULL) {
+        errln("File %s, line %d, uenum_next(done)!=NULL");
+    }
+
+    // test the uenum_unext()
+    uenum_reset(uten, &status);
+    for(i=0; i<LENGTHOF(testEnumStrings); ++i) {
+        status=U_ZERO_ERROR;
+        pu=uenum_unext(uten, &length, &status);
+        s=UnicodeString(testEnumStrings[i], "");
+        if(U_FAILURE(status) || pu==NULL || length!=s.length() || UnicodeString(TRUE, pu, length)!=s) {
+            errln("File %s, Line %d, uenum_unext(%d) failed", __FILE__, __LINE__, i);
+        }
+    }
+    status=U_ZERO_ERROR;
+    if(uenum_unext(uten, &length, &status)!=NULL) {
+        errln("File %s, Line %d, uenum_unext(done)!=NULL" __FILE__, __LINE__);
+    }
+
+    uenum_close(uten);
 }
 
 /*
@@ -1700,4 +1791,225 @@ UnicodeStringTest::TestNameSpace() {
         errln("Something wrong with UnicodeString::operator+().");
     }
 #endif
+}
+
+void
+UnicodeStringTest::TestUTF32() {
+    // Input string length US_STACKBUF_SIZE to cause overflow of the
+    // initially chosen fStackBuffer due to supplementary characters.
+    static const UChar32 utf32[] = {
+        0x41, 0xd900, 0x61, 0xdc00, -1, 0x110000, 0x5a, 0x50000, 0x7a,
+        0x10000, 0x20000, 0xe0000, 0x10ffff
+    };
+    static const UChar expected_utf16[] = {
+        0x41, 0xfffd, 0x61, 0xfffd, 0xfffd, 0xfffd, 0x5a, 0xd900, 0xdc00, 0x7a,
+        0xd800, 0xdc00, 0xd840, 0xdc00, 0xdb40, 0xdc00, 0xdbff, 0xdfff
+    };
+    UnicodeString from32 = UnicodeString::fromUTF32(utf32, LENGTHOF(utf32));
+    UnicodeString expected(FALSE, expected_utf16, LENGTHOF(expected_utf16));
+    if(from32 != expected) {
+        errln("UnicodeString::fromUTF32() did not create the expected string.");
+    }
+
+    static const UChar utf16[] = {
+        0x41, 0xd900, 0x61, 0xdc00, 0x5a, 0xd900, 0xdc00, 0x7a, 0xd800, 0xdc00, 0xdbff, 0xdfff
+    };
+    static const UChar32 expected_utf32[] = {
+        0x41, 0xfffd, 0x61, 0xfffd, 0x5a, 0x50000, 0x7a, 0x10000, 0x10ffff
+    };
+    UChar32 result32[16];
+    UErrorCode errorCode = U_ZERO_ERROR;
+    int32_t length32 =
+        UnicodeString(FALSE, utf16, LENGTHOF(utf16)).
+        toUTF32(result32, LENGTHOF(result32), errorCode);
+    if( length32 != LENGTHOF(expected_utf32) ||
+        0 != uprv_memcmp(result32, expected_utf32, length32*4) ||
+        result32[length32] != 0
+    ) {
+        errln("UnicodeString::toUTF32() did not create the expected string.");
+    }
+}
+
+class TestCheckedArrayByteSink : public CheckedArrayByteSink {
+public:
+    TestCheckedArrayByteSink(char* outbuf, int32_t capacity)
+            : CheckedArrayByteSink(outbuf, capacity), calledFlush(FALSE) {}
+    virtual void Flush() { calledFlush = TRUE; }
+    UBool calledFlush;
+};
+
+void
+UnicodeStringTest::TestUTF8() {
+    static const uint8_t utf8[] = {
+        // Code points:
+        // 0x41, 0xd900,
+        // 0x61, 0xdc00,
+        // 0x110000, 0x5a,
+        // 0x50000, 0x7a,
+        // 0x10000, 0x20000,
+        // 0xe0000, 0x10ffff
+        0x41, 0xed, 0xa4, 0x80,
+        0x61, 0xed, 0xb0, 0x80,
+        0xf4, 0x90, 0x80, 0x80, 0x5a,
+        0xf1, 0x90, 0x80, 0x80, 0x7a,
+        0xf0, 0x90, 0x80, 0x80, 0xf0, 0xa0, 0x80, 0x80,
+        0xf3, 0xa0, 0x80, 0x80, 0xf4, 0x8f, 0xbf, 0xbf
+    };
+    static const UChar expected_utf16[] = {
+        0x41, 0xfffd,
+        0x61, 0xfffd,
+        0xfffd, 0x5a,
+        0xd900, 0xdc00, 0x7a,
+        0xd800, 0xdc00, 0xd840, 0xdc00,
+        0xdb40, 0xdc00, 0xdbff, 0xdfff
+    };
+    UnicodeString from8 = UnicodeString::fromUTF8(StringPiece((const char *)utf8, (int32_t)sizeof(utf8)));
+    UnicodeString expected(FALSE, expected_utf16, LENGTHOF(expected_utf16));
+
+    if(from8 != expected) {
+        errln("UnicodeString::fromUTF8(StringPiece) did not create the expected string.");
+    }
+#if U_HAVE_STD_STRING
+    U_STD_NSQ string utf8_string((const char *)utf8, sizeof(utf8));
+    UnicodeString from8b = UnicodeString::fromUTF8(utf8_string);
+    if(from8b != expected) {
+        errln("UnicodeString::fromUTF8(std::string) did not create the expected string.");
+    }
+#endif
+
+    static const UChar utf16[] = {
+        0x41, 0xd900, 0x61, 0xdc00, 0x5a, 0xd900, 0xdc00, 0x7a, 0xd800, 0xdc00, 0xdbff, 0xdfff
+    };
+    static const uint8_t expected_utf8[] = {
+        0x41, 0xef, 0xbf, 0xbd, 0x61, 0xef, 0xbf, 0xbd, 0x5a, 0xf1, 0x90, 0x80, 0x80, 0x7a,
+        0xf0, 0x90, 0x80, 0x80, 0xf4, 0x8f, 0xbf, 0xbf
+    };
+    UnicodeString us(FALSE, utf16, LENGTHOF(utf16));
+
+    char buffer[64];
+    TestCheckedArrayByteSink sink(buffer, (int32_t)sizeof(buffer));
+    us.toUTF8(sink);
+    if( sink.NumberOfBytesWritten() != (int32_t)sizeof(expected_utf8) ||
+        0 != uprv_memcmp(buffer, expected_utf8, sizeof(expected_utf8))
+    ) {
+        errln("UnicodeString::toUTF8() did not create the expected string.");
+    }
+    if(!sink.calledFlush) {
+        errln("UnicodeString::toUTF8(sink) did not sink.Flush().");
+    }
+#if U_HAVE_STD_STRING
+    // Initial contents for testing that toUTF8String() appends.
+    U_STD_NSQ string result8 = "-->";
+    U_STD_NSQ string expected8 = "-->" + U_STD_NSQ string((const char *)expected_utf8, sizeof(expected_utf8));
+    // Use the return value just for testing.
+    U_STD_NSQ string &result8r = us.toUTF8String(result8);
+    if(result8r != expected8 || &result8r != &result8) {
+        errln("UnicodeString::toUTF8String() did not create the expected string.");
+    }
+#endif
+}
+
+// Test if this compiler supports Return Value Optimization of unnamed temporary objects.
+static UnicodeString wrapUChars(const UChar *uchars) {
+    return UnicodeString(TRUE, uchars, -1);
+}
+
+void
+UnicodeStringTest::TestReadOnlyAlias() {
+    UChar uchars[]={ 0x61, 0x62, 0 };
+    UnicodeString alias(TRUE, uchars, 2);
+    if(alias.length()!=2 || alias.getBuffer()!=uchars || alias.getTerminatedBuffer()!=uchars) {
+        errln("UnicodeString read-only-aliasing constructor does not behave as expected.");
+        return;
+    }
+    alias.truncate(1);
+    if(alias.length()!=1 || alias.getBuffer()!=uchars) {
+        errln("UnicodeString(read-only-alias).truncate() did not preserve aliasing as expected.");
+    }
+    if(alias.getTerminatedBuffer()==uchars) {
+        errln("UnicodeString(read-only-alias).truncate().getTerminatedBuffer() "
+              "did not allocate and copy as expected.");
+    }
+    if(uchars[1]!=0x62) {
+        errln("UnicodeString(read-only-alias).truncate().getTerminatedBuffer() "
+              "modified the original buffer.");
+    }
+    if(1!=u_strlen(alias.getTerminatedBuffer())) {
+        errln("UnicodeString(read-only-alias).truncate().getTerminatedBuffer() "
+              "does not return a buffer terminated at the proper length.");
+    }
+
+    alias.setTo(TRUE, uchars, 2);
+    if(alias.length()!=2 || alias.getBuffer()!=uchars || alias.getTerminatedBuffer()!=uchars) {
+        errln("UnicodeString read-only-aliasing setTo() does not behave as expected.");
+        return;
+    }
+    alias.remove();
+    if(alias.length()!=0) {
+        errln("UnicodeString(read-only-alias).remove() did not work.");
+    }
+    if(alias.getTerminatedBuffer()==uchars) {
+        errln("UnicodeString(read-only-alias).remove().getTerminatedBuffer() "
+              "did not un-alias as expected.");
+    }
+    if(uchars[0]!=0x61) {
+        errln("UnicodeString(read-only-alias).remove().getTerminatedBuffer() "
+              "modified the original buffer.");
+    }
+    if(0!=u_strlen(alias.getTerminatedBuffer())) {
+        errln("UnicodeString.setTo(read-only-alias).remove().getTerminatedBuffer() "
+              "does not return a buffer terminated at length 0.");
+    }
+
+    UnicodeString longString=UNICODE_STRING_SIMPLE("abcdefghijklmnopqrstuvwxyz0123456789");
+    alias.setTo(FALSE, longString.getBuffer(), longString.length());
+    alias.remove(0, 10);
+    if(longString.compare(10, INT32_MAX, alias)!=0 || alias.getBuffer()!=longString.getBuffer()+10) {
+        errln("UnicodeString.setTo(read-only-alias).remove(0, 10) did not preserve aliasing as expected.");
+    }
+    alias.setTo(FALSE, longString.getBuffer(), longString.length());
+    alias.remove(27, 99);
+    if(longString.compare(0, 27, alias)!=0 || alias.getBuffer()!=longString.getBuffer()) {
+        errln("UnicodeString.setTo(read-only-alias).remove(27, 99) did not preserve aliasing as expected.");
+    }
+    alias.setTo(FALSE, longString.getBuffer(), longString.length());
+    alias.retainBetween(6, 30);
+    if(longString.compare(6, 24, alias)!=0 || alias.getBuffer()!=longString.getBuffer()+6) {
+        errln("UnicodeString.setTo(read-only-alias).retainBetween(6, 30) did not preserve aliasing as expected.");
+    }
+
+    UChar abc[]={ 0x61, 0x62, 0x63, 0 };
+    UBool hasRVO= wrapUChars(abc).getBuffer()==abc;
+
+    UnicodeString temp;
+    temp.fastCopyFrom(longString.tempSubString());
+    if(temp!=longString || (hasRVO && temp.getBuffer()!=longString.getBuffer())) {
+        errln("UnicodeString.tempSubString() failed");
+    }
+    temp.fastCopyFrom(longString.tempSubString(-3, 5));
+    if(longString.compare(0, 5, temp)!=0 || (hasRVO && temp.getBuffer()!=longString.getBuffer())) {
+        errln("UnicodeString.tempSubString(-3, 5) failed");
+    }
+    temp.fastCopyFrom(longString.tempSubString(17));
+    if(longString.compare(17, INT32_MAX, temp)!=0 || (hasRVO && temp.getBuffer()!=longString.getBuffer()+17)) {
+        errln("UnicodeString.tempSubString(17) failed");
+    }
+    temp.fastCopyFrom(longString.tempSubString(99));
+    if(!temp.isEmpty()) {
+        errln("UnicodeString.tempSubString(99) failed");
+    }
+    temp.fastCopyFrom(longString.tempSubStringBetween(6));
+    if(longString.compare(6, INT32_MAX, temp)!=0 || (hasRVO && temp.getBuffer()!=longString.getBuffer()+6)) {
+        errln("UnicodeString.tempSubStringBetween(6) failed");
+    }
+    temp.fastCopyFrom(longString.tempSubStringBetween(8, 18));
+    if(longString.compare(8, 10, temp)!=0 || (hasRVO && temp.getBuffer()!=longString.getBuffer()+8)) {
+        errln("UnicodeString.tempSubStringBetween(8, 18) failed");
+    }
+    UnicodeString bogusString;
+    bogusString.setToBogus();
+    temp.fastCopyFrom(bogusString.tempSubStringBetween(8, 18));
+    if(!temp.isBogus()) {
+        errln("UnicodeString.setToBogus().tempSubStringBetween(8, 18) failed");
+    }
 }

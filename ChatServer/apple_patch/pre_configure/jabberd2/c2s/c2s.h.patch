@@ -1,16 +1,14 @@
---- /tmp/jabberd-2.1.24.1/c2s/c2s.h	2008-04-27 02:57:20.000000000 -0700
-+++ ./jabberd2/c2s/c2s.h	2009-05-26 12:44:38.000000000 -0700
-@@ -35,6 +35,9 @@
- # include <sys/stat.h>
- #endif
+--- /tmp/jabberd-2.2.13/c2s/c2s.h	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/c2s/c2s.h	2011-03-30 21:57:57.000000000 -0700
+@@ -27,6 +27,7 @@
+ #include "mio/mio.h"
+ #include "sx/sx.h"
+ #include "util/util.h"
++#include "odckit.h"
  
-+#include <sys/resource.h>
-+#include <sys/syslimits.h>
-+
- #ifdef _WIN32
-   #ifdef _USRDLL
-     #define DLLEXPORT  __declspec(dllexport)
-@@ -99,11 +102,15 @@ struct sess_st {
+ #ifdef HAVE_SIGNAL_H
+ # include <signal.h>
+@@ -108,11 +109,15 @@ struct sess_st {
      nad_t               result;
  
      int                 sasl_authd;     /* 1 = they did a sasl auth */
@@ -26,20 +24,17 @@
  
  struct host_st {
      /** our realm (SASL) */
-@@ -112,6 +119,12 @@ struct host_st {
-     /** starttls pemfile */
-     char                *host_pemfile;
+@@ -124,6 +129,9 @@ struct host_st {
+     /** certificate chain */
+     char                *host_cachain;
  
-+    /** certificate chain */
-+    char                *host_cachain;
-+
 +    /** private key password */
 +    char                *host_private_key_password;
 +
      /** verify-mode  */
      int                 host_verify_mode;
  
-@@ -136,6 +149,8 @@ struct c2s_st {
+@@ -148,6 +156,8 @@ struct c2s_st {
      char                *router_user;
      char                *router_pass;
      char                *router_pemfile;
@@ -48,20 +43,37 @@
  
      /** mio context */
      mio_t               mio;
-@@ -191,6 +206,12 @@ struct c2s_st {
-     /** encrypted port pemfile */
-     char                *local_pemfile;
+@@ -206,6 +216,9 @@ struct c2s_st {
+     /** encrypted port cachain file */
+     char				*local_cachain;
  
-+    /** certificate chain */
-+    char                *local_cachain;
-+
 +    /** private key password */
 +    char                *local_private_key_password;
 +
      /** verify-mode  */
      int                 local_verify_mode;
  
-@@ -301,6 +322,10 @@ struct authreg_st
+@@ -217,6 +230,9 @@ struct c2s_st {
+     int                 pbx_pipe_fd;
+     mio_fd_t            pbx_pipe_mio_fd;
+ 
++    /** stream redirection (see-other-host) on session connect */
++    xht                 stream_redirects;
++
+     /** max file descriptors */
+     int                 io_max_fds;
+ 
+@@ -238,6 +254,9 @@ struct c2s_st {
+     int                 ar_mechanisms;
+     int                 ar_ssl_mechanisms;
+     
++    /** APPLE: Name of SACL to use for authorization */
++    char                *ar_authorization_sacl_name;
++
+     /** connection rates */
+     int                 conn_rate_total;
+     int                 conn_rate_seconds;
+@@ -325,6 +344,10 @@ struct authreg_st
  
      /** returns 1 if the user is permitted to authorize as the requested_user, 0 if not. requested_user is a JID */
      int               (*user_authz_allowed)(authreg_t ar, char *username, char *realm, char *requested_user);
@@ -72,10 +84,17 @@
  };
  
  /** get a handle for a single module */
-@@ -332,3 +357,11 @@ union xhashv
+@@ -356,3 +379,18 @@ union xhashv
    char **char_val;
    sess_t *sess_val;
  };
++
++// Data for stream redirect errors
++typedef struct stream_redirect_st
++{
++    char *to_address;
++    char *to_port;
++} *stream_redirect_t;
 +
 +/* Apple OD authentication/authorization */
 +#define APPLE_ENABLE_OD_AUTH 1

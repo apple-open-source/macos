@@ -32,7 +32,9 @@
 
 namespace WebCore {
 
-    class RenderThemeChromiumSkia : public RenderTheme {
+class RenderProgress;
+
+class RenderThemeChromiumSkia : public RenderTheme {
     public:
         RenderThemeChromiumSkia();
         virtual ~RenderThemeChromiumSkia();
@@ -64,41 +66,36 @@ namespace WebCore {
 
         virtual int minimumMenuListSize(RenderStyle*) const;
 
-        virtual bool paintCheckbox(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual void setCheckboxSize(RenderStyle*) const;
 
-        virtual bool paintRadio(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual void setRadioSize(RenderStyle*) const;
 
-        virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual void adjustButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
-        virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-
-        virtual bool paintTextArea(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintTextArea(RenderObject*, const PaintInfo&, const IntRect&);
 
         virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
         virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
 
         virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
 
         virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
         virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual bool paintMediaControlsBackground(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintMediaVolumeSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaControlsBackground(RenderObject*, const PaintInfo&, const IntRect&);
+        virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+        virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
         virtual void adjustSliderThumbSize(RenderObject*) const;
-        virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintMediaVolumeSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+        virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+        virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
+        virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
 
         // MenuList refers to an unstyled menulist (meaning a menulist without
         // background-color or border set) and MenuListButton refers to a styled
@@ -110,12 +107,13 @@ namespace WebCore {
         // codepath. We never go down both. And in both cases, they render the
         // entire menulist.
         virtual void adjustMenuListStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
         virtual void adjustMenuListButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-        virtual bool paintMenuListButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+        virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-        virtual bool paintSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-        virtual bool paintSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+#if ENABLE(PROGRESS_TAG)
+        virtual double animationRepeatIntervalForProgressBar(RenderProgress*) const;
+        virtual double animationDurationForProgressBar(RenderProgress*) const;
+#endif
 
         // These methods define the padding for the MenuList's inner block.
         virtual int popupInternalPaddingLeft(RenderStyle*) const;
@@ -125,7 +123,7 @@ namespace WebCore {
 
 #if ENABLE(VIDEO)
         // Media controls
-        virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
+        virtual bool hasOwnDisabledStateHandlingFor(ControlPart) const { return true; }
 #endif
 
         // Provide a way to pass the default font size from the Settings object
@@ -144,6 +142,14 @@ namespace WebCore {
         static float defaultFontSize;
 
         virtual double caretBlinkIntervalInternal() const;
+
+        static void setSizeIfAuto(RenderStyle*, const IntSize&);
+
+#if ENABLE(PROGRESS_TAG)
+        IntRect determinateProgressValueRectFor(RenderProgress*, const IntRect&) const;
+        IntRect indeterminateProgressValueRectFor(RenderProgress*, const IntRect&) const;
+        IntRect progressValueRectFor(RenderProgress*, const IntRect&) const;
+#endif
 
     private:
         int menuListInternalPadding(RenderStyle*, int paddingType) const;

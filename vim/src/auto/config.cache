@@ -11,18 +11,21 @@
 # loading this file, other *unset* `ac_cv_foo' will be assigned the
 # following values.
 
+ac_cv_c_bigendian=${ac_cv_c_bigendian=no}
 ac_cv_c_compiler_gnu=${ac_cv_c_compiler_gnu=yes}
 ac_cv_c_const=${ac_cv_c_const=yes}
+ac_cv_c_uint32_t=${ac_cv_c_uint32_t=yes}
+ac_cv_c_volatile=${ac_cv_c_volatile=yes}
 ac_cv_env_CC_set=
 ac_cv_env_CC_value=
-ac_cv_env_CFLAGS_set=set
-ac_cv_env_CFLAGS_value='-arch i386 -arch x86_64 -g -Os -pipe -mdynamic-no-pic'
+ac_cv_env_CFLAGS_set=
+ac_cv_env_CFLAGS_value=
 ac_cv_env_CPPFLAGS_set=
 ac_cv_env_CPPFLAGS_value=
 ac_cv_env_CPP_set=
 ac_cv_env_CPP_value=
-ac_cv_env_LDFLAGS_set=set
-ac_cv_env_LDFLAGS_value='-arch i386 -arch x86_64'
+ac_cv_env_LDFLAGS_set=
+ac_cv_env_LDFLAGS_value=
 ac_cv_env_LIBS_set=
 ac_cv_env_LIBS_value=
 ac_cv_env_XMKMF_set=
@@ -34,12 +37,9 @@ ac_cv_env_host_alias_value=
 ac_cv_env_target_alias_set=
 ac_cv_env_target_alias_value=
 ac_cv_func_bcmp=${ac_cv_func_bcmp=yes}
-ac_cv_func_copyfile=${ac_cv_func_copyfile=yes}
 ac_cv_func_fchdir=${ac_cv_func_fchdir=yes}
 ac_cv_func_fchown=${ac_cv_func_fchown=yes}
-ac_cv_func_fseeko=${ac_cv_func_fseeko=yes}
 ac_cv_func_fsync=${ac_cv_func_fsync=yes}
-ac_cv_func_ftello=${ac_cv_func_ftello=yes}
 ac_cv_func_getcwd=${ac_cv_func_getcwd=yes}
 ac_cv_func_getpseudotty=${ac_cv_func_getpseudotty=no}
 ac_cv_func_getpwnam=${ac_cv_func_getpwnam=yes}
@@ -51,6 +51,7 @@ ac_cv_func_iswupper=${ac_cv_func_iswupper=yes}
 ac_cv_func_lstat=${ac_cv_func_lstat=yes}
 ac_cv_func_memcmp=${ac_cv_func_memcmp=yes}
 ac_cv_func_memset=${ac_cv_func_memset=yes}
+ac_cv_func_mkdtemp=${ac_cv_func_mkdtemp=yes}
 ac_cv_func_nanosleep=${ac_cv_func_nanosleep=yes}
 ac_cv_func_opendir=${ac_cv_func_opendir=yes}
 ac_cv_func_putenv=${ac_cv_func_putenv=yes}
@@ -81,7 +82,6 @@ ac_cv_func_usleep=${ac_cv_func_usleep=yes}
 ac_cv_func_utime=${ac_cv_func_utime=yes}
 ac_cv_func_utimes=${ac_cv_func_utimes=yes}
 ac_cv_header_X11_SM_SMlib_h=${ac_cv_header_X11_SM_SMlib_h=yes}
-ac_cv_header_copyfile_h=${ac_cv_header_copyfile_h=yes}
 ac_cv_header_dirent_dirent_h=${ac_cv_header_dirent_dirent_h=yes}
 ac_cv_header_dlfcn_h=${ac_cv_header_dlfcn_h=yes}
 ac_cv_header_elf_h=${ac_cv_header_elf_h=no}
@@ -89,6 +89,7 @@ ac_cv_header_errno_h=${ac_cv_header_errno_h=yes}
 ac_cv_header_fcntl_h=${ac_cv_header_fcntl_h=yes}
 ac_cv_header_frame_h=${ac_cv_header_frame_h=no}
 ac_cv_header_iconv_h=${ac_cv_header_iconv_h=yes}
+ac_cv_header_inttypes_h=${ac_cv_header_inttypes_h=yes}
 ac_cv_header_langinfo_h=${ac_cv_header_langinfo_h=yes}
 ac_cv_header_libc_h=${ac_cv_header_libc_h=yes}
 ac_cv_header_libgen_h=${ac_cv_header_libgen_h=yes}
@@ -101,6 +102,7 @@ ac_cv_header_setjmp_h=${ac_cv_header_setjmp_h=yes}
 ac_cv_header_sgtty_h=${ac_cv_header_sgtty_h=yes}
 ac_cv_header_stdarg_h=${ac_cv_header_stdarg_h=yes}
 ac_cv_header_stdc=${ac_cv_header_stdc=yes}
+ac_cv_header_stdint_h=${ac_cv_header_stdint_h=yes}
 ac_cv_header_stdlib_h=${ac_cv_header_stdlib_h=yes}
 ac_cv_header_string_h=${ac_cv_header_string_h=yes}
 ac_cv_header_strings_h=${ac_cv_header_strings_h=yes}
@@ -134,6 +136,7 @@ ac_cv_header_wchar_h=${ac_cv_header_wchar_h=yes}
 ac_cv_header_wctype_h=${ac_cv_header_wctype_h=yes}
 ac_cv_lib_acl_acl_get_file=${ac_cv_lib_acl_acl_get_file=no}
 ac_cv_lib_m_strtod=${ac_cv_lib_m_strtod=yes}
+ac_cv_lib_ncurses___tgetent=${ac_cv_lib_ncurses___tgetent=yes}
 ac_cv_lib_nsl_gethostbyname=${ac_cv_lib_nsl_gethostbyname=no}
 ac_cv_lib_posix1e_acl_get_file=${ac_cv_lib_posix1e_acl_get_file=no}
 ac_cv_lib_selinux_is_selinux_enabled=${ac_cv_lib_selinux_is_selinux_enabled=no}
@@ -142,6 +145,7 @@ ac_cv_lib_xpg4__xpg4_setrunelocale=${ac_cv_lib_xpg4__xpg4_setrunelocale=no}
 ac_cv_objext=${ac_cv_objext=o}
 ac_cv_path_EGREP=${ac_cv_path_EGREP='/usr/bin/grep -E'}
 ac_cv_path_GREP=${ac_cv_path_GREP=/usr/bin/grep}
+ac_cv_path_XCODE_SELECT=${ac_cv_path_XCODE_SELECT=/usr/bin/xcode-select}
 ac_cv_prog_AWK=${ac_cv_prog_AWK=awk}
 ac_cv_prog_CPP=${ac_cv_prog_CPP='gcc -E'}
 ac_cv_prog_STRIP=${ac_cv_prog_STRIP=strip}
@@ -153,6 +157,12 @@ ac_cv_prog_make_make_set=${ac_cv_prog_make_make_set=yes}
 ac_cv_search_opendir=${ac_cv_search_opendir='none required'}
 ac_cv_search_strerror=${ac_cv_search_strerror='none required'}
 ac_cv_sizeof_int=${ac_cv_sizeof_int=4}
+ac_cv_sizeof_long=${ac_cv_sizeof_long=8}
+ac_cv_sizeof_off_t=${ac_cv_sizeof_off_t=8}
+ac_cv_sizeof_time_t=${ac_cv_sizeof_time_t=8}
+ac_cv_sys_file_offset_bits=${ac_cv_sys_file_offset_bits=no}
+ac_cv_sys_largefile_CC=${ac_cv_sys_largefile_CC=no}
+ac_cv_sys_largefile_source=${ac_cv_sys_largefile_source=no}
 ac_cv_type_dev_t=${ac_cv_type_dev_t=yes}
 ac_cv_type_ino_t=${ac_cv_type_ino_t=yes}
 ac_cv_type_mode_t=${ac_cv_type_mode_t=yes}
@@ -170,5 +180,6 @@ vim_cv_getcwd_broken=${vim_cv_getcwd_broken=no}
 vim_cv_memmove_handles_overlap=${vim_cv_memmove_handles_overlap=yes}
 vim_cv_stat_ignores_slash=${vim_cv_stat_ignores_slash=no}
 vim_cv_terminfo=${vim_cv_terminfo=yes}
+vim_cv_tgent=${vim_cv_tgent=non-zero}
 vim_cv_toupper_broken=${vim_cv_toupper_broken=no}
 vim_cv_tty_group=${vim_cv_tty_group=world}

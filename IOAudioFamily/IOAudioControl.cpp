@@ -137,7 +137,9 @@ void IOAudioControl::sendQueuedNotifications(void)
 	if (reserved && reserved->notificationQueue) {
 		count = reserved->notificationQueue->getCount ();
 		for (i = 0; i < count; i++) {
-			sendChangeNotification(((OSNumber *)reserved->notificationQueue->getObject(i))->unsigned32BitValue());
+			if (!isInactive()) {		// <radr://9320521,9040208>
+				sendChangeNotification(((OSNumber *)reserved->notificationQueue->getObject(i))->unsigned32BitValue());
+			}
 		}
 		reserved->notificationQueue->release();
 		reserved->notificationQueue = NULL;

@@ -43,7 +43,8 @@
 #include <sys/sysctl.h>
 #include <sys/systm.h>
 #include <sys/mount.h>
-//#include <sys/syslog.h>
+#include <sys/un.h>
+#include <sys/socket.h>
 #include <libkern/libkern.h>
 
 #include "webdav.h"
@@ -77,6 +78,7 @@ static vfstable_t webdav_vfsconf;
 #define WEBDAV_MAX_REFS   256
 static struct open_associatecachefile *webdav_ref_table[WEBDAV_MAX_REFS];
 static int webdav_vfs_statfs(struct mount *mp, register struct vfsstatfs *sbp, struct webdav_vfsstatfs in_statfs);
+extern void webdav_up(struct webdavmount *);
 
 
 static struct vnodeopv_desc *webdav_vnodeop_opv_desc_list[1] =
@@ -261,6 +263,8 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 		args.pa_server_ident		= args_32.pa_server_ident;
 		args.pa_root_id				= args_32.pa_root_id;
 		args.pa_root_fileid			= args_32.pa_root_fileid;
+		args.pa_uid				= args_32.pa_uid;
+		args.pa_gid				= args_32.pa_gid;
 		args.pa_dir_size			= args_32.pa_dir_size;
 		args.pa_link_max			= args_32.pa_link_max;
 		args.pa_name_max			= args_32.pa_name_max;
@@ -306,6 +310,8 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	}
 	
 	fmp->pm_server_ident = args.pa_server_ident;
+	fmp->pm_uid = args.pa_uid;
+	fmp->pm_gid = args.pa_gid;
 	
 	fmp->pm_mountp = mp;
 	
@@ -319,6 +325,13 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	}
 
 	/* Get the server sockaddr from the args */
+	if ((unsigned int)args.pa_socket_namelen > sizeof(struct sockaddr_un))
+	{
+		printf("%s: socket_name_len arg too big: %d\n", __FUNCTION__, args.pa_socket_namelen);
+		error = EINVAL;
+		goto bad;		
+	}
+	
 	MALLOC(fmp->pm_socket_name, struct sockaddr *, args.pa_socket_namelen, M_TEMP, M_WAITOK);
 	error = copyin(args.pa_socket_name, fmp->pm_socket_name, args.pa_socket_namelen);
 	if (error)
@@ -354,7 +367,7 @@ static int webdav_mount(struct mount *mp, vnode_t devvp, user_addr_t data, vfs_c
 	// Now setup a webdav_timespec64, like webdav_get requires
 	timespec_to_webdav_timespec64(ts, &wts);
 	error = webdav_get(mp, NULLVP, 1, NULL,
-		args.pa_root_id, args.pa_root_fileid, VDIR, wts, wts, wts, fmp->pm_dir_size, &rvp);
+		args.pa_root_id, args.pa_root_fileid, VDIR, wts, wts, wts, wts, fmp->pm_dir_size, &rvp);
 	if (error)
 	{
 		goto bad;
@@ -753,6 +766,8 @@ ready:
 		 */
 		vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] =
 			VOL_CAP_FMT_FAST_STATFS; /* statfs is cached by webdavfs, so upper layers shouldn't cache */
+		vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_2TB_FILESIZE;
+		
 		vcapattrptr->capabilities[VOL_CAPABILITIES_INTERFACES] =
 			0; /* None of the optional interfaces are implemented. */
 		vcapattrptr->capabilities[VOL_CAPABILITIES_RESERVED1] = 0;
@@ -788,21 +803,6 @@ ready:
 				vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_NO_VOLUME_SIZES;
 				vcapattrptr->valid[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_NO_VOLUME_SIZES;
 			}
-		
-			if ( !(fmp->pm_server_ident & WEBDAV_IDISK_SERVER)) {
-				// See <rdar://problem/6063471> WebDAV client fails to upload files larger than 4 gigs in size
-
-				// WebDAV protocol does not provide a way to query the maximum file size limit of a server.
-				// But if we deny knowledge of the VOL_CAP_FMT_2TB_FILESIZE bit, Finder will not allow
-				// files 4 GB or larger to be uploaded to the server.
-				//
-				// So we will set the VOL_CAP_FMT_2TB_FILESIZE bit and assume the server supports large files,
-				// with one exception: iDisk.
-				// We don't set this volume capability bit if we know we are connected to an iDisk server,
-				// because iDisk servers impose a maximum file size limit of 2 GB.
-				//
-				vcapattrptr->capabilities[VOL_CAPABILITIES_FORMAT] |= VOL_CAP_FMT_2TB_FILESIZE;
-			}
 
 		vcapattrptr->valid[VOL_CAPABILITIES_INTERFACES] =
 			VOL_CAP_INT_SEARCHFS |
@@ -825,8 +825,9 @@ ready:
 	{
 		enum
 		{
-			WEBDAV_ATTR_CMN_NATIVE = 0,
-			WEBDAV_ATTR_CMN_SUPPORTED = 0,
+			WEBDAV_ATTR_CMN_NATIVE = ATTR_CMN_CRTIME |
+				ATTR_CMN_MODTIME,
+			WEBDAV_ATTR_CMN_SUPPORTED = WEBDAV_ATTR_CMN_NATIVE,
 			WEBDAV_ATTR_VOL_NATIVE = ATTR_VOL_NAME |
 				ATTR_VOL_CAPABILITIES |
 				ATTR_VOL_ATTRIBUTES,
@@ -948,6 +949,29 @@ static int webdav_sysctl(int *name, u_int namelen, user_addr_t oldp, size_t *old
 				
 				/* success */
 				error = 0;
+			}
+			break;
+			
+		case WEBDAV_NOTIFY_RECONNECTED_SYSCTL:
+			{
+				fsid_t fsid_num;
+			
+				/*
+			     * name[1] is fsid byte 0
+			     * name[2] is fsid byte 1
+				 */
+				fsid_num.val[0] = name[1];
+				fsid_num.val[1] = name[2];
+			
+				mp = vfs_getvfs(&fsid_num);
+			
+				if (mp != NULL) {
+					webdav_up(VFSTOWEBDAV(mp));
+					error = 0;
+				}
+				else {
+					error = ENOENT;
+				}
 			}
 			break;
 			

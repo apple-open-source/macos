@@ -1,0 +1,423 @@
+commit 09d2ddd805a00568e4b7f668b0f500a63c350940
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Oct 28 16:56:29 2010 -0700
+
+    libdmx 1.1.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 83fa1d94d11f368824bea6ba64e9575b57f87769
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Tue Sep 28 13:30:04 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit db8beb3d19f152a87249fa91c957e4782f47df77
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jul 7 15:10:34 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    The existing statement can now be removed from the configuration file.
+    
+    Use automake provided $(AM_V_GEN) and XORG_DEFAULT_OPTIONS provided $(SED)
+    Enables silent rule and use platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 309745fc0095cccc575ead3446480060091161f1
+Author: Fernando Carrijo <fcarrijo@yahoo.com.br>
+Date:   Thu Jul 1 06:48:47 2010 -0300
+
+    Purge macros NEED_EVENTS and NEED_REPLIES
+    
+    Signed-off-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+    Acked-by: Tiago Vignatti <tiago.vignatti@nokia.com>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 6d9de78c3cde1e7963cafc6e8155b3e2ea5819c1
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 16:50:34 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 6163288513cc166c5e8b9488b08a2d07e7100755
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 14:53:49 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a8b1449bca44bfddd2e7228bb7d514512e4ef30c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Feb 16 10:37:21 2010 -0500
+
+    config: move CWARNFLAGS from configure.ac to Makefile.am
+    
+    Compiler warning flags should be explicitly set in the makefile
+    rather than being merged with other packages compiler flags.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 442b50b94eaae9202e76c170738fcc049dcc453d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Jan 13 16:04:33 2010 -0500
+
+    COPYING: replace stub with actual copyright notices
+    
+    Refer to dmx.c
+    Copyright 2002-2004 Red Hat Inc., Durham, North Carolina.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit c34b17f997f63842649b93e1575cd2bc322e8f4e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 27 20:56:05 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit fdf48235bc529bbda112a70dbd6e9ff560ca6a04
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:10 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit fa6e6e76d9a58d021473369e4a9ff287e7e42e15
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:25 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 4a78271ada80b64eeb5f6563fd9d1a161abc7afe
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:43 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 4fd8605292125d95d1eb58fec1b7daff2f35ec26
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 13:11:11 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit fad53bf1e485036146570d9ead901f23bf4c323f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:20 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit c43a769428a03c0de58545c611e75243a8d8f2ea
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Oct 21 12:47:27 2009 -0700
+
+    This is not a GNU project, so declare it foreign.
+    
+    On Wed, 2009-10-21 at 13:36 +1000, Peter Hutterer wrote:
+    > On Tue, Oct 20, 2009 at 08:23:55PM -0700, Jeremy Huddleston wrote:
+    > > I noticed an INSTALL file in xlsclients and libXvMC today, and it
+    > > was quite annoying to work around since 'autoreconf -fvi' replaces
+    > > it and git wants to commit it.  Should these files even be in git?
+    > > Can I nuke them for the betterment of humanity and since they get
+    > > created by autoreconf anyways?
+    >
+    > See https://bugs.freedesktop.org/show_bug.cgi?id=24206
+    
+    As an interim measure, replace AM_INIT_AUTOMAKE([dist-bzip2]) with
+    AM_INIT_AUTOMAKE([foreign dist-bzip2]). This will prevent the generation
+    of the INSTALL file. It is also part of the 24206 solution.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit a3ff756a3a478162a6f96b9fbf54c9f1a487af38
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Oct 5 11:54:43 2009 +1000
+
+    libdmx 1.1.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 9d7cb1321dd44081f52a80419c32bbbbb155757f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Oct 5 11:54:09 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1cb350964c416963523aca0234dc24563ef29d1b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 28 10:07:10 2009 +1000
+
+    libdmx 1.0.99.1
+
+commit 72929c5cb3b78d3b83a2f40e3662104194b70cd6
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 16:07:54 2009 +1000
+
+    Move dmxext.h from dmxproto to here.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit c46bf972f2f0658e0fe473e978c1a7153b68d0e9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Feb 2 20:34:37 2009 -0800
+
+    Add README with pointers to mailing list, bugzilla & git repos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit ca08b93d5829a03e464fb27d96292c37825aa5ea
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Wed Jan 28 16:11:37 2009 -0200
+
+    Janitor: correct make distcheck.
+
+commit 628281b17467fc8237d9d9e2443cb9e88d8e07c5
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun May 11 14:18:34 2008 +0200
+
+    Use __libmansuffix__ instead of hardcoding 3X in the dmx manpages
+
+commit cfd82b1ff1033dbb3d83fd71e8b1af5535108245
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:48 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit a49ce3a7f23e0bfab84661afea15602403445c5a
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:54 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 88286ad8dee07f4a06c8cfc032606ad26972fd3f
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:59:15 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit fe6012c309b7465a81535a5b18f70cac44fb33fb
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:51:19 2006 +0000
+
+    Bump to 1.0.2
+
+commit 44c22b0f24d2cc835d088b9da65cf5ade41a2854
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Fri Apr 7 00:31:17 2006 +0000
+
+    Coverity #928: Don't dereference screen if it's null.
+
+commit 3aec4c999217de52ee28beb5dc429e84f25a4cee
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:06 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit 61ba01b94fda571fc02287cfb321e7ace5f4e344
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:28:28 2005 +0000
+
+    Stub COPYING files
+
+commit 1594c277fed66ac77eff2687cfa586a82c649594
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:35 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit e608c6a473d3ff6abd7290301d10929e37a2de9d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:46 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 7f82999694f562b664190cd2d0041ac3dc8b7e0e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:46 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 074fde5f1862e7ca6e18ac198baf7ec3359a2fa5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:52 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit 2f295bd0ca857cc50b98170a91a98d94c6c1fab7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:03:07 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit a064437898064f0906e1676caa5823c8334e77c7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:44 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit 6424ff482a845160bc1146bb8a17fa2bde976685
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 13 18:14:22 2005 +0000
+
+    Use $(LIB_MAN_SUFFIX) instead of forcing man pages into section 3. Use sed
+        to substitute variables in man pages.
+
+commit 68ee705e1066d5092bc266c9d47d6c1022be2f1c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:12 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit c0414eb4d8c710fac94ea32bc47031e1855c6fdb
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Aug 3 03:28:03 2005 +0000
+
+    Do PKG_CHECK_MODULES on a unique token instead of on "DEP", so builds with
+        a global configure cache don't get confused.
+
+commit e51544b67812183184becaf6cd2ba907483bcea7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:53 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 0e287fb569607a88500fc8ead709113da7d62a76
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Wed Jul 20 12:10:12 2005 +0000
+
+    Set soversion to 1.0.0 with -version-number.
+
+commit 1665593dffc0a2a15b4c2dbd50e0f4ef655c7d49
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat Jul 16 07:49:42 2005 +0000
+
+    Set soversion to 1.0 using -version-number.
+
+commit b5b357df37d6adb66daedf8a9950bf653bf4c54d
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 21:11:25 2005 +0000
+
+    Add .cvsignore files Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+commit 63d3d3060793b834a6f55a1788ed74dd91ff1635
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jun 22 22:46:39 2005 +0000
+
+    Apply these patches from Theo van Klaveren:
+    lib-dmx.patch lib-FS.patch lib-X11.patch lib-XRes.patch
+        lib-XScrnSaver.patch lib-xtrans.patch
+    to make the libraries distcheck.
+
+commit 414f10d9cd304ad410eaab1faeb9bec6db99a254
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Tue Jun 21 15:41:37 2005 +0000
+
+    lib/XScrnSaver/configure.ac
+    lib/XScrnSaver/src/Makefile.am
+    lib/Xfontcache/configure.ac
+    lib/Xfontcache/src/Makefile.am
+    lib/Xinerama/configure.ac
+    lib/Xinerama/src/Makefile.am
+    lib/Xtst/configure.ac
+    lib/Xv/configure.ac
+    lib/XvMC/configure.ac
+    lib/dmx/configure.ac Add missing xext.pc and xextproto.pc Add DEP_CFLAGS to
+        src/Makefile.am
+
+commit 110b58cc4b1fe556937d0cc10c21e8d378bf557f
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 13 22:41:49 2005 +0000
+
+    Dummy change
+
+commit 87e6dd4a3b2911df52c748cbaf25d9f2f1e39267
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 13 22:41:28 2005 +0000
+
+    Dummy change to make CVS see this file.
+
+commit 731efd283366cdef8f55a5c0e533603eae2dc9cd
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 13 22:40:55 2005 +0000
+
+    *** empty log message ***
+
+commit b15aee70c23e46cc06023c42359ae831b4aa97e5
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 13 21:18:09 2005 +0000
+
+    Really add the dmx build system.
+    Also, in some ways CVS is not an optimal version control system.
+
+commit 48338cc9c422ff0ac4b9c532088649f2f3c4e2bb
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon Jun 13 21:11:44 2005 +0000
+
+    - Add dmx build system
+    - Rename man pages: man -> 3
+    - dmx.c: include <X11/extensions/blah.h> instead of "blah.h"
+
+commit 9569816261fed00b3f0991abb676d60ba904c0f6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Mon Dec 6 20:04:04 2004 +0000
+
+    Fix overwrite in DMX library calls (Bug #1989, Mark McLoughlin).
+
+commit 90b1782cf132d4d3a753e4643fe8c398cecbb07b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Jun 30 20:06:53 2004 +0000
+
+    Add Distributed Multihead X (DMX) support

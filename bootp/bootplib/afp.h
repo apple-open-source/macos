@@ -1,7 +1,5 @@
-#ifndef _S_AFP_H
-#define _S_AFP_H
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +24,8 @@
  * AFP_PASSWORD_LEN
  * - fixed length, NULL padded to 8 bytes total length
  */
+#ifndef _S_AFP_H
+#define _S_AFP_H
 #define AFP_PASSWORD_LEN		8
 
 /*
@@ -46,4 +46,4 @@
  */
 #define AFP_DIRID_ROOT		2
 
-#endif _S_AFP_H
+#endif /* _S_AFP_H */

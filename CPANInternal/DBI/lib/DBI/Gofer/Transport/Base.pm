@@ -1,6 +1,6 @@
 package DBI::Gofer::Transport::Base;
 
-#   $Id: Base.pm 10087 2007-10-16 12:42:37Z timbo $
+#   $Id: Base.pm 12536 2009-02-24 22:37:09Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -18,7 +18,7 @@ use DBI::Gofer::Serializer::Storable;
 use DBI::Gofer::Serializer::DataDumper;
 
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10087 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 12536 $ =~ /(\d+)/o);
 
 
 __PACKAGE__->mk_accessors(qw(
@@ -52,7 +52,7 @@ sub _freeze_data {
         $self->_dump("freezing $self->{trace} ".ref($data), $data)
             if !$skip_trace and $self->trace;
 
-        local $data->{meta}; # don't include _meta in serialization
+        local $data->{meta}; # don't include meta in serialization
 	$serializer ||= $self->{serializer_obj};
         my ($data, $deserializer_class)  = $serializer->serialize($data);
 
@@ -116,7 +116,9 @@ sub _dump {
     # don't dump the binary
     local $data->{meta}{frozen} if $data->{meta} && $data->{meta}{frozen};
 
-    if ($self->trace >= 2) {
+    my $trace_level = $self->trace;
+    my $summary;
+    if ($trace_level >= 4) {
         require Data::Dumper;
         local $Data::Dumper::Indent    = 1;
         local $Data::Dumper::Terse     = 1;
@@ -125,21 +127,24 @@ sub _dump {
         local $Data::Dumper::Quotekeys = 0;
         local $Data::Dumper::Deparse   = 0;
         local $Data::Dumper::Purity    = 0;
-        $self->trace_msg("$label: ".Data::Dumper::Dumper($data));
+        $summary = Data::Dumper::Dumper($data);
+    }
+    elsif ($trace_level >= 2) {
+        $summary = eval { $data->summary_as_text } || $@ || "no summary available\n";
     }
     else {
-        my $summary = eval { $data->summary_as_text } || $@ || "no summary available\n";
-        $self->trace_msg("$label: $summary");
+        $summary = eval { $data->outline_as_text."\n" } || $@ || "no summary available\n";
     }
+    $self->trace_msg("$label: $summary");
 }
 
 
 sub trace_msg {
     my ($self, $msg, $min_level) = @_;
     $min_level = 1 unless defined $min_level;
-    # modeled on DBI's trace_msg method
-    return 0 if $self->trace < $min_level;
-    return DBI->trace_msg($msg, 0); # 0 to force logging even if DBI trace not enabled
+    # transport trace level can override DBI's trace level
+    $min_level = 0 if $self->trace >= $min_level;
+    return DBI->trace_msg("gofer ".$msg, $min_level);
 }
 
 1;

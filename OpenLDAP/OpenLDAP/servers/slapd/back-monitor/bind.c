@@ -1,8 +1,8 @@
 /* bind.c - monitor backend bind routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.17.2.3 2008/02/11 23:26:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/bind.c,v 1.17.2.5 2010/04/13 20:23:32 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2008 The OpenLDAP Foundation.
+ * Copyright 2001-2010 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *

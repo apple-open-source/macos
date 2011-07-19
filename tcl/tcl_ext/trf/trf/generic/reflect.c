@@ -28,7 +28,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: reflect.c,v 1.24 2000/06/20 19:23:14 aku Exp $
+ * CVS: $Id: reflect.c,v 1.25 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "reflect.h"
@@ -184,7 +184,7 @@ ClientData     clientData;
   TrfTransformOptionBlock* o = (TrfTransformOptionBlock*) optInfo;
   int                    res;
 
-  c = (ReflectControl*) Tcl_Alloc (sizeof (ReflectControl));
+  c = (ReflectControl*) ckalloc (sizeof (ReflectControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
   c->interp          = interp;
@@ -203,7 +203,7 @@ ClientData     clientData;
 
   if (res != TCL_OK) {
     Tcl_DecrRefCount (c->command);
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -239,7 +239,7 @@ ClientData clientData;
 		      NULL, 0, TRANSMIT_DONT, 0);
 
   Tcl_DecrRefCount (c->command);
-  Tcl_Free ((VOID*) c);
+  ckfree ((VOID*) c);
 }
 
 /*
@@ -369,7 +369,7 @@ ClientData     clientData;
   TrfTransformOptionBlock* o = (TrfTransformOptionBlock*) optInfo;
   int                      res;
 
-  c = (ReflectControl*) Tcl_Alloc (sizeof (ReflectControl));
+  c = (ReflectControl*) ckalloc (sizeof (ReflectControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
   c->interp          = interp;
@@ -389,7 +389,7 @@ ClientData     clientData;
   if (res != TCL_OK) {
     Tcl_DecrRefCount (c->command);
 
-    Tcl_Free ((VOID*) c);
+    ckfree ((VOID*) c);
     return (ClientData) NULL;
   }
 
@@ -425,7 +425,7 @@ ClientData clientData;
 		      NULL, 0, TRANSMIT_DONT, 0);
 
   Tcl_DecrRefCount (c->command);
-  Tcl_Free ((VOID*) c);
+  ckfree ((VOID*) c);
 }
 
 /*

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,11 +22,45 @@
  */
 
 #include <CoreFoundation/CFString.h>
+#include <CoreFoundation/CFNumber.h>
+#include <CoreFoundation/CFArray.h>
+#include <Security/SecItem.h>
 #include <Security/SecPolicy.h>
 #include <Security/SecPolicyPriv.h>
 #include <security_keychain/Policies.h>
 #include <security_keychain/PolicyCursor.h>
 #include "SecBridge.h"
+
+
+// String constant declarations
+
+#define SEC_CONST_DECL(k,v) CFTypeRef k = (CFTypeRef)(CFSTR(v));
+
+SEC_CONST_DECL (kSecPolicyAppleX509Basic, "1.2.840.113635.100.1.2");
+SEC_CONST_DECL (kSecPolicyAppleSSL, "1.2.840.113635.100.1.3");
+SEC_CONST_DECL (kSecPolicyAppleSMIME, "1.2.840.113635.100.1.8");
+SEC_CONST_DECL (kSecPolicyAppleEAP, "1.2.840.113635.100.1.9");
+SEC_CONST_DECL (kSecPolicyAppleIPsec, "1.2.840.113635.100.1.11");
+SEC_CONST_DECL (kSecPolicyAppleiChat, "1.2.840.113635.100.1.12");
+SEC_CONST_DECL (kSecPolicyApplePKINITClient, "1.2.840.113635.100.1.14");
+SEC_CONST_DECL (kSecPolicyApplePKINITServer, "1.2.840.113635.100.1.15");
+SEC_CONST_DECL (kSecPolicyAppleCodeSigning, "1.2.840.113635.100.1.16");
+SEC_CONST_DECL (kSecPolicyMacAppStoreReceipt, "1.2.840.113635.100.1.17");
+SEC_CONST_DECL (kSecPolicyAppleIDValidation, "1.2.840.113635.100.1.18");
+
+SEC_CONST_DECL (kSecPolicyOid, "SecPolicyOid");
+SEC_CONST_DECL (kSecPolicyName, "SecPolicyName");
+SEC_CONST_DECL (kSecPolicyClient, "SecPolicyClient");
+
+SEC_CONST_DECL (kSecPolicyKU_DigitalSignature, "CE_KU_DigitalSignature");
+SEC_CONST_DECL (kSecPolicyKU_NonRepudiation, "CE_KU_NonRepudiation");
+SEC_CONST_DECL (kSecPolicyKU_KeyEncipherment, "CE_KU_KeyEncipherment");
+SEC_CONST_DECL (kSecPolicyKU_DataEncipherment, "CE_KU_DataEncipherment");
+SEC_CONST_DECL (kSecPolicyKU_KeyAgreement, "CE_KU_KeyAgreement");
+SEC_CONST_DECL (kSecPolicyKU_KeyCertSign, "CE_KU_KeyCertSign");
+SEC_CONST_DECL (kSecPolicyKU_CRLSign, "CE_KU_CRLSign");
+SEC_CONST_DECL (kSecPolicyKU_EncipherOnly, "CE_KU_EncipherOnly");
+SEC_CONST_DECL (kSecPolicyKU_DecipherOnly, "CE_KU_DecipherOnly");
 
 //
 // CF boilerplate
@@ -51,13 +85,29 @@ SecPolicyGetOID(SecPolicyRef policyRef, CSSM_OID* oid)
 	END_SECAPI
 }
 
-
 OSStatus
 SecPolicyGetValue(SecPolicyRef policyRef, CSSM_DATA* value)
 {
     BEGIN_SECAPI
     Required(value) = Policy::required(policyRef)->value();
 	END_SECAPI
+}
+
+CFDictionaryRef
+SecPolicyCopyProperties(SecPolicyRef policyRef)
+{
+	/* can't use SECAPI macros, since this function does not return OSStatus */
+	CFDictionaryRef result = NULL;
+	try {
+		result = Policy::required(policyRef)->properties();
+	}
+	catch (...) {
+		if (result) {
+			CFRelease(result);
+			result = NULL;
+		}
+	};
+	return result;
 }
 
 OSStatus
@@ -70,6 +120,13 @@ SecPolicySetValue(SecPolicyRef policyRef, const CSSM_DATA *value)
 	END_SECAPI
 }
 
+OSStatus
+SecPolicySetProperties(SecPolicyRef policyRef, CFDictionaryRef properties)
+{
+	BEGIN_SECAPI
+	Policy::required(policyRef)->setProperties(properties);
+	END_SECAPI
+}
 
 OSStatus
 SecPolicyGetTPHandle(SecPolicyRef policyRef, CSSM_TP_HANDLE* tpHandle)
@@ -179,3 +236,43 @@ SecPolicyCreateSSL(Boolean server, CFStringRef hostname)
     return policy;
 }
 
+/* new in 10.7 */
+SecPolicyRef
+SecPolicyCreateWithOID(CFTypeRef policyOID)
+{
+	//%%% FIXME: allow policyOID to be a CFDataRef or a CFStringRef for an arbitrary OID
+	// for now, we only accept the policy constants that are defined in SecPolicy.h
+	CFStringRef oidStr = (CFStringRef)policyOID;
+	CSSM_OID *oidPtr = NULL;
+	SecPolicyRef policy = NULL;
+	const void* oidmap[] = {
+		kSecPolicyAppleX509Basic, &CSSMOID_APPLE_X509_BASIC,
+		kSecPolicyAppleSSL, &CSSMOID_APPLE_TP_SSL,
+		kSecPolicyAppleSMIME, &CSSMOID_APPLE_TP_SMIME,
+		kSecPolicyAppleEAP, &CSSMOID_APPLE_TP_EAP,
+		kSecPolicyAppleIPsec, &CSSMOID_APPLE_TP_IP_SEC,
+		kSecPolicyAppleiChat, &CSSMOID_APPLE_TP_ICHAT,
+		kSecPolicyApplePKINITClient, &CSSMOID_APPLE_TP_PKINIT_CLIENT,
+		kSecPolicyApplePKINITServer, &CSSMOID_APPLE_TP_PKINIT_SERVER,
+		kSecPolicyAppleCodeSigning, &CSSMOID_APPLE_TP_CODE_SIGNING,
+		kSecPolicyMacAppStoreReceipt, &CSSMOID_APPLE_TP_MACAPPSTORE_RECEIPT,
+		kSecPolicyAppleIDValidation, &CSSMOID_APPLE_TP_APPLEID_SHARING
+	};
+	unsigned int i, oidmaplen = sizeof(oidmap) / sizeof(oidmap[0]);
+	for (i=0; i<oidmaplen*2; i+=2) {
+		CFStringRef str = (CFStringRef)oidmap[i];
+		if (CFStringCompare(str, oidStr, 0) == kCFCompareEqualTo) {
+			oidPtr = (CSSM_OID*)oidmap[i+1];
+			break;
+		}
+	}
+	if (oidPtr) {
+		SecPolicySearchRef policySearch = NULL;
+		OSStatus status = SecPolicySearchCreate(CSSM_CERT_X_509v3, oidPtr, NULL, &policySearch);
+		if (!status && policySearch) {
+			status = SecPolicySearchCopyNext(policySearch, &policy);
+			CFRelease(policySearch);
+		}
+	}
+	return policy;
+}

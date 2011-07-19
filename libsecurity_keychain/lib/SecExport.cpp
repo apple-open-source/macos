@@ -31,10 +31,11 @@
 #include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacErrors.h>
 #include <security_utilities/errors.h>
 #include <Security/SecIdentity.h>
+#include <Security/SecIdentityPriv.h>
+#include <Security/SecItem.h>
 
 using namespace Security;
 using namespace KeychainCore;
-
 
 /*
  * Convert Sec item to one or two SecExportReps, append to exportReps array.
@@ -301,3 +302,40 @@ errOut:
 	
 	END_IMP_EXP_SECAPI
 }
+
+
+OSStatus SecItemExport(CFTypeRef secItemOrArray, SecExternalFormat outputFormat,	
+	SecItemImportExportFlags			flags,				/* kSecItemPemArmor, etc. */
+	const SecItemImportExportKeyParameters  *keyParams,			/* optional */
+	CFDataRef							*exportedData)	
+{
+	SecKeyImportExportParameters* oldStructPtr = NULL;
+	SecKeyImportExportParameters oldStruct;
+	memset(&oldStruct, 0, sizeof(oldStruct));
+	
+	if (NULL != keyParams)
+	{
+		
+		SecKeyRef tempKey = NULL;
+		
+		if (SecKeyGetTypeID() == CFGetTypeID(secItemOrArray))
+		{
+			tempKey = (SecKeyRef)secItemOrArray;
+		}
+		
+		if (ConvertSecKeyImportExportParametersToSecImportExportKeyParameters(tempKey,
+			keyParams, &oldStruct))
+		{
+			oldStructPtr = &oldStruct;
+		}
+	}
+	
+	return SecKeychainItemExport(secItemOrArray, outputFormat, flags, oldStructPtr, exportedData);
+}
+
+
+
+
+
+
+

@@ -1,5 +1,5 @@
 /*************************************************************************
-* Copyright (c) 1997-2008, International Business Machines Corporation
+* Copyright (c) 1997-2010, International Business Machines Corporation
 * and others. All Rights Reserved.
 **************************************************************************
 *
@@ -57,12 +57,12 @@ class StringEnumeration;
  *
  * <p>
  * You can also get a <code>TimeZone</code> using <code>createTimeZone</code> along
- * with a time zone ID. For instance, the time zone ID for the Pacific
- * Standard Time zone is "PST". So, you can get a PST <code>TimeZone</code> object
+ * with a time zone ID. For instance, the time zone ID for the US Pacific
+ * Time zone is "America/Los_Angeles". So, you can get a Pacific Time <code>TimeZone</code> object
  * with:
  * \htmlonly<blockquote>\endhtmlonly
  * <pre>
- * TimeZone *tz = TimeZone::createTimeZone("PST");
+ * TimeZone *tz = TimeZone::createTimeZone("America/Los_Angeles");
  * </pre>
  * \htmlonly</blockquote>\endhtmlonly
  * You can use <code>getAvailableIDs</code> method to iterate through
@@ -103,10 +103,10 @@ class StringEnumeration;
  * The TimeZone class contains a static list containing a TimeZone object for every
  * combination of GMT offset and daylight-savings time rules currently in use in the
  * world, each with a unique ID.  Each ID consists of a region (usually a continent or
- * ocean) and a city in that region, separated by a slash, (for example, Pacific
- * Standard Time is "America/Los_Angeles.")  Because older versions of this class used
+ * ocean) and a city in that region, separated by a slash, (for example, US Pacific
+ * Time is "America/Los_Angeles.")  Because older versions of this class used
  * three- or four-letter abbreviations instead, there is also a table that maps the older
- * abbreviations to the newer ones (for example, "PST" maps to "America/LosAngeles").
+ * abbreviations to the newer ones (for example, "PST" maps to "America/Los_Angeles").
  * Anywhere the API requires an ID, you can use either form.
  * <P>
  * To create a new TimeZone, you call the factory function TimeZone::createTimeZone()
@@ -136,9 +136,8 @@ public:
 
     /**
      * Creates a <code>TimeZone</code> for the given ID.
-     * @param ID the ID for a <code>TimeZone</code>, either an abbreviation such as
-     * "PST", a full name such as "America/Los_Angeles", or a custom ID
-     * such as "GMT-8:00".
+     * @param ID the ID for a <code>TimeZone</code>, such as "America/Los_Angeles",
+     * or a custom ID such as "GMT-8:00".
      * @return the specified <code>TimeZone</code>, or the GMT zone if the given ID
      * cannot be understood.  Return result guaranteed to be non-null.  If you
      * require that the specific zone asked for be returned, check the ID of the
@@ -186,72 +185,6 @@ public:
      * @stable ICU 2.4
      */
     static StringEnumeration* U_EXPORT2 createEnumeration(const char* country);
-
-#ifdef U_USE_TIMEZONE_OBSOLETE_2_8
-    /**
-     * Returns a list of time zone IDs, one for each time zone with a given GMT offset.
-     * The return value is a list because there may be several times zones with the same
-     * GMT offset that differ in the way they handle daylight savings time.  For example,
-     * the state of Arizona doesn't observe Daylight Savings time.  So if you ask for
-     * the time zone IDs corresponding to GMT-7:00, you'll get back two time zone IDs:
-     * "America/Denver," which corresponds to Mountain Standard Time in the winter and
-     * Mountain Daylight Time in the summer, and "America/Phoenix", which corresponds to
-     * Mountain Standard Time year-round, even in the summer.
-     * <P>
-     * The caller owns the list that is returned, but does not own the strings contained
-     * in that list.  Delete the array with uprv_free(), but DON'T delete the elements in the array.
-     *
-     * <p>NOTE: uprv_free() is declared in the private header source/common/cmemory.h.
-     *
-     * @param rawOffset  An offset from GMT in milliseconds.
-     * @param numIDs     Receives the number of items in the array that is returned.
-     * @return           An array of UnicodeString pointers, where each UnicodeString is
-     *                   a time zone ID for a time zone with the given GMT offset.  If
-     *                   there is no timezone that matches the GMT offset
-     *                   specified, NULL is returned.
-     * @obsolete ICU 2.8.  Use createEnumeration(int32_t) instead since this API will be removed in that release.
-     */
-    static const UnicodeString** createAvailableIDs(int32_t rawOffset, int32_t& numIDs);
-
-    /**
-     * Returns a list of time zone IDs associated with the given
-     * country.  Some zones are affiliated with no country (e.g.,
-     * "UTC"); these may also be retrieved, as a group.
-     *
-     * <P>The caller owns the list that is returned, but does not own
-     * the strings contained in that list.  Delete the array with uprv_free(), but
-     * <b>DON'T</b> delete the elements in the array.
-     *
-     * <p>NOTE: uprv_free() is declared in the private header source/common/cmemory.h.
-     *
-     * @param country The ISO 3166 two-letter country code, or NULL to
-     * retrieve zones not affiliated with any country.
-     * @param numIDs Receives the number of items in the array that is
-     * returned.
-     * @return An array of UnicodeString pointers, where each
-     * UnicodeString is a time zone ID for a time zone with the given
-     * country.  If there is no timezone that matches the country
-     * specified, NULL is returned.
-     * @obsolete ICU 2.8.  Use createEnumeration(const char*) instead since this API will be removed in that release.
-     */
-    static const UnicodeString** createAvailableIDs(const char* country,
-                                                          int32_t& numIDs);
-
-    /**
-     * Returns a list of all time zone IDs supported by the TimeZone class (i.e., all
-     * IDs that it's legal to pass to createTimeZone()).  The caller owns the list that
-     * is returned, but does not own the strings contained in that list.  Delete the array with uprv_free(),
-     * but DON'T delete the elements in the array.
-     *
-     * <p>NOTE: uprv_free() is declared in the private header source/common/cmemory.h.
-     *
-     * @param numIDs  Receives the number of zone IDs returned.
-     * @return        An array of UnicodeString pointers, where each is a time zone ID
-     *                supported by the TimeZone class.
-     * @obsolete ICU 2.8.  Use createEnumeration(void) instead since this API will be removed in that release.
-     */
-    static const UnicodeString** createAvailableIDs(int32_t& numIDs);
-#endif
 
     /**
      * Returns the number of IDs in the equivalency group that
@@ -329,40 +262,40 @@ public:
      * Returns the timezone data version currently used by ICU.
      * @param status Output param to filled in with a success or an error.
      * @return the version string, such as "2007f"
-     * @stable ICU 4.0
+     * @stable ICU 3.8
      */
     static const char* U_EXPORT2 getTZDataVersion(UErrorCode& status);
 
     /**
      * Returns the canonical system timezone ID or the normalized
      * custom time zone ID for the given time zone ID.
-     * @param id            The input timezone ID to be canonicalized.
-     * @param canonicalID   Receives the canonical system timezone ID
-     *                      or the custom timezone ID in normalized format.
-     * @param status        Recevies the status.  When the given timezone ID
+     * @param id            The input time zone ID to be canonicalized.
+     * @param canonicalID   Receives the canonical system time zone ID
+     *                      or the custom time zone ID in normalized format.
+     * @param status        Recevies the status.  When the given time zone ID
      *                      is neither a known system time zone ID nor a
-     *                      valid custom timezone ID, U_ILLEGAL_ARGUMENT_ERROR
+     *                      valid custom time zone ID, U_ILLEGAL_ARGUMENT_ERROR
      *                      is set.
      * @return A reference to the result.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     static UnicodeString& U_EXPORT2 getCanonicalID(const UnicodeString& id,
         UnicodeString& canonicalID, UErrorCode& status);
 
     /**
-     * Returns the canonical system timezone ID or the normalized
+     * Returns the canonical system time zone ID or the normalized
      * custom time zone ID for the given time zone ID.
-     * @param id            The input timezone ID to be canonicalized.
-     * @param canonicalID   Receives the canonical system timezone ID
-     *                      or the custom timezone ID in normalized format.
+     * @param id            The input time zone ID to be canonicalized.
+     * @param canonicalID   Receives the canonical system time zone ID
+     *                      or the custom time zone ID in normalized format.
      * @param isSystemID    Receives if the given ID is a known system
-     *                      timezone ID.
-     * @param status        Recevies the status.  When the given timezone ID
+     *                      time zone ID.
+     * @param status        Recevies the status.  When the given time zone ID
      *                      is neither a known system time zone ID nor a
-     *                      valid custom timezone ID, U_ILLEGAL_ARGUMENT_ERROR
+     *                      valid custom time zone ID, U_ILLEGAL_ARGUMENT_ERROR
      *                      is set.
      * @return A reference to the result.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     static UnicodeString& U_EXPORT2 getCanonicalID(const UnicodeString& id,
         UnicodeString& canonicalID, UBool& isSystemID, UErrorCode& status);
@@ -503,7 +436,7 @@ public:
      * the time zone's GMT offset and daylight-savings rules don't change to those for
      * Los Angeles.  They're still those for New York.  Only the ID has changed.)
      *
-     * @param ID  The new timezone ID.
+     * @param ID  The new time zone ID.
      * @stable ICU 2.0
      */
     void setID(const UnicodeString& ID);
@@ -522,7 +455,41 @@ public:
          * Selector for long display name
          * @stable ICU 2.4
          */
-        LONG
+        LONG,
+        /**
+         * Selector for short generic display name
+         * @stable ICU 4.4
+         */
+        SHORT_GENERIC,
+        /**
+         * Selector for long generic display name
+         * @stable ICU 4.4
+         */
+        LONG_GENERIC,
+        /**
+         * Selector for short display name derived
+         * from time zone offset
+         * @stable ICU 4.4
+         */
+        SHORT_GMT,
+        /**
+         * Selector for long display name derived
+         * from time zone offset
+         * @stable ICU 4.4
+         */
+        LONG_GMT,
+        /**
+         * Selector for short display name derived
+         * from the time zone's fallback name
+         * @stable ICU 4.4
+         */
+        SHORT_COMMONLY_USED,
+        /**
+         * Selector for long display name derived
+         * from the time zone's fallback name
+         * @stable ICU 4.4
+         */
+        GENERIC_LOCATION
     };
 
     /**
@@ -560,7 +527,7 @@ public:
      * then this method returns a string in the format
      * <code>GMT[+-]hh:mm</code>.
      * @param daylight if true, return the daylight savings name.
-     * @param style either <code>LONG</code> or <code>SHORT</code>
+     * @param style
      * @param result the human-readable name of this time zone in the default locale.
      * @return       A reference to 'result'.
      * @stable ICU 2.0
@@ -574,7 +541,7 @@ public:
      * then this method returns a string in the format
      * <code>GMT[+-]hh:mm</code>.
      * @param daylight if true, return the daylight savings name.
-     * @param style either <code>LONG</code> or <code>SHORT</code>
+     * @param style
      * @param locale the locale in which to supply the display name.
      * @param result the human-readable name of this time zone in the given locale
      *               or in the default locale if the given locale is not recognized.
@@ -582,7 +549,7 @@ public:
      * @stable ICU 2.0
      */
     UnicodeString& getDisplayName(UBool daylight, EDisplayType style, const Locale& locale, UnicodeString& result) const;
-
+    
     /**
      * Queries if this time zone uses daylight savings time.
      * @return true if this time zone uses daylight savings time,
@@ -672,7 +639,7 @@ protected:
     TimeZone();
 
     /**
-     * Construct a timezone with a given ID.
+     * Construct a TimeZone with a given ID.
      * @param id a system time zone ID
      * @stable ICU 2.0
      */
@@ -713,12 +680,18 @@ private:
      * Resolve a link in Olson tzdata.  When the given id is known and it's not a link,
      * the id itself is returned.  When the given id is known and it is a link, then
      * dereferenced zone id is returned.  When the given id is unknown, then it returns
-     * empty string.
-     * @param linkTo Input zone id string
-     * @param linkFrom Receives the dereferenced zone id string
-     * @return The reference to the result (linkFrom)
+     * NULL.
+     * @param id zone id string
+     * @return the dereferenced zone or NULL
      */
-    static UnicodeString& dereferOlsonLink(const UnicodeString& linkTo, UnicodeString& linkFrom);
+    static const UChar* dereferOlsonLink(const UnicodeString& id);
+
+    /**
+     * Returns the region code associated with the given zone.
+     * @param id zone id string
+     * @return the region associated with the given zone
+     */
+    static const UChar* getRegion(const UnicodeString& id);
 
     /**
      * Parses the given custom time zone identifier
@@ -747,7 +720,7 @@ private:
         UErrorCode& status);
 
     /**
-     * Returns the normalized custome timezone ID for the given offset fields.
+     * Returns the normalized custome time zone ID for the given offset fields.
      * @param hour offset hours
      * @param min offset minutes
      * @param sec offset seconds
@@ -771,11 +744,12 @@ private:
      * instantiate a new zone of that name and return it.  If not
      * found, return 0.
      * @param name tthe given name of a system time zone.
-     * @return the timezone indicated by the 'name'.
+     * @return the TimeZone indicated by the 'name'.
      */
     static TimeZone*        createSystemTimeZone(const UnicodeString& name);
 
     UnicodeString           fID;    // this time zone's ID
+
 };
 
 

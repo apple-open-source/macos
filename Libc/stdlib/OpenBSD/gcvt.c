@@ -1,7 +1,7 @@
-/*	$OpenBSD: gcvt.c,v 1.5 2003/06/17 21:56:24 millert Exp $	*/
+/*	$OpenBSD: gcvt.c,v 1.11 2009/10/16 12:15:03 martynas Exp $	*/
 
 /*
- * Copyright (c) 2002, 2003 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2002, 2003, 2006 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -20,31 +20,38 @@
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
  */
 
-#if defined(LIBC_SCCS) && !defined(lint)
-static char rcsid[] = "$OpenBSD: gcvt.c,v 1.5 2003/06/17 21:56:24 millert Exp $";
-#endif /* LIBC_SCCS and not lint */
-
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 extern char *__dtoa(double, int, int, int *, int *, char **);
+extern void  __freedtoa(char *);
 
 char *
 gcvt(double value, int ndigit, char *buf)
 {
 	char *digits, *dst, *src;
 	int i, decpt, sign;
+	struct lconv *lconv;
 
+	lconv = localeconv();
 	if (ndigit == 0) {
 		buf[0] = '\0';
 		return (buf);
 	}
 
 	digits = __dtoa(value, 2, ndigit, &decpt, &sign, NULL);
+	if (digits == NULL)
+		return (NULL);
 	if (decpt == 9999) {
-		/* Infinity or NaN, assume buffer is at least ndigit long. */
-		strlcpy(buf, digits, ndigit + 1);
+		/*
+		 * Infinity or NaN, convert to inf or nan with sign.
+		 * We assume the buffer is at least ndigit long.
+		 */
+		snprintf(buf, ndigit + 1, "%s%s", sign ? "-" : "",
+		    *digits == 'I' ? "inf" : "nan");
+		__freedtoa(digits);
 		return (buf);
 	}
 
@@ -53,13 +60,16 @@ gcvt(double value, int ndigit, char *buf)
 		*dst++ = '-';
 
 	if (decpt < 0 || decpt > ndigit) {
-		/* exponential format */
+		/* exponential format (e.g. 1.2345e+13) */
 		if (--decpt < 0) {
 			sign = 1;
 			decpt = -decpt;
 		} else
 			sign = 0;
-		for (src = digits; *src != '\0'; )
+		src = digits;
+		*dst++ = *src++;
+		*dst++ = *lconv->decimal_point;
+		while (*src != '\0')
 			*dst++ = *src++;
 		*dst++ = 'e';
 		if (sign)
@@ -73,7 +83,8 @@ gcvt(double value, int ndigit, char *buf)
 		} else {
 			/* XXX - optimize */
 			for (sign = decpt, i = 0; (sign /= 10) != 0; i++)
-				sign /= 10;
+				continue;
+			dst[i + 1] = '\0';
 			while (decpt != 0) {
 				dst[i--] = '0' + decpt % 10;
 				decpt /= 10;
@@ -88,12 +99,15 @@ gcvt(double value, int ndigit, char *buf)
 				*dst++ = '0';
 		}
 		if (*src != '\0') {
-			*dst++ = '.';		/* XXX - locale-specific (LC_NUMERIC) */
+			if (src == digits)
+				*dst++ = '0';	/* zero before decimal point */
+			*dst++ = *lconv->decimal_point;
 			for (i = decpt; digits[i] != '\0'; i++) {
 				*dst++ = digits[i];
 			}
 		}
 		*dst = '\0';
 	}
+	__freedtoa(digits);
 	return (buf);
 }

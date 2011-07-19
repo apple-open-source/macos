@@ -131,31 +131,7 @@ private:
     OSObject *                 _scrollWheelEventTarget;
     ScrollWheelEventAction     _scrollWheelEventAction;
     
-    struct ExpansionData { 
-        UInt32      scrollType;
-                
-        ScrollAccelInfo * scrollWheelInfo;
-        ScrollAccelInfo * scrollPointerInfo;
-
-        IOFixed		scrollFixedDeltaAxis1;
-        IOFixed		scrollFixedDeltaAxis2;
-        IOFixed		scrollFixedDeltaAxis3;
-        SInt32		scrollPointDeltaAxis1;
-        SInt32		scrollPointDeltaAxis2;
-        SInt32		scrollPointDeltaAxis3;
-        UInt32      scrollButtonMask;
-
-        // Added to post events to the HID Manager
-        IOHIDPointingDevice	* hidPointingNub;
-        IOService 		* openClient;
-        
-        bool		isSeized;
-        UInt32        accelerateMode;
-        
-        UInt32      scrollZoomMask;
-        bool        lastScrollWasZoom;
-        bool        scrollOff;
-    };
+    struct ExpansionData;
 
     ExpansionData *  _reserved;
     
@@ -236,7 +212,7 @@ protected: // for subclasses to implement
 private:
   virtual bool resetPointer();
   virtual void scalePointer(int * dxp, int * dyp);
-  virtual void setupForAcceleration(IOFixed accl);
+    virtual void setupForAcceleration(IOFixed accl);
   
   // RY: Adding methods to support scroll wheel accel.
   // Unfortunately, we don't have any padding, so these

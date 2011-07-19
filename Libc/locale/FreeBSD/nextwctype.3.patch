@@ -1,5 +1,5 @@
---- nextwctype.3.orig	Fri Mar 11 19:44:47 2005
-+++ nextwctype.3	Fri Mar 11 19:53:29 2005
+--- nextwctype.3.orig	2009-11-10 13:13:11.000000000 -0800
++++ nextwctype.3	2009-11-10 14:53:56.000000000 -0800
 @@ -29,7 +29,8 @@
  .Dt NEXTWCTYPE 3
  .Os
@@ -10,19 +10,17 @@
  .Nd "iterate through character classes"
  .Sh LIBRARY
  .Lb libc
-@@ -39,6 +40,11 @@
- .Fo nextwctype
- .Fa "wint_t ch" "wctype_t wct"
- .Fc
+@@ -37,6 +38,9 @@
+ .In wctype.h
+ .Ft wint_t
+ .Fn nextwctype "wint_t ch" "wctype_t wct"
 +.In xlocale.h
 +.Ft wint_t
-+.Fo nextwctype_l
-+.Fa "wint_t ch" "wctype_t wct" "locale_t loc"
-+.Fc
++.Fn nextwctype_l "wint_t ch" "wctype_t wct" "locale_t loc"
  .Sh DESCRIPTION
  The
  .Fn nextwctype
-@@ -50,9 +56,18 @@
+@@ -48,6 +52,14 @@ If
  .Fa ch
  is \-1, the search begins at the first member of
  .Fa wct .
@@ -30,15 +28,20 @@
 +While the
 +.Fn nextwctype
 +function uses the current locale, the
-+.Fn nextwctype_l
++ .Fn nextwctype_l
 +function may be passed a locale directly. See
 +.Xr xlocale 3
 +for more information.
  .Sh RETURN VALUES
  The
  .Fn nextwctype
- functions returns the next character, or \-1 if there are no more.
+@@ -59,7 +71,8 @@ extension and should not be used where t
+ .Fn iswctype
+ function would suffice.
  .Sh SEE ALSO
 -.Xr wctype 3
 +.Xr wctype 3 ,
 +.Xr xlocale 3
+ .Sh HISTORY
+ The
+ .Fn nextwctype

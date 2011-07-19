@@ -1,0 +1,162 @@
+require "vnd.dovecot.testsuite";
+
+/* 
+ * ## RFC 5228, Section 3.1. Control if (page 21) ## 
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: test@dovecot.example.net
+Cc: friep@example.com
+Subject: Test
+
+Test!
+.
+;
+
+/*
+ * Basic functionality
+ */
+
+/* "The semantics are similar to those of any of the many other
+ *  programming languages these control structures appear in.  When the
+ *  interpreter sees an "if", it evaluates the test associated with it.
+ *  If the test is true, it executes the block associated with it.
+ *
+ *  If the test of the "if" is false, it evaluates the test of the first
+ *  "elsif" (if any).  If the test of "elsif" is true, it runs the
+ *  elsif's block.  An elsif may be followed by an elsif, in which case,
+ *  the interpreter repeats this process until it runs out of elsifs.
+ *
+ *  When the interpreter runs out of elsifs, there may be an "else" case.
+ *  If there is, and none of the if or elsif tests were true, the
+ *  interpreter runs the else's block.
+ *
+ *  This provides a way of performing exactly one of the blocks in the
+ *  chain.
+ * "
+ */
+
+/*
+ * TEST: Basic functionality: if true/false
+ */
+
+test "Basic functionality: if true/false" {
+	/* Static */
+	if true {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for static true";
+	}
+
+	if false {
+		test_fail "executed wrong alternative for static false";
+	} else {
+		/* Correct */
+	}
+
+	/* Dynamic */
+	if exists "to" {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for dynamic true";
+	}
+
+	if exists "flierp" {
+		test_fail "executed wrong alternative for dynamic false";
+	} else {
+		/* Correct */
+	}
+}
+
+/*
+ * TEST: Basic functionality: elseif true/false
+ */
+
+test "Basic functionality: elseif true/false" {
+	/* Static */
+	if false {
+		test_fail "executed wrong alternative for static true (if)";
+	} elsif true {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for static true (else)";	
+	}
+
+	if false {
+		test_fail "executed wrong alternative for static false (if)";
+	} elsif false {
+		test_fail "executed wrong alternative for static false (elsif)";	
+	} else {
+		/* Correct */
+	}
+
+	/* Dynamic */
+	if address :is "from" "tss@example.net" {
+		test_fail "executed wrong alternative for dynamic true (if)";
+	} elsif address :is "from" "stephan@example.org" {
+		/* Correct */
+	} else {
+		test_fail "executed wrong alternative for dynamic true(else)";	
+	}
+
+	if address :is "from" "tss@example.net" {
+		test_fail "executed wrong alternative for dynamic false (if)";
+	} elsif address :is "to" "stephan@example.org" {
+		test_fail "executed wrong alternative for dynamic false (elsif)";	
+	} else {
+		/* Correct */
+	}
+}
+
+/*
+ * TEST: Basic functionality: nesting
+ */
+
+test "Basic functionality: nesting" {
+	/* Static */
+	if true {
+		if true {
+			if false {
+				test_fail "chose wrong static outcome: true->true->false";
+			} else {
+				/* Correct */
+			}
+		} else {
+			test_fail "chose wrong static outcome: true->false";
+		}
+	} elsif true {
+		if false {
+			test_fail "chose wrong static outcome: false->true->false";	
+		} elsif true {
+			test_fail "chose wrong static outcome: false->true->true";
+		}
+	} else {
+		test_fail "chose wrong static outcome: false->false";
+	}
+
+	/* Dynamic */
+
+	if exists "to" {
+		if exists "from" {
+			if exists "friep" {
+				test_fail "chose wrong dynamic outcome: true->true->false";
+			} else {
+				/* Correct */
+			}
+		} else {
+			test_fail "chose wrong dynamic outcome: true->false";
+		}
+	} elsif exists "cc" {
+		if exists "frop" {
+			test_fail "chose wrong dynamic outcome: false->true->false";	
+		} elsif exists "from" {
+			test_fail "chose wrong dynamic outcome: false->true->true";
+		}
+	} else {
+		test_fail "chose wrong dynamic outcome: false->false";
+	}
+}
+
+
+

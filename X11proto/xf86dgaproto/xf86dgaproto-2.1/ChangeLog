@@ -1,0 +1,235 @@
+commit 743fb528f6ef9d29edcb841fc0effbbf9a4837c4
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 19:51:43 2009 +1000
+
+    xf86dgaproto 2.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 647fbb2493d16248d37fbd864ae48a4f18c01644
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 19:48:07 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit db4cb300dec74c9198a4f04aafd20042fe2d1fd9
+Author: Carl Worth <cworth@cworth.org>
+Date:   Wed Sep 16 17:03:30 2009 -0700
+
+    Change xf86dga.h to only conditionally include server's header file.
+    
+    The recent re-addition of the xf86dga.h file introduced an
+    incompatibility with a recent, but unreleased version of libXxf86dga
+    which also wanted to install a file of the same name. Instead, we
+    allow the proto package to own this file, and include the library's
+    version (now to be named Xxf86dga.h) unless we're building an old
+    server (indicated by _XF86DGA_SERVER_).
+
+commit 047a1ebbbcea3ad78a06f0fa8450fa8ba38be43d
+Author: Carl Worth <cworth@cworth.org>
+Date:   Wed Sep 16 15:40:02 2009 -0700
+
+    Add back xf86dga.h (simply including the newly named xf86dgaconst.h)
+    
+    This maintains compatibility so that previous X servers, (such as
+    xserver 1.6 can still be built).
+
+commit f3cfa9e3aa654305a702d97014f726ae5d900a46
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 10:54:30 2009 +1000
+
+    Bump version to 2.0.99.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a111c2e7826df36c937b83639e929dfb50179873
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 14:13:46 2009 +1000
+
+    Include the *const.h files from the proto files.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit e02a56a6a62b03ae646937638c07fd33ac98d3ed
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 16:33:48 2009 +1000
+
+    Rename xf86dga(1)str.h to xf86dga(1)proto.h for consistency with other modules
+    
+    Stub *str.h headers provided to avoid breaking clients.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d3d698ab760db96088d8a0e19799b0d18a44c201
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 16:30:56 2009 +1000
+
+    Remove Xlib headers from xf86dga.h and xf86dga1.h
+    
+    Renamed to *const.h for consistency with other modules.
+    Xlib headers moved to libXxf86dga.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 63372e881d5c4da5f08aaff1a8355775ac05a0d5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 16:26:55 2009 +1000
+
+    Remove RCS tags.
+
+commit fd255432b925aacdc212899b51e783894bfe4942
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 738f1a26dcabaddc4178a54efddd7fefa1880624
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:11 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 53ab87dc609be976eec50ed77e3f4fd77a7852e9
+Author: Eric Anholt <eric@anholt.net>
+Date:   Wed Sep 5 10:11:35 2007 -0700
+
+    Bump version to 2.0.3.
+
+commit d6cb2298d6eac2c15640d5b6348335a47969a761
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:27 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 2d2ceea793a6046e088fa86644fdb887265b71e3
+Author: Wang Zhenyu <zhenyu.z.wang@intel.com>
+Date:   Wed Apr 18 09:39:46 2007 +0800
+
+    Fix sign extension bug on x86_64 system
+    
+    Noted in libXxf86dga commit. Force base addr to be unsigned int.
+
+commit 916408f263882ec4d171ca07d995c5a22a562179
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:44 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 8195ad9051084354d18557392e530499fdaf6469
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:39 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 036a69f9b489da6665bd640805ffc3f2cd97d7ee
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:16 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit d0948444d0caa72552bd827c042de44f005b9a61
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:40 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 0435cd1826d3cf391a8ef46f637ce5f40f43303d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:57 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 360c8aaee7d7811828c1f1fcc5355d5c332491b2
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:55:25 2005 +0000
+
+    Set version to 2.0.
+
+commit c93dae6529f9f9b0521c93e409330208e0522fd3
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:41 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 572918a46cb939d1bb0e05232ed3f3ca46c2ca74
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:20 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit cfaf18291b9e3e17778ec5d81121c132f0eda238
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Wed May 18 07:38:55 2005 +0000
+
+    Add COPYING file for XF86DGA; assumed to be under the XFree86 catch-all
+        license.
+
+commit 7d1c8247ea48d32fb205d630c16bb0db1266fd98
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:07 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 3372bb6c3a4b6178abf371bcfccf7d9d65b5ffb1
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:32 2005 +0000
+
+    Initial build system files for proto module.
+
+commit ba45fc53d65ccf3938a4d59410b6d6090f48b70c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit c6b9b513109b46e5c0e0dcb918006f7095c0a897
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:36 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit ba0f2b42c3f5ae2bac56cb4fa4676653e506e8b1
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 0200f8001e0dc769453a92169a1123fac4a138d5
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:14 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 75bd04bb7d5ed54bb1b70f215af35bfef7b77f8b
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:28 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit b267ad4481aa9ae534891e2ca3ad9388db7bd481
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit a0c654996517a63b13956e4ff5cfb1d68e657edc
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 04c61054bbc924d0cdd1ded8aa4e028f0955f426
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    Initial revision

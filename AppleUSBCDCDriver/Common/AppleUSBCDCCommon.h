@@ -25,7 +25,7 @@
 #ifndef __APPLEUSBCDCCOMMON__
 #define __APPLEUSBCDCCOMMON__
 
-#define VersionNumber   "4.0.1"
+#define VersionNumber   "4.1.15"
 
     // USB CDC Common Defintions
 		
@@ -252,7 +252,19 @@ typedef struct
     UInt8 	bDescriptorSubtype;
     UInt8 	bMasterInterface;
     UInt8	bSlaveInterface[];
-} UnionFunctionalDescriptor;	
+} UnionFunctionalDescriptor;
+
+typedef struct 
+{
+    UInt8	bLength;
+    UInt8 	bDescriptorType;
+    UInt8 	bFirstInterface;
+    UInt8 	bInterfaceCount;
+    UInt8	bFunctionClass;
+	UInt8	bFunctionSubClass;
+	UInt8	bFunctionProtocol;
+	UInt8	iFunction;
+} IADDescriptor;
 
     // Inline conversions
 	

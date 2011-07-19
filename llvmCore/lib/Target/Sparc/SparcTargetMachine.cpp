@@ -10,62 +10,32 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "SparcTargetAsmInfo.h"
+#include "SparcMCAsmInfo.h"
 #include "SparcTargetMachine.h"
 #include "Sparc.h"
-#include "llvm/Module.h"
 #include "llvm/PassManager.h"
-#include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Target/TargetRegistry.h"
 using namespace llvm;
 
-/// SparcTargetMachineModule - Note that this is used on hosts that
-/// cannot link in a library unless there are references into the
-/// library.  In particular, it seems that it is not possible to get
-/// things to work on Win32 without this.  Though it is unused, do not
-/// remove it.
-extern "C" int SparcTargetMachineModule;
-int SparcTargetMachineModule = 0;
+extern "C" void LLVMInitializeSparcTarget() {
+  // Register the target.
+  RegisterTargetMachine<SparcV8TargetMachine> X(TheSparcTarget);
+  RegisterTargetMachine<SparcV9TargetMachine> Y(TheSparcV9Target);
 
-// Register the target.
-static RegisterTarget<SparcTargetMachine> X("sparc", "SPARC");
+  RegisterAsmInfo<SparcELFMCAsmInfo> A(TheSparcTarget);
+  RegisterAsmInfo<SparcELFMCAsmInfo> B(TheSparcV9Target);
 
-const TargetAsmInfo *SparcTargetMachine::createTargetAsmInfo() const {
-  // FIXME: Handle Solaris subtarget someday :)
-  return new SparcELFTargetAsmInfo(*this);
 }
 
 /// SparcTargetMachine ctor - Create an ILP32 architecture model
 ///
-SparcTargetMachine::SparcTargetMachine(const Module &M, const std::string &FS)
-  : DataLayout("E-p:32:32-f128:128:128"),
-    Subtarget(M, FS), TLInfo(*this), InstrInfo(Subtarget),
+SparcTargetMachine::SparcTargetMachine(const Target &T, const std::string &TT, 
+                                       const std::string &FS, bool is64bit)
+  : LLVMTargetMachine(T, TT),
+    Subtarget(TT, FS, is64bit),
+    DataLayout(Subtarget.getDataLayout()),
+     TLInfo(*this), TSInfo(*this), InstrInfo(Subtarget),
     FrameInfo(TargetFrameInfo::StackGrowsDown, 8, 0) {
-}
-
-unsigned SparcTargetMachine::getModuleMatchQuality(const Module &M) {
-  std::string TT = M.getTargetTriple();
-  if (TT.size() >= 6 && std::string(TT.begin(), TT.begin()+6) == "sparc-")
-    return 20;
-  
-  // If the target triple is something non-sparc, we don't match.
-  if (!TT.empty()) return 0;
-
-  if (M.getEndianness()  == Module::BigEndian &&
-      M.getPointerSize() == Module::Pointer32)
-#ifdef __sparc__
-    return 20;   // BE/32 ==> Prefer sparc on sparc
-#else
-    return 5;    // BE/32 ==> Prefer ppc elsewhere
-#endif
-  else if (M.getEndianness() != Module::AnyEndianness ||
-           M.getPointerSize() != Module::AnyPointerSize)
-    return 0;                                    // Match for some other target
-
-#if defined(__sparc__)
-  return 10;
-#else
-  return 0;
-#endif
 }
 
 bool SparcTargetMachine::addInstSelector(PassManagerBase &PM,
@@ -84,11 +54,14 @@ bool SparcTargetMachine::addPreEmitPass(PassManagerBase &PM,
   return true;
 }
 
-bool SparcTargetMachine::addAssemblyEmitter(PassManagerBase &PM,
-                                            CodeGenOpt::Level OptLevel,
-                                            bool Verbose,
-                                            raw_ostream &Out) {
-  // Output assembly language.
-  PM.add(createSparcCodePrinterPass(Out, *this, OptLevel, Verbose));
-  return false;
+SparcV8TargetMachine::SparcV8TargetMachine(const Target &T,
+                                           const std::string &TT, 
+                                           const std::string &FS)
+  : SparcTargetMachine(T, TT, FS, false) {
+}
+
+SparcV9TargetMachine::SparcV9TargetMachine(const Target &T, 
+                                           const std::string &TT, 
+                                           const std::string &FS)
+  : SparcTargetMachine(T, TT, FS, true) {
 }

@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::LinerNotes;
 
-use base qw/DBIx::Class::Core/;
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('liner_notes');
 __PACKAGE__->add_columns(

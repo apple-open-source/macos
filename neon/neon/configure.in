@@ -147,12 +147,19 @@ if test "x${NE_LIBTOOL_RELEASE}y" != "xy"; then
    NEON_LINK_FLAGS="${NEON_LINK_FLAGS} -release ${NE_LIBTOOL_RELEASE}"
 fi
 
-# Library-internal symbols are in the ne__ namespace: tell libtool
-# to not export these from the built library if possible.
-NEON_LINK_FLAGS="$NEON_LINK_FLAGS -export-symbols-regex '^ne_[[^_]]'"
+gl_LD_VERSION_SCRIPT
+# If ld version scripts are supported, enable symbol versioning.
+# Otherwise, fall back to any libtool-supported symbol export
+# restrictions; ne__* symbols are not exported.
+if test "x$have_ld_version_script" = "xyes"; then
+  NEON_LINK_FLAGS="$NEON_LINK_FLAGS -Wl,--version-script=\$(top_srcdir)/src/neon.vers"
+else
+  NEON_LINK_FLAGS="$NEON_LINK_FLAGS -export-symbols-regex '^ne_[[^_]]'"
+fi 
 
 if test x${enable_shared}${pic_mode}z = xnodefaultz; then
    CFLAGS="$CFLAGS -prefer-pic"
+   AC_MSG_NOTICE([Using PIC for static library build])
 fi
 
 # Bundled language catalogs

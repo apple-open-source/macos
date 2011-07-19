@@ -8,11 +8,12 @@ Reimplement 'select' in terms of 'SEL'.
   add doesn't need to overflow between the two 16-bit chunks.
 
 * Implement pre/post increment support.  (e.g. PR935)
-* Coalesce stack slots!
 * Implement smarter constant generation for binops with large immediates.
 
-* Consider materializing FP constants like 0.0f and 1.0f using integer 
-  immediate instructions then copy to FPU.  Slower than load into FPU?
+A few ARMv6T2 ops should be pattern matched: BFI, SBFX, and UBFX
+
+Interesting optimization for PIC codegen on arm-linux:
+http://gcc.gnu.org/bugzilla/show_bug.cgi?id=43129
 
 //===---------------------------------------------------------------------===//
 
@@ -75,41 +76,8 @@ were disabled due to badness with the ARM carry flag on subtracts.
 
 //===---------------------------------------------------------------------===//
 
-We currently compile abs:
-int foo(int p) { return p < 0 ? -p : p; }
-
-into:
-
-_foo:
-        rsb r1, r0, #0
-        cmn r0, #1
-        movgt r1, r0
-        mov r0, r1
-        bx lr
-
-This is very, uh, literal.  This could be a 3 operation sequence:
-  t = (p sra 31); 
-  res = (p xor t)-t
-
-Which would be better.  This occurs in png decode.
-
-//===---------------------------------------------------------------------===//
-
 More load / store optimizations:
-1) Look past instructions without side-effects (not load, store, branch, etc.)
-   when forming the list of loads / stores to optimize.
-
-2) Smarter register allocation?
-We are probably missing some opportunities to use ldm / stm. Consider:
-
-ldr r5, [r0]
-ldr r4, [r0, #4]
-
-This cannot be merged into a ldm. Perhaps we will need to do the transformation
-before register allocation. Then teach the register allocator to allocate a
-chunk of consecutive registers.
-
-3) Better representation for block transfer? This is from Olden/power:
+1) Better representation for block transfer? This is from Olden/power:
 
 	fldd d0, [r4]
 	fstd d0, [r4, #+32]
@@ -123,7 +91,7 @@ chunk of consecutive registers.
 If we can spare the registers, it would be better to use fldm and fstm here.
 Need major register allocator enhancement though.
 
-4) Can we recognize the relative position of constantpool entries? i.e. Treat
+2) Can we recognize the relative position of constantpool entries? i.e. Treat
 
 	ldr r0, LCPI17_3
 	ldr r1, LCPI17_4
@@ -147,13 +115,7 @@ L6:
 	.long	-858993459
 	.long	1074318540
 
-5) Can we make use of ldrd and strd? Instead of generating ldm / stm, use
-ldrd/strd instead if there are only two destination registers that form an
-odd/even pair. However, we probably would pay a penalty if the address is not
-aligned on 8-byte boundary. This requires more information on load / store
-nodes (and MI's?) then we currently carry.
-
-6) struct copies appear to be done field by field 
+3) struct copies appear to be done field by field 
 instead of by words, at least sometimes:
 
 struct foo { int x; short s; char c1; char c2; };
@@ -313,11 +275,6 @@ See McCat/18-imp/ComputeBoundingBoxes for an example.
 
 //===---------------------------------------------------------------------===//
 
-Register scavenging is now implemented.  The example in the previous version
-of this document produces optimal code at -O2.
-
-//===---------------------------------------------------------------------===//
-
 Pre-/post- indexed load / stores:
 
 1) We should not make the pre/post- indexed load/store transform if the base ptr
@@ -349,21 +306,7 @@ time.
 4) Once we added support for multiple result patterns, write indexed loads
    patterns instead of C++ instruction selection code.
 
-5) Use FLDM / FSTM to emulate indexed FP load / store.
-
-//===---------------------------------------------------------------------===//
-
-We should add i64 support to take advantage of the 64-bit load / stores.
-We can add a pseudo i64 register class containing pseudo registers that are
-register pairs. All other ops (e.g. add, sub) would be expanded as usual.
-
-We need to add pseudo instructions (i.e. gethi / getlo) to extract i32 registers
-from the i64 register. These are single moves which can be eliminated if the
-destination register is a sub-register of the source. We should implement proper
-subreg support in the register allocator to coalesce these away.
-
-There are other minor issues such as multiple instructions for a spill / restore
-/ move.
+5) Use VLDM / VSTM to emulate indexed FP load / store.
 
 //===---------------------------------------------------------------------===//
 
@@ -460,20 +403,6 @@ are not remembered when the same two values are compared twice.
 
 //===---------------------------------------------------------------------===//
 
-More register scavenging work:
-
-1. Use the register scavenger to track frame index materialized into registers
-   (those that do not fit in addressing modes) to allow reuse in the same BB.
-2. Finish scavenging for Thumb.
-3. We know some spills and restores are unnecessary. The issue is once live
-   intervals are merged, they are not never split. So every def is spilled
-   and every use requires a restore if the register allocator decides the
-   resulting live interval is not assigned a physical register. It may be
-   possible (with the help of the scavenger) to turn some spill / restore
-   pairs into register copies.
-
-//===---------------------------------------------------------------------===//
-
 More LSR enhancements possible:
 
 1. Teach LSR about pre- and post- indexed ops to allow iv increment be merged
@@ -552,3 +481,112 @@ __Z11no_overflowjj:
 
 //===---------------------------------------------------------------------===//
 
+Some of the NEON intrinsics may be appropriate for more general use, either
+as target-independent intrinsics or perhaps elsewhere in the ARM backend.
+Some of them may also be lowered to target-independent SDNodes, and perhaps
+some new SDNodes could be added.
+
+For example, maximum, minimum, and absolute value operations are well-defined
+and standard operations, both for vector and scalar types.
+
+The current NEON-specific intrinsics for count leading zeros and count one
+bits could perhaps be replaced by the target-independent ctlz and ctpop
+intrinsics.  It may also make sense to add a target-independent "ctls"
+intrinsic for "count leading sign bits".  Likewise, the backend could use
+the target-independent SDNodes for these operations.
+
+ARMv6 has scalar saturating and halving adds and subtracts.  The same
+intrinsics could possibly be used for both NEON's vector implementations of
+those operations and the ARMv6 scalar versions.
+
+//===---------------------------------------------------------------------===//
+
+ARM::MOVCCr is commutable (by flipping the condition). But we need to implement
+ARMInstrInfo::commuteInstruction() to support it.
+
+//===---------------------------------------------------------------------===//
+
+Split out LDR (literal) from normal ARM LDR instruction. Also consider spliting
+LDR into imm12 and so_reg forms. This allows us to clean up some code. e.g.
+ARMLoadStoreOptimizer does not need to look at LDR (literal) and LDR (so_reg)
+while ARMConstantIslandPass only need to worry about LDR (literal).
+
+//===---------------------------------------------------------------------===//
+
+Constant island pass should make use of full range SoImm values for LEApcrel.
+Be careful though as the last attempt caused infinite looping on lencod.
+
+//===---------------------------------------------------------------------===//
+
+Predication issue. This function:   
+
+extern unsigned array[ 128 ];
+int     foo( int x ) {
+  int     y;
+  y = array[ x & 127 ];
+  if ( x & 128 )
+     y = 123456789 & ( y >> 2 );
+  else
+     y = 123456789 & y;
+  return y;
+}
+
+compiles to:
+
+_foo:
+	and r1, r0, #127
+	ldr r2, LCPI1_0
+	ldr r2, [r2]
+	ldr r1, [r2, +r1, lsl #2]
+	mov r2, r1, lsr #2
+	tst r0, #128
+	moveq r2, r1
+	ldr r0, LCPI1_1
+	and r0, r2, r0
+	bx lr
+
+It would be better to do something like this, to fold the shift into the
+conditional move:
+
+	and r1, r0, #127
+	ldr r2, LCPI1_0
+	ldr r2, [r2]
+	ldr r1, [r2, +r1, lsl #2]
+	tst r0, #128
+	movne r1, r1, lsr #2
+	ldr r0, LCPI1_1
+	and r0, r1, r0
+	bx lr
+
+it saves an instruction and a register.
+
+//===---------------------------------------------------------------------===//
+
+It might be profitable to cse MOVi16 if there are lots of 32-bit immediates
+with the same bottom half.
+
+//===---------------------------------------------------------------------===//
+
+Robert Muth started working on an alternate jump table implementation that
+does not put the tables in-line in the text.  This is more like the llvm
+default jump table implementation.  This might be useful sometime.  Several
+revisions of patches are on the mailing list, beginning at:
+http://lists.cs.uiuc.edu/pipermail/llvmdev/2009-June/022763.html
+
+//===---------------------------------------------------------------------===//
+
+Make use of the "rbit" instruction.
+
+//===---------------------------------------------------------------------===//
+
+Take a look at test/CodeGen/Thumb2/machine-licm.ll. ARM should be taught how
+to licm and cse the unnecessary load from cp#1.
+
+//===---------------------------------------------------------------------===//
+
+The CMN instruction sets the flags like an ADD instruction, while CMP sets
+them like a subtract. Therefore to be able to use CMN for comparisons other
+than the Z bit, we'll need additional logic to reverse the conditionals
+associated with the comparison. Perhaps a pseudo-instruction for the comparison,
+with a post-codegen pass to clean up and handle the condition codes?
+See PR5694 for testcase.

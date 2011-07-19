@@ -1,0 +1,28 @@
+This package includes the protocol definitions of the "XFree86-Misc"
+extension to the X11 protocol.   The "XFree86-Misc" extension is
+supported by the XFree86 X server and versions of the Xorg X server
+prior to Xorg 1.6.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/proto/xf86miscproto
+
+        http://cgit.freedesktop.org/xorg/proto/xf86miscproto
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

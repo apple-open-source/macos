@@ -26,6 +26,7 @@
 #include "ContentData.h"
 #include "RenderCounter.h"
 #include "RenderStyle.h"
+#include "ShadowData.h"
 #include "StyleImage.h"
 
 namespace WebCore {
@@ -33,32 +34,27 @@ namespace WebCore {
 StyleRareNonInheritedData::StyleRareNonInheritedData()
     : lineClamp(RenderStyle::initialLineClamp())
     , opacity(RenderStyle::initialOpacity())
-    , m_content(0)
-    , m_counterDirectives(0)
     , userDrag(RenderStyle::initialUserDrag())
     , textOverflow(RenderStyle::initialTextOverflow())
-    , marginTopCollapse(MCOLLAPSE)
-    , marginBottomCollapse(MCOLLAPSE)
+    , marginBeforeCollapse(MCOLLAPSE)
+    , marginAfterCollapse(MCOLLAPSE)
     , matchNearestMailBlockquoteColor(RenderStyle::initialMatchNearestMailBlockquoteColor())
     , m_appearance(RenderStyle::initialAppearance())
     , m_borderFit(RenderStyle::initialBorderFit())
+    , m_textCombine(RenderStyle::initialTextCombine())
     , m_counterIncrement(0)
     , m_counterReset(0)
 #if USE(ACCELERATED_COMPOSITING)
     , m_runningAcceleratedAnimation(false)
 #endif
-    , m_boxShadow(0)
-    , m_animations(0)
-    , m_transitions(0)
     , m_mask(FillLayer(MaskFillLayer))
     , m_transformStyle3D(RenderStyle::initialTransformStyle3D())
     , m_backfaceVisibility(RenderStyle::initialBackfaceVisibility())
     , m_perspective(RenderStyle::initialPerspective())
     , m_perspectiveOriginX(RenderStyle::initialPerspectiveOriginX())
     , m_perspectiveOriginY(RenderStyle::initialPerspectiveOriginY())
-#if ENABLE(XBL)
-    , bindingURI(0)
-#endif
+    , m_pageSize()
+    , m_pageSizeType(PAGE_SIZE_AUTO)
 {
 }
 
@@ -70,24 +66,23 @@ StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonInherited
     , marquee(o.marquee)
     , m_multiCol(o.m_multiCol)
     , m_transform(o.m_transform)
-    , m_content(0)
-    , m_counterDirectives(0)
     , userDrag(o.userDrag)
     , textOverflow(o.textOverflow)
-    , marginTopCollapse(o.marginTopCollapse)
-    , marginBottomCollapse(o.marginBottomCollapse)
+    , marginBeforeCollapse(o.marginBeforeCollapse)
+    , marginAfterCollapse(o.marginAfterCollapse)
     , matchNearestMailBlockquoteColor(o.matchNearestMailBlockquoteColor)
     , m_appearance(o.m_appearance)
     , m_borderFit(o.m_borderFit)
+    , m_textCombine(o.m_textCombine)
     , m_counterIncrement(o.m_counterIncrement)
     , m_counterReset(o.m_counterReset)
 #if USE(ACCELERATED_COMPOSITING)
     , m_runningAcceleratedAnimation(o.m_runningAcceleratedAnimation)
 #endif
-    , m_boxShadow(o.m_boxShadow ? new ShadowData(*o.m_boxShadow) : 0)
+    , m_boxShadow(o.m_boxShadow ? adoptPtr(new ShadowData(*o.m_boxShadow)) : nullptr)
     , m_boxReflect(o.m_boxReflect)
-    , m_animations(o.m_animations ? new AnimationList(*o.m_animations) : 0)
-    , m_transitions(o.m_transitions ? new AnimationList(*o.m_transitions) : 0)
+    , m_animations(o.m_animations ? adoptPtr(new AnimationList(*o.m_animations)) : nullptr)
+    , m_transitions(o.m_transitions ? adoptPtr(new AnimationList(*o.m_transitions)) : nullptr)
     , m_mask(o.m_mask)
     , m_maskBoxImage(o.m_maskBoxImage)
     , m_transformStyle3D(o.m_transformStyle3D)
@@ -95,27 +90,14 @@ StyleRareNonInheritedData::StyleRareNonInheritedData(const StyleRareNonInherited
     , m_perspective(o.m_perspective)
     , m_perspectiveOriginX(o.m_perspectiveOriginX)
     , m_perspectiveOriginY(o.m_perspectiveOriginY)
-#if ENABLE(XBL)
-    , bindingURI(o.bindingURI ? o.bindingURI->copy() : 0)
-#endif
+    , m_pageSize(o.m_pageSize)
+    , m_pageSizeType(o.m_pageSizeType)
 {
 }
 
 StyleRareNonInheritedData::~StyleRareNonInheritedData()
 {
 }
-
-#if ENABLE(XBL)
-bool StyleRareNonInheritedData::bindingsEquivalent(const StyleRareNonInheritedData& o) const
-{
-    if (this == &o) return true;
-    if (!bindingURI && o.bindingURI || bindingURI && !o.bindingURI)
-        return false;
-    if (bindingURI && o.bindingURI && (*bindingURI != *o.bindingURI))
-        return false;
-    return true;
-}
-#endif
 
 bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) const
 {
@@ -132,11 +114,12 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && m_counterDirectives == o.m_counterDirectives
         && userDrag == o.userDrag
         && textOverflow == o.textOverflow
-        && marginTopCollapse == o.marginTopCollapse
-        && marginBottomCollapse == o.marginBottomCollapse
+        && marginBeforeCollapse == o.marginBeforeCollapse
+        && marginAfterCollapse == o.marginAfterCollapse
         && matchNearestMailBlockquoteColor == o.matchNearestMailBlockquoteColor
         && m_appearance == o.m_appearance
         && m_borderFit == o.m_borderFit
+        && m_textCombine == o.m_textCombine
         && m_counterIncrement == o.m_counterIncrement
         && m_counterReset == o.m_counterReset
 #if USE(ACCELERATED_COMPOSITING)
@@ -148,14 +131,13 @@ bool StyleRareNonInheritedData::operator==(const StyleRareNonInheritedData& o) c
         && transitionDataEquivalent(o)
         && m_mask == o.m_mask
         && m_maskBoxImage == o.m_maskBoxImage
-#if ENABLE(XBL)
-        && bindingsEquivalent(o)
-#endif
         && (m_transformStyle3D == o.m_transformStyle3D)
         && (m_backfaceVisibility == o.m_backfaceVisibility)
         && (m_perspective == o.m_perspective)
         && (m_perspectiveOriginX == o.m_perspectiveOriginX)
         && (m_perspectiveOriginY == o.m_perspectiveOriginY)
+        && (m_pageSize == o.m_pageSize)
+        && (m_pageSizeType == o.m_pageSizeType)
         ;
 }
 

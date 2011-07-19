@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sw.xml
@@ -10,133 +10,73 @@
  *  ICU <specials> source: <path>/xml/main/sw.xml
  */
 sw{
-    AuxExemplarCharacters{"[q x]"}
-    Countries{
-        AE{"Muugano wa Falme za Nchi za Kiarabu"}
-        AG{"Antigua na Barbuda"}
-        AR{"Ajentina"}
-        BA{"Bosnia na Herzegowina"}
-        BE{"Ubelgiji"}
-        BR{"Brazili"}
-        BS{"Visiwa vya Bahama"}
-        CA{"Kanada"}
-        CF{"Jamhuri ya Afrika ya Kati"}
-        CG{"Kongo"}
-        CH{"Uswisi"}
-        CI{"Pwani ya Pembe"}
-        CM{"Kamerun"}
-        CN{"Uchina"}
-        CO{"Kolombia"}
-        CS{"Serbiya da Montenegro"}
-        CV{"Rasi Verde"}
-        CZ{"Jamhuri ya Czech"}
-        DE{"Udachi"}
-        DJ{"Jibuti"}
-        DK{"Udenmarki"}
-        DM{"Dominika"}
-        DO{"Jamhuri ya Dominikan"}
-        EC{"Ekvado"}
-        EG{"Misri"}
-        ES{"Uhispania"}
-        ET{"Uhabeshi"}
-        FR{"Ufaransa"}
-        GB{"Uingereza"}
-        GQ{"Guinea ya Ikweta"}
-        HR{"Kroatia"}
-        HU{"Hungaria"}
-        IL{"Uyahudi"}
-        IN{"Uhindi"}
-        IQ{"Iraki"}
-        IR{"Uajemi"}
-        IS{"Barafu"}
-        IT{"Uitaliani"}
-        JM{"Jamaika"}
-        JP{"Ujapani"}
-        KE{"Kenya"}
-        KH{"Kampuchea"}
-        KM{"Visiwa vya Komoro"}
-        KN{"Saint Kitts na Nevis"}
-        KP{"Korea ya Kaskazini"}
-        KR{"Korea ya Kusini"}
-        LU{"Luksemburg"}
-        MA{"Moroko"}
-        MC{"Monako"}
-        MH{"Visiwa vya Marshall"}
-        MX{"Meksiko"}
-        MY{"Malasya"}
-        MZ{"Msumbiji"}
-        NI{"Nikaragua"}
-        NL{"Uholanzi"}
-        NO{"Unorwe"}
-        NP{"Nepali"}
-        PG{"Papua Guinea Mpya"}
-        PH{"Filipino"}
-        PT{"Ureno"}
-        PY{"Paragwai"}
-        RU{"Urusi"}
-        SA{"Arabuni Saudi"}
-        SB{"Visiwa vya Solomon"}
-        SC{"Visiwa vya Shelisheli"}
-        SE{"Uswidi"}
-        SO{"Somali"}
-        ST{"Sao Tome na Principe"}
-        TD{"Chadi"}
-        TL{"Timor ya Mashariki"}
-        TR{"Uturuki"}
-        TT{"Trinidad na Tobago"}
-        TZ{"Tanzania"}
-        US{"Muungano wa Nchi za Amerika"}
-        UY{"Urugwai"}
-        VA{"Vatikano"}
-        VC{"Saint Vincent na Grenadines"}
-        YE{"Yemeni"}
-        ZA{"Afrika ya Kusini"}
-    }
-    Currencies{
-        KES{
-            "KSh",
-            "KES",
-        }
-        TZS{
-            "TSh",
-            "TZS",
-        }
-    }
-    ExemplarCharacters{"[a-d {dh} e-n {ng} {ng'} {ny} o p r s {sh} t {th} u-w y z]"}
-    Languages{
-        de{"kijerumani"}
-        en{"kiingereza"}
-        es{"kihispania"}
-        fr{"kifaransa"}
-        it{"kiitaliano"}
-        ja{"kijapani"}
-        pt{"kireno"}
-        ru{"kirusi"}
-        sw{"Kiswahili"}
-        zh{"kichina"}
-    }
+    AuxExemplarCharacters{"[c q x]"}
+    ExemplarCharacters{"[a b {ch} d e f g h i j k l m n o p r s t  u v w y z]"}
     LocaleScript{
         "Latn",
     }
-    NumberPatterns{
-        "#,##0.###",
-        "#,##0.00 ¤",
-        "#,##0%",
-        "#E0",
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"#,##0.00 ¤"}
+            }
+        }
     }
-    Version{"1.64"}
+    Version{"2.0.49.7"}
     calendar{
         gregorian{
+            AmPmMarkers{
+                "asubuhi",
+                "alasiri",
+            }
+            DateTimePatterns{
+                "h:mm:ss a zzzz",
+                "h:mm:ss a z",
+                "h:mm:ss a",
+                "h:mm a",
+                "EEEE, d MMMM y",
+                "d MMMM y",
+                "d MMM y",
+                "dd/MM/yyyy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+            }
+            availableFormats{
+                Hm{"HH:mm"}
+                Hms{"HH:mm:ss"}
+                M{"L"}
+                MEd{"E, M/d"}
+                MMM{"LLL"}
+                MMMEd{"E, MMM d"}
+                MMMMEd{"E, MMMM d"}
+                MMMMd{"MMMM d"}
+                MMMd{"MMM d"}
+                Md{"M/d"}
+                d{"d"}
+                hm{"h:mm a"}
+                ms{"mm:ss"}
+                y{"y"}
+                yM{"M/y"}
+                yMEd{"EEE, M/d/y"}
+                yMMM{"MMM y"}
+                yMMMEd{"EEE, MMM d, y"}
+                yMMMM{"MMMM y"}
+                yQ{"Q y"}
+                yQQQ{"QQQ y"}
+            }
             dayNames{
                 format{
                     abbreviated{
-                        "Jpi",
-                        "Jtt",
-                        "Jnn",
-                        "Jtn",
+                        "J2",
+                        "J3",
+                        "J4",
+                        "J5",
                         "Alh",
-                        "Iju",
-                        "Jmo",
+                        "Ij",
+                        "J1",
                     }
                     wide{
                         "Jumapili",
@@ -148,11 +88,66 @@ sw{
                         "Jumamosi",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "2",
+                        "3",
+                        "4",
+                        "5",
+                        "A",
+                        "I",
+                        "1",
+                    }
+                }
             }
             eras{
                 abbreviated{
                     "KK",
                     "BK",
+                }
+                wide{
+                    "Kabla ya Kristo",
+                    "Baada ya Kristo",
+                }
+            }
+            fields{
+                day{
+                    dn{"Siku"}
+                    relative{
+                        "-1"{"Jana"}
+                        "0"{"Leo"}
+                        "1"{"Kesho"}
+                    }
+                }
+                dayperiod{
+                    dn{"Muda wa siku"}
+                }
+                era{
+                    dn{"Enzi"}
+                }
+                hour{
+                    dn{"Saa"}
+                }
+                minute{
+                    dn{"Dakika"}
+                }
+                month{
+                    dn{"Mwezi"}
+                }
+                second{
+                    dn{"Sekunde"}
+                }
+                week{
+                    dn{"Wiki"}
+                }
+                weekday{
+                    dn{"Siku ya wiki"}
+                }
+                year{
+                    dn{"Mwaka"}
+                }
+                zone{
+                    dn{"Majira ya saa"}
                 }
             }
             monthNames{
@@ -186,12 +181,45 @@ sw{
                         "Desemba",
                     }
                 }
+                stand-alone{
+                    narrow{
+                        "J",
+                        "F",
+                        "M",
+                        "A",
+                        "M",
+                        "J",
+                        "J",
+                        "A",
+                        "S",
+                        "O",
+                        "N",
+                        "D",
+                    }
+                }
+            }
+            quarters{
+                format{
+                    abbreviated{
+                        "R1",
+                        "R2",
+                        "R3",
+                        "R4",
+                    }
+                    wide{
+                        "Robo 1",
+                        "Robo 2",
+                        "Robo 3",
+                        "Robo 4",
+                    }
+                }
             }
         }
     }
-    zoneStrings{
-        "meta:Africa_Eastern"{
-            ls{"Saa za Africa Mashariki"}
-        }
+    delimiters{
+        alternateQuotationEnd{"'"}
+        alternateQuotationStart{"'"}
+        quotationEnd{"'"}
+        quotationStart{"'"}
     }
 }

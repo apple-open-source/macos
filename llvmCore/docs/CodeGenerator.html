@@ -86,6 +86,7 @@
   <li><a href="#targetimpls">Target-specific Implementation Notes</a>
     <ul>
     <li><a href="#tailcallopt">Tail call optimization</a></li>
+    <li><a href="#sibcallopt">Sibling call optimization</a></li>
     <li><a href="#x86">The X86 backend</a></li>
     <li><a href="#ppc">The PowerPC backend</a>
       <ul>
@@ -600,7 +601,7 @@ BuildMI(MBB, X86::JNE, 1).addMBB(&amp;MBB);
 
 <div class="doc_code">
 <pre>
-MI.addReg(Reg, MachineOperand::Def);
+MI.addReg(Reg, RegState::Define);
 </pre>
 </div>
 
@@ -1041,9 +1042,9 @@ ret
 
 <div class="doc_code">
 <pre>
-%t1 = add float %W, %X
-%t2 = mul float %t1, %Y
-%t3 = add float %t2, %Z
+%t1 = fadd float %W, %X
+%t2 = fmul float %t1, %Y
+%t3 = fadd float %t2, %Z
 </pre>
 </div>
 
@@ -1089,8 +1090,8 @@ def FADDS : AForm_2&lt;59, 21,
 <p>The portion of the instruction definition in bold indicates the pattern used
    to match the instruction.  The DAG operators
    (like <tt>fmul</tt>/<tt>fadd</tt>) are defined in
-   the <tt>lib/Target/TargetSelectionDAG.td</tt> file.  "<tt>F4RC</tt>" is the
-   register class of the input and result values.</p>
+   the <tt>include/llvm/Target/TargetSelectionDAG.td</tt> file.  "
+   <tt>F4RC</tt>" is the register class of the input and result values.</p>
 
 <p>The TableGen DAG instruction selector generator reads the instruction
    patterns in the <tt>.td</tt> file and automatically builds parts of the
@@ -1380,9 +1381,9 @@ bool RegMapping_Fer::compatible_class(MachineFunction &amp;mf,
    for <tt>RegisterClass</tt>, the last parameter of which is a list of
    registers. Just commenting some out is one simple way to avoid them being
    used. A more polite way is to explicitly exclude some registers from
-   the <i>allocation order</i>. See the definition of the <tt>GR</tt> register
-   class in <tt>lib/Target/IA64/IA64RegisterInfo.td</tt> for an example of this
-   (e.g., <tt>numReservedRegs</tt> registers are hidden.)</p>
+   the <i>allocation order</i>. See the definition of the <tt>GR8</tt> register
+   class in <tt>lib/Target/X86/X86RegisterInfo.td</tt> for an example of this.
+   </p>
 
 <p>Virtual registers are also denoted by integer numbers. Contrary to physical
    registers, different virtual registers never share the same number. The
@@ -1429,7 +1430,7 @@ bool RegMapping_Fer::compatible_class(MachineFunction &amp;mf,
    instruction,
    use <tt>TargetInstrInfo::get(opcode)::ImplicitUses</tt>. Pre-colored
    registers impose constraints on any register allocation algorithm. The
-   register allocator must make sure that none of them is been overwritten by
+   register allocator must make sure that none of them are overwritten by
    the values of virtual registers while still alive.</p>
 
 </div>
@@ -1616,9 +1617,9 @@ bool RegMapping_Fer::compatible_class(MachineFunction &amp;mf,
 
 <div class="doc_code">
 <pre>
-$ llc -f -regalloc=simple file.bc -o sp.s;
-$ llc -f -regalloc=local file.bc -o lc.s;
-$ llc -f -regalloc=linearscan file.bc -o ln.s;
+$ llc -regalloc=simple file.bc -o sp.s;
+$ llc -regalloc=local file.bc -o lc.s;
+$ llc -regalloc=linearscan file.bc -o ln.s;
 </pre>
 </div>
 
@@ -1678,7 +1679,8 @@ $ llc -f -regalloc=linearscan file.bc -o ln.s;
    supported on x86/x86-64 and PowerPC. It is performed if:</p>
 
 <ul>
-  <li>Caller and callee have the calling convention <tt>fastcc</tt>.</li>
+  <li>Caller and callee have the calling convention <tt>fastcc</tt> or
+       <tt>cc 10</tt> (GHC call convention).</li>
 
   <li>The call is a tail call - in tail position (ret immediately follows call
       and ret uses value of call or is void).</li>
@@ -1731,10 +1733,49 @@ define fastcc i32 @tailcaller(i32 %in1, i32 %in2) {
    (because one or more of above constraints are not met) to be followed by a
    readjustment of the stack. So performance might be worse in such cases.</p>
 
-<p>On x86 and x86-64 one register is reserved for indirect tail calls (e.g via a
-   function pointer). So there is one less register for integer argument
-   passing. For x86 this means 2 registers (if <tt>inreg</tt> parameter
-   attribute is used) and for x86-64 this means 5 register are used.</p>
+</div>
+<!-- ======================================================================= -->
+<div class="doc_subsection">
+  <a name="sibcallopt">Sibling call optimization</a>
+</div>
+
+<div class="doc_text">
+
+<p>Sibling call optimization is a restricted form of tail call optimization.
+   Unlike tail call optimization described in the previous section, it can be
+   performed automatically on any tail calls when <tt>-tailcallopt</tt> option
+   is not specified.</p>
+
+<p>Sibling call optimization is currently performed on x86/x86-64 when the
+   following constraints are met:</p>
+
+<ul>
+  <li>Caller and callee have the same calling convention. It can be either
+      <tt>c</tt> or <tt>fastcc</tt>.
+
+  <li>The call is a tail call - in tail position (ret immediately follows call
+      and ret uses value of call or is void).</li>
+
+  <li>Caller and callee have matching return type or the callee result is not
+      used.
+
+  <li>If any of the callee arguments are being passed in stack, they must be
+      available in caller's own incoming argument stack and the frame offsets
+      must be the same.
+</ul>
+
+<p>Example:</p>
+<div class="doc_code">
+<pre>
+declare i32 @bar(i32, i32)
+
+define i32 @foo(i32 %a, i32 %b, i32 %c) {
+entry:
+  %0 = tail call i32 @bar(i32 %a, i32 %b)
+  ret i32 %0
+}
+</pre>
+</div>
 
 </div>
 <!-- ======================================================================= -->
@@ -1773,6 +1814,8 @@ define fastcc i32 @tailcaller(i32 %in1, i32 %in2) {
   <li><b>i386-pc-mingw32msvc</b> &mdash; MingW crosscompiler on Linux</li>
 
   <li><b>i686-apple-darwin*</b> &mdash; Apple Darwin on X86</li>
+
+  <li><b>x86_64-unknown-linux-gnu</b> &mdash; Linux</li>
 </ul>
 
 </div>
@@ -1810,24 +1853,27 @@ define fastcc i32 @tailcaller(i32 %in1, i32 %in2) {
 
 <div class="doc_code">
 <pre>
-Base + [1,2,4,8] * IndexReg + Disp32
+SegmentReg: Base + [1,2,4,8] * IndexReg + Disp32
 </pre>
 </div>
 
-<p>In order to represent this, LLVM tracks no less than 4 operands for each
+<p>In order to represent this, LLVM tracks no less than 5 operands for each
    memory operand of this form.  This means that the "load" form of
    '<tt>mov</tt>' has the following <tt>MachineOperand</tt>s in this order:</p>
 
 <div class="doc_code">
 <pre>
-Index:        0     |    1        2       3           4
-Meaning:   DestReg, | BaseReg,  Scale, IndexReg, Displacement
-OperandTy: VirtReg, | VirtReg, UnsImm, VirtReg,   SignExtImm
+Index:        0     |    1        2       3           4          5
+Meaning:   DestReg, | BaseReg,  Scale, IndexReg, Displacement Segment
+OperandTy: VirtReg, | VirtReg, UnsImm, VirtReg,   SignExtImm  PhysReg
 </pre>
 </div>
 
 <p>Stores, and all other instructions, treat the four memory operands in the
-   same way and in the same order.</p>
+   same way and in the same order.  If the segment register is unspecified
+   (regno = 0), then no segment override is generated.  "Lea" operations do not
+   have a segment register specified, so they only have 4 operands for their
+   memory reference.</p>
 
 </div>
 
@@ -1838,17 +1884,41 @@ OperandTy: VirtReg, | VirtReg, UnsImm, VirtReg,   SignExtImm
 
 <div class="doc_text">
 
-<p>x86 has the ability to perform loads and stores to different address spaces
+<p>x86 has an experimental feature which provides
+   the ability to perform loads and stores to different address spaces
    via the x86 segment registers.  A segment override prefix byte on an
    instruction causes the instruction's memory access to go to the specified
    segment.  LLVM address space 0 is the default address space, which includes
    the stack, and any unqualified memory accesses in a program.  Address spaces
    1-255 are currently reserved for user-defined code.  The GS-segment is
-   represented by address space 256.  Other x86 segments have yet to be
-   allocated address space numbers.</p>
+   represented by address space 256, while the FS-segment is represented by 
+   address space 257. Other x86 segments have yet to be allocated address space
+   numbers.</p>
 
-<p>Some operating systems use the GS-segment to implement TLS, so care should be
-   taken when reading and writing to address space 256 on these platforms.</p>
+<p>While these address spaces may seem similar to TLS via the
+   <tt>thread_local</tt> keyword, and often use the same underlying hardware,
+   there are some fundamental differences.</p>
+
+<p>The <tt>thread_local</tt> keyword applies to global variables and
+   specifies that they are to be allocated in thread-local memory. There are
+   no type qualifiers involved, and these variables can be pointed to with
+   normal pointers and accessed with normal loads and stores.
+   The <tt>thread_local</tt> keyword is target-independent at the LLVM IR
+   level (though LLVM doesn't yet have implementations of it for some
+   configurations).<p>
+
+<p>Special address spaces, in contrast, apply to static types. Every
+   load and store has a particular address space in its address operand type,
+   and this is what determines which address space is accessed.
+   LLVM ignores these special address space qualifiers on global variables,
+   and does not provide a way to directly allocate storage in them.
+   At the LLVM IR level, the behavior of these special address spaces depends
+   in part on the underlying OS or runtime environment, and they are specific
+   to x86 (and LLVM doesn't yet handle them correctly in some cases).</p>
+
+<p>Some operating systems and runtime environments use (or may in the future
+   use) the FS/GS-segment registers for various low-level purposes, so care
+   should be taken when considering them.</p>
 
 </div>
 
@@ -2092,7 +2162,7 @@ MOVSX32rm16 -&gt; movsx, 32-bit register, 16-bit memory
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2009-04-22 08:55:31 -0700 (Wed, 22 Apr 2009) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 
 </body>

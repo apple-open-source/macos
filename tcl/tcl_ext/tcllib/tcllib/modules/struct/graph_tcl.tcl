@@ -2,13 +2,13 @@
 #
 #	Implementation of a graph data structure for Tcl.
 #
-# Copyright (c) 2000-2008 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2000-2009 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # Copyright (c) 2008      by Alejandro Paz <vidriloco@gmail.com>
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: graph_tcl.tcl,v 1.3 2008/12/13 03:57:33 andreas_kupries Exp $
+# RCS: @(#) $Id: graph_tcl.tcl,v 1.5 2009/11/26 04:42:16 andreas_kupries Exp $
 
 package require Tcl 8.4
 package require struct::list
@@ -79,14 +79,14 @@ proc ::struct::graph::graph_tcl {args} {
 		}
 		default {
 		    return -code error \
-			    "wrong # args: should be \"graph ?name ?=|:=|as|deserialize source??\""
+			    "wrong # args: should be \"struct::graph ?name ?=|:=|as|deserialize source??\""
 		}
 	    }
 	}
 	default {
 	    # Error.
 	    return -code error \
-		    "wrong # args: should be \"graph ?name ?=|:=|as|deserialize source??\""
+		    "wrong # args: should be \"struct::graph ?name ?=|:=|as|deserialize source??\""
 	}
     }
 
@@ -815,6 +815,25 @@ proc ::struct::graph::__arc_target {name arc} {
 
     variable ${name}::arcNodes
     return [lindex $arcNodes($arc) 1]
+}
+
+# ::struct::graph::__arc_nodes --
+#
+#	Return a list containing both source and target nodes of the arc.
+#
+# Arguments:
+#	name		name of the graph object.
+#	arc		arc to look up.
+#
+# Results:
+#	nodes	list containing the names of the connected nodes node.
+#	None
+
+proc ::struct::graph::__arc_nodes {name arc} {
+    CheckMissingArc  $name $arc
+
+    variable ${name}::arcNodes
+    return $arcNodes($arc)
 }
 
 # ::struct::graph::__arc_move-target --

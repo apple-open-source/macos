@@ -74,7 +74,7 @@ struct interface_pair_s {
 #ifdef linux
 #define have_interface_init
 
-static char *netdevfmt;
+static const char *netdevfmt;
 
 void interface_init(void)
 /* figure out which /proc/net/dev format to use */
@@ -173,13 +173,13 @@ static int get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 		result = FALSE;
 	else
 	{
-	    char	*sp = strchr(ifname, '/');
+	    char *tmp = xstrdup(ifname);
+	    char *sp = strchr(tmp, '/');
 	    /* hide slash and trailing info from ifname */
 	    if (sp)
 		*sp = '\0';
-	    result = _get_ifinfoGT_(socket_fd, stats_file, ifname, ifinfo);
-	    if (sp)
-		*sp = '/';
+	    result = _get_ifinfoGT_(socket_fd, stats_file, tmp, ifinfo);
+	    free(tmp);
 	}
 	if (socket_fd >= 0)
 	    SockClose(socket_fd);
@@ -514,7 +514,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	    }
 
 	    sin = (struct sockaddr_in *)info.rti_info[RTAX_NETMASK];
-	    if (!sin)
+	    if (sin)
 	    {
 		ifinfo->netmask = sin->sin_addr;
 	    }
@@ -524,7 +524,7 @@ get_ifinfo(const char *ifname, ifinfo_t *ifinfo)
 	     * of non point-to-point link
 	     */
 	    sin = (struct sockaddr_in *)info.rti_info[RTAX_BRD];
-	    if (!sin)
+	    if (sin)
 	    {
 		ifinfo->dstaddr = sin->sin_addr;
 	    }
@@ -579,6 +579,7 @@ void interface_parse(char *buf, struct hostdata *hp)
 /* parse 'interface' specification */
 {
 	char *cp1, *cp2;
+	char mask1[] = "255.255.255.255";
 
 	hp->interface = xstrdup(buf);
 
@@ -593,7 +594,7 @@ void interface_parse(char *buf, struct hostdata *hp)
 
 	/* find and isolate just the netmask */
 	if (!(cp2 = strchr(cp1, '/')))
-		cp2 = "255.255.255.255";
+		cp2 = mask1;
 	else
 		*cp2++ = '\000';
 

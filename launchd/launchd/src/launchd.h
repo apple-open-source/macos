@@ -32,7 +32,6 @@ struct conncb;
 extern bool shutdown_in_progress;
 extern bool fake_shutdown_in_progress;
 extern bool network_up;
-extern bool g_force_old_kill_path;
 extern bool g_simulate_pid1_crash;
 extern FILE *g_console;
 extern char g_launchd_database_dir[PATH_MAX];

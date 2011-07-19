@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -280,19 +280,20 @@ get_embedded_offset(char *devname)
     buff = (char *)malloc(blksize);
 	
     if (pread(fd, buff, blksize, HFS_PRI_SECTOR(blksize)*blksize) != blksize) {
-	fprintf(stderr, "failed to read volume header @ offset %d (%s)\n",
-	    HFS_PRI_SECTOR(blksize), strerror(errno));
-	ret = -1;
-	goto out;
+		fprintf(stderr, "failed to read volume header @ offset %d (%s)\n",
+				HFS_PRI_SECTOR(blksize), strerror(errno));
+		ret = -1;
+		goto out;
     }
 
-    mdbp = (HFSMasterDirectoryBlock *)buff;
-    if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord) 
-        && (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
-        && (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
-	ret = -1;
-	goto out;
-    }
+	mdbp = (HFSMasterDirectoryBlock *)(buff + HFS_PRI_OFFSET(blksize));
+	if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord) 
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+		printf ("get_embedded_offset: invalid volume signature \n");
+		ret = -1;
+		goto out;
+	}
 
     if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
 	ret = -1;
@@ -694,10 +695,14 @@ get_journal_info(char *devname, struct JournalInfoBlock *jib)
 		goto out;
 	}
 
-	if (blksize == 512) {
-		mdbp = (HFSMasterDirectoryBlock *)buff;
-	} else {
-		mdbp = (HFSMasterDirectoryBlock *)(buff + 1024);
+	mdbp = (HFSMasterDirectoryBlock *)(buff + HFS_PRI_OFFSET(blksize));
+
+	if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+		ret = -1;
+		printf("get_journal_info: invalid volume signature\n");
+		goto out;
 	}
 
 	mdbp->drSigWord = SWAP_BE16(mdbp->drSigWord);
@@ -706,15 +711,7 @@ get_journal_info(char *devname, struct JournalInfoBlock *jib)
 	mdbp->drEmbedExtent.startBlock = SWAP_BE16(mdbp->drEmbedExtent.startBlock);
 	mdbp->drAlBlkSiz = SWAP_BE32(mdbp->drAlBlkSiz);
 	mdbp->drEmbedExtent.blockCount = SWAP_BE16(mdbp->drEmbedExtent.blockCount);
-	
-	// first check if it's even hfs at all...
-	if (   mdbp->drSigWord != kHFSSigWord
-	       && mdbp->drSigWord != kHFSPlusSigWord
-	       && mdbp->drSigWord != kHFSXSigWord) {
 
-		ret = -1;
-		goto out;
-	}
 
 	if ((mdbp->drSigWord == kHFSSigWord) && (mdbp->drEmbedSigWord != kHFSPlusSigWord)) {
 		// normal hfs can not ever be journaled
@@ -752,7 +749,18 @@ get_journal_info(char *devname, struct JournalInfoBlock *jib)
 			goto out;
 		}
 
-		vhp = (HFSPlusVolumeHeader*) buff;
+		vhp = (HFSPlusVolumeHeader*) (buff + HFS_PRI_OFFSET(blksize));
+
+		mdbp = (HFSMasterDirectoryBlock *)vhp;
+		if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+				&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+				&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+			ret = -1;
+			
+			printf("get_journal_info: invalid embedded volume signature \n");
+			goto out;
+		}
+
 	} else /* pure HFS+ */ {
 		embeddedOffset = 0;
 		vhp = (HFSPlusVolumeHeader*) mdbp;
@@ -977,27 +985,21 @@ restart:
 	
     hdr_offset = HFS_PRI_SECTOR(blksize)*blksize;
     if (pread(fd, buff, blksize, hdr_offset) != blksize) {
-	fprintf(stderr, "failed to read volume header @ offset %lld (%s)\n",
-	    hdr_offset, strerror(errno));
-	ret = -1;
-	goto out;
+		fprintf(stderr, "RawDisableJournaling: failed to read volume header @ offset %lld (%s)\n",
+				hdr_offset, strerror(errno));
+		ret = -1;
+		goto out;
     }
 
-    // if we read in an empty bunch of junk at location zero, then
-    // retry at offset 0x400 which is where the header normally is.
-    if (*(int *)buff == 0 && hdr_offset == 0) {
-	hdr_offset = 0x400;
-	if (pread(fd, buff, blksize, hdr_offset) != blksize) {
-	    fprintf(stderr, "failed to read volume header @ offset %lld (%s)\n",
-		hdr_offset, strerror(errno));
-	    ret = -1;
-	    goto out;
+	mdbp = (HFSMasterDirectoryBlock *)(buff + HFS_PRI_OFFSET(blksize));
+	if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+		&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+		&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+		ret = -1;
+		printf("RawDisableJournaling: Invalid Volume Signature \n");
+		goto out;
 	}
-    }
-
-
-
-    mdbp = (HFSMasterDirectoryBlock *)buff;
+	
     if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
 	// normal hfs can not ever be journaled
 	fprintf(stderr, "disable_journaling: volume is only regular HFS, not HFS+\n");
@@ -1006,56 +1008,67 @@ restart:
 	
     /* Get the embedded Volume Header */
     if (SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord) {
-	embeddedOffset = SWAP_BE16(mdbp->drAlBlSt) * 512;
-	embeddedOffset += (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.startBlock) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
-
-	/*
-	 * If the embedded volume doesn't start on a block
-	 * boundary, then switch the device to a 512-byte
-	 * block size so everything will line up on a block
-	 * boundary.
-	 */
-	if ((embeddedOffset % blksize) != 0) {
-	    fprintf(stderr, "HFS Mount: embedded volume offset not"
-		" a multiple of physical block size (%d);"
-		" switching to 512\n", blksize);
+		embeddedOffset = SWAP_BE16(mdbp->drAlBlSt) * 512;
+		embeddedOffset += (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.startBlock) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
 		
-	    blkcnt  *= (blksize / 512);
-	    blksize  = 512;
-	}
-
-	disksize = (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.blockCount) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
-
-	mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
-	hdr_offset = mdb_offset * blksize;
-	if (pread(fd, buff, blksize, hdr_offset) != blksize) {
-	    fprintf(stderr, "failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
-	    ret = -1;
-	    goto out;
-	}
-
-	vhp = (HFSPlusVolumeHeader*) buff;
+		/*
+		 * If the embedded volume doesn't start on a block
+		 * boundary, then switch the device to a 512-byte
+		 * block size so everything will line up on a block
+		 * boundary.
+		 */
+		if ((embeddedOffset % blksize) != 0) {
+			fprintf(stderr, "HFS Mount: embedded volume offset not"
+					" a multiple of physical block size (%d);"
+					" switching to 512\n", blksize);
+			
+			blkcnt  *= (blksize / 512);
+			blksize  = 512;
+		}
+		
+		disksize = (u_int64_t)SWAP_BE16(mdbp->drEmbedExtent.blockCount) * (u_int64_t)SWAP_BE32(mdbp->drAlBlkSiz);
+		
+		mdb_offset = (embeddedOffset / blksize) + HFS_PRI_SECTOR(blksize);
+		hdr_offset = mdb_offset * blksize;
+		if (pread(fd, buff, blksize, hdr_offset) != blksize) {
+			fprintf(stderr, "failed to read the embedded vhp @ offset %d\n", mdb_offset * blksize);
+			ret = -1;
+			goto out;
+		}
+		
+		vhp = (HFSPlusVolumeHeader*) (buff + HFS_PRI_OFFSET(blksize));
+		
+		mdbp = (HFSMasterDirectoryBlock *)vhp;
+		if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+			ret = -1;
+			
+			printf("RawDisableJournaling: invalid embedded volume signature \n");
+			goto out;
+		}
+		
     } else /* pure HFS+ */ {
-	embeddedOffset = 0;
-	vhp = (HFSPlusVolumeHeader*) mdbp;
+		embeddedOffset = 0;
+		vhp = (HFSPlusVolumeHeader*) mdbp;
     }
 
 
     if ((SWAP_BE32(vhp->attributes) & kHFSVolumeJournaledMask) != 0) {
-	unsigned int tmp = SWAP_BE32(vhp->attributes);
-
-	tmp &= ~kHFSVolumeJournaledMask;
-	vhp->attributes = SWAP_BE32(tmp);
-	if ((tmp = pwrite(fd, buff, blksize, hdr_offset)) != blksize) {
-	    fprintf(stderr, "Update of super-block on %s failed! (%d != %d, %s)\n",
-		devname, tmp, blksize, strerror(errno));
-	} else {
-	    fprintf(stderr, "Turned off the journaling bit for %s\n", devname);
-	}
+		unsigned int tmp = SWAP_BE32(vhp->attributes);
+		
+		tmp &= ~kHFSVolumeJournaledMask;
+		vhp->attributes = SWAP_BE32(tmp);
+		if ((tmp = pwrite(fd, buff, blksize, hdr_offset)) != blksize) {
+			fprintf(stderr, "Update of super-block on %s failed! (%d != %d, %s)\n",
+					devname, tmp, blksize, strerror(errno));
+		} else {
+			fprintf(stderr, "Turned off the journaling bit for %s\n", devname);
+		}
     } else {
-	fprintf(stderr, "disable_journaling: %s is not journaled.\n", devname);
+		fprintf(stderr, "disable_journaling: %s is not journaled.\n", devname);
     }
-
+	
 	
   out:
     if (buff)
@@ -1133,19 +1146,15 @@ SetJournalInFSState(const char *devname, int journal_in_fs)
 		goto out;
 	}
 
-	if (blksize == 512) {
-	    mdbp = (HFSMasterDirectoryBlock *)buff;
-	} else {
-	    mdbp = (HFSMasterDirectoryBlock *)(buff + 1024);
-	}
+	mdbp = (HFSMasterDirectoryBlock *)(buff + HFS_PRI_OFFSET(blksize));
 
-	// first check if it's even hfs at all...
-	if (   SWAP_BE16(mdbp->drSigWord) != kHFSSigWord
-	    && SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord
-	    && SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord) {
 
-	    ret = -1;
-	    goto out;
+	if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+		ret = -1;
+		printf ("SetJournalInFSState: Invalid Volume Signature \n");
+		goto out;
 	}
 
 	if ((SWAP_BE16(mdbp->drSigWord) == kHFSSigWord) && (SWAP_BE16(mdbp->drEmbedSigWord) != kHFSPlusSigWord)) {
@@ -1181,7 +1190,18 @@ SetJournalInFSState(const char *devname, int journal_in_fs)
 		goto out;
 	    }
 
-	    vhp = (HFSPlusVolumeHeader*) buff;
+	    vhp = (HFSPlusVolumeHeader*) (buff + HFS_PRI_OFFSET(blksize));
+		
+		mdbp = (HFSMasterDirectoryBlock *)(vhp);
+		if (   (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSPlusSigWord)
+			&& (SWAP_BE16(mdbp->drSigWord) != kHFSXSigWord)) {
+			ret = -1;
+			printf("SetJournalInFSState: Invalid Embedded Volume Signature \n");
+			goto out;
+		}
+		
+		
 	} else /* pure HFS+ */ {
 	    embeddedOffset = 0;
 	    vhp = (HFSPlusVolumeHeader*) mdbp;

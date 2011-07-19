@@ -1,6 +1,6 @@
---- scandir.c.orig	2008-07-28 02:49:02.000000000 -0700
-+++ scandir.c	2008-07-29 12:02:49.000000000 -0700
-@@ -53,15 +53,11 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sca
+--- scandir.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ scandir.c	2009-11-07 14:51:40.000000000 -0800
+@@ -47,15 +47,11 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/sca
  #include "un-namespace.h"
  
  /*
@@ -17,7 +17,7 @@
  
  int
  scandir(dirname, namelist, select, dcomp)
-@@ -96,7 +92,7 @@ scandir(dirname, namelist, select, dcomp
+@@ -83,7 +79,7 @@ scandir(dirname, namelist, select, dcomp
  		/*
  		 * Make a minimum size copy of the data
  		 */

@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::NoPrimaryKey;
 
-use base 'DBIx::Class::Core';
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('noprimarykey');
 __PACKAGE__->add_columns(

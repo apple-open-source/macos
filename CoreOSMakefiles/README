@@ -1,8 +1,0 @@
-Core OS Common Makefiles
-
-  These are some makefiles which are required to build some Darwin
-Core OS projects. Please note that these are not supported in any way
-outside of Darwin; they are subject to change without notice.
-
-	-Wilfredo Sanchez
-	 wsanchez@opensource.apple.com

@@ -2,6 +2,7 @@
 [moddesc   {MD5-based password encryption}]
 [copyright {2003, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {MD5-based password encryption}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require md5 2.0]
 [require md5crypt [opt 1.1.0]]

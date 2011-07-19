@@ -13,7 +13,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclExecute.c,v 1.369.2.7 2009/03/20 14:35:06 dgp Exp $
+ * RCS: @(#) $Id: tclExecute.c,v 1.369.2.15 2010/09/01 19:42:39 andreas_kupries Exp $
  */
 
 #include "tclInt.h"
@@ -466,7 +466,8 @@ static Tcl_ObjType dictIteratorType = {
  * signed integer
  */
 
-static const long MaxBase32[7] = {46340, 1290, 215, 73, 35, 21, 14};
+static const long MaxBase32[] = {46340, 1290, 215, 73, 35, 21, 14};
+static const size_t MaxBase32Size = sizeof(MaxBase32)/sizeof(long);
 
 /*
  * Table giving 3, 4, ..., 11, raised to the powers 9, 10, ..., as far as they
@@ -477,6 +478,7 @@ static const long MaxBase32[7] = {46340, 1290, 215, 73, 35, 21, 14};
 static const unsigned short Exp32Index[] = {
     0, 11, 18, 23, 26, 29, 31, 32, 33
 };
+static const size_t Exp32IndexSize = sizeof(Exp32Index)/sizeof(unsigned short);
 static const long Exp32Value[] = {
     19683, 59049, 177147, 531441, 1594323, 4782969, 14348907, 43046721,
     129140163, 387420489, 1162261467, 262144, 1048576, 4194304,
@@ -485,6 +487,7 @@ static const long Exp32Value[] = {
     40353607, 282475249, 1977326743, 134217728, 1073741824, 387420489,
     1000000000
 };
+static const size_t Exp32ValueSize = sizeof(Exp32Value)/sizeof(long);
 
 #endif /* LONG_MAX == 0x7fffffff -- 32 bit machine */
 
@@ -495,7 +498,14 @@ static const long Exp32Value[] = {
  * Tcl_WideInt.
  */
 
-static Tcl_WideInt MaxBaseWide[15];
+static const Tcl_WideInt MaxBase64[] = {
+    (Tcl_WideInt)46340*65536+62259,	/* 3037000499 == isqrt(2**63-1) */
+    (Tcl_WideInt)2097151, (Tcl_WideInt)55108, (Tcl_WideInt)6208,
+    (Tcl_WideInt)1448, (Tcl_WideInt)511, (Tcl_WideInt)234, (Tcl_WideInt)127,
+    (Tcl_WideInt)78, (Tcl_WideInt)52, (Tcl_WideInt)38, (Tcl_WideInt)28,
+    (Tcl_WideInt)22, (Tcl_WideInt)18, (Tcl_WideInt)15
+};
+static const size_t MaxBase64Size = sizeof(MaxBase64)/sizeof(Tcl_WideInt);
 
 /*
  *Table giving 3, 4, ..., 13 raised to powers greater than 16 when the
@@ -505,6 +515,7 @@ static Tcl_WideInt MaxBaseWide[15];
 static const unsigned short Exp64Index[] = {
     0, 23, 38, 49, 57, 63, 67, 70, 72, 74, 75, 76
 };
+static const size_t Exp64IndexSize = sizeof(Exp64Index)/sizeof(unsigned short);
 static const Tcl_WideInt Exp64Value[] = {
     (Tcl_WideInt)243*243*243*3*3,
     (Tcl_WideInt)243*243*243*3*3*3,
@@ -583,6 +594,7 @@ static const Tcl_WideInt Exp64Value[] = {
     (Tcl_WideInt)248832*248832*248832*12*12,
     (Tcl_WideInt)371293*371293*371293*13*13
 };
+static const size_t Exp64ValueSize = sizeof(Exp64Value)/sizeof(Tcl_WideInt);
 
 #endif
 
@@ -660,10 +672,6 @@ InitByteCodeExecution(
 				 * "tcl_traceExec" is linked to control
 				 * instruction tracing. */
 {
-#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
-    int i, j;
-    Tcl_WideInt w, x;
-#endif
 #ifdef TCL_COMPILE_DEBUG
     if (Tcl_LinkVar(interp, "tcl_traceExec", (char *) &tclTraceExec,
 	    TCL_LINK_INT) != TCL_OK) {
@@ -673,38 +681,6 @@ InitByteCodeExecution(
 #ifdef TCL_COMPILE_STATS
     Tcl_CreateObjCommand(interp, "evalstats", EvalStatsCmd, NULL, NULL);
 #endif /* TCL_COMPILE_STATS */
-#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
-
-    /*
-     * Fill in a table of what base can be raised to powers 2, 3, ... 16
-     * without overflowing a Tcl_WideInt
-     */
-
-    for (i = 2; i <= 16; ++i) {
-	/*
-	 * Compute an initial guess in floating point.
-	 */
-
-	w = (Tcl_WideInt) pow((double) LLONG_MAX, 1.0 / i) + 1;
-
-	/*
-	 * Correct the guess if it's too high.
-	 */
-
-	for (;;) {
-	    x = LLONG_MAX;
-	    for (j = 0; j < i; ++j) {
-		x /= w;
-	    }
-	    if (x == 1) {
-		break;
-	    }
-	    --w;
-	}
-
-	MaxBaseWide[i-2] = w;
-    }
-#endif
 }
 
 /*
@@ -1465,6 +1441,98 @@ TclCompEvalObj(
 	}
 
 	/*
+	 * #280.
+	 * Literal sharing fix. This part of the fix is not required by 8.4
+	 * because it eval-directs any literals, so just saving the argument
+	 * locations per command in bytecode is enough, embedded 'eval'
+	 * commands, etc. get the correct information.
+	 *
+	 * It had be backported for 8.5 because we can force the separate
+	 * compiling of a literal (in a proc body) by putting it into a control
+	 * command with dynamic pieces, and then such literal may be shared
+	 * and require their line-information to be reset, as for 8.6, as
+	 * described below.
+	 *
+	 * In 8.6 all the embedded script are compiled, and the resulting
+	 * bytecode stored in the literal. Now the shared literal has bytecode
+	 * with location data for _one_ particular location this literal is
+	 * found at. If we get executed from a different location the bytecode
+	 * has to be recompiled to get the correct locations. Not doing this
+	 * will execute the saved bytecode with data for a different location,
+	 * causing 'info frame' to point to the wrong place in the sources.
+	 *
+	 * Future optimizations ...
+	 * (1) Save the location data (ExtCmdLoc) keyed by start line. In that
+	 *     case we recompile once per location of the literal, but not
+	 *     continously, because the moment we have all locations we do not
+	 *     need to recompile any longer.
+	 *
+	 * (2) Alternative: Do not recompile, tell the execution engine the
+	 *     offset between saved starting line and actual one. Then modify
+	 *     the users to adjust the locations they have by this offset.
+	 *
+	 * (3) Alternative 2: Do not fully recompile, adjust just the location
+	 *     information.
+	 */
+
+	{
+	    Tcl_HashEntry *hePtr =
+		    Tcl_FindHashEntry(iPtr->lineBCPtr, (char *) codePtr);
+
+	    if (hePtr) {
+		ExtCmdLoc *eclPtr = Tcl_GetHashValue(hePtr);
+		int redo = 0;
+
+		if (invoker) {
+		    CmdFrame *ctxPtr = TclStackAlloc(interp,sizeof(CmdFrame));
+		    *ctxPtr = *invoker;
+
+		    if (invoker->type == TCL_LOCATION_BC) {
+			/*
+			 * Note: Type BC => ctx.data.eval.path    is not used.
+			 *		    ctx.data.tebc.codePtr used instead
+			 */
+
+			TclGetSrcInfoForPc(ctxPtr);
+			if (ctxPtr->type == TCL_LOCATION_SOURCE) {
+			    /*
+			     * The reference made by 'TclGetSrcInfoForPc' is
+			     * dead.
+			     */
+
+			    Tcl_DecrRefCount(ctxPtr->data.eval.path);
+			    ctxPtr->data.eval.path = NULL;
+			}
+		    }
+
+		    if (word < ctxPtr->nline) {
+			/*
+			 * Note: We do not care if the line[word] is -1. This
+			 * is a difference and requires a recompile (location
+			 * changed from absolute to relative, literal is used
+			 * fixed and through variable)
+			 *
+			 * Example:
+			 * test info-32.0 using literal of info-24.8
+			 *     (dict with ... vs           set body ...).
+			 */
+
+			redo = ((eclPtr->type == TCL_LOCATION_SOURCE)
+				    && (eclPtr->start != ctxPtr->line[word]))
+				|| ((eclPtr->type == TCL_LOCATION_BC)
+				    && (ctxPtr->type == TCL_LOCATION_SOURCE));
+		    }
+
+		    TclStackFree(interp, ctxPtr);
+		}
+
+		if (redo) {
+		    goto recompileObj;
+		}
+	    }
+	}
+
+	/*
 	 * Increment the code's ref count while it is being executed. If
 	 * afterwards no references to it remain, free the code.
 	 */
@@ -1753,8 +1821,6 @@ TclExecuteByteCode(
     bcFramePtr->data.tebc.pc = NULL;
     bcFramePtr->cmd.str.cmd = NULL;
     bcFramePtr->cmd.str.len = 0;
-
-    TclArgumentBCEnter((Tcl_Interp*) iPtr,codePtr,bcFramePtr);
 
 #ifdef TCL_COMPILE_DEBUG
     if (tclTraceExec >= 2) {
@@ -2121,6 +2187,7 @@ TclExecuteByteCode(
 	}
 
 	if (appendLen < 0) {
+	    /* TODO: convert panic to error ? */
 	    Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
 	}
 
@@ -2148,6 +2215,7 @@ TclExecuteByteCode(
 	objResultPtr = OBJ_AT_DEPTH(opnd-1);
 	bytes = TclGetStringFromObj(objResultPtr, &length);
 	if (length + appendLen < 0) {
+	    /* TODO: convert panic to error ? */
 	    Tcl_Panic("max size for a Tcl value (%d bytes) exceeded", INT_MAX);
 	}
 #if !TCL_COMPILE_DEBUG
@@ -2344,10 +2412,16 @@ TclExecuteByteCode(
 
 	    bcFramePtr->data.tebc.pc = (char *) pc;
 	    iPtr->cmdFramePtr = bcFramePtr;
+	    TclArgumentBCEnter((Tcl_Interp*) iPtr, objv, objc,
+			       codePtr, bcFramePtr,
+			       pc - codePtr->codeStart);
 	    DECACHE_STACK_INFO();
 	    result = TclEvalObjvInternal(interp, objc, objv,
 		    /* call from TEBC */(char *) -1, -1, 0);
 	    CACHE_STACK_INFO();
+	    TclArgumentBCRelease((Tcl_Interp*) iPtr, objv, objc,
+				 codePtr,
+				 pc - codePtr->codeStart);
 	    iPtr->cmdFramePtr = iPtr->cmdFramePtr->nextPtr;
 
 	    if (result == TCL_OK) {
@@ -2811,14 +2885,14 @@ TclExecuteByteCode(
 	valuePtr = OBJ_AT_TOS; /* value to append */
 	part2Ptr = NULL;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreStk;
 
     case INST_LAPPEND_ARRAY_STK:
 	valuePtr = OBJ_AT_TOS; /* value to append */
 	part2Ptr = OBJ_UNDER_TOS;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreStk;
 
     case INST_APPEND_STK:
@@ -2873,14 +2947,14 @@ TclExecuteByteCode(
 	opnd = TclGetUInt4AtPtr(pc+1);
 	pcAdjustment = 5;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreArray;
 
     case INST_LAPPEND_ARRAY1:
 	opnd = TclGetUInt1AtPtr(pc+1);
 	pcAdjustment = 2;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreArray;
 
     case INST_APPEND_ARRAY4:
@@ -2922,14 +2996,14 @@ TclExecuteByteCode(
 	opnd = TclGetUInt4AtPtr(pc+1);
 	pcAdjustment = 5;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreScalar;
 
     case INST_LAPPEND_SCALAR1:
 	opnd = TclGetUInt1AtPtr(pc+1);
 	pcAdjustment = 2;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE
-		| TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		| TCL_LIST_ELEMENT);
 	goto doStoreScalar;
 
     case INST_APPEND_SCALAR4:
@@ -5596,8 +5670,10 @@ TclExecuteByteCode(
 	/* TODO: Attempts to re-use unshared operands on stack. */
 	if (*pc == INST_EXPON) {
 	    long l1 = 0, l2 = 0;
-	    Tcl_WideInt w1;
 	    int oddExponent = 0, negativeExponent = 0;
+#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
+	    Tcl_WideInt w1;
+#endif
 
 	    if (type2 == TCL_NUMBER_LONG) {
 		l2 = *((const long *) ptr2);
@@ -5643,9 +5719,11 @@ TclExecuteByteCode(
 	    }
 	    }
 
+	    if (type1 == TCL_NUMBER_LONG) {
+		l1 = *((const long *)ptr1);
+	    }
 	    if (negativeExponent) {
 		if (type1 == TCL_NUMBER_LONG) {
-		    l1 = *((const long *)ptr1);
 		    switch (l1) {
 		    case 0:
 			/*
@@ -5682,7 +5760,6 @@ TclExecuteByteCode(
 	    }
 
 	    if (type1 == TCL_NUMBER_LONG) {
-		l1 = *((const long *)ptr1);
 		switch (l1) {
 		case 0:
 		    /*
@@ -5707,14 +5784,23 @@ TclExecuteByteCode(
 		    NEXT_INST_F(1, 2, 1);
 		}
 	    }
-	    if (type2 == TCL_NUMBER_BIG) {
+	    /*
+	     * We refuse to accept exponent arguments that exceed
+	     * one mp_digit which means the max exponent value is
+	     * 2**28-1 = 0x0fffffff = 268435455, which fits into 
+	     * a signed 32 bit int which is within the range of the
+	     * long int type.  This means any numeric Tcl_Obj value 
+	     * not using TCL_NUMBER_LONG type must hold a value larger
+	     * than we accept.
+	     */
+	    if (type2 != TCL_NUMBER_LONG) {
 		Tcl_SetObjResult(interp,
 			Tcl_NewStringObj("exponent too large", -1));
 		result = TCL_ERROR;
 		goto checkForCatch;
 	    }
 
-	    if (type1 == TCL_NUMBER_LONG && type2 == TCL_NUMBER_LONG) {
+	    if (type1 == TCL_NUMBER_LONG) {
 		if (l1 == 2) {
 		    /*
 		     * Reduce small powers of 2 to shifts.
@@ -5735,6 +5821,7 @@ TclExecuteByteCode(
 			NEXT_INST_F(1, 2, 1);
 		    }
 #endif
+		    goto overflow;
 		}
 		if (l1 == -2) {
 		    int signum = oddExponent ? -1 : 1;
@@ -5758,10 +5845,12 @@ TclExecuteByteCode(
 			NEXT_INST_F(1, 2, 1);
 		    }
 #endif
+		    goto overflow;
 		}
 #if (LONG_MAX == 0x7fffffff)
-		if (l2 <= 8 &&
-			l1 <= MaxBase32[l2-2] && l1 >= -MaxBase32[l2-2]) {
+		if (l2 - 2 < (long)MaxBase32Size
+			&& l1 <=  MaxBase32[l2 - 2]
+			&& l1 >= -MaxBase32[l2 - 2]) {
 		    /*
 		     * Small powers of 32-bit integers.
 		     */
@@ -5804,12 +5893,12 @@ TclExecuteByteCode(
 		    TRACE(("%s\n", O2S(valuePtr)));
 		    NEXT_INST_F(1, 1, 0);
 		}
-		if (l1 >= 3 &&
-			((unsigned long) l1 < (sizeof(Exp32Index)
-				/ sizeof(unsigned short)) - 1)) {
-		    unsigned short base = Exp32Index[l1-3]
-			    + (unsigned short) l2 - 9;
-		    if (base < Exp32Index[l1-2]) {
+		if (l1 - 3 >= 0 && l1 - 2 < (long)Exp32IndexSize
+			&& l2 - 2 < (long)(Exp32ValueSize + MaxBase32Size)) {
+
+		    unsigned short base = Exp32Index[l1 - 3]
+			    + (unsigned short) (l2 - 2 - MaxBase32Size);
+		    if (base < Exp32Index[l1 - 2]) {
 			/*
 			 * 32-bit number raised to intermediate power, done by
 			 * table lookup.
@@ -5826,12 +5915,11 @@ TclExecuteByteCode(
 			NEXT_INST_F(1, 1, 0);
 		    }
 		}
-		if (-l1 >= 3
-		    && (unsigned long)(-l1) < (sizeof(Exp32Index)
-			     / sizeof(unsigned short)) - 1) {
-		    unsigned short base
-			= Exp32Index[-l1-3] + (unsigned short) l2 - 9;
-		    if (base < Exp32Index[-l1-2]) {
+		if (-l1 - 3 >= 0 && -l1 - 2 < (long)Exp32IndexSize
+			&& l2 - 2 < (long)(Exp32ValueSize + MaxBase32Size)) {
+		    unsigned short base = Exp32Index[-l1 - 3]
+			    + (unsigned short) (l2 - 2 - MaxBase32Size);
+		    if (base < Exp32Index[-l1 - 2]) {
 			long lResult = (oddExponent) ?
 			    -Exp32Value[base] : Exp32Value[base];
 
@@ -5853,6 +5941,7 @@ TclExecuteByteCode(
 		}
 #endif
 	    }
+#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
 	    if (type1 == TCL_NUMBER_LONG) {
 		w1 = l1;
 #ifndef NO_WIDE_TYPE
@@ -5860,11 +5949,11 @@ TclExecuteByteCode(
 		w1 = *((const Tcl_WideInt*) ptr1);
 #endif
 	    } else {
-		w1 = 0;
+		goto overflow;
 	    }
-#if (LONG_MAX > 0x7fffffff) || !defined(TCL_WIDE_INT_IS_LONG)
-	    if (w1 != 0 && type2 == TCL_NUMBER_LONG && l2 <= 16
-		    && w1 <= MaxBaseWide[l2-2] && w1 >= -MaxBaseWide[l2-2]) {
+	    if (l2 - 2 < (long)MaxBase64Size
+		    && w1 <=  MaxBase64[l2 - 2]
+		    && w1 >= -MaxBase64[l2 - 2]) {
 		/*
 		 * Small powers of integers whose result is wide.
 		 */
@@ -5954,14 +6043,12 @@ TclExecuteByteCode(
 	     * Handle cases of powers > 16 that still fit in a 64-bit word by
 	     * doing table lookup.
 	     */
+	    if (w1 - 3 >= 0 && w1 - 2 < (long)Exp64IndexSize
+		    && l2 - 2 < (long)(Exp64ValueSize + MaxBase64Size)) {
+		unsigned short base = Exp64Index[w1 - 3]
+			+ (unsigned short) (l2 - 2 - MaxBase64Size);
 
-	    if (w1 >= 3 &&
-		    (Tcl_WideUInt) w1 < (sizeof(Exp64Index)
-			    / sizeof(unsigned short)) - 1) {
-		unsigned short base =
-			Exp64Index[w1-3] + (unsigned short) l2 - 17;
-
-		if (base < Exp64Index[w1-2]) {
+		if (base < Exp64Index[w1 - 2]) {
 		    /*
 		     * 64-bit number raised to intermediate power, done by
 		     * table lookup.
@@ -5978,13 +6065,13 @@ TclExecuteByteCode(
 		    NEXT_INST_F(1, 1, 0);
 		}
 	    }
-	    if (-w1 >= 3 &&
-		    (Tcl_WideUInt) (-w1) < (sizeof(Exp64Index)
-			    / sizeof(unsigned short)) - 1) {
-		unsigned short base =
-			Exp64Index[-w1-3] + (unsigned short) l2 - 17;
 
-		if (base < Exp64Index[-w1-2]) {
+	    if (-w1 - 3 >= 0 && -w1 - 2 < (long)Exp64IndexSize
+		    && l2 - 2 < (long)(Exp64ValueSize + MaxBase64Size)) {
+		unsigned short base = Exp64Index[-w1 - 3]
+			+ (unsigned short) (l2 - 2 - MaxBase64Size);
+
+		if (base < Exp64Index[-w1 - 2]) {
 		    Tcl_WideInt wResult = (oddExponent) ?
 			    -Exp64Value[base] : Exp64Value[base];
 		    /*
@@ -7410,8 +7497,6 @@ TclExecuteByteCode(
 	}
     }
 
-    TclArgumentBCRelease((Tcl_Interp*) iPtr,codePtr);
-
     /*
      * Restore the stack to the state it had previous to this bytecode.
      */
@@ -7616,6 +7701,7 @@ IllegalExprOperandType(
 
     Tcl_SetObjResult(interp, Tcl_ObjPrintf(
 	    "can't use %s as operand of \"%s\"", description, operator));
+    Tcl_SetErrorCode(interp, "ARITH", "DOMAIN", description, NULL);
 }
 
 /*

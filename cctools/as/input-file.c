@@ -147,11 +147,13 @@ int pre)
 
 char *
 input_file_give_next_buffer(
-char *where)	/* Where to place 1st character of new buffer. */
+char *where,	/* Where to place 1st character of new buffer. */
+int *give_next_size)
 {
   char *	return_value;	/* -> Last char of what we read, + 1. */
   register int	size;
 
+  *give_next_size = BUFFER_SIZE;
   if (f_in == (FILE *)0)
       return 0;
       /*

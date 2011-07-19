@@ -80,7 +80,9 @@
 #include "nattraversal.h"
 #include "isakmp_frag.h"
 #include "genlist.h"
+#ifdef HAVE_OPENSSL
 #include "rsalist.h"
+#endif
 
 static TAILQ_HEAD(_rmtree, remoteconf) rmtree;
 
@@ -152,11 +154,9 @@ getrmconf_strict(remote, allow_anon)
 	}
 
 	TAILQ_FOREACH(p, &rmtree, chain) {
-#ifdef __APPLE__
 		if (p->to_delete || p->to_remove) {
 			continue;
 		}
-#endif
 		if ((remote->sa_family == AF_UNSPEC
 		     && remote->sa_family == p->remote->sa_family)
 		 || (!withport && cmpsaddrwop(remote, p->remote) == 0)
@@ -230,7 +230,6 @@ getrmconf(remote)
 	return getrmconf_strict(remote, 1);
 }
 
-#ifdef __APPLE__
 int
 link_rmconf_to_ph1 (struct remoteconf *new)
 {
@@ -265,7 +264,6 @@ unlink_rmconf_from_ph1 (struct remoteconf *old)
 	}
 	return(0);
 }
-#endif
 
 struct remoteconf *
 newrmconf()
@@ -306,18 +304,16 @@ newrmconf()
 	new->gen_policy = FALSE;
 	new->retry_counter = lcconf->retry_counter;
 	new->retry_interval = lcconf->retry_interval;
-#ifdef __APPLE__
 	new->nat_traversal = NATT_ON;
 	new->natt_multiple_user = FALSE;
 	new->natt_keepalive = TRUE;
 	new->to_remove = FALSE;
 	new->to_delete = FALSE;
 	new->linked_to_ph1 = 0;
-#else
-	new->nat_traversal = NATT_OFF;
-#endif
+#ifdef HAVE_OPENSSL
 	new->rsa_private = genlist_init();
 	new->rsa_public = genlist_init();
+#endif
 	new->idv = NULL;
 	new->key = NULL;
 
@@ -440,12 +436,10 @@ void
 delrmconf(rmconf)
 	struct remoteconf *rmconf;
 {
-#ifdef __APPLE__
 	if (rmconf->linked_to_ph1) {
 		rmconf->to_delete = TRUE;
 		return;
 	}
-#endif
 	if (rmconf->remote)
 		racoon_free(rmconf->remote);
 #ifdef ENABLE_HYBRID
@@ -474,18 +468,18 @@ delrmconf(rmconf)
 		racoon_free(rmconf->cacertfile);
 	if (rmconf->prhead)
 		proposalspec_free(rmconf->prhead);
+#ifdef HAVE_OPENSSL
 	if (rmconf->rsa_private)
 		genlist_free(rmconf->rsa_private, rsa_key_free);
 	if (rmconf->rsa_public)
 		genlist_free(rmconf->rsa_public, rsa_key_free);	
-#ifdef __APPLE__
+#endif
 	if (rmconf->shared_secret)
 		vfree(rmconf->shared_secret);
 	if (rmconf->keychainCertRef)
 		vfree(rmconf->keychainCertRef);
 	if (rmconf->open_dir_auth_group)
 		vfree(rmconf->open_dir_auth_group);
-#endif
 
 	racoon_free(rmconf);
 }
@@ -550,12 +544,10 @@ void
 remrmconf(rmconf)
 	struct remoteconf *rmconf;
 {
-#ifdef __APPLE__
 	if (rmconf->linked_to_ph1) {
 		rmconf->to_remove = TRUE;
 		return;
 	}
-#endif
 	TAILQ_REMOVE(&rmtree, rmconf, chain);
 }
 
@@ -733,10 +725,8 @@ dump_rmconf_single (struct remoteconf *p, void *data)
 	plog(LLV_INFO, LOCATION, NULL, "\tnat_traversal %s;\n",
 		p->nat_traversal == NATT_FORCE ?
 			"force" : s_switch (p->nat_traversal));
-#ifdef __APPLE__
 	plog(LLV_INFO, LOCATION, NULL, "\tnatt_multiple_user %s;\n",
 		s_switch (p->natt_multiple_user));
-#endif
 	plog(LLV_INFO, LOCATION, NULL, "\tnonce_size %d;\n",
 		p->nonce_size);
 	plog(LLV_INFO, LOCATION, NULL, "\tpassive %s;\n",
@@ -860,6 +850,7 @@ dupisakmpsa(struct isakmpsa *sa)
 
 }
 
+#ifdef HAVE_OPENSSL
 void
 rsa_key_free(void *entry)
 {
@@ -873,3 +864,4 @@ rsa_key_free(void *entry)
 		RSA_free(key->rsa);
 	free(key);
 }
+#endif

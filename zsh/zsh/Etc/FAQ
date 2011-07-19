@@ -1,9 +1,9 @@
 
 Archive-Name: unix-faq/shell/zsh
-Last-Modified: 2005/12/14
+Last-Modified: 2010/02/15
 Submitted-By: pws@pwstephenson.fsnet.co.uk (Peter Stephenson)
 Posting-Frequency: Monthly
-Copyright: (C) P.W. Stephenson, 1995--2005 (see end of document)
+Copyright: (C) P.W. Stephenson, 1995--2010 (see end of document)
 
 This document contains a list of frequently-asked (or otherwise
 significant) questions concerning the Z-shell, a command interpreter
@@ -49,7 +49,7 @@ Chapter 3:  How to get various things to work
 3.5. How do I get the Meta key to work on my xterm?
 3.6. How do I automatically display the directory in my xterm title bar?
 3.7. How do I make the completion list use eight bit characters?
-3.8. Why do the cursor (arrow) keys not work?
+3.8. Why do the cursor (arrow) keys not work?  (And other terminal oddities.)
 3.9. Why does my terminal act funny in some way?
 3.10. Why does zsh not work in an Emacs shell mode any more?
 3.11. Why do my autoloaded functions not autoload [the first time]?
@@ -100,17 +100,17 @@ Chapter 1: Introducing zsh and how to install it
 1.1: Sources of information
 
   Information on zsh is available via the World Wide Web.  The URL
-  is http://sunsite.dk/zsh/ .
+  is http://zsh.sourceforge.net/ .
   The server provides this FAQ and much else and is
-  now maintained by Karsten Thygesen and others (mail zsh@sunsite.dk
-  with any related messages).  The FAQ is at http://sunsite.dk/zsh/FAQ/ .
+  now maintained by the zsh workers (email zsh-workers@zsh.org).
+  The FAQ is at http://zsh.sourceforge.net/FAQ/ .
   The site also contains some contributed zsh scripts and functions;
   we are delighted to add more, or simply links to your own collection.
 
   This document was originally written in YODL, allowing it to be converted
   easily into various other formats.  The master source file lives at
-  http://sunsite.dk/zsh/FAQ/zshfaq.yo and the plain text version
-  can be found at http://sunsite.dk/zsh/FAQ/zshfaq.txt .
+  http://zsh.sourceforge.net/FAQ/zshfaq.yo and the plain text version
+  can be found at http://zsh.sourceforge.net/FAQ/zshfaq.txt .
 
   Another useful source of information is the collection of FAQ articles
   posted frequently to the Usenet news groups comp.unix.questions,
@@ -134,7 +134,7 @@ Chapter 1: Introducing zsh and how to install it
   I have put together a user guide to complement the manual by
   explaining the most useful features of zsh in a more easy to read way.
   This can be found at the zsh web site:
-    http://zsh.sunsite.dk/Guide/
+    http://zsh.sourceforge.net/Guide/
 
   (As a method of reading the following in Emacs, you can type \M-2
   \C-x $ to make all the indented text vanish, then \M-0 \C-x $
@@ -232,13 +232,12 @@ Chapter 1: Introducing zsh and how to install it
 1.5: What's the latest version?
 
   Zsh 4.2.7 is the latest production version.  The latest development
-  version is 4.3.9; this contains support for multibyte character strings
+  version is 4.3.11; this contains support for multibyte character strings
   (such as UTF-8 locales).  All the main features for multibyte
-  support are now in place, although there is some debugging work
-  still to be done.
+  support are now in place and this is likely soon to become the
+  stable series 4.4.
 
-  There will not be any further 4.0 releases now that 4.2 has become
-  the stable version.
+  There will not be any further 4.2 releases.
 
   A beta of the next version is sometimes available.  Development of zsh is
   patch by patch, with each intermediate version publicly available.  Note
@@ -287,15 +286,16 @@ Chapter 1: Introducing zsh and how to install it
     UK        ftp://sunsite.org.uk/packages/zsh/
     USA       http://zsh.open-mirror.com/
 
-  A Windows port used to be maintaiend by Amol Deshpandem based on 3.0.5,
-  but this is rather out of date and hard to find.  Various other
-  attempts have been made to port zsh to Windows but I am not aware
-  of any current native Windows version.  All recent releases of zsh
-  compile under Cygwin, a freely available UNIX-style environment for the
-  Win32 API, and a pre-compiled version of zsh can be downloaded by
-  the Cygwin installer.  You can find information about this at
-  http://www.cygwin.com/.  Please email
-  zsh-workers@sunsite.dk if you have information about other ports.
+  A Windows port was created by Amol Deshpandem based on 3.0.5 (which
+  is now rather old).  This has now been restored and can be found at
+  http://zsh-nt.sourceforge.net/.
+
+  All recent releases of zsh compile under Cygwin, a freely available
+  UNIX-style environment for the Win32 API, and a pre-compiled version of
+  zsh can be downloaded by the Cygwin installer.  You can find information
+  about this at http://www.cygwin.com/.
+  Please email zsh-workers@zsh.org if you have information about
+  other ports.
 
   Starting from mid-October 1997, there is an archive of patches sent
   to the maintainers' mailing list.  Note that these may not all be
@@ -305,7 +305,7 @@ Chapter 1: Introducing zsh and how to install it
   archive.  It can be found on the zsh WWW pages (as described in
   1.1) at:
 
-            http://sunsite.dk/zsh/Patches/
+            http://zsh.sourceforge.net/Patches/
 
 1.7: I don't have root access: how do I make zsh my login shell?
 
@@ -420,7 +420,8 @@ your shell' posted frequently to the USENET group comp.unix.shell.
   in some versions of ksh), KSH_ARRAYS, KSH_GLOB, KSH_OPTION_PRINT,
   LOCAL_OPTIONS, NO_BAD_PATTERN, NO_BANG_HIST, NO_EQUALS, NO_HUP,
   NO_NOMATCH, NO_RCS, NO_SHORT_LOOPS, PROMPT_SUBST, RM_STAR_SILENT,
-  POSIX_BUILTINS, SH_FILE_EXPANSION, SH_GLOB, SH_OPTION_LETTERS,
+  POSIX_ALIASES, POSIX_BUILTINS, POSIX_IDENTIFIERS,
+  SH_FILE_EXPANSION, SH_GLOB, SH_OPTION_LETTERS,
   SH_WORD_SPLIT (see question 3.1) and SINGLE_LINE_ZLE.
   Note that you can also disable any built-in commands which get in
   your way.  If invoked as `ksh', the shell will try to set suitable
@@ -442,6 +443,12 @@ your shell' posted frequently to the USENET group comp.unix.shell.
         `$array' refers to the whole array, not $array[0];
         braces are unnecessary: $a[1] == ${a[1]}, etc.
         Set the KSH_ARRAYS option for compatibility.
+    o   Furthermore, individual elements of arrays in zsh are always
+        strings, not separate parameters.  This means, for example, you
+	can't `unset' an array element in zsh as you can in ksh; you
+	can only set it to the empty string, or shorten the array.
+	(You can unset elements of associative arrays in zsh because
+	those are a completely different type of object.)
     o   Coprocesses are established by `coproc'; `|&' behaves like
         csh.  Handling of coprocess file descriptors is also different.
     o   In `cmd1 && cmd2 &', only `cmd2' instead of the whole
@@ -481,10 +488,11 @@ your shell' posted frequently to the USENET group comp.unix.shell.
         occurred somewhere in the path (e.g. `users/barstaff/foo' will
         be excluded by the `~' operator).  As the `**' operator cannot
         be grouped (inside parentheses it is treated as `*'), this is
-        the way to exclude some subdirectories from matching a `**'.
+        one way to exclude some subdirectories from matching a `**'.
+	The form (^foo/)# also works.
     o   Unquoted assignments do file expansion after `:'s (intended for
         PATHs). 
-    o   `typeset' and `integer' have special behaviour for
+    o * `typeset' and `integer' have special behaviour for
         assignments in ksh, but not in zsh.  For example, this doesn't
         work in zsh:
 
@@ -498,7 +506,7 @@ your shell' posted frequently to the USENET group comp.unix.shell.
 
     o * There is no $ENV variable (use /etc/zshrc, ~/.zshrc; 
         note also $ZDOTDIR).
-    o   $PATH is not searched for commands specified
+    o * $PATH is not searched for commands specified
         at invocation without -c.
 
   o  Aliases and functions:
@@ -699,6 +707,17 @@ your shell' posted frequently to the USENET group comp.unix.shell.
   use in the body of a function, but define the function first if the
   alias has the same name as the function.
 
+  If you aware of the problem, you can always escape part or all of the
+  name of the function:
+
+     'l'() { /bin/ls -la "$@" | more }
+
+  Adding the quotes has no effect on the function definition, but
+  suppresses alias expansion for the function name.  Hence this is
+  guaranteed to be safe---unless you are in the habit of defining
+  aliases for expressions such as 'l', which is valid, but probably
+  confusing.
+
 2.4: Similarities with tcsh
 
   (The sections on csh apply too, of course.)  Certain features have
@@ -797,37 +816,16 @@ your shell' posted frequently to the USENET group comp.unix.shell.
   ways of supporting character sets beyond ASCII.  `UTF-8' is an
   encoding of Unicode that is particularly natural on Unix-like systems.
 
-  Q: Does zsh support UTF-8?
-
-  A: zsh's built-in printf command supports "\u" and "\U" escapes
-  to output arbitrary Unicode characters.  ZLE (the Zsh Line Editor) has
+  The production branch of zsh, 4.2, has very limited support:
+  the built-in printf command supports "\u" and "\U" escapes
+  to output arbitrary Unicode characters; ZLE (the Zsh Line Editor) has
   no concept of character encodings, and is confused by multi-octet
   encodings.
 
-  Q: Why doesn't zsh have proper UTF-8 support?
-
-  A: The code has not been written yet.
-
-  Q: What makes UTF-8 support difficult to implement?
-
-  A: In order to handle arbitrary encodings the correct way, significant
-  and intrusive changes must be made to the shell.
-
-  Q: Why can't zsh just use readline?
-
-  A: ZLE is not encapsulated from the rest of the shell.  Isolating it
-  such that it could be replaced by readline would be a significant
-  effort.  Furthermore, using readline would effect a significant loss of
-  features.
-
-  Q: What changes are planned?
-
-  A: Introduction of Unicode support will be gradual, so if you are
-  interested in being involved you should join the zsh-workers mailing
-  list.  As a first step ZLE will be rewritten to use wide characters
-  internally.  Character based widgets can then operate on a single wide
-  character instead of a single byte, and the proper display width can be
-  calculated with wcswidth().
+  However, the 4.3 branch has much better support, and furthermore this
+  is now fairly stable.  (Only a few minor areas need fixing before
+  this becomes a production release.)  This is discussed more
+  fully below, see `Multibyte input and output'.
 
 Chapter 3: How to get various things to work
 
@@ -1098,7 +1096,7 @@ Chapter 3: How to get various things to work
   possibility may be to set LC_ALL=en_US.  For older versions of the
   shell, there is no easy way out.
 
-3.8: Why do the cursor (arrow) keys not work?
+3.8: Why do the cursor (arrow) keys not work?  (And other terminal oddities.)
 
   The cursor keys send different codes depending on the terminal; zsh
   only binds the most well known versions.  If you see these problems,
@@ -1143,6 +1141,25 @@ Chapter 3: How to get various things to work
   For most even vaguely VT100-compatible terminals, the above eight
   instructions are a fairly safe bet for your .zshrc.  Of course
   you can substitute variant functions for the second argument here too.
+
+  It should be noted that the `O' / `[' confusion can occur
+  with other keys such as Home and End.  Some systems let you query
+  the key sequences sent by these keys from the system's terminal
+  database, terminfo.  Unfortunately, the key sequences given there
+  typically apply to the mode that is not the one zsh uses by default (it's
+  the "application" mode rather than the "raw" mode).  Explaining the use
+  of terminfo is outside the scope of this FAQ, but if you wish to use the
+  key sequences given there you can tell the line editor to turn on
+  "application" mode when it starts and turn it off when it stops:
+
+    function zle-line-init () { echoti smkx }
+    function zle-line-finish () { echoti rmkx }
+    zle -N zle-line-init
+    zle -N zle-line-finish
+
+  If you only have the predecessor to terminfo, called termcap (which is
+  what we used to get the cursor keys above), replace `echoti smkx'
+  with `echotc ks' and replace `echoti rmkx' with `echotc ke'.
 
 3.9: Why does my terminal act funny in some way?
 
@@ -1564,14 +1581,31 @@ Chapter 3: How to get various things to work
 
 3.25: How do I get coloured prompts on my colour xterm?
 
-  (Or `color xterm', if you're reading this in black and white.)  You need
-  to find the sequences which generate the various colours from the manual
-  for your terminal emulator; these are ANSI standard on those I know about
-  which support colour.  With a recent (post 3.1.6) distribution of zsh,
-  there is a theme system to handle this for you; even if you don't see that,
-  the installed function ``colors'' (meaning `colours', if you're not
-  reading this in black and white) gives the escape sequences.  You will end
-  up with code looking like this (borrowed from Oliver Kiddle):
+  (Or `color xterm', if you're reading this in black and white.)
+
+  Versions of the shell starting with the 4.3 series have this
+  built in.  Use
+
+    PS1='%K{white}%F{red}<red on white>%f%k<default colours>'
+
+  to change the prompt.  Names are only usable for the colours
+  black, red, green, yellow, blue, magenta, cyan and white, understood
+  by most terminals, but if you happen to know the details of how
+  your terminal implements colours you can specify a number, e.g.
+  `%20F' to turn the foreground into colour number 20. `echotc
+  Co' will often output the number of colours the terminal supports.
+  (Careful: `echotc co' is different; it also outputs a number
+  but it's the number of columns in the terminal.)  If this is 8
+  then probably you have the named colours and nothing more.
+
+  In older versions of the shell you need to find the sequences which
+  generate the various colours from the manual for your terminal
+  emulator; these are ANSI standard on those I know about which support
+  colour.  With a recent (post 3.1.6) distribution of zsh, there is a
+  theme system to handle this for you; even if you don't see that, the
+  installed function ``colors'' (meaning `colours', if you're not
+  reading this in black and white) gives the escape sequences.  You will
+  end up with code looking like this (borrowed from Oliver Kiddle):
 
     PS1=$'%{\e[1;31m%}<the rest of your prompt here>%{\e[0m%}'
 
@@ -1816,14 +1850,14 @@ Chapter 5: Multibyte input and output
   just needs to ask the system library how many octets form the next
   character, and if there's a valid character there at all.  (It can also
   ask the system what width the character takes up on the screen, so that
-  characters no longer need to be exacxtly one position wide.)
+  characters no longer need to be exactly one position wide.)
 
   The way this is done is called UTF-8.  Multibyte encodings of other
   character sets exist (you might encounter them for Asian character sets);
   zsh will be able to use any such encoding as long as it contains ASCII as
   a single-octet subset and the system can provide information about other
   characters.  However, in the case of Unicode, UTF-8 is the only one you
-  are likely to enounter.
+  are likely to enounter that is useful in zsh.
 
   (In case you're confused: Unicode is the character set, while UTF-8 is
   an encoding of it.  You might hear about other encodings, such as UCS-2
@@ -1855,7 +1889,7 @@ Chapter 5: Multibyte input and output
   Note that if the shell is emulating a Bourne shell the MULTIBYTE
   option is unset by default.  This allows various POSIX modes to
   work normally (POSIX does not deal with multibyte characters).  If
-  you use a "sh" or "ksh" emulation interactively you shouldprobably
+  you use a "sh" or "ksh" emulation interactively you should probably
   set the MULTIBYTE option.
 
   The other option that affects multibyte support is COMBINING_CHARS,
@@ -1864,9 +1898,10 @@ Chapter 5: Multibyte input and output
   assumed to be modifications (accents etc.) to the base character and to
   be displayed within the same screen area as the base character.  As not
   all terminals handle this, even if they correctly display the base
-  multibyte character, this option is not on by default.  The KDE terminal
-  emulator konsole, rxvt-unicode, and the Unicode version of
-  xterm, xterm -u8 or the front-end uxterm, are known to handle
+  multibyte character, this option is not on by default.  Recent versions
+  of the KDE and GNOME terminal emulators konsole and
+  gnome-terminal as well as rxvt-unicode, and the Unicode version
+  of xterm, xterm -u8 or the front-end uxterm, are known to handle
   combining characters.
 
   The COMBINING_CHARS option only affects output; combining characters
@@ -1900,12 +1935,12 @@ Chapter 5: Multibyte input and output
       edit file names that have been created using a different character
       set it won't work properly.)
    o  The terminal emulator.  Those that are supplied with a recent
-      desktop environment, such as gnome-terminal, are likely to have
-      extensive support for localization and may work correctly as soon
-      as they know the locale.  You can enable UTF-8 support for
-      xterm in its application defaults file.  The following are
-      the relevant resources; you don't actually need all of them, as
-      described below.  If you use a `~/.Xdefaults' or
+      desktop environment, such as konsole and gnome-terminal, are
+      likely to have extensive support for localization and may work
+      correctly as soon as they know the locale.  You can enable UTF-8
+      support for xterm in its application defaults file.  The
+      following are the relevant resources; you don't actually need all of
+      them, as described below.  If you use a `~/.Xdefaults' or
       `~/.Xresources' file for setting resources, prefix all the lines
       with `xterm':
 
@@ -1936,7 +1971,12 @@ Chapter 5: Multibyte input and output
   this feature does.)  If your terminal doesn't have characters
   that need to be input as multibyte, however, you can still use
   the meta bindings and can ignore the warning message.  Use
-  `bindkey -m 2>/dev/null' to suprress it.
+  `bindkey -m 2>/dev/null' to suppress it.
+
+  You might also note that the latest version of the Cygwin environment
+  for Windows supports UTF-8.  In previous versions, zsh was able
+  to compile with the MULTIBYTE option enabled, but the system
+  didn't provide full support for it.
 
 5.4: How can I input characters that aren't on my keyboard?
 
@@ -1972,6 +2012,9 @@ Chapter 5: Multibyte input and output
   however, using UTF-8 massively extends the number of valid characters
   that can be produced.
 
+  If you have a recent X Window System installation, you might find
+  the AltGr key helps you input accented Latin characters; for
+  example on my keyboard AltGr-; e gives `e' with an acute accent.
   See also http://www.cl.cam.ac.uk/~mgk25/unicode.html#input
   for general information on entering Unicode characters from a keyboard.
 
@@ -1994,7 +2037,7 @@ Chapter 6: The future of zsh
   The shell is being maintained by various (entirely self-appointed)
   subscribers to the mailing list,
 
-    zsh-workers@sunsite.dk
+    zsh-workers@zsh.org
 
   so mail on any issues (bug reports, suggestions, complaints...)
   related to the development of the shell should be sent there.  If
@@ -2014,12 +2057,12 @@ Chapter 6: The future of zsh
   Two progressively lower volume lists exist, one with messages
   concerning the use of zsh,
 
-    zsh-users@sunsite.dk
+    zsh-users@zsh.org
 
   and one just containing announcements:  about releases, about major
   changes in the shell, or this FAQ, for example,
 
-    zsh-announce@sunsite.dk
+    zsh-announce@zsh.org
 
   (posting to the last one is currently restricted).
 
@@ -2033,15 +2076,15 @@ Chapter 6: The future of zsh
 
   To join zsh-workers, send email to
 
-    zsh-workers-subscribe@sunsite.dk
+    zsh-workers-subscribe@zsh.org
 
   (the actual content is unimportant).  Replace subscribe with
   unsubscribe to unsubscribe.  The mailing software (ezlm) has
   various bells and whistles: you can retrieve archived messages.
-  Mail zsh-workers-help@sunsite.dk for detailed information.
+  Mail zsh-workers-help@zsh.org for detailed information.
   Adminstrative matters are best sent to
-  zsh-workers-owner@sunsite.dk.  The list maintainer's
-  real name is Karsten Thygesen <karthy@kom.auc.dk>.
+  zsh-workers-owner@zsh.org.
+  real name is Geoff Wing <gcw@zsh.org>.
 
   An archive of mailings for the last few years can be found at
     http://www.zsh.org/mla/
@@ -2085,9 +2128,9 @@ Thanks to zsh-list, in particular Bart Schaefer, for suggestions
 regarding this document.  Zsh has been in the hands of archivists Jim
 Mattson, Bas de Bakker, Richard Coleman, Zoltan Hidvegi and Andrew
 Main, and the mailing list has been run by Peter Gray, Rick Ohnemus,
-Richard Coleman and Karsten Thygesen, all of whom deserve thanks.  The
-world is eternally in the debt of Paul Falstad for inventing zsh in
-the first place (though the wizzo extended completion is by Sven
+Richard Coleman, Karsten Thygesen and Geoff Wing, all of whom deserve
+thanks.  The world is eternally in the debt of Paul Falstad for inventing
+zsh in the first place (though the wizzo extended completion is by Sven
 Wischnowsky).
 
 Copyright Information:
@@ -2103,4 +2146,4 @@ notice appears in all copies of this documentation.  Remember,
 however, that this document changes monthly and it may be more useful
 to provide a pointer to it rather than the entire text.  A suitable
 pointer is "information on the Z-shell can be obtained on the World
-Wide Web at URL http://sunsite.dk/zsh/".
+Wide Web at URL http://zsh.sourceforge.net/".

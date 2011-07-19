@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib560.c,v 1.3 2009-10-10 12:29:32 yangtse Exp $
  *
  */
 #include "test.h"
@@ -23,8 +22,9 @@
 int test(char *URL)
 {
   CURL *http_handle;
-  CURLM *multi_handle;
+  CURLM *multi_handle = NULL;
   CURLMcode code;
+  int res;
 
   int still_running; /* keep number of running handles */
 
@@ -33,10 +33,10 @@ int test(char *URL)
     return TEST_ERR_MAJOR_BAD;
 
   /* set options */
-  curl_easy_setopt(http_handle, CURLOPT_URL, URL);
-  curl_easy_setopt(http_handle, CURLOPT_HEADER, 1L);
-  curl_easy_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0L);
-  curl_easy_setopt(http_handle, CURLOPT_SSL_VERIFYHOST, 0L);
+  test_setopt(http_handle, CURLOPT_URL, URL);
+  test_setopt(http_handle, CURLOPT_HEADER, 1L);
+  test_setopt(http_handle, CURLOPT_SSL_VERIFYPEER, 0L);
+  test_setopt(http_handle, CURLOPT_SSL_VERIFYHOST, 0L);
 
   /* init a multi stack */
   multi_handle = curl_multi_init();
@@ -93,9 +93,13 @@ int test(char *URL)
     }
   }
 
-  curl_multi_cleanup(multi_handle);
+test_cleanup:
+
+  if(multi_handle)
+    curl_multi_cleanup(multi_handle);
 
   curl_easy_cleanup(http_handle);
+  curl_global_cleanup();
 
-  return 0;
+  return res;
 }

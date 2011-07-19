@@ -51,12 +51,12 @@ __RCSID("$NetBSD: print.c,v 1.5 1997/10/18 13:18:52 lukem Exp $");
 #include "ctags.h"
 
 /*
- * getline --
+ * ct_getline --
  *	get the line the token of interest occurred on,
  *	prepare it for printing.
  */
 void
-getline()
+ct_getline()
 {
 	long	saveftell;
 	int	c;

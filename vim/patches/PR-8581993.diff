@@ -1,0 +1,56 @@
+Index: src/main.c
+===================================================================
+--- src/main.c	(revision 60650)
++++ src/main.c	(working copy)
+@@ -179,11 +179,16 @@
+     int		i;
+ #endif
+ 
+-    Unix2003_compat = 0;
+-    if (strncmp(argv[0],"vi",2)==0) {
+-	Unix2003_compat = COMPAT_MODE("bin/vi", "Unix2003");
+-    } else if (strncmp(argv[0],"ex",2)==0) {
+-	Unix2003_compat = COMPAT_MODE("bin/ex", "Unix2003");
++    {
++	char *base = strrchr(argv[0], '/');
++	if (base) base++; /* skip over slash */
++	else base = argv[0];
++	Unix2003_compat = 0;
++	if (strcmp(base,"vi")==0) {
++	    Unix2003_compat = COMPAT_MODE("bin/vi", "Unix2003");
++	} else if (strcmp(base,"ex")==0) {
++	    Unix2003_compat = COMPAT_MODE("bin/ex", "Unix2003");
++	}
+     }
+ 
+     /*
+Index: src/ops.c
+===================================================================
+--- src/ops.c	(revision 60650)
++++ src/ops.c	(working copy)
+@@ -3851,6 +3851,12 @@
+ 		    ++curwin->w_cursor.lnum;
+ 		beginline(BL_WHITE | BL_FIX);
+ 	    }
++	    else if (dir == BACKWARD && Unix2003_compat)
++	    {
++		/* put cursor on last inserted character */
++		curwin->w_cursor.lnum = lnum;
++		curwin->w_cursor.col = col > 0 ? (col - 1) : 0;
++	    }
+ 	    else	/* put cursor on first inserted character */
+ 		curwin->w_cursor = new_cursor;
+ 	}
+Index: src/fileio.c
+===================================================================
+--- src/fileio.c	(revision 60650)
++++ src/fileio.c	(working copy)
+@@ -3223,7 +3223,7 @@
+ 
+     if (fname == NULL || *fname == NUL)	/* safety check */
+ 	return FAIL;
+-    if (buf->b_ml.ml_mfp == NULL)
++    if (buf->b_ml.ml_mfp == NULL && !Unix2003_compat)
+     {
+ 	/* This can happen during startup when there is a stray "w" in the
+ 	 * vimrc file. */

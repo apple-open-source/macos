@@ -1,0 +1,7 @@
+
+# Basic seeding test.
+
+COMMAND="\"$RESOLVELINKS\" -p -x headerdoc_temptestdir/seed1.xref headerdoc_temptestdir/seed_tests/seed1 ; \
+\"$RESOLVELINKS\" -p -x headerdoc_temptestdir/seed2.xref headerdoc_temptestdir/seed_tests/seed2 ; \
+\"$RESOLVELINKS\" -p -s headerdoc_temptestdir/seed1.xref -S /installeddir/seed1/ -s headerdoc_temptestdir/seed2.xref -S /installeddir/seed2/ headerdoc_temptestdir/seed_tests/maintest"
+

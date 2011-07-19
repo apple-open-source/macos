@@ -1,0 +1,507 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$95|#if __LP64__
+int a;
+#endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif
+#ifdef __cplusplus
+}
+#endif
+$11|/*! foo */
+$0|$6292|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/block_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/block_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: block 4
+APIUID: //test_ref/doc/header/block_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 3
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: a
+    APIUID: //test_ref/c/data/a
+    ABSTRACT: ""
+    DISCUSSION: "<p>foo "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: "int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: a (HeaderDoc::Var)
++---int
++--- 
++---a
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: a (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/a //test_ref/c/data/a //test_ref/c/clconst/a " machineGenerated="true" --><span class="var">a</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__ //test_ref/doc/anysymbol/__LP64__" machineGenerated="true" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
+	<span class="preprocessor">#endif</span>  
+END OF OBJECT
+
+
+
+$6292|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/block_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/block_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => __LP64__
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => #if __LP64__
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: __LP64__
+posstypes: MACRO
+value: 
+returntype: #if __LP64__
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: block 4
+APIUID: //test_ref/doc/header/block_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 3
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: a
+    APIUID: //test_ref/c/data/a
+    ABSTRACT: ""
+    DISCUSSION: "<p>foo "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: "int"
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: a (HeaderDoc::Var)
++---int
++--- 
++---a
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
++---#if
+|   +--- 
+|   +---__LP64__
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: a (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/a //test_ref/c/data/a //test_ref/c/clconst/a " machineGenerated="true" --><span class="var">a</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/__LP64__ //test_ref/c/tdef/__LP64__ //test_ref/c/tag/__LP64__ //test_ref/c/struct/__LP64__ //test_ref/c/intf/__LP64__ //test_ref/c/econst/__LP64__ //test_ref/c/data/__LP64__ //test_ref/c/clconst/__LP64__ //test_ref/c/instm/__LP64__ //test_ref/c/clm/__LP64__ //test_ref/c/intfcm/__LP64__ //test_ref/c/intfm/__LP64__ //test_ref/c/func/__LP64__ //test_ref/c/ftmplt/__LP64__ //test_ref/c/defn/__LP64__ //test_ref/c/macro/__LP64__ //test_ref/doc/com/intfm/__LP64__ //test_ref/doc/anysymbol/__LP64__" machineGenerated="true" --><span class="preprocessor">__LP64__</span><!-- /a --> 
+END OF OBJECT
+
+
+OBJECT: a (HeaderDoc::Var)
+	<span class="preprocessor">#endif</span>  
+END OF OBJECT
+
+
+
+$33|tests alldecs of function blocks
+$89|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/block_4.test$1|C$7|block 4$1|C$6|parser

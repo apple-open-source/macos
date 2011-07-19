@@ -19,6 +19,7 @@
 
 #ifndef GOwnPtrGStreamer_h
 #define GOwnPtrGStreamer_h
+#if USE(GSTREAMER)
 
 #include "GOwnPtr.h"
 
@@ -30,4 +31,5 @@ template<> void freeOwnedGPtr<GstElement>(GstElement* ptr);
 
 }
 
+#endif // USE(GSTREAMER)
 #endif

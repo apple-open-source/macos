@@ -58,6 +58,15 @@ struct apr_ipsubnet_t {
 #define GETHOSTBYNAME_BUFLEN 512
 #endif
 
+#ifdef _AIX
+/* Some levels of AIX getaddrinfo() don't like servname = "0", so
+ * set servname to "1" when port is 0 and fix it up later.
+ */
+#define AIX_SERVNAME_HACK 1
+#else
+#define AIX_SERVNAME_HACK 0
+#endif
+
 #ifdef _WIN32_WCE
 /* XXX: BS solution.  Need an HAVE_GETSERVBYNAME and actually
  * do something here, to provide the obvious proto mappings.
@@ -138,6 +147,11 @@ void apr_sockaddr_vars_set(apr_sockaddr_t *addr, int family, apr_port_t port)
         addr->sa.sin.sin_port = htons(port);
         addr->port = port;
     }
+#if AIX_SERVNAME_HACK
+    else {
+        addr->sa.sin.sin_port = htons(port);
+    }
+#endif
 
     if (family == APR_INET) {
         addr->salen = sizeof(struct sockaddr_in);
@@ -331,16 +345,12 @@ static apr_status_t call_resolver(apr_sockaddr_t **sa,
         hints.ai_flags |= AI_NUMERICHOST;
 #endif
 #else
-#ifdef _AIX
-        /* But current AIX getaddrinfo() doesn't like servname = "0";
-         * the "1" won't hurt since we use the port parameter to fill
-         * in the returned socket addresses later
-         */
+#if AIX_SERVNAME_HACK
         if (!port) {
             servname = "1";
         }
         else
-#endif /* _AIX */
+#endif /* AIX_SERVNAME_HACK */
         servname = apr_itoa(p, port);
 #endif /* OSF1 */
     }
@@ -353,12 +363,13 @@ static apr_status_t call_resolver(apr_sockaddr_t **sa,
     }
 #endif
     if (error) {
-#ifndef WIN32
+#if defined(WIN32)
+        return apr_get_netos_error();
+#else
         if (error == EAI_SYSTEM) {
             return errno;
         }
         else 
-#endif
         {
             /* issues with representing this with APR's error scheme:
              * glibc uses negative values for these numbers, perhaps so 
@@ -370,6 +381,7 @@ static apr_status_t call_resolver(apr_sockaddr_t **sa,
 #endif
             return error + APR_OS_START_EAIERR;
         }
+#endif /* WIN32 */
     }
 
     prev_sa = NULL;

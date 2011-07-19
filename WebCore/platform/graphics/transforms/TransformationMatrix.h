@@ -26,21 +26,23 @@
 #ifndef TransformationMatrix_h
 #define TransformationMatrix_h
 
-#include "AffineTransform.h"
 #include "FloatPoint.h"
 #include "IntPoint.h"
 #include <string.h> //for memcpy
 #include <wtf/FastAllocBase.h>
 
-#if PLATFORM(CG)
-#include <CoreGraphics/CGAffineTransform.h>
-#elif PLATFORM(CAIRO)
+#if USE(CA)
+typedef struct CATransform3D CATransform3D;
+#endif
+#if USE(CG)
+typedef struct CGAffineTransform CGAffineTransform;
+#elif USE(CAIRO)
 #include <cairo.h>
 #elif PLATFORM(OPENVG)
 #include "VGUtils.h"
 #elif PLATFORM(QT)
 #include <QTransform>
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 #include <SkMatrix.h>
 #elif PLATFORM(WX) && USE(WXGC)
 #include <wx/graphics.h>
@@ -62,7 +64,8 @@ class FloatPoint3D;
 class FloatRect;
 class FloatQuad;
 
-class TransformationMatrix : public FastAllocBase {
+class TransformationMatrix {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     typedef double Matrix4[4][4];
 
@@ -205,11 +208,8 @@ public:
     void setF(double f) { m_matrix[3][1] = f; }
 
     // this = this * mat
-    TransformationMatrix& multiply(const TransformationMatrix& t) { return *this *= t; }
+    TransformationMatrix& multiply(const TransformationMatrix&);
 
-    // this = mat * this
-    TransformationMatrix& multLeft(const TransformationMatrix& mat);
-    
     TransformationMatrix& scale(double);
     TransformationMatrix& scaleNonUniform(double sx, double sy);
     TransformationMatrix& scale3d(double sx, double sy, double sz);
@@ -293,31 +293,35 @@ public:
     }
 
     bool operator!=(const TransformationMatrix& other) const { return !(*this == other); }
-    
-    // *this = *this * t (i.e., a multRight)
+
+    // *this = *this * t
     TransformationMatrix& operator*=(const TransformationMatrix& t)
     {
-        *this = *this * t;
-        return *this;
+        return multiply(t);
     }
     
-    // result = *this * t (i.e., a multRight)
+    // result = *this * t
     TransformationMatrix operator*(const TransformationMatrix& t) const
     {
-        TransformationMatrix result = t;
-        result.multLeft(*this);
+        TransformationMatrix result = *this;
+        result.multiply(t);
         return result;
     }
 
-#if PLATFORM(CG)
+#if USE(CA)
+    TransformationMatrix(const CATransform3D&);
+    operator CATransform3D() const;
+#endif
+#if USE(CG)
+    TransformationMatrix(const CGAffineTransform&);
     operator CGAffineTransform() const;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
     operator cairo_matrix_t() const;
 #elif PLATFORM(OPENVG)
     operator VGMatrix() const;
 #elif PLATFORM(QT)
     operator QTransform() const;
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
     operator SkMatrix() const;
 #elif PLATFORM(WX) && USE(WXGC)
     operator wxGraphicsMatrix() const;

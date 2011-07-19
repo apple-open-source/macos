@@ -660,7 +660,7 @@ install-libraries: libraries
 		else true; \
 		fi; \
 	    done;
-	@for i in http2.5 http1.0 opt0.4 encoding msgcat1.3 tcltest2.2; \
+	@for i in platform http2.5 http1.0 opt0.4 encoding msgcat1.3 tcltest2.2; \
 	    do \
 	    if [ ! -d $(SCRIPT_INSTALL_DIR)/$$i ] ; then \
 		echo "Making directory $(SCRIPT_INSTALL_DIR)/$$i"; \
@@ -683,6 +683,11 @@ install-libraries: libraries
 		$(UNIX_DIR)/tclAppInit.c $(UNIX_DIR)/ldAix @DTRACE_SRC@; \
 	    do \
 	    $(INSTALL_DATA) $$i $(SCRIPT_INSTALL_DIR); \
+	    done;
+	@echo "Installing library platform directory";
+	@for j in $(TOP_DIR)/library/platform/*.tcl ; \
+	    do \
+	    $(INSTALL_DATA) $$j $(SCRIPT_INSTALL_DIR)/platform; \
 	    done;
 	@echo "Installing library http1.0 directory";
 	@for j in $(TOP_DIR)/library/http1.0/*.tcl ; \

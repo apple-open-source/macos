@@ -31,6 +31,7 @@
 
 #include "Document.h"
 #include "JSDOMBinding.h"
+#include "JSMainThreadExecState.h"
 
 using namespace JSC;
     
@@ -50,7 +51,7 @@ JSValue JSCallbackData::invokeCallback(MarkedArgumentBuffer& args, bool* raisedE
     JSValue function = callback()->get(exec, Identifier(exec, "handleEvent"));
 
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone) {
         callType = callback()->getCallData(callData);
         if (callType == CallTypeNone)
@@ -58,11 +59,20 @@ JSValue JSCallbackData::invokeCallback(MarkedArgumentBuffer& args, bool* raisedE
         function = callback();
     }
     
-    globalObject()->globalData()->timeoutChecker.start();
-    JSValue result = JSC::call(exec, function, callType, callData, callback(), args);
-    globalObject()->globalData()->timeoutChecker.stop();
+    globalObject()->globalData().timeoutChecker.start();
+    ScriptExecutionContext* context = globalObject()->scriptExecutionContext();
+    // We will fail to get the context if the frame has been detached.
+    if (!context)
+        return JSValue();
 
-    Document::updateStyleForAllDocuments();
+    bool contextIsDocument = context->isDocument();
+    JSValue result = contextIsDocument
+        ? JSMainThreadExecState::call(exec, function, callType, callData, callback(), args)
+        : JSC::call(exec, function, callType, callData, callback(), args);
+    globalObject()->globalData().timeoutChecker.stop();
+
+    if (contextIsDocument)
+        Document::updateStyleForAllDocuments();
 
     if (exec->hadException()) {
         reportCurrentException(exec);

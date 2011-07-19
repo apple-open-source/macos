@@ -91,7 +91,7 @@ PyObjCErr_FromObjC(NSException* localException)
 		} else {
 			PyObject_SetAttrString(exc_value, "_pyobjc_exc_", exc);
 		}
-		Py_DECREF(exc); exc = NULL;
+		Py_CLEAR(exc); 
 		PyErr_Restore(exc_type, exc_value, exc_traceback);
 		PyGILState_Release(state);
 		return;
@@ -180,9 +180,14 @@ PyObjCErr_FromObjC(NSException* localException)
 		}
 	}
 #else
-	 buf = PyString_FromFormat("%s - %s", 
-               [[localException name] UTF8String],
-               [[localException reason] UTF8String]);
+	if ([[localException reason] UTF8String]) {
+		 buf = PyText_FromFormat("%s - %s", 
+		       [[localException name] UTF8String],
+		       [[localException reason] UTF8String]);
+	} else {
+		 buf = PyText_FromFormat("%s", 
+		       [[localException name] UTF8String]);
+	}
 	PyErr_SetObject(exception, buf);
 #endif
 	PyErr_Fetch(&exc_type, &exc_value, &exc_traceback);
@@ -227,7 +232,12 @@ PyObjCErr_AsExc(void)
 	if (args == NULL) {
 		PyErr_Clear();
 	} else {
-		return PyObjC_PythonToId(args);
+		id result;
+
+		if (depythonify_c_value(@encode(id), args, &result) == -1) {
+			abort();
+		}
+		return result;
 	}
 
 	args = PyObject_GetAttrString(exc_value, "_pyobjc_info_");
@@ -280,24 +290,24 @@ PyObjCErr_AsExc(void)
 	typerepr = PyObject_Str(exc_type);
 	userInfo = [NSMutableDictionary dictionaryWithCapacity: 3];
 	[userInfo setObject:
-		[OC_PythonObject newWithObject:exc_type]
+		[[[OC_PythonObject alloc] initWithObject:exc_type] autorelease]
 		forKey:@"__pyobjc_exc_type__"];
 	if (exc_value != NULL)
 		[userInfo setObject:
-			[OC_PythonObject newWithObject:exc_value]
+			[[[OC_PythonObject alloc] initWithObject:exc_value] autorelease]
 			forKey:@"__pyobjc_exc_value__"];
 	if (exc_traceback != NULL)
 		[userInfo setObject:
-			[OC_PythonObject newWithObject:exc_traceback]
+			[[[OC_PythonObject alloc] initWithObject:exc_traceback] autorelease]
 			forKey:@"__pyobjc_exc_traceback__"];
 
 	val = [NSException 
 		exceptionWithName:@"OC_PythonException"
-		reason:[NSString stringWithFormat:@"%s: %s", PyString_AS_STRING(typerepr), PyString_AS_STRING(repr)]
+			   reason:[NSString stringWithFormat:@"%@: %@", typerepr?PyObjC_PythonToId(typerepr):NULL, repr?PyObjC_PythonToId(repr):NULL]
 		userInfo:userInfo];
 
-	Py_DECREF(typerepr);
-	Py_DECREF(repr);
+	Py_XDECREF(typerepr);
+	Py_XDECREF(repr);
 
 	if (PyObjC_VerboseLevel) {
 		PyErr_Restore(exc_type, exc_value , exc_traceback);
@@ -401,7 +411,7 @@ fetch_array_type(void)
 
 	if (array_type != NULL) return array_type;
 
-	name = PyString_FromString("array");
+	name = PyText_FromString("array");
 	if (name == NULL) {
 		return NULL;
 	}
@@ -429,6 +439,7 @@ static char
 array_typestr(PyObject* array)
 {
 	PyObject* typecode;
+	PyObject* bytes;
 	char res;
 
 	typecode = PyObject_GetAttrString(array, "typecode");
@@ -436,12 +447,21 @@ array_typestr(PyObject* array)
 		return '\0';
 	}
 
-	if (!PyString_Check(typecode)) {
+	if (PyUnicode_Check(typecode)) {
+		bytes = PyUnicode_AsEncodedString(typecode, NULL, NULL);
+		if (bytes == NULL) {
+			return '\0';
+		}
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(typecode)) {
+		bytes = typecode; Py_INCREF(bytes);
+#endif
+	} else {
 		PyErr_SetString(PyExc_TypeError, "typecode not a string");
 		return '\0';
 	}
 
-	switch (*PyString_AS_STRING(typecode)) {
+	switch (*PyBytes_AS_STRING(bytes)) {
 	case 'c': res = _C_CHR; break;
 	case 'b': res = _C_CHR; break;
 	case 'B': res = _C_UCHR; break;
@@ -459,6 +479,7 @@ array_typestr(PyObject* array)
 		res = '\0';
 	}
 	Py_DECREF(typecode);
+	Py_DECREF(bytes);
 	
 	return res;
 }
@@ -576,6 +597,44 @@ code_compatible(char array_code, char type_code)
 		return YES;
 	}
 	switch (type_code) {
+	case _C_LNG_LNG:
+#ifdef __LP64__
+		/* fall through */
+#else
+		return NO;
+#endif
+	case _C_LNG: 
+		return (array_code == 'l') 
+#ifndef __LP64__
+			|| (array_code == 'i')
+#endif
+		;
+	case _C_ULNG_LNG:
+#ifdef __LP64__
+		/* fall through */
+#else
+		return NO;
+#endif
+	case _C_ULNG: 
+		return (array_code == 'L') 
+#ifndef __LP64__
+			|| (array_code == 'I')
+#endif
+		;
+
+	case _C_INT: 
+		return (array_code == 'i') 
+#ifndef __LP64__
+			|| (array_code == 'l')
+#endif
+		;
+	case _C_UINT: 
+		return (array_code == 'I') 
+#ifndef __LP64__
+			|| (array_code == 'L')
+#endif
+		;
+
 	case _C_NSBOOL:
 		return (array_code == _C_CHR) || (array_code == _C_UCHR);
 	case _C_CHAR_AS_INT:
@@ -634,7 +693,7 @@ PyObjC_PythonToCArray(
 		if (PyUnicode_Check(pythonList)) {
 			PyErr_Format(PyExc_TypeError,
 				"Expecting byte-buffer, got %s",
-				pythonList->ob_type->tp_name);
+				Py_TYPE(pythonList)->tp_name);
 			return -1;
 		}
 
@@ -723,7 +782,7 @@ PyObjC_PythonToCArray(
 			Py_INCREF(pythonList);
 			return SHOULD_IGNORE;
 		}
-
+#if PY_MAJOR_VERSION == 2
 	} else if (*elementType == _C_UNICHAR && PyString_Check(pythonList)) {
 		PyObject* u = PyUnicode_Decode(
 				PyString_AsString(pythonList),
@@ -755,8 +814,8 @@ PyObjC_PythonToCArray(
 			*bufobj = u;
 			return SHOULD_IGNORE;
 		}
+#endif
 	}
-
 
 	/* A more complex array */
 
@@ -783,7 +842,6 @@ PyObjC_PythonToCArray(
 	}
 
 #endif
-
 	if (array_check(pythonList)) {
 		/* An array.array. Only convert if the typestr describes an
 		 * simple type of the same type as the array, or a struct/array
@@ -829,6 +887,8 @@ PyObjC_PythonToCArray(
 		if (buffer_get(writable, pythonList, (void**)&buf, &bufsize) == -1) {
 			return -1;
 		}
+
+		assert(eltsize != 0);
 		if ((bufsize % eltsize) != 0) {
 			PyErr_SetString(PyExc_ValueError, 
 					"Badly shaped array.array");
@@ -879,13 +939,13 @@ PyObjC_PythonToCArray(
 		Py_ssize_t pycount;
 
 		if (*elementType == _C_NSBOOL) {
-			if (PyString_Check(pythonList)) {
-				PyErr_Format(PyExc_ValueError, "Need array of BOOL, got string");
+			if (PyBytes_Check(pythonList)) {
+				PyErr_Format(PyExc_ValueError, "Need array of BOOL, got byte string");
 				return -1;
 			}
 		} else if (*elementType == _C_CHAR_AS_INT) {
-			if (PyString_Check(pythonList)) {
-				PyErr_Format(PyExc_ValueError, "Need array of small integers, got string");
+			if (PyBytes_Check(pythonList)) {
+				PyErr_Format(PyExc_ValueError, "Need array of small integers, got byte string");
 				return -1;
 			}
 		}
@@ -954,9 +1014,12 @@ PyObjC_CArrayToPython(
 
 
 	if (eltsize == 1 || eltsize == 0) {
+		if (*elementType == _C_CHAR_AS_TEXT) {
+			return PyBytes_FromStringAndSize(array, size);
+		}
 		if (*elementType != _C_NSBOOL && *elementType != _C_BOOL && *elementType != _C_CHAR_AS_INT) {
 			/* Special case for buffer-like objects */
-			return PyString_FromStringAndSize(array, size);
+			return PyBytes_FromStringAndSize(array, size);
 		}
 	}
 
@@ -1045,89 +1108,6 @@ PyObjCRT_SimplifySignature(char* signature, char* buf, size_t buflen)
 	return 0;
 }
 
-int
-PyObjCObject_Convert(PyObject* object, void* pvar)
-{
-	int r;
-	r = depythonify_c_value(@encode(id), object, (id*)pvar);
-	if (r == -1) {
-		return 0;
-	} else {
-		return 1;
-	}
-}
-
-int 
-PyObjC_ConvertBOOL(PyObject* object, void* pvar)
-{
-    BOOL* pbool = (BOOL*)pvar;
-
-    if (PyObject_IsTrue(object)) {
-        *pbool = YES;
-    } else {
-        *pbool = NO;
-    }
-
-    return 1;
-}
-
-int 
-PyObjC_ConvertChar(PyObject* object, void* pvar)
-{
-    char* pchar = (char*)pvar;
-
-    if (!PyString_Check(object)) {
-        PyErr_SetString(PyExc_TypeError, "Expecting string of len 1");
-        return 0;
-    }
-
-    if (PyString_Size(object) != 1) {
-        PyErr_SetString(PyExc_TypeError, "Expecting string of len 1");
-        return 0;
-    }
-
-    *pchar = *PyString_AsString(object);
-    return 1;
-}
-
-int 
-PyObjCSelector_Convert(PyObject* object, void* pvar)
-{ 
-    int r;
-
-    if (object == Py_None) {
-        *(SEL*)pvar = NULL;
-        return 1;
-    }
-    if (PyObjCSelector_Check(object)) {
-        *(SEL*)pvar = PyObjCSelector_GetSelector(object);
-        return 1;
-    }
-    if (!PyString_Check(object)) {
-        PyErr_SetString(PyExc_TypeError, "Expected string");
-        return 0;
-    }
-
-    r = depythonify_c_value(@encode(SEL), object, pvar);
-    if (r == -1) {
-           return 0;
-    }   
-    return 1;
-}
-
-int 
-PyObjCClass_Convert(PyObject* object, void* pvar)
-{
-    if (!PyObjCClass_Check(object)) {
-        PyErr_SetString(PyExc_TypeError, "Expected objective-C class");
-        return 0;
-    }
-
-    *(Class*)pvar = PyObjCClass_GetClass(object);
-    if (*(Class*)pvar == NULL) return 0;
-    return 1;
-}
-
 
 PyObject* 
 PyObjC_CArrayToPython2(
@@ -1151,9 +1131,12 @@ PyObjC_CArrayToPython2(
 	}
 
 	if (eltsize == 1 || eltsize == 0) {
+		if (*elementType == _C_CHAR_AS_TEXT) {
+			return PyBytes_FromStringAndSize(array, size);
+		}
 		if (*elementType != _C_NSBOOL && *elementType != _C_BOOL && *elementType != _C_CHAR_AS_INT) {
 			/* Special case for buffer-like objects */
-			return PyString_FromStringAndSize(array, size);
+			return PyBytes_FromStringAndSize(array, size);
 		}
 	}
 	if (*elementType == _C_UNICHAR) {
@@ -1189,4 +1172,101 @@ PyObjC_CArrayToPython2(
 	}
 
 	return result;
+}
+
+int
+PyObjCObject_Convert(PyObject* object, void* pvar)
+{
+	int r;
+	r = depythonify_c_value(@encode(id), object, (id*)pvar);
+	if (r == -1) {
+		return 0;
+	} else {
+		return 1;
+	}
+}
+
+int 
+PyObjCClass_Convert(PyObject* object, void* pvar)
+{
+    if (!PyObjCClass_Check(object)) {
+        PyErr_SetString(PyExc_TypeError, "Expected objective-C class");
+        return 0;
+    }
+
+    *(Class*)pvar = PyObjCClass_GetClass(object);
+    if (*(Class*)pvar == NULL) return 0;
+    return 1;
+}
+
+int PyObjC_is_ascii_string(PyObject* unicode_string, const char* ascii_string)
+{
+	size_t uni_sz = PyUnicode_GetSize(unicode_string);
+	size_t i;
+	Py_UNICODE* code_points = PyUnicode_AsUnicode(unicode_string);
+
+	if (code_points == NULL) {
+		PyErr_Clear();
+		return 0;
+	}
+
+	for (i = 0; i < uni_sz; i++) {
+		if (code_points[i] != (Py_UNICODE)ascii_string[i]) {
+			return 0;
+		} else if (ascii_string[i] == '\0') {
+			return 0;
+		}
+	}
+	if (ascii_string[i] != '\0') {
+		return 0;
+	}
+	return 1;
+}
+
+int PyObjC_is_ascii_prefix(PyObject* unicode_string, const char* ascii_string, size_t n)
+{
+	size_t uni_sz = PyUnicode_GetSize(unicode_string);
+	size_t i;
+	Py_UNICODE* code_points = PyUnicode_AsUnicode(unicode_string);
+
+	if (code_points == NULL) {
+		PyErr_Clear();
+		return 0;
+	}
+
+	for (i = 0; i < uni_sz && i < n; i++) {
+		if (code_points[i] != (Py_UNICODE)ascii_string[i]) {
+			return 0;
+		} else if (ascii_string[i] == '\0') {
+			return 0;
+		}
+	}
+	return 1;
+}
+
+PyObject*
+PyObjC_ImportName(const char* name)
+{
+	PyObject* py_name;
+	PyObject* mod;
+	char* c = strrchr(name, '.');
+
+	if (c == NULL) {
+		/* Toplevel module */
+		py_name = PyText_FromString(name);
+		mod = PyImport_Import(py_name);
+		Py_DECREF(py_name);
+		return mod;
+	} else {
+		py_name = PyText_FromStringAndSize(name, c - name);
+		mod = PyImport_Import(py_name);
+		Py_DECREF(py_name);
+		if (mod == NULL) {
+			return NULL;
+		}
+
+		PyObject* v = PyObject_GetAttrString(mod, c + 1);
+		Py_DECREF(mod);
+		return v;
+	}
 }

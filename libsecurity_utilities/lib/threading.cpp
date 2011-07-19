@@ -90,7 +90,8 @@ Mutex::Mutex(Type type)
 
 Mutex::~Mutex()
 {
-	check(pthread_mutex_destroy(&me));
+    int result = pthread_mutex_destroy(&me);
+	check(result);
 }
 
 
@@ -114,7 +115,8 @@ bool Mutex::tryLock()
 
 void Mutex::unlock()
 {
-	check(pthread_mutex_unlock(&me));
+    int result = pthread_mutex_unlock(&me);
+	check(result);
 }
 
 

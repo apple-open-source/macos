@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1996-2007, International Business Machines Corporation and others.
+* Copyright (C) 1996-2010, International Business Machines Corporation and others.
 * All Rights Reserved.
 ******************************************************************************
 */
@@ -11,6 +11,7 @@
 #include "unicode/utypes.h"
 #include "unicode/uloc.h"
 #include "unicode/utext.h"
+#include "unicode/localpointer.h"
 
 /**
  * A text-break iterator.
@@ -22,7 +23,7 @@
      *  Opaque type representing an ICU Break iterator object.
      *  @stable ICU 2.0
      */
-    typedef void UBreakIterator;
+    typedef struct UBreakIterator UBreakIterator;
 #endif
 
 #if !UCONFIG_NO_BREAK_ITERATION
@@ -55,13 +56,12 @@
  * words. Characters that are not part of a word, such as symbols or
  * punctuation marks, have word-breaks on both sides.
  * <p>
- * Character boundary analysis allows users to interact with
- * characters as they expect to, for example, when moving the cursor
- * through a text string. Character boundary analysis provides correct
- * navigation of through character strings, regardless of how the
- * character is stored.  For example, an accented character might be
- * stored as a base character and a diacritical mark. What users
- * consider to be a character can differ between languages.
+ * Character boundary analysis identifies the boundaries of
+ * "Extended Grapheme Clusters", which are groupings of codepoints
+ * that should be treated as character-like units for many text operations.
+ * Please see Unicode Standard Annex #29, Unicode Text Segmentation,
+ * http://www.unicode.org/reports/tr29/ for additional information 
+ * on grapheme clusters and guidelines on their use.
  * <p>
  * Title boundary analysis locates all positions,
  * typically starts of words, that should be set to Title Case
@@ -77,10 +77,10 @@
  * object oriented C++ API with equivalent functionality is defined in the
  * file brkiter.h.
  * <p>
- * Code snippits illustrating the use of the Break Iterator APIs
+ * Code snippets illustrating the use of the Break Iterator APIs
  * are available in the ICU User Guide,
  * http://icu-project.org/userguide/boundaryAnalysis.html
- * and in the sample program icu/source/samples/break/break.cpp"
+ * and in the sample program icu/source/samples/break/break.cpp
  */
 
 /** The possible types of text boundaries.  @stable ICU 2.0 */
@@ -277,6 +277,25 @@ ubrk_safeClone(
 */
 U_STABLE void U_EXPORT2
 ubrk_close(UBreakIterator *bi);
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUBreakIteratorPointer
+ * "Smart pointer" class, closes a UBreakIterator via ubrk_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUBreakIteratorPointer, UBreakIterator, ubrk_close);
+
+U_NAMESPACE_END
+
+#endif
 
 /**
  * Sets an existing iterator to point to a new piece of text

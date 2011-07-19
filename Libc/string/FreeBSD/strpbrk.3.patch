@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strpbrk.3	2003-05-20 15:23:55.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strpbrk.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -47,20 +47,23 @@
+--- strpbrk.3.bsdnew	2009-11-18 18:24:36.000000000 -0800
++++ strpbrk.3	2009-11-18 18:24:36.000000000 -0800
+@@ -43,20 +43,23 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft char *

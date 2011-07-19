@@ -1,0 +1,299 @@
+commit 4ffa46d9d10267f0156b803a941de05e1c0e47a6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 20:05:42 2011 -0800
+
+    xf86vidmodeproto 2.3.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d95a95c5b862648c2c7da8011abe6f0abb6f2064
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 20:05:06 2011 -0800
+
+    config: Add missing AC_CONFIG_SRCDIR
+    
+    Regroup AC statements under the Autoconf initialization section.
+    Regroup AM statements under the Automake initialization section.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 4b349a8c1512f660f5dc4fa94b65bab8c7c2f840
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:25:52 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit f3fe0f07a3071e11c23166a75fa8698f6cfeaa37
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:00:31 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 7745d7c722ec3b576abb541e7b2cf599e5c07f15
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:48 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit d3171dac99636eff33e58c0152b6489925fc429f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:30 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit 3f1d0e80b5fe5d7b252c4c16b2cb86070c9bb46e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:27 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 4aacd1bf5ccdb37d062c4415672788686c56c91f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:29 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit 34a870ad95126eb8198e2fef59cbe729ed30cf5b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit c499ad258eab12e6f9615dfc518bbbfa05bfbf67
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:25 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit cbbf83b8d8a7fde9e5ea8879516ad02ab3e863c3
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:47 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit fdbcfa8a73bf1e38c98d4d41e30ab2a06072be46
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 20:12:03 2009 +1000
+
+    xf86vidmodeproto 2.3
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5d9c8eb371dc1cb6d27fab98c942868518db73c0
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 19:55:12 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5df1367567475ed17d693dd94aa802e867b26008
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 11:09:25 2009 +1000
+
+    xf86vidmodeproto 2.2.99.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 50fe2de4abe06bcf9e38e7dcd5005538e0ba3ce1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 15:42:05 2009 +1000
+
+    Remove xf86vmode.h Xlib parts, rename to xf86vm.h
+    
+    The xlib header moved to libXxf86vm.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d80e22cbe804ce4d21082bd13484b03ffe05ef4a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 15:40:04 2009 +1000
+
+    Move request opcodes to xf86vmproto.h
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0f02b0aea4fd864ceaa2bea6f09bbea2d8e9cfbf
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 15:31:51 2009 +1000
+
+    Move xf86vmstr.h to xf86vmproto.h for consistency with other modules.
+    
+    A stub xf86vmstr.h is provided to avoid clients breaking.
+
+commit 6c6cedfb11acd4152df2cdd284d4d982bb08860f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 12:07:57 2009 +1000
+
+    Remove RCS tags
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7efd16a110ea4e8a7deab405fba7e1f5ceb4add2
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit a163fd8950df350205503b53cd202775b2e402d5
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:13 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit cdf94f93116528a9b9acf520bf22d9075b0f3e50
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:32 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit f162f887d750eb55e8b2bf69d67ef93cf9d01214
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:51 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 6f31aeb365cf7458a32c41a7d8330e3a7200639d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:40 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit b640ed8f4aae8665ece27bbb88929271e5d23bfb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:16 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 3fed39c66767d7749e0100d0e5a7ff8d30d5ba89
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:41 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 01842f2f1c3b1e9fd1c3d87a05f9c17a7958efcb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:57 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 5a98fd8bf1673989e2137f3c77b5308d06c9cfb2
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:57:26 2005 +0000
+
+    Set version to 2.2.
+
+commit ff7d9c3e3d9f3090c70ee315379184cec840bab9
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:41 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 3f0d5315ce34c2e289b4c45fe336982e2d19611e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:20 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit b8c1be8e8a5737ff433ddff3a71fa7c25d3be14f
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Wed May 18 08:05:14 2005 +0000
+
+    Add COPYING file for XF86VidMode.
+
+commit b33eb4f56ee5c9e0b05fd6928c799e422a689790
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:07 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 5ed94797c194b427855f5df9e1c2ae64638af180
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:32 2005 +0000
+
+    Initial build system files for proto module.
+
+commit 0748aa1ae39c980ddb1187ecdfc2207facf2e389
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit ef8371400847bef2287569ac71788a9826a9b729
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:36 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 6115f13c599aea728376960d890d6cc9388a3c4a
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit e40543bec997d79ff38179b53e29a3b81cddd243
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:14 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit d5a66212db8227a44377cd7bd970c4e2fc45105f
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:28 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 754f6a23806c0eb9878f35410b4ce37d69b2f4f8
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:43 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit ae24ecf53488a3806ca5fff2cee21c03204f9f96
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:35 2003 +0000
+
+    R6.6 is the Xorg base-line

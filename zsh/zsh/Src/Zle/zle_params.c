@@ -54,6 +54,8 @@ static const struct gsu_scalar keymap_gsu =
 { get_keymap, nullstrsetfn, zleunsetfn };
 static const struct gsu_scalar keys_gsu =
 { get_keys, nullstrsetfn, zleunsetfn };
+static const struct gsu_scalar lastabortedsearch_gsu =
+{ get_lasearch, nullstrsetfn, zleunsetfn };
 static const struct gsu_scalar lastsearch_gsu =
 { get_lsearch, nullstrsetfn, zleunsetfn };
 static const struct gsu_scalar lastwidget_gsu =
@@ -74,6 +76,8 @@ static const struct gsu_scalar widgetfunc_gsu =
 { get_widgetfunc, nullstrsetfn, zleunsetfn };
 static const struct gsu_scalar widgetstyle_gsu =
 { get_widgetstyle, nullstrsetfn, zleunsetfn };
+static const struct gsu_scalar zle_state_gsu =
+{ get_zle_state, nullstrsetfn, zleunsetfn };
 
 static const struct gsu_integer bufferlines_gsu =
 { get_bufferlines, NULL, zleunsetfn };
@@ -115,6 +119,8 @@ static struct zleparam {
     { "KEYMAP", PM_SCALAR | PM_READONLY, GSU(keymap_gsu), NULL },
     { "KEYS", PM_SCALAR | PM_READONLY, GSU(keys_gsu), NULL },
     { "killring", PM_ARRAY, GSU(killring_gsu), NULL },
+    { "LASTABORTEDSEARCH", PM_SCALAR | PM_READONLY, GSU(lastabortedsearch_gsu),
+      NULL },
     { "LASTSEARCH", PM_SCALAR | PM_READONLY, GSU(lastsearch_gsu), NULL },
     { "LASTWIDGET", PM_SCALAR | PM_READONLY, GSU(lastwidget_gsu), NULL },
     { "LBUFFER", PM_SCALAR,  GSU(lbuffer_gsu), NULL },
@@ -130,6 +136,7 @@ static struct zleparam {
     { "WIDGET", PM_SCALAR | PM_READONLY, GSU(widget_gsu), NULL },
     { "WIDGETFUNC", PM_SCALAR | PM_READONLY, GSU(widgetfunc_gsu), NULL },
     { "WIDGETSTYLE", PM_SCALAR | PM_READONLY, GSU(widgetstyle_gsu), NULL },
+    { "ZLE_STATE", PM_SCALAR | PM_READONLY, GSU(zle_state_gsu), NULL },
     { NULL, 0, NULL, NULL }
 };
 
@@ -330,8 +337,19 @@ get_rbuffer(UNUSED(Param pm))
 static char *
 get_prebuffer(UNUSED(Param pm))
 {
-    if (chline)
+    /*
+     * Use the editing current history line, not necessarily the
+     * history line that's currently in the history mechanism
+     * since our line may have been stacked.
+     */
+    if (zle_chline) {
+	/* zle_chline was NULL terminated when pushed onto the stack */
+	return dupstring(zle_chline);
+    }
+    if (chline) {
+	/* hptr is valid */
 	return dupstrpfx(chline, hptr - chline);
+    }
     return dupstring("");
 }
 
@@ -641,12 +659,19 @@ free_prepostdisplay(void)
 
 /**/
 static char *
+get_lasearch(UNUSED(Param pm))
+{
+    if (previous_aborted_search)
+	return previous_aborted_search;
+    return "";
+}
+
+/**/
+static char *
 get_lsearch(UNUSED(Param pm))
 {
-    if (previous_search_len) {
-	return zlelineasstring(previous_search, previous_search_len, 0,
-			       NULL, NULL, 1);
-    }
+    if (previous_search)
+	return previous_search;
     return "";
 }
 
@@ -672,4 +697,61 @@ get_context(UNUSED(Param pm))
 	return "start";
 	break;
     }
+}
+
+/**/
+static char *
+get_zle_state(UNUSED(Param pm))
+{
+    char *zle_state = NULL, *ptr = NULL;
+    int itp, istate, len = 0;
+
+    /*
+     * When additional substrings are added, they should be kept in
+     * alphabetical order, so the user can easily match against this
+     * parameter: if [[ $ZLE_STATE == *bar*foo*zonk* ]]; then ...; fi
+     */
+    for (itp = 0; itp < 2; itp++) {
+	char *str;
+	/*
+	 * Currently there is only one state: insert or overwrite.
+	 * This loop is to make it easy to add others.
+	 */
+	for (istate = 0; istate < 1; istate++) {
+	    int slen;
+	    switch (istate) {
+	    case 0:
+		if (insmode) {
+		    str = "insert";
+		} else {
+		    str = "overwrite";
+		}
+		break;
+
+	    default:
+		str = "";
+	    }
+	    slen = strlen(str);
+	    if (itp == 0) {
+		/* Accumulating length */
+		if (istate)
+		    len++;	/* for space */
+		len += slen;
+	    } else {
+		/* Accumulating string */
+		if (istate)
+		    *ptr++ = ' ';
+		memcpy(ptr, str, slen);
+		ptr += slen;
+	    }
+	}
+	if (itp == 0) {
+	    len++;		/* terminating NULL */
+	    ptr = zle_state = (char *)zhalloc(len);
+	} else {
+	    *ptr = '\0';
+	}
+    }
+
+    return zle_state;
 }

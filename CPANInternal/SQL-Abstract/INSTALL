@@ -1,0 +1,30 @@
+
+=head1 NAME
+
+INSTALL - how to install SQL::Abstract
+
+=head1 DESCRIPTION
+
+To install in your root Perl tree:
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+If you want to relocate it elsewhere, say for testing, you need
+to change the C<MakeMaker PREFIX> variable:
+
+    perl Makefile.PL PREFIX=~/lib
+
+Note: This is true for CPAN modules and is not specific to C<SQL::Abstract>.
+
+=head1 AUTHOR
+
+Copyright (c) 2000-2006 Nate Wiger <nwiger@cpan.org>.
+All Rights Reserved.
+
+This module is free software; you may copy this under the terms of
+the GNU General Public License, or the Artistic License, copies of
+which should have accompanied your Perl kit.
+

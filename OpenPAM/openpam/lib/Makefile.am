@@ -47,6 +47,7 @@ libpam_la_SOURCES = \
 	pam_setenv.c \
 	pam_start.c \
 	pam_strerror.c \
+	pam_unsetenv.c \
 	pam_verror.c \
 	pam_vinfo.c \
 	pam_vprompt.c \

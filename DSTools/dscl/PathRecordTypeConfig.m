@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,7 @@
 #import "DSoRecord.h"
 #import "DSoRecordPriv.h"
 
-#import <DirectoryServiceCore/CSharedData.h>
+#import <opendirectory/odutils.h>
 
 extern BOOL gHACK;
 
@@ -51,7 +51,7 @@ extern BOOL gHACK;
 {
 	// free _authExternalForm
 	if (_haveRights) {
-		[_node customCall:eDSCustomCallConfigureDestroyAuthRef
+		[_node customCall:eODCustomCallConfigureDestroyAuthRef
 				 withAuthorization:&_authExternalForm];
 	}
 }
@@ -104,7 +104,7 @@ extern BOOL gHACK;
                             matchType:eDSExact]
                         sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
         else
-            list = [[_node findRecordNames:@"dsConfigType::GetAllRecords"
+            list = [[_node findRecordNames:@kDSRecordsAll
                             ofType:[_recordType UTF8String]
                             matchType:eDSExact]
                         sortedArrayUsingSelector:@selector(caseInsensitiveCompare:)];
@@ -154,7 +154,7 @@ extern BOOL gHACK;
 		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
 		if (status == eDSNoErr && inAuthOnly == NO) {
 			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
-			status = [_node customCall:eDSCustomCallConfigureGetAuthRef
+			status = [_node customCall:eODCustomCallConfigureGetAuthRef
 							 sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
 							outputData:outputData];
 			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )
@@ -226,7 +226,7 @@ extern BOOL gHACK;
 		foundRecords = [_node findRecordNames:@kDSRecordsAll andAttributes:[NSArray arrayWithObject:@kDSAttributesAll]
 									   ofType:[_recordType UTF8String] matchType:eDSExact];
 	else
-		foundRecords = [_node findRecordNames:@"dsConfigType::GetAllRecords" andAttributes:[NSArray arrayWithObject:@kDSAttributesAll] 
+		foundRecords = [_node findRecordNames:@kDSRecordsAll andAttributes:[NSArray arrayWithObject:@kDSAttributesAll] 
 									   ofType:[_recordType UTF8String] matchType:eDSExact];
     NS_HANDLER
 	[localException retain];

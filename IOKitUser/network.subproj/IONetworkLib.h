@@ -54,7 +54,7 @@ extern "C" {
 
 /*! @function IONetworkWriteData
     @abstract Write to the buffer of a network data object.
-    @param conObject The connection object.
+    @param conObj The connection object.
     @param dataHandle The handle of a network data object.
     @param srcBuf The data to write is taken from this buffer.
     @param inSize The size of the source buffer.
@@ -67,7 +67,7 @@ extern "C" {
 
 /*! @function IONetworkReadData
     @abstract Read the buffer of a network data object.
-    @param conObject The connection object.
+    @param conObj The connection object.
     @param dataHandle The handle of a network data object.
     @param destBuf The buffer where the data read shall be written to.
     @param inOutSizeP Pointer to an integer that the caller must initialize
@@ -90,7 +90,7 @@ extern "C" {
 
 /*! @function IONetworkGetDataCapacity
     @abstract Get the capacity (in bytes) of a network data object.
-    @param con The connection object.
+    @param conObject The connection object.
     @param dataHandle The handle of a network data object.
     @param capacityP Upon success, the capacity is written to this address.
     @result kIOReturnSuccess on success, or an error code otherwise. */
@@ -101,7 +101,7 @@ extern "C" {
 
 /*! @function IONetworkGetDataHandle
     @abstract Get the handle of a network data object with the given name.
-    @param con The connection object.
+    @param conObject The connection object.
     @param dataName The name of the network data object.
     @param dataHandleP Upon success, the handle is written to this address.
     @result kIOReturnSuccess on success, or an error code otherwise. */
@@ -147,7 +147,7 @@ extern "C" {
     filtering performed by a given filter group.
     @param connect The connection object returned from IONetworkOpen(). 
     @param filterGroup The name of the packet filter group.
-    @param filters Pointer to the return value containing a mask of
+    @param filtersMask Pointer to the return value containing a mask of
     packet filters.
     @param options kIONetworkSupportedPacketFilters may be set to fetch the
     filters that are supported by the hardware.

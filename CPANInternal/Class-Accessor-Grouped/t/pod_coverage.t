@@ -1,5 +1,5 @@
 #!perl -wT
-# $Id: /local/CPAN/Class-Accessor-Grouped/t/pod_coverage.t 20 2007-05-06T02:24:39.381139Z claco  $
+# $Id: pod_coverage.t 3252 2007-05-06 02:24:39Z claco $
 use strict;
 use warnings;
 

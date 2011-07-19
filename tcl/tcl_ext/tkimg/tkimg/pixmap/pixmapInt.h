@@ -14,48 +14,11 @@
 #ifndef _TKIMG_PIXMAP_INT_H_
 #define _TKIMG_PIXMAP_INT_H_
 
-#include "tk.h"
+#include "tkimg.h"
 
-#ifndef CONST84
-#   define CONST84
-#endif
-#ifndef CONST86
-#   define CONST86
-#endif
-
-/*
- * These macros are used to control whether functions are being declared for
- * import or export in Windows,
- * They map to no-op declarations on non-Windows systems.
- * Assumes that tcl.h defines DLLEXPORT & DLLIMPORT correctly.
- * The default build on windows is for a DLL, which causes the DLLIMPORT
- * and DLLEXPORT macros to be nonempty. To build a static library, the
- * macro STATIC_BUILD should be defined before the inclusion of tcl.h
- *
- * If a function is being declared while it is being built
- * to be included in a shared library, then it should have the DLLEXPORT
- * storage class.  If is being declared for use by a module that is going to
- * link against the shared library, then it should have the DLLIMPORT storage
- * class.  If the symbol is beind declared for a static build or for use from a
- * stub library, then the storage class should be empty.
- *
- * The convention is that a macro called BUILD_xxxx, where xxxx is the
- * name of a library we are building, is set on the compile line for sources
- * that are to be placed in the library.  When this macro is set, the
- * storage class will be set to DLLEXPORT.  At the end of the header file, the
- * storage class will be reset to DLLIMPORt.
- */
-
-#undef TCL_STORAGE_CLASS
-#ifdef BUILD_tkimgpixmap
-# define TCL_STORAGE_CLASS DLLEXPORT
-#else
-# ifdef USE_TKIMGPIXMAP_STUBS
-#  define TCL_STORAGE_CLASS
-# else
-#  define TCL_STORAGE_CLASS DLLIMPORT
-# endif
-#endif
+#ifdef __cplusplus
+extern "C" {
+#endif /* __cplusplus */
 
 /*
  * Constants
@@ -146,41 +109,41 @@ typedef struct PixmapInstance {
  * generic part of the implementation
  */
 
-EXTERN void 	TkimgInitPixmapInstance _ANSI_ARGS_((
-			    PixmapMaster *masterPtr,
-			    PixmapInstance *instancePtr));
-EXTERN void 	TkimgXpmAllocTmpBuffer _ANSI_ARGS_((
-			    PixmapMaster *masterPtr,
-			    PixmapInstance *instancePtr,
-			    XImage **imagePtr, XImage **maskPtr));
-EXTERN void 	TkimgXpmFreeTmpBuffer _ANSI_ARGS_((
-			    PixmapMaster *masterPtr,
-			    PixmapInstance *instancePtr,
-			    XImage *image, XImage *mask));
-EXTERN void 	TkimgXpmSetPixel _ANSI_ARGS_((
-			    PixmapInstance *instancePtr, XImage *image,
-			    XImage *mask, int x, int y, XColor *colorPtr,
-			    int *isTranspPtr));
-EXTERN void 	TkimgXpmRealizePixmap _ANSI_ARGS_((
-			    PixmapMaster *masterPtr,
-			    PixmapInstance *instancePtr,
-			    XImage *image, XImage *mask, int isTransp));
-EXTERN void 	TkimgXpmFreeInstanceData _ANSI_ARGS_((
-			    PixmapInstance *instancePtr, int delete));
-EXTERN void 	TkimgpXpmDisplay _ANSI_ARGS_((ClientData clientData,
-			    Display *display, Drawable drawable,
-			    int imageX, int imageY, int width, int height,
-			    int drawableX, int drawableY));
+MODULE_SCOPE void TkimgInitPixmapInstance(
+	PixmapMaster *masterPtr,
+	PixmapInstance *instancePtr);
+MODULE_SCOPE void TkimgXpmAllocTmpBuffer(
+	PixmapMaster *masterPtr,
+	PixmapInstance *instancePtr,
+	XImage **imagePtr, XImage **maskPtr);
+MODULE_SCOPE void TkimgXpmFreeTmpBuffer(
+	PixmapMaster *masterPtr,
+	PixmapInstance *instancePtr,
+	XImage *image, XImage *mask);
+MODULE_SCOPE void TkimgXpmSetPixel(
+	PixmapInstance *instancePtr, XImage *image,
+	XImage *mask, int x, int y, XColor *colorPtr,
+	int *isTranspPtr);
+MODULE_SCOPE void TkimgXpmRealizePixmap(
+	PixmapMaster *masterPtr,
+	PixmapInstance *instancePtr,
+	XImage *image, XImage *mask, int isTransp);
+MODULE_SCOPE void TkimgXpmFreeInstanceData(
+	PixmapInstance *instancePtr, int delete);
+MODULE_SCOPE void TkimgpXpmDisplay(ClientData clientData,
+	Display *display, Drawable drawable,
+	int imageX, int imageY, int width, int height,
+	int drawableX, int drawableY);
 
 /*
  * Declarations of internal functions, which are exported for tcl package management.
  */
 
-EXTERN int Tkimgpixmap_Init     _ANSI_ARGS_((Tcl_Interp *interp));
-EXTERN int Tkimgpixmap_SafeInit _ANSI_ARGS_((Tcl_Interp *interp));
+extern DLLEXPORT int Tkimgpixmap_Init(Tcl_Interp *interp);
+extern DLLEXPORT int Tkimgpixmap_SafeInit(Tcl_Interp *interp);
 
-
-#undef  TCL_STORAGE_CLASS
-#define TCL_STORAGE_CLASS DLLIMPORT
+#ifdef __cplusplus
+}
+#endif /* __cplusplus */
 
 #endif

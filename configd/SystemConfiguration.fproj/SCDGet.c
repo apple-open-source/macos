@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,8 +53,8 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	CFDataRef			xmlPatterns	= NULL;	/* patterns (XML serialized) */
 	xmlData_t			myPatternsRef	= NULL;	/* patterns (serialized) */
 	CFIndex				myPatternsLen	= 0;
-	xmlDataOut_t			xmlDictRef;		/* dict (serialized) */
-	mach_msg_type_number_t		xmlDictLen;
+	xmlDataOut_t			xmlDictRef	= NULL;	/* dict (serialized) */
+	mach_msg_type_number_t		xmlDictLen	= 0;
 	CFDictionaryRef			dict		= NULL;	/* dict (un-serialized) */
 	CFDictionaryRef			expDict		= NULL;	/* dict (un-serialized / expanded) */
 	int				sc_status;
@@ -71,7 +71,7 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	}
 
 	/* serialize the keys */
-	if (keys) {
+	if (keys != NULL) {
 		if (!_SCSerialize(keys, &xmlKeys, (void **)&myKeysRef, &myKeysLen)) {
 			_SCErrorSet(kSCStatusFailed);
 			return NULL;
@@ -79,13 +79,15 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 	}
 
 	/* serialize the patterns */
-	if (patterns) {
+	if (patterns != NULL) {
 		if (!_SCSerialize(patterns, &xmlPatterns, (void **)&myPatternsRef, &myPatternsLen)) {
-			CFRelease(xmlKeys);
+			if (xmlKeys != NULL) CFRelease(xmlKeys);
 			_SCErrorSet(kSCStatusFailed);
 			return NULL;
 		}
 	}
+
+    retry :
 
 	/* send the keys and patterns, fetch the associated result from the server */
 	status = configget_m(storePrivate->server,
@@ -97,12 +99,8 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 			     &xmlDictLen,
 			     (int *)&sc_status);
 
-	/* clean up */
-	if (xmlKeys)		CFRelease(xmlKeys);
-	if (xmlPatterns)	CFRelease(xmlPatterns);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -110,12 +108,22 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyMultiple configget_m(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return NULL;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
 
+	/* clean up */
+	if (xmlKeys != NULL)		CFRelease(xmlKeys);
+	if (xmlPatterns != NULL)	CFRelease(xmlPatterns);
+
 	if (sc_status != kSCStatusOK) {
-		(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
+		if (xmlDictRef != NULL) {
+			(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDictRef, xmlDictLen);
+		}
 		_SCErrorSet(sc_status);
 		return NULL;
 	}
@@ -136,14 +144,14 @@ SCDynamicStoreCopyMultiple(SCDynamicStoreRef	store,
 CFPropertyListRef
 SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			utfKey;		/* key (XML serialized) */
-	xmlData_t			myKeyRef;	/* key (serialized) */
+	CFDataRef			utfKey;			/* key (XML serialized) */
+	xmlData_t			myKeyRef;		/* key (serialized) */
 	CFIndex				myKeyLen;
-	xmlDataOut_t			xmlDataRef;	/* data (serialized) */
-	mach_msg_type_number_t		xmlDataLen;
-	CFPropertyListRef		data;		/* data (un-serialized) */
+	xmlDataOut_t			xmlDataRef	= NULL;	/* data (serialized) */
+	mach_msg_type_number_t		xmlDataLen	= 0;
+	CFPropertyListRef		data;			/* data (un-serialized) */
 	int				newInstance;
 	int				sc_status;
 
@@ -164,6 +172,8 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 		return NULL;
 	}
 
+    retry :
+
 	/* send the key & fetch the associated data from the server */
 	status = configget(storePrivate->server,
 			   myKeyRef,
@@ -173,11 +183,8 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 			   &newInstance,
 			   (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfKey);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -185,12 +192,21 @@ SCDynamicStoreCopyValue(SCDynamicStoreRef store, CFStringRef key)
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyValue configget(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return NULL;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
 
+	/* clean up */
+	CFRelease(utfKey);
+
 	if (sc_status != kSCStatusOK) {
-		(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+		if (xmlDataRef != NULL) {
+			(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+		}
 		_SCErrorSet(sc_status);
 		return NULL;
 	}

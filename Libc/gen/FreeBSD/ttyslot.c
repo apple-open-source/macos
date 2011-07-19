@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,8 +31,9 @@
 static char sccsid[] = "@(#)ttyslot.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/ttyslot.c,v 1.4 2002/02/01 01:08:48 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/ttyslot.c,v 1.6 2009/02/12 19:00:13 ed Exp $");
 
+#include <paths.h>
 #include <ttyent.h>
 #include <stdio.h>
 #include <string.h>
@@ -47,19 +44,17 @@ ttyslot()
 {
 	struct ttyent *ttyp;
 	int slot;
-	char *p;
 	int cnt;
 	char *name;
 
 	setttyent();
 	for (cnt = 0; cnt < 3; ++cnt)
 		if ( (name = ttyname(cnt)) ) {
-			if ( (p = rindex(name, '/')) )
-				++p;
-			else
-				p = name;
+			if (strncmp(name, _PATH_DEV, sizeof _PATH_DEV - 1) != 0)
+				break;
+			name += sizeof _PATH_DEV - 1;
 			for (slot = 1; (ttyp = getttyent()); ++slot)
-				if (!strcmp(ttyp->ty_name, p)) {
+				if (!strcmp(ttyp->ty_name, name)) {
 					endttyent();
 					return(slot);
 				}

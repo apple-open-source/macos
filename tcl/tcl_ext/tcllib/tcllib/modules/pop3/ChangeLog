@@ -1,3 +1,23 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-09-28  Andreas Kupries  <andreask@activestate.com>
+
+	* pop3.test: Moved the dialog setup for test pop3-7.0 into the
+	  test, to ensure that it is not run if TLS is not available.
+
+2009-04-13  Andreas Kupries  <andreask@activestate.com>
+
+	* pop3.tcl (::pop3::open): Extended to accept a new option
+	* pop3.man: -socketcmd, through which the user can override the
+	* pop3.test: way the connection is opened. Primary use is securing
+	* pkgIndex.tcl: of the connection via SSL (package tls, command
+	  tls::socket). Updated documentation. Extended testsuite. Bumped
+	  package version to 1.7.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

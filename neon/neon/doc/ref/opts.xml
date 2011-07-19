@@ -98,14 +98,17 @@ parameter.</para>
 	<programlisting>&egsess;
 ne_set_useragent(sess, "MyApplication/2.1");</programlisting>
 
-	<para>Disable use of persistent connections:</para>
-	<programlisting>ne_session *sess = ne_session_create(...);
-ne_set_persist(sess, 0);</programlisting>
-
 	<para>Set a 30 second read timeout:</para>
 	<programlisting>&egsess;
 ne_set_read_timeout(sess, 30);</programlisting>
 
+      </refsect1>
+
+      <refsect1>
+	<title>See also</title>
+	
+	<para><xref linkend="ne_session_create"/>, <xref
+	linkend="ne_set_session_flag"/>.</para>
       </refsect1>
 
     </refentry>

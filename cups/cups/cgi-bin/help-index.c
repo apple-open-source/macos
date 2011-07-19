@@ -1,9 +1,9 @@
 /*
  * "$Id: help-index.c 7717 2008-07-04 02:35:33Z mike $"
  *
- *   Online help index routines for the Common UNIX Printing System (CUPS).
+ *   Online help index routines for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -599,7 +599,7 @@ helpSearchIndex(help_index_t *hi,	/* I - Index */
 
   search->nodes  = cupsArrayNew((cups_array_func_t)help_sort_by_name, NULL);
   search->sorted = cupsArrayNew((cups_array_func_t)help_sort_by_score, NULL);
-  
+
   if (!search->nodes || !search->sorted)
   {
     cupsArrayDelete(search->nodes);
@@ -639,8 +639,8 @@ helpSearchIndex(help_index_t *hi,	/* I - Index */
 
 	node->score = matches;
 
-	cupsArrayAdd(search->nodes, node);      
-	cupsArrayAdd(search->sorted, node);      
+	cupsArrayAdd(search->nodes, node);
+	cupsArrayAdd(search->sorted, node);
       }
     }
 
@@ -919,7 +919,7 @@ help_load_file(
     * Look for "<TITLE>", "<A NAME", or "<!-- SECTION:" prefix...
     */
 
-    if (!strncasecmp(line, "<!-- SECTION:", 13))
+    if (!_cups_strncasecmp(line, "<!-- SECTION:", 13))
     {
      /*
       * Got section line, copy it!
@@ -946,7 +946,7 @@ help_load_file(
     {
       ptr ++;
 
-      if (!strncasecmp(ptr, "TITLE>", 6))
+      if (!_cups_strncasecmp(ptr, "TITLE>", 6))
       {
        /*
         * Found the title...
@@ -955,7 +955,7 @@ help_load_file(
 	anchor = NULL;
 	ptr += 6;
       }
-      else if (!strncasecmp(ptr, "A NAME=", 7))
+      else if (!_cups_strncasecmp(ptr, "A NAME=", 7))
       {
        /*
         * Found an anchor...
@@ -1192,7 +1192,7 @@ help_load_file(
 				     sizeof(help_common_words[0])),
 				    sizeof(help_common_words[0]),
 				    (int (*)(const void *, const void *))
-				        strcasecmp))
+				        _cups_strcasecmp))
           help_add_word(node, temp);
       }
     }
@@ -1307,7 +1307,7 @@ help_sort_by_score(help_node_t *n1,	/* I - First node */
            (diff = strcmp(n1->section, n2->section)) != 0)
     return (diff);
 
-  return (strcasecmp(n1->text, n2->text));
+  return (_cups_strcasecmp(n1->text, n2->text));
 }
 
 
@@ -1322,7 +1322,7 @@ help_sort_words(help_word_t *w1,	/* I - Second word */
   DEBUG_printf(("help_sort_words(w1=%p(\"%s\"), w2=%p(\"%s\"))\n",
                 w1, w1->text, w2, w2->text));
 
-  return (strcasecmp(w1->text, w2->text));
+  return (_cups_strcasecmp(w1->text, w2->text));
 }
 
 

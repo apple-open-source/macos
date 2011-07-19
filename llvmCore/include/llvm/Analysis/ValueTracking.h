@@ -15,10 +15,11 @@
 #ifndef LLVM_ANALYSIS_VALUETRACKING_H
 #define LLVM_ANALYSIS_VALUETRACKING_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 #include <string>
 
 namespace llvm {
+  template <typename T> class SmallVectorImpl;
   class Value;
   class Instruction;
   class APInt;
@@ -28,15 +29,27 @@ namespace llvm {
   /// known to be either zero or one and return them in the KnownZero/KnownOne
   /// bit sets.  This code only analyzes bits in Mask, in order to short-circuit
   /// processing.
+  ///
+  /// This function is defined on values with integer type, values with pointer
+  /// type (but only if TD is non-null), and vectors of integers.  In the case
+  /// where V is a vector, the mask, known zero, and known one values are the
+  /// same width as the vector element, and the bit is set only if it is true
+  /// for all of the elements in the vector.
   void ComputeMaskedBits(Value *V, const APInt &Mask, APInt &KnownZero,
-                         APInt &KnownOne, TargetData *TD = 0,
+                         APInt &KnownOne, const TargetData *TD = 0,
                          unsigned Depth = 0);
   
   /// MaskedValueIsZero - Return true if 'V & Mask' is known to be zero.  We use
   /// this predicate to simplify operations downstream.  Mask is known to be
   /// zero for bits that V cannot have.
+  ///
+  /// This function is defined on values with integer type, values with pointer
+  /// type (but only if TD is non-null), and vectors of integers.  In the case
+  /// where V is a vector, the mask, known zero, and known one values are the
+  /// same width as the vector element, and the bit is set only if it is true
+  /// for all of the elements in the vector.
   bool MaskedValueIsZero(Value *V, const APInt &Mask, 
-                         TargetData *TD = 0, unsigned Depth = 0);
+                         const TargetData *TD = 0, unsigned Depth = 0);
 
   
   /// ComputeNumSignBits - Return the number of times the sign bit of the
@@ -47,14 +60,43 @@ namespace llvm {
   ///
   /// 'Op' must have a scalar integer type.
   ///
-  unsigned ComputeNumSignBits(Value *Op, TargetData *TD = 0,
+  unsigned ComputeNumSignBits(Value *Op, const TargetData *TD = 0,
                               unsigned Depth = 0);
+
+  /// ComputeMultiple - This function computes the integer multiple of Base that
+  /// equals V.  If successful, it returns true and returns the multiple in
+  /// Multiple.  If unsuccessful, it returns false.  Also, if V can be
+  /// simplified to an integer, then the simplified V is returned in Val.  Look
+  /// through sext only if LookThroughSExt=true.
+  bool ComputeMultiple(Value *V, unsigned Base, Value *&Multiple,
+                       bool LookThroughSExt = false,
+                       unsigned Depth = 0);
 
   /// CannotBeNegativeZero - Return true if we can prove that the specified FP 
   /// value is never equal to -0.0.
   ///
   bool CannotBeNegativeZero(const Value *V, unsigned Depth = 0);
 
+  /// DecomposeGEPExpression - If V is a symbolic pointer expression, decompose
+  /// it into a base pointer with a constant offset and a number of scaled
+  /// symbolic offsets.
+  ///
+  /// The scaled symbolic offsets (represented by pairs of a Value* and a scale
+  /// in the VarIndices vector) are Value*'s that are known to be scaled by the
+  /// specified amount, but which may have other unrepresented high bits. As
+  /// such, the gep cannot necessarily be reconstructed from its decomposed
+  /// form.
+  ///
+  /// When TargetData is around, this function is capable of analyzing
+  /// everything that Value::getUnderlyingObject() can look through.  When not,
+  /// it just looks through pointer casts.
+  ///
+  const Value *DecomposeGEPExpression(const Value *V, int64_t &BaseOffs,
+                 SmallVectorImpl<std::pair<const Value*, int64_t> > &VarIndices,
+                                      const TargetData *TD);
+    
+  
+  
   /// FindScalarValue - Given an aggregrate and an sequence of indices, see if
   /// the scalar value indexed is already around as a register, for example if
   /// it were inserted directly into the aggregrate.
@@ -80,8 +122,13 @@ namespace llvm {
   /// StopAtNul is set to true (the default), the returned string is truncated
   /// by a nul character in the global.  If StopAtNul is false, the nul
   /// character is included in the result string.
-  bool GetConstantStringInfo(Value *V, std::string &Str, uint64_t Offset = 0,
+  bool GetConstantStringInfo(const Value *V, std::string &Str,
+                             uint64_t Offset = 0,
                              bool StopAtNul = true);
+                        
+  /// GetStringLength - If we can compute the length of the string pointed to by
+  /// the specified pointer, return 'len+1'.  If we can't, return 0.
+  uint64_t GetStringLength(Value *V);
 } // end namespace llvm
 
 #endif

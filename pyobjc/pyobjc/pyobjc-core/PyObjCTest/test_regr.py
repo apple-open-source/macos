@@ -1,23 +1,36 @@
 from PyObjCTools.TestSupport import *
 from PyObjCTest import structargs
 from PyObjCTest import testbndl
+from PyObjCTest import copying
 
 import objc, sys
-from PyObjCTest.fnd import NSObject
+from PyObjCTest.fnd import NSObject, NSAutoreleasePool
 
 rct = structargs.StructArgClass.someRect.__metadata__()['retval']['type']
 
+class OCTestRegrWithGetItem (NSObject):
+    def objectForKey_(self, k):
+        return "ofk: %s"%(k,)
+
+    def __getitem__(self, k):
+        return "gi: %s"%(k,)
+
+class OCTestRegrWithGetItem2 (OCTestRegrWithGetItem):
+    def objectForKey_(self, k):
+        return "ofk2: %s"%(k,)
+
 class ReturnAStruct (NSObject):
-    def someRectWithRect_(self, ((x, y), (h, w))):
+    def someRectWithRect_(self, aRect):
+        ((x, y), (h, w)) = aRect
         return ((x,y),(h,w))
-    someRectWithRect_ = objc.selector(someRectWithRect_, signature=rct + '@:' + rct)
+    someRectWithRect_ = objc.selector(someRectWithRect_, signature=rct + b'@:' + rct)
 
 
 class TestRegressions(TestCase):
     def testNSObjectRespondsToCommonMethods(self):
-        self.assert_(NSObject.pyobjc_classMethods.respondsToSelector_('alloc'))
-        self.assert_(NSObject.instancesRespondToSelector_('init'))
-        self.assert_(not NSObject.instancesRespondToSelector_('frodel'))
+        self.assertTrue(NSObject.pyobjc_classMethods.respondsToSelector_('alloc'))
+        self.assertTrue(NSObject.instancesRespondToSelector_('init'))
+        self.assertFalse(NSObject.instancesRespondToSelector_('frodel'))
 
 
     def testDeallocUninit(self):
@@ -116,17 +129,16 @@ class TestRegressions(TestCase):
         self.assertEquals(o._privateMethodWithArg_(-2.5), -2)
 
         imp = testbndl.PyObjC_TestClass4.instanceMethodForSelector_('_privateMethodWithArg:')
-        self.assertEquals(imp.signature, 'i@:f')
+        self.assertEquals(imp.signature, b'i@:f')
 
         sel = testbndl.PyObjC_TestClass4._privateMethodWithArg_
-        self.assertEquals(sel.signature, 'i@:f')
+        self.assertEquals(sel.signature, b'i@:f')
 
     def testStructReturnPy(self):
         o = ReturnAStruct.alloc().init()
         p = structargs.StructArgClass.alloc().init()
 
         v = p.someRectWithObject_X_Y_H_W_(o, 1, 2, 3, 4)
-        #self.assert_(isinstance(v, Foundation.NSRect))
         self.assertEquals(v, ((1,2),(3,4)))
 
     def testStructReturn(self):
@@ -149,6 +161,96 @@ if sys.byteorder == 'little':
 
         p = self.AlignmentTestClass.alloc().init()
         self.assertEquals(p.testWithObject_(o) % 16, o.stackPtr() % 16)
+
+
+
+#
+# Regression in retainCount management when a Python object
+# is created from Objective-C. This only happened when the
+# Python class has an implementation of the designated initializer.
+#
+# Mentioned by Dirk Stoop on the Pyobjc-dev mailing-list.
+#
+
+gDeallocCounter = 0
+class OC_LeakTest_20090704_init (NSObject):
+    def init(self):
+        #self = super(OC_LeakTest_20090704_init, self).init()
+        return self
+
+    def dealloc(self):
+        global gDeallocCounter
+        gDeallocCounter += 1
+
+class OC_LeakTest_20090704_noinit (NSObject):
+    def dealloc(self):
+        global gDeallocCounter 
+        gDeallocCounter += 1
+
+
+class TestInitMemoryLeak (TestCase):
+    def testNoPythonInit(self):
+        # This test is basicly a self-test of the test-case, the
+        # test even passed before the regression was fixed.
+
+        global gDeallocCounter
+
+        pool = NSAutoreleasePool.alloc().init()
+        try:
+            v = copying.OC_CopyHelper.newObjectOfClass_(OC_LeakTest_20090704_noinit)
+            self.assertIsInstance(v, OC_LeakTest_20090704_noinit)
+
+            gDeallocCounter = 0
+            del v
+
+        finally:
+            del pool
+
+        self.assertNotEqual(gDeallocCounter, 0)
+
+    def testWithPythonInit(self):
+        global gDeallocCounter
+
+        pool = NSAutoreleasePool.alloc().init()
+        try:
+            v = copying.OC_CopyHelper.newObjectOfClass_(OC_LeakTest_20090704_init)
+            self.assertIsInstance(v, OC_LeakTest_20090704_init)
+
+            gDeallocCounter = 0
+            del v
+
+        finally:
+            del pool
+
+        self.assertNotEqual(gDeallocCounter, 0)
+
+    def testInitFailureLeaks(self):
+        NSData = objc.lookUpClass('NSData')
+        import warnings
+        warnings.filterwarnings('error',
+            category=objc.UninitializedDeallocWarning)
+
+        try:
+            try:
+                v = NSData.alloc().initWithContentsOfFile_("/etc/no-such-file.txt")
+            finally:
+                del warnings.filters[0]
+
+        except objc.UninitializedDeallocWarning:
+            self.fail("Unexpected raising of UninitializedDeallocWarning")
+
+        self.assertFalse(v is not None)
+
+    def testExplicitGetItem(self):
+        v = OCTestRegrWithGetItem.alloc().init()
+
+        self.assertEqual(v.objectForKey_("foo"), "ofk: foo")
+        self.assertEqual(v["foo"], "gi: foo")
+
+        v = OCTestRegrWithGetItem2.alloc().init()
+        self.assertEqual(v.objectForKey_("foo"), "ofk2: foo")
+        self.assertEqual(v["foo"], "gi: foo")
+
 
 if __name__ == '__main__':
     main()

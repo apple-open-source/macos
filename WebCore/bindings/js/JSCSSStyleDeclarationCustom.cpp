@@ -26,36 +26,31 @@
 #include "config.h"
 #include "JSCSSStyleDeclarationCustom.h"
 
-#include "AtomicString.h"
 #include "CSSMutableStyleDeclaration.h"
 #include "CSSPrimitiveValue.h"
 #include "CSSValue.h"
+#include "JSCSSValue.h"
+#include "JSNode.h"
 #include "PlatformString.h"
 #include <runtime/StringObjectThatMasqueradesAsUndefined.h>
 #include <runtime/StringPrototype.h>
 #include <wtf/ASCIICType.h>
+#include <wtf/text/AtomicString.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringConcatenate.h>
 
 using namespace JSC;
 using namespace WTF;
 
 namespace WebCore {
 
-void JSCSSStyleDeclaration::markChildren(MarkStack& markStack)
+void JSCSSStyleDeclaration::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
-
-    CSSStyleDeclaration* declaration = impl();
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
-
-    if (CSSRule* parentRule = declaration->parentRule())
-        markDOMObjectWrapper(markStack, globalData, parentRule);
-
-    if (declaration->isMutableStyleDeclaration()) {
-        CSSMutableStyleDeclaration* mutableDeclaration = static_cast<CSSMutableStyleDeclaration*>(declaration);
-        CSSMutableStyleDeclaration::const_iterator end = mutableDeclaration->end();
-        for (CSSMutableStyleDeclaration::const_iterator it = mutableDeclaration->begin(); it != end; ++it)
-            markDOMObjectWrapper(markStack, globalData, it->value());
-    }
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
+    visitor.addOpaqueRoot(root(impl()));
 }
 
 // Check for a CSS prefix.
@@ -69,17 +64,17 @@ static bool hasCSSPropertyNamePrefix(const Identifier& propertyName, const char*
     ASSERT(*prefix);
     for (const char* p = prefix; *p; ++p)
         ASSERT(isASCIILower(*p));
-    ASSERT(propertyName.size());
+    ASSERT(propertyName.length());
 #endif
 
-    if (toASCIILower(propertyName.data()[0]) != prefix[0])
+    if (toASCIILower(propertyName.characters()[0]) != prefix[0])
         return false;
 
-    unsigned length = propertyName.size();
+    unsigned length = propertyName.length();
     for (unsigned i = 1; i < length; ++i) {
         if (!prefix[i])
-            return isASCIIUpper(propertyName.data()[i]);
-        if (propertyName.data()[i] != prefix[i])
+            return isASCIIUpper(propertyName.characters()[i]);
+        if (propertyName.characters()[i] != prefix[i])
             return false;
     }
     return false;
@@ -90,12 +85,12 @@ static String cssPropertyName(const Identifier& propertyName, bool* hadPixelOrPo
     if (hadPixelOrPosPrefix)
         *hadPixelOrPosPrefix = false;
 
-    unsigned length = propertyName.size();
+    unsigned length = propertyName.length();
     if (!length)
         return String();
 
-    Vector<UChar> name;
-    name.reserveInitialCapacity(length);
+    StringBuilder builder;
+    builder.reserveCapacity(length);
 
     unsigned i = 0;
 
@@ -111,31 +106,32 @@ static String cssPropertyName(const Identifier& propertyName, bool* hadPixelOrPo
             *hadPixelOrPosPrefix = true;
     } else if (hasCSSPropertyNamePrefix(propertyName, "webkit")
             || hasCSSPropertyNamePrefix(propertyName, "khtml")
-            || hasCSSPropertyNamePrefix(propertyName, "apple"))
-        name.append('-');
+            || hasCSSPropertyNamePrefix(propertyName, "apple")
+            || hasCSSPropertyNamePrefix(propertyName, "epub"))
+        builder.append('-');
     else {
-        if (isASCIIUpper(propertyName.data()[0]))
+        if (isASCIIUpper(propertyName.characters()[0]))
             return String();
     }
 
-    name.append(toASCIILower(propertyName.data()[i++]));
+    builder.append(toASCIILower(propertyName.characters()[i++]));
 
     for (; i < length; ++i) {
-        UChar c = propertyName.data()[i];
+        UChar c = propertyName.characters()[i];
         if (!isASCIIUpper(c))
-            name.append(c);
-        else {
-            name.append('-');
-            name.append(toASCIILower(c));
-        }
+            builder.append(c);
+        else
+            builder.append(makeString('-', toASCIILower(c)));
     }
 
-    return String::adopt(name);
+    return builder.toString();
 }
 
-static bool isCSSPropertyName(const Identifier& propertyName)
+static bool isCSSPropertyName(const Identifier& propertyIdentifier)
 {
-    return CSSStyleDeclaration::isPropertyName(cssPropertyName(propertyName));
+    // FIXME: This mallocs a string for the property name and then throws it
+    // away.  This shows up on peacekeeper's domDynamicCreationCreateElement.
+    return CSSStyleDeclaration::isPropertyName(cssPropertyName(propertyIdentifier));
 }
 
 bool JSCSSStyleDeclaration::canGetItemsForName(ExecState*, CSSStyleDeclaration*, const Identifier& propertyName)
@@ -159,7 +155,7 @@ JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSValue slotBase, con
     RefPtr<CSSValue> v = thisObj->impl()->getPropertyCSSValue(prop);
     if (v) {
         if (pixelOrPos && v->cssValueType() == CSSValue::CSS_PRIMITIVE_VALUE)
-            return jsNumber(exec, static_pointer_cast<CSSPrimitiveValue>(v)->getFloatValue(CSSPrimitiveValue::CSS_PX));
+            return jsNumber(static_pointer_cast<CSSPrimitiveValue>(v)->getFloatValue(CSSPrimitiveValue::CSS_PX));
         return jsStringOrNull(exec, v->cssText());
     }
 
@@ -173,14 +169,13 @@ JSValue JSCSSStyleDeclaration::nameGetter(ExecState* exec, JSValue slotBase, con
     return jsString(exec, thisObj->impl()->getPropertyValue(prop));
 }
 
-
 bool JSCSSStyleDeclaration::putDelegate(ExecState* exec, const Identifier& propertyName, JSValue value, PutPropertySlot&)
 {
-    if (!isCSSPropertyName(propertyName))
-        return false;
-
     bool pixelOrPos;
     String prop = cssPropertyName(propertyName, &pixelOrPos);
+    if (!CSSStyleDeclaration::isPropertyName(prop))
+        return false;
+
     String propValue = valueToStringWithNullCheck(exec, value);
     if (pixelOrPos)
         propValue += "px";
@@ -188,6 +183,20 @@ bool JSCSSStyleDeclaration::putDelegate(ExecState* exec, const Identifier& prope
     impl()->setProperty(prop, propValue, ec);
     setDOMException(exec, ec);
     return true;
+}
+
+JSValue JSCSSStyleDeclaration::getPropertyCSSValue(ExecState* exec)
+{
+    const String& propertyName(ustringToString(exec->argument(0).toString(exec)));
+    if (exec->hadException())
+        return jsUndefined();
+
+    RefPtr<CSSValue> cssValue = impl()->getPropertyCSSValue(propertyName);
+    if (!cssValue)
+        return jsNull();
+
+    currentWorld(exec)->m_cssValueRoots.add(cssValue.get(), root(impl())); // Balanced by JSCSSValueOwner::finalize().
+    return toJS(exec, globalObject(), WTF::getPtr(cssValue));
 }
 
 } // namespace WebCore

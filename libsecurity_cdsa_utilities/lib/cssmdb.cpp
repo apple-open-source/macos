@@ -27,6 +27,74 @@
 //
 #include <security_cdsa_utilities/cssmdb.h>
 
+bool DLDbIdentifier::Impl::operator < (const DLDbIdentifier::Impl &other) const
+{
+    if (mCssmSubserviceUid < other.mCssmSubserviceUid)
+        return true;
+    if (mCssmSubserviceUid != other.mCssmSubserviceUid) // i.e. greater than
+        return false;
+    
+    // Murf correctly points out that this test will produce unreproducible results,
+    // depending on what items are being compared.  To do this properly, we need to
+    // assign a lexical value to NULL.
+    //   
+    // if (mDbName.canonicalName() == NULL || other.mDbName.canonicalName() == NULL)
+    // {
+    //     return false;
+    // }
+    
+    // this is the correct way
+    const char* a = mDbName.canonicalName();
+    const char* b = other.mDbName.canonicalName();
+    
+    if (a == NULL && b != NULL)
+    {
+        return true; // NULL is always < something
+    }
+    
+    if (a != NULL && b == NULL)
+    {
+        return false; // something is always >= NULL
+    }
+    
+    if (a == NULL && b == NULL)
+    {
+        return false; // since == is not <
+    }
+    
+    // if we get to this point, both are not null.  No crash and the lexical value is correct.
+    return strcmp(a, b) < 0;
+}
+
+bool DLDbIdentifier::Impl::operator == (const Impl &other) const
+{
+    bool subserviceIdEqual = mCssmSubserviceUid == other.mCssmSubserviceUid;
+    if (!subserviceIdEqual)
+    {
+        return false;
+    }
+    
+    const char* a = mDbName.canonicalName();
+    const char* b = other.mDbName.canonicalName();
+
+    if (a == NULL && b != NULL)
+    {
+        return false;
+    }
+    
+    if (a !=  NULL && b == NULL)
+    {
+        return false;
+    }
+    
+    if (a == NULL && b == NULL)
+    {
+        return true;
+    }
+    
+    bool namesEqual = strcmp(a, b) == 0;
+    return namesEqual;
+}
 
 //
 // CssmDLPolyData
@@ -372,6 +440,14 @@ CssmAutoDbRecordAttributeData::~CssmAutoDbRecordAttributeData()
 {
 	clear();
 }
+
+void
+CssmAutoDbRecordAttributeData::invalidate()
+{
+	NumberOfAttributes = 0;
+}
+
+
 
 void
 CssmAutoDbRecordAttributeData::clear()

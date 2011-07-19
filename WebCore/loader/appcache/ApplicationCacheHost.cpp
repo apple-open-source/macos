@@ -37,6 +37,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "MainResourceLoader.h"
+#include "ProgressEvent.h"
 #include "ResourceLoader.h"
 #include "ResourceRequest.h"
 #include "Settings.h"
@@ -54,6 +55,8 @@ ApplicationCacheHost::ApplicationCacheHost(DocumentLoader* documentLoader)
 
 ApplicationCacheHost::~ApplicationCacheHost()
 {
+    ASSERT(!m_applicationCache || !m_candidateApplicationCacheGroup || m_applicationCache->group() == m_candidateApplicationCacheGroup);
+
     if (m_applicationCache)
         m_applicationCache->group()->disassociateDocumentLoader(m_documentLoader);
     else if (m_candidateApplicationCacheGroup)
@@ -86,6 +89,12 @@ void ApplicationCacheHost::maybeLoadMainResource(ResourceRequest& request, Subst
                                             resource->response().textEncodingName(), KURL());
         }
     }
+}
+
+void ApplicationCacheHost::maybeLoadMainResourceForRedirect(ResourceRequest& request, SubstituteData& substituteData)
+{
+    ASSERT(status() == UNCACHED);
+    maybeLoadMainResource(request, substituteData);
 }
 
 bool ApplicationCacheHost::maybeLoadFallbackForMainResponse(const ResourceRequest& request, const ResourceResponse& r)
@@ -125,7 +134,10 @@ void ApplicationCacheHost::failedLoadingMainResource()
 {
     ApplicationCacheGroup* group = m_candidateApplicationCacheGroup;
     if (!group && m_applicationCache) {
-        ASSERT(!mainResourceApplicationCache()); // If the main resource were loaded from a cache, it wouldn't fail.
+        if (mainResourceApplicationCache()) {
+            // Even when the main resource is being loaded from an application cache, loading can fail if aborted.
+            return;
+        }
         group = m_applicationCache->group();
     }
     
@@ -228,33 +240,81 @@ void ApplicationCacheHost::setDOMApplicationCache(DOMApplicationCache* domApplic
     m_domApplicationCache = domApplicationCache;
 }
 
-void ApplicationCacheHost::notifyDOMApplicationCache(EventID id)
+void ApplicationCacheHost::notifyDOMApplicationCache(EventID id, int total, int done)
 {
     if (m_defersEvents) {
-        // Events are deferred until document.onload has fired.
-        m_deferredEvents.append(id);
+        // Event dispatching is deferred until document.onload has fired.
+        m_deferredEvents.append(DeferredEvent(id, total, done));
         return;
     }
-    if (m_domApplicationCache) {
-        ExceptionCode ec = 0;
-        m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
-        ASSERT(!ec);    
-    }
+    dispatchDOMEvent(id, total, done);
+}
+
+void ApplicationCacheHost::stopLoadingInFrame(Frame* frame)
+{
+    ASSERT(!m_applicationCache || !m_candidateApplicationCacheGroup || m_applicationCache->group() == m_candidateApplicationCacheGroup);
+
+    if (m_candidateApplicationCacheGroup)
+        m_candidateApplicationCacheGroup->stopLoadingInFrame(frame);
+    else if (m_applicationCache)
+        m_applicationCache->group()->stopLoadingInFrame(frame);
 }
 
 void ApplicationCacheHost::stopDeferringEvents()
 {
     RefPtr<DocumentLoader> protect(documentLoader());
     for (unsigned i = 0; i < m_deferredEvents.size(); ++i) {
-        EventID id = m_deferredEvents[i];
-        if (m_domApplicationCache) {
-            ExceptionCode ec = 0;
-            m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
-            ASSERT(!ec);
-        }
+        const DeferredEvent& deferred = m_deferredEvents[i];
+        dispatchDOMEvent(deferred.eventID, deferred.progressTotal, deferred.progressDone);
     }
     m_deferredEvents.clear();
     m_defersEvents = false;
+}
+
+#if ENABLE(INSPECTOR)
+void ApplicationCacheHost::fillResourceList(ResourceInfoList* resources)
+{
+    ApplicationCache* cache = applicationCache();
+    if (!cache || !cache->isComplete())
+        return;
+     
+    ApplicationCache::ResourceMap::const_iterator end = cache->end();
+    for (ApplicationCache::ResourceMap::const_iterator it = cache->begin(); it != end; ++it) {
+        RefPtr<ApplicationCacheResource> resource = it->second;
+        unsigned type = resource->type();
+        bool isMaster   = type & ApplicationCacheResource::Master;
+        bool isManifest = type & ApplicationCacheResource::Manifest;
+        bool isExplicit = type & ApplicationCacheResource::Explicit;
+        bool isForeign  = type & ApplicationCacheResource::Foreign;
+        bool isFallback = type & ApplicationCacheResource::Fallback;
+        resources->append(ResourceInfo(resource->url(), isMaster, isManifest, isFallback, isForeign, isExplicit, resource->estimatedSizeInStorage()));
+    }
+}
+ 
+ApplicationCacheHost::CacheInfo ApplicationCacheHost::applicationCacheInfo()
+{
+    ApplicationCache* cache = applicationCache();
+    if (!cache || !cache->isComplete())
+        return CacheInfo(KURL(), 0, 0, 0);
+  
+    // FIXME: Add "Creation Time" and "Update Time" to Application Caches.
+    return CacheInfo(cache->manifestResource()->url(), 0, 0, cache->estimatedSizeInStorage());
+}
+#endif
+
+void ApplicationCacheHost::dispatchDOMEvent(EventID id, int total, int done)
+{
+    if (m_domApplicationCache) {
+        const AtomicString& eventType = DOMApplicationCache::toEventType(id);
+        ExceptionCode ec = 0;
+        RefPtr<Event> event;
+        if (id == PROGRESS_EVENT)
+            event = ProgressEvent::create(eventType, true, done, total);
+        else
+            event = Event::create(eventType, false, false);
+        m_domApplicationCache->dispatchEvent(event, ec);
+        ASSERT(!ec);
+    }
 }
 
 void ApplicationCacheHost::setCandidateApplicationCacheGroup(ApplicationCacheGroup* group)
@@ -290,7 +350,7 @@ bool ApplicationCacheHost::shouldLoadResourceFromApplicationCache(const Resource
 
     // Resources that match fallback namespaces or online whitelist entries are fetched from the network,
     // unless they are also cached.
-    if (!resource && (cache->urlMatchesFallbackNamespace(request.url()) || cache->isURLInOnlineWhitelist(request.url())))
+    if (!resource && (cache->allowsAllNetworkRequests() || cache->urlMatchesFallbackNamespace(request.url()) || cache->isURLInOnlineWhitelist(request.url())))
         return false;
 
     // Resources that are not present in the manifest will always fail to load (at least, after the
@@ -313,6 +373,8 @@ bool ApplicationCacheHost::getApplicationCacheFallbackResource(const ResourceReq
         return false;
 
     KURL fallbackURL;
+    if (cache->isURLInOnlineWhitelist(request.url()))
+        return false;
     if (!cache->urlMatchesFallbackNamespace(request.url(), &fallbackURL))
         return false;
 

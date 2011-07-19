@@ -7,7 +7,7 @@ MYFIX = $(SRCROOT)/fix
 VERSIONERDIR = /usr/local/versioner
 PERLVERSIONS = $(VERSIONERDIR)/$(PERLPROJECT)/versions
 DEFAULT := $(shell sed -n '/^DEFAULT = /s///p' $(PERLVERSIONS))
-VERSIONS = 5.10 5.8
+VERSIONS := $(shell grep -v '^DEFAULT' $(PERLVERSIONS))
 ORDEREDVERS := $(DEFAULT) $(filter-out $(DEFAULT),$(VERSIONS))
 VERSIONERFLAGS = -std=gnu99 -Wall -mdynamic-no-pic -I$(VERSIONERDIR)/$(PERLPROJECT) -I$(MYFIX) -framework CoreFoundation
 
@@ -54,7 +54,8 @@ MYVERSIONBINLIST = $(OBJROOT)/usr-bin.list
 MYVERSIONMANLIST = $(OBJROOT)/usr-share-man.list
 VERSIONBINLIST = $(VERSIONERDIR)/$(PERLPROJECT)/usr-bin.list
 VERSIONMANLIST = $(VERSIONERDIR)/$(PERLPROJECT)/usr-share-man.list
-build::
+PERL_CC = $(shell perl -MConfig -e 'print $$Config::Config{cc}')
+build:: $(foreach v,$(VERSIONS),$(SRCROOT)/$(v).inc)
 	@set -x && \
 	for vers in $(VERSIONS); do \
 	    v=`grep "^$$vers" $(PERLVERSIONS)` && \
@@ -63,6 +64,7 @@ build::
 	    (echo "######## Building $$vers:" `date` '########' > "$(SYMROOT)/$$vers/LOG" 2>&1 && \
 		VERSIONER_PERL_VERSION=$$v \
 		VERSIONER_PERL_PREFER_32_BIT=yes \
+		CC=$(PERL_CC) \
 		$(MAKE) -f Makefile install \
 		VERS=$$vers \
 		OBJROOT="$(OBJROOT)/$$vers" \
@@ -85,20 +87,25 @@ build::
 	    exit 1; \
 	fi
 
-merge: mergebegin mergedefault mergeversions mergebin mergeman
+MERGEBIN = /usr/bin
+
+merge: mergebegin mergedefault mergeversions mergeoss
+ifeq ($(shell [ -d $(OBJROOT)/$(DEFAULT)/DSTROOT$(MERGEBIN) ] && echo YES || echo NO),YES)
+merge: mergebin
+endif
+merge: mergeman
 
 mergebegin:
-	@echo ####### Merging #######
+	@echo '####### Merging #######'
 
-MERGEBIN = /usr/bin
 TEMPWRAPPER = $(MERGEBIN)/.versioner
 mergebin: $(OBJROOT)/wrappers
-	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(VERSIONERDIR)/versioner.c -o $(DSTROOT)$(TEMPWRAPPER)
-	@set -x && \
+	@[ ! -s $(OBJROOT)/wrappers ] || { set -x && \
+	cc $(RC_CFLAGS) $(VERSIONERFLAGS) $(VERSIONERDIR)/versioner.c -o $(DSTROOT)$(TEMPWRAPPER) && \
 	for w in `sort -u $(OBJROOT)/wrappers`; do \
 	    ln -f $(DSTROOT)$(TEMPWRAPPER) $(DSTROOT)$(MERGEBIN)/$$w || exit 1; \
-	done
-	rm -f $(DSTROOT)$(TEMPWRAPPER)
+	done && \
+	rm -f $(DSTROOT)$(TEMPWRAPPER); }
 
 DUMMY = dummy.pl
 $(OBJROOT)/wrappers:
@@ -113,11 +120,7 @@ $(OBJROOT)/wrappers:
 		if file $$f | head -1 | fgrep -q script; then \
 		    fv=`echo $$f | sed -E 's/(\.[^.]*)?$$/'"$$v&/"` && \
 		    ditto $$f $(DSTROOT)$(MERGEBIN)/$$fv && \
-		    if head -1 $(DSTROOT)$(MERGEBIN)/$$fv | fgrep -q wxPerl; then \
-			sed "s/@VERSION@/$$v/g" $(MYFIX)/wxPerl.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv; \
-		    else \
-			sed "s/@VERSION@/$$v/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv; \
-		    fi && \
+		    sed "s/@VERSION@/$$v/g" $(FIX)/scriptvers.ed | ed - $(DSTROOT)$(MERGEBIN)/$$fv && \
 		    if [ ! -e $(DSTROOT)$(MERGEBIN)/$$f ]; then \
 			ln -f $(DSTROOT)$(MERGEBIN)/$(DUMMY) $(DSTROOT)$(MERGEBIN)/$$f; \
 		    fi; \
@@ -141,7 +144,8 @@ $(OBJROOT)/wrappers:
 MERGEDEFAULT = \
     Developer
 mergedefault:
-	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && rsync -Ra $(MERGEDEFAULT) $(DSTROOT)
+	cd $(OBJROOT)/$(DEFAULT)/DSTROOT && \
+	{ [ ! -d $(MERGEDEFAULT) ] || rsync -Ra $(MERGEDEFAULT) $(DSTROOT); }
 
 MERGEMAN = /usr/share/man
 mergeman:
@@ -173,3 +177,29 @@ mergeversions:
 	    cd $(OBJROOT)/$$vers/DSTROOT && \
 	    rsync -Ra $(MERGEVERSIONS) $(DSTROOT) || exit 1; \
 	done
+
+OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
+PLIST = $(OSV)/$(Project).plist
+LICENSE = $(OSL)/$(Project).txt
+MODULELIST = $(OBJROOT)/ModuleList
+mergeoss:
+	@set -x && \
+	for i in $(VERSIONS); do \
+	    sed -n '/^    /{s/^ *//;s/ \\$$//;p;}' $(SRCROOT)/$$i.inc || exit 1; \
+	done | sort -u > $(MODULELIST)
+	mkdir -p $(OSL) $(OSV)
+	@echo 'Creating $(PLIST):'
+	@echo '<?xml version="1.0" encoding="UTF-8"?>' > $(PLIST)
+	@echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">' >> $(PLIST)
+	@echo '<plist version="1.0">' >> $(PLIST)
+	@echo '<array>' >> $(PLIST)
+	@cd $(SRCROOT)/Modules && \
+	for m in `cat $(MODULELIST)`; do \
+	    echo adding $$m && \
+	    sed 's/^/	/' $$m/oss.partial >> $(PLIST) && \
+	    echo "======================== $$m ========================" >> $(LICENSE) && \
+	    cat $$m/LICENSE >> $(LICENSE) || exit 1; \
+	done
+	@echo '</array>' >> $(PLIST)
+	@echo '</plist>' >> $(PLIST)

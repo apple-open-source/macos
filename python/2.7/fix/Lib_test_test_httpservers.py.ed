@@ -1,0 +1,16 @@
+/from CGIHTTPServer import CGIHTTPRequestHandler/s//&, nobody_uid/
+/self.tempdir = tempfile.mkdtemp(dir=basetempdir)/a
+        try:
+            os.chown(self.tempdir, nobody_uid(), -1)
+        except:
+            pass
+.
+/os\.chmod(self\.tempdir, 0)/s//os.rename(self.tempdir, self.tempdir + '0')/
+/os\.chmod(self\.tempdir, 0755)/s//os.rename(self.tempdir + '0', self.tempdir)/
+/self.parent_dir = tempfile.mkdtemp()/a
+        try:
+            os.chown(self.parent_dir, nobody_uid(), -1)
+        except:
+            pass
+.
+w

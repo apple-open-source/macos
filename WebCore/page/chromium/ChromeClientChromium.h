@@ -35,7 +35,6 @@
 #include <wtf/Forward.h>
 
 namespace WebCore {
-class AccessibilityObject;
 class IntRect;
 class PopupContainer;
 
@@ -52,9 +51,6 @@ public:
                              
     // Notifies the client a popup was closed.
     virtual void popupClosed(PopupContainer* popupContainer) = 0;
-
-    // Notifies embedder that the state of an accessibility object has changed.
-    virtual void didChangeAccessibilityObjectState(AccessibilityObject*) = 0;
 };
 
 } // namespace WebCore

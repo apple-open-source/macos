@@ -27,6 +27,7 @@
 #include    <stddef.h>
 #include    <sys/cdefs.h>
 #include    <stdint.h>
+#include    <Availability.h>
 
 __BEGIN_DECLS
 
@@ -57,7 +58,7 @@ int	sys_cache_control( int function, void *start, size_t len);
 void	sys_icache_invalidate( void *start, size_t len);
 
 /* equivalent to sys_cache_control(kCacheFunctionFlushDcache): */
-void	sys_dcache_flush( void *start, size_t len);
+void	sys_dcache_flush( void *start, size_t len) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 
 __END_DECLS

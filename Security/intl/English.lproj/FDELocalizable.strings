@@ -1,0 +1,30 @@
+/* Contains the localizable strings for FDE */
+
+"question1" = "What is your oldest cousin's first and last name?";
+"question2" = "What is your maternal grandmother's maiden name?";
+"question3" = "What is your spouse's mother's maiden name?";
+"question4" = "Who was the first famous person you met?";
+"question5" = "What was your childhood phone number including area code? (e.g., 000-000-0000)";
+"question6" = "Where did your mother and father meet? (specify city, town, restaurant, or office)";
+"question7" = "What was the name of your favorite childhood friend? (first and last name)";
+"question8" = "What was the first and last name of your favorite teacher?";
+"question9" = "In what city did your parents meet?";
+"question10" = "Who was the first person to give you an autograph? (first and last name)";
+"question11" = "Where did you meet your spouse or significant other?";
+"question12" = "What school did you attend when you were 11 years old?";
+"question13" = "What was the name of your elementary / primary school?";
+"question14" = "In what city or town was your first professional job?";
+"question15" = "What was the street number of the house you grew up in?";
+"question16" = "What was the first album or cd that you owned?";
+"question17" = "What was the first concert you attended?";
+"question18" = "What street did you live on when you were nine years old?";
+"question19" = "What month and day is your anniversary? (e.g., January 2)";
+"question20" = "What is the middle name of your youngest child?";
+"question21" = "What is the middle name of your oldest sibling?";
+"question22" = "What was your favorite place to visit as a child?";
+"question23" = "What was the name of your first pet?";
+"question24" = "What was your childhood nickname?";
+"question25" = "What was your dream job as a child?";
+
+"SN# " = "SN# ";
+"   UTC: " = "   UTC: ";

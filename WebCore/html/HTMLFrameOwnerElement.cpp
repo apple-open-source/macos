@@ -24,6 +24,7 @@
 #include "DOMWindow.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "RenderPart.h"
 
 #if ENABLE(SVG)
 #include "ExceptionCode.h"
@@ -33,17 +34,29 @@
 namespace WebCore {
 
 HTMLFrameOwnerElement::HTMLFrameOwnerElement(const QualifiedName& tagName, Document* document)
-    : HTMLElement(tagName, document, CreateHTMLElement)
+    : HTMLElement(tagName, document)
     , m_contentFrame(0)
     , m_sandboxFlags(SandboxNone)
 {
 }
 
+RenderPart* HTMLFrameOwnerElement::renderPart() const
+{
+    // HTMLObjectElement and HTMLEmbedElement may return arbitrary renderers
+    // when using fallback content.
+    if (!renderer() || !renderer()->isRenderPart())
+        return 0;
+    return toRenderPart(renderer());
+}
+
 void HTMLFrameOwnerElement::willRemove()
 {
+    // FIXME: It is unclear why this can't be moved to removedFromDocument()
+    // this is the only implementation of willRemove in WebCore!
     if (Frame* frame = contentFrame()) {
-        frame->disconnectOwnerElement();
+        RefPtr<Frame> protect(frame);
         frame->loader()->frameDetached();
+        frame->disconnectOwnerElement();
     }
 
     HTMLElement::willRemove();
@@ -74,6 +87,11 @@ void HTMLFrameOwnerElement::setSandboxFlags(SandboxFlags flags)
 
     if (Frame* frame = contentFrame())
         frame->loader()->ownerElementSandboxFlagsChanged();
+}
+
+bool HTMLFrameOwnerElement::isKeyboardFocusable(KeyboardEvent* event) const
+{
+    return m_contentFrame && HTMLElement::isKeyboardFocusable(event);
 }
 
 #if ENABLE(SVG)

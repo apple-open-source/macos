@@ -1,8 +1,8 @@
 /* slapcommon.h - common definitions for the slap tools */
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.h,v 1.14.2.4 2008/02/11 23:26:44 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapcommon.h,v 1.14.2.10 2010/04/14 22:59:10 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -26,6 +26,7 @@ enum slaptool {
 	SLAPDN,		/* DN check w/ syntax tool */
 	SLAPINDEX,	/* database index tool */
 	SLAPPASSWD,	/* password generation tool */
+	SLAPSCHEMA,	/* schema checking tool */
 	SLAPTEST,	/* slapd.conf test tool */
 	SLAPAUTH,	/* test authz-regexp and authc/authz stuff */
 	SLAPACL,	/* test acl */
@@ -34,6 +35,7 @@ enum slaptool {
 
 typedef struct tool_vars {
 	Backend *tv_be;
+	int tv_dbnum;
 	int tv_verbose;
 	int tv_quiet;
 	int tv_update_ctxcsn;
@@ -41,8 +43,9 @@ typedef struct tool_vars {
 	int tv_nosubordinates;
 	int tv_dryrun;
 	int tv_jumpline;
-	Filter *tv_filter;
 	struct berval tv_sub_ndn;
+	int tv_scope;
+	Filter *tv_filter;
 	struct LDIFFP	*tv_ldiffp;
 	struct berval tv_baseDN;
 	struct berval tv_authcDN;
@@ -66,6 +69,7 @@ typedef struct tool_vars {
 extern tool_vars tool_globals;
 
 #define	be tool_globals.tv_be
+#define	dbnum tool_globals.tv_dbnum
 #define verbose tool_globals.tv_verbose
 #define quiet tool_globals.tv_quiet
 #define jumpline tool_globals.tv_jumpline
@@ -73,8 +77,9 @@ extern tool_vars tool_globals;
 #define continuemode tool_globals.tv_continuemode
 #define nosubordinates tool_globals.tv_nosubordinates
 #define dryrun tool_globals.tv_dryrun
-#define filter tool_globals.tv_filter
 #define sub_ndn tool_globals.tv_sub_ndn
+#define scope tool_globals.tv_scope
+#define filter tool_globals.tv_filter
 #define ldiffp tool_globals.tv_ldiffp
 #define baseDN tool_globals.tv_baseDN
 #define authcDN tool_globals.tv_authcDN
@@ -101,6 +106,6 @@ void slap_tool_init LDAP_P((
 	int tool,
 	int argc, char **argv ));
 
-void slap_tool_destroy LDAP_P((void));
+int slap_tool_destroy LDAP_P((void));
 
 #endif /* SLAPCOMMON_H_ */

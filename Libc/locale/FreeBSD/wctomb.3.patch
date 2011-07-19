@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/wctomb.3	2004-11-25 11:38:20.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/wctomb.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -41,37 +41,56 @@
+--- wctomb.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ wctomb.3	2009-11-09 15:05:26.000000000 -0800
+@@ -37,37 +37,56 @@
  .Dt WCTOMB 3
  .Os
  .Sh NAME
@@ -69,7 +69,7 @@
  is
  .Dv NULL ,
  the
-@@ -79,12 +98,12 @@
+@@ -75,12 +94,12 @@ the
  function returns nonzero if shift states are supported,
  zero otherwise.
  If
@@ -84,7 +84,7 @@
  or \-1 if no multibyte character
  could be recognized or converted.
  In this case,
-@@ -104,7 +123,8 @@
+@@ -100,7 +119,8 @@ The internal conversion state is invalid
  .Xr mbtowc 3 ,
  .Xr wcrtomb 3 ,
  .Xr wcstombs 3 ,

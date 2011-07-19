@@ -34,12 +34,13 @@
 
 #include "InspectorDOMStorageResource.h"
 
-#include "Document.h"
 #include "DOMWindow.h"
+#include "Document.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "InspectorFrontend.h"
-#include "ScriptObject.h"
+#include "InspectorValues.h"
+#include "SecurityOrigin.h"
 #include "Storage.h"
 #include "StorageEvent.h"
 
@@ -68,13 +69,13 @@ bool InspectorDOMStorageResource::isSameHostAndType(Frame* frame, bool isLocalSt
 void InspectorDOMStorageResource::bind(InspectorFrontend* frontend)
 {
     ASSERT(!m_frontend);
-    m_frontend = frontend;
+    m_frontend = frontend->domstorage();
 
-    ScriptObject jsonObject = frontend->newScriptObject();
-    jsonObject.set("host", m_frame->document()->securityOrigin()->host());
-    jsonObject.set("isLocalStorage", m_isLocalStorage);
-    jsonObject.set("id", m_id);
-    frontend->addDOMStorage(jsonObject);
+    RefPtr<InspectorObject> jsonObject = InspectorObject::create();
+    jsonObject->setString("host", m_frame->document()->securityOrigin()->host());
+    jsonObject->setBoolean("isLocalStorage", m_isLocalStorage);
+    jsonObject->setNumber("id", m_id);
+    m_frontend->addDOMStorage(jsonObject);
 }
 
 void InspectorDOMStorageResource::unbind()

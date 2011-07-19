@@ -39,11 +39,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #include <netinet/in.h>
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
@@ -59,11 +55,7 @@
 #include <netdb.h>
 
 #include "vchar.h"
-#if defined(__NetBSD__) || defined(__FreeBSD__) || defined(__linux__)
-#include "parse.h"
-#else
 #include "y.tab.h"
-#endif
 
 #include "extern.h"
 

@@ -24,44 +24,26 @@
 #include "config.h"
 #include "WebKitDOMBinding.h"
 
+#include "DOMObjectCache.h"
+#include "Element.h"
 #include "Event.h"
 #include "EventException.h"
 #include "HTMLNames.h"
+#include "MouseEvent.h"
+#include "UIEvent.h"
+#include "WebKitDOMDOMWindowPrivate.h"
 #include "WebKitDOMElementPrivate.h"
+#include "WebKitDOMEventPrivate.h"
 #include "WebKitDOMNode.h"
 #include "WebKitDOMNodePrivate.h"
 #include "WebKitHTMLElementWrapperFactory.h"
+#include "webkit/WebKitDOMMouseEventPrivate.h"
+#include "webkit/WebKitDOMUIEventPrivate.h"
 
 namespace WebKit {
 
 using namespace WebCore;
 using namespace WebCore::HTMLNames;
-
-// DOMObjectCache
-
-typedef HashMap<void*, gpointer> DOMObjectMap;
-
-static DOMObjectMap& domObjects()
-{
-    static DOMObjectMap staticDOMObjects;
-    return staticDOMObjects;
-}
-
-gpointer DOMObjectCache::get(void* objectHandle)
-{
-    return domObjects().get(objectHandle);
-}
-
-gpointer DOMObjectCache::put(void* objectHandle, gpointer wrapper)
-{
-    domObjects().set(objectHandle, wrapper);
-    return wrapper;
-}
-
-void DOMObjectCache::forget(void* objectHandle)
-{
-    domObjects().take(objectHandle);
-}
 
 // kit methods
 
@@ -75,9 +57,9 @@ static gpointer createWrapper(Node* node)
     switch (node->nodeType()) {
     case Node::ELEMENT_NODE:
         if (node->isHTMLElement())
-            wrappedNode = createHTMLElementWrapper(static_cast<HTMLElement*>(node));
+            wrappedNode = createHTMLElementWrapper(toHTMLElement(node));
         else
-            wrappedNode = wrapNode(node);
+            wrappedNode = wrapElement(static_cast<Element*>(node));
         break;
     default:
         wrappedNode = wrapNode(node);
@@ -87,35 +69,83 @@ static gpointer createWrapper(Node* node)
     return DOMObjectCache::put(node, wrappedNode);
 }
 
-gpointer kit(Node* node)
+WebKitDOMNode* kit(Node* node)
 {
     if (!node)
         return 0;
 
     gpointer kitNode = DOMObjectCache::get(node);
     if (kitNode)
-        return kitNode;
+        return static_cast<WebKitDOMNode*>(kitNode);
 
-    return createWrapper(node);
+    return static_cast<WebKitDOMNode*>(createWrapper(node));
 }
 
-gpointer kit(Element* element)
+WebKitDOMElement* kit(Element* element)
 {
     if (!element)
         return 0;
 
     gpointer kitElement = DOMObjectCache::get(element);
     if (kitElement)
-        return kitElement;
+        return static_cast<WebKitDOMElement*>(kitElement);
 
     gpointer wrappedElement;
 
     if (element->isHTMLElement())
-        wrappedElement = createHTMLElementWrapper(static_cast<HTMLElement*>(element));
+        wrappedElement = createHTMLElementWrapper(toHTMLElement(element));
     else
         wrappedElement = wrapElement(element);
 
-    return DOMObjectCache::put(element, wrappedElement);
+    return static_cast<WebKitDOMElement*>(DOMObjectCache::put(element, wrappedElement));
+}
+
+WebKitDOMEvent* kit(Event* event)
+{
+    if (!event)
+        return 0;
+
+    gpointer kitEvent = DOMObjectCache::get(event);
+    if (kitEvent)
+        return static_cast<WebKitDOMEvent*>(kitEvent);
+
+    gpointer wrappedEvent;
+
+    if (event->isMouseEvent())
+        wrappedEvent = wrapMouseEvent(static_cast<MouseEvent*>(event));
+    else if (event->isUIEvent())
+        wrappedEvent = wrapUIEvent(static_cast<UIEvent*>(event));
+    else
+        wrappedEvent = wrapEvent(event);
+
+    return static_cast<WebKitDOMEvent*>(DOMObjectCache::put(event, wrappedEvent));
+}
+
+static gpointer wrapEventTarget(EventTarget* target)
+{
+    ASSERT(target);
+
+    gpointer wrappedTarget = 0;
+
+    if (target->toNode()) {
+        Node* node = target->toNode();
+        wrappedTarget = wrapNode(node);
+    } else if (target->toDOMWindow()) {
+        DOMWindow* window = target->toDOMWindow();
+        wrappedTarget = wrapDOMWindow(window);
+    }
+
+    return DOMObjectCache::put(target, wrappedTarget);
+}
+
+WebKitDOMEventTarget* kit(WebCore::EventTarget* obj)
+{
+    g_return_val_if_fail(obj, 0);
+
+    if (gpointer ret = DOMObjectCache::get(obj))
+        return static_cast<WebKitDOMEventTarget*>(ret);
+
+    return static_cast<WebKitDOMEventTarget*>(DOMObjectCache::put(obj, WebKit::wrapEventTarget(obj)));
 }
 
 } // namespace WebKit

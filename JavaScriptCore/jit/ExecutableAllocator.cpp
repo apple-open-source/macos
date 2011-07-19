@@ -33,6 +33,96 @@ namespace JSC {
 
 size_t ExecutableAllocator::pageSize = 0;
 
+#if ENABLE(EXECUTABLE_ALLOCATOR_DEMAND)
+
+void ExecutableAllocator::intializePageSize()
+{
+#if OS(SYMBIAN) && CPU(ARMV5_OR_LOWER)
+    // The moving memory model (as used in ARMv5 and earlier platforms)
+    // on Symbian OS limits the number of chunks for each process to 16. 
+    // To mitigate this limitation increase the pagesize to allocate
+    // fewer, larger chunks. Set the page size to 256 Kb to compensate
+    // for moving memory model limitation
+    ExecutableAllocator::pageSize = 256 * 1024;
+#else
+    ExecutableAllocator::pageSize = WTF::pageSize();
+#endif
+}
+
+ExecutablePool::Allocation ExecutablePool::systemAlloc(size_t size)
+{
+    PageAllocation allocation = PageAllocation::allocate(size, OSAllocator::JSJITCodePages, EXECUTABLE_POOL_WRITABLE, true);
+    if (!allocation)
+        CRASH();
+    return allocation;
+}
+
+void ExecutablePool::systemRelease(ExecutablePool::Allocation& allocation)
+{
+    allocation.deallocate();
+}
+
+bool ExecutableAllocator::isValid() const
+{
+    return true;
+}
+    
+bool ExecutableAllocator::underMemoryPressure()
+{
+    return false;
+}
+    
+size_t ExecutableAllocator::committedByteCount()
+{
+    return 0;
+} 
+
+#endif
+
+#if ENABLE(ASSEMBLER_WX_EXCLUSIVE)
+
+#if OS(WINDOWS) || OS(SYMBIAN)
+#error "ASSEMBLER_WX_EXCLUSIVE not yet suported on this platform."
+#endif
+
+void ExecutableAllocator::reprotectRegion(void* start, size_t size, ProtectionSetting setting)
+{
+    if (!pageSize)
+        intializePageSize();
+
+    // Calculate the start of the page containing this region,
+    // and account for this extra memory within size.
+    intptr_t startPtr = reinterpret_cast<intptr_t>(start);
+    intptr_t pageStartPtr = startPtr & ~(pageSize - 1);
+    void* pageStart = reinterpret_cast<void*>(pageStartPtr);
+    size += (startPtr - pageStartPtr);
+
+    // Round size up
+    size += (pageSize - 1);
+    size &= ~(pageSize - 1);
+
+    mprotect(pageStart, size, (setting == Writable) ? PROTECTION_FLAGS_RW : PROTECTION_FLAGS_RX);
+}
+
+#endif
+
+#if CPU(ARM_TRADITIONAL) && OS(LINUX) && COMPILER(RVCT)
+
+__asm void ExecutableAllocator::cacheFlush(void* code, size_t size)
+{
+    ARM
+    push {r7}
+    add r1, r1, r0
+    mov r7, #0xf0000
+    add r7, r7, #0x2
+    mov r2, #0x0
+    svc #0x0
+    pop {r7}
+    bx lr
+}
+
+#endif
+
 }
 
 #endif // HAVE(ASSEMBLER)

@@ -185,7 +185,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				INSTALL_PATH = /usr/bin;
-				OTHER_CFLAGS = "-mdynamic-no-pic";
 				PRODUCT_NAME = awk;
 			};
 			name = Release;

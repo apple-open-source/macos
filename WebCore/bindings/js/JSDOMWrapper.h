@@ -22,22 +22,43 @@
 #ifndef JSDOMWrapper_h
 #define JSDOMWrapper_h
 
-#include <runtime/JSObject.h>
+#include "JSDOMGlobalObject.h"
+#include <runtime/JSObjectWithGlobalObject.h>
 
 namespace WebCore {
 
-// Base class for all objects in this binding except Window.
-class DOMObject : public JSC::JSObject {
-protected:
-    explicit DOMObject(NonNullPassRefPtr<JSC::Structure> structure) 
-        : JSObject(structure)
+class ScriptExecutionContext;
+
+class JSDOMWrapper : public JSC::JSObjectWithGlobalObject {
+public:
+    JSDOMGlobalObject* globalObject() const
     {
+        return static_cast<JSDOMGlobalObject*>(JSC::JSObjectWithGlobalObject::globalObject());
     }
 
-    virtual bool defineOwnProperty(JSC::ExecState*, const JSC::Identifier&, JSC::PropertyDescriptor&, bool);
+    ScriptExecutionContext* scriptExecutionContext() const
+    {
+        // FIXME: Should never be 0, but can be due to bug 27640.
+        return globalObject()->scriptExecutionContext();
+    }
+
+    static JSC::Structure* createStructure(JSC::JSGlobalData& globalData, JSC::JSValue prototype)
+    {
+        return JSC::Structure::create(globalData, prototype, JSC::TypeInfo(JSC::ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
+
+protected:
+    explicit JSDOMWrapper(JSC::Structure* structure, JSC::JSGlobalObject* globalObject) 
+        : JSObjectWithGlobalObject(globalObject, structure)
+    {
+        // FIXME: This ASSERT is valid, but fires in fast/dom/gc-6.html when trying to create
+        // new JavaScript objects on detached windows due to DOMWindow::document()
+        // needing to reach through the frame to get to the Document*.  See bug 27640.
+        // ASSERT(globalObject->scriptExecutionContext());
+    }
 
 #ifndef NDEBUG
-    virtual ~DOMObject();
+    virtual ~JSDOMWrapper();
 #endif
 };
 

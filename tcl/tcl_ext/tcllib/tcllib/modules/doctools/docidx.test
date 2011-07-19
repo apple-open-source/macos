@@ -5,10 +5,10 @@
 # built-in commands.  Sourcing this file into Tcl runs the tests and
 # generates output for errors.  No output means no errors were found.
 #
-# Copyright (c) 2003 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2003-2009 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: docidx.test,v 1.13 2006/10/25 16:24:10 andreas_kupries Exp $
+# RCS: @(#) $Id: docidx.test,v 1.15 2009/02/12 05:42:47 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -279,7 +279,7 @@ test docidx-8.3 {format} {
 } {Index '''foo''' '''bar''' '''snafu''': at {}}
 
 
-# docidx manpage syntax .......................................................
+# docidx syntax .......................................................
 
 test docidx-9.0 {docidx syntax} {
     new mydocidx -format null
@@ -289,6 +289,23 @@ test docidx-9.0 {docidx syntax} {
 } {Docidx Error in plain text at line 1, column 0:
 [plain_text foo]
 --> (FmtError) IDX error (idx/plaintext), "plain_text foo" : Plain text beyond whitespace is not allowed..}
+
+
+test docidx-9.1 {docidx syntax, empty index, ok} {
+    new mydocidx -format null
+    set result [mydocidx format {[index_begin KWIC Test][index_end]}]
+    mydocidx destroy
+    set result
+} {}
+
+test docidx-9.2 {docidx syntax, key without references, error} {
+    new mydocidx -format null
+    catch {mydocidx format {[index_begin KWIC Test][key X][index_end]}} result
+    mydocidx destroy
+    set result
+} {Docidx Error in macro at line 1, column 30:
+[index_end]
+--> (FmtError) IDX error (idx/endcmd), "index_end" : Command not allowed here..}
 
 
 namespace forget ::doctools::idx::new

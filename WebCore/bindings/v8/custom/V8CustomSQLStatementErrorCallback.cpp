@@ -34,38 +34,46 @@
 
 #include "V8SQLStatementErrorCallback.h"
 
-#include "Frame.h"
 #include "ScriptExecutionContext.h"
 #include "V8CustomVoidCallback.h"
+#include "V8Proxy.h"
 #include "V8SQLError.h"
 #include "V8SQLTransaction.h"
+#include <wtf/Assertions.h>
 
 namespace WebCore {
 
-bool V8SQLStatementErrorCallback::handleEvent(ScriptExecutionContext* context, SQLTransaction* transaction, SQLError* error)
+bool V8SQLStatementErrorCallback::handleEvent(SQLTransaction* transaction, SQLError* error)
 {
+    if (!canInvokeCallback())
+        return true;
+
     v8::HandleScope handleScope;
 
-    v8::Handle<v8::Context> v8Context = toV8Context(context, m_worldContext);
+    v8::Handle<v8::Context> v8Context = toV8Context(scriptExecutionContext(), m_worldContext);
     if (v8Context.IsEmpty())
         return true;
 
     v8::Context::Scope scope(v8Context);
 
-    v8::Handle<v8::Value> argv[] = {
-        toV8(transaction),
-        toV8(error)
-    };
+    v8::Handle<v8::Value> transactionHandle = toV8(transaction);
+    v8::Handle<v8::Value> errorHandle = toV8(error);
+    if (transactionHandle.IsEmpty() || errorHandle.IsEmpty()) {
+        CRASH();
+        return true;
+    }
 
-    // Protect the frame until the callback returns.
-    RefPtr<Frame> protector(m_frame);
+    v8::Handle<v8::Value> argv[] = {
+        transactionHandle,
+        errorHandle
+    };
 
     bool callbackReturnValue = false;
     // Step 6: If the error callback returns false, then move on to the next
     // statement, if any, or onto the next overall step otherwise. Otherwise,
     // the error callback did not return false, or there was no error callback.
     // Jump to the last step in the overall steps.
-    return invokeCallback(m_callback, 2, argv, callbackReturnValue) || callbackReturnValue;
+    return invokeCallback(m_callback, 2, argv, callbackReturnValue, scriptExecutionContext()) || callbackReturnValue;
 }
 
 } // namespace WebCore

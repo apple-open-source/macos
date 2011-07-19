@@ -31,9 +31,6 @@ void LLVMAddAggressiveDCEPass(LLVMPassManagerRef PM);
 /** See llvm::createCFGSimplificationPass function. */
 void LLVMAddCFGSimplificationPass(LLVMPassManagerRef PM);
 
-/** See llvm::createCondPropagationPass function. */
-void LLVMAddCondPropagationPass(LLVMPassManagerRef PM);
-
 /** See llvm::createDeadStoreEliminationPass function. */
 void LLVMAddDeadStoreEliminationPass(LLVMPassManagerRef PM);
 
@@ -82,6 +79,10 @@ void LLVMAddSCCPPass(LLVMPassManagerRef PM);
 /** See llvm::createScalarReplAggregatesPass function. */
 void LLVMAddScalarReplAggregatesPass(LLVMPassManagerRef PM);
 
+/** See llvm::createScalarReplAggregatesPass function. */
+void LLVMAddScalarReplAggregatesPassWithThreshold(LLVMPassManagerRef PM,
+                                                  int Threshold);
+
 /** See llvm::createSimplifyLibCallsPass function. */
 void LLVMAddSimplifyLibCallsPass(LLVMPassManagerRef PM);
 
@@ -93,6 +94,9 @@ void LLVMAddConstantPropagationPass(LLVMPassManagerRef PM);
 
 /** See llvm::demotePromoteMemoryToRegisterPass function. */
 void LLVMAddDemoteMemoryToRegisterPass(LLVMPassManagerRef PM);
+
+/** See llvm::createVerifierPass function. */
+void LLVMAddVerifierPass(LLVMPassManagerRef PM);
 
 #ifdef __cplusplus
 }

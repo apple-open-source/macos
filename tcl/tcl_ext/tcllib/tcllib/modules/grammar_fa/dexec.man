@@ -4,6 +4,7 @@
 [copyright {2007 Bogdan <rftghost@users.sourceforge.net>}]
 [moddesc   {Finite automaton operations and usage}]
 [titledesc {Execute deterministic finite automatons}]
+[category  {Grammars and finite automata}]
 [require Tcl 8.4]
 [require snit]
 [require grammar::fa::dexec [opt 0.2]]

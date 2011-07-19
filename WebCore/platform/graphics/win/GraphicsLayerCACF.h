@@ -23,8 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef GraphicsLayerCACF_h_
-#define GraphicsLayerCACF_h_
+#ifndef GraphicsLayerCACF_h
+#define GraphicsLayerCACF_h
 
 #if USE(ACCELERATED_COMPOSITING)
 
@@ -43,9 +43,6 @@ public:
     virtual ~GraphicsLayerCACF();
 
     virtual void setName(const String& inName);
-
-    // for hosting this GraphicsLayer in a native layer hierarchy
-    virtual NativeLayer nativeLayer() const;
 
     virtual bool setChildren(const Vector<GraphicsLayer*>&);
     virtual void addChild(GraphicsLayer *layer);
@@ -89,8 +86,6 @@ public:
     virtual void setDebugBackgroundColor(const Color&);
     virtual void setDebugBorder(const Color&, float borderWidth);
 
-    virtual void setGeometryOrientation(CompositingCoordinatesOrientation);
-
 private:
     void updateOpacityOnLayer();
 
@@ -118,7 +113,6 @@ private:
     void updateContentsImage();
     void updateContentsMedia();
     void updateContentsRect();
-    void updateGeometryOrientation();
     
     void setupContentsLayer(WKCACFLayer*);
     WKCACFLayer* contentsLayer() const { return m_contentsLayer.get(); }
@@ -142,4 +136,4 @@ private:
 
 #endif // USE(ACCELERATED_COMPOSITING)
 
-#endif // GraphicsLayerCACF_h_
+#endif // GraphicsLayerCACF_h

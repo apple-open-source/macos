@@ -33,7 +33,9 @@
 #include "InsertLineBreakCommand.h"
 #include "InsertListCommand.h"
 #include "Range.h"
+#include "RenderObject.h"
 #include "SplitElementCommand.h"
+#include "Text.h"
 #include "TextIterator.h"
 #include "htmlediting.h"
 #include "visible_units.h"
@@ -43,44 +45,28 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-static String indentBlockquoteString()
-{
-    DEFINE_STATIC_LOCAL(String, string, ("webkit-indent-blockquote"));
-    return string;
-}
-
-static PassRefPtr<HTMLBlockquoteElement> createIndentBlockquoteElement(Document* document)
-{
-    RefPtr<HTMLBlockquoteElement> element = new HTMLBlockquoteElement(blockquoteTag, document);
-    element->setAttribute(classAttr, indentBlockquoteString());
-    element->setAttribute(styleAttr, "margin: 0 0 0 40px; border: none; padding: 0px;");
-    return element.release();
-}
-
 static bool isListOrIndentBlockquote(const Node* node)
 {
     return node && (node->hasTagName(ulTag) || node->hasTagName(olTag) || node->hasTagName(blockquoteTag));
 }
 
 IndentOutdentCommand::IndentOutdentCommand(Document* document, EIndentType typeOfAction, int marginInPixels)
-    : CompositeEditCommand(document), m_typeOfAction(typeOfAction), m_marginInPixels(marginInPixels)
+    : ApplyBlockElementCommand(document, blockquoteTag, "webkit-indent-blockquote", "margin: 0 0 0 40px; border: none; padding: 0px;")
+    , m_typeOfAction(typeOfAction)
+    , m_marginInPixels(marginInPixels)
 {
 }
 
-bool IndentOutdentCommand::tryIndentingAsListItem(const VisiblePosition& endOfCurrentParagraph)
+bool IndentOutdentCommand::tryIndentingAsListItem(const Position& start, const Position& end)
 {
     // If our selection is not inside a list, bail out.
-    Node* lastNodeInSelectedParagraph = endOfCurrentParagraph.deepEquivalent().node();
+    Node* lastNodeInSelectedParagraph = start.deprecatedNode();
     RefPtr<Element> listNode = enclosingList(lastNodeInSelectedParagraph);
     if (!listNode)
         return false;
 
-    // Find the list item enclosing the current paragraph
+    // Find the block that we want to indent.  If it's not a list item (e.g., a div inside a list item), we bail out.
     Element* selectedListItem = static_cast<Element*>(enclosingBlock(lastNodeInSelectedParagraph));
-    // FIXME: enclosingBlock shouldn't return the passed in element.  See the
-    // comment on the function about how to fix rather than having to adjust here.
-    if (selectedListItem == lastNodeInSelectedParagraph)
-        selectedListItem = static_cast<Element*>(enclosingBlock(lastNodeInSelectedParagraph->parentNode()));
 
     // FIXME: we need to deal with the case where there is no li (malformed HTML)
     if (!selectedListItem->hasTagName(liTag))
@@ -93,7 +79,7 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const VisiblePosition& endOfCu
     RefPtr<Element> newList = document()->createElement(listNode->tagQName(), false);
     insertNodeBefore(newList, selectedListItem);
 
-    moveParagraphWithClones(startOfParagraph(endOfCurrentParagraph), endOfCurrentParagraph, newList.get(), selectedListItem);
+    moveParagraphWithClones(start, end, newList.get(), selectedListItem);
 
     if (canMergeLists(previousList, newList.get()))
         mergeIdenticalElements(previousList, newList);
@@ -102,79 +88,31 @@ bool IndentOutdentCommand::tryIndentingAsListItem(const VisiblePosition& endOfCu
 
     return true;
 }
-    
-void IndentOutdentCommand::indentIntoBlockquote(const VisiblePosition& endOfCurrentParagraph, const VisiblePosition& endOfNextParagraph, RefPtr<Element>& targetBlockquote)
-{
-    Node* enclosingCell = 0;
 
-    Position start = startOfParagraph(endOfCurrentParagraph).deepEquivalent();
-    enclosingCell = enclosingNodeOfType(start, &isTableCell);
+void IndentOutdentCommand::indentIntoBlockquote(const Position& start, const Position& end, RefPtr<Element>& targetBlockquote)
+{
+    Node* enclosingCell = enclosingNodeOfType(start, &isTableCell);
     Node* nodeToSplitTo;
     if (enclosingCell)
         nodeToSplitTo = enclosingCell;
-    else if (enclosingList(start.node()))
-        nodeToSplitTo = enclosingBlock(start.node());
+    else if (enclosingList(start.deprecatedNode()))
+        nodeToSplitTo = enclosingBlock(start.deprecatedNode());
     else
         nodeToSplitTo = editableRootForPosition(start);
 
     if (!nodeToSplitTo)
         return;
 
-    RefPtr<Node> outerBlock = splitTreeToNode(start.node(), nodeToSplitTo);
+    RefPtr<Node> outerBlock = (start.deprecatedNode() == nodeToSplitTo) ? start.deprecatedNode() : splitTreeToNode(start.deprecatedNode(), nodeToSplitTo);
 
     if (!targetBlockquote) {
         // Create a new blockquote and insert it as a child of the root editable element. We accomplish
         // this by splitting all parents of the current paragraph up to that point.
-        targetBlockquote = createIndentBlockquoteElement(document());
+        targetBlockquote = createBlockElement();
         insertNodeBefore(targetBlockquote, outerBlock);
     }
 
-    moveParagraphWithClones(startOfParagraph(endOfCurrentParagraph), endOfCurrentParagraph, targetBlockquote.get(), outerBlock.get());
-    
-    // Don't put the next paragraph in the blockquote we just created for this paragraph unless 
-    // the next paragraph is in the same cell.
-    if (enclosingCell && enclosingCell != enclosingNodeOfType(endOfNextParagraph.deepEquivalent(), &isTableCell))
-        targetBlockquote = 0;
-}
-
-void IndentOutdentCommand::indentRegion(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection)
-{
-    // Special case empty unsplittable elements because there's nothing to split
-    // and there's nothing to move.
-    Position start = startOfSelection.deepEquivalent().downstream();
-    if (isAtUnsplittableElement(start)) {
-        RefPtr<Element> blockquote = createIndentBlockquoteElement(document());
-        insertNodeAt(blockquote, start);
-        RefPtr<Element> placeholder = createBreakElement(document());
-        appendNode(placeholder, blockquote);
-        setEndingSelection(VisibleSelection(Position(placeholder.get(), 0), DOWNSTREAM));
-        return;
-    }
-
-    RefPtr<Element> blockquoteForNextIndent;
-    VisiblePosition endOfCurrentParagraph = endOfParagraph(startOfSelection);
-    VisiblePosition endAfterSelection = endOfParagraph(endOfParagraph(endOfSelection).next());
-    while (endOfCurrentParagraph != endAfterSelection) {
-        // Iterate across the selected paragraphs...
-        VisiblePosition endOfNextParagraph = endOfParagraph(endOfCurrentParagraph.next());
-        if (tryIndentingAsListItem(endOfCurrentParagraph))
-            blockquoteForNextIndent = 0;
-        else
-            indentIntoBlockquote(endOfCurrentParagraph, endOfNextParagraph, blockquoteForNextIndent);
-
-        // indentIntoBlockquote could move more than one paragraph if the paragraph
-        // is in a list item or a table. As a result, endAfterSelection could refer to a position
-        // no longer in the document.
-        if (endAfterSelection.isNotNull() && !endAfterSelection.deepEquivalent().node()->inDocument())
-            break;
-        // Sanity check: Make sure our moveParagraph calls didn't remove endOfNextParagraph.deepEquivalent().node()
-        // If somehow we did, return to prevent crashes.
-        if (endOfNextParagraph.isNotNull() && !endOfNextParagraph.deepEquivalent().node()->inDocument()) {
-            ASSERT_NOT_REACHED();
-            return;
-        }
-        endOfCurrentParagraph = endOfNextParagraph;
-    }   
+    moveParagraphWithClones(start, end, targetBlockquote.get(), outerBlock.get());
 }
 
 void IndentOutdentCommand::outdentParagraph()
@@ -183,7 +121,7 @@ void IndentOutdentCommand::outdentParagraph()
     VisiblePosition visibleEndOfParagraph = endOfParagraph(visibleStartOfParagraph);
 
     Node* enclosingNode = enclosingNodeOfType(visibleStartOfParagraph.deepEquivalent(), &isListOrIndentBlockquote);
-    if (!enclosingNode || !enclosingNode->parentNode()->isContentEditable())  // We can't outdent if there is no place to go!
+    if (!enclosingNode || !enclosingNode->parentNode()->rendererIsEditable()) // We can't outdent if there is no place to go!
         return;
 
     // Use InsertListCommand to remove the selection from the list
@@ -197,9 +135,11 @@ void IndentOutdentCommand::outdentParagraph()
     }
     
     // The selection is inside a blockquote i.e. enclosingNode is a blockquote
-    VisiblePosition positionInEnclosingBlock = VisiblePosition(Position(enclosingNode, 0));
-    VisiblePosition startOfEnclosingBlock = startOfBlock(positionInEnclosingBlock);
-    VisiblePosition lastPositionInEnclosingBlock = VisiblePosition(Position(enclosingNode, enclosingNode->childNodeCount()));
+    VisiblePosition positionInEnclosingBlock = VisiblePosition(firstPositionInNode(enclosingNode));
+    // If the blockquote is inline, the start of the enclosing block coincides with
+    // positionInEnclosingBlock.
+    VisiblePosition startOfEnclosingBlock = (enclosingNode->renderer() && enclosingNode->renderer()->isInline()) ? positionInEnclosingBlock : startOfBlock(positionInEnclosingBlock);
+    VisiblePosition lastPositionInEnclosingBlock = VisiblePosition(lastPositionInNode(enclosingNode));
     VisiblePosition endOfEnclosingBlock = endOfBlock(lastPositionInEnclosingBlock);
     if (visibleStartOfParagraph == startOfEnclosingBlock &&
         visibleEndOfParagraph == endOfEnclosingBlock) {
@@ -209,10 +149,10 @@ void IndentOutdentCommand::outdentParagraph()
         // outdentRegion() assumes it is operating on the first paragraph of an enclosing blockquote, but if there are multiply nested blockquotes and we've
         // just removed one, then this assumption isn't true. By splitting the next containing blockquote after this node, we keep this assumption true
         if (splitPoint) {
-            if (Node* splitPointParent = splitPoint->parentNode()) {
+            if (ContainerNode* splitPointParent = splitPoint->parentNode()) {
                 if (splitPointParent->hasTagName(blockquoteTag)
                     && !splitPoint->hasTagName(blockquoteTag)
-                    && splitPointParent->parentNode()->isContentEditable()) // We can't outdent if there is no place to go!
+                    && splitPointParent->parentNode()->rendererIsEditable()) // We can't outdent if there is no place to go!
                     splitElement(static_cast<Element*>(splitPointParent), splitPoint);
             }
         }
@@ -227,19 +167,20 @@ void IndentOutdentCommand::outdentParagraph()
 
         return;
     }
-    Node* enclosingBlockFlow = enclosingBlock(visibleStartOfParagraph.deepEquivalent().node());
+    Node* enclosingBlockFlow = enclosingBlock(visibleStartOfParagraph.deepEquivalent().deprecatedNode());
     RefPtr<Node> splitBlockquoteNode = enclosingNode;
     if (enclosingBlockFlow != enclosingNode)
         splitBlockquoteNode = splitTreeToNode(enclosingBlockFlow, enclosingNode, true);
     else {
         // We split the blockquote at where we start outdenting.
-        splitElement(static_cast<Element*>(enclosingNode), visibleStartOfParagraph.deepEquivalent().node());
+        splitElement(static_cast<Element*>(enclosingNode), visibleStartOfParagraph.deepEquivalent().deprecatedNode());
     }
     RefPtr<Node> placeholder = createBreakElement(document());
     insertNodeBefore(placeholder, splitBlockquoteNode);
-    moveParagraph(startOfParagraph(visibleStartOfParagraph), endOfParagraph(visibleEndOfParagraph), VisiblePosition(Position(placeholder.get(), 0)), true);
+    moveParagraph(startOfParagraph(visibleStartOfParagraph), endOfParagraph(visibleEndOfParagraph), positionBeforeNode(placeholder.get()), true);
 }
 
+// FIXME: We should merge this function with ApplyBlockElementCommand::formatSelection
 void IndentOutdentCommand::outdentRegion(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection)
 {
     VisiblePosition endOfLastParagraph = endOfParagraph(endOfSelection);
@@ -265,10 +206,10 @@ void IndentOutdentCommand::outdentRegion(const VisiblePosition& startOfSelection
         // outdentParagraph could move more than one paragraph if the paragraph
         // is in a list item. As a result, endAfterSelection and endOfNextParagraph
         // could refer to positions no longer in the document.
-        if (endAfterSelection.isNotNull() && !endAfterSelection.deepEquivalent().node()->inDocument())
+        if (endAfterSelection.isNotNull() && !endAfterSelection.deepEquivalent().anchorNode()->inDocument())
             break;
             
-        if (endOfNextParagraph.isNotNull() && !endOfNextParagraph.deepEquivalent().node()->inDocument()) {
+        if (endOfNextParagraph.isNotNull() && !endOfNextParagraph.deepEquivalent().anchorNode()->inDocument()) {
             endOfCurrentParagraph = endingSelection().end();
             endOfNextParagraph = endOfParagraph(endOfCurrentParagraph.next());
         }
@@ -276,48 +217,20 @@ void IndentOutdentCommand::outdentRegion(const VisiblePosition& startOfSelection
     }
 }
 
-void IndentOutdentCommand::doApply()
+void IndentOutdentCommand::formatSelection(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection)
 {
-    if (endingSelection().isNone())
-        return;
-
-    if (!endingSelection().rootEditableElement())
-        return;
-        
-    VisiblePosition visibleEnd = endingSelection().visibleEnd();
-    VisiblePosition visibleStart = endingSelection().visibleStart();
-    // When a selection ends at the start of a paragraph, we rarely paint 
-    // the selection gap before that paragraph, because there often is no gap.  
-    // In a case like this, it's not obvious to the user that the selection 
-    // ends "inside" that paragraph, so it would be confusing if Indent/Outdent 
-    // operated on that paragraph.
-    // FIXME: We paint the gap before some paragraphs that are indented with left 
-    // margin/padding, but not others.  We should make the gap painting more consistent and 
-    // then use a left margin/padding rule here.
-    if (visibleEnd != visibleStart && isStartOfParagraph(visibleEnd))
-        setEndingSelection(VisibleSelection(visibleStart, visibleEnd.previous(true)));
-
-    VisibleSelection selection = selectionForParagraphIteration(endingSelection());
-    VisiblePosition startOfSelection = selection.visibleStart();
-    VisiblePosition endOfSelection = selection.visibleEnd();
-    
-    int startIndex = indexForVisiblePosition(startOfSelection);
-    int endIndex = indexForVisiblePosition(endOfSelection);
-    
-    ASSERT(!startOfSelection.isNull());
-    ASSERT(!endOfSelection.isNull());
-    
     if (m_typeOfAction == Indent)
-        indentRegion(startOfSelection, endOfSelection);
+        ApplyBlockElementCommand::formatSelection(startOfSelection, endOfSelection);
     else
         outdentRegion(startOfSelection, endOfSelection);
+}
 
-    updateLayout();
-    
-    RefPtr<Range> startRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), startIndex, 0, true);
-    RefPtr<Range> endRange = TextIterator::rangeFromLocationAndLength(document()->documentElement(), endIndex, 0, true);
-    if (startRange && endRange)
-        setEndingSelection(VisibleSelection(startRange->startPosition(), endRange->startPosition(), DOWNSTREAM));
+void IndentOutdentCommand::formatRange(const Position& start, const Position& end, const Position&, RefPtr<Element>& blockquoteForNextIndent)
+{
+    if (tryIndentingAsListItem(start, end))
+        blockquoteForNextIndent = 0;
+    else
+        indentIntoBlockquote(start, end, blockquoteForNextIndent);
 }
 
 }

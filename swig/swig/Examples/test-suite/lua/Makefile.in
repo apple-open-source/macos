@@ -1,5 +1,4 @@
 #######################################################################
-# $Header: /cvsroot/swig/SWIG/Examples/test-suite/lua/Makefile.in,v 1.2 2005/09/12 22:14:37 wsfulton Exp $
 # Makefile for lua test-suite
 #######################################################################
 
@@ -25,28 +24,31 @@ include $(srcdir)/../common.mk
 # Overridden variables here
 LIBS       = -L.
 
+# Custom tests - tests with additional commandline options
+# none!
+
 # Rules for the different types of tests
 %.cpptest: 
-	$(setup) \
-	($(swig_and_compile_cpp); ) &&\
+	$(setup)
+	+$(swig_and_compile_cpp)
 	$(run_testcase)
 
 %.ctest:
-	$(setup) \
-	($(swig_and_compile_c); ) &&\
+	$(setup)
+	+$(swig_and_compile_c)
 	$(run_testcase)
 
 %.multicpptest: 
-	$(setup) \
-	($(swig_and_compile_multi_cpp); ) &&\
+	$(setup)
+	+$(swig_and_compile_multi_cpp)
 	$(run_testcase)
 
 # Runs the testcase. A testcase is only run if
 # a file is found which has _runme.lua appended after the testcase name.
 run_testcase = \
-	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then (	  \
-	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(LUA) $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX);) \
-	fi;
+	if [ -f $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX) ]; then \
+	  env LD_LIBRARY_PATH=.:$$LD_LIBRARY_PATH $(RUNTOOL) $(LUA) $(srcdir)/$(SCRIPTPREFIX)$*$(SCRIPTSUFFIX); \
+	fi
 
 # Clean: (does nothing, we dont generate extra lua code)
 %.clean:

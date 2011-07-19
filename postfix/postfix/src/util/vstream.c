@@ -79,6 +79,9 @@
 /*	int	vstream_fileno(stream)
 /*	VSTREAM	*stream;
 /*
+/*	const ssize_t vstream_req_bufsize(stream)
+/*	VSTREAM *stream;
+/*
 /*	void	*vstream_context(stream)
 /*	VSTREAM *stream;
 /*
@@ -100,6 +103,10 @@
 /*	char	*vstream_vfprintf(vp, format, ap)
 /*	const char *format;
 /*	va_list	*ap;
+/*
+/*	ssize_t	vstream_bufstat(stream, command)
+/*	VSTREAM	*stream;
+/*	int	command;
 /*
 /*	ssize_t	vstream_peek(stream)
 /*	VSTREAM	*stream;
@@ -260,6 +267,10 @@
 /*	The argument specifies the file descriptor to be used for writing.
 /*	This feature is limited to double-buffered streams, and makes the
 /*	stream non-seekable.
+/* .IP "VSTREAM_CTL_SWAP_FD (VSTREAM *)"
+/*	The argument specifies a VSTREAM pointer; the request swaps the
+/*	file descriptor members of the two streams. This feature is limited
+/*	to streams that are both double-buffered or both single-buffered.
 /* .IP "VSTREAM_CTL_DUPFD (int)"
 /*	The argument specifies a minimum file descriptor value. If
 /*	the actual stream's file descriptors are below the minimum,
@@ -283,6 +294,12 @@
 /*	ignored. Requests to change a fixed-size buffer (stdin,
 /*	stdout, stderr) are not allowed.
 /*
+/*	NOTE: the VSTREAM_CTL_BUFSIZE request specifies intent, not
+/*	reality.  Actual buffer sizes are not updated immediately.
+/*	Instead, an existing write buffer will be resized when it
+/*	is full, and an existing read buffer will be resized when
+/*	the buffer is filled.
+/*
 /*	NOTE: the VSTREAM_CTL_BUFSIZE argument type is ssize_t, not
 /*	int. Use an explicit cast to avoid problems on LP64
 /*	environments and other environments where ssize_t is larger
@@ -291,6 +308,14 @@
 /*	vstream_fileno() gives access to the file handle associated with
 /*	a buffered stream. With streams that have separate read/write
 /*	file descriptors, the result is the current descriptor.
+/*
+/*	vstream_req_bufsize() returns the requested buffer size for
+/*	the named stream (default: VSTREAM_BUFSIZE). The result
+/*	value reflects intent, not reality: actual buffer sizes are
+/*	not updated immediately when the requested buffer size is
+/*	specified with vstream_control().  Instead, an existing
+/*	write buffer will be resized when it is full, and an existing
+/*	read buffer will be resized when the buffer is filled.
 /*
 /*	vstream_context() returns the application context that is passed on to
 /*	the application-specified read/write routines.
@@ -320,8 +345,18 @@
 /*	vstream_vfprintf() provides an alternate interface
 /*	for formatting an argument list according to a format string.
 /*
+/*	vstream_bufstat() provides input and output buffer status
+/*	information.  The command is one of the following:
+/* .IP VSTREAM_BST_IN_PEND
+/*	Return the number of characters that can be read without
+/*	refilling the read buffer.
+/* .IP VSTREAM_BST_OUT_PEND
+/*	Return the number of characters that are waiting in the
+/*	write buffer.
+/* .PP
 /*	vstream_peek() returns the number of characters that can be
 /*	read from the named stream without refilling the read buffer.
+/*	This is an alias for vstream_bufstat(stream, VSTREAM_BST_IN_PEND).
 /*
 /*	vstream_setjmp() saves processing context and makes that context
 /*	available for use with vstream_longjmp().  Normally, vstream_setjmp()
@@ -394,13 +429,6 @@ static int vstream_buf_space(VBUF *, ssize_t);
   * Initialization of the three pre-defined streams. Pre-allocate a static
   * I/O buffer for the standard error stream, so that the error handler can
   * produce a diagnostic even when memory allocation fails.
-  * 
-  * XXX We don't (yet) statically initialize the req_bufsize field: it is the
-  * last VSTREAM member so we don't break Postfix 2.4 binary compatibility,
-  * and Wietse doesn't know how to specify an initializer for the jmp_buf
-  * VSTREAM member (which can be a struct or an array) without collateral
-  * damage to the source code. We can fix the initialization later in the
-  * Postfix 2.5 development cycle.
   */
 static unsigned char vstream_fstd_buf[VSTREAM_BUFSIZE];
 
@@ -409,17 +437,20 @@ VSTREAM vstream_fstd[] = {
 	    0,				/* flags */
 	    0, 0, 0, 0,			/* buffer */
 	    vstream_buf_get_ready, vstream_buf_put_ready, vstream_buf_space,
-    }, STDIN_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,},
+    }, STDIN_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,
+    VSTREAM_BUFSIZE,},
     {{
 	    0,				/* flags */
 	    0, 0, 0, 0,			/* buffer */
 	    vstream_buf_get_ready, vstream_buf_put_ready, vstream_buf_space,
-    }, STDOUT_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,},
+    }, STDOUT_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,
+    VSTREAM_BUFSIZE,},
     {{
 	    VBUF_FLAG_FIXED | VSTREAM_FLAG_WRITE,
 	    vstream_fstd_buf, VSTREAM_BUFSIZE, VSTREAM_BUFSIZE, vstream_fstd_buf,
 	    vstream_buf_get_ready, vstream_buf_put_ready, vstream_buf_space,
-    }, STDERR_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,},
+    }, STDERR_FILENO, (VSTREAM_FN) timed_read, (VSTREAM_FN) timed_write,
+    VSTREAM_BUFSIZE,},
 };
 
 #define VSTREAM_STATIC(v) ((v) >= VSTREAM_IN && (v) <= VSTREAM_ERR)
@@ -703,8 +734,8 @@ static int vstream_buf_get_ready(VBUF *bp)
      * allocation gives the application a chance to override the default
      * buffering policy.
      */
-    if (bp->data == 0)
-	vstream_buf_alloc(bp, VSTREAM_BUFSIZE);
+    if (bp->len < stream->req_bufsize)
+	vstream_buf_alloc(bp, stream->req_bufsize);
 
     /*
      * If the stream is double-buffered and the write buffer is not empty,
@@ -786,8 +817,6 @@ static int vstream_buf_put_ready(VBUF *bp)
      * new buffer; obviously there is no data to be flushed yet. Otherwise,
      * flush the buffer.
      */
-    if (stream->req_bufsize == 0)
-	stream->req_bufsize = VSTREAM_BUFSIZE;	/* Postfix 2.4 binary compat. */
     if (bp->len < stream->req_bufsize) {
 	vstream_buf_alloc(bp, stream->req_bufsize);
     } else if (bp->cnt <= 0) {
@@ -843,8 +872,6 @@ static int vstream_buf_space(VBUF *bp, ssize_t want)
 #define VSTREAM_ROUNDUP(count, base)	VSTREAM_TRUNCATE(count + base - 1, base)
 
     if (want > bp->cnt) {
-	if (stream->req_bufsize == 0)
-	    stream->req_bufsize = VSTREAM_BUFSIZE;	/* 2.4 binary compat. */
 	if ((used = bp->len - bp->cnt) > stream->req_bufsize)
 	    if (vstream_fflush_some(stream, VSTREAM_TRUNCATE(used, stream->req_bufsize)))
 		return (VSTREAM_EOF);
@@ -1199,6 +1226,9 @@ void    vstream_control(VSTREAM *stream, int name,...)
     int     floor;
     int     old_fd;
     ssize_t req_bufsize = 0;
+    VSTREAM *stream2;
+
+#define SWAP(type,a,b) do { type temp = (a); (a) = (b); (b) = (temp); } while (0)
 
     for (va_start(ap, name); name != VSTREAM_CTL_END; name = va_arg(ap, int)) {
 	switch (name) {
@@ -1210,6 +1240,10 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	    break;
 	case VSTREAM_CTL_CONTEXT:
 	    stream->context = va_arg(ap, char *);
+	    break;
+	/* APPLE - RFC 3030 */
+	case VSTREAM_CTL_CONTEXT_GET:
+	    *(va_arg(ap, char **)) = stream->context;
 	    break;
 	case VSTREAM_CTL_PATH:
 	    if (stream->path)
@@ -1240,8 +1274,20 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	    stream->write_fd = va_arg(ap, int);
 	    stream->buf.flags |= VSTREAM_FLAG_NSEEK;
 	    break;
-	case VSTREAM_CTL_WAITPID_FN:
-	    stream->waitpid_fn = va_arg(ap, VSTREAM_WAITPID_FN);
+	case VSTREAM_CTL_SWAP_FD:
+	    stream2 = va_arg(ap, VSTREAM *);
+	    if ((stream->buf.flags & VSTREAM_FLAG_DOUBLE)
+		!= (stream2->buf.flags & VSTREAM_FLAG_DOUBLE))
+		msg_panic("VSTREAM_CTL_SWAP_FD can't swap descriptors between "
+			  "single-buffered and double-buffered streams");
+	    if (stream->buf.flags & VSTREAM_FLAG_DOUBLE) {
+		SWAP(int, stream->read_fd, stream2->read_fd);
+		SWAP(int, stream->write_fd, stream2->write_fd);
+		stream->fd = ((stream->buf.flags & VSTREAM_FLAG_WRITE) ?
+			      stream->write_fd : stream->read_fd);
+	    } else {
+		SWAP(int, stream->fd, stream2->fd);
+	    }
 	    break;
 	case VSTREAM_CTL_TIMEOUT:
 	    if (stream->timeout == 0)
@@ -1250,7 +1296,8 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	    break;
 	case VSTREAM_CTL_EXCEPT:
 	    if (stream->jbuf == 0)
-		stream->jbuf = (jmp_buf *) mymalloc(sizeof(jmp_buf));
+		stream->jbuf =
+		    (VSTREAM_JMP_BUF *) mymalloc(sizeof(VSTREAM_JMP_BUF));
 	    break;
 
 #ifdef VSTREAM_CTL_DUPFD
@@ -1287,7 +1334,8 @@ void    vstream_control(VSTREAM *stream, int name,...)
 	    if (req_bufsize < 0)
 		msg_panic("VSTREAM_CTL_BUFSIZE with negative size: %ld",
 			  (long) req_bufsize);
-	    if (req_bufsize > stream->req_bufsize)
+	    if (stream != VSTREAM_ERR
+		&& req_bufsize > stream->req_bufsize)
 		stream->req_bufsize = req_bufsize;
 	    break;
 	default:
@@ -1305,6 +1353,47 @@ VSTREAM *vstream_vfprintf(VSTREAM *vp, const char *format, va_list ap)
     return (vp);
 }
 
+/* vstream_bufstat - get stream buffer status */
+
+ssize_t vstream_bufstat(VSTREAM *vp, int command)
+{
+    VBUF   *bp;
+
+    switch (command & VSTREAM_BST_MASK_DIR) {
+    case VSTREAM_BST_FLAG_IN:
+	if (vp->buf.flags & VSTREAM_FLAG_READ) {
+	    bp = &vp->buf;
+	} else if (vp->buf.flags & VSTREAM_FLAG_DOUBLE) {
+	    bp = &vp->read_buf;
+	} else {
+	    bp = 0;
+	}
+	switch (command & ~VSTREAM_BST_MASK_DIR) {
+	case VSTREAM_BST_FLAG_PEND:
+	    return (bp ? -bp->cnt : 0);
+	    /* Add other requests below. */
+	}
+	break;
+    case VSTREAM_BST_FLAG_OUT:
+	if (vp->buf.flags & VSTREAM_FLAG_WRITE) {
+	    bp = &vp->buf;
+	} else if (vp->buf.flags & VSTREAM_FLAG_DOUBLE) {
+	    bp = &vp->write_buf;
+	} else {
+	    bp = 0;
+	}
+	switch (command & ~VSTREAM_BST_MASK_DIR) {
+	case VSTREAM_BST_FLAG_PEND:
+	    return (bp ? bp->len - bp->cnt : 0);
+	    /* Add other requests below. */
+	}
+	break;
+    }
+    msg_panic("vstream_bufstat: unknown command: %d", command);
+}
+
+#undef vstream_peek			/* API binary compatibility. */
+
 /* vstream_peek - peek at a stream */
 
 ssize_t vstream_peek(VSTREAM *vp)
@@ -1316,4 +1405,106 @@ ssize_t vstream_peek(VSTREAM *vp)
     } else {
 	return (0);
     }
+}
+
+/* APPLE - burl and RFC 3030 - rest of file
+   vstream_limit_* don't handle read/write because there's just no need yet */
+struct vstream_limit {
+    VSTREAM_FN parent_read_fn;
+    VSTREAM_FN parent_write_fn;
+    void *parent_context;
+    off_t limit;
+    char *overread;
+    unsigned int overread_len;
+};
+
+static ssize_t vstream_limit_read(int fd, void *buf, size_t len,
+				  int timeout, void *context)
+{
+    struct vstream_limit *lp = (struct vstream_limit *) context;
+    ssize_t r;
+
+    /* read no more than the limit */
+    if (lp->limit == 0)
+	return 0;
+    else if (len > lp->limit)
+	len = lp->limit;
+    r = lp->parent_read_fn(fd, buf, len, timeout, lp->parent_context);
+    if (r > 0)
+	lp->limit -= r;
+    return r;
+}
+
+static ssize_t vstream_limit_write(int fd, void *buf, size_t len,
+				   int timeout, void *context)
+{
+    struct vstream_limit *lp = (struct vstream_limit *) context;
+
+    /* impose no limit on writing, just pass through to parent */
+    return lp->parent_write_fn(fd, buf, len, timeout, lp->parent_context);
+}
+
+void vstream_limit_init(VSTREAM *stream, off_t limit)
+{
+    VBUF *bp = &stream->buf;
+    struct vstream_limit *lp;
+
+    if (limit < 0)
+	msg_panic("vstream_limit_init: negative limit");
+
+    lp = (struct vstream_limit *) mymalloc(sizeof *lp);
+    lp->parent_read_fn = stream->read_fn;
+    stream->read_fn = vstream_limit_read;
+    lp->parent_write_fn = stream->write_fn;
+    stream->write_fn = vstream_limit_write;
+    lp->parent_context = stream->context;
+    stream->context = lp;
+
+    if (bp->cnt > 0 || (bp->flags & VSTREAM_FLAG_READ) == 0)
+	msg_panic("vstream_limit_init with write buffer");
+
+    if (-bp->cnt > limit) {
+	/* the stream already has more than the wanted data buffered.
+	   save the rest. */
+	lp->overread_len = -bp->cnt - limit;
+	lp->overread = mymalloc(lp->overread_len);
+	memcpy(lp->overread, bp->ptr + limit, lp->overread_len);
+
+	lp->limit = 0;
+	bp->cnt = -(ssize_t) limit;
+    } else {
+	/* at most limit bytes buffered.  read no more than the remainder */
+	lp->overread_len = 0;
+	lp->overread = NULL;
+
+	lp->limit = limit + bp->cnt;
+    }
+}
+
+int vstream_limit_reached(const VSTREAM *stream)
+{
+    const VBUF *bp = &stream->buf;
+    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
+
+    return bp->cnt == 0 && lp->limit == 0;
+}
+
+void vstream_limit_deinit(VSTREAM *stream)
+{
+    VBUF *bp = &stream->buf;
+    struct vstream_limit *lp = (struct vstream_limit *) stream->context;
+
+    if (bp->cnt > 0 || (bp->flags & VSTREAM_FLAG_READ) == 0)
+	msg_panic("vstream_limit_deinit with write buffer");
+
+    if (lp->overread != NULL) {
+	memcpy(bp->data, lp->overread, lp->overread_len);
+	bp->ptr = bp->data;
+	bp->cnt = -(ssize_t) lp->overread_len;
+	myfree(lp->overread);
+    }
+    stream->read_fn = lp->parent_read_fn;
+    stream->write_fn = lp->parent_write_fn;
+    stream->context = lp->parent_context;
+    myfree((char *) lp);
 }

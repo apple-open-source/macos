@@ -1,62 +1,20 @@
-CCDIR=/usr/bin
-#CCDIR=/Volumes/Keep/gcc/usr/bin
+# quick test
+all: 
+	perl test.pl $(MAKEFLAGS)
 
-all: std
+# default-arch but otherwise comprehensive test for buildbot
+buildbot:
+	perl test.pl $(MAKEFLAGS) GC=0,1 CC=clang,llvm-gcc-4.2,gcc-4.2 LANGUAGE=c,c++,objc,objc++
 
-clean:
-	rm -fr *.dSYM *.o *-bin testfilerunner
+# comprehensive tests
+mac macos macosx:
+	perl test.pl $(MAKEFLAGS) ARCH=x86_64,i386 GC=0,1 CC=clang,llvm-gcc-4.2,gcc-4.2 LANGUAGE=c,c++,objc,objc++
 
-TFR = ~public/bin/testfilerunner
+iphonesimulator:
+	perl test.pl $(MAKEFLAGS) ARCH=i386 SDK=iphonesimulator GC=0 CC=clang,llvm-gcc-4.2,gcc-4.2 LANGUAGE=c,c++,objc,objc++
 
-testfilerunner: testfilerunner.h testfilerunner.m
-	gcc -fobjc-gc-only -g -arch x86_64 -arch i386 -std=gnu99 testfilerunner.m -o testfilerunner -framework Foundation
+iphoneos:
+	perl test.pl $(MAKEFLAGS) ARCH=armv6,armv7 SDK=iphoneos GC=0 CC=clang,llvm-gcc-4.2,gcc-4.2 LANGUAGE=c,c++,objc,objc++
 
-tests:
-	grep CONFIG *.[cmCM] | $(TFR) $(CCDIR) --
-
-open:
-	grep CONFIG *.[cmCM] | $(TFR) $(CCDIR) -open --
-
-fast:
-	grep CONFIG *.[cmCM] | $(TFR) -fast $(CCDIR) --
-
-std:
-	grep CONFIG *.[cmCM] | $(TFR) --
-
-fastd:
-	grep CONFIG *.[cmCM] | $(TFR) -fast --
-
-
-# Hack Alert: arguably most of the following belongs in libclosure's Makefile; sticking it here until I get around to grokking what goes on in that file.
-sudid:
-	@echo Enabling sudo:  # Hack Alert: enable sudo first thing so we don't hang at the password prompt later
-	@sudo echo Thanks
-
-
-RootsDirectory ?= /tmp/
-# Note: the libsystem project (built by the libsystemroot target below) uses the ALTUSRLOCALLIBSYSTEM variable, so we use it here to maintain parity
-ALTUSRLOCALLIBSYSTEM ?= $(RootsDirectory)/alt-usr-local-lib-system/
-altusrlocallibsystem:
-	ditto /usr/local/lib/system $(ALTUSRLOCALLIBSYSTEM)  # FIXME: conditionalize this copy
-
-
-# <rdar://problem/6456031> ER: option to not require extra privileges (-nosudo or somesuch)
-Buildit ?= ~rc/bin/buildit -rootsDirectory $(RootsDirectory) -arch i386 -arch ppc -arch x86_64
-blocksroot: sudid clean altusrlocallibsystem
-	sudo $(Buildit) ..
-	ditto $(RootsDirectory)/libclosure.roots/libclosure~dst/usr/local/lib/system $(ALTUSRLOCALLIBSYSTEM)
-
-
-LibsystemVersion ?= 121
-LibsystemPath ?= ~rc/Software/SnowLeopard/Projects/Libsystem/Libsystem-$(LibsystemVersion)
-LibsystemTmpPath ?= $(RootsDirectory)/Libsystem-$(LibsystemVersion)
-libsystemroot: blocksroot
-	ditto $(LibsystemPath) $(LibsystemTmpPath)  # FIXME: conditionalize this copy
-	sudo ALTUSRLOCALLIBSYSTEM=$(ALTUSRLOCALLIBSYSTEM) $(Buildit) $(LibsystemTmpPath)
-
-
-# Defaults to product of the libsystemroot target but does not automatically rebuild that, make both targets if you want a fresh root
-LibsystemRootPath ?= $(RootsDirectory)/Libsystem-$(LibsystemVersion).roots/Libsystem-$(LibsystemVersion)~dst/usr/lib/
-roottests: 
-	grep CONFIG *.[cmCM] | $(TFR) -dyld $(LibsystemRootPath) --  # FIXME: figure out if I can "call" the std target instead of duplicating it
-
+clean: 
+	@ perl test.pl clean

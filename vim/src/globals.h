@@ -58,6 +58,7 @@ EXTERN char_u	*LineWraps INIT(= NULL);	/* line wraps to next line */
  * ScreenLinesUC[] contains the Unicode for the character at this position, or
  * NUL when the character in ScreenLines[] is to be used (ASCII char).
  * The composing characters are to be drawn on top of the original character.
+ * ScreenLinesC[0][off] is only to be used when ScreenLinesUC[off] != 0.
  * Note: These three are only allocated when enc_utf8 is set!
  */
 EXTERN u8char_T	*ScreenLinesUC INIT(= NULL);	/* decoded UTF-8 characters */
@@ -111,6 +112,10 @@ EXTERN int	cmdline_star INIT(= FALSE);	/* cmdline is crypted */
 EXTERN int	exec_from_reg INIT(= FALSE);	/* executing register */
 
 EXTERN int	screen_cleared INIT(= FALSE);	/* screen has been cleared */
+
+#ifdef FEAT_CRYPT
+EXTERN int      use_crypt_method INIT(= 0);
+#endif
 
 /*
  * When '$' is included in 'cpoptions' option set:
@@ -490,8 +495,10 @@ EXTERN char	*foreground_argument INIT(= NULL);
 /*
  * While executing external commands or in Ex mode, should not insert GUI
  * events in the input buffer: Set hold_gui_events to non-zero.
+ *
+ * volatile because it is used in signal handler sig_sysmouse().
  */
-EXTERN int	hold_gui_events INIT(= 0);
+EXTERN volatile int hold_gui_events INIT(= 0);
 
 /*
  * When resizing the shell is postponed, remember the new size, and call
@@ -515,6 +522,7 @@ EXTERN VimClipboard clip_plus;	/* CLIPBOARD selection in X11 */
 EXTERN int	clip_unnamed INIT(= FALSE);
 EXTERN int	clip_autoselect INIT(= FALSE);
 EXTERN int	clip_autoselectml INIT(= FALSE);
+EXTERN int	clip_html INIT(= FALSE);
 EXTERN regprog_T *clip_exclude_prog INIT(= NULL);
 #endif
 
@@ -530,7 +538,7 @@ EXTERN win_T	*lastwin;		/* last window */
 EXTERN win_T	*prevwin INIT(= NULL);	/* previous window */
 # define W_NEXT(wp) ((wp)->w_next)
 # define FOR_ALL_WINDOWS(wp) for (wp = firstwin; wp != NULL; wp = wp->w_next)
-#define FOR_ALL_TAB_WINDOWS(tp, wp) \
+# define FOR_ALL_TAB_WINDOWS(tp, wp) \
     for ((tp) = first_tabpage; (tp) != NULL; (tp) = (tp)->tp_next) \
 	for ((wp) = ((tp) == curtab) \
 		? firstwin : (tp)->tp_firstwin; (wp); (wp) = (wp)->w_next)
@@ -543,6 +551,11 @@ EXTERN win_T	*prevwin INIT(= NULL);	/* previous window */
 #endif
 
 EXTERN win_T	*curwin;	/* currently active window */
+
+#ifdef FEAT_AUTOCMD
+EXTERN win_T	*aucmd_win;	/* window used in aucmd_prepbuf() */
+EXTERN int	aucmd_win_used INIT(= FALSE);	/* aucmd_win is being used */
+#endif
 
 /*
  * The window layout is kept in a tree of frames.  topframe points to the top
@@ -605,7 +618,8 @@ EXTERN int	exiting INIT(= FALSE);
 EXTERN int	really_exiting INIT(= FALSE);
 				/* TRUE when we are sure to exit, e.g., after
 				 * a deadly signal */
-EXTERN int	full_screen INIT(= FALSE);
+/* volatile because it is used in signal handler deathtrap(). */
+EXTERN volatile int full_screen INIT(= FALSE);
 				/* TRUE when doing full-screen output
 				 * otherwise only writing some messages */
 
@@ -624,6 +638,11 @@ EXTERN int	textlock INIT(= 0);
 EXTERN int	curbuf_lock INIT(= 0);
 				/* non-zero when the current buffer can't be
 				 * changed.  Used for FileChangedRO. */
+EXTERN int	allbuf_lock INIT(= 0);
+				/* non-zero when no buffer name can be
+				 * changed, no buffer can be deleted and
+				 * current directory can't be changed.
+				 * Used for SwapExists et al. */
 #endif
 #ifdef FEAT_EVAL
 # define HAVE_SANDBOX
@@ -718,7 +737,7 @@ EXTERN int	can_si_back INIT(= FALSE);
 
 EXTERN pos_T	saved_cursor		/* w_cursor before formatting text. */
 # ifdef DO_INIT
-	= INIT_POS_T
+	= INIT_POS_T(0, 0, 0)
 # endif
 	;
 
@@ -747,10 +766,12 @@ EXTERN JMP_BUF x_jump_env;
  */
 EXTERN JMP_BUF lc_jump_env;	/* argument to SETJMP() */
 # ifdef SIGHASARG
-EXTERN int lc_signal;		/* catched signal number, 0 when no was signal
-				   catched; used for mch_libcall() */
+/* volatile because it is used in signal handlers. */
+EXTERN volatile int lc_signal;	/* caught signal number, 0 when no was signal
+				   caught; used for mch_libcall() */
 # endif
-EXTERN int lc_active INIT(= FALSE); /* TRUE when lc_jump_env is valid. */
+/* volatile because it is used in signal handler deathtrap(). */
+EXTERN volatile int lc_active INIT(= FALSE); /* TRUE when lc_jump_env is valid. */
 #endif
 
 #if defined(FEAT_MBYTE) || defined(FEAT_POSTSCRIPT)
@@ -808,11 +829,14 @@ EXTERN vimconv_T output_conv;			/* type of output conversion */
  */
 /* length of char in bytes, including following composing chars */
 EXTERN int (*mb_ptr2len) __ARGS((char_u *p)) INIT(= latin_ptr2len);
+/* idem, with limit on string length */
+EXTERN int (*mb_ptr2len_len) __ARGS((char_u *p, int size)) INIT(= latin_ptr2len_len);
 /* byte length of char */
 EXTERN int (*mb_char2len) __ARGS((int c)) INIT(= latin_char2len);
 /* convert char to bytes, return the length */
 EXTERN int (*mb_char2bytes) __ARGS((int c, char_u *buf)) INIT(= latin_char2bytes);
 EXTERN int (*mb_ptr2cells) __ARGS((char_u *p)) INIT(= latin_ptr2cells);
+EXTERN int (*mb_ptr2cells_len) __ARGS((char_u *p, int size)) INIT(= latin_ptr2cells_len);
 EXTERN int (*mb_char2cells) __ARGS((int c)) INIT(= latin_char2cells);
 EXTERN int (*mb_off2cells) __ARGS((unsigned off, unsigned max_off)) INIT(= latin_off2cells);
 EXTERN int (*mb_ptr2char) __ARGS((char_u *p)) INIT(= latin_ptr2char);
@@ -831,13 +855,7 @@ EXTERN int* (*iconv_errno) (void);
 
 #ifdef FEAT_XIM
 # ifdef FEAT_GUI_GTK
-#  ifdef HAVE_GTK2
 EXTERN GtkIMContext	*xic INIT(= NULL);
-#  else
-EXTERN GdkICAttr	*xic_attr INIT(= NULL);
-EXTERN GdkIC		*xic INIT(= NULL);
-EXTERN char		*draw_feedback INIT(= NULL);
-#  endif
 /*
  * Start and end column of the preedit area in virtual columns from the start
  * of the text line.  When there is no preedit area they are set to MAXCOL.
@@ -958,7 +976,7 @@ EXTERN struct buffheader stuffbuff	/* stuff buffer */
 		    ;
 EXTERN typebuf_T typebuf		/* typeahead buffer */
 #ifdef DO_INIT
-		    = {NULL, NULL}
+		    = {NULL, NULL, 0, 0, 0, 0, 0, 0, 0}
 #endif
 		    ;
 #ifdef FEAT_EX_EXTRA
@@ -994,7 +1012,8 @@ EXTERN int	curscript INIT(= 0);	    /* index in scriptin[] */
 EXTERN FILE	*scriptout  INIT(= NULL);   /* stream to write script to */
 EXTERN int	read_cmd_fd INIT(= 0);	    /* fd to read commands from */
 
-EXTERN int	got_int INIT(= FALSE);	    /* set to TRUE when interrupt
+/* volatile because it is used in signal handler catch_sigint(). */
+EXTERN volatile int got_int INIT(= FALSE);    /* set to TRUE when interrupt
 						signal occurred */
 #ifdef USE_TERM_CONSOLE
 EXTERN int	term_console INIT(= FALSE); /* set to TRUE when console used */
@@ -1037,7 +1056,7 @@ EXTERN char_u	*autocmd_match INIT(= NULL); /* name for <amatch> on cmdline */
 EXTERN int	did_cursorhold INIT(= FALSE); /* set when CursorHold t'gerd */
 EXTERN pos_T	last_cursormoved	    /* for CursorMoved event */
 # ifdef DO_INIT
-			= INIT_POS_T
+			= INIT_POS_T(0, 0, 0)
 # endif
 			;
 #endif
@@ -1135,6 +1154,9 @@ EXTERN int	lcs_nbsp INIT(= NUL);
 EXTERN int	lcs_tab1 INIT(= NUL);
 EXTERN int	lcs_tab2 INIT(= NUL);
 EXTERN int	lcs_trail INIT(= NUL);
+#ifdef FEAT_CONCEAL
+EXTERN int	lcs_conceal INIT(= '-');
+#endif
 
 #if defined(FEAT_WINDOWS) || defined(FEAT_WILDMENU) || defined(FEAT_STL_OPT) \
 	|| defined(FEAT_FOLDING)
@@ -1330,6 +1352,11 @@ EXTERN disptick_T	display_tick INIT(= 0);
 EXTERN linenr_T		spell_redraw_lnum INIT(= 0);
 #endif
 
+#ifdef FEAT_CONCEAL
+/* Set when the cursor line needs to be redrawn. */
+EXTERN int		need_cursor_line_redraw INIT(= FALSE);
+#endif
+
 #ifdef ALT_X_INPUT
 /* we need to be able to go into the dispatch loop while processing a command
  * received via alternate input. However, we don't want to process another
@@ -1353,7 +1380,6 @@ EXTERN int netbeansFireChanges INIT(= 1); /* send buffer changes if != 0 */
 EXTERN int netbeansForcedQuit INIT(= 0);/* don't write modified files */
 EXTERN int netbeansReadFile INIT(= 1);	/* OK to read from disk if != 0 */
 EXTERN int netbeansSuppressNoLines INIT(= 0); /* skip "No lines in buffer" */
-EXTERN int usingNetbeans INIT(= 0);	/* set if -nb flag is used */
 #endif
 
 /*
@@ -1384,7 +1410,7 @@ EXTERN char_u e_fontset[]	INIT(= N_("E234: Unknown fontset: %s"));
 	|| defined(FEAT_GUI_PHOTON) || defined(FEAT_GUI_MSWIN)
 EXTERN char_u e_font[]		INIT(= N_("E235: Unknown font: %s"));
 #endif
-#if (defined(FEAT_GUI_X11) || defined(FEAT_GUI_GTK)) && !defined(HAVE_GTK2)
+#if defined(FEAT_GUI_X11) && !defined(FEAT_GUI_GTK)
 EXTERN char_u e_fontwidth[]	INIT(= N_("E236: Font \"%s\" is not fixed-width"));
 #endif
 EXTERN char_u e_internal[]	INIT(= N_("E473: Internal error"));
@@ -1397,15 +1423,20 @@ EXTERN char_u e_invexpr2[]	INIT(= N_("E15: Invalid expression: %s"));
 #endif
 EXTERN char_u e_invrange[]	INIT(= N_("E16: Invalid range"));
 EXTERN char_u e_invcmd[]	INIT(= N_("E476: Invalid command"));
-#if defined(UNIX) || defined(FEAT_SYN_HL)
+#if defined(UNIX) || defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
 EXTERN char_u e_isadir2[]	INIT(= N_("E17: \"%s\" is a directory"));
 #endif
 #ifdef FEAT_LIBCALL
 EXTERN char_u e_libcall[]	INIT(= N_("E364: Library call failed for \"%s()\""));
 #endif
-#if defined(DYNAMIC_PERL) || defined(DYNAMIC_PYTHON) || defined(DYNAMIC_RUBY) \
-	|| defined(DYNAMIC_TCL) || defined(DYNAMIC_ICONV) \
-	|| defined(DYNAMIC_GETTEXT) || defined(DYNAMIC_MZSCHEME)
+#if defined(DYNAMIC_PERL) \
+	|| defined(DYNAMIC_PYTHON) || defined(DYNAMIC_PYTHON3) \
+	|| defined(DYNAMIC_RUBY) \
+	|| defined(DYNAMIC_TCL) \
+	|| defined(DYNAMIC_ICONV) \
+	|| defined(DYNAMIC_GETTEXT) \
+	|| defined(DYNAMIC_MZSCHEME) \
+	|| defined(DYNAMIC_LUA)
 EXTERN char_u e_loadlib[]	INIT(= N_("E370: Could not load library %s"));
 EXTERN char_u e_loadfunc[]	INIT(= N_("E448: Could not load library function %s"));
 #endif
@@ -1496,7 +1527,7 @@ EXTERN char_u e_screenmode[]	INIT(= N_("E359: Screen mode setting not supported"
 #endif
 EXTERN char_u e_scroll[]	INIT(= N_("E49: Invalid scroll size"));
 EXTERN char_u e_shellempty[]	INIT(= N_("E91: 'shell' option is empty"));
-#if defined(FEAT_SIGN_ICONS) && !defined(HAVE_GTK2)
+#if defined(FEAT_SIGN_ICONS) && !defined(FEAT_GUI_GTK)
 EXTERN char_u e_signdata[]	INIT(= N_("E255: Couldn't read in sign data!"));
 #endif
 EXTERN char_u e_swapclose[]	INIT(= N_("E72: Close error on swap file"));
@@ -1546,6 +1577,10 @@ EXTERN short disallow_gui	INIT(= FALSE);
 EXTERN char top_bot_msg[] INIT(= N_("search hit TOP, continuing at BOTTOM"));
 EXTERN char bot_top_msg[] INIT(= N_("search hit BOTTOM, continuing at TOP"));
 
+#ifdef FEAT_CRYPT
+EXTERN char need_key_msg[] INIT(= N_("Need encryption key for \"%s\""));
+#endif
+
 /*
  * Comms. with the session manager (XSMP)
  */
@@ -1555,6 +1590,10 @@ EXTERN int xsmp_icefd INIT(= -1);   /* The actual connection */
 
 /* For undo we need to know the lowest time possible. */
 EXTERN time_t starttime;
+
+#ifdef STARTUPTIME
+EXTERN FILE *time_fd INIT(= NULL);  /* where to write startup timing */
+#endif
 
 /*
  * Some compilers warn for not using a return value, but in some situations we

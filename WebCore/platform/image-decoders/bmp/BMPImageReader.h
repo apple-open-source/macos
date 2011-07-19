@@ -64,11 +64,11 @@ namespace WebCore {
 
         // |parent| is the decoder that owns us.
         // |startOffset| points to the start of the BMP within the file.
-        // |buffer| points at an empty RGBA32Buffer that we'll initialize and
+        // |buffer| points at an empty ImageFrame that we'll initialize and
         // fill with decoded data.
         BMPImageReader(ImageDecoder* parent, size_t decodedAndHeaderOffset, size_t imgDataOffset, bool usesAndMask);
 
-        void setBuffer(RGBA32Buffer* buffer) { m_buffer = buffer; }
+        void setBuffer(ImageFrame* buffer) { m_buffer = buffer; }
         void setData(SharedBuffer* data) { m_data = data; }
 
         // Does the actual decoding.  If |onlySize| is true, decoding only
@@ -96,6 +96,11 @@ namespace WebCore {
             None,
             NotYetDecoded,
             Decoding,
+        };
+        enum ProcessingResult {
+            Success,
+            Failure,
+            InsufficientData,
         };
 
         // These are based on the Windows BITMAPINFOHEADER and RGBTRIPLE
@@ -161,14 +166,18 @@ namespace WebCore {
 
         // Processes a set of non-RLE-compressed pixels.  Two cases:
         //   * inRLE = true: the data is inside an RLE-encoded bitmap.  Tries to
-        //     process |numPixels| pixels on the current row; returns true on
-        //     success.
+        //     process |numPixels| pixels on the current row.
         //   * inRLE = false: the data is inside a non-RLE-encoded bitmap.
         //     |numPixels| is ignored.  Expects |m_coord| to point at the
         //     beginning of the next row to be decoded.  Tries to process as
-        //     many complete rows as possible.  Returns true if the whole image
-        //     was decoded.
-        bool processNonRLEData(bool inRLE, int numPixels);
+        //     many complete rows as possible.  Returns InsufficientData if
+        //     there wasn't enough data to decode the whole image.
+        //
+        // This function returns a ProcessingResult instead of a bool so that it
+        // can avoid calling m_parent->setFailed(), which could lead to memory
+        // corruption since that will delete |this| but some callers still want
+        // to access member variables after this returns.
+        ProcessingResult processNonRLEData(bool inRLE, int numPixels);
 
         // Returns true if the current y-coordinate plus |numRows| would be past
         // the end of the image.  Here "plus" means "toward the end of the
@@ -261,16 +270,11 @@ namespace WebCore {
         // depending on the value of |m_isTopDown|.
         void moveBufferToNextRow();
 
-        // Sets the "decode failure" flag and clears any local storage.  For
-        // caller convenience (since so many callers want to return false after
-        // calling this), returns false to enable easy tailcalling.
-        bool setFailed();
-
         // The decoder that owns us.
         ImageDecoder* m_parent;
 
         // The destination for the pixel data.
-        RGBA32Buffer* m_buffer;
+        ImageFrame* m_buffer;
 
         // The file to decode.
         RefPtr<SharedBuffer> m_data;

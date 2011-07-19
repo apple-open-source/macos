@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/sbin/gpt/add.c,v 1.11.2.3 2006/10/07 18:35:48 marcel Exp $");
+__FBSDID("$FreeBSD: src/sbin/gpt/add.c,v 1.15.2.1.6.1 2010/02/10 00:26:20 kensmith Exp $");
 
 #include <sys/types.h>
 
@@ -39,9 +39,9 @@ __FBSDID("$FreeBSD: src/sbin/gpt/add.c,v 1.11.2.3 2006/10/07 18:35:48 marcel Exp
 #include "map.h"
 #include "gpt.h"
 
-static uuid_t type;
-static off_t block, size;
-static unsigned int entry;
+static uuid_t add_type;
+static off_t add_block, add_size;
+static unsigned int add_entry;
 
 static void
 usage_add(void)
@@ -53,8 +53,8 @@ usage_add(void)
 	exit(1);
 }
 
-static void
-add(int fd)
+map_t *
+gpt_add_part(int fd, uuid_t type, off_t start, off_t size, unsigned int *entry)
 {
 	uuid_t uuid;
 	map_t *gpt, *tpg;
@@ -69,38 +69,38 @@ add(int fd)
 	if (gpt == NULL) {
 		warnx("%s: error: no primary GPT header; run create or recover",
 		    device_name);
-		return;
+		return (NULL);
 	}
 
 	tpg = map_find(MAP_TYPE_SEC_GPT_HDR);
 	if (tpg == NULL) {
 		warnx("%s: error: no secondary GPT header; run recover",
 		    device_name);
-		return;
+		return (NULL);
 	}
 
 	tbl = map_find(MAP_TYPE_PRI_GPT_TBL);
 	lbt = map_find(MAP_TYPE_SEC_GPT_TBL);
 	if (tbl == NULL || lbt == NULL) {
 		warnx("%s: error: run recover -- trust me", device_name);
-		return;
+		return (NULL);
 	}
 
 	hdr = gpt->map_data;
-	if (entry > le32toh(hdr->hdr_entries)) {
+	if (*entry > le32toh(hdr->hdr_entries)) {
 		warnx("%s: error: index %u out of range (%u max)", device_name,
-		    entry, le32toh(hdr->hdr_entries));
-		return;
+		    *entry, le32toh(hdr->hdr_entries));
+		return (NULL);
 	}
 
-	if (entry > 0) {
-		i = entry - 1;
+	if (*entry > 0) {
+		i = *entry - 1;
 		ent = (void*)((char*)tbl->map_data + i *
 		    le32toh(hdr->hdr_entsz));
 		if (!uuid_is_nil(&ent->ent_type, NULL)) {
 			warnx("%s: error: entry at index %u is not free",
-			    device_name, entry);
-			return;
+			    device_name, *entry);
+			return (NULL);
 		}
 	} else {
 		/* Find empty slot in GPT table. */
@@ -113,14 +113,14 @@ add(int fd)
 		if (i == le32toh(hdr->hdr_entries)) {
 			warnx("%s: error: no available table entries",
 			    device_name);
-			return;
+			return (NULL);
 		}
 	}
 
-	map = map_alloc(block, size);
+	map = map_alloc(start, size);
 	if (map == NULL) {
 		warnx("%s: error: no space available on device", device_name);
-		return;
+		return (NULL);
 	}
 
 	le_uuid_dec(&ent->ent_uuid, &uuid);
@@ -128,7 +128,11 @@ add(int fd)
 		uuid_create(&uuid, NULL);
 	}
 
+#ifdef __APPLE__
+	le_uuid_enc(&ent->ent_type, type);
+#else
 	le_uuid_enc(&ent->ent_type, &type);
+#endif
 	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
@@ -144,7 +148,11 @@ add(int fd)
 	hdr = tpg->map_data;
 	ent = (void*)((char*)lbt->map_data + i * le32toh(hdr->hdr_entsz));
 
+#ifdef __APPLE__
+	le_uuid_enc(&ent->ent_type, type);
+#else
 	le_uuid_enc(&ent->ent_type, &type);
+#endif
 	le_uuid_enc(&ent->ent_uuid, &uuid);
 	ent->ent_lba_start = htole64(map->map_start);
 	ent->ent_lba_end = htole64(map->map_start + map->map_size - 1LL);
@@ -157,10 +165,22 @@ add(int fd)
 	gpt_write(fd, lbt);
 	gpt_write(fd, tpg);
 
+	*entry = i + 1;
+
+	return (map);
+}
+
+static void
+add(int fd)
+{
+
+	if (!gpt_add_part(fd, add_type, add_block, add_size, &add_entry))
+		return;
+
 #ifdef __APPLE__
-	printf("%ss%u added\n", device_name, i + 1);
+	printf("%ss%u added\n", device_name, add_entry);
 #else
-	printf("%sp%u added\n", device_name, i + 1);
+	printf("%sp%u added\n", device_name, add_entry);
 #endif
 }
 
@@ -174,30 +194,30 @@ cmd_add(int argc, char *argv[])
 	while ((ch = getopt(argc, argv, "b:i:s:t:")) != -1) {
 		switch(ch) {
 		case 'b':
-			if (block > 0)
+			if (add_block > 0)
 				usage_add();
-			block = strtoll(optarg, &p, 10);
-			if (*p != 0 || block < 1)
+			add_block = strtoll(optarg, &p, 10);
+			if (*p != 0 || add_block < 1)
 				usage_add();
 			break;
 		case 'i':
-			if (entry > 0)
+			if (add_entry > 0)
 				usage_add();
-			entry = strtol(optarg, &p, 10);
-			if (*p != 0 || entry < 1)
+			add_entry = strtol(optarg, &p, 10);
+			if (*p != 0 || add_entry < 1)
 				usage_add();
 			break;
 		case 's':
-			if (size > 0)
+			if (add_size > 0)
 				usage_add();
-			size = strtoll(optarg, &p, 10);
-			if (*p != 0 || size < 1)
+			add_size = strtoll(optarg, &p, 10);
+			if (*p != 0 || add_size < 1)
 				usage_add();
 			break;
 		case 't':
-			if (!uuid_is_nil(&type, NULL))
+			if (!uuid_is_nil(&add_type, NULL))
 				usage_add();
-			if (parse_uuid(optarg, &type) != 0)
+			if (parse_uuid(optarg, &add_type) != 0)
 				usage_add();
 			break;
 		default:
@@ -210,13 +230,13 @@ cmd_add(int argc, char *argv[])
 
 #ifdef __APPLE__
 	/* Create HFS partitions by default. */
-	if (uuid_is_null(type))
-		uuid_copy(type, GPT_ENT_TYPE_APPLE_HFS);
+	if (uuid_is_null(add_type))
+		uuid_copy(add_type, GPT_ENT_TYPE_APPLE_HFS);
 #else
 	/* Create UFS partitions by default. */
-	if (uuid_is_nil(&type, NULL)) {
+	if (uuid_is_nil(&add_type, NULL)) {
 		uuid_t ufs = GPT_ENT_TYPE_FREEBSD_UFS;
-		type = ufs;
+		add_type = ufs;
 	}
 #endif
 

@@ -1,29 +1,31 @@
-/* inputting files to be patched */
+/*	$OpenBSD: inp.h,v 1.8 2003/08/15 08:00:51 otto Exp $	*/
 
-/* $Id: inp.h,v 1.1.1.3 2003/05/08 18:38:02 rbraun Exp $ */
+/*
+ * patch - a program to apply diffs to original files
+ * 
+ * Copyright 1986, Larry Wall
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following condition is met:
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this condition and the following disclaimer.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * 
+ * -C option added in 1998, original code by Marc Espie, based on FreeBSD
+ * behaviour
+ */
 
-/* Copyright (C) 1986, 1988 Larry Wall
-   Copyright (C) 1991, 1992, 1993, 1997, 1998, 1999, 2002 Free
-   Software Foundation, Inc.
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-   GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.
-   If not, write to the Free Software Foundation,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
-XTERN LINENUM input_lines;		/* how long is input file in lines */
-
-char const *ifetch (LINENUM, int, size_t *);
-void get_input_file (char const *, char const *);
-void re_input (void);
-void scan_input (char *);
+void		re_input(void);
+void		scan_input(const char *);
+char		*ifetch(LINENUM, int);

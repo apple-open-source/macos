@@ -17,6 +17,9 @@
 				F9B0E0240C95BD8800323767 /* PBXTargetDependency */,
 				F9B7FB6D0C95CBB600BBD057 /* PBXTargetDependency */,
 				F9D5E2D10C9615F7004C0066 /* PBXTargetDependency */,
+				F98B11AA10F3EF2D00808ABE /* PBXTargetDependency */,
+				F92EC9731135A50B00517A0F /* PBXTargetDependency */,
+				F9FED4E4128B52B000CC941D /* PBXTargetDependency */,
 			);
 			name = All;
 			productName = All;
@@ -38,6 +41,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		F903852312AD65990063F55C /* libadsupport.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F903852212AD65990063F55C /* libadsupport.a */; };
 		F9063FCB0EF17BD8003227D9 /* eapsim_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F9063FC90EF17BD8003227D9 /* eapsim_plugin.c */; };
 		F9063FCD0EF17BD8003227D9 /* eapsim_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F9063FC90EF17BD8003227D9 /* eapsim_plugin.c */; };
 		F90640410EF17BF8003227D9 /* fips186prf.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F90640070EF17BF8003227D9 /* fips186prf.h */; };
@@ -48,7 +52,6 @@
 		F90FEE490CA3338A00A7B5A8 /* Supplicant.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B820C8F7F55000EA394 /* Supplicant.c */; };
 		F90FEE4A0CA3338A00A7B5A8 /* Timer.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B850C8F7F55000EA394 /* Timer.c */; };
 		F90FEE4B0CA3338A00A7B5A8 /* FDHandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B750C8F7F55000EA394 /* FDHandler.c */; };
-		F90FEE4C0CA3338A00A7B5A8 /* ndrv_socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B7F0C8F7F55000EA394 /* ndrv_socket.c */; };
 		F90FEE4D0CA3338A00A7B5A8 /* EAPOLSocket.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B730C8F7F55000EA394 /* EAPOLSocket.c */; };
 		F90FEE4E0CA3338A00A7B5A8 /* KeyValue.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B770C8F7F55000EA394 /* KeyValue.c */; };
 		F90FEE4F0CA3338A00A7B5A8 /* mylog.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B7D0C8F7F55000EA394 /* mylog.c */; };
@@ -66,29 +69,29 @@
 		F90FEE700CA3342D00A7B5A8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
 		F91546660CD78EA1008D9897 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F91546650CD78EA1008D9897 /* libio80211.a */; };
 		F915472C0CD78FA7008D9897 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2D0C8F7F06000EA394 /* EAPClientModule.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F915472D0CD78FA7008D9897 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B270C8F7F06000EA394 /* DiameterAVP.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F915472E0CD78FA7008D9897 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B410C8F7F06000EA394 /* EAPTLS.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F915472F0CD78FA7008D9897 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B230C8F7F06000EA394 /* chap.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547300CD78FA7008D9897 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B4A0C8F7F06000EA394 /* LinkAddresses.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F915472D0CD78FA7008D9897 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B270C8F7F06000EA394 /* DiameterAVP.h */; settings = {ATTRIBUTES = (); }; };
+		F915472E0CD78FA7008D9897 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B410C8F7F06000EA394 /* EAPTLS.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F915472F0CD78FA7008D9897 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B230C8F7F06000EA394 /* chap.h */; settings = {ATTRIBUTES = (); }; };
+		F91547300CD78FA7008D9897 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B4A0C8F7F06000EA394 /* LinkAddresses.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F91547310CD78FA7008D9897 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B3A0C8F7F06000EA394 /* EAPOLControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547320CD78FA7008D9897 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B470C8F7F06000EA394 /* EAPUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547320CD78FA7008D9897 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B470C8F7F06000EA394 /* EAPUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F91547330CD78FA7008D9897 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B580C8F7F06000EA394 /* SupplicantTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547340CD78FA7008D9897 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B380C8F7F06000EA394 /* EAPOLClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547350CD78FA7008D9897 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B400C8F7F06000EA394 /* EAPSecurity.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547340CD78FA7008D9897 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B380C8F7F06000EA394 /* EAPOLClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F91547350CD78FA7008D9897 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B400C8F7F06000EA394 /* EAPSecurity.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F91547360CD78FA7008D9897 /* EAPClientTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B300C8F7F06000EA394 /* EAPClientTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547370CD78FA7008D9897 /* RADIUSAttributes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B570C8F7F06000EA394 /* RADIUSAttributes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547370CD78FA7008D9897 /* RADIUSAttributes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B570C8F7F06000EA394 /* RADIUSAttributes.h */; settings = {ATTRIBUTES = (); }; };
 		F91547380CD78FA7008D9897 /* EAPClientProperties.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2F0C8F7F06000EA394 /* EAPClientProperties.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547390CD78FA7008D9897 /* EAPTLSUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B440C8F7F06000EA394 /* EAPTLSUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547390CD78FA7008D9897 /* EAPTLSUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B440C8F7F06000EA394 /* EAPTLSUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F915473A0CD78FA7008D9897 /* EAP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B280C8F7F06000EA394 /* EAP.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F915473B0CD78FA7008D9897 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B520C8F7F06000EA394 /* myCFUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F915473B0CD78FA7008D9897 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B520C8F7F06000EA394 /* myCFUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F915473C0CD78FA7008D9897 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2E0C8F7F06000EA394 /* EAPClientPlugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		F915473D0CD78FA7008D9897 /* EAPOLControlTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B3E0C8F7F06000EA394 /* EAPOLControlTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F915473E0CD78FA7008D9897 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2B0C8F7F06000EA394 /* EAPCertificateUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F915473E0CD78FA7008D9897 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2B0C8F7F06000EA394 /* EAPCertificateUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F915473F0CD78FA7008D9897 /* DESSupport.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B260C8F7F06000EA394 /* DESSupport.h */; settings = {ATTRIBUTES = (); }; };
-		F91547400CD78FA7008D9897 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B340C8F7F06000EA394 /* EAPKeychainUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547410CD78FA7008D9897 /* printdata.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B560C8F7F06000EA394 /* printdata.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547400CD78FA7008D9897 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B340C8F7F06000EA394 /* EAPKeychainUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F91547410CD78FA7008D9897 /* printdata.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B560C8F7F06000EA394 /* printdata.h */; settings = {ATTRIBUTES = (); }; };
 		F91547420CD78FA7008D9897 /* EAPOL.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B360C8F7F06000EA394 /* EAPOL.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F91547430CD78FA7008D9897 /* mschap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B500C8F7F06000EA394 /* mschap.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F91547430CD78FA7008D9897 /* mschap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B500C8F7F06000EA394 /* mschap.h */; settings = {ATTRIBUTES = (); }; };
 		F91547460CD78FA7008D9897 /* EAPOLClient.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B370C8F7F06000EA394 /* EAPOLClient.c */; };
 		F91547470CD78FA7008D9897 /* eapmschapv2_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B350C8F7F06000EA394 /* eapmschapv2_plugin.c */; };
 		F91547480CD78FA7008D9897 /* EAPCertificateUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B2A0C8F7F06000EA394 /* EAPCertificateUtil.c */; };
@@ -116,11 +119,41 @@
 		F915475F0CD78FA7008D9897 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
 		F91547600CD78FA7008D9897 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F917D2FA0F1E679500E37956 /* CoreTelephony.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F917D2F90F1E679500E37956 /* CoreTelephony.framework */; };
+		F925AAF610F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F925AAF410F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F925AAF710F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F925AAF510F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F925AAF910F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F925AAF510F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F925AB3210F7FBEE002AC2E5 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */; };
+		F925AB3410F7FC0B002AC2E5 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */; };
+		F925AB5010F8017D002AC2E5 /* eapolcfg.c in Sources */ = {isa = PBXBuildFile; fileRef = F960449F10D1CA46000D803D /* eapolcfg.c */; };
+		F925AB5710F803B7002AC2E5 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
+		F925AB5910F803DE002AC2E5 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		F925AB5A10F803DE002AC2E5 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
+		F925AB5C10F80458002AC2E5 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
+		F92EC87311358F8A00517A0F /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
+		F92EC87611358FA200517A0F /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		F92EC8C411358FA700517A0F /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
+		F92EC94411358FB300517A0F /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
+		F92EC98B1135A91800517A0F /* eapolcfg_auth.defs in Sources */ = {isa = PBXBuildFile; fileRef = F92EC9891135A91800517A0F /* eapolcfg_auth.defs */; };
+		F92EC98D1135A94000517A0F /* eapolcfg_auth_types.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F92EC98C1135A94000517A0F /* eapolcfg_auth_types.h */; };
+		F92EC98E1135A96800517A0F /* eapolcfg_auth.defs in Sources */ = {isa = PBXBuildFile; fileRef = F92EC9891135A91800517A0F /* eapolcfg_auth.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		F92EC9981135A9DC00517A0F /* eapolcfg_auth.c in Sources */ = {isa = PBXBuildFile; fileRef = F92EC9971135A9DC00517A0F /* eapolcfg_auth.c */; };
+		F92EC9A91135BBA900517A0F /* com.apple.eapolcfg_auth.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = F92EC9A51135BB0300517A0F /* com.apple.eapolcfg_auth.plist */; };
+		F930DECD12024F8200316A23 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F930DECC12024F8200316A23 /* IOKit.framework */; };
+		F930DECE12024FCC00316A23 /* InterestNotification.c in Sources */ = {isa = PBXBuildFile; fileRef = F94E3F730F6706420061BC58 /* InterestNotification.c */; };
 		F94E3F740F6706420061BC58 /* InterestNotification.c in Sources */ = {isa = PBXBuildFile; fileRef = F94E3F730F6706420061BC58 /* InterestNotification.c */; };
 		F94E3F810F6729190061BC58 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F94E3F800F6729190061BC58 /* IOKit.framework */; };
+		F94FD6831231B5D400FFF683 /* EAPOLControlPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */; };
+		F94FD6841231B5D400FFF683 /* EAPOLControlPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */; };
 		F952CB590D5A72CE00ED1EFD /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B8A0C8F7F80000EA394 /* client.c */; };
 		F952CB5B0D5A72CE00ED1EFD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F952CB5C0D5A72CE00ED1EFD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		F960448810D1A528000D803D /* EAPOLClientConfiguration.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448510D1A528000D803D /* EAPOLClientConfiguration.c */; };
+		F960448910D1A528000D803D /* EAPOLClientItemID.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448610D1A528000D803D /* EAPOLClientItemID.c */; };
+		F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F960448710D1A528000D803D /* EAPOLClientProfile.c */; };
+		F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F960448F10D1A54E000D803D /* EAPOLClientConfigurationInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448C10D1A54E000D803D /* EAPOLClientConfigurationInternal.h */; };
+		F960449010D1A54E000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
+		F960449110D1A58A000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F960448D10D1A54E000D803D /* symbol_scope.h */; };
 		F97A1F270C907A0800D792C8 /* EAPOLClient.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B370C8F7F06000EA394 /* EAPOLClient.c */; };
 		F97A1F280C907A0C00D792C8 /* eapmschapv2_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B350C8F7F06000EA394 /* eapmschapv2_plugin.c */; };
 		F97A1F290C907A0D00D792C8 /* EAPCertificateUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B2A0C8F7F06000EA394 /* EAPCertificateUtil.c */; };
@@ -142,36 +175,42 @@
 		F97A1F390C907A3D00D792C8 /* EAPSecurity.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B3F0C8F7F06000EA394 /* EAPSecurity.c */; };
 		F97A1F3A0C907A3E00D792C8 /* eapgtc_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B320C8F7F06000EA394 /* eapgtc_plugin.c */; };
 		F97A1F3B0C907A3F00D792C8 /* eapttls_plugin.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B450C8F7F06000EA394 /* eapttls_plugin.c */; };
-		F97A1F4E0C90871300D792C8 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2D0C8F7F06000EA394 /* EAPClientModule.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F4F0C90871A00D792C8 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B270C8F7F06000EA394 /* DiameterAVP.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F500C90871B00D792C8 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B410C8F7F06000EA394 /* EAPTLS.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F510C90871C00D792C8 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B230C8F7F06000EA394 /* chap.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F520C90871D00D792C8 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B4A0C8F7F06000EA394 /* LinkAddresses.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F4E0C90871300D792C8 /* EAPClientModule.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2D0C8F7F06000EA394 /* EAPClientModule.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A1F4F0C90871A00D792C8 /* DiameterAVP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B270C8F7F06000EA394 /* DiameterAVP.h */; settings = {ATTRIBUTES = (); }; };
+		F97A1F500C90871B00D792C8 /* EAPTLS.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B410C8F7F06000EA394 /* EAPTLS.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A1F510C90871C00D792C8 /* chap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B230C8F7F06000EA394 /* chap.h */; settings = {ATTRIBUTES = (); }; };
+		F97A1F520C90871D00D792C8 /* LinkAddresses.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B4A0C8F7F06000EA394 /* LinkAddresses.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F530C90872100D792C8 /* EAPOLControl.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B3A0C8F7F06000EA394 /* EAPOLControl.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F540C90872200D792C8 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B470C8F7F06000EA394 /* EAPUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F540C90872200D792C8 /* EAPUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B470C8F7F06000EA394 /* EAPUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F550C90872300D792C8 /* SupplicantTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B580C8F7F06000EA394 /* SupplicantTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F560C90872400D792C8 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B380C8F7F06000EA394 /* EAPOLClient.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F570C90872500D792C8 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B400C8F7F06000EA394 /* EAPSecurity.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F560C90872400D792C8 /* EAPOLClient.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B380C8F7F06000EA394 /* EAPOLClient.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A1F570C90872500D792C8 /* EAPSecurity.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B400C8F7F06000EA394 /* EAPSecurity.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F580C90872600D792C8 /* EAPClientTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B300C8F7F06000EA394 /* EAPClientTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F590C90872700D792C8 /* RADIUSAttributes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B570C8F7F06000EA394 /* RADIUSAttributes.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F590C90872700D792C8 /* RADIUSAttributes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B570C8F7F06000EA394 /* RADIUSAttributes.h */; settings = {ATTRIBUTES = (); }; };
 		F97A1F5A0C90872800D792C8 /* EAPClientProperties.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2F0C8F7F06000EA394 /* EAPClientProperties.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F5B0C90872A00D792C8 /* EAPTLSUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B440C8F7F06000EA394 /* EAPTLSUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F5B0C90872A00D792C8 /* EAPTLSUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B440C8F7F06000EA394 /* EAPTLSUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F5C0C90872A00D792C8 /* EAP.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B280C8F7F06000EA394 /* EAP.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F5D0C90872B00D792C8 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B520C8F7F06000EA394 /* myCFUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F5D0C90872B00D792C8 /* myCFUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B520C8F7F06000EA394 /* myCFUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F5E0C90872C00D792C8 /* EAPTLSUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B430C8F7F06000EA394 /* EAPTLSUtil.c */; };
-		F97A1F5F0C90872D00D792C8 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2E0C8F7F06000EA394 /* EAPClientPlugin.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F5F0C90872D00D792C8 /* EAPClientPlugin.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2E0C8F7F06000EA394 /* EAPClientPlugin.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F600C90872E00D792C8 /* EAPOLControlTypes.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B3E0C8F7F06000EA394 /* EAPOLControlTypes.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F610C90873100D792C8 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2B0C8F7F06000EA394 /* EAPCertificateUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F610C90873100D792C8 /* EAPCertificateUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B2B0C8F7F06000EA394 /* EAPCertificateUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		F97A1F620C90875100D792C8 /* DESSupport.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B260C8F7F06000EA394 /* DESSupport.h */; settings = {ATTRIBUTES = (); }; };
-		F97A1F630C90875900D792C8 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B340C8F7F06000EA394 /* EAPKeychainUtil.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F640C90875900D792C8 /* printdata.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B560C8F7F06000EA394 /* printdata.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F630C90875900D792C8 /* EAPKeychainUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B340C8F7F06000EA394 /* EAPKeychainUtil.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		F97A1F640C90875900D792C8 /* printdata.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B560C8F7F06000EA394 /* printdata.h */; settings = {ATTRIBUTES = (); }; };
 		F97A1F650C90875B00D792C8 /* EAPOL.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B360C8F7F06000EA394 /* EAPOL.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		F97A1F660C90875B00D792C8 /* mschap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B500C8F7F06000EA394 /* mschap.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		F97A1F660C90875B00D792C8 /* mschap.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F91F7B500C8F7F06000EA394 /* mschap.h */; settings = {ATTRIBUTES = (); }; };
 		F98D3E460D5A788E00E3A5A0 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
 		F997F3B30F24F46C00A9DC1F /* SIMAccess.c in Sources */ = {isa = PBXBuildFile; fileRef = F997F3B20F24F46C00A9DC1F /* SIMAccess.c */; };
 		F997F3B40F24F46C00A9DC1F /* SIMAccess.c in Sources */ = {isa = PBXBuildFile; fileRef = F997F3B20F24F46C00A9DC1F /* SIMAccess.c */; };
 		F997F3B60F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F997F3B50F24F48800A9DC1F /* SIMAccess.h */; };
 		F997F3B70F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F997F3B50F24F48800A9DC1F /* SIMAccess.h */; };
+		F99841D7128A09A700F11866 /* eapol_monitor.c in Sources */ = {isa = PBXBuildFile; fileRef = F99841D6128A09A700F11866 /* eapol_monitor.c */; };
+		F99841DE128A09E700F11866 /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F99841DC128A09E700F11866 /* Localizable.strings */; };
+		F9A6A2FD122E0212009061FE /* eapol_socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A6A2FC122E0212009061FE /* eapol_socket.c */; };
+		F9A6A2FE122E0212009061FE /* eapol_socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F9A6A2FC122E0212009061FE /* eapol_socket.c */; };
+		F9A6A302122E0221009061FE /* eapol_socket.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9A6A301122E0221009061FE /* eapol_socket.h */; };
+		F9A6A303122E0221009061FE /* eapol_socket.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9A6A301122E0221009061FE /* eapol_socket.h */; };
 		F9B0DFA50C95BB4E00323767 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
 		F9B0DFEF0C95BBB200323767 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
 		F9B2133F0EF7442600370E54 /* fips186prf.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B2133D0EF7442600370E54 /* fips186prf.c */; };
@@ -182,7 +221,6 @@
 		F9B7FB5D0C95CA6B00BBD057 /* Supplicant.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B820C8F7F55000EA394 /* Supplicant.c */; };
 		F9B7FB5E0C95CA6C00BBD057 /* Timer.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B850C8F7F55000EA394 /* Timer.c */; };
 		F9B7FB5F0C95CA6D00BBD057 /* FDHandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B750C8F7F55000EA394 /* FDHandler.c */; };
-		F9B7FB600C95CA6E00BBD057 /* ndrv_socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B7F0C8F7F55000EA394 /* ndrv_socket.c */; };
 		F9B7FB610C95CA6F00BBD057 /* EAPOLSocket.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B730C8F7F55000EA394 /* EAPOLSocket.c */; };
 		F9B7FB620C95CA7000BBD057 /* KeyValue.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B770C8F7F55000EA394 /* KeyValue.c */; };
 		F9B7FB630C95CA7200BBD057 /* mylog.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B7D0C8F7F55000EA394 /* mylog.c */; };
@@ -196,6 +234,12 @@
 		F9D5E2400C9612D0004C0066 /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */; };
 		F9D5E27A0C9612FA004C0066 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
 		F9D5E2C50C961307004C0066 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
+		F9E0CA6010FFA83D00CBC67D /* EAPKeychainUtilInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9E0CA5F10FFA83D00CBC67D /* EAPKeychainUtilInternal.h */; };
+		F9E0CA6110FFA83D00CBC67D /* EAPKeychainUtilInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9E0CA5F10FFA83D00CBC67D /* EAPKeychainUtilInternal.h */; };
+		F9E31A1A12314F9900181D7D /* EAPOLUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F9E31A1912314F9900181D7D /* EAPOLUtil.c */; };
+		F9E31A1B12314F9900181D7D /* EAPOLUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F9E31A1912314F9900181D7D /* EAPOLUtil.c */; };
+		F9E31A1D12314FAA00181D7D /* EAPOLUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9E31A1C12314FAA00181D7D /* EAPOLUtil.h */; };
+		F9E31A1E12314FAA00181D7D /* EAPOLUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */ = {isa = PBXBuildFile; fileRef = F9E31A1C12314FAA00181D7D /* EAPOLUtil.h */; };
 		F9F374A80CC579D400AF6F0B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = F91F7B5F0C8F7F2C000EA394 /* Localizable.strings */; };
 		F9FE9C640C9220F40004CCD4 /* eapolcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B900C8F7F98000EA394 /* eapolcontroller.defs */; };
 		F9FE9C6C0C92234E0004CCD4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
@@ -206,6 +250,10 @@
 		F9FE9CB50C95B9E50004CCD4 /* myCFUtil.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B650C8F7F2C000EA394 /* myCFUtil.c */; };
 		F9FE9CB60C95B9E90004CCD4 /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B6B0C8F7F2C000EA394 /* server.c */; };
 		F9FE9CBA0C95BA4F0004CCD4 /* eapolcontroller.defs in Sources */ = {isa = PBXBuildFile; fileRef = F91F7B900C8F7F98000EA394 /* eapolcontroller.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		F9FED4F3128B530D00CC941D /* EAP8021X.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F91547640CD78FA7008D9897 /* EAP8021X.framework */; };
+		F9FED4F6128B531500CC941D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */; };
+		F9FED547128B531C00CC941D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6B0C92234E0004CCD4 /* SystemConfiguration.framework */; };
+		F9FED570128B532200CC941D /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F9FE9C6A0C92234E0004CCD4 /* Security.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -223,6 +271,13 @@
 			remoteGlobalIDString = F90FEE640CA3342D00A7B5A8;
 			remoteInfo = "EAPOLController(embedded)";
 		};
+		F92EC9721135A50B00517A0F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F92EC86A11358ED000517A0F;
+			remoteInfo = eapolcfg_auth;
+		};
 		F952CB630D5A732100ED1EFD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
@@ -236,6 +291,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = F90FEE450CA3338A00A7B5A8;
 			remoteInfo = "eapolclient(embedded)";
+		};
+		F98B11A910F3EF2D00808ABE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F96044A410D1CA78000D803D;
+			remoteInfo = eapolcfg;
 		};
 		F9B0E0210C95BD8800323767 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -265,10 +327,31 @@
 			remoteGlobalIDString = F9D5E2190C9611CF004C0066;
 			remoteInfo = eapoltest;
 		};
+		F9FED4E3128B52B000CC941D /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = F91F7AD60C8F5E37000EA394 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = F92D8E9D1241873400993F02;
+			remoteInfo = EAPOLMonitor;
+		};
 /* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F92EC9A41135BAE800517A0F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "$(SYSTEM_LIBRARY_DIR)/LaunchDaemons";
+			dstSubfolderSpec = 0;
+			files = (
+				F92EC9A91135BBA900517A0F /* com.apple.eapolcfg_auth.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
 		68A6B7900DE0EE5C00D48B5D /* entitlements.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = entitlements.plist; path = eapolclient.tproj/entitlements.plist; sourceTree = SOURCE_ROOT; };
+		F903852212AD65990063F55C /* libadsupport.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libadsupport.a; path = /usr/local/lib/opendirectory/libadsupport.a; sourceTree = "<absolute>"; };
 		F9063FC80EF17BD8003227D9 /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
 		F9063FC90EF17BD8003227D9 /* eapsim_plugin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eapsim_plugin.c; sourceTree = "<group>"; };
 		F90640070EF17BF8003227D9 /* fips186prf.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = fips186prf.h; sourceTree = "<group>"; };
@@ -350,8 +433,6 @@
 		F91F7B790C8F7F55000EA394 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = main.c; sourceTree = "<group>"; };
 		F91F7B7D0C8F7F55000EA394 /* mylog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = mylog.c; sourceTree = "<group>"; };
 		F91F7B7E0C8F7F55000EA394 /* mylog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mylog.h; sourceTree = "<group>"; };
-		F91F7B7F0C8F7F55000EA394 /* ndrv_socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ndrv_socket.c; sourceTree = "<group>"; };
-		F91F7B800C8F7F55000EA394 /* ndrv_socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ndrv_socket.h; sourceTree = "<group>"; };
 		F91F7B820C8F7F55000EA394 /* Supplicant.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Supplicant.c; sourceTree = "<group>"; };
 		F91F7B830C8F7F55000EA394 /* Supplicant.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Supplicant.h; sourceTree = "<group>"; };
 		F91F7B850C8F7F55000EA394 /* Timer.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = Timer.c; sourceTree = "<group>"; };
@@ -361,19 +442,45 @@
 		F91F7B8A0C8F7F80000EA394 /* client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = client.c; sourceTree = "<group>"; };
 		F91F7B900C8F7F98000EA394 /* eapolcontroller.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = eapolcontroller.defs; sourceTree = "<group>"; };
 		F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = EAP8021X.framework; sourceTree = BUILT_PRODUCTS_DIR; };
+		F925AAF410F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLClientConfigurationPrivate.h; sourceTree = "<group>"; };
+		F925AAF510F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLControlTypesPrivate.h; sourceTree = "<group>"; };
+		F92D8E9E1241873400993F02 /* EAPOLMonitor.plugin */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = EAPOLMonitor.plugin; sourceTree = BUILT_PRODUCTS_DIR; };
+		F92EC86B11358ED000517A0F /* eapolcfg_auth */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolcfg_auth; sourceTree = BUILT_PRODUCTS_DIR; };
+		F92EC9891135A91800517A0F /* eapolcfg_auth.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; path = eapolcfg_auth.defs; sourceTree = "<group>"; };
+		F92EC98C1135A94000517A0F /* eapolcfg_auth_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = eapolcfg_auth_types.h; path = EAP8021X.fproj/eapolcfg_auth_types.h; sourceTree = "<group>"; };
+		F92EC9971135A9DC00517A0F /* eapolcfg_auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eapolcfg_auth.c; sourceTree = "<group>"; };
+		F92EC9A51135BB0300517A0F /* com.apple.eapolcfg_auth.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.eapolcfg_auth.plist; sourceTree = "<group>"; };
+		F930DECC12024F8200316A23 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		F94E3F730F6706420061BC58 /* InterestNotification.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = InterestNotification.c; sourceTree = "<group>"; };
 		F94E3F750F6706510061BC58 /* InterestNotification.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = InterestNotification.h; sourceTree = "<group>"; };
 		F94E3F800F6729190061BC58 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLControlPrivate.h; sourceTree = "<group>"; };
 		F952CB610D5A72CE00ED1EFD /* eapoltest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapoltest; sourceTree = BUILT_PRODUCTS_DIR; };
+		F960448510D1A528000D803D /* EAPOLClientConfiguration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientConfiguration.c; sourceTree = "<group>"; };
+		F960448610D1A528000D803D /* EAPOLClientItemID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientItemID.c; sourceTree = "<group>"; };
+		F960448710D1A528000D803D /* EAPOLClientProfile.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLClientProfile.c; sourceTree = "<group>"; };
+		F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLClientConfiguration.h; sourceTree = "<group>"; };
+		F960448C10D1A54E000D803D /* EAPOLClientConfigurationInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLClientConfigurationInternal.h; sourceTree = "<group>"; };
+		F960448D10D1A54E000D803D /* symbol_scope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = symbol_scope.h; sourceTree = "<group>"; };
+		F960449F10D1CA46000D803D /* eapolcfg.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eapolcfg.c; sourceTree = "<group>"; };
+		F96044A510D1CA78000D803D /* eapolcfg */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolcfg; sourceTree = BUILT_PRODUCTS_DIR; };
 		F997F3B20F24F46C00A9DC1F /* SIMAccess.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = SIMAccess.c; sourceTree = "<group>"; };
 		F997F3B50F24F48800A9DC1F /* SIMAccess.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = SIMAccess.h; sourceTree = "<group>"; };
+		F99841D6128A09A700F11866 /* eapol_monitor.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = eapol_monitor.c; path = EAPOLMonitor.bproj/eapol_monitor.c; sourceTree = "<group>"; };
+		F99841D9128A09D300F11866 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = Info.plist; path = EAPOLMonitor.bproj/Info.plist; sourceTree = "<group>"; };
+		F99841DD128A09E700F11866 /* English */ = {isa = PBXFileReference; fileEncoding = 10; lastKnownFileType = text.plist.strings; name = English; path = Localizable.strings; sourceTree = "<group>"; };
 		F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = AspenSDK.xcconfig; path = AppleInternal/XcodeConfig/AspenSDK.xcconfig; sourceTree = DEVELOPER_DIR; };
+		F9A6A2FC122E0212009061FE /* eapol_socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = eapol_socket.c; sourceTree = "<group>"; };
+		F9A6A301122E0221009061FE /* eapol_socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eapol_socket.h; sourceTree = "<group>"; };
 		F9B2133D0EF7442600370E54 /* fips186prf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fips186prf.c; sourceTree = "<group>"; };
 		F9B2133E0EF7442600370E54 /* fr_sha1.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = fr_sha1.c; sourceTree = "<group>"; };
 		F9B7FB510C95C9D900BBD057 /* eapolclient */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapolclient; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9D5E21A0C9611CF004C0066 /* eapoltest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = eapoltest; sourceTree = BUILT_PRODUCTS_DIR; };
 		F9D5E2C80C9614B7004C0066 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F9D5E2CC0C9614E9004C0066 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		F9E0CA5F10FFA83D00CBC67D /* EAPKeychainUtilInternal.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPKeychainUtilInternal.h; sourceTree = "<group>"; };
+		F9E31A1912314F9900181D7D /* EAPOLUtil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = EAPOLUtil.c; sourceTree = "<group>"; };
+		F9E31A1C12314FAA00181D7D /* EAPOLUtil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = EAPOLUtil.h; sourceTree = "<group>"; };
 		F9F78E900DCB699E0077AA04 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		F9FE9C690C92234E0004CCD4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		F9FE9C6A0C92234E0004CCD4 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
@@ -391,6 +498,7 @@
 				F90FEE560CA3338A00A7B5A8 /* CoreFoundation.framework in Frameworks */,
 				F90FEE570CA3338A00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
 				F91546660CD78EA1008D9897 /* libio80211.a in Frameworks */,
+				F930DECD12024F8200316A23 /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -400,6 +508,7 @@
 			files = (
 				F90FEE6F0CA3342D00A7B5A8 /* SystemConfiguration.framework in Frameworks */,
 				F90FEE700CA3342D00A7B5A8 /* CoreFoundation.framework in Frameworks */,
+				F925AB3410F7FC0B002AC2E5 /* EAP8021X.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -424,6 +533,28 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F92D8E9C1241873400993F02 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F9FED4F3128B530D00CC941D /* EAP8021X.framework in Frameworks */,
+				F9FED4F6128B531500CC941D /* CoreFoundation.framework in Frameworks */,
+				F9FED547128B531C00CC941D /* SystemConfiguration.framework in Frameworks */,
+				F9FED570128B532200CC941D /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F92EC86911358ED000517A0F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F92EC87311358F8A00517A0F /* EAP8021X.framework in Frameworks */,
+				F92EC87611358FA200517A0F /* CoreFoundation.framework in Frameworks */,
+				F92EC94411358FB300517A0F /* SystemConfiguration.framework in Frameworks */,
+				F92EC8C411358FA700517A0F /* Security.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F952CB5A0D5A72CE00ED1EFD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -431,6 +562,17 @@
 				F952CB5B0D5A72CE00ED1EFD /* SystemConfiguration.framework in Frameworks */,
 				F952CB5C0D5A72CE00ED1EFD /* CoreFoundation.framework in Frameworks */,
 				F98D3E460D5A788E00E3A5A0 /* EAP8021X.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F96044A310D1CA78000D803D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F925AB5710F803B7002AC2E5 /* EAP8021X.framework in Frameworks */,
+				F925AB5910F803DE002AC2E5 /* CoreFoundation.framework in Frameworks */,
+				F925AB5A10F803DE002AC2E5 /* SystemConfiguration.framework in Frameworks */,
+				F925AB5C10F80458002AC2E5 /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -443,6 +585,7 @@
 				F9B7FB6E0C95CBD900BBD057 /* CoreFoundation.framework in Frameworks */,
 				F9B7FBB40C95CBDE00BBD057 /* SystemConfiguration.framework in Frameworks */,
 				F94E3F810F6729190061BC58 /* IOKit.framework in Frameworks */,
+				F903852312AD65990063F55C /* libadsupport.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -462,6 +605,7 @@
 			files = (
 				F9B0DFEF0C95BBB200323767 /* SystemConfiguration.framework in Frameworks */,
 				F9B0DFA50C95BB4E00323767 /* CoreFoundation.framework in Frameworks */,
+				F925AB3210F7FBEE002AC2E5 /* EAP8021X.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -471,6 +615,9 @@
 		F91F7AD40C8F5E37000EA394 = {
 			isa = PBXGroup;
 			children = (
+				F99841D3128A098200F11866 /* EAPOLMonitor.bproj */,
+				F92EC9961135A9DC00517A0F /* eapolcfg_auth.tproj */,
+				F960449E10D1CA46000D803D /* eapolcfg.tproj */,
 				F9ACFE420F323FAE00F9D7ED /* Supporting Files */,
 				F99900B00DB7FD25006DA976 /* Platforms */,
 				F9B0E0470C95BFF600323767 /* External Frameworks And Libraries */,
@@ -482,6 +629,8 @@
 				F91F7BA70C8F864F000EA394 /* Products */,
 				F917D2F90F1E679500E37956 /* CoreTelephony.framework */,
 				F94E3F800F6729190061BC58 /* IOKit.framework */,
+				F930DECC12024F8200316A23 /* IOKit.framework */,
+				F903852212AD65990063F55C /* libadsupport.a */,
 			);
 			sourceTree = "<group>";
 		};
@@ -526,6 +675,11 @@
 		F91F7B950C8F8387000EA394 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F9E31A1912314F9900181D7D /* EAPOLUtil.c */,
+				F9A6A2FC122E0212009061FE /* eapol_socket.c */,
+				F960448510D1A528000D803D /* EAPOLClientConfiguration.c */,
+				F960448610D1A528000D803D /* EAPOLClientItemID.c */,
+				F960448710D1A528000D803D /* EAPOLClientProfile.c */,
 				F9B2133D0EF7442600370E54 /* fips186prf.c */,
 				F9B2133E0EF7442600370E54 /* fr_sha1.c */,
 				F9063FC90EF17BD8003227D9 /* eapsim_plugin.c */,
@@ -559,6 +713,15 @@
 		F91F7B960C8F83AE000EA394 /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				F94FD6821231B5D400FFF683 /* EAPOLControlPrivate.h */,
+				F9E31A1C12314FAA00181D7D /* EAPOLUtil.h */,
+				F9A6A301122E0221009061FE /* eapol_socket.h */,
+				F9E0CA5F10FFA83D00CBC67D /* EAPKeychainUtilInternal.h */,
+				F925AAF410F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h */,
+				F925AAF510F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h */,
+				F960448B10D1A54E000D803D /* EAPOLClientConfiguration.h */,
+				F960448C10D1A54E000D803D /* EAPOLClientConfigurationInternal.h */,
+				F960448D10D1A54E000D803D /* symbol_scope.h */,
 				F90640070EF17BF8003227D9 /* fips186prf.h */,
 				F90640080EF17BF8003227D9 /* fr_sha1.h */,
 				F91F7B230C8F7F06000EA394 /* chap.h */,
@@ -593,6 +756,8 @@
 		F91F7B970C8F83EC000EA394 /* MiG */ = {
 			isa = PBXGroup;
 			children = (
+				F92EC98C1135A94000517A0F /* eapolcfg_auth_types.h */,
+				F92EC9891135A91800517A0F /* eapolcfg_auth.defs */,
 				F91F7B3C0C8F7F06000EA394 /* eapolcontroller_ext.h */,
 				F91F7B3D0C8F7F06000EA394 /* eapolcontroller_types.h */,
 				F91F7B900C8F7F98000EA394 /* eapolcontroller.defs */,
@@ -652,7 +817,6 @@
 				F91F7B770C8F7F55000EA394 /* KeyValue.c */,
 				F91F7B790C8F7F55000EA394 /* main.c */,
 				F91F7B7D0C8F7F55000EA394 /* mylog.c */,
-				F91F7B7F0C8F7F55000EA394 /* ndrv_socket.c */,
 				F91F7B820C8F7F55000EA394 /* Supplicant.c */,
 				F91F7B850C8F7F55000EA394 /* Timer.c */,
 				F91F7B870C8F7F55000EA394 /* wireless.c */,
@@ -670,7 +834,6 @@
 				F91F7B760C8F7F55000EA394 /* FDHandler.h */,
 				F91F7B780C8F7F55000EA394 /* KeyValue.h */,
 				F91F7B7E0C8F7F55000EA394 /* mylog.h */,
-				F91F7B800C8F7F55000EA394 /* ndrv_socket.h */,
 				F91F7B830C8F7F55000EA394 /* Supplicant.h */,
 				F91F7B860C8F7F55000EA394 /* Timer.h */,
 				F91F7B880C8F7F55000EA394 /* wireless.h */,
@@ -689,8 +852,47 @@
 				F90FEE740CA3342D00A7B5A8 /* EAPOLController.bundle */,
 				F91547640CD78FA7008D9897 /* EAP8021X.framework */,
 				F952CB610D5A72CE00ED1EFD /* eapoltest */,
+				F96044A510D1CA78000D803D /* eapolcfg */,
+				F92EC86B11358ED000517A0F /* eapolcfg_auth */,
+				F92D8E9E1241873400993F02 /* EAPOLMonitor.plugin */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		F92EC9961135A9DC00517A0F /* eapolcfg_auth.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				F92EC9A51135BB0300517A0F /* com.apple.eapolcfg_auth.plist */,
+				F92EC9971135A9DC00517A0F /* eapolcfg_auth.c */,
+			);
+			path = eapolcfg_auth.tproj;
+			sourceTree = "<group>";
+		};
+		F960449E10D1CA46000D803D /* eapolcfg.tproj */ = {
+			isa = PBXGroup;
+			children = (
+				F960449F10D1CA46000D803D /* eapolcfg.c */,
+			);
+			path = eapolcfg.tproj;
+			sourceTree = "<group>";
+		};
+		F99841D3128A098200F11866 /* EAPOLMonitor.bproj */ = {
+			isa = PBXGroup;
+			children = (
+				F99841DB128A09E700F11866 /* English.lproj */,
+				F99841D9128A09D300F11866 /* Info.plist */,
+				F99841D6128A09A700F11866 /* eapol_monitor.c */,
+			);
+			name = EAPOLMonitor.bproj;
+			sourceTree = "<group>";
+		};
+		F99841DB128A09E700F11866 /* English.lproj */ = {
+			isa = PBXGroup;
+			children = (
+				F99841DC128A09E700F11866 /* Localizable.strings */,
+			);
+			name = English.lproj;
+			path = EAPOLMonitor.bproj/English.lproj;
 			sourceTree = "<group>";
 		};
 		F99900B00DB7FD25006DA976 /* Platforms */ = {
@@ -763,6 +965,12 @@
 				F906407B0EF17BF8003227D9 /* fips186prf.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F906407C0EF17BF8003227D9 /* fr_sha1.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F997F3B60F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960449110D1A58A000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F925AAF910F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9E0CA6110FFA83D00CBC67D /* EAPKeychainUtilInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9A6A303122E0221009061FE /* eapol_socket.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9E31A1E12314FAA00181D7D /* EAPOLUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F94FD6841231B5D400FFF683 /* EAPOLControlPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 			);
 			name = "Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24)";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -798,6 +1006,16 @@
 				F90640410EF17BF8003227D9 /* fips186prf.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F90640420EF17BF8003227D9 /* fr_sha1.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 				F997F3B70F24F48800A9DC1F /* SIMAccess.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960448E10D1A54E000D803D /* EAPOLClientConfiguration.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960448F10D1A54E000D803D /* EAPOLClientConfigurationInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F960449010D1A54E000D803D /* symbol_scope.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F925AAF610F7F74B002AC2E5 /* EAPOLClientConfigurationPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F925AAF710F7F74B002AC2E5 /* EAPOLControlTypesPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9E0CA6010FFA83D00CBC67D /* EAPKeychainUtilInternal.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F92EC98D1135A94000517A0F /* eapolcfg_auth_types.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9A6A302122E0221009061FE /* eapol_socket.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F9E31A1D12314FAA00181D7D /* EAPOLUtil.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
+				F94FD6831231B5D400FFF683 /* EAPOLControlPrivate.h in Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) */,
 			);
 			name = "Copy Headers (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24) (24)";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -874,6 +1092,41 @@
 			productReference = F91F7BBB0C8F873D000EA394 /* EAP8021X.framework */;
 			productType = "com.apple.product-type.framework";
 		};
+		F92D8E9D1241873400993F02 /* EAPOLMonitor */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F92D8EA21241873500993F02 /* Build configuration list for PBXNativeTarget "EAPOLMonitor" */;
+			buildPhases = (
+				F92D8E9A1241873400993F02 /* Resources */,
+				F92D8E9B1241873400993F02 /* Sources */,
+				F92D8E9C1241873400993F02 /* Frameworks */,
+				F97450CF128B5F8200DA3EE3 /* chmod UserEventPlugins: root:wheel */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = EAPOLMonitor;
+			productName = EAPOLMonitor;
+			productReference = F92D8E9E1241873400993F02 /* EAPOLMonitor.plugin */;
+			productType = "com.apple.product-type.bundle";
+		};
+		F92EC86A11358ED000517A0F /* eapolcfg_auth */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F92EC86F11358EF200517A0F /* Build configuration list for PBXNativeTarget "eapolcfg_auth" */;
+			buildPhases = (
+				F92EC86811358ED000517A0F /* Sources */,
+				F92EC9A41135BAE800517A0F /* CopyFiles */,
+				F92EC86911358ED000517A0F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = eapolcfg_auth;
+			productName = eapolcfg_auth;
+			productReference = F92EC86B11358ED000517A0F /* eapolcfg_auth */;
+			productType = "com.apple.product-type.tool";
+		};
 		F952CB570D5A72CE00ED1EFD /* eapoltest(embedded) */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = F952CB5E0D5A72CE00ED1EFD /* Build configuration list for PBXNativeTarget "eapoltest(embedded)" */;
@@ -888,6 +1141,22 @@
 			name = "eapoltest(embedded)";
 			productName = eapoltest;
 			productReference = F952CB610D5A72CE00ED1EFD /* eapoltest */;
+			productType = "com.apple.product-type.tool";
+		};
+		F96044A410D1CA78000D803D /* eapolcfg */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = F96044A910D1CA9B000D803D /* Build configuration list for PBXNativeTarget "eapolcfg" */;
+			buildPhases = (
+				F96044A210D1CA78000D803D /* Sources */,
+				F96044A310D1CA78000D803D /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = eapolcfg;
+			productName = eapolcfg;
+			productReference = F96044A510D1CA78000D803D /* eapolcfg */;
 			productType = "com.apple.product-type.tool";
 		};
 		F9B7FB500C95C9D900BBD057 /* eapolclient */ = {
@@ -947,7 +1216,14 @@
 			isa = PBXProject;
 			buildConfigurationList = F91F7AD90C8F5E37000EA394 /* Build configuration list for PBXProject "eap8021x" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = F91F7AD40C8F5E37000EA394;
 			productRefGroup = F91F7BA70C8F864F000EA394 /* Products */;
 			projectDirPath = "";
@@ -963,6 +1239,9 @@
 				F90FEE450CA3338A00A7B5A8 /* eapolclient(embedded) */,
 				F9D5E2190C9611CF004C0066 /* eapoltest */,
 				F952CB570D5A72CE00ED1EFD /* eapoltest(embedded) */,
+				F96044A410D1CA78000D803D /* eapolcfg */,
+				F92EC86A11358ED000517A0F /* eapolcfg_auth */,
+				F92D8E9D1241873400993F02 /* EAPOLMonitor */,
 			);
 		};
 /* End PBXProject section */
@@ -989,6 +1268,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F92D8E9A1241873400993F02 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F99841DE128A09E700F11866 /* Localizable.strings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F9FE9C9F0C95B4B00004CCD4 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1000,6 +1287,20 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		F97450CF128B5F8200DA3EE3 /* chmod UserEventPlugins: root:wheel */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "chmod UserEventPlugins: root:wheel";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "chown root:wheel ${TARGET_BUILD_DIR}";
+		};
 		F9B7FCDF0C95E10200BBD057 /* Darwin Check */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 12;
@@ -1026,11 +1327,11 @@
 				F90FEE490CA3338A00A7B5A8 /* Supplicant.c in Sources */,
 				F90FEE4A0CA3338A00A7B5A8 /* Timer.c in Sources */,
 				F90FEE4B0CA3338A00A7B5A8 /* FDHandler.c in Sources */,
-				F90FEE4C0CA3338A00A7B5A8 /* ndrv_socket.c in Sources */,
 				F90FEE4D0CA3338A00A7B5A8 /* EAPOLSocket.c in Sources */,
 				F90FEE4E0CA3338A00A7B5A8 /* KeyValue.c in Sources */,
 				F90FEE4F0CA3338A00A7B5A8 /* mylog.c in Sources */,
 				F90FEE510CA3338A00A7B5A8 /* wireless.c in Sources */,
+				F930DECE12024FCC00316A23 /* InterestNotification.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1077,6 +1378,8 @@
 				F9B213410EF7442600370E54 /* fips186prf.c in Sources */,
 				F9B213420EF7442600370E54 /* fr_sha1.c in Sources */,
 				F997F3B30F24F46C00A9DC1F /* SIMAccess.c in Sources */,
+				F9A6A2FE122E0212009061FE /* eapol_socket.c in Sources */,
+				F9E31A1B12314F9900181D7D /* EAPOLUtil.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1111,6 +1414,29 @@
 				F9B2133F0EF7442600370E54 /* fips186prf.c in Sources */,
 				F9B213400EF7442600370E54 /* fr_sha1.c in Sources */,
 				F997F3B40F24F46C00A9DC1F /* SIMAccess.c in Sources */,
+				F960448810D1A528000D803D /* EAPOLClientConfiguration.c in Sources */,
+				F960448910D1A528000D803D /* EAPOLClientItemID.c in Sources */,
+				F960448A10D1A528000D803D /* EAPOLClientProfile.c in Sources */,
+				F92EC98B1135A91800517A0F /* eapolcfg_auth.defs in Sources */,
+				F9A6A2FD122E0212009061FE /* eapol_socket.c in Sources */,
+				F9E31A1A12314F9900181D7D /* EAPOLUtil.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F92D8E9B1241873400993F02 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F99841D7128A09A700F11866 /* eapol_monitor.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F92EC86811358ED000517A0F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F92EC98E1135A96800517A0F /* eapolcfg_auth.defs in Sources */,
+				F92EC9981135A9DC00517A0F /* eapolcfg_auth.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1122,6 +1448,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		F96044A210D1CA78000D803D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F925AB5010F8017D002AC2E5 /* eapolcfg.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		F9B7FB4E0C95C9D900BBD057 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -1130,7 +1464,6 @@
 				F9B7FB5D0C95CA6B00BBD057 /* Supplicant.c in Sources */,
 				F9B7FB5E0C95CA6C00BBD057 /* Timer.c in Sources */,
 				F9B7FB5F0C95CA6D00BBD057 /* FDHandler.c in Sources */,
-				F9B7FB600C95CA6E00BBD057 /* ndrv_socket.c in Sources */,
 				F9B7FB610C95CA6F00BBD057 /* EAPOLSocket.c in Sources */,
 				F9B7FB620C95CA7000BBD057 /* KeyValue.c in Sources */,
 				F9B7FB630C95CA7200BBD057 /* mylog.c in Sources */,
@@ -1173,6 +1506,11 @@
 			target = F90FEE640CA3342D00A7B5A8 /* EAPOLController(embedded) */;
 			targetProxy = F90FEE870CA3349400A7B5A8 /* PBXContainerItemProxy */;
 		};
+		F92EC9731135A50B00517A0F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F92EC86A11358ED000517A0F /* eapolcfg_auth */;
+			targetProxy = F92EC9721135A50B00517A0F /* PBXContainerItemProxy */;
+		};
 		F952CB640D5A732100ED1EFD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = F952CB570D5A72CE00ED1EFD /* eapoltest(embedded) */;
@@ -1182,6 +1520,11 @@
 			isa = PBXTargetDependency;
 			target = F90FEE450CA3338A00A7B5A8 /* eapolclient(embedded) */;
 			targetProxy = F98535AE0CCD29F1000C3260 /* PBXContainerItemProxy */;
+		};
+		F98B11AA10F3EF2D00808ABE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F96044A410D1CA78000D803D /* eapolcfg */;
+			targetProxy = F98B11A910F3EF2D00808ABE /* PBXContainerItemProxy */;
 		};
 		F9B0E0220C95BD8800323767 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -1203,6 +1546,11 @@
 			target = F9D5E2190C9611CF004C0066 /* eapoltest */;
 			targetProxy = F9D5E2D00C9615F7004C0066 /* PBXContainerItemProxy */;
 		};
+		F9FED4E4128B52B000CC941D /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = F92D8E9D1241873400993F02 /* EAPOLMonitor */;
+			targetProxy = F9FED4E3128B52B000CC941D /* PBXContainerItemProxy */;
+		};
 /* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
@@ -1214,6 +1562,14 @@
 			name = Localizable.strings;
 			sourceTree = "<group>";
 		};
+		F99841DC128A09E700F11866 /* Localizable.strings */ = {
+			isa = PBXVariantGroup;
+			children = (
+				F99841DD128A09E700F11866 /* English */,
+			);
+			name = Localizable.strings;
+			sourceTree = "<group>";
+		};
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
@@ -1221,7 +1577,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				CODE_SIGN_ENTITLEMENTS = eapolclient.tproj/entitlements.plist;
 				COPY_PHASE_STRIP = YES;
 				DEAD_CODE_STRIPPING = YES;
@@ -1229,6 +1584,7 @@
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -1237,10 +1593,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle";
-				OTHER_CFLAGS = (
-					"-mdynamic-no-pic",
-					"-fconstant-cfstrings",
-				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				PREBINDING = NO;
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
@@ -1256,7 +1609,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				CODE_SIGN_ENTITLEMENTS = eapolclient.tproj/entitlements.plist;
 				COPY_PHASE_STRIP = NO;
 				DEAD_CODE_STRIPPING = YES;
@@ -1264,6 +1616,7 @@
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -1272,10 +1625,7 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle";
-				OTHER_CFLAGS = (
-					"-mdynamic-no-pic",
-					"-fconstant-cfstrings",
-				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				PREBINDING = NO;
 				PRODUCT_NAME = eapolclient;
 				SECTORDER_FLAGS = "";
@@ -1291,7 +1641,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
@@ -1318,7 +1667,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				DEAD_CODE_STRIPPING = YES;
 				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
@@ -1483,7 +1831,9 @@
 		F91F7BC00C8F87BF000EA394 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 			};
 			name = Development;
 		};
@@ -1527,12 +1877,82 @@
 			};
 			name = Development;
 		};
+		F92D8EA01241873400993F02 /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = EAPOLMonitor.bproj/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = EAPOLMonitor;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Deployment;
+		};
+		F92D8EA11241873400993F02 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				INFOPLIST_FILE = EAPOLMonitor.bproj/Info.plist;
+				INSTALL_GROUP = wheel;
+				INSTALL_OWNER = root;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/UserEventPlugins";
+				OTHER_LDFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = EAPOLMonitor;
+				WRAPPER_EXTENSION = plugin;
+			};
+			name = Development;
+		};
+		F92EC86D11358ED100517A0F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks/EAP8021X.framework/Resources";
+				PREBINDING = NO;
+				PRODUCT_NAME = eapolcfg_auth;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		F92EC86E11358ED100517A0F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /System/Library/PrivateFrameworks/EAP8021X.framework/Resources;
+				PREBINDING = NO;
+				PRODUCT_NAME = eapolcfg_auth;
+			};
+			name = Development;
+		};
 		F952CB5F0D5A72CE00ED1EFD /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_GROUP = wheel;
@@ -1547,7 +1967,6 @@
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -1558,6 +1977,37 @@
 				INSTALL_PATH = /usr/local/bin;
 				PREBINDING = NO;
 				PRODUCT_NAME = eapoltest;
+			};
+			name = Development;
+		};
+		F96044A710D1CA7A000D803D /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = eapolcfg;
+				ZERO_LINK = NO;
+			};
+			name = Deployment;
+		};
+		F96044A810D1CA7A000D803D /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = eapolcfg;
 			};
 			name = Development;
 		};
@@ -1609,6 +2059,7 @@
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -1617,11 +2068,11 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle/Contents/Resources";
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-mdynamic-no-pic",
-					"-fconstant-cfstrings",
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/lib/opendirectory,
 				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"-sectcreate",
 					__TEXT,
@@ -1651,6 +2102,7 @@
 					"$(SYMROOT)",
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = (
 					"$(SYMROOT)",
@@ -1659,11 +2111,11 @@
 				INSTALL_GROUP = wheel;
 				INSTALL_OWNER = root;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration/EAPOLController.bundle/Contents/Resources";
-				LIBRARY_SEARCH_PATHS = "";
-				OTHER_CFLAGS = (
-					"-mdynamic-no-pic",
-					"-fconstant-cfstrings",
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					/usr/local/lib/opendirectory,
 				);
+				OTHER_CFLAGS = "-fconstant-cfstrings";
 				OTHER_LDFLAGS = (
 					"-sectcreate",
 					__TEXT,
@@ -1704,7 +2156,6 @@
 			baseConfigurationReference = F99900B40DB7FDC4006DA976 /* AspenSDK.xcconfig */;
 			buildSettings = {
 				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = embedded;
 				WARNING_CFLAGS = (
@@ -1720,6 +2171,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_GROUP = wheel;
@@ -1845,11 +2297,38 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;
 		};
+		F92D8EA21241873500993F02 /* Build configuration list for PBXNativeTarget "EAPOLMonitor" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F92D8EA01241873400993F02 /* Deployment */,
+				F92D8EA11241873400993F02 /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		F92EC86F11358EF200517A0F /* Build configuration list for PBXNativeTarget "eapolcfg_auth" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F92EC86D11358ED100517A0F /* Deployment */,
+				F92EC86E11358ED100517A0F /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
 		F952CB5E0D5A72CE00ED1EFD /* Build configuration list for PBXNativeTarget "eapoltest(embedded)" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				F952CB5F0D5A72CE00ED1EFD /* Deployment */,
 				F952CB600D5A72CE00ED1EFD /* Development */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Deployment;
+		};
+		F96044A910D1CA9B000D803D /* Build configuration list for PBXNativeTarget "eapolcfg" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F96044A710D1CA7A000D803D /* Deployment */,
+				F96044A810D1CA7A000D803D /* Development */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

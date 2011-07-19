@@ -1,3 +1,9 @@
+2009-03-16  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/bugExt.c: Fixed [SF Bug 2687845] by Stuart Cassoff,
+	* generic/bugFix.c: added inclusion of memchanInt.h to these
+	* generic/bugRange.c: files to declare memcpy().
+
 2008-10-03  Andreas Kupries  <andreask@activestate.com>
 
 	* generic/memchanInt.h: Fixed [SF Bug 2078168] by Larry Virden

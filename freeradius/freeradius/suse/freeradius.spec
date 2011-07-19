@@ -3,7 +3,7 @@ License:      GPL, LGPL
 Group:        Productivity/Networking/Radius/Servers
 Provides:     radiusd
 Conflicts:    freeradius
-Version:      2.1.3
+Version: 2.1.10
 Release:      0
 URL:          http://www.freeradius.org/
 Summary:      The world's most popular RADIUS Server
@@ -179,7 +179,6 @@ rm -rf `find . -name CVS`
 %build
 export CFLAGS="$RPM_OPT_FLAGS -fno-strict-aliasing -DLDAP_DEPRECATED -fPIC -DPIC"
 #export CFLAGS="$CFLAGS -std=c99 -pedantic"
-autoreconf
 
 %configure \
 		--libdir=%{_libdir}/freeradius \
@@ -305,8 +304,6 @@ rm -rf $RPM_BUILD_ROOT
 /etc/init.d/freeradius-relay
 %config /etc/pam.d/radiusd
 %config /etc/logrotate.d/radiusd
-/usr/sbin/rcfreeradius
-/usr/sbin/rcfreeradius-relay
 %dir %attr(755,radiusd,radiusd) /var/lib/radiusd
 # configs
 %dir %attr(750,-,radiusd) /etc/raddb
@@ -315,6 +312,7 @@ rm -rf $RPM_BUILD_ROOT
 %config(noreplace) /etc/raddb/acct_users
 %config(noreplace) /etc/raddb/attrs
 %config(noreplace) /etc/raddb/attrs.access_reject
+%config(noreplace) /etc/raddb/attrs.access_challenge
 %config(noreplace) /etc/raddb/attrs.accounting_response
 %config(noreplace) /etc/raddb/attrs.pre-proxy
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/clients.conf
@@ -329,10 +327,10 @@ rm -rf $RPM_BUILD_ROOT
 %dir %attr(640,-,radiusd) /etc/raddb/sql
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/sql/*/*.conf
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/sql/*/*.sql
+%attr(640,-,radiusd) %config(noreplace) /etc/raddb/sql/*/README
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/sql/oracle/msqlippool.txt
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/users
 %attr(640,-,radiusd) %config(noreplace) /etc/raddb/experimental.conf
-%attr(640,-,radiusd) %config(noreplace) /etc/raddb/otp.conf
 %dir %attr(750,-,radiusd) /etc/raddb/certs
 /etc/raddb/certs/Makefile
 /etc/raddb/certs/README
@@ -350,11 +348,7 @@ rm -rf $RPM_BUILD_ROOT
 %attr(700,radiusd,radiusd) %dir /var/run/radiusd/
 # binaries
 %defattr(-,root,root)
-/usr/sbin/checkrad
-/usr/sbin/radiusd
-/usr/sbin/radrelay
-/usr/sbin/radwatch
-/usr/sbin/radmin
+/usr/sbin/*
 # man-pages
 %doc %{_mandir}/man1/*
 %doc %{_mandir}/man5/*

@@ -1,6 +1,7 @@
 [manpage_begin autoproxy n 1.5.1]
 [moddesc   {HTTP protocol helper modules}]
 [titledesc {Automatic HTTP proxy usage and authentication}]
+[category  Networking]
 [require Tcl 8.2]
 [require http [opt 2.0]]
 [require autoproxy [opt 1.5.1]]

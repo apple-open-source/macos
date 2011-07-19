@@ -24,8 +24,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
-#ifndef PluginStream_H
-#define PluginStream_H
+#ifndef PluginStream_h
+#define PluginStream_h
 
 #include "FileSystem.h"
 #include "KURL.h"
@@ -34,7 +34,6 @@
 #include "PluginQuirkSet.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include "npruntime_internal.h"
 #include <wtf/HashMap.h>
@@ -42,6 +41,7 @@
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
     class Frame;
@@ -111,8 +111,8 @@ namespace WebCore {
         NPP m_instance;
         uint16_t m_transferMode;
         int32_t m_offset;
-        WTF::CString m_headers;
-        WTF::CString m_path;
+        CString m_headers;
+        String m_path;
         NPReason m_reason;
         NPStream m_stream;
         PluginQuirkSet m_quirks;

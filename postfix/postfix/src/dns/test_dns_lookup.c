@@ -80,7 +80,7 @@ static void print_rr(DNS_RR *rr)
 int     main(int argc, char **argv)
 {
     ARGV   *types_argv;
-    int    *types;
+    unsigned *types;
     char   *name;
     VSTRING *fqdn = vstring_alloc(100);
     VSTRING *why = vstring_alloc(100);
@@ -91,7 +91,7 @@ int     main(int argc, char **argv)
     if (argc != 3)
 	msg_fatal("usage: %s types name", argv[0]);
     types_argv = argv_split(argv[1], ", \t\r\n");
-    types = (int *) mymalloc(sizeof(*types) * (types_argv->argc + 1));
+    types = (unsigned *) mymalloc(sizeof(*types) * (types_argv->argc + 1));
     for (i = 0; i < types_argv->argc; i++)
 	if ((types[i] = dns_type(types_argv->argv[i])) == 0)
 	    msg_fatal("invalid query type: %s", types_argv->argv[i]);
@@ -99,7 +99,7 @@ int     main(int argc, char **argv)
     argv_free(types_argv);
     name = argv[2];
     msg_verbose = 1;
-    switch (dns_lookup_v(name, RES_DEFNAMES | RES_DEBUG, &rr, fqdn, why,
+    switch (dns_lookup_v(name, RES_DEBUG, &rr, fqdn, why,
 			 DNS_REQ_FLAG_NONE, types)) {
     default:
 	msg_fatal("%s", vstring_str(why));

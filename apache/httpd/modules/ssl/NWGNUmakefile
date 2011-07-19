@@ -15,7 +15,7 @@ SUBDIRS = \
 # paths to tools
 #
 
-include $(AP_WORK)\build\NWGNUhead.inc
+include $(AP_WORK)/build/NWGNUhead.inc
 
 #
 # build this level's files
@@ -32,16 +32,14 @@ OSSLAPP = $(OSSLSDK)/apps
 # INCDIRS
 #
 XINCDIRS	+= \
-			$(OSSLINC) \
-			$(OSSLINC)/openssl \
-			$(AP_WORK)/include \
-			$(AP_WORK)/server/mpm/NetWare \
-			$(AP_WORK)/modules/arch/netware \
-			$(AP_WORK)/modules/generators \
 			$(APR)/include \
 			$(APRUTIL)/include \
-			$(APR) \
+			$(AP_WORK)/include \
 			$(NWOS) \
+			$(STDMOD)/generators \
+			$(SERVER)/mpm/NetWare \
+			$(OSSLINC) \
+			$(OSSLINC)/openssl \
 			$(EOLIST)
 
 #
@@ -131,7 +129,7 @@ NLM_THREAD_NAME	= $(NLM_NAME)
 
 #
 # If this is specified, it will override VERSION value in 
-# $(AP_WORK)\build\NWGNUenvironment.inc
+# $(AP_WORK)/build/NWGNUenvironment.inc
 #
 NLM_VERSION	= 
 
@@ -144,12 +142,12 @@ NLM_STACK_SIZE	= 8192
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= _LibCPrelude
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= _LibCPostlude
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -159,7 +157,7 @@ NLM_CHECK_SYM	=
 #
 # If this is specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS	= AUTOUNLOAD, PSEUDOPREEMPTION
+NLM_FLAGS	=
  
 #
 # If this is specified it will be linked in with the XDCData option in the def 
@@ -197,7 +195,7 @@ FILES_nlm_objs := $(patsubst %.c,$(OBJDIR)/%.o,$(wildcard *.c))
 # These will be added as a library command in the link.opt file.
 #
 FILES_nlm_libs = \
-	libcpre.o \
+	$(PRELUDE) \
 	$(OSSLLIB)/crypto.lib \
 	$(OSSLLIB)/ssl.lib \
 	$(EOLIST)
@@ -231,7 +229,7 @@ FILE_nlm_copyright =
 #
 FILES_nlm_Ximports = \
 	@libc.imp \
-	@$(APR)/aprlib.imp \
+	@aprlib.imp \
 	@httpd.imp \
 	GetProcessSwitchCount \
 	RunningProcess \
@@ -268,33 +266,36 @@ nlms :: libs $(TARGET_nlm)
 
 #
 # Updated this target to create necessary directories and copy files to the 
-# correct place.  (See $(AP_WORK)\build\NWGNUhead.inc for examples)
+# correct place.  (See $(AP_WORK)/build/NWGNUhead.inc for examples)
 #
 install :: nlms FORCE
-	copy $(OBJDIR)\mod_ssl.nlm $(INSTALL)\$(BASEDIR)\modules\*.*
-	-copy $(subst /,\,$(OSSLLIB))\openssl.nlm $(INSTALL)\$(BASEDIR)\bin\*.*
-	-copy $(subst /,\,$(OSSLAPP))\openssl.cnf $(INSTALL)\$(BASEDIR)\bin\*.*
-    
+	$(call COPY,$(OBJDIR)/*.nlm, $(INSTALLBASE)/modules/)
+	$(call COPY,$(OSSLLIB)/openssl.nlm ,$(INSTALLBASE)/bin/)
+	$(call COPY,$(OSSLAPP)/openssl.cnf ,$(INSTALLBASE)/bin/)
+
 #
 # Any specialized rules here
 #
 vpath %.c $(AP_WORK)/modules/arch/netware
 
 # Make sure that the build doesn't attempt to regenerate the shipping files.
-# This requires a 'touch' utility.  Can be downloaded from 'coreutils' at
-#  http://sourceforge.net/projects/gnuwin32/
+# On Windows we use 'copy /b file.ext +,,' to assign the current time and date
+# to a file without modifying the file (the TOUCH macro uses this) - see also:
+# http://technet.microsoft.com/en-us/library/bb490886.aspx
 ssl_expr_parse.h : ssl_expr_parse.y
-	touch ssl_expr_parse.h
+	$(call TOUCH, $@)
+
 ssl_expr_parse.c : ssl_expr_parse.y
-	touch ssl_expr_parse.c
+	$(call TOUCH, $@)
+
 ssl_expr_scan.c : ssl_expr_scan.l
-	touch ssl_expr_scan.c
+	$(call TOUCH, $@)
 
 #
 # Include the 'tail' makefile that has targets that depend on variables defined
 # in this makefile
 #
 
-include $(AP_WORK)\build\NWGNUtail.inc
+include $(APBUILD)/NWGNUtail.inc
 
 

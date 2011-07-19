@@ -3,16 +3,11 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 # The following files vary by target platform.  Start with the MacOSX defaults
 # and override as necessary.
-SRC_PASSWD=master.passwd
-SRC_GROUP=group
+SRC_PASSWD=
+SRC_GROUP=
 SRC_TTYS=ttys
 
 Product=$(shell tconf --product)
-ifeq "$(Product)" "AppleTV"
-SRC_PASSWD=master.passwd.AppleTV
-SRC_GROUP=group
-SRC_TTYS=ttys.embedded
-endif
 ifeq "$(Product)" "iPhone"
 SRC_PASSWD=master.passwd.iPhone
 SRC_GROUP=group.iPhone
@@ -54,13 +49,19 @@ else
 	$(_v) $(INSTALL_FILE) -m 0644 -c $(SRC_TTYS)	 "$(Destination)/ttys"
 endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c /dev/null	 "$(Destination)/xtab"
-	$(_v) $(LN) -s /var/run/resolv.conf              "$(Destination)"
+ifeq "$(Product)" "MacOSX"
+	$(_v) $(LN) -hfs ../var/run/resolv.conf            "$(Destination)"
+endif
+ifneq "$(SRC_GROUP)" ""
 	$(_v) $(INSTALL_FILE) -m 0644 -c $(SRC_GROUP)	 "$(Destination)/group"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c hosts		 "$(Destination)/hosts"
 	$(_v) $(INSTALL_FILE) -m 0644 -c manpaths	 "$(Destination)/manpaths"
+ifneq "$(SRC_PASSWD)" ""
 	$(_v) $(INSTALL_FILE) -m 0600 -c $(SRC_PASSWD)	 "$(Destination)/master.passwd"
 	$(_v) cat $(SRC_PASSWD) | cut -d ':' -f 1-4,8-10 > "$(Destination)/passwd"
 	$(_v) chmod 0644 "$(Destination)/passwd" ; chown root:wheel "$(Destination)/passwd"
+endif
 	$(_v) $(INSTALL_FILE) -m 0644 -c networks	 "$(Destination)/networks"
 	$(_v) $(INSTALL_FILE) -m 0644 -c paths		 "$(Destination)/paths"
 ifeq "$(Product)" "iPhone"

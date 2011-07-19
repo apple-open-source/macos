@@ -1,0 +1,132 @@
+
+
+Release
+=======
+
+IPC::LDT 2.03.
+
+
+Overview
+========
+
+To install blocking, record oriented IPC communication, Perls builtin
+function print() and the operator <> are sufficient. But if there's a
+need to implement non blocking, stream oriented communication, additional
+efforts are required.
+
+IPC::LDT is a class to build objects which transparently perform a "length
+driven transfer". "LDT" is a simple low level protocol for non blocking
+communication, acting between the transfer protocol (TCP/IP) and the
+application protocol.
+
+An LDT message contains of two parts: a fix length prefix describing the
+length of the second part, and the kernel message (of the described length).
+
+  Example: if the prefix length is 4, a message "msg"
+           would be transfered as "0003msg".
+
+IPC::LDT provides a simple interface to use this protocol. A user sends and
+receives messages by simple method calls, while the LDT objects perform the
+complete translation into and from LDT messages (with prefix) and all the
+necessary low level IO handling to transfer stream messages on non blocking handles.
+
+IPC::LDT objects can be configured to transfer simple string messages as well
+as complex data structures. Additionally, they allow to delay the transfer of
+certain messages in a user defined way.
+
+
+Synopsis
+========
+
+Load the module as usual:
+
+  use IPC::LDT;
+
+Make an LDT object for every handle that should be used in an LDT communication:
+
+  my $asciiClient=new IPC::LDT(handle=>HANDLE);
+  my $objectClient=new IPC::LDT(handle=>HANDLE, objectMode=>1);
+
+Now you can send and receive data:
+
+  $data=$asciiClient->receive;
+  @objects=$objectClient->receive;
+
+  $asciiClient=$client->send("This is", " a message.");
+  $objectClient=$client->send("These are data:", [qw(a b c)]);
+
+
+Requirements
+============
+
+IPC::LDT is tested with Perl 5.005 on Solaris and Linux.
+It should run under later versions as well.
+
+The module requires Storable and Filter::Util::Call.
+
+
+Installation
+============
+
+This module can be installed as usual by
+
+  perl Makefile.PL
+  make
+  make test
+  make install
+
+
+What's new?
+===========
+
+2.03 enforces perl version 5.00503 (necessary to use the fields pragma).
+
+
+Problems?
+=========
+
+If you run into trouble with this module, feel free
+to contact me at perl@jochen-stenzel.de.
+
+
+Author, Copyright, License
+==========================
+
+Copyright (c) 1998-2000 Jochen Stenzel. All rights reserved.
+
+This program is free software, you can redistribute it and/or modify it
+under the terms of the Artistic License distributed with Perl version
+5.003 or (at your option) any later version. Please refer to the
+Artistic License that came with your Perl distribution for more
+details.
+
+The Artistic License should have been included in your distribution of
+Perl. It resides in the file named "Artistic" at the top-level of the
+Perl source tree (where Perl was downloaded/unpacked - ask your
+system administrator if you dont know where this is).  Alternatively,
+the current version of the Artistic License distributed with Perl can
+be viewed on-line on the World-Wide Web (WWW) from the following URL:
+
+      http://www.perl.com/perl/misc/Artistic.html
+
+
+Disclaimer
+==========
+
+This software is distributed in the hope that it will be useful, but
+is provided "AS IS" WITHOUT WARRANTY OF ANY KIND, either expressed or
+implied, INCLUDING, without limitation, the implied warranties of
+MERCHANTABILITY and FITNESS FOR A PARTICULAR PURPOSE.
+
+The ENTIRE RISK as to the quality and performance of the software
+IS WITH YOU (the holder of the software).  Should the software prove
+defective, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR
+CORRECTION.
+
+IN NO EVENT WILL ANY COPYRIGHT HOLDER OR ANY OTHER PARTY WHO MAY CREATE,
+MODIFY, OR DISTRIBUTE THE SOFTWARE BE LIABLE OR RESPONSIBLE TO YOU OR TO
+ANY OTHER ENTITY FOR ANY KIND OF DAMAGES (no matter how awful - not even
+if they arise from known or unknown flaws in the software).
+
+Please refer to the Artistic License that came with your Perl
+distribution for more details.

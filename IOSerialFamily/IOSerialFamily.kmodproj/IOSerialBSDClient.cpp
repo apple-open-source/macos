@@ -58,6 +58,7 @@ __END_DECLS
 
 #include <IOKit/assert.h>
 #include <IOKit/system.h>
+#include <TargetConditionals.h>
 
 #include <IOKit/IOBSD.h>
 #include <IOKit/IOLib.h>
@@ -166,13 +167,14 @@ OSDefineMetaClassAndStructors(IOSerialBSDClient, IOService)
 # define IOSERIAL_DEBUG_RETURNS     (1<<6)
 # define IOSERIAL_DEBUG_BLOCK     (1<<7)
 # define IOSERIAL_DEBUG_SLEEP     (1<<8)
+# define IOSERIAL_DEBUG_DCDTRD    (1<<9)
 
 # define IOSERIAL_DEBUG_ERROR       (1<<15)
 # define IOSERIAL_DEBUG_ALWAYS      (1<<16)
 
 #ifdef DEBUG
 
-# define IOSERIAL_DEBUG (IOSERIAL_DEBUG_ERROR | IOSERIAL_DEBUG_CONTROL | IOSERIAL_DEBUG_SLEEP | IOSERIAL_DEBUG_WATCHSTATE | IOSERIAL_DEBUG_FLOW | IOSERIAL_DEBUG_RETURNS | IOSERIAL_DEBUG_BLOCK)
+# define IOSERIAL_DEBUG (IOSERIAL_DEBUG_ERROR | IOSERIAL_DEBUG_DCDTRD)
 
 #else
 // production debug output should be minimal
@@ -431,6 +433,7 @@ IOSerialBSDClientGlobals::IOSerialBSDClientGlobals()
     if (fClients && fNames) {
         bzero(fClients, fLastMinor * sizeof(fClients[0]));
         fMajor = cdevsw_add(-1, &IOSerialBSDClient::devsw);
+        cdevsw_setkqueueok(fMajor, &IOSerialBSDClient::devsw, 0);
     }
     if (!isValid())
         IOLog("IOSerialBSDClient didn't initialize");
@@ -798,6 +801,7 @@ start(IOService *provider)
 	
 	fisBlueTooth = false;
 	fPreemptInProgress = false;
+	fDCDThreadCall = 0;
 	
 
     /*
@@ -958,6 +962,14 @@ void IOSerialBSDClient::free()
 	
 	if (fIoctlLock)
 		IOLockFree(fIoctlLock);
+	
+	if (fDCDThreadCall) {
+		debug(DCDTRD, "DCDThread is freed in free");
+		thread_call_cancel(fDCDThreadCall);
+		thread_call_free(fDCDThreadCall);
+		fDCDThreadCall = 0;
+		fDCDTimerDue = false;
+	}
 
     super::free();
 }
@@ -1115,7 +1127,7 @@ int IOSerialBSDClient::
 iossclose(dev_t dev, int flags, int devtype, struct proc *p)
 {
 #if JLOG	
-	kprintf("IOSerialBSDClient::iossclose\n");
+	kprintf("IOSerialBSDClient::iossclose enter\n");
 #endif
 
     IOSerialBSDClient *me = sBSDGlobals.getClient(dev);
@@ -1140,6 +1152,9 @@ iossclose(dev_t dev, int flags, int devtype, struct proc *p)
 	// This reference was held just before we opened the line discipline
     // in open().
     me->release();	
+#if JLOG	
+	kprintf("IOSerialBSDClient::iossclose exit\n");
+#endif	
     return 0;
 }
 
@@ -1997,7 +2012,6 @@ checkAndWaitForIdle:
      * set device parameters and RS232 state
      */
     if ( !ISSET(tp->t_state, TS_ISOPEN) ) {
-
         initSession(sp);
         // racey, racey - and initSession doesn't return/set anything useful
         if (!fActiveSession || isInactive()) {
@@ -2236,14 +2250,19 @@ initSession(Session *sp)
 	tty_unlock(tp);
 	
     fKillThreads = false;
-    fDCDThreadCall =
-	thread_call_allocate(&IOSerialBSDClient::iossdcddelay, this);
+	
+	if (!fDCDThreadCall) {
+		debug(DCDTRD, "DCDThread is allocated");
+		fDCDThreadCall =
+			thread_call_allocate(&IOSerialBSDClient::iossdcddelay, this);
+	}
     // racey again
     // if the early part of initSession takes too long to complete
     // we could have been unplugged (or reset) so we should check
     // we wait until here because this is the first place we're
     // touching the hardware semi-directly
     if(sp->fErrno || !fActiveSession || isInactive()) {
+		debug(DCDTRD, "and then we return offline");
         rtn = kIOReturnOffline;
         return;
     }
@@ -2963,6 +2982,7 @@ txFunc()
 			if (fDCDTimerDue) {
 				/* Stop dcd timer interval was too short */
 				if (thread_call_cancel(fDCDThreadCall)) {
+					debug(DCDTRD,"DCD thread canceled (interval too short)");
 					release();
 					fDCDTimerDue = false;
 				}
@@ -2971,6 +2991,7 @@ txFunc()
 
 				clock_interval_to_deadline(DCD_DELAY, kMicrosecondScale, &dl);
 				thread_call_enter1_delayed(fDCDThreadCall, sp, dl);
+				debug(DCDTRD,"DCD thread enter1 delayed");
 				retain();
 				fDCDTimerDue = true;
 			}
@@ -3013,6 +3034,7 @@ txFunc()
 
     // Clear the DCD timeout
     if (fDCDTimerDue && thread_call_cancel(fDCDThreadCall)) {
+		debug(DCDTRD,"DCD thread canceled (clear timeout)");
 		release();
 		fDCDTimerDue = false;
     }
@@ -3152,6 +3174,17 @@ killThreads()
 	    IOLockSleep(fThreadLock, &ftxThread, THREAD_UNINT);
 	IOLockUnlock(fThreadLock);
     }
+#ifdef TARGET_OS_EMBEDDED
+	// bluetooth, modem and fax team need to validate change
+	// to remove this ifdef
+	if (fDCDThreadCall) {
+		debug(DCDTRD,"DCD Thread Freed in killThreads");
+		thread_call_cancel(fDCDThreadCall);
+		thread_call_free(fDCDThreadCall);
+		fDCDTimerDue = false;
+		fDCDThreadCall = 0;
+	}	
+#endif	
 }
 
 void IOSerialBSDClient::

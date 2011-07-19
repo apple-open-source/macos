@@ -5,15 +5,22 @@
 	<key>OpenSourceProject</key>
 	<string>libarchive</string>
 	<key>OpenSourceVersion</key>
-	<string>2.6.2</string>
+	<string>2.8.3</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://code.google.com/p/libarchive/</string>
 	<key>OpenSourceURL</key>
-	<string>http://libarchive.googlecode.com/files/libarchive-2.6.2.tar.gz</string>
+	<string>http://libarchive.googlecode.com/files/libarchive-2.8.3.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>56be9601877f467369cc7792f1319f0271becd1c</string>
+	<string>e0634a326cce2b46c8dc637de84d7556257e59e0</string>
 	<key>OpenSourceImportDate</key>
-	<string>2009-03-02</string>
+	<string>2010-05-17</string>
+	<key>OpenSourceModifications</key>
+	<array>
+		<string>Added support for quarantine and copyfile.</string>
+		<string>Added tar --disable-copyfile option.</string>
+		<string>Changed -f behavior; no longer use _PATH_DEFTAPE (6236525).</string>
+		<string>Changed symlink behavior; don&apos;t overwrite them (6234278).</string>
+	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>
 	<key>OpenSourceLicenseFile</key>

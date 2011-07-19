@@ -345,6 +345,15 @@ free_search_patterns()
 {
     vim_free(spats[0].pat);
     vim_free(spats[1].pat);
+
+# ifdef FEAT_RIGHTLEFT
+    if (mr_pattern_alloced)
+    {
+	vim_free(mr_pattern);
+	mr_pattern_alloced = FALSE;
+	mr_pattern = NULL;
+    }
+# endif
 }
 #endif
 
@@ -356,56 +365,58 @@ free_search_patterns()
 ignorecase(pat)
     char_u	*pat;
 {
-    char_u	*p;
-    int		ic;
+    int		ic = p_ic;
 
-    ic = p_ic;
     if (ic && !no_smartcase && p_scs
 #ifdef FEAT_INS_EXPAND
 				&& !(ctrl_x_mode && curbuf->b_p_inf)
 #endif
 								    )
-    {
-	/* don't ignore case if pattern has uppercase */
-	for (p = pat; *p; )
-	{
-#ifdef FEAT_MBYTE
-	    int		l;
-
-	    if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
-	    {
-		if (enc_utf8 && utf_isupper(utf_ptr2char(p)))
-		{
-		    ic = FALSE;
-		    break;
-		}
-		p += l;
-	    }
-	    else
-#endif
-                if (*p == '\\')
-		{
-		    if (p[1] == '_' && p[2] != NUL)  /* skip "\_X" */
-			p += 3;
-		    else if (p[1] == '%' && p[2] != NUL)  /* skip "\%X" */
-			p += 3;
-		    else if (p[1] != NUL)  /* skip "\X" */
-			p += 2;
-		    else
-			p += 1;
-		}
-		else if (MB_ISUPPER(*p))
-		{
-		    ic = FALSE;
-		    break;
-		}
-		else
-		    ++p;
-	}
-    }
+	ic = !pat_has_uppercase(pat);
     no_smartcase = FALSE;
 
     return ic;
+}
+
+/*
+ * Return TRUE if patter "pat" has an uppercase character.
+ */
+    int
+pat_has_uppercase(pat)
+    char_u	*pat;
+{
+    char_u *p = pat;
+
+    while (*p != NUL)
+    {
+#ifdef FEAT_MBYTE
+	int		l;
+
+	if (has_mbyte && (l = (*mb_ptr2len)(p)) > 1)
+	{
+	    if (enc_utf8 && utf_isupper(utf_ptr2char(p)))
+		return TRUE;
+	    p += l;
+	}
+	else
+#endif
+	     if (*p == '\\')
+	{
+	    if (p[1] == '_' && p[2] != NUL)  /* skip "\_X" */
+		p += 3;
+	    else if (p[1] == '%' && p[2] != NUL)  /* skip "\%X" */
+		p += 3;
+	    else if (p[1] != NUL)  /* skip "\X" */
+		p += 2;
+	    else
+		p += 1;
+	}
+	else if (MB_ISUPPER(*p))
+	    return TRUE;
+	else
+	    ++p;
+    }
+    return FALSE;
 }
 
     char_u *
@@ -513,7 +524,6 @@ last_pat_prog(regmatch)
  * When FEAT_EVAL is defined, returns the index of the first matching
  * subpattern plus one; one if there was none.
  */
-/*ARGSUSED*/
     int
 searchit(win, buf, pos, dir, pat, count, options, pat_use, stop_lnum, tm)
     win_T	*win;		/* window to search in; can be NULL for a
@@ -526,7 +536,7 @@ searchit(win, buf, pos, dir, pat, count, options, pat_use, stop_lnum, tm)
     int		options;
     int		pat_use;	/* which pattern to use when "pat" is empty */
     linenr_T	stop_lnum;	/* stop after this line number when != 0 */
-    proftime_T	*tm;		/* timeout limit or NULL */
+    proftime_T	*tm UNUSED;	/* timeout limit or NULL */
 {
     int		found;
     linenr_T	lnum;		/* no init to shut up Apollo cc */
@@ -545,8 +555,6 @@ searchit(win, buf, pos, dir, pat, count, options, pat_use, stop_lnum, tm)
     int		save_called_emsg = called_emsg;
 #ifdef FEAT_SEARCH_EXTRA
     int		break_loop = FALSE;
-#else
-# define break_loop FALSE
 #endif
 
     if (search_regcomp(pat, RE_SEARCH, pat_use,
@@ -931,7 +939,10 @@ searchit(win, buf, pos, dir, pat, count, options, pat_use, stop_lnum, tm)
 	     * twice.
 	     */
 	    if (!p_ws || stop_lnum != 0 || got_int || called_emsg
-					       || break_loop || found || loop)
+#ifdef FEAT_SEARCH_EXTRA
+					       || break_loop
+#endif
+					       || found || loop)
 		break;
 
 	    /*
@@ -949,7 +960,11 @@ searchit(win, buf, pos, dir, pat, count, options, pat_use, stop_lnum, tm)
 		give_warning((char_u *)_(dir == BACKWARD
 					  ? top_bot_msg : bot_top_msg), TRUE);
 	}
-	if (got_int || called_emsg || break_loop)
+	if (got_int || called_emsg
+#ifdef FEAT_SEARCH_EXTRA
+		|| break_loop
+#endif
+		)
 	    break;
     }
     while (--count > 0 && found);   /* stop after count matches or no match */
@@ -2327,8 +2342,8 @@ findmatchlimit(oap, initc, flags, maxtravel)
 		    for (col = pos.col; check_prevcol(linep, col, '\\', &col);)
 			bslcnt++;
 		}
-		/* Only accept a match when 'M' is in 'cpo' or when ecaping is
-		 * what we expect. */
+		/* Only accept a match when 'M' is in 'cpo' or when escaping
+		 * is what we expect. */
 		if (cpo_bsl || (bslcnt & 1) == match_escaped)
 		{
 		    if (c == initc)
@@ -2772,6 +2787,10 @@ startPS(lnum, para, both)
     char_u	*s;
 
     s = ml_get(lnum);
+    if (para == '(')
+	return *s == '(';
+    if (para == ')')
+	return *s == ')';
     if (*s == para || *s == '\f' || (both && *s == '}'))
 	return TRUE;
     if (*s == '.' && (inmacro(p_sections, s + 1) ||
@@ -4514,12 +4533,11 @@ linewhite(lnum)
  * Find identifiers or defines in included files.
  * if p_ic && (compl_cont_status & CONT_SOL) then ptr must be in lowercase.
  */
-/*ARGSUSED*/
     void
 find_pattern_in_path(ptr, dir, len, whole, skip_comments,
 				    type, count, action, start_lnum, end_lnum)
     char_u	*ptr;		/* pointer to search pattern */
-    int		dir;		/* direction of expansion */
+    int		dir UNUSED;	/* direction of expansion */
     int		len;		/* length of search pattern */
     int		whole;		/* match whole words only */
     int		skip_comments;	/* don't match inside comments */
@@ -4663,7 +4681,7 @@ find_pattern_in_path(ptr, dir, len, whole, skip_comments,
 			    msg_putchar('\n');	    /* cursor below last one */
 			    if (!got_int)	    /* don't display if 'q'
 						       typed at "--more--"
-						       mesage */
+						       message */
 			    {
 				msg_home_replace_hl(new_fname);
 				MSG_PUTS(_(" (includes previously listed match)"));
@@ -4975,7 +4993,7 @@ search_line:
 					    || IObuff[i-2] == '!'))))
 				IObuff[i++] = ' ';
 			}
-			/* copy as much as posible of the new word */
+			/* copy as much as possible of the new word */
 			if (p - aux >= IOSIZE - i)
 			    p = aux + IOSIZE - i - 1;
 			STRNCPY(IObuff + i, aux, p - aux);
@@ -5010,7 +5028,7 @@ search_line:
 		    if (did_show)
 			msg_putchar('\n');	/* cursor below last one */
 		    if (!got_int)		/* don't display if 'q' typed
-						    at "--more--" mesage */
+						    at "--more--" message */
 			msg_home_replace_hl(curr_fname);
 		    prev_fname = curr_fname;
 		}
@@ -5092,7 +5110,7 @@ search_line:
 		}
 		if (action != ACTION_SHOW)
 		{
-		    curwin->w_cursor.col = (colnr_T) (startp - line);
+		    curwin->w_cursor.col = (colnr_T)(startp - line);
 		    curwin->w_set_curswant = TRUE;
 		}
 
@@ -5119,7 +5137,8 @@ exit_matched:
 		    && action == ACTION_EXPAND
 		    && !(compl_cont_status & CONT_SOL)
 #endif
-		    && *(p = startp + 1))
+		    && *startp != NUL
+		    && *(p = startp + 1) != NUL)
 		goto search_line;
 	}
 	line_breakcheck();

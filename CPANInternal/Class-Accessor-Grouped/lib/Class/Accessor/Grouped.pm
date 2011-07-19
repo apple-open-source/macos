@@ -5,8 +5,10 @@ use Carp ();
 use Class::Inspector ();
 use Scalar::Util ();
 use MRO::Compat;
+use Sub::Name ();
 
-our $VERSION = '0.08001';
+our $VERSION = '0.09002';
+$VERSION = eval $VERSION;
 
 =head1 NAME
 
@@ -64,6 +66,8 @@ sub mk_group_accessors {
 
         # So we don't have to do lots of lookups inside the loop.
         $maker = $self->can($maker) unless ref $maker;
+        
+        my $hasXS = _hasXS();
 
         foreach my $field (@fields) {
             if( $field eq 'DESTROY' ) {
@@ -74,15 +78,27 @@ sub mk_group_accessors {
             my $name = $field;
 
             ($name, $field) = @$field if ref $field;
-
-            my $accessor = $self->$maker($group, $field);
+            
             my $alias = "_${name}_accessor";
-
-            *{$class."\:\:$name"}  = $accessor;
-              #unless defined &{$class."\:\:$field"}
-
-            *{$class."\:\:$alias"}  = $accessor;
-              #unless defined &{$class."\:\:$alias"}
+            my $full_name = join('::', $class, $name);
+            my $full_alias = join('::', $class, $alias);
+            
+            if ( $hasXS && $group eq 'simple' ) {
+                Class::XSAccessor::newxs_accessor("${class}::${name}", $field, 0);
+                Class::XSAccessor::newxs_accessor("${class}::${alias}", $field, 0);
+                
+                # XXX: is the alias accessor really necessary?
+            }
+            else {
+                my $accessor = $self->$maker($group, $field);
+                my $alias_accessor = $self->$maker($group, $field);
+                
+                *$full_name = Sub::Name::subname($full_name, $accessor);
+                  #unless defined &{$class."\:\:$field"}
+                
+                *$full_alias = Sub::Name::subname($full_alias, $alias_accessor);
+                  #unless defined &{$class."\:\:$alias"}
+            }
         }
     }
 }
@@ -98,7 +114,7 @@ Returns: none
 =back
 
 Creates a set of read only accessors in a given group. Identical to
-<L:/mk_group_accessors> but accessors will throw an error if passed a value
+L</mk_group_accessors> but accessors will throw an error if passed a value
 rather than setting the value.
 
 =cut
@@ -120,7 +136,7 @@ Returns: none
 =back
 
 Creates a set of write only accessors in a given group. Identical to
-<L:/mk_group_accessors> but accessors will throw an error if not passed a
+L</mk_group_accessors> but accessors will throw an error if not passed a
 value rather than getting the value.
 
 =cut
@@ -243,8 +259,6 @@ name passed as an argument.
 =cut
 
 sub get_simple {
-    my ($self, $get) = @_;
-  return $self->{$get};
   return $_[0]->{$_[1]};
 }
 
@@ -303,10 +317,14 @@ sub get_inherited {
     };
 
     no strict 'refs';
+    no warnings qw/uninitialized/;
     return ${$class.'::__cag_'.$_[1]} if defined(${$class.'::__cag_'.$_[1]});
 
-    if (!@{$class.'::__cag_supers'}) {
+    # we need to be smarter about recalculation, as @ISA (thus supers) can very well change in-flight
+    my $pkg_gen = mro::get_pkg_gen ($class);
+    if ( ${$class.'::__cag_pkg_gen'} != $pkg_gen ) {
         @{$class.'::__cag_supers'} = $_[0]->get_super_paths;
+        ${$class.'::__cag_pkg_gen'} = $pkg_gen;
     };
 
     foreach (@{$class.'::__cag_supers'}) {
@@ -363,9 +381,9 @@ Returns: $value
 Gets the value of the specified component class.
 
     __PACKAGE__->mk_group_accessors('component_class' => 'result_class');
-    
+
     $self->result_class->method();
-    
+
     ## same as
     $self->get_component_class('result_class')->method();
 
@@ -390,7 +408,7 @@ it. This method will die if the specified class could not be loaded.
 
     __PACKAGE__->mk_group_accessors('component_class' => 'result_class');
     __PACKAGE__->result_class('MyClass');
-    
+
     $self->result_class->method();
 
 =cut
@@ -420,6 +438,28 @@ sub get_super_paths {
     return @{mro::get_linear_isa($class)};
 };
 
+# This is now a hard, rather than optional dep. Since we dep on Sub::Name, we no
+# longer care about not using XS modules.
+
+# Class::XSAccessor is segfaulting in some places, so removing for now.
+{
+    our $hasXS;
+
+    sub _hasXS { 0 }
+
+#    sub _hasXS {
+#        return $hasXS if defined $hasXS;
+#    
+#        $hasXS = 0;
+#        eval {
+#            require Class::XSAccessor;
+#            $hasXS = 1;
+#        };
+#    
+#        return $hasXS;
+#    }
+}
+
 1;
 
 =head1 AUTHORS
@@ -427,9 +467,15 @@ sub get_super_paths {
 Matt S. Trout <mst@shadowcatsystems.co.uk>
 Christopher H. Laco <claco@chrislaco.com>
 
-=head1 LICENSE
+With contributions from:
 
-You may distribute this code under the same terms as Perl itself.
+Guillermo Roditi <groditi@cpan.org>
+
+=head1 COPYRIGHT & LICENSE
+
+Copyright (c) 2006-2009 Matt S. Trout <mst@shadowcatsystems.co.uk>
+
+This program is free software; you can redistribute it and/or modify
+it under the same terms as perl itself.
 
 =cut
-

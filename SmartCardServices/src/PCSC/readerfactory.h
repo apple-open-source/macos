@@ -34,7 +34,7 @@
  * Copyright (C) 2004
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: readerfactory.h 2330 2007-01-11 16:54:16Z rousseau $
+ * $Id: readerfactory.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

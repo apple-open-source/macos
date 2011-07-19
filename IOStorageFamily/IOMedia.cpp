@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -913,6 +913,80 @@ IOReturn IOMedia::unmap(IOService *       client,
     }
 
     return getProvider()->unmap(this, extents, extentsCount, options);
+}
+
+bool IOMedia::lockPhysicalExtents(IOService * client)
+{
+    //
+    // Lock the contents of the storage object against relocation temporarily,
+    // for the purpose of getting physical extents.
+    //
+
+    if (isInactive())
+    {
+        return false;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        return false;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        return false;
+    }
+
+    return getProvider( )->lockPhysicalExtents( this );
+}
+
+IOStorage * IOMedia::copyPhysicalExtent(IOService * client,
+                                        UInt64 *    byteStart,
+                                        UInt64 *    byteCount)
+{
+    //
+    // Convert the specified byte offset into a physical byte offset, relative
+    // to a physical storage object.  This call should only be made within the
+    // context of lockPhysicalExtents().
+    //
+
+    if (isInactive())
+    {
+        return NULL;
+    }
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        return NULL;
+    }
+
+    if (_mediaSize == 0 || _preferredBlockSize == 0)
+    {
+        return NULL;
+    }
+
+    if (_mediaSize < *byteStart + *byteCount)
+    {
+        return NULL;
+    }
+
+    *byteStart += _mediaBase;
+    return getProvider( )->copyPhysicalExtent( this, byteStart, byteCount );
+}
+
+void IOMedia::unlockPhysicalExtents(IOService * client)
+{
+    //
+    // Unlock the contents of the storage object for relocation again.  This
+    // call must balance a successful call to lockPhysicalExtents().
+    //
+
+    if (_openLevel == kIOStorageAccessNone)    // (instantaneous value, no lock)
+    {
+        return;
+    }
+
+    getProvider( )->unlockPhysicalExtents( this );
 }
 
 UInt64 IOMedia::getPreferredBlockSize() const

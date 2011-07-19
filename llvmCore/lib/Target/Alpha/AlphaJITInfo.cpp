@@ -15,11 +15,11 @@
 #include "AlphaJITInfo.h"
 #include "AlphaRelocations.h"
 #include "llvm/Function.h"
-#include "llvm/CodeGen/MachineCodeEmitter.h"
-#include "llvm/Config/alloca.h"
+#include "llvm/CodeGen/JITCodeEmitter.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cstdlib>
-#include <map>
 using namespace llvm;
 
 #define BUILD_OFormatI(Op, RA, LIT, FUN, RC) \
@@ -58,12 +58,12 @@ static void EmitBranchToAt(void *At, void *To) {
 
   AtI[0] = BUILD_OR(0, 27, 27);
 
-  DOUT << "Stub targeting " << To << "\n";
+  DEBUG(errs() << "Stub targeting " << To << "\n");
 
   for (int x = 1; x <= 8; ++x) {
     AtI[2*x - 1] = BUILD_SLLi(27,27,8);
     unsigned d = (Fn >> (64 - 8 * x)) & 0x00FF;
-    //DOUT << "outputing " << hex << d << dec << "\n";
+    //DEBUG(errs() << "outputing " << hex << d << dec << "\n");
     AtI[2*x] = BUILD_ORi(27, 27, d);
   }
   AtI[17] = BUILD_JMP(31,27,0); //jump, preserving ra, and setting pv
@@ -72,7 +72,7 @@ static void EmitBranchToAt(void *At, void *To) {
 
 void AlphaJITInfo::replaceMachineCodeForFunction(void *Old, void *New) {
   //FIXME
-  assert(0);
+  llvm_unreachable(0);
 }
 
 static TargetJITInfo::JITCompilerFn JITCompilerFunction;
@@ -87,12 +87,12 @@ extern "C" {
 
     //rewrite the stub to an unconditional branch
     if (((unsigned*)CameFromStub)[18] == 0x00FFFFFF) {
-      DOUT << "Came from a stub, rewriting\n";
+      DEBUG(errs() << "Came from a stub, rewriting\n");
       EmitBranchToAt(CameFromStub, Target);
     } else {
-      DOUT << "confused, didn't come from stub at " << CameFromStub
-           << " old jump vector " << oldpv
-           << " new jump vector " << Target << "\n";
+      DEBUG(errs() << "confused, didn't come from stub at " << CameFromStub
+                   << " old jump vector " << oldpv
+                   << " new jump vector " << Target << "\n");
     }
 
     //Change pv to new Target
@@ -103,7 +103,7 @@ extern "C" {
 
   asm(
       ".text\n"
-      ".globl AlphaComilationCallbackC\n"
+      ".globl AlphaCompilationCallbackC\n"
       ".align 4\n"
       ".globl AlphaCompilationCallback\n"
       ".ent AlphaCompilationCallback\n"
@@ -185,23 +185,31 @@ extern "C" {
       );
 #else
   void AlphaCompilationCallback() {
-    cerr << "Cannot call AlphaCompilationCallback() on a non-Alpha arch!\n";
-    abort();
+    llvm_unreachable("Cannot call AlphaCompilationCallback() on a non-Alpha arch!");
   }
 #endif
 }
 
+TargetJITInfo::StubLayout AlphaJITInfo::getStubLayout() {
+  // The stub contains 19 4-byte instructions, aligned at 4 bytes:
+  // R0 = R27
+  // 8 x "R27 <<= 8; R27 |= 8-bits-of-Target"  == 16 instructions
+  // JMP R27
+  // Magic number so the compilation callback can recognize the stub.
+  StubLayout Result = {19 * 4, 4};
+  return Result;
+}
+
 void *AlphaJITInfo::emitFunctionStub(const Function* F, void *Fn,
-                                     MachineCodeEmitter &MCE) {
+                                     JITCodeEmitter &JCE) {
   //assert(Fn == AlphaCompilationCallback && "Where are you going?\n");
   //Do things in a stupid slow way!
-  MCE.startGVStub(F, 19*4);
-  void* Addr = (void*)(intptr_t)MCE.getCurrentPCValue();
+  void* Addr = (void*)(intptr_t)JCE.getCurrentPCValue();
   for (int x = 0; x < 19; ++ x)
-    MCE.emitWordLE(0);
+    JCE.emitWordLE(0);
   EmitBranchToAt(Addr, Fn);
-  DOUT << "Emitting Stub to " << Fn << " at [" << Addr << "]\n";
-  return MCE.finishGVStub(F);
+  DEBUG(errs() << "Emitting Stub to " << Fn << " at [" << Addr << "]\n");
+  return Addr;
 }
 
 TargetJITInfo::LazyResolverFn
@@ -237,44 +245,39 @@ static long getLower16(long l)
 
 void AlphaJITInfo::relocate(void *Function, MachineRelocation *MR,
                             unsigned NumRelocs, unsigned char* GOTBase) {
-  //because gpdist are paired and relative to the pc of the first inst,
-  //we need to have some state
-
-  static std::map<std::pair<void*, int>, void*> gpdistmap;
-
   for (unsigned i = 0; i != NumRelocs; ++i, ++MR) {
     unsigned *RelocPos = (unsigned*)Function + MR->getMachineCodeOffset()/4;
     long idx = 0;
     bool doCommon = true;
     switch ((Alpha::RelocationType)MR->getRelocationType()) {
-    default: assert(0 && "Unknown relocation type!");
+    default: llvm_unreachable("Unknown relocation type!");
     case Alpha::reloc_literal:
       //This is a LDQl
       idx = MR->getGOTIndex();
-      DOUT << "Literal relocation to slot " << idx;
+      DEBUG(errs() << "Literal relocation to slot " << idx);
       idx = (idx - GOToffset) * 8;
-      DOUT << " offset " << idx << "\n";
+      DEBUG(errs() << " offset " << idx << "\n");
       break;
     case Alpha::reloc_gprellow:
       idx = (unsigned char*)MR->getResultPointer() - &GOTBase[GOToffset * 8];
       idx = getLower16(idx);
-      DOUT << "gprellow relocation offset " << idx << "\n";
-      DOUT << " Pointer is " << (void*)MR->getResultPointer()
-           << " GOT is " << (void*)&GOTBase[GOToffset * 8] << "\n";
+      DEBUG(errs() << "gprellow relocation offset " << idx << "\n");
+      DEBUG(errs() << " Pointer is " << (void*)MR->getResultPointer()
+           << " GOT is " << (void*)&GOTBase[GOToffset * 8] << "\n");
       break;
     case Alpha::reloc_gprelhigh:
       idx = (unsigned char*)MR->getResultPointer() - &GOTBase[GOToffset * 8];
       idx = getUpper16(idx);
-      DOUT << "gprelhigh relocation offset " << idx << "\n";
-      DOUT << " Pointer is " << (void*)MR->getResultPointer()
-           << " GOT is " << (void*)&GOTBase[GOToffset * 8] << "\n";
+      DEBUG(errs() << "gprelhigh relocation offset " << idx << "\n");
+      DEBUG(errs() << " Pointer is " << (void*)MR->getResultPointer()
+            << " GOT is " << (void*)&GOTBase[GOToffset * 8] << "\n");
       break;
     case Alpha::reloc_gpdist:
       switch (*RelocPos >> 26) {
       case 0x09: //LDAH
         idx = &GOTBase[GOToffset * 8] - (unsigned char*)RelocPos;
         idx = getUpper16(idx);
-        DOUT << "LDAH: " << idx << "\n";
+        DEBUG(errs() << "LDAH: " << idx << "\n");
         //add the relocation to the map
         gpdistmap[std::make_pair(Function, MR->getConstantVal())] = RelocPos;
         break;
@@ -284,10 +287,10 @@ void AlphaJITInfo::relocate(void *Function, MachineRelocation *MR,
         idx = &GOTBase[GOToffset * 8] -
           (unsigned char*)gpdistmap[std::make_pair(Function, MR->getConstantVal())];
         idx = getLower16(idx);
-        DOUT << "LDA: " << idx << "\n";
+        DEBUG(errs() << "LDA: " << idx << "\n");
         break;
       default:
-        assert(0 && "Cannot handle gpdist yet");
+        llvm_unreachable("Cannot handle gpdist yet");
       }
       break;
     case Alpha::reloc_bsr: {

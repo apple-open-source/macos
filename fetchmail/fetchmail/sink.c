@@ -65,7 +65,18 @@ void smtp_close(struct query *ctl, int sayquit)
     batchcount = 0;
 }
 
-int smtp_open(struct query *ctl)
+static void smtp_rset(struct query *ctl)
+/* reset the mail transaction */
+{
+    if (SMTP_rset(ctl->smtp_socket, ctl->smtphostmode) == SM_UNRECOVERABLE)
+    {
+	/* close the bad connection. fetchmail will reconnect for the
+	 * next mail */
+	smtp_close(ctl, 0);
+    }
+}
+
+int smtp_setup(struct query *ctl)
 /* try to open a socket to the appropriate SMTP server for this query */ 
 {
     /* maybe it's time to close the socket in order to force delivery */
@@ -103,7 +114,7 @@ int smtp_open(struct query *ctl)
 	 */
 	struct idlist	*idp;
 	const char *id_me = run.invisible ? ctl->server.truename : fetchmailhost;
-	int oldphase = phase;
+	int oldphase;
 	char *parsed_host = NULL;
 
 	errno = 0;
@@ -120,7 +131,7 @@ int smtp_open(struct query *ctl)
 	for (idp = ctl->smtphunt; idp; idp = idp->next)
 	{
 	    char	*cp;
-	    char	*portnum = SMTP_PORT;
+	    const char	*portnum = SMTP_PORT;
 
 	    ctl->smtphost = idp->id;  /* remember last host tried. */
 	    if (ctl->smtphost[0]=='/')
@@ -251,12 +262,13 @@ char *rcpt_address(struct query *ctl, const char *id,
 }
 
 static int send_bouncemail(struct query *ctl, struct msgblk *msg,
-			   int userclass, char *message /* should have \r\n at the end */,
+			   int userclass, const char *message /* should have \r\n at the end */,
 			   int nerrors, char *errors[])
 /* bounce back an error report a la RFC 1892 */
 {
     char daemon_name[15 + HOSTLEN] = "MAILER-DAEMON@";
-    char boundary[BUFSIZ], *bounce_to;
+    char boundary[BUFSIZ];
+    const char *bounce_to;
     int sock;
     static char *fqdn_of_host = NULL;
     const char *md1 = "MAILER-DAEMON", *md2 = "MAILER-DAEMON@";
@@ -441,7 +453,7 @@ static int handle_smtp_report(struct query *ctl, struct msgblk *msg)
      * RSET discards the message body and it doesn't get sent to the
      * valid recipients.
      */
-    SMTP_rset(ctl->smtp_socket);    /* stay on the safe side */
+    smtp_rset(ctl);    /* stay on the safe side */
     if (outlevel >= O_DEBUG)
 	report(stdout, GT_("Saved error is still %d\n"), smtperr);
 #endif /* __UNUSED */
@@ -637,6 +649,9 @@ int stuffline(struct query *ctl, char *buf)
     int	n, oldphase;
     char *last;
 
+    if (!buf)
+	return -1;
+
     /* The line may contain NUL characters. Find the last char to use
      * -- the real line termination is the sequence "\n\0".
      */
@@ -773,7 +788,7 @@ static int open_bsmtp_sink(struct query *ctl, struct msgblk *msg,
 
     if (fflush(sinkfp) || ferror(sinkfp))
     {
-	report(stderr, GT_("BSMTP preamble write failed.\n"));
+	report(stderr, GT_("BSMTP preamble write failed: %s.\n"), strerror(errno));
 	return(PS_BSMTP);
     }
 
@@ -938,7 +953,7 @@ static int open_smtp_sink(struct query *ctl, struct msgblk *msg,
     {
 	int err = handle_smtp_report(ctl, msg); /* map to PS_TRANSIENT or PS_REFUSED */
 
-	SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);    /* stay on the safe side */
+	smtp_rset(ctl);    /* stay on the safe side */
 	return(err);
     }
 
@@ -1006,7 +1021,7 @@ transient:
 	     * crap. If one of the recipients returned PS_TRANSIENT,
 	     * we return exactly that.
 	     */
-	    SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);        /* required by RFC1870 */
+	    smtp_rset(ctl);        /* required by RFC1870 */
 	    goto transient;
     }
 #ifdef EXPLICIT_BOUNCE_ON_BAD_ADDRESS
@@ -1041,7 +1056,7 @@ transient:
 	{
 	    if (outlevel >= O_VERBOSE)
 		report(stderr, GT_("no address matches; no postmaster set.\n"));
-	    SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);	/* required by RFC1870 */
+	    smtp_rset(ctl);	/* required by RFC1870 */
 	    return(PS_REFUSED);
 	}
 	if ((smtp_err = SMTP_rcpt(ctl->smtp_socket, ctl->smtphostmode,
@@ -1053,7 +1068,7 @@ transient:
 	if (smtp_err != SM_OK)
 	{
 	    report(stderr, GT_("can't even send to %s!\n"), run.postmaster);
-	    SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);	/* required by RFC1870 */
+	    smtp_rset(ctl);	/* required by RFC1870 */
 	    return(PS_REFUSED);
 	}
 
@@ -1074,7 +1089,7 @@ transient:
     if (smtp_err != SM_OK)
     {
 	int err = handle_smtp_report(ctl, msg);
-	SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);    /* stay on the safe side */
+	smtp_rset(ctl);    /* stay on the safe side */
 	return(err);
     }
 
@@ -1224,7 +1239,10 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
      * under all BSDs and Linux)
      */
     orig_uid = getuid();
-    seteuid(ctl->uid);
+    if (seteuid(ctl->uid)) {
+	report(stderr, GT_("Cannot switch effective user id to %ld: %s\n"), (long)ctl->uid, strerror(errno));
+	return PS_IOERR;
+    }
 #endif /* HAVE_SETEUID */
 
     sinkfp = popen(before, "w");
@@ -1233,7 +1251,10 @@ static int open_mda_sink(struct query *ctl, struct msgblk *msg,
 
 #ifdef HAVE_SETEUID
     /* this will fail quietly if we didn't start as root */
-    seteuid(orig_uid);
+    if (seteuid(orig_uid)) {
+	report(stderr, GT_("Cannot switch effective user id back to original %ld: %s\n"), (long)orig_uid, strerror(errno));
+	return PS_IOERR;
+    }
 #endif /* HAVE_SETEUID */
 
     if (!sinkfp)
@@ -1258,6 +1279,8 @@ int open_sink(struct query *ctl, struct msgblk *msg,
 {
     *bad_addresses = *good_addresses = 0;
 
+    if (want_progress() && outlevel >= O_VERBOSE && !ctl->mda && !ctl->bsmtp) puts("");
+
     if (ctl->bsmtp)		/* dump to a BSMTP batch file */
 	return(open_bsmtp_sink(ctl, msg, good_addresses, bad_addresses));
     /* 
@@ -1265,7 +1288,7 @@ int open_sink(struct query *ctl, struct msgblk *msg,
      * open a socket fails, fall through to attempt delivery via
      * local MDA.
      */
-    else if (!ctl->mda && smtp_open(ctl) != -1)
+    else if (!ctl->mda && smtp_setup(ctl) != -1)
 	return(open_smtp_sink(ctl, msg, good_addresses, bad_addresses));
 
     /*
@@ -1336,8 +1359,31 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 /* perform end-of-message actions on the current output sink */
 {
     int smtp_err;
-    if (ctl->mda)
-    {
+
+    if (want_progress() && outlevel >= O_VERBOSE && !ctl->mda && !ctl->bsmtp) puts("");
+
+    if (ctl->bsmtp && sinkfp) {
+	int error, oerrno;
+
+	/* implicit disk-full check here... */
+	fputs(".\r\n", sinkfp);
+	error = ferror(sinkfp);
+	oerrno = errno;
+	if (strcmp(ctl->bsmtp, "-"))
+	{
+	    if (fclose(sinkfp) == EOF) {
+		error = 1;
+		oerrno = errno;
+	    }
+	    sinkfp = (FILE *)NULL;
+	}
+	if (error)
+	{
+	    report(stderr, 
+		   GT_("Message termination or close of BSMTP file failed: %s\n"), strerror(oerrno));
+	    return(FALSE);
+	}
+    } else if (ctl->mda) {
 	int rc = 0, e = 0, e2 = 0, err = 0;
 
 	/* close the delivery pipe, we'll reopen before next message */
@@ -1353,8 +1399,6 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 	    e = errno;
 	    sinkfp = (FILE *)NULL;
 	}
-	else
-	    rc = e = 0;
 
 	deal_with_sigchld(); /* Restore SIGCHLD handling to reap zombies */
 
@@ -1377,25 +1421,6 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 	    return(FALSE);
 	}
     }
-    else if (ctl->bsmtp && sinkfp)
-    {
-	int error;
-
-	/* implicit disk-full check here... */
-	fputs(".\r\n", sinkfp);
-	error = ferror(sinkfp);
-	if (strcmp(ctl->bsmtp, "-"))
-	{
-	    if (fclose(sinkfp) == EOF) error = 1;
-	    sinkfp = (FILE *)NULL;
-	}
-	if (error)
-	{
-	    report(stderr, 
-		   GT_("Message termination or close of BSMTP file failed\n"));
-	    return(FALSE);
-	}
-    }
     else if (forward)
     {
 	/* write message terminator */
@@ -1409,13 +1434,13 @@ int close_sink(struct query *ctl, struct msgblk *msg, flag forward)
 	{
 	    if (handle_smtp_report(ctl, msg) != PS_REFUSED)
 	    {
-	        SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);    /* stay on the safe side */
+	        smtp_rset(ctl);    /* stay on the safe side */
 		return(FALSE);
 	    }
 	    else
 	    {
 		report(stderr, GT_("SMTP listener refused delivery\n"));
-	        SMTP_rset(ctl->smtp_socket, ctl->smtphostmode);    /* stay on the safe side */
+	        smtp_rset(ctl);    /* stay on the safe side */
 		return(TRUE);
 	    }
 	}

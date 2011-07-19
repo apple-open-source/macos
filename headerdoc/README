@@ -11,7 +11,9 @@ HeaderDoc on a Mac OS X computer, you can quickly install by simply typing:
 	make
 	sudo make realinstall
 
-For additional documentation on headerdoc, look at the HTML files in the
+For additional documentation on HeaderDoc, look at the HTML files in the
 Documentation directory and at the man pages for gatherheaderdoc and
 headerdoc2html.
 
+If you encounter bugs or installation problems, send email to the
+headerdoc-dev mailing list on lists.apple.com.

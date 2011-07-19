@@ -23,6 +23,8 @@
 #ifndef _IPSECMESSAGETRACER_H
 #define _IPSECMESSAGETRACER_H
 
+#import	 <asl.h>
+
 #define CONSTSTR(str) (const char *)str
 
 #define L2TPIPSECVPN_CONNECTION_ESTABLISHED_DOMAIN								CONSTSTR("com.apple.Networking.ipsec.disconnect.l2tpipsec")
@@ -38,6 +40,9 @@
 #define BTMMIPSEC_PHASE_DOMAIN                                                  CONSTSTR("com.apple.Networking.ipsec.phasestats.btmm")
 #define PLAINIPSEC_PHASE_DOMAIN                                                 CONSTSTR("com.apple.Networking.ipsec.phasestats.plain")
 #define PLAINIPSECDOMAIN                                                        CONSTSTR("com.apple.Networking.ipsec.main")
+
+#define IPSECASLDOMAIN                                                          CONSTSTR("com.apple.Networking.ipsec.asl")
+#define IPSECASLKEY                                                             CONSTSTR("IPSEC")
 
 #if TARGET_OS_EMBEDDED
 
@@ -61,6 +66,18 @@
 #define IPSECSESSIONTRACERSTOP(session, is_failure, reason)						ipsecSessionTracerStop(session, is_failure, reason)
 #define IPSECSESSIONTRACERESTABLISHED(session)                                  ipsecSessionTracerLogEstablished(session)
 
+#endif
+
+#if 1 //TARGET_OS_EMBEDDED
+#define IPSECLOGASLMSG(format, args...) syslog(LOG_NOTICE, format, ##args);
+#else
+#define IPSECLOGASLMSG(format, args...) do {								\
+						aslmsg m = asl_new(ASL_TYPE_MSG);			\
+						asl_set(m, ASL_KEY_FACILITY, IPSECASLDOMAIN);		\
+						asl_set(m, ASL_KEY_MSG, IPSECASLKEY);			\
+						asl_log(NULL, m, ASL_LEVEL_NOTICE, format, ##args);	\
+						asl_free(m);						\
+					} while(0)
 #endif
 
 static inline double get_percentage (double numerator, double denominator)

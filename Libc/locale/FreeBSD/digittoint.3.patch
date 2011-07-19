@@ -1,6 +1,6 @@
---- digittoint.3	2004-11-25 11:38:16.000000000 -0800
-+++ digittoint.3.edit	2006-08-11 15:23:25.000000000 -0700
-@@ -36,20 +36,38 @@
+--- digittoint.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ digittoint.3	2009-11-09 15:05:26.000000000 -0800
+@@ -32,20 +32,38 @@
  .Dt DIGITTOINT 3
  .Os
  .Sh NAME
@@ -41,7 +41,7 @@
  .Sh RETURN VALUES
  The
  .Fn digittoint
-@@ -60,4 +78,5 @@
+@@ -56,4 +74,5 @@ the function will return 0.
  .Sh SEE ALSO
  .Xr ctype 3 ,
  .Xr isdigit 3 ,

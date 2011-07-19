@@ -1,5 +1,5 @@
 AC_INIT([Mk4tcl], [2.4.9.7])
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 AC_CONFIG_HEADER(config.h)

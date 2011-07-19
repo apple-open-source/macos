@@ -1,0 +1,951 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		723CE9B30FC36FAF00064057 /* Build All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 723CE9C10FC36FEB00064057 /* Build configuration list for PBXAggregateTarget "Build All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				723CE9BE0FC36FC600064057 /* PBXTargetDependency */,
+				723CE9BC0FC36FC600064057 /* PBXTargetDependency */,
+				723CE9BA0FC36FC600064057 /* PBXTargetDependency */,
+				723CE9B80FC36FC600064057 /* PBXTargetDependency */,
+				53D2642B112DD86900FFBD9F /* PBXTargetDependency */,
+				723CE9B60FC36FC600064057 /* PBXTargetDependency */,
+			);
+			name = "Build All";
+			productName = "Build All";
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		53D2641F112DD84700FFBD9F /* calendar.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9040FC34BFF00064057 /* calendar.c */; };
+		53D26420112DD84700FFBD9F /* easter.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9060FC34BFF00064057 /* easter.c */; };
+		53D26421112DD84700FFBD9F /* ncal.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9080FC34BFF00064057 /* ncal.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/ncal"; }; };
+		723CE8750FC3450300064057 /* leave.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE8590FC3436900064057 /* leave.c */; settings = {COMPILER_FLAGS = "-D__FBSDID=__RCSID -include stdint.h -Du_int=uint32_t"; }; };
+		723CE8870FC3453000064057 /* leave.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 723CE8580FC3436900064057 /* leave.1 */; };
+		723CE8B90FC3478800064057 /* tsort.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE89D0FC346BA00064057 /* tsort.c */; };
+		723CE8BB0FC347A300064057 /* tsort.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 723CE89C0FC346BA00064057 /* tsort.1 */; };
+		723CE8D20FC3488100064057 /* units.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE8CA0FC3486000064057 /* units.c */; };
+		723CE8D60FC348D700064057 /* units.1 in Copy manpage */ = {isa = PBXBuildFile; fileRef = 723CE8CB0FC3486D00064057 /* units.1 */; };
+		723CE8EB0FC34A0B00064057 /* units.lib in Copy Unit Files */ = {isa = PBXBuildFile; fileRef = 723CE8E90FC349ED00064057 /* units.lib */; };
+		723CE90C0FC34C1A00064057 /* calendar.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9040FC34BFF00064057 /* calendar.c */; };
+		723CE90E0FC34C1A00064057 /* easter.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9060FC34BFF00064057 /* easter.c */; };
+		723CE90F0FC34C1A00064057 /* ncal.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9080FC34BFF00064057 /* ncal.c */; settings = {COMPILER_FLAGS = "-I$(SRCROOT)/ncal"; }; };
+		723CE9130FC34C5400064057 /* ncal.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 723CE9070FC34BFF00064057 /* ncal.1 */; };
+		723CE9600FC350FF00064057 /* calendar.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE9590FC350FF00064057 /* calendar.c */; };
+		723CE9610FC350FF00064057 /* day.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95B0FC350FF00064057 /* day.c */; };
+		723CE9620FC350FF00064057 /* io.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95C0FC350FF00064057 /* io.c */; };
+		723CE9630FC350FF00064057 /* ostern.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95D0FC350FF00064057 /* ostern.c */; };
+		723CE9640FC350FF00064057 /* paskha.c in Sources */ = {isa = PBXBuildFile; fileRef = 723CE95E0FC350FF00064057 /* paskha.c */; };
+		723CE9C70FC3792900064057 /* calendar.1 in Copy manpage */ = {isa = PBXBuildFile; fileRef = 723CE9C30FC378FD00064057 /* calendar.1 */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		53D2642A112DD86900FFBD9F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 53D2641D112DD84700FFBD9F /* cal */;
+			remoteInfo = cal;
+		};
+		723CE9B50FC36FC600064057 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723CE94A0FC3505500064057;
+			remoteInfo = calendar;
+		};
+		723CE9B70FC36FC600064057 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723CE8F20FC34BD300064057;
+			remoteInfo = ncal;
+		};
+		723CE9B90FC36FC600064057 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723CE8CE0FC3487200064057;
+			remoteInfo = units;
+		};
+		723CE9BB0FC36FC600064057 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723CE8B40FC3476900064057;
+			remoteInfo = tsort;
+		};
+		723CE9BD0FC36FC600064057 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 723CE84B0FC342D200064057 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 723CE85C0FC3437B00064057;
+			remoteInfo = leave;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		723CE8880FC3454E00064057 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE8870FC3453000064057 /* leave.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		723CE8C20FC347C600064057 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE8BB0FC347A300064057 /* tsort.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		723CE8D40FC348B200064057 /* Copy manpage */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE8D60FC348D700064057 /* units.1 in Copy manpage */,
+			);
+			name = "Copy manpage";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		723CE8E20FC3496B00064057 /* Copy Unit Files */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/misc/;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE8EB0FC34A0B00064057 /* units.lib in Copy Unit Files */,
+			);
+			name = "Copy Unit Files";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		723CE91D0FC34C9600064057 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE9130FC34C5400064057 /* ncal.1 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		723CE9DA0FC379A200064057 /* Copy manpage */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+				723CE9C70FC3792900064057 /* calendar.1 in Copy manpage */,
+			);
+			name = "Copy manpage";
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		53D26428112DD84700FFBD9F /* cal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = cal; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE8580FC3436900064057 /* leave.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = leave.1; sourceTree = "<group>"; };
+		723CE8590FC3436900064057 /* leave.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = leave.c; sourceTree = "<group>"; };
+		723CE85D0FC3437B00064057 /* leave */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = leave; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE89C0FC346BA00064057 /* tsort.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = tsort.1; sourceTree = "<group>"; };
+		723CE89D0FC346BA00064057 /* tsort.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = tsort.c; sourceTree = "<group>"; };
+		723CE8B50FC3476900064057 /* tsort */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = tsort; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE8CA0FC3486000064057 /* units.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = units.c; sourceTree = "<group>"; };
+		723CE8CB0FC3486D00064057 /* units.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = units.1; sourceTree = "<group>"; };
+		723CE8CF0FC3487200064057 /* units */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = units; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE8DD0FC3491B00064057 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		723CE8E90FC349ED00064057 /* units.lib */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = units.lib; sourceTree = "<group>"; };
+		723CE8EA0FC34A0600064057 /* README */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = README; sourceTree = "<group>"; };
+		723CE8F30FC34BD300064057 /* ncal */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ncal; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE9040FC34BFF00064057 /* calendar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = calendar.c; sourceTree = "<group>"; };
+		723CE9050FC34BFF00064057 /* calendar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = calendar.h; sourceTree = "<group>"; };
+		723CE9060FC34BFF00064057 /* easter.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = easter.c; sourceTree = "<group>"; };
+		723CE9070FC34BFF00064057 /* ncal.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = ncal.1; sourceTree = "<group>"; };
+		723CE9080FC34BFF00064057 /* ncal.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ncal.c; sourceTree = "<group>"; };
+		723CE94B0FC3505500064057 /* calendar */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = calendar; sourceTree = BUILT_PRODUCTS_DIR; };
+		723CE9590FC350FF00064057 /* calendar.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = calendar.c; sourceTree = "<group>"; };
+		723CE95A0FC350FF00064057 /* calendar.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = calendar.h; sourceTree = "<group>"; };
+		723CE95B0FC350FF00064057 /* day.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = day.c; sourceTree = "<group>"; };
+		723CE95C0FC350FF00064057 /* io.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = io.c; sourceTree = "<group>"; };
+		723CE95D0FC350FF00064057 /* ostern.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = ostern.c; sourceTree = "<group>"; };
+		723CE95E0FC350FF00064057 /* paskha.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = paskha.c; sourceTree = "<group>"; };
+		723CE95F0FC350FF00064057 /* pathnames.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pathnames.h; sourceTree = "<group>"; };
+		723CE96A0FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE96B0FC36C6400064057 /* calendar.australia */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.australia; sourceTree = "<group>"; };
+		723CE96C0FC36C6400064057 /* calendar.birthday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.birthday; sourceTree = "<group>"; };
+		723CE96D0FC36C6400064057 /* calendar.christian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.christian; sourceTree = "<group>"; };
+		723CE96E0FC36C6400064057 /* calendar.computer */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.computer; sourceTree = "<group>"; };
+		723CE96F0FC36C6400064057 /* calendar.croatian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.croatian; sourceTree = "<group>"; };
+		723CE9700FC36C6400064057 /* calendar.dutch */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.dutch; sourceTree = "<group>"; };
+		723CE9710FC36C6400064057 /* calendar.freebsd */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.freebsd; sourceTree = "<group>"; };
+		723CE9720FC36C6400064057 /* calendar.french */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.french; sourceTree = "<group>"; };
+		723CE9730FC36C6400064057 /* calendar.german */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.german; sourceTree = "<group>"; };
+		723CE9740FC36C6400064057 /* calendar.history */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.history; sourceTree = "<group>"; };
+		723CE9750FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
+		723CE9760FC36C6400064057 /* calendar.hungarian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.hungarian; sourceTree = "<group>"; };
+		723CE9770FC36C6400064057 /* calendar.judaic */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.judaic; sourceTree = "<group>"; };
+		723CE9780FC36C6400064057 /* calendar.lotr */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.lotr; sourceTree = "<group>"; };
+		723CE9790FC36C6400064057 /* calendar.music */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.music; sourceTree = "<group>"; };
+		723CE97A0FC36C6400064057 /* calendar.newzealand */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.newzealand; sourceTree = "<group>"; };
+		723CE97B0FC36C6400064057 /* calendar.russian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.russian; sourceTree = "<group>"; };
+		723CE97C0FC36C6400064057 /* calendar.southafrica */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.southafrica; sourceTree = "<group>"; };
+		723CE97D0FC36C6400064057 /* calendar.ukrainian */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.ukrainian; sourceTree = "<group>"; };
+		723CE97E0FC36C6400064057 /* calendar.usholiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.usholiday; sourceTree = "<group>"; };
+		723CE97F0FC36C6400064057 /* calendar.world */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.world; sourceTree = "<group>"; };
+		723CE9810FC36C6400064057 /* calendar.feiertag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.feiertag; sourceTree = "<group>"; };
+		723CE9830FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE9840FC36C6400064057 /* calendar.feiertag */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.feiertag; sourceTree = "<group>"; };
+		723CE9850FC36C6400064057 /* calendar.geschichte */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.geschichte; sourceTree = "<group>"; };
+		723CE9860FC36C6400064057 /* calendar.kirche */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.kirche; sourceTree = "<group>"; };
+		723CE9870FC36C6400064057 /* calendar.literatur */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.literatur; sourceTree = "<group>"; };
+		723CE9880FC36C6400064057 /* calendar.musik */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.musik; sourceTree = "<group>"; };
+		723CE9890FC36C6400064057 /* calendar.wissenschaft */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.wissenschaft; sourceTree = "<group>"; };
+		723CE98B0FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE98C0FC36C6400064057 /* calendar.fetes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.fetes; sourceTree = "<group>"; };
+		723CE98D0FC36C6400064057 /* calendar.french */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.french; sourceTree = "<group>"; };
+		723CE98E0FC36C6400064057 /* calendar.jferies */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.jferies; sourceTree = "<group>"; };
+		723CE98F0FC36C6400064057 /* calendar.proverbes */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.proverbes; sourceTree = "<group>"; };
+		723CE9910FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE9920FC36C6400064057 /* calendar.praznici */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.praznici; sourceTree = "<group>"; };
+		723CE9940FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE9950FC36C6400064057 /* calendar.nevnapok */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.nevnapok; sourceTree = "<group>"; };
+		723CE9960FC36C6400064057 /* calendar.unnepek */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.unnepek; sourceTree = "<group>"; };
+		723CE9980FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE9990FC36C6400064057 /* calendar.common */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.common; sourceTree = "<group>"; };
+		723CE99A0FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
+		723CE99B0FC36C6400064057 /* calendar.military */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.military; sourceTree = "<group>"; };
+		723CE99C0FC36C6400064057 /* calendar.msk */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.msk; sourceTree = "<group>"; };
+		723CE99D0FC36C6400064057 /* calendar.orthodox */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.orthodox; sourceTree = "<group>"; };
+		723CE99E0FC36C6400064057 /* calendar.pagan */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.pagan; sourceTree = "<group>"; };
+		723CE9A00FC36C6400064057 /* calendar.all */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.all; sourceTree = "<group>"; };
+		723CE9A10FC36C6400064057 /* calendar.holiday */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.holiday; sourceTree = "<group>"; };
+		723CE9A20FC36C6400064057 /* calendar.misc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.misc; sourceTree = "<group>"; };
+		723CE9A30FC36C6400064057 /* calendar.orthodox */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = calendar.orthodox; sourceTree = "<group>"; };
+		723CE9C30FC378FD00064057 /* calendar.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = calendar.1; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		53D26422112DD84700FFBD9F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE85B0FC3437B00064057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8B30FC3476900064057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8CD0FC3487200064057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8F10FC34BD300064057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE9490FC3505500064057 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		723CE8490FC342D200064057 = {
+			isa = PBXGroup;
+			children = (
+				723CE8530FC3432200064057 /* Source */,
+				723CE85E0FC3437B00064057 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		723CE8530FC3432200064057 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				723CE94F0FC3509E00064057 /* calendar */,
+				723CE8F60FC34BE400064057 /* ncal */,
+				723CE8C30FC3481100064057 /* units */,
+				723CE8540FC3432D00064057 /* leave */,
+				723CE8970FC3469A00064057 /* tsort */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		723CE8540FC3432D00064057 /* leave */ = {
+			isa = PBXGroup;
+			children = (
+				723CE8580FC3436900064057 /* leave.1 */,
+				723CE8590FC3436900064057 /* leave.c */,
+			);
+			path = leave;
+			sourceTree = "<group>";
+		};
+		723CE85E0FC3437B00064057 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				723CE85D0FC3437B00064057 /* leave */,
+				723CE8B50FC3476900064057 /* tsort */,
+				723CE8CF0FC3487200064057 /* units */,
+				723CE8F30FC34BD300064057 /* ncal */,
+				723CE94B0FC3505500064057 /* calendar */,
+				53D26428112DD84700FFBD9F /* cal */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		723CE8970FC3469A00064057 /* tsort */ = {
+			isa = PBXGroup;
+			children = (
+				723CE89C0FC346BA00064057 /* tsort.1 */,
+				723CE89D0FC346BA00064057 /* tsort.c */,
+			);
+			path = tsort;
+			sourceTree = "<group>";
+		};
+		723CE8C30FC3481100064057 /* units */ = {
+			isa = PBXGroup;
+			children = (
+				723CE8EA0FC34A0600064057 /* README */,
+				723CE8E90FC349ED00064057 /* units.lib */,
+				723CE8DD0FC3491B00064057 /* pathnames.h */,
+				723CE8CA0FC3486000064057 /* units.c */,
+				723CE8CB0FC3486D00064057 /* units.1 */,
+			);
+			path = units;
+			sourceTree = "<group>";
+		};
+		723CE8F60FC34BE400064057 /* ncal */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9040FC34BFF00064057 /* calendar.c */,
+				723CE9050FC34BFF00064057 /* calendar.h */,
+				723CE9060FC34BFF00064057 /* easter.c */,
+				723CE9070FC34BFF00064057 /* ncal.1 */,
+				723CE9080FC34BFF00064057 /* ncal.c */,
+			);
+			path = ncal;
+			sourceTree = "<group>";
+		};
+		723CE94F0FC3509E00064057 /* calendar */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9C30FC378FD00064057 /* calendar.1 */,
+				723CE9690FC36C6400064057 /* calendars */,
+				723CE9590FC350FF00064057 /* calendar.c */,
+				723CE95A0FC350FF00064057 /* calendar.h */,
+				723CE95B0FC350FF00064057 /* day.c */,
+				723CE95C0FC350FF00064057 /* io.c */,
+				723CE95D0FC350FF00064057 /* ostern.c */,
+				723CE95E0FC350FF00064057 /* paskha.c */,
+				723CE95F0FC350FF00064057 /* pathnames.h */,
+			);
+			path = calendar;
+			sourceTree = "<group>";
+		};
+		723CE9690FC36C6400064057 /* calendars */ = {
+			isa = PBXGroup;
+			children = (
+				723CE96A0FC36C6400064057 /* calendar.all */,
+				723CE96B0FC36C6400064057 /* calendar.australia */,
+				723CE96C0FC36C6400064057 /* calendar.birthday */,
+				723CE96D0FC36C6400064057 /* calendar.christian */,
+				723CE96E0FC36C6400064057 /* calendar.computer */,
+				723CE96F0FC36C6400064057 /* calendar.croatian */,
+				723CE9700FC36C6400064057 /* calendar.dutch */,
+				723CE9710FC36C6400064057 /* calendar.freebsd */,
+				723CE9720FC36C6400064057 /* calendar.french */,
+				723CE9730FC36C6400064057 /* calendar.german */,
+				723CE9740FC36C6400064057 /* calendar.history */,
+				723CE9750FC36C6400064057 /* calendar.holiday */,
+				723CE9760FC36C6400064057 /* calendar.hungarian */,
+				723CE9770FC36C6400064057 /* calendar.judaic */,
+				723CE9780FC36C6400064057 /* calendar.lotr */,
+				723CE9790FC36C6400064057 /* calendar.music */,
+				723CE97A0FC36C6400064057 /* calendar.newzealand */,
+				723CE97B0FC36C6400064057 /* calendar.russian */,
+				723CE97C0FC36C6400064057 /* calendar.southafrica */,
+				723CE97D0FC36C6400064057 /* calendar.ukrainian */,
+				723CE97E0FC36C6400064057 /* calendar.usholiday */,
+				723CE97F0FC36C6400064057 /* calendar.world */,
+				723CE9800FC36C6400064057 /* de_AT.ISO_8859-15 */,
+				723CE9820FC36C6400064057 /* de_DE.ISO8859-1 */,
+				723CE98A0FC36C6400064057 /* fr_FR.ISO8859-1 */,
+				723CE9900FC36C6400064057 /* hr_HR.ISO8859-2 */,
+				723CE9930FC36C6400064057 /* hu_HU.ISO8859-2 */,
+				723CE9970FC36C6400064057 /* ru_RU.KOI8-R */,
+				723CE99F0FC36C6400064057 /* uk_UA.KOI8-U */,
+			);
+			path = calendars;
+			sourceTree = "<group>";
+		};
+		723CE9800FC36C6400064057 /* de_AT.ISO_8859-15 */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9810FC36C6400064057 /* calendar.feiertag */,
+			);
+			path = "de_AT.ISO_8859-15";
+			sourceTree = "<group>";
+		};
+		723CE9820FC36C6400064057 /* de_DE.ISO8859-1 */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9830FC36C6400064057 /* calendar.all */,
+				723CE9840FC36C6400064057 /* calendar.feiertag */,
+				723CE9850FC36C6400064057 /* calendar.geschichte */,
+				723CE9860FC36C6400064057 /* calendar.kirche */,
+				723CE9870FC36C6400064057 /* calendar.literatur */,
+				723CE9880FC36C6400064057 /* calendar.musik */,
+				723CE9890FC36C6400064057 /* calendar.wissenschaft */,
+			);
+			path = "de_DE.ISO8859-1";
+			sourceTree = "<group>";
+		};
+		723CE98A0FC36C6400064057 /* fr_FR.ISO8859-1 */ = {
+			isa = PBXGroup;
+			children = (
+				723CE98B0FC36C6400064057 /* calendar.all */,
+				723CE98C0FC36C6400064057 /* calendar.fetes */,
+				723CE98D0FC36C6400064057 /* calendar.french */,
+				723CE98E0FC36C6400064057 /* calendar.jferies */,
+				723CE98F0FC36C6400064057 /* calendar.proverbes */,
+			);
+			path = "fr_FR.ISO8859-1";
+			sourceTree = "<group>";
+		};
+		723CE9900FC36C6400064057 /* hr_HR.ISO8859-2 */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9910FC36C6400064057 /* calendar.all */,
+				723CE9920FC36C6400064057 /* calendar.praznici */,
+			);
+			path = "hr_HR.ISO8859-2";
+			sourceTree = "<group>";
+		};
+		723CE9930FC36C6400064057 /* hu_HU.ISO8859-2 */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9940FC36C6400064057 /* calendar.all */,
+				723CE9950FC36C6400064057 /* calendar.nevnapok */,
+				723CE9960FC36C6400064057 /* calendar.unnepek */,
+			);
+			path = "hu_HU.ISO8859-2";
+			sourceTree = "<group>";
+		};
+		723CE9970FC36C6400064057 /* ru_RU.KOI8-R */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9980FC36C6400064057 /* calendar.all */,
+				723CE9990FC36C6400064057 /* calendar.common */,
+				723CE99A0FC36C6400064057 /* calendar.holiday */,
+				723CE99B0FC36C6400064057 /* calendar.military */,
+				723CE99C0FC36C6400064057 /* calendar.msk */,
+				723CE99D0FC36C6400064057 /* calendar.orthodox */,
+				723CE99E0FC36C6400064057 /* calendar.pagan */,
+			);
+			path = "ru_RU.KOI8-R";
+			sourceTree = "<group>";
+		};
+		723CE99F0FC36C6400064057 /* uk_UA.KOI8-U */ = {
+			isa = PBXGroup;
+			children = (
+				723CE9A00FC36C6400064057 /* calendar.all */,
+				723CE9A10FC36C6400064057 /* calendar.holiday */,
+				723CE9A20FC36C6400064057 /* calendar.misc */,
+				723CE9A30FC36C6400064057 /* calendar.orthodox */,
+			);
+			path = "uk_UA.KOI8-U";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		53D2641D112DD84700FFBD9F /* cal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 53D26426112DD84700FFBD9F /* Build configuration list for PBXNativeTarget "cal" */;
+			buildPhases = (
+				53D2641E112DD84700FFBD9F /* Sources */,
+				53D26422112DD84700FFBD9F /* Frameworks */,
+				53D26425112DD84700FFBD9F /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = cal;
+			productName = ncal;
+			productReference = 53D26428112DD84700FFBD9F /* cal */;
+			productType = "com.apple.product-type.tool";
+		};
+		723CE85C0FC3437B00064057 /* leave */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723CE8620FC3437C00064057 /* Build configuration list for PBXNativeTarget "leave" */;
+			buildPhases = (
+				723CE85A0FC3437B00064057 /* Sources */,
+				723CE85B0FC3437B00064057 /* Frameworks */,
+				723CE8880FC3454E00064057 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = leave;
+			productName = leave;
+			productReference = 723CE85D0FC3437B00064057 /* leave */;
+			productType = "com.apple.product-type.tool";
+		};
+		723CE8B40FC3476900064057 /* tsort */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723CE8B80FC3478800064057 /* Build configuration list for PBXNativeTarget "tsort" */;
+			buildPhases = (
+				723CE8B20FC3476900064057 /* Sources */,
+				723CE8B30FC3476900064057 /* Frameworks */,
+				723CE8C20FC347C600064057 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = tsort;
+			productName = tsort;
+			productReference = 723CE8B50FC3476900064057 /* tsort */;
+			productType = "com.apple.product-type.tool";
+		};
+		723CE8CE0FC3487200064057 /* units */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723CE8D50FC348B200064057 /* Build configuration list for PBXNativeTarget "units" */;
+			buildPhases = (
+				723CE8CC0FC3487200064057 /* Sources */,
+				723CE8CD0FC3487200064057 /* Frameworks */,
+				723CE8D40FC348B200064057 /* Copy manpage */,
+				723CE8E20FC3496B00064057 /* Copy Unit Files */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = units;
+			productName = units;
+			productReference = 723CE8CF0FC3487200064057 /* units */;
+			productType = "com.apple.product-type.tool";
+		};
+		723CE8F20FC34BD300064057 /* ncal */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723CE8F70FC34BE400064057 /* Build configuration list for PBXNativeTarget "ncal" */;
+			buildPhases = (
+				723CE8F00FC34BD300064057 /* Sources */,
+				723CE8F10FC34BD300064057 /* Frameworks */,
+				723CE91D0FC34C9600064057 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ncal;
+			productName = ncal;
+			productReference = 723CE8F30FC34BD300064057 /* ncal */;
+			productType = "com.apple.product-type.tool";
+		};
+		723CE94A0FC3505500064057 /* calendar */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 723CE94E0FC3507300064057 /* Build configuration list for PBXNativeTarget "calendar" */;
+			buildPhases = (
+				723CE9480FC3505500064057 /* Sources */,
+				723CE9490FC3505500064057 /* Frameworks */,
+				723CE9DA0FC379A200064057 /* Copy manpage */,
+				72FA601A0FC497B500E6462C /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = calendar;
+			productName = calendar;
+			productReference = 723CE94B0FC3505500064057 /* calendar */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		723CE84B0FC342D200064057 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 723CE84E0FC342D200064057 /* Build configuration list for PBXProject "misc_cmds" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 0;
+			mainGroup = 723CE8490FC342D200064057;
+			productRefGroup = 723CE85E0FC3437B00064057 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				723CE9B30FC36FAF00064057 /* Build All */,
+				723CE85C0FC3437B00064057 /* leave */,
+				723CE8B40FC3476900064057 /* tsort */,
+				723CE8CE0FC3487200064057 /* units */,
+				723CE8F20FC34BD300064057 /* ncal */,
+				723CE94A0FC3505500064057 /* calendar */,
+				53D2641D112DD84700FFBD9F /* cal */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		53D26425112DD84700FFBD9F /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "cp $DSTROOT/usr/share/man/man1/ncal.1 $DSTROOT/usr/share/man/man1/cal.1";
+		};
+		72FA601A0FC497B500E6462C /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "mkdir -p $DSTROOT/usr/share/calendar\ncp -R $SRCROOT/calendar/calendars/ $DSTROOT/usr/share/calendar/\nmkdir -p $DSTROOT/usr/share/calendar/de_DE.ISO8859-15\nmkdir -p $DSTROOT/usr/share/calendar/fr_FR.ISO8859-15";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		53D2641E112DD84700FFBD9F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				53D2641F112DD84700FFBD9F /* calendar.c in Sources */,
+				53D26420112DD84700FFBD9F /* easter.c in Sources */,
+				53D26421112DD84700FFBD9F /* ncal.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE85A0FC3437B00064057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723CE8750FC3450300064057 /* leave.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8B20FC3476900064057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723CE8B90FC3478800064057 /* tsort.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8CC0FC3487200064057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723CE8D20FC3488100064057 /* units.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE8F00FC34BD300064057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723CE90C0FC34C1A00064057 /* calendar.c in Sources */,
+				723CE90E0FC34C1A00064057 /* easter.c in Sources */,
+				723CE90F0FC34C1A00064057 /* ncal.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		723CE9480FC3505500064057 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				723CE9600FC350FF00064057 /* calendar.c in Sources */,
+				723CE9610FC350FF00064057 /* day.c in Sources */,
+				723CE9620FC350FF00064057 /* io.c in Sources */,
+				723CE9630FC350FF00064057 /* ostern.c in Sources */,
+				723CE9640FC350FF00064057 /* paskha.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		53D2642B112DD86900FFBD9F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 53D2641D112DD84700FFBD9F /* cal */;
+			targetProxy = 53D2642A112DD86900FFBD9F /* PBXContainerItemProxy */;
+		};
+		723CE9B60FC36FC600064057 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723CE94A0FC3505500064057 /* calendar */;
+			targetProxy = 723CE9B50FC36FC600064057 /* PBXContainerItemProxy */;
+		};
+		723CE9B80FC36FC600064057 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723CE8F20FC34BD300064057 /* ncal */;
+			targetProxy = 723CE9B70FC36FC600064057 /* PBXContainerItemProxy */;
+		};
+		723CE9BA0FC36FC600064057 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723CE8CE0FC3487200064057 /* units */;
+			targetProxy = 723CE9B90FC36FC600064057 /* PBXContainerItemProxy */;
+		};
+		723CE9BC0FC36FC600064057 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723CE8B40FC3476900064057 /* tsort */;
+			targetProxy = 723CE9BB0FC36FC600064057 /* PBXContainerItemProxy */;
+		};
+		723CE9BE0FC36FC600064057 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 723CE85C0FC3437B00064057 /* leave */;
+			targetProxy = 723CE9BD0FC36FC600064057 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		53D26427112DD84700FFBD9F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D__FBSDID=__RCSID";
+				PREBINDING = NO;
+				PRODUCT_NAME = cal;
+				STRIP_INSTALLED_PRODUCT = YES;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE84D0FC342D200064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GENERATE_MASTER_OBJECT_FILE = NO;
+				INSTALL_MODE_FLAG = "gou-w,a+rX";
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				USE_HEADERMAP = NO;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_BUILDER = "$(USER)";
+				VERSION_INFO_FILE = "$(PRODUCT_NAME)_vers.c";
+				VERSION_INFO_PREFIX = __;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE8610FC3437C00064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = leave;
+				VERSIONING_SYSTEM = "apple-generic";
+				VERSION_INFO_PREFIX = __;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE8B70FC3476A00064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = tsort;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE8D10FC3487300064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				PRODUCT_NAME = units;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE8F50FC34BD300064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/bin;
+				OTHER_CFLAGS = "-D__FBSDID=__RCSID";
+				PREBINDING = NO;
+				PRODUCT_NAME = ncal;
+				STRIP_INSTALLED_PRODUCT = YES;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE94D0FC3505500064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				GCC_PREPROCESSOR_DEFINITIONS = "__FBSDID=__RCSID";
+				INSTALL_PATH = /usr/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = calendar;
+				STRIP_INSTALLED_PRODUCT = YES;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		723CE9B40FC36FB000064057 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = "Build All";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		53D26426112DD84700FFBD9F /* Build configuration list for PBXNativeTarget "cal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				53D26427112DD84700FFBD9F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE84E0FC342D200064057 /* Build configuration list for PBXProject "misc_cmds" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE84D0FC342D200064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE8620FC3437C00064057 /* Build configuration list for PBXNativeTarget "leave" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE8610FC3437C00064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE8B80FC3478800064057 /* Build configuration list for PBXNativeTarget "tsort" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE8B70FC3476A00064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE8D50FC348B200064057 /* Build configuration list for PBXNativeTarget "units" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE8D10FC3487300064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE8F70FC34BE400064057 /* Build configuration list for PBXNativeTarget "ncal" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE8F50FC34BD300064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE94E0FC3507300064057 /* Build configuration list for PBXNativeTarget "calendar" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE94D0FC3505500064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		723CE9C10FC36FEB00064057 /* Build configuration list for PBXAggregateTarget "Build All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				723CE9B40FC36FB000064057 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 723CE84B0FC342D200064057 /* Project object */;
+}

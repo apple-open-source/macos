@@ -20,20 +20,42 @@
 #include "tkInt.h"
 #endif
 
-#define TextStyle MacTextStyle
-#include <ApplicationServices/ApplicationServices.h>
-#include <Cocoa/Cocoa.h>
-#ifndef NO_CARBON_H
-#include <Carbon/Carbon.h>
-#endif
-#undef TextStyle
-
 /*
  * Include platform specific public interfaces.
  */
 
 #ifndef _TKMAC
 #include "tkMacOSX.h"
+#endif
+
+/*
+ * Define compatibility platform types used in the structures below so that
+ * this header can be included without pulling in the platform headers.
+ */
+
+#ifndef _TKMACPRIV
+#   ifndef CGGEOMETRY_H_
+#	ifndef CGFLOAT_DEFINED
+#	    if __LP64__
+#		define CGFloat double
+#	    else
+#		define CGFloat float
+#	    endif
+#	endif
+#	define CGSize struct {CGFloat width; CGFloat height;}
+#   endif
+#   ifndef CGCONTEXT_H_
+#	define CGContextRef void *
+#   endif
+#   ifndef CGCOLOR_H_
+#	define CGColorRef void *
+#   endif
+#   ifndef __HISHAPE__
+#	define HIShapeRef void *
+#   endif
+#   ifndef _APPKITDEFINES_H
+#	define NSView void *
+#   endif
 #endif
 
 struct TkWindowPrivate {
@@ -107,6 +129,31 @@ typedef struct {
 MODULE_SCOPE TkpGCCache *TkpGetGCCache(GC gc);
 MODULE_SCOPE void TkpInitGCCache(GC gc);
 MODULE_SCOPE void TkpFreeGCCache(GC gc);
+
+/*
+ * Undef compatibility platform types defined above.
+ */
+
+#ifndef _TKMACPRIV
+#   ifndef CGGEOMETRY_H_
+#	ifndef CGFLOAT_DEFINED
+#	    undef CGFloat
+#	endif
+#	undef CGSize
+#   endif
+#   ifndef CGCONTEXT_H_
+#	undef CGContextRef
+#   endif
+#   ifndef CGCOLOR_H_
+#	undef CGColorRef
+#   endif
+#   ifndef __HISHAPE__
+#	undef HIShapeRef
+#   endif
+#   ifndef _APPKITDEFINES_H
+#	undef NSView
+#   endif
+#endif
 
 /*
  * Defines used for TkMacOSXInvalidateWindow

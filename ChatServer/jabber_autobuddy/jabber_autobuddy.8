@@ -12,22 +12,74 @@ jabber_autobuddy is not intended to be invoked by users directly.  It is a utili
 .Pp
 .Sh OPTIONS
 .Bl -tag -width indent
-.It Fl "D"
-Debug mode/verbose output sent to standard error.
-.It Fl "v, h, ?"
-Display usage information.
+.It Fl "h, ?, --help"
+Displays this message. [7]
+.It Fl "v, --version"
+Display program version information. [7]
+.It Fl "V, --verbose"
+Enable verbose (detailed) program output to standard error. [5]
 .El
 .Pp
 .Sh COMMANDS
 .Bl -tag -width indent
-.It Fl "i JID"
-Initialize given JID in database.  This is required before using other commands.
-.It Fl "a JID"
-Add JID to the buddy list of all other initialized users.
-.It Fl "r JID"
-Delete JID from all buddy lists.
-.It Fl "d JID"
-Delete all data owned by JID, and remove JID from all buddy lists.
-.It Fl "m"
-Make all initialized users buddies of each other.
+.It Fl "-i  --inituser  <JID>"
+Initialize a user's data store in the jabberd database. [1,2,3,8]
+.It Fl "-d  --deleteuser <JID>"
+Delete a user's data store from the jabberd database. [1,2,3,8]
+.It Fl "-a  --addbuddy  <JID>"
+Add a user to the buddy list of all other users in the jabberd database. [1,2,8]
+.It Fl "-r  --removebuddy  <JID>"
+Delete a user from the buddy lists of all other user's in the jabberd database. [1,2,8]
+.It Fl "-m  --all"
+Make all existing users buddies. [2,4,6]
+.It Fl "-g  --group  <GROUP>"
+Make buddies of existing users belonging to the Open Directory group. [2,4,6]
+.It Fl "-G  --group-by-id  <GROUP ID>"
+Make buddies of existing users belonging to the Open Directory group, using the group's GeneratedID.  [2,4,6]
+.It Fl "-u  --ungroup  <GROUP>"
+Remove all buddy pairings for the Open Directory group. [2,4,6]
+.It Fl "-U  --ungroup-by-id  <GROUP ID>"
+Remove all buddy pairings for the Open Directory group, using the group's GeneratedID. [2,4,6]
+.It Fl "-M  --move-domain  <FROM-DOMAIN>  <TO-DOMAIN>"
+Move all users from one jabber domain to another. [9]
 .El
+.Pp
+.Sh Notes
+.Pp
+[1] JID is a Jabber ID in the form <username>@<hostname>, where:
+      username   is the short name (record name) from any Open Directory
+                 account in the server's directory search path.
+      hostname   is be a domain (or realm) that the local jabberd service 
+                 is configured to host.
+.Pp
+[2] Commands which modify the jabberd database may be used multiple times
+    in the same execution and in any order.  However, when used this way,
+    the commands are evaluated in the following order:
+      * all --deleteuser commands
+      * all --inituser commands
+      * all --removebuddy commands
+      * all --addbuddy commands
+      * the --all, --group or --ungroup command
+.Pp
+[3] The --inituser and --deleteuser commands only modify the local
+    jabberd database for the selected users.  These command do not affect
+    user account data stored in the directory.
+.Pp
+[4] The --all, --group and --ungroup commands may not be used in the same
+    execution.
+.Pp
+[5] Multiple uses of the --verbose option are treated as a single use of
+    that option.
+.Pp
+[6] Multiple uses of the --all, --group or --ungroup commands are treated
+    as a single use of each command.
+.Pp
+[7] Use of the --help or --version commands in combination with other
+    commands will only display the help or version text.  All other
+    commands will be ignored for that execution.
+.Pp
+[8] The --inituser command is a prerequisite for the  --deleteuser,
+    --addbuddy and --removebuddy commands.
+.Pp
+[9] The format for domains is the same as for host names 
+    (ex: example.com, chat.example.com, etc).

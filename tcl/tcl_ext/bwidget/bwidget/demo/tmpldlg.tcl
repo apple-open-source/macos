@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+#  tmpldlg.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: tmpldlg.tcl,v 1.5 2009/09/08 21:21:43 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+#
 
 namespace eval DemoDlg {
     variable tmpl
@@ -18,16 +24,16 @@ proc DemoDlg::create { nb } {
 
     set subf [$titf1 getframe]
     set cmd  {option read [file join $::BWIDGET::LIBRARY "lang" $DemoDlg::resources.rc]}
-    set rad1 [radiobutton $subf.rad1 -text "English" \
+    set rad1 [BWidget::wrap radiobutton $subf.rad1 -text "English" \
                   -variable DemoDlg::resources -value en \
                   -command  $cmd]
-    set rad2 [radiobutton $subf.rad2 -text "French" \
+    set rad2 [BWidget::wrap radiobutton $subf.rad2 -text "French" \
                   -variable DemoDlg::resources -value fr \
                   -command  $cmd]
-    set rad3 [radiobutton $subf.rad3 -text "German" \
+    set rad3 [BWidget::wrap radiobutton $subf.rad3 -text "German" \
                   -variable DemoDlg::resources -value de \
                   -command  $cmd]
-    pack $rad1 $rad2 $rad3 -side left
+    pack $rad1 $rad2 $rad3 -side left -padx 5
 
     _tmpldlg [$titf2 getframe]
     _msgdlg  [$titf3 getframe]
@@ -48,35 +54,36 @@ proc DemoDlg::_tmpldlg { parent } {
     set labf1 [LabelFrame $parent.labf1 -text "Button side" -side top \
                    -anchor w -relief sunken -borderwidth 1]
     set subf  [$labf1 getframe]
-    radiobutton $subf.rad1 -text "Bottom" \
-        -variable DemoDlg::tmpl(side) -value bottom -anchor w
-    radiobutton $subf.rad2 -text "Left" \
-        -variable DemoDlg::tmpl(side) -value left   -anchor w
-    radiobutton $subf.rad3 -text "Right" \
-        -variable DemoDlg::tmpl(side) -value right  -anchor w
-    radiobutton $subf.rad4 -text "Top" \
-        -variable DemoDlg::tmpl(side) -value top    -anchor w
+    BWidget::wrap radiobutton $subf.rad1 -text "Bottom" \
+        -variable DemoDlg::tmpl(side) -value bottom
+    BWidget::wrap radiobutton $subf.rad2 -text "Left" \
+        -variable DemoDlg::tmpl(side) -value left
+    BWidget::wrap radiobutton $subf.rad3 -text "Right" \
+        -variable DemoDlg::tmpl(side) -value right
+    BWidget::wrap radiobutton $subf.rad4 -text "Top" \
+        -variable DemoDlg::tmpl(side) -value top
 
-    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 -fill x -anchor w
+    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 -anchor w -padx 5
 
     set labf2 [LabelFrame $parent.labf2 -text "Button anchor" -side top \
                    -anchor w -relief sunken -borderwidth 1]
     set subf  [$labf2 getframe]
-    radiobutton $subf.rad1 -text "North" \
-        -variable DemoDlg::tmpl(anchor) -value n -anchor w
-    radiobutton $subf.rad2 -text "West" \
-        -variable DemoDlg::tmpl(anchor) -value w -anchor w
-    radiobutton $subf.rad3 -text "East" \
-        -variable DemoDlg::tmpl(anchor) -value e -anchor w
-    radiobutton $subf.rad4 -text "South" \
-        -variable DemoDlg::tmpl(anchor) -value s -anchor w
-    radiobutton $subf.rad5 -text "Center" \
-        -variable DemoDlg::tmpl(anchor) -value c -anchor w
+    BWidget::wrap radiobutton $subf.rad1 -text "North" \
+        -variable DemoDlg::tmpl(anchor) -value n
+    BWidget::wrap radiobutton $subf.rad2 -text "West" \
+        -variable DemoDlg::tmpl(anchor) -value w
+    BWidget::wrap radiobutton $subf.rad3 -text "East" \
+        -variable DemoDlg::tmpl(anchor) -value e
+    BWidget::wrap radiobutton $subf.rad4 -text "South" \
+        -variable DemoDlg::tmpl(anchor) -value s
+    BWidget::wrap radiobutton $subf.rad5 -text "Center" \
+        -variable DemoDlg::tmpl(anchor) -value c
 
-    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 $subf.rad5 -fill x -anchor w
+    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 $subf.rad5 -anchor w -padx 5
 
     set sep    [Separator  $parent.sep -orient horizontal]
-    set button [button $parent.but -text "Show" -command DemoDlg::_show_tmpldlg]
+    set button [Button $parent.but -text "Show" \
+                                 -command DemoDlg::_show_tmpldlg]
 
     pack $button -side bottom
     pack $sep -side bottom -fill x -pady 10
@@ -93,29 +100,29 @@ proc DemoDlg::_msgdlg { parent } {
     set labf1 [LabelFrame $parent.labf1 -text "Type" -side top \
                    -anchor w -relief sunken -borderwidth 1]
     set subf  [$labf1 getframe]
-    radiobutton $subf.rad1 -text "Ok" -variable DemoDlg::msg(type) -value ok -anchor w
-    radiobutton $subf.rad2 -text "Ok, Cancel" -variable DemoDlg::msg(type) -value okcancel -anchor w
-    radiobutton $subf.rad3 -text "Retry, Cancel" -variable DemoDlg::msg(type) -value retrycancel -anchor w
-    radiobutton $subf.rad4 -text "Yes, No" -variable DemoDlg::msg(type) -value yesno -anchor w
-    radiobutton $subf.rad5 -text "Yes, No, Cancel" -variable DemoDlg::msg(type) -value yesnocancel -anchor w
-    radiobutton $subf.rad6 -text "Abort, Retry, Ignore" -variable DemoDlg::msg(type) -value abortretryignore -anchor w
-    radiobutton $subf.rad7 -text "User" -variable DemoDlg::msg(type) -value user -anchor w
+    BWidget::wrap radiobutton $subf.rad1 -text "Ok" -variable DemoDlg::msg(type) -value ok
+    BWidget::wrap radiobutton $subf.rad2 -text "Ok, Cancel" -variable DemoDlg::msg(type) -value okcancel
+    BWidget::wrap radiobutton $subf.rad3 -text "Retry, Cancel" -variable DemoDlg::msg(type) -value retrycancel
+    BWidget::wrap radiobutton $subf.rad4 -text "Yes, No" -variable DemoDlg::msg(type) -value yesno
+    BWidget::wrap radiobutton $subf.rad5 -text "Yes, No, Cancel" -variable DemoDlg::msg(type) -value yesnocancel
+    BWidget::wrap radiobutton $subf.rad6 -text "Abort, Retry, Ignore" -variable DemoDlg::msg(type) -value abortretryignore
+    BWidget::wrap radiobutton $subf.rad7 -text "User" -variable DemoDlg::msg(type) -value user
     Entry $subf.user -textvariable DemoDlg::msg(buttons)
 
-    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 $subf.rad5 $subf.rad6 -fill x -anchor w
-    pack $subf.rad7 $subf.user -side left
+    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 $subf.rad5 $subf.rad6 -anchor w -padx 5
+    pack $subf.rad7 $subf.user -side left -padx 5
 
     set labf2 [LabelFrame $parent.labf2 -text "Icon" -side top -anchor w -relief sunken -borderwidth 1]
     set subf  [$labf2 getframe]
-    radiobutton $subf.rad1 -text "Information" -variable DemoDlg::msg(icon) -value info     -anchor w
-    radiobutton $subf.rad2 -text "Question"    -variable DemoDlg::msg(icon) -value question -anchor w
-    radiobutton $subf.rad3 -text "Warning"     -variable DemoDlg::msg(icon) -value warning  -anchor w
-    radiobutton $subf.rad4 -text "Error"       -variable DemoDlg::msg(icon) -value error    -anchor w
-    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 -fill x -anchor w
+    BWidget::wrap radiobutton $subf.rad1 -text "Information" -variable DemoDlg::msg(icon) -value info
+    BWidget::wrap radiobutton $subf.rad2 -text "Question"    -variable DemoDlg::msg(icon) -value question
+    BWidget::wrap radiobutton $subf.rad3 -text "Warning"     -variable DemoDlg::msg(icon) -value warning
+    BWidget::wrap radiobutton $subf.rad4 -text "Error"       -variable DemoDlg::msg(icon) -value error
+    pack $subf.rad1 $subf.rad2 $subf.rad3 $subf.rad4 -anchor w -padx 5
 
 
     set sep    [Separator  $parent.sep -orient horizontal]
-    set button [button $parent.but -text "Show" -command DemoDlg::_show_msgdlg]
+    set button [BWidget::wrap button $parent.but -text "Show" -command DemoDlg::_show_msgdlg]
 
     pack $button -side bottom
     pack $sep -side bottom -fill x -pady 10
@@ -124,27 +131,59 @@ proc DemoDlg::_msgdlg { parent } {
 
 
 proc DemoDlg::_stddlg { parent } {
-    set but0  [button $parent.but0 \
-                   -text "Select a color " \
-                   -command "DemoDlg::_show_color $parent.but0"]
-    set but1  [button $parent.but1 \
+  
+  
+  set frm [BWidget::wrap frame $parent.f0]
+    pack $frm -side top -fill x
+  
+    set but0  [Button $frm.but0 \
+                   -text "Select a color - popup" \
+                   -command "DemoDlg::_show_color $parent popup"]
+
+    set but1  [Button $frm.but1 \
+                   -text "Select a color - Dialog" \
+                   -command "DemoDlg::_show_color $parent dialog"]
+
+    set but2  [Button $frm.but2 \
                    -text    "Font selector dialog" \
                    -command DemoDlg::_show_fontdlg]
-    set but2  [button $parent.but2 \
+
+    set but3  [Button $frm.but3 \
                    -text    "Progression dialog" \
                    -command DemoDlg::_show_progdlg]
-    set but3  [button $parent.but3 \
+
+    set but4  [Button $frm.but4 \
                    -text    "Password dialog" \
                    -command DemoDlg::_show_passdlg]
 
-    pack $but0 $but1 $but2 $but3 -side left -padx 5 -anchor w
+    pack $but0 $but1 $but2 $but3 $but4 -side left -padx 5 -anchor w -padx 5
 }
 
-proc DemoDlg::_show_color {w} {
-    set color [SelectColor::menu $w.color [list below $w] \
-                       -color [$w cget -background]]
-    if {[string length $color]} {
-        $w configure -background $color
+
+proc DemoDlg::_show_color {w {mode "popup"}} {
+
+    if { [BWidget::using ttk] } {
+             set ccolor $::BWidget::colors(SystemButtonFace)
+    } else { set ccolor [$w cget -background] }
+
+
+    if { $mode == "popup" } {
+        set color [SelectColor::menu $w.color \
+	             [list below $w] -color $ccolor]
+    } else {
+        set color [SelectColor::dialog $w.color \
+	             -parent [list below $w] -title "Select Color Dialog"]
+    }
+
+    if { [string length $color] > 0 } {
+
+        if { [BWidget::using ttk] } {
+	
+	    ::ttk::style configure . -background $color
+
+	} else {
+            [winfo parent $w] configure -background $color
+      }
     }
 }
 
@@ -179,7 +218,9 @@ proc DemoDlg::_show_msgdlg { } {
 
 
 proc DemoDlg::_show_fontdlg { } {
+    # -initialcolor Black
     set font [SelectFont .fontdlg -parent . -font $Demo::font]
+
     if { $font != "" } {
         Demo::update_font $font
     }

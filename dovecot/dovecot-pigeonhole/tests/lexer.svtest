@@ -1,0 +1,39 @@
+require "vnd.dovecot.testsuite";
+require "variables";
+
+/* Test conformance to RFC 5228 - 2.4.2. Strings */
+
+set "text" text: # Comment
+Line 1
+.Line 2
+..Line 3
+.Line 4
+Line 5
+.
+;
+
+set "quoted"
+"Line 1
+.Line 2
+.Line 3
+.Line 4
+Line 5
+";
+
+test "String Literal" {
+	if not string :is "${text}" "${quoted}" {
+		test_fail "lexer messed-up dot stuffing";
+	}
+
+	if string :is "${text}" "" {
+		test_fail "variable substitution failed";
+	}
+}
+
+test "Unknown Escapes" {
+	if not string :is "\a\a\a\a\a" "aaaaa" {
+		test_fail "unknown quoted string escape sequences are handled inappropriately";
+	}
+}
+
+

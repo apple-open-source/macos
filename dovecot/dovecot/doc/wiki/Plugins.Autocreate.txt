@@ -1,0 +1,25 @@
+Autocreate plugin
+=================
+
+This plugin allows administrator to specify mailboxes that must always exist
+for all users. They can optionally also be subscribed. The mailboxes are
+created and subscribed always after user logs in. Namespaces are fully
+supported, so namespace prefixes need to be used where necessary.
+
+Example:
+
+---%<-------------------------------------------------------------------------
+protocol imap {
+  mail_plugins = $mail_plugins autocreate
+}
+plugin {
+  autocreate = Trash
+  autocreate2 = Spam
+  #autocreate3 = ..etc..
+  autosubscribe = Trash
+  autosubscribe2 = Spam
+  #autosubscribe3 = ..etc..
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

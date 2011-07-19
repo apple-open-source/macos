@@ -1,6 +1,7 @@
 #compdef lsmod modinfo modprobe rmmod insmod
 
 local curcontext="$curcontext" expl state line modules ign args ret=1
+local -r modules_dir=/lib/modules
 
 args=(
   '(-)'{-V,--version}'[print version]'
@@ -14,12 +15,13 @@ case "$service" in
     _arguments -s -C "$args[@]" \
       '(-)'{-a,--author}"[display the module's author]" \
       '(-)'{-d,--description}"[display the module's description]" \
-      '(-)'{-f+,--format}'[display module info in specified format]' \
       '(-)'{-l,--license}"[display the module's license]" \
       '(-)'{-n,--filename}"[display the module's filename]" \
       '(-)'{-p,--parameters}'[display the typed parameters that a module may support]' \
       '(-)'{-F,--field}"[display only selected module's information]:module_field:(
         alias author depends description filename license parm)" \
+      '(-)-k[use modules from a different kernel version]:kernel_version:(
+        $(echo $modules_dir/*(/\:t)))' \
       '1:module file:->all_modules' && ret=0
   ;;
 
@@ -78,7 +80,14 @@ case "$state" in
   ;&
 
   all_modules)
-    modules=( ${${${${(f)"$(_call_program modules ${(M)words[1]##*/}modprobe -l 2>/dev/null)"}:#}##*/}%%.*} )
+    local kver
+    integer kver_idx
+    if (( kver_idx=${words[(I)-k]} )); then
+      kver=${words[kver_idx+1]}
+    else
+      kver=$(uname -r)
+    fi
+    modules=( $modules_dir/$kver/(*~(source|build))/**/*(.:t:r) )
 
     if [[ $state = loadable_modules ]]; then
         modules=( ${modules:#(${(j:|:)~${=loaded_modules//_/-}})} )

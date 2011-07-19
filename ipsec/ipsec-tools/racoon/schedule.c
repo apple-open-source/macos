@@ -50,6 +50,7 @@
 #include "schedule.h"
 #include "var.h"
 #include "gcmalloc.h"
+#include "power_mgmt.h"
 
 #if !defined(__LP64__)
 // year 2038 problem and fix for 32-bit only
@@ -73,7 +74,6 @@ static time_t deltaY2038;
 static TAILQ_HEAD(_schedtree, sched) sctree;
 
 static void sched_add __P((struct sched *));
-static time_t current_time __P((void));
 
 /*
  * schedule handler
@@ -86,6 +86,12 @@ schedular()
 {
 	time_t now, delta;
 	struct sched *p, *next = NULL;
+
+	if (slept_at || woke_at) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "ignoring schedular until power-mgmt event is handled.\n");
+		return NULL;
+	}
 
 	now = current_time();
 
@@ -180,7 +186,7 @@ sched_add(sc)
  * if defined FIXY2038PROBLEM, base time is the time when called sched_init().
  * Otherwise, conform to time(3).
  */
-static time_t
+time_t
 current_time()
 {
 	time_t n;

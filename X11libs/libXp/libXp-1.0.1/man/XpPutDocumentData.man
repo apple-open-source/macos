@@ -1,0 +1,160 @@
+.\"
+.\" Copyright 1996 Hewlett-Packard Company
+.\" Copyright 1996 International Business Machines Corp.
+.\" Copyright 1996, 1999, 2004, Oracle and/or its affiliates. All rights reserved.
+.\" Copyright 1996 Novell, Inc.
+.\" Copyright 1996 Digital Equipment Corp.
+.\" Copyright 1996 Fujitsu Limited
+.\" Copyright 1996 Hitachi, Ltd.
+.\" Copyright 1996 X Consortium, Inc.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining a 
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation 
+.\" the rights to use, copy, modify, merge, publish, distribute,
+.\" sublicense, and/or sell copies of the Software, and to permit persons
+.\" to whom the Software is furnished to do so, subject to the following
+.\" conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+.\" DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the names of the copyright holders
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from said copyright holders.
+.\"
+.TH XpPutDocumentData 3Xp __xorgversion__ "XPRINT FUNCTIONS"
+.SH NAME
+void XpPutDocumentData \- Sends and incorporates 
+data into the output.
+.SH SYNOPSIS
+.br
+      cc [ flag... ] file... -lXp [ library... ]	
+.br
+      #include <X11/extensions/Print.h>
+.LP    
+.B XpPutDocumentData
+(
+.I display, 
+.I drawable, 
+.I data, 
+.I data_len, 
+.I doc_fmt, 
+.I options
+)
+.br
+      Display *\fIdisplay\fP\^;
+.br
+      Drawable \fIdrawable\fP\^;
+.br
+      unsigned char *\fIdata\fP\^;
+.br
+      int \fIdata_len\fP\^;
+.br
+      char *\fIdoc_fmt\fP\^;
+.br
+      char *\fIoptions\fP\^;
+.SH ARGUMENTS
+.TP
+.I display
+Specifies a pointer to the Display structure; returned from XOpenDisplay.
+.TP
+.I drawable
+Specifies the destination drawable for rendering.
+.TP
+.I data
+Specifies the device-specific data sent.
+.TP
+.I data_len
+Specifies the number of bytes in data.
+.TP
+.I doc_fmt
+Specifies the type of data sent. 
+See below for valid values. String limited to XPCS characters.
+.TP
+.I options
+Specifies DDX driver dependent options.   String limited to XPCS characters.      
+.SH DESCRIPTION
+.LP
+Depending on type for XpStartDoc, XpPutDocumentData 
+has two modes of operation.
+.P
+In XPDocRaw mode, XpPutDocumentData sends 
+.I data 
+directly to the output, and 
+.I drawable 
+must be None, else a BadDrawable error is generated. The X Print Server does not emit document or page control codes into the output, and data is passed through unmodified. This is useful for sending previously constructed and completed documents using the X Print Server job control and submission capabilities. The printer attribute xp-raw-formats-supported defines the valid values for 
+.I doc_fmt 
+in this mode. Unsupported values for 
+.I doc_fmt 
+cause a BadMatch error to be generated.
+.P
+In XPDocNormal mode, XpPutDocumentData sends 
+.I data 
+to the 
+.I X Print Server
+, and depending on the DDX driver implementation, integrates 
+.I data 
+into the output. The parameters 
+.I doc_fmt 
+and 
+.I options 
+describe the format of data which guides the DDX driver in interpreting data. The printer attribute 
+xp-embedded-formats-supported defines the valid values for 
+.I doc_fmt 
+in this mode, with unsupported values for 
+.I doc_fmt 
+causing a BadMatch error to be generated.
+.P
+If 
+.I doc_fmt 
+is not in either xp-raw-formats-supported or 
+xp-embedded-formats-supported a BadValue error is generated.
+.P
+Depending on the DDX driver implementation in use, XpPutDocumentData might be used, for example, to send a simple text file to a Postscript DDX driver that 
+is capable of wrapping the appropriate document and page control constructs around the text so that it can be printed on a Postscript printer. Likewise, 
+Encapsulated Postscript Files might be handled. Another use could be to send a 
+TIFF file to a PCL DDX driver that can convert the image from TIFF into PCL and then integrate it into the current PCL output.
+.P
+There is no limit to the value of 
+.I data_len. 
+XpPutDocumentData automatically decomposes the call into multiple protocol requests to make sure that the 
+maximum request size of the server is not exceeded.
+.SH DIAGNOSTICS
+.TP 15
+.SM BadDrawable
+The value specified for 
+.I
+drawable is not valid.
+.TP 15
+.SM BadMatch
+The value specified for 
+.I doc_fmt 
+is not valid for the current document type 
+or the value specified for 
+.Idrawable 
+is not valid for the print context and 
+print screen.
+.TP 15
+.SM BadValue
+The value specified for 
+.I doc_fmt 
+is not supported.
+.TP 15
+.SM XPBadContext
+A valid print context-id has not been set prior to making this call.
+.TP 15
+.SM XPBadSequence
+The function was not called in the proper order with respect to the other X Print Service Extension calls (for example, XpPutDocumentData prior to XpStartDoc).
+.SH "SEE ALSO"
+.BR XpStartDoc (3Xp)
+

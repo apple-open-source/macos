@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,7 +74,7 @@ int debug, verbose;
 
 int	checkvfsname __P((const char *, const char **));
 char   *catopt __P((char *, const char *));
-struct statfs64 *getmntpt __P((const char *));
+struct statfs *getmntpt __P((const char *));
 int	hasopt __P((const char *, const char *));
 int	ismounted __P((const char *, const char *));
 const char
@@ -82,11 +82,8 @@ const char
 void	mangle __P((char *, int *, const char **));
 int	mountfs __P((const char *, const char *, const char *,
 			int, const char *, const char *));
-void	prmount __P((struct statfs64 *));
+void	prmount __P((struct statfs *));
 void	usage __P((void));
-
-/* From mount_ufs.c. */
-int	mount_ufs __P((int, char * const *));
 
 /* Map from mount otions to printable formats. */
 static struct opt {
@@ -110,6 +107,7 @@ static struct opt {
 	{ MNT_NOATIME,		"noatime" },
 	{ MNT_QUARANTINE,	"quarantine" },
 	{ MNT_DONTBROWSE,	"nobrowse"},
+	{ MNT_CPROTECT,		"protect"},
 	{ 0, 				NULL }
 };
 
@@ -120,14 +118,14 @@ main(argc, argv)
 {
 	const char *mntfromname, **vfslist, *vfstype;
 	struct fstab *fs;
-	struct statfs64 *mntbuf;
+	struct statfs *mntbuf;
 	int all, ch, i, init_flags, mntsize, rval;
 	char *options;
 
 	all = init_flags = 0;
 	options = NULL;
 	vfslist = NULL;
-	vfstype = "ufs";
+	vfstype = NULL;
 	while ((ch = getopt(argc, argv, "adfo:rwt:uv")) != EOF)
 		switch (ch) {
 		case 'a':
@@ -201,8 +199,8 @@ main(argc, argv)
 			}
 			endfsent();
         	} else {
-			if ((mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT)) == 0)
-				err(1, "getmntinfo64");
+			if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
+				err(1, "getmntinfo");
 			for (i = 0; i < mntsize; i++) {
 				if (checkvfsname(mntbuf[i].f_fstypename, vfslist))
 					continue;
@@ -259,11 +257,10 @@ main(argc, argv)
 		break;
 	case 2:
 		/*
-		 * If -t flag has not been specified, and spec contains either
-		 * a ':' or a '@' then assume that an NFS filesystem is being
-		 * specified ala Sun.
+		 * If -t flag has not been specified, and spec contains a ':'
+		 * then assume that an NFS filesystem is being specified.
 		 */
-		if (vfslist == NULL && strpbrk(argv[0], ":@") != NULL) {
+		if (vfslist == NULL && strchr(argv[0], ':') != NULL) {
 			vfstype = "nfs";
 			/* check if already mounted */
 			if (ismounted(argv[0], argv[1]))
@@ -286,7 +283,13 @@ main(argc, argv)
 					mntbuf->f_mntonname, init_flags, options, 0);
 		}
 		else {
-			/* If update mount not requested, then go with default vfstype and arguments */
+			/* 
+			 * If update mount not requested, then go with the vfstype and arguments
+			 * specified.  If no vfstype specified, then error out.
+			 */
+			if (vfstype == NULL) {
+				errx (1, "You must specify a filesystem type with -t.");
+			}
 			rval = mountfs(vfstype,
 					argv[0], argv[1], init_flags, options, NULL);
 		}
@@ -329,10 +332,10 @@ ismounted(fs_spec, fs_file)
 	const char *fs_spec, *fs_file;
 {
 	int i, mntsize;
-	struct statfs64 *mntbuf;
+	struct statfs *mntbuf;
 
-	if ((mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT)) == 0)
-		err(1, "getmntinfo64");
+	if ((mntsize = getmntinfo(&mntbuf, MNT_NOWAIT)) == 0)
+		err(1, "getmntinfo");
 	for (i = 0; i < mntsize; i++) {
 		if (strcmp(mntbuf[i].f_mntfromname, fs_spec))
 			continue;
@@ -356,7 +359,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		NULL
 	};
 	const char *argv[100], **edir;
-	struct statfs64 sf;
+	struct statfs sf;
 	pid_t pid;
 	int argc, i, status;
 	char *optbuf, execname[MAXPATHLEN + 1], mntpath[MAXPATHLEN];
@@ -410,9 +413,6 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		free(optbuf);
 		return (1);
 	case 0:					/* Child. */
-		if (strcmp(vfstype, "ufs") == 0)
-			exit(mount_ufs(argc, (char * const *) argv));
-
 		/* Go find an executable. */
 		edir = edirs;
 		do {
@@ -452,8 +452,8 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 		}
 
 		if (verbose) {
-			if (statfs64(name, &sf) < 0) {
-				warn("statfs64 %s", name);
+			if (statfs(name, &sf) < 0) {
+				warn("statfs %s", name);
 				return (1);
 			}
 			prmount(&sf);
@@ -466,7 +466,7 @@ mountfs(vfstype, spec, name, flags, options, mntopts)
 
 void
 prmount(sfp)
-	struct statfs64 *sfp;
+	struct statfs *sfp;
 {
 	int flags;
 	struct opt *o;
@@ -491,14 +491,14 @@ prmount(sfp)
 	(void)printf(")\n");
 }
 
-struct statfs64 *
+struct statfs *
 getmntpt(name)
 	const char *name;
 {
-	struct statfs64 *mntbuf;
+	struct statfs *mntbuf;
 	int i, mntsize;
 
-	mntsize = getmntinfo64(&mntbuf, MNT_NOWAIT);
+	mntsize = getmntinfo(&mntbuf, MNT_NOWAIT);
 	for (i = 0; i < mntsize; i++) {
 		if (strcmp(mntbuf[i].f_mntfromname, name) == 0 ||
 		    strcmp(mntbuf[i].f_mntonname, name) == 0)
@@ -539,7 +539,7 @@ mangle(options, argcp, argv)
 
 	argc = *argcp;
 	for (s = options; (p = strsep(&s, ",")) != NULL;)
-		if (*p != '\0')
+		if (*p != '\0') {
 			if (*p == '-') {
 				argv[argc++] = p;
 				p = strchr(p, '=');
@@ -551,6 +551,7 @@ mangle(options, argcp, argv)
 				argv[argc++] = "-o";
 				argv[argc++] = p;
 			}
+		}
 
 	*argcp = argc;
 }
@@ -561,9 +562,9 @@ usage()
 
 	(void)fprintf(stderr,
 		"usage: mount %s %s\n       mount %s\n       mount %s\n",
-		"[-dfruvw] [-o options] [-t ufs | external_type]",
+		"[-dfruvw] [-o options] [-t external_type]",
 			"special node",
-		"[-adfruvw] [-t ufs | external_type]",
+		"[-adfruvw] [-t external_type]",
 		"[-dfruvw] special | node");
 	exit(1);
 }

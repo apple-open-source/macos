@@ -8,12 +8,12 @@ USERDEFS = backing_store_alerts.defs
 MANPAGES = dynamic_pager.8
 LAUNCHD_PLISTS = com.apple.dynamic_pager.plist
 
-Extra_CC_Flags = -mdynamic-no-pic -Wall -Werror
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 Extra_CC_Flags += -DNO_DIRECT_RPC
 
-Extra_Frameworks += -framework CoreFoundation -framework IOKit
+Extra_Frameworks += -framework CoreFoundation -framework SystemConfiguration
 Extra_MIG_Flags = -R -untyped -DNO_DIRECT_RPC
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
@@ -27,7 +27,7 @@ endif
 after_install:
 ifeq "$(Embedded)" "YES"
 	/usr/libexec/PlistBuddy -x \
-	-c "Add :Disabled bool true" \
+	-c "Add :LaunchOnlyOnce bool true" \
 	"$(DSTROOT)/System/Library/LaunchDaemons/com.apple.dynamic_pager.plist"
 endif
 	plutil -convert binary1 "$(DSTROOT)/System/Library/LaunchDaemons/com.apple.dynamic_pager.plist"

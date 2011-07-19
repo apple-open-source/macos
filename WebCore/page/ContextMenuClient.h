@@ -26,22 +26,28 @@
 #ifndef ContextMenuClient_h
 #define ContextMenuClient_h
 
+#include "ContextMenu.h"
 #include "PlatformMenuDescription.h"
+#include <wtf/Forward.h>
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
-    class ContextMenu;
     class ContextMenuItem;
     class Frame;
     class HitTestResult;
     class KURL;
-    class String;
 
     class ContextMenuClient {
     public:
         virtual ~ContextMenuClient() {  }
         virtual void contextMenuDestroyed() = 0;
         
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+        virtual PassOwnPtr<ContextMenu> customizeMenu(PassOwnPtr<ContextMenu>) = 0;
+#else
         virtual PlatformMenuDescription getCustomMenuFromDefaultItems(ContextMenu*) = 0;
+#endif
+
         virtual void contextMenuItemSelected(ContextMenuItem*, const ContextMenu*) = 0;
 
         virtual void downloadURL(const KURL& url) = 0;

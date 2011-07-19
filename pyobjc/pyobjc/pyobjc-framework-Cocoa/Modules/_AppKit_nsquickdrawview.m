@@ -1,12 +1,8 @@
-#include <Python.h>
-#include <AppKit/AppKit.h>
 
-#ifndef __LP64__
-	/* Quickdraw only exists in 32-bit mode. We do define a dummy init function to avoid
-	 * breaking the Python module.
+#if !defined(__LP64__) && PY_MAJOR_VERSION == 2
+	/* Quickdraw only exists in 32-bit mode. We do define a dummy 
+	 * init function to avoid breaking the Python module.
 	 */
-
-#include "pyobjc-api.h"
 
 #include "pymactoolbox.h"
 
@@ -29,7 +25,7 @@ call_NSQuickDrawView_qdport(
 			PyObjCObject_GetObject(self));
 
 
-		port = objc_msgSendSuper(&super,
+		port = ((void*(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super,
 				PyObjCSelector_GetSelector(method));
 
 	PyObjC_HANDLER
@@ -101,20 +97,13 @@ error:
 #endif
 
 
-static PyMethodDef mod_methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_nsquickdrawview(void);
-void init_nsquickdrawview(void)
+static int setup_nsquickdrawview(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_nsquickdrawview", mod_methods, "", NULL,
-			PYTHON_API_VERSION);
-
-#ifndef __LP64__
-	PyObjC_ImportAPI(m);
-
+#if !defined(__LP64__) && PY_MAJOR_VERSION == 2
 	Class classNSQuickDrawView = objc_lookUpClass("NSQuickDrawView");
+	if (classNSQuickDrawView == NULL) {
+		return 0;
+	}
 
 	if (PyObjC_RegisterMethodMapping(
 		classNSQuickDrawView,
@@ -122,7 +111,9 @@ void init_nsquickdrawview(void)
 		call_NSQuickDrawView_qdport,
 		imp_NSQuickDrawView_qdport) < 0) {
 
-		return;
+		return -1;
 	}
 #endif
+
+	return 0;
 }

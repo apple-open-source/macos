@@ -1,0 +1,41 @@
+Static User Database
+====================
+
+Static user database can be used when you want to use only single UID and GID
+values for all users, and their home directories can be specified with a simple
+template. The syntax is:
+
+---%<-------------------------------------------------------------------------
+userdb {
+  driver = static
+  args = uid=<uid> gid=<gid> home=<dir template>
+}
+---%<-------------------------------------------------------------------------
+
+The home is optional. You can also return other <extra fields>
+[UserDatabase.ExtraFields.txt]. You can use the standard <variables>
+[Variables.txt] everywhere.
+
+Deliver
+-------
+
+Unless your MTA already verifies that the user exists before calling deliver,
+you'll most likely want deliver itself to verify the user's existence. Since
+deliver looks up the user only from the userdb, it of course doesn't work with
+static userdb because there is no list of users. Normally static userdb handles
+this by doing a passdb lookup instead. This works with most passdbs, with <PAM>
+[PasswordDatabase.PAM.txt] being the most notable exception. If you want to
+avoid this user verification, you can add 'allow_all_users=yes' to the args in
+which case the passdb lookup is skipped.
+
+Example
+-------
+
+---%<-------------------------------------------------------------------------
+userdb {
+  driver = static
+  args = uid=500 gid=500 home=/home/%u
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

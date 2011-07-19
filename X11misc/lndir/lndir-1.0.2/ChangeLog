@@ -1,0 +1,239 @@
+commit 9da4c0b964f96ef8bd37cf5e3f74a86b93e890f7
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 13 21:11:32 2010 -0700
+
+    lndir 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit be233b8d31026dc7554ff0c8628df3c5ba4f1b90
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 13 21:09:26 2010 -0700
+
+    Let XORG_DEFAULT_OPTIONS handle AC_PROG_CC & AC_PROG_INSTALL
+    
+    Don't need to duplicate calls to them (potentially overriding
+    the c99 settings from the xorg-macros calls)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 57791c8b2192afdf1e4ef335509baec654bffcf0
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 13 21:04:52 2010 -0700
+
+    upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 5a5e5a83b335f4203c927b539d4c8b6ee53719c3
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 01:25:03 2010 -0700
+
+    Man page: note that *~ is always skipped, update second list of scm subdirs
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a0ddf1288b3fc6cf628f1ee69b585615387b5b1a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 01:15:45 2010 -0700
+
+    Enable AC_SYS_LARGEFILE & AC_USE_SYSTEM_EXTENSIONS
+    
+    Avoids stat() failures on 32-bit platforms if a file has a size
+    that doesn't fit in 32-bits
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit ae6ada745e48a6366cb91a5ce6692e22ad8077ae
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 01:04:22 2010 -0700
+
+    Assume POSIX, lose support for old Minix & LynxOS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 17f97355310d75b05bb3f7a1007ca752fe100029
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 00:57:24 2010 -0700
+
+    Move to xorg-macros 1.4 & use INSTALL_CMD to generate INSTALL file
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Reviewed-by: Dan Nicholson <dbn.lists@gmail.com>
+
+commit fb043c2097e12b0d0c6056727fd0274229601cc2
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 01:01:22 2010 -0700
+
+    Fill in COPYING & README files
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit ba8299f042870d60da4582fa4e532e594583be96
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Apr 16 00:59:21 2010 -0700
+
+    Add standard .gitignore
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit cef8c50586903e7ac543d1a8e3f84d4a78f731a4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 15 16:53:48 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 33a3c2fc886bc9ce5a0692c6c0c78903aa122ee1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 15 16:50:26 2009 -0700
+
+    Add .hg & .git to the list of known revision control subdirectories
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 853241018d75a6b40f67db61f9ea21f1c5e90641
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 15 16:48:13 2009 -0700
+
+    include <limits.h> to ensure INT_MAX is defined after 23bacbd6c
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 23bacbd6c71ec815f394f0a7bbc9e684b3e05438
+Author: Eric Blake <ebby9@byu.net>
+Date:   Thu Oct 15 15:52:36 2009 -0500
+
+    Fix broken assumption where stat.st_nlink == 1
+    
+    Normally, any directory has a st_nlink of at least 2 (. and ..).
+    On some systems, a directory's st_nlink is set to 1 where it is too
+    expensive to compute the correct value (e.g. remote filesystems).
+    Instead of treating this as a legitimate value (i.e. that the directory
+    contains nothing to link from), special case this and force a complete
+    scan of the directory's contents.
+    
+    Further explanation:
+    http://cygwin.com/ml/cygwin/2008-06/msg00056.html
+    http://cygwin.com/ml/cygwin-apps/2008-08/msg00264.html
+    
+    Signed-off-by: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+
+commit 17eba8aca2edfadf0ec5291bcd937644e45561de
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:17 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 05d8a7b32077410143398bcf979424a68e12cd5d
+Author: Jeremy Huddleston <jeremy@yuffie.local>
+Date:   Mon Dec 3 20:06:10 2007 -0800
+
+    Use __APPLE__ instead of __DARWIN__
+
+commit 6f5087c5d544c918d72321227f3028773c54266b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:30:08 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit fc895a080f7c35403e240f973c47e6aa000c6778
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:36:01 2005 +0000
+
+    Stub COPYING files
+
+commit a150dc34ab6edd48b35201e785991622617eb87d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:40 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit ddc9aab6ae857dfe8382a0be461bb9bb1e5b3c1f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 10 01:53:10 2005 +0000
+
+    Initial revision.
+
+commit 5169ab683432f97215f4895a94af4b9a372a6f01
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Nov 23 22:33:07 2005 +0000
+
+    Bug #5003 <https://bugs.freedesktop.org/show_bug.cgi?id=5003> Patch #3763
+        <https://bugs.freedesktop.org/attachment.cgi?id=3763> Xorg code misuses
+        S_IF* macros
+
+commit dedfbb8bf81f67a75e31a77b7525c372d64939c7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 14 16:30:53 2005 +0000
+
+    Bug 3774 <https://bugs.freedesktop.org/show_bug.cgi?id=3774> Patch 3081
+        <https://bugs.freedesktop.org/attachment.cgi?id=3081> lndir.man fails
+        to mention .svn (Bernhard Reiter)
+
+commit f147e94b91751af67000a29ba59d7cd94f163df6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Aug 26 05:10:56 2004 +0000
+
+    Fix lndir to handle symlinks to directories correctly (Bug #1083, H.J. Lu).
+    Fix i810 compilation without Xinerama (Bug #1180, Simon Schubert).
+
+commit b97ef364d7a38510efaa1fdd6f4b5aff4728173a
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:42:00 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 48a0231fd32530bfa0266b885c644f8539bb0800
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:27:28 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit a93134e0964b393d1d042e0cd37fec98d8a3e7a1
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:09:38 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit fdf9172cf361fdd78313285c2b7f476b06e31551
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:34:16 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 765c1140d14b60e070c8cc6101b7582530261606
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:21:15 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 1ab5861be6198294ba8115bb8a371cd85c4f92e7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:06:33 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit b96620a470833dc5873d42c4f0d83d17d3f0b0c4
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:26:55 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit ba4718fc199b7132d4adba7255b34ba3ce3f3c3b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:20 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit cf6be6ad1e554e9855fdd3d1c7e523316e120b3b
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:29 2003 +0000
+
+    R6.6 is the Xorg base-line

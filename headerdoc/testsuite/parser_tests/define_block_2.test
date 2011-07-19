@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$292|#define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$292|#define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
 #define DEFINE_BLOCK_2_CACHE_COHERENT   0x00000002
 #define DEFINE_BLOCK_2_MEM_DELETED              0x00000004
 #define DEFINE_BLOCK_2_MEM_FOO          0x00000008
@@ -13,7 +13,7 @@ $314|/*!
 @define DEFINE_BLOCK_2_MEM_FOO Assume Foo.
 @discussion All these bits are optional.
 */
-$0|$42038|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$42278|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -64,6 +64,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -92,7 +93,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} => #define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -101,7 +104,7 @@ $parserState->{sodname} => DEFINE_BLOCK_2_MEM_CACHED
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -174,8 +177,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 5
     INDEX GROUP: 
     IS BLOCK: 1
@@ -218,11 +221,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED" --><p>DEFINE_BLOCK_2_MEM_CACHED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT" --><p>DEFINE_BLOCK_2_CACHE_COHERENT<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED" --><p>DEFINE_BLOCK_2_MEM_DELETED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO" --><p>DEFINE_BLOCK_2_MEM_FOO<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR" --><p>DEFINE_BLOCK_2_MEM_BAR<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED">DEFINE_BLOCK_2_MEM_CACHED</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT">DEFINE_BLOCK_2_CACHE_COHERENT</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED">DEFINE_BLOCK_2_MEM_DELETED</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO">DEFINE_BLOCK_2_MEM_FOO</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR">DEFINE_BLOCK_2_MEM_BAR</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 1
         INDEX GROUP: 
@@ -265,11 +268,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -311,11 +314,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -357,11 +360,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -403,11 +406,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -450,11 +453,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -496,8 +499,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -538,8 +541,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -580,8 +583,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -622,8 +625,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -665,11 +668,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -711,11 +714,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -757,11 +760,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -803,11 +806,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -850,11 +853,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
 +---#define
@@ -1009,82 +1012,82 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
 
-$42038|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$42278|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -1135,6 +1138,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -1163,7 +1167,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} => #define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -1172,7 +1178,7 @@ $parserState->{sodname} => DEFINE_BLOCK_2_MEM_CACHED
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -1245,8 +1251,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 5
     INDEX GROUP: 
     IS BLOCK: 1
@@ -1289,11 +1295,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED" --><p>DEFINE_BLOCK_2_MEM_CACHED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT" --><p>DEFINE_BLOCK_2_CACHE_COHERENT<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED" --><p>DEFINE_BLOCK_2_MEM_DELETED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO" --><p>DEFINE_BLOCK_2_MEM_FOO<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR" --><p>DEFINE_BLOCK_2_MEM_BAR<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED">DEFINE_BLOCK_2_MEM_CACHED</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT">DEFINE_BLOCK_2_CACHE_COHERENT</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED">DEFINE_BLOCK_2_MEM_DELETED</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO">DEFINE_BLOCK_2_MEM_FOO</hd_link></p></dt><dd></dd><dt><p><hd_link posstarget="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR">DEFINE_BLOCK_2_MEM_BAR</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 1
         INDEX GROUP: 
@@ -1336,11 +1342,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -1382,11 +1388,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -1428,11 +1434,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -1474,11 +1480,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 1
         INDEX GROUP: 
         IS BLOCK: 
@@ -1521,11 +1527,11 @@ LONG ATTRIBUTES: <p></p>
         HIDESINGLETONS: ""
         HIDECONTENTS: ""
         MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -1567,8 +1573,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1609,8 +1615,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1651,8 +1657,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -1693,8 +1699,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: "REF(OBJID)"
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1736,11 +1742,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1782,11 +1788,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1828,11 +1834,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1874,11 +1880,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -1921,11 +1927,11 @@ LONG ATTRIBUTES: <p></p>
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
+    LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:macro/define_block_2_test">define_block_2_test</hd_link></p></dt><dd></dd></dl></div>
 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
 +---#define
@@ -2080,77 +2086,77 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_CACHED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --> <span class="preprocessor">0x00000001</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/anysymbol/DEFINE_BLOCK_2_CACHE_COHERENT" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --> <span class="preprocessor">0x00000002</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_DELETED" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --> <span class="preprocessor">0x00000004</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_FOO" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --> <span class="preprocessor">0x00000008</span> 
 END OF OBJECT
 
 
 OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/anysymbol/DEFINE_BLOCK_2_MEM_BAR" machineGenerated="true" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --> <span class="preprocessor">0x00000010</span> 
 END OF OBJECT
 
 
@@ -2167,2146 +2173,4 @@ to
         my $parmDebug = 1 || $localDebug;
 
 for help tracking this down. 
-$42|testsuite/parser_tests/define_block_2.test$1|C$14|define block 2$42038|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 2
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_block_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 0x00000001
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => DEFINE_BLOCK_2_MEM_CACHED
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: DEFINE_BLOCK_2_MEM_CACHED
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{DEFINE_BLOCK_2_MEM_CACHED} =>               0x00000001
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define block 2
-APIUID: //test_ref/doc/header/define_block_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 5
-    INDEX GROUP: 
-    IS BLOCK: 1
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: define_block_2_test
-    APIUID: //test_ref/doc/title:macro/define_block_2_test
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>All these bits are optional.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED" --><p>DEFINE_BLOCK_2_MEM_CACHED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT" --><p>DEFINE_BLOCK_2_CACHE_COHERENT<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED" --><p>DEFINE_BLOCK_2_MEM_DELETED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO" --><p>DEFINE_BLOCK_2_MEM_FOO<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR" --><p>DEFINE_BLOCK_2_MEM_BAR<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_CACHED
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume cached."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume coherent."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_DELETED
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume Deleted."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_FOO
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume Foo."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_BAR
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>All these bits are optional.
-"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_DELETED
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_DELETED
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume Deleted.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume Deleted."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_CACHE_COHERENT
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume coherent.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume coherent."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_CACHED
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_CACHED
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume cached.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume cached."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_FOO
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_FOO
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume Foo.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume Foo."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_CACHED
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume cached."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume coherent."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_DELETED
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume Deleted."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_FOO
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume Foo."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_BAR
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>All these bits are optional.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-
-$42038|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 2
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 0
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/define_block_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_block_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 0x00000001
-$parserState->{macroNoTrunc} => 2
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 3
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => #define DEFINE_BLOCK_2_MEM_CACHED               0x00000001
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => DEFINE_BLOCK_2_MEM_CACHED
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: DEFINE_BLOCK_2_MEM_CACHED
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{DEFINE_BLOCK_2_MEM_CACHED} =>               0x00000001
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: define block 2
-APIUID: //test_ref/doc/header/define_block_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 5
-    INDEX GROUP: 
-    IS BLOCK: 1
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: define_block_2_test
-    APIUID: //test_ref/doc/title:macro/define_block_2_test
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>All these bits are optional.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED" --><p>DEFINE_BLOCK_2_MEM_CACHED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT" --><p>DEFINE_BLOCK_2_CACHE_COHERENT<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED" --><p>DEFINE_BLOCK_2_MEM_DELETED<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO" --><p>DEFINE_BLOCK_2_MEM_FOO<!-- /a --></dt><dd></dd><dt><!-- a logicalPath="//test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR" --><p>DEFINE_BLOCK_2_MEM_BAR<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_CACHED
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume cached."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume coherent."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_DELETED
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume Deleted."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_FOO
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>Assume Foo."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 1
-        INDEX GROUP: 
-        IS BLOCK: 
-        IS AVAILABILITY MACRO: 
-        PARSE ONLY: 
-        OBJECT TYPE: HeaderDoc::PDefine
-        NAME: DEFINE_BLOCK_2_MEM_BAR
-        APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR
-        ABSTRACT: "<p>Some vertex option bits.
-"
-        DISCUSSION: "<p>All these bits are optional.
-"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::PDefine"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: "0"
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_DELETED
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_DELETED
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume Deleted.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume Deleted."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_CACHE_COHERENT
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume coherent.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume coherent."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_CACHED
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_CACHED
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume cached.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume cached."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: DEFINE_BLOCK_2_MEM_FOO
-        TYPE: 
-        APIUID: //test_ref/doc/title:internal_temporary_object/define_block_2_test/DEFINE_BLOCK_2_MEM_FOO
-        ABSTRACT: ""
-        DISCUSSION: "<p>Assume Foo.</p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: "1"
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: "Assume Foo."
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: "REF(OBJID)"
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_CACHED
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume cached."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_CACHE_COHERENT
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume coherent."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_DELETED
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume Deleted."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_FOO
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>Assume Foo."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    IS AVAILABILITY MACRO: 
-    PARSE ONLY: 
-    OBJECT TYPE: HeaderDoc::PDefine
-    NAME: DEFINE_BLOCK_2_MEM_BAR
-    APIUID: //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR
-    ABSTRACT: "<p>Some vertex option bits.
-"
-    DISCUSSION: "<p>All these bits are optional.
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::PDefine"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "0"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: <b>See Also:</b><div class='list_indent'><dl>
-<dt><!-- a logicalPath="//test_ref/doc/title:macro/define_block_2_test" --><p>define_block_2_test<!-- /a --></dt><dd></dd></dl></div>
-
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_CACHED
-|   +---               
-|   +---0x00000001
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_CACHE_COHERENT
-|   +---   
-|   +---0x00000002
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_DELETED
-|   +---              
-|   +---0x00000004
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_FOO
-|   +---          
-|   +---0x00000008
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-+---#define
-|   +--- 
-|   +---DEFINE_BLOCK_2_MEM_BAR
-|   +---          
-|   +---0x00000010
-|   +---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_CACHED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/data/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/func/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_CACHED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_CACHED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_CACHED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_CACHED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000001</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_CACHE_COHERENT (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tdef/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/tag/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/econst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/struct/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/data/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clconst/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intf/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/instm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/clm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfcm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/intfm/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/func/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/ftmplt/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/defn/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/c/macro/DEFINE_BLOCK_2_CACHE_COHERENT //test_ref/doc/com/intfm/DEFINE_BLOCK_2_CACHE_COHERENT" --><span class="preprocessor">DEFINE_BLOCK_2_CACHE_COHERENT</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000002</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_DELETED (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/tag/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/econst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/struct/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/data/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intf/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/instm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/clm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/func/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/defn/DEFINE_BLOCK_2_MEM_DELETED //test_ref/c/macro/DEFINE_BLOCK_2_MEM_DELETED //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_DELETED" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_DELETED</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000004</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_FOO (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/tag/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/econst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/struct/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/data/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intf/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/instm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/clm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/func/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/defn/DEFINE_BLOCK_2_MEM_FOO //test_ref/c/macro/DEFINE_BLOCK_2_MEM_FOO //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_FOO" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_FOO</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000008</span> 
-END OF OBJECT
-
-
-OBJECT: DEFINE_BLOCK_2_MEM_BAR (HeaderDoc::PDefine)
-	<span class="">#define</span><span class="preprocessor"> </span><!-- a logicalPath="//test_ref/c/cl/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tdef/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/tag/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/econst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/struct/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/data/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clconst/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intf/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/instm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/clm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfcm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/intfm/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/func/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/ftmplt/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/defn/DEFINE_BLOCK_2_MEM_BAR //test_ref/c/macro/DEFINE_BLOCK_2_MEM_BAR //test_ref/doc/com/intfm/DEFINE_BLOCK_2_MEM_BAR" --><span class="preprocessor">DEFINE_BLOCK_2_MEM_BAR</span><!-- /a --><span class="preprocessor"> </span><span class="preprocessor">0x00000010</span> 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+$96|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/define_block_2.test$1|C$14|define block 2$1|C$6|parser

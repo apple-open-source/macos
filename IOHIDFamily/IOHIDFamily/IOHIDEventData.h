@@ -42,11 +42,13 @@
 // IOHIDEventData Declarations
 //==============================================================================
 
-#define IOHIDEVENT_BASE         \
-    uint32_t        size;       \
-    IOHIDEventType  type;       \
-    uint64_t        timestamp;  \
-    uint32_t        options;
+#define IOHIDEVENT_BASE             \
+    uint32_t            size;       \
+    IOHIDEventType      type;       \
+    uint64_t            timestamp;  \
+    uint32_t            options;    \
+    uint8_t             depth;      \
+    uint8_t				reserved[3];
 
 /*!
     @typedef    IOHIDEventData
@@ -129,6 +131,12 @@ typedef struct _IOHIDGyroEventData {
 	IOFixed		quaternionw;
 } IOHIDGyroEventData;
 
+typedef struct _IOHIDCompassEventData {
+    IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
+    IOHIDAXISEVENT_BASE;
+	uint32_t        compassType;
+} IOHIDCompassEventData;
+
 typedef struct _IOHIDAmbientLightSensorEventData {
     IOHIDEVENT_BASE;                            // options = kHIDAxisRelative
     uint32_t        level;
@@ -147,7 +155,7 @@ typedef struct _IOHIDTemperatureEventData {
 typedef struct _IOHIDProximityEventData {
     IOHIDEVENT_BASE;                            
     uint32_t        detectionMask;
-	uint32_t		level;
+    uint32_t        level;
 } IOHIDProximityEventData;
 
 typedef struct _IOHIDProgressEventData {
@@ -156,6 +164,9 @@ typedef struct _IOHIDProgressEventData {
     IOFixed         level;
 } IOHIDProgressEventData;
 
+typedef struct _IOHIDZoomToggleEventData {
+    IOHIDEVENT_BASE;
+} IOHIDZoomToggleEventData;
 
 #define IOHIDBUTTONEVENT_BASE           \
     struct {                            \
@@ -215,8 +226,12 @@ typedef struct _IOHIDDigitizerEventData {
 
 typedef struct _IOHIDSwipeEventData {
     IOHIDEVENT_BASE;                            
-    IOHIDSwipeMask swipeMask;
-} IOHIDSwipeEventData;
+    IOHIDSwipeMask swipeMask; // legacy
+    IOHIDGestureMotion gestureMotion; // horizontal, vertical, scale, rotate, tap, etc
+    IOFixed progress; // progress of gesture, as a fraction (1.0 = 100%)
+    IOFixed positionX; // delta in position of gesture on Horizontal axis. Espressed as a fraction (1.0 = 100%)
+    IOFixed positionY; // delta in position of gesture on Vertical axis. Espressed as a fraction (1.0 = 100%)
+} IOHIDSwipeEventData, IOHIDNavagationSwipeEventData, IOHIDDockSwipeEventData;
 
 
 /*!
@@ -242,6 +257,16 @@ typedef struct _IOHIDSystemQueueElement {
     uint32_t        eventCount;
     IOHIDEventData  events[];
 } IOHIDSystemQueueElement; 
+
+typedef struct _IOHIDSymbolicHotKeyEventData {
+    IOHIDEVENT_BASE;
+    uint32_t    hotKey;
+} IOHIDSymbolicHotKeyEventData;
+
+enum {
+    kIOHIDSymbolicHotKeyOptionIsCGSHotKey = 0x00010000,
+};
+
 
 //******************************************************************************
 // MACROS
@@ -275,7 +300,10 @@ typedef struct _IOHIDSystemQueueElement {
 		case kIOHIDEventTypeGyro:\
 			size = sizeof(IOHIDGyroEventData);\
 			break;\
-		case kIOHIDEventTypeAmbientLightSensor:\
+		case kIOHIDEventTypeCompass:\
+            size = sizeof(IOHIDCompassEventData);\
+            break;                      \
+        case kIOHIDEventTypeAmbientLightSensor:\
             size = sizeof(IOHIDAmbientLightSensorEventData);\
             break;                      \
         case kIOHIDEventTypeProximity:  \
@@ -290,7 +318,8 @@ typedef struct _IOHIDSystemQueueElement {
         case kIOHIDEventTypeTemperature:\
             size = sizeof(IOHIDTemperatureEventData);\
             break;                      \
-        case kIOHIDEventTypeSwipe:\
+        case kIOHIDEventTypeNavigationSwipe:\
+        case kIOHIDEventTypeDockSwipe:\
             size = sizeof(IOHIDSwipeEventData);\
             break;                      \
         case kIOHIDEventTypeMouse:\
@@ -298,6 +327,12 @@ typedef struct _IOHIDSystemQueueElement {
             break;                      \
         case kIOHIDEventTypeProgress:\
             size = sizeof(IOHIDProgressEventData);\
+            break;                      \
+        case kIOHIDEventTypeZoomToggle:\
+            size = sizeof(IOHIDZoomToggleEventData);\
+            break;                      \
+        case kIOHIDEventTypeSymbolicHotKey:\
+            size = sizeof(IOHIDSymbolicHotKeyEventData);\
             break;                      \
         default:                        \
             size = 0;                   \
@@ -452,7 +487,26 @@ typedef struct _IOHIDSystemQueueElement {
 				};                                      \
 			}                                           \
 			break;                                      \
-			case kIOHIDEventTypeMouse:                     \
+            case kIOHIDEventTypeCompass:                     \
+            {                                           \
+                IOHIDCompassEventData * compass = (IOHIDCompassEventData*)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassX): \
+                        value = IOHIDEventValueFloat(compass->position.x); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassY): \
+                        value = IOHIDEventValueFloat(compass->position.y); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassZ): \
+                        value = IOHIDEventValueFloat(compass->position.z); \
+                        break;                              \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldCompassType): \
+                        value = compass->compassType;     \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+            case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
@@ -480,12 +534,45 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeSwipe:                      \
+        case kIOHIDEventTypeNavigationSwipe:            \
+        case kIOHIDEventTypeDockSwipe:                  \
             {                                           \
                 IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
                 switch ( fieldOffset ) {                \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMask):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMask):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMask):    \
+                    */                                  \
                         value = swipe->swipeMask;       \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMotion):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMotion):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMotion):    \
+                    */                                  \
+                        value = swipe->gestureMotion;   \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeProgress):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeProgress):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeProgress):    \
+                    */                                  \
+                        value = IOHIDEventValueFloat(swipe->progress);       \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionX):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeX):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeX):    \
+                    */                                  \
+                        value = IOHIDEventValueFloat(swipe->positionX);       \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionY):       \
+                    /*  
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeY):    \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeY):    \
+                    */                                  \
+                        value = IOHIDEventValueFloat(swipe->positionY);       \
                         break;                          \
                 };                                      \
             }                                           \
@@ -706,6 +793,26 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
+        case kIOHIDEventTypeZoomToggle:                 \
+            {                                           \
+            /*  IOHIDZoomToggleEventData * zoom = (IOHIDZoomToggleEventData *)eventData; */\
+                switch ( fieldOffset ) {                \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeSymbolicHotKey:             \
+            {                                           \
+                IOHIDSymbolicHotKeyEventData * symbolicEvent = (IOHIDSymbolicHotKeyEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSymbolicHotKeyValue): \
+                        value = symbolicEvent->hotKey;  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSymbolicHotKeyIsCGSEvent): \
+                        value = (symbolicEvent->options & kIOHIDSymbolicHotKeyOptionIsCGSHotKey) != 0; \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
     };                                                  \
 }
 
@@ -846,7 +953,26 @@ typedef struct _IOHIDSystemQueueElement {
 				};                                      \
 			}                                           \
 			break;                                      \
-			case kIOHIDEventTypeMouse:                     \
+        case kIOHIDEventTypeCompass:                     \
+        {                                           \
+            IOHIDCompassEventData * compass = (IOHIDCompassEventData*)eventData; \
+            switch ( fieldOffset ) {                \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassX): \
+                    value = IOHIDEventValueFloat(compass->position.x); \
+                    break;                              \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassY): \
+                    value = IOHIDEventValueFloat(compass->position.y); \
+                    break;                              \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassZ): \
+                    value = IOHIDEventValueFloat(compass->position.z); \
+                    break;                              \
+                case IOHIDEventFieldOffset(kIOHIDEventFieldCompassType): \
+                    value = compass->compassType;     \
+                    break;                          \
+            };                                      \
+        }                                           \
+        break;                                      \
+        case kIOHIDEventTypeMouse:                     \
             {                                           \
                 IOHIDMouseEventData * mouse = (IOHIDMouseEventData*)eventData; \
                 switch ( fieldOffset ) {                \
@@ -874,12 +1000,45 @@ typedef struct _IOHIDSystemQueueElement {
                 };                                      \
             }                                           \
             break;                                      \
-        case kIOHIDEventTypeSwipe:                      \
+        case kIOHIDEventTypeNavigationSwipe:            \
+        case kIOHIDEventTypeDockSwipe:                  \
             {                                           \
                 IOHIDSwipeEventData * swipe = (IOHIDSwipeEventData *)eventData; \
                 switch ( fieldOffset ) {                    \
                     case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMask):       \
+                    /*                                  \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMask):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMask):       \
+                    */                                  \
                         swipe->swipeMask = value;\
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeMotion):       \
+                    /*                                  \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeMotion):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeMotion):       \
+                    */                                  \
+                        swipe->gestureMotion = value;\
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipeProgress):       \
+                    /*                                  \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipeProgress):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipeProgress):       \
+                    */                                  \
+                        swipe->progress = IOHIDEventValueFixed(value);\
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionX):       \
+                    /*                                  \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionX):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionX):       \
+                    */                                  \
+                        swipe->positionX = IOHIDEventValueFixed(value);\
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSwipePositionY):       \
+                    /*                                  \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldNavigationSwipePositionY):       \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldDockSwipePositionY):       \
+                    */                                  \
+                        swipe->positionY = IOHIDEventValueFixed(value);\
                         break;                          \
                 };                                      \
             }                                           \
@@ -1111,6 +1270,29 @@ typedef struct _IOHIDSystemQueueElement {
                                 };                      \
                                 break;                  \
                         };                              \
+                        break;                          \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeZoomToggle:                 \
+            {                                           \
+            /*  IOHIDZoomToggleEventData * zoom = (IOHIDZoomToggleEventData *)eventData; */\
+                switch ( fieldOffset ) {                \
+                };                                      \
+            }                                           \
+            break;                                      \
+        case kIOHIDEventTypeSymbolicHotKey:             \
+            {                                           \
+                IOHIDSymbolicHotKeyEventData * symbolicEvent = (IOHIDSymbolicHotKeyEventData *)eventData; \
+                switch ( fieldOffset ) {                \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSymbolicHotKeyValue): \
+                        symbolicEvent->hotKey = value;  \
+                        break;                          \
+                    case IOHIDEventFieldOffset(kIOHIDEventFieldSymbolicHotKeyIsCGSEvent): \
+                        if ( value )                    \
+                            symbolicEvent->options |= kIOHIDSymbolicHotKeyOptionIsCGSHotKey; \
+                        else                            \
+                            symbolicEvent->options &= ~kIOHIDSymbolicHotKeyOptionIsCGSHotKey; \
                         break;                          \
                 };                                      \
             }                                           \

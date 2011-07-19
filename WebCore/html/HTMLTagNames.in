@@ -10,123 +10,130 @@ applet
 area
 article interfaceName=HTMLElement
 aside interfaceName=HTMLElement
-audio wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, createWithNew
+audio wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
 b interfaceName=HTMLElement
-base createWithNew
-basefont interfaceName=HTMLBaseFontElement, createWithNew
+base
+basefont interfaceName=HTMLBaseFontElement
 bdo interfaceName=HTMLElement
+bgsound interfaceName=HTMLElement
 big interfaceName=HTMLElement
-blockquote createWithNew
-body createWithNew
-br interfaceName=HTMLBRElement, createWithNew
-button constructorNeedsFormElement, createWithNew
-canvas createWithNew
-caption interfaceName=HTMLTableCaptionElement, createWithNew
+blockquote
+body
+br interfaceName=HTMLBRElement
+button constructorNeedsFormElement
+canvas
+caption interfaceName=HTMLTableCaptionElement
 center interfaceName=HTMLElement
 cite interfaceName=HTMLElement
 code interfaceName=HTMLElement
-col interfaceName=HTMLTableColElement, createWithNew
-colgroup interfaceName=HTMLTableColElement, createWithNew
-datagrid interfaceName=HTMLDataGridElement, conditional=DATAGRID, createWithNew
-datalist interfaceName=HTMLDataListElement, conditional=DATALIST, createWithNew
-dcell interfaceName=HTMLDataGridCellElement, conditional=DATAGRID, createWithNew
-dcol interfaceName=HTMLDataGridColElement, conditional=DATAGRID, createWithNew
-drow interfaceName=HTMLDataGridRowElement, conditional=DATAGRID, createWithNew
+col interfaceName=HTMLTableColElement
+colgroup interfaceName=HTMLTableColElement
+command interfaceName=HTMLElement
+datalist interfaceName=HTMLDataListElement, conditional=DATALIST
 dd interfaceName=HTMLElement
-del interfaceName=HTMLModElement, createWithNew
+del interfaceName=HTMLModElement
+details conditional=DETAILS
 dfn interfaceName=HTMLElement
-dir interfaceName=HTMLDirectoryElement, createWithNew
-div createWithNew
-dl interfaceName=HTMLDListElement, createWithNew, createWithNew
+dir interfaceName=HTMLDirectoryElement
+div
+dl interfaceName=HTMLDListElement
 dt interfaceName=HTMLElement
 em interfaceName=HTMLElement
-embed
-fieldset interfaceName=HTMLFieldSetElement, constructorNeedsFormElement, createWithNew
-font createWithNew
+embed constructorNeedsCreatedByParser
+fieldset interfaceName=HTMLFieldSetElement, constructorNeedsFormElement
+figcaption interfaceName=HTMLElement
+figure interfaceName=HTMLElement
+font
 footer interfaceName=HTMLElement
-form createWithNew
+form
 frame
-frameset interfaceName=HTMLFrameSetElement, createWithNew
-h1 interfaceName=HTMLHeadingElement, createWithNew
-h2 interfaceName=HTMLHeadingElement, createWithNew
-h3 interfaceName=HTMLHeadingElement, createWithNew
-h4 interfaceName=HTMLHeadingElement, createWithNew
-h5 interfaceName=HTMLHeadingElement, createWithNew
-h6 interfaceName=HTMLHeadingElement, createWithNew
-head createWithNew
+frameset interfaceName=HTMLFrameSetElement
+h1 interfaceName=HTMLHeadingElement
+h2 interfaceName=HTMLHeadingElement
+h3 interfaceName=HTMLHeadingElement
+h4 interfaceName=HTMLHeadingElement
+h5 interfaceName=HTMLHeadingElement
+h6 interfaceName=HTMLHeadingElement
+head
 header interfaceName=HTMLElement
 hgroup interfaceName=HTMLElement
-hr interfaceName=HTMLHRElement, createWithNew
-html createWithNew
+hr interfaceName=HTMLHRElement
+html
 i interfaceName=HTMLElement
 iframe interfaceName=HTMLIFrameElement
-image mapToTagName=img, createWithNew
-img interfaceName=HTMLImageElement, constructorNeedsFormElement, createWithNew
-input constructorNeedsFormElement, createWithNew
-ins interfaceName=HTMLModElement, createWithNew
-isindex interfaceName=HTMLIsIndexElement, constructorNeedsFormElement, createWithNew
+image mapToTagName=img
+img interfaceName=HTMLImageElement, constructorNeedsFormElement
+input constructorNeedsFormElement, constructorNeedsCreatedByParser
+ins interfaceName=HTMLModElement
+isindex interfaceName=HTMLIsIndexElement, constructorNeedsFormElement
 kbd interfaceName=HTMLElement
-keygen JSInterfaceName=HTMLSelectElement, constructorNeedsFormElement, createWithNew
-label createWithNew
+keygen constructorNeedsFormElement
+label
 layer interfaceName=HTMLElement
-legend constructorNeedsFormElement, createWithNew
-li interfaceName=HTMLLIElement, createWithNew
-link constructorNeedsCreatedByParser, createWithNew
-listing interfaceName=HTMLPreElement, createWithNew
-map createWithNew
-marquee createWithNew
-menu createWithNew
-meta createWithNew
+legend constructorNeedsFormElement
+li interfaceName=HTMLLIElement
+link constructorNeedsCreatedByParser
+listing interfaceName=HTMLPreElement
+map
+mark interfaceName=HTMLElement
+marquee
+menu
+meta
+meter interfaceName=HTMLMeterElement, constructorNeedsFormElement, conditional=METER_TAG
 nav interfaceName=HTMLElement
 nobr interfaceName=HTMLElement
 noembed interfaceName=HTMLElement
 noframes interfaceName=HTMLElement
 nolayer interfaceName=HTMLElement
-object constructorNeedsCreatedByParser
-ol interfaceName=HTMLOListElement, createWithNew
-optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement, createWithNew
-option constructorNeedsFormElement, createWithNew
-p interfaceName=HTMLParagraphElement, createWithNew
-param createWithNew
+object constructorNeedsFormElement, constructorNeedsCreatedByParser
+ol interfaceName=HTMLOListElement
+optgroup interfaceName=HTMLOptGroupElement, constructorNeedsFormElement
+option constructorNeedsFormElement
+output constructorNeedsFormElement
+p interfaceName=HTMLParagraphElement
+param
 plaintext interfaceName=HTMLElement
-pre createWithNew
-progress interfaceName=HTMLProgressElement, conditional=PROGRESS_TAG
-q interfaceName=HTMLQuoteElement, createWithNew
-rp interfaceName=HTMLElement, conditional=RUBY
-rt interfaceName=HTMLElement, conditional=RUBY
-ruby interfaceName=HTMLElement, conditional=RUBY
+pre
+progress interfaceName=HTMLProgressElement, constructorNeedsFormElement, conditional=PROGRESS_TAG
+q interfaceName=HTMLQuoteElement
+rp interfaceName=HTMLElement
+rt interfaceName=HTMLElement
+ruby interfaceName=HTMLElement
 s interfaceName=HTMLElement
 samp interfaceName=HTMLElement
-script constructorNeedsCreatedByParser, createWithNew
+script constructorNeedsCreatedByParser
 section interfaceName=HTMLElement
-select constructorNeedsFormElement, createWithNew
+select constructorNeedsFormElement
 small interfaceName=HTMLElement
-source wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, createWithNew
+source wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
 span interfaceName=HTMLElement
 strike interfaceName=HTMLElement
 strong interfaceName=HTMLElement
-style constructorNeedsCreatedByParser, createWithNew
+style constructorNeedsCreatedByParser
 sub interfaceName=HTMLElement
+summary interfaceName=HTMLSummaryElement, JSInterfaceName=HTMLElement, conditional=DETAILS
 sup interfaceName=HTMLElement
-table createWithNew
-tbody interfaceName=HTMLTableSectionElement, createWithNew
-td interfaceName=HTMLTableCellElement, createWithNew
-textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement, createWithNew
-tfoot interfaceName=HTMLTableSectionElement, createWithNew
-th interfaceName=HTMLTableCellElement, createWithNew
-thead interfaceName=HTMLTableSectionElement, createWithNew
-title createWithNew
-tr interfaceName=HTMLTableRowElement, createWithNew
+table
+tbody interfaceName=HTMLTableSectionElement
+td interfaceName=HTMLTableCellElement
+textarea interfaceName=HTMLTextAreaElement, constructorNeedsFormElement
+tfoot interfaceName=HTMLTableSectionElement
+th interfaceName=HTMLTableCellElement
+thead interfaceName=HTMLTableSectionElement
+title
+tr interfaceName=HTMLTableRowElement
+track wrapperOnlyIfMediaIsAvailable, conditional=VIDEO_TRACK
 tt interfaceName=HTMLElement
 u interfaceName=HTMLElement
-ul interfaceName=HTMLUListElement, createWithNew
+ul interfaceName=HTMLUListElement
 var interfaceName=HTMLElement
-video wrapperOnlyIfMediaIsAvailable, conditional=VIDEO, createWithNew
+video wrapperOnlyIfMediaIsAvailable, conditional=VIDEO
 wbr interfaceName=HTMLElement
-xmp interfaceName=HTMLPreElement, createWithNew
+xmp interfaceName=HTMLPreElement
 
 #if ENABLE_XHTMLMP
-noscript interfaceName=HTMLNoScriptElement, createWithNew
+noscript interfaceName=HTMLNoScriptElement
 #else
 noscript interfaceName=HTMLElement
 #endif
+

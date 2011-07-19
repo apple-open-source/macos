@@ -60,7 +60,9 @@ public:
     virtual void startWorkerContext(const WebURL& scriptURL,
                                     const WebString& name,
                                     const WebString& userAgent,
-                                    const WebString& sourceCode) = 0;
+                                    const WebString& sourceCode,
+                                    long long scriptResourceAppCacheID) = 0;
+
     class ConnectListener {
     public:
         // Invoked once the connect event has been sent so the caller can free this object.

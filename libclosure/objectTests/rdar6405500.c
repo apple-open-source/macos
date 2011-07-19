@@ -1,23 +1,28 @@
-// CONFIG rdar://6405500
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
-#include <stdio.h>
-#include <stdlib.h>
+// TEST_CONFIG rdar://6405500
+
+#import <stdio.h>
+#import <stdlib.h>
 #import <dispatch/dispatch.h>
 #import <objc/objc-auto.h>
+#import "test.h"
 
-int main (int argc, const char * argv[]) {
+int main () {
     __block void (^blockFu)(size_t t);
     blockFu = ^(size_t t){
         if (t == 20) {
-            printf("%s: success\n", argv[0]);
-            exit(0);
-        } else
+            succeed(__FILE__);
+        } else {
             dispatch_async(dispatch_get_main_queue(), ^{ blockFu(20); });
+        }
     };
     
-    dispatch_apply(10, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), blockFu);
-
+    dispatch_apply(10, dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), blockFu);
     dispatch_main();
-    printf("shouldn't get here\n");
-    return 1;
+    fail("unreachable");
 }

@@ -7,11 +7,128 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: jpeg.tcl,v 1.15 2008/03/24 00:21:09 andreas_kupries Exp $
+# RCS: @(#) $Id: jpeg.tcl,v 1.18 2009/06/05 19:58:26 andreas_kupries Exp $
 
-package provide jpeg 0.3.3
+# ### ### ### ######### ######### #########
+## Requisites
 
 namespace eval ::jpeg {}
+
+# ### ### ### ######### ######### #########
+## Notes :: Structure of jpeg files.
+
+# Base types
+#
+# BYTE    = 1 byte
+# SHORT   = 2 bytes, endianess determined by context.
+# BESHORT = 2 bytes, big endian
+# INT     = 4 bytes, endianess determined by context.
+
+# JPEG types
+#
+# JPEG = <
+#   BYTE     [2] == 0xFF 0xD8 (SOI (Start Of Image))
+#   JSEGMENT [.] 1 or more jpeg segments, variadic size
+#   BYTE     [2] == 0xFF 0xD9 (EOI (End Of Image))
+# >
+#
+# JSEGMENT = <
+#   BYTE    [1]   == 0xFF
+#   BYTE    [1]   Segment Tag, type marker
+#   BESHORT [1]   Segment Length N
+#   BYTE    [N-2] Segment Data, interpreted dependent on tag.
+# >
+#
+# Notable segments, and their structure.
+#
+# Comment = JSEGMENT (Tag = 0xFE, Data = <
+#
+# >)
+
+
+# Type 0xFE (Comment)
+# Data BYTE [ ]
+# Note: Multiple comment segments are allowed.
+
+# Type 0xC0/0xC1/0xC2/0xC3 (Start of Frame)
+# Data BYTE    [1] Precision
+#      BESHORT [1] Height
+#      BESHORT [1] Width
+#      BYTE    [1] Number of color components
+#      ...
+
+# Type 0xEx (x=0-9A-F) (App0 - App15)
+# Data It is expected that the data starts with a checkable marker, as
+#      the app segments can be used by multiple applications for
+#      different purposes. I.e. a sub-type is needed before the
+#      segment data can be processed.
+
+# App0/JFIF image info
+# Type 0xE0
+# Data BYTE    [5] 'JFIF\0'	JFIF sub-type marker
+#      BYTE    [1] Version1 (major)
+#      BYTE    [1] Version2 (minor)
+#      BYTE    [1] Units
+#      BESHORT [1] X-density (dots per inch ?)
+#      BESHORT [1] Y-density
+#      BYTE    [1] X-thumb   (Width  of thumbnail, if any, or zero)
+#      BYTE    [1] Y-thumb   (Height of thumbnail, if any, or zero)
+
+# App0/JFXX extended image information
+# Type 0xE0
+# Data BYTE    [5] 'JFXX\0'	JFXX sub-type marker
+#      BYTE    [1] Extension code 10 -> JPEG thumbnail
+#                                 11 -> Palletized thumbnail
+#                                 13 -> RGB thumbnail
+#      BYTE    [ ] Data per the extension code.
+
+# App1/EXIF
+# Type 0xE1
+# Data BYTE  [6] 'Exif\0\0' EXIF sub-type marker. (1)
+#      BYTE  [2] Byte Order  0x4d 0x4d = big endian
+#                         or 0x49 0x49 = small endian
+#      SHORT [1] Magic == 42 under the specified byteorder.
+#      INT   [1] Next  == Offset to the first actual EXIF data block.
+#
+# EXIF data block structure (IFD = Image File Directory)
+#
+# 1. SHORT [1] Number N of exif entries
+# 2. ENTRY [N] Array of exif entries
+# 3. INT   [1] Offset to the next EXIF data block, or <0 for the last block.
+#
+
+# exif ENTRY structure
+#
+# 1. SHORT [1] num
+# 2. SHORT [1] tag    = exif key
+# 3. SHORT [1] format
+# 4. INT   [1] component
+# 5. INT   [1] value
+
+# The 'value is interpreted dependent on the values of tag, format,
+# and component.
+#
+# A.  Tag in ( 0x8769, 0xA005 )
+#     Value is offset to a subordinate exif data block, process recursively.
+# B.  Size = components * sizeof(format)
+# B1. Size > 4
+#     Value is offset to the actual value.
+# B2. Size <= 4
+#     Value is the actual value.
+
+# Usually a jpeg with exif information has two exif data blocks. The
+# first is the main block, the second the thumbnail block.
+#
+# Note that all the exif data structures are within the app1/exif
+# segment.
+#
+# (1) The offset of the first byte after the exif marker is what all
+#     the offsets in exif are relative to.
+
+# Type 0xDA (SOS, Start of Stream/Scan)
+# Followed by the JPEG data. Last segment before EOI
+
+# ### ### ### ######### ######### #########
 
 # open a file, check jpeg signature, and a return a file handle
 # at the start of the first marker
@@ -47,11 +164,12 @@ proc ::jpeg::markers {fh} {
         lappend chunks [list $type [tell $fh] $len]
         seek $fh $len current
     }
+    # chunks = list (list (type offset length) ...)
     return $chunks
 }
 
 proc ::jpeg::imageInfo {file} {
-    set fh [openJFIF $file r+]
+    set fh [openJFIF $file r]
     set data {}
     if {[set app0 [lsearch -inline [markers $fh] "e0 *"]] != ""} {
         seek $fh [lindex $app0 1] start
@@ -264,6 +382,7 @@ proc ::jpeg::getExif {file {type main}} {
         # the answer is 42, if we have our byte order correct
         _scan $byteOrder [read $fh 6] si magic next
         if {$magic != 42} { close $fh; return }
+
         seek $fh [expr {$start + $next}] start
         if {$type != "thumbnail"} {
 	    if {$type != "main"} {
@@ -354,9 +473,10 @@ proc ::jpeg::_exif2 {data} {
 }
 
 # reads an exif block and returns key-value pairs
-proc ::jpeg::_exif {fh byteOrder offset} {
+proc ::jpeg::_exif {fh byteOrder offset {tag_info exif_tags}} {
     variable exif_formats
     variable exif_tags
+    variable gps_tags
     set return {}
     for {_scan $byteOrder [read $fh 2] s num} {$num > 0} {incr num -1} {
         binary scan [read $fh 2] H2H2 t1 t2
@@ -376,8 +496,18 @@ proc ::jpeg::_exif {fh byteOrder offset} {
             seek $fh $pos start
             continue
         }
+	# special tag, another exif block holding GPS/location information.
+	if {$tag == "8825"} {
+            _scan $byteOrder $value i next
+            set pos [tell $fh]
+            seek $fh [expr {$offset + $next}] start
+            eval lappend return [_exif $fh $byteOrder $offset gps_tags]
+            seek $fh $pos start
+            continue
+	}
         if {![info exists exif_formats($format)]} continue
-        if {[info exists exif_tags($tag)]} { set tag $exif_tags($tag) }
+	upvar 0 $tag_info thetags
+        if {[info exists thetags($tag)]} { set tag $thetags($tag) }
         set size [expr {$exif_formats($format) * $components}]
         # if the data is over 4 bytes, its stored later in the file, with the
         # data being the offset relative to the exif header
@@ -685,6 +815,41 @@ array set ::jpeg::exif_tags {
     9216 TIFF/EPStandardID
 }
 
+# list of recognized exif tags for the GPSInfo section--added by mdp 6/5/2009
+array set ::jpeg::gps_tags {
+    0000 GPSVersionID
+    0001 GPSLatitudeRef
+    0002 GPSLatitude
+    0003 GPSLongitudeRef
+    0004 GPSLongitude
+    0005 GPSAltitudeRef
+    0006 GPSAltitude
+    0007 GPSTimeStamp
+    0008 GPSSatellites
+    0009 GPSStatus
+    000a GPSMeasureMode
+    000b GPSDOP
+    000c GPSSpeedRef
+    000d GPSSpeed
+    000e GPSTrackRef
+    000f GPSTrack
+    0010 GPSImgDirectionRef
+    0011 GPSImgDirection
+    0012 GPSMapDatum
+    0013 GPSDestLatitudeRef
+    0014 GPSDestLatitude
+    0015 GPSDestLongitudeRef
+    0016 GPSDestLongitude
+    0017 GPSDestBearingRef
+    0018 GPSDestBearing
+    0019 GPSDestDistanceRef
+    001a GPSDestDistance
+    001b GPSProcessingMethod
+    001c GPSAreaInformation
+    001d GPSDateStamp
+    001e GPSDifferential
+}
+
 # for mapping exif values to plain english by [formatExif]
 array set ::jpeg::exif_values {
     Compression,1 none
@@ -924,3 +1089,32 @@ proc ::jpeg::_format {end value type num} {
     return $value
 }
 
+# Do a compatibility version of [lassign] for versions of Tcl without
+# that command. Not using a version check as special builds may have
+# the command even if they are a version which nominally would not.
+
+if {![llength [info commands lassign]]} {
+    proc ::jpeg::lassign {sequence v args} {
+	set args [linsert $args 0 $v]
+	set a [::llength $args]
+
+	# Nothing to assign.
+	#if {$a == 0} {return $sequence}
+
+	# Perform assignments
+	set i 0
+	foreach v $args {
+	    upvar 1 $v var
+	    set        var [::lindex $sequence $i]
+	    incr i
+	}
+
+	# Return remainder, if there is any.
+	return [::lrange $sequence $a end]
+    }
+}
+
+# ### ### ### ######### ######### #########
+## Ready
+
+package provide jpeg 0.3.5

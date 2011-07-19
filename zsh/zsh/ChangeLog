@@ -1,4 +1,3450 @@
+2010-12-20  Peter Stephenson  <pws@csr.com>
+
+	* Paul Ackersviller: 28538: as modified in 28540 plus a couple
+	of casts to char * I missed: Src/init.c,Src/input.c,
+	Src/parse.c, Src/prototypes.h, Src/utils.c, Src/Zle/zle_main.c:
+	pointer arithmetic needs to be done with char *, not void *.
+
+2010-12-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28537: Src/lex.c, Test/D04parameter.ztst: word splitting on
+	'((' in command position that turned into nested subshell
+	commands was broken.
+
+2010-12-18  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 27862 (belatedly): Completion/X/Utility/_x_arguments: handle
+	X11 versions greater than X11R6 in the compdef line.
+
+	* unposted: Src/Makefile.in: "prep" target depends on Makemod,
+	not on the files on which Makemod depends.
+
+2010-12-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 28535: NEWS: typo
+
+2010-12-17  Peter Stephenson  <pws@csr.com>
+
+	* Štěpán Němec: 28533: README, Doc/Zsh/compsys.yo,
+	Doc/Zsh/compwid.yo, Doc/Zsh/contrib.yo, Doc/Zsh/expn.yo,
+	Doc/Zsh/params.yo, Doc/Zsh/zle.yo, Functions/Chpwd/cdr: typos.
+
+	* unposted: NEWS: note zle_highlight suffix control.
+
+	* Mikael: users/15653: Src/Zle/zle_refresh.c:
+	zle_highlight=(none) should turn off suffix highlighting.
+
+2010-12-16  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 28531: Completion/Base/Utility/_combination,
+	Doc/Zsh/expn.yo, Doc/Zsh/mod_clone.yo, Doc/Zsh/options.yo,
+	Src/exec.c: typos.
+
+	* unposted: NEWS: add notes on (Z) parameter flag.
+
+	* unposted: README, Config/version.mk, Etc/FAQ.yo,
+	Completion/Debian/Command/.distfiles: update for 4.3.10-test-3.
+
+2010-12-14  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 28530: Doc/Zsh/expn.yo, Src/subst.c, Test/D04parameter.ztst:
+	replace (z+opts+) flag with (Z:opts:), add reserved (_:flags:).
+
+2010-12-14  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Src/lex.c: another neatening of lexflags use for
+	ZLE.
+
+	* 28529: Src/hist.c, Src/lex.c, Src/zsh.h, Src/Zle/compcore.c,
+	Src/Zle/compctl.c, Src/Zle/zle_tricky.c: save and restore
+	lexflags and separate out special word logic for ZLE by
+	adding new flag LEXFLAGS_ZLE.
+
+	* 28528: Doc/Zsh/expn.yo, Src/hist.c, Src/lex.c, Src/subst.c,
+	Src/zsh.h, Src/Zle/compcore.c, Src/Zle/compctl.c,
+	Src/Zle/zle_tricky.c, Test/D04parameter.ztst: clear up use of
+	zleparse variable into lexflags; add (z+n+) for splitting with
+	newline treated as ordinary whitespace.
+
+2010-12-13  Peter Stephenson  <pws@csr.com>
+
+	* 28526: Src/lex.c, Test/D04parameter.ztst: zplitting
+	'line # with comment' when stripping comments shouldn't generate
+	a newline at the end (unless there is one).
+
+2010-12-12  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28510: Doc/Zsh/expn.yo, Src/hist.c, Src/lex.c, Src/subst.c,
+	Src/Modules/parameter.c, Src/Zle/zle_hist.c, Src/Zle/zle_misc.c,
+	Test/D04parameter.ztst: add (z+c+) and (z+C+) parameter flags.
+
+2010-12-07  Peter Stephenson  <pws@csr.com>
+
+	* unposted: remove users/15622 which causes problems
+	with certain existing forms of testing commands.
+
+2010-12-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	*  Mikael: 28480: Doc/Zsh/params.yo, Src/utils.c: allow
+	PROMPT_EOL_MARK to be an empty string.
+
+2010-12-06  Peter Stephenson  <pws@csr.com>
+
+	* users/15622: Completion/Base/Utility/_pick_variant: use
+	$service rather than $words[1] to pick the service. Although
+	there may be cases where this doesn't work, this provides
+	transparent behaviour for simple uses along the lines of
+	"compdef <_func> <cmd>=<service>"
+
+	* users/15621: Completion/compinit,
+	Completion/Base/Core/dispatch: fix setting service for compef
+	-p/-P.
+
+	* Mikael: 28487: Doc/Zsh/builtins.yo, Doc/Zsh/expn.yo,
+	Doc/Zsh/options.yo, Doc/Zsh/prompt.yo: fix docs to refer to
+	current directory rather than $PWD.
+
+	* 28486: Src/Zle/compcore.c: $compstate[parameter] needed
+	untokenizing.
+
+	* Mikael: 28484: Completion/Unix/Command/_du: updated for GNU
+	variant.
+
+2010-12-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: NEWS: mention {START..END..STEP} changes.
+
+	* Mikael: 28474, 28478: Doc/Zsh/expn.yo, Src/glob.c,
+	Test/D09brace.ztst: extended {START..END..STEP} syntax.
+
+	* 28476: Test/.distfiles, Test/D09brace.ztst: new set of tests
+	for brace expansion.
+
+	* 28475: Test/A05execution.ztst: test that starting a background
+	job resets the status.
+
+	* 28469: Src/exec.c: fix memory leak in anonymous function.
+
+2010-12-04  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* Aaron Schrab: 28210: Completion/Unix/Command/_git: add completion
+	for help subcommand.
+
+2010-12-03  Peter Stephenson  <pws@csr.com>
+
+	* 28468: Completion/Unix/Command/_man: if argument contains a
+	"/", complete file instead of manual page reference; prefer
+	files with man suffixes.
+
+2010-11-30  Peter Stephenson  <pws@csr.com>
+
+	* unposted: NEWS: add news about ${NAME:OFFSET} and took the
+	opportunity for a general tidy up.
+
+2010-11-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 28461: Src/exec.c: flush stderr in PRINT_EXIT_VALUE handling.
+
+	* users/15583: Functions/Misc/sticky-note: update with zstyles and
+	for ease of use in zle-line-init.
+
+2010-11-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28459: Src/utils.c: flush shell output in PROMPT_SP handling.
+
+2010-11-25  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 28445: Src/utils.c: overwrite PROMPT_SP string if it
+	should remain invisible, even with an upcoming newline.
+
+2010-11-25  Peter Stephenson  <pws@csr.com>
+
+	* Sebastian Stark: users/15581:
+	Completion/Zsh/Command/_zmodload: MacOS has .bundle DLL files.
+
+	* users/15580: Completion/Zsh/Function/_zsh-mime-handler,
+	Functions/MIME/zsh-mime-handler: fixes for completion when
+	dropping through to normal completion.
+
+	* 28434: Doc/Zsh/expn.yo, Src/subst.c, Test/D04parameter.ztst:
+	Make ${NAME:OFFSET} always use zero-offset.
+
+2010-11-22  Peter Stephenson  <pws@csr.com>
+
+	* 28424: Doc/Zsh/options.yo, Src/options.c, Src/utils.c,
+	Src/zsh.h, Test/A03quoting.ztst: New POSIX_STRINGS option
+	makes \0 in $'...' terminate the quoted string.
+
+2010-11-20  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28425: Src/subst.c: remove null arguments and untokenize
+	in check_colon_subscript().
+
+2010-11-18  Peter Stephenson  <pws@csr.com>
+
+	* 28419: Doc/Zsh/expn.yo, Src/subst.c, Test/D04parameter.ztst:
+	KSH_ARRAY ${*:0:1} gives $0 etc.
+
+	* 28418: Doc/Zsh/expn.yo, Src/lex.c, Src/params.c, Src/subst.c,
+	Test/D04parameter.ztst: add ${NAME:OFFSET} and
+	${NAME:OFFSET:LENGTH} substitution syntax.
+
+2010-11-17  Peter Stephenson  <pws@csr.com>
+
+	* 28377: Doc/Zsh/grammar.yo: document more alias problems.
+
+2010-11-14  Clint Adams  <clint@zsh.org>
+
+	* 28411: Completion/Unix/Command/_git: complete submodule
+	and annex as subcommands; complete files when the subcommand
+	is unknown.
+
+2010-11-10  Clint Adams  <clint@zsh.org>
+
+	* 28401: Completion/Debian/Command/_git-buildpackage:
+	git-buildpackage completion from Felipe Sateler.
+
+2010-11-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 28389: Completion/Unix/Type/_java_class: empty section
+	in $CLASSPATH.
+
+2010-11-03  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 28384: Src/params.c: improve error message on assignment to a
+	field of a read-only hash.
+
+2010-10-27  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/grammar.yo: typo pointed out by
+	Štěpán plus slight rephrasing.
+
+	* 28375: Doc/Zsh/grammar.yo: clarify how to quote aliases from
+	expansion.
+
+2010-10-25  Peter Stephenson  <pws@csr.com>
+
+	* 28363: Src/Zle/zle_refresh.c: inserting a character when a
+	wide character was at the end of the line didn't work.
+
+2010-10-22  Peter Stephenson  <pws@csr.com>
+
+	* 28360: Src/subst.c, Test/E01options.ztst: NO_UNSET option
+	should test parameters with following operators, too.
+
+	* not quite posted: Completion/Unix/Command/_screen: better to
+	allow sessions to be completed after -S.
+
+2010-10-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Silas Silva (with minor improvement): users/15464:
+	Completion/Unix/Command/_man: support for -M argument.
+
+2010-10-18  Peter Stephenson  <pws@csr.com>
+
+	* Jérôme Pouiller: 28351: Functions/Misc/run-help-openssl,
+	Functions/Misc/run-help-sudo: new help functions.
+
+2010-10-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 28356: Src/Zle/zle_refresh.c: don't increment old
+	display line past NULL.
+
+	* c.f. 28353: Doc/Zsh/metafaq.yo: removing remaining reference
+	to sunsite in FTP sites.
+
+2010-10-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28345: Doc/Zsh/expn.yo, Functions/Chpwd/cdr, Src/builtin.c,
+	Src/utils.c: make new ${(D)} flag return the contracted file as
+	a fully usable command line argument.
+
+2010-10-12  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* unposted (users/15440): Doc/Zsh/expn.yo: fix cross-references
+	among parameter expansion rules.
+
+2010-10-12  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 28343: Completion/Unix/Command/_setfacl: didn't
+	complete file argument in all cases.
+
+2010-10-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28340: Src/params.c: assignment with negative index didn't
+	work with multibyte characters.
+
+	* 28339: Src/hist.c: NO_HIST_LEX_WORDS didn't handle
+	backslash-newline line continuation properly, either.
+
+	* 28332: Src/hist.c: HIST_LEX_WORDS didn't handle
+	backslash-newline line continuation properly.  Come to think of
+	it, neither does the alternative.
+
+2010-10-10  Phil Pennock  <pdpennock@users.sourceforge.net>
+
+	* 28338: Src/cond.c, C02cond.ztst: keep =~ from inverting sense
+	of subsequent tests (after &&/||).
+
+2010-10-08  Peter Stephenson  <pws@csr.com>
+
+	* Ben: 28330: Completion/X/Command/_acroread: add
+	completion for -openInNewInstance.
+
+	* Ben: 28329: Completion/X/Command/_acroread: version 9 is
+	similar to 7 and 8.
+
+2010-10-07  Peter Stephenson  <pws@csr.com>
+
+	* 28327: Src/hist.c: Fix bufferwords() splitting when RC_QUOTES
+	is turned on.
+
+2010-10-06  Peter Stephenson  <pws@csr.com>
+
+	* 28326: Src/hist.c, Test/D04parameter.ztst: Problems with
+	HIST_LEX_WORDS: memory allocation was screwed if we skipped
+	"words" from the lexer; use local heap to avoid silly amounts of
+	memory; fallback to non-lex on failure rather than just fixing
+	up at the end; workaround oddity with splitting with RC_QUOTES.
+
+	* 28319: Src/hist.c, Test/D04parameter.ztst: ${(z)...}
+	splitting oddities and some tests for consistency.
+
+	* 28285: Doc/Zsh/zle.yo, Src/Zle/zle_hist.c: add
+	zle-isearch-update and zle-isearch-exit hooks.
+
+2010-10-02  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: NEWS: note HIST_LEX_WORDS option.
+
+	* 28310 with 28308 (Bart): Doc/Zsh/options.yo, Src/hist.c,
+	Src/options.c, Src/zsh.h: HIST_LEX_WORDS option and check
+	for full history file read.
+
+	* 28309: Src/subst.c: infinite loop when padding with extra wide
+	characters.
+
+	* Mikael: 28301: Doc/Zsh/compsys.yo: restore missing line.
+
+2010-10-01  Oliver Kiddle  <opk@zsh.org>
+
+	* 28307: Completion/Zsh/Command/_zstyle: support new styles
+	especially vcs_info ones and allow quoted contexts again
+
+2010-09-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28295 plus tweak for failure case: Src/hist.c: use lexer to
+	split words from history file.
+
+2010-09-23  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/manual.yo: update address of HTML manual.
+
+2010-09-20  Peter Stephenson  <pws@csr.com>
+
+	* 28282: Src/Zle/zle_keymap.c, Src/Zle/zle_main.c,
+	Src/zle_utils.c: new function zlecallhook() and fix argument to
+	zle-keymap-select.
+
+2010-09-19  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 28268: Src/builtin.c: I/O to a terminated (or never created)
+	coprocess emits a "no coprocess" diagnostic, instead of either
+	nothing or "bad file number".
+
+2010-09-16  Peter Stephenson  <pws@csr.com>
+
+	* Baptiste: 28264: Completion/Unix/Command/_ffmpeg: remove the
+	need for sed.
+
+2010-09-15  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 28261: Julius Plenz: Completion/Debian/_dpkg: separate the
+	options to _arguments.
+
+2010-09-14  Peter Stephenson  <pws@csr.com>
+
+	* 28259: Src/exec.c, Src/lex.c, Src/parse.c, Src/text.c,
+	Src/zsh.h, Test/A04redirect.ztst: Fix bug that empty
+	here-documents were given a newline, and output here-documents
+	from shell text as real here-documents rather than here-strings.
+
+	* 28258: Src/signals.c: bug in 28250 could cause undefined
+	variable resulting in mayhem.
+
+2010-09-13  Peter Stephenson  <pws@csr.com>
+
+	* unposted: NEWS: add POSIX_TRAPS
+
+	* Mikael: 28252: Completion/Zsh/Command/_zle: remove unnecessary
+	looped that caused errors.
+
+2010-09-12  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/builtins.yo: note exit trap runs before
+	zshexit hook.
+
+	* 28250: Doc/Zsh/options.yo, Src/options.c, Src/signals.c,
+	Src/zsh.h, Test/C03traps.ztst: POSIX_TRAPS option.
+
+	* Mikael: 28253: Doc/Zsh/mod_attr.yo: document -h argument to
+	attribute commands.
+
+2010-09-08  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Zle/replace-string-again: safety on
+	regexp failures.
+
+	* 28244 with typo noted by Mikael and Bart: NEWS: updated 4.3.11
+	news.
+
+	* 28241: Doc/Zsh/zle.yo, Src/Zle/zle_keymap.c: don't list .safe
+	keymap with "bindkey -lL", you don't get there from here.
+
+	* 28237: Doc/Zsh/params.yo, Doc/Zsh/zle.yo, Src/Zle/zle_main.c:
+	set ZLE_LINE_ABORTED to line so far when ZLE aborts on an error.
+
+2010-09-06  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/zle.yo: small typo.
+
+2010-09-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28226, 28229: Doc/Zsh/zle.yo, Src/Zle/zle_keymap.c: "bindkey
+	-lL" now lists aliased keymaps in a more useful way; can list
+	individual keymaps.
+
+	* 28227: Doc/Zsh/zle.yo: a few remarks on the question of
+	keymaps.
+
+2010-09-02  Peter Stephenson  <pws@csr.com>
+
+	* users/15350: Doc/expn.yo: explain the strange rounding rules for
+	size glob qualifier.
+
+2010-09-01  Peter Stephenson  <pws@csr.com>
+
+	* 28188: Doc/Zsh/mod_complist.yo, Doc/Zsh/zle.yo: better
+	documentation for limitations in the overlay key maps.
+
+2010-08-31  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28220: Src/exec.c (plus comments), Src/params.c,
+	Test/A06assign.ztst: "HELLO=$HELLO shellfunc" failed because
+	we removed HELLO from the parameter table to save it.  Copy it
+	instead.
+
+	* Mikael: 28202: Src/Zle/complist.c: need line unmetafied for
+	reversemenucomplete().
+
+2010-08-23  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 28190: Doc/Zsh/options.yo: reference to wrong
+	manual page.
+
+	* unposted: Completion/Unix/Command/_perforce: update for 2010.1.
+
+2010-08-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28179: Src/jobs.c, Src/signals.c: use WIFCONTINUED() and
+	WCONTINUE by exporting child handler to a function.
+
+	* users/15314: Doc/Zsh/expn.yo: redescribe process substitution.
+
+	* users/15310 (bits applying to process substitution with
+	redirection): Src/exec.c: make redirection process substitution
+	attach to the appropriate process group.
+
+	* users/15200: pass foreground signals on to process
+	substitutions in current shell
+
+2010-08-22  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 28186: Completion/Base/Utility/_multi_parts: replace a single
+	(...|...) pattern-match with a loop over the alternatives to
+	avoid issues with pattern-quoting each alternative.
+
+2010-08-21  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Mikael Magnusson: 28181: Doc/Zsh/mod_zprof.yo: Remove a
+	stray `)' that caused a ".RE" string to be output
+
+2010-08-19  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/_todo.sh: more commands.
+
+2010-08-18  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28172: Src/jobs.c: mark processes as not stopped if
+	sent SIGCONT.
+
+2010-08-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28167: Src/Zle/compresult.c: reset more variables when
+	invalidating completion list.
+
+2010-08-13  Peter Stephenson  <pws@csr.com>
+
+	* 28160 modified as per 28164: Src/Zle/zle_refresh.c: when the
+	display was reset we didn't properly mark the old display line
+	as invalid.  This could mean the display didn't get redrawn
+	properly.
+
+2010-08-11  Peter Stephenson  <pws@csr.com>
+
+	* 28139: based on Frank Terbeck: 28122: Src/Zle/zle_params.c,
+	Doc/Zsh/zle.yo: add ZLE_STATE variable.
+
+2010-08-10  Clint Adams  <clint@zsh.org>
+
+	* unposted: Functions/Newuser/zsh-newuser-install: tweak
+	newline placement.
+
+2010-08-10  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/_todo.sh: need care matching
+	initial whitespace; strip priorities to get text to replace.
+
+2010-08-08  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28137: Functions/MIME/zsh-mime-handler: $argv[0] should be
+	$argv[1].
+
+2010-08-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Simon Ruderich: 28136: README: typo.
+
+2010-08-06  Peter Stephenson  <pws@csr.com>
+
+	* 28131: MACHINES: latest status on Cygwin.
+
+	* users/15232: Completion/Unix/Type/_path_files: somehow
+	this didn't get completed.
+
+2010-08-05  Peter Stephenson  <pws@csr.com>
+
+	* users/15232: Completion/Unix/Type/_path_files: another
+	go at fixing up for bizarre quoting rules, c.f. users/15031.
+
+2010-08-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Holger Macht: 28130: Completion/Unix/Command/_osc: new
+	completion.
+
+2010-08-02  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Seth House: 28115: Misc/vcs_info-examples: Another git example
+	hook.
+
+	* Seth House: 28114:
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git: Fix revision
+	lookup with packed repositories.
+
+2010-08-02  Peter Stephenson  <pws@csr.com>
+
+	* Daiki Ueno: 28112: Src/Zle/zle_refresh.c: missing parentheses
+	caused incorrect size for character width.
+
+2010-07-31  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/15219: Src/jobs.c: print exit status if PRINTEXITVALUE
+	and terminated by signal.
+
+	* 28111: Src/jobs.c: always print exit status if PRINTEXITVALUE
+	is set.
+
+	* users/15217: Src/Zle/zle_main.c: use top-level status
+	when redrawing prompt.
+
+2010-07-30  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Mikael Magnusson: 28110: Doc/Zsh/compsys.yo: Fix yodl warning.
+
+	* unposted: Fix a date in ChangeLog.
+
+2010-07-29  Peter Stephenson  <pws@csr.com>
+
+	* <hamer@hamer.org.ua>: 28104: Src/Zle/compcore.c: crash
+	in obscure completion case due to NULL pointer.
+
+2010-07-28  Peter Stephenson  <pws@csr.com>
+
+	* users/15204: Functions/Zftp/zfinit: check compctl is loaded
+	before trying to use it (for ksh emulation).
+
+	* as described in users/15202: Functions/Misc/run-help,
+	Functions/Newuser/zsh-newuser-install,
+	Functions/Prompts/promptinit, Functions/TCP/tcp_open,
+	Functions/Zftp/zfinit, Functions/Zle/down-case-word-match,
+	Functions/Zle/forward-word-match,
+	Functions/Zle/history-pattern-search,
+	Functions/Zle/insert-composed-char, Functions/Zle/kill-word-match,
+	Functions/Zle/match-words-by-style,
+	Functions/Zle/select-word-style,
+	Functions/Zle/transpose-words-match,
+	Functions/Zle/up-case-word-match, Functions/Zle/zed-set-file-name:
+	Use "autoload -Uz" consistently throughout distributed functions.
+
+2010-07-26  Peter Stephenson  <pws@csr.com>
+
+	* 28102: Src/Zle/computil.c: use lstat() when checking
+	ignore-parents.
+
+2010-07-26  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 28101: Completion/Unix/Command/_tmux: Fix window completion
+	for tmux version 1.3 and newer.
+
+2010-07-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Config/version.mk: update to 4.3.10-dev-2.
+
+2010-07-24  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 28000: Completion/Unix/Command/_git: make the branch arg for
+	"git log" optional.
+
+2010-07-20  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28096: Functions/Chpwd/chpwd_recent_dirs: don't add
+	$OLDPWD.
+
+	* 28081: Doc/Zsh/contrib.yo,
+	Functions/Chpwd/chpwd_recent_filehandler: document style
+	stuff with cdr, future-proof file reading.
+
+2010-07-19  Peter Stephenson  <pws@csr.com>
+
+	* 28092: Completion/Unix/Command/_getconf: generate missing keys.
+
+2010-07-19  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 28093, based on Michel Lespinasse: 28090:
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git: Fix a problem
+	with `check-for-changes' and freshly initialised repositories.
+
+	* Seth House: 28084, 28083: Misc/vcs_info-examples: cleanups
+	and new examples.
+
+	* 28095: Functions/VCS_Info/Backends/VCS_INFO_get_data_git: Fix
+	two hard-coded invocations of the "git" command.
+
+2010-07-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28073: Src/exec.c, Src/init.c, Src/utils.c: allow #!
+	scripts to search path if interpreter not found.
+
+2010-07-15  Doug Kearns  <dougkearns@gmail.com>
+
+	* 28078: Completion/Unix/Command/_xmlsoft: update.
+
+	* Michael Hwang: 28075: Completion/Unix/Command/_gpg: add gpg-zip
+	completion and other general improvements.
+
+2010-07-13  Peter Stephenson  <pws@csr.com>
+
+	* Jörg Sommer: 28063: Completion/Unix/Command/_rubber: suppress
+	warning messages when extracting output.
+
+2010-07-12  Peter Stephenson  <pws@csr.com>
+
+	* 28068: Doc/Zsh/contrib.yo: Texinfo declaration got wrapped
+	causing mayhem.
+
+2010-07-12  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* users/15165: Doc/Zsh/contrib.yo: Fix a warning about a
+	missing macro.
+
+2010-07-09  Peter Stephenson  <pws@csr.com>
+
+	* 28065: Doc/Zsh/contrib.yo, Functions/Chpwd/.distfiles,
+	Functions/Chpwd/cdr, Functions/Chpwd/_cdr,
+	Functions/Chpwd/chpwd_recent_add,
+	Functions/Chpwd/chpwd_recent_dirs,
+	Functions/Chpwd/chpwd_recent_filehandler, plus Src/zsh.mdd
+	(not posted): add cdr function, tools, and documentation.
+
+2010-06-30  Clint Adams  <clint@zsh.org>
+
+	* 27998, 28061, 28062: Functions/Newuser/zsh-newuser-install:
+	add recommended zshrc option.
+
+	* 28060: Completion/Unix/Command/_xmlsoft: xmlsoft --nodtdattr
+	completion thanks to Vincent Lefevre.
+
+2010-06-23  Doug Kearns  <dougkearns@gmail.com>
+
+	* 28056: Completion/Unix/Command/_lynx: add option descriptions.
+
+2010-06-22  Doug Kearns  <dougkearns@gmail.com>
+
+	* 28055: Completion/Unix/Command/_vim: add some missing options.
+
+2010-06-22  Peter Stephenson  <pws@csr.com>
+
+	* 28047: Src/hist.c: make fc -R/-W more consistently verbose
+	and allow fc -R to work if file could be read but permissions
+	didn't allow it to be locked (as distinct from failing to lock
+	it because something else had locked it).
+
+2010-06-22  Doug Kearns  <dougkearns@gmail.com>
+
+	* 28052: Completion/Unix/Command/_cvs: remove duplicated completion of
+	the version subcommand.
+
+	* unposted: INSTALL, README: fix typos.
+
+	* 28051: Completion/Unix/Command/_elinks: update for version 0.12pre5.
+
+2010-06-17  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Holger Weiss: 28016, 28017, 28018, 28019:
+	Completion/Unix/Command/_git: various fixes and enhancements.
+
+	* Holger Weiss: 28020: Doc/Zsh/compsys.yo: Fix a typo.
+
+	* unposted: Fix a date in ChangeLog.
+
+2010-06-16  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28042: Doc/Zsh/contrib.yo, Functions/Zle/.distfiles,
+	Functions/Zle/transpose-lines: new widget.
+
+2010-06-14  Peter Stephenson  <pws@csr.com>
+
+	* 28038: Index: Completion/Zsh/Command/_zstyle, Doc/Zsh/calsys.yo,
+	Functions/Calendar/calendar, Functions/Calendar/calendar_add,
+	Functions/Calendar/calendar_parse,
+	Functions/Calendar/calendar_scandate: improved handling of
+	recurring events in calendar system.
+
+	* unposted: Doc/Zsh/params.yo: extra note on ZSH_EVAL_CONTEXT.
+
+	* 28037: Src/exec.c, Src/math.c, Src/module.c,
+	Test/V01zmodload.ztst: improved error messages for autoloading
+	math functions and builtins (but not conditions).
+
+	* 28010: configure.ac, Src/compat.c: use getcwd() as fallback
+	if zgetcwd() fails.
+
+2010-06-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 28027: Doc/Zsh/expn.yo: typo.
+
+2010-06-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 28026: Completion/Zsh/Context/_dynamic_directory_name,
+	Doc/Zsh/expn.yo: use "zsh_directory_name c" for completion
+	of dynamic directory names.
+
+	* 28025: Doc/Zsh/expn.yo, Src/subst.c, Src/utils.c: (D)
+	parameter flag to abbreviate directories.
+
+2010-06-09  Peter Stephenson  <pws@csr.com>
+
+	* Haakon Riiser: 28009: Completion/Unix/Command/_ffmpeg: new.
+
+2010-06-08  Peter Stephenson  <pws@csr.com>
+
+	* 28006: Src/builtin.c, Src/compat.c, Src/init.c: Make zgetcwd()
+	fall back to pwd in preference to returning "."; only use "." if
+	we're trying to set pwd at that point.
+
+2010-06-08  Doug Kearns  <dougkearns@gmail.com>
+
+	* unposted: Completion/Mandriva/Command/_urpmi: fix typo in parameter
+	name.
+
+2010-06-07  Peter Stephenson  <pws@csr.com>
+
+	* Alexey: 27999: Test/V01zmodload.ztst: fix error message.
+
+2010-06-07  Doug Kearns  <dougkearns@gmail.com>
+
+	* Simon Ruderich: 28002: Completion/Unix/Command/_feh: fix bad commit.
+
+2010-06-06  Doug Kearns  <dougkearns@gmail.com>
+
+	* unposted: Completion/BSD/Command/_csup,
+	Completion/BSD/Command/_fetch, Completion/BSD/Command/_freebsd-update,
+	Completion/BSD/Command/_fstat, Completion/BSD/Command/_pfctl,
+	Completion/BSD/Command/_portaudit, Completion/BSD/Command/_portmaster,
+	Completion/BSD/Command/_portsnap, Completion/BSD/Command/_powerd,
+	Completion/BSD/Command/_procstat, Completion/Darwin/Command/_open,
+	Completion/Darwin/Command/_softwareupdate,
+	Completion/Debian/Command/_apt-file,
+	Completion/Linux/Command/_analyseplugin,
+	Completion/Linux/Command/_ethtool, Completion/Linux/Command/_ipset,
+	Completion/Linux/Command/_mdadm, Completion/Linux/Command/_rpmbuild,
+	Completion/Linux/Command/_strace,
+	Completion/Mandriva/Command/_rebootin, Completion/Redhat/Command/_yum,
+	Completion/Solaris/Command/_coreadm,
+	Completion/Solaris/Command/_dhcpinfo,
+	Completion/Solaris/Command/_dladm, Completion/Solaris/Command/_dumpadm,
+	Completion/Solaris/Command/_gcore, Completion/Solaris/Command/_inetadm,
+	Completion/Solaris/Command/_ptree,
+	Completion/Solaris/Command/_savecore,
+	Completion/Solaris/Command/_svcadm, Completion/Solaris/Command/_svccfg,
+	Completion/Solaris/Command/_svcprop, Completion/Solaris/Command/_svcs,
+	Completion/Solaris/Command/_zlogin, Completion/Unix/Command/_arp,
+	Completion/Unix/Command/_arping, Completion/Unix/Command/_bzr,
+	Completion/Unix/Command/_cdcd, Completion/Unix/Command/_ecasound,
+	Completion/Unix/Command/_feh, Completion/Unix/Command/_git,
+	Completion/Unix/Command/_gnupod, Completion/Unix/Command/_gnutls,
+	Completion/Unix/Command/_locate, Completion/Unix/Command/_module,
+	Completion/Unix/Command/_perforce, Completion/Unix/Command/_pkgadd,
+	Completion/Unix/Command/_pkginfo, Completion/Unix/Command/_pkgrm,
+	Completion/Unix/Command/_sisu, Completion/Unix/Command/_sqsh,
+	Completion/Unix/Command/_surfraw, Completion/Unix/Command/_tcpdump,
+	Completion/Unix/Command/_tmux, Completion/Unix/Command/_todo.sh,
+	Completion/Unix/Command/_wget, Completion/Unix/Command/_yafc,
+	Completion/Unix/Command/_zfs, Completion/Unix/Command/_zpool,
+	Completion/Unix/Type/_printers, Completion/X/Command/_mplayer,
+	Completion/X/Command/_setxkbmap, Completion/Zsh/Command/_cd: fix
+	incorrectly capitalized completion descriptions as per the
+	recommendations in Etc/completion-style-guide.
+
+2010-06-03  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27983: Src/prompt.c: colours could be output twice.
+
+2010-06-03  Peter Stephenson  <pws@csr.com>
+
+	* 27994: Src/params.c: better error message when failing to
+	autoload parameter.
+
+2010-06-03  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Holger Weiss: 27977: Completion/Unix/Command/_git: shouldn't
+	return 0 if there are no matches.
+
+2010-06-02  Peter Stephenson  <pws@csr.com>
+
+	* 27990: Src/Modules/termcap.c (not in original patch),
+	Src/Modules/terminfo.c: ignore error return value from
+	setupterm(), it's not useful in telling us whether the module
+	booted OK.
+
+2010-06-01  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Daniel Friesel: 27982: Completion/Unix/Command/_feh: update.
+
+2010-05-31  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27981: Completion/Zsh/Context/_subscript: complete
+	(e).
+
+2010-05-28  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 27980: Completion/Zsh/Type/_globquals: typo.
+
+2010-05-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27965 plus as per 27966: Src/builtin.c, Src/subst.c,
+	Src/utils.c, Src/zsh.h: Use $'\n' quoting instead of literal
+	newline for ${(q)...} to avoid lines getting split unexpectedly.
+	Quote empty strings as ''.
+
+	* 27976: Doc/Zsh/expn.yo: add yet more to the my-brain-hurts
+	description of how parameter expansion is ordered.
+
+2010-05-27  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Seth House: 27971: Functions/VCS_Info/Backends/VCS_INFO_get_data_hg:
+	vcs_info: Fix a bug that caused the mercurial backend to always return
+	`default' as the branch name.
+
+2010-05-23  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/15078: Completion/Zsh/Function/.distfiles,
+	Completion/Zsh/Function/_zsh-mime-handler, Doc/Zsh/contrib.yo,
+	Functions/MIME/zsh-mime-handler: completion for a
+	zsh-mime-handler should understand how the line will be handled.
+
+2010-05-22  Clint Adams  <clint@zsh.org>
+
+	* 27964: Doc/Zsh/contrib.yo: add back missing enditem().
+
+2010-05-14  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Simon Ruderich: 27954: Doc/Zsh/contrib.yo, Misc/vcs_info-examples:
+	vcs_info: more minor documentation fixes.
+
+	* Simon Ruderich: 27953: Doc/Zsh/contrib.yo, Misc/vcs_info-examples,
+	Functions/VCS_Info/VCS_INFO_formats: vcs_info: changed default formats
+	and actionformats
+
+2010-05-12  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/params.yo, Src/Modules/zutil.c: fix typo
+	("zregesparse-guard").
+
+	* 27951: Doc/Zsh/expn.yo, Doc/Zsh/params.yo, Src/builtin.c,
+	Src/exec.c, Src/glob.c, Src/init.c, Src/params.c, Src/signals.c,
+	Src/Builtins/sched.c, Src/Modules/zpty.c, Src/Modules/zutil.c:
+	Add $ZSH_EVAL_CONTEXT and $zsh_eval_context to provide context
+	stack.
+
+2010-05-10  Peter Stephenson  <pws@csr.com>
+
+	* c.f. 27950: Test/C03traps.ztst some bogus whitespace got added
+	in patching 27947.
+
+2010-05-10  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Seth House, Simon Ruderich and myself: 27948:
+	Doc/Zsh/contrib.yo, Functions/VCS_Info/.distfiles, Misc/.distfiles,
+	Misc/vcs_info-examples, Functions/VCS_Info/Backends/VCS_INFO_detect_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg,
+	Functions/VCS_Info/VCS_INFO_formats, Functions/VCS_Info/VCS_INFO_hook,
+	Functions/VCS_Info/VCS_INFO_quilt, Functions/VCS_Info/vcs_info: various
+	vcs_info changes: mercurial backend improvements, new hooks, quilt
+	support, documentation improvements and bugfixes
+
+2010-05-05  Peter Stephenson  <pws@csr.com>
+
+	* users/15031: Completion/Unix/Type/_path_files: fix (still
+	incomplete) for bizarre quoting rules for files in completion
+	with path-completion off or accept-exact-dirs on.
+
+	* 27947: Src/exec.c, Test/C03traps.ztst: fix some cases where we
+	should (probably) execute an EXIT trap but don't.
+
+2010-05-02  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Simon Ruderich: 27813: Completion/Unix/Command/_git: Complete
+	some generic symbolic references as heads.
+
+2010-04-28  Clint Adams  <clint@zsh.org>
+
+	* Bernd Zeimetz: 27931: Completion/Debian/Command/_bts:
+	completion for bts affects.
+
+2010-04-28  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 27929: Src/lex.c, Doc/Zsh/options.yo (added pws): global
+	aliases with space shouldn't trigger HIST_IGNORE_SPACE.
+
+2010-04-27  Peter Stephenson  <pws@csr.com>
+
+	* 27926: Src/Zle/zle_hist.c: fix completion suffix when inserting
+	last word.
+
+	* 27911: Completion/Base/Core/_main_complete: ensure colouring is
+	not used if not configured when showing old lists.
+
+2010-04-26  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 27908: Functions/VCS_Info/vcs_info: Avoid locale related
+	problems
+
+2010-04-26  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/_perforce: update to Perforce
+	2009.2 features.
+
+	* unposted: Completion/X/Command/_kfmclient: also kioclient;
+	probe desktop bindings.
+
+2010-04-25  Clint Adams  <clint@zsh.org>
+
+	* 27912: Completion/Linux/Command/_lsusb: presume that
+	usb.ids is uncompressed now.
+
+	* 27914 (tweaked): Completion/Linux/Command/_lsusb: find
+	usb.ids in /usr/share/misc.
+
+2010-04-23  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/15028 (modified to do the unquoting a bit more
+	logically): Completion/Unix/Type/_path_files: for
+	path-completion false and accept-exact-dirs true we need to
+	unquote the word from the command line.
+
+2010-04-20  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27889: Src/subst.c, Test/D04parameter.ztst: Force more use of
+	GLOB_SUBST in parameters if ~ is used.
+
+2010-04-20  Peter Stephenson  <pws@csr.com>
+
+	* "Akinori MUSHA: 27892: Completion/Redhat/Command/.distfiles,
+	Completion/Redhat/Command/_service
+	Completion/Unix/Command/.distfiles,
+	Completion/Unix/Command/_init_d,
+	Completion/Unix/Command/_service (moved from Redhat),
+	Completion/Unix/Type/_services: updates for FreeBSD.
+
+2010-04-15  Peter Stephenson  <pws@csr.com>
+
+	* unposted: NEWS: update to include path-completion.
+
+2010-04-15  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 27798: Alexey I. Froloff: Completion/Unix/Command/_git: support
+	for the `--interactive' option of "git commit".
+
+2010-04-14  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/compsys.yo: add kindex entry for
+	path-completion.
+
+	* unposted: Doc/Zsh/compsys.yo: slightly rephrase previous doc.
+
+	* users/15011: Completion/Unix/Type/_path_files,
+	Doc/Zsh/compsys.yo: add path-completion style to allow
+	completion of preceeding directories in files to be be turned
+	off.
+
+2010-04-13  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Calendar/calendar, Functions/Calendar/calendar_add,
+	Functions/Calendar/calendar-edit, Functions/Calendar/calendar_show,
+	Functions/Calendar/calendar_sort:  Fall back to link file locking if
+	system file locking fails; don't need dcop for kdialog.
+
+2010-04-12  Clint Adams  <clint@zsh.org>
+
+	* 27876: Completion/Debian/Command/_axi-cache: completion for
+	axi-cache (from apt-xapian-index).
+
+2010-04-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Simon Ruderich: 27856 (tweaked): Doc/Zsh/metafaq.yo: Git
+	availability.
+
+2010-04-09  Peter Stephenson  <pws@csr.com>
+
+	* 27865: Src/subst.c, Test/D04parameter.ztst: text in parameter
+	substitution that came from the command line rather than the
+	parameter was a candidate for GLOB_SUBST even if it was quoted
+	if the overall expression was not quoted.
+
+	* Ben: 27589: Completion/Zsh/Context/_redirect: attempt
+	to use arguments better.
+
+2010-03-30  Clint Adams  <clint@zsh.org>
+
+	* 27847: Completion/Unix/Command/_uzbl: completion for uzbl.
+
+2010-03-29  Peter Stephenson  <pws@csr.com>
+
+	* 27843: Simon Ruderich: Doc/Zsh/options.yo: claimed format for
+	extended history was incorrect.
+
+2010-03-26  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27831: Doc/Zsh/expn.yo, Src/input.c, Src/subst.c, Src/utils.c:
+	add ${(mm)...} to count displayed characters and rationalise use
+	of wcwidth so that negative numbers are treated as zero.
+
+2010-03-25  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Test/A02alias.ztst: change sort to cat to
+	make test foolerproof.
+
+	* 27827: Src/input.c, Test/A02alias.ztst: infinite loop
+	if alias with recursive definition occurred at end
+	of parsed string (normal shell input was OK).
+
+2010-03-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27823: Src/hist.c: 27822 could access freed memory because
+	hptr wasn't consistently set to NULL when chline was.
+
+	* 27812: Doc/Zsh/zle.yo, Src/Zle/zle.h, Src/Zle/zle_refresh.c,
+	Src/Zle/zle_utils.c: when wchar_t contains Unicode code points,
+	use private area to put bytes that don't form characters for
+	special display.
+
+2010-03-22  Peter Stephenson  <pws@csr.com>
+
+	* 27822: Src/hist.c, Src/lex.c, Src/zle_params.c,
+	Src/zle_tricky.c: Fix ZLE access to current history line if pushed
+	onto lexical stack.
+
+2010-03-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Etc/FAQ.yo: update section on coloured prompts and
+	some other minor bits.
+
+2010-03-19  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Calendar/calendar: update previous
+	change also to perform calendar_show in current shell since
+	it interacts better with zle for use with sched.
+
+	* 27808: Completion/Unix/Type/_files: Use // parameter
+	substitution instead of :gs.  This form is consistent with the
+	rest of the file and has handled quoting correctly for longer.
+
+2010-03-18  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Test/A01grammar.ztst: missed -f option off zsh
+	invocation in 27793++.
+
+	* 27804: Src/Zle/zle_hist.c: don't hang on encountering invalid
+	character in incremental search.
+
+2010-03-17  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Calendar/calendar: fix embarrassing bug in
+	calendar scheduling introduced by new file locking, 27756.
+
+2010-03-16  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/calsys.yo: age now uses zstat.
+
+	* unposted: NEWS: PATH_SCRIPT
+
+2010-03-16  Peter Stephenson  <pws@csr.com>
+
+	* 27793 plus 27794, 27795: Doc/Zsh/invoke.yo, Doc/Zsh/options.yo,
+	Src/init.c, Src/options.c, Src/zsh.h, Test/A01grammar.ztst:
+	add PATH_SCRIPT option to find script using path.
+
+2010-03-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27797: Completion/Base/Completer/_expand_alias:
+	delimit arguments to avoid problems with hyphens.
+
+	* Alexey: 27789: Completion/Unix/Command/_sudo: use _arguments.
+
+2010-03-15  Peter Stephenson  <pws@csr.com>
+
+	* 27780: Completion/Unix/Type/_files, Test/D04parameter.ztst:
+	users/14905 changed the number of backslashes needed to
+	quote backslashes in :s modifier.
+
+2010-03-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/expn.yo: note that & needs quoting in :s in
+	glob qualifier.
+
+	* 27785: Src/init.c, Src/utils.c, Src/zsh.h: default IFS in sh
+	and ksh mode doesn't have '\0'.
+
+2010-03-11  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* Simon Ruderich: 27779: Functions/VCS_Info/vcs_info_printsys,
+	Doc/Zsh/contrib.yo:  Fix mistakes in vcs_info's documentation.
+
+2010-03-09  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/calsys.yo, Functions/Calendar/calendar,
+	Functions/Calendar/calendar_editfiles:  Fix bug that
+	calendar wouldn't update repeating event times for events
+	that were already in the past; allow calendar_editfiles to
+	take argument to specify editor.
+
+2010-03-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Michael Hwang: 27773: Src/linklist.c: document how linked
+	lists are joined together.
+
+2010-03-04  Frank Terbeck  <ft@bewatermyfriend.org>
+
+	* 27770: Completion/Unix/Command/_git: support for user specific
+	sub commands.
+
+2010-03-04  Peter Stephenson  <pws@csr.com>
+
+	* Frank: 27768: Functions/VCS_Info/VCS_INFO_realpath: shut up cd
+	some more.
+
+2010-02-28  Clint Adams  <clint@zsh.org>
+
+	* 27762: Completion/Unix/Type/_hosts: omit ssh known_hosts
+	entries with port numbers from host completion.
+
+2010-02-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14905 (modified, see users/14096): Doc/Zsh/expn.yo,
+	Src/subst.c, Test/D04parameter.ztst: fix various problems
+	with :s modifier in parameters.
+
+2010-02-26  Peter Stephenson  <pws@csr.com>
+
+	* users/14902: Src/Modules/datetime.c: another go.
+
+	* users/14900: Src/Modules/datetime.c: ULONG_MAX may be valid
+	return value from strtoul().
+
+	* users/14897: Src/Modules/datetime.c: test needed on
+	conversion of time_t to struct tm.  Found on 64-bit Linux.
+
+	* 27756: Doc/Zsh/calsys.yo, Functions/Calendar/calendar,
+	Functions/Calendar/calendar_add, Functions/Calendar/calendar_edit,
+	Functions/Calendar/calendar_sort, Src/Modules/system.c:
+	use new file locking in calendar where available and add
+	errflag test to loop over fcntl().
+
+	* users/14891: Doc/Zsh/cond.yo: say explicitly that condition
+	arguments don't undergo file generation.
+
+2010-02-25  Peter Stephenson  <pws@csr.com>
+
+	* 27755: Doc/Zsh/mod_system.yo, Src/Modules/system.c:
+	add "zsystem supports" to test what zsystem supports.
+
+2010-02-24  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27754: NEWS (unposted), Doc/Zsh/mod_system.yo, Src/exec.c,
+	Src/utils.c, Src/zsh.h, Src/Modules/system.c: add
+	"zsystem flock" subcommand to zsh/system module.
+
+2010-02-22  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Src/utils.c: Add a debug test for trapping bad uses of
+	fdtable when closing fd's in zclose().
+
+	* 27721: Src/compat.c [with unnecessary test removed], Src/exec.c,
+	Src/system.h, Src/utils.c:  update zopenmax() not to examine huge
+	numbers of file descriptors; only call it at initialisation;
+	rationalise use of fdtable_size and expansion of fdtable.
+
+2010-02-22  Clint Adams  <clint@zsh.org>
+
+	* 27744: Completion/Debian/Command/_pbuilder: completion for
+	pbuilder.
+
+2010-02-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Frank: 27731: Functions/VCS_Info/vcs_info: turn off
+	WARN_CREATE_GLOBAL.
+
+2010-02-21  Clint Adams  <clint@zsh.org>
+
+	* Michael Prokop: 27725: Completion/Debian/Command/_apt: apt
+	--no-install-recommends.
+
+2010-02-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Jonathan Beckman: 27728: Completion/X/Command/_mplayer: quote
+	colon after -ss.
+
+2010-02-19  Peter Stephenson  <pws@csr.com>
+
+	* 27722: Src/cond.c, Test/C02cond.zts, Test/V01zmodload.ztst: Error
+	reporting for failed conditions was badly handled; one
+	piece of code didn't test for a '-' prefix.
+
+	* 27723: Src/builtin.c, Test/D02glob.ztst: eval shouldn't
+	modify non-zero return statuses.
+
+2010-02-17  Peter Stephenson  <pws@csr.com>
+
+	* Frank: 27717: Functions/VCS_Info/vcs_info_lastmsg:
+	add option terminators for builtins.
+
+2010-12-17  Andrey Borzenkov <bor@zsh.org>
+
+	* unposted: Doc/Zsh/compsys.yo: typo fix
+
+2010-12-16  Andrey Borzenkov <bor@zsh.org>
+
+	* 27715: Completion/Unix/Command/_stgit: fixes for new
+	version (workaround removed commands); autogenerate list
+	of stg subcommands.
+
+2010-02-16  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/.distfiles: new files
+
+	* Frank Terbeck, Seth House: 27712, 22713, 27714: Doc/Zsh/contrib.yo,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_bzr,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_p4,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svk,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svn,
+	Functions/VCS_Info/VCS_INFO_formats,
+	Functions/VCS_Info/VCS_INFO_hook, Functions/VCS_Info/vcs_info:
+	hooks and Mercurial improvements.
+
+2010-02-15  Peter Stephenson  <pws@csr.com>
+
+	* 27710: Etc/FAQ.yo: update sections on advanced character sets.
+
+	* unposted: Etc/FAQ.yo: correct outrageously old dates in FAQ.
+
+2010-02-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27708: Src/text.c: remove distracting initial semicolons
+	in job output.
+
+	* unposted: zero gf_pre_words from 27694.
+
+	* Mikael: Completion/Zsh/Type/_globquals: extend argument
+	handling.
+
+	* Frank: 27705: Completion/Unix/Command/_git: notes
+
+2010-02-12  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Zsh/Type/_globquals: add P to list.
+
+2010-02-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/expn.yo: typo in formatting.
+
+2010-02-09  Peter Stephenson  <pws@csr.com>
+
+	* 27694: NEWS, Completion/Zsh/Type/_globquals, Doc/Zsh/expn.yo,
+	Src/glob.c, Test/D02glob.ztst: add "P" glob qualifier for
+	prepending words.
+
+	* Frank: 27696: Completion/Unix/Command/_tmux: another update
+
+	* Geoff: 27693: Src/exec.c, Src/init.c, Src/params.c, Src/init.c,
+	Src/utils.c: rename underscore to avoid name clash.
+
+2010-02-08  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Src/subst.c: comment about what colon in parameter
+	substitution might be doing.
+
+	* unposted: Completion/compinit,
+	Functions/Calendar/calendar_scandate: add some "typeset -g"s
+	to avoid WARN_CREATE_GLOBAL warnings.
+
+	* 27665: Frank: Completion/Unix/Command/_tmux: update.
+
+	* 27658: Completion/Unix/Command/_zip: work around globbing
+	problems.
+
+2010-02-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Frank: 27679:
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git:
+	better logic.
+
+	* Michael Hwang: 27675: Src/builtin.c: fix crash from error in
+	hash builtin.
+
+2010-02-04  Peter Stephenson  <pws@csr.com>
+
+	* 27661: Ben: Doc/Zsh/builtins.yo, Doc/Zsh/options.yo,
+	Doc/Zsh/tcpsys.yo: typos in manual references.
+
+2010-02-03  Peter Stephenson  <pws@csr.com>
+
+	* 27648, 267650/1, unposted README change: README,
+	Doc/Zsh/builtins.yo, Doc/Zsh/grammar.yo,
+	Etc/zsh-development-guide, Src/builtin.c, Src/init.c,
+	Src/mkbltnmlst.sh, Src/Builtins/rlimits.mdd: "repeat"
+	is not available when starting in emulation mode,
+	"ulimit" is; document that "sched", "limit", "unlimit"
+	already aren't.
+
+2010-02-02  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27647: Completion/Unix/Command/_cp: update
+
+2010-02-02  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/contrib.yo: minor doc upgrade for
+	regexp-replace.
+
+	* based on Andrei, 27644: Config/installfns.zsh: check for
+	#! line without a fork.
+
+2010-02-01  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Etc/FAQ.yo: update with notes on
+	zsh-nt.sourceforge.net and application terminal mode horror.
+
+2010-01-31  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27642: Completion/Zsh/Type/_globquals: add some
+	missing entries.
+
+2010-01-29  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14752: Functions/Misc/zed, Src/builtin.c: add #!
+	line to zed; allow script run with -i to exit on "return".
+
+	* Julien Jehannet: users/14751: Functions/Misc/zed: variable
+	incorrect when autoloading function.
+
+2010-01-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27638, based on Frank Terbeck, 27633: Doc/Zsh/options.yo,
+	init.c, options.c, zsh.h: add SOURCE_TRACE option with output
+	similar to XTRACE for tracing sourced files.
+
+2010-01-23  Clint Adams  <clint@zsh.org>
+
+	* 27617: Completion/Unix/Command/_graphicsmagick: graphicsmagick
+	completion based on _imagemagick.
+
+2010-01-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14732: Src/Zle/computil.c: we need to test X:/ rather
+	than X: for recent versions of Cygwin.
+
+2010-01-21  Peter Stephenson  <pws@csr.com>
+
+	* users/14723: Src/pattern.c: invalid character conversions
+	should never match valid character conversions.
+
+2010-01-20  Peter Stephenson  <pws@csr.com>
+
+	* 27611: Src/math.c, Test/C01arith.ztst: cache parameter values so
+	that subscripts aren't multiply evaluated when they shouldn't be.
+
+	* 27608: Src/Modules/pcre.c, Src/Modules/regex.c,
+	Test/C02cond.ztst:  test was broken and sizes of variables
+	for arrays were wrong.
+
+2010-01-19  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/contrib.yo, Functions/Misc/regexp-replace:
+	return status 1 if no replacement.
+
+	* unposted: Doc/Zsh/cond.yo: avoid Yodl error.
+
+	* Frank: 27606: Completion/Unix/Command/_tmux: tmux -d.
+
+2010-01-18  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/contrib.yo: minor clarification in 27604.
+
+	* 27604: Doc/Zsh/contrib.yo, Functions/Misc/.distfiles,
+	Functions/Misc/regexp-replace,
+	Functions/Misc/replace-string-again: add facilities for
+	substitution using regular expressions.
+
+2010-01-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27600: Doc/Zsh/cond.yo, Src/Modules/pcre.c, Src/Modules/regex.c,
+	Test/C02cond.ztst: extend =~ syntax to set MBEGIN and MEND
+	with MATCH and mbegin and mend with match.
+
+2010-01-16  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Frank: 27599: Doc/Zsh/contrib.yo: fix formatting documentation
+	for VCS_Info.
+
+2010-01-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27597: Completion/Zsh/Command/_zstyle: accepting
+	completion unnecessarily hard.
+
+2010-01-13  Peter Stephenson  <pws@csr.com>
+
+	* Joakim Rosqvist: 27591 as modified in 27594:
+	FEATURES, Doc/Zsh/options.yo, Doc/Zsh/params.yo, Src/input.c,
+	Src/options.c, Src/params.c: extend SUN_KEYBOARD_HACK option
+	to KEYBOARD_HACK variable.
+
+2010-01-04  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27553: Jesse Weinstein: Doc/Zsh/compsys.yo: improve phrasing.
+
+2010-01-10  Clint Adams  <clint@zsh.org>
+
+	* Frank Terbeck: 27586: Completion/Unix/Command/_tmux:
+	more tmux completion support.
+
+2010-01-08  Peter Stephenson  <pws@csr.com>
+
+	* 27577: sergio: Functions/Misc/zcalc: vared -p obeys
+	the PROMPTPERCENT option so it's not necessary to have an
+	explicit (%) in the variable expansion.
+
+2010-01-07  Clint Adams  <clint@zsh.org>
+
+	* 27579: Completion/Unix/Command/_ssh: allow ssh -S argument to
+	follow immediately the option letter.
+
+	* 27578: Completion/Linux/Command/_ionice: allow ionice -c and -n
+	arguments to immediately follow the option letters.
+
+2010-01-05  Peter Stephenson  <pws@csr.com>
+
+	* 27566: Src/Builtins/rlimits.c: add ulimit -c hard and immediate
+	return on argument error
+
+	* 27565: Src/Builtins/rlimits.c: ulimit didn't sanity check
+	numeric arguments.
+
+2010-01-04  Clint Adams  <clint@zsh.org>
+
+	* 27559: Completion/Unix/Command/_espeak: espeak language
+	codes and voice names.
+
+	* Jesse Weinstein: 27558: Completion/Unix/Command/_espeak:
+	completion for espeak.
+
+2010-01-04  Peter Stephenson  <pws@csr.com>
+
+	* 27556: Src/lex.c: lexsave() should sanitize more variables else
+	inner loops can get confused by outer state.  Symptom was
+	source within precmd.
+
+2009-12-28  Clint Adams  <clint@zsh.org>
+
+	* Chris Lamb: 27545: Completion/Unix/Command/_django:
+	runserver_plus and files completion for django.
+
+2009-12-18  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* users/14659: Src/hist.c: Add symlink-based hist-file locking.
+
+2009-12-17  Peter Stephenson  <pws@csr.com>
+
+	* Greg: 27529: Completion/Unix/Command/_subversion: make URL
+	schemas (schemata?) configurable.
+
+2009-12-16  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 26735+unposted: Src/utils.c, Src/Modules/zftp.c, Src/Modules/zpty.c,
+	Src/Zle/zle_main.c, Src/exec.c, Src/init.c, Src/input.c, Src/jobs.c,
+	Src/parse.c:  Check the return value of all pipe(), read(), and
+	write() calls.  Gets rid of all "ignoring return value" compiler
+	warnings, and makes some read/write operations safer by ensuring
+	that an EINTR is handled.
+
+2009-12-16  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Misc/run-help-p4, Functions/Misc/.distfiles:
+	new helper.
+
+	* 27492 based on Jörg Sommer: 27473: Functions/Misc/run-help:
+	fix alias problem.
+
+2009-12-14  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27518: Completion/Unix/Command/_configure: suggest some
+	more patterns for arguments.
+
+2009-12-14  Andrey Borzenkov <bor@zsh.org>
+
+	* unposted: Completion/Unix/Command/_grep:
+	add --exclude-dir option
+
+2009-12-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Alexey I. Froloff: 27470: Completion/Unix/Command/_git:
+	update.
+
+2009-12-13  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* unposted: Completion/Unix/Command/_rsync: Fixed the
+	--human-readable options and arg-acceptance of -f.
+
+2009-12-12  Clint Adams  <clint@zsh.org>
+
+	* Michael Prokop: 27504: Completion/Debian/Command/_dput:
+	fix typo with dput --delayed.
+
+2009-12-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27503: Src/utils.c: fix crash when changing a hook
+	function inside a hook function of the same type.
+
+2009-12-10  Clint Adams  <clint@zsh.org>
+
+	* 27494: Completion/Debian/Command/_bug: reportbug --paranoid,
+	--no-paranoid, --body, and --body-file.
+
+2009-12-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27479: Src/Zle/zle_tricky.c: prevent completions
+	split across backlash-newline continuations from
+	causing mayhem.
+
+2009-12-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27466: Doc/Zsh/zle.yo: document 27453.
+
+	* Mikael: 27453: Src/Zle/zle_refresh.c: highlighting
+	of removable completions suffixes.
+
+	* Frank: 27450: b/Completion/Unix/Command/_tmux: another
+	update.
+
+2009-12-05  Clint Adams  <clint@zsh.org>
+
+	* Frank Terbeck: 27458: Completion/Unix/Command/_tmux:
+	set-option -w completion.
+
+	* Ingmar Vanhassel: 27457: Completion/Zsh/Command/_precommand:
+	add hilite as a precommand.
+
+	* Ingmar Vanhassel: 27456: Completion/Unix/Type/_tar_archive:
+	complete .tar.lzma, .tbz, .txz.
+
+2009-12-03  Clint Adams  <clint@zsh.org>
+
+	* 27448: Completion/Unix/Command/_tar,
+	Completion/Unix/Type/_tar_archive: mild understanding of
+	xz-compressed tarballs.
+
+2009-12-02  Peter Stephenson  <pws@csr.com>
+
+	* 27447: Doc/Zsh/options.yo: document 27442.
+
+	* Frank: 27446: Completion/Unix/Command/_tmux: update.
+
+	* 27442 plus tweak: Src/exec.c, Src/init.c, Src/jobs.c,
+	Src/signals.c: return status for last background job from
+	wait even if it's already exited, but only if POSIX_JOBS
+	is set.
+
+2009-12-01  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Alexey: 27445: Completion/Unix/Command/_ruby: argument can be
+	any file.
+
+2009-11-30  Peter Stephenson  <pws@csr.com>
+
+	* 27442: Src/exec.c, Src/init.c, Src/job.s,c Src/signals.c:
+	add lastpid_status to record status of last background job
+	even after it's exited.
+
+	* 27441: Doc/Zsh/mod_complist.yo, Src/Zle/complist.c: add "sa"
+	highlight code for suffix aliases.
+
+	* Richard Hartmann: 27440: Src/Modules/cap.c, Src/Modules/zftp.c:
+	typos in warnings.
+
+2009-11-24  Peter Stephenson  <pws@csr.com>
+
+	* Baptiste Daroussin: 27431: Completion/Unix/Command/_make: Fix
+	for FreeBSD.
+
+	* 27430: Completion/Unix/Command/_make: extend variable value
+	completion to anything that looks like an assignment.
+
+	* 27429:  Completion/Unix/Command/_make: restore variable value
+	completion.  Also make indentation more standard (not posted).
+
+	* Michael Hwang <michael.a.hwang@gmail.com>: 27428:
+	Completion/Unix/Command/_make:  complete rewrite with
+	variable completion.
+
+2009-11-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Alexey. I Froloff: users/14588:
+	Completion/Zsh/Command/.distfiles,
+	Completion/Zsh/Command/_ztodo,
+	Functions/Misc/.distfiles, Functions/Misc/ztodo: new ztodo
+	function.
+
+2009-11-20  Clint Adams  <clint@zsh.org>
+
+	* 27417: Completion/Unix/Command/_gpg: fix completion after
+	gpg --verify-files.
+
+	* unposted: Functions/Prompts/prompt_clint_setup: change bracket
+	colors default to yellow when in an ssh session.
+
+2009-11-19  Peter Stephenson  <pws@csr.com>
+
+	* Greg: 27416: Completion/Unix/Command/_subversion: repository
+	path enhancement.
+
+2009-11-17  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 27415: Src/Zle/computil.c: comparguments "*::..." descriptions
+	could step on sequentially earlier descriptions when completing
+	for a word other than the last word on the command line.
+
+2009-11-17  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/_perforce: improve
+	whole-path completion so that it doesn't take ages looking
+	for clients after typing two slashes.
+
+2009-11-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Greg Klanderman: 27409: Completion/Unix/Command/_subversion,
+	Completion/Unix/Type/_urls: improve subversion remote paths
+	and fix minor URL issues.
+
+	* Frank Terbeck: 27407: Completion/Unix/Command/_tmux:
+	switch-client subcommand.
+
+	* Benjamin R. Haskell: users/14565, 27399:
+	Completion/Unix/Command/_env: argument problem.
+
+2009-11-11  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* Greg Klanderman: 27391: Completion/Unix/Command/_rm:
+	 fix ignored (duplicate) file names
+
+	* users/14548: Src/Modules/termcap.c: prevent libtermcap from
+	exiting on an unknown terminal type
+
+	* Alexey Froloff: 27367: Completion/Unix/Command/_ri: update
+	for Ruby 1.9 and later
+
+	* Frank Terbeck: 27364: Completion/Unix/Command/_tmux: fix
+	cut'n'paste error in descriptions
+
+2009-11-10  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 27368, 27369: FEATURES: replace one incorrect example with two
+	correct ones
+
+2009-11-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27362: Src/Modules/attr.c: some more fixes.
+
+2009-11-07  Clint Adams  <clint@zsh.org>
+
+	* Frank Terbeck: 27359: Completion/Unix/Command/.distfiles,
+	Completion/Unix/Command/_tmux: completion for tmux 1.1.
+
+2009-11-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27358: Src/builtin.c: error if $0 was altered within
+	a sourced file.
+
+	* 27357: Src/Modules/attr.c: fix compiler warnings
+
+2009-11-06  Peter Stephenson  <pws@csr.com>
+
+	* Frank Terbeck: 27353: Functions/VCS_Info/VCS_INFO_bydir_detect,
+	Functions/VCS_Info/vcs_info: More sanity checks for vcs_info
+
+2009-11-05  Peter Stephenson  <pws@csr.com>
+
+	* Jun T.: 27351: zdelattr missed first argument.
+
+2009-11-04  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 27347: Completion/Zsh/Command/_zattr,
+	Doc/Zsh/mod_attr.yo, Src/Modules/attr.c: enhance the
+	extended attribute support.
+
+2009-11-03  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 27337: Src/utils.c: fix bug with cd checking symlinks
+	that could do arbitrarily nasty things when looking for a "/".
+
+2009-10-29  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Calendar/calendar: brief display
+	failed on single-line entries.
+
+2009-10-24  Clint Adams  <clint@zsh.org>
+
+	* 27314, 27315: Completion/Unix/Command/_mpc: update for
+	mpc 0.17.
+
+	* unposted: update config.guess and config.sub to
+	2009-06-10 and 2009-06-11 versions respectively.
+
+2009-10-22  Peter Stephenson  <pws@csr.com>
+
+	* Functions/Zle/history-beginning-search-menu: unposted:
+	make more variables local.
+
+	* unposted, c.f. 27313: INSTALL, NEWS, README, Doc/Zsh/contrib.yo,
+	Doc/Zsh/manual.yo, Doc/Zsh/metafaq.yo, Etc/CONTRIBUTORS,
+	Etc/FAQ.yo, Etc/changelog2html.pl,
+	Functions/Zle/history-beginning-search-menu,
+	Functions/Zle/insert-composed-char: mailing lists moved
+	to zsh.org and website to zsh.sourceforge.net.
+
+2009-10-18  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Mikael: 27312: Completion/Unix/Command/_valgrind: option
+	changes.
+
+	* Jesse Weinstein: 27311: Completion/Unix/Type/_diff_options:
+	remove redundant line.
+
+	* Holger Weiss: 27310: Doc/Zsh/compsys.yo: typo.
+
+	* Frank Terbeck: 27309: Doc/Zsh/contrib.yo: improve context
+	in VCS_Info docs.
+
+2009-10-04  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27308, based on 27305 from Edgar Merino:
+	Completion/Unix/Command/_init_d, Completion/Unix/Type/_services:
+	search for init scripts in other locations.
+
+	* Lionel Flandrin: 27307:
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg,
+	Doc/Zsh/contrib.yo: enhanced VCS_INFO support for Mecurial.
+
+2009-09-30  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* http://www.opensource.apple.com/source/zsh/zsh-53/patches/utils.c.patch:
+	Src/utils.c: fix length of search when spell checking.
+
+	* http://www.opensource.apple.com/source/zsh/zsh-53/patches/PR-6370391.patch:
+	Src/jobs.c: fix error message.
+
+2009-09-29  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Jun T.: 27296: configure.ac: bad preprocessing of Mac OS
+	Snow Leopard headers.
+
+2009-09-29  Peter Stephenson  <pws@csr.com>
+
+	* Jun T.: 27292: Src/Modules/socket.c: abuse of UNIX_PATH_MAX on
+	Snow Leopard: use the correct maximum.
+
+2009-09-22  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 27286: Src/Modules/socket.c Src/Modules/tcp.c Src/utils.c:
+	Made movefd() return the targetfd on success.  Added a little
+	more error checking in the callers of movefd().
+
+2009-09-22  Peter Stephenson  <pws@csr.com>
+
+	* 27284: Src/exec.c, Src/parse.c, Src/utils.c,
+	Src/Modules/socket.c, Src/Modules/tcp.c, Src/Modules/zpty.c:
+	improve use of movefd() and restore closing of original fd
+	on failure pending further work.
+
+2009-09-21  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27283: Src/exec.c, Src/utils.c: failure to dup fd accessed
+	uninitialised memory and closed the original fd regardless.
+
+2009-09-21  Peter Stephenson  <pws@csr.com>
+
+	* users/14411: Src/hashtable.c: only hash stat-able executable
+	regular files in the command table.
+
+2009-09-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Darel Henman: users/14412: Doc/Zsh/builtins.yo: fix confusions
+	in explanation of getopts option arguments.
+
+	* Holger Weiss: 27281: Doc/Zsh/expn.yo: example of global
+	history substitution was wrong.
+
+2009-09-18  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 27279: Doc/Zsh/builtins.yo, Doc/Zsh/mod_zselect.yo:
+	minor tweaks.
+
+2009-09-16  Peter Stephenson  <pws@csr.com>
+
+	* Baptiste Daroussin: 27277: Completion/BSD/Command/_csup: Improve
+	csup completion.
+
+2009-09-15  Peter Stephenson  <pws@csr.com>
+
+	* users/14387 (tweaked): Doc/Zsh/grammar.yo: alternative syntax is
+	not about to disappear, but does make shell scripts less portable
+	and possibly readable.
+
+2009-09-14  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 27262: Completion/Unix/Type/_path_files:
+	prefixes were incorrect with accept-exact-dirs style.
+
+2009-09-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Baptiste Daroussin: 27271: Functions/Zftp/zfanon: remove awk
+	dependence.
+
+	* Baptiste Daroussin: 27270: Functions/Zftp/zfcd_match: remove
+	awk dependence.
+
+2009-09-11  Peter Stephenson  <pws@csr.com>
+
+	* Baptiste Daroussin: 27268: Functions/MIME/pick-web-browser:
+	remove Perl dependency.
+
+	* Baptiste Daroussin: 27267 plus 27269 plus doc:
+	Functions/Zftp/zfrtime, Doc/Zsh/zftpsys.yo: remove perl
+	dependency.
+
+2009-09-10  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 27259 / 27260:
+	Completion/Unix/Type/_path_files: make unset parameters in
+	file prefix not be treated as empty.
+
+2009-09-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Greg Klanderman: 27255: Doc/Zsh/builtins.yo,
+	Doc/Zsh/compctl.yo, Doc/Zsh/compsys.yo, Doc/Zsh/contrib.yo:
+	some consistency fixes.
+
+2009-09-07  Peter Stephenson  <pws@csr.com>
+
+	* 27236 (somewhat late): configure.ac: use $CPPFLAGS
+	after all occurrences of $CPP and see what happens.
+
+2009-09-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Holger Weiss <holger@CIS.FU-Berlin.DE>: 27248:
+	Src/Zle/zle_hist.c: anchoring of vi search was wrong because
+	of reversed prefix matching.
+
+	* 27247: Functions/Misc/zmv: checking for "**/" was wrong.
+
+2009-09-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Daniel Friesel <derf@tabularazor.org>: 27244:
+	Completion/Unix/Command/_feh, Completion/Unix/Command/.distfils:
+	new completion.
+
+	* 27243: Src/params.c, Test/D04parameter.ztst: reverse
+	indexing in array parameters with a beginning index out of range
+	returned the wrong value.
+
+2009-09-02  Peter Stephenson  <pws@csr.com>
+
+	* 27240: Src/builtin.c: 27079 caused later use of tokstr and tok
+	to be invalid.
+
+2009-08-28  Peter Stephenson  <pws@csr.com>
+
+	* 27233: Completion/Base/Utility/_values,
+	Completion/Unix/Command/_mount: improve _values handling of
+	optional arguments so that list separate removes the argument
+	separator; use this to make "mount -o loop" complete better.
+
+2009-08-21  Peter Stephenson  <pws@csr.com>
+
+	* 27228: Functions/Newuser/zsh-newuser-install: add a clear
+	function if the command doesn't exist.
+
+2009-08-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27219: Completion/Unix/Type/_files: "_files -F <array>" wasnʼt
+	correctly handled, which broke duplicate filtering in _rm.
+
+	* 27218: Src/Zle/computil.c: don't unquote command line
+	to generate "line" in _arguments since the caller can't
+	tell what was there before.
+
+2009-08-17  Peter Stephenson  <pws@csr.com>
+
+	* 27217: Functions/Newuser/zsh-newuser-install: fix typo
+	in assignment.
+
+2009-08-16  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27216: Src/hist.c: set chwords to NULL when freed.
+
+2009-08-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14307: Src/Zle/zle_tricky.c: end of current command in
+	completion wasn't properly found when using variant zsh loop
+	or test syntax.
+
+2009-08-07  Peter Stephenson  <pws@csr.com>
+
+	* Andrew Psaltis: 27212: Completion/Linux/Command/_pkgtool:
+	Slackware supports extra tar formats.
+
+2009-08-05  Peter Stephenson  <pws@csr.com>
+
+	* 27211: Src/Zle/computil.c: Extend exact completion within
+	compfiles -p/-P to treat drives and device files specially under
+	Cygwin.
+
+2009-08-05  Clint Adams  <clint@zsh.org>
+
+	* 27209: Completion/Unix/Type_path_files: fix breakage from
+	27208.
+
+	* Mikael Magnusson: 27204: Completion/Unix/Command/_patch:
+	remove stray curly brace.
+
+	* 27208: Completion/Unix/Type_path_files: try to do the
+	right thing when applying file-sort to extant glob qualifiers.
+
+2009-08-01  Clint Adams  <clint@zsh.org>
+
+	* 27203: Completion/Debian/Command/_aptitude: treat
+	aptitude build-depends just as aptitude build-dep.
+
+	* 27202: Src/system.h: unbreak _GNU_SOURCE on Debian
+	GNU/kFreeBSD.
+
+2009-07-30  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14267: Completion/Base/Core/_description: files added
+	for the ignore-line style need to be quoted to be treated
+	literally.
+
+2009-07-24  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27188: Doc/Zsh/builtins.yo, Src/builtin.c, Test/B04read.ztst,
+	Test/D07multibyte.ztst: Make read -q use the same code as read
+	-k, hence enabling support for -t with terminals, -p and -u.
+
+2009-07-21  Peter Stephenson  <pws@csr.com>
+
+	* 27181: Doc/Zsh/options.yo, Src/builtin.c: extend POSIX_CD to
+	handle target directory printing behaviour.
+
+2009-07-20  Peter Stephenson  <pws@csr.com>
+
+	* 27178, 27180: Etc/FAQ.yo: as pointed out by Mikael, quoting
+	function names to stop alias expansion is always(ish) safe.
+
+2009-07-19  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 27169: Src/jobs.c, Src/signals.c: 23067 went too far in opening
+	up the signal mask when waiting for jobs; an interrupt from the
+	terminal should not terminate the shell until the foreground job
+	has a chance to exit or to choose not to do so.
+
+2009-07-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27167: Src/builtin.c, Src/options.c, Src/zsh.h,
+	Doc/Zsh/builtins.yo, Doc/Zsh/options.yo: POSIX_CD option,
+	currently only moves testing of "." to after testing of CDPATH.
+
+2009-07-18  Clint Adams  <clint@zsh.org>
+
+	* 27160: Completion/Debian/Command/_bug: tweaks to reportbug
+	completion, thanks to Vincent Lefevre.
+
+	* 27128: Completion/Unix/Type/_tex: complete tex files for
+	latexmk.
+
+2009-07-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/14240: Src/parse.c: assignment before a function
+	definition should be an error, in common with other complex
+	functions and as documented.
+
+2009-07-14  Eric Blake  <ebb9@byu.net>
+
+	* Eric Blake: 27151: Src/builtin.c: Fix // handling in cd for
+	cygwin.
+
+2009-07-14  Peter Stephenson  <pws@csr.com>
+
+	* Andy Spencer: 27148: Completion/Linux/Command/_modutils:
+	ignore build as well as source directories when searching
+	recursively for modules.
+
+2009-07-12  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27135: Doc/Zsh/options.yo, Src/exec.c, Src/jobs.c: expand
+	POSIX_JOBS option to leave MONITOR on in subshell and not to
+	report the parent shell's jobs.
+
+	* 27134: Src/exec.c, Src/init.c: improve 27131 by setting
+	FD_CLOEXEC for SHTTY or closing it by hand when executing.
+
+2009-07-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27131: Src/exec.c, Src/jobs.c: tentative attempt to
+	allow MONITOR option to be set in a subshell by not
+	closing SHTTY.
+
+	* 27129: Src/exec.c, Src/init.c, Src/zsh.h,
+	Test/A01grammar.ztst, Test/C04funcdef.ztst,
+	Test/D08cmdsubst.ztst: fix 27126 so as not to break the
+	case where a status is tested at the start of a function,
+	command substitution, or "." file.
+
+2009-07-10  Clint Adams  <clint@zsh.org>
+
+	* 27127: Vincent Bernat: Completion/Debian/Command/_bts: handle
+	bts fixed and bts notfixed.
+
+2009-07-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27126: Src/exec.c, Src/init.c, Test/A01grammar.ztst,
+	Test/C04funcdef.ztst, Test/D08cmdsubst.ztst: a few more
+	contexts where empty lists should give status zero.
+
+	* 27125: Src/prompt.c: handle nested use of colour code buffer
+	allocation.
+
+2009-07-10  Peter Stephenson  <pws@csr.com>
+
+	* 27122: Doc/Zsh/options.yo, Src/jobs.c, Src/options.c, Src/zsh.h:
+	add POSIX_JOBS option to print only job text for bg and fg.
+
+	* 27106: Src/exec.c, Src/signals.c, Src/zsh.h,
+	Test/A01grammar.ztst: on a command line that had text that
+	expanded to nothing reset the status (unless it should come
+	from a command substitution).
+
+	* 27119: Src/jobs.c: correct 27112: output is to stdout, not
+	stderr, and there's no automated jobs notification if not
+	INTERACTIVE.
+
+2009-07-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27112: Src/jobs.c: allow output to stderr if MONITOR but
+	not INTERACTIVE.
+
+2009-07-09  Eric Blake  <ebb9@byu.net>
+
+	* 27109: Touch up non-interactive MONITOR handling.
+	Don't mess with tty when MONITOR but not interactive.
+
+2009-07-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27110: Src/init.c: Only turn on MONITOR if INTERACTIVE is on
+	or if set explicitly.
+
+2009-07-08  Peter Stephenson  <pws@csr.com>
+
+	* 27100: Allow MONITOR option in non-interactive shells.
+	Not properly test it, but you only get if you ask for it,
+	so worth committing to allow it to be further investigated.
+
+2009-07-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27092: Src/parse.c, Test/A01grammar.ztst: "if" didn't check
+	for missing clauses so a missing then-clause wasn't spotted
+	as an error.
+
+2009-07-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Brendan Cully: 27088: Completion/Unix/Command/_hg,
+	Completion/Unix/Command/.distfiles: new Mercurial completion.
+
+2009-07-02  Peter Stephenson  <pws@csr.com>
+
+	* 27087: Doc/Zsh/builtins.yo, Src/builtin.c, Src/zsh.h,
+	Test/A01grammar.ztst:  change return codes from 27083 to
+	126, 127.
+
+	* Nicolas Pouillard: 27028: Completion/Unix/Command/_darcs: New
+	darcs completion; it's a lot shorter but apparently that's OK.
+
+2009-07-01  Peter Stephenson  <pws@csr.com>
+
+	* 27085: Doc/Zsh/mod_complist.yo, Src/Zle/complist.c:
+	in scrollist keymap allow accept-search to exit but do nothing
+	else.
+
+	* 27083: Doc/Zsh/builtins.yo, Src/builtin.c, Src/init.c,
+	Src/zsh.h, Src/Modules/newuser.c, Test/A01grammar.ztst:  "."
+	returns status 128 on execution failure, 129 on failure to find
+	file.
+
+	* 27080: Doc/Zsh/mod_complist.yo, Src/Zle/complist.c: it
+	wasn't possible to exit menu selection cleanly.
+
+2009-07-01  Peter Stephenson  <pws@csr.com>
+
+	* 27079: Src/builtin.c: test builtin uses parser and so should
+	save and restore the lexical context to avoid pulling the
+	rug out when called in some nested fashion.
+
+2009-06-28  Andrey Borzenkov <bor@zsh.org>
+
+	* unposted: Completion/Unix/Command/_man:
+	support lzma compression of man pages used in Mandriva
+
+2009-06-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27061: Nicolas Lalevée: Completion/Unix/Command/_ant:
+	importing files into ant.
+
+2009-06-26  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Greg Klanderman: 27057: Src/utils.c: %e and %f time formats
+	were swapped.
+
+	* Frank Terbeck: users/14207:
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git: make
+	variable local.
+
+2009-06-19  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Frank Terbeck: 27049, 27050, 27051, 27052:
+	Functions/VCS_Info/VCS_INFO_bydir_detect,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg: VCS_INFO
+	improvements.
+
+2009-06-18  Clint Adams  <clint@zsh.org>
+
+	* 27048: Functions/MIME/zsh-mime-setup: avoid multiline prints
+	which break CSH_JUNKIE_QUOTES.
+
+2009-06-05  Peter Stephenson  <pws@csr.com>
+
+	* 27305: Functions/Misc/run-help: use POSIXLY_CORRECT with man
+	to avoid GNU man grabbing options in the argument list.
+
+	* 27304: Doc/Zsh/expn.yo, Src/subst.c, Src/utils.c, Src/zsh.h,
+	Test/D04parameter.ztst:  add ${(q-)...} flag to do minimal
+	quoting of arguments with no unnecessary single quotes.
+
+2009-06-04  Peter Stephenson  <pws@csr.com>
+
+	* Baptiste Daroussin: 27033: Completion/BSD/Command/_portaudit,
+	Completion/Unix/Command/_mount: more FreeBSD changes.
+
+	* Baptiste Daroussin: 27030: Completion/Unix/Type/_file_systems:
+	update for FreeBSD.
+
+	*  Baptiste Daroussin: 27029: Completion/BSD/Command/_pfctl: new
+	completion.
+
+2009-06-02  Clint Adams  <clint@zsh.org>
+
+	* Colin Watson: 27027: Completion/Unix/Command/_bzr:
+	completion for bzr switch.
+
+2009-06-02  Peter Stephenson  <pws@csr.com>
+
+	* Akinori MUSHA: private communication:
+	Completion/Unix/Command/_subversion: fix typo.
+
+	* Config/version.mk: update version recorded in archive
+	to 4.3.10-dev-1 (not released).
+
+2009-06-01  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* Util/mkdisttree.sh, Util/preconfig: Tweak find to prune a .git dir.
+	This allows a .git/cvs dir to exist with a cvs checkout in it.
+
+2009-06-01  Peter Stephenson  <pws@csr.com>
+
+	* Config/version.mk: release 4.3.10.
+
+2009-05-30  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Jesse W: 27024: configure.ac, Doc/Makefile.in: allow
+	overriding TEXI2HTML.
+
+2009-05-30  Clint Adams  <clint@zsh.org>
+
+	* 27025: Src/system.h: define _GNU_SOURCE on the Hurd.
+
+2009-05-29  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 27021: Src/pattern.c: length of variable saving globflags
+	was wrong causing restored value to be wrong in pattern matching
+	on big-endian 64-bit systems.
+
+2009-05-28  Peter Stephenson  <pws@csr.com>
+
+	* Jun T.: 27010: Completion/Unix/Command/_date: Darwin.
+
+2009-05-26  Peter Stephenson  <pws@csr.com>
+
+	* 26998: configure.ac, Config/defs.mk.in: use --htmldir passed
+	to configure:  restore zsh default if unchanged from current
+	configure default of '${docdir}'.
+
+2009-05-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Ingmar Vanhassel: 26990: Doc/Makefile.in: tidy up all html
+	files created by updated naming scheme.
+
+2009-05-23  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Michael Hwang: 26986: Doc/Zsh/compsys.yo: formatting.
+
+2009-05-22  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26978: Julien Langer: Completion/Unix/Command/_stgit: complete
+	patch names.
+
+2009-05-22  Peter Stephenson  <pws@csr.com>
+
+	* 26982: Julien Langer: Doc/Zsh/contrib.yo,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git: support stgit
+
+	* 26970: Greg Klanderman: Completion/Unix/Command/_subversion: fix
+	caching.
+
+2009-05-22  Clint Adams  <clint@zsh.org>
+
+	* 26939: Completion/Unix/Command/_xmms2: clean up xmms2 jump
+	completion.
+
+	* Patrick Schoenfeld: 26977: Completion/Unix/Command/_perl:
+	complete .t files for perl.
+
+2009-05-20  Peter Stephenson  <pws@csr.com>
+
+	* 26975: Src/builtin.c: compilation issues in bin_print().
+
+	* users/14143 plus extra fix in padding code: Doc/Zsh/params.yo,
+	Src/subst.c, Src/utils.c: use default IFS if IFS is unset.
+
+2009-05-19  Peter Stephenson  <pws@csr.com>
+
+	* 26973: Doc/Zsh/contrib.yo, Functions/Misc/zmathfuncdef: make
+	zmathfuncdef replace functions and list existing functions.
+
+	* Config/version.mk: 4.3.9-dev-5 (4.3.9-dev-4 not recorded).
+
+	* Greg Klanderman: 26972: Src/utils.c: fix problem ni 26964.
+
+2009-05-17  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Greg Klanderman: 26964 (modified): Src/utils.c,
+	Doc/zsh/options.yo, Doc/Zsh/params.yo:  make prompt
+	end-of-line configurable with PROMPT_EOL_MARK.
+
+	* Greg Klanderman: 26963: fix suffix handling for svn completion
+
+2009-05-16  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Paul Ackersviller: 26962: configure.ac, aczsh.m4,
+	Src/module.c, MACHINES, INSTALL: updated HP-UX dynamic linking.
+
+2009-05-13  Peter Stephenson  <pws@csr.com>
+
+	* users/14118: Functions/Prompts/prompt_special_chars: fix test
+	and assignment.
+
+	* Paul Ackersviller: 26959: Test/Makefile.in: need a delay before
+	removing modules after testing on HP-UX.
+
+2009-05-12  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26958: Src/prompt.c: Reallocation of prompt line didn't
+	fix the pointer to the start of the current line.
+
+2009-05-12  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Prompts/prompt_bart_setup: fix a warning
+	with WARN_CREATE_GLOBAL.
+
+	* Src/builtin.c: fix some memory usage issues.
+
+2009-05-11  Peter Stephenson  <pws@csr.com>
+
+	* 26956: Etc/zsh-development-guide, Src/Zle/zle_refresh:
+	clear up region highlight variables properly and note that the
+	variables should be zeroed even if the module is being unloaded
+	(problem on HP-UX).
+
+2009-05-09  Andrey Borzenkov <bor@zsh.org>
+
+	* unposted: Completion/Unix/Command/_getfacl:
+	fix options definition; add file names completion for variant=unix
+
+2009-05-08  Peter Stephenson  <pws@csr.com>
+
+	* 26953: Test/D07multibyte.ztst: print warning but don't fail test
+	if system apparently can't do simple character set conversion.
+
+	* 26950: Src/params.c: warn on failed attempt to change real or
+	effective group or user ID.
+
+	* 26949: Completion/Unix/Command/_sudo: new options and sudoedit.
+
+	* 26948: Src/Zle/zle_refresh.c: ensure recorded window sizes
+	are reset when video data is freed.
+
+2009-05-07  Peter Stephenson  <pws@csr.com>
+
+	* 26945: Src/builtin.c, Test/D07multibyte.ztst: read should
+	pass through invalid multibyte characters.
+
+2009-05-06  Clint Adams  <clint@zsh.org>
+
+	* 26937: Completion/Unix/Command/_git: have `git log` complete
+	files after branch/range.
+
+2009-05-05  Peter Stephenson  <pws@csr.com>
+
+	* martin f. krafft: 26922: Completion/Unix/Command/_xmms2: extend
+	xmms2 completion.
+
+2009-04-30  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* users/14076 (tweaked per 26906): Completion/Unix/Command/_ssh:
+	Add -q or -r: options to some compadd argument lists to properly
+	handle suffix removal when completing ssh option names or remote
+	host references in file names.
+
+2009-04-30  Peter Stephenson  <pws@csr.com>
+
+	* c.f. 26895: Test/D07/multibyte.ztst: restrict the sorting test
+	to western European characters.
+
+2009-04-29  Peter Stephenson  <pws@csr.com>
+
+	* 26900: Benjamin R. Haskell: Completion/Unix/Command/_ssh: ssh -Y,
+	-x and -X are mutually exclusive.
+
+	* 26899: Ingmar Vanhassel: Completion/Unix/Command/_ssh: -Y option
+
+	* 26898: Ingmar Vanhassel: configure.ac: don't link
+	libbind unless really needed.
+
+2009-04-26  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Paul Ackersviller: 26883: Test/D07multibyte.ztst: naming of
+	UTF8 locales is different in HPUX.
+
+2009-04-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted, see 26880: Functions/Misc/run-help: back off 26862.
+
+2009-04-24  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Config/version.mk: update to 4.3.9-dev-3.
+
+	* uposted: update some .distfiles
+
+	* 26876 (documentation slightly modified): NEWS, Doc/Zsh/compwid.yo,
+	Doc/Zsh/params.yo, Src/Zle/compresult.c, Src/Zle/zle.h,
+	Src/Zle/zle_misc.c: add ZLE_REMOVE_SUFFIX_CHARS and
+	ZLE_SPACE_SUFFIX_CHARS to make actions for suffix removals when
+	not controlled by completion system more configurable.
+
+2009-04-23  Clint Adams  <clint@zsh.org>
+
+	* 26877, 26879: Completion/Debian/Command/_apt: handle apt-get
+	purge.
+
+2009-04-22  Peter Stephenson  <pws@csr.com>
+
+	* see 26867: Functions/VCS_Info/Backends/VCS_INFO_get_data_svk:
+	remove odd "${".
+
+2009-04-21  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 26862: Functions/Misc/run-help: remove
+	unecessary "print".
+
+	* Greg Klanderman (26861) + 26863:
+	Completion/Base/Widget/_read_comp: don't warn over unset
+	parameters but typeset -g _read_comp anyway.
+
+	* 26858: Test/A01grammar.ztst: use zsh -fc instead of /bin/sh -c
+	for testing exec -l to avoid sensitivity to /etc/profile.
+
+	* 26853 + typo fix: NEWS, README, Etc/CONTRIBUTORS, Etc/FAQ.yo,
+	Etc/relnote_4.3.10.txt: package documentation updates.
+
+2009-04-20  Peter Stephenson  <pws@csr.com>
+
+	* Src/Modules/terminfo.mdd: make test agree with the one
+	in terminfo.c.
+
+2009-04-20  Clint Adams  <clint@zsh.org>
+
+	* Kalle Olavi Niemitalo: 26850: Completion/Unix/Command/_git:
+	fix breakage in git write-tree and git send-pack.
+
+2009-04-18  Andrey Borzenkov <bor@zsh.org>
+
+	* users/14033 as modified by users/14037 and added doc:
+	Completion/Base/Utility/_describe, Doc/Zsh/compsys.yo: allow
+	quoting of ":" with backslashes in possible matches in _describe
+
+2009-04-17  Peter Stephenson  <pws@csr.com>
+
+	* users/14041: Doc/Zsh/zle.yo, Src/Zle/zle_bindings.c: bind ":"
+	by default to execute-named-cmd in vicmd mode.
+
+	* unposted: Config/version.mk: change version to 4.3.9.dev-2.
+
+	* Jesse W: 26840: Doc/Zsh/manual.yo: texi2html instructions.
+
+2009-04-16  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Completion/Unix/Command/_mdmadm -> _mdadm
+
+	* 26389: Doc/.cvsignore, Doc/.distfiles, Doc/Makefile.in: add
+	--node-files option to texi2html.
+
+	* Alexey I. Froloff: 26830: Completion/Unix/Command/_man: fix
+	stripping of manual page suffixes.
+
+	* Evgenii Terechkov: 26831: Completion/Unix/Command/_screen:
+	filter out redundant output.
+
+	* Alexey I. Froloff: 26829: Completion/Unix/Command/_rsync:
+	miscounting fields in output.
+
+	* Tomasz Pala: users/14031: Completion/Linux/Command/_ipset:
+	updates.
+
+	* Tomasz Pala: users/14032: Completion/Linux/Command/_mdmadm,
+	Completion/Linux/Command/_rpmbuild: new completions.
+
+	* Tomasz Pala: users/14030: Completion/Linux/Command/_ethtool:
+	update.
+
+2009-04-07  Peter Stephenson  <pws@csr.com>
+
+	* Bart: 26822: Completion/Zsh/Context/_subscript: ">" should
+	be "-gt"---caused infinite loop looking for nonexistent subscript.
+
+2009-04-06  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	*  Frank Terbeck <ft@bewatermyfriend.org>:  Functions/VCS_Info/*:
+	26816: vcs_info: add revision and "misc" argument to
+	VCS_INFO_formats(); 26817: updates for get-revision, %i and %m;
+	26818:  Add git's sha1 hash as revision information; 26819: Add
+	information about hg's local revision number and the  commit's
+	hash; 26820:  Make the hg backend work with new versions of
+	mercurial.
+
+2009-04-06  Peter Stephenson  <pws@csr.com>
+
+	* 26806 (doc tweaked): Add CORRECT_IGNORE variable for pattern to
+	be ignored by correction from internal hash tables.
+
+2009-04-04  Clint Adams  <clint@zsh.org>
+
+	* Simon Ruderich: 26800: Completion/Unix/Command/_git: fixes for "git add"
+	completion.
+
+2009-04-01  Peter Stephenson  <pws@csr.com>
+
+	* 26801: Completion/Base/Core/_main_complete,
+	Completion/Unix/Command/_calendar,
+	Completion/Zsh/Command/_command,
+	Completion/Zsh/Command/_precommand: add completion for calendar
+	function; add tracking for precommand modifiers that are
+	in effect.
+
+2009-03-26  Peter Stephenson  <pws@csr.com>
+
+	* 26797: Doc/Zsh/options.yo: further minor changes.
+
+	* 26795: Doc/Zsh/options.yo: further warning in POSIX_ALIASES.
+
+2009-03-25  Peter Stephenson  <pws@csr.com>
+
+	* 26783: Doc/Zsh/compsys.yo, Completion/Base/Completer/.distfiles,
+	Completion/Base/Completer/_user_expand: new _user_expand completer.
+
+	* Jon Strait: 26778, 26781: Doc/Zsh/mod_pcre.yo,
+	Src/Modules/pcre.c:  a couple of extra options for PCRE matching.
+
+	* Michael Hwang: 26776: Src/builtin.c: improved column alignment
+	with print -c -P.
+
+2009-03-24  Peter Stephenson  <pws@csr.com>
+
+	* 26774: Src/utils.c: cd to $HOME on failure in preference to /.
+
+	* 26772: Src/glob.c, Src/utils.c, Src/zsh.h, Src/Modules/files.c:
+	more failed cd handling: fix possible runaway series of chdirs;
+	better error handling.
+
+2009-03-23  Peter Stephenson  <pws@csr.com>
+
+	* 26769: Src/utils.c: 26767 created an even worse problem.
+
+	* 26748: Doc/Zsh/expn.yo, Src/hist.c, Src/subst.c: c modifier
+	to add command path.
+
+	* 26767: Src/utils.c: 26763 created file descriptor leak.
+
+2009-03-20  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26763: Src/utils.c: fix problem restoring directory
+	when attempting to cd to relative path and failing.
+
+	* users/13593: Src/utils.c: tidy up from 26625.
+
+2009-03-20  Peter Stephenson  <pws@csr.com>
+
+	* Bart: 26761: Src/hist.c: typo in 26754.
+
+2009-03-19  Peter Stephenson  <pws@csr.com>
+
+	* Mikael: 26759: Src/Modules/curses.mdd: missing here-document
+	terminator.
+
+	* 26756: Completion/Zsh/Type/_history_modifiers: handling
+	following :s was wrong.
+
+	* 26754: configure.ac, Doc/Zsh/expn.yo, Src/compat.c, Src/hist.c:
+	tweak zgetdir() (but don't use it) and test for realpath().
+
+2009-03-18  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26752: Src/hist.c: fix ../ removal in :a and metafication
+	in :a and :A modifiers.
+
+2009-03-18  Peter Stephenson  <pws@csr.com>
+
+	* Frank Terbeck: 26751: Functions/VCS_Info/vcs_info_setsys:
+	suppress warning with WARN_CREATE_GLOBAL.
+
+2009-03-17  Peter Stephenson  <pws@csr.com>
+
+	* 26746: Completion/Zsh/Context/_normal,
+	Completion/Zsh/Type/_history_modifiers: complete new history
+	modifiers a and A and allow completion of history modifiers
+	at the start of double quotes.
+
+2009-03-16  Peter Stephenson  <pws@csr.com>
+
+	* 26744: Completion/Zsh/Context/_normal: handle completion
+	of history modifiers for normal command line arguments.
+
+2009-03-15  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* users/13937, users/13939: configure.ac, Src/jobs.c: check for
+	and if available use setproctitle() for "jobs -Z".
+
+2009-03-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26736: Doc/Zsh/expn.yo: document 26731.
+
+	* Michael Hwang: 26731 (with cosmetic changes): Src/hist.c,
+	Src/subst.c: add `a' and `A' modifiers.
+
+2009-03-14  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 26735: Src/Modules/files.c, Src/Modules/mapfile.c,
+	Src/Modules/zftp.c, Src/builtin.c, Src/exec.c,
+	Src/hist.c, Src/utils.c: improved return-value checking.
+
+2009-03-14  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* users/13910: Src/jobs.c: spawnjob() should output job
+	information to the tty like printjob() does.
+
+	* 26699: Makefile.in: dependencies for config.modules.
+
+2009-03-14  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* unposted: Adding .gitignore for the mirrored git repo.
+
+2009-03-13  Peter Stephenson  <pws@csr.com>
+
+	* users/13902: Doc/Zsh/zle.yo, Src/Zle/zle_hist.yo,
+	Src/Zle/zle_params.yo: improve return value from isearch functions
+	and add LASTABORTEDSEARCH variable.
+
+	* 26723: Completion/Unix/Type/.distfiles,
+	Completion/Unix/Type/_have_glob_qual,
+	Completion/Unix/Type_path_files: centralise test for whether
+	file has glob qualifiers and how to match them.
+
+	* users/13903: Src/Zle/zle_hist.c: repeated vi searching was
+	broken and "_" prompt was missing.
+
+2009-03-13  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 26713: Completion/Zsh/Type/_globflags: add #autoload
+
+2009-03-13  Geoff Wing  <gcw@zsh.org>
+
+	* unposted: LICENCE: update year to 2009
+
+2009-03-10  Peter Stephenson  <pws@csr.com>
+
+	* 26708: Src/hist.c: print message if we give up trying to
+	create a lock file with hard links.
+
+	* 26705: Src/subst.c, Test/D07multibyte.ztst: still problems
+	with multibyte characters with Meta in prompt expansion within
+	parameter expansion.
+
+2009-03-09  Peter Stephenson  <pws@csr.com>
+
+	* 26702: Src/init.c: lexsave()/lexrestore() needed around
+	use of history in loop() when not at top level; shows up
+	when calling things from zle, for example.
+
+	* derf@sievert.tabularazor.org: 22701:
+	Completion/Unix/Command/_devtodo: new completion
+
+2009-03-08  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26697: configure.ac, Src/Modules/attr.c, Src/Modules/attr.mdd:
+	test for Linux- and Mac- style xattr functions and don't use
+	if neither appropriate.
+
+2009-03-06  Peter Stephenson  <pws@csr.com>
+
+	* unposted: fix definition of _perforce_whole_path in 26690.
+
+2009-03-04  Peter Stephenson  <pws@csr.com>
+
+	* 26690: Completion/Unix/Command/_perforce: the
+	whole-path style allows you to complete certain types of
+	file (e.g. opened) as a complete path rather than in directory
+	segments; the special value absolute only does that if you
+	type the leading slash.
+
+	* unposted: Etc/FAQ.yo: add POSIX_ALIASES and POSIX_IDENTIFIERS
+	to the list of compatibility options with ksh.
+
+2009-03-03  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26686: Src/exec.c, Src/utils.c: storing long $_ on the
+	stack can be problematic, so use zalloc() rather than VARARR().
+
+	* 26683: Doc/Zsh/params.yo, Doc/Zsh/roadmap.yo: add some notes
+	on LC_CTYPE etc.
+
+	* unposted: Src/Modules/cap.c: that's what happens when you
+	make patches for things that aren't supported on your system.
+
+2009-03-03  Peter Stephenson  <pws@csr.com>
+
+	* 26680: Src/Modules/cap.c: missed some stuff that needed metafied
+	arguments.
+
+	* 26677: Src/Module/caps.c: need some unmetafy() calls as noticed
+	by Mikael.
+
+	* 26676: Doc/Zsh/options.yo: redirect to main description
+	of reserved words instead.
+
+	* 26675: Doc/Zsh/options.yo, Src/lex.c, Src/options.c, Src/zsh.h,
+	Test/A02alias.ztst: add POSIX_ALIASES option.
+
+	* 26671: Completion/Zsh/Command/_zattr, Doc/Zsh/.distfiles,
+	Src/Modules/attr.c: various minor tidy-ups (tidies up?) for
+	26670.
+
+	* Mikael Magnusson: 26670: configure.ac,
+	Completion/Command/Zsh/.distfiles, Completion/Zsh/Command/_zattr,
+	Doc/Makefile.in, Doc/Zsh/.distfiles, Doc/Zsh/mod_attr.yo,
+	Src/Modules/.distfiles, Src/Modules/attr.c, Src/Modules/attr.mdd:
+	add module to handle Linux extended file attributes.
+
+	* Jun T.: 26667: Doc/Zsh/prompt.yo: separate out parentheses.
+
+2009-03-02  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 26665: Src/utils.c: fix one incorrect test in 26614.
+
+2009-03-02  Peter Stephenson  <pws@csr.com>
+
+	* Lionel Flandrin: 26625: Src/utils.c: inopportune interrupt
+	could wreck terminal set up.
+
+	* 26614 plus 26615: Doc/Zsh/builtins.yo, Doc/Zsh/calsys.yo,
+	Doc/Zsh/prompt.yo, Src/builtin.c, Src/utils.c: support
+	-t <fmt> in history and as a side effect support GNU
+	"-" extension for date and time elements with no padding
+	for those handled internally.
+
+2009-03-01  Clint Adams  <clint@zsh.org>
+
+	* Frank Blendinger: 26656: Completion/Unix/Command/_gnupod:
+	improved gnupod completion.
+
+	* Chris Lamb: 26655: Completion/Unix/Command/_django: complete
+	custom Django management commands.
+
+2009-02-28  Clint Adams  <clint@zsh.org>
+
+	* Daniel Friesel: 26636: Completion/X/Command/_mplayer: complete
+	.flac files for mplayer.
+
+2009-02-27  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* 26609: Completion/Unix/Type/_path_files: further / different fix
+	for doubled -s in path completion, which only might be correct in
+	all cases but is more correct for the original failed example.
+
+	* unposted: Completion/Base/Utility/_pick_variant: be consistent
+	about explicitly returning 0 or 1, just because.
+
+2009-02-27  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26622: Src/lex.c, Test/A01grammar.ztst: improve 26617 and add
+	test.
+
+2009-02-26  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26617, c.f. Tomáš Smetana, 26610: Src/lex.c: comments
+	weren't handled in $(...).
+
+2009-02-26  Peter Stephenson  <pws@csr.com>
+
+	* Frank Terbeck: 26612: Doc/Zsh/contrib.yo: VCS info documentation
+	fix
+
+2009-02-25  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26606: Completion/Unix/Type/_path_files: fix doubled -s
+	in path completion in certain cases.
+
+2009-02-25  Peter Stephenson  <pws@csr.com>
+
+	* Src/hist.c: 26602: history substitution buffer could overflow
+	with no test.
+
+2009-02-25  Clint Adams  <clint@zsh.org>
+
+	* Mikael Magnusson: 26596: Completion/Unix/Command/_git: new git
+	options.
+
+	* Jörg Sommer: 26593: Completion/Debian/Command/_lintian: complete
+	multiple files for lintian.
+
+2009-02-20  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26588: Src/Zle/zle_tricky.c: don't expand aliases in run-help
+	since the run-help function can do that.
+
+2009-02-20  Peter Stephenson  <pws@csr.com>
+
+	* c.f. 26586: Src/builtin.c, Src/lex.c, Src/parse.c: rename yylex
+	to zshlex and yytext to zshlextext to avoid possible clashes
+	in linked libraries.
+
+	* 26584: configure.ac, Src/Modules/tcp.h: use bind/netdb.h where
+	appropriate.
+
+2009-02-19  Peter Stephenson  <pws@csr.com>
+
+	* 26583: Src/init.c, Src/zsh.h: use HOOK_SUFFIX more widely
+	for "*_functions" arrays.
+
+2009-02-18  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Jörg Sommer: 26582: Completion/Unix/Command/_date: --rfc-3339
+	option.
+
+2009-02-18  Peter Stephenson  <pws@csr.com>
+
+	* 26580: Mikael: Doc/Zsh/func.yo: typo.
+
+	* 26579: Doc/Zsh/func.yo: fix hook function documentation.
+
+	* unposted: Src/.cvsignore: ignore patchlevel.h.
+
+	* Arkadiusz Miskiewicz <arekm@maven.pl>: 26573:
+	Functions/Completion/compdump: force compdump to overwrite
+	dump file if mv is a bit dubious.
+
+2009-02-14  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Danek Duvall: 26571: Src/Zle/complete.mdd,
+	Completion/Solaris/Command/_dladm,
+	Completion/Solaris/Command/_ptree,
+	Completion/Solaris/Command/_svccfg,
+	Completion/Solaris/Command/_svcs, Completion/Unix/Command/_zfs,
+	Completion/Unix/Command/_zpool: additions for Solaris
+	support.
+
+	* Richard Hartmann: 26558: Doc/Zsh/options.yo: modification
+	of 2650.
+
+2009-02-12  Clint Adams  <clint@zsh.org>
+
+	* 26565: Completion/Unix/Command/_patch: fix breakage in 26482.
+
+2009-02-12  Peter Stephenson  <pws@csr.com>
+
+	* 26560: Doc/Zsh/builtins.yo: document autoload -z/-k (finally).
+
+2009-02-11  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26556: Doc/Zsh/builtins.yo: documentation for 26546.
+
+	* 26546: Src/builtin.c, Src/exec.c, Src/hashtable.c, Src/init.c,
+	Src/mkbltnmlst.sh, Src/options.c, Src/params.c, Src/parse.c,
+	Src/signals.c, Src/subst.c, Src/zsh.h, Src/Modules/newuser.c,
+	Src/Modules/parameter.c, Test/B07emulate.ztst: sticky emulation
+	for functions defined within emualate ... -c ... environments.
+
+2009-02-11  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Functions/Calendar/age: accidentally committed a
+	currently undocumented change that allows an age spec beginning
+	with a colon to be followed by a file name whose modification time
+	will be used as the date/time.  Probably needs improving but
+	not actually harmful since the syntax wasn't valid before.
+
+	* Richard Hartmann: 26550: Doc/Zsh/options.yo: make
+	it clear that various options can't be changed within the shell.
+
+	* Frank Terbeck: 26549: Doc/Zsh/contrib.yo,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_bzr,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_cdv,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_cvs,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_darcs,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_mtn,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_p4,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svk,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svn,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_tla,
+	Functions/VCS_Info/VCS_INFO_formats: improvements to VCS_Info:
+	check for changes in git.
+
+	* Richard Hartmann: 26547: Doc/Zsh/options.yo: further extension
+	to option indexing:  NOoptions without underscore.
+
+2009-02-10  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26545: Test/B07emulate.ztst: new test.
+
+2009-02-10  Clint Adams  <clint@zsh.org>
+
+	* 26544: Completion/Unix/Command/_lp: complete pdf files
+	as well as ps.
+
+2009-02-09  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 26538: Completion/Base/Widget/_read_comp:
+	needs "nounset" option.
+
+	* Richard Hartmann: 26536: Doc/Zsh/options.yo: add index entries
+	for options that appear with "NO" in front.
+
+	* Richard Hartmann: 26535: Doc/Zsh/options.yo: remove typo.
+
+2009-02-08  Andrey Borzenkov <bor@zsh.org>
+
+	* 26530: Doc/Zsh/builtins.yo: clarify that "emulate -c"
+	restores all options on return, not only those related
+	to emulation
+
+2009-02-07  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Allan Caffee <allan.caffee@gmail.com>: 26532: index option
+	names without underscore, too.
+
+2009-02-04  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/zle.yo: use of highlighting was out of
+	date.
+
+2009-02-06  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/builtins.yo: typo in previous patch
+	spotted by Mikael.
+
+	* 26517: Doc/Zsh/builtins.yo, Doc/Zsh/compsys.yo,
+	Doc/Zsh/contrib.yo, Doc/Zsh/expn.yo, Doc/Zsh/options.yo,
+	Doc/Zsh/params.yo: prompt expansion section in Unix manual
+	is actually named EXPANSION OF PROMPT SEQUENCES.
+
+2009-02-05  Peter Stephenson  <pws@csr.com>
+
+	* unposted: fix number in foregoing.
+
+	* 26513: README: note that addition of ".." in completion
+	was broken.
+
+2009-02-01  Andrey Borzenkov <bor@zsh.org>
+
+	* 26504: Doc/Zsh/options.yo: document that LOCAL_OPTIONS
+	does not restore PRIVILEGED and RESTRICTED
+
+2009-01-30  Clint Adams  <clint@zsh.org>
+
+	* 26494: Completion/Unix/Command/_pydoc: completion for pydoc.
+
+2009-01-29  Peter Stephenson  <pws@csr.com>
+
+	* 26485: Completion/Unix/Type/_path_files: accept-exact-dirs could
+	rearrange directories into the wrong order.
+
+2009-01-29  Clint Adams  <clint@zsh.org>
+
+	* 26482: Completion/Unix/Command/_patch: complete patch -U,
+	--unified-reject-files, --global-reject-file.
+	* unposted: move _getfacl and _setfacl from Completion/Cygwin/Command
+	to Completion/Unix/Command.
+	* 26483: Completion/Unix/Command/_getfacl,
+	Completion/Unix/Command/_setfacl: handle SGI's acl programs as well
+	as Cygwin's.
+	* Jörg Sommer: 26451: Completion/Linux/Command/_modutils: use
+	globbing to find available modules, now that modprobe -l is
+	deprecated.
+	* Jörg Sommer: 26452: Completion/Linux/Command/_modutils: drop
+	completion of modinfo -f.
+	* Jörg Sommer: 26453: Completion/Linux/Command/_modutils: complete
+	modinfo -k.
+	* Ingmar Vanhassel: 26467: Completion/Unix/Command/_git: add "git
+	remote rename" completion.
+	* Ingmar Vanhassel: 26468: Completion/Unix/Command/_git: "git
+	stage" is now a synonym for "git add". git diff: --staged is a
+	synonym for --cached.
+	* Ingmar Vanhassel: 26469: Completion/Unix/Command/_git: complete
+	"git clone --verbose".
+	* Ingmar Vanhassel: 26470: Completion/Unix/Command/_git: update
+	"git svn" completion.
+	* Ingmar Vanhassel: 26471: Completion/Unix/Command/_git: update
+	"git rebase" completion.
+	* Ingmar Vanhassel: 26472: Completion/Unix/Command/_git: complete
+	"git add --intent-to-add".
+	* Ingmar Vanhassel: 26473: Completion/Unix/Command/_git: complete
+	"git commit --cleanup=" and "git commit --allow-empty".
+	* Ingmar Vanhassel: 26474: Completion/Unix/Command/_git: add
+	"git describe --tags" completion and fix typos.
+
+2009-01-29  Peter Stephenson  <pws@csr.com>
+
+	* 26466: Src/Zle/compmatch.c: with suffix, bld_line() got
+	the arithmetic over patterns wrong.
+
+2009-01-28  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 26465: Doc/Zsh/zle.yo, Src/Zle/zle_keymap.c:
+	add command keymap for command execution.
+
+	* Greg Klanderman: 26464: Completion/Unix/Type/_pids: style
+	insert-ids=single was problematic with menu completion.
+
+	* Greg Klanderman: 26463: Doc/Zsh/zle.yo, Src/Zle/zle_main.c: add
+	zle-line-finish widget.
+
+2009-01-27  Peter Stephenson  <pws@csr.com>
+
+	* 26448: Doc/Zsh/expn.yo, Src/glob.c: glob sort operators
+	oe and o+ allow arbitrary code to pick name for sorting.
+
+2009-01-26  Peter Stephenson  <pws@csr.com>
+
+	* Greg Klanderman: 26439: Doc/Zsh/mod_system.yo: convert sections
+	to subsections.
+
+2009-01-25  Andrey Borzenkov <bor@zsh.org>
+
+	* 26425: Doc/Zsh/builtins.yo Src/builtin.c:
+	"emulate csh -c command" will evaluate `command' after temporary
+	enable csh emulation. Note that `-c' is not actually an option,
+	but positional parameter.
+
+2009-01-24  Doug Kearns  <dougkearns@gmail.com>
+
+	* 26413: Completion/Unix/Command/_ant: update for version 1.7.1.
+
+	* 26411: Completion/Cygwin/Command/.distfiles,
+	Completion/Cygwin/Command/_cygcheck,
+	Completion/Cygwin/Command/_cygpath,
+	Completion/Cygwin/Command/_cygrunsrv,
+	Completion/Cygwin/Command/_cygserver,
+	Completion/Cygwin/Command/_cygstart,
+	Completion/Cygwin/Command/_dumper,
+	Completion/Cygwin/Command/_getclip,
+	Completion/Cygwin/Command/_getfacl,
+	Completion/Cygwin/Command/_mkshortcut,
+	Completion/Cygwin/Command/_mkzsh,
+	Completion/Cygwin/Command/_putclip,
+	Completion/Cygwin/Command/_readshortcut,
+	Completion/Cygwin/Command/_setfacl: update Cygwin completion
+	functions and add new completion for setfacl and readshortcut.
+
+2009-01-22  Clint Adams  <clint@zsh.org>
+
+	* 26407: Completion/Debian/Command/_aptitude: patch to handle
+	aptitude build-dep, from Sven Joachim.
+
+	* 26405: Completion/Unix/Command/_xmms2: completion for
+	xmms2, from Louis-David Mitterand.
+
+2009-01-22  Doug Kearns  <dougkearns@gmail.com>
+
+	* unposted: Etc/zsh-development-guide: fix some typos.
+
+2009-01-20  Peter Stephenson  <pws@csr.com>
+
+	* 26373: Src/Zle/complist.c: initialise variable in menu
+	completion in attempt to prevent crash when starting
+	a new completion.
+
+2009-01-20  Doug Kearns  <dougkearns@gmail.com>
+
+	* 26372: Completion/Unix/Command/_antiword: update for version
+	0.37.
+
+2009-01-19  Peter Stephenson  <pws@csr.com>
+
+	* 26366: Doc/Zsh/zle.yo, Src/Zle/iwidgets.list,
+	Src/Zle/zle_hist.c, Src/Zle/zle_keymap.c: add "isearch"
+	keymap and "accept-search" function.
+
+	* Doug Kearns: 26365: Completion/Unix/Command/_python: new 3.0
+	options.
+
+2009-01-19  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* 26362: Src/Modules/regex.c: avoid calling regfree() when the
+	regex_t "re" was not initialized.
+
+2009-01-19  Wayne Davison  <wayned@users.sourceforge.net>
+
+	* unposted: Src/Modules/regex.c: fixed a few compiler warnings
+	in zcond_regex_match(), including a (useless) warning about
+	matchessz potentially being used uninitialized and some
+	signed/unsigned warnings about re.re_nsub.  Also split a
+	couple compound lines.
+
+2009-01-19  Doug Kearns  <dougkearns@gmail.com>
+
+	* 26361: Completion/Unix/Command/_rake: update for version 0.8.3.
+
+	* 26360: Completion/Unix/Command/_git: add --work-tree option.
+
+2009-01-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26315: Src/params.c: define ZSH_PATCHLEVEL to "unknown" if
+	revision not found.
+
+2009-01-15  Peter Stephenson  <pws@csr.com>
+
+	* 26313: INSTALL, configure.ac, Src/params.c: add
+	--enable-custom-patchlevel for tweaked shells.
+
+	* Functions/TCP/tcp_log: unposted: suppress WARN_CREATE_GLOBAL
+	message.
+
+	* 26312: Phil Pennock: Doc/Zsh/cond.yo, Doc/Zsh/mod_pcre.yo,
+	Doc/Zsh/mod_regex.yo: Document no variables altered on failed
+	match.
+
+2009-01-13  Peter Stephenson  <pws@csr.com>
+
+	* 26304: Mikael Magnusson: configure.ac: logical correction
+	in link warning.
+
+	* 26393: Src/Zle/zle_refresh.c: turn off text attributes when
+	deleting text, to avoid them being used for inserted blanks.
+
+	* unposted: Completion/Base/Utility/_values, Doc/Zsh/compwid.yo,
+	Src/Zle/compcore.c, Src/Zle/complete.c, Src/Zle/compresult.c:
+	Back off 26270 and follow up; was causing memory corruption.
+
+	* Doc/Zsh/mod_zpty.yo, Src/Modules/zpty.c, Test/comptest:
+	make "zpty -r" exit more cleanly on read failures and add and
+	use option to ensure a pattern has been matched.
+
+	* 26300: Src/zsh.mdd: don't use "echo -n" for $ZSH_PATCHLEVEL.
+
+2009-01-09  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* unposted: Doc/Zsh/compwid.yo: tweak doc for 26270.
+
+	* unposted: Src/zsh.mdd: fix the inevitable confusion with
+	using dollar Revision dollar.
+
+	* 26272: Doc/Zsh/params.yo, Src/params.c, Src/zsh.mdd: extract
+	Revision from ChangeLog for use in $ZSH_PATCHLEVEL.
+
+	* unposted: add RCS Revision tag for use in patchlevel
+	recording.
+
+2009-01-09  Andrey Borzenkov <bor@zsh.org>
+
+	* 26270: Completion/Base/Utility/_values, Doc/Zsh/compwid.yo,
+	Src/Zle/compcore.c, Src/Zle/complete.c, Src/Zle/compresult.c:
+	allow accept-and-menu-complete to work also with _values.
+	Add compstate[list_in_word] flag to control, whether suffix
+	is replaced by space; when set, next match is added in the same
+	word.
+
+	* unposted: Completion/Mandriva/Command/.distfiles,
+	Completion/Mandriva/Command/_rebootin: add _rebootin completion
+	from Mandriva RPM (modified to allow spaces in GRUB menu titles)
+
+2009-01-09  Peter Stephenson  <pws@csr.com>
+
+	* Benjamin R. Haskell: 26265: Functions/Zle/define-composed-chars:
+	fix some accented characters.
+
+2009-01-08  Peter Stephenson  <pws@csr.com>
+
+	* 26260: Src/params.c: fix crash when failing to assign
+	scalar to special hash.
+
+2009-01-06  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Doc/Zsh/mod_stat.yo: fix yodl problem with 26229.
+
+2009-01-05  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26249: Src/utils.c: remove arbitrary string length limit in
+	unmeta().
+
+2009-01-05  Peter Stephenson  <pws@csr.com>
+
+	* Richard Hartmann: 26170 (parts 1 and 2):
+	Completion/Unix/Type/_ps, Completion/Unix/Type/_pdf:
+	files compressed with .bz2.
+
+2009-01-05  Andrey Borzenkov <bor@zsh.org>
+
+	* 26247: configure.ac, Src/Zle/zle_tricky.c: fix compilation
+	with -Werror=format-security GCC option.
+
+2009-01-03  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* Richard Hartmann: 26229: Doc/Zsh/mod_stat.yo: note that zstat
+	follows links by default.
+
+	* Frank Terbeck: 26215: Doc/Zsh/contrib.yo,
+	Functions/VCS_Info/vcs_info: disable-patterns style.
+
+	* Greg Klanderman: 26159: Src/Zle/zle_utils.c: CUT_RAW should be
+	CUT_REPLACE for multiple kills to append.
+
+2008-12-30  Clint Adams  <clint@zsh.org>
+
+	* 26202: Functions/Misc/run-help: show zshmodules(1) for echotc,
+	echoti, sched, zprof, zpty, zsocket, zstyle, and ztcp builtins
+	as well.
+
+2008-12-29  Geoff Wing  <gcw@zsh.org>
+
+	* unposted: Test/C04funcdef.ztst, Test/C05debug.ztst,
+	Test/V06parameter.ztst: clean up temporary files
+
+2008-12-29  Clint Adams  <clint@zsh.org>
+
+	* 26185: Doc/Zsh/mod_newuser.yo: fix two places where path to
+	global zshenv was specified statically.
+
+	* Richard Hartmann: 26175: Completion/Unix/Command/_vim: updates
+	for vim completion.
+
+2008-12-18  Peter Stephenson  <pws@csr.com>
+
+	* Richard Hartmann: 26155: Doc/Zsh/builtins.yo,
+	Doc/Zsh/mod_parameter.yo, Doc/Zsh/options.yo: quote use of `.'
+	as a command in text.
+
+2008-12-16  Clint Adams  <clint@zsh.org>
+
+	* 26141: Functions/Zle/edit-command-line: word-split
+	EDITOR/VISUAL so users can have multi-argument
+	commands in those variables.
+
+2008-12-11  Peter Stephenson  <pws@csr.com>
+
+	* Frank Terbeck: 26125: Doc/Zsh/contrib.yo,
+	Functions/VCS_Info/.distfiles,
+	Functions/VCS_Info/VCS_INFO_check_com,
+	Functions/VCS_Info/VCS_INFO_get_cmd, Functions/VCS_Info/vcs_info,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_cdv,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_cvs,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_darcs,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_git,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_hg,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_mtn,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_p4,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_svk,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_svn,
+	Functions/VCS_Info/Backends/VCS_INFO_detect_tla,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_bzr,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_git,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_mtn,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_p4,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_svn,
+	Functions/VCS_Info/Backends/VCS_INFO_get_data_tla: add
+	"command" style for VCS command to use.
+
+2008-12-10  Peter Stephenson  <pws@csr.com>
+
+	* 26121: Doc/Zsh/calsys.yo, Functions/Calendar/calendar: add
+	-B <lines> option to calendar.
+
+	* users/13566: Etc/FAQ.yo: note problem with unsetting elements
+	of regular arrays.
+
+2008-12-09  Peter Stephenson  <pws@csr.com>
+
+	* 26119: Doc/Zsh/zle.yo, Src/Zle/zle_main.c: option to allow vared
+	to open to an alternative terminal.
+
+2008-12-09  Clint Adams  <clint@zsh.org>
+
+	* Richard Hartmann: 26114: Completion/Unix/Command/_git: add color
+	options.
+
+2008-12-08  Peter Stephenson  <pws@csr.com>
+
+	* Benjamin R. Haskell: users/13544:
+	Functions/Zle/define-composed-chars: accents for i were wrong.
+
+	* 26116: Src/Zle/deltochar.c: wasn't updated properly for
+	combining characters.
+
+2008-12-02  Peter Stephenson  <pws@csr.com>
+
+	* Richard Hartmann: 26105: Completion/Unix/Type/_pdf: add okular.
+
+	* Frank Terbeck: 26194: Functions/Prompts/promptinit: eliminated
+	WARN_CREATE_GLOBAL warnings.
+
+2008-12-01  Peter Stephenson  <pws@csr.com>
+
+	* (with some help from Peter A. Castro): 26103: configure.ac:
+	FIFOs seem to be more reliable than per-process FD files for
+	process substitution on current Cygwin.
+
+2008-11-27  Peter Stephenson  <pws@csr.com>
+
+	* 26095: Src/utils.c: failed to compile if TIOCGWINSZ wasn't
+	defined.
+
+2008-11-26  Peter Stephenson  <pws@csr.com>
+
+	* 26090: Test/C02cond.ztst: [[ -r ... ]] on Cygwin succeeds
+	more often than expected, so don't test.
+
+2008-11-25  Clint Adams  <clint@zsh.org>
+
+	* Brendan Cully: 26057: Completion/Unix/Command/_mercurial:
+	mercurial completion updates.
+
+2008-11-25  Peter Stephenson  <pws@csr.com>
+
+	* 26091: Src/hist.c: crash at end of history line if history
+	not in use.
+
+2008-11-24  Peter Stephenson  <pws@csr.com>
+
+	* Frank Terbeck: users/13482: Doc/Zsh/contrib.yo: fix some prompt
+	docs for vcs info.
+
+2008-11-23  Barton E. Schaefer  <schaefer@zsh.org>
+
+	* users/13477: Completion/Unix/Command/_rm: call _files instead
+	of _path_files to correctly handle cycling through choices.
+
+2008-11-20  Peter Stephenson  <pws@csr.com>
+
+	* 26075: Functions/Calendar/calendar_parse: update repeated events
+	until they're in the future.
+
+	* users/13464: Functions/MIME/zsh-mime-handler,
+	Functions/MIME/zsh-mime-setup: allow suffixes specified as
+	lower case to match upper case variants.
+
+2008-11-18  Peter Stephenson  <pws@csr.com>
+
+	* 26065: Config/version.mk: update to 4.3.9-dev-1 because of
+	internal code changes.
+
+	* 26060: François Revol: configure.ac, Src/Module/zpty.c,
+	Src/Zle/zle_refresh.c: fixes for BeOS.
+
+	* 26062: Src/Zle/compmatch.c: missed change needed with 26047.
+
+	* 26061: Src/lex.c, Src/parse.c, Src/subst.c, Src/zsh.h,
+	Test/D02glob.ztst: fix clashes between numeric glob and
+	process substitution such as "<->(N)".
+
+2008-11-17  Peter Stephenson  <pws@csr.com>
+
+	* 26056: Doc/Zsh/expn.yo, Src/exec.c:  < <(...)more_stuff is
+	an error and similarly for > >(...)yet_more_stuff.
+
+	* 26055: README, Doc/Zsh/expn.yo, Src/subst.c: ensure process
+	substitution is handled completely before parameter and
+	command substitution.
+
+	* 26053: Completion/Base/Utility/_arguments: handle
+	"<cmd> --help" output that includes optional parts of options
+	in square brackets.
+
+2008-11-15  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26047: Src/pattern.c, Src/Zle/comp.h, Src/Zle/compmatch.c,
+	Src/Zle/complete.c, Src/Zle/compmatch.c, Src/Zle/computil.c,
+	Src/Zle/zle_utils.c:  convert lower levels of completion
+	matching to user multibyte strings / wide characters.
+
+	* Phil (unposted): README: another typo.
+
+2008-11-15  Clint Adams  <clint@zsh.org>
+
+	* 26046: Functions/TCP/tcp_send: return an error if session's fd is
+	unusable.
+
+2008-11-13  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26042 with some fixes from 26043 (Mikael): README,
+	Doc/Zsh/expn.yo, Src/exec.c, Src/lex.c, Src/subst.c,
+	Test/D03procsubst.zst: allow <(...) and >(...) to occur
+	in the middle of command arguments and =(...) to have
+	other strings following.
+
+2008-11-12  Oliver Kiddle  <opk@zsh.org>
+
+	* 26030: Src/Zle/zle_main.c: fix memory leak in vared
+
+	* 26028: Src/builtin.c: close temporary file when aborting fc
+
+2008-11-12  Peter Stephenson  <pws@csr.com>
+
+	* 26029: Test/A04redirect.ztst: add test for redirection operators
+	with no preceding whitespace.
+
+2008-11-11  Oliver Kiddle  <opk@zsh.org>
+
+	* 26024: Src/Zle/zle_keymap.c: don't leave reference count
+	incremented when aborting bindkey with an error
+
+2008-11-11  Clint Adams  <clint@zsh.org>
+
+	* 26027: Src/Zle/compctl.c: free pprogc before it goes out of
+	scope in makecomplistflags.
+
+2008-11-11  Peter Stephenson  <pws@csr.com>
+
+	* 26025: Src/Zle/zle_main.c: prefer handling user input to
+	file installed with zle -F.
+
+2008-11-11  Clint Adams  <clint@zsh.org>
+
+	* 26023: Completion/Unix/Command/_topgit: skeletal completion for
+	tg (topgit).
+
+2008-11-08  Oliver Kiddle  <opk@zsh.org>
+
+	* 26022: Completion/Zsh/Type/_file_descriptors: fix on Solaris
+	where /proc/$$/fd exists but doesn't contain symlinks
+
+	* 26017: Completion/Unix/Type/_path_files,
+	Completion/Zsh/Type/_globflags, Completion/Zsh/Type/_globquals:
+	add completion of globbing flags
+
+2008-11-08  Peter Stephenson  <p.w.stephenson@ntlworld.com>
+
+	* 26021: Completion/Unix/Type/_path_files: complete glob
+	qualifiers where they don't mess up the rest of the word,
+	don't complete a bare glob qualifier if there's nothing
+	before it.
+
+2008-11-08  Clint Adams  <clint@zsh.org>
+
+	* unposted: Src/glob.c: revert 26014.
+
+2008-11-07  Clint Adams  <clint@zsh.org>
+
+	* 26016: Completion/Unix/Command/_bzr: treat "bzr co" as an alias
+	of "bzr checkout"; patch from Ryo IGARASHI.
+
+2008-11-06  Clint Adams  <clint@zsh.org>
+
+	* 26014: Src/glob.c: don't allocate and leak a patprog if it's not
+	going to be used.
+
+	* 26013: Src/Modules/tcp.c: don't ztrdup the other buffer returned
+	by inet_ntoa.  cf. 25987.
+
+2008-11-05  Peter Stephenson  <pws@csr.com>
+
+	* 26008, Src/builtin.c, Test/B02typeset.ztst: "typeset -g
+	<var...>" should be silent even if TYPESET_SILENT is not set.
+
+2008-11-04  Peter Stephenson  <pws@csr.com>
+
+	* 26006: Test/C05debug.ztst: remove dependence on system
+	error message.
+
 2008-11-03  Peter Stephenson  <pws@csr.com>
+
+	* unposted: Config/version.mk: update version to 4.3.9-dev-0.
 
 	* unposted: Etc/.distfiles: missing entry; 4.3.9 finally
 	released, perhaps.
@@ -471,7 +3917,7 @@
 
 	* 25737: Src/Zle/computil.c: remove dead code in ca_parse_line.
 
-	* 25736: Src/Zle/complete.c: one more zsfree missing from 
+	* 25736: Src/Zle/complete.c: one more zsfree missing from
 	25667.
 
 2008-09-23  Peter Stephenson  <pws@csr.com>
@@ -1687,7 +5133,7 @@
 	* 24878: NEWS, Doc/Zsh/zle.yo, Src/glob.c, Src/pattern.c,
 	Src/zsh.h, Src/Zle/iwidgets.list, Src/Zle/zle_hist.c:
 	add history-incremental-pattern-search-backward and
-        history-incremental-pattern-search-forward, also optimize
+	history-incremental-pattern-search-forward, also optimize
 	history searches a bit more.
 
 	* 24876: don't install manual pages if empty.
@@ -5401,7 +8847,7 @@
 
 2006-09-29  Vin Shelton  <acs@xemacs.org>
 
-       * 22789: Src/init.c: Source zshenv even if non-interactive.
+	* 22789: Src/init.c: Source zshenv even if non-interactive.
 
 2006-09-29  Andrey Borzenkov <bor@zsh.org>
 
@@ -10561,3 +14007,8 @@
 
 	* users/7172: Functions/Prompts/prompt_bart_setup: include "unset"
 	among the localoptions, as this relies on it.
+
+*****************************************************
+* This is used by the shell to define $ZSH_PATCHLEVEL
+* $Revision: 1.5161 $
+*****************************************************

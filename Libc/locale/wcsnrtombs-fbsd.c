@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/wcsnrtombs.c,v 1.2 2004/07/22 02:57:29 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/wcsnrtombs.c,v 1.3 2005/02/12 08:45:12 stefanf Exp $");
 
 #include "xlocale_private.h"
 
@@ -84,7 +84,7 @@ __wcsnrtombs_std(char * __restrict dst, const wchar_t ** __restrict src,
 	while (len > 0 && nwc-- > 0) {
 		if (len > (size_t)mb_cur_max) {
 			/* Enough space to translate in-place. */
-			if ((nb = (int)__wcrtomb(dst, *s, ps, loc)) < 0) {
+			if ((nb = __wcrtomb(dst, *s, ps, loc)) == (size_t)-1) {
 				*src = s;
 				return ((size_t)-1);
 			}
@@ -97,7 +97,7 @@ __wcsnrtombs_std(char * __restrict dst, const wchar_t ** __restrict src,
 			 * character is too long for the buffer.
 			 */
 			mbsbak = *ps;
-			if ((nb = (int)__wcrtomb(buf, *s, ps, loc)) < 0) {
+			if ((nb = __wcrtomb(buf, *s, ps, loc)) == (size_t)-1) {
 				*src = s;
 				return ((size_t)-1);
 			}

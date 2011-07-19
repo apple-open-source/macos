@@ -1,0 +1,121 @@
+CUPSLITE - CUPS v1.5svn - 2009-09-21
+------------------------------------
+
+This file describes how to compile the lightweight version of CUPS called
+"CUPS-Lite".  If you want to use the full version of CUPS, read the
+"INSTALL.txt" file instead which describes how to compile and install the
+regular version of CUPS.
+
+
+WHAT IS CUPS-LITE?
+
+    As its name implies, CUPS-Lite is a lightweight version of the CUPS software
+    that is targeted for environments where resources and/or OS support for a
+    separate printing system is limited.  Printers are advertised using DNS
+    service records (aka Bonjour or DNS Service Discovery) and support printing
+    of JPEG, PDF, and Universal Raster Format (URF) files.  The latter is a
+    multi-page image format described in RFC NNNN, "Universal Raster Format -
+    image/urf MIME Sub-type Registration".
+
+
+BEFORE YOU BEGIN
+
+    You'll need ANSI-compliant C and C++ compilers, plus a make program and
+    POSIX-compliant shell (/bin/sh).  The GNU compiler tools and Bash work well
+    and we have tested the current CUPS code against several versions of GCC
+    with excellent results.
+
+    The makefiles used by the project should work with most versions of make.
+    We've tested them with GNU make as well as the make programs shipped by
+    Compaq, HP, SGI, and Sun.  BSD users should use GNU make (gmake) since BSD
+    make does not support "include".
+
+    Besides these tools you need the JPEG library for image and PostScript
+    printer support, HPIJS for HP printer support, and mDNSResponder for
+    printer discovery and advertising.  PDF printing support on Linux and
+    Windows requires the Xpdf or Poppler software.
+
+
+COMPILING THE SUBVERSION REPOSITORY CODE
+
+    The CUPS Subversion repository doesn't hold a copy of the pre-built
+    configure script.  You'll need to run the GNU autoconf software (2.60 or
+    higher) to create it:
+
+	autoconf
+
+
+CONFIGURATION
+
+    CUPS uses GNU autoconf, so you should find the usual "configure" script in
+    the main CUPS source directory.  To configure CUPS-Lite for your system,
+    type:
+
+	./configure --with-components=cupslite
+
+    The default installation will put the CUPS software in the "/etc", "/usr",
+    and "/var" directories on your system, which will overwrite any existing
+    printing commands on your system.  Use the "--prefix" option to install the
+    CUPS software in another location:
+
+	./configure --with-components=cupslite --prefix=/some/directory
+
+    To see a complete list of configuration options, use the --help option:
+
+        ./configure --help
+
+    If any of the dependent libraries are not installed in a system default
+    location (typically "/usr/include" and "/usr/lib") you'll need to set the
+    CFLAGS, CPPFLAGS, CXXFLAGS, DSOFLAGS, and LDFLAGS environment variables
+    prior to running configure:
+
+	setenv CFLAGS "-I/some/directory"
+	setenv CPPFLAGS "-I/some/directory"
+	setenv CXXFLAGS "-I/some/directory"
+	setenv DSOFLAGS "-L/some/directory"
+	setenv LDFLAGS "-L/some/directory"
+	./configure --with-components=cupslite ...
+
+    or:
+
+	CFLAGS="-I/some/directory" \
+	CPPFLAGS="-I/some/directory" \
+	CXXFLAGS="-I/some/directory" \
+	DSOFLAGS="-L/some/directory" \
+	LDFLAGS="-L/some/directory" \
+	./configure --with-components=cupslite ...
+
+    The "--enable-debug" option compiles CUPS with debugging information
+    enabled.  Additional debug logging support can be enabled using the
+    "--enable-debug-printfs" option - these debug messages are enabled using the
+    CUPS_DEBUG_LOG environment variable at run-time.
+
+    CUPS also includes an extensive set of unit tests that can be used to find
+    and diagnose a variety of common problems - use the "--enable-unit-tests"
+    configure option to run them at build time. [TODO: make these work with
+    cupslite build]
+
+    Once you have configured things, just type:
+
+	make ENTER
+
+    or if you have FreeBSD, NetBSD, or OpenBSD type:
+
+	gmake ENTER
+
+    to build the software.
+
+
+TESTING THE SOFTWARE
+
+    Run the following command to test cupslite on port 8631:
+
+        cupslite/cupslite -p 8631
+
+    This mode advertises three virtual printers that simulate typical inkjet,
+    B&W laser, and color laser printers.
+
+
+HACKING THE SOFTWARE
+
+    TODO

@@ -1,3 +1,31 @@
+20100124
+  - [ sshconnect2.c ]
+    Adapt to deal with additional element in Authmethod structure. Thanks to
+    Colin Wilson
+  - [ clientloop.c ]
+    Protect credentials updated code with suitable #ifdefs. Thanks to Colin
+    Wilson
+
+20090615
+  - [ gss-genr.c gss-serv.c kexgssc.c kexgsss.c monitor.c sshconnect2.c
+      sshd.c ]
+    Fix issues identified by Greg Hudson following a code review
+	Check return value of gss_indicate_mechs
+	Protect GSSAPI calls in monitor, so they can only be used if enabled
+	Check return values of bignum functions in key exchange
+	Use BN_clear_free to clear other side's DH value
+	Make ssh_gssapi_id_kex more robust
+	Only configure kex table pointers if GSSAPI is enabled
+	Don't leak mechanism list, or gss mechanism list
+	Cast data.length before printing
+	If serverkey isn't provided, use an empty string, rather than NULL
+
+20090201
+  - [ gss-genr.c gss-serv.c kex.h kexgssc.c readconf.c readconf.h ssh-gss.h
+      ssh_config.5 sshconnet2.c ]
+    Add support for the GSSAPIClientIdentity option, which allows the user
+    to specify which GSSAPI identity to use to contact a given server
+
 20080404
   - [ gss-serv.c ]
     Add code to actually implement GSSAPIStrictAcceptCheck, which had somehow

@@ -1,0 +1,15 @@
+Index: src/undo.c
+===================================================================
+--- src/undo.c	(revision 57762)
++++ src/undo.c	(working copy)
+@@ -3258,6 +3258,10 @@
+     t = curbuf->b_u_line_colnr;
+     if (curwin->w_cursor.lnum == curbuf->b_u_line_lnum)
+ 	curbuf->b_u_line_colnr = curwin->w_cursor.col;
++    if (Unix2003_compat) {
++        /* vi_05 test 276: "U" sets column to start of line */
++        t = 0;
++    } 
+     curwin->w_cursor.col = t;
+     curwin->w_cursor.lnum = curbuf->b_u_line_lnum;
+     check_cursor_col();

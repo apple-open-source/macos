@@ -37,6 +37,7 @@
 #include <sys/stat.h>
 #include <sys/mman.h>
 #include <unistd.h>
+#include <asl.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <CoreFoundation/CFMachPort.h>
@@ -573,18 +574,19 @@ IONotificationPortRef
 IONotificationPortCreate(
 	mach_port_t	masterPort )
 {
-    kern_return_t 	 kr;
-    IONotificationPort * notify;
+    kern_return_t 	        kr;
+    IONotificationPort     *notify;
 
-    if (MACH_PORT_NULL == masterPort)
-	masterPort = __IOGetDefaultMasterPort();
-    else
-	IOObjectRetain(masterPort);
+    if (MACH_PORT_NULL == masterPort) {
+        masterPort = __IOGetDefaultMasterPort();
+    } else {
+        IOObjectRetain(masterPort);
+    }
 
     notify = calloc( 1, sizeof( IONotificationPort));
-    if( !notify)
+    if (!notify) {
         return( 0 );
-
+    }
     notify->masterPort = masterPort;
 
     kr = IOCreateReceivePort(kOSNotificationMessageID, &notify->wakePort);
@@ -600,15 +602,23 @@ void
 IONotificationPortDestroy(
 	IONotificationPortRef	notify )
 {
-    if( notify->source)
-        CFRelease( notify->source);
 
-#if !TARGET_OS_EMBEDDED
-    if (notify->dispatchQueue)
-        dispatch_release(notify->dispatchQueue);
-#endif /* !TARGET_OS_EMBEDDED */
+    if (notify->cfmachPort) {
+        CFMachPortInvalidate(notify->cfmachPort);
+        CFRelease(notify->cfmachPort);
+    }
 
-    mach_port_destroy( mach_task_self(), notify->wakePort);
+    if( notify->source) {
+        CFRelease(notify->source);
+    }
+
+    if (notify->dispatchSource) {
+        dispatch_release(notify->dispatchSource);
+    }
+
+    mach_port_mod_refs(mach_task_self(), notify->wakePort, 
+                        MACH_PORT_RIGHT_RECEIVE, -1);
+
     mach_port_deallocate(mach_task_self(), notify->masterPort);
 
     free( notify );
@@ -618,13 +628,11 @@ CFRunLoopSourceRef
 IONotificationPortGetRunLoopSource(
 	IONotificationPortRef	notify )
 {
-    CFMachPortRef 	cfPort;
-    CFMachPortContext 	context;
-    CFRunLoopSourceRef	cfSource;
-    Boolean		shouldFreeInfo;
+    CFMachPortContext 	    context;
+    Boolean		            cfReusedPort = false;
 
-    if( notify->source)
-        return( notify->source );
+    if (notify->source)
+        return (notify->source);
     
     context.version = 1;
     context.info = (void *) notify;
@@ -632,15 +640,41 @@ IONotificationPortGetRunLoopSource(
     context.release = NULL;
     context.copyDescription = NULL;
 
-    cfPort = CFMachPortCreateWithPort(NULL, notify->wakePort,
-        IODispatchCalloutFromCFMessage, &context, &shouldFreeInfo);
-    if (!cfPort)
-        return( 0 );
+    notify->cfmachPort = CFMachPortCreateWithPort(NULL, notify->wakePort,
+        IODispatchCalloutFromCFMessage, &context, &cfReusedPort);
+    if (!notify->cfmachPort)
+        return NULL;
     
-    cfSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-    CFRelease(cfPort);
-    notify->source = cfSource;
-    return( cfSource );
+    if (cfReusedPort) 
+    {    
+        // We got a CFMachPortRef that CF re-used from its pool.
+        // This is probably a race condition, and this belongs
+        // to a recently dead port. 
+        // We expect a new CFMachPortRef - we treat it as an error.
+
+        CFStringRef     description = NULL;
+        char            str[255];
+        if (notify->cfmachPort) {
+            description = CFCopyDescription(notify->cfmachPort);
+            if (description) {
+                CFStringGetCString(description, str, sizeof(str), kCFStringEncodingUTF8);
+                CFRelease(description);
+            }
+        }
+        
+        asl_log(NULL, NULL, ASL_LEVEL_ERR, 
+                "IOKit.framework:IONotificationPortGetRunLoopSource bad CFMachPort, %s\n", 
+                description ? str : "No Description");
+
+        CFRelease(notify->cfmachPort);
+        notify->cfmachPort = NULL;
+        goto exit;
+    }
+
+    notify->source = CFMachPortCreateRunLoopSource(NULL, notify->cfmachPort, 0);
+
+exit:
+    return (notify->source);
 }
 
 mach_port_t
@@ -650,25 +684,41 @@ IONotificationPortGetMachPort(
     return( notify->wakePort );
 }
 
-#if !TARGET_OS_EMBEDDED
+boolean_t _IODispatchCalloutWithDispatch(mach_msg_header_t *msg, mach_msg_header_t *reply)
+{
+    mig_reply_setup(msg, reply);
+    ((mig_reply_error_t*)reply)->RetCode = MIG_NO_REPLY;
 
-DISPATCH_CFMACHPORT_CALLBACK_DECL(_IODispatchCalloutWithDispatch, IODispatchCalloutFromCFMessage);
+    IODispatchCalloutFromCFMessage(NULL, msg, msg->msgh_size, dispatch_mach_msg_get_context(msg));
+    return TRUE;
+}
+
+#define MAX_MSG_SIZE (8ul * 1024ul - MAX_TRAILER_SIZE)
 
 void
 IONotificationPortSetDispatchQueue(IONotificationPortRef notify, dispatch_queue_t queue)
 {
-    if (notify->dispatchQueue)
-    {
-        dispatch_release(notify->dispatchQueue);
-        notify->dispatchQueue = NULL;
-    }
-    if (queue)
-    {
-	notify->dispatchQueue = dispatch_source_mig_create(notify->wakePort, 0, NULL, queue, _IODispatchCalloutWithDispatch);
-    }
-}
+    if (!queue) return;
 
-#endif /* !TARGET_OS_EMBEDDED */
+    if (notify->dispatchSource)
+    {
+        dispatch_release(notify->dispatchSource);
+        notify->dispatchSource = NULL;
+    }
+
+    notify->dispatchSource = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_RECV, notify->wakePort, 0, queue);
+    dispatch_source_set_event_handler(notify->dispatchSource, ^{
+        dispatch_mig_server(notify->dispatchSource, MAX_MSG_SIZE, _IODispatchCalloutWithDispatch);
+    });
+
+   /* Note: normally, dispatch sources for mach ports should destroy the underlying
+    * mach port in their cancellation handler.  We take care to destroy the port
+    * after we destroy the source in IONotificationPortDestroy(), which gives us the
+    * flexibility of changing the queue used for the dispatch source.
+    */
+
+    dispatch_resume(notify->dispatchSource);
+}
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
@@ -855,7 +905,6 @@ OSGetNotificationFromMessage(
 }
 
 /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
-
 
 void
 IODispatchCalloutFromMessage(void *cfPort, mach_msg_header_t *msg, void *info)
@@ -1114,14 +1163,6 @@ IOServiceOpen(
     kr = io_service_open_extended( service,
 	owningTask, type, NDR_record, NULL, 0, &result, connect );
 
-#if 1
-    if (MIG_BAD_ID == kr)
-    {
-	kr = io_service_open(service, owningTask, type, connect);
-	result = kr;
-    }
-#endif
-
     if (KERN_SUCCESS == kr)
         kr = result;
 
@@ -1332,8 +1373,8 @@ IOConnectCallMethod(
 			    (uint64_t *) input, inputCnt,
 			    inb_input,          inb_input_size,
 			    ool_input,          ool_input_size,
-			    output,             outputCnt,
 			    inb_output,         &inb_output_size,
+			    output,             outputCnt,
 			    ool_output,         &ool_output_size);
 
     if (outputStructCntP) {
@@ -1407,8 +1448,8 @@ IOConnectCallAsyncMethod(
 				  (uint64_t *) input, inputCnt,
 				  inb_input,          inb_input_size,
 				  ool_input,          ool_input_size,
-				  output,             outputCnt,
 				  inb_output,         &inb_output_size,
+				  output,             outputCnt,
 				  ool_output,         &ool_output_size);
 
     if (outputStructCntP) {
@@ -1935,8 +1976,6 @@ IORegistryEntryGetProperty(
 	io_struct_inband_t	buffer,
 	uint32_t	      * size )
 {
-
-
     return( io_registry_entry_get_property_bytes( entry, (char *) name,
 						  buffer, size ));
 }
@@ -2323,7 +2362,7 @@ IOOpenConnection(
 {
     kern_return_t	kr;
 
-    kr = io_service_open( lastRegIter,
+    kr = IOServiceOpen( lastRegIter,
 	owningTask, type, connect );
 
     IOObjectRelease( lastRegIter );
@@ -2507,7 +2546,7 @@ IOMapMemory(
 	atAddress, ofSize, flags));
 }
 
-#if MAP_32B_METHODS || EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
+#if EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
 
 // ILP32 - need to remap up to 64 bit scalars these are helpers
 #define arrayCnt(type)	(sizeof(type)/sizeof(type[0]))
@@ -2528,241 +2567,7 @@ static void deflate_vec(int *dp, int d, uint64_t *sp, int s)
     for (int i = 0; i < d; i++)
 	dp[i] = (int) sp[i];
 }
-#endif // MAP_32B_METHODS || EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
-
-#if MAP_32B_METHODS
-
-// Compatability routines with earlier Mig interface routines
-// Remember only ILP32 ONLY
-kern_return_t
-io_connect_map_memory(
-	io_connect_t		connect,
-	uint32_t		memoryType,
-	task_port_t		intoTask,
-	vm_address_t		*atAddress,
-	vm_size_t		*ofSize,
-	IOOptionBits		options)
-{
-    kern_return_t rtn;
-
-    mach_vm_address_t	machAtAddress =  *atAddress;
-    mach_vm_size_t      machOfSize    =  *ofSize;
-
-    rtn = io_connect_map_memory_into_task(
-	connect, memoryType, intoTask, &machAtAddress, &machOfSize, options);
-
-    // Must be safe as we are have !__LP64__ checked
-    *atAddress = (vm_address_t) machAtAddress;
-    *ofSize    = (vm_size_t)    machOfSize;
-
-    return rtn;
-}
-
-kern_return_t
-io_connect_unmap_memory(
-	io_connect_t		connect,
-	uint32_t		memoryType,
-	task_port_t		fromTask,
-	vm_address_t		atAddress)
-{
-    // Must be safe as we are have !__LP64__ checked
-    return io_connect_unmap_memory_from_task
-	(connect, memoryType, fromTask, (mach_vm_address_t) atAddress);
-}
-
-kern_return_t
-io_connect_method_scalarI_scalarO(
-	mach_port_t connection,
-	int selector,
-	int *input,
-	mach_msg_type_number_t inputCnt,
-	int *output,
-	mach_msg_type_number_t *outputCnt)
-{
-    kern_return_t rtn;
-
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-
-    rtn = IOConnectCallMethod(connection, selector,
-			      scalarData, inputCnt,  NULL,       0,
-			      scalarData, outputCnt, NULL,       NULL);
-
-    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
-    deflate_vec(output, inputCnt, scalarData, arrayCnt(scalarData));
-
-    return rtn;
-}
-
-kern_return_t
-io_async_method_scalarI_scalarO(
-	mach_port_t connection,
-	mach_port_t wakePort,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	int selector,
-	int *input,
-	mach_msg_type_number_t inputCnt,
-	int *output,
-	mach_msg_type_number_t *outputCnt)
-{
-    kern_return_t rtn;
-
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-    io_async_ref64_t refrncData;
-    inflate_vec(refrncData, arrayCnt(refrncData), (int *) reference, referenceCnt);
-
-    rtn = IOConnectCallAsyncMethod(connection, selector, wakePort,
-				   refrncData, referenceCnt,
-				   scalarData, inputCnt,
-				   NULL,       0,
-				   scalarData, outputCnt,
-				   NULL,       NULL);
-
-    inputCnt = (rtn == KERN_SUCCESS && outputCnt)? *outputCnt : 0;
-    deflate_vec(output, inputCnt, scalarData, arrayCnt(scalarData));
-
-    return rtn;
-}
-
-
-kern_return_t
-io_connect_method_scalarI_structureO(
-	mach_port_t connection,
-	int selector,
-	int *input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt)
-{
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-
-    return IOConnectCallMethod(connection, selector,
-			       scalarData, inputCnt,
-			       NULL,       0,
-			       NULL,       NULL,
-			       output,     (size_t *) outputCnt);
-}
-
-kern_return_t
-io_async_method_scalarI_structureO(
-	mach_port_t connection,
-	mach_port_t wakePort,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	int selector,
-	int *input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt)
-{
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-    io_async_ref64_t refrncData;
-    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
-
-    return IOConnectCallAsyncMethod(connection, selector, wakePort,
-				    refrncData, referenceCnt,
-				    scalarData, inputCnt,
-				    NULL,       0,
-				    NULL,       NULL,
-				    output,     (size_t *) outputCnt);
-}
-
-
-kern_return_t
-io_connect_method_scalarI_structureI(
-	mach_port_t connection,
-	int selector,
-	io_scalar_inband_t input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t inputStruct,
-	mach_msg_type_number_t inputStructCnt)
-{
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-
-    return IOConnectCallMethod(connection,  selector,
-			       scalarData,  inputCnt,
-			       inputStruct, inputStructCnt,
-			       NULL,         NULL,
-			       NULL,         NULL);
-}
-
-kern_return_t
-io_async_method_scalarI_structureI(
-	mach_port_t connection,
-	mach_port_t wakePort,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	int selector,
-	io_scalar_inband_t input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t inputStruct,
-	mach_msg_type_number_t inputStructCnt)
-{
-    // ILP32 - need to remap up to 64 bit scalars
-    io_scalar_inband64_t scalarData;
-    inflate_vec(scalarData, arrayCnt(scalarData), input, inputCnt);
-    io_async_ref64_t refrncData;
-    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
-
-    return IOConnectCallAsyncMethod(connection,  selector, wakePort,
-				    refrncData,  referenceCnt,
-				    scalarData,  inputCnt,
-				    inputStruct, inputStructCnt,
-				    NULL,        NULL,
-				    NULL,        NULL);
-}
-
-
-kern_return_t
-io_connect_method_structureI_structureO(
-	mach_port_t connection,
-	int selector,
-	io_struct_inband_t input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt)
-{
-    return IOConnectCallMethod(connection, selector,
-			       NULL,       0,
-			       input,      inputCnt,
-			       NULL,       NULL,
-			       output,     (size_t *) outputCnt);
-}
-
-kern_return_t
-io_async_method_structureI_structureO(
-	mach_port_t connection,
-	mach_port_t wakePort,
-	io_async_ref_t reference,
-	mach_msg_type_number_t referenceCnt,
-	int selector,
-	io_struct_inband_t input,
-	mach_msg_type_number_t inputCnt,
-	io_struct_inband_t output,
-	mach_msg_type_number_t *outputCnt)
-{
-    // ILP32 - need to remap up to 64 bit scalars
-    io_async_ref64_t refrncData;
-    inflate_vec(refrncData, arrayCnt(refrncData), (int*)reference, referenceCnt);
-
-    return IOConnectCallAsyncMethod(connection, selector, wakePort,
-				    refrncData, referenceCnt,
-				    NULL,       0,
-				    input,      inputCnt,
-				    NULL,       NULL,
-				    output,	    (size_t *) outputCnt);
-}
-#endif // MAP_32B_METHODS
+#endif // EMULATE_IOCONNECT_64 || EMULATE_IOCONNECT_ASYNC_64
 
 #if EMULATE_IOCONNECT_64
 kern_return_t io_connect_method
@@ -2925,7 +2730,7 @@ readFile(const char *path, vm_address_t * objAddr, vm_size_t * objSize)
 }
 
 __private_extern__ CFMutableDictionaryRef
-readPlist( const char * path, UInt32 key )
+readPlist( const char * path, UInt32 key __unused )
 {
     IOReturn			err;
     vm_offset_t 		bytes;
@@ -2977,4 +2782,16 @@ writePlist( const char * path, CFMutableDictionaryRef dict, UInt32 key __unused 
     return (result);
 }
 
+/* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
 
+#include <IOKit/IOSharedLock.h>
+
+boolean_t ev_try_lock(OSSpinLock * l)
+{
+    return OSSpinLockTry(l);
+}
+
+void ev_unlock(OSSpinLock * l)
+{
+    OSSpinLockUnlock(l);
+}

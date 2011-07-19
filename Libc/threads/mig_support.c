@@ -74,99 +74,23 @@ mig_init(init_done)
  * can result in a call to malloc() which eventually reenters
  * mig_get_reply_port() and deadlocks.
  */
-mach_port_t
-mig_get_reply_port()
+mach_port_t _mig_get_reply_port()
 {
-	register cproc_t self;
-        pthread_t pself;
-#ifdef	CTHREADS_DEBUG
-	int d = cthread_debug;
-#endif	/* CTHREADS_DEBUG */
+    pthread_t pself;
 
-#ifdef	CTHREADS_DEBUG
-	cthread_debug = FALSE;
-#endif	/* CTHREADS_DEBUG */
-        pself = pthread_self();
-        if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
-            if (pself->reply_port == MACH_PORT_NULL) {
-                pself->reply_port = mach_reply_port();
-            }
-            return pself->reply_port;
-        }
-	self = cproc_self();
-	if (self == NO_CPROC) {
-#ifdef	CTHREADS_DEBUG
-		cthread_debug = d;
-#endif	/* CTHREADS_DEBUG */
-		return(_task_reply_port);
-	}
-        if (self->reply_port == MACH_PORT_NULL) {
-            self->reply_port = mach_reply_port();
-        }
-#ifdef	CTHREADS_DEBUG
-	cthread_debug = d;
-#endif	/* CTHREADS_DEBUG */
-	return self->reply_port;
+    pself = pthread_self();
+    if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
+        return pself->reply_port;
+    }
+    return MACH_PORT_NULL;
 }
 
-/*
- * Called by mig interface code after a timeout on the reply port.
- * May also be called by user. The new mig calls with port passed in
- * We are ignoring this , so is osfmk cthreads code
- */
-void
-mig_dealloc_reply_port(mach_port_t migport)
+void _mig_set_reply_port(mach_port_t port)
 {
-	register cproc_t self;
-        pthread_t pself;
-	register mach_port_t port;
-#ifdef	CTHREADS_DEBUG
-	int d = cthread_debug;
-#endif	/* CTHREADS_DEBUG */
-
-#ifdef	CTHREADS_DEBUG
-	cthread_debug = FALSE;
-#endif	/* CTHREADS_DEBUG */
-        pself = pthread_self();
-        if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
-            port = pself->reply_port;
-            if (port != MACH_PORT_NULL && port != _task_reply_port) {
-                    LOCK(reply_port_lock);
-                    pself->reply_port = _task_reply_port;
-                    (void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-                    pself->reply_port = MACH_PORT_NULL;
-                    UNLOCK(reply_port_lock);
-            }
-            return;
-        }
-	self = cproc_self();
-	if (self == NO_CPROC) {
-#ifdef	CTHREADS_DEBUG
-		cthread_debug = d;
-#endif	/* CTHREADS_DEBUG */
-		return;
-	}
-	ASSERT(self != NO_CPROC);
-	port = self->reply_port;
-        if (port != MACH_PORT_NULL && port != _task_reply_port) {
-		LOCK(reply_port_lock);
-                self->reply_port = _task_reply_port;
-		(void) mach_port_mod_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE, -1);
-                self->reply_port = MACH_PORT_NULL;
-		UNLOCK(reply_port_lock);
-	}
-#ifdef	CTHREADS_DEBUG
-	cthread_debug = d;
-#endif	/* CTHREADS_DEBUG */
-}
-
-/*************************************************************
- *  Called by mig interfaces after each RPC.
- *  Could be called by user.
- ***********************************************************/
-
-void
-mig_put_reply_port(
-	mach_port_t	reply_port)
-{
+    pthread_t pself;
+    pself = pthread_self();
+    
+    if ((pself != (pthread_t)NULL) && (pself->sig == _PTHREAD_SIG)) {
+        pself->reply_port = port;
+    }
 }

@@ -15,7 +15,8 @@ GENMIGHDRS += ${GENMIGDEFS:.defs=.h}
 GENMIGSRCS += ${GENMIGDEFS:.defs=User.c}
 
 MISRCS += ${GENMIGSRCS} NSSystemDirectories.c \
-	asl.c asl_core.c asl_file.c asl_legacy1.c asl_store.c asl_util.c \
+	asl.c asl_core.c asl_file.c asl_legacy1.c asl_msg.c asl_store.c asl_util.c \
+	assumes.c \
 	backtrace.c \
 	cache.c confstr.c crypt.c devname.c disklabel.c errlst.c \
 	filesec.c fts.c \
@@ -23,7 +24,8 @@ MISRCS += ${GENMIGSRCS} NSSystemDirectories.c \
 	isinf.c isnan.c \
 	malloc.c nanosleep.c nftw.c magazine_malloc.c setlogin.c \
 	sigsetops.c _simple.c stack_logging.c stack_logging_disk.c strtofflags.c syslog.c \
-	thread_stack_pcs.c uname.c utmpx-darwin.c wordexp.c
+	thread_stack_pcs.c uname.c utmpx-darwin.c wordexp.c \
+	platfunc.c
 
 .ifdef FEATURE_LEGACY_NXZONE_APIS
 MISRCS += zone.c
@@ -38,19 +40,27 @@ ${SYMROOTINC}/magmallocProvider.h: ${.CURDIR}/gen/magmallocProvider.d
 magazine_malloc.${OBJSUFFIX}: ${SYMROOTINC}/magmallocProvider.h
 malloc.${OBJSUFFIX}: ${SYMROOTINC}/magmallocProvider.h
 
-# Force these files to build after the mig stuff
-asl.${OBJSUFFIX}: asl_ipcUser.c
-syslog.${OBJSUFFIX}: asl_ipcUser.c
-utmpx-darwin.${OBJSUFFIX}: asl_ipcUser.c
+# Force the ASL-related mig files to build first
+BUILDFIRST += asl_ipcUser.c
 
 CLEANFILES += ${GENMIGHDRS} ${GENMIGSRCS} ${GENMIGDEFS:.defs=Server.c}
 
-LOCALHDRS += ${.CURDIR}/gen/asl_core.h ${.CURDIR}/gen/asl_file.h ${.CURDIR}/gen/asl_legacy1.h \
-	${.CURDIR}/gen/asl_private.h ${.CURDIR}/gen/asl_store.h \
-	${.CURDIR}/gen/_simple.h ${.CURDIR}/gen/stack_logging.h
+LOCALHDRS += \
+	${.CURDIR}/gen/asl_core.h \
+	${.CURDIR}/gen/asl_file.h \
+	${.CURDIR}/gen/asl_ipc.defs \
+	${.CURDIR}/gen/asl_legacy1.h \
+	${.CURDIR}/gen/asl_msg.h \
+	${.CURDIR}/gen/asl_private.h \
+	${.CURDIR}/gen/asl_store.h \
+	${.CURDIR}/gen/assumes.h \
+	${.CURDIR}/gen/_simple.h \
+	${.CURDIR}/gen/stack_logging.h \
+	${.CURDIR}/gen/utmpx_thread.h
 
 CFLAGS-asl_file.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-asl_legacy1.c += -D_DARWIN_UNLIMITED_STREAMS
+CFLAGS-asl_msg.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-asl_store.c += -D_DARWIN_UNLIMITED_STREAMS
 CFLAGS-confstr.c += -I${.CURDIR}/darwin
 CFLAGS-fmtmsg-fbsd.c += -D_DARWIN_UNLIMITED_STREAMS
@@ -79,7 +89,7 @@ LDBLSRCS += asl.c err.c syslog.c
 .include "Makefile.fbsd_begin"
 FBSDMISRCS = _rand48.c alarm.c arc4random.c assert.c \
 	basename.c clock.c closedir.c ctermid.c \
-	daemon.c dirname.c drand48.c erand48.c err.c errno_.c exec.c \
+	daemon.c dirname.c drand48.c erand48.c err.c exec.c \
 	fmtcheck.c fmtmsg.c fnmatch.c ftok.c \
 	getbsize.c getcap.c getcwd.c gethostname.c getpeereid.c \
 	getlogin.c getmntinfo.c getpagesize.c getprogname.c glob.c isatty.c \
@@ -157,7 +167,21 @@ CANCELABLESRCS += lockf.c nanosleep.c pause.c pselect.c sleep.c termios.c \
 	usleep.c wait.c waitpid.c
 CANCELABLE-DARWINEXTSNSRCS += pselect.c
 DARWINEXTSNSRCS += popen.c pselect.c
-DYLDSRCS += _simple.c
+
+DYLDSRCS += \
+	_simple.c \
+	arc4random.c \
+	closedir.c \
+	getcwd.c \
+	getpagesize.c \
+	nanosleep.c \
+	opendir.c \
+	readdir.c \
+	scandir.c \
+	sysctl.c \
+	sysctlbyname.c \
+	telldir.c \
+	usleep.c
 
 # include __dirent.h to rename DIR structure elements
 .for _src in closedir-fbsd.c opendir-fbsd.c readdir-fbsd.c rewinddir-fbsd.c \
@@ -244,7 +268,9 @@ NBSDMAN5= utmpx.5
 .include "Makefile.nbsd_end"
 
 MLINKS+= arc4random.3 arc4random_addrandom.3	\
-         arc4random.3 arc4random_stir.3
+         arc4random.3 arc4random_buf.3		\
+         arc4random.3 arc4random_stir.3		\
+         arc4random.3 arc4random_uniform.3
 
 MLINKS+= asl.3 asl_add_log_file.3		\
          asl.3 asl_close.3			\

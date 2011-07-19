@@ -1,65 +1,3 @@
-diff -Naur net-snmp-5.4.1 net-snmp
---- net-snmp-5.4.1/configure	2007-06-29 21:37:23.000000000 -0700
-+++ net-snmp/configure	2007-07-03 01:26:53.000000000 -0700
-@@ -9377,9 +9377,9 @@
-       link_all_deplibs=yes
-     if test "$GCC" = yes ; then
-     	output_verbose_link_cmd='echo'
--        archive_cmds="\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
-+        archive_cmds="\$CC -dynamiclib -single_module \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring $_lt_dar_single_mod${_lt_dsymutil}"
-         module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
--        archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
-+        archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib -single_module \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
-         module_expsym_cmds="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"
-     else
-       case $cc_basename in
---- net-snmp-5.4.1/agent/Makefile.in	2007-06-29 15:18:27.000000000 -0700
-+++ net-snmp/agent/Makefile.in	2007-07-03 01:26:53.000000000 -0700
-@@ -86,6 +86,12 @@
- PERLLDOPTS_FOR_LIBS = @PERLLDOPTS_FOR_LIBS@
- LIBS		= $(USELIBS) @AGENTLIBS@ $(PERLLDOPTS_FOR_APPS)
- OUR_AGENT_LIBS	= $(AGENTLIB) $(HELPERLIB) $(MIBLIB) $(LIBS) @DLLIBS@
-+ifeq ($(shell uname -s),Darwin)
-+FRAMEWORKS      = -framework IOKit -framework CoreFoundation -framework CoreServices -framework ApplicationServices -framework DiskArbitration
-+OUR_AGENT_LIBS += $(FRAMEWORKS)
-+#LIB_LD_LIBS    = $(USELIBS) $(HELPERLIB)
-+LIB_LD_LIBS    += $(FRAMEWORKS)
-+endif
- CPPFLAGS	= $(TOP_INCLUDES) -I. $(AGENT_INCLUDES) $(MIBGROUP_INCLUDES) \
- 		  $(SNMPLIB_INCLUDES) @CPPFLAGS@ 
- 
-@@ -143,12 +149,12 @@
- 
- 
- libnetsnmpagent.$(LIB_EXTENSION)$(LIB_VERSION):    ${LLIBAGENTOBJS} $(USELIBS)
--	$(LIB_LD_CMD) $(AGENTLIB) ${LLIBAGENTOBJS} $(USELIBS) ${LAGENTLIBS} $(LDFLAGS) $(PERLLDOPTS_FOR_LIBS) $(LIB_LD_LIBS)
--	$(RANLIB) $(AGENTLIB)
-+	$(LIB_LD_CMD) $@ ${LLIBAGENTOBJS} $(USELIBS) $(LAGENTLIBS) $(LDFLAGS) $(PERLLDOPTS_FOR_LIBS) $(LIB_LD_LIBS)
-+	$(RANLIB) $@
- 
- libnetsnmpmibs.$(LIB_EXTENSION)$(LIB_VERSION):    ${LMIBOBJS} $(HELPERLIB) $(AGENTLIB) $(USELIBS)
--	$(LIB_LD_CMD) $(MIBLIB) ${LMIBOBJS} $(HELPERLIB) $(AGENTLIB) $(USELIBS) ${LMIBLIBS} $(LDFLAGS) $(LIB_LD_LIBS)
--	$(RANLIB) $(MIBLIB)
-+	$(LIB_LD_CMD) $@ ${LMIBOBJS} $(HELPERLIB) $(AGENTLIB) $(USELIBS) ${LMIBLIBS} $(LDFLAGS) $(LIB_LD_LIBS)
-+	$(RANLIB) $@
- 
- agentlib: $(AGENTLIB)
- 
---- net-snmp-5.4.1/agent/helpers/Makefile.in	2007-06-26 14:45:20.000000000 -0700
-+++ net-snmp/agent/helpers/Makefile.in	2007-07-03 01:43:16.000000000 -0700
-@@ -137,8 +137,11 @@
- 	table_tdata.lo \
- 	watcher.lo
- 
-+USELIBS = $(top_builddir)/snmplib/libnetsnmp.$(LIB_EXTENSION)$(LIB_VERSION)
-+LIBS = $(USELIBS)
-+
- all: standardall
- 
- libnetsnmphelpers.$(LIB_EXTENSION)$(LIB_VERSION):    $(LOBJS)
--	$(LIB_LD_CMD) $@ $(LOBJS) $(AGENTLIB) $(NETSNMPLIB) $(LDFLAGS) $(LIB_LD_LIBS)
-+	$(LIB_LD_CMD) $@ $(LOBJS) $(LIBS) $(AGENTLIB) $(NETSNMPLIB) $(LDFLAGS) $(LIB_LD_LIBS)
- 	$(RANLIB) $@
 --- net-snmp-5.4.1/apps/Makefile.in	2007-06-29 15:18:27.000000000 -0700
 +++ net-snmp/apps/Makefile.in	2007-07-03 01:26:53.000000000 -0700
 @@ -70,6 +70,13 @@
@@ -76,3 +14,25 @@ diff -Naur net-snmp-5.4.1 net-snmp
  OSUFFIX		= lo
  TRAPD_OBJECTS   = snmptrapd.$(OSUFFIX) @other_trapd_objects@
  LIBTRAPD_OBJS   = snmptrapd_handlers.o  snmptrapd_log.o \
+
+diff -Naur net-snmp-5.6.orig/agent/Makefile.in net-snmp-5.6.working/agent/Makefile.in
+--- net-snmp-5.6.orig/agent/Makefile.in	2010-06-08 14:05:11.000000000 -0700
++++ net-snmp-5.6.working/agent/Makefile.in	2011-01-29 14:58:40.000000000 -0800
+@@ -119,10 +119,15 @@
+ PERLLDOPTS_FOR_LIBS = @PERLLDOPTS_FOR_LIBS@
+ LIBS		= $(USELIBS) @AGENTLIBS@ $(PERLLDOPTS_FOR_APPS)
+ OUR_AGENT_LIBS	= $(AGENTLIB) $(MIBLIB) $(LIBS) @DLLIBS@
++
++FRAMEWORKS      = -framework IOKit -framework CoreFoundation -framework CoreServices -framework ApplicationServices -framework DiskArbitration
++OUR_AGENT_LIBS += $(FRAMEWORKS)
++#LIB_LD_LIBS    = $(USELIBS) $(HELPERLIB)
++LIB_LD_LIBS    += $(FRAMEWORKS)
++
+ CPPFLAGS	= $(TOP_INCLUDES) -I. $(AGENT_INCLUDES) $(MIBGROUP_INCLUDES) \
+ 		  $(SNMPLIB_INCLUDES) @CPPFLAGS@ 
+ 
+-
+ #
+ # Objects
+ #
+

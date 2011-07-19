@@ -60,9 +60,11 @@
 
 //%%% BUG FIX - 2 missing include files when not using
 // the bison files
+#ifdef HAVE_OPENSSL
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
-
+#endif
+	
 #include "var.h"
 #include "misc.h"
 #include "vmbuf.h"
@@ -85,11 +87,7 @@
 #include "gcmalloc.h"
 #endif
 
-#ifdef __APPLE__
 #include "y.tab.h"
-#else
-#include "cfparse.h"
-#endif
 
 int yyerrorcount = 0;
 
@@ -321,9 +319,15 @@ hexstring	0x{hexdigit}+
 <S_RMTS>certificate_type	{ YYD; return(CERTIFICATE_TYPE); }
 <S_RMTS>ca_type		{ YYD; return(CA_TYPE); }
 <S_RMTS>x509		{ YYD; yylval.num = ISAKMP_CERT_X509SIGN; return(CERT_X509); }
-<S_RMTS>plain_rsa	{ YYD; yylval.num = ISAKMP_CERT_PLAINRSA; return(CERT_PLAINRSA); }
+<S_RMTS>plain_rsa	{
+#ifdef HAVE_OPENSSL
+	YYD; yylval.num = ISAKMP_CERT_PLAINRSA; return(CERT_PLAINRSA); 
+#else
+	yyerror("plainrsa not supported.");
+#endif
+}
 <S_RMTS>open_dir_auth_group	{ 
-#if defined(__APPLE__) && HAVE_OPENDIR
+#if HAVE_OPENDIR
 	YYD; 
 	return(OPEN_DIR_AUTH_GROUP); 
 #else
@@ -331,28 +335,16 @@ hexstring	0x{hexdigit}+
 #endif
 }
 <S_RMTS>shared_secret { 
-#ifdef __APPLE__
 	YYD; 
 	return(SHARED_SECRET); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 <S_RMTS>in_keychain { 
-#ifdef __APPLE__
 	YYD; 
 	return(IN_KEYCHAIN); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 <S_RMTS>certificate_verification { 
-#ifdef __APPLE__
 	YYD; 
 	return(CERTIFICATE_VERIFICATION); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 <S_RMTS>peers_certfile	{ YYD; return(PEERS_CERTFILE); }
 <S_RMTS>dnssec		{ YYD; return(DNSSEC); }
@@ -368,20 +360,12 @@ hexstring	0x{hexdigit}+
 <S_RMTS>nat_traversal	{ YYD; return(NAT_TRAVERSAL); }
 <S_RMTS>force		{ YYD; yylval.num = NATT_FORCE; return(NAT_TRAVERSAL_LEVEL); }
 <S_RMTS>nat_traversal_multi_user {
-#ifdef __APPLE__
 	YYD; 
 	return(NAT_TRAVERSAL_MULTI_USER);
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif 
 }
 <S_RMTS>nat_traversal_keepalive {
-#ifdef __APPLE__
 	YYD; 
 	return(NAT_TRAVERSAL_KEEPALIVE);
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif 
 }
 <S_RMTS>proposal_check	{ YYD; return(PROPOSAL_CHECK); }
 <S_RMTS>obey		{ YYD; yylval.num = PROP_CHECK_OBEY; return(PROPOSAL_CHECK_LEVEL); }
@@ -596,13 +580,9 @@ user_fqdn	{ YYD; yylval.num = IDTYPE_USERFQDN; return(IDENTIFIERTYPE); }
 fqdn		{ YYD; yylval.num = IDTYPE_FQDN; return(IDENTIFIERTYPE); }
 keyid		{ YYD; yylval.num = IDTYPE_KEYID; return(IDENTIFIERTYPE); }
 keyid_use	{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = IDTYPE_KEYIDUSE; 
 	return(IDENTIFIERTYPE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 address		{ YYD; yylval.num = IDTYPE_ADDRESS; return(IDENTIFIERTYPE); }
 subnet		{ YYD; yylval.num = IDTYPE_SUBNET; return(IDENTIFIERTYPE); }
@@ -611,25 +591,17 @@ certname	{ YYD; yywarn("certname will be obsoleted in near future."); yylval.num
 
 	/* shared secret type */
 use		{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = SECRETTYPE_USE; 
 	return(SECRETTYPE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 key		{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = SECRETTYPE_KEY; 
 	return(SECRETTYPE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 keychain	{ 
-#if defined(__APPLE__) && HAVE_KEYCHAIN
+#if HAVE_KEYCHAIN
 	YYD; 
 	yylval.num = SECRETTYPE_KEYCHAIN; 
 	return(SECRETTYPE); 
@@ -638,51 +610,31 @@ keychain	{
 #endif
 }
 keychain_by_id	{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = SECRETTYPE_KEYCHAIN_BY_ID; 
 	return(SECRETTYPE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 
 	/* certificate verification */
 openssl			{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = VERIFICATION_MODULE_OPENSSL; 
 	return(VERIFICATION_MODULE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 sec_framework	{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = VERIFICATION_MODULE_SEC_FRAMEWORK; 
 	return(VERIFICATION_MODULE); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 use_open_dir	{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = VERIFICATION_OPTION_OPEN_DIR; 
 	return(VERIFICATION_OPTION); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 use_peers_identifier	{ 
-#ifdef __APPLE__
 	YYD; 
 	yylval.num = VERIFICATION_OPTION_PEERS_IDENTIFIER; 
 	return(VERIFICATION_OPTION); 
-#else
-	yyerror("Apple specific features not compiled in.");
-#endif
 }
 
 	/* identifier qualifier */
@@ -774,7 +726,9 @@ no		{ YYD; yylval.num = FALSE; return(BOOLEAN); }
 			yy_delete_buffer(YY_CURRENT_BUFFER);
 			incstackp--;
     nextfile:
-			if (incstack[incstackp].matchon <
+			if (incstack[incstackp].matches.gl_pathc != 0 &&
+				incstack[incstackp].matches.gl_pathv &&
+				incstack[incstackp].matchon <
 			    incstack[incstackp].matches.gl_pathc) {
 				char* filepath = incstack[incstackp].matches.gl_pathv[incstack[incstackp].matchon];
 				incstack[incstackp].matchon++;

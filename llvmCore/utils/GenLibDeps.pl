@@ -9,10 +9,12 @@
 # Syntax:   GenLibDeps.pl [-flat] <directory_with_libraries_in_it> [path_to_nm_binary]
 #
 use strict;
-
+use warnings;
 # Parse arguments... 
 my $FLAT = 0;
 my $WHY = 0;
+my $PEROBJ = 0;
+my $PEROBJINCL = 0;
 while (scalar(@ARGV) and ($_ = $ARGV[0], /^[-+]/)) {
   shift;
   last if /^--$/;  # Stop processing arguments on --
@@ -20,6 +22,8 @@ while (scalar(@ARGV) and ($_ = $ARGV[0], /^[-+]/)) {
   # List command line options here...
   if (/^-flat$/)     { $FLAT = 1; next; }
   if (/^-why/)       { $WHY = 1; $FLAT = 1; next; }
+  if (/^-perobj$/)    { $PEROBJ = 1; next; }
+  if (/^-perobjincl/) { $PEROBJINCL = 1; next;}
   print "Unknown option: $_ : ignoring!\n";
 }
 
@@ -38,9 +42,26 @@ if (!$FLAT) {
   die "Can't find 'dot'" if (! -x "$DotPath");
 }
 
+if (defined($ENV{NM})) {
+  chomp($nmPath=$ENV{NM});
+}
+
 if (!defined($nmPath) || $nmPath eq "") {
   chomp($nmPath=`which nm`);
   die "Can't find 'nm'" if (! -x "$nmPath");
+}
+
+my $ranlibPath;
+if ($PEROBJ) {
+  $ranlibPath = $ARGV[2];
+  if (defined($ENV{RANLIB})) {
+    chomp($ranlibPath=$ENV{RANLIB});
+  }
+
+  if (!defined($ranlibPath) || $ranlibPath eq "") {
+    chomp($ranlibPath=`which ranlib`);
+    die "Can't find 'ranlib'" if (! -x "$ranlibPath");
+  }
 }
 
 # Open the directory and read its contents, sorting by name and differentiating
@@ -49,6 +70,8 @@ opendir DIR,$Directory;
 my @files = readdir DIR;
 closedir DIR;
 my @libs = grep(/libLLVM.*\.(dylib|so|a)$/,sort(@files));
+# Omit the all-of-llvm shared library.
+@libs = grep(!/libLLVM-\d\.\d(svn)?\.(dylib|so)/, @libs);
 my @objs = grep(/LLVM.*\.o$/,sort(@files));
 
 # Declare the hashes we will use to keep track of the library and object file
@@ -56,6 +79,93 @@ my @objs = grep(/LLVM.*\.o$/,sort(@files));
 my %libdefs;
 my %objdefs;
 
+my %libobjs;
+my %objdeps=();
+# Gather library definitions at object file granularity (optional)
+if ($PEROBJ) {
+  foreach my $lib (@libs ) {
+    `$ranlibPath $Directory/$lib`;
+    my $libpath = $lib;
+    $libpath =~ s/^libLLVM(.*)\.a/$1/;
+    $libpath =~ s/(.+)CodeGen$/Target\/$1/;
+    $libpath =~ s/(.+)AsmPrinter$/Target\/$1\/AsmPrinter/;
+    $libpath =~ s/(.+)AsmParser$/Target\/$1\/AsmParser/;
+    $libpath =~ s/(.+)Info$/Target\/$1\/TargetInfo/;
+    $libpath =~ s/(.+)Disassembler$/Target\/$1\/Disassembler/;
+    $libpath =~ s/SelectionDAG/CodeGen\/SelectionDAG/;
+    $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
+    $libpath =~ s/^BitReader/Bitcode\/Reader/;
+    $libpath =~ s/^BitWriter/Bitcode\/Writer/;
+    $libpath =~ s/^CBackend/Target\/CBackend/;
+    $libpath =~ s/^CppBackend/Target\/CppBackend/;
+    $libpath =~ s/^MSIL/Target\/MSIL/;
+    $libpath =~ s/^Core/VMCore/;
+    $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;
+    $libpath =~ s/^Interpreter/ExecutionEngine\/Interpreter/;
+    $libpath =~ s/^JIT/ExecutionEngine\/JIT/;
+    $libpath =~ s/^ScalarOpts/Transforms\/Scalar/;
+    $libpath =~ s/^TransformUtils/Transforms\/Utils/;
+    $libpath =~ s/^ipa/Analysis\/IPA/;
+    $libpath =~ s/^ipo/Transforms\/IPO/;
+    $libpath =~ s/^pic16passes/Target\/PIC16\/PIC16Passes/;
+    $libpath = "lib/".$libpath."/";
+    open DEFS, "$nmPath -sg $Directory/$lib|";
+    while (<DEFS>) {
+      chomp;
+      if (/^([^ ]*) in ([^ ]*)/) {
+        my $objfile = $libpath.$2;
+        $objdefs{$1} = $objfile;
+        $objdeps{$objfile} = {};
+        $libobjs{$lib}{$objfile}=1;
+#        my $p = "../llvm/".$objfile;
+#        $p =~ s/Support\/reg(.*).o/Support\/reg$1.c/;
+#        $p =~ s/.o$/.cpp/;
+#        unless (-e $p) {
+#          die "$p\n"
+#        }
+      }
+    }
+    close DEFS or die "nm failed";
+  }
+  foreach my $lib (@libs ) {
+    my $libpath = $lib;
+    $libpath =~ s/^libLLVM(.*)\.a/$1/;
+    $libpath =~ s/(.+)CodeGen$/Target\/$1/;
+    $libpath =~ s/(.+)AsmPrinter$/Target\/$1\/AsmPrinter/;
+    $libpath =~ s/(.+)AsmParser$/Target\/$1\/AsmParser/;
+    $libpath =~ s/(.+)Info$/Target\/$1\/TargetInfo/;
+    $libpath =~ s/(.+)Disassembler$/Target\/$1\/Disassembler/;
+    $libpath =~ s/SelectionDAG/CodeGen\/SelectionDAG/;
+    $libpath =~ s/^AsmPrinter/CodeGen\/AsmPrinter/;
+    $libpath =~ s/^BitReader/Bitcode\/Reader/;
+    $libpath =~ s/^BitWriter/Bitcode\/Writer/;
+    $libpath =~ s/^CBackend/Target\/CBackend/;
+    $libpath =~ s/^CppBackend/Target\/CppBackend/;
+    $libpath =~ s/^MSIL/Target\/MSIL/;
+    $libpath =~ s/^Core/VMCore/;
+    $libpath =~ s/^Instrumentation/Transforms\/Instrumentation/;
+    $libpath =~ s/^Interpreter/ExecutionEngine\/Interpreter/;
+    $libpath =~ s/^JIT/ExecutionEngine\/JIT/;
+    $libpath =~ s/^ScalarOpts/Transforms\/Scalar/;
+    $libpath =~ s/^TransformUtils/Transforms\/Utils/;
+    $libpath =~ s/^ipa/Analysis\/IPA/;
+    $libpath =~ s/^ipo/Transforms\/IPO/;
+    $libpath =~ s/^pic16passes/Target\/PIC16\/PIC16Passes/;
+    $libpath = "lib/".$libpath."/";
+    open UDEFS, "$nmPath -Aup $Directory/$lib|";
+    while (<UDEFS>) {
+      chomp;
+      if (/:([^:]+):/) {
+        my $obj = $libpath.$1;
+        s/[^ ]+: *U //;
+        if (defined($objdefs{$_})) {
+          $objdeps{$obj}{$objdefs{$_}}=1;
+        }
+      }
+    }
+    close UDEFS or die "nm failed"
+  }
+} else {
 # Gather definitions from the libraries
 foreach my $lib (@libs ) {
   open DEFS, "$nmPath -g $Directory/$lib|";
@@ -67,6 +177,7 @@ foreach my $lib (@libs ) {
     $libdefs{$_} = $lib;
   }
   close DEFS or die "nm failed";
+}
 }
 
 # Gather definitions from the object files.
@@ -96,7 +207,7 @@ sub gen_one_entry {
     print "  <dt><b>$lib</b</dt><dd><ul>\n";
   }
   open UNDEFS, 
-    "$nmPath -g -u $Directory/$lib | sed -e 's/^[ 0]* U //' | sort | uniq |";
+    "$nmPath -u $Directory/$lib | sed -e 's/^[ 0]* U //' | sort | uniq |";
   my %DepLibs;
   while (<UNDEFS>) {
     chomp;
@@ -105,6 +216,11 @@ sub gen_one_entry {
       $DepLibs{$libdefs{$_}} = [] unless exists $DepLibs{$libdefs{$_}};
       push(@{$DepLibs{$libdefs{$_}}}, $_);
     } elsif (defined($objdefs{$_}) && $objdefs{$_} ne $lib) {
+      if ($PEROBJ && !$PEROBJINCL) {
+        # -perobjincl makes .a files depend on .o files they contain themselves
+        # default is don't depend on these.
+        next if defined $libobjs{$lib}{$objdefs{$_}};
+      }
       my $libroot = $lib;
       $libroot =~ s/lib(.*).a/$1/;
       if ($objdefs{$_} ne "$libroot.o") {
@@ -116,7 +232,7 @@ sub gen_one_entry {
   close UNDEFS or die "nm failed";
   unless(keys %DepLibs) {
     # above failed
-    open UNDEFS, "$nmPath -g -u $Directory/$lib |";
+    open UNDEFS, "$nmPath -u $Directory/$lib |";
     while (<UNDEFS>) {
       # to bypass non-working sed
       if ('  ' eq substr($_,0,2) and index($_,'U ')) {
@@ -139,6 +255,25 @@ sub gen_one_entry {
       }
     }
     close UNDEFS or die "nm failed";
+  }
+  if ($PEROBJINCL) {
+     # include the .a's objects
+     for my $obj (keys %{$libobjs{$lib}}) {
+        $DepLibs{$obj} = ["<.a object>"] unless exists $DepLibs{$obj};
+     }
+     my $madechange = 1;
+     while($madechange) {
+      $madechange = 0;
+      my %temp = %DepLibs;
+      foreach my $obj (keys %DepLibs) {
+        foreach my $objdeps (keys %{$objdeps{$obj}}) {
+          next if defined $temp{$objdeps};
+          push(@{$temp{$objdeps}}, $obj);
+          $madechange = 1;
+        }
+      }
+      %DepLibs = %temp;
+     }
   }
 
   for my $key (sort keys %DepLibs) {
@@ -203,6 +338,18 @@ if (!$FLAT) {
 # Print libraries first
 foreach my $lib (@libs) {
   gen_one_entry($lib);
+}
+
+if ($PEROBJ) {
+  foreach my $obj (keys %objdeps) {
+     print "$obj:";
+     if (!$PEROBJINCL) {
+      foreach my $dep (keys %{$objdeps{$obj}}) {
+          print " $dep";
+      }
+    }
+     print "\n";
+  }
 }
 
 if (!$FLAT) {

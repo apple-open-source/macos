@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: sslgen.c,v 1.48 2009-05-04 21:57:14 bagder Exp $
  ***************************************************************************/
 
 /* This file is for implementing all "generic" SSL functions that all libcurl
@@ -32,6 +31,7 @@
    Curl_ossl_ - prefix for OpenSSL ones
    Curl_gtls_ - prefix for GnuTLS ones
    Curl_nss_ - prefix for NSS ones
+   Curl_polarssl_ - prefix for PolarSSL ones
 
    Note that this source code uses curlssl_* functions, and they are all
    defines/macros #defined by the lib-specific header files.
@@ -56,6 +56,8 @@
 #include "gtls.h"   /* GnuTLS versions */
 #include "nssg.h"   /* NSS versions */
 #include "qssl.h"   /* QSOSSL versions */
+#include "polarssl.h" /* PolarSSL versions */
+#include "axtls.h"  /* axTLS versions */
 #include "sendf.h"
 #include "rawstr.h"
 #include "url.h"
@@ -105,30 +107,40 @@ Curl_clone_ssl_config(struct ssl_config_data *source,
     if(!dest->CAfile)
       return FALSE;
   }
+  else
+    dest->CAfile = NULL;
 
   if(source->CApath) {
     dest->CApath = strdup(source->CApath);
     if(!dest->CApath)
       return FALSE;
   }
+  else
+    dest->CApath = NULL;
 
   if(source->cipher_list) {
     dest->cipher_list = strdup(source->cipher_list);
     if(!dest->cipher_list)
       return FALSE;
   }
+  else
+    dest->cipher_list = NULL;
 
   if(source->egdsocket) {
     dest->egdsocket = strdup(source->egdsocket);
     if(!dest->egdsocket)
       return FALSE;
   }
+  else
+    dest->egdsocket = NULL;
 
   if(source->random_file) {
     dest->random_file = strdup(source->random_file);
     if(!dest->random_file)
       return FALSE;
   }
+  else
+    dest->random_file = NULL;
 
   return TRUE;
 }
@@ -338,8 +350,11 @@ CURLcode Curl_ssl_addsessionid(struct connectdata *conn,
   store->name = clone_host;               /* clone host name */
   store->remote_port = conn->remote_port; /* port number */
 
-  if(!Curl_clone_ssl_config(&conn->ssl_config, &store->ssl_config))
+  if(!Curl_clone_ssl_config(&conn->ssl_config, &store->ssl_config)) {
+    store->sessionid = NULL; /* let caller free sessionid */
+    free(clone_host);
     return CURLE_OUT_OF_MEMORY;
+  }
 
   return CURLE_OK;
 }
@@ -399,41 +414,6 @@ struct curl_slist *Curl_ssl_engines_list(struct SessionHandle *data)
   return curlssl_engines_list(data);
 }
 
-/* return number of sent (non-SSL) bytes */
-ssize_t Curl_ssl_send(struct connectdata *conn,
-                      int sockindex,
-                      const void *mem,
-                      size_t len)
-{
-  return curlssl_send(conn, sockindex, mem, len);
-}
-
-/* return number of received (decrypted) bytes */
-
-/*
- * If the read would block (EWOULDBLOCK) we return -1. Otherwise we return
- * a regular CURLcode value.
- */
-ssize_t Curl_ssl_recv(struct connectdata *conn, /* connection data */
-                      int sockindex,            /* socketindex */
-                      char *mem,                /* store read data here */
-                      size_t len)               /* max amount to read */
-{
-  ssize_t nread;
-  bool block = FALSE;
-
-  nread = curlssl_recv(conn, sockindex, mem, len, &block);
-  if(nread == -1) {
-    if(!block)
-      return 0; /* this is a true error, not EWOULDBLOCK */
-    else
-      return -1;
-  }
-
-  return nread;
-}
-
-
 /*
  * This sets up a session ID cache to the specified size. Make sure this code
  * is agnostic to what underlying SSL technology we use.
@@ -446,7 +426,7 @@ CURLcode Curl_ssl_initsessions(struct SessionHandle *data, long amount)
     /* this is just a precaution to prevent multiple inits */
     return CURLE_OK;
 
-  session = calloc(sizeof(struct curl_ssl_session), amount);
+  session = calloc(amount, sizeof(struct curl_ssl_session));
   if(!session)
     return CURLE_OUT_OF_MEMORY;
 

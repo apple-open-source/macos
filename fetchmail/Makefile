@@ -23,7 +23,7 @@ post-install:
 
 # Automatic Extract & Patch
 AEP_Project    = fetchmail
-AEP_Version    = 6.3.11
+AEP_Version    = 6.3.18
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.bz2
 AEP_ExtractDir = $(AEP_ProjVers)

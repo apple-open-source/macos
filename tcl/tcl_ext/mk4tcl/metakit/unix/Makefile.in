@@ -107,6 +107,7 @@ install-tcl: Mk4tcl$(LIBEXT)
 	echo 'package ifneeded Mk4tcl 2.4.9.7 [list load [file join $$dir Mk4tcl$(LIBEXT)] Mk4tcl]' >$(DESTDIR)$(tcllibdir)/Mk4tcl/pkgIndex.tcl
 
 install-python: Mk4py$(LIBEXT)
+	mkdir -p $(DESTDIR)$(pylibdir)
 	$(INSTALL_PROGRAM) Mk4py$(LIBEXT) $(DESTDIR)$(pylibdir)
 	$(INSTALL_PROGRAM) $(srcdir)/../python/metakit.py $(DESTDIR)$(pylibdir)
 

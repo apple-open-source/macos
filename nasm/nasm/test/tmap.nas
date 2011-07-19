@@ -4,7 +4,7 @@
 
 ;;-----------------------------------------------------------------------------
 ;;
-;; $Id: tmap.nas,v 1.1.1.1 2005/10/13 22:21:48 echristo Exp $
+;; $Id: tmap.nas,v 1.1.1.1 2005-10-13 22:21:48 echristo Exp $
 ;;
 ;; Copyright (C) 1998-2000 by DooM Legacy Team.
 ;;
@@ -19,10 +19,7 @@
 ;; GNU General Public License for more details.
 ;;
 ;;
-;; $Log: tmap.nas,v $
-;; Revision 1.1.1.1  2005/10/13 22:21:48  echristo
-;; import nasm
-;;
+;; $Log: not supported by cvs2svn $
 ;; Revision 1.10  2001/02/24 13:35:21  bpereira
 ;; no message
 ;;

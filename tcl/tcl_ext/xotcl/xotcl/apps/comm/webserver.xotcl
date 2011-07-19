@@ -4,7 +4,7 @@ array set opts {-root ../../doc -port 8086 -protected-port 9096 -pkgdir .}
 array set opts $argv
 lappend auto_path $opts(-pkgdir)
 #if {$::tcl_platform(platform) eq "windows"} {lappend auto_path .}
-package require XOTcl; namespace import -force xotcl::*
+package require XOTcl 1; namespace import -force xotcl::*
 
 proc ! string {
   set f [open [::xotcl::tmpdir]/log w+]; 

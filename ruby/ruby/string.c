@@ -3,7 +3,7 @@
   string.c -
 
   $Author: shyouhei $
-  $Date: 2009-02-17 11:59:26 +0900 (Tue, 17 Feb 2009) $
+  $Date: 2009-12-14 00:59:51 +0900 (Mon, 14 Dec 2009) $
   created at: Mon Aug  9 17:12:58 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -2641,8 +2641,8 @@ rb_str_inspect(str)
     p = RSTRING(str)->ptr; pend = p + RSTRING(str)->len;
     while (p < pend) {
 	char c = *p++;
-	if (ismbchar(c) && p < pend) {
-	    int len = mbclen(c);
+	int len;
+	if (ismbchar(c) && p + (len = mbclen(c)) <= pend) {
 	    rb_str_buf_cat(result, p - 1, len);
 	    p += len - 1;
 	}

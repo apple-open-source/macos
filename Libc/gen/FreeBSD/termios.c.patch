@@ -1,8 +1,8 @@
---- termios.c.orig	2007-03-16 00:36:09.000000000 -0700
-+++ termios.c	2007-03-16 00:45:15.000000000 -0700
-@@ -37,6 +37,14 @@
+--- termios.c.orig	2009-11-08 16:27:01.000000000 -0800
++++ termios.c	2009-11-08 16:28:15.000000000 -0800
+@@ -33,6 +33,14 @@ static char sccsid[] = "@(#)termios.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.13 2002/05/28 16:59:39 alfred Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/gen/termios.c,v 1.16 2009/05/07 13:49:48 ed Exp $");
  
 +#if __DARWIN_UNIX03
 +#ifdef VARIANT_CANCELABLE
@@ -15,7 +15,7 @@
  #include "namespace.h"
  #include <sys/types.h>
  #include <sys/fcntl.h>
-@@ -48,6 +56,7 @@
+@@ -44,6 +52,7 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ter
  #include <unistd.h>
  #include "un-namespace.h"
  
@@ -23,7 +23,7 @@
  int
  tcgetattr(fd, t)
  	int fd;
-@@ -87,6 +96,9 @@
+@@ -83,6 +92,9 @@ tcsetpgrp(int fd, pid_t pgrp)
  {
  	int s;
  
@@ -33,7 +33,7 @@
  	s = pgrp;
  	return (_ioctl(fd, TIOCSPGRP, &s));
  }
-@@ -97,6 +109,9 @@
+@@ -93,12 +105,16 @@ tcgetpgrp(fd)
  {
  	int s;
  
@@ -43,7 +43,22 @@
  	if (_ioctl(fd, TIOCGPGRP, &s) < 0)
  		return ((pid_t)-1);
  
-@@ -183,17 +198,24 @@
+ 	return ((pid_t)s);
+ }
+ 
++#if 0 // Needs API review first
+ pid_t
+ tcgetsid(int fd)
+ {
+@@ -121,6 +137,7 @@ tcsetsid(int fd, pid_t pid)
+ 
+ 	return (_ioctl(fd, TIOCSCTTY, NULL));
+ }
++#endif
+ 
+ speed_t
+ cfgetospeed(t)
+@@ -202,17 +219,24 @@ tcsendbreak(fd, len)
  		return (-1);
  	return (0);
  }
@@ -68,7 +83,7 @@
  int
  tcflush(fd, which)
  	int fd, which;
-@@ -230,16 +252,13 @@
+@@ -249,16 +273,13 @@ tcflow(fd, action)
  	case TCOON:
  		return (_ioctl(fd, TIOCSTART, 0));
  	case TCION:

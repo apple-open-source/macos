@@ -29,7 +29,7 @@
 	You may not remove this header from this file
 	without prior permission from the author.
 
-$Id: bundleTool.c,v 1.2 2003/02/13 20:06:36 ghoo Exp $
+$Id: bundleTool.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  
 ********************************************************************/
 

@@ -4,69 +4,130 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-12-10</string>
+		<string>2011-03-18</string>
 		<key>OpenSourceLicense</key>
 		<string>PHP</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>apache_mod_php.txt</string>
 		<key>OpenSourceMD5</key>
-		<string>2c069d8f690933e3bf6a8741ed818150</string>
+		<string>2286f5a82a6e8397955a0025c1c2ad98</string>
 		<key>OpenSourceModifications</key>
 		<array>
 			<string>Support for building on Mac OS X</string>
+			<string>Suhosin patch applied (see below)</string>
 			<string>Missing man pages</string>
 			<string>Bug fixes for phar</string>
 		</array>
 		<key>OpenSourceProject</key>
 		<string>php</string>
 		<key>OpenSourceSHA1</key>
-		<string>0b33926e78e1683e3383b3b5c840ee60ba669b0b</string>
+		<string>0e0b9b4d9117f22080e2204afa9383469eb0dbbd</string>
 		<key>OpenSourceURL</key>
-		<string>http://us2.php.net/distributions/php-5.3.4.tar.bz2</string>
+		<string>http://us2.php.net/distributions/php-5.3.6.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>5.3.4</string>
+		<string>5.3.6</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.php.net/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-06-04</string>
+		<string>2010-12-10</string>
+		<key>OpenSourceLicense</key>
+		<string>FreeType</string>
+		<key>OpenSourceMD5</key>
+		<string>b3e2b6e2f1c3e0dffa1fd2a0f848b671</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>FreeType 2</string>
+		<key>OpenSourceSHA1</key>
+		<string>1d136cbc51c67b212c91ba04dc5db797f35e64e6</string>
+		<key>OpenSourceURL</key>
+		<string>http://cdnetworks-us-2.dl.sourceforge.net/project/freetype/freetype2/2.4.4/freetype-2.4.4.tar.bz2</string>
+		<key>OpenSourceVersion</key>
+		<string>2.4.4</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.freetype.org/freetype2/index.html</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-01-25</string>
 		<key>OpenSourceLicense</key>
 		<string>libjpeg</string>
 		<key>OpenSourceMD5</key>
-		<string>e022acbc5b36cd2cb70785f5b575661e</string>
+		<string>a2c10c04f396a9ce72894beb18b4e1f9</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>libjpeg</string>
 		<key>OpenSourceSHA1</key>
-		<string>15dc1939ea1a5b9d09baea11cceb13ca59e4f9df</string>
+		<string>f0a3b88ac4db19667798bee971537eeed552bce9</string>
 		<key>OpenSourceURL</key>
-		<string>http://www.ijg.org/files/jpegsrc.v8b.tar.gz</string>
+		<string>http://www.ijg.org/files/jpegsrc.v8c.tar.gz</string>
 		<key>OpenSourceVersion</key>
-		<string>8b</string>
+		<string>8c</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.ijg.org/</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-10-06</string>
+		<string>2011-04-08</string>
 		<key>OpenSourceLicense</key>
 		<string>libpng</string>
 		<key>OpenSourceMD5</key>
-		<string>297b38f925e745061489b41b1f7c4bb1</string>
+		<string>31d448eb93a1646359a23f1b23434ab3</string>
 		<key>OpenSourceModifications</key>
 		<array/>
 		<key>OpenSourceProject</key>
 		<string>libpng</string>
 		<key>OpenSourceSHA1</key>
-		<string>245490b22086a6aff8964b7d32383a17814d8ebf</string>
+		<string>71c30b9b23169a2dac5b0a77954d9d91f8d944fe</string>
 		<key>OpenSourceURL</key>
-		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.4.4.tar.gz?download</string>
+		<string>http://prdownloads.sourceforge.net/libpng/libpng-1.5.2.tar.gz?download</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.4</string>
+		<string>1.5.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.libpng.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-01-04</string>
+		<key>OpenSourceLicense</key>
+		<string>PHP</string>
+		<key>OpenSourceMD5</key>
+		<string>d6d4dd8c18a3754d30a4fa899c90399c</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>suhosin</string>
+		<key>OpenSourceSHA1</key>
+		<string>bed2af8e5e69c952c06bf89422bfea8b0e65383c</string>
+		<key>OpenSourceURL</key>
+		<string>http://download.suhosin.org/suhosin-patch-5.3.4-0.9.10.patch.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>0.9.10</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.suhosin.org/</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-04-08</string>
+		<key>OpenSourceLicense</key>
+		<string>PHP</string>
+		<key>OpenSourceMD5</key>
+		<string>fcdf078e715f44b77f13bac721ad63ce</string>
+		<key>OpenSourceModifications</key>
+		<array/>
+		<key>OpenSourceProject</key>
+		<string>xdebug</string>
+		<key>OpenSourceSHA1</key>
+		<string>286d994b8552d779cd36b7505d0790d8447c2bdd</string>
+		<key>OpenSourceURL</key>
+		<string>http://www.xdebug.org/files/xdebug-2.1.1.tgz</string>
+		<key>OpenSourceVersion</key>
+		<string>2.1.1</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.xdebug.org/</string>
 	</dict>
 </array>
 </plist>

@@ -32,6 +32,13 @@ using namespace std;
 
 namespace WebCore {
 
+#if !PLATFORM(MAC) || USE(CFNETWORK)
+double ResourceRequestBase::s_defaultTimeoutInterval = INT_MAX;
+#else
+// Will use NSURLRequest default timeout unless set to a non-zero value with setDefaultTimeoutInterval().
+double ResourceRequestBase::s_defaultTimeoutInterval = 0;
+#endif
+
 inline const ResourceRequest& ResourceRequestBase::asResourceRequest() const
 {
     return *static_cast<const ResourceRequest*>(this);
@@ -39,12 +46,13 @@ inline const ResourceRequest& ResourceRequestBase::asResourceRequest() const
 
 PassOwnPtr<ResourceRequest> ResourceRequestBase::adopt(PassOwnPtr<CrossThreadResourceRequestData> data)
 {
-    OwnPtr<ResourceRequest> request(new ResourceRequest());
+    OwnPtr<ResourceRequest> request = adoptPtr(new ResourceRequest());
     request->setURL(data->m_url);
     request->setCachePolicy(data->m_cachePolicy);
     request->setTimeoutInterval(data->m_timeoutInterval);
     request->setFirstPartyForCookies(data->m_firstPartyForCookies);
     request->setHTTPMethod(data->m_httpMethod);
+    request->setPriority(data->m_priority);
     request->setTargetType(data->m_targetType);
 
     request->updateResourceRequest();
@@ -65,18 +73,20 @@ PassOwnPtr<ResourceRequest> ResourceRequestBase::adopt(PassOwnPtr<CrossThreadRes
     }
     request->setHTTPBody(data->m_httpBody);
     request->setAllowCookies(data->m_allowCookies);
+    request->doPlatformAdopt(data);
     return request.release();
 }
 
 PassOwnPtr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() const
 {
-    OwnPtr<CrossThreadResourceRequestData> data(new CrossThreadResourceRequestData());
+    OwnPtr<CrossThreadResourceRequestData> data = adoptPtr(new CrossThreadResourceRequestData());
     data->m_url = url().copy();
     data->m_cachePolicy = cachePolicy();
     data->m_timeoutInterval = timeoutInterval();
     data->m_firstPartyForCookies = firstPartyForCookies().copy();
     data->m_httpMethod = httpMethod().crossThreadString();
     data->m_httpHeaders = httpHeaderFields().copyData();
+    data->m_priority = priority();
     data->m_targetType = m_targetType;
 
     data->m_responseContentDispositionEncodingFallbackArray.reserveInitialCapacity(m_responseContentDispositionEncodingFallbackArray.size());
@@ -87,7 +97,7 @@ PassOwnPtr<CrossThreadResourceRequestData> ResourceRequestBase::copyData() const
     if (m_httpBody)
         data->m_httpBody = m_httpBody->deepCopy();
     data->m_allowCookies = m_allowCookies;
-    return data.release();
+    return asResourceRequest().doPlatformCopyData(data.release());
 }
 
 bool ResourceRequestBase::isEmpty() const
@@ -313,6 +323,23 @@ void ResourceRequestBase::setAllowCookies(bool allowCookies)
         m_platformRequestUpdated = false;
 }
 
+ResourceLoadPriority ResourceRequestBase::priority() const
+{
+    updateResourceRequest();
+
+    return m_priority;
+}
+
+void ResourceRequestBase::setPriority(ResourceLoadPriority priority)
+{
+    updateResourceRequest();
+
+    m_priority = priority;
+
+    if (url().protocolInHTTPFamily())
+        m_platformRequestUpdated = false;
+}
+
 void ResourceRequestBase::addHTTPHeaderField(const AtomicString& name, const String& value) 
 {
     updateResourceRequest();
@@ -351,6 +378,9 @@ bool equalIgnoringHeaderFields(const ResourceRequestBase& a, const ResourceReque
     if (a.allowCookies() != b.allowCookies())
         return false;
     
+    if (a.priority() != b.priority())
+        return false;
+
     FormData* formDataA = a.httpBody();
     FormData* formDataB = b.httpBody();
     
@@ -365,7 +395,7 @@ bool equalIgnoringHeaderFields(const ResourceRequestBase& a, const ResourceReque
     return true;
 }
 
-bool operator==(const ResourceRequestBase& a, const ResourceRequestBase& b)
+bool ResourceRequestBase::compare(const ResourceRequest& a, const ResourceRequest& b)
 {
     if (!equalIgnoringHeaderFields(a, b))
         return false;
@@ -373,7 +403,7 @@ bool operator==(const ResourceRequestBase& a, const ResourceRequestBase& b)
     if (a.httpHeaderFields() != b.httpHeaderFields())
         return false;
         
-    return true;
+    return ResourceRequest::platformCompare(a, b);
 }
 
 bool ResourceRequestBase::isConditional() const
@@ -385,11 +415,22 @@ bool ResourceRequestBase::isConditional() const
             m_httpHeaderFields.contains("If-Unmodified-Since"));
 }
 
+double ResourceRequestBase::defaultTimeoutInterval()
+{
+    return s_defaultTimeoutInterval;
+}
+
+void ResourceRequestBase::setDefaultTimeoutInterval(double timeoutInterval)
+{
+    s_defaultTimeoutInterval = timeoutInterval;
+}
+
 void ResourceRequestBase::updatePlatformRequest() const
 {
     if (m_platformRequestUpdated)
         return;
-    
+
+    ASSERT(m_resourceRequestUpdated);
     const_cast<ResourceRequest&>(asResourceRequest()).doUpdatePlatformRequest();
     m_platformRequestUpdated = true;
 }
@@ -399,6 +440,7 @@ void ResourceRequestBase::updateResourceRequest() const
     if (m_resourceRequestUpdated)
         return;
 
+    ASSERT(m_platformRequestUpdated);
     const_cast<ResourceRequest&>(asResourceRequest()).doUpdateResourceRequest();
     m_resourceRequestUpdated = true;
 }

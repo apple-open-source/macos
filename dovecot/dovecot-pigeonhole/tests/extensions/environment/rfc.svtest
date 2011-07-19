@@ -1,0 +1,28 @@
+require "vnd.dovecot.testsuite";
+require "environment";
+require "relational";
+
+test "Non-existent" {
+	if environment :contains "nonsense" "" {
+		test_fail "matched unknown environment item";	
+	}
+}
+
+test "Exists" {
+	if not environment :contains "version" "" {
+		test_fail "failed to match known environment item";
+	}
+}
+
+test "Count" {
+	if anyof (
+			environment :count "eq" "nonsense" "0",
+			environment :count "eq" "nonsense" "1"
+		) {
+		test_fail "count should not match unknown environment item";
+	}
+		
+	if not environment :count "eq" "host" "1" {
+		test_fail "count of non-empty environment should be 1";
+	}
+}

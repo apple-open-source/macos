@@ -45,12 +45,39 @@
 
 namespace {
 
-gint getDoubleClickTime()
+// For click count tracking.
+static int gNumClicks = 0;
+static GdkWindow* gLastClickEventWindow = 0;
+static gint gLastClickTime = 0;
+static gint gLastClickX = 0;
+static gint gLastClickY = 0;
+static WebKit::WebMouseEvent::Button gLastClickButton = WebKit::WebMouseEvent::ButtonNone;
+
+bool shouldForgetPreviousClick(GdkWindow* window, gint time, gint x, gint y)
 {
     static GtkSettings* settings = gtk_settings_get_default();
+
+    if (window != gLastClickEventWindow)
+      return true;
+
     gint doubleClickTime = 250;
-    g_object_get(G_OBJECT(settings), "gtk-double-click-time", &doubleClickTime, NULL);
-    return doubleClickTime;
+    gint doubleClickDistance = 5;
+    g_object_get(G_OBJECT(settings),
+                 "gtk-double-click-time", &doubleClickTime,
+                 "gtk-double-click-distance", &doubleClickDistance, NULL);
+    return (time - gLastClickTime) > doubleClickTime
+           || abs(x - gLastClickX) > doubleClickDistance
+           || abs(y - gLastClickY) > doubleClickDistance;
+}
+
+void resetClickCountState()
+{
+    gNumClicks = 0;
+    gLastClickEventWindow = 0;
+    gLastClickTime = 0;
+    gLastClickX = 0;
+    gLastClickY = 0;
+    gLastClickButton = WebKit::WebMouseEvent::ButtonNone;
 }
 
 }  // namespace
@@ -82,6 +109,10 @@ static int gdkStateToWebEventModifiers(guint state)
         modifiers |= WebInputEvent::MiddleButtonDown;
     if (state & GDK_BUTTON3_MASK)
         modifiers |= WebInputEvent::RightButtonDown;
+    if (state & GDK_LOCK_MASK)
+        modifiers |= WebInputEvent::CapsLockOn;
+    if (state & GDK_MOD2_MASK)
+        modifiers |= WebInputEvent::NumLockOn;
     return modifiers;
 }
 
@@ -151,6 +182,60 @@ static int gdkEventToWindowsKeyCode(const GdkEventKey* event)
         GDK_period,        // 0x3C: GDK_period
         GDK_slash,         // 0x3D: GDK_slash
         0,                 // 0x3E: GDK_Shift_R
+        0,                 // 0x3F:
+        0,                 // 0x40:
+        0,                 // 0x41:
+        0,                 // 0x42:
+        0,                 // 0x43:
+        0,                 // 0x44:
+        0,                 // 0x45:
+        0,                 // 0x46:
+        0,                 // 0x47:
+        0,                 // 0x48:
+        0,                 // 0x49:
+        0,                 // 0x4A:
+        0,                 // 0x4B:
+        0,                 // 0x4C:
+        0,                 // 0x4D:
+        0,                 // 0x4E:
+        0,                 // 0x4F:
+        0,                 // 0x50:
+        0,                 // 0x51:
+        0,                 // 0x52:
+        0,                 // 0x53:
+        0,                 // 0x54:
+        0,                 // 0x55:
+        0,                 // 0x56:
+        0,                 // 0x57:
+        0,                 // 0x58:
+        0,                 // 0x59:
+        0,                 // 0x5A:
+        0,                 // 0x5B:
+        0,                 // 0x5C:
+        0,                 // 0x5D:
+        0,                 // 0x5E:
+        0,                 // 0x5F:
+        0,                 // 0x60:
+        0,                 // 0x61:
+        0,                 // 0x62:
+        0,                 // 0x63:
+        0,                 // 0x64:
+        0,                 // 0x65:
+        0,                 // 0x66:
+        0,                 // 0x67:
+        0,                 // 0x68:
+        0,                 // 0x69:
+        0,                 // 0x6A:
+        0,                 // 0x6B:
+        0,                 // 0x6C:
+        0,                 // 0x6D:
+        0,                 // 0x6E:
+        0,                 // 0x6F:
+        0,                 // 0x70:
+        0,                 // 0x71:
+        0,                 // 0x72:
+        GDK_Super_L,       // 0x73: GDK_Super_L
+        GDK_Super_R,       // 0x74: GDK_Super_R
     };
 
     // |windowsKeyCode| has to include a valid virtual-key code even when we
@@ -346,22 +431,6 @@ WebMouseEvent WebInputEventFactory::mouseEvent(const GdkEventButton* event)
         ASSERT_NOT_REACHED();
     };
 
-    if (GDK_BUTTON_PRESS == event->type) {
-        static int numClicks = 0;
-        static GdkWindow* eventWindow = 0;
-        static gint lastLeftClickTime = 0;
-
-        gint time_diff = event->time - lastLeftClickTime;
-        if (eventWindow == event->window && time_diff < getDoubleClickTime())
-            numClicks++;
-        else
-            numClicks = 1;
-
-        result.clickCount = numClicks;
-        eventWindow = event->window;
-        lastLeftClickTime = event->time;
-    }
-
     result.button = WebMouseEvent::ButtonNone;
     if (event->button == 1)
         result.button = WebMouseEvent::ButtonLeft;
@@ -369,6 +438,23 @@ WebMouseEvent WebInputEventFactory::mouseEvent(const GdkEventButton* event)
         result.button = WebMouseEvent::ButtonMiddle;
     else if (event->button == 3)
         result.button = WebMouseEvent::ButtonRight;
+
+    if (result.type == WebInputEvent::MouseDown) {
+        bool forgetPreviousClick = shouldForgetPreviousClick(event->window, event->time, event->x, event->y);
+
+        if (!forgetPreviousClick && result.button == gLastClickButton)
+            ++gNumClicks;
+        else {
+            gNumClicks = 1;
+
+            gLastClickEventWindow = event->window;
+            gLastClickX = event->x;
+            gLastClickY = event->y;
+            gLastClickButton = result.button;
+        }
+        gLastClickTime = event->time;
+    }
+    result.clickCount = gNumClicks;
 
     return result;
 }
@@ -401,6 +487,9 @@ WebMouseEvent WebInputEventFactory::mouseEvent(const GdkEventMotion* event)
         result.button = WebMouseEvent::ButtonMiddle;
     else if (event->state & GDK_BUTTON3_MASK)
         result.button = WebMouseEvent::ButtonRight;
+
+    if (shouldForgetPreviousClick(event->window, event->time, event->x, event->y))
+        resetClickCountState();
 
     return result;
 }
@@ -437,6 +526,9 @@ WebMouseEvent WebInputEventFactory::mouseEvent(const GdkEventCrossing* event)
         result.button = WebMouseEvent::ButtonMiddle;
     else if (event->state & GDK_BUTTON3_MASK)
         result.button = WebMouseEvent::ButtonRight;
+
+    if (shouldForgetPreviousClick(event->window, event->time, event->x, event->y))
+        resetClickCountState();
 
     return result;
 }

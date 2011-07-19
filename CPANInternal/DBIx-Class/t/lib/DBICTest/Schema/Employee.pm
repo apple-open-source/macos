@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::Employee;
 
-use base 'DBIx::Class::Core';
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->load_components(qw( Ordered ));
 
@@ -20,6 +20,10 @@ __PACKAGE__->add_columns(
         is_nullable => 1,
     },
     group_id_2 => {
+        data_type => 'integer',
+        is_nullable => 1,
+    },
+    group_id_3 => {
         data_type => 'integer',
         is_nullable => 1,
     },

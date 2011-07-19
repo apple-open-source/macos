@@ -23,20 +23,42 @@
 #ifndef JSCell_h
 #define JSCell_h
 
-#include "Collector.h"
-#include "JSImmediate.h"
-#include "JSValue.h"
+#include "CallData.h"
+#include "CallFrame.h"
+#include "ConstructData.h"
+#include "Heap.h"
+#include "JSLock.h"
+#include "JSValueInlineMethods.h"
 #include "MarkStack.h"
-#include "Structure.h"
+#include "WriteBarrier.h"
 #include <wtf/Noncopyable.h>
 
 namespace JSC {
 
-    class JSCell : public NoncopyableCustomAllocated {
+    class JSGlobalObject;
+    class Structure;
+
+#if COMPILER(MSVC)
+    // If WTF_MAKE_NONCOPYABLE is applied to JSCell we end up with a bunch of
+    // undefined references to the JSCell copy constructor and assignment operator
+    // when linking JavaScriptCore.
+    class MSVCBugWorkaround {
+        WTF_MAKE_NONCOPYABLE(MSVCBugWorkaround);
+
+    protected:
+        MSVCBugWorkaround() { }
+        ~MSVCBugWorkaround() { }
+    };
+
+    class JSCell : MSVCBugWorkaround {
+#else
+    class JSCell {
+        WTF_MAKE_NONCOPYABLE(JSCell);
+#endif
+
+        friend class ExecutableBase;
         friend class GetterSetter;
         friend class Heap;
-        friend class JIT;
-        friend class JSNumberCell;
         friend class JSObject;
         friend class JSPropertyNameIterator;
         friend class JSString;
@@ -44,21 +66,27 @@ namespace JSC {
         friend class JSAPIValueWrapper;
         friend class JSZombie;
         friend class JSGlobalData;
+        friend class MarkedSpace;
+        friend class MarkedBlock;
+        friend class ScopeChainNode;
+        friend class Structure;
+        friend class StructureChain;
+        enum CreatingEarlyCellTag { CreatingEarlyCell };
+
+    protected:
+        enum VPtrStealingHackType { VPtrStealingHack };
 
     private:
-        explicit JSCell(Structure*);
+        explicit JSCell(VPtrStealingHackType) { }
+        JSCell(JSGlobalData&, Structure*);
+        JSCell(JSGlobalData&, Structure*, CreatingEarlyCellTag);
         virtual ~JSCell();
+        static const ClassInfo s_dummyCellInfo;
 
     public:
-        static PassRefPtr<Structure> createDummyStructure()
-        {
-            return Structure::create(jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount);
-        }
+        static Structure* createDummyStructure(JSGlobalData&);
 
         // Querying the type.
-#if USE(JSVALUE32)
-        bool isNumber() const;
-#endif
         bool isString() const;
         bool isObject() const;
         virtual bool isGetterSetter() const;
@@ -87,20 +115,20 @@ namespace JSC {
         virtual bool toBoolean(ExecState*) const;
         virtual double toNumber(ExecState*) const;
         virtual UString toString(ExecState*) const;
-        virtual JSObject* toObject(ExecState*) const;
+        virtual JSObject* toObject(ExecState*, JSGlobalObject*) const;
 
         // Garbage collection.
         void* operator new(size_t, ExecState*);
         void* operator new(size_t, JSGlobalData*);
         void* operator new(size_t, void* placementNewDestination) { return placementNewDestination; }
 
-        virtual void markChildren(MarkStack&);
+        virtual void visitChildren(SlotVisitor&);
 #if ENABLE(JSC_ZOMBIES)
         virtual bool isZombie() const { return false; }
 #endif
 
         // Object operations, with the toObject operation included.
-        virtual const ClassInfo* classInfo() const;
+        const ClassInfo* classInfo() const;
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual void put(ExecState*, unsigned propertyName, JSValue);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
@@ -117,6 +145,15 @@ namespace JSC {
         // property names, we want a similar interface with appropriate optimizations.)
         bool fastGetOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
 
+        static ptrdiff_t structureOffset()
+        {
+            return OBJECT_OFFSETOF(JSCell, m_structure);
+        }
+
+#if ENABLE(GC_VALIDATION)
+        Structure* unvalidatedStructure() { return m_structure.unvalidatedGet(); }
+#endif
+        
     protected:
         static const unsigned AnonymousSlotCount = 0;
 
@@ -125,52 +162,37 @@ namespace JSC {
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
         
-        Structure* m_structure;
+        WriteBarrier<Structure> m_structure;
     };
 
-    inline JSCell::JSCell(Structure* structure)
-        : m_structure(structure)
+    inline JSCell::JSCell(JSGlobalData& globalData, Structure* structure)
+        : m_structure(globalData, this, structure)
     {
+        ASSERT(m_structure);
+    }
+
+    inline JSCell::JSCell(JSGlobalData& globalData, Structure* structure, CreatingEarlyCellTag)
+    {
+#if ENABLE(GC_VALIDATION)
+        if (structure)
+#endif
+            m_structure.setEarlyValue(globalData, this, structure);
+        // Very first set of allocations won't have a real structure.
+        ASSERT(m_structure || !globalData.dummyMarkableCellStructure);
     }
 
     inline JSCell::~JSCell()
     {
     }
 
-#if USE(JSVALUE32)
-    inline bool JSCell::isNumber() const
-    {
-        return m_structure->typeInfo().type() == NumberType;
-    }
-#endif
-
-    inline bool JSCell::isObject() const
-    {
-        return m_structure->typeInfo().type() == ObjectType;
-    }
-
-    inline bool JSCell::isString() const
-    {
-        return m_structure->typeInfo().type() == StringType;
-    }
-
     inline Structure* JSCell::structure() const
     {
-        return m_structure;
+        return m_structure.get();
     }
 
-    inline void JSCell::markChildren(MarkStack&)
+    inline void JSCell::visitChildren(SlotVisitor& visitor)
     {
-    }
-
-    inline void* JSCell::operator new(size_t size, JSGlobalData* globalData)
-    {
-        return globalData->heap.allocate(size);
-    }
-
-    inline void* JSCell::operator new(size_t size, ExecState* exec)
-    {
-        return exec->heap()->allocate(size);
+        visitor.append(&m_structure);
     }
 
     // --- JSValue inlines ----------------------------
@@ -200,19 +222,28 @@ namespace JSC {
         return isCell() ? asCell()->getString(exec) : UString();
     }
 
+    template <typename Base> UString HandleConverter<Base, Unknown>::getString(ExecState* exec) const
+    {
+        return jsValue().getString(exec);
+    }
+
     inline JSObject* JSValue::getObject() const
     {
         return isCell() ? asCell()->getObject() : 0;
     }
 
-    inline CallType JSValue::getCallData(CallData& callData)
+    inline CallType getCallData(JSValue value, CallData& callData)
     {
-        return isCell() ? asCell()->getCallData(callData) : CallTypeNone;
+        CallType result = value.isCell() ? value.asCell()->getCallData(callData) : CallTypeNone;
+        ASSERT(result == CallTypeNone || value.isValidCallee());
+        return result;
     }
 
-    inline ConstructType JSValue::getConstructData(ConstructData& constructData)
+    inline ConstructType getConstructData(JSValue value, ConstructData& constructData)
     {
-        return isCell() ? asCell()->getConstructData(constructData) : ConstructTypeNone;
+        ConstructType result = value.isCell() ? value.asCell()->getConstructData(constructData) : ConstructTypeNone;
+        ASSERT(result == ConstructTypeNone || value.isValidCallee());
+        return result;
     }
 
     ALWAYS_INLINE bool JSValue::getUInt32(uint32_t& v) const
@@ -229,14 +260,6 @@ namespace JSC {
         }
         return false;
     }
-
-#if !USE(JSVALUE32_64)
-    ALWAYS_INLINE JSCell* JSValue::asCell() const
-    {
-        ASSERT(isCell());
-        return m_ptr;
-    }
-#endif // !USE(JSVALUE32_64)
 
     inline JSValue JSValue::toPrimitive(ExecState* exec, PreferredPrimitiveType preferredType) const
     {
@@ -297,13 +320,6 @@ namespace JSC {
         return isUndefined() ? nonInlineNaN() : 0; // null and false both convert to 0.
     }
 
-    inline bool JSValue::needsThisConversion() const
-    {
-        if (UNLIKELY(!isCell()))
-            return true;
-        return asCell()->structure()->typeInfo().needsThisConversion();
-    }
-
     inline JSValue JSValue::getJSNumber()
     {
         if (isInt32() || isDouble())
@@ -315,30 +331,17 @@ namespace JSC {
 
     inline JSObject* JSValue::toObject(ExecState* exec) const
     {
-        return isCell() ? asCell()->toObject(exec) : toObjectSlowCase(exec);
+        return isCell() ? asCell()->toObject(exec, exec->lexicalGlobalObject()) : toObjectSlowCase(exec, exec->lexicalGlobalObject());
+    }
+
+    inline JSObject* JSValue::toObject(ExecState* exec, JSGlobalObject* globalObject) const
+    {
+        return isCell() ? asCell()->toObject(exec, globalObject) : toObjectSlowCase(exec, globalObject);
     }
 
     inline JSObject* JSValue::toThisObject(ExecState* exec) const
     {
         return isCell() ? asCell()->toThisObject(exec) : toThisObjectSlowCase(exec);
-    }
-
-    ALWAYS_INLINE void MarkStack::append(JSCell* cell)
-    {
-        ASSERT(!m_isCheckingForDefaultMarkViolation);
-        ASSERT(cell);
-        if (Heap::isCellMarked(cell))
-            return;
-        Heap::markCell(cell);
-        if (cell->structure()->typeInfo().type() >= CompoundType)
-            m_values.append(cell);
-    }
-
-    ALWAYS_INLINE void MarkStack::append(JSValue value)
-    {
-        ASSERT(value);
-        if (value.isCell())
-            append(value.asCell());
     }
 
     inline Heap* Heap::heap(JSValue v)
@@ -350,15 +353,72 @@ namespace JSC {
 
     inline Heap* Heap::heap(JSCell* c)
     {
-        return cellBlock(c)->heap;
+        return MarkedSpace::heap(c);
     }
     
 #if ENABLE(JSC_ZOMBIES)
     inline bool JSValue::isZombie() const
     {
-        return isCell() && asCell() && asCell()->isZombie();
+        return isCell() && asCell() > (JSCell*)0x1ffffffffL && asCell()->isZombie();
     }
 #endif
+
+    inline void* MarkedBlock::allocate()
+    {
+        while (m_nextAtom < m_endAtom) {
+            if (!m_marks.testAndSet(m_nextAtom)) {
+                JSCell* cell = reinterpret_cast<JSCell*>(&atoms()[m_nextAtom]);
+                m_nextAtom += m_atomsPerCell;
+                cell->~JSCell();
+                return cell;
+            }
+            m_nextAtom += m_atomsPerCell;
+        }
+
+        return 0;
+    }
+    
+    inline MarkedSpace::SizeClass& MarkedSpace::sizeClassFor(size_t bytes)
+    {
+        ASSERT(bytes && bytes < maxCellSize);
+        if (bytes < preciseCutoff)
+            return m_preciseSizeClasses[(bytes - 1) / preciseStep];
+        return m_impreciseSizeClasses[(bytes - 1) / impreciseStep];
+    }
+
+    inline void* MarkedSpace::allocate(size_t bytes)
+    {
+        SizeClass& sizeClass = sizeClassFor(bytes);
+        return allocateFromSizeClass(sizeClass);
+    }
+    
+    inline void* Heap::allocate(size_t bytes)
+    {
+        ASSERT(globalData()->identifierTable == wtfThreadData().currentIdentifierTable());
+        ASSERT(JSLock::lockCount() > 0);
+        ASSERT(JSLock::currentThreadIsHoldingLock());
+        ASSERT(bytes <= MarkedSpace::maxCellSize);
+        ASSERT(m_operationInProgress == NoOperation);
+
+        m_operationInProgress = Allocation;
+        void* result = m_markedSpace.allocate(bytes);
+        m_operationInProgress = NoOperation;
+        if (result)
+            return result;
+
+        return allocateSlowCase(bytes);
+    }
+
+    inline void* JSCell::operator new(size_t size, JSGlobalData* globalData)
+    {
+        return globalData->heap.allocate(size);
+    }
+
+    inline void* JSCell::operator new(size_t size, ExecState* exec)
+    {
+        return exec->heap()->allocate(size);
+    }
+
 } // namespace JSC
 
 #endif // JSCell_h

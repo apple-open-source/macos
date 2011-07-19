@@ -1,0 +1,16 @@
+#!/usr/sbin/dtrace -s
+fbt::lookup:entry
+{
+	self->nd = (struct nameidata *)arg0;
+}
+fbt::lookup:return
+{
+	self->nd = NULL;
+}
+fbt::vfs_context_get_special_port:entry / self->nd /
+{
+	trace(execname);
+	trace(stringof(self->nd->ni_cnd.cn_nameptr));
+	trace(stringof(self->nd->ni_cnd.cn_pnbuf));
+	ustack();
+}

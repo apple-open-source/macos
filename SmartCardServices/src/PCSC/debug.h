@@ -6,7 +6,7 @@
  * Copyright (C) 1999-2005
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: debuglog.h 1835 2006-01-25 10:42:23Z rousseau $
+ * $Id: debug.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

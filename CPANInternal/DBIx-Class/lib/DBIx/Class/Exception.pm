@@ -16,8 +16,8 @@ DBIx::Class::Exception - Exception objects for DBIx::Class
 
 =head1 DESCRIPTION
 
-Exception objects of this class are used in internally by
-he default error handling of L<DBIx::Class::Schema/throw_exception>
+Exception objects of this class are used internally by
+the default error handling of L<DBIx::Class::Schema/throw_exception>
 to prevent confusing and/or redundant re-application of L<Carp>'s
 stack trace information.
 
@@ -61,7 +61,7 @@ sub throw {
     else {
         $msg = Carp::longmess($msg);
     }
-    
+
     my $self = { msg => $msg };
     bless $self => $class;
 

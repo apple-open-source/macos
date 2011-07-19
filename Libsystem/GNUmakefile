@@ -59,7 +59,7 @@ endif
 BSD_LIBS = c info m pthread dbm poll dl rpcsvc proc
 FPATH = /System/Library/Frameworks/System.framework
 
-build:: fake libSystem
+build:: libSystem
 	@set -x && \
 	cd $(DSTROOT)/usr/lib && \
 	for i in $(BSD_LIBS); do \
@@ -80,15 +80,7 @@ build:: fake libSystem
 	for S in $(SUFFIX); do \
 	    $(LN) -sf ../../../../../../usr/lib/libSystem.$(VersionLetter)$$S.dylib System$$S || exit 1; \
 	done && \
-	$(CP) $(SRCROOT)/Info.plist Resources
-
-# 4993197: force dependency generation for libsyscall.a
-fake:
-	@set -x && \
-	cd $(OBJROOT) && \
-	$(ECHO) 'main() { __getpid(); return 0; }' > fake.c && \
-	$(CC) -c $(RC_CFLAGS) fake.c && \
-	$(LD) -r -o fake $(foreach ARCH,$(RC_ARCHS),-arch $(ARCH)) fake.o -lsyscall -L$(LIBSYS)
+	plutil -convert binary1 -o Resources/Info.plist $(SRCROOT)/Info.plist
 
 libc:
 	$(MKDIR) '$(OBJROOT)/libc'
@@ -100,7 +92,7 @@ libc:
 	SRCROOT='$(SRCROOT)' \
 	SYMROOT='$(SYMROOT)'
 
-libSystem: libc
+libSystem:
 	$(MKDIR) '$(OBJROOT)/libSystem'
 	$(BSDMAKE) install \
 	FEATURE_LIBMATHCOMMON=$(FEATURE_LIBMATHCOMMON) \

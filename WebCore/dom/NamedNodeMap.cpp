@@ -93,21 +93,10 @@ PassRefPtr<Node> NamedNodeMap::getNamedItem(const QualifiedName& name) const
     return a->createAttrIfNeeded(m_element);
 }
 
-PassRefPtr<Node> NamedNodeMap::setNamedItemNS(Node* arg, ExceptionCode& ec)
-{
-    return setNamedItem(arg, ec);
-}
-
 PassRefPtr<Node> NamedNodeMap::setNamedItem(Node* arg, ExceptionCode& ec)
 {
     if (!m_element || !arg) {
         ec = NOT_FOUND_ERR;
-        return 0;
-    }
-
-    // WRONG_DOCUMENT_ERR: Raised if arg was created from a different document than the one that created this map.
-    if (arg->document() != m_element->document()) {
-        ec = WRONG_DOCUMENT_ERR;
         return 0;
     }
 
@@ -142,6 +131,11 @@ PassRefPtr<Node> NamedNodeMap::setNamedItem(Node* arg, ExceptionCode& ec)
 
     addAttribute(a);
     return r.release();
+}
+
+PassRefPtr<Node> NamedNodeMap::setNamedItemNS(Node* node, ExceptionCode& ec)
+{
+    return setNamedItem(node, ec);
 }
 
 // The DOM2 spec doesn't say that removeAttribute[NS] throws NOT_FOUND_ERR
@@ -225,8 +219,8 @@ void NamedNodeMap::setAttributes(const NamedNodeMap& other)
 
     // If assigning the map changes the id attribute, we need to call
     // updateId.
-    Attribute* oldId = getAttributeItem(m_element->idAttributeName());
-    Attribute* newId = other.getAttributeItem(m_element->idAttributeName());
+    Attribute* oldId = getAttributeItem(m_element->document()->idAttributeName());
+    Attribute* newId = other.getAttributeItem(m_element->document()->idAttributeName());
 
     if (oldId || newId)
         m_element->updateId(oldId ? oldId->value() : nullAtom, newId ? newId->value() : nullAtom);
@@ -302,6 +296,29 @@ void NamedNodeMap::removeAttribute(const QualifiedName& name)
     }
 }
 
+void NamedNodeMap::setClass(const String& classStr) 
+{ 
+    if (!element()->hasClass()) { 
+        m_classNames.clear(); 
+        return;
+    }
+
+    m_classNames.set(classStr, element()->document()->inQuirksMode()); 
+}
+
+int NamedNodeMap::declCount() const
+{
+    int result = 0;
+    for (unsigned i = 0; i < length(); i++) {
+        Attribute* attr = attributeItem(i);
+        if (attr->decl()) {
+            ASSERT(attr->isMappedAttribute());
+            result++;
+        }
+    }
+    return result;
+}
+
 bool NamedNodeMap::mapsEquivalent(const NamedNodeMap* otherMap) const
 {
     if (!otherMap)
@@ -312,9 +329,8 @@ bool NamedNodeMap::mapsEquivalent(const NamedNodeMap* otherMap) const
         return false;
     
     for (unsigned i = 0; i < len; i++) {
-        Attribute *attr = attributeItem(i);
-        Attribute *otherAttr = otherMap->getAttributeItem(attr->name());
-            
+        Attribute* attr = attributeItem(i);
+        Attribute* otherAttr = otherMap->getAttributeItem(attr->name());
         if (!otherAttr || attr->value() != otherAttr->value())
             return false;
     }
@@ -322,4 +338,26 @@ bool NamedNodeMap::mapsEquivalent(const NamedNodeMap* otherMap) const
     return true;
 }
 
+bool NamedNodeMap::mappedMapsEquivalent(const NamedNodeMap* otherMap) const
+{
+    // The # of decls must match.
+    if (declCount() != otherMap->declCount())
+        return false;
+    
+    // The values for each decl must match.
+    for (unsigned i = 0; i < length(); i++) {
+        Attribute* attr = attributeItem(i);
+        if (attr->decl()) {
+            ASSERT(attr->isMappedAttribute());
+
+            Attribute* otherAttr = otherMap->getAttributeItem(attr->name());
+            if (!otherAttr || !otherAttr->decl() || attr->value() != otherAttr->value())
+                return false;
+            if (!attr->decl()->propertiesEqual(otherAttr->decl()))
+                return false;
+        }
+    }
+    return true;
 }
+
+} // namespace WebCore

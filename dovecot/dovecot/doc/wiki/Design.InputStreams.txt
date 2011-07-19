@@ -1,0 +1,132 @@
+Input Streams
+=============
+
+'lib/istream.h' describes Dovecot's input streams. Input streams can be stacked
+on top of each others as many times as wanted.
+
+Input streams actually reading data:
+
+ * file: Read data from fd using 'pread()' for files and 'read()' for
+   non-files.
+ * mmap: Read data from file using 'mmap()'. This usually seems to be slower
+   than just using it with 'read()', so this input stream is probably quite
+   unnecessary.
+ * data: Read data from memory.
+ * plugins/zlib/zlib, bzlib: Read zlib/bzlib compressed data from fd. Some day
+   this should be changed to become a filter instead.
+
+Input stream filters:
+
+ * concat: Concatenate multiple input streams together
+ * seekable: Make a number of (possibly non-seekable) input streams into a
+   single seekable input stream. If all of the input streams are already
+   seekable, a concat stream is created instead.
+    * Usually the only non-seekable input streams are non-file fds, such as
+      pipes or sockets.
+ * crlf: Change all newlines to either LFs or CRLFs, by adding or removing CRs
+   as necessary.
+ * limit: Limit input stream's length, so after reading a given number of bytes
+   it returns EOF.
+ * tee: Fork an input stream to multiple streams that can be read
+   independently.
+ * lib-mail/dot: Read SMTP-style DATA input where the input ends with an empty
+   "." line.
+ * lib-mail/header-filter: Add/remove/modify email headers.
+
+Reading
+-------
+
+'i_stream_read()' tries to read more data into the stream's buffer. It returns:
+
+ * -2: Nothing was read, because buffer is full.
+ * -1: Either input reached EOF, or read failed and stream_errno was set.
+ * 0: Input stream is non-blocking, and no more input is available now.
+ * >0: Number of bytes read.
+
+Reading from a stream doesn't actually go forward in the stream, that needs to
+be done manually with 'i_stream_skip()'. This makes it easy to read full data
+records into the stream directly instead of creating separate buffers. For
+example when reading line-based input you can keep reading input into the
+stream until you find LF and then just access the string directly from the
+input buffer. There are actually helper functions for
+this:'i_stream_next_line()' attempts to return the next line if available,
+'i_stream_read_next_line()' does the same but does a read to try to get the
+data.
+
+Because more and more data can be read into the buffer, the buffer size is
+typically limited, and once this limit is reached read returns -2. The buffer
+size is usually given as parameter to the 'i_stream_create_*()', filters use
+their parent stream's buffer size. The buffer size can be also changed with
+'i_stream_set_max_buffer_size()'. Figuring out what the buffer size should be
+depends on the situation. It should be large enough to contain all valid input,
+but small enough that users can't cause a DoS by sending a too large record and
+having Dovecot eat up all the memory.
+
+Once read returns -1, the stream has reached EOF. 'stream->eof=TRUE' is also
+set. In this situation it's important to remember that there may still be data
+available in the buffer. If 'i_stream_have_bytes_left()' returns FALSE, there
+really isn't anything left to read.
+
+Example:
+
+---%<-------------------------------------------------------------------------
+/* read line-based data from file_fd, buffer size has no limits */
+struct istream *input = i_stream_create_fd(file_fd, (size_t)-1, FALSE);
+const char *line;
+
+/* return the last line also even if it doesn't end with LF.
+   this is generally a good idea when reading files (but not a good idea
+   when reading commands from e.g. socket). */
+i_stream_set_return_partial_line(input, TRUE);
+while ((line = i_stream_read_next_line(input)) != NULL) {
+  /* handle line */
+}
+i_stream_destroy(&input);
+---%<-------------------------------------------------------------------------
+
+Internals
+---------
+
+'lib/istream-internal.h' describes the internal API that input streams need to
+implement. The methods that need to be implemented are:
+
+ * 'read()' is the most important function. It can also be tricky to get it
+   completely bug-free. See the existing unit tests for other istreams and try
+   to test the edge cases as well (such as ability to read one byte at a time
+   and also with max buffer size of 1).
+ * 'seek(v_offset, mark)' seeks to given offset. The 'mark' parameter is
+   necessary only when it's difficult to seek backwards in the stream, such as
+   when reading compressed input.
+ * 'sync()' removes everything from internal buffers, so that if the underlying
+   file has changed the changes get noticed immediately after sync.
+ * 'get_size(exact)' returns the size of the input stream, if it's known. If
+   'exact=TRUE', the returned size must be the same how many bytes can be read
+   from the input. If 'exact=FALSE', the size is mainly used to compare against
+   another stat to see if the underlying input had changed. For example with
+   compressed input the size could be the compressed size.
+ * 'stat(exact)' stats the file, filling as much of the fields as makes sense.
+   'st_size' field is filled the same way as with 'get_size()', or set to -1 if
+   it's unknown.
+
+There are some variables available:
+
+ * 'buffer' contains pointer to the data.
+ * First 'skip' bytes of the buffer are already skipped over (with
+   'i_stream_skip()' or seeking).
+ * Data up to 'pos' bytes (beginning after 'skip') in the buffer are available
+   with 'i_stream_get_data()'. If pos=skip, it means there is no available data
+   in the buffer.
+
+If your input stream needs a write buffer, you can use some of the common
+helper functions and variables:
+
+ * 'w_buffer' contain the pointer where you can write data. It should be kept
+   in sync with 'buffer'.
+ * 'buffer_size' specifies the buffer's size, and 'max_buffer_size' the max.
+   size the buffer can be grown to.
+ * 'i_stream_get_buffer_space(wanted_bytes)' can be used to request wanted
+   number of bytes from the buffer. The returned available buffer size may be
+   less (or more), and calling the function again may or may not return a
+   larger size.
+
+(This file was created from the wiki on 2011-05-11 04:42)

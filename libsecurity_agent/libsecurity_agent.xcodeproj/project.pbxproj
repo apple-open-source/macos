@@ -32,6 +32,12 @@
 		40ACCCD905DC585A00E9F642 /* sa_reply.h in Headers */ = {isa = PBXBuildFile; fileRef = 40ACCCCC05DC565700E9F642 /* sa_reply.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		40ACCCDA05DC587C00E9F642 /* sa_request_server.c in Sources */ = {isa = PBXBuildFile; fileRef = 40ACCCD405DC57E200E9F642 /* sa_request_server.c */; };
 		40ACCCDB05DC587C00E9F642 /* sa_reply_user.c in Sources */ = {isa = PBXBuildFile; fileRef = 40ACCCD105DC578C00E9F642 /* sa_reply_user.c */; };
+		72B3720C1104E343000D2A39 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B3720A1104E343000D2A39 /* utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		72B3720D1104E343000D2A39 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B3720B1104E343000D2A39 /* utils.c */; };
+		72B3720F1104E343000D2A39 /* utils.c in Sources */ = {isa = PBXBuildFile; fileRef = 72B3720B1104E343000D2A39 /* utils.c */; };
+		72B372191104E841000D2A39 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B3720A1104E343000D2A39 /* utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		72B3721A1104E849000D2A39 /* utils.h in Headers */ = {isa = PBXBuildFile; fileRef = 72B3720A1104E343000D2A39 /* utils.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		72B372321104EB8D000D2A39 /* utils.h in Sources */ = {isa = PBXBuildFile; fileRef = 72B3720A1104E343000D2A39 /* utils.h */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -103,6 +109,8 @@
 		4C5634D80540A47B00DCF0C8 /* security_agent_client.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_agent_client.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CA1FEBE052A3C8100F22E42 /* security_agent_client */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_agent_client; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CA1FED4052A450F00F22E42 /* security_agent_server */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_agent_server; sourceTree = BUILT_PRODUCTS_DIR; };
+		72B3720A1104E343000D2A39 /* utils.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = utils.h; sourceTree = "<group>"; };
+		72B3720B1104E343000D2A39 /* utils.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = utils.c; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -139,6 +147,8 @@
 				409513EA05E6A5780003976E /* agentclient.cpp */,
 				409513EB05E6A5780003976E /* agentclient.h */,
 				40ACCCBD05DC556000E9F642 /* sa_types.h */,
+				72B3720A1104E343000D2A39 /* utils.h */,
+				72B3720B1104E343000D2A39 /* utils.c */,
 			);
 			path = lib;
 			sourceTree = "<group>";
@@ -184,6 +194,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72B3721A1104E849000D2A39 /* utils.h in Headers */,
 				40ACCCD905DC585A00E9F642 /* sa_reply.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -192,6 +203,7 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72B372191104E841000D2A39 /* utils.h in Headers */,
 				4095143205E6DD6C0003976E /* agentclient.h in Headers */,
 				40ACCCCF05DC568600E9F642 /* sa_types.h in Headers */,
 				40ACCCCE05DC567700E9F642 /* sa_request.h in Headers */,
@@ -203,6 +215,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				409513ED05E6A5780003976E /* agentclient.h in Headers */,
+				72B3720C1104E343000D2A39 /* utils.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -315,7 +328,14 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD2450987FCDC001272E0 /* Build configuration list for PBXProject "libsecurity_agent" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
@@ -394,6 +414,7 @@
 				40ACCCD805DC583700E9F642 /* sa_reply_server.cpp in Sources */,
 				40ACCCD705DC580800E9F642 /* sa_request_user.cpp in Sources */,
 				409513EC05E6A5780003976E /* agentclient.cpp in Sources */,
+				72B3720D1104E343000D2A39 /* utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -401,8 +422,10 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				72B372321104EB8D000D2A39 /* utils.h in Sources */,
 				40ACCCDA05DC587C00E9F642 /* sa_request_server.c in Sources */,
 				40ACCCDB05DC587C00E9F642 /* sa_reply_user.c in Sources */,
+				72B3720F1104E343000D2A39 /* utils.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -565,7 +588,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -573,7 +596,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -608,7 +631,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -617,7 +640,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -653,14 +676,14 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -691,7 +714,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -699,7 +722,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -735,7 +758,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -744,7 +767,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -781,14 +804,14 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36399;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";

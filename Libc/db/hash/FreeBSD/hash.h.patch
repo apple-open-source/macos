@@ -1,6 +1,6 @@
---- hash.h.orig	2003-10-22 19:07:01.000000000 -0700
-+++ hash.h	2004-10-23 22:52:09.000000000 -0700
-@@ -117,6 +117,8 @@
+--- hash.h.orig	2009-11-06 12:41:16.000000000 -0800
++++ hash.h	2009-11-06 12:41:27.000000000 -0800
+@@ -113,6 +113,8 @@ typedef struct htab	 {		/* Memory reside
  					 * allocate */
  	BUFHEAD 	bufhead;	/* Header of buffer lru list */
  	SEGMENT 	*dir;		/* Hash Bucket directory */

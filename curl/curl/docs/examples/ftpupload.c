@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: ftpupload.c,v 1.17 2009-06-08 15:09:47 yangtse Exp $
  */
 
 #include <stdio.h>
@@ -31,7 +30,7 @@
 
 #define LOCAL_FILE      "/tmp/uploadthis.txt"
 #define UPLOAD_FILE_AS  "while-uploading.txt"
-#define REMOTE_URL      "ftp://localhost/"  UPLOAD_FILE_AS
+#define REMOTE_URL      "ftp://example.com/"  UPLOAD_FILE_AS
 #define RENAME_FILE_TO  "renamed-and-fine.txt"
 
 /* NOTE: if you want this example to work on Windows with libcurl as a
@@ -49,7 +48,7 @@ static size_t read_callback(void *ptr, size_t size, size_t nmemb, void *stream)
   return retcode;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
   CURL *curl;
   CURLcode res;

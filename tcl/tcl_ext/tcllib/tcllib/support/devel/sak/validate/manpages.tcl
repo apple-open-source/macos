@@ -25,13 +25,13 @@ namespace eval ::sak::validate::manpages {
 
 # ###
 
-proc ::sak::validate::manpages {modules mode stem} {
-    manpages::run $modules $mode $stem
+proc ::sak::validate::manpages {modules mode stem tclv} {
+    manpages::run $modules $mode $stem $tclv
     manpages::summary
     return
 }
 
-proc ::sak::validate::manpages::run {modules mode stem} {
+proc ::sak::validate::manpages::run {modules mode stem tclv} {
     sak::feedback::init $mode $stem
     sak::feedback::first log  "\[ Documentation \] ==============================================="
     sak::feedback::first unc  "\[ Documentation \] ==============================================="

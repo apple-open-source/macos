@@ -1,9 +1,9 @@
 /*
  * "$Id: imagetoraster.c 7306 2008-02-15 00:52:38Z mike $"
  *
- *   Image file to raster filter for the Common UNIX Printing System (CUPS).
+ *   Image file to raster filter for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -39,7 +39,8 @@
 #include "image-private.h"
 #include <unistd.h>
 #include <math.h>
-#include <cups/i18n.h>
+#include <cups/language-private.h>
+#include <signal.h>
 
 
 /*
@@ -199,13 +200,20 @@ main(int  argc,				/* I - Number of command-line arguments */
   setbuf(stderr, NULL);
 
  /*
+  * Ignore broken pipe signals...
+  */
+
+  signal(SIGPIPE, SIG_IGN);
+
+ /*
   * Check command-line...
   */
 
   if (argc < 6 || argc > 7)
   {
-    fprintf(stderr, _("Usage: %s job-id user title copies options [file]\n"),
-            argv[0]);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options file"),
+                    argv[0]);
     return (1);
   }
 
@@ -231,7 +239,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if (pipe(mypipes))
     {
-      perror("ERROR: Unable to create pipes for imagetops | pstoraster");
+      _cupsLangPrintError("ERROR", _("Unable to create pipes for filters"));
       return (errno);
     }
 
@@ -247,7 +255,6 @@ main(int  argc,				/* I - Number of command-line arguments */
 
       execlp("pstoraster", argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
              NULL);
-      perror("ERROR: Unable to exec pstoraster");
       return (errno);
     }
     else if (pid < 0)
@@ -256,7 +263,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       * Error!
       */
 
-      perror("ERROR: Unable to fork pstoraster");
+      _cupsLangPrintError("ERROR", _("Unable to fork filter"));
       return (errno);
     }
 
@@ -269,13 +276,12 @@ main(int  argc,				/* I - Number of command-line arguments */
     close(mypipes[1]);
 
    /*
-    * Run imagetops to get the classification or page labelling that was
+    * Run imagetops to get the classification or page labeling that was
     * requested...
     */
 
     execlp("imagetops", argv[0], argv[1], argv[2], argv[3], argv[4], argv[5],
            argv[6], NULL);
-    perror("ERROR: Unable to exec imagetops");
     return (errno);
   }
 
@@ -292,11 +298,12 @@ main(int  argc,				/* I - Number of command-line arguments */
 
     if ((fd = cupsTempFd(filename, sizeof(filename))) < 0)
     {
-      perror("ERROR: Unable to copy image file");
+      _cupsLangPrintError("ERROR", _("Unable to copy print file"));
       return (1);
     }
 
-    fprintf(stderr, "DEBUG: imagetoraster - copying to temp print file \"%s\"\n",
+    fprintf(stderr,
+            "DEBUG: imagetoraster - copying to temp print file \"%s\".\n",
             filename);
 
     while ((bytes = fread(buffer, 1, sizeof(buffer), stdin)) > 0)
@@ -334,11 +341,11 @@ main(int  argc,				/* I - Number of command-line arguments */
     *   separate-documents-collated-copies allows for uncollated copies.
     */
 
-    Collate = strcasecmp(val, "separate-documents-collated-copies") != 0;
+    Collate = _cups_strcasecmp(val, "separate-documents-collated-copies") != 0;
   }
 
   if ((val = cupsGetOption("Collate", num_options, options)) != NULL &&
-      strcasecmp(val, "True") == 0)
+      _cups_strcasecmp(val, "True") == 0)
     Collate = 1;
 
   if ((val = cupsGetOption("gamma", num_options, options)) != NULL)
@@ -372,10 +379,10 @@ main(int  argc,				/* I - Number of command-line arguments */
   if ((val = cupsGetOption("scaling", num_options, options)) != NULL)
     zoom = atoi(val) * 0.01;
   else if ((val = cupsGetOption("fitplot", num_options, options)) != NULL &&
-           !strcasecmp(val, "true"))
+           !_cups_strcasecmp(val, "true"))
     zoom = 1.0;
   else if ((val = cupsGetOption("fit-to-page", num_options, options)) != NULL &&
-           !strcasecmp(val, "true"))
+           !_cups_strcasecmp(val, "true"))
     zoom = 1.0;
 
   if ((val = cupsGetOption("ppi", num_options, options)) != NULL)
@@ -384,47 +391,47 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if ((val = cupsGetOption("position", num_options, options)) != NULL)
   {
-    if (strcasecmp(val, "center") == 0)
+    if (_cups_strcasecmp(val, "center") == 0)
     {
       XPosition = 0;
       YPosition = 0;
     }
-    else if (strcasecmp(val, "top") == 0)
+    else if (_cups_strcasecmp(val, "top") == 0)
     {
       XPosition = 0;
       YPosition = 1;
     }
-    else if (strcasecmp(val, "left") == 0)
+    else if (_cups_strcasecmp(val, "left") == 0)
     {
       XPosition = -1;
       YPosition = 0;
     }
-    else if (strcasecmp(val, "right") == 0)
+    else if (_cups_strcasecmp(val, "right") == 0)
     {
       XPosition = 1;
       YPosition = 0;
     }
-    else if (strcasecmp(val, "top-left") == 0)
+    else if (_cups_strcasecmp(val, "top-left") == 0)
     {
       XPosition = -1;
       YPosition = 1;
     }
-    else if (strcasecmp(val, "top-right") == 0)
+    else if (_cups_strcasecmp(val, "top-right") == 0)
     {
       XPosition = 1;
       YPosition = 1;
     }
-    else if (strcasecmp(val, "bottom") == 0)
+    else if (_cups_strcasecmp(val, "bottom") == 0)
     {
       XPosition = 0;
       YPosition = -1;
     }
-    else if (strcasecmp(val, "bottom-left") == 0)
+    else if (_cups_strcasecmp(val, "bottom-left") == 0)
     {
       XPosition = -1;
       YPosition = -1;
     }
-    else if (strcasecmp(val, "bottom-right") == 0)
+    else if (_cups_strcasecmp(val, "bottom-right") == 0)
     {
       XPosition = 1;
       YPosition = -1;
@@ -445,8 +452,8 @@ main(int  argc,				/* I - Number of command-line arguments */
   else
     val = cupsGetOption("mirror", num_options, options);
 
-  if (val && (!strcasecmp(val, "true") || !strcasecmp(val, "on") ||
-              !strcasecmp(val, "yes")))
+  if (val && (!_cups_strcasecmp(val, "true") || !_cups_strcasecmp(val, "on") ||
+              !_cups_strcasecmp(val, "yes")))
     Flip = 1;
 
  /*
@@ -455,7 +462,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (cupsRasterInterpretPPD(&header, ppd, num_options, options, raster_cb))
   {
-    fputs(_("ERROR: Bad page setup!\n"), stderr);
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("The page setup information was not valid."));
     fprintf(stderr, "DEBUG: %s\n", cupsRasterErrorString());
     return (1);
   }
@@ -494,6 +502,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	}
 	break;
 
+    default :
     case CUPS_CSPACE_RGB :
     case CUPS_CSPACE_RGBA :
     case CUPS_CSPACE_RGBW :
@@ -575,7 +584,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     case CUPS_CSPACE_DEVICED :
     case CUPS_CSPACE_DEVICEE :
     case CUPS_CSPACE_DEVICEF :
-        fprintf(stderr, "ERROR: Colorspace %d not supported.\n",
+        fprintf(stderr, "DEBUG: Colorspace %d not supported.\n",
 	        header.cupsColorSpace);
 	exit(1);
 	break;
@@ -624,7 +633,7 @@ main(int  argc,				/* I - Number of command-line arguments */
           (strcmp(profile->media_type, media_type) == 0 ||
            profile->media_type[0] == '-'))
       {
-        fputs("MATCH!\n", stderr);
+        fputs("MATCH\n", stderr);
 	break;
       }
       else
@@ -656,7 +665,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   * Open the input image to print...
   */
 
-  fputs(_("INFO: Loading image file...\n"), stderr);
+  _cupsLangPrintFilter(stderr, "INFO", _("Loading print file."));
 
   if (header.cupsColorSpace == CUPS_CSPACE_CIEXYZ ||
       header.cupsColorSpace == CUPS_CSPACE_CIELab ||
@@ -670,7 +679,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (img == NULL)
   {
-    fputs(_("ERROR: Unable to open image file for printing!\n"), stderr);
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("The print file could not be opened."));
     ppdClose(ppd);
     return (1);
   }
@@ -696,7 +706,7 @@ main(int  argc,				/* I - Number of command-line arguments */
    /*
     * Scale the image as neccesary to match the desired pixels-per-inch.
     */
-    
+
     if (Orientation & 1)
     {
       xprint = (PageTop - PageBottom) / 72.0;
@@ -861,7 +871,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   if ((choice = ppdFindMarkedChoice(ppd, "PageSize")) != NULL &&
-      strcasecmp(choice->choice, "Custom") == 0)
+      _cups_strcasecmp(choice->choice, "Custom") == 0)
   {
     float	width,		/* New width in points */
 		length;		/* New length in points */
@@ -1175,7 +1185,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     for (xpage = 0; xpage < xpages; xpage ++)
       for (ypage = 0; ypage < ypages; ypage ++, page ++)
       {
-        fprintf(stderr, _("INFO: Formatting page %d...\n"), page);
+        _cupsLangPrintFilter(stderr, "INFO", _("Formatting page %d."), page);
 
 	if (Orientation & 1)
 	{
@@ -1232,8 +1242,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (cupsRasterWritePixels(ras, row, header.cupsBytesPerLine) <
 	              header.cupsBytesPerLine)
 	      {
-		fputs(_("ERROR: Unable to write raster data to driver!\n"),
-		      stderr);
+		_cupsLangPrintFilter(stderr, "ERROR",
+		                     _("Unable to send raster data to the "
+				       "driver."));
 		cupsImageClose(img);
 		exit(1);
 	      }
@@ -1328,8 +1339,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 	    if (cupsRasterWritePixels(ras, row, header.cupsBytesPerLine) <
 	                              header.cupsBytesPerLine)
 	    {
-              fputs(_("ERROR: Unable to write raster data to driver!\n"),
-	            stderr);
+	      _cupsLangPrintFilter(stderr, "ERROR",
+				   _("Unable to send raster data to the "
+				     "driver."));
 	      cupsImageClose(img);
 	      exit(1);
 	    }
@@ -1368,8 +1380,9 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (cupsRasterWritePixels(ras, row, header.cupsBytesPerLine) <
 	              header.cupsBytesPerLine)
 	      {
-		fputs(_("ERROR: Unable to write raster data to driver!\n"),
-		      stderr);
+		_cupsLangPrintFilter(stderr, "ERROR",
+		                     _("Unable to send raster data to the "
+				       "driver."));
 		cupsImageClose(img);
 		exit(1);
 	      }

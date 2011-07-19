@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)automount.c	1.50	05/06/08 SMI"
@@ -51,12 +51,13 @@
 #include <sys/mount.h>
 #include <fts.h>
 
-#include <DirectoryService/DirectoryService.h>
+#include <OpenDirectory/OpenDirectory.h>
 
 #include "deflt.h"
 #include "autofs.h"
 #include "automount.h"
-#include "automount_ds.h"
+#include "automount_od.h"
+#include "umount_by_fsid.h"
 
 static int parse_mntopts(const char *, int *, int *);
 static int paths_match(struct autodir *, struct autodir *);
@@ -98,6 +99,7 @@ main(int argc, char *argv[])
 	long timeout_val;
 	int c;
 	int flushcache = 0;
+	int unmount_automounted = 0;	// Unmount automounted mounts
 	struct autodir *dir, *d;
 	char real_mntpnt[PATH_MAX];
 	struct stat stbuf;
@@ -135,7 +137,7 @@ main(int argc, char *argv[])
 		defopen(NULL);
 	}
 
-	while ((c = getopt(argc, argv, "mM:D:f:t:vc?")) != EOF) {
+	while ((c = getopt(argc, argv, "mM:D:f:t:vcu?")) != EOF) {
 		switch (c) {
 		case 'm':
 			pr_msg("Warning: -m option not supported");
@@ -163,6 +165,9 @@ main(int argc, char *argv[])
 		case 'c':
 			flushcache++;
 			break;
+		case 'u':
+			unmount_automounted++;
+			break;
 		default:
 			usage();
 			break;
@@ -174,6 +179,15 @@ main(int argc, char *argv[])
 			"no longer supported",
 			argv[optind]);
 		usage();
+	}
+
+	/*
+	 * Get an array of current system mounts
+	 */
+	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
+	if (num_current_mounts == 0) {
+		pr_msg("Couldn't get current mounts: %m");
+		exit(1);
 	}
 
 	autofs_control_fd = open("/dev/" AUTOFS_CONTROL_DEVICE, O_RDONLY);
@@ -238,10 +252,27 @@ main(int argc, char *argv[])
 		exit(1);
 	}
 
-	num_current_mounts = getmntinfo(&current_mounts, MNT_NOWAIT);
-	if (num_current_mounts == 0) {
-		pr_msg("Couldn't get current mounts: %m");
-		exit(1);
+	/*
+	 * Update the mount timeout.
+	 */
+	if (ioctl(autofs_control_fd, AUTOFS_SET_MOUNT_TO, &mount_timeout) == -1)
+		pr_msg("AUTOFS_SET_MOUNT_TO failed: %m");
+
+	/*
+	 * Attempt to unmount any non-busy triggered mounts; this includes
+	 * not only autofs mounts, but, for example SMB Dfs mounts.
+	 *
+	 * This is done before sleep, and after a network change, to
+	 * try to get rid of as many network mounts as we can; each
+	 * unmounted network mount is a network mount on which we
+	 * can't hang.
+	 */
+	if (unmount_automounted) {
+		if (verbose)
+			pr_msg("Unmounting triggered mounts");
+		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT_TRIGGERED, 0) == -1)
+			pr_msg("AUTOFS_UNMOUNT_TRIGGERED failed: %m");
+		exit(0);
 	}
 
 	if (flushcache) {
@@ -426,13 +457,8 @@ main(int argc, char *argv[])
 			au.opts		= dir->dir_opts;
 			au.map		= dir->dir_map;
 			au.mntflags	= altflags;
-			au.mount_to	= mount_timeout;
-#if 0
-			au.mach_to	= AUTOFS_RPC_TIMEOUT;
-#else
-			au.mach_to	= 0;	/* XXX */
-#endif
 			au.direct 	= dir->dir_direct;
+			au.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
 
 			if (ioctl(autofs_control_fd, AUTOFS_UPDATE_OPTIONS,
 			    &au) < 0) {
@@ -443,6 +469,7 @@ main(int argc, char *argv[])
 				pr_msg("%s updated", dir->dir_realpath);
 		} else {
 			struct autofs_args ai;
+			int st_flags = 0;
 
 			/*
 			 * This trigger isn't already mounted; either
@@ -460,6 +487,7 @@ main(int argc, char *argv[])
 					pr_msg("%s: Not a directory", dir->dir_name);
 					continue;
 				}
+				st_flags = stbuf.st_flags;
 
 				/*
 				 * Either realpath() succeeded or it
@@ -508,6 +536,19 @@ main(int argc, char *argv[])
 			}
 
 			/*
+			 * If the "hidefromfinder" option is set for
+			 * this autofs mountpoint then also set the
+			 * UF_HIDDEN bit on the directory so it'll still
+			 * be invisible to the Finder even if not mounted on.
+			 */
+			if (altflags & AUTOFS_MNT_HIDEFROMFINDER)
+				st_flags |= UF_HIDDEN;
+			else
+				st_flags &= ~UF_HIDDEN;
+			if (chflags(dir->dir_name, st_flags) < 0)
+				pr_msg("%s: can't set hidden", dir->dir_name);
+
+			/*
 			 * Mount it.  Use the real path (symlink-free),
 			 * for reasons mentioned above.
 			 */
@@ -522,13 +563,8 @@ main(int argc, char *argv[])
 			else
 				ai.key = "";
 			ai.mntflags	= altflags;
-			ai.mount_to	= mount_timeout;
-#if 0
-			ai.mach_to	= AUTOFS_RPC_TIMEOUT;
-#else
-			ai.mach_to	= 0;	/* XXX */
-#endif
-			ai.trigger	= 0;	/* not a special trigger-point submount */
+			ai.mount_type	= MOUNT_TYPE_MAP;	/* top-level autofs mount */
+			ai.node_type	= dir->dir_direct ? NT_TRIGGER : 0;
 
 			if (mount(MNTTYPE_AUTOFS, dir->dir_realpath,
 			    MNT_DONTBROWSE | MNT_AUTOMOUNTED | flags,
@@ -713,7 +749,7 @@ find_mount(mntpnt)
 static void
 usage()
 {
-	pr_msg("Usage: automount  [ -vc ]  [ -t duration ]");
+	pr_msg("Usage: automount  [ -vcu ]  [ -t duration ]");
 	exit(1);
 	/* NOTREACHED */
 }
@@ -729,7 +765,7 @@ usage()
  * "real" volumes or not (we force MNT_NOBROWSE on for any mounts we do).
  */
 static const struct mntopt mopts_autofs[] = {
-	{ "browse",			1, AUTOFS_MNT_NORDDIR, 1 },
+	{ "browse",			1, AUTOFS_MNT_NOBROWSE, 1 },
 	MOPT_STDOPTS,
 	{ MNTOPT_RESTRICT,		0, AUTOFS_MNT_RESTRICT, 1 },
 	{ MNTOPT_HIDEFROMFINDER,	0, AUTOFS_MNT_HIDEFROMFINDER, 1 },
@@ -768,6 +804,7 @@ do_unmounts(void)
 	struct autodir *dir;
 	int current;
 	int count = 0;
+	static const char triggered[] = "triggered";
 
 	for (i = 0; i < num_current_mounts; i++) {
 		mnt = &current_mounts[i];
@@ -778,9 +815,18 @@ do_unmounts(void)
 		 * from the autofs mount command.
 		 * How do we tell them apart ?
 		 * Autofs mounts not eligible for auto-unmount
-		 * have an f_mntfromname of "trigger".
+		 * have an f_mntfromname of "subtrigger" (those
+		 * are subtriggers on top of a non-autofs mount)
+		 * or an f_mntfromname beginning with "triggered"
+		 * (those are autofs maps specified by map entries
+		 * to be automounted).
+		 * They will be unmounted, if possible, when the
+		 * top-level autofs mount they're under is
+		 * unmounted - as will any other mounts under
+		 * that top-level autofs mount.
 		 */
-		if (strcmp(mnt->f_mntfromname, "trigger") == 0)
+		if (strcmp(mnt->f_mntfromname, "subtrigger") == 0 ||
+		    strncmp(mnt->f_mntfromname, triggered, sizeof (triggered) - 1) == 0)
 			continue;
 
 		current = 0;
@@ -795,11 +841,7 @@ do_unmounts(void)
 			continue;
 
 		/*
-		 * Try to unmount everything under this mount, so that
-		 * we can unmount it.  Then flag this mount so references
-		 * to it won't trigger any further mounts, wait for any
-		 * in-progress mount attempts to complete, and unmount
-		 * it.
+		 * Mark this as being unmounted, and try to unmount it.
 		 */
 		if (ioctl(autofs_control_fd, AUTOFS_UNMOUNT,
 		    &mnt->f_fsid) == 0) {
@@ -950,149 +992,56 @@ static int
 have_ad(void)
 {
 	int have_it = 0;
-	tDirReference session;
-	tDirNodeReference node_ref;
-	tDirStatus status;
-	tDataListPtr attribute_type = NULL;
-	static UInt32 attr_bufsize = 2*1024;
-	tDataBufferPtr buffer = NULL;
-	UInt32 num_results;
-	tAttributeListRef attr_list_ref;
-	tContextData context;
-	tAttributeValueListRef value_list_ref;
-	tAttributeEntry *attr_entry_p;
-	UInt32 i;
-	tAttributeValueEntry *value_entry_p;
-	char *value;
-	UInt32 value_len;
-	static const char ad_prefix[] = "/Active Directory";
-	size_t ad_prefix_len = sizeof ad_prefix - 1;
+	CFErrorRef error;
+	char *errstring;
+	ODNodeRef node_ref;
+	CFArrayRef paths;
+	CFIndex num_paths;
+	CFIndex i;
+	CFStringRef path;
 
-	/* Open an Open Directory session. */
-	status = dsOpenDirService(&session);
-	if (status != eDSNoErr) {
-		pr_msg("have_ad: can't open session: %s (%d)",
-		    dsCopyDirStatusName(status), status);
+	/*
+	 * Create the search node.
+	 */
+	error = NULL;
+	node_ref = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault, 
+		kODNodeTypeAuthentication, &error);
+	if (node_ref == NULL) {
+		errstring = od_get_error_string(error);
+		pr_msg("have_ad: can't create search node for /Search: %s",
+		    errstring);
+		free(errstring);
 		return (0);
 	}
 
 	/*
-	 * Get the search node.
+	 * Get the search paths from the node.
 	 */
-	if (ds_get_root_level_node(session, &node_ref) != __NSW_SUCCESS) {
-		dsCloseDirService(session);
+	paths = ODNodeCopySubnodeNames(node_ref, &error);
+	if (paths == NULL) {
+		errstring = od_get_error_string(error);
+		pr_msg("have_ad: can't get subnode names for /Search: %s",
+		    errstring);
+		free(errstring);
 		return (0);
 	}
 
 	/*
-	 * Build the tDataList containing the attribute type that we are
-	 * searching for.
-	 */
-	attribute_type = dsBuildListFromStrings(session, kDS1AttrSearchPath,
-	    NULL);
-	if (attribute_type == NULL) {
-		pr_msg(
-		    "have_ad: can't build attribute type list: malloc failed");
-		goto done;
-	}
-
-	/*
-	 * Get the information about that attribute.
-	 */
-	for (;;) {
-		/* Allocate a buffer. */
-		buffer = dsDataBufferAllocate(session, attr_bufsize);
-		if (buffer == NULL) {
-			pr_msg("have_ad: malloc failed");
-			goto done;
-		}
-
-		/* Get the node info. */
-		context = 0;
-		status = dsGetDirNodeInfo(node_ref, attribute_type, buffer,
-		    FALSE, &num_results, &attr_list_ref, &context);
-		if (context != 0)
-			dsReleaseContinueData(session, context);
-		if (status != eDSBufferTooSmall) {
-			/* Well, the buffer wasn't too small */
-			break;
-		}
-
-		/*
-		 * The buffer was too small; free the buffer, and try one
-		 * twice as big.
-		 */
-		dsDataBufferDeAllocate(session, buffer);
-		attr_bufsize = 2*attr_bufsize;
-	}
-
-	if (status != eDSNoErr) {
-		pr_msg("have_ad: can't get root node info: %s (%d)",
-		    dsCopyDirStatusName(status), status);
-		goto done;
-	}
-	if (num_results == 0) {
-		/* We didn't find any attribute values. */
-		goto done;
-	}
-
-	/*
-	 * We only care about the first attribute entry, as we only asked
-	 * for one attribute.
-	 */
-	status = dsGetAttributeEntry(node_ref, buffer, attr_list_ref,
-	    1, &value_list_ref, &attr_entry_p);
-	if (status != eDSNoErr) {
-		pr_msg("have_ad: dsGetAttributeEntry failed: %s (%d)",
-		    dsCopyDirStatusName(status), status);
-		goto done;
-	}
-
-	/*
-	 * Scan the values for this attribute looking for an Active
+	 * Scan the paths in that array looking for an Active
 	 * Directory search path entry, i.e. one beginning with
 	 * "/Active Directory".
 	 */
-	for (i = 1; i <= attr_entry_p->fAttributeValueCount && !have_it; i++) {
-		status = dsGetAttributeValue(node_ref, buffer, i,
-		    value_list_ref, &value_entry_p);
-		if (status != eDSNoErr) {
-			pr_msg("have_ad: dsGetAttributeValue failed: %s (%d)",
-			    dsCopyDirStatusName(status), status);
-			dsDeallocAttributeEntry(session, attr_entry_p);
-			dsCloseAttributeValueList(value_list_ref);
-			goto done;
-		}
-		value = value_entry_p->fAttributeValueData.fBufferData;
-		value_len = value_entry_p->fAttributeValueData.fBufferLength;
+	num_paths = CFArrayGetCount(paths);
+	for (i = 0; i < num_paths && !have_it; i++) {
+		path = CFArrayGetValueAtIndex(paths, i);
 
 		/*
-		 * Check for a value *not* in the local_search_dirs list.
-		 * It indicates that there's an entry in the DS search path
-		 * that could conceivably provide fstab entries.
+		 * Check whether this entry begins with "/Active Directory".
 		 */
-		if (value_len >= ad_prefix_len &&
-		    memcmp(value, ad_prefix, ad_prefix_len) == 0) {
-			/*
-			 * This entry begins with "/Active Directory".
-			 */
-			have_it = 1;
-		}
-
-		dsDeallocAttributeValueEntry(session, value_entry_p);
+		have_it = CFStringHasPrefix(path, CFSTR("/Active Directory"));
 	}
-	dsDeallocAttributeEntry(session, attr_entry_p);
-	dsCloseAttributeValueList(value_list_ref);
-
-done:
-	if (buffer != NULL)
-		dsDataBufferDeAllocate(session, buffer);
-	if (attribute_type != NULL) {
-		dsDataListDeallocate(session, attribute_type);
-		free(attribute_type);
-	}
-	dsCloseDirNode(node_ref);
-	dsCloseDirService(session);
+	CFRelease(paths);
+	CFRelease(node_ref);
 	return (have_it);
 }
 

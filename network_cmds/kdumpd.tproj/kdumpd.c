@@ -592,6 +592,9 @@ abort:
 	return;
 }
 
+/* update if needed, when adding new errmsgs */
+#define MAXERRMSGLEN	40
+
 struct errmsg {
 	int	e_code;
 	char	*e_msg;
@@ -646,12 +649,19 @@ nak(error)
 		pe->e_msg = strerror(error - 100);
 		tp->th_code = EUNDEF;   /* set 'undef' errorcode */
 	}
-	strcpy(tp->th_msg, pe->e_msg);
+	if (strlen(pe->e_msg) > MAXERRMSGLEN) {
+		syslog(LOG_ERR, "nak: error msg too long");	
+		return;
+	}
+		
+	strlcpy(tp->th_msg, pe->e_msg, MAXERRMSGLEN);
 	length = strlen(pe->e_msg);
 	tp->th_msg[length] = '\0';
 	length += 5;
 	if (send(peer, buf, length, 0) != length)
 		syslog(LOG_ERR, "nak: %m");
+	
+	return;
 }
 
 static char *

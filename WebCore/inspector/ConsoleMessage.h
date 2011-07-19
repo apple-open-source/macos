@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Matt Lilek <webkit@mattlilek.com>
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2009, 2010 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,47 +31,50 @@
 #ifndef ConsoleMessage_h
 #define ConsoleMessage_h
 
-#include "Console.h"
-#include "ScriptObject.h"
+#include "ConsoleTypes.h"
+#include "InspectorFrontend.h"
 #include "ScriptState.h"
-
+#include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
-class InjectedScriptHost;
+
+class InjectedScriptManager;
 class InspectorFrontend;
+class InspectorObject;
+class ScriptArguments;
+class ScriptCallFrame;
 class ScriptCallStack;
-class ScriptString;
+class ScriptValue;
 
-class ConsoleMessage : public Noncopyable {
+class ConsoleMessage {
+    WTF_MAKE_NONCOPYABLE(ConsoleMessage); WTF_MAKE_FAST_ALLOCATED;
 public:
-    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, unsigned li, const String& u, unsigned g);        
-    ConsoleMessage(MessageSource, MessageType, MessageLevel, ScriptCallStack*, unsigned g, bool storeTrace = false);
+    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, unsigned li, const String& u);
+    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, PassRefPtr<ScriptArguments>, PassRefPtr<ScriptCallStack>);
+    ConsoleMessage(MessageSource, MessageType, MessageLevel, const String& m, const String& responseUrl, unsigned long identifier);
+    ~ConsoleMessage();
 
-#if ENABLE(INSPECTOR)
-    void addToFrontend(InspectorFrontend*, InjectedScriptHost*);
-    void updateRepeatCountInConsole(InspectorFrontend* frontend);
-#endif
+    void addToFrontend(InspectorFrontend::Console*, InjectedScriptManager*);
+    void updateRepeatCountInConsole(InspectorFrontend::Console*);
     void incrementCount() { ++m_repeatCount; }
-    bool isEqual(ScriptState*, ConsoleMessage* msg) const;
+    bool isEqual(ConsoleMessage* msg) const;
 
     MessageSource source() const { return m_source; }
     const String& message() const { return m_message; }
+    MessageType type() const { return m_type; }
 
 private:
     MessageSource m_source;
     MessageType m_type;
     MessageLevel m_level;
     String m_message;
-#if ENABLE(INSPECTOR)
-    Vector<ScriptValue> m_arguments;
-    ScriptStateProtectedPtr m_scriptState;
-#endif
-    Vector<ScriptString> m_frames;
+    RefPtr<ScriptArguments> m_arguments;
+    RefPtr<ScriptCallStack> m_callStack;
     unsigned m_line;
     String m_url;
-    unsigned m_groupLevel;
     unsigned m_repeatCount;
+    unsigned int m_requestId;
 };
 
 } // namespace WebCore

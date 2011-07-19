@@ -28,48 +28,22 @@
 
 #if ENABLE(GEOLOCATION)
 
+#include "CallbackFunction.h"
 #include "DOMWindow.h"
-#include "ExceptionCode.h"
 #include "Geolocation.h"
-#include "GeolocationService.h"
 #include "JSCustomPositionCallback.h"
 #include "JSCustomPositionErrorCallback.h"
 #include "JSDOMWindow.h"
 #include "PositionOptions.h"
-#include <runtime/InternalFunction.h>
+
+#if !ENABLE(CLIENT_BASED_GEOLOCATION)
+#include "GeolocationService.h"
+#endif
 
 using namespace JSC;
 using namespace std;
 
 namespace WebCore {
-
-static PassRefPtr<PositionCallback> createPositionCallback(ExecState* exec, JSDOMGlobalObject* globalObject, JSValue value)
-{
-    // The spec specifies 'FunctionOnly' for this object.
-    if (!value.inherits(&InternalFunction::info)) {
-        setDOMException(exec, TYPE_MISMATCH_ERR);
-        return 0;
-    }
-
-    JSObject* object = asObject(value);
-    return JSCustomPositionCallback::create(object, globalObject);
-}
-
-static PassRefPtr<PositionErrorCallback> createPositionErrorCallback(ExecState* exec, JSDOMGlobalObject* globalObject, JSValue value)
-{
-    // Argument is optional (hence undefined is allowed), and null is allowed.
-    if (value.isUndefinedOrNull())
-        return 0;
-
-    // The spec specifies 'FunctionOnly' for this object.
-    if (!value.inherits(&InternalFunction::info)) {
-        setDOMException(exec, TYPE_MISMATCH_ERR);
-        return 0;
-    }
-
-    JSObject* object = asObject(value);
-    return JSCustomPositionErrorCallback::create(object, globalObject);
-}
 
 static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValue value)
 {
@@ -135,20 +109,20 @@ static PassRefPtr<PositionOptions> createPositionOptions(ExecState* exec, JSValu
     return options.release();
 }
 
-JSValue JSGeolocation::getCurrentPosition(ExecState* exec, const ArgList& args)
+JSValue JSGeolocation::getCurrentPosition(ExecState* exec)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
 
-    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(0));
+    RefPtr<PositionCallback> positionCallback = createFunctionOnlyCallback<JSCustomPositionCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(0));
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionCallback);
 
-    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(1));
+    RefPtr<PositionErrorCallback> positionErrorCallback = createFunctionOnlyCallback<JSCustomPositionErrorCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(1), CallbackAllowUndefined | CallbackAllowNull);
     if (exec->hadException())
         return jsUndefined();
 
-    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, args.at(2));
+    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, exec->argument(2));
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionOptions);
@@ -157,26 +131,26 @@ JSValue JSGeolocation::getCurrentPosition(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue JSGeolocation::watchPosition(ExecState* exec, const ArgList& args)
+JSValue JSGeolocation::watchPosition(ExecState* exec)
 {
     // Arguments: PositionCallback, (optional)PositionErrorCallback, (optional)PositionOptions
 
-    RefPtr<PositionCallback> positionCallback = createPositionCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(0));
+    RefPtr<PositionCallback> positionCallback = createFunctionOnlyCallback<JSCustomPositionCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(0));
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionCallback);
 
-    RefPtr<PositionErrorCallback> positionErrorCallback = createPositionErrorCallback(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), args.at(1));
+    RefPtr<PositionErrorCallback> positionErrorCallback = createFunctionOnlyCallback<JSCustomPositionErrorCallback>(exec, static_cast<JSDOMGlobalObject*>(exec->lexicalGlobalObject()), exec->argument(1), CallbackAllowUndefined | CallbackAllowNull);
     if (exec->hadException())
         return jsUndefined();
 
-    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, args.at(2));
+    RefPtr<PositionOptions> positionOptions = createPositionOptions(exec, exec->argument(2));
     if (exec->hadException())
         return jsUndefined();
     ASSERT(positionOptions);
 
     int watchID = m_impl->watchPosition(positionCallback.release(), positionErrorCallback.release(), positionOptions.release());
-    return jsNumber(exec, watchID);
+    return jsNumber(watchID);
 }
 
 } // namespace WebCore

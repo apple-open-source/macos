@@ -44,6 +44,9 @@ namespace CallingConv {
     // call does not break any live ranges in the caller side.
     Cold = 9,
 
+    // GHC - Calling convention used by the Glasgow Haskell Compiler (GHC).
+    GHC = 10,
+
     // Target - This is the start of the target-specific calling conventions,
     // e.g. fastcall and thiscall on X86.
     FirstTargetCC = 64,
@@ -57,7 +60,26 @@ namespace CallingConv {
     /// X86_FastCall - 'fast' analog of X86_StdCall. Passes first two arguments
     /// in ECX:EDX registers, others - via stack. Callee is responsible for
     /// stack cleaning.
-    X86_FastCall = 65
+    X86_FastCall = 65,
+
+    /// ARM_APCS - ARM Procedure Calling Standard calling convention (obsolete,
+    /// but still used on some targets).
+    ARM_APCS = 66,
+
+    /// ARM_AAPCS - ARM Architecture Procedure Calling Standard calling
+    /// convention (aka EABI). Soft float variant.
+    ARM_AAPCS = 67,
+
+    /// ARM_AAPCS_VFP - Same as ARM_AAPCS, but uses hard floating point ABI.
+    ARM_AAPCS_VFP = 68,
+
+    /// MSP430_INTR - Calling convention used for MSP430 interrupt routines.
+    MSP430_INTR = 69,
+
+    /// X86_ThisCall - Similar to X86_StdCall. Passes first argument in ECX,
+    /// others via stack. Callee is responsible for stack cleaning. MSVC uses
+    /// this by default for methods in its ABI.
+    X86_ThisCall = 70
   };
 } // End CallingConv namespace
 

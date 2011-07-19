@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -37,7 +33,7 @@
 static char sccsid[] = "@(#)rand.c	8.1 (Berkeley) 6/14/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/rand.c,v 1.15 2003/02/17 03:52:35 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/rand.c,v 1.17 2007/12/11 20:39:32 ache Exp $");
 
 #include "namespace.h"
 #include <sys/time.h>          /* for sranddev() */
@@ -64,7 +60,7 @@ do_rand(unsigned long *ctx)
 #else   /* !USE_WEAK_SEEDING */
 /*
  * Compute x = (7^5 * x) mod (2^31 - 1)
- * wihout overflowing 31 bits:
+ * without overflowing 31 bits:
  *      (2^31 - 1) = 127773 * (7^5) + 2836
  * From "Random number generators: good ones are hard to find",
  * Park and Miller, Communications of the ACM, vol. 31, no. 10,

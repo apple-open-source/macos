@@ -543,16 +543,19 @@ typedef struct _NXEvent {
 
 #endif /* EVENT_H */	/* End of defs common with dpsclient/event.h */
 
-/* Mask of events that cause screen to undim */
+/* Mask of events that cause the screen to wake up */
+#define NX_WAKEMASK     (   NX_KEYDOWNMASK | NX_FLAGSCHANGEDMASK | \
+                            NX_LMOUSEDOWNMASK | NX_LMOUSEUPMASK | \
+                            NX_RMOUSEDOWNMASK | NX_RMOUSEUPMASK | \
+                            NX_OMOUSEDOWNMASK | NX_OMOUSEUPMASK   \
+                        )
 
-#define NX_UNDIMMASK		(NX_KEYDOWNMASK | NX_KEYUPMASK | \
-				 NX_LMOUSEDOWNMASK | NX_LMOUSEUPMASK | \
-				 NX_RMOUSEDOWNMASK | NX_RMOUSEUPMASK | \
-				 NX_MOUSEMOVEDMASK | NX_FLAGSCHANGEDMASK | \
-				 NX_MOUSEENTEREDMASK | NX_MOUSEEXITEDMASK | \
-				 NX_LMOUSEDRAGGEDMASK | NX_RMOUSEDRAGGEDMASK | \
-                                 NX_SCROLLWHEELMOVEDMASK | NX_TABLETPOINTERMASK | \
-                                 NX_TABLETPROXIMITYMASK | NX_NULLEVENTMASK)
+/* Mask of events that cause screen to undim */
+#define NX_UNDIMMASK    (   NX_WAKEMASK | NX_KEYUPMASK | NX_SCROLLWHEELMOVEDMASK | \
+                            NX_LMOUSEDRAGGEDMASK | NX_RMOUSEDRAGGEDMASK | NX_OMOUSEDRAGGEDMASK | \
+                            NX_MOUSEMOVEDMASK | NX_MOUSEENTEREDMASK | NX_MOUSEEXITEDMASK | \
+                            NX_TABLETPOINTERMASK | NX_TABLETPROXIMITYMASK \
+                        )
 
 #endif /* !_DEV_EVENT_H */
 

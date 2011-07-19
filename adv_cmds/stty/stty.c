@@ -151,11 +151,7 @@ args:	argc -= optind;
 	if (i.set && tcsetattr(i.fd, 0, &i.t) < 0)
 		err(1, "tcsetattr");
 	if (i.wset && ioctl(i.fd, TIOCSWINSZ, &i.win) < 0)
-#ifdef __APPLE__
-		warn("TIOCGWINSZ: %s\n", strerror(errno));
-#else
 		warn("TIOCSWINSZ");
-#endif
 	exit(0);
 }
 

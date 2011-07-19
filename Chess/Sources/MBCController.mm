@@ -2,7 +2,7 @@
 	File:		MBCController.mm
 	Contains:	The controller tying the various agents together
 	Version:	1.0
-	Copyright:	© 2002-2008 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,15 +15,63 @@
 	Change History (most recent first):
 
 		$Log: MBCController.mm,v $
+		Revision 1.63  2011/04/29 16:39:03  neerache
+		<rdar://problem/9347429>
+		
+		Revision 1.62  2011/04/11 16:57:18  neerache
+		<rdar://problem/9250894>
+		
+		Revision 1.61  2011/04/11 16:52:21  neerache
+		<rdar://problem/9221126>
+		
+		Revision 1.60  2011/03/12 23:43:53  neerache
+		<rdar://problem/9079430>
+		
+		Revision 1.59  2010/10/08 17:40:53  neerache
+		<rdar://problem/8518971>
+		
+		Revision 1.58  2010/10/08 00:15:36  neerache
+		Tweak window background
+		
+		Revision 1.57  2010/10/07 23:07:02  neerache
+		<rdar://problem/8352405>
+		
+		Revision 1.56  2010/09/23 01:53:08  neerache
+		<rdar://problem/8466764>
+		
+		Revision 1.55  2010/09/17 18:53:14  neerache
+		<rdar://problem/6703689>
+		
+		Revision 1.54  2010/08/10 21:15:00  neerache
+		<rdar://problem/8248582>
+		
+		Revision 1.53  2010/08/10 20:24:42  neerache
+		<rdar://problem/7305670>
+		
+		Revision 1.52  2010/07/01 20:38:32  neerache
+		Document workaround for  <rdar://problem/7811808>
+		
+		Revision 1.51  2010/06/29 19:35:07  neerache
+		<rdar://problem/7925965>
+		
+		Revision 1.50  2010/06/24 23:35:03  neerache
+		<rdar://problem/8117658>
+		
+		Revision 1.49  2010/04/24 01:57:10  neerache
+		<rdar://problem/7641028>
+		
+		Revision 1.48  2010/01/18 19:20:38  neerache
+		<rdar://problem/7297328>
+		
 		Revision 1.47  2008/11/20 23:13:11  neerache
-		<rdar://problem/5937079> Chess Save menu items/dialogs are incorrect
-		<rdar://problem/6328581> Update Chess copyright statements
+		<rdar://problem/5937079>
+		<rdar://problem/6328581>
 		
 		Revision 1.46  2008/10/24 22:21:06  neerache
-		<rdar://problem/5747583> Chess - turning on/off Allow Player to Speak Moves requires application relaunch to take effect
+		<rdar://problem/5747583>
 		
 		Revision 1.45  2008/04/22 19:47:41  neerache
-		<rdar://problem/5750936> Adoption of Clean / Dirty API by Chess
+		<rdar://problem/5750936>
 		
 		Revision 1.44  2007/03/02 07:40:46  neerache
 		Revise document handling & saving <rdar://problems/3776337&4186113>
@@ -163,6 +211,7 @@
 #import "MBCBoard.h"
 #import "MBCEngine.h"
 #import "MBCBoardView.h"
+#import "MBCBoardViewMouse.h"
 #import "MBCInteractivePlayer.h"
 #import "MBCDocument.h"
 #import "MBCGameInfo.h"
@@ -199,16 +248,6 @@ const double kMBCSearchTimeBase	= 2.0;
 
 @implementation MBCController
 
-+ (void)initialize
-{
-	NSDictionary * defaults = 
-		[NSDictionary dictionaryWithContentsOfFile:
-						  [[NSBundle mainBundle] 
-							  pathForResource:@"Defaults" ofType:@"plist"]];
-	[[NSUserDefaults standardUserDefaults] registerDefaults: defaults];
-	[[NSUserDefaults standardUserDefaults] synchronize];
-}
-
 - (void)copyOpeningBook:(NSString *)book
 {
 	NSFileManager * mgr = [NSFileManager defaultManager];
@@ -219,11 +258,11 @@ const double kMBCSearchTimeBase	= 2.0;
 	from = [[NSBundle mainBundle] pathForResource:book ofType:@""];
 	if (![mgr fileExistsAtPath:from])
 		return; /* We don't have this book at all */
-	[mgr copyPath:from toPath:book handler:nil];
+	[mgr copyItemAtPath:from toPath:book error:nil];
 }
 
 static NSString * sVariants[] = {
-	@"normal", @"crazyhouse", @"suicide", @"losers"
+	@"normal", @"crazyhouse", @"suicide", @"losers", nil
 };
 static const char * sVariantChars	= "nzsl";
 
@@ -266,18 +305,12 @@ static id	sInstance;
 	// Operate from ~/Library/Application Support/Chess
 	//
 	NSFileManager * mgr		= [NSFileManager defaultManager];
-	NSArray * 	libPath 	= 
-		NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, 
-											NSUserDomainMask, 
-											YES);
-	NSString*	appSuppDir	=
-		[[libPath objectAtIndex:0] 
-			stringByAppendingPathComponent:@"Application Support"];
-	[mgr createDirectoryAtPath:appSuppDir attributes:nil];
-	NSString*	ourDir 	= 
-		[appSuppDir stringByAppendingPathComponent:@"Chess"];
-	[mgr createDirectoryAtPath:ourDir attributes:nil];
-	[mgr changeCurrentDirectoryPath:ourDir];
+	NSURL *			appSupport	= 
+	[[mgr URLForDirectory:NSApplicationSupportDirectory inDomain:NSUserDomainMask 
+		appropriateForURL:nil create:YES error:nil] URLByAppendingPathComponent:@"Chess"];
+	NSString*	appSuppDir	= [appSupport path];
+	[mgr createDirectoryAtPath:appSuppDir withIntermediateDirectories:YES attributes:nil error:nil];
+	[mgr changeCurrentDirectoryPath:appSuppDir];
 
 	//
 	// Copy the opening books
@@ -410,6 +443,8 @@ static id	sInstance;
 
 - (MBCBoardView *) view
 {
+	if (!fView)
+		[self setBoardView:NO];
 	return fView;
 }
 
@@ -421,6 +456,11 @@ static id	sInstance;
 - (MBCEngine *) engine
 {
 	return fEngine;
+}
+
+- (NSWindow *) gameInfoWindow
+{
+	return fGameInfoWindow;
 }
 
 - (BOOL) speakMoves
@@ -438,14 +478,33 @@ static id	sInstance;
 	return [fListenForMoves intValue];
 }
 
+- (NSDictionary *)localizationForVoice:(NSString *)voice
+{
+	NSString * localeID 	= [[NSSpeechSynthesizer attributesForVoice:voice]
+								  valueForKey:NSVoiceLocaleIdentifier];
+	if (!localeID)
+		return nil;
+
+	NSBundle * mainBundle	= [NSBundle mainBundle];
+	NSArray  * preferred    = [NSBundle preferredLocalizationsFromArray:[mainBundle localizations]
+														 forPreferences:[NSArray arrayWithObject:localeID]];
+	if (!preferred)
+		return nil;
+
+	for (NSString * tryLocale in preferred)
+		if (NSURL * url = [mainBundle URLForResource:@"Spoken" withExtension:@"strings"
+										 subdirectory:nil localization:tryLocale]
+			)
+			return [NSDictionary dictionaryWithContentsOfURL:url];
+	return nil;
+}
 
 - (void)awakeFromNib
 {
 #ifdef CHESS_TUNER
 	[MBCTuner makeTuner];
 #endif
-	NSRect bounds = [fMainWindow frame];
-	[fMainWindow setAspectRatio: bounds.size];
+	[fMainWindow setAspectRatio:NSMakeSize(740.0, 680.0)];
 
 	[fBoardStyle removeAllItems];
 	[fPieceStyle removeAllItems];
@@ -456,7 +515,7 @@ static id	sInstance;
 		[[[NSBundle mainBundle] resourcePath] 
 			stringByAppendingPathComponent:@"Styles"];
 	NSEnumerator  * styles 		= 
-		[[fileManager directoryContentsAtPath:stylePath] objectEnumerator];
+		[[fileManager contentsOfDirectoryAtPath:stylePath error:nil] objectEnumerator];
 	while (NSString * style = [styles nextObject]) {
 		NSString * locStyle = [self localizedStyleName:style];
 		[fStyleLocMap setObject:style forKey:locStyle];
@@ -489,17 +548,28 @@ static id	sInstance;
 #if HAS_FLOATING_BOARD
 	[fFloatingMenuItem setState:[defaults integerForKey:kMBCFloatingBoard]];
 #endif
-	fDefaultSynth	= 
-		[[NSSpeechSynthesizer alloc] 
-			initWithVoice:[defaults objectForKey:kMBCDefaultVoice]];
-	fAlternateSynth	= 
-		[[NSSpeechSynthesizer alloc] 
-			initWithVoice:[defaults objectForKey:kMBCAlternateVoice]];
+	NSString * defaultVoice	= [defaults objectForKey:kMBCDefaultVoice];
+	if (![NSSpeechSynthesizer attributesForVoice:defaultVoice]) {
+		defaultVoice		= [[defaults volatileDomainForName:NSRegistrationDomain]
+								  objectForKey:kMBCDefaultVoice];
+		if (![NSSpeechSynthesizer attributesForVoice:defaultVoice]) 
+			defaultVoice	= nil;
+	}	
+	fDefaultSynth			= [[NSSpeechSynthesizer alloc] initWithVoice:defaultVoice];
+	fDefaultLocalization 	= [[self localizationForVoice:defaultVoice] retain];
 
-	[self loadVoiceMenu:fComputerVoice 
-		  withSelectedVoice:[defaults objectForKey:kMBCDefaultVoice]];
-	[self loadVoiceMenu:fAlternateVoice 
-		  withSelectedVoice:[defaults objectForKey:kMBCAlternateVoice]];
+	NSString * altVoice		= [defaults objectForKey:kMBCAlternateVoice];
+	if (![NSSpeechSynthesizer attributesForVoice:altVoice]) {
+		altVoice			= [[defaults volatileDomainForName:NSRegistrationDomain]
+								  objectForKey:kMBCAlternateVoice];
+		if (![NSSpeechSynthesizer attributesForVoice:altVoice]) 
+			altVoice	= nil;
+	}	
+	fAlternateSynth			= [[NSSpeechSynthesizer alloc] initWithVoice:altVoice];
+	fAlternateLocalization 	= [[self localizationForVoice:altVoice] retain];
+
+	[self loadVoiceMenu:fComputerVoice 	withSelectedVoice:defaultVoice];
+	[self loadVoiceMenu:fAlternateVoice withSelectedVoice:altVoice];
 }
 
 - (IBAction)updateGraphicsOptions:(id)sender
@@ -617,17 +687,6 @@ static id	sInstance;
 	[fView needsUpdate];
 }
 
-- (MBCDocument *)document
-{
-	//
-	// We don't really track changes
-	//
-	MBCDocument * doc = [[[NSDocumentController sharedDocumentController] documents] objectAtIndex:0];
-	[doc updateChangeCount:NSChangeDone];
-
-	return doc;
-}
-
 - (void)startNewGame
 {
 	[[NSDocumentController sharedDocumentController] newDocument:self];
@@ -668,14 +727,11 @@ static id	sInstance;
 {
 	if ((fIsLogging = !fIsLogging) && !fEngineLogFile) {
 		NSFileManager * mgr		= [NSFileManager defaultManager];
-		NSArray * 	libPath 	= 
-			NSSearchPathForDirectoriesInDomains(NSLibraryDirectory, 
-												NSUserDomainMask, 
-												YES);
-		NSString*	logDir	=
-			[[libPath objectAtIndex:0] 
-				stringByAppendingPathComponent:@"Logs"];
-		[mgr createDirectoryAtPath:logDir attributes:nil];
+		NSURL *			libLog	= 
+			[[mgr URLForDirectory:NSLibraryDirectory inDomain:NSUserDomainMask 
+				  appropriateForURL:nil create:YES error:nil] URLByAppendingPathComponent:@"Logs"];
+		NSString*		logDir	= [libLog path];
+		[mgr createDirectoryAtPath:logDir withIntermediateDirectories:YES attributes:nil error:nil];
 		NSString * log	= [logDir stringByAppendingPathComponent:@"Chess.log"];
 		creat([log fileSystemRepresentation], 0666);
 		fEngineLogFile = [[NSFileHandle fileHandleForWritingAtPath:log] retain];
@@ -723,7 +779,8 @@ static id	sInstance;
 
 	[fBoard makeMove:move];
 	[fView unselectPiece];
-	[fView hideMoves];	
+	[fView hideMoves];
+	[fDocument updateChangeCount:NSChangeDone];
 
 	if (move->fAnimate)
 		[MBCMoveAnimation moveAnimation:move board:fBoard view:fView];
@@ -740,6 +797,7 @@ static id	sInstance;
 {
 	[fBoard commitMove];
 	[fView hideMoves];
+	[fDocument updateChangeCount:NSChangeDone];
 
 	if ([fWhiteType isEqual:kMBCHumanPlayer] 
 	 && [fBlackType isEqual:kMBCHumanPlayer]
@@ -772,12 +830,14 @@ static id	sInstance;
 
 - (IBAction) saveGame:(id)sender
 {
-	[[self document] saveDocument:sender];
+	[fDocument saveDocument:sender];
+	[fMainWindow setDocumentEdited:NO];
 }
 
 - (IBAction) saveGameAs:(id)sender
 {
-	[[self document] saveDocumentAs:sender];
+	[fDocument saveDocumentAs:sender];
+	[fMainWindow setDocumentEdited:NO];
 }
 
 #if HAS_FLOATING_BOARD
@@ -792,14 +852,16 @@ static id	sInstance;
 }
 #endif
 
-- (BOOL) loadGame:(NSString *)fileName fromDict:(NSDictionary *)dict
+- (BOOL) loadGame:(NSDictionary *)dict
 {
-	[fLastLoad autorelease];
+	[fLastLoad release];
 	fLastLoad = [dict retain]; // So we can store key values
 	NSString * v = [dict objectForKey:@"Variant"];
 	
-	for (fVariant = kVarNormal; ![v isEqual:sVariants[fVariant]]; )
+	for (fVariant = kVarNormal; sVariants[fVariant] && ![v isEqual:sVariants[fVariant]]; )
 		fVariant = static_cast<MBCVariant>(fVariant+1);
+	if (!sVariants[fVariant])
+		fVariant = kVarNormal;
 	
     fWhiteType = [dict objectForKey:@"WhiteType"];
     fBlackType = [dict objectForKey:@"BlackType"];
@@ -871,22 +933,32 @@ static id	sInstance;
 
 - (BOOL)applicationShouldOpenUntitledFile:(NSApplication *)sender
 {
-	return NO;
+	return YES;
+}
+
+- (BOOL)applicationOpenUntitledFile:(NSApplication *)sender
+{
+	NSError * error;
+	[self setBoardView:NO];
+	if (![[NSDocumentController sharedDocumentController] 
+		 openDocumentWithContentsOfURL:[MBCDocument casualGameSaveLocation] 
+							display:YES error:&error])
+			[self setBoardView:YES];
+	
+	return YES;
 }
 
 - (BOOL)application:(NSApplication *)app openFile:(NSString *)filename
 {
+	NSError * error;
 	[self setBoardView:NO];
 	return [[NSDocumentController sharedDocumentController]
-			   openDocumentWithContentsOfFile:filename display:YES]
+			openDocumentWithContentsOfURL:[NSURL fileURLWithPath:filename] display:YES error:&error]
 		!= nil;
 }
 
 - (void)applicationDidFinishLaunching:(NSNotification *)n
 {
-	if (!fView)
-		[self setBoardView:YES];
-
 	int debug = 0;
 
 	if (getenv("MBC_DEBUG"))
@@ -915,7 +987,7 @@ static id	sInstance;
 	[defaults synchronize];
 }
 
-- (BOOL)validateMenuItem:(id <NSMenuItem>)menuItem
+- (BOOL)validateMenuItem:(NSMenuItem *)menuItem
 {
 	if (menuItem != fTakebackMenuItem)
 		return YES;
@@ -936,6 +1008,16 @@ const int kNumFixedMenuItems = 2;
 - (NSSpeechSynthesizer *)alternateSynth
 {
 	return fAlternateSynth;
+}
+
+- (NSDictionary *) defaultLocalization
+{
+	return fDefaultLocalization;
+}
+
+- (NSDictionary *) alternateLocalization
+{
+	return fAlternateLocalization;
 }
 
 - (void)loadVoiceMenu:(id)menu withSelectedVoice:(NSString *)voiceIdentifierToSelect 
@@ -967,18 +1049,59 @@ const int kNumFixedMenuItems = 2;
 	int				defaultIdx	= [fComputerVoice indexOfSelectedItem];
 	int				alternateIdx= [fAlternateVoice indexOfSelectedItem];
 
-	if (defaultIdx)
+	if (defaultIdx > 0)
 		defaultID	= [voices objectAtIndex:defaultIdx-kNumFixedMenuItems];
-	if (alternateIdx)
+	if (alternateIdx > 0)
 		alternateID	= [voices objectAtIndex:alternateIdx-kNumFixedMenuItems];
 
 	[fDefaultSynth setVoice:defaultID];
 	[fAlternateSynth setVoice:alternateID];
 
+	[fDefaultLocalization autorelease];
+	fDefaultLocalization = [[self localizationForVoice:defaultID] retain];
+	[fAlternateLocalization autorelease];
+	fAlternateLocalization = [[self localizationForVoice:alternateID] retain];
+
 	[defaults setObject:defaultID forKey:kMBCDefaultVoice];
 	[defaults setObject:alternateID forKey:kMBCAlternateVoice];
+	
+	NSSpeechSynthesizer *	selectedSynth = nil;
+	if (sender == fComputerVoice) {
+		selectedSynth	= fDefaultSynth;
+	} else if (sender == fAlternateVoice) {
+		selectedSynth	= fAlternateSynth;
+	}
+	if (selectedSynth) {
+		NSString *  demoText	= 
+			[[NSSpeechSynthesizer attributesForVoice:[selectedSynth voice]] 
+			 objectForKey:NSVoiceDemoText];
+		if (demoText)
+			[selectedSynth startSpeakingString:demoText];
+	}
 }
 
+- (void)setDocument:(NSDocument *)doc
+{
+	fDocument = doc;
+	if ([[fMainWindow windowController] document] != fDocument) {
+		[fDocument addWindowController:[fMainWindow windowController]];
+		if (fDocument) {
+			if (fLastLoad) {
+				if (![fDocument fileURL])
+					[fDocument updateChangeCount:NSChangeDone];
+			} else {
+				static int sFirstUntitledDocument = 0;
+				if (!sFirstUntitledDocument++)
+					[self setBoardView:YES];
+			}
+		}
+	}
+}
+
+- (NSSize)window:(NSWindow *)window willUseFullScreenContentSize:(NSSize)size
+{
+	return size;
+}
 @end
 
 @implementation MBCDocumentController 
@@ -986,8 +1109,6 @@ const int kNumFixedMenuItems = 2;
 - (id)init
 {
 	[super init];
-
-	[self newDocument:self];
 
 	return self;
 }
@@ -1000,19 +1121,26 @@ const int kNumFixedMenuItems = 2;
 	[[self documents] makeObjectsPerformSelector:@selector(close)];
 
 	[super addDocument:doc];
+	[[MBCController controller] setDocument:doc];
+	[self setAutosavingDelay:5.0];
 }
 
 - (void) removeDocument:(NSDocument *)doc
 {
+	[[MBCController controller] setDocument:nil];
+	[[NSNotificationQueue defaultQueue] 
+		dequeueNotificationsMatching:[NSNotification notificationWithName:MBCEndMoveNotification object:nil] 
+	  coalesceMask:NSNotificationCoalescingOnName];
 	[super removeDocument:doc];
 }
 
-- (BOOL) hasEditedDocuments
+- (void) noteNewRecentDocumentURL:(NSURL *)absoluteURL
 {
-	//	
-	// Prevent review on quitting
 	//
-	return NO;
+	// <rdar://problem/9221126>
+	//
+	if (![absoluteURL isEqual:[MBCDocument casualGameSaveLocation]])
+		[super noteNewRecentDocumentURL:absoluteURL];
 }
 
 @end

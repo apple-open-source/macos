@@ -26,13 +26,13 @@
 #ifndef WCDataObject_h
 #define WCDataObject_h
 
-#include <wtf/Vector.h>
+#include "DragData.h"
 #include <ShlObj.h>
 #include <objidl.h>
+#include <wtf/Forward.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
-
-class String;
 
 class WCDataObject : public IDataObject {
 public:
@@ -57,6 +57,7 @@ public:
     void clearData(CLIPFORMAT);
     
     static HRESULT createInstance(WCDataObject**);
+    static HRESULT createInstance(WCDataObject**, const DragDataMap&);
 private:
     WCDataObject();
     virtual ~WCDataObject();

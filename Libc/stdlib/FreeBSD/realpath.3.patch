@@ -1,8 +1,8 @@
---- realpath.3.orig	2008-04-05 00:03:06.000000000 -0700
-+++ realpath.3	2008-04-05 17:42:41.000000000 -0700
-@@ -35,63 +35,73 @@
+--- realpath.3.bsdnew	2009-11-13 14:11:51.000000000 -0800
++++ realpath.3	2009-11-13 14:11:51.000000000 -0800
+@@ -31,63 +31,73 @@
  .\"     @(#)realpath.3	8.2 (Berkeley) 2/16/94
- .\" $FreeBSD: src/lib/libc/stdlib/realpath.3,v 1.13 2003/03/27 20:48:53 fjoe Exp $
+ .\" $FreeBSD: src/lib/libc/stdlib/realpath.3,v 1.14 2007/01/09 00:28:10 imp Exp $
  .\"
 -.Dd February 16, 1994
 +.Dd April 5, 2008
@@ -97,7 +97,7 @@
  contains the pathname which caused the problem.
  .Sh ERRORS
  The function
-@@ -99,24 +109,44 @@
+@@ -95,24 +105,44 @@ The function
  may fail and set the external variable
  .Va errno
  for any of the errors specified for the library functions

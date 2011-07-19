@@ -61,7 +61,10 @@ g++ -W -Wall -I/System/Library/Frameworks/System.framework/PrivateHeaders -I/Sys
 
 #include <IOKit/scsi/IOSCSIArchitectureModelFamilyTimestamps.h>
 #include <IOKit/scsi/IOSCSIArchitectureModelFamilyDebugging.h>
-#include <IOKit/usb/IOUSBMassStorageClassTimestamps.h>
+#include <IOKit/scsi/SCSICommandOperationCodes.h>
+
+#include "../IOUSBMassStorageClassTimestamps.h"
+
 #include <IOKit/usb/USB.h>
 
 #define DEBUG 			0
@@ -106,6 +109,7 @@ enum
 	kUSBDeviceResetAfterDisconnectCode		= UMC_TRACE ( kUSBDeviceResetAfterDisconnect ),
 	kUSBDeviceResetReturnedCode				= UMC_TRACE ( kUSBDeviceResetReturned ),
 	kAbortCurrentSCSITaskCode				= UMC_TRACE ( kAbortCurrentSCSITask ),
+	kCompletingCommandWithErrorCode			= UMC_TRACE ( kCompletingCommandWithError ),
 	
 	// CBI Specific							0x052D0400 - 0x052D07FF
 	kCBIProtocolDeviceDetectedCode			= UMC_TRACE ( kCBIProtocolDeviceDetected ),
@@ -154,7 +158,6 @@ static const char * kBulkOnlyStateNames[] = {	" ",
 //	Globals
 //-----------------------------------------------------------------------------
 
-int					gBiasSeconds				= 0;
 int					gNumCPUs					= 1;
 double				gDivisor					= 0.0;		/* Trace divisor converts to microseconds */
 kd_buf *			gTraceBuffer				= NULL;
@@ -164,6 +167,11 @@ boolean_t			gEnableTraceOnly			= FALSE;
 const char *		gProgramName				= NULL;
 uint32_t			gSavedTraceMask				= 0;
 boolean_t			gHideBusyRejectedCommands	= FALSE;
+
+u_int8_t			fullCDB [ 16 ]				= { 0 };
+int64_t 			current_usecs				= 0;
+int64_t 			prev_usecs					= 0;
+int64_t				delta_usecs					= 0;
 
 
 //-----------------------------------------------------------------------------
@@ -205,6 +213,12 @@ ParseArguments ( int argc, const char * argv[] );
 
 static void
 PrintUsage ( void );
+
+static void
+PrintSCSICommand ( void );
+
+static void
+PrintTimeStamp ( void );
 
 static void
 LoadUSBMassStorageExtension ( void );
@@ -642,6 +656,128 @@ InitializeTraceBuffer ( void )
 
 
 //-----------------------------------------------------------------------------
+//	PrintSCSICommand
+//-----------------------------------------------------------------------------
+
+static void
+PrintSCSICommand ( void )
+{
+	
+	switch ( fullCDB [0] )
+	{
+		
+		case kSCSICmd_TEST_UNIT_READY:
+		{
+			
+			printf ( " kSCSICmd_TEST_UNIT_READY\n" );
+			
+		}
+		break;
+			
+		case kSCSICmd_REQUEST_SENSE:
+		{
+			
+			printf ( " kSCSICmd_REQUEST_SENSE\n" );
+			
+		}
+		break;
+			
+		case kSCSICmd_READ_10:
+		{
+			
+			u_int32_t	LOGICAL_BLOCK_ADDRESS	= 0;
+			u_int16_t	TRANSFER_LENGTH			= 0;
+			
+			LOGICAL_BLOCK_ADDRESS   = fullCDB [2];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [3];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [4];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [5];
+			
+			TRANSFER_LENGTH   = fullCDB [7];
+			TRANSFER_LENGTH <<= 8;
+			TRANSFER_LENGTH  |= fullCDB [8];
+			
+			printf ( "kSCSICmd_READ_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+			
+		}
+		break;
+		
+		case kSCSICmd_WRITE_10:
+		{
+			
+			u_int32_t	LOGICAL_BLOCK_ADDRESS	= 0;
+			u_int16_t	TRANSFER_LENGTH			= 0;
+			
+			LOGICAL_BLOCK_ADDRESS   = fullCDB [2];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [3];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [4];
+			LOGICAL_BLOCK_ADDRESS <<= 8;
+			LOGICAL_BLOCK_ADDRESS  |= fullCDB [5];
+			
+			TRANSFER_LENGTH   = fullCDB [7];
+			TRANSFER_LENGTH <<= 8;
+			TRANSFER_LENGTH  |= fullCDB [8];
+			
+			printf ( "kSCSICmd_WRITE_10, LBA = %p, length = %p\n", ( void * ) LOGICAL_BLOCK_ADDRESS, ( void * ) TRANSFER_LENGTH );
+			
+		}
+		break;
+			
+		default:
+		{
+			printf ( "This command has not yet been decoded\n" );
+		}
+		break;
+		
+	}
+	
+}
+
+
+//-----------------------------------------------------------------------------
+//	PrintTimeStamp
+//-----------------------------------------------------------------------------
+
+static void
+PrintTimeStamp ( void )
+{
+	
+	time_t		currentTime = time ( NULL );
+	
+	if ( prev_usecs == 0 )
+	{
+		delta_usecs = 0;
+	}
+	else
+	{
+		delta_usecs = current_usecs - prev_usecs;
+	}
+
+	prev_usecs = current_usecs;
+	
+/*
+	
+	if ( delta_usecs > (100 * kMicrosecondsPerMillisecond )
+	{
+		printf ( "*** " );
+	}
+	else
+	{
+		printf ( "    " );
+	}
+
+*/
+	
+	printf ( "%-8.8s [%lld][%10lld us]", &( ctime ( &currentTime )[11] ), current_usecs, delta_usecs );
+	
+}
+
+//-----------------------------------------------------------------------------
 //	CollectTrace
 //-----------------------------------------------------------------------------
 
@@ -685,29 +821,17 @@ CollectTrace ( void )
 		int 				debugID;
 		int 				type;
 		uint64_t 			now;
-		int64_t 			usecs;
-		int 				secs;
-		time_t 				currentTime;
 		const char *		errorString;
 		
 		debugID = gTraceBuffer[index].debugid;
 		type	= debugID & ~( DBG_FUNC_START | DBG_FUNC_END );
 		
 		now = gTraceBuffer[index].timestamp & KDBG_TIMESTAMP_MASK;
+		current_usecs = ( int64_t )( now / gDivisor );
 		
-		if ( index == 0 )
+		if ( ( type >= 0x05278800 ) && ( type <= 0x05278BFC ) && ( type != kCDBLog2Code ) )
 		{
-			
-			/*
-			 * Compute bias seconds after each trace buffer read.
-			 * This helps resync timestamps with the system clock
-			 * in the event of a system sleep.
-			 */
-			usecs = ( int64_t )( now / gDivisor );
-			secs = usecs / kMicrosecondsPerSecond;
-			currentTime = time ( NULL );
-			gBiasSeconds = currentTime - secs;
-			
+			PrintTimeStamp ( );
 		}
 		
 		switch ( type )
@@ -719,13 +843,13 @@ CollectTrace ( void )
 			
 			case kAbortedTaskCode:
 			{
-				printf ( "[%p] Task %p Aborted!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] Task %p Aborted!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kAbortCurrentSCSITaskCode:
 			{
-				printf ( "[%p] Aborted currentTask %p DeviceAttached = %d ConsecutiveResetCount = %d\n",
+				printf ( "[%10p] Aborted currentTask %p DeviceAttached = %d ConsecutiveResetCount = %d\n",
 						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2,
 						( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
 			}
@@ -734,73 +858,82 @@ CollectTrace ( void )
 			case kCompleteSCSICommandCode:
 			{
 				
-				printf ( "[%p] Task %p Completed with serviceResponse = %d taskStatus = 0x%x\n",
+				printf ( "[%10p] Task %p Completed with serviceResponse = %d taskStatus = 0x%x\n",
 						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2,
-						( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );				
-				printf ( "[%p] -------------------------------------------------\n", ( void * ) gTraceBuffer[index].arg1 );
+						( int ) gTraceBuffer[index].arg3, ( int ) gTraceBuffer[index].arg4 );
+				PrintTimeStamp ( );
+				printf ( "[%10p] -------------------------------------------------\n", ( void * ) gTraceBuffer[index].arg1 );
 				
+			}
+			break;
+			
+			case kCompletingCommandWithErrorCode:
+			{
+				printf ( "[%10p] !!!!! Hark !!!!! Completing command with an ERROR status!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kLUNConfigurationCompleteCode:
 			{
-				printf ( "[%p] MaxLUN = %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] MaxLUN = %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kNewCommandWhileTerminatingCode:
 			{
-				printf ( "[%p] Task = %p received while terminating!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] Task = %p received while terminating!!!\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kIOUMCStorageCharacDictFoundCode:
 			{
-				printf ( "[%p] This device has a USB Characteristics Dictionary\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] This device has a USB Characteristics Dictionary\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kNoProtocolForDeviceCode:
 			{
-				printf ( "[%p] !!! NO USB TRANSPORT PROTOCOL FOR THIS DEVICE !!!\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] !!! NO USB TRANSPORT PROTOCOL FOR THIS DEVICE !!!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kIOUSBMassStorageClassStartCode:
 			{
-				printf ( "[%p] Starting up!\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] Starting up!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kIOUSBMassStorageClassStopCode:
 			{
-				printf ( "[%p] Stopping!\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] Stopping!\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kAtUSBAddressCode:
 			{
-				printf ( "[%p] @ USB Address: %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] @ USB Address: %u\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
 			case kMessagedCalledCode:
 			{
-				printf ( "[%p] Message : %x received\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] Message : %x received\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				PrintTimeStamp ( );
+				printf ( "[%10p] -------------------------------------------------\n", ( void * ) gTraceBuffer[index].arg1 );
 			}
 			break;
 			
 			case kWillTerminateCalledCode:
 			{
-				printf ( "[%p] willTerminate called, CurrentInterface=%p, isInactive=%u\n", 
+				printf ( "[%10p] willTerminate called, CurrentInterface=%p, isInactive=%u\n", 
 					( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 			}
 			break;
 			
 			case kDidTerminateCalledCode:
 			{
-				printf ( "[%p] didTerminate called, fTerminationDeferred=%u\n", 
-						( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] didTerminate called, fTerminationDeferred=%u\n", 
+						( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 			}
 			break;
 			
@@ -810,19 +943,26 @@ CollectTrace ( void )
 				UInt8 *			cdbData;
 				unsigned int	i;
 				
-				printf ( "[%p] Request %p\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
-				printf ( "[%p] ", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] Request %p\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
+				PrintTimeStamp ( );
+				printf ( "[%10p] ", ( void * ) gTraceBuffer[index].arg1 );
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg3;
 				
 				for ( i = 0; i < 4; i++ )
-					printf ( "%x : ", cdbData[i] );
+				{
+					fullCDB [i] = cdbData[i];
+					printf ( "0x%02X : ", cdbData[i] );
+				}
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg4;
 				
 				for ( i = 0; i < 4; i++ )
-					printf ( "%x : ", cdbData[i] );
-
+				{
+					fullCDB [i+4] = cdbData[i];
+					printf ( "0x%02X : ", cdbData[i] );
+				}
+				
 			}
 			break;		
 			
@@ -835,14 +975,25 @@ CollectTrace ( void )
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg3;
 				
 				for ( i = 0; i < 4; i++ )
-					printf ( "%x : ", cdbData[i] );
+				{
+					fullCDB [i+8] = cdbData[i];
+					printf ( "0x%02X : ", cdbData[i] );
+				}
 				
 				cdbData = ( UInt8 * ) &gTraceBuffer[index].arg4;
 				
 				for ( i = 0; i < 3; i++ )
-					printf ( "%x : ", cdbData[i] );
+				{
+					fullCDB [i+12] = cdbData[i];
+					printf ( "0x%02X : ", cdbData[i] );
+				}
 				
-				printf ( "%x\n", cdbData[i] );
+				fullCDB [i+12] = cdbData[i];
+				printf ( "0x%02X\n", cdbData[i] );
+				
+				PrintTimeStamp ( );
+				printf ( "[%10p] ", ( void * ) gTraceBuffer[index].arg1 );
+				PrintSCSICommand ( );
 				
 			}
 			break;	
@@ -851,7 +1002,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
+				printf ( "[%10p] ClearFeatureEndpointStall status=%s (0x%x), endpoint=%u\n", 
 						( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
@@ -861,7 +1012,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] GetEndpointStatus status=%s (0x%x), endpoint=%u\n", 
+				printf ( "[%10p] GetEndpointStatus status=%s (0x%x), endpoint=%u\n", 
 						( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );		
 				
 			}
@@ -870,7 +1021,7 @@ CollectTrace ( void )
 			case kHandlePowerOnUSBResetCode:
 			{
 				
-				printf ( "[%p] USB Device Reset on WAKE from SLEEP\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] USB Device Reset on WAKE from SLEEP\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -878,7 +1029,7 @@ CollectTrace ( void )
 			case kUSBDeviceResetWhileTerminatingCode:
 			{
 				
-				printf ( "%p Termination started before device reset could be initiated! fTerminating=%u, isInactive=%u\n", 
+				printf ( "[%10p] Termination started before device reset could be initiated! fTerminating=%u, isInactive=%u\n", 
                             ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
@@ -887,7 +1038,7 @@ CollectTrace ( void )
 			case kUSBDeviceResetAfterDisconnectCode:
 			{
 				
-				printf ( "[%p] Device reset was attempted after the device had been disconnected\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] Device reset was attempted after the device had been disconnected\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -895,7 +1046,7 @@ CollectTrace ( void )
 			case kUSBDeviceResetReturnedCode:
 			{
 				
-				printf ( "[%p] DeviceReset returned: 0x%08x\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
+				printf ( "[%10p] DeviceReset returned: 0x%08x\n", ( void * ) gTraceBuffer[index].arg1, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
 			break;
@@ -907,7 +1058,7 @@ CollectTrace ( void )
 			case kCBIProtocolDeviceDetectedCode:
 			{
 				
-				printf ( "[%p] CBI transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] CBI transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -918,7 +1069,7 @@ CollectTrace ( void )
 				if ( gHideBusyRejectedCommands == FALSE )
 				{
 					
-					printf ( "[%p] CBI - Unable to accept task %p, still working on previous command\n", 
+					printf ( "[%10p] CBI - Unable to accept task %p, still working on previous command\n", 
 								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 					
 				}
@@ -930,7 +1081,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
-				printf ( "[%p] CBI - SCSI Task %p was sent with status %s (0x%x)\n", 
+				printf ( "[%10p] CBI - SCSI Task %p was sent with status %s (0x%x)\n", 
 							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
@@ -943,7 +1094,7 @@ CollectTrace ( void )
 			case kBODeviceDetectedCode:
 			{
 				
-				printf ( "[%p] BULK-ONLY transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] BULK-ONLY transport protocol device\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -954,7 +1105,7 @@ CollectTrace ( void )
 				if ( gHideBusyRejectedCommands == FALSE )
 				{
 					
-					printf ( "[%p] B0 Unable to accept task %p, still working on previous request\n", 
+					printf ( "[%10p] B0 - Unable to accept task %p, still working on previous request\n", 
 								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2 );
 					
 				}
@@ -966,7 +1117,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg3 );
-				printf ( "[%p] BO - SCSI Task %p was sent with status %s (0x%x)\n", 
+				printf ( "[%10p] BO - SCSI Task %p was sent with status %s (0x%x)\n", 
 								( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, errorString, ( unsigned int ) gTraceBuffer[index].arg3 );				
 				
 			}
@@ -975,7 +1126,7 @@ CollectTrace ( void )
 			case kBOPreferredMaxLUNCode:
 			{
 				
-				printf ( "[%p] BO - Preferred MaxLUN: %d\n", 
+				printf ( "[%10p] BO - Preferred MaxLUN: %d\n", 
 							( void * ) gTraceBuffer[index].arg1, (int) gTraceBuffer[index].arg2 );
 				
 			}
@@ -985,7 +1136,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] BO - GetMaxLUN returned: %s (0x%x), triedReset=%u, MaxLun: %d\n", 
+				printf ( "[%10p] BO - GetMaxLUN returned: %s (0x%x), triedReset=%u, MaxLun: %d\n", 
 								( void * ) gTraceBuffer[index].arg1, errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg3 );
 				
 			}
@@ -994,7 +1145,7 @@ CollectTrace ( void )
 			case kBOCBWDescriptionCode:
 			{
 				
-				printf ( "[%p] BO - Request %p, LUN: %u, CBW Tag: %u (0x%x)\n", 
+				printf ( "[%10p] BO - Request %p, LUN: %u, CBW Tag: %u (0x%x)\n", 
 							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg2, ( unsigned int ) gTraceBuffer[index].arg3, ( unsigned int ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg4 );
 				
 			}
@@ -1004,7 +1155,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] BO - Request %p, LUN: %u, Bulk-Out Write Status: %s (0x%x)\n", 
+				printf ( "[%10p] BO - Request %p, LUN: %u, Bulk-Out Write Status: %s (0x%x)\n", 
 							( void * ) gTraceBuffer[index].arg1, ( void * ) gTraceBuffer[index].arg4, ( unsigned int ) gTraceBuffer[index].arg3, errorString, ( unsigned int ) gTraceBuffer[index].arg2 );
 				
 			}
@@ -1013,7 +1164,7 @@ CollectTrace ( void )
 			case kBODoubleCompleteionCode:
 			{
 				
-				printf ( "[%p] BO - DOUBLE Completion\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] BO - DOUBLE Completion\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -1021,7 +1172,7 @@ CollectTrace ( void )
 			case kBOCompletionDuringTerminationCode:
 			{
 				
-				printf ( "[%p] BO - Completion during termination\n", ( void * ) gTraceBuffer[index].arg1 );
+				printf ( "[%10p] BO - Completion during termination\n", ( void * ) gTraceBuffer[index].arg1 );
 				
 			}
 			break;
@@ -1030,7 +1181,7 @@ CollectTrace ( void )
 			{
 				
 				errorString = StringFromReturnCode ( gTraceBuffer[index].arg2 );
-				printf ( "[%p] BO - Completion, State: %s, Status: %s (0x%x), for Request: %p\n", 
+				printf ( "[%10p] BO - Completion, State: %s, Status: %s (0x%x), for Request: %p\n", 
 								( void * ) gTraceBuffer[index].arg1, kBulkOnlyStateNames [ (int) gTraceBuffer[index].arg3 ], 
 								errorString, ( unsigned int ) gTraceBuffer[index].arg2, ( void * ) gTraceBuffer[index].arg4 );
 				
@@ -1039,6 +1190,12 @@ CollectTrace ( void )
 			
 			default:
 			{
+				
+				if ( ( type >= 0x05278800 ) && ( type <= 0x05278BFC ) )
+				{
+					printf ( "[%10p] ??? - UNEXPECTED USB TRACE POINT - %p\n", ( void * ) gTraceBuffer[index].arg1, ( void * ) type );
+				}
+				
 			}
 			break;
 			

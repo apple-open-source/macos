@@ -168,7 +168,7 @@ int l2tp_wan_attach(void *rfc, struct ppp_link **link)
     lk = (struct ppp_link *) wan;
     
     // it's time now to register our brand new link
-    lk->lk_name 	= L2TP_NAME;
+    lk->lk_name 	= (u_char*)L2TP_NAME;
     lk->lk_mtu 		= L2TP_MTU;
     lk->lk_mru 		= L2TP_MTU;;
     lk->lk_type 	= PPP_TYPE_L2TP;

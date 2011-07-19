@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  weakblockrecover.m
 //  testObjects
@@ -5,12 +11,17 @@
 //  Created by Blaine Garst on 11/3/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC -C99 rdar://5847976
+
+// TEST_CFLAGS -framework Foundation
+
+// rdar://5847976
 
 
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
+#import <objc/objc-auto.h>
+#import "test.h"
 
 int Allocated = 0;
 int Recovered = 0;
@@ -45,18 +56,16 @@ void testRecovery() {
         [to release];
     }
     // let's see if we can recover any under GC circumstances
-    NSGarbageCollector *collector = [NSGarbageCollector defaultCollector];
-    [collector collectIfNeeded];
-    [collector collectExhaustively];
+    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
+
     [listOfBlocks self]; // by using it here we keep listOfBlocks alive across the GC
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     testRecovery();
     if ((Recovered + 10) < Allocated) {
-        printf("Only %d weakly referenced test objects recovered, vs %d allocated\n", Recovered, Allocated);
-        return 1;
+        fail("Only %d weakly referenced test objects recovered, vs %d allocated\n", Recovered, Allocated);
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

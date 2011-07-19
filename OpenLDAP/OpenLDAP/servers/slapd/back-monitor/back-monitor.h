@@ -1,8 +1,8 @@
 /* back-monitor.h - ldap monitor back-end header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/back-monitor.h,v 1.52.2.5 2008/02/11 23:26:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-monitor/back-monitor.h,v 1.52.2.9 2010/04/13 20:23:32 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2001-2008 The OpenLDAP Foundation.
+ * Copyright 2001-2010 The OpenLDAP Foundation.
  * Portions Copyright 2001-2003 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -130,6 +130,7 @@ typedef struct monitor_info_t {
 	AttributeDescription	*mi_ad_monitorIsShadow;
 	AttributeDescription	*mi_ad_monitorUpdateRef;
 	AttributeDescription	*mi_ad_monitorRuntimeConfig;
+	AttributeDescription	*mi_ad_monitorSuperiorDN;
 
 	/*
 	 * Generic description attribute
@@ -288,9 +289,9 @@ typedef struct monitor_extra_t {
 
 	int (*register_subsys)( monitor_subsys_t *ms );
 	int (*register_backend)( BackendInfo *bi );
-	int (*register_database)( BackendDB *be, struct berval *ndn );
+	int (*register_database)( BackendDB *be, struct berval *ndn_out );
 	int (*register_overlay_info)( slap_overinst *on );
-	int (*register_overlay)( BackendDB *be );
+	int (*register_overlay)( BackendDB *be, slap_overinst *on, struct berval *ndn_out );
 	int (*register_entry)( Entry *e, monitor_callback_t *cb,
 		monitor_subsys_t *ms, unsigned long flags );
 	int (*register_entry_parent)( Entry *e, monitor_callback_t *cb,

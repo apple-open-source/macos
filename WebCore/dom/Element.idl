@@ -21,7 +21,6 @@
 module core {
 
     interface [
-        CustomMarkFunction,
         GenerateNativeConverter,
         InlineGetOwnPropertySlot
     ] Element : Node {
@@ -31,13 +30,13 @@ module core {
         readonly attribute [ConvertNullStringTo=Null] DOMString tagName;
 
         [ConvertNullStringTo=Null] DOMString getAttribute(in DOMString name);
-        [OldStyleObjC, Custom] void setAttribute(in DOMString name,
-                                                 in DOMString value)
+        [OldStyleObjC] void setAttribute(in DOMString name,
+                                         in DOMString value)
             raises(DOMException);
         void removeAttribute(in DOMString name)
             raises(DOMException);
         Attr getAttributeNode(in DOMString name);
-        [Custom] Attr setAttributeNode(in Attr newAttr)
+        Attr setAttributeNode(in Attr newAttr)
             raises(DOMException);
         Attr removeAttributeNode(in Attr oldAttr)
             raises(DOMException);
@@ -47,9 +46,9 @@ module core {
 
         [OldStyleObjC] DOMString getAttributeNS(in [ConvertNullToNullString] DOMString namespaceURI,
                                                 in DOMString localName);
-        [OldStyleObjC, Custom] void setAttributeNS(in [ConvertNullToNullString] DOMString namespaceURI,
-                                                   in DOMString qualifiedName, 
-                                                   in DOMString value)
+        [OldStyleObjC] void setAttributeNS(in [ConvertNullToNullString] DOMString namespaceURI,
+                                           in DOMString qualifiedName, 
+                                           in DOMString value)
             raises(DOMException);
         [OldStyleObjC] void removeAttributeNS(in [ConvertNullToNullString] DOMString namespaceURI,
                                               in DOMString localName)
@@ -58,7 +57,7 @@ module core {
                                                        in DOMString localName);
         [OldStyleObjC] Attr getAttributeNodeNS(in [ConvertNullToNullString] DOMString namespaceURI,
                                                in DOMString localName);
-        [Custom] Attr setAttributeNodeNS(in Attr newAttr)
+        Attr setAttributeNodeNS(in Attr newAttr)
             raises(DOMException);
         boolean hasAttribute(in DOMString name);
         [OldStyleObjC] boolean hasAttributeNS(in [ConvertNullToNullString] DOMString namespaceURI,
@@ -96,13 +95,21 @@ module core {
         void scrollByLines(in long lines);
         void scrollByPages(in long pages);
 
+#if defined(ENABLE_ANIMATION_API) && ENABLE_ANIMATION_API
+        WebKitAnimationList webkitGetAnimations();
+#endif
+
         // HTML 5
         NodeList getElementsByClassName(in DOMString name);
 
+#if defined(LANGUAGE_JAVASCRIPT) && LANGUAGE_JAVASCRIPT
+        readonly attribute DOMStringMap dataset;
+#endif
+
         // NodeSelector - Selector API
-        Element querySelector(in DOMString selectors)
+        [RequiresAllArguments=Raise] Element querySelector(in DOMString selectors)
             raises(DOMException);
-        NodeList querySelectorAll(in DOMString selectors)
+        [RequiresAllArguments=Raise] NodeList querySelectorAll(in DOMString selectors)
             raises(DOMException);
 
         // WebKit extension, pending specification.
@@ -125,6 +132,11 @@ module core {
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         // Objective-C extensions
         readonly attribute DOMString innerText;
+#endif
+
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+        const unsigned short ALLOW_KEYBOARD_INPUT = 1;
+        void webkitRequestFullScreen(in unsigned short flags);
 #endif
 
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
@@ -165,8 +177,6 @@ module core {
         // attribute [DontEnum] EventListener ondurationchange;
         // attribute [DontEnum] EventListener onemptied;
         // attribute [DontEnum] EventListener onended;
-        // attribute [DontEnum] EventListener onformchange;
-        // attribute [DontEnum] EventListener onforminput;
         // attribute [DontEnum] EventListener onloadeddata;
         // attribute [DontEnum] EventListener onloadedmetadata;
         // attribute [DontEnum] EventListener onloadstart;
@@ -199,6 +209,7 @@ module core {
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+        attribute [DontEnum, Conditional=FULLSCREEN_API] EventListener onwebkitfullscreenchange;
 #endif
     };
 

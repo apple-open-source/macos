@@ -1314,7 +1314,7 @@ void IOEthernetInterface::_fixupVlanPacket(mbuf_t mt, u_int16_t vlan_tag, int in
 	size_t copyBytes = 0;  //initialize to prevent annoying, incorrect warning that it's used uninitialized
 	char * destptr;
 	
-	if( mbuf_gethdr(M_DONTWAIT, MT_DATA, &newmb) )
+	if( mbuf_gethdr(MBUF_DONTWAIT, MT_DATA, &newmb) )
 		return;
 		
 	//init enough of the mbuf to keep bpf happy
@@ -1435,12 +1435,12 @@ void IOEthernetInterface::handleEthernetInputEvent(
         if (ctr)
         {
             ctr->executeCommand(
-                me,     /* client */
-                        /* action */
-                OSMemberFunctionCast(
-                    IONetworkController::Action, me,
-                    &IOEthernetInterface::reportInterfaceWakeFlags),
-                me );   /* target */
+            me,     /* client */
+                    /* action */
+            OSMemberFunctionCast(
+                IONetworkController::Action, me,
+                &IOEthernetInterface::reportInterfaceWakeFlags),
+            me );   /* target */
 
             ctr->release();
         }

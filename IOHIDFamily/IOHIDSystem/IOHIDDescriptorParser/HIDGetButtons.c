@@ -87,7 +87,7 @@ HIDGetButtons  (HIDReportType			reportType,
 	HIDCollection *ptCollection;
 	HIDReportItem *ptReportItem;
 	int iR, iE;
-	long iValue;
+	SInt32 iValue;
 	int iStart;
 	int iReportItem;
 	int iMaxUsages;

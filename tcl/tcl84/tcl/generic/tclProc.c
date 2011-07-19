@@ -366,8 +366,20 @@ TclCreateProc(interp, nsPtr, procName, argsPtr, bodyPtr, procPtrPtr)
          */
 
         if (Tcl_IsShared(bodyPtr)) {
+#ifdef TCL_TIP280
+	    Tcl_Obj* sharedBodyPtr = bodyPtr;
+#endif
             bytes = Tcl_GetStringFromObj(bodyPtr, &length);
             bodyPtr = Tcl_NewStringObj(bytes, length);
+#ifdef TCL_TIP280
+	    /*
+	     * TIP #280.
+	     * Ensure that the continuation line data for the original body is
+	     * not lost and applies to the new body as well.
+	     */
+
+	    TclContinuationsCopy (bodyPtr, sharedBodyPtr);
+#endif
         }
 
         /*
@@ -1300,7 +1312,6 @@ ProcCompileProc(interp, procPtr, bodyPtr, nsPtr, description,
     Interp *iPtr = (Interp*)interp;
     int i, result;
     Tcl_CallFrame frame;
-    Proc *saveProcPtr;
     ByteCode *codePtr = (ByteCode *) bodyPtr->internalRep.otherValuePtr;
     CompiledLocal *localPtr;
  
@@ -1368,8 +1379,6 @@ ProcCompileProc(interp, procPtr, bodyPtr, nsPtr, description,
  	 *   proper namespace context, so that the byte codes are
  	 *   compiled in the appropriate class context.
  	 */
-
- 	saveProcPtr = iPtr->compiledProcPtr;
 
 	if (procPtrPtr != NULL && procPtr->refCount > 1) {
 	    Tcl_Command token;
@@ -1455,8 +1464,6 @@ ProcCompileProc(interp, procPtr, bodyPtr, nsPtr, description,
 	    Tcl_PopCallFrame(interp);
 	}
  
- 	iPtr->compiledProcPtr = saveProcPtr;
- 	
  	if (result != TCL_OK) {
  	    if (result == TCL_ERROR) {
 		char buf[100 + TCL_INTEGER_SPACE];

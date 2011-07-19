@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,10 +30,10 @@
 
 #import "WebFramePrivate.h"
 #import "WebPreferencesPrivate.h"
-
 #import <WebCore/EditAction.h>
 #import <WebCore/FrameLoaderTypes.h>
-#import <WebCore/SelectionController.h>
+#import <WebCore/FrameSelection.h>
+#import <WebCore/Position.h>
 #import <WebCore/Settings.h>
 
 @class DOMCSSStyleDeclaration;
@@ -71,6 +71,7 @@ WebView *kit(WebCore::Page*);
 
 WebCore::EditableLinkBehavior core(WebKitEditableLinkBehavior);
 WebCore::TextDirectionSubmenuInclusionBehavior core(WebTextDirectionSubmenuInclusionBehavior);
+WebCore::EditingBehaviorType core(WebKitEditingBehavior);
 
 WebView *getWebView(WebFrame *webFrame);
 
@@ -91,8 +92,8 @@ WebView *getWebView(WebFrame *webFrame);
 
 @interface WebFrame (WebInternal)
 
-+ (void)_createMainFrameWithPage:(WebCore::Page*)page frameName:(const WebCore::String&)name frameView:(WebFrameView *)frameView;
-+ (PassRefPtr<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement frameName:(const WebCore::String&)name frameView:(WebFrameView *)frameView;
++ (void)_createMainFrameWithPage:(WebCore::Page*)page frameName:(const WTF::String&)name frameView:(WebFrameView *)frameView;
++ (PassRefPtr<WebCore::Frame>)_createSubframeWithOwnerElement:(WebCore::HTMLFrameOwnerElement*)ownerElement frameName:(const WTF::String&)name frameView:(WebFrameView *)frameView;
 - (id)_initWithWebFrameView:(WebFrameView *)webFrameView webView:(WebView *)webView;
 
 - (void)_clearCoreFrame;
@@ -102,9 +103,7 @@ WebView *getWebView(WebFrame *webFrame);
 - (void)_updateBackgroundAndUpdatesWhileOffscreen;
 - (void)_setInternalLoadDelegate:(id)internalLoadDelegate;
 - (id)_internalLoadDelegate;
-#ifndef BUILDING_ON_TIGER
 - (void)_unmarkAllBadGrammar;
-#endif
 - (void)_unmarkAllMisspellings;
 
 - (BOOL)_hasSelection;
@@ -124,7 +123,6 @@ WebView *getWebView(WebFrame *webFrame);
 - (BOOL)_needsLayout;
 - (void)_drawRect:(NSRect)rect contentsOnly:(BOOL)contentsOnly;
 - (BOOL)_getVisibleRect:(NSRect*)rect;
-- (NSArray*)_computePageRectsWithPrintWidthScaleFactor:(float)printWidthScaleFactor printHeight:(float)printHeight;
 
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string;
 - (NSString *)_stringByEvaluatingJavaScriptFromString:(NSString *)string forceUserGesture:(BOOL)forceUserGesture;
@@ -134,17 +132,15 @@ WebView *getWebView(WebFrame *webFrame);
 
 - (NSString *)_markupStringFromRange:(DOMRange *)range nodes:(NSArray **)nodes;
 
-- (NSRect)_caretRectAtNode:(DOMNode *)node offset:(int)offset affinity:(NSSelectionAffinity)affinity;
+- (NSRect)_caretRectAtPosition:(const WebCore::Position&)pos affinity:(NSSelectionAffinity)affinity;
 - (NSRect)_firstRectForDOMRange:(DOMRange *)range;
 - (void)_scrollDOMRangeToVisible:(DOMRange *)range;
 
-- (id)_accessibilityTree;
-
-- (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::SelectionController::EAlteration)alteration direction:(WebCore::SelectionController::EDirection)direction granularity:(WebCore::TextGranularity)granularity;
-- (void)_smartInsertForString:(NSString *)pasteString replacingRange:(DOMRange *)charRangeToReplace beforeString:(NSString **)beforeString afterString:(NSString **)afterString;
+- (DOMRange *)_rangeByAlteringCurrentSelection:(WebCore::FrameSelection::EAlteration)alteration direction:(WebCore::SelectionDirection)direction granularity:(WebCore::TextGranularity)granularity;
 - (NSRange)_convertToNSRange:(WebCore::Range*)range;
 - (DOMRange *)_convertNSRangeToDOMRange:(NSRange)range;
 - (NSRange)_convertDOMRangeToNSRange:(DOMRange *)range;
+- (PassRefPtr<WebCore::Range>)_convertToDOMRange:(NSRange)nsrange;
 
 - (DOMDocumentFragment *)_documentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString;
 - (DOMDocumentFragment *)_documentFragmentWithNodesAsParagraphs:(NSArray *)nodes;
@@ -163,7 +159,7 @@ WebView *getWebView(WebFrame *webFrame);
 - (BOOL)_canProvideDocumentSource;
 - (BOOL)_canSaveAsWebArchive;
 
-- (void)_receivedData:(NSData *)data textEncodingName:(NSString *)textEncodingName;
+- (void)_commitData:(NSData *)data;
 
 @end
 

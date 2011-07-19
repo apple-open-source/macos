@@ -363,7 +363,7 @@ AppleUSBUHCI::UIMInitialize(IOService * provider)
         // Do not use standardized errata bits yet
         _errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 		
-		if ((_errataBits & kErrataDontUseCompanionController) && !(gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+		if (_errataBits & kErrataDontUseCompanionController)
 		{
 			USBLog(3, "AppleUSBUHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
             return kIOReturnUnsupported;

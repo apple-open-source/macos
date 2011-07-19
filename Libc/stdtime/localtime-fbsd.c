@@ -9,7 +9,7 @@
 static char	elsieid[] __unused = "@(#)localtime.c	7.78";
 #endif /* !defined NOID */
 #endif /* !defined lint */
-__FBSDID("$FreeBSD: src/lib/libc/stdtime/localtime.c,v 1.40 2004/08/24 00:15:37 peter Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdtime/localtime.c,v 1.43 2008/04/01 06:56:11 davidxu Exp $");
 
 /*
 ** Leap second handling from Bradley White (bww@k.gp.cs.cmu.edu).
@@ -47,6 +47,21 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime/localtime.c,v 1.40 2004/08/24 00:15:37 
 
 #define	_MUTEX_LOCK(x)		if (__isthreaded) _pthread_mutex_lock(x)
 #define	_MUTEX_UNLOCK(x)	if (__isthreaded) _pthread_mutex_unlock(x)
+
+#define _RWLOCK_RDLOCK(x)						\
+		do {							\
+			if (__isthreaded) _pthread_rwlock_rdlock(x);	\
+		} while (0)
+
+#define _RWLOCK_WRLOCK(x)						\
+		do {							\
+			if (__isthreaded) _pthread_rwlock_wrlock(x);	\
+		} while (0)
+
+#define _RWLOCK_UNLOCK(x)						\
+		do {							\
+			if (__isthreaded) _pthread_rwlock_unlock(x);	\
+		} while (0)
 
 /*
 ** SunOS 4.1.1 headers lack O_BINARY.
@@ -185,9 +200,7 @@ time_t			time1(struct tm * tmp,
 				long offset,
 			        int unix03);
 __private_extern__
-void			tzset_basic(void);
-
-#define	lcl_mutex	_st_lcl_mutex
+void			tzset_basic(int);
 
 #if !BUILDING_VARIANT
 static long		detzcode(const char * codep);
@@ -265,14 +278,14 @@ static struct state	gmtmem;
 
 static char		lcl_TZname[TZ_STRLEN_MAX + 1];
 #ifdef NOTIFY_TZ
-#define lcl_is_set	(lcl_notify.is_set)
-#define gmt_is_set	(gmt_notify.is_set)
+#define lcl_is_set    (lcl_notify.is_set)
+#define gmt_is_set    (gmt_notify.is_set)
 #else /* ! NOTIFY_TZ */
 static int		lcl_is_set;
 static int		gmt_is_set;
 #endif /* NOTIFY_TZ */
-__private_extern__ pthread_mutex_t	lcl_mutex = PTHREAD_MUTEX_INITIALIZER;
-static		   pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
+__private_extern__ pthread_rwlock_t	lcl_rwlock = PTHREAD_RWLOCK_INITIALIZER;
+static pthread_mutex_t	gmt_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 char *			tzname[2] = {
 	wildabbr,
@@ -362,7 +375,12 @@ static void
 settzname(void)
 {
 	struct state * 	sp = lclptr;
-	int			i;
+	int			i, need;
+	unsigned char * types;
+#define NEED_STD	1
+#define NEED_DST	2
+#define NEED_DAYLIGHT	4
+#define NEED_ALL	(NEED_STD | NEED_DST | NEED_DAYLIGHT)
 
 	tzname[0] = wildabbr;
 	tzname[1] = wildabbr;
@@ -379,32 +397,66 @@ settzname(void)
 		return;
 	}
 #endif /* defined ALL_STATE */
-	for (i = 0; i < sp->typecnt; ++i) {
-		const struct ttinfo * const	ttisp = &sp->ttis[i];
+	/*
+	 * PR-3765457: The original settzname went sequentially through the ttis
+	 * array, rather than correctly indexing via the types array, to get
+	 * the real order of the timezone changes.  In addition, as a speed up,
+	 * we start at the end of the changes, and work back, so that most of
+	 * the time, we don't have to look through the entire array.
+	 */
+	if (sp->timecnt == 0 && sp->typecnt == 1) {
+		/*
+		 * Unfortunately, there is an edge case when typecnt == 1 and
+		 * timecnt == 0, which would cause the loop to never run.  So
+		 * in that case, we fudge things up so that it is as if
+		 * timecnt == 1.
+		 */
+		i = 0;
+		types = (unsigned char *)""; /* we use the null as index */
+	} else {
+		/* the usual case */
+		i = sp->timecnt - 1;
+		types = sp->types;
+	}
+	need = NEED_ALL;
+	for (; i >= 0 && need; --i) {
+		const struct ttinfo * const	ttisp = &sp->ttis[types[i]];
 
-		tzname[ttisp->tt_isdst] =
-			&sp->chars[ttisp->tt_abbrind];
 #ifdef USG_COMPAT
-		if (ttisp->tt_isdst)
+		if ((need & NEED_DAYLIGHT) && ttisp->tt_isdst) {
+			need &= ~NEED_DAYLIGHT;
 			daylight = 1;
-		if (i == 0 || !ttisp->tt_isdst)
+		}
+#endif /* defined USG_COMPAT */
+		if (ttisp->tt_isdst) {
+			if (need & NEED_DST) {
+				need &= ~NEED_DST;
+				tzname[1] = &sp->chars[ttisp->tt_abbrind];
+#ifdef ALTZONE
+				altzone = -(ttisp->tt_gmtoff);
+#endif /* defined ALTZONE */
+			}
+		} else if (need & NEED_STD) {
+			need &= ~NEED_STD;
+			tzname[0] = &sp->chars[ttisp->tt_abbrind];
+#ifdef USG_COMPAT
 			_st_set_timezone(-(ttisp->tt_gmtoff));
 #endif /* defined USG_COMPAT */
+		}
+#if defined(ALTZONE) || defined(USG_COMPAT)
+		if (i == 0) {
+#endif /* defined(ALTZONE) || defined(USG_COMPAT) */
 #ifdef ALTZONE
-		if (i == 0 || ttisp->tt_isdst)
-			altzone = -(ttisp->tt_gmtoff);
+			if (need & NEED_DST)
+				altzone = -(ttisp->tt_gmtoff);
 #endif /* defined ALTZONE */
-	}
-	/*
-	** And to get the latest zone names into tzname. . .
-	*/
-	for (i = 0; i < sp->timecnt; ++i) {
-		const struct ttinfo * const	ttisp =
-							&sp->ttis[
-								sp->types[i]];
-
-		tzname[ttisp->tt_isdst] =
-			&sp->chars[ttisp->tt_abbrind];
+#ifdef USG_COMPAT
+			if (need & NEED_STD)
+				_st_set_timezone(-(ttisp->tt_gmtoff));
+#endif /* defined USG_COMPAT */
+#if defined(ALTZONE) || defined(USG_COMPAT)
+		}
+#endif /* defined(ALTZONE) || defined(USG_COMPAT) */
 	}
 }
 
@@ -1217,21 +1269,42 @@ struct state * const	sp;
 }
 
 static void
-tzsetwall_basic(void)
+tzsetwall_basic(int rdlocked)
 {
 #ifdef NOTIFY_TZ
 	notify_check_tz(&lcl_notify);
+#else
+    if (TZDEFAULT) {
+        static struct timespec last_mtimespec = {0, 0};
+        struct stat statbuf;
+
+        if (lstat(TZDEFAULT, &statbuf) == 0) {
+            if (statbuf.st_mtimespec.tv_sec > last_mtimespec.tv_sec ||
+                (statbuf.st_mtimespec.tv_sec == last_mtimespec.tv_sec &&
+                 statbuf.st_mtimespec.tv_nsec > last_mtimespec.tv_nsec)) {
+               /* Trigger resetting the local TZ */
+                    lcl_is_set = 0;
+            }
+            last_mtimespec = statbuf.st_mtimespec;
+        }
+    }
 #endif /* NOTIFY_TZ */
-#ifdef NOTIFY_TZ_DEBUG
+	if (!rdlocked)
+		_RWLOCK_RDLOCK(&lcl_rwlock);
 	if (lcl_is_set < 0) {
+#ifdef NOTIFY_TZ_DEBUG
 		NOTIFY_TZ_PRINTF("tzsetwall_basic lcl_is_set < 0\n");
+#endif
+		if (!rdlocked)
+			_RWLOCK_UNLOCK(&lcl_rwlock);
 		return;
 	}
+#ifdef NOTIFY_TZ_DEBUG
 	NOTIFY_TZ_PRINTF("tzsetwall_basic not set\n");
-#else /* ! NOTIFY_TZ_DEBUG */
-	if (lcl_is_set < 0)
-		return;
-#endif /* NOTIFY_TZ_DEBUG */
+#endif
+	_RWLOCK_UNLOCK(&lcl_rwlock);
+
+	_RWLOCK_WRLOCK(&lcl_rwlock);
 	lcl_is_set = -1;
 
 #ifdef ALL_STATE
@@ -1239,6 +1312,9 @@ tzsetwall_basic(void)
 		lclptr = (struct state *) malloc(sizeof *lclptr);
 		if (lclptr == NULL) {
 			settzname();	/* all we can do */
+			_RWLOCK_UNLOCK(&lcl_rwlock);
+			if (rdlocked)
+				_RWLOCK_RDLOCK(&lcl_rwlock);
 			return;
 		}
 	}
@@ -1249,6 +1325,10 @@ tzsetwall_basic(void)
 	notify_register_tz(fullname, &lcl_notify);
 #endif /* NOTIFY_TZ */
 	settzname();
+	_RWLOCK_UNLOCK(&lcl_rwlock);
+
+	if (rdlocked)
+		_RWLOCK_RDLOCK(&lcl_rwlock);
 }
 
 void
@@ -1257,34 +1337,36 @@ tzsetwall(void)
 #ifdef NOTIFY_TZ_DEBUG
 	NOTIFY_TZ_PRINTF("tzsetwall called\n");
 #endif /* NOTIFY_TZ_DEBUG */
-	_MUTEX_LOCK(&lcl_mutex);
-	tzsetwall_basic();
-	_MUTEX_UNLOCK(&lcl_mutex);
+	tzsetwall_basic(0);
 }
 
 __private_extern__ void
-tzset_basic(void)
+tzset_basic(int rdlocked)
 {
 	const char *	name;
 
 	name = getenv("TZ");
 	if (name == NULL) {
-		tzsetwall_basic();
+		tzsetwall_basic(rdlocked);
 		return;
 	}
 
 #ifdef NOTIFY_TZ
 	notify_check_tz(&lcl_notify);
 #endif /* NOTIFY_TZ */
-#ifdef NOTIFY_TZ_DEBUG
+	if (!rdlocked)
+		_RWLOCK_RDLOCK(&lcl_rwlock);
 	if (lcl_is_set > 0 && strcmp(lcl_TZname, name) == 0) {
+		if (!rdlocked)
+			_RWLOCK_UNLOCK(&lcl_rwlock);
+#ifdef NOTIFY_TZ_DEBUG
 		NOTIFY_TZ_PRINTF("tzset_basic matched %s\n", lcl_TZname);
+#endif
 		return;
 	}
-#else /* ! NOTIFY_TZ_DEBUG */
-	if (lcl_is_set > 0 && strcmp(lcl_TZname, name) == 0)
-		return;
-#endif /* NOTIFY_TZ_DEBUG */
+	_RWLOCK_UNLOCK(&lcl_rwlock);
+
+	_RWLOCK_WRLOCK(&lcl_rwlock);
 	lcl_is_set = strlen(name) < sizeof lcl_TZname;
 	if (lcl_is_set)
 		(void) strcpy(lcl_TZname, name);
@@ -1294,6 +1376,9 @@ tzset_basic(void)
 		lclptr = (struct state *) malloc(sizeof *lclptr);
 		if (lclptr == NULL) {
 			settzname();	/* all we can do */
+			_RWLOCK_UNLOCK(&lcl_rwlock);
+			if (rdlocked)
+				_RWLOCK_RDLOCK(&lcl_rwlock);
 			return;
 		}
 	}
@@ -1320,6 +1405,10 @@ tzset_basic(void)
 	notify_register_tz(fullname, &lcl_notify);
 #endif /* NOTIFY_TZ */
 	settzname();
+	_RWLOCK_UNLOCK(&lcl_rwlock);
+
+	if (rdlocked)
+		_RWLOCK_RDLOCK(&lcl_rwlock);
 }
 
 void
@@ -1328,9 +1417,7 @@ tzset(void)
 #ifdef NOTIFY_TZ_DEBUG
 	NOTIFY_TZ_PRINTF("tzset called TZ=%s\n", getenv("TZ"));
 #endif /* NOTIFY_TZ_DEBUG */
-	_MUTEX_LOCK(&lcl_mutex);
-	tzset_basic();
-	_MUTEX_UNLOCK(&lcl_mutex);
+	tzset_basic(0);
 }
 
 /*
@@ -1417,15 +1504,17 @@ const time_t * const	timep;
 	struct tm *p_tm;
 
 	if (__isthreaded != 0) {
-		_pthread_mutex_lock(&localtime_mutex);
 		if (localtime_key == (pthread_key_t)-1) {
-			localtime_key = __LIBC_PTHREAD_KEY_LOCALTIME;
-			if (pthread_key_init_np(localtime_key, free) < 0) {
-				_pthread_mutex_unlock(&localtime_mutex);
-				return(NULL);
+			_pthread_mutex_lock(&localtime_mutex);
+			if (localtime_key == (pthread_key_t)-1) {
+				localtime_key = __LIBC_PTHREAD_KEY_LOCALTIME;
+				if (pthread_key_init_np(localtime_key, free) < 0) {
+					_pthread_mutex_unlock(&localtime_mutex);
+					return(NULL);
+				}
 			}
+			_pthread_mutex_unlock(&localtime_mutex);
 		}
-		_pthread_mutex_unlock(&localtime_mutex);
 		p_tm = _pthread_getspecific(localtime_key);
 		if (p_tm == NULL) {
 			if ((p_tm = (struct tm *)malloc(sizeof(struct tm)))
@@ -1433,17 +1522,17 @@ const time_t * const	timep;
 				return(NULL);
 			_pthread_setspecific(localtime_key, p_tm);
 		}
-		_pthread_mutex_lock(&lcl_mutex);
-		tzset_basic();
+		_RWLOCK_RDLOCK(&lcl_rwlock);
+		tzset_basic(1);
 #ifdef __LP64__
 		p_tm = localsub(timep, 0L, p_tm);
 #else /* !__LP64__ */
 		localsub(timep, 0L, p_tm);
 #endif /* __LP64__ */
-		_pthread_mutex_unlock(&lcl_mutex);
+		_RWLOCK_UNLOCK(&lcl_rwlock);
 		return(p_tm);
 	} else {
-		tzset_basic();
+		tzset_basic(0);
 #ifdef __LP64__
 		return localsub(timep, 0L, &tm);
 #else /* !__LP64__ */
@@ -1460,14 +1549,14 @@ const time_t * const	timep;
 struct tm *
 localtime_r(const time_t * const __restrict timep, struct tm * __restrict tm)
 {
-	_MUTEX_LOCK(&lcl_mutex);
-	tzset_basic();
+	_RWLOCK_RDLOCK(&lcl_rwlock);
+	tzset_basic(1);
 #ifdef __LP64__
 	tm = localsub(timep, 0L, tm);
 #else /* !__LP64__ */
 	localsub(timep, 0L, tm);
 #endif /* __LP64__ */
-	_MUTEX_UNLOCK(&lcl_mutex);
+	_RWLOCK_UNLOCK(&lcl_rwlock);
 	return tm;
 }
 
@@ -1488,29 +1577,33 @@ struct tm * const	tmp;
 #ifdef NOTIFY_TZ_DEBUG
 	NOTIFY_TZ_PRINTF("gmtsub called\n");
 #endif /* NOTIFY_TZ_DEBUG */
-	_MUTEX_LOCK(&gmt_mutex);
 #ifdef NOTIFY_TZ
 	notify_check_tz(&gmt_notify);
 #endif /* NOTIFY_TZ */
 	if (!gmt_is_set) {
-		gmt_is_set = TRUE;
+		_MUTEX_LOCK(&gmt_mutex);
+		if (!gmt_is_set) {
 #ifdef ALL_STATE
 #ifdef NOTIFY_TZ
-		if (gmtptr == NULL)
+			if (gmtptr == NULL)
 #endif /* NOTIFY_TZ */
-			gmtptr = (struct state *) malloc(sizeof *gmtptr);
-		if (gmtptr != NULL)
+				gmtptr = (struct state *) malloc(sizeof *gmtptr);
+			if (gmtptr != NULL)
 #ifdef NOTIFY_TZ
-		{
+			{
 #endif /* NOTIFY_TZ */
 #endif /* defined ALL_STATE */
-			gmtload(gmtptr);
+				gmtload(gmtptr);
 #ifdef NOTIFY_TZ
-			notify_register_tz(fullname, &gmt_notify);
-		}
+				notify_register_tz(fullname, &gmt_notify);
+#ifdef ALL_STATE
+			}
+#endif
 #endif /* NOTIFY_TZ */
+			gmt_is_set = TRUE;
+		}
+		_MUTEX_UNLOCK(&gmt_mutex);
 	}
-	_MUTEX_UNLOCK(&gmt_mutex);
 #ifdef __LP64__
 	if(timesub(timep, offset, gmtptr, tmp) == NULL)
 		return NULL;
@@ -1549,17 +1642,18 @@ const time_t * const	timep;
 	static pthread_key_t gmtime_key = -1;
 	struct tm *p_tm;
 
-	
 	if (__isthreaded != 0) {
-		_pthread_mutex_lock(&gmtime_mutex);
 		if (gmtime_key == (pthread_key_t)-1) {
-			gmtime_key = __LIBC_PTHREAD_KEY_GMTIME;
-			if (pthread_key_init_np(gmtime_key, free) < 0) {
-				_pthread_mutex_unlock(&gmtime_mutex);
-				return(NULL);
+			_pthread_mutex_lock(&gmtime_mutex);
+			if (gmtime_key == (pthread_key_t)-1) {
+				gmtime_key = __LIBC_PTHREAD_KEY_GMTIME;
+				if (pthread_key_init_np(gmtime_key, free) < 0) {
+					_pthread_mutex_unlock(&gmtime_mutex);
+					return(NULL);
+				}
 			}
+			_pthread_mutex_unlock(&gmtime_mutex);
 		}
-		_pthread_mutex_unlock(&gmtime_mutex);
 		/*
 		 * Changed to follow POSIX.1 threads standard, which
 		 * is what BSD currently has.
@@ -1704,7 +1798,12 @@ struct tm * const		tmp;
 	if (tmp->tm_wday < 0)
 		tmp->tm_wday += DAYSPERWEEK;
 	y = EPOCH_YEAR;
-#define LEAPS_THRU_END_OF(y)	((y) / 4 - (y) / 100 + (y) / 400)
+#define _LEAPS_THRU_END_OF(y)	((y) / 4 - (y) / 100 + (y) / 400)
+#ifdef __LP64__
+#define LEAPS_THRU_END_OF(y)	((y) >= 0 ? _LEAPS_THRU_END_OF(y) : _LEAPS_THRU_END_OF((y) + 1) - 1)
+#else /* !__LP64__ */
+#define LEAPS_THRU_END_OF(y)	_LEAPS_THRU_END_OF(y)
+#endif /* __LP64__ */
 	while (days < 0 || days >= (long) year_lengths[yleap = isleap(y)]) {
 		long	newy;
 
@@ -1839,8 +1938,14 @@ const struct tm * const btmp;
 {
 	int	result;
 
-	if ((result = (atmp->tm_year - btmp->tm_year)) == 0 &&
-		(result = (atmp->tm_mon - btmp->tm_mon)) == 0 &&
+	/*
+	 * Assume that atmp and btmp point to normalized tm strutures.
+	 * So only arithmetic with tm_year could overflow in 64-bit.
+	 */
+	if (atmp->tm_year != btmp->tm_year) {
+		return (atmp->tm_year > btmp->tm_year ? 1 : -1);
+	}
+	if ((result = (atmp->tm_mon - btmp->tm_mon)) == 0 &&
 		(result = (atmp->tm_mday - btmp->tm_mday)) == 0 &&
 		(result = (atmp->tm_hour - btmp->tm_hour)) == 0 &&
 		(result = (atmp->tm_min - btmp->tm_min)) == 0)
@@ -1982,8 +2087,10 @@ int			unix03;
 	bits = TYPE_BIT(time_t) - 1;
 #endif /* __LP64__ */
 	/*
-	** If we have more than this, we will overflow tm_year for tmcomp().
-	** We should really return an error if we cannot represent it.
+	** In 64-bit, we now return an error if we cannot represent the
+	** struct tm value in a time_t.  And tmcomp() is fixed to avoid
+	** overflow in tm_year.  So we only put a cap on bits because time_t
+	** can't be larger that 56 bit (when tm_year == INT_MAX).
 	*/
 	if (bits > 56)
 		bits = 56;
@@ -2175,7 +2282,7 @@ int			unix03;
 	return WRONG;
 }
 #else  /* BUILDING_VARIANT */
-__private_extern__ pthread_mutex_t	lcl_mutex;
+__private_extern__ pthread_rwlock_t	lcl_rwlock;
 #endif /* BUILDING_VARIANT */
 
 time_t
@@ -2184,10 +2291,10 @@ struct tm * const	tmp;
 {
 	time_t mktime_return_value;
 	int serrno = errno;
-	_MUTEX_LOCK(&lcl_mutex);
-	tzset_basic();
+	_RWLOCK_RDLOCK(&lcl_rwlock);
+	tzset_basic(1);
 	mktime_return_value = time1(tmp, localsub, 0L, __DARWIN_UNIX03);
-	_MUTEX_UNLOCK(&lcl_mutex);
+	_RWLOCK_UNLOCK(&lcl_rwlock);
 	errno = serrno;
 	return(mktime_return_value);
 }

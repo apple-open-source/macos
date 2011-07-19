@@ -67,8 +67,9 @@ namespace WebCore {
             updateFromSoupMessage(soupMessage);
         }
 
+        void updateSoupMessage(SoupMessage*) const;
         SoupMessage* toSoupMessage() const;
-        void updateFromSoupMessage(SoupMessage* soupMessage);
+        void updateFromSoupMessage(SoupMessage*);
 
         SoupMessageFlags soupMessageFlags() const { return m_soupFlags; }
         void setSoupMessageFlags(SoupMessageFlags soupFlags) { m_soupFlags = soupFlags; }
@@ -80,6 +81,12 @@ namespace WebCore {
 
         void doUpdatePlatformRequest() {};
         void doUpdateResourceRequest() {};
+
+        PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const { return data; }
+        void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>) { }
+    };
+
+    struct CrossThreadResourceRequestData : public CrossThreadResourceRequestDataBase {
     };
 
 } // namespace WebCore

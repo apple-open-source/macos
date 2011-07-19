@@ -342,7 +342,7 @@ __private_extern__ void *allocate(
 __private_extern__ void *reallocate(
     void *,
     unsigned long size);
-__private_extern__ unsigned long round(
+__private_extern__ unsigned long rnd(
     unsigned long v,
     unsigned long r);
 __private_extern__ void tell_ProjectBuilder(

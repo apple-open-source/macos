@@ -26,6 +26,7 @@
 #include "config.h"
 #include "RenderFrameBase.h"
 
+#include "Frame.h"
 #include "FrameView.h"
 #include "HTMLFrameElementBase.h"
 #include "RenderView.h"
@@ -53,8 +54,8 @@ void RenderFrameBase::layoutWithFlattening(bool fixedWidth, bool fixedHeight)
 
     // need to update to calculate min/max correctly
     updateWidgetPosition();
-    if (childRoot->prefWidthsDirty())
-        childRoot->calcPrefWidths();
+    if (childRoot->preferredLogicalWidthsDirty())
+        childRoot->computePreferredLogicalWidths();
 
     // if scrollbars are off, and the width or height are fixed
     // we obey them and do not expand. With frame flattening
@@ -69,7 +70,7 @@ void RenderFrameBase::layoutWithFlattening(bool fixedWidth, bool fixedHeight)
 
     // make sure minimum preferred width is enforced
     if (isScrollable || !fixedWidth) {
-        setWidth(max(width(), childRoot->minPrefWidth() + hBorder));
+        setWidth(max(width(), childRoot->minPreferredLogicalWidth() + hBorder));
         // update again to pass the new width to the child frame
         updateWidgetPosition();
         childFrameView->layout();

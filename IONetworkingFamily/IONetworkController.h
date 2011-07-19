@@ -185,18 +185,18 @@ enum {
     kIOPacketFilterPromiscuousAll  = 0x200
 };
 
-/*! @enum NetworkFeatureFlags
+/*! @enum Network Feature Flags
     @abstract Feature flags returned by the getFeatures() method.
     @constant kIONetworkFeatureNoBSDWait Set this bit in the value
         returned by getFeatures() to disable the automatic wait for
         "IOBSD" resource by the IONetworkController::start() method. 
-    @constant kIONetworkFeaturesHardwareVlan Set this bit in the value
+    @constant kIONetworkFeatureHardwareVlan Set this bit in the value
         returned by getFeatures() to indicate the controller supports hardware
         stripping and stuffing of 802.1q vlan tags.  If the controller supports
         this feature it must enable it when initializing so that all received
         packets delivered to higher layers have the tag stripped.  The controller
         should use setVlanTag() to provide the tag information out of band.
-    @constant kIONetworkFeaturesSoftwareVlan Set this bit in the value
+    @constant kIONetworkFeatureSoftwareVlan Set this bit in the value
         returned by getFeatures() to indicate that the controller can support software
         based vlan by transmitting and receiving packets 4 bytes longer that normal. 
     @constant kIONetworkFeatureMultiPages Set this bit if the driver is
@@ -344,6 +344,9 @@ private:
                                void *      buffer,
                                UInt32      length);
 
+    static UInt32 debugLinkStatusHandler(IOService * handler);
+    static bool debugSetModeHandler(IOService * handler, bool active);
+
     static IOReturn executeCommandAction(OSObject * owner,
                                          void *     arg0,
                                          void *     arg1,
@@ -402,6 +405,19 @@ public:
     (and attached) to. */
 
     virtual void stop(IOService * provider);
+
+/*! @function message
+    @abstract Receives messages delivered from an attached provider.
+    @discussion Handles the <code>kIOMessageDeviceSignaledWakeup</code> message
+    from a provider identifying the IONetworkController as the wakeup source.
+    @param type A type defined in <code>IOMessage.h</code>.
+    @param provider The provider from which the message originates.
+    @param argument An argument defined by the message type.
+    @result An IOReturn code defined by the message type.
+*/
+
+    virtual IOReturn message(
+        UInt32 type, IOService * provider, void * argument );
 
 /*! @typedef IONetworkController::Action
     @discussion Definition of a C function that can be called
@@ -463,7 +479,7 @@ public:
     process the output packet provided. The implementation in the driver
     must not block, since this may cause the network stack to be reentered
     from an unsafe point.
-    @param packet An mbuf chain containing the output packet to be sent on
+    @param mbuf_t An mbuf chain containing the output packet to be sent on
     the network.
     @param param A parameter provided by the caller.
     @result Returns a return code defined by the caller. 
@@ -590,7 +606,7 @@ public:
     @abstract Sets or changes the station address used by the network
     controller. 
     @discussion This method call is synchronized by the workloop's gate.
-    @param buffer The buffer containing the hardware address provided by
+    @param addr The buffer containing the hardware address provided by
     the client.
     @param addrBytes The size of the address buffer provided by the
     client in bytes.
@@ -854,7 +870,7 @@ public:
 
 /*! @function freePacket
     @abstract Releases the packet given back to the free pool.
-    @param m The packet to be freed.
+    @param mbuf_t The packet to be freed.
     @param options When kDelayFree option is set, then the packet
     provided to this function will be queued on the free packet queue.
     A subsequent call to releaseFreePackets() will release all queued
@@ -884,6 +900,10 @@ public:
     data.
     @constant kChecksumUDP A UDP checksum that covers the UDP header and UDP
     data.
+    @constant kChecksumTCPIPv6 A TCP checksum that covers the IPv6 pseudo header,
+    TCP header and TCP data.
+    @constant kChecksumUDPIPv6 A UDP checksum that covers the IPv6 pseudo header,
+    UDP header and UDP data.
     @constant kChecksumTCPNoPseudoHeader A TCP checksum that covers the TCP
     header and the TCP data, but the pseudo header is not included in the
     checksum computation. A partial 16-bit checksum value must be provided
@@ -907,6 +927,8 @@ public:
         kChecksumIP                  = 0x0001,
         kChecksumTCP                 = 0x0002,
         kChecksumUDP                 = 0x0004,
+        kChecksumTCPIPv6             = 0x0020,
+        kChecksumUDPIPv6             = 0x0040,
         kChecksumTCPNoPseudoHeader   = 0x0100,
         kChecksumUDPNoPseudoHeader   = 0x0200,
         kChecksumTCPSum16            = 0x1000
@@ -1066,7 +1088,9 @@ public:
     As a result, drivers can expect their <code>disable</code> method to be called
     before system shutdown or restart. This implementation is synchronous and can
     block before calling <code>IOService::systemWillShutdown</code> and return.
-    @param See <code>IOService::systemWillShutdown</code>.
+    @param specifier
+	<code>kIOMessageSystemWillPowerOff</code> or <code>kIOMessageSystemWillRestart</code>.
+    @see //apple_ref/cpp/instm/IOService/systemWillShutdown/void/(IOOptionBits) IOService::systemWillShutdown
 */
 
     virtual void systemWillShutdown( IOOptionBits specifier );
@@ -1411,9 +1435,52 @@ protected:
 
     virtual void sendPacket(void * pkt, UInt32 pktSize);
 
+/*! @function getDebuggerLinkStatus
+    @abstract Debugger polled-mode link status handler.
+    @discussion This method should be implemented by a driver that wishes to support
+    early availability kernel debugging. After a debugger client has been attached through
+    attachDebuggerClient(), this method will be called by the debugger
+    to poll for link status availability only when the kernel debugger is active.
+    This method may be called from the primary interrupt context. As a result, the
+    implementation must avoid any memory allocation, not use spinlocks, and
+    never block.
+
+    The getDebuggerLinkStatus() method in IONetworkController is used as a placeholder
+    and always reports that the link is up. A driver that attaches a debugger client 
+    should override this method. The driver should do any setup required to make 
+    sure the link is available for use. Prior to sending or receiving data, KDP will call this 
+    function repeatedly until it indicates that the link is both valid and active 
+    (kIONetworkLinkValid | kIONetworkLinkActive). 
+
+    @result Link status bits. See IONetworkMedium for the definition of the link status bits.
+*/
+    virtual UInt32 getDebuggerLinkStatus(void);
+
+/*! @function setDebuggerMode
+    @abstract Set debugger mode for network drivers.
+    @discussion This method should be implemented by a driver that wishes to be notified when
+    entering or leaving KDP. After a debugger client has been attached through
+    attachDebuggerClient(), this method will be called by the debugger
+    to inform the driver that the kernel debugger is going active or inactive.
+    This method may be called from the primary interrupt context. As a result, the
+    implementation must avoid any memory allocation, not use spinlocks, and
+    never block.
+
+    The setDebuggerMode() method in IONetworkController is used as a placeholder
+    and doesn't do anything. If a driver wishes to perform specific actions based upon whether
+    or not the debugger is active or not, it should override this method. For example, drivers
+    may wish to alter power management settings or perform other chipset reconfigurations based 
+    upon the active debugger state.
+
+    @param active Set to true if entering KDP and false if leaving KDP. 
+    @result Returns true on success and false otherwise.
+*/
+    virtual bool setDebuggerMode(bool active);
+
     // Virtual function padding
-    OSMetaClassDeclareReservedUnused( IONetworkController,  0);
-    OSMetaClassDeclareReservedUnused( IONetworkController,  1);
+    OSMetaClassDeclareReservedUsed( IONetworkController,  0); // getDebuggerLinkStatus
+    OSMetaClassDeclareReservedUsed( IONetworkController,  1); // setDebuggerMode
+
     OSMetaClassDeclareReservedUnused( IONetworkController,  2);
     OSMetaClassDeclareReservedUnused( IONetworkController,  3);
     OSMetaClassDeclareReservedUnused( IONetworkController,  4);

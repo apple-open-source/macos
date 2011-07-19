@@ -33,135 +33,148 @@
 #include <jit/ExecutableAllocator.h>
 #include <wtf/Assertions.h>
 #include <wtf/FastMalloc.h>
+#include <wtf/StdLibExtras.h>
 
 namespace JSC {
 
+    struct AssemblerLabel {
+        AssemblerLabel()
+            : m_offset(std::numeric_limits<uint32_t>::max())
+        {
+        }
+
+        explicit AssemblerLabel(uint32_t offset)
+            : m_offset(offset)
+        {
+        }
+
+        bool isSet() const { return (m_offset != std::numeric_limits<uint32_t>::max()); }
+
+        AssemblerLabel labelAtOffset(int offset) const
+        {
+            return AssemblerLabel(m_offset + offset);
+        }
+
+        uint32_t m_offset;
+    };
+
     class AssemblerBuffer {
-        static const int inlineCapacity = 256;
+        static const int inlineCapacity = 128;
     public:
         AssemblerBuffer()
-            : m_buffer(m_inlineBuffer)
+            : m_storage(inlineCapacity)
+            , m_buffer(m_storage.begin())
             , m_capacity(inlineCapacity)
-            , m_size(0)
+            , m_index(0)
         {
         }
 
         ~AssemblerBuffer()
         {
-            if (m_buffer != m_inlineBuffer)
-                fastFree(m_buffer);
+        }
+
+        bool isAvailable(int space)
+        {
+            return m_index + space <= m_capacity;
         }
 
         void ensureSpace(int space)
         {
-            if (m_size > m_capacity - space)
+            if (!isAvailable(space))
                 grow();
         }
 
         bool isAligned(int alignment) const
         {
-            return !(m_size & (alignment - 1));
+            return !(m_index & (alignment - 1));
         }
 
-        void putByteUnchecked(int value)
+        template<typename IntegralType>
+        void putIntegral(IntegralType value)
         {
-            ASSERT(!(m_size > m_capacity - 4));
-            m_buffer[m_size] = value;
-            m_size++;
+            ensureSpace(sizeof(IntegralType));
+            putIntegralUnchecked(value);
         }
 
-        void putByte(int value)
+        template<typename IntegralType>
+        void putIntegralUnchecked(IntegralType value)
         {
-            if (m_size > m_capacity - 4)
-                grow();
-            putByteUnchecked(value);
+            ASSERT(isAvailable(sizeof(IntegralType)));
+            *reinterpret_cast_ptr<IntegralType*>(m_buffer + m_index) = value;
+            m_index += sizeof(IntegralType);
         }
 
-        void putShortUnchecked(int value)
-        {
-            ASSERT(!(m_size > m_capacity - 4));
-            *reinterpret_cast<short*>(&m_buffer[m_size]) = value;
-            m_size += 2;
-        }
-
-        void putShort(int value)
-        {
-            if (m_size > m_capacity - 4)
-                grow();
-            putShortUnchecked(value);
-        }
-
-        void putIntUnchecked(int value)
-        {
-            ASSERT(!(m_size > m_capacity - 4));
-            *reinterpret_cast<int*>(&m_buffer[m_size]) = value;
-            m_size += 4;
-        }
-
-        void putInt64Unchecked(int64_t value)
-        {
-            ASSERT(!(m_size > m_capacity - 8));
-            *reinterpret_cast<int64_t*>(&m_buffer[m_size]) = value;
-            m_size += 8;
-        }
-
-        void putInt(int value)
-        {
-            if (m_size > m_capacity - 4)
-                grow();
-            putIntUnchecked(value);
-        }
+        void putByteUnchecked(int8_t value) { putIntegralUnchecked(value); }
+        void putByte(int8_t value) { putIntegral(value); }
+        void putShortUnchecked(int16_t value) { putIntegralUnchecked(value); }
+        void putShort(int16_t value) { putIntegral(value); }
+        void putIntUnchecked(int32_t value) { putIntegralUnchecked(value); }
+        void putInt(int32_t value) { putIntegral(value); }
+        void putInt64Unchecked(int64_t value) { putIntegralUnchecked(value); }
+        void putInt64(int64_t value) { putIntegral(value); }
 
         void* data() const
         {
             return m_buffer;
         }
 
-        int size() const
+        size_t codeSize() const
         {
-            return m_size;
+            return m_index;
+        }
+
+        AssemblerLabel label() const
+        {
+            return AssemblerLabel(m_index);
         }
 
         void* executableCopy(ExecutablePool* allocator)
         {
-            if (!m_size)
+            if (!m_index)
                 return 0;
 
-            void* result = allocator->alloc(m_size);
+            void* result = allocator->alloc(m_index);
 
             if (!result)
                 return 0;
 
-            ExecutableAllocator::makeWritable(result, m_size);
+            ExecutableAllocator::makeWritable(result, m_index);
 
-            return memcpy(result, m_buffer, m_size);
+            return memcpy(result, m_buffer, m_index);
         }
+
+        void rewindToLabel(AssemblerLabel label)
+        {
+            m_index = label.m_offset;
+        }
+
+#ifndef NDEBUG
+        unsigned debugOffset() { return m_index; }
+#endif
 
     protected:
         void append(const char* data, int size)
         {
-            if (m_size > m_capacity - size)
+            if (!isAvailable(size))
                 grow(size);
 
-            memcpy(m_buffer + m_size, data, size);
-            m_size += size;
+            memcpy(m_buffer + m_index, data, size);
+            m_index += size;
         }
 
         void grow(int extraCapacity = 0)
         {
             m_capacity += m_capacity / 2 + extraCapacity;
 
-            if (m_buffer == m_inlineBuffer) {
-                char* newBuffer = static_cast<char*>(fastMalloc(m_capacity));
-                m_buffer = static_cast<char*>(memcpy(newBuffer, m_buffer, m_size));
-            } else
-                m_buffer = static_cast<char*>(fastRealloc(m_buffer, m_capacity));
+            m_storage.grow(m_capacity);
+            m_buffer = m_storage.begin();
         }
 
-        char m_inlineBuffer[inlineCapacity];
+    private:
+        Vector<char, inlineCapacity> m_storage;
         char* m_buffer;
         int m_capacity;
-        int m_size;
+        int m_index;
     };
 
 } // namespace JSC

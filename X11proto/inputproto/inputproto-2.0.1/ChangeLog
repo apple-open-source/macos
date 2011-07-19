@@ -1,0 +1,1808 @@
+commit 56ffb564712257e0f998170e83071a6ee85aa231
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Nov 11 14:10:26 2010 +1000
+
+    inputproto 2.0.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 52e92f280c4e065d6a3f040493a0b46d2c8bee1d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Aug 2 15:53:52 2010 +1000
+
+    Typo fix: GrabTypeFocusIn -> GrabtypeFocusIn
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3dc8e70f761f7da338c632a5acb0176bef515b33
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 6 09:52:33 2010 +1000
+
+    Spell out event types for XIDeviceEvent.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 993ca70d7ecfb88037edfd77bccfcb671aea4c7b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jan 11 17:02:55 2010 +1000
+
+    Define the error cases for XSetDeviceMode better.
+    
+    Take the error codes as described in the man page for XSetDeviceMode. This
+    is more likely to be what clients expect, especially since the protocol spec
+    doesn't actually define when BadMode is to be reported.
+    
+    This behaviour is the same as specified in the XSetDeviceMode man page.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Reviewed-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+
+commit 617c4a2db48e98d06f728fa6b8caa18fbbfb66fc
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Nov 23 10:21:17 2009 +1000
+
+    XI2proto.txt: fix up some request names.
+    
+    Leftovers from previous versions of the spec before the requests were
+    renamed.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b2e8bd74f0922e742ab41e9ccc202c0fdd9e152f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:25:52 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5e22edcb54a29393ffb72e4014010835d1ceab69
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:00:31 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 33bab5091b5c16133d88269744f5305dfd4e4fcb
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 17:46:57 2010 -0400
+
+    config: install and distribute XI2proto.txt XIproto.txt
+    
+    It will now be installed in $docdir in addition
+    to being distributed in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 0746aed42e50d7ac10fd1545cf6b89a8bc809884
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Dec 21 19:00:00 2009 -0500
+
+    Add Red Had Copyright in the COPYING file.
+    
+    Refer to XI2.h and XI2proto.h
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit e0ec5c81eef67a2b98396189b22b439953b616c0
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:48 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 30c2e875941b1dcce06821fb0c5af6a15ca98d4e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:30 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit 7ddcd9b428797e37c3d362b27975b157647aceeb
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:26 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit ee09bc24cebbb18c2a2ed81336ab4ead600d2e94
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:28 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit 2ee03af19d17c973072bbacaf7ab44a8fd8b64b1
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit bf66af595c9b43e4086401a11c5a7b269857f039
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:25 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit 9ad88d954d544db29972144f5a778bb05d9b19ad
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:47 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 34a9ab1151fb7b35a371cc98a34a20993816f78a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 11:38:12 2009 +1000
+
+    inputproto 2.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0470d29c1e690f3784ca1a42f6d27aa322f9b37a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 16:47:11 2009 +1000
+
+    Add XIproto.txt
+    
+    This is the XI protocol specification document that used to be in xorg-docs.
+    It's now moved here, and if it ever sees updates, the updates will only
+    apply to here.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit bda99e7e5ac528aaa08664b21f0380db67bd2ac2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 11:31:13 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 472309905a66245c9fd420ef64716ec630216323
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 21 14:25:51 2009 +1000
+
+    inputproto 1.9.99.902 (RC 2)
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f3f79c0642f33b6a39a0f7fdab2bcb06d9cab0f7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 10:04:01 2009 +1000
+
+    Device cursors are deleted once the window or the device disappear.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit ae4588ff0c6e5cc7009e4ac78a3f953bc399bd84
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 21 14:24:23 2009 +1000
+
+    XIWarpPointer needs to take FP1616 for positions.
+    
+    This was already in the spec but the protocol itself hadn't cought up with
+    it.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8eccc169c045fcf68b5a0974c49a8e6863894cf3
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 21 13:56:11 2009 +1000
+
+    Replace four leftover INT16 with int16_t.
+
+commit 68cdaf8d26e133f700404bca93b18240aa6b8f86
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 21 13:55:52 2009 +1000
+
+    XIQueryPointer only works on master pointers and floating slaves.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d9aa0917b491e9d6ef887ac59fb7a01fb428fa62
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 18 15:05:09 2009 +1000
+
+    XI2proto: XIChangeCursor request requires a master pointer.
+    
+    State that the server will return BadDevice in this case.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 4f9d8d49eca460b24daca2a28a2c644f7edc19bd
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 18 15:04:47 2009 +1000
+
+    XI2proto.txt: typo fix
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6719ae1ed024270f7fe1cb6bbee1f84cdaeba90c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Aug 7 10:39:46 2009 +1000
+
+    Remove eventtype field from xXIRawEvent.
+    
+    With c455db2, raw events were split up into using multiple evtypes instead
+    of a sub event type. The eventtype field itself however has not been removed
+    and was unused by both the server and the library.
+    
+    Field converted into a padding field, wire layout stays the same.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1a7eb6de82bd61fc16f2a3f000d4d3b9d418dcd0
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 4 10:43:52 2009 +1000
+
+    inputproto 1.9.99.901 (RC 1)
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d8a1c1b1aba92e60d2fcad7cdf5abe77f3c9ae10
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 5 14:52:45 2009 +1000
+
+    Revert "XI2proto.txt: grabbing a slave does not detach it anymore."
+    
+    Detaching a slave device during an explicit grab makes sense from a UI
+    perspective. It allows a client to get exclusive access to a device without
+    that device's events also feeding into the respective master device.
+    
+    Thanks to Thomas Jaeger for his contribution.
+    
+    This reverts commit d0b1e55b876a29a7c820ec12d7b9cb5e081e1944.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b31776bb5b416ffa15235611954e68d386edf674
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jul 31 08:52:43 2009 +1000
+
+    XI2proto.txt: document ClientPointer in more detail.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 221aed39ac45ce4bf3b28c7956bc00ea3c9dbf57
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 11:15:12 2009 +1000
+
+    XI2proto.txt: don't put field names in quotes.
+    
+    This was done inconsistently anyway so get rid of it alltogether.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5e76f4ca69fedab770280854ab238587eb5e10fb
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 10:12:06 2009 +1000
+
+    XI2proto.txt: typo fixes and minor clarifications.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 26f244fadc188cc76f53c82c10bc3b308964f20c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 11:12:50 2009 +1000
+
+    XI2proto.txt: sourceid on DeviceChanged is the device.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b877309713930f92f04e2485bc40e1b6730d7e77
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 11:12:26 2009 +1000
+
+    XI2proto.txt: passive grabs can take XIAll{Master}Devices.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d0b1e55b876a29a7c820ec12d7b9cb5e081e1944
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 10:53:08 2009 +1000
+
+    XI2proto.txt: grabbing a slave does not detach it anymore.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 9f5d450fda41f936a8e12863aec544d69b30132f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 10:38:21 2009 +1000
+
+    XIproto.txt: clarify that the ClientPointer is set, even if implicitly.
+    
+    It is indistinguishable for the client whether the the server chooses a
+    ClientPointer or whether the CP was set through an XISetClientPointer
+    request. The only thing that matters is that a device was actually assigned
+    and will be used in the future.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7b988fcae5135d064388084ef190966c3e38702c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 28 10:10:10 2009 +1000
+
+    XI2proto.txt: padding bytes must be zero.
+    
+    Padding bytes zeroed out ensures that future versions of the XI2 protcol may
+    use these padding bytes with a defined state. The server should ignore
+    padding bytes depending on the client's version anyway but better safe than
+    sorry.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 4b414dcdbb5641ea528ccc212584f9dac816b571
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 27 15:51:17 2009 +1000
+
+    XI2proto.h: Remove special doxygen tags.
+    
+    The protocol header does not include enough documentation to make the use of
+    doxygen really worthwile. Special doxygen tags beyond the very simple use of
+    /** and /**< contribute too much to the noise and make it hard to actually
+    read the code itself.
+    
+    While no extra tags are added now, a run of doxygen over XI2proto and XI.h
+    still produces an acceptable output.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0542581edcef2795c613921e66736871b44408d7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 27 14:29:00 2009 +1000
+
+    XI2proto.txt: Add some XI1 vs. XI2 interoperability descriptions.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7cf46d64e0f2816f76ff3e23a77e5414a8625d10
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 27 14:20:38 2009 +1000
+
+    XI2proto.txt: update list of XI2 event types.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0e7af09fcedc3f6f86306dbf2c683d065fc41f29
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jul 22 12:11:13 2009 +1000
+
+    inputproto 1.9.99.15
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 006afb766ac1d01ad9d57035af56a5b48c6ec5d3
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 20 16:25:08 2009 +1000
+
+    XI2: remove Keysym grabs, use Keycode grabs instead.
+    
+    Keysym grabs are tricky to get right for applications that are more
+    complicated than demo applications. otoh, we know keycode grabs are working.
+    So let's go with keycode grabs for now and add keysym grabs later when we've
+    sorted out the details.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit aaefb1e12229cc7bed40f6aaec3641db840aa4f2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 16:05:07 2009 +1000
+
+    inputproto 1.9.99.14
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1357361d6b2a72a3decd9307ca59cc7678ba3063
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 14 16:15:19 2009 +1000
+
+    Add the enter/leave detail defines, same as the core protocol ones.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 2a3dc6c47145356a7c9e1cef59165a7ed2f2e9e2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 14 16:15:06 2009 +1000
+
+    Formatting fix, s/tabs/spaces/
+
+commit 51244a1a4f7165d995c139ba1f0d03d8a1140015
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Mon Jul 13 16:49:33 2009 +1000
+
+    Device{,Raw}Event: Add flags field.
+    
+    Add a flags member to DeviceEvent and DeviceKeyEvent; the only currently
+    defined flag is KeyRepeat, indicating a repeat event (a la XKB detectable
+    autorepeat), which is only valid for key events.
+    
+    Signed-off-by: Daniel Stone <daniel@fooishbar.org>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit c455db2c251770a729d2747e6f05d53c2563b428
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 15:30:50 2009 +1000
+
+    XI2: Split up raw events into multiple event types.
+    
+    Instead of a single XI_RawEvent type with subtypes to represent the actual
+    event, split up the event into XI_RawButtonPress, XI_RawButtonRelease, etc.
+    This way clients can select for specific raw events only instead of all of
+    them at once.
+    
+    Note that raw events may be selected on master devices too, the server will
+    route them through master devices.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f345258bf44e018e04643ccc6f02f5e40267d78c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 13 14:37:13 2009 +1000
+
+    Fix XIMaskLen macro.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6280b53cdbb750ef2363f5b55346a4271678ddef
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Jul 12 16:19:19 2009 +1000
+
+    inputproto 1.9.99.13
+
+commit 2367e52404761ab14e0f908432f736cfc0813f8b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jun 23 21:01:27 2009 +1000
+
+    Add effective group and modifiers to XIGroupInfo/XIModifierInfo.
+    
+    Effective modifiers are easy to calculate but let's send them down the wire
+    nonetheless. Effective group is slightly more complicated since group
+    wrapping must be taken into account - sending it down the wire simplifies
+    clients.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3f0067b45e66ef8db785b67a36f015fd4e6a9f6c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Jun 18 00:29:44 2009 +1000
+
+    XIDeviceChangedEvents may occur on master devices too.
+    
+    Prime example is a change in the number of buttons due to the availability
+    of a new slave device.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b40f48b15e3362cc7b5aeb800b7de072ce20e4aa
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 17 09:09:56 2009 +1000
+
+    inputproto 1.9.99.12
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit a6edd59c440cae9cd8ac775bb4d67ab433f2aae3
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 17 08:53:26 2009 +1000
+
+    Use the term 'labels' to refer to button and axes labels.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b0f7e24d210cb6d0a1c47cae39b54e56a5e996d8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jun 16 13:14:47 2009 +1000
+
+    Include valuator value in XIValuatorClasses
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b2fb9f81a2a7af8656309420facd58ab610d5da1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Jun 14 08:23:56 2009 +1000
+
+    Include button state in XIButtonClasses.
+    
+    Without including the state in a button class, it is impossible to know the
+    state of a device until this device has pressed or released another button
+    (and thus sends an event).
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit db98b817355ed12609cff077c4a12948ac41f88d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Jun 7 17:51:04 2009 +1000
+
+    Add a source field to the class information.
+    
+    In some cases it is required to know the source device of a particular
+    device class. In the future we might also do lazy copying of classes,
+    meaning that for a given device, each class may come from a different
+    source. Hence the source id should be included for each class.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 48cf9a56066c4b5a2136310da3cd6846dcf3b607
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 10 15:13:03 2009 +1000
+
+    Add note that bumping XI_LASTEVENT requires changes to the server.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit bac0e02889392534138e8b98e516a0ea3c76847a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jun 10 15:12:39 2009 +1000
+
+    Ensure XIAnyModifier is an unsigned int.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1d59de593c5aac8e109fcb3c1173d4dc14742dee
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 12 15:50:26 2009 +1000
+
+    XISelectEventsReq should use win (not window), like all requests.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f711dfae6872371ec41aeeecda9570a57d0a746c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Jun 12 15:50:07 2009 +1000
+
+    XI2proto: document XSetClientPointer behaviour on None window, etc.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 17a6ad094266cc14efb75cca36de0b8adff9d35b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 8 15:40:21 2009 +1000
+
+    inputproto 1.9.99.11
+
+commit 03309cfbc19fc16b5ae25f8511b3ef28fcd66818
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 8 14:23:27 2009 +1000
+
+    xXIHierarchyEvent should list num_info, not num_devices.
+    
+    The structures following the request are referred to as "info", having a
+    name of "num_devices" is misleading as the number of info structs does not
+    always reflect the number of devices (e.g. if a device got removed).
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 751f2d6c0fa88a6bfc380b57d72ae41ec790249d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 8 13:31:28 2009 +1000
+
+    Rename XICreateMaster to XIAddMaster for consistency.
+    
+    We use add/remove for slave devices, add/remove for the hierarchy changed
+    flags, so let's use add/remove to create a new device as well.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 44f2419e56b006b8f182ea5746e9b6eef205ff37
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 8 12:35:29 2009 +1000
+
+    Update comment referring to an old naming scheme.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6e20d1fc2517e68b17f9da2e94f78e9d64a8c408
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 8 09:51:53 2009 +1000
+
+    Document BadValue error for XIHierarchyEvents selection on devices.
+    
+    These events may only be selected on the XIAllDevices fake device.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 56da196866d8c883b9b25b04dd584fbcb159ffd3
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Jun 4 13:35:42 2009 +1000
+
+    XIQueryVersion may return a BadValue for major_version less than 2.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0d75208a554577d652ca9e2856a4f12b0d720a1f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jun 1 09:12:42 2009 +1000
+
+    Move the XI2 index into versions[] over to XI2.h
+
+commit 8aff0836afaef4397f9df273cc90edeca1ab9641
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 29 13:25:32 2009 +1000
+
+    Specify modifier interactions with attached slave devices on passive grabs.
+
+commit e102c504ec58e6bc4620e7cd01ea34de665e5fd9
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 14:12:58 2009 +1000
+
+    inputproto 1.9.99.10
+
+commit 6b61bef5da91ca24d1bfcf9d314b8b8587c3e4fc
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 28 08:20:37 2009 +1000
+
+    Mirror the core enter/focus modes and add the passive grab mode.
+    
+    If an enter/focus grabs activates (or deactivates), send an extra set of
+    enter/focus in (or leave/focus out) events to the grabbing client with mode
+    XIPassiveGrabNotify.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 1b2dc24bf51a325ea3fafb46768467675b00be52
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon May 25 15:48:25 2009 +1000
+
+    Add Enter/FocusIn passive grabs.
+    
+    Same behaviour as button/keysym grabs but triggered on enter/leave and
+    focus in/out events.
+
+commit d0c6633f7bc2519c0b6c662a1f39a8ce56ab768a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 27 13:11:49 2009 +1000
+
+    XI2proto.txt: remove one more keycode mentioning, fix typo
+
+commit 31f492bf9471fc593275fb95f97312db21439641
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon May 25 12:14:12 2009 +1000
+
+    Add XIGetSelectedEvents request and reply.
+    
+    Counterpart to XISelectEvents, used to retrieve event masks from the server.
+
+commit f065f6c12aa5c2e79f1af38908e86d20a2efdc86
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Tue May 19 11:27:03 2009 +1000
+
+    XI2proto.h: fix two comments referring to the old naming scheme.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3aca2d6ba53c8ddf5c40ae4b1411e50134b404a5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri May 15 20:14:16 2009 +1000
+
+    inputproto 1.9.99.9
+
+commit 8c2872367765170c37f829d635c97dc3d68861b7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat May 16 11:49:21 2009 +1000
+
+    Document naming conventions for XI2proto.h.
+
+commit b32e5830c0acbdba4798fad107bf8404c978753c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat May 16 11:46:44 2009 +1000
+
+    XI2proto: define Window, Cursor, Atom and Time as uint32_t.
+    
+    Since we're using stdint in the rest of the file, might as well ignore
+    CARD32 here.
+
+commit f4f09d40e0fd94d267b280f2a82385dca1141347
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat May 16 11:31:03 2009 +1000
+
+    XI2.h: remove XI2Mask, add XISetMask and friends.
+    
+    XISetMask, XIClearMask, XIMaskIsSet serve to set, clear or check a bit in
+    the provided array.
+    XIMaskLen is a macro to get the minimum length of a mask for a given event
+    type.
+    
+    They are expected to be common ways to deal with event masks, i.e. clients
+    will do:
+    
+    unsigned char mask[XIMaskLen(XI_ButtonRelease)] = {0};
+    XISetMask(mask, XI_ButtonPress)
+    XISetMask(mask, XI_ButtonRelease)
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0ae6581bc62b3b734c84b12e9a92d945d3e98aa7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat May 16 11:25:49 2009 +1000
+
+    Add XIAnyButton and XIAnyKeysym.
+
+commit 4cc6992b08b6c7aed0d1242e3382fb53d51a0fe2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 14 12:09:38 2009 +1000
+
+    XIQueryPointer needs to include sensible button/modifier state.
+    
+    This includes shuffling the xXIModifierInfo and xXIGroupInfo structs to the
+    common structs section.
+
+commit d041f30777c09f07ac79fface61bfbfa654306f2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 14 10:29:49 2009 +1000
+
+    Add an introduction to XI2proto.txt
+
+commit e1138da90235797248f38d7f613566fb8418c396
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue May 12 19:24:31 2009 +1000
+
+    XI2proto.txt: remove more mentioning of keycode grabs
+
+commit 7aba20ed4c404b80112a0bb28220a2c646f319e4
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue May 12 16:51:05 2009 +1000
+
+    Remove superfluous "Device" from protocol requests and events.
+    
+    Anything with prefix XI is per-device anyway.
+
+commit 12635cbd4aea0ba3b38b96682d63bb71ba8c737e
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue May 12 16:14:01 2009 +1000
+
+    Add per-device flags to XIDeviceHierarchyEvents
+
+commit 886d2aceb77070292e984ed2b25e31ac9c82aba7
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue May 12 13:45:48 2009 +1000
+
+    Define Cursor as CARD32.
+    
+    Reported-by: Benjamin Close <benjamin.close@clearchain.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 32277164bcff6b18a498f12886828187e1f96249
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon May 11 14:35:35 2009 +1000
+
+    XI2proto.h: doxygen-ify
+
+commit e9dfa4015520abd49779e96e7d54da763a54484b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon May 11 13:46:53 2009 +1000
+
+    XI2proto.h: s/uint32_t/Time/ where appropriate
+
+commit a47a2b50845499e3f9144739db5644952faf8ea2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu May 7 16:19:47 2009 +1000
+
+    Prefix all XI2 constants with "XI" -> inputproto 1.99.9.8
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 2edc35c032c2792d9528a396f596d466d4f10764
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed May 6 16:33:34 2009 +1000
+
+    Add XI2 property requests.
+    
+    Basically the same as XI 1.5, save the 16 bit deviceids.
+
+commit 504b480c946fe4c4a96500ef8c5da100b787ab32
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat Apr 25 11:08:21 2009 +1000
+
+    XI2: add passive grabs.
+    
+    Most notably XI2 provides keysym grabs instead of keycode grabs.
+
+commit 5d60550fdeb375a88ac9da42bcad4ee69b0df64a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sat Apr 25 10:43:43 2009 +1000
+
+    XI2 spec: Add some more Grab/Ungrab/AllowEvents documentation.
+
+commit 6d28cb22ada7a1abb6ab11863c82c9834d1a4b00
+Author: Benjamin Close <Benjamin.Close@clearchain.com>
+Date:   Wed Apr 22 13:10:50 2009 +0930
+
+    Define the Cursor datasize correctly
+    
+    On 64 bit machines, without Cursor defined Xlib would allocate 64 bits
+    rather than 32 to any structs using Cursor. This led to data not
+    correctly being available on the wire hence the Xserver would do strange
+    things. We hence define Cursor to what it should be and make sure
+    we undefine it after we've finished to users of XIproto.h aren't affected
+    
+    Fix-by: Peter Hutterer <peter.hutterer@who-t.net>
+    Signed-off-by: Benjamin Close <Benjamin.Close@clearchain.com>
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 589dc6ffa509c1c7da2d94dc89b2246c3dfdc81d
+Author: Paul "TBBle" Hampson <Paul.Hampson@Pobox.com>
+Date:   Wed Apr 22 09:00:14 2009 +1000
+
+    Fix typo in XI2proto.txt
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3380ae0ac0220c7f8fea9df855113819b472a233
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Apr 16 11:37:20 2009 +1000
+
+    Add XIAllowEvents.
+    
+    Basically the same as the core protocol AllowEvents.
+
+commit 3c273d7145ed5f53b54d2812ad2ac8430d449555
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Apr 19 21:33:42 2009 +1000
+
+    Change FP1616 into a single int32_t.
+
+commit 8914a9a2a99e334f66d6040d05b3d5f5b603780f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Apr 10 17:31:05 2009 +1000
+
+    Add GrabDevice and UngrabDevice XI2 requests.
+
+commit 1956df7e45a49464dee2d7beff36f38ea00e9cb8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Apr 10 14:56:20 2009 +1000
+
+    Revert "Add major/minor version as supported by client to GetExtensionVersionReq."
+    
+    This reverts commit f6e41306f76de966884d4b72c5fb5e5d6d534ce4.
+    Sending the supported version hidden in another request is potentially
+    dangerous, so let's not do it.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 55ee1f97d446403b9c2ed2e3c321afa4d683c93f
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Apr 10 14:35:00 2009 +1000
+
+    XI2proto.txt: fix typo
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit d5105dc8516dd89cad0cd841081ff85d0a672bae
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Apr 10 14:17:51 2009 +1000
+
+    We don't need to define KeyCode and Mask.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 75daa0db2c87d065e80afdf248965f34f7073cd5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Apr 10 14:17:02 2009 +1000
+
+    Undef Window, Time, etc. after usage again to avoid pollution.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 6c9785ea2581924fc748f61160a2faa4ab8eded0
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 3 15:15:50 2009 +1000
+
+    Remove IsFloating - we don't need this in XI 1.x anymore.
+
+commit 069880638b1c2af821c6d84fde4119668c533063
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 3 15:13:22 2009 +1000
+
+    Move XI_2_Major/Minor to XI2.h
+
+commit 2570457174fb951d3f5f725f87e8f7f45059158b
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 3 16:13:05 2009 +1000
+
+    Move AttachToMaster, Floating to XI2.h
+
+commit 1d933800acfa31f0a8f014224c1708f0076f3db0
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 3 15:58:24 2009 +1000
+
+    Move CH_* constants to xi2
+
+commit 5aa07308a10315f9305cd9637c71f98432c75ecf
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Feb 4 14:33:57 2009 +1000
+
+    Remove XI2 requests from XIproto.h
+    
+    All requests been moved to XI2proto.h. Only ExtendedGrabDevice is gone for
+    good.
+
+commit 05f997e68921a1443728a9c58050eb82b73eaea8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 26 15:22:55 2009 +1000
+
+    Bump to 1.9.99.7
+
+commit 7a73c3c64b1affa946deb66dd22042ee12fd747d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Mar 12 15:43:26 2009 +1000
+
+    Add XISetDeviceFocus and XIGetDeviceFocus requests
+
+commit 0ca1de737aa5cd714a4df3a45422dce415f9df55
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 11 16:32:06 2009 +1000
+
+    Add focus events
+
+commit da74983b7d18ad06fe828040072d4a985ce4d448
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 11 13:32:09 2009 +1000
+
+    Add buttons + modifier/group information to enter/leave events.
+
+commit c9ebfba4a128f0d0eda920a02af013b795adfec5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Mar 11 12:30:16 2009 +1000
+
+    Define FP1616 as one int16_t, one uint16_t.
+
+commit 2339bc5b0eea89e676ac58a38ac5eb6a8ae6e6f9
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 10 15:42:28 2009 +1000
+
+    ValuatorInfo moved to FP3232
+
+commit cac1bcbf6d544f29c3379bc0462bb237e8ff8399
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 10 15:35:04 2009 +1000
+
+    Add FP3232 typedef.
+
+commit fc7f67959ad72c76e852827963d6a42b7d533b89
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Mar 10 12:26:18 2009 +1000
+
+    XI2: remove button state from the RawEvent.
+    
+    A RawEvent is supposed to represent the state posted by the device. If a
+    client needs button state, then the client must keep track of it.
+
+commit d2ba9af0517f54fb58358e41859f5e4ead9b64f2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 26 15:10:28 2009 +1000
+
+    Split CH_ChangeAttachment into CH_AttachSlave and CH_DetachSlave
+    
+    CH_ChangeAttachment is still there, but won't be for long.
+
+commit 69f5b8a3ff8258cc6d50cca7d5382b0fe9fed893
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 5 15:57:56 2009 +1000
+
+    Add XI2.h and XI2proto.h, and a few required defines to XI.h
+
+commit 27dc5a8313d48a78a628563132142a97f7a47843
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Feb 5 14:18:28 2009 +1000
+
+    Add XI2 protocol specification document.
+
+commit f39d3c8d6035fe65ad788987e291b99ad22448dd
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Feb 4 15:21:55 2009 +1000
+
+    Whitespace cleanups.
+    
+    Yep. Slow day today.
+
+commit c2d426f232f214f24fba2e30766c94e643716a72
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit 7203036522ba9d4b224d282d6afc2d0b947711ee
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Oct 31 16:33:25 2008 +1030
+
+    Bump to 1.9.99.6.
+
+commit f8064629496c6061bedb7a99b788fb9d3a170f11
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Oct 31 17:53:39 2008 +1030
+
+    PropertyNotify, move deviceid back to last byte.
+    
+    This way, it can be type-cast to deviceKeyButtonPointer to extract the
+    deviceid, which is (aside from time) the only thing it has in common with
+    those anyway.
+
+commit 90a86701e3b9feafa05f44649a8314f06285fab5
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Wed Oct 8 21:39:20 2008 +1030
+
+    Remove window access protocol requests.
+    
+    This is a bad idea. It didn't provide security and you can get the same
+    functionality as you did with normal event registration.
+
+commit 36c8a6f3faf56a8f8ca31455812c9132b379b1b3
+Author: Julien Cristau <jcristau@jazzy.liafa.jussieu.fr>
+Date:   Wed Oct 15 10:33:51 2008 +0200
+
+    Undef Atom after we're done so we don't pollute users of XIproto.h
+
+commit c919917e375aefaf473570c1b25b3c22231e858d
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Wed Oct 15 10:34:21 2008 +1030
+
+    Make sure Atoms are defined as CARD32.
+
+commit 2166b77ea60bd9cd87f1311a2e7d461db071cb07
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 10:11:04 2008 +0930
+
+    Bump to 1.9.99.5.
+
+commit 93c1ea035b46614fd907e33303c6a876d32e2c78
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Sep 26 09:37:48 2008 +0930
+
+    Remove default properties (XI_PROP_MODE, XI_PROP_ENABLED)
+    
+    These should be defined by the server, not the protocol.
+
+commit 18ef04f8a2026cca5d2d2b796ec2ea1c949bad36
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Sep 18 15:00:54 2008 +0930
+
+    Remove Configure/QueryDeviceProperty.
+
+commit c9454a8e84b2dce54bb346ff1aafb32e3c0ac5b9
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Sep 18 16:28:09 2008 +0930
+
+    Add XI_JOYSTICK type.
+
+commit 20a0c8433ee50ecef1dfdb218674c7729bbacb99
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Thu Sep 18 15:00:01 2008 +0930
+
+    Don't include Xmd.h.
+
+commit 3e7b663e7d5a40a115eba3cabfc173549ff89357
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Aug 15 15:01:16 2008 +0930
+
+    inputproto 1.9.99.4
+    
+    Backported device properties.
+
+commit fabe087cebb11c6a2600e57c6f7a52fda2efea29
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Aug 15 14:50:23 2008 +0930
+
+    Protect against C++ includes.
+
+commit c2d47b04c55cf72aef6c13a9e2cc4b41abfca673
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Fri Aug 15 14:21:24 2008 +0930
+
+    Remove RCS tags, typo fix.
+
+commit 7c9620d8232e5c05115746055a832363a528ac2d
+Author: Peter Hutterer <peter.hutterer@redhat.com>
+Date:   Wed Aug 13 10:00:12 2008 +0930
+
+    Back out Device Properties from XI 2, push into XI 1.5.
+
+commit 54465c743354dd138f4ccacc196198e36c2ecdba
+Author: Alan Hourihane <alanh@tungstengraphics.com>
+Date:   Tue Jul 29 14:15:04 2008 +0100
+
+    bump to 1.99.9.3
+
+commit 0daf8328cfa90b038753fc409c5eb05ba3fac6d5
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Jul 29 08:58:53 2008 +0930
+
+    Add DeviceControlChanged define.
+    
+    This value is used for the devchange field in the DevicePresenceNotify event
+    when a device's control has been modified.
+
+commit 0d300ce64c277f4f7c7fe5fd6dca1ed768880af1
+Author: Alan Hourihane <alanh@tungstengraphics.com>
+Date:   Mon Jul 21 10:33:47 2008 +0100
+
+    Bump to 1.9.99.2 for inputproto
+
+commit fe74239e93e6562ba6c268b50d6cfb36d2426bef
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Sun Jul 13 20:49:51 2008 +0930
+
+    Add #defines for XI_PROP_ENABLED, XI_PROP_MODE
+    
+    These two props are expected to be supported by the server.
+
+commit 5f686651087ac9d1a15b4d8aa631f2d7f2096871
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Jul 9 18:28:26 2008 +0930
+
+    Set IEVENTS back to 18, got set to 8 inadvertantly.
+
+commit bbbe35b3513510afb524e02b8227826dbd5ea87e
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Jul 7 15:38:50 2008 +0930
+
+    Add XI device property requests and replies.
+    
+    New requests:
+    ListDeviceProperties ... list all props of a device
+    QueryDeviceProperty  ... query meta-information about a property
+    ChangeDeviceProperty ... change the content of a property
+    DeleteDeviceProperty ... delete a property
+    GetDeviceProperty    ... retrieve a property
+    
+    New event:
+    DevicePropertyChangedNotify ... the given property on the device has changed
+
+commit 9f1f3ef7a36fddacf30ecf867ddad90253103b6a
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed May 28 17:13:49 2008 +0930
+
+    Bump to 1.9.99.1.
+
+commit 834c9ba8b4a1746a5d87d793f7c40bb882712656
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 17:30:30 2008 +0930
+
+    Remove a leftover typedef, the code that requires it has since been removed.
+    
+    Was part of the FakeDeviceData request, this request does not exist anymore.
+
+commit c6df1392e52b5edf3f25e0198c06a3a1ae3c0356
+Merge: f6e4130 8525689
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 12 17:30:15 2008 +0930
+
+    Merge branch 'master' into mpx
+    
+    Conflicts:
+    
+    	XI.h
+
+commit f6e41306f76de966884d4b72c5fb5e5d6d534ce4
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Sat Apr 26 10:03:19 2008 +0930
+
+    Add major/minor version as supported by client to GetExtensionVersionReq.
+    
+    This sort-of breaks old clients. Behaviour to be assumed is that if nbytes is
+    0, major/minorVersion is set and specifies the version as supported by the
+    client.
+    If nbytes is non-zero, the request is trailed by the extension name (INAME)
+    and major/minorVersion is undefined. This is the behaviour of pre-MPX clients.
+    
+    And then there may be clients who found that no other extension uses this
+    request and supplying a name wasn't actually necessary since it was XI anyway.
+    These clients will break. Tough luck. Read the man pages next time.
+
+commit 746f61a86d1fd37216508a3f913bf2a1d1287478
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Apr 25 18:09:32 2008 +0930
+
+    Remove XInput.h. This file is now part of libXi.
+    
+    XInput.h only belongs to libXi and is should not be part of the protocol
+    headers. For future revisions of this file refer to
+    git://anongit.freedesktop.org/git/xorg/lib/libXi
+
+commit b762dad06c33a9bdcdedecb9a20d218aa38d05d6
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Apr 25 10:34:01 2008 +0930
+
+    Add #define IREQUESTS 45. Specifies the number of requests in XI.
+
+commit 852568991b251e9366da167f1b746a0a1db6adf0
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Mon Mar 10 09:31:51 2008 -0400
+
+    Typo fix.
+
+commit b5cbe2d93f6c0129b8f29da97778f6d1b15c38f9
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Mon Mar 10 09:08:21 2008 -0400
+
+    C sucks: define XEventClass in terms of unsigned int, not CARD32.
+    
+    Apparently pulling in Xmd.h here breaks qt, since they both define an
+    INT32 type (and incompatible ones even, since Xmd's is unsigned long on
+    ILP32 because whoever wrote Xmd.h is a C novice).
+
+commit 3edc1bf23b07ea47d7e1e32047e15c67333c663e
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Wed Mar 5 22:06:19 2008 -0500
+
+    inputproto 1.4.3
+
+commit 83fe5a31cbba502482ee1f2e720aaed8f4fa86b8
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Mar 4 18:10:00 2008 +1030
+
+    Add deviceid to QueryDevicePointer reply.
+    
+    Doesn't hurt, we have padding left over anyway.
+
+commit 52e366d845163cdc1ffa8955d36914cd6b5f21f9
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Feb 25 16:51:31 2008 +1030
+
+    Squash opcode range for MPX XI requests.
+    
+    This removes the opcode holes that were left by the excessive request removal
+    of the last weeks.
+
+commit 66ba434bc5c5fd343e558b758a7e0d61dcebb1c4
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Feb 25 16:45:16 2008 +1030
+
+    Remove GetPairedPointer, paired device can be found through ListInputDevices.
+
+commit 1f37b09c99df0890fbf347f3767934cdd4e586c2
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Feb 25 16:28:05 2008 +1030
+
+    Remove "ungrab" from ExtendedGrabDevice request, remove XUngrabExtDevice().
+    
+    That's what UngrabDevice is for, it does the same anyway.
+
+commit 1f6d53f553e580757d4c7391838a44b659812ab0
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Feb 18 17:21:37 2008 +1030
+
+    Add WindowAccessAllowAll constant.
+    
+    Not surprisingly the inverse of DenyAll.
+
+commit b512f47795bd125f6b04806d8a831f888febb67d
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 14 18:25:24 2008 +1030
+
+    Change XChangeDeviceHieararchy API.
+    
+    Single-pointer to changes is enough since we have a union now.
+    Provide array first, then number of elements. This at least gives us
+    consistency within the MPX-related stuff. The rest of Xlib can't seem to make
+    its mind up about that.
+
+commit 330cfbd0ca6e6d1557e08ab0c555fe87acc7be29
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 14 16:33:03 2008 +1030
+
+    Make XAnyDeviceHierarchyChangeInfo a union of the possible types.
+    
+    Kinda the same as the XEvent union.
+    
+    Some whitespace fixes too.
+
+commit d5245e8b85deec6f76bec2c9599da59516e50cca
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 14 09:17:34 2008 +1030
+
+    Whitespace fixing and sz_RegisterPairedClient removal.
+
+commit 3c24865ad98557a5bc3e12c954eefaffff01bf36
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 14 09:15:11 2008 +1030
+
+    Remove GrabAccessControl and FakeDeviceData.
+    
+    Both aren't thought out enough to justify their inclusion in the first version
+    of MPX.
+
+commit 6a91ee1bd1d4751d09f2e4aa832913bc66ae4602
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Feb 12 19:19:58 2008 +1030
+
+    Remove RawDeviceEvent - for now anyway.
+    
+    Wasn't quite as thought-out as it should be. Throwing it out for now, to get
+    the rest of MPX more stable.
+
+commit 1d097c26264b657689d74f3f0a77cd1aa4f7e576
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Feb 12 19:17:51 2008 +1030
+
+    Remove pairingChangedNotify event.
+    
+    I swear I already removed that before... Anyway, we don't need it anymore,
+    since pairings can't be changed anyway. Hooray for the device hierarchy.
+
+commit be9e285258b8ea90628bbb5ae65bf74bdc59338b
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Feb 12 15:04:24 2008 +1030
+
+    Remove "shared" field from QueryDevicePointer.
+    
+    If it's a slave device, it's shared, if it's a master device it has its own
+    cursor. No need for this field.
+
+commit bd20f0ebd5e71fd03b3140960c3960bc50bd4273
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Jan 23 15:47:56 2008 +1030
+
+    Add a device id to XiSelectEvent.
+
+commit 096b20bf5492d248b5c8ff0c1c28e221d59db724
+Author: Jesse Barnes <jesse.barnes@intel.com>
+Date:   Mon Jan 21 15:28:49 2008 -0800
+
+    Use Xmd.h instead of X.h to pull in CARD32 definition
+    
+    On 64 bit hosts, CARD32 may be undefined unless we use Xmd.h to define it for
+    us.  Apparently X.h is no longer sufficient.
+
+commit 640a97d321cdc5fd2f34265cba86da40463f8e48
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Dec 18 15:47:01 2007 +1030
+
+    Move deviceid in XDeviceCrossingEvent up to follow window.
+    
+    This makes XDeviceCrossingEvents in line with the other events who have the
+    same initial ordering of things.
+
+commit 9359e625787761e6b3df15f29bbf842c67a9516d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:02 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 92f083437f3129bb67cd4599ad776b8b691f0b56
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Nov 13 17:22:21 2007 +1030
+
+    Remove RegisterPairingClient, deprecated with the device hierarchy now.
+
+commit 14e6e7bad06a560ec943654b94e05d4293709f2c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Nov 13 11:29:06 2007 +1030
+
+    Add DeviceClassesChangedEvent.
+
+commit 685a2dd32736956f5175afb9bc5773c829725fea
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Nov 8 17:26:35 2007 +1030
+
+    Add DeviceHierarchyChangedEvent.
+    
+    Uses same event type as the now removed PointerKeyboardPairingChangedNotify.
+    
+    (removing the RandomStringEvent too, should have been gone a while ago)
+
+commit 6037b37a5bf03f0b38db6a83fe1bc48551b8363c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Oct 19 10:22:51 2007 +0930
+
+    Add XChangeDeviceHierarchy and its components.
+
+commit 52e2f24b3a21741d2fb0614642fd5b12b72c0d3d
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Oct 18 12:23:34 2007 +0930
+
+    Create new XAttachInfo class for attachment info (slave devices).
+    
+    Thanks to XLibs design we can't just change XDeviceInfo without breaking the
+    ABI. So here's a new class that isn't actually a class on the wire.
+
+commit 3c5555544e06f1be70e6981446e2a92dc1e2aecd
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Oct 18 10:39:40 2007 +0930
+
+    Add XI version 2 defines.
+
+commit 6a0ffc2f461bd41a223732551e0ea1f05c293028
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Oct 17 12:38:38 2007 +0930
+
+    xDeviceInfo: add "attached" field (replace previous padding).
+    
+    If use is set to IsXExtensionPointer/Keyboard/Devices, attached indicates the
+    device ID of the master device it is attached to. If the device is floating,
+    attached is set to IsFloating.
+
+commit 4b22047f347d8fd65a36b2fc90e1a87dff8e93e3
+Author: Eamon Walsh <ewalsh@tycho.nsa.gov>
+Date:   Thu Sep 27 12:27:19 2007 -0400
+
+    XI.h needs X.h for CARD32 on 64-bit systems.
+
+commit f033750780b74d72056da93fd9a91140a978891b
+Merge: 369dd28 96b0c13
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 06:17:20 2007 -0400
+
+    Merge branch 'master' of ssh://git.freedesktop.org/git/xorg/proto/inputproto
+
+commit 369dd283cfcf006e2cfe3496ebc5157839a3d04e
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:06 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 96b0c13a5a689b3a6dbc4249ca4ef364f778c003
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Aug 31 17:58:27 2007 +0930
+
+    Bump to 1.4.2.1
+    
+    No source changes, the 1.4.2 tarball had a busted configure script.
+
+commit 0e9f8468ba15a55ddba7fb8c263a80091e9decde
+Author: Paulo Ricardo Zanoni <prz05@c3sl.ufpr.br>
+Date:   Tue Jul 10 10:16:06 2007 +0930
+
+    Change some calls to use XID* instead of char* for device id lists.
+
+commit 5e4ff6bf4590d856966f151529d27be0eb070804
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu May 17 20:19:29 2007 +0930
+
+    Move deviceid around in deviceEnterNotify, make room for detail field.
+
+commit 3d164140845c2ff65d84b56977b1722e95882f1c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu May 17 20:19:02 2007 +0930
+
+    Add event_type to RawDeviceEvent to store matching core event type.
+
+commit 42a6b9b643d22ca8df64757cf497d2c7ac2dee65
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon May 14 18:03:53 2007 +0930
+
+    Add ExtendedGrabRequest and the matching reply.
+
+commit ccbe2e63123c58041a3c32ae6a21b05bd8c72b04
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed May 2 18:19:11 2007 +0930
+
+    Add xFakeDeviceDataReq
+
+commit b12514254cb1d2b91381b59251440b22e36052fb
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed May 2 09:43:48 2007 +0930
+
+    Providing a device id for a RawDeviceEvent may not be a bad idea.
+
+commit ce7bbfb7e0ecaf977c4ec8e760c634cebf8ac167
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue May 1 22:31:09 2007 +0930
+
+    Add XGE support and event types for RawDeviceEvent and PairingChanged event.
+
+commit 02c50062d357bc5d43ab4440eb195a33df0ec8b9
+Merge: f0baffd 310a93f
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Apr 27 14:43:43 2007 +0930
+
+    Merge branch 'master' into mpx
+
+commit 310a93f8e194aa070b0f1d40c8fd5ae941908dbe
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Apr 26 11:06:18 2007 +0930
+
+    bump to 1.4.2
+
+commit c9bed7d4750c314002c16430a4dd75f95cc2f78d
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Apr 24 22:53:27 2007 +0930
+
+    Add flags to be used for DevicePrensence's devchange field.
+
+commit f0baffd3a04dfe8a09b59667e5dcaa0216a94e65
+Merge: a928365 c608d82
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Apr 2 16:42:46 2007 +0930
+
+    Merge branch 'master' into mpx
+
+commit a928365b91a2e25d02291844e430db9a9a62673d
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Mar 22 21:14:11 2007 +1030
+
+    Change XSetClientPointer API to use an XDevice instead of deviceid.
+
+commit 4ed9be75a5d3d75782351269481db5856f7e3f60
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Mar 22 17:27:32 2007 +1030
+
+    add GetClientPointer request and reply.
+    add GetPairedPointer request and reply.
+    move declaration of _XiGetDevicePresenceNotifyEvent out of the macro and wrap
+    it between extern "C". Otherwise C++ code won't be able to find it.
+
+commit 9dd8dcfa7e084d94cf3b7429eae65c93416159e3
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Mar 9 15:51:07 2007 +1030
+
+    add SetClientPointer request.
+    fix typos and wrong names for access function declarations.
+
+commit de6f3fcaffe204e8f7c811f8a1599e9ed0999f9c
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 22 20:03:36 2007 +1030
+
+    add access control requests.
+    fix wrong field lengths for RegisterPairing request and reply.
+
+commit bb5c144c53fcb03c56b247b439915d72ad284856
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Feb 21 10:03:24 2007 +1030
+
+    add xRegisterPairingClient request and reply
+
+commit c608d82c6b5b87ddc8d14862f528bdd69f5f5b72
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Thu Feb 15 16:33:07 2007 +0200
+
+    bump to 1.4.1
+
+commit 157a7984f1d2e2630191b6d392bc15975a3786db
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Fri Feb 9 11:37:54 2007 +1030
+
+    add missing XWarpDevicePointer declaration
+
+commit 025e4cdde8267d678dc5105e11c7cd66e2ad89b5
+Merge: 328cd82 ad2edb6
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 8 10:55:55 2007 +1030
+
+    Merge branch 'master'
+
+commit 328cd827e89424292ca020d0b828154f8e4f2c17
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Thu Feb 8 10:54:34 2007 +1030
+
+    add flags field to deviceEnterNotify struct
+    add same_screen, focus to XDeviceCrossingEvent struct
+
+commit 4ab02ccbdad477a0d7a0bee79c947f50826f1a36
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Jan 29 18:18:56 2007 +1030
+
+    add ChangePointerKeyboardPairing request
+    add pairingChangedNotify event
+
+commit b50c4424020d1b2b641ce15ee3ffea41a287a160
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Jan 10 14:53:01 2007 +1030
+
+    add deviceEnterNotify event, DeviceEnterNotify, DeviceLeaveNotify support
+    add MPX Major/Minor version numbers
+
+commit ad2edb61ffd8baf87b9ab249aa36b0c04a765f79
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Tue Jan 9 13:32:39 2007 +1030
+
+    Fix typo in DevicePresence() macro
+
+commit 3b84ea85ace4dc9fe1caf7d7c45c0c51ee35b4b2
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Mon Jan 8 12:33:41 2007 +1030
+
+    	add ChangeDeviceCursor request
+
+commit cc055ae804f4dfd8b09b8993673b4670e5cf61ce
+Author: Peter Hutterer <peter@cs.unisa.edu.au>
+Date:   Wed Dec 20 13:36:06 2006 +1030
+
+            add QueryDevicePointer request + reply
+            add WarpDevicePointer request
+
+commit a0be30da79e35e7d503c6eeb9021c2f63beb2176
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Oct 22 16:40:11 2006 +0300
+
+    DeviceAbs{Area,Calib}: properly align 32-bit types
+    Decorate CARD32s and INT32s with B32.
+
+commit b1b3dbfd9b00d47c84c213bc6b7d61c5e8c80466
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sun Oct 22 16:30:56 2006 +0300
+
+    DevicePresenceNotify: add deviceid field, with explanation
+    Add deviceid field, and an explanation of same in XInput.h.
+    deviceid is only used if a specific device changed, and control
+    is non-zero if a specific control on that device changed.
+
+commit 06ffd1e6b600d4e3f55ce7da69448a284ff5dac6
+Author: Zephaniah E. Hull <warp@agamemnon.b5>
+Date:   Sat Oct 21 03:58:53 2006 -0400
+
+    DEVICE_TOUCHPAD -> DEVICE_ABS_CALIB.
+    
+    As it's really calibration for absolute devices, add some stuff.
+    
+    DEVICE_ABS_AREA
+    
+    Defines the area of the screen that an absolute device covers if it is sending
+    core events.
+
+commit 1fab95863efc2bbf9a5b836b3de31da4a956b4bd
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Fri Oct 20 00:33:13 2006 +0300
+
+    add DEVICE_ENABLE control, add core indication
+    Add DEVICE_ENABLE control, which allows specific devices to be
+    enabled or disabled at runtime.
+    Add 'iscore' flag to DEVICE_CORE, which indicates whether or not the
+    device is a virtual core device.
+
+commit 926251a486b57197d735a426887acad6fdfd7dc6
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Tue Jul 18 11:56:37 2006 -0400
+
+    add XExtensionKeyboard and XExtensionPointer classes
+    Add two new classes of device, XExtensionKeyboard, and XExtensionPointer.
+
+commit 7a4a2a3e733378abced0a184627adfda4ed387b9
+Author: Daniel Stone <daniel.stone@nokia.com>
+Date:   Mon Jul 17 19:34:45 2006 -0400
+
+    add DevicePresenceNotify event, clean up
+    Add DevicePresenceNotify event, which indicates that something in the device
+    list changed (Kristian Høgsberg, Red Hat).
+    Add a core event control, which toggles the sending or not of core events by
+    an extended device.
+    Clean up some random detritus from the MetroLink merge.
+
+commit 6767671f502964d385aa41de3a45fb479c6330c0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:18 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 4cc2697880ae61723094dacf78ffe77d81f6e0ee
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:37 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 3ade2fe8443f572abeee73b4fa8e986e4a054017
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:14 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 67498db2df7435d9d59eda4ac444c6560da839b3
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:38 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 742a1eb222d662fc9247ab7c1bd337ffef01eafb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:55 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 9161a356397a07002e03cf1846d212c7154f4c52
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 04:04:21 2005 +0000
+
+    Set version to 1.3.
+
+commit 492f0a9e16bfe9cfb2c7b888b5b5e511db2bf83b
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:39 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit ec71e17293b90ff5eeaa97566751fc5c3955904a
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:18 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit 242316c65e53d1bba244e4f35e5a93718b0ea8d0
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Mon May 16 03:30:03 2005 +0000
+
+    Add COPYING file for Input.
+
+commit 5c5945a47990b7bc077bcfdbabb6e0003cbf1659
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:04 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 518f527ab685d2d082796460113bb7a9ea9bfe15
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:30 2005 +0000
+
+    Initial build system files for proto module.
+
+commit 4254b2967e3c5f256138f35de1ab49efff87220c
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:06 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit ca910a158bdc060d17cf3c00f93c82c3a6ee6f05
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:31:35 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 08e413c25f385e51466ef3309d880c1f63bf0a73
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:10:54 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 1b98dbf2eab5a8ef74afda0c669c9fdfc6461cda
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:11 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit f276a601f272742ea8570fae4326c172cf4b8723
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:27 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 47d36cccfdf0e65848bb2e9595779501a76d6000
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:02 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 4383a95e0bbc2f09394deefc453c2edd1c813d0f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 51468f1607f0b88576628c89e85d159afbb4628e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:35 2003 +0000
+
+    R6.6 is the Xorg base-line

@@ -20,17 +20,62 @@
 #define LLVM_C_TARGET_H
 
 #include "llvm-c/Core.h"
+#include "llvm/Config/config.h"
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-enum { LLVMBigEndian, LLVMLittleEndian };
-typedef int LLVMByteOrdering;
+enum LLVMByteOrdering { LLVMBigEndian, LLVMLittleEndian };
 
 typedef struct LLVMOpaqueTargetData *LLVMTargetDataRef;
 typedef struct LLVMStructLayout *LLVMStructLayoutRef;
 
+/* Declare all of the target-initialization functions that are available. */
+#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##TargetInfo(void);
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+  
+#define LLVM_TARGET(TargetName) void LLVMInitialize##TargetName##Target(void);
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+
+/** LLVMInitializeAllTargetInfos - The main program should call this function if
+    it wants access to all available targets that LLVM is configured to
+    support. */
+static inline void LLVMInitializeAllTargetInfos(void) {
+#define LLVM_TARGET(TargetName) LLVMInitialize##TargetName##TargetInfo();
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+}
+
+/** LLVMInitializeAllTargets - The main program should call this function if it
+    wants to link in all available targets that LLVM is configured to
+    support. */
+static inline void LLVMInitializeAllTargets(void) {
+#define LLVM_TARGET(TargetName) LLVMInitialize##TargetName##Target();
+#include "llvm/Config/Targets.def"
+#undef LLVM_TARGET  /* Explicit undef to make SWIG happier */
+}
+  
+/** LLVMInitializeNativeTarget - The main program should call this function to
+    initialize the native target corresponding to the host.  This is useful 
+    for JIT applications to ensure that the target gets linked in correctly. */
+static inline LLVMBool LLVMInitializeNativeTarget(void) {
+  /* If we have a native target, initialize it to ensure it is linked in. */
+#ifdef LLVM_NATIVE_ARCH
+#define DoInit2(TARG) \
+  LLVMInitialize ## TARG ## Info ();          \
+  LLVMInitialize ## TARG ()
+#define DoInit(T) DoInit2(T)
+  DoInit(LLVM_NATIVE_ARCH);
+  return 0;
+#undef DoInit
+#undef DoInit2
+#else
+  return 1;
+#endif
+}  
 
 /*===-- Target Data -------------------------------------------------------===*/
 
@@ -51,7 +96,7 @@ char *LLVMCopyStringRepOfTargetData(LLVMTargetDataRef);
 /** Returns the byte order of a target, either LLVMBigEndian or
     LLVMLittleEndian.
     See the method llvm::TargetData::isLittleEndian. */
-LLVMByteOrdering LLVMByteOrder(LLVMTargetDataRef);
+enum LLVMByteOrdering LLVMByteOrder(LLVMTargetDataRef);
 
 /** Returns the pointer size in bytes for a target.
     See the method llvm::TargetData::getPointerSize. */
@@ -70,7 +115,7 @@ unsigned long long LLVMSizeOfTypeInBits(LLVMTargetDataRef, LLVMTypeRef);
 unsigned long long LLVMStoreSizeOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the ABI size of a type in bytes for a target.
-    See the method llvm::TargetData::getTypePaddedSize. */
+    See the method llvm::TargetData::getTypeAllocSize. */
 unsigned long long LLVMABISizeOfType(LLVMTargetDataRef, LLVMTypeRef);
 
 /** Computes the ABI alignment of a type in bytes for a target.

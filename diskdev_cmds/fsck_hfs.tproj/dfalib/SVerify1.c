@@ -34,6 +34,18 @@
 #include "Scavenger.h"
 #include "../cache.h"
 #include <stdlib.h>
+#include <stddef.h>
+#include <unistd.h>
+#include <errno.h>
+#include <fcntl.h>
+#include <limits.h>
+
+#include <libkern/OSByteOrder.h>
+#define SW16(x)	OSSwapBigToHostInt16(x)
+#define	SW32(x)	OSSwapBigToHostInt32(x)
+#define	SW64(x)	OSSwapBigToHostInt64(x)
+
+extern int OpenDeviceByUUID(void *uuidp);
 
 //	internal routine prototypes
 
@@ -151,6 +163,253 @@ out:
 	(void) ReleaseVolumeBlock(vcb, &block, rbOptions);
 
 	return (result);
+}
+
+/*
+ * Get the JournalInfoBlock from a volume.
+ *
+ * It borrows code to get the volume header.  Note that it
+ * uses the primary volume header, not the alternate one.
+ * It returns 0 on success, or an error value.
+ * If requested, it will also set the block size (as a 32-bit
+ * value), via bsizep -- this is useful because the journal code
+ * needs to know the volume blocksize, but it doesn't necessarily
+ * have the header.
+ *
+ * Note also that it does direct reads, rather than going through
+ * the cache code.  This simplifies getting the JIB.
+ */
+
+static OSErr
+GetJournalInfoBlock(SGlobPtr GPtr, JournalInfoBlock *jibp, UInt32 *bsizep)
+{
+#define kIDSector 2
+
+	OSErr err;
+	int result = 0;
+	UInt32 jiBlk = 0;
+	HFSMasterDirectoryBlock	*mdbp;
+	HFSPlusVolumeHeader *vhp;
+	SVCB *vcb = GPtr->calculatedVCB;
+	ReleaseBlockOptions rbOptions;
+	BlockDescriptor block;
+	size_t blockSize = 0;
+	off_t embeddedOffset = 0;
+
+	vhp = (HFSPlusVolumeHeader *) NULL;
+	rbOptions = kReleaseBlock;
+
+	if (jibp == NULL)
+		return paramErr;
+
+	err = GetVolumeBlock(vcb, kIDSector, kGetBlock, &block);
+	if (err) return (err);
+
+	mdbp = (HFSMasterDirectoryBlock	*) block.buffer;
+
+	if (mdbp->drSigWord == kHFSPlusSigWord || mdbp->drSigWord == kHFSXSigWord) {
+		vhp = (HFSPlusVolumeHeader *) block.buffer;
+
+	} else if (mdbp->drSigWord == kHFSSigWord) {
+
+		if (mdbp->drEmbedSigWord == kHFSPlusSigWord) {
+			UInt32 vhSector;
+			UInt32 blkSectors;
+			
+			blkSectors = mdbp->drAlBlkSiz / 512;
+			vhSector  = mdbp->drAlBlSt;
+			vhSector += blkSectors * mdbp->drEmbedExtent.startBlock;
+			vhSector += kIDSector;
+	
+			embeddedOffset = (mdbp->drEmbedExtent.startBlock * mdbp->drAlBlkSiz) + (mdbp->drAlBlSt * Blk_Size);
+			if (debug)
+				plog("Embedded offset is %lld\n", embeddedOffset);
+
+			(void) ReleaseVolumeBlock(vcb, &block, kReleaseBlock);
+			err = GetVolumeBlock(vcb, vhSector, kGetBlock, &block);
+			if (err) return (err);
+
+			vhp = (HFSPlusVolumeHeader *) block.buffer;
+			mdbp = (HFSMasterDirectoryBlock	*) NULL;
+
+		}
+	}
+
+	if (vhp == NULL) {
+		result = paramErr;
+		goto out;
+	}
+	if ((err = ValidVolumeHeader(vhp)) != noErr) {
+		result = err;
+		goto out;
+	}
+
+	// journalInfoBlock is not automatically swapped
+	jiBlk = SW32(vhp->journalInfoBlock);
+	blockSize = vhp->blockSize;
+	(void)ReleaseVolumeBlock(vcb, &block, rbOptions);
+
+	if (jiBlk) {
+		int jfd = GPtr->DrvNum;
+		uint8_t block[blockSize];
+		ssize_t nread;
+
+		nread = pread(jfd, block, blockSize, (off_t)jiBlk * blockSize + embeddedOffset);
+		if (nread == blockSize) {
+			if (jibp)
+				memcpy(jibp, block, sizeof(JournalInfoBlock));
+			if (bsizep)
+				*bsizep = blockSize;
+			result = 0;
+		} else {
+			if (debug) {
+				plog("%s: Tried to read JIB, got %zd\n", __FUNCTION__, nread);
+				result = EINVAL;
+			}
+		}
+	}
+
+out:
+	return (result);
+}
+
+/*
+ * Journal checksum calculation, taken directly from TN1150.
+ */
+static int
+calc_checksum(unsigned char *ptr, int len)
+{
+    int i, cksum=0;
+
+    for(i=0; i < len; i++, ptr++) {
+        cksum = (cksum << 8) ^ (cksum + *ptr);
+    }
+
+    return (~cksum);
+}
+
+/*
+ * The journal_header structure is not defined in <hfs/hfs_format.h>;
+ * it's described in TN1150.  It is on disk in the endian mode that was
+ * used to write it, so we may or may not need to swap the fields.
+ */
+typedef struct journal_header {
+	UInt32    magic;
+	UInt32    endian;
+	UInt64    start;
+	UInt64    end;
+	UInt64    size;
+	UInt32    blhdr_size;
+	UInt32    checksum;
+	UInt32    jhdr_size;
+	UInt32    sequence_num;
+} journal_header;
+
+#define JOURNAL_HEADER_MAGIC  0x4a4e4c78
+#define ENDIAN_MAGIC          0x12345678
+#define JOURNAL_HEADER_CKSUM_SIZE  (offsetof(struct journal_header, sequence_num))
+
+/*
+ * Determine of a journal is empty.
+ * This code can use an in-filesystem, or external, journal.
+ * In general, it returns 0 if the journal exists, and appears to
+ * be non-empty (that is, start and end in the journal header are
+ * the same); it will return 1 if it exists and is empty, or if
+ * there was a problem getting the journal.  (This behaviour was
+ * chosen because it mimics the existing behaviour of fsck_hfs,
+ * which has traditionally done nothing with the journal.  Future
+ * versions may be more demanding.)
+ */
+int
+IsJournalEmpty(SGlobPtr GPtr)
+{
+	int retval = 1;
+	OSErr result;
+	OSErr err = 0;
+	JournalInfoBlock jib;
+	UInt32 bsize;
+
+	result = GetJournalInfoBlock(GPtr, &jib, &bsize);
+	if (result == 0) {
+	/* jib is not byte swapped */
+		/* If the journal needs to be initialized, it's empty. */
+		if ((SW32(jib.flags) & kJIJournalNeedInitMask) == 0) {
+			off_t hdrOffset = SW64(jib.offset);
+			struct journal_header *jhdr;
+			uint8_t block[bsize];
+			ssize_t nread;
+			int jfd = -1;
+
+			/* If it's an external journal, kJIJournalInSFMask will not be set */
+			if (SW32(jib.flags) & kJIJournalInFSMask)
+				jfd = dup(GPtr->DrvNum);
+			else {
+				if (debug)
+					plog("External Journal device\n");
+				jfd = OpenDeviceByUUID(&jib.ext_jnl_uuid);
+			}
+
+			if (jfd == -1) {
+				if (debug) {
+					plog("Unable to get journal file descriptor, journal flags = %#x\n", SW32(jib.flags));
+				}
+				goto out;
+			}
+			nread = pread(jfd, block, bsize, hdrOffset);
+			if (nread == -1) {
+				if (debug) {
+					plog("Could not read journal from descriptor %d: %s", jfd, strerror(errno));
+				}
+				err = errno;
+			} else if (nread != bsize) {
+				if (debug) {
+					plog("Only read %zd bytes from journal (expected %zd)", nread, bsize);
+					err = EINVAL;
+				}
+			}
+			close(jfd);
+			/* We got the journal header, now we need to check it */
+			if (err == noErr) {
+				int swap = 0;
+				UInt32 cksum = 0;
+
+				jhdr = (struct journal_header*)block;
+
+				if (jhdr->magic == JOURNAL_HEADER_MAGIC ||
+					SW32(jhdr->magic) == JOURNAL_HEADER_MAGIC) {
+					if (jhdr->endian == ENDIAN_MAGIC)
+						swap = 0;
+					else if (SW32(jhdr->endian) == ENDIAN_MAGIC)
+						swap = 1;
+					else
+						swap = 2;
+
+					if (swap != 2) {
+						cksum = swap ? SW32(jhdr->checksum) : jhdr->checksum;
+						UInt32 calc_sum;
+						jhdr->checksum = 0;
+						/* Checksum calculation needs the checksum field to be zero. */
+						calc_sum = calc_checksum((unsigned char*)jhdr, JOURNAL_HEADER_CKSUM_SIZE);
+						/* But, for now, this is for debugging purposes only */
+						if (calc_sum != cksum) {
+							if (debug)
+								plog("Journal checksum doesn't match:  orig %x != calc %x\n", cksum, calc_sum);
+						}
+						/* We have a journal, we got the header, now we check the start and end */
+						if (jhdr->start != jhdr->end) {
+							retval = 0;
+							if (debug)
+								plog("Non-empty journal:  start = %lld, end = %lld\n",
+									swap ? SW64(jhdr->start) : jhdr->start,
+									swap ? SW64(jhdr->end) : jhdr->end);
+						}
+					}
+				}
+			}
+		}
+	}
+out:
+	return retval;
 }
 
 /*
@@ -1279,6 +1538,7 @@ OSErr	CreateCatalogBTreeControlBlock( SGlobPtr GPtr )
                 bcopy( &recPtr->nodeName[1], GPtr->volumeName, recPtr->nodeName[0] );
                 GPtr->volumeName[ recPtr->nodeName[0] ] = '\0';
            }
+		   fsckPrint(GPtr->context, fsckVolumeName, GPtr->volumeName);
         }
     }
 
@@ -2269,9 +2529,9 @@ CheckAttributeRecord(SGlobPtr GPtr, const HFSPlusAttrKey *key, const HFSPlusAttr
 	
 	if (doDelete == true) {
 		result = DeleteBTreeRecord(GPtr->calculatedAttributesFCB, key);
-		dprintf (d_info|d_xattr, "%s: Deleting attribute %s for fileID %d, type = %d\n", __FUNCTION__, attrname, key->fileID, rec->recordType);
+		DPRINTF (d_info|d_xattr, "%s: Deleting attribute %s for fileID %d, type = %d\n", __FUNCTION__, attrname, key->fileID, rec->recordType);
 		if (result) {
-			dprintf (d_error|d_xattr, "%s: Error in deleting record for %s for fileID %d, type = %d\n", __FUNCTION__, attrname, key->fileID, rec->recordType);
+			DPRINTF (d_error|d_xattr, "%s: Error in deleting record for %s for fileID %d, type = %d\n", __FUNCTION__, attrname, key->fileID, rec->recordType);
 		}
 		
 		/* Set flags to mark header and map dirty */
@@ -3521,7 +3781,7 @@ OSErr	CheckFileExtents( SGlobPtr GPtr, UInt32 fileNumber, UInt8 forkType,
 		//	checkout the extent record first
 		err = ChkExtRec( GPtr, extents, &lastExtentIndex );
 		if (err != noErr) {
-			dprintf (d_info, "%s: Bad extent for fileID %u in extent %u for startblock %u\n", __FUNCTION__, fileNumber, lastExtentIndex, blockCount);
+			DPRINTF (d_info, "%s: Bad extent for fileID %u in extent %u for startblock %u\n", __FUNCTION__, fileNumber, lastExtentIndex, blockCount);
 
 			/* Stop verification if bad extent is found for system file or EA */
 			if ((fileNumber < kHFSFirstUserCatalogNodeID) ||
@@ -4196,15 +4456,19 @@ static int CompareExtentFileID(const void *first, const void *second)
  * Output:
  * 	0 - success, non-zero - failure.
  */
-int journal_replay(SGlobPtr gptr)
+//int journal_replay(SGlobPtr gptr)
+int journal_replay(const char *block_device)
 {
 	int retval = 0;
 	struct vfsconf vfc;
 	int mib[4];
-	char *devnode;
-	size_t devnodelen;
+	int jfd;
 
-	if (gptr->deviceNode[0] == '\0') {
+	jfd = open(block_device, O_RDWR);
+	if (jfd == -1) {
+		retval = errno;
+		if (debug)
+			fplog(stderr, "Unable to open block device %s: %s", block_device, strerror(errno));
 		goto out;
 	}
 
@@ -4216,11 +4480,12 @@ int journal_replay(SGlobPtr gptr)
 	mib[0] = CTL_VFS;
 	mib[1] = vfc.vfc_typenum;
 	mib[2] = HFS_REPLAY_JOURNAL;
-	mib[3] = gptr->writeRef;
+	mib[3] = jfd;
 	retval = sysctl(mib, 4, NULL, NULL, NULL, 0);
 	if (retval) {
 		retval = errno;
 	}
+	(void)close(jfd);
 
 out:
 	return retval;

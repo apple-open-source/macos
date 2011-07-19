@@ -32,7 +32,7 @@
 #include <DirectoryServiceCore/SharedConsts.h>
 #include <DirectoryServiceCore/DSMutexSemaphore.h>
 
-typedef void DeallocateProc ( void *inData );
+typedef void (*DeallocateProc)( void *inData );
 typedef void OperationProc ( void *inData );
 
 typedef struct sTableEntry {
@@ -45,8 +45,8 @@ typedef struct sTableEntry {
 class CPlugInRef {
 
 public:
-					CPlugInRef		( DeallocateProc *inProcPtr );
-					CPlugInRef		( DeallocateProc *inProcPtr, UInt32 inHashArrayLength );
+					CPlugInRef		( DeallocateProc inProcPtr );
+					CPlugInRef		( DeallocateProc inProcPtr, UInt32 inHashArrayLength );
 	virtual		   ~CPlugInRef		( void );
 
 	SInt32			AddItem			( UInt32 inRefNum, void *inData );
@@ -58,7 +58,7 @@ private:
 			sTableEntry		  **fLookupTable;
 			UInt32				fHashArrayLength;
 			UInt32				fRefNumCount;
-			DeallocateProc     *fDeallocProcPtr;
+			DeallocateProc      fDeallocProcPtr;
 
 			DSMutexSemaphore	fMutex;
 };

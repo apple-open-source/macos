@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,11 +28,12 @@
  * See CMSEncoder.h for general information about CMS messages. 
  */
  
-#ifndef	_CMS_DECODER_H_
+#ifndef _CMS_DECODER_H_
 #define _CMS_DECODER_H_
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <Security/Security.h>
+#include <Security/SecCertificate.h>
+#include <Security/SecTrust.h>
 #include <stdint.h>
 
 #ifdef __cplusplus
@@ -67,8 +68,9 @@ typedef uint32_t CMSSignerStatus;
  * Create a CMSDecoder. Result must eventually be freed via CFRelease().
  */
 OSStatus CMSDecoderCreate(
-	CMSDecoderRef		*cmsDecoderOut);	/* RETURNED */
-	
+	CMSDecoderRef		*cmsDecoderOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /* 
  * Feed raw bytes of the message to be decoded into the decoder. Can be called
  * multiple times. 
@@ -78,7 +80,8 @@ OSStatus CMSDecoderCreate(
 OSStatus CMSDecoderUpdateMessage(
 	CMSDecoderRef		cmsDecoder,
 	const void			*msgBytes,
-	size_t				msgBytesLen);
+	size_t				msgBytesLen)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 	
 /* 
  * Indicate that no more CMSDecoderUpdateMessage() calls are forthcoming;
@@ -87,8 +90,8 @@ OSStatus CMSDecoderUpdateMessage(
  * message. 
  */
 OSStatus CMSDecoderFinalizeMessage(
-	CMSDecoderRef		cmsDecoder);
-
+	CMSDecoderRef		cmsDecoder)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * A signed CMS message optionally includes the data which was signed. If the
@@ -103,7 +106,8 @@ OSStatus CMSDecoderFinalizeMessage(
  */
 OSStatus CMSDecoderSetDetachedContent(
 	CMSDecoderRef		cmsDecoder,
-	CFDataRef			detachedContent);
+	CFDataRef			detachedContent)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain the detached content specified in CMSDecoderSetDetachedContent().
@@ -112,7 +116,8 @@ OSStatus CMSDecoderSetDetachedContent(
  */
 OSStatus CMSDecoderCopyDetachedContent(
 	CMSDecoderRef		cmsDecoder,
-	CFDataRef			*detachedContentOut);	/* RETURNED */
+	CFDataRef			*detachedContentOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Optionally specify a SecKeychainRef, or an array of them, containing
@@ -124,8 +129,9 @@ OSStatus CMSDecoderCopyDetachedContent(
  */
 OSStatus CMSDecoderSetSearchKeychain(
 	CMSDecoderRef		cmsDecoder,
-	CFTypeRef			keychainOrArray);
-	
+	CFTypeRef			keychainOrArray)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Obtain the number of signers of a message. A result of zero indicates that
  * the message was not signed. 
@@ -133,8 +139,9 @@ OSStatus CMSDecoderSetSearchKeychain(
  */
 OSStatus CMSDecoderGetNumSigners(
 	CMSDecoderRef		cmsDecoder,
-	size_t				*numSignersOut);		/* RETURNED */
-	
+	size_t				*numSignersOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Obtain the status of a CMS message's signature. A CMS message can 
  * be signed my multiple signers; this function returns the status
@@ -157,18 +164,18 @@ OSStatus CMSDecoderGetNumSigners(
  * cmsDecoder       : a CMSDecoder which has successfully performed a 
  *                    CMSDecoderFinalizeMessage().
  * signerIndex      : indicates which of 'n' signers is being examined.
- *				      Range is 0...(numSigners-1).
+ *                    Range is 0...(numSigners-1).
  * policyOrArray    : Either a SecPolicyRef or a CFArray of them.
  *                    These policies are used to verify the signer's certificate. 
  * evaluateSecTrust : When TRUE, causes the SecTrust oebject created for the 
- *					  evaluation of the signer cert to actually be evaluated
- *					  via SecTrustEvaluate(). When FALSE, the caller performs 
- *					  the SecTrustEvaluate() operation on the SecTrust object 
- *					  returned via the secTrust out parameter. 
- *					  NOTE: it is hazardous and not recommended to pass in FALSE
- *					  for the evaluateSecTrust parameter as well as NULL for the
- *					  secTrust out parameter, since no evaluation of the signer
- *					  cert can occur in that situation.
+ *                    evaluation of the signer cert to actually be evaluated
+ *                    via SecTrustEvaluate(). When FALSE, the caller performs 
+ *                    the SecTrustEvaluate() operation on the SecTrust object 
+ *                    returned via the secTrust out parameter. 
+ *                    NOTE: it is hazardous and not recommended to pass in FALSE
+ *                    for the evaluateSecTrust parameter as well as NULL for the
+ *                    secTrust out parameter, since no evaluation of the signer
+ *                    cert can occur in that situation.
  *
  * Outputs:
  * --------
@@ -216,8 +223,9 @@ OSStatus CMSDecoderCopySignerStatus(
 	Boolean				evaluateSecTrust,
 	CMSSignerStatus		*signerStatusOut,			/* optional; RETURNED */
 	SecTrustRef			*secTrustOut,				/* optional; RETURNED */
-	OSStatus			*certVerifyResultCodeOut);	/* optional; RETURNED */
-	
+	OSStatus			*certVerifyResultCodeOut)	/* optional; RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Obtain the email address of signer 'signerIndex' of a CMS message, if
  * present. 
@@ -230,7 +238,8 @@ OSStatus CMSDecoderCopySignerStatus(
 OSStatus CMSDecoderCopySignerEmailAddress(
 	CMSDecoderRef		cmsDecoder,
 	size_t				signerIndex,
-	CFStringRef			*signerEmailAddressOut);	/* RETURNED */
+	CFStringRef			*signerEmailAddressOut)	/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain the certificate of signer 'signerIndex' of a CMS message, if
@@ -244,8 +253,8 @@ OSStatus CMSDecoderCopySignerEmailAddress(
 OSStatus CMSDecoderCopySignerCert(
 	CMSDecoderRef		cmsDecoder,
 	size_t				signerIndex,
-	SecCertificateRef	*signerCertOut);			/* RETURNED */
-
+	SecCertificateRef	*signerCertOut)			/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /* 
  * Determine whether a CMS message was encrypted. Returns TRUE if so, FALSE if not.
@@ -256,7 +265,8 @@ OSStatus CMSDecoderCopySignerCert(
  */
 OSStatus CMSDecoderIsContentEncrypted(
 	CMSDecoderRef		cmsDecoder,
-	Boolean				*isEncryptedOut);
+	Boolean				*isEncryptedOut)
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain the eContentType OID for a SignedData's EncapsulatedContentType, if 
@@ -267,7 +277,8 @@ OSStatus CMSDecoderIsContentEncrypted(
  */
 OSStatus CMSDecoderCopyEncapsulatedContentType(
 	CMSDecoderRef		cmsDecoder,
-	CFDataRef			*eContentTypeOut);		/* RETURNED */
+	CFDataRef			*eContentTypeOut)		/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 /*
  * Obtain an array of all of the certificates in a message. Elements of the 
@@ -279,8 +290,9 @@ OSStatus CMSDecoderCopyEncapsulatedContentType(
  */
 OSStatus CMSDecoderCopyAllCerts(
 	CMSDecoderRef		cmsDecoder,
-	CFArrayRef			*certsOut);				/* RETURNED */
-	
+	CFArrayRef			*certsOut)				/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
+
 /*
  * Obtain the actual message content (payload), if any. If the message was
  * signed with detached content this will return NULL.
@@ -289,7 +301,8 @@ OSStatus CMSDecoderCopyAllCerts(
  */
 OSStatus CMSDecoderCopyContent(
 	CMSDecoderRef		cmsDecoder,
-	CFDataRef			*contentOut);			/* RETURNED */
+	CFDataRef			*contentOut)			/* RETURNED */
+    __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_NA);
 
 #ifdef __cplusplus
 }

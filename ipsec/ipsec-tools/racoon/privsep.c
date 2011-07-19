@@ -66,6 +66,7 @@
 #include "sockmisc.h"
 #include "privsep.h"
 
+#ifdef HAVE_OPENSSL
 static int privsep_sock[2] = { -1, -1 };
 
 static int privsep_recv(int, struct privsep_com_msg **, size_t *);
@@ -75,7 +76,9 @@ static int port_check(int);
 static int unsafe_env(char *const *);
 static int unknown_name(int);
 static int unsafe_path(char *, int);
+#endif
 
+#ifdef HAVE_OPENSSL
 static int
 privsep_send(sock, buf, len)
 	int sock;
@@ -160,7 +163,9 @@ privsep_recv(sock, bufp, lenp)
 
 	return 0;
 }
+#endif /* HAVE_OPENSSL */
 
+#ifdef HAVE_OPENSSL
 int
 privsep_init(void)
 {
@@ -696,8 +701,9 @@ out:
 	plog(LLV_INFO, LOCATION, NULL, "privsep exit\n");
 	_exit(0);
 }
+#endif /* HAVE_OPENSSL */
 
-
+#ifdef HAVE_OPENSSL
 vchar_t *
 privsep_eay_get_pkcs1privkey(path) 
 	char *path;
@@ -743,6 +749,7 @@ out:
 	racoon_free(msg);
 	return NULL;
 }
+#endif
 
 /*
  * No prigilege separation trick here, we just open PFKEY before
@@ -775,6 +782,7 @@ privsep_pfkey_close(ps)
 	return;
 }
 
+#ifdef HAVE_OPENSSL
 int
 privsep_script_exec(script, name, envp)
 	char *script;
@@ -884,7 +892,9 @@ privsep_script_exec(script, name, envp)
 	racoon_free(msg);
 	return 0;
 }
+#endif
 
+#ifdef HAVE_OPENSSL
 vchar_t *
 privsep_getpsk(str, keylen)
 	const char *str;
@@ -939,7 +949,9 @@ out:
 	racoon_free(msg);
 	return NULL;
 }
+#endif
 
+#ifdef HAVE_OPENSSL
 #ifdef ENABLE_HYBRID
 int
 privsep_xauth_login_system(usr, pwd)
@@ -1051,6 +1063,7 @@ out:
 	racoon_free(msg);
 	return -1;
 }
+#endif
 
 static int
 port_check(port)
@@ -1065,8 +1078,9 @@ port_check(port)
 
 	return 0;
 }
-#endif
+#endif /* HAVE_OPENSSL */
 
+#ifdef HAVE_OPENSSL
 static int 
 safety_check(msg, index)
 	struct privsep_com_msg *msg;
@@ -1159,6 +1173,7 @@ unknown_name(name)
 
 	return 0;
 }
+#endif /* HAVE_OPENSSL */
 
 #ifdef HAVE_LIBPAM
 int 

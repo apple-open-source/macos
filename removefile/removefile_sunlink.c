@@ -273,8 +273,14 @@ overwrite_file(removefile_state_t state) {
     overwrite_byte(0x00, state);
     overwrite_byte(0xFF, state);
     overwrite_random(1, state);
+  } else if (state->unlink_flags & REMOVEFILE_SECURE_3_PASS) {
+    /* DOE M2051-2 or DOD 5220.22-M */
+    overwrite_random(2, state);
+    overwrite_byte(0xAA, state);
   } else if (state->unlink_flags & REMOVEFILE_SECURE_1_PASS) {
     overwrite_random(1, state);
+  } else if (state->unlink_flags & REMOVEFILE_SECURE_1_PASS_ZERO) {
+    overwrite_byte(0, state);
   }
 }
 

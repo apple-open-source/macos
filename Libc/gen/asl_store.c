@@ -1,23 +1,22 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * "Portions Copyright (c) 2007 Apple Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -40,6 +39,7 @@ extern time_t asl_parse_time(const char *str);
 extern uint64_t asl_file_cursor(asl_file_t *s);
 extern uint32_t asl_file_match_start(asl_file_t *s, uint64_t start_id, int32_t direction);
 extern uint32_t asl_file_match_next(asl_file_t *s, aslresponse query, asl_msg_t **msg, uint64_t *last_id, int32_t direction, int32_t ruid, int32_t rgid);
+extern int asl_file_create(const char *path, uid_t uid, gid_t gid, mode_t mode);
 
 #define SECONDS_PER_DAY 86400
 
@@ -106,7 +106,7 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 
 	memset(&sb, 0, sizeof(struct stat));
 	if (stat(basedir, &sb) != 0) return ASL_STATUS_INVALID_STORE;
-	if ((sb.st_mode & S_IFDIR) == 0) return ASL_STATUS_INVALID_STORE;
+	if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
 
 	path = NULL;
 	asprintf(&path, "%s/%s", basedir, FILE_ASL_STORE_DATA);
@@ -144,6 +144,9 @@ asl_store_open_write(const char *basedir, asl_store_t **s)
 			fclose(sd);
 			return ASL_STATUS_WRITE_FAILED;
 		}
+
+		/* flush data */
+		fflush(sd);
 	}
 	else
 	{
@@ -201,7 +204,7 @@ asl_store_statistics(asl_store_t *s, aslmsg *msg)
 	if (s == NULL) return ASL_STATUS_INVALID_STORE;
 	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
 
-	out = (aslmsg)calloc(1, sizeof(asl_msg_t));
+	out = asl_new(ASL_TYPE_MSG);
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
 
 	/* does nothing for now */
@@ -222,7 +225,7 @@ asl_store_open_read(const char *basedir, asl_store_t **s)
 
 	memset(&sb, 0, sizeof(struct stat));
 	if (stat(basedir, &sb) != 0) return ASL_STATUS_INVALID_STORE;
-	if ((sb.st_mode & S_IFDIR) == 0) return ASL_STATUS_INVALID_STORE;
+	if (!S_ISDIR(sb.st_mode)) return ASL_STATUS_INVALID_STORE;
 
 	out = (asl_store_t *)calloc(1, sizeof(asl_store_t));
 	if (out == NULL) return ASL_STATUS_NO_MEMORY;
@@ -249,7 +252,7 @@ asl_store_max_file_size(asl_store_t *s, size_t max)
 	return ASL_STATUS_OK;
 }
 
-void
+__private_extern__ void
 asl_store_file_closeall(asl_store_t *s)
 {
 	uint32_t i;
@@ -357,12 +360,59 @@ asl_store_sweep_file_cache(asl_store_t *s)
 	return ASL_STATUS_OK;
 }
 
+static char *
+asl_store_make_ug_path(const char *dir, const char *base, const char *ext, uid_t ruid, gid_t rgid, uid_t *u, gid_t *g, mode_t *m)
+{
+	char *path  = NULL;
+
+	*u = 0;
+	*g = 0;
+	*m = 0644;
+
+	if (ruid == -1)
+	{
+		if (rgid == -1)
+		{
+			if (ext == NULL) asprintf(&path, "%s/%s", dir, base);
+			else asprintf(&path, "%s/%s.%s", dir, base, ext);
+		}
+		else
+		{
+			*g = rgid;
+			*m = 0600;
+			if (ext == NULL) asprintf(&path, "%s/%s.G%d", dir, base, *g);
+			else asprintf(&path, "%s/%s.G%d.%s", dir, base, *g, ext);
+		}
+	}
+	else
+	{
+		*u = ruid;
+		if (rgid == -1)
+		{
+			*m = 0600;
+			if (ext == NULL) asprintf(&path, "%s/%s.U%d", dir, base, *u);
+			else asprintf(&path, "%s/%s.U%d.%s", dir, base, *u, ext);
+		}
+		else
+		{
+			*g = rgid;
+			*m = 0600;
+			if (ext == NULL) asprintf(&path, "%s/%s.U%d.G%d", dir, base, *u, *g);
+			else asprintf(&path, "%s/%s.U%d.G%u.%s", dir, base, *u, *g, ext);
+		}
+	}
+
+	return path;
+}
+
 static uint32_t
 asl_store_file_open_write(asl_store_t *s, char *tstring, int32_t ruid, int32_t rgid, time_t bb, asl_file_t **f, time_t now, uint32_t check_cache)
 {
 	char *path;
 	mode_t m;
-	int32_t i, x, u, g;
+	int32_t i, x;
+	uid_t u;
+	gid_t g;
 	uint32_t status;
 	asl_file_t *out;
 
@@ -380,40 +430,10 @@ asl_store_file_open_write(asl_store_t *s, char *tstring, int32_t ruid, int32_t r
 		}
 	}
 
-	path = NULL;
 	u = 0;
 	g = 0;
 	m = 0644;
-
-	if (ruid == -1)
-	{
-		if (rgid == -1)
-		{
-			asprintf(&path, "%s/%s.asl", s->base_dir, tstring);
-		}
-		else
-		{
-			g = rgid;
-			m = 0640;
-			asprintf(&path, "%s/%s.G%d.asl", s->base_dir, tstring, g);
-		}
-	}
-	else
-	{
-		u = ruid;
-		if (rgid == -1)
-		{
-			m = 0600;
-			asprintf(&path, "%s/%s.U%d.asl", s->base_dir, tstring, u);
-		}
-		else
-		{
-			g = rgid;
-			m = 0640;
-			asprintf(&path, "%s/%s.U%d.G%u.asl", s->base_dir, tstring, u, g);
-		}
-	}
-
+	path = asl_store_make_ug_path(s->base_dir, tstring, "asl", (uid_t)ruid, (gid_t)rgid, &u, &g, &m);
 	if (path == NULL) return ASL_STATUS_NO_MEMORY;
 
 	out = NULL;
@@ -440,7 +460,7 @@ asl_store_file_open_write(asl_store_t *s, char *tstring, int32_t ruid, int32_t r
 	return ASL_STATUS_OK;
 }
 
-char *
+__private_extern__ char *
 asl_store_file_path(asl_store_t *s, asl_file_t *f)
 {
 	uint32_t i;
@@ -459,7 +479,7 @@ asl_store_file_path(asl_store_t *s, asl_file_t *f)
 	return NULL;
 }
 
-void
+__private_extern__ void
 asl_store_file_close(asl_store_t *s, asl_file_t *f)
 {
 	uint32_t i;
@@ -556,6 +576,9 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	xid = asl_core_htonq(s->next_id);
 	if (fwrite(&xid, sizeof(uint64_t), 1, s->storedata) != 1) return ASL_STATUS_WRITE_FAILED;
 
+	/* flush data */
+	fflush(s->storedata);
+
 	xid = s->next_id;
 	s->next_id++;
 
@@ -567,7 +590,7 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	if (bb == 1)
 	{
 		/*
-		 * This supports 12 monthy "Best Before" buckets.
+		 * This supports 12 monthly "Best Before" buckets.
 		 * We advance the actual expiry time to day zero of the following month.
 		 * mktime() is clever enough to know that you actually mean the last day
 		 * of the previous month.  What we get back from localtime is the last
@@ -651,6 +674,158 @@ asl_store_save(asl_store_t *s, aslmsg msg)
 	}
 
 	if (signal_sweep != 0) asl_store_signal_sweep(s);
+
+	return status;
+}
+
+static uint32_t
+asl_store_mkdir(asl_store_t *s, const char *dir, mode_t m)
+{
+	char *tstring = NULL;
+	int status;
+	struct stat sb;
+
+	asprintf(&tstring, "%s/%s", s->base_dir, dir);
+	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
+
+	memset(&sb, 0, sizeof(struct stat));
+	status = stat(tstring, &sb);
+
+	if (status == 0)
+	{
+		/* must be a directory */
+		if (!S_ISDIR(sb.st_mode))
+		{
+			free(tstring);
+			return ASL_STATUS_INVALID_STORE;
+		}
+	}
+	else
+	{
+		if (errno == ENOENT)
+		{
+			/* doesn't exist - create it */
+			if (mkdir(tstring, m) != 0)
+			{
+				free(tstring);
+				return ASL_STATUS_WRITE_FAILED;
+			}
+		}
+		else
+		{
+			/* stat failed for some other reason */
+			free(tstring);
+			return ASL_STATUS_FAILED;
+		}
+	}
+
+	free(tstring);
+	return ASL_STATUS_OK;
+}
+
+uint32_t
+asl_store_open_aux(asl_store_t *s, aslmsg msg, int *out_fd, char **url)
+{
+	struct tm ctm;
+	time_t msg_time, bb;
+	char *path, *dir, *tstring;
+	const char *val;
+	uid_t ruid, u;
+	gid_t rgid, g;
+	mode_t m;
+	uint32_t status;
+	uint64_t fid;
+	int fd;
+
+	if (s == NULL) return ASL_STATUS_INVALID_STORE;
+	if (msg == NULL) return ASL_STATUS_INVALID_ARG;
+	if (out_fd == NULL) return ASL_STATUS_INVALID_ARG;
+	if (url == NULL) return ASL_STATUS_INVALID_ARG;
+
+	msg_time = time(NULL);
+
+	val = asl_get(msg, ASL_KEY_READ_UID);
+	ruid = -1;
+	if (val != NULL) ruid = atoi(val);
+
+	val = asl_get(msg, ASL_KEY_READ_GID);
+	rgid = -1;
+	if (val != NULL) rgid = atoi(val);
+
+	bb = 0;
+	val = asl_get(msg, ASL_KEY_EXPIRE_TIME);
+	if (val != NULL)
+	{
+		bb = 1;
+		msg_time = asl_parse_time(val);
+	}
+
+	if (localtime_r((const time_t *)&msg_time, &ctm) == NULL) return ASL_STATUS_FAILED;
+
+	dir = NULL;
+	if (bb == 1)
+	{
+		/*
+		 * This supports 12 monthly "Best Before" buckets.
+		 * We advance the actual expiry time to day zero of the following month.
+		 * mktime() is clever enough to know that you actually mean the last day
+		 * of the previous month.  What we get back from localtime is the last
+		 * day of the month in which the message expires, which we use in the name.
+		 */
+		ctm.tm_sec = 0;
+		ctm.tm_min = 0;
+		ctm.tm_hour = 0;
+		ctm.tm_mday = 0;
+		ctm.tm_mon += 1;
+
+		bb = mktime(&ctm);
+
+		if (localtime_r((const time_t *)&bb, &ctm) == NULL) return ASL_STATUS_FAILED;
+		asprintf(&dir, "BB.AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	}
+	else
+	{
+		asprintf(&dir, "AUX.%d.%02d.%02d", ctm.tm_year + 1900, ctm.tm_mon + 1, ctm.tm_mday);
+	}
+
+	if (dir == NULL) return ASL_STATUS_NO_MEMORY;
+
+	status = asl_store_mkdir(s, dir, 0755);
+	if (status != ASL_STATUS_OK)
+	{
+		free(dir);
+		return status;
+	}
+
+	fid = s->next_id;
+	s->next_id++;
+	tstring = NULL;
+
+	asprintf(&tstring, "%s/%llu", dir, fid);
+	free(dir);
+	if (tstring == NULL) return ASL_STATUS_NO_MEMORY;
+
+	u = 0;
+	g = 0;
+	m = 0644;
+	path = asl_store_make_ug_path(s->base_dir, tstring, NULL, ruid, rgid, &u, &g, &m);
+	free(tstring);
+	if (path == NULL) return ASL_STATUS_NO_MEMORY;
+
+	fd = asl_file_create(path, u, g, m);
+	if (fd < 0)
+	{
+		free(path);
+		*out_fd = -1;
+		return ASL_STATUS_WRITE_FAILED;
+	}
+
+	/* URL is file://<path> */
+	*url = NULL;
+	asprintf(url, "file://%s", path);
+	free(path);
+
+	*out_fd = fd;
 
 	return status;
 }

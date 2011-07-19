@@ -36,6 +36,7 @@ install:
 	mkdir -p $(LAUNCH_DIR)
 	cp $(SRC)/com.apple.securityd.plist $(LAUNCH_DIR)
 	mkdir -p $(AUTHORIZATION_LOCATION)
+	plutil -lint $(SRC)/authorization.plist
 	cp $(SRC)/authorization.plist $(AUTHORIZATION_PLIST)
 	chown root:wheel $(AUTHORIZATION_PLIST)
 	chmod 644 $(AUTHORIZATION_PLIST)

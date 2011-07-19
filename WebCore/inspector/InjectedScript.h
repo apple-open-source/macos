@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2010 Google Inc. All rights reserved.
+ * Copyright (C) 2010, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,35 +31,60 @@
 #ifndef InjectedScript_h
 #define InjectedScript_h
 
-#include "InjectedScriptHost.h"
+#include "InjectedScriptManager.h"
 #include "ScriptObject.h"
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 #include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
-class SerializedScriptValue;
-class String;
+class InspectorArray;
+class InspectorObject;
+class InspectorValue;
+class Node;
+class ScriptFunctionCall;
+
+typedef String ErrorString;
 
 class InjectedScript {
 public:
-    InjectedScript() { }
+    InjectedScript();
     ~InjectedScript() { }
 
     bool hasNoValue() const { return m_injectedScriptObject.hasNoValue(); }
 
-    void dispatch(long callId, const String& methodName, const String& arguments, bool async, RefPtr<SerializedScriptValue>* result, bool* hadException);
+    void evaluate(ErrorString*, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result, bool* wasThrown);
+    void evaluateOn(ErrorString*, const String& objectId, const String& expression, RefPtr<InspectorObject>* result, bool* wasThrown);
+    void evaluateOnCallFrame(ErrorString*, const ScriptValue& callFrames, const String& callFrameId, const String& expression, const String& objectGroup, bool includeCommandLineAPI, RefPtr<InspectorObject>* result, bool* wasThrown);
+    void getProperties(ErrorString*, const String& objectId, bool ignoreHasOwnProperty, RefPtr<InspectorArray>* result);
+    Node* nodeForObjectId(const String& objectId);
+    void setPropertyValue(ErrorString*, const String& objectId, const String& propertyName, const String& expression);
+    void releaseObject(const String& objectId);
+
 #if ENABLE(JAVASCRIPT_DEBUGGER)
-    PassRefPtr<SerializedScriptValue> callFrames();
+    PassRefPtr<InspectorArray> wrapCallFrames(const ScriptValue&);
 #endif
-    PassRefPtr<SerializedScriptValue> wrapForConsole(ScriptValue);
-    void releaseWrapperObjectGroup(const String&);
+
+    PassRefPtr<InspectorObject> wrapObject(ScriptValue, const String& groupName);
+    PassRefPtr<InspectorObject> wrapNode(Node*);
+    void inspectNode(Node*);
+    void releaseObjectGroup(const String&);
+    ScriptState* scriptState() const { return m_injectedScriptObject.scriptState(); }
 
 private:
-    friend InjectedScript InjectedScriptHost::injectedScriptFor(ScriptState*);
-    explicit InjectedScript(ScriptObject);
+    friend InjectedScript InjectedScriptManager::injectedScriptFor(ScriptState*);
+    typedef bool (*InspectedStateAccessCheck)(ScriptState*);
+    InjectedScript(ScriptObject, InspectedStateAccessCheck);
+
     bool canAccessInspectedWindow();
+    void makeCall(ScriptFunctionCall&, RefPtr<InspectorValue>* result);
+    void makeEvalCall(ErrorString*, ScriptFunctionCall&, RefPtr<InspectorObject>* result, bool* wasThrown);
+    ScriptValue nodeAsScriptValue(Node*);
+
     ScriptObject m_injectedScriptObject;
+    InspectedStateAccessCheck m_inspectedStateAccessCheck;
 };
 
 } // namespace WebCore

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>org.dovecot.fts.update</string>
+	<key>Program</key>
+	<string>/usr/libexec/dovecot/update-fts-index.pl</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>update-fts-index.pl</string>
+		<string>--syslog</string>
+		<string>--queued</string>
+	</array>
+	<key>QueueDirectories</key>
+	<array>
+		<string>/var/db/dovecot.fts.update</string>
+	</array>
+</dict>
+</plist>

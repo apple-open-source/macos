@@ -29,52 +29,13 @@
 #define SVGRenderStyleDefs_h
 
 #if ENABLE(SVG)
-#include "Color.h"
-#include "PlatformString.h"
+#include "SVGLength.h"
+#include "SVGPaint.h"
 #include "ShadowData.h"
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
-
-// Helper macros for 'SVGRenderStyle'
-#define SVG_RS_DEFINE_ATTRIBUTE(Data, Type, Name, Initial) \
-    void set##Type(Data val) { svg_noninherited_flags.f._##Name = val; } \
-    Data Name() const { return (Data) svg_noninherited_flags.f._##Name; } \
-    static Data initial##Type() { return Initial; }
-
-#define SVG_RS_DEFINE_ATTRIBUTE_INHERITED(Data, Type, Name, Initial) \
-    void set##Type(Data val) { svg_inherited_flags._##Name = val; } \
-    Data Name() const { return (Data) svg_inherited_flags._##Name; } \
-    static Data initial##Type() { return Initial; }
-
-// "Helper" macros for SVG's RenderStyle properties
-// FIXME: These are impossible to work with or debug.
-#define SVG_RS_DEFINE_ATTRIBUTE_DATAREF(Data, Group, Variable, Type, Name) \
-    Data Name() const { return Group->Variable; } \
-    void set##Type(Data obj) { SVG_RS_SET_VARIABLE(Group, Variable, obj) }
-
-#define SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL(Data, Group, Variable, Type, Name, Initial) \
-    SVG_RS_DEFINE_ATTRIBUTE_DATAREF(Data, Group, Variable, Type, Name) \
-    static Data initial##Type() { return Initial; }
-
-#define SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_REFCOUNTED(Data, Group, Variable, Type, Name, Initial) \
-    Data* Name() const { return Group->Variable.get(); } \
-    void set##Type(PassRefPtr<Data> obj) { \
-        if (!(Group->Variable == obj)) \
-            Group.access()->Variable = obj; \
-    } \
-    static Data* initial##Type() { return Initial; }
-
-#define SVG_RS_DEFINE_ATTRIBUTE_DATAREF_WITH_INITIAL_OWNPTR(Data, Group, Variable, Type, Name, Initial) \
-    Data* Name() const { return Group->Variable.get(); } \
-    void set##Type(Data* obj) { \
-        Group.access()->Variable.set(obj); \
-    } \
-    static Data* initial##Type() { return Initial; }
-
-#define SVG_RS_SET_VARIABLE(Group, Variable, Value) \
-    if (!(Group->Variable == Value)) \
-        Group.access()->Variable = Value;
 
 namespace WebCore {
 
@@ -102,7 +63,7 @@ namespace WebCore {
         SR_AUTO, SR_OPTIMIZESPEED, SR_CRISPEDGES, SR_GEOMETRICPRECISION
     };
 
-    enum EWritingMode {
+    enum SVGWritingMode {
         WM_LRTB, WM_LR, WM_RLTB, WM_RL, WM_TBRL, WM_TB
     };
 
@@ -121,6 +82,11 @@ namespace WebCore {
         DB_IDEOGRAPHIC, DB_ALPHABETIC, DB_HANGING, DB_MATHEMATICAL,
         DB_CENTRAL, DB_MIDDLE, DB_TEXT_AFTER_EDGE, DB_TEXT_BEFORE_EDGE
     };
+    
+    enum EVectorEffect {
+        VE_NONE,
+        VE_NON_SCALING_STROKE
+    };
 
     class CSSValue;
     class CSSValueList;
@@ -131,7 +97,7 @@ namespace WebCore {
     public:
         static PassRefPtr<StyleFillData> create() { return adoptRef(new StyleFillData); }
         PassRefPtr<StyleFillData> copy() const { return adoptRef(new StyleFillData(*this)); }
-        
+
         bool operator==(const StyleFillData&) const;
         bool operator!=(const StyleFillData& other) const
         {
@@ -139,7 +105,9 @@ namespace WebCore {
         }
 
         float opacity;
-        RefPtr<SVGPaint> paint;
+        SVGPaint::SVGPaintType paintType;
+        Color paintColor;
+        String paintUri;
 
     private:
         StyleFillData();
@@ -160,11 +128,13 @@ namespace WebCore {
         float opacity;
         float miterLimit;
 
-        RefPtr<CSSValue> width;
-        RefPtr<CSSValue> dashOffset;
+        SVGLength width;
+        SVGLength dashOffset;
+        Vector<SVGLength> dashArray;
 
-        RefPtr<SVGPaint> paint;
-        RefPtr<CSSValueList> dashArray;
+        SVGPaint::SVGPaintType paintType;
+        Color paintColor;
+        String paintUri;
 
     private:        
         StyleStrokeData();
@@ -201,7 +171,7 @@ namespace WebCore {
             return !(*this == other);
         }
 
-        RefPtr<CSSValue> kerning;
+        SVGLength kerning;
 
     private:
         StyleTextData();
@@ -225,7 +195,7 @@ namespace WebCore {
         Color lightingColor;
 
         // non-inherited text stuff lives here not in StyleTextData.
-        RefPtr<CSSValue> baselineShiftValue;
+        SVGLength baselineShiftValue;
 
     private:
         StyleMiscData();

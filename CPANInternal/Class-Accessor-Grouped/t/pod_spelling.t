@@ -1,5 +1,5 @@
 #!perl -w
-# $Id: /local/CPAN/Class-Accessor-Grouped/t/pod_spelling.t 26 2007-07-02T01:46:31.239709Z claco  $
+# $Id: pod_spelling.t 7003 2009-07-08 02:24:06Z claco $
 use strict;
 use warnings;
 
@@ -22,6 +22,7 @@ all_pod_files_spelling_ok();
 __DATA__
 Bowden
 Raygun
+Roditi
 isa
 mst
 behaviour

@@ -30,10 +30,12 @@ srcdir		=	@srcdir@
 # at configure-time with the --exec-prefix and --prefix options
 # to the "configure" script.
 
-prefix		=	@prefix@
-exec_prefix	=	@exec_prefix@
-libdir          =	@libdir@
-includedir      =	@includedir@
+prefix		= @prefix@
+exec_prefix	= @exec_prefix@
+libdir      = @libdir@
+datarootdir	= @datarootdir@
+includedir  = @includedir@
+mandir      = @mandir@
 
 # Directory containing scripts supporting the work of this makefile
 tool		=	$(srcdir)/tools
@@ -64,7 +66,7 @@ BIN_INSTALL_DIR =	$(INSTALL_ROOT)$(exec_prefix)/bin
 INCLUDE_INSTALL_DIR =	$(INSTALL_ROOT)$(prefix)/include
 
 # Top-level directory in which to install manual entries:
-MAN_INSTALL_DIR =	$(INSTALL_ROOT)$(prefix)/man
+MAN_INSTALL_DIR =	$(INSTALL_ROOT)$(mandir)
 
 # Directory where libz, libpng and libjpeg are (or will be) installed.
 IMG_INSTALL_DIR	=	$(INSTALL_ROOT)$(IMG_RUNTIME_DIR)
@@ -84,6 +86,7 @@ INSTALL_DATA =		$(INSTALL) -m 644
 INSTALL_SHLIB =		$(INSTALL) -m 555
 RANLIB =		@RANLIB@
 SHLIB_SUFFIX =		@SHLIB_SUFFIX@
+SHARED_BUILD	= @SHARED_BUILD@
 
 #----------------------------------------------------------------
 
@@ -103,10 +106,18 @@ all:
 test:	all
 	for sub in $(SUBDIRS) ; \
 	do	\
+		test -d $(srcdir)/$$sub/tests || continue ; \
 		here=`pwd` && \
 		cd $$sub && \
-		$(MAKE) test || exit $$? && \
+		$(MAKE) top_builddir=$$here test || exit $$? && \
 		cd $$here ; \
+	done
+
+install-man:
+	mkdir -p $(MAN_INSTALL_DIR)/mann
+	for i in $(srcdir)/doc/*.man ; \
+	do	\
+		dtplite -ext n -o $(MAN_INSTALL_DIR)/mann nroff $$i ; \
 	done
 
 collate: all
@@ -125,7 +136,9 @@ collate: all
 			DESTDIR=					\
 			|| exit $$? &&					\
 		cd $$here && \
+		if test "x$(SHARED_BUILD)" = "x1"; then \
 		cat Img/exec_prefix/lib/Img/pkgIndex.tcl >> pkgIndex.tcl ; \
+		fi ; \
 	done
 	mv pkgIndex.tcl Img/exec_prefix/lib/Img/pkgIndex.tcl
 	for p in Img/exec_prefix/lib/*.sh ; do \

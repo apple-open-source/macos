@@ -19,15 +19,21 @@
 
 namespace llvm {
 
-class X86TargetMachine;
 class FunctionPass;
+class JITCodeEmitter;
+class MCCodeEmitter;
+class MCContext;
 class MachineCodeEmitter;
-class raw_ostream;
+class Target;
+class TargetAsmBackend;
+class X86TargetMachine;
+class formatted_raw_ostream;
 
 /// createX86ISelDag - This pass converts a legalized DAG into a 
 /// X86-specific DAG, ready for instruction scheduling.
 ///
-FunctionPass *createX86ISelDag(X86TargetMachine &TM, CodeGenOpt::Level OptLevel);
+FunctionPass *createX86ISelDag(X86TargetMachine &TM,
+                               CodeGenOpt::Level OptLevel);
 
 /// createX86FloatingPointStackifierPass - This function returns a pass which
 /// converts floating point register references and pseudo instructions into
@@ -35,24 +41,27 @@ FunctionPass *createX86ISelDag(X86TargetMachine &TM, CodeGenOpt::Level OptLevel)
 ///
 FunctionPass *createX86FloatingPointStackifierPass();
 
+/// createSSEDomainFixPass - This pass twiddles SSE opcodes to prevent domain
+/// crossings.
+FunctionPass *createSSEDomainFixPass();
+
 /// createX87FPRegKillInserterPass - This function returns a pass which
 /// inserts FP_REG_KILL instructions where needed.
 ///
 FunctionPass *createX87FPRegKillInserterPass();
 
-/// createX86CodePrinterPass - Returns a pass that prints the X86
-/// assembly code for a MachineFunction to the given output stream,
-/// using the given target machine description.
-///
-FunctionPass *createX86CodePrinterPass(raw_ostream &o,
-                                       X86TargetMachine &tm,
-                                       CodeGenOpt::Level OptLevel,
-                                       bool Verbose);
-
 /// createX86CodeEmitterPass - Return a pass that emits the collected X86 code
 /// to the specified MCE object.
-FunctionPass *createX86CodeEmitterPass(X86TargetMachine &TM,
-                                       MachineCodeEmitter &MCE);
+FunctionPass *createX86JITCodeEmitterPass(X86TargetMachine &TM,
+                                          JITCodeEmitter &JCE);
+
+MCCodeEmitter *createX86_32MCCodeEmitter(const Target &, TargetMachine &TM,
+                                         MCContext &Ctx);
+MCCodeEmitter *createX86_64MCCodeEmitter(const Target &, TargetMachine &TM,
+                                         MCContext &Ctx);
+
+TargetAsmBackend *createX86_32AsmBackend(const Target &, const std::string &);
+TargetAsmBackend *createX86_64AsmBackend(const Target &, const std::string &);
 
 /// createX86EmitCodeToMemory - Returns a pass that converts a register
 /// allocated function into raw machine code in a dynamically
@@ -60,10 +69,13 @@ FunctionPass *createX86CodeEmitterPass(X86TargetMachine &TM,
 ///
 FunctionPass *createEmitX86CodeToMemory();
 
-/// createX86MaxStackAlignmentCalculatorPass - This function returns a pass which
-/// calculates maximal stack alignment required for function
+/// createX86MaxStackAlignmentHeuristicPass - This function returns a pass
+/// which determines whether the frame pointer register should be
+/// reserved in case dynamic stack alignment is later required.
 ///
-FunctionPass *createX86MaxStackAlignmentCalculatorPass();
+FunctionPass *createX86MaxStackAlignmentHeuristicPass();
+
+extern Target TheX86_32Target, TheX86_64Target;
 
 } // End llvm namespace
 

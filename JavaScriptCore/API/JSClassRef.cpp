@@ -45,13 +45,13 @@ const JSClassDefinition kJSClassDefinitionEmpty = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 static inline UString tryCreateStringFromUTF8(const char* string)
 {
     if (!string)
-        return UString::null();
+        return UString();
 
     size_t length = strlen(string);
     Vector<UChar, 1024> buffer(length);
     UChar* p = buffer.data();
     if (conversionOK != convertUTF8ToUTF16(&string, string + length, &p, p + length))
-        return UString::null();
+        return UString();
 
     return UString(buffer.data(), p - buffer.data());
 }
@@ -83,9 +83,10 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
             if (!valueName.isNull()) {
                 // Use a local variable here to sidestep an RVCT compiler bug.
                 StaticValueEntry* entry = new StaticValueEntry(staticValue->getProperty, staticValue->setProperty, staticValue->attributes);
-                UStringImpl* impl = valueName.rep();
-                impl->ref();
-                m_staticValues->add(impl, entry);
+                StringImpl* impl = valueName.impl();
+                StaticValueEntry* existingEntry = m_staticValues->get(impl);
+                m_staticValues->set(impl, entry);
+                delete existingEntry;
             }
             ++staticValue;
         }
@@ -98,9 +99,10 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
             if (!functionName.isNull()) {
                 // Use a local variable here to sidestep an RVCT compiler bug.
                 StaticFunctionEntry* entry = new StaticFunctionEntry(staticFunction->callAsFunction, staticFunction->attributes);
-                UStringImpl* impl = functionName.rep();
-                impl->ref();
-                m_staticFunctions->add(impl, entry);
+                StringImpl* impl = functionName.impl();
+                StaticFunctionEntry* existingEntry = m_staticFunctions->get(impl);
+                m_staticFunctions->set(impl, entry);
+                delete existingEntry;
             }
             ++staticFunction;
         }
@@ -113,7 +115,7 @@ OpaqueJSClass::OpaqueJSClass(const JSClassDefinition* definition, OpaqueJSClass*
 OpaqueJSClass::~OpaqueJSClass()
 {
     // The empty string is shared across threads & is an identifier, in all other cases we should have done a deep copy in className(), below. 
-    ASSERT(!m_className.size() || !m_className.rep()->isIdentifier());
+    ASSERT(!m_className.length() || !m_className.impl()->isIdentifier());
 
     if (m_staticValues) {
         OpaqueJSClassStaticValuesTable::const_iterator end = m_staticValues->end();
@@ -142,19 +144,12 @@ PassRefPtr<OpaqueJSClass> OpaqueJSClass::createNoAutomaticPrototype(const JSClas
     return adoptRef(new OpaqueJSClass(definition, 0));
 }
 
-static void clearReferenceToPrototype(JSObjectRef prototype)
-{
-    OpaqueJSClassContextData* jsClassData = static_cast<OpaqueJSClassContextData*>(JSObjectGetPrivate(prototype));
-    ASSERT(jsClassData);
-    jsClassData->cachedPrototype.clear(toJS(prototype));
-}
-
 PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientDefinition)
 {
     JSClassDefinition definition = *clientDefinition; // Avoid modifying client copy.
 
     JSClassDefinition protoDefinition = kJSClassDefinitionEmpty;
-    protoDefinition.finalize = clearReferenceToPrototype;
+    protoDefinition.finalize = 0;
     swap(definition.staticFunctions, protoDefinition.staticFunctions); // Move static functions to the prototype.
     
     // We are supposed to use JSClassRetain/Release but since we know that we currently have
@@ -163,7 +158,7 @@ PassRefPtr<OpaqueJSClass> OpaqueJSClass::create(const JSClassDefinition* clientD
     return adoptRef(new OpaqueJSClass(&definition, protoClass.get()));
 }
 
-OpaqueJSClassContextData::OpaqueJSClassContextData(OpaqueJSClass* jsClass)
+OpaqueJSClassContextData::OpaqueJSClassContextData(JSC::JSGlobalData&, OpaqueJSClass* jsClass)
     : m_class(jsClass)
 {
     if (jsClass->m_staticValues) {
@@ -173,7 +168,7 @@ OpaqueJSClassContextData::OpaqueJSClassContextData(OpaqueJSClass* jsClass)
             ASSERT(!it->first->isIdentifier());
             // Use a local variable here to sidestep an RVCT compiler bug.
             StaticValueEntry* entry = new StaticValueEntry(it->second->getProperty, it->second->setProperty, it->second->attributes);
-            staticValues->add(UString::Rep::create(it->first->characters(), it->first->length()), entry);
+            staticValues->add(StringImpl::create(it->first->characters(), it->first->length()), entry);
         }
     } else
         staticValues = 0;
@@ -185,7 +180,7 @@ OpaqueJSClassContextData::OpaqueJSClassContextData(OpaqueJSClass* jsClass)
             ASSERT(!it->first->isIdentifier());
             // Use a local variable here to sidestep an RVCT compiler bug.
             StaticFunctionEntry* entry = new StaticFunctionEntry(it->second->callAsFunction, it->second->attributes);
-            staticFunctions->add(UString::Rep::create(it->first->characters(), it->first->length()), entry);
+            staticFunctions->add(StringImpl::create(it->first->characters(), it->first->length()), entry);
         }
             
     } else
@@ -209,14 +204,14 @@ OpaqueJSClassContextData& OpaqueJSClass::contextData(ExecState* exec)
 {
     OpaqueJSClassContextData*& contextData = exec->globalData().opaqueJSClassData.add(this, 0).first->second;
     if (!contextData)
-        contextData = new OpaqueJSClassContextData(this);
+        contextData = new OpaqueJSClassContextData(exec->globalData(), this);
     return *contextData;
 }
 
 UString OpaqueJSClass::className()
 {
     // Make a deep copy, so that the caller has no chance to put the original into IdentifierTable.
-    return UString(m_className.data(), m_className.size());
+    return UString(m_className.characters(), m_className.length());
 }
 
 OpaqueJSClassStaticValuesTable* OpaqueJSClass::staticValues(JSC::ExecState* exec)
@@ -256,10 +251,10 @@ JSObject* OpaqueJSClass::prototype(ExecState* exec)
 
     if (!jsClassData.cachedPrototype) {
         // Recursive, but should be good enough for our purposes
-        jsClassData.cachedPrototype = new (exec) JSCallbackObject<JSObject>(exec, exec->lexicalGlobalObject()->callbackObjectStructure(), prototypeClass, &jsClassData); // set jsClassData as the object's private data, so it can clear our reference on destruction
+        jsClassData.cachedPrototype.set(exec->globalData(), new (exec) JSCallbackObject<JSObjectWithGlobalObject>(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->callbackObjectStructure(), prototypeClass, &jsClassData), 0); // set jsClassData as the object's private data, so it can clear our reference on destruction
         if (parentClass) {
             if (JSObject* prototype = parentClass->prototype(exec))
-                jsClassData.cachedPrototype->setPrototype(prototype);
+                jsClassData.cachedPrototype->setPrototype(exec->globalData(), prototype);
         }
     }
     return jsClassData.cachedPrototype.get();

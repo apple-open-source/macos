@@ -42,9 +42,7 @@
 #include "isakmp_var.h"
 #include "isakmp_xauth.h"
 #endif
-#ifdef __APPLE__
 #include <CoreFoundation/CFData.h>
-#endif
 #include "algorithm.h"
 
 
@@ -110,13 +108,11 @@ struct remoteconf {
 	vchar_t *key;			/* my pre-shared key */
 	struct genlist *idvl_p;         /* peer's identifiers list */
 
-#ifdef __APPLE__
 	int	identity_in_keychain;	/* cert and private key is in the keychain */
 	vchar_t *keychainCertRef;	/* peristant keychain ref for cert */
 	int secrettype;			/* type of secret [use, key, keychain] */
 	vchar_t *shared_secret;	/* shared secret */
 	vchar_t *open_dir_auth_group;	/* group to be used to authorize user */
-#endif
 
 	int certtype;			/* certificate type if need */
 	char *mycertfile;		/* file name of my certificate */
@@ -129,10 +125,8 @@ struct remoteconf {
 	int send_cert;			/* send to CERT or not */
 	int send_cr;			/* send to CR or not */
 	int verify_cert;		/* verify a CERT strictly */
-#ifdef __APPLE__
 	int cert_verification;	/* openssl or security framework */
 	int cert_verification_option;	/* nothing, peers identifier, or open_dir */
-#endif
 	int verify_identifier;		/* vefify the peer's identifier */
 	int nonce_size;			/* the number of bytes of nonce */
 	int passive;			/* never initiate */
@@ -147,10 +141,8 @@ struct remoteconf {
 	int ini_contact;		/* initial contact */
 	int pcheck_level;		/* level of propocl checking */
 	int nat_traversal;		/* NAT-Traversal */
-#ifdef __APPLE__
 	int natt_multiple_user; /* special handling of multiple users behind a nat - for VPN server */
 	int natt_keepalive;		/* do we need to send natt keep alive */
-#endif
 	vchar_t *script[SCRIPT_MAX + 1];	/* script hooks paths */
 	int dh_group;			/* use it when only aggressive mode */
 	struct dhgroup *dhgrp;		/* use it when only aggressive mode */
@@ -177,20 +169,18 @@ struct remoteconf {
 						   from which this one 
 						   was inherited */
 	struct proposalspec *prhead;
-
+#ifdef HAVE_OPENSSL
 	struct genlist	*rsa_private,	/* lists of PlainRSA keys to use */
 			*rsa_public;
+#endif
 
 #ifdef ENABLE_HYBRID
 	struct xauth_rmconf *xauth;
 #endif
 	int initiate_ph1rekey;
-
-#ifdef __APPLE__
 	int    to_remove;
 	int    to_delete;
 	int    linked_to_ph1;
-#endif
 
 	TAILQ_ENTRY(remoteconf) chain;	/* next remote conf */
 };
@@ -229,10 +219,8 @@ extern struct remoteconf *getrmconf __P((struct sockaddr *));
 extern struct remoteconf *getrmconf_strict
 	__P((struct sockaddr *remote, int allow_anon));
 
-#ifdef __APPLE__
 extern int link_rmconf_to_ph1 __P((struct remoteconf *));
 extern int unlink_rmconf_from_ph1 __P((struct remoteconf *));
-#endif
 extern int no_remote_configs __P((int));
 extern struct remoteconf *copyrmconf __P((struct sockaddr *));
 extern struct remoteconf *newrmconf __P((void));

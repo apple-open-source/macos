@@ -1,4 +1,4 @@
-# $Id: Makefile.in,v 1.4 2006/02/08 01:35:21 echristo Exp $
+# $Id: Makefile.in,v 1.4 2006-02-08 01:35:21 echristo Exp $
 #
 # Auto-configuring Makefile for the Netwide Assembler.
 #

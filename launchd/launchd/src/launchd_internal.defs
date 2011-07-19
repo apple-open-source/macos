@@ -25,6 +25,8 @@ subsystem launchd_internal 137000;
 
 serverprefix x_;
 
-routine handle_kqueue(
-						__port	: mach_port_t;
-						__fd	: integer_t);
+routine
+handle_kqueue(
+	p	: mach_port_t;
+	fd	: integer_t
+);

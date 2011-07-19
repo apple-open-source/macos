@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,10 +31,8 @@
 #include <mach/mach.h>
 #include <CoreFoundation/CoreFoundation.h>
 #include <IOKit/IOKitLib.h>
-
-#if	!TARGET_OS_IPHONE
 #include <Security/Security.h>
-#endif	// !TARGET_OS_IPHONE
+#include <Security/SecItem.h>	// only needed for Mac OS X 10.6[.x]
 
 __BEGIN_DECLS
 
@@ -161,20 +159,33 @@ _IOServiceMatching			(
 
 #if	!TARGET_OS_IPHONE
 
+CFTypeRef _kSecAttrService();
+#define kSecAttrService _kSecAttrService()
+
+CFTypeRef _kSecClass();
+#define kSecClass _kSecClass()
+
+CFTypeRef _kSecClassGenericPassword();
+#define kSecClassGenericPassword _kSecClassGenericPassword()
+
+CFTypeRef _kSecMatchLimit();
+#define kSecMatchLimit _kSecMatchLimit()
+
+CFTypeRef _kSecMatchLimitAll();
+#define kSecMatchLimitAll _kSecMatchLimitAll()
+
+CFTypeRef _kSecMatchSearchList();
+#define kSecMatchSearchList _kSecMatchSearchList()
+
+CFTypeRef _kSecReturnRef();
+#define kSecReturnRef _kSecReturnRef()
+
 OSStatus
 _AuthorizationMakeExternalForm		(
 					AuthorizationRef		authorization,
 					AuthorizationExternalForm	*extForm
 					);
 #define AuthorizationMakeExternalForm _AuthorizationMakeExternalForm
-
-OSStatus
-_SecAccessCopySelectedACLList		(
-					SecAccessRef			accessRef,
-					CSSM_ACL_AUTHORIZATION_TAG	action,
-					CFArrayRef			*aclList
-					);
-#define SecAccessCopySelectedACLList _SecAccessCopySelectedACLList
 
 OSStatus
 _SecAccessCreate			(
@@ -184,6 +195,7 @@ _SecAccessCreate			(
 					);
 #define SecAccessCreate _SecAccessCreate
 
+#if	(__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
 OSStatus
 _SecAccessCreateFromOwnerAndACL		(
 					const CSSM_ACL_OWNER_PROTOTYPE	*owner,
@@ -192,6 +204,24 @@ _SecAccessCreateFromOwnerAndACL		(
 					SecAccessRef			*accessRef
 					);
 #define SecAccessCreateFromOwnerAndACL _SecAccessCreateFromOwnerAndACL
+#else	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
+SecAccessRef
+_SecAccessCreateWithOwnerAndACL		(
+					uid_t				userId,
+					gid_t				groupId,
+					SecAccessOwnerType		ownerType,
+					CFArrayRef			acls,
+					CFErrorRef			*error
+					);
+#define SecAccessCreateWithOwnerAndACL _SecAccessCreateWithOwnerAndACL
+#endif	// (__MAC_OS_X_VERSION_MIN_REQUIRED < 1070)
+
+OSStatus
+_SecItemCopyMatching			(
+					CFDictionaryRef			query,
+					CFTypeRef			*result
+					);
+#define SecItemCopyMatching _SecItemCopyMatching
 
 OSStatus
 _SecKeychainCopyDomainDefault		(
@@ -271,22 +301,6 @@ _SecKeychainItemModifyContent		(
 #define SecKeychainItemModifyContent _SecKeychainItemModifyContent
 
 OSStatus
-_SecKeychainSearchCopyNext		(
-					SecKeychainSearchRef		searchRef,
-					SecKeychainItemRef		*itemRef
-					);
-#define SecKeychainSearchCopyNext _SecKeychainSearchCopyNext
-
-OSStatus
-_SecKeychainSearchCreateFromAttributes	(
-					CFTypeRef			keychainOrArray,
-					SecItemClass			itemClass,
-					const SecKeychainAttributeList	*attrList,
-					SecKeychainSearchRef		*searchRef
-					);
-#define SecKeychainSearchCreateFromAttributes _SecKeychainSearchCreateFromAttributes
-
-OSStatus
 _SecTrustedApplicationCreateFromPath	(
 					const char			*path,
 					SecTrustedApplicationRef	*app
@@ -294,6 +308,13 @@ _SecTrustedApplicationCreateFromPath	(
 #define SecTrustedApplicationCreateFromPath _SecTrustedApplicationCreateFromPath
 
 #endif	// !TARGET_OS_IPHONE
+
+SecCertificateRef
+_SecCertificateCreateWithData(
+			      CFAllocatorRef allocator,
+			      CFDataRef data
+			      );
+#define SecCertificateCreateWithData _SecCertificateCreateWithData
 
 __END_DECLS
 

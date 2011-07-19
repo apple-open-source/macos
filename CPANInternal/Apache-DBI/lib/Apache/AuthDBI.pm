@@ -1,7 +1,7 @@
-# $Id: AuthDBI.pm,v 1.1.1.1 2007/10/26 20:37:32 mleasure Exp $
+# $Id$
 package Apache::AuthDBI;
 
-$Apache::AuthDBI::VERSION = '1.06';
+$Apache::AuthDBI::VERSION = '1.08';
 
 # 1: report about cache miss
 # 2: full debug output
@@ -13,8 +13,10 @@ use constant MP2 => (exists $ENV{MOD_PERL_API_VERSION}
 BEGIN {
   my @constants = qw( OK AUTH_REQUIRED FORBIDDEN DECLINED SERVER_ERROR );
   if (MP2) {
-		require Apache2::Access;
+	require Apache2::Access;
     require Apache2::Const;
+    require Apache2::RequestRec;
+    require Apache2::Log;
     import Apache2::Const @constants;
   }
   else {

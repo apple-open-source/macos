@@ -74,6 +74,7 @@ public:
 	void getClass(SecKeychainAttribute &attr,  UInt32 *actualLength);
 	
 	PrimaryKey addWithCopyInfo(Keychain &keychain, bool isCopy);
+	Mutex* getMutexForObject();
 
 protected:
 	// Methods called by KeychainImpl;
@@ -164,6 +165,7 @@ private:
 	// keychain syncing flags
 	bool mDoNotEncrypt;
 
+	// mInCache is protected by globals().apiLock
 	// True iff we are in the cache of items in mKeychain
 	bool mInCache;
 
@@ -184,6 +186,7 @@ public:
 	Item(ItemImpl &item);
 };
 
+CFIndex GetItemRetainCount(Item& item);
 
 } // end namespace KeychainCore
 

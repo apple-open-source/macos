@@ -71,7 +71,6 @@ typedef struct ThreadSpecificData {
     LPSTR boxesBits;		/* Pointer to bitmap data. */
     DWORD boxHeight;		/* Height of each sub-image. */
     DWORD boxWidth;		/* Width of each sub-image. */
-    char defWidth[TCL_INTEGER_SPACE];
 } ThreadSpecificData;
 static Tcl_ThreadDataKey dataKey;
 
@@ -188,21 +187,9 @@ TkpButtonSetDefaults(
 				 * terminated by one with type
 				 * TK_OPTION_END. */
 {
-    int width;
-    ThreadSpecificData *tsdPtr = (ThreadSpecificData *)
-	    Tcl_GetThreadData(&dataKey, sizeof(ThreadSpecificData));
-
-    if (tsdPtr->defWidth[0] == 0) {
-	width = GetSystemMetrics(SM_CXEDGE);
-	if (width == 0) {
-	    width = 1;
-	}
-	sprintf(tsdPtr->defWidth, "%d", width);
-    }
-    for ( ; specPtr->type != TK_OPTION_END; specPtr++) {
-	if (specPtr->internalOffset == Tk_Offset(TkButton, borderWidth)) {
-	    specPtr->defValue = tsdPtr->defWidth;
-	}
+    int width = GetSystemMetrics(SM_CXEDGE);
+    if (width > 0) {
+	sprintf(tkDefButtonBorderWidth, "%d", width);
     }
 }
 
@@ -552,15 +539,17 @@ TkpDisplayButton(
 	       	(butPtr->disabledFg != NULL)) {
 	    COLORREF oldFgColor = gc->foreground;
 
-	    gc->foreground = GetSysColor(COLOR_3DHILIGHT);
-	    Tk_DrawTextLayout(butPtr->display, pixmap, gc,
+	    if (gc->background == GetSysColor(COLOR_BTNFACE)) {
+		gc->foreground = GetSysColor(COLOR_3DHILIGHT);
+		Tk_DrawTextLayout(butPtr->display, pixmap, gc,
 		    butPtr->textLayout, x + textXOffset + 1,
 		    y + textYOffset + 1, 0, -1);
-	    Tk_UnderlineTextLayout(butPtr->display, pixmap, gc,
+		Tk_UnderlineTextLayout(butPtr->display, pixmap, gc,
 		    butPtr->textLayout, x + textXOffset + 1,
 		    y + textYOffset + 1,
 		    butPtr->underline);
-	    gc->foreground = oldFgColor;
+		gc->foreground = oldFgColor;
+	    }
 	}
 
 	Tk_DrawTextLayout(butPtr->display, pixmap, gc,
@@ -615,13 +604,15 @@ TkpDisplayButton(
 	    if ((butPtr->state == STATE_DISABLED) &&
 		    (butPtr->disabledFg != NULL)) {
 		COLORREF oldFgColor = gc->foreground;
-		gc->foreground = GetSysColor(COLOR_3DHILIGHT);
-		Tk_DrawTextLayout(butPtr->display, pixmap, gc,
+		if (gc->background == GetSysColor(COLOR_BTNFACE)) {
+		    gc->foreground = GetSysColor(COLOR_3DHILIGHT);
+		    Tk_DrawTextLayout(butPtr->display, pixmap, gc,
 		       	butPtr->textLayout,
 			x + 1, y + 1, 0, -1);
-		Tk_UnderlineTextLayout(butPtr->display, pixmap, gc,
+		    Tk_UnderlineTextLayout(butPtr->display, pixmap, gc,
 			butPtr->textLayout, x + 1, y + 1, butPtr->underline);
-		gc->foreground = oldFgColor;
+		    gc->foreground = oldFgColor;
+		}
 	    }
 	    Tk_DrawTextLayout(butPtr->display, pixmap, gc, butPtr->textLayout,
 		    x, y, 0, -1);

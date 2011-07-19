@@ -1,1 +1,0 @@
---with-appdefaultdir=$prefix/usr/X11/lib/X11/app-defaults LDFLAGS="-Wl,-flat_namespace $LDFLAGS"

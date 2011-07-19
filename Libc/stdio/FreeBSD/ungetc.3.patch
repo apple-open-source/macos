@@ -1,6 +1,6 @@
---- _SB/Libc/stdio/FreeBSD/ungetc.3	2003-05-20 15:22:44.000000000 -0700
-+++ _SB/Libc/stdio/FreeBSD/ungetc.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -47,7 +47,10 @@
+--- ungetc.3.bsdnew	2009-11-11 13:33:17.000000000 -0800
++++ ungetc.3	2009-11-11 13:33:18.000000000 -0800
+@@ -43,7 +43,10 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft int
@@ -12,7 +12,7 @@
  .Sh DESCRIPTION
  The
  .Fn ungetc
-@@ -56,20 +59,20 @@
+@@ -52,20 +55,20 @@ function pushes the character
  (converted to an unsigned char)
  back onto the input stream pointed to by
  .Fa stream .

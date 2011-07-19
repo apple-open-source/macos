@@ -4,14 +4,14 @@
  * 
  *  FILE: "tclAEid.h"
  *                                    created: 8/20/1999 {9:31:41 PM} 
- *                                last update: 11/6/07 {7:41:57 PM} 
+ *                                last update: 7/31/10 {11:45:46 PM}
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
  *    mail: POMODORO no seisan
  *     www: http://www.his.com/~jguyer/
  *  
  * ========================================================================
- *               Copyright © 1999-2003 Jonathan Guyer
+ *               Copyright © 1999-2009 Jonathan Guyer
  * ========================================================================
  * Permission to use, copy, modify, and distribute this software and its
  * documentation for any purpose and without fee is hereby granted,
@@ -42,7 +42,7 @@
 #ifndef _TCLAE_ID
 #define _TCLAE_ID
 
-#define TCLAE_NAME			"tclAE"
+#define TCLAE_NAME			PACKAGE_NAME
 
 #if TARGET_API_MAC_CARBON // das 25/10/00: Carbonization
 #define TCLAE_FILENAME			"TclAECarbon"
@@ -52,11 +52,11 @@
 
 #define	TCLAE_MAJOR			2				// BCD (0Ñ99)
 #define	TCLAE_MINOR			0				// BCD (0Ñ9)
-#define	TCLAE_PATCH			3				// BCD (0Ñ9)
-#define	TCLAE_STAGE			betaStage			// {developStage, alphaStage, betaStage, finalStage}
-#define TCLAE_PRERELEASE	2				// unsigned binary (0Ñ255)
+#define	TCLAE_PATCH			5				// BCD (0Ñ9)
+#define	TCLAE_STAGE			finalStage			// {developStage, alphaStage, betaStage, finalStage}
+#define TCLAE_PRERELEASE	0				// unsigned binary (0Ñ255)
 
-#define TCLAE_VERSION		"2.0.3"
-#define TCLAE_BASIC_VERSION "2.0.3"
+#define TCLAE_VERSION		PACKAGE_VERSION
+#define TCLAE_BASIC_VERSION PACKAGE_VERSION
 
 #endif /* _TCLAE_ID */

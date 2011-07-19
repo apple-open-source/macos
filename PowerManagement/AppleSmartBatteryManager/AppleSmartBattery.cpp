@@ -67,6 +67,7 @@ enum {
 #define kErrorZeroCapacity                  "Capacity Read Zero"
 #define kErrorPermanentFailure              "Permanent Battery Failure"
 #define kErrorNonRecoverableStatus          "Non-recoverable status failure"
+#define kErrorClearBattery                  "Clear Battery"
 
 // Polling intervals
 // The battery kext switches between polling frequencies depending on
@@ -275,7 +276,8 @@ bool AppleSmartBattery::start(IOService *provider)
                     this, &AppleSmartBattery::incompleteReadTimeOut) );
 
     if( !fWorkLoop || !fPollTimer
-      || (kIOReturnSuccess != fWorkLoop->addEventSource(fPollTimer)) )
+      || (kIOReturnSuccess != fWorkLoop->addEventSource(fPollTimer))
+      || (kIOReturnSuccess != fWorkLoop->addEventSource(fBatteryReadAllTimer)))
     {
         return false;
     }
@@ -318,26 +320,25 @@ bool AppleSmartBattery::start(IOService *provider)
     return true;
 }
 
+
 /******************************************************************************
  * AppleSmartBattery::logReadError
  *
  ******************************************************************************/
 void AppleSmartBattery::logReadError(
-    const char *error_type, 
-    uint16_t additional_error,
-    IOSMBusTransaction *t)
+    const char              *error_type, 
+    uint16_t                additional_error,
+    IOSMBusTransaction      *t)
 {
+
     if(!error_type) return;
 
-    setProperty((const char *)"LatestErrorType", error_type);
-
-    BattLog("SmartBatteryManager Error: %s (%d)\n", error_type, additional_error);  
-    
+    BattLog("SmartBatteryManager Error: %s (%d)\n", error_type, additional_error);      
     if(t) {
         BattLog("\tCorresponding transaction addr=0x%02x cmd=0x%02x status=0x%02x\n",
                                             t->address, t->command, t->status);
     }
-    
+
     return;
 }
 
@@ -672,8 +673,6 @@ bool AppleSmartBattery::transactionCompletion(
     // scratch variables
     int16_t     my_signed_16;
     uint16_t    my_unsigned_16;
-    OSNumber    *writeNum;
-    unsigned long long writeByte;
     OSNumber    *cell_volt_num = NULL;
     OSNumber    *pfstatus_num = NULL;
     
@@ -1336,23 +1335,6 @@ bool AppleSmartBattery::transactionCompletion(
 
                 setMaxCapacity( my_unsigned_16 );
 
-                if( !fPollingOverridden && fFullChargeCapacity )
-                {
-                    /*
-                     * Conditionally set polling interval to 1 second if we're
-                     *     discharging && below 5% && on AC power
-                     * i.e. we're doing an Inflow Disabled discharge
-                     */
-                    if( (((100*fRemainingCapacity) / fFullChargeCapacity ) < 5) 
-                        && fACConnected )
-                    {
-                        setProperty("Quick Poll", true);
-                        fPollingInterval = kQuickPollInterval;
-                    } else {
-                        setProperty("Quick Poll", false);
-                        fPollingInterval = kDefaultPollInterval;
-                    }
-                }
             } else {
                 fFullChargeCapacity = 0;
                 setMaxCapacity(0);
@@ -1611,7 +1593,6 @@ bool AppleSmartBattery::transactionCompletion(
             fPollingNow = false;
             acknowledgeSystemSleepWake();
 
-
             /* fPollingInterval == 0 --> debug mode; never cease polling.
              * Begin a new poll when the last one ended.
              * Can consume 40-60% CPU on a 2Ghz MacBook Pro when set */            
@@ -1702,6 +1683,8 @@ void AppleSmartBattery::clearBatteryState(bool do_update)
     removeProperty(_ChargeStatusSym);
     
     rebuildLegacyIOBatteryInfo();
+
+    logReadError(kErrorClearBattery, 0, NULL);
 
     if(do_update) {
         updateStatus();

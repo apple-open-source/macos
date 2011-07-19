@@ -1,11 +1,6 @@
-Index: dirname.c
-===================================================================
-RCS file: /cvs/root/Libc/gen/FreeBSD/dirname.c,v
-retrieving revision 1.2
-diff -u -d -b -w -p -u -r1.2 dirname.c
---- dirname.c	2003/05/20 22:21:01	1.2
-+++ dirname.c	2004/12/10 18:48:49
-@@ -39,6 +39,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/dir
+--- dirname.c.orig	2009-11-07 14:51:37.000000000 -0800
++++ dirname.c	2009-11-07 14:51:40.000000000 -0800
+@@ -25,6 +25,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/dir
  #include <string.h>
  #include <sys/param.h>
  
@@ -14,5 +9,5 @@ diff -u -d -b -w -p -u -r1.2 dirname.c
 +#endif
 +
  char *
- dirname(path)
- 	const char *path;
+ dirname(const char *path)
+ {

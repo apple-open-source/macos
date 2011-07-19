@@ -1,6 +1,6 @@
---- ext/bigdecimal/bigdecimal.c.old	2010-12-13 18:34:21.000000000 -0800
-+++ ext/bigdecimal/bigdecimal.c	2010-12-13 18:34:31.000000000 -0800
-@@ -2026,7 +2026,7 @@
+--- ext/bigdecimal/bigdecimal.c.old	2010-03-30 20:09:52.000000000 -0700
++++ ext/bigdecimal/bigdecimal.c	2010-03-30 20:10:00.000000000 -0700
+@@ -2032,7 +2032,7 @@
  VP_EXPORT void *
  VpMemAlloc(U_LONG mb)
  {

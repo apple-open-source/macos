@@ -31,6 +31,7 @@
 #include "Editor.h"
 #include "FocusController.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "FrameView.h"
 #include "HostWindow.h"
 #include "KeyboardEvent.h"
@@ -38,7 +39,6 @@
 #include "Page.h"
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
-#include "SelectionController.h"
 #include "WebFrame.h"
 #include "WebFramePrivate.h"
 #include "WebView.h"
@@ -109,7 +109,7 @@ static const KeyDownEntry keyDownEntries[] = {
     { VK_RETURN, 0,                  "InsertNewline"                               },
     { VK_RETURN, CtrlKey,            "InsertNewline"                               },
     { VK_RETURN, AltKey,             "InsertNewline"                               },
-    { VK_RETURN, AltKey | ShiftKey,  "InsertNewline"                               },
+    { VK_RETURN, ShiftKey,           "InsertLineBreak"                               },
     { 'A',       CtrlKey,            "SelectAll"                                   },
     { 'Z',       CtrlKey,            "Undo"                                        },
     { 'Z',       CtrlKey | ShiftKey, "Redo"                                        },
@@ -197,18 +197,6 @@ bool EditorClientWx::selectWordBeforeMenuEvent()
     return false;
 }
 
-bool EditorClientWx::isEditable()
-{
-    Frame* frame = m_page->focusController()->focusedOrMainFrame();
-
-    if (frame) {
-        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
-        if (webKitWin) 
-            return webKitWin->IsEditable();
-    }
-    return false;
-}
-
 bool EditorClientWx::shouldBeginEditing(Range*)
 {
     notImplemented();
@@ -262,7 +250,15 @@ void EditorClientWx::didBeginEditing()
 
 void EditorClientWx::respondToChangedContents()
 {
-    notImplemented();
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    
+    if (frame) {
+        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        if (webKitWin) {
+            wxWebViewContentsChangedEvent wkEvent(webKitWin);
+            webKitWin->GetEventHandler()->ProcessEvent(wkEvent);
+        }
+    }
 }
 
 void EditorClientWx::didEndEditing()
@@ -317,6 +313,16 @@ void EditorClientWx::clearUndoRedoOperations()
     }
 }
 
+bool EditorClientWx::canCopyCut(Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientWx::canPaste(Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
 bool EditorClientWx::canUndo() const
 {
     Frame* frame = m_page->focusController()->focusedOrMainFrame();
@@ -363,8 +369,8 @@ void EditorClientWx::redo()
     if (frame) {    
         wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
         if (webKitWin) {
-            webKitWin->m_impl->redoStack.first().editCommand()->reapply();
-            webKitWin->m_impl->redoStack.remove(0);
+            webKitWin->m_impl->redoStack.last().editCommand()->reapply();
+            webKitWin->m_impl->redoStack.removeLast();
         }
     }
 }
@@ -483,7 +489,14 @@ void EditorClientWx::textDidChangeInTextArea(Element*)
 
 void EditorClientWx::respondToChangedSelection()
 {
-    notImplemented();
+    Frame* frame = m_page->focusController()->focusedOrMainFrame();
+    if (frame) {
+        wxWebView* webKitWin = dynamic_cast<wxWebView*>(frame->view()->hostWindow()->platformPageClient());
+        if (webKitWin) {
+            wxWebViewSelectionChangedEvent wkEvent(webKitWin);
+            webKitWin->GetEventHandler()->ProcessEvent(wkEvent);
+        }
+    }
 }
 
 void EditorClientWx::ignoreWordInSpellDocument(const String&) 
@@ -527,15 +540,20 @@ bool EditorClientWx::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientWx::getGuessesForWord(const String&, Vector<String>& guesses) 
-{ 
-    notImplemented(); 
+void EditorClientWx::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
+{
+    notImplemented();
 }
 
-String EditorClientWx::getAutoCorrectSuggestionForMisspelledWord(const WebCore::String&)
+String EditorClientWx::getAutoCorrectSuggestionForMisspelledWord(const WTF::String&)
 {
     notImplemented();
     return String();
+}
+
+void EditorClientWx::willSetInputMethodState()
+{
+    notImplemented();
 }
 
 void EditorClientWx::setInputMethodState(bool enabled)

@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1997, 1998, 1999, 2000
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -72,7 +100,7 @@ struct rtentry;
  * Return the interface list
  */
 int
-ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
+ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf, size_t errbuflen)
 {
 	register int fd, nipaddr;
 #ifdef HAVE_SOCKADDR_SA_LEN
@@ -89,7 +117,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 
 	fd = socket(AF_INET, SOCK_DGRAM, 0);
 	if (fd < 0) {
-		(void)sprintf(errbuf, "socket: %s", strerror(errno));
+		(void)snprintf(errbuf, errbuflen, "socket: %s", strerror(errno));
 		return (-1);
 	}
 	ifc.ifc_len = sizeof(ibuf);
@@ -98,11 +126,11 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 	if (ioctl(fd, SIOCGIFCONF, (char *)&ifc) < 0 ||
 	    ifc.ifc_len < sizeof(struct ifreq)) {
 		if (errno == EINVAL)
-			(void)sprintf(errbuf,
+			(void)snprintf(errbuf, sizeof(errbuf),
 			    "SIOCGIFCONF: ifreq struct too small (%d bytes)",
 			    (int)sizeof(ibuf));
 		else
-			(void)sprintf(errbuf, "SIOCGIFCONF: %s",
+			(void)snprintf(errbuf, errbuflen, "SIOCGIFCONF: %s",
 			    strerror(errno));
 		(void)close(fd);
 		return (-1);
@@ -135,7 +163,7 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 		if (ioctl(fd, SIOCGIFFLAGS, (char *)&ifr) < 0) {
 			if (errno == ENXIO)
 				continue;
-			(void)sprintf(errbuf, "SIOCGIFFLAGS: %.*s: %s",
+			(void)snprintf(errbuf, errbuflen, "SIOCGIFFLAGS: %.*s: %s",
 			    (int)sizeof(ifr.ifr_name), ifr.ifr_name,
 			    strerror(errno));
 			(void)close(fd);
@@ -155,14 +183,14 @@ ifaddrlist(register struct ifaddrlist **ipaddrp, register char *errbuf)
 			continue;
 #endif
 		if (ioctl(fd, SIOCGIFADDR, (char *)&ifr) < 0) {
-			(void)sprintf(errbuf, "SIOCGIFADDR: %s: %s",
+			(void)snprintf(errbuf, errbuflen, "SIOCGIFADDR: %s: %s",
 			    device, strerror(errno));
 			(void)close(fd);
 			return (-1);
 		}
 
 		if (nipaddr >= MAX_IPADDR) {
-			(void)sprintf(errbuf, "Too many interfaces (%d)",
+			(void)snprintf(errbuf, errbuflen, "Too many interfaces (%d)",
 			    (int)MAX_IPADDR);
 			(void)close(fd);
 			return (-1);

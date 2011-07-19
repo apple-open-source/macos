@@ -4,7 +4,7 @@ Extra_LDFLAGS	= -force_flat_namespace -bind_at_load
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
-CC_Optimize = -Os -funroll-loops -falign-loops=16 
+CC_Optimize = -Os  
 
 build::
 	cd $(OBJROOT) && $(Environment) $(SRCROOT)/$(Project)/dist/configure --disable-java --disable-shared --prefix=/usr/local docdir=/usr/local/BerkeleyDB/docs

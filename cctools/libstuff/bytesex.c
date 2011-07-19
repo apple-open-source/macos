@@ -2504,6 +2504,17 @@ enum byte_sex target_byte_sex)
 }
 
 __private_extern__
+void
+swap_version_min_command(
+struct version_min_command *ver_cmd,
+enum byte_sex target_byte_sex)
+{
+	ver_cmd->cmd = SWAP_INT(ver_cmd->cmd);
+	ver_cmd->cmdsize = SWAP_INT(ver_cmd->cmdsize);
+	ver_cmd->version = SWAP_INT(ver_cmd->version);
+}
+
+__private_extern__
 void swap_rpath_command(
 struct rpath_command *rpath_cmd,
 enum byte_sex target_byte_sex)

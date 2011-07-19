@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'enum_thorough'
 
 include Enum_thorough

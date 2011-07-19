@@ -560,9 +560,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 			{
 				USBError(1, "IOUSBCommandPool::gatedReturnCommand - command (%p) still has dmaCommand(%p) with an active memory descriptor(%p)", usbCommand, dmaCommand, dmaCommand->getMemoryDescriptor());
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-#if VERSION_MAJOR < 11
 				panic("IOUSBCommandPool::gatedReturnCommand -dmaCommand still has active IOMD");
-#endif
 #endif
 			}
 		}
@@ -581,9 +579,7 @@ IOUSBCommandPool::gatedReturnCommand(IOCommand * command)
 			{
 				USBError(1, "IOUSBCommandPool::gatedReturnCommand - isocCommand (%p) still has dmaCommand(%p) with an active memory descriptor(%p)", isocCommand, dmaCommand, dmaCommand->getMemoryDescriptor());
 #if DEBUG_LEVEL != DEBUG_LEVEL_PRODUCTION
-#if VERSION_MAJOR < 11
 				panic("IOUSBCommandPool::gatedReturnCommand - dmaCommand still has active IOMD (isoc)");
-#endif
 #endif
 			}
 		}

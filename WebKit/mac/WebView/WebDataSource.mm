@@ -81,9 +81,7 @@ using namespace WebCore;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 - (void)dealloc
@@ -209,6 +207,16 @@ static inline void addTypesFromClass(NSMutableDictionary *allTypes, Class objCCl
 #else
     return NO;
 #endif
+}
+
+- (void)_setDeferMainResourceDataLoad:(BOOL)flag
+{
+    DocumentLoader* loader = [self _documentLoader];
+
+    if (!loader)
+        return;
+
+    loader->setDeferMainResourceDataLoad(flag);
 }
 
 @end

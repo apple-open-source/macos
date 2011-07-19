@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.44 2004/10/18 02:06:18 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.51 2008/01/23 03:05:35 ache Exp $");
 
 #include "xlocale_private.h"
 
@@ -51,22 +47,13 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/setrunelocale.c,v 1.44 2004/10/18 02:06:
 #include "mblocal.h"
 #include "setlocale.h"
 
-extern int		_none_init(struct __xlocale_st_runelocale *);
-extern int		_UTF8_init(struct __xlocale_st_runelocale *);
-extern int		_EUC_init(struct __xlocale_st_runelocale *);
-extern int		_GB18030_init(struct __xlocale_st_runelocale *);
-extern int		_GB2312_init(struct __xlocale_st_runelocale *);
-extern int		_GBK_init(struct __xlocale_st_runelocale *);
-extern int		_BIG5_init(struct __xlocale_st_runelocale *);
-extern int		_MSKanji_init(struct __xlocale_st_runelocale *);
-extern int		_UTF2_init(struct __xlocale_st_runelocale *);	/* deprecated */
 extern struct __xlocale_st_runelocale	*_Read_RuneMagi(FILE *);
 
-#ifdef LEGACY_RUNE_APIS
+#ifdef UNIFDEF_LEGACY_RUNE_APIS
 /* depreciated interfaces */
 rune_t	sgetrune(const char *, size_t, char const **);
 int	sputrune(rune_t, char *, size_t, char **);
-#endif /* LEGACY_RUNE_APIS */
+#endif /* UNIFDEF_LEGACY_RUNE_APIS */
 
 __private_extern__ int
 __setrunelocale(const char *encoding, locale_t loc)
@@ -78,6 +65,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 	int saverr, ret;
 	static struct __xlocale_st_runelocale *CachedRuneLocale;
 	extern int __mb_cur_max;
+	extern int __mb_sb_limit;
 	static pthread_lock_t cache_lock = LOCK_INITIALIZER;
 
 	/*
@@ -90,6 +78,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 		if (loc == &__global_locale) {
 			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
+			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
 		}
 		return (0);
 	}
@@ -106,6 +95,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 		if (loc == &__global_locale) {
 			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
+			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
 		}
 		UNLOCK(cache_lock);
 		return (0);
@@ -140,22 +130,24 @@ __setrunelocale(const char *encoding, locale_t loc)
 
 	rl = &xrl->_CurrentRuneLocale;
 
-#ifdef LEGACY_RUNE_APIS
+#ifdef UNIFDEF_LEGACY_RUNE_APIS
 	/* provide backwards compatibility (depreciated interface) */
 	rl->__sputrune = sputrune;
 	rl->__sgetrune = sgetrune;
-#else /* LEGACY_RUNE_APIS */
+#else /* UNIFDEF_LEGACY_RUNE_APIS */
 	rl->__sputrune = NULL;
 	rl->__sgetrune = NULL;
-#endif /* LEGACY_RUNE_APIS */
+#endif /* UNIFDEF_LEGACY_RUNE_APIS */
 
 	if (strcmp(rl->__encoding, "NONE") == 0)
 		ret = _none_init(xrl);
+	else if (strcmp(rl->__encoding, "ASCII") == 0)
+		ret = _ascii_init(xrl);
 	else if (strcmp(rl->__encoding, "UTF-8") == 0)
 		ret = _UTF8_init(xrl);
 	else if (strcmp(rl->__encoding, "EUC") == 0)
 		ret = _EUC_init(xrl);
- 	else if (strcmp(rl->__encoding, "GB18030") == 0)
+	else if (strcmp(rl->__encoding, "GB18030") == 0)
  		ret = _GB18030_init(xrl);
 	else if (strcmp(rl->__encoding, "GB2312") == 0)
 		ret = _GB2312_init(xrl);
@@ -169,6 +161,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 		ret = _UTF2_init(xrl);
 	else
 		ret = EFTYPE;
+
 	if (ret == 0) {
 		(void)strcpy(xrl->__ctype_encoding, encoding);
 		XL_RELEASE(loc->__lc_ctype);
@@ -176,6 +169,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 		if (loc == &__global_locale) {
 			_CurrentRuneLocale = &loc->__lc_ctype->_CurrentRuneLocale;
 			__mb_cur_max = loc->__lc_ctype->__mb_cur_max;
+			__mb_sb_limit = loc->__lc_ctype->__mb_sb_limit;
 		}
 		LOCK(cache_lock);
 		XL_RELEASE(CachedRuneLocale);
@@ -188,7 +182,7 @@ __setrunelocale(const char *encoding, locale_t loc)
 	return (ret);
 }
 
-#ifdef LEGACY_RUNE_APIS
+#ifdef UNIFDEF_LEGACY_RUNE_APIS
 int
 setrunelocale(const char *encoding)
 {
@@ -199,7 +193,7 @@ setrunelocale(const char *encoding)
 	XL_UNLOCK(&__global_locale);
 	return ret;
 }
-#endif /* LEGACY_RUNE_APIS */
+#endif /* UNIFDEF_LEGACY_RUNE_APIS */
 
 __private_extern__ int
 __wrap_setrunelocale(const char *locale, locale_t loc)

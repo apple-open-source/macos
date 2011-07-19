@@ -31,12 +31,14 @@
 #import "DOMElementInternal.h"
 #import "WebCache.h"
 #import "WebFrameInternal.h"
-#import <runtime/JSLock.h>
+#import <JavaScriptCore/JSLock.h>
+#import <JavaScriptCore/MemoryStatistics.h>
 #import <WebCore/Console.h>
 #import <WebCore/FontCache.h>
 #import <WebCore/Frame.h>
 #import <WebCore/GCController.h>
 #import <WebCore/GlyphPageTreeNode.h>
+#import <WebCore/GraphicsContext.h>
 #import <WebCore/IconDatabase.h>
 #import <WebCore/JSDOMWindow.h>
 #import <WebCore/PageCache.h>
@@ -84,7 +86,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -99,7 +101,7 @@ using namespace WebCore;
     
     NSCountedSet *result = [NSCountedSet set];
 
-    OwnPtr<HashCountedSet<const char*> > counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
+    OwnPtr<TypeCountSet> counts(JSDOMWindow::commonJSGlobalData()->heap.objectTypeCounts());
     HashCountedSet<const char*>::iterator end = counts->end();
     for (HashCountedSet<const char*>::iterator it = counts->begin(); it != end; ++it)
         for (unsigned i = 0; i < it->second; ++i)
@@ -120,22 +122,22 @@ using namespace WebCore;
 
 + (size_t)iconPageURLMappingCount
 {
-    return iconDatabase()->pageURLMappingCount();
+    return iconDatabase().pageURLMappingCount();
 }
 
 + (size_t)iconRetainedPageURLCount
 {
-    return iconDatabase()->retainedPageURLCount();
+    return iconDatabase().retainedPageURLCount();
 }
 
 + (size_t)iconRecordCount
 {
-    return iconDatabase()->iconRecordCount();
+    return iconDatabase().iconRecordCount();
 }
 
 + (size_t)iconsWithDataCount
 {
-    return iconDatabase()->iconRecordCountWithData();
+    return iconDatabase().iconRecordCountWithData();
 }
 
 + (size_t)cachedFontDataCount
@@ -193,14 +195,20 @@ using namespace WebCore;
 + (NSDictionary *)memoryStatistics
 {
     WTF::FastMallocStatistics fastMallocStatistics = WTF::fastMallocStatistics();
+    
     JSLock lock(SilenceAssertionsOnly);
-    Heap::Statistics jsHeapStatistics = JSDOMWindow::commonJSGlobalData()->heap.statistics();
+    size_t heapSize = JSDOMWindow::commonJSGlobalData()->heap.size();
+    size_t heapFree = JSDOMWindow::commonJSGlobalData()->heap.capacity() - heapSize;
+    GlobalMemoryStatistics globalMemoryStats = globalMemoryStatistics();
+    
     return [NSDictionary dictionaryWithObjectsAndKeys:
                 [NSNumber numberWithInt:fastMallocStatistics.reservedVMBytes], @"FastMallocReservedVMBytes",
                 [NSNumber numberWithInt:fastMallocStatistics.committedVMBytes], @"FastMallocCommittedVMBytes",
                 [NSNumber numberWithInt:fastMallocStatistics.freeListBytes], @"FastMallocFreeListBytes",
-                [NSNumber numberWithInt:jsHeapStatistics.size], @"JavaScriptHeapSize",
-                [NSNumber numberWithInt:jsHeapStatistics.free], @"JavaScriptFreeSize",
+                [NSNumber numberWithInt:heapSize], @"JavaScriptHeapSize",
+                [NSNumber numberWithInt:heapFree], @"JavaScriptFreeSize",
+                [NSNumber numberWithUnsignedInt:(unsigned int)globalMemoryStats.stackBytes], @"JavaScriptStackSize",
+                [NSNumber numberWithUnsignedInt:(unsigned int)globalMemoryStats.JITBytes], @"JavaScriptJITSize",
             nil];
 }
 
@@ -273,6 +281,31 @@ using namespace WebCore;
 - (int)numberOfPages:(float)pageWidthInPixels:(float)pageHeightInPixels
 {
     return PrintContext::numberOfPages(_private->coreFrame, FloatSize(pageWidthInPixels, pageHeightInPixels));
+}
+
+- (NSString *)pageProperty:(const char *)propertyName:(int)pageNumber
+{
+    return PrintContext::pageProperty(_private->coreFrame, propertyName, pageNumber);
+}
+
+- (bool)isPageBoxVisible:(int)pageNumber
+{
+    return PrintContext::isPageBoxVisible(_private->coreFrame, pageNumber);
+}
+
+- (NSString *)pageSizeAndMarginsInPixels:(int)pageNumber:(int)width:(int)height:(int)marginTop:(int)marginRight:(int)marginBottom:(int)marginLeft
+{
+    return PrintContext::pageSizeAndMarginsInPixels(_private->coreFrame, pageNumber, width, height, marginTop, marginRight, marginBottom, marginLeft);
+}
+
+- (void)printToCGContext:(CGContextRef)cgContext:(float)pageWidthInPixels:(float)pageHeightInPixels
+{
+    Frame* coreFrame = _private->coreFrame;
+    if (!coreFrame)
+        return;
+
+    GraphicsContext graphicsContext(cgContext);
+    PrintContext::spoolAllPagesWithBoundaries(coreFrame, graphicsContext, FloatSize(pageWidthInPixels, pageHeightInPixels));
 }
 
 @end

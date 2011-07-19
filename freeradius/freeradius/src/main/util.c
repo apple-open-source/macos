@@ -197,6 +197,12 @@ void request_free(REQUEST **request_ptr)
 
 	request = *request_ptr;
 
+	rad_assert(!request->in_request_hash);
+#ifdef WITH_PROXY
+	rad_assert(!request->in_proxy_hash);
+#endif
+	rad_assert(!request->ev);
+
 	if (request->packet)
 		rad_free(&request->packet);
 
@@ -237,6 +243,18 @@ void request_free(REQUEST **request_ptr)
 		request->root->refcount--;
 		request->root = NULL;
 	}
+
+#ifdef WITH_COA
+	if (request->coa) {
+		request->coa->parent = NULL;
+		rad_assert(request->coa->ev == NULL);
+		request_free(&request->coa);
+	}
+
+	if (request->parent && (request->parent->coa == request)) {
+		request->parent->coa = NULL;
+	}
+#endif
 
 #ifndef NDEBUG
 	request->magic = 0x01020304;	/* set the request to be nonsense */
@@ -374,7 +392,7 @@ REQUEST *request_alloc(void)
 	request->options = RAD_REQUEST_OPTION_NONE;
 
 	request->module = "";
-	request->component = "";
+	request->component = "<core>";
 	if (debug_flag) request->radlog = radlog_request;
 
 	return request;
@@ -468,6 +486,25 @@ REQUEST *request_alloc_fake(REQUEST *request)
   return fake;
 }
 
+#ifdef WITH_COA
+REQUEST *request_alloc_coa(REQUEST *request)
+{
+	if (!request || request->coa) return NULL;
+
+	/*
+	 *	Originate CoA requests only when necessary.
+	 */
+	if ((request->packet->code != PW_AUTHENTICATION_REQUEST) &&
+	    (request->packet->code != PW_ACCOUNTING_REQUEST)) return NULL;
+
+	request->coa = request_alloc_fake(request);
+	request->coa->packet->code = 0; /* unknown, as of yet */
+	request->coa->child_state = REQUEST_RUNNING;
+	request->coa->proxy = rad_alloc(0);
+
+	return request->coa;
+}
+#endif
 
 /*
  *	Copy a quoted string.
@@ -515,6 +552,7 @@ int rad_copy_variable(char *to, const char *from)
 			if (sublen < 0) return sublen;
 			from += sublen;
 			to += sublen;
+			length += sublen;
 			break;
 
 		case '}':	/* end of variable expansion */
@@ -539,11 +577,10 @@ int rad_copy_variable(char *to, const char *from)
 				from += sublen;
 				to += sublen;
 				length += sublen;
+				break;
 			} /* else FIXME: catch %%{ ?*/
 
 			/* FALL-THROUGH */
-			break;
-
 		default:
 			*(to++) = *(from++);
 			length++;

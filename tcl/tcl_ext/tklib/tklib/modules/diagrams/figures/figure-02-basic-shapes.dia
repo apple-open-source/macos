@@ -1,0 +1,19 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+box "box"
+move
+line "line" ""
+move
+arrow "arrow" ""
+move
+circle "circle"
+move
+ellipse "ellipse" width [3 cm]
+move
+group { arc "arc" }
+move
+diamond "diamond" height [2 cm]
+move
+drum "drum"
+move
+text text "text"

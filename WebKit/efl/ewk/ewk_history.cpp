@@ -21,18 +21,20 @@
 #include "config.h"
 #include "ewk_history.h"
 
-#include "BackForwardList.h"
+#include "BackForwardListImpl.h"
 #include "EWebKit.h"
 #include "HistoryItem.h"
+#include "IconDatabaseBase.h"
 #include "Image.h"
+#include "IntSize.h"
 #include "ewk_private.h"
-#include <wtf/text/CString.h>
 
 #include <Eina.h>
 #include <eina_safety_checks.h>
+#include <wtf/text/CString.h>
 
 struct _Ewk_History {
-    WebCore::BackForwardList *core;
+    WebCore::BackForwardListImpl *core;
 };
 
 #define EWK_HISTORY_CORE_GET_OR_RETURN(history, core_, ...)      \
@@ -48,7 +50,7 @@ struct _Ewk_History {
         ERR("history->core is disabled!.");                      \
         return __VA_ARGS__;                                      \
     }                                                            \
-    WebCore::BackForwardList *core_ = (history)->core
+    WebCore::BackForwardListImpl *core_ = (history)->core
 
 
 struct _Ewk_History_Item {
@@ -415,8 +417,8 @@ Eina_Bool ewk_history_limit_set(const Ewk_History* history, int limit)
  */
 Ewk_History_Item* ewk_history_item_new(const char* uri, const char* title)
 {
-    WebCore::String u = WebCore::String::fromUTF8(uri);
-    WebCore::String t = WebCore::String::fromUTF8(title);
+    WTF::String u = WTF::String::fromUTF8(uri);
+    WTF::String t = WTF::String::fromUTF8(title);
     WTF::RefPtr<WebCore::HistoryItem> core = WebCore::HistoryItem::create(u, t, 0);
     Ewk_History_Item* item = _ewk_history_item_new(core.release().releaseRef());
     return item;
@@ -507,7 +509,7 @@ void ewk_history_item_title_alternate_set(Ewk_History_Item* item, const char* ti
     EWK_HISTORY_ITEM_CORE_GET_OR_RETURN(item, core);
     if (!eina_stringshare_replace(&item->alternate_title, title))
         return;
-    core->setAlternateTitle(WebCore::String::fromUTF8(title));
+    core->setAlternateTitle(WTF::String::fromUTF8(title));
 }
 
 /**
@@ -578,7 +580,8 @@ double ewk_history_item_time_last_visited_get(const Ewk_History_Item* item)
 cairo_surface_t* ewk_history_item_icon_surface_get(const Ewk_History_Item* item)
 {
     EWK_HISTORY_ITEM_CORE_GET_OR_RETURN(item, core, 0);
-    WebCore::Image* icon = core->icon();
+    
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(core->url(), WebCore::IntSize(16, 16));
     if (!icon) {
         ERR("icon is NULL.");
         return 0;
@@ -606,7 +609,7 @@ Evas_Object* ewk_history_item_icon_object_add(const Ewk_History_Item* item, Evas
 {
     EWK_HISTORY_ITEM_CORE_GET_OR_RETURN(item, core, 0);
     EINA_SAFETY_ON_NULL_RETURN_VAL(canvas, 0);
-    WebCore::Image* icon = core->icon();
+    WebCore::Image* icon = WebCore::iconDatabase().synchronousIconForPageURL(core->url(), WebCore::IntSize(16, 16));
     cairo_surface_t* surface;
 
     if (!icon) {
@@ -666,11 +669,11 @@ Eina_Bool ewk_history_item_visit_last_failed(const Ewk_History_Item* item)
  * Creates history for given view. Called internally by ewk_view and
  * should never be called from outside.
  *
- * @param core WebCore::BackForwardList instance to use internally.
+ * @param core WebCore::BackForwardListImpl instance to use internally.
  *
  * @return newly allocated history instance or @c NULL on errors.
  */
-Ewk_History* ewk_history_new(WebCore::BackForwardList* core)
+Ewk_History* ewk_history_new(WebCore::BackForwardListImpl* core)
 {
     Ewk_History* history;
     EINA_SAFETY_ON_NULL_RETURN_VAL(core, 0);

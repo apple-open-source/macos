@@ -1,6 +1,6 @@
 ## -*-makefile-*-
 ## HP/UX-specific setup using aCC
-## Copyright (c) 1999-2007, International Business Machines Corporation and
+## Copyright (c) 1999-2010, International Business Machines Corporation and
 ## others. All Rights Reserved.
 
 ## Commands to generate dependency files
@@ -8,8 +8,8 @@ GEN_DEPS.c=	:
 GEN_DEPS.cc= 	:
 
 ## Flags for position independent code
-SHAREDLIBCFLAGS = +z
-SHAREDLIBCXXFLAGS = +z
+SHAREDLIBCFLAGS = +Z
+SHAREDLIBCXXFLAGS = +Z
 
 ## Additional flags when building libraries with threads
 ## We use this instead of -mt, which isn't available in all versions of aCC
@@ -24,8 +24,26 @@ THREADSCPPFLAGS = -D_REENTRANT -D_THREAD_SAFE
 #    823 Redundant preprocessing concatenation operation results in two valid
 #        preprocessing tokens. This comes from INT64_C in <inttypes.h>
 #   4232 conversion to a more strictly aligned type may cause misaligned access.
-CFLAGS += -Ae +ESlit
-CXXFLAGS += +W740 +W749 +W823 +W4232
+CFLAGS += -Ae +Olit=all
+CXXFLAGS += -Wc,-ansi_for_scope,on +W740 +W749 +W823 +W4232
+
+ifeq ($(UCLN_NO_AUTO_CLEANUP),0)
+# set up init point.
+UCLN_FINI =  ucln_fini$(TARGET_STUBNAME)_$(SO_TARGET_VERSION_MAJOR)$(ICULIBSUFFIXCNAME)
+CPPFLAGS_FINI = -DUCLN_FINI=$(UCLN_FINI)
+LDFLAGS_FINI = -Wl,+fini,$(UCLN_FINI)
+
+CPPFLAGSICUUC += $(CPPFLAGS_FINI)
+LDFLAGSICUUC += $(LDFLAGS_FINI)
+CPPFLAGSICUIO += $(CPPFLAGS_FINI)
+LDFLAGSICUIO += $(LDFLAGS_FINI)
+CPPFLAGSICUI18N += $(CPPFLAGS_FINI)
+LDFLAGSICUI18N += $(LDFLAGS_FINI)
+CPPFLAGSCTESTFW += $(CPPFLAGS_FINI)
+LDFLAGSCTESTFW += $(LDFLAGS_FINI)
+
+# ICUUC, ICUIO, ICUI18N, CTESTFW
+endif
 
 # -Bhidden_def Hides all symbols defined in the module.
 #LIBCFLAGS = -Bhidden_def
@@ -47,10 +65,19 @@ LDFLAGS += -Wl,+s $(LD_DEFAULTPATH)
 LINK.c=		$(CXX) $(CXXFLAGS) $(LDFLAGS)
 LINK.cc=	$(CXX) $(CXXFLAGS) $(LDFLAGS)
 
+## Shared library options
+## HPUX PA-risc does not recognize -Bprotected_def aC++ option.
+## Use linker option -Wl,-B,symbolic instead.
+ifeq ($(shell uname -m),ia64)
+    LD_SOOPTIONS= -Bprotected_def
+else
+    LD_SOOPTIONS= -Wl,-B,symbolic
+endif
+
 ## Commands to make a shared library
 #SHLIB.c=	$(LD) $(LDFLAGS) -b
-SHLIB.c=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -b
-SHLIB.cc=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -b
+SHLIB.c=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -b $(LD_SOOPTIONS)
+SHLIB.cc=	$(CXX) $(CXXFLAGS) $(LDFLAGS) -b $(LD_SOOPTIONS)
 
 ## Compiler switch to embed a runtime search path
 LD_RPATH=	-Wl,+b,
@@ -101,5 +128,9 @@ STATIC_O = o
 
 ## Install libraries as executable
 INSTALL-L=$(INSTALL_PROGRAM)
+
+## Remove shared library 's'
+STATIC_PREFIX_WHEN_USED = 
+STATIC_PREFIX = 
 
 ## End HP/UX-specific setup

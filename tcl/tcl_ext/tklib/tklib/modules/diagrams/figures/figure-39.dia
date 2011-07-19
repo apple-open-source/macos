@@ -1,0 +1,7 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set boxheight 100
+set boxwidth   30
+set movelength 20
+
+box; move; box; move; box; move; box;

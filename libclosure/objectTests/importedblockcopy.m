@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  importedblockcopy.m
 //  testObjects
@@ -6,11 +12,13 @@
 //  Copyright 2008 Apple. All rights reserved.
 //
 
-// CONFIG GC RR rdar://6297435 -C99
-// really just GC but might as well test RR too
+// rdar://6297435
+// TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
 #import "Block.h"
+#import <objc/objc-auto.h>
+#import "test.h"
 
 int Allocated = 0;
 int Reclaimed = 0;
@@ -56,18 +64,17 @@ void theTest() {
 }
 
 
-int main(int argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
-    NSGarbageCollector *collector = [NSGarbageCollector defaultCollector];
     
     for (int i = 0; i < 200; ++i)
         theTest();
     [pool drain];
-    [collector collectExhaustively];
+    objc_collect(OBJC_EXHAUSTIVE_COLLECTION | OBJC_WAIT_UNTIL_DONE);
+
     if ((Reclaimed+10) <= Allocated) {
-        printf("whoops, reclaimed only %d of %d allocated\n", Reclaimed, Allocated);
-        return 1;
+        fail("whoops, reclaimed only %d of %d allocated", Reclaimed, Allocated);
     }
-    printf("%s: Success!\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

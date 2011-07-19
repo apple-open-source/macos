@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_parse.c	1.31	05/06/08 SMI"
@@ -71,37 +71,46 @@ typedef struct _hiernode hiernode;
 
 void free_mapent(struct mapent *);
 
-static int mapline_to_mapent(struct mapent **, struct mapline *, char *, char *,
-				char *, char *, uint_t);
-static int hierarchical_sort(struct mapent *, hiernode **, char *, char *);
-static int push_options(hiernode *, char *, char *, int);
-static int set_mapent_opts(struct mapent *, char *, char *, char *);
-static int get_opts(char *, char *, char *, size_t, bool_t *);
-static int fstype_opts(struct mapent *, char *, char *, char *);
-static int modify_mapents(struct mapent **, char *, char *, char *, hiernode *,
-			char *, uint_t, bool_t);
-static int set_and_fake_mapent_mntlevel(hiernode *, char *, char *, char *,
-				struct mapent **, uint_t, char *, bool_t);
+static int mapline_to_mapent(struct mapent **, struct mapline *, const char *,
+				const char *, const char *, char *, uint_t);
+static int hierarchical_sort(struct mapent *, hiernode **, const char *,
+			const char *);
+static int push_options(hiernode *, char *, const char *, int);
+static int set_mapent_opts(struct mapent *, char *, const char *);
+static int get_opts(const char *, char *, char *, size_t, bool_t *);
+static int fstype_opts(struct mapent *, const char *, const char *,
+			const char *);
+static int modify_mapents(struct mapent **, const char *, const char *,
+			const char *, hiernode *, const char *, uint_t, bool_t);
+static int set_and_fake_mapent_mntlevel(hiernode *, const char *, const char *,
+				const char *, struct mapent **, uint_t,
+				const char *, bool_t);
 static int mark_level1_root(hiernode *, char *);
-static int mark_and_fake_level1_noroot(hiernode *, char *, char *, char *,
-				    struct mapent **, uint_t i, char *);
-static int convert_mapent_to_automount(struct mapent *, char *, char *);
-static int automount_opts(char **, char *);
-static int parse_fsinfo(char *, struct mapent *);
-static int parse_nfs(char *, struct mapent *, char *, char *, char **, char **);
+static int mark_and_fake_level1_noroot(hiernode *, const char *, const char *,
+				    const char *, struct mapent **, uint_t i,
+				    const char *);
+static int convert_mapent_to_automount(struct mapent *, const char *,
+				const char *);
+static int automount_opts(char **, const char *);
+static int parse_fsinfo(const char *, struct mapent *);
+static int is_nonnfs_url(char *, char *);
+static int parse_nfs(const char *, struct mapent *, char *, char *, char **,
+				char **);
 static int parse_special(struct mapent *, char *, char *, char **, char **,
 				int);
-static int get_dir_from_path(char *, char **, int);
+static int get_dir_from_path(char *, const char **, int);
 static int alloc_hiernode(hiernode **, char *);
 static void free_hiernode(hiernode *);
 static void trace_mapents(char *, struct mapent *);
 static void trace_hierarchy(hiernode *, int);
-static struct mapent *do_mapent_hosts(char *, char *, uint_t, int *);
+static struct mapent *do_mapent_hosts(const char *, const char *, uint_t,
+			int *);
 static void freeex_ent(struct exportnode *);
 static void freeex(struct exportnode *);
-static struct mapent *do_mapent_fstab(char *, char *, uint_t, int *);
-static struct mapent *do_mapent_static(char *, uint_t, int *);
-static void dump_mapent_err(struct mapent *, char *, char *);
+static struct mapent *do_mapent_fstab(const char *, const char *, uint_t,
+				int *, int *);
+static struct mapent *do_mapent_static(const char *, uint_t, int *);
+static void dump_mapent_err(struct mapent *, const char *, const char *);
 
 #define	PARSE_OK	0
 #define	PARSE_ERROR	-1
@@ -158,8 +167,8 @@ strprefix_slash(const char *str)
 }
 
 /*
- * parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
- *			uint_t isdirect, bool_t *iswildcard,
+ * parse_entry(const char *key, const char *mapname, const char *mapopts,
+ *			const char *subdir, uint_t isdirect, int *node_type,
  *			bool_t isrestricted, bool_t mount_access, int *err)
  * Looks up the specified key in the specified map, and then parses the
  * result to build a mapentry list containing the information for the
@@ -177,18 +186,28 @@ strprefix_slash(const char *str)
  * Returns a pointer to the head of the mapentry list.
  */
 struct mapent *
-parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
-			uint_t isdirect, bool_t *iswildcard,
+parse_entry(const char *key, const char *mapname, const char *mapopts,
+			const char *subdir, uint_t isdirect, int *node_type,
 			bool_t isrestricted, bool_t mount_access, int *err)
 {
+	struct dir_entry *dirp;
 	char *stack[STACKSIZ];
 	char **stkptr = stack;
 	struct mapline ml;
-	char *p;
+	bool_t iswildcard;
+	const char *p;
 	char defaultopts[AUTOFS_MAXOPTSLEN];
 
 	struct mapent *mapents = NULL;
+	struct mapent *me;
 	hiernode *rootnode = NULL;
+
+	/*
+	 * For now, assume the map entry is not a self-link in -fstab,
+	 * is not a wildcard match, and is not a trigger.
+	 */
+	if (node_type != NULL)
+		*node_type = 0;
 
 	/*
 	 * Check whether this is a special or regular map and, based
@@ -220,7 +239,8 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 		 * "rw", if nothing else), so the default mapopts are
 		 * ignored.
 		 */
-		mapents = do_mapent_fstab(mapopts, key, isdirect, err);
+		mapents = do_mapent_fstab(mapopts, key, isdirect, node_type,
+		    err);
 		if (mapents == NULL)		/* nothing to free */
 			return (mapents);
 
@@ -257,32 +277,6 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 		 * All other maps.
 		 */
 
-		/* initialize the stack of open files for this thread */
-		stack_op(INIT, NULL, stack, &stkptr);
-
-		/*
-		 * Look up the entry in the map.
-		 */
-		switch (getmapent(key, mapname, &ml, stack, &stkptr, iswildcard,
-			isrestricted)) {
-
-		case __NSW_SUCCESS:
-			break;
-
-		case __NSW_NOTFOUND:
-			*err = ENOENT;	/* no such map entry */
-			return ((struct mapent *)NULL);	/* we failed to find it */
-
-		case __NSW_UNAVAIL:
-			syslog(LOG_ERR, "parse_entry: getmapent for map %s, key %s failed",
-			    mapname, key);
-			*err = EIO;	/* error trying to look up entry */
-			return ((struct mapent *)NULL);	/* we failed to find it */
-		}
-
-		if (trace > 1)
-			trace_prt(1, "  mapline: %s\n", ml.linebuf);
-
 		/*
 		 * Assure the key is only one token long.
 		 * This prevents options from sneaking in through the
@@ -296,6 +290,75 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 				return ((struct mapent *)NULL);
 			}
 		}
+
+		/* Is there an entry for that map/key in the readdir cache? */
+		dirp = rddir_entry_lookup(mapname, key);
+		if (dirp == NULL || dirp->line == NULL) {
+			/*
+			 * Either there's no entry, or the entry has a
+			 * name but no map line information.  We'll need
+			 * to look up the entry in the map.
+			 */
+
+			/* initialize the stack of open files for this thread */
+			stack_op(INIT, NULL, stack, &stkptr);
+
+			/*
+			 * Look up the entry in the map.
+			 */
+			switch (getmapent(key, mapname, &ml, stack, &stkptr,
+				&iswildcard, isrestricted)) {
+
+			case __NSW_SUCCESS:
+				/*
+				 * XXX - we failed to find this entry
+				 * in the readdir cache, but we did find
+				 * it in the map.  That means the readdir
+				 * cache is out of date for this map,
+				 * and we should flush the entry for
+				 * this map.
+				 */
+				break;
+
+			case __NSW_NOTFOUND:
+				*err = ENOENT;	/* no such map entry */
+				return ((struct mapent *)NULL);	/* we failed to find it */
+
+			case __NSW_UNAVAIL:
+				syslog(LOG_ERR, "parse_entry: getmapent for map %s, key %s failed",
+				    mapname, key);
+				*err = EIO;	/* error trying to look up entry */
+				return ((struct mapent *)NULL);	/* we failed to find it */
+			}
+		} else {
+			/*
+			 * Yes, and it has map line information.
+			 * Use it, rather than looking it up again
+			 * in the map.
+			 *
+			 * It's not a wildcard entry, as it corresponds
+			 * to an entry in the cache; wildcard entries
+			 * are not cached, as they're not returned by
+			 * readdir.
+			 */
+			CHECK_STRCPY(ml.linebuf, dirp->line, LINESZ);
+			CHECK_STRCPY(ml.lineqbuf, dirp->lineq, LINESZ);
+			iswildcard = FALSE;
+		}
+
+		/*
+		 * Regular maps have no symlinks, but they *can* have
+		 * wildcard entries.  If this is a wildcard entry,
+		 * all references to it must trigger a mount, as that's
+		 * the only way to check whether it exists or not.
+		 */
+		if (node_type != NULL) {
+			if (iswildcard)
+				*node_type |= NT_FORCEMOUNT;
+		}
+
+		if (trace > 1)
+			trace_prt(1, "  mapline: %s\n", ml.linebuf);
 
 		*err = mapline_to_mapent(&mapents, &ml, key, mapname,
 		    mapopts, defaultopts, isdirect);
@@ -334,8 +397,16 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 	 */
 	*err = modify_mapents(&mapents, mapname, mapopts, subdir,
 	    rootnode, key, isdirect, mount_access);
-	if (*err != 0)
-		goto parse_error;
+	if (*err != 0) {
+		/*
+		 * ENOENT means that something in subdir wasn't found
+		 * in the map entry list; that's just a user error.
+		 */
+		if (*err == ENOENT)
+			goto parse_error_quiet;
+		else
+			goto parse_error;
+	}
 
 	/*
 	 * XXX: its dangerous to use rootnode after modify mapents as
@@ -343,6 +414,24 @@ parse_entry(char *key, char *mapname, char *mapopts, char *subdir,
 	 */
 	if (rootnode != NULL)
 		free_hiernode(rootnode);
+
+	/*
+	 * Is this a directory that has any non-faked, non-modified
+	 * entries at level 0?
+	 *
+	 * If so, this is a trigger, as something should be mounted
+	 * on it; otherwise it isn't, as nothing should be mounted
+	 * directly on it (or it's a symlink).
+	 */
+	if (node_type != NULL && !(*node_type & NT_SYMLINK)) {
+		for (me = mapents; me; me = me->map_next) {
+			if (me->map_mntlevel == 0 &&
+			    !me->map_faked && !me->map_modified) {
+				*node_type |= NT_TRIGGER;
+				break;
+			}
+		}
+	}
 
 	return (mapents);
 
@@ -359,8 +448,8 @@ parse_error_quiet:
 
 /*
  * mapline_to_mapent(struct mapent **mapents, struct mapline *ml,
- *		char *key, char *mapname, char *mapopts, char *defaultopts,
- *              uint_t isdirect)
+ *		const char *key, const char *mapname, const char *mapopts,
+ *		char *defaultopts, uint_t isdirect)
  * Parses the mapline information in ml word by word to build an intermediate
  * mapentry list, which is passed back to the caller. The mapentries may have
  * holes (example no options), as they are completed only later. The logic is
@@ -378,9 +467,9 @@ parse_error_quiet:
  * Returns 0 or an appropriate error value.
  */
 static int
-mapline_to_mapent(struct mapent **mapents, struct mapline *ml, char *key,
-		char *mapname, char *mapopts, char *defaultopts,
-		uint_t isdirect)
+mapline_to_mapent(struct mapent **mapents, struct mapline *ml, const char *key,
+		const char *mapname, const char *mapopts,
+		char *defaultopts, uint_t isdirect)
 {
 	struct mapent *me = NULL;
 	struct mapent *mp;
@@ -580,11 +669,11 @@ alloc_failed:
  * Returns 0 or appropriate error value; logs a message on error.
  */
 static int
-hierarchical_sort(struct mapent *mapents, hiernode **rootnode, char *key,
-	char *mapname)
+hierarchical_sort(struct mapent *mapents, hiernode **rootnode, const char *key,
+	const char *mapname)
 {
 	hiernode *prevnode, *currnode, *newnode;
-	char *path;
+	const char *path;
 	char dirname[MAXFILENAMELEN];
 
 	int rc = 0;
@@ -690,7 +779,8 @@ hierarchical_sort(struct mapent *mapents, hiernode **rootnode, char *key,
 }
 
 /*
- * push_options(hiernode *node, char *opts, char *mapopts, int err)
+ * push_options(hiernode *node, const char *defaultopts, const char *mapopts,
+ *		int err)
  * Pushes the options down a hierarchical structure. Works recursively from the
  * root, which is passed in on the first call. Uses a replacement policy.
  * If a node points to a mapentry, and it has an option, then thats the option
@@ -703,7 +793,7 @@ hierarchical_sort(struct mapent *mapents, hiernode **rootnode, char *key,
  * (including the null terminator).
  */
 static int
-push_options(hiernode *node, char *defaultopts, char *mapopts, int err)
+push_options(hiernode *node, char *defaultopts, const char *mapopts, int err)
 {
 	int rc = 0;
 	struct mapent *me = NULL;
@@ -713,15 +803,14 @@ push_options(hiernode *node, char *defaultopts, char *mapopts, int err)
 		me = node->mapent;
 		if (me != NULL) {	/* not all nodes point to a mapentry */
 			me->map_err = err;
-			if ((rc = set_mapent_opts(me, me->map_mntopts,
-				defaultopts, mapopts)) != 0)
+			if ((rc = set_mapent_opts(me, defaultopts, mapopts)) != 0)
 				return (rc);
 		}
 
 		/* push the options to subdirs */
 		if (node->subdir != NULL) {
-			if (node->mapent && strcmp(node->mapent->map_fstype,
-				MNTTYPE_AUTOFS) == 0)
+			if (node->mapent && node->mapent->map_fstype &&
+			    strcmp(node->mapent->map_fstype, MNTTYPE_AUTOFS) == 0)
 				err = MAPENT_UATFS;
 			if ((rc = push_options(node->subdir, defaultopts,
 				mapopts, err)) != 0)
@@ -739,37 +828,47 @@ push_options(hiernode *node, char *defaultopts, char *mapopts, int err)
 #define	NO_OPTS ""
 
 /*
- * set_mapent_opts(struct mapent *me, char *opts, char *defaultopts,
- *			char *mapopts)
+ * set_mapent_opts(struct mapent *me, char *defaultopts, const char *mapopts)
  * sets the mapentry's options, fstype and mounter fields by separating
- * out the fstype part from the opts. Use default options if opts is NULL.
- * Note taht defaultopts may be the same as mapopts.
+ * out the fstype part from the opts. Use default options if me->map_mntopts
+ * is NULL.  Note that defaultopts may be the same as mapopts.
  *
- * opts, defaultopts, and mapopts must each be at most AUTOFS_MAXOPTSLEN
- * bytes long (including the null terminator).
+ * me->map_mntopts, defaultopts, and mapopts must each be at most
+ * AUTOFS_MAXOPTSLEN bytes long (including the null terminator).
  *
  * Returns 0 or appropriate error value.
  */
 static int
-set_mapent_opts(struct mapent *me, char *opts, char *defaultopts,
-		char *mapopts)
+set_mapent_opts(struct mapent *me, char *defaultopts, const char *mapopts)
 {
+	char optsbuf[AUTOFS_MAXOPTSLEN];
+	char *opts;
 	char entryopts[AUTOFS_MAXOPTSLEN];
 	char fstype[MAX_FSLEN], mounter[MAX_FSLEN];
 	int rc = 0;
 	bool_t fstype_opt = FALSE;
 
-	CHECK_STRCPY(fstype, MNTTYPE_NFS, sizeof (fstype));	/* default */
-
 	/* set options to default options, if none exist for this entry */
-	if (opts == NULL) {
+	if (me->map_mntopts == NULL) {
 		opts = defaultopts;
 		if (defaultopts == NULL) { /* NULL opts for entry */
-			/* mounter and fstype are the same size */
-			strcpy(mounter, fstype);
-			goto done;
+			/*
+			 * File system type not explicitly specified, as
+			 * no options were specified; it will be determined
+			 * later.
+			 */
+			me->map_fstype = NULL;
+			me->map_mounter = NULL;
+			return (0);
 		}
+	} else {
+		/*
+		 * Make a copy of map_mntopts, as we'll free it below.
+		 */
+		CHECK_STRCPY(optsbuf, me->map_mntopts, AUTOFS_MAXOPTSLEN);
+		opts = optsbuf;
 	}
+
 	if (*opts == '-')
 		opts++;
 
@@ -784,57 +883,70 @@ set_mapent_opts(struct mapent *me, char *opts, char *defaultopts,
 		free(me->map_mntopts);
 	if ((me->map_mntopts = strdup(entryopts)) == NULL)
 		return (ENOMEM);
-	/* mounter and fstype are the same size */
-	strcpy(mounter,	fstype);
+
+	if (fstype_opt == TRUE) {
+		/* mounter and fstype are the same size */
+		strcpy(mounter,	fstype);
 
 #ifdef MNTTYPE_CACHEFS
-	/*
-	 * The following ugly chunk of code crept in as a result of
-	 * cachefs.  If it's a cachefs mount of an nfs filesystem, then
-	 * it's important to parse the nfs special field.  Otherwise,
-	 * just hand the special field to the fs-specific mount
-	 */
-	if (strcmp(fstype, MNTTYPE_CACHEFS) ==  0) {
-		struct mnttab m;
-		char *p;
+		/*
+		 * The following ugly chunk of code crept in as a result of
+		 * cachefs.  If it's a cachefs mount of an nfs filesystem, then
+		 * it's important to parse the nfs special field.  Otherwise,
+		 * just hand the special field to the fs-specific mount
+		 */
+		if (strcmp(fstype, MNTTYPE_CACHEFS) ==  0) {
+			struct mnttab m;
+			char *p;
 
-		m.mnt_mntopts = entryopts;
-		if ((p = hasmntopt(&m, BACKFSTYPE)) != NULL) {
-			int len = strlen(MNTTYPE_NFS);
+			m.mnt_mntopts = entryopts;
+			if ((p = hasmntopt(&m, BACKFSTYPE)) != NULL) {
+				int len = strlen(MNTTYPE_NFS);
 
-			p += strlen(BACKFSTYPE_EQ);
+				p += strlen(BACKFSTYPE_EQ);
 
-			if (strncmp(p, MNTTYPE_NFS, len) ==  0 &&
-				(p[len] == '\0' || p[len] == ',')) {
-				/*
-				 * Cached nfs mount
-				 */
-				CHECK_STRCPY(fstype, MNTTYPE_NFS, sizeof (fstype));
-				CHECK_STRCPY(mounter, MNTTYPE_CACHEFS, sizeof (mounter));
+				if (strncmp(p, MNTTYPE_NFS, len) ==  0 &&
+					(p[len] == '\0' || p[len] == ',')) {
+					/*
+					 * Cached nfs mount
+					 */
+					CHECK_STRCPY(fstype, MNTTYPE_NFS, sizeof (fstype));
+					CHECK_STRCPY(mounter, MNTTYPE_CACHEFS, sizeof (mounter));
+				}
 			}
 		}
-	}
 #endif
 
-	/*
-	 * child options are exactly fstype = somefs, we need to do some
-	 * more option pushing work.
-	 */
-	if (fstype_opt == TRUE &&
-		(strcmp(me->map_mntopts, NO_OPTS) == 0)) {
-		free(me->map_mntopts);
-		if ((rc = fstype_opts(me, opts, defaultopts,
-		    mapopts)) != 0)
-			return (rc);
-	}
+		/*
+		 * If the child options are exactly fstype = somefs, i.e.
+		 * if no other options are specified, we need to do some
+		 * more option pushing work.
+		 */
+		if (strcmp(me->map_mntopts, NO_OPTS) == 0) {
+			free(me->map_mntopts);
+			me->map_mntopts = NULL;
+			if ((rc = fstype_opts(me, opts, defaultopts,
+			    mapopts)) != 0)
+				return (rc);
+		}
 
-done:
-	if (((me->map_fstype = strdup(fstype)) == NULL) ||
-		((me->map_mounter = strdup(mounter)) == NULL)) {
-		if (me->map_fstype != NULL)
-			free(me->map_fstype);
-		syslog(LOG_ERR, "set_mapent_opts: No memory");
-		return (ENOMEM);
+		/*
+		 * File system type explicitly specified; set it.
+		 */
+		if (((me->map_fstype = strdup(fstype)) == NULL) ||
+			((me->map_mounter = strdup(mounter)) == NULL)) {
+			if (me->map_fstype != NULL)
+				free(me->map_fstype);
+			syslog(LOG_ERR, "set_mapent_opts: No memory");
+			return (ENOMEM);
+		}
+	} else {
+		/*
+		 * File system type not explicitly specified; it
+		 * will be determined later.
+		 */
+		me->map_fstype = NULL;
+		me->map_mounter = NULL;
 	}
 
 	return (rc);
@@ -865,7 +977,7 @@ done:
  */
 static int
 get_opts(input, opts, fstype, fstype_size, fstype_opt)
-	char *input;
+	const char *input;
 	char *opts; 	/* output */
 	char *fstype;   /* output */
 	size_t fstype_size;
@@ -895,8 +1007,8 @@ get_opts(input, opts, fstype, fstype_size, fstype_opt)
 }
 
 /*
- * fstype_opts(struct mapent *me, char *opts, char *defaultopts,
- *				char *mapopts)
+ * fstype_opts(struct mapent *me, const char *opts, const char *defaultopts,
+ *				const char *mapopts)
  * We need to push global options to the child entry if it is exactly
  * fstype=somefs.
  *
@@ -904,10 +1016,10 @@ get_opts(input, opts, fstype, fstype_size, fstype_opt)
  * bytes long (including the null terminator).
  */
 static int
-fstype_opts(struct mapent *me, char *opts, char *defaultopts,
-				char *mapopts)
+fstype_opts(struct mapent *me, const char *opts, const char *defaultopts,
+				const char *mapopts)
 {
-	char *optstopush;
+	const char *optstopush;
 	char pushopts[AUTOFS_MAXOPTSLEN];
 	char pushentryopts[AUTOFS_MAXOPTSLEN];
 	char pushfstype[MAX_FSLEN];
@@ -954,20 +1066,22 @@ fstype_opts(struct mapent *me, char *opts, char *defaultopts,
 }
 
 /*
- * modify_mapents(struct mapent **mapents, char *mapname,
- *			char *mapopts, char *subdir, hiernode *rootnode,
- * 			char *key, uint_t isdirect, bool_t mount_access)
+ * modify_mapents(struct mapent **mapents, const char *mapname,
+ *			const char *mapopts, const char *subdir,
+ *			hiernode *rootnode, const char *key,
+ *			uint_t isdirect, bool_t mount_access)
  * modifies the intermediate mapentry list into the final one, and passes
  * back a pointer to it. The final list may contain faked mapentries for
  * hiernodes that do not point to a mapentry, or converted mapentries, if
  * hiernodes that point to a mapentry need to be converted from nfs to autofs.
  * mounts. Entries that are not directly 1 level below the subdir are removed.
- * Returns 0 or EIO
+ * Returns 0, ENOENT, or EIO
  */
 static int
-modify_mapents(struct mapent **mapents, char *mapname,
-			char *mapopts, char *subdir, hiernode *rootnode,
-			char *key, uint_t isdirect, bool_t mount_access)
+modify_mapents(struct mapent **mapents, const char *mapname,
+			const char *mapopts, const char *subdir,
+			hiernode *rootnode, const char *key,
+			uint_t isdirect, bool_t mount_access)
 {
 	struct mapent *mp = NULL;
 	char w[MAXPATHLEN];
@@ -1035,7 +1149,7 @@ modify_mapents(struct mapent **mapents, char *mapname,
 		 * convert level 1 mapents that are not already autonodes
 		 * to autonodes
 		 */
-		if (me->map_mntlevel == 1 &&
+		if (me->map_mntlevel == 1 && me->map_fstype != NULL &&
 			(strcmp(me->map_fstype, MNTTYPE_AUTOFS) != 0) &&
 			(me->map_faked != TRUE)) {
 			if ((rc = convert_mapent_to_automount(me, mapname,
@@ -1056,9 +1170,10 @@ modify_mapents(struct mapent **mapents, char *mapname,
 }
 
 /*
- * set_and_fake_mapent_mntlevel(hiernode *rootnode, char *subdir, char *key,
- *			char *mapname, struct mapent **faked_mapents,
- *			uint_t isdirect, char *mapopts, bool_t mount_access)
+ * set_and_fake_mapent_mntlevel(hiernode *rootnode, const char *subdir,
+ *		const char *key, const char *mapname,
+ *		struct mapent **faked_mapents, uint_t isdirect,
+ *		const char *mapopts, bool_t mount_access)
  * sets the mapentry mount levels (depths) with respect to the subdir.
  * Assigns a value of 0 to the new root. Finds the level1 directories by
  * calling mark_*_level1_*(). Also cleans off extra /'s in level0 and
@@ -1068,14 +1183,15 @@ modify_mapents(struct mapent **mapents, char *mapname,
  * to the root (we install autodirs). Returns 0 or error value.
  */
 static int
-set_and_fake_mapent_mntlevel(hiernode *rootnode, char *subdir, char *key,
-		char *mapname, struct mapent **faked_mapents,
-		uint_t isdirect, char *mapopts, bool_t mount_access)
+set_and_fake_mapent_mntlevel(hiernode *rootnode, const char *subdir,
+		const char *key, const char *mapname,
+		struct mapent **faked_mapents, uint_t isdirect,
+		const char *mapopts, bool_t mount_access)
 {
 	char dirname[MAXFILENAMELEN];
 	char traversed_path[MAXPATHLEN]; /* used in building fake mapentries */
 
-	char *subdir_child = subdir;
+	const char *subdir_child = subdir;
 	hiernode *prevnode = rootnode;
 	hiernode *currnode = rootnode->subdir;
 	int rc = 0;
@@ -1130,11 +1246,14 @@ set_and_fake_mapent_mntlevel(hiernode *rootnode, char *subdir, char *key,
 	}
 
 	if (dirname[0] != '\0') {
+		/*
+		 * We didn't find dirname in the map entry.
+		 */
 		if (verbose)
 			syslog(LOG_ERR,
-			"set_and_fake_mapent_mntlevel: subdir=%s error: map=%s",
-			    subdir, mapname);
-		return (EIO);
+			"set_and_fake_mapent_mntlevel: subdir=%s error: %s not found in map=%s",
+			    subdir, dirname, mapname);
+		return (ENOENT);
 	}
 
 	/*
@@ -1282,9 +1401,10 @@ mark_level1_root(hiernode *node, char *traversed_path)
  * the map and assigned in automount_opts(). Returns 0 or error value.
  */
 static int
-mark_and_fake_level1_noroot(hiernode *node, char *traversed_path,
-			char *key, char *mapname, struct mapent **faked_mapents,
-			uint_t isdirect, char *mapopts)
+mark_and_fake_level1_noroot(hiernode *node, const char *traversed_path,
+			const char *key, const char *mapname,
+			struct mapent **faked_mapents, uint_t isdirect,
+			const char *mapopts)
 {
 	struct mapent *me;
 	int rc = 0;
@@ -1355,8 +1475,10 @@ mark_and_fake_level1_noroot(hiernode *node, char *traversed_path,
 
 			/* set options */
 			if ((rc = automount_opts(&me->map_mntopts, mapopts))
-				!= 0)
+				!= 0) {
+				free_mapent(me);
 				return (rc);
+			}
 			me->map_fs->mfs_dir = strdup(mapname);
 			me->map_mntlevel = 1;
 			me->map_modified = FALSE;
@@ -1404,8 +1526,8 @@ alloc_failed:
 }
 
 /*
- * convert_mapent_to_automount(struct mapent *me, char *mapname,
- *				char *mapopts)
+ * convert_mapent_to_automount(struct mapent *me, const char *mapname,
+ *				const char *mapopts)
  * change the mapentry me to an automount - free fields first and NULL them
  * to avoid freeing again, while freeing the mapentry at a later stage.
  * Could have avoided freeing entries here as we don't really look at them.
@@ -1413,8 +1535,8 @@ alloc_failed:
  * automount_opts(). Returns 0 or appropriate error value.
  */
 static int
-convert_mapent_to_automount(struct mapent *me, char *mapname,
-				char *mapopts)
+convert_mapent_to_automount(struct mapent *me, const char *mapname,
+				const char *mapopts)
 {
 	struct mapfs *mfs = me->map_fs;		/* assumes it exists */
 	int rc = 0;
@@ -1451,8 +1573,10 @@ convert_mapent_to_automount(struct mapent *me, char *mapname,
 		goto alloc_failed;
 
 	/* set options */
-	if (me->map_mntopts)
+	if (me->map_mntopts) {
 		free(me->map_mntopts);
+		me->map_mntopts = NULL;
+	}
 	if ((rc = automount_opts(&me->map_mntopts, mapopts)) != 0)
 		return (rc);
 
@@ -1468,13 +1592,13 @@ alloc_failed:
 }
 
 /*
- * automount_opts(char **map_mntopts, char *mapopts)
+ * automount_opts(char **map_mntopts, const char *mapopts)
  * modifies automount opts - gets rid of all "indirect" and "direct" strings
  * if they exist, and then adds a direct string to force a direct automount.
  * Rest of the mapopts stay intact. Returns 0 or appropriate error.
  */
 static int
-automount_opts(char **map_mntopts, char *mapopts)
+automount_opts(char **map_mntopts, const char *mapopts)
 {
 	char *opts;
 	char *opt;
@@ -1549,7 +1673,7 @@ automount_opts(char **map_mntopts, char *mapopts)
  * Returns 0 or an appropriate error value.
  */
 static int
-parse_fsinfo(char *mapname, struct mapent *mapents)
+parse_fsinfo(const char *mapname, struct mapent *mapents)
 {
 	struct mapent *me = mapents;
 	char *bufp;
@@ -1559,6 +1683,18 @@ parse_fsinfo(char *mapname, struct mapent *mapents)
 	while (me != NULL) {
 		bufp = "";
 		bufq = "";
+		if (me->map_fstype == NULL) {
+			/*
+			 * No file system type explicitly specified.
+			 * If the thing to be mounted looks like
+			 * a non-NFS URL, make the type "url", otherwise
+			 * make it "nfs".
+			 */
+			if (is_nonnfs_url(me->map_fsw, me->map_fswq))
+				me->map_fstype = strdup("url");
+			else
+				me->map_fstype = strdup("nfs");
+		}
 		if (strcmp(me->map_fstype, "nfs") == 0) {
 			err = parse_nfs(mapname, me, me->map_fsw,
 				me->map_fswq, &bufp, &bufq);
@@ -1588,6 +1724,75 @@ parse_fsinfo(char *mapname, struct mapent *mapents)
 }
 
 /*
+ * Check whether the first token we see looks like a non-NFS URL or not.
+ */
+static int
+is_nonnfs_url(fsw, fswq)
+	char *fsw, *fswq;
+{
+	char tok1[MAXPATHLEN + 1], tok1q[MAXPATHLEN + 1];
+	char *tok1p, *tok1qp;
+	char c;
+
+	if (getword(tok1, tok1q, &fsw, &fswq, ' ', sizeof (tok1)) == -1)
+		return (0);	/* error, doesn't look like anything */
+
+	tok1p = tok1;
+	tok1qp = tok1q;
+
+	/*
+	 * Scan until we find a character that doesn't belong in a URL
+	 * scheme.  According to RFC 3986, "Scheme names consist of a
+	 * sequence of characters beginning with a letter and followed
+	 * by any combination of letters, digits, plus ("+"), period ("."),
+	 * or hyphen ("-")."
+	 *
+	 * It's irrelevant whether the characters are quoted or not;
+	 * quoting doesn't mean that the character is allowed to be part
+	 * of a URL.
+	 */
+	while ((c = *tok1p) != '\0' && isascii(c) &&
+	    (isalnum(c) || c == '+' || c == '.' || c == '-')) {
+		tok1p++;
+		tok1qp++;
+	}
+
+	/*
+	 * The character in question had better be a colon (quoted or not),
+	 * otherwise this doesn't look like a URL.
+	 */
+	if (*tok1p != ':')
+		return (0);	/* not a URL */
+
+	/*
+	 * However, if it's a colon, that doesn't prove it's a URL; we
+	 * could have server:/path.  Check whether the colon is followed
+	 * by two slashes (quoted or not).
+	 */
+	if (*(tok1p + 1) != '/' || *(tok1p + 2) != '/')
+		return (0);	/* not a URL */
+
+	/*
+	 * scheme://...
+	 * Probably a URL; is the scheme "nfs"?
+	 */
+	if (tok1p - tok1 != 3) {
+		/*
+		 * It's not 3 characters long, so it's not "nfs", so
+		 * we have something that looks like a non-NFS URL.
+		 */
+		return (1);
+	}
+
+	/*
+	 * It's 3 characters long; is it "nfs" (case-insensitive)?
+	 */
+	if (strncasecmp(tok1, "nfs", 3) != 0)
+		return (1);	/* no, so probably a non-NFS URL */
+	return (0);	/* yes, so not a non-NFS URL */
+}
+
+/*
  * This function parses the map entry for a nfs type file system
  * The input is the string lp (and lq) which can be one of the
  * following forms:
@@ -1600,7 +1805,8 @@ parse_fsinfo(char *mapname, struct mapent *mapents)
 static int
 parse_nfs(mapname, me, fsw, fswq, lp, lq)
 	struct mapent *me;
-	char *mapname, *fsw, *fswq, **lp, **lq;
+	const char *mapname;
+	char *fsw, *fswq, **lp, **lq;
 {
 	struct mapfs *mfs, **mfsp;
 	char *wlp, *wlq;
@@ -1908,7 +2114,7 @@ parse_special(me, w, wq, lp, lq, wsize)
  * Returns 0 or EIO
  */
 static int
-get_dir_from_path(char *dir, char **path, int dirsz)
+get_dir_from_path(char *dir, const char **path, int dirsz)
 {
 	char *tmp = dir;
 	int count = dirsz;
@@ -2141,7 +2347,7 @@ clnt_stat_to_errno(enum clnt_stat clnt_stat)
  */
 struct mapent *
 do_mapent_hosts(mapopts, host, isdirect, err)
-	char *mapopts, *host;
+	const char *mapopts, *host;
 	uint_t isdirect;
 	int *err;
 {
@@ -2255,9 +2461,9 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 		*err = EIO;
 		return ((struct mapent *)NULL);
 	}
-	if (altflags & NFS_MNT_VERS) {
-		optval = getmntoptnum(mop, "vers");
-		if (optval == -1 || optval > (long)UINT_MAX) {
+	if (altflags & (NFS_MNT_VERS|NFS_MNT_NFSVERS)) {
+		optval = get_nfs_vers(mop, altflags);
+		if (optval == 0) {
 			syslog(LOG_ERR, "Invalid NFS version number for %s", host);
 			freemntopts(mop);
 			*err = EIO;
@@ -2282,9 +2488,9 @@ do_mapent_hosts(mapopts, host, isdirect, err)
 	delay = INITDELAY;
 retry:
 	/* get export list of host */
-	cl = clnt_create(host, MOUNTPROG, MOUNTVERS, "tcp");
+	cl = clnt_create((char *)host, MOUNTPROG, MOUNTVERS, "tcp");
 	if (cl == NULL) {
-		cl = clnt_create(host, MOUNTPROG, MOUNTVERS, "udp");
+		cl = clnt_create((char *)host, MOUNTPROG, MOUNTVERS, "udp");
 		if (cl == NULL) {
 			syslog(LOG_ERR,
 			"do_mapent_hosts: %s %s", host, clnt_spcreateerror(""));
@@ -2513,7 +2719,7 @@ freeex(ex)
 
 struct create_mapent_args {
 	uint_t		isdirect;
-	char		*host;
+	const char	*host;
 	struct mapent	*ms;
 	struct mapent	*me;
 };
@@ -2598,9 +2804,10 @@ alloc_failed:
  * terminator).
  */
 struct mapent *
-do_mapent_fstab(mapopts, host, isdirect, err)
-	char *mapopts, *host;
+do_mapent_fstab(mapopts, host, isdirect, node_type, err)
+	const char *mapopts, *host;
 	uint_t isdirect;
+	int *node_type;
 	int *err;
 {
 	struct mapent *ms;
@@ -2674,6 +2881,12 @@ do_mapent_fstab(mapopts, host, isdirect, err)
 			trace_prt(1,
 			"  do_mapent_fstab: self-host %s OK\n", host);
 
+		/*
+		 * This is a symlink to /.
+		 */
+		if (node_type != NULL)
+			*node_type = NT_SYMLINK;
+
 		*err = 0;
 		return (ms);
 	}
@@ -2719,7 +2932,7 @@ fstype_too_long:
 
 struct mapent *
 do_mapent_static(key, isdirect, err)
-	char *key;
+	const char *key;
 	uint_t isdirect;
 	int *err;
 {
@@ -2733,7 +2946,7 @@ do_mapent_static(key, isdirect, err)
 	 */
 	static_ent = get_staticmap_entry(key);
 	if (static_ent == NULL) {
-		*err = isdirect ? 0 : ENOENT;
+		*err = ENOENT;
 		return (NULL);
 	}
 
@@ -2806,16 +3019,18 @@ alloc_failed:
 
 static const char uatfs_err[] = "submount under fstype=autofs not supported";
 /*
- * dump_mapent_err(struct mapent *me, char *key, char *mapname)
+ * dump_mapent_err(struct mapent *me, const char *key, const char *mapname)
  * syslog appropriate error in mapentries.
  */
-static void dump_mapent_err(struct mapent *me, char *key, char *mapname)
+static void dump_mapent_err(struct mapent *me, const char *key,
+			const char *mapname)
 {
 	switch (me->map_err) {
 	case MAPENT_NOERR:
 		if (verbose)
 			syslog(LOG_ERR,
-			"map=%s key=%s mntpnt=%s: no error");
+			"map=%s key=%s mntpnt=%s: no error",
+			mapname, key, me->map_mntpnt);
 		break;
 	case MAPENT_UATFS:
 		syslog(LOG_ERR,
@@ -2825,6 +3040,7 @@ static void dump_mapent_err(struct mapent *me, char *key, char *mapname)
 	default:
 		if (verbose)
 			syslog(LOG_ERR,
-			"map=%s key=%s mntpnt=%s: unknown mapentry error");
+			"map=%s key=%s mntpnt=%s: unknown mapentry error",
+			mapname, key, me->map_mntpnt);
 	}
 }

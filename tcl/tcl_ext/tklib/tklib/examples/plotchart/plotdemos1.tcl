@@ -2,13 +2,12 @@
 # -*- tcl -*- \
 exec tclsh "$0" ${1+"$@"}
 
-package require Tcl 8.3
+package require Tcl 8.4
 package require Tk
-source ../../modules/plotchart/plotchart.tcl
 package require Plotchart
 
-# testplot.tcl --
-#    Test program for the Plotchart package
+# plotdemos1.tcl --
+#    Test program 1 for the Plotchart package
 #
 
 #
@@ -71,8 +70,7 @@ $r plot right 30.0 0.03
 $r plot right 40.0 0.02
 
 tkwait visibility .c
-$s saveplot "aha.ps"
-
+#$s saveplot "aha.ps"
 
 set s [::Plotchart::createPiechart .c2]
 
@@ -169,6 +167,7 @@ $s dataconfig series2 -colour "blue"
 
 $s xtext "Time"
 $s ytext "Data"
+$s xticklines
 
 $s plot series1 2006-02-01 10.0
 $s plot series1 2006-02-11 50.0

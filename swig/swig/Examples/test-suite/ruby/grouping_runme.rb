@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'grouping'
 
 x = Grouping.test1(42)

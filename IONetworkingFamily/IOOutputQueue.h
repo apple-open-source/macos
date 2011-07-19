@@ -32,8 +32,8 @@ class  IONetworkData;
 
 // FIXME - We do not want the enqueue/dequeue macros defined in queue.h.
 //
-#undef enqueue(queue,elt)
-#undef dequeue(queue)
+#undef enqueue
+#undef dequeue
 
 // FIXME - Belongs in IOBasicOutputQueue.h
 //

@@ -32,6 +32,7 @@
 
 #include "FrameLoaderTypes.h"
 #include "PlatformString.h"
+#include "SerializedScriptValue.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/RefPtr.h>
 
@@ -40,9 +41,13 @@ namespace WebCore {
 class Frame;
 class HistoryItem;
 class SerializedScriptValue;
+class StringWithDirection;
 
-class HistoryController : public Noncopyable {
+class HistoryController {
+    WTF_MAKE_NONCOPYABLE(HistoryController);
 public:
+    enum HistoryUpdateType { UpdateAll, UpdateAllExceptBackForwardList };
+
     HistoryController(Frame*);
     ~HistoryController();
 
@@ -57,12 +62,9 @@ public:
 
     void invalidateCurrentItemCachedPage();
 
-    void goToItem(HistoryItem*, FrameLoadType);
-    bool urlsMatchItem(HistoryItem*) const;
-
     void updateForBackForwardNavigation();
     void updateForReload();
-    void updateForStandardLoad();
+    void updateForStandardLoad(HistoryUpdateType updateType = UpdateAll);
     void updateForRedirectWithLockedBackForwardList();
     void updateForClientRedirect();
     void updateForCommit();
@@ -71,8 +73,10 @@ public:
 
     HistoryItem* currentItem() const { return m_currentItem.get(); }
     void setCurrentItem(HistoryItem*);
-    void setCurrentItemTitle(const String&);
+    void setCurrentItemTitle(const StringWithDirection&);
     bool currentItemShouldBeReplaced() const;
+
+    HistoryItem* previousItem() const { return m_previousItem.get(); }
 
     HistoryItem* provisionalItem() const { return m_provisionalItem.get(); }
     void setProvisionalItem(HistoryItem*);
@@ -80,19 +84,38 @@ public:
     void pushState(PassRefPtr<SerializedScriptValue>, const String& title, const String& url);
     void replaceState(PassRefPtr<SerializedScriptValue>, const String& title, const String& url);
 
+    void setDefersLoading(bool);
+
 private:
-    PassRefPtr<HistoryItem> createItem(bool useOriginal);
+    friend class Page;
+    bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
+    void goToItem(HistoryItem*, FrameLoadType);
+
+    void initializeItem(HistoryItem*);
+    PassRefPtr<HistoryItem> createItem();
     PassRefPtr<HistoryItem> createItemTree(Frame* targetFrame, bool clipAtTarget);
 
+    void recursiveSetProvisionalItem(HistoryItem*, HistoryItem*, FrameLoadType);
     void recursiveGoToItem(HistoryItem*, HistoryItem*, FrameLoadType);
-    bool childFramesMatchItem(HistoryItem*) const;
+    bool isReplaceLoadTypeWithProvisionalItem(FrameLoadType);
+    void recursiveUpdateForCommit();
+    void recursiveUpdateForSameDocumentNavigation();
+    bool itemsAreClones(HistoryItem*, HistoryItem*) const;
+    bool currentFramesMatchItem(HistoryItem*) const;
     void updateBackForwardListClippedAtTarget(bool doClip);
+    void updateCurrentItem();
 
     Frame* m_frame;
 
     RefPtr<HistoryItem> m_currentItem;
     RefPtr<HistoryItem> m_previousItem;
     RefPtr<HistoryItem> m_provisionalItem;
+
+    bool m_frameLoadComplete;
+
+    bool m_defersLoading;
+    RefPtr<HistoryItem> m_deferredItem;
+    FrameLoadType m_deferredFrameLoadType;
 };
 
 } // namespace WebCore

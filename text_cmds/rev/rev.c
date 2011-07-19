@@ -1,5 +1,3 @@
-/*	$NetBSD: rev.c,v 1.6 1997/10/19 14:03:34 lukem Exp $	*/
-
 /*-
  * Copyright (c) 1987, 1992, 1993
  *	The Regents of the University of California.  All rights reserved.
@@ -33,41 +31,44 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/cdefs.h>
 #ifndef lint
-__COPYRIGHT("@(#) Copyright (c) 1987, 1992, 1993\n\
-	The Regents of the University of California.  All rights reserved.\n");
+static const char copyright[] =
+"@(#) Copyright (c) 1987, 1992, 1993\n\
+	The Regents of the University of California.  All rights reserved.\n";
 #endif /* not lint */
 
-#ifndef lint
 #if 0
+#ifndef lint
 static char sccsid[] = "@(#)rev.c	8.3 (Berkeley) 5/4/95";
-#else
-__RCSID("$NetBSD: rev.c,v 1.6 1997/10/19 14:03:34 lukem Exp $");
-#endif
 #endif /* not lint */
+#endif
+
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/usr.bin/rev/rev.c,v 1.12 2009/12/13 03:14:06 delphij Exp $");
 
 #include <sys/types.h>
 
 #include <err.h>
 #include <errno.h>
+#include <locale.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <wchar.h>
 
-int	main __P((int, char **));
-void	usage __P((void));
+static void usage(void);
 
 int
-main(argc, argv)
-	int argc;
-	char *argv[];
+main(int argc, char *argv[])
 {
-	char *filename, *p, *t;
+	const char *filename;
+	wchar_t *p, *t;
 	FILE *fp;
 	size_t len;
 	int ch, rval;
+
+	setlocale(LC_ALL, "");
 
 	while ((ch = getopt(argc, argv, "")) != -1)
 		switch(ch) {
@@ -92,16 +93,16 @@ main(argc, argv)
 			}
 			filename = *argv++;
 		}
-		while ((p = fgetln(fp, &len)) != NULL) {
+		while ((p = fgetwln(fp, &len)) != NULL) {
 			if (p[len - 1] == '\n')
 				--len;
-			t = p + len - 1;
 			for (t = p + len - 1; t >= p; --t)
-				putchar(*t);
-			putchar('\n');
+				putwchar(*t);
+			putwchar('\n');
 		}
 		if (ferror(fp)) {
 			warn("%s", filename);
+			clearerr(fp);
 			rval = 1;
 		}
 		(void)fclose(fp);
@@ -110,7 +111,7 @@ main(argc, argv)
 }
 
 void
-usage()
+usage(void)
 {
 	(void)fprintf(stderr, "usage: rev [file ...]\n");
 	exit(1);

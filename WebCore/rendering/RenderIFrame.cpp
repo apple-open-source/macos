@@ -26,8 +26,11 @@
 #include "config.h"
 #include "RenderIFrame.h"
 
+#include "Frame.h"
 #include "FrameView.h"
 #include "HTMLIFrameElement.h"
+#include "HTMLNames.h"
+#include "Page.h"
 #include "RenderView.h"
 #include "Settings.h"
 
@@ -40,9 +43,9 @@ RenderIFrame::RenderIFrame(Element* element)
 {
 }
 
-void RenderIFrame::calcHeight()
+void RenderIFrame::computeLogicalHeight()
 {
-    RenderPart::calcHeight();
+    RenderPart::computeLogicalHeight();
     if (!flattenFrame())
          return;
 
@@ -58,9 +61,9 @@ void RenderIFrame::calcHeight()
     }
 }
 
-void RenderIFrame::calcWidth()
+void RenderIFrame::computeLogicalWidth()
 {
-    RenderPart::calcWidth();
+    RenderPart::computeLogicalWidth();
     if (!flattenFrame())
         return;
 
@@ -106,8 +109,8 @@ void RenderIFrame::layout()
 {
     ASSERT(needsLayout());
 
-    RenderPart::calcWidth();
-    RenderPart::calcHeight();
+    RenderPart::computeLogicalWidth();
+    RenderPart::computeLogicalHeight();
 
     if (flattenFrame()) {
         layoutWithFlattening(style()->width().isFixed(), style()->height().isFixed());
@@ -118,33 +121,9 @@ void RenderIFrame::layout()
 
     m_overflow.clear();
     addShadowOverflow();
+    updateLayerTransform();
 
     setNeedsLayout(false);
 }
-
-#if USE(ACCELERATED_COMPOSITING)
-bool RenderIFrame::requiresLayer() const
-{
-    if (RenderPart::requiresLayer())
-        return true;
-    
-    return requiresAcceleratedCompositing();
-}
-
-bool RenderIFrame::requiresAcceleratedCompositing() const
-{
-    if (!node() || !node()->hasTagName(iframeTag))
-        return false;
-
-    // If the contents of the iframe are composited, then we have to be as well.
-    HTMLIFrameElement* element = static_cast<HTMLIFrameElement*>(node());
-    if (Document* contentDocument = element->contentDocument()) {
-        if (RenderView* view = contentDocument->renderView())
-            return view->usesCompositing();
-    }
-
-    return false;
-}
-#endif
 
 }

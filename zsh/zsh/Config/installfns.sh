@@ -46,8 +46,11 @@ for file in $allfuncs; do
     fi
     test -d $instdir || /bin/sh $sdir_top/mkinstalldirs $instdir || exit 1
     $INSTALL_DATA $sdir_top/$file $instdir || exit 1
-    if test -x $sdir_top/$file; then
-	chmod +x $instdir/`echo $file | sed -e 's%^.*/%%'`
-    fi
+    read line < $sdir_top/$file
+    case "$line" in
+      '#!'*)
+      chmod +x $instdir/`echo $file | sed -e 's%^.*/%%'`
+      ;;
+    esac
   fi
 done

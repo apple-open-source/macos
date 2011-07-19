@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,12 +37,37 @@
 #include "pattern.h"
 
 
+static int
+removeKey(CFMutableArrayRef keys, CFStringRef key)
+{
+	CFIndex	i;
+	CFIndex	n;
+
+	if (keys == NULL) {
+		/* sorry, empty notifier list */
+		return kSCStatusNoKey;
+	}
+
+	n = CFArrayGetCount(keys);
+	i = CFArrayGetFirstIndexOfValue(keys, CFRangeMake(0, n), key);
+	if (i == kCFNotFound) {
+		/* sorry, key does not exist in notifier list */
+		return kSCStatusNoKey;
+	}
+
+	/* remove key from this sessions notifier list */
+	CFArrayRemoveValueAtIndex(keys, i);
+	return kSCStatusOK;
+}
+
+
 __private_extern__
 int
 __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boolean isRegex, Boolean internal)
 {
+	int				sc_status	= kSCStatusOK;
 	CFNumberRef			sessionNum;
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 
 	if ((store == NULL) || (storePrivate->server == MACH_PORT_NULL)) {
 		return kSCStatusNoStoreSession;	/* you must have an open session to play */
@@ -62,22 +87,20 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 	 * it was previously defined.
 	 */
 	if (isRegex) {
-		if (!CFSetContainsValue(storePrivate->patterns, key))
-			return kSCStatusNoKey;		/* sorry, key does not exist in notifier list */
-
-		/* remove key from this sessions notifier list */
-		CFSetRemoveValue(storePrivate->patterns, key);
+		sc_status = removeKey(storePrivate->patterns, key);
+		if (sc_status != kSCStatusOK) {
+			goto done;
+		}
 
 		/* remove this session as a pattern watcher */
 		sessionNum = CFNumberCreate(NULL, kCFNumberIntType, &storePrivate->server);
 		patternRemoveSession(key, sessionNum);
 		CFRelease(sessionNum);
 	} else {
-		if (!CFSetContainsValue(storePrivate->keys, key))
-			return kSCStatusNoKey;		/* sorry, key does not exist in notifier list */
-
-		/* remove key from this sessions notifier list */
-		CFSetRemoveValue(storePrivate->keys, key);
+		sc_status = removeKey(storePrivate->keys, key);
+		if (sc_status != kSCStatusOK) {
+			goto done;
+		}
 
 		/*
 		 * We are watching a specific key. As such, update the
@@ -88,7 +111,9 @@ __SCDynamicStoreRemoveWatchedKey(SCDynamicStoreRef store, CFStringRef key, Boole
 		CFRelease(sessionNum);
 	}
 
-	return kSCStatusOK;
+    done :
+
+	return sc_status;
 }
 
 

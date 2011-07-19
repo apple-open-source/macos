@@ -64,6 +64,8 @@ public:
 	CssmOwnedData &value()				{ return mValue; }
 	
     void setValue(const CssmData &value);
+	void setProperties(CFDictionaryRef properties);
+	CFDictionaryRef properties();
     
     bool operator < (const Policy& other) const;
     bool operator == (const Policy& other) const;

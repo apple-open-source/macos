@@ -1,0 +1,25 @@
+2010-08-04  Andreas Kupries  <andreask@activestate.com>
+
+	* adler32.man: New files, documentation for the packages in
+	* base64.man: this module.
+	* counter.man:
+	* crc32.man:
+	* hex.man:
+	* identity.man:
+	* limitsize.man:
+	* observe.man:
+	* otp.man:
+	* rot.man:
+	* spacer.man:
+	* zlib.man:
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-12-01  Andreas Kupries  <andreask@activestate.com>
+
+	* New module 'virtchannel_transform, providing classes implementing
+	  various channel transformation. TclOO based.

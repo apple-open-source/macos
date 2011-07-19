@@ -27,10 +27,11 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef EditorClientQt_H
-#define EditorClientQt_H
+#ifndef EditorClientQt_h
+#define EditorClientQt_h
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "RefCounted.h"
 
 #include <wtf/Forward.h>
@@ -39,7 +40,7 @@ class QWebPage;
 
 namespace WebCore {
 
-class EditorClientQt : public EditorClient {
+class EditorClientQt : public EditorClient, public TextCheckerClient {
 public:
     EditorClientQt(QWebPage* page);
     
@@ -56,7 +57,6 @@ public:
     virtual void toggleGrammarChecking();
     virtual int spellCheckerDocumentTag();
     virtual bool selectWordBeforeMenuEvent();
-    virtual bool isEditable();
 
     virtual bool shouldBeginEditing(Range*);
     virtual bool shouldEndEditing(Range*);
@@ -79,6 +79,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>);
     virtual void clearUndoRedoOperations();
 
+    virtual bool canCopyCut(Frame*, bool defaultValue) const;
+    virtual bool canPaste(Frame*, bool defaultValue) const;
     virtual bool canUndo() const;
     virtual bool canRedo() const;
     
@@ -104,10 +106,16 @@ public:
     virtual void updateSpellingUIWithMisspelledWord(const String&);
     virtual void showSpellingUI(bool show);
     virtual bool spellingUIIsShowing();
-    virtual void getGuessesForWord(const String&, Vector<String>& guesses);
+    virtual void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
+    virtual void willSetInputMethodState();
     virtual void setInputMethodState(bool enabled);
+    virtual void requestCheckingOfString(SpellChecker*, int, WebCore::TextCheckingTypeMask, const String&) {}
+    virtual TextCheckerClient* textChecker() { return this; }
 
     bool isEditing() const;
+
+    static bool dumpEditingCallbacks;
+    static bool acceptsEditing;
 
 private:
     QWebPage* m_page;

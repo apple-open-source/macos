@@ -2,6 +2,7 @@
 [manpage_begin profiler n 0.3]
 [moddesc   {Tcl Profiler}]
 [titledesc {Tcl source code profiler}]
+[category  {Programming tools}]
 [require Tcl 8.3]
 [require profiler [opt 0.3]]
 [description]

@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1999-2004, International Business Machines Corporation and   *
+* Copyright (C) 1999-2010, International Business Machines Corporation and   *
 * others. All Rights Reserved.                                               *
 ******************************************************************************
 *   Date        Name        Description
@@ -10,10 +10,11 @@
 
 #include "uvector.h"
 #include "cmemory.h"
+#include "uarrsort.h"
 
 U_NAMESPACE_BEGIN
 
-#define DEFUALT_CAPACITY 8
+#define DEFAULT_CAPACITY 8
 
 /*
  * Constants for hinting whether a key is an integer
@@ -32,7 +33,7 @@ UVector::UVector(UErrorCode &status) :
     deleter(0),
     comparer(0)
 {
-    _init(DEFUALT_CAPACITY, status);
+    _init(DEFAULT_CAPACITY, status);
 }
 
 UVector::UVector(int32_t initialCapacity, UErrorCode &status) :
@@ -52,7 +53,7 @@ UVector::UVector(UObjectDeleter *d, UKeyComparator *c, UErrorCode &status) :
     deleter(d),
     comparer(c)
 {
-    _init(DEFUALT_CAPACITY, status);
+    _init(DEFAULT_CAPACITY, status);
 }
 
 UVector::UVector(UObjectDeleter *d, UKeyComparator *c, int32_t initialCapacity, UErrorCode &status) :
@@ -69,9 +70,9 @@ void UVector::_init(int32_t initialCapacity, UErrorCode &status) {
     if (U_FAILURE(status)) {
         return;
     }
-    // Fix bogus initialCapacity values; avoid malloc(0)
-    if (initialCapacity < 1) {
-        initialCapacity = DEFUALT_CAPACITY;
+    // Fix bogus initialCapacity values; avoid malloc(0) and integer overflow
+    if ((initialCapacity < 1) || (initialCapacity > (int32_t)(INT32_MAX / sizeof(UHashTok)))) {
+        initialCapacity = DEFAULT_CAPACITY;
     }
     elements = (UHashTok *)uprv_malloc(sizeof(UHashTok)*initialCapacity);
     if (elements == 0) {
@@ -325,14 +326,27 @@ int32_t UVector::indexOf(UHashTok key, int32_t startIndex, int8_t hint) const {
 }
 
 UBool UVector::ensureCapacity(int32_t minimumCapacity, UErrorCode &status) {
+	if (minimumCapacity < 0) {
+        status = U_ILLEGAL_ARGUMENT_ERROR;
+        return FALSE;
+	}
     if (capacity < minimumCapacity) {
+        if (capacity > (INT32_MAX - 1) / 2) {        	// integer overflow check
+        	status = U_ILLEGAL_ARGUMENT_ERROR;
+        	return FALSE;
+        }
         int32_t newCap = capacity * 2;
         if (newCap < minimumCapacity) {
             newCap = minimumCapacity;
         }
+        if (newCap > (int32_t)(INT32_MAX / sizeof(UHashTok))) {	// integer overflow check
+        	// We keep the original memory contents on bad minimumCapacity.
+        	status = U_ILLEGAL_ARGUMENT_ERROR;
+        	return FALSE;
+        }
         UHashTok* newElems = (UHashTok *)uprv_realloc(elements, sizeof(UHashTok)*newCap);
         if (newElems == NULL) {
-            // We keep the original contents on the memory failure on realloc.
+            // We keep the original contents on the memory failure on realloc or bad minimumCapacity.
             status = U_MEMORY_ALLOCATION_ERROR;
             return FALSE;
         }
@@ -463,6 +477,75 @@ void UVector::sortedInsert(UHashTok tok, USortComparator *compare, UErrorCode& e
         }
         elements[min] = tok;
         ++count;
+    }
+}
+
+/**
+  *  Array sort comparator function.
+  *  Used from UVector::sort()
+  *  Conforms to function signature required for uprv_sortArray().
+  *  This function is essentially just a wrapper, to make a
+  *  UVector style comparator function usable with uprv_sortArray().
+  *
+  *  The context pointer to this function is a pointer back
+  *  (with some extra indirection) to the user supplied comparator.
+  *  
+  */
+static int32_t U_CALLCONV
+sortComparator(const void *context, const void *left, const void *right) {
+    USortComparator *compare = *static_cast<USortComparator * const *>(context);
+    UHashTok tok1 = *static_cast<const UHashTok *>(left);
+    UHashTok tok2 = *static_cast<const UHashTok *>(right);
+    int32_t result = (*compare)(tok1, tok2);
+    return result;
+}
+
+
+/**
+  *  Array sort comparison function for use from UVector::sorti()
+  *  Compares int32_t vector elements.
+  */
+static int32_t U_CALLCONV
+sortiComparator(const void * /*context */, const void *left, const void *right) {
+    const UHashTok *tok1 = static_cast<const UHashTok *>(left);
+    const UHashTok *tok2 = static_cast<const UHashTok *>(right);
+    int32_t result = tok1->integer < tok2->integer? -1 :
+                     tok1->integer == tok2->integer? 0 : 1;
+    return result;
+}
+
+/**
+  * Sort the vector, assuming it constains ints.
+  *     (A more general sort would take a comparison function, but it's
+  *     not clear whether UVector's USortComparator or
+  *     UComparator from uprv_sortAray would be more appropriate.)
+  */
+void UVector::sorti(UErrorCode &ec) {
+    if (U_SUCCESS(ec)) {
+        uprv_sortArray(elements, count, sizeof(UHashTok),
+                       sortiComparator, NULL,  FALSE, &ec);
+    }
+}
+
+
+/**
+ *  Sort with a user supplied comparator.
+ *
+ *    The comparator function handling is confusing because the function type
+ *    for UVector  (as defined for sortedInsert()) is different from the signature
+ *    required by uprv_sortArray().  This is handled by passing the
+ *    the UVector sort function pointer via the context pointer to a
+ *    sortArray() comparator function, which can then call back to
+ *    the original user functtion.
+ *
+ *    An additional twist is that it's not safe to pass a pointer-to-function
+ *    as  a (void *) data pointer, so instead we pass a (data) pointer to a
+ *    pointer-to-function variable.
+ */
+void UVector::sort(USortComparator *compare, UErrorCode &ec) {
+    if (U_SUCCESS(ec)) {
+        uprv_sortArray(elements, count, sizeof(UHashTok),
+                       sortComparator, &compare, FALSE, &ec);
     }
 }
 

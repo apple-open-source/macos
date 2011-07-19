@@ -27,20 +27,20 @@
 #define CSSFontSelector_h
 
 #include "FontSelector.h"
-#include "StringHash.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class AtomicString;
 class CSSFontFace;
 class CSSFontFaceRule;
 class CSSSegmentedFontFace;
 class Document;
-class DocLoader;
+class CachedResourceLoader;
 class FontDescription;
-class String;
 
 class CSSFontSelector : public FontSelector {
 public:
@@ -61,15 +61,21 @@ public:
 
     bool isEmpty() const;
 
-    DocLoader* docLoader() const;
+    CachedResourceLoader* cachedResourceLoader() const;
+
+    virtual void registerForInvalidationCallbacks(FontSelectorClient*);
+    virtual void unregisterForInvalidationCallbacks(FontSelectorClient*);
 
 private:
     CSSFontSelector(Document*);
+
+    void dispatchInvalidationCallbacks();
 
     Document* m_document;
     HashMap<String, Vector<RefPtr<CSSFontFace> >*, CaseFoldingHash> m_fontFaces;
     HashMap<String, Vector<RefPtr<CSSFontFace> >*, CaseFoldingHash> m_locallyInstalledFontFaces;
     HashMap<String, HashMap<unsigned, RefPtr<CSSSegmentedFontFace> >*, CaseFoldingHash> m_fonts;
+    HashSet<FontSelectorClient*> m_clients;
 };
 
 } // namespace WebCore

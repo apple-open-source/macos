@@ -25,16 +25,22 @@
 #ifndef Range_h
 #define Range_h
 
-#include "FloatQuad.h"
+#include "FloatRect.h"
+#include "IntRect.h"
+#include "Node.h"
 #include "RangeBoundaryPoint.h"
 #include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
+#include <wtf/Vector.h>
 
 namespace WebCore {
 
 class ClientRect;
 class ClientRectList;
+class ContainerNode;
+class Document;
 class DocumentFragment;
+class FloatQuad;
 class NodeWithIndex;
 class Text;
 
@@ -68,8 +74,8 @@ public:
     CompareResults compareNode(Node* refNode, ExceptionCode&) const;
     enum CompareHow { START_TO_START, START_TO_END, END_TO_END, END_TO_START };
     short compareBoundaryPoints(CompareHow, const Range* sourceRange, ExceptionCode&) const;
-    static short compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB);
-    static short compareBoundaryPoints(const RangeBoundaryPoint& boundaryA, const RangeBoundaryPoint& boundaryB);
+    static short compareBoundaryPoints(Node* containerA, int offsetA, Node* containerB, int offsetB, ExceptionCode&);
+    static short compareBoundaryPoints(const RangeBoundaryPoint& boundaryA, const RangeBoundaryPoint& boundaryB, ExceptionCode&);
     bool boundaryPointsValid() const;
     bool intersectsNode(Node* refNode, ExceptionCode&);
     void deleteContents(ExceptionCode&);
@@ -108,7 +114,9 @@ public:
     // Not transform-friendly
     void textRects(Vector<IntRect>&, bool useSelectionHeight = false);
     // Transform-friendly
-    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false);
+    void textQuads(Vector<FloatQuad>&, bool useSelectionHeight = false) const;
+    void getBorderAndTextQuads(Vector<FloatQuad>&) const;
+    FloatRect boundingRect() const;
 
     void nodeChildrenChanged(ContainerNode*);
     void nodeChildrenWillBeRemoved(ContainerNode*);
@@ -135,6 +143,8 @@ private:
     Range(PassRefPtr<Document>);
     Range(PassRefPtr<Document>, PassRefPtr<Node> startContainer, int startOffset, PassRefPtr<Node> endContainer, int endOffset);
 
+    void setDocument(Document*);
+
     Node* checkNodeWOffset(Node*, int offset, ExceptionCode&) const;
     void checkNodeBA(Node*, ExceptionCode&) const;
     void checkDeleteExtract(ExceptionCode&);
@@ -144,8 +154,10 @@ private:
 
     enum ActionType { DELETE_CONTENTS, EXTRACT_CONTENTS, CLONE_CONTENTS };
     PassRefPtr<DocumentFragment> processContents(ActionType, ExceptionCode&);
-
-    void getBorderAndTextQuads(Vector<FloatQuad>&) const;
+    static PassRefPtr<Node> processContentsBetweenOffsets(ActionType, PassRefPtr<DocumentFragment>, Node*, unsigned startOffset, unsigned endOffset, ExceptionCode&);
+    static void processNodes(ActionType, Vector<RefPtr<Node> >&, PassRefPtr<Node> oldContainer, PassRefPtr<Node> newContainer, ExceptionCode&);
+    enum ContentsProcessDirection { ProcessContentsForward, ProcessContentsBackward };
+    static PassRefPtr<Node> processAncestorsAndTheirSiblings(ActionType, Node* container, ContentsProcessDirection, PassRefPtr<Node> clonedContainer, Node* commonRoot, ExceptionCode&);
 
     RefPtr<Document> m_ownerDocument;
     RangeBoundaryPoint m_start;

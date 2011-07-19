@@ -726,6 +726,11 @@ possibilities
 
     HASCDRNODE		enables/disables readcdrnode() in node.c.
 
+    HAS_CONN_NEW        indicates the Solaris version has the new form
+			of the conn_s structure, introduced in b134 of
+			Solaris 11.  This will always accompany the
+			HAS_IPCLASSIFIER_H definition.
+
     HAS_CONST		indicates that the compiler supports the
 			const keyword.
 
@@ -917,6 +922,9 @@ possibilities
     HASLFS		indicates the *BSD dialect has log-structured
 			file system support.
 
+    HAS_LIBCTF		indicates the Solaris 10 and above system has
+			the CTF library.
+
     HAS_LOCKF_ENTRY	indicates the FreeBSD version has a lockf_entry
 			structure in its <sys/lockf.h> header file.
 
@@ -977,6 +985,12 @@ possibilities
     HASNOFSNADDR	is defined if the dialect has no file structure node
 			addresses.  (HASFSTRUCT must be defined.)
 
+    HAS_NO_6PORT	is defined if the FreeBSD in_pcb.h has no in6p_.port
+			definitions.
+
+    HAS_NO_6PPCB	is defined if the FreeBSD in_pcb.h has no in6p_ppcb
+			definition.
+
     HAS_NO_ISO_DEV	indicates the FreeBSD 6 and higher system has
 			no i_dev member in its iso_node structure.
 
@@ -1003,6 +1017,10 @@ possibilities
 
     HASONLINEJFS	indicates the HP-UX 11 dialect has the optional
 			OnlineJFS package installed.
+
+    HAS_PC_DIRENTPERSEC
+			indicates the Solaris 10 system's <sys/fs/pc_node.h>
+			header file has the pc_direntpersec() macro.
 
     HASPERSDC           enables the use of a personal device cache
 			file path and specifies a format by which
@@ -1252,6 +1270,9 @@ possibilities
     HAS_V_LOCKF		indicates the FreeBSD version has a v_lockf
 			member in the vode structure, defined in
 			<sys/vnode.h>.
+
+    HAS_VM_MEMATTR_T	indicates the FreeBSD <sys/conf.h> uses the
+			vm_memattr_t typedef.
 
     HASVMLOCKH		indicates the FreeBSD dialect has <vm/lock.h>.
 
@@ -1781,4 +1802,4 @@ keep in mind the private, one-man nature of current lsof support.
 
 
 Vic Abell <abe@purdue.edu>
-October 23, 2008
+July 29, 2010

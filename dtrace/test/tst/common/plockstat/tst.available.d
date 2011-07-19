@@ -34,7 +34,7 @@
 plockstat$1:libc.so.1::
 {}
 #else
-plockstat$1:libSystem.B.dylib::
+plockstat$1:libsystem_c.dylib::
 {}
 #endif
 

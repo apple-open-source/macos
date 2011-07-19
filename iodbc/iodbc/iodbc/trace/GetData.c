@@ -101,14 +101,15 @@ _trace_data (
   switch (fCType)
     {
     case SQL_C_BINARY:
-      {
-        int len;
-	if (pcbValue && cbValueMax > 0)
-	  len = *((SQLINTEGER *) pcbValue);
-	else
-	  len = cbValueMax;
-	trace_emit_binary ((unsigned char *) rgbValue, len);
-      }
+		{
+			int len=cbValueMax;
+			if (pcbValue) {
+				len = *((SQLINTEGER *) pcbValue);
+				if (len>cbValueMax)
+					len = cbValueMax;
+			}
+			trace_emit_binary ((unsigned char *) rgbValue, len);
+		}
       break;
 
     case SQL_C_BIT:
@@ -121,12 +122,13 @@ _trace_data (
 
     case SQL_C_CHAR:
       {
-        int len;
-        if (pcbValue && cbValueMax > 0)
- 	  len =  *((SQLINTEGER *) pcbValue);
-        else
-	  len = cbValueMax;
-	trace_emit_string ((SQLCHAR *) rgbValue, len, 0);
+		  int len=cbValueMax;
+		  if (pcbValue) {
+			  len = *((SQLINTEGER *) pcbValue);
+			  if (len>cbValueMax)
+				  len = cbValueMax;
+		  }
+		  trace_emit_string ((SQLCHAR *) rgbValue, len, 0);
       }
       break;
 

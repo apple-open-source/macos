@@ -1,0 +1,317 @@
+require "vnd.dovecot.testsuite";
+
+require "notify";
+require "body";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Simple test
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Simple" {
+	notify :method "mailto" :options "stephan@example.org";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not header :matches "Auto-Submitted" "auto-generated*" {
+		test_fail "auto-submitted header set inappropriately";
+	}
+
+	if not exists "X-Sieve" {
+		test_fail "x-sieve header missing from outgoing message";
+	}
+}
+
+/*
+ * Multiple recipients
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Multiple recipients" {
+	notify :options ["timo@example.com","stephan@dovecot.example.net","postmaster@frop.example.org"];
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not address :is "to" "timo@example.com" {
+		test_fail "first To address missing";
+	}
+
+	test_message :smtp 1;
+
+	if not address :is "to" "stephan@dovecot.example.net" {
+		test_fail "second To address missing";
+	}
+
+	if not header :matches "Auto-Submitted" "auto-generated*" {
+		test_fail "auto-submitted header not found for second message";
+	}
+
+	test_message :smtp 2;
+
+	if not address :is "to" "postmaster@frop.example.org" {
+		test_fail "third To address missing";
+	}
+
+	if not header :matches "Auto-Submitted" "auto-generated*" {
+		test_fail "auto-submitted header not found for third message";
+	}
+
+	if not address :count "eq" :comparator "i;ascii-numeric" "to" "1" {
+		test_fail "too many recipients in To header";
+	} 
+
+	if not address :count "eq" :comparator "i;ascii-numeric" "cc" "0" {
+		test_fail "too many recipients in Cc header";
+	} 
+}
+
+/*
+ * Duplicate recipients
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Duplicate recipients" {
+	notify :options ["timo@example.com", "stephan@dovecot.example.net", "stephan@dovecot.example.net"];
+	notify :options ["timo@example.com", "stephan@example.org"];
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 2;
+
+	if address "To" "stephan@dovecot.example.net" {
+		test_fail "duplicate recipient not removed from first message";
+	}
+
+	if address "To" "timo@example.com" {
+		test_fail "duplicate recipient not removed from second message";
+	}
+}
+
+/*
+ * Notifying on automated messages
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Auto-submitted: auto-notify
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Notifying on automated messages" {
+	notify :options "stephan@example.org";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "notified of auto-submitted message";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+To: nico@frop.example.org
+From: stephan@example.org
+Subject: Test
+
+Test. Test
+Frop!
+.
+;
+
+test "Body; Singular Message" {
+	notify :low :id "frop" :options "stephan@example.org"
+    	:message text:
+Received interesting message:
+
+$text$
+
+You have been notified.
+.
+;	
+	
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not body :raw :contains "Received interesting message" {
+		test_fail "notification has no heading";
+	}
+
+	if not body :raw :contains "You have been notified" {
+		test_fail "notification has no footer";
+	}	
+
+	if not allof(
+		body :raw :contains "Test. Test",
+		body :raw :contains "Frop" ) {
+		test_fail "notification has no original message";
+	}
+}
+
+test_result_reset;
+
+test_set "message" text:
+To: nico@frop.example.org
+From: stephan@example.org
+Subject: Test
+
+Test. Test
+Frop!
+.
+;
+
+test "Body; $text[maxsize]$" {
+	notify :low :id "frop" :options "sirius@example.org"
+    	:message text:
+Received interesting message:
+
+$text[5]$
+
+You have been notified.
+.
+;	
+	
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not body :raw :contains "Received interesting message" {
+		test_fail "notification has no heading";
+	}
+
+	if not body :raw :contains "You have been notified" {
+		test_fail "notification has no footer";
+	}	
+
+	if anyof(
+		body :raw :contains "Test. Test",
+		body :raw :contains "Frop" ) {
+		test_fail "original message in notification is not truncated";
+	}
+
+	if not body :raw :contains "Test." {
+		test_fail "notification does not contain the required message";
+	}	
+}
+
+test_result_reset;
+
+test_set "message" text:
+From: Whomever <whoever@example.com>
+To: Someone <someone@example.com>
+Date: Sat, 10 Oct 2009 00:30:04 +0200
+Subject: whatever
+Content-Type: multipart/mixed; boundary=outer
+
+This is a multi-part message in MIME format.
+
+--outer
+Content-Type: multipart/alternative; boundary=inner
+
+This is a nested multi-part message in MIME format.
+
+--inner
+Content-Type: application/sieve; charset="us-ascii"
+
+keep;
+        
+--inner
+Content-Type: text/plain; charset="us-ascii"
+
+Friep!
+
+--inner--
+
+This is the end of the inner MIME multipart.
+
+--outer
+Content-Type: message/rfc822
+
+From: Someone Else
+Subject: hello request
+
+Please say Hello
+
+--outer--
+
+This is the end of the outer MIME multipart.
+.
+;
+
+test "Body; Multipart Message" {
+	notify :low :id "frop" :options "stephan@example.org"
+    	:message text:
+Received interesting message:
+
+$text$
+
+You have been notified.
+.
+;	
+	
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	test_message :smtp 0;
+
+	if not body :raw :contains "Friep!" {
+		test_fail "notification has incorrect content";
+	}
+}
+
+
+

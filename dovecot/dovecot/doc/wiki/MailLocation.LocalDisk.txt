@@ -1,0 +1,50 @@
+Mail storage in local disk
+==========================
+
+Filesystems
+-----------
+
+ * See <MailboxFormat.Maildir.txt> for Maildir-specific filesystem
+   optimizations
+ * Dovecot doesn't rely on atime updates, so you can mount the filesystem with
+   noatime
+
+Index files
+-----------
+
+Keeping index files on a different disk than the mail spool gives you better
+performance. The indexes have a lot of write activity so it is recommended to
+use RAID-10 instead of RAID-5 for them.
+
+Fsyncing
+--------
+
+By default Dovecot calls fsync() and fdatasync() whenever it's useful to
+prevent potential data loss. The main reason for this is so that Dovecot won't
+lie that the message was saved to the disk, if in fact a power failure a second
+later would lose the message. With IMAP clients this is perhaps a less serious
+problem, because the lost message was most likely either a mail in Draft
+mailbox or a message in "Sent Messages" mailbox. In any case a message that the
+user had already seen. However if <LDA.txt> loses a message, the user never
+even knew that the message existed, unless the sender decides to resend it.
+
+Since power failures and kernel panics are quite rare, many people are tempted
+to disable fsyncing because it may increase the performance quite a lot.
+Dovecot allows this by setting 'mail_fsync=never'. However you should consider
+leaving it at "no" for LDA and LMTP. You can do this with:
+
+---%<-------------------------------------------------------------------------
+# Default to no fsyncing
+mail_fsync = never
+
+protocol lda {
+  # Enable fsyncing for LDA
+  mail_fsync = optimized
+}
+protocol lmtp {
+  # Enable fsyncing for LMTP
+  mail_fsync = optimized
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

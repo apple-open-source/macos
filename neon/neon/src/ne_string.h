@@ -90,6 +90,11 @@ void ne_buffer_zappend(ne_buffer *buf, const char *str);
  * a NUL terminator.  (A NUL terminator is appended to buf) */
 void ne_buffer_append(ne_buffer *buf, const char *data, size_t len);
 
+/* Append 'len' bytes of 'data' to buf.  All non-ASCII bytes, and
+ * ASCII control characters, are escaped.  (Note that this includes
+ * the NUL byte). */
+void ne_buffer_qappend(ne_buffer *buf, const unsigned char *data, size_t len);
+
 /* Print a string to the end of the buffer using printf-style format
  * string 'format' and subsqeuent arguments.  At most 'max' characters
  * are appended; the number of characters appended (excluding the NUL
@@ -133,6 +138,11 @@ char *ne_strerror(int errnum, char *buffer, size_t buflen);
  * ensures that 'dest' is subsequently NUL-terminated. */
 #define ne_strnzcpy(dest, src, n) do { size_t ne__nm1 = (n) - 1;      \
 strncpy(dest, src, ne__nm1); dest[ne__nm1] = '\0'; } while (0)
+
+/* Return a malloc-allocated copy of 'data', of length 'len', with all
+ * non-ASCII bytes, and ASCII control characters escaped.  (Note that
+ * the escaping includes the NUL byte). */
+char *ne_strnqdup(const unsigned char *data, size_t len);
 
 /* Return malloc-allocated concatenation of all NUL-terminated string
  * arguments, up to a terminating NULL pointer. */

@@ -41,6 +41,7 @@ OSErr GetCatalogRecordByID(SGlobPtr GPtr, UInt32 file_id, Boolean isHFSPlus, Cat
 	FSBufferDescriptor buf_desc;
 	BTreeIterator search_iterator;
 	BTreeIterator result_iterator;
+	uint32_t thread_key_parentID = 0;
 
 	fcb = GPtr->calculatedCatalogFCB;
 	btcb = (BTreeControlBlock *)fcb->fcbBtree;
@@ -73,6 +74,10 @@ OSErr GetCatalogRecordByID(SGlobPtr GPtr, UInt32 file_id, Boolean isHFSPlus, Cat
 			goto out;
 		}
 	}
+
+	if (isHFSPlus) {
+		thread_key_parentID = ((CatalogKey *)&(result_iterator.key))->hfsPlus.parentID;
+	}
 	
 	/* Lookup the corresponding file/folder record */
 	bzero(&buf_desc, sizeof(buf_desc));
@@ -98,6 +103,22 @@ OSErr GetCatalogRecordByID(SGlobPtr GPtr, UInt32 file_id, Boolean isHFSPlus, Cat
 	
 	bcopy(&(result_iterator.key), key, CalcKeySize(btcb, &(result_iterator.key)));
 	
+	if (isHFSPlus) {
+		/* For catalog file or folder record, the parentID in the thread 
+		 * record's key should be equal to the fileID in the file/folder 
+		 * record --- which is equal to the ID of the file/folder record
+		 * that is being looked up.  If not, mark the volume for repair. 
+		 */
+		if (thread_key_parentID != rec->hfsPlusFile.fileID) {
+			RcdError(GPtr, E_IncorrectNumThdRcd);
+			if (fsckGetVerbosity(GPtr->context) >= kDebugLog) {
+				plog("\t%s: fileID=%u, thread.key.parentID=%u, record.fileID=%u\n", 
+					__FUNCTION__, file_id, thread_key_parentID, rec->hfsPlusFile.fileID);
+			}
+			GPtr->CBTStat |= S_Orphan;
+		}
+	}
+
 out:
 	return retval;
 }

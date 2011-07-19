@@ -128,8 +128,8 @@ graphics         41/udp     # Graphics
 graphics         41/tcp     # Graphics
 name             42/udp     nameserver # Host Name Server
 name             42/tcp     nameserver # Host Name Server
-nicname          43/udp     # Who Is
-nicname          43/tcp     # Who Is
+nicname		 43/tcp	   whois
+nicname		 43/udp	   whois
 mpm-flags        44/udp     # MPM FLAGS Protocol
 mpm-flags        44/tcp     # MPM FLAGS Protocol
 mpm              45/udp     # Message Processing Module [recv]
@@ -333,7 +333,7 @@ mcidas          112/udp     # McIDAS Data Transmission Protocol
 mcidas          112/tcp     # McIDAS Data Transmission Protocol
 #                          Glenn Davis <support@unidata.ucar.edu>
 auth            113/udp     # Authentication Service
-ident           113/tcp     auth # 
+auth            113/tcp     ident # 
 #                          Mike St. Johns <stjohns@arpa.mil>
 audionews       114/udp     # Audio News Multicast
 audionews       114/tcp     # Audio News Multicast
@@ -10435,7 +10435,7 @@ omscontact      4161/tcp    # OMS Contact
 omscontact      4161/udp    # OMS Contact
 omstopology     4162/tcp    # OMS Topology
 omstopology     4162/udp    # OMS Topology
-#               4163-4198   Unassigned
+sieve           4190/tcp    # ManageSieve Protocol
 eims-admin      4199/udp    # EIMS ADMIN
 eims-admin      4199/tcp    # EIMS ADMIN
 #                          Glenn Anderson <glenn@qualcomm.co.nz> 
@@ -11519,8 +11519,8 @@ wherehoo        5859/tcp    # WHEREHOO
 ppsuitemsg      5863/tcp    # PlanetPress Suite Messeng
 ppsuitemsg      5863/udp    # PlanetPress Suite Messeng
 #               5864-5899   Unassigned
-vnc-server      5900/tcp    # VNC Server
-vnc-server      5900/udp    # VNC Server
+rfb             5900/tcp    vnc-server # VNC Server
+rfb             5900/udp    vnc-server # VNC Server
 #               5901-5962   Unassigned
 indy            5963/tcp    # Indy Application Server
 indy            5963/udp    # Indy Application Server

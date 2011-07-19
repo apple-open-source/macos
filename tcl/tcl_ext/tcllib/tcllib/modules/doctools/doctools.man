@@ -1,10 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin doctools n 1.4]
-[copyright {2003-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin doctools n 1.4.10]
+[copyright {2003-2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctools - Processing documents}]
+[category  {Documentation tools}]
 [require Tcl 8.2]
-[require doctools [opt 1.4]]
+[require doctools [opt 1.4.10]]
 [description]
 
 This package provides a class for the creation of objects able to
@@ -220,9 +221,10 @@ All doctools objects understand the following configuration options:
 [opt_def -file [arg file]]
 
 The argument of this option is stored in the object and made available
-to the configured formatting engine through the command [cmd dt_file].
+to the configured formatting engine through the commands [cmd dt_file]
+and [cmd dt_mainfile].
 
-This command is described in more detail in the companion document
+These commands are described in more detail in the companion document
 [term doctools_api] which specifies the API between the object and
 formatting engines.
 

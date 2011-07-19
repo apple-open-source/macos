@@ -33,7 +33,7 @@
 
 #include <DirectoryServiceCore/PrivateTypes.h>
 #include <DirectoryServiceCore/SharedConsts.h>
-#include <DirectoryService/DirServicesTypesPriv.h>
+#include "DirServicesTypesPriv.h"
 
 //------------------------------------------------------------------------------
 //	* CClientEndPoint

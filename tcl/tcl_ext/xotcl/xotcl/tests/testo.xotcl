@@ -12,7 +12,7 @@
 # suitability of this software for any purpose.  It is provided "as is"
 # without express or implied warranty.
 #
-package require XOTcl
+package require XOTcl 1
 namespace import -force xotcl::*
 
 @ @File {description {
@@ -524,8 +524,7 @@ objectvariables proc run {{n 100}} {
     lappend guide [list array $i w]
   }
 
-
-  if {$guide != $trail} then {
+ if {$guide != $trail} then {
     error "FAILED [self] - trace: expected $guide, got $trail"
   }
 
@@ -540,7 +539,7 @@ objectvariables proc run {{n 100}} {
   }
 
   avar2 killSelf
-
+ 
   if {[lsort $guide] != [lsort $trail]} then {
     error "FAILED [self] - trace: expected $guide, got $trail"
   }

@@ -25,6 +25,7 @@ $DEBUG   = 0 unless defined $DEBUG;
 
 use SQL::Translator::Schema::Constants;
 use SQL::Translator::Utils qw(header_comment);
+use Data::Dumper ();
 
 ## Skip all column type translation, as we want to use whatever the parser got.
 
@@ -127,7 +128,7 @@ __PACKAGE__->table('${tname}');
                 $tableextras{$table->name} .= "\n__PACKAGE__->belongs_to('" .
                     $cont->fields->[0]->name . "', '" .
                     "${dbixschema}::" . $cont->reference_table . "');\n";
-                
+
                 my $other = "\n__PACKAGE__->has_many('" .
                     "get_" . $table->name. "', '" .
                     "${dbixschema}::" . $table->name. "', '" .

@@ -1,6 +1,6 @@
---- isphonogram.3.orig	Fri Mar 11 19:25:22 2005
-+++ isphonogram.3	Fri Mar 11 19:26:47 2005
-@@ -49,7 +49,8 @@
+--- isphonogram.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ isphonogram.3	2009-11-09 15:05:26.000000000 -0800
+@@ -49,7 +49,8 @@ returns non-zero if the character tests 
  .Sh SEE ALSO
  .Xr ctype 3 ,
  .Xr isideogram 3 ,

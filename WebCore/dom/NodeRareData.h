@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 David Smith <catfish.man@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -24,19 +24,22 @@
 
 #include "ClassNodeList.h"
 #include "DynamicNodeList.h"
-#include "EventListener.h"
 #include "NameNodeList.h"
 #include "QualifiedName.h"
-#include "RegisteredEventListener.h"
-#include "StringHash.h"
 #include "TagNodeList.h"
 #include <wtf/HashSet.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-struct NodeListsNodeData : Noncopyable {
+class LabelsNodeList;
+class TreeScope;
+
+struct NodeListsNodeData {
+    WTF_MAKE_NONCOPYABLE(NodeListsNodeData); WTF_MAKE_FAST_ALLOCATED;
+public:
     typedef HashSet<DynamicNodeList*> NodeListSet;
     NodeListSet m_listsWithCaches;
     
@@ -47,13 +50,18 @@ struct NodeListsNodeData : Noncopyable {
 
     typedef HashMap<String, NameNodeList*> NameNodeListCache;
     NameNodeListCache m_nameNodeListCache;
-    
-    typedef HashMap<RefPtr<QualifiedName::QualifiedNameImpl>, TagNodeList*> TagNodeListCache;
+ 
+    typedef HashMap<AtomicString, TagNodeList*> TagNodeListCache;
     TagNodeListCache m_tagNodeListCache;
 
+    typedef HashMap<RefPtr<QualifiedName::QualifiedNameImpl>, TagNodeList*> TagNodeListCacheNS;
+    TagNodeListCacheNS m_tagNodeListCacheNS;
+ 
+    LabelsNodeList* m_labelsNodeListCache;
+ 
     static PassOwnPtr<NodeListsNodeData> create()
     {
-        return new NodeListsNodeData;
+        return adoptPtr(new NodeListsNodeData);
     }
     
     void invalidateCaches();
@@ -62,18 +70,24 @@ struct NodeListsNodeData : Noncopyable {
 
 private:
     NodeListsNodeData()
-        : m_childNodeListCaches(DynamicNodeList::Caches::create())
+        : m_childNodeListCaches(DynamicNodeList::Caches::create()), m_labelsNodeListCache(0)
     {
     }
 };
     
-class NodeRareData : public Noncopyable {
+class NodeRareData {
+    WTF_MAKE_NONCOPYABLE(NodeRareData); WTF_MAKE_FAST_ALLOCATED;
 public:    
     NodeRareData()
-        : m_tabIndex(0)
+        : m_treeScope(0)
+        , m_tabIndex(0)
         , m_tabIndexWasSetExplicitly(false)
         , m_isFocused(false)
         , m_needsFocusAppearanceUpdateSoonAfterAttach(false)
+    {
+    }
+
+    virtual ~NodeRareData()
     {
     }
 
@@ -89,20 +103,24 @@ public:
     {
         return rareDataMap().get(node);
     }
+
+    TreeScope* treeScope() const { return m_treeScope; }
+    void setTreeScope(TreeScope* treeScope) { m_treeScope = treeScope; }
     
     void clearNodeLists() { m_nodeLists.clear(); }
     void setNodeLists(PassOwnPtr<NodeListsNodeData> lists) { m_nodeLists = lists; }
     NodeListsNodeData* nodeLists() const { return m_nodeLists.get(); }
-    
+
     short tabIndex() const { return m_tabIndex; }
     void setTabIndexExplicitly(short index) { m_tabIndex = index; m_tabIndexWasSetExplicitly = true; }
     bool tabIndexSetExplicitly() const { return m_tabIndexWasSetExplicitly; }
+    void clearTabIndexExplicitly() { m_tabIndex = 0; m_tabIndexWasSetExplicitly = false; }
 
     EventTargetData* eventTargetData() { return m_eventTargetData.get(); }
     EventTargetData* ensureEventTargetData()
     {
         if (!m_eventTargetData)
-            m_eventTargetData.set(new EventTargetData);
+            m_eventTargetData = adoptPtr(new EventTargetData);
         return m_eventTargetData.get();
     }
 
@@ -115,6 +133,7 @@ protected:
     void setNeedsFocusAppearanceUpdateSoonAfterAttach(bool needs) { m_needsFocusAppearanceUpdateSoonAfterAttach = needs; }
 
 private:
+    TreeScope* m_treeScope;
     OwnPtr<NodeListsNodeData> m_nodeLists;
     OwnPtr<EventTargetData> m_eventTargetData;
     short m_tabIndex;
@@ -123,6 +142,6 @@ private:
     bool m_needsFocusAppearanceUpdateSoonAfterAttach : 1;
 };
 
-} //namespace
+} // namespace WebCore
 
-#endif
+#endif // NodeRareData_h

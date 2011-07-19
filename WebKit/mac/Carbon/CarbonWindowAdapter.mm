@@ -81,7 +81,7 @@
 #import "WebTypesInternal.h"
 
 @interface NSWindow(HIWebFrameView)
-- _initContent:(const NSRect *)contentRect styleMask:(unsigned int)aStyle backing:(NSBackingStoreType)bufferingType defer:(BOOL)flag contentView:aView;
+- (id)_initContent:(const NSRect *)contentRect styleMask:(unsigned int)aStyle backing:(NSBackingStoreType)bufferingType defer:(BOOL)flag contentView:aView;
 - (void)_oldPlaceWindow:(NSRect)frameRect;
 - (void)_windowMovedToRect:(NSRect)actualFrame;
 - (void)_setWindowNumber:(NSInteger)nativeWindow;
@@ -179,7 +179,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
     osStatus = GetWindowModality(_windowRef, &windowModality, NULL);
     if (osStatus != noErr) {
-        NSLog(@"Couldn't get window modality: error=%d", osStatus);
+        NSLog(@"Couldn't get window modality: error=%ld", osStatus);
         return nil;
     }
     
@@ -271,9 +271,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 // Given a reference to a Carbon window that is to be encapsulated, and an indicator of whether or not this object should take responsibility for disposing of the Carbon window, initialize.
@@ -334,7 +332,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
     if ([self _hasWindowRef]) {
         osStatus = GetWindowClass([self windowRef], &windowClass);
         if (osStatus != noErr) {
-            NSLog(@"Couldn't get window class: error=%d", osStatus);
+            NSLog(@"Couldn't get window class: error=%ld", osStatus);
         }
     }
     return windowClass; 
@@ -364,7 +362,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
     // Set the frame rectangle of the border view and this window from the Carbon window's structure region bounds.
     newWindowFrameRect.origin.x = windowStructureBoundsRect.left;
-    newWindowFrameRect.origin.y = NSMaxY([[[NSScreen screens] objectAtIndex:0] frame]) - windowStructureBoundsRect.bottom;
+    newWindowFrameRect.origin.y = NSMaxY([(NSScreen *)[[NSScreen screens] objectAtIndex:0] frame]) - windowStructureBoundsRect.bottom;
     newWindowFrameRect.size.width = windowStructureBoundsRect.right - windowStructureBoundsRect.left;
     newWindowFrameRect.size.height = windowStructureBoundsRect.bottom - windowStructureBoundsRect.top;
     if (!NSEqualRects(newWindowFrameRect, _frame)) {
@@ -378,9 +376,9 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
     newContentFrameRect.origin.y = windowStructureBoundsRect.bottom - windowContentBoundsRect.bottom;
     newContentFrameRect.size.width = windowContentBoundsRect.right - windowContentBoundsRect.left;
     newContentFrameRect.size.height = windowContentBoundsRect.bottom - windowContentBoundsRect.top;
-    oldContentFrameRect = [_contentView frame];
+    oldContentFrameRect = [(NSView *)_contentView frame];
     if (!NSEqualRects(newContentFrameRect, oldContentFrameRect)) {
-        [_contentView setFrame:newContentFrameRect];
+        [(NSView *)_contentView setFrame:newContentFrameRect];
         reconciliationWasNecessary = YES;
     }
 
@@ -517,7 +515,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
 
 // Do the right thing for a Carbon window.
-- _destroyRealWindow:(BOOL)orderingOut {
+- (id)_destroyRealWindow:(BOOL)orderingOut {
 
     // Complain, because this should never be called.  We don't support one-shot NSCarbonWindows.
     NSLog(@"-[NSCarbonWindow _destroyRealWindow:] is not implemented.");
@@ -781,7 +779,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
 
     // Record the content view, and size it to this window's content frame.
     _contentView = aView;
-    [_contentView setFrame:contentFrameRect];
+    [(NSView *)_contentView setFrame:contentFrameRect];
 
     // Make the content view a subview of the border view.
     [_borderView addSubview:_contentView];
@@ -804,7 +802,7 @@ static OSStatus NSCarbonWindowHandleEvent(EventHandlerCallRef inEventHandlerCall
     return;
 }
 
-- _clearModalWindowLevel {
+- (id)_clearModalWindowLevel {
     return nil;
 }
 
@@ -945,9 +943,9 @@ CleanUp:
     // Set the content view's frame rect from the Carbon window's content region bounds.
     contentFrame.origin.y = rootBounds.size.height - CGRectGetMaxY( contentFrame );
 
-    oldContentFrameRect = [_contentView frame];
+    oldContentFrameRect = [(NSView *)_contentView frame];
     if ( !NSEqualRects( *(NSRect*)&contentFrame, oldContentFrameRect ) ) {
-        [_contentView setFrame:*(NSRect*)&contentFrame];
+        [(NSView *)_contentView setFrame:*(NSRect*)&contentFrame];
     }
 }
 

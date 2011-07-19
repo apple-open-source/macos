@@ -23,6 +23,7 @@
 #ifndef RenderInline_h
 #define RenderInline_h
 
+#include "InlineFlowBox.h"
 #include "RenderBoxModelObject.h"
 #include "RenderLineBoxList.h"
 
@@ -32,7 +33,7 @@ class Position;
 
 class RenderInline : public RenderBoxModelObject {
 public:
-    RenderInline(Node*);
+    explicit RenderInline(Node*);
 
     virtual void destroy();
 
@@ -40,14 +41,20 @@ public:
 
     virtual int marginLeft() const;
     virtual int marginRight() const;
-    
+    virtual int marginTop() const;
+    virtual int marginBottom() const;
+    virtual int marginBefore() const;
+    virtual int marginAfter() const;
+    virtual int marginStart() const;
+    virtual int marginEnd() const;
+
     virtual void absoluteRects(Vector<IntRect>&, int tx, int ty);
     virtual void absoluteQuads(Vector<FloatQuad>&);
 
     virtual IntSize offsetFromContainer(RenderObject*, const IntPoint&) const;
 
     IntRect linesBoundingBox() const;
-    IntRect linesVisibleOverflowBoundingBox() const;
+    IntRect linesVisualOverflowBoundingBox() const;
 
     InlineFlowBox* createAndAppendInlineFlowBox();
 
@@ -58,8 +65,11 @@ public:
 
     InlineFlowBox* firstLineBox() const { return m_lineBoxes.firstLineBox(); }
     InlineFlowBox* lastLineBox() const { return m_lineBoxes.lastLineBox(); }
+    InlineBox* firstLineBoxIncludingCulling() const { return alwaysCreateLineBoxes() ? firstLineBox() : culledInlineFirstLineBox(); }
+    InlineBox* lastLineBoxIncludingCulling() const { return alwaysCreateLineBoxes() ? lastLineBox() : culledInlineLastLineBox(); }
 
-    RenderBoxModelObject* continuation() const { return m_continuation; }
+    virtual RenderBoxModelObject* virtualContinuation() const { return continuation(); }
+    RenderInline* inlineElementContinuation() const;
 
     virtual void updateDragState(bool dragOn);
     
@@ -68,10 +78,15 @@ public:
     virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
     void paintOutline(GraphicsContext*, int tx, int ty);
 
-    int verticalPositionFromCache(bool firstLine) const;
-    void invalidateVerticalPosition() { m_verticalPosition = PositionUndefined; }
+    using RenderBoxModelObject::continuation;
+    using RenderBoxModelObject::setContinuation;
 
-    RenderInline* inlineContinuation() const;
+    bool alwaysCreateLineBoxes() const { return m_alwaysCreateLineBoxes; }
+    void setAlwaysCreateLineBoxes() { m_alwaysCreateLineBoxes = true; }
+    void updateAlwaysCreateLineBoxes();
+
+protected:
+    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
 private:
     virtual RenderObjectChildList* virtualChildren() { return children(); }
@@ -82,6 +97,13 @@ private:
     virtual const char* renderName() const;
 
     virtual bool isRenderInline() const { return true; }
+
+    FloatRect culledInlineBoundingBox(const RenderInline* container) const;
+    IntRect culledInlineVisualOverflowBoundingBox() const;
+    InlineBox* culledInlineFirstLineBox() const;
+    InlineBox* culledInlineLastLineBox() const;
+    void culledInlineAbsoluteRects(const RenderInline* container, Vector<IntRect>&, const IntSize&);
+    void culledInlineAbsoluteQuads(const RenderInline* container, Vector<FloatQuad>&);
 
     void addChildToContinuation(RenderObject* newChild, RenderObject* beforeChild);
     virtual void addChildIgnoringContinuation(RenderObject* newChild, RenderObject* beforeChild = 0);
@@ -95,7 +117,7 @@ private:
 
     virtual void paint(PaintInfo&, int tx, int ty);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
     virtual bool requiresLayer() const { return isRelPositioned() || isTransparent() || hasMask(); }
 
@@ -104,9 +126,6 @@ private:
     virtual int offsetWidth() const { return linesBoundingBox().width(); }
     virtual int offsetHeight() const { return linesBoundingBox().height(); }
 
-    // Just ignore top/bottom margins on RenderInlines.
-    virtual int marginTop() const { return 0; }
-    virtual int marginBottom() const { return 0; }
     virtual IntRect clippedOverflowRectForRepaint(RenderBoxModelObject* repaintContainer);
     virtual IntRect rectWithOutlineForRepaint(RenderBoxModelObject* repaintContainer, int outlineWidth);
     virtual void computeRectForRepaint(RenderBoxModelObject* repaintContainer, IntRect& rect, bool fixed);
@@ -126,9 +145,8 @@ private:
 
     virtual void dirtyLinesFromChangedChild(RenderObject* child) { m_lineBoxes.dirtyLinesFromChangedChild(this, child); }
 
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
-
-    void setContinuation(RenderBoxModelObject* c) { m_continuation = c; }
+    virtual int lineHeight(bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
     
     virtual void childBecameNonInline(RenderObject* child);
 
@@ -140,21 +158,19 @@ private:
     virtual void addDashboardRegions(Vector<DashboardRegionValue>&);
 #endif
     
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
     virtual void updateBoxModelInfoFromStyle();
     
     static RenderInline* cloneInline(RenderInline* src);
 
-    void paintOutlineForLine(GraphicsContext*, int tx, int ty, const IntRect& prevLine, const IntRect& thisLine, const IntRect& nextLine);
+    void paintOutlineForLine(GraphicsContext*, int tx, int ty, const IntRect& prevLine, const IntRect& thisLine,
+                             const IntRect& nextLine, const Color);
     RenderBoxModelObject* continuationBefore(RenderObject* beforeChild);
 
     RenderObjectChildList m_children;
     RenderLineBoxList m_lineBoxes;   // All of the line boxes created for this inline flow.  For example, <i>Hello<br>world.</i> will have two <i> line boxes.
 
-    RenderBoxModelObject* m_continuation; // Can be either a block or an inline. <b><i><p>Hello</p></i></b>. In this example the <i> will have a block as its continuation but the
-                                          // <b> will just have an inline as its continuation.
-    mutable int m_lineHeight;
-    mutable int m_verticalPosition;
+    mutable int m_lineHeight : 31;
+    bool m_alwaysCreateLineBoxes : 1;
 };
 
 inline RenderInline* toRenderInline(RenderObject* object)

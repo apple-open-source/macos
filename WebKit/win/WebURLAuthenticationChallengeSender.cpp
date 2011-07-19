@@ -28,14 +28,11 @@
 #include <initguid.h>
 #include "WebURLAuthenticationChallengeSender.h"
 
-#include "COMPtr.h"
 #include "WebKit.h"
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLCredential.h"
-
-#pragma warning(push, 0)
 #include <WebCore/AuthenticationClient.h>
-#pragma warning(pop)
+#include <WebCore/COMPtr.h>
 
 using namespace WebCore;
 

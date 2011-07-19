@@ -1,0 +1,84 @@
+define showEHCITD
+	set $td = (struct EHCIGeneralTransferDescriptor*)$arg0
+	
+	printf "shared.nextTD  0x%x\n", $td->pShared->nextTD
+	printf "shared.altTD   0x%x\n", $td->pShared->altTD
+
+	# Bytes to Transfer = bit 30:16, PID = bit 9:8, status = bit 7:0
+	set $txBytes = ($td->pShared->flags & 0x7FFF0000) >> 16
+	set $PID	 = ($td->pShared->flags & 0x300) >> 8
+	set $status  = ($td->pShared->flags & 0xFF)
+	printf "shared.flags   0x%x ==> TxB: %d PID: 0x%x Status: 0x%x\n", $td->pShared->flags, $txBytes, $PID, $status
+	printf "shared.BuffPtr 0x%x\n", $td->pShared->BuffPtr
+
+	# print buffer contents
+	# x/4 $td->pShared->BuffPtr
+end
+
+# 
+# Shows only Async Queue Head
+# TODO : Show Periodic Queue Head
+#
+define showallEHCIQHead
+	if $argc > 0
+		set $ehciQHead	= (*(struct AppleUSBEHCI*)$arg0)->_AsyncHead
+		set $qHeadIndex = 1
+		if $ehciQHead == 0
+			printf "showallEHCIQHead: No active QHeads available\n"
+		end
+		while $ehciQHead > 0
+			set $fn	= (*(AppleEHCIQueueHead *)$ehciQHead)->_functionNumber
+			set $ep	= (*(AppleEHCIQueueHead *)$ehciQHead)->_endpointNumber
+			
+			set $qTD		= (*(AppleEHCIQueueHead *)$ehciQHead)->_qTD
+			set $tailTD		= (*(AppleEHCIQueueHead *)$ehciQHead)->_TailTD
+			set $hBitSet	= ((*(struct EHCIQueueHeadShared*)((*(AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical))->flags & (0x8000)) >> 15
+			set $td			= (struct EHCIGeneralTransferDescriptor*)$qTD
+
+			printf "AppleEHCIQueueHead[%d]: 0x%x ======================================================\n", $qHeadIndex, $ehciQHead
+			printf "fn: %x ep: %x qTD: 0x%x tailTD: 0x%x hBitSet: 0x%x\n", $fn, $ep, $qTD, $tailTD, $hBitSet
+			
+			# print transfer overlay area
+			printf "transfer overlay area "
+			p/x *(struct EHCIQueueHeadShared*)(*(AppleEHCIQueueHead *)$ehciQHead)->_sharedLogical
+			
+			# print the td list if they are available
+			set $tdIndex = 1
+			while $td != $tailTD
+				printf "===== EHCIGeneralTransferDescriptor[%d]: 0x%x =====\n", $tdIndex, $td
+				showEHCITD $td
+				p/x *(struct EHCIGeneralTransferDescriptor*)$td
+				set $tdIndex = $tdIndex + 1
+				set $td = (*(struct EHCIGeneralTransferDescriptor*)$td)->pLogicalNext
+			end
+			
+			set $qHeadIndex	= $qHeadIndex + 1
+			set $ehciQHead	= (*(AppleEHCIQueueHead *)$ehciQHead)->_logicalNext
+		end
+	else
+		printf "\n\tshowallEHCIQHead <object ptr>\n"
+		printf "\t<object ptr> - AppleUSBEHCI object from showregistry \"AppleUSBEHCI <object <object ptr> ...>\"\n"
+		printf "\n\t Example:\n"
+		printf "\t \n"
+		printf "\t (gdb) showregistry\n"
+		printf "\t :\n"
+		printf "\t +-o AppleUSBEHCI  <object 0xffffff80263bb000, id 0x10000127b, vtable 0xffffff7f813ee4c0 <vtable for AppleUSBEHCI>,.......\n"
+		printf "\t :\n"
+		printf "\t \n"
+		printf "\t (gdb) showallEHCIQHead 0xffffff80263bb000\n\n"
+	end
+end
+
+document showallEHCIQHead
+Syntax: (gdb) showallEHCIQHead <object ptr>
+| <object ptr> - AppleUSBEHCI object from showregistry "AppleUSBEHCI <object <object ptr> ...>"
+|
+| Example:
+|
+|	(gdb) showregistry
+|		:
+|		+-o AppleUSBEHCI  <object 0xffffff80263bb000, id 0x10000127b, vtable 0xffffff7f813ee4c0 <vtable for AppleUSBEHCI>,.......
+|		:
+|
+|	(gdb) showallEHCIQHead 0xffffff80263bb000
+end

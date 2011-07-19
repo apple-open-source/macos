@@ -280,9 +280,8 @@ test "cubic-splines-1.2" "Interpolate arbitrary function" \
         lappend yvalues [::math::interpolate::interp-cubic-splines $coeffs $x]
     }
     set yvalues
-} -result {1.0  1.68044117647  2.1  2.2  3.11221507353  4.25242647059
-           5.41804227941 4.11 3.95675857843 4.12}
-
+} -result {1.0 1.6804411764705884 2.1 2.2 2.5380974264705882
+           3.1041911764705885 3.695689338235294 4.11 4.2099448529411765 4.12}
 
 test "cubic-splines-2.1" "Too few data" \
 -match glob -body {

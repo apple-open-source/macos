@@ -1,0 +1,29 @@
+require "vnd.dovecot.testsuite";
+
+/*
+ * ## RFC 5228, Section 3.3. Control stop (page 22) ##
+ */
+
+/*
+ * TEST: End processing
+ */
+
+/* "The "stop" action ends all processing.
+ * "
+ */
+
+test "End processing" {
+	stop;
+
+	test_fail "continued after stop";
+}
+
+/*
+ * TEST: Implicit keep
+ */
+
+/* "If the implicit keep has not been cancelled, then it is taken.
+ * "
+ */
+
+/* FIXME */

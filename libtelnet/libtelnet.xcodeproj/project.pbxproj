@@ -1,0 +1,305 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		FD32B4470FF01C38000846C1 /* libtelnet.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD99230C0FEB057C00E57170 /* libtelnet.plist */; };
+		FD32B44C0FF01C49000846C1 /* LICENSE in CopyFiles */ = {isa = PBXBuildFile; fileRef = FD99230D0FEB057C00E57170 /* LICENSE */; };
+		FD9923170FEB057C00E57170 /* auth-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9922FC0FEB057C00E57170 /* auth-proto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD9923180FEB057C00E57170 /* auth.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9922FD0FEB057C00E57170 /* auth.c */; };
+		FD9923190FEB057C00E57170 /* auth.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9922FE0FEB057C00E57170 /* auth.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD99231A0FEB057C00E57170 /* enc_des.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923010FEB057C00E57170 /* enc_des.c */; };
+		FD99231B0FEB057C00E57170 /* enc-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9923020FEB057C00E57170 /* enc-proto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD99231C0FEB057C00E57170 /* encrypt.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923030FEB057C00E57170 /* encrypt.c */; };
+		FD99231D0FEB057C00E57170 /* encrypt.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9923040FEB057C00E57170 /* encrypt.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD99231E0FEB057C00E57170 /* forward.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923050FEB057C00E57170 /* forward.c */; };
+		FD99231F0FEB057C00E57170 /* genget.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923060FEB057C00E57170 /* genget.c */; };
+		FD9923200FEB057C00E57170 /* getent.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923070FEB057C00E57170 /* getent.c */; };
+		FD9923210FEB057C00E57170 /* kerberos.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923080FEB057C00E57170 /* kerberos.c */; };
+		FD9923220FEB057C00E57170 /* kerberos5.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923090FEB057C00E57170 /* kerberos5.c */; };
+		FD9923240FEB057C00E57170 /* krb4encpwd.c in Sources */ = {isa = PBXBuildFile; fileRef = FD99230B0FEB057C00E57170 /* krb4encpwd.c */; };
+		FD9923260FEB057C00E57170 /* misc-proto.h in Headers */ = {isa = PBXBuildFile; fileRef = FD99230F0FEB057C00E57170 /* misc-proto.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD9923270FEB057C00E57170 /* misc.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923100FEB057C00E57170 /* misc.c */; };
+		FD9923280FEB057C00E57170 /* misc.h in Headers */ = {isa = PBXBuildFile; fileRef = FD9923110FEB057C00E57170 /* misc.h */; settings = {ATTRIBUTES = (Public, ); }; };
+		FD99232B0FEB057C00E57170 /* read_password.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923140FEB057C00E57170 /* read_password.c */; };
+		FD99232C0FEB057C00E57170 /* rsaencpwd.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923150FEB057C00E57170 /* rsaencpwd.c */; };
+		FD99232D0FEB057C00E57170 /* sra.c in Sources */ = {isa = PBXBuildFile; fileRef = FD9923160FEB057C00E57170 /* sra.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		FD32B4460FF01C2D000846C1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceVersions;
+			dstSubfolderSpec = 0;
+			files = (
+				FD32B4470FF01C38000846C1 /* libtelnet.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		FD32B44B0FF01C41000846C1 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/OpenSourceLicenses;
+			dstSubfolderSpec = 0;
+			files = (
+				FD32B44C0FF01C49000846C1 /* LICENSE in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		D2AAC046055464E500DB518D /* libtelnet.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libtelnet.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FD9922FC0FEB057C00E57170 /* auth-proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "auth-proto.h"; sourceTree = "<group>"; };
+		FD9922FD0FEB057C00E57170 /* auth.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth.c; sourceTree = "<group>"; };
+		FD9922FE0FEB057C00E57170 /* auth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth.h; sourceTree = "<group>"; };
+		FD9923010FEB057C00E57170 /* enc_des.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = enc_des.c; sourceTree = "<group>"; };
+		FD9923020FEB057C00E57170 /* enc-proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "enc-proto.h"; sourceTree = "<group>"; };
+		FD9923030FEB057C00E57170 /* encrypt.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = encrypt.c; sourceTree = "<group>"; };
+		FD9923040FEB057C00E57170 /* encrypt.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = encrypt.h; sourceTree = "<group>"; };
+		FD9923050FEB057C00E57170 /* forward.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = forward.c; sourceTree = "<group>"; };
+		FD9923060FEB057C00E57170 /* genget.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = genget.c; sourceTree = "<group>"; };
+		FD9923070FEB057C00E57170 /* getent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = getent.c; sourceTree = "<group>"; };
+		FD9923080FEB057C00E57170 /* kerberos.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kerberos.c; sourceTree = "<group>"; };
+		FD9923090FEB057C00E57170 /* kerberos5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = kerberos5.c; sourceTree = "<group>"; };
+		FD99230A0FEB057C00E57170 /* key-proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "key-proto.h"; sourceTree = "<group>"; };
+		FD99230B0FEB057C00E57170 /* krb4encpwd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = krb4encpwd.c; sourceTree = "<group>"; };
+		FD99230C0FEB057C00E57170 /* libtelnet.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = libtelnet.plist; sourceTree = "<group>"; };
+		FD99230D0FEB057C00E57170 /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
+		FD99230F0FEB057C00E57170 /* misc-proto.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "misc-proto.h"; sourceTree = "<group>"; };
+		FD9923100FEB057C00E57170 /* misc.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = misc.c; sourceTree = "<group>"; };
+		FD9923110FEB057C00E57170 /* misc.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = misc.h; sourceTree = "<group>"; };
+		FD9923120FEB057C00E57170 /* pk.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = pk.c; sourceTree = "<group>"; };
+		FD9923130FEB057C00E57170 /* pk.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = pk.h; sourceTree = "<group>"; };
+		FD9923140FEB057C00E57170 /* read_password.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = read_password.c; sourceTree = "<group>"; };
+		FD9923150FEB057C00E57170 /* rsaencpwd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = rsaencpwd.c; sourceTree = "<group>"; };
+		FD9923160FEB057C00E57170 /* sra.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sra.c; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D289987405E68DCB004EDB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* libtelnet */ = {
+			isa = PBXGroup;
+			children = (
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = libtelnet;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				FD9922FC0FEB057C00E57170 /* auth-proto.h */,
+				FD9922FE0FEB057C00E57170 /* auth.h */,
+				FD9923020FEB057C00E57170 /* enc-proto.h */,
+				FD9923040FEB057C00E57170 /* encrypt.h */,
+				FD99230A0FEB057C00E57170 /* key-proto.h */,
+				FD99230F0FEB057C00E57170 /* misc-proto.h */,
+				FD9923110FEB057C00E57170 /* misc.h */,
+				FD9923130FEB057C00E57170 /* pk.h */,
+				FD9922FD0FEB057C00E57170 /* auth.c */,
+				FD9923010FEB057C00E57170 /* enc_des.c */,
+				FD9923030FEB057C00E57170 /* encrypt.c */,
+				FD9923050FEB057C00E57170 /* forward.c */,
+				FD9923060FEB057C00E57170 /* genget.c */,
+				FD9923070FEB057C00E57170 /* getent.c */,
+				FD9923080FEB057C00E57170 /* kerberos.c */,
+				FD9923090FEB057C00E57170 /* kerberos5.c */,
+				FD99230B0FEB057C00E57170 /* krb4encpwd.c */,
+				FD9923100FEB057C00E57170 /* misc.c */,
+				FD9923120FEB057C00E57170 /* pk.c */,
+				FD9923140FEB057C00E57170 /* read_password.c */,
+				FD9923150FEB057C00E57170 /* rsaencpwd.c */,
+				FD9923160FEB057C00E57170 /* sra.c */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC046055464E500DB518D /* libtelnet.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				FD99230C0FEB057C00E57170 /* libtelnet.plist */,
+				FD99230D0FEB057C00E57170 /* LICENSE */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2AAC043055464E500DB518D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD9923190FEB057C00E57170 /* auth.h in Headers */,
+				FD9923170FEB057C00E57170 /* auth-proto.h in Headers */,
+				FD99231D0FEB057C00E57170 /* encrypt.h in Headers */,
+				FD99231B0FEB057C00E57170 /* enc-proto.h in Headers */,
+				FD9923280FEB057C00E57170 /* misc.h in Headers */,
+				FD9923260FEB057C00E57170 /* misc-proto.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC045055464E500DB518D /* libtelnet */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB91EB08733DB70010E9CD /* Build configuration list for PBXNativeTarget "libtelnet" */;
+			buildPhases = (
+				D2AAC043055464E500DB518D /* Headers */,
+				D2AAC044055464E500DB518D /* Sources */,
+				D289987405E68DCB004EDB86 /* Frameworks */,
+				FD32B4460FF01C2D000846C1 /* CopyFiles */,
+				FD32B44B0FF01C41000846C1 /* CopyFiles */,
+				FD32B4530FF01CD9000846C1 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libtelnet;
+			productName = libtelnet;
+			productReference = D2AAC046055464E500DB518D /* libtelnet.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "libtelnet" */;
+			compatibilityVersion = "Xcode 3.1";
+			hasScannedForEncodings = 1;
+			mainGroup = 08FB7794FE84155DC02AAC07 /* libtelnet */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2AAC045055464E500DB518D /* libtelnet */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		FD32B4530FF01CD9000846C1 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "set -ex\nmv ${DSTROOT}/usr/local/OpenSourceLicenses/LICENSE ${DSTROOT}/usr/local/OpenSourceLicenses/libtelnet.txt";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC044055464E500DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FD9923180FEB057C00E57170 /* auth.c in Sources */,
+				FD99231A0FEB057C00E57170 /* enc_des.c in Sources */,
+				FD99231C0FEB057C00E57170 /* encrypt.c in Sources */,
+				FD99231E0FEB057C00E57170 /* forward.c in Sources */,
+				FD99231F0FEB057C00E57170 /* genget.c in Sources */,
+				FD9923200FEB057C00E57170 /* getent.c in Sources */,
+				FD9923210FEB057C00E57170 /* kerberos.c in Sources */,
+				FD9923220FEB057C00E57170 /* kerberos5.c in Sources */,
+				FD9923240FEB057C00E57170 /* krb4encpwd.c in Sources */,
+				FD9923270FEB057C00E57170 /* misc.c in Sources */,
+				FD99232B0FEB057C00E57170 /* read_password.c in Sources */,
+				FD99232C0FEB057C00E57170 /* rsaencpwd.c in Sources */,
+				FD99232D0FEB057C00E57170 /* sra.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB91ED08733DB70010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/lib;
+				PRODUCT_NAME = telnet;
+				PUBLIC_HEADERS_FOLDER_PATH = /usr/local/include/libtelnet;
+			};
+			name = Release;
+		};
+		1DEB91F108733DB70010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"__FBSDID=__RCSID",
+					HAS_CGETENT,
+					AUTHENTICATION,
+					RSA,
+					KRB5,
+					FORWARD,
+					HAVE_STDLIB_H,
+				);
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+				USE_HEADERMAP = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB91EB08733DB70010E9CD /* Build configuration list for PBXNativeTarget "libtelnet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB91ED08733DB70010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "libtelnet" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB91F108733DB70010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

@@ -1,8 +1,0 @@
-2007-05-09  Jason Molenda  (jmolenda@apple.com)
-
-	* i386.h: Import current FSF version of this file on 2007-05-09.
-
-2003-05-12  Klee Dienes  <kdienes@apple.com>
-
-	* ppc.h (PPC_OPCODE_GPUL): New #define.
-

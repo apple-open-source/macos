@@ -32,6 +32,7 @@ typedef void (*MIME_STATE_ERR_PRINT) (void *, int, const char *, ssize_t);
 
 extern MIME_STATE *mime_state_alloc(int, MIME_STATE_HEAD_OUT, MIME_STATE_ANY_END, MIME_STATE_BODY_OUT, MIME_STATE_ANY_END, MIME_STATE_ERR_PRINT, void *);
 extern int mime_state_update(MIME_STATE *, int, const char *, ssize_t);
+extern int mime_state_flush(MIME_STATE *);	    /* APPLE - RFC 3030 */
 extern MIME_STATE *mime_state_free(MIME_STATE *);
 
  /*
@@ -46,6 +47,7 @@ extern MIME_STATE *mime_state_free(MIME_STATE *);
 #define MIME_OPT_REPORT_TRUNC_HEADER		(1<<5)
 #define MIME_OPT_DISABLE_MIME			(1<<6)
 #define MIME_OPT_REPORT_NESTING			(1<<7)
+#define MIME_OPT_DOWNGRADE_BASE64		(1<<8)	/* APPLE - RFC 3030 */
 
  /*
   * Body encoding domains.

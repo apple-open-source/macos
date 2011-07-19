@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,13 +38,16 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCDynamicStorePrivate.h>
-#include <EAP8021X/EAPOLControl.h>
+#include "EAPOLControl.h"
+#include "EAPOLControlPrivate.h"
 #include "myCFUtil.h"
 #include <TargetConditionals.h>
 
 typedef int func_t(int argc, char * argv[]);
 typedef func_t * funcptr_t;
 char * progname = NULL;
+
+static void	usage();
 
 void
 timestamp_fprintf(FILE * f, const char * message, ...)
@@ -164,8 +167,8 @@ cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
     CFRange		range;
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
-    n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, (uint8_t *)str, len, &l);
+    (void)CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
+			   0, FALSE, (uint8_t *)str, len, &l);
     str[l] = '\0';
     return (l);
 }
@@ -210,6 +213,7 @@ S_monitor(int argc, char * argv[])
     store = config_session_start(monitor_eapol_change, NULL, ifname);
     rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
     CFRunLoopRun();
 
     /* not reached */
@@ -372,6 +376,91 @@ S_loginwindow_config(int argc, char * argv[])
     }
     return (result);
 }
+
+static int
+S_set_user_autoconnect(int argc, char * argv[])
+{
+    Boolean		enable = FALSE;
+    const char * 	enable_str = argv[0];
+    int 		result;
+
+    if (strcasecmp(enable_str, "true") == 0) {
+	enable = TRUE;
+    }
+    else if (strcasecmp(enable_str, "false") == 0) {
+	enable = FALSE;
+    }
+    else {
+	usage();
+    }
+    EAPOLControlSetUserAutoConnectEnabled(enable);
+    return (0);
+}
+
+static int
+S_get_user_autoconnect(int argc, char * argv[])
+{
+    Boolean		enable;
+
+    enable = EAPOLControlIsUserAutoConnectEnabled();
+    printf("%s\n", enable ? "true" : "false");
+    return (0);
+}
+
+static int
+S_set_user_autoconnect_verbose(int argc, char * argv[])
+{
+    Boolean		enable = FALSE;
+    const char * 	enable_str = argv[0];
+    int 		result;
+
+    if (strcasecmp(enable_str, "true") == 0) {
+	enable = TRUE;
+    }
+    else if (strcasecmp(enable_str, "false") == 0) {
+	enable = FALSE;
+    }
+    else {
+	usage();
+    }
+    EAPOLControlSetUserAutoConnectVerboseEnabled(enable);
+    return (0);
+}
+
+static int
+S_get_user_autoconnect_verbose(int argc, char * argv[])
+{
+    Boolean		enable;
+
+    enable = EAPOLControlIsUserAutoConnectVerboseEnabled();
+    printf("%s\n", enable ? "true" : "false");
+    return (0);
+}
+
+static int
+S_did_user_cancel(int argc, char * argv[])
+{
+    boolean_t		did_cancel;
+
+    did_cancel = EAPOLControlDidUserCancel(argv[0]);
+    printf("%s\n", did_cancel ? "true" : "false");
+    return (0);
+}
+
+static int
+S_show_autodetect_info(int argc, char * argv[])
+{
+    CFDictionaryRef	info;
+    int			result;
+
+    result = EAPOLControlCopyAutoDetectInformation(&info);
+    if (info != NULL) {
+	CFShow(info);
+	CFRelease(info);
+    }
+    return (result);
+}
+
 #endif /* ! TARGET_OS_EMBEDDED */
 
 static int
@@ -433,6 +522,7 @@ S_stress_start(int argc, char * argv[])
     }
     store = config_session_start(NULL, NULL, ifname);
     if (store == NULL) {
+	CFRelease(dict);
 	return (EINVAL);
     }
 
@@ -456,9 +546,9 @@ S_stress_start(int argc, char * argv[])
 		    ifname, result, strerror(result));
 	    break;
 	}
-	result = S_wait_for_state(ifname, store, 
-				  kEAPOLControlStateIdle,
-				  kEAPOLControlStateStopping);
+	(void)S_wait_for_state(ifname, store, 
+			       kEAPOLControlStateIdle,
+			       kEAPOLControlStateStopping);
     }
     fprintf(stderr, "Failed at iteration %d\n", i + 1);
     my_CFRelease(&dict);
@@ -483,11 +573,17 @@ static struct {
 #if ! TARGET_OS_EMBEDDED
     { "start_system", S_start_system, 1, "<interface_name> [ <config_file> ]"},
     { "loginwindow_config", S_loginwindow_config, 1, "<interface_name>" },
+    { "auto_detect_info", S_show_autodetect_info, 0, NULL },
+    { "set_user_autoconnect", S_set_user_autoconnect, 1, "( true | false )" },
+    { "get_user_autoconnect", S_get_user_autoconnect, 0, "" },
+    { "set_user_autoconnect_verbose", S_set_user_autoconnect_verbose, 1, "( true | false )" },
+    { "get_user_autoconnect_verbose", S_get_user_autoconnect_verbose, 0, "" },
+    { "did_user_cancel", S_did_user_cancel, 1, "<interface_name>" },
 #endif /* ! TARGET_OS_EMBEDDED */
     { NULL, NULL, 0, NULL },
 };
 
-void
+static void
 usage()
 {
     int i;
@@ -531,8 +627,12 @@ main(int argc, char * argv[])
     argv++; argc--;
 
     func = S_lookup_func(argv[0], argc - 1);
-    if (func == NULL)
+    if (func == NULL) {
 	usage();
-    argv++; argc--;
-    exit ((*func)(argc, argv));
+    }
+    else {
+	argv++; argc--;
+	exit((*func)(argc, argv));
+    }
+    exit(0);
 }

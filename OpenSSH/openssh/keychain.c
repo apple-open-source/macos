@@ -46,9 +46,11 @@
 #include <Security/Security.h>
 
 /* Our Security/SecPassword.h is not yet API, so I will define the constants that I am using here. */
-kSecPasswordGet     = 1<<0;  // Get password from keychain or user
-kSecPasswordSet     = 1<<1;  // Set password (passed in if kSecPasswordGet not set, otherwise from user)
-kSecPasswordFail    = 1<<2;  // Wrong password (ignore item in keychain and flag error)
+enum SEC_PASSWORD_OPTS {
+kSecPasswordGet     = 1<<0,  // Get password from keychain or user
+kSecPasswordSet     = 1<<1,  // Set password (passed in if kSecPasswordGet not set, otherwise from user)
+kSecPasswordFail    = 1<<2,  // Wrong password (ignore item in keychain and flag error)
+};
 
 #endif
 
@@ -620,7 +622,7 @@ keychain_read_passphrase(const char *filename, int oAskPassGUI)
 		Key *private = key_load_private(filename, result, &comment);
 		if (NULL == private)
 			break;
-		if (ssh_add_identity(ac, private, comment))
+		if (ssh_add_identity_constrained(ac, private, comment, 0, 0))
 			fprintf(stderr, "Identity added: %s (%s)\n", filename, comment);
 		else
 			fprintf(stderr, "Could not add identity: %s\n", filename);
@@ -689,3 +691,150 @@ err:	/* Clean up. */
 #endif
 
 }
+
+#if defined(__APPLE_KEYCHAIN__)
+volatile sig_atomic_t keychain_thread_active = 0;
+
+OSStatus
+keychain_lock_callback(SecKeychainEvent event, SecKeychainCallbackInfo *info, void *context)
+{
+	SecKeychainRef login_keychain = NULL;
+	OSStatus retval = noErr;
+
+	/* Only care about login keychain */
+	retval = SecKeychainCopyDefault(&login_keychain);
+	if (retval != noErr) {
+		debug("keychain_lock_callback: Unable to get login keychain, doing nothing.");
+		goto cleanup;
+	}
+	if (!CFEqual(info->keychain, login_keychain)) {
+		goto cleanup;
+	}
+
+	AuthenticationConnection *ac = ssh_get_authentication_connection();
+	if (NULL == ac) {
+		error("keychain_lock_callback: Unable to get authentication connection.");
+		goto cleanup;
+	}
+
+	/* Silently remove all identitites */
+	debug("keychain_lock_callback: Removing all identities.");
+	if (0 != ssh_remove_all_identities(ac, 1))
+		debug("keychain_lock_callback: Failed to remove all v1 identities.");
+
+	if (0 != ssh_remove_all_identities(ac, 2))
+		debug("keychain_lock_callback: Failed to remove all v2 identities.");
+
+	ssh_close_authentication_connection(ac);
+
+cleanup:
+	if (login_keychain)
+		CFRelease(login_keychain);
+
+	return errSecSuccess;
+}
+
+OSStatus
+keychain_unlock_callback(SecKeychainEvent event, SecKeychainCallbackInfo *info, void *context)
+{
+	OSStatus ret = errSecSuccess;
+	Boolean state = false;
+	SecKeychainRef login_keychain = NULL;
+
+	/* Only care about login keychain */
+	ret = SecKeychainCopyDefault(&login_keychain);
+	if (ret != noErr) {
+		debug("keychain_lock_callback: Unable to get login keychain.");
+		goto cleanup;
+	}
+	if (!CFEqual(info->keychain, login_keychain)) {
+		goto cleanup;
+	}
+
+	/* No user interaction for keychain actions */
+	ret = SecKeychainGetUserInteractionAllowed(&state);
+	if (errSecSuccess != ret)
+		debug("keychain_unlock_callback: Unable to determine if user interaction is allowed.");
+
+	if (state) {
+		debug("keychain_unlock_callback: Temporarily denying user interaction.");
+		ret = SecKeychainSetUserInteractionAllowed(false);
+		if (errSecSuccess != ret)
+			error("Keychain unlocked callback: Unable deny user interaction.");
+	}
+
+	/* Silently add all identities from keychain */
+	debug("keychain_unlock_callback: Adding all identities from keychain, no user interaction.");
+	AuthenticationConnection *ac = ssh_get_authentication_connection();
+	if (NULL == ac) {
+		error("keychain_unlock_callback: Unable to get authentication connection.");
+		goto cleanup;
+	}
+	ssh_add_from_keychain(ac);
+	ssh_close_authentication_connection(ac);
+
+	/* Set user interaction state back */
+	if (state) {
+		debug("keychain_unlock_callback: Restoring user interaction.");
+		ret = SecKeychainSetUserInteractionAllowed(state);
+		if (errSecSuccess != ret)
+			error("keychain_unlock_callback:  Unable to restore user interaction.");
+	}
+
+cleanup:
+	if (login_keychain)
+		CFRelease(login_keychain);
+
+	return errSecSuccess;
+}
+
+void
+keychain_thread_timer_callback(CFRunLoopTimerRef timer, void *info)
+{
+	/* Will get here every kCFAbsoluteTimeIntervalSince1904 seconds. */
+}
+
+void*
+keychain_thread_main(void *msg)
+{
+	OSStatus ret;
+
+	CFRunLoopTimerRef timer = CFRunLoopTimerCreate(kCFAllocatorDefault,
+					CFAbsoluteTimeGetCurrent() + kCFAbsoluteTimeIntervalSince1904,
+					kCFAbsoluteTimeIntervalSince1904,
+					0, 0, keychain_thread_timer_callback, NULL);
+	if (NULL == timer)
+		error("keychain_thread_main: Cannot create timer for runloop.");
+
+	CFRunLoopAddTimer(CFRunLoopGetCurrent(), timer, kCFRunLoopDefaultMode);
+
+	ret = SecKeychainAddCallback(&keychain_lock_callback, kSecLockEventMask, NULL);
+	if (errSecSuccess != ret)
+		error("keychain_thread_main: Unable to add keychain lock callback.");
+
+	SecKeychainAddCallback(&keychain_unlock_callback, kSecUnlockEventMask, NULL);
+	if (errSecSuccess != ret)
+		error("keychain_thread_main: Unable to add keychain unlock callback.");
+
+	CFRunLoopRun();
+	/* NEVER REACHED */
+
+	return NULL;
+}
+
+/* Start the keychain thread. */
+void
+keychain_thread_init()
+{
+	if (!keychain_thread_active) {
+		int ret;
+		pthread_t thread;
+
+		keychain_thread_active = 1;
+		ret = pthread_create(&thread, NULL, &keychain_thread_main, (void*)"keychain-notification-thread");
+		if (0 != ret)
+			error("keychain_thread_init: pthread_create failed for keychain notification thread.");
+	}
+}
+
+#endif

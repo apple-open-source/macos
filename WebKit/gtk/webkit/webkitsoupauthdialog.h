@@ -17,13 +17,11 @@
  * Boston, MA 02110-1301, USA.
  */
 
-#include <gtk/gtk.h>
-#include <libsoup/soup.h>
-
-#include <webkit/webkitdefines.h>
-
 #ifndef webkitsoupauthdialog_h
 #define webkitsoupauthdialog_h
+
+#include <gtk/gtk.h>
+#include <webkit/webkitdefines.h>
 
 G_BEGIN_DECLS
 
@@ -41,7 +39,7 @@ typedef struct {
 typedef struct {
     GObjectClass parent_class;
 
-    GtkWidget* (*current_toplevel) (WebKitSoupAuthDialog* feature, SoupMessage* message);
+    GtkWidget* (*current_toplevel) (WebKitSoupAuthDialog* authDialog, SoupMessage* message);
 } WebKitSoupAuthDialogClass;
 
 WEBKIT_API GType

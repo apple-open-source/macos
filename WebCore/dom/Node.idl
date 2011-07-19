@@ -24,6 +24,8 @@ module core {
         CustomHeader,
         CustomMarkFunction,
         CustomPushEventHandlerScope,
+        CustomIsReachable,
+        CustomFinalize,
         CustomToJS,
         EventTarget,
         GenerateNativeConverter,
@@ -51,7 +53,7 @@ module core {
         readonly attribute [ConvertNullStringTo=Null] DOMString        nodeName;
 
                  // FIXME: the spec says this can also raise on retrieval.
-                 attribute [CustomSetter, ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        nodeValue
+                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString        nodeValue
                      setter raises(DOMException);
 
         readonly attribute unsigned short   nodeType;
@@ -96,7 +98,7 @@ module core {
         readonly attribute [ConvertNullStringTo=Null] DOMString       baseURI;
 
                  // FIXME: the spec says this can also raise on retrieval.
-                 attribute [CustomSetter, ConvertNullStringTo=Null, ConvertNullToNullString] DOMString       textContent
+                 attribute [ConvertNullStringTo=Null, ConvertNullToNullString] DOMString       textContent
                      setter raises(DOMException);
 
         boolean            isSameNode(in Node other);
@@ -132,8 +134,8 @@ module core {
         readonly attribute boolean          isContentEditable;
 #endif /* defined(LANGUAGE_OBJECTIVE_C) */
 
+#if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
-#if !defined(LANGUAGE_GOBJECT) || !LANGUAGE_GOBJECT
         void addEventListener(in DOMString type, 
                               in EventListener listener, 
                               in boolean useCapture);
@@ -144,6 +146,18 @@ module core {
             raises(EventException);
 #endif
 #endif
+
+#if defined(LANGUAGE_CPP) && LANGUAGE_CPP
+        [Custom] void addEventListener(in DOMString type, 
+                                          in EventListener listener, 
+                                          in boolean useCapture);
+        [Custom] void removeEventListener(in DOMString type, 
+                                             in EventListener listener, 
+                                             in boolean useCapture);
+        boolean dispatchEvent(in Event event)
+            raises(EventException);
+#endif
+
     };
 
 }

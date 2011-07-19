@@ -56,7 +56,7 @@
  * [including the GNU Public Licence.]
  */
 
-#include <ccOpenssl/des_locl.h>
+#include "ccOpenssl/des_locl.h"
 
 void DES_encrypt1(DES_LONG *data, DES_key_schedule *ks, int enc)
 	{

@@ -71,6 +71,7 @@ class IOGraphicsDevice;
 class IOHIDKeyboardDevice;
 class IOHIDPointingDevice;
 class IOHIDEvent;
+class IOFixedPoint64;
 
 class IOHIDSystem : public IOService
 {
@@ -133,13 +134,17 @@ private:
 	// time til screen dim, and related things manipulated through the
 	// Event Status API.
 	//
-	IOGPoint	pointerLoc;	// Current pointing device location
-				// The value leads evg->cursorLoc.
-        IOGPoint	pointerDelta;	// The cumulative pointer delta values since
-                                // previous mouse move event was posted
-                                
-	IOGPoint	clickLoc;	// location of last mouse click
-	IOGPoint   clickSpaceThresh;	// max mouse delta to be a doubleclick
+    struct ExpansionData;
+    union {
+        struct {
+            IOGPoint	for_spacing_only[2];
+        }               reserved;
+        ExpansionData   *_privateData;
+    }; // Anon union
+    
+    IOGPoint	clickLoc;       // location of last mouse click
+    IOGPoint    clickSpaceThresh;// max mouse delta to be a doubleclick
+    
 	int	clickState;	// Current click state
 
 	bool evOpenCalled;	// Has the driver been opened?
@@ -171,8 +176,9 @@ private:
         AbsoluteTime lastRelativeMoveTime;
         AbsoluteTime lastEventTime;
         AbsoluteTime lastUndimEvent;
-        SInt32 postDeltaX, accumDX;
-        SInt32 postDeltaY, accumDY;
+    SInt32  reserved2[4];
+    //SInt32 postDeltaX, accumDX;
+    //SInt32 postDeltaY, accumDY;
 
 	// Flags used in scheduling periodic event callbacks
 	bool		needSetCursorPosition;
@@ -182,7 +188,10 @@ private:
         IOPMPowerFlags	displayState;
         
         IOService *	rootDomain;
-        AbsoluteTime	stateChangeDeadline;
+        AbsoluteTime	rootDomainStateChangeDeadline;
+        AbsoluteTime    displayStateChangeDeadline;
+        AbsoluteTime    displaySleepWakeupDeadline;
+        bool  displaySleepDrivenByPM;
         
         OSDictionary *  savedParameters;	// keep user settings
         
@@ -198,7 +207,11 @@ private:
         IOHIDPointingDevice * _hidPointingDevice;
         IOHIDKeyboardDevice * _hidKeyboardDevice;
 
-        unsigned consumedKeyCode;
+        /* The consumed keys array stores key codes for which a key down event
+         * has been consumed and a corresponding key up event must be consumed
+         * when it arrives.
+         */
+        OSArray * consumedKeys;
         
     OSObject * lastSender;
     
@@ -219,18 +232,20 @@ private:
   inline short getUniqueEventNum();
 
   virtual IOReturn powerStateDidChangeTo( IOPMPowerFlags, unsigned long, IOService * );
+  static IOReturn powerStateHandler( void *target, void *refCon,
+               UInt32 messageType, IOService *service, void *messageArgument, vm_size_t argSize );
  /* Resets */
   void _resetMouseParameters();
 
   /* Initialize the shared memory area */
   void     initShmem(bool clean);
   /* Dispatch low level events through shared memory to the WindowServer */
-  void postEvent(int           what,
-          /* at */       IOGPoint *       location,
-          /* atTime */   AbsoluteTime  ts,
-          /* withData */ NXEventData * myData,
-          /* sender */   OSObject *    sender   = 0,
-          /* pid */      UInt32        extPID   = 0,
+  void postEvent(       int        what,
+          /* at */      IOFixedPoint64 *       location,
+          /* atTime */  AbsoluteTime  ts,
+          /* withData */NXEventData * myData,
+          /* sender */  OSObject *    sender   = 0,
+          /* pid */     UInt32        extPID   = 0,
           /* processKEQ*/bool          processKEQ = true);
   /* Dispatch mechanisms for screen state changes */
   void evDispatch(
@@ -242,7 +257,7 @@ private:
                /* level */     unsigned l);
   /* Message the event consumer to process posted events */
   void kickEventConsumer();
-  void sendStackShotMessage();
+  void sendStackShotMessage(UInt32 flavor);
   
   OSDictionary * createFilteredParamPropertiesForService(IOService * service, OSDictionary * dict);
 
@@ -257,7 +272,7 @@ private:
   static void processKeyboardEQ(IOHIDSystem * self, AbsoluteTime * deadline = 0);
  
   static bool genericNotificationHandler( void * target, 
-				void * ref, IOService * newService );
+				void * ref, IOService * newService, IONotifier * notifier );
                 
   static bool handlePublishNotification( void * target, IOService * newService );
 
@@ -308,12 +323,11 @@ private:
   void _setButtonState(int buttons,
                        /* atTime */ AbsoluteTime ts,
                        OSObject * sender);
-  void _setCursorPosition(IOGPoint * newLoc, bool external, bool proximityChange = false, OSObject * sender=0);
+  void _setCursorPosition(bool external = false, bool proximityChange = false, OSObject * sender=0);
 
   static bool _idleTimeSerializerCallback(void * target, void * ref, OSSerialize *s);
 
   void _postMouseMoveEvent(int		what,
-                           IOGPoint *	location,
                            AbsoluteTime	theClock,
                            OSObject *	sender);
   void createParameters( void );
@@ -352,14 +366,17 @@ public:
   /* Unregister the IODataQueue for the new user events */
   virtual IOReturn unregisterEventQueue(IODataQueue * queue);
 
-    /* Set the port for event available notify msg */
-    virtual void    setEventPort(mach_port_t port);
+  /* Set the port for event available notify msg */
+  virtual void     setEventPort(mach_port_t port);
+
+  /* Set if display sleep is driven by IOPMrootDomain */
+  void setDisplaySleepDrivenByPM(bool val);
 private:
     static IOReturn doSetEventPort(IOHIDSystem *self, void *port_void, void *arg1, void *arg2, void *arg3);
     void            setEventPortGated(mach_port_t port);
 public:
 
-    /* Set the port for the special key keypress msg */
+  /* Set the port for the special key keypress msg */
   virtual IOReturn setSpecialKeyPort(
                      /* keyFlavor */ int         special_key,
                      /* keyPort */   mach_port_t key_port);
@@ -444,7 +461,7 @@ private:
    * statics for upstream callouts
    */
 
-  void _scaleLocationToCurrentScreen(IOGPoint *location, IOGPoint *fraction, IOGBounds *bounds);  // Should this one be public???
+  void _scaleLocationToCurrentScreen(IOFixedPoint64 &location, IOGBounds *bounds);
 
   static void _relativePointerEvent(IOHIDSystem * self,
 				    int        buttons,
@@ -556,13 +573,16 @@ public:
  */
 
 public:
-    virtual int     registerScreen(IOGraphicsDevice * instance, IOGBounds * bp);
+  virtual int registerScreen(IOGraphicsDevice * instance,
+        /* bounds */         IOGBounds * bp,
+        /* virtual bounds */ IOGBounds * vbp);
 private:
-    static IOReturn doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bp, void *arg2, void *arg3);
-    void            registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp);
+    static IOReturn doRegisterScreen(IOHIDSystem *self, IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp, void *arg3);
+    void            registerScreenGated(IOGraphicsDevice *io_gd, IOGBounds *bp, IOGBounds * vbp);
 public:
     
-    virtual void    unregisterScreen(int index);
+
+  virtual void unregisterScreen(int index);
     
 /*
  * HISTORICAL NOTE:
@@ -642,6 +662,9 @@ void keyboardSpecialEvent(   unsigned   eventType,
       /* sender */       OSObject * sender);
 
 void updateEventFlags(unsigned flags, OSObject * sender);
+
+bool addConsumedKey(unsigned key);
+bool removeConsumedKey(unsigned key);
 
 /*
  * COMMAND GATE COMPATIBILITY:

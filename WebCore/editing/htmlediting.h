@@ -26,10 +26,11 @@
 #ifndef htmlediting_h
 #define htmlediting_h
 
-#include <wtf/Forward.h>
-#include "HTMLNames.h"
-#include "ExceptionCode.h"
+#include "EditingBoundary.h"
 #include "Position.h"
+#include "TextDirection.h"
+#include <wtf/Forward.h>
+#include <wtf/unicode/CharacterNames.h>
 
 namespace WebCore {
 
@@ -39,7 +40,6 @@ class HTMLElement;
 class Node;
 class Position;
 class Range;
-class String;
 class VisiblePosition;
 class VisibleSelection;
 
@@ -54,18 +54,17 @@ class VisibleSelection;
 
 Node* highestAncestor(Node*);
 Node* highestEditableRoot(const Position&);
-Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*));
+Node* highestEnclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 Node* lowestEditableAncestor(Node*);   
 
-Node* enclosingBlock(Node*);
+Node* enclosingBlock(Node*, EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 Node* enclosingTableCell(const Position&);
 Node* enclosingEmptyListItem(const VisiblePosition&);
 Node* enclosingAnchorElement(const Position&);
 Node* enclosingNodeWithTag(const Position&, const QualifiedName&);
-Node* enclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), bool onlyReturnEditableNodes = true);
+Node* enclosingNodeOfType(const Position&, bool (*nodeIsOfType)(const Node*), EditingBoundaryCrossingRule = CannotCrossEditingBoundary);
 
 Node* tabSpanNode(const Node*);
-Node* nearestMailBlockquote(const Node*);
 Node* isLastPositionBeforeTable(const VisiblePosition&);
 Node* isFirstPositionAfterTable(const VisiblePosition&);
 
@@ -77,8 +76,21 @@ int caretMaxOffset(const Node*);
 
 // boolean functions on Node
 
-bool editingIgnoresContent(const Node*);
-bool canHaveChildrenForEditing(const Node*);
+// FIXME: editingIgnoresContent, canHaveChildrenForEditing, and isAtomicNode
+// should be renamed to reflect its usage.
+
+// Returns true for nodes that either have no content, or have content that is ignored (skipped over) while editing.
+// There are no VisiblePositions inside these nodes.
+inline bool editingIgnoresContent(const Node* node)
+{
+    return !node->canContainRangeEndPoint();
+}
+
+inline bool canHaveChildrenForEditing(const Node* node)
+{
+    return !node->isTextNode() && node->canContainRangeEndPoint();
+}
+
 bool isAtomicNode(const Node*);
 bool isBlock(const Node*);
 bool isSpecialElement(const Node*);
@@ -96,14 +108,13 @@ bool isNodeVisiblyContainedWithin(Node*, const Range*);
 bool isRenderedAsNonInlineTableImageOrHR(const Node*);
 bool isNodeInTextFormControl(Node* node);
     
+TextDirection directionOfEnclosingBlock(const Position&);
+
 // -------------------------------------------------------------------------
 // Position
 // -------------------------------------------------------------------------
     
 // Functions returning Position
-    
-Position rangeCompliantEquivalent(const Position&);
-Position rangeCompliantEquivalent(const VisiblePosition&);
     
 Position nextCandidate(const Position&);
 Position previousCandidate(const Position&);
@@ -111,31 +122,25 @@ Position previousCandidate(const Position&);
 Position nextVisuallyDistinctCandidate(const Position&);
 Position previousVisuallyDistinctCandidate(const Position&);
 
-Position positionBeforeTabSpan(const Position&);
+Position positionOutsideTabSpan(const Position&);
 Position positionBeforeContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
 Position positionAfterContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
 Position positionOutsideContainingSpecialElement(const Position&, Node** containingSpecialElement=0);
-    
-// Position creation functions are inline to prevent ref-churn.
-// Other Position creation functions are in Position.h
-// but these depend on lastOffsetForEditing which is defined in htmlediting.h.
 
-// NOTE: first/lastDeepEditingPositionForNode return legacy editing positions (like [img, 0])
-// for elements which editing ignores.  The rest of the editing code will treat [img, 0]
-// as "the last position before the img".
-// New code should use the creation functions in Position.h instead.
-inline Position firstDeepEditingPositionForNode(Node* anchorNode)
+inline Position firstPositionInOrBeforeNode(Node* node)
 {
-    ASSERT(anchorNode);
-    return Position(anchorNode, 0);
+    if (!node)
+        return Position();
+    return editingIgnoresContent(node) ? positionBeforeNode(node) : firstPositionInNode(node);
 }
 
-inline Position lastDeepEditingPositionForNode(Node* anchorNode)
+inline Position lastPositionInOrAfterNode(Node* node)
 {
-    ASSERT(anchorNode);
-    return Position(anchorNode, lastOffsetForEditing(anchorNode));
+    if (!node)
+        return Position();
+    return editingIgnoresContent(node) ? positionAfterNode(node) : lastPositionInNode(node);
 }
-       
+
 // comparision functions on Position
     
 int comparePositions(const Position&, const Position&);
@@ -196,7 +201,7 @@ PassRefPtr<HTMLElement> createHTMLElement(Document*, const AtomicString&);
 
 HTMLElement* enclosingList(Node*);
 HTMLElement* outermostEnclosingList(Node*, Node* rootList = 0);
-HTMLElement* enclosingListChild(Node*);
+Node* enclosingListChild(Node*);
 
 // -------------------------------------------------------------------------
 // Element
@@ -219,19 +224,28 @@ bool canMergeLists(Element* firstList, Element* secondList);
 // -------------------------------------------------------------------------
 // VisibleSelection
 // -------------------------------------------------------------------------
-    
-// Functions returning VisibleSelection
 
+// Functions returning VisibleSelection
 VisibleSelection avoidIntersectionWithNode(const VisibleSelection&, Node*);
 VisibleSelection selectionForParagraphIteration(const VisibleSelection&);
     
 
-// Miscellaneous functions on String
-    
-String stringWithRebalancedWhitespace(const String&, bool, bool);
+// Miscellaneous functions on Text
+inline bool isWhitespace(UChar c)
+{
+    return c == noBreakSpace || c == ' ' || c == '\n' || c == '\t';
+}
+
+inline bool isAmbiguousBoundaryCharacter(UChar character)
+{
+    // These are characters that can behave as word boundaries, but can appear within words.
+    // If they are just typed, i.e. if they are immediately followed by a caret, we want to delay text checking until the next character has been typed.
+    // FIXME: this is required until 6853027 is fixed and text checking can do this for us.
+    return character == '\'' || character == rightSingleQuotationMark || character == hebrewPunctuationGershayim;
+}
+
+String stringWithRebalancedWhitespace(const String&, bool startIsStartOfParagraph, bool endIsEndOfParagraph);
 const String& nonBreakingSpaceString();
-bool validBlockTag(const AtomicString&);
-    
 
 }
 

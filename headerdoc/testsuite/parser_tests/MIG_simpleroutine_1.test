@@ -1,8 +1,8 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$119|simpleroutine   audit_triggers(
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$119|simpleroutine   audit_triggers(
                 audit_port      : mach_port_t;
         in      flags           : int);
 $30|/*! Audit triggers routine */
-$0|$9200|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$9187|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -92,9 +92,9 @@ $parserState->{sodname} => audit_triggers
 $parserState->{sodtype} =>  simpleroutine
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => MIG
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => simpleroutine
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -188,8 +188,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -222,15 +222,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -272,8 +272,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -314,8 +314,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: audit_triggers (HeaderDoc::Function)
 +---simpleroutine
@@ -349,14 +349,14 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: audit_triggers (HeaderDoc::Function)
-	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers" --><span class="function">audit_triggers</span><!-- /a -->( 
-	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/econst/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/clconst/mach_port_t //test_ref/mig/intf/mach_port_t" --><span class="type">mach_port_t</span><!-- /a -->; 
-	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/econst/int //test_ref/mig/struct/int //test_ref/mig/clconst/int //test_ref/mig/intf/int" --><span class="type">int</span><!-- /a -->);  
+	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers //test_ref/doc/anysymbol/audit_triggers" machineGenerated="true" --><span class="function">audit_triggers</span><!-- /a -->( 
+	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/intf/mach_port_t //test_ref/doc/anysymbol/mach_port_t" machineGenerated="true" --><span class="type">mach_port_t</span><!-- /a -->; 
+	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/struct/int //test_ref/mig/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a -->);  
 END OF OBJECT
 
 
 
-$9200|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$9187|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -446,9 +446,9 @@ $parserState->{sodname} => audit_triggers
 $parserState->{sodtype} =>  simpleroutine
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => MIG
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => simpleroutine
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -542,8 +542,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -576,15 +576,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -626,8 +626,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -668,8 +668,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: audit_triggers (HeaderDoc::Function)
 +---simpleroutine
@@ -703,719 +703,11 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: audit_triggers (HeaderDoc::Function)
-	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers" --><span class="function">audit_triggers</span><!-- /a -->( 
-	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/econst/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/clconst/mach_port_t //test_ref/mig/intf/mach_port_t" --><span class="type">mach_port_t</span><!-- /a -->; 
-	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/econst/int //test_ref/mig/struct/int //test_ref/mig/clconst/int //test_ref/mig/intf/int" --><span class="type">int</span><!-- /a -->);  
+	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers //test_ref/doc/anysymbol/audit_triggers" machineGenerated="true" --><span class="function">audit_triggers</span><!-- /a -->( 
+	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/intf/mach_port_t //test_ref/doc/anysymbol/mach_port_t" machineGenerated="true" --><span class="type">mach_port_t</span><!-- /a -->; 
+	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/struct/int //test_ref/mig/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a -->);  
 END OF OBJECT
 
 
 
-_$47|testsuite/parser_tests/MIG_simpleroutine_1.test$1|C$19|MIG simpleroutine 1$9200|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/MIG_simpleroutine_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/MIG_simpleroutine_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 3
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => simpleroutine
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => audit_triggers
-$parserState->{sodtype} =>  simpleroutine
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => simpleroutine
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 3
-typelist: function
-namelist: audit_triggers
-posstypes: function method
-value: 
-returntype:  simpleroutine
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => audit_port      : mach_port_t
-Parsed Param 1 => in      flags           : int
--=: DUMP OF PARSE TREE :=-
-+---simpleroutine
-+---   
-+---audit_triggers
-+---(
-|   +---[ NEWLINE ]
-|   +---                
-|   +---audit_port
-|   +---      
-|   +---:
-|   +--- 
-|   +---mach_port_t
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---in
-|   +---      
-|   +---flags
-|   +---           
-|   +---:
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: MIG simpleroutine 1
-APIUID: //test_ref/doc/header/MIG_simpleroutine_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: audit_triggers
-    APIUID: //test_ref/mig/func/audit_triggers
-    ABSTRACT: ""
-    DISCUSSION: "<p>Audit triggers routine "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " simpleroutine"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: mach_port_t
-        TYPE: audit_port
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: int
-        TYPE: in flags
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: audit_triggers (HeaderDoc::Function)
-+---simpleroutine
-+---   
-+---audit_triggers
-+---(
-|   +---[ NEWLINE ]
-|   +---                
-|   +---audit_port
-|   +---      
-|   +---:
-|   +--- 
-|   +---mach_port_t
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---in
-|   +---      
-|   +---flags
-|   +---           
-|   +---:
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: audit_triggers (HeaderDoc::Function)
-	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers" --><span class="function">audit_triggers</span><!-- /a -->( 
-	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/econst/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/clconst/mach_port_t //test_ref/mig/intf/mach_port_t" --><span class="type">mach_port_t</span><!-- /a -->; 
-	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/econst/int //test_ref/mig/struct/int //test_ref/mig/clconst/int //test_ref/mig/intf/int" --><span class="type">int</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$9200|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/MIG_simpleroutine_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/MIG_simpleroutine_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 3
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => simpleroutine
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => audit_triggers
-$parserState->{sodtype} =>  simpleroutine
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => simpleroutine
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 3
-typelist: function
-namelist: audit_triggers
-posstypes: function method
-value: 
-returntype:  simpleroutine
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => audit_port      : mach_port_t
-Parsed Param 1 => in      flags           : int
--=: DUMP OF PARSE TREE :=-
-+---simpleroutine
-+---   
-+---audit_triggers
-+---(
-|   +---[ NEWLINE ]
-|   +---                
-|   +---audit_port
-|   +---      
-|   +---:
-|   +--- 
-|   +---mach_port_t
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---in
-|   +---      
-|   +---flags
-|   +---           
-|   +---:
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: MIG simpleroutine 1
-APIUID: //test_ref/doc/header/MIG_simpleroutine_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: audit_triggers
-    APIUID: //test_ref/mig/func/audit_triggers
-    ABSTRACT: ""
-    DISCUSSION: "<p>Audit triggers routine "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " simpleroutine"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: mach_port_t
-        TYPE: audit_port
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: int
-        TYPE: in flags
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: audit_triggers (HeaderDoc::Function)
-+---simpleroutine
-+---   
-+---audit_triggers
-+---(
-|   +---[ NEWLINE ]
-|   +---                
-|   +---audit_port
-|   +---      
-|   +---:
-|   +--- 
-|   +---mach_port_t
-|   +---;
-|   +---[ NEWLINE ]
-|   +---        
-|   +---in
-|   +---      
-|   +---flags
-|   +---           
-|   +---:
-|   +--- 
-|   +---int
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: audit_triggers (HeaderDoc::Function)
-	<span class="keyword">simpleroutine</span> <!-- a logicalPath="//test_ref/mig/instm/audit_triggers //test_ref/mig/clm/audit_triggers //test_ref/mig/intfcm/audit_triggers //test_ref/mig/intfm/audit_triggers //test_ref/mig/func/audit_triggers //test_ref/mig/ftmplt/audit_triggers //test_ref/mig/defn/audit_triggers //test_ref/mig/macro/audit_triggers" --><span class="function">audit_triggers</span><!-- /a -->( 
-	    <span class="param">audit_port</span> : <!-- a logicalPath="//test_ref/mig/cl/mach_port_t //test_ref/mig/tdef/mach_port_t //test_ref/mig/tag/mach_port_t //test_ref/mig/econst/mach_port_t //test_ref/mig/struct/mach_port_t //test_ref/mig/clconst/mach_port_t //test_ref/mig/intf/mach_port_t" --><span class="type">mach_port_t</span><!-- /a -->; 
-	    <span class="keyword">in</span> <span class="param">flags</span> : <!-- a logicalPath="//test_ref/mig/cl/int //test_ref/mig/tdef/int //test_ref/mig/tag/int //test_ref/mig/econst/int //test_ref/mig/struct/int //test_ref/mig/clconst/int //test_ref/mig/intf/int" --><span class="type">int</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$3|MIG$6|parser
+_$101|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/MIG_simpleroutine_1.test$1|C$19|MIG simpleroutine 1$3|MIG$6|parser

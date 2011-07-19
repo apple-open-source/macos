@@ -134,6 +134,31 @@ For example:
 .Bd -literal -offset indent
 bin	-ro,nosuid  mynfs:/export/bin
 .Ed
+.Pp
+For file system types other than NFS, the mount option
+.Cm -fstype Ns = Ns Aq Ar type
+can be used to specify the file system type.  The
+.Va location
+would be in the form expected by the mount command for that file system
+type.
+For example:
+.Bd -literal -offset indent
+smb	-fstype=smb //guest@smbserver/share
+afp	-fstype=afp afp://;AUTH=NO%20USER%20AUTHENT@afpserver/share
+.Ed
+.Pp
+If the
+.Va location
+is a URL, with a scheme specifying AFP, NFS, or SMB, then,
+if no file system type is specified,
+the directory referred to by that URL will be mounted using
+.Xr mount_url 8 .
+For example:
+.Bd -literal -offset indent
+nfsurl	nfs://nfsserver/path/to/mount
+smburl	smb://guest@smbserver/share
+afpurl	afp://;AUTH=NO%20USER%20AUTHENT@afpserver/share
+.Ed
 .Sh Replicated mounts
 More than one
 .Va location

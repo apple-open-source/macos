@@ -412,7 +412,8 @@ int32_t xar_attrcopy_from_heap(xar_t x, xar_file_t f, xar_prop_t p, write_callba
 	if( tmpp )
 		opt = xar_prop_getvalue(tmpp);
 	if( !opt ) {
-		wcb(x, f, NULL, 0, context);
+        if( wcb )
+            wcb(x, f, NULL, 0, context);
 		return 0;
 	} else {
 		seekoff = strtoll(opt, NULL, 0);

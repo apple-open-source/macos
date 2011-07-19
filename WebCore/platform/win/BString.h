@@ -26,7 +26,9 @@
 #ifndef BString_h
 #define BString_h
 
-#if PLATFORM(CF)
+#include <wtf/Forward.h>
+
+#if USE(CF)
 typedef const struct __CFString * CFStringRef;
 #endif
 
@@ -38,9 +40,7 @@ namespace JSC {
 
 namespace WebCore {
 
-    class AtomicString;
     class KURL;
-    class String;
 
     class BString {
     public:
@@ -51,7 +51,7 @@ namespace WebCore {
         BString(const AtomicString&);
         BString(const KURL&);
         BString(const JSC::UString&);
-#if PLATFORM(CF)
+#if USE(CF)
         BString(CFStringRef);
 #endif
         ~BString();

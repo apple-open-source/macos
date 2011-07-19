@@ -66,7 +66,7 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Compiler support for module scope symbols */
+/* No Compiler support for module scope symbols */
 #undef MODULE_SCOPE
 
 /* Do we have <dirent.h>? */
@@ -95,6 +95,9 @@
 
 /* Do we have <values.h>? */
 #undef NO_VALUES_H
+
+/* No visibility hidden passed to zlib? */
+#undef NO_VIZ
 
 /* Define to the address where bug reports for this package should be sent. */
 #undef PACKAGE_BUGREPORT
@@ -134,9 +137,6 @@
 
 /* UNDER_CE version */
 #undef UNDER_CE
-
-/* Do we need a special AIX hack for timezones? */
-#undef USE_DELTA_FOR_TZ
 
 /* Use Tcl stubs */
 #undef USE_TCL_STUBS

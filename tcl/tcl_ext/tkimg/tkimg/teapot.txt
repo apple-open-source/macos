@@ -1,2 +1,0 @@
-Package Img 0.0.0.2008.12.02.10.57.38
-Meta platform source

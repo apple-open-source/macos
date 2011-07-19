@@ -26,6 +26,7 @@
 #undef ID
 
 static PyObject* empty = NULL;
+static PyObject* empty_bytes = NULL;
 static PyObject* default_suggestion = NULL;
 static PyObject* setupCFClasses = NULL;
 static PyObject* structConvenience = NULL;
@@ -37,7 +38,6 @@ static const char* gBooleanAttributes[] = {
 	"already_cfretained",
 	"c_array_length_in_result",
 	"c_array_delimited_by_null",
-	"null_accepted', ",
 	"c_array_of_variable_length",
 	"printf_format",
 	"free_result",
@@ -177,12 +177,17 @@ PyObjCXML_Init(void)
 	 */
 	LIBXML_TEST_VERSION
 
-	empty = PyString_FromString("");
+	empty = PyText_InternFromString("");
 	if (empty == NULL) {
 		return -1;
 	}
 
-	default_suggestion = PyString_FromString("don't use this method");
+	empty_bytes = PyBytes_InternFromString("");
+	if (empty == NULL) {
+		return -1;
+	}
+
+	default_suggestion = PyText_InternFromString("don't use this method");
 	if (default_suggestion == NULL) {
 		return -1;
 	}
@@ -246,8 +251,8 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 		*argIdx = strtol(v, &end, 10);
 		if (end && *end != '\0') {
 			PyErr_SetString(PyExc_ValueError, v);
-			xmlFree(v);
 		}
+		xmlFree(v);
 	}
 
 	PyObject* result = PyDict_New();
@@ -263,7 +268,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 	typestr2typestr(s);
 
 	if (s && *s) {
-		v = PyString_FromString(s);
+		v = PyBytes_InternFromString(s);
 		if (v == NULL) {
 			xmlFree(s);
 			Py_DECREF(result);
@@ -281,7 +286,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 
 	s = attribute_string(node, "type_modifier", NULL);
 	if (s && *s) {
-		v = PyString_FromString(s);
+		v = PyBytes_InternFromString(s);
 		if (v == NULL) {
 			xmlFree(s);
 			Py_DECREF(result);
@@ -300,7 +305,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 	s = attribute_string(node, "sel_of_type", "sel_of_type64");
 	typestr2typestr(s);
 	if (s && *s) {
-		v = PyString_FromString(s);
+		v = PyBytes_InternFromString(s);
 		if (v == NULL) {
 			xmlFree(s);
 			Py_DECREF(result);
@@ -319,7 +324,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 	s = attribute_string(node, "c_array_of_fixed_length", NULL);
 	if (s && *s) {
 		char* end;
-		v = PyInt_FromString(s, &end, 10);
+		v = PyObjC_IntFromString(s, &end, 10);
 		if (v == NULL) {
 			xmlFree(s);
 			Py_DECREF(result);
@@ -346,14 +351,37 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 	for (; *bool_attrs != NULL; bool_attrs++) {
 		if (attribute_bool(node, *bool_attrs, NULL, NO)) {
 			r = PyDict_SetItemString(result, *bool_attrs, Py_True);
+			if (r == -1) {
+				Py_DECREF(result);
+				return NULL;
+			}
+#if 0
+		/* Don't store default value */
 		} else {
 			r = PyDict_SetItemString(result, *bool_attrs, Py_False);
-		}
-		if (r == -1) {
-			Py_DECREF(result);
-			return NULL;
+			if (r == -1) {
+				Py_DECREF(result);
+				return NULL;
+			}
+#endif
 		}
 	}
+
+	if (attribute_bool(node, "null_accepted", NULL, YES)) {
+#if 0
+		/* Don't store default value */
+		r = PyDict_SetItemString(result, "null_accepted", Py_True);
+#else
+		r = 0;
+#endif
+	} else {
+		r = PyDict_SetItemString(result, "null_accepted", Py_False);
+	}
+	if (r == -1) {
+		Py_DECREF(result);
+		return NULL;
+	}
+
 
 	s = attribute_string(node, "c_array_length_in_arg", NULL);
 	if (s && *s) {
@@ -369,9 +397,9 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 			}
 
 			if (isMethod) {
-				v = PyInt_FromLong(input + 2);
+				v = PyObjC_IntFromLong(input + 2);
 			} else {
-				v = PyInt_FromLong(input);
+				v = PyObjC_IntFromLong(input);
 			}
 			if (v == NULL) {
 				Py_DECREF(result);
@@ -479,7 +507,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 				Py_DECREF(result);
 				return NULL;
 			}
-			PyObject* av = PyString_FromString("^v");
+			PyObject* av = PyBytes_InternFromString("^v");
 			if (av == NULL) {
 				Py_DECREF(a);
 				Py_DECREF(result);
@@ -488,7 +516,7 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 			PyDict_SetItemString(a, "type", av);
 			Py_DECREF(av);
 
-			av = PyInt_FromLong(idx++);
+			av = PyObjC_IntFromLong(idx++);
 			if (av == NULL) {
 				Py_DECREF(a);
 				Py_DECREF(av);
@@ -508,12 +536,12 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 				continue;
 			}
 			if (strcmp((char*)al->name, "arg") == 0) {
-				PyObject* d = xmlToArgMeta(al, NO, NULL);
+				PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, NO, NULL));
 				if (d == NULL) {
 					Py_DECREF(result);
 					return NULL;
 				}
-				v = PyInt_FromLong(idx++);
+				v = PyObjC_IntFromLong(idx++);
 				if (v == NULL) {
 					Py_DECREF(d);
 					Py_DECREF(v);
@@ -528,11 +556,12 @@ xmlToArgMeta(xmlNode* node, BOOL isMethod, int* argIdx)
 					return NULL;
 				}
 			} else if (strcmp((char*)al->name, "retval") == 0) {
-				PyObject* d = xmlToArgMeta(al, NO, NULL);
+				PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, NO, NULL));
 				if (d == NULL) {
 					Py_DECREF(result);
 					return NULL;
 				}
+
 				r = PyDict_SetItemString(meta, "retval", d);
 				Py_DECREF(d);
 				if (r == -1) {
@@ -618,6 +647,13 @@ handle_constant(xmlNode* cur_node, PyObject* globalDict)
 				return -1;
 			}
 
+			v = PyObjC_InternValue(v);
+			if (v == NULL) {
+				if (name) xmlFree(name);
+				if (type) xmlFree(type);
+				return -1;
+			}
+
 			int r = PyDict_SetItemString(globalDict, name, v);
 			if (r == -1) {
 				if (name) xmlFree(name);
@@ -636,24 +672,15 @@ handle_string_constant(xmlNode* cur_node, PyObject* globalDict)
 {
 	char* name = attribute_string(cur_node, "name", NULL);
 	char* value = attribute_string(cur_node, "value", "value64");
+	BOOL nsstring = attribute_bool(cur_node, "nsstring", NULL, NO);
 
 	if (name != NULL && value != NULL && *value != '\0') {
-		size_t i, len = strlen(value);
-
-		PyObject* v = NULL;
-		for (i = 0; i < len; i++) {
-			if (((unsigned char)value[i]) > 127) {
-				v = PyUnicode_DecodeUTF8(value, len, "strict");
-				if (v == NULL) {
-					if (name) xmlFree(name);
-					if (value) xmlFree(value);
-					return -1;
-				}
-				break;
-			}
-		}
-		if (v == NULL) {
-			v = PyString_FromStringAndSize(value, len);
+		size_t len = strlen(value);
+		PyObject* v;
+		if (nsstring) {
+			v = PyUnicode_DecodeUTF8(value, len, "strict");
+		} else {
+			v = PyBytes_InternFromStringAndSize(value, len);
 		}
 		if (v == NULL) {
 			if (name) xmlFree(name);
@@ -695,17 +722,22 @@ handle_enum(xmlNode* cur_node, PyObject* globalDict)
 
 		if (strchr(value, '.') != NULL) {
 			/* floating point literal */
-			PyObject* s = PyString_FromString(value);
+			PyObject* s = PyText_FromString(value);
 			if (s == NULL) {
 				v = NULL;
 
 			} else {
+#if PY_MAJOR_VERSION == 2
 				v = PyFloat_FromString(s, &end);
+#else
+				v = PyFloat_FromString(s);
+				end = NULL;
+#endif
 				Py_DECREF(s);
 			}
 		} else {
 			/* integer literal */
-			v = PyInt_FromString(value, &end, 10);
+			v = PyObjC_IntFromString(value, &end, 10);
 		}
 
 		if (v == NULL) {
@@ -849,7 +881,7 @@ handle_cftype(xmlNode* cur_node, PyObject* globalDict, PyObject* cftypes)
 		} else {
 			CFTypeID typeid = getfunc();
 
-			v = PyInt_FromLong(typeid);
+			v = PyObjC_IntFromLong(typeid);
 			if (v == NULL) {
 				goto end;
 			}
@@ -938,7 +970,7 @@ handle_class(xmlNode* cur_node)
 				}
 
 			} else {
-				PyObject* v = PyString_FromString(suggestion);
+				PyObject* v = PyText_InternFromString(suggestion);
 				xmlFree(suggestion);
 
 				r = PyDict_SetItemString(metadata, "suggestion", v);
@@ -992,7 +1024,7 @@ handle_class(xmlNode* cur_node)
 			if (c_length != NULL) {
 				long cnt = strtol(c_length, NULL, 10);
 
-				v = PyInt_FromLong(cnt);
+				v = PyObjC_IntFromLong(cnt);
 				if (v == NULL) {
 					Py_DECREF(metadata);
 					Py_XDECREF(pyClassname);
@@ -1037,7 +1069,7 @@ handle_class(xmlNode* cur_node)
 
 			if (strcmp((char*)al->name, "arg") == 0) {
 				int argIdx;
-				PyObject* d = xmlToArgMeta(al, YES, &argIdx);
+				PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, YES, &argIdx));
 				if (d == NULL) {
 					Py_DECREF(metadata);
 					Py_XDECREF(pyClassname);
@@ -1046,7 +1078,7 @@ handle_class(xmlNode* cur_node)
 					return -1;
 				}
 				
-				PyObject* idx = PyInt_FromLong(argIdx+2);
+				PyObject* idx = PyObjC_IntFromLong(argIdx+2);
 				if (idx == NULL) {
 					Py_DECREF(d);
 					Py_DECREF(metadata);
@@ -1068,7 +1100,7 @@ handle_class(xmlNode* cur_node)
 				}
 
 			} else if (strcmp((char*)al->name, "retval") == 0) {
-				PyObject* d = xmlToArgMeta(al, YES, NULL);
+				PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, YES, NULL));
 				if (d == NULL) {
 					Py_DECREF(metadata);
 					Py_XDECREF(pyClassname);
@@ -1091,7 +1123,7 @@ handle_class(xmlNode* cur_node)
 
 		/* Complete metadata for a method, register it */
 		if (pyClassname == NULL) {
-			pyClassname = PyString_FromString(classname);
+			pyClassname = PyBytes_InternFromString(classname);
 			if (pyClassname == NULL) {
 				Py_DECREF(metadata);
 				xmlFree(selname);
@@ -1100,21 +1132,29 @@ handle_class(xmlNode* cur_node)
 			}
 		}
 
-		PyObject* pySelector = PyString_FromString(selname);
+		PyObject* pySelector = PyBytes_InternFromString(selname);
+		xmlFree(selname);
 		if (pySelector == NULL) {
 			Py_DECREF(pyClassname);
 			Py_DECREF(metadata);
-			xmlFree(selname);
 			xmlFree(classname);
 			return -1;
 		}
+
+		metadata = PyObjC_InternValue(metadata);
+		if (metadata == NULL) {
+			Py_DECREF(pyClassname);
+			Py_DECREF(pySelector);
+			return -1;
+		}
+
 
 		r = PyObjC_registerMetaData(pyClassname, pySelector, metadata);
 		Py_DECREF(pySelector);
 		Py_DECREF(metadata);
 
 		if (r < 0) {
-			xmlFree(selname);
+			Py_XDECREF(pyClassname);
 			xmlFree(classname);
 			return -1;
 		}
@@ -1216,7 +1256,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 		char* ch = attribute_string(cur_node, "c_array_length_in_arg", NULL);
 		if (ch) {
 			long count = strtol(ch, NULL, 10);
-			v = PyInt_FromLong(count);
+			v = PyObjC_IntFromLong(count);
 			if (v == NULL) {
 				xmlFree(name);
 				Py_DECREF(metadata);
@@ -1231,6 +1271,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 				return -1;
 			}
 			Py_DECREF(v);
+			xmlFree(ch);
 		}
 	}
 
@@ -1243,7 +1284,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 	}
 
 	/* Set the default result type to 'v' */
-	v = PyString_FromString("v");
+	v = PyBytes_InternFromString("v");
 	if (v == NULL) goto error;
 
 	int r = PyList_Append(siglist, v);
@@ -1260,7 +1301,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 		}
 
 		if (strcmp((char*)al->name, "arg") == 0) {
-			PyObject* d = xmlToArgMeta(al, NO, NULL);
+			PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, NO, NULL));
 			if (d == NULL) {
 				goto error;
 			}
@@ -1276,7 +1317,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 				goto error;
 			}
 
-			PyObject* argIdx = PyInt_FromLong(PyList_Size(siglist)-2);
+			PyObject* argIdx = PyObjC_IntFromLong(PyList_Size(siglist)-2);
 			if (argIdx == NULL) {
 				Py_DECREF(d);
 				goto error;
@@ -1292,7 +1333,7 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 
 		} else if (strcmp((char*)al->name, "retval") == 0) {
 
-			PyObject* d = xmlToArgMeta(al, NO, NULL);
+			PyObject* d = PyObjC_InternValue(xmlToArgMeta(al, NO, NULL));
 			if (d == NULL) {
 				goto error;
 			}
@@ -1320,16 +1361,25 @@ handle_function(xmlNode* cur_node, PyObject* globalDict, struct functionlist* in
 
 
 	/* We have the complete metadata, now build the proxy object for it */
-	PyObject* signature = PyObject_CallMethod(empty, "join", "O", siglist);
+	PyObject* signature = PyObjC_InternValue(PyObject_CallMethod(empty_bytes, "join", "O", siglist));
 	if (signature == NULL) {
 		goto error;
 	}
 
-	PyObject* nm = PyString_FromString(name);
+	PyObject* nm = PyText_InternFromString(name);
 	if (nm == NULL) {
 		goto error;
 	}
-	v = PyObjCFunc_New(nm, function, PyString_AsString(signature), Py_None, metadata);
+
+	metadata = PyObjC_InternValue(metadata);
+	if (metadata == NULL) {
+		Py_DECREF(nm);
+		Py_DECREF(metadata);
+		Py_DECREF(arguments);
+		Py_DECREF(siglist);
+	}
+
+	v = PyObjCFunc_New(nm, function, PyBytes_AsString(signature), Py_None, metadata);
 
 	Py_DECREF(nm);
 	Py_DECREF(metadata);
@@ -1428,7 +1478,7 @@ handle_informal_protocol(xmlNode* cur_node, const char* framework, PyObject* glo
 		if (module == NULL) {
 			char buf[1024];
 			snprintf(buf, sizeof(buf), "%s.protocols", framework);
-			PyObject* mod_name = PyString_FromString(buf);
+			PyObject* mod_name = PyText_InternFromString(buf);
 			if (mod_name == NULL) {
 				Py_DECREF(proto);
 				Py_DECREF(methodList);
@@ -1495,29 +1545,58 @@ handle_struct(xmlNode* cur_node, PyObject* globalDict)
 {
 	char* name = attribute_string(cur_node, "name", NULL);
 	char* type = attribute_string(cur_node, "type", "type64");
+	char* alias = attribute_string(cur_node, "alias", NULL);
 	if (!typestr2typestr(type)) {
-	    PyErr_Format(PyExc_SyntaxError, "Syntax error for struct %s\n", name);
-	    return -1;
+		PyErr_Format(PyExc_SyntaxError, "Syntax error for struct %s\n", name);
+		return -1;
 	}
 
+
 	if (name != NULL && type != NULL && *type != '\0') {
-		PyObject* v = PyObjC_RegisterStructType(
+		PyObject* v = NULL;
+
+		if (alias != NULL) {
+			int r;
+
+			v = PyObjC_ImportName(alias);
+
+			if (v != NULL) {
+			
+				r = PyObjC_RegisterStructAlias(type, v);
+				if (r == -1) {
+					Py_DECREF(v);
+					if (name) xmlFree(name);
+					if (type) xmlFree(type);
+					if (alias) xmlFree(alias);
+					return -1;
+				}
+			} else {
+				/* Fall through to regular handling */
+				PyErr_Clear();
+			}
+		}
+			
+
+		if (v == NULL) {
+			v = PyObjC_RegisterStructType(
 				PyObjCUtil_Strdup(type), 
 				PyObjCUtil_Strdup(name), 
 				"", NULL, -1, NULL);
 
-		if (v == NULL) {
-			if (name) xmlFree(name);
-			if (type) xmlFree(type);
-			return -1;
-		}
+			if (v == NULL) {
+				if (name) xmlFree(name);
+				if (type) xmlFree(type);
+				if (alias) xmlFree(alias);
+				return -1;
+			}
 
-		if (structConvenience != NULL) {
-			PyObject* o = PyObject_CallFunction(
-					structConvenience, 
-					"ss", name, type);
-			Py_XDECREF(o);
-			PyErr_Clear();
+			if (structConvenience != NULL) {
+				PyObject* o = PyObject_CallFunction(
+						structConvenience, 
+						"ss", name, type);
+				Py_XDECREF(o);
+				PyErr_Clear();
+			}
 		}
 
 		int r = PyDict_SetItemString(globalDict, name, v);
@@ -1525,12 +1604,14 @@ handle_struct(xmlNode* cur_node, PyObject* globalDict)
 		if (r == -1) {
 			if (name) xmlFree(name);
 			if (type) xmlFree(type);
+			if (alias) xmlFree(alias);
 			return -1;
 		}
 	}
 
 	if (name) xmlFree(name);
 	if (type) xmlFree(type);
+	if (alias) xmlFree(alias);
 	return 0;
 }
 
@@ -1606,8 +1687,8 @@ PyObjC_ProcessXML(char* data, int length, PyObject* globalDict, const char* dyli
 	}
 
 	struct functionlist* inlineTab = NULL;
-	if (_inlineTab != NULL && PyCObject_Check(_inlineTab)) {
-		inlineTab = PyCObject_AsVoidPtr(_inlineTab);
+	if (_inlineTab != NULL && PyCapsule_CheckExact(_inlineTab)) {
+		inlineTab = PyCapsule_GetPointer(_inlineTab, "objc.__inline__");
 		if (inlineTab == NULL) {
 			PyErr_Clear();
 		}

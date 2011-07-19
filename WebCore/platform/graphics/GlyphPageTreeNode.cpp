@@ -29,12 +29,12 @@
 #include "config.h"
 #include "GlyphPageTreeNode.h"
 
-#include "CharacterNames.h"
 #include "PlatformString.h"
 #include "SegmentedFontData.h"
 #include "SimpleFontData.h"
 #include <stdio.h>
 #include <wtf/text/CString.h>
+#include <wtf/unicode/CharacterNames.h>
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
@@ -171,6 +171,7 @@ void GlyphPageTreeNode::initializePage(const FontData* fontData, unsigned pageNu
                         buffer[i] = zeroWidthSpace;
                     for (i = 0x7F; i < 0xA0; i++)
                         buffer[i] = zeroWidthSpace;
+                    buffer[softHyphen] = zeroWidthSpace;
 
                     // \n, \t, and nonbreaking space must render as a space.
                     buffer[(int)'\n'] = ' ';
@@ -190,6 +191,9 @@ void GlyphPageTreeNode::initializePage(const FontData* fontData, unsigned pageNu
                 } else if (start == (objectReplacementCharacter & ~(GlyphPage::size - 1))) {
                     // Object replacement character must not render at all.
                     buffer[objectReplacementCharacter - start] = zeroWidthSpace;
+                } else if (start == (zeroWidthNoBreakSpace & ~(GlyphPage::size - 1))) {
+                    // ZWNBS/BOM must not render at all.
+                    buffer[zeroWidthNoBreakSpace - start] = zeroWidthSpace;
                 }
             } else {
                 bufferLength = GlyphPage::size * 2;
@@ -370,13 +374,13 @@ void GlyphPageTreeNode::pruneFontData(const SimpleFontData* fontData, unsigned l
     if (!fontData)
         return;
 
+    // Prune fall back child (if any) of this font.
+    if (m_systemFallbackChild && m_systemFallbackChild->m_page)
+        m_systemFallbackChild->m_page->clearForFontData(fontData);
+
     // Prune any branch that contains this FontData.
     HashMap<const FontData*, GlyphPageTreeNode*>::iterator child = m_children.find(fontData);
-    if (child == m_children.end()) {
-        // If there is no level-1 node for fontData, then there is no deeper node for it in this tree.
-        if (!level)
-            return;
-    } else {
+    if (child != m_children.end()) {
         GlyphPageTreeNode* node = child->second;
         m_children.remove(fontData);
         unsigned customFontCount = node->m_customFontCount;

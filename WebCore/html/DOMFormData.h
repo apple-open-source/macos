@@ -32,25 +32,27 @@
 #define DOMFormData_h
 
 #include "FormDataList.h"
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
 class Blob;
-class String;
+class HTMLFormElement;
 class TextEncoding;
 
 class DOMFormData : public FormDataList, public RefCounted<DOMFormData> {
 public:
-    static PassRefPtr<DOMFormData> create() { return adoptRef(new DOMFormData(UTF8Encoding())); }
+    static PassRefPtr<DOMFormData> create(HTMLFormElement* form) { return adoptRef(new DOMFormData(form)); }
     static PassRefPtr<DOMFormData> create(const TextEncoding& encoding) { return adoptRef(new DOMFormData(encoding)); }
 
     void append(const String& name, const String& value);
     void append(const String& name, Blob*);
 
 private:
-    DOMFormData(const TextEncoding&);
+    explicit DOMFormData(const TextEncoding&);
+    explicit DOMFormData(HTMLFormElement*);
 };
 
 } // namespace WebCore

@@ -43,4 +43,4 @@ void
 chap_md5(uint8_t identifier, const uint8_t * password, int password_length,
 	 const uint8_t * challenge, int challenge_len,
 	 uint8_t * hash);
-#endif _EAP802_1x_CHAP_H
+#endif /* _EAP802_1X_CHAP_H */

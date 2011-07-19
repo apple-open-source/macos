@@ -1,0 +1,50 @@
+Operating System Compatibility
+==============================
+
+Dovecot is commonly used with Linux, Solaris, FreeBSD, OpenBSD, NetBSD and Mac
+OS X. The following operating systems have also worked at least at some point
+in Dovecot's existence:
+
+ * BSD/OS 4.2
+ * AIX 4.3
+ * HP-UX 11i (Dovecot v1.1+)
+ * Tru64 ?.?
+ * <UnixWare.txt> 7.1.4
+ * IRIX 6.5 compiles, but SCM_RIGHTS seems to be broken.
+ * Cygwin apparently doesn't work nowadays.
+ * MidnightBSD (ports)
+
+If there are compiling problems with any OS, please send a bug report that
+includes the error messages.
+
+SCM_RIGHTS
+----------
+
+There is one slightly problematic feature that Dovecot requires for
+implementing privilege separation:*SCM_RIGHTS*. If it doesn't work correctly,
+you'll get errors on 'fd_send()' or 'fd_read()' such as:
+
+---%<-------------------------------------------------------------------------
+imap-login: fd_send(X) failed: Bad file number
+---%<-------------------------------------------------------------------------
+
+If this happens, you can still use inetd and mailfront
+[http://untroubled.org/mailfront/], which executes Dovecot's post-login IMAP or
+POP3 binary. You can also try defining 'BUGGY_CMSG_MACROS' in
+'src/lib/fdpass.c' to see if it helps.
+
+Compilers
+---------
+
+Dovecot should compile with any ANSI-C99 compiler. Dovecot has been known to
+compile (at least once in its lifetime) with the following compilers:
+
+ * GCC
+ * Intel CC [http://www.intel.com/software/products/compilers/clin/]
+ * Tiny CC [http://www.tinycc.org]
+ * Sun Studio 11
+ * Sun Studio 12
+ * AIX xlC
+ * HP-UX cc
+
+(This file was created from the wiki on 2011-05-11 04:42)

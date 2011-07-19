@@ -1,5 +1,5 @@
---- lmessages.h.orig	2003-05-20 15:21:44.000000000 -0700
-+++ lmessages.h	2005-02-19 14:39:44.000000000 -0800
+--- lmessages.h.orig	2009-11-09 15:05:25.000000000 -0800
++++ lmessages.h	2009-11-09 15:05:25.000000000 -0800
 @@ -29,6 +29,8 @@
  #ifndef _LMESSAGES_H_
  #define	_LMESSAGES_H_
@@ -9,7 +9,7 @@
  struct	lc_messages_T {
  	const char	*yesexpr;
  	const char	*noexpr;
-@@ -36,7 +38,7 @@
+@@ -36,7 +38,7 @@ struct	lc_messages_T {
  	const char	*nostr;
  };
  

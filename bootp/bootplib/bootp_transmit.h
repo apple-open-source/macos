@@ -1,7 +1,5 @@
-#ifndef _S_BOOTP_TRANSMIT_H
-#define _S_BOOTP_TRANSMIT_H
 /*
- * Copyright (c) 1999, 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2000, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,6 +25,10 @@
  * bootp_transmit.c
  * - send a bootp reques using a socket or BPF
  */
+
+#ifndef _S_BOOTP_TRANSMIT_H
+#define _S_BOOTP_TRANSMIT_H
+
 /* 
  * Modification History
  *
@@ -36,7 +38,7 @@
 
 
 int
-bootp_transmit(int sockfd, char sendbuf[2048],
+bootp_transmit(int sockfd, char * sendbuf,
 	       const char * if_name, 
 	       int hwtype, const void * hwaddr, int hwlen,
 	       struct in_addr dest_ip,
@@ -45,4 +47,4 @@ bootp_transmit(int sockfd, char sendbuf[2048],
 	       u_short src_port,
 	       const void * data, int len);
 
-#endif _S_BOOTP_TRANSMIT_H
+#endif /* _S_BOOTP_TRANSMIT_H */

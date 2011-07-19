@@ -201,7 +201,7 @@ static Boolean CheckDeviceUsage(IOHIDDevice * device, UInt32 usagePage, UInt32 u
 
 #define super IOHIDDeviceShim
 
-OSDefineMetaClassAndStructors( IOHIDPointingDevice, super )
+OSDefineMetaClassAndStructors( IOHIDPointingDevice, IOHIDDeviceShim )
 
 
 IOHIDPointingDevice * 
@@ -365,7 +365,7 @@ IOReturn IOHIDPointingDevice::newReportDescriptor(
         
     if (_resolution && _resolution != 400)
     {
-        convert16to8((unsigned)-32767, mouse->xyLogMinNum);
+        convert16to8((unsigned short)-32767, mouse->xyLogMinNum);
         convert16to8(32767, mouse->xyLogMaxNum);
         
         UInt16 phys = 3276700 / _resolution;

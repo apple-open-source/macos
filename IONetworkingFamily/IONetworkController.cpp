@@ -46,14 +46,18 @@ extern "C" {
 #include <machine/machine_routines.h>
 }
 
+#ifndef kIOMessageDeviceSignaledWakeup
+#define kIOMessageDeviceSignaledWakeup  iokit_common_msg(0x350)
+#endif
+
 //-------------------------------------------------------------------------
 // Macros.
 
 #define super IOService
 
 OSDefineMetaClassAndAbstractStructors( IONetworkController, IOService )
-OSMetaClassDefineReservedUnused( IONetworkController,  0);
-OSMetaClassDefineReservedUnused( IONetworkController,  1);
+OSMetaClassDefineReservedUsed( IONetworkController,  0);   // getDebuggerLinkStatus
+OSMetaClassDefineReservedUsed( IONetworkController,  1);   // setDebuggerMode
 OSMetaClassDefineReservedUnused( IONetworkController,  2);
 OSMetaClassDefineReservedUnused( IONetworkController,  3);
 OSMetaClassDefineReservedUnused( IONetworkController,  4);
@@ -988,15 +992,19 @@ void IONetworkController::getPacketBufferConstraints(
 }
 
 static mbuf_t getPacket( UInt32 size,
-                                UInt32 how,
-                                UInt32 smask,
-                                UInt32 lmask )
+                         UInt32 how,
+                         UInt32 smask,
+                         UInt32 lmask )
 {
-    mbuf_t packet;
-	UInt32 reqSize =  size + smask + lmask; 	// we over-request so we can fulfill alignment needs.
-	
-	if(reqSize > MHLEN && reqSize <= MINCLSIZE)	//as protection from drivers that incorrectly assume they always get a single-mbuf packet
-		reqSize = MINCLSIZE + 1;				//we force kernel to give us a cluster instead of chained small mbufs.
+    mbuf_t          packet;
+	UInt32          reqSize = size + smask + lmask; 	// we over-request so we can fulfill alignment needs.
+    const uint32_t  minSize = mbuf_get_minclsize();
+
+    //as protection from drivers that incorrectly assume they always get a single-mbuf packet
+    //we force kernel to give us a cluster instead of chained small mbufs.
+
+	if ((reqSize > mbuf_get_mhlen()) && (reqSize <= minSize))
+		reqSize = minSize + 1;
 
 	if( 0 == mbuf_allocpacket(how, reqSize, NULL, &packet))
 	{
@@ -1026,7 +1034,7 @@ static mbuf_t getPacket( UInt32 size,
 
 mbuf_t IONetworkController::allocatePacket( UInt32 size )
 {
-    return getPacket( size, M_WAIT, _alignStart, _alignLength );
+    return getPacket( size, MBUF_WAITOK, _alignStart, _alignLength );
 }
 
 //---------------------------------------------------------------------------
@@ -1147,7 +1155,7 @@ mbuf_t IONetworkController::replacePacket(mbuf_t * mp,
     
     // Allocate a new packet to replace the current packet.
 
-    if ( (*mp = getPacket(size, M_DONTWAIT, _alignStart, _alignLength)) == 0 )
+    if ( (*mp = getPacket(size, MBUF_DONTWAIT, _alignStart, _alignLength)) == 0 )
     {
         *mp = m; m = 0;
     }
@@ -1178,7 +1186,7 @@ mbuf_t IONetworkController::copyPacket(mbuf_t m,
     // Copy the current mbuf to the new mbuf, and return the new mbuf.
     // The input mbuf is left intact.
 
-    if ( (mn = getPacket(size, M_DONTWAIT, _alignStart, _alignLength)) == 0 )
+    if ( (mn = getPacket(size, MBUF_DONTWAIT, _alignStart, _alignLength)) == 0 )
         return 0;
 
     if (!IO_COPY_MBUF(m, mn, size))
@@ -1215,7 +1223,7 @@ mbuf_t IONetworkController::replaceOrCopyPacket(mbuf_t *mp,
 
     assert((mp != NULL) && (*mp != NULL));
         
-    if ( (rcvlen + _alignPadding) > MHLEN )
+    if ( (rcvlen + _alignPadding) > mbuf_get_mhlen() )
     {
         // Large packet, it is more efficient to allocate a new mbuf
         // to replace the original mbuf than to make a copy. The new
@@ -1224,7 +1232,7 @@ mbuf_t IONetworkController::replaceOrCopyPacket(mbuf_t *mp,
 
         m = *mp;
 
-        if ( (*mp = getPacket( mbuf_pkthdr_len(m), M_DONTWAIT,
+        if ( (*mp = getPacket( mbuf_pkthdr_len(m), MBUF_DONTWAIT,
                                _alignStart, _alignLength)) == 0 )
         {
             *mp = m; m = 0;  // error recovery
@@ -1238,7 +1246,7 @@ mbuf_t IONetworkController::replaceOrCopyPacket(mbuf_t *mp,
         // of the original mbuf instead of replacing it. We only copy
         // the rcvlen bytes, not the entire source mbuf.
 
-        if ( (m = getPacket( rcvlen, M_DONTWAIT,
+        if ( (m = getPacket( rcvlen, MBUF_DONTWAIT,
                              _alignStart, _alignLength )) == 0 ) return 0;
 
         if (!IO_COPY_MBUF(*mp, m, rcvlen))
@@ -1272,7 +1280,7 @@ IONetworkController::getChecksumSupport( UInt32 * checksumMask,
           kChecksumTCPSum16 )
 
 #define kTransportLayerFullChecksums    \
-        ( kChecksumTCP | kChecksumUDP )
+        ( kChecksumTCP | kChecksumUDP | kChecksumTCPIPv6 | kChecksumUDPIPv6 )
 
 //PWC add kpi version when 3731343 is ready
 void
@@ -1305,7 +1313,9 @@ IONetworkController::getChecksumDemand( const mbuf_t mt,
     *demandMask = request & ( kChecksumIP       |
 							  kChecksumTCP      |
 							  kChecksumUDP      |
-							  kChecksumTCPSum16 );
+							  kChecksumTCPSum16 |
+                              kChecksumTCPIPv6  |
+                              kChecksumUDPIPv6 );
 	
     if ( request & kChecksumTCPSum16 )
     {
@@ -1405,10 +1415,10 @@ static void _logMbuf(struct mbuf * m)
         IOLog("m_type   : %08x\n", (UInt) m->m_type);
         IOLog("m_flags  : %08x\n", (UInt) m->m_flags);
         
-        if (m->m_flags & M_PKTHDR)
+        if (m->m_flags & MBUF_PKTHDR)
             IOLog("m_pkthdr.len  : %d\n", (UInt) m->m_pkthdr.len);
 
-        if (m->m_flags & M_EXT) {
+        if (m->m_flags & MBUF_EXT) {
             IOLog("m_ext.ext_buf : %08x\n", (UInt) m->m_ext.ext_buf);
             IOLog("m_ext.ext_size: %d\n", (UInt) m->m_ext.ext_size);
         }
@@ -1454,7 +1464,9 @@ bool IONetworkController::attachDebuggerClient(IOKernelDebugger ** debugger)
 
     client = IOKernelDebugger::debugger( this,
                                          &debugTxHandler,
-                                         &debugRxHandler );
+                                         &debugRxHandler,
+                                         &debugLinkStatusHandler,
+                                         &debugSetModeHandler);
 
     if ( client && !client->attach(this) )
     {
@@ -1567,6 +1579,31 @@ void IONetworkController::debugTxHandler(IOService * handler,
 }
 
 //---------------------------------------------------------------------------
+// This static C++ member function is registered by attachDebuggerClient()
+// as the debugger link status handler. IOKernelDebugger will call this
+// function to check the link status. This function will in turn
+// call the getDebuggerLinkStatus() member function implemented by a driver with
+// debugger support.
+
+UInt32 IONetworkController::debugLinkStatusHandler(IOService * handler)
+{
+    return ((IONetworkController *) handler)->getDebuggerLinkStatus();
+}
+
+//---------------------------------------------------------------------------
+// This static C++ member function is registered by
+// attachDebuggerClient() as the debugger set mode
+// handler. IOKernelDebugger will call this function to inform the
+// driver whether or not the debugger is active. This function will in
+// turn call the setDebuggerMode() member function implemented by a
+// driver with debugger support.
+bool IONetworkController::debugSetModeHandler(IOService * handler,
+                                              bool active)
+{
+    return ((IONetworkController *) handler)->setDebuggerMode(active);
+}
+
+//---------------------------------------------------------------------------
 // This method must be implemented by a driver that supports kernel debugging.
 // After a debugger client is attached through attachDebuggerClient(), this
 // method will be called by the debugger client to poll for a incoming packet
@@ -1607,6 +1644,42 @@ void IONetworkController::receivePacket(void *   /*pkt*/,
 void IONetworkController::sendPacket(void * /*pkt*/, UInt32 /*pkt_len*/)
 {
     IOLog("IONetworkController::%s()\n", __FUNCTION__);
+}
+
+//---------------------------------------------------------------------------
+// Debugger polled-mode link status handler. This method must be
+// implemented by a driver that supports early access kernel
+// debugging. After a debugger client is attached through
+// attachDebuggerClient(), this method will be called by the debugger
+// to determine link status when the kernel debugger is active.  This
+// method may be called from the primary interrupt context, and the
+// implementation must avoid any memory allocation, must not spin, and
+// must never block. getDebuggerLinkStatus() method in IONetworkController
+// is used as a placeholder. A driver that attaches a debugger client and
+// wishes to enable early kernel debugging should override this method.
+//
+UInt32 IONetworkController::getDebuggerLinkStatus(void)
+{
+    return _linkStatus->unsigned32BitValue() | kIONetworkLinkValid | kIONetworkLinkActive;
+}
+
+//---------------------------------------------------------------------------
+// Debugger polled-mode active/inactive handler. After a debugger
+// client is attached through attachDebuggerClient(), this method will
+// be called by the debugger to inform the driver whether or not the
+// kernel debugger is active.  This method may be called from the
+// primary interrupt context, and the implementation must avoid any
+// memory allocation, must not spin, and must never block.  The
+// setDebuggerMode() method in IONetworkController is used as a
+// placeholder.  A driver that attaches a debugger client and wishes
+// to enable/disable features dependent upon being in the kernel
+// debugger should override this method.
+//
+// active: true if entering/in KDP. false if leaving KDP.
+
+bool IONetworkController::setDebuggerMode(__unused bool active)
+{
+    return true; 
 }
 
 //---------------------------------------------------------------------------
@@ -2204,4 +2277,20 @@ IOReturn IONetworkController::setAggressiveness(
     }    
 
     return super::setAggressiveness(type, newLevel);
+}
+
+//---------------------------------------------------------------------------
+
+IOReturn IONetworkController::message(
+    UInt32 type, IOService * provider, void * argument )
+{
+    if (kIOMessageDeviceSignaledWakeup == type)
+    {
+        return provider->callPlatformFunction(
+                    "IOPlatformDeviceSignaledWakeup",
+                    false,
+                    (void *) this, 0, 0, 0);
+    }
+
+    return super::message(type, provider, argument);
 }

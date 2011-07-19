@@ -136,7 +136,11 @@ APR_DECLARE(void *) apr_pmemdup(apr_pool_t *p, const void *m, apr_size_t n);
  * @param ... The strings to concatenate.  The final string must be NULL
  * @return The new string
  */
-APR_DECLARE_NONSTD(char *) apr_pstrcat(apr_pool_t *p, ...);
+APR_DECLARE_NONSTD(char *) apr_pstrcat(apr_pool_t *p, ...)
+#if defined(__GNUC__) && __GNUC__ >= 4
+    __attribute__((sentinel))
+#endif
+    ;
 
 /**
  * Concatenate multiple strings specified in a writev-style vector
@@ -330,7 +334,7 @@ APR_DECLARE(apr_status_t) apr_strtoff(apr_off_t *offset, const char *buf,
  *   digits are prefixed with '0x', in which case it will be treated as
  *   base 16.
  * @return The numeric value of the string.  On overflow, errno is set
- * to ERANGE.
+ * to ERANGE.  On success, errno is set to 0.
  */
 APR_DECLARE(apr_int64_t) apr_strtoi64(const char *buf, char **end, int base);
 
@@ -338,7 +342,8 @@ APR_DECLARE(apr_int64_t) apr_strtoi64(const char *buf, char **end, int base);
  * parse a base-10 numeric string into a 64-bit numeric value.
  * Equivalent to apr_strtoi64(buf, (char**)NULL, 10).
  * @param buf The string to parse
- * @return The numeric value of the string
+ * @return The numeric value of the string.  On overflow, errno is set
+ * to ERANGE.  On success, errno is set to 0.
  */
 APR_DECLARE(apr_int64_t) apr_atoi64(const char *buf);
 

@@ -1,10 +1,12 @@
-# RCS: @(#) $Id: explorer.tcl,v 1.25 2006/12/07 03:52:40 treectrl Exp $
+# RCS: @(#) $Id: explorer.tcl,v 1.27 2010/03/21 20:47:06 treectrl Exp $
 
 set Dir [file dirname [file dirname [info script]]]
 
 set shellicon 0
-# Might work on other windows versions, but only tested on XP
-if {$tcl_platform(os) eq "Windows NT" && $tcl_platform(osVersion) == 5.1} {
+# Might work on other windows versions, but only tested on XP and Win7
+if {$tcl_platform(os) eq "Windows NT" &&
+    ($tcl_platform(osVersion) == 5.1 ||
+    $tcl_platform(osVersion) == 6.1)} {
     catch {
 	lappend auto_path $treectrl_library
 	package require shellicon $VERSION
@@ -610,5 +612,44 @@ proc ExplorerDoubleButton1 {w x y} {
 	    $w yview moveto 0.0
 	}
     }
+    return
+}
+
+proc DragStyleInit {} {
+
+    set T [DemoList]
+
+    set boxW 100
+    set boxH 100
+    set imgW 32
+    set imgH 32
+
+    $T element create DragStyleElemRect rect -fill #D0ffff -width $boxW -height $boxH
+    $T element create DragStyleElemImg image -image big-file
+    $T element create DragStyleElemTxt text -text DragImage!
+    $T element create DragStyleElemTxtBg rect -fill white -outline black -outlinewidth 1
+
+    $T style create DragStyle -orient vertical
+    $T style elements DragStyle {DragStyleElemRect DragStyleElemImg DragStyleElemTxtBg DragStyleElemTxt}
+
+    set cursorW 16
+    $T style layout DragStyle DragStyleElemRect -detach yes
+
+    set dx [expr {($boxW - $imgW) / 2}]
+    set dy [expr {($boxH - $imgH) / 2}]
+    $T style layout DragStyle DragStyleElemImg -detach yes -padx "$dx 0" -pady "$dy 0"
+
+    set dx [expr {$boxW / 2 + $cursorW}]
+    set dy $boxH
+    $T style layout DragStyle DragStyleElemTxt -detach yes -padx "$dx 0" -pady "$dy 0"
+
+    $T style layout DragStyle DragStyleElemTxtBg -union DragStyleElemTxt -ipadx 3 -ipady 2
+
+    $T dragimage configure -style DragStyle
+
+    set x [expr {$boxW / 2 - 0 * $cursorW / 2}]
+    set y [expr {$boxH - $cursorW * 2/3}]
+    $T dragimage stylehotspot $x $y
+
     return
 }

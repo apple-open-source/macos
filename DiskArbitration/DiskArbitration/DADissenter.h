@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -81,7 +81,7 @@ extern DADissenterRef DADissenterCreate( CFAllocatorRef allocator, DAReturn stat
  * @function   DADissenterGetStatus
  * @abstract   Obtains the return code.
  * @param      dissenter The DADissenter for which to obtain the return code.
- * @result     The return code.
+ * @result     The return code.  A BSD return code, if applicable, is encoded with unix_err().
  */
 
 extern DAReturn DADissenterGetStatus( DADissenterRef dissenter );

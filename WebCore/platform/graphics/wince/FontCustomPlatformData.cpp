@@ -45,7 +45,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
         g_customFontCache->unregisterFont(m_name);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode renderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode renderingMode)
 {
     FontDescription fontDesc;
     fontDesc.setComputedSize(size);
@@ -59,16 +59,14 @@ FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, b
 // not allow access from CSS.
 static String createUniqueFontName()
 {
-    Vector<char> fontUuid(sizeof(GUID));
+    GUID fontUuid;
 
-    unsigned int* ptr = reinterpret_cast<unsigned int*>(fontUuid.data());
+    unsigned int* ptr = reinterpret_cast<unsigned int*>(&fontUuid);
     for (int i = 0; i < sizeof(GUID) / sizeof(int) ; ++i)
-        *(ptr + i) = static_cast<unsigned int>(WTF::randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0));
+        *(ptr + i) = static_cast<unsigned int>(randomNumber() * (std::numeric_limits<unsigned>::max() + 1.0));
 
-    Vector<char> fontNameVector;
-    base64Encode(fontUuid, fontNameVector);
-    ASSERT(fontNameVector.size() < LF_FACESIZE);
-    String fontName(fontNameVector.data(), fontNameVector.size());
+    String fontName = base64Encode(reinterpret_cast<char*>(&fontUuid), sizeof(fontUuid));
+    ASSERT(fontName.length() < LF_FACESIZE);
     return fontName.replace('/', '_');
 }
 
@@ -81,6 +79,11 @@ FontCustomPlatformData* createFontCustomPlatformData(const SharedBuffer* buffer)
             return new FontCustomPlatformData(fontName);
     }
     return 0;
+}
+
+bool FontCustomPlatformData::supportsFormat(const String& format)
+{
+    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype");
 }
 
 }

@@ -1,6 +1,8 @@
 #!/bin/sh
-# the next line restarts using wish \
-exec wish "$0" "$@"
+# the next line restarts using tclsh \
+exec tclsh "$0" "$@"
+
+package require Tk
 
 # Copyright (c) 2005-2007 Keith Nash.
 #

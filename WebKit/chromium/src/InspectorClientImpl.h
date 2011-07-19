@@ -36,6 +36,9 @@
 #include <wtf/OwnPtr.h>
 
 namespace WebKit {
+
+class WebDevToolsAgentClient;
+class WebDevToolsAgentImpl;
 class WebViewImpl;
 
 class InspectorClientImpl : public WebCore::InspectorClient {
@@ -46,24 +49,18 @@ public:
     // InspectorClient methods:
     virtual void inspectorDestroyed();
     virtual void openInspectorFrontend(WebCore::InspectorController*);
+
     virtual void highlight(WebCore::Node*);
     virtual void hideHighlight();
-    virtual void populateSetting(
-        const WebCore::String& key,
-        WebCore::String* value);
-    virtual void storeSetting(
-        const WebCore::String& key,
-        const WebCore::String& value);
 
+    virtual bool sendMessageToFrontend(const WTF::String&);
+
+    virtual void updateInspectorStateCookie(const WTF::String&);
 private:
-    void loadSettings();
-    void saveSettings();
+    WebDevToolsAgentImpl* devToolsAgent();
 
     // The WebViewImpl of the page being inspected; gets passed to the constructor
     WebViewImpl* m_inspectedWebView;
-
-    typedef HashMap<WebCore::String, WebCore::String> SettingsMap;
-    OwnPtr<SettingsMap> m_settings;
 };
 
 } // namespace WebKit

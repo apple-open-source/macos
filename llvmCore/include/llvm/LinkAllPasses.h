@@ -16,12 +16,14 @@
 #define LLVM_LINKALLPASSES_H
 
 #include "llvm/Analysis/AliasSetTracker.h"
+#include "llvm/Analysis/DomPrinter.h"
 #include "llvm/Analysis/FindUsedTypes.h"
 #include "llvm/Analysis/IntervalPartition.h"
-#include "llvm/Analysis/LoopVR.h"
 #include "llvm/Analysis/Passes.h"
+#include "llvm/Analysis/PointerTracking.h"
 #include "llvm/Analysis/PostDominators.h"
 #include "llvm/Analysis/ScalarEvolution.h"
+#include "llvm/Analysis/Lint.h"
 #include "llvm/Assembly/PrintModulePass.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Function.h"
@@ -45,13 +47,12 @@ namespace {
       (void) llvm::createAggressiveDCEPass();
       (void) llvm::createAliasAnalysisCounterPass();
       (void) llvm::createAliasDebugger();
-      (void) llvm::createAndersensPass();
       (void) llvm::createArgumentPromotionPass();
       (void) llvm::createStructRetPromotionPass();
       (void) llvm::createBasicAliasAnalysisPass();
       (void) llvm::createLibCallAliasAnalysisPass(0);
+      (void) llvm::createScalarEvolutionAliasAnalysisPass();
       (void) llvm::createBlockPlacementPass();
-      (void) llvm::createBlockProfilerPass();
       (void) llvm::createBreakCriticalEdgesPass();
       (void) llvm::createCFGSimplificationPass();
       (void) llvm::createConstantMergePass();
@@ -61,14 +62,17 @@ namespace {
       (void) llvm::createDeadInstEliminationPass();
       (void) llvm::createDeadStoreEliminationPass();
       (void) llvm::createDeadTypeEliminationPass();
+      (void) llvm::createDomOnlyPrinterPass();
+      (void) llvm::createDomPrinterPass();
+      (void) llvm::createDomOnlyViewerPass();
+      (void) llvm::createDomViewerPass();
       (void) llvm::createEdgeProfilerPass();
+      (void) llvm::createOptimalEdgeProfilerPass();
       (void) llvm::createFunctionInliningPass();
       (void) llvm::createAlwaysInlinerPass();
-      (void) llvm::createFunctionProfilerPass();
       (void) llvm::createGlobalDCEPass();
       (void) llvm::createGlobalOptimizerPass();
       (void) llvm::createGlobalsModRefPass();
-      (void) llvm::createGVNPREPass();
       (void) llvm::createIPConstantPropagationPass();
       (void) llvm::createIPSCCPPass();
       (void) llvm::createIndVarSimplifyPass();
@@ -76,7 +80,9 @@ namespace {
       (void) llvm::createInternalizePass(false);
       (void) llvm::createLCSSAPass();
       (void) llvm::createLICMPass();
+      (void) llvm::createLazyValueInfoPass();
       (void) llvm::createLiveValuesPass();
+      (void) llvm::createLoopDependenceAnalysisPass();
       (void) llvm::createLoopExtractorPass();
       (void) llvm::createLoopSimplifyPass();
       (void) llvm::createLoopStrengthReducePass();
@@ -84,17 +90,21 @@ namespace {
       (void) llvm::createLoopUnswitchPass();
       (void) llvm::createLoopRotatePass();
       (void) llvm::createLoopIndexSplitPass();
-      (void) llvm::createLowerAllocationsPass();
       (void) llvm::createLowerInvokePass();
       (void) llvm::createLowerSetJmpPass();
       (void) llvm::createLowerSwitchPass();
       (void) llvm::createNoAAPass();
       (void) llvm::createNoProfileInfoPass();
+      (void) llvm::createProfileEstimatorPass();
+      (void) llvm::createProfileVerifierPass();
       (void) llvm::createProfileLoaderPass();
       (void) llvm::createPromoteMemoryToRegisterPass();
       (void) llvm::createDemoteRegisterToMemoryPass();
       (void) llvm::createPruneEHPass();
-      (void) llvm::createRaiseAllocationsPass();
+      (void) llvm::createPostDomOnlyPrinterPass();
+      (void) llvm::createPostDomPrinterPass();
+      (void) llvm::createPostDomOnlyViewerPass();
+      (void) llvm::createPostDomViewerPass();
       (void) llvm::createReassociatePass();
       (void) llvm::createSCCPPass();
       (void) llvm::createScalarReplAggregatesPass();
@@ -108,12 +118,7 @@ namespace {
       (void) llvm::createTailDuplicationPass();
       (void) llvm::createJumpThreadingPass();
       (void) llvm::createUnifyFunctionExitNodesPass();
-      (void) llvm::createCondPropagationPass();
-      (void) llvm::createNullProfilerRSPass();
-      (void) llvm::createRSProfilingPass();
-      (void) llvm::createIndMemRemPass();
       (void) llvm::createInstCountPass();
-      (void) llvm::createPredicateSimplifierPass();
       (void) llvm::createCodeGenPreparePass();
       (void) llvm::createGVNPass();
       (void) llvm::createMemCpyOptPass();
@@ -127,11 +132,19 @@ namespace {
       (void) llvm::createPrintModulePass(0);
       (void) llvm::createPrintFunctionPass("", 0);
       (void) llvm::createDbgInfoPrinterPass();
+      (void) llvm::createModuleDebugInfoPrinterPass();
+      (void) llvm::createPartialInliningPass();
+      (void) llvm::createSSIPass();
+      (void) llvm::createSSIEverythingPass();
+      (void) llvm::createGEPSplitterPass();
+      (void) llvm::createABCDPass();
+      (void) llvm::createLintPass();
+      (void) llvm::createSinkingPass();
 
       (void)new llvm::IntervalPartition();
       (void)new llvm::FindUsedTypes();
       (void)new llvm::ScalarEvolution();
-      (void)new llvm::LoopVR();
+      (void)new llvm::PointerTracking();
       ((llvm::Function*)0)->viewCFGOnly();
       llvm::AliasSetTracker X(*(llvm::AliasAnalysis*)0);
       X.add((llvm::Value*)0, 0);  // for -print-alias-sets

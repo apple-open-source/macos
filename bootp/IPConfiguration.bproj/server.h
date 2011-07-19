@@ -1,9 +1,5 @@
-
-#ifndef _S_SERVER_H
-#define _S_SERVER_H
-
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,7 +21,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef _S_SERVER_H
+#define _S_SERVER_H
+
 extern boolean_t 	server_active();
 extern void 		server_init();
 
-#endif _S_SERVER_H
+#endif /* _S_SERVER_H */

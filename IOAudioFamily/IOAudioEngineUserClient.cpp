@@ -1254,13 +1254,27 @@ IOReturn IOAudioEngineUserClient::externalMethod ( uint32_t selector, IOExternal
 	case kIOAudioEngineCallRegisterClientBuffer:
 		if (arguments != 0)		
 		{
+			if ( arguments->scalarInputCount >= 4 )		//	<rdar://9204853>
+			{
 			result = registerBuffer64((IOAudioStream *)arguments->scalarInput[0], (mach_vm_address_t)arguments->scalarInput[1], (UInt32)arguments->scalarInput[2], (UInt32)arguments->scalarInput[3] );
+		}
+			else
+			{
+				audioDebugIOLog(3, "  kIOAudioEngineCallRegisterClientBuffer: invalid input argument count %d. Need at least 4.\n", arguments->scalarInputCount);
+			}
 		}
 		break;
 	case kIOAudioEngineCallUnregisterClientBuffer:
 		if (arguments != 0)		
 		{
+			if ( arguments->scalarInputCount >= 2 )		//	<rdar://9204853>
+			{
 			result = unregisterBuffer64((mach_vm_address_t)arguments->scalarInput[0], (UInt32)arguments->scalarInput[1] );
+		}
+			else
+			{
+				audioDebugIOLog(3, "  kIOAudioEngineCallUnregisterClientBuffer: invalid input argument count %d. Need at least 2.\n", arguments->scalarInputCount);
+			}
 		}
 		break;	default:
 		result = super::externalMethod(selector, arguments, dispatch, target, reference );

@@ -886,7 +886,7 @@ QEQueryElementGetPredicate(CFDictionaryRef element)
 CFMutableArrayRef
 QEQueryElementGetArguments(CFDictionaryRef element)
 {
-	CFMutableDictionaryRef dict = (CFMutableDictionaryRef)element;
+    CFMutableDictionaryRef dict = (CFMutableDictionaryRef)element;
     CFMutableArrayRef args = (CFMutableArrayRef)CFDictionaryGetValue(
         element, kQEQueryKeyArguments);
     if (!args) {
@@ -1333,6 +1333,7 @@ _QEQueryPopGroupAndCoalesce(
 
     result = true;
 finish:
+    if (singleElement) CFRelease(singleElement);
     return result;
 }
 

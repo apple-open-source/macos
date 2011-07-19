@@ -1,10 +1,10 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
- * 
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -32,16 +32,20 @@
 #define PopupMenuChromium_h
 
 #include "config.h"
-#include "PopupMenuClient.h"
 
 #include "FramelessScrollView.h"
 #include "IntRect.h"
+#include "PlatformString.h"
+#include "PopupMenu.h"
+#include "PopupMenuPrivate.h"
+#include "PopupMenuStyle.h"
 
 namespace WebCore {
 
 class ChromeClientChromium;
 class FrameView;
 class PopupListBox;
+class PopupMenuClient;
 
 // A container for the data for each menu item (e.g. represented by <option>
 // or <optgroup> in a <select> widget) and is used by PopupListBox.
@@ -61,6 +65,8 @@ struct PopupItem {
     String label;
     Type type;
     int yOffset; // y offset of this item, relative to the top of the popup.
+    TextDirection textDirection;
+    bool hasTextDirectionOverride;
     bool enabled;
 };
 
@@ -93,22 +99,6 @@ struct PopupContainerSettings {
     // Whether we should restrict the width of the PopupListBox or not.
     // Autocomplete popups are restricted, combo-boxes (select tags) aren't.
     bool restrictWidthOfListBox;
-
-    // A hint on the display directionality of the item text in popup menu.
-    //
-    // We could either display the items in the drop-down using its DOM element's
-    // directionality, or we could display the items in the drop-down using heuristics:
-    // such as in its first strong directionality character's direction.
-    // Please refer to the discussion (especially comment #7 and #10) in
-    // https://bugs.webkit.org/show_bug.cgi?id=27889 for details.
-    enum DirectionalityHint {
-        // Use the DOM element's directionality to display the item text in popup menu.
-        DOMElementDirection,
-        // Use the item text's first strong-directional character's directionality
-        // to display the item text in popup menu.
-        FirstStrongDirectionalCharacterDirection,
-    };
-    DirectionalityHint itemTextDirectionalityHint;
 };
 
 class PopupContainer : public FramelessScrollView {
@@ -138,15 +128,12 @@ public:
     // Show the popup
     void showPopup(FrameView*);
 
-    // Used on Mac Chromium for HTML select popup menus.
-    void showExternal(const IntRect&, FrameView*, int index);
-
     // Show the popup in the specified rect for the specified frame.
     // Note: this code was somehow arbitrarily factored-out of the Popup class
     // so WebViewImpl can create a PopupContainer. This method is used for
     // displaying auto complete popup menus on Mac Chromium, and for all
     // popups on other platforms.
-    void show(const IntRect&, FrameView*, int index);
+    void showInRect(const IntRect&, FrameView*, int index);
 
     // Hides the popup.
     void hidePopup();
@@ -154,8 +141,8 @@ public:
     // The popup was hidden.
     void notifyPopupHidden();
 
-    // Compute size of widget and children.
-    void layout();
+    // Compute size of widget and children. Return right offset for RTL.
+    int layoutAndGetRightOffset();
 
     PopupListBox* listBox() const { return m_listBox.get(); }
 
@@ -164,7 +151,7 @@ public:
     int selectedIndex() const;
 
     // Refresh the popup values from the PopupMenuClient.
-    void refresh();
+    void refresh(const IntRect& targetControlRect);
 
     // The menu per-item data.
     const WTF::Vector<PopupItem*>& popupData() const;
@@ -174,6 +161,9 @@ public:
 
     // The size of the font being used.
     int menuItemFontSize() const;
+
+    // The style of the menu being used.
+    PopupMenuStyle menuStyle() const;
 
     PopupType popupType() const { return m_popupType; }
 
@@ -186,6 +176,9 @@ private:
     // Paint the border.
     void paintBorder(GraphicsContext*, const IntRect&);
 
+    // Layout and calculate popup widget size and location and returns it as IntRect.
+    IntRect layoutAndCalculateWidgetRect(int targetControlHeight, const IntPoint& popupInitialCoordinate);
+
     // Returns the ChromeClient of the page this popup is associated with.
     ChromeClientChromium* chromeClientChromium();
 
@@ -196,6 +189,23 @@ private:
     PopupType m_popupType;
     // Whether the popup is currently open.
     bool m_popupOpen;
+};
+
+class PopupMenuChromium : public PopupMenu {
+public:
+    PopupMenuChromium(PopupMenuClient*);
+    ~PopupMenuChromium();
+
+    virtual void show(const IntRect&, FrameView*, int index);
+    virtual void hide();
+    virtual void updateFromElement();
+    virtual void disconnectClient();
+
+private:
+    PopupMenuClient* client() const { return m_popupClient; }
+
+    PopupMenuClient* m_popupClient;
+    PopupMenuPrivate p;
 };
 
 } // namespace WebCore

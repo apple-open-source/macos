@@ -25,30 +25,36 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "WebGLRenderbuffer.h"
+
 #include "WebGLRenderingContext.h"
 
 namespace WebCore {
-    
+
 PassRefPtr<WebGLRenderbuffer> WebGLRenderbuffer::create(WebGLRenderingContext* ctx)
 {
     return adoptRef(new WebGLRenderbuffer(ctx));
 }
 
 WebGLRenderbuffer::WebGLRenderbuffer(WebGLRenderingContext* ctx)
-    : CanvasObject(ctx)
-    , m_internalformat(GraphicsContext3D::RGBA4)
+    : WebGLObject(ctx)
+    , m_internalFormat(GraphicsContext3D::RGBA4)
+    , m_initialized(false)
+    , m_width(0)
+    , m_height(0)
+    , m_isValid(true)
+    , m_hasEverBeenBound(false)
 {
     setObject(context()->graphicsContext3D()->createRenderbuffer());
 }
 
-void WebGLRenderbuffer::_deleteObject(Platform3DObject object)
+void WebGLRenderbuffer::deleteObjectImpl(Platform3DObject object)
 {
     context()->graphicsContext3D()->deleteRenderbuffer(object);
 }
 
 }
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

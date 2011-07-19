@@ -1,0 +1,276 @@
+require "vnd.dovecot.testsuite";
+require "spamtest";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "variables";
+
+/*
+ * Value
+ */
+
+test_set "message" text:
+From: legitimate@example.com
+To: victim@dovecot.example.net
+Subject: Not spammish
+X-SpamCheck: No, score=-1.6 required=5.0 autolearn=no version=3.2.5
+X-SpamCheck1: No, score=0.0 required=5.0 autolearn=no version=3.2.5
+X-SpamCheck2: No, score=1.0 required=5.0 autolearn=no version=3.2.5
+X-SpamCheck3: No, score=4.0 required=5.0 autolearn=no version=3.2.5
+X-SpamCheck4: Yes, score=5.0 required=5.0 autolearn=no version=3.2.5
+X-SpamCheck5: Yes, score=7.6 required=5.0 autolearn=no version=3.2.5
+
+Test!
+.
+;
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck:[ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_set "sieve_spamtest_max_header"
+	"X-SpamCheck:[ \\ta-zA-Z]+, score=-?[0-9]+.[0-9]+ required=(-?[0-9]+.[0-9]+)";
+test_config_set "sieve_spamtest_status_type" "score";
+test_config_reload :extension "spamtest";
+
+test "Value: subzero" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :is "1" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+
+	if spamtest :is "2" {
+		test_fail "spam test matches anything";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck1:[ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_reload :extension "spamtest";
+
+test "Value: zero" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :is "1" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+
+	if spamtest :is "2" {
+		test_fail "spam test matches anything";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck2:[ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_reload :extension "spamtest";
+
+test "Value: low" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "gt" "1" {
+		test_fail "too small spam value produced";
+	}
+
+	if not spamtest :value "eq" "2" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck3: [ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_reload :extension "spamtest";
+
+test "Value: high" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "8" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck4:[ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_reload :extension "spamtest";
+
+test "Value: max" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "10" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header"
+	"X-SpamCheck5:[ \\ta-zA-Z]+, score=(-?[0-9]+.[0-9]+)";
+test_config_reload :extension "spamtest";
+
+test "Value: past-max" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "10" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+/*
+ * Strlen
+ */
+
+test_set "message" text:
+From: legitimate@example.com
+To: victim@dovecot.example.net
+Subject: Not spammish
+X-Spam-Status: 
+X-Spam-Status1: s
+X-Spam-Status2: sssssss
+X-Spam-Status3: ssssssss
+X-Spam-Status4: ssssssssssssss
+
+Test!
+.
+;
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Status";
+test_config_set "sieve_spamtest_max_value" "8.0";
+test_config_set "sieve_spamtest_status_type" "strlen";
+test_config_unset "sieve_spamtest_max_header";
+test_config_reload :extension "spamtest";
+
+test "Strlen: zero" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :is "1" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+
+	if spamtest :is "2" {
+		test_fail "spam test matches anything";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Status1";
+test_config_reload :extension "spamtest";
+
+test "Strlen: low" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "gt" "1" {
+		test_fail "too small spam value produced";
+	}
+
+	if not spamtest :value "eq" "2" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Status2";
+test_config_reload :extension "spamtest";
+
+test "Strlen: high" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "8" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Status3";
+test_config_reload :extension "spamtest";
+
+test "Strlen: max" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "10" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Status4";
+test_config_reload :extension "spamtest";
+
+test "Strlen: past-max" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "10" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+/*
+ * Yes/No
+ */
+
+test_set "message" text:
+From: legitimate@example.com
+To: victim@dovecot.example.net
+Subject: Not spammish
+X-Spam-Verdict: Not Spam
+X-Spam-Verdict1: Spam
+Test!
+.
+;
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Verdict";
+test_config_set "sieve_spamtest_status_type" "text";
+test_config_set "sieve_spamtest_text_value1" "Not Spam";
+test_config_set "sieve_spamtest_text_value10" "Spam";
+test_config_unset "sieve_spamtest_max_header";
+test_config_unset "sieve_spamtest_max_value";
+test_config_reload :extension "spamtest";
+
+test "Text: Not Spam" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "1" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-Spam-Verdict1";
+test_config_reload :extension "spamtest";
+
+test "Text: Spam" {
+	if spamtest :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :value "eq" "10" {
+		if spamtest :matches "*" { }
+		test_fail "wrong spam value produced: ${1}";
+	}
+}
+

@@ -231,12 +231,14 @@ ExitStatus startKext(
     char         * kextPathCString,
     KextutilArgs * toolArgs,
     Boolean      * started,
+    Boolean       * yesToAll,
     Boolean      * fatal);
 ExitStatus sendPersonalities(
     OSKextRef      aKext,
     char         * kextPathCString,
     KextutilArgs * toolArgs,
     Boolean        isMainFlag,
+    Boolean      * yesToAll,
     Boolean      * fatal);
 
 Boolean serializeLoad(
@@ -252,4 +254,4 @@ kern_return_t kextmanager_unlock_kextload(
     mach_port_t server,
     mach_port_t client);
 
-#endif /* _KEXTUTIL_MAIN_H */
+#endif

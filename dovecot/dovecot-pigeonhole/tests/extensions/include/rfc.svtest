@@ -1,0 +1,13 @@
+require "vnd.dovecot.testsuite";
+
+test "RFC example 1" {
+	if not test_script_compile "rfc-ex1-default.sieve" {
+		test_fail "failed to compile sieve script";
+	}
+}
+
+test "RFC example 2" {
+	if not test_script_compile "rfc-ex2-default.sieve" {
+		test_fail "failed to compile sieve script";
+	}
+}

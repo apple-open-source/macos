@@ -27,58 +27,47 @@
 #ifndef EditorClient_h
 #define EditorClient_h
 
+#include "SpellingCorrectionController.h"
 #include "EditorInsertAction.h"
-#include "PlatformString.h"
+#include "FloatRect.h"
 #include "TextAffinity.h"
 #include <wtf/Forward.h>
 #include <wtf/Vector.h>
 
 #if PLATFORM(MAC)
-class NSArray;
-class NSData;
+#ifdef __OBJC__
+@class NSAttributedString;
+@class NSPasteboard;
+@class NSString;
+@class NSURL;
+#else
+class NSAttributedString;
+class NSPasteboard;
 class NSString;
 class NSURL;
+#endif
 #endif
 
 namespace WebCore {
 
+class ArchiveResource;
 class CSSStyleDeclaration;
+class DocumentFragment;
 class EditCommand;
+class Editor;
 class Element;
 class Frame;
 class HTMLElement;
 class KeyboardEvent;
 class Node;
 class Range;
+class SpellChecker;
+class TextCheckerClient;
 class VisibleSelection;
-class String;
 class VisiblePosition;
 
-struct GrammarDetail {
-    int location;
-    int length;
-    Vector<String> guesses;
-    String userDescription;
-};
+struct GrammarDetail;
 
-enum TextCheckingType {
-    TextCheckingTypeSpelling    = 1 << 1,
-    TextCheckingTypeGrammar     = 1 << 2,
-    TextCheckingTypeLink        = 1 << 5,
-    TextCheckingTypeQuote       = 1 << 6,
-    TextCheckingTypeDash        = 1 << 7,
-    TextCheckingTypeReplacement = 1 << 8,
-    TextCheckingTypeCorrection  = 1 << 9
-};
-
-struct TextCheckingResult {
-    TextCheckingType type;
-    int location;
-    int length;
-    Vector<GrammarDetail> details;
-    String replacement;
-};
- 
 class EditorClient {
 public:
     virtual ~EditorClient() {  }
@@ -93,8 +82,6 @@ public:
     virtual bool isGrammarCheckingEnabled() = 0;
     virtual void toggleGrammarChecking() = 0;
     virtual int spellCheckerDocumentTag() = 0;
-    
-    virtual bool isEditable() = 0;
 
     virtual bool shouldBeginEditing(Range*) = 0;
     virtual bool shouldEndEditing(Range*) = 0;
@@ -103,8 +90,6 @@ public:
     virtual bool shouldChangeSelectedRange(Range* fromRange, Range* toRange, EAffinity, bool stillSelecting) = 0;
     
     virtual bool shouldApplyStyle(CSSStyleDeclaration*, Range*) = 0;
-//  virtual bool shouldChangeTypingStyle(CSSStyleDeclaration* fromStyle, CSSStyleDeclaration* toStyle) = 0;
-//  virtual bool doCommandBySelector(SEL selector) = 0;
     virtual bool shouldMoveRangeAfterDelete(Range*, Range*) = 0;
 
     virtual void didBeginEditing() = 0;
@@ -113,14 +98,13 @@ public:
     virtual void didEndEditing() = 0;
     virtual void didWriteSelectionToPasteboard() = 0;
     virtual void didSetSelectionTypesForPasteboard() = 0;
-//  virtual void didChangeTypingStyle:(NSNotification *)notification = 0;
-//  virtual void didChangeSelection:(NSNotification *)notification = 0;
-//  virtual NSUndoManager* undoManager:(WebView *)webView = 0;
     
     virtual void registerCommandForUndo(PassRefPtr<EditCommand>) = 0;
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>) = 0;
     virtual void clearUndoRedoOperations() = 0;
 
+    virtual bool canCopyCut(Frame*, bool defaultValue) const = 0;
+    virtual bool canPaste(Frame*, bool defaultValue) const = 0;
     virtual bool canUndo() const = 0;
     virtual bool canRedo() const = 0;
     
@@ -139,12 +123,13 @@ public:
 
 #if PLATFORM(MAC)
     virtual NSString* userVisibleString(NSURL*) = 0;
-#ifdef BUILDING_ON_TIGER
-    virtual NSArray* pasteboardTypesForSelection(Frame*) = 0;
-#endif
+    virtual DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector< RefPtr<ArchiveResource> >&) = 0;
+    virtual void setInsertionPasteboard(NSPasteboard*) = 0;
+    virtual NSURL* canonicalizeURL(NSURL*) = 0;
+    virtual NSURL* canonicalizeURLString(NSString*) = 0;
 #endif
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD)
     virtual void uppercaseWord() = 0;
     virtual void lowercaseWord() = 0;
     virtual void capitalizeWord() = 0;
@@ -163,23 +148,28 @@ public:
     virtual void toggleAutomaticSpellingCorrection() = 0;
 #endif
 
-    virtual void ignoreWordInSpellDocument(const String&) = 0;
-    virtual void learnWord(const String&) = 0;
-    virtual void checkSpellingOfString(const UChar*, int length, int* misspellingLocation, int* misspellingLength) = 0;
-    virtual String getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWord) = 0;
-    virtual void checkGrammarOfString(const UChar*, int length, Vector<GrammarDetail>&, int* badGrammarLocation, int* badGrammarLength) = 0;
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    virtual void checkTextOfParagraph(const UChar* text, int length, uint64_t checkingTypes, Vector<TextCheckingResult>& results) = 0;
+    virtual TextCheckerClient* textChecker() = 0;
+
+    enum AutocorrectionResponseType {
+        AutocorrectionEdited,
+        AutocorrectionReverted
+    };
+
+#if SUPPORT_AUTOCORRECTION_PANEL
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect& boundingBoxOfReplacedString, const String& replacedString, const String& replacmentString, const Vector<String>& alternativeReplacementStrings) = 0;
+    virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) = 0;
+    virtual String dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel) = 0;
+    virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const String& replacedString, const String& replacementString) = 0;
 #endif
+
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail& detail) = 0;
     virtual void updateSpellingUIWithMisspelledWord(const String&) = 0;
     virtual void showSpellingUI(bool show) = 0;
     virtual bool spellingUIIsShowing() = 0;
-    virtual void getGuessesForWord(const String&, Vector<String>& guesses) = 0;
+    virtual void willSetInputMethodState() = 0;
     virtual void setInputMethodState(bool enabled) = 0;
 };
 
 }
 
 #endif // EditorClient_h
-

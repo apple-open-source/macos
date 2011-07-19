@@ -1,0 +1,15 @@
+require "vnd.dovecot.testsuite";
+
+# A bit awkward to test the extension with itself
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test "Validation errors" {
+	if test_script_compile "errors/validation.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if test_error :count "ne" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}

@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -119,7 +118,7 @@ static char *fullpath __P((struct dosDirEntry *));
 static u_char calcShortSum __P((u_char *));
 static int delete __P((int, struct bootblock *, cl_t, int,
     cl_t, int, int));
-static int removede __P((int, struct bootblock *, u_char *,
+static int msdosfs_removede __P((int, struct bootblock *, u_char *,
     u_char *, cl_t, cl_t, cl_t, char *, int));
 static int checksize __P((struct bootblock *, u_char *, struct dosDirEntry *));
 static int readDosDirSection __P((int, struct bootblock *, struct dosDirEntry *));
@@ -476,7 +475,7 @@ delete(f, boot, startcl, startoff, endcl, endoff, notlast)
 }
 
 static int
-removede(f, boot, start, end, startcl, endcl, curcl, path, type)
+msdosfs_removede(f, boot, start, end, startcl, endcl, curcl, path, type)
 	int f;
 	struct bootblock *boot;
 	u_char *start;
@@ -811,7 +810,7 @@ readDosDirSection(f, boot, dir)
 
 			if (dirent.flags & ATTR_VOLUME) {
 				if (vallfn || invlfn) {
-					mod |= removede(f, boot,
+					mod |= msdosfs_removede(f, boot,
 							invlfn ? invlfn : vallfn, p,
 							invlfn ? invcl : valcl, cl, cl,
 							fullpath(dir), 2);
@@ -850,7 +849,7 @@ readDosDirSection(f, boot, dir)
 			dirent.next = dir->child;
 
 			if (invlfn) {
-				mod |= k = removede(f, boot,
+				mod |= k = msdosfs_removede(f, boot,
 						    invlfn, vallfn ? vallfn : p,
 						    invcl, vallfn ? valcl : cl, cl,
 						    fullpath(&dirent), 0);
@@ -1066,7 +1065,7 @@ MarkedChain:
 		mod |= FSFATAL;
 	if (invlfn || vallfn)
 	{
-		mod |= removede(f, boot,
+		mod |= msdosfs_removede(f, boot,
 				invlfn ? invlfn : vallfn, p,
 				invlfn ? invcl : valcl, last_cl, last_cl,
 				fullpath(dir), 1);

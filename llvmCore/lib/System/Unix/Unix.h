@@ -20,6 +20,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/Config/config.h"     // Get autoconf configuration settings
+#include "llvm/System/Errno.h"
 #include <cstdlib>
 #include <cstdio>
 #include <cstring>
@@ -77,27 +78,9 @@ static inline bool MakeErrMsg(
   std::string* ErrMsg, const std::string& prefix, int errnum = -1) {
   if (!ErrMsg)
     return true;
-  char buffer[MAXPATHLEN];
-  buffer[0] = 0;
   if (errnum == -1)
     errnum = errno;
-#ifdef HAVE_STRERROR_R
-  // strerror_r is thread-safe.
-  if (errnum)
-    strerror_r(errnum,buffer,MAXPATHLEN-1);
-#elif HAVE_STRERROR
-  // Copy the thread un-safe result of strerror into
-  // the buffer as fast as possible to minimize impact
-  // of collision of strerror in multiple threads.
-  if (errnum)
-    strncpy(buffer,strerror(errnum),MAXPATHLEN-1);
-  buffer[MAXPATHLEN-1] = 0;
-#else
-  // Strange that this system doesn't even have strerror
-  // but, oh well, just use a generic message
-  sprintf(buffer, "Error #%d", errnum);
-#endif
-  *ErrMsg = prefix + ": " + buffer;
+  *ErrMsg = prefix + ": " + llvm::sys::StrError(errnum);
   return true;
 }
 

@@ -36,23 +36,25 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     }
 }
 
-catch { console show }
+#catch { console show }
 
 source [file join [file dirname [info script]] plotchart.tcl]
 
-puts "Plotchart [package present Plotchart]"
+#puts "Plotchart [package present Plotchart]"
 
 # -------------------------------------------------------------------------
 
 #
 # Note:
-# The tests are formulated such that the resulting numbers
-# are exact. There is no need for a tolerance in the comparison
+# The tests were formulated such that the resulting numbers
+# are exact. Test Plotchart-2.12, however, has a slight aberration
+# in Tcl 8.5: the result is "0.9999999940000001 1.000000006 2e-9"
+# Hence the small tolerance
 #
 proc matchNumbers {expected actual} {
     set match 1
     foreach a $actual e $expected {
-	if {$a != $e} {
+	if { abs($a - $e) > 0.5e-9*(abs($a)+abs($e)) } {
 	    set match 0
 	    break
 	}
@@ -157,6 +159,17 @@ test Plotchart-2.11 {Nice scale 8} -match numbers -body {
     ::Plotchart::determineScale -1.7 26.8
 } -result {-10.0 30.0 10.0}
 
+test Plotchart-2.12 {Nice scale 9} -match numbers -body {
+    ::Plotchart::determineScale 0.99999999999999911  1.0000000000000007
+} -result {0.999999994 1.000000006 2e-009}
+
+test Plotchart-2.13 {Nice scale from list} -match numbers -body {
+    ::Plotchart::determineScaleFromList {-0.25 -0.1 0.6 0.6 0.85}
+} -result {-0.4 1.0 0.2}
+
+test Plotchart-2.14 {Nice scale from list with missing data} -match numbers -body {
+    ::Plotchart::determineScaleFromList {-0.25 -0.1 0.6 {} {} {} 0.6 0.85}
+} -result {-0.4 1.0 0.2}
 
 
 

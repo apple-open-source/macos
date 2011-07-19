@@ -1,49 +1,70 @@
-[manpage_begin pop3 n 1.6.3]
+[manpage_begin pop3 n 1.7]
 [comment {-*- tcl -*- doctools manpage}]
 [moddesc   {Tcl POP3 Client Library}]
 [titledesc {Tcl client for POP3 email protocol}]
+[keywords mail email pop pop3 {rfc 1939} ssl tls secure]
+[category  Networking]
 [require Tcl  8.2]
-[require pop3 [opt 1.6.3]]
+[require pop3 [opt 1.7]]
 [description]
 
 The [package pop3] package provides a simple Tcl-only client library
 for the POP3 email protocol as specified in
-RFC 1939 ([uri http://www.rfc-editor.org/rfc/rfc1939.txt]). It works
-by opening the standard POP3 socket on the server, transmitting the
-username and password, then providing a Tcl API to access the POP3
-protocol commands.  All server errors are returned as Tcl errors
-(thrown) which must be caught with the Tcl [cmd catch] command.
+[uri http://www.rfc-editor.org/rfc/rfc1939.txt {RFC 1939}].
 
-[section COMMANDS]
+It works by opening the standard POP3 socket on the server,
+transmitting the username and password, then providing a Tcl API to
+access the POP3 protocol commands.  All server errors are returned as
+Tcl errors (thrown) which must be caught with the Tcl [cmd catch]
+command.
+
+[section API]
 
 [list_begin definitions]
 
-[call [cmd ::pop3::open] [opt "[option -msex] 0|1"] \
+[call [cmd ::pop3::open] \
+	[opt "[option -msex] 0|1"] \
 	[opt "[option -retr-mode] retr|list|slow"] \
+	[opt "[option -socketcmd] cmdprefix"] \
 	[arg {host username password}] [opt [arg port]]]
 
 Open a socket connection to the server specified by [arg host],
 transmit the [arg username] and [arg password] as login information to
-the server.  The default port number is 110, which can be overridden
-using the optional [arg port] argument.  The return value is a channel
-used by all of the other ::pop3 functions.
+the server.  The default port number is [const 110], which can be
+overridden using the optional [arg port] argument.  The return value
+is a channel used by all of the other ::pop3 functions.
 
 [para]
 
-The command recognizes the options [option -msex] and
+The command recognizes three options
 
-[option -retr-mode]. The first of them can be used to notify the
-package of the fact that the server to talk to is an MS Exchange
-server (which has some oddities we have to work around). The default
-is 0.
+[list_begin options]
 
-[para]
+[opt_def -msex boolean]
+
+Setting this option tells the package that the server we are talking
+to is an MS Exchange server (which has some oddities we have to work
+around). The default is [const False].
+
+[opt_def -retr-mode retr|list|slow].
 
 The retrieval mode determines how exactly messages are read from the
-server. The allowed values are [const retr], [const list] and
-[const slow]. The default is [const retr]. See
+server.
 
-[cmd ::pop3::retrieve] for more information.
+The allowed values are [const retr], [const list] and [const slow].
+The default is [const retr]. See [cmd ::pop3::retrieve] for more
+information.
+
+[opt_def -socketcmd cmdprefix]
+
+This option allows the user to overide the use of the builtin
+[cmd socket] command with any API-compatible command. The envisioned
+main use is the securing of the new connection via SSL, through the
+specification of the command [cmd tls::socket]. This command is
+specially recognized as well, changing the default port of the
+connection to [const 995].
+
+[list_end]
 
 
 [call [cmd ::pop3::config] [arg chan]]
@@ -180,17 +201,25 @@ the socket.
 
 [list_end]
 
-[section {BUGS, IDEAS, FEEDBACK}]
 
-This document, and the package it describes, will undoubtedly contain
-bugs and other problems.
+[section {Secure mail transfer}]
 
-Please report such in the category [emph pop3] of the
-[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+A pop3 connection can be secured with SSL/TLS by requiring the package
+[package TLS] and then using the option [option -socketcmd] of the
+command [cmd pop3::open] to force the use of the [cmd tls::socket]
+command when opening the connection.
 
-Please also report any ideas for enhancements you may have for either
-package and/or documentation.
+[example {
+	package require tls
+	tls::init -cafile /path/to/ca/cert -keyfile ...
 
+	# Create secured pop3 channel
+	pop3::open -socketcmd tls::socket \\
+		$thehost $theuser $thepassword
 
-[keywords mail email pop pop3 {rfc 1939}]
+	...
+}]
+
+[vset CATEGORY pop3]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

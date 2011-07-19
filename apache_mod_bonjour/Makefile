@@ -26,8 +26,8 @@ APXS2=/usr/sbin/apxs
 SRCFILES = Makefile $(MODULE_SRC) $(MODULE_SRC2) $(OTHER_SRC) $(HEADERS)
 INSTALLDIR2 := $(shell $(APXS2) -q LIBEXECDIR)
 
-MORE_FLAGS += -Wc,"$(RC_CFLAGS) -Wall -W -g"
-MORE_FLAGS += -Wl,"$(RC_CFLAGS) -framework DirectoryService -framework SystemConfiguration -framework CoreFoundation"
+MORE_FLAGS += -Wc,"$(RC_CFLAGS) -Wmost -W -g"
+MORE_FLAGS += -Wl,"$(RC_CFLAGS) -framework SystemConfiguration -framework CoreFoundation"
 
 MAKEFILEDIR = $(MAKEFILEPATH)/pb_makefiles
 include $(MAKEFILEDIR)/platform.make

@@ -50,7 +50,8 @@ AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = Makefile.1.diff \
                 recommend.c.diff \
-                PR-3076981.diff
+                PR-3076981.diff \
+                PR-7556883.diff
 
 # Extract the source.
 install_source::

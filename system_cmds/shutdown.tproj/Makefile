@@ -6,7 +6,7 @@ CFILES = shutdown.c
 USERDEFS = kextmanager.defs
 MANPAGES = shutdown.8
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 Extra_Frameworks = -framework IOKit

@@ -174,8 +174,7 @@ LFound0:
 
 LZeroBuffer:
 	movq	%rdx,%rsi		// remaining buffer size (2nd argument)
-	movq	$(_COMM_PAGE_BZERO),%rax
-	call	*%rax
+	call	_bzero
 
 LDone:
 	movq	%r8,%rax		// original dest ptr is return value

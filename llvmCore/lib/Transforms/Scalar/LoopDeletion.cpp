@@ -15,19 +15,17 @@
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "loop-delete"
-
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/SmallVector.h"
-
 using namespace llvm;
 
 STATISTIC(NumDeleted, "Number of loops deleted");
 
 namespace {
-  class VISIBILITY_HIDDEN LoopDeletion : public LoopPass {
+  class LoopDeletion : public LoopPass {
   public:
     static char ID; // Pass ID, replacement for typeid
     LoopDeletion() : LoopPass(&ID) {}
@@ -35,12 +33,10 @@ namespace {
     // Possibly eliminate loop L if it is dead.
     bool runOnLoop(Loop* L, LPPassManager& LPM);
     
-    bool SingleDominatingExit(Loop* L,
-                              SmallVector<BasicBlock*, 4>& exitingBlocks);
     bool IsLoopDead(Loop* L, SmallVector<BasicBlock*, 4>& exitingBlocks,
-                    SmallVector<BasicBlock*, 4>& exitBlocks);
-    bool IsLoopInvariantInst(Instruction *I, Loop* L);
-    
+                    SmallVector<BasicBlock*, 4>& exitBlocks,
+                    bool &Changed, BasicBlock *Preheader);
+
     virtual void getAnalysisUsage(AnalysisUsage& AU) const {
       AU.addRequired<ScalarEvolution>();
       AU.addRequired<DominatorTree>();
@@ -65,51 +61,13 @@ Pass* llvm::createLoopDeletionPass() {
   return new LoopDeletion();
 }
 
-/// SingleDominatingExit - Checks that there is only a single blocks that 
-/// branches out of the loop, and that it also g the latch block.  Loops
-/// with multiple or non-latch-dominating exiting blocks could be dead, but we'd
-/// have to do more extensive analysis to make sure, for instance, that the 
-/// control flow logic involved was or could be made loop-invariant.
-bool LoopDeletion::SingleDominatingExit(Loop* L,
-                                   SmallVector<BasicBlock*, 4>& exitingBlocks) {
-  
-  if (exitingBlocks.size() != 1)
-    return false;
-  
-  BasicBlock* latch = L->getLoopLatch();
-  if (!latch)
-    return false;
-  
-  DominatorTree& DT = getAnalysis<DominatorTree>();
-  return DT.dominates(exitingBlocks[0], latch);
-}
-
-/// IsLoopInvariantInst - Checks if an instruction is invariant with respect to
-/// a loop, which is defined as being true if all of its operands are defined
-/// outside of the loop.  These instructions can be hoisted out of the loop
-/// if their results are needed.  This could be made more aggressive by
-/// recursively checking the operands for invariance, but it's not clear that
-/// it's worth it.
-bool LoopDeletion::IsLoopInvariantInst(Instruction *I, Loop* L)  {
-  // PHI nodes are not loop invariant if defined in  the loop.
-  if (isa<PHINode>(I) && L->contains(I->getParent()))
-    return false;
-    
-  // The instruction is loop invariant if all of its operands are loop-invariant
-  for (unsigned i = 0, e = I->getNumOperands(); i != e; ++i)
-    if (!L->isLoopInvariant(I->getOperand(i)))
-      return false;
-  
-  // If we got this far, the instruction is loop invariant!
-  return true;
-}
-
 /// IsLoopDead - Determined if a loop is dead.  This assumes that we've already
 /// checked for unique exit and exiting blocks, and that the code is in LCSSA
 /// form.
 bool LoopDeletion::IsLoopDead(Loop* L,
                               SmallVector<BasicBlock*, 4>& exitingBlocks,
-                              SmallVector<BasicBlock*, 4>& exitBlocks) {
+                              SmallVector<BasicBlock*, 4>& exitBlocks,
+                              bool &Changed, BasicBlock *Preheader) {
   BasicBlock* exitingBlock = exitingBlocks[0];
   BasicBlock* exitBlock = exitBlocks[0];
   
@@ -122,7 +80,7 @@ bool LoopDeletion::IsLoopDead(Loop* L,
   while (PHINode* P = dyn_cast<PHINode>(BI)) {
     Value* incoming = P->getIncomingValueForBlock(exitingBlock);
     if (Instruction* I = dyn_cast<Instruction>(incoming))
-      if (!IsLoopInvariantInst(I, L))
+      if (!L->makeLoopInvariant(I, Changed, Preheader->getTerminator()))
         return false;
       
     BI++;
@@ -136,11 +94,8 @@ bool LoopDeletion::IsLoopDead(Loop* L,
        LI != LE; ++LI) {
     for (BasicBlock::iterator BI = (*LI)->begin(), BE = (*LI)->end();
          BI != BE; ++BI) {
-      if (BI->mayWriteToMemory())
+      if (BI->mayHaveSideEffects())
         return false;
-      else if (LoadInst* L = dyn_cast<LoadInst>(BI))
-        if (L->isVolatile())
-          return false;
     }
   }
   
@@ -160,6 +115,10 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
   if (!preheader)
     return false;
   
+  // If LoopSimplify form is not available, stay out of trouble.
+  if (!L->hasDedicatedExits())
+    return false;
+
   // We can't remove loops that contain subloops.  If the subloops were dead,
   // they would already have been removed in earlier executions of this pass.
   if (L->begin() != L->end())
@@ -178,21 +137,21 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
   if (exitBlocks.size() != 1)
     return false;
   
-  // Loops with multiple exits or exits that don't dominate the latch
-  // are too complicated to handle correctly.
-  if (!SingleDominatingExit(L, exitingBlocks))
+  // Loops with multiple exits are too complicated to handle correctly.
+  if (exitingBlocks.size() != 1)
     return false;
   
   // Finally, we have to check that the loop really is dead.
-  if (!IsLoopDead(L, exitingBlocks, exitBlocks))
-    return false;
+  bool Changed = false;
+  if (!IsLoopDead(L, exitingBlocks, exitBlocks, Changed, preheader))
+    return Changed;
   
   // Don't remove loops for which we can't solve the trip count.
   // They could be infinite, in which case we'd be changing program behavior.
   ScalarEvolution& SE = getAnalysis<ScalarEvolution>();
-  SCEVHandle S = SE.getBackedgeTakenCount(L);
+  const SCEV *S = SE.getMaxBackedgeTakenCount(L);
   if (isa<SCEVCouldNotCompute>(S))
-    return false;
+    return Changed;
   
   // Now that we know the removal is safe, remove the loop by changing the
   // branch from the preheader to go to the single exit block.  
@@ -202,18 +161,12 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
   // Because we're deleting a large chunk of code at once, the sequence in which
   // we remove things is very important to avoid invalidation issues.  Don't
   // mess with this unless you have good reason and know what you're doing.
-  
-  // Move simple loop-invariant expressions out of the loop, since they
-  // might be needed by the exit phis.
-  for (Loop::block_iterator LI = L->block_begin(), LE = L->block_end();
-       LI != LE; ++LI)
-    for (BasicBlock::iterator BI = (*LI)->begin(), BE = (*LI)->end();
-         BI != BE; ) {
-      Instruction* I = BI++;
-      if (!I->use_empty() && IsLoopInvariantInst(I, L))
-        I->moveBefore(preheader->getTerminator());
-    }
-  
+
+  // Tell ScalarEvolution that the loop is deleted. Do this before
+  // deleting the loop so that ScalarEvolution can look at the loop
+  // to determine what it needs to clean up.
+  SE.forgetLoop(L);
+
   // Connect the preheader directly to the exit block.
   TerminatorInst* TI = preheader->getTerminator();
   TI->replaceUsesOfWith(L->getHeader(), exitBlock);
@@ -246,13 +199,6 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
     DT.eraseNode(*LI);
     if (DF) DF->removeBlock(*LI);
 
-    // Remove instructions that we're deleting from ScalarEvolution.
-    for (BasicBlock::iterator BI = (*LI)->begin(), BE = (*LI)->end();
-         BI != BE; ++BI)
-      SE.deleteValueFromRecords(BI);
-    
-    SE.deleteValueFromRecords(*LI);
-    
     // Remove the block from the reference counting scheme, so that we can
     // delete it freely later.
     (*LI)->dropAllReferences();
@@ -266,9 +212,6 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
        LI != LE; ++LI)
     (*LI)->eraseFromParent();
 
-  // Tell ScalarEvolution that the loop is deleted.
-  SE.forgetLoopBackedgeTakenCount(L);
-
   // Finally, the blocks from loopinfo.  This has to happen late because
   // otherwise our loop iterators won't work.
   LoopInfo& loopInfo = getAnalysis<LoopInfo>();
@@ -281,8 +224,9 @@ bool LoopDeletion::runOnLoop(Loop* L, LPPassManager& LPM) {
   // The last step is to inform the loop pass manager that we've
   // eliminated this loop.
   LPM.deleteLoopFromQueue(L);
+  Changed = true;
   
   NumDeleted++;
   
-  return true;
+  return Changed;
 }

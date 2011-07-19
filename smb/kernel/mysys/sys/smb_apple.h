@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,10 +35,6 @@
 #include <kern/thread_call.h>
 #include <string.h>
 
-#undef KASSERT
-#define KASSERT(exp,msg)	do { if (!(exp)) panic msg; } while (0)
-
-
 /*
  * BSD malloc of 0 bytes returns at least 1 byte area.
  * NeXT malloc returns zero (ala ENOMEM).  There is no standard.
@@ -63,6 +59,9 @@
 
 #undef FB_CURRENT
 
+/* Max number of times we will attempt to open in a reconnect */
+#define SMB_MAX_REOPEN_CNT	25
+
 typedef enum modeventtype {
 	MOD_LOAD,
 	MOD_UNLOAD,
@@ -83,7 +82,8 @@ typedef struct moduledata {
 	moduledata_t * _smb_md_##name = &data;
 #define SEND_EVENT(name, event)						\
 	{								\
-		extern moduledata_t * _smb_md_##name;			\
+		extern moduledata_t * _smb_md_##name; 		\
+		if (_smb_md_##name) \
 		_smb_md_##name->evhand(smbfs_kmod_infop,		\
 					 event,				\
 					 _smb_md_##name->priv);		\
@@ -98,17 +98,11 @@ typedef struct moduledata {
 
 struct smbnode;
 extern int	smb_smb_flush __P((struct smbnode *, vfs_context_t));
-extern int	smbfs_0extend __P((vnode_t, u_int16_t, u_quad_t, u_quad_t, vfs_context_t, int));
-
-extern char *		strchr __P((const char *, int));
-#define index strchr
 
 typedef int	 vnop_t __P((void *));
 
 #define vn_todev(vp) (vnode_vtype(vp) == VBLK || vnode_vtype(vp) == VCHR ? \
 		      vnode_specrdev(vp) : NODEV)
-
-typedef __const char *  c_caddr_t;
 
 void timevaladd(struct timeval *, struct timeval *);
 void timevalsub(struct timeval *, struct timeval *);

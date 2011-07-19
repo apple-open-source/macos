@@ -272,7 +272,6 @@ void BlockCryptor::update(
 		}
 		uInSize    -= toMove;
 		mInBufSize += toMove;
-		
 		/* 
 		 * Process inBuf if it's full, but skip if no more data in uInp and
 		 * inBuf might be needed (by us for unpadding on decrypt, or by
@@ -375,6 +374,7 @@ void BlockCryptor::update(
 			toMove   -= mInBlockSize; 
 			assert(uOutSize <= outSize);
 		}	/* main encrypt loop */
+
 	}	
 	else {
 		/* decrypting */
@@ -405,6 +405,7 @@ void BlockCryptor::update(
 			toMove   -= mInBlockSize; 
 			assert(uOutSize <= outSize);
 		}	/* main decrypt loop */
+
 	}
 	
 	/* leftover bytes from inp --> mInBuf */
@@ -416,9 +417,10 @@ void BlockCryptor::update(
 			}
 		}
 		else {
-			memmove(mInBuf, uInp, leftOver);
+			if(mInBuf && uInp && leftOver) memmove(mInBuf, uInp, leftOver);
 		}
 	}
+
 	mInBufSize = leftOver;
 	outSize = uOutSize;
 	ioprintf("=== BlockCryptor::update encrypt %d   inSize 0x%lx  outSize 0x%lx",

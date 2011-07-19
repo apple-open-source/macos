@@ -13,10 +13,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -34,18 +30,19 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)printf.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdio/printf.3,v 1.58 2004/10/16 16:00:01 stefanf Exp $
+.\" $FreeBSD: src/lib/libc/stdio/printf.3,v 1.64 2009/12/02 07:51:25 brueffer Exp $
 .\"
-.Dd October 16, 2004
+.Dd December 2, 2009
 .Dt PRINTF 3
 .Os
 .Sh NAME
-.Nm printf , fprintf , sprintf , snprintf , asprintf ,
-.Nm vprintf , vfprintf, vsprintf , vsnprintf , vasprintf
+.Nm printf , fprintf , sprintf , snprintf , asprintf , dprintf ,
+.Nm vprintf , vfprintf, vsprintf , vsnprintf , vasprintf, vdprintf
 .Nd formatted output conversion
 .Sh LIBRARY
 .Lb libc
 .Sh SYNOPSIS
+.Fd "#define _WITH_DPRINTF"
 .In stdio.h
 .Ft int
 .Fn printf "const char * restrict format" ...
@@ -57,6 +54,8 @@
 .Fn snprintf "char * restrict str" "size_t size" "const char * restrict format" ...
 .Ft int
 .Fn asprintf "char **ret" "const char *format" ...
+.Ft int
+.Fn dprintf "int fd" "const char * restrict format" ...
 .In stdarg.h
 .Ft int
 .Fn vprintf "const char * restrict format" "va_list ap"
@@ -68,6 +67,8 @@
 .Fn vsnprintf "char * restrict str" "size_t size" "const char * restrict format" "va_list ap"
 .Ft int
 .Fn vasprintf "char **ret" "const char *format" "va_list ap"
+.Ft int
+.Fn vdprintf "int fd" "const char * restrict format" "va_list ap"
 .Sh DESCRIPTION
 The
 .Fn printf
@@ -87,6 +88,10 @@ and
 .Fn vfprintf
 write output to the given output
 .Fa stream ;
+.Fn dprintf
+and
+.Fn vdprintf
+write output to the given file descriptor;
 .Fn sprintf ,
 .Fn snprintf ,
 .Fn vsprintf ,
@@ -211,8 +216,7 @@ conversions, this option has no effect.
 For
 .Cm o
 conversions, the precision of the number is increased to force the first
-character of the output string to a zero (except if a zero value is printed
-with an explicit precision of zero).
+character of the output string to a zero.
 For
 .Cm x
 and
@@ -553,13 +557,14 @@ to separate the mantissa and exponent.
 Note that there may be multiple valid ways to represent floating-point
 numbers in this hexadecimal format.
 For example,
-.Li 0x3.24p+0 , 0x6.48p-1
+.Li 0x1.92p+1 , 0x3.24p+0 , 0x6.48p-1 ,
 and
 .Li 0xc.9p-2
 are all equivalent.
-The format chosen depends on the internal representation of the
-number, but the implementation guarantees that the length of the
-mantissa will be minimized.
+.Fx 8.0
+and later always prints finite non-zero numbers using
+.Ql 1
+as the digit before the hexadecimal point.
 Zeroes are always represented with a mantissa of 0 (preceded by a
 .Ql -
 if appropriate) and an exponent of
@@ -775,69 +780,35 @@ for later interpolation by
 Always use the proper secure idiom:
 .Pp
 .Dl "snprintf(buffer, sizeof(buffer), \*q%s\*q, string);"
-.Sh ERRORS
-In addition to the errors documented for the
-.Xr write 2
-system call, the
-.Fn printf
-family of functions may fail if:
-.Bl -tag -width Er
-.It Bq Er EILSEQ
-An invalid wide character code was encountered.
-.It Bq Er ENOMEM
-Insufficient storage space is available.
-.El
-.Sh SEE ALSO
-.Xr printf 1 ,
-.Xr fmtcheck 3 ,
-.Xr scanf 3 ,
-.Xr setlocale 3 ,
-.Xr wprintf 3
-.Rs
-.%T "The FreeBSD Security Architecture"
-.Re
-(See
-.Pa "/usr/share/doc/{to be determined}" . )
-.Sh STANDARDS
-Subject to the caveats noted in the
-.Sx BUGS
-section below, the
-.Fn fprintf ,
-.Fn printf ,
-.Fn sprintf ,
-.Fn vprintf ,
-.Fn vfprintf ,
-and
-.Fn vsprintf
-functions
-conform to
-.St -ansiC
-and
-.St -isoC-99 .
-With the same reservation, the
-.Fn snprintf
-and
-.Fn vsnprintf
-functions conform to
-.St -isoC-99 .
-.Sh HISTORY
-The functions
-.Fn asprintf
-and
-.Fn vasprintf
-first appeared in the
-.Tn GNU C
-library.
-These were implemented by
-.An Peter Wemm Aq peter@FreeBSD.org
-in
-.Fx 2.2 ,
-but were later replaced with a different implementation
-from
-.An Todd C. Miller Aq Todd.Miller@courtesan.com
-for
-.Ox 2.3 .
-.Sh BUGS
+.Sh COMPATIBILITY
+Many application writers used the name
+.Va dprintf
+before the
+.Fn dprintf
+function was introduced in
+.St -p1003.1 ,
+so a prototype is not provided by default in order to avoid
+compatibility problems.
+Applications that wish to use the
+.Fn dprintf
+function described herein should either request a strict
+.St -p1003.1-2008
+environment by defining the macro
+.Dv _POSIX_C_SOURCE
+to the value 200809 or greater, or by defining the macro
+.Dv _WITH_DPRINTF ,
+prior to the inclusion of
+.In stdio.h .
+For compatibility with GNU libc, defining either
+.Dv _BSD_SOURCE
+or
+.Dv _GNU_SOURCE
+prior to the inclusion of
+.In stdio.h
+will also make
+.Fn dprintf
+available.
+.Pp
 The conversion formats
 .Cm \&%D , \&%O ,
 and
@@ -860,7 +831,76 @@ nonsensical combinations such as
 .Cm %Ld ,
 are not standard; such combinations
 should be avoided.
-.Pp
+.Sh ERRORS
+In addition to the errors documented for the
+.Xr write 2
+system call, the
+.Fn printf
+family of functions may fail if:
+.Bl -tag -width Er
+.It Bq Er EILSEQ
+An invalid wide character code was encountered.
+.It Bq Er ENOMEM
+Insufficient storage space is available.
+.El
+.Sh SEE ALSO
+.Xr printf 1 ,
+.Xr fmtcheck 3 ,
+.Xr scanf 3 ,
+.Xr setlocale 3 ,
+.Xr wprintf 3
+.Sh STANDARDS
+Subject to the caveats noted in the
+.Sx BUGS
+section below, the
+.Fn fprintf ,
+.Fn printf ,
+.Fn sprintf ,
+.Fn vprintf ,
+.Fn vfprintf ,
+and
+.Fn vsprintf
+functions
+conform to
+.St -ansiC
+and
+.St -isoC-99 .
+With the same reservation, the
+.Fn snprintf
+and
+.Fn vsnprintf
+functions conform to
+.St -isoC-99 ,
+while
+.Fn dprintf
+and
+.Fn vdprintf
+conform to
+.St -p1003.1-2008 .
+.Sh HISTORY
+The functions
+.Fn asprintf
+and
+.Fn vasprintf
+first appeared in the
+.Tn GNU C
+library.
+These were implemented by
+.An Peter Wemm Aq peter@FreeBSD.org
+in
+.Fx 2.2 ,
+but were later replaced with a different implementation
+from
+.An Todd C. Miller Aq Todd.Miller@courtesan.com
+for
+.Ox 2.3 .
+The
+.Fn dprintf
+and
+.Fn vdprintf
+functions were added in
+.Fx 8.0 .
+.Sh BUGS
 The
 .Nm
 family of functions do not correctly handle multibyte characters in the

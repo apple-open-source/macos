@@ -11,7 +11,6 @@
 #
 # 31.10.95 jw.
 
-CC=cc
 if test -z "$CC"; then
   CC=cc
 fi

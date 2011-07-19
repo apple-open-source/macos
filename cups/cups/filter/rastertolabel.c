@@ -1,9 +1,9 @@
 /*
- * "$Id: rastertolabel.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: rastertolabel.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   Label printer filter for the Common UNIX Printing System (CUPS).
+ *   Label printer filter for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 2001-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,14 +31,13 @@
  */
 
 #include <cups/cups.h>
-#include <cups/string.h>
-#include <cups/i18n.h>
+#include <cups/ppd.h>
+#include <cups/string-private.h>
+#include <cups/language-private.h>
 #include <cups/raster.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <errno.h>
 
 
 /*
@@ -1059,8 +1058,8 @@ ZPLCompress(char repeat_char,		/* I - Character to repeat */
   {
    /*
     * Print as many z's as possible - they are the largest denomination
-    * representing 400 characters (zC stands for 400 adjacent C's)	
-    */	
+    * representing 400 characters (zC stands for 400 adjacent C's)
+    */
 
     while (repeat_count >= 400)
     {
@@ -1131,9 +1130,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    _cupsLangPrintf(stderr,
-                    _("Usage: %s job-id user title copies options [file]\n"),
-                    "rastertolabel");
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("%s job-id user title copies options [file]"),
+			 "rastertolabel");
     return (1);
   }
 
@@ -1145,8 +1144,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
-                      strerror(errno));
+      _cupsLangPrintError("ERROR", _("Unable to open raster file"));
       sleep(1);
       return (1);
     }
@@ -1181,11 +1179,24 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   num_options = cupsParseOptions(argv[5], 0, &options);
 
-  if ((ppd = ppdOpenFile(getenv("PPD"))) != NULL)
+  ppd = ppdOpenFile(getenv("PPD"));
+  if (!ppd)
   {
-    ppdMarkDefaults(ppd);
-    cupsMarkOptions(ppd, num_options, options);
+    ppd_status_t	status;		/* PPD error */
+    int			linenum;	/* Line number */
+
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("The PPD file could not be opened."));
+
+    status = ppdLastError(&linenum);
+
+    fprintf(stderr, "DEBUG: %s on line %d.\n", ppdErrorString(status), linenum);
+
+    return (1);
   }
+
+  ppdMarkDefaults(ppd);
+  cupsMarkOptions(ppd, num_options, options);
 
  /*
   * Initialize the print device...
@@ -1211,6 +1222,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     Page ++;
 
     fprintf(stderr, "PAGE: %d 1\n", Page);
+    _cupsLangPrintFilter(stderr, "INFO", _("Starting page %d."), Page);
 
    /*
     * Start the page...
@@ -1232,8 +1244,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 15) == 0)
-        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
-                        Page, 100 * y / header.cupsHeight);
+      {
+        _cupsLangPrintFilter(stderr, "INFO",
+	                     _("Printing page %d, %d%% complete."),
+			     Page, 100 * y / header.cupsHeight);
+        fprintf(stderr, "ATTR: job-media-progress=%d\n",
+		100 * y / header.cupsHeight);
+      }
 
      /*
       * Read a line of graphics...
@@ -1252,6 +1269,8 @@ main(int  argc,				/* I - Number of command-line arguments */
    /*
     * Eject the page...
     */
+
+    _cupsLangPrintFilter(stderr, "INFO", _("Finished page %d."), Page);
 
     EndPage(ppd, &header);
 
@@ -1280,19 +1299,17 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (Page == 0)
   {
-    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    _cupsLangPrintFilter(stderr, "ERROR", _("No pages were found."));
     return (1);
   }
   else
   {
-    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
     return (0);
   }
-
-  return (Page == 0);
 }
 
 
 /*
- * End of "$Id: rastertolabel.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: rastertolabel.c 9042 2010-03-24 00:45:34Z mike $".
  */

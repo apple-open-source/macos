@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -100,7 +100,7 @@ if_bond_status_req_copy(int s, const char * ifname)
 	struct ifreq			ifr;
 
 	bzero(&ifr, sizeof(ifr));
-	strncpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
+	strlcpy(ifr.ifr_name, ifname, sizeof(ifr.ifr_name));
 	bzero((char *)&ibr, sizeof(ibr));
 	ibr.ibr_op = IF_BOND_OP_GET_STATUS;
 	ibsr_p = &ibr.ibr_ibru.ibru_status;
@@ -393,7 +393,7 @@ SCBondInterfaceCopyAll(SCPreferencesRef prefs)
 
 
 __private_extern__ void
-__SCBondInterfaceListCopyMembers(CFArrayRef interfaces, CFMutableSetRef set)
+__SCBondInterfaceListCollectMembers(CFArrayRef interfaces, CFMutableSetRef set)
 {
 	CFIndex	i;
 	CFIndex	n;
@@ -428,16 +428,23 @@ CFArrayRef /* of SCNetworkInterfaceRef's */
 SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 {
 	CFMutableArrayRef	available;
-	CFMutableSetRef		exclude;
+	CFMutableSetRef		excluded;
 	CFArrayRef		interfaces;
 
 	available = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	exclude   = CFSetCreateMutable  (NULL, 0, &kCFTypeSetCallBacks);
+	excluded  = CFSetCreateMutable  (NULL, 0, &kCFTypeSetCallBacks);
 
 	// exclude Bond [member] interfaces
 	interfaces = SCBondInterfaceCopyAll(prefs);
 	if (interfaces != NULL) {
-		__SCBondInterfaceListCopyMembers(interfaces, exclude);
+		__SCBondInterfaceListCollectMembers(interfaces, excluded);
+		CFRelease(interfaces);
+	}
+
+	// exclude Bridge [member] interfaces
+	interfaces = SCBridgeInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		__SCBridgeInterfaceListCollectMembers(interfaces, excluded);
 		CFRelease(interfaces);
 	}
 
@@ -455,7 +462,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 			// exclude the physical interface of this VLAN
 			vlanInterface = CFArrayGetValueAtIndex(interfaces, i);
 			physical = SCVLANInterfaceGetPhysicalInterface(vlanInterface);
-			CFSetAddValue(exclude, physical);
+			CFSetAddValue(excluded, physical);
 		}
 		CFRelease(interfaces);
 	}
@@ -479,7 +486,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 				continue;
 			}
 
-			if (CFSetContainsValue(exclude, interface)) {
+			if (CFSetContainsValue(excluded, interface)) {
 				// if excluded
 				continue;
 			}
@@ -489,7 +496,7 @@ SCBondInterfaceCopyAvailableMemberInterfaces(SCPreferencesRef prefs)
 		CFRelease(interfaces);
 	}
 
-	CFRelease(exclude);
+	CFRelease(excluded);
 
 	return available;
 }
@@ -567,12 +574,9 @@ _SCBondInterfaceCopyActive(void)
 			// iterate over each member interface
 			ibs_p = (struct if_bond_status *)ibsr_p->ibsr_buffer;
 			for (i = 0; i < ibsr_p->ibsr_total; i++) {
-				char		if_name[IFNAMSIZ + 1];
 				CFStringRef	member;
 
-				bzero(&if_name, sizeof(if_name));
-				bcopy(ibs_p[i].ibs_if_name, if_name, IFNAMSIZ);
-				member = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingASCII);
+				member = CFStringCreateWithCString(NULL, ibs_p[i].ibs_if_name, kCFStringEncodingASCII);
 				add_interface(&members, member);
 				CFRelease(member);
 			}
@@ -802,7 +806,8 @@ Boolean
 SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 {
 	SCNetworkInterfacePrivateRef	interfacePrivate	= (SCNetworkInterfacePrivateRef)bond;
-	Boolean				ok			= TRUE;
+	Boolean				ok;
+	int				sc_status		= kSCStatusOK;
 
 	if (!isA_SCBondInterface(bond)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -821,6 +826,7 @@ SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 		CFIndex		n_available;
 		CFIndex		n_current;
 		CFIndex		n_members;
+		CFArrayRef	services	= NULL;
 
 		current     = SCBondInterfaceGetMemberInterfaces(bond);
 		n_current   = (current != NULL) ? CFArrayGetCount(current) : 0;
@@ -842,26 +848,37 @@ SCBondInterfaceSetMemberInterfaces(SCBondInterfaceRef bond, CFArrayRef members)
 
 			if ((available != NULL) &&
 			    CFArrayContainsValue(available, CFRangeMake(0, n_available), member)) {
-				// available members are allowed
+				// available members are allowed but cannot be associated
+				// with any other network services.
+
+				if (services == NULL) {
+					services = __SCNetworkServiceCopyAllEnabled(interfacePrivate->prefs);
+				}
+				if ((services != NULL) &&
+				    __SCNetworkServiceExistsForInterface(services, member)) {
+					sc_status = kSCStatusKeyExists;
+					break;
+				}
+
+				// if available
 				continue;
 			}
 
 			// if member not allowed
-			ok = FALSE;
+			sc_status = kSCStatusInvalidArgument;
 			break;
 		}
 
-		CFRelease(available);
-
-		if (!ok) {
-			_SCErrorSet(kSCStatusInvalidArgument);
-		}
+		if (available != NULL) CFRelease(available);
+		if (services != NULL) CFRelease(services);
 	}
 
-	if (ok) {
-		ok = _SCBondInterfaceSetMemberInterfaces(bond, members);
+	if (sc_status != kSCStatusOK) {
+		_SCErrorSet(sc_status);
+		return FALSE;
 	}
 
+	ok = _SCBondInterfaceSetMemberInterfaces(bond, members);
 	return ok;
 }
 
@@ -1308,7 +1325,7 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 	int				bond_if_status;
 	CFIndex				i;
 	struct if_bond_status_req	*ibsr_p		= NULL;
-	char				if_name[IFNAMSIZ + 1];
+	char				if_name[IFNAMSIZ];
 	CFIndex				n;
 	CFNumberRef			num;
 	int				s;
@@ -1426,8 +1443,7 @@ SCBondInterfaceCopyStatus(SCBondInterfaceRef bond)
 		}
 
 		// interface
-		bzero(&if_name, sizeof(if_name));
-		bcopy(scan_p->ibs_if_name, if_name, IFNAMSIZ);
+		strlcpy(if_name, scan_p->ibs_if_name, sizeof(if_name));
 		interface_name = CFStringCreateWithCString(NULL, if_name, kCFStringEncodingASCII);
 		interface = _SCNetworkInterfaceCreateWithBSDName(NULL, interface_name,
 								 kIncludeNoVirtualInterfaces);
@@ -1600,11 +1616,11 @@ _SCBondInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 
 	/* configured Bonds */
 	config  = SCBondInterfaceCopyAll(prefs);
-	nConfig = CFArrayGetCount(config);
+	nConfig = (config != NULL) ? CFArrayGetCount(config) : 0;
 
 	/* active Bonds */
 	active  = _SCBondInterfaceCopyActive();
-	nActive = CFArrayGetCount(active);
+	nActive = (active != NULL) ? CFArrayGetCount(active) : 0;
 
 	/*
 	 * remove any no-longer-configured bond interfaces and
@@ -1710,7 +1726,7 @@ _SCBondInterfaceUpdateConfiguration(SCPreferencesRef prefs)
 		c_bond            = CFArrayGetValueAtIndex(config, i);
 		c_bond_if         = SCNetworkInterfaceGetBSDName(c_bond);
 		c_bond_interfaces = SCBondInterfaceGetMemberInterfaces(c_bond);
-		c_bond_mode		  = SCBondInterfaceGetMode(c_bond);
+		c_bond_mode       = SCBondInterfaceGetMode(c_bond);
 		c_count           = (c_bond_interfaces != NULL) ? CFArrayGetCount(c_bond_interfaces) : 0;
 
 		for (j = 0; j < nActive; j++) {

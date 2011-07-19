@@ -1,9 +1,9 @@
 //
-// "$Id: ppdc-option.cxx 1380 2009-04-08 03:20:50Z msweet $"
+// "$Id: ppdc-option.cxx 3277 2011-05-20 07:30:39Z msweet $"
 //
 //   Option class for the CUPS PPD Compiler.
 //
-//   Copyright 2007-2009 by Apple Inc.
+//   Copyright 2007-2011 by Apple Inc.
 //   Copyright 2002-2005 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -100,7 +100,7 @@ ppdcOption::find_choice(const char *n)		// I - Name of choice
 
 
   for (c = (ppdcChoice *)choices->first(); c; c = (ppdcChoice *)choices->next())
-    if (!strcasecmp(n, c->name->value))
+    if (!_cups_strcasecmp(n, c->name->value))
       return (c);
 
   return (0);
@@ -125,5 +125,5 @@ ppdcOption::set_defchoice(ppdcChoice *c)	// I - Choice
 
 
 //
-// End of "$Id: ppdc-option.cxx 1380 2009-04-08 03:20:50Z msweet $".
+// End of "$Id: ppdc-option.cxx 3277 2011-05-20 07:30:39Z msweet $".
 //

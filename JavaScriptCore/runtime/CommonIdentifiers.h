@@ -39,25 +39,18 @@
     macro(compile) \
     macro(configurable) \
     macro(constructor) \
-    macro(create) \
-    macro(defineProperty) \
-    macro(defineProperties) \
     macro(enumerable) \
     macro(eval) \
     macro(exec) \
     macro(fromCharCode) \
     macro(global) \
     macro(get) \
-    macro(getPrototypeOf) \
-    macro(getOwnPropertyDescriptor) \
-    macro(getOwnPropertyNames) \
     macro(hasOwnProperty) \
     macro(ignoreCase) \
     macro(index) \
     macro(input) \
     macro(isArray) \
     macro(isPrototypeOf) \
-    macro(keys) \
     macro(length) \
     macro(message) \
     macro(multiline) \
@@ -84,7 +77,8 @@
 
 namespace JSC {
 
-    class CommonIdentifiers : public Noncopyable {
+    class CommonIdentifiers {
+        WTF_MAKE_NONCOPYABLE(CommonIdentifiers); WTF_MAKE_FAST_ALLOCATED;
     private:
         CommonIdentifiers(JSGlobalData*);
         friend class JSGlobalData;
@@ -94,6 +88,7 @@ namespace JSC {
         const Identifier emptyIdentifier;
         const Identifier underscoreProto;
         const Identifier thisIdentifier;
+        const Identifier useStrictIdentifier;
 
 #define JSC_IDENTIFIER_DECLARE_PROPERTY_NAME_GLOBAL(name) const Identifier name;
         JSC_COMMON_IDENTIFIERS_EACH_PROPERTY_NAME(JSC_IDENTIFIER_DECLARE_PROPERTY_NAME_GLOBAL)

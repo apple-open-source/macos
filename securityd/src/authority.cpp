@@ -35,6 +35,8 @@
 
 #include <security_utilities/ccaudit.h>		// AuditToken
 
+#include <sandbox.h>
+
 using Authorization::AuthItemSet;
 using Authorization::AuthItemRef;
 using Authorization::AuthValue;
@@ -62,6 +64,11 @@ const audit_token_t &auditToken, bool operateAsLeastPrivileged)
 {
 	mCreatorUid = mCreatorAuditToken.euid();
 	mCreatorGid = mCreatorAuditToken.egid();
+
+	if (sandbox_check(mCreatorPid, "authorization-right-obtain", SANDBOX_FILTER_NONE) != 0)
+		mCreatorSandboxed = true;
+	else
+		mCreatorSandboxed = false;
 	
 	if (SecCodeRef code = Server::process().currentGuest())
 		MacOSError::check(SecCodeCopyStaticCode(code, kSecCSDefaultFlags, &mCreatorCode.aref()));
@@ -236,30 +243,40 @@ AuthorizationToken::infoSet(AuthorizationString tag)
 }
 
 void
-AuthorizationToken::setInfoSet(AuthItemSet &newInfoSet)
+AuthorizationToken::setInfoSet(AuthItemSet &newInfoSet, bool savePassword)
 {
 	StLock<Mutex> _(mLock); // consider a separate lock
     secdebug("SSauth", "Authorization %p setting new context", this);
+	
+	AuthItemSet::const_iterator end = mInfoSet.end();
+	for (AuthItemSet::const_iterator it = mInfoSet.begin(); it != end; ++it) {
+		const AuthItemRef &item = *it;
+		if (0 == strcmp(item->name(), "password")) {
+			mSavedPassword.clear();
+			mSavedPassword.insert(item);
+		}
+	}
+	
+	if (true == savePassword)
+		newInfoSet.insert(mSavedPassword.begin(), mSavedPassword.end());
+
     mInfoSet = newInfoSet;
 }
 
 // This is destructive (non-merging)
 void
-AuthorizationToken::setCredentialInfo(const Credential &inCred)
+AuthorizationToken::setCredentialInfo(const Credential &inCred, bool savePassword)
 {
     AuthItemSet dstInfoSet;
-    char uid_string[16]; // fit a uid_t(u_int32_t)
- 	
-    if (snprintf(uid_string, sizeof(uid_string), "%u", inCred->uid()) >=
-		int(sizeof(uid_string)))
-        uid_string[0] = '\0';
-    AuthItemRef uidHint("uid", AuthValueOverlay(uid_string[0] ? strlen(uid_string) + 1 : 0, uid_string), 0);
+
+    uid_t uid = inCred->uid();
+    AuthItemRef uidHint("uid", AuthValueOverlay(sizeof(uid), &uid));
     dstInfoSet.insert(uidHint);
  
     AuthItemRef userHint("username", AuthValueOverlay(inCred->username()), 0);
     dstInfoSet.insert(userHint);
  
-	setInfoSet(dstInfoSet);
+	setInfoSet(dstInfoSet, savePassword);
 }
 
 void
@@ -267,11 +284,11 @@ AuthorizationToken::clearInfoSet()
 {
     AuthItemSet dstInfoSet;
     secdebug("SSauth", "Authorization %p clearing context", this);
-    setInfoSet(dstInfoSet);
+    setInfoSet(dstInfoSet, false);
 }
 
 void
-AuthorizationToken::scrubInfoSet()
+AuthorizationToken::scrubInfoSet(bool savePassword)
 {
 	AuthItemSet srcInfoSet = infoSet(), dstInfoSet;
 	AuthItemSet::const_iterator end = srcInfoSet.end();
@@ -282,5 +299,5 @@ AuthorizationToken::scrubInfoSet()
 			dstInfoSet.insert(item);
 	}
     secdebug("SSauth", "Authorization %p scrubbing context", this);
-    setInfoSet(dstInfoSet);
+    setInfoSet(dstInfoSet, savePassword);
 }

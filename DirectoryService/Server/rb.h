@@ -162,6 +162,8 @@ struct rb_tree {
 #define	RBSTAT_DEC(v)	do { } while (/*CONSTCOND*/0)
 #endif
 
+__BEGIN_DECLS
+
 void	rb_tree_init(struct rb_tree *, const struct rb_tree_ops *);
 bool	rb_tree_insert_node(struct rb_tree *, struct rb_node *);
 struct rb_node	*
@@ -179,5 +181,7 @@ void	rb_tree_check(const struct rb_tree *, bool);
 #ifdef RBSTATS
 void	rb_tree_depths(const struct rb_tree *, size_t *);
 #endif
+
+__END_DECLS
 
 #endif	/* _SYS_RB_H_*/

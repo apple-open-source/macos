@@ -13,16 +13,16 @@ proc ::sak::validate::usage {args} {
     exit 1
 }
 
-proc ::sak::validate::all {modules mode stem} {
+proc ::sak::validate::all {modules mode stem tclv} {
     package require sak::validate::versions
     package require sak::validate::manpages
     package require sak::validate::testsuites
     package require sak::validate::syntax
 
-    sak::validate::versions::run   $modules $mode $stem
-    sak::validate::manpages::run   $modules $mode $stem
-    sak::validate::testsuites::run $modules $mode $stem
-    sak::validate::syntax::run     $modules $mode $stem
+    sak::validate::versions::run   $modules $mode $stem $tclv
+    sak::validate::manpages::run   $modules $mode $stem $tclv
+    sak::validate::testsuites::run $modules $mode $stem $tclv
+    sak::validate::syntax::run     $modules $mode $stem $tclv
 
     sak::validate::versions::summary
     sak::validate::manpages::summary

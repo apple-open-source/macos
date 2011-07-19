@@ -27,7 +27,9 @@
 #include <Security/SecBase.h>
 #include <Security/cssmtype.h>
 #include <Security/x509defs.h>
+#include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFArray.h>
+#include <CoreFoundation/CFData.h>
 
 #if defined(__cplusplus)
 extern "C" {
@@ -133,6 +135,9 @@ OSStatus SecCertificateFindByEmail(CFTypeRef keychainOrArray, const char *emailA
 /* These should go to SecKeychainSearchPriv.h. */
 OSStatus SecKeychainSearchCreateForCertificateByIssuerAndSN(CFTypeRef keychainOrArray, const CSSM_DATA *issuer,
 	const CSSM_DATA *serialNumber, SecKeychainSearchRef *searchRef);
+
+OSStatus SecKeychainSearchCreateForCertificateByIssuerAndSN_CF(CFTypeRef keychainOrArray, CFDataRef issuer,
+	CFDataRef serialNumber, SecKeychainSearchRef *searchRef);
 
 OSStatus SecKeychainSearchCreateForCertificateBySubjectKeyID(CFTypeRef keychainOrArray, const CSSM_DATA *subjectKeyID,
 	SecKeychainSearchRef *searchRef);

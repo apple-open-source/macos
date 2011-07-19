@@ -1,6 +1,6 @@
 /* vim: ts=8:sw=4
  *
- * $Id: DBI.xs 10993 2008-03-24 13:44:36Z timbo $
+ * $Id: DBI.xs 12810 2009-06-05 22:13:00Z timbo $
  *
  * Copyright (c) 1994-2003  Tim Bunce  Ireland.
  *
@@ -111,7 +111,7 @@ typedef struct dbi_ima_st {
 #define IMA_NO_TAINT_IN   	0x0010	/* don't check for tainted args	*/
 #define IMA_NO_TAINT_OUT   	0x0020	/* don't taint results		*/
 #define IMA_COPY_UP_STMT   	0x0040	/* copy sth Statement to dbh	*/
-#define IMA_END_WORK	   	0x0080	/* set on commit & rollback	*/
+#define IMA_END_WORK	   	0x0080	/* method is commit or rollback	*/
 #define IMA_STUB		0x0100	/* donothing eg $dbh->connected */
 #define IMA_CLEAR_STMT   	0x0200	/* clear Statement before call	*/
 #define IMA_UNRELATED_TO_STMT	0x0400	/* profile as empty Statement	*/
@@ -209,6 +209,152 @@ savepv_using_sv(char *str)
     return buf;
 }
 
+
+/* --- support functions for concat_hash_sorted --- */
+
+typedef struct str_uv_sort_pair_st {
+    char *key;
+    UV numeric;
+} str_uv_sort_pair_t;
+
+static int
+_cmp_number(const void *val1, const void *val2)
+{
+    UV first  = ((str_uv_sort_pair_t *)val1)->numeric;
+    UV second = ((str_uv_sort_pair_t *)val2)->numeric;
+
+    if (first > second)
+	return 1;
+    if (first < second)
+	return -1;
+    /* only likely to reach here if numeric sort forced for non-numeric keys */
+    /* fallback to comparing the key strings */
+    return strcmp(
+        ((str_uv_sort_pair_t *)val1)->key,
+        ((str_uv_sort_pair_t *)val2)->key
+    );
+}
+
+static int 
+_cmp_str (const void *val1, const void *val2)
+{
+    return strcmp( *(char **)val1, *(char **)val2);
+}
+
+static char **
+_sort_hash_keys (HV *hash, int num_sort, STRLEN *total_length)
+{
+    dTHX;
+    I32 hv_len, key_len;
+    HE *entry;
+    char **keys;
+    unsigned int idx = 0;
+    STRLEN tot_len = 0;
+    bool has_non_numerics = 0;
+    str_uv_sort_pair_t *numbers;
+
+    hv_len = hv_iterinit(hash);
+    if (!hv_len)
+        return 0;
+
+    Newz(0, keys,    hv_len, char *);
+    Newz(0, numbers, hv_len, str_uv_sort_pair_t);
+
+    while ((entry = hv_iternext(hash))) {
+        *(keys+idx) = hv_iterkey(entry, &key_len);
+        tot_len += key_len;
+        
+        if (grok_number(*(keys+idx), key_len, &(numbers+idx)->numeric) != IS_NUMBER_IN_UV) {
+            has_non_numerics = 1;
+            (numbers+idx)->numeric = 0;
+        }
+
+        (numbers+idx)->key = *(keys+idx);
+        ++idx;
+    }
+
+    if (total_length)
+        *total_length = tot_len;
+
+    if (num_sort < 0)
+        num_sort = (has_non_numerics) ? 0 : 1;
+
+    if (!num_sort) {
+        qsort(keys, hv_len, sizeof(char*), _cmp_str);
+    }
+    else {
+        qsort(numbers, hv_len, sizeof(str_uv_sort_pair_t), _cmp_number);
+        for (idx = 0; idx < hv_len; ++idx)
+            *(keys+idx) = (numbers+idx)->key;
+    }
+
+    Safefree(numbers);
+    return keys;
+}
+
+
+static SV *
+_join_hash_sorted(HV *hash, char *kv_sep, STRLEN kv_sep_len, char *pair_sep, STRLEN pair_sep_len, int use_neat, int num_sort)
+{
+	dTHX;
+        I32 hv_len;
+        STRLEN total_len = 0;
+        char **keys;
+        unsigned int i = 0;
+        SV *return_sv;
+
+        keys = _sort_hash_keys(hash, num_sort, &total_len);
+        if (!keys)
+            return newSVpv("", 0);
+
+        if (!kv_sep_len)
+            kv_sep_len = strlen(kv_sep);
+        if (!pair_sep_len)
+            pair_sep_len = strlen(pair_sep);
+
+        hv_len = hv_iterinit(hash);
+        /* total_len += Separators + quotes + term null */
+        total_len += kv_sep_len*hv_len + pair_sep_len*hv_len+2*hv_len+1;
+	return_sv = newSV(total_len);
+        sv_setpv(return_sv, ""); /* quell undef warnings */
+
+        for (i=0; i<hv_len; ++i) {
+            SV **hash_svp = hv_fetch(hash, keys[i], strlen(keys[i]), 0);
+
+            sv_catpv(return_sv, keys[i]); /* XXX keys can't contain nul chars */
+            sv_catpvn(return_sv, kv_sep, kv_sep_len);
+
+            if (!hash_svp) {    /* should never happen */
+                warn("No hash entry with key '%s'", keys[i]);
+                sv_catpvn(return_sv, "???", 3);
+                continue;
+            }
+
+            if (use_neat) {
+                sv_catpv(return_sv, neatsvpv(*hash_svp,0));
+            }
+            else {
+                if (SvOK(*hash_svp)) {
+                     STRLEN hv_val_len;
+                     char *hv_val = SvPV(*hash_svp, hv_val_len);
+                     sv_catpvn(return_sv, "'", 1);
+                     sv_catpvn(return_sv, hv_val, hv_val_len);
+                     sv_catpvn(return_sv, "'", 1);
+                }
+                else sv_catpvn(return_sv, "undef", 5);
+            }
+
+            if (i < hv_len-1)
+                sv_catpvn(return_sv, pair_sep, pair_sep_len);
+        }
+
+        Safefree(keys);
+
+        return return_sv;
+}
+
+
+
 /* handy for embedding into condition expression for debugging */
 /*
 static int warn1(char *s) { warn(s); return 1; }
@@ -243,9 +389,19 @@ static void
 dbi_bootinit(dbistate_t * parent_dbis)
 {
     dTHX;
+    dbistate_t* DBISx;
     INIT_PERINTERP;
 
-    DBIS = (struct dbistate_st*)malloc_using_sv(sizeof(struct dbistate_st));
+    DBISx = (struct dbistate_st*)malloc_using_sv(sizeof(struct dbistate_st));
+
+    /* publish address of dbistate so dynaloaded DBD's can find it,
+     * taking care to store the value in the same way it'll be used
+     * to avoid problems on some architectures, for example see
+     * http://rt.cpan.org/Public/Bug/Display.html?id=32309
+     */
+    sv_setiv(perl_get_sv(DBISTATE_PERLNAME, GV_ADDMULTI), 0); /* force SvIOK */
+    DBIS = DBISx;
+    DBIS_PUBLISHED_LVALUE = DBISx;
 
     /* store version and size so we can spot DBI/DBD version mismatch	*/
     DBIS->check_version = check_version;
@@ -262,9 +418,6 @@ dbi_bootinit(dbistate_t * parent_dbis)
 #ifdef DBI_USE_THREADS
     DBIS->thr_owner   = PERL_GET_THX;
 #endif
-
-    /* publish address of dbistate so dynaloaded DBD's can find it	*/
-    sv_setiv(perl_get_sv(DBISTATE_PERLNAME,1), PTR2IV(DBIS));
 
     DBISTATE_INIT; /* check DBD code to set DBIS from DBISTATE_PERLNAME	*/
 
@@ -339,7 +492,7 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
 
     /* try to do the right thing with magical values			*/
     if (SvMAGICAL(sv)) {
-	if (DBIS_TRACE_LEVEL >= 3) {	/* add magic details to help debugging	*/
+	if (DBIS_TRACE_LEVEL >= 5) {	/* add magic details to help debugging	*/
 	    MAGIC* mg;
 	    infosv = sv_2mortal(newSVpv(" (magic-",0));
 	    if (SvSMAGICAL(sv)) sv_catpvn(infosv,"s",1);
@@ -378,7 +531,7 @@ neatsvpv(SV *sv, STRLEN maxlen) /* return a tidy ascii value, for debugging only
 	else nsv = newSVpvf("%"NVgf, SvNVX(sv));
 	if (infosv)
 	    sv_catsv(nsv, infosv);
-	return SvPVX(nsv);
+	return SvPVX(sv_2mortal(nsv));
     }
 
     nsv = sv_newmortal();
@@ -458,7 +611,6 @@ static int
 set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method)
 {
     dTHX;
-    dPERINTERP;
     SV *h_err;
     SV *h_errstr;
     SV *h_state;
@@ -477,7 +629,7 @@ set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method
 	if (SvREADONLY(errstr))	errstr = sv_mortalcopy(errstr);
 	if (SvREADONLY(state))	state  = sv_mortalcopy(state);
 	if (SvREADONLY(method))	method = sv_mortalcopy(method);
-	if (DBIS_TRACE_LEVEL >= 2)
+	if (DBIc_TRACE_LEVEL(imp_xxh) >= 2)
 	    PerlIO_printf(DBIc_LOGPIO(imp_xxh),"    -> HandleSetErr(%s, err=%s, errstr=%s, state=%s, %s)\n",
 		neatsvpv(h,0), neatsvpv(err,0), neatsvpv(errstr,0), neatsvpv(state,0),
 		neatsvpv(method,0)
@@ -493,7 +645,7 @@ set_err_sv(SV *h, imp_xxh_t *imp_xxh, SV *err, SV *errstr, SV *state, SV *method
 	SPAGAIN;
 	response_sv = (items) ? POPs : &sv_undef;
 	PUTBACK;
-	if (DBIS_TRACE_LEVEL >= 1)
+	if (DBIc_TRACE_LEVEL(imp_xxh) >= 1)
 	    PerlIO_printf(DBIc_LOGPIO(imp_xxh),"    <- HandleSetErr= %s (err=%s, errstr=%s, state=%s, %s)\n",
 		neatsvpv(response_sv,0), neatsvpv(err,0), neatsvpv(errstr,0), neatsvpv(state,0),
 		neatsvpv(method,0)
@@ -732,7 +884,7 @@ set_trace(SV *h, SV *level_sv, SV *file)
 		neatsvpv(h,0),
 		(long)(level & DBIc_TRACE_FLAGS_MASK),
 		(long)(level & DBIc_TRACE_LEVEL_MASK),
-		DBIc_TRACE_LEVEL(imp_xxh), DBIc_TRACE_FLAGS(imp_xxh),
+		(long)DBIc_TRACE_FLAGS(imp_xxh), (long)DBIc_TRACE_LEVEL(imp_xxh),
 		XS_VERSION, dbi_build_opt, (int)PerlProc_getpid());
 	    if (!PL_dowarn)
 		PerlIO_printf(DBIc_LOGPIO(imp_xxh),"    Note: perl is running without the recommended perl -w option\n");
@@ -857,7 +1009,6 @@ dbih_getcom2(pTHX_ SV *hrv, MAGIC **mgp) /* Get com struct for handle. Must be f
 static SV *
 dbih_setup_attrib(pTHX_ SV *h, imp_xxh_t *imp_xxh, char *attrib, SV *parent, int read_only, int optional)
 {
-    dPERINTERP;
     STRLEN len = strlen(attrib);
     SV **asvp;
 
@@ -882,7 +1033,7 @@ dbih_setup_attrib(pTHX_ SV *h, imp_xxh_t *imp_xxh, char *attrib, SV *parent, int
 		    neatsvpv(h,0), attrib);
 	}
     }
-    if (DBIS_TRACE_LEVEL >= 5) {
+    if (DBIc_TRACE_LEVEL(imp_xxh) >= 5) {
 	PerlIO *logfp = DBIc_LOGPIO(imp_xxh);
 	PerlIO_printf(logfp,"    dbih_setup_attrib(%s, %s, %s)",
 	    neatsvpv(h,0), attrib, neatsvpv(parent,0));
@@ -911,7 +1062,7 @@ dbih_make_fdsv(SV *sth, const char *imp_class, STRLEN imp_size, const char *col_
     if (imp_size < sizeof(imp_fdh_t) || cn_len<10 || strNE("::fd",&col_name[cn_len-4]))
 	croak("panic: dbih_makefdsv %s '%s' imp_size %ld invalid",
 		imp_class, col_name, (long)imp_size);
-    if (DBIS_TRACE_LEVEL >= 3)
+    if (DBIc_TRACE_LEVEL(imp_sth) >= 5)
 	PerlIO_printf(DBILOGFP,"    dbih_make_fdsv(%s, %s, %ld, '%s')\n",
 		neatsvpv(sth,0), imp_class, (long)imp_size, col_name);
     fdsv = dbih_make_com(sth, (imp_xxh_t*)imp_sth, imp_class, imp_size, cn_len+2, 0);
@@ -950,7 +1101,7 @@ dbih_make_com(SV *p_h, imp_xxh_t *p_imp_xxh, const char *imp_class, STRLEN imp_s
 	}
     }
 
-    if (DBIS_TRACE_LEVEL >= 3)
+    if ((p_imp_xxh ? DBIc_TRACE_LEVEL(p_imp_xxh) : DBIS_TRACE_LEVEL) >= 5)
 	PerlIO_printf(DBILOGFP,"    dbih_make_com(%s, %p, %s, %ld, %p) thr#%p\n",
 	    neatsvpv(p_h,0), (void*)p_imp_xxh, imp_class, (long)imp_size, (void*)imp_templ, (void*)PERL_GET_THX);
 
@@ -1052,7 +1203,7 @@ dbih_setup_handle(pTHX_ SV *orv, char *imp_class, SV *parent, SV *imp_datasv)
     parent = dbih_inner(aTHX_ parent, NULL);	/* check parent valid (& inner)	*/
     parent_imp = (parent) ? DBIh_COM(parent) : NULL;
 
-    if (DBIS_TRACE_LEVEL >= 3)
+    if ((parent_imp ? DBIc_TRACE_LEVEL(parent_imp) : DBIS_TRACE_LEVEL) >= 5)
 	PerlIO_printf(DBILOGFP,"    dbih_setup_handle(%s=>%s, %s, %lx, %s)\n",
 	    neatsvpv(orv,0), neatsvpv(h,0), imp_class, (long)parent, neatsvpv(imp_datasv,0));
 
@@ -1394,15 +1545,15 @@ dbih_setup_fbav(imp_sth_t *imp_sth)
         if (av_len(av)+1 == i)  /* is existing array the right size? */
             return av;
         /* we need to adjust the size of the array */
-        if (DBIc_TRACE_LEVEL(imp_sth) >= 3)
-            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav realloc from %ld to %ld fields\n", av_len(av)+1, i);
+        if (DBIc_TRACE_LEVEL(imp_sth) >= 2)
+            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav realloc from %ld to %ld fields\n", (long)(av_len(av)+1), (long)i);
         SvREADONLY_off(av);
         if (i < av_len(av)+1) /* trim to size if too big */
             av_fill(av, i-1);
     }
     else {
-        if (DBIc_TRACE_LEVEL(imp_sth) >= 3)
-            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav alloc for %ld fields\n", i);
+        if (DBIc_TRACE_LEVEL(imp_sth) >= 5)
+            PerlIO_printf(DBILOGFP,"    dbih_setup_fbav alloc for %ld fields\n", (long)i);
         av = newAV();
         DBIc_FIELDS_AV(imp_sth) = av;
 
@@ -1416,7 +1567,7 @@ dbih_setup_fbav(imp_sth_t *imp_sth)
     while(i--)			/* field 1 stored at index 0	*/
 	av_store(av, i, newSV(0));
     if (DBIc_TRACE_LEVEL(imp_sth) >= 6)
-        PerlIO_printf(DBILOGFP,"    dbih_setup_fbav now %ld fields\n", av_len(av)+1);
+        PerlIO_printf(DBILOGFP,"    dbih_setup_fbav now %ld fields\n", (long)(av_len(av)+1));
     SvREADONLY_on(av);		/* protect against shift @$row etc */
     return av;
 }
@@ -1482,7 +1633,7 @@ dbih_sth_bind_col(SV *sth, SV *col, SV *ref, SV *attribs)
     if ( (av = DBIc_FIELDS_AV(imp_sth)) == Nullav)
 	av = dbih_setup_fbav(imp_sth);
 
-    if (DBIS_TRACE_LEVEL >= 3)
+    if (DBIc_TRACE_LEVEL(imp_sth) >= 5)
 	PerlIO_printf(DBILOGFP,"    dbih_sth_bind_col %s => %s %s\n",
 		neatsvpv(col,0), neatsvpv(ref,0), neatsvpv(attribs,0));
 
@@ -1556,7 +1707,7 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
     int    cacheit = 0;
     (void)dbikey;
 
-    if (DBIS_TRACE_LEVEL >= 3)
+    if (DBIc_TRACE_LEVEL(imp_xxh) >= 3)
 	PerlIO_printf(DBILOGFP,"    STORE %s %s => %s\n",
 		neatsvpv(h,0), neatsvpv(keysv,0), neatsvpv(valuesv,0));
 
@@ -1763,7 +1914,7 @@ dbih_set_attr_k(SV *h, SV *keysv, int dbikey, SV *valuesv)
 	/* This is designed to make life easier for people subclassing	*/
 	/* the DBI classes and may be of use to simple perl DBD's.	*/
 	if (strnNE(key,"private_",8) && strnNE(key,"dbd_",4) && strnNE(key,"dbi_",4)) {
-	    if (DBIS_TRACE_LEVEL) { /* change to DBIc_WARN(imp_xxh) once we can validate prefix against registry */
+	    if (DBIc_TRACE_LEVEL(imp_xxh)) { /* change to DBIc_WARN(imp_xxh) once we can validate prefix against registry */
 		PerlIO_printf(DBILOGFP,"$h->{%s}=%s ignored for invalid driver-specific attribute\n",
 			neatsvpv(keysv,0), neatsvpv(valuesv,0));
 	    }
@@ -2089,7 +2240,7 @@ dbih_get_attr_k(SV *h, SV *keysv, int dbikey)
     if (cacheit) {
 	hv_store((HV*)SvRV(h), key, keylen, newSVsv(valuesv), 0);
     }
-    if (DBIS_TRACE_LEVEL >= 3)
+    if (DBIc_TRACE_LEVEL(imp_xxh) >= 3)
 	PerlIO_printf(DBILOGFP,"    .. FETCH %s %s = %s%s\n", neatsvpv(h,0),
 	    neatsvpv(keysv,0), neatsvpv(valuesv,0), cacheit?" (cached)":"");
     if (valuesv == &sv_yes || valuesv == &sv_no || valuesv == &sv_undef)
@@ -2561,6 +2712,7 @@ dbi_profile_merge_nodes(SV *dest, SV *increment)
     dTHX;
     AV *d_av, *i_av;
     SV *tmp;
+    SV *tmp2;
     NV i_nv;
     int i_is_earlier;
 
@@ -2596,8 +2748,12 @@ dbi_profile_merge_nodes(SV *dest, SV *increment)
 	croak("dbi_profile_merge_nodes: increment %s not an array or hash ref", neatsvpv(increment,0));
     i_av = (AV*)SvRV(increment);
 
-    tmp = *av_fetch(d_av, DBIprof_COUNT, 1);
-    sv_setiv( tmp, SvIV(tmp) + SvIV( *av_fetch(i_av, DBIprof_COUNT, 1)) );
+    tmp  = *av_fetch(d_av, DBIprof_COUNT, 1);
+    tmp2 = *av_fetch(i_av, DBIprof_COUNT, 1);
+    if (SvIOK(tmp) && SvIOK(tmp2))
+        sv_setiv( tmp, SvIV(tmp) + SvIV(tmp2) );
+    else
+        sv_setnv( tmp, SvNV(tmp) + SvNV(tmp2) );
 
     tmp = *av_fetch(d_av, DBIprof_TOTAL_TIME, 1);
     sv_setnv( tmp, SvNV(tmp) + SvNV( *av_fetch(i_av, DBIprof_TOTAL_TIME, 1)) );
@@ -2710,13 +2866,13 @@ XS(XS_DBI_dispatch)
 #endif
 	    if (imp_xxh && DBIc_TYPE(imp_xxh) <= DBIt_DB)
 		clear_cached_kids(aTHX_ mg->mg_obj, imp_xxh, meth_name, trace_level);
+            /* XXX might be better to move this down to after call_depth has been
+             * incremented and then also SvREFCNT_dec(mg->mg_obj) to force an immediate
+             * DESTROY of the inner handle if there are no other refs to it.
+             * That way the inner DESTROY is properly flagged as a nested call,
+             * and the outer DESTROY gets profiled more accurately, and callbacks work.
+             */
 	    if (trace_level >= 3) {
-                /* XXX might be better to move this down to after call_depth has been
-                 * incremented and then also SvREFCNT_dec(mg->mg_obj) to force an immediate
-                 * DESTROY of the inner handle if there are no other refs to it.
-                 * That way the inner DESTROY is properly flagged as a nested call,
-                 * and the outer DESTROY gets profiled more accurately, and callbacks work.
-                 */
                 PerlIO_printf(DBILOGFP,
 		    "%c   <> DESTROY(%s) ignored for outer handle (inner %s has ref cnt %ld)\n",
 		    (dirty?'!':' '), neatsvpv(h,0), neatsvpv(mg->mg_obj,0),
@@ -2746,7 +2902,7 @@ XS(XS_DBI_dispatch)
 	    GV *gv = gv_fetchmethod_autoload(gv_stashsv(orig_h,FALSE), can_meth, FALSE);
 	    if (gv && isGV(gv))
 		rv = sv_2mortal(newRV((SV*)GvCV(gv)));
-	    if (trace_level >= 3) {
+	    if (trace_level >= 1) {
 		PerlIO_printf(DBILOGFP,"    <- %s(%s) = %p\n", meth_name, can_meth, neatsvpv(rv,0));
 	    }
 	    ST(0) = rv;
@@ -2781,7 +2937,7 @@ XS(XS_DBI_dispatch)
 	/* XXX could call a 'handle clone' method here?, for dbh's at least */
 	if (is_DESTROY) {
     is_DESTROY_wrong_thread:
-	    if (trace_level >= 2) {
+	    if (trace_level >= 3) {
 		PerlIO_printf(DBILOGFP,"    DESTROY ignored because DBI %sh handle (%s) is owned by thread %p not current thread %p\n",
 		      dbih_htype_name(DBIc_TYPE(imp_xxh)), HvNAME(DBIc_IMP_STASH(imp_xxh)),
 		      (void*)DBIc_THR_USER(imp_xxh), (void*)my_perl) ;
@@ -2814,7 +2970,7 @@ XS(XS_DBI_dispatch)
 			if (gv && isGV(gv))
 			    dbi_msv = (SV*)GvCV(gv);
 		    }
-		    if (trace_level >= 3) {
+		    if (trace_level >= 1) {
 			PerlIO *logfp = DBILOGFP;
 			PerlIO_printf(logfp,"    <- %s(%s) = %p (%s %p)\n", meth_name, can_meth, (void*)dbi_msv,
 				(imp_msv && isGV(imp_msv)) ? HvNAME(GvSTASH(imp_msv)) : "?", (void*)imp_msv);
@@ -2962,7 +3118,7 @@ XS(XS_DBI_dispatch)
         /* we don't use ENTER,SAVETMPS & FREETMPS,LEAVE because we may need mortal
          * results to live long enough to be returned to our caller
          */
-        /* we want to localize $_ for the callback but can't just to that alone
+        /* we want to localize $_ for the callback but can't just do that alone
          * because we're not using SAVETMPS & FREETMPS, so we have to get sneaky.
          * We still localize, so we're safe from the callback dieing,
          * but after the callback we manually restore the original $_.
@@ -3075,7 +3231,7 @@ XS(XS_DBI_dispatch)
             }
         }
 
-	if (trace_level >= 2) {
+        if (trace_level >= (is_nested_call ? 4 : 2)) {
 	    PerlIO *logfp = DBILOGFP;
 	    /* Full pkg method name (or just meth_name for ANON CODE)	*/
 	    const char *imp_meth_name = (imp_msv && isGV(imp_msv)) ? GvNAME(imp_msv) : meth_name;
@@ -3185,11 +3341,11 @@ XS(XS_DBI_dispatch)
 
     err_sv = DBIc_ERR(imp_xxh);
 
-    if (trace_level > 1 || (trace_level == 1 && !is_nested_call) ) {
+    if (trace_level >= (is_nested_call ? 3 : 1)) {
 	PerlIO *logfp = DBILOGFP;
 	const int is_fetch  = (*meth_name=='f' && DBIc_TYPE(imp_xxh)==DBIt_ST && strnEQ(meth_name,"fetch",5));
 	const int row_count = (is_fetch) ? DBIc_ROW_COUNT((imp_sth_t*)imp_xxh) : 0;
-	if (is_fetch && row_count>=2 && trace_level<=1 && SvOK(ST(0))) {
+	if (is_fetch && row_count>=2 && trace_level<=4 && SvOK(ST(0))) {
 	    /* skip the 'middle' rows to reduce output */
 	    goto skip_meth_return_trace;
 	}
@@ -3385,19 +3541,10 @@ XS(XS_DBI_dispatch)
                     mg_get(*svp); /* XXX may recurse, may croak. could use eval */
             }
 	    if (svp && SvRV(*svp) && SvTYPE(SvRV(*svp)) == SVt_PVHV && HvKEYS(SvRV(*svp))>0 ) {
-		HV *bvhv = (HV*)SvRV(*svp);
-		SV *sv;
-		char *key;
-		I32 keylen;
-		I32 param_idx = 0;
-		hv_iterinit(bvhv);
+                SV *param_values_sv = sv_2mortal(_join_hash_sorted((HV*)SvRV(*svp), "=",1, ", ",2, 1, -1));
 		sv_catpv(msg, "\" with ParamValues: ");
-		while ( (sv = hv_iternextsv(bvhv, &key, &keylen)) ) {
-		    sv_catpvf(msg, "%s%s=%s",
-			(param_idx++==0 ? "" : ", "),
-			key, neatsvpv(sv,0));
-		}
-		sv_catpv(msg, "]");
+		sv_catsv(msg, param_values_sv);
+		sv_catpvn(msg, "]", 1);
 	    }
 	    else {
 		sv_catpv(msg, "\"]");
@@ -3936,7 +4083,7 @@ _new_handle(class, parent, attr_ref, imp_datasv, imp_class)
     SV *outer_ref;
     HV *class_stash = gv_stashsv(class, GV_ADDWARN);
 
-    if (DBIS_TRACE_LEVEL >= 3) {
+    if (DBIS_TRACE_LEVEL >= 5) {
         PerlIO_printf(DBILOGFP, "    New %s (for %s, parent=%s, id=%s)\n",
             neatsvpv(class,0), SvPV_nolen(imp_class), neatsvpv(parent,0), neatsvpv(imp_datasv,0));
         (void)cv; /* avoid unused warning */
@@ -4236,6 +4383,40 @@ dbi_profile_merge_nodes(dest, ...)
     RETVAL
 
 
+SV *
+_concat_hash_sorted(hash_sv, kv_sep_sv, pair_sep_sv, use_neat_sv, num_sort_sv)
+    SV *hash_sv
+    SV *kv_sep_sv
+    SV *pair_sep_sv
+    SV *use_neat_sv
+    SV *num_sort_sv
+    PREINIT:
+    char *kv_sep, *pair_sep;
+    STRLEN kv_sep_len, pair_sep_len;
+    CODE:
+        if (!SvOK(hash_sv))
+            XSRETURN_UNDEF;
+        if (!SvROK(hash_sv) || SvTYPE(SvRV(hash_sv))!=SVt_PVHV)
+            croak("hash is not a hash reference");
+
+        kv_sep   = SvPV(kv_sep_sv,   kv_sep_len);
+        pair_sep = SvPV(pair_sep_sv, pair_sep_len);
+
+        RETVAL = _join_hash_sorted( (HV*)SvRV(hash_sv),
+            kv_sep,   kv_sep_len,
+            pair_sep, pair_sep_len,
+            /* use_neat should be undef, 0 or 1, may allow sprintf format strings later */
+            (SvOK(use_neat_sv)) ? SvIV(use_neat_sv) :  0,
+            (SvOK(num_sort_sv)) ? SvIV(num_sort_sv) : -1
+        );
+    OUTPUT:
+        RETVAL
+
+
+
+
+
+
 MODULE = DBI   PACKAGE = DBI::var
 
 void
@@ -4247,14 +4428,13 @@ FETCH(sv)
     char *meth = SvPV_nolen(SvRV(sv));	/* what should this tie do ?	*/
     char type = *meth++;		/* is this a $ or & style	*/
     imp_xxh_t *imp_xxh = (DBI_LAST_HANDLE_OK) ? DBIh_COM(DBI_LAST_HANDLE) : NULL;
-    int trace = 0;
+    int trace_level = (imp_xxh ? DBIc_TRACE_LEVEL(imp_xxh) : DBIS_TRACE_LEVEL);
     NV profile_t1 = 0.0;
 
     if (imp_xxh && DBIc_has(imp_xxh,DBIcf_Profile))
 	profile_t1 = dbi_time();
 
-    if (DBIS_TRACE_LEVEL >= 2 || (imp_xxh && DBIc_TRACE_LEVEL(imp_xxh) >= 2)) {
-	trace = 2;
+    if (trace_level >= 2) {
 	PerlIO_printf(DBILOGFP,"    -> $DBI::%s (%c) FETCH from lasth=%s\n", meth, type,
 		(imp_xxh) ? neatsvpv(DBI_LAST_HANDLE,0): "none");
     }
@@ -4265,7 +4445,7 @@ FETCH(sv)
 	ST(0) = (imp_xxh) ? sv_2mortal(newRV(DBI_LAST_HANDLE)) : &sv_undef;
     }
     else if ( !imp_xxh ) {
-	if (trace)
+	if (trace_level)
 	    warn("Can't read $DBI::%s, last handle unknown or destroyed", meth);
 	ST(0) = &sv_undef;
     }
@@ -4290,7 +4470,7 @@ FETCH(sv)
 	HE save_mh = PL_hv_fetch_ent_mh; /* XXX nested tied FETCH bug17575 workaround */
 #endif
 	profile_t1 = 0.0; /* profile this via dispatch only (else we'll double count) */
-	if (DBIS_TRACE_LEVEL >= 2)
+	if (DBIS_TRACE_LEVEL >= 3)
 	    PerlIO_printf(DBILOGFP,"    >> %s::%s\n", HvNAME(imp_stash), meth);
 	ST(0) = sv_2mortal(newRV(DBI_LAST_HANDLE));
 	if ((imp_gv = gv_fetchmethod(imp_stash,meth)) == NULL) {
@@ -4304,12 +4484,22 @@ FETCH(sv)
 	PL_hv_fetch_ent_mh = save_mh;
 #endif
     }
-    if (trace)
+    if (trace_level)
 	PerlIO_printf(DBILOGFP,"    <- $DBI::%s= %s\n", meth, neatsvpv(ST(0),0));
     if (profile_t1) {
         SV *h = sv_2mortal(newRV(DBI_LAST_HANDLE));
 	dbi_profile(h, imp_xxh, &sv_undef, (SV*)cv, profile_t1, dbi_time());
     }
+
+
+MODULE = DBI   PACKAGE = DBD::_::dr
+
+void
+dbixs_revision(h)
+    SV *    h
+    CODE:
+    PERL_UNUSED_VAR(h);
+    ST(0) = sv_2mortal(newSViv(DBIXS_REVISION));
 
 
 MODULE = DBI   PACKAGE = DBD::_::db

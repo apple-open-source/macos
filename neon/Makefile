@@ -1,5 +1,5 @@
 Project               = neon
-ProjectVersion        = 0.28.6
+ProjectVersion        = 0.29.0
 Patches               = configure.diff neon-config.in.diff
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make

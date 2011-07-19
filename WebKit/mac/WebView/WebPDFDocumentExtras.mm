@@ -31,7 +31,7 @@
 #import <PDFKit/PDFDocument.h>
 #import <objc/objc-runtime.h>
 
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
 @interface PDFDocument (Internal)
 - (CGPDFDocumentRef)documentRef;
 @end
@@ -112,6 +112,8 @@ NSArray *allScriptsInPDFDocument(PDFDocument *document)
         if (CGPDFDictionaryGetStream(javaScriptAction, "JS", &stream)) {
             CGPDFDataFormat format;
             data.adoptCF(CGPDFStreamCopyData(stream, &format));
+            if (!data)
+                continue;
             bytes = CFDataGetBytePtr(data.get());
             length = CFDataGetLength(data.get());
         } else if (CGPDFDictionaryGetString(javaScriptAction, "JS", &string)) {

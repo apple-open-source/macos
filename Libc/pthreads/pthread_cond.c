@@ -58,53 +58,50 @@
 #define PLOCKSTAT_MUTEX_RELEASE(x, y)
 #endif /* PLOCKSTAT */
 
-
 extern int __semwait_signal(int, int, int, int, int64_t, int32_t);
 extern int _pthread_cond_init(pthread_cond_t *, const pthread_condattr_t *, int);
 extern int __unix_conforming;
+extern int usenew_mtximpl;
 
 #ifdef PR_5243343
 /* 5243343 - temporary hack to detect if we are running the conformance test */
 extern int PR_5243343_flag;
 #endif /* PR_5243343 */
 
-#if  defined(__i386__) || defined(__x86_64__)
-__private_extern__ int __new_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime, int isRelative, int isconforming);
-extern int _new_pthread_cond_init(pthread_cond_t *, const pthread_condattr_t *, int);
-extern int _new_pthread_cond_destroy(pthread_cond_t *);
-extern int _new_pthread_cond_destroy_locked(pthread_cond_t *);
-int _new_pthread_cond_broadcast(pthread_cond_t *cond);
-int _new_pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread);
-int _new_pthread_cond_signal(pthread_cond_t *cond);
-int _new_pthread_cond_timedwait_relative_np(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime);
-int _new_pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex);
-int _new_pthread_cond_timedwait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime);
-static void _new_cond_cleanup(void *arg);
-static void _new_cond_dropwait(npthread_cond_t * cond);
-
+__private_extern__ int _pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex, const struct timespec *abstime, int isRelative, int isconforming);
+#ifndef BUILDING_VARIANT
+static void cond_cleanup(void *arg);
+static void cond_dropwait(npthread_cond_t * cond, int error, uint32_t updateval);
+static void __pthread_cond_set_signature(npthread_cond_t * cond);
+static int _pthread_cond_destroy_locked(pthread_cond_t *cond);
+#endif
 
 #if defined(__LP64__)
-#define  COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt) \
+#define  COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt) \
 { \
 	if (cond->misalign != 0) { \
 		c_lseqcnt = &cond->c_seq[1]; \
-		c_useqcnt = &cond->c_seq[2]; \
+		c_sseqcnt = &cond->c_seq[2]; \
+		c_useqcnt = &cond->c_seq[0]; \
 	} else { \
 		/* aligned */ \
 		c_lseqcnt = &cond->c_seq[0]; \
-		c_useqcnt = &cond->c_seq[1]; \
+		c_sseqcnt = &cond->c_seq[1]; \
+		c_useqcnt = &cond->c_seq[2]; \
 	} \
 }
 #else /* __LP64__ */
-#define  COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt) \
+#define  COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt) \
 { \
 	if (cond->misalign != 0) { \
 		c_lseqcnt = &cond->c_seq[1]; \
-		c_useqcnt = &cond->c_seq[2]; \
+		c_sseqcnt = &cond->c_seq[2]; \
+		c_useqcnt = &cond->c_seq[0]; \
 	} else { \
 		/* aligned */ \
 		c_lseqcnt = &cond->c_seq[0]; \
-		c_useqcnt = &cond->c_seq[1]; \
+		c_sseqcnt = &cond->c_seq[1]; \
+		c_useqcnt = &cond->c_seq[2]; \
 	} \
 }
 #endif /* __LP64__ */
@@ -127,487 +124,13 @@ int __kdebug_trace(uint32_t, uint32_t, uint32_t, uint32_t, uint32_t, uint32_t);
 #define _KSYN_TRACE_UM_CVWAIT   0x9000070
 #define _KSYN_TRACE_UM_CVSIG    0x9000074
 #define _KSYN_TRACE_UM_CVBRD    0x9000078
+#define _KSYN_TRACE_UM_CDROPWT    0x90000a0
+#define _KSYN_TRACE_UM_CVCLRPRE    0x90000a4
 
 #endif /* _KSYN_TRACE_ */
-#endif /* __i386__ || __x86_64__ */
 
 
 #ifndef BUILDING_VARIANT /* [ */
-
-/*
- * Destroy a condition variable.
- */
-int       
-pthread_cond_destroy(pthread_cond_t *cond)
-{
-	int ret;
-	int sig = cond->sig;
-
-	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
-		return(EINVAL);
-
-	LOCK(cond->lock);
-	if (cond->sig == _PTHREAD_COND_SIG)
-	{
-#if  defined(__i386__) || defined(__x86_64__)
-		if (cond->pshared == PTHREAD_PROCESS_SHARED) {
-			ret = _new_pthread_cond_destroy_locked(cond);
-			UNLOCK(cond->lock);
-			return(ret);
-		}
-#endif /* __i386__ || __x86_64__ */
-		if (cond->busy == (pthread_mutex_t *)NULL)
-		{
-			cond->sig = _PTHREAD_NO_SIG;
-			ret = 0;
-		} else
-			ret = EBUSY;
-	} else
-		ret = EINVAL; /* Not an initialized condition variable structure */
-	UNLOCK(cond->lock);
-	return (ret);
-}
-
-
-/*
- * Signal a condition variable, waking up all threads waiting for it.
- */
-int       
-pthread_cond_broadcast(pthread_cond_t *cond)
-{
-	kern_return_t kern_res;
-	semaphore_t sem;
-	int sig = cond->sig;
-
-	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
-		return(EINVAL);
-
-	LOCK(cond->lock);
-	if (cond->sig != _PTHREAD_COND_SIG)
-	{
-		int res;
-
-		if (cond->sig == _PTHREAD_COND_SIG_init)
-		{
-			_pthread_cond_init(cond, NULL, 0);
-			res = 0;
-		} else 
-			res = EINVAL;  /* Not a condition variable */
-		UNLOCK(cond->lock);
-		return (res);
-	}
-#if  defined(__i386__) || defined(__x86_64__)
-	else if (cond->pshared == PTHREAD_PROCESS_SHARED) {
-		UNLOCK(cond->lock);
-		return(_new_pthread_cond_broadcast(cond));
-	}
-#endif /* __i386__ || __x86_64__ */
-	else if ((sem = cond->sem) == SEMAPHORE_NULL)
-	{
-		/* Avoid kernel call since there are no waiters... */
-		UNLOCK(cond->lock);
-		return (0);
-	}
-	cond->sigspending++;
-	UNLOCK(cond->lock);
-
-	PTHREAD_MACH_CALL(semaphore_signal_all(sem), kern_res);
-
-	LOCK(cond->lock);
-	cond->sigspending--;
-	if (cond->waiters == 0 && cond->sigspending == 0)
-	{
-		cond->sem = SEMAPHORE_NULL;
-		restore_sem_to_pool(sem);
-	}
-	UNLOCK(cond->lock);
-	if (kern_res != KERN_SUCCESS)
-		return (EINVAL);
-	return (0);
-}
-
-/*
- * Signal a condition variable, waking a specified thread.
- */
-int       
-pthread_cond_signal_thread_np(pthread_cond_t *cond, pthread_t thread)
-{
-	kern_return_t kern_res;
-	semaphore_t sem;
-	int sig = cond->sig;
-
-	/* to provide backwards compat for apps using united condtn vars */
-
-	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
-		return(EINVAL);
-	LOCK(cond->lock);
-	if (cond->sig != _PTHREAD_COND_SIG)
-	{
-		int ret;
-
-		if (cond->sig == _PTHREAD_COND_SIG_init) 
-		{
-			_pthread_cond_init(cond, NULL, 0);
-			ret = 0;
-		} else 
-			ret = EINVAL; /* Not a condition variable */
-		UNLOCK(cond->lock);
-		return (ret);
-	}
-#if  defined(__i386__) || defined(__x86_64__)
-	else if (cond->pshared == PTHREAD_PROCESS_SHARED) {
-		UNLOCK(cond->lock);
-		return(_new_pthread_cond_signal_thread_np(cond, thread));
-	}
-#endif /* __i386__ || __x86_64__ */
-	else if ((sem = cond->sem) == SEMAPHORE_NULL)
-	{
-		/* Avoid kernel call since there are not enough waiters... */
-		UNLOCK(cond->lock);
-		return (0);
-	}
-	cond->sigspending++;
-	UNLOCK(cond->lock);
-
-	if (thread == (pthread_t)NULL)
-	{
-		kern_res = semaphore_signal_thread(sem, THREAD_NULL);
-		if (kern_res == KERN_NOT_WAITING)
-			kern_res = KERN_SUCCESS;
-	}
-	else if (thread->sig == _PTHREAD_SIG)
-	{
-	        PTHREAD_MACH_CALL(semaphore_signal_thread(
-			sem, pthread_mach_thread_np(thread)), kern_res);
-	}
-	else
-		kern_res = KERN_FAILURE;
-
-	LOCK(cond->lock);
-	cond->sigspending--;
-	if (cond->waiters == 0 && cond->sigspending == 0)
-	{
-		cond->sem = SEMAPHORE_NULL;
-		restore_sem_to_pool(sem);
-	}
-	UNLOCK(cond->lock);
-	if (kern_res != KERN_SUCCESS)
-		return (EINVAL);
-	return (0);
-}
-
-/*
- * Signal a condition variable, waking only one thread.
- */
-int
-pthread_cond_signal(pthread_cond_t *cond)
-{
-	return pthread_cond_signal_thread_np(cond, NULL);
-}
-
-/*
- * Manage a list of condition variables associated with a mutex
- */
-
-static void
-_pthread_cond_add(pthread_cond_t *cond, pthread_mutex_t *mutex)
-{
-	pthread_cond_t *c;
-	LOCK(mutex->lock);
-	if ((c = mutex->busy) != (pthread_cond_t *)NULL)
-	{
-		c->prev = cond;
-	} 
-	cond->next = c;
-	cond->prev = (pthread_cond_t *)NULL;
-	mutex->busy = cond;
-	UNLOCK(mutex->lock);
-	if (cond->sem == SEMAPHORE_NULL)
-		cond->sem = new_sem_from_pool();
-}
-
-static void
-_pthread_cond_remove(pthread_cond_t *cond, pthread_mutex_t *mutex)
-{
-	pthread_cond_t *n, *p;
-
-	LOCK(mutex->lock);
-	if ((n = cond->next) != (pthread_cond_t *)NULL)
-	{
-		n->prev = cond->prev;
-	}
-	if ((p = cond->prev) != (pthread_cond_t *)NULL)
-	{
-		p->next = cond->next;
-	} 
-	else
-	{ /* This is the first in the list */
-		mutex->busy = n;
-	}
-	UNLOCK(mutex->lock);
-	if (cond->sigspending == 0)
-	{
-		restore_sem_to_pool(cond->sem);
-		cond->sem = SEMAPHORE_NULL;
-	}
-}
-
-static void 
-cond_cleanup(void *arg)
-{
-    pthread_cond_t *cond = (pthread_cond_t *)arg;
-    pthread_mutex_t *mutex;
-// 4597450: begin
-    pthread_t thread = pthread_self();
-	int thcanceled = 0;
-
-	LOCK(thread->lock);
-	thcanceled = (thread->detached & _PTHREAD_WASCANCEL);
-	UNLOCK(thread->lock);
-
-	if (thcanceled == 0)
-		return;
-
-// 4597450: end
-    LOCK(cond->lock);
-    mutex = cond->busy;
-    cond->waiters--;
-    if (cond->waiters == 0) {
-        _pthread_cond_remove(cond, mutex);
-        cond->busy = (pthread_mutex_t *)NULL;
-    }
-    UNLOCK(cond->lock);
-
-    /*
-    ** Can't do anything if this fails -- we're on the way out
-    */
-    (void)pthread_mutex_lock(mutex);
-}
-
-/*
- * Suspend waiting for a condition variable.
- * Note: we have to keep a list of condition variables which are using
- * this same mutex variable so we can detect invalid 'destroy' sequences.
- * If isconforming < 0, we skip the _pthread_testcancel(), but keep the
- * remaining conforming behavior..
- */
-__private_extern__ int       
-_pthread_cond_wait(pthread_cond_t *cond, 
-		   pthread_mutex_t *mutex,
-		   const struct timespec *abstime,
-		   int isRelative,
-		    int isconforming)
-{
-	int res;
-	kern_return_t kern_res = KERN_SUCCESS;
-	int wait_res = 0;
-	pthread_mutex_t *busy;
-	mach_timespec_t then = {0, 0};
-	struct timespec cthen = {0,0};
-	int sig = cond->sig;
-	int msig = mutex->sig;
-extern void _pthread_testcancel(pthread_t thread, int isconforming);
-
-	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
-		return(EINVAL);
-
-	if (isconforming) {
-		if((msig != _PTHREAD_MUTEX_SIG) && (msig != _PTHREAD_MUTEX_SIG_init))
-			return(EINVAL);
-		if (isconforming > 0)
-			_pthread_testcancel(pthread_self(), 1);
-	}
-	LOCK(cond->lock);
-	if (cond->sig != _PTHREAD_COND_SIG)
-	{
-		if (cond->sig != _PTHREAD_COND_SIG_init)
-		{
-				UNLOCK(cond->lock);
-				return (EINVAL);        /* Not a condition variable */
-		}
-		_pthread_cond_init(cond, NULL, 0);
-	}
-#if  defined(__i386__) || defined(__x86_64__)
-	else if (cond->pshared == PTHREAD_PROCESS_SHARED) {
-		UNLOCK(cond->lock);
-		return(__new_pthread_cond_wait(cond, mutex, abstime, isRelative, isconforming));
-	}
-#endif /* __i386__ || __x86_64__ */
-
-	if (abstime) {
-		if (!isconforming)
-		{
-			if (isRelative == 0) {
-				struct timespec now;
-				struct timeval tv;
-				gettimeofday(&tv, NULL);
-				TIMEVAL_TO_TIMESPEC(&tv, &now);
-
-				/* Compute relative time to sleep */
-				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-				then.tv_sec = abstime->tv_sec - now.tv_sec;
-				if (then.tv_nsec < 0)
-				{
-					then.tv_nsec += NSEC_PER_SEC;
-					then.tv_sec--;
-				}
-				if (((int)then.tv_sec < 0) ||
-					((then.tv_sec == 0) && (then.tv_nsec == 0)))
-				{
-					UNLOCK(cond->lock);
-					return ETIMEDOUT;
-				}
-			} else {
-				then.tv_sec = abstime->tv_sec;
-				then.tv_nsec = abstime->tv_nsec;
-			}
-			if (then.tv_nsec >= NSEC_PER_SEC) {
-				UNLOCK(cond->lock);
-				return EINVAL;
-			}
-		} else {
-			if (isRelative == 0) {
-				/* preflight the checks for failures */
-				struct timespec now;
-				struct timeval tv;
-				gettimeofday(&tv, NULL);
-				TIMEVAL_TO_TIMESPEC(&tv, &now);
-
-				/* Compute relative time to sleep */
-				then.tv_nsec = abstime->tv_nsec - now.tv_nsec;
-				then.tv_sec = abstime->tv_sec - now.tv_sec;
-				if (then.tv_nsec < 0)
-				{
-					then.tv_nsec += NSEC_PER_SEC;
-					then.tv_sec--;
-				}
-				if (((int)then.tv_sec < 0) ||
-					((then.tv_sec == 0) && (then.tv_nsec == 0)))
-				{
-					UNLOCK(cond->lock);
-					return ETIMEDOUT;
-				}
-				if (then.tv_nsec >= NSEC_PER_SEC) {
-					UNLOCK(cond->lock);
-					return EINVAL;
-				}
-			}
-			/* we can cleanup this code and pass the calculated time
-			 * to the kernel. But kernel is going to do the same. TILL
-			 * we change the kernel do this anyway
-			 */
-			cthen.tv_sec = abstime->tv_sec;
-            		cthen.tv_nsec = abstime->tv_nsec;
-            		if ((cthen.tv_sec < 0) || (cthen.tv_nsec < 0)) {
-                		UNLOCK(cond->lock);
-                		return EINVAL;
-            		}
-            		if (cthen.tv_nsec >= NSEC_PER_SEC) {
-                		UNLOCK(cond->lock);
-                		return EINVAL;
-            		}
-        	}
-	}
-
-	if (++cond->waiters == 1)
-	{
-		_pthread_cond_add(cond, mutex);
-		cond->busy = mutex;
-	}
-	else if ((busy = cond->busy) != mutex)
-	{
-		/* Must always specify the same mutex! */
-		cond->waiters--;
-		UNLOCK(cond->lock);
-		return (EINVAL);
-	}
-	UNLOCK(cond->lock);
-	
-	LOCK(mutex->lock);
-	if (--mutex->mtxopts.options.lock_count == 0)
-	{
-		PLOCKSTAT_MUTEX_RELEASE(mutex, (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)? 1:0);
-
-		if (mutex->sem == SEMAPHORE_NULL)
-			mutex->sem = new_sem_from_pool();
-		mutex->owner = _PTHREAD_MUTEX_OWNER_SWITCHING;
-		UNLOCK(mutex->lock);
-
-		if (!isconforming) {
-			if (abstime) {
-				kern_res = semaphore_timedwait_signal(cond->sem, mutex->sem, then);
-			} else {
-				PTHREAD_MACH_CALL(semaphore_wait_signal(cond->sem, mutex->sem), kern_res);
-			}
-		} else {
-            pthread_cleanup_push(cond_cleanup, (void *)cond);
-            wait_res = __semwait_signal(cond->sem, mutex->sem, abstime != NULL, isRelative,
-                                        (int64_t)cthen.tv_sec, (int32_t)cthen.tv_nsec);
-            pthread_cleanup_pop(0);
-		}
-	} else {
-		PLOCKSTAT_MUTEX_RELEASE(mutex, (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)? 1:0);
-		UNLOCK(mutex->lock);
-		if (!isconforming) {
-			if (abstime) {
-				kern_res = semaphore_timedwait(cond->sem, then);
-			} else {
-				PTHREAD_MACH_CALL(semaphore_wait(cond->sem), kern_res);
-			}
-		 } else {
-				pthread_cleanup_push(cond_cleanup, (void *)cond);
-                wait_res = __semwait_signal(cond->sem, 0, abstime != NULL, isRelative,
-                                            (int64_t)cthen.tv_sec, (int32_t)cthen.tv_nsec);
-                pthread_cleanup_pop(0);
-		}
-
-	}
-
-	LOCK(cond->lock);
-	cond->waiters--;
-	if (cond->waiters == 0)
-	{
-		_pthread_cond_remove(cond, mutex);
-		cond->busy = (pthread_mutex_t *)NULL;
-	}
-	UNLOCK(cond->lock);
-	if ((res = pthread_mutex_lock(mutex)) != 0)
-		return (res);
-
-	if (!isconforming) {
-		/* KERN_ABORTED can be treated as a spurious wakeup */
-		if ((kern_res == KERN_SUCCESS) || (kern_res == KERN_ABORTED))
-			return (0);
-		else if (kern_res == KERN_OPERATION_TIMED_OUT)
-			return (ETIMEDOUT);
-		return (EINVAL);
-	} else {
-    	if (wait_res < 0) {
-			if (errno == ETIMEDOUT) {
-				return ETIMEDOUT;
-			} else if (errno == EINTR) {
-				/*
-				**  EINTR can be treated as a spurious wakeup unless we were canceled.
-				*/
-				return 0;	
-				}
-			return EINVAL;
-    	}
-    	return 0;
-	}
-}
-
-
-int       
-pthread_cond_timedwait_relative_np(pthread_cond_t *cond, 
-		       pthread_mutex_t *mutex,
-		       const struct timespec *abstime)
-{
-	return (_pthread_cond_wait(cond, mutex, abstime, 1, 0));
-}
 
 int
 pthread_condattr_init(pthread_condattr_t *attr)
@@ -639,27 +162,6 @@ pthread_condattr_getpshared(const pthread_condattr_t *attr,
 }
 
 
-__private_extern__ int       
-_pthread_cond_init(pthread_cond_t *cond,
-		  const pthread_condattr_t *attr,
-		  int conforming)
-{
-	cond->next = (pthread_cond_t *)NULL;
-	cond->prev = (pthread_cond_t *)NULL;
-	cond->busy = (pthread_mutex_t *)NULL;
-	cond->waiters = 0;
-	cond->sigspending = 0;
-	if (conforming) {
-		if (attr)
-			cond->pshared = attr->pshared;
-		else
-			cond->pshared = _PTHREAD_DEFAULT_PSHARED;
-	} else
-		cond->pshared = _PTHREAD_DEFAULT_PSHARED;
-	cond->sem = SEMAPHORE_NULL;
-	cond->sig = _PTHREAD_COND_SIG;
-	return (0);
-}
 
 
 /* temp home till pshared is fixed correctly */
@@ -670,19 +172,14 @@ pthread_condattr_setpshared(pthread_condattr_t * attr, int pshared)
         if (attr->sig == _PTHREAD_COND_ATTR_SIG)
         {
 #if __DARWIN_UNIX03
-#ifdef PR_5243343
-                if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED && PR_5243343_flag))
-#else /* !PR_5243343 */
                 if (( pshared == PTHREAD_PROCESS_PRIVATE) || (pshared == PTHREAD_PROCESS_SHARED))
-#endif /* PR_5243343 */
 #else /* __DARWIN_UNIX03 */
                 if ( pshared == PTHREAD_PROCESS_PRIVATE)
 #endif /* __DARWIN_UNIX03 */
                 {
-						attr->pshared = pshared;
+			attr->pshared = pshared;
                         return (0);
-                } else
-                {
+                } else {
                         return (EINVAL); /* Invalid parameter */
                 }
         } else
@@ -692,10 +189,8 @@ pthread_condattr_setpshared(pthread_condattr_t * attr, int pshared)
 
 }
 
-#if  defined(__i386__) || defined(__x86_64__)
-
 __private_extern__ int       
-_new_pthread_cond_init(pthread_cond_t *ocond,
+_pthread_cond_init(pthread_cond_t *ocond,
 		  const pthread_condattr_t *attr,
 		  int conforming)
 {
@@ -705,12 +200,14 @@ _new_pthread_cond_init(pthread_cond_t *ocond,
 	cond->c_seq[0] = 0;
 	cond->c_seq[1] = 0;
 	cond->c_seq[2] = 0;
-
 	cond->rfu = 0;
+
 	if (((uintptr_t)cond & 0x07) != 0) {
 		cond->misalign = 1;
+		cond->c_seq[2] = PTH_RWS_CV_CBIT;
 	} else {
 		cond->misalign = 0;
+		cond->c_seq[1] = PTH_RWS_CV_CBIT;	/* set Sword to 0c */
 	}
 	if (conforming) {
 		if (attr)
@@ -719,49 +216,65 @@ _new_pthread_cond_init(pthread_cond_t *ocond,
 			cond->pshared = _PTHREAD_DEFAULT_PSHARED;
 	} else
 		cond->pshared = _PTHREAD_DEFAULT_PSHARED;
-	cond->sig = _PTHREAD_COND_SIG;
+	/* 
+	 * For the new style mutex, interlocks are not held all the time.
+	 * We needed the signature to be set in the end. And we  need
+	 * to protect against the code getting reorganized by compiler.
+	 * cond->sig = _PTHREAD_COND_SIG;
+	 */
+	__pthread_cond_set_signature(cond);
 	return (0);
 }
 
 int
-_new_pthread_cond_destroy(pthread_cond_t * ocond)
+pthread_cond_destroy(pthread_cond_t * ocond)
 {
 	npthread_cond_t *cond = (npthread_cond_t *)ocond;
 	int ret;
 
+	/* to provide backwards compat for apps using united condtn vars */
+	if((cond->sig != _PTHREAD_COND_SIG) && (cond->sig != _PTHREAD_COND_SIG_init))
+		return(EINVAL);
+
 	LOCK(cond->lock);
-	ret = _new_pthread_cond_destroy_locked(ocond);
+	ret = _pthread_cond_destroy_locked(ocond);
 	UNLOCK(cond->lock);
 	
 	return(ret);
 }
 
-int       
-_new_pthread_cond_destroy_locked(pthread_cond_t * ocond)
+static int       
+_pthread_cond_destroy_locked(pthread_cond_t * ocond)
 {
 	npthread_cond_t *cond = (npthread_cond_t *)ocond;
 	int ret;
-	int sig = cond->sig;
-	uint32_t * c_lseqcnt;
-	uint32_t * c_useqcnt;
-	uint32_t lgenval , ugenval;
+	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
+	uint32_t lcntval , ucntval, scntval;
+	uint64_t oldval64, newval64;
 
-	/* to provide backwards compat for apps using united condtn vars */
-	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
-		return(EINVAL);
-
+retry:
 	if (cond->sig == _PTHREAD_COND_SIG)
 	{
-		COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt);
-retry:
-		lgenval = *c_lseqcnt;
-		ugenval = *c_useqcnt;
-		if (lgenval == ugenval)
-		{
+		COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt);
+		lcntval = *c_lseqcnt;
+		ucntval = *c_useqcnt;
+		scntval = *c_sseqcnt;
+
+		if ((lcntval & PTHRW_COUNT_MASK) == (scntval & PTHRW_COUNT_MASK)) {
+			/* validate it is not busy */
+			oldval64 = (((uint64_t)scntval) << 32);
+			oldval64 |= lcntval;
+			newval64 = oldval64;
+
+			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+				goto retry;
 			cond->sig = _PTHREAD_NO_SIG;
 			ret = 0;
 		} else
 			ret = EBUSY;
+	} else if (cond->sig == _PTHREAD_COND_SIG_init) {
+                cond->sig = _PTHREAD_NO_SIG;
+                ret = 0;
 	} else
 		ret = EINVAL; /* Not an initialized condition variable structure */
 	return (ret);
@@ -771,18 +284,18 @@ retry:
  * Signal a condition variable, waking up all threads waiting for it.
  */
 int       
-_new_pthread_cond_broadcast(pthread_cond_t *ocond)
+pthread_cond_broadcast(pthread_cond_t *ocond)
 {
 	npthread_cond_t * cond = (npthread_cond_t *)ocond;
 	int sig = cond->sig;
-	npthread_mutex_t * mutex;
-	uint32_t lgenval, ugenval, mgen, ugen, flags, mtxgen, mtxugen, notify;
-	int diffgen, retval, dropcount, mutexrefs;
-	uint64_t oldval64, newval64;
-	uint32_t * c_lseqcnt;
-	uint32_t * c_useqcnt;
+	uint32_t flags, updateval;
+	uint32_t lcntval , ucntval, scntval;
+	uint64_t oldval64, newval64, mugen, cvlsgen, cvudgen, mtid=0;
+	int diffgen, error = 0;
+	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint32_t * pmtx = NULL;
-
+	uint32_t nlval, ulval;
+	int needclearpre = 0, retry_count = 0;
 
 	/* to provide backwards compat for apps using united condtn vars */
 	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
@@ -790,17 +303,17 @@ _new_pthread_cond_broadcast(pthread_cond_t *ocond)
 
 	if (sig != _PTHREAD_COND_SIG)
 	{
-		int res;
-
 		LOCK(cond->lock);
 		if (cond->sig == _PTHREAD_COND_SIG_init)
 		{
-			_new_pthread_cond_init(ocond, NULL, 0);
-			res = 0;
-		} else  if (cond->sig != _PTHREAD_COND_SIG) {
-			res = EINVAL;  /* Not a condition variable */
+			_pthread_cond_init(ocond, NULL, 0);
+			/* just inited nothing to post */
 			UNLOCK(cond->lock);
-			return (res);
+			return (0);
+		} else  if (cond->sig != _PTHREAD_COND_SIG) {
+			/* Not a condition variable */
+			UNLOCK(cond->lock);
+			return (EINVAL);
 		}
 		UNLOCK(cond->lock);
 	}
@@ -809,108 +322,167 @@ _new_pthread_cond_broadcast(pthread_cond_t *ocond)
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_START, (uint32_t)cond, 0, 0, 0, 0);
 #endif
 
-	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt);
+	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt);
 retry:
-	lgenval = *c_lseqcnt;
-	ugenval = *c_useqcnt;
-	diffgen = lgenval - ugenval;	/* pendig waiters */
+	lcntval = *c_lseqcnt;
+	ucntval = *c_useqcnt;
+	scntval = *c_sseqcnt;
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, scntval, 0);
+#endif
  
-	if (diffgen <= 0) {
+	if (((lcntval & PTHRW_COUNT_MASK)  == (scntval & PTHRW_COUNT_MASK)) ||
+		((lcntval & PTHRW_COUNT_MASK)  == (ucntval & PTHRW_COUNT_MASK))) {
+		/* validate it is spurious and return */
+		oldval64 = (((uint64_t)scntval) << 32);
+		oldval64 |= lcntval;
+		newval64 = oldval64;
+
+		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			goto retry;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, 0xf1f1f1f1, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_END, (uint32_t)cond, scntval, 0, 0xf1f1f1f1, 0);
+#endif
 		return(0);
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
-#endif
 	}
-	
-	mutex = cond->busy;
-	
-	if (OSAtomicCompareAndSwap32(ugenval, ugenval+diffgen, (volatile int *)c_useqcnt) != TRUE) 
-		goto retry;
 
-#ifdef COND_MTX_WAITQUEUEMOVE
-
-	if ((mutex != NULL) && cond->pshared != PTHREAD_PROCESS_SHARED) {
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, 1, diffgen, 0, 0);
-#endif
-		(void)__mtx_holdlock(mutex, diffgen, &flags, &pmtx, &mgen, &ugen);
-		mutexrefs = 1;	
-	} else {
-		if (cond->pshared != PTHREAD_PROCESS_SHARED)
-			flags = _PTHREAD_MTX_OPT_NOHOLD;
-		else
-			flags = _PTHREAD_MTX_OPT_NOHOLD | _PTHREAD_MTX_OPT_PSHARED;
-		mgen = ugen = 0;
-		mutexrefs = 0;	
-		pmtx = NULL;
-	}
-#else /* COND_MTX_WAITQUEUEMOVE */
-	
-	if (cond->pshared != PTHREAD_PROCESS_SHARED)
-		flags = _PTHREAD_MTX_OPT_NOHOLD;
-	else
-		flags = _PTHREAD_MTX_OPT_NOHOLD | _PTHREAD_MTX_OPT_PSHARED;
-	pmtx = NULL;
-	mgen = ugen = 0;
-	mutexrefs = 0;	
-#endif /* COND_MTX_WAITQUEUEMOVE */
-
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, 3, diffgen, 0, 0);
-#endif
-	retval = __psynch_cvbroad(ocond, lgenval, diffgen, (pthread_mutex_t *)pmtx, mgen, ugen , (uint64_t)0,  flags);
-
-#ifdef COND_MTX_WAITQUEUEMOVE
-	if ((retval != -1) && (retval != 0)) {
-		if ((mutexrefs != 0) && (retval <= PTHRW_MAX_READERS/2)) {
-			dropcount = (retval);
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, 2, dropcount, 0, 0);
-#endif
-			retval = __mtx_droplock(mutex, dropcount, &flags, &pmtx, &mtxgen, &mtxugen, &notify);
+	if (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK)) || is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+		/* since ucntval may be newer, just redo */
+		retry_count++;
+		if (retry_count > 8192) {
+			return(EAGAIN);
+		} else {
+			sched_yield();
+			goto retry;
 		}
+        }
+
+	if (is_seqlower(ucntval & PTHRW_COUNT_MASK, scntval & PTHRW_COUNT_MASK) != 0) {
+		/* If U < S, set U = S+diff due to intr's TO, etc */
+		ulval = (scntval & PTHRW_COUNT_MASK);
+	} else {
+		/* If U >= S, set U = U+diff due to intr's TO, etc */
+		ulval = (ucntval & PTHRW_COUNT_MASK);
 	}
-#endif /* COND_MTX_WAITQUEUEMOVE */
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, lcntval, ucntval, scntval, diffgen, 0);
+#endif
+	
+	diffgen = diff_genseq((lcntval & PTHRW_COUNT_MASK), (ulval & PTHRW_COUNT_MASK));
 
-	oldval64 = (((uint64_t)(ugenval+diffgen)) << 32);
-	oldval64 |= lgenval;
-	newval64 = 0;
+	/* set U = L */
+	ulval = (lcntval & PTHRW_COUNT_MASK);
+	if (OSAtomicCompareAndSwap32(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
+		goto retry;
+	}
 
-	OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt);
+	flags = 0;
+	if (cond->pshared == PTHREAD_PROCESS_SHARED)
+		flags |= _PTHREAD_MTX_OPT_PSHARED;
+	pmtx = NULL;
 
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, (uint32_t)cond, 3, diffgen, flags, 0);
 #endif
-	return(0);
+	nlval = lcntval;
+
+	/* pass old u val so kernel will know the diffgen */
+	mugen = 0;
+	cvlsgen = ((uint64_t)scntval << 32) | nlval;
+	cvudgen = ((uint64_t)ucntval << 32) | diffgen;
+
+	updateval = __psynch_cvbroad(ocond, cvlsgen, cvudgen, flags, (pthread_mutex_t *)pmtx, mugen, mtid);
+
+	if (updateval != (uint32_t)-1) {
+
+		/* if kernel granted woke some threads, updatwe S for them as they will not access cv on their way out */
+		/* Were any threads woken or bits to be set? */
+		if (updateval != 0) {
+retry2:
+			needclearpre = 0;
+			lcntval = *c_lseqcnt;
+			ucntval = *c_useqcnt;
+			scntval = *c_sseqcnt;
+			/* update scntval with number of expected returns  and bits */
+			nlval = (scntval & PTHRW_COUNT_MASK) + (updateval & PTHRW_COUNT_MASK);
+			/* set bits */
+			nlval |= ((scntval & PTH_RWS_CV_BITSALL) | (updateval & PTH_RWS_CV_BITSALL));
+
+#if _KSYN_TRACE_
+			(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, 0x25, lcntval, scntval, updateval, 0);
+#endif
+			/* if L==S and c&p bits are set, needs clearpre */
+			if (((nlval & PTHRW_COUNT_MASK) == (lcntval & PTHRW_COUNT_MASK)) 
+				&& ((nlval & PTH_RWS_CV_BITSALL) == PTH_RWS_CV_BITSALL)) {
+				/* reset p bit but retain c bit on the sword */
+				nlval &= PTH_RWS_CV_RESET_PBIT;
+				needclearpre = 1;
+			}
+
+			oldval64 = (((uint64_t)scntval) << 32);
+			oldval64 |= lcntval;
+			newval64 = (((uint64_t)nlval) << 32);
+			newval64 |= lcntval;
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_NONE, 0x25, nlval, scntval, updateval, 0);
+#endif
+
+			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+				goto retry2;
+
+			/* if L == S, then reset associated mutex */
+			if ((nlval & PTHRW_COUNT_MASK) == (lcntval & PTHRW_COUNT_MASK)) {
+				cond->busy = (npthread_mutex_t *)NULL;
+			}
+		
+			if (needclearpre != 0) {
+				(void)__psynch_cvclrprepost(ocond, lcntval, ucntval, nlval, 0, lcntval, flags);
+			}
+		}
+
+	} 
+	error = 0;
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVBRD | DBG_FUNC_END, (uint32_t)cond, 0, error, 0, 0);
+#endif
+	return(error);
 }
 
 
 /*
  * Signal a condition variable, waking a specified thread.
  */
+
 int       
-_new_pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
+pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
 {
 	npthread_cond_t * cond = (npthread_cond_t *)ocond;
 	int sig = cond->sig;
-	npthread_mutex_t  * mutex;
-	int retval, dropcount;
-	uint32_t lgenval, ugenval, diffgen, mgen, ugen, flags, mtxgen, mtxugen, notify;
-	uint32_t * c_lseqcnt;
-	uint32_t * c_useqcnt;
-	uint64_t oldval64, newval64;
-	int mutexrefs;
-	uint32_t * pmtx = NULL;
+	uint32_t flags, updateval;
+	uint32_t lcntval , ucntval, scntval;
+	uint32_t nlval, ulval=0;
+	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
+	uint64_t oldval64, newval64, mugen, cvlsgen, mtid = 0;
+	int needclearpre = 0, retry_count = 0;
+	int error;
 
 	/* to provide backwards compat for apps using united condtn vars */
 
 	if((sig != _PTHREAD_COND_SIG) && (sig != _PTHREAD_COND_SIG_init))
 		return(EINVAL);
+
 	if (cond->sig != _PTHREAD_COND_SIG) {
 		LOCK(cond->lock);
 		if (cond->sig != _PTHREAD_COND_SIG) {
 			if  (cond->sig == _PTHREAD_COND_SIG_init) {
-				_new_pthread_cond_init(ocond, NULL, 0);
+				_pthread_cond_init(ocond, NULL, 0);
+				/* just inited, nothing to post yet */
+				UNLOCK(cond->lock);
+				return(0);
 			} else   {
 				UNLOCK(cond->lock);
 				return(EINVAL);
@@ -922,86 +494,143 @@ _new_pthread_cond_signal_thread_np(pthread_cond_t *ocond, pthread_t thread)
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_START, (uint32_t)cond, 0, 0, 0, 0);
 #endif
-	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt);
+	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt);
 retry:
-	lgenval = *c_lseqcnt;
-	ugenval = *c_useqcnt;
-	diffgen = lgenval - ugenval;	/* pendig waiters */
-	if (diffgen <= 0) {
+	lcntval = *c_lseqcnt;
+	ucntval = *c_useqcnt;
+	scntval = *c_sseqcnt;
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, scntval, 0);
+#endif
+
+	if (((lcntval & PTHRW_COUNT_MASK)  == (scntval & PTHRW_COUNT_MASK)) ||
+		((thread == 0) && ((lcntval & PTHRW_COUNT_MASK)  == (ucntval & PTHRW_COUNT_MASK)))) {
+		/* If L <= S+U, it is spurious broadcasr */
+		/* validate it is spurious and return */
+		oldval64 = (((uint64_t)scntval) << 32);
+		oldval64 |= lcntval;
+		newval64 = oldval64;
+
+		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			goto retry;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, 0xf1f1f1f1, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_END, (uint32_t)cond, scntval, 0, 0xf1f1f1f1, 0);
 #endif
 		return(0);
 	}
+
+	if (((thread == 0) && (is_seqhigher((ucntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK)))) || is_seqhigher((scntval & PTHRW_COUNT_MASK), (lcntval & PTHRW_COUNT_MASK))) {
+		/* since ucntval may be newer, just redo */
+		retry_count++;
+		if (retry_count > 8192) {
+			return(EAGAIN);
+		} else {
+			sched_yield();
+			goto retry;
+		}
+        }
+
+	if (thread == 0) {
+		/* 
+		 * skip manipulating U count as ESRCH from kernel cannot be handled properly.
+		 * S count will cover the imbalance and next signal without thread or broadcast
+		 * will correct it. But we need to send the right U to kernel so it will use 
+		 * that to look for the appropriate sequenc. So the ulval is computed anyway.
+		 */
+
+		if (is_seqlower(ucntval & PTHRW_COUNT_MASK, scntval & PTHRW_COUNT_MASK) != 0) {
+			/* If U < S, set U = S+1 due to intr's TO, etc */
+			ulval = (scntval & PTHRW_COUNT_MASK) + PTHRW_INC;
+		} else {
+			/* If U >= S, set U = U+1 due to intr's TO, etc */
+			ulval = (ucntval & PTHRW_COUNT_MASK) + PTHRW_INC;
+		}
+
+		if (OSAtomicCompareAndSwap32(ucntval, ulval, (volatile int32_t *)c_useqcnt) != TRUE) {
+			goto retry;
+		}
+	} 
+
+	flags = 0;
+	if (cond->pshared == PTHREAD_PROCESS_SHARED)
+		flags |= _PTHREAD_MTX_OPT_PSHARED;
 	
-	mutex = cond->busy;
-
-	if (OSAtomicCompareAndSwap32(ugenval, ugenval+1, (volatile int *)c_useqcnt) != TRUE) 
-		goto retry;
-
-#ifdef COND_MTX_WAITQUEUEMOVE
-	if ((mutex != NULL) && (cond->pshared != PTHREAD_PROCESS_SHARED)) {
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 1, 0, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 3, nlval, ulval, 0);
 #endif
-		(void)__mtx_holdlock(mutex, 1, &flags, &pmtx, &mgen, &ugen);
-		mutexrefs = 1;
-	} else {
-		if (cond->pshared != PTHREAD_PROCESS_SHARED)
-			flags = _PTHREAD_MTX_OPT_NOHOLD;
-		else
-			flags = _PTHREAD_MTX_OPT_NOHOLD | _PTHREAD_MTX_OPT_PSHARED;
-		mgen = ugen = 0;
-		mutexrefs = 0;
-	}
-#else /* COND_MTX_WAITQUEUEMOVE */
-	if (cond->pshared != PTHREAD_PROCESS_SHARED)
-		flags = _PTHREAD_MTX_OPT_NOHOLD;
-	else
-		flags = _PTHREAD_MTX_OPT_NOHOLD | _PTHREAD_MTX_OPT_PSHARED;
-	mgen = ugen = 0;
-	mutexrefs = 0;	
+	nlval = lcntval;
+	/* pass old u val so kernel will know the diffgen */
+	mugen = 0;
+	cvlsgen = ((uint64_t)scntval << 32) | nlval;
 
-#endif /* COND_MTX_WAITQUEUEMOVE */
+	updateval = __psynch_cvsignal(ocond, cvlsgen, ucntval, pthread_mach_thread_np(thread), (pthread_mutex_t *)0, mugen, mtid, flags);
+
+
+	if (updateval != (uint32_t)-1) {
+
+		/* if kernel granted woke some threads, updatwe S for them as they will not access cv on their way out */
+		/* Were any threads woken or bits to be set? */
+		if (updateval != 0) {
+retry2:
+			lcntval = *c_lseqcnt;
+			ucntval = *c_useqcnt;
+			scntval = *c_sseqcnt;
+			/* update scntval with number of expected returns  and bits */
+			nlval = (scntval & PTHRW_COUNT_MASK) + (updateval & PTHRW_COUNT_MASK);
+			/* set bits */
+			nlval |= ((scntval & PTH_RWS_CV_BITSALL) | (updateval & PTH_RWS_CV_BITSALL));
+
+#if _KSYN_TRACE_
+		(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, 0x25, 0, 0, updateval, 0);
+#endif
+			/* if L==S and c&p bits are set, needs clearpre */
+			if (((nlval & PTHRW_COUNT_MASK) == (lcntval & PTHRW_COUNT_MASK)) 
+				&& ((nlval & PTH_RWS_CV_BITSALL) == PTH_RWS_CV_BITSALL)) {
+				/* reset p bit but retain c bit on the sword */
+				nlval &= PTH_RWS_CV_RESET_PBIT;
+				needclearpre = 1;
+			} else
+				needclearpre = 0;
+
+			oldval64 = (((uint64_t)scntval) << 32);
+			oldval64 |= lcntval;
+			newval64 = (((uint64_t)nlval) << 32);
+			newval64 |= lcntval;
+
+#if _KSYN_TRACE_
+(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, 0x25, nlval, ulval, updateval, 0);
+#endif
+
+			if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+				goto retry2;
+
+			/* if L == S, then reset associated mutex */
+			if ((nlval & PTHRW_COUNT_MASK) == (lcntval & PTHRW_COUNT_MASK)) {
+				cond->busy = (npthread_mutex_t *)NULL;
+			}
 	
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 3, lgenval, ugenval+1, 0);
-#endif
-	retval = __psynch_cvsignal(ocond, lgenval, ugenval+1,(pthread_mutex_t *)mutex, mgen, ugen, pthread_mach_thread_np(thread), flags);
-
-#ifdef COND_MTX_WAITQUEUEMOVE
-	if ((retval != -1) && (retval != 0) && (mutexrefs != 0)) {
-		dropcount = retval;
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 4, dropcount, 0, 0);
-#endif
-		retval = __mtx_droplock(mutex, dropcount, &flags, &pmtx, &mtxgen, &mtxugen, &notify);
+			if (needclearpre != 0) {
+				(void)__psynch_cvclrprepost(ocond, lcntval, ucntval, nlval, 0, lcntval, flags);
+			}
+		}
 	}
-#endif /* COND_MTX_WAITQUEUEMOVE */
 
-	if (lgenval == ugenval+1){
-		oldval64 = (((uint64_t)(ugenval+1)) << 32);
-		oldval64 |= lgenval;
-		newval64 = 0;
-		OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt);
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 5, 0, 0, 0);
-#endif
-	}
-			
+	error = 0;
+
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
 #endif
-	return (0);
+	return (error);
 }
 
 /*
  * Signal a condition variable, waking only one thread.
  */
 int
-_new_pthread_cond_signal(pthread_cond_t *cond)
+pthread_cond_signal(pthread_cond_t *cond)
 {
-	return _new_pthread_cond_signal_thread_np(cond, NULL);
+	return pthread_cond_signal_thread_np(cond, NULL);
 }
 
 /*
@@ -1017,7 +646,7 @@ _new_pthread_cond_signal(pthread_cond_t *cond)
  * remaining conforming behavior..
  */
 __private_extern__ int       
-__new_pthread_cond_wait(pthread_cond_t *ocond, 
+_pthread_cond_wait(pthread_cond_t *ocond, 
 		   pthread_mutex_t *omutex,
 		   const struct timespec *abstime,
 		   int isRelative,
@@ -1030,13 +659,14 @@ __new_pthread_cond_wait(pthread_cond_t *ocond,
 	struct timespec cthen = {0,0};
 	int sig = cond->sig;
 	int msig = mutex->sig;
-	int firstfit = 0;
 	npthread_mutex_t * pmtx;
-	uint32_t mtxgen, mtxugen, flags, updateval, notify;
-	uint32_t lgenval, ugenval;
-	uint32_t * c_lseqcnt;
-	uint32_t * c_useqcnt;
+	uint32_t mtxgen, mtxugen, flags=0, updateval;
+	uint32_t lcntval , ucntval, scntval;
+	uint32_t nlval, ulval, savebits;
+	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
+	uint64_t oldval64, newval64, mugen, cvlsgen;
 	uint32_t * npmtx = NULL;
+	int error, local_error;
 
 extern void _pthread_testcancel(pthread_t thread, int isconforming);
 
@@ -1045,30 +675,36 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 		return(EINVAL);
 
 	if (isconforming) {
-		if((msig != _PTHREAD_MUTEX_SIG) && (msig != _PTHREAD_MUTEX_SIG_init))
+		if((msig != _PTHREAD_MUTEX_SIG) && ((msig & _PTHREAD_MUTEX_SIG_init_MASK) != _PTHREAD_MUTEX_SIG_CMP))		
 			return(EINVAL);
 		if (isconforming > 0)
 			_pthread_testcancel(pthread_self(), 1);
 	}
+
 	if (cond->sig != _PTHREAD_COND_SIG)
 	{
 		LOCK(cond->lock);
-		if (cond->sig != _PTHREAD_COND_SIG_init)
-		{
+		if (cond->sig != _PTHREAD_COND_SIG) {
+			if  (cond->sig == _PTHREAD_COND_SIG_init) {
+				_pthread_cond_init(ocond, NULL, 0);
+			} else   {
 				UNLOCK(cond->lock);
-				return (EINVAL);        /* Not a condition variable */
+				return(EINVAL);
+			}
 		}
-		_new_pthread_cond_init(ocond, NULL, 0);
 		UNLOCK(cond->lock);
 	}
 
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_START, (uint32_t)cond, 0, 0, (uint32_t)abstime, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_START, (uint32_t)cond, isRelative, 0, (uint32_t)abstime, 0);
 #endif
-	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt);
+	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt);
 
 	/* send relative time to kernel */
 	if (abstime) {
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_START, 0x11111111, abstime->tv_nsec, abstime->tv_sec, 0, 0);
+#endif
 		if (isRelative == 0) {
 			struct timespec now;
 			struct timeval tv;
@@ -1086,24 +722,24 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 			if (((int)then.tv_sec < 0) ||
 				((then.tv_sec == 0) && (then.tv_nsec == 0)))
 			{
-				UNLOCK(cond->lock);
 				return ETIMEDOUT;
 			}
 			if (isconforming != 0) {
 				cthen.tv_sec = abstime->tv_sec;
             			cthen.tv_nsec = abstime->tv_nsec;
             			if ((cthen.tv_sec < 0) || (cthen.tv_nsec < 0)) {
-                			UNLOCK(cond->lock);
                 			return EINVAL;
             			}
             			if (cthen.tv_nsec >= NSEC_PER_SEC) {
-                			UNLOCK(cond->lock);
                 			return EINVAL;
             			}
 			}
 		} else {
 			then.tv_sec = abstime->tv_sec;
 			then.tv_nsec = abstime->tv_nsec;
+			if ((then.tv_sec == 0) && (then.tv_nsec == 0)) {
+				return ETIMEDOUT;
+			}
 		}
 		if(isconforming && ((then.tv_sec < 0) || (then.tv_nsec < 0))) {
 			return EINVAL;
@@ -1113,94 +749,97 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 		}
 	}
 
-	cond->busy = mutex;
-	pmtx = mutex; 
+	if ((cond->busy != (npthread_mutex_t *)NULL) &&  (cond->busy !=  mutex))
+		return (EINVAL);
 
-	ugenval = *c_useqcnt;
-	lgenval = OSAtomicIncrement32((volatile int32_t *)c_lseqcnt);
-	
+	pmtx = mutex; 
+retry:
+	lcntval = *c_lseqcnt;
+	ucntval = *c_useqcnt;
+	scntval = *c_sseqcnt;
+
+	oldval64 = (((uint64_t)scntval) << 32);
+	oldval64 |= lcntval;
+
+	/* remove c and p bits on S word */
+	savebits = scntval & PTH_RWS_CV_BITSALL;
+	ulval = (scntval & PTHRW_COUNT_MASK);
+	nlval = lcntval + PTHRW_INC;
+	newval64 = (((uint64_t)ulval) << 32);
+	newval64 |= nlval;
+
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+		goto retry;
+
+	cond->busy = mutex;
 
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 1, lgenval, ugenval, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, lcntval, ucntval, scntval, 0);
 #endif
-	notify = 0;
-	retval = __mtx_droplock(pmtx, 1, &flags, &npmtx, &mtxgen, &mtxugen, &notify);
+	retval = __mtx_droplock(pmtx, PTHRW_INC, &flags, &npmtx, &mtxgen, &mtxugen);
+
+	/* TBD:  cases are for normal (non owner for recursive mutex; error checking)*/
 	if (retval != 0)
 		return(EINVAL);
-	if ((notify & 1) == 0) {
+	if ((flags & _PTHREAD_MTX_OPT_NOTIFY) == 0) {
 		npmtx = NULL;
-	}
-	if ((notify & 0xc0000000) != 0)
-		then.tv_nsec |= (notify & 0xc0000000);
+		mugen = 0;
+	} else 
+		mugen = ((uint64_t)mtxugen << 32) | mtxgen;
+	flags &= ~_PTHREAD_MTX_OPT_MUTEX;	/* reset the mutex bit as this is cvar */
 	
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 3, (uint32_t)mutex, 0, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 3, (uint32_t)mutex, flags, 0);
 #endif
 	
+
+	cvlsgen = ((uint64_t)(ulval | savebits)<< 32) | nlval;
+
 	if (isconforming) {
-		pthread_cleanup_push(_new_cond_cleanup, (void *)cond);
-		updateval = __psynch_cvwait(ocond, lgenval, ugenval, (pthread_mutex_t *)npmtx, mtxgen, mtxugen, (uint64_t)then.tv_sec, (uint64_t)then.tv_nsec);
+		pthread_cleanup_push(cond_cleanup, (void *)cond);
+		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
 		pthread_cleanup_pop(0);
 	} else {
-		updateval = __psynch_cvwait(ocond, lgenval, ugenval, (pthread_mutex_t *)npmtx, mtxgen, mtxugen, (uint64_t)then.tv_sec, (uint64_t)then.tv_nsec);
+		updateval = __psynch_cvwait(ocond, cvlsgen, ucntval, (pthread_mutex_t *)npmtx, mugen, flags, (int64_t)then.tv_sec, (int32_t)then.tv_nsec);
 
 	}
 
 	retval = 0;
 
-#ifdef COND_MTX_WAITQUEUEMOVE
-	/* Needs to handle timedout */
 	if (updateval == (uint32_t)-1) {
-		retval = errno;
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 4, retval, 0, 0);
-#endif
-		/* add unlock ref to show one less waiter */
-		_new_cond_dropwait(cond);
-
-		pthread_mutex_lock(omutex);
-
-	} else if ((updateval & PTHRW_MTX_NONE) != 0) {
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 5, updateval, 0, 0);
-#endif
-		pthread_mutex_lock(omutex);
-	} else {
-		/* on successful return mutex held */
-		/* returns 0 on succesful update */
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 6, updateval, 0, 0);
-#endif
-		firstfit = (mutex->mtxopts.options.policy == _PTHREAD_MUTEX_POLICY_FIRSTFIT);
-		if (__mtx_updatebits( mutex, updateval, firstfit, 1) == 1) {
-			/* not expected to  be here */
-			LIBC_ABORT("CONDWAIT mutex acquire mishap");
-		}
-		if (mutex->mtxopts.options.type == PTHREAD_MUTEX_RECURSIVE)
-			mutex->mtxopts.options.lock_count++;
-	}
-#else /* COND_MTX_WAITQUEUEMOVE */
-	if (updateval == (uint32_t)-1) {
-		if (errno == ETIMEDOUT) {
+		local_error = errno;
+		error = local_error & 0xff;
+		if (error == ETIMEDOUT) {
 			retval = ETIMEDOUT;
-		} else if (errno == EINTR) {
+		} else if (error == EINTR) {
 			/*
 			**  EINTR can be treated as a spurious wakeup unless we were canceled.
 			*/
 			retval = 0;
 		} else 
 			retval =  EINVAL;
+//#if _KSYN_TRACE_
+//	(void)__kdebug_trace(0x9000070 | 0, (uint32_t)cond, 0xf1f1f2f2, local_error, error, 0);
+//#endif
 
 		/* add unlock ref to show one less waiter */
-		_new_cond_dropwait(cond);
-	} else
+		cond_dropwait(cond, local_error, 0);
+	} else {
+//#if _KSYN_TRACE_
+//	(void)__kdebug_trace(0x9000070 | 0, (uint32_t)cond, 0xf3f3f4f4, updateval, 0, 0);
+//#endif
+		/* succesful wait */
+		if (updateval != 0) {
+			/* the return due to prepost and might have bit states */
+			/* update S and return for prepo if needed */
+			cond_dropwait(cond, 0, updateval);
+		}
 		retval = 0;
+	}
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_NONE, (uint32_t)cond, 4, retval, 0, 0);
 #endif
-		pthread_mutex_lock(omutex);
-
-#endif /* COND_MTX_WAITQUEUEMOVE */
+	pthread_mutex_lock(omutex);
 
 #if _KSYN_TRACE_
 	(void)__kdebug_trace(_KSYN_TRACE_UM_CVWAIT | DBG_FUNC_END, (uint32_t)cond, 0, 0, retval, 0);
@@ -1208,8 +847,20 @@ extern void _pthread_testcancel(pthread_t thread, int isconforming);
 	return(retval);
 }
 
+/* 
+ * For the new style mutex, interlocks are not held all the time.
+ * We needed the signature to be set in the end. And we  need
+ * to protect against the code getting reorganized by compiler.
+ */
 static void 
-_new_cond_cleanup(void *arg)
+__pthread_cond_set_signature(npthread_cond_t  * cond)
+{
+	cond->sig = _PTHREAD_COND_SIG;
+}
+
+
+static void 
+cond_cleanup(void *arg)
 {
 	npthread_cond_t *cond = (npthread_cond_t *)arg;
 	pthread_mutex_t *mutex;
@@ -1226,27 +877,30 @@ _new_cond_cleanup(void *arg)
 		return;
 
 // 4597450: end
-    	mutex = cond->busy;
+    	mutex = (pthread_mutex_t *) cond->busy;
 	
 	/* add unlock ref to show one less waiter */
-	_new_cond_dropwait(cond);
+	cond_dropwait(cond, thread->cancel_error, 0);
 
 	/*
 	** Can't do anything if this fails -- we're on the way out
 	*/
 	if (mutex != NULL)
     		(void)pthread_mutex_lock(mutex);
-
 }
 
+#define ECVCERORR       256
+#define ECVPERORR       512
+
 void
-_new_cond_dropwait(npthread_cond_t * cond)
+cond_dropwait(npthread_cond_t * cond, int error, uint32_t updateval)
 {
 	int sig = cond->sig;
-	int retval;
-	uint32_t lgenval, ugenval, diffgen, mgen, ugen, flags;
-	uint32_t * c_lseqcnt;
-	uint32_t * c_useqcnt;
+	pthread_cond_t * ocond = (pthread_cond_t *)cond;
+	int needclearpre = 0;
+	uint32_t diffgen, nlval, ulval, flags;
+	uint32_t lcntval , ucntval, scntval, lval;
+	volatile uint32_t * c_lseqcnt, *c_useqcnt, *c_sseqcnt;
 	uint64_t oldval64, newval64;
 
 	/* to provide backwards compat for apps using united condtn vars */
@@ -1254,77 +908,108 @@ _new_cond_dropwait(npthread_cond_t * cond)
 	if (sig != _PTHREAD_COND_SIG) 
 		return;
 
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_START, (uint32_t)cond, 0, 0, 0xee, 0);
-#endif
-	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt);
-retry:
-	lgenval = *c_lseqcnt;
-	ugenval = *c_useqcnt;
-	diffgen = lgenval - ugenval;	/* pending waiters */
+	COND_GETSEQ_ADDR(cond, c_lseqcnt, c_useqcnt, c_sseqcnt);
 
-	if (diffgen <= 0) {
+	if (error != 0) {
+		lval = PTHRW_INC;
+		if ((error & ECVCERORR) != 0)
+			lval |= PTH_RWS_CV_CBIT;
+		if ((error & ECVPERORR) != 0)
+			lval |= PTH_RWS_CV_PBIT;
+	} else {
+		lval = updateval;
+	}
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_END, (uint32_t)cond, 1, 0, 0xee, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_START, (uint32_t)cond, error, updateval, 0xee, 0);
+#endif
+retry:
+	lcntval = *c_lseqcnt;
+	ucntval = *c_useqcnt;
+	scntval = *c_sseqcnt;
+
+	diffgen = diff_genseq((lcntval & PTHRW_COUNT_MASK),  (scntval & PTHRW_COUNT_MASK));	/* pendig waiters */
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_NONE, (uint32_t)cond, lcntval, scntval, diffgen, 0);
+#endif
+	if (diffgen <= 0) {
+		/* TBD: Assert, should not be the case */
+		/* validate it is spurious and return */
+		oldval64 = (((uint64_t)scntval) << 32);
+		oldval64 |= lcntval;
+		newval64 = oldval64;
+		if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
+			goto retry;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_END, (uint32_t)cond, 0, 0, 0, 0);
 #endif
 		return;
 	}
-	
-	if (OSAtomicCompareAndSwap32(ugenval, ugenval+1, (volatile int *)c_useqcnt) != TRUE) 
+
+	/* update S by one */
+	oldval64 = (((uint64_t)scntval) << 32);
+	oldval64 |= lcntval;
+
+	/* update scntval with number of expected returns  and bits */
+	ulval = (scntval & PTHRW_COUNT_MASK) + (lval & PTHRW_COUNT_MASK);
+	/* set bits */
+	ulval |= ((scntval & PTH_RWS_CV_BITSALL) | (lval & PTH_RWS_CV_BITSALL));
+
+	nlval = lcntval;
+		
+	needclearpre = 0;
+
+	/* If L==S, need to return to kernel */
+	if ((nlval & PTHRW_COUNT_MASK) == (ulval & PTHRW_COUNT_MASK)) {
+		if ((ulval & PTH_RWS_CV_BITSALL) == PTH_RWS_CV_BITSALL) {
+			/* reset p bit but retain c bit on the sword */
+			needclearpre = 1;
+			ulval &= PTH_RWS_CV_RESET_PBIT;
+		} 
+	}
+
+	newval64 = (((uint64_t)ulval) << 32);
+	newval64 |= nlval;
+
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_NONE, (uint32_t)cond, 0xffff, nlval, ulval, 0);
+#endif
+	if (OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt) != TRUE)
 		goto retry;
 
-	if (lgenval == ugenval+1) {
-		/* last one */
-		/* send last drop  notify to erase pre post */
-		flags =  _PTHREAD_MTX_OPT_LASTDROP;
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_NONE, (uint32_t)cond, 2, 0, 0xee, 0);
+#endif
+	if ((nlval & PTHRW_COUNT_MASK) == (ulval & PTHRW_COUNT_MASK)) {
+		/* last usage remove the mutex */
+		cond->busy = NULL;
+	}
 
+#if _KSYN_TRACE_
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_NONE, nlval, ucntval, ulval, PTHRW_INC, 0);
+#endif
+	if (needclearpre != 0) {
+		flags = 0;
 		if (cond->pshared == PTHREAD_PROCESS_SHARED)
 			flags |= _PTHREAD_MTX_OPT_PSHARED;
-		mgen = ugen = 0;
-
-#if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_NONE, (uint32_t)cond, 1, 0, 0xee, 0);
-#endif
-		retval = __psynch_cvsignal((pthread_cond_t *)cond, lgenval, ugenval+1,(pthread_mutex_t *)NULL, mgen, ugen, MACH_PORT_NULL, flags);
-
-		oldval64 = (((uint64_t)(ugenval+1)) << 32);
-		oldval64 |= lgenval;
-		newval64 = 0;
-		OSAtomicCompareAndSwap64(oldval64, newval64, (volatile int64_t *)c_lseqcnt);
+		/* reset prepost */
+		(void)__psynch_cvclrprepost(ocond, nlval, ucntval, ulval, 0, nlval, flags);
 	}
-			
 #if _KSYN_TRACE_
-	(void)__kdebug_trace(_KSYN_TRACE_UM_CVSIG | DBG_FUNC_END, (uint32_t)cond, 2, 0, 0xee, 0);
+	(void)__kdebug_trace(_KSYN_TRACE_UM_CDROPWT | DBG_FUNC_END, nlval, ucntval, ulval, PTHRW_INC, 0);
 #endif
 	return;
 }
 
 
 int       
-_new_pthread_cond_timedwait_relative_np(pthread_cond_t *cond, 
+pthread_cond_timedwait_relative_np(pthread_cond_t *cond, 
 		       pthread_mutex_t *mutex,
 		       const struct timespec *abstime)
 {
-	return (__new_pthread_cond_wait(cond, mutex, abstime, 1, 0));
+	return (_pthread_cond_wait(cond, mutex, abstime, 1, 0));
 }
 
 
-int       
-_new_pthread_cond_wait(pthread_cond_t *cond, 
-		  pthread_mutex_t *mutex)
-{
-	return(__new_pthread_cond_wait(cond, mutex, 0, 0, 1));
-}
-
-int       
-_new_pthread_cond_timedwait(pthread_cond_t *cond, 
-		       pthread_mutex_t *mutex,
-		       const struct timespec *abstime)
-{
-	return(__new_pthread_cond_wait(cond, mutex, abstime, 0, 1));
-}
-
-#endif /* __i386__ || __x86_64__ */
 
 #else /* !BUILDING_VARIANT */
 
@@ -1356,13 +1041,9 @@ pthread_cond_init(pthread_cond_t *cond,
         conforming = 0;
 #endif /* __DARWIN_UNIX03 */
 
+	/* lock is same offset in both structures */
 	LOCK_INIT(cond->lock);
-#if  defined(__i386__) || defined(__x86_64__)
-	if ((attr != NULL) && (attr->pshared == PTHREAD_PROCESS_SHARED)) {
-		return(_new_pthread_cond_init(cond, attr, conforming));
-	}
-#endif /* __i386__ || __x86_64__ */
-	
+
 	return (_pthread_cond_init(cond, attr, conforming));
 }
 

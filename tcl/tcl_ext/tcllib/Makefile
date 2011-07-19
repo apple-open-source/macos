@@ -9,7 +9,9 @@ Project               = tcllib
 ProjectName           = Tcllib
 
 # Fetch info
-Release               = 1.11.1
+Release               = 1.12
+ImportDate            = 2010-08-30
+CvsRoot               = :pserver:anonymous@$(Project).cvs.sourceforge.net:/cvsroot/$(Project)
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)
@@ -26,3 +28,6 @@ install-doc:
                 -nroff-path "$(DSTROOT)/$(TclExtManDir)" \
                 -html-path  "$(DSTROOT)/$(TclExtHtmlDir)" \
                 -no-examples -no-pkgs -no-wait -no-gui -no-apps
+
+extract::
+	$(_v) $(RM) $(SRCROOT)/$(Project)/examples/ftp/hpupdate.tcl

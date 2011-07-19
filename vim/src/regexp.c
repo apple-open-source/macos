@@ -471,7 +471,7 @@ get_char_class(pp)
 
     if ((*pp)[1] == ':')
     {
-	for (i = 0; i < sizeof(class_names) / sizeof(*class_names); ++i)
+	for (i = 0; i < (int)(sizeof(class_names) / sizeof(*class_names)); ++i)
 	    if (STRNCMP(*pp + 2, class_names[i], STRLEN(class_names[i])) == 0)
 	    {
 		*pp += STRLEN(class_names[i]) + 2;
@@ -583,6 +583,7 @@ static int	re_has_z;	/* \z item detected */
 #endif
 static char_u	*regcode;	/* Code-emit pointer, or JUST_CALC_SIZE */
 static long	regsize;	/* Code size. */
+static int	reg_toolong;	/* TRUE when offset out of range */
 static char_u	had_endbrace[NSUBEXP];	/* flags, TRUE if end of () found */
 static unsigned	regflags;	/* RF_ flags for prog */
 static long	brace_min[10];	/* Minimums for complex brace repeats */
@@ -730,6 +731,30 @@ get_equi_class(pp)
     return 0;
 }
 
+#ifdef EBCDIC
+/*
+ * Table for equivalence class "c". (IBM-1047)
+ */
+char *EQUIVAL_CLASS_C[16] = {
+    "A\x62\x63\x64\x65\x66\x67",
+    "C\x68",
+    "E\x71\x72\x73\x74",
+    "I\x75\x76\x77\x78",
+    "N\x69",
+    "O\xEB\xEC\xED\xEE\xEF",
+    "U\xFB\xFC\xFD\xFE",
+    "Y\xBA",
+    "a\x42\x43\x44\x45\x46\x47",
+    "c\x48",
+    "e\x51\x52\x53\x54",
+    "i\x55\x56\x57\x58",
+    "n\x49",
+    "o\xCB\xCC\xCD\xCE\xCF",
+    "u\xDB\xDC\xDD\xDE",
+    "y\x8D\xDF",
+};
+#endif
+
 /*
  * Produce the bytes for equivalence class "c".
  * Currently only handles latin1, latin9 and utf-8.
@@ -743,6 +768,22 @@ reg_equi_class(c)
 					 || STRCMP(p_enc, "iso-8859-15") == 0)
 #endif
     {
+#ifdef EBCDIC
+	int i;
+
+	/* This might be slower than switch/case below. */
+	for (i = 0; i < 16; i++)
+	{
+	    if (vim_strchr(EQUIVAL_CLASS_C[i], c) != NULL)
+	    {
+		char *p = EQUIVAL_CLASS_C[i];
+
+		while (*p != 0)
+		    regmbc(*p++);
+		return;
+	    }
+	}
+#else
 	switch (c)
 	{
 	    case 'A': case '\300': case '\301': case '\302':
@@ -810,6 +851,7 @@ reg_equi_class(c)
 		      regmbc('y'); regmbc('\375'); regmbc('\377');
 		      return;
 	}
+#endif
     }
     regmbc(c);
 }
@@ -1028,9 +1070,11 @@ vim_regcomp(expr, re_flags)
     regcomp_start(expr, re_flags);
     regcode = r->program;
     regc(REGMAGIC);
-    if (reg(REG_NOPAREN, &flags) == NULL)
+    if (reg(REG_NOPAREN, &flags) == NULL || reg_toolong)
     {
 	vim_free(r);
+	if (reg_toolong)
+	    EMSG_RET_NULL(_("E339: Pattern too long"));
 	return NULL;
     }
 
@@ -1141,6 +1185,7 @@ regcomp_start(expr, re_flags)
     re_has_z = 0;
 #endif
     regsize = 0L;
+    reg_toolong = FALSE;
     regflags = 0;
 #if defined(FEAT_SYN_HL) || defined(PROTO)
     had_eol = FALSE;
@@ -1228,7 +1273,7 @@ reg(paren, flagp)
     {
 	skipchr();
 	br = regbranch(&flags);
-	if (br == NULL)
+	if (br == NULL || reg_toolong)
 	    return NULL;
 	regtail(ret, br);	/* BRANCH -> BRANCH. */
 	if (!(flags & HASWIDTH))
@@ -1313,6 +1358,8 @@ regbranch(flagp)
 	    break;
 	skipchr();
 	regtail(latest, regnode(END)); /* operand ends */
+	if (reg_toolong)
+	    break;
 	reginsert(MATCH, latest);
 	chain = latest;
     }
@@ -1382,7 +1429,7 @@ regconcat(flagp)
 			    break;
 	    default:
 			    latest = regpiece(&flags);
-			    if (latest == NULL)
+			    if (latest == NULL || reg_toolong)
 				return NULL;
 			    *flagp |= flags & (HASWIDTH | HASNL | HASLOOKBH);
 			    if (chain == NULL)	/* First piece. */
@@ -2540,8 +2587,16 @@ regtail(p, val)
 	offset = (int)(scan - val);
     else
 	offset = (int)(val - scan);
-    *(scan + 1) = (char_u) (((unsigned)offset >> 8) & 0377);
-    *(scan + 2) = (char_u) (offset & 0377);
+    /* When the offset uses more than 16 bits it can no longer fit in the two
+     * bytes avaliable.  Use a global flag to avoid having to check return
+     * values in too many places. */
+    if (offset > 0xffff)
+	reg_toolong = TRUE;
+    else
+    {
+	*(scan + 1) = (char_u) (((unsigned)offset >> 8) & 0377);
+	*(scan + 2) = (char_u) (offset & 0377);
+    }
 }
 
 /*
@@ -3362,12 +3417,11 @@ vim_regexec_multi(rmp, win, buf, lnum, col, tm)
  * Match a regexp against a string ("line" points to the string) or multiple
  * lines ("line" is NULL, use reg_getline()).
  */
-/*ARGSUSED*/
     static long
 vim_regexec_both(line, col, tm)
     char_u	*line;
     colnr_T	col;		/* column to start looking for match */
-    proftime_T	*tm;		/* timeout limit or NULL */
+    proftime_T	*tm UNUSED;	/* timeout limit or NULL */
 {
     regprog_T	*prog;
     char_u	*s;
@@ -4532,7 +4586,7 @@ regmatch(scan)
 		cleanup_subexpr();
 		if (!REG_MULTI)		/* Single-line regexp */
 		{
-		    if (reg_endp[no] == NULL)
+		    if (reg_startp[no] == NULL || reg_endp[no] == NULL)
 		    {
 			/* Backref was not set: Match an empty string. */
 			len = 0;
@@ -4548,7 +4602,7 @@ regmatch(scan)
 		}
 		else				/* Multi-line regexp */
 		{
-		    if (reg_endpos[no].lnum < 0)
+		    if (reg_startpos[no].lnum < 0 || reg_endpos[no].lnum < 0)
 		    {
 			/* Backref was not set: Match an empty string. */
 			len = 0;
@@ -5765,6 +5819,8 @@ do_class:
 
 /*
  * regnext - dig the "next" pointer out of a node
+ * Returns NULL when calculating size, when there is no next item and when
+ * there is an error.
  */
     static char_u *
 regnext(p)
@@ -5772,7 +5828,7 @@ regnext(p)
 {
     int	    offset;
 
-    if (p == JUST_CALC_SIZE)
+    if (p == JUST_CALC_SIZE || reg_toolong)
 	return NULL;
 
     offset = NEXT(p);
@@ -6813,6 +6869,8 @@ static int can_f_submatch = FALSE;	/* TRUE when submatch() can be used */
  * that contains a call to substitute() and submatch(). */
 static regmatch_T	*submatch_match;
 static regmmatch_T	*submatch_mmatch;
+static linenr_T		submatch_firstlnum;
+static linenr_T		submatch_maxline;
 #endif
 
 #if defined(FEAT_MODIFY_FNAME) || defined(FEAT_EVAL) || defined(PROTO)
@@ -6926,7 +6984,6 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 	}
 	else
 	{
-	    linenr_T	save_reg_maxline;
 	    win_T	*save_reg_win;
 	    int		save_ireg_ic;
 
@@ -6938,7 +6995,8 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 	     * vim_regexec_multi() can't be called recursively. */
 	    submatch_match = reg_match;
 	    submatch_mmatch = reg_mmatch;
-	    save_reg_maxline = reg_maxline;
+	    submatch_firstlnum = reg_firstlnum;
+	    submatch_maxline = reg_maxline;
 	    save_reg_win = reg_win;
 	    save_ireg_ic = ireg_ic;
 	    can_f_submatch = TRUE;
@@ -6946,6 +7004,8 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 	    eval_result = eval_to_string(source + 2, NULL, TRUE);
 	    if (eval_result != NULL)
 	    {
+		int had_backslash = FALSE;
+
 		for (s = eval_result; *s != NUL; mb_ptr_adv(s))
 		{
 		    /* Change NL to CR, so that it becomes a line break.
@@ -6953,7 +7013,27 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 		    if (*s == NL)
 			*s = CAR;
 		    else if (*s == '\\' && s[1] != NUL)
+		    {
 			++s;
+			/* Change NL to CR here too, so that this works:
+			 * :s/abc\\\ndef/\="aaa\\\nbbb"/  on text:
+			 *   abc\
+			 *   def
+			 */
+			if (*s == NL)
+			    *s = CAR;
+			had_backslash = TRUE;
+		    }
+		}
+		if (had_backslash && backslash)
+		{
+		    /* Backslashes will be consumed, need to double them. */
+		    s = vim_strsave_escaped(eval_result, (char_u *)"\\");
+		    if (s != NULL)
+		    {
+			vim_free(eval_result);
+			eval_result = s;
+		    }
 		}
 
 		dst += STRLEN(eval_result);
@@ -6961,7 +7041,8 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 
 	    reg_match = submatch_match;
 	    reg_mmatch = submatch_mmatch;
-	    reg_maxline = save_reg_maxline;
+	    reg_firstlnum = submatch_firstlnum;
+	    reg_maxline = submatch_maxline;
 	    reg_win = save_reg_win;
 	    ireg_ic = save_ireg_ic;
 	    can_f_submatch = FALSE;
@@ -7059,10 +7140,26 @@ vim_regsub_both(source, dest, copy, magic, backslash)
 #ifdef FEAT_MBYTE
 	    if (has_mbyte)
 	    {
-		src += mb_ptr2len(src - 1) - 1;
+		int totlen = mb_ptr2len(src - 1);
+
 		if (copy)
 		    mb_char2bytes(cc, dst);
 		dst += mb_char2len(cc) - 1;
+		if (enc_utf8)
+		{
+		    int clen = utf_ptr2len(src - 1);
+
+		    /* If the character length is shorter than "totlen", there
+		     * are composing characters; copy them as-is. */
+		    if (clen < totlen)
+		    {
+			if (copy)
+			    mch_memmove(dst + 1, src - 1 + clen,
+						     (size_t)(totlen - clen));
+			dst += totlen - clen;
+		    }
+		}
+		src += totlen - 1;
 	    }
 	    else
 #endif
@@ -7196,6 +7293,31 @@ exit:
 }
 
 #ifdef FEAT_EVAL
+static char_u *reg_getline_submatch __ARGS((linenr_T lnum));
+
+/*
+ * Call reg_getline() with the line numbers from the submatch.  If a
+ * substitute() was used the reg_maxline and other values have been
+ * overwritten.
+ */
+    static char_u *
+reg_getline_submatch(lnum)
+    linenr_T	lnum;
+{
+    char_u *s;
+    linenr_T save_first = reg_firstlnum;
+    linenr_T save_max = reg_maxline;
+
+    reg_firstlnum = submatch_firstlnum;
+    reg_maxline = submatch_maxline;
+
+    s = reg_getline(lnum);
+
+    reg_firstlnum = save_first;
+    reg_maxline = save_max;
+    return s;
+}
+
 /*
  * Used for the submatch() function: get the string from the n'th submatch in
  * allocated memory.
@@ -7226,7 +7348,7 @@ reg_submatch(no)
 	    if (lnum < 0 || submatch_mmatch->endpos[no].lnum < 0)
 		return NULL;
 
-	    s = reg_getline(lnum) + submatch_mmatch->startpos[no].col;
+	    s = reg_getline_submatch(lnum) + submatch_mmatch->startpos[no].col;
 	    if (s == NULL)  /* anti-crash check, cannot happen? */
 		break;
 	    if (submatch_mmatch->endpos[no].lnum == lnum)
@@ -7252,7 +7374,7 @@ reg_submatch(no)
 		++lnum;
 		while (lnum < submatch_mmatch->endpos[no].lnum)
 		{
-		    s = reg_getline(lnum++);
+		    s = reg_getline_submatch(lnum++);
 		    if (round == 2)
 			STRCPY(retval + len, s);
 		    len += (int)STRLEN(s);
@@ -7261,7 +7383,7 @@ reg_submatch(no)
 		    ++len;
 		}
 		if (round == 2)
-		    STRNCPY(retval + len, reg_getline(lnum),
+		    STRNCPY(retval + len, reg_getline_submatch(lnum),
 					     submatch_mmatch->endpos[no].col);
 		len += submatch_mmatch->endpos[no].col;
 		if (round == 2)
@@ -7279,13 +7401,11 @@ reg_submatch(no)
     }
     else
     {
-	if (submatch_match->endp[no] == NULL)
+	s = submatch_match->startp[no];
+	if (s == NULL || submatch_match->endp[no] == NULL)
 	    retval = NULL;
 	else
-	{
-	    s = submatch_match->startp[no];
 	    retval = vim_strnsave(s, (int)(submatch_match->endp[no] - s));
-	}
     }
 
     return retval;

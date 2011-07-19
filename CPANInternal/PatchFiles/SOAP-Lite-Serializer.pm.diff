@@ -1,0 +1,11 @@
+--- SOAP-Lite/lib/SOAP/Lite.pm	2009-03-19 16:25:59.000000000 -0700
++++ /tmp/Lite.pm	2009-10-27 08:55:13.000000000 -0700
+@@ -813,7 +813,7 @@
+           'boolean' => 
+ 	      [90, sub { $_[0] =~ /^(true|false)$/i; }, 'as_boolean'],
+           'anyURI' => 
+-	      [95, sub { $_[0] =~ /^(urn:)|(http:\/\/)/i; }, 'as_anyURI'],
++	      [95, sub { $_[0] =~ /^(urn:|http:\/\/)/i; }, 'as_anyURI'],
+           'string' => 
+ 	      [100, sub {1}, 'as_string'],
+       },

@@ -38,11 +38,12 @@
 #if defined(LIBC_SCCS) && !defined(lint)
 static char sccsid[] = "@(#)big5.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
-#include <sys/param.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.16 2004/05/17 11:16:14 tjr Exp $");
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.18 2007/10/13 16:28:21 ache Exp $");
 
 #include "xlocale_private.h"
 
+#include <sys/types.h>
 #include <errno.h>
 #include <runetype.h>
 #include <stdlib.h>
@@ -50,11 +51,11 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.16 2004/05/17 11:16:14 tjr Ex
 #include <wchar.h>
 #include "mblocal.h"
 
-__private_extern__ int	_BIG5_init(struct __xlocale_st_runelocale *);
-static size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict, locale_t);
+static size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict, locale_t);
 static int	_BIG5_mbsinit(const mbstate_t *, locale_t);
-static size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+static size_t	_BIG5_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict, locale_t);
 
 typedef struct {
 	wchar_t	ch;
@@ -68,11 +69,12 @@ _BIG5_init(struct __xlocale_st_runelocale *xrl)
 	xrl->__wcrtomb = _BIG5_wcrtomb;
 	xrl->__mbsinit = _BIG5_mbsinit;
 	xrl->__mb_cur_max = 2;
+	xrl->__mb_sb_limit = 128;
 	return (0);
 }
 
 static int
-_BIG5_mbsinit(const mbstate_t *ps, locale_t loc)
+_BIG5_mbsinit(const mbstate_t *ps, locale_t loc __unused)
 {
 
 	return (ps == NULL || ((const _BIG5State *)ps)->ch == 0);
@@ -88,7 +90,7 @@ _big5_check(u_int c)
 
 static size_t
 _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
-    mbstate_t * __restrict ps, locale_t loc)
+    mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_BIG5State *bs;
 	wchar_t wc;
@@ -148,7 +150,7 @@ _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 }
 
 static size_t
-_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
+_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc __unused)
 {
 	_BIG5State *bs;
 

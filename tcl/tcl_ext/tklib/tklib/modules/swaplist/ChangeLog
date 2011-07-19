@@ -1,3 +1,9 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
 2008-02-06 Aaron Faupell <afaupell@users.sourceforge.net>
 
 	* swaplist.tcl: fix for bug when moving last item to the

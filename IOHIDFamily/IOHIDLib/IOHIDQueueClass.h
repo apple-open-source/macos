@@ -39,6 +39,7 @@ protected:
 
     struct InterfaceMap fHIDQueue;
     mach_port_t         fAsyncPort;
+    CFMachPortRef       fCFMachPort;
     CFRunLoopSourceRef  fCFSource;
     
     // if created, how we were created

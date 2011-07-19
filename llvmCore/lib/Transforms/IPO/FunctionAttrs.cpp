@@ -26,10 +26,10 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/CaptureTracking.h"
+#include "llvm/Analysis/MemoryBuiltins.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/UniqueVector.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/InstIterator.h"
 using namespace llvm;
 
@@ -39,25 +39,25 @@ STATISTIC(NumNoCapture, "Number of arguments marked nocapture");
 STATISTIC(NumNoAlias, "Number of function returns marked noalias");
 
 namespace {
-  struct VISIBILITY_HIDDEN FunctionAttrs : public CallGraphSCCPass {
+  struct FunctionAttrs : public CallGraphSCCPass {
     static char ID; // Pass identification, replacement for typeid
     FunctionAttrs() : CallGraphSCCPass(&ID) {}
 
     // runOnSCC - Analyze the SCC, performing the transformation if possible.
-    bool runOnSCC(const std::vector<CallGraphNode *> &SCC);
+    bool runOnSCC(CallGraphSCC &SCC);
 
     // AddReadAttrs - Deduce readonly/readnone attributes for the SCC.
-    bool AddReadAttrs(const std::vector<CallGraphNode *> &SCC);
+    bool AddReadAttrs(const CallGraphSCC &SCC);
 
     // AddNoCaptureAttrs - Deduce nocapture attributes for the SCC.
-    bool AddNoCaptureAttrs(const std::vector<CallGraphNode *> &SCC);
+    bool AddNoCaptureAttrs(const CallGraphSCC &SCC);
 
     // IsFunctionMallocLike - Does this function allocate new memory?
     bool IsFunctionMallocLike(Function *F,
-                              SmallPtrSet<CallGraphNode*, 8> &) const;
+                              SmallPtrSet<Function*, 8> &) const;
 
     // AddNoAliasAttrs - Deduce noalias attributes for the SCC.
-    bool AddNoAliasAttrs(const std::vector<CallGraphNode *> &SCC);
+    bool AddNoAliasAttrs(const CallGraphSCC &SCC);
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesCFG();
@@ -79,33 +79,63 @@ Pass *llvm::createFunctionAttrsPass() { return new FunctionAttrs(); }
 /// memory that is local to the function.  Global constants are considered
 /// local to all functions.
 bool FunctionAttrs::PointsToLocalMemory(Value *V) {
-  V = V->getUnderlyingObject();
-  // An alloca instruction defines local memory.
-  if (isa<AllocaInst>(V))
-    return true;
-  // A global constant counts as local memory for our purposes.
-  if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V))
-    return GV->isConstant();
-  // Could look through phi nodes and selects here, but it doesn't seem
-  // to be useful in practice.
-  return false;
+  SmallVector<Value*, 16> Worklist;
+  unsigned MaxLookup = 8;
+
+  Worklist.push_back(V);
+
+  do {
+    V = Worklist.pop_back_val()->getUnderlyingObject();
+
+    // An alloca instruction defines local memory.
+    if (isa<AllocaInst>(V))
+      continue;
+
+    // A global constant counts as local memory for our purposes.
+    if (GlobalVariable *GV = dyn_cast<GlobalVariable>(V)) {
+      if (!GV->isConstant())
+        return false;
+      continue;
+    }
+
+    // If both select values point to local memory, then so does the select.
+    if (SelectInst *SI = dyn_cast<SelectInst>(V)) {
+      Worklist.push_back(SI->getTrueValue());
+      Worklist.push_back(SI->getFalseValue());
+      continue;
+    }
+
+    // If all values incoming to a phi node point to local memory, then so does
+    // the phi.
+    if (PHINode *PN = dyn_cast<PHINode>(V)) {
+      // Don't bother inspecting phi nodes with many operands.
+      if (PN->getNumIncomingValues() > MaxLookup)
+        return false;
+      for (unsigned i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
+        Worklist.push_back(PN->getIncomingValue(i));
+      continue;
+    }
+
+    return false;
+  } while (!Worklist.empty() && --MaxLookup);
+
+  return Worklist.empty();
 }
 
 /// AddReadAttrs - Deduce readonly/readnone attributes for the SCC.
-bool FunctionAttrs::AddReadAttrs(const std::vector<CallGraphNode *> &SCC) {
-  SmallPtrSet<CallGraphNode*, 8> SCCNodes;
-  CallGraph &CG = getAnalysis<CallGraph>();
+bool FunctionAttrs::AddReadAttrs(const CallGraphSCC &SCC) {
+  SmallPtrSet<Function*, 8> SCCNodes;
 
   // Fill SCCNodes with the elements of the SCC.  Used for quickly
   // looking up whether a given CallGraphNode is in this SCC.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i)
-    SCCNodes.insert(SCC[i]);
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I)
+    SCCNodes.insert((*I)->getFunction());
 
   // Check if any of the functions in the SCC read or write memory.  If they
   // write memory then they can't be marked readnone or readonly.
   bool ReadsMemory = false;
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
+    Function *F = (*I)->getFunction();
 
     if (F == 0)
       // External node - may write memory.  Just give up.
@@ -133,10 +163,25 @@ bool FunctionAttrs::AddReadAttrs(const std::vector<CallGraphNode *> &SCC) {
       // Some instructions can be ignored even if they read or write memory.
       // Detect these now, skipping to the next instruction if one is found.
       CallSite CS = CallSite::get(I);
-      if (CS.getInstruction()) {
+      if (CS.getInstruction() && CS.getCalledFunction()) {
         // Ignore calls to functions in the same SCC.
-        if (SCCNodes.count(CG[CS.getCalledFunction()]))
+        if (SCCNodes.count(CS.getCalledFunction()))
           continue;
+        // Ignore intrinsics that only access local memory.
+        if (unsigned id = CS.getCalledFunction()->getIntrinsicID())
+          if (AliasAnalysis::getModRefBehavior(id) ==
+              AliasAnalysis::AccessesArguments) {
+            // Check that all pointer arguments point to local memory.
+            for (CallSite::arg_iterator CI = CS.arg_begin(), CE = CS.arg_end();
+                 CI != CE; ++CI) {
+              Value *Arg = *CI;
+              if (Arg->getType()->isPointerTy() && !PointsToLocalMemory(Arg))
+                // Writes memory.  Just give up.
+                return false;
+            }
+            // Only reads and writes local memory.
+            continue;
+          }
       } else if (LoadInst *LI = dyn_cast<LoadInst>(I)) {
         // Ignore loads from local memory.
         if (PointsToLocalMemory(LI->getPointerOperand()))
@@ -152,6 +197,11 @@ bool FunctionAttrs::AddReadAttrs(const std::vector<CallGraphNode *> &SCC) {
       if (I->mayWriteToMemory())
         // Writes memory.  Just give up.
         return false;
+
+      if (isMalloc(I))
+        // malloc claims not to write memory!  PR3754.
+        return false;
+
       // If this instruction may read memory, remember that.
       ReadsMemory |= I->mayReadFromMemory();
     }
@@ -160,8 +210,8 @@ bool FunctionAttrs::AddReadAttrs(const std::vector<CallGraphNode *> &SCC) {
   // Success!  Functions in this SCC do not access memory, or only read memory.
   // Give them the appropriate attribute.
   bool MadeChange = false;
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
+    Function *F = (*I)->getFunction();
 
     if (F->doesNotAccessMemory())
       // Already perfect!
@@ -189,13 +239,13 @@ bool FunctionAttrs::AddReadAttrs(const std::vector<CallGraphNode *> &SCC) {
 }
 
 /// AddNoCaptureAttrs - Deduce nocapture attributes for the SCC.
-bool FunctionAttrs::AddNoCaptureAttrs(const std::vector<CallGraphNode *> &SCC) {
+bool FunctionAttrs::AddNoCaptureAttrs(const CallGraphSCC &SCC) {
   bool Changed = false;
 
   // Check each function in turn, determining which pointer arguments are not
   // captured.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
+    Function *F = (*I)->getFunction();
 
     if (F == 0)
       // External node - skip it;
@@ -207,8 +257,8 @@ bool FunctionAttrs::AddNoCaptureAttrs(const std::vector<CallGraphNode *> &SCC) {
       continue;
 
     for (Function::arg_iterator A = F->arg_begin(), E = F->arg_end(); A!=E; ++A)
-      if (isa<PointerType>(A->getType()) && !A->hasNoCaptureAttr() &&
-          !PointerMayBeCaptured(A, true)) {
+      if (A->getType()->isPointerTy() && !A->hasNoCaptureAttr() &&
+          !PointerMayBeCaptured(A, true, /*StoreCaptures=*/false)) {
         A->addAttr(Attribute::NoCapture);
         ++NumNoCapture;
         Changed = true;
@@ -221,9 +271,7 @@ bool FunctionAttrs::AddNoCaptureAttrs(const std::vector<CallGraphNode *> &SCC) {
 /// IsFunctionMallocLike - A function is malloc-like if it returns either null
 /// or a pointer that doesn't alias any other pointer visible to the caller.
 bool FunctionAttrs::IsFunctionMallocLike(Function *F,
-                              SmallPtrSet<CallGraphNode*, 8> &SCCNodes) const {
-  CallGraph &CG = getAnalysis<CallGraph>();
-
+                              SmallPtrSet<Function*, 8> &SCCNodes) const {
   UniqueVector<Value *> FlowsToReturn;
   for (Function::iterator I = F->begin(), E = F->end(); I != E; ++I)
     if (ReturnInst *Ret = dyn_cast<ReturnInst>(I->getTerminator()))
@@ -245,24 +293,25 @@ bool FunctionAttrs::IsFunctionMallocLike(Function *F,
     if (Instruction *RVI = dyn_cast<Instruction>(RetVal))
       switch (RVI->getOpcode()) {
         // Extend the analysis by looking upwards.
-        case Instruction::GetElementPtr:
         case Instruction::BitCast:
+        case Instruction::GetElementPtr:
           FlowsToReturn.insert(RVI->getOperand(0));
           continue;
         case Instruction::Select: {
           SelectInst *SI = cast<SelectInst>(RVI);
           FlowsToReturn.insert(SI->getTrueValue());
           FlowsToReturn.insert(SI->getFalseValue());
-        } continue;
+          continue;
+        }
         case Instruction::PHI: {
           PHINode *PN = cast<PHINode>(RVI);
           for (int i = 0, e = PN->getNumIncomingValues(); i != e; ++i)
             FlowsToReturn.insert(PN->getIncomingValue(i));
-        } continue;
+          continue;
+        }
 
         // Check whether the pointer came from an allocation.
         case Instruction::Alloca:
-        case Instruction::Malloc:
           break;
         case Instruction::Call:
         case Instruction::Invoke: {
@@ -270,14 +319,14 @@ bool FunctionAttrs::IsFunctionMallocLike(Function *F,
           if (CS.paramHasAttr(0, Attribute::NoAlias))
             break;
           if (CS.getCalledFunction() &&
-              SCCNodes.count(CG[CS.getCalledFunction()]))
+              SCCNodes.count(CS.getCalledFunction()))
             break;
         } // fall-through
         default:
           return false;  // Did not come from an allocation.
       }
 
-    if (PointerMayBeCaptured(RetVal, false))
+    if (PointerMayBeCaptured(RetVal, false, /*StoreCaptures=*/false))
       return false;
   }
 
@@ -285,18 +334,18 @@ bool FunctionAttrs::IsFunctionMallocLike(Function *F,
 }
 
 /// AddNoAliasAttrs - Deduce noalias attributes for the SCC.
-bool FunctionAttrs::AddNoAliasAttrs(const std::vector<CallGraphNode *> &SCC) {
-  SmallPtrSet<CallGraphNode*, 8> SCCNodes;
+bool FunctionAttrs::AddNoAliasAttrs(const CallGraphSCC &SCC) {
+  SmallPtrSet<Function*, 8> SCCNodes;
 
   // Fill SCCNodes with the elements of the SCC.  Used for quickly
   // looking up whether a given CallGraphNode is in this SCC.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i)
-    SCCNodes.insert(SCC[i]);
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I)
+    SCCNodes.insert((*I)->getFunction());
 
   // Check each function in turn, determining which functions return noalias
   // pointers.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
+    Function *F = (*I)->getFunction();
 
     if (F == 0)
       // External node - skip it;
@@ -313,7 +362,7 @@ bool FunctionAttrs::AddNoAliasAttrs(const std::vector<CallGraphNode *> &SCC) {
 
     // We annotate noalias return values, which are only applicable to 
     // pointer types.
-    if (!isa<PointerType>(F->getReturnType()))
+    if (!F->getReturnType()->isPointerTy())
       continue;
 
     if (!IsFunctionMallocLike(F, SCCNodes))
@@ -321,9 +370,9 @@ bool FunctionAttrs::AddNoAliasAttrs(const std::vector<CallGraphNode *> &SCC) {
   }
 
   bool MadeChange = false;
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
-    if (F->doesNotAlias(0) || !isa<PointerType>(F->getReturnType()))
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
+    Function *F = (*I)->getFunction();
+    if (F->doesNotAlias(0) || !F->getReturnType()->isPointerTy())
       continue;
 
     F->setDoesNotAlias(0);
@@ -334,7 +383,7 @@ bool FunctionAttrs::AddNoAliasAttrs(const std::vector<CallGraphNode *> &SCC) {
   return MadeChange;
 }
 
-bool FunctionAttrs::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
+bool FunctionAttrs::runOnSCC(CallGraphSCC &SCC) {
   bool Changed = AddReadAttrs(SCC);
   Changed |= AddNoCaptureAttrs(SCC);
   Changed |= AddNoAliasAttrs(SCC);

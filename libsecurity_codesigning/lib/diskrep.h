@@ -49,6 +49,9 @@ namespace CodeSigning {
 //
 class DiskRep : public RefCount {
 public:
+	class SigningContext;
+	
+public:
 	DiskRep();
 	virtual ~DiskRep();
 	virtual DiskRep *base();
@@ -56,19 +59,22 @@ public:
 	virtual CFDataRef identification() = 0;					// binary lookup identifier
 	virtual std::string mainExecutablePath() = 0;			// path to main executable
 	virtual CFURLRef canonicalPath() = 0;					// path to whole code
-	virtual std::string recommendedIdentifier() = 0;		// default identifier
-	virtual std::string resourcesRootPath();				// resource directory if any
-	virtual CFDictionaryRef defaultResourceRules();			// default resource rules
-	virtual void adjustResources(ResourceBuilder &builder);	// adjust resource rule set
-	virtual const Requirements *defaultRequirements(const Architecture *arch); // default internal requirements
-	virtual Universal *mainExecutableImage();				// binary if Mach-O/Universal
-	virtual size_t pageSize();								// default main executable page size
-	virtual size_t signingBase();							// start offset of signed area in main executable
+	virtual std::string resourcesRootPath();				// resource directory if any [none]
+	virtual void adjustResources(ResourceBuilder &builder);	// adjust resource rule set [no change]
+	virtual Universal *mainExecutableImage();				// Mach-O image if Mach-O based [null]
+	virtual size_t signingBase();							// start offset of signed area in main executable [zero]
 	virtual size_t signingLimit() = 0;						// size of signed area in main executable
 	virtual std::string format() = 0;						// human-readable type string
-	virtual CFArrayRef modifiedFiles();						// list of files modified by signing
-	virtual UnixPlusPlus::FileDesc &fd() = 0;				// a cached fd for main executable file
+	virtual CFArrayRef modifiedFiles();						// list of files modified by signing [main execcutable only]
+	virtual UnixPlusPlus::FileDesc &fd() = 0;				// a cached file descriptor for main executable file
 	virtual void flush();									// flush caches (refetch as needed)
+
+	// default values for signing operations
+	virtual std::string recommendedIdentifier(const SigningContext &ctx) = 0; // default identifier
+	virtual CFDictionaryRef defaultResourceRules(const SigningContext &ctx); // default resource rules [none]
+	virtual const Requirements *defaultRequirements(const Architecture *arch,
+		const SigningContext &ctx);							// default internal requirements [none]
+	virtual size_t pageSize(const SigningContext &ctx);		// default main executable page size [infinite, i.e. no paging]
 	
 	bool mainExecutableIsMachO() { return mainExecutableImage() != NULL; }
 	
@@ -78,24 +84,43 @@ public:
 
 public:
 	class Writer;
-	virtual Writer *writer();
+	virtual Writer *writer();								// Writer factory
 
 public:
+	// optional information that might be used to create a suitable DiskRep. All optional
 	struct Context {
-		Context() : arch(Architecture::none), offset(0), fileOnly(false) { }
-		Architecture arch;			// explicit architecture
+		Context() : arch(Architecture::none), version(NULL), offset(0), fileOnly(false), inMemory(NULL) { }
+		Architecture arch;			// explicit architecture (choose amongst universal variants)
+		const char *version;		// bundle version (string)
 		off_t offset;				// explicit file offset
-		bool fileOnly;				// only consider single-file representations
+		bool fileOnly;				// only consider single-file representations (no bundles etc.)
+		const void *inMemory;		// consider using in-memory copy at this address
 	};
 
 	static DiskRep *bestGuess(const char *path, const Context *ctx = NULL); // canonical heuristic, any path
 	static DiskRep *bestFileGuess(const char *path, const Context *ctx = NULL); // ctx (if any) + fileOnly
 	static DiskRep *bestGuess(const char *path, size_t archOffset); // Mach-O at given file offset only
-	
+
+	// versions using std::string paths (merely a convenience)
 	static DiskRep *bestGuess(const std::string &path, const Context *ctx = NULL)
 		{ return bestGuess(path.c_str(), ctx); }
 	static DiskRep *bestGuess(const std::string &path, size_t archOffset) { return bestGuess(path.c_str(), archOffset); }
 	static DiskRep *bestFileGuess(const std::string &path, const Context *ctx = NULL) { return bestFileGuess(path.c_str(), ctx); }
+
+public:
+	// see DiskRep::Writer docs for why this is here
+	class SigningContext {
+	protected:
+		SigningContext() { }
+
+	public:
+		virtual std::string sdkPath(const std::string &path) const = 0;
+		virtual bool isAdhoc() const = 0;
+	};
+
+protected:
+	// canonically derive a suggested signing identifier from some string
+	static std::string canonicalIdentifier(const std::string &name);
 	
 public:
 	static const size_t segmentedPageSize = 4096;	// default page size for system-paged signatures
@@ -109,6 +134,15 @@ public:
 // for the signing machinery to place data wherever it should go. Each DiskRep subclass
 // that supports writing signing data to a place inside the code needs to implement
 // a subclass of Writer and return an instance in the DiskRep::writer() method when asked.
+//
+// The Writer class is subclassed interestingly by the Mach-O multi-architecture signing code,
+// which is handled as a special case. This means that not all Writer subclass objects were made
+// by DiskRep::writer, and it is unwise to assume so.
+//
+// Note that the methods that provide defaults for signing operations are in DiskRep rather
+// than here. That's because writers abstract data *sending*, and are virtual on management
+// of stored data, while DiskRep is virtual on the existing code object, which is where
+// we get our defaults from.
 //
 class DiskRep::Writer : public RefCount {
 public:
@@ -159,15 +193,18 @@ public:
 	CFDataRef identification()				{ return mOriginal->identification(); }
 	std::string mainExecutablePath()		{ return mOriginal->mainExecutablePath(); }
 	CFURLRef canonicalPath()				{ return mOriginal->canonicalPath(); }
-	std::string recommendedIdentifier()		{ return mOriginal->recommendedIdentifier(); }
 	std::string resourcesRootPath()			{ return mOriginal->resourcesRootPath(); }
-	CFDictionaryRef defaultResourceRules()	{ return mOriginal->defaultResourceRules(); }
 	Universal *mainExecutableImage()		{ return mOriginal->mainExecutableImage(); }
 	size_t signingBase()					{ return mOriginal->signingBase(); }
 	size_t signingLimit()					{ return mOriginal->signingLimit(); }
 	std::string format()					{ return mOriginal->format(); }
 	UnixPlusPlus::FileDesc &fd()			{ return mOriginal->fd(); }
 	void flush()							{ return mOriginal->flush(); }
+	
+	std::string recommendedIdentifier(const SigningContext &ctx)
+		{ return mOriginal->recommendedIdentifier(ctx); }
+	CFDictionaryRef defaultResourceRules(const SigningContext &ctx)
+		{ return mOriginal->defaultResourceRules(ctx); }
 
 private:
 	RefPointer<DiskRep> mOriginal;			// underlying representation

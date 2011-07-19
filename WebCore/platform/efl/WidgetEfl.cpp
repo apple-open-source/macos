@@ -41,6 +41,7 @@
 #include "Page.h"
 
 #include <Ecore.h>
+#include <Ecore_Evas.h>
 #include <Edje.h>
 #include <Evas.h>
 
@@ -182,10 +183,10 @@ void Widget::setFrameRect(const IntRect& rect)
 
 void Widget::frameRectsChanged()
 {
-    Evas_Object* o = evasObject();
+    Evas_Object* object = evasObject();
     Evas_Coord x, y;
 
-    if (!parent() || !o)
+    if (!parent() || !object)
         return;
 
     IntRect rect = frameRect();
@@ -195,8 +196,8 @@ void Widget::frameRectsChanged()
         rect.setLocation(parent()->contentsToWindow(rect.location()));
 
     evas_object_geometry_get(root()->evasObject(), &x, &y, 0, 0);
-    evas_object_move(o, x + rect.x(), y + rect.y());
-    evas_object_resize(o, rect.width(), rect.height());
+    evas_object_move(object, x + rect.x(), y + rect.y());
+    evas_object_resize(object, rect.width(), rect.height());
 }
 
 void Widget::setFocus(bool focused)
@@ -205,13 +206,13 @@ void Widget::setFocus(bool focused)
 
 void Widget::applyFallbackCursor()
 {
-#if HAVE_ECORE_X
+#ifdef HAVE_ECORE_X
     if (m_data->m_isUsingEcoreX && !m_data->m_cursorGroup.isNull()) {
         int shape = cursorStringMap.cursor(m_data->m_cursorGroup.utf8().data());
 
         if (shape < ECORE_X_CURSOR_X || shape > ECORE_X_CURSOR_XTERM) {
-            fprintf(stderr, "ERROR: cannot map an equivalent X cursor for"
-                    " cursor group %s", m_data->m_cursorGroup.utf8().data());
+            LOG_ERROR("cannot map an equivalent X cursor for"
+                      " c ursor group %s", m_data->m_cursorGroup.utf8().data());
             shape = ECORE_X_CURSOR_LEFT_PTR;
         }
 
@@ -220,29 +221,23 @@ void Widget::applyFallbackCursor()
         ecore_x_window_cursor_set(win, cur);
         return;
     }
-#else
-    fprintf(stderr, "ERROR: Ooops, no fallback to set cursor %s!\n",
-            m_data->m_cursorGroup.utf8().data());
 #endif
+    LOG_ERROR("Ooops, no fallback to set cursor %s!\n",
+              m_data->m_cursorGroup.utf8().data());
 }
 
 void Widget::applyCursor()
 {
-    const char *file;
-    Evas_Coord x, y;
-
-    String theme = edjeThemeRecursive();
-    if (!theme.isNull())
-        file = edjeThemeRecursive().utf8().data();
+    CString file = edjeThemeRecursive().utf8();
 
     m_data->m_cursorObject = edje_object_add(evas());
-    if (!edje_object_file_set(m_data->m_cursorObject, file, m_data->m_cursorGroup.utf8().data())) {
+    if (!file.isNull() && !edje_object_file_set(m_data->m_cursorObject, file.data(), m_data->m_cursorGroup.utf8().data())) {
         evas_object_del(m_data->m_cursorObject);
         m_data->m_cursorObject = 0;
         ecore_evas_object_cursor_set(ecoreEvas(), 0, 0, 0, 0);
         applyFallbackCursor();
     } else {
-        Evas_Coord w, h;
+        Evas_Coord x, y, w, h;
         const char *d;
 
         edje_object_size_min_get(m_data->m_cursorObject, &w, &h);
@@ -265,10 +260,10 @@ void Widget::applyCursor()
 
 void Widget::setCursor(const Cursor& cursor)
 {
-    if (!platformWidget() || !evas())
+    if (!evas())
          return;
 
-    const char *group = cursor.impl();
+    const char* group = cursor.platformCursor();
     if (!group || String(group) == m_data->m_cursorGroup)
         return;
 
@@ -337,20 +332,22 @@ Ecore_Evas* Widget::ecoreEvas() const
     return static_cast<Ecore_Evas*>(evas_data_attach_get(evas()));
 }
 
-void Widget::setEvasObject(Evas_Object *o)
+void Widget::setEvasObject(Evas_Object *object)
 {
     // FIXME: study platformWidget() and use it
     // FIXME: right now platformWidget() requires implementing too much
-    if (m_data->m_evasObject == o)
+    if (m_data->m_evasObject == object)
         return;
-    m_data->m_evasObject = o;
-    if (!o) {
+    m_data->m_evasObject = object;
+    if (!object) {
         m_data->m_evas = 0;
+#ifdef HAVE_ECORE_X
         m_data->m_isUsingEcoreX = false;
+#endif
         return;
     }
 
-    m_data->m_evas = evas_object_evas_get(o);
+    m_data->m_evas = evas_object_evas_get(object);
 
 #ifdef HAVE_ECORE_X
     const char *engine = ecore_evas_engine_name_get(ecoreEvas());

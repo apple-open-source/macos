@@ -1,84 +1,124 @@
-use strict;
+#!/usr/bin/perl
 
-use Test::More tests => 10765;
+# Copyright (C) 2005  Joshua Hoblitt
+#
+# $Id: 05_cut_off_year.t,v 1.3 2007/04/11 01:11:42 jhoblitt Exp $
+
+use strict;
+use warnings;
+
+use lib qw( ./lib );
+
+use Test::More tests => 24;
 
 use DateTime::Format::ISO8601;
 
+# DefaultCutOffYear()
+
 {
-    is( DateTime::Format::ISO8601->DefaultCutOffYear, 49 );
-    my $iso_parser = DateTime::Format::ISO8601->new;
-    is( $iso_parser->cut_off_year, 49 );
+    is( DateTime::Format::ISO8601->DefaultCutOffYear, 49,
+        "class default DefaultCutOffYear()" );
+    is( DateTime::Format::ISO8601->new->cut_off_year, 49,
+        "object default DefaultCutOffYear()" );
 }
 
-foreach ( 0 .. 99 ) {
-    DateTime::Format::ISO8601->DefaultCutOffYear( $_ );
-    is( DateTime::Format::ISO8601->DefaultCutOffYear, $_ );
-    my $iso_parser = DateTime::Format::ISO8601->new;
-    is( $iso_parser->cut_off_year, $_ );
+{
+    my $failed = 0;
+
+    foreach my $n ( 0 .. 99 ) {
+        DateTime::Format::ISO8601->DefaultCutOffYear( $n );
+
+        $failed++ unless DateTime::Format::ISO8601->DefaultCutOffYear == $n;
+        $failed++ unless DateTime::Format::ISO8601->new->cut_off_year == $n;
+    }
+
+    is( $failed, 0, "set default DefaultCutOffYear()" );
 }
 
-foreach ( -10 .. -1, 100 .. 110 ) {
-    eval { DateTime::Format::ISO8601->DefaultCutOffYear( $_ ) };
+foreach my $n ( -3 .. -1, 100 .. 102 ) {
+    eval { DateTime::Format::ISO8601->DefaultCutOffYear( $n ) };
     like( $@, qr/did not pass the 'is between 0 and 99' callback/ );
 }
 
 # restore default cut off year behavior
 DateTime::Format::ISO8601->DefaultCutOffYear( 49 );
 
-foreach ( 0 .. 99 ) {
-    {
-        my $iso_parser = DateTime::Format::ISO8601->new( cut_off_year => $_ );
-        isa_ok( $iso_parser, 'DateTime::Format::ISO8601' );
-        is( $iso_parser->cut_off_year, $_ );
-    }
-
-    {
-        my $iso_parser = DateTime::Format::ISO8601->new->set_cut_off_year( $_ );
-        is( $iso_parser->cut_off_year, $_ );
-    }
-}
-
-foreach ( -10 .. -1, 100 .. 110 ) {
-    eval { DateTime::Format::ISO8601->new( cut_off_year => $_ ) };
-    like( $@, qr/did not pass the 'is between 0 and 99' callback/ );
-
-    eval { DateTime::Format::ISO8601->new->set_cut_off_year( $_ ) };
-    like( $@, qr/did not pass the 'is between 0 and 99' callback/ );
-}
+# set_cut_off_year()
 
 {
-    foreach ( 0 .. 49 ) {
-        my $dt = DateTime::Format::ISO8601->parse_datetime( "-" . sprintf( "%02d", $_ ) );
-        is( $dt->year, "20" . sprintf( "%02d", $_ ) );
+    my $failed = 0;
+
+    foreach my $n ( 0 .. 99 ) {
+        {
+            my $iso_parser = DateTime::Format::ISO8601->new( cut_off_year => $n );
+            $failed++ unless UNIVERSAL::isa( $iso_parser, 'DateTime::Format::ISO8601' );
+            $failed++ unless $iso_parser->cut_off_year == $n;
+        }
+
+        {
+            my $iso_parser = DateTime::Format::ISO8601->new->set_cut_off_year( $n );
+            $failed++ unless $iso_parser->cut_off_year == $n;
+        }
     }
-    foreach ( 50 .. 99 ) {
-        my $dt = DateTime::Format::ISO8601->parse_datetime( "-$_" );
-        is( $dt->year, "19$_" );
-    }
+
+    is( $failed, 0, "set_cut_off_year()" );
 }
+
+foreach my $n ( -3 .. -1, 100 .. 102 ) {
+    eval { DateTime::Format::ISO8601->new( cut_off_year => $n ) };
+    like( $@, qr/did not pass the 'is between 0 and 99' callback/,
+        "cut_off_year value out of range" );
+
+    eval { DateTime::Format::ISO8601->new->set_cut_off_year( $n ) };
+    like( $@, qr/did not pass the 'is between 0 and 99' callback/,
+        "set_cut_off_year() value out of range" );
+}
+
+# parse_datetime() as a class method
 
 {
-    my $iso_parser = DateTime::Format::ISO8601->new;
+    my $failed = 0;
 
-    foreach ( 0 .. 49 ) {
-        my $dt = $iso_parser->parse_datetime( "-" . sprintf( "%02d", $_ ) );
-        is( $dt->year, "20" . sprintf( "%02d", $_ ) );
+    foreach my $n ( 0 .. 99 ) {
+        DateTime::Format::ISO8601->DefaultCutOffYear( $n );
+
+        foreach my $i ( 0 .. DateTime::Format::ISO8601->DefaultCutOffYear ) {
+            my $tdy = sprintf( "%02d", $i );
+            my $dt = DateTime::Format::ISO8601->parse_datetime( "-$tdy" );
+            $failed++ unless ( $dt->year eq "20$tdy" );
+                
+        }
+
+        foreach my $i ( ( DateTime::Format::ISO8601->DefaultCutOffYear + 1 ) .. 99 ) {
+            my $tdy = sprintf( "%02d", $i );
+            my $dt = DateTime::Format::ISO8601->parse_datetime( "-$tdy" );
+            $failed++ unless ( $dt->year eq "19$tdy" );
+        }
     }
-    foreach ( 50 .. 99 ) {
-        my $dt = $iso_parser->parse_datetime( "-$_" );
-        is( $dt->year, "19$_" );
-    }
+
+    is( $failed, 0, "parse_datetime() as a class method" );
 }
 
-foreach ( 0 .. 99 ) {
-    my $iso_parser = DateTime::Format::ISO8601->new( cut_off_year => $_ );
+# parse_datetime() as an object method
 
-    foreach ( 0 .. $iso_parser->cut_off_year ) {
-        my $dt = $iso_parser->parse_datetime( "-" . sprintf( "%02d", $_ ) );
-        is( $dt->year, "20" . sprintf( "%02d", $_ ) );
+{
+    my $failed = 0;
+
+    foreach my $n ( 0 .. 99 ) {
+        my $iso_parser = DateTime::Format::ISO8601->new( cut_off_year => $n );
+
+        foreach my $i ( 0 .. $iso_parser->cut_off_year ) {
+            my $tdy = sprintf( "%02d", $i );
+            my $dt = $iso_parser->parse_datetime( "-$tdy" );
+            $failed++ unless ( $dt->year eq "20$tdy" );
+        }
+
+        foreach my $i ( ( $iso_parser->cut_off_year + 1 ) .. 99 ) {
+            my $tdy = sprintf( "%02d", $i );
+            my $dt = $iso_parser->parse_datetime( "-$tdy" );
+            $failed++ unless ( $dt->year eq "19$tdy" );
+        }
     }
-    foreach ( ( $iso_parser->cut_off_year + 1 ) .. 99 ) {
-        my $dt = $iso_parser->parse_datetime( "-" . sprintf( "%02d", $_ ) );
-        is( $dt->year, "19" . sprintf( "%02d", $_ ) );
-    }
+    
+    is( $failed, 0, "parse_datetime() as an object method" );
 }

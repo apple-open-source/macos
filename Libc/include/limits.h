@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2004-2007, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -64,15 +64,7 @@
 #include <machine/limits.h>
 #include <sys/syslimits.h>
 
-#if !defined(_ANSI_SOURCE)
-#define _POSIX_AIO_LISTIO_MAX   2
-#define _POSIX_AIO_MAX          1
-#define _POSIX_DELAYTIMER_MAX   32
-#define _POSIX_HOST_NAME_MAX    255
-#define _POSIX_LOGIN_NAME_MAX   9
-#define _POSIX_MQ_OPEN_MAX      8
-#define _POSIX_MQ_PRIO_MAX	32
-
+#if __DARWIN_C_LEVEL > __DARWIN_C_ANSI
 #define	_POSIX_ARG_MAX		4096
 #define	_POSIX_CHILD_MAX	25
 #define	_POSIX_LINK_MAX		8
@@ -87,42 +79,70 @@
 #define	_POSIX_STREAM_MAX	8
 #define	_POSIX_TZNAME_MAX	6
 
-#define _POSIX_RE_DUP_MAX 			255
+#define	_POSIX2_BC_BASE_MAX		99
+#define	_POSIX2_BC_DIM_MAX		2048
+#define	_POSIX2_BC_SCALE_MAX		99
+#define	_POSIX2_BC_STRING_MAX		1000
+#define	_POSIX2_EQUIV_CLASS_MAX		2
+#define	_POSIX2_EXPR_NEST_MAX		32
+#define	_POSIX2_LINE_MAX		2048
+#define	_POSIX2_RE_DUP_MAX		255
+#endif /* __DARWIN_C_LEVEL > __DARWIN_C_ANSI */
+
+#if __DARWIN_C_LEVEL >= 199309L
+#define _POSIX_AIO_LISTIO_MAX   2
+#define _POSIX_AIO_MAX          1
+#define _POSIX_DELAYTIMER_MAX   32
+#define _POSIX_MQ_OPEN_MAX      8
+#define _POSIX_MQ_PRIO_MAX	32
 #define _POSIX_RTSIG_MAX 			8
 #define _POSIX_SEM_NSEMS_MAX 			256
 #define _POSIX_SEM_VALUE_MAX 			32767
 #define _POSIX_SIGQUEUE_MAX 			32
-#define _POSIX_SS_REPL_MAX 			4
-#define _POSIX_SYMLINK_MAX 			255
-#define _POSIX_SYMLOOP_MAX 			8
+#define _POSIX_TIMER_MAX 			32
+#endif /* __DARWIN_C_LEVEL >= 199309L */
+
+#if __DARWIN_C_LEVEL >= 199506L
 #define _POSIX_THREAD_DESTRUCTOR_ITERATIONS 	4
 #define _POSIX_THREAD_KEYS_MAX 			128
 #define _POSIX_THREAD_THREADS_MAX 		64
-#define _POSIX_TIMER_MAX 			32
+#endif /* __DARWIN_C_LEVEL >= 199506L */
+
+#if __DARWIN_C_LEVEL >= 200112
+#define _POSIX_HOST_NAME_MAX    255
+#define _POSIX_LOGIN_NAME_MAX   9
+#define _POSIX_SS_REPL_MAX 			4
+#define _POSIX_SYMLINK_MAX 			255
+#define _POSIX_SYMLOOP_MAX 			8
 #define _POSIX_TRACE_EVENT_NAME_MAX 		30
 #define _POSIX_TRACE_NAME_MAX 			8
 #define _POSIX_TRACE_SYS_MAX 			8
 #define _POSIX_TRACE_USER_EVENT_MAX 		32
 #define _POSIX_TTY_NAME_MAX 			9
-
-#define	_POSIX2_BC_BASE_MAX		99
-#define	_POSIX2_BC_DIM_MAX		2048
-#define	_POSIX2_BC_SCALE_MAX		99
-#define	_POSIX2_BC_STRING_MAX		1000
 #define _POSIX2_CHARCLASS_NAME_MAX	14
 #define	_POSIX2_COLL_WEIGHTS_MAX	2
-#define	_POSIX2_EQUIV_CLASS_MAX		2
-#define	_POSIX2_EXPR_NEST_MAX		32
-#define	_POSIX2_LINE_MAX		2048
-#define	_POSIX2_RE_DUP_MAX		255
 
-#define PTHREAD_STACK_MIN 		8192
+#define _POSIX_RE_DUP_MAX 		_POSIX2_RE_DUP_MAX
+#endif /* __DARWIN_C_LEVEL >= 200112 */
+
+#if __DARWIN_C_LEVEL >= 200809L
 #define PTHREAD_DESTRUCTOR_ITERATIONS 	4
 #define PTHREAD_KEYS_MAX 		512
+#define PTHREAD_STACK_MIN 		8192
+#endif /* __DARWIN_C_LEVEL >= 200809L */
 
-#if (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+#define OFF_MIN		LLONG_MIN	/* min value for an off_t */
+#define OFF_MAX		LLONG_MAX	/* max value for an off_t */
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
+/* Actually for XSI Visible */
+#if __DARWIN_C_LEVEL > __DARWIN_C_ANSI
+
+/* Removed in Issue 6 */
+#if !defined(_POSIX_C_SOURCE) || _POSIX_C_SOURCE < 200112L
 #define PASS_MAX	128
-#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+#endif
 
 #define NL_ARGMAX	9
 #define NL_LANGMAX	14
@@ -136,9 +156,8 @@
 #define _XOPEN_NAME_MAX 255
 #define _XOPEN_PATH_MAX 1024
 
-#endif /* _ANSI_SOURCE */
+#endif /* __DARWIN_C_LEVEL > __DARWIN_C_ANSI */
 
 /* NZERO to be defined here. TBD. See also sys/param.h  */
 
 #endif /* !_LIMITS_H_ */
-

@@ -19,8 +19,8 @@
  */
 
 #include "config.h"
+#include "webkitdownload.h"
 
-#include <glib/gi18n-lib.h>
 #include "GRefPtr.h"
 #include "Noncopyable.h"
 #include "NotImplemented.h"
@@ -28,14 +28,17 @@
 #include "ResourceHandleInternal.h"
 #include "ResourceRequest.h"
 #include "ResourceResponse.h"
-#include "webkitdownload.h"
+#include "webkitdownloadprivate.h"
 #include "webkitenumtypes.h"
+#include "webkitglobals.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
+#include "webkitnetworkrequestprivate.h"
 #include "webkitnetworkresponse.h"
-#include "webkitprivate.h"
-#include <wtf/text/CString.h>
-
+#include "webkitnetworkresponseprivate.h"
+#include <glib/gi18n-lib.h>
 #include <glib/gstdio.h>
+#include <wtf/text/CString.h>
 
 #ifdef ERROR
 #undef ERROR
@@ -54,13 +57,14 @@ using namespace WebCore;
  * out what is to be downloaded, and do it itself.
  */
 
-class DownloadClient : public Noncopyable, public ResourceHandleClient {
+class DownloadClient : public ResourceHandleClient {
+    WTF_MAKE_NONCOPYABLE(DownloadClient);
     public:
         DownloadClient(WebKitDownload*);
 
         virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
         virtual void didReceiveData(ResourceHandle*, const char*, int, int);
-        virtual void didFinishLoading(ResourceHandle*);
+        virtual void didFinishLoading(ResourceHandle*, double);
         virtual void didFail(ResourceHandle*, const ResourceError&);
         virtual void wasBlocked(ResourceHandle*);
         virtual void cannotShowURL(ResourceHandle*);
@@ -68,8 +72,6 @@ class DownloadClient : public Noncopyable, public ResourceHandleClient {
     private:
         WebKitDownload* m_download;
 };
-
-#define WEBKIT_DOWNLOAD_GET_PRIVATE(obj)    (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_DOWNLOAD, WebKitDownloadPrivate))
 
 struct _WebKitDownloadPrivate {
     gchar* destinationURI;
@@ -229,7 +231,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
     objectClass->get_property = webkit_download_get_property;
     objectClass->set_property = webkit_download_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitDownload::error:
@@ -387,7 +389,7 @@ static void webkit_download_class_init(WebKitDownloadClass* downloadClass)
 
 static void webkit_download_init(WebKitDownload* download)
 {
-    WebKitDownloadPrivate* priv = WEBKIT_DOWNLOAD_GET_PRIVATE(download);
+    WebKitDownloadPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(download, WEBKIT_TYPE_DOWNLOAD, WebKitDownloadPrivate);
     download->priv = priv;
 
     priv->downloadClient = new DownloadClient(download);
@@ -419,8 +421,8 @@ WebKitDownload* webkit_download_new_with_handle(WebKitNetworkRequest* request, W
     g_return_val_if_fail(request, NULL);
 
     ResourceHandleInternal* d = handle->getInternal();
-    if (d->m_msg)
-        soup_session_pause_message(webkit_get_default_session(), d->m_msg);
+    if (d->m_soupMessage)
+        soup_session_pause_message(webkit_get_default_session(), d->m_soupMessage.get());
 
     WebKitDownload* download = WEBKIT_DOWNLOAD(g_object_new(WEBKIT_TYPE_DOWNLOAD, "network-request", request, NULL));
     WebKitDownloadPrivate* priv = download->priv;
@@ -485,14 +487,15 @@ void webkit_download_start(WebKitDownload* download)
     g_return_if_fail(priv->status == WEBKIT_DOWNLOAD_STATUS_CREATED);
     g_return_if_fail(priv->timer == NULL);
 
+    // For GTK, when downloading a file NetworkingContext is null
     if (!priv->resourceHandle)
-        priv->resourceHandle = ResourceHandle::create(core(priv->networkRequest), priv->downloadClient, 0, false, false);
+        priv->resourceHandle = ResourceHandle::create(/* Null NetworkingContext */ NULL, core(priv->networkRequest), priv->downloadClient, false, false);
     else {
         priv->resourceHandle->setClient(priv->downloadClient);
 
         ResourceHandleInternal* d = priv->resourceHandle->getInternal();
-        if (d->m_msg)
-            soup_session_unpause_message(webkit_get_default_session(), d->m_msg);
+        if (d->m_soupMessage)
+            soup_session_unpause_message(webkit_get_default_session(), d->m_soupMessage.get());
     }
 
     priv->timer = g_timer_new();
@@ -558,7 +561,7 @@ const gchar* webkit_download_get_uri(WebKitDownload* download)
  * Retrieves the #WebKitNetworkRequest object that backs the download
  * process.
  *
- * Returns: the #WebKitNetworkRequest instance
+ * Returns: (transfer none): the #WebKitNetworkRequest instance
  *
  * Since: 1.1.2
  */
@@ -577,7 +580,7 @@ WebKitNetworkRequest* webkit_download_get_network_request(WebKitDownload* downlo
  * Retrieves the #WebKitNetworkResponse object that backs the download
  * process.
  *
- * Returns: the #WebKitNetworkResponse instance
+ * Returns: (transfer none): the #WebKitNetworkResponse instance
  *
  * Since: 1.1.16
  */
@@ -592,7 +595,7 @@ WebKitNetworkResponse* webkit_download_get_network_response(WebKitDownload* down
 static void webkit_download_set_response(WebKitDownload* download, const ResourceResponse& response)
 {
     WebKitDownloadPrivate* priv = download->priv;
-    priv->networkResponse = webkit_network_response_new_with_core_response(response);
+    priv->networkResponse = kitNew(response);
 
     if (!response.isNull() && !response.suggestedFilename().isEmpty())
         webkit_download_set_suggested_filename(download, response.suggestedFilename().utf8().data());
@@ -924,12 +927,12 @@ void DownloadClient::didReceiveResponse(ResourceHandle*, const ResourceResponse&
     webkit_download_set_response(m_download, response);
 }
 
-void DownloadClient::didReceiveData(ResourceHandle*, const char* data, int length, int lengthReceived)
+void DownloadClient::didReceiveData(ResourceHandle*, const char* data, int length, int encodedDataLength)
 {
     webkit_download_received_data(m_download, data, length);
 }
 
-void DownloadClient::didFinishLoading(ResourceHandle*)
+void DownloadClient::didFinishLoading(ResourceHandle*, double)
 {
     webkit_download_finished_loading(m_download);
 }

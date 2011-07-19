@@ -82,8 +82,9 @@ am_libpam_la_OBJECTS = libpam_la-openpam_borrow_cred.lo \
 	libpam_la-pam_putenv.lo libpam_la-pam_set_data.lo \
 	libpam_la-pam_set_item.lo libpam_la-pam_setcred.lo \
 	libpam_la-pam_setenv.lo libpam_la-pam_start.lo \
-	libpam_la-pam_strerror.lo libpam_la-pam_verror.lo \
-	libpam_la-pam_vinfo.lo libpam_la-pam_vprompt.lo \
+	libpam_la-pam_strerror.lo libpam_la-pam_unsetenv.lo \
+	libpam_la-pam_verror.lo libpam_la-pam_vinfo.lo \
+	libpam_la-pam_vprompt.lo \
 	$(am__objects_1)
 libpam_la_OBJECTS = $(am_libpam_la_OBJECTS)
 DEFAULT_INCLUDES = -I. -I$(srcdir) -I$(top_builddir)
@@ -262,6 +263,7 @@ libpam_la_SOURCES = \
 	pam_setenv.c \
 	pam_start.c \
 	pam_strerror.c \
+	pam_unsetenv.c \
 	pam_verror.c \
 	pam_vinfo.c \
 	pam_vprompt.c \
@@ -395,6 +397,7 @@ distclean-compile:
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_setenv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_start.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_strerror.Plo@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_unsetenv.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_verror.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_vinfo.Plo@am__quote@
 @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libpam_la-pam_vprompt.Plo@am__quote@
@@ -685,6 +688,13 @@ libpam_la-pam_strerror.lo: pam_strerror.c
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pam_strerror.c' object='libpam_la-pam_strerror.lo' libtool=yes @AMDEPBACKSLASH@
 @AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
 @am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpam_la_CFLAGS) $(CFLAGS) -c -o libpam_la-pam_strerror.lo `test -f 'pam_strerror.c' || echo '$(srcdir)/'`pam_strerror.c
+
+libpam_la-pam_unsetenv.lo: pam_unsetenv.c
+@am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpam_la_CFLAGS) $(CFLAGS) -MT libpam_la-pam_unsetenv.lo -MD -MP -MF "$(DEPDIR)/libpam_la-pam_unsetenv.Tpo" -c -o libpam_la-pam_unsetenv.lo `test -f 'pam_unsetenv.c' || echo '$(srcdir)/'`pam_unsetenv.c; \
+@am__fastdepCC_TRUE@	then mv -f "$(DEPDIR)/libpam_la-pam_unsetenv.Tpo" "$(DEPDIR)/libpam_la-pam_unsetenv.Plo"; else rm -f "$(DEPDIR)/libpam_la-pam_unsetenv.Tpo"; exit 1; fi
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='pam_unsetenv.c' object='libpam_la-pam_unsetenv.lo' libtool=yes @AMDEPBACKSLASH@
+@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
+@am__fastdepCC_FALSE@	$(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpam_la_CFLAGS) $(CFLAGS) -c -o libpam_la-pam_unsetenv.lo `test -f 'pam_unsetenv.c' || echo '$(srcdir)/'`pam_unsetenv.c
 
 libpam_la-pam_verror.lo: pam_verror.c
 @am__fastdepCC_TRUE@	if $(LIBTOOL) --tag=CC --mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) $(CPPFLAGS) $(libpam_la_CFLAGS) $(CFLAGS) -MT libpam_la-pam_verror.lo -MD -MP -MF "$(DEPDIR)/libpam_la-pam_verror.Tpo" -c -o libpam_la-pam_verror.lo `test -f 'pam_verror.c' || echo '$(srcdir)/'`pam_verror.c; \

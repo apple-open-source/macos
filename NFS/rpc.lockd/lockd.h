@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,8 +63,11 @@ struct nfs_conf_lockd {
 	int grace_period;
 	int host_monitor_cache_timeout;
 	int port;
+	int send_using_tcp;
 	int shutdown_delay_client;
 	int shutdown_delay_server;
+	int tcp;
+	int udp;
 	int verbose;
 };
 
@@ -88,5 +91,3 @@ int statd_stop(void);
 /* XXX these should be in some system headers */
 typedef u_int32_t rpcvers_t;
 int nfsclnt(int, void *);
-extern int callrpc(const char *, int, int, int, xdrproc_t, void *, xdrproc_t , void *);
-

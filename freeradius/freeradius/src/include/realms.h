@@ -15,6 +15,9 @@ RCSIDH(realms_h, "$Id$")
 #define HOME_TYPE_INVALID (0)
 #define HOME_TYPE_AUTH    (1)
 #define HOME_TYPE_ACCT    (2)
+#ifdef WITH_COA
+#define HOME_TYPE_COA     (3)
+#endif
 
 #define HOME_PING_CHECK_NONE		(0)
 #define HOME_PING_CHECK_STATUS_SERVER	(1)
@@ -45,9 +48,12 @@ typedef struct home_server {
 	struct timeval	when;
 
 	int		response_window;
+	int		no_response_fail;
 	int		max_outstanding; /* don't overload it */
 	int		currently_outstanding;
+	int		message_authenticator;
 
+	time_t		last_packet;
 	struct timeval	revive_time;
 	struct timeval	zombie_period_start;
 	int		zombie_period; /* unresponsive for T, mark it dead */
@@ -65,8 +71,16 @@ typedef struct home_server {
 
 	int		revive_interval; /* if it doesn't support pings */
 	CONF_SECTION	*cs;
+#ifdef WITH_COA
+	int			coa_irt;
+	int			coa_mrc;
+	int			coa_mrt;
+	int			coa_mrd;
+#endif
 #ifdef WITH_STATS
 	int		number;
+
+	fr_ipaddr_t	src_ipaddr; /* preferred source IP address */
 
 	fr_stats_t	stats;
 
@@ -117,8 +131,13 @@ REALM *realm_find2(const char *name); /* ... with name taken from realm_find */
 
 home_server *home_server_ldb(const char *realmname, home_pool_t *pool, REQUEST *request);
 home_server *home_server_find(fr_ipaddr_t *ipaddr, int port);
+int	home_server_create_listeners(void);
+#ifdef WITH_COA
+home_server *home_server_byname(const char *name, int type);
+#endif
 #ifdef WITH_STATS
 home_server *home_server_bynumber(int number);
 #endif
+home_pool_t *home_pool_byname(const char *name, int type);
 
 #endif /* REALMS_H */

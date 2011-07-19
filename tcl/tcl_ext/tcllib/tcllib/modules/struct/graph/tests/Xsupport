@@ -6,7 +6,7 @@
 #
 # All rights reserved.
 #
-# RCS: @(#) $Id: Xsupport,v 1.2 2008/10/11 23:23:48 andreas_kupries Exp $
+# RCS: @(#) $Id: Xsupport,v 1.4 2009/11/03 17:38:30 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -144,7 +144,7 @@ proc validate_serial {g serial {nodes {}}} {
 
 proc SETUP {{g mygraph}} {
     catch {$g destroy}
-    graph $g
+    struct::graph $g
 }
 
 #----------------------------------------------------------------------
@@ -199,5 +199,122 @@ proc MissingKey {e type k} {return "invalid key \"$k\" for $type \"$e\""}
 
 # Fake for graph attribute tests
 proc MissingGraph {args} {return {Bogus missing}}
+
+#----------------------------------------------------------------------
+
+# Helper commands for TSP problems.
+
+# 1. Generate canonical arc direction for a set of arcs, assuming that
+#    the arcs are specified as {nodeA nodeB}. Handles plain arc names
+#    as well, by ignoring them. Works only if plain arc names do not
+#    contain spaces.
+
+proc undirected {arcs} {
+    # arcs = list(arc), arc = list(source target)
+    set result {}
+    foreach a $arcs {
+	if {[llength $a] < 2} {
+	    lappend result $a
+	} else {
+	    lappend result [lsort $a]
+	}
+    }
+    return $result
+}
+
+# 2. Canonical representations of TSP tours.
+# 2a. For symmetrical graphs the tour weight is invariant under node
+#     rotation and reversal of direction.
+# 2b. For asymmetrical graphs the tour weight is invariant under node
+#     rotation.
+#
+# 'toursort' generates a canonical representation for a tour per (2a).
+# First node is smallest node in the tour, second node is the smallest
+# of the two neighbours in the tour, of the first node.
+#
+# 'toursorta' generates a canonical representation for a tour per (2b).
+# First node is smallest node in the tour.
+#
+# 'Smallest' isdefined through lexicographical comparison of node
+# names (lsort -dict).
+
+proc toursort {nodes} {
+    # Remember: last(nodes) == first(nodes)
+
+    # Empty or single-node tour => nothing to do.
+    if {[llength $nodes] <= 2} {
+	return $nodes
+    }
+
+    # Two-node tour => Sort it.
+    if {[llength $nodes] == 2} {
+	return [list {*}[set first [lsort -dict [lrange $nodes 0 1]]] $first]
+    }
+
+    # Three or more nodes requires more complex operations.
+
+    set nodes [lrange $nodes 0 end-1] ; # Drop the duplicate
+    set min [lindex [lsort -dict $nodes] 0]
+    set pos [lsearch -exact $nodes $min]
+
+    # Extended list with pre-fist/post-last nodes to avoid boundary
+    # computations when getting the neighbours of min.
+
+    set e [list [lindex $nodes end] {*}$nodes [lindex $nodes 0]]
+
+    # We have to correct pos (+1) for the extended list, inlining this
+    # into the neighbour extraction, we are looking for the nodes at
+    # locations (pos+1)-1 and (pos+1)+1, i.e. pos and pos+2.
+
+    set pre  [lindex $e $pos]
+    set post [lindex $e $pos+2]
+
+    if {[lindex [lsort -dict [list $pre $post]] 0] eq $pre} {
+	# pre < post => The direction is wrong, reverse.
+	set nodes [lreverse $nodes]
+	set pos   [lsearch -exact $nodes $min]
+    }
+
+    # Now it is time to rotate the node last to bring min to the
+    # front, if it is not there already.
+
+    if {$pos > 0} {
+	set nodes [list {*}[lrange $nodes ${pos} end] {*}[lrange $nodes 0 ${pos}-1]]
+    }
+
+    # Re-add the duplicate.
+    lappend nodes [lindex $nodes 0]
+    return $nodes
+}
+
+proc toursorta {nodes} {
+    # Remember: last(nodes) == first(nodes)
+
+    # Empty or single-node tour => nothing to do.
+    if {[llength $nodes] <= 2} {
+	return $nodes
+    }
+
+    # Two-node tour => Sort it.
+    if {[llength $nodes] == 2} {
+	return [list {*}[set first [lsort -dict [lrange $nodes 0 1]]] $first]
+    }
+
+    # Three or more nodes requires more complex operations.
+
+    set nodes [lrange $nodes 0 end-1] ; # Drop the duplicate
+    set pos   [lsearch -exact $nodes [lindex [lsort -dict $nodes] 0]]
+
+    # Now it is time to rotate the node last to bring min to the
+    # front, if it is not there already.
+
+    if {$pos > 0} {
+	set nodes [list {*}[lrange $nodes ${pos} end] {*}[lrange $nodes 0 ${pos}-1]]
+    }
+
+    # Re-add the duplicate.
+    lappend nodes [lindex $nodes 0]
+    return $nodes
+}
 
 #----------------------------------------------------------------------

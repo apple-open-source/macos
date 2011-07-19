@@ -1,66 +1,62 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-    Copyright (C) 2007 Eric Seidel <eric@webkit.org>
-    Copyright (C) 2008 Apple Inc. All rights reserved.
-    Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
-    Copyright (C) Research In Motion Limited 2010. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG_ANIMATION)
 #include "SVGAnimationElement.h"
 
-#include "Color.h"
+#include "Attribute.h"
 #include "CSSComputedStyleDeclaration.h"
 #include "CSSParser.h"
 #include "CSSPropertyNames.h"
+#include "Color.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventListener.h"
 #include "FloatConversion.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "PlatformString.h"
-#include "RenderObject.h"
 #include "SVGElementInstance.h"
 #include "SVGNames.h"
 #include "SVGParserUtilities.h"
+#include "SVGStyledElement.h"
 #include "SVGURIReference.h"
 #include "SVGUseElement.h"
 #include "XLinkNames.h"
-#include <math.h>
 #include <wtf/StdLibExtras.h>
 
 using namespace std;
 
 namespace WebCore {
-    
-SVGAnimationElement::SVGAnimationElement(const QualifiedName& tagName, Document* doc)
-    : SVGSMILElement(tagName, doc)
-    , SVGTests()
-    , SVGExternalResourcesRequired() 
-    , m_animationValid(false)
-{
-}
 
-SVGAnimationElement::~SVGAnimationElement()
+// Animated property definitions
+DEFINE_ANIMATED_BOOLEAN(SVGAnimationElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+SVGAnimationElement::SVGAnimationElement(const QualifiedName& tagName, Document* document)
+    : SVGSMILElement(tagName, document)
+    , m_animationValid(false)
 {
 }
 
@@ -73,11 +69,11 @@ static void parseKeyTimes(const String& parse, Vector<float>& result, bool verif
         String timeString = parseList[n];
         bool ok;
         float time = timeString.toFloat(&ok);
-        if (!ok || time < 0 || time > 1.f)
+        if (!ok || time < 0 || time > 1)
             goto fail;
         if (verifyOrder) {
             if (!n) {
-                if (time != 0)
+                if (time)
                     goto fail;
             } else if (time < result.last())
                 goto fail;
@@ -102,25 +98,25 @@ static void parseKeySplines(const String& parse, Vector<UnitBezier>& result)
     bool delimParsed = false;
     while (cur < end) {
         delimParsed = false;
-        float posA = 0.0f;
+        float posA = 0;
         if (!parseNumber(cur, end, posA)) {
             result.clear();
             return;
         }
 
-        float posB = 0.0f;
+        float posB = 0;
         if (!parseNumber(cur, end, posB)) {
             result.clear();
             return;
         }
 
-        float posC = 0.0f;
+        float posC = 0;
         if (!parseNumber(cur, end, posC)) {
             result.clear();
             return;
         }
 
-        float posD = 0.0f;
+        float posD = 0;
         if (!parseNumber(cur, end, posD, false)) {
             result.clear();
             return;
@@ -140,7 +136,7 @@ static void parseKeySplines(const String& parse, Vector<UnitBezier>& result)
         result.clear();
 }
 
-void SVGAnimationElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGAnimationElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::valuesAttr)
         attr->value().string().split(';', m_values);
@@ -165,6 +161,7 @@ void SVGAnimationElement::attributeChanged(Attribute* attr, bool preserveDecls)
 {
     // Assumptions may not hold after an attribute change.
     m_animationValid = false;
+    setInactive();
     SVGSMILElement::attributeChanged(attr, preserveDecls);
 }
 
@@ -172,8 +169,16 @@ void SVGAnimationElement::synchronizeProperty(const QualifiedName& attrName)
 {
     SVGSMILElement::synchronizeProperty(attrName);
 
-    if (attrName == anyQName() || SVGExternalResourcesRequired::isKnownAttribute(attrName))
+    if (attrName == anyQName()) {
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
+        return;
+    }
+
+    if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
+        synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
 float SVGAnimationElement::getStartTime() const
@@ -286,71 +291,56 @@ bool SVGAnimationElement::isAccumulated() const
     return value == sum && animationMode() != ToAnimation;
 }
 
-bool SVGAnimationElement::hasValidTarget() const
+bool SVGAnimationElement::isTargetAttributeCSSProperty(SVGElement* targetElement, const QualifiedName& attributeName)
 {
-    return targetElement();
-}
-    
-bool SVGAnimationElement::attributeIsCSS(const String& attributeName)
-{
-    // FIXME: We should have a map of all SVG properties and their attribute types so we
-    // could validate animations better. The spec is very vague about this.
-    unsigned id = cssPropertyID(attributeName);
-    // SVG range
-    if (id >= CSSPropertyClipPath && id <= CSSPropertyWritingMode)
-        return true;
-    // Regular CSS properties also in SVG
-    return id == CSSPropertyColor || id == CSSPropertyDisplay || id == CSSPropertyOpacity
-            || (id >= CSSPropertyFont && id <= CSSPropertyFontWeight) 
-            || id == CSSPropertyOverflow || id == CSSPropertyVisibility;
-}
-    
-bool SVGAnimationElement::targetAttributeIsCSS() const
-{
-    AttributeType type = attributeType();
-    if (type == AttributeTypeCSS)
-        return true;
-    if (type == AttributeTypeXML)
+    ASSERT(targetElement);
+    if (!targetElement->isStyled())
         return false;
-    return attributeIsCSS(attributeName());
+
+    return SVGStyledElement::isAnimatableCSSProperty(attributeName);
 }
 
 void SVGAnimationElement::setTargetAttributeAnimatedValue(const String& value)
 {
-    if (!hasValidTarget())
+    if (!hasValidAttributeType())
         return;
-    SVGElement* target = targetElement();
-    String attributeName = this->attributeName();
-    if (!target || attributeName.isEmpty() || value.isNull())
+    SVGElement* targetElement = this->targetElement();
+    QualifiedName attributeName = this->attributeName();
+    if (!targetElement || attributeName == anyQName() || value.isNull())
         return;
 
     // We don't want the instance tree to get rebuild. Instances are updated in the loop below.
-    if (target->isStyled())
-        static_cast<SVGStyledElement*>(target)->setInstanceUpdatesBlocked(true);
+    if (targetElement->isStyled())
+        static_cast<SVGStyledElement*>(targetElement)->setInstanceUpdatesBlocked(true);
         
+    bool attributeIsCSSProperty = isTargetAttributeCSSProperty(targetElement, attributeName);
+    // Stop animation, if attributeType is set to CSS by the user, but the attribute itself is not a CSS property.
+    if (!attributeIsCSSProperty && attributeType() == AttributeTypeCSS)
+        return;
+
     ExceptionCode ec;
-    bool isCSS = targetAttributeIsCSS();
-    if (isCSS) {
+    if (attributeIsCSSProperty) {
         // FIXME: This should set the override style, not the inline style.
         // Sadly override styles are not yet implemented.
-        target->style()->setProperty(attributeName, value, "", ec);
+        targetElement->style()->setProperty(attributeName.localName(), value, "", ec);
     } else {
         // FIXME: This should set the 'presentation' value, not the actual 
         // attribute value. Whatever that means in practice.
-        target->setAttribute(attributeName, value, ec);
+        targetElement->setAttribute(attributeName, value, ec);
     }
     
-    if (target->isStyled())
-        static_cast<SVGStyledElement*>(target)->setInstanceUpdatesBlocked(false);
+    if (targetElement->isStyled())
+        static_cast<SVGStyledElement*>(targetElement)->setInstanceUpdatesBlocked(false);
     
     // If the target element is used in an <use> instance tree, update that as well.
-    const HashSet<SVGElementInstance*>& instances = target->instancesForElement();
+    const HashSet<SVGElementInstance*>& instances = targetElement->instancesForElement();
     const HashSet<SVGElementInstance*>::const_iterator end = instances.end();
     for (HashSet<SVGElementInstance*>::const_iterator it = instances.begin(); it != end; ++it) {
         SVGElement* shadowTreeElement = (*it)->shadowTreeElement();
-        ASSERT(shadowTreeElement);
-        if (isCSS)
-            shadowTreeElement->style()->setProperty(attributeName, value, "", ec);
+        if (!shadowTreeElement)
+            continue;
+        if (attributeIsCSSProperty)
+            shadowTreeElement->style()->setProperty(attributeName.localName(), value, "", ec);
         else
             shadowTreeElement->setAttribute(attributeName, value, ec);
         (*it)->correspondingUseElement()->setNeedsStyleRecalc();
@@ -381,14 +371,25 @@ void SVGAnimationElement::calculateKeyTimesForCalcModePaced()
     // Normalize.
     for (unsigned n = 1; n < keyTimesForPaced.size() - 1; ++n)
         keyTimesForPaced[n] = keyTimesForPaced[n - 1] + keyTimesForPaced[n] / totalDistance;
-    keyTimesForPaced[keyTimesForPaced.size() - 1] = 1.f;
+    keyTimesForPaced[keyTimesForPaced.size() - 1] = 1;
 
     // Use key times calculated based on pacing instead of the user provided ones.
     m_keyTimes.swap(keyTimesForPaced);
 }
 
-static inline double solveEpsilon(double duration) { return 1. / (200. * duration); }
-    
+static inline double solveEpsilon(double duration) { return 1 / (200 * duration); }
+
+unsigned SVGAnimationElement::calculateKeyTimesIndex(float percent) const
+{
+    unsigned index;
+    unsigned keyTimesCount = m_keyTimes.size();
+    for (index = 1; index < keyTimesCount; ++index) {
+        if (m_keyTimes[index] >= percent)
+            break;
+    }
+    return --index;
+}
+
 float SVGAnimationElement::calculatePercentForSpline(float percent, unsigned splineIndex) const
 {
     ASSERT(calcMode() == CalcModeSpline);
@@ -404,26 +405,19 @@ float SVGAnimationElement::calculatePercentFromKeyPoints(float percent) const
 {
     ASSERT(!m_keyPoints.isEmpty());
     ASSERT(calcMode() != CalcModePaced);
-    unsigned keyTimesCount = m_keyTimes.size();
-    ASSERT(keyTimesCount > 1);
-    ASSERT(m_keyPoints.size() == keyTimesCount);
+    ASSERT(m_keyTimes.size() > 1);
+    ASSERT(m_keyPoints.size() == m_keyTimes.size());
 
-    unsigned index;
-    for (index = 1; index < keyTimesCount; ++index) {
-        if (m_keyTimes[index] >= percent)
-            break;
-    }
-    --index;
-
+    unsigned index = calculateKeyTimesIndex(percent);
     float fromPercent = m_keyTimes[index];
     float toPercent = m_keyTimes[index + 1];
     float fromKeyPoint = m_keyPoints[index];
     float toKeyPoint = m_keyPoints[index + 1];
     
     if (calcMode() == CalcModeDiscrete)
-        return percent == 1.0f ? toKeyPoint : fromKeyPoint;
+        return percent == 1 ? toKeyPoint : fromKeyPoint;
     
-    float keyPointPercent = percent == 1.0f ? 1.0f : (percent - fromPercent) / (toPercent - fromPercent);
+    float keyPointPercent = percent == 1 ? 1 : (percent - fromPercent) / (toPercent - fromPercent);
     
     if (calcMode() == CalcModeSpline) {
         ASSERT(m_keySplines.size() == m_keyPoints.size() - 1);
@@ -438,7 +432,7 @@ void SVGAnimationElement::currentValuesFromKeyPoints(float percent, float& effec
     ASSERT(m_keyPoints.size() == m_keyTimes.size());
     ASSERT(calcMode() != CalcModePaced);
     effectivePercent = calculatePercentFromKeyPoints(percent);
-    unsigned index = effectivePercent == 1.0f ? m_values.size() - 2 : static_cast<unsigned>(effectivePercent * (m_values.size() - 1));
+    unsigned index = effectivePercent == 1 ? m_values.size() - 2 : static_cast<unsigned>(effectivePercent * (m_values.size() - 1));
     from = m_values[index];
     to = m_values[index + 1];
 }
@@ -455,21 +449,15 @@ void SVGAnimationElement::currentValuesForValuesAnimation(float percent, float& 
     
     unsigned keyTimesCount = m_keyTimes.size();
     ASSERT(!keyTimesCount || valuesCount == keyTimesCount);
-    ASSERT(!keyTimesCount || (keyTimesCount > 1 && m_keyTimes[0] == 0));
+    ASSERT(!keyTimesCount || (keyTimesCount > 1 && !m_keyTimes[0]));
 
-    unsigned index;
-    for (index = 1; index < keyTimesCount; ++index) {
-        if (m_keyTimes[index] >= percent)
-            break;
-    }
-    --index;
-    
+    unsigned index = calculateKeyTimesIndex(percent);
     if (calcMode == CalcModeDiscrete) {
         if (!keyTimesCount) 
-            index = percent == 1.0f ? valuesCount - 1 : static_cast<unsigned>(percent * valuesCount);
+            index = percent == 1 ? valuesCount - 1 : static_cast<unsigned>(percent * valuesCount);
         from = m_values[index];
         to = m_values[index];
-        effectivePercent = 0.0f;
+        effectivePercent = 0;
         return;
     }
     
@@ -489,67 +477,53 @@ void SVGAnimationElement::currentValuesForValuesAnimation(float percent, float& 
     from = m_values[index];
     to = m_values[index + 1];
     ASSERT(toPercent > fromPercent);
-    effectivePercent = percent == 1.0f ? 1.0f : (percent - fromPercent) / (toPercent - fromPercent);
+    effectivePercent = percent == 1 ? 1 : (percent - fromPercent) / (toPercent - fromPercent);
     
     if (calcMode == CalcModeSpline) {
         ASSERT(m_keySplines.size() == m_values.size() - 1);
         effectivePercent = calculatePercentForSpline(effectivePercent, index);
     }
 }
-static inline void adjustForCurrentColor(String& value, SVGElement* target)
-{
-    if (!target || !target->isStyled() || value != "currentColor")
-        return;
-
-    if (RenderObject* targetRenderer = target->renderer())
-        value = targetRenderer->style()->visitedDependentColor(CSSPropertyColor).name();
-}
     
 void SVGAnimationElement::startedActiveInterval()
 {
     m_animationValid = false;
 
-    if (!hasValidTarget())
+    if (!hasValidAttributeType())
         return;
 
     // These validations are appropriate for all animation modes.
     if (hasAttribute(SVGNames::keyPointsAttr) && m_keyPoints.size() != m_keyTimes.size())
         return;
 
+    AnimationMode animationMode = this->animationMode();
     CalcMode calcMode = this->calcMode();
     if (calcMode == CalcModeSpline) {
-        unsigned num = m_keySplines.size() + 1;
-        if ((hasAttribute(SVGNames::keyPointsAttr) && m_keyPoints.size() != num) || m_values.size() != num)
+        unsigned splinesCount = m_keySplines.size() + 1;
+        if ((hasAttribute(SVGNames::keyPointsAttr) && m_keyPoints.size() != splinesCount)
+            || (animationMode == ValuesAnimation && m_values.size() != splinesCount))
             return;
     }
 
     String from = fromValue();
     String to = toValue();
     String by = byValue();
-    SVGElement* target = targetElement();
-    AnimationMode animationMode = this->animationMode();
     if (animationMode == NoAnimation)
         return;
-    if (animationMode == FromToAnimation) {
-        adjustForCurrentColor(from, target);
-        adjustForCurrentColor(to, target);
+    if (animationMode == FromToAnimation)
         m_animationValid = calculateFromAndToValues(from, to);
-    } else if (animationMode == ToAnimation) {
+    else if (animationMode == ToAnimation) {
         // For to-animations the from value is the current accumulated value from lower priority animations.
         // The value is not static and is determined during the animation.
-        adjustForCurrentColor(to, target);
         m_animationValid = calculateFromAndToValues(String(), to);
-    } else if (animationMode == FromByAnimation) {
-        adjustForCurrentColor(from, target);
-        adjustForCurrentColor(by, target);
+    } else if (animationMode == FromByAnimation)
         m_animationValid = calculateFromAndByValues(from, by);
-    } else if (animationMode == ByAnimation) {
-        adjustForCurrentColor(by, target);
+    else if (animationMode == ByAnimation)
         m_animationValid = calculateFromAndByValues(String(), by);
-    } else if (animationMode == ValuesAnimation) {
+    else if (animationMode == ValuesAnimation) {
         m_animationValid = m_values.size() > 1
             && (calcMode == CalcModePaced || !hasAttribute(SVGNames::keyTimesAttr) || hasAttribute(SVGNames::keyPointsAttr) || (m_values.size() == m_keyTimes.size()))
-            && (calcMode == CalcModeDiscrete || !m_keyTimes.size() || m_keyTimes.last() == 1.0)
+            && (calcMode == CalcModeDiscrete || !m_keyTimes.size() || m_keyTimes.last() == 1)
             && (calcMode != CalcModeSpline || ((m_keySplines.size() && (m_keySplines.size() == m_values.size() - 1)) || m_keySplines.size() == m_keyPoints.size() - 1))
             && (!hasAttribute(SVGNames::keyPointsAttr) || (m_keyTimes.size() > 1 && m_keyTimes.size() == m_keyPoints.size()));
         if (calcMode == CalcModePaced && m_animationValid)
@@ -564,20 +538,23 @@ void SVGAnimationElement::updateAnimation(float percent, unsigned repeat, SVGSMI
         return;
     
     float effectivePercent;
+    CalcMode mode = calcMode();
     if (animationMode() == ValuesAnimation) {
         String from;
         String to;
         currentValuesForValuesAnimation(percent, effectivePercent, from, to);
-        if (from != m_lastValuesAnimationFrom || to != m_lastValuesAnimationTo ) {
+        if (from != m_lastValuesAnimationFrom || to != m_lastValuesAnimationTo) {
             m_animationValid = calculateFromAndToValues(from, to);
             if (!m_animationValid)
                 return;
             m_lastValuesAnimationFrom = from;
             m_lastValuesAnimationTo = to;
         }
-    } else if (!m_keyPoints.isEmpty() && calcMode() != CalcModePaced)
+    } else if (!m_keyPoints.isEmpty() && mode != CalcModePaced)
         effectivePercent = calculatePercentFromKeyPoints(percent);
-    else 
+    else if (m_keyPoints.isEmpty() && mode == CalcModeSpline && m_keyTimes.size() > 1)
+        effectivePercent = calculatePercentForSpline(percent, calculateKeyTimesIndex(percent));
+    else
         effectivePercent = percent;
 
     calculateAnimatedValue(effectivePercent, repeat, resultElement);
@@ -588,7 +565,5 @@ void SVGAnimationElement::endedActiveInterval()
 }
 
 }
-
-// vim:ts=4:noet
 #endif // ENABLE(SVG_ANIMATION)
 

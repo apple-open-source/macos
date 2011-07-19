@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: formdata.c,v 1.122 2009-10-18 03:37:39 yangtse Exp $
  ***************************************************************************/
 
 /*
@@ -124,6 +123,7 @@ Content-Disposition: form-data; name="FILECONTENT"
 #include "curl_rand.h"
 #include "strequal.h"
 #include "curl_memory.h"
+#include "sendf.h"
 
 #define _MPRINTF_REPLACE /* use our functions only */
 #include <curl/mprintf.h>
@@ -172,7 +172,7 @@ AddHttpPost(char *name, size_t namelength,
             struct curl_httppost **last_post)
 {
   struct curl_httppost *post;
-  post = calloc(sizeof(struct curl_httppost), 1);
+  post = calloc(1, sizeof(struct curl_httppost));
   if(post) {
     post->name = name;
     post->namelength = (long)(name?(namelength?namelength:strlen(name)):0);
@@ -223,7 +223,7 @@ static FormInfo * AddFormInfo(char *value,
                               FormInfo *parent_form_info)
 {
   FormInfo *form_info;
-  form_info = calloc(sizeof(FormInfo), 1);
+  form_info = calloc(1, sizeof(struct FormInfo));
   if(form_info) {
     if(value)
       form_info->value = value;
@@ -411,7 +411,7 @@ CURLFORMcode FormAdd(struct curl_httppost **httppost,
   /*
    * We need to allocate the first struct to fill in.
    */
-  first_form = calloc(sizeof(struct FormInfo), 1);
+  first_form = calloc(1, sizeof(struct FormInfo));
   if(!first_form)
     return CURL_FORMADD_MEMORY;
 
@@ -976,7 +976,7 @@ int curl_formget(struct curl_httppost *form, void *arg,
   curl_off_t size;
   struct FormData *data, *ptr;
 
-  rc = Curl_getFormData(&data, form, NULL, &size);
+  rc = Curl_getformdata(NULL, &data, form, NULL, &size);
   if(rc != CURLE_OK)
     return (int)rc;
 
@@ -998,7 +998,8 @@ int curl_formget(struct curl_httppost *form, void *arg,
           return -1;
         }
       } while(nread == sizeof(buffer));
-    } else {
+    }
+    else {
       if(ptr->length != append(arg, ptr->line, ptr->length)) {
         Curl_formclean(&data);
         return -1;
@@ -1105,15 +1106,20 @@ static char *strippath(const char *fullfile)
 }
 
 /*
- * Curl_getFormData() converts a linked list of "meta data" into a complete
+ * Curl_getformdata() converts a linked list of "meta data" into a complete
  * (possibly huge) multipart formdata. The input list is in 'post', while the
  * output resulting linked lists gets stored in '*finalform'. *sizep will get
  * the total size of the whole POST.
  * A multipart/form_data content-type is built, unless a custom content-type
  * is passed in 'custom_content_type'.
+ *
+ * This function will not do a failf() for the potential memory failures but
+ * should for all other errors it spots. Just note that this function MAY get
+ * a NULL pointer in the 'data' argument.
  */
 
-CURLcode Curl_getFormData(struct FormData **finalform,
+CURLcode Curl_getformdata(struct SessionHandle *data,
+                          struct FormData **finalform,
                           struct curl_httppost *post,
                           const char *custom_content_type,
                           curl_off_t *sizep)
@@ -1271,23 +1277,6 @@ CURLcode Curl_getFormData(struct FormData **finalform,
         return result;
       }
 
-#if 0
-      /* The header Content-Transfer-Encoding: seems to confuse some receivers
-       * (like the built-in PHP engine). While I can't see any reason why it
-       * should, I can just as well skip this to the benefit of the users who
-       * are using such confused receivers.
-       */
-
-      if(file->contenttype &&
-         !checkprefix("text/", file->contenttype)) {
-        /* this is not a text content, mention our binary encoding */
-        result = AddFormDataf(&form, &size,
-                              "\r\nContent-Transfer-Encoding: binary");
-        if(result)
-          break;
-      }
-#endif
-
       result = AddFormDataf(&form, &size, "\r\n\r\n");
       if(result)
         break;
@@ -1327,50 +1316,31 @@ CURLcode Curl_getFormData(struct FormData **finalform,
                 break;
             }
           }
-
-          if(result) {
-            Curl_formclean(&firstform);
-            free(boundary);
-            return result;
-          }
-
         }
         else {
-#ifdef _FORM_DEBUG
-          fprintf(stderr,
-                  "\n==> Curl_getFormData couldn't open/read \"%s\"\n",
-                  file->contents);
-#endif
-          Curl_formclean(&firstform);
-          free(boundary);
+          if(data)
+            failf(data, "couldn't open file \"%s\"\n", file->contents);
           *finalform = NULL;
-          return CURLE_READ_ERROR;
+          result = CURLE_READ_ERROR;
         }
-
       }
-      else if(post->flags & HTTPPOST_BUFFER) {
+      else if(post->flags & HTTPPOST_BUFFER)
         /* include contents of buffer */
         result = AddFormData(&form, FORM_CONTENT, post->buffer,
                              post->bufferlength, &size);
-          if(result)
-            break;
-      }
-      else if(post->flags & HTTPPOST_CALLBACK) {
+      else if(post->flags & HTTPPOST_CALLBACK)
         /* the contents should be read with the callback and the size
            is set with the contentslength */
         result = AddFormData(&form, FORM_CALLBACK, post->userp,
                              post->contentslength, &size);
-        if(result)
-          break;
-      }
-      else {
+      else
         /* include the contents we got */
         result = AddFormData(&form, FORM_CONTENT, post->contents,
                              post->contentslength, &size);
-        if(result)
-          break;
-      }
-    } while((file = file->more) != NULL); /* for each specified file for this field */
+
+      file = file->more;
+    } while(file && !result); /* for each specified file for this field */
+
     if(result) {
       Curl_formclean(&firstform);
       free(boundary);
@@ -1666,25 +1636,25 @@ int main(int argc, argv_item_t argv[])
                   CURLFORM_END))
     ++errors;
 
-  rc = Curl_getFormData(&form, httppost, NULL, &size);
+  rc = Curl_getformdata(NULL, &form, httppost, NULL, &size);
   if(rc != CURLE_OK) {
     if(rc != CURLE_READ_ERROR) {
       const char *errortext = curl_easy_strerror(rc);
-      fprintf(stdout, "\n==> Curl_getFormData error: %s\n", errortext);
+      fprintf(stdout, "\n==> Curl_getformdata error: %s\n", errortext);
     }
     return 0;
   }
 
   Curl_FormInit(&formread, form);
 
-  do {
+  for(;;) {
     nread = Curl_FormReader(buffer, 1, sizeof(buffer),
                             (FILE *)&formread);
 
     if(nread < 1)
       break;
     fwrite(buffer, nread, 1, stdout);
-  } while(1);
+  }
 
   fprintf(stdout, "size: ");
   fprintf(stdout, "%" FORMAT_OFF_T, size);

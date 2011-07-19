@@ -10,7 +10,7 @@
 #
 # Copyright 2005 Jeffrey Hobbs
 #
-# RCS: @(#) $Id: panelframe.tcl,v 1.5 2008/06/17 20:28:27 hobbs Exp $
+# RCS: @(#) $Id: panelframe.tcl,v 1.6 2010/06/01 18:06:52 hobbs Exp $
 #
 
 if 0 {
@@ -28,7 +28,6 @@ if 0 {
 ###
 
 package require widget
-#package require tile
 
 namespace eval widget {
     variable entry_selbg

@@ -15,8 +15,7 @@
 #define DEBUG_TYPE "hello"
 #include "llvm/Pass.h"
 #include "llvm/Function.h"
-#include "llvm/ADT/StringExtras.h"
-#include "llvm/Support/Streams.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
 using namespace llvm;
 
@@ -30,9 +29,8 @@ namespace {
 
     virtual bool runOnFunction(Function &F) {
       HelloCounter++;
-      std::string fname = F.getName();
-      EscapeString(fname);
-      cerr << "Hello: " << fname << "\n";
+      errs() << "Hello: ";
+      errs().write_escaped(F.getName()) << '\n';
       return false;
     }
   };
@@ -49,16 +47,15 @@ namespace {
 
     virtual bool runOnFunction(Function &F) {
       HelloCounter++;
-      std::string fname = F.getName();
-      EscapeString(fname);
-      cerr << "Hello: " << fname << "\n";
+      errs() << "Hello: ";
+      errs().write_escaped(F.getName()) << '\n';
       return false;
     }
 
     // We don't modify the program, so we preserve all analyses
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
       AU.setPreservesAll();
-    };
+    }
   };
 }
 

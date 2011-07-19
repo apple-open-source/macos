@@ -61,7 +61,7 @@
 #include <net/if.h>
 #include <CoreFoundation/CFBundle.h>
 #include <CoreFoundation/CFUserNotification.h>
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 #include <CoreFoundation/CFNumber.h>
 #endif
 
@@ -249,6 +249,13 @@ void dialog_reminder(void *arg)
     }
 }        
 
+#if TARGET_OS_EMBEDDED
+// extra CFUserNotification keys
+static CFStringRef const SBUserNotificationTextAutocapitalizationType = CFSTR("SBUserNotificationTextAutocapitalizationType");
+static CFStringRef const SBUserNotificationTextAutocorrectionType = CFSTR("SBUserNotificationTextAutocorrectionType");
+static CFStringRef const SBUserNotificationGroupsTextFields = CFSTR("SBUserNotificationGroupsTextFields");
+#endif
+
 /* -----------------------------------------------------------------------------
 Returns 1 on OK, 0 if cancelled
 user and password have max size 256
@@ -262,6 +269,9 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
     CFURLRef			url;
     CFStringRef			str, str1;
     int				ret = 0, loop = 0;    
+#if TARGET_OS_EMBEDDED
+	int		nbfields = 0;
+#endif
 
     do {
     ret = 0;
@@ -309,6 +319,9 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 					break;
 			}
 			
+#if TARGET_OS_EMBEDDED
+			nbfields = CFArrayGetCount(array);
+#endif
             CFDictionaryAddValue(dict, kCFUserNotificationTextFieldTitlesKey, array);
             CFRelease(array);
         }
@@ -341,9 +354,35 @@ int dialog_password(char *user, int maxuserlen, char *passwd, int maxpasswdlen, 
 		if (dialog_type == DIALOG_PASSWORD_CHANGE)
 			flags += CFUserNotificationSecureTextField(0);
 
-#ifdef TARGET_EMBEDDED_OS
-		// make CFUN prettier
-		CFDictionarySetValue(dict, CFSTR("SBUserNotificationGroupsTextFields"), kCFBooleanTrue);
+#if TARGET_OS_EMBEDDED
+		if (nbfields > 0) {
+			CFMutableArrayRef autoCapsTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			CFMutableArrayRef autoCorrectionTypes = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			int i, zero = 0, one = 1;
+			CFNumberRef zeroRef = CFNumberCreate(NULL, kCFNumberIntType, &zero);
+			CFNumberRef oneRef = CFNumberCreate(NULL, kCFNumberIntType, &one);
+			
+			if (autoCapsTypes && autoCorrectionTypes && zeroRef && oneRef) {
+				for(i = 0; i < nbfields; i++) {
+					// no auto caps or autocorrection for any of our fields
+					CFArrayAppendValue(autoCapsTypes, zeroRef);
+					CFArrayAppendValue(autoCorrectionTypes, oneRef);
+				}
+				CFDictionarySetValue(dict, SBUserNotificationTextAutocapitalizationType, autoCapsTypes);
+				CFDictionarySetValue(dict, SBUserNotificationTextAutocorrectionType, autoCorrectionTypes);
+			}
+			if (autoCapsTypes)
+				CFRelease(autoCapsTypes);
+			if (autoCorrectionTypes)
+				CFRelease(autoCorrectionTypes);
+			if (zeroRef)
+				CFRelease(zeroRef);
+			if (oneRef)
+				CFRelease(oneRef);
+
+			// make CFUN prettier
+			CFDictionarySetValue(dict, SBUserNotificationGroupsTextFields, kCFBooleanTrue);
+		}
 #endif
 		
         dialog_alert = CFUserNotificationCreate(NULL, 0, flags, &err, dict);

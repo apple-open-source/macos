@@ -1,15 +1,15 @@
---- docs/conf/mime.types.orig	2009-08-28 07:37:37.000000000 -0700
-+++ docs/conf/mime.types	2009-10-30 16:05:38.000000000 -0700
-@@ -121,7 +121,7 @@
+--- docs/conf/mime.types.orig	2011-05-12 02:54:46.000000000 -0700
++++ docs/conf/mime.types	2011-05-12 03:04:20.000000000 -0700
+@@ -142,7 +142,7 @@
  # application/nss
  # application/ocsp-request
  # application/ocsp-response
 -application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy
-+application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy scpt dmgpart
++application/octet-stream	bin dms lha lrf lzh so iso dmg dist distz pkg bpk dump elc deploy mobipocket-ebook
  application/oda					oda
  application/oebps-package+xml			opf
  application/ogg					ogx
-@@ -912,6 +912,7 @@
+@@ -1010,6 +1010,7 @@
  application/x-java-jnlp-file			jnlp
  application/x-latex				latex
  application/x-mobipocket-ebook			prc mobi
@@ -17,7 +17,7 @@
  application/x-ms-application			application
  application/x-ms-wmd				wmd
  application/x-ms-wmz				wmz
-@@ -1031,7 +1032,7 @@
+@@ -1134,7 +1135,7 @@
  audio/midi					mid midi kar rmi
  # audio/mobile-xmf
  audio/mp4					mp4a
@@ -26,7 +26,7 @@
  # audio/mpa
  # audio/mpa-robust
  audio/mpeg					mpga mp2 mp2a mp3 m2a m3a
-@@ -1120,11 +1121,12 @@
+@@ -1226,12 +1227,13 @@
  image/g3fax					g3
  image/gif					gif
  image/ief					ief
@@ -35,12 +35,13 @@
  image/jpeg					jpeg jpg jpe
  # image/jpm
  # image/jpx
+ image/ktx					ktx
  # image/naplps
 +image/pict			pict pic pct
  image/png					png
  image/prs.btif					btif
  # image/prs.pti
-@@ -1158,12 +1160,14 @@
+@@ -1268,12 +1270,14 @@
  image/x-cmx					cmx
  image/x-freehand				fh fhc fh4 fh5 fh7
  image/x-icon					ico
@@ -55,30 +56,31 @@
  image/x-rgb					rgb
  image/x-xbitmap					xbm
  image/x-xpixmap					xpm
-@@ -1216,6 +1220,7 @@
+@@ -1328,6 +1332,7 @@
  # multipart/report
  # multipart/signed
  # multipart/voice-message
 +text/cache-manifest				manifest
+ # text/1d-interleaved-parityfec
  text/calendar					ics ifb
  text/css					css
- text/csv					csv
-@@ -1298,8 +1303,8 @@
+@@ -1416,9 +1421,9 @@
  video/mj2					mj2 mjp2
  # video/mp1s
  # video/mp2p
 -# video/mp2t
 -video/mp4					mp4 mp4v mpg4
+ # video/mp4v-es
 +video/mp2t					ts
 +video/mp4					mp4 mp4v mpg4 m4v
- # video/mp4v-es
  video/mpeg					mpeg mpg mpe m1v m2v
  # video/mpeg4-generic
-@@ -1337,6 +1342,7 @@
- # video/vnd.sealed.swf
+ # video/mpv
+@@ -1464,6 +1469,7 @@
  # video/vnd.sealedmedia.softseal.mov
+ video/vnd.uvvu.mp4				uvu uvvu
  video/vnd.vivo					viv
 +video/x-dv			dv dif
+ video/webm					webm
  video/x-f4v					f4v
  video/x-fli					fli
- video/x-flv					flv

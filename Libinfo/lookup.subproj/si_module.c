@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,15 +31,21 @@
 #include <errno.h>
 #include <pthread.h>
 #include <mach/mach.h>
+#include <dispatch/dispatch.h>
 
 #include "si_module.h"
 
 #define PLUGIN_DIR_PATH "/usr/lib/info"
 #define PLUGIN_BUNDLE_SUFFIX "so"
 
-#define WORKUNIT_CALL_ACTIVE   0x00000001
-#define WORKUNIT_THREAD_ACTIVE 0x00000002
-#define WORKUNIT_RETURNS_LIST  0x00000004
+#define WORKUNIT_CANCELLED     0x00000001
+#define WORKUNIT_RETURNS_LIST  0x00000002
+
+#ifdef __BIG_ENDIAN__
+#define WORKUNIT_CANCELLED_BIT_ADDRESS 31
+#else
+#define WORKUNIT_CANCELLED_BIT_ADDRESS 7
+#endif
 
 typedef struct si_async_workunit_s
 {
@@ -55,6 +61,7 @@ typedef struct si_async_workunit_s
 	uint32_t err;
 	/* async support below */
 	uint32_t flags;
+	int32_t refcount;
 	void *callback;
 	void *context;
 	mach_port_t port;
@@ -69,13 +76,13 @@ static uint32_t module_count = 0;
 static pthread_mutex_t module_mutex = PTHREAD_MUTEX_INITIALIZER;
 static si_async_workunit_t *si_async_worklist = NULL;
 
-__private_extern__ si_mod_t *si_module_static_search();
-__private_extern__ si_mod_t *si_module_static_file();
-__private_extern__ si_mod_t *si_module_static_cache();
-__private_extern__ si_mod_t *si_module_static_mdns();
+si_mod_t *si_module_static_search(void);
+si_mod_t *si_module_static_cache(void);
+si_mod_t *si_module_static_file(void);
 #ifdef DS_AVAILABLE
-__private_extern__ si_mod_t *si_module_static_ds();
+si_mod_t *si_module_static_ds(void);
 #endif
+si_mod_t *si_module_static_mdns(void);
 
 static void *
 si_mod_dlsym(void *so, const char *name, const char *sym)
@@ -94,22 +101,7 @@ si_mod_dlsym(void *so, const char *name, const char *sym)
 	return out;
 }
 
-static si_mod_t *
-si_mod_static(const char *name)
-{
-	if (name == NULL) return NULL;
-
-	if (string_equal(name, "search")) return si_module_static_search();
-	if (string_equal(name, "file")) return si_module_static_file();
-	if (string_equal(name, "cache")) return si_module_static_cache();
-	if (string_equal(name, "mdns")) return si_module_static_mdns();
-#ifdef DS_AVAILABLE
-	if (string_equal(name, "ds")) return si_module_static_ds();
-#endif
-	return NULL;
-}
-
-__private_extern__ si_mod_t *
+si_mod_t *
 si_module_with_path(const char *path, const char *name)
 {
 	void *so;
@@ -149,8 +141,8 @@ si_module_with_path(const char *path, const char *name)
 
 	if ((out == NULL) || (outname == NULL))
 	{
-		if (out != NULL) free(out);
-		if (outname != NULL) free(outname);
+		free(out);
+		free(outname);
 		dlclose(so);
 		errno = ENOMEM;
 		return NULL;
@@ -158,6 +150,7 @@ si_module_with_path(const char *path, const char *name)
 
 	out->name = outname;
 	out->refcount = 1;
+	out->flags = 0;
 	out->bundle = so;
 
 	status = si_sym_init(out);
@@ -176,84 +169,91 @@ si_module_with_path(const char *path, const char *name)
 si_mod_t *
 si_module_with_name(const char *name)
 {
-	uint32_t i;
-	char *path;
-	si_mod_t *out;
-
-	if (name == NULL)
+	static struct
 	{
-		errno = EINVAL;
+		const char *name;
+		si_mod_t *(*init)(void);
+		si_mod_t *module;
+	} modules[] =
+	{
+		{ "search", si_module_static_search, NULL },
+		{ "cache", si_module_static_cache, NULL },
+		{ "file", si_module_static_file, NULL },
+#ifdef DS_AVAILABLE
+		{ "ds", si_module_static_ds, NULL },
+#endif
+		{ "mdns", si_module_static_mdns, NULL },
+		{ NULL, NULL },
+	};
+
+	si_mod_t *si = NULL;
+	int i;
+
+	/*
+	 * We don't need to worry about locking during initialization
+	 * because all modules init routine returns static storage.
+	 */
+
+	/* Find the module by name */
+	for (i = 0; modules[i].name != NULL; ++i)
+	{
+		if (string_equal(name, modules[i].name))
+		{
+			si = modules[i].module;
+			if (si == NULL)
+			{
+				si = modules[i].init();
+				modules[i].module = si;
+			}
+
+			break;
+		}
+	}
+
+	if (si != NULL) return si;
+
+	pthread_mutex_lock(&module_mutex);
+	char *path = NULL;
+
+	asprintf(&path, "%s/%s.%s", PLUGIN_DIR_PATH, name, PLUGIN_BUNDLE_SUFFIX);
+
+	if (path == NULL)
+	{
+		errno = ENOMEM;
+		pthread_mutex_unlock(&module_mutex);
 		return NULL;
 	}
 
-	pthread_mutex_lock(&module_mutex);
+	si = si_module_with_path(path, name);
+	free(path);
 
-	for (i = 0; i < module_count; i++)
-	{
-		if (string_equal(module_list[i]->name, name))
-		{
-			si_module_retain(module_list[i]);
-			pthread_mutex_unlock(&module_mutex);
-			return module_list[i];
-		}
-	}
-
-	pthread_mutex_unlock(&module_mutex);
-	out = si_mod_static(name);
-	pthread_mutex_lock(&module_mutex);
-
-	if (out == NULL)
-	{
-		path = NULL;
-
-		/* mdns lives in dns.so */
-		asprintf(&path, "%s/%s.%s", PLUGIN_DIR_PATH, name, PLUGIN_BUNDLE_SUFFIX);
-
-		if (path == NULL)
-		{
-			errno = ENOMEM;
-			pthread_mutex_unlock(&module_mutex);
-			return NULL;
-		}
-
-		out = si_module_with_path(path, name);
-		free(path);
-	}
-
-	if (out == NULL)
+	if (si == NULL)
 	{
 		pthread_mutex_unlock(&module_mutex);
 		return NULL;
 	}
 
 	/* add out to module_list */
-	if (module_count == 0)
-	{
-		module_list = (si_mod_t **)calloc(1, sizeof(si_mod_t *));
-	}
-	else
-	{
-		module_list = (si_mod_t **)reallocf(module_list, (module_count + 1) * sizeof(si_mod_t *));
-	}
-
+	module_list = (si_mod_t **)reallocf(module_list, (module_count + 1) * sizeof(si_mod_t *));
 	if (module_list == NULL)
 	{
 		pthread_mutex_unlock(&module_mutex);
-		return out;
+		return si;
 	}
 
-	module_list[module_count] = out;
+	module_list[module_count] = si;
 	module_count++;
 
 	pthread_mutex_unlock(&module_mutex);
 
-	return out;
+	return si;
 }
 
-__private_extern__ si_mod_t *
+si_mod_t *
 si_module_retain(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
+	if (si->flags & SI_MOD_FLAG_STATIC) return si;
 
 	OSAtomicIncrement32Barrier(&si->refcount);
 
@@ -266,6 +266,7 @@ si_module_release(si_mod_t *si)
 	int32_t i;
 
 	if (si == NULL) return;
+	if (si->flags & SI_MOD_FLAG_STATIC) return;
 
 	i = OSAtomicDecrement32Barrier(&si->refcount);
 	if (i > 0) return;
@@ -295,21 +296,21 @@ si_module_release(si_mod_t *si)
 
 	pthread_mutex_unlock(&module_mutex);
 
-	if (si->sim_close != NULL) si->sim_close(si);
+	if (si->vtable->sim_close != NULL) si->vtable->sim_close(si);
 	if (si->bundle != NULL) dlclose(si->bundle);
-	if (si->name != NULL) free(si->name);
+	free(si->name);
 	free(si);
 }
 
-__private_extern__ const char *
+const char *
 si_module_name(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
 
-	return si->name;
+	return (const char *)si->name;
 }
 
-__private_extern__ int
+int
 si_module_vers(si_mod_t *si)
 {
 	if (si == NULL) return 0;
@@ -317,7 +318,7 @@ si_module_vers(si_mod_t *si)
 	return si->vers;
 }
 
-__private_extern__ int
+int
 si_item_match(si_item_t *item, int cat, const void *name, uint32_t num, int which)
 {
 	int i;
@@ -489,7 +490,7 @@ si_item_match(si_item_t *item, int cat, const void *name, uint32_t num, int whic
 	return 0;
 }
 
-__private_extern__ int
+int
 si_item_is_valid(si_item_t *item)
 {
 	si_mod_t *si;
@@ -499,268 +500,268 @@ si_item_is_valid(si_item_t *item)
 	si = item->src;
 
 	if (si == NULL) return 0;
-	if (si->sim_is_valid == NULL) return 0;
+	if (si->vtable->sim_is_valid == NULL) return 0;
 
-	return si->sim_is_valid(si, item);
+	return si->vtable->sim_is_valid(si, item);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_user_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_user_byname == NULL) return NULL;
-	return si->sim_user_byname(si, name);
+	if (si->vtable->sim_user_byname == NULL) return NULL;
+	return si->vtable->sim_user_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_user_byuid(si_mod_t *si, uid_t uid)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_user_byuid == NULL) return NULL;
-	return si->sim_user_byuid(si, uid);
+	if (si->vtable->sim_user_byuid == NULL) return NULL;
+	return si->vtable->sim_user_byuid(si, uid);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_user_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_user_all == NULL) return NULL;
-	return si->sim_user_all(si);
+	if (si->vtable->sim_user_all == NULL) return NULL;
+	return si->vtable->sim_user_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_group_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_group_byname == NULL) return NULL;
-	return si->sim_group_byname(si, name);
+	if (si->vtable->sim_group_byname == NULL) return NULL;
+	return si->vtable->sim_group_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_group_bygid(si_mod_t *si, gid_t gid)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_group_bygid == NULL) return NULL;
-	return si->sim_group_bygid(si, gid);
+	if (si->vtable->sim_group_bygid == NULL) return NULL;
+	return si->vtable->sim_group_bygid(si, gid);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_group_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_group_all == NULL) return NULL;
-	return si->sim_group_all(si);
+	if (si->vtable->sim_group_all == NULL) return NULL;
+	return si->vtable->sim_group_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_grouplist(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_grouplist == NULL) return NULL;
-	return si->sim_grouplist(si, name);
+	if (si->vtable->sim_grouplist == NULL) return NULL;
+	return si->vtable->sim_grouplist(si, name);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_netgroup_byname(struct si_mod_s *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_netgroup_byname == NULL) return NULL;
-	return si->sim_netgroup_byname(si, name);
+	if (si->vtable->sim_netgroup_byname == NULL) return NULL;
+	return si->vtable->sim_netgroup_byname(si, name);
 }
 
-__private_extern__ int
+int
 si_in_netgroup(struct si_mod_s *si, const char *name, const char *host, const char *user, const char *domain)
 {
 	if (si == NULL) return 0;
-	if (si->sim_in_netgroup == NULL) return 0;
-	return si->sim_in_netgroup(si, name, host, user, domain);
+	if (si->vtable->sim_in_netgroup == NULL) return 0;
+	return si->vtable->sim_in_netgroup(si, name, host, user, domain);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_alias_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_alias_byname == NULL) return NULL;
-	return si->sim_alias_byname(si, name);
+	if (si->vtable->sim_alias_byname == NULL) return NULL;
+	return si->vtable->sim_alias_byname(si, name);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_alias_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_alias_all == NULL) return NULL;
-	return si->sim_alias_all(si);
+	if (si->vtable->sim_alias_all == NULL) return NULL;
+	return si->vtable->sim_alias_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_host_byname == NULL) return NULL;
-	return si->sim_host_byname(si, name, af, interface, err);
+	if (si->vtable->sim_host_byname == NULL) return NULL;
+	return si->vtable->sim_host_byname(si, name, af, interface, err);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_host_byaddr == NULL) return NULL;
-	return si->sim_host_byaddr(si, addr, af, interface, err);
+	if (si->vtable->sim_host_byaddr == NULL) return NULL;
+	return si->vtable->sim_host_byaddr(si, addr, af, interface, err);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_host_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_host_all == NULL) return NULL;
-	return si->sim_host_all(si);
+	if (si->vtable->sim_host_all == NULL) return NULL;
+	return si->vtable->sim_host_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_mac_byname(struct si_mod_s *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_mac_byname == NULL) return NULL;
-	return si->sim_mac_byname(si, name);
+	if (si->vtable->sim_mac_byname == NULL) return NULL;
+	return si->vtable->sim_mac_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_mac_bymac(struct si_mod_s *si, const char *mac)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_mac_bymac == NULL) return NULL;
-	return si->sim_mac_bymac(si, mac);
+	if (si->vtable->sim_mac_bymac == NULL) return NULL;
+	return si->vtable->sim_mac_bymac(si, mac);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_mac_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_mac_all == NULL) return NULL;
-	return si->sim_mac_all(si);
+	if (si->vtable->sim_mac_all == NULL) return NULL;
+	return si->vtable->sim_mac_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_network_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_network_byname == NULL) return NULL;
-	return si->sim_network_byname(si, name);
+	if (si->vtable->sim_network_byname == NULL) return NULL;
+	return si->vtable->sim_network_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_network_byaddr(si_mod_t *si, uint32_t addr)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_network_byaddr == NULL) return NULL;
-	return si->sim_network_byaddr(si, addr);
+	if (si->vtable->sim_network_byaddr == NULL) return NULL;
+	return si->vtable->sim_network_byaddr(si, addr);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_network_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_network_all == NULL) return NULL;
-	return si->sim_network_all(si);
+	if (si->vtable->sim_network_all == NULL) return NULL;
+	return si->vtable->sim_network_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_service_byname(si_mod_t *si, const char *name, const char *proto)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_service_byname == NULL) return NULL;
-	return si->sim_service_byname(si, name, proto);
+	if (si->vtable->sim_service_byname == NULL) return NULL;
+	return si->vtable->sim_service_byname(si, name, proto);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_service_byport(si_mod_t *si, int port, const char *proto)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_service_byport == NULL) return NULL;
-	return si->sim_service_byport(si, port, proto);
+	if (si->vtable->sim_service_byport == NULL) return NULL;
+	return si->vtable->sim_service_byport(si, port, proto);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_service_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_service_all == NULL) return NULL;
-	return si->sim_service_all(si);
+	if (si->vtable->sim_service_all == NULL) return NULL;
+	return si->vtable->sim_service_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_protocol_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_protocol_byname == NULL) return NULL;
-	return si->sim_protocol_byname(si, name);
+	if (si->vtable->sim_protocol_byname == NULL) return NULL;
+	return si->vtable->sim_protocol_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_protocol_bynumber(si_mod_t *si, uint32_t number)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_protocol_bynumber == NULL) return NULL;
-	return si->sim_protocol_bynumber(si, number);
+	if (si->vtable->sim_protocol_bynumber == NULL) return NULL;
+	return si->vtable->sim_protocol_bynumber(si, number);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_protocol_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_protocol_all == NULL) return NULL;
-	return si->sim_protocol_all(si);
+	if (si->vtable->sim_protocol_all == NULL) return NULL;
+	return si->vtable->sim_protocol_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_rpc_byname(si_mod_t *si, const char *name)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_rpc_byname == NULL) return NULL;
-	return si->sim_rpc_byname(si, name);
+	if (si->vtable->sim_rpc_byname == NULL) return NULL;
+	return si->vtable->sim_rpc_byname(si, name);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_rpc_bynumber(si_mod_t *si, int number)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_rpc_bynumber == NULL) return NULL;
-	return si->sim_rpc_bynumber(si, number);
+	if (si->vtable->sim_rpc_bynumber == NULL) return NULL;
+	return si->vtable->sim_rpc_bynumber(si, number);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_rpc_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_rpc_all == NULL) return NULL;
-	return si->sim_rpc_all(si);
+	if (si->vtable->sim_rpc_all == NULL) return NULL;
+	return si->vtable->sim_rpc_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_fs_byspec(si_mod_t *si, const char *spec)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_fs_byspec == NULL) return NULL;
-	return si->sim_fs_byspec(si, spec);
+	if (si->vtable->sim_fs_byspec == NULL) return NULL;
+	return si->vtable->sim_fs_byspec(si, spec);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_fs_byfile(si_mod_t *si, const char *file)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_fs_byfile == NULL) return NULL;
-	return si->sim_fs_byfile(si, file);
+	if (si->vtable->sim_fs_byfile == NULL) return NULL;
+	return si->vtable->sim_fs_byfile(si, file);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_fs_all(si_mod_t *si)
 {
 	if (si == NULL) return NULL;
-	if (si->sim_fs_all == NULL) return NULL;
-	return si->sim_fs_all(si);
+	if (si->vtable->sim_fs_all == NULL) return NULL;
+	return si->vtable->sim_fs_all(si);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err)
 {
 	if (si == NULL) return NULL;
@@ -794,8 +795,8 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 		case SI_CALL_DNS_QUERY:
 		case SI_CALL_DNS_SEARCH:
 		{
-			if (si->sim_item_call == NULL) return NULL;
-			return si->sim_item_call(si, call, str1, str2, str3, num1, num2, err);
+			if (si->vtable->sim_item_call == NULL) return NULL;
+			return si->vtable->sim_item_call(si, call, str1, str2, str3, num1, num2, err);
 		}
 
 		default: return NULL;
@@ -804,7 +805,7 @@ si_item_call(struct si_mod_s *si, int call, const char *str1, const char *str2, 
 	return NULL;
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_list_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err)
 {
 	if (si == NULL) return NULL;
@@ -951,7 +952,8 @@ si_async_workunit_create(si_mod_t *si, int call, const char *str1, const char *s
 	r->num3 = num3;
 	r->num4 = num4;
 
-	r->flags = WORKUNIT_CALL_ACTIVE | WORKUNIT_THREAD_ACTIVE;
+	r->refcount = 2;
+	r->flags = 0;
 	if (si_call_returns_list(call)) r->flags |= WORKUNIT_RETURNS_LIST;
 
 	r->callback = callback;
@@ -969,7 +971,11 @@ si_async_workunit_release(si_async_workunit_t *r)
 {
 	if (r == NULL) return;
 
-	if (r->flags & (WORKUNIT_THREAD_ACTIVE | WORKUNIT_CALL_ACTIVE)) return;
+	if (OSAtomicDecrement32Barrier(&(r->refcount)) != 0) return;
+
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s freeing worklist item %p\n", __func__, r);
+#endif
 
 	si_async_worklist_remove_unit(r);
 
@@ -983,18 +989,45 @@ si_async_workunit_release(si_async_workunit_t *r)
 	free(r);
 }
 
-static void *
-si_async_launchpad(void *x)
+static void
+si_async_launchpad(si_async_workunit_t *r)
 {
-	si_async_workunit_t *r;
 	kern_return_t status;
 	mach_msg_empty_send_t msg;
 
-	if (x == NULL) pthread_exit(NULL);
-	r = (si_async_workunit_t *)x;
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s starting worklist item %p\n", __func__, r);
+#endif
+
+	if (r->flags & WORKUNIT_CANCELLED)
+	{
+		si_async_workunit_release(r);
+#ifdef CALL_TRACE
+		fprintf(stderr, "** %s worklist item %p was cancelled early\n", __func__, r);
+#endif
+		return;
+	}
 
 	if (r->flags & WORKUNIT_RETURNS_LIST) r->reslist = si_list_call(r->si, r->call, r->str1, r->str2, r->str3, r->num1, r->num2, r->num3, r->num4, &(r->err));
 	else r->resitem = si_item_call(r->si, r->call, r->str1, r->str2, r->str3, r->num1, r->num2, &(r->err));
+
+	/*
+	 * Test and set the cancelled flag.
+	 * If it was set, then this work item was cancelled.
+	 * Otherwise, setting it here prevents si_async_cancel from cancelling:
+	 * too late to cancel now!
+	 */
+	if (OSAtomicTestAndSetBarrier(WORKUNIT_CANCELLED_BIT_ADDRESS, &(r->flags)) == 1)
+	{
+		si_async_workunit_release(r);
+#ifdef CALL_TRACE
+		fprintf(stderr, "** %s worklist item %p was cancelled in flight\n", __func__, r);
+#endif
+		return;
+	}
+#ifdef CALL_TRACE
+	else fprintf(stderr, "** %s worklist item %p flags are now 0x%08x\n", __func__, r, r->flags);
+#endif
 
 	memset(&msg, 0, sizeof(mach_msg_empty_send_t));
 
@@ -1004,47 +1037,50 @@ si_async_launchpad(void *x)
 	msg.header.msgh_size = sizeof(mach_msg_empty_send_t);
 	msg.header.msgh_id = r->call;
 
-	OSAtomicAnd32Barrier(~WORKUNIT_THREAD_ACTIVE, &r->flags);
-
-	si_async_workunit_release(r);
-
 	status = mach_msg(&(msg.header), MACH_SEND_MSG, msg.header.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
 	if (status != MACH_MSG_SUCCESS)
 	{
 		/* receiver failed - clean up to avoid a port leak */
 		mach_msg_destroy(&(msg.header));
+#ifdef CALL_TRACE
+		fprintf(stderr, "** %s mach message send failed for worklist item %p\n", __func__, r);
+#endif
 	}
 
-	pthread_exit(NULL);
+	si_async_workunit_release(r);
 
-	/* UNREACHED */
-	return NULL;
+	/*
+	 * The client is now responsible for calling si_async_handle_reply,
+	 * which will invoke the client's callback and then release the workunit.
+	 */
+
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s completed async worklist item %p\n", __func__, r);
+#endif
 }
 
 mach_port_t
 si_async_call(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context)
 {
 	si_async_workunit_t *req;
-	pthread_attr_t attr;
-	pthread_t t;
 
 	if (si == NULL) return MACH_PORT_NULL;
 	if (callback == NULL) return MACH_PORT_NULL;
 
 	/* if module does async on it's own, hand off the call */
-	if (si->sim_async_call != NULL)
+	if (si->vtable->sim_async_call != NULL)
 	{
-		return si->sim_async_call(si, call, str1, str2, str3, num1, num2, num3, num4, callback, context);
+		return si->vtable->sim_async_call(si, call, str1, str2, str3, num1, num2, num3, num4, callback, context);
 	}
 
 	req = si_async_workunit_create(si, call, str1, str2, str3, num1, num2, num3, num4, callback, context);
 	if (req == NULL) return MACH_PORT_NULL;
 
-	/* start a new thread to do the work */
-	pthread_attr_init(&attr);
-	pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-	pthread_create(&t, &attr, si_async_launchpad, req);
-	pthread_attr_destroy(&attr);
+	/* queue the work on the global low-priority dispatch queue */
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s dispatching worklist item %p\n", __func__, req);
+#endif
+	dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, DISPATCH_QUEUE_OVERCOMMIT), ^{ si_async_launchpad(req); });
 
 	return req->port;
 }
@@ -1055,9 +1091,30 @@ si_async_cancel(mach_port_t p)
 	si_async_workunit_t *r;
 
 	r = si_async_worklist_find_unit(p);
-	if (r == NULL) return;
+	if (r == NULL)
+	{
+#ifdef CALL_TRACE
+		fprintf(stderr, "** %s can't find worklist item\n", __func__);
+#endif
+		return;
+	}
 
-	OSAtomicAnd32Barrier(~WORKUNIT_CALL_ACTIVE, &r->flags);
+	/*
+	 * Test and set the WORKUNIT_CANCELLED flag.
+	 * If it was already set, this work item has been executed - too late to cancel.
+	 */
+	if (OSAtomicTestAndSetBarrier(WORKUNIT_CANCELLED_BIT_ADDRESS, &(r->flags)) == 1)
+	{
+		/* already executed */
+#ifdef CALL_TRACE
+		fprintf(stderr, "** %s worklist item %p has executed\n", __func__, r);
+#endif
+		return;
+	}
+
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s calling worklist item %p callback SI_STATUS_CALL_CANCELLED\n", __func__, r);
+#endif
 
 	if (r->callback != NULL)
 	{
@@ -1085,7 +1142,10 @@ si_async_handle_reply(mach_msg_header_t *msg)
 		return;
 	}
 
-	if (r->flags & WORKUNIT_THREAD_ACTIVE)
+#ifdef CALL_TRACE
+	fprintf(stderr, "** %s worklist item %p flags are 0x%08x\n", __func__, r, r->flags);
+#endif
+	if ((r->flags & WORKUNIT_CANCELLED) == 0)
 	{
 #ifdef CALL_TRACE
 		fprintf(stderr, "** %s workunit thread is still active\n", __func__);
@@ -1108,20 +1168,18 @@ si_async_handle_reply(mach_msg_header_t *msg)
 #endif
 	}
 
-	OSAtomicAnd32Barrier(~WORKUNIT_CALL_ACTIVE, &r->flags);
-
 	si_async_workunit_release(r);
 
 	mach_port_mod_refs(mach_task_self(), reply, MACH_PORT_RIGHT_RECEIVE, -1);
 }
 
-__private_extern__ char *
-si_canonical_mac_address(const char *addr)
+char *
+si_standardize_mac_address(const char *addr)
 {
 	char e[6][3];
 	char *out;
 	struct ether_addr *ether;
-	int i, bit;
+	int i;
 
 	if (addr == NULL) return NULL;
 
@@ -1135,9 +1193,9 @@ si_canonical_mac_address(const char *addr)
 		return NULL;
 	}
 
-	for (i = 0, bit = 1; i < 6; i++, bit *= 2)
+	for (i = 0; i < 6; i++)
 	{
-		if ((i & bit) && (ether->ether_addr_octet[i] <= 15))
+		if (ether->ether_addr_octet[i] <= 15)
 		{
 			sprintf(e[i], "0%x", ether->ether_addr_octet[i]);
 		}

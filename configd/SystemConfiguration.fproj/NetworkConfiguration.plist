@@ -29,6 +29,8 @@
 		</dict>
 		<key>Bond</key>
 		<dict/>
+		<key>Bridge</key>
+		<dict/>
 		<key>Ethernet</key>
 		<dict/>
 		<key>FireWire</key>
@@ -43,6 +45,8 @@
 		<key>IrDA</key>
 		<dict/>
 		<key>L2TP-IPv4</key>
+		<dict/>
+		<key>Loopback</key>
 		<dict/>
 		<key>Modem</key>
 		<dict>
@@ -450,6 +454,19 @@
 		<dict/>
 		<key>VLAN</key>
 		<dict/>
+		<key>VPN-*</key>
+		<dict>
+			<key>DisconnectOnFastUserSwitch</key>
+			<integer>1</integer>
+			<key>DisconnectOnLogout</key>
+			<integer>1</integer>
+			<key>DisconnectOnSleep</key>
+			<integer>0</integer>
+			<key>Logfile</key>
+			<string>/var/log/ppp.log</string>
+			<key>VerboseLogging</key>
+			<integer>0</integer>
+		</dict>
 		<key>WWAN</key>
 		<dict>
 			<key>ConnectionScript</key>
@@ -477,6 +494,31 @@
 			</dict>
 		</dict>
 		<key>Bond</key>
+		<dict>
+			<key>DNS</key>
+			<dict/>
+			<key>IPv4</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>DHCP</string>
+			</dict>
+			<key>IPv6</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Automatic</string>
+			</dict>
+			<key>Proxies</key>
+			<dict>
+				<key>ExceptionsList</key>
+				<array>
+					<string>*.local</string>
+					<string>169.254/16</string>
+				</array>
+				<key>FTPPassive</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<key>Bridge</key>
 		<dict>
 			<key>DNS</key>
 			<dict/>
@@ -597,6 +639,8 @@
 			</dict>
 		</dict>
 		<key>L2TP-IPv4</key>
+		<dict/>
+		<key>Loopback</key>
 		<dict/>
 		<key>PPP-Bluetooth</key>
 		<dict>
@@ -801,6 +845,26 @@
 					<string>*.local</string>
 					<string>169.254/16</string>
 				</array>
+				<key>FTPPassive</key>
+				<integer>1</integer>
+			</dict>
+		</dict>
+		<key>VPN-*</key>
+		<dict>
+			<key>DNS</key>
+			<dict/>
+			<key>IPv4</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>VPN</string>
+			</dict>
+			<key>IPv6</key>
+			<dict>
+				<key>ConfigMethod</key>
+				<string>Automatic</string>
+			</dict>
+			<key>Proxies</key>
+			<dict>
 				<key>FTPPassive</key>
 				<integer>1</integer>
 			</dict>

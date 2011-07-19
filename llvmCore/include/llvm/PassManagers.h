@@ -91,9 +91,11 @@
 #include "llvm/Support/PrettyStackTrace.h"
 
 namespace llvm {
-  class Pass;
-  class Value;
   class Module;
+  class Pass;
+  class StringRef;
+  class Value;
+  class Timer;
 
 /// FunctionPassManager and PassManager, two top level managers, serve 
 /// as the public interface of pass manager infrastructure.
@@ -121,7 +123,7 @@ class PassManagerPrettyStackEntry : public PrettyStackTraceEntry {
   Value *V;
   Module *M;
 public:
-  PassManagerPrettyStackEntry(Pass *p)
+  explicit PassManagerPrettyStackEntry(Pass *p)
     : P(p), V(0), M(0) {}  // When P is releaseMemory'd.
   PassManagerPrettyStackEntry(Pass *p, Value &v)
     : P(p), V(&v), M(0) {} // When P is run on V
@@ -271,6 +273,8 @@ public:
   }
 
   virtual ~PMDataManager();
+  
+  virtual Pass *getAsPass() = 0;
 
   /// Augment AvailableAnalysis by adding analysis made available by pass P.
   void recordAvailableAnalysis(Pass *P);
@@ -278,14 +282,16 @@ public:
   /// verifyPreservedAnalysis -- Verify analysis presreved by pass P.
   void verifyPreservedAnalysis(Pass *P);
 
-  /// verifyDomInfo -- Verify dominator information if it is available.
-  void verifyDomInfo(Pass &P, Function &F);
-
   /// Remove Analysis that is not preserved by the pass
   void removeNotPreservedAnalysis(Pass *P);
   
-  /// Remove dead passes
-  void removeDeadPasses(Pass *P, const char *Msg, enum PassDebuggingString);
+  /// Remove dead passes used by P.
+  void removeDeadPasses(Pass *P, StringRef Msg, 
+                        enum PassDebuggingString);
+
+  /// Remove P.
+  void freePass(Pass *P, StringRef Msg, 
+                enum PassDebuggingString);
 
   /// Add pass P into the PassVector. Update 
   /// AvailableAnalysis appropriately if ProcessAnalysis is true.
@@ -340,7 +346,7 @@ public:
   void dumpLastUses(Pass *P, unsigned Offset) const;
   void dumpPassArguments() const;
   void dumpPassInfo(Pass *P, enum PassDebuggingString S1,
-                    enum PassDebuggingString S2, const char *Msg);
+                    enum PassDebuggingString S2, StringRef Msg);
   void dumpRequiredSet(const Pass *P) const;
   void dumpPreservedSet(const Pass *P) const;
 
@@ -378,13 +384,18 @@ protected:
   // then PMT_Last active pass mangers.
   std::map<AnalysisID, Pass *> *InheritedAnalysis[PMT_Last];
 
+  
+  /// isPassDebuggingExecutionsOrMore - Return true if -debug-pass=Executions
+  /// or higher is specified.
+  bool isPassDebuggingExecutionsOrMore() const;
+  
 private:
-  void dumpAnalysisUsage(const char *Msg, const Pass *P,
-                           const AnalysisUsage::VectorType &Set) const;
+  void dumpAnalysisUsage(StringRef Msg, const Pass *P,
+                         const AnalysisUsage::VectorType &Set) const;
 
   // Set of available Analysis. This information is used while scheduling 
-  // pass. If a pass requires an analysis which is not not available then 
-  // equired analysis pass is scheduled to run before the pass itself is 
+  // pass. If a pass requires an analysis which is not available then 
+  // the required analysis pass is scheduled to run before the pass itself is
   // scheduled to run.
   std::map<AnalysisID, Pass*> AvailableAnalysis;
 
@@ -402,9 +413,7 @@ private:
 /// It batches all function passes and basic block pass managers together and 
 /// sequence them to process one function at a time before processing next 
 /// function.
-
 class FPPassManager : public ModulePass, public PMDataManager {
- 
 public:
   static char ID;
   explicit FPPassManager(int Depth) 
@@ -425,6 +434,9 @@ public:
   /// doFinalization - Run all of the finalizers for the function passes.
   ///
   bool doFinalization(Module &M);
+
+  virtual PMDataManager *getAsPMDataManager() { return this; }
+  virtual Pass *getAsPass() { return this; }
 
   /// Pass Manager itself does not invalidate any analysis info.
   void getAnalysisUsage(AnalysisUsage &Info) const {
@@ -449,9 +461,8 @@ public:
   }
 };
 
-}
+Timer *getPassTimer(Pass *);
 
-extern void StartPassTimer(llvm::Pass *);
-extern void StopPassTimer(llvm::Pass *);
+}
 
 #endif

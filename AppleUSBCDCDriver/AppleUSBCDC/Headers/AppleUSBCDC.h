@@ -42,11 +42,16 @@ public:
     IOUSBDevice			*fpDevice;
     UInt8			fbmAttributes;
     UInt8			fCacheEaddr[6];
+	UInt8			fDevClass;
+	UInt8			fDevSubClass;
+	UInt8			fDevProtocol;
+	bool			fIAD;					// Set if we're looking at a device with an IAD descriptor
 	
 	UInt8			fDataInterfaceNumber;	// Data interface number (if there's only one)
 
         // IOKit methods
 		
+	virtual IOService	*probe(IOService *provider, SInt32 *score);
     virtual bool		start(IOService *provider);
     virtual void		free(void);
     virtual void		stop(IOService *provider);

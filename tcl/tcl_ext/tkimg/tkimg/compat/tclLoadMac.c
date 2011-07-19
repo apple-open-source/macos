@@ -20,16 +20,16 @@
  */
 
 #ifndef fragNoErr
-    #define fragNoErr noErr
+#   define fragNoErr noErr
 #endif
 
 #include "tcl.h"
 #include "compat:dlfcn.h"
 
 #if GENERATINGPOWERPC
-    #define OUR_ARCH_TYPE kPowerPCCFragArch
+#   define OUR_ARCH_TYPE kPowerPCCFragArch
 #else
-    #define OUR_ARCH_TYPE kMotorola68KCFragArch
+#   define OUR_ARCH_TYPE kMotorola68KCFragArch
 #endif
 
 /*
@@ -90,7 +90,7 @@ typedef struct CfrgItem CfrgItem;
 
 static Str255 errName;
 
-VOID *
+void *
 dlopen(path, mode)
     const char *path;
     int mode;
@@ -137,7 +137,7 @@ dlopen(path, mode)
     err = FSpLocationFromPath(strlen(path), (char *) path, &fileSpec);
     if (err != noErr) {
 	strcpy((char *) errName, "file not found");
-	return (VOID *) NULL;
+	return (void *) NULL;
     }
 
     /*
@@ -195,9 +195,9 @@ dlopen(path, mode)
 	    kLoadCFrag, &connID, &dummy, errName);
     if (err != fragNoErr) {
 	p2cstr(errName);
-	return (VOID *) NULL;
+	return (void *) NULL;
     }
-    return (VOID *) connID;
+    return (void *) connID;
 }
 
 /*
@@ -218,12 +218,12 @@ dlopen(path, mode)
  *----------------------------------------------------------------------
  */
 
-VOID *
+void *
 dlsym(handle, symbol)
-    VOID *handle;
+    void *handle;
     const char *symbol;
 {
-    VOID *procPtr;
+    void *procPtr;
     char sym1[255];
     OSErr err;
     SymClass symClass;
@@ -234,7 +234,7 @@ dlsym(handle, symbol)
     err = FindSymbol((ConnectionID) handle, (StringPtr) sym1,
 	    (Ptr *) &procPtr, &symClass);
     if (err != fragNoErr || symClass == kDataCFragSymbol) {
-	procPtr = (VOID *) NULL;
+	procPtr = (void *) NULL;
     }
     return procPtr;
 }
@@ -281,7 +281,7 @@ dlerror()
 
 int
 dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
     return 0;
 }

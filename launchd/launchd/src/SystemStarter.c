@@ -191,10 +191,10 @@ checkForActivity(StartupContext aStartupContext)
 			aWaitingForString = CFSTR("Waiting for %@");
 		}
 		if (aLastStatusDictionaryCount == aCount) {
-			CFArrayRef      aRunningList = StartupItemListGetRunning(aStartupContext->aWaitingList);
+			CFArrayRef aRunningList = StartupItemListCreateFromRunning(aStartupContext->aWaitingList);
 			if (aRunningList && CFArrayGetCount(aRunningList) > 0) {
 				CFMutableDictionaryRef anItem = (CFMutableDictionaryRef) CFArrayGetValueAtIndex(aRunningList, 0);
-				CFStringRef     anItemDescription = StartupItemGetDescription(anItem);
+				CFStringRef     anItemDescription = StartupItemCreateDescription(anItem);
 				CFStringRef     aString = aWaitingForString && anItemDescription ?
 				CFStringCreateWithFormat(NULL, NULL, aWaitingForString, anItemDescription) : NULL;
 
@@ -377,7 +377,7 @@ CF_syslog(int level, CFStringRef message,...)
 	va_end(ap);
 
 	if (CFStringGetCString(cooked_msg, buf, sizeof(buf), kCFStringEncodingUTF8))
-		syslog(level, buf);
+		syslog(level, "%s", buf);
 
 	CFRelease(cooked_msg);
 }

@@ -59,6 +59,8 @@ typedef struct {
 	mach_vm_address_t	address;
 } mach_stack_logging_record_t;
 
+extern kern_return_t __mach_stack_logging_set_file_path(task_t task, char* file_path);
+
 extern kern_return_t __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count);
     /* Gets the last allocation record (malloc, realloc, or free) about address */
 

@@ -13,8 +13,14 @@ sub import {
 
     *::ok = *ok;
     *::is = *ok;
+    *::roundtrip = *roundtrip;
     *::Dump = *YAML::Syck::Dump;
     *::Load = *YAML::Syck::Load;
+}
+
+sub roundtrip {
+    @_ = (YAML::Syck::Load(YAML::Syck::Dump($_[0])), $_[0]);
+    goto &main::is;
 }
 
 1;

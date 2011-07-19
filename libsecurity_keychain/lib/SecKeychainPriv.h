@@ -80,6 +80,7 @@ void SecKeychainSetServerMode();
 
 /* special calls */
 OSStatus SecKeychainCleanupHandles();
+OSStatus SecKeychainSystemKeychainCheckWouldDeadlock();
 
 #if defined(__cplusplus)
 }

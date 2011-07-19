@@ -4,7 +4,7 @@
 #
 #	Scrolled widget
 #
-# RCS: @(#) $Id: scrollw.tcl,v 1.14 2007/06/20 23:42:41 hobbs Exp $
+# RCS: @(#) $Id: scrollw.tcl,v 1.15 2010/06/01 18:06:52 hobbs Exp $
 #
 
 # Creation and Options - widget::scrolledwindow $path ...
@@ -47,7 +47,6 @@ if 0 {
 ###
 
 package require widget
-package require tile
 
 snit::widget widget::scrolledwindow {
     hulltype ttk::frame
@@ -256,4 +255,4 @@ snit::widget widget::scrolledwindow {
     }
 }
 
-package provide widget::scrolledwindow 1.2
+package provide widget::scrolledwindow 1.2.1

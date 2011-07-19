@@ -32,7 +32,6 @@
 #include "JSValue.h"
 #include "JSWeakObjectMapRefInternal.h"
 #include <wtf/HashMap.h>
-#include <wtf/RefCounted.h>
 #include <wtf/text/StringHash.h>
 
 using namespace WTF;
@@ -58,8 +57,8 @@ void JSWeakObjectMapSet(JSContextRef ctx, JSWeakObjectMapRef map, void* key, JSO
     JSObject* obj = toJS(object);
     if (!obj)
         return;
-    ASSERT(obj->inherits(&JSCallbackObject<JSGlobalObject>::info) || obj->inherits(&JSCallbackObject<JSObject>::info));
-    map->map().set(key, obj);
+    ASSERT(obj->inherits(&JSCallbackObject<JSGlobalObject>::s_info) || obj->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info));
+    map->map().set(exec->globalData(), key, obj);
 }
 
 JSObjectRef JSWeakObjectMapGet(JSContextRef ctx, JSWeakObjectMapRef map, void* key)
@@ -69,14 +68,18 @@ JSObjectRef JSWeakObjectMapGet(JSContextRef ctx, JSWeakObjectMapRef map, void* k
     return toRef(static_cast<JSObject*>(map->map().get(key)));
 }
 
-bool JSWeakObjectMapClear(JSContextRef ctx, JSWeakObjectMapRef map, void* key, JSObjectRef object)
+void JSWeakObjectMapRemove(JSContextRef ctx, JSWeakObjectMapRef map, void* key)
 {
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
-    JSObject* obj = toJS(object);
-    if (map->map().uncheckedRemove(key, obj))
-        return true;
-    return false;
+    map->map().take(key);
+}
+
+// We need to keep this function in the build to keep the nightlies running.
+JS_EXPORT bool JSWeakObjectMapClear(JSContextRef, JSWeakObjectMapRef, void*, JSObjectRef);
+bool JSWeakObjectMapClear(JSContextRef, JSWeakObjectMapRef, void*, JSObjectRef)
+{
+    return true;
 }
 
 #ifdef __cplusplus

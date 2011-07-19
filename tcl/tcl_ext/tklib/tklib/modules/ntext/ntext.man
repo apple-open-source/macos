@@ -20,13 +20,13 @@ Package [package ntext] 's functions and variables are contained entirely in the
 
 The differences between the [emph Ntext] binding tag and the default [emph Text] binding tag are in three categories:
 
-[list_begin bullet]
+[list_begin itemized]
 
-[bullet] Some [emph Text] bindings behave differently from most text-editing applications.  [emph Ntext] gives these bindings more familiar behaviour.  For details see [term ntextBindings].
+[item] Some [emph Text] bindings behave differently from most text-editing applications.  [emph Ntext] gives these bindings more familiar behaviour.  For details see [term ntextBindings].
 
-[bullet] When a logical line with leading whitespace is word-wrapped onto more than one display line, the wrapped display lines begin further to the left than the first display line, which can make the text layout untidy and difficult to read.  [emph Ntext] can indent the wrapped lines to match the leading whitespace of the first display line (this facility is switched off by default).  For details see [term ntextIndent].
+[item] When a logical line with leading whitespace is word-wrapped onto more than one display line, the wrapped display lines begin further to the left than the first display line, which can make the text layout untidy and difficult to read.  [emph Ntext] can indent the wrapped lines to match the leading whitespace of the first display line (this facility is switched off by default).  For details see [term ntextIndent].
 
-[bullet] When the user navigates or selects text, Tcl/Tk sometimes needs to detect word boundaries.  [emph Ntext] provides improved rules for word boundary detection.  For details see [term ntextWordBreak].
+[item] When the user navigates or selects text, Tcl/Tk sometimes needs to detect word boundaries.  [emph Ntext] provides improved rules for word boundary detection.  For details see [term ntextWordBreak].
 
 [list_end]
 
@@ -46,54 +46,54 @@ See Section [sectref EXAMPLE] for how to apply the [emph Ntext] binding tag in p
 The behaviour of [emph Ntext] may be configured application-wide by setting the values of a number of namespace variables:
 [para]
 [var ::ntext::classicAnchor]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point is fixed
-[bullet]
+[item]
    [const 1] - selects classic [emph Text] behaviour, i.e. the anchor point is variable
 [list_end]
 [para]
 [var ::ntext::classicExtras]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (default value) selects [emph Ntext] behaviour, i.e. several traditional [emph Text] bindings are de-activated
-[bullet]
+[item]
    [const 1] - selects classic [emph Text] behaviour, i.e. all [emph Text] bindings are activated
 [list_end]
 [para]
 [var ::ntext::classicMouseSelect]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (default value) selects [emph Ntext] behaviour, i.e. the anchor point for mouse selection operations is moved by keyboard navigation
-[bullet]
+[item]
    [const 1] - selects classic [emph Text] behaviour
 [list_end]
 [para]
 [var ::ntext::classicWordBreak]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (default value) selects [emph Ntext] behaviour, i.e. platform-independent, two classes of word characters and one class of non-word characters.
-[bullet]
+[item]
    [const 1] - selects classic [emph Text] behaviour, i.e. platform-dependent, one class of word characters and one class of non-word characters
-[bullet]
+[item]
    After changing this value, the matching patterns should be recalculated.  See [term ntextWordBreak] for details and advanced configuration options.
 [list_end]
 [para]
 [var ::ntext::classicWrap]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - selects [emph Ntext] behaviour, i.e. display lines of text widgets in [arg -wrap] [arg word] mode are indented to match the initial whitespace of the first display line of a logical line.  If the widget already holds text when this value is set, a function call may be necessary.  See [term ntextIndent] for detailed instructions on the use of [emph Ntext] 's indentation.
-[bullet]
+[item]
    [const 1] - (default value) selects classic [emph Text] behaviour, i.e. no indentation
 [list_end]
 [para]
 [var ::ntext::overwrite]
-[list_begin bullet]
-[bullet]
+[list_begin itemized]
+[item]
    [const 0] - (initial value) text typed at the keyboard is inserted into the widget
-[bullet]
+[item]
    [const 1] - text typed at the keyboard overwrites text already in the widget
-[bullet]
+[item]
    The value is toggled by the [emph Insert] key.
 [list_end]
 

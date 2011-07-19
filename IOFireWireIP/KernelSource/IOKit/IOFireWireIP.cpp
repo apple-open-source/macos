@@ -877,8 +877,8 @@ void _logMbuf(mbuf_t m)
         IOLog("m_type   : %08x\n", (UInt) mbuf_type(m));
         IOLog("m_flags  : %08x\n", (UInt) mbuf_flags(m));
         
-        if (mbuf_flags(m) & M_PKTHDR)
-            IOLog("m_pkthdr.len  : %d\n", (UInt) mbuf_pkthdr_len(m));
+        if (mbuf_flags(m) & MBUF_PKTHDR)
+            IOLog("mbuf_pkthdr.len  : %d\n", (UInt) mbuf_pkthdr_len(m));
 
         if (mbuf_flags(m) & M_EXT) {
            // IOLog("m_ext.ext_buf : %08x\n", (UInt) mbuf_ext(m));

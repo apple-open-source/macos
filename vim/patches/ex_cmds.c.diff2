@@ -1,0 +1,13 @@
+Index: src/ex_cmds.c
+===================================================================
+--- src/ex_cmds.c	(revision 57777)
++++ src/ex_cmds.c	(working copy)
+@@ -5044,6 +5044,8 @@
+ 			prev_matchcol = (colnr_T)STRLEN(sub_firstline)
+ 							      - prev_matchcol;
+ 
++			if (Unix2003_compat)
++			    beginline(BL_WHITE | BL_FIX);
+ 			if (u_savesub(lnum) != OK)
+ 			    break;
+ 			ml_replace(lnum, new_start, TRUE);

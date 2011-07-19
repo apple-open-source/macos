@@ -161,6 +161,7 @@ static OSStatus impExpImportSinglePEM(
 {
 	unsigned consumed;
 	const char *currLine = NULL;		// mallocd by getLine()
+	const char *lastCp = currCp;
 	CFMutableArrayRef pemParamLines = NULL;
 	OSStatus ortn = noErr;
 	CFDataRef cdata = NULL;
@@ -224,12 +225,15 @@ static OSStatus impExpImportSinglePEM(
 	 */
 	for( ; ; ) {
 		currLine = getLine(currCp, lenToGo, &consumed);
-		if(currLine == NULL) {
-			/* out of data */
-			SecImpInferDbg("impExpImportSinglePEM out of data after START line");
+		if(currLine == NULL || currCp == lastCp) {
+			/* out of data (unable to advance to next line) */
+			SecImpInferDbg("impExpImportSinglePEM out of data");
+			if (currLine) free((void *)currLine);
 			ortn = errSecUnsupportedFormat;
 			goto errOut;
 		}
+		lastCp = currCp;
+		
 		bool skipThis = false;
 		unsigned lineLen = strlen(currLine);
 		if(lineLen == 0) {
@@ -265,7 +269,7 @@ static OSStatus impExpImportSinglePEM(
 		}
 		free((void *)currLine);
 		if(!skipThis) {
-			/* looks like good stuff; procees */
+			/* looks like good stuff; process */
 			break;
 		}
 		/* skip this line */
@@ -273,7 +277,7 @@ static OSStatus impExpImportSinglePEM(
 		currCp  += consumed;
 		lenToGo -= consumed;
 	}
-	if(lenToGo == 0) {
+	if(lenToGo <= 2) {
 		SecImpInferDbg("impExpImportSinglePEM no valid base64 data");
 		ortn = errSecUnsupportedFormat;
 		goto errOut;
@@ -340,17 +344,32 @@ OSStatus impExpParsePemToImportRefs(
 	OSStatus ortn;
 	
 	*isPem = false;
-	bool isAscii = true;
-	for(unsigned dex=0; dex<lenToGo; dex++, cp++) {
-		if(!isprint(*cp) && !isspace(*cp)) {
-			isAscii = false;
-			break;
+	unsigned dex;
+	bool allBlanks = true;
+	
+	for(dex=0; dex<lenToGo; dex++, cp++) {
+		if (!isspace(*cp)) {
+			// it's not a space.  Is it a non-ascii character?
+			if (!isascii(*cp)) {
+				return noErr;
+			}
+			
+			// is it a control character?
+			if (iscntrl(*cp))
+			{
+				return noErr;
+			}
+			
+			// no, mark that an acceptable character was encountered and keep going
+			allBlanks = false;
 		}
 	}
-	if(!isAscii) {
+
+	if (allBlanks)
+	{
 		return noErr;
 	}
-
+	
 	/* search for START line */
 	const char *startLine = findStr(currCp, lenToGo, "-----BEGIN");
 	if(startLine == NULL) {

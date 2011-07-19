@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +24,7 @@
 #ifndef HTMLFormControlElement_h
 #define HTMLFormControlElement_h
 
+#include "FormAssociatedElement.h"
 #include "HTMLElement.h"
 
 namespace WebCore {
@@ -31,173 +32,219 @@ namespace WebCore {
 class FormDataList;
 class HTMLFormElement;
 class RenderTextControl;
+class ValidationMessage;
 class ValidityState;
 class VisibleSelection;
 
-class HTMLFormControlElement : public HTMLElement {
+// HTMLFormControlElement is the default implementation of FormAssociatedElement,
+// and form-associated element implementations should use HTMLFormControlElement
+// unless there is a special reason.
+class HTMLFormControlElement : public HTMLElement, public FormAssociatedElement {
 public:
-    HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*, ConstructionType = CreateHTMLElementZeroRefCount);
     virtual ~HTMLFormControlElement();
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
-
-    HTMLFormElement* form() const { return m_form; }
-    ValidityState* validity();
+    HTMLFormElement* form() const { return FormAssociatedElement::form(); }
 
     bool formNoValidate() const;
-    void setFormNoValidate(bool);
 
-    virtual bool isTextFormControl() const { return false; }
-    virtual bool isEnabledFormControl() const { return !disabled(); }
-
-    virtual void parseMappedAttribute(MappedAttribute*);
-    virtual void attach();
-    virtual void insertedIntoTree(bool deep);
-    virtual void removedFromTree(bool deep);
-
-    virtual void reset() {}
+    virtual void reset() { }
 
     virtual bool formControlValueMatchesRenderer() const { return m_valueMatchesRenderer; }
     virtual void setFormControlValueMatchesRenderer(bool b) { m_valueMatchesRenderer = b; }
 
-    virtual void dispatchFormControlChangeEvent();
+    virtual bool wasChangedSinceLastFormControlChangeEvent() const;
+    virtual void setChangedSinceLastFormControlChangeEvent(bool);
 
-    bool disabled() const { return m_disabled; }
+    virtual void dispatchFormControlChangeEvent();
+    virtual void dispatchFormControlInputEvent();
+
+    virtual bool disabled() const { return m_disabled; }
     void setDisabled(bool);
 
-    virtual bool supportsFocus() const;
     virtual bool isFocusable() const;
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
-    virtual bool isMouseFocusable() const;
     virtual bool isEnumeratable() const { return false; }
 
-    virtual bool isReadOnlyFormControl() const { return m_readOnly; }
-    void setReadOnly(bool);
-
-    // Determines whether or not a control will be automatically focused
+    // Determines whether or not a control will be automatically focused.
     virtual bool autofocus() const;
-    void setAutofocus(bool);
 
     bool required() const;
-    void setRequired(bool);
-
-    virtual void recalcStyle(StyleChange);
-
-    virtual const AtomicString& formControlName() const;
-    virtual const AtomicString& formControlType() const = 0;
 
     const AtomicString& type() const { return formControlType(); }
-    const AtomicString& name() const { return formControlName(); }
 
     void setName(const AtomicString& name);
 
-    virtual bool isFormControlElement() const { return true; }
+    virtual bool isEnabledFormControl() const { return !disabled(); }
+    virtual bool isReadOnlyFormControl() const { return readOnly(); }
+
     virtual bool isRadioButton() const { return false; }
     virtual bool canTriggerImplicitSubmission() const { return false; }
 
-    /* Override in derived classes to get the encoded name=value pair for submitting.
-     * Return true for a successful control (see HTML4-17.13.2).
-     */
+    // Override in derived classes to get the encoded name=value pair for submitting.
+    // Return true for a successful control (see HTML4-17.13.2).
     virtual bool appendFormData(FormDataList&, bool) { return false; }
 
     virtual bool isSuccessfulSubmitButton() const { return false; }
     virtual bool isActivatedSubmit() const { return false; }
     virtual void setActivatedSubmit(bool) { }
 
-    virtual short tabIndex() const;
-
     virtual bool willValidate() const;
     String validationMessage();
-    bool checkValidity(Vector<RefPtr<HTMLFormControlElement> >* unhandledInvalidControls = 0);
+    void updateVisibleValidationMessage();
+    void hideVisibleValidationMessage();
+    bool checkValidity(Vector<RefPtr<FormAssociatedElement> >* unhandledInvalidControls = 0);
     // This must be called when a validation constraint or control value is changed.
     void setNeedsValidityCheck();
     void setCustomValidity(const String&);
-    virtual bool valueMissing() const { return false; }
-    virtual bool patternMismatch() const { return false; }
-    virtual bool tooLong() const { return false; }
 
-    void formDestroyed() { m_form = 0; }
+    bool isLabelable() const;
+    PassRefPtr<NodeList> labels();
+
+    bool readOnly() const { return m_readOnly; }
+
+    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+
+    using TreeShared<ContainerNode>::ref;
+    using TreeShared<ContainerNode>::deref;
+
+protected:
+    HTMLFormControlElement(const QualifiedName& tagName, Document*, HTMLFormElement*);
+
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void attach();
+    virtual void insertedIntoTree(bool deep);
+    virtual void removedFromTree(bool deep);
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
+    virtual void willMoveToNewOwnerDocument();
+
+    virtual bool supportsFocus() const;
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
+    virtual bool isMouseFocusable() const;
+
+    virtual void recalcStyle(StyleChange);
 
     virtual void dispatchFocusEvent();
     virtual void dispatchBlurEvent();
+    virtual void detach();
 
-protected:
-    void removeFromForm();
     // This must be called any time the result of willValidate() has changed.
     void setNeedsWillValidateCheck();
     virtual bool recalcWillValidate() const;
 
 private:
+    virtual const AtomicString& formControlName() const;
+    virtual const AtomicString& formControlType() const = 0;
+
+    virtual void refFormAssociatedElement() { ref(); }
+    virtual void derefFormAssociatedElement() { deref(); }
+
+    virtual bool isFormControlElement() const { return true; }
+
+    virtual short tabIndex() const;
+
     virtual HTMLFormElement* virtualForm() const;
     virtual bool isDefaultButtonForForm() const;
     virtual bool isValidFormControlElement();
+    String visibleValidationMessage() const;
 
-    HTMLFormElement* m_form;
-    OwnPtr<ValidityState> m_validityState;
+    OwnPtr<ValidationMessage> m_validationMessage;
     bool m_disabled : 1;
     bool m_readOnly : 1;
     bool m_required : 1;
     bool m_valueMatchesRenderer : 1;
-    // The initial value of m_willValidate depends on a subclass, and we can't
+
+    // The initial value of m_willValidate depends on the derived class. We can't
     // initialize it with a virtual function in the constructor. m_willValidate
-    // is not deterministic during m_willValidateInitialized=false.
+    // is not deterministic as long as m_willValidateInitialized is false.
     mutable bool m_willValidateInitialized: 1;
     mutable bool m_willValidate : 1;
+
     // Cache of validity()->valid().
-    // "candidate for constraint validation" doesn't affect to m_isValid.
+    // But "candidate for constraint validation" doesn't affect m_isValid.
     bool m_isValid : 1;
+
+    bool m_wasChangedSinceLastFormControlChangeEvent : 1;
 };
 
+// FIXME: Give this class its own header file.
 class HTMLFormControlElementWithState : public HTMLFormControlElement {
 public:
-    HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
     virtual ~HTMLFormControlElementWithState();
 
-    virtual bool autoComplete() const;
-    virtual bool shouldSaveAndRestoreFormControlState() const;
-    virtual void finishParsingChildren();
+    virtual bool canContainRangeEndPoint() const { return false; }
 
 protected:
+    HTMLFormControlElementWithState(const QualifiedName& tagName, Document*, HTMLFormElement*);
+
+    virtual bool autoComplete() const;
+    virtual void finishParsingChildren();
     virtual void willMoveToNewOwnerDocument();
     virtual void didMoveToNewOwnerDocument();
     virtual void defaultEventHandler(Event*);
+
+private:
+    virtual bool shouldSaveAndRestoreFormControlState() const;
 };
 
+// FIXME: Give this class its own header file.
 class HTMLTextFormControlElement : public HTMLFormControlElementWithState {
 public:
-    HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);
-    virtual ~HTMLTextFormControlElement();
-    virtual void dispatchFocusEvent();
-    virtual void dispatchBlurEvent();
+    // Common flag for HTMLInputElement::tooLong() and HTMLTextAreaElement::tooLong().
+    enum NeedsToCheckDirtyFlag {CheckDirtyFlag, IgnoreDirtyFlag};
 
-    int selectionStart();
-    int selectionEnd();
+    virtual ~HTMLTextFormControlElement();
+
+    virtual void insertedIntoDocument();
+
+    // The derived class should return true if placeholder processing is needed.
+    virtual bool supportsPlaceholder() const = 0;
+    String strippedPlaceholder() const;
+    bool placeholderShouldBeVisible() const;
+
+    int selectionStart() const;
+    int selectionEnd() const;
     void setSelectionStart(int);
     void setSelectionEnd(int);
     void select();
     void setSelectionRange(int start, int end);
-    VisibleSelection selection() const;
+    PassRefPtr<Range> selection() const;
+
+    virtual void dispatchFormControlChangeEvent();
+
+    virtual int maxLength() const = 0;
+    virtual String value() const = 0;
 
 protected:
-    bool placeholderShouldBeVisible() const;
+    HTMLTextFormControlElement(const QualifiedName&, Document*, HTMLFormElement*);
+
     void updatePlaceholderVisibility(bool);
-    virtual int cachedSelectionStart() const = 0;
-    virtual int cachedSelectionEnd() const = 0;
-    virtual void parseMappedAttribute(MappedAttribute*);
+
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void setTextAsOfLastFormControlChangeEvent(String text) { m_textAsOfLastFormControlChangeEvent = text; }
 
 private:
-    // A subclass should return true if placeholder processing is needed.
-    virtual bool supportsPlaceholder() const = 0;
-    // Returns true if user-editable value is empty.  This is used to check placeholder visibility.
+    virtual void dispatchFocusEvent();
+    virtual void dispatchBlurEvent();
+
+    bool isPlaceholderEmpty() const;
+
+    virtual int cachedSelectionStart() const = 0;
+    virtual int cachedSelectionEnd() const = 0;
+
+    // Returns true if user-editable value is empty. Used to check placeholder visibility.
     virtual bool isEmptyValue() const = 0;
+    // Returns true if suggested value is empty. Used to check placeholder visibility.
+    virtual bool isEmptySuggestedValue() const { return true; }
     // Called in dispatchFocusEvent(), after placeholder process, before calling parent's dispatchFocusEvent().
     virtual void handleFocusEvent() { }
     // Called in dispatchBlurEvent(), after placeholder process, before calling parent's dispatchBlurEvent().
     virtual void handleBlurEvent() { }
+
     RenderTextControl* textRendererAfterUpdateLayout();
+
+    String m_textAsOfLastFormControlChangeEvent;
 };
 
-} //namespace
+} // namespace
 
 #endif

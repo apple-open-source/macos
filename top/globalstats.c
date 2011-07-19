@@ -179,8 +179,11 @@ void top_globalstats_draw(void *ptr) {
     int i;
     
     for(i = 0; i < GLOBALSTAT_TOTAL; ++i) {
-	if(strlen(c->stats[i].data))
-	    mvwaddstr(c->stats[i].window, 0, 0, c->stats[i].data);
+		// MWW: Skip the frameworks window if we've got them disabled
+		if (!top_prefs_get_frameworks() && (i == GLOBALSTAT_SHAREDLIBS)) 
+			continue;
+		if(strlen(c->stats[i].data))
+	    	mvwaddstr(c->stats[i].window, 0, 0, c->stats[i].data);
     }
 }
 
@@ -755,6 +758,8 @@ bool top_globalstats_update(void *ptr, const void *sample) {
 
 	if (!top_prefs_get_logging_mode()) {
 		for(i = 0; i < GLOBALSTAT_TOTAL; ++i) {
+			// MWW: If we've disabled framework logging one of these windows isn't valid and needs skipping
+			if (!top_prefs_get_frameworks() && (i == GLOBALSTAT_SHAREDLIBS)) continue;
 			werase(c->stats[i].window);
 		}
 	}
@@ -909,6 +914,9 @@ bool top_globalstats_resize(void *ptr, int width, int height,
 
     for(i = 0; i < GLOBALSTAT_TOTAL; ++i) {
 	struct globalstat *gs = c->stats + i;
+	
+	// MWW: Skip the frameworks window if we've got them disabled
+	if (!top_prefs_get_frameworks() && (i == GLOBALSTAT_SHAREDLIBS)) continue;
 
 	if(skip_globalstat(i)) {
 	    /* Skip and hide the panels for these. */

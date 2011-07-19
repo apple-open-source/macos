@@ -27,7 +27,7 @@
 	$Log: IOFireWireLocalNode.cpp,v $
 	Revision 1.11  2009/03/26 22:45:17  calderon
 	<rdar://6728033> User client fails to terminate with unexpected consuequences
-	
+
 	Revision 1.10  2008/04/24 00:01:39  collin
 	more K640
 	

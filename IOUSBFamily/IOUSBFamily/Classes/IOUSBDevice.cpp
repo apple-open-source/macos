@@ -91,7 +91,7 @@ extern "C" {
 #define _DO_PORT_REENUMERATE_THREAD		_expansionData->_doPortReEnumerateThread
 
 
-#define kNotifyTimerDelay			30000	// in milliseconds = 30 seconds
+#define kNotifyTimerDelay			60000	// in milliseconds = 30 seconds
 #define kUserLoginDelay				20000	// in milliseconds = 20 seconds
 #define kMaxTimeToWaitForReset		20000   // in milliseconds = 10 seconds
 #define kMaxTimeToWaitForSuspend	20000   // in milliseconds = 20 seconds
@@ -1061,7 +1061,7 @@ void
 IOUSBDevice::SetProperties()
 {
     char			location [32];
-    const struct	IORegistryPlane * 	usbPlane; 
+    const 			IORegistryPlane * 	usbPlane; 
     OSObject *		propertyObj = NULL;
 	OSNumber *		port = NULL;
     OSBoolean *		boolObj = NULL;
@@ -1798,14 +1798,21 @@ IOUSBDevice::GetDeviceDescriptor(IOUSBDeviceDescriptor *desc, UInt32 size)
     request.wIndex = 0;
     request.wLength = size;
     request.pData = desc;
+    request.wLenDone = 0;
 	
     err = DeviceRequest(&request, 5000, 0);
     
     if (err)
     {
-        USBLog(1,"%s[%p]: Error (0x%x) getting device device descriptor", getName(), this, err);
+        USBLog(1,"%s[%p]::GetDeviceDescriptor  Error (0x%x) getting device device descriptor", getName(), this, err);
 		USBTrace( kUSBTDevice,  kTPDeviceGetDeviceDescriptor, (uintptr_t)this, err, request.bmRequestType, 0 );
     }
+	else if ( request.wLenDone != size )
+	{
+        USBLog(1,"%s[%p]::GetDeviceDescriptor  Asked for %d bytes and got %d, returning kIOReturnUnderrun", getName(), this, (uint32_t)size, (uint32_t)request.wLenDone);
+		USBTrace( kUSBTDevice,  kTPDeviceGetDeviceDescriptor, (uintptr_t)this, size, request.wLenDone, 1 );
+		err = kIOReturnUnderrun;
+	}
 	
     return err;
 }
@@ -1836,15 +1843,22 @@ IOUSBDevice::GetConfigDescriptor(UInt8 configIndex, void *desc, UInt32 len)
     request.wIndex = 0;
     request.wLength = len;
     request.pData = desc;
+    request.wLenDone = 0;
 	
     err = DeviceRequest(&request, 5000, 0);
 	
     if (err)
     {
-        USBLog(1,"%s[%p]: Error (0x%x) getting device config descriptor", getName(), this, err);
+        USBLog(1,"%s[%p]::GetConfigDescriptor  Error (0x%x) getting device config descriptor", getName(), this, err);
 		USBTrace( kUSBTDevice,  kTPDeviceGetConfigDescriptor, (uintptr_t)this, err, request.bmRequestType, 0 );
     }
-	
+	else if ( request.wLenDone != len )
+	{
+        USBLog(1,"%s[%p]::GetConfigDescriptor  Asked for %d bytes and got %d, returning kIOReturnUnderrun", getName(), this, (uint32_t)len, (uint32_t)request.wLenDone);
+		USBTrace( kUSBTDevice,  kTPDeviceGetConfigDescriptor, (uintptr_t)this, len, request.wLenDone, 1 );
+		err = kIOReturnUnderrun;
+	}
+
     return err;
 }
 
@@ -3686,13 +3700,9 @@ IOUSBDevice::ProcessPortReEnumerateEntry(OSObject *target,thread_call_param_t op
 void 
 IOUSBDevice::ProcessPortReEnumerate(UInt32 options)
 {	
-	IOReturn status = kIOReturnSuccess;
-	
     USBLog(5,"+%s[%p]::ProcessPortReEnumerate",getName(),this); 
 	
-	status = _HUBPARENT->ReEnumeratePort( _PORT_NUMBER, options );
-	
-    USBLog(5,"-%s[%p]::ProcessPortReEnumerate returned 0x%x",getName(),this, (uint32_t)status); 
+	(void) _HUBPARENT->ReEnumeratePort( _PORT_NUMBER, options );
 }
 
 void

@@ -29,9 +29,12 @@
  */
 
 #include "config.h"
-
 #include "ScriptProfiler.h"
-#include "ScriptString.h"
+
+#include "InspectorValues.h"
+#include "RetainedDOMInfo.h"
+#include "V8Binding.h"
+#include "V8Node.h"
 
 #include <v8-profiler.h>
 
@@ -46,8 +49,70 @@ void ScriptProfiler::start(ScriptState* state, const String& title)
 PassRefPtr<ScriptProfile> ScriptProfiler::stop(ScriptState* state, const String& title)
 {
     v8::HandleScope hs;
-    const v8::CpuProfile* profile = v8::CpuProfiler::StopProfiling(v8String(title));
+    const v8::CpuProfile* profile = state ?
+        v8::CpuProfiler::StopProfiling(v8String(title), state->context()->GetSecurityToken()) :
+        v8::CpuProfiler::StopProfiling(v8String(title));
     return profile ? ScriptProfile::create(profile) : 0;
 }
+
+void ScriptProfiler::collectGarbage()
+{
+    // NOTE : There is currently no direct way to collect memory from the v8 C++ API
+    // but notifying low-memory forces a mark-compact, which is exactly what we want
+    // in this case.
+    v8::V8::LowMemoryNotification();
+}
+
+namespace {
+
+class ActivityControlAdapter : public v8::ActivityControl {
+public:
+    ActivityControlAdapter(ScriptProfiler::HeapSnapshotProgress* progress)
+            : m_progress(progress), m_firstReport(true) { }
+    ControlOption ReportProgressValue(int done, int total)
+    {
+        ControlOption result = m_progress->isCanceled() ? kAbort : kContinue;
+        if (m_firstReport) {
+            m_firstReport = false;
+            m_progress->Start(total);
+        } else
+            m_progress->Worked(done);
+        if (done >= total)
+            m_progress->Done();
+        return result;
+    }
+private:
+    ScriptProfiler::HeapSnapshotProgress* m_progress;
+    bool m_firstReport;
+};
+
+} // namespace
+
+PassRefPtr<ScriptHeapSnapshot> ScriptProfiler::takeHeapSnapshot(const String& title, HeapSnapshotProgress* control)
+{
+    v8::HandleScope hs;
+    const v8::HeapSnapshot* snapshot = 0;
+    if (control) {
+        ActivityControlAdapter adapter(control);
+        snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kFull, &adapter);
+    } else
+        snapshot = v8::HeapProfiler::TakeSnapshot(v8String(title), v8::HeapSnapshot::kAggregated);
+    return snapshot ? ScriptHeapSnapshot::create(snapshot) : 0;
+}
+
+static v8::RetainedObjectInfo* retainedDOMInfo(uint16_t classId, v8::Handle<v8::Value> wrapper)
+{
+    ASSERT(classId == v8DOMSubtreeClassId);
+    if (!wrapper->IsObject())
+        return 0;
+    Node* node = V8Node::toNative(wrapper.As<v8::Object>());
+    return node ? new RetainedDOMInfo(node) : 0;
+}
+
+void ScriptProfiler::initialize()
+{
+    v8::HeapProfiler::DefineWrapperClass(v8DOMSubtreeClassId, &retainedDOMInfo);
+}
+
 
 } // namespace WebCore

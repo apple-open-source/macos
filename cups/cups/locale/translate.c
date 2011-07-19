@@ -1,13 +1,13 @@
 /*
- * "$Id: translate.c 7922 2008-09-10 15:56:47Z mike $"
+ * "$Id: translate.c 9048 2010-03-24 08:07:15Z mike $"
  *
- *   HTTP-based translation program for the Common UNIX Printing System (CUPS).
+ *   HTTP-based translation program for CUPS.
  *
  *   This program uses Google to translate the CUPS template (cups.pot) to
  *   several different languages.  The translation isn't perfect, but it's
  *   a start (better than working from scratch.)
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -28,11 +28,7 @@
  * Include necessary headers...
  */
 
-#include <cups/string.h>
-#include <cups/file.h>
-#include <cups/http.h>
-#include <cups/i18n.h>
-#include <stdlib.h>
+#include <cups/cups-private.h>
 #include <unistd.h>
 
 
@@ -439,5 +435,5 @@ write_string(cups_file_t *fp,		/* I - File to write to */
 
 
 /*
- * End of "$Id: translate.c 7922 2008-09-10 15:56:47Z mike $".
+ * End of "$Id: translate.c 9048 2010-03-24 08:07:15Z mike $".
  */

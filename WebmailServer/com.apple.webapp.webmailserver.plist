@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-7"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>name</key>
+	<string>com.apple.webapp.webmailserver</string>
+	<key>includeFiles</key>
+	<array>
+		<string>/etc/apache2/httpd_webmailserver.conf</string>
+	</array>
+	<key>launchKeys</key>
+	<array>
+		<string>com.example.placeholder</string>
+		<string>org.postgresql.postgres</string>
+	</array>
+	<key>proxies</key>
+	<dict/>
+	<key>requiredWebAppNames</key>
+	<array>
+		<string>com.apple.webapp.php</string>
+	</array>
+</dict>
+</plist>

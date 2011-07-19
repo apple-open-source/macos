@@ -7,7 +7,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: url.h,v 1.44 2009-05-08 10:59:40 bagder Exp $
  ***************************************************************************/
 
 #include <stdarg.h> /* to make sure we have ap_list */
@@ -43,7 +42,7 @@ CURLcode Curl_async_resolved(struct connectdata *conn,
 CURLcode Curl_do(struct connectdata **, bool *done);
 CURLcode Curl_do_more(struct connectdata *);
 CURLcode Curl_done(struct connectdata **, CURLcode, bool premature);
-CURLcode Curl_disconnect(struct connectdata *);
+CURLcode Curl_disconnect(struct connectdata *, bool dead_connection);
 CURLcode Curl_protocol_connect(struct connectdata *conn, bool *done);
 CURLcode Curl_protocol_connecting(struct connectdata *conn, bool *done);
 CURLcode Curl_protocol_doing(struct connectdata *conn, bool *done);
@@ -86,5 +85,12 @@ void Curl_reset_reqproto(struct connectdata *conn);
 #define CURL_DEFAULT_SOCKS5_GSSAPI_SERVICE "rcmd" /* default socks5 gssapi service */
 
 CURLcode Curl_connected_proxy(struct connectdata *conn);
+
+#ifdef CURL_DISABLE_VERBOSE_STRINGS
+#define Curl_verboseconnect(x)  do { } while (0)
+#else
+void Curl_verboseconnect(struct connectdata *conn);
+#endif
+
 
 #endif

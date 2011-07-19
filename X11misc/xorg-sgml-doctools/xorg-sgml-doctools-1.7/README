@@ -1,0 +1,163 @@
+This package provides a common set of SGML entities and XML/CSS style
+sheets used in building/formatting the documentation provided in other
+X.Org packages.   It's typically only needed by people building from
+source who want to produce formatted documentation from their builds,
+or those who have installed the HTML version of the documentation,
+which refers to the included common xorg.css stylesheet.
+
+Documents external references
+-----------------------------
+A new feature with version 1.7 is references to documents in other
+packages. For example a protocol specifications may refer to another
+one or to a library implementing it.
+
+This feature works with PDF, HTML, PS (and epub?) generated documents
+and will generate links to the other versions of the same type, i.e. html
+docs will link to other html docs,  and pdf docs will link to other pdf
+docs.
+
+Due to the modular nature of the X window System and the flexibility
+it provides to O/S builders, one should not expect all links to
+be resolved all the time. A more recent version of a package may be
+installed or an older version may be retained for a long period of time.
+Not all packages are installed either.
+
+Build challenges
+----------------
+The X Window System is composed of over 200 packages. The documentation is
+included with the package it documents so the information matches the code.
+The build is organized to satisfy C code building requirements, but this
+paradigm does not fit very well for building documentation.
+
+For a document to build a reference to another document, it needs to have
+information about this document which may or may not be there, or may be
+at an unexpected version. The document it refers to may also wish to refer
+to the former document.
+
+Local X builds
+--------------
+When building X as a sandbox on a workstation, using a simple build script
+to configure and build all packages in the right order is all you need
+to get a working system, including documentation. You will not get all
+the links in the documentation resolved correctly due to build order
+and/or bi-directional references.
+
+Unless you are updating or testing the documentation, you do not need to
+worry about this glitch. A simple workaround is to build each affected
+package using "make clean install && make clean install" in any order.
+This will give a chance to each package to get information about the other one
+through the installed files.
+
+O/S X builds
+------------
+O/S builders often repackage X code and documentation, however they face the
+same challenges as described above. Users can update packages through
+the package management system or install additional packages. To use the
+earlier example, if a protocol is installed without its implementing
+library there will be a broken reference.
+
+Build assumptions
+-----------------
+Packages provide great flexibility, including the one to install each package
+documentation in a separate, totally unrelated directory using the --docdir
+configure option. For external references to work, it is assumed that
+the each package installs the documentation using the relative
+doc/${PACKAGE_TARNAME} location.
+
+The Docbook stylesheet technology will create references with paths relative
+to this location. It will navigate up to "doc" using ../ and then navigate
+down to the document it refers to.
+
+Diagnosing a broken reference
+-----------------------------
+A document reference is created at build time while the document is being
+transformed from Docbook/XML to HTML or another format. If this reference
+is missing, the document must be rebuilt.
+
+To build the reference, the docbook stylesheet consults a database stored
+in this package which is called masterdb.xml. This database supplies the
+relative directory structure of where the documents are located as well
+as including target document references in the various *.db files.
+These files are generated and installed while the documents are being build.
+
+This is what a Docbook/XML reference from docA to docB looks like (docA.xml):
+<olink targetdoc='docB' targetptr='docBfragment'>Title</olink>
+
+This is what an HTML reference from docA to docB looks like (docA.html):
+<a href="docB.html#docBfragment" class="olink">Title</a>
+
+This is what an HTML targetdoc for docB looks like (docB.html.db):
+<div element="article" href="#docBfragment" number="" targetptr="docBfragment">
+
+This is what an HTML reference from docA to docB looks like (docA.html)
+when the reference cannot be resolved:
+<span class="olink">Title</span>
+
+This can be caused by one or more of the following:
+
+   - docB may not longer contain the text (targetptr) docA is referring to.
+   - docB.html.db file may not have been installed by docB package
+   - masterdb.html.xml is missing a <document/> entry for docB
+   - masterdb.html.xml cannot be loaded so all refs are broken.
+   - an XSLT processor which does not support xinclude is being used
+   - docB.html.db was generated without --xinclude option for the processor
+   - xsltproc is not at version 1.1.26 or later
+   - for PDF/PS formats, the fragment is ignored, always points to top of docB
+
+Some pitfalls
+-------------------------
+<book id="docA"> in docA.xml: the id must match the file basename.
+In xorg-*.xsl, <xsl:param name="current.docid" select="/*/@id"/>
+supplies docid for *.db. The document id must be unique across
+all documents.
+
+The baseuri attribute in masterdb.xml is required for pdf/ps references
+to work. It cannot be replaced with olink.base.uri in the makefile.
+
+The pdf/ps "inside the document" references only started working with
+docbook-xsl v 1.76.1 which is not yet available to your favorite O/S.
+In xorg-fo.xsl, insert.olink.pdf.frag must be set to zero which allows
+the reference to at least point to the top of the document.
+
+XSL toolchain
+-------------
+The following minimum versions are needed for external references to work:
+XSLT processor:	1.1.26
+libxml2:	2.7.6
+libxslt1.1:	1.1.26
+The exact triplet may vary by distribution, sometimes a version is skipped.
+If you are close enough, try it.
+
+References
+----------
+http://docbook.org/tdg/en/html/docbook.html
+http://docbook.sourceforge.net/release/xsl/current/doc/html/
+http://docbook.sourceforge.net/release/xsl/current/doc/fo/
+http://www.sagehill.net/docbookxsl/OlinkPrintOutput.html
+
+
+-------------------------------------------------------------------------------
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/doc/xorg-sgml-doctools
+
+        http://cgit.freedesktop.org/xorg/doc/xorg-sgml-doctools
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

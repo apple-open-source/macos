@@ -3,6 +3,7 @@
 [copyright {1999-2000 Marshall T. Rose and others}]
 [moddesc   {smtp client}]
 [titledesc {Client-side tcl implementation of the smtp protocol}]
+[category  Networking]
 [require Tcl]
 [require mime [opt 1.5.4]]
 [require smtp [opt 1.4.5]]
@@ -60,7 +61,8 @@ commas.
 
 [def [option -header]]
 
-A list of keywords and their values (may occur zero or more times).
+A list containing two elements, an smtp header and its associated
+value (the -header option may occur zero or more times). 
 
 [def [option -usetls]]
 

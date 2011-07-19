@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/sq.xml
@@ -11,251 +11,29 @@
  */
 sq{
     AuxExemplarCharacters{"[w]"}
-    Countries{
-        AD{"Andorrë"}
-        AE{"Emiratet Arabe te Bashkuara"}
-        AF{"Afganistan"}
-        AG{"Antigua e Barbuda"}
-        AL{"Shqipëria"}
-        AM{"Armeni"}
-        AO{"Angolë"}
-        AR{"Argjentinë"}
-        AT{"Austri"}
-        AU{"Australi"}
-        AX{"Ishujt Aland"}
-        AZ{"Azerbajxhan"}
-        BA{"Bosnja dhe Hercegovina"}
-        BE{"Belgjikë"}
-        BG{"Bullgari"}
-        BH{"Bahrein"}
-        BN{"Brunej"}
-        BO{"Bolivi"}
-        BR{"Brazili"}
-        BT{"Butan"}
-        BW{"Botsvana"}
-        BY{"Bjellorusi"}
-        CA{"Kanada"}
-        CF{"Republika Qendrore e Afrikës"}
-        CG{"Kongo"}
-        CH{"Zvicër"}
-        CI{"Bregu i Fildishtë"}
-        CL{"Kili"}
-        CM{"Kamerun"}
-        CN{"Kinë"}
-        CO{"Kolumbi"}
-        CR{"Kosta Rika"}
-        CS{"Serbië en Montenegro"}
-        CU{"Kubë"}
-        CV{"Kap Verde"}
-        CY{"Qipro"}
-        CZ{"Republika e Çekisë"}
-        DE{"Gjermani"}
-        DJ{"Xhibuti"}
-        DK{"Danimarkë"}
-        DM{"Dominikë"}
-        DO{"Republika Dominikanë"}
-        DZ{"Algjeri"}
-        EC{"Ekuator"}
-        EE{"Estoni"}
-        EG{"Egjipt"}
-        EH{"Saharaja Perëndimore"}
-        ER{"Eritre"}
-        ES{"Spanjë"}
-        ET{"Etiopi"}
-        FI{"Finlandë"}
-        FJ{"Fixhi"}
-        FM{"Mikronezi"}
-        FR{"Francë"}
-        GA{"Gjabon"}
-        GB{"Mbretëria e Bashkuar"}
-        GE{"Gjeorgji"}
-        GH{"Ganë"}
-        GM{"Gambi"}
-        GN{"Guine"}
-        GQ{"Guineja Ekuatoriale"}
-        GR{"Greqi"}
-        GT{"Guatemalë"}
-        GW{"Guine Bisau"}
-        GY{"Guajana"}
-        HR{"Kroaci"}
-        HU{"Hungari"}
-        ID{"Indonezi"}
-        IE{"Irlandë"}
-        IL{"Izrael"}
-        IN{"Indi"}
-        IQ{"Irak"}
-        IS{"Islandë"}
-        IT{"Itali"}
-        JM{"Xhamajkë"}
-        JO{"Jordani"}
-        JP{"Japoni"}
-        KE{"Kenia"}
-        KG{"Kirgistan"}
-        KH{"Kamboxhi"}
-        KI{"Qiribati"}
-        KM{"Komore"}
-        KN{"Saint Kitts e Nevis"}
-        KP{"Koreja e Veriut"}
-        KR{"Koreja e Jugut"}
-        KW{"Kuvajt"}
-        KZ{"Kazakistan"}
-        LB{"Liban"}
-        LI{"Lihtënshtajn"}
-        LR{"Liberi"}
-        LS{"Lesoto"}
-        LT{"Lituani"}
-        LU{"Luksemburg"}
-        LV{"Letoni"}
-        LY{"Libi"}
-        MA{"Maroko"}
-        MC{"Monako"}
-        MD{"Moldavi"}
-        MG{"Madagaskar"}
-        MH{"Ishujt Marshall"}
-        MK{"Maqedoni"}
-        MN{"Mongoli"}
-        MR{"Mauritani"}
-        MT{"Maltë"}
-        MV{"Maldivit"}
-        MW{"Malavi"}
-        MX{"Meksikë"}
-        MY{"Malajzi"}
-        MZ{"Mozambik"}
-        NA{"Namibi"}
-        NG{"Nigeri"}
-        NI{"Nikaragua"}
-        NL{"Vendet e Ulëta"}
-        NO{"Norvegji"}
-        NZ{"Zelanda e Re"}
-        PG{"Papua Guineja e Re"}
-        PH{"Filipine"}
-        PL{"Poloni"}
-        PT{"Portugali"}
-        PY{"Paraguaj"}
-        QA{"Katar"}
-        RO{"Rumani"}
-        RU{"Rusi"}
-        RW{"Ruanda"}
-        SA{"Arabia Saudite"}
-        SB{"Ishujt Solomon"}
-        SC{"Sishel"}
-        SE{"Suedi"}
-        SG{"Singapor"}
-        SI{"Slloveni"}
-        SK{"Sllovaki"}
-        SL{"Siera Leone"}
-        SO{"Somali"}
-        ST{"Sao Tome e Prinsipe"}
-        SY{"Siri"}
-        SZ{"Svazilandë"}
-        TD{"Çad"}
-        TG{"Togo"}
-        TH{"Tajlandë"}
-        TJ{"Taxhikistan"}
-        TN{"Tunisi"}
-        TO{"Tonga"}
-        TR{"Turqi"}
-        TT{"Trinidad e Tobago"}
-        TW{"Tajvan"}
-        TZ{"Tanzani"}
-        UA{"Ukrainë"}
-        US{"Shtetet e Bashkuara të Amerikës"}
-        UY{"Uruguaj"}
-        VA{"Vatikan"}
-        VC{"Saint Vincent e Grenadinet"}
-        VE{"Venezuelë"}
-        YE{"Jemen"}
-        ZA{"Afrika e Jugut"}
-        ZM{"Zambi"}
-        ZW{"Zimbabve"}
-        ZZ{"Rajon i panjohur ose i pavlefshëm"}
-    }
-    Currencies{
-        ALL{
-            "Lek",
-            "ALL",
-        }
-        BRL{
-            "R$",
-            "Real Brazilian",
-        }
-        CNY{
-            "CNY",
-            "Renminbi(Yuan) Kinez",
-        }
-        EUR{
-            "€",
-            "Euro",
-        }
-        GBP{
-            "UK£",
-            "Paund Sterlina Britanike",
-        }
-        INR{
-            "=0#Rs.|1#Re.|1<Rs." /** (choice)  */,
-            "Rupee indiane",
-        }
-        JPY{
-            "JP¥",
-            "Jeni Japonez",
-        }
-        RUB{
-            "RUB",
-            "Rubla ruse",
-        }
-        USD{
-            "US$",
-            "Dollar amerikan",
-        }
-    }
     ExemplarCharacters{
-        "[a-c ç d {dh} e ë f g {gj} h-l {ll} m n {nj} o-r {rr} s {sh} t {th} u v x {x"
-        "h} y z {zh}]"
+        "[a b c ç d {dh} e ë f g {gj} h i j k l {ll} m n {nj} o p q r {rr} s {sh} t {"
+        "th} u v x {xh} y z {zh}]"
     }
-    Languages{
-        ar{"Arabisht"}
-        de{"Gjermanisht"}
-        en{"Anglisht"}
-        es{"Spanjisht"}
-        fr{"Frengjisht"}
-        hi{"Hindi"}
-        it{"Italisht"}
-        ja{"Japanisht"}
-        pt{"Portugeze"}
-        ru{"Rusisht"}
-        sh{"Serbo-Kroatisht"}
-        sq{"shqipe"}
-        zh{"Kineze"}
+    ExemplarCharactersIndex{
+        "[A B C Ç D {DH} E Ë F G {GJ} H I J K L {LL} M N {NJ} O P Q R {RR} S {SH} T {"
+        "TH} U V W X {XH} Y Z {ZH}]"
     }
     LocaleScript{
         "Latn",
     }
     NumberElements{
-        ",",
-        ".",
-        ";",
-        "%",
-        "0",
-        "#",
-        "-",
-        "E",
-        "‰",
-        "∞",
-        "NaN",
-        "+",
+        latn{
+            patterns{
+                currencyFormat{"¤#,##0.00"}
+            }
+            symbols{
+                decimal{","}
+                group{"."}
+            }
+        }
     }
-    NumberPatterns{
-        "#,##0.###",
-        "¤#,##0.00",
-        "#,##0%",
-        "#E0",
-    }
-    Scripts{
-        Latn{"Latine"}
-        Zxxx{"I pashkruar"}
-        Zzzz{"Skript i panjohur ose i pavlefshëm"}
-    }
-    Version{"1.69"}
+    Version{"2.0.47.69"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -263,17 +41,22 @@ sq{
                 "MD",
             }
             DateTimePatterns{
-                "h.mm.ss.a v",
+                "h.mm.ss.a zzzz",
                 "h.mm.ss.a z",
                 "h.mm.ss.a",
                 "h.mm.a",
-                "EEEE, dd MMMM yyyy",
-                "dd MMMM yyyy",
+                "EEEE, dd MMMM y",
+                "dd MMMM y",
                 "yyyy-MM-dd",
                 "yy-MM-dd",
                 "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
             }
             availableFormats{
+                H{"H"}
                 Hm{"H.mm"}
                 Hms{"H.mm.ss"}
                 M{"L"}
@@ -285,13 +68,17 @@ sq{
                 MMMd{"d MMM"}
                 Md{"M-d"}
                 d{"d"}
-                ms{"mm:ss"}
-                y{"yyyy"}
+                h{"h.a"}
+                hm{"h.mm.a"}
+                hms{"h.mm.ss.a"}
+                ms{"mm.ss"}
+                y{"y"}
                 yM{"M.yyyy"}
                 yMEd{"EEE, d.M.yyyy"}
-                yMMM{"MMM yyyy"}
-                yMMMEd{"d MMM yyyy"}
-                yMMMM{"MMMM yyyy"}
+                yMMM{"MMM y"}
+                yMMMEd{"d MMM y"}
+                yMMMM{"MMMM y"}
+                yyyyMMMM{"MMMM y"}
             }
             dayNames{
                 format{
@@ -330,6 +117,22 @@ sq{
                 abbreviated{
                     "p.e.r.",
                     "n.e.r.",
+                }
+            }
+            intervalFormats{
+                yMMM{
+                    M{"yyyy-MM – MM"}
+                    y{"MMM y - MMM y"}
+                }
+                yMMMEd{
+                    M{"E, dd MMM - E, dd MMM y"}
+                    d{"E, dd - E, dd MMM y"}
+                    y{"E, dd MMM y - E, dd MMM y"}
+                }
+                yMMMd{
+                    M{"dd MMM - dd MMM y"}
+                    d{"dd-dd MMM y"}
+                    y{"dd MMM y - dd MMM y"}
                 }
             }
             monthNames{
@@ -380,16 +183,6 @@ sq{
                     }
                 }
             }
-            quarters{
-                stand-alone{
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
-                    }
-                }
-            }
         }
     }
     units{
@@ -417,17 +210,6 @@ sq{
         year{
             one{"{0} vit"}
             other{"{0} vjet"}
-        }
-    }
-    zoneStrings{
-        "meta:Europe_Central"{
-            ls{"Ora qendrore evropiane"}
-        }
-        "meta:Europe_Eastern"{
-            ls{"Ora lindore evropiane"}
-        }
-        "meta:Moscow"{
-            ls{"Ora standarde e Moskës"}
         }
     }
 }

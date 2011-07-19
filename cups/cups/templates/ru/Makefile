@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 1228 2009-02-17 19:24:29Z msweet $"
+# "$Id: Makefile 3249 2011-05-12 06:35:27Z msweet $"
 #
-#   Template makefile for the Common UNIX Printing System (CUPS).
+#   Template makefile for CUPS.
 #
-#   Copyright 2007-2008 by Apple Inc.
+#   Copyright 2007-2011 by Apple Inc.
 #   Copyright 1993-2007 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -197,5 +197,5 @@ uninstall-languages:
 
 
 #
-# End of "$Id: Makefile 1228 2009-02-17 19:24:29Z msweet $".
+# End of "$Id: Makefile 3249 2011-05-12 06:35:27Z msweet $".
 #

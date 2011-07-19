@@ -1,9 +1,9 @@
 /*
- * "$Id: cmyk.c 861 2008-07-15 01:33:27Z msweet $"
+ * "$Id: cmyk.c 1995 2010-03-24 16:25:12Z msweet $"
  *
  *   CMYK color separation code for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2005 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -34,7 +34,7 @@
  */
 
 #include "driver.h"
-#include <cups/string.h>
+#include <cups/string-private.h>
 
 
 /*
@@ -1951,5 +1951,5 @@ cupsCMYKSetLtDk(cups_cmyk_t *cmyk,	/* I - CMYK color separation */
 
 
 /*
- * End of "$Id: cmyk.c 861 2008-07-15 01:33:27Z msweet $".
+ * End of "$Id: cmyk.c 1995 2010-03-24 16:25:12Z msweet $".
  */

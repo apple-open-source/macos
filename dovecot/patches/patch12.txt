@@ -1,0 +1,74 @@
+diff -Nur dovecot-1.1.7+patches9-10/src/auth/main.c dovecot-patch/src/auth/main.c
+--- dovecot-1.1.7+patches9-10/src/auth/main.c	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/auth/main.c	2009-01-06 16:38:54.000000000 -0600
+@@ -161,9 +161,9 @@
+ 			break;
+ 
+ 		str = t_strdup_printf("AUTH_%u", i);
+-		client_fd = create_unix_listener(str, 64);
++		client_fd = create_unix_listener(str, 128);  /* APPLE was 64 */
+ 		str = t_strdup_printf("AUTH_%u_MASTER", i);
+-		master_fd = create_unix_listener(str, 64);
++		master_fd = create_unix_listener(str, 128);  /* APPLE was 64 */
+ 
+ 		listener = auth_master_listener_create(auth);
+ 		if (master_fd != -1) {
+diff -Nur dovecot-1.1.7+patches9-10/src/dict/dict-server.c dovecot-patch/src/dict/dict-server.c
+--- dovecot-1.1.7+patches9-10/src/dict/dict-server.c	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/dict/dict-server.c	2009-01-06 16:39:01.000000000 -0600
+@@ -529,7 +529,7 @@
+ 	server->fd = fd;
+ 
+ 	while (server->fd == -1) {
+-		server->fd = net_listen_unix(path, 64);
++		server->fd = net_listen_unix(path, 128);  /* APPLE was 64 */
+ 		if (server->fd != -1)
+ 			break;
+ 
+diff -Nur dovecot-1.1.7+patches9-10/src/master/auth-process.c dovecot-patch/src/master/auth-process.c
+--- dovecot-1.1.7+patches9-10/src/master/auth-process.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/master/auth-process.c	2009-01-06 16:39:48.000000000 -0600
+@@ -325,7 +325,7 @@
+ 			       dec2str(pid));
+ 	p->worker_listen_fd =
+ 		unix_socket_create(path, 0600, group->set->uid,
+-				   group->set->gid, 16);
++				   group->set->gid, 128); /* APPLE was 16 */
+ 	if (p->worker_listen_fd == -1)
+ 		i_fatal("Couldn't create auth worker listener");
+ 
+@@ -713,7 +713,8 @@
+ 	path = t_strconcat(auth_set->parent->defaults->login_dir, "/",
+ 			   auth_set->name, NULL);
+ 	group->listen_fd = unix_socket_create(path, 0660, master_uid,
+-					      auth_set->parent->login_gid, 16);
++					      auth_set->parent->login_gid,
++					      128); /* APPLE was 16 */
+ 	if (group->listen_fd == -1)
+ 		i_fatal("Couldn't create auth process listener");
+ 
+diff -Nur dovecot-1.1.7+patches9-10/src/master/dict-process.c dovecot-patch/src/master/dict-process.c
+--- dovecot-1.1.7+patches9-10/src/master/dict-process.c	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/master/dict-process.c	2009-01-06 16:39:52.000000000 -0600
+@@ -118,7 +118,7 @@
+ 
+ 	for (;;) {
+ 		old_umask = umask(0);
+-		process->fd = net_listen_unix(process->path, 64);
++		process->fd = net_listen_unix(process->path, 128); /* APPLE was 64 */
+ 		umask(old_umask);
+ 
+ 		if (process->fd != -1)
+diff -Nur dovecot-1.1.7+patches9-10/src/master/listener.c dovecot-patch/src/master/listener.c
+--- dovecot-1.1.7+patches9-10/src/master/listener.c	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/master/listener.c	2009-01-06 16:40:04.000000000 -0600
+@@ -283,7 +283,8 @@
+ 
+ 		for (j = 0; j < 10; j++) {
+ 			listens[i].fd =
+-				net_listen(&listens[i].ip, &listens[i].port, 8);
++				net_listen(&listens[i].ip, &listens[i].port,
++					   128);	/* APPLE was 8 */
+ 			if (listens[i].fd != -1)
+ 				break;
+ 

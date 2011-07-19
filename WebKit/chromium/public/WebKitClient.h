@@ -31,10 +31,14 @@
 #ifndef WebKitClient_h
 #define WebKitClient_h
 
+#include "WebAudioBus.h"
+#include "WebAudioDevice.h"
 #include "WebCommon.h"
 #include "WebData.h"
 #include "WebLocalizedString.h"
+#include "WebSerializedScriptValue.h"
 #include "WebString.h"
+#include "WebVector.h"
 #include "WebURL.h"
 
 #include <time.h>
@@ -47,12 +51,14 @@ namespace WebKit {
 
 class WebApplicationCacheHost;
 class WebApplicationCacheHostClient;
+class WebBlobRegistry;
 class WebClipboard;
 class WebCookieJar;
 class WebFileSystem;
-class WebGLES2Context;
+class WebFileUtilities;
 class WebGraphicsContext3D;
-class WebIndexedDatabase;
+class WebIDBFactory;
+class WebIDBKey;
 class WebMessagePortChannel;
 class WebMimeRegistry;
 class WebPluginListBuilder;
@@ -72,7 +78,7 @@ public:
     virtual WebMimeRegistry* mimeRegistry() { return 0; }
 
     // Must return non-null.
-    virtual WebFileSystem* fileSystem() { return 0; }
+    virtual WebFileUtilities* fileUtilities() { return 0; }
 
     // May return null if sandbox support is not necessary
     virtual WebSandboxSupport* sandboxSupport() { return 0; }
@@ -83,6 +89,10 @@ public:
     // May return null.
     virtual WebCookieJar* cookieJar() { return 0; }
 
+    // Blob ----------------------------------------------------------------
+
+    // Must return non-null.
+    virtual WebBlobRegistry* blobRegistry() { return 0; }
 
     // DOM Storage --------------------------------------------------
 
@@ -93,23 +103,6 @@ public:
     virtual void dispatchStorageEvent(const WebString& key, const WebString& oldValue,
                                       const WebString& newValue, const WebString& origin,
                                       const WebURL& url, bool isLocalStorage) { }
-
-
-    // File ----------------------------------------------------------------
-
-    // Various file/directory related functions.  These map 1:1 with
-    // functions in WebCore's FileSystem.h.
-    virtual bool fileExists(const WebString& path) { return false; }
-    virtual bool deleteFile(const WebString& path) { return false; }
-    virtual bool deleteEmptyDirectory(const WebString& path) { return false; }
-    virtual bool getFileSize(const WebString& path, long long& result) { return false; }
-    virtual bool getFileModificationTime(const WebString& path, double& result) { return false; }
-    virtual WebString directoryName(const WebString& path) { return WebString(); }
-    virtual WebString pathByAppendingComponent(const WebString& path, const WebString& component) { return WebString(); }
-    virtual bool makeAllDirectories(const WebString& path) { return false; }
-    virtual WebString getAbsolutePath(const WebString& path) { return WebString(); }
-    virtual bool isDirectory(const WebString& path) { return false; }
-    virtual WebURL filePathToURL(const WebString& path) { return WebURL(); }
 
 
     // History -------------------------------------------------------------
@@ -135,7 +128,7 @@ public:
     // Opens a database file; dirHandle should be 0 if the caller does not need
     // a handle to the directory containing this file
     virtual FileHandle databaseOpenFile(
-        const WebString& vfsFileName, int desiredFlags, FileHandle* dirHandle) { return FileHandle(); }
+        const WebString& vfsFileName, int desiredFlags) { return FileHandle(); }
 
     // Deletes a database file and returns the error code
     virtual int databaseDeleteFile(const WebString& vfsFileName, bool syncDir) { return 0; }
@@ -149,7 +142,9 @@ public:
 
     // Indexed Database ----------------------------------------------------
 
-    virtual WebIndexedDatabase* indexedDatabase() { return 0; }
+    virtual WebIDBFactory* idbFactory() { return 0; }
+    virtual void createIDBKeysFromSerializedValuesAndKeyPath(const WebVector<WebSerializedScriptValue>& values,  const WebString& keyPath, WebVector<WebIDBKey>& keys) { }
+    virtual WebSerializedScriptValue injectIDBKeyIntoSerializedValue(const WebIDBKey& key, const WebSerializedScriptValue& value, const WebString& keyPath) { return WebSerializedScriptValue(); }
 
 
     // Keygen --------------------------------------------------------------
@@ -169,6 +164,9 @@ public:
     // Returns the current space allocated for the pagefile, in MB.
     // That is committed size for Windows and virtual memory size for POSIX
     virtual size_t memoryUsageMB() { return 0; }
+
+    // Same as above, but always returns actual value, without any caches.
+    virtual size_t actualMemoryUsageMB() { return 0; }
 
 
     // Message Ports -------------------------------------------------------
@@ -192,6 +190,9 @@ public:
     // Returns the User-Agent string that should be used for the given URL.
     virtual WebString userAgent(const WebURL&) { return WebString(); }
 
+    // A suggestion to cache this metadata in association with this URL.
+    virtual void cacheMetadata(const WebURL&, double responseTime, const char* data, size_t dataSize) { }
+
 
     // Plugins -------------------------------------------------------------
 
@@ -210,10 +211,11 @@ public:
     virtual void traceEventBegin(const char* name, void* id, const char* extra) { }
     virtual void traceEventEnd(const char* name, void* id, const char* extra) { }
 
-    // Generic callback for reporting histogram data. Range is identified by the min, max pair.
-    // By default, histogram is exponential, so that min=1, max=1000000, bucketCount=50 would do. Setting
-    // linear to true would require bucket count to cover whole min-max range.
-    virtual void histogramCounts(const WebString& name, int sample, int min, int max, int bucketCount, bool linear) { }
+    // Callbacks for reporting histogram data.
+    // CustomCounts histogram has exponential bucket sizes, so that min=1, max=1000000, bucketCount=50 would do.
+    virtual void histogramCustomCounts(const char* name, int sample, int min, int max, int bucketCount) { }
+    // Enumeration histogram buckets are linear, boundaryValue should be larger than any possible sample value.
+    virtual void histogramEnumeration(const char* name, int sample, int boundaryValue) { }
 
 
     // Resources -----------------------------------------------------------
@@ -221,10 +223,15 @@ public:
     // Returns a blob of data corresponding to the named resource.
     virtual WebData loadResource(const char* name) { return WebData(); }
 
-    // Returns a localized string resource (with an optional numeric
-    // parameter value).
+    // Decodes the in-memory audio file data and returns the linear PCM audio data in the destinationBus.
+    // A sample-rate conversion to sampleRate will occur if the file data is at a different sample-rate.
+    // Returns true on success.
+    virtual bool loadAudioResource(WebAudioBus* destinationBus, const char* audioFileData, size_t dataSize, double sampleRate) { return false; }
+
+    // Returns a localized string resource (with substitution parameters).
     virtual WebString queryLocalizedString(WebLocalizedString::Name) { return WebString(); }
-    virtual WebString queryLocalizedString(WebLocalizedString::Name, int numericValue) { return WebString(); }
+    virtual WebString queryLocalizedString(WebLocalizedString::Name, const WebString& parameter) { return WebString(); }
+    virtual WebString queryLocalizedString(WebLocalizedString::Name, const WebString& parameter1, const WebString& parameter2) { return WebString(); }
 
 
     // Sandbox ------------------------------------------------------------
@@ -257,8 +264,15 @@ public:
     // Wall clock time in seconds since the epoch.
     virtual double currentTime() { return 0; }
 
+    virtual void cryptographicallyRandomValues(unsigned char* buffer, size_t length)
+    {
+        // WebKit clients must implement this funcion if they use cryptographic randomness.
+        WEBKIT_ASSERT_NOT_REACHED();
+    }
+
     // Delayed work is driven by a shared timer.
-    virtual void setSharedTimerFiredFunction(void (*func)()) { }
+    typedef void (*SharedTimerFunction)();
+    virtual void setSharedTimerFiredFunction(SharedTimerFunction timerFunction) { }
     virtual void setSharedTimerFireTime(double fireTime) { }
     virtual void stopSharedTimer() { }
 
@@ -271,11 +285,15 @@ public:
     // Returns newly allocated WebGraphicsContext3D instance.
     virtual WebGraphicsContext3D* createGraphicsContext3D() { return 0; }
 
-    // GLES2  --------------------------------------------------------------
+    // Audio --------------------------------------------------------------
 
-    // Returns newly allocated WebGLES2Context instance.
-    // May return null if it fails to create the context.
-    virtual WebGLES2Context* createGLES2Context() { return 0; }
+    virtual double audioHardwareSampleRate() { return 0; }
+    virtual WebAudioDevice* createAudioDevice(size_t bufferSize, unsigned numberOfChannels, double sampleRate, WebAudioDevice::RenderCallback*) { return 0; }
+
+    // FileSystem ----------------------------------------------------------
+
+    // Must return non-null.
+    virtual WebFileSystem* fileSystem() { return 0; }
 
 protected:
     ~WebKitClient() { }

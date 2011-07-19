@@ -33,7 +33,7 @@
 
 #if PRAGMA_MARK
 #pragma mark Basic Utility
-#endif /* PRAGMA_MARK */
+#endif
 /*********************************************************************
 *********************************************************************/
 char * createUTF8CStringForCFString(CFStringRef aString)
@@ -125,7 +125,7 @@ void addToArrayIfAbsent(CFMutableArrayRef array, const void * value)
 
 #if PRAGMA_MARK
 #pragma mark Path & File
-#endif /* PRAGMA_MARK */
+#endif
 /*******************************************************************************
 *******************************************************************************/
 ExitStatus checkPath(
@@ -197,7 +197,7 @@ ExitStatus checkPath(
         goto finish;
     }
     
-    if (directoryRequired && !(statBuffer.st_mode & S_IFDIR) ) {
+    if (directoryRequired && ((statBuffer.st_mode & S_IFMT) != S_IFDIR) ) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
             "%s is not a directory.",
@@ -263,16 +263,24 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
                 "Error checking file: CFError %d.", (int)error);
         }
         if (CFBooleanGetValue(fileExists)) {
-            switch (user_approve(1, "%s exists, overwrite", savePath)) {
-                case -1:
+            switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
+                "%s exists, overwrite", savePath)) {
+
+                case REPLY_YES:
+                    // go ahead and overwrite.
+                    break;
+                case REPLY_ALL:
+                    // go ahead and overwrite this and all following.
+                    fprintf(stderr,
+                        "Overwriting all symbol files for kexts in dependency graph.\n");
+                    context->overwrite = TRUE;
+                    break;
+                case REPLY_NO:
+                    goto finish;
+                    break;
+                default:
                     context->fatal = true;
                     goto finish;
-                    break;
-                case 0:
-                    goto finish;
-                    break;
-                case 1:
-                    // go ahead and overwrite.
                     break;
             }
         }
@@ -291,6 +299,7 @@ saveFile(const void * vKey, const void * vValue, void * vContext)
 
 finish:
     SAFE_RELEASE(saveURL);
+    SAFE_RELEASE(fileExists);
     return;
 }
 
@@ -317,7 +326,7 @@ finish:
 
 #if PRAGMA_MARK
 #pragma mark Logging
-#endif /* PRAGMA_MARK */
+#endif
 /*******************************************************************************
 *******************************************************************************/
 OSKextLogSpec _sLogSpecsForVerboseLevels[] = {
@@ -360,7 +369,7 @@ ExitStatus setLogFilterForOpt(
     OSKextLogSpec  forceOnFlags)
 {
     ExitStatus      result       = EX_USAGE;
-    OSKextLogSpec   logFilter    = OSKextGetLogFilter(/* kernel? */ false);
+    OSKextLogSpec   logFilter    = 0;
     const char    * localOptarg  = NULL;
 
    /* Must be a bare -v; just use the extra flags.
@@ -386,11 +395,19 @@ ExitStatus setLogFilterForOpt(
             goto finish;
         }
 
+       /* Look for '-v0x####' with no space and advance to the 0x part.
+        */
+        if (localOptarg[0] == '-' && localOptarg[1] == kOptVerbose &&
+            localOptarg[2] == '0' && (localOptarg[3] == 'x' || localOptarg[3] == 'X')) {
+
+            localOptarg += 2;
+        }
+
        /* Look for a 0x#### style verbose arg.
         */
-        if (localOptarg[0] == '0' && localOptarg[1] == 'x') {
+        if (localOptarg[0] == '0' && (localOptarg[1] == 'x' || localOptarg[1] == 'X')) {
             char          * endptr      = NULL;
-            OSKextLogSpec   parsedFlags = strtoul(localOptarg, &endptr, 16);
+            OSKextLogSpec   parsedFlags = (unsigned)strtoul(localOptarg, &endptr, 16);
 
             if (endptr[0]) {
                 OSKextLog(/* kext */ NULL,
@@ -524,7 +541,7 @@ void log_CFError(
     OSKextLogSpec msgLogSpec,
     CFErrorRef    error)
 {
-    CFStringRef   errorString = NULL;  // do not release
+    CFStringRef   errorString = NULL;  // must release
     char        * cstring     = NULL;  // must release
 
     if (!error) {
@@ -535,15 +552,19 @@ void log_CFError(
         cstring = createUTF8CStringForCFString(errorString);
         OSKextLog(/* kext */ NULL, msgLogSpec,
             "CFError descripton: %s.", cstring);
+        SAFE_RELEASE_NULL(errorString);
         SAFE_FREE_NULL(cstring);
     }
+    
     errorString = CFErrorCopyFailureReason(error);
     if (errorString) {
         cstring = createUTF8CStringForCFString(errorString);
         OSKextLog(/* kext */ NULL, msgLogSpec,
             "CFError reason: %s.", cstring);
+        SAFE_RELEASE_NULL(errorString);
         SAFE_FREE_NULL(cstring);
     }
+    
     return;
 }
 
@@ -561,21 +582,20 @@ const char * safe_mach_error_string(mach_error_t error_code)
 
 #if PRAGMA_MARK
 #pragma mark User Input
-#endif /* PRAGMA_MARK */
+#endif
 /*******************************************************************************
 * user_approve()
 *
 * Ask the user a question and wait for a yes/no answer.
 *******************************************************************************/
-int user_approve(int default_answer, const char * format, ...)
+int user_approve(Boolean ask_all, int default_answer, const char * format, ...)
 {
-    int result = 1;
+    int     result = REPLY_YES;
     va_list ap;
-    char fake_buffer[2];
-    int output_length;
-    char * output_string;
-    char * prompt_string = NULL;
-    int c, x;
+    char    fake_buffer[2];
+    int     output_length;
+    char  * output_string;
+    int     c, x;
 
     va_start(ap, format);
     output_length = vsnprintf(fake_buffer, 1, format, ap);
@@ -583,24 +603,29 @@ int user_approve(int default_answer, const char * format, ...)
 
     output_string = (char *)malloc(output_length + 1);
     if (!output_string) {
-        result = -1;
+        result = REPLY_ERROR;
         goto finish;
     }
 
     va_start(ap, format);
     vsnprintf(output_string, output_length + 1, format, ap);
     va_end(ap);
-
-    prompt_string = default_answer ? " [Y/n]" : " [y/N]";
     
     while ( 1 ) {
-        fprintf(stderr, "%s%s%s", output_string, prompt_string, "? ");
+        fprintf(stderr, "%s [%s/%s", output_string,
+            (default_answer == REPLY_YES) ? "Y" : "y",
+            (default_answer == REPLY_NO)  ? "N" : "n");
+        if (ask_all) {
+            fprintf(stderr, "/%s",
+                (default_answer == REPLY_ALL) ? "A" : "a");
+        }
+        fprintf(stderr, "]? ");
         fflush(stderr);
 
         c = fgetc(stdin);
 
         if (c == EOF) {
-            result = -1;
+            result = REPLY_ERROR;
             goto finish;
         }
 
@@ -612,22 +637,26 @@ int user_approve(int default_answer, const char * format, ...)
             } while (x != '\n' && x != EOF);
 
             if (x == EOF) {
-                result = -1;
+                result = REPLY_ERROR;
                 goto finish;
             }
         }
 
         if (c == '\n') {
-            result = default_answer ? 1 : 0;
+            result = default_answer;
             goto finish;
         } else if (tolower(c) == 'y') {
-            result = 1;
+            result = REPLY_YES;
             goto finish;
         } else if (tolower(c) == 'n') {
-            result = 0;
+            result = REPLY_NO;
+            goto finish;
+        } else if (ask_all && tolower(c) == 'a') {
+            result = REPLY_ALL;
             goto finish;
         } else {
-            fprintf(stderr, "Please answer 'y' or 'n'.\n");
+            fprintf(stderr, "Please answer 'y' or 'n'%s.\n",
+                ask_all ? " or 'a'" : "");
         }
     }
 
@@ -711,81 +740,24 @@ finish:
 
 #if PRAGMA_MARK
 #pragma mark Caches
-#endif /* PRAGMA_MARK */
+#endif
 /*******************************************************************************
 *******************************************************************************/
-OSReturn writePersonalitiesCache(
-    CFArrayRef         kexts,
-    const NXArchInfo * arch,
-    CFURLRef           folderURL)
-{
-    OSReturn      result                  = kOSReturnError;
-    char          folderPath[PATH_MAX];
-    CFArrayRef    personalities           = NULL;  // must release
-
-   /* Get the C string path for the folder.
-    */
-    if (!CFURLGetFileSystemRepresentation(folderURL,
-        /* resolveToBase */ true, (UInt8 *)folderPath, sizeof(folderPath))) {
-
-        OSKextLogStringError(/* kext */ NULL);
-        goto finish;
-    }
-    
-    if (!OSKextSetArchitecture(arch)) {
-        goto finish;
-    }
-
-    personalities = OSKextCopyPersonalitiesOfKexts(kexts);
-    if (!personalities) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-            "Can't get personalities for kexts in %s.",
-            folderPath);
-        goto finish;
-    }
-
-    if (!_OSKextWriteCache(personalities,
-        folderURL,
-        CFSTR(kIOKitPersonalitiesKey),
-        arch,
-        _kOSKextCacheFormatIOXML)) {
-
-        goto finish;
-    }
-
-    result = kOSReturnSuccess;
-
-finish:
-    if (result == kOSReturnSuccess) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogProgressLevel | kOSKextLogKextBookkeepingFlag |
-            kOSKextLogFileAccessFlag,
-            "Saved %s personalities cache for %s", arch->name, folderPath);
-    }
-
-    SAFE_RELEASE(personalities);
-
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-Boolean readKextPropertyValuesForDirectory(
-    CFURLRef           directoryURL,
+Boolean readSystemKextPropertyValues(
     CFStringRef        propertyKey,
     const NXArchInfo * arch,
     Boolean            forceUpdateFlag,
     CFArrayRef       * valuesOut)
 {
-    Boolean                result         = false;
-    CFMutableArrayRef      values         = NULL;  // must release
-    CFStringRef            cacheBasename  = NULL;  // must release
-    CFArrayRef             kexts          = NULL;  // must release
-    CFMutableDictionaryRef newDict        = NULL;  // must release
-    CFStringRef            kextPath       = NULL;  // must release
-    CFTypeRef              value          = NULL;  // do not release
-    CFStringRef            kextVersion    = NULL;  // do not release
+    Boolean                result                  = false;
+    CFArrayRef             sysExtensionsFolderURLs = OSKextGetSystemExtensionsFolderURLs();
+    CFMutableArrayRef      values                  = NULL;  // must release
+    CFStringRef            cacheBasename           = NULL;  // must release
+    CFArrayRef             kexts                   = NULL;  // must release
+    CFMutableDictionaryRef newDict                 = NULL;  // must release
+    CFStringRef            kextPath                = NULL;  // must release
+    CFTypeRef              value                   = NULL;  // do not release
+    CFStringRef            kextVersion             = NULL;  // do not release
     CFIndex                count, i;
 
     cacheBasename = CFStringCreateWithFormat(kCFAllocatorDefault,
@@ -802,7 +774,7 @@ Boolean readKextPropertyValuesForDirectory(
        /* See if we have an up-to-date cache containing an array, and return
         * that if we have one.
         */
-        if (_OSKextReadCache(directoryURL, cacheBasename,
+        if (_OSKextReadCache(sysExtensionsFolderURLs, cacheBasename,
             arch, _kOSKextCacheFormatCFXML, /* parseXML? */ true,
             (CFPropertyListRef *)&values)) {
 
@@ -813,10 +785,6 @@ Boolean readKextPropertyValuesForDirectory(
         }
     }
 
-    if (!OSKextSetArchitecture(arch)) {
-        goto finish;
-    }
-
     values = CFArrayCreateMutable(kCFAllocatorDefault, /* capacity */ 0,
         &kCFTypeArrayCallBacks);
     if (!values) {
@@ -824,7 +792,9 @@ Boolean readKextPropertyValuesForDirectory(
         goto finish;
     }
 
-    kexts = OSKextCreateKextsFromURL(kCFAllocatorDefault, directoryURL);
+    kexts = OSKextCreateKextsFromURLs(kCFAllocatorDefault,
+    sysExtensionsFolderURLs);
+
     if (!kexts) {
         // Create function should log error
         goto finish;
@@ -883,8 +853,8 @@ Boolean readKextPropertyValuesForDirectory(
     }
 
     if (OSKextGetUsesCaches() || forceUpdateFlag) {
-        _OSKextWriteCache(values, directoryURL, cacheBasename,
-            arch, _kOSKextCacheFormatCFXML);
+        _OSKextWriteCache(sysExtensionsFolderURLs, cacheBasename,
+            arch, _kOSKextCacheFormatCFXML, values);
     }
 
     result = true;

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2001, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -56,6 +56,14 @@
      * test subroutine used by TestGMTvsLocal()
      */
     static void testZones(int32_t, int32_t, int32_t, int32_t, int32_t, int32_t);
+    /**
+     * Test getKeywordValuesForLocale API
+     */
+    static void TestGetKeywordValuesForLocale(void);
+    /**
+     * Test weekend-related APIs
+     */
+    static void TestWeekend(void);
 
 /*Internal functions used*/
     /**

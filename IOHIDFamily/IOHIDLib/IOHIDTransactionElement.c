@@ -49,7 +49,8 @@ static const CFRuntimeClass __IOHIDTransactionElementClass = {
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
     NULL,                   // copyDebugDesc
-    NULL                    // reclaim
+    NULL,                   // reclaim
+    NULL,                   // refcount
 };
 
 static CFTypeID __kIOHIDTransactionElementTypeID = _kCFRuntimeNotATypeID;

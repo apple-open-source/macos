@@ -139,9 +139,11 @@ to check and repair journaled HFS+ file systems.
 .It Fl g
 Causes
 .Nm
-to generate it's output strings in GUI format.
+to generate its output strings in GUI format.
 This option is used when another application with a graphical user interface
-(like Mac OS X Disk Utility) is envoking the
+(like Mac OS X Disk Utility) is invoking the
+.Nm
+tool.
 .It Fl x
 Causes
 .Nm
@@ -149,8 +151,6 @@ to generate its output strings in XML (plist) format.  This option
 implies the
 .Fl g
 option.
-.Nm
-tool.
 .It Fl l
 Lock down the file system and perform a test-only check.
 This makes it possible to check a file system that is currently mounted,
@@ -211,6 +211,26 @@ Rebuild the catalog btree.  This is synonymous with
 .Pp
 Because of inconsistencies between the block device and the buffer cache,
 the raw device should always be used.
+.Sh EXIT VALUES
+.Nm
+indicates some status by exit value.  The current list of exit status results
+is:
+.Bl -hang -offset indent -compact
+.It 0
+No errors found, or successfully repaired.
+.It 3
+A quick-check (the
+.Fl n
+option) found a dirty filesystem; no repairs were made.
+.It 4
+During boot, the root filesystem was found to be dirty; repairs were
+made, and the filesystem was remounted.  The system should be rebooted.
+.It 8
+A corrupt filesystem was found during a check, or repairs did not succeed.
+.It 47
+A major error was found with
+.Fl E .
+.El
 .Sh SEE ALSO
 .Xr fsck 8
 .Sh BUGS

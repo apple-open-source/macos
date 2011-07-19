@@ -66,7 +66,7 @@ name = radiusd
 
 #  Location of config and logfiles.
 confdir = ${raddbdir}
-run_dir = ${localstatedir}/run/radiusd
+run_dir = ${localstatedir}
 
 # Should likely be ${localstatedir}/lib/radiusd
 db_dir = ${raddbdir}
@@ -247,16 +247,23 @@ listen {
 	#               raddb/sites-available/copy-acct-to-home-server
 	#	status  listen for Status-Server packets.  For examples,
 	#		see raddb/sites-available/status
+	#	coa     listen for CoA-Request and Disconnect-Request
+	#		packets.  For examples, see the file
+	#		raddb/sites-available/coa-server
 	#
 	type = auth
 
 	#  Note: "type = proxy" lets you control the source IP used for
 	#        proxying packets, with some limitations:
 	#
-	#    * Only ONE proxy listener can be defined.
 	#    * A proxy listener CANNOT be used in a virtual server section.
 	#    * You should probably set "port = 0".
 	#    * Any "clients" configuration will be ignored.
+	#
+	#  See also proxy.conf, and the "src_ipaddr" configuration entry
+	#  in the sample "home_server" section.  When you specify the
+	#  source IP address for packets sent to a home server, the
+	#  proxy listeners are automatically created.
 
 	#  IP address on which to listen.
 	#  Allowed values are:
@@ -443,6 +450,18 @@ log {
 	#
 	auth_badpass = no
 	auth_goodpass = no
+
+	#  Log additional text at the end of the "Login OK" messages.
+	#  for these to work, the "auth" and "auth_goopass" or "auth_badpass"
+	#  configurations above have to be set to "yes".
+	#
+	#  The strings below are dynamically expanded, which means that
+	#  you can put anything you want in them.  However, note that
+	#  this expansion can be slow, and can negatively impact server
+	#  performance.
+	#
+#	msg_goodpass = ""
+#	msg_badpass = ""
 }
 
 #  The program to execute to do concurrency checks.
@@ -673,17 +692,12 @@ modules {
 	#  totally dependent on the SQL module to process Accounting
 	#  packets.
 	#
-	$INCLUDE sql/mysql/counter.conf
-	#$INCLUDE sql/postgresql/counter.conf
+#	$INCLUDE sql/mysql/counter.conf
 
 	#
 	#  IP addresses managed in an SQL table.
 	#
-	#$INCLUDE sqlippool.conf
-
-	# OTP token support.  Not included by default.
-	# $INCLUDE otp.conf
-
+#	$INCLUDE sqlippool.conf
 }
 
 # Instantiation
@@ -761,23 +775,31 @@ $INCLUDE policy.conf
 
 ######################################################################
 #
-#	As of 2.0.0, the "authorize", "authenticate", etc. sections
-#	are in separate configuration files, per virtual host.
+#	Load virtual servers.
 #
-######################################################################
+#	This next $INCLUDE line loads files in the directory that
+#	match the regular expression: /[a-zA-Z0-9_.]+/
+#
+#	It allows you to define new virtual servers simply by placing
+#	a file into the raddb/sites-enabled/ directory.
+#
+$INCLUDE sites-enabled/
 
 ######################################################################
 #
-#	Include all enabled virtual hosts.
+#	All of the other configuration sections like "authorize {}",
+#	"authenticate {}", "accounting {}", have been moved to the
+#	the file:
 #
-#	The following directory is searched for files that match
-#	the regex:
+#		raddb/sites-available/default
 #
-#		/[a-zA-Z0-9_.]+/
+#	This is the "default" virtual server that has the same
+#	configuration as in version 1.0.x and 1.1.x.  The default
+#	installation enables this virtual server.  You should
+#	edit it to create policies for your local site.
 #
-#	The files are then included here, just as if they were cut
-#	and pasted into this file.
+#	For more documentation on virtual servers, see:
 #
-#	See "sites-enabled/default" for some additional documentation.
+#		raddb/sites-available/README
 #
-$INCLUDE sites-enabled/
+######################################################################

@@ -146,6 +146,10 @@ _ldap_whoami_s
 _ldap_parse_passwd
 _ldap_passwd
 _ldap_passwd_s
+_ldap_create_page_control_value
+_ldap_create_page_control
+_ldap_parse_page_control
+_ldap_parse_pageresponse_control
 # /usr/include/lber.h
 _ber_error_print
 _ber_bprint
@@ -273,3 +277,5 @@ _ldap_x_utf8_to_mb
 _ldap_x_utf8s_to_mbs
 _ldap_x_mb_to_utf8
 _ldap_x_mbs_to_utf8s
+# /System/Library/Framework/LDAP.framework/PrivateHeaders
+_ldap_set_search_results_callback

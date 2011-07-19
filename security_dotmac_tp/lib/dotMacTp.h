@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -50,8 +50,8 @@ extern "C" {
 #define DOT_MAC_SIGN_HOST_NAME			"certmgmt"				/* default server */
 #define DOT_MAC_SIGN_PATH				"/signing"
 
-/* By default, archive requests go to http://certmgmt.mac.com/archive */
-#define DOT_MAC_ARCHIVE_SCHEMA			"http://"
+/* By default, archive requests go to https://certmgmt.mac.com/archive (<rdar://7557730>) */
+#define DOT_MAC_ARCHIVE_SCHEMA			"https://"
 #define DOT_MAC_ARCHIVE_HOST_NAME		"certmgmt"				/* default server */
 #define DOT_MAC_ARCHIVE_PATH			"/archive"
 

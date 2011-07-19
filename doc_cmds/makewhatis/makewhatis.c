@@ -103,7 +103,9 @@ static const char *whatis_name="whatis";/* -n option: the name */
 static char *common_output;		/* -o option: the single output file */
 static char *locale;			/* user's locale if -L is used */
 static char *lang_locale;		/* short form of locale */
+#ifndef __APPLE__
 static const char *machine;
+#endif /* !__APPLE__ */
 
 static int exit_code;			/* exit code to use when finished */
 static SLIST_HEAD(, visited_dir) visited_dirs =
@@ -927,10 +929,12 @@ process_mandir(char *dir_name)
 		char section_dir[MAXPATHLEN];
 		snprintf(section_dir, sizeof section_dir, "%s/%s", dir_name, entries[i]->d_name);
 		process_section(section_dir);
+#ifndef __APPLE__
 		snprintf(section_dir, sizeof section_dir, "%s/%s/%s", dir_name,
 		    entries[i]->d_name, machine);
 		if (stat(section_dir, &st) == 0 && S_ISDIR(st.st_mode))
 			process_section(section_dir);
+#endif /* !__APPLE__ */
 		free(entries[i]);
 	}
 	free(entries);
@@ -1021,8 +1025,10 @@ main(int argc, char **argv)
 	whatis_proto = new_sbuf();
 	whatis_final = new_sbuf();
 
+#ifndef __APPLE__
 	if ((machine = getenv("MACHINE")) == NULL)
 		machine = MACHINE;
+#endif /* !__APPLE__ */
 
 	if (common_output != NULL && (fp = open_output(common_output)) == NULL)
 		err(1, "%s", common_output);

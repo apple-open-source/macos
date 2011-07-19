@@ -88,7 +88,7 @@ RemoveQuotes(const char *s) {
 static int 
 CheckDeviceName(const char *name) {
 	int len = strlen(name);
-	char devname[len + 5];
+	char devname[len + 6];
 	struct stat sbuf;
 
 	if (strchr(name, '/') != NULL) {
@@ -96,7 +96,7 @@ CheckDeviceName(const char *name) {
 		return -1;
 	}
 
-	sprintf(devname, "/dev/%s", name);
+	snprintf(devname, sizeof(devname), "/dev/%s", name);
 	if (stat(devname, &sbuf) != -1) {
 		warnx("Device name `%s' already exists in /dev", name);
 	}
@@ -226,6 +226,7 @@ getDeviceLabel(const char *dev) {
 		warnx("getDeviceLabel: unable to read a full label for device %s", dev);
 		free(retval);
 		retval = NULL;
+		goto done;
 	}
 	retval->al_magic	= OSSwapBigToHostInt16(retval->al_magic);
 	retval->al_type		= OSSwapBigToHostInt16(retval->al_type);
@@ -313,7 +314,8 @@ ChecksumData(CFDictionaryRef dict, int32_t size) {
 	retval = crc32(0, bytes, size);
 
 done:
-	CFRelease(data);
+	if (data)
+		CFRelease(data);
 	free(bytes);
 
 	return retval;
@@ -397,17 +399,19 @@ parseProperty(const char *term, CFStringRef *namePtr, CFTypeRef *valuePtr) {
 			v = CFNumberCreate(nil, kCFNumberSInt32Type, &tInt);
 		}
 	}
-	if (namePtr) {
-		if (k)
+	if (k) {
+		if (namePtr) {
 			*namePtr = k;
-	} else {
-		CFRelease(k);
+		} else {
+			CFRelease(k);
+		}
 	}
-	if (valuePtr) {
-		if (v)
+	if (v) {
+		if (valuePtr) {
 			*valuePtr = v;
-	} else {
-		CFRelease(v);
+		} else {
+			CFRelease(v);
+		}
 	}
 	free(tag);
 
@@ -437,7 +441,7 @@ ReadMetadata(const char *dev) {
 	CFDictionaryRef retval = nil;
 	CFStringRef errStr;
 	CFDataRef data = nil;
-	char *buf = NULL;
+	void *buf = NULL;
 	int len;
 
 	if ((fd = open(dev, O_RDONLY)) == -1) {
@@ -505,7 +509,7 @@ done:
  * on failure.
  */
 int
-InitialMetadata(const char *dev, CFDictionaryRef dict, uint32_t size) {
+InitialMetadata(const char *dev, CFDictionaryRef dict, uint64_t size) {
 	int fd;
 	int retval = -1;
 	uint32_t bs;
@@ -513,7 +517,7 @@ InitialMetadata(const char *dev, CFDictionaryRef dict, uint32_t size) {
 	struct applelabel lbl = { { 0 } };
 
 	if (gDebug && gVerbose) {
-		fprintf(stderr, "InitialMetadata(%s, dict, %d)\n", dev, size);
+		fprintf(stderr, "InitialMetadata(%s, dict, %qu)\n", dev, size);
 	}
 
 	fd = open(dev, O_RDWR);
@@ -545,7 +549,7 @@ InitialMetadata(const char *dev, CFDictionaryRef dict, uint32_t size) {
 	lbl.al_type	= AL_TYPE_DEFAULT;
 	lbl.al_flags	= AL_FLAG_DEFAULT;
 	lbl.al_offset	= bs;	// start at block #1
-	lbl.al_size	= size - bs;
+	lbl.al_size	= (uint32_t)size - bs;
 	lbl.al_checksum	= ChecksumData(dict, lbl.al_size);
 
 	if (gDebug) {
@@ -560,11 +564,12 @@ InitialMetadata(const char *dev, CFDictionaryRef dict, uint32_t size) {
 
 	if (setDeviceLabel(dev, &lbl) == -1) {
 		warnx("InitialMetadata:  cannot write header for device %s", dev);
+		goto done;
 	}
 
 	if (WriteMetadata(dev, dict) == -1) {
 		warnx("InitialMetadata:  cannot write metadata");
-		retval = -1;
+		goto done;
 	}
 
 	retval = 0;
@@ -585,7 +590,7 @@ WriteMetadata(const char *dev, CFDictionaryRef dict) {
 	CFDataRef data = nil;
 	int retval = -1;
 	void *bytes;
-	uint64_t cksum = 0;
+	uint32_t cksum = 0;
 	struct applelabel *lbl;
 	uint32_t mSize;
 

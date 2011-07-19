@@ -31,8 +31,9 @@
 #include "ResourceHandle.h"
 
 #include "ChromeClientQt.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Frame.h"
+#include "FrameNetworkingContext.h"
 #include "FrameLoaderClientQt.h"
 #include "NotImplemented.h"
 #include "Page.h"
@@ -40,10 +41,6 @@
 #include "ResourceHandleClient.h"
 #include "ResourceHandleInternal.h"
 #include "SharedBuffer.h"
-
-// FIXME: WebCore including these headers from WebKit is a massive layering violation.
-#include "qwebframe_p.h"
-#include "qwebpage_p.h"
 
 #include <QAbstractNetworkCache>
 #include <QCoreApplication>
@@ -56,55 +53,21 @@ namespace WebCore {
 
 class WebCoreSynchronousLoader : public ResourceHandleClient {
 public:
-    WebCoreSynchronousLoader();
+    WebCoreSynchronousLoader(ResourceError& error, ResourceResponse& response, Vector<char>& data)
+        : m_error(error)
+        , m_response(response)
+        , m_data(data)
+    {}
 
-    void waitForCompletion();
-
-    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse&);
-    virtual void didReceiveData(ResourceHandle*, const char*, int, int lengthReceived);
-    virtual void didFinishLoading(ResourceHandle*);
-    virtual void didFail(ResourceHandle*, const ResourceError&);
-
-    ResourceResponse resourceResponse() const { return m_response; }
-    ResourceError resourceError() const { return m_error; }
-    Vector<char> data() const { return m_data; }
-
+    virtual void didReceiveResponse(ResourceHandle*, const ResourceResponse& response) { m_response = response; }
+    virtual void didReceiveData(ResourceHandle*, const char* data, int length, int) { m_data.append(data, length); }
+    virtual void didFinishLoading(ResourceHandle*, double /*finishTime*/) {}
+    virtual void didFail(ResourceHandle*, const ResourceError& error) { m_error = error; }
 private:
-    ResourceResponse m_response;
-    ResourceError m_error;
-    Vector<char> m_data;
-    QEventLoop m_eventLoop;
+    ResourceError& m_error;
+    ResourceResponse& m_response;
+    Vector<char>& m_data;
 };
-
-WebCoreSynchronousLoader::WebCoreSynchronousLoader()
-{
-}
-
-void WebCoreSynchronousLoader::didReceiveResponse(ResourceHandle*, const ResourceResponse& response)
-{
-    m_response = response;
-}
-
-void WebCoreSynchronousLoader::didReceiveData(ResourceHandle*, const char* data, int length, int)
-{
-    m_data.append(data, length);
-}
-
-void WebCoreSynchronousLoader::didFinishLoading(ResourceHandle*)
-{
-    m_eventLoop.exit();
-}
-
-void WebCoreSynchronousLoader::didFail(ResourceHandle*, const ResourceError& error)
-{
-    m_error = error;
-    m_eventLoop.exit();
-}
-
-void WebCoreSynchronousLoader::waitForCompletion()
-{
-    m_eventLoop.exec(QEventLoop::ExcludeUserInputEvents);
-}
 
 ResourceHandleInternal::~ResourceHandleInternal()
 {
@@ -116,29 +79,25 @@ ResourceHandle::~ResourceHandle()
         cancel();
 }
 
-bool ResourceHandle::start(Frame* frame)
+bool ResourceHandle::start(NetworkingContext* context)
 {
-    if (!frame)
+    // If NetworkingContext is invalid then we are no longer attached to a Page,
+    // this must be an attempted load from an unload event handler, so let's just block it.
+    if (context && !context->isValid())
         return false;
 
-    Page *page = frame->page();
-    // If we are no longer attached to a Page, this must be an attempted load from an
-    // onUnload handler, so let's just block it.
-    if (!page)
-        return false;
-
-    if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
+    if (!d->m_user.isEmpty() || !d->m_pass.isEmpty()) {
         // If credentials were specified for this request, add them to the url,
         // so that they will be passed to QNetworkRequest.
-        KURL urlWithCredentials(d->m_request.url());
+        KURL urlWithCredentials(firstRequest().url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
-        d->m_request.setURL(urlWithCredentials);
+        d->m_firstRequest.setURL(urlWithCredentials);
     }
 
-    getInternal()->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
+    getInternal()->m_context = context;
     ResourceHandleInternal *d = getInternal();
-    d->m_job = new QNetworkReplyHandler(this, QNetworkReplyHandler::LoadMode(d->m_defersLoading));
+    d->m_job = new QNetworkReplyHandler(this, QNetworkReplyHandler::AsynchronousLoad, d->m_defersLoading);
     return true;
 }
 
@@ -160,8 +119,12 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame* frame)
     if (!frame)
         return false;
 
-    QNetworkAccessManager* manager = QWebFramePrivate::kit(frame)->page()->networkAccessManager();
-    QAbstractNetworkCache* cache = manager->cache();
+    QNetworkAccessManager* manager = 0;
+    QAbstractNetworkCache* cache = 0;
+    if (frame->loader()->networkingContext()) {
+        manager = frame->loader()->networkingContext()->networkAccessManager();
+        cache = manager->cache();
+    }
 
     if (!cache)
         return false;
@@ -186,36 +149,32 @@ PassRefPtr<SharedBuffer> ResourceHandle::bufferedData()
     return 0;
 }
 
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data, Frame* frame)
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context, const ResourceRequest& request, StoredCredentials /*storedCredentials*/, ResourceError& error, ResourceResponse& response, Vector<char>& data)
 {
-    WebCoreSynchronousLoader syncLoader;
-    ResourceHandle handle(request, &syncLoader, true, false);
+    WebCoreSynchronousLoader syncLoader(error, response, data);
+    RefPtr<ResourceHandle> handle = adoptRef(new ResourceHandle(request, &syncLoader, true, false));
 
-    ResourceHandleInternal *d = handle.getInternal();
-    if (!(d->m_user.isEmpty() || d->m_pass.isEmpty())) {
+    ResourceHandleInternal* d = handle->getInternal();
+    if (!d->m_user.isEmpty() || !d->m_pass.isEmpty()) {
         // If credentials were specified for this request, add them to the url,
         // so that they will be passed to QNetworkRequest.
-        KURL urlWithCredentials(d->m_request.url());
+        KURL urlWithCredentials(d->m_firstRequest.url());
         urlWithCredentials.setUser(d->m_user);
         urlWithCredentials.setPass(d->m_pass);
-        d->m_request.setURL(urlWithCredentials);
+        d->m_firstRequest.setURL(urlWithCredentials);
     }
-    d->m_frame = static_cast<FrameLoaderClientQt*>(frame->loader()->client())->webFrame();
-    d->m_job = new QNetworkReplyHandler(&handle, QNetworkReplyHandler::LoadNormal);
+    d->m_context = context;
 
-    syncLoader.waitForCompletion();
-    error = syncLoader.resourceError();
-    data = syncLoader.data();
-    response = syncLoader.resourceResponse();
+    // starting in deferred mode gives d->m_job the chance of being set before sending the request.
+    d->m_job = new QNetworkReplyHandler(handle.get(), QNetworkReplyHandler::SynchronousLoad, true);
+    d->m_job->setLoadingDeferred(false);
 }
 
- 
-void ResourceHandle::setDefersLoading(bool defers)
+void ResourceHandle::platformSetDefersLoading(bool defers)
 {
-    d->m_defersLoading = defers;
-
-    if (d->m_job)
-        d->m_job->setLoadMode(QNetworkReplyHandler::LoadMode(defers));
+    if (!d->m_job)
+        return;
+    d->m_job->setLoadingDeferred(defers);
 }
 
 } // namespace WebCore

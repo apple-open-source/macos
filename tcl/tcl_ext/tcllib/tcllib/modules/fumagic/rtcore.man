@@ -2,6 +2,7 @@
 [manpage_begin fileutil::magic::rt n 1.0]
 [moddesc   {file utilities}]
 [titledesc {Runtime core for file type recognition engines written in pure Tcl}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require fileutil::magic::rt [opt 1.0]]
 [description]

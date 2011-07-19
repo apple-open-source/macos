@@ -131,7 +131,7 @@ posix_spawnattr_init(posix_spawnattr_t *attr)
  * NOTIMP:	Allowed failures (checking NOT required):
  *		EINVAL	The value specified by attr is invalid.
  */
-int posix_spawn_destroyportactions_np(posix_spawnattr_t *);
+static int posix_spawn_destroyportactions_np(posix_spawnattr_t *);
 
 int
 posix_spawnattr_destroy(posix_spawnattr_t *attr)
@@ -569,7 +569,7 @@ posix_spawnattr_setpcontrol_np(posix_spawnattr_t * __restrict attr,
  * Description: create a new posix_spawn_port_actions struct and link
  * 	it into the posix_spawnattr.
  */
-int
+static int
 posix_spawn_createportactions_np(posix_spawnattr_t *attr)
 {
 	_posix_spawnattr_t psattr;
@@ -594,7 +594,7 @@ posix_spawn_createportactions_np(posix_spawnattr_t *attr)
  * posix_spawn_growportactions_np
  * Description: Enlarge the size of portactions if necessary 
  */
-int
+static int
 posix_spawn_growportactions_np(posix_spawnattr_t *attr)
 {
 	_posix_spawnattr_t psattr;
@@ -623,7 +623,7 @@ posix_spawn_growportactions_np(posix_spawnattr_t *attr)
  * posix_spawn_destroyportactions_np
  * Description: clean up portactions struct in posix_spawnattr_t attr
  */
-int
+static int
 posix_spawn_destroyportactions_np(posix_spawnattr_t *attr)
 {
 	_posix_spawnattr_t psattr;
@@ -937,7 +937,7 @@ _posix_spawn_file_actions_grow(_posix_spawn_file_actions_t *psactsp)
  *		opened with flags 'oflag' and mode 'mode', and, if successful,
  *		return as descriptor 'filedes' to the spawned process.
  *
- * Parameters:	file_actions		File action object to add open to
+ * Parameters:	file_actions		File action object to augment
  *		filedes			fd that open is to use
  *		path			path to file to open
  *		oflag			open file flags
@@ -999,7 +999,7 @@ posix_spawn_file_actions_addopen(
  *		that will cause the file referenced by 'filedes' to be
  *		attempted to be closed in the spawned process.
  *
- * Parameters:	file_actions		File action object to add open to
+ * Parameters:	file_actions		File action object to augment
  *		filedes			fd to close
  *
  * Returns:	0			Success
@@ -1049,12 +1049,12 @@ posix_spawn_file_actions_addclose(posix_spawn_file_actions_t *file_actions,
 /*
  * posix_spawn_file_actions_adddup2
  *
- * Description:	Add a dpu2 action to the object referenced by 'file_actions'
+ * Description:	Add a dup2 action to the object referenced by 'file_actions'
  *		that will cause the file referenced by 'filedes' to be
  *		attempted to be dup2'ed to the descriptor 'newfiledes' in the
  *		spawned process.
  *
- * Parameters:	file_actions		File action object to add open to
+ * Parameters:	file_actions		File action object to augment
  *		filedes			fd to dup2
  *		newfiledes		fd to dup2 it to
  *
@@ -1100,6 +1100,73 @@ posix_spawn_file_actions_adddup2(posix_spawn_file_actions_t *file_actions,
 	psfileact->psfaa_filedes = filedes;
 	psfileact->psfaa_openargs.psfao_oflag = newfiledes;
 
+	return (0);
+}
+
+/*
+ * posix_spawn_file_actions_addinherit_np
+ *
+ * Description:	Add the "inherit" action to the object referenced by
+ *		'file_actions' that will cause the file referenced by
+ *		'filedes' to continue to be available in the spawned
+ *		process via the same descriptor.
+ *
+ *		Inheritance is the normal default behaviour for
+ *		file descriptors across exec and spawn; but if the
+ *		POSIX_SPAWN_CLOEXEC_DEFAULT flag is set, the usual
+ *		default is reversed for the purposes of the spawn
+ *		invocation.  Any pre-existing descriptors that
+ *		need to be made available to the spawned process can
+ *		be marked explicitly as 'inherit' via this interface.
+ *		Otherwise they will be automatically closed.
+ *
+ *		Note that any descriptors created via the other file
+ *		actions interfaces are automatically marked as 'inherit'.
+ *
+ * Parameters:	file_actions		File action object to augment
+ *		filedes			fd to inherit.
+ *
+ * Returns:	0			Success
+ *		EBADF			The value specified by fildes is
+ *					negative or greater than or equal to
+ *					{OPEN_MAX}.
+ *		ENOMEM			Insufficient memory exists to add to
+ *					the spawn file actions object.
+ *
+ * NOTIMP:	Allowed failures (checking NOT required):
+ *		EINVAL	The value specified by file_actions is invalid.
+ */
+int
+posix_spawn_file_actions_addinherit_np(posix_spawn_file_actions_t *file_actions,
+		int filedes)
+{
+	_posix_spawn_file_actions_t *psactsp;
+	_psfa_action_t *psfileact;
+
+	if (file_actions == NULL || *file_actions == NULL)
+		return (EINVAL);
+
+	psactsp = (_posix_spawn_file_actions_t *)file_actions;
+	/* Range check; required by POSIX */
+	if (filedes < 0 || filedes >= OPEN_MAX)
+		return (EBADF);
+
+#if defined(POSIX_SPAWN_CLOEXEC_DEFAULT)	// TODO: delete this check
+	/* If we do not have enough slots, grow the structure */
+	if ((*psactsp)->psfa_act_count == (*psactsp)->psfa_act_alloc) {
+		/* need to grow file actions structure */
+		if (_posix_spawn_file_actions_grow(psactsp))
+			return (ENOMEM);
+	}
+
+	/*
+	 * Allocate next available slot and fill it out
+	 */
+	psfileact = &(*psactsp)->psfa_act_acts[(*psactsp)->psfa_act_count++];
+
+	psfileact->psfaa_type = PSFA_INHERIT;
+	psfileact->psfaa_filedes = filedes;
+#endif
 	return (0);
 }
 

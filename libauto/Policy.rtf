@@ -1,0 +1,31 @@
+{\rtf1\ansi\ansicpg1252\cocoartf1050
+{\fonttbl\f0\fswiss\fcharset0 Helvetica;}
+{\colortbl;\red255\green255\blue255;\red0\green0\blue0;}
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural\pardirnatural
+
+\f0\fs24 \cf2 \
+
+\b\fs28 Thread Local Collector
+\b0\fs24 \
+\
+The thread local collector requires that prior to a block reference being transferred from one thread to another the block must either be assigned into a globally reachable scanned location via a write barrier, or the block must be retained.\
+\
+\
+
+\b\fs28 Write Barriers
+\b0\fs24 \
+\
+Only valid block pointer values should be stored using write barriers. Valid pointer values are block start pointers which were returned by an allocator function or acquired by the thread via a chain of pointer reads and stores that can (theoretically) be traced back to a value returned by an allocator function. A pointer value computed using pointer arithmetic is invalid. The collector should warn when an invalid pointer is detected in a write barrier, but tolerate and perform the assignment.\
+\
+\pard\tx560\tx1120\tx1680\tx2240\tx2800\tx3360\tx3920\tx4480\tx5040\tx5600\tx6160\tx6720\ql\qnatural\pardirnatural
+
+\b\fs28 \cf0 Resurrection
+\b0\fs24 \
+\
+Resurrection is not supported. Resurrection is any attempt to keep alive a block which has been determined to be garbage. This includes:\
+	- Retaining the block. (Retaining a block during finalization is permitted so long as the reference count becomes zero again before finalization completes.)\
+    	- Storing a reference to the garbage block in non-garbage memory. (Storing a reference in another garbage block is permitted.)\
+\
+Although resurrection leaves dangling pointers and can be effectively considered a heap corruption, the collector currently only warns about resurrection. Resurrected blocks are kept alive in a "zombie" state until they are determined to be garbage (again).\
+\
+}

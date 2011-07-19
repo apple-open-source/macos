@@ -92,5 +92,5 @@ EAPPacketCreate(void * buf, int buf_size,
 		const void * data, int data_len,
 		int * ret_size_p);
 
-#endif _EAP8021X_EAPUTIL_H
+#endif /* _EAP8021X_EAPUTIL_H */
 

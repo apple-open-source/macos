@@ -72,6 +72,28 @@ fi
 /usr/sbin/postconf -e mail_owner=_postfix
 /usr/sbin/postconf -e setgid_group=_postdrop
 
+# Set credentials for using URLAUTH with IMAP servers.
+/usr/sbin/postconf -e imap_submit_cred_file=/private/etc/postfix/submit.cred
+# Create submit.cred with either the same password dovecot is
+# configured for, or an unguessable random password.
+if [ ! -e /private/etc/postfix/submit.cred ] ; then
+	hostname=`grep "^myhostname *=" /private/etc/postfix/main.cf | sed 's,.*= *,,'`
+	if [ ! "$hostname" ] ; then
+		hostname=`hostname`
+	fi
+	if [ -s /private/etc/dovecot/submit.passdb ] ; then
+		pw=`grep "^submit:" /private/etc/dovecot/submit.passdb | sed 's,.*},,'`
+	fi
+	if [ ! "$pw" ] ; then
+		pw=`dd if=/dev/urandom bs=256 count=1 | env LANG=C tr -dc a-zA-Z0-9 | cut -b 1-22`
+	fi
+	if [ "$pw" -a "$hostname" ]; then
+		echo "submitcred version 1" > /private/etc/postfix/submit.cred
+		echo "$hostname|submit|$pw" >> /private/etc/postfix/submit.cred
+	fi
+	chmod 600 /private/etc/postfix/submit.cred
+fi
+
 # Set spool permissions
 /usr/sbin/postfix upgrade-configuration > /dev/null 2>&1
 /usr/sbin/postfix check > /dev/null 2>&1

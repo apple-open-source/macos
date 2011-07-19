@@ -347,14 +347,14 @@ id_print(struct passwd *pw, int use_ggl, int p_euid, int p_egid)
 void
 auditid(void)
 {
-	auditinfo_t auditinfo;
+	auditinfo_addr_t auditinfo;
 
-	if (getaudit(&auditinfo) < 0)
+	if (getaudit_addr(&auditinfo, sizeof(auditinfo)) < 0)
 		err(1, "getaudit");
 	printf("auid=%d\n", auditinfo.ai_auid);
 	printf("mask.success=0x%08x\n", auditinfo.ai_mask.am_success);
 	printf("mask.failure=0x%08x\n", auditinfo.ai_mask.am_failure);
-	printf("termid.port=0x%08x\n", auditinfo.ai_termid.port);
+	printf("termid.port=0x%08x\n", auditinfo.ai_termid.at_port);
 	printf("asid=%d\n", auditinfo.ai_asid);
 }
 #endif

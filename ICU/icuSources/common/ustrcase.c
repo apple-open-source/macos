@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2008, International Business Machines
+*   Copyright (C) 2001-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -25,7 +25,6 @@
 #include "unicode/ubrk.h"
 #include "cmemory.h"
 #include "ucase.h"
-#include "unormimp.h"
 #include "ustr_imp.h"
 
 /* string casing ------------------------------------------------------------ */
@@ -126,7 +125,7 @@ _caseMap(const UCaseMap *csm, UCaseMapFull *map,
          int32_t srcStart, int32_t srcLimit,
          UErrorCode *pErrorCode) {
     const UChar *s;
-    UChar32 c, c2;
+    UChar32 c, c2 = 0;
     int32_t srcIndex, destIndex;
     int32_t locCache;
 
@@ -192,10 +191,7 @@ setTempCaseMapLocale(UCaseMap *csm, const char *locale, UErrorCode *pErrorCode) 
 static U_INLINE void
 setTempCaseMap(UCaseMap *csm, const char *locale, UErrorCode *pErrorCode) {
     if(csm->csp==NULL) {
-        csm->csp=ucase_getSingleton(pErrorCode);
-        if(U_FAILURE(*pErrorCode)) {
-            return;
-        }
+        csm->csp=ucase_getSingleton();
     }
     if(locale!=NULL && locale[0]==0) {
         csm->locale[0]=0;
@@ -217,7 +213,7 @@ _toTitle(UCaseMap *csm,
          UErrorCode *pErrorCode) {
     const UChar *s;
     UChar32 c;
-    int32_t prev, titleStart, titleLimit, titleLimitSave, index, indexSave, destIndex, length;
+    int32_t prev, titleStart, titleLimit, idx, destIndex, length;
     UBool isFirstIndex;
 
     if(csm->iter!=NULL) {
@@ -241,12 +237,12 @@ _toTitle(UCaseMap *csm,
         /* find next index where to titlecase */
         if(isFirstIndex) {
             isFirstIndex=FALSE;
-            index=ubrk_first(csm->iter);
+            idx=ubrk_first(csm->iter);
         } else {
-            index=ubrk_next(csm->iter);
+            idx=ubrk_next(csm->iter);
         }
-        if(index==UBRK_DONE || index>srcLength) {
-            index=srcLength;
+        if(idx==UBRK_DONE || idx>srcLength) {
+            idx=srcLength;
         }
 
         /*
@@ -262,22 +258,22 @@ _toTitle(UCaseMap *csm,
          * b) first case letter (titlecase)         [titleStart..titleLimit[
          * c) subsequent characters (lowercase)                 [titleLimit..index[
          */
-        if(prev<index) {
+        if(prev<idx) {
             /* find and copy uncased characters [prev..titleStart[ */
             titleStart=titleLimit=prev;
-            U16_NEXT(src, titleLimit, index, c);
+            U16_NEXT(src, titleLimit, idx, c);
             if((csm->options&U_TITLECASE_NO_BREAK_ADJUSTMENT)==0 && UCASE_NONE==ucase_getType(csm->csp, c)) {
                 /* Adjust the titlecasing index (titleStart) to the next cased character. */
                 for(;;) {
                     titleStart=titleLimit;
-                    if(titleLimit==index) {
+                    if(titleLimit==idx) {
                         /*
                          * only uncased characters in [prev..index[
                          * stop with titleStart==titleLimit==index
                          */
                         break;
                     }
-                    U16_NEXT(src, titleLimit, index, c);
+                    U16_NEXT(src, titleLimit, idx, c);
                     if(UCASE_NONE!=ucase_getType(csm->csp, c)) {
                         break; /* cased letter at [titleStart..titleLimit[ */
                     }
@@ -299,7 +295,7 @@ _toTitle(UCaseMap *csm,
                 destIndex=appendResult(dest, destIndex, destCapacity, c, s); 
 
                 /* Special case Dutch IJ titlecasing */
-                if ( titleStart+1 < index && 
+                if ( titleStart+1 < idx && 
                      ucase_getCaseLocale(csm->locale,&csm->locCache) == UCASE_LOC_DUTCH &&
                      ( src[titleStart] == (UChar32) 0x0049 || src[titleStart] == (UChar32) 0x0069 ) &&
                      ( src[titleStart+1] == (UChar32) 0x004A || src[titleStart+1] == (UChar32) 0x006A )) { 
@@ -309,7 +305,7 @@ _toTitle(UCaseMap *csm,
                 }
 
                 /* lowercase [titleLimit..index[ */
-                if(titleLimit<index) {
+                if(titleLimit<idx) {
                     if((csm->options&U_TITLECASE_NO_LOWERCASE)==0) {
                         /* Normal operation: Lowercase the rest of the word. */
                         destIndex+=
@@ -317,11 +313,11 @@ _toTitle(UCaseMap *csm,
                                 csm, ucase_toFullLower,
                                 dest+destIndex, destCapacity-destIndex,
                                 src, csc,
-                                titleLimit, index,
+                                titleLimit, idx,
                                 pErrorCode);
                     } else {
                         /* Optionally just copy the rest of the word unchanged. */
-                        length=index-titleLimit;
+                        length=idx-titleLimit;
                         if((destIndex+length)<=destCapacity) {
                             uprv_memcpy(dest+destIndex, src+titleLimit, length*U_SIZEOF_UCHAR);
                         }
@@ -331,7 +327,7 @@ _toTitle(UCaseMap *csm,
             }
         }
 
-        prev=index;
+        prev=idx;
     }
 
     if(destIndex>destCapacity) {
@@ -425,7 +421,7 @@ ustr_foldCase(const UCaseProps *csp,
     int32_t srcIndex, destIndex;
 
     const UChar *s;
-    UChar32 c, c2;
+    UChar32 c, c2 = 0;
 
     /* case mapping loop */
     srcIndex=destIndex=0;
@@ -623,7 +619,7 @@ u_strFoldCase(UChar *dest, int32_t destCapacity,
               uint32_t options,
               UErrorCode *pErrorCode) {
     UCaseMap csm={ NULL };
-    csm.csp=ucase_getSingleton(pErrorCode);
+    csm.csp=ucase_getSingleton();
     csm.options=options;
     return caseMap(&csm,
                    dest, destCapacity,
@@ -681,7 +677,7 @@ u_strcmpFold(const UChar *s1, int32_t length1,
      * assume that at least the option U_COMPARE_IGNORE_CASE is set
      * otherwise this function would have to behave exactly as uprv_strCompare()
      */
-    csp=ucase_getSingleton(pErrorCode);
+    csp=ucase_getSingleton();
     if(U_FAILURE(*pErrorCode)) {
         return 0;
     }

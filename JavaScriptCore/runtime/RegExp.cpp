@@ -2,6 +2,7 @@
  *  Copyright (C) 1999-2001, 2004 Harri Porten (porten@kde.org)
  *  Copyright (c) 2007, 2008 Apple Inc. All rights reserved.
  *  Copyright (C) 2009 Torch Mobile, Inc.
+ *  Copyright (C) 2010 Peter Varga (pvarga@inf.u-szeged.hu), University of Szeged
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -21,121 +22,128 @@
 
 #include "config.h"
 #include "RegExp.h"
+
 #include "Lexer.h"
+#include "yarr/Yarr.h"
+#include "yarr/YarrJIT.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
 
-
-#if ENABLE(YARR)
-
-#include "yarr/RegexCompiler.h"
-#if ENABLE(YARR_JIT)
-#include "yarr/RegexJIT.h"
-#else
-#include "yarr/RegexInterpreter.h"
-#endif
-
-#else
-
-#include <pcre/pcre.h>
-
-#endif
-
 namespace JSC {
 
-inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern)
-    : m_pattern(pattern)
-    , m_flagBits(0)
+RegExpFlags regExpFlags(const UString& string)
+{
+    RegExpFlags flags = NoFlags;
+
+    for (unsigned i = 0; i < string.length(); ++i) {
+        switch (string.characters()[i]) {
+        case 'g':
+            if (flags & FlagGlobal)
+                return InvalidFlags;
+            flags = static_cast<RegExpFlags>(flags | FlagGlobal);
+            break;
+
+        case 'i':
+            if (flags & FlagIgnoreCase)
+                return InvalidFlags;
+            flags = static_cast<RegExpFlags>(flags | FlagIgnoreCase);
+            break;
+
+        case 'm':
+            if (flags & FlagMultiline)
+                return InvalidFlags;
+            flags = static_cast<RegExpFlags>(flags | FlagMultiline);
+            break;
+
+        default:
+            return InvalidFlags;
+        }
+    }
+
+    return flags;
+}
+  
+struct RegExpRepresentation {
+#if ENABLE(YARR_JIT)
+    Yarr::YarrCodeBlock m_regExpJITCode;
+#endif
+    OwnPtr<Yarr::BytecodePattern> m_regExpBytecode;
+};
+
+inline RegExp::RegExp(JSGlobalData* globalData, const UString& patternString, RegExpFlags flags)
+    : m_patternString(patternString)
+    , m_flags(flags)
     , m_constructionError(0)
     , m_numSubpatterns(0)
-    , m_lastMatchStart(-1)
+#if ENABLE(REGEXP_TRACING)
+    , m_rtMatchCallCount(0)
+    , m_rtMatchFoundCount(0)
+#endif
+    , m_representation(adoptPtr(new RegExpRepresentation))
 {
-    compile(globalData);
+    m_state = compile(globalData);
 }
 
-inline RegExp::RegExp(JSGlobalData* globalData, const UString& pattern, const UString& flags)
-    : m_pattern(pattern)
-    , m_flagBits(0)
-    , m_constructionError(0)
-    , m_numSubpatterns(0)
-    , m_lastMatchStart(-1)
-{
-    // NOTE: The global flag is handled on a case-by-case basis by functions like
-    // String::match and RegExpObject::match.
-    if (flags.find('g') != UString::NotFound)
-        m_flagBits |= Global;
-    if (flags.find('i') != UString::NotFound)
-        m_flagBits |= IgnoreCase;
-    if (flags.find('m') != UString::NotFound)
-        m_flagBits |= Multiline;
-
-    compile(globalData);
-}
-
-#if !ENABLE(YARR)
 RegExp::~RegExp()
 {
-    jsRegExpFree(m_regExp);
 }
+
+PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& patternString, RegExpFlags flags)
+{
+    RefPtr<RegExp> res = adoptRef(new RegExp(globalData, patternString, flags));
+#if ENABLE(REGEXP_TRACING)
+    globalData->addRegExpToTrace(res);
 #endif
-
-PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern)
-{
-    return adoptRef(new RegExp(globalData, pattern));
+    return res.release();
 }
 
-PassRefPtr<RegExp> RegExp::create(JSGlobalData* globalData, const UString& pattern, const UString& flags)
+RegExp::RegExpState RegExp::compile(JSGlobalData* globalData)
 {
-    return adoptRef(new RegExp(globalData, pattern, flags));
-}
+    Yarr::YarrPattern pattern(m_patternString, ignoreCase(), multiline(), &m_constructionError);
+    if (m_constructionError)
+        return ParseError;
 
-#if ENABLE(YARR)
+    m_numSubpatterns = pattern.m_numSubpatterns;
 
-void RegExp::compile(JSGlobalData* globalData)
-{
+    RegExpState res = ByteCode;
+
 #if ENABLE(YARR_JIT)
-    Yarr::jitCompileRegex(globalData, m_regExpJITCode, m_pattern, m_numSubpatterns, m_constructionError, ignoreCase(), multiline());
+    if (!pattern.m_containsBackreferences && globalData->canUseJIT()) {
+        Yarr::jitCompile(pattern, globalData, m_representation->m_regExpJITCode);
+#if ENABLE(YARR_JIT_DEBUG)
+        if (!m_representation->m_regExpJITCode.isFallBack())
+            res = JITCode;
+        else
+            res = ByteCode;
 #else
-    UNUSED_PARAM(globalData);
-    m_regExpBytecode.set(Yarr::byteCompileRegex(m_pattern, m_numSubpatterns, m_constructionError, ignoreCase(), multiline()));
+        if (!m_representation->m_regExpJITCode.isFallBack())
+            return JITCode;
 #endif
+    }
+#endif
+
+    m_representation->m_regExpBytecode = Yarr::byteCompile(pattern, &globalData->m_regExpAllocator);
+
+    return res;
 }
 
 int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
 {
     if (startOffset < 0)
         startOffset = 0;
-    if (ovector)
-        ovector->clear();
 
-    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull()) {
-        m_lastMatchString = UString();
-        m_lastMatchStart = -1;
-        m_lastOVector.shrink(0);
-        return -1;
-    }
-    
-    // Perform check to see if this match call is the same as the last match invocation
-    // and if it is return the prior result.
-    if ((startOffset == m_lastMatchStart) && (s.rep() == m_lastMatchString.rep())) {
-        if (ovector)
-            *ovector = m_lastOVector;
-        
-        if (m_lastOVector.isEmpty())
-            return -1;
-
-        return m_lastOVector.at(0);
-    }
-
-#if ENABLE(YARR_JIT)
-    if (!!m_regExpJITCode) {
-#else
-    if (m_regExpBytecode) {
+#if ENABLE(REGEXP_TRACING)
+    m_rtMatchCallCount++;
 #endif
-        int offsetVectorSize = (m_numSubpatterns + 1) * 3; // FIXME: should be 2 - but adding temporary fallback to pcre.
+
+    if (static_cast<unsigned>(startOffset) > s.length() || s.isNull())
+        return -1;
+
+    if (m_state != ParseError) {
+        int offsetVectorSize = (m_numSubpatterns + 1) * 2;
         int* offsetVector;
         Vector<int, 32> nonReturnedOvector;
         if (ovector) {
@@ -147,97 +155,115 @@ int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
         }
 
         ASSERT(offsetVector);
-        for (int j = 0; j < offsetVectorSize; ++j)
+        // Initialize offsetVector with the return value (index 0) and the 
+        // first subpattern start indicies (even index values) set to -1.
+        // No need to init the subpattern end indicies.
+        for (unsigned j = 0, i = 0; i < m_numSubpatterns + 1; j += 2, i++)            
             offsetVector[j] = -1;
 
-
+        int result;
 #if ENABLE(YARR_JIT)
-        int result = Yarr::executeRegex(m_regExpJITCode, s.data(), startOffset, s.size(), offsetVector, offsetVectorSize);
-#else
-        int result = Yarr::interpretRegex(m_regExpBytecode.get(), s.data(), startOffset, s.size(), offsetVector);
+        if (m_state == JITCode) {
+            result = Yarr::execute(m_representation->m_regExpJITCode, s.characters(), startOffset, s.length(), offsetVector);
+#if ENABLE(YARR_JIT_DEBUG)
+            matchCompareWithInterpreter(s, startOffset, offsetVector, result);
 #endif
-
-        if (result < 0) {
-#ifndef NDEBUG
-            // TODO: define up a symbol, rather than magic -1
-            if (result != -1)
-                fprintf(stderr, "jsRegExpExecute failed with result %d\n", result);
+        } else
 #endif
-            if (ovector)
-                ovector->clear();
-        }
-        
-        m_lastMatchString = s;
-        m_lastMatchStart = startOffset;
+            result = Yarr::interpret(m_representation->m_regExpBytecode.get(), s.characters(), startOffset, s.length(), offsetVector);
+        ASSERT(result >= -1);
 
-        if (ovector)
-            m_lastOVector = *ovector;
-        else
-            m_lastOVector = nonReturnedOvector;
+#if ENABLE(REGEXP_TRACING)
+        if (result != -1)
+            m_rtMatchFoundCount++;
+#endif
 
         return result;
     }
 
-    m_lastMatchString = UString();
-    m_lastMatchStart = -1;
-    m_lastOVector.shrink(0);
-
     return -1;
 }
 
-#else
 
-void RegExp::compile(JSGlobalData*)
+#if ENABLE(YARR_JIT_DEBUG)
+void RegExp::matchCompareWithInterpreter(const UString& s, int startOffset, int* offsetVector, int jitResult)
 {
-    m_regExp = 0;
-    JSRegExpIgnoreCaseOption ignoreCaseOption = ignoreCase() ? JSRegExpIgnoreCase : JSRegExpDoNotIgnoreCase;
-    JSRegExpMultilineOption multilineOption = multiline() ? JSRegExpMultiline : JSRegExpSingleLine;
-    m_regExp = jsRegExpCompile(reinterpret_cast<const UChar*>(m_pattern.data()), m_pattern.size(), ignoreCaseOption, multilineOption, &m_numSubpatterns, &m_constructionError);
-}
+    int offsetVectorSize = (m_numSubpatterns + 1) * 2;
+    Vector<int, 32> interpreterOvector;
+    interpreterOvector.resize(offsetVectorSize);
+    int* interpreterOffsetVector = interpreterOvector.data();
+    int interpreterResult = 0;
+    int differences = 0;
 
-int RegExp::match(const UString& s, int startOffset, Vector<int, 32>* ovector)
-{
-    if (startOffset < 0)
-        startOffset = 0;
-    if (ovector)
-        ovector->clear();
+    // Initialize interpreterOffsetVector with the return value (index 0) and the 
+    // first subpattern start indicies (even index values) set to -1.
+    // No need to init the subpattern end indicies.
+    for (unsigned j = 0, i = 0; i < m_numSubpatterns + 1; j += 2, i++)
+        interpreterOffsetVector[j] = -1;
 
-    if (static_cast<unsigned>(startOffset) > s.size() || s.isNull())
-        return -1;
+    interpreterResult = Yarr::interpret(m_representation->m_regExpBytecode.get(), s.characters(), startOffset, s.length(), interpreterOffsetVector);
 
-    if (m_regExp) {
-        // Set up the offset vector for the result.
-        // First 2/3 used for result, the last third used by PCRE.
-        int* offsetVector;
-        int offsetVectorSize;
-        int fixedSizeOffsetVector[3];
-        if (!ovector) {
-            offsetVectorSize = 3;
-            offsetVector = fixedSizeOffsetVector;
+    if (jitResult != interpreterResult)
+        differences++;
+
+    for (unsigned j = 2, i = 0; i < m_numSubpatterns; j +=2, i++)
+        if ((offsetVector[j] != interpreterOffsetVector[j])
+            || ((offsetVector[j] >= 0) && (offsetVector[j+1] != interpreterOffsetVector[j+1])))
+            differences++;
+
+    if (differences) {
+        fprintf(stderr, "RegExp Discrepency for /%s/\n    string input ", pattern().utf8().data());
+        unsigned segmentLen = s.length() - static_cast<unsigned>(startOffset);
+
+        fprintf(stderr, (segmentLen < 150) ? "\"%s\"\n" : "\"%148s...\"\n", s.utf8().data() + startOffset);
+
+        if (jitResult != interpreterResult) {
+            fprintf(stderr, "    JIT result = %d, blah interpreted result = %d\n", jitResult, interpreterResult);
+            differences--;
         } else {
-            offsetVectorSize = (m_numSubpatterns + 1) * 3;
-            ovector->resize(offsetVectorSize);
-            offsetVector = ovector->data();
+            fprintf(stderr, "    Correct result = %d\n", jitResult);
         }
 
-        int numMatches = jsRegExpExecute(m_regExp, reinterpret_cast<const UChar*>(s.data()), s.size(), startOffset, offsetVector, offsetVectorSize);
-    
-        if (numMatches < 0) {
-#ifndef NDEBUG
-            if (numMatches != JSRegExpErrorNoMatch)
-                fprintf(stderr, "jsRegExpExecute failed with result %d\n", numMatches);
-#endif
-            if (ovector)
-                ovector->clear();
-            return -1;
+        if (differences) {
+            for (unsigned j = 2, i = 0; i < m_numSubpatterns; j +=2, i++) {
+                if (offsetVector[j] != interpreterOffsetVector[j])
+                    fprintf(stderr, "    JIT offset[%d] = %d, interpreted offset[%d] = %d\n", j, offsetVector[j], j, interpreterOffsetVector[j]);
+                if ((offsetVector[j] >= 0) && (offsetVector[j+1] != interpreterOffsetVector[j+1]))
+                    fprintf(stderr, "    JIT offset[%d] = %d, interpreted offset[%d] = %d\n", j+1, offsetVector[j+1], j+1, interpreterOffsetVector[j+1]);
+            }
         }
-
-        return offsetVector[0];
     }
-
-    return -1;
 }
-
 #endif
 
+#if ENABLE(REGEXP_TRACING)
+    void RegExp::printTraceData()
+    {
+        char formattedPattern[41];
+        char rawPattern[41];
+
+        strncpy(rawPattern, pattern().utf8().data(), 40);
+        rawPattern[40]= '\0';
+
+        int pattLen = strlen(rawPattern);
+
+        snprintf(formattedPattern, 41, (pattLen <= 38) ? "/%.38s/" : "/%.36s...", rawPattern);
+
+#if ENABLE(YARR_JIT)
+        Yarr::YarrCodeBlock& codeBlock = m_representation->m_regExpJITCode;
+
+        const size_t jitAddrSize = 20;
+        char jitAddr[jitAddrSize];
+        if (m_state == JITCode)
+            snprintf(jitAddr, jitAddrSize, "fallback");
+        else
+            snprintf(jitAddr, jitAddrSize, "0x%014lx", reinterpret_cast<unsigned long int>(codeBlock.getAddr()));
+#else
+        const char* jitAddr = "JIT Off";
+#endif
+
+        printf("%-40.40s %16.16s %10d %10d\n", formattedPattern, jitAddr, m_rtMatchCallCount, m_rtMatchFoundCount);
+    }
+#endif
+    
 } // namespace JSC

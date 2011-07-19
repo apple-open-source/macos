@@ -1,0 +1,22 @@
+Upgrading between micro versions
+================================
+
+(For example v1.0.x -> v1.0.y or v1.1.x -> v1.1.y)
+
+The NEWS file [http://dovecot.org/doc/NEWS] contains all the important changes
+marked with "*" character. Read them to see if there is anything that concerns
+you. In general all the changes try to preserve backwards compatibility, but
+some changes which are meant to improve the stability and correctness of the
+configuration could mean breaking some existing installations. And that may be
+a good thing, since it can expose problems which could otherwise show up as
+random errors.
+
+Upgrading between other versions
+================================
+
+ * <v0.99.x to v1.0> [Upgrading.1.0.txt]
+ * <v1.0 to v1.1> [Upgrading.1.1.txt]
+ * <v1.1 to v1.2> [Upgrading.1.2.txt]
+ * <v1.2 to v2.0> [Upgrading.2.0.txt]
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -12,11 +12,11 @@ def command(cmd)
   $stderr.puts "execute '#{cmd}' done"
 end
 
-$CFLAGS = '-F../../framework/%%%build_dir%%%'
+$CFLAGS = "-F../../framework/%%%build_dir%%% #{ENV['RC_CFLAGS']}"
 $LDFLAGS  = '-F../../framework/%%%build_dir%%% -framework RubyCocoa'
 
-$CFLAGS << " %%%other_cflags%%% #{ENV['RC_CFLAGS']}"
-$LDFLAGS << ' %%%other_ldflags%%%'
+$CFLAGS << ' %%%other_cflags%%% %%%arch_flags%%%'
+$LDFLAGS << ' %%%other_ldflags%%% %%%arch_flags%%%'
 
 create_makefile('rubycocoa')
 command "mv -f Makefile Makefile.bak"

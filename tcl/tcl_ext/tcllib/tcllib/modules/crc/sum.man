@@ -2,6 +2,7 @@
 [copyright {2002, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [moddesc   {Cyclic Redundancy Checks}]
 [titledesc {Calculate a sum(1) compatible checksum}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require sum [opt 1.1.0]]
 [description]

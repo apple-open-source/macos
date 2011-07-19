@@ -41,10 +41,10 @@ installsrc: clean
 #
 CFLAGS		= -g -Os -Wall -Wextra -Wshadow -Wmissing-prototypes \
 		  -Wmissing-declarations -Wno-discard-qual \
-		  -I $(SRCROOT) -I $(OBJROOT)
+		  -I $(SRCROOT) -I $(OBJROOT) -F/System/Library/PrivateFrameworks 
 
 CFLAGS		+= $(RC_CFLAGS)
-LDFLAGS	= -lbsm -framework Kerberos
+LDFLAGS	= -lbsm -framework Heimdal -framework GSS
 
 $(SYMROOT)/gssd: $(OBJROOT)/gssd.o $(OBJROOT)/gssd_machUser.o $(OBJROOT)/gssd_machServer.o $(OBJROOT)/gssd_validate.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^

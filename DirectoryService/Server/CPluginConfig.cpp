@@ -35,7 +35,7 @@
 #include "ServerControl.h"
 #include "CFile.h"
 #include "CLog.h"
-#include "DSLDAPUtils.h"
+#include "od_passthru.h"
 
 extern	bool			gServerOS;
 extern  UInt32			gRefCountWarningLimit;
@@ -418,10 +418,12 @@ SInt32 CPluginConfig::SetPluginState ( const char *inPluginName, const ePluginSt
 		{
 			if ( inPluginState == kActive )
 			{
+				od_passthru_set_plugin_enabled(inPluginName, true);
 				::CFDictionarySetValue( fDictRef, keyStrRef, CFSTR( kActiveValue ) );
 			}
 			else if ( inPluginState == kInactive )
 			{
+				od_passthru_set_plugin_enabled(inPluginName, false);
 				::CFDictionarySetValue( fDictRef, keyStrRef, CFSTR( kInactiveValue ) );
 			}
 

@@ -14,23 +14,14 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
 Install_Target      = install
 
-OSV	= $(DSTROOT)/usr/local/OpenSourceVersions
-OSL	= $(DSTROOT)/usr/local/OpenSourceLicenses
-
-install-plist:
-	$(MKDIR) $(OSV)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project).plist $(OSV)/$(Project).plist
-	$(MKDIR) $(OSL)
-	$(INSTALL_FILE) $(SRCROOT)/$(Project).txt $(OSL)/$(Project).txt
-
 # Automatic Extract & Patch
 AEP            = YES
 AEP_Project    = $(Project)
-AEP_Version    = trunk-20090623
+AEP_Version    = 2.3.2a0
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = fixup.diff PR-6090358-remove-sync.diff parser-fixes.diff NSString.diff float.diff pyobjc-framework-Cocoa_setup.py.diff objc-class.m.diff CGFloat.diff
+AEP_Patches    = parser-fixes.diff float.diff CGFloat.diff pyobjc-core_Modules_objc_selector.m.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -39,13 +30,16 @@ AEP_ExtractOption = z
 endif
 
 # Extract the source.
+UNUSED = 02-develop-all.sh PyOpenGL-2.0.2.01 altgraph build-support macholib modulegraph py2app pyobjc pyobjc-metadata pyobjc-website pyobjc-xcode trac-example-plugin
 install_source::
 ifeq ($(AEP),YES)
 	$(TAR) -C $(SRCROOT) -$(AEP_ExtractOption)xof $(SRCROOT)/$(AEP_Filename)
+	$(RM) $(SRCROOT)/$(AEP_Filename)
 	$(RMDIR) $(SRCROOT)/$(AEP_Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(AEP_Project)
 	@set -x && \
 	cd $(SRCROOT)/$(Project) && \
+	rm -rf $(UNUSED) && \
 	for patchfile in $(AEP_Patches); do \
 	    patch -p0 -i $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done && \
@@ -54,14 +48,12 @@ ifeq ($(AEP),YES)
 	    { unifdef -DCGFLOAT_DEFINED -DNSINTEGER_DEFINED $$patchfile.orig > $$patchfile || [ $$? -ne 2 ]; } || exit 1; \
 	done
 	ed - $(SRCROOT)/$(Project)/pyobjc-core/setup.py < '$(SRCROOT)/patches/pyobjc-core_setup.py.ed'
-	@set -x && cd '$(SRCROOT)/$(Project)/pyobjc-xcode/Project Templates' && \
-	for patchfile in `find . -name project.pbxproj -print0 | xargs -0 fgrep -l MacOSX10.5.sdk | sed 's/ /@/g'`; do \
-	    ed - "`echo $$patchfile | sed 's/@/ /g'`" < $(SRCROOT)/patches/PR-6150200-10.6sdk.ed || exit 1; \
-	done
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa/Lib/Foundation/PyObjC.bridgesupport < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_Foundation_PyObjC.bridgesupport.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Cocoa/Lib/PyObjCTools/Conversion.py < '$(SRCROOT)/patches/pyobjc-framework-Cocoa_Lib_PyObjCTools_Conversion.py.ed'
+	ed - $(SRCROOT)/$(Project)/pyobjc-framework-Quartz/Lib/Quartz/CoreGraphics/PyObjC.bridgesupport < '$(SRCROOT)/patches/pyobjc-framework-Quartz_Lib_Quartz_CoreGraphics_PyObjC.bridgesupport.ed'
 	@set -x && for z in `find $(SRCROOT)/$(Project) -name \*.py -size 0c`; do \
 	    echo '#' > $$z || exit 1; \
 	done
-	find $(SRCROOT)/$(Project) -name main -print -delete
 	find $(SRCROOT)/$(Project) -name \*.so -print -delete
 endif
 
@@ -71,18 +63,13 @@ copysource:
 DOCS=/Developer/Documentation/Python/PyObjC
 EXAMPLES=/Developer/Examples/Python/PyObjC
 EXTRAS=$(shell python -c "import sys, os;print os.path.join(sys.prefix, 'Extras')")
-INIT = $(OBJROOT)/init.py
-
-XCODESUPPORT = pyobjc-xcode
 
 real-install:
-	echo import site > "$(INIT)"
-	echo 'site.addsitedir("$(DSTROOT)$(EXTRAS)/lib/python")' >> "$(INIT)"
 	@set -x && \
 	cd '$(OBJROOT)/$(Project)' && \
-	for pkg in pyobjc-core pyobjc-framework-*; do \
+	for pkg in pyobjc-core pyobjc-framework-Cocoa `ls -d pyobjc-framework-* | grep -v pyobjc-framework-Cocoa`; do \
 	    cd "$(OBJROOT)/$(Project)/$$pkg" && \
-	    ARCHFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=0" PYTHONSTARTUP="$(INIT)" \
+	    ARCHFLAGS="$(RC_CFLAGS) -D_FORTIFY_SOURCE=0" PYTHONPATH="$(DSTROOT)$(EXTRAS)/lib/python/PyObjC" \
 	    python setup.py install --home="$(EXTRAS)" --root="$(DSTROOT)" || exit 1; \
 	done
 	@set -x && cd "$(DSTROOT)$(EXTRAS)/lib/python" && \
@@ -97,6 +84,8 @@ real-install:
 		fi; \
 	    fi || exit 1; \
 	done
+	cp -f $(Project).txt "$(OSL)/$(Project)-$(AEP_Version).txt"
+	cp -f $(Project).partial "$(OSV)/$(Project)-$(AEP_Version).partial"
 
 install-docs:
 	$(INSTALL) -d '$(DSTROOT)$(DOCS)'
@@ -147,4 +136,4 @@ fix_inappropriate_executables:
 
 fix_verification-errors: fix_bogus_files fix_inappropriate_executables fix_strip
 
-install:: copysource install-plist real-install install-docs install-examples fix_verification-errors
+install:: copysource real-install install-docs install-examples fix_verification-errors

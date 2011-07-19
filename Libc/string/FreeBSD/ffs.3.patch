@@ -1,6 +1,17 @@
---- _SB/Libc/string/FreeBSD/ffs.3	2004-11-25 11:38:46.000000000 -0800
-+++ _SB/Libc/string/FreeBSD/ffs.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -48,20 +48,20 @@
+--- ffs.3.bsdnew	2009-11-30 13:52:21.000000000 -0800
++++ ffs.3	2009-11-30 13:56:29.000000000 -0800
+@@ -36,46 +36,38 @@
+ .Sh NAME
+ .Nm ffs ,
+ .Nm ffsl ,
+-.Nm ffsll ,
+ .Nm fls ,
+-.Nm flsl ,
+-.Nm flsll
++.Nm flsl
+ .Nd find first or last bit set in a bit string
+ .Sh LIBRARY
+ .Lb libc
  .Sh SYNOPSIS
  .In strings.h
  .Ft int
@@ -10,32 +21,44 @@
 -.Fn ffsl "long value"
 +.Fn ffsl "long i"
  .Ft int
--.Fn fls "int value"
 +.Fn fls "int i"
  .Ft int
+-.Fn ffsll "long long value"
+-.Fn fls "int value"
+-.Ft int
 -.Fn flsl "long value"
+-.Ft int
+-.Fn flsll "long long value"
 +.Fn flsl "long i"
  .Sh DESCRIPTION
  The
- .Fn ffs
+-.Fn ffs ,
+-.Fn ffsl
++.Fn ffs
  and
- .Fn ffsl
- functions find the first bit set in
+-.Fn ffsll
++.Fn ffsl
+ functions find the first bit set
+ (beginning with the least significant bit)
+ in
 -.Fa value
 +.Fa i
  and return the index of that bit.
  .Pp
  The
-@@ -69,7 +69,7 @@
+-.Fn fls ,
+-.Fn flsl
++.Fn fls
  and
- .Fn flsl
+-.Fn flsll
++.Fn flsl
  functions find the last bit set in
 -.Fa value
 +.Fa i
  and return the index of that bit.
  .Pp
- Bits are numbered starting from 1, starting at the right-most
-@@ -93,7 +93,7 @@
+ Bits are numbered starting at 1 (the least significant bit).
+@@ -98,14 +90,8 @@ compliance.
  .Pp
  The
  .Fn ffsl ,
@@ -44,3 +67,10 @@
  and
  .Fn flsl
  functions appeared in
+ .Fx 5.3 .
+-The
+-.Fn ffsll
+-and
+-.Fn flsll
+-functions appeared in
+-.Fx 7.1 .

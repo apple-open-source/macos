@@ -6,7 +6,7 @@
 #
 ---
 title: YAML parser for Tcl.
-version: 0.3.3
+version: 0.3.5
 authors:
   - KATO Kanryu: kanryu6@users.sourceforge.net
 license: tcllib's BSD-style license
@@ -14,6 +14,20 @@ copyright: (c) 2008 KATO Kanryu
 
 changes:
 
+  0.3.5:
+    - 2009-05-24
+    - To read uninitialized yaml::data(current), when there is not empty line
+      or "---" at the beginning of yaml.
+    - Thanks al_chou!
+    - https://sourceforge.net/tracker/?func=detail&atid=112883&aid=2795699&group_id=12883
+    - supported for YAML termination(...)
+  0.3.4:
+    - 2008-09-27
+    - fixed for some incorrect use of "string first/last"
+  0.3.3:
+    - 2008-06-05
+    - add benchmark
+    - validate check fors scripts
   0.3.2:
     - 2008-06-03
     - add command huddle2yaml

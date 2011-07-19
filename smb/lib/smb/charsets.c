@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,148 +20,48 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-/*      @(#)charsets.c      *
- *      (c) 2004   Apple Computer, Inc.  All Rights Reserved
- *
- *
- *      charsets.c -- Routines converting between UTF-8, 16-bit
- *			little-endian Unicode, and various Windows
- *			code pages.
- *
- *      MODIFICATION HISTORY:
- *       28-Nov-2004     Guy Harris	New today
- */
-
 #include <stdlib.h>
-#include <stdio.h>
 #include <string.h>
-#include <CoreFoundation/CoreFoundation.h>
-#include <asl.h>
-#include <sys/mchain.h>
-
 #include <netsmb/smb_lib.h>
-
 #include "charsets.h"
 
-UInt32 gcodePage = 437;
-
-void setcharset(const char *cp)
+/* 
+ * We now use CFStringUppercase
+ */
+void str_upper(char *dst, size_t maxDstLen, CFStringRef srcRef)
 {
-	UInt32 codePage = 0;
-
-	/*
-	 * Make sure cp exist and has something in it.
-	 */
-	if ((cp == NULL) || (*cp == 0))
-		return;
-	/* We expected it to start with CP, but SAMBA doesn't care so we shouldn't care.*/
-	if (((*cp == 'C') || (*cp == 'c')) && ((*(cp+1) == 'P')|| (*(cp+1) == 'p')))
-		cp += 2;
-	else
-		smb_log_info("setcharset expected 'CP%s' got '%s'?", 0, ASL_LEVEL_DEBUG, cp, cp);
-
-	codePage = (UInt32)strtol(cp, NULL, 0);
-	
-	if (codePage == 0) {
-		smb_log_info("setcharset '%s' ignored", errno, ASL_LEVEL_ERR, cp);
+	CFMutableStringRef upperRef = CFStringCreateMutableCopy(kCFAllocatorDefault, 0, srcRef);
+	if (upperRef == NULL) {
+		/* Nothing else we can do here */
+		CFStringGetCString(srcRef, dst, maxDstLen, kCFStringEncodingUTF8);
 		return;
 	}
-	gcodePage = codePage;
-}
-
-static unsigned
-xtoi(unsigned u)
-{
-        if (isdigit(u))
-                return (u - '0'); 
-        else if (islower(u))
-                return (10 + u - 'a'); 
-        else if (isupper(u))
-                return (10 + u - 'A'); 
-        return (16);
-}
-
-/* Really should use CFStringUppercase */
-char * str_upper(char *dst, const char *src)
-{
-	char *p = dst;
-	
-	while (*src)
-	*dst++ = toupper(*src++);
-	*dst = 0;
-	return p;
-}
-
-/* Removes the "%" escape sequences from a URL component.
- * See IETF RFC 2396.
- */
-char *
-unpercent(char * component)
-{
-        unsigned char c, *s;
-        unsigned hi, lo; 
-
-        if (component)
-                for (s = (unsigned char *)component; (c = (unsigned char)*s); s++) {
-                        if (c != '%') 
-                                continue;
-                        if ((hi = xtoi(s[1])) > 15 || (lo = xtoi(s[2])) > 15)
-                                continue; /* ignore invalid escapes */
-                        s[0] = hi*16 + lo;
-                        /*      
-                         * This was strcpy(s + 1, s + 3);
-                         * But nowadays leftward overlapping copies are
-                         * officially undefined in C.  Ours seems to
-                         * work or not depending upon alignment.
-                         */      
-                        memmove(s+1, s+3, (strlen((char *)(s+3))) + 1);
-                }       
-        return (component);
-}
-
-/*
- * We read gcodePage from the configuration file. It holds the code page number that needs to be convert it to the 
- * CF encoding number.
- */
-CFStringEncoding windows_encoding( void )
-{
-	static int first_time = TRUE;
-	
-	CFStringEncoding encoding;
-	
-	encoding = CFStringConvertWindowsCodepageToEncoding(gcodePage);
-	if (encoding == kCFStringEncodingInvalidId)
-		encoding = CFStringGetSystemEncoding();	/* Punt nothing else we can do here */
-	if (first_time) {
-		smb_log_info("%s: encoding = %d gcodePage = %d", 0, ASL_LEVEL_DEBUG, __FUNCTION__, 
-					 (u_int32_t)encoding, (u_int32_t)gcodePage);	
-		first_time = FALSE;
-	}
-	return encoding;
+	CFStringUppercase(upperRef, NULL);
+	CFStringGetCString(upperRef, dst, maxDstLen, kCFStringEncodingUTF8);
+	CFRelease(upperRef);
 }
 
 /*
  * %%% - Change all strings to CFStringRef, once we remove the UI code.
  */
 char *
-convert_wincs_to_utf8(const char *windows_string)
+convert_wincs_to_utf8(const char *windows_string, CFStringEncoding codePage)
 {
 	CFStringRef s;
 	CFIndex maxlen;
 	char *result;
 
-	s = CFStringCreateWithCString(NULL, windows_string, 
-		windows_encoding());
+	s = CFStringCreateWithCString(NULL, windows_string, codePage);
 	if (s == NULL) {
-		smb_log_info("CFStringCreateWithCString for Windows code page failed on \"%s\" ",
-						-1, ASL_LEVEL_DEBUG,  windows_string);
+		smb_log_info("CFStringCreateWithCString for Windows code page failed on \"%s\", syserr = %s",
+						ASL_LEVEL_DEBUG,  windows_string, strerror(errno));
 
 		/* kCFStringEncodingMacRoman should always succeed */
 		s = CFStringCreateWithCString(NULL, windows_string, 
 		    kCFStringEncodingMacRoman);
 		if (s == NULL) {
-			smb_log_info("CFStringCreateWithCString for Windows code page failed on \"%s\" with kCFStringEncodingMacRoman - skipping",
-						-1, ASL_LEVEL_DEBUG, windows_string);
+			smb_log_info("CFStringCreateWithCString for Windows code page failed on \"%s\" with kCFStringEncodingMacRoman - skipping, syserr = %s",
+						ASL_LEVEL_DEBUG, windows_string, strerror(errno));
 			return NULL;
 		}
 	}
@@ -170,14 +70,14 @@ convert_wincs_to_utf8(const char *windows_string)
 	    kCFStringEncodingUTF8) + 1;
 	result = malloc(maxlen);
 	if (result == NULL) {
-		smb_log_info("Couldn't allocate buffer for UTF-8 string for \"%s\" - skipping", 
-					-1, ASL_LEVEL_DEBUG, windows_string);
+		smb_log_info("Couldn't allocate buffer for UTF-8 string for \"%s\" - skipping, syserr = %s", 
+					ASL_LEVEL_DEBUG, windows_string, strerror(errno));
 		CFRelease(s);
 		return NULL;
 	}
 	if (!CFStringGetCString(s, result, maxlen, kCFStringEncodingUTF8)) {
-		smb_log_info("CFStringGetCString for UTF-8 failed on \"%s\" - skipping",
-					-1, ASL_LEVEL_DEBUG, windows_string);
+		smb_log_info("CFStringGetCString for UTF-8 failed on \"%s\" - skipping, syserr = %s",
+					ASL_LEVEL_DEBUG, windows_string, strerror(errno));
 		CFRelease(s);
 		return NULL;
 	}
@@ -186,48 +86,61 @@ convert_wincs_to_utf8(const char *windows_string)
 }
 
 /*
- * %%% - Change all strings to CFStringRef, once we remove the UI code.
+ * This routine assumes the inbound c-style string is really a UTF8 string.
+ * We create a CFString, uppercase if the flag is set, convert it to the code
+ * page and then return a c-style string containing the new converted string.
  */
-char *
-convert_utf8_to_wincs(const char *utf8_string)
+char *convert_utf8_to_wincs(const char *utf8_string, CFStringEncoding codePage, int uppercase)
 {
-	CFStringRef s;
+	CFStringRef utfStr;
+	CFMutableStringRef utfMutableStr = NULL;
 	CFIndex maxlen;
-	char *result;
+	char *result = NULL;
 
-	s = CFStringCreateWithCString(NULL, utf8_string, kCFStringEncodingUTF8);
-	if (s == NULL) {
-		smb_log_info("CFStringCreateWithCString for UTF-8 failed on \"%s\"", 
-					-1, ASL_LEVEL_DEBUG, utf8_string);
-		return NULL;
+	utfStr = CFStringCreateWithCString(NULL, utf8_string, kCFStringEncodingUTF8);
+	if (utfStr) {
+		utfMutableStr = CFStringCreateMutableCopy(NULL, 0, utfStr);
+		CFRelease(utfStr);
+	}
+	
+	if (utfMutableStr == NULL) {
+		smb_log_info("CFStringCreateWithCString for UTF-8 failed on \"%s\", syserr = %s", 
+					ASL_LEVEL_DEBUG, utf8_string, strerror(errno));
+		goto done;
 	}
 
-	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(s),
-	    windows_encoding()) + 1;
+	if (uppercase) {
+		CFStringUppercase(utfMutableStr, CFLocaleGetSystem());
+	}
+	
+	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(utfMutableStr), codePage) + 1;
 	result = malloc(maxlen);
 	if (result == NULL) {
-		smb_log_info("Couldn't allocate buffer for Windows code page string for \"%s\" - skipping", 
-					-1, ASL_LEVEL_DEBUG, utf8_string);
-		CFRelease(s);
-		return NULL;
+		smb_log_info("Couldn't allocate buffer for Windows code page string for \"%s\" - skipping, syserr = %s", 
+					ASL_LEVEL_DEBUG, utf8_string, strerror(errno));
+		goto done;
 	}
-	if (!CFStringGetCString(s, result, maxlen,
-	    windows_encoding())) {
-		smb_log_info("CFStringGetCString for Windows code page failed on \"%s\" - skipping",
-					-1, ASL_LEVEL_DEBUG, utf8_string);
-		CFRelease(s);
-		return NULL;
+	if (!CFStringGetCString(utfMutableStr, result, maxlen, codePage)) {
+		smb_log_info("CFStringGetCString for Windows code page failed on \"%s\" - skipping, syserr = %s",
+					ASL_LEVEL_DEBUG, utf8_string, strerror(errno));
+		free(result);
+		result =  NULL;
+		goto done;
 	}
-	CFRelease(s);
+	
+done:
+	if (utfMutableStr)
+		CFRelease(utfMutableStr);
 	return result;
 }
 
 /*
  * Convert little-endian Unicode string to UTF-8.
  * Converts the Unicode string to host byte order in place.
+ * XXX - <rdar://problem/7518600>  will clean this up
  */
 char *
-convert_leunicode_to_utf8(unsigned short *unicode_string)
+convert_leunicode_to_utf8(unsigned short *unicode_string, size_t maxLen)
 {
 	unsigned short *unicode_charp, unicode_char;
 
@@ -235,38 +148,42 @@ convert_leunicode_to_utf8(unsigned short *unicode_string)
 	    (unicode_char = *unicode_charp) != 0;
 	    unicode_charp++)
 		*unicode_charp = CFSwapInt16LittleToHost(unicode_char);
-	return convert_unicode_to_utf8(unicode_string);
+	return convert_unicode_to_utf8(unicode_string, maxLen);
 }
 
 /*
  * Convert Unicode string to UTF-8.
+ * XXX - <rdar://problem/7518600>  will clean this up
  */
 char *
-convert_unicode_to_utf8(unsigned short *unicode_string)
+convert_unicode_to_utf8(const uint16_t *unicode_string, size_t maxLen)
 {
 	size_t uslen;
 	CFStringRef s;
-	CFIndex maxlen;
 	char *result;
-
-	for (uslen = 0; unicode_string[uslen] != 0; uslen++)
+	
+	 /* Number of characters not bytes */
+	maxLen = maxLen / 2;
+	for (uslen = 0; (unicode_string[uslen] != 0) && (uslen < maxLen); uslen++)
 		;
-	s = CFStringCreateWithCharacters(NULL, unicode_string, uslen);
+	s = CFStringCreateWithCharacters(kCFAllocatorDefault, unicode_string, uslen);
 	if (s == NULL) {
-		smb_log_info("CFStringCreateWithCharacters failed", -1, ASL_LEVEL_DEBUG);
+		smb_log_info("CFStringCreateWithCharacters failed, syserr = %s", 
+					 ASL_LEVEL_DEBUG, strerror(errno));
 		return NULL;
 	}
-
-	maxlen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(s),
+	maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(s),
 	    kCFStringEncodingUTF8) + 1;
-	result = malloc(maxlen);
+	result = calloc(maxLen, 1);
 	if (result == NULL) {
-		smb_log_info("Couldn't allocate buffer for Unicode string - skipping", -1, ASL_LEVEL_DEBUG);
+		smb_log_info("Couldn't allocate buffer for Unicode string - skipping, syserr = %s", 
+					 ASL_LEVEL_DEBUG, strerror(errno));
 		CFRelease(s);
 		return NULL;
 	}
-	if (!CFStringGetCString(s, result, maxlen, kCFStringEncodingUTF8)) {
-		smb_log_info("CFStringGetCString failed on Unicode string - skipping", -1, ASL_LEVEL_DEBUG);
+	if (!CFStringGetCString(s, result, maxLen, kCFStringEncodingUTF8)) {
+		smb_log_info("CFStringGetCString failed on Unicode string - skipping, syserr = %s", 
+					 ASL_LEVEL_DEBUG, strerror(errno));
 		CFRelease(s);
 		free(result);
 		return NULL;
@@ -277,7 +194,8 @@ convert_unicode_to_utf8(unsigned short *unicode_string)
 
 /*
  * Convert UTF-8 string to little-endian Unicode.
- */
+ * XXX - <rdar://problem/7518600>  will clean this up
+*/
 unsigned short *
 convert_utf8_to_leunicode(const char *utf8_string)
 {
@@ -290,15 +208,16 @@ convert_utf8_to_leunicode(const char *utf8_string)
 	s = CFStringCreateWithCString(NULL, utf8_string,
 	     kCFStringEncodingUTF8);
 	if (s == NULL) {
-		smb_log_info("CFStringCreateWithCString for UTF-8 failed on \"%s\"", -1, ASL_LEVEL_DEBUG, utf8_string);
+		smb_log_info("CFStringCreateWithCString for UTF-8 failed on \"%s\", syserr = %s",
+					 ASL_LEVEL_DEBUG, utf8_string, strerror(errno));
 		return NULL;
 	}
 
 	maxlen = CFStringGetLength(s);
 	result = malloc(2*(maxlen + 1));
 	if (result == NULL) {
-		smb_log_info("Couldn't allocate buffer for Unicode string for \"%s\" - skipping", 
-				-1, ASL_LEVEL_DEBUG, utf8_string);
+		smb_log_info("Couldn't allocate buffer for Unicode string for \"%s\" - skipping, syserr = %s", 
+				ASL_LEVEL_DEBUG, utf8_string, strerror(errno));
 		CFRelease(s);
 		return NULL;
 	}

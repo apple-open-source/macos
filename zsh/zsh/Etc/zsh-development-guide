@@ -198,12 +198,16 @@ following shell variables:
   - nozshdep        non-empty indicates no dependence on the `zsh/main'
                     pseudo-module
   - alwayslink      if non-empty, always link the module into the executable
-  - autobins        builtins defined by the module, for autoloading
-  - autoinfixconds  infix condition codes defined by the module, for
-                    autoloading (without the leading `-')
-  - autoprefixconds like autoinfixconds, but for prefix condition codes
-  - autoparams      parameters defined by the module, for autoloading
-  - automathfuncs   math functions defined by the module, for autoloading
+  - autofeatures    features defined by the module for autoloading,
+                    a space-separated list.  The syntax for features is as
+                    for zmodload -F, e.g. b:mybin refers to the builtin
+                    mybin.  This replaces the previous mechanism with
+                    separate variables for builtins, conditions, math
+                    functions and parameters.  Note the features are only
+                    available in zsh's native mode, not in emulation modes.
+  - autofeatures_emu As autofeatures, but the features so presented are
+                    available in modes that are *not* zsh's native mode.
+		    The variable autofeatures must also be present.
   - objects         .o files making up this module (*must* be defined)
   - proto           .syms files for this module (default generated from $objects)
   - headers         extra headers for this module (default none)
@@ -279,6 +283,10 @@ However, `finish_' is called even if `setup_' failed, so it should
 not rely on the module successfully being set up.
 The state from `finish_' module is currently ignored; it is called
 too late to prevent the module from being unloaded.
+*Note* in addition to freeing memory, variables associated with allocated
+memory should be set to NULL or to indicate arrays are empty, etc.  It
+should not be assumed that the variables will automatically be zeroed if
+the module is reloaded (though some configurations may do this).
 
 In short, the `cleanup_'-function should undo what the `boot_'-function did
 (together with handling any residual effects of `enables_'), but should
@@ -300,7 +308,7 @@ is generic information.
 
 `struct feature' contains a pointer to the array that declares each
 feature, followed by the number of entries in the array.  The pointer
-can be NULL and the the size zero for any feature that is not present in
+can be NULL and the size zero for any feature that is not present in
 the module.  For example, to register only builtins in zsh and thereby
 make them visible to the user, the structure should contain
 "bintab" where the array is declared as an array of struct builtin,
@@ -483,7 +491,7 @@ tokenized. There are three helper functions available:
   - int cond_match(args, num, str)
     Again, the first two arguments are the same as for the other
     functions. The third argument is any string. The result of the
-    function is non-zero if the the num'th string from the array taken 
+    function is non-zero if the num'th string from the array taken 
     as a glob pattern matches the given string.
 
 Parameters
@@ -528,7 +536,7 @@ see the description of the following functions in the `params.c' file:
 
 Note that if one defines parameters using the last two macros (for
 scalars and arrays), the variable holding the value should be
-initialized to either `NULL' or to a a piece of memory created with
+initialized to either `NULL' or to a piece of memory created with
 `zalloc()'. But this memory should *not* be freed in the
 finish-function of the module because that will be taken care of by
 the `deleteparamdefs()' function described below.

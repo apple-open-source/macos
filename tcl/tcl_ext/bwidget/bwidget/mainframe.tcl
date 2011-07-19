@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  mainframe.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: mainframe.tcl,v 1.23 2006/03/24 22:19:57 dev_null42a Exp $
+#  $Id: mainframe.tcl,v 1.26 2009/10/25 20:55:36 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - MainFrame::create
@@ -26,21 +26,21 @@ namespace eval MainFrame {
     Widget::define MainFrame mainframe ProgressBar
 
     Widget::bwinclude MainFrame ProgressBar .status.prg \
-	    remove {
-	-fg -bg -bd -troughcolor -background -borderwidth
-	-relief -orient -width -height
-    } \
-	    rename {
-	-maximum    -progressmax
-	-variable   -progressvar
-	-type       -progresstype
-	-foreground -progressfg
+        remove {
+	    -fg -bg -bd -troughcolor -background -borderwidth
+	    -relief -orient -width -height
+        } \
+	rename {
+	    -maximum    -progressmax
+	    -variable   -progressvar
+	    -type       -progresstype
+	    -foreground -progressfg
     }
 
     Widget::declare MainFrame {
 	{-width        TkResource 0      0 frame}
 	{-height       TkResource 0      0 frame}
-	{-background   TkResource ""     0 frame}
+	{-background   Color      "SystemWindowFrame" 0}
 	{-textvariable String     ""     0}
 	{-menu         String     {}     1}
 	{-separator    Enum       both   1 {none top bottom both}}
@@ -70,12 +70,10 @@ namespace eval MainFrame {
 proc MainFrame::create { path args } {
     global   tcl_platform
     variable _widget
+    
+    set path [BWidget::wrap frame $path \
+                  -class MainFrame -takefocus 0 -highlightthickness 0]
 
-    if {[Widget::theme]} {
-	set path [ttk::frame $path]
-    } else {
-	set path [frame $path -takefocus 0 -highlightthickness 0]
-    }
     set top  [winfo parent $path]
     if { ![string equal [winfo toplevel $path] $top] } {
         destroy $path
@@ -90,33 +88,29 @@ proc MainFrame::create { path args } {
         set relief flat
         set bd     0
     }
-    if {[Widget::theme]} {
-	set userframe [eval [list ttk::frame $path.frame] \
-			   [Widget::subcget $path .frame]]
-	set topframe  [ttk::frame $path.topf]
-	set botframe  [ttk::frame $path.botf]
-    } else {
-	set userframe [eval [list frame $path.frame] \
+    set userframe [eval \
+          [list BWidget::wrap frame $path.frame] \
 			   [Widget::subcget $path .frame] \
 			   -relief $relief -borderwidth $bd]
-	set topframe  [eval [list frame $path.topf] \
+    set topframe [eval \
+          [list BWidget::wrap frame $path.topf] \
 			   [Widget::subcget $path .topf]]
-	set botframe  [eval [list frame $path.botf] \
+    set botframe [eval \
+          [list BWidget::wrap frame $path.botf] \
 			   -relief $relief -borderwidth $bd \
 			   [Widget::subcget $path .botf]]
-    }
 
     pack $topframe -fill x
     grid columnconfigure $topframe 0 -weight 1
 
-    if {![Widget::theme]} {
+    if { ![BWidget::using ttk] } {
 	set bg [Widget::cget $path -background]
 	$path configure -background $bg
     }
     if { $tcl_platform(platform) != "unix" } {
         set sepopt [Widget::getoption $path -separator]
         if { $sepopt == "both" || $sepopt == "top" } {
-	    if {[Widget::theme]} {
+	    if { [BWidget::using ttk] } {
 		set sep [ttk::separator $path.sep -orient horizontal]
 	    } else {
 		set sep [Separator::create $path.sep -orient horizontal -background $bg]
@@ -124,7 +118,7 @@ proc MainFrame::create { path args } {
             pack $sep -fill x
         }
         if { $sepopt == "both" || $sepopt == "bottom" } {
-	    if {[Widget::theme]} {
+	    if { [BWidget::using ttk] } {
 		set sep [ttk::separator $botframe.sep -orient horizontal]
 	    } else {
 		set sep [Separator::create $botframe.sep -orient horizontal -background $bg]
@@ -140,7 +134,7 @@ proc MainFrame::create { path args } {
 	set sbfnt ""
     }
 
-    if {[Widget::theme]} {
+    if { [BWidget::using ttk] } {
 	set status   [ttk::frame $path.status]
 	set label    [eval [list ttk::label $status.label \
 				-textvariable [Widget::getoption $path -textvariable]] $sbfnt]
@@ -198,7 +192,7 @@ proc MainFrame::configure { path args } {
     }
 
     # The ttk frame has no -background
-    if {![Widget::theme] && [Widget::hasChanged $path -background bg] } {
+    if { ![BWidget::using ttk]  && [Widget::hasChanged $path -background bg] } {
 	if {$::tcl_platform(platform) == "unix"} {
 	    set listmenu [$_widget($path,top) cget -menu]
 	    while { [llength $listmenu] } {
@@ -305,14 +299,14 @@ proc MainFrame::addtoolbar { path } {
     set toolbar   $path.topf.tb$index
     set bg        [Widget::getoption $path -background]
     if { $tcl_platform(platform) == "unix" } {
-	if {[Widget::theme]} {
-	    ttk::frame $toolframe -padding 1
+	if { [BWidget::using ttk] } {
+	    ttk::frame $toolframe -padding 1 -relief raised -borderwidth 1
 	} else {
 	    frame $toolframe -relief raised -borderwidth 1 \
 		-takefocus 0 -highlightthickness 0 -background $bg
 	}
     } else {
-	if {[Widget::theme]} {
+	if { [BWidget::using ttk] } {
 	    ttk::frame $toolframe
 	    set sep [ttk::separator $toolframe.sep -orient horizontal]
 	} else {
@@ -322,7 +316,7 @@ proc MainFrame::addtoolbar { path } {
 	}
         pack $sep -fill x
     }
-    if {[Widget::theme]} {
+    if { [BWidget::using ttk] } {
 	set toolbar [ttk::frame $toolbar -padding 2]
     } else {
 	set toolbar [frame $toolbar -relief flat -borderwidth 2 \
@@ -395,18 +389,7 @@ proc MainFrame::getmenu { path menuid } {
 proc MainFrame::setmenustate { path tag state } {
     variable _widget
 
-    #    if { [info exists _widget($path,tags,$tag)] } {
-    #        foreach {menu entry} $_widget($path,tags,$tag) {
-    #            $menu entryconfigure $entry -state $state
-    #        }
-    #    }
-
-    # We need a more sophisticated state system.
-    # The original model was this:  each menu item has a list of tags;
-    # whenever any one of those tags changed state, the menu item did too.
-    # This makes it hard to have items that are enabled only when both tagA and
-    # tagB are.  The new model therefore only sets the menustate to enabled
-    # when ALL of its tags are enabled.
+    # Set menustate to enabled when ALL of its tags are enabled.
 
     # First see if this is a real tag
     if { [info exists _widget($path,tagstate,$tag)] } {
@@ -431,6 +414,18 @@ proc MainFrame::setmenustate { path tag state } {
     return
 }
 
+# -----------------------------------------------------------------------------
+#  Command MainFrame::getmenustate
+# -----------------------------------------------------------------------------
+proc MainFrame::getmenustate { path tag } {
+    variable _widget
+
+    if {$_widget($path,tagstate,$tag)} {
+        return normal
+    } else {
+        return disabled
+    }
+}
 
 # -----------------------------------------------------------------------------
 #  Command MainFrame::menuonly
@@ -517,7 +512,7 @@ proc MainFrame::_create_menubar { path descmenu } {
 	}
     }
 
-    if {![Widget::theme] && $tcl_platform(platform) == "unix"} {
+    if { ![BWidget::using ttk] && $tcl_platform(platform) == "unix" } {
 	set menuopts [list -background [Widget::getoption $path -background] \
 			  -borderwidth 1]
     } else {

@@ -3,6 +3,7 @@
 [copyright {2005 Kenneth Green <kenneth.green@gmail.com>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Tools for creating and manipulating roman numerals}]
+[category  Mathematics]
 [require Tcl 8.3]
 [require math::roman [opt 1.0]]
 [description]

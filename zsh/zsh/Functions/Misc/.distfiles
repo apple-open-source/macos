@@ -10,9 +10,13 @@ is-at-least
 mere
 nslookup
 promptnl
+regexp-replace
 relative
 run-help
 run-help-git
+run-help-openssl
+run-help-p4
+run-help-sudo
 run-help-svk
 run-help-svn
 sticky-note
@@ -26,4 +30,5 @@ zmathfuncdef
 zmv
 zrecompile
 zstyle+
+ztodo
 '

@@ -1,0 +1,22 @@
+Index: src/fileio.c
+===================================================================
+--- src/fileio.c	(revision 57762)
++++ src/fileio.c	(working copy)
+@@ -2141,6 +2141,17 @@
+ 	    }
+ 	}
+ 
++	if (p_bf) {
++		/* beautify throws away all non-printable characters on input
++		   except tab, newline, and form-feed	*/
++		int i=0;
++		for (p = ptr; p < ptr + size; ++p) {
++		    if (isprint(*p) || *p == '\t' || *p == '\n' || *p == '\f') 
++			ptr[i++] = *p;
++		}
++		size=i;
++	}
++
+ 	/*
+ 	 * This loop is executed once for every character read.
+ 	 * Keep it fast!

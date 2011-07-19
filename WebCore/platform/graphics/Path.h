@@ -28,10 +28,11 @@
 #ifndef Path_h
 #define Path_h
 
-#include <algorithm>
+#include "RoundedIntRect.h"
 #include <wtf/FastAllocBase.h>
+#include <wtf/Forward.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 typedef struct CGPath PlatformPath;
 #elif PLATFORM(OPENVG)
 namespace WebCore {
@@ -44,12 +45,12 @@ typedef QPainterPath PlatformPath;
 #elif PLATFORM(WX) && USE(WXGC)
 class wxGraphicsPath;
 typedef wxGraphicsPath PlatformPath;
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 namespace WebCore {
-    struct CairoPath;
+class CairoPath;
 }
 typedef WebCore::CairoPath PlatformPath;
-#elif PLATFORM(SKIA)
+#elif USE(SKIA)
 class SkPath;
 typedef SkPath PlatformPath;
 #elif PLATFORM(HAIKU)
@@ -59,6 +60,7 @@ typedef BRegion PlatformPath;
 namespace WebCore {
     class PlatformPath;
 }
+typedef WebCore::PlatformPath PlatformPath;
 #else
 typedef void PlatformPath;
 #endif
@@ -77,7 +79,6 @@ namespace WebCore {
     class FloatRect;
     class FloatSize;
     class GraphicsContext;
-    class String;
     class StrokeStyleApplier;
 
     enum WindRule {
@@ -100,7 +101,8 @@ namespace WebCore {
 
     typedef void (*PathApplierFunction)(void* info, const PathElement*);
 
-    class Path : public FastAllocBase {
+    class Path {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         Path();
         ~Path();
@@ -108,22 +110,21 @@ namespace WebCore {
         Path(const Path&);
         Path& operator=(const Path&);
 
-        void swap(Path& other) { std::swap(m_path, other.m_path); }
-
         bool contains(const FloatPoint&, WindRule rule = RULE_NONZERO) const;
         bool strokeContains(StrokeStyleApplier*, const FloatPoint&) const;
         FloatRect boundingRect() const;
-        FloatRect strokeBoundingRect(StrokeStyleApplier* = 0);
+        FloatRect strokeBoundingRect(StrokeStyleApplier* = 0) const;
         
-        float length();
-        FloatPoint pointAtLength(float length, bool& ok);
-        float normalAngleAtLength(float length, bool& ok);
+        float length() const;
+        FloatPoint pointAtLength(float length, bool& ok) const;
+        float normalAngleAtLength(float length, bool& ok) const;
 
         void clear();
         bool isEmpty() const;
         // Gets the current point of the current path, which is conceptually the final point reached by the path so far.
         // Note the Path can be empty (isEmpty() == true) and still have a current point.
         bool hasCurrentPoint() const;
+        FloatPoint currentPoint() const;
 
         void moveTo(const FloatPoint&);
         void addLineTo(const FloatPoint&);
@@ -135,19 +136,13 @@ namespace WebCore {
         void addArc(const FloatPoint&, float radius, float startAngle, float endAngle, bool anticlockwise);
         void addRect(const FloatRect&);
         void addEllipse(const FloatRect&);
+        void addRoundedRect(const FloatRect&, const FloatSize& roundingRadii);
+        void addRoundedRect(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
+        void addRoundedRect(const RoundedIntRect&);
 
         void translate(const FloatSize&);
 
-        String debugString() const;
-
         PlatformPathPtr platformPath() const { return m_path; }
-
-        static Path createRoundedRectangle(const FloatRect&, const FloatSize& roundingRadii);
-        static Path createRoundedRectangle(const FloatRect&, const FloatSize& topLeftRadius, const FloatSize& topRightRadius, const FloatSize& bottomLeftRadius, const FloatSize& bottomRightRadius);
-        static Path createRectangle(const FloatRect&);
-        static Path createEllipse(const FloatPoint& center, float rx, float ry);
-        static Path createCircle(const FloatPoint& center, float r);
-        static Path createLine(const FloatPoint&, const FloatPoint&);
 
         void apply(void* info, PathApplierFunction) const;
         void transform(const AffineTransform&);

@@ -129,6 +129,8 @@
 		AAC707750E6F4352003CC2B2 /* csproxy.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C2BD5FDA0AC47E850057FD3D /* csproxy.cpp */; };
 		AAC707760E6F4352003CC2B2 /* credential.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 407ACD070AE5B57700A9DA90 /* credential.cpp */; };
 		AAC707780E6F4352003CC2B2 /* clientid.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C22C34520B278EB60009368E /* clientid.cpp */; };
+		C274C51E0F9E8E0F001ABDA3 /* auditevents.cpp in Sources */ = {isa = PBXBuildFile; fileRef = C274C51C0F9E8E0F001ABDA3 /* auditevents.cpp */; };
+		C274C51F0F9E8E0F001ABDA3 /* auditevents.h in Headers */ = {isa = PBXBuildFile; fileRef = C274C51D0F9E8E0F001ABDA3 /* auditevents.h */; };
 		ED5130690E7F1259002A3749 /* securityd.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CE1878706FFC5D60079D235 /* securityd.1 */; };
 /* End PBXBuildFile section */
 
@@ -249,6 +251,8 @@
 		C26EA9510688CF34007CE21D /* tokencache.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokencache.cpp; sourceTree = "<group>"; };
 		C26EA9520688CF34007CE21D /* tokencache.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tokencache.h; sourceTree = "<group>"; };
 		C26FB2650BC2C3A300D8EFC8 /* com.apple.securityd.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; path = com.apple.securityd.plist; sourceTree = "<group>"; };
+		C274C51C0F9E8E0F001ABDA3 /* auditevents.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = auditevents.cpp; sourceTree = "<group>"; };
+		C274C51D0F9E8E0F001ABDA3 /* auditevents.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auditevents.h; sourceTree = "<group>"; };
 		C276AAD60663E7A400B57276 /* PCSC.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PCSC.framework; path = /System/Library/Frameworks/PCSC.framework; sourceTree = "<absolute>"; };
 		C2813C7F0730534A00E243E8 /* tokenaccess.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; path = tokenaccess.cpp; sourceTree = "<group>"; };
 		C2813C800730534A00E243E8 /* tokenaccess.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = tokenaccess.h; sourceTree = "<group>"; };
@@ -559,6 +563,8 @@
 			children = (
 				4C92649D0534866F004B0E72 /* agentquery.h */,
 				4C92649C0534866F004B0E72 /* agentquery.cpp */,
+				C274C51D0F9E8E0F001ABDA3 /* auditevents.h */,
+				C274C51C0F9E8E0F001ABDA3 /* auditevents.cpp */,
 				4E0BB2B20F79590300BBFEFA /* ccaudit_extensions.h */,
 				4E0BB2B30F79590300BBFEFA /* ccaudit_extensions.cpp */,
 				4CB5ACBA06680AE000F359A9 /* child.h */,
@@ -631,6 +637,7 @@
 				AAC7074B0E6F4335003CC2B2 /* clientid.h in Headers */,
 				AAC7074C0E6F4335003CC2B2 /* dtrace.h in Headers */,
 				4E0BB2B40F79590300BBFEFA /* ccaudit_extensions.h in Headers */,
+				C274C51F0F9E8E0F001ABDA3 /* auditevents.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -665,6 +672,7 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD4AD0987FCF4001272E0 /* Build configuration list for PBXProject "securityd" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,
@@ -776,6 +784,7 @@
 				AAC707760E6F4352003CC2B2 /* credential.cpp in Sources */,
 				AAC707780E6F4352003CC2B2 /* clientid.cpp in Sources */,
 				4E0BB2B50F79590300BBFEFA /* ccaudit_extensions.cpp in Sources */,
+				C274C51E0F9E8E0F001ABDA3 /* auditevents.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -961,11 +970,11 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
-				ARCHS = "$(NATIVE_ARCH)";
+				ARCHS = x86_64;
 				BUILD_VARIANTS = debug;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55009;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1012,13 +1021,14 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
+				ARCHS = x86_64;
 				BUILD_VARIANTS = (
 					normal,
 					debug,
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55009;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
@@ -1069,7 +1079,7 @@
 				BUILD_VARIANTS = normal;
 				COPY_PHASE_STRIP = NO;
 				CSSM_HEADERS = "$(BUILT_PRODUCTS_DIR)/Security.framework/Headers:$(SYSTEM_LIBRARY_DIR)/Frameworks/Security.framework/Headers";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55009;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1123,7 +1133,7 @@
 				);
 				COPY_PHASE_STRIP = "(null)";
 				CSSM_HEADERS = "";
-				CURRENT_PROJECT_VERSION = 1;
+				CURRENT_PROJECT_VERSION = 55009;
 				FRAMEWORK_SEARCH_PATHS = (
 					/usr/local/SecurityPieces/Frameworks,
 					/usr/local/SecurityPieces/Components/securityd,
@@ -1131,7 +1141,7 @@
 					"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks",
 				);
 				GCC_DYNAMIC_NO_PIC = "";
-				GCC_GENERATE_DEBUGGING_SYMBOLS = "";
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				HEADER_SEARCH_PATHS = "$(BUILT_PRODUCTS_DIR)/derived_src";
 				INSTALL_PATH = /usr/sbin;
@@ -1207,6 +1217,7 @@
 		C27AD4AE0987FCF4001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = x86_64;
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
@@ -1215,6 +1226,7 @@
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/Headers",
 					"$(BUILT_PRODUCTS_DIR)/SecurityPieces/PrivateHeaders",
 				);
+				STRIP_STYLE = debugging;
 			};
 			name = Development;
 		};
@@ -1224,6 +1236,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				STRIP_STYLE = debugging;
 			};
 			name = Deployment;
 		};
@@ -1234,6 +1247,7 @@
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
 				GCC_OPTIMIZATION_LEVEL = 0;
+				STRIP_STYLE = debugging;
 			};
 			name = "normal with debug";
 		};
@@ -1243,6 +1257,7 @@
 				CODE_SIGN_IDENTITY = "-";
 				CONFIGURATION_BUILD_DIR = "$(BUILD_DIR)";
 				CONFIGURATION_TEMP_DIR = "$(PROJECT_TEMP_DIR)";
+				STRIP_STYLE = debugging;
 			};
 			name = Default;
 		};

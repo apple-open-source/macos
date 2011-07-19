@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003-6 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,8 +27,11 @@
 #define Color_h
 
 #include <wtf/FastAllocBase.h>
+#include <wtf/Forward.h>
+#include <wtf/unicode/Unicode.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
+#include "ColorSpace.h"
 typedef struct CGColor* CGColorRef;
 #endif
 
@@ -41,6 +44,9 @@ QT_END_NAMESPACE
 
 #if PLATFORM(GTK)
 typedef struct _GdkColor GdkColor;
+#ifndef GTK_API_VERSION_2
+typedef struct _GdkRGBA GdkRGBA;
+#endif
 #endif
 
 #if PLATFORM(WX)
@@ -53,7 +59,6 @@ struct rgb_color;
 
 namespace WebCore {
 
-class String;
 class Color;
 
 typedef unsigned RGBA32;        // RGBA quadruplet
@@ -68,7 +73,13 @@ RGBA32 makeRGBAFromCMYKA(float c, float m, float y, float k, float a);
 
 int differenceSquared(const Color&, const Color&);
 
-class Color : public FastAllocBase {
+inline int redChannel(RGBA32 color) { return (color >> 16) & 0xFF; }
+inline int greenChannel(RGBA32 color) { return (color >> 8) & 0xFF; }
+inline int blueChannel(RGBA32 color) { return color & 0xFF; }
+inline int alphaChannel(RGBA32 color) { return (color >> 24) & 0xFF; }
+
+class Color {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
     Color() : m_color(0), m_valid(false) { }
     Color(RGBA32 col) : m_color(col), m_valid(true) { }
@@ -80,18 +91,25 @@ public:
     Color(float c, float m, float y, float k, float a) : m_color(makeRGBAFromCMYKA(c, m, y, k, a)), m_valid(true) { }
     explicit Color(const String&);
     explicit Color(const char*);
-    
-    String name() const;
+
+    // Returns the color serialized according to HTML5
+    // - http://www.whatwg.org/specs/web-apps/current-work/#serialization-of-a-color
+    String serialized() const;
+
+    // Returns the color serialized as either #RRGGBB or #RRGGBBAA
+    // The latter format is not a valid CSS color, and should only be seen in DRT dumps.
+    String nameForRenderTreeAsText() const;
+
     void setNamedColor(const String&);
 
     bool isValid() const { return m_valid; }
 
     bool hasAlpha() const { return alpha() < 255; }
 
-    int red() const { return (m_color >> 16) & 0xFF; }
-    int green() const { return (m_color >> 8) & 0xFF; }
-    int blue() const { return m_color & 0xFF; }
-    int alpha() const { return (m_color >> 24) & 0xFF; }
+    int red() const { return redChannel(m_color); }
+    int green() const { return greenChannel(m_color); }
+    int blue() const { return blueChannel(m_color); }
+    int alpha() const { return alphaChannel(m_color); }
     
     RGBA32 rgb() const { return m_color; } // Preserve the alpha.
     void setRGB(int r, int g, int b) { m_color = makeRGB(r, g, b); m_valid = true; }
@@ -103,6 +121,7 @@ public:
     Color light() const;
     Color dark() const;
 
+    // This is an implementation of Porter-Duff's "source-over" equation
     Color blend(const Color&) const;
     Color blendWithWhite() const;
 
@@ -114,6 +133,10 @@ public:
 #if PLATFORM(GTK)
     Color(const GdkColor&);
     // We can't sensibly go back to GdkColor without losing the alpha value
+#ifndef GTK_API_VERSION_2
+    Color(const GdkRGBA&);
+    operator GdkRGBA() const;
+#endif
 #endif
 
 #if PLATFORM(WX)
@@ -121,7 +144,7 @@ public:
     operator wxColour() const;
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG)
     Color(CGColorRef);
 #endif
 
@@ -131,6 +154,7 @@ public:
 #endif
 
     static bool parseHexColor(const String& name, RGBA32& rgb);
+    static bool parseHexColor(const UChar* name, unsigned length, RGBA32& rgb);
 
     static const RGBA32 black = 0xFF000000;
     static const RGBA32 white = 0xFFFFFFFF;
@@ -157,8 +181,8 @@ inline bool operator!=(const Color& a, const Color& b)
 Color colorFromPremultipliedARGB(unsigned);
 unsigned premultipliedARGBFromColor(const Color&);
 
-#if PLATFORM(CG)
-CGColorRef createCGColor(const Color&);
+#if USE(CG)
+CGColorRef cachedCGColor(const Color&, ColorSpace);
 #endif
 
 } // namespace WebCore

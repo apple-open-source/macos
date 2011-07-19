@@ -1,24 +1,26 @@
 ---
 name: Test-Exception
-version: 0.24
+version: 0.29
 author:
   - 'Adrian Howard <adrianh@quietstars.com>'
 abstract: Test exception based code
 license: perl
-resources:
-  license: http://dev.perl.org/licenses/
 requires:
-  Sub::Uplevel: 0.13
-  Test::Builder: 0.33
-  Test::Builder::Tester: 1.04
+  Sub::Uplevel: 0.18
+  Test::Builder: 0.7
+  Test::Builder::Tester: 1.07
   Test::Harness: 2.03
-  Test::More: 0.44
-  perl: 5.6.1
+  Test::More: 0.7
+  Test::Simple: 0.7
+configure_requires:
+  Module::Build: 0.35
+generated_by: Module::Build version 0.35
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
 provides:
   Test::Exception:
     file: lib/Test/Exception.pm
-    version: 0.24
-generated_by: Module::Build version 0.2805
-meta-spec:
-  url: http://module-build.sourceforge.net/META-spec-v1.2.html
-  version: 1.2
+    version: 0.29
+resources:
+  license: http://dev.perl.org/licenses/

@@ -25,22 +25,96 @@
  */
 
 #include "config.h"
+#include "Frame.h"
 
 #include "Document.h"
 #include "FloatRect.h"
+#include "GraphicsContext.h"
+#include "ImageBuffer.h"
 #include "RenderView.h"
 #include "Settings.h"
 
-using std::min;
-
 namespace WebCore {
 
-DragImageRef Frame::dragImageForSelection()
-{    
-    if (selection()->isRange())
-        return 0;  // FIXME: implement me!
+namespace {
 
-    return 0;
+struct ScopedState {
+    ScopedState(Frame* theFrame, RenderObject* theRenderer)
+        : frame(theFrame)
+        , renderer(theRenderer)
+        , paintBehavior(frame->view()->paintBehavior())
+        , backgroundColor(frame->view()->baseBackgroundColor())
+    {
+    }
+
+    ~ScopedState()
+    {
+        if (renderer)
+            renderer->updateDragState(false);
+        frame->view()->setPaintBehavior(paintBehavior);
+        frame->view()->setBaseBackgroundColor(backgroundColor);
+        frame->view()->setNodeToDraw(0);
+    }
+
+    Frame* frame;
+    RenderObject* renderer;
+    PaintBehavior paintBehavior;
+    Color backgroundColor;
+};
+
+} // namespace
+
+DragImageRef Frame::nodeImage(Node* node)
+{
+    RenderObject* renderer = node->renderer();
+    if (!renderer)
+        return 0;
+
+    const ScopedState state(this, renderer);
+
+    renderer->updateDragState(true);
+    m_view->setPaintBehavior(state.paintBehavior | PaintBehaviorFlattenCompositingLayers);
+    // When generating the drag image for an element, ignore the document background.
+    m_view->setBaseBackgroundColor(colorWithOverrideAlpha(Color::white, 1.0));
+    m_doc->updateLayout();
+    m_view->setNodeToDraw(node); // Enable special sub-tree drawing mode.
+
+    IntRect topLevelRect;
+    IntRect paintingRect = renderer->paintingRootRect(topLevelRect);
+
+    OwnPtr<ImageBuffer> buffer(ImageBuffer::create(paintingRect.size()));
+    if (!buffer)
+        return 0;
+    buffer->context()->translate(-paintingRect.x(), -paintingRect.y());
+    buffer->context()->clip(FloatRect(0, 0, paintingRect.maxX(), paintingRect.maxY()));
+
+    m_view->paintContents(buffer->context(), paintingRect);
+
+    RefPtr<Image> image = buffer->copyImage();
+    return createDragImageFromImage(image.get());
+}
+
+DragImageRef Frame::dragImageForSelection()
+{
+    if (!selection()->isRange())
+        return 0;
+
+    const ScopedState state(this, 0);
+    m_view->setPaintBehavior(PaintBehaviorSelectionOnly);
+    m_doc->updateLayout();
+
+    IntRect paintingRect = enclosingIntRect(selection()->bounds());
+
+    OwnPtr<ImageBuffer> buffer(ImageBuffer::create(paintingRect.size()));
+    if (!buffer)
+        return 0;
+    buffer->context()->translate(-paintingRect.x(), -paintingRect.y());
+    buffer->context()->clip(FloatRect(0, 0, paintingRect.maxX(), paintingRect.maxY()));
+
+    m_view->paintContents(buffer->context(), paintingRect);
+
+    RefPtr<Image> image = buffer->copyImage();
+    return createDragImageFromImage(image.get());
 }
 
 } // namespace WebCore

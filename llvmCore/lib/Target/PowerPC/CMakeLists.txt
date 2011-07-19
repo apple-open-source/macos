@@ -19,10 +19,12 @@ add_llvm_target(PowerPCCodeGen
   PPCISelDAGToDAG.cpp
   PPCISelLowering.cpp
   PPCJITInfo.cpp
-  PPCMachOWriterInfo.cpp
+  PPCMCAsmInfo.cpp
   PPCPredicates.cpp
   PPCRegisterInfo.cpp
   PPCSubtarget.cpp
-  PPCTargetAsmInfo.cpp
   PPCTargetMachine.cpp
+  PPCSelectionDAGInfo.cpp
   )
+
+target_link_libraries (LLVMPowerPCCodeGen LLVMSelectionDAG)

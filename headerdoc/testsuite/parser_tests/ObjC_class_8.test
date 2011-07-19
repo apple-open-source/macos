@@ -1,0 +1,3599 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$1312|@interface objc_test_8 : NSObject
+{
+    /*All instance variables are private*/
+    id                  _titleCell;
+    id                  _contentView;
+    NSSize              _offsets;
+    NSRect              _borderRect;
+    NSRect              _titleRect;
+    id			_unused;
+}
+
+/*!
+ 	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined 
+	in NSView.h. Currently, the following border types are defined:
+
+		* NSNoBorder
+		
+		* NSLineBorder
+		
+		* NSBezelBorder
+		
+		* NSGrooveBorder
+
+	By default, an NSBox's border type is NSGrooveBorder.
+*/
+- (NSBorderType)classOneMethodOne;
+
+
+/*!
+ 	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.
+*/
+- (NSTitlePosition)classOneMethodTwo;
+
+/*! 
+    @method dateWithString:calendarFormat:   
+	@abstract Creates and returns a calendar date initialized with the date 
+     specified in the string description. 
+	@discussion Test method three in class one. 
+	@param description  A string specifying the date.
+	@param format  Conversion specifiers similar to those used in strftime().
+	@result  Returns the newly initialized date object or nil on error.
+*/
++ (id)adateWithString:(NSString *)description calendarFormat:(NSString *)format;
+
+
+@end
+$18|/*! test class */
+$0|$49773|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_8.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_8.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 23
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface objc_test_8 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  objc_test_8 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 23
+typelist: @interface
+namelist: objc_test_8
+posstypes: NSObject
+value: 
+returntype: objc_test_8 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 26
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---objc_test_8
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                        
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined 
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---
+@method dateWithString:calendarFormat:   
+|   |   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   |   +---
+specified in the string description. 
+|   |   +---
+@discussion Test method three in class one. 
+|   |   +---
+@param description  A string specifying the date.
+|   |   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   |   +---
+@result  Returns the newly initialized date object or nil on error.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---id
+|   |   |   +---)
+|   |   +---adateWithString
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---description
+|   |   +--- 
+|   |   +---calendarFormat
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---format
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 8
+APIUID: //test_ref/doc/header/ObjC_class_8.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: objc_test_8
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>test class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_8.test" target="_top" machineGenerated="true">ObjC class 8</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/objc_test_8/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined 
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/objc_test_8/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: dateWithString:calendarFormat:
+        APIUID: //test_ref/doc/title:clm/objc_test_8/dateWithString:calendarFormat:
+        ABSTRACT: "<p>Creates and returns a calendar date initialized with the date 
+specified in the string description. 
+"
+        DISCUSSION: "<p>Test method three in class one. 
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/occ/clm/objc_test_8/adateWithString:calendarFormat:">adateWithString:calendarFormat:</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/dateWithString:calendarFormat:/description
+            ABSTRACT: ""
+            DISCUSSION: "<p>A string specifying the date."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/dateWithString:calendarFormat:/format
+            ABSTRACT: ""
+            DISCUSSION: "<p>Conversion specifiers similar to those used in strftime()."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: adateWithString:calendarFormat:
+        APIUID: //test_ref/occ/clm/objc_test_8/adateWithString:calendarFormat:
+        ABSTRACT: "<p>Creates and returns a calendar date initialized with the date 
+specified in the string description. 
+"
+        DISCUSSION: "<p>Test method three in class one. 
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:clm/objc_test_8/dateWithString:calendarFormat:">dateWithString:calendarFormat:</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: 
+            APIUID: //test_ref/doc/methodparam/objc_test_8/adateWithString:calendarFormat:/description
+            ABSTRACT: ""
+            DISCUSSION: "<p>A string specifying the date."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: 
+            APIUID: //test_ref/doc/methodparam/objc_test_8/adateWithString:calendarFormat:/format
+            ABSTRACT: ""
+            DISCUSSION: "<p>Conversion specifiers similar to those used in strftime()."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: objc_test_8 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---objc_test_8
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                        
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined 
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---
+@method dateWithString:calendarFormat:   
+|   |   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   |   +---
+specified in the string description. 
+|   |   +---
+@discussion Test method three in class one. 
+|   |   +---
+@param description  A string specifying the date.
+|   |   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   |   +---
+@result  Returns the newly initialized date object or nil on error.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---id
+|   |   |   +---)
+|   |   +---adateWithString
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---description
+|   |   +--- 
+|   |   +---calendarFormat
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---format
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---
+@method dateWithString:calendarFormat:   
+|   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   +---
+specified in the string description. 
+|   +---
+@discussion Test method three in class one. 
+|   +---
+@param description  A string specifying the date.
+|   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   +---
+@result  Returns the newly initialized date object or nil on error.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---
+@method dateWithString:calendarFormat:   
+|   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   +---
+specified in the string description. 
+|   +---
+@discussion Test method three in class one. 
+|   +---
+@param description  A string specifying the date.
+|   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   +---
+@result  Returns the newly initialized date object or nil on error.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: objc_test_8 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/objc_test_8 //test_ref/occ/tdef/objc_test_8 //test_ref/occ/tag/objc_test_8 //test_ref/occ/struct/objc_test_8 //test_ref/occ/intf/objc_test_8 //test_ref/doc/anysymbol/objc_test_8" machineGenerated="true" --><span class="type">objc_test_8</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell //test_ref/occ/clconst/_titleCell " machineGenerated="true" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView //test_ref/occ/clconst/_contentView " machineGenerated="true" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/intf/NSSize //test_ref/doc/anysymbol/NSSize" machineGenerated="true" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets //test_ref/occ/clconst/_offsets " machineGenerated="true" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect //test_ref/occ/clconst/_borderRect " machineGenerated="true" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect //test_ref/occ/clconst/_titleRect " machineGenerated="true" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused //test_ref/occ/clconst/_unused " machineGenerated="true" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined 
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne //test_ref/occ/clconst/classOneMethodOne " machineGenerated="true" --><span class="var">classOneMethodOne</span><!-- /a -->;    <span class="comment">/*!
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo //test_ref/occ/clconst/classOneMethodTwo " machineGenerated="true" --><span class="var">classOneMethodTwo</span><!-- /a -->;   <span class="comment">/*! 
+	@method dateWithString:calendarFormat:   
+	@abstract Creates and returns a calendar date initialized with the date 
+	specified in the string description. 
+	@discussion Test method three in class one. 
+	@param description  A string specifying the date.
+	@param format  Conversion specifiers similar to those used in strftime().
+	@result  Returns the newly initialized date object or nil on error.</span>
+	        <span class="comment">*/</span>
+	    + (
+	            <span class="param">id</span>)<!-- a logicalPath="//test_ref/occ/cl/adateWithString //test_ref/occ/tdef/adateWithString //test_ref/occ/tag/adateWithString //test_ref/occ/struct/adateWithString //test_ref/occ/intf/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="type">adateWithString</span><!-- /a -->:(
+	            <!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/cl/description //test_ref/occ/tdef/description //test_ref/occ/tag/description //test_ref/occ/struct/description //test_ref/occ/intf/description //test_ref/doc/anysymbol/description" machineGenerated="true" --><span class="type">description</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/calendarFormat //test_ref/occ/tdef/calendarFormat //test_ref/occ/tag/calendarFormat //test_ref/occ/struct/calendarFormat //test_ref/occ/intf/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="type">calendarFormat</span><!-- /a -->:(
+	            <!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/format //test_ref/occ/clconst/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->;    @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/intf/NSBorderType //test_ref/doc/anysymbol/NSBorderType" machineGenerated="true" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/objc_test_8/classOneMethodOne //test_ref/occ/data/classOneMethodOne //test_ref/occ/clconst/objc_test_8/classOneMethodOne " machineGenerated="true" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/intf/NSTitlePosition //test_ref/doc/anysymbol/NSTitlePosition" machineGenerated="true" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/objc_test_8/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo //test_ref/occ/clconst/objc_test_8/classOneMethodTwo " machineGenerated="true" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
+	+ (<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/objc_test_8/adateWithString //test_ref/occ/clm/objc_test_8/adateWithString //test_ref/occ/intfcm/objc_test_8/adateWithString //test_ref/occ/intfm/objc_test_8/adateWithString //test_ref/occ/func/adateWithString //test_ref/occ/ftmplt/objc_test_8/adateWithString //test_ref/occ/defn/adateWithString //test_ref/occ/macro/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="function">adateWithString</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<span class="param">description</span> <!-- a logicalPath="//test_ref/occ/instm/objc_test_8/calendarFormat //test_ref/occ/clm/objc_test_8/calendarFormat //test_ref/occ/intfcm/objc_test_8/calendarFormat //test_ref/occ/intfm/objc_test_8/calendarFormat //test_ref/occ/func/calendarFormat //test_ref/occ/ftmplt/objc_test_8/calendarFormat //test_ref/occ/defn/calendarFormat //test_ref/occ/macro/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="function">calendarFormat</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/objc_test_8/format //test_ref/occ/data/format //test_ref/occ/clconst/objc_test_8/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
+	+ (<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/objc_test_8/adateWithString //test_ref/occ/clm/objc_test_8/adateWithString //test_ref/occ/intfcm/objc_test_8/adateWithString //test_ref/occ/intfm/objc_test_8/adateWithString //test_ref/occ/func/adateWithString //test_ref/occ/ftmplt/objc_test_8/adateWithString //test_ref/occ/defn/adateWithString //test_ref/occ/macro/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="function">adateWithString</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<span class="param">description</span> <!-- a logicalPath="//test_ref/occ/instm/objc_test_8/calendarFormat //test_ref/occ/clm/objc_test_8/calendarFormat //test_ref/occ/intfcm/objc_test_8/calendarFormat //test_ref/occ/intfm/objc_test_8/calendarFormat //test_ref/occ/func/calendarFormat //test_ref/occ/ftmplt/objc_test_8/calendarFormat //test_ref/occ/defn/calendarFormat //test_ref/occ/macro/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="function">calendarFormat</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/objc_test_8/format //test_ref/occ/data/format //test_ref/occ/clconst/objc_test_8/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$61853|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_8.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_8.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 23
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface objc_test_8 : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  objc_test_8 NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 23
+typelist: @interface
+namelist: objc_test_8
+posstypes: NSObject
+value: 
+returntype: objc_test_8 NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 26
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---objc_test_8
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                        
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined 
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---
+@method dateWithString:calendarFormat:   
+|   |   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   |   +---
+specified in the string description. 
+|   |   +---
+@discussion Test method three in class one. 
+|   |   +---
+@param description  A string specifying the date.
+|   |   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   |   +---
+@result  Returns the newly initialized date object or nil on error.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---id
+|   |   |   +---)
+|   |   +---adateWithString
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---description
+|   |   +--- 
+|   |   +---calendarFormat
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---format
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 8
+APIUID: //test_ref/doc/header/ObjC_class_8.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: objc_test_8
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>test class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_8.test" target="_top" machineGenerated="true">ObjC class 8</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodOne
+        APIUID: //test_ref/occ/instm/objc_test_8/classOneMethodOne
+        ABSTRACT: "<p>Returns the receiver's border type.
+"
+        DISCUSSION: "<p>Returns the receiver's border type. Border types are defined 
+in NSView.h. Currently, the following border types are defined:
+</p>
+<p>* NSNoBorder
+</p>
+<p>* NSLineBorder
+</p>
+<p>* NSBezelBorder
+</p>
+<p>* NSGrooveBorder
+</p>
+<p>By default, an NSBox's border type is NSGrooveBorder.
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSBorderType"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: classOneMethodTwo
+        APIUID: //test_ref/occ/instm/objc_test_8/classOneMethodTwo
+        ABSTRACT: "<p>Returns a constant representing the title position.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSTitlePosition"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: dateWithString:calendarFormat:
+        APIUID: //test_ref/doc/title:clm/objc_test_8/dateWithString:calendarFormat:
+        ABSTRACT: "<p>Creates and returns a calendar date initialized with the date 
+specified in the string description. 
+"
+        DISCUSSION: "<p>Test method three in class one. 
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/occ/clm/objc_test_8/adateWithString:calendarFormat:">adateWithString:calendarFormat:</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/dateWithString:calendarFormat:/description
+            ABSTRACT: ""
+            DISCUSSION: "<p>A string specifying the date."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/dateWithString:calendarFormat:/format
+            ABSTRACT: ""
+            DISCUSSION: "<p>Conversion specifiers similar to those used in strftime()."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: adateWithString:calendarFormat:
+        APIUID: //test_ref/occ/clm/objc_test_8/adateWithString:calendarFormat:
+        ABSTRACT: "<p>Creates and returns a calendar date initialized with the date 
+specified in the string description. 
+"
+        DISCUSSION: "<p>Test method three in class one. 
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:clm/objc_test_8/dateWithString:calendarFormat:">dateWithString:calendarFormat:</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: (NSString *)
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: description
+            TYPE: 
+            APIUID: //test_ref/doc/methodparam/objc_test_8/adateWithString:calendarFormat:/description
+            ABSTRACT: ""
+            DISCUSSION: "<p>A string specifying the date."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: format
+            TYPE: 
+            APIUID: //test_ref/doc/methodparam/objc_test_8/adateWithString:calendarFormat:/format
+            ABSTRACT: ""
+            DISCUSSION: "<p>Conversion specifiers similar to those used in strftime()."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleCell
+        APIUID: //test_ref/occ/data/objc_test_8/_titleCell
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _contentView
+        APIUID: //test_ref/occ/data/objc_test_8/_contentView
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _offsets
+        APIUID: //test_ref/occ/data/objc_test_8/_offsets
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSSize"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _borderRect
+        APIUID: //test_ref/occ/data/objc_test_8/_borderRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _titleRect
+        APIUID: //test_ref/occ/data/objc_test_8/_titleRect
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "NSRect"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _unused
+        APIUID: //test_ref/occ/data/objc_test_8/_unused
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "id"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: objc_test_8 (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---objc_test_8
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +---/*
+|   |   |   +---All
+|   |   |   +--- instance variables are private
+|   |   |   +---*/
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_titleCell
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                  
+|   |   +---_contentView
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSSize (HAS STATE)
+|   |   +---              
+|   |   +---_offsets
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_borderRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-NSRect (HAS STATE)
+|   |   +---              
+|   |   +---_titleRect
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---    
+|   |   +-*-id (HAS STATE)
+|   |   +---                        
+|   |   +---_unused
+|   |   +---;
+|   |   +--- 
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodOne
+|   |   +---
+@abstract Returns the receiver's border type.
+|   |   +---
+@discussion Returns the receiver's border type. Border types are defined 
+|   |   +---
+in NSView.h. Currently, the following border types are defined:
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSNoBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSLineBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSBezelBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+* NSGrooveBorder
+|   |   +---[ NEWLINE ]
+|   |   +---
+By default, an NSBox's border type is NSGrooveBorder.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSBorderType
+|   |   |   +---)
+|   |   +---classOneMethodOne
+|   |   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method classOneMethodTwo
+|   |   +---
+@abstract Returns a constant representing the title position.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---NSTitlePosition
+|   |   |   +---)
+|   |   +---classOneMethodTwo
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- 
+|   |   +---
+@method dateWithString:calendarFormat:   
+|   |   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   |   +---
+specified in the string description. 
+|   |   +---
+@discussion Test method three in class one. 
+|   |   +---
+@param description  A string specifying the date.
+|   |   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   |   +---
+@result  Returns the newly initialized date object or nil on error.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-+ (HAS STATE)
+|   |   +--- 
+|   |   +---(
+|   |   |   +---id
+|   |   |   +---)
+|   |   +---adateWithString
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---description
+|   |   +--- 
+|   |   +---calendarFormat
+|   |   +---:
+|   |   +---(
+|   |   |   +---NSString
+|   |   |   +--- 
+|   |   |   +---*
+|   |   |   +---)
+|   |   +---format
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSBorderType
+|   |   +---)
+|   +---classOneMethodOne
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@method classOneMethodTwo
+|   +---
+@abstract Returns a constant representing the title position.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---
+@method dateWithString:calendarFormat:   
+|   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   +---
+specified in the string description. 
+|   +---
+@discussion Test method three in class one. 
+|   +---
+@param description  A string specifying the date.
+|   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   +---
+@result  Returns the newly initialized date object or nil on error.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---NSTitlePosition
+|   |   +---)
+|   +---classOneMethodTwo
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +--- 
+|   +---
+@method dateWithString:calendarFormat:   
+|   +---
+@abstract Creates and returns a calendar date initialized with the date 
+|   +---
+specified in the string description. 
+|   +---
+@discussion Test method three in class one. 
+|   +---
+@param description  A string specifying the date.
+|   +---
+@param format  Conversion specifiers similar to those used in strftime().
+|   +---
+@result  Returns the newly initialized date object or nil on error.
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
++-*-+ (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---id
+|   |   +---)
+|   +---adateWithString
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---description
+|   +--- 
+|   +---calendarFormat
+|   +---:
+|   +---(
+|   |   +---NSString
+|   |   +--- 
+|   |   +---*
+|   |   +---)
+|   +---format
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_titleCell
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                  
++---_contentView
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
++-*-NSSize (HAS STATE)
++---              
++---_offsets
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_borderRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
++-*-NSRect (HAS STATE)
++---              
++---_titleRect
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---    
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
++-*-id (HAS STATE)
++---                        
++---_unused
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: objc_test_8 (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/objc_test_8 //test_ref/occ/tdef/objc_test_8 //test_ref/occ/tag/objc_test_8 //test_ref/occ/struct/objc_test_8 //test_ref/occ/intf/objc_test_8 //test_ref/doc/anysymbol/objc_test_8" machineGenerated="true" --><span class="type">objc_test_8</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> { 
+	        <span class="comment">/*All instance variables are private*/</span>
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/_titleCell //test_ref/occ/clconst/_titleCell " machineGenerated="true" --><span class="var">_titleCell</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/_contentView //test_ref/occ/clconst/_contentView " machineGenerated="true" --><span class="var">_contentView</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/intf/NSSize //test_ref/doc/anysymbol/NSSize" machineGenerated="true" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/_offsets //test_ref/occ/clconst/_offsets " machineGenerated="true" --><span class="var">_offsets</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/_borderRect //test_ref/occ/clconst/_borderRect " machineGenerated="true" --><span class="var">_borderRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/_titleRect //test_ref/occ/clconst/_titleRect " machineGenerated="true" --><span class="var">_titleRect</span><!-- /a -->; 
+	        <!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/_unused //test_ref/occ/clconst/_unused " machineGenerated="true" --><span class="var">_unused</span><!-- /a -->; 
+	        }  <span class="comment">/*!
+	@method classOneMethodOne
+	@abstract Returns the receiver's border type.
+	@discussion Returns the receiver's border type. Border types are defined 
+	in NSView.h. Currently, the following border types are defined:
+	
+	* NSNoBorder
+	
+	* NSLineBorder
+	
+	* NSBezelBorder
+	
+	* NSGrooveBorder
+	
+	By default, an NSBox's border type is NSGrooveBorder.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSBorderType</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/classOneMethodOne //test_ref/occ/clconst/classOneMethodOne " machineGenerated="true" --><span class="var">classOneMethodOne</span><!-- /a -->;    <span class="comment">/*!
+	@method classOneMethodTwo
+	@abstract Returns a constant representing the title position.</span>
+	        <span class="comment">*/</span>
+	    - (
+	            <span class="param">NSTitlePosition</span>)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo //test_ref/occ/clconst/classOneMethodTwo " machineGenerated="true" --><span class="var">classOneMethodTwo</span><!-- /a -->;   <span class="comment">/*! 
+	@method dateWithString:calendarFormat:   
+	@abstract Creates and returns a calendar date initialized with the date 
+	specified in the string description. 
+	@discussion Test method three in class one. 
+	@param description  A string specifying the date.
+	@param format  Conversion specifiers similar to those used in strftime().
+	@result  Returns the newly initialized date object or nil on error.</span>
+	        <span class="comment">*/</span>
+	    + (
+	            <span class="param">id</span>)<!-- a logicalPath="//test_ref/occ/cl/adateWithString //test_ref/occ/tdef/adateWithString //test_ref/occ/tag/adateWithString //test_ref/occ/struct/adateWithString //test_ref/occ/intf/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="type">adateWithString</span><!-- /a -->:(
+	            <!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/cl/description //test_ref/occ/tdef/description //test_ref/occ/tag/description //test_ref/occ/struct/description //test_ref/occ/intf/description //test_ref/doc/anysymbol/description" machineGenerated="true" --><span class="type">description</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/calendarFormat //test_ref/occ/tdef/calendarFormat //test_ref/occ/tag/calendarFormat //test_ref/occ/struct/calendarFormat //test_ref/occ/intf/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="type">calendarFormat</span><!-- /a -->:(
+	            <!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/format //test_ref/occ/clconst/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->;    @@end 
+END OF OBJECT
+
+
+OBJECT: classOneMethodOne (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSBorderType //test_ref/occ/tdef/NSBorderType //test_ref/occ/tag/NSBorderType //test_ref/occ/struct/NSBorderType //test_ref/occ/intf/NSBorderType //test_ref/doc/anysymbol/NSBorderType" machineGenerated="true" --><span class="type">NSBorderType</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodOne //test_ref/occ/data/objc_test_8/classOneMethodOne //test_ref/occ/data/classOneMethodOne //test_ref/occ/clconst/objc_test_8/classOneMethodOne " machineGenerated="true" --><span class="var">classOneMethodOne</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: classOneMethodTwo (HeaderDoc::Method)
+	- (<!-- a logicalPath="//test_ref/occ/cl/NSTitlePosition //test_ref/occ/tdef/NSTitlePosition //test_ref/occ/tag/NSTitlePosition //test_ref/occ/struct/NSTitlePosition //test_ref/occ/intf/NSTitlePosition //test_ref/doc/anysymbol/NSTitlePosition" machineGenerated="true" --><span class="type">NSTitlePosition</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/classOneMethodTwo //test_ref/occ/data/objc_test_8/classOneMethodTwo //test_ref/occ/data/classOneMethodTwo //test_ref/occ/clconst/objc_test_8/classOneMethodTwo " machineGenerated="true" --><span class="var">classOneMethodTwo</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
+	+ (<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/objc_test_8/adateWithString //test_ref/occ/clm/objc_test_8/adateWithString //test_ref/occ/intfcm/objc_test_8/adateWithString //test_ref/occ/intfm/objc_test_8/adateWithString //test_ref/occ/func/adateWithString //test_ref/occ/ftmplt/objc_test_8/adateWithString //test_ref/occ/defn/adateWithString //test_ref/occ/macro/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="function">adateWithString</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<span class="param">description</span> <!-- a logicalPath="//test_ref/occ/instm/objc_test_8/calendarFormat //test_ref/occ/clm/objc_test_8/calendarFormat //test_ref/occ/intfcm/objc_test_8/calendarFormat //test_ref/occ/intfm/objc_test_8/calendarFormat //test_ref/occ/func/calendarFormat //test_ref/occ/ftmplt/objc_test_8/calendarFormat //test_ref/occ/defn/calendarFormat //test_ref/occ/macro/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="function">calendarFormat</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/objc_test_8/format //test_ref/occ/data/format //test_ref/occ/clconst/objc_test_8/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: adateWithString:calendarFormat: (HeaderDoc::Method)
+	+ (<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/instm/objc_test_8/adateWithString //test_ref/occ/clm/objc_test_8/adateWithString //test_ref/occ/intfcm/objc_test_8/adateWithString //test_ref/occ/intfm/objc_test_8/adateWithString //test_ref/occ/func/adateWithString //test_ref/occ/ftmplt/objc_test_8/adateWithString //test_ref/occ/defn/adateWithString //test_ref/occ/macro/adateWithString //test_ref/doc/anysymbol/adateWithString" machineGenerated="true" --><span class="function">adateWithString</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<span class="param">description</span> <!-- a logicalPath="//test_ref/occ/instm/objc_test_8/calendarFormat //test_ref/occ/clm/objc_test_8/calendarFormat //test_ref/occ/intfcm/objc_test_8/calendarFormat //test_ref/occ/intfm/objc_test_8/calendarFormat //test_ref/occ/func/calendarFormat //test_ref/occ/ftmplt/objc_test_8/calendarFormat //test_ref/occ/defn/calendarFormat //test_ref/occ/macro/calendarFormat //test_ref/doc/anysymbol/calendarFormat" machineGenerated="true" --><span class="function">calendarFormat</span><!-- /a -->:(<!-- a logicalPath="//test_ref/occ/cl/NSString //test_ref/occ/tdef/NSString //test_ref/occ/tag/NSString //test_ref/occ/struct/NSString //test_ref/occ/intf/NSString //test_ref/doc/anysymbol/NSString" machineGenerated="true" --><span class="type">NSString</span><!-- /a --> <span class="type">*</span>)<!-- a logicalPath="//test_ref/occ/econst/format //test_ref/occ/data/objc_test_8/format //test_ref/occ/data/format //test_ref/occ/clconst/objc_test_8/format " machineGenerated="true" --><span class="var">format</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleCell (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleCell //test_ref/occ/data/objc_test_8/_titleCell //test_ref/occ/data/_titleCell //test_ref/occ/clconst/objc_test_8/_titleCell " machineGenerated="true" --><span class="var">_titleCell</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _contentView (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_contentView //test_ref/occ/data/objc_test_8/_contentView //test_ref/occ/data/_contentView //test_ref/occ/clconst/objc_test_8/_contentView " machineGenerated="true" --><span class="var">_contentView</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _offsets (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSSize //test_ref/occ/tdef/NSSize //test_ref/occ/tag/NSSize //test_ref/occ/struct/NSSize //test_ref/occ/intf/NSSize //test_ref/doc/anysymbol/NSSize" machineGenerated="true" --><span class="type">NSSize</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_offsets //test_ref/occ/data/objc_test_8/_offsets //test_ref/occ/data/_offsets //test_ref/occ/clconst/objc_test_8/_offsets " machineGenerated="true" --><span class="var">_offsets</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _borderRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_borderRect //test_ref/occ/data/objc_test_8/_borderRect //test_ref/occ/data/_borderRect //test_ref/occ/clconst/objc_test_8/_borderRect " machineGenerated="true" --><span class="var">_borderRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _titleRect (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/NSRect //test_ref/occ/tdef/NSRect //test_ref/occ/tag/NSRect //test_ref/occ/struct/NSRect //test_ref/occ/intf/NSRect //test_ref/doc/anysymbol/NSRect" machineGenerated="true" --><span class="type">NSRect</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_titleRect //test_ref/occ/data/objc_test_8/_titleRect //test_ref/occ/data/_titleRect //test_ref/occ/clconst/objc_test_8/_titleRect " machineGenerated="true" --><span class="var">_titleRect</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: _unused (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/id //test_ref/occ/tdef/id //test_ref/occ/tag/id //test_ref/occ/struct/id //test_ref/occ/intf/id //test_ref/doc/anysymbol/id" machineGenerated="true" --><span class="type">id</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/_unused //test_ref/occ/data/objc_test_8/_unused //test_ref/occ/data/_unused //test_ref/occ/clconst/objc_test_8/_unused " machineGenerated="true" --><span class="var">_unused</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$57|Tests a code path that wasn't tested before and crashed.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/ObjC_class_8.test$1|C$12|ObjC class 8$1|C$6|parser

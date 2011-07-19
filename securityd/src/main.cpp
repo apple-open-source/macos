@@ -33,6 +33,7 @@
 #include "session.h"
 #include "notifications.h"
 #include "pcscmonitor.h"
+#include "auditevents.h"
 #include "self.h"
 
 #include <security_utilities/daemon.h>
@@ -111,7 +112,7 @@ int main(int argc, char *argv[])
 	extern char *optarg;
 	extern int optind;
 	int arg;
-	while ((arg = getopt(argc, argv, "a:c:de:E:fimN:s:t:T:uvWX")) != -1) {
+	while ((arg = getopt(argc, argv, "a:c:de:E:imN:s:t:T:uvWX")) != -1) {
 		switch (arg) {
 		case 'a':
 			authorizationConfig = optarg;
@@ -127,9 +128,6 @@ int main(int argc, char *argv[])
 			break;
         case 'E':
             entropyFile = optarg;
-            break;
-        case 'f':
-            fprintf(stderr, "%s: the -f option is obsolete\n", argv[0]);
             break;
 		case 'i':
 			keychainAclDefault &= ~CSSM_ACL_KEYCHAIN_PROMPT_INVALID;
@@ -277,8 +275,11 @@ int main(int argc, char *argv[])
 	gPCSC = new PCSCMonitor(server, tokenCacheDir, scOptions(smartCardOptions));
     
     // create the RootSession object (if -d, give it graphics and tty attributes)
-    RootSession rootSession(server,
-		debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0);
+    RootSession rootSession(debugMode ? (sessionHasGraphicAccess | sessionHasTTY) : 0, server);
+	
+	// create a monitor thread to watch for audit session events
+	AuditMonitor audits(gMainServerPort);
+	audits.run();
     
     // install MDS (if needed) and initialize the local CSSM
     server.loadCssm(mdsIsInstalled);

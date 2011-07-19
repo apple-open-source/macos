@@ -10,16 +10,21 @@ use strict;
 # 
 
 use DBI;
-
+use Config;
 use Test::More;
 
 BEGIN {
-    if ($DBI::PurePerl) {
-        plan skip_all => 'profiling not supported for DBI::PurePerl';
-    }
-    else {
-        plan tests => 15;
-    }
+    plan skip_all => 'profiling not supported for DBI::PurePerl'
+        if $DBI::PurePerl;
+
+    # clock instability on xen systems is a reasonably common cause of failure
+    # http://www.nntp.perl.org/group/perl.cpan.testers/2009/05/msg3828158.html
+    # so we'll skip automated testing on those systems
+    plan skip_all => "skipping profile tests on xen (due to clock instability)"
+        if $Config{osvers} =~ /xen/ # eg 2.6.18-4-xen-amd64
+        and $ENV{AUTOMATED_TESTING};
+
+    plan tests => 15;
 }
 
 BEGIN {

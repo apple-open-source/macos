@@ -1,31 +1,30 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 1999-2001,2005-2010 Apple Inc. All Rights Reserved.
  * 
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please obtain
- * a copy of the License at http://www.apple.com/publicsource and read it before
- * using this file.
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
- * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the
- * specific language governing rights and limitations under the License.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
-
 /*
-	File:		sslCert.c
+ * sslCert.c - certificate request/verify messages
+ */
 
-	Contains:	certificate request/verify messages
-
-	Written by:	Doug Mitchell
-
-	Copyright: (c) 1999 by Apple Computer, Inc., all rights reserved.
-
-*/
 #include "sslContext.h"
 #include "sslHandshake.h"
 #include "sslMemory.h"
@@ -168,7 +167,8 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 			return errSSLXCertChainInvalid;
 		}
     }
-    if((err = sslVerifyCertChain(ctx, ctx->peerCert, true)) != 0) {
+
+	if((err = sslVerifyCertChain(ctx, ctx->peerCert, true)) != 0) {
 		AlertDescription desc;
 		switch(err) {
 			case errSSLUnknownRootCert:
@@ -185,25 +185,57 @@ SSLProcessCertificate(SSLBuffer message, SSLContext *ctx)
 				break;
 		}
 		SSLFatalSessionAlert(desc, ctx);
-        return err;
 	}
-	
-	/* peer's certificate is the last one in the chain */
-    cert = ctx->peerCert;
-    while (cert->next != 0)
-        cert = cert->next;
-	if(ctx->peerPubKey != NULL) {
-		/* renegotiating - free old key first */
-		sslFreeKey(ctx->peerPubKeyCsp, &ctx->peerPubKey, NULL);
+
+	if (err == noErr) {
+		/* peer's certificate is the last one in the chain */
+		SSLCertificate *a_cert = ctx->peerCert;
+		while (a_cert->next != 0)
+			a_cert = a_cert->next;
+		if(ctx->peerPubKey != NULL) {
+			/* renegotiating - free old key first */
+			sslFreeKey(ctx->peerPubKeyCsp, &ctx->peerPubKey, NULL);
+		}
+		/* Convert its public key to CDSA format */
+		err = sslPubKeyFromCert(ctx, 
+								  &a_cert->derCert, 
+								  &ctx->peerPubKey,
+								  &ctx->peerPubKeyCsp);
 	}
-	/* Convert its public key to CDSA format */
-    if ((err = sslPubKeyFromCert(ctx, 
-    	&cert->derCert, 
-    	&ctx->peerPubKey,
-    	&ctx->peerPubKeyCsp)) != 0)
-        return err;
-        
-    return noErr;
+		
+	/* Now that cert verification is done, update context state */
+	/* (this code was formerly in SSLProcessHandshakeMessage, */
+	/* directly after the return from SSLProcessCertificate) */
+	if(ctx->protocolSide == SSL_ServerSide) {
+		if(err) {
+			/*
+			 * Error could be from no cert (when we require one) 
+			 * or invalid cert
+			 */
+			if(ctx->peerCert != NULL) {
+				ctx->clientCertState = kSSLClientCertRejected;
+			}
+		}
+		else if(ctx->peerCert != NULL) {
+			/* 
+			 * This still might change if cert verify msg
+			 * fails. Note we avoid going to state
+			 * if we get an empty cert message which is
+			 * otherwise valid.
+			 */
+			ctx->clientCertState = kSSLClientCertSent;
+		}
+	} else {
+		/* 
+		 * Schedule return to the caller to verify the server's identity.
+		 * Note that an error during processing will cause early 
+		 * termination of the handshake.
+		 */
+		if (ctx->breakOnServerAuth)
+			ctx->signalServerAuth = true;
+	}
+
+    return err;
 }
 
 OSStatus

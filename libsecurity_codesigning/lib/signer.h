@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,6 +52,8 @@ public:
 	SecCodeSigner &state;
 	SecStaticCode * const code;
 	
+	CodeDirectory::HashAlgorithm digestAlgorithm() const { return state.mDigestAlgorithm; }
+	
 	std::string path() const { return cfString(rep->canonicalPath()); }
 	
 protected:
@@ -65,6 +67,7 @@ protected:
 	CFDataRef signCodeDirectory(const CodeDirectory *cd);
 
 	uint32_t cdTextFlags(std::string text);		// convert text CodeDirectory flags
+	std::string uniqueName() const;				// derive unique string from rep
 	
 private:
 	RefPointer<DiskRep> rep;		// DiskRep of Code being signed

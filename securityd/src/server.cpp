@@ -65,14 +65,11 @@ Server::Server(Authority &authority, CodeSignatures &signatures, const char *boo
     mCSPModule(gGuidAppleCSP, mCssm), mCSP(mCSPModule),
     mAuthority(authority),
 	mCodeSignatures(signatures), 
-	mAudit(geteuid(), getpid()),
 	mVerbosity(0),
 	mWaitForClients(true), mShuttingDown(false)
 {
 	// make me eternal (in the object mesh)
 	ref();
-
-	mAudit.registerSession();
 
     // engage the subsidiary port handler for sleep notifications
 	add(sleepWatcher);
@@ -99,6 +96,7 @@ Connection &Server::connection(mach_port_t port, audit_token_t &auditToken)
 	Server &server = active();
 	StLock<Mutex> _(server);
 	Connection *conn = server.mConnections.get(port, CSSM_ERRCODE_INVALID_CONTEXT_HANDLE);
+	conn->process().checkSession(auditToken);
 	active().mCurrentConnection() = conn;
 	conn->beginWork(auditToken);
 	return *conn;
@@ -221,27 +219,27 @@ boolean_t Server::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 // Everything at and below that level is constructed. This is straight-forward except
 // in the case of session re-initialization (see below).
 //
-void Server::setupConnection(ConnectLevel type, Port servicePort, Port replyPort, Port taskPort,
-    const audit_token_t &auditToken, const ClientSetupInfo *info, const char *identity)
+void Server::setupConnection(ConnectLevel type, Port replyPort, Port taskPort,
+    const audit_token_t &auditToken, const ClientSetupInfo *info)
 {
+	AuditToken audit(auditToken);
+	
 	// first, make or find the process based on task port
 	StLock<Mutex> _(*this);
 	RefPointer<Process> &proc = mProcesses[taskPort];
-	if (type == connectNewSession && proc) {
-		// The client has talked to us before and now wants to create a new session.
-		proc->changeSession(servicePort);
-	}
+	if (proc && proc->session().sessionId() != audit.sessionId())
+		proc->changeSession(audit.sessionId());
 	if (proc && type == connectNewProcess) {
 		// the client has amnesia - reset it
-		assert(info && identity);
-		proc->reset(servicePort, taskPort, info, identity, AuditToken(auditToken));
-		proc->changeSession(servicePort);
+		assert(info);
+		proc->reset(taskPort, info, audit);
+		proc->changeSession(audit.sessionId());
 	}
 	if (!proc) {
 		if (type == connectNewThread)	// client error (or attack)
 			CssmError::throwMe(CSSM_ERRCODE_INTERNAL_ERROR);
-		assert(info && identity);
-		proc = new Process(servicePort, taskPort, info, identity, AuditToken(auditToken));
+		assert(info);
+		proc = new Process(taskPort, info, audit);
 		notifyIfDead(taskPort);
 		mPids[proc->pid()] = proc;
 	}
@@ -270,6 +268,7 @@ void Server::endConnection(Port replyPort)
 	mConnections.erase(it);
 }
 
+
 //
 // Handling dead-port notifications.
 // This receives DPNs for all kinds of ports we're interested in.
@@ -277,8 +276,8 @@ void Server::endConnection(Port replyPort)
 void Server::notifyDeadName(Port port)
 {
 	// We need the lock to get a proper iterator on mConnections or mProcesses,
-	// but must release it before we call abort or kill, as these might also
-	// need the server lock
+	// but must release it before we call abort or kill, as these might take 
+	// unbounded time, including calls out to token daemons etc.
 	
 	StLock<Mutex> serverLock(*this);
 	secdebug("SSports", "port %d is dead", port.port());
@@ -288,10 +287,10 @@ void Server::notifyDeadName(Port port)
     if (conIt != mConnections.end()) {
 		SECURITYD_PORTS_DEAD_CONNECTION(port);
         RefPointer<Connection> con = conIt->second;
-        mConnections.erase(conIt);
+		mConnections.erase(conIt);
         serverLock.unlock();
 		con->abort();        
-		return;
+        return;
     }
     
     // is it a process?
@@ -299,8 +298,8 @@ void Server::notifyDeadName(Port port)
     if (procIt != mProcesses.end()) {
 		SECURITYD_PORTS_DEAD_PROCESS(port);
         RefPointer<Process> proc = procIt->second;
-        mPids.erase(proc->pid());
-        mProcesses.erase(procIt);
+		mPids.erase(proc->pid());
+		mProcesses.erase(procIt);
         serverLock.unlock();
 		// The kill may take some time; make sure there is a spare thread around
 		// to prevent deadlocks
@@ -322,8 +321,6 @@ void Server::notifyDeadName(Port port)
 void Server::notifyNoSenders(Port port, mach_port_mscount_t)
 {
 	SECURITYD_PORTS_DEAD_SESSION(port);
-	secdebug("SSports", "port %d no senders", port.port());
-	Session::destroy(port);
 }
 
 
@@ -372,6 +369,24 @@ kern_return_t self_server_handleSignal(mach_port_t sport,
 		default:
 			assert(false);
         }
+    } catch(...) {
+		secdebug("SS", "exception handling a signal (ignored)");
+	}
+    mach_port_deallocate(mach_task_self(), taskPort);
+    return KERN_SUCCESS;
+}
+
+
+kern_return_t self_server_handleSession(mach_port_t sport,
+	mach_port_t taskPort, uint32_t event, uint64_t ident)
+{
+    try {
+        if (taskPort != mach_task_self()) {
+            Syslog::error("handleSession: received from someone other than myself");
+			return KERN_SUCCESS;
+		}
+		if (event == AUE_SESSION_CLOSE)
+			Session::destroy(ident);
     } catch(...) {
 		secdebug("SS", "exception handling a signal (ignored)");
 	}

@@ -2,19 +2,15 @@ use strict;
 use warnings;  
 
 use Test::More;
+use Test::Warn;
 use lib qw(t/lib);
 use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
 my $queries;
-#$schema->storage->debugfh(IO::File->new('t/var/temp.trace', 'w'));
 $schema->storage->debugcb( sub{ $queries++ } );
-
-eval "use DBD::SQLite";
-plan skip_all => 'needs DBD::SQLite for testing' if $@;
-plan tests => 2;
-
+my $sdebug = $schema->storage->debug;
 
 my $cd = $schema->resultset("CD")->find(1);
 $cd->title('test');
@@ -28,7 +24,7 @@ $cd->update;
 is($queries, 1, 'liner_notes (might_have) not prefetched - do not load 
 liner_notes on update');
 
-$schema->storage->debug(0);
+$schema->storage->debug($sdebug);
 
 
 my $cd2 = $schema->resultset("CD")->find(2, {prefetch => 'liner_notes'});
@@ -43,5 +39,26 @@ $cd2->update;
 is($queries, 1, 'liner_notes (might_have) prefetched - do not load 
 liner_notes on update');
 
-$schema->storage->debug(0);
+warning_like {
+  DBICTest::Schema::Bookmark->might_have(
+    linky => 'DBICTest::Schema::Link',
+    { "foreign.id" => "self.link" },
+  );
+}
+  qr{"might_have/has_one" must not be on columns with is_nullable set to true},
+  'might_have should warn if the self.id column is nullable';
 
+{
+  local $ENV{DBIC_DONT_VALIDATE_RELS} = 1;
+  warning_is { 
+    DBICTest::Schema::Bookmark->might_have(
+      slinky => 'DBICTest::Schema::Link',
+      { "foreign.id" => "self.link" },
+    );
+  }
+  undef,
+  'Setting DBIC_DONT_VALIDATE_RELS suppresses nullable relation warnings';
+}
+
+$schema->storage->debug($sdebug);
+done_testing();

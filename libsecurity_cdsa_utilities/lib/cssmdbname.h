@@ -71,6 +71,7 @@ public:
     DbName &operator =(const DbName &other);
     ~DbName ();
 	const char *dbName() const { return mDbNameValid ? mDbName.c_str() : NULL; }
+	const char *canonicalName() const { return mDbNameValid ? mCanonicalName.c_str() : NULL; }
     const CssmNetAddress *dbLocation() const { return mDbLocation; }
     bool operator <(const DbName &other) const
     {
@@ -79,7 +80,7 @@ public:
 			return mDbNameValid < other.mDbNameValid;
 	
         // If mDbNames are not equal return whether our mDbName is less than others mDbName.
-        if (mDbName != other.mDbName)
+        if (canonicalName() != other.canonicalName())
             return mDbName < other.mDbName;
 
         // DbNames are equal so check for pointer equality of DbLocations
@@ -99,7 +100,10 @@ public:
 	{ return *this < other || other < *this; }
 
 private:
+	void CanonicalizeName();
+
     string mDbName;
+	string mCanonicalName;
 	bool mDbNameValid;
     CssmNetAddress *mDbLocation;
 };

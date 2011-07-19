@@ -1,0 +1,24 @@
+Finding files.
+...................................
+Checking for cross-references
+....................
+Writing xref file
+Writing cross-references to file /tmp/xref_out
+
+Resolving links (single threaded)
+....................
+Done
+=====================================================================
+  Statistics:
+
+         files:  20
+     processed:  20
+    total reqs:  27
+      resolved:  18
+    unresolved:   9 (1 machine-generated, 8 explicit)
+        broken:   0
+         plain:  17
+    duplicates:   0
+         total:  44
+
+

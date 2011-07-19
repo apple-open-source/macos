@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -83,6 +83,10 @@ extern struct nfs_conf_server config;
 extern volatile int gothup, gotterm;
 extern char exportsfilepath[MAXPATHLEN];
 extern int checkexports;
+extern int nfsudpport, nfstcpport;
+extern int nfsudp6port, nfstcp6port;
 extern int mountudpport, mounttcpport;
-extern time_t recheckexports;
+extern int mountudp6port, mounttcp6port;
+extern time_t recheckexports_until;
+extern int recheckexports;
 

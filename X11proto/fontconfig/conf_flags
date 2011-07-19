@@ -1,1 +1,1 @@
-LDFLAGS="-L$DSTROOT/usr/X11/lib -lz -Xlinker -framework -Xlinker CoreServices -Xlinker -framework -Xlinker ApplicationServices $LDFLAGS" CFLAGS="-I$DSTROOT/usr/X11/include -I$DSTROOT/usr/X11/include/freetype2 $CFLAGS" --with-confdir=/usr/X11/lib/X11/fontconfig --with-default-fonts=/usr/X11/lib/X11/fonts --with-cache-dir=/usr/X11/var/cache/fontconfig
+--with-confdir=$X11_PREFIX/lib/X11/fontconfig --with-default-fonts=$X11_PREFIX/share/fonts --with-cache-dir=$X11_PREFIX/var/cache/fontconfig

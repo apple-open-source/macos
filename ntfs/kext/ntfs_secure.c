@@ -1,8 +1,8 @@
 /*
  * ntfs_secure.c - NTFS kernel security ($Secure) handling.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -225,7 +225,7 @@ errno_t ntfs_next_security_id_init(ntfs_volume *vol, le32 *next_security_id)
 	ni = vol->secure_sii_ni;
 	if (!ni)
 		panic("%s(): !vol->secure_sii_ni\n", __FUNCTION__);
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for "
 				"$Secure/$INDEX_ALLOCATION/$SII.");

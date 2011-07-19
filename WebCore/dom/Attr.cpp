@@ -3,7 +3,7 @@
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Peter Kelly (pmk@post.com)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,9 +23,10 @@
 #include "config.h"
 #include "Attr.h"
 
-#include "Document.h"
 #include "Element.h"
 #include "ExceptionCode.h"
+#include "HTMLNames.h"
+#include "ScopedEventQueue.h"
 #include "Text.h"
 #include "XMLNSNames.h"
 
@@ -119,6 +120,7 @@ String Attr::nodeValue() const
 
 void Attr::setValue(const AtomicString& value)
 {
+    EventQueueScope scope;
     m_ignoreChildrenChanged++;
     removeChildren();
     m_attribute->setValue(value);
@@ -128,8 +130,8 @@ void Attr::setValue(const AtomicString& value)
 
 void Attr::setValue(const AtomicString& value, ExceptionCode&)
 {
-    if (m_element && m_element->idAttributeName() == m_attribute->name())
-        m_element->updateId(m_element->fastGetAttribute(m_element->idAttributeName()), value);
+    if (m_element && m_element->isIdAttributeName(m_attribute->name()))
+        m_element->updateId(m_element->getIdAttribute(), value);
 
     setValue(value);
 
@@ -150,7 +152,7 @@ PassRefPtr<Node> Attr::cloneNode(bool /*deep*/)
 }
 
 // DOM Section 1.1.1
-bool Attr::childTypeAllowed(NodeType type)
+bool Attr::childTypeAllowed(NodeType type) const
 {
     switch (type) {
         case TEXT_NODE:
@@ -176,7 +178,7 @@ void Attr::childrenChanged(bool changedByParser, Node* beforeChange, Node* after
             val += static_cast<Text *>(n)->data();
     }
 
-    if (m_element && m_element->idAttributeName() == m_attribute->name())
+    if (m_element && m_element->isIdAttributeName(m_attribute->name()))
         m_element->updateId(m_attribute->value(), val);
 
     m_attribute->setValue(val.impl());
@@ -186,7 +188,7 @@ void Attr::childrenChanged(bool changedByParser, Node* beforeChange, Node* after
 
 bool Attr::isId() const
 {
-    return qualifiedName().matches(m_element ? m_element->idAttributeName() : idAttr);
+    return qualifiedName().matches(document()->idAttributeName());
 }
 
 }

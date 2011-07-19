@@ -52,11 +52,13 @@ int sunlink(int fdvol, const char *path);
 int srename(int fdvol, const char *oldpath, const char *newname);
 
 // uses FTS to recurse downwards, calling sunlink and srmdir as appropriate
-int sdeepunlink(int fdvol, char *path);     // fts_open won't take const char*?
+int sdeepunlink(int fdvol, char *path);     // fts_open won't take const char*
+// overwrite a file with zeros; attempt to ftruncate; no unlink; ENOENT okay
+int szerofile(int fdvol, const char *path);
 // 'mkdir -p' (recursively applies mode)
 int sdeepmkdir(int fdvol, const char *path, mode_t mode);
 // creates intermediate directories for you; only copies one file
-int scopyfile(int srcvolfd, const char *srcpath, int dstvolfd, const char *dstpath);
+int scopyitem(int srcvolfd, const char *src, int dstvolfd, const char *dst);
 
 #ifndef STRICT_SAFETY
 #define STRICT_SAFETY 1
@@ -73,4 +75,4 @@ int scopyfile(int srcvolfd, const char *srcpath, int dstvolfd, const char *dstpa
 
 #define copyfile()              // #error use scopyfile
 
-#endif // STRICT_SAFETY
+#endif

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: shutdown_test.c,v 1.23 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: shutdown_test.c,v 1.23 2007-06-19 23:46:59 tbox Exp $ */
 
 #include <config.h>
 

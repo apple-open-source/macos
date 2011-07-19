@@ -44,8 +44,13 @@ enum {
 
 	/* Maximum allowed sizes */
 	MaxCacheBlockSize		=	0x8000,		/* 32K */
+#ifdef __LP64__
 	MaxCacheBlocks			= 	0x18000,
-	MaxCacheSize			=	((unsigned)MaxCacheBlockSize * MaxCacheBlocks),	/* 3Gbytes */
+#else
+	MaxCacheBlocks			=	0x8000,
+#endif
+	/* MaxCacheSize will be 3G for 64-bit, and 1G for 32-bit */
+	MaxCacheSize			=	((unsigned)MaxCacheBlockSize * MaxCacheBlocks),
 	CacheHashSize			=	257,		/* prime number */
 };
 

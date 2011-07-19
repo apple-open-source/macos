@@ -1,9 +1,9 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$100|procedure MyPascalProcedure_2(a, b: String; j: Integer);
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$100|procedure MyPascalProcedure_2(a, b: String; j: Integer);
 begin
         WriteLn('Procedure 2');
 end;
 $45|{! A procedure with arguments a, b, and j. }
-$0|$10865|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$10283|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -93,6 +93,7 @@ $parserState->{sodname} => MyPascalProcedure_2
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => pascal
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => function
@@ -185,8 +186,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -219,15 +220,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -269,8 +270,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -311,8 +312,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -353,8 +354,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
 +---procedure
@@ -384,14 +385,14 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/pascal/instm/a //test_ref/pascal/clm/a //test_ref/pascal/intfcm/a //test_ref/pascal/intfm/a //test_ref/pascal/func/a //test_ref/pascal/ftmplt/a //test_ref/pascal/defn/a //test_ref/pascal/macro/a" --><span class="function">a</span><!-- /a -->,
-	    <!-- a logicalPath="//test_ref/pascal/instm/b //test_ref/pascal/clm/b //test_ref/pascal/intfcm/b //test_ref/pascal/intfm/b //test_ref/pascal/func/b //test_ref/pascal/ftmplt/b //test_ref/pascal/defn/b //test_ref/pascal/macro/b" --><span class="function">b</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/String //test_ref/pascal/clm/String //test_ref/pascal/intfcm/String //test_ref/pascal/intfm/String //test_ref/pascal/func/String //test_ref/pascal/ftmplt/String //test_ref/pascal/defn/String //test_ref/pascal/macro/String" --><span class="function">String</span><!-- /a -->; <!-- a logicalPath="//test_ref/pascal/instm/j //test_ref/pascal/clm/j //test_ref/pascal/intfcm/j //test_ref/pascal/intfm/j //test_ref/pascal/func/j //test_ref/pascal/ftmplt/j //test_ref/pascal/defn/j //test_ref/pascal/macro/j" --><span class="function">j</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/Integer //test_ref/pascal/clm/Integer //test_ref/pascal/intfcm/Integer //test_ref/pascal/intfm/Integer //test_ref/pascal/func/Integer //test_ref/pascal/ftmplt/Integer //test_ref/pascal/defn/Integer //test_ref/pascal/macro/Integer" --><span class="function">Integer</span><!-- /a -->);  
+	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2 //test_ref/doc/anysymbol/MyPascalProcedure_2" machineGenerated="true" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/pascal/cl/a //test_ref/pascal/tdef/a //test_ref/pascal/tag/a //test_ref/pascal/struct/a //test_ref/pascal/intf/a //test_ref/doc/anysymbol/a" machineGenerated="true" --><span class="type">a</span><!-- /a -->,
+	    <span class="param">b</span>: <!-- a logicalPath="//test_ref/pascal/cl/String //test_ref/pascal/tdef/String //test_ref/pascal/tag/String //test_ref/pascal/struct/String //test_ref/pascal/intf/String //test_ref/doc/anysymbol/String" machineGenerated="true" --><span class="type">String</span><!-- /a -->; <span class="param">j</span>: <!-- a logicalPath="//test_ref/pascal/cl/Integer //test_ref/pascal/tdef/Integer //test_ref/pascal/tag/Integer //test_ref/pascal/struct/Integer //test_ref/pascal/intf/Integer //test_ref/doc/anysymbol/Integer" machineGenerated="true" --><span class="type">Integer</span><!-- /a -->);  
 END OF OBJECT
 
 
 
-$10865|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$10283|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -481,6 +482,7 @@ $parserState->{sodname} => MyPascalProcedure_2
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => pascal
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
 $parserState->{typestring} => function
@@ -573,8 +575,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -607,15 +609,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -657,8 +659,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -699,8 +701,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -741,8 +743,8 @@ LONG ATTRIBUTES: <p></p>
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
 +---procedure
@@ -772,787 +774,11 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/pascal/instm/a //test_ref/pascal/clm/a //test_ref/pascal/intfcm/a //test_ref/pascal/intfm/a //test_ref/pascal/func/a //test_ref/pascal/ftmplt/a //test_ref/pascal/defn/a //test_ref/pascal/macro/a" --><span class="function">a</span><!-- /a -->,
-	    <!-- a logicalPath="//test_ref/pascal/instm/b //test_ref/pascal/clm/b //test_ref/pascal/intfcm/b //test_ref/pascal/intfm/b //test_ref/pascal/func/b //test_ref/pascal/ftmplt/b //test_ref/pascal/defn/b //test_ref/pascal/macro/b" --><span class="function">b</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/String //test_ref/pascal/clm/String //test_ref/pascal/intfcm/String //test_ref/pascal/intfm/String //test_ref/pascal/func/String //test_ref/pascal/ftmplt/String //test_ref/pascal/defn/String //test_ref/pascal/macro/String" --><span class="function">String</span><!-- /a -->; <!-- a logicalPath="//test_ref/pascal/instm/j //test_ref/pascal/clm/j //test_ref/pascal/intfcm/j //test_ref/pascal/intfm/j //test_ref/pascal/func/j //test_ref/pascal/ftmplt/j //test_ref/pascal/defn/j //test_ref/pascal/macro/j" --><span class="function">j</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/Integer //test_ref/pascal/clm/Integer //test_ref/pascal/intfcm/Integer //test_ref/pascal/intfm/Integer //test_ref/pascal/func/Integer //test_ref/pascal/ftmplt/Integer //test_ref/pascal/defn/Integer //test_ref/pascal/macro/Integer" --><span class="function">Integer</span><!-- /a -->);  
+	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2 //test_ref/doc/anysymbol/MyPascalProcedure_2" machineGenerated="true" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/pascal/cl/a //test_ref/pascal/tdef/a //test_ref/pascal/tag/a //test_ref/pascal/struct/a //test_ref/pascal/intf/a //test_ref/doc/anysymbol/a" machineGenerated="true" --><span class="type">a</span><!-- /a -->,
+	    <span class="param">b</span>: <!-- a logicalPath="//test_ref/pascal/cl/String //test_ref/pascal/tdef/String //test_ref/pascal/tag/String //test_ref/pascal/struct/String //test_ref/pascal/intf/String //test_ref/doc/anysymbol/String" machineGenerated="true" --><span class="type">String</span><!-- /a -->; <span class="param">j</span>: <!-- a logicalPath="//test_ref/pascal/cl/Integer //test_ref/pascal/tdef/Integer //test_ref/pascal/tag/Integer //test_ref/pascal/struct/Integer //test_ref/pascal/intf/Integer //test_ref/doc/anysymbol/Integer" machineGenerated="true" --><span class="type">Integer</span><!-- /a -->);  
 END OF OBJECT
 
 
 
-_$46|testsuite/parser_tests/Pascal_procedure_2.test$6|pascal$18|Pascal procedure 2$10865|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Pascal_procedure_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Pascal_procedure_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => pascal
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => MyPascalProcedure_2
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => procedure
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => MyPascalProcedure_2
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => function
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: function
-namelist: MyPascalProcedure_2
-posstypes: function method
-value: 
-returntype: procedure
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => a, b: String
-Parsed Param 1 => j: Integer
--=: DUMP OF PARSE TREE :=-
-+---procedure
-+--- 
-+---MyPascalProcedure_2
-+---(
-|   +---a
-|   +---,
-|   +--- 
-|   +---b
-|   +---:
-|   +--- 
-|   +---String
-|   +---;
-|   +--- 
-|   +---j
-|   +---:
-|   +--- 
-|   +---Integer
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Pascal procedure 2
-APIUID: //test_ref/doc/header/Pascal_procedure_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: MyPascalProcedure_2
-    APIUID: //test_ref/pascal/func/MyPascalProcedure_2
-    ABSTRACT: ""
-    DISCUSSION: "<p>A procedure with arguments a, b, and j."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: "procedure"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: a
-        TYPE: String
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: b
-        TYPE: String
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: j
-        TYPE: Integer
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-+---procedure
-+--- 
-+---MyPascalProcedure_2
-+---(
-|   +---a
-|   +---,
-|   +--- 
-|   +---b
-|   +---:
-|   +--- 
-|   +---String
-|   +---;
-|   +--- 
-|   +---j
-|   +---:
-|   +--- 
-|   +---Integer
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/pascal/instm/a //test_ref/pascal/clm/a //test_ref/pascal/intfcm/a //test_ref/pascal/intfm/a //test_ref/pascal/func/a //test_ref/pascal/ftmplt/a //test_ref/pascal/defn/a //test_ref/pascal/macro/a" --><span class="function">a</span><!-- /a -->,
-	    <!-- a logicalPath="//test_ref/pascal/instm/b //test_ref/pascal/clm/b //test_ref/pascal/intfcm/b //test_ref/pascal/intfm/b //test_ref/pascal/func/b //test_ref/pascal/ftmplt/b //test_ref/pascal/defn/b //test_ref/pascal/macro/b" --><span class="function">b</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/String //test_ref/pascal/clm/String //test_ref/pascal/intfcm/String //test_ref/pascal/intfm/String //test_ref/pascal/func/String //test_ref/pascal/ftmplt/String //test_ref/pascal/defn/String //test_ref/pascal/macro/String" --><span class="function">String</span><!-- /a -->; <!-- a logicalPath="//test_ref/pascal/instm/j //test_ref/pascal/clm/j //test_ref/pascal/intfcm/j //test_ref/pascal/intfm/j //test_ref/pascal/func/j //test_ref/pascal/ftmplt/j //test_ref/pascal/defn/j //test_ref/pascal/macro/j" --><span class="function">j</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/Integer //test_ref/pascal/clm/Integer //test_ref/pascal/intfcm/Integer //test_ref/pascal/intfm/Integer //test_ref/pascal/func/Integer //test_ref/pascal/ftmplt/Integer //test_ref/pascal/defn/Integer //test_ref/pascal/macro/Integer" --><span class="function">Integer</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$10865|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Pascal_procedure_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Pascal_procedure_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => pascal
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => MyPascalProcedure_2
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => procedure
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => MyPascalProcedure_2
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => function
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: function
-namelist: MyPascalProcedure_2
-posstypes: function method
-value: 
-returntype: procedure
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => a, b: String
-Parsed Param 1 => j: Integer
--=: DUMP OF PARSE TREE :=-
-+---procedure
-+--- 
-+---MyPascalProcedure_2
-+---(
-|   +---a
-|   +---,
-|   +--- 
-|   +---b
-|   +---:
-|   +--- 
-|   +---String
-|   +---;
-|   +--- 
-|   +---j
-|   +---:
-|   +--- 
-|   +---Integer
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Pascal procedure 2
-APIUID: //test_ref/doc/header/Pascal_procedure_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: MyPascalProcedure_2
-    APIUID: //test_ref/pascal/func/MyPascalProcedure_2
-    ABSTRACT: ""
-    DISCUSSION: "<p>A procedure with arguments a, b, and j."
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: "procedure"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: a
-        TYPE: String
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: b
-        TYPE: String
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: j
-        TYPE: Integer
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-+---procedure
-+--- 
-+---MyPascalProcedure_2
-+---(
-|   +---a
-|   +---,
-|   +--- 
-|   +---b
-|   +---:
-|   +--- 
-|   +---String
-|   +---;
-|   +--- 
-|   +---j
-|   +---:
-|   +--- 
-|   +---Integer
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: MyPascalProcedure_2 (HeaderDoc::Function)
-	<span class="keyword">procedure</span> <!-- a logicalPath="//test_ref/pascal/instm/MyPascalProcedure_2 //test_ref/pascal/clm/MyPascalProcedure_2 //test_ref/pascal/intfcm/MyPascalProcedure_2 //test_ref/pascal/intfm/MyPascalProcedure_2 //test_ref/pascal/func/MyPascalProcedure_2 //test_ref/pascal/ftmplt/MyPascalProcedure_2 //test_ref/pascal/defn/MyPascalProcedure_2 //test_ref/pascal/macro/MyPascalProcedure_2" --><span class="function">MyPascalProcedure_2</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/pascal/instm/a //test_ref/pascal/clm/a //test_ref/pascal/intfcm/a //test_ref/pascal/intfm/a //test_ref/pascal/func/a //test_ref/pascal/ftmplt/a //test_ref/pascal/defn/a //test_ref/pascal/macro/a" --><span class="function">a</span><!-- /a -->,
-	    <!-- a logicalPath="//test_ref/pascal/instm/b //test_ref/pascal/clm/b //test_ref/pascal/intfcm/b //test_ref/pascal/intfm/b //test_ref/pascal/func/b //test_ref/pascal/ftmplt/b //test_ref/pascal/defn/b //test_ref/pascal/macro/b" --><span class="function">b</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/String //test_ref/pascal/clm/String //test_ref/pascal/intfcm/String //test_ref/pascal/intfm/String //test_ref/pascal/func/String //test_ref/pascal/ftmplt/String //test_ref/pascal/defn/String //test_ref/pascal/macro/String" --><span class="function">String</span><!-- /a -->; <!-- a logicalPath="//test_ref/pascal/instm/j //test_ref/pascal/clm/j //test_ref/pascal/intfcm/j //test_ref/pascal/intfm/j //test_ref/pascal/func/j //test_ref/pascal/ftmplt/j //test_ref/pascal/defn/j //test_ref/pascal/macro/j" --><span class="function">j</span><!-- /a -->: <!-- a logicalPath="//test_ref/pascal/instm/Integer //test_ref/pascal/clm/Integer //test_ref/pascal/intfcm/Integer //test_ref/pascal/intfm/Integer //test_ref/pascal/func/Integer //test_ref/pascal/ftmplt/Integer //test_ref/pascal/defn/Integer //test_ref/pascal/macro/Integer" --><span class="function">Integer</span><!-- /a -->);  
-END OF OBJECT
-
-
-
-$6|pascal$6|parser
+_$100|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Pascal_procedure_2.test$6|pascal$18|Pascal procedure 2$6|pascal$6|parser

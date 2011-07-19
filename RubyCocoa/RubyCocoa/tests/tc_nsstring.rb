@@ -1,5 +1,5 @@
 #
-#  $Id: tc_nsstring.rb 2106 2007-11-06 15:56:40Z psychs $
+#  $Id: tc_nsstring.rb 2263 2009-09-23 04:01:42Z kimuraw $
 #
 #  Copyright (c) 2005 kimura wataru
 #  Copyright (c) 2001-2003 FUJIMOTO Hisakuni
@@ -87,6 +87,12 @@ class TC_NSString < Test::Unit::TestCase
       b = a.clone
       b += 'def'
     }
+  end
+
+  def test_hash
+    str1 = NSString.stringWithString('abc')
+    str2 = NSString.stringWithString('abc')
+    assert(str1.hash == str2.hash)
   end
   
   def test_to_ns

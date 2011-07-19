@@ -3,13 +3,9 @@
 exec tclsh "$0" ${1+"$@"}
 
 # irc example script, by David N. Welton <davidw@dedasys.com>
-# $Id: irc_example.tcl,v 1.9 2004/03/25 07:23:59 andreas_kupries Exp $
+# $Id: irc_example.tcl,v 1.10 2009/01/30 04:18:14 andreas_kupries Exp $
 
-# I include these so that it can find both the irc package and the
-# logger package that irc needs.
-
-set auto_path "[file join [file dirname [info script]] .. .. modules irc] $auto_path"
-set auto_path "[file join [file dirname [info script]] .. .. modules log] $auto_path"
+set scriptDir [file dirname [info script]]
 package require irc 0.4
 
 namespace eval ircclient {
@@ -28,7 +24,7 @@ namespace eval ircclient {
     $cn user $nick localhost domain "www.tcl.tk"
     $cn nick $nick
     while { 1 } {
-	source mainloop.tcl
+	source [file join $::scriptDir mainloop.tcl]
 	vwait ::ircclient::RELOAD
     }
 }

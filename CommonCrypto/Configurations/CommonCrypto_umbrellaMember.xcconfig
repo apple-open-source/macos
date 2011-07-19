@@ -1,0 +1,17 @@
+//
+//  CommonCrypto_umbrellaMember.xcconfig
+//  CommonCrypto
+//
+//  InfoSec Standard Configuration
+//  Copyright 2010 Apple Inc. All rights reserved.
+//
+
+// This XCCONFIG file defines settings that specific for umbrella member libraries
+
+OTHER_LDFLAGS = -Wl -umbrella System -allowable_client otest -allowable_client CommonCryptoUnitTest -allowable_client XTSTest -allowable_client CBCTest
+
+STANDARD_C_PLUS_PLUS_LIBRARY_TYPE = Dynamic
+
+EXECUTABLE_EXTENSION = dylib
+
+LIBRARY_STYLE = Dynamic

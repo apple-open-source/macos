@@ -46,8 +46,10 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/rune.c,v 1.12 2004/07/29 06:16:19 tjr Ex
 #include "namespace.h"
 #include <arpa/inet.h>
 #include <errno.h>
-#endif /* !RUNEOFF32 */
 #include <runetype.h>
+#else
+#include "runetype.h"
+#endif /* !RUNEOFF32 */
 #include <stdio.h>
 #ifndef RUNEOFF32
 #include <string.h>

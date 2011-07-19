@@ -1,14 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceLicense</key>
-		<string>Mozilla</string>
+		<string>mpl</string>
+		<key>OpenSourceImportDate</key>
+		<string>2003-01-30</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>libsecurity_asn1.txt</string>
 		<key>OpenSourceModifications</key>
-		<string>Extensive customization for OS X</string>
+		<string>a BER/DER encode/decode library based on Netscape&apos;s NSS</string>
 		<key>OpenSourceProject</key>
 		<string>Mozilla NSS</string>
 		<key>OpenSourceURL</key>

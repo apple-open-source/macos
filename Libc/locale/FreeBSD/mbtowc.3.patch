@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/mbtowc.3	2004-11-25 11:38:18.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/mbtowc.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -41,7 +41,8 @@
+--- mbtowc.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbtowc.3	2009-11-09 15:05:26.000000000 -0800
+@@ -37,7 +37,8 @@
  .Dt MBTOWC 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert a character to a wide-character code
  .Sh LIBRARY
  .Lb libc
-@@ -49,30 +50,48 @@
+@@ -45,30 +46,48 @@
  .In stdlib.h
  .Ft int
  .Fo mbtowc
@@ -67,7 +67,7 @@
  is
  .Dv NULL ,
  the
-@@ -81,14 +100,14 @@
+@@ -77,14 +96,14 @@ function returns nonzero if shift states
  zero otherwise.
  .Pp
  Otherwise, if
@@ -85,7 +85,7 @@
  or returns \-1 if no multibyte character
  could be recognized or converted.
  In this case,
-@@ -110,7 +129,8 @@
+@@ -106,7 +125,8 @@ The internal conversion state is invalid
  .Xr mbrtowc 3 ,
  .Xr mbstowcs 3 ,
  .Xr multibyte 3 ,

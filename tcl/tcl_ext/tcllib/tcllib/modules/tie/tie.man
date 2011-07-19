@@ -2,6 +2,7 @@
 [copyright {2004-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Array persistence}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require tie [opt 1.1]]
 [description]

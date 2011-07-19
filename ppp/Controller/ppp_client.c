@@ -153,7 +153,7 @@ void client_dispose (struct client *client)
     }
 
     if (client->notify_port != MACH_PORT_NULL) {
-		mach_port_destroy(mach_task_self(), client->notify_port);
+		mach_port_deallocate(mach_task_self(), client->notify_port);
 		client->notify_port = MACH_PORT_NULL;
     }
 

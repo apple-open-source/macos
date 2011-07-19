@@ -27,32 +27,29 @@
 namespace WebCore {
 
 class HTMLProgressElement;
-class ProgressValueElement;
 
 class RenderProgress : public RenderBlock {
 public:
     RenderProgress(HTMLProgressElement*);
     virtual ~RenderProgress();
 
-    double position() { return m_position; }
-    double animationProgress();
-    
+    double position() const { return m_position; }
+    double animationProgress() const;
+    double animationStartTime() const { return m_animationStartTime; }
+
+    bool isDeterminate() const;
+
     HTMLProgressElement* progressElement() const;
 
 private:
     virtual const char* renderName() const { return "RenderProgress"; }
     virtual bool isProgress() const { return true; }
-    virtual void layout();
-    virtual void updateFromElement();
-    virtual void paint(PaintInfo&, int tx, int ty);
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
-
     virtual bool requiresForcedStyleRecalcPropagation() const { return true; }
+    virtual bool canHaveChildren() const { return false; }
+    virtual void updateFromElement();
 
     void animationTimerFired(Timer<RenderProgress>*);
     void updateAnimationState();
-    void updateValuePartState();
-    PassRefPtr<RenderStyle> createStyleForValuePart(RenderStyle*);
 
     double m_position;
     double m_animationStartTime;
@@ -60,7 +57,6 @@ private:
     double m_animationDuration;
     bool m_animating;
     Timer<RenderProgress> m_animationTimer;
-    RefPtr<ProgressValueElement> m_valuePart;
 };
 
 inline RenderProgress* toRenderProgress(RenderObject* object)

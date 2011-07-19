@@ -1,9 +1,9 @@
 /*
  * "$Id: bcp.c 6800 2007-08-16 18:28:44Z mike $"
  *
- *   TBCP port monitor for the Common UNIX Printing System (CUPS).
+ *   TBCP port monitor for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -25,8 +25,8 @@
  * Include necessary headers...
  */
 
-#include <cups/string.h>
-#include <cups/cups.h>
+#include <cups/cups-private.h>
+#include <cups/ppd.h>
 
 
 /*
@@ -58,7 +58,9 @@ main(int  argc,				/* I - Number of command-line args */
 
   if (argc < 6 || argc > 7)
   {
-    fputs("ERROR: tbcp job-id user title copies options [file]\n", stderr);
+    _cupsLangPrintf(stderr,
+                    _("Usage: %s job-id user title copies options [file]"),
+		    argv[0]);
     return (1);
   }
 

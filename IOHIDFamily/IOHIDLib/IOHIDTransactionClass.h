@@ -37,8 +37,6 @@ protected:
     static IOHIDDeviceTransactionInterface	sHIDTransactionInterface;
 
     struct InterfaceMap fHIDTransaction;
-    mach_port_t fAsyncPort;
-    CFRunLoopSourceRef fCFSource;
     
     IOHIDTransactionDirectionType fDirection;
     

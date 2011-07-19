@@ -104,7 +104,7 @@ PlatformWheelEventBuilder::PlatformWheelEventBuilder(Widget* widget, const WebMo
 
 // MakePlatformKeyboardEvent --------------------------------------------------
 
-static inline const PlatformKeyboardEvent::Type toPlatformKeyboardEventType(WebInputEvent::Type type)
+static inline PlatformKeyboardEvent::Type toPlatformKeyboardEventType(WebInputEvent::Type type)
 {
     switch (type) {
     case WebInputEvent::KeyUp:
@@ -212,6 +212,9 @@ PlatformTouchPointBuilder::PlatformTouchPointBuilder(Widget* widget, const WebTo
     m_state = toPlatformTouchPointState(point.state);
     m_pos = widget->convertFromContainingWindow(point.position);
     m_screenPos = point.screenPosition;
+    m_radiusY = point.radiusY;
+    m_radiusX = point.radiusX;
+    m_rotationAngle = point.rotationAngle;
 }
 
 PlatformTouchEventBuilder::PlatformTouchEventBuilder(Widget* widget, const WebTouchEvent& event)
@@ -221,6 +224,7 @@ PlatformTouchEventBuilder::PlatformTouchEventBuilder(Widget* widget, const WebTo
     m_altKey = event.modifiers & WebInputEvent::AltKey;
     m_shiftKey = event.modifiers & WebInputEvent::ShiftKey;
     m_metaKey = event.modifiers & WebInputEvent::MetaKey;
+    m_timestamp = event.timeStampSeconds;
 
     for (int i = 0; i < event.touchPointsLength; ++i)
         m_touchPoints.append(PlatformTouchPointBuilder(widget, event.touchPoints[i]));
@@ -241,7 +245,7 @@ static int getWebInputModifiers(const UIEventWithKeyState& event)
     return modifiers;
 }
 
-WebMouseEventBuilder::WebMouseEventBuilder(const ScrollView* view, const MouseEvent& event)
+WebMouseEventBuilder::WebMouseEventBuilder(const Widget* widget, const MouseEvent& event)
 {
     if (event.type() == eventNames().mousemoveEvent)
         type = WebInputEvent::MouseMove;
@@ -253,6 +257,8 @@ WebMouseEventBuilder::WebMouseEventBuilder(const ScrollView* view, const MouseEv
         type = WebInputEvent::MouseDown;
     else if (event.type() == eventNames().mouseupEvent)
         type = WebInputEvent::MouseUp;
+    else if (event.type() == eventNames().contextmenuEvent)
+        type = WebInputEvent::ContextMenu;
     else
         return; // Skip all other mouse events.
     timeStampSeconds = event.timeStamp() * 1.0e-3;
@@ -281,30 +287,34 @@ WebMouseEventBuilder::WebMouseEventBuilder(const ScrollView* view, const MouseEv
             break;
         }
     }
-    IntPoint p = view->contentsToWindow(IntPoint(event.pageX(), event.pageY()));
+    ScrollView* view = widget->parent();
+    IntPoint p = view->contentsToWindow(
+        IntPoint(event.absoluteLocation().x(), event.absoluteLocation().y()));
     globalX = event.screenX();
     globalY = event.screenY();
     windowX = p.x();
     windowY = p.y();
-    x = event.offsetX();
-    y = event.offsetY();
+    x = event.absoluteLocation().x() - widget->location().x();
+    y = event.absoluteLocation().y() - widget->location().y();
     clickCount = event.detail();
 }
 
-WebMouseWheelEventBuilder::WebMouseWheelEventBuilder(const ScrollView* view, const WheelEvent& event)
+WebMouseWheelEventBuilder::WebMouseWheelEventBuilder(const Widget* widget, const WheelEvent& event)
 {
     if (event.type() != eventNames().mousewheelEvent)
         return;
     type = WebInputEvent::MouseWheel;
     timeStampSeconds = event.timeStamp() * 1.0e-3;
     modifiers = getWebInputModifiers(event);
-    IntPoint p = view->contentsToWindow(IntPoint(event.pageX(), event.pageY()));
+    ScrollView* view = widget->parent();
+    IntPoint p = view->contentsToWindow(
+        IntPoint(event.absoluteLocation().x(), event.absoluteLocation().y()));
     globalX = event.screenX();
     globalY = event.screenY();
     windowX = p.x();
     windowY = p.y();
-    x = event.offsetX();
-    y = event.offsetY();
+    x = event.absoluteLocation().x() - widget->location().x();
+    y = event.absoluteLocation().y() - widget->location().y();
     deltaX = static_cast<float>(event.rawDeltaX());
     deltaY = static_cast<float>(event.rawDeltaY());
     // The 120 is from WheelEvent::initWheelEvent().
@@ -326,6 +336,11 @@ WebKeyboardEventBuilder::WebKeyboardEventBuilder(const KeyboardEvent& event)
     modifiers = getWebInputModifiers(event);
     timeStampSeconds = event.timeStamp() * 1.0e-3;
     windowsKeyCode = event.keyCode();
+
+    // The platform keyevent does not exist if the event was created using
+    // initKeyboardEvent.
+    if (!event.keyEvent())
+        return;
     nativeKeyCode = event.keyEvent()->nativeVirtualKeyCode();
     unsigned int numChars = std::min(event.keyEvent()->text().length(),
         static_cast<unsigned int>(WebKeyboardEvent::textLengthCap));

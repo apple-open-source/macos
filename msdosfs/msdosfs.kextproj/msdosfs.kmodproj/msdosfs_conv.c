@@ -1,9 +1,7 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2008,2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -110,7 +108,7 @@ static uint32_t  lastday;
 static uint16_t lastddate;
 static uint16_t lastdtime;
 
-static __inline u_int8_t find_lcode __P((u_int16_t code, u_int16_t *u2w));
+static __inline u_int8_t find_lcode(u_int16_t code, u_int16_t *u2w);
 
 /*
  * This variable contains the number of seconds that local time is west of GMT
@@ -132,12 +130,7 @@ __private_extern__ int32_t msdos_secondsWest = 0;
  * Convert the unix version of time to dos's idea of time to be used in
  * file timestamps. The passed in unix time is assumed to be in GMT.
  */
-__private_extern__ void
-unix2dostime(tsp, ddp, dtp, dhp)
-	struct timespec *tsp;
-	u_int16_t *ddp;
-	u_int16_t *dtp;
-	u_int8_t *dhp;
+void msdosfs_unix2dostime(struct timespec *tsp, u_int16_t *ddp, u_int16_t *dtp, u_int8_t *dhp)
 {
 	uint32_t t;
 	uint32_t days;
@@ -211,12 +204,7 @@ static uint32_t  lastseconds;
  * called from the stat(), and fstat() system calls and so probably need
  * not be too efficient.
  */
-__private_extern__ void
-dos2unixtime(dd, dt, dh, tsp)
-	u_int dd;
-	u_int dt;
-	u_int dh;
-	struct timespec *tsp;
+void msdosfs_dos2unixtime(u_int dd, u_int dt, u_int dh, struct timespec *tsp)
 {
 	uint32_t seconds;
 	uint32_t month;
@@ -251,7 +239,7 @@ dos2unixtime(dd, dt, dh, tsp)
 		months = year & 0x03 ? regyear : leapyear;
 		month = (dd & DD_MONTH_MASK) >> DD_MONTH_SHIFT;
 		if (month < 1 || month > 12) {
-			printf("dos2unixtime(): month value out of range (%d)\n",
+			printf("msdosfs_dos2unixtime(): month value out of range (%d)\n",
 			    month);
 			month = 1;
 		}
@@ -442,9 +430,7 @@ sfm2mac[42] = {
 #endif
 
 /* map a Unicode char into a DOS char */
-__private_extern__ u_char
-unicode2dos(uc)
-	u_int16_t uc;
+u_char msdosfs_unicode2dos(u_int16_t uc)
 {
 	if (uc < 0x100)
 		return (unilsb2dos[uc]);
@@ -500,8 +486,7 @@ unicode2dos(uc)
  * Convert a DOS filename to a Unicode filename. And, return the number of
  * characters in the resulting unix filename.
  */
-__private_extern__ size_t
-dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower)
+size_t msdosfs_dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower)
 {
 	int i;
 	u_char dc;
@@ -598,8 +583,7 @@ dos2unicodefn(u_char dn[SHORT_NAME_LEN], u_int16_t *un, int lower)
  * fact what you see in the short name).  I'm guessing it uses pure short
  * names only if all characters are pure ASCII.
  */
-__private_extern__ int
-unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case)
+int msdosfs_unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int gen, u_int8_t *lower_case)
 {
 	int i, j, l;
 	int conv = 1;
@@ -634,7 +618,7 @@ unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int g
 	 * Filenames with some characters are not allowed!
 	 */
 	for (cp = un, i = unlen; --i >= 0; cp++)
-		if (unicode2dos(*cp) == 0)
+		if (msdosfs_unicode2dos(*cp) == 0)
 			return 0;
 
 	/*
@@ -673,7 +657,7 @@ unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int g
 				case_flags |= CASE_LONG;	/* Non-ASCII always requires a long name */
 			if (c < 0x100)
    				c = l2u[c];
-			c = unicode2dos(c);
+			c = msdosfs_unicode2dos(c);
 			dn[j] = c;
 			if (c == 1) {
 				conv = 3;		/* Character is not allowed in short names */
@@ -710,7 +694,7 @@ unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int g
 			case_flags |= CASE_LONG;	/* Non-ASCII always requires a long name */
         if (c < 0x100)
             c = l2u[c];
-        c = unicode2dos(c);
+        c = msdosfs_unicode2dos(c);
         dn[j] = c;
 		if (c == 1) {
 			conv = 3;		/* Character is not allowed in short names */
@@ -790,13 +774,7 @@ unicode2dosfn(const u_int16_t *un, u_char dn[SHORT_NAME_LEN], int unlen, u_int g
  * Note: assumes that the filename is valid,
  *	 i.e. doesn't consist solely of blanks and dots
  */
-__private_extern__ int
-unicode2winfn(un, unlen, wep, cnt, chksum)
-	const u_int16_t *un;
-	int unlen;
-	struct winentry *wep;
-	int cnt;
-	int chksum;
+int msdosfs_unicode2winfn(const u_int16_t *un, int unlen, struct winentry *wep, int cnt, int chksum)
 {
 	u_int8_t *wcp;
 	int i;
@@ -851,9 +829,7 @@ done:
 }
 
 static __inline u_int8_t
-find_lcode(code, u2w)
-	u_int16_t code;
-	u_int16_t *u2w;
+find_lcode(u_int16_t code, u_int16_t *u2w)
 {
 	int i;
 
@@ -884,32 +860,12 @@ static inline u_int16_t case_fold(u_int16_t ch)
 		return ch;
 }
 
-/*
- * Case-insensitive comparison of Unicode file names.  Returns zero if the
- * names are equivalent.
- */
-__private_extern__ int
-compareUnicodeNames(u_int16_t *x, u_int16_t *y, int length)
-{
-	for ( ; length; --length)
-	{
-		if (case_fold(*x++) != case_fold(*y++))
-			return 1;	/* Names differ */
-	}
-	
-	return 0;	/* Names are equivalent! */
-}
 
 /*
  * Compare our filename to the one in the Win95 entry
  * Returns the checksum or -1 if no match
  */
-__private_extern__ int
-winChkName(un, ucslen, wep, chksum)
-	const u_int16_t *un;
-	int ucslen;
-	struct winentry *wep;
-	int chksum;
+int msdosfs_winChkName(const u_int16_t *un, int ucslen, struct winentry *wep, int chksum)
 {
 	u_int8_t *cp;
 	int i;
@@ -998,12 +954,7 @@ winChkName(un, ucslen, wep, chksum)
  * Collect Win95 filename Unicode chars into buf.
  * Returns the checksum or -1 if impossible
  */
-__private_extern__ int
-getunicodefn(wep, ucfn, unichars, chksum)
-	struct winentry *wep;
-	u_int16_t *ucfn;
-	u_int16_t *unichars;
-	int chksum;
+int msdosfs_getunicodefn(struct winentry *wep, u_int16_t *ucfn, u_int16_t *unichars, int chksum)
 {
 	u_int8_t *cp;
 	u_int16_t *np, *ep = ucfn + WIN_MAXLEN;
@@ -1116,9 +1067,7 @@ getunicodefn(wep, ucfn, unichars, chksum)
 /*
  * Compute the checksum of a DOS filename for Win95 use
  */
-__private_extern__ u_int8_t
-winChksum(name)
-	u_int8_t *name;
+u_int8_t msdosfs_winChksum(u_int8_t *name)
 {
 	int i;
 	u_int8_t s;
@@ -1131,84 +1080,10 @@ winChksum(name)
 /*
  * Determine the number of slots necessary for Win95 names
  */
-__private_extern__ int
-winSlotCnt(un, unlen)
-	const u_int16_t *un;
-	int unlen;
+int msdosfs_winSlotCnt(const u_int16_t *un, int unlen)
 {
 #pragma unused (un)
 	if (unlen > WIN_MAXLEN)
 		return 0;
 	return howmany(unlen, WIN_CHARS);
 }
-
-/* Convert Macintosh Unicode string to SFM (Microsoft Services for Macintosh) 
- * Unicode strings.
- * 
- * This function converts certain Macintosh filename characters that are not supported
- * on Windows to characters that SFM recognizes and displays as Macintosh ANSI "Invalid"
- * NTFS filename characters.
- *
- * 		Mac Unicode		SFM Unicode
- *		0x01-0x1f		0xf001-0xf01f
- *		"			0xf020
- *		*			0xf021
- *		/			0xf022	(See Note)
- *		<			0xf023
- *		>			0xf024
- *		?			0xf025
- *		\			0xf026
- *		|			0xf027
- *		Space(0x20)		0xf028	(Only if occuring as last char of the name)
- *		Period(0x2e)		0xf029	(Only if occuring as last char of the name)
- *
- * Note: Since Mac internally converts "/" to ":" and vice-versa, we replace ":" 
- * instead of "/" to 0xf022
- *
- * This conversion also creating files with trailing spaces and dots in filename.
- * Reference: http://support.microsoft.com/kb/q117258/
- */
-#if 0
-__private_extern__ void
-mac2sfmfn(un, unlen)
-	u_int16_t* un;
-	size_t unlen;
-{
-	size_t i;
-
-	/* Check if the last character of name is space or period */
-	unlen--;
-	if (un[unlen] == 0x20) {	/* space */
-		un[unlen] = 0xf028;
-	} else if (un[unlen] == 0x2e) {	/* period */
-		un[unlen] = 0xf029;
-	} else if (un[unlen] < MAX_MAC2SFM) {	/* other character < 128 */
-		un[unlen] = mac2sfm[un[unlen]];
-	}
-	
-	/* Check the remaining entire name */
-	for (i = 0; i < unlen; i++) 
-		if (un[i] < MAX_MAC2SFM)
-			un[i] = mac2sfm[un[i]];
-}
-
-/* Convert SFM Unicode string to HFS Unicode string similar to
- * the description provided in mac2sfmfn.
- */
-__private_extern__ void
-sfm2macfn(un, unlen)
-    u_int16_t* un;
-	u_int16_t unlen;
-{
-	u_int16_t i;
-	
-	/* Check entire name */
-	for (i = 0; i < unlen; i++) {
-		if (((un[i] & 0xff00) == SFMCODE_PREFIX_MASK) && 
-		    ((un[i] & 0x00ff) <= MAX_SFM2MAC)) {
-			un[i] = sfm2mac[un[i] & 0x00ff];
-		}
-	}
-}
-#endif
-

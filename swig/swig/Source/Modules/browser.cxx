@@ -8,7 +8,7 @@
  * feature that's normally disabled.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_browser_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/browser.cxx,v 1.9 2006/11/15 23:45:47 wsfulton Exp $";
+char cvsroot_browser_cxx[] = "$Id: browser.cxx 10003 2007-10-17 21:42:11Z wsfulton $";
 
 #include "swigmod.h"
 

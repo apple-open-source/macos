@@ -29,13 +29,16 @@
  */
 /*
 	$Log: IOFWUserPseudoAddressSpace.cpp,v $
+	Revision 1.25  2010/05/20 22:49:43  calderon
+	Fixes issues with offset argument of pseudo address space read handler being wrong.
+
 	Revision 1.24  2009/10/16 23:59:06  calderon
 	<rdar://problem/7046489> 10A402 AsyncTester results in Error-Server verified Incorrect number of bytes
 	<rdar://problem/7111060> PanicTracer: 3 panics at IOFireWireFamily : IOFWUserPseudoAddressSpace::doPacket
-	
+
 	And some help for:
 	<rdar://problem/7116134> PanicTracer: 3 panics at com.apple.iokit.IOFireWireFamily
-	
+
 	Revision 1.23  2008/09/12 23:44:05  calderon
 	<rdar://5971979/> PseudoAddressSpace skips/mangles packets
 	<rdar://5708169/> FireWire synchronous commands' headerdoc missing callback info
@@ -466,6 +469,10 @@ IOFWUserPseudoAddressSpace::completeInit( IOFireWireUserClient* userclient, Addr
 	if ( status )
 		if ( NULL != params->backingStore )
 		{
+			// Note: even though the memory descriptor is created with the size of the address space,
+			// rather than the size of the backingstore, this creation should fail if the size is outside
+			// of the task's allocation. Any bad read or writes will only affect the task. Furthermore,
+			// the backingstore is required to be the same size as the address space, per documentation.
 			fDesc = IOMemoryDescriptor::withAddressRange(	params->backingStore,
 															params->size,
 															kIODirectionOutIn,
@@ -745,7 +752,7 @@ IOFWUserPseudoAddressSpace::doPacket(
 										 currentHeader,
 										 currentHeader->CommonHeader.next,
 										 len,
-										 IOFWPacketHeaderGetOffset(fLastWrittenHeader),
+										 addr.addressLo - fAddress.addressLo,
 										 & fReadAsyncNotificationRef,
 										 reqrefcon,
 										 nodeID,

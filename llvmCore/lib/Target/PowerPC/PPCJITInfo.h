@@ -15,6 +15,7 @@
 #define POWERPC_JITINFO_H
 
 #include "llvm/Target/TargetJITInfo.h"
+#include "llvm/CodeGen/JITCodeEmitter.h"
 
 namespace llvm {
   class PPCTargetMachine;
@@ -29,8 +30,9 @@ namespace llvm {
       is64Bit = tmIs64Bit;
     }
 
+    virtual StubLayout getStubLayout();
     virtual void *emitFunctionStub(const Function* F, void *Fn,
-                                   MachineCodeEmitter &MCE);
+                                   JITCodeEmitter &JCE);
     virtual LazyResolverFn getLazyResolverFunction(JITCompilerFn);
     virtual void relocate(void *Function, MachineRelocation *MR,
                           unsigned NumRelocs, unsigned char* GOTBase);

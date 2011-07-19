@@ -32,14 +32,12 @@
 __RCSID("$NetBSD: wcspbrk.c,v 1.1 2000/12/23 23:14:37 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wcspbrk.c,v 1.6 2002/09/21 00:29:23 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcspbrk.c,v 1.7 2009/02/03 17:58:20 danger Exp $");
 
 #include <wchar.h>
 
 wchar_t *
-wcspbrk(s, set)
-	const wchar_t *s;
-	const wchar_t *set;
+wcspbrk(const wchar_t *s, const wchar_t *set)
 {
 	const wchar_t *p;
 	const wchar_t *q;

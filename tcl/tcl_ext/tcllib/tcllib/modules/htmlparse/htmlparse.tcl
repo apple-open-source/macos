@@ -364,8 +364,8 @@ proc ::htmlparse::parse {args} {
 
 		append group "a$i c$i d$i e$i f$i\n"
 	    }
-	    regsub -all -- {(a[0-9]+)}          $group    {{$\1} \\\\win\\\\} subgroup
-	    regsub -all -- {([b-z_0-9]+[0-9]+)} $subgroup {{$\1}}             subgroup
+	    regsub -all -- {(a[0-9]+)}          $group    {{$\1} @win@} subgroup
+	    regsub -all -- {([b-z_0-9]+[0-9]+)} $subgroup {{$\1}}       subgroup
 
 	    set splitdata($key) [list $group $subgroup]
 	}
@@ -896,4 +896,4 @@ proc ::htmlparse::Reorder {tree node} {
 
 # ### ######### ###########################
 
-package provide htmlparse 1.1.3
+package provide htmlparse 1.2

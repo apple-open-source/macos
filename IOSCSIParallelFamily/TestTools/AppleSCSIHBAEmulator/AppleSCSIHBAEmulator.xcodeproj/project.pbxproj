@@ -39,7 +39,7 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = Info.plist; sourceTree = "<group>"; };
+		32D94FCF0562CBF700B6AF17 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		32D94FD00562CBF700B6AF17 /* AppleSCSIHBAEmulator.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = AppleSCSIHBAEmulator.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		52B31E0E0BA256C600FD73B8 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		8DA8362C06AD9B9200E5AC22 /* Kernel.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Kernel.framework; path = /System/Library/Frameworks/Kernel.framework; sourceTree = "<absolute>"; };
@@ -84,7 +84,7 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
-		089C166AFE841209C02AAC07 /* SCSI HBA Emulator */ = {
+		089C166AFE841209C02AAC07 /* AppleSCSIHBAEmulator */ = {
 			isa = PBXGroup;
 			children = (
 				247142CAFF3F8F9811CA285C /* Source */,
@@ -94,7 +94,7 @@
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
 			);
-			name = "SCSI HBA Emulator";
+			name = AppleSCSIHBAEmulator;
 			sourceTree = "<group>";
 		};
 		089C167CFE841241C02AAC07 /* Resources */ = {
@@ -205,7 +205,7 @@
 			buildConfigurationList = 1DEB91DD08733DB10010E9CD /* Build configuration list for PBXProject "AppleSCSIHBAEmulator" */;
 			compatibilityVersion = "Xcode 2.4";
 			hasScannedForEncodings = 1;
-			mainGroup = 089C166AFE841209C02AAC07 /* SCSI HBA Emulator */;
+			mainGroup = 089C166AFE841209C02AAC07 /* AppleSCSIHBAEmulator */;
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -272,18 +272,26 @@
 		1DEB91DA08733DB10010E9CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					x86_64,
+					i386,
+					ppc,
+				);
 				COPY_PHASE_STRIP = NO;
 				CURRENT_PROJECT_VERSION = 1.0.0d1;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_VERSION_ppc = 4.0;
 				INFOPLIST_FILE = Info.plist;
 				INFOPLIST_PREPROCESS = YES;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
-				MODULE_NAME = com.yourcompany.driver.SCSI_HBA_Emulator;
+				MACOSX_DEPLOYMENT_TARGET_ppc = 10.4;
+				MODULE_NAME = com.apple.driver.AppleSCSIHBAEmulator;
 				MODULE_VERSION = 1.0.0d1;
-				PRODUCT_NAME = "SCSI HBA Emulator";
+				PRODUCT_NAME = AppleSCSIHBAEmulator;
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WRAPPER_EXTENSION = kext;
 				ZERO_LINK = YES;
 			};
@@ -293,8 +301,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = (
-					ppc,
+					x86_64,
 					i386,
+					ppc,
 				);
 				CURRENT_PROJECT_VERSION = 1.0.0;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -307,6 +316,7 @@
 				MODULE_NAME = com.apple.driver.AppleSCSIHBAEmulator;
 				MODULE_VERSION = 1.0.0;
 				PRODUCT_NAME = AppleSCSIHBAEmulator;
+				VALID_ARCHS = "x86_64 i386 ppc";
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Release;
@@ -317,25 +327,7 @@
 				ARCHS = (
 					ppc,
 					i386,
-				);
-				GCC_VERSION_i386 = 4.0;
-				GCC_VERSION_ppc = 3.3;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3;
-				MACOS_X_DEPLOYMENT_TARGET_i386 = 10.4;
-				PREBINDING = NO;
-				SDKROOT_i386 = /Developer/SDKs/MacOSX10.4u.sdk;
-				SDKROOT_ppc = /Developer/SDKs/MacOSX10.3.9.sdk;
-			};
-			name = Debug;
-		};
-		1DEB91DF08733DB10010E9CD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
+					x86_64,
 				);
 				GCC_VERSION_i386 = 4.0;
 				GCC_VERSION_ppc = 3.3;
@@ -346,13 +338,39 @@
 				PREBINDING = NO;
 				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
-				VALID_ARCHS = "i386 ppc";
+				VALID_ARCHS = "x86_64 i386 ppc";
+			};
+			name = Debug;
+		};
+		1DEB91DF08733DB10010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = (
+					i386,
+					ppc,
+					x86_64,
+				);
+				GCC_VERSION_i386 = 4.0;
+				GCC_VERSION_ppc = 3.3;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET_ppc = 10.3;
+				MACOS_X_DEPLOYMENT_TARGET_i386 = 10.4;
+				PREBINDING = NO;
+				SDKROOT_i386 = "";
+				SDKROOT_ppc = "";
+				VALID_ARCHS = "x86_64 i386 ppc";
 			};
 			name = Release;
 		};
 		E6AA94C80B72BEF200A6CCED /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					x86_64,
+					ppc,
+					i386,
+				);
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -364,6 +382,7 @@
 				PRODUCT_NAME = emulator;
 				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = YES;
 			};
 			name = Debug;
@@ -371,6 +390,11 @@
 		E6AA94C90B72BEF200A6CCED /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					x86_64,
+					i386,
+					ppc,
+				);
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
@@ -383,6 +407,7 @@
 				PRODUCT_NAME = emulator;
 				SDKROOT_i386 = "";
 				SDKROOT_ppc = "";
+				VALID_ARCHS = "x86_64 i386 ppc";
 				ZERO_LINK = NO;
 			};
 			name = Release;

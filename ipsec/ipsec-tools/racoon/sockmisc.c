@@ -93,16 +93,9 @@ cmpsaddrwop(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-#ifdef __linux__
-	if (addr1->sa_family != addr2->sa_family)
-		return 1;
-#else
 	if (addr1->sa_len != addr2->sa_len
 	 || addr1->sa_family != addr2->sa_family)
 		return 1;
-
-#endif /* __linux__ */
-
 	switch (addr1->sa_family) {
 	case AF_INET:
 		sa1 = (caddr_t)&((struct sockaddr_in *)addr1)->sin_addr;
@@ -147,15 +140,9 @@ cmpsaddrwild(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-#ifdef __linux__
-	if (addr1->sa_family != addr2->sa_family)
-		return 1;
-#else
 	if (addr1->sa_len != addr2->sa_len
 	 || addr1->sa_family != addr2->sa_family)
 		return 1;
-
-#endif /* __linux__ */
 
 	switch (addr1->sa_family) {
 	case AF_INET:
@@ -212,15 +199,9 @@ cmpsaddrstrict(addr1, addr2)
 	if (addr1 == 0 || addr2 == 0)
 		return 1;
 
-#ifdef __linux__
-	if (addr1->sa_family != addr2->sa_family)
-		return 1;
-#else
 	if (addr1->sa_len != addr2->sa_len
 	 || addr1->sa_family != addr2->sa_family)
 		return 1;
-
-#endif /* __linux__ */
 
 	switch (addr1->sa_family) {
 	case AF_INET:
@@ -378,9 +359,7 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 			sin6 = (struct sockaddr_in6 *)to;
 			memset(sin6, 0, sizeof(*sin6));
 			sin6->sin6_family = AF_INET6;
-#ifndef __linux__
 			sin6->sin6_len = sizeof(*sin6);
-#endif
 			memcpy(&sin6->sin6_addr, &pi->ipi6_addr,
 				sizeof(sin6->sin6_addr));
 			/* XXX other cases, such as site-local? */
@@ -390,24 +369,6 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 				sin6->sin6_scope_id = 0;
 			sin6->sin6_port =
 				((struct sockaddr_in6 *)&ss)->sin6_port;
-			otolen = -1;	/* "to" already set */
-			continue;
-		}
-#endif
-#ifdef __linux__
-		if (ss.ss_family == AF_INET
-		 && cm->cmsg_level == IPPROTO_IP
-		 && cm->cmsg_type == IP_PKTINFO
-		 && otolen >= sizeof(sin)) {
-			struct in_pktinfo *pi = (struct in_pktinfo *)(CMSG_DATA(cm));
-			*tolen = sizeof(*sin);
-			sin = (struct sockaddr_in *)to;
-			memset(sin, 0, sizeof(*sin));
-			sin->sin_family = AF_INET;
-			memcpy(&sin->sin_addr, &pi->ipi_addr,
-				sizeof(sin->sin_addr));
-			sin->sin_port =
-				((struct sockaddr_in *)&ss)->sin_port;
 			otolen = -1;	/* "to" already set */
 			continue;
 		}
@@ -430,7 +391,6 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 			continue;
 		}
 #endif
-#ifndef __linux__
 		if (ss.ss_family == AF_INET
 		 && cm->cmsg_level == IPPROTO_IP
 		 && cm->cmsg_type == IP_RECVDSTADDR
@@ -446,7 +406,6 @@ recvfromto(s, buf, buflen, flags, from, fromlen, to, tolen)
 			otolen = -1;	/* "to" already set */
 			continue;
 		}
-#endif
 	}
 
 	return len;
@@ -462,7 +421,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 	struct sockaddr *dst;
 {
 	struct sockaddr_storage ss;
-	u_int len;
+	int len;
 	int i;
 
 	if (src->sa_family != dst->sa_family) {
@@ -553,7 +512,12 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			if (len < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"sendmsg (%s)\n", strerror(errno));
-				return -1;
+				if (errno != EHOSTUNREACH && errno != ENETDOWN && errno != ENETUNREACH) {
+				        return -1;
+				}
+				// <rdar://problem/6609744> treat these failures like
+				// packet loss, in case the network interface is flaky
+				len = 0;
 			}
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"%d times of %d bytes message will be sent "
@@ -565,64 +529,6 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 		return len;
 	    }
 #endif
-#ifdef __linux__
-	case AF_INET:
-	    {
-		struct msghdr m;
-		struct cmsghdr *cm;
-		struct iovec iov[2];
-		u_char cmsgbuf[256];
-		struct in_pktinfo *pi;
-		int ifindex = 0;
-		struct sockaddr_in src6, dst6;
-
-		memcpy(&src6, src, sizeof(src6));
-		memcpy(&dst6, dst, sizeof(dst6));
-
-		memset(&m, 0, sizeof(m));
-		m.msg_name = (caddr_t)&dst6;
-		m.msg_namelen = sizeof(dst6);
-		iov[0].iov_base = (char *)buf;
-		iov[0].iov_len = buflen;
-		m.msg_iov = iov;
-		m.msg_iovlen = 1;
-
-		memset(cmsgbuf, 0, sizeof(cmsgbuf));
-		cm = (struct cmsghdr *)cmsgbuf;
-		m.msg_control = (caddr_t)cm;
-		m.msg_controllen = CMSG_SPACE(sizeof(struct in_pktinfo));
-
-		cm->cmsg_len = CMSG_LEN(sizeof(struct in_pktinfo));
-		cm->cmsg_level = IPPROTO_IP;
-		cm->cmsg_type = IP_PKTINFO;
-		pi = (struct in_pktinfo *)CMSG_DATA(cm);
-		memcpy(&pi->ipi_spec_dst, &src6.sin_addr, sizeof(src6.sin_addr));
-		pi->ipi_ifindex = ifindex;
-
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"src4 %s\n",
-			saddr2str((struct sockaddr *)&src6));
-		plog(LLV_DEBUG, LOCATION, NULL,
-			"dst4 %s\n",
-			saddr2str((struct sockaddr *)&dst6));
-
-		for (i = 0; i < cnt; i++) {
-			len = sendmsg(s, &m, 0 /*MSG_DONTROUTE*/);
-			if (len < 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"sendmsg (%s)\n", strerror(errno));
-				return -1;
-			}
-			plog(LLV_DEBUG, LOCATION, NULL,
-				"%d times of %d bytes message will be sent "
-				"to %s\n",
-				i + 1, len, saddr2str(dst));
-		}
-		plogdump(LLV_DEBUG, (char *)buf, buflen);
-
-		return len;
-	    }
-#endif /* __linux__ */
 	default:
 	    {
 		int needclose = 0;
@@ -647,11 +553,7 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 				return -1;
 			}
 			if (setsockopt(sendsock, SOL_SOCKET,
-#ifdef __linux__
-				       SO_REUSEADDR,
-#else
 				       SO_REUSEPORT,
-#endif
 				       (void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"setsockopt SO_REUSEPORT (%s)\n", 
@@ -689,9 +591,15 @@ sendfromto(s, buf, buflen, src, dst, cnt)
 			if (len < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"sendto (%s)\n", strerror(errno));
-				if (needclose)
-					close(sendsock);
-				return len;
+				if (errno != EHOSTUNREACH && errno != ENETDOWN && errno != ENETUNREACH) {
+				        if (needclose)
+					        close(sendsock);
+					return -1;
+				}
+				plog(LLV_ERROR, LOCATION, NULL,
+					"treating socket error (%s) like packet loss\n", strerror(errno));
+				// else treat these failures like a packet loss
+				len = 0;
 			}
 			plog(LLV_DEBUG, LOCATION, NULL,
 				"%d times of %d bytes message will be sent "
@@ -783,16 +691,8 @@ newsaddr(len)
 			"%s\n", strerror(errno)); 
 		goto out;
 	}
-
-#ifdef __linux__
-	if (len == sizeof (struct sockaddr_in6))
-		new->sa_family = AF_INET6;
-	else
-		new->sa_family = AF_INET;
-#else
 	/* initial */
 	new->sa_len = len;
-#endif
 out:
 	return new;
 }
@@ -822,8 +722,10 @@ saddr2str(saddr)
 	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
 
-	if (saddr == NULL)
-		return NULL;
+	if (saddr == NULL) {
+		buf[0] = '\0';
+		return buf;
+	}
 
 	if (saddr->sa_family == AF_UNSPEC)
 		snprintf (buf, sizeof(buf), "%s", "anonymous");
@@ -842,9 +744,11 @@ saddrwop2str(saddr)
 	static char buf[NI_MAXHOST + NI_MAXSERV + 10];
 	char addr[NI_MAXHOST];
 
-	if (saddr == NULL)
-		return NULL;
-
+	if (saddr == NULL) {
+		buf[0] = '\0';
+		return buf;
+	}
+	
 	GETNAMEINFO_NULL(saddr, addr);
 	snprintf(buf, sizeof(buf), "%s", addr);
 
@@ -857,9 +761,11 @@ naddrwop2str(const struct netaddr *naddr)
 	static char buf[NI_MAXHOST + 10];
 	static const struct sockaddr sa_any;	/* this is initialized to all zeros */
 	
-	if (naddr == NULL)
-		return NULL;
-
+	if (naddr == NULL) {
+		buf[0] = '\0';
+		return buf;
+	}
+	
 	if (memcmp(&naddr->sa, &sa_any, sizeof(sa_any)) == 0)
 		snprintf(buf, sizeof(buf), "%s", "any");
 	else {
@@ -898,15 +804,27 @@ saddr2str_fromto(format, saddr, daddr)
 	static char buf[2*(NI_MAXHOST + NI_MAXSERV + 10) + 100];
 	char *src, *dst;
 
-	src = racoon_strdup(saddr2str(saddr));
-	dst = racoon_strdup(saddr2str(daddr));
-	STRDUP_FATAL(src);
-	STRDUP_FATAL(dst);
+	if (saddr) {
+		src = racoon_strdup(saddr2str(saddr));
+		STRDUP_FATAL(src);
+	} else {
+		src = NULL;
+	}
+	if (daddr) {
+		dst = racoon_strdup(saddr2str(daddr));
+		STRDUP_FATAL(dst);
+	} else {
+		dst = NULL;
+	}
 	/* WARNING: Be careful about the format string! Don't 
 	   ever pass in something that a user can modify!!! */
-	snprintf (buf, sizeof(buf), format, src, dst);
-	racoon_free (src);
-	racoon_free (dst);
+	snprintf (buf, sizeof(buf), format, src? src:"[null]", dst? dst:"[null]");
+	if (src) {
+		racoon_free (src);
+	}
+	if (dst) {
+		racoon_free (dst);
+	}
 
 	return buf;
 }

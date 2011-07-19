@@ -1,7 +1,7 @@
 export USE_APPLE_PB_SUPPORT = all
 RC_OS = macos
-OFLAG = -O
-ifeq "" "$(NEXT_ROOT)"
+OFLAG = -Os
+ifneq "$(RC_MAJOR_RELEASE_TRAIN)" "Tiger"
 KERN = -fno-builtin -finline -fno-keep-inline-functions -fsigned-bitfields \
        -msoft-float -nostdinc \
        -iwithsysroot /System/Library/Frameworks/Kernel.framework/PrivateHeaders/libsa \
@@ -23,10 +23,11 @@ endif
 
 KERN += -D__DARWIN_UNIX03=__arm__
 
-X_CFLAGS = -fno-builtin-round -fno-builtin-trunc
+X_CFLAGS =
 
-ifneq "mwccppc" "$(notdir $(CC))"
-  GCC_FLAGS = -Wall $(X_CFLAGS)
+ifneq "clang" "$(notdir $(CC))"
+  GCC_FLAGS = $(X_CFLAGS)
+  PG = -pg
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
@@ -34,7 +35,12 @@ USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
 	     echo YES ; else echo NO ; \
 	     fi; )
 
-CFLAGS = -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(GCC_FLAGS)
+ifneq "" "$(SDKROOT)"
+  SDK = -isysroot $(SDKROOT)
+  CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+endif
+CFLAGS = -g -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) -Wall \
+	 $(GCC_FLAGS) $(SDK)
 
 ifeq "macos" "$(RC_OS)"
   SYSTEMDIR := $(shell if [ "$(RC_RELEASE)" = "Beaker" ] ||    \
@@ -130,7 +136,7 @@ ld_g_build: ld_g_dir
 
 ld_p_build: ld_p_dir
 	cd ld_p_dir; $(MAKE) -f ../Makefile ld.NEW VPATH=.. OFILE_DIR=. \
-		SRCROOT=.. MAKEINCDIR="`pwd`" COPTS="-pg -DDEBUG"		\
+		SRCROOT=.. MAKEINCDIR="`pwd`" COPTS="$(PG) -DDEBUG"	\
 		LIBSTUFF="-L../../libstuff -lstuff_p"
 
 shlib_ofiles: $(OBJROOT)/shlib_obj $(SYMROOT)/ld_dir
@@ -164,7 +170,7 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj $(SYMROOT)/ld_dir
 		MAKEINCDIR="`pwd`" OFILE_DIR=. SRCROOT=.. 		\
 		LIBSTUFF="-L../../libstuff -lstuff_p"			\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)" CC="$(CC)"	\
-		RC_CFLAGS="$(RC_CFLAGS)" COPTS="-dynamic -DRLD -pg");	\
+		RC_CFLAGS="$(RC_CFLAGS)" COPTS="-dynamic -DRLD $(PG)");	\
 	    rm -f profile_obj/librld.o;					\
 	    rm -f  profile_obj/librld.ofileList;			\
 	    cp ptmp_obj/librld.o profile_obj/librld.o;			\
@@ -178,7 +184,7 @@ profile_ofiles:	$(OBJROOT)/profile_obj $(OBJROOT)/ptmp_obj $(SYMROOT)/ld_dir
 		RC_CFLAGS="$(RC_CFLAGS)" CC="$(CC)"			\
 		LIBSTUFF="-L$(SYMROOT)/../libstuff -lstuff_p"		\
 		VERS_STRING_FLAGS="$(VERS_STRING_FLAGS)"		\
-		MAKEINCDIR="`pwd`" COPTS="-dynamic -DRLD -pg");		\
+		MAKEINCDIR="`pwd`" COPTS="-dynamic -DRLD $(PG)");	\
 	    rm -f $(OBJROOT)/profile_obj/librld.o; 			\
 	    rm -f $(OBJROOT)/profile_obj/librld.ofileList;		\
 	    cp $(OBJROOT)/ptmp_obj/librld.o $(OBJROOT)/profile_obj/librld.o; \
@@ -302,39 +308,39 @@ kld_build: $(OBJROOT)/dynamic_kld $(OBJROOT)/static_kld $(SYMROOT)/ld_dir
 	fi
 
 ld.NEW:	$(OBJS) ld_vers.o
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		$(OBJS) ld_vers.o $(LIBSTUFF) \
 		-o $(SYMROOT)/ld.private.o
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/ld.NEW \
+	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/ld.NEW \
 		$(SYMROOT)/ld.private.o
 
 ld_g.NEW: $(OBJS) ld_vers.o
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		$(OBJS) ld_vers.o $(LIBSTUFF) \
 		-o $(SYMROOT)/ld_g.private.o
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/ld_g.NEW \
+	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/ld_g.NEW \
 		$(SYMROOT)/ld_g.private.o
 
 librld_static.a librld_pg.a librld.a: librld.o
 	libtool -static -o $(SYMROOT)/$@ librld.o
 
 librld.o: $(OBJS)
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OFILE_DIR)/librld.o $(OBJS) $(LIBSTUFF)
 
 libsarld.a: $(OBJS)
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/libsarld.a $(OBJS) $(LIBSTUFF)
 
 libkld.a: $(OBJS)
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/prehack_libkld.a $(OBJS) $(LIBSTUFF) $(LIBMACHO)
 	nmedit -p $(SYMROOT)/prehack_libkld.a
 	seg_hack __KLD $(SYMROOT)/prehack_libkld.a -o $(SYMROOT)/static_libkld.o
 	libtool -o $(SYMROOT)/libkld.a $(SYMROOT)/static_libkld.o
 
 libkld.dylib: $(OBJS)
-	$(CC) $(COPTS) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(SYMROOT)/dynamic_libkld.o $(OBJS) $(LIBSTUFF)
 	nmedit -p $(SYMROOT)/dynamic_libkld.o
 	libtool -o $(SYMROOT)/libkld.dylib $(SYMROOT)/dynamic_libkld.o

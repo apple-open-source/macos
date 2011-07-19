@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005, 2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,10 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 #include <pthread.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <sys/param.h>
 
 #ifdef UTMP_COMPAT
 #define UTMP_COMPAT_UTMP0	0x01
@@ -33,12 +37,31 @@
 #define LASTLOG_FACILITY	"com.apple.system.lastlog"
 #define UTMPX_FACILITY		"com.apple.system.utmpx"
 
-#define	UTMPX_LOCK	if (__is_threaded) pthread_mutex_lock(&utmpx_mutex)
-#define	UTMPX_UNLOCK	if (__is_threaded) pthread_mutex_unlock(&utmpx_mutex)
+#define	UTMPX_LOCK(x)	if (__is_threaded) pthread_mutex_lock(&(x)->utmpx_mutex)
+#define	UTMPX_UNLOCK(x)	if (__is_threaded) pthread_mutex_unlock(&(x)->utmpx_mutex)
+#define UTMPX_MAGIC	8
+#define __UTX_MAGIC__	{ 'u', 't', 'x', 0, 'v', 1, 0, 0 }
 
-extern int utfile_system; /* are we using _PATH_UTMPX? */
+#define TEST_UTMPX_T(x,y)	{ \
+					if (!(y)) \
+						LIBC_ABORT("%s: NULL utmpx_t", (x)); \
+					if (memcmp((y)->magic, __utx_magic__, UTMPX_MAGIC) != 0) \
+						LIBC_ABORT("%s: magic mismatch", (x)); \
+				}
+
 extern int __is_threaded;
-extern pthread_mutex_t utmpx_mutex;
+
+struct _utmpx {
+	char magic[UTMPX_MAGIC];
+	struct utmpx ut;
+	pthread_mutex_t utmpx_mutex;
+	char *utfile;
+	FILE *fp;
+	unsigned int utfile_system :1; /* are we using _PATH_UTMPX? */
+	unsigned int readonly      :1;
+};
+extern struct _utmpx __utx__; /* the default struct _utmpx */
+extern const char __utx_magic__[]; /* size of UTMPX_MAGIC */
 
 #ifdef __LP64__
 #define __need_struct_timeval32
@@ -75,9 +98,11 @@ struct utmpx32 {
 };
 #endif /* __LP64__ */
 
-void _endutxent(void);
-void _setutxent(void);
-struct utmpx *_pututxline(const struct utmpx *);
+void __endutxent(struct _utmpx *);
+struct utmpx *__getutxent(struct _utmpx *);
+void __setutxent(struct _utmpx *);
+struct utmpx *__pututxline(struct _utmpx *, const struct utmpx *);
+int __utmpxname(struct _utmpx *, const char *);
 #ifdef __LP64__
 void _utmpx32_64(const struct utmpx32 *, struct utmpx *);
 void _utmpx64_32(const struct utmpx *, struct utmpx32 *);

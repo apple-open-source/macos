@@ -1,0 +1,218 @@
+The below copied from:
+http://xcb.freedesktop.org/XcbPythonBinding/
+
+XCB/ XcbPythonBinding
+
+Introduction
+
+The Python binding for XCB allows the X protocol to be accessed directly from Python. There are two components:
+
+   1. A Python extension written in C. This exposes XCB-specific objects and library functions, as well as providing various base classes used by the generated code.
+   2. Python modules which are generated directly from the XCB-XML protocol descriptions.
+
+The Python binding requires libxcb.so to work. The additional extension libraries are not required.
+Installation from Source
+
+You need a version of xcb/proto that includes the Python generator libraries (xcbgen). Version 1.6 or up is recommended. libxcb.so must be present as well.
+
+Python 2.5 or 2.6 must be installed on the system. Lower versions may work, but have not been tested. Python 3 has not been tested.
+
+The X Python binding can be obtained from git://git.freedesktop.org/git/xcb/xpyb. After cloning the repo, the standard ./autogen.sh; make; make install should suffice to build and install it.
+
+Note that Python has a path that it uses when searching for modules to import. This path must include the place where you install the software. For example if you install with a prefix of /usr/local then your Python path must include /usr/local/lib/python2.5/site-packages. There are at least four ways to accomplish this:
+
+   1. Install to /usr/lib which is already in the Python path.
+   2. Set a PYTHONPATH environment variable containing the path.
+   3. Create a file with a .pth extension, containing the path, in a place that is on the existing path, such as /usr/lib/python2.5/site-packages.
+   4. In your Python code, do a sys.path.append(foo) before you import the XCB modules.
+
+Usage
+
+The usage model is essentially an object-oriented version of libxcb. Refer to the PublicApi and ProtocolExtensionApi documentation for libxcb.
+
+A note on naming: the Python binding does not attempt to do any significant name normalization. This means that XCB library functions retain the lower-case/underscore convention, while X protocol names retain the CamelCase from the XML. Names that are reserved words in Python, such as the words "class", "def", and "None", are prefixed with underscores as necessary. Enum member names consisting of only numbers are treated likewise, e.g. ButtonMask._1.
+
+You always need to import xcb and xcb.xproto at the start of the program. Also import any other extensions you plan on using.
+
+To connect, use:
+
+conn = xcb.connect(display=':0.0', fd=3, auth='NAME:binary-data')
+
+The arguments are all optional, with display and fd being mutually exclusive. The returned object has attributes and methods corresponding to the various XCB calls:
+
+conn.pref_screen
+conn.flush()
+conn.wait_for_event()
+conn.generate_id()
+conn.get_setup()
+
+Et cetera. To make a core protocol request, use the conn.core attribute:
+
+cookie = conn.core.GetInputFocus()
+reply = cookie.reply()
+
+cookie = conn.core.CreateWindowChecked(...)
+cookie.check()
+
+To make an extension protocol request, call the connection object, passing the extension key you want, and use the returned object. For example:
+
+render = conn(xcb.render.key)
+cookie = render.FillRectangles(...)
+
+Protocol errors are always thrown as exceptions, with the actual error object available as the first exception argument:
+
+try:
+    cookie.check()
+    conn.wait_for_event()
+except xcb.xproto.BadMatch, e:
+    error = e.args[0]
+    print "Bad match on value %d" % error.bad_value
+
+When making a request, any lists or internal sub-structures must be passed as sequences of cardinal values. These lists can contain arbitrary internal nesting. For example:
+
+color = [ 65535, 0, 0, 65535 ]
+rectangles = [ (0, 0, 25, 25), (100, 100, 10, 10), (250, 0, 64, 64) ]
+render.FillRectangles(op, pid, color, 3, rectangles)
+
+Note that the rects_len parameter in this case should always be 3, even if the rectangle list is flattened. The length parameter refers to the number of logical elements.
+
+Reply, event, and error objects have attributes corresponding to each structure field. These objects also implement the buffer interface, allowing them to be addressed as raw binary or written to a file as they appear on the wire.
+
+Reply fields that are themselves lists can accessed using the usual array notation, and can be turned into a buffer object using the .buf() method. The following example shows how to turn a reply array of bytes into a Python string.
+
+# get string "BITMAP"
+atom = 5
+cookie = conn.core.GetAtomName(5)
+reply = cookie.reply()
+print str(reply.name.buf())
+
+Reply arrays of bytes also may need to be unpacked or processed. For example, the GetProperty reply needs to be unpacked if the property consists of packed integers or cardinals:
+
+import struct
+
+conn = xcb.connect()
+setup = conn.get_setup()
+root = setup.roots[0].root
+
+cookie1 = conn.core.InternAtom(True, 17, "_NET_WM_USER_TIME");
+cookie2 = conn.core.InternAtom(True, 8, "CARDINAL");
+name = cookie1.reply().atom
+type = cookie2.reply().atom
+
+cookie = conn.core.GetProperty(False, root, name, type, 0, 1)
+reply = cookie.reply()
+
+print len(reply.value)
+print struct.unpack_from('I', reply.value.buf())[0]
+
+Full Example
+
+The following complete program creates a window, sets a property, and does some drawing with Render. There is also a basic event loop.
+
+import xcb
+from xcb.xproto import *
+import xcb.render
+
+def find_format(screen):
+    for d in screen.depths:
+        if d.depth == depth:
+            for v in d.visuals:
+                if v.visual == visual:
+                    return v.format
+
+    raise Exception("Failed to find an appropriate Render pictformat!")
+
+
+def startup():
+    white = setup.roots[0].white_pixel
+
+    conn.core.CreateWindow(depth, window, root,
+                           0, 0, 640, 480, 0,
+                           WindowClass.InputOutput,
+                           visual,
+                           CW.BackPixel | CW.EventMask,
+                           [ white, EventMask.ButtonPress | EventMask.EnterWindow | EventMask.LeaveWindow | EventMask.Exposure ])
+
+    cookie = conn.render.QueryPictFormats()
+    reply = cookie.reply()
+    format = find_format(reply.screens[0])
+
+    name = 'X Python Binding Demo'
+    conn.core.ChangeProperty(PropMode.Replace, window, xcb.XA_WM_NAME, xcb.XA_STRING, 8, len(name), name)
+    conn.render.CreatePicture(pid, window, format, 0, [])
+    conn.core.MapWindow(window)
+    conn.flush()
+
+
+def paint():
+    conn.core.ClearArea(False, window, 0, 0, 0, 0)
+
+    for x in xrange(0, 7):
+        for y in xrange(0, 5):
+            rectangle = ((x + 1) * 24 + x * 64, (y + 1) * 24 + y * 64, 64, 64)
+            color = (x * 65535 / 7, y * 65535 / 5, (x * y) * 65535 / 35, 65535)
+            conn.render.FillRectangles(xcb.render.PictOp.Src, pid, color, 1, rectangle)
+
+    conn.flush()
+
+
+def run():
+    startup()
+    print 'Click in window to exit.'
+
+    while True:
+        try:
+            event = conn.wait_for_event()
+        except xcb.ProtocolException, error:
+            print "Protocol error %s received!" % error.__class__.__name__
+            break
+        except:
+            print "Unexpected error received: %s" % error.message
+            break
+
+        if isinstance(event, ExposeEvent):
+            paint()
+        elif isinstance(event, EnterNotifyEvent):
+            print 'Enter (%d, %d)' % (event.event_x, event.event_y)
+        elif isinstance(event, LeaveNotifyEvent):
+            print 'Leave (%d, %d)' % (event.event_x, event.event_y)
+        elif isinstance(event, ButtonPressEvent):
+            print 'Button %d down' % event.detail
+            break
+
+    conn.disconnect()
+
+
+
+conn = xcb.connect()
+conn.render = conn(xcb.render.key)
+
+setup = conn.get_setup()
+root = setup.roots[0].root
+depth = setup.roots[0].root_depth
+visual = setup.roots[0].root_visual
+
+window = conn.generate_id()
+pid = conn.generate_id()
+
+run()
+
+Display Authentication
+
+Early versions of xpyb had a bug that prevented the XAUTHORITY variable from being used. This has been fixed. Calling xcb.connect() without arguments will automatically use the DISPLAY and XAUTHORITY variables as appropriate.
+
+The example below shows how to manually specify a standard authentication cookie using the optional auth= parameter to xcb.connect().
+
+import xcb
+import xcb.xproto
+
+authname = "MIT-MAGIC-COOKIE-1"
+authdata = "\xa5\xcf\x95\xfa\x19\x49\x03\x60\xaf\xe4\x1e\xcd\xa3\xe2\xad\x47"
+
+authstr = authname + ':' + authdata
+
+conn = xcb.connect(display=":0",auth=authstr)
+
+print conn.get_setup().roots[0].root
+
+Last edited Thu Dec 17 01:03:10 2009

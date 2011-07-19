@@ -3,10 +3,10 @@
  *
  * Copyright (C) 1999-2002
  *  David Corcoran <corcoran@linuxnet.com>
- * Copyright (C) 1999-2005
+ * Copyright (C) 1999-2008
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: debuglog.c 1953 2006-03-21 13:46:28Z rousseau $
+ * $Id: debug.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**
@@ -25,13 +25,12 @@
 
 #define DEBUG_BUF_SIZE 2048
 
-/* default level is a bit verbose to be backward compatible */
-static char LogLevel = PCSC_LOG_ERROR;
+/** default level is quiet to avoid polluting fd 2 (possibly NOT stderr) */
+static char LogLevel = PCSC_LOG_CRITICAL+1;
 
-static signed char LogDoColor = 0;	/* no color by default */
-void log_init(void);
+static signed char LogDoColor = 0;	/**< no color by default */
 
-void log_init(void)
+static void log_init(void)
 {
 	char *e;
 
@@ -43,8 +42,6 @@ void log_init(void)
 	if (e)
 		LogLevel = atoi(e);
 
-	/* no color under Windows */
-#ifndef WIN32
 	/* log to stderr and stderr is a tty? */
 	if (isatty(fileno(stderr)))
 	{
@@ -68,7 +65,6 @@ void log_init(void)
 			}
 		}
 	}
-#endif
 } /* log_init */
 
 void log_msg(const int priority, const char *fmt, ...)
@@ -87,18 +83,9 @@ void log_msg(const int priority, const char *fmt, ...)
 		return;
 
 	va_start(argptr, fmt);
-#ifndef WIN32
-	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-#if HAVE_VSNPRINTF
-	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-	vsprintf(DebugBuffer, fmt, argptr);
-#endif
-#endif
+	(void)vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
 	va_end(argptr);
 
-#ifndef WIN32
 	{
 		if (LogDoColor)
 		{
@@ -128,9 +115,6 @@ void log_msg(const int priority, const char *fmt, ...)
 		else
 			fprintf(stderr, "%s\n", DebugBuffer);
 	}
-#else
-	fprintf(stderr, "%s\n", DebugBuffer);
-#endif
 } /* log_msg */
 
 void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
@@ -146,7 +130,7 @@ void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
 
 	debug_buf_end = DebugBuffer + DEBUG_BUF_SIZE - 5;
 
-	strlcpy(DebugBuffer, msg, sizeof(DebugBuffer));
+	(void)strlcpy(DebugBuffer, msg, sizeof(DebugBuffer));
 	c = DebugBuffer + strlen(DebugBuffer);
 
 	for (i = 0; (i < len) && (c < debug_buf_end); ++i)
@@ -157,4 +141,23 @@ void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
 
 	fprintf(stderr, "%s\n", DebugBuffer);
 } /* log_xxd */
+
+// unused in PCSC framework
+int DebugLogSetCategory(const int dbginfo)
+{
+	return 0;
+}
+
+void DebugLogCategory(const int category, const unsigned char *buffer,
+	const int len)
+{
+}
+
+void DebugLogSetLevel(const int level)
+{
+}
+
+void DebugLogSetLogType(const int dbgtype)
+{
+}
 

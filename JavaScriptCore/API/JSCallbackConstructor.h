@@ -27,21 +27,21 @@
 #define JSCallbackConstructor_h
 
 #include "JSObjectRef.h"
-#include <runtime/JSObject.h>
+#include <runtime/JSObjectWithGlobalObject.h>
 
 namespace JSC {
 
-class JSCallbackConstructor : public JSObject {
+class JSCallbackConstructor : public JSObjectWithGlobalObject {
 public:
-    JSCallbackConstructor(NonNullPassRefPtr<Structure>, JSClassRef, JSObjectCallAsConstructorCallback);
+    JSCallbackConstructor(JSGlobalObject*, Structure*, JSClassRef, JSObjectCallAsConstructorCallback);
     virtual ~JSCallbackConstructor();
     JSClassRef classRef() const { return m_class; }
     JSObjectCallAsConstructorCallback callback() const { return m_callback; }
-    static const ClassInfo info;
-    
-    static PassRefPtr<Structure> createStructure(JSValue proto) 
-    { 
-        return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+    static const ClassInfo s_info;
+
+    static Structure* createStructure(JSGlobalData& globalData, JSValue proto) 
+    {
+        return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
@@ -49,7 +49,6 @@ protected:
 
 private:
     virtual ConstructType getConstructData(ConstructData&);
-    virtual const ClassInfo* classInfo() const { return &info; }
 
     JSClassRef m_class;
     JSObjectCallAsConstructorCallback m_callback;

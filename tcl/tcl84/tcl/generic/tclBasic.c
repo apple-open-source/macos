@@ -43,14 +43,15 @@ static int	        StringTraceProc _ANSI_ARGS_((ClientData clientData,
 static void           StringTraceDeleteProc _ANSI_ARGS_((ClientData clientData));
 
 #ifdef TCL_TIP280
-/* TIP #280 - Modified token based evulation, with line information */
+/* TIP #280 - Modified token based evaluation, with line information */
 static int            EvalEx _ANSI_ARGS_((Tcl_Interp *interp, CONST char *script,
-					  int numBytes, int flags, int line));
+					  int numBytes, int flags, int line,
+					  int* clNextOuter, CONST char* outerScript));
 
 static int            EvalTokensStandard _ANSI_ARGS_((Tcl_Interp *interp,
 						      Tcl_Token *tokenPtr,
-						      int count, int line));
-
+						      int count, int line,
+						      int* clNextOuter, CONST char* outerScript));
 #endif
 
 #ifdef USE_DTRACE
@@ -322,9 +323,9 @@ Tcl_CreateInterp()
      * also updating the Tcl_CallFrame structure (or vice versa).
      */  
 
-    if (sizeof(Tcl_CallFrame) != sizeof(CallFrame)) {
+    if (sizeof(Tcl_CallFrame) < sizeof(CallFrame)) {
 	/*NOTREACHED*/
-        panic("Tcl_CallFrame and CallFrame are not the same size");
+	panic("Tcl_CallFrame must not be smaller than CallFrame");
     }
 
     /*
@@ -366,6 +367,7 @@ Tcl_CreateInterp()
     Tcl_InitHashTable(iPtr->lineBCPtr,    TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(iPtr->lineLAPtr,    TCL_ONE_WORD_KEYS);
     Tcl_InitHashTable(iPtr->lineLABCPtr,  TCL_ONE_WORD_KEYS);
+    iPtr->scriptCLLocPtr = NULL;
 #endif
 
     iPtr->activeVarTracePtr = NULL;
@@ -1202,9 +1204,7 @@ DeleteInterpProc(interp)
 		ckfree ((char*) eclPtr->loc);
 	    }
 
-            if (eclPtr->eiloc != NULL) {
-		ckfree ((char*) eclPtr->eiloc);
-	    }
+	    Tcl_DeleteHashTable (&eclPtr->litInfo);
 
 	    ckfree ((char*) eclPtr);
 	    Tcl_DeleteHashEntry (hPtr);
@@ -3547,11 +3547,11 @@ Tcl_EvalTokensStandard(interp, tokenPtr, count)
 				 * Must be at least 1. */
 {
 #ifdef TCL_TIP280
-  return EvalTokensStandard (interp, tokenPtr, count, 1);
+  return EvalTokensStandard (interp, tokenPtr, count, 1, NULL, NULL);
 }
 
 static int
-EvalTokensStandard(interp, tokenPtr, count, line)
+EvalTokensStandard(interp, tokenPtr, count, line, clNextOuter, outerScript)
     Tcl_Interp *interp;		/* Interpreter in which to lookup
 				 * variables, execute nested commands,
 				 * and report errors. */
@@ -3560,6 +3560,22 @@ EvalTokensStandard(interp, tokenPtr, count, line)
     int count;			/* Number of tokens to consider at tokenPtr.
 				 * Must be at least 1. */
     int line;                   /* The line the script starts on. */
+    int*  clNextOuter;       /* Information about an outer context for */
+    CONST char* outerScript; /* continuation line data. This is set by
+			      * EvalEx() to properly handle [...]-nested
+			      * commands. The 'outerScript' refers to the
+			      * most-outer script containing the embedded
+			      * command, which is refered to by 'script'. The
+			      * 'clNextOuter' refers to the current entry in
+			      * the table of continuation lines in this
+			      * "master script", and the character offsets are
+			      * relative to the 'outerScript' as well.
+			      *
+			      * If outerScript == script, then this call is for
+			      * words in the outer-most script/command. See
+			      * Tcl_EvalEx() and TclEvalObjEx() for the places
+			      * generating arguments for which this is true.
+			      */
 {
 #endif
     Tcl_Obj *resultPtr, *indexPtr, *valuePtr;
@@ -3573,6 +3589,13 @@ EvalTokensStandard(interp, tokenPtr, count, line)
     char *varName, *index;
     CONST char *p = NULL;	/* Initialized to avoid compiler warning. */
     int length, code;
+#ifdef TCL_TIP280
+#define NUM_STATIC_POS 20
+    int isLiteral, maxNumCL, numCL, i, adjust;
+    int* clPosition = NULL;
+    Interp* iPtr = (Interp*) interp;
+    int inFile = iPtr->evalFlags & TCL_EVAL_FILE;
+#endif
 
     /*
      * The only tricky thing about this procedure is that it attempts to
@@ -3584,6 +3607,32 @@ EvalTokensStandard(interp, tokenPtr, count, line)
     code = TCL_OK;
     resultPtr = NULL;
     Tcl_ResetResult(interp);
+#ifdef TCL_TIP280
+    /*
+     * For the handling of continuation lines in literals we first check if
+     * this is actually a literal. For if not we can forego the additional
+     * processing. Otherwise we pre-allocate a small table to store the
+     * locations of all continuation lines we find in this literal, if
+     * any. The table is extended if needed.
+     */
+
+    numCL     = 0;
+    maxNumCL  = 0;
+    isLiteral = 1;
+    for (i=0 ; i < count; i++) {
+	if ((tokenPtr[i].type != TCL_TOKEN_TEXT) &&
+	    (tokenPtr[i].type != TCL_TOKEN_BS)) {
+	    isLiteral = 0;
+	    break;
+	}
+    }
+
+    if (isLiteral) {
+	maxNumCL   = NUM_STATIC_POS;
+	clPosition = (int*) ckalloc (maxNumCL*sizeof(int));
+    }
+    adjust = 0;
+#endif
     for ( ; count > 0; count--, tokenPtr++) {
 	valuePtr = NULL;
 
@@ -3603,6 +3652,43 @@ EvalTokensStandard(interp, tokenPtr, count, line)
 		length = Tcl_UtfBackslash(tokenPtr->start, (int *) NULL,
 			buffer);
 		p = buffer;
+#ifdef TCL_TIP280
+		/*
+		 * If the backslash sequence we found is in a literal, and
+		 * represented a continuation line, we compute and store its
+		 * location (as char offset to the beginning of the _result_
+		 * script). We may have to extend the table of locations.
+		 *
+		 * Note that the continuation line information is relevant
+		 * even if the word we are processing is not a literal, as it
+		 * can affect nested commands. See the branch for
+		 * TCL_TOKEN_COMMAND below, where the adjustment we are
+		 * tracking here is taken into account. The good thing is that
+		 * we do not need a table of everything, just the number of
+		 * lines we have to add as correction.
+		 */
+
+		if ((length == 1) && (buffer[0] == ' ') &&
+		    (tokenPtr->start[1] == '\n')) {
+		    if (isLiteral) {
+			int clPos;
+			if (resultPtr == 0) {
+			    clPos = 0;
+			} else {
+			    Tcl_GetStringFromObj(resultPtr, &clPos);
+			}
+
+			if (numCL >= maxNumCL) {
+			    maxNumCL *= 2;
+			    clPosition = (int*) ckrealloc ((char*)clPosition,
+							   maxNumCL*sizeof(int));
+			}
+			clPosition[numCL] = clPos;
+			numCL ++;
+		    }
+		    adjust ++;
+		}
+#endif
 		break;
 
 	    case TCL_TOKEN_COMMAND: {
@@ -3615,8 +3701,19 @@ EvalTokensStandard(interp, tokenPtr, count, line)
 			    tokenPtr->start+1, tokenPtr->size-2, 0);
 #else
 		    /* TIP #280: Transfer line information to nested command */
+		    TclAdvanceContinuations (&line, &clNextOuter,
+					     tokenPtr->start - outerScript);
 		    code = EvalEx(interp,
-			    tokenPtr->start+1, tokenPtr->size-2, 0, line);
+				  tokenPtr->start+1, tokenPtr->size-2, 0,
+				  line + adjust, clNextOuter, outerScript);
+
+		    /*
+		     * Restore flag reset by the nested eval for future
+		     * bracketed commands and their CmdFrame setup
+		     */
+		    if (inFile) {
+			iPtr->evalFlags |= TCL_EVAL_FILE;
+		    }
 #endif
 		}
 		iPtr->numLevels--;
@@ -3638,7 +3735,7 @@ EvalTokensStandard(interp, tokenPtr, count, line)
 #else
 		    /* TIP #280: Transfer line information to nested command */
 		    code = EvalTokensStandard(interp, tokenPtr+2,
-			    tokenPtr->numComponents - 1, line);
+			    tokenPtr->numComponents - 1, line, NULL, NULL);
 #endif
 		    if (code != TCL_OK) {
 			goto done;
@@ -3709,6 +3806,28 @@ EvalTokensStandard(interp, tokenPtr, count, line)
     }
     if (resultPtr != NULL) {
 	Tcl_SetObjResult(interp, resultPtr);
+#ifdef TCL_TIP280
+	/*
+	 * If the code found continuation lines (which implies that this word
+	 * is a literal), then we store the accumulated table of locations in
+	 * the thread-global data structure for the bytecode compiler to find
+	 * later, assuming that the literal is a script which will be
+	 * compiled.
+	 */
+
+	if (numCL) {
+	    TclContinuationsEnter(resultPtr, numCL, clPosition);
+	}
+
+	/*
+	 * Release the temp table we used to collect the locations of
+	 * continuation lines, if any.
+	 */
+
+	if (maxNumCL) {
+	    ckfree ((char*) clPosition);
+	}
+#endif
     } else {
 	code = TCL_ERROR;
     }
@@ -3808,11 +3927,11 @@ Tcl_EvalEx(interp, script, numBytes, flags)
 				 * supported. */
 {
 #ifdef TCL_TIP280
-  return EvalEx (interp, script, numBytes, flags, 1);
+  return EvalEx (interp, script, numBytes, flags, 1, NULL, script);
 }
 
 static int
-EvalEx(interp, script, numBytes, flags, line)
+EvalEx(interp, script, numBytes, flags, line, clNextOuter, outerScript)
     Tcl_Interp *interp;		/* Interpreter in which to evaluate the
 				 * script.  Also used for error reporting. */
     CONST char *script;		/* First character of script to evaluate. */
@@ -3824,6 +3943,23 @@ EvalEx(interp, script, numBytes, flags, line)
 				 * TCL_EVAL_GLOBAL is currently
 				 * supported. */
     int line;                   /* The line the script starts on. */
+    int*  clNextOuter;       /* Information about an outer context for */
+    CONST char* outerScript; /* continuation line data. This is set only in
+			      * EvalTokensStandard(), to properly handle
+			      * [...]-nested commands. The 'outerScript'
+			      * refers to the most-outer script containing the
+			      * embedded command, which is refered to by
+			      * 'script'. The 'clNextOuter' refers to the
+			      * current entry in the table of continuation
+			      * lines in this "master script", and the
+			      * character offsets are relative to the
+			      * 'outerScript' as well.
+			      *
+			      * If outerScript == script, then this call is
+			      * for the outer-most script/command. See
+			      * Tcl_EvalEx() and TclEvalObjEx() for places
+			      * generating arguments for which this is true.
+			      */
 {
 #endif
     Interp *iPtr = (Interp *) interp;
@@ -3849,6 +3985,24 @@ EvalEx(interp, script, numBytes, flags, line)
 #ifdef TCL_TIP280
     /* TIP #280 Structures for tracking of command locations. */
     CmdFrame eeFrame;
+
+    /*
+     * Pointer for the tracking of invisible continuation lines. Initialized
+     * only if the caller gave us a table of locations to track, via
+     * scriptCLLocPtr. It always refers to the table entry holding the
+     * location of the next invisible continuation line to look for, while
+     * parsing the script.
+     */
+
+    int* clNext = NULL;
+
+    if (iPtr->scriptCLLocPtr) {
+	if (clNextOuter) {
+	    clNext = clNextOuter;
+	} else {
+	    clNext = &iPtr->scriptCLLocPtr->loc[0];
+	}
+    }
 #endif
 
     if (numBytes < 0) {
@@ -3917,7 +4071,7 @@ EvalEx(interp, script, numBytes, flags, line)
     } else {
 	/* Set up for plain eval */
 
-        eeFrame.type           = TCL_LOCATION_EVAL;
+	eeFrame.type           = TCL_LOCATION_EVAL;
 	eeFrame.data.eval.path = NULL;
     }
 
@@ -3954,21 +4108,26 @@ EvalEx(interp, script, numBytes, flags, line)
 	/*
 	 * TIP #280 Track lines. The parser may have skipped text till it
 	 * found the command we are now at. We have count the lines in this
-	 * block.
+	 * block, and do not forget invisible continuation lines.
 	 */
 
-	TclAdvanceLines (&line, p, parse.commandStart);
+	TclAdvanceLines         (&line, p, parse.commandStart);
+	TclAdvanceContinuations (&line, &clNext,
+				 parse.commandStart - outerScript);
 #endif
 
 	if (parse.numWords > 0) {
 #ifdef TCL_TIP280
 	    /*
 	     * TIP #280. Track lines within the words of the current
-	     * command.
+	     * command. We use a separate pointer into the table of
+	     * continuation line locations to not lose our position for the
+	     * per-command parsing.
 	     */
 
-	    int         wordLine  = line;
-	    CONST char* wordStart = parse.commandStart;
+	    int         wordLine   = line;
+	    CONST char* wordStart  = parse.commandStart;
+	    int*        wordCLNext = clNext;
 #endif
 
 	    /*
@@ -4003,10 +4162,12 @@ EvalEx(interp, script, numBytes, flags, line)
 		 * (source vs. eval).
 		 */
 
-		TclAdvanceLines (&wordLine, wordStart, tokenPtr->start);
+		TclAdvanceLines         (&wordLine, wordStart, tokenPtr->start);
+		TclAdvanceContinuations (&wordLine, &wordCLNext,
+					 tokenPtr->start - outerScript);
 		wordStart = tokenPtr->start;
 
-                eeFrame.line [objectsUsed] = (TclWordKnownAtCompileTime (tokenPtr)
+		eeFrame.line [objectsUsed] = (TclWordKnownAtCompileTime (tokenPtr)
 					      ? wordLine
 					      : -1);
 
@@ -4015,7 +4176,8 @@ EvalEx(interp, script, numBytes, flags, line)
 		}
 
 		code = EvalTokensStandard(interp, tokenPtr+1, 
-		            tokenPtr->numComponents, wordLine);
+		            tokenPtr->numComponents, wordLine,
+			    wordCLNext, outerScript);
 
 		iPtr->evalFlags = 0;
 #endif
@@ -4023,6 +4185,12 @@ EvalEx(interp, script, numBytes, flags, line)
 		if (code == TCL_OK) {
 		    objv[objectsUsed] = Tcl_GetObjResult(interp);
 		    Tcl_IncrRefCount(objv[objectsUsed]);
+#ifdef TCL_TIP280
+		    if (wordCLNext) {
+			TclContinuationsEnterDerived (objv[objectsUsed],
+				      wordStart - outerScript, wordCLNext);
+		    }
+#endif
 		} else {
 		    goto error;
 		}
@@ -4317,6 +4485,53 @@ TclAdvanceLines (line,start,end)
 
 /*
  *----------------------------------------------------------------------
+ *
+ * TclAdvanceContinuations --
+ *
+ *	This procedure is a helper which counts the number of continuation
+ *	lines (CL) in a block of text using a table of CL locations and
+ *	advances an external counter, and the pointer into the table.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	The specified counter is advanced per the number of continuation lines
+ *	found.
+ *
+ * TIP #280
+ *----------------------------------------------------------------------
+ */
+
+void
+TclAdvanceContinuations (line,clNextPtrPtr,loc)
+     int* line;
+     int** clNextPtrPtr;
+     int loc;
+{
+    /*
+     * Track the invisible continuation lines embedded in a script, if
+     * any. Here they are just spaces (already). They were removed by
+     * EvalTokensStandard() via Tcl_UtfBackslash().
+     *
+     * *clNextPtrPtr             <=> We have continuation lines to track.
+     * **clNextPtrPtr >= 0       <=> We are not beyond the last possible location.
+     * loc >= **clNextPtrPtr     <=> We stepped beyond the current cont. line.
+     */
+
+    while (*clNextPtrPtr && (**clNextPtrPtr >= 0) && (loc >= **clNextPtrPtr)) {
+	/*
+	 * We just stepped over an invisible continuation line. Adjust the
+	 * line counter and step to the table entry holding the location of
+	 * the next continuation line to track.
+	 */
+	(*line) ++;
+	(*clNextPtrPtr) ++;
+    }
+}
+
+/*
+ *----------------------------------------------------------------------
  * Note: The whole data structure access for argument location tracking is
  * hidden behind these three functions. The only parts open are the lineLAPtr
  * field in the Interp structure. The CFWord definition is internal to here.
@@ -4454,46 +4669,68 @@ TclArgumentRelease(interp,objv,objc)
  */
 
 void
-TclArgumentBCEnter(interp,codePtr,cfPtr)
+TclArgumentBCEnter(interp, objv, objc, codePtr, cfPtr, pc)
      Tcl_Interp* interp;
+     Tcl_Obj*    objv[];
+     int         objc;
      void*       codePtr;
      CmdFrame*   cfPtr;
+     int         pc;
 {
     Interp*        iPtr  = (Interp*) interp;
     Tcl_HashEntry* hePtr = Tcl_FindHashEntry (iPtr->lineBCPtr, (char *) codePtr);
 
     if (hePtr) {
 	ExtCmdLoc* eclPtr = (ExtCmdLoc*) Tcl_GetHashValue (hePtr);
-	int i;
+	hePtr = Tcl_FindHashEntry(&eclPtr->litInfo, (char*) pc);
 
-	for (i=0; i < eclPtr->nueiloc; i++) {
+	if (hePtr) {
+	    int  word;
+	    int  cmd  = (int) Tcl_GetHashValue(hePtr);
+	    ECL* ePtr = &eclPtr->loc[cmd];
 
-	    ExtIndex* eiPtr = &eclPtr->eiloc[i];
-	    Tcl_Obj*  obj   = eiPtr->obj;
-	    int new;
-	    Tcl_HashEntry*  hPtr;
-	    CFWordBC* cfwPtr;
+	    /*
+	     * A few truths ...
+	     * (1) ePtr->nline == objc
+	     * (2) (ePtr->line[word] < 0) => !literal, for all words
+	     * (3) (word == 0) => !literal
+	     *
+	     * Item (2) is why we can use objv to get the literals, and do not
+	     * have to save them at compile time.
+	     */
 
-	    hPtr = Tcl_CreateHashEntry (iPtr->lineLABCPtr, (char*) obj, &new);
-	    if (new) {
-		/*
-		 * The word is not on the stack yet, remember the current location
-		 * and initialize references.
-		 */
-		cfwPtr = (CFWordBC*) ckalloc (sizeof (CFWordBC));
-		cfwPtr->framePtr = cfPtr;
-		cfwPtr->eiPtr    = eiPtr;
-		cfwPtr->refCount = 1;
-		Tcl_SetHashValue (hPtr, cfwPtr);
-	    } else {
-		/*
-		 * The word is already on the stack, its current location is not
-		 * relevant. Just remember the reference to prevent early removal.
-		 */
-		cfwPtr = (CFWordBC*) Tcl_GetHashValue (hPtr);
-		cfwPtr->refCount ++;
-	    }
-	} /* for */
+	    for (word = 1; word < objc; word++) {
+		if (ePtr->line[word] >= 0) {
+		    int isnew;
+		    Tcl_HashEntry* hPtr =
+			Tcl_CreateHashEntry (iPtr->lineLABCPtr,
+					     (char*) objv[word], &isnew);
+		    CFWordBC* cfwPtr = (CFWordBC*) ckalloc (sizeof (CFWordBC));
+
+		    cfwPtr->framePtr = cfPtr;
+		    cfwPtr->pc       = pc;
+		    cfwPtr->word     = word;
+
+		    if (isnew) {
+			/*
+			 * The word is not on the stack yet, remember the
+			 * current location and initialize references.
+			 */
+			cfwPtr->prevPtr = NULL;
+		    } else {
+			/*
+			 * The object is already on the stack, however it may
+			 * have a different location now (literal sharing may
+			 * map multiple location to a single Tcl_Obj*. Save
+			 * the old information in the new structure.
+			 */
+			cfwPtr->prevPtr = (CFWordBC*) Tcl_GetHashValue(hPtr);
+		    }
+
+		    Tcl_SetHashValue (hPtr, cfwPtr);
+		}
+	    } /* for */
+	} /* if */
     } /* if */
 }
 
@@ -4518,33 +4755,48 @@ TclArgumentBCEnter(interp,codePtr,cfPtr)
  */
 
 void
-TclArgumentBCRelease(interp,codePtr)
+TclArgumentBCRelease(interp, objv, objc, codePtr, pc)
      Tcl_Interp* interp;
+     Tcl_Obj*    objv[];
+     int         objc;
      void*       codePtr;
+     int         pc;
 {
     Interp*        iPtr  = (Interp*) interp;
     Tcl_HashEntry* hePtr = Tcl_FindHashEntry (iPtr->lineBCPtr, (char *) codePtr);
 
     if (hePtr) {
 	ExtCmdLoc* eclPtr = (ExtCmdLoc*) Tcl_GetHashValue (hePtr);
-	int i;
+	hePtr = Tcl_FindHashEntry(&eclPtr->litInfo, (char*) pc);
 
-	for (i=0; i < eclPtr->nueiloc; i++) {
-	    Tcl_Obj*       obj  = eclPtr->eiloc[i].obj;
-	    Tcl_HashEntry* hPtr = Tcl_FindHashEntry (iPtr->lineLABCPtr, (char *) obj);
-	    CFWordBC* cfwPtr;
+	if (hePtr) {
+	    int  cmd  = (int) Tcl_GetHashValue(hePtr);
+	    ECL* ePtr = &eclPtr->loc[cmd];
+	    int word;
 
-	    if (!hPtr) { continue; }
+	    /*
+	     * Iterate in reverse order, to properly match our pop to the push
+	     * in TclArgumentBCEnter().
+	     */
+	    for (word = objc-1; word >= 1; word--) {
+		if (ePtr->line[word] >= 0) {
+		    Tcl_HashEntry* hPtr = Tcl_FindHashEntry(iPtr->lineLABCPtr,
+						    (char *) objv[word]);
+		    if (hPtr) {
+			CFWordBC* cfwPtr = (CFWordBC*) Tcl_GetHashValue (hPtr);
+ 
+			if (cfwPtr->prevPtr) {
+			    Tcl_SetHashValue(hPtr, cfwPtr->prevPtr);
+			} else {
+			    Tcl_DeleteHashEntry(hPtr);
+			}
 
-	    cfwPtr = (CFWordBC*) Tcl_GetHashValue (hPtr);
-
-	    cfwPtr->refCount --;
-	    if (cfwPtr->refCount > 0) { continue; }
-
-	    ckfree ((char*) cfwPtr);
-	    Tcl_DeleteHashEntry (hPtr);
-	} /* for */
-    } /* if */
+			ckfree((char *) cfwPtr);
+		    }
+		}
+	    }
+	}
+    }
 }
 
 /*
@@ -4608,12 +4860,12 @@ TclArgumentGet(interp,obj,cfPtrPtr,wordPtr)
     hPtr = Tcl_FindHashEntry (iPtr->lineLABCPtr, (char *) obj);
     if (hPtr) {
 	CFWordBC* cfwPtr = (CFWordBC*) Tcl_GetHashValue (hPtr);
-	ExtIndex* eiPtr = cfwPtr->eiPtr;
 
 	framePtr = cfwPtr->framePtr;
-	framePtr->data.tebc.pc = ((ByteCode*) framePtr->data.tebc.codePtr)->codeStart + eiPtr->pc;
+	framePtr->data.tebc.pc = (char*) ((ByteCode*)
+		  framePtr->data.tebc.codePtr)->codeStart + cfwPtr->pc;
 	*cfPtrPtr = cfwPtr->framePtr;
-	*wordPtr  = eiPtr->word;
+	*wordPtr  = cfwPtr->word;
 	return;
     }
 }
@@ -4878,6 +5130,34 @@ TclEvalObjEx(interp, objPtr, flags, invoker, word)
 	     * code in the bytecode compiler.
 	     */
 
+	    /*
+	     * Now we check if we have data about invisible continuation lines
+	     * for the script, and make it available to the direct script
+	     * parser and evaluator we are about to call, if so.
+	     *
+	     * It may be possible that the script Tcl_Obj* can be free'd while
+	     * the evaluator is using it, leading to the release of the
+	     * associated ContLineLoc structure as well. To ensure that the
+	     * latter doesn't happen we set a lock on it. We release this lock
+	     * later in this function, after the evaluator is done.  The
+	     * relevant "lineCLPtr" hashtable is managed in the file
+	     * "tclObj.c".
+	     *
+	     * Another important action is to save (and later restore) the
+	     * continuation line information of the caller, in case we are
+	     * executing nested commands in the eval/direct path.
+	     */
+
+	    ContLineLoc* saveCLLocPtr = iPtr->scriptCLLocPtr;
+	    ContLineLoc* clLocPtr = TclContinuationsGet (objPtr);
+
+	    if (clLocPtr) {
+		iPtr->scriptCLLocPtr = clLocPtr;
+		Tcl_Preserve (iPtr->scriptCLLocPtr);
+	    } else {
+		iPtr->scriptCLLocPtr = NULL;
+	    }
+
 	    if (invoker == NULL) {
 	        /* No context, force opening of our own */
 	        script = Tcl_GetStringFromObj(objPtr, &numSrcBytes);
@@ -4922,14 +5202,24 @@ TclEvalObjEx(interp, objPtr, flags, invoker, word)
 		    iPtr->invokeCmdFramePtr = &ctx;
 		    iPtr->evalFlags |= TCL_EVAL_CTX;
 
-		    result = EvalEx(interp, script, numSrcBytes, flags, ctx.line [word]);
-
-		    if (pc) {
-			/* Death of SrcInfo reference */
-			Tcl_DecrRefCount (ctx.data.eval.path);
-		    }
+		    result = EvalEx(interp, script, numSrcBytes, flags,
+				    ctx.line [word], NULL, script);
+		}
+		if (pc && (ctx.type == TCL_LOCATION_SOURCE)) {
+		    /* Death of SrcInfo reference. */
+		    Tcl_DecrRefCount(ctx.data.eval.path);
 		}
 	    }
+
+	    /*
+	     * Now release the lock on the continuation line information, if
+	     * any, and restore the caller's settings.
+	     */
+
+	    if (iPtr->scriptCLLocPtr) {
+		Tcl_Release (iPtr->scriptCLLocPtr);
+	    }
+	    iPtr->scriptCLLocPtr = saveCLLocPtr;
 #endif
 	}
     } else {
@@ -6490,7 +6780,7 @@ DTraceObjCmd(
     return TCL_OK;
 }
 
-TCL_DTRACE_DEBUG_LOG();
+TCL_DTRACE_DEBUG_LOG()
 
 #endif /* USE_DTRACE */
 
@@ -6501,4 +6791,3 @@ TCL_DTRACE_DEBUG_LOG();
  * fill-column: 78
  * End:
  */
-

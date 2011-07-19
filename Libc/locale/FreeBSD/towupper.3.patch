@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/towupper.3	2003-05-20 15:21:44.000000000 -0700
-+++ _SB/Libc/locale/FreeBSD/towupper.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -40,29 +40,48 @@
+--- towupper.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ towupper.3	2009-11-09 15:05:26.000000000 -0800
+@@ -36,29 +36,48 @@
  .Dt TOWUPPER 3
  .Os
  .Sh NAME

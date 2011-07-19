@@ -32,16 +32,18 @@
 #define V8DOMWindowShell_h
 
 #include "WrapperTypeInfo.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 class DOMWindow;
 class Frame;
-class String;
+class HTMLDocument;
 
 // V8WindowShell represents all the per-global object state for a Frame that
 // persist between navigations.
@@ -54,6 +56,9 @@ public:
     // Update document object of the frame.
     void updateDocument();
 
+    void namedItemAdded(HTMLDocument*, const AtomicString&);
+    void namedItemRemoved(HTMLDocument*, const AtomicString&);
+
     // Update the security origin of a document
     // (e.g., after setting docoument.domain).
     void updateSecurityOrigin();
@@ -64,7 +69,7 @@ public:
     void setContext(v8::Handle<v8::Context>);
     static bool installDOMWindow(v8::Handle<v8::Context> context, DOMWindow*);
 
-    void initContextIfNeeded();
+    bool initContextIfNeeded();
     void updateDocumentWrapper(v8::Handle<v8::Object> wrapper);
 
     void clearForNavigation();

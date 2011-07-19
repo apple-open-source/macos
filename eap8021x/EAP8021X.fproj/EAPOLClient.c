@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -25,6 +24,7 @@
 #include <stdio.h>
 #include <unistd.h>
 #include <stdlib.h>
+#include <bsm/audit.h>
 #include <mach/mach.h>
 #include <mach/message.h>
 #include <mach/boolean.h>
@@ -131,6 +131,7 @@ EAPOLClientAttach(const char * interface_name,
 		  CFDictionaryRef * control_dict, 
 		  int * result_p)
 {
+    mach_port_t			au_session;
     mach_port_t			bootstrap;
     EAPOLClientRef		client = NULL;
     xmlDataOut_t		control = NULL;
@@ -184,7 +185,7 @@ EAPOLClientAttach(const char * interface_name,
 					   client->if_name,
 					   port, &client->session_port,
 					   &control, &control_len,
-					   &bootstrap, &result);
+					   &bootstrap, &au_session, &result);
     if (status != KERN_SUCCESS) {
 	fprintf(stderr, 
 		"EAPOLClient: eapolcontroller_client_attach(%s): %s\n",
@@ -194,6 +195,12 @@ EAPOLClientAttach(const char * interface_name,
     }
     if (bootstrap != MACH_PORT_NULL) {
 	task_set_bootstrap_port(mach_task_self(), bootstrap);
+    }
+    if (au_session != MACH_PORT_NULL) {
+	if (audit_session_join(au_session) == AU_DEFAUDITSID) {
+	    fprintf(stderr,
+		    "EAPOLClient: audit_session_join returned AU_DEFAULTSID\n");
+	}
     }
     if (control != NULL) {
 	*control_dict
@@ -339,3 +346,22 @@ EAPOLClientForceRenew(EAPOLClientRef client)
     }
     return (result);
 }
+
+#if ! TARGET_OS_EMBEDDED
+
+int
+EAPOLClientUserCancelled(EAPOLClientRef client)
+{
+    int 			result = 0;
+    kern_return_t		status;
+
+    status = eapolcontroller_client_user_cancelled(client->session_port,
+						   &result);
+    if (status != KERN_SUCCESS) {
+	mach_error("eapolcontroller_client_user_cancelled failed", status);
+	result = ENXIO;
+    }
+    return (result);
+}
+
+#endif /* ! TARGET_OS_EMBEDDED */

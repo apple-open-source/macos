@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: postit2.c,v 1.5 2007-07-12 21:11:10 danf Exp $
  *
  * Example code that uploads a file name 'foo' to a remote script that accepts
  * "HTML form based" (as described in RFC1738) uploads using HTTP POST.
@@ -68,7 +67,7 @@ int main(int argc, char *argv[])
   headerlist = curl_slist_append(headerlist, buf);
   if(curl) {
     /* what URL that receives this POST */
-    curl_easy_setopt(curl, CURLOPT_URL, "http://curl.haxx.se/examplepost.cgi");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://example.com/examplepost.cgi");
     if ( (argc == 2) && (!strcmp(argv[1], "noexpectheader")) )
       /* only disable 100-continue header if explicitly requested */
       curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headerlist);

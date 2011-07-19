@@ -498,9 +498,9 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	 * For each cert, either obtain a cached OCSPResponse, or create
 	 * a request to get one. 
 	 *
-	 * NOTE: in-core cache reads (via tpOcspCacheLookup() do NOT incolve a
+	 * NOTE: in-core cache reads (via tpOcspCacheLookup() do NOT involve a
 	 * nonce check, no matter what the app says. If nonce checking is required by the
-	 * app, responses son't get added to cache if the nonce doesn't match, but once
+	 * app, responses don't get added to cache if the nonce doesn't match, but once
 	 * a response is validated and added to cache it's fair game for that task. 
 	 */
 	for(unsigned dex=0; dex<numCerts; dex++) {
@@ -574,8 +574,8 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 	vfyCtx.alloc.free(derOcspdReplies.Data);
 	if(prtn) {
 		/* 
-		 * This can happen when an OCSP server provides bad data...we can
-		 * not determine which cert is associated with this bad response;
+		 * This can happen when an OCSP server provides bad data...we cannot
+		 * determine which cert is associated with this bad response;
 		 * just flag it with the first one and proceed to the loop that
 		 * handles CSSM_TP_ACTION_OCSP_REQUIRE_PER_CERT.
 		 */
@@ -683,7 +683,7 @@ CSSM_RETURN tpVerifyCertGroupWithOCSP(
 				delete ocspResp;
 				/* 
 				 * An exceptional case: synchronously flush the OCSPD cache and send a 
-				 * new resquest for just this one cert. 
+				 * new request for just this one cert. 
 				 * FIXME: does this really buy us anything? A DOS attacker who managed
 				 * to get this bogus response into our cache is likely to be able
 				 * to do it again and again.

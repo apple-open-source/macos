@@ -30,14 +30,12 @@
 #include "WebNodeHighlight.h"
 
 #include "WebView.h"
-#pragma warning(push, 0)
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/Color.h>
 #include <WebCore/GraphicsContext.h>
 #include <WebCore/InspectorController.h>
 #include <WebCore/Page.h>
 #include <WebCore/WindowMessageBroadcaster.h>
-#pragma warning(pop)
 #include <wtf/OwnPtr.h>
 #include <wtf/HashSet.h>
 
@@ -150,7 +148,7 @@ void WebNodeHighlight::update()
     BitmapInfo bitmapInfo = BitmapInfo::createBottomUp(IntSize(size));
 
     void* pixels = 0;
-    OwnPtr<HBITMAP> hbmp(::CreateDIBSection(hdc, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
+    OwnPtr<HBITMAP> hbmp = adoptPtr(::CreateDIBSection(hdc, &bitmapInfo, DIB_RGB_COLORS, &pixels, 0, 0));
 
     ::SelectObject(hdc, hbmp.get());
 

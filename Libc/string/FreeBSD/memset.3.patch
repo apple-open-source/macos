@@ -1,6 +1,6 @@
---- memset.3.orig	2008-02-29 10:45:51.000000000 -0800
-+++ memset.3	2008-02-29 10:59:18.000000000 -0800
-@@ -41,7 +41,7 @@
+--- memset.3.bsdnew	2009-11-30 13:52:22.000000000 -0800
++++ memset.3	2009-11-30 14:19:30.000000000 -0800
+@@ -37,7 +37,7 @@
  .Os
  .Sh NAME
  .Nm memset
@@ -9,7 +9,7 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
-@@ -56,7 +56,7 @@
+@@ -52,7 +52,7 @@ writes
  .Fa len
  bytes of value
  .Fa c
@@ -18,11 +18,11 @@
  .Fa b .
  .Sh RETURN VALUES
  The
-@@ -64,6 +64,7 @@
+@@ -60,6 +60,7 @@ The
  function returns its first argument.
  .Sh SEE ALSO
  .Xr bzero 3 ,
 +.Xr memset_pattern 3 ,
- .Xr swab 3
+ .Xr swab 3 ,
+ .Xr wmemset 3
  .Sh STANDARDS
- The

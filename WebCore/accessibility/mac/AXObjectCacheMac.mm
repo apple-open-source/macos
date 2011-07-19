@@ -31,7 +31,7 @@
 #import "AccessibilityObject.h"
 #import "AccessibilityObjectWrapper.h"
 #import "RenderObject.h"
-#import "WebCoreViewFactory.h"
+#import "WebCoreSystemInterface.h"
 
 #import <wtf/PassRefPtr.h>
 
@@ -46,13 +46,13 @@ namespace WebCore {
 void AXObjectCache::detachWrapper(AccessibilityObject* obj)
 {
     [obj->wrapper() detach];
-    [obj->wrapper() release];
     obj->setWrapper(0);
 }
 
 void AXObjectCache::attachWrapper(AccessibilityObject* obj)
 {
-    obj->setWrapper([[AccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
+    RetainPtr<AccessibilityObjectWrapper> wrapper(AdoptNS, [[AccessibilityObjectWrapper alloc] initWithAccessibilityObject:obj]);
+    obj->setWrapper(wrapper.get());
 }
 
 void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotification notification)
@@ -70,6 +70,13 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
             else
                 macNotification = NSAccessibilityFocusedUIElementChangedNotification;                
             break;
+        case AXAutocorrectionOccured:
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+            macNotification = @"AXAutocorrectionOccurred";
+            break;
+#else
+            return;
+#endif
         case AXFocusedUIElementChanged:
             macNotification = NSAccessibilityFocusedUIElementChangedNotification;
             break;
@@ -78,6 +85,9 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
             break;
         case AXLoadComplete:
             macNotification = "AXLoadComplete";
+            break;
+        case AXInvalidStatusChanged:
+            macNotification = "AXInvalidStatusChanged";
             break;
         case AXSelectedChildrenChanged:
             macNotification = NSAccessibilitySelectedChildrenChangedNotification;
@@ -91,7 +101,18 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
         case AXLiveRegionChanged:
             macNotification = NSAccessibilityLiveRegionChangedNotification;
             break;
-        // Does not exist on Mac.
+        case AXRowCountChanged:
+            macNotification = NSAccessibilityRowCountChangedNotification;
+            break;
+#ifndef BUILDING_ON_LEOPARD
+        case AXRowExpanded:
+            macNotification = NSAccessibilityRowExpandedNotification;
+            break;
+        case AXRowCollapsed:
+            macNotification = NSAccessibilityRowCollapsedNotification;
+            break;
+#endif
+            // Does not exist on Mac.
         case AXCheckedStateChanged:
         default:
             return;
@@ -107,9 +128,13 @@ void AXObjectCache::postPlatformNotification(AccessibilityObject* obj, AXNotific
     [obj->wrapper() accessibilityPostedNotification:macNotification];
 }
 
+void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, unsigned)
+{
+}
+
 void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject*)
 {
-    [[WebCoreViewFactory sharedFactory] accessibilityHandleFocusChanged];
+    wkAccessibilityHandleFocusChanged();
 }
 
 void AXObjectCache::handleScrolledToAnchor(const Node*)

@@ -98,10 +98,10 @@ IntRect RenderScrollbarTheme::constrainTrackRectToTrackPieces(Scrollbar* scrollb
     IntRect result = rect;
     if (scrollbar->orientation() == HorizontalScrollbar) {
         result.setX(backRect.x());
-        result.setWidth(forwardRect.right() - backRect.x());
+        result.setWidth(forwardRect.maxX() - backRect.x());
     } else {
         result.setY(backRect.y());
-        result.setHeight(forwardRect.bottom() - backRect.y());
+        result.setHeight(forwardRect.maxY() - backRect.y());
     }
     return result;
 }
@@ -109,7 +109,7 @@ IntRect RenderScrollbarTheme::constrainTrackRectToTrackPieces(Scrollbar* scrollb
 void RenderScrollbarTheme::paintScrollCorner(ScrollView*, GraphicsContext* context, const IntRect& cornerRect)
 {
     // FIXME: Implement.
-    context->fillRect(cornerRect, Color::white, DeviceColorSpace);
+    context->fillRect(cornerRect, Color::white, ColorSpaceDeviceRGB);
 }
 
 void RenderScrollbarTheme::paintScrollbarBackground(GraphicsContext* context, Scrollbar* scrollbar)

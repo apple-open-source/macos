@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1983, 1993
  *	The Regents of the University of California.  All rights reserved.
  *
@@ -89,13 +117,14 @@ link_getaddr(const char *addr, int which)
 	char *temp;
 	struct sockaddr_dl sdl;
 	struct sockaddr *sa = &link_ridreq.ifr_addr;
+	size_t slen = strlen(addr);
 
 	if (which != ADDR)
 		errx(1, "can't set link-level netmask or broadcast");
-	if ((temp = malloc(strlen(addr) + 2)) == NULL)
+	if ((temp = malloc(slen + 2)) == NULL)
 		errx(1, "malloc failed");
 	temp[0] = ':';
-	strcpy(temp + 1, addr);
+	strlcpy(temp + 1, addr, slen + 1);
 	sdl.sdl_len = sizeof(sdl);
 	link_addr(temp, &sdl);
 	free(temp);

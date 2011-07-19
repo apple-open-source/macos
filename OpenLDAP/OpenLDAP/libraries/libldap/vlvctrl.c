@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/vlvctrl.c,v 1.21.2.3 2008/02/11 23:26:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/vlvctrl.c,v 1.21.2.6 2010/04/13 20:23:02 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -101,6 +101,7 @@ ldap_create_vlv_control_value(
 
 	value->bv_val = NULL;
 	value->bv_len = 0;
+	ld->ld_errno = LDAP_SUCCESS;
 
 	ber = ldap_alloc_ber_with_options( ld );
 	if ( ber == NULL ) {

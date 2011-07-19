@@ -1,0 +1,137 @@
+UW-IMAP
+=======
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+Namespaces
+----------
+
+By default UW-IMAP allows access to whole home directory. Since the home
+directory may contain many other files as well, many people have chosen to
+store their mails in the 'mail/' directory. This usually means that IMAP
+clients have been configured to use 'mail/' as their "IMAP namespace prefix"
+(the clients use different names for this). This doesn't work with Dovecot,
+because Dovecot shows clients only the 'mail/' directory instead of the whole
+home directory. So if the IMAP namespace was kept as 'mail/', Dovecot would try
+to access the '~/mail/mail/' directory.
+
+There are three ways to fix this:
+
+ 1. Remove the IMAP namespace prefix from the clients.
+ 2. Use namespaces to allow users to keep using the prefix. See "Backwards
+    Compatibility" in <Namespaces.txt> for an example configuration.
+ 3. Configure Dovecot to use home directory ('mail_location =
+    mbox:~/:INBOX=/var/mail/%u' and set 'full_filesystem_access=yes'). The
+    latter is needed to make '~/mail' and '~user/mail' prefixes work.
+
+A typical mailbox location setting is:
+
+---%<-------------------------------------------------------------------------
+mail_location = mbox:~/mail:INBOX=/var/mail/%u
+---%<-------------------------------------------------------------------------
+
+~/mbox file
+-----------
+
+If a '~/mbox' file exists, UW-IMAP moves all the mails from '/var/mail/user'
+into the '~/mbox' file. Currently Dovecot doesn't support this feature. There
+are two possibilities to handle this:
+
+ * Move everyone's mails to '~/mbox' and reconfigure your <MDA.txt> to deliver
+   new mails there by default.
+ * Move the existing mails from '~/mbox' back to '/var/mail/user'.
+
+Subscriptions
+-------------
+
+UW-IMAP keeps the list of subscribed mailboxes in '~/.mailboxlist' file, while
+Dovecot keeps them in '~/mail/.subscriptions' file. UW-IMAP's subscriptions
+also contain the mailboxes with their prefixes, for example:
+
+---%<-------------------------------------------------------------------------
+mail/box
+~/mail/box2
+~user/mail/box3
+---%<-------------------------------------------------------------------------
+
+ * If you removed the prefix from the IMAP clients, you'll also have to remove
+   these prefixes.
+ * You can use <uw2dovecot.sh.txt> script to copy all the users' '.mailboxlist'
+   files to '.subscription' files (without any prefix removal).
+ * It's possible to keep using the '.mailboxlist' filename (as long as it's in
+   the same directory) by modifying 'SUBSCRIPTION_FILE_NAME' define in
+   'src/lib-storage/index/mbox/mbox-storage.h'
+
+UIDs, flags and keywords
+------------------------
+
+Dovecot uses UW-IMAP compatible metadata headers in mboxes, so it's possible to
+migrate back and forth without losing any flags, keywords or cause IMAP UIDs to
+change.
+
+Locking
+-------
+
+UW-IMAP uses dotlock + flock() as the default locking combination, while
+Dovecot uses dotlock + fcntl() by default. See <MboxLocking.txt> to determine
+what are the correct lock settings for you. To use UW-IMAP compatible locking,
+use:
+
+---%<-------------------------------------------------------------------------
+mbox_read_locks = flock
+mbox_write_locks = dotlock flock
+---%<-------------------------------------------------------------------------
+
+DON'T DELETE THIS MESSAGE -- FOLDER INTERNAL DATA
+-------------------------------------------------
+
+The first message in a mbox file may contain the subject "DON'T DELETE THIS
+MESSAGE -- FOLDER INTERNAL DATA". This system message has information about the
+mailbox and its state.
+
+Dovecot v1.0 uses these system messages. Keep them.
+
+Maildir conversion
+------------------
+
+If you're planning on migrating to Dovecot, you might also want to switch to
+Maildir format as well. However it might be easier to first migrate from
+UW-IMAP + mbox to Dovecot + mbox, and only then migrate the users to Maildir
+format.
+
+ * http://people.redhat.com/rkeech/maildir-migration.txt describes how to
+   migrate from UW-IMAP+mbox to Dovecot v0.99 + Maildir. Note that Dovecot
+   v0.99 has slightly different configuration file settings.
+ * <Migration.MailFormat.txt> has some migration scripts
+ * Here is a tool ([attachment:uw2dovecot.pl]) that will convert mbox, mbx, and
+   mix formatted UW-IMAP folders to Maildir/dovecot format.
+
+UW-POP3 (UW-IMAP's POP3 wrapper, ipop3d)
+========================================
+
+By default Dovecot generates POP3 UIDLs differently than UW-POP3, which causes
+POP3 clients to redownload them as new messages. You can avoid this by setting:
+
+---%<-------------------------------------------------------------------------
+pop3_uidl_format = %08Xv%08Xu
+---%<-------------------------------------------------------------------------
+
+To utilize the UW login conversion to lowecase, we recommend that you use the
+following option:
+
+---%<-------------------------------------------------------------------------
+auth_username_format = %Lu
+---%<-------------------------------------------------------------------------
+
+You can confirm that the old and the new UIDLs match:
+
+---%<-------------------------------------------------------------------------
+telnet localhost 110
+user test
+pass test
+uidl
+quit
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

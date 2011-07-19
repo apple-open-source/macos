@@ -53,11 +53,12 @@ private:
     static String normalizeText(const Document*, const String&);
 };
 
-// HTML/WMLOptionElement hold this struct as member variable
+// HTMLOptionElement hold this struct as member variable
 // and pass it to the static helper functions in OptionElement
 class OptionElementData {
 public:
     OptionElementData();
+    ~OptionElementData();
 
     String value() const { return m_value; }
     void setValue(const String& value) { m_value = value; }

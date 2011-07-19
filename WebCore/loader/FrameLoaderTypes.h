@@ -42,7 +42,7 @@ namespace WebCore {
     enum PolicyAction {
         PolicyUse,
         PolicyDownload,
-        PolicyIgnore,
+        PolicyIgnore
     };
 
     // NOTE: Keep in sync with WebKit/mac/WebView/WebFramePrivate.h and WebKit/win/Interfaces/IWebFramePrivate.idl
@@ -57,7 +57,6 @@ namespace WebCore {
         FrameLoadTypeRedirectWithLockedBackForwardList, // FIXME: Merge "lockBackForwardList", "lockHistory", "quickRedirect" and "clientRedirect" into a single concept of redirect.
         FrameLoadTypeReplace,
         FrameLoadTypeReloadFromOrigin,
-        FrameLoadTypeBackWMLDeckNotAccessible
     };
 
     enum NavigationType {
@@ -69,9 +68,9 @@ namespace WebCore {
         NavigationTypeOther
     };
 
-    enum DatabasePolicy {
-        DatabasePolicyStop,    // The database thread should be stopped and database connections closed.
-        DatabasePolicyContinue
+    enum ClearProvisionalItemPolicy {
+        ShouldClearProvisionalItem,
+        ShouldNotClearProvisionalItem
     };
 
     enum ObjectContentType {

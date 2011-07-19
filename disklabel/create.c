@@ -38,11 +38,11 @@
 
 #include "util.h"
 
-static u_int64_t
+static uint64_t
 ParseSize(char *str) {
-	u_int64_t size, retval;
+	uint64_t size, retval;
 	char *endptr;
-	u_int64_t mult = 1;
+	uint64_t mult = 1;
 
 	fprintf(stderr, "ParseSize(%s)\n", str);
 
@@ -80,7 +80,7 @@ ParseSize(char *str) {
 
 void
 doCreate(const char *dev, char **args) {
-	u_int64_t size = 128 * 1024;	// Default size of metadata area
+	uint64_t size = 128 * 1024;	// Default size of metadata area
 	CFMutableDictionaryRef md = nil;
 	CFStringRef cfStr = nil;
 	CFNumberRef cfNum = nil;
@@ -112,7 +112,6 @@ doCreate(const char *dev, char **args) {
 			if (v == nil) {
 				warnx("cannot parse `%s': tag must have a value", arg);
 bad:
-				CFRelease(v);
 				CFRelease(k);
 				continue;
 			}
@@ -149,6 +148,7 @@ bad:
 			errx(6, "doCreate:  cannot create base number");
 		}
 		CFDictionaryAddValue(md, CFSTR("Base"), cfNum);
+		CFRelease(cfNum);
 		cfNum = CFNumberCreate(NULL, kCFNumberSInt64Type, &disksize);
 		if (cfNum == NULL) {
 			errx(7, "doCreate:  cannot create size number");

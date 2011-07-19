@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: splay.c,v 1.13 2009-06-10 02:49:43 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -395,6 +394,10 @@ int main(int argc, argv_item_t argv[])
   for (i = 0; i < MAX; i++) {
     struct timeval key;
     ptrs[i] = t = malloc(sizeof(struct Curl_tree));
+    if(!t) {
+      puts("out of memory!");
+      return 0;
+    }
 
     key.tv_sec = 0;
 #ifdef TEST2
@@ -406,10 +409,6 @@ int main(int argc, argv_item_t argv[])
 #endif
 
     t->payload = (void *)key.tv_usec; /* for simplicity */
-    if(!t) {
-      puts("out of memory!");
-      return 0;
-    }
     root = Curl_splayinsert(key, root, t);
   }
 

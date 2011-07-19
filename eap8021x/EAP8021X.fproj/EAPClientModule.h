@@ -140,4 +140,4 @@ CFStringRef
 EAPClientModulePluginCopyIdentity(EAPClientModuleRef module,
 				  EAPClientPluginDataRef plugin);
 
-#endif _EAP8021X_EAPCLIENTMODULE_H
+#endif /* _EAP8021X_EAPCLIENTMODULE_H */

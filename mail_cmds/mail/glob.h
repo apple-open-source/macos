@@ -108,5 +108,5 @@ EXTERN struct strings {
 	unsigned s_nleft;		/* Number of bytes left here */
 } stringdope[NSPACE];
 
-#endif GLOB_H
+#endif /* GLOB_H */
 

@@ -24,15 +24,20 @@
 #include <libkern/OSByteOrder.h>
 #include <stdio.h>
 #include <unistd.h>
+#include <paths.h>
+#include <fsproperties.h>
+
+#include <IOKit/storage/CoreStorage/CoreStorageUserLib.h>
 
 #include "FSFormatName.h"
 
 static CFMutableDictionaryRef __FSLocalizedNameTable = NULL;
 static OSSpinLock __FSLocalizedNameTableLock = 0;
+static bool IsEncrypted(const char *bsdname);
 
-CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized) 
+CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized, bool encrypted) 
 {
-    CFStringRef formatName;
+    CFTypeRef formatName;
     CFStringRef formatNameTableKey;
     CFIndex indx;
 
@@ -43,7 +48,7 @@ CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, boo
 
     // Use OSSpinLock to protect the table accessed from multiple threads
     OSSpinLockLock(&__FSLocalizedNameTableLock);
-    formatName = ((NULL == __FSLocalizedNameTable) ? NULL : CFDictionaryGetValue(__FSLocalizedNameTable, (const void *)formatNameTableKey));
+    formatName = (void*)((NULL == __FSLocalizedNameTable) ? NULL : CFDictionaryGetValue(__FSLocalizedNameTable, (const void *)formatNameTableKey));
     OSSpinLockUnlock(&__FSLocalizedNameTableLock);
 
     if (NULL == formatName) { // not in the cache
@@ -127,12 +132,14 @@ done:
 			// Get localized FSPersonalities only if we want localized name
 			if (localized == true) {
 				localPersonalities = CFBundleGetValueForInfoDictionaryKey(bundle, KEY_FS_PERSONALITIES);
+//NSLog(CFSTR("localPersonalities = %@\n"), localPersonalities);
 			}
 
 			/* Get global FSPersonalities.  We need to access this since FSSubType exists only
 			 * in global FSPersonalities 
 			 */
             CFDictionaryRef globalPersonalities = CFDictionaryGetValue(bundleDict, (const void *) KEY_FS_PERSONALITIES);
+//NSLog(CFSTR("globalPersonalities = %@\n"), globalPersonalities);
 			CFIndex numPersonalities;
             if (((NULL != localPersonalities) || (localized == false)) &&	// localPersonalities or we don't want localizations 
 			    (NULL != globalPersonalities) && 
@@ -176,7 +183,18 @@ done:
 					FSNameDict = CFDictionaryGetValue(globalPersonalities, FSNameKey);
 				}
 				if (NULL != FSNameDict) {
-					formatName = CFDictionaryGetValue(FSNameDict, (const void *)KEY_FS_NAME);
+					CFStringRef tempName = CFDictionaryGetValue(FSNameDict, (const void *)KEY_FS_NAME);
+					CFStringRef encrName = CFDictionaryGetValue(FSNameDict, CFSTR(kFSCoreStorageEncryptNameKey));
+					if (tempName) {
+						if (encrName) {
+							formatName = (void*)CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+							if (formatName != NULL) {
+								(void)CFDictionarySetValue((void*)formatName, tempName, encrName);
+							}
+						} else {
+							formatName = tempName;
+						}
+					}
 				}
 
 				if (values != valuesBuffer) free(values);
@@ -193,20 +211,37 @@ done:
             if (NULL == unknownTypeString) unknownTypeString = CFCopyLocalizedString(UNKNOWN_FS_NAME, "This string is displayed when localized file system name cannot be determined.");
 			
 			unknownFSNameString = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)"), unknownTypeString, fsType);
-            formatName = unknownFSNameString;
+			formatName = (void*)unknownFSNameString;
         }
         
         // Cache the result
         OSSpinLockLock(&__FSLocalizedNameTableLock);
         if (NULL == __FSLocalizedNameTable) __FSLocalizedNameTable = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+//	NSLog(CFSTR("Setting value %@ for key %@\n"), formatName, formatNameTableKey);	
         CFDictionarySetValue(__FSLocalizedNameTable, (const void *)formatNameTableKey, (const void *)formatName);
         OSSpinLockUnlock(&__FSLocalizedNameTableLock);
+//	NSLog(CFSTR("Localized Name Table = %@\n"), __FSLocalizedNameTable);
         
         if (NULL != bundle) CFRelease(bundle); // it has to be released here since formatName might be owned by the bundle
     }
 
-    CFRelease(formatNameTableKey);
+     CFRelease(formatNameTableKey);
 
+     if (CFGetTypeID(formatName) == CFStringGetTypeID()) {
+	     return CFRetain(formatName);
+     } else if (CFGetTypeID(formatName) == CFDictionaryGetTypeID()) {
+	     // Dictionary with the (possibly localized) name as the key, and the encrypted name as the value
+	     // If we want the encrypted name, we return the value, else we return the key
+	     size_t numEntries = CFDictionaryGetCount((void*)formatName);
+	     void *keyNames[numEntries];
+	     void *values[numEntries];
+	     CFDictionaryGetKeysAndValues((void*)formatName, (const void**)&keyNames, (const void**)&values);
+	     if (encrypted)
+		     return CFRetain(values[0]);
+	     else
+		     return CFRetain(keyNames[0]);
+     }
+	     
     return CFRetain(formatName);
 }
 
@@ -217,14 +252,16 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtURL(CFURLRef url)
 
     if ((NULL != url) && CFURLGetFileSystemRepresentation(url, true, buffer, MAXPATHLEN)) {
 	struct statfs fsInfo;
+	bool encrypted = false;
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
 
+	    encrypted = IsEncrypted(fsInfo.f_mntfromname);
 #ifdef _DARWIN_FEATURE_64_BIT_INODE
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, true);
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, true, encrypted);
 #else
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, true);
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, true, encrypted);
 #endif
 
             CFRelease(fsType);
@@ -244,11 +281,14 @@ CFStringRef _FSCopyNameForVolumeFormatAtURL(CFURLRef url)
 
         if (statfs((char *)buffer, &fsInfo) == 0) {
             CFStringRef fsType = CFStringCreateWithCString(NULL, fsInfo.f_fstypename, kCFStringEncodingASCII);
+	    bool encrypted = false;
+
+	    encrypted = IsEncrypted(fsInfo.f_mntfromname);
 
 #ifdef _DARWIN_FEATURE_64_BIT_INODE
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, false);
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_fssubtype, false, encrypted);
 #else
-            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, false);
+            formatName = FSCopyFormatNameForFSType(fsType, fsInfo.f_reserved1, false, encrypted);
 #endif
 
             CFRelease(fsType);
@@ -267,14 +307,17 @@ CFStringRef _FSCopyLocalizedNameForVolumeFormatAtNode(CFStringRef devnode)
 	    
 	/* convert CFStringRef devnode to CSTR */
 	if (true == CFStringGetCString(devnode, devnodename, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
-	
+		bool encrypted = false;
+
+		encrypted = IsEncrypted(devnodename);
+
 		/* get fsname and fssubtype */
 		memset(fsname, MAX_FSNAME, 0);
 		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
 			/* get unlocalized string */
 			CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
-			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, true);
+			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, true, encrypted);
 			CFRelease(fsType);
 		}
 	}
@@ -290,14 +333,16 @@ CFStringRef _FSCopyNameForVolumeFormatAtNode(CFStringRef devnode)
 	    
 	/* convert CFStringRef devnode to CSTR */
 	if (true == CFStringGetCString(devnode, devnodename, MAXPATHLEN + 1, kCFStringEncodingUTF8)) {
-	
+		bool encrypted;
+
+		encrypted = IsEncrypted(devnodename);	
 		/* get fsname and fssubtype */
 		memset(fsname, MAX_FSNAME, 0);
 		if (getfstype(devnodename, fsname, &fssubtype) == true) {
 		
 			/* get unlocalized string */
 			CFStringRef fsType = CFStringCreateWithCString(NULL, fsname, kCFStringEncodingASCII);
-			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, false);
+			formatName = FSCopyFormatNameForFSType(fsType, fssubtype, false, encrypted);
 			CFRelease(fsType);
 		}
 	}
@@ -564,4 +609,49 @@ static int getwrapper(const HFSMasterDirectoryBlock *mdbp, off_t *offset)
 	*offset += (u_int64_t)SW16(mdbp->drEmbedExtent.startBlock) * (u_int64_t)SW32(mdbp->drAlBlkSiz);
 	
 	return (1);
+}
+
+static bool
+IsEncrypted(const char *bsdname)
+{
+	bool retval = false;
+	const char *diskname = NULL;
+	CFDictionaryRef ioMatch; //IOServiceGetMatchingService() releases:!
+	io_object_t ioObj = IO_OBJECT_NULL;
+	CFBooleanRef	lvfIsEncr = NULL;
+
+	if (strncmp(bsdname, _PATH_DEV, strlen(_PATH_DEV)) == 0) {
+		diskname = bsdname + strlen(_PATH_DEV);
+	}
+
+	if (diskname == NULL)
+		goto finish;
+
+	if (strncmp(diskname, "rdisk", 5) == 0)
+		diskname++;
+
+	//look up the IOMedia object
+	ioMatch = IOBSDNameMatching(kIOMasterPortDefault, 0, diskname);
+	if (!ioMatch)
+		goto finish;
+
+	ioObj = IOServiceGetMatchingService(kIOMasterPortDefault, ioMatch);
+	ioMatch = NULL;
+	//IOServiceGetMatching() released ioMatch
+	if (ioObj == IO_OBJECT_NULL) {
+		goto finish;
+	}
+	lvfIsEncr = IORegistryEntryCreateCFProperty(ioObj, CFSTR(kCoreStorageIsEncryptedKey), nil, 0);
+	if (lvfIsEncr == NULL)
+		retval = false;
+	else
+		retval = CFBooleanGetValue(lvfIsEncr);
+
+finish:
+	if (lvfIsEncr)
+		CFRelease(lvfIsEncr);
+	if (ioObj != IO_OBJECT_NULL) {
+		IOObjectRelease(ioObj);
+	}
+	return retval;
 }

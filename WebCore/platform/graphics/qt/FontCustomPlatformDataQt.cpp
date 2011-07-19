@@ -34,7 +34,7 @@ FontCustomPlatformData::~FontCustomPlatformData()
     QFontDatabase::removeApplicationFont(m_handle);
 }
 
-FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontRenderingMode)
+FontPlatformData FontCustomPlatformData::fontPlatformData(int size, bool bold, bool italic, FontOrientation, TextOrientation, FontWidthVariant, FontRenderingMode)
 {
     QFont font;
     font.setFamily(QFontDatabase::applicationFontFamilies(m_handle)[0]);
@@ -61,5 +61,9 @@ FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer)
     return data;
 }
 
+bool FontCustomPlatformData::supportsFormat(const String& format)
+{
+    return equalIgnoringCase(format, "truetype") || equalIgnoringCase(format, "opentype");
 }
 
+}

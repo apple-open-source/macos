@@ -27,6 +27,7 @@
 #include  <unistd.h>
 #include  "i18n.h"
 #include  "fetchmail.h"
+#include  "sdump.h"
 #include  "smtp.h"
 #include  "socket.h"
 
@@ -126,9 +127,12 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
 	report(stderr, GT_("Authentication required.\n"));
 	return(PS_AUTHFAIL);
 
-    default:
-	report(stderr, GT_("Unknown ODMR error %d\n"), atoi(buf));
-	return(PS_PROTOCOL);
+    default: {
+	    char *t = sdump(buf, strlen(buf));
+	    report(stderr, GT_("Unknown ODMR error \"%s\"\n"), t);
+	    xfree(t);
+	    return(PS_PROTOCOL);
+	}
     }
 
     /*
@@ -138,7 +142,7 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
      * instead, we'll use select(2) to watch the read sides of both
      * sockets and just throw their data at each other.
      */
-    if ((smtp_sock = smtp_open(ctl)) == -1)
+    if ((smtp_sock = smtp_setup(ctl)) == -1)
 	return(PS_SOCKET);
     else
     {
@@ -148,7 +152,6 @@ static int odmr_getrange(int sock, struct query *ctl, const char *id,
 	{
 	    fd_set	readfds;
 	    struct timeval timeout;
-	    char	buf[MSGBUFSIZE];
 
 	    FD_ZERO(&readfds);
 	    FD_SET(sock, &readfds);

@@ -1,0 +1,13 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set A [0 0]
+set B [100 100]
+
+proc dot {p anchor text} {
+    circle radius 2 at $p color red text $text anchor $anchor
+}
+
+dot $A        se A
+dot $B        nw B
+dot [$B | $A] sw "\[B | A\] is here"
+dot [$A | $B] ne "\[A | B\] is here"

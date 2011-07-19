@@ -2,7 +2,7 @@
 	File:		MBCAbout.mm
 	Contains:	Show the about box
 	Version:	1.0
-	Copyright:	© 2003 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2003-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,15 @@
 	Change History (most recent first):
 
 		$Log: MBCAbout.mm,v $
+		Revision 1.5  2010/12/12 20:25:33  neerache
+		<rdar://problem/8759896> "Download Source Code" button links to defunct page
+		
+		Revision 1.4  2010/12/11 00:49:09  neerache
+		<rdar://problem/8672916> [Chess]:AB:11A316: Incorrect alignment for about window
+		
+		Revision 1.3  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.2  2008/10/24 23:23:26  neerache
 		Update small print
 		
@@ -42,10 +51,13 @@
 					  [[NSBundle mainBundle] 
 						  objectForInfoDictionaryKey:@"CFBundleVersion"]]];
 
-	[fLicense insertText:
-				  [NSString stringWithContentsOfFile:
+	[fLicense setString:
+				  [NSString stringWithContentsOfURL:
 								[[NSBundle mainBundle] 
-									pathForResource: @"COPYING" ofType: nil]]];
+									URLForResource: @"COPYING" withExtension:nil]
+										   encoding:NSUTF8StringEncoding
+											  error:nil]];
+	[fLicense alignLeft:self];
 	[fLicense setEditable:NO];
 	[fLicense scrollRangeToVisible:NSMakeRange(0,0)];
 }
@@ -54,7 +66,7 @@
 {
 	NSURL * url = 
 		[NSURL 
-			URLWithString:@"http://developer.apple.com/darwin/projects/misc/"];
+			URLWithString:@"http://www.opensource.apple.com/source/Chess/"];
 	[[NSWorkspace sharedWorkspace] openURL:url];
 }				
 

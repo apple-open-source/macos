@@ -24,6 +24,7 @@
 
 #include "ArrayPrototype.h"
 #include "Error.h"
+#include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "JSString.h"
@@ -34,6 +35,8 @@
 #include "RegExpPrototype.h"
 #include "RegExp.h"
 #include "RegExpCache.h"
+#include "UStringConcatenate.h"
+#include <wtf/PassOwnPtr.h>
 
 namespace JSC {
 
@@ -64,7 +67,7 @@ namespace JSC {
 
 ASSERT_CLASS_FITS_IN_CELL(RegExpConstructor);
 
-const ClassInfo RegExpConstructor::info = { "Function", &InternalFunction::info, 0, ExecState::regExpConstructorTable };
+const ClassInfo RegExpConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::regExpConstructorTable };
 
 /* Source for RegExpConstructor.lut.h
 @begin regExpConstructorTable
@@ -92,19 +95,21 @@ const ClassInfo RegExpConstructor::info = { "Function", &InternalFunction::info,
 @end
 */
 
-RegExpConstructor::RegExpConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, RegExpPrototype* regExpPrototype)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, "RegExp"))
-    , d(new RegExpConstructorPrivate)
+RegExpConstructor::RegExpConstructor(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, RegExpPrototype* regExpPrototype)
+    : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, "RegExp"))
+    , d(adoptPtr(new RegExpConstructorPrivate))
 {
+    ASSERT(inherits(&s_info));
+
     // ECMA 15.10.5.1 RegExp.prototype
-    putDirectWithoutTransition(exec->propertyNames().prototype, regExpPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().prototype, regExpPrototype, DontEnum | DontDelete | ReadOnly);
 
     // no. of arguments for constructor
-    putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 2), ReadOnly | DontDelete | DontEnum);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(2), ReadOnly | DontDelete | DontEnum);
 }
 
 RegExpMatchesArray::RegExpMatchesArray(ExecState* exec, RegExpConstructorPrivate* data)
-    : JSArray(exec->lexicalGlobalObject()->regExpMatchesArrayStructure(), data->lastNumSubPatterns + 1)
+    : JSArray(exec->globalData(), exec->lexicalGlobalObject()->regExpMatchesArrayStructure(), data->lastNumSubPatterns + 1, CreateInitialized)
 {
     RegExpConstructorPrivate* d = new RegExpConstructorPrivate;
     d->input = data->lastInput;
@@ -139,7 +144,7 @@ void RegExpMatchesArray::fillArrayInstance(ExecState* exec)
     }
 
     PutPropertySlot slot;
-    JSArray::put(exec, exec->propertyNames().index, jsNumber(exec, d->lastOvector()[0]), slot);
+    JSArray::put(exec, exec->propertyNames().index, jsNumber(d->lastOvector()[0]), slot);
     JSArray::put(exec, exec->propertyNames().input, jsString(exec, d->input), slot);
 
     delete d;
@@ -183,7 +188,7 @@ JSValue RegExpConstructor::getLeftContext(ExecState* exec) const
 JSValue RegExpConstructor::getRightContext(ExecState* exec) const
 {
     if (!d->lastOvector().isEmpty())
-        return jsSubstring(exec, d->lastInput, d->lastOvector()[1], d->lastInput.size() - d->lastOvector()[1]);
+        return jsSubstring(exec, d->lastInput, d->lastOvector()[1], d->lastInput.length() - d->lastOvector()[1]);
     return jsEmptyString(exec);
 }
     
@@ -286,31 +291,42 @@ void setRegExpConstructorMultiline(ExecState* exec, JSObject* baseObject, JSValu
 {
     asRegExpConstructor(baseObject)->setMultiline(value.toBoolean(exec));
 }
-  
+
 // ECMA 15.10.4
-JSObject* constructRegExp(ExecState* exec, const ArgList& args)
+JSObject* constructRegExp(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args)
 {
     JSValue arg0 = args.at(0);
     JSValue arg1 = args.at(1);
 
-    if (arg0.inherits(&RegExpObject::info)) {
+    if (arg0.inherits(&RegExpObject::s_info)) {
         if (!arg1.isUndefined())
-            return throwError(exec, TypeError, "Cannot supply flags when constructing one RegExp from another.");
+            return throwError(exec, createTypeError(exec, "Cannot supply flags when constructing one RegExp from another."));
         return asObject(arg0);
     }
 
     UString pattern = arg0.isUndefined() ? UString("") : arg0.toString(exec);
-    UString flags = arg1.isUndefined() ? UString("") : arg1.toString(exec);
+    if (exec->hadException())
+        return 0;
+
+    RegExpFlags flags = NoFlags;
+    if (!arg1.isUndefined()) {
+        flags = regExpFlags(arg1.toString(exec));
+        if (exec->hadException())
+            return 0;
+        if (flags == InvalidFlags)
+            return throwError(exec, createSyntaxError(exec, "Invalid flags supplied to RegExp constructor."));
+    }
 
     RefPtr<RegExp> regExp = exec->globalData().regExpCache()->lookupOrCreate(pattern, flags);
     if (!regExp->isValid())
-        return throwError(exec, SyntaxError, makeString("Invalid regular expression: ", regExp->errorMessage()));
-    return new (exec) RegExpObject(exec->lexicalGlobalObject()->regExpStructure(), regExp.release());
+        return throwError(exec, createSyntaxError(exec, regExp->errorMessage()));
+    return new (exec) RegExpObject(exec->lexicalGlobalObject(), globalObject->regExpStructure(), regExp.release());
 }
 
-static JSObject* constructWithRegExpConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithRegExpConstructor(ExecState* exec)
 {
-    return constructRegExp(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->callee())->globalObject(), args));
 }
 
 ConstructType RegExpConstructor::getConstructData(ConstructData& constructData)
@@ -320,9 +336,10 @@ ConstructType RegExpConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.10.3
-static JSValue JSC_HOST_CALL callRegExpConstructor(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callRegExpConstructor(ExecState* exec)
 {
-    return constructRegExp(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructRegExp(exec, asInternalFunction(exec->callee())->globalObject(), args));
 }
 
 CallType RegExpConstructor::getCallData(CallData& callData)

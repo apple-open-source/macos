@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)abort.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.9 2003/08/16 11:43:57 davidxu Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.11 2007/01/09 00:28:09 imp Exp $");
 
 #include "namespace.h"
 #include <signal.h>
@@ -46,9 +42,13 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/abort.c,v 1.9 2003/08/16 11:43:57 davidx
 #include <pthread.h>
 #include "un-namespace.h"
 
+#include "libc_private.h"
+
+#include "CrashReporterClient.h"
+#include "_simple.h"
+
 extern void (*__cleanup)();
 extern void __abort(void) __dead2;
-extern const char *__crashreporter_info__;
 
 #define TIMEOUT	10000	/* 10 milliseconds */
 
@@ -57,8 +57,9 @@ abort()
 {
 	struct sigaction act;
 
-	if (!__crashreporter_info__)
-		__crashreporter_info__ = "abort() called";
+	if (!CRGetCrashLogMessage())
+		CRSetCrashLogMessage("abort() called");
+
 	/*
 	 * POSIX requires we flush stdio buffers on abort.
 	 * XXX ISO C requires that abort() be async-signal-safe.
@@ -72,8 +73,25 @@ abort()
 	 * any errors -- ISO C doesn't allow abort to return anyway.
 	 */
 	sigdelset(&act.sa_mask, SIGABRT);
-	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
-	(void)raise(SIGABRT);
+
+	/* <rdar://problem/7397932> abort() should call pthread_kill to deliver a signal to the aborting thread 
+	 * This helps gdb focus on the thread calling abort()
+	 */
+	if (__is_threaded) {
+	    /* Block all signals on all other threads */
+	    sigset_t fullmask;
+	    sigfillset(&fullmask);
+	    (void)_sigprocmask(SIG_SETMASK, &fullmask, NULL);
+
+	    /* <rdar://problem/8400096> Set the workqueue killable */
+	    __pthread_workqueue_setkill(1);
+
+	    (void)pthread_sigmask(SIG_SETMASK, &act.sa_mask, NULL);
+	    (void)pthread_kill(pthread_self(), SIGABRT);
+	} else {
+	    (void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
+	    (void)kill(getpid(), SIGABRT);
+	}
 	usleep(TIMEOUT); /* give time for signal to happen */
 
 	/*
@@ -88,28 +106,57 @@ __abort()
 {
 	struct sigaction act;
 
-	if (!__crashreporter_info__)
-		__crashreporter_info__ = "__abort() called";
+	if (!CRGetCrashLogMessage())
+		CRSetCrashLogMessage("__abort() called");
 	act.sa_handler = SIG_DFL;
 	act.sa_flags = 0;
 	sigfillset(&act.sa_mask);
 	(void)_sigaction(SIGABRT, &act, NULL);
 	sigdelset(&act.sa_mask, SIGABRT);
-	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
-	(void)raise(SIGABRT);
+
+	/* <rdar://problem/7397932> abort() should call pthread_kill to deliver a signal to the aborting thread 
+	 * This helps gdb focus on the thread calling abort()
+	 */
+	if (__is_threaded) {
+	    /* Block all signals on all other threads */
+	    sigset_t fullmask;
+	    sigfillset(&fullmask);
+	    (void)_sigprocmask(SIG_SETMASK, &fullmask, NULL);
+
+	    /* <rdar://problem/8400096> Set the workqueue killable */
+	    __pthread_workqueue_setkill(1);
+
+	    (void)pthread_sigmask(SIG_SETMASK, &act.sa_mask, NULL);
+	    (void)pthread_kill(pthread_self(), SIGABRT);
+	} else {
+	    (void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
+	    (void)kill(getpid(), SIGABRT);
+	}
 	usleep(TIMEOUT); /* give time for signal to happen */
-	__builtin_trap(); /* never exit normally */
+
+	/* If for some reason SIGABRT was not delivered, we exit using __builtin_trap
+	 * which generates an illegal instruction on i386: <rdar://problem/8400958>
+	 * and SIGTRAP on arm.
+	 */
+	sigfillset(&act.sa_mask);
+	sigdelset(&act.sa_mask, SIGILL);
+	sigdelset(&act.sa_mask, SIGTRAP);
+	(void)_sigprocmask(SIG_SETMASK, &act.sa_mask, NULL);
+	__builtin_trap();
 }
 
 __private_extern__ void
 abort_report_np(const char *fmt, ...)
 {
-	char *str;
+	_SIMPLE_STRING s;
 	va_list ap;
 
-	va_start(ap, fmt);
-	vasprintf(&str, fmt, ap);
-	va_end(ap);
-	__crashreporter_info__ = str ? str : fmt;
+	if ((s = _simple_salloc()) != NULL) {
+		va_start(ap, fmt);
+		_simple_vsprintf(s, fmt, ap);
+		va_end(ap);
+		CRSetCrashLogMessage(_simple_string(s));
+	} else
+		CRSetCrashLogMessage(fmt); /* the format string is better than nothing */
 	abort();
 }

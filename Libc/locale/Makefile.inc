@@ -18,7 +18,7 @@ CFLAGS-${_src} += -D__FBSDID=__RCSID
 MISRCS += isctype.c iswctype.c xlocale.c
 
 .include "Makefile.fbsd_begin"
-FBSDMISRCS= big5.c btowc.c collate.c collcmp.c euc.c fix_grouping.c \
+FBSDMISRCS= ascii.c big5.c btowc.c collate.c collcmp.c euc.c fix_grouping.c \
 	gb18030.c gb2312.c gbk.c \
 	ldpart.c lmessages.c lmonetary.c lnumeric.c localeconv.c \
 	mblen.c mbrlen.c mbrtowc.c mbsinit.c mbsnrtowcs.c mbsrtowcs.c \
@@ -80,9 +80,10 @@ ARCH32 = i386
 ARCH32 = $(_ARCH:C/64$//)
 .endif
 ${_cwd}/rune32.h: ${_cwd}/rune-fbsd.c
-	${HOSTCC} -arch ${ARCH32} -D_LIBC_NO_FEATURE_VERIFICATION -I${.CURDIR}/include -DRUNEOFF32 -o ${_cwd}/rune32 ${.ALLSRC}
+	${CP} ${.CURDIR}/include/runetype.h ${_cwd}
+	${HOSTCC} -arch ${ARCH32} -D_LIBC_NO_FEATURE_VERIFICATION -DRUNEOFF32 -o ${_cwd}/rune32 ${.ALLSRC}
 	${_cwd}/rune32 > ${.TARGET}
-	${RM} ${_cwd}/rune32
+	${RM} ${_cwd}/rune32 ${_cwd}/runetype.h
 AUTOPATCHHDRS+= ${_cwd}/rune32.h
 .endfor # _cwd
 

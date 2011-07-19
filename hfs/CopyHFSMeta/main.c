@@ -88,7 +88,7 @@ OpenDevice(const char *devname)
 		errx(kBadExit, "device name `%s' does not fit pattern", devname);
 	}
 	// Only use an exclusive open if we're not debugging.
-	fd = open(dev.devname, O_RDONLY | (debug ? 0 : O_EXLOCK));
+	fd = open(dev.devname, O_RDWR | (debug ? 0 : O_EXLOCK));
 	if (fd == -1) {
 		err(kBadExit, "cannot open raw device %s", dev.devname);
 	}
@@ -100,8 +100,7 @@ OpenDevice(const char *devname)
 		err(kBadExit, "cannot get size of device %s", dev.devname);
 	}
 	/*
-	 * Attempt to flush the buffer.  This works even with a file descriptor
-	 * opened for read-only.  If it fails, we just warn, but don't abort.
+	 * Attempt to flush the journal.  If it fails, we just warn, but don't abort.
 	 */
 	if (getvfsbyname("hfs", &vfc) == 0) {
 		int rv;
@@ -117,6 +116,8 @@ OpenDevice(const char *devname)
 		if (rv == -1) {
 			warn("cannot replay journal");
 		}
+		/* This is probably not necessary, but we couldn't prove it. */
+		(void)fcntl(fd, F_FULLFSYNC, 0);
 	}
 
 	dev.size = dev.blockCount * dev.blockSize;

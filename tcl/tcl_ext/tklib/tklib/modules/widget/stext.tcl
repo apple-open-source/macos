@@ -9,7 +9,7 @@
 #	(instead, use the 3 line wrapper), this is an example of how one
 #	would do that.
 #
-# RCS: @(#) $Id: stext.tcl,v 1.1 2007/06/20 23:53:51 hobbs Exp $
+# RCS: @(#) $Id: stext.tcl,v 1.2 2008/12/11 18:07:20 hobbs Exp $
 #
 
 if 0 {

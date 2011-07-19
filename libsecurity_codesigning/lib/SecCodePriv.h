@@ -130,7 +130,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef code, SecRequirementTyp
 	by a UNIX process id (pid). This is a shorthand for asking SecGetRootCode()
 	for a guest whose "pid" attribute has the given pid value.
 	
-	This is an obsolescent convenience function.
+	This is a deprecated convenience function.
 	Call SecCodeCopyGuestWithAttributes instead.
 	
 	@param pid A process id for an existing UNIX process on the system.
@@ -150,8 +150,9 @@ OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)
 	data used to verify it.
 	This call unconditionally overrides any signature embedded in the Code and any
 	previously specified detached signature; only the signature data specified here
-	will be used from now on for this Code object. If NULL data is specified, this
-	call reverts to using any embedded signature.
+	will be used from now on for this Code object. If NULL data is specified, the
+	code object is returned to its natural signing state (before a detached
+	signature was first attached to it).
 	Any call to this function voids all cached validations for the Code object.
 	Validations will be performed again as needed in the future. This call does not,
 	by itself, perform or trigger any validations.
@@ -168,6 +169,9 @@ OSStatus SecCodeCreateWithPID(pid_t pid, SecCSFlags flags, SecCodeRef *process)
 		If signature is NULL, discards any previously set signature data and reverts
 		to using the embedded signature, if any. If not NULL, the data is retained and used
 		for future validation operations.
+		The data may be retained or copied. Behavior is undefined if this object
+		is modified after this call before it is replaced through another call to this
+		function).
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
  */
 OSStatus SecCodeSetDetachedSignature(SecStaticCodeRef code, CFDataRef signature,

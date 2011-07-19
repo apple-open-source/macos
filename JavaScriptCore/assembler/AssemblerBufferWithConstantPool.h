@@ -85,7 +85,14 @@ namespace JSC {
 template <int maxPoolSize, int barrierSize, int maxInstructionSize, class AssemblerType>
 class AssemblerBufferWithConstantPool: public AssemblerBuffer {
     typedef SegmentedVector<uint32_t, 512> LoadOffsets;
+    using AssemblerBuffer::putIntegral;
+    using AssemblerBuffer::putIntegralUnchecked;
 public:
+    typedef struct {
+        short high;
+        short low;
+    } TwoShorts;
+
     enum {
         UniqueConst,
         ReusableConst,
@@ -118,6 +125,11 @@ public:
     {
         flushIfNoSpaceFor(insnSpace, constSpace);
         AssemblerBuffer::ensureSpace(insnSpace);
+    }
+
+    void ensureSpaceForAnyOneInstruction()
+    {
+        flushIfNoSpaceFor(maxInstructionSize, sizeof(uint64_t));
     }
 
     bool isAligned(int alignment)
@@ -171,15 +183,16 @@ public:
         correctDeltas(8);
     }
 
-    int size()
+    void putIntegral(TwoShorts value)
     {
-        flushIfNoSpaceFor(maxInstructionSize, sizeof(uint64_t));
-        return AssemblerBuffer::size();
+        putIntegral(value.high);
+        putIntegral(value.low);
     }
 
-    int uncheckedSize()
+    void putIntegralUnchecked(TwoShorts value)
     {
-        return AssemblerBuffer::size();
+        putIntegralUnchecked(value.high);
+        putIntegralUnchecked(value.low);
     }
 
     void* executableCopy(ExecutablePool* allocator)
@@ -188,27 +201,14 @@ public:
         return AssemblerBuffer::executableCopy(allocator);
     }
 
+    void putShortWithConstantInt(uint16_t insn, uint32_t constant, bool isReusable = false)
+    {
+        putIntegralWithConstantInt(insn, constant, isReusable);
+    }
+
     void putIntWithConstantInt(uint32_t insn, uint32_t constant, bool isReusable = false)
     {
-        flushIfNoSpaceFor(4, 4);
-
-        m_loadOffsets.append(AssemblerBuffer::size());
-        if (isReusable)
-            for (int i = 0; i < m_numConsts; ++i) {
-                if (m_mask[i] == ReusableConst && m_pool[i] == constant) {
-                    AssemblerBuffer::putInt(AssemblerType::patchConstantPoolLoad(insn, i));
-                    correctDeltas(4);
-                    return;
-                }
-            }
-
-        m_pool[m_numConsts] = constant;
-        m_mask[m_numConsts] = static_cast<char>(isReusable ? ReusableConst : UniqueConst);
-
-        AssemblerBuffer::putInt(AssemblerType::patchConstantPoolLoad(insn, m_numConsts));
-        ++m_numConsts;
-
-        correctDeltas(4, 4);
+        putIntegralWithConstantInt(insn, constant, isReusable);
     }
 
     // This flushing mechanism can be called after any unconditional jumps.
@@ -246,18 +246,45 @@ private:
         m_lastConstDelta = constSize;
     }
 
+    template<typename IntegralType>
+    void putIntegralWithConstantInt(IntegralType insn, uint32_t constant, bool isReusable)
+    {
+        if (!m_numConsts)
+            m_maxDistance = maxPoolSize;
+        flushIfNoSpaceFor(sizeof(IntegralType), 4);
+
+        m_loadOffsets.append(codeSize());
+        if (isReusable) {
+            for (int i = 0; i < m_numConsts; ++i) {
+                if (m_mask[i] == ReusableConst && m_pool[i] == constant) {
+                    putIntegral(static_cast<IntegralType>(AssemblerType::patchConstantPoolLoad(insn, i)));
+                    correctDeltas(sizeof(IntegralType));
+                    return;
+                }
+            }
+        }
+
+        m_pool[m_numConsts] = constant;
+        m_mask[m_numConsts] = static_cast<char>(isReusable ? ReusableConst : UniqueConst);
+
+        putIntegral(static_cast<IntegralType>(AssemblerType::patchConstantPoolLoad(insn, m_numConsts)));
+        ++m_numConsts;
+
+        correctDeltas(sizeof(IntegralType), 4);
+    }
+
     void flushConstantPool(bool useBarrier = true)
     {
         if (m_numConsts == 0)
             return;
-        int alignPool = (AssemblerBuffer::size() + (useBarrier ? barrierSize : 0)) & (sizeof(uint64_t) - 1);
+        int alignPool = (codeSize() + (useBarrier ? barrierSize : 0)) & (sizeof(uint64_t) - 1);
 
         if (alignPool)
             alignPool = sizeof(uint64_t) - alignPool;
 
         // Callback to protect the constant pool from execution
         if (useBarrier)
-            AssemblerBuffer::putInt(AssemblerType::placeConstantPoolBarrier(m_numConsts * sizeof(uint32_t) + alignPool));
+            putIntegral(AssemblerType::placeConstantPoolBarrier(m_numConsts * sizeof(uint32_t) + alignPool));
 
         if (alignPool) {
             if (alignPool & 1)
@@ -268,18 +295,17 @@ private:
                 AssemblerBuffer::putInt(AssemblerType::padForAlign32);
         }
 
-        int constPoolOffset = AssemblerBuffer::size();
+        int constPoolOffset = codeSize();
         append(reinterpret_cast<char*>(m_pool), m_numConsts * sizeof(uint32_t));
 
         // Patch each PC relative load
         for (LoadOffsets::Iterator iter = m_loadOffsets.begin(); iter != m_loadOffsets.end(); ++iter) {
-            void* loadAddr = reinterpret_cast<void*>(m_buffer + *iter);
-            AssemblerType::patchConstantPoolLoad(loadAddr, reinterpret_cast<void*>(m_buffer + constPoolOffset));
+            void* loadAddr = reinterpret_cast<char*>(data()) + *iter;
+            AssemblerType::patchConstantPoolLoad(loadAddr, reinterpret_cast<char*>(data()) + constPoolOffset);
         }
 
         m_loadOffsets.clear();
         m_numConsts = 0;
-        m_maxDistance = maxPoolSize;
     }
 
     void flushIfNoSpaceFor(int nextInsnSize)

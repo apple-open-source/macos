@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
- * Copyright (C) 2009 Google Inc. All Rights Reserved.
+ * Copyright (C) 2009, 2011 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,7 +31,7 @@
 
 #include "WorkerScriptLoader.h"
 
-#include "GenericWorkerTask.h"
+#include "CrossThreadTask.h"
 #include "ResourceRequest.h"
 #include "ScriptExecutionContext.h"
 #include "SecurityOrigin.h"
@@ -87,9 +87,15 @@ void WorkerScriptLoader::loadAsynchronously(ScriptExecutionContext* scriptExecut
     m_threadableLoader = ThreadableLoader::create(scriptExecutionContext, this, *request, options);
 }
 
+const KURL& WorkerScriptLoader::responseURL() const
+{
+    ASSERT(!failed());
+    return m_responseURL;
+}
+
 PassOwnPtr<ResourceRequest> WorkerScriptLoader::createResourceRequest()
 {
-    OwnPtr<ResourceRequest> request(new ResourceRequest(m_url));
+    OwnPtr<ResourceRequest> request = adoptPtr(new ResourceRequest(m_url));
     request->setHTTPMethod("GET");
     request->setTargetType(m_targetType);
     return request.release();
@@ -101,7 +107,10 @@ void WorkerScriptLoader::didReceiveResponse(const ResourceResponse& response)
         m_failed = true;
         return;
     }
+    m_responseURL = response.url();
     m_responseEncoding = response.textEncodingName();
+    if (m_client)
+        m_client->didReceiveResponse(response);
 }
 
 void WorkerScriptLoader::didReceiveData(const char* data, int len)
@@ -125,7 +134,7 @@ void WorkerScriptLoader::didReceiveData(const char* data, int len)
     m_script += m_decoder->decode(data, len);
 }
 
-void WorkerScriptLoader::didFinishLoading(unsigned long identifier)
+void WorkerScriptLoader::didFinishLoading(unsigned long identifier, double)
 {
     if (m_failed)
         return;

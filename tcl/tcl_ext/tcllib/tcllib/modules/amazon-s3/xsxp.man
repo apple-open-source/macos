@@ -1,9 +1,10 @@
 [manpage_begin xsxp n 1.0]
 [moddesc {eXtremely Simple Xml Parser}]
 [copyright {Copyright 2006 Darren New. All Rights Reserved.}]
+[category  {Text processing}]
 [require Tcl 8.4]
 [require xml]
-
+[keywords xml dom parser]
 [description]
 This package provides a simple interface to parse XML into a pure-value list.
 It also provides accessor routines to pull out specific subtags, 

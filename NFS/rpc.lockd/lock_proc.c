@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -73,9 +73,9 @@ __RCSID("$NetBSD: lock_proc.c,v 1.7 2000/10/11 20:23:56 is Exp $");
 #include <stdlib.h>
 #include <sys/queue.h>
 
-#include <rpc/rpc.h>
-#include <rpcsvc/sm_inter.h>
-#include <rpcsvc/nlm_prot.h>
+#include <oncrpc/rpc.h>
+#include "sm_inter.h"
+#include "nlm_prot.h"
 
 #include "lockd.h"
 #include "lockd_lock.h"
@@ -99,12 +99,11 @@ log_from_addr(fun_name, req)
 	const char *fun_name;
 	struct svc_req *req;
 {
-	struct sockaddr_in *addr;
+	struct sockaddr *addr;
 	char hostname_buf[NI_MAXHOST];
 
-	addr = svc_getcaller(req->rq_xprt);
-	if (getnameinfo((struct sockaddr *)addr, sizeof(*addr), hostname_buf, sizeof hostname_buf,
-	    NULL, 0, 0) != 0)
+	addr = svc_getcaller_sa(req->rq_xprt);
+	if (getnameinfo(addr, addr->sa_len, hostname_buf, sizeof hostname_buf, NULL, 0, 0) != 0)
 		return;
 
 	syslog(LOG_DEBUG, "%s from %s", fun_name, hostname_buf);
@@ -147,19 +146,19 @@ log_netobj(obj)
 /* get_client -------------------------------------------------------------- */
 /*
  * Purpose:	Get a CLIENT* for making RPC calls to lockd on given host
- * Returns:	CLIENT* pointer, from clnt_udp_create, or NULL if error
+ * Returns:	CLIENT* pointer, from clnt(udp|tcp)_create, or NULL if error
  * Notes:	Creating a CLIENT* is quite expensive, involving a
  *		conversation with the remote portmapper to get the
  *		port number.  Since a given client is quite likely
  *		to make several locking requests in succession, it is
  *		desirable to cache the created CLIENT*.
  *
- *		Since we are using UDP rather than TCP, there is no cost
- *		to the remote system in keeping these cached indefinitely.
+ *		Since we are using UDP by default (rather than TCP), there is no
+ *		cost to the remote system in keeping these cached indefinitely.
  *		Unfortunately there is a snag: if the remote system
  *		reboots, the cached portmapper results will be invalid,
  *		and we will never detect this since all of the xxx_msg()
- *		calls return no result - we just fire off a udp packet
+ *		calls return no result - we just fire off a UDP packet
  *		and hope for the best.
  *
  *		We solve this by discarding cached values after two
@@ -227,19 +226,26 @@ addrcmp(const struct sockaddr *sa1, const struct sockaddr *sa2)
 }
 
 CLIENT *
-get_client(host_addr, vers, client_request)
+get_client(host_addr, vers, client_request, use_tcp)
 	struct sockaddr *host_addr;
 	rpcvers_t vers;
 	int client_request;
+	int use_tcp;
 {
 	CLIENT *client, *cached_client;
 	struct timeval retry_time, time_now;
 	int i;
-	int sock_no;
+	int sock_no, cache_ttl;
 	time_t time_start, cache_time = 0;
 	struct badhost *badhost, *nextbadhost;
+	char addrbuf[2*INET6_ADDRSTRLEN];
 
+	if (!use_tcp && config.send_using_tcp)
+		use_tcp = config.send_using_tcp;
 	gettimeofday(&time_now, NULL);
+
+	/* use an extremely short TTL when reclaims are being sent */
+	cache_ttl = (client_request > 1) ? 4 : CLIENT_CACHE_LIFETIME;
 
 	/*
 	 * Search for the given client in the cache.
@@ -254,7 +260,7 @@ get_client(host_addr, vers, client_request)
 		if (addrcmp((struct sockaddr *)&clnt_cache_addr[i], host_addr))
 			continue;
 		/* Found it! */
-		if (((clnt_cache_time[i] + CLIENT_CACHE_LIFETIME) > time_now.tv_sec)) {
+		if (((clnt_cache_time[i] + cache_ttl) > time_now.tv_sec)) {
 			if (config.verbose > 3)
 				syslog(LOG_DEBUG, "Found CLIENT* in cache");
 			return (client);
@@ -333,8 +339,14 @@ get_client(host_addr, vers, client_request)
 	sock_no = RPC_ANYSOCK;
 	retry_time.tv_sec = 5;
 	retry_time.tv_usec = 0;
-	((struct sockaddr_in *)host_addr)->sin_port = 0;      /* Force consultation with portmapper   */
-	client = clntudp_create((struct sockaddr_in *)host_addr, NLM_PROG, vers, retry_time, &sock_no);
+	if (host_addr->sa_family == AF_INET)	/* Force consultation with portmapper   */
+		((struct sockaddr_in *)host_addr)->sin_port = 0;
+	else
+		((struct sockaddr_in6 *)host_addr)->sin6_port = 0;
+	if (use_tcp)
+		client = clnttcp_create_sa(host_addr, NLM_PROG, vers, &sock_no, 0, 0);
+	if (!use_tcp || !client)
+		client = clntudp_create_sa(host_addr, NLM_PROG, vers, retry_time, &sock_no);
 
 	gettimeofday(&time_now, NULL);
 	if (time_now.tv_sec - time_start >= BADHOST_CLIENT_TOOK_TOO_LONG) {
@@ -379,9 +391,9 @@ get_client(host_addr, vers, client_request)
 	if (!client) { 
 		/* We couldn't get a new CLIENT* */
 		if (!cached_client) {
-			syslog(LOG_WARNING, "Unable to contact %s: %s",
-				inet_ntoa(((struct sockaddr_in *)host_addr)->sin_addr),
-				clnt_spcreateerror("clntudp_create"));
+			getnameinfo(host_addr, host_addr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+			syslog(LOG_WARNING, "Unable to contact %s: %s", addrbuf,
+				clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
 			return NULL;
 		}
 		/*
@@ -390,9 +402,9 @@ get_client(host_addr, vers, client_request)
 		 * to use it.
 		 */
 		client = cached_client;
-		syslog(LOG_WARNING, "Unable to update contact info for %s: %s",
-			inet_ntoa(((struct sockaddr_in *)host_addr)->sin_addr),
-			clnt_spcreateerror("clntudp_create"));
+		getnameinfo(host_addr, host_addr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+		syslog(LOG_WARNING, "Unable to update contact info for %s: %s", addrbuf,
+			clnt_spcreateerror(use_tcp ? "clnttcp_create" : "clntudp_create"));
 	} else {
 		/*
 		 * We've got a new/updated CLIENT* for this host.
@@ -404,15 +416,16 @@ get_client(host_addr, vers, client_request)
 		/*
 		 * Disable the default timeout, so we can specify our own in calls
 		 * to clnt_call().  (Note that the timeout is a different concept
-		 * from the retry period set in clnt_udp_create() above.)
+		 * from the retry period set in clnt(udp|tcp)_create() above.)
 		 */
 		retry_time.tv_sec = -1;
 		retry_time.tv_usec = -1;
 		clnt_control(client, CLSET_TIMEOUT, (char *)&retry_time);
 
-		if (config.verbose > 3)
-			syslog(LOG_DEBUG, "Created CLIENT* for %s",
-			    inet_ntoa(((struct sockaddr_in *)host_addr)->sin_addr));
+		if (config.verbose > 3) {
+			getnameinfo(host_addr, host_addr->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+			syslog(LOG_DEBUG, "Created CLIENT* for %s", addrbuf);
+		}
 
 		/* make sure the new entry gets the current timestamp */
 		cache_time = time_now.tv_sec;
@@ -452,7 +465,7 @@ transmit_result(opcode, result, addr, client_request)
 	struct timeval timeo;
 	int success;
 
-	if ((cli = get_client(addr, NLM_VERS, client_request)) != NULL) {
+	if ((cli = get_client(addr, NLM_VERS, client_request, 0)) != NULL) {
 		timeo.tv_sec = 0; /* No timeout - not expecting response */
 		timeo.tv_usec = 0;
 
@@ -486,7 +499,7 @@ transmit4_result(opcode, result, addr, client_request)
 	struct timeval timeo;
 	int success;
 
-	if ((cli = get_client(addr, NLM_VERS4, client_request)) != NULL) {
+	if ((cli = get_client(addr, NLM_VERS4, client_request, 0)) != NULL) {
 		timeo.tv_sec = 0; /* No timeout - not expecting response */
 		timeo.tv_usec = 0;
 
@@ -591,7 +604,6 @@ nlm_test_msg_1_svc(arg, rqstp)
 {
 	nlm_testres res;
 	static char dummy;
-	struct sockaddr *addr;
 	CLIENT *cli;
 	int success;
 	struct timeval timeo;
@@ -620,8 +632,7 @@ nlm_test_msg_1_svc(arg, rqstp)
 	 * nlm_test has different result type to the other operations, so
 	 * can't use transmit_result() in this case
 	 */
-	addr = (struct sockaddr *)svc_getcaller(rqstp->rq_xprt);
-	if ((cli = get_client(addr, NLM_VERS, 0)) != NULL) {
+	if ((cli = get_client(svc_getcaller_sa(rqstp->rq_xprt), NLM_VERS, 0, 0)) != NULL) {
 		timeo.tv_sec = 0; /* No timeout - not expecting response */
 		timeo.tv_usec = 0;
 
@@ -684,8 +695,7 @@ nlm_lock_msg_1_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 	res.stat.stat = getlock(&arg4, rqstp, LOCK_ASYNC | LOCK_MON);
-	if (transmit_result(NLM_LOCK_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit_result(NLM_LOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* if res.stat.stat was success/blocked, then unlock/cancel */
 		if (res.stat.stat == nlm_granted)
 			unlock(&arg4.alock, LOCK_V4);
@@ -749,8 +759,7 @@ nlm_cancel_msg_1_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 	res.stat.stat = cancellock(&arg4, 0);
-	if (transmit_result(NLM_CANCEL_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit_result(NLM_CANCEL_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);
@@ -799,8 +808,7 @@ nlm_unlock_msg_1_svc(arg, rqstp)
 	res.stat.stat = unlock(&arg4, 0);
 	res.cookie = arg->cookie;
 
-	if (transmit_result(NLM_UNLOCK_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit_result(NLM_UNLOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);
@@ -884,8 +892,7 @@ nlm_granted_msg_1_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 
-	if (transmit_result(NLM_GRANTED_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 1) < 0) {
+	if (transmit_result(NLM_GRANTED_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 1) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);
@@ -1175,7 +1182,6 @@ nlm4_test_msg_4_svc(arg, rqstp)
 {
 	nlm4_testres res;
 	static char dummy;
-	struct sockaddr *addr;
 	CLIENT *cli;
 	int success;
 	struct timeval timeo;
@@ -1199,8 +1205,7 @@ nlm4_test_msg_4_svc(arg, rqstp)
 	 * nlm_test has different result type to the other operations, so
 	 * can't use transmit4_result() in this case
 	 */
-	addr = (struct sockaddr *)svc_getcaller(rqstp->rq_xprt);
-	if ((cli = get_client(addr, NLM_VERS4, 0)) != NULL) {
+	if ((cli = get_client(svc_getcaller_sa(rqstp->rq_xprt), NLM_VERS4, 0, 0)) != NULL) {
 		timeo.tv_sec = 0; /* No timeout - not expecting response */
 		timeo.tv_usec = 0;
 
@@ -1267,8 +1272,7 @@ nlm4_lock_msg_4_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 	res.stat.stat = getlock(arg, rqstp, LOCK_MON | LOCK_ASYNC | LOCK_V4);
-	if (transmit4_result(NLM4_LOCK_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit4_result(NLM4_LOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* if res.stat.stat was success/blocked, then unlock/cancel */
 		if (res.stat.stat == nlm4_granted)
 			unlock(&arg->alock, LOCK_V4);
@@ -1320,8 +1324,7 @@ nlm4_cancel_msg_4_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 	res.stat.stat = cancellock(arg, LOCK_V4);
-	if (transmit4_result(NLM4_CANCEL_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit4_result(NLM4_CANCEL_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);
@@ -1364,8 +1367,7 @@ nlm4_unlock_msg_4_svc(arg, rqstp)
 	res.stat.stat = unlock(&arg->alock, LOCK_V4);
 	res.cookie = arg->cookie;
 
-	if (transmit4_result(NLM4_UNLOCK_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 0) < 0) {
+	if (transmit4_result(NLM4_UNLOCK_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 0) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);
@@ -1437,8 +1439,7 @@ nlm4_granted_msg_4_svc(arg, rqstp)
 
 	res.cookie = arg->cookie;
 
-	if (transmit4_result(NLM4_GRANTED_RES, &res,
-	    (struct sockaddr *)svc_getcaller(rqstp->rq_xprt), 1) < 0) {
+	if (transmit4_result(NLM4_GRANTED_RES, &res, svc_getcaller_sa(rqstp->rq_xprt), 1) < 0) {
 		/* XXX do we need to (un)do anything if this fails? */
 	}
 	return (NULL);

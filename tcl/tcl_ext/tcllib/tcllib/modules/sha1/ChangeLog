@@ -1,3 +1,27 @@
+2010-07-06  Andreas Kupries  <andreask@activestate.com>
+
+	* sha256.tcl (::sha2::HMACFinal): [Bug 2986744]: Added code
+	* sha256.man: limiting an intermediate value to int32 to make the
+	* pkgIndex.tcl: code workable for Tcl 8.5 and higher. Bumped
+	  package version to 1.0.3.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-10-27  Andreas Kupries  <andreask@activestate.com>
+
+	* sha256.h: Made the uint*_t typedef's conditional to prevent
+	  their use on hpux-ia64. There they are in conflict with the
+	  definitions in the system header _inttypes.h.
+
+2009-05-07  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* sha1c.tcl:   Fixed object leak in the critcl implementation.
+	* sha256c.tcl:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

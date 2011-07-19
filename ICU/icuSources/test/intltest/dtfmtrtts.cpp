@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation
+ * Copyright (c) 1997-2010, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
  
@@ -27,6 +27,8 @@
 #ifndef INFINITE
 #define INFINITE 0
 #endif
+
+static const UVersionInfo ICU_452 = {4,5,2,0};
 
 // Define this to test just a single locale
 //#define TEST_ONE_LOC  "cs_CZ"
@@ -89,7 +91,10 @@ void DateFormatRoundTripTest::TestCentury()
     Locale locale("es_PA");
     UnicodeString pattern = "MM/dd/yy hh:mm:ss a z";
     SimpleDateFormat fmt(pattern, locale, status);
-    if(!assertSuccess("trying to construct", status))return;
+    if (U_FAILURE(status)) {
+        dataerrln("Fail: construct SimpleDateFormat: %s", u_errorName(status));
+        return;
+    }
     UDate date[] = {-55018555891590.05, 0, 0};
     UnicodeString result[2];
 
@@ -120,14 +125,15 @@ void DateFormatRoundTripTest::TestCentury()
 }
 
 // ==
-
 void DateFormatRoundTripTest::TestDateFormatRoundTrip() 
 {
     UErrorCode status = U_ZERO_ERROR;
 
     getFieldCal = Calendar::createInstance(status);
-    failure(status, "Calendar::createInstance");
-    if(!assertSuccess("trying to construct", status))return;
+    if (U_FAILURE(status)) {
+        dataerrln("Fail: Calendar::createInstance: %s", u_errorName(status));
+        return;
+    }
 
 
     int32_t locCount = 0;
@@ -164,7 +170,7 @@ void DateFormatRoundTripTest::TestDateFormatRoundTrip()
 #if 1
     // installed locales
     for (int i=0; i < locCount; ++i) {
-        test(avail[i]);
+            test(avail[i]);
     }
 #endif
 
@@ -258,7 +264,7 @@ void DateFormatRoundTripTest::test(const Locale& loc)
                 logln("Testing dstyle" + UnicodeString(styleName((DateFormat::EStyle)dstyle)) + ", tstyle" + UnicodeString(styleName((DateFormat::EStyle)tstyle)) );
                 DateFormat *df = DateFormat::createDateTimeInstance((DateFormat::EStyle)dstyle, (DateFormat::EStyle)tstyle, loc);
                 if(df == NULL) {
-                    errln(UnicodeString("Could not DF::createDateTimeInstance ") + UnicodeString(styleName((DateFormat::EStyle)dstyle)) + ", tstyle" + UnicodeString(styleName((DateFormat::EStyle)tstyle))    + "Locale: " + loc.getDisplayName(temp));
+                    dataerrln(UnicodeString("Could not DF::createDateTimeInstance ") + UnicodeString(styleName((DateFormat::EStyle)dstyle)) + ", tstyle" + UnicodeString(styleName((DateFormat::EStyle)tstyle))    + "Locale: " + loc.getDisplayName(temp));
                 } else {
                     test(df, loc);
                     delete df;
@@ -376,10 +382,18 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
             int maxSmatch = 1;
             if (dmatch > maxDmatch) {
                 // Time-only pattern with zone information and a starting date in PST.
-                if(timeOnly && hasZoneDisplayName
-                        && fmt->getTimeZone().inDaylightTime(d[0], status) && ! failure(status, "TimeZone::inDST()")) {
-                    maxDmatch = 3;
-                    maxSmatch = 2;
+                if(timeOnly && hasZoneDisplayName) {
+                    int32_t startRaw, startDst;
+                    fmt->getTimeZone().getOffset(d[0], FALSE, startRaw, startDst, status);
+                    failure(status, "TimeZone::getOffset");
+                    // if the start offset is greater than the offset on Jan 1, 1970
+                    // in PST, then need one more round trip.  There are two cases
+                    // fall into this category.  The start date is 1) DST or
+                    // 2) LMT (GMT-07:52:58).
+                    if (startRaw + startDst > -28800000) {
+                        maxDmatch = 3;
+                        maxSmatch = 2;
+                    }
                 }
             }
 
@@ -422,7 +436,7 @@ void DateFormatRoundTripTest::test(DateFormat *fmt, const Locale &origLocale, UB
 
             if(dmatch > maxDmatch || smatch > maxSmatch) { // Special case for Japanese and Islamic (could have large negative years)
               const char *type = fmt->getCalendar()->getType();
-              if(!strcmp(type,"japanese")) {
+              if(!strcmp(type,"japanese") || (!strcmp(type,"buddhist"))) {
                 maxSmatch = 4;
                 maxDmatch = 4;
               }

@@ -1,6 +1,7 @@
 /*
  * (C) 1999-2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2011 Research In Motion Limited. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,6 +23,7 @@
 #include "CSSMutableStyleDeclaration.h"
 
 #include "CSSImageValue.h"
+#include "CSSMutableValue.h"
 #include "CSSParser.h"
 #include "CSSPropertyLonghand.h"
 #include "CSSPropertyNames.h"
@@ -31,7 +33,9 @@
 #include "CSSValueList.h"
 #include "Document.h"
 #include "ExceptionCode.h"
+#include "InspectorInstrumentation.h"
 #include "StyledElement.h"
+#include <wtf/text/WTFString.h>
 
 using namespace std;
 
@@ -39,7 +43,6 @@ namespace WebCore {
 
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration()
     : m_node(0)
-    , m_variableDependentValueCount(0)
     , m_strictParsing(false)
 #ifndef NDEBUG
     , m_iteratorCount(0)
@@ -50,7 +53,6 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration()
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent)
     : CSSStyleDeclaration(parent)
     , m_node(0)
-    , m_variableDependentValueCount(0)
     , m_strictParsing(!parent || parent->useStrictParsing())
 #ifndef NDEBUG
     , m_iteratorCount(0)
@@ -58,11 +60,10 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent)
 {
 }
 
-CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const Vector<CSSProperty>& properties, unsigned variableDependentValueCount)
+CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const Vector<CSSProperty>& properties)
     : CSSStyleDeclaration(parent)
     , m_properties(properties)
     , m_node(0)
-    , m_variableDependentValueCount(variableDependentValueCount)
     , m_strictParsing(!parent || parent->useStrictParsing())
 #ifndef NDEBUG
     , m_iteratorCount(0)
@@ -75,22 +76,38 @@ CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const Ve
 CSSMutableStyleDeclaration::CSSMutableStyleDeclaration(CSSRule* parent, const CSSProperty* const * properties, int numProperties)
     : CSSStyleDeclaration(parent)
     , m_node(0)
-    , m_variableDependentValueCount(0)
     , m_strictParsing(!parent || parent->useStrictParsing())
 #ifndef NDEBUG
     , m_iteratorCount(0)
 #endif
 {
     m_properties.reserveInitialCapacity(numProperties);
+    HashMap<int, bool> candidates;
     for (int i = 0; i < numProperties; ++i) {
-        ASSERT(properties[i]);
-        m_properties.append(*properties[i]);
-        if (properties[i]->value()->isVariableDependentValue())
-            m_variableDependentValueCount++;
+        const CSSProperty *property = properties[i];
+        ASSERT(property);
+        bool important = property->isImportant();
+        if (candidates.contains(property->id())) {
+            if (!important && candidates.get(property->id()))
+                continue;
+            removeProperty(property->id(), false);
+        }
+        m_properties.append(*property);
+        candidates.set(property->id(), important);
     }
-    // FIXME: This allows duplicate properties.
 }
 
+CSSMutableStyleDeclaration::~CSSMutableStyleDeclaration()
+{
+    const CSSMutableStyleDeclarationConstIterator end = this->end();
+    for (CSSMutableStyleDeclarationConstIterator it = begin(); it != end; ++it) {
+        CSSValue* value = it->value();
+        if (!value || !value->isMutableValue())
+            continue;
+        static_cast<CSSMutableValue*>(value)->setNode(0);
+    }
+}
+ 
 CSSMutableStyleDeclaration& CSSMutableStyleDeclaration::operator=(const CSSMutableStyleDeclaration& other)
 {
     ASSERT(!m_iteratorCount);
@@ -108,14 +125,18 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
 
     // Shorthand and 4-values properties
     switch (propertyID) {
+        case CSSPropertyBorderSpacing: {
+            const int properties[2] = { CSSPropertyWebkitBorderHorizontalSpacing, CSSPropertyWebkitBorderVerticalSpacing };
+            return borderSpacingValue(properties);
+        }
         case CSSPropertyBackgroundPosition: {
             // FIXME: Is this correct? The code in cssparser.cpp is confusing
             const int properties[2] = { CSSPropertyBackgroundPositionX, CSSPropertyBackgroundPositionY };
-            return getLayeredShorthandValue(properties, 2);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyBackgroundRepeat: {
             const int properties[2] = { CSSPropertyBackgroundRepeatX, CSSPropertyBackgroundRepeatY };
-            return getLayeredShorthandValue(properties, 2);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyBackground: {
             const int properties[9] = { CSSPropertyBackgroundColor,
@@ -127,7 +148,7 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
                                         CSSPropertyBackgroundPositionY, 
                                         CSSPropertyBackgroundClip,
                                         CSSPropertyBackgroundOrigin }; 
-            return getLayeredShorthandValue(properties, 9);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyBorder: {
             const int properties[3][4] = {{ CSSPropertyBorderTopWidth,
@@ -143,9 +164,8 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
                                             CSSPropertyBorderBottomColor,
                                             CSSPropertyBorderLeftColor }};
             String res;
-            const int nrprops = sizeof(properties) / sizeof(properties[0]);
-            for (int i = 0; i < nrprops; ++i) {
-                String value = getCommonValue(properties[i], 4);
+            for (size_t i = 0; i < WTF_ARRAY_LENGTH(properties); ++i) {
+                String value = getCommonValue(properties[i]);
                 if (!value.isNull()) {
                     if (!res.isNull())
                         res += " ";
@@ -157,27 +177,27 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
         case CSSPropertyBorderTop: {
             const int properties[3] = { CSSPropertyBorderTopWidth, CSSPropertyBorderTopStyle,
                                         CSSPropertyBorderTopColor};
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyBorderRight: {
             const int properties[3] = { CSSPropertyBorderRightWidth, CSSPropertyBorderRightStyle,
                                         CSSPropertyBorderRightColor};
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyBorderBottom: {
             const int properties[3] = { CSSPropertyBorderBottomWidth, CSSPropertyBorderBottomStyle,
                                         CSSPropertyBorderBottomColor};
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyBorderLeft: {
             const int properties[3] = { CSSPropertyBorderLeftWidth, CSSPropertyBorderLeftStyle,
                                         CSSPropertyBorderLeftColor};
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyOutline: {
             const int properties[3] = { CSSPropertyOutlineWidth, CSSPropertyOutlineStyle,
                                         CSSPropertyOutlineColor };
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyBorderColor: {
             const int properties[4] = { CSSPropertyBorderTopColor, CSSPropertyBorderRightColor,
@@ -201,7 +221,7 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
         }
         case CSSPropertyOverflow: {
             const int properties[2] = { CSSPropertyOverflowX, CSSPropertyOverflowY };
-            return getCommonValue(properties, 2);
+            return getCommonValue(properties);
         }
         case CSSPropertyPadding: {
             const int properties[4] = { CSSPropertyPaddingTop, CSSPropertyPaddingRight,
@@ -211,40 +231,40 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
         case CSSPropertyListStyle: {
             const int properties[3] = { CSSPropertyListStyleType, CSSPropertyListStylePosition,
                                         CSSPropertyListStyleImage };
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyWebkitMaskPosition: {
             // FIXME: Is this correct? The code in cssparser.cpp is confusing
             const int properties[2] = { CSSPropertyWebkitMaskPositionX, CSSPropertyWebkitMaskPositionY };
-            return getLayeredShorthandValue(properties, 2);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyWebkitMaskRepeat: {
             const int properties[2] = { CSSPropertyWebkitMaskRepeatX, CSSPropertyWebkitMaskRepeatY };
-            return getLayeredShorthandValue(properties, 2);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyWebkitMask: {
             const int properties[] = { CSSPropertyWebkitMaskImage, CSSPropertyWebkitMaskRepeat, 
                                        CSSPropertyWebkitMaskAttachment, CSSPropertyWebkitMaskPosition, CSSPropertyWebkitMaskClip,
                                        CSSPropertyWebkitMaskOrigin };
-            return getLayeredShorthandValue(properties, 6);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyWebkitTransformOrigin: {
             const int properties[3] = { CSSPropertyWebkitTransformOriginX,
                                         CSSPropertyWebkitTransformOriginY,
                                         CSSPropertyWebkitTransformOriginZ };
-            return getShorthandValue(properties, 3);
+            return getShorthandValue(properties);
         }
         case CSSPropertyWebkitTransition: {
             const int properties[4] = { CSSPropertyWebkitTransitionProperty, CSSPropertyWebkitTransitionDuration,
                                         CSSPropertyWebkitTransitionTimingFunction, CSSPropertyWebkitTransitionDelay };
-            return getLayeredShorthandValue(properties, 4);
+            return getLayeredShorthandValue(properties);
         }
         case CSSPropertyWebkitAnimation: {
             const int properties[7] = { CSSPropertyWebkitAnimationName, CSSPropertyWebkitAnimationDuration,
                                         CSSPropertyWebkitAnimationTimingFunction, CSSPropertyWebkitAnimationDelay,
                                         CSSPropertyWebkitAnimationIterationCount, CSSPropertyWebkitAnimationDirection,
                                         CSSPropertyWebkitAnimationFillMode };
-            return getLayeredShorthandValue(properties, 7);
+            return getLayeredShorthandValue(properties);
         }
 #if ENABLE(SVG)
         case CSSPropertyMarker: {
@@ -255,6 +275,22 @@ String CSSMutableStyleDeclaration::getPropertyValue(int propertyID) const
 #endif
     }
     return String();
+}
+
+String CSSMutableStyleDeclaration::borderSpacingValue(const int properties[2]) const
+{
+    RefPtr<CSSValue> horizontalValue = getPropertyCSSValue(properties[0]);
+    RefPtr<CSSValue> verticalValue = getPropertyCSSValue(properties[1]);
+
+    if (!horizontalValue)
+        return String();
+    ASSERT(verticalValue); // By <http://www.w3.org/TR/CSS21/tables.html#separated-borders>.
+
+    String horizontalValueCSSText = horizontalValue->cssText();
+    String verticalValueCSSText = verticalValue->cssText();
+    if (horizontalValueCSSText == verticalValueCSSText)
+        return horizontalValueCSSText;
+    return horizontalValueCSSText + ' ' + verticalValueCSSText;
 }
 
 String CSSMutableStyleDeclaration::get4Values(const int* properties) const
@@ -284,15 +320,15 @@ String CSSMutableStyleDeclaration::get4Values(const int* properties) const
     return res;
 }
 
-String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* properties, unsigned number) const
+String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* properties, size_t size) const
 {
     String res;
 
     // Begin by collecting the properties into an array.
-    Vector< RefPtr<CSSValue> > values(number);
+    Vector< RefPtr<CSSValue> > values(size);
     size_t numLayers = 0;
     
-    for (size_t i = 0; i < number; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         values[i] = getPropertyCSSValue(properties[i]);
         if (values[i]) {
             if (values[i]->isValueList()) {
@@ -310,7 +346,7 @@ String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* propertie
         bool useRepeatXShorthand = false;
         bool useRepeatYShorthand = false;
         bool useSingleWordShorthand = false;
-        for (size_t j = 0; j < number; j++) {
+        for (size_t j = 0; j < size; j++) {
             RefPtr<CSSValue> value;
             if (values[j]) {
                 if (values[j]->isValueList())
@@ -331,7 +367,9 @@ String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* propertie
             // then it was written with only one value. Here we figure out which value that was so we can
             // report back correctly. 
             if (properties[j] == CSSPropertyBackgroundRepeatX && isPropertyImplicit(properties[j])) {
-                if (j < number - 1 && properties[j + 1] == CSSPropertyBackgroundRepeatY) {
+
+                // BUG 49055: make sure the value was not reset in the layer check just above.
+                if (j < size - 1 && properties[j + 1] == CSSPropertyBackgroundRepeatY && value) {
                     RefPtr<CSSValue> yValue;
                     RefPtr<CSSValue> nextValue = values[j + 1];
                     if (nextValue->isValueList())
@@ -383,10 +421,10 @@ String CSSMutableStyleDeclaration::getLayeredShorthandValue(const int* propertie
     return res;
 }
 
-String CSSMutableStyleDeclaration::getShorthandValue(const int* properties, int number) const
+String CSSMutableStyleDeclaration::getShorthandValue(const int* properties, size_t size) const
 {
     String res;
-    for (int i = 0; i < number; ++i) {
+    for (size_t i = 0; i < size; ++i) {
         if (!isPropertyImplicit(properties[i])) {
             RefPtr<CSSValue> value = getPropertyCSSValue(properties[i]);
             // FIXME: provide default value if !value
@@ -401,22 +439,20 @@ String CSSMutableStyleDeclaration::getShorthandValue(const int* properties, int 
 }
 
 // only returns a non-null value if all properties have the same, non-null value
-String CSSMutableStyleDeclaration::getCommonValue(const int* properties, int number) const
+String CSSMutableStyleDeclaration::getCommonValue(const int* properties, size_t size) const
 {
     String res;
-    for (int i = 0; i < number; ++i) {
-        if (!isPropertyImplicit(properties[i])) {
-            RefPtr<CSSValue> value = getPropertyCSSValue(properties[i]);
-            if (!value)
-                return String();
-            String text = value->cssText();
-            if (text.isNull())
-                return String();
-            if (res.isNull())
-                res = text;
-            else if (res != text)
-                return String();
-        }
+    for (size_t i = 0; i < size; ++i) {
+        RefPtr<CSSValue> value = getPropertyCSSValue(properties[i]);
+        if (!value)
+            return String();
+        String text = value->cssText();
+        if (text.isNull())
+            return String();
+        if (res.isNull())
+            res = text;
+        else if (res != text)
+            return String();
     }
     return res;
 }
@@ -452,9 +488,6 @@ String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyCha
     
     String value = returnText ? foundProperty->value()->cssText() : String();
 
-    if (foundProperty->value()->isVariableDependentValue())
-        m_variableDependentValueCount--;
-
     // A more efficient removal strategy would involve marking entries as empty
     // and sweeping them when the vector grows too big.
     m_properties.remove(foundProperty - m_properties.data());
@@ -465,16 +498,22 @@ String CSSMutableStyleDeclaration::removeProperty(int propertyID, bool notifyCha
     return value;
 }
 
+bool CSSMutableStyleDeclaration::isInlineStyleDeclaration()
+{
+    // FIXME: Ideally, this should be factored better and there
+    // should be a subclass of CSSMutableStyleDeclaration just
+    // for inline style declarations that handles this
+    return m_node && m_node->isStyledElement() && static_cast<StyledElement*>(m_node)->inlineStyleDecl() == this;
+}
+
 void CSSMutableStyleDeclaration::setNeedsStyleRecalc()
 {
     if (m_node) {
-        // FIXME: Ideally, this should be factored better and there
-        // should be a subclass of CSSMutableStyleDeclaration just
-        // for inline style declarations that handles this
-        bool isInlineStyleDeclaration = m_node->isStyledElement() && this == static_cast<StyledElement*>(m_node)->inlineStyleDecl();
-        if (isInlineStyleDeclaration) {
+        if (isInlineStyleDeclaration()) {
             m_node->setNeedsStyleRecalc(InlineStyleChange);
             static_cast<StyledElement*>(m_node)->invalidateStyleAttribute();
+            if (m_node->document())
+                InspectorInstrumentation::didInvalidateStyleAttr(m_node->document(), m_node);
         } else
             m_node->setNeedsStyleRecalc(FullStyleChange);
         return;
@@ -483,9 +522,10 @@ void CSSMutableStyleDeclaration::setNeedsStyleRecalc()
     StyleBase* root = this;
     while (StyleBase* parent = root->parent())
         root = parent;
-    if (root->isCSSStyleSheet())
-        if (Document* doc = static_cast<CSSStyleSheet*>(root)->doc())
-            doc->styleSelectorChanged(DeferRecalcStyle);
+    if (root->isCSSStyleSheet()) {
+        if (Document* document = static_cast<CSSStyleSheet*>(root)->document())
+            document->styleSelectorChanged(DeferRecalcStyle);
+    }
 }
 
 bool CSSMutableStyleDeclaration::getPropertyPriority(int propertyID) const
@@ -531,8 +571,7 @@ bool CSSMutableStyleDeclaration::setProperty(int propertyID, const String& value
 
     // When replacing an existing property value, this moves the property to the end of the list.
     // Firefox preserves the position, and MSIE moves the property to the beginning.
-    CSSParser parser(useStrictParsing());
-    bool success = parser.parseValue(this, propertyID, value, important);
+    bool success = CSSParser::parseValue(this, propertyID, value, important, useStrictParsing());
     if (!success) {
         // CSS DOM requires raising SYNTAX_ERR here, but this is too dangerous for compatibility,
         // see <http://bugs.webkit.org/show_bug.cgi?id=7296>.
@@ -559,6 +598,15 @@ void CSSMutableStyleDeclaration::setPropertyInternal(const CSSProperty& property
 bool CSSMutableStyleDeclaration::setProperty(int propertyID, int value, bool important, bool notifyChanged)
 {
     CSSProperty property(propertyID, CSSPrimitiveValue::createIdentifier(value), important);
+    setPropertyInternal(property);
+    if (notifyChanged)
+        setNeedsStyleRecalc();
+    return true;
+}
+
+bool CSSMutableStyleDeclaration::setProperty(int propertyID, double value, CSSPrimitiveValue::UnitTypes unit, bool important, bool notifyChanged)
+{
+    CSSProperty property(propertyID, CSSPrimitiveValue::create(value, unit), important);
     setPropertyInternal(property);
     if (notifyChanged)
         setNeedsStyleRecalc();
@@ -594,19 +642,11 @@ void CSSMutableStyleDeclaration::parseDeclaration(const String& styleDeclaration
 void CSSMutableStyleDeclaration::addParsedProperties(const CSSProperty* const* properties, int numProperties)
 {
     ASSERT(!m_iteratorCount);
-    
+
     m_properties.reserveCapacity(numProperties);
-    
-    for (int i = 0; i < numProperties; ++i) {
-        // Only add properties that have no !important counterpart present
-        if (!getPropertyPriority(properties[i]->id()) || properties[i]->isImportant()) {
-            removeProperty(properties[i]->id(), false);
-            ASSERT(properties[i]);
-            m_properties.append(*properties[i]);
-            if (properties[i]->value()->isVariableDependentValue())
-                m_variableDependentValueCount++;
-        }
-    }
+    for (int i = 0; i < numProperties; ++i)
+        addParsedProperty(*properties[i]);
+
     // FIXME: This probably should have a call to setNeedsStyleRecalc() if something changed. We may also wish to add
     // a notifyChanged argument to this function to follow the model of other functions in this class.
 }
@@ -615,7 +655,11 @@ void CSSMutableStyleDeclaration::addParsedProperty(const CSSProperty& property)
 {
     ASSERT(!m_iteratorCount);
 
-    setPropertyInternal(property);
+    // Only add properties that have no !important counterpart present
+    if (!getPropertyPriority(property.id()) || property.isImportant()) {
+        removeProperty(property.id(), false);
+        m_properties.append(property);
+    }
 }
 
 void CSSMutableStyleDeclaration::setLengthProperty(int propertyId, const String& value, bool important, bool /*multiLength*/)
@@ -672,7 +716,7 @@ String CSSMutableStyleDeclaration::cssText() const
         String positionValue;
         const int properties[2] = { CSSPropertyBackgroundPositionX, CSSPropertyBackgroundPositionY };
         if (positionXProp->value()->isValueList() || positionYProp->value()->isValueList()) 
-            positionValue = getLayeredShorthandValue(properties, 2);
+            positionValue = getLayeredShorthandValue(properties);
         else
             positionValue = positionXProp->value()->cssText() + " " + positionYProp->value()->cssText();
         result += "background-position: " + positionValue + (positionXProp->isImportant() ? " !important" : "") + "; ";
@@ -688,7 +732,7 @@ String CSSMutableStyleDeclaration::cssText() const
         String repeatValue;
         const int repeatProperties[2] = { CSSPropertyBackgroundRepeatX, CSSPropertyBackgroundRepeatY };
         if (repeatXProp->value()->isValueList() || repeatYProp->value()->isValueList()) 
-            repeatValue = getLayeredShorthandValue(repeatProperties, 2);
+            repeatValue = getLayeredShorthandValue(repeatProperties);
         else
             repeatValue = repeatXProp->value()->cssText() + " " + repeatYProp->value()->cssText();
         result += "background-repeat: " + repeatValue + (repeatXProp->isImportant() ? " !important" : "") + "; ";
@@ -714,13 +758,13 @@ void CSSMutableStyleDeclaration::setCssText(const String& text, ExceptionCode& e
     setNeedsStyleRecalc();
 }
 
-void CSSMutableStyleDeclaration::merge(CSSMutableStyleDeclaration* other, bool argOverridesOnConflict)
+void CSSMutableStyleDeclaration::merge(const CSSMutableStyleDeclaration* other, bool argOverridesOnConflict)
 {
     ASSERT(!m_iteratorCount);
 
     unsigned size = other->m_properties.size();
     for (unsigned n = 0; n < size; ++n) {
-        CSSProperty& toMerge = other->m_properties[n];
+        const CSSProperty& toMerge = other->m_properties[n];
         CSSProperty* old = findPropertyWithId(toMerge.id());
         if (old) {
             if (!argOverridesOnConflict && old->value())
@@ -763,7 +807,7 @@ static const int blockProperties[] = {
     CSSPropertyWidows
 };
 
-const unsigned numBlockProperties = sizeof(blockProperties) / sizeof(blockProperties[0]);
+const unsigned numBlockProperties = WTF_ARRAY_LENGTH(blockProperties);
 
 PassRefPtr<CSSMutableStyleDeclaration> CSSMutableStyleDeclaration::copyBlockProperties() const
 {
@@ -815,7 +859,7 @@ PassRefPtr<CSSMutableStyleDeclaration> CSSMutableStyleDeclaration::makeMutable()
 
 PassRefPtr<CSSMutableStyleDeclaration> CSSMutableStyleDeclaration::copy() const
 {
-    return adoptRef(new CSSMutableStyleDeclaration(0, m_properties, m_variableDependentValueCount));
+    return adoptRef(new CSSMutableStyleDeclaration(0, m_properties));
 }
 
 const CSSProperty* CSSMutableStyleDeclaration::findPropertyWithId(int propertyID) const

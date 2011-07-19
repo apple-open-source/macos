@@ -21,20 +21,26 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontOrientation.h"
 #include "FontRenderingMode.h"
-#include <wtf/Noncopyable.h>
+#include "FontWidthVariant.h"
+#include "TextOrientation.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
     class FontPlatformData;
     class SharedBuffer;
 
-    struct FontCustomPlatformData : Noncopyable {
+    struct FontCustomPlatformData {
+        WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
     public:
         FontCustomPlatformData() { }
         ~FontCustomPlatformData();
 
-        FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode = NormalRenderingMode);
+        static bool supportsFormat(const String&);
+
+        FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth, FontRenderingMode = NormalRenderingMode);
     };
 
     FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer*);

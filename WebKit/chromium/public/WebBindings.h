@@ -32,11 +32,15 @@
 #define WebBindings_h
 
 #include "WebCommon.h"
+#include "WebString.h"
+#include "WebVector.h"
 #include <bindings/npruntime.h>
 
 namespace WebKit {
 
 class WebDragData;
+class WebElement;
+class WebNode;
 class WebRange;
 
 // A haphazard collection of functions for dealing with plugins.
@@ -52,7 +56,7 @@ public:
     WEBKIT_API static NPObject* createObject(NPP, NPClass*);
 
     // NPN_Enumerate
-    WEBKIT_API static bool enumerate(NPP, NPObject*, NPIdentifier**, uint32_t* count);
+    WEBKIT_API static bool enumerate(NPP, NPObject*, NPIdentifier**, uint32_t* identifierCount);
 
     // NPN_Evaluate
     WEBKIT_API static bool evaluate(NPP, NPObject*, NPString* script, NPVariant* result);
@@ -64,7 +68,7 @@ public:
     WEBKIT_API static NPIdentifier getIntIdentifier(int32_t number);
 
     // NPN_GetProperty
-    WEBKIT_API static bool getProperty(NPP, NPObject*, NPIdentifier propertyName, NPVariant *result);
+    WEBKIT_API static bool getProperty(NPP, NPObject*, NPIdentifier property, NPVariant *result);
 
     // NPN_GetStringIdentifier
     WEBKIT_API static NPIdentifier getStringIdentifier(const NPUTF8* string);
@@ -73,10 +77,10 @@ public:
     WEBKIT_API static void getStringIdentifiers(const NPUTF8** names, int32_t nameCount, NPIdentifier*);
 
     // NPN_HasMethod
-    WEBKIT_API static bool hasMethod(NPP, NPObject*, NPIdentifier methodName);
+    WEBKIT_API static bool hasMethod(NPP, NPObject*, NPIdentifier method);
 
     // NPN_HasProperty
-    WEBKIT_API static bool hasProperty(NPP, NPObject*, NPIdentifier propertyName);
+    WEBKIT_API static bool hasProperty(NPP, NPObject*, NPIdentifier property);
 
     // NPN_IdentifierIsString
     WEBKIT_API static bool identifierIsString(NPIdentifier);
@@ -88,10 +92,10 @@ public:
     WEBKIT_API static int32_t intFromIdentifier(NPIdentifier);
 
     // NPN_Invoke
-    WEBKIT_API static bool invoke(NPP, NPObject*, NPIdentifier methodName, const NPVariant* args, uint32_t count, NPVariant* result);
+    WEBKIT_API static bool invoke(NPP, NPObject*, NPIdentifier method, const NPVariant* args, uint32_t argCount, NPVariant* result);
 
     // NPN_InvokeDefault
-    WEBKIT_API static bool invokeDefault(NPP, NPObject*, const NPVariant* args, uint32_t count, NPVariant* result);
+    WEBKIT_API static bool invokeDefault(NPP, NPObject*, const NPVariant* args, uint32_t argCount, NPVariant* result);
 
     // NPN_ReleaseObject
     WEBKIT_API static void releaseObject(NPObject*);
@@ -117,27 +121,33 @@ public:
     // NPN_UTF8FromIdentifier
     WEBKIT_API static NPUTF8* utf8FromIdentifier(NPIdentifier);
 
-    // Miscellaneous utility functions ------------------------------------
+    // Miscellaneous utility functions ----------------------------------------
 
     // Complement to NPN_Get___Identifier functions.  Extracts data from the NPIdentifier data
     // structure.  If isString is true upon return, string will be set but number's value is
     // undefined.  If iString is false, the opposite is true.
     WEBKIT_API static void extractIdentifierData(const NPIdentifier&, const NPUTF8*& string, int32_t& number, bool& isString);
 
-    // Return true (success) if the given npobj is the current drag event in browser dispatch,
-    // and is accessible based on context execution frames and their security origins and
-    // WebKit clipboard access policy. If so, return the event id and the clipboard data (WebDragData).
-    // This only works with V8.  If compiled without V8, it'll always return false.
-    WEBKIT_API static bool getDragData(NPObject* event, int* eventId, WebDragData*);
-
-    // Invoke the event access policy checks listed above with GetDragData().  No need for clipboard
-    // data or event_id outputs, just confirm the given npobj is the current & accessible drag event.
-    // This only works with V8.  If compiled without V8, it'll always return false.
-    WEBKIT_API static bool isDragEvent(NPObject* event);
-
     // Return true (success) if the given npobj is a range object.
     // If so, return that range as a WebRange object.
     WEBKIT_API static bool getRange(NPObject* range, WebRange*);
+
+    // Return true (success) if the given npobj is an element.
+    // If so, return that element as a WebElement object.
+    WEBKIT_API static bool getElement(NPObject* element, WebElement*);
+
+    WEBKIT_API static NPObject* makeIntArray(const WebVector<int>&);
+    WEBKIT_API static NPObject* makeStringArray(const WebVector<WebString>&);
+    WEBKIT_API static NPObject* makeNode(const WebNode&);
+
+    // Exceptions -------------------------------------------------------------
+
+    typedef void (ExceptionHandler)(void* data, const NPUTF8* message);
+
+    // The exception handler will be notified of any exceptions thrown while
+    // operating on a NPObject.
+    WEBKIT_API static void pushExceptionHandler(ExceptionHandler, void* data);
+    WEBKIT_API static void popExceptionHandler();
 };
 
 } // namespace WebKit

@@ -553,7 +553,6 @@
 			isa = PBXProject;
 			buildConfigurationList = 3E420D2E08E1B98300FD1873 /* Build configuration list for PBXProject "USBProber" */;
 			compatibilityVersion = "Xcode 2.4";
-			developmentRegion = English;
 			hasScannedForEncodings = 1;
 			knownRegions = (
 				English,

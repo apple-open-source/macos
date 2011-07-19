@@ -67,9 +67,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 - (id)init
@@ -277,7 +275,7 @@ static NSString * const WebResourceResponseKey =          @"WebResourceResponse"
     return frameName;
 }
 
-- (id)description
+- (NSString *)description
 {
     return [NSString stringWithFormat:@"<%@ %@>", [self className], [self URL]];
 }

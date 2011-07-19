@@ -45,7 +45,7 @@ SUBDIRS = \
 # paths to tools
 #
 
-include $(AP_WORK)\build\NWGNUhead.inc
+include $(AP_WORK)/build/NWGNUhead.inc
 
 #
 # build this level's files
@@ -62,13 +62,13 @@ XINCDIRS	+= \
 			$(APR)/include \
 			$(APRUTIL)/include \
 			$(AP_WORK)/include \
-			$(AP_WORK)/modules/filters/ \
-			$(AP_WORK)/modules/generators/ \
-			$(AP_WORK)/modules/http/ \
-			$(AP_WORK)/modules/loggers/ \
-			$(AP_WORK)/modules/mappers/ \
-			$(AP_WORK)/modules/proxy/ \
-			$(AP_WORK)/server/mpm/NetWare \
+			$(HTTPD) \
+			$(STDMOD)/filters \
+			$(STDMOD)/generators \
+			$(STDMOD)/loggers \
+			$(STDMOD)/mappers \
+			$(STDMOD)/proxy \
+			$(SERVER)/mpm/NetWare \
 			$(PCRE) \
 			$(NWOS) \
 			$(EOLIST)
@@ -165,7 +165,7 @@ NLM_SCREEN_NAME = Apache $(VERSION_STR) for NetWare
 
 #
 # If this is specified, it will override VERSION value in
-# $(AP_WORK)\build\NWGNUenvironment.inc
+# $(AP_WORK)/build/NWGNUenvironment.inc
 #
 NLM_VERSION	=
 
@@ -178,12 +178,12 @@ NLM_STACK_SIZE	= 65536
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= _LibCPrelude
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= _LibCPostlude
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -213,6 +213,7 @@ TARGET_nlm = \
 # If there is an LIB target, put it here
 #
 TARGET_lib = \
+	$(PCRELIB) \
 	$(EOLIST)
 
 #
@@ -251,7 +252,6 @@ FILES_nlm_objs = \
 	$(OBJDIR)/modules.o \
 	$(OBJDIR)/mpm_common.o \
 	$(OBJDIR)/mpm_netware.o \
-	$(OBJDIR)/pcre.o \
 	$(OBJDIR)/protocol.o \
 	$(OBJDIR)/provider.o \
 	$(OBJDIR)/request.o \
@@ -281,7 +281,8 @@ endif
 # These will be added as a library command in the link.opt file.
 #
 FILES_nlm_libs = \
-	libcpre.o \
+	$(PCRELIB) \
+	$(PRELUDE) \
 	$(EOLIST)
 
 #
@@ -313,7 +314,7 @@ FILE_nlm_copyright =
 #
 FILES_nlm_Ximports = \
 	@netware.imp \
-	@$(APR)/aprlib.imp \
+	@aprlib.imp \
 	@libc.imp \
 	GetCurrentAddressSpace \
 	$(EOLIST)
@@ -328,15 +329,37 @@ endif
 # Any symbols exported to here
 #
 FILES_nlm_exports = \
-	@$(NWOS)/httpd.imp \
+	@httpd.imp \
 	$(EOLIST)
 
 #
 # These are the OBJ files needed to create the LIB target above.
 # Paths must all use the '/' character
 #
+ifeq "$(wildcard $(PCRE)/pcre.c)" "$(PCRE)/pcre.c"
+
 FILES_lib_objs = \
+	$(OBJDIR)/pcre.o \
 	$(EOLIST)
+
+else
+
+FILES_lib_objs = \
+	$(OBJDIR)/pcre_compile.o \
+	$(OBJDIR)/pcre_exec.o \
+	$(OBJDIR)/pcre_fullinfo.o \
+	$(OBJDIR)/pcre_globals.o \
+	$(OBJDIR)/pcre_info.o \
+	$(OBJDIR)/pcre_newline.o \
+	$(OBJDIR)/pcre_tables.o \
+	$(OBJDIR)/pcre_try_flipped.o \
+	$(OBJDIR)/pcre_version.o \
+	$(OBJDIR)/chartables.o \
+	$(EOLIST)
+
+XDEFINES += -DHAVE_CONFIG_H
+
+endif
 
 #
 # implement targets and dependancies (leave this section alone)
@@ -348,57 +371,70 @@ nlms :: libs $(TARGET_nlm)
 
 #
 # Updated this target to create necessary directories and copy files to the
-# correct place.  (See $(AP_WORK)\build\NWGNUhead.inc for examples)
+# correct place.  (See $(AP_WORK)/build/NWGNUhead.inc for examples)
 #
+MKCNF	= $(AWK) -v BDIR=$(BASEDIR) -v PORT=$(PORT) -v SSLPORT=$(SSLPORT) -v MODSSL=$(WITH_MOD_SSL) -v BSDSKT=$(USE_STDSOCKETS) -f build/mkconfNW.awk $1 > $2
+
 install :: nlms instscripts FORCE
-	-copy $(OBJDIR)\Apache2.nlm     $(INSTALL)\$(BASEDIR)\*.*
-	-copy ABOUT_APACHE              $(INSTALL)\$(BASEDIR)\*.*
-	-copy README                    $(INSTALL)\$(BASEDIR)\*.*
-	-copy STATUS                    $(INSTALL)\$(BASEDIR)\*.*
-	-copy LICENSE                   $(INSTALL)\$(BASEDIR)\*.*
-	-copy CHANGES                   $(INSTALL)\$(BASEDIR)\*.*
-	-copy VERSIONING                $(INSTALL)\$(BASEDIR)\*.*
-	-copy support\dbmmanage.in      $(INSTALL)\$(BASEDIR)\bin\dbmmanage.pl
-	-copy support\logresolve.pl.in  $(INSTALL)\$(BASEDIR)\bin\logresolve.pl
-	-copy support\split-logfile.in  $(INSTALL)\$(BASEDIR)\bin\split-logfile.pl
-	-$(AWK) -v BDIR=$(BASEDIR) -v PORT=$(PORT) -v SSLPORT=$(SSLPORT) -v MODSSL=$(WITH_MOD_SSL) -v BSDSKT=$(USE_STDSOCKETS) -f build\mkconfnw.awk docs\conf\httpd.conf.in >$(INSTALL)\$(BASEDIR)\conf\httpd.conf
-	$(CHKNOT) $(INSTALL)\$(BASEDIR)\conf\extra\nul mkdir $(INSTALL)\$(BASEDIR)\conf\extra
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-autoindex.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-autoindex.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-dav.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-dav.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-default.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-default.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-info.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-info.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-languages.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-languages.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-manual.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-manual.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-mpm.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-mpm.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-multilang-errordoc.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-multilang-errordoc.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -f build\mkconfnw.awk docs\conf\extra\httpd-userdir.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-userdir.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -v PORT=$(PORT) -f build\mkconfnw.awk docs\conf\extra\httpd-vhosts.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-vhosts.conf
-	-$(AWK) -v BDIR=$(BASEDIR) -v SSLPORT=$(SSLPORT) -f build\mkconfnw.awk docs\conf\extra\httpd-ssl.conf.in >$(INSTALL)\$(BASEDIR)\conf\extra\httpd-ssl.conf
-	-copy docs\conf\magic           $(INSTALL)\$(BASEDIR)\conf\magic
-	-copy docs\conf\mime.types      $(INSTALL)\$(BASEDIR)\conf\mime.types
-	-copy docs\conf\charset.conv    $(INSTALL)\$(BASEDIR)\conf\charset.conv
-	-copy docs\cgi-examples\printenv $(INSTALL)\$(BASEDIR)\cgi-bin\printenv.pl
-	@xcopy $(XCOPYSW) docs\error $(INSTALL)\$(BASEDIR)\error
-	@xcopy $(XCOPYSW) docs\docroot $(INSTALL)\$(BASEDIR)\htdocs
-	@xcopy $(XCOPYSW) docs\icons $(INSTALL)\$(BASEDIR)\icons
-	@xcopy $(XCOPYSW) docs\man $(INSTALL)\$(BASEDIR)\man
-	@xcopy $(XCOPYSW) docs\manual $(INSTALL)\$(BASEDIR)\manual
+	$(call COPY,$(OBJDIR)/$(NLM_NAME).nlm,                         $(INSTALLBASE)/)
+	$(call COPY,ABOUT_APACHE,                                      $(INSTALLBASE)/)
+	$(call COPY,CHANGES,                                           $(INSTALLBASE)/)
+	$(call COPY,LICENSE,                                           $(INSTALLBASE)/)
+	$(call COPY,README,                                            $(INSTALLBASE)/)
+	$(call COPY,VERSIONING,                                        $(INSTALLBASE)/)
+	$(call COPY,STATUS,                                            $(INSTALLBASE)/)
+	$(call COPY,support/dbmmanage.in,                              $(INSTALLBASE)/bin/dbmmanage.pl)
+	$(call COPY,support/logresolve.pl.in,                          $(INSTALLBASE)/bin/logresolve.pl)
+	$(call COPY,support/split-logfile.in,                          $(INSTALLBASE)/bin/split-logfile.pl)
+	$(call COPY,support/check_forensic,                            $(INSTALLBASE)/bin/check_forensic.sh)
+	$(call COPY,docs/conf/magic,                                   $(INSTALLBASE)/conf/)
+	$(call COPY,docs/conf/mime.types,                              $(INSTALLBASE)/conf/)
+	$(call COPY,docs/conf/charset.conv,                            $(INSTALLBASE)/conf/)
+	$(call COPY,docs/cgi-examples/printenv,                        $(INSTALLBASE)/cgi-bin/printenv.pl)
+	$(call MKCNF,docs/conf/httpd.conf.in,                          $(INSTALLBASE)/conf/httpd.conf)
+	$(call MKCNF,docs/conf/extra/httpd-autoindex.conf.in,          $(INSTALLBASE)/conf/extra/httpd-autoindex.conf)
+	$(call MKCNF,docs/conf/extra/httpd-dav.conf.in,                $(INSTALLBASE)/conf/extra/httpd-dav.conf)
+	$(call MKCNF,docs/conf/extra/httpd-default.conf.in,            $(INSTALLBASE)/conf/extra/httpd-default.conf)
+	$(call MKCNF,docs/conf/extra/httpd-info.conf.in,               $(INSTALLBASE)/conf/extra/httpd-info.conf)
+	$(call MKCNF,docs/conf/extra/httpd-languages.conf.in,          $(INSTALLBASE)/conf/extra/httpd-languages.conf)
+	$(call MKCNF,docs/conf/extra/httpd-manual.conf.in,             $(INSTALLBASE)/conf/extra/httpd-manual.conf)
+	$(call MKCNF,docs/conf/extra/httpd-mpm.conf.in,                $(INSTALLBASE)/conf/extra/httpd-mpm.conf)
+	$(call MKCNF,docs/conf/extra/httpd-multilang-errordoc.conf.in, $(INSTALLBASE)/conf/extra/httpd-multilang-errordoc.conf)
+	$(call MKCNF,docs/conf/extra/httpd-userdir.conf.in,            $(INSTALLBASE)/conf/extra/httpd-userdir.conf)
+	$(call MKCNF,docs/conf/extra/httpd-vhosts.conf.in,             $(INSTALLBASE)/conf/extra/httpd-vhosts.conf)
+	$(call MKCNF,docs/conf/extra/httpd-ssl.conf.in,                $(INSTALLBASE)/conf/extra/httpd-ssl.conf)
+	$(call COPYR,docs/docroot,                                     $(INSTALLBASE)/htdocs)
+	$(call COPYR,docs/error,                                       $(INSTALLBASE)/error)
+	$(call COPYR,docs/icons,                                       $(INSTALLBASE)/icons)
+	$(call COPYR,docs/man,                                         $(INSTALLBASE)/man)
+	$(call COPYR,docs/manual,                                      $(INSTALLBASE)/manual)
 
 installdev :: FORCE
-	-copy $(subst /,\,$(AP_WORK))\include\*.h           $(INSTALL)\$(BASEDIR)\include\*.*
-	-copy $(subst /,\,$(AP_WORK))\os\netware\*.h        $(INSTALL)\$(BASEDIR)\include\*.*
-	-copy $(subst /,\,$(NWOS))\*.imp                    $(INSTALL)\$(BASEDIR)\lib\*.*
-	-copy $(subst /,\,$(APR))\include\*.h               $(INSTALL)\$(BASEDIR)\include\*.*
-	-copy $(subst /,\,$(APRUTIL))\include\*.h           $(INSTALL)\$(BASEDIR)\include\*.*
-	-copy $(subst /,\,$(APR))\*.imp                     $(INSTALL)\$(BASEDIR)\lib\*.*
-	-copy $(subst /,\,$(NWOS))\*.xdc                    $(INSTALL)\$(BASEDIR)\lib\*.*
+	$(call COPY,$(SRC)/include/*.h,                                $(INSTALLBASE)/include/)
+	$(call COPY,$(NWOS)/*.h,                                       $(INSTALLBASE)/include/)
+	$(call COPY,$(APR)/include/*.h,                                $(INSTALLBASE)/include/)
+	$(call COPY,$(APRUTIL)/include/*.h,                            $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/cache/mod_cache.h,                       $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/database/mod_dbd.h,                      $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/dav/main/mod_dav.h,                      $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/filters/mod_include.h,                   $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/generators/mod_cgi.h,                    $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/generators/mod_status.h,                 $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/loggers/mod_log_config.h,                $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/mappers/mod_rewrite.h,                   $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/proxy/mod_proxy.h,                       $(INSTALLBASE)/include/)
+	$(call COPY,$(STDMOD)/ssl/mod_ssl.h,                           $(INSTALLBASE)/include/)
+	$(call COPY,$(APR)/*.imp,                                      $(INSTALLBASE)/lib/)
+	$(call COPY,$(NWOS)/*.imp,                                     $(INSTALLBASE)/lib/)
+	$(call COPY,$(NWOS)/*.xdc,                                     $(INSTALLBASE)/lib/)
+	$(call COPY,$(APBUILD)/NWGNU*.inc,                             $(INSTALLBASE)/build/)
 
 prebuild :: FORCE
-	$(MAKE) -C server -f NWGNUMakefile
-	$(MAKE) -C srclib/pcre -f NWGNUMakefile
-	$(CHKNOT) $(PREBUILD_INST)\nul          mkdir $(PREBUILD_INST)
-	-copy $(AP_WORK)\server\$(OBJDIR)\*.nlm $(PREBUILD_INST)\*.*
-	-copy $(AP_WORK)\srclib\pcre\$(basename $(OBJDIR))\*.nlm $(PREBUILD_INST)\*.*
+	$(MAKE) -C $(SERVER) -f NWGNUmakefile
+	$(MAKE) -C $(PCRE) -f NWGNUmakefile
+	$(call MKDIR,$(PREBUILD_INST))
+	$(call COPY,$(SERVER)/$(OBJDIR)/*.nlm,                         $(PREBUILD_INST)/)
+	$(call COPY,$(PCRE)/$(OBJDIR)/*.nlm,                           $(PREBUILD_INST)/)
 
 #
 # Any specialized rules here
@@ -406,15 +442,15 @@ prebuild :: FORCE
 
 vpath %.c server:modules/arch/netware:modules/http:modules/aaa:modules/mappers
 vpath %.c modules/generators:modules/metadata:modules/filters:modules/loggers
-vpath %.c os/netware:server/mpm/netware:srclib/pcre
+vpath %.c os/netware:server/mpm/netware:$(PCRE)
 
 #
 # Include the 'tail' makefile that has targets that depend on variables defined
 # in this makefile
 #
 
-include $(AP_WORK)\build\NWGNUtail.inc
+include $(APBUILD)/NWGNUtail.inc
 
-include $(AP_WORK)\build\NWGNUscripts.inc
+include $(AP_WORK)/build/NWGNUscripts.inc
 
 

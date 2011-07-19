@@ -3,7 +3,7 @@
 	archiveVersion = 1;
 	classes = {
 	};
-	objectVersion = 45;
+	objectVersion = 46;
 	objects = {
 
 /* Begin PBXAggregateTarget section */
@@ -50,6 +50,8 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		4B0A3103131F266E002DE2E5 /* events.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A30FF131F24AC002DE2E5 /* events.defs */; settings = {ATTRIBUTES = (Server, ); }; };
+		4B0FB8EA1241FE3F00383109 /* domain.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B0FB8E91241FE3F00383109 /* domain.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		4B10F1B90F43BE7E00875782 /* launchd_internal.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC59A0BD0E8C8A2A00D41150 /* launchd_internal.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		4B10F1BA0F43BE7E00875782 /* protocol_vproc.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC3627DF0E9344BF0054F1A3 /* protocol_vproc.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
 		4B10F1BB0F43BE7E00875782 /* protocol_job_reply.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC3629160E9348390054F1A3 /* protocol_job_reply.defs */; };
@@ -74,9 +76,13 @@
 		4B10F1EC0F43BF5C00875782 /* libedit.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = FCD713730E95DE49001B0111 /* libedit.dylib */; settings = {ATTRIBUTES = (Weak, ); }; };
 		4B10F1EF0F43BF5C00875782 /* launchctl.1 in CopyFiles */ = {isa = PBXBuildFile; fileRef = FC59A0AD0E8C8A0E00D41150 /* launchctl.1 */; };
 		4B1D92010F8BDE7D00125940 /* launchd.ops in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4B1D91ED0F8BDE1A00125940 /* launchd.ops */; };
+		4B287733111A509400C07B35 /* launchd_helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B287732111A509400C07B35 /* launchd_helper.defs */; settings = {ATTRIBUTES = (Client, Server, ); }; };
+		4B28781B111A61A400C07B35 /* launchd_helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B287732111A509400C07B35 /* launchd_helper.defs */; };
+		4B9A1C1F132759F700019C67 /* events.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B0A30FF131F24AC002DE2E5 /* events.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		4B9EDCA20EAFC77E00A78496 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */; };
+		4BA2F5FD1243063D00C2AADD /* init.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4BA2F5FC1243063D00C2AADD /* init.defs */; };
+		4BF8727C1187A5F000CC7DB5 /* launchd_helper.defs in Sources */ = {isa = PBXBuildFile; fileRef = 4B287732111A509400C07B35 /* launchd_helper.defs */; };
 		7215DE4C0EFAF2EC00ABD81E /* libauditd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */; };
-		721FBEBC0EA7AE2F0057462B /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721FBEBB0EA7AE2F0057462B /* Security.framework */; };
 		726055EC0EA7EC2400D65FE7 /* mach_exc.defs in Sources */ = {isa = PBXBuildFile; fileRef = FC36291F0E9349410054F1A3 /* mach_exc.defs */; settings = {ATTRIBUTES = (Server, ); }; };
 		726056090EA7FCF200D65FE7 /* launchd_ktrace.c in Sources */ = {isa = PBXBuildFile; fileRef = 72FDB15D0EA7D7B200B2AC84 /* launchd_ktrace.c */; };
 		72AFE8090EFAF3D9004BDA46 /* libauditd.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */; };
@@ -365,25 +371,29 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		4B0A30FF131F24AC002DE2E5 /* events.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = events.defs; path = /usr/local/include/xpc/events.defs; sourceTree = SDKROOT; };
+		4B0A3100131F24AC002DE2E5 /* types.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = types.defs; path = /usr/local/include/xpc/types.defs; sourceTree = SDKROOT; };
+		4B0FB8E91241FE3F00383109 /* domain.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = domain.defs; path = /usr/local/include/xpc/domain.defs; sourceTree = SDKROOT; };
 		4B10F1D30F43BE7E00875782 /* launchd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = launchd; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B10F1F30F43BF5C00875782 /* launchctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = launchctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		4B1D91ED0F8BDE1A00125940 /* launchd.ops */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = launchd.ops; path = launchd/src/launchd.ops; sourceTree = "<group>"; };
+		4B287732111A509400C07B35 /* launchd_helper.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = launchd_helper.defs; path = launchd/src/launchd_helper.defs; sourceTree = "<group>"; };
 		4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		4BA2F5FC1243063D00C2AADD /* init.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = init.defs; path = /usr/local/include/xpc/init.defs; sourceTree = SDKROOT; };
 		7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libauditd.dylib; path = /usr/lib/libauditd.dylib; sourceTree = "<absolute>"; };
 		721FBEA50EA7ABC40057462B /* config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = config.h; path = launchd/src/config.h; sourceTree = "<group>"; };
-		721FBEBB0EA7AE2F0057462B /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		72FDB15D0EA7D7B200B2AC84 /* launchd_ktrace.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = launchd_ktrace.c; path = launchd/src/launchd_ktrace.c; sourceTree = "<group>"; };
 		72FDB15E0EA7D7B200B2AC84 /* launchd_ktrace.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = launchd_ktrace.h; path = launchd/src/launchd_ktrace.h; sourceTree = "<group>"; };
 		72FDB1BF0EA7E21C00B2AC84 /* protocol_job_forward.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = protocol_job_forward.defs; path = launchd/src/protocol_job_forward.defs; sourceTree = "<group>"; };
 		FC3627DF0E9344BF0054F1A3 /* protocol_vproc.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = protocol_vproc.defs; path = launchd/src/protocol_vproc.defs; sourceTree = "<group>"; };
 		FC3628070E9345E10054F1A3 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		FC36283E0E93463C0054F1A3 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
-		FC36290C0E93475F0054F1A3 /* notify.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = notify.defs; path = /usr/include/mach/notify.defs; sourceTree = "<absolute>"; };
+		FC36290C0E93475F0054F1A3 /* notify.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = notify.defs; path = /usr/include/mach/notify.defs; sourceTree = SDKROOT; };
 		FC3629160E9348390054F1A3 /* protocol_job_reply.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = protocol_job_reply.defs; path = launchd/src/protocol_job_reply.defs; sourceTree = "<group>"; };
-		FC36291F0E9349410054F1A3 /* mach_exc.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = mach_exc.defs; path = /usr/include/mach/mach_exc.defs; sourceTree = "<absolute>"; };
+		FC36291F0E9349410054F1A3 /* mach_exc.defs */ = {isa = PBXFileReference; explicitFileType = sourcecode.mig; fileEncoding = 4; name = mach_exc.defs; path = /usr/include/mach/mach_exc.defs; sourceTree = SDKROOT; };
 		FC36292C0E934AA40054F1A3 /* libbsm.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libbsm.dylib; path = /usr/lib/libbsm.dylib; sourceTree = "<absolute>"; };
 		FC59A0540E8C884700D41150 /* launchd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = launchd; sourceTree = BUILT_PRODUCTS_DIR; };
-		FC59A0600E8C885100D41150 /* liblaunch.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = liblaunch.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		FC59A0600E8C885100D41150 /* liblaunch.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = liblaunch.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC59A06D0E8C888A00D41150 /* launchctl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = launchctl; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC59A0910E8C892300D41150 /* SystemStarter */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = SystemStarter; sourceTree = BUILT_PRODUCTS_DIR; };
 		FC59A0A40E8C89C100D41150 /* IPC.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = IPC.h; path = launchd/src/IPC.h; sourceTree = SOURCE_ROOT; };
@@ -499,7 +509,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				721FBEBC0EA7AE2F0057462B /* Security.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -513,6 +522,26 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		4B0A3102131F24B3002DE2E5 /* XPC */ = {
+			isa = PBXGroup;
+			children = (
+				4B0A3100131F24AC002DE2E5 /* types.defs */,
+				4B0FB8E91241FE3F00383109 /* domain.defs */,
+				4B0A30FF131F24AC002DE2E5 /* events.defs */,
+				4BA2F5FC1243063D00C2AADD /* init.defs */,
+			);
+			name = XPC;
+			sourceTree = "<group>";
+		};
+		4B8D8239132C5F400081FD4E /* Mach */ = {
+			isa = PBXGroup;
+			children = (
+				FC36291F0E9349410054F1A3 /* mach_exc.defs */,
+				FC36290C0E93475F0054F1A3 /* notify.defs */,
+			);
+			name = Mach;
+			sourceTree = "<group>";
+		};
 		4B9EDCD60EAFD11000A78496 /* MIG */ = {
 			isa = PBXGroup;
 			children = (
@@ -521,8 +550,7 @@
 				FC3629160E9348390054F1A3 /* protocol_job_reply.defs */,
 				FC3627DF0E9344BF0054F1A3 /* protocol_vproc.defs */,
 				FC59A0BD0E8C8A2A00D41150 /* launchd_internal.defs */,
-				FC36291F0E9349410054F1A3 /* mach_exc.defs */,
-				FC36290C0E93475F0054F1A3 /* notify.defs */,
+				4B287732111A509400C07B35 /* launchd_helper.defs */,
 			);
 			name = MIG;
 			sourceTree = "<group>";
@@ -571,7 +599,6 @@
 			isa = PBXGroup;
 			children = (
 				4B9EDCA10EAFC77E00A78496 /* DiskArbitration.framework */,
-				721FBEBB0EA7AE2F0057462B /* Security.framework */,
 				FC36292C0E934AA40054F1A3 /* libbsm.dylib */,
 				7215DE4B0EFAF2EC00ABD81E /* libauditd.dylib */,
 				FCD713730E95DE49001B0111 /* libedit.dylib */,
@@ -598,6 +625,8 @@
 		FC59A04E0E8C883300D41150 /* launchd */ = {
 			isa = PBXGroup;
 			children = (
+				4B8D8239132C5F400081FD4E /* Mach */,
+				4B0A3102131F24B3002DE2E5 /* XPC */,
 				4B9EDCD60EAFD11000A78496 /* MIG */,
 				4B9EDCD70EAFD14500A78496 /* Source */,
 				4B9EDCD90EAFD19800A78496 /* rc */,
@@ -609,7 +638,7 @@
 		FC59A0550E8C884700D41150 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				FC59A0600E8C885100D41150 /* liblaunch.a */,
+				FC59A0600E8C885100D41150 /* liblaunch.dylib */,
 				FC59A0540E8C884700D41150 /* launchd */,
 				FC59A06D0E8C888A00D41150 /* launchctl */,
 				FC59A0910E8C892300D41150 /* SystemStarter */,
@@ -783,8 +812,8 @@
 			);
 			name = liblaunch;
 			productName = launchd_libs;
-			productReference = FC59A0600E8C885100D41150 /* liblaunch.a */;
-			productType = "com.apple.product-type.library.static";
+			productReference = FC59A0600E8C885100D41150 /* liblaunch.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
 		};
 		FC59A06C0E8C888A00D41150 /* launchctl */ = {
 			isa = PBXNativeTarget;
@@ -866,9 +895,19 @@
 /* Begin PBXProject section */
 		FC59A03F0E8C87FD00D41150 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0420;
+			};
 			buildConfigurationList = FC59A0420E8C87FD00D41150 /* Build configuration list for PBXProject "launchd" */;
-			compatibilityVersion = "Xcode 2.4";
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = FC59A03D0E8C87FD00D41150;
 			productRefGroup = FC59A0550E8C884700D41150 /* Products */;
 			projectDirPath = "";
@@ -1009,6 +1048,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4B9A1C1F132759F700019C67 /* events.defs in Sources */,
+				4BF8727C1187A5F000CC7DB5 /* launchd_helper.defs in Sources */,
 				4B10F1B90F43BE7E00875782 /* launchd_internal.defs in Sources */,
 				4B10F1BA0F43BE7E00875782 /* protocol_vproc.defs in Sources */,
 				4B10F1BB0F43BE7E00875782 /* protocol_job_reply.defs in Sources */,
@@ -1036,18 +1077,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				4B28781B111A61A400C07B35 /* launchd_helper.defs in Sources */,
 				FC59A0BF0E8C8A2A00D41150 /* launchd_internal.defs in Sources */,
 				FC3627E10E9344BF0054F1A3 /* protocol_vproc.defs in Sources */,
 				FC3629170E9348390054F1A3 /* protocol_job_reply.defs in Sources */,
 				726055EC0EA7EC2400D65FE7 /* mach_exc.defs in Sources */,
 				FC36290D0E93475F0054F1A3 /* notify.defs in Sources */,
+				4B0FB8EA1241FE3F00383109 /* domain.defs in Sources */,
+				4B0A3103131F266E002DE2E5 /* events.defs in Sources */,
+				4BA2F5FD1243063D00C2AADD /* init.defs in Sources */,
+				72FDB1C00EA7E21C00B2AC84 /* protocol_job_forward.defs in Sources */,
 				FC59A0C50E8C8A4700D41150 /* launchd.c in Sources */,
 				FC59A0BA0E8C8A1F00D41150 /* launchd_runtime.c in Sources */,
 				FC59A0B90E8C8A1F00D41150 /* launchd_runtime_kill.c in Sources */,
 				FC59A0BB0E8C8A1F00D41150 /* launchd_core_logic.c in Sources */,
 				FC59A0B80E8C8A1F00D41150 /* launchd_unix_ipc.c in Sources */,
 				72FDB15F0EA7D7B200B2AC84 /* launchd_ktrace.c in Sources */,
-				72FDB1C00EA7E21C00B2AC84 /* protocol_job_forward.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1060,6 +1105,7 @@
 				FC59A0F70E8C8AA600D41150 /* libbootstrap.c in Sources */,
 				FC3627E00E9344BF0054F1A3 /* protocol_vproc.defs in Sources */,
 				726056090EA7FCF200D65FE7 /* launchd_ktrace.c in Sources */,
+				4B287733111A509400C07B35 /* launchd_helper.defs in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1156,33 +1202,22 @@
 		4B10F1D20F43BE7E00875782 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					__LAUNCH_DISABLE_XPC_SUPPORT__,
+					XPC_BUILDING_LAUNCHD,
+				);
+				HEADER_SEARCH_PATHS = "$(SDKROOT)/usr/local/include";
 				INSTALL_PATH = /sbin;
-				PREBINDING = NO;
+				OTHER_MIGFLAGS = "-DXPC_BUILDING_LAUNCHD -I$(PROJECT_DIR)/launchd/src/ -I$(SDKROOT)/usr/local/include";
 				PRODUCT_NAME = launchd;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		4B10F1F20F43BF5C00875782 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				INSTALL_PATH = /bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = launchctl;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -1191,7 +1226,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = embedded;
 				ZERO_LINK = NO;
 			};
@@ -1201,7 +1235,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
 				DEAD_CODE_STRIPPING = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				GCC_MODEL_TUNING = "";
 				GCC_SYMBOLS_PRIVATE_EXTERN = YES;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
@@ -1214,73 +1250,80 @@
 					"-Dmig_external=__private_extern__",
 					"-D_DARWIN_USE_64_BIT_INODE=1",
 				);
+				STRIP_STYLE = all;
+				VERSIONING_SYSTEM = "apple-generic";
 				WARNING_CFLAGS = (
 					"-Wall",
 					"-Wextra",
 					"-Waggregate-return",
 					"-Wmissing-declarations",
 				);
+				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		FC59A0580E8C884800D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ALWAYS_SEARCH_USER_PATHS = YES;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_PREPROCESSOR_DEFINITIONS = "";
+				HEADER_SEARCH_PATHS = "";
 				INSTALL_PATH = /sbin;
-				PREBINDING = NO;
+				OTHER_CFLAGS = (
+					"-D__MigTypeCheck=1",
+					"-Dmig_external=__private_extern__",
+					"-D_DARWIN_USE_64_BIT_INODE=1",
+				);
+				OTHER_MIGFLAGS = "-DXPC_BUILDING_LAUNCHD -I$(PROJECT_DIR)/launchd/src/";
 				PRODUCT_NAME = launchd;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		FC59A0620E8C885100D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = "$(NATIVE_ARCH_ACTUAL)";
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
 				BUILD_VARIANTS = (
 					normal,
 					debug,
 					profile,
 				);
-				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				CRASHREPORTER_LINKER_FLAGS = "";
+				"CRASHREPORTER_LINKER_FLAGS[sdk=macosx*][arch=*]" = "-lCrashReporterClient";
+				"CRASHREPORTER_LINKER_FLAGS[sdk=macosx10.6][arch=*]" = "";
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				EXECUTABLE_PREFIX = lib;
 				INSTALLHDRS_SCRIPT_PHASE = YES;
-				INSTALL_PATH = /usr/local/lib/system;
+				INSTALL_PATH = /usr/lib/system;
+				LD_DYLIB_INSTALL_NAME = "$(DYLIB_INSTALL_NAME_BASE:standardizepath)/$(EXECUTABLE_PATH)";
 				OTHER_CFLAGS = (
 					"-D__MigTypeCheck=1",
 					"-Dmig_external=__private_extern__",
 					"-D__DARWIN_NON_CANCELABLE=1",
 					"-D_DARWIN_USE_64_BIT_INODE=1",
 				);
+				OTHER_LDFLAGS = (
+					"-Wl,-umbrella,System",
+					"$(CRASHREPORTER_LINKER_FLAGS)",
+				);
 				PRODUCT_NAME = launch;
 				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				VERSIONING_SYSTEM = "apple-generic";
-				VERSION_INFO_PREFIX = __;
+				STRIP_INSTALLED_PRODUCT = YES;
+				STRIP_STYLE = "non-global";
+				VERSION_INFO_PREFIX = _;
 			};
 			name = Release;
 		};
 		FC59A0700E8C888A00D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				COPY_PHASE_STRIP = YES;
-				DEAD_CODE_STRIPPING = NO;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = launchctl;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
@@ -1289,7 +1332,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = default;
 				ZERO_LINK = NO;
 			};
@@ -1300,7 +1342,6 @@
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				PRODUCT_NAME = launchd_libs;
 				ZERO_LINK = NO;
 			};
@@ -1309,48 +1350,31 @@
 		FC59A0940E8C892400D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /sbin;
-				PREBINDING = NO;
 				PRODUCT_NAME = SystemStarter;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Release;
 		};
 		FC59A0D10E8C8A5C00D41150 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /usr/libexec;
-				PREBINDING = NO;
 				PRODUCT_NAME = launchproxy;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};
 		FCD7132E0E95D64E001B0111 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS_STANDARD_32_BIT_PRE_XCODE_3_1 = "ppc i386";
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_DYNAMIC_NO_PIC = NO;
 				INSTALL_PATH = /bin;
-				PREBINDING = NO;
 				PRODUCT_NAME = wait4path;
-				STRIP_STYLE = debugging;
-				VALID_ARCHS = "armv5 armv6 armv7 i386 ppc ppc64 ppc7400 ppc970 x86_64";
-				ZERO_LINK = NO;
 			};
 			name = Release;
 		};

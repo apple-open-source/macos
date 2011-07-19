@@ -2,6 +2,8 @@ Project = migcom
 ProductType = tool
 Install_Dir = /usr/libexec
 
+MANPAGES = mig.1 migcom.1
+
 LFILES = lexxer.l
 YFILES = parser.y
 

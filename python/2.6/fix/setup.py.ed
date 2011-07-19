@@ -21,11 +21,12 @@ s/    //
 .
 .t.-1
 s/))/libraries = ['expat'],/
-/if os.uname()\[2\] > '8\.':/a
+/if sys.maxint == 0x7fffffff:/d
+.,/missing\.append('dl')/s/    //
+/else:/a
 .
-.t.-1
-s/if os.uname()\[2\] > '8\.':/m, z = os.uname()[2].split('.', 1)/
-/os.uname()\[2\] > '8\.':/s//int(m) > 8:/
+.,/missing\.append('dl')/d
+?Extension('dl'?s/]/&, extra_compile_args = ['-no64'], extra_link_args = ['-no64']/
 /carbon_kwds =/a
 .
 .,/}/t/}/

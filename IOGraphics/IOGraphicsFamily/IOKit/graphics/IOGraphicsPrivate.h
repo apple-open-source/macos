@@ -116,6 +116,9 @@ do {                                    \
 #define kIOHibernateGfxStatusKey    "IOHibernateGfxStatus"
 #endif
 
+#ifndef kIOMessageSystemPagingOff
+#define kIOMessageSystemPagingOff       iokit_common_msg(0x255)
+#endif
 
 extern "C" ppnum_t pmap_find_phys(pmap_t map, addr64_t va);
 
@@ -150,6 +153,7 @@ enum
 	kIOGDbgLidOpen     = 0x00000001,
 	kIOGDbgVBLThrottle = 0x00000002,
 	kIOGDbgK59Mode     = 0x00000004,
+	kIOGDbgDumbPanic   = 0x00000008,
 };
 
 #endif /* ! _IOKIT_IOGRAPHICSPRIVATE_H */

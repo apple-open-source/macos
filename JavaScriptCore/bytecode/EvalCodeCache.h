@@ -41,35 +41,40 @@
 
 namespace JSC {
 
+    class MarkStack;
+    typedef MarkStack SlotVisitor;
+
     class EvalCodeCache {
     public:
-        PassRefPtr<EvalExecutable> get(ExecState* exec, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
+        EvalExecutable* get(ExecState* exec, ScriptExecutable* owner, bool inStrictContext, const UString& evalSource, ScopeChainNode* scopeChain, JSValue& exceptionValue)
         {
-            RefPtr<EvalExecutable> evalExecutable;
+            EvalExecutable* evalExecutable = 0;
 
-            if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
-                evalExecutable = m_cacheMap.get(evalSource.rep());
+            if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject())
+                evalExecutable = m_cacheMap.get(evalSource.impl()).get();
 
             if (!evalExecutable) {
-                evalExecutable = EvalExecutable::create(exec, makeSource(evalSource));
+                evalExecutable = EvalExecutable::create(exec, makeSource(evalSource), inStrictContext);
                 exceptionValue = evalExecutable->compile(exec, scopeChain);
                 if (exceptionValue)
                     return 0;
 
-                if (evalSource.size() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
-                    m_cacheMap.set(evalSource.rep(), evalExecutable);
+                if (!inStrictContext && evalSource.length() < maxCacheableSourceLength && (*scopeChain->begin())->isVariableObject() && m_cacheMap.size() < maxCacheEntries)
+                    m_cacheMap.set(evalSource.impl(), WriteBarrier<EvalExecutable>(exec->globalData(), owner, evalExecutable));
             }
 
-            return evalExecutable.release();
+            return evalExecutable;
         }
 
         bool isEmpty() const { return m_cacheMap.isEmpty(); }
+
+        void visitAggregate(SlotVisitor&);
 
     private:
         static const unsigned maxCacheableSourceLength = 256;
         static const int maxCacheEntries = 64;
 
-        typedef HashMap<RefPtr<UString::Rep>, RefPtr<EvalExecutable> > EvalCacheMap;
+        typedef HashMap<RefPtr<StringImpl>, WriteBarrier<EvalExecutable> > EvalCacheMap;
         EvalCacheMap m_cacheMap;
     };
 

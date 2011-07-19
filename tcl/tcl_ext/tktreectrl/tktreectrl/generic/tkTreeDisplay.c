@@ -3,9 +3,9 @@
  *
  *	This module implements treectrl widget's main display code.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeDisplay.c,v 1.87 2008/10/08 19:22:11 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeDisplay.c,v 1.99 2010/06/13 23:09:09 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -15,6 +15,7 @@
 #define DW2Cy(y) ((y) + dInfo->yOrigin)
 
 #define COMPLEX_WHITESPACE
+#define REDRAW_RGN
 
 typedef struct TreeColumnDInfo_ TreeColumnDInfo_;
 typedef struct TreeDInfo_ TreeDInfo_;
@@ -112,6 +113,10 @@ struct TreeDInfo_
     int itemWidth;		/* Observed max TreeItem width */
     TreeDrawable pixmapW;	/* Pixmap as big as the window */
     TreeDrawable pixmapI;	/* Pixmap as big as the largest item */
+    TreeDrawable pixmapT;	/* Pixmap as big as the window.
+				   Use on non-composited desktops when
+				   displaying non-XOR dragimage, marquee
+				   and/or proxies. */
     TkRegion dirtyRgn;		/* DOUBLEBUFFER_WINDOW */
     int flags;			/* DINFO_XXX */
     int xScrollIncrement;	/* Last seen TreeCtr.xScrollIncrement */
@@ -138,6 +143,12 @@ struct TreeDInfo_
 				 * columns, this range holds the vertical
 				 * offset and height of each ReallyVisible
 				 * item for displaying locked columns. */
+#ifdef REDRAW_RGN
+    TkRegion redrawRgn;		/* Contains all redrawn (not copied) pixels
+				 * during a single Tree_Display call. */
+#endif /* REDRAW_RGN */
+    int overlays;		/* TRUE if the dragimage|marquee|proxy
+				 * were drawn in non-XOR mode. */
 };
 
 #ifdef COMPLEX_WHITESPACE
@@ -166,8 +177,8 @@ Range_Free(TreeCtrl *tree, Range *range)
  * Range_Redo --
  *
  *	This procedure puts all ReallyVisible() TreeItems into a list of
- *	Ranges. If tree->wrapMode is TREE_WRAP_NONE there will only be a
- *	single Range.
+ *	Ranges. If tree->wrapMode is TREE_WRAP_NONE and no visible items
+ *	have the -wrap=true option there will only be a single Range.
  *
  * Results:
  *	None.
@@ -352,6 +363,8 @@ Range_Redo(
 	    item = TreeItem_NextVisible(tree, item);
 	    if (item == NULL)
 		break;
+	    if (TreeItem_GetWrap(tree, item))
+		break;
 	}
 	/* Since we needed to calculate the height or width of this range,
 	 * we don't need to do it later in Range_TotalWidth/Height() */
@@ -470,7 +483,11 @@ Range_TotalWidth(
 
 	/* If wrapping is disabled, then use the column width,
 	 * since it may expand to fill the window */
+#if 1
+	if ((tree->wrapMode == TREE_WRAP_NONE) && (tree->itemWrapCount <= 0))
+#else
 	if (tree->wrapMode == TREE_WRAP_NONE)
+#endif
 	    return range->totalWidth = TreeColumn_UseWidth(tree->columnVis);
 
 	/* Single item column, fixed width for all ranges */
@@ -1483,7 +1500,7 @@ B_IncrementFind(
  *----------------------------------------------------------------------
  */
 
-int
+static int
 B_IncrementFindX(
     TreeCtrl *tree,		/* Widget info. */
     int offset			/* Offset to search with. */
@@ -1515,7 +1532,7 @@ B_IncrementFindX(
  *----------------------------------------------------------------------
  */
 
-int
+static int
 B_IncrementFindY(
     TreeCtrl *tree,		/* Widget info. */
     int offset			/* Offset to search with. */
@@ -2350,7 +2367,7 @@ DisplayDelay(TreeCtrl *tree)
     if (tree->debug.enable &&
 	    tree->debug.display &&
 	    tree->debug.displayDelay > 0) {
-#if !defined(WIN32) && !defined(MAC_TCL) && !defined(MAC_OSX_TK)
+#if !defined(WIN32) && !defined(MAC_OSX_TK)
 	XSync(tree->display, False);
 #endif
 	Tcl_Sleep(tree->debug.displayDelay);
@@ -3164,7 +3181,7 @@ UpdateDInfoForRange(
  *--------------------------------------------------------------
  */
 
-void
+static void
 Tree_UpdateDInfo(
     TreeCtrl *tree		/* Widget info. */
     )
@@ -3461,6 +3478,46 @@ skipLock:
 /*
  *--------------------------------------------------------------
  *
+ * InvalidateWhitespace --
+ *
+ *	Subtract a rectangular area from the current whitespace
+ *	region.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *--------------------------------------------------------------
+ */
+
+static void
+InvalidateWhitespace(
+    TreeCtrl *tree,		/* Widget info. */
+    int x1, int y1,		/* Window coords to invalidate. */
+    int x2, int y2)		/* Window coords to invalidate. */
+{
+    TreeDInfo dInfo = tree->dInfo;
+
+    if ((x1 < x2 && y1 < y2) && TkRectInRegion(dInfo->wsRgn, x1, y1,
+	    x2 - x1, y2 - y1)) {
+	XRectangle rect;
+	TkRegion rgn = Tree_GetRegion(tree);
+
+	rect.x = x1;
+	rect.y = y1;
+	rect.width = x2 - x1;
+	rect.height = y2 - y1;
+	TkUnionRectWithRegion(&rect, rgn, rgn);
+	TkSubtractRegion(dInfo->wsRgn, rgn, dInfo->wsRgn);
+	Tree_FreeRegion(tree, rgn);
+    }
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * InvalidateDItemX --
  *
  *	Mark a horizontal span of a DItem as dirty (needing to be
@@ -3622,12 +3679,50 @@ DblBufWinDirty(
     TreeDInfo dInfo = tree->dInfo;
     XRectangle rect;
 
+    /* Fix BUG ID: 3015429 */
+    if (x1 >= x2 || y1 >= y2)
+	return;
+
     rect.x = x1;
     rect.y = y1;
     rect.width = x2 - x1;
     rect.height = y2 - y1;
     TkUnionRectWithRegion(&rect, dInfo->dirtyRgn, dInfo->dirtyRgn);
 }
+
+#ifdef REDRAW_RGN
+static void
+AddRgnToRedrawRgn(
+    TreeCtrl *tree,
+    TkRegion rgn)
+{
+    TreeDInfo dInfo = tree->dInfo;
+
+    Tree_UnionRegion(dInfo->redrawRgn, rgn, dInfo->redrawRgn);
+}
+
+static void
+AddRectToRedrawRgn(
+    TreeCtrl *tree,
+    int minX,
+    int minY,
+    int maxX,
+    int maxY)
+{
+    TkRegion rgn = Tree_GetRegion(tree);
+    XRectangle rect;
+
+    rect.x = minX;
+    rect.y = minY;
+    rect.width = maxX - minX;
+    rect.height = maxY - minY;
+    Tree_SetRectRegion(rgn, &rect);
+
+    AddRgnToRedrawRgn(tree, rgn);
+
+    Tree_FreeRegion(tree, rgn);
+}
+#endif /* REDRAW_RGN */
 
 /*
  *--------------------------------------------------------------
@@ -3974,6 +4069,30 @@ ScrollHorizontalSimple(
     }
     Tree_FreeRegion(tree, damageRgn);
     Tree_InvalidateArea(tree, dirtyMin, minY, dirtyMax, maxY);
+
+    /* Invalidate the part of the whitespace that the content was copied
+     * over. This fixes the case where items are deleted and the list
+     * scrolls left: the deleted-item pixels were scrolled right over the
+     * old whitespace. */
+    if (offset > 0) {
+#if 1
+	TkRegion rgn = Tree_GetRegion(tree);
+	XRectangle rect;
+	rect.x = dInfo->bounds[0];
+	rect.y = dInfo->bounds[1];
+	rect.width = dInfo->bounds[2] - rect.x;
+	rect.height = dInfo->bounds[3] - rect.y;
+	TkUnionRectWithRegion(&rect, rgn, rgn);
+	TkSubtractRegion(rgn, dInfo->wsRgn, rgn);
+	Tree_OffsetRegion(rgn, offset, 0);
+	TkSubtractRegion(dInfo->wsRgn, rgn, dInfo->wsRgn);
+	Tree_FreeRegion(tree, rgn);
+#else
+	dirtyMin = minX + width;
+	dirtyMax = maxX;
+	InvalidateWhitespace(tree, dirtyMin, minY, dirtyMax, maxY);
+#endif
+    }
 }
 
 /*
@@ -4027,7 +4146,7 @@ ScrollVerticalSimple(
 
     offset = dInfo->yOrigin - tree->yOrigin;
 
-    /* We only scroll the content, not the whitespace */
+    /* Scroll the items, not the whitespace to the right */
     x = 0 - tree->xOrigin + Tree_TotalWidth(tree);
     if (x < maxX)
 	maxX = x;
@@ -4072,6 +4191,30 @@ ScrollVerticalSimple(
     }
     Tree_FreeRegion(tree, damageRgn);
     Tree_InvalidateArea(tree, minX, dirtyMin, maxX, dirtyMax);
+
+    /* Invalidate the part of the whitespace that the content was copied
+     * over. This fixes the case where items are deleted and the list
+     * scrolls up: the deleted-item pixels were scrolled down over the
+     * old whitespace. */
+    if (offset > 0) {
+#if 1
+	TkRegion rgn = Tree_GetRegion(tree);
+	XRectangle rect;
+	rect.x = dInfo->bounds[0];
+	rect.y = dInfo->bounds[1];
+	rect.width = dInfo->bounds[2] - rect.x;
+	rect.height = dInfo->bounds[3] - rect.y;
+	TkUnionRectWithRegion(&rect, rgn, rgn);
+	TkSubtractRegion(rgn, dInfo->wsRgn, rgn);
+	Tree_OffsetRegion(rgn, 0, offset);
+	TkSubtractRegion(dInfo->wsRgn, rgn, dInfo->wsRgn);
+	Tree_FreeRegion(tree, rgn);
+#else
+	dirtyMin = minY + height;
+	dirtyMax = maxY;
+	InvalidateWhitespace(tree, minX, dirtyMin, maxX, dirtyMax);
+#endif
+    }
 }
 
 /*
@@ -4233,9 +4376,39 @@ ScrollHorizontalComplex(
 }
 
 /*
+ *----------------------------------------------------------------------
+ *
+ * Proxy_IsXOR --
+ *
+ *	Return true if the column/row proxies should be drawn with XOR.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static int
+Proxy_IsXOR(void)
+{
+#if defined(WIN32)
+    return FALSE; /* TRUE on XP, FALSE on Win7 (lots of flickering) */
+#elif defined(MAC_TK_CARBON)
+    return TRUE;
+#elif defined(MAC_TK_COCOA)
+    return FALSE; /* Cocoa doesn't have XOR */
+#else
+    return TRUE; /* X11 */
+#endif
+}
+
+/*
  *--------------------------------------------------------------
  *
- * Proxy_Draw --
+ * Proxy_DrawXOR --
  *
  *	Draw (or erase) the visual indicator used when the user is
  *	resizing a column or row (and -columnresizemode is "proxy").
@@ -4251,7 +4424,7 @@ ScrollHorizontalComplex(
  */
 
 static void
-Proxy_Draw(
+Proxy_DrawXOR(
     TreeCtrl *tree,		/* Widget info. */
     int x1,			/* Vertical or horizontal line window coords. */
     int y1,
@@ -4259,15 +4432,15 @@ Proxy_Draw(
     int y2
     )
 {
-#if defined(MAC_OSX_TK)
+#if defined(MAC_TK_CARBON)
     DrawXORLine(tree->display, Tk_WindowId(tree->tkwin), x1, y1, x2, y2);
 #else
     XGCValues gcValues;
     unsigned long gcMask;
     GC gc;
 
-#if defined(MAC_TCL)
-    gcValues.function = GXxor;
+#if defined(MAC_TK_COCOA)
+    gcValues.function = GXcopy;
 #else
     gcValues.function = GXinvert;
 #endif
@@ -4275,44 +4448,15 @@ Proxy_Draw(
     gcMask = GCFunction | GCGraphicsExposures;
     gc = Tree_GetGC(tree, gcMask, &gcValues);
 
-    /* GXinvert doesn't work with XFillRectangle() on Win32 or Mac */
-#if defined(WIN32) || defined(MAC_TCL)
+#if defined(WIN32)
+    /* GXinvert doesn't work with XFillRectangle() on Win32 */
     XDrawLine(tree->display, Tk_WindowId(tree->tkwin), gc, x1, y1, x2, y2);
 #else
     XFillRectangle(tree->display, Tk_WindowId(tree->tkwin), gc,
 	    x1, y1, MAX(x2 - x1, 1), MAX(y2 - y1, 1));
 #endif
 
-#endif /* !MAC_OSX_TK */
-}
-
-/*
- *--------------------------------------------------------------
- *
- * TreeColumnProxy_Undisplay --
- *
- *	Hide the visual indicator used when the user is
- *	resizing a column (if it is displayed).
- *
- * Results:
- *	None.
- *
- * Side effects:
- *	Stuff is erased in the TreeCtrl window.
- *
- *--------------------------------------------------------------
- */
-
-void
-TreeColumnProxy_Undisplay(
-    TreeCtrl *tree		/* Widget info. */
-    )
-{
-    if (tree->columnProxy.onScreen) {
-	Proxy_Draw(tree, tree->columnProxy.sx, Tree_BorderTop(tree),
-		tree->columnProxy.sx, Tree_BorderBottom(tree));
-	tree->columnProxy.onScreen = FALSE;
-    }
+#endif /* !MAC_TK_CARBON */
 }
 
 /*
@@ -4340,9 +4484,46 @@ TreeColumnProxy_Display(
 {
     if (!tree->columnProxy.onScreen && (tree->columnProxy.xObj != NULL)) {
 	tree->columnProxy.sx = tree->columnProxy.x;
-	Proxy_Draw(tree, tree->columnProxy.x, Tree_BorderTop(tree),
-		tree->columnProxy.x, Tree_BorderBottom(tree));
+	if (Proxy_IsXOR()) {
+	    Proxy_DrawXOR(tree, tree->columnProxy.x, Tree_BorderTop(tree),
+		    tree->columnProxy.x, Tree_BorderBottom(tree));
+	} else {
+	    Tree_EventuallyRedraw(tree);
+	}
 	tree->columnProxy.onScreen = TRUE;
+    }
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * TreeColumnProxy_Undisplay --
+ *
+ *	Hide the visual indicator used when the user is
+ *	resizing a column (if it is displayed).
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stuff is erased in the TreeCtrl window.
+ *
+ *--------------------------------------------------------------
+ */
+
+void
+TreeColumnProxy_Undisplay(
+    TreeCtrl *tree		/* Widget info. */
+    )
+{
+    if (tree->columnProxy.onScreen) {
+	if (Proxy_IsXOR()) {
+	    Proxy_DrawXOR(tree, tree->columnProxy.sx, Tree_BorderTop(tree),
+		    tree->columnProxy.sx, Tree_BorderBottom(tree));
+	} else {
+	    Tree_EventuallyRedraw(tree);
+	}
+	tree->columnProxy.onScreen = FALSE;
     }
 }
 
@@ -4371,8 +4552,12 @@ TreeRowProxy_Display(
 {
     if (!tree->rowProxy.onScreen && (tree->rowProxy.yObj != NULL)) {
 	tree->rowProxy.sy = tree->rowProxy.y;
-	Proxy_Draw(tree, Tree_BorderLeft(tree), tree->rowProxy.y,
-		Tree_BorderRight(tree), tree->rowProxy.y);
+	if (Proxy_IsXOR()) {
+	    Proxy_DrawXOR(tree, Tree_BorderLeft(tree), tree->rowProxy.y,
+		    Tree_BorderRight(tree), tree->rowProxy.y);
+	} else {
+	    Tree_EventuallyRedraw(tree);
+	}
 	tree->rowProxy.onScreen = TRUE;
     }
 }
@@ -4400,10 +4585,108 @@ TreeRowProxy_Undisplay(
     )
 {
     if (tree->rowProxy.onScreen) {
-	Proxy_Draw(tree, Tree_BorderLeft(tree), tree->rowProxy.sy,
-		Tree_BorderRight(tree), tree->rowProxy.sy);
+	if (Proxy_IsXOR()) {
+	    Proxy_DrawXOR(tree, Tree_BorderLeft(tree), tree->rowProxy.sy,
+		    Tree_BorderRight(tree), tree->rowProxy.sy);
+	} else {
+	    Tree_EventuallyRedraw(tree);
+	}
 	tree->rowProxy.onScreen = FALSE;
     }
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * Proxy_Draw --
+ *
+ *	Draw the non-XOR -columnproxy or -rowproxy indicator.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stuff is drawn into a drawable.
+ *
+ *--------------------------------------------------------------
+ */
+
+static void
+Proxy_Draw(
+    TreeCtrl *tree,		/* Widget info. */
+    TreeDrawable td,		/* Where to draw. */
+    int x1,			/* Vertical or horizontal line window coords. */
+    int y1,
+    int x2,
+    int y2
+    )
+{
+    XGCValues gcValues;
+    unsigned long gcMask;
+    GC gc;
+
+    gcValues.function = GXcopy;
+    gcValues.graphics_exposures = False;
+    gcMask = GCFunction | GCGraphicsExposures;
+    gc = Tree_GetGC(tree, gcMask, &gcValues);
+
+    XDrawLine(tree->display, td.drawable, gc, x1, y1, x2, y2);
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * TreeColumnProxy_Draw --
+ *
+ *	Draw the non-XOR -columnproxy indicator if it is visible.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stuff is drawn into a drawable.
+ *
+ *--------------------------------------------------------------
+ */
+
+static void
+TreeColumnProxy_Draw(
+    TreeCtrl *tree,		/* Widget info. */
+    TreeDrawable td		/* Where to draw. */
+    )
+{
+    if (tree->columnProxy.xObj == NULL)
+	return;
+    Proxy_Draw(tree, td, tree->columnProxy.x, Tree_BorderTop(tree),
+	    tree->columnProxy.x, Tree_BorderBottom(tree));
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * TreeRowProxy_Draw --
+ *
+ *	Draw the non-XOR -rowproxy indicator if it is visible.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stuff is drawn into a drawable.
+ *
+ *--------------------------------------------------------------
+ */
+
+static void
+TreeRowProxy_Draw(
+    TreeCtrl *tree,		/* Widget info. */
+    TreeDrawable td		/* Where to draw. */
+    )
+{
+    if (tree->rowProxy.yObj == NULL)
+	return;
+    Proxy_Draw(tree, td, Tree_BorderLeft(tree), tree->rowProxy.y,
+	    Tree_BorderRight(tree), tree->rowProxy.y);
 }
 
 /*
@@ -4591,7 +4874,7 @@ Tree_IntersectRect(
 
     *resultPtr = result;
     return 1;
-};
+}
 
 /*
  *--------------------------------------------------------------
@@ -4791,8 +5074,7 @@ DrawWhitespaceBelowItem(
 	columnBox.width = width;
 	columnBox.height = bounds[3] - top;
 	if (Tree_IntersectRect(&columnBox, &boundsBox, &columnBox)) {
-	    TkSubtractRegion(columnRgn, columnRgn, columnRgn);
-	    TkUnionRectWithRegion(&columnBox, columnRgn, columnRgn);
+	    Tree_SetRectRegion(columnRgn, &columnBox);
 	    TkIntersectRegion(dirtyRgn, columnRgn, columnRgn);
 	    DrawColumnBackground(tree, drawable, treeColumn,
 		    columnRgn, &columnBox, (RItem *) NULL, height, index);
@@ -4829,7 +5111,12 @@ ComplexWhitespace(
 	    TreeColumn_BackgroundCount(tree->columnTail) == 0)
 	return 0;
 
+#if 1
+    if (!tree->vertical || (tree->wrapMode != TREE_WRAP_NONE) ||
+	(tree->itemWrapCount > 0))
+#else
     if (!tree->vertical || tree->wrapMode != TREE_WRAP_NONE)
+#endif
 	return 0;
 
     if (tree->itemHeight <= 0 && tree->minItemHeight <= 0)
@@ -4931,8 +5218,7 @@ DrawWhitespace(
 	    columnBox.x = x + Tree_TotalWidth(tree);
 	    columnBox.width = maxX - columnBox.x;
 	    columnBox.height = maxY - columnBox.y;
-	    TkSubtractRegion(columnRgn, columnRgn, columnRgn);
-	    TkUnionRectWithRegion(&columnBox, columnRgn, columnRgn);
+	    Tree_SetRectRegion(columnRgn, &columnBox);
 	    TkIntersectRegion(dirtyRgn, columnRgn, columnRgn);
 	    DrawColumnBackground(tree, drawable, tree->columnTail,
 		    columnRgn, &columnBox, rItem, height, index);
@@ -5149,10 +5435,14 @@ DisplayDItem(
 		dItem->index);
     }
 
+#ifdef REDRAW_RGN
+    AddRectToRedrawRgn(tree, left, top, right, bottom);
+#endif /* REDRAW_RGN */
+
     return 1;
 }
 
-void
+static void
 DebugDrawBorder(
     TreeCtrl *tree,
     int inset,
@@ -5283,6 +5573,55 @@ DisplayGetPixmap(
 }
 
 /*
+ *----------------------------------------------------------------------
+ *
+ * SetBuffering --
+ *
+ *	Chooses the appropriate level of offscreen buffering depending
+ *	on whether we need to draw the dragimage|marquee|proxies in non-XOR.
+ *
+ * Results:
+ *	tree->doubleBuffer is possibly updated.
+ *
+ * Side effects:
+ *	If the buffering level changes then the whole list is redrawn.
+ *
+ *----------------------------------------------------------------------
+ */
+
+static void
+SetBuffering(
+    TreeCtrl *tree)
+{
+    TreeDInfo dInfo = tree->dInfo;
+    int overlays = FALSE;
+
+    if ((TreeDragImage_IsVisible(tree->dragImage) &&
+	!TreeDragImage_IsXOR(tree->dragImage)) ||
+	(TreeMarquee_IsVisible(tree->marquee) &&
+	!TreeMarquee_IsXOR(tree->marquee)) ||
+	((tree->columnProxy.xObj || tree->rowProxy.yObj) &&
+	!Proxy_IsXOR())) {
+
+	overlays = TRUE;
+    }
+
+    if (overlays) {
+	tree->doubleBuffer = DOUBLEBUFFER_WINDOW;
+    } else {
+	tree->doubleBuffer = DOUBLEBUFFER_ITEM;
+    }
+
+    if (overlays != dInfo->overlays) {
+	dInfo->flags |=
+	    DINFO_DRAW_HEADER |
+	    DINFO_INVALIDATE |
+	    DINFO_DRAW_WHITESPACE;
+	dInfo->overlays = overlays;
+    }
+}
+
+/*
  *--------------------------------------------------------------
  *
  * Tree_Display --
@@ -5300,7 +5639,7 @@ DisplayGetPixmap(
  *--------------------------------------------------------------
  */
 
-void
+static void
 Tree_Display(
     ClientData clientData	/* Widget info. */
     )
@@ -5334,6 +5673,8 @@ Tree_Display(
     Tree_PreserveItems(tree);
 
 displayRetry:
+
+    SetBuffering(tree);
 
     /* Some change requires selection changes */
     if (dInfo->flags & DINFO_REDO_SELECTION) {
@@ -5601,10 +5942,20 @@ displayRetry:
     drawable = tdrawable.drawable;
 
     /* XOR off */
-    TreeColumnProxy_Undisplay(tree);
-    TreeRowProxy_Undisplay(tree);
-    TreeDragImage_Undisplay(tree->dragImage);
-    TreeMarquee_Undisplay(tree->marquee);
+    if (Proxy_IsXOR())
+	TreeColumnProxy_Undisplay(tree);
+    if (Proxy_IsXOR())
+	TreeRowProxy_Undisplay(tree);
+    if (TreeDragImage_IsXOR(tree->dragImage))
+	TreeDragImage_Undisplay(tree->dragImage);
+    if (TreeMarquee_IsXOR(tree->marquee))
+	TreeMarquee_Undisplay(tree->marquee);
+
+#ifdef REDRAW_RGN
+    /* Collect all the pixels that are redrawn below into the redrawRgn.
+     * The redrawRgn is used to clip drawing of the marquee and dragimage. */
+    Tree_SetEmptyRegion(dInfo->redrawRgn);
+#endif /* REDRAW_RGN */
 
     if (dInfo->flags & DINFO_DRAW_HEADER) {
 	if (Tree_AreaBbox(tree, TREE_AREA_HEADER, &minX, &minY, &maxX, &maxY)) {
@@ -5617,6 +5968,9 @@ displayRetry:
 	    if (tree->doubleBuffer == DOUBLEBUFFER_WINDOW) {
 		DblBufWinDirty(tree, minX, minY, maxX, maxY);
 	    }
+#ifdef REDRAW_RGN
+/*	    AddRectToRedrawRgn(tree, minX, minY, maxX, maxY); */
+#endif /* REDRAW_RGN */
 	}
 	dInfo->flags &= ~DINFO_DRAW_HEADER;
     }
@@ -5641,7 +5995,7 @@ displayRetry:
     }
 
     if (dInfo->flags & DINFO_DRAW_WHITESPACE) {
-	TkSubtractRegion(dInfo->wsRgn, dInfo->wsRgn, dInfo->wsRgn);
+	Tree_SetEmptyRegion(dInfo->wsRgn);
 	dInfo->flags &= ~DINFO_DRAW_WHITESPACE;
     }
 
@@ -5695,6 +6049,9 @@ displayRetry:
 		DblBufWinDirty(tree, wsBox.x, wsBox.y, wsBox.x + wsBox.width,
 			wsBox.y + wsBox.height);
 	    }
+#ifdef REDRAW_RGN
+	    AddRgnToRedrawRgn(tree, wsRgnDif);
+#endif /* REDRAW_RGN */
 	}
 	if (wsRgnDif != wsRgnNew)
 	    Tree_FreeRegion(tree, wsRgnDif);
@@ -5733,6 +6090,9 @@ displayRetry:
 		DblBufWinDirty(tree, wsBox.x, wsBox.y, wsBox.x + wsBox.width,
 			wsBox.y + wsBox.height);
 	    }
+#ifdef REDRAW_RGN
+	    AddRgnToRedrawRgn(tree, wsRgnDif);
+#endif /* REDRAW_RGN */
 	}
 	Tree_FreeRegion(tree, wsRgnDif);
 	Tree_FreeRegion(tree, dInfo->wsRgn);
@@ -5834,6 +6194,69 @@ displayRetry:
     if (tree->debug.enable && tree->debug.display)
 	dbwin("copy %d draw %d %s\n", numCopy, numDraw, Tk_PathName(tkwin));
 
+#ifdef REDRAW_RGNxxx
+    tree->drawableXOrigin = tree->xOrigin;
+    tree->drawableYOrigin = tree->yOrigin;
+    if (TreeDragImage_IsXOR(tree->dragImage) == FALSE)
+	TreeDragImage_DrawClipped(tree->dragImage, tdrawable, dInfo->redrawRgn);
+    if (TreeMarquee_IsXOR(tree->marquee) == FALSE)
+	TreeMarquee_DrawClipped(tree->marquee, tdrawable, dInfo->redrawRgn);
+    Tree_SetEmptyRegion(dInfo->redrawRgn);
+#endif /* REDRAW_RGN */
+
+#if 1
+    if (dInfo->overlays) {
+
+	tdrawable.width = Tk_Width(tkwin);
+	tdrawable.height = Tk_Height(tkwin);
+
+	if (TreeTheme_IsDesktopComposited(tree)) {
+	    tdrawable.drawable = Tk_WindowId(tkwin);
+	} else {
+	    tdrawable.drawable = DisplayGetPixmap(tree, &dInfo->pixmapT,
+		Tk_Width(tree->tkwin), Tk_Height(tree->tkwin));
+	}
+
+	/* Copy double-buffer */
+	/* FIXME: only copy what is in dirtyRgn plus overlays */
+	XCopyArea(tree->display, dInfo->pixmapW.drawable,
+	    tdrawable.drawable,
+	    tree->copyGC,
+	    Tree_BorderLeft(tree), Tree_BorderTop(tree),
+	    Tree_BorderRight(tree) - Tree_BorderLeft(tree),
+	    Tree_BorderBottom(tree) - Tree_BorderTop(tree),
+	    Tree_BorderLeft(tree), Tree_BorderTop(tree));
+
+	/* Draw dragimage|marquee|proxies */
+	tree->drawableXOrigin = tree->xOrigin;
+	tree->drawableYOrigin = tree->yOrigin;
+	if (TreeDragImage_IsXOR(tree->dragImage) == FALSE)
+	    TreeDragImage_Draw(tree->dragImage, tdrawable);
+	if (TreeMarquee_IsXOR(tree->marquee) == FALSE)
+	    TreeMarquee_Draw(tree->marquee, tdrawable);
+	if (Proxy_IsXOR() == FALSE)
+	    TreeColumnProxy_Draw(tree, tdrawable);
+	if (Proxy_IsXOR() == FALSE)
+	    TreeRowProxy_Draw(tree, tdrawable);
+
+	if (TreeTheme_IsDesktopComposited(tree) == FALSE) {
+
+	    /* Copy tripple-buffer to window */
+	    /* FIXME: only copy what is in dirtyRgn plus overlays */
+	    XCopyArea(tree->display, dInfo->pixmapT.drawable,
+		Tk_WindowId(tkwin),
+		tree->copyGC,
+		Tree_BorderLeft(tree), Tree_BorderTop(tree),
+		Tree_BorderRight(tree) - Tree_BorderLeft(tree),
+		Tree_BorderBottom(tree) - Tree_BorderTop(tree),
+		Tree_BorderLeft(tree), Tree_BorderTop(tree));
+	}
+
+	Tree_SetEmptyRegion(dInfo->dirtyRgn);
+	DisplayDelay(tree);
+    }
+    else
+#endif
     if (tree->doubleBuffer == DOUBLEBUFFER_WINDOW) {
 	XRectangle box;
 
@@ -5849,20 +6272,25 @@ displayRetry:
 		    box.x, box.y);
 	    XSetClipMask(tree->display, tree->copyGC, None);
 	}
-	TkSubtractRegion(dInfo->dirtyRgn, dInfo->dirtyRgn, dInfo->dirtyRgn);
+	Tree_SetEmptyRegion(dInfo->dirtyRgn);
 	DisplayDelay(tree);
     }
 
     /* XOR on */
-    TreeMarquee_Display(tree->marquee);
-    TreeDragImage_Display(tree->dragImage);
-    TreeRowProxy_Display(tree);
-    TreeColumnProxy_Display(tree);
+    if (TreeMarquee_IsXOR(tree->marquee))
+	TreeMarquee_Display(tree->marquee);
+    if (TreeDragImage_IsXOR(tree->dragImage))
+	TreeDragImage_Display(tree->dragImage);
+    if (Proxy_IsXOR())
+	TreeRowProxy_Display(tree);
+    if (Proxy_IsXOR())
+	TreeColumnProxy_Display(tree);
 
     if (tree->doubleBuffer == DOUBLEBUFFER_NONE)
 	dInfo->flags |= DINFO_DRAW_HIGHLIGHT | DINFO_DRAW_BORDER;
 
     if (dInfo->flags & (DINFO_DRAW_BORDER | DINFO_DRAW_HIGHLIGHT)) {
+	drawable = Tk_WindowId(tkwin);
 	if (tree->useTheme && TreeTheme_DrawBorders(tree, drawable) == TCL_OK) {
 	    /* nothing */
 	} else {
@@ -6442,6 +6870,64 @@ Tree_SetOriginY(
 /*
  *--------------------------------------------------------------
  *
+ * Tree_GetOriginX --
+ *
+ *	Return the horizontal scroll position.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	May update the horizontal scroll position.
+ *	If the horizontal scroll position changes, then the widget is
+ *	redisplayed at idle time.
+ *
+ *--------------------------------------------------------------
+ */
+
+int
+Tree_GetOriginX(
+    TreeCtrl *tree		/* Widget info. */
+    )
+{
+    /* Update the value if needed. */
+    Tree_SetOriginX(tree, tree->xOrigin);
+
+    return tree->xOrigin;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
+ * Tree_GetOriginY --
+ *
+ *	Return the vertical scroll position.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	May update the vertical scroll position.
+ *	If the vertical scroll position changes, then the widget is
+ *	redisplayed at idle time.
+ *
+ *--------------------------------------------------------------
+ */
+
+int
+Tree_GetOriginY(
+    TreeCtrl *tree		/* Widget info. */
+    )
+{
+    /* Update the value if needed. */
+    Tree_SetOriginY(tree, tree->yOrigin);
+
+    return tree->yOrigin;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * Tree_EventuallyRedraw --
  *
  *	Schedule an idle task to redisplay the widget, if one is not
@@ -6923,6 +7409,40 @@ TreeDisplay_FreeColumnDInfo(
 /*
  *--------------------------------------------------------------
  *
+ * Tree_ShouldDisplayLockedColumns --
+ *
+ *	Figure out if we are allowed to draw any locked columns.
+ *
+ * Results:
+ *	TRUE if locked columns should be displayed, otherwise FALSE.
+ *
+ * Side effects:
+ *	None.
+ *
+ *--------------------------------------------------------------
+ */
+
+int
+Tree_ShouldDisplayLockedColumns(
+    TreeCtrl *tree		/* Widget info. */
+    )
+{
+    if (!tree->vertical)
+	return 0;
+
+    if (tree->wrapMode != TREE_WRAP_NONE)
+	return 0;
+
+    Tree_UpdateItemIndex(tree); /* update tree->itemWrapCount */
+    if (tree->itemWrapCount > 0)
+	return 0;
+    
+    return 1;
+}
+
+/*
+ *--------------------------------------------------------------
+ *
  * Tree_DInfoChanged --
  *
  *	Set some DINFO_xxx flags and schedule a redisplay.
@@ -7020,19 +7540,7 @@ Tree_InvalidateArea(
     }
 
     /* Invalidate part of the whitespace */
-    if ((x1 < x2 && y1 < y2) && TkRectInRegion(dInfo->wsRgn, x1, y1,
-	    x2 - x1, y2 - y1)) {
-	XRectangle rect;
-	TkRegion rgn = Tree_GetRegion(tree);
-
-	rect.x = x1;
-	rect.y = y1;
-	rect.width = x2 - x1;
-	rect.height = y2 - y1;
-	TkUnionRectWithRegion(&rect, rgn, rgn);
-	TkSubtractRegion(dInfo->wsRgn, rgn, dInfo->wsRgn);
-	Tree_FreeRegion(tree, rgn);
-    }
+    InvalidateWhitespace(tree, x1, y1, x2, y2);
 
     if (tree->debug.enable && tree->debug.display && tree->debug.eraseColor) {
 	XFillRectangle(tree->display, Tk_WindowId(tree->tkwin),
@@ -7091,8 +7599,7 @@ Tree_InvalidateRegion(
 	    rect.y = dItem->y;
 	    rect.width = dItem->area.width;
 	    rect.height = dItem->height;
-	    TkSubtractRegion(rgn, rgn, rgn);
-	    TkUnionRectWithRegion(&rect, rgn, rgn);
+	    Tree_SetRectRegion(rgn, &rect);
 	    TkIntersectRegion(region, rgn, rgn);
 	    TkClipBox(rgn, &rect);
 	    if (rect.width > 0 && rect.height > 0) {
@@ -7106,8 +7613,7 @@ Tree_InvalidateRegion(
 	    rect.y = dItem->y;
 	    rect.width = dItem->left.width;
 	    rect.height = dItem->height;
-	    TkSubtractRegion(rgn, rgn, rgn);
-	    TkUnionRectWithRegion(&rect, rgn, rgn);
+	    Tree_SetRectRegion(rgn, &rect);
 	    TkIntersectRegion(region, rgn, rgn);
 	    TkClipBox(rgn, &rect);
 	    if (rect.width > 0 && rect.height > 0) {
@@ -7121,8 +7627,7 @@ Tree_InvalidateRegion(
 	    rect.y = dItem->y;
 	    rect.width = dItem->right.width;
 	    rect.height = dItem->height;
-	    TkSubtractRegion(rgn, rgn, rgn);
-	    TkUnionRectWithRegion(&rect, rgn, rgn);
+	    Tree_SetRectRegion(rgn, &rect);
 	    TkIntersectRegion(region, rgn, rgn);
 	    TkClipBox(rgn, &rect);
 	    if (rect.width > 0 && rect.height > 0) {
@@ -7314,6 +7819,9 @@ TreeDInfo_Init(
     dInfo->wsRgn = Tree_GetRegion(tree);
     dInfo->dirtyRgn = TkCreateRegion();
     Tcl_InitHashTable(&dInfo->itemVisHash, TCL_ONE_WORD_KEYS);
+#ifdef REDRAW_RGN
+    dInfo->redrawRgn = TkCreateRegion();
+#endif /* REDRAW_RGN */
     tree->dInfo = dInfo;
 }
 
@@ -7366,6 +7874,8 @@ TreeDInfo_Free(
 	Tk_FreePixmap(tree->display, dInfo->pixmapW.drawable);
     if (dInfo->pixmapI.drawable != None)
 	Tk_FreePixmap(tree->display, dInfo->pixmapI.drawable);
+    if (dInfo->pixmapT.drawable != None)
+	Tk_FreePixmap(tree->display, dInfo->pixmapT.drawable);
     if (dInfo->xScrollIncrements != NULL)
 	ckfree((char *) dInfo->xScrollIncrements);
     if (dInfo->yScrollIncrements != NULL)
@@ -7380,6 +7890,9 @@ TreeDInfo_Free(
     }
 #endif
     Tcl_DeleteHashTable(&dInfo->itemVisHash);
+#ifdef REDRAW_RGN
+    TkDestroyRegion(dInfo->redrawRgn);
+#endif /* REDRAW_RGN */
     WFREE(dInfo, TreeDInfo_);
 }
 
@@ -7401,6 +7914,7 @@ Tree_DumpDInfo(
     static CONST char *optionNames[] = {
 	"alloc", "ditem", "onscreen", "range", (char *) NULL
     };
+#undef DUMP_ALLOC /* [BUG 2233922] SunOS: build error */
     enum { DUMP_ALLOC, DUMP_DITEM, DUMP_ONSCREEN, DUMP_RANGE };
 
     if (objc != 4) {

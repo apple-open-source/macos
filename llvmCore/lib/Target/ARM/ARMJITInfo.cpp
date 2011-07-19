@@ -18,16 +18,16 @@
 #include "ARMRelocations.h"
 #include "ARMSubtarget.h"
 #include "llvm/Function.h"
-#include "llvm/CodeGen/MachineCodeEmitter.h"
-#include "llvm/Config/alloca.h"
+#include "llvm/CodeGen/JITCodeEmitter.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Streams.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/System/Memory.h"
 #include <cstdlib>
 using namespace llvm;
 
 void ARMJITInfo::replaceMachineCodeForFunction(void *Old, void *New) {
-  abort();
+  report_fatal_error("ARMJITInfo::replaceMachineCodeForFunction");
 }
 
 /// JITCompilerFunction - This contains the address of the JIT function used to
@@ -45,11 +45,11 @@ static TargetJITInfo::JITCompilerFn JITCompilerFunction;
 // CompilationCallback stub - We can't use a C function with inline assembly in
 // it, because we the prolog/epilog inserted by GCC won't work for us (we need
 // to preserve more context and manipulate the stack directly).  Instead,
-// write our own wrapper, which does things our way, so we have complete 
+// write our own wrapper, which does things our way, so we have complete
 // control over register saving and restoring.
 extern "C" {
 #if defined(__arm__)
-  void ARMCompilationCallback(void);
+  void ARMCompilationCallback();
   asm(
     ".text\n"
     ".align 2\n"
@@ -60,7 +60,7 @@ extern "C" {
     // whole compilation callback doesn't exist as far as the caller is
     // concerned, so we can't just preserve the callee saved regs.
     "stmdb sp!, {r0, r1, r2, r3, lr}\n"
-#ifndef __SOFTFP__
+#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
     "fstmfdd sp!, {d0, d1, d2, d3, d4, d5, d6, d7}\n"
 #endif
     // The LR contains the address of the stub function on entry.
@@ -77,13 +77,13 @@ extern "C" {
     // order for the registers.
     //      +--------+
     //   0  | LR     | Original return address
-    //      +--------+    
+    //      +--------+
     //   1  | LR     | Stub address (start of stub)
     // 2-5  | R3..R0 | Saved registers (we need to preserve all regs)
     // 6-20 | D0..D7 | Saved VFP registers
-    //      +--------+    
+    //      +--------+
     //
-#ifndef __SOFTFP__
+#if (defined(__VFP_FP__) && !defined(__SOFTFP__))
     // Restore VFP caller-saved registers.
     "fldmfdd sp!, {d0, d1, d2, d3, d4, d5, d6, d7}\n"
 #endif
@@ -103,15 +103,14 @@ extern "C" {
       );
 #else  // Not an ARM host
   void ARMCompilationCallback() {
-    assert(0 && "Cannot call ARMCompilationCallback() on a non-ARM arch!\n");
-    abort();
+    llvm_unreachable("Cannot call ARMCompilationCallback() on a non-ARM arch!");
   }
 #endif
 }
 
-/// ARMCompilationCallbackC - This is the target-specific function invoked 
-/// by the function stub when we did not know the real target of a call.  
-/// This function must locate the start of the stub or call site and pass 
+/// ARMCompilationCallbackC - This is the target-specific function invoked
+/// by the function stub when we did not know the real target of a call.
+/// This function must locate the start of the stub or call site and pass
 /// it into the JIT compiler function.
 extern "C" void ARMCompilationCallbackC(intptr_t StubAddr) {
   // Get the address of the compiled code for this function.
@@ -123,14 +122,12 @@ extern "C" void ARMCompilationCallbackC(intptr_t StubAddr) {
   //   ldr pc, [pc,#-4]
   //   <addr>
   if (!sys::Memory::setRangeWritable((void*)StubAddr, 8)) {
-    cerr << "ERROR: Unable to mark stub writable\n";
-    abort();
+    llvm_unreachable("ERROR: Unable to mark stub writable");
   }
   *(intptr_t *)StubAddr = 0xe51ff004;  // ldr pc, [pc, #-4]
   *(intptr_t *)(StubAddr+4) = NewVal;
   if (!sys::Memory::setRangeExecutable((void*)StubAddr, 8)) {
-    cerr << "ERROR: Unable to mark stub executable\n";
-    abort();
+    llvm_unreachable("ERROR: Unable to mark stub executable");
   }
 }
 
@@ -141,72 +138,100 @@ ARMJITInfo::getLazyResolverFunction(JITCompilerFn F) {
 }
 
 void *ARMJITInfo::emitGlobalValueIndirectSym(const GlobalValue *GV, void *Ptr,
-                                             MachineCodeEmitter &MCE) {
-  MCE.startGVStub(GV, 4, 4);
-  MCE.emitWordLE((intptr_t)Ptr);
-  void *PtrAddr = MCE.finishGVStub(GV);
+                                             JITCodeEmitter &JCE) {
+  uint8_t Buffer[4];
+  uint8_t *Cur = Buffer;
+  MachineCodeEmitter::emitWordLEInto(Cur, (intptr_t)Ptr);
+  void *PtrAddr = JCE.allocIndirectGV(
+      GV, Buffer, sizeof(Buffer), /*Alignment=*/4);
   addIndirectSymAddr(Ptr, (intptr_t)PtrAddr);
   return PtrAddr;
 }
 
+TargetJITInfo::StubLayout ARMJITInfo::getStubLayout() {
+  // The stub contains up to 3 4-byte instructions, aligned at 4 bytes, and a
+  // 4-byte address.  See emitFunctionStub for details.
+  StubLayout Result = {16, 4};
+  return Result;
+}
+
 void *ARMJITInfo::emitFunctionStub(const Function* F, void *Fn,
-                                   MachineCodeEmitter &MCE) {
+                                   JITCodeEmitter &JCE) {
+  void *Addr;
   // If this is just a call to an external function, emit a branch instead of a
   // call.  The code is the same except for one bit of the last instruction.
   if (Fn != (void*)(intptr_t)ARMCompilationCallback) {
     // Branch to the corresponding function addr.
     if (IsPIC) {
-      // The stub is 8-byte size and 4-aligned.
+      // The stub is 16-byte size and 4-aligned.
       intptr_t LazyPtr = getIndirectSymAddr(Fn);
       if (!LazyPtr) {
         // In PIC mode, the function stub is loading a lazy-ptr.
-        LazyPtr= (intptr_t)emitGlobalValueIndirectSym((GlobalValue*)F, Fn, MCE);
-        if (F)
-          DOUT << "JIT: Indirect symbol emitted at [" << LazyPtr << "] for GV '"
-               << F->getName() << "'\n";
-        else
-          DOUT << "JIT: Stub emitted at [" << LazyPtr
-               << "] for external function at '" << Fn << "'\n";
+        LazyPtr= (intptr_t)emitGlobalValueIndirectSym((GlobalValue*)F, Fn, JCE);
+        DEBUG(if (F)
+                errs() << "JIT: Indirect symbol emitted at [" << LazyPtr
+                       << "] for GV '" << F->getName() << "'\n";
+              else
+                errs() << "JIT: Stub emitted at [" << LazyPtr
+                       << "] for external function at '" << Fn << "'\n");
       }
-      MCE.startGVStub(F, 16, 4);
-      intptr_t Addr = (intptr_t)MCE.getCurrentPCValue();
-      MCE.emitWordLE(0xe59fc004);            // ldr pc, [pc, #+4]
-      MCE.emitWordLE(0xe08fc00c);            // L_func$scv: add ip, pc, ip
-      MCE.emitWordLE(0xe59cf000);            // ldr pc, [ip]
-      MCE.emitWordLE(LazyPtr - (Addr+4+8));  // func - (L_func$scv+8)
-      sys::Memory::InvalidateInstructionCache((void*)Addr, 16);
+      JCE.emitAlignment(4);
+      Addr = (void*)JCE.getCurrentPCValue();
+      if (!sys::Memory::setRangeWritable(Addr, 16)) {
+        llvm_unreachable("ERROR: Unable to mark stub writable");
+      }
+      JCE.emitWordLE(0xe59fc004);            // ldr ip, [pc, #+4]
+      JCE.emitWordLE(0xe08fc00c);            // L_func$scv: add ip, pc, ip
+      JCE.emitWordLE(0xe59cf000);            // ldr pc, [ip]
+      JCE.emitWordLE(LazyPtr - (intptr_t(Addr)+4+8));  // func - (L_func$scv+8)
+      sys::Memory::InvalidateInstructionCache(Addr, 16);
+      if (!sys::Memory::setRangeExecutable(Addr, 16)) {
+        llvm_unreachable("ERROR: Unable to mark stub executable");
+      }
     } else {
       // The stub is 8-byte size and 4-aligned.
-      MCE.startGVStub(F, 8, 4);
-      intptr_t Addr = (intptr_t)MCE.getCurrentPCValue();
-      MCE.emitWordLE(0xe51ff004);    // ldr pc, [pc, #-4]
-      MCE.emitWordLE((intptr_t)Fn);  // addr of function
-      sys::Memory::InvalidateInstructionCache((void*)Addr, 8);
+      JCE.emitAlignment(4);
+      Addr = (void*)JCE.getCurrentPCValue();
+      if (!sys::Memory::setRangeWritable(Addr, 8)) {
+        llvm_unreachable("ERROR: Unable to mark stub writable");
+      }
+      JCE.emitWordLE(0xe51ff004);    // ldr pc, [pc, #-4]
+      JCE.emitWordLE((intptr_t)Fn);  // addr of function
+      sys::Memory::InvalidateInstructionCache(Addr, 8);
+      if (!sys::Memory::setRangeExecutable(Addr, 8)) {
+        llvm_unreachable("ERROR: Unable to mark stub executable");
+      }
     }
   } else {
     // The compilation callback will overwrite the first two words of this
-    // stub with indirect branch instructions targeting the compiled code. 
+    // stub with indirect branch instructions targeting the compiled code.
     // This stub sets the return address to restart the stub, so that
     // the new branch will be invoked when we come back.
     //
     // Branch and link to the compilation callback.
     // The stub is 16-byte size and 4-byte aligned.
-    MCE.startGVStub(F, 16, 4);
-    intptr_t Addr = (intptr_t)MCE.getCurrentPCValue();
+    JCE.emitAlignment(4);
+    Addr = (void*)JCE.getCurrentPCValue();
+    if (!sys::Memory::setRangeWritable(Addr, 16)) {
+      llvm_unreachable("ERROR: Unable to mark stub writable");
+    }
     // Save LR so the callback can determine which stub called it.
     // The compilation callback is responsible for popping this prior
     // to returning.
-    MCE.emitWordLE(0xe92d4000); // push {lr}
+    JCE.emitWordLE(0xe92d4000); // push {lr}
     // Set the return address to go back to the start of this stub.
-    MCE.emitWordLE(0xe24fe00c); // sub lr, pc, #12
+    JCE.emitWordLE(0xe24fe00c); // sub lr, pc, #12
     // Invoke the compilation callback.
-    MCE.emitWordLE(0xe51ff004); // ldr pc, [pc, #-4]
+    JCE.emitWordLE(0xe51ff004); // ldr pc, [pc, #-4]
     // The address of the compilation callback.
-    MCE.emitWordLE((intptr_t)ARMCompilationCallback);
-    sys::Memory::InvalidateInstructionCache((void*)Addr, 16);
+    JCE.emitWordLE((intptr_t)ARMCompilationCallback);
+    sys::Memory::InvalidateInstructionCache(Addr, 16);
+    if (!sys::Memory::setRangeExecutable(Addr, 16)) {
+      llvm_unreachable("ERROR: Unable to mark stub executable");
+    }
   }
 
-  return MCE.finishGVStub(F);
+  return Addr;
 }
 
 intptr_t ARMJITInfo::resolveRelocDestAddr(MachineRelocation *MR) const {

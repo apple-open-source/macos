@@ -1,7 +1,7 @@
 Begin3
 Title:          trf
-Version:        2.1.3
-Entered-date:   DEC-06-2008
+Version:        2.1.4
+Entered-date:   MAY-06-2009
 Description:    A loadable extension to Tcl providing commands for data
 	conversion, message digests, zlib based compression, error-correction,
 	channel-based manipulation of binary data. Trf extends the language at

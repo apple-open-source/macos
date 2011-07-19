@@ -6,7 +6,7 @@ Extra_Frameworks = -framework Foundation
 
 MANPAGES = arch.1 machine.1
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 Extra_CC_Flags += -DARCH_PROG=\"arch\" -DMACHINE_PROG=\"machine\"

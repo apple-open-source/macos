@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/ii.xml
@@ -10,76 +10,19 @@
  *  ICU <specials> source: <path>/xml/main/ii.xml
  */
 ii{
-    Countries{
-        BR{"ꀠꑭ"}
-        CN{"ꍏꇩ"}
-        DE{"ꄓꇩ"}
-        FR{"ꃔꇩ"}
-        GB{"ꑱꇩ"}
-        IN{"ꑴꄗ"}
-        IT{"ꑴꄊꆺ"}
-        JP{"ꏝꀪ"}
-        RU{"ꊉꇆꌦ"}
-        US{"ꂰꇩ"}
-        ZZ{"ꃅꄷꅉꀋꐚꌠ"}
-    }
-    Currencies{
-        XXX{
-            "XXX",
-            "ꅉꀋꐚꌠꌋꆀꎆꃀꀋꈁꀐꌠ",
-        }
-    }
     ExemplarCharacters{"[ꀀ-ꒌ]"}
-    Languages{
-        de{"ꄓꇩꉙ"}
-        en{"ꑱꇩꉙ"}
-        es{"ꑭꀠꑸꉙ"}
-        fr{"ꃔꇩꉙ"}
-        ii{"ꆈꌠꉙ"}
-        it{"ꑴꄊꆺꉙ"}
-        ja{"ꏝꀪꉙ"}
-        pt{"ꁍꄨꑸꉙ"}
-        pt_BR{"ꀠꑟꁍꄨꑸꉙ"}
-        ru{"ꊉꇩꉙ"}
-        und{"ꅉꀋꌠꅇꂷ"}
-        zh{"ꍏꇩꉙ"}
-        zh_Hans{"ꈝꐯꍏꇩꉙ"}
-        zh_Hant{"ꀎꋏꍏꇩꉙ"}
-    }
     LocaleScript{
         "Yiii",
     }
     NumberElements{
-        ".",
-        ",",
-        ";",
-        "%",
-        "0",
-        "#",
-        "-",
-        "E",
-        "‰",
-        "∞",
-        "NaN",
-        "+",
-    }
-    Scripts{
-        Arab{"ꀊꇁꀨꁱꂷ"}
-        Cyrl{"ꀊꆨꌦꇁꃚꁱꂷ"}
-        Hans{"ꈝꐯꉌꈲꁱꂷ"}
-        Hant{"ꀎꋏꉌꈲꁱꂷ"}
-        Latn{"ꇁꄀꁱꂷ"}
-        Yiii{"ꆈꌠꁱꂷ"}
-        Zxxx{"ꁱꀋꉆꌠ"}
-        Zzzz{"ꅉꀋꐚꌠꁱꂷ"}
-    }
-    Types{
-        calendar{
-            gregorian{"ꄉꉻꃅꑍ"}
-            islamic{"ꑳꌦꇂꑍꉖ"}
+        latn{
+            symbols{
+                decimal{"."}
+                group{","}
+            }
         }
     }
-    Version{"1.7"}
+    Version{"2.0.47.63"}
     calendar{
         gregorian{
             AmPmMarkers{
@@ -114,7 +57,7 @@ ii{
                         "ꑍ",
                         "ꌕ",
                         "ꇖ",
-                        "6",
+                        "ꉬ",
                         "ꃘ",
                     }
                 }
@@ -179,7 +122,7 @@ ii{
                         "ꏃꆪ",
                         "ꉆꆪ",
                         "ꈬꆪ",
-                        "10",
+                        "ꊰꆪ",
                         "ꊰꊪꆪ",
                         "ꊰꑋꆪ",
                     }
@@ -187,42 +130,18 @@ ii{
             }
             quarters{
                 format{
-                    abbreviated{
-                        "ꃅꑌ",
-                        "ꃅꎸ",
-                        "ꃅꍵ",
-                        "Q4",
-                    }
                     wide{
                         "ꃅꑌ",
                         "ꃅꎸ",
-                        "Q3",
-                        "Q4",
-                    }
-                }
-                stand-alone{
-                    narrow{
-                        "1",
-                        "2",
-                        "3",
-                        "4",
+                        "ꃅꍵ",
+                        "ꃅꋆ",
                     }
                 }
             }
         }
     }
-    codePatterns{
-        language{"ꅇꉙ: {0}"}
-        script{"ꇇꁱ: {0}"}
-        territory{"ꃅꄷ: {0}"}
-    }
     measurementSystemNames{
         US{"ꂰꇩ"}
         metric{"ꂰꌬꌠ"}
-    }
-    zoneStrings{
-        "Etc:Unknown"{
-            ec{"ꅉꀋꐚꌠ"}
-        }
     }
 }

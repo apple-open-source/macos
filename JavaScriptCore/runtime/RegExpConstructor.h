@@ -31,7 +31,9 @@ namespace JSC {
     class RegExpPrototype;
     struct RegExpConstructorPrivate;
 
-    struct RegExpConstructorPrivate : FastAllocBase {
+    struct RegExpConstructorPrivate {
+        WTF_MAKE_FAST_ALLOCATED;
+    public:
         // Global search cache / settings
         RegExpConstructorPrivate()
             : lastNumSubPatterns(0)
@@ -55,18 +57,18 @@ namespace JSC {
 
     class RegExpConstructor : public InternalFunction {
     public:
-        RegExpConstructor(ExecState*, NonNullPassRefPtr<Structure>, RegExpPrototype*);
+        RegExpConstructor(ExecState*, JSGlobalObject*, Structure*, RegExpPrototype*);
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
-        static const ClassInfo info;
+        static const ClassInfo s_info;
 
         void performMatch(RegExp*, const UString&, int startOffset, int& position, int& length, int** ovector = 0);
         JSObject* arrayOfMatches(ExecState*) const;
@@ -89,18 +91,16 @@ namespace JSC {
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-
         OwnPtr<RegExpConstructorPrivate> d;
     };
 
     RegExpConstructor* asRegExpConstructor(JSValue);
 
-    JSObject* constructRegExp(ExecState*, const ArgList&);
+    JSObject* constructRegExp(ExecState*, JSGlobalObject*, const ArgList&);
 
     inline RegExpConstructor* asRegExpConstructor(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&RegExpConstructor::info));
+        ASSERT(asObject(value)->inherits(&RegExpConstructor::s_info));
         return static_cast<RegExpConstructor*>(asObject(value));
     }
 
@@ -109,7 +109,7 @@ namespace JSC {
       expression matching through the performMatch function. We use cached results to calculate, 
       e.g., RegExp.lastMatch and RegExp.leftParen.
     */
-    inline void RegExpConstructor::performMatch(RegExp* r, const UString& s, int startOffset, int& position, int& length, int** ovector)
+    ALWAYS_INLINE void RegExpConstructor::performMatch(RegExp* r, const UString& s, int startOffset, int& position, int& length, int** ovector)
     {
         position = r->match(s, startOffset, &d->tempOvector());
 

@@ -1,6 +1,6 @@
---- fopen.3	2003-05-20 15:22:41.000000000 -0700
-+++ fopen.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -40,8 +40,8 @@
+--- fopen.3.bsdnew	2009-11-11 13:33:06.000000000 -0800
++++ fopen.3	2009-11-11 13:33:07.000000000 -0800
+@@ -36,8 +36,8 @@
  .Dt FOPEN 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nm freopen
  .Nd stream open functions
  .Sh LIBRARY
-@@ -49,17 +49,27 @@
+@@ -45,17 +45,27 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft FILE *
@@ -42,7 +42,7 @@
  and associates a stream with it.
  .Pp
  The argument
-@@ -107,6 +117,17 @@
+@@ -103,6 +113,17 @@ This is strictly for compatibility with
  .St -isoC
  and has no effect; the ``b'' is ignored.
  .Pp
@@ -60,7 +60,7 @@
  Any created files will have mode
  .Pf \\*q Dv S_IRUSR
  \&|
-@@ -148,7 +169,7 @@
+@@ -144,7 +165,7 @@ The
  .Fn freopen
  function
  opens the file whose name is the string pointed to by
@@ -69,7 +69,7 @@
  and associates the stream pointed to by
  .Fa stream
  with it.
-@@ -160,7 +181,7 @@
+@@ -156,7 +177,7 @@ argument is used just as in the
  function.
  .Pp
  If the
@@ -78,7 +78,7 @@
  argument is
  .Dv NULL ,
  .Fn freopen
-@@ -204,7 +225,7 @@
+@@ -200,7 +221,7 @@ or
  .Sh RETURN VALUES
  Upon successful completion
  .Fn fopen ,

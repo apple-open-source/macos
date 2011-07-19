@@ -1,3 +1,7 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
 # webviewer.tcl - Copyright (C) 2004 Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # This is a sample application to demonstrate the use of the htmlparse package.
@@ -11,7 +15,7 @@
 #
 # Usage: webviewer.tcl http://tip.tcl.tk/2
 #
-# $Id: webviewer.tcl,v 1.1 2004/10/13 11:42:33 patthoyts Exp $
+# $Id: webviewer.tcl,v 1.2 2009/01/30 04:18:14 andreas_kupries Exp $
 
 package require htmlparse;              # tcllib
 package require http;                   # tcl

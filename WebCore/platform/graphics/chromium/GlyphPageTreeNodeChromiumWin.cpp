@@ -32,12 +32,12 @@
 #include <windows.h>
 #include <vector>
 
-#include "ChromiumBridge.h"
 #include "Font.h"
 #include "GlyphPageTreeNode.h"
+#include "PlatformBridge.h"
 #include "SimpleFontData.h"
+#include "SystemInfo.h"
 #include "UniscribeHelperTextRun.h"
-#include "WindowsVersion.h"
 
 namespace WebCore {
 
@@ -80,12 +80,11 @@ static bool fillBMPGlyphs(unsigned offset,
         ReleaseDC(0, dc);
 
         if (recurse) {
-            if (ChromiumBridge::ensureFontLoaded(fontData->platformData().hfont()))
+            if (PlatformBridge::ensureFontLoaded(fontData->platformData().hfont()))
                 return fillBMPGlyphs(offset, length, buffer, page, fontData, false);
-            else {
-                fillEmptyGlyphs(page);
-                return false;
-            }
+
+            fillEmptyGlyphs(page);
+            return false;
         } else {
             // FIXME: Handle gracefully the error if this call also fails.
             // See http://crbug.com/6401
@@ -135,7 +134,7 @@ static bool fillBMPGlyphs(unsigned offset,
     bool haveGlyphs = false;
     int invalidGlyph = 0xFFFF;
     const DWORD cffTableTag = 0x20464643; // 4-byte identifier for OpenType CFF table ('CFF ').
-    if (!isVistaOrNewer() && !(tm.tmPitchAndFamily & TMPF_TRUETYPE) && (GetFontData(dc, cffTableTag, 0, 0, 0) == GDI_ERROR))
+    if ((windowsVersion() < WindowsVista) && !(tm.tmPitchAndFamily & TMPF_TRUETYPE) && (GetFontData(dc, cffTableTag, 0, 0, 0) == GDI_ERROR))
         invalidGlyph = 0x1F;
 
     Glyph spaceGlyph = 0;  // Glyph for a space. Lazily filled.

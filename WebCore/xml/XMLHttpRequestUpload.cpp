@@ -26,13 +26,13 @@
 #include "config.h"
 #include "XMLHttpRequestUpload.h"
 
-#include "AtomicString.h"
 #include "Event.h"
 #include "EventException.h"
 #include "EventNames.h"
 #include "XMLHttpRequest.h"
 #include "XMLHttpRequestProgressEvent.h"
 #include <wtf/Assertions.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -43,10 +43,7 @@ XMLHttpRequestUpload::XMLHttpRequestUpload(XMLHttpRequest* xmlHttpRequest)
 
 ScriptExecutionContext* XMLHttpRequestUpload::scriptExecutionContext() const
 {
-    XMLHttpRequest* xmlHttpRequest = associatedXMLHttpRequest();
-    if (!xmlHttpRequest)
-        return 0;
-    return xmlHttpRequest->scriptExecutionContext();
+    return m_xmlHttpRequest->scriptExecutionContext();
 }
 
 EventTargetData* XMLHttpRequestUpload::eventTargetData()

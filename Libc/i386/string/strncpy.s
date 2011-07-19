@@ -179,8 +179,7 @@ LFound0:
 LZeroBuffer:
 	pushl	%ecx			// remaining buffer size
 	pushl	%edi			// ptr to 1st unstored byte
-	movl	$(_COMM_PAGE_BZERO),%eax
-	call	*%eax
+	call	_bzero
 	addl	$8,%esp			// pop off the arguments
 
 LDone:

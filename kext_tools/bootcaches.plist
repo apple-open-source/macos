@@ -2,45 +2,57 @@
 <!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<key>PreBootPaths</key>	    <!-- stored at root of any Apple_Boot -->
-	<dict>
-	    <key>DiskLabel</key>    <!-- to be tweaked for the picker -->
-	    <string>/System/Library/CoreServices/.disk_label</string>
-	    <!-- implied .disk_label.contentDetails, also modified -->
-	    <key>AdditionalPaths</key>	<!-- optional stuff at the root -->
-	    <array>
-		<string>/.VolumeIcon.icns</string>
-		<string>/System/Library/CoreServices/SystemVersion.plist</string>
-	    </array>
-	</dict>
+    <key>PreBootPaths</key>     <!-- stored at root of any Apple_Boot -->
+    <dict>
+        <key>DiskLabel</key>    <!-- to be tweaked for the picker -->
+        <string>/System/Library/CoreServices/.disk_label</string>
+        <!-- implied .disk_label.contentDetails, also modified -->
+        <key>AdditionalPaths</key>  <!-- optional stuff at the root -->
+        <array>
+            <string>/.VolumeIcon.icns</string>
+            <string>/System/Library/CoreServices/SystemVersion.plist</string>
+            <string>/System/Library/CoreServices/PlatformSupport.plist</string>
+        </array>
+    </dict>
 
-	<key>BooterPaths</key>	    <!-- to be blessed appropriately -->
-	<dict>
-	    <key>EFIBooter</key>    <!-- finderinfo[1] -> file -->
-	    <string>/System/Library/CoreServices/boot.efi</string>
-	</dict>
+    <key>BooterPaths</key>      <!-- to be blessed appropriately -->
+    <dict>
+        <key>EFIBooter</key>    <!-- finderinfo[1] -> file -->
+        <string>/System/Library/CoreServices/boot.efi</string>
+    </dict>
 
-	<key>PostBootPaths</key>   <!-- in RPS directories known to booter -->
-	<dict>
-	    <key>BootConfig</key>   <!-- to be updated w/UUID in Apple_Boot -->
-	    <string>/Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
-	    <key>AdditionalPaths</key>
-	    <array>
-		    <string>/mach_kernel</string>
-	    </array>
-
-	    <key>MKext2</key>
-	    <dict>
-		    <key>Archs</key>
-		    <array>
-				<string>i386</string>
-				<string>x86_64</string>
-		    </array>
-		    <key>ExtensionsDir</key>
-		    <string>/System/Library/Extensions</string>
-		    <key>Path</key>
-		    <string>/System/Library/Caches/com.apple.kext.caches/Startup/Extensions.mkext</string>
-	    </dict>
-	</dict>
+    <key>PostBootPaths</key>   <!-- in RPS directories known to booter -->
+    <dict>
+        <key>BootConfig</key>   <!-- to be updated w/UUID in Apple_Boot -->
+        <string>/Library/Preferences/SystemConfiguration/com.apple.Boot.plist</string>
+        <key>EncryptedRoot</key>
+        <dict>
+            <key>EncryptedPropertyCache</key>
+            <string>/System/Library/Caches/com.apple.corestorage/EncryptedRoot.plist.wipekey</string>
+            <key>DefaultResourcesDir</key>
+            <string>/usr/standalone/i386/EfiLoginUI/</string>
+            <!-- localized resources are optional but are all or nothing -->
+            <key>LocalizationSource</key>
+            <string>/System/Library/PrivateFrameworks/EFILogin.framework/Resources/EFIResourceBuilder.bundle/Contents/Resources</string>
+            <key>LanguagesPref</key>
+            <string>/Library/Preferences/.GlobalPreferences.plist</string>
+            <key>LocalizedResourcesCache</key>
+            <string>/System/Library/Caches/com.apple.corestorage/EFILoginLocalizations</string>
+        </dict>
+        <key>Kernelcache v1.1</key>
+        <dict>
+            <key>ExtensionsDir</key>
+            <string>/System/Library/Extensions</string>
+            <key>Path</key>
+            <string>/System/Library/Caches/com.apple.kext.caches/Startup/kernelcache</string>
+            <key>KernelPath</key>
+            <string>/mach_kernel</string>
+            <key>Archs</key>
+            <array>
+                <string>i386</string> 
+                <string>x86_64</string>
+            </array>
+        </dict>
+    </dict>
 </dict>
 </plist>

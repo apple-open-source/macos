@@ -29,7 +29,7 @@
 #include <gtk/gtk.h>
 #include <webkit/webkit.h>
 
-#if GLIB_CHECK_VERSION(2, 16, 0) && GTK_CHECK_VERSION(2, 14, 0)
+#if GTK_CHECK_VERSION(2, 14, 0)
 
 GMainLoop* loop;
 SoupSession *session;
@@ -137,6 +137,12 @@ static gboolean map_event_cb(GtkWidget *widget, GdkEvent* event, gpointer data)
     return FALSE;
 }
 
+static gboolean quit_after_short_delay_cb(gpointer data)
+{
+    g_main_loop_quit((GMainLoop*)data);
+    return FALSE;
+}
+
 static void test_webkit_web_view_grab_focus()
 {
     char* uri = g_strconcat(base_uri, "iframe.html", NULL);
@@ -185,6 +191,10 @@ static void test_webkit_web_view_grab_focus()
     /* Focus an element using JavaScript */
     webkit_web_view_execute_script(view, script);
 
+    /* Adjustments update asynchronously, so we must wait a bit. */
+    g_timeout_add(100, quit_after_short_delay_cb, loop);
+    g_main_loop_run(loop);
+
     /* Make sure the ScrolledWindow noticed the scroll */
     g_assert_cmpfloat(gtk_adjustment_get_value(adjustment), !=, 0.0);
 
@@ -232,6 +242,10 @@ static void do_test_webkit_web_view_adjustments(gboolean with_page_cache)
     webkit_web_view_load_uri(view, effective_uri);
     g_main_loop_run(loop);
 
+    /* Adjustments update asynchronously, so we must wait a bit. */
+    g_timeout_add(100, quit_after_short_delay_cb, loop);
+    g_main_loop_run(loop);
+
     adjustment = gtk_scrolled_window_get_vadjustment(GTK_SCROLLED_WINDOW(scrolled_window));
     g_assert_cmpfloat(gtk_adjustment_get_value(adjustment), ==, 0.0);
 
@@ -241,11 +255,19 @@ static void do_test_webkit_web_view_adjustments(gboolean with_page_cache)
     /* Scroll the view using JavaScript */
     webkit_web_view_execute_script(view, "window.scrollBy(0, 100)");
 
+    /* Adjustments update asynchronously, so we must wait a bit. */
+    g_timeout_add(100, quit_after_short_delay_cb, loop);
+    g_main_loop_run(loop);
+
     /* Make sure the ScrolledWindow noticed the scroll */
     g_assert_cmpfloat(gtk_adjustment_get_value(adjustment), ==, 100.0);
 
     /* Load a second URI */
     webkit_web_view_load_uri(view, second_uri);
+    g_main_loop_run(loop);
+
+    /* The page loaded but the adjustments may not be updated yet. Wait a bit. */
+    g_timeout_add(100, quit_after_short_delay_cb, loop);
     g_main_loop_run(loop);
 
     /* Make sure the scrollbar has been reset */
@@ -265,7 +287,6 @@ static void do_test_webkit_web_view_adjustments(gboolean with_page_cache)
     /* Make sure upper and lower bounds have been restored correctly */
     g_assert_cmpfloat(lower, ==, gtk_adjustment_get_lower(adjustment));
     g_assert_cmpfloat(upper, ==, gtk_adjustment_get_upper(adjustment));
-
     g_assert_cmpfloat(gtk_adjustment_get_value(adjustment), ==, 100.0);
 
     g_free(effective_uri);
@@ -345,7 +366,7 @@ int main(int argc, char** argv)
     gtk_test_init(&argc, &argv, NULL);
 
     /* Hopefully make test independent of the path it's called from. */
-    testutils_relative_chdir("WebKit/gtk/tests/resources/test.html", argv[0]);
+    testutils_relative_chdir("Source/WebKit/gtk/tests/resources/test.html", argv[0]);
 
     server = soup_server_new(SOUP_SERVER_PORT, 0, NULL);
     soup_server_run_async(server);
@@ -371,7 +392,7 @@ int main(int argc, char** argv)
 #else
 int main(int argc, char** argv)
 {
-    g_critical("You will need at least glib-2.16.0 and gtk-2.14.0 to run the unit tests. Doing nothing now.");
+    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
     return 0;
 }
 

@@ -31,12 +31,12 @@
 #include "FontCache.h"
 #include "Font.h"
 #include "SimpleFontData.h"
-#include "StringHash.h"
 #include "UnicodeRange.h"
 #include <mlang.h>
 #include <windows.h>
 #include <wtf/StdLibExtras.h>
-#if PLATFORM(CG)
+#include <wtf/text/StringHash.h>
+#if USE(CG)
 #include <ApplicationServices/ApplicationServices.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
@@ -48,7 +48,7 @@ namespace WebCore
 
 void FontCache::platformInit()
 {
-#if PLATFORM(CG)
+#if USE(CG)
     wkSetUpFontCache(1536 * 1024 * 4); // This size matches Mac.
 #endif
 }
@@ -285,7 +285,7 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
         if (!familyName.isEmpty()) {
             FontPlatformData* result = getCachedFontPlatformData(font.fontDescription(), familyName);
             if (result)
-                fontData = getCachedFontData(result);
+                fontData = getCachedFontData(result, DoNotRetain);
         }
 
         SelectObject(hdc, oldFont);
@@ -330,7 +330,7 @@ SimpleFontData* FontCache::getLastResortFallbackFont(const FontDescription& font
         AtomicString("Arial")
     };
     SimpleFontData* simpleFont;
-    for (int i = 0; i < ARRAYSIZE(fallbackFonts); ++i) {
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(fallbackFonts); ++i) {
         if (simpleFont = getCachedFontData(fontDescription, fallbackFonts[i])) {
             fallbackFontName = fallbackFonts[i];
             return simpleFont;
@@ -471,7 +471,7 @@ static HFONT createGDIFont(const AtomicString& family, LONG desiredWeight, bool 
     matchData.m_chosen.lfUnderline = false;
     matchData.m_chosen.lfStrikeOut = false;
     matchData.m_chosen.lfCharSet = DEFAULT_CHARSET;
-#if PLATFORM(CG) || PLATFORM(CAIRO)
+#if USE(CG) || USE(CAIRO)
     matchData.m_chosen.lfOutPrecision = OUT_TT_ONLY_PRECIS;
 #else
     matchData.m_chosen.lfOutPrecision = OUT_TT_PRECIS;
@@ -581,10 +581,10 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
 
     FontPlatformData* result = new FontPlatformData(hfont, fontDescription.computedPixelSize(), synthesizeBold, synthesizeItalic, useGDI);
 
-#if PLATFORM(CG)
+#if USE(CG)
     bool fontCreationFailed = !result->cgFont();
-#elif PLATFORM(CAIRO)
-    bool fontCreationFailed = !result->fontFace();
+#elif USE(CAIRO)
+    bool fontCreationFailed = !result->scaledFont();
 #endif
 
     if (fontCreationFailed) {

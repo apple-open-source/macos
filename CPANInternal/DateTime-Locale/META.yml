@@ -1,19 +1,25 @@
 ---
-name: DateTime-Locale
-version: 0.22
-author: ~
-abstract: Localization support for DateTime.pm
+abstract: 'Localization support for DateTime.pm'
+author:
+  - 'Dave Rolsky <autarch@urth.org>'
+build_requires:
+  Module::Build: 0
+configure_requires:
+  Module::Build: 0.36
+generated_by: 'Module::Build version 0.3603'
 license: perl
-requires:
-  Params::Validate: 0
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: DateTime-Locale
 provides:
   DateTime::Locale:
     file: lib/DateTime/Locale.pm
-    version: 0.22
-  DateTime::Locale::Alias::ISO639_2:
-    file: lib/DateTime/Locale/Alias/ISO639_2.pm
+    version: 0.45
   DateTime::Locale::Base:
     file: lib/DateTime/Locale/Base.pm
+  DateTime::Locale::Catalog:
+    file: lib/DateTime/Locale/Catalog.pm
   DateTime::Locale::aa:
     file: lib/DateTime/Locale/aa.pm
   DateTime::Locale::aa_DJ:
@@ -26,8 +32,14 @@ provides:
     file: lib/DateTime/Locale/aa_ET.pm
   DateTime::Locale::af:
     file: lib/DateTime/Locale/af.pm
+  DateTime::Locale::af_NA:
+    file: lib/DateTime/Locale/af_NA.pm
   DateTime::Locale::af_ZA:
     file: lib/DateTime/Locale/af_ZA.pm
+  DateTime::Locale::ak:
+    file: lib/DateTime/Locale/ak.pm
+  DateTime::Locale::ak_GH:
+    file: lib/DateTime/Locale/ak_GH.pm
   DateTime::Locale::am:
     file: lib/DateTime/Locale/am.pm
   DateTime::Locale::am_ET:
@@ -42,8 +54,6 @@ provides:
     file: lib/DateTime/Locale/ar_DZ.pm
   DateTime::Locale::ar_EG:
     file: lib/DateTime/Locale/ar_EG.pm
-  DateTime::Locale::ar_IN:
-    file: lib/DateTime/Locale/ar_IN.pm
   DateTime::Locale::ar_IQ:
     file: lib/DateTime/Locale/ar_IQ.pm
   DateTime::Locale::ar_JO:
@@ -80,6 +90,8 @@ provides:
     file: lib/DateTime/Locale/az_AZ.pm
   DateTime::Locale::az_Cyrl:
     file: lib/DateTime/Locale/az_Cyrl.pm
+  DateTime::Locale::az_Cyrl_AZ:
+    file: lib/DateTime/Locale/az_Cyrl_AZ.pm
   DateTime::Locale::az_Latn:
     file: lib/DateTime/Locale/az_Latn.pm
   DateTime::Locale::az_Latn_AZ:
@@ -94,8 +106,20 @@ provides:
     file: lib/DateTime/Locale/bg_BG.pm
   DateTime::Locale::bn:
     file: lib/DateTime/Locale/bn.pm
+  DateTime::Locale::bn_BD:
+    file: lib/DateTime/Locale/bn_BD.pm
   DateTime::Locale::bn_IN:
     file: lib/DateTime/Locale/bn_IN.pm
+  DateTime::Locale::bo:
+    file: lib/DateTime/Locale/bo.pm
+  DateTime::Locale::bo_CN:
+    file: lib/DateTime/Locale/bo_CN.pm
+  DateTime::Locale::bo_IN:
+    file: lib/DateTime/Locale/bo_IN.pm
+  DateTime::Locale::bs:
+    file: lib/DateTime/Locale/bs.pm
+  DateTime::Locale::bs_BA:
+    file: lib/DateTime/Locale/bs_BA.pm
   DateTime::Locale::byn:
     file: lib/DateTime/Locale/byn.pm
   DateTime::Locale::byn_ER:
@@ -104,6 +128,12 @@ provides:
     file: lib/DateTime/Locale/ca.pm
   DateTime::Locale::ca_ES:
     file: lib/DateTime/Locale/ca_ES.pm
+  DateTime::Locale::cch:
+    file: lib/DateTime/Locale/cch.pm
+  DateTime::Locale::cch_NG:
+    file: lib/DateTime/Locale/cch_NG.pm
+  DateTime::Locale::cop:
+    file: lib/DateTime/Locale/cop.pm
   DateTime::Locale::cs:
     file: lib/DateTime/Locale/cs.pm
   DateTime::Locale::cs_CZ:
@@ -138,10 +168,20 @@ provides:
     file: lib/DateTime/Locale/dz.pm
   DateTime::Locale::dz_BT:
     file: lib/DateTime/Locale/dz_BT.pm
+  DateTime::Locale::ee:
+    file: lib/DateTime/Locale/ee.pm
+  DateTime::Locale::ee_GH:
+    file: lib/DateTime/Locale/ee_GH.pm
+  DateTime::Locale::ee_TG:
+    file: lib/DateTime/Locale/ee_TG.pm
   DateTime::Locale::el:
     file: lib/DateTime/Locale/el.pm
+  DateTime::Locale::el_CY:
+    file: lib/DateTime/Locale/el_CY.pm
   DateTime::Locale::el_GR:
     file: lib/DateTime/Locale/el_GR.pm
+  DateTime::Locale::el_POLYTON:
+    file: lib/DateTime/Locale/el_POLYTON.pm
   DateTime::Locale::en:
     file: lib/DateTime/Locale/en.pm
   DateTime::Locale::en_AS:
@@ -156,6 +196,10 @@ provides:
     file: lib/DateTime/Locale/en_BZ.pm
   DateTime::Locale::en_CA:
     file: lib/DateTime/Locale/en_CA.pm
+  DateTime::Locale::en_Dsrt:
+    file: lib/DateTime/Locale/en_Dsrt.pm
+  DateTime::Locale::en_Dsrt_US:
+    file: lib/DateTime/Locale/en_Dsrt_US.pm
   DateTime::Locale::en_GB:
     file: lib/DateTime/Locale/en_GB.pm
   DateTime::Locale::en_GU:
@@ -174,6 +218,8 @@ provides:
     file: lib/DateTime/Locale/en_MP.pm
   DateTime::Locale::en_MT:
     file: lib/DateTime/Locale/en_MT.pm
+  DateTime::Locale::en_NA:
+    file: lib/DateTime/Locale/en_NA.pm
   DateTime::Locale::en_NZ:
     file: lib/DateTime/Locale/en_NZ.pm
   DateTime::Locale::en_PH:
@@ -182,6 +228,8 @@ provides:
     file: lib/DateTime/Locale/en_PK.pm
   DateTime::Locale::en_SG:
     file: lib/DateTime/Locale/en_SG.pm
+  DateTime::Locale::en_Shaw:
+    file: lib/DateTime/Locale/en_Shaw.pm
   DateTime::Locale::en_TT:
     file: lib/DateTime/Locale/en_TT.pm
   DateTime::Locale::en_UM:
@@ -258,6 +306,10 @@ provides:
     file: lib/DateTime/Locale/fi.pm
   DateTime::Locale::fi_FI:
     file: lib/DateTime/Locale/fi_FI.pm
+  DateTime::Locale::fil:
+    file: lib/DateTime/Locale/fil.pm
+  DateTime::Locale::fil_PH:
+    file: lib/DateTime/Locale/fil_PH.pm
   DateTime::Locale::fo:
     file: lib/DateTime/Locale/fo.pm
   DateTime::Locale::fo_FO:
@@ -276,10 +328,20 @@ provides:
     file: lib/DateTime/Locale/fr_LU.pm
   DateTime::Locale::fr_MC:
     file: lib/DateTime/Locale/fr_MC.pm
+  DateTime::Locale::fr_SN:
+    file: lib/DateTime/Locale/fr_SN.pm
+  DateTime::Locale::fur:
+    file: lib/DateTime/Locale/fur.pm
+  DateTime::Locale::fur_IT:
+    file: lib/DateTime/Locale/fur_IT.pm
   DateTime::Locale::ga:
     file: lib/DateTime/Locale/ga.pm
   DateTime::Locale::ga_IE:
     file: lib/DateTime/Locale/ga_IE.pm
+  DateTime::Locale::gaa:
+    file: lib/DateTime/Locale/gaa.pm
+  DateTime::Locale::gaa_GH:
+    file: lib/DateTime/Locale/gaa_GH.pm
   DateTime::Locale::gez:
     file: lib/DateTime/Locale/gez.pm
   DateTime::Locale::gez_ER:
@@ -290,6 +352,10 @@ provides:
     file: lib/DateTime/Locale/gl.pm
   DateTime::Locale::gl_ES:
     file: lib/DateTime/Locale/gl_ES.pm
+  DateTime::Locale::gsw:
+    file: lib/DateTime/Locale/gsw.pm
+  DateTime::Locale::gsw_CH:
+    file: lib/DateTime/Locale/gsw_CH.pm
   DateTime::Locale::gu:
     file: lib/DateTime/Locale/gu.pm
   DateTime::Locale::gu_IN:
@@ -298,6 +364,30 @@ provides:
     file: lib/DateTime/Locale/gv.pm
   DateTime::Locale::gv_GB:
     file: lib/DateTime/Locale/gv_GB.pm
+  DateTime::Locale::ha:
+    file: lib/DateTime/Locale/ha.pm
+  DateTime::Locale::ha_Arab:
+    file: lib/DateTime/Locale/ha_Arab.pm
+  DateTime::Locale::ha_Arab_NG:
+    file: lib/DateTime/Locale/ha_Arab_NG.pm
+  DateTime::Locale::ha_Arab_SD:
+    file: lib/DateTime/Locale/ha_Arab_SD.pm
+  DateTime::Locale::ha_GH:
+    file: lib/DateTime/Locale/ha_GH.pm
+  DateTime::Locale::ha_Latn:
+    file: lib/DateTime/Locale/ha_Latn.pm
+  DateTime::Locale::ha_Latn_GH:
+    file: lib/DateTime/Locale/ha_Latn_GH.pm
+  DateTime::Locale::ha_Latn_NE:
+    file: lib/DateTime/Locale/ha_Latn_NE.pm
+  DateTime::Locale::ha_Latn_NG:
+    file: lib/DateTime/Locale/ha_Latn_NG.pm
+  DateTime::Locale::ha_NE:
+    file: lib/DateTime/Locale/ha_NE.pm
+  DateTime::Locale::ha_NG:
+    file: lib/DateTime/Locale/ha_NG.pm
+  DateTime::Locale::ha_SD:
+    file: lib/DateTime/Locale/ha_SD.pm
   DateTime::Locale::haw:
     file: lib/DateTime/Locale/haw.pm
   DateTime::Locale::haw_US:
@@ -324,10 +414,20 @@ provides:
     file: lib/DateTime/Locale/hy_AM.pm
   DateTime::Locale::hy_AM_REVISED:
     file: lib/DateTime/Locale/hy_AM_REVISED.pm
+  DateTime::Locale::ia:
+    file: lib/DateTime/Locale/ia.pm
   DateTime::Locale::id:
     file: lib/DateTime/Locale/id.pm
   DateTime::Locale::id_ID:
     file: lib/DateTime/Locale/id_ID.pm
+  DateTime::Locale::ig:
+    file: lib/DateTime/Locale/ig.pm
+  DateTime::Locale::ig_NG:
+    file: lib/DateTime/Locale/ig_NG.pm
+  DateTime::Locale::ii:
+    file: lib/DateTime/Locale/ii.pm
+  DateTime::Locale::ii_CN:
+    file: lib/DateTime/Locale/ii_CN.pm
   DateTime::Locale::is:
     file: lib/DateTime/Locale/is.pm
   DateTime::Locale::is_IS:
@@ -348,8 +448,28 @@ provides:
     file: lib/DateTime/Locale/ka.pm
   DateTime::Locale::ka_GE:
     file: lib/DateTime/Locale/ka_GE.pm
+  DateTime::Locale::kaj:
+    file: lib/DateTime/Locale/kaj.pm
+  DateTime::Locale::kaj_NG:
+    file: lib/DateTime/Locale/kaj_NG.pm
+  DateTime::Locale::kam:
+    file: lib/DateTime/Locale/kam.pm
+  DateTime::Locale::kam_KE:
+    file: lib/DateTime/Locale/kam_KE.pm
+  DateTime::Locale::kcg:
+    file: lib/DateTime/Locale/kcg.pm
+  DateTime::Locale::kcg_NG:
+    file: lib/DateTime/Locale/kcg_NG.pm
+  DateTime::Locale::kfo:
+    file: lib/DateTime/Locale/kfo.pm
+  DateTime::Locale::kfo_CI:
+    file: lib/DateTime/Locale/kfo_CI.pm
   DateTime::Locale::kk:
     file: lib/DateTime/Locale/kk.pm
+  DateTime::Locale::kk_Cyrl:
+    file: lib/DateTime/Locale/kk_Cyrl.pm
+  DateTime::Locale::kk_Cyrl_KZ:
+    file: lib/DateTime/Locale/kk_Cyrl_KZ.pm
   DateTime::Locale::kk_KZ:
     file: lib/DateTime/Locale/kk_KZ.pm
   DateTime::Locale::kl:
@@ -372,6 +492,34 @@ provides:
     file: lib/DateTime/Locale/kok.pm
   DateTime::Locale::kok_IN:
     file: lib/DateTime/Locale/kok_IN.pm
+  DateTime::Locale::kpe:
+    file: lib/DateTime/Locale/kpe.pm
+  DateTime::Locale::kpe_GN:
+    file: lib/DateTime/Locale/kpe_GN.pm
+  DateTime::Locale::kpe_LR:
+    file: lib/DateTime/Locale/kpe_LR.pm
+  DateTime::Locale::ku:
+    file: lib/DateTime/Locale/ku.pm
+  DateTime::Locale::ku_Arab:
+    file: lib/DateTime/Locale/ku_Arab.pm
+  DateTime::Locale::ku_Arab_IQ:
+    file: lib/DateTime/Locale/ku_Arab_IQ.pm
+  DateTime::Locale::ku_Arab_IR:
+    file: lib/DateTime/Locale/ku_Arab_IR.pm
+  DateTime::Locale::ku_Arab_SY:
+    file: lib/DateTime/Locale/ku_Arab_SY.pm
+  DateTime::Locale::ku_IQ:
+    file: lib/DateTime/Locale/ku_IQ.pm
+  DateTime::Locale::ku_IR:
+    file: lib/DateTime/Locale/ku_IR.pm
+  DateTime::Locale::ku_Latn:
+    file: lib/DateTime/Locale/ku_Latn.pm
+  DateTime::Locale::ku_Latn_TR:
+    file: lib/DateTime/Locale/ku_Latn_TR.pm
+  DateTime::Locale::ku_SY:
+    file: lib/DateTime/Locale/ku_SY.pm
+  DateTime::Locale::ku_TR:
+    file: lib/DateTime/Locale/ku_TR.pm
   DateTime::Locale::kw:
     file: lib/DateTime/Locale/kw.pm
   DateTime::Locale::kw_GB:
@@ -380,6 +528,12 @@ provides:
     file: lib/DateTime/Locale/ky.pm
   DateTime::Locale::ky_KG:
     file: lib/DateTime/Locale/ky_KG.pm
+  DateTime::Locale::ln:
+    file: lib/DateTime/Locale/ln.pm
+  DateTime::Locale::ln_CD:
+    file: lib/DateTime/Locale/ln_CD.pm
+  DateTime::Locale::ln_CG:
+    file: lib/DateTime/Locale/ln_CG.pm
   DateTime::Locale::lo:
     file: lib/DateTime/Locale/lo.pm
   DateTime::Locale::lo_LA:
@@ -402,8 +556,20 @@ provides:
     file: lib/DateTime/Locale/ml_IN.pm
   DateTime::Locale::mn:
     file: lib/DateTime/Locale/mn.pm
+  DateTime::Locale::mn_CN:
+    file: lib/DateTime/Locale/mn_CN.pm
+  DateTime::Locale::mn_Cyrl:
+    file: lib/DateTime/Locale/mn_Cyrl.pm
+  DateTime::Locale::mn_Cyrl_MN:
+    file: lib/DateTime/Locale/mn_Cyrl_MN.pm
   DateTime::Locale::mn_MN:
     file: lib/DateTime/Locale/mn_MN.pm
+  DateTime::Locale::mn_Mong:
+    file: lib/DateTime/Locale/mn_Mong.pm
+  DateTime::Locale::mn_Mong_CN:
+    file: lib/DateTime/Locale/mn_Mong_CN.pm
+  DateTime::Locale::mo:
+    file: lib/DateTime/Locale/mo.pm
   DateTime::Locale::mr:
     file: lib/DateTime/Locale/mr.pm
   DateTime::Locale::mr_IN:
@@ -418,10 +584,24 @@ provides:
     file: lib/DateTime/Locale/mt.pm
   DateTime::Locale::mt_MT:
     file: lib/DateTime/Locale/mt_MT.pm
+  DateTime::Locale::my:
+    file: lib/DateTime/Locale/my.pm
+  DateTime::Locale::my_MM:
+    file: lib/DateTime/Locale/my_MM.pm
   DateTime::Locale::nb:
     file: lib/DateTime/Locale/nb.pm
   DateTime::Locale::nb_NO:
     file: lib/DateTime/Locale/nb_NO.pm
+  DateTime::Locale::nds:
+    file: lib/DateTime/Locale/nds.pm
+  DateTime::Locale::nds_DE:
+    file: lib/DateTime/Locale/nds_DE.pm
+  DateTime::Locale::ne:
+    file: lib/DateTime/Locale/ne.pm
+  DateTime::Locale::ne_IN:
+    file: lib/DateTime/Locale/ne_IN.pm
+  DateTime::Locale::ne_NP:
+    file: lib/DateTime/Locale/ne_NP.pm
   DateTime::Locale::nl:
     file: lib/DateTime/Locale/nl.pm
   DateTime::Locale::nl_BE:
@@ -432,6 +612,24 @@ provides:
     file: lib/DateTime/Locale/nn.pm
   DateTime::Locale::nn_NO:
     file: lib/DateTime/Locale/nn_NO.pm
+  DateTime::Locale::no:
+    file: lib/DateTime/Locale/no.pm
+  DateTime::Locale::nr:
+    file: lib/DateTime/Locale/nr.pm
+  DateTime::Locale::nr_ZA:
+    file: lib/DateTime/Locale/nr_ZA.pm
+  DateTime::Locale::nso:
+    file: lib/DateTime/Locale/nso.pm
+  DateTime::Locale::nso_ZA:
+    file: lib/DateTime/Locale/nso_ZA.pm
+  DateTime::Locale::ny:
+    file: lib/DateTime/Locale/ny.pm
+  DateTime::Locale::ny_MW:
+    file: lib/DateTime/Locale/ny_MW.pm
+  DateTime::Locale::oc:
+    file: lib/DateTime/Locale/oc.pm
+  DateTime::Locale::oc_FR:
+    file: lib/DateTime/Locale/oc_FR.pm
   DateTime::Locale::om:
     file: lib/DateTime/Locale/om.pm
   DateTime::Locale::om_ET:
@@ -444,8 +642,18 @@ provides:
     file: lib/DateTime/Locale/or_IN.pm
   DateTime::Locale::pa:
     file: lib/DateTime/Locale/pa.pm
+  DateTime::Locale::pa_Arab:
+    file: lib/DateTime/Locale/pa_Arab.pm
+  DateTime::Locale::pa_Arab_PK:
+    file: lib/DateTime/Locale/pa_Arab_PK.pm
+  DateTime::Locale::pa_Guru:
+    file: lib/DateTime/Locale/pa_Guru.pm
+  DateTime::Locale::pa_Guru_IN:
+    file: lib/DateTime/Locale/pa_Guru_IN.pm
   DateTime::Locale::pa_IN:
     file: lib/DateTime/Locale/pa_IN.pm
+  DateTime::Locale::pa_PK:
+    file: lib/DateTime/Locale/pa_PK.pm
   DateTime::Locale::pl:
     file: lib/DateTime/Locale/pl.pm
   DateTime::Locale::pl_PL:
@@ -462,6 +670,8 @@ provides:
     file: lib/DateTime/Locale/pt_PT.pm
   DateTime::Locale::ro:
     file: lib/DateTime/Locale/ro.pm
+  DateTime::Locale::ro_MD:
+    file: lib/DateTime/Locale/ro_MD.pm
   DateTime::Locale::ro_RO:
     file: lib/DateTime/Locale/ro_RO.pm
   DateTime::Locale::root:
@@ -472,14 +682,32 @@ provides:
     file: lib/DateTime/Locale/ru_RU.pm
   DateTime::Locale::ru_UA:
     file: lib/DateTime/Locale/ru_UA.pm
+  DateTime::Locale::rw:
+    file: lib/DateTime/Locale/rw.pm
+  DateTime::Locale::rw_RW:
+    file: lib/DateTime/Locale/rw_RW.pm
   DateTime::Locale::sa:
     file: lib/DateTime/Locale/sa.pm
   DateTime::Locale::sa_IN:
     file: lib/DateTime/Locale/sa_IN.pm
+  DateTime::Locale::se:
+    file: lib/DateTime/Locale/se.pm
+  DateTime::Locale::se_FI:
+    file: lib/DateTime/Locale/se_FI.pm
+  DateTime::Locale::se_NO:
+    file: lib/DateTime/Locale/se_NO.pm
   DateTime::Locale::sh:
     file: lib/DateTime/Locale/sh.pm
+  DateTime::Locale::sh_BA:
+    file: lib/DateTime/Locale/sh_BA.pm
+  DateTime::Locale::sh_CS:
+    file: lib/DateTime/Locale/sh_CS.pm
   DateTime::Locale::sh_YU:
     file: lib/DateTime/Locale/sh_YU.pm
+  DateTime::Locale::si:
+    file: lib/DateTime/Locale/si.pm
+  DateTime::Locale::si_LK:
+    file: lib/DateTime/Locale/si_LK.pm
   DateTime::Locale::sid:
     file: lib/DateTime/Locale/sid.pm
   DateTime::Locale::sid_ET:
@@ -508,16 +736,52 @@ provides:
     file: lib/DateTime/Locale/sq_AL.pm
   DateTime::Locale::sr:
     file: lib/DateTime/Locale/sr.pm
+  DateTime::Locale::sr_BA:
+    file: lib/DateTime/Locale/sr_BA.pm
+  DateTime::Locale::sr_CS:
+    file: lib/DateTime/Locale/sr_CS.pm
   DateTime::Locale::sr_Cyrl:
     file: lib/DateTime/Locale/sr_Cyrl.pm
+  DateTime::Locale::sr_Cyrl_BA:
+    file: lib/DateTime/Locale/sr_Cyrl_BA.pm
+  DateTime::Locale::sr_Cyrl_CS:
+    file: lib/DateTime/Locale/sr_Cyrl_CS.pm
+  DateTime::Locale::sr_Cyrl_ME:
+    file: lib/DateTime/Locale/sr_Cyrl_ME.pm
+  DateTime::Locale::sr_Cyrl_RS:
+    file: lib/DateTime/Locale/sr_Cyrl_RS.pm
   DateTime::Locale::sr_Cyrl_YU:
     file: lib/DateTime/Locale/sr_Cyrl_YU.pm
   DateTime::Locale::sr_Latn:
     file: lib/DateTime/Locale/sr_Latn.pm
+  DateTime::Locale::sr_Latn_BA:
+    file: lib/DateTime/Locale/sr_Latn_BA.pm
+  DateTime::Locale::sr_Latn_CS:
+    file: lib/DateTime/Locale/sr_Latn_CS.pm
+  DateTime::Locale::sr_Latn_ME:
+    file: lib/DateTime/Locale/sr_Latn_ME.pm
+  DateTime::Locale::sr_Latn_RS:
+    file: lib/DateTime/Locale/sr_Latn_RS.pm
   DateTime::Locale::sr_Latn_YU:
     file: lib/DateTime/Locale/sr_Latn_YU.pm
+  DateTime::Locale::sr_ME:
+    file: lib/DateTime/Locale/sr_ME.pm
+  DateTime::Locale::sr_RS:
+    file: lib/DateTime/Locale/sr_RS.pm
   DateTime::Locale::sr_YU:
     file: lib/DateTime/Locale/sr_YU.pm
+  DateTime::Locale::ss:
+    file: lib/DateTime/Locale/ss.pm
+  DateTime::Locale::ss_SZ:
+    file: lib/DateTime/Locale/ss_SZ.pm
+  DateTime::Locale::ss_ZA:
+    file: lib/DateTime/Locale/ss_ZA.pm
+  DateTime::Locale::st:
+    file: lib/DateTime/Locale/st.pm
+  DateTime::Locale::st_LS:
+    file: lib/DateTime/Locale/st_LS.pm
+  DateTime::Locale::st_ZA:
+    file: lib/DateTime/Locale/st_ZA.pm
   DateTime::Locale::sv:
     file: lib/DateTime/Locale/sv.pm
   DateTime::Locale::sv_FI:
@@ -542,6 +806,14 @@ provides:
     file: lib/DateTime/Locale/te.pm
   DateTime::Locale::te_IN:
     file: lib/DateTime/Locale/te_IN.pm
+  DateTime::Locale::tg:
+    file: lib/DateTime/Locale/tg.pm
+  DateTime::Locale::tg_Cyrl:
+    file: lib/DateTime/Locale/tg_Cyrl.pm
+  DateTime::Locale::tg_Cyrl_TJ:
+    file: lib/DateTime/Locale/tg_Cyrl_TJ.pm
+  DateTime::Locale::tg_TJ:
+    file: lib/DateTime/Locale/tg_TJ.pm
   DateTime::Locale::th:
     file: lib/DateTime/Locale/th.pm
   DateTime::Locale::th_TH:
@@ -556,28 +828,72 @@ provides:
     file: lib/DateTime/Locale/tig.pm
   DateTime::Locale::tig_ER:
     file: lib/DateTime/Locale/tig_ER.pm
+  DateTime::Locale::tl:
+    file: lib/DateTime/Locale/tl.pm
+  DateTime::Locale::tn:
+    file: lib/DateTime/Locale/tn.pm
+  DateTime::Locale::tn_ZA:
+    file: lib/DateTime/Locale/tn_ZA.pm
+  DateTime::Locale::to:
+    file: lib/DateTime/Locale/to.pm
+  DateTime::Locale::to_TO:
+    file: lib/DateTime/Locale/to_TO.pm
   DateTime::Locale::tr:
     file: lib/DateTime/Locale/tr.pm
   DateTime::Locale::tr_TR:
     file: lib/DateTime/Locale/tr_TR.pm
+  DateTime::Locale::trv:
+    file: lib/DateTime/Locale/trv.pm
+  DateTime::Locale::trv_TW:
+    file: lib/DateTime/Locale/trv_TW.pm
+  DateTime::Locale::ts:
+    file: lib/DateTime/Locale/ts.pm
+  DateTime::Locale::ts_ZA:
+    file: lib/DateTime/Locale/ts_ZA.pm
   DateTime::Locale::tt:
     file: lib/DateTime/Locale/tt.pm
   DateTime::Locale::tt_RU:
     file: lib/DateTime/Locale/tt_RU.pm
+  DateTime::Locale::ug:
+    file: lib/DateTime/Locale/ug.pm
+  DateTime::Locale::ug_Arab:
+    file: lib/DateTime/Locale/ug_Arab.pm
+  DateTime::Locale::ug_Arab_CN:
+    file: lib/DateTime/Locale/ug_Arab_CN.pm
+  DateTime::Locale::ug_CN:
+    file: lib/DateTime/Locale/ug_CN.pm
   DateTime::Locale::uk:
     file: lib/DateTime/Locale/uk.pm
   DateTime::Locale::uk_UA:
     file: lib/DateTime/Locale/uk_UA.pm
   DateTime::Locale::ur:
     file: lib/DateTime/Locale/ur.pm
+  DateTime::Locale::ur_IN:
+    file: lib/DateTime/Locale/ur_IN.pm
   DateTime::Locale::ur_PK:
     file: lib/DateTime/Locale/ur_PK.pm
   DateTime::Locale::uz:
     file: lib/DateTime/Locale/uz.pm
   DateTime::Locale::uz_AF:
     file: lib/DateTime/Locale/uz_AF.pm
+  DateTime::Locale::uz_Arab:
+    file: lib/DateTime/Locale/uz_Arab.pm
+  DateTime::Locale::uz_Arab_AF:
+    file: lib/DateTime/Locale/uz_Arab_AF.pm
+  DateTime::Locale::uz_Cyrl:
+    file: lib/DateTime/Locale/uz_Cyrl.pm
+  DateTime::Locale::uz_Cyrl_UZ:
+    file: lib/DateTime/Locale/uz_Cyrl_UZ.pm
+  DateTime::Locale::uz_Latn:
+    file: lib/DateTime/Locale/uz_Latn.pm
+  DateTime::Locale::uz_Latn_UZ:
+    file: lib/DateTime/Locale/uz_Latn_UZ.pm
   DateTime::Locale::uz_UZ:
     file: lib/DateTime/Locale/uz_UZ.pm
+  DateTime::Locale::ve:
+    file: lib/DateTime/Locale/ve.pm
+  DateTime::Locale::ve_ZA:
+    file: lib/DateTime/Locale/ve_ZA.pm
   DateTime::Locale::vi:
     file: lib/DateTime/Locale/vi.pm
   DateTime::Locale::vi_VN:
@@ -586,6 +902,22 @@ provides:
     file: lib/DateTime/Locale/wal.pm
   DateTime::Locale::wal_ET:
     file: lib/DateTime/Locale/wal_ET.pm
+  DateTime::Locale::wo:
+    file: lib/DateTime/Locale/wo.pm
+  DateTime::Locale::wo_Latn:
+    file: lib/DateTime/Locale/wo_Latn.pm
+  DateTime::Locale::wo_Latn_SN:
+    file: lib/DateTime/Locale/wo_Latn_SN.pm
+  DateTime::Locale::wo_SN:
+    file: lib/DateTime/Locale/wo_SN.pm
+  DateTime::Locale::xh:
+    file: lib/DateTime/Locale/xh.pm
+  DateTime::Locale::xh_ZA:
+    file: lib/DateTime/Locale/xh_ZA.pm
+  DateTime::Locale::yo:
+    file: lib/DateTime/Locale/yo.pm
+  DateTime::Locale::yo_NG:
+    file: lib/DateTime/Locale/yo_NG.pm
   DateTime::Locale::zh:
     file: lib/DateTime/Locale/zh.pm
   DateTime::Locale::zh_CN:
@@ -596,6 +928,10 @@ provides:
     file: lib/DateTime/Locale/zh_Hans.pm
   DateTime::Locale::zh_Hans_CN:
     file: lib/DateTime/Locale/zh_Hans_CN.pm
+  DateTime::Locale::zh_Hans_HK:
+    file: lib/DateTime/Locale/zh_Hans_HK.pm
+  DateTime::Locale::zh_Hans_MO:
+    file: lib/DateTime/Locale/zh_Hans_MO.pm
   DateTime::Locale::zh_Hans_SG:
     file: lib/DateTime/Locale/zh_Hans_SG.pm
   DateTime::Locale::zh_Hant:
@@ -612,6 +948,17 @@ provides:
     file: lib/DateTime/Locale/zh_SG.pm
   DateTime::Locale::zh_TW:
     file: lib/DateTime/Locale/zh_TW.pm
-  DateTime::LocaleCatalog:
-    file: lib/DateTime/LocaleCatalog.pm
-generated_by: Module::Build version 0.261
+  DateTime::Locale::zu:
+    file: lib/DateTime/Locale/zu.pm
+  DateTime::Locale::zu_ZA:
+    file: lib/DateTime/Locale/zu_ZA.pm
+requires:
+  List::MoreUtils: 0
+  Params::Validate: 0.91
+  perl: 5.006
+resources:
+  bugtracker: http://rt.cpan.org/NoAuth/Bugs.html?Dist=DateTime-Locale
+  homepage: http://datetime.perl.org/
+  license: http://dev.perl.org/licenses/
+  repository: http://hg.urth.org/hg/DateTime-Locale
+version: 0.45

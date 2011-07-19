@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2011 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,9 +27,13 @@
 #include "ScrollbarThemeMac.h"
 
 #include "ImageBuffer.h"
+#include "LocalCurrentGraphicsContext.h"
 #include "PlatformMouseEvent.h"
+#include "ScrollAnimatorMac.h"
 #include "ScrollView.h"
+#include "WebCoreSystemInterface.h"
 #include <Carbon/Carbon.h>
+#include <wtf/HashMap.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/UnusedParam.h>
 
@@ -38,11 +42,24 @@
 using namespace std;
 using namespace WebCore;
 
-static HashSet<Scrollbar*>* gScrollbars;
+namespace WebCore {
+
+#if USE(WK_SCROLLBAR_PAINTER)
+typedef HashMap<Scrollbar*, RetainPtr<WKScrollbarPainterRef> > ScrollbarPainterMap;
+#else
+typedef HashSet<Scrollbar*> ScrollbarPainterMap;
+#endif
+
+static ScrollbarPainterMap* scrollbarMap()
+{
+    static ScrollbarPainterMap* map = new ScrollbarPainterMap;
+    return map;
+}
+
+}
 
 @interface ScrollbarPrefsObserver : NSObject
 {
-
 }
 
 + (void)registerAsObserver;
@@ -58,12 +75,17 @@ static HashSet<Scrollbar*>* gScrollbars;
     UNUSED_PARAM(unusedNotification);
 
     static_cast<ScrollbarThemeMac*>(ScrollbarTheme::nativeTheme())->preferencesChanged();
-    if (!gScrollbars)
+    if (scrollbarMap()->isEmpty())
         return;
-    HashSet<Scrollbar*>::iterator end = gScrollbars->end();
-    for (HashSet<Scrollbar*>::iterator it = gScrollbars->begin(); it != end; ++it) {
+    ScrollbarPainterMap::iterator end = scrollbarMap()->end();
+    for (ScrollbarPainterMap::iterator it = scrollbarMap()->begin(); it != end; ++it) {
+#if USE(WK_SCROLLBAR_PAINTER)
+        it->first->styleChanged();
+        it->first->invalidate();
+#else
         (*it)->styleChanged();
         (*it)->invalidate();
+#endif
     }
 }
 
@@ -91,13 +113,15 @@ ScrollbarTheme* ScrollbarTheme::nativeTheme()
 }
 
 // FIXME: Get these numbers from CoreUI.
-static int cScrollbarThickness[] = { 15, 11 };
 static int cRealButtonLength[] = { 28, 21 };
-static int cButtonInset[] = { 14, 11 };
 static int cButtonHitInset[] = { 3, 2 };
 // cRealButtonLength - cButtonInset
 static int cButtonLength[] = { 14, 10 };
+#if !USE(WK_SCROLLBAR_PAINTER)
+static int cScrollbarThickness[] = { 15, 11 };
+static int cButtonInset[] = { 14, 11 };
 static int cThumbMinLength[] = { 26, 20 };
+#endif
 
 static int cOuterButtonLength[] = { 16, 14 }; // The outer button in a double button pair is a bit bigger.
 static int cOuterButtonOverlap = 2;
@@ -105,10 +129,18 @@ static int cOuterButtonOverlap = 2;
 static float gInitialButtonDelay = 0.5f;
 static float gAutoscrollButtonDelay = 0.05f;
 static bool gJumpOnTrackClick = false;
+
+#if USE(WK_SCROLLBAR_PAINTER)
+static ScrollbarButtonsPlacement gButtonPlacement = ScrollbarButtonsNone;
+#else
 static ScrollbarButtonsPlacement gButtonPlacement = ScrollbarButtonsDoubleEnd;
+#endif
 
 static void updateArrowPlacement()
 {
+#if USE(WK_SCROLLBAR_PAINTER)
+    return;
+#endif
     NSString *buttonPlacement = [[NSUserDefaults standardUserDefaults] objectForKey:@"AppleScrollBarVariant"];
     if ([buttonPlacement isEqualToString:@"Single"])
         gButtonPlacement = ScrollbarButtonsSingle;
@@ -116,25 +148,39 @@ static void updateArrowPlacement()
         gButtonPlacement = ScrollbarButtonsDoubleStart;
     else if ([buttonPlacement isEqualToString:@"DoubleBoth"])
         gButtonPlacement = ScrollbarButtonsDoubleBoth;
-    else
-        gButtonPlacement = ScrollbarButtonsDoubleEnd; // The default is ScrollbarButtonsDoubleEnd.
+    else {
+
+        gButtonPlacement = ScrollbarButtonsDoubleEnd;
+    }
 }
 
 void ScrollbarThemeMac::registerScrollbar(Scrollbar* scrollbar)
 {
-    if (!gScrollbars)
-        gScrollbars = new HashSet<Scrollbar*>;
-    gScrollbars->add(scrollbar);
+#if USE(WK_SCROLLBAR_PAINTER)
+    bool isHorizontal = scrollbar->orientation() == HorizontalScrollbar;
+    WKScrollbarPainterRef scrollbarPainter = wkMakeScrollbarPainter(scrollbar->controlSize(), isHorizontal);
+    scrollbarMap()->add(scrollbar, scrollbarPainter);
+#else
+    scrollbarMap()->add(scrollbar);
+#endif
 }
 
 void ScrollbarThemeMac::unregisterScrollbar(Scrollbar* scrollbar)
 {
-    gScrollbars->remove(scrollbar);
-    if (gScrollbars->isEmpty()) {
-        delete gScrollbars;
-        gScrollbars = 0;
-    }
+    scrollbarMap()->remove(scrollbar);
 }
+
+#if USE(WK_SCROLLBAR_PAINTER)
+void ScrollbarThemeMac::setNewPainterForScrollbar(Scrollbar* scrollbar, WKScrollbarPainterRef newPainter)
+{
+    scrollbarMap()->set(scrollbar, newPainter);
+}
+
+WKScrollbarPainterRef ScrollbarThemeMac::painterForScrollbar(Scrollbar* scrollbar)
+{
+    return scrollbarMap()->get(scrollbar).get();
+}
+#endif
 
 ScrollbarThemeMac::ScrollbarThemeMac()
 {
@@ -162,7 +208,20 @@ void ScrollbarThemeMac::preferencesChanged()
 
 int ScrollbarThemeMac::scrollbarThickness(ScrollbarControlSize controlSize)
 {
+#if USE(WK_SCROLLBAR_PAINTER)
+    return wkScrollbarThickness(controlSize);
+#else
     return cScrollbarThickness[controlSize];
+#endif
+}
+
+bool ScrollbarThemeMac::usesOverlayScrollbars() const
+{
+#if USE(WK_SCROLLBAR_PAINTER)
+    return wkScrollbarPainterUsesOverlayScrollers();
+#else
+    return false;
+#endif
 }
 
 double ScrollbarThemeMac::initialAutoscrollTimerDelay()
@@ -182,20 +241,29 @@ ScrollbarButtonsPlacement ScrollbarThemeMac::buttonsPlacement() const
 
 bool ScrollbarThemeMac::hasButtons(Scrollbar* scrollbar)
 {
-    return scrollbar->enabled() && (scrollbar->orientation() == HorizontalScrollbar ? 
-             scrollbar->width() : 
-             scrollbar->height()) >= 2 * (cRealButtonLength[scrollbar->controlSize()] - cButtonHitInset[scrollbar->controlSize()]);
+    return scrollbar->enabled() && gButtonPlacement != ScrollbarButtonsNone
+             && (scrollbar->orientation() == HorizontalScrollbar
+             ? scrollbar->width()
+             : scrollbar->height()) >= 2 * (cRealButtonLength[scrollbar->controlSize()] - cButtonHitInset[scrollbar->controlSize()]);
 }
 
 bool ScrollbarThemeMac::hasThumb(Scrollbar* scrollbar)
 {
+    int minLengthForThumb;
+#if USE(WK_SCROLLBAR_PAINTER)
+    minLengthForThumb = wkScrollbarMinimumTotalLengthNeededForThumb(scrollbarMap()->get(scrollbar).get());
+#else
+    minLengthForThumb = 2 * cButtonInset[scrollbar->controlSize()] + cThumbMinLength[scrollbar->controlSize()] + 1;
+#endif
     return scrollbar->enabled() && (scrollbar->orientation() == HorizontalScrollbar ? 
              scrollbar->width() : 
-             scrollbar->height()) >= 2 * cButtonInset[scrollbar->controlSize()] + cThumbMinLength[scrollbar->controlSize()] + 1;
+             scrollbar->height()) >= minLengthForThumb;
 }
 
 static IntRect buttonRepaintRect(const IntRect& buttonRect, ScrollbarOrientation orientation, ScrollbarControlSize controlSize, bool start)
 {
+    ASSERT(gButtonPlacement != ScrollbarButtonsNone);
+
     IntRect paintRect(buttonRect);
     if (orientation == HorizontalScrollbar) {
         paintRect.setWidth(cRealButtonLength[controlSize]);
@@ -323,7 +391,11 @@ IntRect ScrollbarThemeMac::trackRect(Scrollbar* scrollbar, bool painting)
 
 int ScrollbarThemeMac::minimumThumbLength(Scrollbar* scrollbar)
 {
+#if USE(WK_SCROLLBAR_PAINTER)
+    return wkScrollbarMinimumThumbLength(scrollbarMap()->get(scrollbar).get());
+#else
     return cThumbMinLength[scrollbar->controlSize()];
+#endif
 }
 
 bool ScrollbarThemeMac::shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent& evt)
@@ -333,6 +405,11 @@ bool ScrollbarThemeMac::shouldCenterOnThumb(Scrollbar*, const PlatformMouseEvent
     if (gJumpOnTrackClick)
         return !evt.altKey();
     return evt.altKey();
+}
+
+bool ScrollbarThemeMac::shouldDragDocumentInsteadOfThumb(Scrollbar*, const PlatformMouseEvent& event)
+{
+    return event.altKey();
 }
 
 static int scrollbarPartToHIPressedState(ScrollbarPart part)
@@ -353,15 +430,89 @@ static int scrollbarPartToHIPressedState(ScrollbarPart part)
     }
 }
 
+#if USE(WK_SCROLLBAR_PAINTER)
+static inline wkScrollerKnobStyle toScrollbarPainterKnobStyle(ScrollbarOverlayStyle style)
+{
+    switch (style) {
+    case ScrollbarOverlayStyleDark:
+        return wkScrollerKnobStyleDark;
+    case ScrollbarOverlayStyleLight:
+        return wkScrollerKnobStyleLight;
+    default:
+        return wkScrollerKnobStyleDefault;
+    }
+}
+#endif
+
 bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, const IntRect& damageRect)
 {
+#if USE(WK_SCROLLBAR_PAINTER)
+    float value = 0;
+    float overhang = 0;
+
+    if (scrollbar->currentPos() < 0) {
+        // Scrolled past the top.
+        value = 0;
+        overhang = -scrollbar->currentPos();
+    } else if (scrollbar->visibleSize() + scrollbar->currentPos() > scrollbar->totalSize()) {
+        // Scrolled past the bottom.
+        value = 1;
+        overhang = scrollbar->currentPos() + scrollbar->visibleSize() - scrollbar->totalSize();
+    } else {
+        // Within the bounds of the scrollable area.
+        int maximum = scrollbar->maximum();
+        if (maximum > 0)
+            value = scrollbar->currentPos() / maximum;
+        else
+            value = 0;
+    }
+    
+    ScrollAnimatorMac* scrollAnimator = static_cast<ScrollAnimatorMac*>(scrollbar->scrollableArea()->scrollAnimator());
+    scrollAnimator->setIsDrawingIntoLayer(context->isCALayerContext());
+
+#if USE(WK_SCROLLBAR_PAINTER)
+    wkSetScrollbarPainterKnobStyle(painterForScrollbar(scrollbar), toScrollbarPainterKnobStyle(scrollbar->scrollableArea()->recommendedScrollbarOverlayStyle()));
+#endif
+    
+    GraphicsContextStateSaver stateSaver(*context);
+    context->clip(damageRect);
+    context->translate(scrollbar->frameRect().x(), scrollbar->frameRect().y());
+    LocalCurrentGraphicsContext localContext(context);
+    wkScrollbarPainterPaint(scrollbarMap()->get(scrollbar).get(),
+                            scrollbar->enabled(),
+                            value,
+                            (static_cast<CGFloat>(scrollbar->visibleSize()) - overhang) / scrollbar->totalSize(),
+                            scrollbar->frameRect());
+
+    scrollAnimator->setIsDrawingIntoLayer(false);
+    return true;
+#endif
+
     HIThemeTrackDrawInfo trackInfo;
     trackInfo.version = 0;
     trackInfo.kind = scrollbar->controlSize() == RegularScrollbar ? kThemeMediumScrollBar : kThemeSmallScrollBar;
     trackInfo.bounds = scrollbar->frameRect();
+
+    float maximum = 0.0f;
+    float position = 0.0f;
+    if (scrollbar->currentPos() < 0) {
+        // Scrolled past the top.
+        maximum = (scrollbar->totalSize() - scrollbar->currentPos()) - scrollbar->visibleSize();
+        position = 0;
+    } else if (scrollbar->visibleSize() + scrollbar->currentPos() > scrollbar->totalSize()) {
+        // Scrolled past the bottom.
+        maximum = scrollbar->currentPos();
+        position = maximum;
+    } else {
+        // Within the bounds of the scrollable area.
+        maximum = scrollbar->maximum();
+        position = scrollbar->currentPos();
+    }
+
     trackInfo.min = 0;
-    trackInfo.max = scrollbar->maximum();
-    trackInfo.value = scrollbar->currentPos();
+    trackInfo.max = static_cast<int>(maximum);
+    trackInfo.value = static_cast<int>(position);
+
     trackInfo.trackInfo.scrollbar.viewsize = scrollbar->visibleSize();
     trackInfo.attributes = 0;
     if (scrollbar->orientation() == HorizontalScrollbar)
@@ -370,7 +521,7 @@ bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, co
     if (!scrollbar->enabled())
         trackInfo.enableState = kThemeTrackDisabled;
     else
-        trackInfo.enableState = scrollbar->client()->isActive() ? kThemeTrackActive : kThemeTrackInactive;
+        trackInfo.enableState = scrollbar->scrollableArea()->isActive() ? kThemeTrackActive : kThemeTrackInactive;
 
     if (hasThumb(scrollbar))
         trackInfo.attributes |= kThemeTrackShowThumb;
@@ -378,10 +529,9 @@ bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, co
         trackInfo.enableState = kThemeTrackNothingToScroll;
     trackInfo.trackInfo.scrollbar.pressState = scrollbarPartToHIPressedState(scrollbar->pressedPart());
     
-    CGAffineTransform currentCTM = CGContextGetCTM(context->platformContext());
-    
     // The Aqua scrollbar is buggy when rotated and scaled.  We will just draw into a bitmap if we detect a scale or rotation.
-    bool canDrawDirectly = currentCTM.a == 1.0f && currentCTM.b == 0.0f && currentCTM.c == 0.0f && (currentCTM.d == 1.0f || currentCTM.d == -1.0f);
+    const AffineTransform& currentCTM = context->getCTM();
+    bool canDrawDirectly = currentCTM.isIdentityOrTranslationOrFlipped();
     if (canDrawDirectly)
         HIThemeDrawTrack(&trackInfo, 0, context->platformContext(), kHIThemeOrientationNormal);
     else {
@@ -389,14 +539,14 @@ bool ScrollbarThemeMac::paint(Scrollbar* scrollbar, GraphicsContext* context, co
         
         IntRect bufferRect(scrollbar->frameRect());
         bufferRect.intersect(damageRect);
-        bufferRect.move(-scrollbar->frameRect().x(), -scrollbar->frameRect().y());
         
         OwnPtr<ImageBuffer> imageBuffer = ImageBuffer::create(bufferRect.size());
         if (!imageBuffer)
             return true;
-        
+
+        imageBuffer->context()->translate(scrollbar->frameRect().x() - bufferRect.x(), scrollbar->frameRect().y() - bufferRect.y());
         HIThemeDrawTrack(&trackInfo, 0, imageBuffer->context()->platformContext(), kHIThemeOrientationNormal);
-        context->drawImage(imageBuffer->image(), DeviceColorSpace, scrollbar->frameRect().location());
+        context->drawImageBuffer(imageBuffer.get(), ColorSpaceDeviceRGB, bufferRect.location());
     }
 
     return true;

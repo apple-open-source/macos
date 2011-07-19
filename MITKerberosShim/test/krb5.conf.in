@@ -1,0 +1,28 @@
+[libdefaults]
+	default_realm = @realm@
+	no-addresses = TRUE
+	default_keytab_name = @objdir@/server.keytab
+	dns_canonicalize_hostname = false
+	dns_lookup_realm = false
+
+[realms]
+	@realm@ = {
+		kdc = localhost:@port@
+	}
+
+[domain_realm]
+	localhost = @realm@
+
+[kdc]
+	database = {
+		dbname = @objdir@/current-db
+		realm = @realm@
+		mkey_file = @objdir@/mkey.file
+	}
+
+[logging]
+	kdc = 0-/FILE:@objdir@/messages.log
+	default = 0-/FILE:@objdir@/messages.log
+
+[kadmin]
+	save-password = true

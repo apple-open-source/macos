@@ -1,2 +1,9 @@
-/def mac_ver(release='',versioninfo=('','',''),machine=''):/s//def mac_ver(release='XXX1XXX',versioninfo=XXX2XXX,machine='XXX3XXX'):/
+/^def _mac_ver_gestalt()/a
+.
+/versioninfo/s//('', '', '')/
+/^def _mac_ver_xml()/a
+.
+/release =/a
+    release = re.sub('^(\d+\.\d+)$', '\g<1>.0', release)
+.
 w

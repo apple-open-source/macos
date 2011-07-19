@@ -1,0 +1,97 @@
+Pigeonhole Sieve Extdata Plugin
+===============================
+
+The extdata plugin adds the vnd.dovecot.extdata extension to the Sieve
+language. It allows a Sieve script to lookup information from a datasource
+external to the script. This makes use of Dovecot's dict mechanism in a
+read-only manner, meaning that scripts cannot update dict data sources.
+
+Getting the sources
+-------------------
+
+Currently, the sources of the extdata plugin are not released, but you can get
+them from the the Mercurial repository:
+
+---%<-------------------------------------------------------------------------
+hg clone  http://hg.rename-it.nl/pigeonhole-0.2-sieve-extdata/
+---%<-------------------------------------------------------------------------
+
+Compiling
+---------
+
+If you downloaded the sources of this plugin using Mercurial, you will need to
+execute './autogen.sh' first to build the automake structure in your source
+tree. This process requires autotools and libtool to be installed.
+
+If you installed Dovecot from sources, the plugin's configure script should be
+able to find the installed 'dovecot-config' automatically, along with the
+Pigeonhole development headers:
+
+---%<-------------------------------------------------------------------------
+./configure
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+If this doesn't work, you can use '--with-dovecot=<path>' configure option,
+where the path points to a directory containing 'dovecot-config' file. This can
+point to an installed file:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=/usr/local/lib/dovecot
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+The above example should also find the necessary Pigeonhole development headers
+implicitly. You can also compile by pointing to compiled Dovecot and Pigeonhole
+source trees:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=../dovecot-2.0.0/
+--with-pigeonhole=../dovecot-2.0-pigeonhole-0.2.0
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+Configuration
+-------------
+
+This package builds and installs the sieve_extdata plugin for Pigeonhole Sieve.
+The plugin is activated by adding it to the sieve_plugins setting
+
+---%<-------------------------------------------------------------------------
+sieve_plugins = sieve_extdata
+---%<-------------------------------------------------------------------------
+
+The following configuration settings are used:
+
+sieve_extdata_dict_uri = :
+  Specifies the uri of the dict that is used for extdata lookups.
+
+Example:
+
+---%<-------------------------------------------------------------------------
+plugin {
+
+  sieve = ~/.dovecot.sieve
+  sieve_plugins = sieve_extdata
+
+  sieve_extdata_dict_uri = file:/etc/dovecot/pigeonhole-sieve.dict
+}
+---%<-------------------------------------------------------------------------
+
+Sieve scripts can use the new extdata extension as follows:
+
+---%<-------------------------------------------------------------------------
+require ["variables", "vacation", "vnd.dovecot.extdata"];
+
+vacation :days 30 :subject "${extdata.vacation_subject}"
+"${extdata.vacation_message}";
+keep;
+---%<-------------------------------------------------------------------------
+
+where "priv/vacation_subject" & "priv/cacation_message" would be looked up in
+the Dovecot dict.
+
+(This file was created from the wiki on 2011-05-11 04:42)

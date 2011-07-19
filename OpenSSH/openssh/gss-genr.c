@@ -1,7 +1,7 @@
-/* $OpenBSD: gss-genr.c,v 1.19 2007/06/12 11:56:15 dtucker Exp $ */
+/* $OpenBSD: gss-genr.c,v 1.20 2009/06/22 05:39:28 dtucker Exp $ */
 
 /*
- * Copyright (c) 2001-2007 Simon Wilkinson. All rights reserved.
+ * Copyright (c) 2001-2009 Simon Wilkinson. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -76,19 +76,20 @@ ssh_gssapi_oid_table_ok() {
  */
 
 char *
-ssh_gssapi_client_mechanisms(const char *host) {
+ssh_gssapi_client_mechanisms(const char *host, const char *client) {
 	gss_OID_set gss_supported;
 	OM_uint32 min_status;
 
-	gss_indicate_mechs(&min_status, &gss_supported);
+	if (GSS_ERROR(gss_indicate_mechs(&min_status, &gss_supported)))
+		return NULL;
 
 	return(ssh_gssapi_kex_mechs(gss_supported, ssh_gssapi_check_mechanism,
-	    host));
+	    host, client));
 }
 
 char *
 ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
-    const char *data) {
+    const char *host, const char *client) {
 	Buffer buf;
 	size_t i;
 	int oidpos, enclen;
@@ -112,7 +113,7 @@ ssh_gssapi_kex_mechs(gss_OID_set gss_supported, ssh_gssapi_check_fn *check,
 	oidpos = 0;
 	for (i = 0; i < gss_supported->count; i++) {
 		if (gss_supported->elements[i].length < 128 &&
-		    (*check)(NULL, &(gss_supported->elements[i]), data)) {
+		    (*check)(NULL, &(gss_supported->elements[i]), host, client)) {
 
 			deroid[0] = SSH_GSS_OIDTYPE;
 			deroid[1] = gss_supported->elements[i].length;
@@ -171,12 +172,18 @@ ssh_gssapi_id_kex(Gssctxt *ctx, char *name, int kex_type) {
 	
 	switch (kex_type) {
 	case KEX_GSS_GRP1_SHA1:
+		if (strlen(name) < sizeof(KEX_GSS_GRP1_SHA1_ID))
+			return GSS_C_NO_OID;
 		name += sizeof(KEX_GSS_GRP1_SHA1_ID) - 1;
 		break;
 	case KEX_GSS_GRP14_SHA1:
+		if (strlen(name) < sizeof(KEX_GSS_GRP14_SHA1_ID))
+			return GSS_C_NO_OID;
 		name += sizeof(KEX_GSS_GRP14_SHA1_ID) - 1;
 		break;
 	case KEX_GSS_GEX_SHA1:
+		if (strlen(name) < sizeof(KEX_GSS_GEX_SHA1_ID))
+			return GSS_C_NO_OID;
 		name += sizeof(KEX_GSS_GEX_SHA1_ID) - 1;
 		break;
 	default:
@@ -345,7 +352,7 @@ ssh_gssapi_init_ctx(Gssctxt *ctx, int deleg_creds, gss_buffer_desc *recv_tok,
 	}
 
 	ctx->major = gss_init_sec_context(&ctx->minor,
-	    GSS_C_NO_CREDENTIAL, &ctx->context, ctx->name, ctx->oid,
+	    ctx->client_creds, &ctx->context, ctx->name, ctx->oid,
 	    GSS_C_MUTUAL_FLAG | GSS_C_INTEG_FLAG | deleg_flag,
 	    0, NULL, recv_tok, NULL, send_tok, flags, NULL);
 
@@ -372,6 +379,37 @@ ssh_gssapi_import_name(Gssctxt *ctx, const char *host)
 
 	xfree(gssbuf.value);
 	return (ctx->major);
+}
+
+OM_uint32
+ssh_gssapi_client_identity(Gssctxt *ctx, const char *name)
+{
+	gss_buffer_desc gssbuf;
+	gss_name_t gssname;
+	OM_uint32 status;
+	gss_OID_set oidset;
+
+	gssbuf.value = (void *) name;
+	gssbuf.length = strlen(gssbuf.value);
+
+	gss_create_empty_oid_set(&status, &oidset);
+	gss_add_oid_set_member(&status, ctx->oid, &oidset);
+
+	ctx->major = gss_import_name(&ctx->minor, &gssbuf,
+	    GSS_C_NT_USER_NAME, &gssname);
+
+	if (!ctx->major)
+		ctx->major = gss_acquire_cred(&ctx->minor, 
+		    gssname, 0, oidset, GSS_C_INITIATE, 
+		    &ctx->client_creds, NULL, NULL);
+
+	gss_release_name(&status, &gssname);
+	gss_release_oid_set(&status, &oidset);
+
+	if (ctx->major)
+		ssh_gssapi_error(ctx);
+
+	return(ctx->major);
 }
 
 OM_uint32
@@ -413,7 +451,8 @@ ssh_gssapi_buildmic(Buffer *b, const char *user, const char *service,
 }
 
 int
-ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
+ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host, 
+    const char *client)
 {
 	gss_buffer_desc token = GSS_C_EMPTY_BUFFER;
 	OM_uint32 major, minor;
@@ -431,6 +470,10 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
 	ssh_gssapi_build_ctx(ctx);
 	ssh_gssapi_set_oid(*ctx, oid);
 	major = ssh_gssapi_import_name(*ctx, host);
+
+	if (!GSS_ERROR(major) && client)
+		major = ssh_gssapi_client_identity(*ctx, client);
+
 	if (!GSS_ERROR(major)) {
 		major = ssh_gssapi_init_ctx(*ctx, 0, GSS_C_NO_BUFFER, &token, 
 		    NULL);
@@ -444,6 +487,63 @@ ssh_gssapi_check_mechanism(Gssctxt **ctx, gss_OID oid, const char *host)
 		ssh_gssapi_delete_ctx(ctx);
 
 	return (!GSS_ERROR(major));
+}
+
+int
+ssh_gssapi_credentials_updated(Gssctxt *ctxt) {
+	static gss_name_t saved_name = GSS_C_NO_NAME;
+	static OM_uint32 saved_lifetime = 0;
+	static gss_OID saved_mech = GSS_C_NO_OID;
+	static gss_name_t name;
+	static OM_uint32 last_call = 0;
+	OM_uint32 lifetime, now, major, minor;
+	int equal;
+	gss_cred_usage_t usage = GSS_C_INITIATE;
+	
+	now = time(NULL);
+
+	if (ctxt) {
+		debug("Rekey has happened - updating saved versions");
+
+		if (saved_name != GSS_C_NO_NAME)
+			gss_release_name(&minor, &saved_name);
+
+		major = gss_inquire_cred(&minor, GSS_C_NO_CREDENTIAL,
+		    &saved_name, &saved_lifetime, NULL, NULL);
+
+		if (!GSS_ERROR(major)) {
+			saved_mech = ctxt->oid;
+		        saved_lifetime+= now;
+		} else {
+			/* Handle the error */
+		}
+		return 0;
+	}
+
+	if (now - last_call < 10)
+		return 0;
+
+	last_call = now;
+
+	if (saved_mech == GSS_C_NO_OID)
+		return 0;
+	
+	major = gss_inquire_cred(&minor, GSS_C_NO_CREDENTIAL, 
+	    &name, &lifetime, NULL, NULL);
+	if (major == GSS_S_CREDENTIALS_EXPIRED)
+		return 0;
+	else if (GSS_ERROR(major))
+		return 0;
+
+	major = gss_compare_name(&minor, saved_name, name, &equal);
+	gss_release_name(&minor, &name);
+	if (GSS_ERROR(major))
+		return 0;
+
+	if (equal && (saved_lifetime < lifetime + now - 10))
+		return 1;
+
+	return 0;
 }
 
 #endif /* GSSAPI */

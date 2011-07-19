@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001, 2004, 2005, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,12 +37,17 @@ SCPreferencesPathKeyCreate(CFAllocatorRef	allocator,
 			   CFStringRef		fmt,
 			   ...)
 {
-	va_list args;
+	va_list		args;
+	CFStringRef	result;
+
 	va_start(args, fmt);
-	return (CFStringCreateWithFormatAndArguments(allocator,
-						     NULL,
-						     fmt,
-						     args));
+	result = CFStringCreateWithFormatAndArguments(allocator,
+						      NULL,
+						      fmt,
+						      args);
+	va_end(args);
+
+	return result;
 }
 
 

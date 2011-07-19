@@ -1,7 +1,6 @@
 #ifndef HEADER_CURLMSG_VMS_H
 #define HEADER_CURLMSG_VMS_H
 
-/* $Id: curlmsg_vms.h,v 1.9 2009-06-11 11:57:46 yangtse Exp $ */
 /*                                                                          */
 /* CURLMSG_VMS.H                                                            */
 /*                                                                          */

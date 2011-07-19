@@ -1,5 +1,5 @@
 /*
- * (C) Copyright IBM Corp. 1998-2005 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2010 - All Rights Reserved
  *
  */
 
@@ -15,7 +15,7 @@
 #include "LEFontInstance.h"
 #include "OpenTypeTables.h"
 #include "Lookups.h"
-#include "Features.h"
+#include "ICUFeatures.h"
 #include "GlyphDefinitionTables.h"
 #include "GlyphPositioningTables.h"
 #include "GlyphIterator.h"
@@ -27,12 +27,17 @@ class GlyphPositioningLookupProcessor : public LookupProcessor
 {
 public:
     GlyphPositioningLookupProcessor(const GlyphPositioningTableHeader *glyphPositioningTableHeader,
-        LETag scriptTag, LETag languageTag, const FeatureMap *featureMap, le_int32 featureMapCount, le_bool featureOrder);
+        LETag scriptTag, 
+        LETag languageTag, 
+        const FeatureMap *featureMap, 
+        le_int32 featureMapCount, 
+        le_bool featureOrder,
+        LEErrorCode& success);
 
     virtual ~GlyphPositioningLookupProcessor();
 
     virtual le_uint32 applySubtable(const LookupSubtable *lookupSubtable, le_uint16 lookupType, GlyphIterator *glyphIterator,
-        const LEFontInstance *fontInstance) const;
+        const LEFontInstance *fontInstance, LEErrorCode& success) const;
 
 protected:
     GlyphPositioningLookupProcessor();

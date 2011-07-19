@@ -24,14 +24,18 @@
 /* Define if you have the gethostbyaddr_r() function with 8 arguments */
 #undef HAVE_GETHOSTBYADDR_R_8
 
-/* Define if you have the gethostbyname_r() function with 3 arguments */
-#define HAVE_GETHOSTBYNAME_R_3
-
-/* Define if you have the gethostbyname_r() function with 5 arguments */
+/* OS400 supports a 3-argument ASCII version of gethostbyaddr_r(), but its
+ *  prototype is incompatible with the "standard" one (1st argument is not
+ *  const). However, getaddrinfo() is supported (ASCII version defined as
+ *  a local wrapper in setup-os400.h) in a threadsafe way: we can then
+ *  configure getaddrinfo() as such and get rid of gethostbyname_r() without
+ *  loss of threadsafeness. */
+#undef HAVE_GETHOSTBYNAME_R
+#undef HAVE_GETHOSTBYNAME_R_3
 #undef HAVE_GETHOSTBYNAME_R_5
-
-/* Define if you have the gethostbyname_r() function with 6 arguments */
 #undef HAVE_GETHOSTBYNAME_R_6
+#define HAVE_GETADDRINFO
+#define HAVE_GETADDRINFO_THREADSAFE
 
 /* Define if you need the _REENTRANT define for some functions */
 #undef NEED_REENTRANT
@@ -53,9 +57,6 @@
 
 /* Define this to your Entropy Gathering Daemon socket pathname */
 #undef EGD_SOCKET
-
-/* Set to explicitly specify we don't want to use thread-safe functions */
-#undef DISABLED_THREADSAFE
 
 /* Define to 1 if you have the alarm function. */
 #define HAVE_ALARM 1
@@ -81,10 +82,6 @@
 /* Define if you have the <fcntl.h> header file. */
 #define HAVE_FCNTL_H
 
-/* Define if getaddrinfo exists and works */
-/* OS400 has no ASCII version of this procedure: wrapped in setup-os400.h. */
-#define HAVE_GETADDRINFO
-
 /* Define if you have the `geteuid' function. */
 #define HAVE_GETEUID
 
@@ -93,9 +90,6 @@
 
 /* Define if you have the `gethostbyaddr_r' function. */
 #define HAVE_GETHOSTBYADDR_R
-
-/* Define if you have the `gethostbyname_r' function. */
-#define HAVE_GETHOSTBYNAME_R
 
 /* Define if you have the `gethostname' function. */
 #define HAVE_GETHOSTNAME
@@ -355,6 +349,9 @@
 /* Define as the return type of signal handlers (`int' or `void'). */
 #define RETSIGTYPE void
 
+/* The size of `int', as computed by sizeof. */
+#define SIZEOF_INT              4
+
 /* The size of a `long double', as computed by sizeof. */
 #define SIZEOF_LONG_DOUBLE      8
 
@@ -363,6 +360,12 @@
 
 /* The size of a `long long', as computed by sizeof. */
 #define SIZEOF_LONG_LONG        8
+
+/* The size of `short', as computed by sizeof. */
+#define SIZEOF_SHORT            2
+
+/* The size of `size_t', as computed by sizeof. */
+#define SIZEOF_SIZE_T           8
 
 /* Whether long long constants must be suffixed by LL. */
 

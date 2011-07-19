@@ -27,11 +27,12 @@
 #include "config.h"
 #include "CrossOriginAccessControl.h"
 
-#include "AtomicString.h"
 #include "HTTPParsers.h"
 #include "ResourceResponse.h"
 #include "SecurityOrigin.h"
+#include <wtf/HashSet.h>
 #include <wtf/Threading.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -71,9 +72,9 @@ bool isSimpleCrossOriginAccessRequest(const String& method, const HTTPHeaderMap&
 }
 
 typedef HashSet<String, CaseFoldingHash> HTTPHeaderSet;
-static HTTPHeaderSet* createAllowedCrossOriginResponseHeadersSet()
+static PassOwnPtr<HTTPHeaderSet> createAllowedCrossOriginResponseHeadersSet()
 {
-    HTTPHeaderSet* headerSet = new HashSet<String, CaseFoldingHash>;
+    OwnPtr<HTTPHeaderSet> headerSet = adoptPtr(new HashSet<String, CaseFoldingHash>);
     
     headerSet->add("cache-control");
     headerSet->add("content-language");
@@ -82,17 +83,17 @@ static HTTPHeaderSet* createAllowedCrossOriginResponseHeadersSet()
     headerSet->add("last-modified");
     headerSet->add("pragma");
 
-    return headerSet;
+    return headerSet.release();
 }
 
 bool isOnAccessControlResponseHeaderWhitelist(const String& name)
 {
-    AtomicallyInitializedStatic(HTTPHeaderSet*, allowedCrossOriginResponseHeaders = createAllowedCrossOriginResponseHeadersSet());
+    AtomicallyInitializedStatic(HTTPHeaderSet*, allowedCrossOriginResponseHeaders = createAllowedCrossOriginResponseHeadersSet().leakPtr());
 
     return allowedCrossOriginResponseHeaders->contains(name);
 }
 
-bool passesAccessControlCheck(const ResourceResponse& response, bool includeCredentials, SecurityOrigin* securityOrigin)
+bool passesAccessControlCheck(const ResourceResponse& response, bool includeCredentials, SecurityOrigin* securityOrigin, String& errorDescription)
 {
     // A wildcard Access-Control-Allow-Origin can not be used if credentials are to be sent,
     // even with Access-Control-Allow-Credentials set to true.
@@ -100,17 +101,27 @@ bool passesAccessControlCheck(const ResourceResponse& response, bool includeCred
     if (accessControlOriginString == "*" && !includeCredentials)
         return true;
 
-    if (securityOrigin->isUnique())
+    if (securityOrigin->isUnique()) {
+        errorDescription = "Cannot make any requests from " + securityOrigin->toString() + ".";
         return false;
+    }
 
+    // FIXME: Access-Control-Allow-Origin can contain a list of origins.
     RefPtr<SecurityOrigin> accessControlOrigin = SecurityOrigin::createFromString(accessControlOriginString);
-    if (!accessControlOrigin->isSameSchemeHostPort(securityOrigin))
+    if (!accessControlOrigin->isSameSchemeHostPort(securityOrigin)) {
+        if (accessControlOriginString == "*")
+            errorDescription = "Cannot use wildcard in Access-Control-Allow-Origin when credentials flag is true.";
+        else
+            errorDescription =  "Origin " + securityOrigin->toString() + " is not allowed by Access-Control-Allow-Origin.";
         return false;
+    }
 
     if (includeCredentials) {
         const String& accessControlCredentialsString = response.httpHeaderField("Access-Control-Allow-Credentials");
-        if (accessControlCredentialsString != "true")
+        if (accessControlCredentialsString != "true") {
+            errorDescription = "Credentials flag is true, but Access-Control-Allow-Credentials is not \"true\".";
             return false;
+        }
     }
 
     return true;

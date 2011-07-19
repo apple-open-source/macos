@@ -10,8 +10,6 @@ use POSIX qw(ceil);
 
 my $schema = DBICTest->init_schema();
 
-plan tests => 879;
-
 my $employees = $schema->resultset('Employee');
 $employees->delete();
 
@@ -42,14 +40,16 @@ foreach my $group_id (1..4) {
 my $group_3 = $employees->search({group_id=>3});
 my $to_group = 1;
 my $to_pos = undef;
-while (my $employee = $group_3->next) {
-	$employee->move_to_group($to_group, $to_pos);
-	$to_pos++;
-	$to_group = $to_group==1 ? 2 : 1;
+{
+  my @empl = $group_3->all;
+  while (my $employee = shift @empl) {
+    $employee->move_to_group($to_group, $to_pos);
+    $to_pos++;
+    $to_group = $to_group==1 ? 2 : 1;
+  }
 }
 foreach my $group_id (1..4) {
     my $group_employees = $employees->search({group_id=>$group_id});
-    $group_employees->all();
     ok( check_rs($group_employees), "group positions after move_to_group" );
 }
 
@@ -97,20 +97,20 @@ ok(
 );
 
 # multicol tests begin here
-DBICTest::Employee->grouping_column(['group_id', 'group_id_2']);
+DBICTest::Employee->grouping_column(['group_id_2', 'group_id_3']);
 $employees->delete();
-foreach my $group_id (1..4) {
-    foreach my $group_id_2 (1..4) {
+foreach my $group_id_2 (1..4) {
+    foreach my $group_id_3 (1..4) {
         foreach (1..4) {
-            $employees->create({ name=>'temp', group_id=>$group_id, group_id_2=>$group_id_2 });
+            $employees->create({ name=>'temp', group_id_2=>$group_id_2, group_id_3=>$group_id_3 });
         }
     }
 }
-$employees = $employees->search(undef,{order_by=>'group_id,group_id_2,position'});
+$employees = $employees->search(undef,{order_by=>[qw/group_id_2 group_id_3 position/]});
 
-foreach my $group_id (1..3) {
-    foreach my $group_id_2 (1..3) {
-        my $group_employees = $employees->search({group_id=>$group_id, group_id_2=>$group_id_2});
+foreach my $group_id_2 (1..3) {
+    foreach my $group_id_3 (1..3) {
+        my $group_employees = $employees->search({group_id_2=>$group_id_2, group_id_3=>$group_id_3});
         $group_employees->all();
         ok( check_rs($group_employees), "group intial positions" );
         hammer_rs( $group_employees );
@@ -118,72 +118,75 @@ foreach my $group_id (1..3) {
 }
 
 # move_to_group, specifying group by hash
-my $group_4 = $employees->search({group_id=>4});
+my $group_4 = $employees->search({group_id_2=>4});
 $to_group = 1;
 my $to_group_2_base = 7;
 my $to_group_2 = 1;
 $to_pos = undef;
-while (my $employee = $group_4->next) {
-	$employee->move_to_group({group_id=>$to_group, group_id_2=>$to_group_2}, $to_pos);
-	$to_pos++;
+
+{
+  my @empl = $group_3->all;
+  while (my $employee = shift @empl) {
+    $employee->move_to_group({group_id_2=>$to_group, group_id_3=>$to_group_2}, $to_pos);
+    $to_pos++;
     $to_group = ($to_group % 3) + 1;
     $to_group_2_base++;
     $to_group_2 = (ceil($to_group_2_base/3.0) %3) +1
+  }
 }
-foreach my $group_id (1..4) {
-    foreach my $group_id_2 (1..4) {
-        my $group_employees = $employees->search({group_id=>$group_id,group_id_2=>$group_id_2});
-        $group_employees->all();
+foreach my $group_id_2 (1..4) {
+    foreach my $group_id_3 (1..4) {
+        my $group_employees = $employees->search({group_id_2=>$group_id_2,group_id_3=>$group_id_3});
         ok( check_rs($group_employees), "group positions after move_to_group" );
     }
 }
 
 $employees->delete();
-foreach my $group_id (1..4) {
-    foreach my $group_id_2 (1..4) {
+foreach my $group_id_2 (1..4) {
+    foreach my $group_id_3 (1..4) {
         foreach (1..4) {
-            $employees->create({ name=>'temp', group_id=>$group_id, group_id_2=>$group_id_2 });
+            $employees->create({ name=>'temp', group_id_2=>$group_id_2, group_id_3=>$group_id_3 });
         }
     }
 }
-$employees = $employees->search(undef,{order_by=>'group_id,group_id_2,position'});
+$employees = $employees->search(undef,{order_by=>[qw/group_id_2 group_id_3 position/]});
 
-$employee = $employees->search({group_id=>4, group_id_2=>1})->first;
-$employee->group_id(1);
+$employee = $employees->search({group_id_2=>4, group_id_3=>1})->first;
+$employee->group_id_2(1);
 $employee->update;
 ok( 
-    check_rs($employees->search_rs({group_id=>4, group_id_2=>1}))
-    && check_rs($employees->search_rs({group_id=>1, group_id_2=>1})), 
+    check_rs($employees->search_rs({group_id_2=>4, group_id_3=>1}))
+    && check_rs($employees->search_rs({group_id_2=>1, group_id_3=>1})), 
     "overloaded multicol update 1" 
 );
 
-$employee = $employees->search({group_id=>4, group_id_2=>1})->first;
-$employee->update({group_id=>2});
-ok( check_rs($employees->search_rs({group_id=>4, group_id_2=>1}))
-    && check_rs($employees->search_rs({group_id=>2, group_id_2=>1})), 
-    "overloaded multicol update 2" 
+$employee = $employees->search({group_id_2=>4, group_id_3=>1})->first;
+$employee->update({group_id_2=>2});
+ok( check_rs($employees->search_rs({group_id_2=>4, group_id_3=>1}))
+    && check_rs($employees->search_rs({group_id_2=>2, group_id_3=>1})), 
+   "overloaded multicol update 2" 
 );
 
-$employee = $employees->search({group_id=>3, group_id_2=>1})->first;
-$employee->group_id(1);
-$employee->group_id_2(3);
+$employee = $employees->search({group_id_2=>3, group_id_3=>1})->first;
+$employee->group_id_2(1);
+$employee->group_id_3(3);
 $employee->update();
-ok( check_rs($employees->search_rs({group_id=>3, group_id_2=>1}))
-    && check_rs($employees->search_rs({group_id=>1, group_id_2=>3})),
+ok( check_rs($employees->search_rs({group_id_2=>3, group_id_3=>1}))
+    && check_rs($employees->search_rs({group_id_2=>1, group_id_3=>3})),
     "overloaded multicol update 3" 
 );
 
-$employee = $employees->search({group_id=>3, group_id_2=>1})->first;
-$employee->update({group_id=>2, group_id_2=>3});
-ok( check_rs($employees->search_rs({group_id=>3, group_id_2=>1}))
-    && check_rs($employees->search_rs({group_id=>2, group_id_2=>3})), 
+$employee = $employees->search({group_id_2=>3, group_id_3=>1})->first;
+$employee->update({group_id_2=>2, group_id_3=>3});
+ok( check_rs($employees->search_rs({group_id_2=>3, group_id_3=>1}))
+    && check_rs($employees->search_rs({group_id_2=>2, group_id_3=>3})), 
     "overloaded multicol update 4" 
 );
 
-$employee = $employees->search({group_id=>3, group_id_2=>2})->first;
-$employee->update({group_id=>2, group_id_2=>4, position=>2});
-ok( check_rs($employees->search_rs({group_id=>3, group_id_2=>2}))
-    && check_rs($employees->search_rs({group_id=>2, group_id_2=>4})), 
+$employee = $employees->search({group_id_2=>3, group_id_3=>2})->first;
+$employee->update({group_id_2=>2, group_id_3=>4, position=>2});
+ok( check_rs($employees->search_rs({group_id_2=>3, group_id_3=>2}))
+    && check_rs($employees->search_rs({group_id_2=>2, group_id_3=>4})), 
     "overloaded multicol update 5" 
 );
 
@@ -218,22 +221,34 @@ sub hammer_rs {
             ok( check_rs($rs), "move_to( $position => $to_position )" );
         }
 
-        ($row) = $rs->search({ position=>$position })->all();
+        $row = $rs->find({ position => $position });
         if ($position==1) {
             ok( !$row->previous_sibling(), 'no previous sibling' );
             ok( !$row->first_sibling(), 'no first sibling' );
+            ok( $row->next_sibling->position > $position, 'next sibling position > than us');
+            is( $row->next_sibling->previous_sibling->position, $position, 'next-prev sibling is us');
+            ok( $row->last_sibling->position > $position, 'last sibling position > than us');
         }
         else {
             ok( $row->previous_sibling(), 'previous sibling' );
             ok( $row->first_sibling(), 'first sibling' );
+            ok( $row->previous_sibling->position < $position, 'prev sibling position < than us');
+            is( $row->previous_sibling->next_sibling->position, $position, 'prev-next sibling is us');
+            ok( $row->first_sibling->position < $position, 'first sibling position < than us');
         }
         if ($position==$count) {
             ok( !$row->next_sibling(), 'no next sibling' );
             ok( !$row->last_sibling(), 'no last sibling' );
+            ok( $row->previous_sibling->position < $position, 'prev sibling position < than us');
+            is( $row->previous_sibling->next_sibling->position, $position, 'prev-next sibling is us');
+            ok( $row->first_sibling->position < $position, 'first sibling position < than us');
         }
         else {
             ok( $row->next_sibling(), 'next sibling' );
             ok( $row->last_sibling(), 'last sibling' );
+            ok( $row->next_sibling->position > $row->position, 'next sibling position > than us');
+            is( $row->next_sibling->previous_sibling->position, $position, 'next-prev sibling is us');
+            ok( $row->last_sibling->position > $row->position, 'last sibling position > than us');
         }
 
     }
@@ -253,3 +268,4 @@ sub check_rs {
     return 1;
 }
 
+done_testing;

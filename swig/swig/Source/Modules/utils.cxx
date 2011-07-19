@@ -7,7 +7,7 @@
  * Various utility functions.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_utils_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/utils.cxx,v 1.13 2006/11/01 23:54:52 wsfulton Exp $";
+char cvsroot_utils_cxx[] = "$Id: utils.cxx 10423 2008-05-07 20:59:00Z wsfulton $";
 
 #include <swigmod.h>
 
@@ -26,17 +26,19 @@ int is_protected(Node *n) {
   return access && !Cmp(access, "protected");
 }
 
-int is_member_director(Node *parentnode, Node *member) {
-  int director_mode = Swig_director_mode();
+static int is_member_director_helper(Node *parentnode, Node *member) {
+  int parent_nodirector = GetFlag(parentnode, "feature:nodirector");
+  if (parent_nodirector)
+    return 0;
+  int parent_director = Swig_director_mode() && GetFlag(parentnode, "feature:director");
+  int cdecl_director = parent_director || GetFlag(member, "feature:director");
+  int cdecl_nodirector = GetFlag(member, "feature:nodirector");
+  return cdecl_director && !cdecl_nodirector && !GetFlag(member, "feature:extend");
+}
 
+int is_member_director(Node *parentnode, Node *member) {
   if (parentnode && checkAttribute(member, "storage", "virtual")) {
-    int parent_nodirector = GetFlag(parentnode, "feature:nodirector");
-    if (parent_nodirector)
-      return 0;
-    int parent_director = director_mode && GetFlag(parentnode, "feature:director");
-    int cdecl_director = parent_director || GetFlag(member, "feature:director");
-    int cdecl_nodirector = GetFlag(member, "feature:nodirector");
-    return cdecl_director && !cdecl_nodirector && !GetFlag(member, "feature:extend");
+    return is_member_director_helper(parentnode, member);
   } else {
     return 0;
   }
@@ -46,19 +48,28 @@ int is_member_director(Node *member) {
   return is_member_director(Getattr(member, "parentNode"), member);
 }
 
+// Identifies the additional protected members that are generated when the allprotected option is used.
+// This does not include protected virtual methods as they are turned on with the dirprot option.
+int is_non_virtual_protected_access(Node *n) {
+  int result = 0;
+  if (Swig_director_mode() && Swig_director_protected_mode() && Swig_all_protected_mode() && is_protected(n) && !checkAttribute(n, "storage", "virtual")) {
+    if (is_member_director_helper(Getattr(n, "parentNode"), n))
+      result = 1;
+  }
+  return result;
+}
 
 /* Clean overloaded list.  Removes templates, ignored, and errors */
 
 void clean_overloaded(Node *n) {
   Node *nn = Getattr(n, "sym:overloaded");
   Node *first = 0;
-  int cnt = 0;
   while (nn) {
     String *ntype = nodeType(nn);
     if ((GetFlag(nn, "feature:ignore")) ||
 	(Getattr(nn, "error")) ||
 	(Strcmp(ntype, "template") == 0) ||
-	((Strcmp(ntype, "cdecl") == 0) && is_protected(nn) && !is_member_director(nn)) || ((Strcmp(ntype, "using") == 0) && !firstChild(nn))) {
+	((Strcmp(ntype, "cdecl") == 0) && is_protected(nn) && !is_member_director(nn) && !is_non_virtual_protected_access(n))) {
       /* Remove from overloaded list */
       Node *ps = Getattr(nn, "sym:previousSibling");
       Node *ns = Getattr(nn, "sym:nextSibling");
@@ -73,40 +84,6 @@ void clean_overloaded(Node *n) {
       Delattr(nn, "sym:overloaded");
       nn = ns;
       continue;
-    } else if ((Strcmp(ntype, "using") == 0)) {
-      /* A possibly dangerous parse tree hack.  We're going to
-         cut the parse tree node out and stick in the resolved
-         using declarations */
-
-      Node *ps = Getattr(nn, "sym:previousSibling");
-      Node *ns = Getattr(nn, "sym:nextSibling");
-      Node *un = firstChild(nn);
-      Node *pn = un;
-
-      if (!first) {
-	first = un;
-      }
-      while (pn) {
-	Node *ppn = Getattr(pn, "sym:nextSibling");
-	Setattr(pn, "sym:overloaded", first);
-	Setattr(pn, "sym:overname", NewStringf("%s_%d", Getattr(nn, "sym:overname"), cnt++));
-	if (ppn)
-	  pn = ppn;
-	else
-	  break;
-      }
-      if (ps) {
-	Setattr(ps, "sym:nextSibling", un);
-	Setattr(un, "sym:previousSibling", ps);
-      }
-      if (ns) {
-	Setattr(ns, "sym:previousSibling", pn);
-	Setattr(pn, "sym:nextSibling", ns);
-      }
-      if (!first) {
-	first = un;
-	Setattr(nn, "sym:overloaded", first);
-      }
     } else {
       if (!first)
 	first = nn;
@@ -115,6 +92,7 @@ void clean_overloaded(Node *n) {
     nn = Getattr(nn, "sym:nextSibling");
   }
   if (!first || (first && !Getattr(first, "sym:nextSibling"))) {
-    Delattr(n, "sym:overloaded");
+    if (Getattr(n, "sym:overloaded"))
+      Delattr(n, "sym:overloaded");
   }
 }

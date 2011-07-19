@@ -1,11 +1,11 @@
 #==============================================================================
-# Demonstrates how to implement a tablelist widget for displaying information
-# about the children of an arbitrary widget.
+# Demonstrates how to use a tablelist widget for displaying information about
+# the children of an arbitrary widget.
 #
-# Copyright (c) 2000-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2000-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
-package require Tablelist
+package require tablelist 5.1
 
 namespace eval demo {
     variable dir [file dirname [info script]]
@@ -31,8 +31,8 @@ source [file join $demo::dir config.tcl]
 proc demo::displayChildren w {
     if {![winfo exists $w]} {
 	bell
-	tk_messageBox -icon error -message "Bad window path name \"$w\"" \
-		      -type ok
+	tk_messageBox -title "Error" -icon error -message \
+	    "Bad window path name \"$w\""
 	return ""
     }
 
@@ -93,15 +93,15 @@ proc demo::displayChildren w {
     #
     set menu $top.menu
     menu $menu -tearoff no
-    $menu add command -label "Display children" \
+    $menu add command -label "Display Children" \
 		      -command [list demo::putChildrenOfSelWidget $tbl]
-    $menu add command -label "Display config" \
+    $menu add command -label "Display Config" \
 		      -command [list demo::dispConfigOfSelWidget $tbl]
     set bodyTag [$tbl bodytag]
+    bind $bodyTag <Double-1>   [list demo::putChildrenOfSelWidget $tbl]
     bind $bodyTag <<Button3>>  [bind TablelistBody <Button-1>]
     bind $bodyTag <<Button3>> +[bind TablelistBody <ButtonRelease-1>]
     bind $bodyTag <<Button3>> +[list demo::postPopupMenu $top %X %Y]
-    bind $bodyTag <Double-1>   [list demo::putChildrenOfSelWidget $tbl]
 
     #
     # Create three buttons within a frame child of the top-level widget
@@ -146,10 +146,10 @@ proc demo::putChildren {w tbl} {
     #
     if {![winfo exists $w]} {
 	bell
-	set choice [tk_messageBox -default ok -icon warning \
+	set choice [tk_messageBox -title "Error" -icon warning \
 		    -message "Bad window path name \"$w\" -- replacing\
 			      it with nearest existent ancestor" \
-		    -parent [winfo toplevel $tbl] -type okcancel]
+		    -type okcancel -default ok -parent [winfo toplevel $tbl]]
 	if {[string compare $choice "ok"] == 0} {
 	    while {![winfo exists $w]} {
 		set last [string last "." $w]
@@ -166,14 +166,15 @@ proc demo::putChildren {w tbl} {
     set top [winfo toplevel $tbl]
     wm title $top "Children of the [winfo class $w] Widget \"$w\""
 
+    $tbl resetsortinfo
+    $tbl delete 0 end
+
     #
     # Display the data of the children of the
     # widget w in the tablelist widget tbl
     #
     variable leafImg
     variable compImg
-    $tbl resetsortinfo
-    $tbl delete 0 end
     foreach c [winfo children $w] {
 	#
 	# Insert the data of the current child into the tablelist widget
@@ -272,11 +273,9 @@ proc demo::updateItems tbl {
     }
 
     #
-    # Repeat the last sort operation
+    # Repeat the last sort operation (if any)
     #
-    if {[set sortCol [$tbl sortcolumn]] >= 0} {
-	$tbl sortbycolumn $sortCol -[$tbl sortorder]
-    }
+    $tbl refreshsorting
 }
 
 #------------------------------------------------------------------------------
@@ -289,8 +288,8 @@ proc demo::putChildrenOfSelWidget tbl {
     set w [$tbl cellcget [$tbl curselection],0 -text]
     if {![winfo exists $w]} {
 	bell
-	tk_messageBox -icon error -message "Bad window path name \"$w\"" \
-		      -parent [winfo toplevel $tbl] -type ok
+	tk_messageBox -title "Error" -icon error -message \
+	    "Bad window path name \"$w\"" -parent [winfo toplevel $tbl]
 	return ""
     }
 
@@ -324,8 +323,8 @@ proc demo::postPopupMenu {top rootX rootY} {
     set w [$tbl cellcget [$tbl curselection],0 -text]
     if {![winfo exists $w]} {
 	bell
-	tk_messageBox -icon error -message "Bad window path name \"$w\"" \
-		      -parent $top -type ok
+	tk_messageBox -title "Error" -icon error -message \
+	    "Bad window path name \"$w\"" -parent $top
 	return ""
     }
 
@@ -346,7 +345,7 @@ if {$tcl_interactive} {
 	    widget, enter\n\n\tdemo::displayChildren <widgetName>\n"
 } else {
     wm withdraw .
-    tk_messageBox -icon warning -title $argv0 -type ok -message \
+    tk_messageBox -title $argv0 -icon warning -message \
 	"Please source this script into\nan interactive wish session"
     exit 1
 }

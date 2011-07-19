@@ -1,3 +1,31 @@
+/*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
 /*	$KAME: config.c,v 1.37 2001/05/25 07:34:00 itojun Exp $	*/
 
 /*
@@ -72,17 +100,17 @@
 #include "if.h"
 #include "config.h"
 
-static void makeentry __P((char *, int, char *, int));
-static void get_prefix __P((struct rainfo *));
-static int getinet6sysctl __P((int));
+static void makeentry (char *, size_t, int, char *, int);
+static void get_prefix (struct rainfo *);
+static int getinet6sysctl (int);
 
 extern struct rainfo *ralist;
 
 void
-getconfig(intface)
-	char *intface;
+getconfig(char *intface)
 {
 	int stat, pfxs, i;
+	int rdnss_length;
 	char tbuf[BUFSIZ];
 	struct rainfo *tmp;
 	long val;
@@ -121,6 +149,7 @@ getconfig(intface)
 	memset(tmp, 0, sizeof(*tmp));
 	tmp->prefix.next = tmp->prefix.prev = &tmp->prefix;
 	tmp->route.next = tmp->route.prev = &tmp->route;
+	tmp->rdnss_list.next = tmp->rdnss_list.prev = &tmp->rdnss_list;
 
 	/* check if we are allowed to forward packets (if not determined) */
 	if (forwarding < 0) {
@@ -313,7 +342,7 @@ getconfig(intface)
 
 			pfx->origin = PREFIX_FROM_CONFIG;
 
-			makeentry(entbuf, i, "prefixlen", added);
+			makeentry(entbuf, sizeof(entbuf), i, "prefixlen", added);
 			MAYHAVE(val, entbuf, 64);
 			if (val < 0 || val > 128) {
 				syslog(LOG_ERR,
@@ -323,7 +352,7 @@ getconfig(intface)
 			}
 			pfx->prefixlen = (int)val;
 
-			makeentry(entbuf, i, "pinfoflags", added);
+			makeentry(entbuf, sizeof(entbuf), i, "pinfoflags", added);
 #ifdef MIP6
 			if (mobileip6)
 			{
@@ -342,7 +371,7 @@ getconfig(intface)
 			pfx->routeraddr = val & ND_OPT_PI_FLAG_ROUTER;
 #endif
 
-			makeentry(entbuf, i, "vltime", added);
+			makeentry(entbuf, sizeof(entbuf), i, "vltime", added);
 			MAYHAVE(val64, entbuf, DEF_ADVVALIDLIFETIME);
 			if (val64 < 0 || val64 > 0xffffffff) {
 				syslog(LOG_ERR,
@@ -352,7 +381,7 @@ getconfig(intface)
 			}
 			pfx->validlifetime = (u_int32_t)val64;
 
-			makeentry(entbuf, i, "vltimedecr", added);
+			makeentry(entbuf, sizeof(entbuf), i, "vltimedecr", added);
 			if (agetflag(entbuf)) {
 				struct timeval now;
 				gettimeofday(&now, 0);
@@ -360,7 +389,7 @@ getconfig(intface)
 					now.tv_sec + pfx->validlifetime;
 			}
 
-			makeentry(entbuf, i, "pltime", added);
+			makeentry(entbuf, sizeof(entbuf), i, "pltime", added);
 			MAYHAVE(val64, entbuf, DEF_ADVPREFERREDLIFETIME);
 			if (val64 < 0 || val64 > 0xffffffff) {
 				syslog(LOG_ERR,
@@ -370,7 +399,7 @@ getconfig(intface)
 			}
 			pfx->preflifetime = (u_int32_t)val64;
 
-			makeentry(entbuf, i, "pltimedecr", added);
+			makeentry(entbuf, sizeof(entbuf), i, "pltimedecr", added);
 			if (agetflag(entbuf)) {
 				struct timeval now;
 				gettimeofday(&now, 0);
@@ -378,7 +407,7 @@ getconfig(intface)
 					now.tv_sec + pfx->preflifetime;
 			}
 
-			makeentry(entbuf, i, "addr", added);
+			makeentry(entbuf, sizeof(entbuf), i, "addr", added);
 			addr = (char *)agetstr(entbuf, &bp);
 			if (addr == NULL) {
 				syslog(LOG_ERR,
@@ -457,7 +486,7 @@ getconfig(intface)
 		/* link into chain */
 		insque(rti, &tmp->route);
 
-		makeentry(entbuf, i, "rtrplen", added);
+		makeentry(entbuf, sizeof(entbuf), i, "rtrplen", added);
 		MAYHAVE(val, entbuf, 64);
 		if (val < 0 || val > 128) {
 			syslog(LOG_ERR,
@@ -467,7 +496,7 @@ getconfig(intface)
 		}
 		rti->prefixlen = (int)val;
 
-		makeentry(entbuf, i, "rtrflags", added);
+		makeentry(entbuf, sizeof(entbuf), i, "rtrflags", added);
 		MAYHAVE(val, entbuf, 0);
 		rti->rtpref = val & ND_RA_FLAG_RTPREF_MASK;
 		if (rti->rtpref == ND_RA_FLAG_RTPREF_RSV) {
@@ -476,7 +505,7 @@ getconfig(intface)
 			exit(1);
 		}
 
-		makeentry(entbuf, i, "rtrltime", added);
+		makeentry(entbuf, sizeof(entbuf), i, "rtrltime", added);
 		/*
 		 * XXX: since default value of route lifetime is not defined in
 		 * draft-draves-route-selection-01.txt, I took the default 
@@ -492,7 +521,7 @@ getconfig(intface)
 		}
 		rti->ltime = (u_int32_t)val64;
 
-		makeentry(entbuf, i, "rtrprefix", added);
+		makeentry(entbuf, sizeof(entbuf), i, "rtrprefix", added);
 		addr = (char *)agetstr(entbuf, &bp);
 		if (addr == NULL) {
 			syslog(LOG_ERR,
@@ -529,6 +558,65 @@ getconfig(intface)
 			exit(1);
 		}
 #endif
+	}
+
+	/* RDNSS option (RFC5006) */
+	MAYHAVE(val, "rdnsslifetime", 2 * tmp->maxinterval);
+	if (val < tmp->maxinterval || val > (2 * tmp->maxinterval)) {
+	    syslog(LOG_NOTICE,
+		   "<%s> rdnsslifetime (%lu) on %s SHOULD "
+		   "be between %u and %u", __FUNCTION__, val,
+		   intface, tmp->maxinterval, 2 * tmp->maxinterval);
+	}
+	tmp->rdnss_lifetime = val;
+	if ((rdnss_length = agetnum("rdnssaddrs")) < 0) {
+	    tmp->rdnss_length = 0;
+	}
+	else {
+	    tmp->rdnss_length = rdnss_length;
+
+	    /* traverse in reverse order so that the queue has correct order */
+	    for (i = (rdnss_length - 1); i >= 0; i--) {
+		struct rdnss *rdnss;
+		char entbuf[256];
+		int added = (rdnss_length > 1) ? 1 : 0;
+
+		/* allocate memory to store server address information */
+		if ((rdnss = malloc(sizeof(struct rdnss))) == NULL) {
+			syslog(LOG_ERR,
+			       "<%s> can't allocate enough memory",
+			       __FUNCTION__);
+			exit(1);
+		}
+		memset(rdnss, 0, sizeof(*rdnss));
+
+		/* link into chain */
+		insque(rdnss, &tmp->rdnss_list);
+
+		makeentry(entbuf, sizeof(entbuf), i, "rdnssaddr", added);
+		addr = (char *)agetstr(entbuf, &bp);
+		if (addr == NULL) {
+		    syslog(LOG_ERR,
+			   "<%s> need %s as a DNS server address for "
+			   "interface %s",
+			   __FUNCTION__, entbuf, intface);
+		    exit(1);
+		}
+
+		if (inet_pton(AF_INET6, addr, &rdnss->addr) != 1) {
+			syslog(LOG_ERR,
+			       "<%s> inet_pton failed for %s",
+			       __FUNCTION__, addr);
+			exit(1);
+		}
+		if (IN6_IS_ADDR_MULTICAST(&rdnss->addr)) {
+			syslog(LOG_ERR,
+			       "<%s> multicast address (%s) must "
+			       "not be advertised as recursive DNS server",
+			       __FUNCTION__, addr);
+			exit(1);
+		}
+	    }
 	}
 
 	/* okey */
@@ -626,16 +714,14 @@ get_prefix(struct rainfo *rai)
 }
 
 static void
-makeentry(buf, id, string, add)
-    char *buf, *string;
-    int id, add;
+makeentry(char *buf, size_t len, int id, char *string, int add)
 {
-	strcpy(buf, string);
+	strlcpy(buf, string, len);
 	if (add) {
 		char *cp;
 
 		cp = (char *)index(buf, '\0');
-		cp += sprintf(cp, "%d", id);
+		cp += snprintf(cp, len - (cp - buf), "%d", id);
 		*cp = '\0';
 	}
 }
@@ -818,6 +904,8 @@ make_packet(struct rainfo *rainfo)
 		packlen += sizeof(struct nd_opt_route_info) + 
 			   ((rti->prefixlen + 0x3f) >> 6) * 8;
 #endif
+	if (rainfo->rdnss_length > 0)
+		packlen += 8 + sizeof(struct in6_addr) * rainfo->rdnss_length;
 
 	/* allocate memory for the packet */
 	if ((buf = malloc(packlen)) == NULL) {
@@ -962,6 +1050,27 @@ make_packet(struct rainfo *rainfo)
 		buf += sizeof(struct nd_opt_route_info) + psize * 8;
 	}
 #endif
+
+	if (rainfo->rdnss_length > 0) {	
+	    	struct nd_opt_rdnss *	ndopt_rdnss;
+		struct rdnss * 		rdnss;
+
+		ndopt_rdnss = (struct nd_opt_rdnss*) buf;
+		ndopt_rdnss->nd_opt_rdnss_type = ND_OPT_RDNSS;
+		ndopt_rdnss->nd_opt_rdnss_len = 1 + (rainfo->rdnss_length * 2);
+		ndopt_rdnss->nd_opt_rdnss_reserved = 0;
+		ndopt_rdnss->nd_opt_rdnss_lifetime = htonl(rainfo->rdnss_lifetime);
+		buf += 8;
+		
+		for (rdnss = rainfo->rdnss_list.next;
+		     rdnss != &rainfo->rdnss_list;
+		     rdnss = rdnss->next)
+		{
+			struct in6_addr* addr6 = (struct in6_addr*) buf;
+			*addr6 = rdnss->addr;
+			buf += sizeof *addr6;
+		}
+	}
 
 	return;
 }

@@ -74,6 +74,13 @@ bool Path::hasCurrentPoint() const
     return m_path->getPoints(NULL, 0) != 0;
 }
 
+FloatPoint Path::currentPoint() const 
+{
+    // FIXME: return current point of subpath.
+    float quietNaN = std::numeric_limits<float>::quiet_NaN();
+    return FloatPoint(quietNaN, quietNaN);
+}
+
 bool Path::contains(const FloatPoint& point, WindRule rule) const
 {
     return SkPathContainsPoint(m_path, point,
@@ -137,7 +144,8 @@ void Path::addArc(const FloatPoint& p, float r, float sa, float ea, bool anticlo
         // Move to the start position (0 sweep means we add a single point).
         m_path->arcTo(oval, startDegrees, 0, false);
         // Draw the circle.
-        m_path->addOval(oval);
+        m_path->addOval(oval, anticlockwise ?
+            SkPath::kCCW_Direction : SkPath::kCW_Direction);
         // Force a moveTo the end position.
         m_path->arcTo(oval, startDegrees + sweepDegrees, 0, true);
     } else {
@@ -220,84 +228,20 @@ void Path::transform(const AffineTransform& xform)
     m_path->transform(xform);
 }
 
-String Path::debugString() const
-{
-    String result;
-
-    SkPath::Iter iter(*m_path, false);
-    SkPoint pts[4];
-
-    int numPoints = m_path->getPoints(0, 0);
-    SkPath::Verb verb;
-
-    do {
-        verb = iter.next(pts);
-        switch (verb) {
-        case SkPath::kMove_Verb:
-            result += String::format("M%.2f,%.2f ", pts[0].fX, pts[0].fY);
-            numPoints -= 1;
-            break;
-        case SkPath::kLine_Verb:
-          if (!iter.isCloseLine()) {
-                result += String::format("L%.2f,%.2f ", pts[1].fX, pts[1].fY); 
-                numPoints -= 1;
-            }
-            break;
-        case SkPath::kQuad_Verb:
-            result += String::format("Q%.2f,%.2f,%.2f,%.2f ",
-                pts[1].fX, pts[1].fY,
-                pts[2].fX, pts[2].fY);
-            numPoints -= 2;
-            break;
-        case SkPath::kCubic_Verb:
-            result += String::format("C%.2f,%.2f,%.2f,%.2f,%.2f,%.2f ",
-                pts[1].fX, pts[1].fY,
-                pts[2].fX, pts[2].fY,
-                pts[3].fX, pts[3].fY);
-            numPoints -= 3;
-            break;
-        case SkPath::kClose_Verb:
-            result += "Z ";
-            break;
-        case SkPath::kDone_Verb:
-            break;
-        }
-    } while (verb != SkPath::kDone_Verb);
-
-    // If you have a path that ends with an M, Skia will not iterate the
-    // trailing M. That's nice of it, but Apple's paths output the trailing M
-    // and we want out layout dumps to look like theirs
-    if (numPoints) {
-        ASSERT(numPoints==1);
-        m_path->getLastPt(pts);
-        result += String::format("M%.2f,%.2f ", pts[0].fX, pts[0].fY);
-    }
-
-    return result.stripWhiteSpace();
-}
-
-// Computes the bounding box for the stroke and style currently selected into
-// the given bounding box. This also takes into account the stroke width.
-static FloatRect boundingBoxForCurrentStroke(const GraphicsContext* context)
-{
-    SkPaint paint;
-    context->platformContext()->setupPaintForStroking(&paint, 0, 0);
-    SkPath boundingPath;
-    paint.getFillPath(context->platformContext()->currentPathInLocalCoordinates(), &boundingPath);
-    return boundingPath.getBounds();
-}
-
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
     GraphicsContext* scratch = scratchContext();
     scratch->save();
-    scratch->beginPath();
-    scratch->addPath(*this);
 
     if (applier)
         applier->strokeStyle(scratch);
 
-    FloatRect r = boundingBoxForCurrentStroke(scratch);
+    SkPaint paint;
+    scratch->platformContext()->setupPaintForStroking(&paint, 0, 0);
+    SkPath boundingPath;
+    paint.getFillPath(*platformPath(), &boundingPath);
+
+    FloatRect r = boundingPath.getBounds();
     scratch->restore();
     return r;
 }

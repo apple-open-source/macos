@@ -33,15 +33,17 @@
 
 #include "IntSize.h"
 #include "NotImplemented.h"
-#include "PlatformString.h"
-#include "StringBuilder.h"
 
 #include "WebKit.h"
 #include "WebKitClient.h"
 #include "WebLocalizedString.h"
 #include "WebString.h"
 
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/WTFString.h>
+
 using WebKit::WebLocalizedString;
+using WebKit::WebString;
 
 namespace WebCore {
 
@@ -50,9 +52,14 @@ static String query(WebLocalizedString::Name name)
     return WebKit::webKitClient()->queryLocalizedString(name);
 }
 
-static String query(WebLocalizedString::Name name, int numericValue)
+static String query(WebLocalizedString::Name name, const WebString& parameter)
 {
-    return WebKit::webKitClient()->queryLocalizedString(name, numericValue);
+    return WebKit::webKitClient()->queryLocalizedString(name, parameter);
+}
+
+static String query(WebLocalizedString::Name name, const WebString& parameter1, const WebString& parameter2)
+{
+    return WebKit::webKitClient()->queryLocalizedString(name, parameter1, parameter2);
 }
 
 String searchableIndexIntroduction()
@@ -80,6 +87,12 @@ String fileButtonChooseFileLabel()
     return query(WebLocalizedString::FileButtonChooseFileLabel);
 }
 
+String defaultDetailsSummaryText()
+{
+    notImplemented();
+    return String("Details");
+}
+
 String fileButtonNoFileSelectedLabel()
 {
     return query(WebLocalizedString::FileButtonNoFileSelectedLabel);
@@ -93,6 +106,7 @@ String searchMenuRecentSearchesText()
 {
     return query(WebLocalizedString::SearchMenuRecentSearchesText);
 }
+
 String searchMenuClearRecentSearchesText()
 {
     return query(WebLocalizedString::SearchMenuClearRecentSearchesText);
@@ -189,7 +203,7 @@ String crashedPluginText()
 
 String multipleFileUploadText(unsigned numberOfFiles)
 {
-    return query(WebLocalizedString::MultipleFileUploadText, numberOfFiles);
+    return query(WebLocalizedString::MultipleFileUploadText, String::number(numberOfFiles));
 }
 
 // Used in FTPDirectoryDocument.cpp
@@ -213,14 +227,13 @@ String keygenMenuMediumGradeKeySize()
 // Used in ImageDocument.cpp as the title for pages when that page is an image.
 String imageTitle(const String& filename, const IntSize& size)
 {
-    // Note that we cannot use String::format because it works for ASCII only.
     StringBuilder result;
     result.append(filename);
     result.append(" (");
     result.append(String::number(size.width()));
     result.append(static_cast<UChar>(0xD7));  // U+00D7 (multiplication sign)
     result.append(String::number(size.height()));
-    result.append(")");
+    result.append(')');
     return result.toString();
 }
 
@@ -244,7 +257,7 @@ String contextMenuItemTagNoGuessesFound() { return String(); }
 String contextMenuItemTagIgnoreSpelling() { return String(); }
 String contextMenuItemTagLearnSpelling() { return String(); }
 String contextMenuItemTagSearchWeb() { return String(); }
-String contextMenuItemTagLookUpInDictionary() { return String(); }
+String contextMenuItemTagLookUpInDictionary(const String&) { return String(); }
 String contextMenuItemTagOpenLink() { return String(); }
 String contextMenuItemTagIgnoreGrammar() { return String(); }
 String contextMenuItemTagSpellingMenu() { return String(); }
@@ -265,6 +278,16 @@ String contextMenuItemTagInspectElement() { return String(); }
 String contextMenuItemTagShowSpellingPanel(bool show) { return String(); }
 String mediaElementLiveBroadcastStateText() { return String(); }
 String mediaElementLoadingStateText() { return String(); }
+String contextMenuItemTagOpenVideoInNewWindow() { return String(); }
+String contextMenuItemTagOpenAudioInNewWindow() { return String(); }
+String contextMenuItemTagCopyVideoLinkToClipboard() { return String(); }
+String contextMenuItemTagCopyAudioLinkToClipboard() { return String(); }
+String contextMenuItemTagToggleMediaControls() { return String(); }
+String contextMenuItemTagToggleMediaLoop() { return String(); }
+String contextMenuItemTagEnterVideoFullscreen() { return String(); }
+String contextMenuItemTagMediaPlay() { return String(); }
+String contextMenuItemTagMediaPause() { return String(); }
+String contextMenuItemTagMediaMute() { return String(); }
 
 String localizedMediaControlElementString(const String& /*name*/)
 {
@@ -286,44 +309,77 @@ String localizedMediaTimeDescription(float /*time*/)
 
 String validationMessageValueMissingText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationValueMissing);
+}
+
+String validationMessageValueMissingForCheckboxText()
+{
+    return query(WebLocalizedString::ValidationValueMissingForCheckbox);
+}
+
+String validationMessageValueMissingForFileText()
+{
+    return query(WebLocalizedString::ValidationValueMissingForFile);
+}
+
+String validationMessageValueMissingForMultipleFileText()
+{
+    return query(WebLocalizedString::ValidationValueMissingForMultipleFile);
+}
+
+String validationMessageValueMissingForRadioText()
+{
+    return query(WebLocalizedString::ValidationValueMissingForRadio);
+}
+
+String validationMessageValueMissingForSelectText()
+{
+    return query(WebLocalizedString::ValidationValueMissingForSelect);
 }
 
 String validationMessageTypeMismatchText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationTypeMismatch);
+}
+
+String validationMessageTypeMismatchForEmailText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForEmail);
+}
+
+String validationMessageTypeMismatchForMultipleEmailText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForMultipleEmail);
+}
+
+String validationMessageTypeMismatchForURLText()
+{
+    return query(WebLocalizedString::ValidationTypeMismatchForURL);
 }
 
 String validationMessagePatternMismatchText()
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationPatternMismatch);
 }
 
-String validationMessageTooLongText()
+String validationMessageTooLongText(int valueLength, int maxLength)
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationTooLong, String::number(valueLength), String::number(maxLength));
 }
 
-String validationMessageRangeUnderflowText()
+String validationMessageRangeUnderflowText(const String& minimum)
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationRangeUnderflow, minimum);
 }
 
-String validationMessageRangeOverflowText()
+String validationMessageRangeOverflowText(const String& maximum)
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationRangeOverflow, maximum);
 }
 
-String validationMessageStepMismatchText()
+String validationMessageStepMismatchText(const String& base, const String& step)
 {
-    notImplemented();
-    return String();
+    return query(WebLocalizedString::ValidationStepMismatch, base, step);
 }
 
 } // namespace WebCore

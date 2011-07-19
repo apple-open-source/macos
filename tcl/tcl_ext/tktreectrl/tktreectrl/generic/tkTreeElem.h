@@ -3,9 +3,9 @@
  *
  *	This module is the header for elements in treectrl widgets.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeElem.h,v 1.28 2008/01/22 01:03:02 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeElem.h,v 1.30 2010/03/08 17:04:58 treectrl Exp $
  */
 
 typedef struct TreeElementType TreeElementType;
@@ -108,30 +108,31 @@ struct TreeElement_
     /* type-specific data here */
 };
 
-extern TreeElementType treeElemTypeBitmap;
-extern TreeElementType treeElemTypeBorder;
-extern TreeElementType treeElemTypeCheckButton;
-extern TreeElementType treeElemTypeImage;
-extern TreeElementType treeElemTypeRect;
-extern TreeElementType treeElemTypeText;
-extern TreeElementType treeElemTypeWindow;
+MODULE_SCOPE TreeElementType treeElemTypeBitmap;
+MODULE_SCOPE TreeElementType treeElemTypeBorder;
+MODULE_SCOPE TreeElementType treeElemTypeCheckButton;
+MODULE_SCOPE TreeElementType treeElemTypeImage;
+MODULE_SCOPE TreeElementType treeElemTypeRect;
+MODULE_SCOPE TreeElementType treeElemTypeText;
+MODULE_SCOPE TreeElementType treeElemTypeWindow;
 
 #define ELEMENT_TYPE_MATCHES(t1,t2) ((t1)->name == (t2)->name)
 
 /***** ***** *****/
 
-extern int TreeElement_GetSortData(TreeCtrl *tree, TreeElement elem, int type, long *lv, double *dv, char **sv);
+MODULE_SCOPE int TreeElement_GetSortData(TreeCtrl *tree, TreeElement elem, int type, long *lv, double *dv, char **sv);
 
 typedef struct TreeIterate_ *TreeIterate;
 
-extern int TreeElement_TypeFromObj(TreeCtrl *tree, Tcl_Obj *objPtr, TreeElementType **typePtrPtr);
-extern void Tree_RedrawElement(TreeCtrl *tree, TreeItem item, TreeElement elem);
-extern TreeIterate Tree_ElementIterateBegin(TreeCtrl *tree, TreeElementType *elemTypePtr);
-extern TreeIterate Tree_ElementIterateNext(TreeIterate iter_);
-extern TreeElement Tree_ElementIterateGet(TreeIterate iter_);
-extern void Tree_ElementIterateChanged(TreeIterate iter_, int mask);
-extern void Tree_ElementChangedItself(TreeCtrl *tree, TreeItem item,
+MODULE_SCOPE int TreeElement_TypeFromObj(TreeCtrl *tree, Tcl_Obj *objPtr, TreeElementType **typePtrPtr);
+MODULE_SCOPE void Tree_RedrawElement(TreeCtrl *tree, TreeItem item, TreeElement elem);
+MODULE_SCOPE TreeIterate Tree_ElementIterateBegin(TreeCtrl *tree, TreeElementType *elemTypePtr);
+MODULE_SCOPE TreeIterate Tree_ElementIterateNext(TreeIterate iter_);
+MODULE_SCOPE TreeElement Tree_ElementIterateGet(TreeIterate iter_);
+MODULE_SCOPE void Tree_ElementIterateChanged(TreeIterate iter_, int mask);
+MODULE_SCOPE void Tree_ElementChangedItself(TreeCtrl *tree, TreeItem item,
     TreeItemColumn column, TreeElement elem, int flags, int mask);
+MODULE_SCOPE int TreeCtrl_RegisterElementType(Tcl_Interp *interp, TreeElementType *newTypePtr);
 
 typedef struct TreeCtrlStubs TreeCtrlStubs;
 struct TreeCtrlStubs

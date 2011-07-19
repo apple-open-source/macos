@@ -627,10 +627,10 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 		getFieldSubjectStd, &setField_ReadOnly, NULL },
 		
 	/* 
-	 * Extensions, implemented in CertExtensions.cpp 
+	 * Extensions, implemented in CLCertExtensions.cpp 
 	 * When adding new ones, also add to:
 	 *   -- clOidToNssInfo() in CLFieldsCommon.cpp
-	 *   -- get/set/free functions in CertExtensions.{cpp,h}
+	 *   -- get/set/free functions in CLCertExtensions.{cpp,h}
 	 */
 	{	&CSSMOID_KeyUsage, &getFieldKeyUsage, &setFieldKeyUsage, 
 	    &freeFieldSimpleExtension },
@@ -659,7 +659,17 @@ static const oidToFieldFuncs fieldFuncTable[] = {
 	{   &CSSMOID_SubjectInfoAccess, &getFieldSubjInfoAccess,
 		&setFieldAuthInfoAccess, &freeFieldInfoAccess },
 	{	&CSSMOID_QC_Statements, &getFieldQualCertStatements,
-		&setFieldQualCertStatements, &freeFieldQualCertStatements }
+		&setFieldQualCertStatements, &freeFieldQualCertStatements },
+
+	{   &CSSMOID_NameConstraints, &getFieldNameConstraints,
+		&setFieldNameConstraints, &freeFieldNameConstraints },
+	{   &CSSMOID_PolicyMappings, &getFieldPolicyMappings,
+		&setFieldPolicyMappings, &freeFieldPolicyMappings },
+	{   &CSSMOID_PolicyConstraints, &getFieldPolicyConstraints,
+		&setFieldPolicyConstraints, &freeFieldPolicyConstraints },
+	{   &CSSMOID_InhibitAnyPolicy, &getFieldInhibitAnyPolicy,
+		&setFieldInhibitAnyPolicy, &freeFieldSimpleExtension },
+
 };
 
 #define NUM_KNOWN_FIELDS		(sizeof(fieldFuncTable) / sizeof(oidToFieldFuncs))

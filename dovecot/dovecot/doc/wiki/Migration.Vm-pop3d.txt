@@ -1,0 +1,42 @@
+Vm-pop3d
+========
+
+*WARNING: Badly done migration will cause your IMAP and/or POP3 clients to
+re-download all mails. Read <Migration.txt> page first carefully.*
+
+Vm-pop3d uses the Message-ID: header data for UIDL, Dovecot does not support
+this as it is not unique enough. The following Perl script will take the
+Message-ID: data from all mails in a mbox and put the data into the X-UIDL:
+header which Dovecot can use with the 'pop3_reuse_xuidl' setting:
+
+---%<-------------------------------------------------------------------------
+#!/usr/bin/env perl
+use Email::Simple;
+my @totalmail=<STDIN>;
+my $mail = join("",@totalmail);
+my $email = Email::Simple->new($mail);
+my $msg_id = $email->header("Message-Id");
+$msg_id =~ s#<##g;
+$msg_id =~ s#>##g;
+$email->header_set("X-UIDL", $msg_id);
+print $email->as_string;
+---%<-------------------------------------------------------------------------
+
+Requires email::simple, though the default setting in email::simple is to wrap
+headers at 77 characters, which then causes problems when Outlook clients issue
+UIDL, the workaround for this is to edit the Perl module, on Debian Etch this
+involves editing '/usr/share/perl5/Email/Simple.pm', find "sub _fold" and
+change {0,77} to a suitably higher value. On more recent versions of
+email::simple, you may need to edit 'Headers.pm' instead, with the line to look
+for being "_default_fold_at"
+
+You then run the script like so:
+
+---%<-------------------------------------------------------------------------
+formail -q- -s perl script.pl < inbox > newinbox
+---%<-------------------------------------------------------------------------
+
+When Dovecot now looks at newinbox, it will use the X-UIDL: header and clients
+will not redownload mail.
+
+(This file was created from the wiki on 2011-05-11 04:42)

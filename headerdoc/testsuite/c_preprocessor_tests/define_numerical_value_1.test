@@ -1,6 +1,6 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$24|#define test2 (test(7))
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$24|#define test2 (test(7))
 $0|$24|#define test(a) (a + 3)
-$2946|-=: CPP MACROS PARSED :=-
+$3047|-=: CPP MACROS PARSED :=-
 PARSED: test
 
 -=: BLOCKPARSE PARSER STATE KEYS :=-
@@ -27,6 +27,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -55,7 +56,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>  #define test2 ( (7 + 3))
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -64,7 +67,7 @@ $parserState->{sodname} => test2
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -106,7 +109,7 @@ VALUE: 10
 $CPP_HASH{test} => (a + 3)
 $CPP_HASH{test2} => ( (7 + 3))
 $CPP_ARG_HASH{test} => a
-$2946|-=: CPP MACROS PARSED :=-
+$3047|-=: CPP MACROS PARSED :=-
 PARSED: test
 
 -=: BLOCKPARSE PARSER STATE KEYS :=-
@@ -133,6 +136,7 @@ $parserState->{inComment} => 0
 $parserState->{inInlineComment} => 0
 $parserState->{inMacro} => 3
 $parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
 $parserState->{inOperator} => 0
 $parserState->{inPrivateParamTypes} => 0
 $parserState->{inString} => 0
@@ -161,7 +165,9 @@ $parserState->{preEqualsSymbol} =>
 $parserState->{preTemplateSymbol} => 
 $parserState->{returntype} =>  #define test2 ( (7 + 3))
 $parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
 $parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
 $parserState->{seenTilde} => 0
 $parserState->{simpleTDcontents} => 
 $parserState->{simpleTypedef} => 0
@@ -170,7 +176,7 @@ $parserState->{sodname} => test2
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
-$parserState->{typestring} => #
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -216,216 +222,4 @@ $147|If this test fails, adjust the value cCompiler in your configuration
 file to point to a working C compiler.
 
 The default compiler is /usr/bin/gcc.
-$60|testsuite/c_preprocessor_tests/define_numerical_value_1.test$1|C$24|define numerical value 1$2946|-=: CPP MACROS PARSED :=-
-PARSED: test
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_numerical_value_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => )
-$parserState->{macroNoTrunc} => 0
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  #define test2 ( (7 + 3))
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => test2
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: test2
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 1
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---test2
-|   +--- 
-|   +---(
-|   +--- 
-|   +---(
-|   +---7
-|   +--- 
-|   +---+
-|   +--- 
-|   +---3
-|   +---)
-|   +---)
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 1
-VALUE: 10
--=: CPP CHANGES :=-
-$CPP_HASH{test} => (a + 3)
-$CPP_HASH{test2} => ( (7 + 3))
-$CPP_ARG_HASH{test} => a
-$2946|-=: CPP MACROS PARSED :=-
-PARSED: test
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/define_numerical_value_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 0
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 3
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => )
-$parserState->{macroNoTrunc} => 0
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} =>  #define test2 ( (7 + 3))
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 1
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => 
-$parserState->{sodname} => test2
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{typestring} => #
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: #define
-namelist: test2
-posstypes: constant
-value: 
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 1
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---#define
-|   +--- 
-|   +---test2
-|   +--- 
-|   +---(
-|   +--- 
-|   +---(
-|   +---7
-|   +--- 
-|   +---+
-|   +--- 
-|   +---3
-|   +---)
-|   +---)
-|   +---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 1
-VALUE: 10
--=: CPP CHANGES :=-
-$CPP_HASH{test} => (a + 3)
-$CPP_HASH{test2} => ( (7 + 3))
-$CPP_ARG_HASH{test} => a
-$1|C$3|cpp
+$114|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/c_preprocessor_tests/define_numerical_value_1.test$1|C$24|define numerical value 1$1|C$3|cpp

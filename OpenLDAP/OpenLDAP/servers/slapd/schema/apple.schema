@@ -1,4 +1,3 @@
-#ident $Id: apple.schema,v 1.44.2.2 2006/06/01 02:27:03 sjones Exp $
 #
 # Preliminary Apple OS X Native LDAP Schema
 # This file is subject to change.
@@ -309,7 +308,7 @@ objectclass (
 		logoffTime $ kickoffTime $ homeDrive $ scriptPath $ 
 		profilePath $ userWorkstations $ smbHome $ rid $ 
 		primaryGroupID $ sambaSID $ sambaPrimaryGroupSID $ 
-		userCertificate $ jpegPhoto $ apple-nickname $ apple-namesuffix $
+		userCertificate $ userPKCS12 $ jpegPhoto $ apple-nickname $ apple-namesuffix $
 		apple-birthday $ apple-relationships $ apple-organizationinfo $
 		apple-phonecontacts $ apple-emailcontacts $ apple-postaladdresses $
 		apple-mapcoordinates $ apple-mapuri $ apple-mapguid $ apple-serviceslocator $
@@ -415,6 +414,20 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.14
+	NAME 'apple-locale-relay'
+	DESC 'designated locale relay server for replication'
+	EQUALITY caseExactMatch 
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.14.15
+	NAME 'apple-locale-subnets'
+	DESC 'subnets associated with a locale'
+	EQUALITY caseExactMatch 
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
 #
 # Group auxiliary object class.
 #
@@ -443,6 +456,8 @@ objectclass (
 	      apple-contactguid $
 	      apple-ownerguid $
 	      labeledURI $
+		  apple-locale-relay $
+		  apple-locale-subnets $
 	      apple-serviceslocator ) )
 
 #
@@ -670,6 +685,35 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.5
+	NAME 'apple-srv'
+	DESC 'List of services to advertize via srv records'
+	EQUALITY caseExactMatch
+	SUBSTR caseExactSubstringsMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.6
+	NAME 'apple-primary-locale'
+	DESC 'primary locale for replication'
+	EQUALITY caseExactMatch
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )	
+	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.7
+	NAME 'apple-parentlocales'
+	DESC 'parent locale'
+	EQUALITY caseExactMatch 
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.10.8
+	NAME 'apple-networkinterfaces'
+	DESC 'list of available network interfaces'
+	EQUALITY caseExactMatch 
+	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )	
+	
 #
 # Computer list attributes 1.3.6.1.4.1.63.1000.1.1.1.11
 #
@@ -730,6 +774,12 @@ attributetype (
 		SUBSTR caseExactSubstringsMatch
 		SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 
+attributetype (
+		1.3.6.1.4.1.63.1000.1.1.1.19.8
+		NAME 'apple-ldap-serverid'
+		DESC 'ID used by LDAP'
+		EQUALITY integerMatch
+		SYNTAX 1.3.6.1.4.1.1466.115.121.1.27 SINGLE-VALUE )
 
 #
 # Computer object 1.3.6.1.4.1.63.1000.1.1.2.10
@@ -754,13 +804,16 @@ objectclass (
 		  apple-serviceinfo $
 		  apple-serviceslocator $
   	      apple-primarycomputerlist $
+	      apple-ldap-serverid $
 	      authAuthority $
 		  uidNumber $ gidNumber $ apple-generateduid $ ttl $
 	      acctFlags $ pwdLastSet $ logonTime $
 	      logoffTime $ kickoffTime $ rid $ primaryGroupID $
 		  sambaSID $ sambaPrimaryGroupSID $
 		  owner $ apple-ownerguid $ apple-contactguid $
-		  ipHostNumber $ bootFile $ apple-hwuuid) )
+		  ipHostNumber $ bootFile $ apple-hwuuid $ apple-srv $ 
+		  apple-primary-locale $ apple-parentlocales $ 
+		  apple-networkinterfaces $ userCertificate $ userPKCS12) )
 
 #
 # Computer list object 1.3.6.1.4.1.63.1000.1.1.2.11
@@ -845,6 +898,14 @@ attributetype (
 	SUBSTR caseExactSubstringsMatch
 	SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
 
+attributetype (
+	1.3.6.1.4.1.63.1000.1.1.1.12.9
+	NAME 'apple-last-serverid'
+	DESC 'Last serverID used'
+	EQUALITY integerMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+	SINGLE-VALUE )
+
 #
 # Configuration object 1.3.6.1.4.1.63.1000.1.1.2.12
 #
@@ -857,7 +918,8 @@ objectclass (
 		apple-data-stamp $ apple-password-server-location $
 		apple-password-server-list $ apple-ldap-replica $
 		apple-ldap-writable-replica $ apple-keyword $
-		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist $ ttl ) )
+		apple-kdc-authkey $ apple-kdc-configdata $ apple-xmlplist $ ttl $
+		apple-last-serverid ) )
 
 #
 # Preset computer list object class.
@@ -1293,5 +1355,346 @@ objectclass (
 	MAY ( 	apple-namesuffix $ apple-phonecontacts $ apple-emailcontacts $ apple-postaladdresses $
 			telephoneNumber $ mobile $ facsimileTelephoneNumber $ pager $
 			l $ st $ c $ postalCode $ postalAddress $ street $
-			apple-imhandle $ loginShell $ jpegPhoto $ apple-user-picture $ description) )
+			apple-imhandle $ loginShell $ jpegPhoto $ apple-user-picture $ description $ userCertificate $ userPKCS12) )
 
+#
+# Apple Computer Info object 1.3.6.1.4.1.63.1000.1.1.2.31
+#
+
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.31
+	NAME 'apple-computer-info'
+	SUP top STRUCTURAL
+	MAY (   apple-serviceinfo $ apple-serviceslocator $ apple-keyword $ userCertificate $ userPKCS12) )
+
+
+## Schema elements for PWS records in LDAP
+## Proposed schema elements for PWS records in LDAP
+# Last login time.
+attributetype ( 1.3.6.1.1.1.1.35
+  NAME 'lastLoginTime'
+  EQUALITY generalizedTimeMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+  SINGLE-VALUE )
+
+# Time of last password change.
+attributetype ( 1.3.6.1.1.1.1.36
+  NAME 'passwordModDate'
+  EQUALITY generalizedTimeMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+  SINGLE-VALUE )
+
+# User's authdata GUID, this is essentially the PWS slotid
+attributetype ( 1.3.6.1.1.1.1.37
+  NAME 'authGUID'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+# Running tally of login failures.
+attributetype ( 1.3.6.1.1.1.1.38
+  NAME 'loginFailedAttempts'
+  EQUALITY integerMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+  SINGLE-VALUE )
+
+# Links the authdata record to the user record
+attributetype ( 1.3.6.1.1.1.1.39
+  NAME 'userLinkage'
+  EQUALITY caseIgnoreMatch
+  SUBSTR caseIgnoreSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 SINGLE-VALUE )
+
+# String containing the reason for disabling.
+attributetype ( 1.3.6.1.1.1.1.40
+  NAME 'disableReason'
+  EQUALITY caseIgnoreMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+  SINGLE-VALUE )
+
+# The following are attributes storing the secrets for each auth type
+attributetype ( 1.3.6.1.1.1.1.42
+  NAME 'cmusaslsecretSMBNT'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.43
+  NAME 'cmusaslsecretSMBLM'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.44
+  NAME 'cmusaslsecretDIGEST-MD5'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.45
+  NAME 'cmusaslsecretCRAM-MD5'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.46
+  NAME 'cmusaslsecretPPS'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+# The realm name and principal name are stored in the "secrets" area for
+# the kerberos auth types.  These may be unnecessary after the Heimdal transition.
+attributetype ( 1.3.6.1.1.1.1.47
+  NAME 'KerberosRealmName'
+  EQUALITY caseIgnoreMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.48
+  NAME 'KerberosPrincName'
+  EQUALITY caseIgnoreMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+  SINGLE-VALUE )
+
+# User password, stored DES encrypted for obfuscation.
+attributetype ( 1.3.6.1.1.1.1.49
+  NAME 'password'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.50
+  NAME 'adminGroups'
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+  SINGLE-VALUE )
+
+# Time the user was created.
+attributetype ( 1.3.6.1.1.1.1.55
+  NAME 'creationDate'
+	EQUALITY generalizedTimeMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+  SINGLE-VALUE )
+
+# History data
+attributetype ( 1.3.6.1.1.1.1.56
+  NAME 'historyData'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+# Krb schema 
+attributetype ( 1.3.6.1.1.1.1.86
+  NAME 'draft-krbPrincipalName'
+  DESC 'Canonical principal name'
+  EQUALITY caseExactIA5Match
+  SUBSTR caseExactSubstringsMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.26
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.87
+  NAME 'draft-krbRealmName'
+  EQUALITY octetStringMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 )
+  
+attributetype ( 1.3.6.1.1.1.1.88
+  NAME 'draft-krbPrincipalAliases'
+  SUP draft-krbPrincipalName )
+  
+attributetype ( 1.3.6.1.1.1.1.89
+  NAME 'draft-krbTicketMaxLife'
+  EQUALITY integerMatch
+  ORDERING integerOrderingMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  SINGLE-VALUE )
+  
+attributetype ( 1.3.6.1.1.1.1.90
+  NAME 'draft-krbTicketMaxRenewal'
+  EQUALITY integerMatch
+  ORDERING integerOrderingMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  SINGLE-VALUE )
+  
+attributetype ( 1.3.6.1.1.1.1.91
+  NAME 'draft-krbEncSaltTypes'
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+	
+attributetype ( 1.3.6.1.1.1.1.92
+  NAME 'draft-krbKeySet'
+  EQUALITY octetStringMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 ) 
+
+attributetype ( 1.3.6.1.1.1.1.93
+  NAME 'draft-krbKeyVersion'
+  EQUALITY integerMatch
+  ORDERING integerOrderingMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  SINGLE-VALUE )
+  
+attributetype ( 1.3.6.1.1.1.1.94
+  NAME 'draft-krbPrincipalRealm'
+  DESC 'DN of krbRealm entry'
+  SUP distinguishedName )
+
+attributetype ( 1.3.6.1.1.1.1.95
+  NAME 'draft-krbTicketPolicy'
+  EQUALITY integerMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.27
+  SINGLE-VALUE )
+  
+attributetype ( 1.3.6.1.1.1.1.96
+  NAME 'draft-krbExtraData'
+  EQUALITY octetStringMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.40 )
+
+attributetype ( 1.3.6.1.1.1.1.98
+  NAME 'draft-krbPrincipalACL'
+  EQUALITY integerMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+  SINGLE-VALUE )
+  
+attributetype ( 1.3.6.1.1.1.1.97
+  NAME 'crschallenge'
+  EQUALITY caseIgnoreMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+  SINGLE-VALUE )
+  
+#  multivalued attribute to store computer account owner GUID.
+attributetype ( 1.3.6.1.1.1.1.103
+  NAME 'ownerGUIDList'
+  DESC 'computer account owner GUID'
+  EQUALITY caseIgnoreMatch
+  SYNTAX 1.3.6.1.4.1.1466.115.121.1.15 )
+   
+# objectclass representing a user/slot.
+# uid is the shortname of the user as stored in PWS.
+# apple-generateduid is intended to match the user's UID.  Currently unpopulated
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.28
+  NAME 'pwsAuthdata'
+  STRUCTURAL
+  MUST ( authGUID )
+  MAY ( uid $ authGUID $ passwordModDate $ lastLoginTime $ loginFailedAttempts $
+        disableReason $ apple-user-passwordpolicy $ adminGroups $ cmusaslsecretSMBNT $
+		 cmusaslsecretSMBLM $ cmusaslsecretDIGEST-MD5 $ cmusaslsecretCRAM-MD5 $ cmusaslsecretPPS $
+		 KerberosRealmName $ KerberosPrincName $ password $ creationDate $ historyData $
+		 draft-krbPrincipalName $ draft-krbRealmName $ draft-krbPrincipalAliases $
+		 draft-krbTicketMaxLife $ draft-krbTicketMaxRenewal $ draft-krbEncSaltTypes $
+		 draft-krbKeySet $ draft-krbKeyVersion $ draft-krbPrincipalRealm $ draft-krbTicketPolicy $ 
+         draft-krbExtraData $ draft-krbPrincipalACL $ crschallenge $ userLinkage $
+		 ownerGUIDList ) )
+
+# Multi valued attribute to store the names of auth methods considered "weak"
+# "weak" auth methods are not allowed to be used for some privileged operations
+attributetype ( 1.3.6.1.1.1.1.76
+      NAME 'weakAuthMethod'
+      EQUALITY caseIgnoreMatch
+      SYNTAX '1.3.6.1.4.1.1466.115.121.1.15' )
+
+# object class storing global policy and weak auth methods.
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.29
+  NAME 'pwPolicy'
+  STRUCTURAL
+  MUST ( cn )
+  MAY ( apple-user-passwordpolicy $ weakAuthMethod ) )
+
+# PWS' private key.  Stored in authdata container for security.
+attributetype ( 1.3.6.1.1.1.1.77
+  NAME 'PWSPrivateKey'
+  EQUALITY octetStringMatch
+  SYNTAX '1.3.6.1.4.1.1466.115.121.1.40'
+  SINGLE-VALUE )
+
+attributetype ( 1.3.6.1.1.1.1.78
+   NAME 'PWSPublicKey'
+   EQUALITY caseIgnoreMatch
+   SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+   SINGLE-VALUE )
+
+# Allow storing the PWS private key in the root of the container, cn=config style
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.30
+  NAME 'pwAuthData'
+  SUP container
+  MAY ( PWSPrivateKey $ PWSPublicKey ) )
+
+
+# Allow storing certificate request information
+
+attributetype (	1.3.6.1.1.1.1.79
+	NAME 'apple-transactionID'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.80
+	NAME 'apple-pkiStatus'
+	EQUALITY integerMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.81
+	NAME 'apple-failInfo'
+	EQUALITY integerMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.82
+	NAME 'apple-certificateSigningRequest'
+	EQUALITY certificateExactMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.8'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.83
+	NAME 'apple-device-guid'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.84
+	NAME 'apple-issuer'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.85
+	NAME 'apple-serialNumber'
+	EQUALITY caseIgnoreMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.15'
+	SINGLE-VALUE )
+	
+attributetype (	1.3.6.1.1.1.1.99
+	NAME 'apple-revocationReason'
+	EQUALITY integerMatch
+	SYNTAX '1.3.6.1.4.1.1466.115.121.1.27'
+	SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.100
+	NAME 'apple-revocationDate'
+	EQUALITY generalizedTimeMatch
+        SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+        SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.101
+	NAME 'apple-validNotBefore'
+	EQUALITY generalizedTimeMatch
+        SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+        SINGLE-VALUE )
+
+attributetype (	1.3.6.1.1.1.1.102
+	NAME 'apple-validNotAfter'
+	EQUALITY generalizedTimeMatch
+        SYNTAX '1.3.6.1.4.1.1466.115.121.1.24'
+        SINGLE-VALUE )
+
+objectclass (
+	1.3.6.1.4.1.63.1000.1.1.2.33
+	NAME 'apple-certificateRequestInfo'
+	SUP top STRUCTURAL
+	MUST ( apple-transactionID $ apple-pkiStatus )
+	MAY ( apple-failInfo $ apple-issuer $ apple-serialNumber $ 
+              userCertificate $ apple-certificateSigningRequest $ apple-device-guid $ 
+              apple-xmlplist $ apple-revocationReason $ apple-revocationDate $
+              apple-validNotBefore $ apple-validNotAfter ) )

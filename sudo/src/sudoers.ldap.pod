@@ -1,4 +1,4 @@
-Copyright (c) 2003-2008
+Copyright (c) 2003-2010
 	Todd C. Miller <Todd.Miller@courtesan.com>
 
 Permission to use, copy, modify, and distribute this software for any
@@ -14,7 +14,6 @@ ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
 OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
 ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-$Sudo: sudoers.ldap.pod,v 1.10 2008/05/10 13:18:47 millert Exp $
 =pod
 
 =head1 NAME
@@ -24,7 +23,7 @@ sudoers.ldap - sudo LDAP configuration
 =head1 DESCRIPTION
 
 In addition to the standard I<sudoers> file, B<sudo> may be configured
-via LAP.  This can be especially useful for synchronizing I<sudoers>
+via LDAP.  This can be especially useful for synchronizing I<sudoers>
 in a large, distributed environment.
 
 Using LDAP for I<sudoers> has several benefits:
@@ -260,14 +259,16 @@ below in upper case but are parsed in a case-independent manner.
 =item B<URI> ldap[s]://[hostname[:port]] ...
 
 Specifies a whitespace-delimited list of one or more URIs describing
-the LDAP server(s) to connect to.  The I<protocol> may be either B<ldap>
-or B<ldaps>, the latter being for servers that support TLS (SSL)
-encryption.  If no I<port> is specified, the default is port 389 for
-C<ldap://> or port 636 for C<ldaps://>.  If no I<hostname> is specified,
-B<sudo> will connect to B<localhost>.  Only systems using the OpenSSL
-libraries support the mixing of C<ldap://> and C<ldaps://> URIs.
-The Netscape-derived libraries used on most commercial versions of
-Unix are only capable of supporting one or the other.
+the LDAP server(s) to connect to.  The I<protocol> may be either
+B<ldap> or B<ldaps>, the latter being for servers that support TLS
+(SSL) encryption.  If no I<port> is specified, the default is port
+389 for C<ldap://> or port 636 for C<ldaps://>.  If no I<hostname>
+is specified, B<sudo> will connect to B<localhost>.  Multiple B<URI>
+lines are treated identically to a B<URI> line containing multiple
+entries.  Only systems using the OpenSSL libraries support the
+mixing of C<ldap://> and C<ldaps://> URIs.  The Netscape-derived
+libraries used on most commercial versions of Unix are only capable
+of supporting one or the other.
 
 =item B<HOST> name[:port] ...
 
@@ -302,7 +303,8 @@ to wait for a response to an LDAP query.
 
 The base DN to use when performing B<sudo> LDAP queries.  Typically
 this is of the form C<ou=SUDOers,dc=example,dc=com> for the domain
-C<example.com>.
+C<example.com>.  Multiple B<SUDOERS_BASE> lines may be specified,
+in which case they are queried in the order specified.
 
 =item B<SUDOERS_DEBUG> debug_level
 
@@ -361,7 +363,14 @@ If enabled, B<TLS_CHECKPEER> will cause the LDAP server's TLS
 certificated to be verified.  If the server's TLS certificate cannot
 be verified (usually because it is signed by an unknown certificate
 authority), B<sudo> will be unable to connect to it.  If B<TLS_CHECKPEER>
-is disabled, no check is made.
+is disabled, no check is made.  Note that disabling the check creates
+an opportunity for man-in-the-middle attacks since the server's
+identity will not be authenticated.  If possible, the CA's certificate
+should be installed locally so it can be verified.
+
+=item B<TLS_CACERT> file name
+
+An alias for B<TLS_CACERTFILE>.
 
 =item B<TLS_CACERTFILE> file name
 
@@ -369,6 +378,8 @@ The path to a certificate authority bundle which contains the certificates
 for all the Certificate Authorities the client knows to be valid,
 e.g. F</etc/ssl/ca-bundle.pem>.
 This option is only supported by the OpenLDAP libraries.
+Netscape-derived LDAP libraries use the same certificate
+database for CA and client certificates (see B<TLS_CERT>).
 
 =item B<TLS_CACERTDIR> directory
 
@@ -457,7 +468,7 @@ See the C<ldap.conf> entry in the L<EXAMPLES> section.
 
 Unless it is disabled at build time, B<sudo> consults the Name
 Service Switch file, F<@nsswitch_conf@>, to specify the I<sudoers>
-search order.  Sudo looks for a line beginning with C<sudoers:> and
+search order.  Sudo looks for a line beginning with C<sudoers>: and
 uses this to determine the search order.  Note that B<sudo> does
 not stop searching after the first match and later matches take
 precedence over earlier ones.
@@ -487,6 +498,36 @@ sudoers line, the following default is assumed:
 Note that F<@nsswitch_conf@> is supported even when the underlying
 operating system does not use an nsswitch.conf file.
 
+=head2 Configuring netsvc.conf
+
+On AIX systems, the F<@netsvc_conf@> file is consulted instead of
+F<@nsswitch_conf@>.  B<sudo> simply treats I<netsvc.conf> as a
+variant of I<nsswitch.conf>; information in the previous section
+unrelated to the file format itself still applies.
+
+To consult LDAP first followed by the local sudoers file (if it
+exists), use:
+
+    sudoers = ldap, files
+
+The local I<sudoers> file can be ignored completely by using:
+
+    sudoers = ldap
+
+To treat LDAP as authoratative and only use the local sudoers file
+if the user is not present in LDAP, use:
+
+    sudoers = ldap = auth, files
+
+Note that in the above example, the C<auth> qualfier only affects
+user lookups; both LDAP and I<sudoers> will be queried for C<Defaults>
+entries.
+
+If the F<@netsvc_conf@> file is not present or there is no
+sudoers line, the following default is assumed:
+
+    sudoers = files
+
 =head1 FILES
 
 =over 24
@@ -498,6 +539,10 @@ LDAP configuration file
 =item F<@nsswitch_conf@>
 
 determines sudoers source order
+
+=item F<@netsvc_conf@>
+
+determines sudoers source order on AIX
 
 =back
 
@@ -526,7 +571,7 @@ determines sudoers source order
   # The amount of time, in seconds, to wait while performing an LDAP query.
   timelimit 30
   #
-  # must be set or sudo will ignore LDAP
+  # Must be set or sudo will ignore LDAP; may be specified multiple times.
   sudoers_base   ou=SUDOers,dc=example,dc=com
   #
   # verbose sudoers matching from ldap
@@ -586,18 +631,26 @@ determines sudoers source order
   #tls_cert /etc/certs/client_cert.pem
   #tls_key  /etc/certs/client_key.pem
   #
-  # For SunONE or iPlanet LDAP, the file specified by tls_cert may
-  # contain CA certs and/or the client's cert.  If the client's
-  # cert is included, tls_key should be specified as well.
-  # For backward compatibility, sslpath may be used in place of tls_cert.
-  #tls_cert /var/ldap/cert7.db
-  #tls_key /var/ldap/key3.db
+  # For SunONE or iPlanet LDAP, tls_cert and tls_key may specify either
+  # a directory, in which case the files in the directory must have the
+  # default names (e.g. cert8.db and key4.db), or the path to the cert
+  # and key files themselves.  However, a bug in version 5.0 of the LDAP
+  # SDK will prevent specific file names from working.  For this reason
+  # it is suggested that tls_cert and tls_key be set to a directory,
+  # not a file name.
+  #
+  # The certificate database specified by tls_cert may contain CA certs
+  # and/or the client's cert.  If the client's cert is included, tls_key
+  # should be specified as well.
+  # For backward compatibility, "sslpath" may be used in place of tls_cert.
+  #tls_cert /var/ldap
+  #tls_key /var/ldap
   #
   # If using SASL authentication for LDAP (OpenSSL)
   # use_sasl yes
-  # sasl_auth_id <SASL username>
+  # sasl_auth_id <SASL user name>
   # rootuse_sasl yes
-  # rootsasl_auth_id <SASL username for root access>
+  # rootsasl_auth_id <SASL user name for root access>
   # sasl_secprops none
   # krb5_ccname /etc/.ldapcache
 
@@ -657,11 +710,6 @@ C<include> line in C<slapd.conf> and restart B<slapd>.
     MAY ( sudoUser $ sudoHost $ sudoCommand $ sudoRunAs $ sudoRunAsUser $
 	  sudoRunAsGroup $ sudoOption $ description )
     )
-
-=for comment
-
-Add nsswitch.conf example?
-Add more exhaustive sudoers ldif example?
 
 =head1 SEE ALSO
 

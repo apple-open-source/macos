@@ -1,6 +1,6 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$35|$VERSION = '$Revision: 1.1.2.1 $';
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$35|$VERSION = '$Revision: 1.1.2.1 $';
 $38|/*! Version string for this module */
-$0|$5979|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$5860|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -88,9 +88,9 @@ $parserState->{sodname} => VERSION
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => perl
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => $
 $parserState->{value} =>  '$Revision: 1.1.2.1 $'
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -180,8 +180,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS PROPERTY: 0
@@ -215,15 +215,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: VERSION (HeaderDoc::Var)
 +---$
@@ -255,12 +255,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: VERSION (HeaderDoc::Var)
-	$<!-- a logicalPath="//test_ref/perl/cl/VERSION //test_ref/perl/tdef/VERSION //test_ref/perl/tag/VERSION //test_ref/perl/econst/VERSION //test_ref/perl/struct/VERSION //test_ref/perl/clconst/VERSION //test_ref/perl/intf/VERSION" --><span class="type">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
+	$<!-- a logicalPath="//test_ref/perl/econst/VERSION //test_ref/perl/data/VERSION //test_ref/perl/clconst/VERSION " machineGenerated="true" --><span class="var">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
 END OF OBJECT
 
 
 
-$5979|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$5860|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -348,9 +348,9 @@ $parserState->{sodname} => VERSION
 $parserState->{sodtype} => 
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => perl
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => $
 $parserState->{value} =>  '$Revision: 1.1.2.1 $'
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -440,8 +440,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS PROPERTY: 0
@@ -475,15 +475,15 @@ LONG ATTRIBUTES: <p></p>
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: VERSION (HeaderDoc::Var)
 +---$
@@ -515,529 +515,9 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: VERSION (HeaderDoc::Var)
-	$<!-- a logicalPath="//test_ref/perl/cl/VERSION //test_ref/perl/tdef/VERSION //test_ref/perl/tag/VERSION //test_ref/perl/econst/VERSION //test_ref/perl/struct/VERSION //test_ref/perl/clconst/VERSION //test_ref/perl/intf/VERSION" --><span class="type">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
+	$<!-- a logicalPath="//test_ref/perl/econst/VERSION //test_ref/perl/data/VERSION //test_ref/perl/clconst/VERSION " machineGenerated="true" --><span class="var">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
 END OF OBJECT
 
 
 
-_$43|testsuite/parser_tests/Perl_variable_1.test$4|perl$15|Perl variable 1$5979|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Perl_variable_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_variable_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => perl
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => VERSION
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => $VERSION = '$Revision: 1.1.2.1 $
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => variable
-$parserState->{sodname} => VERSION
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => $
-$parserState->{value} =>  '$Revision: 1.1.2.1 $'
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: variable
-namelist: VERSION
-posstypes: constant
-value: '$Revision: 1.1.2.1 $'
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---$
-+---VERSION
-+--- 
-+---=
-+--- 
-+---'
-|   +---$
-|   +---Revision
-|   +---:
-|   +--- 
-|   +---1
-|   +---.
-|   +---1
-|   +---.
-|   +---2
-|   +---.
-|   +---1
-|   +--- 
-|   +---$
-|   +---'
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Perl variable 1
-APIUID: //test_ref/doc/header/Perl_variable_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS PROPERTY: 0
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Var
-    NAME: VERSION
-    APIUID: //test_ref/perl/data/VERSION
-    ABSTRACT: ""
-    DISCUSSION: "<p>Version string for this module "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "'$Revision: 1.1.2.1 $'"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Var"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: VERSION (HeaderDoc::Var)
-+---$
-+---VERSION
-+--- 
-+---=
-+--- 
-+---'
-|   +---$
-|   +---Revision
-|   +---:
-|   +--- 
-|   +---1
-|   +---.
-|   +---1
-|   +---.
-|   +---2
-|   +---.
-|   +---1
-|   +--- 
-|   +---$
-|   +---'
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: VERSION (HeaderDoc::Var)
-	$<!-- a logicalPath="//test_ref/perl/cl/VERSION //test_ref/perl/tdef/VERSION //test_ref/perl/tag/VERSION //test_ref/perl/econst/VERSION //test_ref/perl/struct/VERSION //test_ref/perl/clconst/VERSION //test_ref/perl/intf/VERSION" --><span class="type">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
-END OF OBJECT
-
-
-
-$5979|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/Perl_variable_1.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_variable_1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => perl
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 1
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 1
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => VERSION
-$parserState->{preTemplateSymbol} => 
-$parserState->{returntype} => $VERSION = '$Revision: 1.1.2.1 $
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => variable
-$parserState->{sodname} => VERSION
-$parserState->{sodtype} => 
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => $
-$parserState->{value} =>  '$Revision: 1.1.2.1 $'
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: variable
-namelist: VERSION
-posstypes: constant
-value: '$Revision: 1.1.2.1 $'
-returntype: 
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
--=: DUMP OF PARSE TREE :=-
-+---$
-+---VERSION
-+--- 
-+---=
-+--- 
-+---'
-|   +---$
-|   +---Revision
-|   +---:
-|   +--- 
-|   +---1
-|   +---.
-|   +---1
-|   +---.
-|   +---2
-|   +---.
-|   +---1
-|   +--- 
-|   +---$
-|   +---'
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: Perl variable 1
-APIUID: //test_ref/doc/header/Perl_variable_1.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS PROPERTY: 0
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Var
-    NAME: VERSION
-    APIUID: //test_ref/perl/data/VERSION
-    ABSTRACT: ""
-    DISCUSSION: "<p>Version string for this module "
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: ""
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "'$Revision: 1.1.2.1 $'"
-    RETURNTYPE: ""
-    LINENUM: ""
-    CLASS: "HeaderDoc::Var"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: VERSION (HeaderDoc::Var)
-+---$
-+---VERSION
-+--- 
-+---=
-+--- 
-+---'
-|   +---$
-|   +---Revision
-|   +---:
-|   +--- 
-|   +---1
-|   +---.
-|   +---1
-|   +---.
-|   +---2
-|   +---.
-|   +---1
-|   +--- 
-|   +---$
-|   +---'
-+---;
-+--- 
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: VERSION (HeaderDoc::Var)
-	$<!-- a logicalPath="//test_ref/perl/cl/VERSION //test_ref/perl/tdef/VERSION //test_ref/perl/tag/VERSION //test_ref/perl/econst/VERSION //test_ref/perl/struct/VERSION //test_ref/perl/clconst/VERSION //test_ref/perl/intf/VERSION" --><span class="type">VERSION</span><!-- /a --> = '$<span class="char">Revision</span>: <span class="char">1</span>.<span class="char">1</span>.<span class="char">2</span>.<span class="char">1</span> $';  
-END OF OBJECT
-
-
-
-$4|perl$6|parser
+_$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Perl_variable_1.test$4|perl$15|Perl variable 1$4|perl$6|parser

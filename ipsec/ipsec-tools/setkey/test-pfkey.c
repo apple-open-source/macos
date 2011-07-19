@@ -34,17 +34,10 @@
 #include <sys/socket.h>
 #include <net/route.h>
 #include <netinet/in.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
 #include <System/netkey/keydb.h>
 #include <System/netkey/key_var.h>
 #include <System/netkey/key_debug.h>
-#else
-#include <net/pfkeyv2.h>
-#include <netkey/keydb.h>
-#include <netkey/key_var.h>
-#include <netkey/key_debug.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>

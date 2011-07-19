@@ -3,6 +3,7 @@
 [copyright {2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [titledesc {Parser Generator}]
 [moddesc   {Development Tools}]
+[category  {Page Parser Generator}]
 [description]
 [para]
 

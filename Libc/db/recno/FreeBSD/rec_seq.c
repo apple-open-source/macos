@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -36,7 +32,7 @@
 /* XXX use __SCCSID */
 static char sccsid[] __unused = "@(#)rec_seq.c	8.3 (Berkeley) 7/14/94";
 #endif /* not lint */
-__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_seq.c,v 1.5 2003/02/16 17:29:09 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_seq.c,v 1.8 2009/03/04 00:58:04 delphij Exp $");
 
 #include <sys/types.h>
 
@@ -61,10 +57,7 @@ __FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_seq.c,v 1.5 2003/02/16 17:29:09 ne
  *	RET_ERROR, RET_SUCCESS or RET_SPECIAL if there's no next key.
  */
 int
-__rec_seq(dbp, key, data, flags)
-	const DB *dbp;
-	DBT *key, *data;
-	u_int flags;
+__rec_seq(const DB *dbp, DBT *key, DBT *data, u_int flags)
 {
 	BTREE *t;
 	EPG *e;
@@ -110,7 +103,7 @@ __rec_seq(dbp, key, data, flags)
 einval:		errno = EINVAL;
 		return (RET_ERROR);
 	}
-	
+
 	if (t->bt_nrecs == 0 || nrec > t->bt_nrecs) {
 		if (!F_ISSET(t, R_EOF | R_INMEM) &&
 		    (status = t->bt_irec(t, nrec)) != RET_SUCCESS)

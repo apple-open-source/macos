@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 1999-2007, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -26,7 +26,6 @@
 #include "unicode/uchar.h"
 #include "unicode/ubrk.h"
 #include "ustr_imp.h"
-#include "unormimp.h"
 #include "uhash.h"
 
 U_NAMESPACE_BEGIN
@@ -100,14 +99,7 @@ UnicodeString::caseMap(BreakIterator *titleIter,
     return *this;
   }
 
-  UErrorCode errorCode;
-
-  errorCode = U_ZERO_ERROR;
-  const UCaseProps *csp=ucase_getSingleton(&errorCode);
-  if(U_FAILURE(errorCode)) {
-    setToBogus();
-    return *this;
-  }
+  const UCaseProps *csp=ucase_getSingleton();
 
   // We need to allocate a new buffer for the internal string case mapping function.
   // This is very similar to how doReplace() keeps the old array pointer
@@ -139,6 +131,7 @@ UnicodeString::caseMap(BreakIterator *titleIter,
   }
 
   // Case-map, and if the result is too long, then reallocate and repeat.
+  UErrorCode errorCode;
   int32_t newLength;
   do {
     errorCode = U_ZERO_ERROR;

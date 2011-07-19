@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -785,6 +785,9 @@ typedef struct SGlob {
 	uint32_t	calculated_dirinodes;
 	uint32_t	calculated_dirlinks;
 
+	/* Journal file ID's */
+	uint32_t	journal_file_id;
+	uint32_t	jib_file_id;
 } SGlob, *SGlobPtr;
 
 
@@ -853,6 +856,7 @@ enum
 
 /* Journal status flag (contents of JStat) */
 #define S_BadJournal		0x8000	/* Bad journal content */
+#define	S_DirtyJournal		0x4000	/* Journal is dirty (needs to be replayed) */
 
 /* Print status flag (contents of PrintStat) */
 #define S_DamagedDir 		0x8000	/* message for M_LookDamagedDir already printed */
@@ -1057,6 +1061,8 @@ extern	int	CheckForClean( SGlobPtr GPtr, UInt8 operation, Boolean *modified );
 
 extern  int	CheckIfJournaled(SGlobPtr GPtr, Boolean journal_bit_only);
 
+extern	int	IsJournalEmpty(SGlobPtr);
+
 extern	OSErr	VInfoChk( SGlobPtr GPtr );
 
 extern	OSErr	VLockedChk( SGlobPtr GPtr );
@@ -1074,8 +1080,6 @@ extern void RecordXAttrBits(SGlobPtr GPtr, UInt16 flags, HFSCatalogNodeID fileid
 extern  int FindOrigOverlapFiles(SGlobPtr GPtr);
 
 extern  void PrintOverlapFiles (SGlobPtr GPtr);
-
-extern int journal_replay(SGlobPtr gptr);
 
 /* ------------------------------- From SVerify2.c -------------------------------- */
 

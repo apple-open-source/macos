@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RunContext>
+   <BuildableOutputRunnable>
+      <BuildableOutputReference BuildableOutputIdentifier="auto_tester" />
+   </BuildableOutputRunnable>
+   <RunPhases>
+      <BuildRunPhase
+         isEnabled = "Yes"
+         name = "Build"
+         buildConfiguration = "Debug">
+         <BuildableOutputReferences>
+           <BuildableOutputReference
+              BuildableOutputIdentifier = "auto_tester">
+           </BuildableOutputReference>
+          </BuildableOutputReferences>
+      </BuildRunPhase>
+      <ActionRunPhase
+         isEnabled = "Yes"
+         name = "Pre-Launch">
+         <Actions>
+         </Actions>
+      </ActionRunPhase>
+      <LaunchRunPhase
+         isEnabled = "Yes"
+         name = "Launch">
+         <CommandLineArguments>
+         </CommandLineArguments>
+         <EnvironmentVariables>
+         </EnvironmentVariables>
+      </LaunchRunPhase>
+      <ActionRunPhase
+         isEnabled = "Yes"
+         name = "Quit">
+         <Actions>
+         </Actions>
+      </ActionRunPhase>
+   </RunPhases>
+</RunContext>

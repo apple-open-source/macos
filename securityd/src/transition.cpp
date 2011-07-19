@@ -223,45 +223,20 @@ kern_return_t ucsp_server_setup(UCSP_ARGS, mach_port_t taskPort, ClientSetupInfo
 {
 	BEGIN_IPCN
 	SECURITYD_REQUEST_ENTRY((char*)"setup", NULL, NULL);
-	Server::active().setupConnection(Server::connectNewProcess, servicePort, replyPort,
-		taskPort, auditToken, &info, identity);
+	Server::active().setupConnection(Server::connectNewProcess, replyPort,
+		taskPort, auditToken, &info);
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setup(%s) failed rcode=%d", identity ? identity : "<NULL>", *rcode);
 	return KERN_SUCCESS;
 }
 
-kern_return_t ucsp_server_setupNew(UCSP_ARGS, mach_port_t taskPort,
-	ClientSetupInfo info, const char *identity,
-	mach_port_t *newServicePort)
-{
-	BEGIN_IPCN
-	SECURITYD_REQUEST_ENTRY((char*)"setupNew", NULL, NULL);
-	try {
-		RefPointer<Session> session = new DynamicSession(taskPort);
-		Server::active().setupConnection(Server::connectNewSession, session->servicePort(), replyPort,
-			taskPort, auditToken, &info, identity);
-		*newServicePort = session->servicePort();
-	} catch (const MachPlusPlus::Error &err) {
-		switch (err.error) {
-		case BOOTSTRAP_SERVICE_ACTIVE:
-			MacOSError::throwMe(errSessionAuthorizationDenied);	// translate
-		default:
-			throw;
-		}
-	}
-	END_IPCN(CSSM)
-	if (*rcode)
-		Syslog::notice("setupNew(%s) failed rcode=%d", identity ? identity : "<NULL>", *rcode);
-	return KERN_SUCCESS;
-}
 
 kern_return_t ucsp_server_setupThread(UCSP_ARGS, mach_port_t taskPort)
 {
 	SECURITYD_REQUEST_ENTRY((char*)"setupThread", NULL, NULL);
 	BEGIN_IPCN
-	Server::active().setupConnection(Server::connectNewThread, servicePort, replyPort,
-		taskPort, auditToken);
+	Server::active().setupConnection(Server::connectNewThread, replyPort, taskPort, auditToken);
 	END_IPCN(CSSM)
 	if (*rcode)
 		Syslog::notice("setupThread failed rcode=%d", *rcode);
@@ -1348,40 +1323,6 @@ kern_return_t ucsp_server_authorizationInternalize(UCSP_ARGS,
 //
 // Session management subsystem
 //
-kern_return_t ucsp_server_getSessionInfo(UCSP_ARGS,
-    SecuritySessionId *sessionId, SessionAttributeBits *attrs)
-{
-	BEGIN_IPC(getSessionInfo)
-	Session &session = Session::find(*sessionId);
-	*sessionId = session.handle();
-	*attrs = session.attributes();
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_setupSession(UCSP_ARGS,
-    SessionCreationFlags flags, SessionAttributeBits attrs)
-{
-	BEGIN_IPC(setupSession)
-	Server::process().session().setupAttributes(flags, attrs);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_setSessionDistinguishedUid(UCSP_ARGS,
-	SecuritySessionId sessionId, uid_t user)
-{
-	BEGIN_IPC(setSessionDistinguishedUid)
-	Session::find<DynamicSession>(sessionId).originatorUid(user);
-	END_IPC(CSSM)
-}
-
-kern_return_t ucsp_server_getSessionDistinguishedUid(UCSP_ARGS,
-	SecuritySessionId sessionId, uid_t *user)
-{
-	BEGIN_IPC(getSessionDistinguishedUid)
-	*user = Session::find(sessionId).originatorUid();
-	END_IPC(CSSM)
-}
-
 kern_return_t ucsp_server_setSessionUserPrefs(UCSP_ARGS, SecuritySessionId sessionId, DATA_IN(userPrefs))
 {
 	BEGIN_IPC(setSessionuserPrefs)
@@ -1398,7 +1339,6 @@ kern_return_t ucsp_server_setSessionUserPrefs(UCSP_ARGS, SecuritySessionId sessi
 
 	END_IPC(CSSM)
 }
-
 
 
 //

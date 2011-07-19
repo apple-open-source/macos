@@ -1,8 +1,8 @@
 /* The type used for a target address */
 #ifdef ARCH64
-typedef uint32_t relax_addressT;
-#else
 typedef uint64_t relax_addressT;
+#else
+typedef uint32_t relax_addressT;
 #endif
 
 /*

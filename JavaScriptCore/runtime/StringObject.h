@@ -28,10 +28,10 @@ namespace JSC {
 
     class StringObject : public JSWrapperObject {
     public:
-        StringObject(ExecState*, NonNullPassRefPtr<Structure>);
-        StringObject(ExecState*, NonNullPassRefPtr<Structure>, const UString&);
+        StringObject(ExecState*, Structure*);
+        StringObject(ExecState*, Structure*, const UString&);
 
-        static StringObject* create(ExecState*, JSString*);
+        static StringObject* create(ExecState*, JSGlobalObject*, JSString*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
@@ -41,26 +41,25 @@ namespace JSC {
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
         virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const JS_EXPORTDATA ClassInfo info;
+        static const JS_EXPORTDATA ClassInfo s_info;
 
         JSString* internalValue() const { return asString(JSWrapperObject::internalValue());}
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesMarkChildren | OverridesGetPropertyNames | JSWrapperObject::StructureFlags;
-        StringObject(NonNullPassRefPtr<Structure>, JSString*);
-  };
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | OverridesGetPropertyNames | JSWrapperObject::StructureFlags;
+        StringObject(JSGlobalData&, Structure*, JSString*);
+    };
 
     StringObject* asStringObject(JSValue);
 
     inline StringObject* asStringObject(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&StringObject::info));
+        ASSERT(asObject(value)->inherits(&StringObject::s_info));
         return static_cast<StringObject*>(asObject(value));
     }
 

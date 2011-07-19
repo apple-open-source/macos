@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007-2009 Torch Mobile, Inc.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,14 +27,14 @@
 #include "config.h"
 #include "TextEncodingRegistry.h"
 
-#include "PlatformString.h"
 #include "TextCodecLatin1.h"
 #include "TextCodecUserDefined.h"
 #include "TextCodecUTF16.h"
+#include "TextCodecUTF8.h"
+#include "TextEncoding.h"
 #include <wtf/ASCIICType.h>
-#include <wtf/Assertions.h>
-#include <wtf/HashFunctions.h>
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
 #include <wtf/StdLibExtras.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
@@ -51,9 +51,15 @@
 #if USE(GLIB_UNICODE)
 #include "gtk/TextCodecGtk.h"
 #endif
-#if OS(WINCE) && !PLATFORM(QT)
-#include "TextCodecWince.h"
+#if USE(BREWMP_UNICODE)
+#include "brew/TextCodecBrew.h"
 #endif
+#if OS(WINCE) && !PLATFORM(QT)
+#include "TextCodecWinCE.h"
+#endif
+
+#include <wtf/CurrentTime.h>
+#include <wtf/text/CString.h>
 
 using namespace WTF;
 
@@ -61,23 +67,15 @@ namespace WebCore {
 
 const size_t maxEncodingNameLength = 63;
 
-// Hash for all-ASCII strings that does case folding and skips any characters
-// that are not alphanumeric. If passed any non-ASCII characters, depends on
-// the behavior of isalnum -- if that returns false as it does on OS X, then
-// it will properly skip those characters too.
+// Hash for all-ASCII strings that does case folding.
 struct TextEncodingNameHash {
-
     static bool equal(const char* s1, const char* s2)
     {
         char c1;
         char c2;
         do {
-            do
-                c1 = *s1++;
-            while (c1 && !isASCIIAlphanumeric(c1));
-            do
-                c2 = *s2++;
-            while (c2 && !isASCIIAlphanumeric(c2));
+            c1 = *s1++;
+            c2 = *s2++;
             if (toASCIILower(c1) != toASCIILower(c2))
                 return false;
         } while (c1 && c2);
@@ -91,16 +89,13 @@ struct TextEncodingNameHash {
     {
         unsigned h = WTF::stringHashingStartValue;
         for (;;) {
-            char c;
-            do {
-                c = *s++;
-                if (!c) {
-                    h += (h << 3);
-                    h ^= (h >> 11);
-                    h += (h << 15);
-                    return h;
-                }
-            } while (!isASCIIAlphanumeric(c));
+            char c = *s++;
+            if (!c) {
+                h += (h << 3);
+                h ^= (h >> 11);
+                h += (h << 15);
+                return h;
+            }
             h += toASCIILower(c);
             h += (h << 10); 
             h ^= (h >> 6); 
@@ -131,10 +126,10 @@ static Mutex& encodingRegistryMutex()
 static TextEncodingNameMap* textEncodingNameMap;
 static TextCodecMap* textCodecMap;
 static bool didExtendTextCodecMaps;
+static HashSet<const char*>* japaneseEncodings;
+static HashSet<const char*>* nonBackslashEncodings;
 
-static const char* const textEncodingNameBlacklist[] = {
-    "UTF-7"
-};
+static const char* const textEncodingNameBlacklist[] = { "UTF-7" };
 
 #if ERROR_DISABLED
 
@@ -154,15 +149,30 @@ static void checkExistingName(const char* alias, const char* atomicName)
             && strcmp(oldAtomicName, "ISO-8859-8-I") == 0
             && strcasecmp(atomicName, "iso-8859-8") == 0)
         return;
-    LOG_ERROR("alias %s maps to %s already, but someone is trying to make it map to %s",
-        alias, oldAtomicName, atomicName);
+    LOG_ERROR("alias %s maps to %s already, but someone is trying to make it map to %s", alias, oldAtomicName, atomicName);
 }
 
 #endif
 
+static bool isUndesiredAlias(const char* alias)
+{
+    // Reject aliases with version numbers that are supported by some back-ends (such as "ISO_2022,locale=ja,version=0" in ICU).
+    for (const char* p = alias; *p; ++p) {
+        if (*p == ',')
+            return true;
+    }
+    // 8859_1 is known to (at least) ICU, but other browsers don't support this name - and having it caused a compatibility
+    // problem, see bug 43554.
+    if (0 == strcmp(alias, "8859_1"))
+        return true;
+    return false;
+}
+
 static void addToTextEncodingNameMap(const char* alias, const char* name)
 {
     ASSERT(strlen(alias) <= maxEncodingNameLength);
+    if (isUndesiredAlias(alias))
+        return;
     const char* atomicName = textEncodingNameMap->get(name);
     ASSERT(strcmp(alias, name) == 0 || atomicName);
     if (!atomicName)
@@ -180,8 +190,7 @@ static void addToTextCodecMap(const char* name, NewTextCodecFunction function, c
 
 static void pruneBlacklistedCodecs()
 {
-    size_t blacklistedCodecListLength = sizeof(textEncodingNameBlacklist) / sizeof(textEncodingNameBlacklist[0]);
-    for (size_t i = 0; i < blacklistedCodecListLength; ++i) {
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(textEncodingNameBlacklist); ++i) {
         const char* atomicName = textEncodingNameMap->get(textEncodingNameBlacklist[i]);
         if (!atomicName)
             continue;
@@ -214,33 +223,80 @@ static void buildBaseTextCodecMaps()
     TextCodecLatin1::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecLatin1::registerCodecs(addToTextCodecMap);
 
+    TextCodecUTF8::registerEncodingNames(addToTextEncodingNameMap);
+    TextCodecUTF8::registerCodecs(addToTextCodecMap);
+
     TextCodecUTF16::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecUTF16::registerCodecs(addToTextCodecMap);
 
     TextCodecUserDefined::registerEncodingNames(addToTextEncodingNameMap);
     TextCodecUserDefined::registerCodecs(addToTextCodecMap);
 
-#if USE(ICU_UNICODE)
-    TextCodecICU::registerBaseEncodingNames(addToTextEncodingNameMap);
-    TextCodecICU::registerBaseCodecs(addToTextCodecMap);
-#endif
-
 #if USE(GLIB_UNICODE)
+    // FIXME: This is not needed. The code above covers all the base codecs.
     TextCodecGtk::registerBaseEncodingNames(addToTextEncodingNameMap);
     TextCodecGtk::registerBaseCodecs(addToTextCodecMap);
 #endif
+}
 
-#if OS(WINCE) && !PLATFORM(QT)
-    TextCodecWince::registerBaseEncodingNames(addToTextEncodingNameMap);
-    TextCodecWince::registerBaseCodecs(addToTextCodecMap);
-#endif
+static void addEncodingName(HashSet<const char*>* set, const char* name)
+{
+    // We must not use atomicCanonicalTextEncodingName() because this function is called in it.
+    const char* atomicName = textEncodingNameMap->get(name);
+    if (atomicName)
+        set->add(atomicName);
+}
+
+static void buildQuirksSets()
+{
+    // FIXME: Having isJapaneseEncoding() and shouldShowBackslashAsCurrencySymbolIn()
+    // and initializing the sets for them in TextEncodingRegistry.cpp look strange.
+
+    ASSERT(!japaneseEncodings);
+    ASSERT(!nonBackslashEncodings);
+
+    japaneseEncodings = new HashSet<const char*>;
+    addEncodingName(japaneseEncodings, "EUC-JP");
+    addEncodingName(japaneseEncodings, "ISO-2022-JP");
+    addEncodingName(japaneseEncodings, "ISO-2022-JP-1");
+    addEncodingName(japaneseEncodings, "ISO-2022-JP-2");
+    addEncodingName(japaneseEncodings, "ISO-2022-JP-3");
+    addEncodingName(japaneseEncodings, "JIS_C6226-1978");
+    addEncodingName(japaneseEncodings, "JIS_X0201");
+    addEncodingName(japaneseEncodings, "JIS_X0208-1983");
+    addEncodingName(japaneseEncodings, "JIS_X0208-1990");
+    addEncodingName(japaneseEncodings, "JIS_X0212-1990");
+    addEncodingName(japaneseEncodings, "Shift_JIS");
+    addEncodingName(japaneseEncodings, "Shift_JIS_X0213-2000");
+    addEncodingName(japaneseEncodings, "cp932");
+    addEncodingName(japaneseEncodings, "x-mac-japanese");
+
+    nonBackslashEncodings = new HashSet<const char*>;
+    // The text encodings below treat backslash as a currency symbol for IE compatibility.
+    // See http://blogs.msdn.com/michkap/archive/2005/09/17/469941.aspx for more information.
+    addEncodingName(nonBackslashEncodings, "x-mac-japanese");
+    addEncodingName(nonBackslashEncodings, "ISO-2022-JP");
+    addEncodingName(nonBackslashEncodings, "EUC-JP");
+    // Shift_JIS_X0213-2000 is not the same encoding as Shift_JIS on Mac. We need to register both of them.
+    addEncodingName(nonBackslashEncodings, "Shift_JIS");
+    addEncodingName(nonBackslashEncodings, "Shift_JIS_X0213-2000");
+}
+
+bool isJapaneseEncoding(const char* canonicalEncodingName)
+{
+    return canonicalEncodingName && japaneseEncodings && japaneseEncodings->contains(canonicalEncodingName);
+}
+
+bool shouldShowBackslashAsCurrencySymbolIn(const char* canonicalEncodingName)
+{
+    return canonicalEncodingName && nonBackslashEncodings && nonBackslashEncodings->contains(canonicalEncodingName);
 }
 
 static void extendTextCodecMaps()
 {
 #if USE(ICU_UNICODE)
-    TextCodecICU::registerExtendedEncodingNames(addToTextEncodingNameMap);
-    TextCodecICU::registerExtendedCodecs(addToTextCodecMap);
+    TextCodecICU::registerEncodingNames(addToTextEncodingNameMap);
+    TextCodecICU::registerCodecs(addToTextCodecMap);
 #endif
 
 #if USE(QT4_UNICODE)
@@ -259,11 +315,12 @@ static void extendTextCodecMaps()
 #endif
 
 #if OS(WINCE) && !PLATFORM(QT)
-    TextCodecWince::registerExtendedEncodingNames(addToTextEncodingNameMap);
-    TextCodecWince::registerExtendedCodecs(addToTextCodecMap);
+    TextCodecWinCE::registerExtendedEncodingNames(addToTextEncodingNameMap);
+    TextCodecWinCE::registerExtendedCodecs(addToTextCodecMap);
 #endif
 
     pruneBlacklistedCodecs();
+    buildQuirksSets();
 }
 
 PassOwnPtr<TextCodec> newTextCodec(const TextEncoding& encoding)
@@ -300,11 +357,9 @@ const char* atomicCanonicalTextEncodingName(const UChar* characters, size_t leng
     size_t j = 0;
     for (size_t i = 0; i < length; ++i) {
         UChar c = characters[i];
-        if (isASCIIAlphanumeric(c)) {
-            if (j == maxEncodingNameLength)
-                return 0;
-            buffer[j++] = c;
-        }
+        if (j == maxEncodingNameLength)
+            return 0;
+        buffer[j++] = c;
     }
     buffer[j] = 0;
     return atomicCanonicalTextEncodingName(buffer);

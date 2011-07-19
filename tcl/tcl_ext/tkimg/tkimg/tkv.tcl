@@ -1,8 +1,10 @@
 #!/bin/sh
-# The next line restarts using wish8.3 \
-exec wish8.3 $0 ${1+"$@"}
+# The next line restarts using wish \
+exec wish $0 ${1+"$@"}
 
-source [file join [file dirname [info script]] imgmsg.tcl]
+package require msgcat
+::msgcat::mcload [file join [file dirname [info script]] msgs]
+catch {namespace import ::msgcat::mc}
 
 proc mmc string {
     regsub & $string {} string

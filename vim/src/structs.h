@@ -16,7 +16,7 @@
  */
 #if defined(SASC) && SASC < 658
 typedef long		linenr_T;
-typedef unsigned	colnr_T;
+typedef int		colnr_T;
 typedef unsigned short	short_u;
 #endif
 
@@ -33,9 +33,9 @@ typedef struct
 } pos_T;
 
 #ifdef FEAT_VIRTUALEDIT
-# define INIT_POS_T {0, 0, 0}
+# define INIT_POS_T(l, c, ca) {l, c, ca}
 #else
-# define INIT_POS_T {0, 0}
+# define INIT_POS_T(l, c, ca) {l, c}
 #endif
 
 /*
@@ -169,6 +169,8 @@ typedef struct
 #define w_p_list w_onebuf_opt.wo_list	/* 'list' */
     int		wo_nu;
 #define w_p_nu w_onebuf_opt.wo_nu	/* 'number' */
+    int		wo_rnu;
+#define w_p_rnu w_onebuf_opt.wo_rnu	/* 'relativenumber' */
 #ifdef FEAT_LINEBREAK
     long	wo_nuw;
 # define w_p_nuw w_onebuf_opt.wo_nuw	/* 'numberwidth' */
@@ -200,6 +202,8 @@ typedef struct
 # define w_p_cuc w_onebuf_opt.wo_cuc	/* 'cursorcolumn' */
     int		wo_cul;
 # define w_p_cul w_onebuf_opt.wo_cul	/* 'cursorline' */
+    char_u	*wo_cc;
+# define w_p_cc w_onebuf_opt.wo_cc	/* 'colorcolumn' */
 #endif
 #ifdef FEAT_STL_OPT
     char_u	*wo_stl;
@@ -211,6 +215,16 @@ typedef struct
 #endif
     int		wo_wrap;
 #define w_p_wrap w_onebuf_opt.wo_wrap	/* 'wrap' */
+#ifdef FEAT_CONCEAL
+    char_u	*wo_cocu;		/* 'concealcursor' */
+# define w_p_cocu w_onebuf_opt.wo_cocu
+    long	wo_cole;		/* 'conceallevel' */
+# define w_p_cole w_onebuf_opt.wo_cole
+#endif
+#ifdef FEAT_CURSORBIND
+    int		wo_crb;
+# define w_p_crb w_onebuf_opt.wo_crb	/* 'cursorbind' */
+#endif
 
 #ifdef FEAT_EVAL
     int		wo_scriptID[WV_COUNT];	/* SIDs for window-local options */
@@ -232,7 +246,7 @@ struct wininfo_S
 {
     wininfo_T	*wi_next;	/* next entry or NULL for last entry */
     wininfo_T	*wi_prev;	/* previous entry or NULL for first entry */
-    win_T	*wi_win;	/* pointer to window that did set wi_lnum */
+    win_T	*wi_win;	/* pointer to window that did set wi_fpos */
     pos_T	wi_fpos;	/* last cursor position in the file */
     int		wi_optset;	/* TRUE when wi_opt has useful values */
     winopt_T	wi_opt;		/* local window options */
@@ -285,10 +299,24 @@ struct u_entry
 
 struct u_header
 {
-    u_header_T	*uh_next;	/* pointer to next undo header in list */
-    u_header_T	*uh_prev;	/* pointer to previous header in list */
-    u_header_T	*uh_alt_next;	/* pointer to next header for alt. redo */
-    u_header_T	*uh_alt_prev;	/* pointer to previous header for alt. redo */
+    /* The following have a pointer and a number. The number is used when
+     * reading the undo file in u_read_undo() */
+    union {
+	u_header_T *ptr;	/* pointer to next undo header in list */
+	long	   seq;
+    } uh_next;
+    union {
+	u_header_T *ptr;	/* pointer to previous header in list */
+	long	   seq;
+    } uh_prev;
+    union {
+	u_header_T *ptr;	/* pointer to next header for alt. redo */
+	long	   seq;
+    } uh_alt_next;
+    union {
+	u_header_T *ptr;	/* pointer to previous header for alt. redo */
+	long	   seq;
+    } uh_alt_prev;
     long	uh_seq;		/* sequence number, higher == newer undo */
     int		uh_walk;	/* used by undo_time() */
     u_entry_T	*uh_entry;	/* pointer to first entry */
@@ -303,6 +331,8 @@ struct u_header
     visualinfo_T uh_visual;	/* Visual areas before undo/after redo */
 #endif
     time_t	uh_time;	/* timestamp when the change was made */
+    long	uh_save_nr;	/* set when the file was saved after the
+				   changes in this block */
 #ifdef U_DEBUG
     int		uh_magic;	/* magic number to check allocation */
 #endif
@@ -327,7 +357,7 @@ struct u_header
 typedef struct m_info minfo_T;
 
 /*
- * stucture used to link chunks in one of the free chunk lists.
+ * structure used to link chunks in one of the free chunk lists.
  */
 struct m_info
 {
@@ -337,18 +367,6 @@ struct m_info
     short_u	m_size;		/* size of the chunk (including m_info) */
 #endif
     minfo_T	*m_next;	/* pointer to next free chunk in the list */
-};
-
-/*
- * structure used to link blocks in the list of allocated blocks.
- */
-typedef struct m_block mblock_T;
-struct m_block
-{
-    mblock_T	*mb_next;	/* pointer to next allocated block */
-    size_t	mb_size;	/* total size of all chunks in this block */
-    size_t	mb_maxsize;	/* size of largest fee chunk */
-    minfo_T	mb_info;	/* head of free chunk list for this block */
 };
 
 /*
@@ -380,7 +398,7 @@ struct block_hdr
     bhdr_T	*bh_prev;	    /* previous block_hdr in used list */
     bhdr_T	*bh_hash_next;	    /* next block_hdr in hash list */
     bhdr_T	*bh_hash_prev;	    /* previous block_hdr in hash list */
-    blocknr_T	bh_bnum;		/* block number */
+    blocknr_T	bh_bnum;	    /* block number */
     char_u	*bh_data;	    /* pointer to memory (for used block) */
     int		bh_page_count;	    /* number of pages in this block */
 
@@ -432,14 +450,15 @@ typedef struct expand
 {
     int		xp_context;		/* type of expansion */
     char_u	*xp_pattern;		/* start of item to expand */
+    int		xp_pattern_len;		/* bytes in xp_pattern before cursor */
 #if defined(FEAT_USR_CMDS) && defined(FEAT_EVAL) && defined(FEAT_CMDL_COMPL)
     char_u	*xp_arg;		/* completion function */
     int		xp_scriptID;		/* SID for completion function */
 #endif
     int		xp_backslash;		/* one of the XP_BS_ values */
 #ifndef BACKSLASH_IN_FILENAME
-    int		xp_shell;		/* for a shell command more characters
-					   need to be escaped */
+    int		xp_shell;		/* TRUE for a shell command, more
+					   characters need to be escaped */
 #endif
     int		xp_numfiles;		/* number of files found by
 						    file name completion */
@@ -478,12 +497,15 @@ typedef struct
 # endif
 } cmdmod_T;
 
+typedef struct file_buffer buf_T;  /* forward declaration */
+
 /*
  * Simplistic hashing scheme to quickly locate the blocks in the used list.
  * 64 blocks are found directly (64 * 4K = 256K, most files are smaller).
  */
 #define MEMHASHSIZE	64
 #define MEMHASH(nr)	((nr) & (MEMHASHSIZE - 1))
+#define MF_SEED_LEN	8
 
 struct memfile
 {
@@ -503,6 +525,16 @@ struct memfile
     blocknr_T	mf_infile_count;	/* number of pages in the file */
     unsigned	mf_page_size;		/* number of bytes in a page */
     int		mf_dirty;		/* TRUE if there are dirty blocks */
+#ifdef FEAT_CRYPT
+    buf_T	*mf_buffer;		/* bufer this memfile is for */
+    char_u	mf_seed[MF_SEED_LEN];	/* seed for encryption */
+
+    /* Values for key, method and seed used for reading data blocks when
+     * updating for a newly set key or method. Only when mf_old_key != NULL. */
+    char_u	*mf_old_key;
+    int		mf_old_cm;
+    char_u	mf_old_seed[MF_SEED_LEN];
+#endif
 };
 
 /*
@@ -764,7 +796,8 @@ struct keyentry
     keyentry_T	*ke_next;	/* next entry with identical "keyword[]" */
     struct sp_syn k_syn;	/* struct passed to in_id_list() */
     short	*next_list;	/* ID list for next match (if non-zero) */
-    short	flags;		/* see syntax.c */
+    int		flags;
+    int		k_char;		/* conceal substitute character */
     char_u	keyword[1];	/* actually longer */
 };
 
@@ -774,7 +807,11 @@ struct keyentry
 typedef struct buf_state
 {
     int		    bs_idx;	 /* index of pattern */
-    long	    bs_flags;	 /* flags for pattern */
+    int		    bs_flags;	 /* flags for pattern */
+#ifdef FEAT_CONCEAL
+    int		    bs_seqnr;	 /* stores si_seqnr */
+    int		    bs_cchar;	 /* stores si_cchar */
+#endif
     reg_extmatch_T *bs_extmatch; /* external matches from start pattern */
 } bufstate_T;
 
@@ -794,9 +831,9 @@ struct syn_state
 	garray_T	sst_ga;	/* growarray for long state stack */
     } sst_union;
     int		sst_next_flags;	/* flags for sst_next_list */
+    int		sst_stacksize;	/* number of states on the stack */
     short	*sst_next_list;	/* "nextgroup" list in this state
 				 * (this is a copy, don't free it! */
-    short	sst_stacksize;	/* number of states on the stack */
     disptick_T	sst_tick;	/* tick when last displayed */
     linenr_T	sst_change_lnum;/* when non-zero, change in this line
 				 * may have made the state invalid */
@@ -882,6 +919,8 @@ typedef struct
 {
     typebuf_T		save_typebuf;
     int			typebuf_valid;	    /* TRUE when save_typebuf valid */
+    int			old_char;
+    int			old_mod_mask;
     struct buffheader	save_stuffbuff;
 #ifdef USE_INPUT_BUF
     char_u		*save_inputbuf;
@@ -960,6 +999,11 @@ struct stl_hlrec
     char_u	*start;
     int		userhl;		/* 0: no HL, 1-9: User HL, < 0 for syn ID */
 };
+
+
+/*
+ * Syntax items - usually buffer-specific.
+ */
 
 /* Item for a hashtable.  "hi_key" can be one of three values:
  * NULL:	   Never been used
@@ -1133,6 +1177,76 @@ struct dictvar_S
 typedef struct qf_info_S qf_info_T;
 #endif
 
+typedef struct {
+#ifdef FEAT_SYN_HL
+    hashtab_T	b_keywtab;		/* syntax keywords hash table */
+    hashtab_T	b_keywtab_ic;		/* idem, ignore case */
+    int		b_syn_error;		/* TRUE when error occured in HL */
+    int		b_syn_ic;		/* ignore case for :syn cmds */
+    int		b_syn_spell;		/* SYNSPL_ values */
+    garray_T	b_syn_patterns;		/* table for syntax patterns */
+    garray_T	b_syn_clusters;		/* table for syntax clusters */
+    int		b_spell_cluster_id;	/* @Spell cluster ID or 0 */
+    int		b_nospell_cluster_id;	/* @NoSpell cluster ID or 0 */
+    int		b_syn_containedin;	/* TRUE when there is an item with a
+					   "containedin" argument */
+    int		b_syn_sync_flags;	/* flags about how to sync */
+    short	b_syn_sync_id;		/* group to sync on */
+    long	b_syn_sync_minlines;	/* minimal sync lines offset */
+    long	b_syn_sync_maxlines;	/* maximal sync lines offset */
+    long	b_syn_sync_linebreaks;	/* offset for multi-line pattern */
+    char_u	*b_syn_linecont_pat;	/* line continuation pattern */
+    regprog_T	*b_syn_linecont_prog;	/* line continuation program */
+    int		b_syn_linecont_ic;	/* ignore-case flag for above */
+    int		b_syn_topgrp;		/* for ":syntax include" */
+# ifdef FEAT_CONCEAL
+    int		b_syn_conceal;		/* auto-conceal for :syn cmds */
+# endif
+# ifdef FEAT_FOLDING
+    int		b_syn_folditems;	/* number of patterns with the HL_FOLD
+					   flag set */
+# endif
+    /*
+     * b_sst_array[] contains the state stack for a number of lines, for the
+     * start of that line (col == 0).  This avoids having to recompute the
+     * syntax state too often.
+     * b_sst_array[] is allocated to hold the state for all displayed lines,
+     * and states for 1 out of about 20 other lines.
+     * b_sst_array	pointer to an array of synstate_T
+     * b_sst_len	number of entries in b_sst_array[]
+     * b_sst_first	pointer to first used entry in b_sst_array[] or NULL
+     * b_sst_firstfree	pointer to first free entry in b_sst_array[] or NULL
+     * b_sst_freecount	number of free entries in b_sst_array[]
+     * b_sst_check_lnum	entries after this lnum need to be checked for
+     *			validity (MAXLNUM means no check needed)
+     */
+    synstate_T	*b_sst_array;
+    int		b_sst_len;
+    synstate_T	*b_sst_first;
+    synstate_T	*b_sst_firstfree;
+    int		b_sst_freecount;
+    linenr_T	b_sst_check_lnum;
+    short_u	b_sst_lasttick;	/* last display tick */
+#endif /* FEAT_SYN_HL */
+
+#ifdef FEAT_SPELL
+    /* for spell checking */
+    garray_T	b_langp;	/* list of pointers to slang_T, see spell.c */
+    char_u	b_spell_ismw[256];/* flags: is midword char */
+# ifdef FEAT_MBYTE
+    char_u	*b_spell_ismw_mb; /* multi-byte midword chars */
+# endif
+    char_u	*b_p_spc;	/* 'spellcapcheck' */
+    regprog_T	*b_cap_prog;	/* program for 'spellcapcheck' */
+    char_u	*b_p_spf;	/* 'spellfile' */
+    char_u	*b_p_spl;	/* 'spelllang' */
+#endif
+#if !defined(FEAT_SYN_HL) && !defined(FEAT_SPELL)
+    int		dummy;
+#endif
+} synblock_T;
+
+
 /*
  * buffer: structure that holds information about one file
  *
@@ -1140,8 +1254,6 @@ typedef struct qf_info_S qf_info_T;
  * A buffer is unallocated if there is no memfile for it.
  * A buffer is new if the associated file has never been loaded yet.
  */
-
-typedef struct file_buffer buf_T;
 
 struct file_buffer
 {
@@ -1166,7 +1278,8 @@ struct file_buffer
     char_u	*b_fname;	/* current file name */
 
 #ifdef UNIX
-    int		b_dev;		/* device number (-1 if not set) */
+    int		b_dev_valid;	/* TRUE when b_dev has a valid number */
+    dev_t	b_dev;		/* device number */
     ino_t	b_ino;		/* inode number */
 #endif
 #ifdef FEAT_CW_EDITOR
@@ -1206,7 +1319,7 @@ struct file_buffer
 
     long	b_mtime;	/* last change time of original file */
     long	b_mtime_read;	/* last change time when reading */
-    size_t	b_orig_size;	/* size of original file in bytes */
+    off_t	b_orig_size;	/* size of original file in bytes */
     int		b_orig_mode;	/* mode of original file */
 
     pos_T	b_namedm[NMARKS]; /* current named marks (mark.c) */
@@ -1270,8 +1383,10 @@ struct file_buffer
     int		b_u_numhead;	/* current number of headers */
     int		b_u_synced;	/* entry lists are synced */
     long	b_u_seq_last;	/* last used undo sequence number */
+    long	b_u_save_nr_last; /* counter for last file write */
     long	b_u_seq_cur;	/* hu_seq of header below which we are now */
-    time_t	b_u_seq_time;	/* uh_time of header below which we are now */
+    time_t	b_u_time_cur;	/* uh_time of header below which we are now */
+    long	b_u_save_nr_cur; /* file write nr after which we are now */
 
     /*
      * variables for "U" command in undo.c
@@ -1279,14 +1394,6 @@ struct file_buffer
     char_u	*b_u_line_ptr;	/* saved line for "U" command */
     linenr_T	b_u_line_lnum;	/* line number of line in u_line */
     colnr_T	b_u_line_colnr;	/* optional column number */
-
-    /*
-     * The following only used in undo.c
-     */
-    mblock_T	b_block_head;	/* head of allocated memory block list */
-    minfo_T	*b_m_search;	/* pointer to chunk before previously
-				   allocated/freed chunk */
-    mblock_T	*b_mb_current;	/* block where m_search points in */
 
 #ifdef FEAT_INS_EXPAND
     int		b_scanned;	/* ^N/^P have scanned this buffer */
@@ -1424,12 +1531,6 @@ struct file_buffer
     long	b_p_smc;	/* 'synmaxcol' */
     char_u	*b_p_syn;	/* 'syntax' */
 #endif
-#ifdef FEAT_SPELL
-    char_u	*b_p_spc;	/* 'spellcapcheck' */
-    regprog_T	*b_cap_prog;	/* program for 'spellcapcheck' */
-    char_u	*b_p_spf;	/* 'spellfile' */
-    char_u	*b_p_spl;	/* 'spelllang' */
-#endif
     long	b_p_ts;		/* 'tabstop' */
     int		b_p_tx;		/* 'textmode' */
     long	b_p_tw;		/* 'textwidth' */
@@ -1456,6 +1557,9 @@ struct file_buffer
     char_u	*b_p_dict;	/* 'dictionary' local value */
     char_u	*b_p_tsr;	/* 'thesaurus' local value */
 #endif
+#ifdef FEAT_PERSISTENT_UNDO
+    int		b_p_udf;	/* 'undofile' */
+#endif
 
     /* end of buffer options */
 
@@ -1475,6 +1579,9 @@ struct file_buffer
 #if defined(FEAT_BEVAL) && defined(FEAT_EVAL)
     char_u	*b_p_bexpr;	/* 'balloonexpr' local value */
     long_u	b_p_bexpr_flags;/* flags for 'balloonexpr' */
+#endif
+#ifdef FEAT_CRYPT
+    char_u	*b_p_cm;	/* 'cryptmethod' */
 #endif
 
     /* When a buffer is created, it starts without a swap file.  b_may_swap is
@@ -1514,6 +1621,10 @@ struct file_buffer
     void	*b_python_ref;	/* The Python reference to this buffer */
 #endif
 
+#ifdef FEAT_PYTHON3
+    void	*b_python3_ref;	/* The Python3 reference to this buffer */
+#endif
+
 #ifdef FEAT_TCL
     void	*b_tcl_ref;
 #endif
@@ -1522,61 +1633,10 @@ struct file_buffer
     void	*b_ruby_ref;
 #endif
 
-#ifdef FEAT_SYN_HL
-    hashtab_T	b_keywtab;		/* syntax keywords hash table */
-    hashtab_T	b_keywtab_ic;		/* idem, ignore case */
-    int		b_syn_error;		/* TRUE when error occured in HL */
-    int		b_syn_ic;		/* ignore case for :syn cmds */
-    int		b_syn_spell;		/* SYNSPL_ values */
-    garray_T	b_syn_patterns;		/* table for syntax patterns */
-    garray_T	b_syn_clusters;		/* table for syntax clusters */
-    int		b_spell_cluster_id;	/* @Spell cluster ID or 0 */
-    int		b_nospell_cluster_id;	/* @NoSpell cluster ID or 0 */
-    int		b_syn_containedin;	/* TRUE when there is an item with a
-					   "containedin" argument */
-    int		b_syn_sync_flags;	/* flags about how to sync */
-    short	b_syn_sync_id;		/* group to sync on */
-    long	b_syn_sync_minlines;	/* minimal sync lines offset */
-    long	b_syn_sync_maxlines;	/* maximal sync lines offset */
-    long	b_syn_sync_linebreaks;	/* offset for multi-line pattern */
-    char_u	*b_syn_linecont_pat;	/* line continuation pattern */
-    regprog_T	*b_syn_linecont_prog;	/* line continuation program */
-    int		b_syn_linecont_ic;	/* ignore-case flag for above */
-    int		b_syn_topgrp;		/* for ":syntax include" */
-# ifdef FEAT_FOLDING
-    int		b_syn_folditems;	/* number of patterns with the HL_FOLD
-					   flag set */
-# endif
-/*
- * b_sst_array[] contains the state stack for a number of lines, for the start
- * of that line (col == 0).  This avoids having to recompute the syntax state
- * too often.
- * b_sst_array[] is allocated to hold the state for all displayed lines, and
- * states for 1 out of about 20 other lines.
- * b_sst_array		pointer to an array of synstate_T
- * b_sst_len		number of entries in b_sst_array[]
- * b_sst_first		pointer to first used entry in b_sst_array[] or NULL
- * b_sst_firstfree	pointer to first free entry in b_sst_array[] or NULL
- * b_sst_freecount	number of free entries in b_sst_array[]
- * b_sst_check_lnum	entries after this lnum need to be checked for
- *			validity (MAXLNUM means no check needed)
- */
-    synstate_T	*b_sst_array;
-    int		b_sst_len;
-    synstate_T	*b_sst_first;
-    synstate_T	*b_sst_firstfree;
-    int		b_sst_freecount;
-    linenr_T	b_sst_check_lnum;
-    short_u	b_sst_lasttick;	/* last display tick */
-#endif /* FEAT_SYN_HL */
-
-#ifdef FEAT_SPELL
-    /* for spell checking */
-    garray_T	b_langp;	/* list of pointers to slang_T, see spell.c */
-    char_u	b_spell_ismw[256];/* flags: is midword char */
-# ifdef FEAT_MBYTE
-    char_u	*b_spell_ismw_mb; /* multi-byte midword chars */
-# endif
+#if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+    synblock_T	b_s;		/* Info related to syntax highlighting.  w_s
+				 * normally points to this, but some windows
+				 * may use a different synblock_T. */
 #endif
 
 #ifdef FEAT_SIGNS
@@ -1620,6 +1680,14 @@ struct diffblock_S
 };
 #endif
 
+#define SNAP_HELP_IDX	0
+#ifdef FEAT_AUTOCMD
+# define SNAP_AUCMD_IDX 1
+# define SNAP_COUNT	2
+#else
+# define SNAP_COUNT	1
+#endif
+
 /*
  * Tab pages point to the top frame of each tab page.
  * Note: Most values are NOT valid for the current tab page!  Use "curwin",
@@ -1648,7 +1716,7 @@ struct tabpage_S
     buf_T	    *(tp_diffbuf[DB_COUNT]);
     int		    tp_diff_invalid;	/* list of diffs is outdated */
 #endif
-    frame_T	    *tp_snapshot;    /* window layout snapshot */
+    frame_T	    *(tp_snapshot[SNAP_COUNT]);  /* window layout snapshots */
 #ifdef FEAT_EVAL
     dictitem_T	    tp_winvar;	    /* variable for "t:" Dictionary */
     dict_T	    tp_vars;	    /* internal variables, local to tab page */
@@ -1752,6 +1820,10 @@ struct window_S
 {
     buf_T	*w_buffer;	    /* buffer we are a window into (used
 				       often, keep it the first item!) */
+
+#if defined(FEAT_SYN_HL) || defined(FEAT_SPELL)
+    synblock_T	*w_s;
+#endif
 
 #ifdef FEAT_WINDOWS
     win_T	*w_prev;	    /* link to previous window */
@@ -1895,7 +1967,8 @@ struct window_S
 				       recomputed */
 #endif
 #ifdef FEAT_LINEBREAK
-    int		w_nrwidth;	    /* width of 'number' column being used */
+    int		w_nrwidth;	    /* width of 'number' and 'relativenumber'
+				       column being used */
 #endif
 
     /*
@@ -1951,6 +2024,9 @@ struct window_S
 #ifdef FEAT_EVAL
     long_u	w_p_fde_flags;	    /* flags for 'foldexpr' */
     long_u	w_p_fdt_flags;	    /* flags for 'foldtext' */
+#endif
+#ifdef FEAT_SYN_HL
+    int		*w_p_cc_cols;	    /* array of columns to highlight or NULL */
 #endif
 
     /* transform a pointer to a "onebuf" option into a "allbuf" option */
@@ -2043,6 +2119,10 @@ struct window_S
     void	*w_python_ref;		/* The Python value for this window */
 #endif
 
+#ifdef FEAT_PYTHON3
+    void	*w_python3_ref;		/* The Python value for this window */
+#endif
+
 #ifdef FEAT_TCL
     void	*w_tcl_ref;
 #endif
@@ -2126,7 +2206,7 @@ typedef struct cmdarg_S
 #define SHAPE_IDX_CI	5	/* Command line Insert mode */
 #define SHAPE_IDX_CR	6	/* Command line Replace mode */
 #define SHAPE_IDX_O	7	/* Operator-pending mode */
-#define SHAPE_IDX_VE	8	/* Visual mode with 'seleciton' exclusive */
+#define SHAPE_IDX_VE	8	/* Visual mode with 'selection' exclusive */
 #define SHAPE_IDX_CLINE	9	/* On command line */
 #define SHAPE_IDX_STATUS 10	/* A status line */
 #define SHAPE_IDX_SDRAG 11	/* dragging a status line */
@@ -2195,8 +2275,14 @@ struct VimMenu
 {
     int		modes;		    /* Which modes is this menu visible for? */
     int		enabled;	    /* for which modes the menu is enabled */
-    char_u	*name;		    /* Name of menu */
-    char_u	*dname;		    /* Displayed Name (without '&') */
+    char_u	*name;		    /* Name of menu, possibly translated */
+    char_u	*dname;		    /* Displayed Name ("name" without '&') */
+#ifdef FEAT_MULTI_LANG
+    char_u	*en_name;	    /* "name" untranslated, NULL when "name"
+				     * was not translated */
+    char_u	*en_dname;	    /* "dname" untranslated, NULL when "dname"
+				     * was not translated */
+#endif
     int		mnemonic;	    /* mnemonic key (after '&') */
     char_u	*actext;	    /* accelerator text (after TAB) */
     int		priority;	    /* Menu order priority */
@@ -2249,7 +2335,7 @@ struct VimMenu
 /*  short	index;	*/	    /* the item index within the father menu */
     short	menu_id;	    /* the menu id to which this item belong */
     short	submenu_id;	    /* the menu id of the children (could be
-				       get throught some tricks) */
+				       get through some tricks) */
     MenuHandle	menu_handle;
     MenuHandle	submenu_handle;
 #endif
@@ -2275,16 +2361,13 @@ typedef int vimmenu_T;
  */
 typedef struct
 {
-    buf_T	*save_buf;	/* saved curbuf */
+    buf_T	*save_curbuf;	/* saved curbuf */
 #ifdef FEAT_AUTOCMD
-    buf_T	*new_curbuf;	/* buffer to be used */
-    win_T	*save_curwin;	/* saved curwin, NULL if it didn't change */
-    win_T	*new_curwin;	/* new curwin if save_curwin != NULL */
-    pos_T	save_cursor;	/* saved cursor pos of save_curwin */
-    linenr_T	save_topline;	/* saved topline of save_curwin */
-# ifdef FEAT_DIFF
-    int		save_topfill;	/* saved topfill of save_curwin */
-# endif
+    int		use_aucmd_win;	/* using aucmd_win */
+    win_T	*save_curwin;	/* saved curwin */
+    win_T	*new_curwin;	/* new curwin */
+    buf_T	*new_curbuf;	/* new curbuf */
+    char_u	*globaldir;	/* saved value of globaldir */
 #endif
 } aco_save_T;
 
@@ -2371,3 +2454,9 @@ typedef struct
 #define CPT_KIND    2	/* "kind" */
 #define CPT_INFO    3	/* "info" */
 #define CPT_COUNT   4	/* Number of entries */
+
+typedef struct {
+  UINT32_T total[2];
+  UINT32_T state[8];
+  char_u   buffer[64];
+} context_sha256_T;

@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,7 +30,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)local.h	8.3 (Berkeley) 7/3/94
- * $FreeBSD: src/lib/libc/stdio/local.h,v 1.26 2004/07/16 05:52:51 tjr Exp $
+ * $FreeBSD: src/lib/libc/stdio/local.h,v 1.33 2008/05/05 16:03:52 jhb Exp $
  */
 
 #include <sys/types.h>	/* for off_t */
@@ -53,6 +49,7 @@ extern fpos_t	_sseek(FILE *, fpos_t, int);
 extern int	_ftello(FILE *, fpos_t *);
 extern int	_fseeko(FILE *, off_t, int, int);
 extern int	__fflush(FILE *fp);
+extern void	__fcloseall(void);
 extern wint_t	__fgetwc(FILE *);
 extern wint_t	__fputwc(wchar_t, FILE *);
 extern int	__sflush(FILE *);
@@ -65,7 +62,6 @@ extern fpos_t	__sseek(void *, fpos_t, int);
 extern int	__sclose(void *);
 extern void	__sinit(void);
 extern void	_cleanup(void);
-extern void	(*__cleanup)(void);
 extern void	__smakebuf(FILE *);
 extern int	__swhatbuf(FILE *, size_t *, int *);
 extern int	_fwalk(int (*)(FILE *));
@@ -79,19 +75,10 @@ extern int	__vfscanf(FILE *, const char *, __va_list);
 extern int	__vfwprintf(FILE *, const wchar_t *, __va_list);
 extern int	__vfwscanf(FILE * __restrict, const wchar_t * __restrict,
 		    __va_list);
-
+extern size_t	__fread(void * __restrict buf, size_t size, size_t count,
+		FILE * __restrict fp);
 extern int	__sdidinit;
 
-
-/* hold a buncha junk that would grow the ABI */
-struct __sFILEX {
-	unsigned char	*_up;	/* saved _p when _p is doing ungetc data */
-	pthread_mutex_t	fl_mutex;	/* used for MT-safety */
-	pthread_t	fl_owner;	/* current owner */
-	int		fl_count;	/* recursive lock count */
-	int		orientation;	/* orientation for fwide() */
-	mbstate_t	mbstate;	/* multibyte conversion state */
-};
 
 /*
  * Prepare the given FILE for writing, and return 0 iff it
@@ -122,20 +109,11 @@ struct __sFILEX {
 	(fp)->_lb._base = NULL; \
 }
 
-#define	INITEXTRA(fp) { \
-	(fp)->_extra->_up = NULL; \
-	(fp)->_extra->fl_mutex = PTHREAD_MUTEX_INITIALIZER; \
-	(fp)->_extra->fl_owner = NULL; \
-	(fp)->_extra->fl_count = 0; \
-	(fp)->_extra->orientation = 0; \
-	memset(&(fp)->_extra->mbstate, 0, sizeof(mbstate_t)); \
-}
-
 /*
  * Set the orientation for a stream. If o > 0, the stream has wide-
  * orientation. If o < 0, the stream has byte-orientation.
  */
 #define	ORIENT(fp, o)	do {				\
-	if ((fp)->_extra->orientation == 0)		\
-		(fp)->_extra->orientation = (o);	\
+	if ((fp)->_orientation == 0)			\
+		(fp)->_orientation = (o);		\
 } while (0)

@@ -35,7 +35,7 @@ extern "C"
 {
 #endif
 
-	int DBUpdateReaders(char *readerconf);
+	int DBUpdateReaders(const char *readerconf);
 
 #ifdef __cplusplus
 }

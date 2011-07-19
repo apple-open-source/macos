@@ -40,25 +40,37 @@ public:
         TouchPressed,
         TouchMoved,
         TouchStationary,
-        TouchCancelled
+        TouchCancelled,
+        TouchStateEnd // Placeholder: must remain the last item.
     };
 
 #if PLATFORM(QT)
     PlatformTouchPoint(const QTouchEvent::TouchPoint&);
+    PlatformTouchPoint() {};
 #elif PLATFORM(ANDROID)
-    PlatformTouchPoint(const IntPoint& windowPos, State);
+    PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
+#elif PLATFORM(BREWMP)
+    PlatformTouchPoint(int id, const IntPoint& windowPos, State);
+#elif PLATFORM(EFL)
+    PlatformTouchPoint(unsigned id, const IntPoint& windowPos, State);
 #endif
 
     unsigned id() const { return m_id; }
     State state() const { return m_state; }
     IntPoint screenPos() const { return m_screenPos; }
     IntPoint pos() const { return m_pos; }
-    
+    int radiusX() const { return m_radiusX; }
+    int radiusY() const { return m_radiusY; }
+    float rotationAngle() const { return m_rotationAngle; }
+
 protected:
     unsigned m_id;
     State m_state;
     IntPoint m_screenPos;
     IntPoint m_pos;
+    int m_radiusY;
+    int m_radiusX;
+    float m_rotationAngle;
 };
 
 }

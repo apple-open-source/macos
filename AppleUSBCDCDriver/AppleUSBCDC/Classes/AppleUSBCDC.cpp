@@ -25,6 +25,8 @@
     /* AppleUSBCDC.cpp - MacOSX implementation of		*/
     /* USB Communication Device Class (CDC) Driver.		*/
 
+#include <TargetConditionals.h>
+
 #include <machine/limits.h>			/* UINT_MAX */
 #include <libkern/OSByteOrder.h>
 
@@ -50,6 +52,8 @@
 #include <IOKit/serial/IORS232SerialStreamSync.h>
 
 #include <UserNotification/KUNCUserNotifications.h>
+
+#define DEBUG_NAME "AppleUSBCDC"
 
 #include "AppleUSBCDCCommon.h"
 #include "AppleUSBCDC.h"
@@ -94,6 +98,49 @@ UInt8 AppleUSBCDC::Asciihex_to_binary(char c)
 
 /****************************************************************************************************/
 //
+//		Method:		AppleUSBCDC::probe
+//
+//		Inputs:		provider - my provider
+//
+//		Outputs:	IOService - from super::probe, score - probe score
+//
+//		Desc:		Modify the probe score if necessary
+//
+/****************************************************************************************************/
+
+IOService *AppleUSBCDC::probe(IOService *provider, SInt32 *score)
+{ 
+	UInt8		classValue = 0;
+    OSNumber	*classInfo = NULL;
+	SInt32		newScore = 10000;
+    IOService   *res;
+	
+	XTRACE(this, 0, 0, "probe");
+	
+		// Check the device class, we need to handle Miscellaneous or Composite class differently
+	
+	classInfo = (OSNumber *)provider->getProperty("bDeviceClass");
+    if (classInfo)
+    {
+        classValue = classInfo->unsigned32BitValue();
+		if ((classValue == kUSBCompositeClass) || (classValue == kUSBMiscellaneousClass))
+		{
+			newScore = 1;			// We need to see the device before the real Composite driver does
+		}
+	}
+
+	*score += newScore;
+	
+    res = super::probe(provider, score);
+	
+	XTRACE(this, res, newScore, "probe - Exit");
+    
+    return res;
+    
+}/* end probe */
+
+/****************************************************************************************************/
+//
 //		Method:		AppleUSBCDC::start
 //
 //		Inputs:		provider - my provider
@@ -107,19 +154,23 @@ UInt8 AppleUSBCDC::Asciihex_to_binary(char c)
 
 bool AppleUSBCDC::start(IOService *provider)
 {
-    UInt8	configs;	// number of device configurations
+    UInt8		configs;	// number of device configurations
+	UInt8		prefConfigValue = 0;
+    OSNumber	*prefConfig = NULL;
+	UInt8		devValue = 0;
+    OSNumber	*devInfo = NULL;
 
     fTerminate = false;
     fStopping = false;
 
-    XTRACE(this, 0, provider, "start - provider.");
+    XTRACE(this, 0, 0, "start");
     if(!super::start(provider))
     {
         ALERT(0, 0, "start - super failed");
         return false;
     }
 
-	// Get my USB device provider - the device
+		// Get my USB device provider - the device
 
     fpDevice = OSDynamicCast(IOUSBDevice, provider);
     if(!fpDevice)
@@ -127,8 +178,52 @@ bool AppleUSBCDC::start(IOService *provider)
         ALERT(0, 0, "start - provider invalid");
 		return false;
     }
+	
+		// Get the device details
+	
+	devInfo = (OSNumber *)fpDevice->getProperty("bDeviceClass");
+    if (devInfo)
+    {
+        devValue = devInfo->unsigned32BitValue();
+		XTRACE(this, 0, devValue, "start - Device Class");
+		fDevClass = devValue;
+    }
+	
+	devInfo = (OSNumber *)fpDevice->getProperty("bDeviceSubClass");
+    if (devInfo)
+    {
+        devValue = devInfo->unsigned32BitValue();
+		XTRACE(this, 0, devValue, "start - Device Subclass");
+		fDevSubClass = devValue;
+    }
+	
+	devInfo = (OSNumber *)fpDevice->getProperty("bDeviceProtocol");
+    if (devInfo)
+    {
+        devValue = devInfo->unsigned32BitValue();
+		XTRACE(this, 0, devValue, "start - Device Protocol");
+		fDevProtocol = devValue;
+    }
+	
+	if (fDevClass == kUSBMiscellaneousClass)
+	{
+		XTRACE(this, 0, fDevClass, "start - IAD device");
+		fIAD = true;
+	}
+	
+		// See if we have a preferred configuration
+	
+	fConfig = 0;
+	
+	prefConfig = (OSNumber *)fpDevice->getProperty("Preferred Configuration");
+    if (prefConfig)
+    {
+        prefConfigValue = prefConfig->unsigned32BitValue();
+		XTRACE(this, 0, prefConfigValue, "start - Preferred configuration");
+		fConfig = prefConfigValue;
+    }	
 
-	// get workloop
+		// get workloop
         
     fWorkLoop = getWorkLoop();
     if (!fWorkLoop)
@@ -149,7 +244,7 @@ bool AppleUSBCDC::start(IOService *provider)
 
     fWorkLoop->addEventSource( fCommandGate );
 
-	// Let's see if we have any configurations to play with
+		// Let's see if we have any configurations to play with
 		
     configs = fpDevice->GetNumConfigurations();
     if (configs < 1)
@@ -158,7 +253,7 @@ bool AppleUSBCDC::start(IOService *provider)
         return false;
     }
 	
-	// Open the device and initialize it for interface matching
+		// Open the device and initialize it for interface matching
 		
     if (!fpDevice->open(this))
     {
@@ -175,12 +270,17 @@ bool AppleUSBCDC::start(IOService *provider)
     
 	retain();
 	
+	Log(DEBUG_NAME ": Version number - %s\n", VersionNumber);
+	
     return true;
     	
 }/* end start */
 
 void AppleUSBCDC::free()
-{	
+{
+	
+	XTRACE(this, 0, 0, "free");
+	
     if ( fCommandGate )
     {
         if ( fWorkLoop )
@@ -191,7 +291,15 @@ void AppleUSBCDC::free()
         fCommandGate->release();
         fCommandGate = NULL;
     }        
-    super::free();	  
+        
+    if ( fWorkLoop )
+    {
+        fWorkLoop->release();
+        fWorkLoop = NULL;
+    }
+
+    super::free();
+	
 }/* end free */
 
 /****************************************************************************************************/
@@ -264,6 +372,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 {
     IOUSBFindInterfaceRequest		req;
     const IOUSBConfigurationDescriptor	*cd = NULL;		// configuration descriptor
+//	const IADDescriptor			*IAD = NULL;
     IOUSBInterfaceDescriptor 		*intf = NULL;		// interface descriptor
     IOReturn				ior = kIOReturnSuccess;
     UInt8				cval;
@@ -271,13 +380,11 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 	UInt16				dataClass;
 	bool				configOK = true;				// Assume it's good
 	bool				cdc = false;					// We really only want these
-       
+	
     XTRACE(this, 0, numConfigs, "initDevice");
 	
-	fConfig = 0;
-    	
-        // Make sure we have a CDC interface to play with
-        
+		// Make sure we have a CDC interface to play with
+	
     for (cval=0; cval<numConfigs; cval++)
     {
     	XTRACE(this, 0, cval, "initDevice - Checking Configuration");
@@ -292,10 +399,14 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 			configOK = false;
             break;
         } else {
+			if (fIAD)	// This doesn't work here, we need the real interface not the descriptor
+			{
+//				IAD = (const IADDescriptor *)cd->FindNextAssociatedDescriptor((void *)IAD, kUSBInterfaceAssociationDesc);
+			}
             intf = NULL;
             do
             {
-//                req.bInterfaceClass = kUSBCommClass;
+//                req.bInterfaceClass = kUSBCommunicationClass;
 				req.bInterfaceClass = kIOUSBFindInterfaceDontCare;
                 req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
                 req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
@@ -305,38 +416,43 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
                 {
                     if (intf)
                     {
-                        XTRACE(this, intf, intf->bInterfaceNumber, "initDevice - Interface descriptor found");
-						configOK = true;			// No errors is all this means
+                        XTRACE(this, 0, intf->bInterfaceNumber, "initDevice - Interface descriptor found");
+						
+							// Check if we have a preferred config
+						
+						if (fConfig != 0)
+						{
+							if (fConfig != cd->bConfigurationValue)
+							{
+								XTRACE(this, fConfig, cd->bConfigurationValue, "initDevice - Not preferred configuration");
+								continue;				// We have a preferred configuration and this isn't it
+							}
+						}
+						
+						configOK = true;			// No errors is all this really means
                         
-                            // Let's make sure it's something we can really work with (Data or Comm)
+							// Let's make sure it's something we can really work with (Data or Comm)
 						
 						if (intf->bInterfaceClass == kUSBDataClass)
 						{
 							dataClass++;
 							fDataInterfaceNumber = intf->bInterfaceNumber;
 						} else {
-							if (intf->bInterfaceClass == kUSBCommClass)
+							if (intf->bInterfaceClass == kUSBCommunicationClass)
 							{
 								cdc = true;
 								if (intf->bInterfaceSubClass == kUSBAbstractControlModel)
 								{
-										// Hard coded for now - We ignore the ACM configuration on this 
-										// Broadcom device in favor of the ECM configuration
-									
-									if ((fpDevice->GetVendorID() == 0xA5C) && (fpDevice->GetProductID() == 0x6300))
-									{
-										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM interface...");
-										cdc = false;
-									}
-									
 										// Check for vendor specific protocol and ignore the interface
 									
 									if (intf->bInterfaceProtocol == 0xFF)
 									{
-										XTRACE(this, 0, 0, "initDevice - Ignoring the ACM interface with vendor specific protocol...");
-										cdc = false;
+										XTRACE(this, 0, 0, "initDevice - ACM interface has vendor specific protocol...");
+										cdc = false;				// We'll allow this here and let the interface driver refuse it
 									}
 								}
+							} else {
+								XTRACE(this, intf->bInterfaceClass, intf->bInterfaceNumber, "initDevice - Ignoring interface...");
 							}
 						}
                     }
@@ -353,7 +469,7 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
         }
     }
     
-    if (configOK)
+    if ((configOK) && (cdc))		// Need to make sure it's CDC now we also match on Miscellaneous devices
     {
 		XTRACE(this, 0, cd->bConfigurationValue, "initDevice - Configuration is valid");
 		if (cdc)
@@ -365,28 +481,28 @@ bool AppleUSBCDC::initDevice(UInt8 numConfigs)
 		}
 		fConfig = cd->bConfigurationValue;
 		fbmAttributes = cd->bmAttributes;
-									
+		
 		registerService();			// Better register before we kick off the interface drivers
-		IOSleep(500);				// Let it happen...
+//		IOSleep(500);				// Let it happen...
 		
 		if (fpDevice)
 		{
 			ior = fpDevice->SetConfiguration(this, fConfig);
 			if (ior != kIOReturnSuccess)
 			{
-				XTRACE(this, 0, ior, "initDevice - SetConfiguration error");
-				configOK = false;			
+				XTRACE(this, fConfig, ior, "initDevice - SetConfiguration error");
 			}
 		} else {
 			XTRACE(this, 0, 0, "initDevice - The device has gone");
 			configOK = false;
 		}
 	} else {
-		XTRACE(this, 0, configOK, "initDevice - No valid configuration");
+		configOK = false;
+		XTRACE(this, fConfig, configOK, "initDevice - No valid configuration or preferred configuration error");
 	}
     
     return configOK;
-
+	
 }/* end initDevice */
 
 /****************************************************************************************************/
@@ -674,7 +790,7 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
     
         // We need to look for CDC interfaces of the specified subclass
     
-    req.bInterfaceClass	= kUSBCommClass;
+    req.bInterfaceClass	= kUSBCommunicationClass;
 //    req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
 	req.bInterfaceSubClass = subClass;
     req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
@@ -707,6 +823,16 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
                 case kUSBDeviceManagementModel:
                     driverOK = checkDMM(Comm, controlInterfaceNumber, dataInterface);
                     break;
+                case kUSBEthernetEmulationModel:
+                        // There's only one interface for EEM so the data and the control interface are the same
+                        // May need to revisit this
+                    
+                    if (controlInterfaceNumber == dataInterface)
+                    {
+                        driverOK = true; 
+                    }
+                    break;
+
                 default:
                     break;
             }
@@ -720,7 +846,7 @@ bool AppleUSBCDC::confirmDriver(UInt8 subClass, UInt8 dataInterface)
 
             // see if there's another CDC interface
             
-        req.bInterfaceClass = kUSBCommClass;
+        req.bInterfaceClass = kUSBCommunicationClass;
 //	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
 	req.bInterfaceSubClass = subClass;
 	req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
@@ -757,11 +883,11 @@ bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
     UInt8			intSubClass;
     bool			driverOK = false;
 
-    XTRACE(this, subClass, CInterface, "confirmControl");
+    XTRACE(this, subClass, 0, "confirmControl");
     
         // We need to look for CDC interfaces of the specified subclass
     
-    req.bInterfaceClass	= kUSBCommClass;
+    req.bInterfaceClass	= kUSBCommunicationClass;
 //    req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
 	req.bInterfaceSubClass = subClass;
     req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
@@ -779,7 +905,7 @@ bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
         intSubClass = Comm->GetInterfaceSubClass();
         if (intSubClass == subClass)					// Just to make sure...
         {
-			XTRACE(this, Comm, CInterface, "confirmControl - Checking interfaces");
+			XTRACE(this, Comm->GetInterfaceNumber(), CInterface->GetInterfaceNumber(), "confirmControl - Checking interfaces");
             if (Comm == CInterface)
 			{
 				driverOK = true;
@@ -789,11 +915,11 @@ bool AppleUSBCDC::confirmControl(UInt8 subClass, IOUSBInterface *CInterface)
 
             // see if there's another CDC interface
             
-        req.bInterfaceClass = kUSBCommClass;
-//	req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
-	req.bInterfaceSubClass = subClass;
-	req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
-	req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
+		req.bInterfaceClass = kUSBCommunicationClass;
+//		req.bInterfaceSubClass = kIOUSBFindInterfaceDontCare;
+		req.bInterfaceSubClass = subClass;
+		req.bInterfaceProtocol = kIOUSBFindInterfaceDontCare;
+		req.bAlternateSetting = kIOUSBFindInterfaceDontCare;
             
         Comm = fpDevice->FindNextInterface(Comm, &req);
         if (!Comm)
@@ -886,7 +1012,7 @@ IOReturn AppleUSBCDC::setProperties( OSObject * properties )
 	IOReturn result = kIOReturnError;
 	IOCommandGate *cg;
 	
-	Log("[AppleUSBCDC::setProperties] >>>\n");
+	XTRACE(this, 0, 0, "setProperties");
 	
 	cg = getCommandGate();
 	
@@ -895,7 +1021,7 @@ IOReturn AppleUSBCDC::setProperties( OSObject * properties )
 		result = cg->runAction( setPropertiesAction, (void *)properties );
 	}
 	
-	Log("[AppleUSBCDC::setProperties] <<<\n");
+	XTRACE(this, 0, 0, "setProperties - Exit");
 	
 	return result;
 }
@@ -945,6 +1071,82 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 	{
 		OSCollectionIterator *propertyIterator;
 		
+#if TARGET_OS_EMBEDDED
+		
+		// Suspend support
+		OSBoolean *suspendDevice = OSDynamicCast(OSBoolean, propertyDict->getObject("SuspendDevice"));
+		
+		if ( suspendDevice == kOSBooleanTrue ) 
+		{
+			Log("AppleUSBCDC::setProperties - SuspendDevice: true\n");
+			
+			if ( fpDevice->isOpen(this) )
+			{
+				if ( ( result = fpDevice->SuspendDevice(true) ) != kIOReturnSuccess )
+				{
+					Log("AppleUSBCDC::setProperties - failed to suspend the device, error: %08x \n", result);
+				}
+			}
+			else
+			{
+				Log("AppleUSBCDC::setProperties - device was not open \n");
+				return kIOReturnError;
+			}
+			
+			return result;			
+		}
+		else if ( suspendDevice == kOSBooleanFalse )
+		{
+			Log("AppleUSBCDC::setProperties - SuspendDevice: false\n");
+			
+			if ( fpDevice->isOpen(this) )
+			{
+				if ( ( result = fpDevice->SuspendDevice(false) ) != kIOReturnSuccess )
+				{
+					Log("AppleUSBCDC::setProperties - failed to !suspend the device, error: %08x \n", result);
+				}
+			}
+			else
+			{
+				IOLog("AppleUSBCDC::setProperties - device was not open \n");
+				result = kIOReturnError;
+			}
+			
+			return result;			
+		}
+		
+		
+		// Remote Wake-up support
+		OSBoolean *remoteWakeup = OSDynamicCast(OSBoolean, propertyDict->getObject("RemoteWakeUp"));
+		IOUSBDevRequest	devreq;
+		
+		if ( remoteWakeup )
+		{
+			devreq.bmRequestType = USBmakebmRequestType(kUSBOut, kUSBStandard, kUSBDevice);
+			if ( remoteWakeup == kOSBooleanTrue )
+			{
+				devreq.bRequest = kUSBRqSetFeature;
+			} else {
+				devreq.bRequest = kUSBRqClearFeature;
+			}
+			devreq.wValue = kUSBFeatureDeviceRemoteWakeup;
+			devreq.wIndex = 0;
+			devreq.wLength = 0;
+			devreq.pData = 0;
+			
+			result = fpDevice->DeviceRequest(&devreq);
+			if ( result == kIOReturnSuccess )
+			{
+				IOLog("AppleUSBCDC::setProperties - Set/Clear remote wake up feature successful\n");
+			} else {
+				IOLog("AppleUSBCDC::setProperties - Set/Clear remote wake up feature failed, %08x\n", result);
+		}
+
+			return result;			
+		}
+		
+#endif // TARGET_OS_EMBEDDED
+		
 		if (dynamicKey = propertyDict->getObject(kWWAN_TYPE))
 			whichDictionary	= WWAN_SET_DYNAMIC_DICTIONARY;
 		else
@@ -960,8 +1162,9 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 						if (dynamicKey = propertyDict->getObject(kWWAN_UNIQUIFIER))
 						whichDictionary	= WWAN_SET_MODEM_DICTIONARY;
 					
-		//if we still can't determine which dictionary it is
-		//Iterate to see if it is a property we know about..
+			// if we still can't determine which dictionary it is
+			// Iterate to see if it is a property we know about..
+		
 		if (whichDictionary == WWAN_DICTIONARY_UNKNOWN) 
 		{
 		propertyIterator = OSCollectionIterator::withCollection( propertyDict );
@@ -972,7 +1175,7 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 			
 			while( ( key = (OSSymbol *)propertyIterator->getNextObject() ) )
 			{
-				Log("[setPropertiesWL] key: %s \n", key->getCStringNoCopy());
+//				Log("[setPropertiesWL] key: %s \n", key->getCStringNoCopy());
 //				if (dynamicKey)
 //					setProperty(key->getCStringNoCopy(),key);					
 //					setProperty(key->getCStringNoCopy(),propertyDict->getObject(key));					
@@ -994,7 +1197,8 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 		}
 		else
 		{
-			Log("[setPropertiesWL] could not obtain an OSCollectionIterator... \n");
+//			Log("[setPropertiesWL] could not obtain an OSCollectionIterator... \n");
+			ALERT(0, 0, "setPropertiesWL - Could not obtain an OSCollectionIterator...");
 			result = kIOReturnError;
 		}
 		}
@@ -1004,38 +1208,38 @@ IOReturn AppleUSBCDC::setPropertiesWL( OSObject * properties )
 			{
 				case WWAN_SET_DYNAMIC_DICTIONARY:
 					rc = fpDevice->setProperty(kWWAN_DynamicDictonary,propertyDict);
-					Log("[setPropertiesWL] setting kWWAN_DynamicDictonary\n");
+//					Log("[setPropertiesWL] setting kWWAN_DynamicDictonary\n");
 
 					break;
 				
 				case WWAN_SET_HARDWARE_DICTIONARY: 	
 				rc = fpDevice->setProperty(kWWAN_HardwareDictionary,propertyDict);
-					Log("[setPropertiesWL] setting kWWAN_HardwareDictionary\n");
+//					Log("[setPropertiesWL] setting kWWAN_HardwareDictionary\n");
 					break;
 							
 				case WWAN_SET_MODEM_DICTIONARY: 	
 					rc = fpDevice->setProperty("DeviceModemOverrides",propertyDict);
-					Log("[setPropertiesWL] setting DeviceModemOverrides\n");
+//					Log("[setPropertiesWL] setting DeviceModemOverrides\n");
 					break;
-					break;			
+					
 				case WWAN_SET_PPP_DICTIONARY: 
 					rc = fpDevice->setProperty("DevicePPPOverrides",propertyDict);
-					Log("[setPropertiesWL] setting DevicePPPOverrides\n");
+//					Log("[setPropertiesWL] setting DevicePPPOverrides\n");
 					break;
 
 				case WWAN_DICTIONARY_UNKNOWN: 	
-					Log("AppleWWANSUpport::setPropertiesWL - Unknown Dictionary");
+//					Log("AppleWWANSUpport::setPropertiesWL - Unknown Dictionary");
 					
 					break;
 
 				default:
-					Log("AppleWWANSUpport::setPropertiesWL - default Unknown Dictionary");
+//					Log("AppleWWANSUpport::setPropertiesWL - default Unknown Dictionary");
 					break;
 			}
 		}
 
 				fpDevice->messageClients ( kIOMessageServicePropertyChange );
-				Log("[setPropertiesWL] set kWWAN_HardwareDictionary [%x] pNub mesaging Clients with  kIOMessageServicePropertyChange \n",rc);
+//				Log("[setPropertiesWL] set kWWAN_HardwareDictionary [%x] pNub mesaging Clients with  kIOMessageServicePropertyChange \n",rc);
 	
 	}
 
@@ -1046,7 +1250,3 @@ exit:
 
 	return kIOReturnSuccess;
 }
-
-
-
-

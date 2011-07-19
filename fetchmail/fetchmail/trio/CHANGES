@@ -4,8 +4,28 @@ CHANGES -- trio
 The changes listed without a name attributed to them were most likely done by
 Bjorn Reese and/or Daniel Stenberg.
 
-Version 1.14 - 2009/05/31
+Version 1.14 - 2010/01/26
 -------------------------
+* David Byron
+  Added trio_xstring_append_max.
+
+* Fixed compilation problem on Cygwin due to lack of long double math
+  (reported by Matthias Andree).
+
+* David Boyce
+  Added #undef of standard stdio function names before assigning trio functions
+  to them.
+
+* Matthias Andree
+  Upgraded configure.in to use new macros instead of obsoleted macros.
+
+* Matthias Andree
+  Added VPATH to Makefile.in
+
+* Tom Honermann
+  Fixed problem with subnormal numbers which caused an infinite loop outputting
+  leading spaces.
+
 * Adam McLaurin
   Improved parsing performance by avoiding memset() and memcpy() on character
   arrays.

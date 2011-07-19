@@ -70,6 +70,8 @@ be checked again, the time is currently absolute.
 */
      virtual void checkForWork(bool *moreP, mach_timespec_t *wakeupTimeP);
 
+/*! @group group_1 */
+
 /*!
      @function inlineFunctionOneLine
      @abstract Test of the handling of inline functions.
@@ -78,6 +80,7 @@ be checked again, the time is currently absolute.
     void inlineFunctionOneLine()
 { return foo; };
 
+/*! @group group_2 */
 /*!
      @function inlineFunctionMultiLine
      @abstract Test of the handling of inline functions.
@@ -137,6 +140,7 @@ available.
      virtual IOReturn runCommand(void *arg0 = 0, void *arg1 = 0,
                                  void *arg2 = 0, void *arg3 = 0);
 
+/*! @group group_1 */
 /*!
      @function runAction
      @abstract Single thread a call to an action with the target work-loop.

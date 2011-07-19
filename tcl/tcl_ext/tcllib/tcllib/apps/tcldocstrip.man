@@ -3,6 +3,7 @@
 [copyright {2005 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [titledesc {Tcl-based Docstrip Processor}]
 [moddesc   {Textprocessing toolbox}]
+[category  {Documentation tools}]
 [description]
 [para]
 

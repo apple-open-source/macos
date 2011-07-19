@@ -14,7 +14,7 @@ ToolType              = Commands
 # Fetch info
 Release               = 8.4.19
 UrlFile               = $(Project)$(Release)
-Url                   = $(UrlBase)/tcl/$(UrlFile)-src$(UrlExt)
+Url                   = $(UrlBase)/tcl/Tcl/$(Release)/$(UrlFile)-src$(UrlExt)
 #CvsRoot               = :pserver:anonymous@tktoolkit.cvs.sourceforge.net:/cvsroot/tktoolkit
 #CvsTag                = core-8-4-branch
 #ImportDate            = 2008-12-08
@@ -25,8 +25,9 @@ Extra_Environment     = INSTALL_PATH="$(NSFRAMEWORKDIR)" PREFIX="$(USRDIR)" \
 			SYMROOT="$(SYMROOT)" OBJROOT="$(OBJROOT)" \
 			MANDIR="$(MANDIR)" INSTALL_MANPAGES=1 \
 			EXTRA_CONFIGURE_ARGS="$(Configure_Flags)" \
+			EXTRA_MAKE_ARGS="CFLAGS_WARNING='-Wall'" \
 			TCL_FRAMEWORK_DIR="$(TclFrameworkDir)" TCLSH_DIR="$(TclshDir)"
-AfterInstall          = extra-int-headers lipo_ppc links compress_man_pages fix-perms
+AfterInstall          = extra-int-headers lipo links compress_man_pages fix-perms
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 include ../tcl_ext/Fetch.make
@@ -48,6 +49,9 @@ TclFramework          = $(NSFRAMEWORKDIR)/Tcl.framework
 TclshDir              = $(shell dirname $(Tclsh))
 TclFrameworkDir       = $(shell dirname $(TclFramework))
 
+Wish_app              = Wish.app
+Wish_bin              = $(Wish_app)/Contents/MacOS/Wish
+
 # add suffix to tk manpage names to avoid conflicts
 Manpage_Suffix        = tcl
 Configure_Flags       += --enable-man-suffix=$(Manpage_Suffix)
@@ -60,11 +64,14 @@ extra-int-headers:
 	$(_v) $(RMDIR) "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 	$(_v) $(LN) -fsh "Headers/tk-private" "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 
-lipo_ppc:
-ifeq '$(RC_ppc)' 'YES'
-	$(_v) lipo -remove ppc7400 -output $(DSTROOT)$(FmwkDir)/Resources/Wish.app/Contents/MacOS/Wish \
-		$(DSTROOT)$(FmwkDir)/Resources/Wish.app/Contents/MacOS/Wish 
+lipo_archs := $(filter ppc,$(RC_ARCHS))
+ifdef lipo_archs
+define lipo
+	$(_v) lipo $(patsubst %,-remove %,$(patsubst ppc,ppc7400,$(lipo_archs))) -output $(1) $(1)
+endef
 endif
+lipo:
+	$(call lipo,$(DSTROOT)$(FmwkDir)/Resources/$(Wish_bin))
 
 links:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(USRLIBDIR)"
@@ -95,22 +102,28 @@ fix-perms:
 Sources               = $(SRCROOT)/$(Project)
 MakeDir               = $(Sources)/macosx
 
-Fmwk                  = $(SYMROOT)/Tk.framework
-BuildTarget           = deploy
+Fmwk                  = $(SYMROOT)/$(ProjectName).framework
+BuildTarget           = $(Project) BUILD_STYLE=Deployment
+InstallTarget         = install-deploy
 
 all: build
 
-build:: $(Fmwk)
+build:: $(Fmwk) $(Fmwk).dSYM
 
 $(Fmwk):
 	@echo "Building $(Project)..."
 	$(_v) $(Environment) $(MAKE) -C $(MakeDir) $(BuildTarget)
 
-install:: $(Fmwk)
+$(Fmwk).dSYM: $(Fmwk)
+	$(_v) $(DSYMUTIL) -o $(Fmwk).dSYM $(Fmwk)/$(ProjectName)
+	$(call lipo,$(SYMROOT)/$(Wish_bin))
+	$(_v) $(DSYMUTIL) -o $(SYMROOT)/$(Wish_app).dSYM $(SYMROOT)/$(Wish_bin)
+
+install:: $(Fmwk) $(Fmwk).dSYM
 	@echo "Installing $(Project)..."
 	-@$(RM) -f "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 	$(_v) umask $(Install_Mask) ; $(Environment) $(MAKE) -C $(MakeDir) \
-	        $(Install_Flags) install-$(BuildTarget)
+	        $(Install_Flags) $(InstallTarget)
 # Remove /Developer/Applications (3908113)
 	$(_v) $(RMDIR) $(DSTROOT)$(NSDEVELOPERAPPSDIR)
 	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) -print0 | $(XARGS) -0 $(RMDIR)

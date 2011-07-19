@@ -81,12 +81,12 @@ CFMutableDictionaryRef StartupItemListGetNext (CFArrayRef      aWaitingList,
 CFMutableDictionaryRef StartupItemWithPID (CFArrayRef anItemList, pid_t aPID);
 pid_t StartupItemGetPID(CFDictionaryRef anItem);
 
-CFStringRef StartupItemGetDescription(CFMutableDictionaryRef anItem);
+CFStringRef StartupItemCreateDescription(CFMutableDictionaryRef anItem);
 
 /*
  * Returns a list of currently executing startup items.
  */
-CFArrayRef StartupItemListGetRunning(CFArrayRef anItemList);
+CFArrayRef StartupItemListCreateFromRunning(CFArrayRef anItemList);
 
 /*
  * Returns the total number of "Provides" entries of all loaded items.
@@ -112,4 +112,4 @@ void StartupItemSetStatus(CFMutableDictionaryRef aStatusDict, CFMutableDictionar
  */
 bool StartupItemSecurityCheck(const char *aPath);
 
-#endif /* _StartupItems_H_ */
+#endif

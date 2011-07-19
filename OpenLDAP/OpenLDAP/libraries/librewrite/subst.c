@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/librewrite/subst.c,v 1.22.2.3 2008/02/11 23:26:42 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/librewrite/subst.c,v 1.22.2.6 2010/04/13 20:23:09 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -193,6 +193,10 @@ rewrite_subst_compile(
 		subs_len += l;
 		subs[ nsub ].bv_len = l;
 		subs[ nsub ].bv_val = malloc( l + 1 );
+		if ( subs[ nsub ].bv_val == NULL ) {
+			free( subs );
+			goto cleanup;
+		}
 		AC_MEMCPY( subs[ nsub ].bv_val, begin, l );
 		subs[ nsub ].bv_val[ l ] = '\0';
 	} else {

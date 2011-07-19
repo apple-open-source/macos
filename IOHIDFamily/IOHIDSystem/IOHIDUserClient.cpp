@@ -29,6 +29,7 @@
 
 
 #include <IOKit/IOLib.h>
+#include <IOKit/hid/IOHIDEventTypes.h>
 #include <libkern/c++/OSContainers.h>
 #include <sys/proc.h>
 
@@ -107,7 +108,7 @@ IOReturn IOHIDUserClient::connectClient( IOUserClient * client )
     graphicsDevice = (IOGraphicsDevice *) provider;
     graphicsDevice->getBoundingRect(&bounds);
 
-    owner->registerScreen(graphicsDevice, bounds);
+    owner->registerScreen(graphicsDevice, bounds, bounds+1);
 
     return( kIOReturnSuccess);
 }
@@ -231,14 +232,17 @@ IOReturn IOHIDParamUserClient::setProperties( OSObject * properties )
 bool IOHIDStackShotUserClient::
 initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
 {
-    if (!super::init() || 
-            (IOUserClient::clientHasPrivilege(owningTask, 
-                kIOClientPrivilegeAdministrator) != kIOReturnSuccess))
+    if (!super::init())
         return false;
+    IOReturn priv = IOUserClient::clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator);
+    if (priv != kIOReturnSuccess) {
+        IOLog("%s call failed %08x\n", __PRETTY_FUNCTION__, priv);
+        return false;
+    }
 
     client = owningTask;
     task_reference (client);
-
+    
     return true;
 }
 
@@ -354,10 +358,9 @@ initWithTask(task_t owningTask, void * /* security_id */, UInt32 /* type */)
         return false;
     }
         
-    if ( IOUserClient::clientHasPrivilege(owningTask, 
-                kIOClientPrivilegeAdministrator) != kIOReturnSuccess ) {
-        IOLog("%s: Client task not privileged to open IOHIDSystem for mapping memory\n", __PRETTY_FUNCTION__);
-        
+    IOReturn priv = IOUserClient::clientHasPrivilege(owningTask, kIOClientPrivilegeAdministrator);
+    if (priv != kIOReturnSuccess) {
+        IOLog("%s: Client task not privileged to open IOHIDSystem for mapping memory (%08x)\n", __PRETTY_FUNCTION__, priv);
         return false;
     }
 
@@ -437,7 +440,7 @@ IOExternalMethod * IOHIDEventSystemUserClient::getTargetAndMethodForIndex(
 /* 1 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::destroyEventQueue,
             kIOUCScalarIScalarO, 2, 0 },
 /* 2 */  { NULL, (IOMethod) &IOHIDEventSystemUserClient::tickle,
-            kIOUCScalarIScalarO, 0, 0 }
+            kIOUCScalarIScalarO, 1, 0 }
     };
 
     if( index > (sizeof(methodTemplate) / sizeof(methodTemplate[0])))
@@ -531,12 +534,20 @@ IOReturn IOHIDEventSystemUserClient::destroyEventQueue(void*p1,void*p2,void*p3,v
     return kIOReturnSuccess;
 }
 
-IOReturn IOHIDEventSystemUserClient::tickle(void*,void*,void*,void*,void*,void*)
+IOReturn IOHIDEventSystemUserClient::tickle(void*p1,void*p2,void*p3,void*p4,void*p5,void*p6)
 {
-    if ( owner && (owner->displayState & IOPMDeviceUsable) ) {	// if display is off, consume the tickle        
-        // TICKLE_DISPLAY;
-        if (!owner->evStateChanging && owner->displayManager)
-            owner->displayManager->activityTickle(0,0);;
+    IOHIDEventType eventType = (uintptr_t) p1;
+    IOPMPowerFlags displayState = owner->displayState;
+
+    /* Tickles coming from userspace must follow the same policy as IOHIDSystem.cpp:
+     *   If the display is on, send tickles as usual
+     *   If the display is off, only tickle on key presses and button clicks.
+     */
+    if ((displayState & IOPMDeviceUsable)       ||
+        (eventType == kIOHIDEventTypeButton)    ||
+        (eventType == kIOHIDEventTypeKeyboard))
+    {
+        owner->displayManager->activityTickle(0,0);
     }
 
     return kIOReturnSuccess;

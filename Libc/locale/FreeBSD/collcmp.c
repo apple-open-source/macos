@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.17 2003/08/03 19:28:23 ache Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.18 2005/02/27 14:54:23 phantom Exp $");
 
 #include <string.h>
 #include "collate.h"
@@ -34,8 +34,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/collcmp.c,v 1.17 2003/08/03 19:28:23 ach
  * Compare two characters using collate
  */
 
-int __collate_range_cmp(c1, c2)
-	int c1, c2;
+int __collate_range_cmp(int c1, int c2)
 {
 	static char s1[2], s2[2];
 

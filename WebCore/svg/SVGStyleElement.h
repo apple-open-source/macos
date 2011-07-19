@@ -1,68 +1,66 @@
 /*
-    Copyright (C) 2004, 2005 Nikolas Zimmermann <wildfox@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #ifndef SVGStyleElement_h
 #define SVGStyleElement_h
-#if ENABLE(SVG)
 
-#include <SVGElement.h>
+#if ENABLE(SVG)
+#include "SVGElement.h"
 #include "SVGLangSpace.h"
 #include "StyleElement.h"
 
 namespace WebCore {
 
-    class SVGStyleElement : public SVGElement,
-                            public SVGLangSpace,
-                            public StyleElement {
-    public:
-        SVGStyleElement(const QualifiedName&, Document*, bool createdByParser);
-        virtual ~SVGStyleElement();
+class SVGStyleElement : public SVGElement
+                      , public SVGLangSpace
+                      , public StyleElement {
+public:
+    static PassRefPtr<SVGStyleElement> create(const QualifiedName&, Document*, bool createdByParser);
+    virtual ~SVGStyleElement();
 
-        using StyleElement::sheet;
+    using StyleElement::sheet;
 
-        // Derived from: 'Element'
-        virtual void parseMappedAttribute(MappedAttribute*);
-        virtual void insertedIntoDocument();
-        virtual void removedFromDocument();
-        virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+    virtual const AtomicString& type() const;
+    void setType(const AtomicString&, ExceptionCode&);
 
-        virtual void finishParsingChildren();
+    virtual const AtomicString& media() const;
+    void setMedia(const AtomicString&, ExceptionCode&);
 
-        virtual bool sheetLoaded();
+    virtual String title() const;
+    void setTitle(const AtomicString&, ExceptionCode&);
 
-        virtual const AtomicString& type() const;
-        void setType(const AtomicString&, ExceptionCode&);
+private:
+    SVGStyleElement(const QualifiedName&, Document*, bool createdByParser);
 
-        virtual const AtomicString& media() const;
-        void setMedia(const AtomicString&, ExceptionCode&);
+    virtual void parseMappedAttribute(Attribute*);
+    virtual void insertedIntoDocument();
+    virtual void removedFromDocument();
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
 
-        virtual String title() const;
-        void setTitle(const AtomicString&, ExceptionCode&);
+    virtual void finishParsingChildren();
 
-    protected:
-        bool m_createdByParser;
-    };
+    virtual bool isLoading() const { return StyleElement::isLoading(); }
+    virtual bool sheetLoaded() { return StyleElement::sheetLoaded(document()); }
+};
 
 } // namespace WebCore
 
 #endif // ENABLE(SVG)
 #endif // SVGStyleElement_h
-
-// vim:ts=4:noet

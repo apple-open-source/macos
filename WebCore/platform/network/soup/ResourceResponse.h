@@ -58,14 +58,22 @@ public:
     SoupMessageFlags soupMessageFlags() const { return m_soupFlags; }
     void setSoupMessageFlags(SoupMessageFlags soupFlags) { m_soupFlags = soupFlags; }
 
+    const String& sniffedContentType() const { return m_sniffedContentType; }
+    void setSniffedContentType(const String& value) { m_sniffedContentType = value; }
+
 private:
     friend class ResourceResponseBase;
 
     SoupMessageFlags m_soupFlags;
+    String m_sniffedContentType;
 
-    void doUpdateResourceResponse()
-    {
-    }
+    void doUpdateResourceResponse() { }
+
+    PassOwnPtr<CrossThreadResourceResponseData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceResponseData> data) const { return data; }
+    void doPlatformAdopt(PassOwnPtr<CrossThreadResourceResponseData>) { }
+};
+
+struct CrossThreadResourceResponseData : public CrossThreadResourceResponseDataBase {
 };
 
 } // namespace WebCore

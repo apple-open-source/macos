@@ -1,9 +1,9 @@
 /*
  * "$Id: cert.c 7673 2008-06-18 22:31:26Z mike $"
  *
- *   Authentication certificate routines for CUPS.
+ *   Authentication certificate routines for the CUPS scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -368,7 +368,7 @@ cupsdFindCert(const char *certificate)	/* I - Certificate */
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdFindCert(certificate=%s)",
                   certificate);
   for (cert = Certs; cert != NULL; cert = cert->next)
-    if (!strcasecmp(certificate, cert->certificate))
+    if (!_cups_strcasecmp(certificate, cert->certificate))
     {
       cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdFindCert: Returning %s...",
                       cert->username);

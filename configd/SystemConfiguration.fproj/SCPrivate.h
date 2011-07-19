@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,7 @@
 
 #include <sys/cdefs.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
 #include <asl.h>
 #include <sys/syslog.h>
 #include <mach/message.h>
@@ -78,7 +79,21 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 		value is either a valid host name or a numeric host address string
 		consisting of a dotted decimal IPv4 address or an IPv6 address.
  */
-#define kSCNetworkReachabilityOptionNodeName	CFSTR("nodename")
+#define kSCNetworkReachabilityOptionNodeName			CFSTR("nodename")
+
+/*!
+	@constant kSCNetworkReachabilityOptionLocalAddress
+	@discussion A CFData wrapping a "struct sockaddr" that represents
+		local address associated with a network connection.
+ */
+#define kSCNetworkReachabilityOptionLocalAddress		CFSTR("local-address")
+
+/*!
+	@constant kSCNetworkReachabilityOptionRemoteAddress
+	@discussion A CFData wrapping a "struct sockaddr" that represents
+		remote address associated with a network connection.
+ */
+#define kSCNetworkReachabilityOptionRemoteAddress		CFSTR("remote-address")
 
 /*!
 	@constant kSCNetworkReachabilityOptionServName
@@ -86,7 +101,7 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 		value is either a decimal port number or a service name listed in
 		services(5).
  */
-#define kSCNetworkReachabilityOptionServName	CFSTR("servname")
+#define kSCNetworkReachabilityOptionServName			CFSTR("servname")
 
 /*!
 	@constant kSCNetworkReachabilityOptionHints
@@ -95,7 +110,15 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 		ai_socktype, ai_protocol, and ai_flags structure elements.  All
 		other elements must be 0 or the null pointer.
  */
-#define kSCNetworkReachabilityOptionHints	CFSTR("hints")
+#define kSCNetworkReachabilityOptionHints			CFSTR("hints")
+
+/*!
+	@constant kSCNetworkReachabilityOptionInterface
+	@discussion A CFString specifying that the reachability query should be
+		limited to the provided network interface (e.g. "en0", "en1", ...).
+ */
+#define kSCNetworkReachabilityOptionInterface			CFSTR("interface")
+
 
 /*!
 	@constant kSCNetworkReachabilityOptionConnectionOnDemandByPass
@@ -110,12 +133,22 @@ extern int	_sc_log;	/* 0 if SC messages should be written to stdout/stderr,
 
 __BEGIN_DECLS
 
+
+#pragma mark -
+#pragma mark SCError()
+
+
 /*!
 	@function _SCErrorSet
 	@discussion Sets the last SystemConfiguration.framework API error code.
 	@param error The error encountered.
  */
 void		_SCErrorSet			(int			error);
+
+
+#pragma mark -
+#pragma mark Serialization/Unserialization
+
 
 /*!
 	@function _SCSerialize
@@ -229,6 +262,11 @@ CFDictionaryRef	_SCSerializeMultiple		(CFDictionaryRef	dict);
  */
 CFDictionaryRef	_SCUnserializeMultiple		(CFDictionaryRef	dict);
 
+
+#pragma mark -
+#pragma mark String conversion
+
+
 /*!
 	@function _SC_cfstring_to_cstring
 	@discussion Extracts a C-string from a CFString.
@@ -259,6 +297,20 @@ void		_SC_sockaddr_to_string		(const struct sockaddr  *address,
 						 char			*buf,
 						 size_t			bufLen);
 
+
+/*!
+ *	@function _SC_trimDomain
+ *	@discussion Trims leading and trailing "."s from a domain or host name
+ *	@param domain The domain name to trim
+ *	@result The trimmed domain name.
+ */
+CFStringRef	_SC_trimDomain			(CFStringRef		domain);
+
+
+#pragma mark -
+#pragma mark Mach IPC
+
+
 /*!
 	@function _SC_sendMachMessage
 	@discussion Sends a trivial mach message (one with just a
@@ -268,6 +320,10 @@ void		_SC_sockaddr_to_string		(const struct sockaddr  *address,
  */
 void		_SC_sendMachMessage		(mach_port_t		port,
 						 mach_msg_id_t		msg_id);
+
+
+#pragma mark -
+#pragma mark Logging
 
 
 /*!
@@ -346,6 +402,35 @@ void		SCTrace				(Boolean		condition,
 						 CFStringRef		formatString,
 						 ...);
 
+#pragma mark -
+#pragma mark Proxies
+
+
+/*!
+	@function SCNetworkProxiesCopyMatching
+	@discussion
+	@param globalConfiguration the proxy dictionary currently returned
+		by SCDynamicStoreCopyProxies().
+	@param server A CFString specying the hostname of interest; NULL if
+		no specific hostname should be used in selecting the proxy
+		configurations.
+	@param interface A CFString specifying that the proxy configuration
+		for the provided network interface (e.g. "en0", "en1", ...)
+		should be returned; NULL if proxy usage will not be scoped
+		to an interface.
+	@result A CFArray containing the proxy configurations associated
+		with the requested server and/or network interface.
+
+ */
+CFArrayRef
+SCNetworkProxiesCopyMatching			(CFDictionaryRef	globalConfiguration,
+						 CFStringRef		server,
+						 CFStringRef		interface)	__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+
+#pragma mark -
+#pragma mark Reachability
+
+
 /*!
 	@function SCNetworkReachabilityCopyOnDemandService
 	@discussion For target hosts that require an OnDemand connection, returns
@@ -397,6 +482,10 @@ _SC_checkResolverReachabilityByAddress		(SCDynamicStoreRef		*storeP,
 						 Boolean			*haveDNS,
 						 struct sockaddr		*sa);
 
+#pragma mark -
+#pragma mark NetBIOS
+
+
 #if	!TARGET_OS_IPHONE
 /*
  * DOS encoding/codepage
@@ -407,6 +496,10 @@ _SC_dos_encoding_and_codepage			(CFStringEncoding	macEncoding,
 						 CFStringEncoding	*dosEncoding,
 						 UInt32			*dosCodepage);
 #endif	// !TARGET_OS_IPHONE
+
+#pragma mark -
+#pragma mark ScheduleWithRunLoop/UnscheduleFromRunLoop
+
 
 /*
  * object / CFRunLoop  management
@@ -435,6 +528,10 @@ _SC_unschedule					(CFTypeRef		obj,
 						 CFMutableArrayRef      rlList,
 						 Boolean		all);
 
+#pragma mark -
+#pragma mark Bundle
+
+
 /*
  * bundle access
  */
@@ -446,6 +543,19 @@ _SC_CFBundleCopyNonLocalizedString		(CFBundleRef		bundle,
 						 CFStringRef		key,
 						 CFStringRef		value,
 						 CFStringRef		tableName);
+
+#pragma mark -
+#pragma mark Misc
+
+
+/*
+ * mach port access
+ */
+CFMachPortRef
+_SC_CFMachPortCreateWithPort			(const char *		portDescription,
+						 mach_port_t		portNum,
+						 CFMachPortCallBack	callout,
+						 CFMachPortContext	*context);
 
 /*
  * misc
@@ -460,6 +570,22 @@ _SC_CFEqual(CFTypeRef val1, CFTypeRef val2)
 		return CFEqual(val1, val2);
 	}
 	return FALSE;
+}
+
+static __inline__ Boolean
+_SC_isAppleInternal()
+{
+	static int isInternal	= 0;
+
+	if (isInternal == 0) {
+		int		ret;
+		struct stat	statbuf;
+
+		ret = stat("/AppleInternal", &statbuf);
+		isInternal = (ret == 0) ? 1 : 2;
+	}
+
+	return (isInternal == 1);
 }
 
 /*
@@ -484,6 +610,11 @@ _SC_logMachPortReferences			(const char		*str,
 
 CFStringRef
 _SC_copyBacktrace				(void);
+
+void
+_SC_crash					(const char		*crash_info,
+						 CFStringRef		notifyHeader,
+						 CFStringRef		notifyMessage);
 
 __END_DECLS
 

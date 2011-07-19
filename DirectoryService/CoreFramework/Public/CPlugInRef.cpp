@@ -34,7 +34,7 @@
 //	* CPlugInRef
 //------------------------------------------------------------------------------------
 
-CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr ) : fMutex("CPluginRef::fMutex")
+CPlugInRef::CPlugInRef ( DeallocateProc inProcPtr ) : fMutex("CPluginRef::fMutex")
 {
 	fHashArrayLength = 128;
 	fRefNumCount = 0;
@@ -45,7 +45,7 @@ CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr ) : fMutex("CPluginRef::fMute
 } // CPlugInRef
 
 
-CPlugInRef::CPlugInRef ( DeallocateProc *inProcPtr, UInt32 inHashArrayLength ) : fMutex("CPluginRef::fMutex")
+CPlugInRef::CPlugInRef ( DeallocateProc inProcPtr, UInt32 inHashArrayLength ) : fMutex("CPluginRef::fMutex")
 {
 	fHashArrayLength = inHashArrayLength;
 	fRefNumCount = 0;

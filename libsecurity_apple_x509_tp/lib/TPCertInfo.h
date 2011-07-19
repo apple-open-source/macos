@@ -298,7 +298,7 @@ public:
 	 * key.
 	 */
 	bool 					hasPartialKey();
-	 
+
 	/* Indicate whether this cert should be explicitly rejected.
 	 */
 	bool					shouldReject();

@@ -37,10 +37,17 @@
 #include "DocumentLoader.h"
 #include "DOMApplicationCache.h"
 #include "Frame.h"
+#include "InspectorApplicationCacheAgent.h"
+#include "InspectorInstrumentation.h"
+#include "Page.h"
+#include "ProgressEvent.h"
+#include "SecurityOrigin.h"
 #include "Settings.h"
+#include "WebFrameImpl.h"
 #include "WebURL.h"
 #include "WebURLError.h"
 #include "WebURLResponse.h"
+#include "WebVector.h"
 #include "WrappedResourceRequest.h"
 #include "WrappedResourceResponse.h"
 
@@ -73,10 +80,10 @@ void ApplicationCacheHost::maybeLoadMainResource(ResourceRequest& request, Subst
     if (!isApplicationCacheEnabled())
         return;
 
-    m_internal.set(new ApplicationCacheHostInternal(this));
+    m_internal = adoptPtr(new ApplicationCacheHostInternal(this));
     if (m_internal->m_outerHost) {
         WrappedResourceRequest wrapped(request);
-        m_internal->m_outerHost->willStartMainResourceRequest(wrapped);
+        m_internal->m_outerHost->willStartMainResourceRequest(wrapped, WebFrameImpl::fromFrame(m_documentLoader->frame()));
     } else
         m_internal.clear();
 
@@ -101,11 +108,16 @@ void ApplicationCacheHost::selectCacheWithManifest(const KURL& manifestURL)
             // same resource being loaded, because "foreign" entries are never picked
             // during navigation.
             // see WebCore::ApplicationCacheGroup::selectCache()
-            const KURL& docURL = m_documentLoader->frame()->document()->url();
-            String referrer = m_documentLoader->frameLoader()->referrer();
-            m_documentLoader->frame()->redirectScheduler()->scheduleLocationChange(docURL, referrer);
+            Frame* frame = m_documentLoader->frame();
+            frame->navigationScheduler()->scheduleLocationChange(frame->document()->securityOrigin(),
+                frame->document()->url(), frame->loader()->referrer());
         }
     }
+}
+
+void ApplicationCacheHost::maybeLoadMainResourceForRedirect(ResourceRequest&, SubstituteData&)
+{
+    // N/A to the chromium port
 }
 
 bool ApplicationCacheHost::maybeLoadFallbackForMainResponse(const ResourceRequest&, const ResourceResponse& response)
@@ -195,32 +207,76 @@ void ApplicationCacheHost::setDOMApplicationCache(DOMApplicationCache* domApplic
     m_domApplicationCache = domApplicationCache;
 }
 
-void ApplicationCacheHost::notifyDOMApplicationCache(EventID id)
+void ApplicationCacheHost::notifyDOMApplicationCache(EventID id, int total, int done)
 {
+#if ENABLE(INSPECTOR)
+    if (id != PROGRESS_EVENT)
+        InspectorInstrumentation::updateApplicationCacheStatus(m_documentLoader->frame());
+#endif
+
     if (m_defersEvents) {
-        m_deferredEvents.append(id);
+        // Event dispatching is deferred until document.onload has fired.
+        m_deferredEvents.append(DeferredEvent(id, total, done));
         return;
     }
-    if (m_domApplicationCache) {
-        ExceptionCode ec = 0;
-        m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
-        ASSERT(!ec);
+    dispatchDOMEvent(id, total, done);
+}
+
+#if ENABLE(INSPECTOR)
+ApplicationCacheHost::CacheInfo ApplicationCacheHost::applicationCacheInfo()
+{
+    if (!m_internal)
+        return CacheInfo(KURL(), 0, 0, 0);
+
+    WebKit::WebApplicationCacheHost::CacheInfo webInfo;
+    m_internal->m_outerHost->getAssociatedCacheInfo(&webInfo);
+    return CacheInfo(webInfo.manifestURL, webInfo.creationTime, webInfo.updateTime, webInfo.totalSize);
+}
+
+void ApplicationCacheHost::fillResourceList(ResourceInfoList* resources)
+{
+    if (!m_internal)
+        return;
+
+    WebKit::WebVector<WebKit::WebApplicationCacheHost::ResourceInfo> webResources;
+    m_internal->m_outerHost->getResourceList(&webResources);
+    for (size_t i = 0; i < webResources.size(); ++i) {
+        resources->append(ResourceInfo(
+            webResources[i].url, webResources[i].isMaster, webResources[i].isManifest, webResources[i].isFallback,
+            webResources[i].isForeign, webResources[i].isExplicit, webResources[i].size));
     }
 }
+#endif
 
 void ApplicationCacheHost::stopDeferringEvents()
 {
     RefPtr<DocumentLoader> protect(documentLoader());
     for (unsigned i = 0; i < m_deferredEvents.size(); ++i) {
-        EventID id = m_deferredEvents[i];
-        if (m_domApplicationCache) {
-            ExceptionCode ec = 0;
-            m_domApplicationCache->dispatchEvent(Event::create(DOMApplicationCache::toEventType(id), false, false), ec);
-            ASSERT(!ec);
-        }
+        const DeferredEvent& deferred = m_deferredEvents[i];
+        dispatchDOMEvent(deferred.eventID, deferred.progressTotal, deferred.progressDone);
     }
     m_deferredEvents.clear();
     m_defersEvents = false;
+}
+
+void ApplicationCacheHost::stopLoadingInFrame(Frame* frame)
+{
+    // N/A to the chromium port
+}
+
+void ApplicationCacheHost::dispatchDOMEvent(EventID id, int total, int done)
+{
+    if (m_domApplicationCache) {
+        const AtomicString& eventType = DOMApplicationCache::toEventType(id);
+        ExceptionCode ec = 0;
+        RefPtr<Event> event;
+        if (id == PROGRESS_EVENT)
+            event = ProgressEvent::create(eventType, true, done, total);
+        else
+            event = Event::create(eventType, false, false);
+        m_domApplicationCache->dispatchEvent(event, ec);
+        ASSERT(!ec);
+    }
 }
 
 ApplicationCacheHost::Status ApplicationCacheHost::status() const

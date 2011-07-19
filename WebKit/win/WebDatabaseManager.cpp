@@ -38,6 +38,7 @@
 #include "WebNotificationCenter.h"
 #include "WebSecurityOrigin.h"
 
+#include <JavaScriptCore/MainThread.h>
 #include <WebCore/BString.h>
 #include <WebCore/COMPtr.h>
 #include <WebCore/DatabaseTracker.h>
@@ -51,7 +52,8 @@ static inline bool isEqual(LPCWSTR s1, LPCWSTR s2)
     return !wcscmp(s1, s2);
 }
 
-class DatabaseDetailsPropertyBag : public IPropertyBag, public Noncopyable {
+class DatabaseDetailsPropertyBag : public IPropertyBag {
+    WTF_MAKE_NONCOPYABLE(DatabaseDetailsPropertyBag);
 public:
     static DatabaseDetailsPropertyBag* createInstance(const DatabaseDetails&);
 
@@ -327,8 +329,41 @@ HRESULT STDMETHODCALLTYPE WebDatabaseManager::deleteDatabase(
     return S_OK;
 }
 
+class DidModifyOriginData {
+    WTF_MAKE_NONCOPYABLE(DidModifyOriginData);
+public:
+    static void dispatchToMainThread(WebDatabaseManager* databaseManager, SecurityOrigin* origin)
+    {
+        DidModifyOriginData* context = new DidModifyOriginData(databaseManager, origin->threadsafeCopy());
+        callOnMainThread(&DidModifyOriginData::dispatchDidModifyOriginOnMainThread, context);
+    }
+
+private:
+    DidModifyOriginData(WebDatabaseManager* databaseManager, PassRefPtr<SecurityOrigin> origin)
+        : databaseManager(databaseManager)
+        , origin(origin)
+    {
+    }
+
+    static void dispatchDidModifyOriginOnMainThread(void* context)
+    {
+        ASSERT(isMainThread());
+        DidModifyOriginData* info = static_cast<DidModifyOriginData*>(context);
+        info->databaseManager->dispatchDidModifyOrigin(info->origin.get());
+        delete info;
+    }
+
+    WebDatabaseManager* databaseManager;
+    RefPtr<SecurityOrigin> origin;
+};
+
 void WebDatabaseManager::dispatchDidModifyOrigin(SecurityOrigin* origin)
 {
+    if (!isMainThread()) {
+        DidModifyOriginData::dispatchToMainThread(this, origin);
+        return;
+    }
+
     static BSTR databaseDidModifyOriginName = SysAllocString(WebDatabaseDidModifyOriginNotification);
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
 
@@ -353,6 +388,11 @@ HRESULT STDMETHODCALLTYPE WebDatabaseManager::setQuota(
 
 void WebDatabaseManager::dispatchDidModifyDatabase(SecurityOrigin* origin, const String& databaseName)
 {
+    if (!isMainThread()) {
+        DidModifyOriginData::dispatchToMainThread(this, origin);
+        return;
+    }
+
     static BSTR databaseDidModifyOriginName = SysAllocString(WebDatabaseDidModifyDatabaseNotification);
     IWebNotificationCenter* notifyCenter = WebNotificationCenter::defaultCenterInternal();
 
@@ -376,7 +416,7 @@ void WebKitInitializeWebDatabasesIfNecessary()
     if (initialized)
         return;
 
-    WebCore::String databasesDirectory = WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "Databases");
+    WTF::String databasesDirectory = WebCore::pathByAppendingComponent(WebCore::localUserSpecificStorageDirectory(), "Databases");
     WebCore::DatabaseTracker::initializeTracker(databasesDirectory);
 
     initialized = true;

@@ -29,6 +29,7 @@
 #import "WebHTMLRepresentation.h"
 
 #import "DOMElementInternal.h"
+#import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchive.h"
 #import "WebBasePluginPackage.h"
@@ -37,7 +38,6 @@
 #import "WebFrameInternal.h"
 #import "WebKitNSStringExtras.h"
 #import "WebKitStatisticsPrivate.h"
-#import "WebNSAttributedStringExtras.h"
 #import "WebNSObjectExtras.h"
 #import "WebTypesInternal.h"
 #import "WebView.h"
@@ -47,6 +47,7 @@
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/FrameLoaderClient.h>
+#import <WebCore/HTMLConverter.h>
 #import <WebCore/HTMLFormControlElement.h>
 #import <WebCore/HTMLFormElement.h>
 #import <WebCore/HTMLInputElement.h>
@@ -112,7 +113,13 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
     return staticSupportedImageMIMETypes.get();
 }
 
-- init
++ (NSArray *)unsupportedTextMIMETypes
+{
+    DEFINE_STATIC_LOCAL(RetainPtr<NSArray>, staticUnsupportedTextMIMETypes, (stringArray(MIMETypeRegistry::getUnsupportedTextMIMETypes())));
+    return staticUnsupportedTextMIMETypes.get();
+}
+
+- (id)init
 {
     self = [super init];
     if (!self)
@@ -165,23 +172,24 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 - (void)receivedData:(NSData *)data withDataSource:(WebDataSource *)dataSource
 {
     WebFrame *webFrame = [dataSource webFrame];
-    if (webFrame) {
-        if (!_private->pluginView)
-            [webFrame _receivedData:data textEncodingName:[[_private->dataSource response] textEncodingName]];
-        
-        // If the document is a stand-alone media document, now is the right time to cancel the WebKit load
-        Frame* coreFrame = core(webFrame);
-        if (coreFrame->document() && coreFrame->document()->isMediaDocument())
-            coreFrame->loader()->documentLoader()->cancelMainResourceLoad(coreFrame->loader()->client()->pluginWillHandleLoadError(coreFrame->loader()->documentLoader()->response()));
+    if (!webFrame)
+        return;
 
-        if (_private->pluginView) {
-            if (!_private->hasSentResponseToPlugin) {
-                [_private->manualLoader pluginView:_private->pluginView receivedResponse:[dataSource response]];
-                _private->hasSentResponseToPlugin = YES;
-            }
-            
-            [_private->manualLoader pluginView:_private->pluginView receivedData:data];
+    if (!_private->pluginView)
+        [webFrame _commitData:data];
+
+    // If the document is a stand-alone media document, now is the right time to cancel the WebKit load
+    Frame* coreFrame = core(webFrame);
+    if (coreFrame->document()->isMediaDocument())
+        coreFrame->loader()->documentLoader()->cancelMainResourceLoad(coreFrame->loader()->client()->pluginWillHandleLoadError(coreFrame->loader()->documentLoader()->response()));
+
+    if (_private->pluginView) {
+        if (!_private->hasSentResponseToPlugin) {
+            [_private->manualLoader pluginView:_private->pluginView receivedResponse:[dataSource response]];
+            _private->hasSentResponseToPlugin = YES;
         }
+        
+        [_private->manualLoader pluginView:_private->pluginView receivedData:data];
     }
 }
 
@@ -194,25 +202,26 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (void)finishedLoadingWithDataSource:(WebDataSource *)dataSource
 {
-    WebFrame *frame = [dataSource webFrame];
+    WebFrame* webFrame = [dataSource webFrame];
 
     if (_private->pluginView) {
         [_private->manualLoader pluginViewFinishedLoading:_private->pluginView];
         return;
     }
 
-    if (frame) {
-        if (![self _isDisplayingWebArchive]) {
-            // Telling the frame we received some data and passing nil as the data is our
-            // way to get work done that is normally done when the first bit of data is
-            // received, even for the case of a document with no data (like about:blank).
-            [frame _receivedData:nil textEncodingName:[[_private->dataSource response] textEncodingName]];
-        }
-        
-        WebView *webView = [frame webView];
-        if ([webView isEditable])
-            core(frame)->applyEditingStyleToBodyElement();
+    if (!webFrame)
+        return;
+
+    if (![self _isDisplayingWebArchive]) {
+        // Telling the frame we received some data and passing nil as the data is our
+        // way to get work done that is normally done when the first bit of data is
+        // received, even for the case of a document with no data (like about:blank).
+        [webFrame _commitData:nil];
     }
+
+    WebView *webView = [webFrame webView];
+    if ([webView isEditable])
+        core(webFrame)->editor()->applyEditingStyleToBodyElement();
 }
 
 - (BOOL)canProvideDocumentSource
@@ -252,7 +261,7 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (NSString *)title
 {
-    return nsStringNilIfEmpty([_private->dataSource _documentLoader]->title());
+    return nsStringNilIfEmpty([_private->dataSource _documentLoader]->title().string());
 }
 
 - (DOMDocument *)DOMDocument
@@ -268,7 +277,7 @@ static NSArray *concatenateArrays(NSArray *first, NSArray *second)
 
 - (NSAttributedString *)attributedStringFrom:(DOMNode *)startNode startOffset:(int)startOffset to:(DOMNode *)endNode endOffset:(int)endOffset
 {
-    return [NSAttributedString _web_attributedStringFromRange:Range::create(core(startNode)->document(), core(startNode), startOffset, core(endNode), endOffset).get()];
+    return [WebHTMLConverter editingAttributedStringFromRange:Range::create(core(startNode)->document(), core(startNode), startOffset, core(endNode), endOffset).get()];
 }
 
 static HTMLFormElement* formElementFromDOMElement(DOMElement *element)
@@ -282,12 +291,12 @@ static HTMLFormElement* formElementFromDOMElement(DOMElement *element)
     HTMLFormElement* formElement = formElementFromDOMElement(form);
     if (!formElement)
         return nil;
-    Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+    const Vector<FormAssociatedElement*>& elements = formElement->associatedElements();
     AtomicString targetName = name;
     for (unsigned i = 0; i < elements.size(); i++) {
-        HTMLFormControlElement* elt = elements[i];
-        if (elt->formControlName() == targetName)
-            return kit(elt);
+        FormAssociatedElement* elt = elements[i];
+        if (elt->name() == targetName)
+            return kit(toHTMLElement(elt));
     }
     return nil;
 }
@@ -303,15 +312,14 @@ static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
     HTMLInputElement* inputElement = inputElementFromDOMElement(element);
     return inputElement
         && inputElement->isTextField()
-        && inputElement->inputType() != HTMLInputElement::PASSWORD
+        && !inputElement->isPasswordField()
         && inputElement->autoComplete();
 }
 
 - (BOOL)elementIsPassword:(DOMElement *)element
 {
     HTMLInputElement* inputElement = inputElementFromDOMElement(element);
-    return inputElement
-        && inputElement->inputType() == HTMLInputElement::PASSWORD;
+    return inputElement && inputElement->isPasswordField();
 }
 
 - (DOMElement *)formForElement:(DOMElement *)element
@@ -322,7 +330,7 @@ static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
 
 - (DOMElement *)currentForm
 {
-    return kit(core([_private->dataSource webFrame])->currentForm());
+    return kit(core([_private->dataSource webFrame])->selection()->currentForm());
 }
 
 - (NSArray *)controlsInForm:(DOMElement *)form
@@ -331,10 +339,10 @@ static HTMLInputElement* inputElementFromDOMElement(DOMElement* element)
     if (!formElement)
         return nil;
     NSMutableArray *results = nil;
-    Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+    const Vector<FormAssociatedElement*>& elements = formElement->associatedElements();
     for (unsigned i = 0; i < elements.size(); i++) {
         if (elements[i]->isEnumeratable()) { // Skip option elements, other duds
-            DOMElement* de = kit(elements[i]);
+            DOMElement* de = kit(toHTMLElement(elements[i]));
             if (!results)
                 results = [NSMutableArray arrayWithObject:de];
             else

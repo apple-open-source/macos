@@ -289,6 +289,7 @@ setfunction(char *name, char *val, int dis)
     shf = (Shfunc) zshcalloc(sizeof(*shf));
     shf->funcdef = dupeprog(prog, 0);
     shf->node.flags = dis;
+    shf->emulation = sticky_emulation;
 
     if (!strncmp(name, "TRAP", 4) &&
 	(sn = getsignum(name + 4)) != -1) {
@@ -1043,7 +1044,7 @@ histwgetfn(UNUSED(Param pm))
     int i = addhistnum(curhist, -1, HIST_FOREIGN), iw;
     Histent he = gethistent(i, GETHIST_UPWARD);
 
-    if ((ll = bufferwords(NULL, NULL, NULL)))
+    if ((ll = bufferwords(NULL, NULL, NULL, 0)))
         for (n = firstnode(ll); n; incnode(n))
             pushnode(l, getdata(n));
 

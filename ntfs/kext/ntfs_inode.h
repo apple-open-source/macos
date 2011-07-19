@@ -1,8 +1,8 @@
 /*
  * ntfs_inode.h - Defines for inode structures for the NTFS kernel driver.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -244,18 +244,37 @@ struct _ntfs_inode {
 			   base inode at @base_ni is valid and 0 otherwise. */
 	u32 extent_alloc; /* Number of bytes allocated for the extent_nis
 			     array. */
+	lck_mtx_t attr_nis_lock; /* Lock for accessing/modifying the below. */
+	s32 nr_attr_nis;	/* For a base inode, the number of loaded
+				   attribute inodes (0 if none).  Ignored for
+				   attribut inodes and fake inodes. */
+	u32 attr_nis_alloc; /* Number of bytes allocated for the attr_nis
+			       array. */
 	union {		/* This union is only used if nr_extents != 0. */
-		ntfs_inode **extent_nis;	/* For nr_extents > 0, array of
-						   the ntfs inodes of the extent
-						   mft records belonging to
-						   this base inode which have
-						   been loaded.  Allocated in
+		struct {
+			ntfs_inode **extent_nis; /* For nr_extents > 0, array
+						    of the ntfs inodes of the
+						    extent mft records
+						    belonging to this base
+						    inode which have been
+						    loaded.  Allocated in
+						    multiples of 4 elements. */
+			ntfs_inode **attr_nis;	/* For nr_attr_nis > 0, array
+						   of the loaded attribute
+						   inodes.  Allocated in
 						   multiples of 4 elements. */
-		ntfs_inode *base_ni;		/* For nr_extents == -1, the
+		};
+		struct {
+			ntfs_inode *base_ni;	/* For nr_extents == -1, the
 						   ntfs inode of the base mft
 						   record. For fake inodes, the
 						   real (base) inode to which
 						   the attribute belongs. */
+			lck_mtx_t *base_attr_nis_lock; /* Pointer to the base
+							  inode
+							  attr_nis_lock or
+							  NULL. */
+		};
 	};
 };
 

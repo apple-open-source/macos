@@ -33,9 +33,10 @@
 _pthread_getspecific:
 #ifdef _ARM_ARCH_6
 	mrc	p15, 0, r1, c13, c0, 3
+	bic	r1, r1, #3
 	add	r0, r1, r0, lsl #2
 #else
 	add	r0, r9, r0, lsl #2
 #endif
-	ldr	r0, [r0, #_PTHREAD_TSD_OFFSET]
+	ldr	r0, [r0, #0]
 	bx	lr

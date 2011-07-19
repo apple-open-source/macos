@@ -51,6 +51,8 @@ sub filter {
     }
 }
 
+sub will_modify { 0 }
+
 1;
 
 __END__
@@ -112,6 +114,11 @@ Initialise the filter with the EOL information.
 
 Keeps unfinished lines for later.
 
+=item will_modify()
+
+This method returns a I<false> value, thus indicating to the system
+that it will not modify data passing through.
+
 =back
 
 =head1 SEE ALSO
@@ -124,7 +131,7 @@ Philippe "BooK" Bruhat, E<lt>book@cpan.orgE<gt>.
 
 =head1 COPYRIGHT
 
-Copyright 2003-2005, Philippe Bruhat.
+Copyright 2003-2006, Philippe Bruhat.
 
 =head1 LICENSE
 

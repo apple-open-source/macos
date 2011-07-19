@@ -1,0 +1,49 @@
+This file contains message digests of all files listed in MANIFEST,
+signed via the Module::Signature module, version 0.61.
+
+To verify the content in this distribution, first make sure you have
+Module::Signature installed, then type:
+
+    % cpansign -v
+
+It will check each file's integrity, as well as the signature's
+validity.  If "==> Signature verified OK! <==" is not displayed,
+the distribution may already have been compromised, and you should
+not run its Makefile.PL or Build.PL.
+
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+SHA1 e4f9005686e8ab84ba4c688f57413b55a5cec408 Changes
+SHA1 c4dacd89bd120b4e3081d47e8dd8dd9fe08cf8ee INSTALL
+SHA1 23c628b4a8a36738405ccdacaeb912d2e727b4c0 LICENSE
+SHA1 6ce15893e518d227515664e87be75aebdc70e316 MANIFEST
+SHA1 b6720be71fbfefba855fbb71ee31143d22f8d554 META.json
+SHA1 8df1c34f31d64a3161f73abb7392596f2dd0a26e META.yml
+SHA1 2b76a5cec999758b0d548ff6a51792f5f9287742 Makefile.PL
+SHA1 e376b8e2b1a28d2b551358597ac36db65097b0a2 README
+SHA1 7d8639eb56896e5da21eb958d0808fdfeebc932c dist.ini
+SHA1 a1ddffd98bd767436f36d7060fc53741c403cbfb lib/DateTime/Format/Strptime.pm
+SHA1 36028252b2cef83972a10893f6e791335859daf1 t/001_load.t
+SHA1 5400fdb559f023ee6cec3a15726c7181d750ddba t/002_dates.t
+SHA1 39976a62c616193d104b0efca4e5a0e91ba99a1f t/003_every.t
+SHA1 c77a67c6995a02b136ad84534fda8dc0b7b0e792 t/004_locale_defaults.t
+SHA1 2d773953c36b8f74b8915f60b3b7bc0191a12e6f t/005_croak.t
+SHA1 7c89a33066f76c9fa41940fd55d52a087be9870e t/006_locales.t
+SHA1 17bad4a308e3f679cfe7bb80044de43dd3cecbb1 t/007_edge.t
+SHA1 579f1a9cb59ac73fcbf9eb9a2e535fa1607153b3 t/008_epoch.t
+SHA1 381b87f0fecebd2c48c3537ea47d0da1e4a90d94 t/009_regexp.t
+SHA1 185dc6943ddd46711eee297272fd9e3374719599 t/author-001_all_locales.t
+SHA1 24b525e3c18f37f8022a01ec30de757cefb679ff t/release-eol.t
+SHA1 961a1e2c92d836c8cad2d34b784cbc75345dec63 t/release-kwalitee.t
+SHA1 455d1dd1867212a665ad5ea4126b572411de300c t/release-no-tabs.t
+SHA1 b015e8b6533ae3c202f1c1644669e3f55980981f t/release-pod-coverage.t
+SHA1 e4d9bc57d938719c9f6e816400f096d496858b8b t/release-pod-spell.t
+SHA1 0bf5c7d045bcd17b72749ea8d57bfc2435913095 t/release-pod.t
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.10 (GNU/Linux)
+
+iEYEARECAAYFAkwo0kAACgkQIgMCsV8qvRK7kgCghTkJ+qE6nyT6kGW8e4lsOKmW
+os8Anio8P2UabP2Be6wyh5wXyFQbpBeI
+=dd5v
+-----END PGP SIGNATURE-----

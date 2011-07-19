@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,7 +27,10 @@
 #include <unistd.h>
 #include <string.h>
 #include <time.h>
+#include <sys/time.h>
+#include <mach/mach.h>
 #include <notify.h>
+#include <notify_private.h>
 
 #define forever for(;;)
 #define IndexNull ((uint32_t)-1)
@@ -36,13 +39,13 @@
 #define PRINT_KEY   0x00000001
 #define PRINT_STATE 0x00000002
 #define PRINT_TIME  0x00000004
+#define PRINT_UTIME 0x00000008
+
+#ifndef USEC_PER_SEC
+#define USEC_PER_SEC 1000000
+#endif
 
 extern uint32_t notify_register_plain(const char *name, int *out_token);
-
-#ifdef TIGER
-extern uint32_t notify_set_state(int tig, uint32_t val);
-extern uint32_t notify_get_state(int tig, uint32_t *val);
-#endif
 
 typedef struct
 {
@@ -57,10 +60,13 @@ static uint32_t tnmap_count = 0;
 void
 usage(const char *name)
 {
-	fprintf(stderr, "usage: %s [-q] [-v] [-t] [action]...\n", name);
+	fprintf(stderr, "usage: %s [-q] [-m] [-f] [-v] [-t] [-T] [action]...\n", name);
 	fprintf(stderr, "    -q             quiet mode\n");
+	fprintf(stderr, "    -m             use mach ports for notifications [default]\n");
+	fprintf(stderr, "    -f             use file descriptors for notifications\n");
 	fprintf(stderr, "    -v             verbose mode - prints key and state value for notifications\n");
 	fprintf(stderr, "    -t             print timestamp when reporting notifications\n");
+	fprintf(stderr, "    -T             print timestamp with microseconds when sending and receiving notifications\n");
 	fprintf(stderr, "actions:\n");
 	fprintf(stderr, "    -p key         post a notifcation for key\n");
 	fprintf(stderr, "    -w key         register for key and report notifications\n");
@@ -163,21 +169,19 @@ tnmap_find_token(uint32_t t)
 }
 
 void 
-watcher(int fd, int printopt)
+file_watcher(int fd, int printopt)
 {
-	time_t now;
+	struct timeval now;
 	char tstr[32];
 	int status, i, tid, index;
-#ifdef TIGER
-	uint32_t state;
-#else
 	uint64_t state;
-#endif
 
 	forever
 	{
+		memset(&now, 0, sizeof(now));
 		i = read(fd, &tid, 4);
 		if (i < 0) return;
+		gettimeofday(&now, NULL);
 
 		tid = ntohl(tid);
 		index = tnmap_find_token(tid);
@@ -185,10 +189,16 @@ watcher(int fd, int printopt)
 
 		if (printopt & PRINT_TIME)
 		{
-			now = time(NULL);
-			memcpy(tstr, ctime(&now), 24);
+			memcpy(tstr, ctime(&(now.tv_sec)), 24);
 			tstr[24] = '\0';
 			printf("%s", tstr);
+			if (printopt & (PRINT_KEY | PRINT_STATE)) printf(" ");
+		}
+
+		if (printopt & PRINT_UTIME)
+		{
+			snprintf(tstr, sizeof(tstr), "%llu", now.tv_usec + USEC_PER_SEC);
+			printf("%d.%s", (int)now.tv_sec, tstr+1);
 			if (printopt & (PRINT_KEY | PRINT_STATE)) printf(" ");
 		}
 
@@ -202,11 +212,73 @@ watcher(int fd, int printopt)
 		{
 			state = 0;
 			status = notify_get_state(tid, &state);
-#ifdef TIGER
-			if (status == NOTIFY_STATUS_OK) printf("%lu", (unsigned long)state);
-#else
 			if (status == NOTIFY_STATUS_OK) printf("%llu",(unsigned long long)state);
-#endif
+			else printf(": %s", notify_status_strerror(status));
+		}
+
+		if (printopt != PRINT_QUIET) printf("\n");
+
+		if ((tnmap[index].count != IndexNull) && (tnmap[index].count != 0)) tnmap[index].count--;
+		if (tnmap[index].count == 0)
+		{
+			status = notify_cancel(tid);
+			tnmap_delete(index);
+		}
+
+		if (tnmap_count == 0) return;
+	}
+}
+
+void 
+port_watcher(mach_port_t port, int printopt)
+{
+	struct timeval now;
+	char tstr[32];
+	int tid, index;
+	uint64_t state;
+	mach_msg_empty_rcv_t msg;
+	kern_return_t status;
+
+	if (port == MACH_PORT_NULL) return;
+
+	forever
+	{
+		memset(&now, 0, sizeof(now));
+		memset(&msg, 0, sizeof(msg));
+		status = mach_msg(&msg.header, MACH_RCV_MSG, 0, sizeof(msg), port, 0, MACH_PORT_NULL);
+		if (status != KERN_SUCCESS) return;
+		gettimeofday(&now, NULL);
+
+		tid = msg.header.msgh_id;
+		index = tnmap_find_token(tid);
+		if (index == IndexNull) continue;
+
+		if (printopt & PRINT_TIME)
+		{
+			memcpy(tstr, ctime(&(now.tv_sec)), 24);
+			tstr[24] = '\0';
+			printf("%s", tstr);
+			if (printopt & (PRINT_KEY | PRINT_STATE)) printf(" ");
+		}
+
+		if (printopt & PRINT_UTIME)
+		{
+			snprintf(tstr, sizeof(tstr), "%llu", now.tv_usec + USEC_PER_SEC);
+			printf("%d.%s", (int)now.tv_sec, tstr+1);
+			if (printopt & (PRINT_KEY | PRINT_STATE)) printf(" ");
+		}
+
+		if (printopt & PRINT_KEY)
+		{
+			printf("%s", tnmap[index].name);
+			if (printopt & PRINT_STATE) printf(" ");
+		}
+
+		if (printopt & PRINT_STATE)
+		{
+			state = 0;
+			status = notify_get_state(tid, &state);
+			if (status == NOTIFY_STATUS_OK) printf("%llu",(unsigned long long)state);
 			else printf(": %s", notify_status_strerror(status));
 		}
 
@@ -227,15 +299,16 @@ int
 main(int argc, const char *argv[])
 {
 	const char *name;
-	uint32_t i, n, index, flag, status;
+	char tstr[32];
+	uint32_t i, n, index, flag, use_mach, status, simple;
 	int watch_fd, printopt, tid;
-#ifdef TIGER
-	uint32_t state;
-#else
+	mach_port_t watch_port;
+	struct timeval now, then;
 	uint64_t state;
-#endif
 
+	use_mach = 1;
 	watch_fd = -1;
+	watch_port = MACH_PORT_NULL;
 	printopt = PRINT_KEY;
 	flag = 0;
 
@@ -250,6 +323,14 @@ main(int argc, const char *argv[])
 			usage(name);
 			exit(0);
 		}
+		else if (!strcmp(argv[i], "-m"))
+		{
+			use_mach = 1;
+		}
+		else if (!strcmp(argv[i], "-f"))
+		{
+			use_mach = 0;
+		}
 		else if (!strcmp(argv[i], "-q"))
 		{
 			printopt = PRINT_QUIET;
@@ -262,8 +343,28 @@ main(int argc, const char *argv[])
 		{
 			printopt |= PRINT_TIME;
 		}
-		else if (!strcmp(argv[i], "-p"))
+		else if (!strcmp(argv[i], "-T"))
 		{
+			printopt |= PRINT_UTIME;
+		}
+	}
+
+	if (printopt & PRINT_UTIME)
+	{
+		if (printopt & PRINT_TIME)
+		{
+			printf("Warning: \"-T\" overrides \"-t\" option\n");
+			printopt &= ~PRINT_TIME;
+		}
+	}
+
+	for (i = 1; i < argc; i++)
+	{
+		if ((!strcmp(argv[i], "-p")) || (!strcmp(argv[i], "-P")))
+		{
+			simple = 0;
+			if (argv[i][1] == 'P') simple = 1;
+
 			if ((i + 1) >= argc)
 			{
 				usage(name);
@@ -271,8 +372,23 @@ main(int argc, const char *argv[])
 			}
 
 			i++;
-			status = notify_post(argv[i]);
+			memset(&now, 0, sizeof(now));
+			memset(&then, 0, sizeof(then));
+			gettimeofday(&now, NULL);
+
+			status = NOTIFY_STATUS_OK;
+			if (simple == 0) status = notify_post(argv[i]);
+			else status = notify_simple_post(argv[i]);
+
+			gettimeofday(&then, NULL);
 			if (status != NOTIFY_STATUS_OK) printf("%s: %s\n", argv[i], notify_status_strerror(status));
+			if (printopt & PRINT_UTIME)
+			{
+				snprintf(tstr, sizeof(tstr), "%llu", now.tv_usec + USEC_PER_SEC);
+				printf("notify_post start %d.%s", (int)now.tv_sec, tstr+1);
+				snprintf(tstr, sizeof(tstr), "%llu", then.tv_usec + USEC_PER_SEC);
+				printf(" end %d.%s\n", (int)then.tv_sec, tstr+1);
+			}
 		}
 		else if ((argv[i][0] == '-') && ((argv[i][1] == 'w') || ((argv[i][1] >= '0') && (argv[i][1] <= '9'))))
 		{
@@ -295,7 +411,8 @@ main(int argc, const char *argv[])
 				continue;
 			}
 
-			status = notify_register_file_descriptor(argv[i], &watch_fd, flag, &tid);
+			if (use_mach == 1) status = notify_register_mach_port(argv[i], &watch_port, flag, &tid);
+			else status = notify_register_file_descriptor(argv[i], &watch_fd, flag, &tid);
 			flag = NOTIFY_REUSE;
 			if (status == NOTIFY_STATUS_OK) tnmap_add(tid, n, argv[i]);
 			else printf("%s: %s\n", argv[i], notify_status_strerror(status));
@@ -319,11 +436,7 @@ main(int argc, const char *argv[])
 				notify_cancel(tid);
 			}
 
-#ifdef TIGER
-			if (status == NOTIFY_STATUS_OK) printf("%s %lu\n", argv[i], (unsigned long)state);
-#else
 			if (status == NOTIFY_STATUS_OK) printf("%s %llu\n", argv[i], (unsigned long long)state);
-#endif
 			else printf("%s: %s\n", argv[i], notify_status_strerror(status));
 		}
 		else if (!strcmp(argv[i], "-s"))
@@ -339,11 +452,7 @@ main(int argc, const char *argv[])
 			status = notify_register_plain(argv[i], &tid);
 			if (status == NOTIFY_STATUS_OK)
 			{
-#ifdef TIGER
-				state = atoi(argv[i + 1]);
-#else
 				state = atoll(argv[i + 1]);
-#endif
 				status = notify_set_state(tid, state);
 				notify_cancel(tid);
 			}
@@ -353,7 +462,11 @@ main(int argc, const char *argv[])
 		}
 	}
 
-	if (tnmap_count > 0) watcher(watch_fd, printopt);
+	if (tnmap_count > 0) 
+	{
+		if (use_mach == 1) port_watcher(watch_port, printopt);
+		else file_watcher(watch_fd, printopt);
+	}
 
 	exit(0);
 }

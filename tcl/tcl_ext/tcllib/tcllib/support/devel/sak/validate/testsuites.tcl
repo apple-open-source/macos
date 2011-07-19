@@ -25,13 +25,13 @@ namespace eval ::sak::validate::testsuites {
 
 # ###
 
-proc ::sak::validate::testsuites {modules mode stem} {
-    testsuites::run $modules $mode $stem
+proc ::sak::validate::testsuites {modules mode stem tclv} {
+    testsuites::run $modules $mode $stem $tclv
     testsuites::summary
     return
 }
 
-proc ::sak::validate::testsuites::run {modules mode stem} {
+proc ::sak::validate::testsuites::run {modules mode stem tclv} {
     sak::feedback::init $mode $stem
     sak::feedback::first log  "\[ Testsuites \] =================================================="
     sak::feedback::first unc  "\[ Testsuites \] =================================================="

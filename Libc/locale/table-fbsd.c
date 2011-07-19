@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/27/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.28 2007/01/09 00:28:00 imp Exp $");
 
 #include "xlocale_private.h"
 
@@ -48,7 +44,7 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr E
 #include "mblocal.h"
 
 /* _DefaultRuneLocale is depreciated; _DefaultRuneXLocale is used instead */
-_RuneLocale _DefaultRuneLocale = {
+_RuneLocale _DefaultRuneLocale __attribute__((section("__DATA,__constrw"))) = {
     _RUNE_MAGIC_A,
     "NONE",
     NULL,
@@ -252,11 +248,12 @@ _RuneLocale _DefaultRuneLocale = {
     },
 };
 
-__private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale = {
+__private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale __attribute__((section("__DATA,__constrw"))) = {
     0,
     XPERMANENT,
     "C",
     1,
+    256,
     _none_mbrtowc,
     _none_mbsinit,
     _none_mbsnrtowcs,
@@ -469,5 +466,3 @@ __private_extern__ struct __xlocale_st_runelocale _DefaultRuneXLocale = {
 };
 
 _RuneLocale *_CurrentRuneLocale = &_DefaultRuneXLocale._CurrentRuneLocale;
-
-int __mb_cur_max = 1;

@@ -111,14 +111,14 @@ openpam_dispatch(pam_handle_t *pamh,
 			debug = (openpam_get_option(pamh, "debug") != NULL);
 			if (debug)
 				++_openpam_debug;
-			openpam_log(PAM_LOG_DEBUG, "calling %s() in %s",
+			openpam_log(PAM_LOG_LIBDEBUG, "calling %s() in %s",
 			    _pam_sm_func_name[primitive], chain->module->path);
 #endif
 			r = (chain->module->func[primitive])(pamh, flags,
 			    chain->optc, (const char **)chain->optv);
 			pamh->current = NULL;
 #ifdef DEBUG
-			openpam_log(PAM_LOG_DEBUG, "%s: %s(): %s",
+			openpam_log(PAM_LOG_LIBDEBUG, "%s: %s(): %s",
 			    chain->module->path, _pam_sm_func_name[primitive],
 			    pam_strerror(pamh, r));
 			if (debug)
@@ -136,6 +136,7 @@ openpam_dispatch(pam_handle_t *pamh,
 			 */
 			if ((chain->flag == PAM_SUFFICIENT ||
 			    chain->flag == PAM_BINDING) && !fail &&
+			    primitive != PAM_SM_SETCRED &&
 			    !(primitive == PAM_SM_CHAUTHTOK &&
 				(flags & PAM_PRELIM_CHECK)))
 				break;
@@ -153,7 +154,7 @@ openpam_dispatch(pam_handle_t *pamh,
 			err = r;
 		if ((chain->flag == PAM_REQUIRED ||
 		    chain->flag == PAM_BINDING) && !fail) {
-			openpam_log(PAM_LOG_DEBUG, "required module failed");
+			openpam_log(PAM_LOG_LIBDEBUG, "required module failed");
 			fail = 1;
 			err = r;
 		}
@@ -163,7 +164,7 @@ openpam_dispatch(pam_handle_t *pamh,
 		 * immediately.
 		 */
 		if (chain->flag == PAM_REQUISITE) {
-			openpam_log(PAM_LOG_DEBUG, "requisite module failed");
+			openpam_log(PAM_LOG_LIBDEBUG, "requisite module failed");
 			fail = 1;
 			break;
 		}
@@ -181,6 +182,7 @@ _openpam_check_error_code(int primitive, int r)
 	/* common error codes */
 	if (r == PAM_SUCCESS ||
 	    r == PAM_SERVICE_ERR ||
+	    r == PAM_SYSTEM_ERR ||
 	    r == PAM_BUF_ERR ||
 	    r == PAM_CONV_ERR ||
 	    r == PAM_PERM_DENIED ||
@@ -207,6 +209,7 @@ _openpam_check_error_code(int primitive, int r)
 	case PAM_SM_ACCT_MGMT:
 		if (r == PAM_USER_UNKNOWN ||
 		    r == PAM_AUTH_ERR ||
+		    r == PAM_AUTHTOK_EXPIRED ||
 		    r == PAM_NEW_AUTHTOK_REQD ||
 		    r == PAM_ACCT_EXPIRED)
 			return;
@@ -217,7 +220,7 @@ _openpam_check_error_code(int primitive, int r)
 			return;
 		break;
 	case PAM_SM_CHAUTHTOK:
-		if (r == PAM_PERM_DENIED ||
+		if (r == PAM_USER_UNKNOWN ||
 		    r == PAM_AUTHTOK_ERR ||
 		    r == PAM_AUTHTOK_RECOVERY_ERR ||
 		    r == PAM_AUTHTOK_LOCK_BUSY ||

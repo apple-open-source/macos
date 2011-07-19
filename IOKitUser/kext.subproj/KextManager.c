@@ -40,6 +40,11 @@
 #include "KextManagerPriv.h"
 #include "kextmanager_mig.h"
 
+/*********************************************************************
+* IMPORTANT: All calls in this module should be simple RPCs to kextd
+* or use the OSKext library *without* creating any OSKext objects.
+*********************************************************************/
+
 static kern_return_t get_kextd_port(mach_port_t *kextd_port); // internal convenience function
 
 /*********************************************************************
@@ -195,7 +200,7 @@ OSReturn KextManagerLoadKextWithIdentifier(
     CFStringRef    kextIdentifier,
     CFArrayRef     dependencyKextAndFolderURLs)
 {
-    OSReturn               result = kOSReturnError;
+    OSReturn               result      = kOSReturnError;
     CFMutableDictionaryRef requestDict = NULL;  // must release
 
     if (!kextIdentifier) {
@@ -267,6 +272,71 @@ finish:
     SAFE_RELEASE(absURL);
     SAFE_RELEASE(kextPath);
     return result;
+}
+
+/*********************************************************************
+*********************************************************************/
+OSReturn KextManagerUnloadKextWithIdentifier(
+    CFStringRef kextIdentifier)
+{
+    OSReturn      result           = kOSReturnError;
+    OSKextLogSpec oldUserLogSpec   = OSKextGetLogFilter(/* kernel? */ false);
+    OSKextLogSpec oldKernelLogSpec = OSKextGetLogFilter(/* kernel? */ true);
+
+    if (!kextIdentifier) {
+        result = kOSKextReturnInvalidArgument;
+        goto finish;
+    }
+
+    OSKextSetLogFilter(kOSKextLogSilentFilter, /* kernelFlag */ false);
+    OSKextSetLogFilter(kOSKextLogSilentFilter, /* kernelFlag */ true);
+
+    result = OSKextUnloadKextWithIdentifier(kextIdentifier,
+        /* terminateServicesAndRemovePersonalities */ TRUE);
+
+finish:
+
+    OSKextSetLogFilter(oldUserLogSpec, /* kernelFlag */ false);
+    OSKextSetLogFilter(oldKernelLogSpec, /* kernelFlag */ true);
+    return result;
+}
+
+/*********************************************************************
+* Use this applier function to strip out any info from the kernel
+* we don't want to expose in public API.
+*********************************************************************/
+void _removePrivateKextInfo(
+    const void * vKey __unused,
+    const void * vValue,
+          void * vContext __unused)
+{
+    CFMutableDictionaryRef kextInfo = (CFMutableDictionaryRef)vValue;
+    CFDictionaryRemoveValue(kextInfo, CFSTR("OSBundleMachOHeaders"));
+    return;
+}
+
+/*********************************************************************
+*********************************************************************/
+CFDictionaryRef KextManagerCopyLoadedKextInfo(
+    CFArrayRef  kextIdentifiers,
+    CFArrayRef  infoKeys)
+{
+    CFMutableDictionaryRef result     = NULL;
+    CFDictionaryRef        kextResult = NULL;  // must release
+
+    kextResult = OSKextCopyLoadedKextInfo(kextIdentifiers, infoKeys);
+    if (!kextResult) {
+        goto finish;
+    }
+
+   /* Copy and remove properties we don't want people to use.
+    */
+    result = CFDictionaryCreateMutableCopy(kCFAllocatorDefault, 0, kextResult);
+    CFDictionaryApplyFunction(result, &_removePrivateKextInfo, /* context */ NULL);
+
+finish:
+    SAFE_RELEASE(kextResult);
+    return (CFDictionaryRef)result;
 }
 
 /*********************************************************************

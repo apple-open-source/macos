@@ -1,0 +1,80 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+test_set "message" text:
+To: nico@frop.example.org
+From: stephan@example.org
+Subject: Test
+
+Test.
+.
+;
+
+test_mailbox_create "INBOX.VB";
+test_mailbox_create "INBOX.backup";
+
+test "Fileinto" {
+	if not test_script_compile "actions/fileinto.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_action :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of actions in result";
+	} 
+
+	if not test_result_action :index 1 "store" {
+		test_fail "first action is not 'store'";
+	} 
+
+	if not test_result_action :index 2 "store" {
+		test_fail "second action is not 'store'";
+	} 
+
+	if not test_result_action :index 3 "keep" {
+		test_fail "third action is not 'keep'";
+	} 
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+test "Redirect" {
+	if not test_script_compile "actions/redirect.sieve" {
+		test_fail "compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "execute failed";
+	}
+
+	if not test_result_action :count "eq" :comparator "i;ascii-numeric" "4" {
+		test_fail "wrong number of actions in result";
+	} 
+
+	if not test_result_action :index 1 "redirect" {
+		test_fail "first action is not 'redirect'";
+	} 
+
+	if not test_result_action :index 2 "keep" {
+		test_fail "second action is not 'keep'";
+	} 
+
+	if not test_result_action :index 3 "redirect" {
+		test_fail "third action is not 'redirect'";
+	} 
+
+	if not test_result_action :index 4 "redirect" {
+		test_fail "fourth action is not 'redirect'";
+	} 
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+

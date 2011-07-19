@@ -1,0 +1,31 @@
+require "vnd.dovecot.testsuite";
+require "environment";
+require "variables";
+
+test "Name" {
+	if not environment :contains "name" "pigeonhole" {
+		if environment :matches "name" "*" { set "env_name" "${1}"; }
+
+		test_fail "name environment returned invalid value(1): ${env_name}";
+	}
+
+	if not environment :contains "name" "sieve" {
+		if environment :matches "name" "*" { set "env_name" "${1}"; }
+
+		test_fail "name environment returned invalid value(2): ${env_name}";
+	}
+
+	if environment :contains "name" "cyrus" {
+		test_fail "something is definitely wrong here";
+	}
+
+	if not environment :is :comparator "i;octet" "name" "Pigeonhole Sieve" {
+		test_fail "name environment does not match exactly with what is expected";
+	}
+}
+
+test "Host" {
+	if not environment "host" "testsuite.example.com" {
+		test_fail "wrong testsuite hostname";
+	}
+}

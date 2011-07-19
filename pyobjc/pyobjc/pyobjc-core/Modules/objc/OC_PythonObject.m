@@ -103,7 +103,7 @@ PyObject* PyObjC_CopyFunc = NULL;
  
 	if (PyUnicode_Check(argument)) {
 		rval = [OC_PythonUnicode
-			newWithPythonObject:argument];
+			unicodeWithPythonObject:argument];
 		if (rval) {
 			PyObjC_RegisterObjCProxy(argument, rval);
 			r = 0;
@@ -123,31 +123,34 @@ PyObject* PyObjC_CopyFunc = NULL;
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
 
+#if PY_MAJOR_VERSION == 2
 	} else if (PyInt_Check (argument)) {
-		rval = [OC_PythonNumber newWithPythonObject:argument]; 
+		rval = [OC_PythonNumber numberWithPythonObject:argument]; 
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
+#endif
 
 	} else if (PyFloat_Check (argument)) {
-		rval = [OC_PythonNumber newWithPythonObject:argument]; 
+		rval = [OC_PythonNumber numberWithPythonObject:argument]; 
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
 
 	} else if (PyLong_Check(argument)) {
-		rval = [OC_PythonNumber newWithPythonObject:argument]; 
+		rval = [OC_PythonNumber numberWithPythonObject:argument]; 
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
 
 	} else if (PyList_Check(argument) || PyTuple_Check(argument)) {
 		rval = [OC_PythonArray 
-			newWithPythonObject:argument];
+			arrayWithPythonObject:argument];
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
 	} else if (PyDict_Check(argument)) {
 		rval = [OC_PythonDictionary 
-			newWithPythonObject:argument];
+			dictionaryWithPythonObject:argument];
 		PyObjC_RegisterObjCProxy(argument, rval);
 		r = 0;
+#if PY_MAJOR_VERSION == 2
 	} else if (PyString_Check(argument)) {
 		r = 0;
 		if (PyObjC_StrBridgeEnabled == 0) {
@@ -158,7 +161,7 @@ PyObject* PyObjC_CopyFunc = NULL;
 		}
 		if (r == 0) {
 			rval = [OC_PythonString
-				newWithPythonObject:argument];
+				stringWithPythonObject:argument];
 			if (rval) {
 				PyObjC_RegisterObjCProxy(argument, rval);
 				r = 0;
@@ -166,9 +169,10 @@ PyObject* PyObjC_CopyFunc = NULL;
 				r = -1;
 			}
 		}
+#endif /* ! Python3 */
 	} else if (PyObject_CheckReadBuffer(argument)) {
 		rval = [OC_PythonData
-			newWithPythonObject:argument];
+			dataWithPythonObject:argument];
 		if (rval) {
 			PyObjC_RegisterObjCProxy(argument, rval);
 			r = 0;
@@ -177,7 +181,7 @@ PyObject* PyObjC_CopyFunc = NULL;
 		}
 
 	} else if (PyAnySet_Check(argument)) {
-		rval = [OC_PythonSet newWithPythonObject:argument];
+		rval = [OC_PythonSet setWithPythonObject:argument];
 		if (rval) {
 			PyObjC_RegisterObjCProxy(argument, rval);
 			r = 0;
@@ -191,7 +195,7 @@ PyObject* PyObjC_CopyFunc = NULL;
 	} else {
 		PyObjC_DURING
 			rval = [OC_PythonObject 
-				newWithCoercedObject:argument];
+				objectWithCoercedObject:argument];
 
 			r = 0;
 
@@ -208,7 +212,7 @@ end:
 	return r;
 }
 
-+ newWithObject:(PyObject *) obj
++ objectWithPythonObject:(PyObject *) obj
 {
 	id instance;
 	if (likely(PyObjCObject_Check(obj))) {
@@ -220,7 +224,7 @@ end:
 	return instance;
 }
 
-+ newWithCoercedObject:(PyObject *)obj
++ objectWithCoercedObject:(PyObject *)obj
 {
 	id instance;
 	PyObjC_BEGIN_WITH_GIL
@@ -347,7 +351,7 @@ end:
 		Py_INCREF(obj);
 		return obj;
 	}
-	PyObject *typeString = PyString_FromStringAndSize(type, length);
+	PyObject *typeString = PyText_FromStringAndSize(type, length);
 	if (type == NULL) {
 		return NULL;
 	}
@@ -444,6 +448,8 @@ end:
 	PyObjC_BEGIN_WITH_GIL
 
 		repr = PyObject_Repr (pyObject);
+
+#if PY_MAJOR_VERSION == 2
 		if (repr) {
 			int err;
 			NSString* result;
@@ -464,6 +470,22 @@ end:
 		} else {
 			PyObjC_GIL_FORWARD_EXC();
 		}
+#else
+		if (repr) {
+			int err;
+			NSString* result;
+
+			err = depythonify_c_value (@encode(id), repr, &result);
+			Py_DECREF(repr);
+			if (err == -1) {
+				PyObjC_GIL_FORWARD_EXC();
+			}
+
+			PyObjC_GIL_RETURN(result);
+		} else {
+			PyObjC_GIL_FORWARD_EXC();
+		}
+#endif
 
 	PyObjC_END_WITH_GIL
 	
@@ -965,7 +987,7 @@ getModuleFunction(char* modname, char* funcname)
 	PyObject* name;
 	PyObject* mod;
 
-	name = PyString_FromString(modname);
+	name = PyText_FromString(modname);
 	if (name == NULL) {
 		return NULL;
 	}
@@ -1208,16 +1230,16 @@ static  PyObject* setKeyFunc = NULL;
 #endif
 
 /* NSObject protocol */
-- (unsigned)hash
+- (NSUInteger)hash
 {
     PyObjC_BEGIN_WITH_GIL
         int rval;
         rval = PyObject_Hash([self pyObject]);
         if (rval == -1) {
             PyErr_Clear();
-            rval = (unsigned)[self pyObject];
+            rval = (NSUInteger)[self pyObject];
         }
-        PyObjC_GIL_RETURN((unsigned)rval);
+        PyObjC_GIL_RETURN((NSUInteger)rval);
     PyObjC_END_WITH_GIL
 }
 
@@ -1432,16 +1454,63 @@ static  PyObject* setKeyFunc = NULL;
  * This is needed to be able to add a python object to a
  * NSArray and then use array.description()
  */
+-(BOOL)isNSArray__
+{
+	        return NO;
+}
+-(BOOL)isNSDictionary__
+{
+	        return NO;
+}
+-(BOOL)isNSSet__
+{
+	        return NO;
+}
+-(BOOL)isNSNumber__
+{
+	        return NO;
+}
+-(BOOL)isNSData__
+{
+	        return NO;
+}
+-(BOOL)isNSDate__
+{
+	        return NO;
+}
 -(BOOL)isNSString__
 {
-	return NO;
+	        return NO;
 }
+-(BOOL)isNSValue__
+{
+	        return NO;
+}
+
 
 +classFallbacksForKeyedArchiver
 {
 	return nil;
 }
 
+
+/*
+ * Fake implementation for _cfTypeID, which gets called by
+ * system frameworks on some occassions.
+ */
+static BOOL haveTypeID = NO;
+static CFTypeID _NSObjectTypeID;
+
+-(CFTypeID)_cfTypeID
+{
+	if (haveTypeID) {
+		NSObject* obj = [[NSObject alloc] init];
+		_NSObjectTypeID = CFGetTypeID((CFTypeRef)obj);
+		[obj release];
+		haveTypeID = YES;
+	}
+	return _NSObjectTypeID;
+}
 
 
 @end /* OC_PythonObject class implementation */

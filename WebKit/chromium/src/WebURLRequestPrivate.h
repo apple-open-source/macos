@@ -37,7 +37,9 @@ namespace WebKit {
 
 class WebURLRequestPrivate {
 public:
-    WebURLRequestPrivate() : m_resourceRequest(0), m_allowStoredCredentials(true) { }
+    WebURLRequestPrivate()
+        : m_resourceRequest(0)
+        , m_allowStoredCredentials(true) { }
 
     // Called by WebURLRequest when it no longer needs this object.
     virtual void dispose() = 0;

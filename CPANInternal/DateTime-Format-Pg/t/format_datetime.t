@@ -1,4 +1,4 @@
-# $Id: format_datetime.t,v 1.4 2005/09/02 21:38:59 lestrrat Exp $
+# $Id: format_datetime.t 3645 2007-03-23 03:01:42Z lestrrat $
 use Test::More tests => 11;
 use DateTime 0.10;
 use DateTime::TimeZone;
@@ -78,21 +78,21 @@ foreach my $result (keys %tests) {
 
 is(
     DateTime::Format::Pg->format_datetime(DateTime::Infinite::Future->new),
-    'infinite'
+    'infinity'
 );
 
 is(
     DateTime::Format::Pg->format_timestamp(DateTime::Infinite::Future->new),
-    'infinite'
+    'infinity'
 );
 
 is(
     DateTime::Format::Pg->format_datetime(DateTime::Infinite::Past->new),
-    '-infinite'
+    '-infinity'
 );
 
 is(
     DateTime::Format::Pg->format_timestamp(DateTime::Infinite::Past->new),
-    '-infinite'
+    '-infinity'
 );
 

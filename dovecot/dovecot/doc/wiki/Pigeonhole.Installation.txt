@@ -1,0 +1,55 @@
+Pigeonhole Installation
+=======================
+
+Getting the sources
+-------------------
+
+You can download the latest released sources from the Pigeonhole download page
+[http://pigeonhole.dovecot.org/download.html].
+
+Alternatively, you can get the sources, including the most recent unreleased
+changes, from the the Mercurial repository:
+
+---%<-------------------------------------------------------------------------
+hg clone http://hg.rename-it.nl/dovecot-2.0-pigeonhole
+---%<-------------------------------------------------------------------------
+
+Compiling
+---------
+
+If you downloaded the sources using Mercurial, you will need to execute
+'./autogen.sh' first to build the automake structure in your source tree. This
+process requires autotools and libtool to be installed.
+
+If you installed Dovecot from sources, Pigeonhole's configure script should be
+able to find the installed 'dovecot-config' automatically:
+
+---%<-------------------------------------------------------------------------
+./configure
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+If this doesn't work, you can use '--with-dovecot=<path>' configure option,
+where the path points to a directory containing 'dovecot-config' file. This can
+point to an installed file:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=/usr/local/lib/dovecot
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+or to Dovecot source directory that is already compiled:
+
+---%<-------------------------------------------------------------------------
+./configure --with-dovecot=../dovecot-2.0.0/
+make
+sudo make install
+---%<-------------------------------------------------------------------------
+
+*IMPORTANT*: You need to recompile Pigeonhole when you upgrade Dovecot to a new
+version, because otherwise the Sieve interpreter plugin will fail to load with
+a version error.
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -30,8 +30,11 @@
 
 #include "config.h"
 
-#if ENABLE(RUBY)
 #include "RenderRubyBase.h"
+#include "RenderRubyRun.h"
+#include "RenderRubyText.h"
+
+using namespace std;
 
 namespace WebCore {
 
@@ -103,8 +106,7 @@ void RenderRubyBase::moveInlineChildren(RenderRubyBase* toBase, RenderObject* fr
         }
     }
     // Move our inline children into the target block we determined above.
-    for (RenderObject* child = firstChild(); child != fromBeforeChild; child = firstChild())
-        moveChildTo(toBlock, toBlock->children(), child);
+    moveChildrenTo(toBlock, firstChild(), fromBeforeChild);
 }
 
 void RenderRubyBase::moveBlockChildren(RenderRubyBase* toBase, RenderObject* fromBeforeChild)
@@ -118,13 +120,13 @@ void RenderRubyBase::moveBlockChildren(RenderRubyBase* toBase, RenderObject* fro
                 if (child->isAnonymousBlock()) {
                     RenderBlock* anonBlock = toRenderBlock(child);
                     ASSERT(anonBlock->childrenInline());
-                    ASSERT(!anonBlock->inlineContinuation());
+                    ASSERT(!anonBlock->inlineElementContinuation());
                     anonBlock->moveAllChildrenTo(toBase, toBase->children());
                     anonBlock->deleteLineBoxTree();
                     anonBlock->destroy();
                 } else {
                     ASSERT(child->isFloatingOrPositioned());
-                    moveChildTo(toBase, toBase->children(), child);
+                    moveChildTo(toBase, child);
                 }
             }
         } else {
@@ -145,9 +147,9 @@ void RenderRubyBase::moveBlockChildren(RenderRubyBase* toBase, RenderObject* fro
 
                     RenderBlock* anonBlock = toRenderBlock(child);
                     ASSERT(anonBlock->childrenInline());
-                    ASSERT(!anonBlock->inlineContinuation());
+                    ASSERT(!anonBlock->inlineElementContinuation());
                     // Move inline children out of anonymous block.
-                    anonBlock->moveAllChildrenTo(this, children(), anonBlock);
+                    anonBlock->moveAllChildrenTo(this, anonBlock);
                     anonBlock->deleteLineBoxTree();
                     anonBlock->destroy();
                 }
@@ -181,10 +183,33 @@ void RenderRubyBase::mergeBlockChildren(RenderRubyBase* toBase, RenderObject* fr
         anonBlockHere->destroy();
     }
     // Move all remaining children normally.
-    for (RenderObject* child = firstChild(); child != fromBeforeChild; child = firstChild())
-        moveChildTo(toBase, toBase->children(), child);
+    moveChildrenTo(toBase, firstChild(), fromBeforeChild);
+}
+
+RenderRubyRun* RenderRubyBase::rubyRun() const
+{
+    ASSERT(parent());
+    ASSERT(parent()->isRubyRun());
+
+    return static_cast<RenderRubyRun*>(parent());
+}
+
+ETextAlign RenderRubyBase::textAlignmentForLine(bool /* endsWithSoftBreak */) const
+{
+    return JUSTIFY;
+}
+
+void RenderRubyBase::adjustInlineDirectionLineBounds(int expansionOpportunityCount, float& logicalLeft, float& logicalWidth) const
+{
+    int maxPreferredLogicalWidth = this->maxPreferredLogicalWidth();
+    if (maxPreferredLogicalWidth >= logicalWidth)
+        return;
+
+    // Inset the ruby base by half the inter-ideograph expansion amount.
+    float inset = (logicalWidth - maxPreferredLogicalWidth) / (expansionOpportunityCount + 1);
+
+    logicalLeft += inset / 2;
+    logicalWidth -= inset;
 }
 
 } // namespace WebCore
-
-#endif // ENABLE(RUBY)

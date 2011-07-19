@@ -1,6 +1,7 @@
 [manpage_begin textutil::trim n 0.7]
 [moddesc   {Text and string utilities, macro processing}]
 [titledesc {Procedures to trim strings}]
+[category  {Text processing}]
 [require Tcl 8.2]
 [require textutil::trim [opt 0.7]]
 [description]

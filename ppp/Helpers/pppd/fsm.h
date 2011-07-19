@@ -64,6 +64,9 @@
  * $Id: fsm.h,v 1.6 2004/11/19 17:52:19 lindak Exp $
  */
 
+#ifndef __FSM_H__
+#define __FSM_H__
+
 /*
  * Packet header = Code, id, length.
  */
@@ -195,3 +198,5 @@ void fsm_sdata __P((fsm *, int, int, u_char *, int));
  * Variables
  */
 extern int peer_mru[];		/* currently negotiated peer MRU (per unit) */
+
+#endif /* __FSM_H__ */

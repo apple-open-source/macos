@@ -69,9 +69,16 @@ DragImageRef createDragImageForSelection(Frame* frame)
 {
     DragImageRef image = frame->dragImageForSelection();
     if (image)
-        dissolveDragImageToFraction(image, DragController::DragImageAlpha);
+        image = dissolveDragImageToFraction(image, DragController::DragImageAlpha);
     return image;
 }
+
+#if !PLATFORM(MAC) && (!PLATFORM(WIN) || OS(WINCE))
+DragImageRef createDragImageForLink(KURL&, const String&, Frame*)
+{
+    return 0;
+}
+#endif
 
 } // namespace WebCore
 

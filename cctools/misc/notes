@@ -9,6 +9,164 @@ To Do:
   could have been set otherwise and does not print the next line.
 - Maybe add fat support for segedit(1)
 
+Changes for the 5.28 release (the cctools-798 release):
+- Added this line to the Makefile:
+    CXX = $(shell xcrun -find -sdk $(SDKROOT) g++)
+  so that it uses the appropriate tool to link device-side code.  Radar bug
+  #8684965.
+
+Changes for the 5.28 release (the cctools-797 release):
+- Added support for LC_DYLD_ENVIRONMENT in segedit.c .  Radar bug #8653976.
+
+Changes for the 5.28 release (the cctools-796 release):
+- Added checks in strings(1) to better protect against crashes if it is handed
+  a malformed file.  Radar bug #8599283.
+- Added the -arch option to pagestuff(1).  Radar bug #8379048.
+
+Changes for the 5.28 release (the cctools-795 release):
+- Changed ctf_insert(1) to allow the LC_FUNCTION_STARTS load command.  The
+  change was in ctf_insert() in ctf_insert.c to remove the test for
+  object->func_starts_info_cmd != NULL .  Radar bug #8490836.
+
+Changes for the 5.28 release (the cctools-793 release):
+- Fixed a problem in nm(1) not checking that a symbol is not undefined before
+  checking that is a [symbol resolver] symbol.  Radar bug #8429570.
+
+Changes for the 5.28 release (the cctools-792 release):
+- Fixed more problems with incorrect support for LC_FUNCTION_STARTS.  There were
+  missing output_func_start_info_data and output_func_start_info_data_size
+  fields in the struct object that should have been used.  Updated the code in
+  codesign_allocate.c, indr.c, inout.c, install_name_tool.c, redo_prebinding.c
+  and strip.c which was incorrectly using output_split_info_data and
+  output_split_info_data_size two use the new fields.  Radar bug #8401082. 
+
+Changes for the 5.28 release (the cctools-790 release):
+- Fixed problems with the incorrect support for LC_FUNCTION_STARTS.  Radar bug
+  #8274584.
+  - Updated setup_code_signature() and setup_code_signature() in
+    codesign_allocate.c .
+  - Updated ctf_insert() in ctf_insert.c to treat objects with function starts
+    info as an error and not allowed for static binaries.
+  - Updated translate_dylib() in indr.c .
+  - Updated setup_object_symbolic_info() in inout.c .
+  - Updated setup_object_symbolic_info() and update_load_commands() in
+    install_name_tool.c .
+  - Updated build_new_symbol_table() in and update_load_commands() in
+    redo_prebinding.c .
+  - Updated strip_object(), strip_LC_UUID_commands() and
+    strip_LC_CODE_SIGNATURE_commands() in strip.c
+
+Changes for the 5.28 release (the cctools-787 release):
+- Changed libtool(1) and added testing the environment variable ZERO_AR_DATE to
+  set the ar date to zero to allow testing and comparing things for exact binary
+  equality.  Radar bug #7919021.
+- Changed lipo(1) to attempt to stop a crash if the file can't be paged in after
+  it has been successfully mapped.  Added a second fstat(2) call in 
+  process_input_file(1) just before the first bytes of the mapped file are
+  referenced, and then checked that it has the same size and mod time of the
+  first stat.  Radar bug #8087586.
+- Added support in nm(1) for symbols marked with N_SYMBOL_RESOLVER so that they
+  are printed with [symbol resolver].  This change is in print_mach_symbols()
+  in nm.c .  Radar bug #7901954.
+
+Changes for the 5.28 release (the cctools-784 release):
+- Fixed the -arch_only flag in libtool(1) for arm so that each subtype is
+  treated as separate architecture. Radar bug #7864127.
+
+Changes for the 5.28 release (the cctools-782 release):
+- Added the -U option to nm(1) to not print undefined symbols. Radar bug
+  #7761111.
+- Changed nm(1)'s -m printing to support 'weak symbol automatically hidden' in
+  print_mach_symbols() in nm.c.  Radar bug #5021217.
+
+Changes for the 5.28 release (the cctools-781 release):
+- Changed codesign_allocate(1) to allow it to be used on any Mach-O file.
+  Radar bug #7689781.
+- Added the program ctf_insert(1) to add a (__CTF,__ctf) section to a statically
+  linked Mach-O file.  Radar bug #7016839.
+- Added support for LC_LOAD_UPWARD_DYLIB in update_load_commands() in
+  install_name_tool.c, in nm() in nm.c and in replace_sections() in segedit.c .
+  Radar bug #7659206.
+
+Changes for the 5.28 release (the cctools-780 release):
+- Changed trunc() to trnc() in libtool.c and removed -fno-builtin-trunc from the
+  Makefile.
+- Improved the error checking in the redo_prebinding code so that
+  contents_pointer_for_vmaddr() checks to make sure the pointer is not in the
+  object's headers or link edit information.  Radar bug #6081358.
+
+Changes for the 5.28 release (the cctools-779 release):
+- Fixed bugs in install_name_tool.c in parsing -change and -rpath. Radar bug
+  #7477104.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() and stuff/round.h to stuff/rnd.h in all files and
+  removed -fno-builtin-round from the Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+- Change contents_pointer_for_vmaddr() in redo_prebinding.c to ignore segments
+  with a zero vmaddr since these are unmapped segments.  Radar bug #7467115.
+
+Changes for the 5.28 release (the cctools-776 release):
+- Improved the error checking in the redo_prebinding code so that
+  contents_pointer_for_vmaddr() checks to make sure the pointer is in the
+  section's contents of the segment.  Checks also added to libstuff's
+  check_Mach_O() in ofile.c to make sure that sections are contained in
+  their segments.  Radar bug #6081358.
+
+Changes for the 5.27 release (the cctools-773 release):
+- Fixed a typo in two lipo(1) error messages where "it's" should have been
+  "its".  Radar bug 7362293.
+
+Changes for the 5.27 release (the cctools-772 release):
+- Fixed a bug in lipo(1) with the -extract option in main() in the loop that
+  was removing those thin files not marked for extraction where the inner loop
+  was looping once to many times.  Radar bug #7255585.
+
+Changes for the 5.27 release (the cctools-768 release):
+- Fixed a bug in checksyms() that was not verifying read-only-relocs in 64-bit
+  binaries.  The routine check_dynamic_binary() had a typo where LC_SEGMENT
+  should have been LC_SEGMENT_64.  Also changed checksyms() to not call
+  check_dynamic_binary() if the filetype is MH_KEXT_BUNDLE.  Radar bug #7236271.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-760 release):
+- Changed the lipo(1) so the the armv7 stuff is a no longer
+  #ifndef __OPEN_SOURCE__ Radar bug #7016121.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed check_dynamic_binary() in checksyms.c to allow read-only relocs in
+  CPU_TYPE_ARM files in any segment with a section name of "__symbol_stub" or
+  "__stub_helper" or section type of S_SYMBOL_STUBS.  Radar bug #6958263.
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.27 release (the cctools-757 release):
+- Fixed problems with pagestuff.c that caused it to crash when run on 64-bit
+  Mach-O files. Radar bug #6871695.
+
+Changes for the 5.27 release (the cctools-756 release):
+- Changed libtool.c, redo_prebinding.c and strip.c to prefix the commands they
+  run with the path to the executable.  Radar bug #6821441.
+
+Changes for the 5.27 release (the cctools-753 release):
+- Fixed a warning about 'inew_nextdefsym' defined but not used by adding an
+  #if defined(TRIE_SUPPORT) && !defined(NMEDIT) around the definition and
+  #ifdef TRIE_SUPPORT around the use.
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248, 6765807 and 6756912.
+  - Fixed two if() statements at the edit_symtab() in strip.c that incorrectly
+    had ';' after them.
+  - Fixed warnings about extra tokens at end of #endif directive in lipo.c
+    by putting them in a comment.
+
+Changes for the 5.27 release (the cctools-751 release):
+- Fixed a typo in the usage message of install_name_tool(1) where it was using
+  -rpaths that should have been -rpath.  Radar bug #6707169.
+
 Changes for the 5.26 release (the cctools-750 release):
 - Fixed problems with libtool(1) if it is run on an archive with llvm bit code
   files. Radar bug #6654890.

@@ -1,3 +1,24 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-12-03  Andreas Kupries  <andreask@activestate.com>
+
+	* tar.man: [Patch 2840147]. Applied. New options -prefix and
+	* tar.tcl: -quick for tar::add. -prefix allows specifying a
+	* tar.pcx: prefix for filenames in the archive, and -quick 1
+	* pkgIndex.tcl: changes back to the seek-from-end algorithm for
+	  finding the place where to add the new files. The new default
+	  scans from start (robust). Bumped version to 0.6.
+
+2009-05-12  Aaron Faupell  <afaupell@users.sourceforge.net>
+
+	* tar.tcl: add support for reading pre-posix archives.
+	  if a file isnt writable when extracting, try deleting
+	  before giving up.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

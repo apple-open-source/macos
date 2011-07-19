@@ -1,0 +1,26 @@
+---
+author:
+  - 'Ricardo SIGNES <rjbs@cpan.org>'
+build_requires:
+  ExtUtils::MakeMaker: 6.42
+configure_requires:
+  ExtUtils::MakeMaker: 6.42
+distribution_type: module
+generated_by: 'Module::Install version 0.92'
+license: perl
+meta-spec:
+  url: http://module-build.sourceforge.net/META-spec-v1.4.html
+  version: 1.4
+name: Data-OptList
+no_index:
+  directory:
+    - inc
+    - t
+requires:
+  List::Util: 0
+  Params::Util: 0.14
+  Sub::Install: 0.921
+resources:
+  license: http://dev.perl.org/licenses/
+  repository: http://github.com/rjbs/data-optlist
+version: 0.106

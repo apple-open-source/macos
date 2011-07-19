@@ -37,6 +37,14 @@
    */
 #undef HAVE_DCGETTEXT
 
+/* Define to 1 if you have the declaration of `getenv', and to 0 if you don't.
+   */
+#undef HAVE_DECL_GETENV
+
+/* Define to 1 if you have the declaration of `h_errno', and to 0 if you
+   don't. */
+#undef HAVE_DECL_H_ERRNO
+
 /* Define to 1 if you have the declaration of `strerror', and to 0 if you
    don't. */
 #undef HAVE_DECL_STRERROR
@@ -101,6 +109,9 @@
 /* Define to 1 if you have the `crypt' library (-lcrypt). */
 #undef HAVE_LIBCRYPT
 
+/* Define to 1 if you have the `crypto' library (-lcrypto). */
+#undef HAVE_LIBCRYPTO
+
 /* Define to 1 if you have the `inet' library (-linet). */
 #undef HAVE_LIBINET
 
@@ -113,9 +124,6 @@
 /* Define to 1 if you have the `opie' library (-lopie). */
 #undef HAVE_LIBOPIE
 
-/* Define to 1 if you have the `rsaref' library (-lrsaref). */
-#undef HAVE_LIBRSAREF
-
 /* Define to 1 if you have the `socket' library (-lsocket). */
 #undef HAVE_LIBSOCKET
 
@@ -125,8 +133,8 @@
 /* Define to 1 if you have the `socks5' library (-lsocks5). */
 #undef HAVE_LIBSOCKS5
 
-/* Define to 1 if you have the `ssl' library (-lssl). */
-#undef HAVE_LIBSSL
+/* Define to 1 if you have the <md5.h> header file. */
+#undef HAVE_MD5_H
 
 /* Define to 1 if you have the `memmove' function. */
 #undef HAVE_MEMMOVE
@@ -325,6 +333,9 @@
 
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
+
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
 
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION

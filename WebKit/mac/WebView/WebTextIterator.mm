@@ -49,9 +49,7 @@ using namespace WebCore;
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 @end
@@ -71,7 +69,7 @@ using namespace WebCore;
         return self;
     
     _private = [[WebTextIteratorPrivate alloc] init];
-    _private->_textIterator.set(new TextIterator(core(range)));
+    _private->_textIterator = adoptPtr(new TextIterator(core(range)));
     return self;
 }
 

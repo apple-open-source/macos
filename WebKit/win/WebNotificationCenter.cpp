@@ -28,16 +28,15 @@
 #include "WebNotificationCenter.h"
 
 #include "WebNotification.h"
-#pragma warning(push, 0)
 #include <WebCore/COMPtr.h>
 #include <WebCore/PlatformString.h>
-#include <WebCore/StringHash.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashTraits.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
-#pragma warning(pop)
-#include <tchar.h>
+#include <wtf/text/StringHash.h>
 #include <utility>
+#include <wchar.h>
 
 using namespace WebCore;
 
@@ -56,7 +55,7 @@ IWebNotificationCenter* WebNotificationCenter::m_defaultCenter = 0;
 
 WebNotificationCenter::WebNotificationCenter()
     : m_refCount(0)
-    , d(new WebNotificationCenterPrivate)
+    , d(adoptPtr(new WebNotificationCenterPrivate))
 {
     gClassCount++;
     gClassNameCount.add("WebNotificationCenter");

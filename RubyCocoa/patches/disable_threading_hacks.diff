@@ -1,20 +1,33 @@
---- framework/src/objc/RBRuntime.m.orig	2008-04-01 13:07:26.000000000 -0700
-+++ framework/src/objc/RBRuntime.m	2008-04-01 13:07:59.000000000 -0700
-@@ -906,12 +906,17 @@
+Index: framework/src/objc/RBRuntime.m
+===================================================================
+--- framework/src/objc/RBRuntime.m	(revision 2293)
++++ framework/src/objc/RBRuntime.m	(working copy)
+@@ -507,10 +507,12 @@
+    will still load without thread switching hooks support in the ruby 
+    interpreter.
+ */
++#if 0
+ extern void *rb_add_threadswitch_hook(rb_threadswitch_hook_func_t func) 
+   __attribute__ ((weak_import));
+ extern void rb_remove_threadswitch_hook(void *handle) 
+   __attribute__ ((weak_import));
++#endif
+ 
+ /* Cached values for direct call to +[NSThread currentThread] (not clear if 
+    this is a significant performance improvement) */
+@@ -909,6 +911,7 @@
  
  static void RBCocoaInstallRubyThreadSchedulerHooks()
  {
-+#if MAC_OS_X_VERSION_MAX_ALLOWED >= MAC_OS_X_VERSION_10_6
-+  /* The threading support is not implemented yet in 10.6. */
-+  return;
-+#else
-   if (getenv("RUBYCOCOA_THREAD_HOOK_DISABLE") != NULL) {
-     if (rb_cocoa_thread_debug) {
-       NSLog(@"RBCocoaInstallRubyThreadSchedulerHooks: warning: disabled hooks due to RUBYCOCOA_THREAD_HOOK_DISABLE environment variable");
-     }
-     return;
-   }
++#if 0
+   SInt32 version;
+   if (Gestalt(gestaltSystemVersion, &version) == noErr) {
+     if (version >= 0x1060) {
+@@ -990,6 +993,7 @@
+ 
+   DLOG("Thread hooks done, main Ruby thread is %p\n", 
+     (void *)rb_thread_current());
 +#endif
-   
-   rb_cocoa_thread_debug = getenv("RUBYCOCOA_THREAD_DEBUG") != NULL;
-   
+ }
+ 
+ @interface RBRuntime : NSObject

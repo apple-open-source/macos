@@ -54,7 +54,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/ttyname.c,v 1.16 2004/01/06 18:26:14 nectar
 #include "libc_private.h"
 
 #ifndef BUILDING_VARIANT
-static char buf[sizeof(_PATH_DEV) + MAXNAMLEN];
+static pthread_once_t ttyname_buf_control = PTHREAD_ONCE_INIT;
+static char *buf = NULL;
 static char *ttyname_threaded(int fd);
 static char *ttyname_unthreaded(int fd);
 
@@ -114,7 +115,7 @@ ttyname_r(int fd, char *thrbuf, size_t len)
 	}
 #endif /* __DARWIN_UNIX03 */
 
-	strcpy(thrbuf, _PATH_DEV);
+	strlcpy(thrbuf, _PATH_DEV, len);
 	if (devname_r(sb.st_rdev, S_IFCHR,
 	    thrbuf + strlen(thrbuf), len - strlen(thrbuf)) == NULL)
 #if __DARWIN_UNIX03
@@ -171,6 +172,12 @@ ttyname_threaded(int fd)
 #endif /* __DARWIN_UNIX03 */
 }
 
+static void
+ttyname_buf_allocate(void)
+{
+	buf = malloc(sizeof(_PATH_DEV) + MAXNAMLEN);
+}
+
 static char *
 ttyname_unthreaded(int fd)
 {
@@ -188,9 +195,15 @@ ttyname_unthreaded(int fd)
 		return (NULL);
 	}
 
-	strcpy(buf, _PATH_DEV);
+	if (pthread_once(&ttyname_buf_control, ttyname_buf_allocate)
+		|| !buf) {
+		errno = ENOMEM;
+		return (NULL);
+	}
+
+	strlcpy(buf, _PATH_DEV, sizeof(_PATH_DEV) + MAXNAMLEN);
 	if (devname_r(sb.st_rdev, S_IFCHR,
-	    buf + strlen(buf), sizeof(buf) - strlen(buf)) == NULL) {
+		buf + strlen(buf), sizeof(_PATH_DEV) + MAXNAMLEN - strlen(buf)) == NULL) {
 		errno = ERANGE;
 		return (NULL);
 	}

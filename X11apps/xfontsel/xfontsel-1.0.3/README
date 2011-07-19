@@ -1,0 +1,27 @@
+xfontsel application provides a simple way to display the X11 core
+protocol fonts known to your X server, examine samples of each, and
+retrieve the X Logical Font Description ("XLFD") full name for a font.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xfontsel
+
+        http://cgit.freedesktop.org/xorg/app/xfontsel
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  byrefcopyint.c
  *  testObjects
  *
@@ -15,16 +21,16 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
+// TEST_CONFIG
+
 // Tests copying of blocks with byref ints
-// CONFIG rdar://6414583 -C99
+// rdar://6414583
 
 #include <stdio.h>
 #include <string.h>
 #include <Block.h>
 #include <Block_private.h>
-
-
-
+#include "test.h"
 
 typedef void (^voidVoid)(void);
 
@@ -36,7 +42,7 @@ void callVoidVoid(voidVoid closure) {
 
 
 voidVoid testRoutine(const char *whoami) {
-    __block int  dumbo = strlen(whoami);
+    __block size_t dumbo = strlen(whoami);
     dummy = ^{
         //printf("incring dumbo from %d\n", dumbo);
         ++dumbo;
@@ -49,7 +55,7 @@ voidVoid testRoutine(const char *whoami) {
     return copy;
 }
 
-int main(int argc, char *argv[]) {
+int main(int argc __unused, char *argv[]) {
     voidVoid array[100];
     for (int i = 0; i <  100; ++i) {
         array[i] = testRoutine(argv[0]);
@@ -59,7 +65,5 @@ int main(int argc, char *argv[]) {
         Block_release(array[i]);
     }
     
-    
-    printf("%s: success\n", argv[0]);
-    return 0;
+    succeed(__FILE__);
 }

@@ -7,6 +7,7 @@ SRC_ALL =	\
 		src/arabic.c \
 		src/arabic.h \
 		src/ascii.h \
+		src/blowfish.c \
 		src/buffer.c \
 		src/charset.c \
 		src/diff.c \
@@ -58,6 +59,7 @@ SRC_ALL =	\
 		src/regexp.h \
 		src/screen.c \
 		src/search.c \
+		src/sha256.c \
 		src/structs.h \
 		src/spell.c \
 		src/syntax.c \
@@ -79,6 +81,7 @@ SRC_ALL =	\
 		src/testdir/test49.vim \
 		src/testdir/test60.vim \
 		src/proto.h \
+		src/proto/blowfish.pro \
 		src/proto/buffer.pro \
 		src/proto/charset.pro \
 		src/proto/diff.pro \
@@ -116,6 +119,7 @@ SRC_ALL =	\
 		src/proto/regexp.pro \
 		src/proto/screen.pro \
 		src/proto/search.pro \
+		src/proto/sha256.pro \
 		src/proto/spell.pro \
 		src/proto/syntax.pro \
 		src/proto/tag.pro \
@@ -206,19 +210,24 @@ SRC_UNIX =	\
 SRC_DOS_UNIX =	\
 		src/if_cscope.c \
 		src/if_cscope.h \
+		src/if_lua.c \
 		src/if_mzsch.c \
 		src/if_mzsch.h \
 		src/if_perl.xs \
 		src/if_perlsfio.c \
 		src/if_python.c \
+		src/if_python3.c \
+		src/if_py_both.h \
 		src/if_ruby.c \
 		src/if_sniff.h \
 		src/if_tcl.c \
 		src/proto/if_cscope.pro \
+		src/proto/if_lua.pro \
 		src/proto/if_mzsch.pro \
 		src/proto/if_perl.pro \
 		src/proto/if_perlsfio.pro \
 		src/proto/if_python.pro \
+		src/proto/if_python3.pro \
 		src/proto/if_ruby.pro \
 		src/proto/if_tcl.pro \
 		src/typemap \
@@ -369,7 +378,7 @@ SRC_MAC =	\
 		src/os_mac.h \
 		src/os_mac.rsr.hqx \
 		src/os_mac_conv.c \
-		src/os_macosx.c \
+		src/os_macosx.m \
 		src/proto/gui_mac.pro \
 		src/proto/os_mac_conv.pro \
 
@@ -654,13 +663,12 @@ EXTRA =		\
 		farsi/fonts/*/far-* \
 		runtime/vimlogo.xpm \
 		src/swis.s \
-		src/tee/Makefile* \
+		src/tee/Makefile \
 		src/tee/tee.c \
 		csdpmi4b.zip \
 
 # generic language files
 LANG_GEN = \
-		README_lang.txt \
 		runtime/doc/*-fr.1 \
 		runtime/doc/*-fr.UTF-8.1 \
 		runtime/doc/*-it.1 \
@@ -681,11 +689,14 @@ LANG_GEN = \
 		runtime/spell/README.txt \
 		runtime/spell/??/*.diff \
 		runtime/spell/??/main.aap \
+		runtime/spell/tet/*.diff \
+		runtime/spell/tet/main.aap \
+		runtime/spell/check/main.aap \
+		runtime/spell/check/*.aff \
+		runtime/spell/check/*.dic \
 		runtime/spell/yi/README.txt \
 		runtime/spell/main.aap \
-		runtime/spell/cleanadd.vim \
 		runtime/spell/*.vim \
-		runtime/spell/fixdup \
 
 # generic language files, binary
 LANG_GEN_BIN = \

@@ -47,9 +47,6 @@ public:
 
     virtual void setName(const String&);
 
-    // for hosting this GraphicsLayer in a native layer hierarchy
-    virtual NativeLayer nativeLayer() const;
-
     virtual bool setChildren(const Vector<GraphicsLayer*>&);
     virtual void addChild(GraphicsLayer*);
     virtual void addChildAtIndex(GraphicsLayer*, int index);
@@ -70,6 +67,7 @@ public:
     virtual void setPreserves3D(bool);
     virtual void setMasksToBounds(bool);
     virtual void setDrawsContent(bool);
+    virtual void setMaskLayer(GraphicsLayer*);
 
     virtual void setBackgroundColor(const Color&);
     virtual void clearBackgroundColor();
@@ -77,22 +75,24 @@ public:
     virtual void setContentsOpaque(bool);
     virtual void setBackfaceVisibility(bool);
 
+    virtual void setReplicatedByLayer(GraphicsLayer*);
+
     virtual void setOpacity(float);
 
     virtual void setNeedsDisplay();
     virtual void setNeedsDisplayInRect(const FloatRect&);
+    virtual void setContentsNeedsDisplay();
 
     virtual void setContentsRect(const IntRect&);
 
     virtual void setContentsToImage(Image*);
-    virtual void setContentsToVideo(PlatformLayer*);
+    virtual void setContentsToMedia(PlatformLayer*);
+    virtual void setContentsToCanvas(PlatformLayer*);
 
     virtual PlatformLayer* platformLayer() const;
 
     virtual void setDebugBackgroundColor(const Color&);
     virtual void setDebugBorder(const Color&, float borderWidth);
-
-    virtual void setGeometryOrientation(CompositingCoordinatesOrientation);
 
     void notifySyncRequired()
     {
@@ -104,10 +104,11 @@ private:
     void updateOpacityOnLayer();
 
     LayerChromium* primaryLayer() const  { return m_transformLayer.get() ? m_transformLayer.get() : m_layer.get(); }
-    LayerChromium* hostLayerForSublayers() const;
-    LayerChromium* layerForSuperlayer() const;
+    LayerChromium* hostLayerForChildren() const;
+    LayerChromium* layerForParent() const;
 
-    void updateSublayerList();
+    void updateNames();
+    void updateChildList();
     void updateLayerPosition();
     void updateLayerSize();
     void updateAnchorPoint();
@@ -123,10 +124,11 @@ private:
     void updateContentsImage();
     void updateContentsVideo();
     void updateContentsRect();
-    void updateGeometryOrientation();
 
     void setupContentsLayer(LayerChromium*);
     LayerChromium* contentsLayer() const { return m_contentsLayer.get(); }
+
+    String m_nameBase;
 
     RefPtr<LayerChromium> m_layer;
     RefPtr<LayerChromium> m_transformLayer;
@@ -135,7 +137,8 @@ private:
     enum ContentsLayerPurpose {
         NoContentsLayer = 0,
         ContentsLayerForImage,
-        ContentsLayerForVideo
+        ContentsLayerForVideo,
+        ContentsLayerForCanvas,
     };
 
     ContentsLayerPurpose m_contentsLayerPurpose;

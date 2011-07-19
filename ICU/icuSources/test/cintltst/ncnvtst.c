@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*****************************************************************************
@@ -1273,7 +1273,7 @@ static UBool testConvertFromU( const UChar *source, int sourceLen,  const uint8_
 
     log_verbose("\nConversion done [%d uchars in -> %d chars out]. \nResult :",
         sourceLen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
         char junk[999];
         char offset_str[999];
@@ -1448,7 +1448,7 @@ static UBool testConvertToU( const uint8_t *source, int sourcelen, const UChar *
 
     log_verbose("\nConversion done. %d bytes -> %d chars.\nResult :",
         sourcelen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
         char junk[999];
         char offset_str[999];
@@ -1901,9 +1901,8 @@ TestUnicodeSet() {
 #endif
         "IMAP-mailbox-name"
     };
-
-    static const char *const lmbcsNames[]={
 #if !UCONFIG_NO_LEGACY_CONVERSION
+    static const char *const lmbcsNames[]={
         "LMBCS-1",
         "LMBCS-2",
         "LMBCS-3",
@@ -1916,8 +1915,8 @@ TestUnicodeSet() {
         "LMBCS-17",
         "LMBCS-18",
         "LMBCS-19"
-#endif
     };
+#endif
 
     static const NameRange nameRanges[]={
         { "US-ASCII", 0, 0x7f, -1, -1, 0x80, 0x10ffff },
@@ -1944,7 +1943,7 @@ TestUnicodeSet() {
         name=ucnv_getAvailableName(i);
         cnv=ucnv_open(name, &errorCode);
         if(U_FAILURE(errorCode)) {
-            log_err("error: unable to open converter %s - %s\n",
+            log_data_err("error: unable to open converter %s - %s\n",
                     name, u_errorName(errorCode));
             continue;
         }
@@ -1967,7 +1966,7 @@ TestUnicodeSet() {
         name=completeSetNames[i];
         cnv=ucnv_open(name, &errorCode);
         if(U_FAILURE(errorCode)) {
-            log_err("error: unable to open converter %s - %s\n",
+            log_data_err("error: unable to open converter %s - %s\n",
                     name, u_errorName(errorCode));
             continue;
         }
@@ -1984,13 +1983,14 @@ TestUnicodeSet() {
         ucnv_close(cnv);
     }
 
+#if !UCONFIG_NO_LEGACY_CONVERSION
     /* test LMBCS variants which convert all of Unicode except for U+F6xx */
     for(i=0; i<LENGTHOF(lmbcsNames); ++i) {
         errorCode=U_ZERO_ERROR;
         name=lmbcsNames[i];
         cnv=ucnv_open(name, &errorCode);
         if(U_FAILURE(errorCode)) {
-            log_err("error: unable to open converter %s - %s\n",
+            log_data_err("error: unable to open converter %s - %s\n",
                     name, u_errorName(errorCode));
             continue;
         }
@@ -2006,6 +2006,7 @@ TestUnicodeSet() {
 
         ucnv_close(cnv);
     }
+#endif
 
     /* test specific sets */
     for(i=0; i<LENGTHOF(nameRanges); ++i) {

@@ -36,7 +36,7 @@
 // Construct a CodeSigningHost
 //
 CodeSigningHost::CodeSigningHost()
-	: mHostingState(noHosting)
+	: mLock(Mutex::recursive), mHostingState(noHosting)
 {
 }
 
@@ -56,6 +56,7 @@ CodeSigningHost::~CodeSigningHost()
 //
 void CodeSigningHost::reset()
 {
+	StLock<Mutex> _(mLock);
 	switch (mHostingState) {
 	case noHosting:
 		break;	// nothing to do
@@ -98,7 +99,7 @@ CodeSigningHost::Guest *CodeSigningHost::findHost(SecGuestRef hostRef)
 
 //
 // Look up guest by guestRef.
-// Throws if they we don't have a guest by that ref.
+// Throws if we don't have a guest by that ref.
 //
 CodeSigningHost::Guest *CodeSigningHost::findGuest(SecGuestRef guestRef, bool hostOk /* = false */)
 {
@@ -181,6 +182,7 @@ CodeSigningHost::Guest *CodeSigningHost::findGuest(Guest *host)
 //
 void CodeSigningHost::registerCodeSigning(mach_port_t hostingPort, SecCSFlags flags)
 {
+	StLock<Mutex> _(mLock);
 	switch (mHostingState) {
 	case noHosting:
 		mHostingPort = hostingPort;
@@ -202,6 +204,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 		uint32_t status, const char *path,
 		const CssmData &cdhash, const CssmData &attributes, SecCSFlags flags)
 {
+	StLock<Mutex> _(mLock);
 	if (path[0] != '/')		// relative path (relative to what? :-)
 		MacOSError::throwMe(errSecCSHostProtocolRelativePath);
 	if (cdhash.length() > maxUcspHashLength)
@@ -241,7 +244,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 	guest->setHash(cdhash, flags & kSecCSGenerateGuestHash);
 	guest->dedicated = (flags & kSecCSDedicatedHost);
 	mGuests[guest->guestRef()] = guest;
-	SECURITYD_GUEST_CREATE(DTSELF, hostRef, guest->guestRef(), guest->status, flags, (char *)guest->path.c_str());
+	SECURITYD_GUEST_CREATE(DTSELF, hostRef, guest->guestRef(), guest->status, flags, guest->path.c_str());
 	if (SECURITYD_GUEST_CDHASH_ENABLED())
 		SECURITYD_GUEST_CDHASH(DTSELF, guest->guestRef(),
 			(void*)CFDataGetBytePtr(guest->cdhash), CFDataGetLength(guest->cdhash));
@@ -251,6 +254,7 @@ SecGuestRef CodeSigningHost::createGuest(SecGuestRef hostRef,
 
 void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, const CssmData &attributes)
 {
+	StLock<Mutex> _(mLock);
 	if (mHostingState != proxyHosting)
 		MacOSError::throwMe(errSecCSHostProtocolNotProxy);
 	Guest *guest = findGuest(guestRef);
@@ -274,6 +278,7 @@ void CodeSigningHost::setGuestStatus(SecGuestRef guestRef, uint32_t status, cons
 //
 void CodeSigningHost::removeGuest(SecGuestRef hostRef, SecGuestRef guestRef)
 {
+	StLock<Mutex> _(mLock);
 	if (mHostingState != proxyHosting) 
 		MacOSError::throwMe(errSecCSHostProtocolNotProxy);
 	RefPointer<Guest> host = findHost(hostRef);
@@ -378,12 +383,20 @@ bool CodeSigningHost::Guest::matches(CFIndex count, CFTypeRef keys[], CFTypeRef 
 //
 // The MachServer dispatch handler for proxy hosting.
 //
+
+// give MIG handlers access to the object lock
+struct CodeSigningHost::Lock : private StLock<Mutex> {
+	Lock(CodeSigningHost *host) : StLock<Mutex>(host->mLock) { }
+};
+
+
 boolean_t cshosting_server(mach_msg_header_t *, mach_msg_header_t *);
 
 static ThreadNexus<CodeSigningHost *> context;
 
 boolean_t CodeSigningHost::handle(mach_msg_header_t *in, mach_msg_header_t *out)
 {
+	CodeSigningHost::Lock _(this);
 	context() = this;
 	return cshosting_server(in, out);
 }
@@ -481,6 +494,7 @@ kern_return_t cshosting_server_guestStatus(CSH_ARGS, SecGuestRef guestRef, uint3
 
 void CodeSigningHost::dump() const
 {
+	StLock<Mutex> _(mLock);
 	switch (mHostingState) {
 	case noHosting:
 		break;

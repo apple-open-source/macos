@@ -3,8 +3,7 @@
 # Class name: HeaderElement
 # Synopsis: Root class for Function, Typedef, Constant, etc. -- used by HeaderDoc.
 #
-# Author: Matt Morse (matt@apple.com)
-# Last Updated: $Date: 2009/04/17 21:38:01 $
+# Last Updated: $Date: 2011/05/18 14:09:25 $
 #
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -29,17 +28,348 @@
 #
 ######################################################################
 
+# /*! @header
+#     @abstract
+#         <code>HeaderElement</code> class package file.
+#     @discussion
+#         This file contains the <code>HeaderElement</code> class, the base class
+#         for all API elements.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         Base class for all API objects.
+#     @discussion
+#         The <code>HeaderElement</code> class is the base class for all objects
+#         representing API elements, including headers, structs,
+#         functions, classes, etc.  The majority of HeaderDoc
+#         classes are subclasses of this class.
+#
+#         This class provides services common to all API elements
+#         (or services common to several elements).  The most
+#         important functions in this class are:
+#
+#         <dl>
+#         <dt>{@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/processComment//() processComment}</dt>
+#             <dd>Parses a HeaderDoc comment block.</dd>
+#         <dt>{@link declarationInHTML}</dt>
+#             <dd>Returns the declaration in HTML/XML by calling into the
+#             {@link //apple_ref/perl/cl/HeaderDoc::ParseTree ParseTree}
+#             class.</dd>
+#         <dt>{@link documentationBlock} and {@link XMLdocumentationBlock}</dt>
+#             <dd>Return the entire documentation output for this
+#                 object (class, function, enumeration, data structure, and so on) and any
+#                 descendants enclosed within it.</dd>
+#         <dt>{@link keywords}</dt>
+#             <dd>Returns a set of keywords for parsing declarations in
+#                 the current programming language and returns whether
+#                 those keywords should be interpreted in a case-sensitive
+#                 or case-insensitive fashion.</dd>
+#         <dt>{@link apirefSetup}</dt>
+#             <dd>Does a lot of the work setting up the API reference for
+#                 this object and its subclasses.</dd>
+#         <dt>{@link apiref} and {@link apiuid}</dt>
+#             <dd>Get and set the API reference, respectively.</dd>
+#         </dl>
+#
+#     This API object type should never actually be emitted as output; only
+#     its subclasses are relevant.
+#
+#     @var ABSTRACT
+#         The contents of the associated <code>\@abstract</code> tag.
+#     @var ABSTRACTLOCKED
+#         Temporary storage for the <code>ABSTRACT</code> field, used when fields are locked
+#         during define block parsing.  For more information, see the
+#         documentation for the {@link discussionLocked} and
+#         {@link unlockDiscussion} functions.
+#     @var ACCESSCONTROL
+#         The access control state for this API element (e.g. public, private...)
+#     @var APIOWNER
+#         The {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner} object
+#         whose declaration includes this one.  This owning object may be a
+#         class, header, protocol, category, etc.
+#     @var APIREFSETUPDONE
+#         Set to 1 when the {@link apirefSetup} call finishes.  This avoids
+#         doing unnecessary work (and makes the UID collision protection easier).
+#     @var APIUID
+#         A cache of the raw UID for this object.  Set by {@link apiuid}.  This
+#         is not actually used because it is often wrong.
+#     @var APPLEREFISDOC
+#         Holds 1 if this object should emit a doc-style API reference,
+#         else 0.
+#     @var ATTRIBUTELISTS
+#         The list-style attributes associated with this API element.
+#         See {@link attributelist}, {@link getAttributeLists}, and
+#         {@link checkAttributeLists}.
+#     @var AUTORELATE
+#         Used to store a list of automatically-generated cross-references
+#         for blocks containing mixed types.  For more information, see the
+#         documentation for the {@link autoRelate} function.
+#     @var AVAILABILITY
+#         The availability information for this element (from <code>\@availability</code>
+#         or from availability macros.
+#     @var BLOCKOFFSET
+#         The offset of the start of the block of lines in which this declaration
+#         appears.  (Added to <code>RAWLINENUM</code> to get the actual line
+#         number.)
+#     @var CASESENSITIVE
+#         A cache of the value for case sensitivity from the last time the
+#         {@link keywords} method was called.
+#     @var CLASS
+#         The HeaderDoc object class for this object (e.g. HeaderDoc::Method).
+#         Used to bless the object properly from a hash reference.
+#     @var CONSTANTS
+#         An array of constants in this enumeration or API owner object.  Each
+#         item in this array is a
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement}
+#         object.
+#     @var DECLARATION
+#         The (vestigial) text declaration for this element.
+#     @var DECLARATIONINHTML
+#         A cache of the HTML declaration for this element.
+#     @var DISCUSSION
+#         The contents of the <code>\@discussion</code> tag (or untagged content elsewhere
+#         in the comment).
+#     @var DISCUSSION_SET
+#         Set to 1 when an actual discussion has been seen.  This is used
+#         to determine whether additional words in the name line should be
+#         treated as discussion or part of the name.  See {@link nameline_discussion}
+#         for more info.
+#     @var DISCUSSIONLOCKED
+#         Temporary storage for the <code>DISCUSSION</code> field, used when fields are locked
+#         during define block parsing.  For more information, see the
+#         documentation for the {@link discussionLocked} and
+#         {@link unlockDiscussion} functions.
+#     @var DISCUSSION_SETLOCKED
+#         Temporary storage for the <code>DISCUSSION_SET</code> field, used when fields are locked
+#         during define block parsing.  For more information, see the
+#         documentation for the {@link discussionLocked} and
+#         {@link unlockDiscussion} functions.
+#     @var FIELDHEADING
+#         A cache of the last field heading displayed.  <b>Unused.</b>
+#     @var FIELDS
+#         An array of fields in this struct, union, or typedef.
+#     @var FILENAME
+#         The filename containing this declaration (with leading path parts removed).
+#     @var FIRSTCONSTNAME
+#         The first constant name within an enumeration.  Used as the name of
+#         an anonymous enumeration if no name is specified in the comment.
+#     @var FULLPATH
+#         The filename containing this declaration (with leading parts left intact).
+#     @var FUNCORMETHOD
+#         A cache of the last <code>func_or_method</code> value returned by
+#         {@link apirefSetup}.  <b>Unused.</b>
+#     @var FUNCTIONCONTENTS
+#         The contents within the outer braces of a function.
+#     @var GROUP
+#         The name of the (documentation) group that this object is in.
+#     @var HASPROCESSEDCOMMENT
+#         Set to 1 after the
+#  {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/processComment//() processComment}
+#         function has executed.  This prevents doing that twice (which would cause
+#         a number of problems).
+#     @var HIDECONTENTS
+#         Set to 1 if the <code>\@hidecontents</code> tag is found in a macro's HeaderDoc comment.
+#         See {@link hideContents}.
+#     @var HIDEDOC
+#         Set by the block parser to indicate that this object should not emit any
+#         documentation.  This is set on <code>#define</code> objects within a
+#         <code>#define</code> block if the <code>HIDESINGLETONS</code> flag is set
+#         on the enclosing block.
+#     @var HIDESINGLETONS
+#         This flag is set (to 1) if the <code>\@hidesingletons</code> tag is found inside an
+#         <code>\@defineblock</code> (or <code>\@definedblock</code>) comment.
+#     @var INCLUDED_DEFINES
+#         An array of <code>#define</code> objects nested in an <code>\@defineblock</code>
+#         (or <code>\@definedblock</code>).
+#     @var INDEFINEBLOCK
+#         Set on individual <code>#define</code> objects within an <code>\@defineblock</code>
+#         (or <code>\@definedblock</code>).
+#     @var INDEXGROUP
+#         The group in which this object and its descendants should appear inside
+#         the master TOC as generated by
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc.pl}.
+#     @var INHERITDOC
+#         The discussion for the superclass.  Inserted if requested.  See
+#         {@link fixup_inheritDoc}.
+#     @var INSERTED
+#         Set to 42 once this object has been added to its enclosing API owner.
+#     @var ISBLOCK
+#         Set to 1 for <code>#define</code> blocks, 2 for <code>#ifdef</code> blocks around
+#         multiple variants of a function.
+#     @var ISCALLBACK
+#         Set to 1 for a <code>typedef</code> of a callback.
+#     @var ISDEFINE
+#         Set for <code>#define</code> members in a non-<code>#define</code> block to prevent
+#         lovely problems.
+#     @var ISFUNCPTR
+#         Set to 1 for a variable or type definition if the <code>\@result</code> tag is included.
+#     @var ISINTERNAL
+#         Set to 1 for internal variables/functions that should only be
+#         documented if a special flag is set.
+#     @var ISTEMPLATE
+#         Set for functions that have template parameters.
+#     @var KEEPCONSTANTS
+#         A cached array of constants generated by {@link apirefSetup}.
+#     @var KEEPFIELDS
+#         A cached array of fields generated by {@link apirefSetup}.
+#     @var KEEPPARAMS
+#         A cached array of parameters generated by {@link apirefSetup}.
+#     @var KEEPVARIABLES
+#         A cached array of variables generated by {@link apirefSetup}.
+#     @var KEYWORDHASH
+#         A cache of the keyword hash from the last time the
+#         {@link keywords} method was called.
+#     @var LANG
+#         The programming language for this declaration.
+#     @var LINENUM
+#         The line number in which this declaration begins relative to the start
+#         of the header.  (This is the sum of<code>BLOCKOFFSET</code> and
+#         <code>RAWLINENUM</code>.)
+#     @var LINKAGESTATE
+#         The linkage state.  <b>Unused.</b>
+#     @var LINKUID
+#         A cache of the "link UID".  See {@link generateLinkUID}.
+#     @var LONGATTRIBUTES
+#         An array of "long" attributes (those containing multiple paragraphs
+#         as opposed to just a line or so).
+#     @var MAINOBJECT
+#         The main object (block object) in a block declaration.
+#     @var MASTERENUM
+#         The main enum object that owns the enclosing constants.
+#         Originally used for apple_ref emission purposes.  <b>Unused.</b>
+#     @var NAME
+#         The name of the API symbol that this object represents.
+#         Usually accessed with
+#         {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/name//() name}.
+#     @var NAMELINE_DISCUSSION
+#         The portion of the discussion that appears on the same line as
+#         the name in an old-style HeaderDoc comment.  See {@link nameline_discussion}
+#         for more information.
+#     @var NAMEREFS
+#         An array of names for this object that appear within the
+#         {@link HeaderDoc::namerefs} array.  Used when
+#         destroying this object to allow those references to be destroyed.
+#     @var NAMESPACE
+#         Contains a text string representing the namespace for this class.
+#         See {@link namespace}.
+#     @var NOREGISTERUID
+#         Set to 1 when an object's UID has been unregistered to prevent it from being
+#         registered again.  See {@link noRegisterUID}.
+#     @var ORIGCLASS
+#         The name of the class that a method, variable, etc. was inherited from.
+#         See {@link origClass}.
+#     @var ORIGTYPE
+#         The type of the original object (generated based on the HeaderDoc comment)
+#         from which this object (of a different type) was later cloned.  For more
+#         information, see the documentation for the {@link origType} function.
+#     @var OUTPUTFORMAT
+#         The current output format ("html" or "hdxml").
+#     @var PARSEDPARAMETERS
+#         For methods, an array of parsed parameters for a method.  For
+#         a structure, union, or type definition, an array of parsed
+#         fields.  For an enumaration, an array of parsed constants.
+#     @var PARSERSTATE
+#         The parser state object associated with this API object.
+#     @var PARSETREE
+#         The parse tree object containing the declaration for this API object.
+#     @var PARSETREECLEANUP
+#         An array of parse tree objects that reference this API object.  Used when
+#         destroying this object to allow those references to be destroyed.
+#     @var PARSETREELIST
+#         An array of parse trees containing the declarations for
+#         API objects within this block-style API object.  Only
+#         relevant if {@link isBlock} returns 1.
+#     @var PPFIXUPDONE
+#         Set to 1 to indicate that {@link fixupParsedParameters} has
+#         already been called on this object.
+#     @var PRESERVESPACES
+#         Set to 1 to indicate that the user wants to preserve
+#         whitespace within this declaration.  See {@link preserve_spaces}.
+#     @var PRIVATEDECLARATION
+#         The private declaration portion of a C++ method (after the colon).
+#     @var RAWLINENUM
+#         The line number in which this declaration begins relative to the start
+#         of the block of lines.  (Added to <code>BLOCKOFFSET</code> to get the actual
+#         line number.)
+#     @var RAWNAME
+#         See {@link rawname}.
+#     @var REQUESTEDUID
+#         A UID explicitly provided with the <code>\@apiuid</code> tag.  See {@link requestedUID}.
+#     @var RETURNTYPE
+#         The return type for a function (parsed from the code).
+#     @var SEEALSODUPCHECK
+#         Used to prevent duplicates in auto-generated cross-linking.
+#         See {@link seeDupCheck} for details.
+#     @var SINGLEATTRIBUTES
+#         An array of "short" attributes (those containing just a word or a line
+#         as opposed to multiple paragraphs).
+#     @var SUBLANG
+#         The programming language variant for this object (e.g. <code>cpp</code> for C++).
+#     @var SUPPRESSCHILDREN
+#         Indicates that UIDs for child elements (e.g. fields) should be suppressed
+#         in the HTML output.  See {@link suppressChildren} for more information.
+#     @var TAGGEDPARAMETERS
+#         An array of explicitly tagged (<code>\@param</code>) parameters in a function/method.
+#     @var THROWS
+#         The content of the <code>\@throws</code> tag in the comment (with HTML formatting added).
+#         See also <code>XMLTHROWS</code> below.
+#     @var TPCDONE
+#         Set to 1 after {@link taggedParsedCompare} is called so that this
+#         isn't done repeatedly for the same function, union, struct, or typedef.
+#     @var TYPEDEFCONTENTS
+#         The contents of a typedef declaration.
+#     @var UPDATED
+#         The last updated date.  See
+#         {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/updated//() updated}.
+#     @var USESTDOUT
+#         Set to 1 if the <code>-P</code> (pipe) flag is passed to HeaderDoc, else 0.
+#     @var VALUE
+#         The value of a constant/variable.  See {@link value}.
+#     @var VARIABLES
+#         An array of variables enclosed in a normal (usually function) object.  These are
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement} objects.
+#     @var VARS
+#         An array of variables enclosed in an API owner object.  These are
+#         {@link //apple_ref/perl/cl/HeaderDoc::Var Var} objects.
+#     @var XMLTHROWS
+#         A copy of the value in <code>THROWS</code> with XML formatting.
+#  */
 package HeaderDoc::HeaderElement;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize parseTokens unregister_force_uid_clear dereferenceUIDObject filterHeaderDocTagContents validTag);
+use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID html2xhtml sanitize parseTokens unregister_force_uid_clear dereferenceUIDObject filterHeaderDocTagContents validTag printFields splitOnPara getDefaultEncoding html_fixup_links xml_fixup_links);
+
 use File::Basename;
 use strict;
 use vars qw($VERSION @ISA);
 use POSIX qw(strftime mktime localtime);
 use Carp qw(cluck);
+use URI::Escape;
+use locale;
+use Encode qw(encode decode);
 
-$HeaderDoc::HeaderElement::VERSION = '$Revision: 1.56 $';
+use Devel::Peek;
 
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::HeaderElement::VERSION = '$Revision: 1305752965 $';
+
+# /*!
+#     @abstract
+#         Creates a new <code>HeaderElement</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::HeaderElement->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
@@ -49,15 +379,32 @@ sub new {
     
     bless($self, $class);
     $self->_initialize();
+
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;
     foreach my $key (keys(%attributeHash)) {
-        my $ucKey = uc($key);
-        $self->{$ucKey} = $attributeHash{$key};
+        $self->{$key} = $attributeHash{$key};
     }
+
+    # if ((!$self->{LANG}) || (!$self->{SUBLANG})) {
+	# cluck("Allocation with no language or sublanguage.\n");
+    # }
+    # if ($self->{LANG} ne $HeaderDoc::lang) {
+	# cluck("Allocation with non-matching language.  ".$self->{LANG}." != ".$HeaderDoc::lang."\n");
+    # }
+    # if ($self->{SUBLANG} ne $HeaderDoc::sublang) {
+	# cluck("Allocation with non-matching sublanguage.  ".$self->{SUBLANG}." != ".$HeaderDoc::sublang."\n");
+    # }
+
     return ($self);
 }
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>HeaderElement</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     # $self->{ABSTRACT} = undef;
@@ -77,8 +424,11 @@ sub _initialize {
     # $self->{LINKAGESTATE} = undef;
     # $self->{ACCESSCONTROL} = undef;
     $self->{AVAILABILITY} = "";
-    $self->{LANG} = $HeaderDoc::lang;
-    $self->{SUBLANG} = $HeaderDoc::sublang;
+
+    # These must now be passed in via the new() parameters.
+    # $self->{LANG} = $HeaderDoc::lang;
+    # $self->{SUBLANG} = $HeaderDoc::sublang;
+
     $self->{SINGLEATTRIBUTES} = ();
     $self->{LONGATTRIBUTES} = ();
     # $self->{ATTRIBUTELISTS} = undef;
@@ -92,6 +442,8 @@ sub _initialize {
     $self->{TAGGEDPARAMETERS} = ();
     $self->{PARSEDPARAMETERS} = ();
     $self->{CONSTANTS} = ();
+    $self->{VARIABLES} = ();
+# print STDERR "Initted VARIABLES in $self\n";
     # $self->{LINENUM} = 0;
     $self->{CLASS} = "HeaderDoc::HeaderElement";
     # $self->{CASESENSITIVE} = undef;
@@ -106,13 +458,21 @@ sub _initialize {
 
 my %CSS_STYLES = ();
 
+# /*!
+#     @abstract
+#         Duplicates this <code>HeaderElement</code> object into another one.
+#     @param self
+#                The object to clone.
+#     @param clone
+#                The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
 	$clone = shift;
     } else {
-	$clone = $self->new();
+	$clone = $self->new("lang" => $self->{LANG}, "sublang" => $self->{SUBLANG});
 	$clone->{CLASS} = $self->{CLASS};
     }
 
@@ -177,6 +537,15 @@ sub clone {
 	    $cloneparam->apiOwner($clone);
         }
     }
+    $clone->{VARIABLES} = ();
+    if ($self->{VARIABLES}) {
+        my @local_variables = @{$self->{VARIABLES}};
+        foreach my $local_variable (@local_variables) {
+	    my $cloned_local_variable = $local_variable->clone();
+	    push(@{$clone->{VARIABLES}}, $cloned_local_variable);
+	    $cloned_local_variable->apiOwner($clone);
+	}
+    }
     $clone->{CONSTANTS} = ();
     if ($self->{CONSTANTS}) {
         my @params = @{$self->{CONSTANTS}};
@@ -199,7 +568,19 @@ sub clone {
     return $clone;
 }
 
-
+# /*!
+#     @abstract
+#         Gets/sets the contents of a simple typedef.
+#     @param self
+#         The (generally 
+#         {@link //apple_ref/perl/cl/HeaderDoc::Typedef Typedef})
+#         object.
+#     @param contents
+#         The value to set. (Optional.)
+#     @discussion
+#         This is populated by the <code>simpleTDcontents</code>
+#         field in the parser state object.
+#  */
 sub typedefContents {
     my $self = shift;
     if (@_) {
@@ -209,6 +590,21 @@ sub typedefContents {
     return $self->{TYPEDEFCONTENTS};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the original class info.
+#     @param self
+#         The (generally <code>Function</code>, <code>Method</code>,
+#         or <code>Var</code>) object.
+#     @param origclass
+#         The new value. (Optional.)
+#     @discussion
+#         When the contents of a class are explicitly included in its
+#         subclasses using the <code>\@superclass</code> tag, the inherited methods
+#         and similar get the <code>origClass</code> value set to the owning
+#         class so that we don't insert an apple_ref marker for
+#         inherited content.
+#  */
 sub origClass {
     my $self = shift;
     if (@_) {
@@ -218,11 +614,30 @@ sub origClass {
     return $self->{ORIGCLASS};
 }
 
+# /*!
+#     @abstract
+#         The HeaderDoc class for this object.
+#     @param self
+#         The object.
+#     @discussion
+#         This is used when blessing a reference to a HeaderDoc object.
+#         First, bless the object as a <code>HeaderDoc::HeaderElement</code>,
+#         then use its <code>CLASS</code> field to re-bless it as
+#         the original subclass.
+#  */
 sub class {
     my $self = shift;
     return $self->{CLASS};
 }
 
+# /*!
+#     @abstract
+#         Returns whether the current function is a constructor or destructor.
+#     @param self
+#         The (generally <code>Function</code>) object.
+#     @return
+#         Returns 1 if it is a constructor or destructor, else 0.
+#  */
 sub constructor_or_destructor {
     my $self = shift;
     my $localDebug = 0;
@@ -250,9 +665,9 @@ sub constructor_or_destructor {
 	$name =~ s/^\s*\w+\s*::\s*//so; # remove leading class part, if applicable
 	$name =~ s/\s*$//so;
 
-	my $classquotename = quote($apio->name());
+	my $classname = $apio->name();
 
-	if ($name =~ /^$classquotename$/) {
+	if ($name =~ /^\Q$classname\E$/) {
 		print STDERR "CONSTRUCTOR\n" if ($localDebug);
 		return 1;
 	}
@@ -267,6 +682,33 @@ sub constructor_or_destructor {
     }
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the array of local variables associated with a
+#               function, etc.
+#     @param self
+#         The (generally <code>Function</code>) object.
+#     @param variables
+#         The array of variables to set. (Optional.)
+#  */
+sub variables {
+    my $self = shift;
+    if (@_) { 
+	@{ $self->{VARIABLES} } = @_;
+    }
+    # foreach my $const (@{ $self->{VARIABLES}}) {print STDERR $const->name()."\n";}
+    ($self->{VARIABLES}) ? return @{ $self->{VARIABLES} } : return ();
+}
+
+# /*!
+#     @abstract
+#         Gets/sets the array of constants associated with an
+#               <code>APIOwner</code>, <code>Enum</code>, etc.
+#     @param self
+#         The object.
+#     @param constants
+#         The array of constants to set. (Optional.)
+#  */
 sub constants {
     my $self = shift;
     if (@_) { 
@@ -276,6 +718,17 @@ sub constants {
     ($self->{CONSTANTS}) ? return @{ $self->{CONSTANTS} } : return ();
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this array is the "master" enum.
+#     @param self
+#         The (generally <code>Enum</code>) object.
+#     @param newvalue
+#         The value to set. (Optional.)
+#     @discussion
+#         This is legacy cruft that was once used for apple_ref purposes.
+#         it is no longer used and should be removed in the future.
+#  */
 sub masterEnum {
     my $self = shift;
     if (@_) {
@@ -285,16 +738,62 @@ sub masterEnum {
     return $self->{MASTERENUM};
 }
 
+# /*!
+#     @abstract
+#         Adds a variable to the array of local variables associated with a
+#               function, etc.
+#     @param self
+#         The (generally <code>Function</code>) object.
+#     @param variables
+#         An array of variables to add.
+#  */
+sub addVariable {
+    my $self = shift;
+    if (@_) { 
+	foreach my $item (@_) {
+		# print "ADDED $item to $self\n";
+		if ($self->can("addToVars")) {
+			$self->addToVars($item);
+        	} else {
+			my $desc = $item->abstract();
+			$item->discussion($desc);
+			$item->abstract("");
+			push (@{$self->{VARIABLES}}, $item);
+		}
+		# print "COUNT: ".$#{$self->{VARIABLES}}."\n";
+	}
+    }
+}
+
+# /*!
+#     @abstract
+#         Adds a constant to the array of constants associated with an
+#         object.
+#     @param self
+#         This object.
+#     @param constants
+#         An array of constants to add.
+#  */
 sub addConstant {
     my $self = shift;
     if (@_) { 
 	foreach my $item (@_) {
         	push (@{$self->{CONSTANTS}}, $item);
+		# warn("Added constant to $self\n");
 	}
     }
     return @{ $self->{CONSTANTS} };
 }
 
+# /*!
+#     @abstract
+#         Adds a field to the array of fields associated with an
+#         object.
+#     @param self
+#         This object.
+#     @param fields
+#         An array of fields to add.
+#  */
 sub addToFields {
     my $self = shift;
     if (@_) { 
@@ -303,6 +802,14 @@ sub addToFields {
     return @{ $self->{FIELDS} };
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this is a template function/class.
+#     @param self
+#         This object.
+#     @param istemplate
+#         The value to set. (Optional.)
+#  */
 sub isTemplate {
     my $self = shift;
     if (@_) {
@@ -311,6 +818,14 @@ sub isTemplate {
     return $self->{ISTEMPLATE};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this is a callback.
+#     @param self
+#         This object.
+#     @param istemplate
+#         The value to set. (Optional.)
+#  */
 sub isCallback {
     my $self = shift;
     if (@_) {
@@ -322,13 +837,25 @@ sub isCallback {
     return $self->{ISCALLBACK};
 }
 
+# /*!
+#     @abstract
+#         Returns whether this is an API owner (class, header, etc.)
+#     @param self
+#         This object.
+#     @discussion
+#         This is overridden by the
+#         {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner}
+#         class.
+#  */
 sub isAPIOwner {
     return 0;
 }
 
-# /*! @function inheritDoc
-#     @abstract Parent discussion for inheritance
-#     @discussion We don't want to show this, so we can't use an
+# /*!
+#     @abstract
+#         Parent discussion for inheritance
+#     @discussion
+#         We don't want to show this, so we can't use an
 #        attribute.  This is private.
 #  */
 sub inheritDoc {
@@ -341,9 +868,11 @@ sub inheritDoc {
     return $self->{INHERITDOC};
 }
 
-# /*! @function linenuminblock
-#     @abstract line number where a declaration began relative to the block
-#     @discussion We don't want to show this, so we can't use an
+# /*!
+#     @abstract
+#         The line number where a declaration began relative to the block.
+#     @discussion
+#         We don't want to show this, so we can't use an
 #        attribute.  This is private.
 #  */
 sub linenuminblock
@@ -358,10 +887,12 @@ sub linenuminblock
 }
 
 
-# /*! @function blockoffset
-#     @abstract line number of the start of the block containing a declaration
-#     @discussion We don't want to show this, so we can't use an
-#        attribute.  This is private.
+# /*!
+#     @abstract
+#         The line number of the start of the block containing a declaration.
+#     @discussion
+#         We don't want to show this, so we can't use an
+#         attribute.  This is private.
 #  */
 sub blockoffset
 {
@@ -378,13 +909,15 @@ sub blockoffset
 }
 
 
-# /*! @function linenum
-#     @abstract line number where a declaration began
-#     @discussion We don't want to show this, so we can't use an
-#        attribute.  This is private.
+# /*!
+#     @abstract
+#         The line number where a declaration began.
+#     @discussion
+#         We don't want to show this, so we can't use an
+#         attribute.  This is private.
 #
-#        This uses linenuminblock and blockoffset to get the values.
-#        Setting this attribute is no longer supported.
+#         This uses <code>linenuminblock</code> and <code>blockoffset</code> to get the values.
+#         Setting this attribute is no longer supported.
 #  */
 sub linenum {
     my $self = shift;
@@ -397,10 +930,12 @@ sub linenum {
     return $self->{RAWLINENUM} + $self->{BLOCKOFFSET};
 }
 
-# /*! @function value
-#     @abstract Value for constants, variables, etc.
-#     @discussion We don't want to show this, so we can't use an
-#        attribute.  This is private.
+# /*!
+#     @abstract
+#         Value for constants, variables, etc.
+#     @discussion
+#         This is not typically shown in the HTML output, so this can't be
+#         stored in a normal attribute.
 #  */
 sub value {
     my $self = shift;
@@ -412,6 +947,14 @@ sub value {
     return $self->{VALUE};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the output format (html, xml).
+#     @param self
+#         This object.
+#     @param format
+#         The value to set. (Optional.)
+#  */
 sub outputformat {
     my $self = shift;
 
@@ -424,6 +967,17 @@ sub outputformat {
 	}
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the USESTDOUT flag (0/1).
+#     @param self
+#         This object.
+#     @param format
+#         The value to set. (Optional.)
+#     @discussion
+#         If 0, the output is sent to files as usual.
+#         If 1, the XML output is sent to stdout.
+#  */
 sub use_stdout {
     my $self = shift;
 
@@ -436,6 +990,14 @@ sub use_stdout {
 	}
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the function body for a function.
+#     @param self
+#         This object.
+#     @param format
+#         The value to set. (Optional.)
+#  */
 sub functionContents {
     my $self = shift;
 
@@ -447,6 +1009,17 @@ sub functionContents {
     return $self->{FUNCTIONCONTENTS};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the full path to a header file.
+#     @param self
+#         This object.
+#     @param path
+#         The path to set. (Optional.)
+#     @discussion
+#         This contains the path as passed in on the command
+#         line, including any leading path components.
+#  */
 sub fullpath {
     my $self = shift;
 
@@ -459,6 +1032,17 @@ sub fullpath {
 	}
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the filename for a header file.
+#     @param self
+#         This object.
+#     @param filename
+#         The filename to set. (Optional.)
+#     @discussion
+#         This contains the filename as passed in on the command
+#         line, with any leading path components stripped off.
+#  */
 sub filename {
     my $self = shift;
 
@@ -471,6 +1055,17 @@ sub filename {
 	}
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the name of the first constant in an enumeration.
+#     @param self
+#         This object.
+#     @param firstconstname
+#         The value to set. (Optional.)
+#     @discussion
+#         If no name could be determiend for an enumeration, this value is
+#         used.
+#  */
 sub firstconstname {
     my $self = shift;
     my $localDebug = 0;
@@ -487,6 +1082,29 @@ sub firstconstname {
     return $self->{FIRSTCONSTNAME};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the name of this function/var/class/*.
+#     @param self
+#         This object.
+#     @param name
+#         The value to set. (Optional.)
+#     @discussion
+#         This function returns the name as taken from the
+#         HeaderDoc comment.  If the nameline contains multiple
+#         words and there are additional nonempty discussion
+#         lines, the entire name line is treated as the
+#         name, and the nameline discussion is appended to
+#         the value returned by {@link mediumrarename} to
+#         obtain the value that this function returns.
+#
+#         An explicit <code>\@discussion</code> tag forces the
+#         nameline discussion to be treated as part of the name
+#         even if the contents of the discussion tag are empty.
+#
+#         This may be a separate value from the <code>rawname</code>
+#         and <code>rawname_extended</code> values.
+#  */
 sub name {
     my $self = shift;
     my $localDebug = 0;
@@ -529,9 +1147,8 @@ sub name {
 		# } else {
 			# warn("CLASS: $class\n");
 		}
-		my $qnsoname = quote($nsoname);
 
-		if ($nsname !~ /$qnsoname/) {
+		if ($nsname !~ /\Q$nsoname\E/) {
 			if (!$HeaderDoc::ignore_apiuid_errors) {
 				warn("$fullpath:$linenum: warning: Name being changed ($oldname -> $name)\n");
 			}
@@ -576,6 +1193,18 @@ sub name {
     return $n;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the SEEALSODUPCHECK value.
+#     @param self
+#         This object.
+#     @param name
+#         The value to set. (Optional.)
+#     @discussion
+#         This is used when doing cross-linking between
+#         multiple objects (in {@link blockParseOutside})
+#         to ensure that duplicate entries are not inserted.
+#  */
 sub seeDupCheck {
     my $self = shift;
     my $name = shift;
@@ -600,8 +1229,9 @@ sub seeDupCheck {
     return $retval;
 }
 
-# /*! @function see
-#     @abstract Add see/seealso (JavaDoc compatibility enhancement)
+# /*!
+#     @abstract
+#         Add see/seealso (JavaDoc compatibility enhancement)
 #  */
 sub see {
     my $self = shift;
@@ -628,21 +1258,33 @@ sub see {
 # print STDERR "LS: $liststring\n";
     foreach my $item (@items) {
       if ($item !~ /^\/\/\w+\// && $item =~ /\S/) { ## API anchor (apple_ref or other)
+	# print STDERR "NO API ANCHOR: $item\n";
+
 	my @list = split(/\s+/, $item, 2);
 
 	# Generate it with its own name as the title.  We're just going
 	# to rip it back apart anyway.
 	my $see = $list[0];
 	my $name = $list[1];
-	my $apiref = $self->genRef("", $see, $see);
+
+	# my $apiref = $self->genRefHTML("", $see, $see);
+
+	if ($name !~ /\S/) { $name = $see; }
+
+	# print STDERR "NAME: $name SEE: $see\n";
 
 	print STDERR "Checking \"$see\" for duplicates.\n" if ($dupDebug);
 	if (!$self->seeDupCheck($see)) {
-		my $apiuid = $apiref;
-		$name =~ s/\s+/ /sg;
-		$name =~ s/\s+$//sg;
-		$apiuid =~ s/^<!--\s*a\s+logicalPath\s*=\s*\"//so;
-		$apiuid =~ s/"\s*-->\s*\Q$see\E\s*<!--\s*\/a\s*-->//s;
+		# my $apiuid = $apiref;
+		# $name =~ s/\s+/ /sg;
+		# $name =~ s/\s+$//sg;
+		# $apiuid =~ s/^.*<!--\s*a\s+logicalPath\s*=\s*\"//so;
+		# $apiuid =~ s/"(?:\s+machineGenerated=\"[^"]+\")\s*-->\s*.*?\s*<!--\s*\/a\s*-->//s;
+		# print STDERR "APIREF: $apiref\n";
+		# print STDERR "NAME: $name APIUID: $apiuid\n";
+
+		my $apiuid = $see;
+
 		$self->attributelist($type, $name."\n$apiuid");
 		$self->seeDupCheck($see, 1);
 		print STDERR "Not found.  Adding.\n" if ($dupDebug);
@@ -650,6 +1292,8 @@ sub see {
 		print STDERR "Omitting duplicate \"$see\"[1]\n" if ($dupDebug);
 	}
       } elsif ($item =~ /\S/) {
+	# print STDERR "API ANCHOR: $item\n";
+
 	$item =~ s/^\s*//s;
 	$item =~ s/\s+/ /sg;
 	my @parts = split(/\s+/, $item, 2);
@@ -671,11 +1315,33 @@ sub see {
 
 }
 
+# /*!
+#     @abstract
+#         Returns the "medium rare" name.
+#     @param self
+#         This object.
+#     @discussion
+#         Returns the value of the name from the HeaderDoc comment without
+#         appending the nameline discussion (ever).  See
+#         {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/name//() name}
+#         for more explanation.
+#  */
 sub mediumrarename {
     my $self = shift;
     return $self->{NAME};
 }
 
+# /*!
+#     @abstract
+#         Returns the "raw" name.
+#     @param self
+#         This object.
+#     @discussion
+#         Returns the value of the name from the HeaderDoc comment without further
+#         processing.
+#
+#         If no "raw" name was set, returns the main name (from {@link mediumrarename}.
+#  */
 sub rawname {
     my $self = shift;
     my $localDebug = 0;
@@ -695,6 +1361,25 @@ sub rawname {
     return $n;
 }
 
+# /*!
+#     @abstract
+#         Clears the group for this object.
+#     @param self
+#         This object.
+#  */
+sub clearGroup {
+    my $self = shift;
+    $self->{GROUP} = undef;
+}
+
+# /*!
+#     @abstract
+#         Gets/sets the group for this object and adds it to the group object.
+#     @param self
+#         This object.
+#     @param group
+#         The group to set for this object. (Optional.)
+#  */
 sub group {
     my $self = shift;
 
@@ -704,7 +1389,7 @@ sub group {
 	if (!$self->isAPIOwner()) {
 		# cluck("SELF: $self\nAPIO: ".$self->apiOwner()."\n");
 		# $self->dbprint();
-		$self->apiOwner()->addGroup($group);
+		# $self->apiOwner()->addGroup($group);
 		$self->apiOwner()->addToGroup($group, $self);
 	}
     } else {
@@ -713,11 +1398,15 @@ sub group {
 	}
 }
 
-# /*! @function attribute
-#     @abstract This function adds an attribute for a class or header.
-#     @param name The name of the attribute to be added
-#     @param attribute The contents of the attribute
-#     @param long 0 for single line, 1 for multi-line.
+# /*!
+#     @abstract
+#         This function adds an attribute for a class or header.
+#     @param name
+#         The name of the attribute to be added
+#     @param attribute
+#         The contents of the attribute
+#     @param long
+#         0 for single line, 1 for multi-line.
 #  */
 sub attribute {
     my $self = shift;
@@ -752,6 +1441,8 @@ sub attribute {
 	$attlist{$name}=filterHeaderDocTagContents($attribute);
     }
 
+# print STDERR "AL{$name}: ".$attlist{$name}."\n";
+
     if ($long) {
         $self->{LONGATTRIBUTES} = \%attlist;
     } else {
@@ -763,9 +1454,17 @@ sub attribute {
 
 }
 
-#/*! @function getAttributes
-#    @param long 0 for short only, 1 for long only, 2 for both
-# */
+# /*!
+#     @abstract
+#         Returns the attributes for this object, formatted in HTML
+#         for output.
+#     @param self
+#         This HeaderDoc API object.
+#     @param long
+#         Pass 0 for short attributes by themselves, 1 for long
+#         attributes by themselves, or 2 for both short and long
+#         attributes.
+#  */
 sub getAttributes
 {
     my $self = shift;
@@ -785,8 +1484,10 @@ sub getAttributes
     if ($apiowner->outputformat() eq "hdxml") { $xml = 1; }
     my $first = 1;
 
-    my $declaredin = $self->declaredIn();
+    # my $declaredin = $self->declaredIn();
 	# print STDERR "DECLARED IN: $declaredin\n";
+
+    my $maybe = 0;
 
     my $retval = "";
     if ($long != 1) {
@@ -803,7 +1504,7 @@ sub getAttributes
 
 	    my $value = $attlist{$key};
 	    my $newatt = $value;
-	    if (($key eq "Superclass" || $key eq "Extends&nbsp;Class" || $key eq "Extends&nbsp;Protocol" || $key eq "Conforms&nbsp;to" || $key eq "Implements&nbsp;Class") && !$xml) {
+	    if (($key eq "Superclass" || $key eq "Extends&nbsp;Class" || $key eq "Extends&nbsp;Protocol" || $key eq "Conforms&nbsp;to" || $key eq "Implements&nbsp;Class")) {
 		my $classtype = "class";
 		my $selfclass = ref($self) || $self;
 		if ($selfclass =~ /HeaderDoc::ObjC/) {
@@ -819,22 +1520,35 @@ sub getAttributes
 			if (length($valpart)) {
 				$valpart =~ s/^\s*//s;
 				if ($valpart =~ /^(\w+)(\W.*)$/) {
-					$newatt .= $self->genRef("$classtype", $1, $1).$self->textToXML($2).", ";
+					# print STDERR "1: $1 2: $2\n";
+					$newatt .= $self->genRef("$classtype", $1, $1).$self->textToXML($2);
 				} else {
-					$newatt .= $self->genRef("$classtype", $valpart, $valpart).", ";
+					$newatt .= $self->genRef("$classtype", $valpart, $self->htmlToXML($valpart));
+				}
+				if (!$xml) {
+					$newatt  .= ", ";
 				}
 			}
 		}
 		$newatt =~ s/, $//s;
-	    } elsif ($key eq "Framework Path") {
+		if ($xml) {
+			$keyname =~ s/&nbsp;/ /sg;
+		}
+	    } elsif ($key eq "Path To Headers" && !$xml) {
+		$newatt = "<!-- headerDoc=headerpath;uid=".$uid.";name=start -->\n$value\n<!-- headerDoc=headerpath;uid=".$uid.";name=end -->\n";
+	    } elsif ($key eq "Framework Path" && !$xml) {
 		$newatt = "<!-- headerDoc=frameworkpath;uid=".$uid.";name=start -->\n$value\n<!-- headerDoc=frameworkpath;uid=".$uid.";name=end -->\n";
-	    } elsif ($key eq "Requested Copyright") {
+	    } elsif ($key eq "Requested Copyright" && !$xml) {
 		$newatt = "<!-- headerDoc=frameworkcopyright;uid=".$uid.";name=start -->\n$value\n<!-- headerDoc=frameworkpath;uid=".$uid.";name=end -->\n";
-	    } elsif ($key eq "Requested UID") {
+	    } elsif ($key eq "Requested UID" && !$xml) {
 		$newatt = "<!-- headerDoc=frameworkuid;uid=".$uid.";name=start -->\n$value\n<!-- headerDoc=frameworkuid;uid=".$uid.";name=end -->\n";
+	    } elsif ($xml) {
+		$keyname = $self->htmlToXML($keyname);
+		$newatt = $self->htmlToXML($newatt);
 	    } else {
 		print STDERR "KEY: $key\n" if ($localDebug);
 	    }
+
 	    if ($xml) {
 		$retval .= "<attribute><name>$keyname</name><value>$newatt</value></attribute>\n";
 	    } else {
@@ -842,17 +1556,30 @@ sub getAttributes
 			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
 			$retval .= "<tr><td scope=\"row\"><b>$keyname:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$newatt</div></div></td></tr>\n";
 		} else {
-			$retval .= "<b>$keyname:</b> $newatt<br>\n";
+			$retval .= "<p><b>$keyname</b></p>\n\n<p>$newatt</p>\n";
 		}
 	    }
         }
-	if ($declaredin) {
+
+	my $declaredin = $self->declaredIn();
+	if ($declaredin && (
+		# $HeaderDoc::enable_custom_references || 
+		$self->isAPIOwner())) {
+
+	    my $blockclass = "\$\$customref_show_block\@\@";
+	    my $rowclass = " class=\"customref_show_row\"";
+
+	    if ($self->isAPIOwner()) {
+		$blockclass = "";
+		$rowclass = "";
+	    }
+
 	    if (!$xml) {
 		if ($newTOC) {
-			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
-			$retval .= "<tr><td scope=\"row\"><b>Declared In:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$declaredin</div></div></td></tr>\n";
+			if ($first) { $retval .= "<div class=\"".$blockclass."spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; $maybe = 1; }
+			$retval .= "<tr$rowclass><td scope=\"row\"><b>Declared In:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$declaredin</div></div></td></tr>\n";
 		} else {
-			$retval .= "<b>Declared In:</b> $declaredin<br>\n";
+			$retval .= "<p><b>Declared In</b></p><p>$declaredin</p>\n";
 		}
 	    }
 	# cluck("Backtrace\n");
@@ -871,21 +1598,42 @@ sub getAttributes
 	    if ($xml) {
 		$retval .= "<longattribute><name>$key</name><value>$value</value></longattribute>\n";
 	    } else {
+		$maybe = 0;
 		if ($newTOC) {
 			if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
 			$retval .= "<tr><td scope=\"row\"><b>$key:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$value</div></div></td></tr>\n";
 		} else {
-			$retval .= "<b>$key:</b>\n\n<p>$value<p>\n";
+			$retval .= "<p><b>$key</b></p>\n\n<p>$value</p>\n";
 		}
 	    }
         }
     }
-    if ($newTOC && !$first) { $retval .= "</table></div>\n"; }
-    elsif (!$newTOC) { $retval = "<p>$retval</p>"; } # libxml parser quirk workaround
+    if ((!$xml) && ($newTOC && !$first)) {
+	$retval .= "</table></div>\n";
+    } # elsif (!$newTOC) { $retval = "<p>$retval</p>"; } # libxml parser quirk workaround
+
+    # if ((!$xml) && $HeaderDoc::enable_custom_references) {
+	# # This only gets inserted if the entire spec box should go away.
+	# if ($maybe) {
+		# $retval =~ s/\$\$customref_show_block\@\@/customref_show_block /sg;
+	# } else {
+		# $retval =~ s/\$\$customref_show_block\@\@//sg;
+	# }
+    # }
 
     return $retval;
 }
 
+# /*!
+#     @abstract
+#         Returns the value of an attribute in
+#               the object's long or short attributes whose
+#               name matches the one passed in.
+#     @param self
+#         This object.
+#     @param name
+#         The name to look for.
+#  */
 sub checkShortLongAttributes
 {
     my $self = shift;
@@ -910,6 +1658,15 @@ sub checkShortLongAttributes
     return 0;
 }
 
+# /*!
+#     @abstract
+#         Returns the value of an attribute list whose
+#               name matches the one passed in.
+#     @param self
+#         This object.
+#     @param name
+#         The name to look for.
+#  */
 sub checkAttributeLists
 {
     my $self = shift;
@@ -930,6 +1687,16 @@ sub checkAttributeLists
     return 0;
 }
 
+# /*!
+#     @abstract
+#         Returns the attribute lists for this object.
+#     @param self
+#         This object.
+#     @param composite
+#          Pass 1 to obtain the list for the composite page,
+#          else 0.  Used for generating API references for
+#          any <code>#define</code> declarations in define blocks.
+#  */
 sub getAttributeLists
 {
     my $self = shift;
@@ -949,6 +1716,9 @@ sub getAttributeLists
     if (!$self->isAPIOwner()) { $newTOC = 0; }
 
     my $apiowner = $self->apiOwner();
+    if (!$apiowner) {
+	cluck("No api owner for $self\n");
+    }
     if ($apiowner->outputformat() eq "hdxml") { $xml = 1; }
 
     my %attlists = ();
@@ -959,7 +1729,9 @@ sub getAttributeLists
     # print STDERR "list\n";
     my $retval = "";
     my $first = 1;
-    foreach my $key (sort strcasecmp keys %attlists) {
+    # print STDERR "START OF SORTED LIST\n";
+    foreach my $key (sort strcasecmp (keys %attlists)) {
+	# print STDERR "KEY: $key\n";
 	my $prefix = "";
 	my $suffix = "";
 
@@ -976,7 +1748,7 @@ sub getAttributeLists
 		if ($first) { $retval .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n"; $first = 0; }
 		$retval .= "<tr><td scope=\"row\"><b>$key:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\"><dl>\n";
 	    } else {
-		$retval .= "<b>$key:</b><div class='list_indent'><dl>\n";
+		$retval .= "<p><b>$key</b></p><div class='list_indent'><dl>\n";
 	    }
 	}
 	print STDERR "key $key\n" if ($localDebug);
@@ -984,19 +1756,31 @@ sub getAttributeLists
 	foreach my $item (@list) {
 	    if ($item !~ /\S/s) { next; }
 	    print STDERR "item: $item\n" if ($localDebug);
-	    my ($name, $disc, $namedisc) = &getAPINameAndDisc($item);
+	    my ($name, $disc, $namedisc) = &getAPINameAndDisc($item, $self->lang());
 
 	    if ($key eq "Included Defines") {
 		# @@@ CHECK SIGNATURE
 		my $apiref = $self->apiref($composite, "macro", $name);
 		$name .= "$apiref";
 	    }
-	    if (($key eq "See Also" || $key eq "See") && !$xml) {
+	    if ($xml) {
+		$name = $self->htmlToXML($name);
+		$disc = $self->htmlToXML($disc);
+	    }
+	    if (($key eq "See Also" || $key eq "See")) {
+		$name =~ s/^(\s|<br>|<p>)+//sgio;
+		$name =~ s/(\s|<br>|<\/p>)+$//sgio;
 		$disc =~ s/^(\s|<br>|<p>)+//sgio;
 		$disc =~ s/(\s|<br>|<\/p>)+$//sgio;
 		$name =~ s/\cD/ /sgo;
-		$name = "<!-- a logicalPath=\"$disc\" -->$name<!-- /a -->";
-		$disc = "";
+
+		# print STDERR "DISC: $disc\n";
+		if ($xml) {
+			$disc = "<hd_link logicalPath=\"$disc\" isseealso=\"yes\">$name</hd_link>";
+		} else {
+			$name = "<p><hd_link posstarget=\"$disc\">$name</hd_link></p>";
+			$disc = "";
+		}
 	    }
 	    if ($xml) {
 		$retval .= "<item><name>$name</name><value>$disc</value></item>";
@@ -1015,6 +1799,7 @@ sub getAttributeLists
 	    $retval .= $suffix;
 	}
     }
+    # print STDERR "END OF SORTED LIST\n";
     if ($newTOC) {
 	if (!$first) { $retval .= "</table></div>\n"; }
     }
@@ -1022,9 +1807,11 @@ sub getAttributeLists
     return $retval;
 }
 
-# /*! @function attributelist
-#     @abstract Add an attribute list.
-#     @param name The name of the list
+# /*!
+#     @abstract
+#         Add an attribute list.
+#     @param name
+#         The name of the list
 #     @param attribute
 #          A string in the form "term description..."
 #          containing a term and description to be inserted
@@ -1057,6 +1844,15 @@ sub attributelist {
     # print STDERR $self->getAttributeLists()."\n";
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the API owner for this object.
+#     @param self
+#         This object.
+#     @param owner
+#          The {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner} object
+#          to set as this object's API owner.
+#  */
 sub apiOwner {
     my $self = shift;
     if (@_) {
@@ -1068,7 +1864,15 @@ sub apiOwner {
 
 # use Devel::Peek;
 
-# /*! Generates the API ref (apple_ref) for a function, data type, etc. */
+# /*!
+#     @abstract
+#         Generates the API ref (apple_ref) for a function, data type, etc.
+#     @param self
+#         This object.
+#     @param composite
+#          Set to 1 for the composite page (if <code>classAsComposite</code> is
+#          not 1), else 0.
+#  */
 sub apiref {
     my $self = shift;
     # print STDERR "IY0\n"; Dump($self);
@@ -1170,14 +1974,27 @@ sub apiref {
 		$fwshortname = "shortname=$fwshortname;";
 	}
 	$ret .= "<!-- headerDoc=$type; $uidstring $fwshortname name=$extendedname -->\n";
-	if (length($uid)) { $ret .= "<a name=\"$uid\"></a>\n"; }
+
+        # Don't add the actual anchor for a framework UID because it would
+        # conflict with the page generated by gatherHeaderDoc.
+	if (length($uid) && !$self->isFramework()) { $ret .= "<a name=\"$uid\"></a>\n"; }
     }
     # print STDERR "IY8\n"; Dump($self);
     $owningclass = undef;
     # print STDERR "IY9\n"; Dump($self);
+
+    # print STDERR "APIREF: $ret\n";
     return $ret;
 }
 
+# /*!
+#     @abstract
+#         Sets the index group for a class or header.
+#     @discussion
+#         This allows grouping of headers and/or classes in the main TOC generated by
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}
+#         It is unrelated to groupings of functions, etc. within a header.
+#  */
 sub indexgroup
 {
     my $self = shift;
@@ -1202,6 +2019,15 @@ sub indexgroup
     return $ret;
 }
 
+# /*!
+#     @abstract
+#         Generates a special UID for inherited content
+#     @param self
+#         This object.
+#     @param composite
+#         Set to 1 if generating for a composite page (if
+#         <code>classAsComposite</code> is not 1), else 0.
+#  */
 sub generateLinkUID
 {
     my $self = shift;
@@ -1215,7 +2041,7 @@ sub generateLinkUID
 	return $self->{LINKUID};
     }
 
-    my $classname = sanitize($self->apiOwner()->rawname());
+    my $classname = sanitize($self->apiOwner()->rawname(), 1);
     my $name = sanitize($self->rawname(), 1);
     my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();    
     my $uniquenumber = $HeaderDoc::uniquenumber++;
@@ -1231,48 +2057,17 @@ sub generateLinkUID
     return $uid;
 }
 
-# /*! Sets the apple_ref ID for a data type, function, etc.  Generation occurs in apirefSetup. */
-sub apiuid {
+# /*!
+#     @abstract
+#         Returns the name of an API element for UID purposes.
+#  */
+sub apiuidname
+{
     my $self = shift;
-    my $type = "AUTO";
-    my $paramSignature_or_alt_define_name = "";
-    my $filename = $self->filename();
-    my $linenum = $self->linenum();
-
-    my $localDebug = 0; # NOTE: localDebug is reset to 0 below.
-
-    if (@_) {
-	$type = shift;
-	if (@_) {
-		$paramSignature_or_alt_define_name = shift;
-	}
-    } else {
-	if ($self->{LINKUID}) {
-		print STDERR "RETURNING CACHED LINKUID ".$self->{LINKUID}."\n" if ($localDebug);
-		return $self->{LINKUID};
-	}
-	# if (!$self->{APIUID}) {
-		# $self->apirefSetup(1);
-	# }
-	# if ($self->{APIUID}) {
-		print STDERR "RETURNING CACHED APIUID ".$self->{APIUID}."\n" if ($localDebug);
-		return $self->{APIUID};
-	# }
-    }
-
-    print STDERR "GENERATING NEW APIUID FOR $self (".$self->name.")\n" if ($localDebug);
-
-    my $olduid = $self->{APIUID};
-    if ($self->{LINKUID}) { $olduid = $self->{LINKUID}; }
+    my $class = ref($self) || $self;
+    my $localDebug = 0;
 
     my $name = $self->mediumrarename();
-    $localDebug = 0;
-    my $className; 
-    my $lang = $self->sublang();
-    my $class = ref($self) || $self;
-
-    cluck("Call trace\n") if ($localDebug);
-
     if (!($self->can("conflict")) || ($self->can("conflict") && !($self->conflict()))) {
 	print STDERR "No conflict.\n" if ($localDebug);
 	$name = $self->rawname();
@@ -1322,7 +2117,85 @@ sub apiuid {
 	# }
     }
 
+    $name =~ s/\n//smgo;
+
+    if ($name =~ /^operator\s+\w/) {
+	$name =~ s/^operator\s+/operator_/;
+    } else {
+	$name =~ s/^operator\s+/operator/;
+    }
+
+    return $name;
+}
+
+# /*!
+#     @abstract
+#         Sets the apple_ref ID for a data type, function, etc.
+#     @param obj
+#         The object for which you want ot generate an API ref.
+#     @discussion
+#         The actual API ref eneration occurs in {@link apirefSetup}.
+#  */
+sub apiuid {
+    my $self = shift;
+    my $type = "AUTO";
+    my $paramSignature_or_alt_define_name = "";
+    my $filename = $self->filename();
+    my $linenum = $self->linenum();
+
+    my $localDebug = 0; # NOTE: localDebug is reset to 0 below.
+
+    print STDERR "IN apiuid\n" if ($localDebug);
+
+    if (@_) {
+	$type = shift;
+	if (@_) {
+		$paramSignature_or_alt_define_name = shift;
+	}
+    } else {
+	if ($self->{LINKUID}) {
+		print STDERR "RETURNING CACHED LINKUID ".$self->{LINKUID}."\n" if ($localDebug);
+		return $self->{LINKUID};
+	}
+	# if (!$self->{APIUID}) {
+		# $self->apirefSetup(1);
+	# }
+	# if ($self->{APIUID}) {
+		print STDERR "RETURNING CACHED APIUID ".$self->{APIUID}."\n" if ($localDebug);
+		return $self->{APIUID};
+	# }
+    }
+    if ($self->{REQUESTEDUID} && length($self->{REQUESTEDUID})) {
+	$self->{APIUID} = $self->{REQUESTEDUID};
+
+	print STDERR "RETURNING EXPLICITLY REQUESTED APIUID ".$self->{REQUESTEDUID}."\n" if ($localDebug);
+	return $self->{REQUESTEDUID};
+    }
+
+    print STDERR "GENERATING NEW APIUID FOR $self (".$self->name.")\n" if ($localDebug);
+
+    my $olduid = $self->{APIUID};
+    if ($self->{LINKUID}) { $olduid = $self->{LINKUID}; }
+
+    my $name = $self->apiuidname();
+    $localDebug = 0;
+    my $className; 
+    my $lang = $self->sublang();
+    my $class = ref($self) || $self;
+
+    cluck("Call trace\n") if ($localDebug);
+
+
     my $parentClass = $self->apiOwner();
+
+    if ($type eq "econst") {
+	while (!$parentClass->isAPIOwner()) {
+	    $parentClass = $parentClass->apiOwner();
+	}
+    }
+
+    # print STDERR "OBJ: $self PC: $parentClass\n" if ($HeaderDoc::debugAllocations);
+
     my $parentClassType = ref($parentClass) || $parentClass;
     if ($parentClassType eq "HeaderDoc::Header") {
 	# Generate requests with sublang always (so that, for
@@ -1357,14 +2230,6 @@ sub apiuid {
 
 # print STDERR "SUBLANG: $lang\n";
 
-    $name =~ s/\n//smgo;
-
-    if ($name =~ /^operator\s+\w/) {
-	$name =~ s/^operator\s+/operator_/;
-    } else {
-	$name =~ s/^operator\s+/operator/;
-    }
-
     # my $lang = "c";
     # my $class = ref($HeaderDoc::APIOwner) || $HeaderDoc::APIOwner;
 
@@ -1383,20 +2248,30 @@ sub apiuid {
 	if (!$HeaderDoc::headerObject) {
 		die "headerObject undefined!\n";
 	}
-        # $className = $HeaderDoc::headerObject->name();
-	# if (!(length($className))) {
-		# die "Header Name empty!\n";
-	# }
-	$className = "";
+
+	# All static/my variables are file-scoped and shuld not cause
+        # an API ref conflict with other file-scoped variables
+        # with the same name.
+	if ($self->parserState() && $self->parserState()->{isStatic}) {
+        	$className = $HeaderDoc::headerObject->filename();
+		if (!(length($className))) {
+			die "Header Name empty!\n";
+		}
+		# $className .= "/";
+	} else {
+		$className = "";
+	}
     } else {
         # We're in a class.  Give the class name.
 	# cluck("PC: $parentClass\n");
 	# $self->dbprint();
         $className = $parentClass->name();
-	if (length($name)) { $className .= "/"; }
+	# if (length($name)) { $className .= "/"; }
     }
     $className =~ s/\s//sgo;
     $className =~ s/<.*?>//sgo;
+
+# print STDERR "CN: $className\n";
 
     # Macros are not part of a class in any way.
     $class = ref($self) || $self;
@@ -1453,11 +2328,13 @@ sub apiuid {
     # return $ret;
 }
 
-# /*! @function appleRefIsDoc
+# /*!
 #     @param value
-#     @abstract Sets or gets a state flag.
-#     @discussion The APPLEREFISDOC state flag controls whether to use a
-#     language-specific or doc-specific apple_ref marker for a doc block.
+#     @abstract
+#         Sets or gets a state flag.
+#     @discussion
+#         The <code>APPLEREFISDOC</code> state flag controls whether to use a
+#         language-specific or doc-specific apple_ref marker for a doc block.
 #  */
 sub appleRefIsDoc
 {
@@ -1470,11 +2347,24 @@ sub appleRefIsDoc
     return $self->{APPLEREFISDOC};
 }
 
-# /*! @function genRefSub
-#     @param lang Language
+# /*!
+#     @abstract
+#         Constructs an API reference from its constituent parts.
+#     @param self
+#         This HeaderDoc API object.
+#     @param lang
+#         The programming language.
 #     @param type
+#         The symbol type.
 #     @param name
+#         The symbol name.
 #     @param className
+#         The class containing the symbol (with a trailing slash appended).
+#         Pass an empty string if the symbol is not a class member.
+#     @param paramSignature
+#         The parameter signature for a function or method (prefixed
+#         with a leading slash, with parentheses around the actual
+#         signature.  (Optional.)
 #  */
 sub genRefSub($$$$)
 {
@@ -1487,27 +2377,70 @@ sub genRefSub($$$$)
     if (@_) {
 	$orig_paramSignature = shift;
     }
+    my $owner_class = "";
+    if (@_) {
+	$owner_class = shift;
+    }
+
 
     my $lang = sanitize($orig_lang);
     my $type = sanitize($orig_type);
     my $name = sanitize($orig_name, 1);
-    my $className = sanitize($orig_className);
+    my $className = sanitize($orig_className, 1);
     my $paramSignature = sanitize($orig_paramSignature);
+
+    if (length($className) && length($name)) { $className .= "/"; }
 
     my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();    
     my $localDebug = 0;
 
     $lang = $self->apiRefLanguage($lang);
 
-    my $uid = "//$apiUIDPrefix/$lang/$type/$className$name$paramSignature";
+    if ($lang eq "perl") {
+	# You can declare arbitrary variables in Perl inside a
+	# package that are actually outside the package with
+	# this syntax, e.g. $otherPackage::variable = "blah"
+
+	# Don't do this for classes; they're not scoped.
+	# No need to filter out headers here because they have
+	# "doc" as the language.
+
+	# print "NAME: $name CN: $className\n";
+
+	if ($type ne "cl") {
+		if ($name =~ s/^(.+)\:\://s) {
+			$className = "$1/";
+		}
+	}
+	# print "NEW NAME: $name CN: $className\n";
+    }
+
+    my $uid;
+    if (length($owner_class)) {
+	$uid = "//$apiUIDPrefix/$lang/$type/$owner_class/$className$name$paramSignature";
+    } else {
+	$uid = "//$apiUIDPrefix/$lang/$type/$className$name$paramSignature";
+    }
     return $uid;
 }
 
+# /*!
+#     @abstract
+#         Returns the language token that should appear in an
+#         API reference.
+#     @param self
+#         The current object.
+#     @param lang
+#         The raw HeaderDoc (internal) language name.
+#  */
 sub apiRefLanguage
 {
     my $self = shift;
     my $lang = shift;
 
+    if ($lang eq "javascript") {
+	$lang = "js";
+    }
     if ($lang eq "csh") {
 	$lang = "shell";
     }
@@ -1524,6 +2457,15 @@ sub apiRefLanguage
     return $lang;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the list of exceptions thrown by this
+#         class/function.
+#     @param self
+#         The current object.
+#     @param throws
+#         The new value. (Optional.)
+#  */
 sub throws {
     my $self = shift;
 
@@ -1538,7 +2480,7 @@ sub throws {
 	if ($newTOC) {
         	$self->{THROWS} .= "$new<br>\n";
 	} else {
-        	$self->{THROWS} .= "<li>$new</li>\n";
+        	$self->{THROWS} .= "$new<br>\n";
 	}
 	$self->{XMLTHROWS} .= "<throw>$new</throw>\n";
 	# print STDERR "Added $new to throw list.\n";
@@ -1548,13 +2490,22 @@ sub throws {
 	if ($newTOC) {
     		return $self->{THROWS};
 	} else {
-    		return ("<ul>\n" . $self->{THROWS} . "</ul>");
+    		return ("<p>\n" . $self->{THROWS} . "</p>");
 	}
     } else {
 	return "";
     }
 }
 
+# /*!
+#     @abstract
+#         Returns the list of exceptions thrown by this
+#         class/function.
+#     @param self
+#         The current object.
+#     @discussion
+#         The value is set with {@link throws}.
+#  */
 sub XMLthrows {
     my $self = shift;
     my $string = $self->htmlToXML($self->{XMLTHROWS});
@@ -1569,12 +2520,30 @@ sub XMLthrows {
     return $ret;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the abstract.
+#     @param self
+#         The current object.
+#     @param throws
+#         The new value. (Optional.)
+#     @param isbrief
+#         Use for compatibility the Doxygen <code>\@brief</code> tag.  Pass 1
+#         for the <code>\@brief</code> behavior (abstract is limited to one paragraph
+#         of content, so everything after a gap becomes part of the
+#         discussion), 0 for the normal <code>\@abstract</code> behavior.
+#  */
 sub abstract {
     my $self = shift;
+
+    my $localDebug = 0;
+
     my $isbrief = 0;
 
     if (@_) {
 	my $abs = shift;
+
+	print STDERR "Setting abstract for $self to \"$abs\"\n" if ($localDebug);;
 
 	if (@_) {
 		$isbrief = 1;
@@ -1600,6 +2569,15 @@ sub abstract {
     return $ret;
 }
 
+# /*! 
+#     @abstract
+#         Returns the abstract for XML use.
+#     @param self
+#         This object.
+#     @discussion
+#         The value is set with
+# {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/abstract//() abstract}.
+#  */
 sub XMLabstract {
     my $self = shift;
 
@@ -1609,11 +2587,46 @@ sub XMLabstract {
     return $self->htmlToXML($self->{ABSTRACT});
 }
 
+# /*!
+#     @abstract
+#         Returns the nameline discussion by itself.
+#     @param self
+#         This object.
+#     @discussion
+#         Much like {@link nameline_discussion} except thiat
+#         this variant does not scrape out HeaderDoc markup,
+#         HTML tags, etc.
+#  */
 sub raw_nameline_discussion {
 	my $self = shift;
 	return $self->{NAMELINE_DISCUSSION};
 }
 
+# /*!
+#     @abstract
+#         Returns the "raw" name.
+#     @param self
+#         This object.
+#     @discussion
+#         This function returns the name as taken from the
+#         HeaderDoc comment.  If the nameline contains multiple
+#         words and there are additional nonempty discussion
+#         lines, the entire name line is treated as the
+#         name, and the nameline discussion is appended to
+#         the value returned by {@link mediumrarename} to
+#         obtain the value that this function returns.
+#
+#         An explicit <code>\@discussion</code> tag forces the nameline discussion
+#         to be treated as part of the name even if the contents of
+#         the discussion tag are empty.
+#
+#         This may be a separate value from the main name
+#         returned by {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/name//() name}
+#         and {@link mediumrarename}.
+#
+#         If no "raw" name was set, returns the main name (equivalent to
+#         {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/name//() name}.
+#  */
 sub rawname_extended {
 	my $self = shift;
 	my $localDebug = 0;
@@ -1636,33 +2649,89 @@ sub rawname_extended {
 	return $n;
 }
 
-
+# /*!
+#     @abstract
+#         Gets/sets the nameline discussion.
+#     @param self
+#         This object.
+#     @param disc
+#         The new nameline discusison to set. (Optional.)
+#     @discussion
+#         With old-stype headerdoc comments (e.g. <code>\@function</code>),
+#         the name line (the first line) contains the name and
+#         an optional discussion.  If the name line is not
+#         the sole discussion, the remainder of the name line
+#         is treated as part of the name.  Thus, this line
+#         gets stored separately.
+#
+#         The content gets massively stripped by this function
+#         under the assumption that it may get used as part
+#         of a name.  You should generally call this version
+#         in that context and call {@link raw_nameline_discussion}
+#         for other cases.
+#  */
 sub nameline_discussion {
     my $self = shift;
     my $localDebug = 0;
 
     if (@_) {
         $self->{NAMELINE_DISCUSSION} = shift;
+
+	# cluck("in NL_DISC\n");
 	print STDERR "nameline discussion set to ".$self->{NAMELINE_DISCUSSION}."\n" if ($localDebug);
     }
     return $self->htmlToXML(filterHeaderDocTagContents($self->{NAMELINE_DISCUSSION}));
 }
 
+# /*! @abstract
+#         Returns the discussion without merging in the name line.
+#     @param self
+#         This object.
+#  */
 sub raw_discussion {
 	my $self = shift;
 	return $self->{DISCUSSION};
 }
 
+# /*! @abstract
+#         Returns true if the discussion is set explicitly with an
+#              <code>\@discussion</code> tag.
+#     @param self
+#         This object.
+#     @discussion
+#              An explicit <code>\@discussion</code> tag forces the nameline discussion
+#              to be treated as part of the name even if the contents of
+#              the discussion tag are empty.  This flag supports that.
+#  */
 sub discussion_set {
 	my $self = shift;
 	return $self->{DISCUSSION_SET};
 }
 
+# /*!
+#     @abstract
+#         Returns the discussion (without nameline discussion).
+#     @param self
+#         This object.
+#     @discussion
+#         See {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/name//() name}
+#         for more info.
+#  */
 sub halfbaked_discussion {
 	my $self = shift;
 	return $self->discussion_sub(0, 0);
 }
 
+# /*! @abstract
+#         Gets/sets the discussion value.
+#     @param self
+#         This object.
+#     @param disc
+#         The new value to set.  (Optional.)
+#     @discussion
+#         This function returns the discussion, including the
+#         nameline discussion, if needed.
+#  */
 sub discussion {
     my $self = shift;
     my $discDebug = 0;
@@ -1692,31 +2761,49 @@ sub discussion {
 			$discussion = $olddisc."<br /><br />\n";;
 		}
 	}
-        $discussion .= filterHeaderDocTagContents(shift);
+	my $newdisc = $self->listfixup(shift);
+        $discussion .= filterHeaderDocTagContents($newdisc);
 
 	print STDERR "$discussion\n" if ($discDebug);
 
 	# $discussion =~ s/<br>/\n/sgo;
-	$discussion = $self->listfixup($discussion);
 
         # $discussion =~ s/\n\n/<br>\n/go;
         $self->{DISCUSSION} = $self->linkfix($discussion);
+
+	# warn("Set discussion to ".$self->{DISCUSSION}."\n");
 
 	# Ensure that the discussion is not completely blank.
 	if ($self->{DISCUSSION} eq "") {
 		$self->{DISCUSSION} .= " ";
 	}
+
+	# print "\$self->{DISCUSSION} = ".$self->{DISCUSSION}."\n" if ($discDebug);
     }
     return $self->discussion_sub(1, $discDebug);
 }
 
+# /*! @abstract
+#         Gets the discussion value (private function).
+#     @param self
+#         This object.
+#     @param bake
+#         Determines whether to bake the results.
+#     @param discDebug
+#         Set to 1 for debugging, else 0.
+#     @discussion
+#         If a standard discussion is set, this function
+#         returns that.  If not, this returns the nameline
+#         discussion.  If <code>code</code> is set, the
+#         nameline discussion is wrapped in paragraph tags.
+#  */
 sub discussion_sub
 {
     my $self = shift;
     my $bake = shift;
     my $discDebug = shift;
 
-    # cluck("backtrace\n");
+    # cluck("backtrace\n") if ($discDebug);
     print STDERR "OBJ is \"".$self."\"\n" if ($discDebug);
     print STDERR "NAME is \"".$self->{NAME}."\"\n" if ($discDebug);
     print STDERR "DISC WAS \"".$self->{DISCUSSION}."\"\n" if ($discDebug);
@@ -1737,6 +2824,54 @@ sub discussion_sub
     return $self->{NAMELINE_DISCUSSION};
 }
 
+# /*!
+#     @abstract
+#         Merges newlines and carriage returns with preceding text, but only if nonsequential.
+#     @discussion
+#         For proper interpreting of implicit lists (without <code>ul</code> or <code>ol</code>
+#         tags), it is necessary to split the input into lines of text, keeping the first
+#         newline/carriage return attached to the previous line, but not later newlines or
+#         carriage returns.
+#     @param arrayref
+#         A reference to the input array.
+#     @result
+#         Returns the new array.
+#  */
+sub splitmerge
+{
+    my $arrayref = shift;
+    my @arr = @{$arrayref};
+    my @ret = ();
+
+    foreach my $item (@arr) {
+	if ($item =~ /[\n\r]/) {
+		my $temp = pop(@ret);
+		if ($temp) {
+			if ($temp =~ /[\r\n]$/s) {
+				push(@ret, $temp);
+			} else {
+				$item = $temp.$item;
+			}
+		}
+		push(@ret, $item);
+	} elsif ($item) {
+		push(@ret, $item);
+	}
+    }
+    return @ret;
+}
+
+# /*!
+#     @abstract
+#         Converts numbered lists in comments into HTML ordered
+#         list tags where possible.
+#     @param self
+#         This object.
+#     @param olddiscussion
+#         The input discussion.
+#     @return
+#         Returns the new discussion.
+#  */
 sub listfixup
 {
     my $self = shift;
@@ -1744,6 +2879,39 @@ sub listfixup
     my $discussion = "";
 
     my $numListDebug = 0;
+
+    my $encoding = $self->encoding();
+
+
+    # Note that HeaderDoc does not attempt to handle non-8-bit
+    # character sets.
+
+    my $bullet = "";
+
+    if ($encoding = /iso-8859-\d+\s*$/i) {
+	# Technically, this is a lie.  The ISO standards
+	# don't specify any characters for this range.
+	# That said, most software treats ISO-8859-1 like
+	# Windows-1252 and calls 0x95 a bullet and the same
+	# goes for the rest of the ISO character sets and
+	# their Windows equivalents.
+
+	$bullet = "\x95";
+    } elsif ($encoding = /Windows-\d+/i) {
+	$bullet = "\x95"; # ISO 8859-1
+    } elsif ($encoding = /MacRoman/i) {
+	$bullet = "\xA5";
+    } elsif ($encoding = /UTF-8/i) {
+	$bullet = "\x{2022}";
+    }
+
+    # I don't have time to actually write the bulleted list detection right now,
+    # but this is where it will go eventually.  Also, it would be nice to allow
+    # nesting, though this will require tab to space conversion (e.g. with the -w
+    # flag).  That probably should happen anyway, and probably up a few levels
+    # in the main text handling code).
+
+    # print STDERR "ENC: $encoding\n";
 
     if ($HeaderDoc::dumb_as_dirt) {
 	print STDERR "BASIC MODE: LIST FIXUP DISABLED\n" if ($numListDebug);
@@ -1753,6 +2921,8 @@ sub listfixup
     print STDERR "processing dicussion for ".$self->name().".\n" if ($numListDebug);
 
     my @disclines = split(/([\n\r])/, $olddiscussion);
+
+    @disclines = splitmerge(\@disclines);
     my $curpos = 0;
     my $seekpos = 0;
     my $nlines = scalar(@disclines);
@@ -1760,6 +2930,16 @@ sub listfixup
     my $oldinList = 0;
     my $intextblock = 0;
     my $inpre = 0;
+
+    if ($numListDebug) {
+	print STDERR "BEGIN DISCUSSION\n";
+	while ($curpos < $nlines) {
+		my $line = $disclines[$curpos++];
+		print STDERR "$line";
+	}
+	print STDERR "END DISCUSSION\n";
+	$curpos = 0;
+    }
 
     while ($curpos < $nlines) {
 	my $line = $disclines[$curpos];
@@ -1799,7 +2979,7 @@ sub listfixup
 			    while (($seekpos < $nlines) && ($inList == 1)) {
 				my $scanline = $disclines[$seekpos];
 				print STDERR "INLIST: $inList, OLDINLIST: $oldinList\n" if ($numListDebug);
-				if ($scanline =~ /^<\/p><p>$/o) {
+				if ($scanline =~ /^<\/p><p>\s*$/so || $scanline =~ /^\s*$/s) {
 					# empty line
 					$foundblank = 1;
 					print STDERR "BLANKLINE\n" if ($numListDebug);
@@ -1857,7 +3037,7 @@ sub listfixup
 				$discussion .= "</li></ol>";
 			}
 			$oldinList = $inList;
-		} elsif ($line =~ /^<\/p><p>$/o) {
+		} elsif ($line =~ /^<\/p><p>\s*$/so || $line =~ /^\s*$/s) {
 			if ($oldinList == 3 || $oldinList == 1) {
 				# If 3, this was last entry in list before next
 				# text.  If 1, this was last entry in list before
@@ -1886,9 +3066,22 @@ sub listfixup
 
     print STDERR "done processing dicussion for ".$self->name().".\n" if ($numListDebug);
     # $newdiscussion = $discussion;
+
     return $discussion;
 }
 
+# /*!
+#     @abstract
+#         Returns the discussion formatted for XML.
+#     @param self
+#         This object.
+#     @param deprecated_discussion
+#         The value to set. (Optional, do not use.)
+#     @discussion
+#         Do not set discussion with this function.  Use the
+#  {@link //apple_ref/perl/instm/HeaderDoc::DocReference/discussion//() discussion}
+#         function instead.
+#  */
 sub XMLdiscussion {
     my $self = shift;
 
@@ -1902,6 +3095,17 @@ sub XMLdiscussion {
 }
 
 
+# /*!
+#    @abstract
+#         Gets/sets the vestigial text declaration.
+#    @param self
+#         This object.
+#    @param declaration
+#         The new declaration to set. (Optional.)
+#    @discussion
+#        This is only relevant if the <code>-b</code> flag is used,
+#        and maybe not even then.
+#  */
 sub declaration {
     my $self = shift;
     # my $dec = $self->declarationInHTML();
@@ -1922,6 +3126,19 @@ sub declaration {
     return $self->{DECLARATION};
 }
 
+# /*! 
+#     @abstract
+#         Gets/sets the prvate declaration for a C++ method.
+#     @param self
+#         This object.
+#     @param newpridec
+#         The new value to set. (Optional.)
+#     @discussion
+#         The private declaration for a C++ method are the portion
+#         of the declaration after the semicolon.  These define the
+#         private internal variable names that correspond with the
+#         public argument names.  (Why!?!?!?!)
+#  */
 sub privateDeclaration {
     my $self = shift;
     if (@_) {
@@ -1931,14 +3148,66 @@ sub privateDeclaration {
 }
 
 
-# /*! @function genRef
-#     @abstract generate a cross-reference request
-#     @param keystring string containing the keywords, e.g. stuct, enum
-#     @param namestring string containing the type name itself
-#     @param linktext link text to generate
-#     @param optional_expected_type general genre of expected types
+# /*!
+#     @abstract
+#         Generate a cross-reference request in HTML style
+#     @param keystring
+#         string containing the keywords, e.g. <code>struct</code> or <code>enum</code>
+#     @param namestring
+#         string containing the type name itself
+#     @param linktext
+#         link text to generate
+#     @param optional_expected_type
+#         general genre of expected types
+#     @discussion
+#         This is used to simplify the code that rips apart the
+#         resulting anchor when handling <code>see</code> or <code>seealso</code> tags.
 #  */
-sub genRef($$$)
+sub genRefHTML($$$)
+{
+    my $self = shift;
+    my $keystring = shift;
+    my $name = shift;
+    my $linktext = shift;
+    my $optional_expected_type = "";
+
+    my $of = $self->outputformat();
+    $self->outputformat("html");
+
+    my $result;
+    if (@_) {
+	$optional_expected_type = shift;
+	$result = $self->genRef($keystring, $name, $linktext, $optional_expected_type);
+    } else {
+	$result = $self->genRef($keystring, $name, $linktext);
+    }
+
+    $self->outputformat($of);
+    return $result;
+}
+
+
+# /*!
+#     @abstract
+#         Generate a cross-reference request (from a declaration)
+#     @param keystring
+#         string containing the keywords, e.g. <code>struct</code> or <code>enum</code>
+#     @param namestring
+#         string containing the type name itself
+#     @param linktext
+#         link text to generate
+#     @param optional_expected_type
+#         general genre of expected types
+#     @param optional_return_only_ref
+#         Pass 1 if you want the bare list of destinations.
+#         If the symbol should not be linked, this mode
+#         returns an empty string.
+#
+#         Pass 0 (or omit) to get a marked up anchor with
+#         link text enclosed.  If the word should not be
+#         linked, this mode returns the link text.
+#  */
+sub genRefFromDeclaration($$$$)
 {
     my $self = shift;
     my $keystring = shift;
@@ -1948,6 +3217,80 @@ sub genRef($$$)
     if (@_) {
 	$optional_expected_type = shift;
     }
+    my $optional_return_only_ref = 0;
+    if (@_) {
+	$optional_return_only_ref = shift;
+    }
+    return $self->genRefCore($keystring, $name, $linktext, $optional_expected_type, $optional_return_only_ref, 1);
+}
+
+# /*!
+#     @abstract
+#         Generate a cross-reference request
+#     @param keystring
+#         string containing the keywords, e.g. <code>struct</code> or <code>enum</code>
+#     @param namestring
+#         string containing the type name itself
+#     @param linktext
+#         link text to generate
+#     @param optional_expected_type
+#         general genre of expected types
+#     @param optional_return_only_ref
+#         Pass 1 if you want the bare list of destinations.
+#         If the symbol should not be linked, this mode
+#         returns an empty string.
+#
+#         Pass 0 (or omit) to get a marked up anchor with
+#         link text enclosed.  If the word should not be
+#         linked, this mode returns the link text.
+#  */
+sub genRef($$$$)
+{
+    my $self = shift;
+    my $keystring = shift;
+    my $name = shift;
+    my $linktext = shift;
+    my $optional_expected_type = "";
+    if (@_) {
+	$optional_expected_type = shift;
+    }
+    my $optional_return_only_ref = 0;
+    if (@_) {
+	$optional_return_only_ref = shift;
+    }
+    return $self->genRefCore($keystring, $name, $linktext, $optional_expected_type, $optional_return_only_ref, 0);
+}
+
+# /*!
+#     @abstract
+#         Generate a cross-reference request
+#     @param keystring
+#         string containing the keywords, e.g. <code>struct</code> or <code>enum</code>
+#     @param namestring
+#         string containing the type name itself
+#     @param linktext
+#         link text to generate
+#     @param expected_type
+#         general genre of expected types
+#     @param return_only_ref
+#         Pass 1 if you want the bare list of destinations.
+#         If the symbol should not be linked, this mode
+#         returns an empty string.
+#
+#         Pass 0 (or omit) to get a marked up anchor with
+#         link text enclosed.  If the word should not be
+#         linked, this mode returns the link text.
+#  */
+sub genRefCore($$$$$$)
+{
+    my $self = shift;
+    my $keystring = shift;
+    my $name = shift;
+    my $linktext = shift;
+    my $expected_type = shift;
+    my $return_only_ref = shift;
+    my $fromDeclaration = shift;
+
     my $fullpath = $self->fullpath();
     my $linenum = $self->linenum();
     my $tail = "";
@@ -1967,17 +3310,23 @@ sub genRef($$$)
     # same name as a generic C entity, for example.
 
     my $lang = $self->sublang();
-    my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
-	$soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
-	$enumname,
-	$typedefname, $varname, $constname, $structisbrace, $macronamesref,
-	$classregexp, $classbraceregexp, $classclosebraceregexp,
-	$accessregexp, $requiredregexp, $propname, 
-        $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename) = parseTokens($self->lang(), $self->sublang());
+    # my ($sotemplate, $eotemplate, $operator, $soc, $eoc, $ilc, $ilc_b, $sofunction,
+	# $soprocedure, $sopreproc, $lbrace, $rbrace, $unionname, $structname,
+	# $enumname,
+	# $typedefname, $varname, $constname, $structisbrace, $macronamesref,
+	# $classregexp, $classbraceregexp, $classclosebraceregexp,
+	# $accessregexp, $requiredregexp, $propname, 
+        # $objcdynamicname, $objcsynthesizename, $moduleregexp, $definename,
+	# $functionisbrace, $classisbrace, $lbraceconditionalre, $lbraceunconditionalre, $assignmentwithcolon,
+	# $labelregexp, $parmswithcurlybraces, $superclasseswithcurlybraces, $soconstructor) = parseTokens($self->lang(), $self->sublang());
+
+    my %parseTokens = %{parseTokens($self->lang(), $self->sublang())};
+    my $accessregexp = $parseTokens{accessregexp};
 
     if ($name =~ /^[\d\[\]]/o) {
 	# Silently fail for [4] and similar.
 	print STDERR "Silently fail[1]\n" if ($localDebug);
+	if ($return_only_ref) { return ""; }
 	return $linktext;
     }
 
@@ -1986,6 +3335,7 @@ sub genRef($$$)
 	# and varargs macros.
 
 	print STDERR "Silently fail[2]\n" if ($localDebug);
+	if ($return_only_ref) { return ""; }
 	return $linktext;
     }
     # if (($name =~ /^\s*public:/o) || ($name =~ /^\s*private:/o) ||
@@ -1994,6 +3344,7 @@ sub genRef($$$)
 	# Silently fail for these, too.
 
 	print STDERR "Silently fail[3]\n" if ($localDebug);
+	if ($return_only_ref) { return ""; }
 	return $linktext;
     }
 
@@ -2027,12 +3378,15 @@ sub genRef($$$)
 	}
     }
 
-    if ($name =~ /(.+)::(.+)/o) {
+    if ($name =~ /^(.+)::(.+?)$/o) {
 	my $classpart = $1;
 	my $type = $2;
 	if ($linktext !~ /::/o) {
 		warn("$fullpath:$linenum: warning: Bogus link text generated for item containing class separator.  Ignoring.\n");
 	}
+
+	# print STDERR "CLASSPART: $classpart TYPE: $type\n";
+
 	my $ret = $self->genRef("class", $classpart, $classpart);
 	$ret .= "::";
 
@@ -2040,11 +3394,12 @@ sub genRef($$$)
 	# enum, and other similar types without preceding them
 	# with struct, enum, etc....
 
-	$classpart .= "/";
+	# $classpart .= "/";
 
+	# Classpart is never empty here, so don't bother checking.
         my $ref1 = $self->genRefSub($lang, "instm", $type, $classpart);
         my $ref2 = $self->genRefSub($lang, "clm", $type, $classpart);
-        my $ref3 = $self->genRefSub($lang, "func", $type, $classpart);
+        my $ref3 = $self->genRefSub($lang, "func", $type, "");
         my $ref4 = $self->genRefSub($lang, "ftmplt", $type, $classpart);
         my $ref5 = $self->genRefSub($lang, "defn", $type, "");
         my $ref6 = $self->genRefSub($lang, "macro", $type, "");
@@ -2056,11 +3411,15 @@ sub genRef($$$)
         my $ref11 = $self->genRefSub($lang, "struct", $type, "");
         my $ref12 = $self->genRefSub($lang, "data", $type, $classpart);
         my $ref13 = $self->genRefSub($lang, "clconst", $type, $classpart);
+	my $ref14 = $self->genRefSub($lang, "intfm", $type, $classpart);
 	my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $classpart);
+
+	my $lp = "$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref14 $ref99";
+	if ($return_only_ref) { return $lp; }
 	if (!$xml) {
-        	$ret .= "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref99\" -->$type<!-- /a -->";
+        	$ret .= "<!-- a logicalPath=\"$lp\" machineGenerated=\"true\" -->$type<!-- /a -->";
 	} else {
-        	$ret .= "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref7 $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref99\">$type</hd_link>";
+        	$ret .= "<hd_link logicalPath=\"$lp\">$type</hd_link>";
 	}
 
 	print STDERR "Double-colon case\n" if ($localDebug);
@@ -2071,6 +3430,19 @@ sub genRef($$$)
     my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();    
     my $type = "";
     my $className = "";
+
+    my $classNameImplicit = 0;
+    my $apio = $self->apiOwner();
+    my $apioclass = ref($apio) || $apio;
+    if ($apioclass ne "HeaderDoc::Header") {
+	$classNameImplicit = 1;
+	if ($apio->can("className")) {  # to get the class name from Category objects
+		$className = $apio->className();
+	} else {
+		$className = $apio->name();
+	}
+	# $className .= "/";
+    }
 
     my $class_or_enum_check = " $keystring ";
     # if ($lang eq "pascal") { $class_or_enum_check =~ s/\s+var\s+/ /sgo; }
@@ -2099,11 +3471,10 @@ sub genRef($$$)
     my ($case_sensitive, $keywordhashref) = $self->keywords();
     my @keywords = keys %{$keywordhashref};
     foreach my $keyword (@keywords) {
-	my $keywordquot = quote($keyword);
 	if ($case_sensitive) {
-		$class_or_enum_check =~ s/(^|\s+)$keywordquot(\s+|$)/ /sg;
+		$class_or_enum_check =~ s/(^|\s+)\Q$keyword\E(\s+|$)/ /sg;
 	} else {
-		$class_or_enum_check =~ s/(^|\s+)$keywordquot(\s+|$)/ /sgi;
+		$class_or_enum_check =~ s/(^|\s+)\Q$keyword\E(\s+|$)/ /sgi;
 	}
     }
 
@@ -2124,19 +3495,21 @@ sub genRef($$$)
 	    ($keystring =~ /union/o) && do { $type = "tag"; last SWITCH; };
 	    ($keystring =~ /operator/o) && do { $type = "*"; last SWITCH; };
 	    ($keystring =~ /enum/o) && do { $type = "tag"; last SWITCH; };
-	    ($keystring =~ /protocol/o) && do { $type = "intf"; $className=$name; $name=""; last SWITCH; };
-	    ($keystring =~ /class/o) && do { $type = "cl"; $className=$name; $name=""; last SWITCH; };
+	    ($keystring =~ /protocol/o) && do { $type = "intf"; $classNameImplicit = 0; $className=$name; $name=""; last SWITCH; };
+	    ($keystring =~ /class/o) && do { $type = "cl"; $classNameImplicit = 0; $className=$name; $name=""; last SWITCH; };
 	    ($keystring =~ /#(define|ifdef|ifndef|if|endif|undef|elif|error|warning|pragma|include|import)/o) && do {
 		    # Used to include || $keystring =~ /class/o
 		    # defines and similar aren't followed by a type
 
 		    print STDERR "Keyword case\n" if ($localDebug);
+		    if ($return_only_ref) { return ""; }
 		    return $linktext.$tail;
 		};
 	    {
 		$type = "";
 		my $name = $self->name();
 		warn "$fullpath:$linenum: warning: keystring ($keystring) in $name type link markup\n";
+		if ($return_only_ref) { return ""; }
 		return $linktext.$tail;
 	    }
 	}
@@ -2144,122 +3517,146 @@ sub genRef($$$)
 	    # warn "Function requested with genRef.  This should not happen.\n";
 	    # This happens now, at least for operators.
 
-	    my $ref1 = $self->genRefSub($lang, "instm", $name, $className);
-	    my $ref2 = $self->genRefSub($lang, "clm", $name, $className);
-	    my $ref3 = $self->genRefSub($lang, "func", $name, $className);
-	    my $ref4 = $self->genRefSub($lang, "ftmplt", $name, $className);
-	    my $ref5 = $self->genRefSub($lang, "defn", $name, $className);
-	    my $ref6 = $self->genRefSub($lang, "macro", $name, $className);
-	    my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $className);
+	    my $lp = "";
+	    if ($className ne "")  {
+	    	$lp .= " ".$self->genRefSub($lang, "instm", $name, $className);
+	    	$lp .= " ".$self->genRefSub($lang, "clm", $name, $className);
+	    }
+	    $lp .= " ".$self->genRefSub($lang, "func", $name, "");
+	    $lp .= " ".$self->genRefSub($lang, "ftmplt", $name, $className);
+	    $lp .= " ".$self->genRefSub($lang, "defn", $name, $className);
+	    $lp .= " ".$self->genRefSub($lang, "macro", $name, $className);
+	    $lp .= " ".$self->genRefSub("doc/com", "intfm", $name, $className);
+
+	    $lp =~ s/^ //s;
 
 	    print STDERR "Class or enum check case: Type is \"*\" case\n" if ($localDebug);
+	    if ($return_only_ref) { return $lp; }
 	    if (!$xml) {
-	        return "<!-- a logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref99\" -->$linktext<!-- /a -->".$tail;
+	        return "<!-- a logicalPath=\"$lp\" machineGenerated=\"true\" -->$linktext<!-- /a -->".$tail;
 	    } else {
-	        return "<hd_link logicalPath=\"$ref1 $ref2 $ref3 $ref4 $ref5 $ref6 $ref99\">$linktext</hd_link>".$tail;
+	        return "<hd_link logicalPath=\"$lp\">$linktext</hd_link>".$tail;
 	    }
 	} else {
 	    print STDERR "Class or enum check case: Type is not \"*\" case\n" if ($localDebug);
+	    my $lp = $self->genRefSub($lang, $type, $className, $name);
+	    if ($return_only_ref) { return $lp; }
 	    if (!$xml) {
-	        return "<!-- a logicalPath=\"" . $self->genRefSub($lang, $type, $className, $name) . "\" -->$linktext<!-- /a -->".$tail;
+	        return "<!-- a logicalPath=\"" . $lp . "\" machineGenerated=\"true\" -->$linktext<!-- /a -->".$tail;
 	    } else {
-	        return "<hd_link logicalPath=\"" . $self->genRefSub($lang, $type, $className, $name) . "\">$linktext</hd_link>".$tail;
+	        return "<hd_link logicalPath=\"" . $lp . "\">$linktext</hd_link>".$tail;
 	    }
 	}
     } else {
 	# We could be looking for a class or a typedef.  Unless it's local, put in both
 	# and let the link resolution software sort it out.  :-)
 
+	my $typerefs = $self->genRefSub($lang, "cl", $name, "");
         # allow classes within classes for certain languages.
-        my $ref7 = $self->genRefSub($lang, "cl", $name, "");
-        my $ref7a = "";
-	$ref7a = $self->genRefSub($lang, "cl", $name, $className) if ($className ne "");
-        my $ref8 = $self->genRefSub($lang, "tdef", $name, "");
-        my $ref9 = $self->genRefSub($lang, "tag", $name, "");
-        my $ref10 = $self->genRefSub($lang, "econst", $name, "");
-        my $ref11 = $self->genRefSub($lang, "struct", $name, "");
-        my $ref12 = $self->genRefSub($lang, "data", $name, $className);
-        my $ref13 = $self->genRefSub($lang, "clconst", $name, $className);
-        my $ref14 = $self->genRefSub($lang, "intf", $name, "");
+	$typerefs .= " ".$self->genRefSub($lang, "cl", $name, $className) if (($className ne "") && !$classNameImplicit);
+        $typerefs .= " ".$self->genRefSub($lang, "tdef", $name, "");
+        $typerefs .= " ".$self->genRefSub($lang, "tag", $name, "");
+        $typerefs .= " ".$self->genRefSub($lang, "struct", $name, "");
+        $typerefs .= " ".$self->genRefSub($lang, "intf", $name, "");
 
-        my $ref1 = $self->genRefSub($lang, "instm", $name, $className);
-        my $ref2 = $self->genRefSub($lang, "clm", $name, $className);
-        my $ref2a = $self->genRefSub($lang, "intfcm", $name, $className);
-        my $ref2b = $self->genRefSub($lang, "intfm", $name, $className);
-        my $ref3 = $self->genRefSub($lang, "func", $name, $className);
-        my $ref4 = $self->genRefSub($lang, "ftmplt", $name, $className);
-        my $ref5 = $self->genRefSub($lang, "defn", $name, "");
-        my $ref6 = $self->genRefSub($lang, "macro", $name, "");
-	my $ref99 = $self->genRefSub("doc/com", "intfm", $name, $className);
 
-	my $masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref12 $ref13 $ref14 $ref1 $ref2 $ref2a $ref2b $ref3 $ref4 $ref5 $ref6 $ref99";
-	print STDERR "Default case (OET: $optional_expected_type)" if ($localDebug);
+	my $varrefs =           $self->genRefSub($lang, "econst", $name, "");
+        $varrefs .= " ".        $self->genRefSub($lang, "data", $name, $className);
+	if ($classNameImplicit) {
+        	$varrefs .= " ".$self->genRefSub($lang, "data", $name, "");
+	}
+        $varrefs .= " ".$self->genRefSub($lang, "clconst", $name, $className);
 
-	if (length($optional_expected_type)) {
+	my $functionrefs =   $self->genRefSub($lang, "instm", $name, $className);
+        $functionrefs .= " ".$self->genRefSub($lang, "clm", $name, $className);
+        $functionrefs .= " ".$self->genRefSub($lang, "intfcm", $name, $className);
+        $functionrefs .= " ".$self->genRefSub($lang, "intfm", $name, $className);
+        $functionrefs .= " ".$self->genRefSub($lang, "func", $name, "");
+        $functionrefs .= " ".$self->genRefSub($lang, "ftmplt", $name, $className);
+        $functionrefs .= " ".$self->genRefSub($lang, "defn", $name, "");
+        $functionrefs .= " ".$self->genRefSub($lang, "macro", $name, "");
+
+	my $docrefs = $self->genRefSub("doc/com", "intfm", $name, $className);
+	my $anysymbol = $self->genRefSub("doc", "anysymbol", $name);
+
+	my $masterref = "$typerefs $varrefs $functionrefs $docrefs $anysymbol";
+	print STDERR "Default case (OET: $expected_type)" if ($localDebug);
+
+	if (length($expected_type)) {
 		SWITCH: {
-			($optional_expected_type eq "string") && do {
+			($expected_type eq "string") && do {
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "char") && do {
+			($expected_type eq "char") && do {
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "comment") && do {
+			($expected_type eq "comment") && do {
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "preprocessor") && do {
+			($expected_type eq "preprocessor") && do {
 					# We want to add links, but all we can
 					# do is guess about the type.
 					last SWITCH;
 				};
-			($optional_expected_type eq "number") && do {
+			($expected_type eq "number") && do {
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "keyword") && do {
+			($expected_type eq "keyword") && do {
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "function") && do {
-					$masterref = "$ref1 $ref2 $ref2a $ref2b $ref3 $ref4 $ref5 $ref6";
+			($expected_type eq "function") && do {
+					$masterref = $functionrefs." ".$anysymbol;
 					last SWITCH;
 				};
-			($optional_expected_type eq "var") && do {
+			($expected_type eq "var") && do {
 					# Variable name.
-					$masterref = "$ref10 $ref12";
+					if ($fromDeclaration) { $anysymbol = ""; }
+
+					$masterref = $varrefs." ".$anysymbol;
 					last SWITCH;
 				};
-			($optional_expected_type eq "template") && do {
+			($expected_type eq "template") && do {
 					# Could be any template parameter bit
 					# (type or name).  Since we don't care
 					# much if a parameter name happens to
 					# something (ideally, it shouldn't),
 					# we'll just assume we're getting a
 					# type and be done with it.
-					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13 $ref14";
+					$masterref = $typerefs." ".$anysymbol;
 					last SWITCH;
 				};
-			($optional_expected_type eq "type") && do {
-					$masterref = "$ref7 $ref7a $ref8 $ref9 $ref10 $ref11 $ref13 $ref14";
+			($expected_type eq "type") && do {
+					$masterref = $typerefs." ".$anysymbol;
 					last SWITCH;
 				};
-			($optional_expected_type eq "param") && do {
+			($expected_type eq "param") && do {
 					# parameter name.  Don't link.
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
-			($optional_expected_type eq "ignore") && do {
+			($expected_type eq "ignore") && do {
 					# hidden token.
+					if ($return_only_ref) { return ""; }
 					return $linktext.$tail;
 				};
 			{
-				warn("$fullpath:$linenum: warning: Unknown reference class \"$optional_expected_type\" in genRef\n");
+				warn("$fullpath:$linenum: warning: Unknown reference class \"$expected_type\" in genRef\n");
 			}
 		}
 	}
 	print STDERR "Default case: No OET.  MR IS $masterref\n" if ($localDebug);
 
     $masterref =~ s/\s+/ /g;
+	if ($return_only_ref) { return $masterref; }
 	if ($xml) {
             return "<hd_link logicalPath=\"$masterref\">$linktext</hd_link>".$tail;
 	} else {
-            return "<!-- a logicalPath=\"$masterref\" -->$linktext<!-- /a -->".$tail;
+            return "<!-- a logicalPath=\"$masterref\" machineGenerated=\"true\" -->$linktext<!-- /a -->".$tail;
 	}
 
     # return "<!-- a logicalPath=\"$ref1 $ref2 $ref3\" -->$linktext<!-- /a -->".$tail;
@@ -2267,8 +3664,40 @@ sub genRef($$$)
 
 }
 
-# /*! @function keywords
-#     @abstract returns all known keywords for the current language
+# /*!
+#     @abstract
+#         Returns all known keywords for the current language.
+#     @param self
+#         This object.
+#     @result
+#         The return value is an array (<code>$case_sensitive,
+#         \%keywords</code>).
+#
+#         The first value is either 0 or 1 depending on whether the
+#         current language uses case-sensitive token matching or not.
+#
+#         The second value is a reference to a keywords hash for the
+#         current language.  The specific value is usually 1.
+#         Other values are used to indicate that the token should be
+#         handled in a non-standard way in certain places.
+#
+#         1.  most keywords.
+#         2.  attributes and other things where the (...) afterwards
+#             must be treated as part of the token.
+#         3.  <code>extends</code> keyword.  Used for indicating that what follows
+#             is stored as the <code>extends</code> info for a class.
+#         4.  <code>implements</code> keyword.  Used for indicating that what follows
+#             is stored as the <code>implements</code> info for a class.
+#         5.  <code>throws</code> keywords.  Used for indicating that what follows
+#             is stored as as an exception that this function throws.
+#         6.  <code>__typeof__</code> keyword where the (...) afterwards must be
+#             treated as part of the token; separate from #2 because
+#             what follows is a type for code coloring purposes.
+#         7.  <code>extern</code> keyword.  Use for detecting <code>extern "C"</code>.
+#         8.  <code>static</code> and <code>my</code> keywords.  Used for
+#             determining whether global variables are file-scoped.
+#         9.  <code>case</code> (shell).  Changes parser parenthesis handling.
+#         10. <code>esac</code> (shell).  Ends the <code>case</code> statement.
 #  */
 sub keywords
 {
@@ -2297,7 +3726,7 @@ sub keywords
     print STDERR "keywords\n" if ($localDebug);
 
     # print STDERR "Color\n" if ($localDebug);
-    # print STDERR "lang = $HeaderDoc::lang\n";
+    # print STDERR "lang = $lang\n";
 
     # Note: these are not all of the keywords of each language.
     # This should, however, be all of the keywords that can occur
@@ -2305,13 +3734,29 @@ sub keywords
     # of material you'd find in a header).  If there are missing
     # keywords that meet that criterion, please file a bug.
 
+
+    my %RubyKeywords = ( 
+	"assert" => 1, 
+	"break" => 1, 
+	"while" => 1,
+	"if" => 1,
+	"for" => 1,
+	"until" => 1,
+	"break" => 1,
+	"redo" => 1,
+	"retry" => 1,
+ 	"nil" => 1,
+	"true" => 1,
+	"false" => 1,
+	"class" => 1, 
+	"module" => 1);
     my %CKeywords = ( 
 	"assert" => 1, 
 	"break" => 1, 
 	"auto" => 1, "const" => 1, "enum" => 1, "extern" => 7, "inline" => 1,
 	"__inline__" => 1, "__inline" => 1, "__asm" => 2, "__asm__" => 2,
         "__attribute__" => 2, "__typeof__" => 6,
-	"register" => 1, "signed" => 1, "static" => 1, "struct" => 1, "typedef" => 1,
+	"register" => 1, "signed" => 1, "static" => 8, "struct" => 1, "typedef" => 1,
 	"union" => 1, "unsigned" => 1, "volatile" => 1, "#define" => 1,
 	"#ifdef" => 1, "#ifndef" => 1, "#if" => 1, "#endif" => 1,
 	"#undef" => 1, "#elif" => 1, "#error" => 1, "#warning" => 1,
@@ -2389,7 +3834,7 @@ sub keywords
 	"public" => 1,
 	"return" => 1,
 	# "short" => 1,
-	"static" => 1,
+	"static" => 8,
 	"super" => 1,
 	"switch" => 1,
 	"synchronized" => 1,
@@ -2436,7 +3881,7 @@ sub keywords
 	"protected" => 1,
 	"public" => 1,
 	"return" => 1,
-	"static" => 1,
+	"static" => 8,
 	"strictfp" => 1,
 	"super" => 1,
 	"switch" => 1,
@@ -2449,9 +3894,47 @@ sub keywords
 	"try" => 1,
 	"volatile"  => 1,
 	"while"  => 1);
-    my %perlKeywords = ( "sub"  => 1, "my" => 1, "next" => 1, "last" => 1);
-    my %shellKeywords = ( "sub"  => 1, "alias" => 1);
+    my %tclKeywords = ( ); # @@@ FIXME DAG @@@
+    my %perlKeywords = ( "sub"  => 1, "my" => 8, "next" => 1, "last" => 1,
+	"package" => 1 );
+    my %shellKeywords = ( "sub"  => 1, "alias" => 1,
+		"set" => 1, "alias" => 1,
+		"if" => 1, "fi" => 1,
+		"case" => 9, "esac" => 10
+	);
     my %cshKeywords = ( "set"  => 1, "setenv" => 1, "alias" => 1);
+    my %pythonKeywords = ( "and" => 1, "assert" => 1, "break" => 1,
+	"class" => 1, "continue" => 1, "def" => 1, "del" => 1,
+	"elif" => 1, "else" => 1, "except" => 1, "exec" => 1,
+	"finally" => 1, "for" => 1, "from" => 1, "global" => 1,
+	"if" => 1, "import" => 1, "in" => 1, "is" => 1,
+	"lambda" => 1, "not" => 1, "or" => 1, "pass" => 1,
+	"print" => 1, "raise" => 1, "return" => 1, "try" => 1,
+	"while" => 1, "yield" => 1
+    );
+    my %applescriptKeywords = ( "about" => 1, "above" => 1, "after" => 1,
+	"against" => 1, "and" => 1, "apart from" => 1, "around" => 1,
+	"as" => 1, "aside from" => 1, "at" => 1, "back" => 1, "before" => 1,
+	"beginning" => 1, "behind" => 1, "below" => 1, "beneath" => 1,
+	"beside" => 1, "between" => 1, "but" => 1, "by" => 1,
+	"considering" => 1, "contain" => 1, "contains" => 1, "continue" => 1,
+	"copy" => 1, "div" => 1, "does" => 1, "eighth" => 1, "else" => 1,
+	"end" => 1, "equal" => 1, "equals" => 1, "error" => 1, "every" => 1,
+	"exit" => 1, "false" => 1, "fifth" => 1, "first" => 1, "for" => 1,
+	"fourth" => 1, "from" => 1, "front" => 1, "get" => 1, "given" => 1,
+	"global" => 1, "if" => 1, "ignoring" => 1, "in" => 1,
+	"instead of" => 1, "into" => 1, "is" => 1, "it" => 1, "its" => 1,
+	"last" => 1, "local" => 1, "me" => 1, "middle" => 1, "mod" => 1,
+	"my" => 1, "ninth" => 1, "not" => 1, "of" => 1, "on" => 1, "onto" => 1,
+	"or" => 1, "out of" => 1, "over" => 1, "prop" => 1, "property" => 1,
+	"put" => 1, "ref" => 1, "reference" => 1, "repeat" => 1, "return" => 1,
+	"returning" => 1, "script" => 1, "second" => 1, "set" => 1,
+	"seventh" => 1, "since" => 1, "sixth" => 1, "some" => 1, "tell" => 1,
+	"tenth" => 1, "that" => 1, "the" => 1, "then" => 1, "third" => 1,
+	"through" => 1, "thru" => 1, "timeout" => 1, "times" => 1, "to" => 1,
+	"transaction" => 1, "true" => 1, "try" => 1, "until" => 1,
+	"where" => 1, "while" => 1, "whose" => 1, "with" => 1, "without" => 1
+    );
     my %pascalKeywords = (
 	"absolute" => 1, "abstract" => 1, "all" => 1, "and" => 1, "and_then" => 1,
 	"array" => 1, "asm" => 1, "begin" => 1, "bindable" => 1, "case" => 1, "class" => 1,
@@ -2501,6 +3984,15 @@ sub keywords
     my %keywords = %CKeywords;
     # warn "Language is $lang, sublanguage is $sublang\n";
 
+    if ($lang eq "applescript") {
+	%keywords = %applescriptKeywords;
+    }
+    if ($lang eq "python") {
+	%keywords = %pythonKeywords;
+    }
+    if ($lang eq "ruby") {
+	%keywords = %RubyKeywords;
+    }
     if ($lang eq "C") {
 	SWITCH: {
 	    ($sublang eq "cpp") && do { %keywords = %CppKeywords; last SWITCH; };
@@ -2515,6 +4007,10 @@ sub keywords
     if ($lang eq "Csource") {
 	SWITCH: {
 	    ($sublang eq "Csource") && do { last SWITCH; };
+	    ($sublang eq "cpp") && do { %keywords = %CppKeywords; last SWITCH; };
+	    ($sublang eq "C") && do { last SWITCH; };
+	    ($sublang =~ /^occ/o) && do { %keywords = %ObjCKeywords; $objC = 1; last SWITCH; }; #occ, occCat
+	    ($sublang eq "intf") && do { %keywords = %ObjCKeywords; $objC = 1; last SWITCH; };
 	    warn "$fullpath:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
@@ -2528,6 +4024,12 @@ sub keywords
 	SWITCH: {
 	    ($sublang eq "java") && do { %keywords = %javaKeywords; last SWITCH; };
 	    ($sublang eq "javascript") && do { %keywords = %javascriptKeywords; last SWITCH; };
+	    warn "$fullpath:$linenum: warning: Unknown language ($lang:$sublang)\n";
+	}
+    }
+    if ($lang eq "tcl") {
+	SWITCH: {
+	    ($sublang eq "tcl") && do { %keywords = %tclKeywords; last SWITCH; };
 	    warn "$fullpath:$linenum: warning: Unknown language ($lang:$sublang)\n";
 	}
     }
@@ -2564,38 +4066,78 @@ sub keywords
     return ($case_sensitive, \%keywords);
 }
 
+# /*!
+#     @abstract
+#         Converts HTML to XHTML (fast version).
+#     @param self
+#         This object.
+#     @param htmldata
+#         The data to translate.
+#     @param droppara
+#         Unused.
+#     @param debugname
+#         A name to use to identify this block when printing debug info.
+#     @discussion
+#         This version calls into
+#  {@link //apple_ref/perl/instm/HeaderDoc::Utilities/html2xhtml//() html2xhtml}
+#         if the content contains tags.  Otherwise, it
+#         returns the original string immediately.
+#  */
 sub htmlToXML
 {
     my $self = shift;
-    my $xmldec = shift;
+    my $htmldata = shift;
     my $droppara = shift;
     my $debugname = shift;
 
     my $localDebug = 0;
 
-    if ($xmldec !~ /[<>&]/o) {
+    if ($htmldata !~ /[<>&]/o) {
 	print STDERR "FASTPATH FOR $debugname\n" if ($localDebug);
-	return $xmldec;
+	return $htmldata;
     }
 
-    # print STDERR "RETURNING:\n$xmldec\nENDRETURN\n";
+    my $result = html2xhtml($htmldata, $self->encoding(), $debugname);
 
-    return html2xhtml($xmldec, $debugname);
+    print STDERR "FOR:\n$htmldata\nENDFOR\nRETURNING:\n$result\nENDRETURN\n" if ($localDebug);
+
+    return $result;
 }
 
+# /*!
+#     @abstract
+#         Encodes text into HTML/XML entities.
+#     @param self
+#         This object.
+#     @param textdata
+#         The text to convert.
+#  */
 sub textToXML
 {
     my $self = shift;
-    my $xmldec = shift;
+    my $textdata = shift;
 
-    $xmldec =~ s/&/&amp;/sgo;
-    $xmldec =~ s/</&lt;/sgo;
-    $xmldec =~ s/>/&gt;/sgo;
+    $textdata =~ s/&/&amp;/sgo;
+    $textdata =~ s/</&lt;/sgo;
+    $textdata =~ s/>/&gt;/sgo;
 
-    return $xmldec;
+    return $textdata;
 }
 
-
+# /*!
+#     @abstract
+#         Prints the declaration with HTML or XML formatting.
+#     @param self
+#         This object.
+#     @param declaration
+#         The raw declaration. (Optional.)
+#     @discussion
+#         If you pass in something for <code>declaration</code>,
+#         this function computes the declaration based on the
+#         parse trees.  If you do not pass an argument for
+#         <code>declaration</code>, this function returns the
+#         cached value from the last call (which could be empty).
+#  */
 sub declarationInHTML {
     my $self = shift;
     my $class = ref($self) || $self;
@@ -2645,10 +4187,11 @@ sub declarationInHTML {
 		# my $declaration = "";
 		my @defines = $self->parsedParameters();
 
-		foreach my $define (@defines) {
-			$declaration .= $define->declarationInHTML();
-			$declaration .= "\n";
-		}
+		## foreach my $define (@defines) {
+			## # Force the declaration of each #define to get rebuilt.
+			## $declaration .= $define->declarationInHTML();
+			## $declaration .= "\n";
+		## }
 		$declaration = "";
 
 		my @tree_refs = @{$self->parseTreeList()};
@@ -2679,6 +4222,17 @@ sub declarationInHTML {
     return $self->{DECLARATIONINHTML};
 }
 
+# /*!
+#    @abstract
+#         Gets/sets the parse tree associated with this object.
+#    @param self
+#         This object.
+#    @param parsetree
+#         A reference to the parse tree to set/add. (Optional.)
+#    @discussion
+#        If this is a block declaration, the parse tree is added to
+#        its list of parse trees.
+#  */
 sub parseTree {
     my $self = shift;
 
@@ -2692,6 +4246,12 @@ sub parseTree {
     return $self->{PARSETREE};
 }
 
+# /*!
+#    @abstract
+#         Returns the array of parse trees associated with this object.
+#    @param self
+#         This object.
+#   */
 sub parseTreeList
 {
     my $self = shift;
@@ -2711,7 +4271,7 @@ sub parseTreeList
 	return $self->{PARSETREELIST};
     }
 
-    if (!$HeaderDoc::test_mode) {
+    if (!$HeaderDoc::running_test) {
 	die("No parse trees for object $self.\n".
 	    "Name is ".$self->name().".  This usually\n".
 	    "points to a headerdoc comment before a #if whose contents are not a\n".
@@ -2725,6 +4285,14 @@ sub parseTreeList
     return \@arr;
 }
 
+# /*!
+#     @abstract
+#         Adds a parse tree to the array of parse trees associated with this object.
+#     @param self
+#         This object.
+#     @param tree
+#         A reference to the parse tree object to add.
+#  */
 sub addParseTree
 {
     my $self = shift;
@@ -2746,6 +4314,12 @@ sub addParseTree
 
 }
 
+# /*!
+#     @abstract
+#         Adds the main parse tree to the parse tree list if missing.
+#     @param self
+#         This object.
+#  */
 sub fixParseTrees
 {
 	my $self = shift;
@@ -2776,6 +4350,15 @@ sub fixParseTrees
 	}
 }
 
+# /*!
+#     @abstract
+#         Appends an availabiilty macro string to the original availability string
+#         if it is missing.
+#     @param self
+#         This object.
+#     @param orig
+#         The original availability string.
+#  */
 sub availabilityAuto
 {
     my $self = shift;
@@ -2784,6 +4367,9 @@ sub availabilityAuto
     my $localDebug = 0;
 
     my $fullpath = $self->fullpath();
+
+    print STDERR "GENERATING AVAILABILITY FOR $self FP ".$self->fullpath()."\n" if ($localDebug);
+
     my $rangeref = $HeaderDoc::perHeaderRanges{$fullpath};
 
     if ($localDebug) {
@@ -2826,6 +4412,14 @@ sub availabilityAuto
     return $string;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the availability for this object.
+#     @param self
+#         This object.
+#     @param availstring
+#         The availability string from the HeaderDoc comment.
+#  */
 sub availability {
     my $self = shift;
 
@@ -2840,6 +4434,14 @@ sub availability {
     return $string.$add;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the programming language for this object.
+#     @param self
+#         This object.
+#     @param lang
+#         The new value. (Optional.)
+#  */
 sub lang {
     my $self = shift;
 
@@ -2849,6 +4451,21 @@ sub lang {
     return $self->{LANG};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the programming language dialect for this object.
+#     @param self
+#         This object.
+#     @param sublang
+#         The new value. (Optional.)
+#     @discussion
+#         The dialect, sublang, represents a more specific language
+#         than the main language in some cases.  For example, with
+#         C-based languages, the language is <code>C</code>, but the sublang can
+#         be <code>C</code> (standard C, translated to a lowercase
+#         <code>c</code> in the actual API reference), <code>occ</code> (Objective-C),
+#         <code>cpp</code> (C++), etc.
+#  */
 sub sublang {
     my $self = shift;
 
@@ -2861,6 +4478,14 @@ sub sublang {
     return $self->{SUBLANG};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the last updated date for this object.
+#     @param self
+#         This object.
+#     @param updated
+#         The new value. (Optional.)
+#  */
 sub updated {
     my $self = shift;
     my $localdebug = 0;
@@ -2947,13 +4572,21 @@ sub updated {
 		warn "$fullpath:$linenum: warning: Valid formats are MM-DD-YYYY, MM-DD-YY, and YYYY-MM-DD\n";
 		return $self->{UPDATED};
 	} else {
-		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year);
+		$self->{UPDATED} = HeaderDoc::HeaderElement::strdate($month-1, $day, $year, $self->encoding());
 		print STDERR "date set to ".$self->{UPDATED}."\n" if ($localdebug);
 	}
     }
     return $self->{UPDATED};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the linkage state for this object.
+#     @param self
+#         This object.
+#     @param linkagestate
+#         The new value. (Optional.)
+#  */
 sub linkageState {
     my $self = shift;
     
@@ -2963,6 +4596,14 @@ sub linkageState {
     return $self->{LINKAGESTATE};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the access control (public/private) for this object.
+#     @param self
+#         This object.
+#     @param access
+#         The new value. (Optional.)
+#  */
 sub accessControl {
     my $self = shift;
     
@@ -2972,7 +4613,12 @@ sub accessControl {
     return $self->{ACCESSCONTROL};
 }
 
-
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub printObject {
     my $self = shift;
     my $dec = $self->declaration();
@@ -3005,6 +4651,14 @@ sub printObject {
     }
 }
 
+# /*!
+#     @abstract
+#         Retargets HTML links.
+#     @param self
+#         This object.
+#     @param inpString
+#         The string of HTML to fix.
+#  */
 sub linkfix {
     my $self = shift;
     my $inpString = shift;
@@ -3023,9 +4677,8 @@ sub linkfix {
 		if ($part =~ /^\s*A\s+/sio) {
 			$part =~ /^(.*?>)/so;
 			my $linkpart = $1;
-			my $linkre = quote($linkpart);
 			my $rest = $part;
-			$rest =~ s/^$linkre//s;
+			$rest =~ s/^\Q$linkpart\E//s;
 
 			print STDERR "Found link.\nlinkpart: $linkpart\nrest: $rest\n" if ($localDebug);
 
@@ -3046,12 +4699,26 @@ sub linkfix {
     return $outString;
 }
 
-# /*! strdate WARNING: Month is 0-11, not 1-12. */
-sub strdate
+# /*! @abstract
+#         A function for converting numeric dates into strings.
+#     @param month
+#         Month in the range 0-11 (not 1-12).
+#     @param day
+#         Day of the month.
+#     @param year
+#         Year (four-digit).
+#     @var format
+#         A time format suitable for <code>strftime</code>.
+#         Extracted from the HeaderDoc configuration file.
+#         Also contains a compatibility hack for compatibility with
+#         the old HeaderDoc date format codes.
+#  */
+sub strdate($$$$)
 {
     my $month = shift;
     my $day = shift;
     my $year = shift;
+    my $encoding = shift;
     my $format = $HeaderDoc::datefmt;
     if (!defined $format) {
 	$format = "%B %d, %Y";
@@ -3061,6 +4728,21 @@ sub strdate
     my ($sec,$min,$hour,$mday,$mon,$yr,$wday,$yday,$isdst) = localtime($time_t);
     my $time = strftime($format, $sec, $min, $hour,
 	$mday, $mon, $yr, $wday, $yday, $isdst);
+
+    my $current_encoding = getDefaultEncoding();
+
+    # die("CURENC: ".$current_encoding);
+
+    # cluck("TIME: $time ENC: $encoding");
+
+    my $perltimestring = decode($current_encoding, $time);
+
+    if ($encoding eq "macintosh") {
+	return encode("mac_roman", $perltimestring);
+    } else {
+	return encode($encoding, $perltimestring);
+    }
+
     return $time;
 
     # print STDERR "format $format\n";
@@ -3107,6 +4789,16 @@ sub strdate
     }
 }
 
+# /*!
+#     @abstract
+#         Sets the CSS for a particular style name.
+#     @param self
+#         This object.
+#     @param name
+#         The name of the style.
+#     @param style
+#         The CSS style data.
+#  */
 sub setStyle
 {
     my $self = shift;
@@ -3122,11 +4814,22 @@ sub setStyle
     }
 }
 
+# Note: the backslashes before the @ signs in the comment below are
+# to prevent HeaderDoc from interpreting the tags.
 # /*! 
-#     This code inserts the discussion from the superclass wherever
-#     <hd_ihd/> appears if possible (i.e. where @inheritDoc (HeaderDoc)
-#     or {@inheritDoc} (JavaDoc) appears in the original input material.
-#     @abstract HTML/XML fixup code to insert superclass discussions
+#     @abstract
+#         HTML/XML fixup code to insert superclass discussions
+#     @param self
+#         This object.
+#     @param html
+#         The block of (discussion) HTML to process.
+#     @discussion
+#       This code inserts the discussion from the superclass wherever
+#       &lt;hd_ihd/> appears if possible (i.e. where <code>\@inheritDoc</code> (HeaderDoc)
+#       or <code>{\@inheritDoc}</code> (JavaDoc) appears in the original input material.
+#
+#       For XML, &lt;hd_ihd> and &lt;/hd_ihd> tags surround the
+#       inherited content.
 #  */
 sub fixup_inheritDoc
 {
@@ -3155,11 +4858,13 @@ sub fixup_inheritDoc
     return $newhtml;
 }
 
-# /*! @function
-#     This code inserts values wherever <hd_value/> appears (i.e. where
-#     @value (HeaderDoc) or {@value} (JavaDoc) appears in the original
-#     input material.
-#     @abstract HTML/XML fixup code to insert values
+# /*!
+#     @abstract
+#         HTML/XML fixup code to insert values
+#     @discussion
+#       This code inserts values wherever &lt;hd_value/> appears (i.e. where
+#       <code>\@value</code> (HeaderDoc) or <code>{\@value}</code> (JavaDoc) appears in the original
+#       input material.
 #  */
 sub fixup_values
 {
@@ -3188,21 +4893,14 @@ sub fixup_values
     return $newhtml;
 }
 
-sub checkDeclaration
-{
-    my $self = shift;
-    my $class = ref($self) || $self;
-    my $keyword = "";
-    my $lang = $self->lang();
-    my $name = $self->name();
-    my $fullpath = $self->fullpath();
-    my $line = $self->linenum();
-    my $exit = 0;
-
-    # This function, bugs notwithstanding, is no longer useful.
-    return 1;
-}
-
+# /*!
+#     @abstract
+#         Returns the CSS style data for the specified name.
+#     @param self
+#         This object.
+#     @param name
+#         The name of the style.
+#  */
 sub getStyle
 {
     my $self = shift;
@@ -3211,6 +4909,15 @@ sub getStyle
    return $CSS_STYLES{$name};
 }
 
+# /*!
+#     @abstract
+#         Returns the complete CSS stylesheet for HeaderDoc content.
+#     @param self
+#         This object.
+#     @param TOC
+#         Set to 1 if you are generating styles for the left-side
+#         TOC frame, else 0.
+#  */
 sub styleSheet
 {
     my $self = shift;
@@ -3240,19 +4947,27 @@ sub styleSheet
 	$css .= $self->doExternalStyle($HeaderDoc::externalStyleSheets);
 	$stdstyles = 0;
     }
+    if ($HeaderDoc::suppressDefaultStyles) { $stdstyles = 0; }
+
     $css .= "<style type=\"text/css\">";
     $css .= "<!--";
     if ($TOC) {
 	if (defined($HeaderDoc::tocStyleImports)) {
-		$css .= "$HeaderDoc::tocStyleImports ";
+		my $tempstyle = $HeaderDoc::tocStyleImports;
+		$tempstyle =~ s/{\@docroot}/\@\@docroot/sg;
+		$css .= html_fixup_links($self, "$tempstyle ");
 		$stdstyles = 0;
 	} elsif ($HeaderDoc::styleImports) {
-		$css .= "$HeaderDoc::styleImports ";
+		my $tempstyle = $HeaderDoc::styleImports;
+		$tempstyle =~ s/{\@docroot}/\@\@docroot/sg;
+		$css .= html_fixup_links($self, "$tempstyle ");
 		$stdstyles = 0;
 	}
     } else {
 	if ($HeaderDoc::styleImports) {
-		$css .= "$HeaderDoc::styleImports ";
+		my $tempstyle = $HeaderDoc::styleImports;
+		$tempstyle =~ s/{\@docroot}/\@\@docroot/sg;
+		$css .= html_fixup_links($self, "$tempstyle ");
 		$stdstyles = 0;
 	}
     }
@@ -3262,25 +4977,120 @@ sub styleSheet
     }
 
     if ($stdstyles) {
-	$css .= "a:link {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: small; color: #0000ff;}";
-	$css .= "a:visited {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: small; color: #0000ff;}";
-	$css .= "a:visited:hover {text-decoration: underline; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: small; color: #ff6600;}";
-	$css .= "a:active {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: small; color: #ff6600;}";
-	$css .= "a:hover {text-decoration: underline; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: small; color: #ff6600;}";
+	# Most stuff is 10 pt.
+	$css .= "div {font-size: 10pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000;}";
+	$css .= "td {font-size: 10pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000;}";
+
+
+	# TOC is 11 pt (except the subentries, which are 10pt.)
+
+	if ($HeaderDoc::newTOC == 5) {
+		$css .= "span.hd_tocAccessSpace { display: block; font-size: 1px; height: 3px; min-height: 3px; }";
+		$css .= "span.hd_tocGroupSpace { display: block; font-size: 1px; height: 3px; min-height: 3px; }";
+		$css .= "span.hd_tocGroup { display: block; font-weight: bold; font-size: 10pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000; margin-left: 0px; padding-left: 40px; }"; # padding-left is greater of (toc_leadspace.margin + disclosure_triangle_td.margin + disclosure_padding.margin) or (tocSubEntryList.padding)
+
+		$css .= "span.hd_tocGroup + span.hd_tocAccess { padding-top: 5px; }";
+
+		$css .= "td.toc_contents_text {font-size: 11pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000; }";
+	}
+
+	$css .= "li.tocSubEntry {font-size: 11pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000;}";
+
+	# Everything else is 10 pt.
+	$css .= "p {font-size: 10pt; text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #000000;}";
+	$css .= "a:link {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #36c;}";
+	$css .= "a:visited {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #36c;}";
+	$css .= "a:visited:hover {text-decoration: underline; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #36c;}";
+	$css .= "a:active {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #36c;}";
+	$css .= "a:hover {text-decoration: underline; font-family: lucida grande, geneva, helvetica, arial, sans-serif; color: #36c;}";
+	$css .= "h2.h2tight { margin-top: 0px; padding-top: 0px; }"; # bold
+	if ($HeaderDoc::newTOC != 5) {
+		$css .= ".hd_toc_box h4 { margin-bottom: 2px; padding-bottom: 0px; }";
+		$css .= ".hd_toc_box h4 +h4 { margin-top: 2px; padding-top: 0px; }";
+	}
+	$css .= "h1 { margin-top: 13px; padding-top: 0px; }"; # bold
 	$css .= "h4 {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: tiny; font-weight: bold;}"; # bold
-	$css .= "body {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: 10pt;}"; # bold
+	$css .= "h5 {text-decoration: none; font-family: lucida grande, geneva, helvetica, arial, sans-serif; font-size: 10.1pt; font-weight: bold;}"; # bold
+	$css .= "pre {text-decoration: none; font-family: Courier, Consolas, monospace; color: #666; font-size: 10pt;}"; # bold
+	$css .= "pre a { font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt;}"; # bold
+	$css .= "pre a:link { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "pre a:visited { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "pre a:visited:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "pre a:active { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "pre a:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "code {text-decoration: none; font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt;}"; # bold
+	$css .= "code a { font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt;}"; # bold
+	$css .= "code a:link { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "code a:visited { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "code a:visited:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "code a:active { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "code a:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "tt {text-decoration: none; font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt;}"; # bold
+	$css .= "tt a { font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt;}"; # bold
+	$css .= "tt a:link { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "tt a:visited { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "tt a:visited:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "tt a:active { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "tt a:hover { font-family: Courier, Consolas, monospace; color: #36c;font-size: 10pt;}"; # bold
+	$css .= "body  {text-decoration: none; font-family: Courier, Consolas, monospace; color: #666;font-size: 10pt; padding-left: 0px; padding-top: 0px; margin-left: 0px; margin-top: 0px; border: none; }"; # bold
+	$css .= "#hd_outermost_table { margin-left: 0px; border-spacing: 0px; margin-top: 0px; padding-left: 0px; padding-top: 0px; border: none; }";
+	$css .= "#hd_outermost_table > tr { border-spacing: 0px; margin-left: 0px; margin-top: 0px; padding-left: 0px; padding-top: 0px; border: none; }";
+	$css .= "#hd_outermost_table > tr > td { border-spacing: 0px; margin-left: 0px; margin-top: 0px; }";
+	$css .= "#hd_outermost_table > tbody > tr { border-spacing: 0px; margin-left: 0px; margin-top: 0px; padding-left: 0px; padding-top: 0px; border: none; }";
+	$css .= "#hd_outermost_table > tbody > tr > td { border-spacing: 0px; margin-left: 0px; margin-top: 0px; padding-top: 3px; }";
+
+	$css .= ".afterName { display: none; }";
 	$css .= ".list_indent { margin-left: 40px; }";
-	$css .= ".declaration_indent { margin-left: 40px; }";
-	$css .= ".param_indent { margin-left: 40px; }";
+
+	$css .= ".declaration_indent { margin-left: 40px; margin-top: 0px; margin-bottom: 0px; padding-top: 0px; padding-bottom: 0px; min-height: 12px; vertical-align: middle; }";
+	$css .= ".declaration_indent pre { margin-top: 20px; padding-top: 0px; margin-bottom: 20px; padding-bottom: 0px; }";
+	$css .= ".gapBeforeFooter { display: none; }";
+	$css .= "hr { height: 0px; min-height: 0px; border-top: none; border-left: none; border-right: none; border-bottom: 1px solid #909090;}";
+	$css .= "hr.afterHeader { display: none }";
+
+	$css .= ".param_group_indent { margin-left: 25px; }";
+	$css .= ".param_indent { margin-left: 40px; margin-top: 0px; padding-top: 0px; }";
+	$css .= ".param_indent dl { margin-top: 4px; padding-top: 0px; }";
+	$css .= "dl dd > p:first-child { margin-top: 2px; padding-top: 0px; }";
+	$css .= ".param_indent dl dd > p:first-child { margin-top: 2px; padding-top: 0px; }";
 	$css .= ".group_indent { margin-left: 40px; }";
 	$css .= ".group_desc_indent { margin-left: 20px; }";
 	$css .= ".warning_indent { margin-left: 40px; }";
 	$css .= ".important_indent { margin-left: 40px; }";
-	$css .= ".hd_tocAccess { font-style: italic; font-size: 10px; font-weight: normal; color: #303030; }";
+	$css .= ".note_indent { margin-left: 40px; }";
+
+	$css .= "h3 {";
+	$css .= "       color: #3C4C6C;";
+	$css .= "}";
+
+	$css .= ".tight {";
+	$css .= "       margin-top: 2px; margin-bottom: 0px;";
+	$css .= "       padding-top: 0px; padding-bottom: 0px;";
+	$css .= "}";
+
+	$css .= "h3 a {";
+	$css .= "       color: #3C4C6C;";
+	$css .= "	font-size: 16px;";
+	$css .= "	font-style: normal;";
+	$css .= "	font-variant: normal;";
+	$css .= "	font-weight: bold;";
+	$css .= "	height: 0px;";
+	$css .= "	line-height: normal;";
+	$css .= "}";
+
+	if ($HeaderDoc::newTOC == 5) {
+		$css .= ".hd_tocAccess { display: block; margin-left: 40px; font-style: italic; font-size: 10px; font-weight: normal; color: #303030; }"; # padding-left is greater of (toc_leadspace.margin + disclosure_triangle_td.margin + disclosure_padding.margin) or (tocSubEntryList.padding)
+	} else {
+		$css .= ".hd_tocAccess { display: block; margin-left: 25px; font-style: italic; font-size: 10px; font-weight: normal; color: #303030; margin-top: 3px; margin-bottom: 3px;}";
+	}
+	$css .= ".tocSubheading { margin-bottom: 4px; }";
     }
 
     if ($HeaderDoc::styleSheetExtras) {
-	$css .= $HeaderDoc::styleSheetExtras;
+	# $css .= $HeaderDoc::styleSheetExtras;
+	my $tempstyle = $HeaderDoc::styleSheetExtras;
+	$tempstyle =~ s/{\@docroot}/\@\@docroot/sg;
+	$css .= html_fixup_links($self, "$tempstyle ");
     }
 
     $css .= "-->";
@@ -3289,6 +5099,15 @@ sub styleSheet
     return $css;
 }
 
+# /*!
+#     @abstract
+#         Returns the documentation output for this object (in HTML).
+#     @param self
+#         This object.
+#     @param composite
+#         Pass 1 if generating a composite page and <code>classAsComposite</code>
+#         is 0.  Otherwise, pass 0.
+#  */
 sub documentationBlock
 {
     my $self = shift;
@@ -3317,15 +5136,23 @@ sub documentationBlock
     my $apiref = "";
     my $headlevel = "h3";
 
-    my $newTOC = $HeaderDoc::newTOC;
+    my $newTOCinAPIOwner = $HeaderDoc::newTOC;
     my $showDiscussionHeading = 1;
+
+    my $isAPIO = $self->isAPIOwner();
 
     if ($self->{HIDEDOC}) { return ""; }
 
+    # print STDERR "$self (".$self->name().") ISINTERNAL: ".$self->isInternal()." DOIT: ".$HeaderDoc::document_internal."\n";
+
+    if ($self->isInternal() && !$HeaderDoc::document_internal) { return ""; }
+
+    # print STDERR "GOTHERE\n";
+
     # Only use this style for API Owners.
-    if ($self->isAPIOwner()) {
+    if ($isAPIO) {
 	$headlevel = "h1";
-	if ($newTOC) {
+	if ($newTOCinAPIOwner) {
 		$showDiscussionHeading = 0;
 	}
 
@@ -3335,7 +5162,7 @@ sub documentationBlock
 		$abstract .= $HeaderDoc::defaultHeaderComment; # "Use the links in the table of contents to the left to access documentation.<br>\n";    
 	}
     } else {
-	$newTOC = 0;
+	$newTOCinAPIOwner = 0;
 	$declaration = $self->declarationInHTML();
     }
 
@@ -3352,31 +5179,53 @@ sub documentationBlock
 
     # $name =~ s/\s*//smgo;
 
-    $contentString .= "<hr>";
+    if ($isAPIO) {
+	if ($self->htmlHeader() =~ /\S/) {
+		$contentString .= "<hr class=\"afterHeader\">";
+	}
+    } else {
+	$contentString .= "<hr class=\"betweenAPIEntries\">";
+    }
     # my $uid = "//$apiUIDPrefix/c/func/$name";
        
     # registerUID($uid);
     # $contentString .= "<a name=\"$uid\"></a>\n"; # apple_ref marker
 
-    my ($constantsref, $fieldsref, $paramsref, $fieldHeading, $func_or_method)=$self->apirefSetup();
+    my ($constantsref, $fieldsref, $paramsref, $fieldHeading, $func_or_method, $variablesref)=$self->apirefSetup();
+    my @local_variables = @{$variablesref};
     my @constants = @{$constantsref};
     my @fields = @{$fieldsref};
     my @params = @{$paramsref};
 
     $apiref = $self->apiref($composite);
 
-    if (!$self->isAPIOwner()) {
+    my $divid = "docbox_".$self->apiuid();
+
+    # if ($HeaderDoc::enable_custom_references) {
+    	# $contentString .= "<div class=\"APIObject\" id=\"$divid\">\n";
+    # }
+
+    if (!$isAPIO) {
 	$contentString .= $apiref;
     }
 
-    $contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
-    $contentString .= "<tr>";
-    $contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
+    if ($HeaderDoc::newTOC != 5) {
+	$contentString .= "<table border=\"0\"  cellpadding=\"2\" cellspacing=\"2\" width=\"300\">";
+	$contentString .= "<tr>";
+	$contentString .= "<td valign=\"top\" height=\"12\" colspan=\"5\">";
+    }
     my $urlname = sanitize($name, 1);
     $contentString .= "<$headlevel><a name=\"$urlname\">$name</a></$headlevel>\n";
-    $contentString .= "</td>";
-    $contentString .= "</tr></table>";
-    if (!$newTOC) { $contentString .= "<hr>"; }
+    # if ($HeaderDoc::enable_custom_references && $HeaderDoc::newTOC && !$isAPIO) {
+	# # Apple-style TOC.  Assume the JavaScript is there.
+	# $contentString .= "<p class=\"addToCustomReference\"><a class=\"addToCustomReferenceLink\" href=\"#\" onclick=\"return addToCustomReference(this);\">Add to custom reference</a></p>\n";
+	# $contentString .= "<p class=\"removeFromCustomReference\"><a class=\"removeFromCustomReferenceLink\" href=\"#\" onclick=\"return removeFromCustomReference(this);\">Remove from custom reference</a></p>\n";
+    # }
+    if ($HeaderDoc::newTOC != 5) {
+	$contentString .= "</td>";
+	$contentString .= "</tr></table>";
+    }
+    if (!$newTOCinAPIOwner) { $contentString .= "<hr class=\"afterName\">"; }
     my $attstring = ""; my $c = 0;
     if (length($short_attributes)) {
         $attstring .= $short_attributes;
@@ -3387,21 +5236,21 @@ sub documentationBlock
 	$c++;
     }
     # print STDERR "ATS: $attstring\n";
-    if ($newTOC) {
+    if ($newTOCinAPIOwner) {
 	if ($c == 2) {
 		$attstring =~ s/<\/table><\/div>\s*<div.*?><table.*?>//s;
 	}
 	$attstring =~ s/<\/table><\/div>\s*$//s;
     }
-    if (!$newTOC) { $attstring .= "<dl>"; }
+    if (!$newTOCinAPIOwner) { $attstring .= "<dl>"; }
     if (length($throws)) {
-	if ($newTOC) {
+	if ($newTOCinAPIOwner) {
 		if (!$c) {
 			$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
 		}
 		$attstring .= "<tr><td scope=\"row\"><b>Throws:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$throws</div></div></td></tr>\n";
 	} else {
-        	$attstring .= "<dt><i>Throws:</i></dt>\n<dd>$throws</dd>\n";
+        	$attstring .= "<dt><b>Throws</b></dt>\n<dd>$throws</dd>\n";
 	}
 	$c++;
     }
@@ -3417,7 +5266,7 @@ sub documentationBlock
 			print STDERR "Included file: $include\n" if ($localDebug);
 
 			if (!$first) {
-				if ($newTOC) {$includeList .= "<br>\n"; }
+				if ($newTOCinAPIOwner) {$includeList .= "<br>\n"; }
 				else {$includeList .= ",\n"; }
 			}
 			my $xmlinc = $self->textToXML($include);
@@ -3429,20 +5278,20 @@ sub documentationBlock
 
 			my $ref = $self->genRefSub("doc", "header", $includefile, "");
 
-			$includeList .= "<!-- a logicalPath=\"$ref\" -->$xmlinc<!-- /a -->";
+			$includeList .= "<!-- a logicalPath=\"$ref\" machineGenerated=\"true\" -->$xmlinc<!-- /a -->";
 			$first = 0;
 		}
 
 	    }
 	}
 	if (length($includeList)) {
-		if ($newTOC) {
+		if ($newTOCinAPIOwner) {
 			if (!$c) {
 				$attstring .= "<div class=\"spec_sheet_info_box\"><table cellspacing=\"0\" class=\"specbox\">\n";
 			}
 			$attstring .= "<tr><td scope=\"row\"><b>Includes:</b></td><td><div style=\"margin-bottom:1px\"><div class=\"content_text\">$includeList</div></div></td></tr>\n";
 		} else {
-			$attstring .= "<b>Includes:</b> ";
+			$attstring .= "<b>Includes</b> ";
 			$attstring .= $includeList;
 			$attstring .= "<br>\n";
 		}
@@ -3453,7 +5302,7 @@ sub documentationBlock
     # if (length($abstract)) {
         # $contentString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
     # }
-    if ($newTOC) { 
+    if ($newTOCinAPIOwner) { 
 	if ($c) { $attstring .= "</table></div>\n"; }
 
 	# Otherwise we do this later.
@@ -3466,7 +5315,7 @@ sub documentationBlock
 	}
     }
 
-    if ($newTOC) {
+    if ($newTOCinAPIOwner) {
 	$contentString .= "<h2>".$HeaderDoc::introductionName."</h2>\n";
     }
 
@@ -3475,7 +5324,9 @@ sub documentationBlock
     if (length($abstract)) {
 	$showDiscussionHeading = 1;
         # $contentString .= "<dt><i>Abstract:</i></dt>\n<dd>$abstract</dd>\n";
-        $contentString .= "<p><!-- begin abstract -->";
+	my $absstart = $self->headerDocMark("abstract", "start");
+	my $absend = $self->headerDocMark("abstract", "end");
+        $contentString .= "<p>$absstart<!-- begin abstract -->";
 	if ($self->can("isFramework") && $self->isFramework()) {
 		$contentString .= "<!-- headerDoc=frameworkabstract;uid=".$uid.";name=start -->\n";
 	}
@@ -3483,12 +5334,7 @@ sub documentationBlock
 	if ($self->can("isFramework") && $self->isFramework()) {
 		$contentString .= "<!-- headerDoc=frameworkabstract;uid=".$uid.";name=end -->\n";
 	}
-	$contentString .= "<!-- end abstract --></p>\n";
-    }
-
-    if (!$newTOC) {
-	# Otherwise we do this earlier.
-	$contentString .= $attstring;
+	$contentString .= "<!-- end abstract -->$absend</p>\n";
     }
 
     my $accessControl = "";
@@ -3500,16 +5346,19 @@ sub documentationBlock
     if ($self->can("isProperty") && $self->isProperty()) { $includeAccess = 0; }
     if ($self->class eq "HeaderDoc::Method") { $includeAccess = 0; }
     if ($self->class eq "HeaderDoc::PDefine") { $includeAccess = 0; }
+    if ($self->lang eq "perl") { $includeAccess = 0; }
 
-    $contentString .= "<div class='declaration_indent'>\n";
-    if (!$self->isAPIOwner()) {
+    if (!$isAPIO) {
+	$contentString .= "<div class='declaration_indent'>\n";
+	my $declstart = $self->headerDocMark("declaration", "start");
+	my $declend = $self->headerDocMark("declaration", "end");
 	if ($includeAccess) {
 		$contentString .= "<pre><tt>$accessControl</tt>\n<br>$declaration</pre>\n";
 	} else {
-		$contentString .= "<pre>$declaration</pre>\n";
+		$contentString .= "<pre>$declstart$declaration$declend</pre>\n";
 	}
+	$contentString .= "</div>\n";
     }
-    $contentString .= "</div>\n";
 
     my @parameters_or_fields = ();
     my @callbacks = ();
@@ -3682,6 +5531,8 @@ sub documentationBlock
         $contentString .= "</dl>\n</div>\n";
     }
 
+    # print "IN $self LOCAL VARS: ".$#local_variables."\n";
+
     if (scalar(@callbacks)) {
 	$showDiscussionHeading = 1;
         $contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Callbacks</font></h5>\n";
@@ -3737,47 +5588,150 @@ sub documentationBlock
     }
     my $stripdesc = $checkDisc;
     $stripdesc =~ s/<br>/\n/sg;
-    if ($stripdesc =~ /\S/) {
+
+
+    my $BD = "";
+    if ($self->can("blockDiscussion")) {
+	$BD = $self->blockDiscussion();
+	$BD =~ s/<br>/\n/sg;
+    }
+
+    # warn("DESC IS $desc\n");
+    # warn("stripdesc IS $stripdesc\n");
+    # warn("BD IS $BD\n");
+
+    if ($stripdesc =~ /\S/ || $BD =~ /\S/) {
 	if ($showDiscussionHeading) {
-		$contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font>\n";
+		$contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Discussion</font></h5>\n";
 	}
-	$contentString .= "</h5><!-- begin discussion -->";
+	my $discstart = $self->headerDocMark("discussion", "start");
+	my $discend = $self->headerDocMark("discussion", "end");
+	$contentString .= "<!-- begin discussion -->";
 	if ($self->can("isFramework") && $self->isFramework()) {
 		$contentString .= "<!-- headerDoc=frameworkdiscussion;uid=".$uid.";name=start -->\n";
+	} else {
+		$contentString .= $discstart;
 	}
 	$contentString .= $desc;
 	if ($self->can("isFramework") && $self->isFramework()) {
 		$contentString .= "<!-- headerDoc=frameworkdiscussion;uid=".$uid.";name=end -->\n";
+	} else {
+		$contentString .= $discend;
 	}
 	$contentString .= "<!-- end discussion -->\n";
     }
 
+    # Local variables should be after the discussion.
+    if (!$HeaderDoc::suppress_local_variables) {
+	if (@local_variables) {
+		$showDiscussionHeading = 1;
+        	$contentString .= "<h5 class=\"tight\"><font face=\"Lucida Grande,Helvetica,Arial\">Local Variables</font></h5>\n";       
+        	# $contentString .= "<table border=\"1\"  width=\"90%\">\n";
+        	# $contentString .= "<thead><tr><th>Name</th><th>Description</th></tr></thead>\n";
+
+		my @groups = ();
+		my %groupshash = ();
+        	foreach my $element (@local_variables) {
+			my $group = $element->group();
+			$group =~ s/[\r\n]/ /sg;
+			$group =~ s/^\s*//s;
+			$group =~ s/\s*$//s;
+			if (!$group) { $group = " "; }
+			if (!$groupshash{$group}) {
+				push(@groups, $group);
+				my @arr = ();
+				$groupshash{$group} = \@arr;
+			}
+			my @arr = @{$groupshash{$group}};
+			push(@arr, \$element);
+			$groupshash{$group} = \@arr;
+		}
+
+        	foreach my $group (@groups) {
+		    if ($group =~ /\S/) {
+			$contentString .= "<div class='param_group_indent'>$group</div>\n";
+	  	    }
+		    $contentString .= "<div class='param_indent'>\n";
+		    $contentString .= "<dl>\n";
+
+		    # print STDERR "GROUP \"$group\"\n";
+		    my @arr = @{$groupshash{$group}};
+		    # print STDERR "COUNT: ".($#arr + 1)."\n";
+		    foreach my $elementref (@arr) {
+			my $element = ${$elementref};
+			# print STDERR "ELEMENT: $element\n";
+
+			my $cName = $element->name();
+			my $cDesc = $element->discussion();
+
+			# my $uid = "//$apiUIDPrefix/c/econst/$cName";
+			# registerUID($uid);
+
+			my $uid = $element->apiuid(); # "econst");
+
+			# $contentString .= "<tr><td align=\"center\"><a name=\"$uid\"><code>$cName</code></a></td><td>$cDesc</td></tr>\n";
+
+			if (!$HeaderDoc::appleRefUsed{$uid} && !$HeaderDoc::ignore_apiuid_errors) {
+				# print STDERR "MARKING APIREF $uid used\n";
+				$HeaderDoc::appleRefUsed{$uid} = 1;
+				$contentString .= "<dt><a name=\"$uid\"><code>$cName</code></a></dt><dd>$cDesc</dd>\n";
+			} else {
+				$contentString .= "<dt><code>$cName</code></dt><dd>$cDesc</dd>\n";
+			}
+		    }
+		    $contentString .= "</dl>\n</div>\n";
+		}
+		# $contentString .= "</table>\n</div>\n";
+	}
+    }
+
     # if (length($desc)) {$contentString .= "<p>$desc</p>\n"; }
+    if (!$newTOCinAPIOwner) {
+	# Otherwise we do this earlier.
+	$contentString .= $attstring;
+    }
+
     if (length($long_attributes)) {
         $contentString .= $long_attributes;
     }
 
     my $late_attributes = "";
     if (length($namespace)) {
-            $late_attributes .= "<dt><i>Namespace</i></dt><dd>$namespace</dd>\n";
+            $late_attributes .= "<dt><b>Namespace</b></dt><dd>$namespace</dd>\n";
     }
     if (length($availability)) {
-        $late_attributes .= "<dt><i>Availability</i></dt><dd>$availability</dd>\n";
+        $late_attributes .= "<dt><b>Availability</b></dt><dd>$availability</dd>\n";
     }
     if (length($updated)) {
-        $late_attributes .= "<dt><i>Updated:</i></dt><dd>$updated</dd>\n";
+        $late_attributes .= "<dt><b>Updated:</b></dt><dd>$updated</dd>\n";
     }
     if (length($late_attributes)) {
 	$contentString .= "<dl>".$late_attributes."</dl>\n";
     }
-    # $contentString .= "<hr>\n";
+    # $contentString .= "<hr class=\"afterAttributes\">\n";
+
+    # if ($HeaderDoc::enable_custom_references) {
+	# $contentString .= "</div>\n"; # end APIObject div
+    # }
 
     my $value_fixed_contentString = $self->fixup_values($contentString);
 
     return $value_fixed_contentString;    
 }
 
-
+# /*!
+#     @abstract
+#         Gets/sets the tagged parameters list for a function, etc.
+#     @param self
+#         This object
+#     @param tplist
+#         The new tagged parameters list to set. (Optional.)
+#     @discussion
+#         The tagged parameters list is an array of
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement}
+#         objects that represent the parameters as tagged in the
+#         HeaderDoc comment block.
+#  */
 sub taggedParameters {
     my $self = shift;
     if (@_) { 
@@ -3786,6 +5740,16 @@ sub taggedParameters {
     ($self->{TAGGEDPARAMETERS}) ? return @{ $self->{TAGGEDPARAMETERS} } : return ();
 }
 
+# /*!
+#     @abstract
+#         Returns a UID suitable for a composite page (when
+#         <code>classAsComposite</code> is 0).
+#     @param self
+#         This object.
+#     @discussion
+#         Returns UIDs that begin with //apple_ref/doc/compositePage/
+#         (//apple_ref/doc/compositePage/c/func/myfuncname, for example).
+#  */
 sub compositePageUID {
     my $self = shift;
 
@@ -3794,21 +5758,36 @@ sub compositePageUID {
     if ($self->can("compositePageAPIUID")) {
 	$uid = $self->compositePageAPIUID();
     } else {
-	my $apiUIDPrefix = quote(HeaderDoc::APIOwner->apiUIDPrefix());
+	my $apiUIDPrefix = HeaderDoc::APIOwner->apiUIDPrefix();
 	$uid = $self->apiuid();
-	$uid =~ s/\/\/$apiUIDPrefix\//\/\/$apiUIDPrefix\/doc\/compositePage\//s;
+	$uid =~ s/\/\/\Q$apiUIDPrefix\E\//\/\/$apiUIDPrefix\/doc\/compositePage\//s;
     }
 
     # registerUID($uid);
     return $uid;
 }
 
+# /*!
+#     @abstract
+#         Adds a tagged parameter to the array of tagged parameters
+#         associated with a function, etc.
+#     @param self
+#         The (generally <code>Function</code>) object.
+#     @param taggedParms
+#         An array of tagged parameters to add.
+#     @discussion
+#         The tagged parameters list is an array of
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement}
+#         objects that represent the parameters as tagged in the
+#         HeaderDoc comment block.
+#  */
 sub addTaggedParameter {
     my $self = shift;
     if (@_) { 
         push (@{$self->{TAGGEDPARAMETERS}}, @_);
 	my @arr = @{$self->{TAGGEDPARAMETERS}};
 	# print "OBJ IS ".\$arr[scalar(@arr) - 1]."\n";
+	# cluck("ADDED: ".\$arr[scalar(@arr) - 1]."\n");
 	return \$arr[scalar(@arr) - 1];
     }
     return undef; # return @{ $self->{TAGGEDPARAMETERS} };
@@ -3820,7 +5799,12 @@ sub addTaggedParameter {
     # return ();
 # }
 
-# Compare tagged parameters to parsed parameters (for validation)
+# /*!
+#     @abstract
+#         Compares tagged parameters to parsed parameters (for validation)
+#     @param self
+#         This object.
+#  */
 sub taggedParsedCompare {
     my $self = shift;
     my @tagged = $self->taggedParameters();
@@ -3898,8 +5882,9 @@ sub taggedParsedCompare {
 	# return;
     }
 
-    if ($self->lang() ne "C") {
-	if ($tpcDebug) { print STDERR "Language not C.  Skipping tagged/parsed comparison.\n"; }
+    # if ($self->lang() ne "C") {
+    if ($self->lang() eq "perl" || $self->lang() eq "shell") {
+	if ($tpcDebug) { print STDERR "Can't parse Perl or shell script parameter names.\nSkipping tagged/parsed comparison.\n"; }
 	return;
     }
 
@@ -3937,9 +5922,12 @@ sub taggedParsedCompare {
 		$searchname = $tp->name();
 		$searchname =~ s/\s*//sgo;
 	    }
+	    my $searchnameb = $searchname;
+	    $searchnameb =~ s/.*\.//s; # to allow tagging of subfields with the same name in a meaningful way.
+
 	    print STDERR "TN: $taggedname\n" if ($tpcDebug);
 	    print STDERR "SN: $searchname\n" if ($tpcDebug);
-	    if (!$parsednames{$searchname}) {
+	    if (!$parsednames{$searchname} && !$parsednames{$searchnameb}) {
 		my $apio = $tp->apiOwner();
 		print STDERR "APIO: $apio SN: \"$searchname\"\n" if ($tpcDebug);
 		my $tpname = $tp->type . " " . $tp->name();
@@ -3999,6 +5987,19 @@ sub taggedParsedCompare {
 
 }
 
+# /*!
+#     @abstract
+#         Searches for a parameter in the parsed parameters list.
+#         Also takes additional parsed parameters from enclosed
+#         structures and adds them to the outer typedef object.
+#     @param self
+#         This object.
+#     @param name
+#         A name to search for in the original parsed parameters list.
+#     @result
+#         Returns 1 if the specified name was found in the original
+#         parsed parameters list, else 0.
+#  */
 sub fixupParsedParameters
 {
     my $self = shift;
@@ -4040,6 +6041,20 @@ sub fixupParsedParameters
     return $retval;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the parsed parameters list for a function, etc.
+#     @param self
+#         This object
+#     @param pplist
+#         The new parsed parameters list to set. (Optional.)
+#     @discussion
+#         The parsed parameters list is an array of
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement}
+#         objects that represent the parameters as parsed from the
+#         actual declaration.  Not all languages support parameter
+#         name parsing.  (For example, Perl does not.)
+#  */
 sub parsedParameters {
     my $self = shift;
     if (@_) { 
@@ -4048,6 +6063,21 @@ sub parsedParameters {
     ($self->{PARSEDPARAMETERS}) ? return @{ $self->{PARSEDPARAMETERS} } : return ();
 }
 
+# /*!
+#     @abstract
+#         Adds a parsed parameter to the array of parsed parameters
+#         associated with a function, etc.
+#     @param self
+#         The (generally <code>Function</code>) object.
+#     @param parsedParam
+#         An array of parsed parameters to add.
+#     @discussion
+#         The parsed parameters list is an array of
+#         {@link //apple_ref/perl/cl/HeaderDoc::MinorAPIElement MinorAPIElement}
+#         objects that represent the parameters as parsed from the
+#         actual declaration.  Not all languages support parameter
+#         name parsing.  (For example, Perl does not.)
+#  */
 sub addParsedParameter {
     my $self = shift;
     if (@_) { 
@@ -4057,6 +6087,16 @@ sub addParsedParameter {
 }
 
 # Drop the last parsed parameter.  Used for rollback support.
+# /*!
+#     @abstract
+#         Deletes the last parsed parameter added to
+#         this object.
+#     @discussion
+#         This is used when rolling things back while
+#         handling a badly formed block declaration
+#         (one that mixes functions and <code>#defines</code>, for
+#         example).
+#  */
 sub dropParsedParameter {
     my $self = shift;
     my $last = pop(@{$self->{PARSEDPARAMETERS}});
@@ -4067,6 +6107,19 @@ sub dropParsedParameter {
 
 
 # for subclass/superclass merging
+# /*!
+#     @abstract
+#         Compares the parsed parameters of two methods.
+#     @param self
+#         This method object.
+#     @param compareObj
+#         The method to compare against.
+#     @discussion
+#         When merging methods in from the superclass, methods
+#         that are overridden (methods with the same signature)
+#         should not be included.  This code is intended to
+#         perform that check.
+#  */
 sub parsedParamCompare {
     my $self = shift;
     my $compareObj = shift;
@@ -4099,6 +6152,14 @@ sub parsedParamCompare {
     return 1;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets the return type for this object.
+#     @param self
+#         This object.
+#     @param returntype
+#         The new value. (Optional.)
+#  */
 sub returntype {
     my $self = shift;
     my $localDebug = 0;
@@ -4112,6 +6173,16 @@ sub returntype {
     return $self->{RETURNTYPE};
 }
 
+# /*!
+#     @abstract
+#         Checks fr a tagged parameter matching a given name.
+#     @param self
+#         This object.
+#     @param name
+#         The parameter name to search for.
+#     @result
+#         Returns the parameter if it exists, else 0.
+#  */
 sub taggedParamMatching
 {
     my $self = shift;
@@ -4121,6 +6192,16 @@ sub taggedParamMatching
     return $self->paramMatching($name, \@{$self->{TAGGEDPARAMETERS}});
 }
 
+# /*!
+#     @abstract
+#         Checks fr a parsed parameter matching a given name.
+#     @param self
+#         This object.
+#     @param name
+#         The parameter name to search for.
+#     @result
+#         Returns the parameter if it exists, else 0.
+#  */
 sub parsedParamMatching
 {
     my $self = shift;
@@ -4130,6 +6211,18 @@ sub parsedParamMatching
     return $self->paramMatching($name, \@{$self->{PARSEDPARAMETERS}});
 }
 
+# /*!
+#     @abstract
+#         The guts of {@link taggedParamMatching} and {@link parsedParamMatching}.
+#     @param self
+#         This object.
+#     @param name
+#         The parameter name to search for.
+#     @param arrayref
+#         A reference to the array of parameters to search.
+#     @result
+#         Returns the parameter if it exists, else 0.
+#  */
 sub paramMatching
 {
     my $self = shift;
@@ -4140,7 +6233,7 @@ sub paramMatching
 
 print STDERR "SA: ".scalar(@array)."\n" if ($localDebug);
 
-$HeaderDoc::count++;
+# $HeaderDoc::count++;
 
     foreach my $param (@array) {
 	my $reducedname = $name;
@@ -4158,6 +6251,12 @@ $HeaderDoc::count++;
     return 0;
 }
 
+# /*!
+#     @abstract
+#         Returns the documentation output for this object (in XML).
+#     @param self
+#         This object.
+#  */
 sub XMLdocumentationBlock {
     my $self = shift;
     my $class = ref($self) || $self;
@@ -4202,6 +6301,14 @@ sub XMLdocumentationBlock {
 	# $langstring = "$sublang";
     # }
 
+    my $defineinfo = "";
+
+    my @includedDefines = ();
+    if ($self->{INCLUDED_DEFINES}) {
+	@includedDefines = @{$self->{INCLUDED_DEFINES}};
+    }
+    my @includedDefineUIDs = ();
+
     SWITCH: {
 	($class eq "HeaderDoc::Constant") && do {
 		$fieldType = "field"; # this should never be needed
@@ -4222,7 +6329,7 @@ sub XMLdocumentationBlock {
 		$fieldHeading = "template_fields";
 
 		# set the type for uid purposes
-		$type = "class";
+		$type = "cl";
 		if ($self->fields()) {
 			$type = "tmplt";
 		}
@@ -4251,6 +6358,8 @@ sub XMLdocumentationBlock {
 		$type = "header";
 		$extra = " filename=\"$filename\" headerpath=\"$fullpath\"";
 
+		if ($self->isFramework()) { $type = "framework"; }
+
 		$isAPIOwner = 1;
 		last SWITCH;
 	    };
@@ -4276,7 +6385,8 @@ sub XMLdocumentationBlock {
 			# } else {
 				# $type = "clm";
 			# }
-			$type = $apio->getMethodType($self->declaration)
+			# $type = $apio->getMethodType($self->declaration)
+			$type = $self->getMethodType();
 		}
 		# if ($self->isTemplate()) {
 			# $type = "ftmplt";
@@ -4294,7 +6404,8 @@ sub XMLdocumentationBlock {
 				my $apiref = $self->apiref(0, "ftmplt", "$paramSignature");
 			} else {
 				my $declarationRaw = $self->declaration();
-				my $methodType = $apio->getMethodType($declarationRaw);
+				# my $methodType = $apio->getMethodType($declarationRaw);
+				my $methodType = $self->getMethodType();
 				my $apiref = $self->apiref(0, $methodType, "$paramSignature");
 			}
 			$uid = $self->apiuid();
@@ -4310,7 +6421,8 @@ sub XMLdocumentationBlock {
 		$fieldHeading = "parameterlist";
 		$type = "method";
 		my $declarationRaw = $self->declaration();
-		my $methodType = $self->getMethodType($declarationRaw);
+		# my $methodType = $self->getMethodType($declarationRaw);
+		my $methodType = $self->getMethodType();
 		$uid = $self->apiuid($methodType);
 		$isAPIOwner = 0;
 		last SWITCH;
@@ -4319,7 +6431,7 @@ sub XMLdocumentationBlock {
 		$fieldType = "field";
 		$fieldHeading = "template_fields";
 		$type = "category";
-		$self->apiuid("cat");
+		$uid = $self->apiuid("cat");
 		$isAPIOwner = 1;
 		last SWITCH;
 	    };
@@ -4327,7 +6439,7 @@ sub XMLdocumentationBlock {
 		$fieldType = "field";
 		$fieldHeading = "template_fields";
 		$type = "class";
-		$self->apiuid("cl");
+		$uid = $self->apiuid("cl");
 		$isAPIOwner = 1;
 		last SWITCH;
 	    };
@@ -4335,7 +6447,7 @@ sub XMLdocumentationBlock {
 		$fieldType = "field";
 		$fieldHeading = "template_fields";
 		$type = "class";
-		$self->apiuid("cl");
+		$uid = $self->apiuid("cl");
 		$isAPIOwner = 1;
 		last SWITCH;
 	    };
@@ -4352,6 +6464,37 @@ sub XMLdocumentationBlock {
 		$fieldHeading = "parameterlist";
 		$type = "pdefine";
 		$uid = $self->apiuid("macro");
+
+		my $definetype = "";
+
+		if ($self->isBlock()) {
+			$definetype = "block";
+
+			if (scalar(@includedDefines)) {
+				foreach my $refobj (@includedDefines) {
+					# $refobj->dbprint();
+					my $defineref = $refobj->{MAINOBJECT};
+
+					# Workaround for mixed blocks used in a
+					# few I/O Kit bits where something is
+					# defined as a #define in some cases
+					# or as a function in others.  This is
+					# totally a case of "punting".
+					if (!$defineref) {
+				        	@includedDefines = ();
+						@includedDefineUIDs = @{$self->autoRelate()};
+					}
+				}
+			} else {
+				@includedDefines = ();
+				@includedDefineUIDs = @{$self->autoRelate()};
+			}
+		} elsif ($self->isFunctionLikeMacro()) {
+			$definetype = "function";
+		} else {
+			$definetype = "value";
+		}
+		$defineinfo = " definetype=\"$definetype\" ";
 		$isAPIOwner = 0;
 		last SWITCH;
 	    };
@@ -4381,14 +6524,17 @@ sub XMLdocumentationBlock {
 		$type = "typedef";
 		$uid = $self->apiuid("tdef");
 		if ($self->isFunctionPointer()) {
-			$extra = " type=\"simple\"";
-		} else {
 			$extra = " type=\"funcPtr\"";
+		} else {
+			$extra = " type=\"simple\"";
 		}
 		$isAPIOwner = 0;
 		last SWITCH;
 	    };
-	($class eq "HeaderDoc::Var") && do {
+	($class eq "HeaderDoc::Var" || $class eq "HeaderDoc::MinorAPIElement") && do {
+		# The @var pseudo-variables in Perl are MinorAPIElement objects.
+		# Treat them like any other variable to the extent that it is
+		# possible to do so.
 
 		$fieldType = "field";
 		$fieldHeading = "fieldlist";
@@ -4403,6 +6549,7 @@ sub XMLdocumentationBlock {
 		my $isProperty = $self->can('isProperty') ? $self->isProperty() : 0;
 		my $typename = "data";
 		if ($isProperty) {
+				$type = "property";
 				$typename = "instp";
 		}
 		$uid = $self->apiuid($typename);
@@ -4417,7 +6564,7 @@ sub XMLdocumentationBlock {
     }
 
     my $throws = $self->XMLthrows();
-    $compositePageString .= "<$type id=\"$uid\" lang=\"$langstring\"$extra>"; # e.g. "<class type=\"C++\">";
+    $compositePageString .= "<$type id=\"$uid\" $defineinfo"."lang=\"$langstring\"$extra>"; # e.g. "<class type=\"C++\">";
 
     if (length($name)) {
 	$compositePageString .= "<name>$name</name>\n";
@@ -4491,7 +6638,9 @@ sub XMLdocumentationBlock {
 	    }
 	}
     }
+    my @orig_local_variables = $self->variables();
     my @origconstants = $self->constants();
+    my @local_variables = ();
     my @constants = ();
     # my @fields = ();
     # foreach my $copyfield (@origfields) {
@@ -4504,6 +6653,17 @@ sub XMLdocumentationBlock {
             # }
         # }
     # }
+    foreach my $copylocal (@orig_local_variables) {
+        bless($copylocal, "HeaderDoc::HeaderElement");
+	bless($copylocal, $copylocal->class()); # MinorAPIElement");
+        # print STDERR "CONST: ".$copylocal->name."\n";
+        if ($copylocal->can("hidden")) {
+            if (!$copylocal->hidden()) {
+                push(@local_variables, $copylocal);
+            }
+        }
+        # print STDERR "HIDDEN: ".$copylocal->hidden()."\n";
+    }
     foreach my $copyconstant (@origconstants) {
         bless($copyconstant, "HeaderDoc::HeaderElement");
 	bless($copyconstant, $copyconstant->class()); # MinorAPIElement");
@@ -4530,17 +6690,22 @@ sub XMLdocumentationBlock {
 	# Insert declaration, fields, constants, etc.
 	my $parseTree_ref = $self->parseTree();
 	my $parseTree = undef;
-	if (!$parseTree_ref) {
-		if (!$parseTree_ref && !$self->isAPIOwner()) {
-			warn "Missing parse tree for ".$self->name()."\n";
+
+	# Don't do anything for @var pseudo-variables in Perl, etc.
+	if ($class ne "HeaderDoc::MinorAPIElement") {
+		if (!$parseTree_ref) {
+			if (!$parseTree_ref && !$self->isAPIOwner()) {
+				warn "Missing parse tree for ".$self->name()."\n";
+			}
+		} else {
+			$parseTree = ${$parseTree_ref};
 		}
-	} else {
-		$parseTree = ${$parseTree_ref};
 	}
 	my $declaration = "";
 
 	if ($parseTree) {
-		$declaration = $parseTree->xmlTree($self->preserve_spaces(), $self->hideContents());
+		# $declaration = $parseTree->xmlTree($self->preserve_spaces(), $self->hideContents());
+		$declaration = $self->declarationInHTML();
 	}
 
 	if (@constants) {
@@ -4582,6 +6747,54 @@ sub XMLdocumentationBlock {
 			}
 		}
                 $compositePageString .= "</constantlist>\n";
+	}
+
+	if (@local_variables) {
+		$compositePageString .= "<localvariablelist>\n";
+                foreach my $field (@local_variables) {
+                        my $name = $self->textToXML($field->name());
+                        my $desc = $self->htmlToXML($field->discussion());
+			my $fType = "";
+			if ($field->can("type")) { $fType = $field->type(); }
+
+			my $groupstring = "";
+			my $groupraw = $field->group();
+			if (length($groupraw)) {
+				$groupraw =~ s/"/\"/sg;
+				$groupstring = "<group>".textToXML($groupraw)."</group>";
+			}
+
+			my $fielduidstring = "";
+			if (length($fielduidtag)) {
+				my $fielduid = $field->apiuid($fielduidtag);
+				$fielduidstring = " id=\"$fielduid\"";
+				if (!$HeaderDoc::appleRefUsed{$uid} && !$HeaderDoc::ignore_apiuid_errors) {
+					# print STDERR "MARKING APIREF $uid used\n";
+					$HeaderDoc::appleRefUsed{$uid} = 1;
+				} else {
+					# already used or a "junk" run to obtain
+					# uids for another purpose.  Drop the
+					# uid in case it is already used
+					$fielduidstring = "";
+				}
+			}
+
+			if ($fType eq "callback") {
+				my @userDictArray = $field->userDictArray(); # contains elements that are hashes of param name to param doc
+				my $paramString;
+				foreach my $hashRef (@userDictArray) {
+					while (my ($param, $disc) = each %{$hashRef}) {
+						$param = $self->textToXML($param);
+						$disc = $self->htmlToXML($disc);
+						$paramString .= "<parameter><name>$param</name><desc>$disc</desc></parameter>\n";
+					}
+					$compositePageString .= "<localvariable$fielduidstring><name>$name</name><desc>$desc</desc><callback_parameters>$paramString</callback_parameters>$groupstring</localvariable>\n";
+				}
+			} else {
+				$compositePageString .= "<localvariable$fielduidstring><name>$name</name><desc>$desc</desc></localvariable>\n";
+			}
+		}
+                $compositePageString .= "</localvariablelist>\n";
 	}
 
 	if (@parameters_or_fields) {
@@ -4672,15 +6885,44 @@ sub XMLdocumentationBlock {
 
     my $returntype = $self->textToXML($self->returntype());
     my $result = "";
-    if ($self->can('result')) { $result = $self->result(); }
+    if ($self->can('result')) { $result = html2xhtml($self->result(), $self->encoding()); }
     my $attlists = "";
-    if ($self->can('getAttributeLists')) { $self->getAttributeLists(0); }
+    if ($self->can('getAttributeLists')) { $attlists = $self->getAttributeLists(0); }
     my $atts = "";
-    if ($self->can('getAttributes')) { $self->getAttributes(); }
+    if ($self->can('getAttributes')) { $atts = $self->getAttributes(); }
 
     if (length($atts)) {
         $compositePageString .= "<attributes>$atts</attributes>\n";
     }
+    if (length($attlists)) {
+        $compositePageString .= "<attributelists>$attlists</attributelists>\n";
+    }
+
+    my $idstring = "";
+    if (scalar(@includedDefines)) {
+	foreach my $refobj (@includedDefines) {
+
+		# $refobj->dbprint();
+		my $defineref = $refobj->{MAINOBJECT};
+
+		if (!$defineref) { next; }
+
+		my $define = ${$defineref};
+		$idstring .= "<includeddefine>".$define->apiuid()."</includeddefine>\n";
+		# $refobj->dbprint();
+		# $define->dbprint();
+		# die("Define: $define\n");
+	}
+    }
+    if (scalar(@includedDefineUIDs)) {
+	foreach my $idUID (@includedDefineUIDs) {
+		$idstring .= "<includeddefine>".$idUID."</includeddefine>\n";
+	}
+    }
+    if (length($idstring)) {
+	$compositePageString .= "<includeddefines>\n$idstring\n</includeddefines>\n";
+    }
+
     if ($class eq "HeaderDoc::Header") {
 	my $includeref = $HeaderDoc::perHeaderIncludes{$fullpath};
 	if ($includeref) {
@@ -4691,13 +6933,18 @@ sub XMLdocumentationBlock {
 			print STDERR "Included file: $include\n" if ($localDebug);
 
 			my $xmlinc = $self->textToXML($include);
-			$compositePageString .= "<include>$xmlinc</include>\n";
+			# $compositePageString .= "<include>$xmlinc</include>\n";
+			my $includeguts = $include;
+			$includeguts =~ s/[<\"](.*)[>\"]/$1/so;
+
+			my $includefile = basename($includeguts);
+
+			my $ref = $self->genRefSub("doc", "header", $includefile, "");
+
+			$compositePageString .= "<include><hd_link logicalPath=\"$ref\">$xmlinc</hd_link></include>\n";
 		}
 		$compositePageString .= "</includes>\n";
 	}
-    }
-    if (length($attlists)) {
-        $compositePageString .= "<attributelists>$attlists</attributelists>\n";
     }
     if (length($returntype)) {
         $compositePageString .= "<returntype>$returntype</returntype>\n";
@@ -4715,7 +6962,24 @@ sub XMLdocumentationBlock {
 	$compositePageString .= "<desc>$discussion</desc>\n";
     }
 
+    my @autoRelated = @{$self->autoRelate()};
+    if (scalar(@autoRelated)) {
+	$compositePageString .= "<autorelated>\n";
+	foreach my $autoRelatedItem (@autoRelated) {
+		$compositePageString .= "<relateduid>$autoRelatedItem</relateduid>\n";
+	}
+        $compositePageString .= "</autorelated>\n";
+    }
+
+    # Quick debugging of discussion and abstract
+    # print STDERR "OBJ $self\n";
+    # print STDERR "    NAME: ".$self->name()."\n";
+    # print STDERR "    DESC: ".$discussion."\n";
+    # print STDERR "    ABS:  ".$abstract."\n";
+
     if ($isAPIOwner) {
+	$compositePageString .= $self->groupDoc();
+
 	$contentString = $self->_getFunctionXMLDetailString();
 	if (length($contentString)) {
 		$contentString = $self->stripAppleRefs($contentString);
@@ -4726,6 +6990,12 @@ sub XMLdocumentationBlock {
 	if (length($contentString)) {
 		$contentString = $self->stripAppleRefs($contentString);
 		$compositePageString .= "<methods>$contentString</methods>\n";
+	}
+
+	$contentString= $self->_getPropXMLDetailString();
+	if (length($contentString)) {
+		$contentString = $self->stripAppleRefs($contentString);
+		$compositePageString .= "<properties>$contentString</properties>\n";
 	}
 
 	$contentString= $self->_getVarXMLDetailString();
@@ -4797,7 +7067,7 @@ sub XMLdocumentationBlock {
     	}
         $compositePageString .= "<copyrightinfo>&#169; $copyrightOwner</copyrightinfo>\n" if (length($copyrightOwner));
 
-	my $dateStamp = $self->fix_date();
+	my $dateStamp = HeaderDoc::APIOwner::fix_date($self->encoding());
 	$compositePageString .= "<timestamp>$dateStamp</timestamp>\n" if (length($dateStamp));
     }
 
@@ -4806,15 +7076,34 @@ sub XMLdocumentationBlock {
 }
 
 
+# /*!
+#     @abstract
+#         Gets/sets whether this object is a function pointer.
+#     @param self
+#         This object.
+#     @param ifp
+#         The new value. (Optional.)
+#  */
 sub isFunctionPointer {
     my $self = shift;
 
     if (@_) {
         $self->{ISFUNCPTR} = shift;
+	# cluck($self->{NAME}." ($self) IFP SET TO ".$self->{ISFUNCPTR});
     }
     return $self->{ISFUNCPTR};
 }
 
+# /*!
+#     @abstract
+#         Adds a <code>#define</code> to the array of
+#         <code>#define</code> macros associated with a
+#         <code>defineblock</code> declaration.
+#     @param self
+#         The (generally {@link //apple_ref/perl/cl/HeaderDoc::PDefine PDefine}) object.
+#     @param defines
+#         An array of macros to add.
+#  */
 sub addToIncludedDefines {
     my $self = shift;
     my $obj = shift;
@@ -4830,18 +7119,30 @@ sub addToIncludedDefines {
     return \$arr[scalar(@arr) - 1];
 }
 
-# /*! Collects data for generating the API ref (apple_ref) for a function, data type, etc.  See apiref() for the actual generation. */
+# /*!
+#     @abstract
+#         Collects data for generating the API ref (apple_ref) for a function, data type, etc.
+#     @discussion
+#         See {@link apiref} for the actual generation.
+#  */
 sub apirefSetup
 {
     my $self = shift;
     my $force = 0;
 
+    my $localDebug = 0;
+
     if (@_) {
 	$force = shift;
     }
-    if ($self->noRegisterUID()) { return ($self->{KEEPCONSTANTS},
+
+# warn("APIRS ($self) $force BT\n");
+
+    if ($self->noRegisterUID()) {
+	print STDERR "SHORTCUT NOREGISTERUID: $self\n" if ($localDebug);
+ 	return ($self->{KEEPCONSTANTS},
 		$self->{KEEPFIELDS}, $self->{KEEPPARAMS},
-		$self->{FIELDHEADING}, $self->{FUNCORMETHOD});
+		$self->{FIELDHEADING}, $self->{FUNCORMETHOD}, $self->{KEEPVARIABLES});
     }
 
     my $subreftitle = 0;
@@ -4856,6 +7157,7 @@ sub apirefSetup
 
     my $declarationRaw = $self->declaration();
 
+    my @orig_local_variables = $self->variables();
     my @origconstants = $self->constants();
     my @origfields = ();
     my @params = ();
@@ -4863,10 +7165,10 @@ sub apirefSetup
     my $typename = "";
     my $fieldHeading = "";
     my $className = "";
-    my $localDebug = 0;
     my $apiRefType = "";
     my $func_or_method = "";
 
+    print "APIREFSETUP: IN $self LOCAL VARS: ".$#orig_local_variables."\n" if($localDebug);
 
     if ($self->can("taggedParameters")){ 
 	print STDERR "setting params\n" if ($localDebug);
@@ -4883,9 +7185,14 @@ sub apirefSetup
     }
 
     if (!$force && $self->{APIREFSETUPDONE}) {
-	# print STDERR "SHORTCUT: $self\n";
+	print STDERR "SHORTCUT: $self\n" if ($localDebug);
 	return ($self->{KEEPCONSTANTS}, $self->{KEEPFIELDS}, $self->{KEEPPARAMS},
-		$self->{FIELDHEADING}, $self->{FUNCORMETHOD});
+		$self->{FIELDHEADING}, $self->{FUNCORMETHOD}, $self->{KEEPVARIABLES});
+    }
+    if ($self->{APIREFSETUPDONE}) {
+	if (dereferenceUIDObject($self->{APIUID}, $self)) {
+		unregister_force_uid_clear($self->{APIUID});
+	}
     }
 	# print STDERR "REDO: $self\n";
 
@@ -4894,6 +7201,7 @@ sub apirefSetup
     # my @constants = @origconstants;
     # my @fields = @origfields;
     my @constants = ();
+    my @local_variables = ();
     my @fields = ();
 
     if (!$self->suppressChildren()) {
@@ -4911,6 +7219,8 @@ sub apirefSetup
       }
 
       foreach my $copyconstant (@origconstants) {
+	# print STDERR "CONSTANT IN SETUP\n";
+
         bless($copyconstant, "HeaderDoc::HeaderElement");
 	bless($copyconstant, $copyconstant->class()); # MinorAPIElement");
 	# print STDERR "CONST: ".$copyconstant->name."\n";
@@ -4922,26 +7232,27 @@ sub apirefSetup
 	# print STDERR "HIDDEN: ".$copyconstant->hidden()."\n";
       }
 	# print STDERR "SELF WAS $self\n";
-    # } else {
-	# warn "CHILDREN SUPPRESSED\n";
+    } else {
+	print STDERR "CHILDREN SUPPRESSED\n" if ($localDebug);
     }
 
     $typename = "internal_temporary_object";
     SWITCH: {
 	($class eq "HeaderDoc::Function") && do {
 			print STDERR "FUNCTION\n" if ($localDebug);
-			if ($apioclass eq "HeaderDoc::Header") {
-				$typename = "func";
-			} else {
-				$typename = "clm";
-				if ($apio->can("getMethodType")) {
-					$typename = $apio->getMethodType($self->declaration);
-				}
-			}
+			$typename = $self->getMethodType();
+			# if ($apioclass eq "HeaderDoc::Header") {
+				# $typename = "func";
+			# } else {
+				# $typename = "clm";
+				# if ($apio->can("getMethodType")) {
+					# $typename = $apio->getMethodType($self->declaration);
+				# }
+			# }
 			print STDERR "Function type: $typename\n" if ($localDebug);
-			if ($self->isTemplate()) {
-				$typename = "ftmplt";
-			}
+			# if ($self->isTemplate()) {
+				# $typename = "ftmplt";
+			# }
 			if ($apioclass eq "HeaderDoc::CPPClass") {
 				my $paramSignature = $self->getParamSignature();
 
@@ -4957,7 +7268,8 @@ sub apirefSetup
 					$apiref = $self->apiref(0, "ftmplt", "$paramSignature");
 				} else {
 					my $declarationRaw = $self->declaration();
-					my $methodType = $apio->getMethodType($declarationRaw);
+					# my $methodType = $apio->getMethodType($declarationRaw);
+					my $methodType = $self->getMethodType();
 					$apiref = $self->apiref(0, $methodType, "$paramSignature");
 				}
 			}
@@ -4997,7 +7309,8 @@ sub apirefSetup
 		};
 	($class eq "HeaderDoc::Method") && do {
 			print STDERR "METHOD\n" if ($localDebug);
-			$typename = $self->getMethodType($declarationRaw);
+			# $typename = $self->getMethodType($declarationRaw);
+			$typename = $self->getMethodType();
 			$fieldHeading = "Parameters";
 			$apiRefType = "";
 			if ($apio->can("className")) {  # to get the class name from Category objects
@@ -5033,7 +7346,7 @@ sub apirefSetup
 			$func_or_method = "function";
 			last SWITCH;
 		};
-	($class eq "HeaderDoc::Var") && do {
+	($class eq "HeaderDoc::Var" || ($class eq "HeaderDoc::MinorAPIElement" && $self->autodeclaration())) && do {
 			print STDERR "VAR\n" if ($localDebug);
 			my $isProperty = $self->can('isProperty') ? $self->isProperty() : 0;
 			if ($isProperty) {
@@ -5074,6 +7387,26 @@ sub apirefSetup
       }
     }
 
+    # print STDERR "OLV: ".$#orig_local_variables."\n";
+    foreach my $copylocal (@orig_local_variables) {
+	bless($copylocal, "HeaderDoc::HeaderElement");
+	bless($copylocal, $copylocal->class()); # MinorAPIElement");
+	print STDERR "LOCAL VARIABLE: ".$copylocal->name."\n" if ($localDebug);
+
+	if (length($apiRefType)) {
+	# print STDERR "APIREFTYPE: $apiRefType\n";
+	    $copylocal->appleRefIsDoc($subreftitle);
+	    $apiref = $copylocal->apiref(0, $apiRefType);
+	}
+	if ($copylocal->can("hidden")) {
+	    if (!$copylocal->hidden()) {
+		push(@local_variables, $copylocal);
+	    }
+	}
+	# print STDERR "HIDDEN: ".$copylocal->hidden()."\n";
+    }
+
+    $self->{KEEPVARIABLES} = \@local_variables;
     $self->{KEEPCONSTANTS} = \@constants;
     $self->{KEEPFIELDS} = \@fields;
     $self->{KEEPPARAMS} = \@params;
@@ -5081,9 +7414,25 @@ sub apirefSetup
     $self->{FUNCORMETHOD} = $func_or_method;
 
     $self->{APIREFSETUPDONE} = 1;
-    return (\@constants, \@fields, \@params, $fieldHeading, $func_or_method);
+    return (\@constants, \@fields, \@params, $fieldHeading, $func_or_method, \@local_variables);
 }
 
+# /*! @abstract
+#         Returns HeaderDoc tag names and English names for a given HeaderDoc object.
+#     @param self
+#         This object.
+#     @discussion
+#         Returns an array with three members: the English name, a
+#         regular expression to match the tag names that make sense
+#         for this object, and (if applicable) the superclass field name.
+#
+#         For example, an instance of the
+#         {@link //apple_ref/perl/cl/HeaderDoc::Function HeaderDoc::Function} class
+#         returns an english name of <code>function or method</code>, and returns
+#         a regular expression that matches either the function or
+#         method HeaderDoc tags.  Because it cannot have a superclass,
+#         it doesn't need to return anything for the third field.
+#  */
 sub tagNameRegexpAndSuperclassFieldNameForType
 {
     my $self = shift;
@@ -5131,8 +7480,13 @@ sub tagNameRegexpAndSuperclassFieldNameForType
 		last SWITCH;
 	};
 	($class =~ /HeaderDoc\:\:Var/) && do {
-		$tag_re = "var|property|const(?:ant)?";
-		$tagname = "variable";
+		if ($self->isProperty()) {
+			$tag_re = "var|method|property|const(?:ant)?";
+			$tagname = "variable";
+		} else {
+			$tag_re = "var|property|const(?:ant)?";
+			$tagname = "variable";
+		}
 		last SWITCH;
 	};
 	($class =~ /HeaderDoc\:\:ObjCClass/) && do {
@@ -5166,6 +7520,41 @@ sub tagNameRegexpAndSuperclassFieldNameForType
     return ($tagname, $tag_re, $superclassfieldname);
 }
 
+# /*!
+#     @abstract
+#         Finds a tagged parameter by name.
+#     @discussion
+#         To improve Doxygen tag compatibility, HeaderDoc
+#         concatenates multiple <code>\@param</code> tags for the
+#         same parameter name.  This is part of that
+#         support.
+#  */
+sub taggedParamFind
+{
+    my $self = shift;
+    my $name = shift;
+
+    foreach my $parm ($self->taggedParameters()) {
+	if ($parm->name() eq $name) {
+		return $parm;
+	}
+    }
+    return undef;
+}
+
+# /*!
+#     @abstract
+#         Processes a HeaderDoc comment.
+#     @param self
+#         The APIOwner object.
+#     @param fieldArrayRef
+#         A reference to an array of fields.  This should be the result of calling
+#         {@link //apple_ref/perl/instm/HeaderDoc::Utilities/stringToFields//()
+#         HeaderDoc::Utilities::stringToFields} on the HeaderDoc comment.
+#
+#         This is essentially the result of calling split on the <code>\@</code> symbol
+#         in the comment, but there is some subtlety involved, so don't do that.
+#  */
 sub processComment
 {
     my($self) = shift;
@@ -5179,7 +7568,17 @@ sub processComment
     my $olddisc = $self->halfbaked_discussion();
     my $isProperty = $self->can('isProperty') ? $self->isProperty() : 0;
 
+    my $vargroup = "";
+
+    if ($localDebug) {
+	printFields($fieldArrayRef);
+	cluck("BT\n");
+    }
+
     print STDERR "SELF IS $self\n" if ($localDebug);
+
+    # cluck("Entering processComment for $self\n");
+    # printFields(\@fields);
 
     my $lang = $self->lang();
     my $sublang = $self->sublang();
@@ -5192,6 +7591,8 @@ sub processComment
 	return;
     }
 
+    $self->{HASPROCESSEDCOMMENT} = 1;
+
     my ($tagname, $tag_re, $superclassfieldname) = $self->tagNameRegexpAndSuperclassFieldNameForType();
 
     my $seen_top_level_field = 0;
@@ -5199,7 +7600,7 @@ sub processComment
 
     my $callbackObj = 0;
     foreach my $field (@fields) {
-    	print STDERR "Constant field is |$field|\n" if ($localDebug);
+    	print STDERR "Comment field is |$field|\n" if ($localDebug);
 	print STDERR "Seen top level field: $seen_top_level_field\n" if ($localDebug);
 	my $fieldname = "";
 	my $top_level_field = 0;
@@ -5209,7 +7610,7 @@ sub processComment
 		$top_level_field = validTag($fieldname, 1);
 
 		if ($top_level_field && $seen_top_level_field && ($fieldname !~ /const(ant)?/) &&
-		    (!$self->isBlock() || $fieldname ne "define")) {
+		    ($fieldname !~ /var/) && (!$self->isBlock() || $fieldname ne "define")) {
 			# We've seen more than one top level field.
 
 			$field =~ s/^(\w+)(\s)//s;
@@ -5241,10 +7642,13 @@ sub processComment
 				"in comment.  Maybe you meant \"$newtag\".\n";
 
 			# warn "Thunked field to \"$field\"\n";
-		} elsif ($top_level_field && $seen_top_level_field && ($fieldname eq "constant")) {
+		} elsif ($top_level_field && $seen_top_level_field && ($fieldname eq "constant" || $fieldname eq "const")) {
+			$top_level_field = 0;
+		} elsif ($top_level_field && $seen_top_level_field && ($fieldname eq "var")) {
 			$top_level_field = 0;
 		}
 	}
+	# warn("FN: \"$fieldname\"\n");
 	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
 	# print STDERR "FIELD $field\n";
 	SWITCH: {
@@ -5263,7 +7667,7 @@ sub processComment
 			# last SWITCH;
 		# };
 
-	    ($self->isAPIOwner() && $field =~ s/^alsoinclude\s+//io) && do {
+	    ($self->isAPIOwner() && $field =~ s/^alsoinclude\s+//sio) && do {
 			$self->alsoInclude($field);
 			last SWITCH;
 		};
@@ -5273,7 +7677,7 @@ sub processComment
 			my $cbName = $callbackObj->name();
                         print STDERR "In callback: field is '$field'\n" if ($localDebug);
                         
-                        if ($field =~ s/^(param|field)\s+//io) {
+                        if ($field =~ s/^(param|field)\s+//sio) {
                             $field =~ s/^\s+|\s+$//go;
                             $field =~ /(\w*)\s*(.*)/so;
 
@@ -5281,10 +7685,14 @@ sub processComment
                             my $paramDesc = $2;
                             $callbackObj->addToUserDictArray({"$paramName" => "$paramDesc"});
 
-                        } elsif ($field =~ s/^return\s+//io) {
+			} elsif ($field =~ s/^internal\s+//sio) {
+			    $callbackObj->isInternal(1);
+                        } elsif ($field =~ s/^apiuid\s+//sio) {
+			    $callbackObj->requestedUID($field);
+                        } elsif ($field =~ s/^return(s)?\s+//sio) {
                             $field =~ s/^\s+|\s+$//go;
                             $callbackObj->addToUserDictArray({"Returns" => "$field"});
-                        } elsif ($field =~ s/^result\s+//io) {
+                        } elsif ($field =~ s/^result\s+//sio) {
                             $field =~ s/^\s+|\s+$//go;
                             $field =~ /(\w*)\s*(.*)/so;
                             $callbackObj->addToUserDictArray({"Result" => "$field"});
@@ -5305,15 +7713,25 @@ sub processComment
 			}
                 };
 
-	    ($field =~ s/^serial\s+//io) && do {$self->attribute("Serial Field Info", $field, 1); last SWITCH;};
-            ($field =~ s/^serialfield\s+//io) && do {
+	    ($field =~ s/^internal\s+//sio) && do {
+			$self->isInternal(1);
+			last SWITCH;
+		};
+	    ($field =~ s/^apiuid\s+//sio) && do {
+			$self->requestedUID($field);
+			last SWITCH;
+		};
+	    ($field =~ s/^serial\s+//sio) && do {$self->attribute("Serial Field Info", $field, 1); last SWITCH;};
+	    (($class =~ /HeaderDoc\:\:Function/ ||
+                $class =~ /HeaderDoc\:\:Method/) && $field =~ s/^serialData\s+//io) && do {$self->attribute("Serial Data", $field, 1); last SWITCH;};
+            ($field =~ s/^serialfield\s+//sio) && do {
                     if (!($field =~ s/(\S+)\s+(\S+)\s+//so)) {
                         warn "$fullpath:$linenum: warning: serialfield format wrong.\n";
                     } else {
                         my $name = $1;
                         my $type = $2;
                         my $description = "(no description)";
-                        my $att = "$name Type: $type";
+                        my $att = "$name<br>\nType: $type";
                         $field =~ s/^(<br>|\s)*//sgio;
                         if (length($field)) {
                                 $att .= "<br>\nDescription: $field";
@@ -5322,24 +7740,24 @@ sub processComment
                     }
                     last SWITCH;
                 };
-            ($field =~ s/^unformatted(\s+|$)//io) && do {
+            ($field =~ s/^unformatted(\s+|$)//sio) && do {
 		$self->preserve_spaces(1);
 		last SWITCH;
 	    };
 
-                        (!$self->isAPIOwner() && $field =~ s/^templatefield\s+//io) && do {
+                        (!$self->isAPIOwner() && $field =~ s/^templatefield\s+//sio) && do {
                                         $self->attributelist("Template Field", $
 field);
                                         last SWITCH;
                         };      
 
 
-                                ($self->isAPIOwner() && $field =~ s/^templatefield(\s+)/$1/io) && do {
+                                ($self->isAPIOwner() && $field =~ s/^templatefield(\s+)/$1/sio) && do {
                                         $field =~ s/^\s+|\s+$//go;
                                         $field =~ /(\w*)\s*(.*)/so;
                                         my $fName = $1;
                                         my $fDesc = $2;
-                                        my $fObj = HeaderDoc::MinorAPIElement->new();
+                                        my $fObj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 					$fObj->apiOwner($self);
                                         $fObj->linenuminblock($linenuminblock);
                                         $fObj->blockoffset($blockoffset);
@@ -5353,68 +7771,78 @@ field);
                                         last SWITCH;
                                 };
 
-	    ($self->isAPIOwner() && $field =~ s/^super(class|)(\s+)/$2/io) && do {
+	    ($self->isAPIOwner() && $field =~ s/^super(class|)(\s+)/$2/sio) && do {
 			$self->attribute($superclassfieldname, $field, 0);
 			$self->explicitSuper(1);
 			last SWITCH;
 		};
-	    ($self->isAPIOwner() && $field =~ s/^instancesize(\s+)/$1/io) && do {$self->attribute("Instance Size", $field, 0); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^performance(\s+)/$1/io) && do {$self->attribute("Performance", $field, 1); last SWITCH;};
-	    # ($self->isAPIOwner() && $field =~ s/^subclass(\s+)/$1/io) && do {$self->attributelist("Subclasses", $field); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^nestedclass(\s+)/$1/io) && do {$self->attributelist("Nested Classes", $field); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^coclass(\s+)/$1/io) && do {$self->attributelist("Co-Classes", $field); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^helper(class|)(\s+)/$2/io) && do {$self->attributelist("Helper Classes", $field); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^helps(\s+)/$1/io) && do {$self->attribute("Helps", $field, 0); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^classdesign(\s+)/$1/io) && do {$self->attribute("Class Design", $field, 1); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^dependency(\s+)/$1/io) && do {$self->attributelist("Dependencies", $field); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^ownership(\s+)/$1/io) && do {$self->attribute("Ownership Model", $field, 1); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^security(\s+)/$1/io) && do {$self->attribute("Security", $field, 1); last SWITCH;};
-	    ($self->isAPIOwner() && $field =~ s/^whysubclass(\s+)/$1/io) && do {$self->attribute("Reason to Subclass", $field, 1); last SWITCH;};
-	    # ($self->isAPIOwner() && $field =~ s/^charset(\s+)/$1/io) && do {$self->encoding($field); last SWITCH;};
-	    # ($self->isAPIOwner() && $field =~ s/^encoding(\s+)/$1/io) && do {$self->encoding($field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^instancesize(\s+)/$1/sio) && do {$self->attribute("Instance Size", $field, 0); last SWITCH;};
+	    ($field =~ s/^performance(\s+)/$1/sio) && do {$self->attribute("Performance", $field, 1); last SWITCH;};
+	    # ($self->isAPIOwner() && $field =~ s/^subclass(\s+)/$1/sio) && do {$self->attributelist("Subclasses", $field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^nestedclass(\s+)/$1/sio) && do {$self->attributelist("Nested Classes", $field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^coclass(\s+)/$1/sio) && do {$self->attributelist("Co-Classes", $field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^helper(class|)(\s+)/$2/sio) && do {$self->attributelist("Helper Classes", $field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^helps(\s+)/$1/sio) && do {$self->attribute("Helps", $field, 0); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^classdesign(\s+)/$1/sio) && do {$self->attribute("Class Design", $field, 1); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^dependency(\s+)/$1/sio) && do {$self->attributelist("Dependencies", $field); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^ownership(\s+)/$1/sio) && do {$self->attribute("Ownership Model", $field, 1); last SWITCH;};
+	    ($field =~ s/^security(\s+)/$1/sio) && do {$self->attribute("Security", $field, 1); last SWITCH;};
+	    ($self->isAPIOwner() && $field =~ s/^whysubclass(\s+)/$1/sio) && do {$self->attribute("Reason to Subclass", $field, 1); last SWITCH;};
+	    # ($self->isAPIOwner() && $field =~ s/^charset(\s+)/$1/sio) && do {$self->encoding($field); last SWITCH;};
+	    # ($self->isAPIOwner() && $field =~ s/^encoding(\s+)/$1/sio) && do {$self->encoding($field); last SWITCH;};
 
 	    (($self->isAPIOwner() || $class =~ /HeaderDoc\:\:Function/ ||
 		$class =~ /HeaderDoc\:\:Method/ ||
 		($class =~ /HeaderDoc\:\:Var/ && $isProperty)) &&
-	     $field =~ s/^(throws|exception)(\s+)/$2/io) && do {
+	     $field =~ s/^(throws|exception)(\s+)/$2/sio) && do {
 			$self->throws($field);
 			last SWITCH;
 		};
 
-	    ($self->isAPIOwner() && $field =~ s/^namespace(\s+)/$1/io) && do {$self->namespace($field); last SWITCH;};
+	    ($field =~ s/^namespace(\s+)/$1/sio) && do {$self->namespace($field); last SWITCH;};
 
-            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-            ($field =~ s/^(discussion|details|description)(\s+|$)//io) && do {
+            ($self->isAPIOwner() && $field =~ s/^unsorted\s+//sio) && do {$self->unsorted(1); last SWITCH;};
+            ($field =~ s/^abstract\s+//sio) && do {$self->abstract($field); last SWITCH;};
+            ($field =~ s/^brief\s+//sio) && do {$self->abstract($field, 1); last SWITCH;};
+            ($field =~ s/^(discussion|details|description)(\s+|$)//sio) && do {
+			# print STDERR "DISCUSSION ON $self: $field\n";
+
 			if ($class =~ /HeaderDoc\:\:PDefine/ && $self->inDefineBlock() && length($olddisc)) {
 				# Silently drop these....
-				$self->{DISCUSSION} = "";
+				### $self->{DISCUSSION} = "";
 			}
 			if (!length($field)) { $field = "\n"; }
 			$self->discussion($field);
 			last SWITCH;
 		};
-            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^availability\s+//sio) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^since\s+//sio) && do {$self->availability($field); last SWITCH;};
+            ($field =~ s/^author\s+//sio) && do {$self->attribute("Author", $field, 0); last SWITCH;};
+            ($field =~ s/^group\s+//sio) && do {$self->group($field); last SWITCH;};
+            ($field =~ s/^vargroup\s+//sio) && do {
+			$field =~ s/[\n\r]/ /sg;
+			$field =~ s/^\s*//sg;
+			$field =~ s/\s*$//sg;
+			$vargroup = $field;
+			last SWITCH;
+		};
 
-	    ($class =~ /HeaderDoc\:\:PDefine/ && $self->isBlock() && $field =~ s/^hidesingletons(\s+)/$1/io) && do {$self->{HIDESINGLETONS} = 1; last SWITCH;};
-	    ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^hidecontents(\s+)/$1/io) && do {$self->hideContents(1); last SWITCH;};
-	    (($class =~ /HeaderDoc\:\:Function/ || $class =~ /HeaderDoc\:\:Method/) && $field =~ s/^(function|method)group\s+//io) &&
+	    ($class =~ /HeaderDoc\:\:PDefine/ && $self->isBlock() && $field =~ s/^hidesingletons(\s+)/$1/sio) && do {$self->{HIDESINGLETONS} = 1; last SWITCH;};
+	    ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^hidecontents(\s+)/$1/sio) && do {$self->hideContents(1); last SWITCH;};
+	    (($class =~ /HeaderDoc\:\:Function/ || $class =~ /HeaderDoc\:\:Method/) && $field =~ s/^(function|method)group\s+//sio) &&
 		do {$self->group($field); last SWITCH;};
 
 
-            ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^parseOnly(\s+|$)//io) && do { $self->parseOnly(1); last SWITCH; };
-            ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^noParse(\s+|$)//io) && do { print STDERR "Parsing will be skipped.\n" if ($localDebug); $HeaderDoc::skipNextPDefine = 1; last SWITCH; };
+            ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^parseOnly(\s+|$)//sio) && do { $self->parseOnly(1); last SWITCH; };
+            ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^noParse(\s+|$)//sio) && do { print STDERR "Parsing will be skipped.\n" if ($localDebug); $HeaderDoc::skipNextPDefine = 1; last SWITCH; };
 
 
-            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
-            ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
-	    ($field =~ s/^attribute\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
+            ($field =~ s/^indexgroup\s+//sio) && do {$self->indexgroup($field); last SWITCH;};
+            ($field =~ s/^version\s+//sio) && do {$self->attribute("Version", $field, 0); last SWITCH;};
+            ($field =~ s/^deprecated\s+//sio) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
+            ($field =~ s/^updated\s+//sio) && do {$self->updated($field); last SWITCH;};
+	    ($field =~ s/^attribute\s+//sio) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field, $self->lang());
 		    if (length($attname) && length($attdisc)) {
 			$attdisc =~ s/^\s*//s;
 			$attdisc =~ s/\s*$//s;
@@ -5424,7 +7852,7 @@ field);
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributelist\s+//io) && do {
+	    ($field =~ s/^attributelist\s+//sio) && do {
 		    $field =~ s/^\s*//so;
 		    $field =~ s/\s*$//so;
 		    my ($name, $lines) = split(/\n/, $field, 2);
@@ -5442,8 +7870,8 @@ field);
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ s/^attributeblock\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
+	    ($field =~ s/^attributeblock\s+//sio) && do {
+		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field, $self->lang());
 		    if (length($attname) && length($attdisc)) {
 			$self->attribute($attname, $attdisc, 1);
 		    } else {
@@ -5451,20 +7879,68 @@ field);
 		    }
 		    last SWITCH;
 		};
-	    ($field =~ /^see(also|)\s+/io) &&
+	    ($field =~ /^see(also|)\s+/sio) &&
 		do {
+		    my $rest;
+
+		    ($field, $rest) = splitOnPara($field);
+
 		    $self->see($field);
+
+		    if ($rest =~ /\S/s) {
+			if ($class =~ /HeaderDoc\:\:PDefine/ && $self->inDefineBlock() && length($olddisc)) {
+				# Silently drop these....
+				### $self->{DISCUSSION} = "";
+			}
+			# if (!length($rest)) { $rest = "\n"; }
+			$self->discussion($rest);
+		    };
 		    last SWITCH;
 		};
 
-            (($class =~ /HeaderDoc\:\:Enum/ || $class =~ /HeaderDoc\:\:Typedef/) && $field =~ s/^const(ant)?\s+//io) &&
+            (($class =~ /HeaderDoc\:\:(?:Function|Method|CPPClass|ObjC(?:Container|Category|Class|Protocol))/) && $field =~ s/^var?\s+//sio) &&
+		do {
+                    $field =~ s/^\s+|\s+$//go;
+#                   $field =~ /(\w*)\s*(.*)/so;
+
+                    $field =~ /(\S*)\s*(.*)/so; # Let's accept any printable char for name, for pseudo enum values
+                    my $cName = $1;
+                    my $cDesc = $2;
+
+		    # If we can split on a newline, do it.
+                    if ($field =~ /^(.*?)\n(.*)$/so) {
+                    	$cName = $1;
+                    	$cDesc = $2;
+		    }
+                    my $cObj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
+		    $cObj->apiOwner($self);
+                    $cObj->outputformat($self->outputformat);
+                    $cObj->name($cName);
+                    $cObj->fullpath($self->fullpath());
+                    $cObj->group($vargroup);
+                    $cObj->autodeclaration(1);
+                    $cObj->abstract($cDesc);
+                    # $cObj->discussion($cDesc);
+                    $self->addVariable($cObj); 
+		    $self->apirefSetup();
+                    my $name = $self->name();
+                    if ($name eq "") {
+                        $name = "$cName";
+                        $self->firstconstname($name);
+                    }   
+                    last SWITCH;
+		};
+            (($class =~ /HeaderDoc\:\:Enum/ || $class =~ /HeaderDoc\:\:Typedef/) && $field =~ s/^const(ant)?\s+//sio) &&
                 do {
+		    if ($self->can("isEnumList")) {
+			$self->isEnumList(1);
+		    }
                     $field =~ s/^\s+|\s+$//go;
 #                   $field =~ /(\w*)\s*(.*)/so;
                     $field =~ /(\S*)\s*(.*)/so; # Let's accept any printable char for name, for pseudo enum values
                     my $cName = $1;
                     my $cDesc = $2;
-                    my $cObj = HeaderDoc::MinorAPIElement->new();
+                    my $cObj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 		    $cObj->apiOwner($self);
                     $cObj->outputformat($self->outputformat);
                     $cObj->name($cName);
@@ -5478,7 +7954,7 @@ field);
                     last SWITCH;
                 };
 
-            (($class =~ /HeaderDoc\:\:Struct/ || $class =~ /HeaderDoc\:\:Typedef/) && $field =~ s/^callback\s+//io) &&
+            (($class =~ /HeaderDoc\:\:Struct/ || $class =~ /HeaderDoc\:\:Typedef/) && $field =~ s/^callback\s+//sio) &&
                 do {
                     $field =~ s/^\s+|\s+$//go;
                     $field =~ /(\w*)\s*(.*)/so;
@@ -5490,7 +7966,7 @@ field);
 		    } elsif ($callbackObj) {
 			$self->addToFields($callbackObj);
 		    }
-                    $callbackObj = HeaderDoc::MinorAPIElement->new();
+                    $callbackObj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 		    $callbackObj->apiOwner($self);
                     $callbackObj->outputformat($self->outputformat);
                     $callbackObj->name($cbName);
@@ -5509,43 +7985,68 @@ field);
 
 	    (($class =~ /HeaderDoc\:\:Function/ || $class =~ /HeaderDoc\:\:Method/ || $class =~ /HeaderDoc\:\:Struct/ ||
 	      $class =~ /HeaderDoc\:\:Typedef/ || $class =~ /HeaderDoc\:\:PDefine/ ||
-	      $class =~ /HeaderDoc\:\:Var/) && $field =~ s/^(param|field)\s+//io) &&
+	      $class =~ /HeaderDoc\:\:Var/) && $field =~ s/^(param|field)\s+//sio) &&
                         do {
 				my $fieldname = $1;
-				
+
+				my $rest;
+
+				# For better Doxygen compatibility, we should do this:
+				# ($field, $rest) = splitOnPara($field);
+				# but a lot of existing content assumes that @param doesn't stop
+				# at the first whitespace, so we can't do that.
+
                                 $field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
                                 # $field =~ /(\w*)\s*(.*)/so;
                                 $field =~ /(\S*)\s*(.*)/so;
                                 my $pName = $1;
                                 my $pDesc = $2;
-                                my $param = HeaderDoc::MinorAPIElement->new();
+
+                                my $param = $self->taggedParamFind($pName);
+				my $new = 0;
+
+				if (!$param) { $param = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang); $new = 1;}
 				$param->apiOwner($self);
                                 $param->outputformat($self->outputformat);
                                 $param->name($pName);
-                                $param->discussion($pDesc);
-		                if (($class =~ /HeaderDoc\:\:Typedef/ || $class =~ /HeaderDoc\:\:Struct/) &&
-				    $field =~ /^param\s+/) {
-                                        $param->type("funcPtr");
-                    	                $self->addToFields($param);
-		                } else {
-                    	            $self->addTaggedParameter($param);
-		                }
-				if ($class =~ /HeaderDoc\:\:Var/ && !$isProperty) {
-					warn "Field \@$fieldname found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::test_mode);
+
+				if ($new) {
+                                	$param->discussion($pDesc);
+			                if (($class =~ /HeaderDoc\:\:Typedef/ || $class =~ /HeaderDoc\:\:Struct/) &&
+					    $field =~ /^param\s+/) {
+	                                        $param->type("funcPtr");
+	                    	                $self->addToFields($param);
+			                } else {
+	                    	            $self->addTaggedParameter($param);
+			                }
+				} else {
+                                	$param->discussion($param->discussion()."\n\n".$pDesc);
 				}
+				if ($class =~ /HeaderDoc\:\:Var/ && !$isProperty) {
+					warn "Field \@$fieldname found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::running_test);
+				}
+
+		    		if ($rest =~ /\S/s) {
+					if ($class =~ /HeaderDoc\:\:PDefine/ && $self->inDefineBlock() && length($olddisc)) {
+						# Silently drop these....
+						### $self->{DISCUSSION} = "";
+					}
+					# if (!length($rest)) { $rest = "\n"; }
+					$self->discussion($rest);
+		    		};
                                 last SWITCH;
                          };
 
 	    (($class =~ /HeaderDoc\:\:Function/ || $class =~ /HeaderDoc\:\:Method/ ||
 		$class =~ /HeaderDoc\:\:Typedef/ || $class =~ /HeaderDoc\:\:Struct/ ||
 		$class =~ /HeaderDoc\:\:PDefine/ ||
-		$class =~ /HeaderDoc\:\:Var/) && $field =~ s/^return\s+//io) &&
+		$class =~ /HeaderDoc\:\:Var/) && $field =~ s/^return(s)?\s+//sio) &&
 		do {
 			if ($class =~ /HeaderDoc\:\:Typedef/) {
 				$self->isFunctionPointer(1);
 			}
 			if ($class =~ /HeaderDoc\:\:Var/ && !$isProperty) {
-				warn "Field \@return found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::test_mode);
+				warn "Field \@return found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::running_test);
 			}
 			$self->result($field);
 			last SWITCH;
@@ -5553,13 +8054,13 @@ field);
 	    (($class =~ /HeaderDoc\:\:Function/ || $class =~ /HeaderDoc\:\:Method/ ||
 		$class =~ /HeaderDoc\:\:Typedef/ || $class =~ /HeaderDoc\:\:Struct/ ||
 		$class =~ /HeaderDoc\:\:PDefine/ ||
-		$class =~ /HeaderDoc\:\:Var/) && $field =~ s/^result\s+//io) &&
+		$class =~ /HeaderDoc\:\:Var/) && $field =~ s/^result\s+//sio) &&
 		do {
 			if ($class =~ /HeaderDoc\:\:Typedef/) {
 				$self->isFunctionPointer(1);
 			}
 			if ($class =~ /HeaderDoc\:\:Var/ && !$isProperty) {
-				warn "Field \@result found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::test_mode);
+				warn "Field \@result found in \@var declaration.\nYou should use \@property instead.\n" if (!$HeaderDoc::running_test);
 			}
 			$self->result($field);
 			last SWITCH;
@@ -5569,15 +8070,17 @@ field);
                         do {
                                 my $keepname = 1;
 				my $blockrequest = 0;
+				my $isavmacro = 0;
 
 				print STDERR "TLF: $field\n" if ($localDebug);
 
 				my $pattern = "";
-				if ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^(availabilitymacro)(\s+|$)/$2/io) {
+				if ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^(availabilitymacro)(\s+|$)/$2/sio) {
 					$self->isAvailabilityMacro(1);
 					$keepname = 1;
 					$self->parseOnly(1);
-				} elsif ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^(define(?:d)?block)(\s+)/$2/io) {
+					$isavmacro = 1;
+				} elsif ($class =~ /HeaderDoc\:\:PDefine/ && $field =~ s/^(define(?:d)?block)(\s+)/$2/sio) {
 					$keepname = 1;
 					$self->isBlock(1);
 					$blockrequest = 1;
@@ -5598,35 +8101,38 @@ field);
 				# code (e.g. @function for a #define), throw
 				# away the name and tag type.
 
-                                if ($field =~ s/^($tag_re)(\s+|$)/$2/i) {
+                                if (!$blockrequest && $field =~ s/^($tag_re)(\s+|$)/$2/i) {
 					print STDERR "tag_re[1]: tag matches\n" if ($localDebug);
                                         $keepname = 1;
-					$blockrequest = 0;
-                                } elsif (!$blockrequest) {
+                                } elsif (!$blockrequest && !$isavmacro) {
 					print STDERR "tag_re[2] tag does NOT match\n" if ($localDebug);
-                                        # $field =~ s/(\w+)(\s|$)/$2/io;
+
+					# Strip off the tag!
+                                        $field =~ s/(\w+)(\s|$)/$2/sio;
                                         $keepname = 0;
-					# $blockrequest = 0;
 				}
 
-				my ($name, $abstract_or_disc, $namedisc) = getAPINameAndDisc($field, $pattern);
-				print STDERR "NAME: $name AOD: $abstract_or_disc ND: $namedisc" if ($localDebug);
+				my ($name, $abstract_or_disc, $namedisc) = getAPINameAndDisc($field, $self->lang(), $pattern);
+				print STDERR "FIELD: $field\nNAME: $name AOD: $abstract_or_disc ND: $namedisc" if ($localDebug);
 
 				print STDERR "KEEPNAME: $keepname\n" if ($localDebug);
 
 				if ($class =~ /HeaderDoc\:\:PDefine/ && $self->isBlock()) {
 					print STDERR "ISBLOCK (BLOCKREQUEST=$blockrequest)\n" if ($localDebug);
-					# my ($name, $abstract_or_disc, $namedisc) = getAPINameAndDisc($field);
+					# my ($name, $abstract_or_disc, $namedisc) = getAPINameAndDisc($field, $self->lang());
 					# In this case, we get a name and abstract.
 					if ($blockrequest) {
 						print STDERR "Added block name $name\n" if ($localDebug);
-						$self->name($name);
 						if (length($abstract_or_disc)) {
 							if ($namedisc) {
-								$self->nameline_discussion($abstract_or_disc);
+								$self->name($name." ".$abstract_or_disc);
+								# $self->nameline_discussion($abstract_or_disc);
 							} else {
+								$self->name($name);
 								$self->discussion($abstract_or_disc);
 							}
+						} else {
+							$self->name($name);
 						}
 					} else {
 						print STDERR "Added block member $name\n" if ($localDebug);
@@ -5636,7 +8142,7 @@ field);
 						} elsif ($callbackObj) {
 							$self->addToFields($callbackObj);
 						}
-						$callbackObj = HeaderDoc::MinorAPIElement->new();
+						$callbackObj = HeaderDoc::MinorAPIElement->new("LANG" => $lang, "SUBLANG" => $sublang);
 						$callbackObj->apiOwner($self);
 						$callbackObj->name($name);
 						my $ref = $self->addToIncludedDefines($callbackObj);
@@ -5676,7 +8182,10 @@ field);
 	    # my $fullpath = $HeaderDoc::headerObject->fullpath();
             # warn "$fullpath:$linenum: warning: Unknown field in constant comment: $field\n";
 		{
-		    if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in $tagname comment (".$self->name().")\n"; }
+		    if (length($field)) {
+			warn "$fullpath:$linenum: warning: Unknown field (\@$field) in $tagname comment (".$self->name().")\n";
+			# cluck("Here\n");
+		    }
 		};
 
 	}
@@ -5698,21 +8207,18 @@ field);
     return;
 }
 
-sub alsoInclude
-{
-    my $self = shift;
-    if (@_) {
-	my $value = shift;
-	if (!$self->{ALSOINCLUDE}) {
-		my @temp = ($value);
-		$self->{ALSOINCLUDE} = \@temp;
-	} else {
-		push(@{$self->{ALSOINCLUDE}}, $value);
-	}
-    }
-    return $self->{ALSOINCLUDE};
-}
-
+# /*!
+#     @abstract
+#         Gets/sets whether this object's contents should be hidden.
+#     @param self
+#         This object.
+#     @param hidden
+#         The new value. (Optional.)
+#     @discussion
+#         Function-like macros (with curly braces) are hidden
+#         by default. The contents of other macros can be hidden by
+#         adding the <code>\@hidecontents</code> tag to the comment.
+#  */
 sub hideContents
 {
     my $self = shift;
@@ -5722,6 +8228,14 @@ sub hideContents
     return $self->{HIDECONTENTS};
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this object is a member of a define block.
+#     @param self
+#         This object.
+#     @param inblock
+#         The new value.
+#  */
 sub inDefineBlock
 {
     my $self = shift;
@@ -5731,7 +8245,15 @@ sub inDefineBlock
     return $self->{INDEFINEBLOCK};
 }
 
-sub strcasecmp
+# /*!
+#     @abstract
+#         Compares two strings in a case-insensitive fashion.
+#     @param a
+#         The first string.
+#     @param b
+#         The second string.
+#  */
+sub strcasecmp($$)
 {
     my $a = shift;
     my $b = shift;
@@ -5739,6 +8261,20 @@ sub strcasecmp
     return (lc($a) cmp lc($b));
 }
 
+# /*!
+#     @abstract
+#         Unregisters this object.
+#     @param self
+#         This object.
+#     @discussion
+#         This function unregisters the descendents of this
+#         object from the UID conflict detection code and marks
+#         this object in such a way that its UID will never be
+#         reregistered.
+#
+#         You should generally not call this unless you are about
+#         to dispose of the object.
+#  */
 sub unregister
 {
     my $self = shift;
@@ -5756,6 +8292,9 @@ sub unregister
     foreach my $const ($self->constants()) {
 	push(@arr, $const);
     }
+    foreach my $variable ($self->variables()) {
+	push(@arr, $variable);
+    }
     if ($self->can("fields")) {
 	foreach my $field ($self->fields()) {
 		push(@arr, $field);
@@ -5770,6 +8309,14 @@ sub unregister
     $self->noRegisterUID(1);
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this object should be banned from UID registration.
+#     @param self
+#         The (generally {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}) object.
+#     @param value
+#         The value to set. (Optional.)
+#  */
 sub noRegisterUID
 {
     my $self = shift;
@@ -5783,6 +8330,12 @@ sub noRegisterUID
     return $self->{NOREGISTERUID};
 }
 
+# /*!
+#     @abstract
+#         Wipes any cached API and/or link UIDs for this object.
+#     @param self
+#         This object.
+#  */
 sub wipeUIDCache
 {
     my $self = shift;
@@ -5793,6 +8346,26 @@ sub wipeUIDCache
     $self->{LINKUID} = undef;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this object's children should be suppressed.
+#     @param self
+#         The (generally {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}) object.
+#     @param value
+#         The value to set. (Optional.)
+#     @discussion
+#         An object's children are generally suppressed for the outer typedef
+#         linked to a separate struct or enum declaration, e.g. when the
+#         <code>\@typedef</code> comment is followed by an enum declaration, followed by
+#         the actual typedef.
+#
+#         When an object's children (parsed/tagged parameters, fields, etc.)
+#         are suppressed, no UIDs are generated for the objects, and the
+#         tagged/parsed parameter comparison does not occur.  Output from any
+#         explicitly tagged parameters is still emitted, however.  The
+#         reason for this is that the parsed parameters aren't really
+#         associated with the typedef, so you'd get lots of warnings.
+#  */
 sub suppressChildren
 {
     my $self = shift;
@@ -5800,12 +8373,18 @@ sub suppressChildren
 
     if (@_) {
 	my $val = shift;
-	print STDERR "Suppress children set to $val ($self).\n" if ($localDebug);
+	cluck("Suppress children set to $val ($self).\n") if ($localDebug);
 	$self->{SUPPRESSCHILDREN} = $val;
     }
     return $self->{SUPPRESSCHILDREN};
 }
 
+# /*!
+#     @abstract
+#         Returns the "Declared in" HTML string for a class.
+#     @param self
+#         This class object.
+#  */
 sub declaredIn
 {
     my $self = shift;
@@ -5825,13 +8404,56 @@ sub declaredIn
 		return "";
 	} else {
 		my $name = $apio->name();
-		return "<a href=\"../../index.html\" target=\"_top\">$name</a>";
+		my $apiref = $apio->apiuid();
+
+		return "<a href=\"../../index.html\" logicalPath=\"$apiref\" target=\"_top\" machineGenerated=\"true\">$name</a>";
 	}
+    } else {
+	my $name = $apio->name();
+	my $apiref = $apio->apiuid();
+
+	return "<!-- a logicalPath=\"$apiref\" target=\"_top\" machineGenerated=\"true\" -->$name<!-- /a -->";
     }
 
     return "";
 }
 
+# /*!
+#     @abstract
+#         Returns a custom HeaderDoc doc navigator comment for this object.
+#     @param self
+#         This object.
+#     @param type
+#         The type of the doc navigator comment.  Currently valid
+#         values are <code>abstract</code>, <code>discussion</code> 
+#         and <code>declaration</code>.
+#     @param startend
+#         The word <code>start</code> or <code>end</code>, depending
+#         on whether you want a start or end doc navigator comment.
+#  */
+sub headerDocMark
+{
+    my $self = shift;
+    my $type = shift;
+    my $startend = shift;
+
+    my $uid = $self->apiuid();
+
+    return "<!-- headerDoc=$type;uid=".$uid.";name=$startend -->";
+}
+
+# /*!
+#     @abstract
+#         Returns a string of HTML <code>&lt;link&gt;</code> tags for
+#         multiple external stylesheets.
+#     @param self
+#         This object.
+#     @param liststring
+#         A list of style sheets separated by spaces.
+#     @discussion
+#         Normally, the list comes from the HeaderDoc
+#         config file.
+#  */
 sub doExternalStyle
 {
     my $self = shift;
@@ -5840,35 +8462,166 @@ sub doExternalStyle
     my $string = "";
 
     foreach my $styleSheet (@list) {
+	$styleSheet =~ s/{\@docroot}/\@\@docroot/sg;
 	$string .= "<link rel=\"stylesheet\" type=\"text/css\" href=\"$styleSheet\">\n";
     }
-    return $string;
+
+    if ($self->outputformat eq "hdxml") {
+	return xml_fixup_links($self, $string);
+    } else {
+	return html_fixup_links($self, $string);
+    }
 }
 
+# /*!
+#     @abstract
+#         Attempts to detach this object and destroy references to it to release memory.
+#     @param self
+#         This object.
+# */
 sub free
 {
 	my $self = shift;
+	my $freechildrenraw = shift; # Set to 0.
+	my $keepParseTreeAndState = shift;
+	my $newParseTreeOwner = shift;
+
+	## if ($keepParseTreeAndState) { $self->{FAILHARD} = 1;
+		## printHash(%{$self});
+		## print STDERR "PARSE TREES:\n"; foreach my $tree (@{$self->{PARSETREELIST}}) { print "    $tree\n"; }
+		## print "    ".$self->{PARSETREE}."\n";
+		## return; }
+
+	print STDERR "NPTO: $newParseTreeOwner\n" if ($HeaderDoc::debugAllocations);
+
 	my $parseTree_ref = $self->parseTree();
+
+	cluck("FREEING $self\n") if ($HeaderDoc::debugAllocations);
+
+	# printHash(%{$self}) if ($HeaderDoc::debugAllocations);
 
 	if ($parseTree_ref) {
 		my $parseTree = ${$parseTree_ref};
 		bless($parseTree, "HeaderDoc::ParseTree");
 
-		$parseTree->dispose();
+		print "REMOVING FROM MAIN ".$parseTree."\n" if ($HeaderDoc::debugAllocations);
+		# if ($self->isBlock() && $HeaderDoc::debugAllocations) {
+			# print STDERR "Dumping parse tree for block\n";
+			# $parseTree->dbprint(1);
+		# }
+		$parseTree->apiOwnerSub($self, $newParseTreeOwner || undef, 1);
+		$parseTree->dbprint(1) if ($HeaderDoc::debugAllocations);
+		if (!$keepParseTreeAndState) { $parseTree->dispose(); }
+		$self->{PARSETREE} = undef;
 	}
+	if ($self->{PARSETREELIST}) {
+		foreach my $treeref (@{$self->{PARSETREELIST}}) {
+			print "REMOVING FROM PARSETREELIST ".${$treeref}."\n" if ($HeaderDoc::debugAllocations);
+			${$treeref}->apiOwnerSub($self, $newParseTreeOwner || undef, 1);
+			${$treeref}->dbprint(1) if ($HeaderDoc::debugAllocations);
+			if (!$keepParseTreeAndState) { ${$treeref}->dispose(); }
+		}
+	}
+	$self->{PARSETREELIST} = undef;
+	if ($self->{PARSETREECLEANUP}) {
+		foreach my $treeref (@{$self->{PARSETREECLEANUP}}) {
+			print "REMOVING FROM CLEANUP ".${$treeref}."\n" if ($HeaderDoc::debugAllocations);
+			${$treeref}->apiOwnerSub($self, $newParseTreeOwner || undef, 1);
+			${$treeref}->dbprint(1) if ($HeaderDoc::debugAllocations);
+			if (!$keepParseTreeAndState) { ${$treeref}->dispose(); }
+		}
+	}
+	$self->{PARSETREECLEANUP} = undef;
+
+	my $state = $self->{PARSERSTATE};
+	if ($state && !$keepParseTreeAndState) { $state->free(); }
+	$self->{PARSERSTATE} = undef;
+
 	if (!$self->noRegisterUID()) {
 		dereferenceUIDObject($self->apiuid(), $self);
 	}
+
+	$self->{APIOWNER} = undef;
+
+	$self->{MASTERENUM} = undef;
+	$self->{MAINOBJECT} = undef;
+
+	if ($self->{NAMEREFS}) {
+		my @arr = @{$self->{NAMEREFS}};
+
+		foreach my $name (@arr) {
+			$HeaderDoc::namerefs{$name} = undef;
+		}
+	}
+	$self->{NAMEREFS} = undef;
+
+	$self->setAPIOBackReferences( $self->{CONSTANTS}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{FIELDS}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{VARIABLES}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{INCLUDED_DEFINES}, 1, $newParseTreeOwner);
+
+	$self->setAPIOBackReferences( $self->{KEEPPARAMS}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{KEEPVARIABLES}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{KEEPFIELDS}, 1, $newParseTreeOwner);
+	$self->setAPIOBackReferences( $self->{KEEPCONSTANTS}, 1, $newParseTreeOwner);
+
+	my $class = ref($self) || $self;
+	if ((!$self->isBlock()) || ($newParseTreeOwner)) {
+		$self->setAPIOBackReferences( $self->{PARSEDPARAMETERS}, 1, $newParseTreeOwner);
+	}
+	$self->setAPIOBackReferences( $self->{TAGGEDPARAMETERS}, 1, $newParseTreeOwner);
+
+	$self->{CONSTANTS} = undef;
+	$self->{FIELDS} = undef;
+	$self->{VARIABLES} = undef;
+	$self->{INCLUDED_DEFINES} = undef;
+	$self->{ATTRIBUTELISTS} = undef;
+	$self->{SEEALSODUPCHECK} = undef;
+
+	$self->{KEEPPARAMS} = undef;
+	$self->{KEEPVARIABLES} = undef;
+	$self->{KEEPFIELDS} = undef;
+	$self->{KEEPCONSTANTS} = undef;
+	$self->{PARSEDPARAMETERS} = undef;
+	$self->{TAGGEDPARAMETERS} = undef;
+
+	if ($HeaderDoc::debugAllocations) {
+		print STDERR "Dumping hash $self\n";
+		printHash(%{$self});
+
+		print STDERR "DUMPING $self WITH DEBUG INFO\n";
+		DumpWithOP($self);
+		# Dump($self);
+	}
+
+	$self = ();
 }
 
+# /*!
+#     @abstract
+#         Helper called by Perl when this object gets freed.
+#     @param self
+#         This object.
+# */
 sub DESTROY
 {
     my $self = shift;
-    my $localDebug = 0;
 
-    print STDERR "Destroying $self\n" if ($localDebug);
+    print STDERR "Destroying $self\n" if ($HeaderDoc::debugAllocations);
 }
 
+# /*!
+#     @abstract
+#         Prints a variable (e.g. an array) in detail for debugging purposes.
+#     @param unknown_var
+#         The variable to print.
+#     @param leadspace
+#         Leading space characters (or other text) to add to
+#         each line of output.
+#     @discussion
+#         Called by {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/dbprint//() dbprint}.
+#         Do not call directly.
+# */
 sub dbprint_expanded
 {
     my $unknown_var = shift;
@@ -5899,6 +8652,17 @@ sub dbprint_expanded
     return $retstring;;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this object is a block declaration.
+#     @param self
+#         This object.
+#     @param value
+#         The value to set. (Optional.)
+#     @discussion
+#         This should be set to a nonzero value for define blocks
+#         and blocks of functions wrapped with <code>#if</code> blocks.
+#  */
 sub isBlock {
     my $self = shift;
 
@@ -5912,6 +8676,15 @@ sub isBlock {
     return $self->{ISBLOCK};
 }
 
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#     @param expanded
+#         Pass 1 to expand arrays and other structure,
+#         or 0 for normal output.
+#  */
 sub dbprint
 {
     my $self = shift;
@@ -5929,6 +8702,17 @@ sub dbprint
     print STDERR "End dump of object $self.\n";
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether spaces in the declaration should be preserved.
+#     @param self
+#         This object.
+#     @param value
+#         The value to set. (Optional.)
+#     @discussion
+#         This is set high by the presence of an <code>\@unformatted</code> tag in
+#         the HeaderDoc markup.
+#  */
 sub preserve_spaces
 {
     my $self = shift;
@@ -5942,12 +8726,24 @@ sub preserve_spaces
     return $self->{PRESERVESPACES};
 }
 
+#/*!
+#    @abstract
+#        Returns whether this is a framework object.
+#    @discussion
+#        This is overridden in {@link HeaderDoc::CPPClass}.
+# */
 sub isFramework
 {
     return 0;
 }
 
-sub getDoxyType
+#/*!
+#    @abstract
+#        Returns this object's tag type for use in Doxygen-style tag files.
+#    @param self
+#        This object.
+# */
+sub getDoxyKind
 {
     my $self = shift;
     my $class = ref($self) || $self;
@@ -5994,6 +8790,14 @@ sub getDoxyType
     }
 }
 
+# /*!
+#     @abstract
+#         Gets a Doxygen-style tag string for this object.
+#     @param self
+#         This object.
+#     @param prespace
+#         Leading whitespace to prepend to each line.
+#  */
 sub _getDoxyTagString
 {
     my $self = shift;
@@ -6001,7 +8805,7 @@ sub _getDoxyTagString
 
     my $class = ref($self) || $self;
     my $doxyTagString = "";
-    my $type = $self->getDoxyType();
+    my $kind = $self->getDoxyKind();
 
     my $accessControl = "";
     if ($self->can("accessControl")) {
@@ -6013,13 +8817,15 @@ sub _getDoxyTagString
 	$accessControl = "";
     }
 
-    $doxyTagString .= "$prespace<member kind=\"$type\"$accessControl>\n";
+    $doxyTagString .= "$prespace<member kind=\"$kind\"$accessControl>\n";
 
     my $arglist = "";
+    my $type = "";
     if ($class =~ /HeaderDoc::Function/ || $class =~ /HeaderDoc::Method/) {
 	$type = $self->returntype();
 	$type =~ s/^\s*//s;
 	$type =~ s/\s*$//s;
+	$type =~ s/\s*\.\s*/./s;
 
 	$doxyTagString .= "$prespace  <type>$type</type>\n";
 	my @args = $self->parsedParameters();
@@ -6035,7 +8841,7 @@ sub _getDoxyTagString
 			$type =~ s/^\s*\(//s;
 			$type =~ s/\)\s*$//s;
 		}
-		$arglist .= $type;
+		$arglist .= $self->textToXML($type);
 		if ($arglist !~ /[ *]$/) {
 			$arglist .= " ";
 		}
@@ -6047,9 +8853,13 @@ sub _getDoxyTagString
 	$type = $self->returntype();
 	$type =~ s/^\s*//s;
 	$type =~ s/\s*$//s;
-	$doxyTagString .= "$prespace  <type>$type</type>\n";
+	$type =~ s/\s*\.\s*/./s;
+	$doxyTagString .= "$prespace  <type>".$self->textToXML($type)."</type>\n";
     }
     $doxyTagString .= "$prespace  <name>".$self->textToXML($self->rawname())."</name>\n";
+
+    # No handling of superclass here because that's handled in APIOwner.pm.
+
     $doxyTagString .= "$prespace  <anchorfile></anchorfile>\n";
     $doxyTagString .= "$prespace  <anchor></anchor>\n";
     $doxyTagString .= "$prespace  <arglist>$arglist</arglist>\n";
@@ -6058,6 +8868,50 @@ sub _getDoxyTagString
     return $doxyTagString;
 }
 
+# /*!
+#     @abstract
+#         Sets an override API uid for the rare cases where they would
+#         conflict by nature.
+#     @discussion
+#         This is triggered by the presence of an <code>\@apiuid</code> tag in the
+#         HeaderDoc comment block (usually for a header file).
+#  */
+sub requestedUID
+{
+	my $self = shift;
+
+	if (@_) {
+            my $rquid = shift;
+
+	    $rquid =~ s/^\s*//s;
+	    $rquid =~ s/\s*$//sg;
+
+	# print "RQUID: \"$rquid\"\n";
+	    if ($rquid =~ /\s/) {
+		warn($self->filename().":".$self->linenum().": WARNING: Ignoring illegal apple_ref markup (contains whitespace)\n");
+		return $self->{REQUESTEDUID};
+	    }
+
+	    # Ideally, this should probably do something like this:
+	    # if ($self->{REQUESTEDUID}) {
+	    	# unregisterUID($self->{REQUESTEDUID}, $self->name(), $self);
+	    # };
+	    # if ($self->{APIUID}) {
+	    	# $unregisterUID($self->{APIUID}, $self->name(), $self);
+	    # };
+            $self->{REQUESTEDUID} = $rquid;
+	    registerUID($rquid, $self->rawname(), $self);
+	}
+	return $self->{REQUESTEDUID};
+}
+
+# /*!
+#     @abstract
+#         Prints a dump of function and <code>#define</code>
+#         declarations in this header for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub headerDump
 {
 	my $self = shift;
@@ -6077,6 +8931,374 @@ sub headerDump
 		print "  |     |     +-- obj:     ".$obj."\n";
 		print "  |     |     +-- isBlock: ".$obj->isBlock()."\n";
 		}
+}
+
+
+# /*!
+#     @abstract
+#         Returns the method type portion of the API reference for a
+#               C++ method.
+#     @param self
+#         This <code>HeaderElement</code> object.
+#  */
+sub getMethodType
+{
+	my $self = shift;
+
+	my $class = ref($self) || $self;
+	my $apio = $self->apiOwner();
+	my $apioclass = ref($apio) || $apio;
+
+	# This probably won't ever really be encountered, but....
+	if ($class =~ /HeaderDoc::PDefine/) {
+		return "define";
+	}
+
+	if ($apioclass eq "HeaderDoc::Header") {
+        	return "func";
+	}
+
+	my $typename = "instm";           
+
+	if ($class =~ /HeaderDoc::Method/) {
+        	# Objective-C
+		if (!$self->parserState()) {
+			cluck("We shouldn't hit this ($self).\n");
+		}
+		if ($self->parserState()->{occmethodtype} eq "+") {
+			$self->setIsInstanceMethod("NO");
+			if ($apioclass =~ /HeaderDoc::ObjCProtocol/) {
+                                $typename = "intfcm";
+                        } else {
+				$typename = "clm";
+			}
+		} else {
+			$self->setIsInstanceMethod("YES");
+			if ($apioclass =~ /HeaderDoc::ObjCProtocol/) {
+				$typename = "intfm";
+			} else {
+        			$typename = "instm";
+			}
+		}
+	} else {
+		if (($self->lang() ne "C") && ($self->lang() ne "Csource")) {
+			return "instm";
+		}
+		if ($self->sublang() eq "C") {
+			# COM interfaces, C pseudoclasses
+			return "intfm";
+		}
+		if ($self->returntype() =~ /(^|\s)static(\s|$)/) {
+			$typename = "clm";
+		} else {
+			$typename = "instm";
+		}
+	}
+
+	if ($self->isTemplate()) {
+        	$typename = "ftmplt";
+	}
+
+	return $typename;
+}
+
+
+# /*!
+#     @abstract
+#         Gets/sets the parser state.
+#     @param self
+#         This object.
+#     @param newstate
+#         The new value. (Optional.)
+#     @discussion
+#         Stores a clone of the parser state object for future
+#         reference.  Rarely used, but important for Objective-C
+#         method type identification.
+#  */
+sub parserState {
+    my $self = shift;
+    if (@_) {
+	my $newstate = shift;
+
+	# print STDERR "OBJ $self STATE $newstate\n";
+	$self->{PARSERSTATE} = $newstate;
+    }
+    return $self->{PARSERSTATE};
+}
+
+# /*!
+#     @abstract
+#         Gets/sets the <code>ISINTERNAL</code> flag.
+#  */
+sub isInternal {
+    my $self = shift;
+    if (@_) {
+	my $newval = shift;
+
+	$self->{ISINTERNAL} = $newval;
+    }
+    return $self->{ISINTERNAL};
+}
+
+# /*! @abstract
+#         Sets and returns the namespace of this class.
+#     @param self
+#         The {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner} object.
+#     @param namespace
+#         The namespace value to set.  (Optional)
+#  */
+sub namespace {
+    my $self = shift;
+    my $localDebug = 0;
+
+    if (@_) { 
+        $self->{NAMESPACE} = shift;
+    }
+    print STDERR "namespace ".$self->{NAMESPACE}."\n" if ($localDebug);
+    return $self->{NAMESPACE};
+}
+
+
+# /*!
+#     @abstract
+#         Clears references to higher nodes in the object graph.
+#     @param self
+#         The {@link //apple_ref/perl/cl/HeaderDoc::APIOwner APIOwner}
+#         object.  (Unused)
+#     @param listref
+#         A list of objects to modify.
+#     @param freechildren
+#         Pass 1 to call the
+#         {@link //apple_ref/perl/instm/HeaderDoc::HeaderElement/free//() free}
+#         method on this object's children, else 0.
+#  */
+sub setAPIOBackReferences
+{
+	my $self = shift;
+	my $listref = shift;
+	my $freechildren = shift;
+	my $newowner = shift;
+
+	if ($listref) {
+		my @list = @{$listref};
+		foreach my $item (@list) {
+			$item->{APIOWNER} = $newowner;
+			if ($freechildren && !$newowner) {
+				$item->free();
+			}
+		}
+	}
+}
+
+# /*!
+#     @abstract
+#         Adds a name to the {@link NAMEREFS} array.
+#     @discussion
+#         In {@link //apple_ref/doc/header/BlockParse.pm BlockParse.pm},
+#         HeaderDoc adds each object into the associative array 
+#         {@link HeaderDoc::namerefs}.
+#         Because Perl's garbage collection is a joke, this reference must
+#         be destroyed to free the object.
+#  */
+sub addToNameRefs
+{
+	my $self = shift;
+	my $name = shift;
+
+	my @arr = ();
+	if ($self->{NAMEREFS}) {
+		@arr = @{$self->{NAMEREFS}};
+	}
+	push(@arr, $name);
+	$self->{NAMEREFS} = \@arr;
+}
+
+
+# /*!
+#     @abstract
+#         Adds a name to the {@link PARSETREECLEANUP} array.
+#     @discussion
+#         In {@link //apple_ref/doc/header/BlockParse.pm BlockParse.pm},
+#         HeaderDoc sets the owner of a parse tree to an API object.
+#         If that object goes away, that association needs to be
+#         cleared.  This array keeps track of that.
+#  */
+sub addToCleanup
+{
+	my $self = shift;
+	my $name = shift;
+
+	my @arr = ();
+	if ($self->{PARSETREECLEANUP}) {
+		@arr = @{$self->{PARSETREECLEANUP}};
+	}
+	push(@arr, $name);
+	$self->{PARSETREECLEANUP} = \@arr;
+}
+
+# /*!
+#       @abstract
+#           Returns the character set encoding of the enclosing
+#           file.
+#  */
+sub encoding
+{
+	my $self = shift;
+	return $self->apiOwner()->encoding();
+}
+
+# /*!
+#     @abstract
+#         Gets/sets the result (return values) text for functions,
+#         Objective-C methods, function-like macros, structures
+#         containing callbacks, type definitions containing callbacks,
+#         and Objective-C properties.
+#         etc.
+#     @param self
+#         The <code>Function</code> object.
+#     @param resultstring
+#         The string to set.  (Optional.)
+#     @discussion
+#         This comes from the <code>\@result</code>, <code>\@return</code>, or 
+#         <code>\@returns</code> tag in the HeaderDoc comment.
+#  */
+sub result {
+    my $self = shift;
+    
+    if (@_) {
+        $self->{RESULT} = shift;
+    }
+    return filterHeaderDocTagContents($self->{RESULT});
+}
+
+
+# /*!
+#     @abstract
+#         Gets/sets type conversion history.
+#     @discussion
+#         In {@link blockParseOutside}, when you request a
+#         specific type (e.g <code>\@function</code>), an object of that
+#         type is generated.  If the resulting declaration
+#         should be allowed to match against that type, a
+#         conversion occurs, in which a new object of a
+#         different type is created with the same contents.
+#         
+#         When a conversion occurs, this function records the
+#         original requested type for later use.
+#     @param self
+#         The <code>HeaderElement</code> object.  This is
+#         actually applied to the original (pre-conversion)
+#         <code>HeaderElement</code> object, but since the
+#         underlying keys are copied to the new object,
+#         it "just works".
+#     @param origtype
+#         The new value to set.  (Optional.)
+#  */
+sub origType
+{
+    my $self = shift;
+    
+    if (@_) {
+        my $origtype = shift;
+        $self->{ORIGTYPE} = $origtype;
+	# print STDERR "Set original type to $origtype\n";
+    }
+    return $self->{ORIGTYPE};
+}
+
+
+# /*!
+#     @abstract
+#         Maintains the list of auto-related references used for
+#         mixed group handling.
+#     @discussion
+#         When you have a mixed block containing functions and
+#         defines, the <code>INCLUDED_DEFINES</code> array ceases to be a
+#         workable way to find out what is in that block.  This
+#         function stores and retrieves an array containing
+#         <b>only</b> the API references (UIDs) for machine-generated
+#         "See Also" cross-references.
+#  */
+sub autoRelate
+{
+    my $self = shift;
+    
+    my @ar = ();
+    if ($self->{AUTORELATE}) {
+	@ar = @{$self->{AUTORELATE}};
+    }
+
+    if (@_) {
+	my $newvalue = shift;
+	my @parts = split(/\s+/, $newvalue);
+
+	push(@ar, $parts[1]);
+    }
+
+    $self->{AUTORELATE} = \@ar;
+    return $self->{AUTORELATE};
+}
+
+# /*!
+#     @abstract
+#         Stores a backup copy of the abstract and discussion
+#         for later use or checks to see if one has been stored.
+#     @param self
+#         The <code>HeaderElement</code> object to modify.
+#     @param set
+#         If a second parameter is specified, a backup is made.
+#     @result
+#         Returns whether the discussion has been backed up or not.
+#     @discussion
+#         Used when parsing <code>\@defineblock</code> blocks to restore
+#         the discussion and abstract of the block.
+#  */
+sub discussionLocked
+{
+    my $self = shift;
+
+    if (@_) {
+	$self->{DISCUSSIONLOCKED} = $self->{DISCUSSION};
+	$self->{ABSTRACTLOCKED} = $self->{ABSTRACT};
+	$self->{DISCUSSION_SETLOCKED} = $self->{DISCUSSION_SET};
+    }
+    return $self->{DISCUSSIONLOCKED} ? 1 : 0;
+}
+
+# /*!
+#     @abstract
+#         Restores a backup copy of the abstract and discussion
+#         stored by {@link discussionLocked}.
+#     @param self
+#         The <code>HeaderElement</code> object to modify.
+#     @discussion
+#         Used when parsing <code>\@defineblock</code> blocks to restore
+#         the discussion and abstract of the block.
+#  */
+sub unlockDiscussion
+{
+    my $self = shift;
+
+    $self->{DISCUSSION} = $self->{DISCUSSIONLOCKED};
+    $self->{ABSTRACT} = $self->{ABSTRACTLOCKED};
+    $self->{DISCUSSION_SET} = $self->{DISCUSSION_SETLOCKED};
+}
+
+# /*!
+#     @abstract
+#         Wipes the discussion and abstract so that
+#         defines in a <code>\@defineblock</code> can be
+#         correctly parsed.
+#     @param self
+#         The <code>HeaderElement</code> object to modify.
+#  */
+sub prepareDiscussionForTemporary
+{
+    my $self = shift;
+
+    $self->{DISCUSSION} = undef;
+    $self->{ABSTRACT} = undef;
+    $self->{DISCUSSION_SET} = undef;
 }
 
 1;

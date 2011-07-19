@@ -32,11 +32,11 @@
 #define RenderListBox_h
 
 #include "RenderBlock.h"
-#include "ScrollbarClient.h"
+#include "ScrollableArea.h"
 
 namespace WebCore {
 
-class RenderListBox : public RenderBlock, private ScrollbarClient {
+class RenderListBox : public RenderBlock, private ScrollableArea {
 public:
     RenderListBox(Element*);
     virtual ~RenderListBox();
@@ -53,6 +53,8 @@ public:
 
     int scrollToward(const IntPoint&); // Returns the new index or -1 if no scroll occurred
 
+    int size() const;
+
 private:
     virtual const char* renderName() const { return "RenderListBox"; }
 
@@ -68,13 +70,16 @@ private:
 
     virtual bool isPointInOverflowControl(HitTestResult&, int x, int y, int tx, int ty);
 
-    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1.0f, Node** stopNode = 0);
+    virtual bool scroll(ScrollDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
+    virtual bool logicalScroll(ScrollLogicalDirection, ScrollGranularity, float multiplier = 1, Node** stopNode = 0);
 
-    virtual void calcPrefWidths();
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox) const;
-    virtual void calcHeight();
+    virtual void computePreferredLogicalWidths();
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
+    virtual void computeLogicalHeight();
 
     virtual void layout();
+
+    virtual void addFocusRingRects(Vector<IntRect>&, int tx, int ty);
 
     virtual bool canBeProgramaticallyScrolled(bool) const { return true; }
     virtual void autoscroll();
@@ -91,19 +96,33 @@ private:
     virtual void setScrollLeft(int);
     virtual void setScrollTop(int);
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
-
-    // ScrollbarClient interface.
-    virtual void valueChanged(Scrollbar*);
+    // ScrollableArea interface.
+    virtual int scrollSize(ScrollbarOrientation orientation) const;
+    virtual int scrollPosition(Scrollbar*) const;
+    virtual void setScrollOffset(const IntPoint&);
     virtual void invalidateScrollbarRect(Scrollbar*, const IntRect&);
     virtual bool isActive() const;
-    virtual bool scrollbarCornerPresent() const { return false; } // We don't support resize on list boxes yet.  If we did this would have to change.
+    virtual bool isScrollCornerVisible() const { return false; } // We don't support resize on list boxes yet. If we did these would have to change.
+    virtual IntRect scrollCornerRect() const { return IntRect(); }
+    virtual void invalidateScrollCornerRect(const IntRect&) { }
     virtual IntRect convertFromScrollbarToContainingView(const Scrollbar*, const IntRect&) const;
     virtual IntRect convertFromContainingViewToScrollbar(const Scrollbar*, const IntRect&) const;
     virtual IntPoint convertFromScrollbarToContainingView(const Scrollbar*, const IntPoint&) const;
     virtual IntPoint convertFromContainingViewToScrollbar(const Scrollbar*, const IntPoint&) const;
+    virtual Scrollbar* verticalScrollbar() const { return m_vBar.get(); }
+    virtual IntSize contentsSize() const;
+    virtual int visibleHeight() const;
+    virtual int visibleWidth() const;
+    virtual IntPoint currentMousePosition() const;
+    virtual bool shouldSuspendScrollAnimations() const;
+    virtual bool isOnActivePage() const;
+
+    virtual void disconnectFromPage() { m_page = 0; }
+
+    // NOTE: This should only be called by the overriden setScrollOffset from ScrollableArea.
+    void scrollTo(int newOffset);
 
     void setHasVerticalScrollbar(bool hasScrollbar);
     PassRefPtr<Scrollbar> createScrollbar();
@@ -111,7 +130,6 @@ private:
     
     int itemHeight() const;
     void valueChanged(unsigned listIndex);
-    int size() const;
     int numVisibleItems() const;
     int numItems() const;
     int listHeight() const;
@@ -127,6 +145,8 @@ private:
     int m_indexOffset;
 
     RefPtr<Scrollbar> m_vBar;
+
+    Page* m_page;
 };
 
 inline RenderListBox* toRenderListBox(RenderObject* object)

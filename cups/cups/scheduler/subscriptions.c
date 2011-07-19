@@ -480,9 +480,6 @@ cupsdDeleteSubscription(
     cupsd_subscription_t *sub,		/* I - Subscription object */
     int                  update)	/* I - 1 = update subscriptions.conf */
 {
-  int	i;				/* Looping var */
-
-
  /*
   * Close the pipe to the notifier as needed...
   */
@@ -503,13 +500,7 @@ cupsdDeleteSubscription(
   cupsdClearString(&(sub->owner));
   cupsdClearString(&(sub->recipient));
 
-  if (sub->events)
-  {
-    for (i = 0; i < sub->num_events; i ++)
-      cupsd_delete_event(sub->events[i]);
-
-    free(sub->events);
-  }
+  cupsArrayDelete(sub->events);
 
   free(sub);
 
@@ -744,14 +735,8 @@ cupsdLoadAllSubscriptions(void)
   */
 
   snprintf(line, sizeof(line), "%s/subscriptions.conf", ServerRoot);
-  if ((fp = cupsFileOpen(line, "r")) == NULL)
-  {
-    if (errno != ENOENT)
-      cupsdLogMessage(CUPSD_LOG_ERROR,
-		      "LoadAllSubscriptions: Unable to open %s - %s", line,
-		      strerror(errno));
+  if ((fp = cupsdOpenConfFile(line)) == NULL)
     return;
-  }
 
  /*
   * Read all of the lines from the file...
@@ -763,7 +748,7 @@ cupsdLoadAllSubscriptions(void)
 
   while (cupsFileGetConf(fp, line, sizeof(line), &value, &linenum))
   {
-    if (!strcasecmp(line, "NextSubscriptionId") && value)
+    if (!_cups_strcasecmp(line, "NextSubscriptionId") && value)
     {
      /*
       * NextSubscriptionId NNN
@@ -773,7 +758,7 @@ cupsdLoadAllSubscriptions(void)
       if (i >= NextSubscriptionId && i > 0)
         NextSubscriptionId = i;
     }
-    else if (!strcasecmp(line, "<Subscription"))
+    else if (!_cups_strcasecmp(line, "<Subscription"))
     {
      /*
       * <Subscription #>
@@ -792,7 +777,7 @@ cupsdLoadAllSubscriptions(void)
         break;
       }
     }
-    else if (!strcasecmp(line, "</Subscription>"))
+    else if (!_cups_strcasecmp(line, "</Subscription>"))
     {
       if (!sub)
       {
@@ -814,7 +799,7 @@ cupsdLoadAllSubscriptions(void)
                       "Syntax error on line %d of subscriptions.conf.",
 	              linenum);
     }
-    else if (!strcasecmp(line, "Events"))
+    else if (!_cups_strcasecmp(line, "Events"))
     {
      /*
       * Events name
@@ -855,7 +840,7 @@ cupsdLoadAllSubscriptions(void)
 	value = valueptr;
       }
     }
-    else if (!strcasecmp(line, "Owner"))
+    else if (!_cups_strcasecmp(line, "Owner"))
     {
      /*
       * Owner
@@ -871,7 +856,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "Recipient"))
+    else if (!_cups_strcasecmp(line, "Recipient"))
     {
      /*
       * Recipient uri
@@ -887,7 +872,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "JobId"))
+    else if (!_cups_strcasecmp(line, "JobId"))
     {
      /*
       * JobId #
@@ -911,7 +896,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "PrinterName"))
+    else if (!_cups_strcasecmp(line, "PrinterName"))
     {
      /*
       * PrinterName name
@@ -935,7 +920,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "UserData"))
+    else if (!_cups_strcasecmp(line, "UserData"))
     {
      /*
       * UserData encoded-string
@@ -997,7 +982,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "LeaseDuration"))
+    else if (!_cups_strcasecmp(line, "LeaseDuration"))
     {
      /*
       * LeaseDuration #
@@ -1016,7 +1001,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "Interval"))
+    else if (!_cups_strcasecmp(line, "Interval"))
     {
      /*
       * Interval #
@@ -1032,7 +1017,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "ExpirationTime"))
+    else if (!_cups_strcasecmp(line, "ExpirationTime"))
     {
      /*
       * ExpirationTime #
@@ -1048,7 +1033,7 @@ cupsdLoadAllSubscriptions(void)
 	break;
       }
     }
-    else if (!strcasecmp(line, "NextEventId"))
+    else if (!_cups_strcasecmp(line, "NextEventId"))
     {
      /*
       * NextEventId #
@@ -1089,8 +1074,8 @@ cupsdSaveAllSubscriptions(void)
 {
   int			i;		/* Looping var */
   cups_file_t		*fp;		/* subscriptions.conf file */
-  char			temp[1024];	/* Temporary string */
-  char			backup[1024];	/* subscriptions.conf.O file */
+  char			filename[1024],	/* subscriptions.conf filename */
+			temp[1024];	/* Temporary string */
   cupsd_subscription_t	*sub;		/* Current subscription */
   time_t		curtime;	/* Current time */
   struct tm		*curdate;	/* Current date */
@@ -1103,36 +1088,12 @@ cupsdSaveAllSubscriptions(void)
   * Create the subscriptions.conf file...
   */
 
-  snprintf(temp, sizeof(temp), "%s/subscriptions.conf", ServerRoot);
-  snprintf(backup, sizeof(backup), "%s/subscriptions.conf.O", ServerRoot);
+  snprintf(filename, sizeof(filename), "%s/subscriptions.conf", ServerRoot);
 
-  if (rename(temp, backup))
-  {
-    if (errno != ENOENT)
-      cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to backup subscriptions.conf - %s",
-                      strerror(errno));
-  }
-
-  if ((fp = cupsFileOpen(temp, "w")) == NULL)
-  {
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to save subscriptions.conf - %s",
-                    strerror(errno));
-
-    if (rename(backup, temp))
-      cupsdLogMessage(CUPSD_LOG_ERROR,
-                      "Unable to restore subscriptions.conf - %s",
-                      strerror(errno));
+  if ((fp = cupsdCreateConfFile(filename, ConfigFilePerm)) == NULL)
     return;
-  }
-  else
-    cupsdLogMessage(CUPSD_LOG_INFO, "Saving subscriptions.conf...");
 
- /*
-  * Restrict access to the file...
-  */
-
-  fchown(cupsFileNumber(fp), getuid(), Group);
-  fchmod(cupsFileNumber(fp), ConfigFilePerm);
+  cupsdLogMessage(CUPSD_LOG_INFO, "Saving subscriptions.conf...");
 
  /*
   * Write a small header to the file...
@@ -1233,7 +1194,7 @@ cupsdSaveAllSubscriptions(void)
     cupsFilePuts(fp, "</Subscription>\n");
   }
 
-  cupsFileClose(fp);
+  cupsdCloseCreatedConfFile(fp, filename);
 }
 
 
@@ -1426,7 +1387,10 @@ cupsd_send_notification(
 
   if (!sub->events)
   {
-    sub->events = calloc(MaxEvents, sizeof(cupsd_event_t *));
+    sub->events = cupsArrayNew3((cups_array_func_t)NULL, NULL,
+                                (cups_ahash_func_t)NULL, 0,
+				(cups_acopy_func_t)NULL,
+				(cups_afree_func_t)cupsd_delete_event);
 
     if (!sub->events)
     {
@@ -1441,19 +1405,15 @@ cupsd_send_notification(
   * Purge an old event as needed...
   */
 
-  if (sub->num_events >= MaxEvents)
+  if (cupsArrayCount(sub->events) >= MaxEvents)
   {
    /*
     * Purge the oldest event in the cache...
     */
 
-    cupsd_delete_event(sub->events[0]);
+    cupsArrayRemove(sub->events, cupsArrayFirst(sub->events));
 
-    sub->num_events --;
     sub->first_event_id ++;
-
-    memmove(sub->events, sub->events + 1,
-	    sub->num_events * sizeof(cupsd_event_t *));
   }
 
  /*
@@ -1463,8 +1423,7 @@ cupsd_send_notification(
   * event cache limit, we don't need to check for overflow here...
   */
 
-  sub->events[sub->num_events] = event;
-  sub->num_events ++;
+  cupsArrayAdd(sub->events, event);
 
  /*
   * Deliver the event...

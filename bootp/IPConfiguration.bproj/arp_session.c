@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -65,6 +65,7 @@
 #include <arpa/inet.h>
 #include <net/if_types.h>
 #include <net/bpf.h>
+#include <CoreFoundation/CFRunLoop.h>
 
 #include "util.h"
 #include <syslog.h>
@@ -77,10 +78,7 @@
 #include "ipconfigd_globals.h"
 #include "arp_session.h"
 #include "ioregpath.h"
-
-#ifndef IFT_IEEE8023ADLAG
-#define IFT_IEEE8023ADLAG 0x88		/* IEEE802.3ad Link Aggregate */
-#endif IFT_IEEE8023ADLAG
+#include "ipconfigd_threads.h"
 
 struct firewire_arp {
     struct arphdr 	fw_hdr;	/* fixed-size header */
@@ -93,32 +91,32 @@ struct probe_info {
     struct timeval		retry_interval;
     int				probe_count;
     int				gratuitous_count;
+    boolean_t			skip_first;
 };
 
 struct arp_session {
-    FDSet_t *			readers;
     int				debug;
     struct probe_info		default_probe_info;
     int				default_detect_count;
     struct timeval		default_detect_retry;
     int				default_conflict_retry_count;
     struct timeval		default_conflict_delay;
+    struct timeval		default_resolve_retry;
     arp_our_address_func_t *	is_our_address;
     dynarray_t			if_sessions;
 #ifdef TEST_ARP_SESSION
     int				next_client_index;
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
 };
 
 struct arp_if_session {
     arp_session_t *		session;
     interface_t *		if_p;
-    int				bpf_fd;
-    int				bpf_fd_refcount;
     dynarray_t			clients;
     char *			receive_buf;
     int				receive_bufsize;
-    FDCallout_t *		read_callout;
+    FDCalloutRef		read_fd;
+    int				read_fd_refcount;
     struct firewire_address	fw_addr;
 };
 
@@ -142,7 +140,7 @@ typedef enum {
 struct arp_client {
 #ifdef TEST_ARP_SESSION
     int				client_index; /* unique ID */
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
     arp_client_command_t	command;
     arp_status_t		command_status;
     boolean_t			fd_open;
@@ -168,11 +166,14 @@ struct arp_client {
 #ifdef TEST_ARP_SESSION
 #define my_log		arp_session_log
 static void arp_session_log(int priority, const char * message, ...);
-#endif TEST_ARP_SESSION
+#define G_IPConfiguration_verbose TRUE
+#endif /* TEST_ARP_SESSION */
 
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFRunLoop.h>
 #include <SystemConfiguration/SCValidation.h>
+
+#define ARP_STR "ARP "
 
 static Boolean
 getFireWireAddress(const char * ifname, struct firewire_address * addr_p)
@@ -309,24 +310,23 @@ arp_client_close_fd(arp_client_t * client)
     if (client->fd_open == FALSE) {
 	return;
     }
-    if (if_session->bpf_fd_refcount <= 0) {
+    if (if_session->read_fd_refcount <= 0) {
 	my_log(LOG_INFO, "arp_client_close_fd(%s): bpf open fd count is %d",
-	       if_name(if_session->if_p), if_session->bpf_fd_refcount);
+	       if_name(if_session->if_p), if_session->read_fd_refcount);
 	return;
     }
-    if_session->bpf_fd_refcount--;
+    if_session->read_fd_refcount--;
     my_log(LOG_DEBUG, "arp_client_close_fd(%s): bpf open fd count is %d",
-	   if_name(if_session->if_p), if_session->bpf_fd_refcount);
+	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = FALSE;
-    if (if_session->bpf_fd_refcount == 0) {
-	my_log(LOG_DEBUG, "arp_client_close_fd(%s): closing bpf fd %d",
-	       if_name(if_session->if_p), if_session->bpf_fd);
-	if (if_session->read_callout != NULL) {
+    if (if_session->read_fd_refcount == 0) {
+	if (if_session->read_fd != NULL) {
+	    my_log(LOG_DEBUG, "arp_client_close_fd(%s): closing bpf fd %d",
+		   if_name(if_session->if_p),
+		   FDCalloutGetFD(if_session->read_fd));
 	    /* this closes the file descriptor */
-	    FDSet_remove_callout(if_session->session->readers, 
-				 &if_session->read_callout);
+	    FDCalloutRelease(&if_session->read_fd);
 	}
-	if_session->bpf_fd = -1;
 	if (if_session->receive_buf != NULL) {
 	    free(if_session->receive_buf);
 	    if_session->receive_buf = NULL;
@@ -518,7 +518,7 @@ arp_if_session_read(void * arg1, void * arg2)
 
     errmsg[0] = '\0';
 
-    if (if_session->bpf_fd_refcount == 0) {
+    if (if_session->read_fd_refcount == 0) {
 	my_log(LOG_ERR, "arp_if_session_read: no pending clients?");
 	return;
     }
@@ -542,7 +542,7 @@ arp_if_session_read(void * arg1, void * arg2)
 	hwlen = FIREWIRE_ADDR_LEN;
 	break;
     }
-    n = read(if_session->bpf_fd, if_session->receive_buf, 
+    n = read(FDCalloutGetFD(if_session->read_fd), if_session->receive_buf, 
 	     if_session->receive_bufsize);
     if (n < 0) {
 	if (errno == EAGAIN) {
@@ -724,6 +724,7 @@ arp_if_session_read(void * arg1, void * arg2)
 static boolean_t
 arp_client_open_fd(arp_client_t * client)
 {
+    int			bpf_fd;
     arp_if_session_t *	if_session = client->if_session;
     int 		opt;
     int 		status;
@@ -731,16 +732,16 @@ arp_client_open_fd(arp_client_t * client)
     if (client->fd_open) {
 	return (TRUE);
     }
-    if_session->bpf_fd_refcount++;
+    if_session->read_fd_refcount++;
     my_log(LOG_DEBUG, "arp_client_open_fd (%s): refcount %d", 
-	   if_name(if_session->if_p), if_session->bpf_fd_refcount);
+	   if_name(if_session->if_p), if_session->read_fd_refcount);
     client->fd_open = TRUE;
-    if (if_session->bpf_fd_refcount > 1) {
+    if (if_session->read_fd_refcount > 1) {
 	/* already open */
 	return (TRUE);
     }
-    if_session->bpf_fd = bpf_new();
-    if (if_session->bpf_fd < 0) {
+    bpf_fd = bpf_new();
+    if (bpf_fd < 0) {
 	my_log(LOG_ERR, "arp_client_open_fd: bpf_new(%s) failed, %s (%d)", 
 	       if_name(if_session->if_p), strerror(errno), errno);
 	snprintf(client->errmsg, sizeof(client->errmsg),
@@ -749,14 +750,14 @@ arp_client_open_fd(arp_client_t * client)
 	goto failed;
     }
     opt = 1;
-    status = ioctl(if_session->bpf_fd, FIONBIO, &opt);
+    status = ioctl(bpf_fd, FIONBIO, &opt);
     if (status < 0) {
 	my_log(LOG_ERR, "ioctl FIONBIO failed %s", strerror(errno));
 	goto failed;
     }
 
     /* associate it with the given interface */
-    status = bpf_setif(if_session->bpf_fd, if_name(if_session->if_p));
+    status = bpf_setif(bpf_fd, if_name(if_session->if_p));
     if (status < 0) {
 	my_log(LOG_ERR, "arp_client_open_fd: bpf_setif(%s) failed: %s (%d)", 
 	       if_name(if_session->if_p), strerror(errno), errno);
@@ -767,18 +768,18 @@ arp_client_open_fd(arp_client_t * client)
     }
 
     /* don't wait for packets to be buffered */
-    bpf_set_immediate(if_session->bpf_fd, 1);
+    bpf_set_immediate(bpf_fd, 1);
 
     /* set the filter to return only ARP packets */
     switch (if_link_type(if_session->if_p)) {
     default:
     case IFT_ETHER:
-	status = bpf_arp_filter(if_session->bpf_fd, 12, ETHERTYPE_ARP,
+	status = bpf_arp_filter(bpf_fd, 12, ETHERTYPE_ARP,
 				sizeof(struct ether_arp) 
 				+ sizeof(struct ether_header));
 	break;
     case IFT_IEEE1394:
-	status = bpf_arp_filter(if_session->bpf_fd, 16, ETHERTYPE_ARP,
+	status = bpf_arp_filter(bpf_fd, 16, ETHERTYPE_ARP,
 				sizeof(struct firewire_arp) 
 				+ sizeof(struct firewire_header));
 	break;
@@ -793,7 +794,7 @@ arp_client_open_fd(arp_client_t * client)
 	goto failed;
     }
     /* get the receive buffer size */
-    status = bpf_get_blen(if_session->bpf_fd, &if_session->receive_bufsize);
+    status = bpf_get_blen(bpf_fd, &if_session->receive_bufsize);
     if (status < 0) {
 	my_log(LOG_ERR, 
 	       "arp_client_open_fd: bpf_get_blen(%s) failed, %s (%d)", 
@@ -804,18 +805,20 @@ arp_client_open_fd(arp_client_t * client)
 	goto failed;
     }
     if_session->receive_buf = malloc(if_session->receive_bufsize);
-    if_session->read_callout 
-	= FDSet_add_callout(if_session->session->readers, if_session->bpf_fd,
-			    arp_if_session_read, if_session, NULL);
-    if (if_session->read_callout == NULL) {
-	close(if_session->bpf_fd);
-	if_session->bpf_fd = -1;
+    if_session->read_fd 
+	= FDCalloutCreate(bpf_fd,
+			  arp_if_session_read, if_session, NULL);
+    if (if_session->read_fd == NULL) {
 	goto failed;
     }
     my_log(LOG_DEBUG, "arp_client_open_fd (%s): opened bpf fd %d\n",
-	   if_name(if_session->if_p), if_session->bpf_fd);
+	   if_name(if_session->if_p), bpf_fd);
     return (TRUE);
+
  failed:
+    if (bpf_fd >= 0) {
+	close(bpf_fd);
+    }
     arp_client_close_fd(client);
     return (FALSE);
 }
@@ -831,10 +834,15 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
     arp_if_session_t *		if_session = client->if_session;
     struct arphdr *		hdr;
     int 			status = 0;
-    char			txbuf[128];
+    /* 
+     * txbuf is cast to some struct types containing short fields;
+     * force it to be aligned as much as an int
+     */
+    int				txbuf_aligned[32];
+    char *			txbuf = (char *)txbuf_aligned;
     int				size;
 
-    bzero(txbuf, sizeof(txbuf));
+    bzero(txbuf_aligned, sizeof(txbuf_aligned));
 
     /* fill in the ethernet header */
     switch (if_link_arptype(if_session->if_p)) {
@@ -933,7 +941,7 @@ arp_client_transmit(arp_client_t * client, boolean_t send_gratuitous,
 	goto failed;
     }
 
-    status = bpf_write(if_session->bpf_fd, txbuf, size);
+    status = bpf_write(FDCalloutGetFD(if_session->read_fd), txbuf, size);
     if (status < 0) {
 	my_log(LOG_ERR, "arp_client_transmit(%s) failed, %s (%d)", 
 	       if_name(if_session->if_p), strerror(errno), errno);
@@ -971,35 +979,59 @@ arp_client_probe_start(void * arg1, void * arg2, void * arg3)
 static void
 arp_client_probe_retransmit(void * arg1, void * arg2, void * arg3)
 {
-    arp_client_t * 	client = (arp_client_t *)arg1;
+    arp_client_t *      client = (arp_client_t *)arg1;
     struct probe_info * probe_info = &client->probe_info;
-    int			tries_left;
+    int                 tries_left;
+    arp_if_session_t *  if_session = client->if_session;
 
     tries_left = (probe_info->probe_count + probe_info->gratuitous_count)
-	- client->try;
+        - client->try;
+    
     if (tries_left <= 0) {
-	/* not in use */
-	client->command_status = arp_status_not_in_use_e;
-	arp_client_schedule_callback(client);
-	return;
+        /* not in use */
+        client->command_status = arp_status_not_in_use_e;
+        arp_client_schedule_callback(client);
+        return;
     }
+    
     client->try++;
-    if (arp_client_transmit(client, 
-			    (tries_left <= probe_info->gratuitous_count),
-			    NULL)) {
-	timer_set_relative(client->timer_callout,
-			   probe_info->retry_interval,
-			   (timer_func_t *)arp_client_probe_retransmit,
-			   client, NULL, NULL);
+
+    if (client->probe_info.skip_first ||
+	arp_client_transmit(client,
+                            (tries_left <= probe_info->gratuitous_count),
+                            NULL)) {
+	if (G_IPConfiguration_verbose) {
+	    if (client->probe_info.skip_first) {
+	        my_log(LOG_DEBUG, ARP_STR 
+	         	  "(%s): skipping the first arp announcement.",
+			   if_name(if_session->if_p));
+	    }
+	    else if (tries_left <= probe_info->gratuitous_count) {
+	        my_log(LOG_NOTICE, 
+		       ARP_STR 
+                       "(%s): sending (%d of %d) arp announcements ", 
+	               if_name(if_session->if_p), 
+		       probe_info->gratuitous_count - tries_left + 1, 
+		       probe_info->gratuitous_count); 
+	    }
+	    else {
+		my_log(LOG_DEBUG, ARP_STR "(%s): sending (%d of %d) "
+		       "arp probes ", if_name(if_session->if_p),
+                       client->try, probe_info->probe_count);
+	    }
+	}
+        timer_set_relative(client->timer_callout,
+                           probe_info->retry_interval,
+                           (timer_func_t *)arp_client_probe_retransmit,
+                           client, NULL, NULL);
+        client->probe_info.skip_first = FALSE;
     }
     else {
-	/* report back an error to the caller */
-	client->command_status = arp_status_error_e;
-	arp_client_schedule_callback(client);
+        /* report back an error to the caller */
+        client->command_status = arp_status_error_e;
+        arp_client_schedule_callback(client);
     }
-    return;
 }
-
 /*
  * Function: arp_client_resolve_retransmit
  *
@@ -1058,6 +1090,8 @@ arp_client_detect_retransmit(void * arg1, void * arg2, void * arg3)
     boolean_t		keep_going = TRUE;
     arp_session_t *	session = client->if_session->session;
     int			tries_left;
+    struct timeval *	timeout_p;
+    boolean_t 		resolve = (boolean_t) (uintptr_t) arg2;
 
     tries_left = session->default_detect_count - client->try;
     if (tries_left <= 0) {
@@ -1075,9 +1109,13 @@ arp_client_detect_retransmit(void * arg1, void * arg2, void * arg3)
 	}
     }
     if (keep_going) {
-	timer_set_relative(client->timer_callout, session->default_detect_retry,
-			   (timer_func_t *)arp_client_detect_retransmit,
-			   client, NULL, NULL);
+	timeout_p = resolve ? &session->default_resolve_retry :
+		    &session->default_detect_retry;
+			 
+	timer_set_relative(client->timer_callout, *timeout_p, 
+			   (timer_func_t *)
+			   arp_client_detect_retransmit,
+			   client, arg2, NULL);
     }
     else {
 	/* report back an error to the caller */
@@ -1103,7 +1141,7 @@ arp_if_session_new_client(arp_if_session_t * if_session)
     }
 #ifdef TEST_ARP_SESSION
     client->client_index = if_session->session->next_client_index++;
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
     client->if_session = if_session;
     client->probe_info = if_session->session->default_probe_info;
     client->timer_callout = timer_callout_init();
@@ -1150,7 +1188,7 @@ arp_session_find_client_with_index(arp_session_t * session, int index)
     return (NULL);
 }
 
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
 
 void
 arp_client_set_probe_info(arp_client_t * client, 
@@ -1240,13 +1278,13 @@ arp_client_set_probes_are_collisions(arp_client_t * client,
     return;
 }
 
-void
-arp_client_probe(arp_client_t * client,
-		 arp_result_func_t * func, void * arg1, void * arg2,
-		 struct in_addr sender_ip, struct in_addr target_ip)
+static inline void
+arp_client_setup_context(arp_client_t * client,
+                         arp_result_func_t * func, void * arg1, void * arg2,
+                    	 struct in_addr sender_ip, struct in_addr target_ip,
+                    	 boolean_t skip)
 {
-    
-    arp_if_session_t * 	if_session = client->if_session;
+    arp_if_session_t *  if_session = client->if_session;
 
     arp_client_cancel(client);
     arp_if_session_update_hardware_address(if_session);
@@ -1258,6 +1296,43 @@ arp_client_probe(arp_client_t * client,
     client->errmsg[0] = '\0';
     client->try = 0;
     client->conflict_count = 0;
+    
+    /* We might need to skip the first arp announcement since it
+     * may have already been sent. */
+    client->probe_info.skip_first = skip;
+}
+
+void
+arp_client_announce(arp_client_t * client,
+                    arp_result_func_t * func, void * arg1, void * arg2,
+                    struct in_addr sender_ip, struct in_addr target_ip, 
+		    boolean_t skip) 
+{
+    arp_client_setup_context(client, func, arg1, arg2, 
+ 			     sender_ip, target_ip, skip);
+    
+    /* Send announce only, get rid of the probe count. */
+    client->try = client->probe_info.probe_count;
+    if (!arp_client_open_fd(client)) {
+        /* report back an error to the caller */
+        client->command_status = arp_status_error_e;
+        arp_client_schedule_callback(client);
+        return;
+    }
+    
+    client->command_status = arp_status_unknown_e;
+    client->command = arp_client_command_probe_e;
+    arp_client_probe_retransmit(client, NULL, NULL);
+}
+
+void
+arp_client_probe(arp_client_t * client,
+		 arp_result_func_t * func, void * arg1, void * arg2,
+		 struct in_addr sender_ip, struct in_addr target_ip)
+{
+    arp_client_setup_context(client, func, arg1, arg2, 
+			     sender_ip, target_ip, FALSE);
+
     if (!arp_client_open_fd(client)) {
 	/* report back an error to the caller */
 	client->command_status = arp_status_error_e;
@@ -1307,7 +1382,8 @@ arp_client_resolve(arp_client_t * client,
 void
 arp_client_detect(arp_client_t * client,
 		  arp_result_func_t * func, void * arg1, void * arg2,
-		  const arp_address_info_t * list, int list_count)
+		  const arp_address_info_t * list, int list_count,
+		  boolean_t resolve)
 {
     arp_if_session_t * 	if_session = client->if_session;
     int			list_size;
@@ -1332,7 +1408,8 @@ arp_client_detect(arp_client_t * client,
     client->detect_list_count = list_count;
     client->command_status = arp_status_unknown_e;
     client->command = arp_client_command_detect_e;
-    arp_client_detect_retransmit(client, NULL, NULL);
+    arp_client_detect_retransmit(client, (void*) (uintptr_t)resolve, 
+				 NULL);
     return;
 }
 
@@ -1382,8 +1459,7 @@ arp_client_defend(arp_client_t * client, struct in_addr our_ip)
 }
 
 arp_session_t *
-arp_session_init(FDSet_t * readers,
-		 arp_our_address_func_t * func,
+arp_session_init(arp_our_address_func_t * func,
 		 arp_session_values_t * values)
 {
     arp_session_t * 	session;
@@ -1394,7 +1470,6 @@ arp_session_init(FDSet_t * readers,
     }
     bzero(session, sizeof(*session));
     dynarray_init(&session->if_sessions, arp_if_session_free_element, NULL);
-    session->readers = readers;
     if (func == NULL) {
 	session->is_our_address = arp_is_our_address;
     }
@@ -1434,6 +1509,13 @@ arp_session_init(FDSet_t * readers,
 	session->default_detect_retry.tv_sec = ARP_DETECT_RETRY_SECS;
 	session->default_detect_retry.tv_usec = ARP_DETECT_RETRY_USECS;
     }
+    if (values->resolve_interval != NULL) {
+	session->default_resolve_retry = *values->resolve_interval;
+    }
+    else {
+	session->default_resolve_retry.tv_sec = ARP_RESOLVE_RETRY_SECS;
+	session->default_resolve_retry.tv_usec = ARP_RESOLVE_RETRY_USECS;
+    }
     if (values->conflict_retry_count != NULL) {
 	session->default_conflict_retry_count = *values->conflict_retry_count;
     }
@@ -1452,7 +1534,7 @@ arp_session_init(FDSet_t * readers,
     }
 #ifdef TEST_ARP_SESSION
     session->next_client_index = 1;
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */
     return (session);
 }
 
@@ -1540,9 +1622,7 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
     if (if_session != NULL) {
 	return (if_session);
     }
-    switch (if_ift_type(if_p)) {
-    case IFT_L2VLAN:
-    case IFT_IEEE8023ADLAG:
+    switch (if_link_type(if_p)) {
     case IFT_ETHER:
 	break;
     case IFT_IEEE1394:
@@ -1561,7 +1641,6 @@ arp_session_new_if_session(arp_session_t * session, interface_t * if_p)
     }
     if_session = (arp_if_session_t *)malloc(sizeof(*if_session));
     bzero(if_session, sizeof(*if_session));
-    if_session->bpf_fd = -1;
     dynarray_init(&if_session->clients, arp_client_free_element, NULL);
     if (if_link_type(if_p) == IFT_IEEE1394) {
 	/* copy in the fw address */
@@ -2362,23 +2441,17 @@ main(int argc, char * argv[])
 {
     arp_session_values_t	arp_values;
     int				gratuitous = 0;
-    FDSet_t *			readers;
 
     S_interfaces = ifl_init(FALSE);
     if (S_interfaces == NULL) {
 	fprintf(stderr, "couldn't get interface list\n");
 	exit(1);
     }
-    readers = FDSet_init();
-    if (readers == NULL) {
-	fprintf(stderr, "FDSet_init failed\n");
-	exit(1);
-    }
 
     /* initialize the default values structure */
     bzero(&arp_values, sizeof(arp_values));
     arp_values.probe_gratuitous_count = &gratuitous;
-    S_arp_session = arp_session_init(readers, NULL, &arp_values);
+    S_arp_session = arp_session_init(NULL, &arp_values);
     if (S_arp_session == NULL) {
 	fprintf(stderr, "arp_session_init failed\n");
 	exit(1);
@@ -2387,4 +2460,4 @@ main(int argc, char * argv[])
     CFRunLoopRun();
     exit(0);
 }
-#endif TEST_ARP_SESSION
+#endif /* TEST_ARP_SESSION */

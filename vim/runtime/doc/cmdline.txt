@@ -1,4 +1,4 @@
-*cmdline.txt*   For Vim version 7.2.  Last change: 2008 Sep 18
+*cmdline.txt*   For Vim version 7.3.  Last change: 2010 May 07
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -118,8 +118,6 @@ CTRL-U		Remove all characters between the cursor position and
 		preferred behavior, add the following to your .vimrc: >
 			:cnoremap <C-U> <C-E><C-U>
 <
-		Note: if the command-line becomes empty with one of the
-		delete commands, Command-line mode is quit.
 							*c_<Insert>*
 <Insert>	Toggle between insert and overstrike.  {not in Vi}
 
@@ -184,7 +182,7 @@ CTRL-R CTRL-A				*c_CTRL-R_CTRL-A* *c_<C-R>_<C-A>*
 		the word that was already typed is not inserted again.
 
 		{not in Vi}
-		CTRL-F and CTRL-P: {only when +file_in_path feature is
+		CTRL-F and CTRL-P: {only when |+file_in_path| feature is
 		included}
 
 					*c_CTRL-R_CTRL-R* *c_<C-R>_<C-R>*
@@ -418,7 +416,10 @@ CTRL-L		A match is done on the pattern in front of the cursor.  If
 		than the pattern, no completion is done.
 		When 'incsearch' is set, entering a search pattern for "/" or
 		"?" and the current match is displayed then CTRL-L will add
-		one character from the end of the current match.
+		one character from the end of the current match.  If
+		'ignorecase' and 'smartcase' are set and the command line has
+		no uppercase characters, the added character is converted to
+		lowercase.
 
 The 'wildchar' option defaults to <Tab> (CTRL-E when in Vi compatible mode; in
 a previous version <Esc> was used).  In the pattern standard wildcards '*' and
@@ -441,12 +442,19 @@ between files with almost the same name.  If there are multiple matches,
 those files with an extension that is in the 'suffixes' option are ignored.
 The default is ".bak,~,.o,.h,.info,.swp,.obj", which means that files ending
 in ".bak", "~", ".o", ".h", ".info", ".swp" and ".obj" are sometimes ignored.
-It is impossible to ignore suffixes with two dots.  Examples:
+
+An empty entry, two consecutive commas, match a file name that does not
+contain a ".", thus has no suffix.  This is useful to ignore "prog" and prefer
+"prog.c".
+
+Examples:
 
   pattern:	files:				match:	~
    test*	test.c test.h test.o		test.c
    test*	test.h test.o			test.h and test.o
    test*	test.i test.h test.c		test.i and test.c
+
+It is impossible to ignore suffixes with two dots.
 
 If there is more than one matching file (after ignoring the ones matching
 the 'suffixes' option) the first file name is inserted.  You can see that
@@ -478,14 +486,14 @@ And this in your .vimrc: >
 
 The Ex commands have a few specialties:
 
-							*:quote*
+							*:quote* *:comment*
 '"' at the start of a line causes the whole line to be ignored.  '"'
 after a command causes the rest of the line to be ignored.  This can be used
 to add comments.  Example: >
 	:set ai		"set 'autoindent' option
 It is not possible to add a comment to a shell command ":!cmd" or to the
-":map" command and friends, because they see the '"' as part of their
-argument.
+":map" command and a few others, because they see the '"' as part of their
+argument.  This is mentioned where the command is explained.
 
 							*:bar* *:\bar*
 '|' can be used to separate commands, so you can give multiple commands in one
@@ -517,6 +525,7 @@ followed by another Vim command:
     :registers
     :read !
     :scscope
+    :sign
     :tcl
     :tcldo
     :tclfile
@@ -737,15 +746,15 @@ characters have a special meaning.  These can also be used in the expression
 function expand() |expand()|.
 	%	Is replaced with the current file name.		  *:_%* *c_%*
 	#	Is replaced with the alternate file name.	  *:_#* *c_#*
-	#n	(where n is a number) is replaced with the file name of
-		buffer n.  "#0" is the same as "#".
+	#n	(where n is a number) is replaced with		  *:_#0* *:_#n*
+		the file name of buffer n.  "#0" is the same as "#".     *c_#n*
 	##	Is replaced with all names in the argument list	  *:_##* *c_##*
 		concatenated, separated by spaces.  Each space in a name
 		is preceded with a backslash.
 	#<n	(where n is a number > 0) is replaced with old	  *:_#<* *c_#<*
 		file name n.  See |:oldfiles| or |v:oldfiles| to get the
 		number.							*E809*
-		{only when compiled with the +eval and +viminfo features}
+		{only when compiled with the |+eval| and |+viminfo| features}
 
 Note that these, except "#<n", give the file name as it was typed.  If an
 absolute path is needed (when using the file name from a different directory),
@@ -799,6 +808,7 @@ Note: these are typed literally, they are not special keys!
 
 							 *filename-modifiers*
 	 *:_%:* *::8* *::p* *::.* *::~* *::h* *::t* *::r* *::e* *::s* *::gs*
+	        *%:8* *%:p* *%:.* *%:~* *%:h* *%:t* *%:r* *%:e* *%:s* *%:gs*
 The file name modifiers can be used after "%", "#", "#n", "<cfile>", "<sfile>",
 "<afile>" or "<abuf>".  They are also used with the |fnamemodify()| function.
 These are not available when Vim has been compiled without the |+modify_fname|
@@ -942,7 +952,7 @@ for the file "$home" in the root directory.  A few examples:
 
 ==============================================================================
 6. Command-line window				*cmdline-window* *cmdwin*
-
+							*command-line-window*
 In the command-line window the command line can be edited just like editing
 text in any window.  It is a special kind of window, because you cannot leave
 it in a normal way.
@@ -950,12 +960,12 @@ it in a normal way.
 feature}
 
 
-OPEN
+OPEN						*c_CTRL-F* *q:* *q/* *q?*
 
 There are two ways to open the command-line window:
 1. From Command-line mode, use the key specified with the 'cedit' option.
    The default is CTRL-F when 'compatible' is not set.
-2. From Normal mode, use the "q:", "q/" or "q?" command.  *q:* *q/* *q?*
+2. From Normal mode, use the "q:", "q/" or "q?" command.
    This starts editing an Ex command-line ("q:") or search string ("q/" or
    "q?").  Note that this is not possible while recording is in progress (the
    "q" stops recording then).
@@ -985,7 +995,8 @@ nesting.
 The command-line window is not a normal window.  It is not possible to move to
 another window or edit another buffer.  All commands that would do this are
 disabled in the command-line window.  Of course it _is_ possible to execute
-any command that you entered in the command-line window.
+any command that you entered in the command-line window.  Other text edits are
+discarded when closing the window.
 
 
 CLOSE							*E199*
@@ -1020,8 +1031,8 @@ VARIOUS
 
 The command-line window cannot be used:
 - when there already is a command-line window (no nesting)
-- for entering a encryption key or when using inputsecret()
-- when Vim was not compiled with the +vertsplit feature
+- for entering an encryption key or when using inputsecret()
+- when Vim was not compiled with the |+vertsplit| feature
 
 Some options are set when the command-line window is opened:
 'filetype'	"vim", when editing an Ex command-line; this starts Vim syntax

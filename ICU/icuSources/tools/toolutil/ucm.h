@@ -1,6 +1,6 @@
 /*
  *******************************************************************************
- *   Copyright (C) 2003-2007, International Business Machines
+ *   Copyright (C) 2003-2010, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  *******************************************************************************
  *   file name:  ucm.h
@@ -50,7 +50,7 @@ enum {
 typedef struct UCMapping {
     UChar32 u;
     union {
-        uint32_t index;
+        uint32_t idx;
         uint8_t bytes[4];
     } b;
     int8_t uLen, bLen, f, moveFlag;
@@ -111,7 +111,7 @@ typedef struct UCMFile {
     (((m)->uLen==1) ? &(m)->u : (t)->codePoints+(m)->u)
 
 #define UCM_GET_BYTES(t, m) \
-    (((m)->bLen<=4) ? (m)->b.bytes : (t)->bytes+(m)->b.index)
+    (((m)->bLen<=4) ? (m)->b.bytes : (t)->bytes+(m)->b.idx)
 
 /* APIs --------------------------------------------------------------------- */
 
@@ -237,7 +237,7 @@ U_CAPI void U_EXPORT2
 ucm_addState(UCMStates *states, const char *s);
 
 U_CAPI void U_EXPORT2
-ucm_processStates(UCMStates *states);
+ucm_processStates(UCMStates *states, UBool ignoreSISOCheck);
 
 U_CAPI int32_t U_EXPORT2
 ucm_countChars(UCMStates *states,

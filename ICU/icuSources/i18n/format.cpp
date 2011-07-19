@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2007, International Business Machines Corporation and    *
+* Copyright (C) 1997-2010, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -18,7 +18,9 @@
 // *****************************************************************************
 // This file was generated from the java source file Format.java
 // *****************************************************************************
- 
+
+#include <typeinfo>  // for 'typeid' to work
+
 #include "unicode/utypes.h"
 
 /*
@@ -88,18 +90,20 @@ Format::Format(const Format &that)
 Format&
 Format::operator=(const Format& that)
 {
-    uprv_strcpy(validLocale, that.validLocale);
-    uprv_strcpy(actualLocale, that.actualLocale);
+    if (this != &that) {
+        uprv_strcpy(validLocale, that.validLocale);
+        uprv_strcpy(actualLocale, that.actualLocale);
+    }
     return *this;
 }
 
 // -------------------------------------
 // Formats the obj and append the result in the buffer, toAppendTo.
 // This calls the actual implementation in the concrete subclasses.
- 
+
 UnicodeString&
-Format::format(const Formattable& obj, 
-               UnicodeString& toAppendTo, 
+Format::format(const Formattable& obj,
+               UnicodeString& toAppendTo,
                UErrorCode& status) const
 {
     if (U_FAILURE(status)) return toAppendTo;
@@ -108,14 +112,30 @@ Format::format(const Formattable& obj,
 
     return format(obj, toAppendTo, pos, status);
 }
-  
+
 // -------------------------------------
-// Parses the source string and create the corresponding 
+// Default implementation sets unsupported error; subclasses should
+// override.
+
+UnicodeString&
+Format::format(const Formattable& /* unused obj */,
+               UnicodeString& toAppendTo,
+               FieldPositionIterator* /* unused posIter */,
+               UErrorCode& status) const
+{
+    if (!U_FAILURE(status)) {
+      status = U_UNSUPPORTED_ERROR;
+    }
+    return toAppendTo;
+}
+
+// -------------------------------------
+// Parses the source string and create the corresponding
 // result object.  Checks the parse position for errors.
- 
+
 void
-Format::parseObject(const UnicodeString& source, 
-                    Formattable& result, 
+Format::parseObject(const UnicodeString& source,
+                    Formattable& result,
                     UErrorCode& status) const
 {
     if (U_FAILURE(status)) return;
@@ -126,14 +146,14 @@ Format::parseObject(const UnicodeString& source,
         status = U_INVALID_FORMAT_ERROR;
     }
 }
- 
+
 // -------------------------------------
 
 UBool
 Format::operator==(const Format& that) const
 {
     // Subclasses: Call this method and then add more specific checks.
-    return getDynamicClassID() == that.getDynamicClassID();
+    return typeid(*this) == typeid(that);
 }
 //---------------------------------------
 
@@ -150,7 +170,7 @@ void Format::syntaxError(const UnicodeString& pattern,
                          UParseError& parseError) {
     parseError.offset = pos;
     parseError.line=0;  // we are not using line number
-    
+
     // for pre-context
     int32_t start = (pos < U_PARSE_CONTEXT_LEN)? 0 : (pos - (U_PARSE_CONTEXT_LEN-1
                                                              /* subtract 1 so that we have room for null*/));
@@ -158,17 +178,17 @@ void Format::syntaxError(const UnicodeString& pattern,
     pattern.extract(start,stop-start,parseError.preContext,0);
     //null terminate the buffer
     parseError.preContext[stop-start] = 0;
-    
+
     //for post-context
     start = pos+1;
-    stop  = ((pos+U_PARSE_CONTEXT_LEN)<=pattern.length()) ? (pos+(U_PARSE_CONTEXT_LEN-1)) : 
+    stop  = ((pos+U_PARSE_CONTEXT_LEN)<=pattern.length()) ? (pos+(U_PARSE_CONTEXT_LEN-1)) :
         pattern.length();
     pattern.extract(start,stop-start,parseError.postContext,0);
     //null terminate the buffer
     parseError.postContext[stop-start]= 0;
 }
 
-Locale 
+Locale
 Format::getLocale(ULocDataLocaleType type, UErrorCode& status) const {
     U_LOCALE_BASED(locBased, *this);
     return locBased.getLocale(type, status);

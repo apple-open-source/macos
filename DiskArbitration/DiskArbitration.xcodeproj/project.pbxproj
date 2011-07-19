@@ -15,7 +15,6 @@
 			dependencies = (
 				603C882C08EC8117004474CD /* PBXTargetDependency */,
 				603C882E08EC8117004474CD /* PBXTargetDependency */,
-				603C883008EC8117004474CD /* PBXTargetDependency */,
 				603C883208EC8117004474CD /* PBXTargetDependency */,
 			);
 			name = All;
@@ -24,6 +23,10 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.c in Sources */ = {isa = PBXBuildFile; fileRef = 60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */; };
+		60077BD112E6403F00D4AE4F /* ApplicationServices.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60077BD012E6403F00D4AE4F /* ApplicationServices.framework */; };
+		60077C5012E64C9100D4AE4F /* com.apple.DiskArbitrationAgent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */; };
+		60295B4D12EF48E800B9D989 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 60295B4C12EF48E800B9D989 /* CoreFoundation.framework */; };
 		603C87B208EC8117004474CD /* autodiskmount.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DC2CC130471E0DB00A87B01 /* autodiskmount.c */; };
 		603C87B408EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DC2CC1D0471E23500A87B01 /* CoreFoundation.framework */; };
 		603C87B608EC8117004474CD /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6D5FF0C80471E5EE00A87B01 /* IOKit.framework */; };
@@ -77,10 +80,6 @@
 		603C87F208EC8117004474CD /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 124AF5CF030ADD9103A87B01 /* SystemConfiguration.framework */; };
 		603C87F408EC8117004474CD /* diskarbitrationd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 12363823031AA75703A87B01 /* diskarbitrationd.8 */; };
 		603C87F608EC8117004474CD /* com.apple.diskarbitrationd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */; };
-		603C880208EC8117004474CD /* disktool.c in Sources */ = {isa = PBXBuildFile; fileRef = 6DADAC000403DBE100A87B01 /* disktool.c */; };
-		603C880408EC8117004474CD /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DB7312304153B8600A87B01 /* CoreFoundation.framework */; };
-		603C880508EC8117004474CD /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DB7319804154BD500A87B01 /* DiskArbitration.framework */; };
-		603C880708EC8117004474CD /* disktool.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 604D7A7F07528B08007E0745 /* disktool.8 */; };
 		603C881108EC8117004474CD /* DiskArbitration.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DD021D50405174800A87B01 /* DiskArbitration.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		603C881208EC8117004474CD /* DiskArbitrationPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = 6D9EB482040530BF00A87B01 /* DiskArbitrationPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
 		603C881308EC8117004474CD /* DADisk.h in Headers */ = {isa = PBXBuildFile; fileRef = 6DE65E15041D2C2C00A87B01 /* DADisk.h */; settings = {ATTRIBUTES = (Public, ); }; };
@@ -115,21 +114,7 @@
 			remoteGlobalIDString = 603C87BF08EC8117004474CD;
 			remoteInfo = "diskarbitrationd (Upgraded)";
 		};
-		603C882F08EC8117004474CD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C87FD08EC8117004474CD;
-			remoteInfo = "disktool (Upgraded)";
-		};
 		603C883108EC8117004474CD /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = 603C880E08EC8117004474CD;
-			remoteInfo = "DiskArbitration (Upgraded)";
-		};
-		603C883508EC8117004474CD /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 12D2592B030A908603A87B01 /* Project object */;
 			proxyType = 1;
@@ -139,6 +124,16 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
+		60077C4F12E64C7000D4AE4F /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchAgents;
+			dstSubfolderSpec = 0;
+			files = (
+				60077C5012E64C9100D4AE4F /* com.apple.DiskArbitrationAgent.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
 		603C87B708EC8117004474CD /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -166,16 +161,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				603C87F608EC8117004474CD /* com.apple.diskarbitrationd.plist in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		603C880608EC8117004474CD /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/share/man/man8;
-			dstSubfolderSpec = 0;
-			files = (
-				603C880708EC8117004474CD /* disktool.8 in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -208,20 +193,23 @@
 		12E786260343571B03A87B01 /* DACommand.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DACommand.c; path = diskarbitrationd/DACommand.c; sourceTree = "<group>"; };
 		12EFD4EB038AE27403A87B01 /* DALog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DALog.h; path = diskarbitrationd/DALog.h; sourceTree = "<group>"; };
 		12EFD4EC038AE27403A87B01 /* DALog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DALog.c; path = diskarbitrationd/DALog.c; sourceTree = "<group>"; };
+		60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = DiskArbitrationAgent; sourceTree = BUILT_PRODUCTS_DIR; };
+		60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DiskArbitrationAgent.c; path = DiskArbitrationAgent/DiskArbitrationAgent.c; sourceTree = "<group>"; };
+		60077BD012E6403F00D4AE4F /* ApplicationServices.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ApplicationServices.framework; path = /System/Library/Frameworks/ApplicationServices.framework; sourceTree = "<absolute>"; };
+		60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.DiskArbitrationAgent.plist; path = DiskArbitrationAgent/com.apple.DiskArbitrationAgent.plist; sourceTree = "<group>"; };
+		60295B4C12EF48E800B9D989 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		603C87BD08EC8117004474CD /* autodiskmount */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = autodiskmount; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C87FB08EC8117004474CD /* diskarbitrationd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = diskarbitrationd; sourceTree = BUILT_PRODUCTS_DIR; };
-		603C880C08EC8117004474CD /* disktool */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = disktool; sourceTree = BUILT_PRODUCTS_DIR; };
 		603C882A08EC8117004474CD /* DiskArbitration.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = DiskArbitration.framework; sourceTree = BUILT_PRODUCTS_DIR; };
-		603C883C08EC8262004474CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = Info.plist; path = DiskArbitration/Info.plist; sourceTree = "<group>"; };
+		603C883C08EC8262004474CD /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = DiskArbitration/Info.plist; sourceTree = "<group>"; };
 		604D7A7B07528AC5007E0745 /* autodiskmount.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = autodiskmount.8; path = autodiskmount/autodiskmount.8; sourceTree = "<group>"; };
-		604D7A7F07528B08007E0745 /* disktool.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = disktool.8; path = disktool/disktool.8; sourceTree = "<group>"; };
 		6D0B6E2903DC776600A87B01 /* fstab.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = fstab.c; path = diskarbitrationd/fstab.c; sourceTree = "<group>"; };
 		6D1811B20438DC5D00A87B01 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		6D1811B40438DCB300A87B01 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		6D1811B80438DCEF00A87B01 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		6D27301E0451C12B00754A52 /* DAQueue.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = DAQueue.c; path = diskarbitrationd/DAQueue.c; sourceTree = "<group>"; };
 		6D27301F0451C12B00754A52 /* DAQueue.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = DAQueue.h; path = diskarbitrationd/DAQueue.h; sourceTree = "<group>"; };
-		6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = com.apple.diskarbitrationd.plist; path = diskarbitrationd/com.apple.diskarbitrationd.plist; sourceTree = "<group>"; };
+		6D312A16046302EC00A87B01 /* com.apple.diskarbitrationd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = com.apple.diskarbitrationd.plist; path = diskarbitrationd/com.apple.diskarbitrationd.plist; sourceTree = "<group>"; };
 		6D5E5D700459CCC600A87B01 /* DARequest.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DARequest.h; path = diskarbitrationd/DARequest.h; sourceTree = "<group>"; };
 		6D5E5D710459CCC600A87B01 /* DARequest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DARequest.c; path = diskarbitrationd/DARequest.c; sourceTree = "<group>"; };
 		6D5FF0C80471E5EE00A87B01 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
@@ -240,13 +228,9 @@
 		6DA40B2303F8314600A87B01 /* vsdb.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = vsdb.c; path = diskarbitrationd/vsdb.c; sourceTree = "<group>"; };
 		6DABC494044C36A300A87B01 /* DACallback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DACallback.h; path = diskarbitrationd/DACallback.h; sourceTree = "<group>"; };
 		6DABC495044C36A300A87B01 /* DACallback.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DACallback.c; path = diskarbitrationd/DACallback.c; sourceTree = "<group>"; };
-		6DADAC000403DBE100A87B01 /* disktool.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = disktool.c; path = disktool/disktool.c; sourceTree = "<group>"; };
-		6DB7312304153B8600A87B01 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		6DB7319804154BD500A87B01 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		6DC05AF6047D66D400A87B01 /* DAServer.defs.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DAServer.defs.h; path = diskarbitrationd/DAServer.defs.h; sourceTree = "<group>"; };
 		6DC2CC130471E0DB00A87B01 /* autodiskmount.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = autodiskmount.c; path = autodiskmount/autodiskmount.c; sourceTree = "<group>"; };
 		6DC2CC1D0471E23500A87B01 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
-		6DC2CC2D0471E51D00A87B01 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
 		6DD021D30405171700A87B01 /* DiskArbitration.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DiskArbitration.c; path = DiskArbitration/DiskArbitration.c; sourceTree = "<group>"; };
 		6DD021D50405174800A87B01 /* DiskArbitration.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DiskArbitration.h; path = DiskArbitration/DiskArbitration.h; sourceTree = "<group>"; };
 		6DD021D704051DF000A87B01 /* DASession.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DASession.h; path = DiskArbitration/DASession.h; sourceTree = "<group>"; };
@@ -265,6 +249,15 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		60077B7F12E630AF00D4AE4F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				60077BD112E6403F00D4AE4F /* ApplicationServices.framework in Frameworks */,
+				60295B4D12EF48E800B9D989 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		603C87B308EC8117004474CD /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -282,15 +275,6 @@
 				603C87F008EC8117004474CD /* IOKit.framework in Frameworks */,
 				603C87F108EC8117004474CD /* Security.framework in Frameworks */,
 				603C87F208EC8117004474CD /* SystemConfiguration.framework in Frameworks */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		603C880308EC8117004474CD /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				603C880408EC8117004474CD /* CoreFoundation.framework in Frameworks */,
-				603C880508EC8117004474CD /* DiskArbitration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -312,8 +296,8 @@
 			children = (
 				6DC2CC110471E07100A87B01 /* autodiskmount */,
 				124AF904030AE17703A87B01 /* diskarbitrationd */,
-				12D25930030A95E303A87B01 /* disktool */,
 				12D2592E030A941C03A87B01 /* DiskArbitration */,
+				60077B9812E6353500D4AE4F /* DiskArbitrationAgent */,
 			);
 			name = Sources;
 			sourceTree = "<group>";
@@ -323,8 +307,8 @@
 			children = (
 				6DC2CC120471E09900A87B01 /* autodiskmount */,
 				12363830031ABDDD03A87B01 /* diskarbitrationd */,
-				6DB7311704153B3F00A87B01 /* disktool */,
 				6D676E8504068C9900A87B01 /* DiskArbitration */,
+				60077BC812E63FA200D4AE4F /* DiskArbitrationAgent */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -345,8 +329,8 @@
 			children = (
 				603C87BD08EC8117004474CD /* autodiskmount */,
 				603C87FB08EC8117004474CD /* diskarbitrationd */,
-				603C880C08EC8117004474CD /* disktool */,
 				603C882A08EC8117004474CD /* DiskArbitration.framework */,
+				60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -444,18 +428,35 @@
 			children = (
 				604D7A7207528A79007E0745 /* autodiskmount */,
 				124AF905030AE18503A87B01 /* diskarbitrationd */,
-				604D7A7507528A81007E0745 /* disktool */,
 				6D950E310458B6F400A87B01 /* DiskArbitration */,
+				60077C4412E645D100D4AE4F /* DiskArbitrationAgent */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
 		};
-		12D25930030A95E303A87B01 /* disktool */ = {
+		60077B9812E6353500D4AE4F /* DiskArbitrationAgent */ = {
 			isa = PBXGroup;
 			children = (
-				6DADAC000403DBE100A87B01 /* disktool.c */,
+				60077BAA12E63A8B00D4AE4F /* DiskArbitrationAgent.c */,
 			);
-			name = disktool;
+			name = DiskArbitrationAgent;
+			sourceTree = "<group>";
+		};
+		60077BC812E63FA200D4AE4F /* DiskArbitrationAgent */ = {
+			isa = PBXGroup;
+			children = (
+				60077BD012E6403F00D4AE4F /* ApplicationServices.framework */,
+				60295B4C12EF48E800B9D989 /* CoreFoundation.framework */,
+			);
+			name = DiskArbitrationAgent;
+			sourceTree = "<group>";
+		};
+		60077C4412E645D100D4AE4F /* DiskArbitrationAgent */ = {
+			isa = PBXGroup;
+			children = (
+				60077C4712E6468D00D4AE4F /* com.apple.DiskArbitrationAgent.plist */,
+			);
+			name = DiskArbitrationAgent;
 			sourceTree = "<group>";
 		};
 		604D7A7207528A79007E0745 /* autodiskmount */ = {
@@ -464,14 +465,6 @@
 				604D7A7B07528AC5007E0745 /* autodiskmount.8 */,
 			);
 			name = autodiskmount;
-			sourceTree = "<group>";
-		};
-		604D7A7507528A81007E0745 /* disktool */ = {
-			isa = PBXGroup;
-			children = (
-				604D7A7F07528B08007E0745 /* disktool.8 */,
-			);
-			name = disktool;
 			sourceTree = "<group>";
 		};
 		6D676E8504068C9900A87B01 /* DiskArbitration */ = {
@@ -494,15 +487,6 @@
 			name = DiskArbitration;
 			sourceTree = "<group>";
 		};
-		6DB7311704153B3F00A87B01 /* disktool */ = {
-			isa = PBXGroup;
-			children = (
-				6DB7312304153B8600A87B01 /* CoreFoundation.framework */,
-				6DB7319804154BD500A87B01 /* DiskArbitration.framework */,
-			);
-			name = disktool;
-			sourceTree = "<group>";
-		};
 		6DC2CC110471E07100A87B01 /* autodiskmount */ = {
 			isa = PBXGroup;
 			children = (
@@ -515,7 +499,6 @@
 			isa = PBXGroup;
 			children = (
 				6DC2CC1D0471E23500A87B01 /* CoreFoundation.framework */,
-				6DC2CC2D0471E51D00A87B01 /* DiskArbitration.framework */,
 				6D5FF0C80471E5EE00A87B01 /* IOKit.framework */,
 			);
 			name = autodiskmount;
@@ -559,13 +542,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		603C880008EC8117004474CD /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		603C881008EC8117004474CD /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -582,6 +558,23 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		60077B8012E630AF00D4AE4F /* DiskArbitrationAgent */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 60077B8512E630CE00D4AE4F /* Build configuration list for PBXNativeTarget "DiskArbitrationAgent" */;
+			buildPhases = (
+				60077B7E12E630AF00D4AE4F /* Sources */,
+				60077B7F12E630AF00D4AE4F /* Frameworks */,
+				60077C4F12E64C7000D4AE4F /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DiskArbitrationAgent;
+			productName = DiskArbitrationAgent;
+			productReference = 60077B8112E630AF00D4AE4F /* DiskArbitrationAgent */;
+			productType = "com.apple.product-type.tool";
+		};
 		603C87AD08EC8117004474CD /* autodiskmount */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 603C87B908EC8117004474CD /* Build configuration list for PBXNativeTarget "autodiskmount" */;
@@ -621,26 +614,6 @@
 			productReference = 603C87FB08EC8117004474CD /* diskarbitrationd */;
 			productType = "com.apple.product-type.tool";
 		};
-		603C87FD08EC8117004474CD /* disktool */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = 603C880808EC8117004474CD /* Build configuration list for PBXNativeTarget "disktool" */;
-			buildPhases = (
-				603C880008EC8117004474CD /* Headers */,
-				603C880108EC8117004474CD /* Sources */,
-				603C880308EC8117004474CD /* Frameworks */,
-				603C880608EC8117004474CD /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-				603C883608EC8117004474CD /* PBXTargetDependency */,
-			);
-			name = disktool;
-			productInstallPath = /usr/local/bin;
-			productName = disktool;
-			productReference = 603C880C08EC8117004474CD /* disktool */;
-			productType = "com.apple.product-type.tool";
-		};
 		603C880E08EC8117004474CD /* DiskArbitration */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 603C882508EC8117004474CD /* Build configuration list for PBXNativeTarget "DiskArbitration" */;
@@ -668,7 +641,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 60BCD1B1088D46E40091026D /* Build configuration list for PBXProject "DiskArbitration" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 12D25927030A908603A87B01;
 			productRefGroup = 124AF309030AD93503A87B01 /* Products */;
 			projectDirPath = "";
@@ -677,8 +657,8 @@
 				603C87A008EC8117004474CD /* All */,
 				603C87AD08EC8117004474CD /* autodiskmount */,
 				603C87BF08EC8117004474CD /* diskarbitrationd */,
-				603C87FD08EC8117004474CD /* disktool */,
 				603C880E08EC8117004474CD /* DiskArbitration */,
+				60077B8012E630AF00D4AE4F /* DiskArbitrationAgent */,
 			);
 		};
 /* End PBXProject section */
@@ -711,6 +691,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		60077B7E12E630AF00D4AE4F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				60077BAB12E63A8B00D4AE4F /* DiskArbitrationAgent.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		603C87B108EC8117004474CD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -748,14 +736,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		603C880108EC8117004474CD /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				603C880208EC8117004474CD /* disktool.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		603C881908EC8117004474CD /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -783,20 +763,10 @@
 			target = 603C87BF08EC8117004474CD /* diskarbitrationd */;
 			targetProxy = 603C882D08EC8117004474CD /* PBXContainerItemProxy */;
 		};
-		603C883008EC8117004474CD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C87FD08EC8117004474CD /* disktool */;
-			targetProxy = 603C882F08EC8117004474CD /* PBXContainerItemProxy */;
-		};
 		603C883208EC8117004474CD /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 603C880E08EC8117004474CD /* DiskArbitration */;
 			targetProxy = 603C883108EC8117004474CD /* PBXContainerItemProxy */;
-		};
-		603C883608EC8117004474CD /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = 603C880E08EC8117004474CD /* DiskArbitration */;
-			targetProxy = 603C883508EC8117004474CD /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -812,6 +782,23 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		60077B8312E630B000D4AE4F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
+				PRODUCT_NAME = DiskArbitrationAgent;
+			};
+			name = Debug;
+		};
+		60077B8412E630B000D4AE4F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks/DiskArbitration.framework/Versions/A/Support";
+				PRODUCT_NAME = DiskArbitrationAgent;
+			};
+			name = Release;
+		};
 		603C87AA08EC8117004474CD /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -833,18 +820,15 @@
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = autodiskmount;
 				VALID_ARCHS = i386;
-				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
 		};
 		603C87BB08EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				INSTALL_PATH = /sbin;
 				PRODUCT_NAME = autodiskmount;
 				VALID_ARCHS = i386;
-				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
 		};
@@ -855,40 +839,15 @@
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = diskarbitrationd;
-				WARNING_CFLAGS = "-Wall";
 			};
 			name = Debug;
 		};
 		603C87F908EC8117004474CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = YES;
 				GCC_PREPROCESSOR_DEFINITIONS = __DISKARBITRATIOND__;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = diskarbitrationd;
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Release;
-		};
-		603C880908EC8117004474CD /* Debug */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = disktool;
-				VALID_ARCHS = i386;
-				WARNING_CFLAGS = "-Wall";
-			};
-			name = Debug;
-		};
-		603C880A08EC8117004474CD /* Release */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				INSTALL_PATH = /usr/sbin;
-				PRODUCT_NAME = disktool;
-				VALID_ARCHS = i386;
-				WARNING_CFLAGS = "-Wall";
 			};
 			name = Release;
 		};
@@ -913,7 +872,6 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
-				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Debug;
@@ -926,7 +884,6 @@
 					debug,
 					profile,
 				);
-				COPY_PHASE_STRIP = YES;
 				DYLIB_COMPATIBILITY_VERSION = 1;
 				DYLIB_CURRENT_VERSION = 1;
 				FRAMEWORK_VERSION = A;
@@ -939,7 +896,6 @@
 					__text,
 					"$(OBJROOT)/DiskArbitration.order",
 				);
-				WARNING_CFLAGS = "-Wall";
 				WRAPPER_EXTENSION = framework;
 			};
 			name = Release;
@@ -959,6 +915,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		60077B8512E630CE00D4AE4F /* Build configuration list for PBXNativeTarget "DiskArbitrationAgent" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				60077B8312E630B000D4AE4F /* Debug */,
+				60077B8412E630B000D4AE4F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		603C87A908EC8117004474CD /* Build configuration list for PBXAggregateTarget "All" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -982,15 +947,6 @@
 			buildConfigurations = (
 				603C87F808EC8117004474CD /* Debug */,
 				603C87F908EC8117004474CD /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
-		603C880808EC8117004474CD /* Build configuration list for PBXNativeTarget "disktool" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				603C880908EC8117004474CD /* Debug */,
-				603C880A08EC8117004474CD /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

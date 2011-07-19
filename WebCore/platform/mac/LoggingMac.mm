@@ -23,6 +23,8 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
  */
 
+#include "config.h"
+
 #include "Logging.h"
 
 namespace WebCore {
@@ -62,6 +64,7 @@ void InitializeLoggingChannelsIfNecessary()
     initializeWithUserDefault(LogHistory);
     initializeWithUserDefault(LogPageCache);
     initializeWithUserDefault(LogPlatformLeaks);
+    initializeWithUserDefault(LogResourceLoading);
     initializeWithUserDefault(LogNetwork);
     initializeWithUserDefault(LogFTP);
     initializeWithUserDefault(LogThreading);

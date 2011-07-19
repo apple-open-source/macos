@@ -13,26 +13,25 @@
  * Date   : 2/13/97        *
  * Original implementation : Joel Crisp     *
  *
- * $Id: png.c 155 2008-10-22 12:06:38Z nijtmans $
+ * $Id: png.c 271 2010-06-17 13:40:24Z nijtmans $
  */
 
 /*
  * Generic initialization code, parameterized via CPACKAGE and PACKAGE.
  */
 
-#include <tcl.h>
-#include <pngtcl.h>
+#include "pngtcl.h"
 #include <string.h>
 #include <stdlib.h>
 
-static int SetupPngLibrary _ANSI_ARGS_ ((Tcl_Interp *interp));
+static int SetupPngLibrary(Tcl_Interp *interp);
 
 #define MORE_INITIALIZATION \
     if (SetupPngLibrary (interp) != TCL_OK) { return TCL_ERROR; }
 
 #include "init.c"
 
-
+
 
 #define COMPRESS_THRESHOLD 1024
 
@@ -51,44 +50,37 @@ typedef struct cleanup_info {
     jmp_buf jmpbuf;
 } cleanup_info;
 
-typedef struct myblock {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], in case it is not
-		  included already in Tk_PhotoImageBlock */
-} myblock;
-
-
 /*
  * Prototypes for local procedures defined in this file:
  */
 
-static int CommonMatchPNG _ANSI_ARGS_((tkimg_MFile *handle, int *widthPtr,
-	int *heightPtr));
+static int CommonMatchPNG(tkimg_MFile *handle, int *widthPtr,
+	int *heightPtr);
 
-static int CommonReadPNG _ANSI_ARGS_((png_structp png_ptr,
+static int CommonReadPNG(png_structp png_ptr,
         Tcl_Interp* interp, Tcl_Obj *format,
 	Tk_PhotoHandle imageHandle, int destX, int destY, int width,
-	int height, int srcX, int srcY));
+	int height, int srcX, int srcY);
 
-static int CommonWritePNG _ANSI_ARGS_((Tcl_Interp *interp, png_structp png_ptr,
+static int CommonWritePNG(Tcl_Interp *interp, png_structp png_ptr,
 	png_infop info_ptr, Tcl_Obj *format,
-	Tk_PhotoImageBlock *blockPtr));
+	Tk_PhotoImageBlock *blockPtr);
 
-static void tk_png_error _ANSI_ARGS_((png_structp, png_const_charp));
+static void tk_png_error(png_structp, png_const_charp);
 
-static void tk_png_warning _ANSI_ARGS_((png_structp, png_const_charp));
+static void tk_png_warning(png_structp, png_const_charp);
 
 /*
  * These functions are used for all Input/Output.
  */
 
-static void	tk_png_read _ANSI_ARGS_((png_structp, png_bytep,
-		    png_size_t));
+static void	tk_png_read(png_structp, png_bytep,
+	png_size_t);
 
-static void	tk_png_write _ANSI_ARGS_((png_structp, png_bytep,
-		    png_size_t));
+static void	tk_png_write(png_structp, png_bytep,
+	png_size_t);
 
-static void	tk_png_flush _ANSI_ARGS_((png_structp));
+static void	tk_png_flush(png_structp);
 
 /*
  *
@@ -152,17 +144,15 @@ tk_png_flush(png_ptr)
 {
 }
 
-static int
-ChnMatch(interp, chan, fileName, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *fileName;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ChnMatch(
+    Tcl_Channel chan,
+    const char *fileName,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixChanMatchProc(&interp, &chan, &fileName, &format, &widthPtr, &heightPtr);
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
@@ -171,17 +161,16 @@ ChnMatch(interp, chan, fileName, format, widthPtr, heightPtr)
 }
 
 static int
-ObjMatch(interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+ObjMatch(
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
 
-    tkimg_FixObjMatchProc(&interp, &data, &format, &widthPtr, &heightPtr);
-
-    if (!tkimg_ReadInit(data,'\211',&handle)) {
+    if (!tkimg_ReadInit(data, '\211', &handle)) {
 	return 0;
     }
     return CommonMatchPNG(&handle, widthPtr, heightPtr);
@@ -277,15 +266,15 @@ CommonReadPNG(png_ptr, interp, format, imageHandle, destX, destY,
     int width, height;
     int srcX, srcY;
 {
-#define block bl.ck
     png_infop info_ptr;
     png_infop end_info;
     char **png_data = NULL;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     unsigned int I;
     png_uint_32 info_width, info_height;
     int bit_depth, color_type, interlace_type;
     int intent;
+    int result = TCL_OK;
 
     info_ptr=png_create_info_struct(png_ptr);
     if (!info_ptr) {
@@ -321,10 +310,14 @@ CommonReadPNG(png_ptr, interp, format, imageHandle, destX, destY,
     if ((width <= 0) || (height <= 0)
 	|| (srcX >= (int) info_width)
 	|| (srcY >= (int) info_height)) {
+	png_destroy_read_struct(&png_ptr,&info_ptr,&end_info);
 	return TCL_OK;
     }
 
-    Tk_PhotoExpand(imageHandle, destX + width, destY + height);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + width, destY + height) == TCL_ERROR) {
+	png_destroy_read_struct(&png_ptr,&info_ptr,&end_info);
+	return TCL_ERROR;
+    }
 
     Tk_PhotoGetImage(imageHandle, &block);
 
@@ -381,19 +374,21 @@ CommonReadPNG(png_ptr, interp, format, imageHandle, destX, destY,
 
     png_read_image(png_ptr,(png_bytepp) png_data);
 
-    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY, width, height,
-	    block.offset[3]? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET);
+    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY, width, height,
+	    block.offset[3]? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+	result = TCL_ERROR;
+    }
 
     ckfree((char *) png_data);
     png_destroy_read_struct(&png_ptr,&info_ptr,&end_info);
 
-    return(TCL_OK);
+    return result;
 }
 
 static int
 ChnWrite (interp, filename, format, blockPtr)
     Tcl_Interp *interp;
-    CONST84 char *filename;
+    const char *filename;
     Tcl_Obj *format;
     Tk_PhotoImageBlock *blockPtr;
 {
@@ -435,13 +430,11 @@ ChnWrite (interp, filename, format, blockPtr)
     return result;
 }
 
-static int
-StringWrite (interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     png_structp png_ptr;
     png_infop info_ptr;
     tkimg_MFile handle;
@@ -449,8 +442,7 @@ StringWrite (interp, dataPtr, format, blockPtr)
     cleanup_info cleanup;
     Tcl_DString data;
 
-    tkimg_FixStringWriteProc(&data, &interp, &dataPtr, &format, &blockPtr);
-
+    Tcl_DStringInit(&data);
     cleanup.interp = interp;
 
     png_ptr=png_create_write_struct(PNG_LIBPNG_VER_STRING,
@@ -467,12 +459,14 @@ StringWrite (interp, dataPtr, format, blockPtr)
 
     png_set_write_fn(png_ptr, (png_voidp) &handle, tk_png_write, tk_png_flush);
 
-    tkimg_WriteInit(dataPtr, &handle);
+    tkimg_WriteInit(&data, &handle);
 
     result = CommonWritePNG(interp, png_ptr, info_ptr, format, blockPtr);
     tkimg_Putc(IMG_DONE, &handle);
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult(interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }

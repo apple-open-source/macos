@@ -1,14 +1,57 @@
---- /tmp/jabberd-2.1.24.1/s2s/main.c	2008-04-27 02:57:31.000000000 -0700
-+++ ./jabberd2/s2s/main.c	2009-06-08 17:53:19.000000000 -0700
-@@ -65,6 +65,7 @@ static void _s2s_pidfile(s2s_t s2s) {
- static void _s2s_config_expand(s2s_t s2s) {
-     char *str, secret[41];
-     int i, r;
-+    config_elem_t elem;
+--- /tmp/jabberd-2.2.13/s2s/main.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/s2s/main.c	2011-02-24 16:46:24.000000000 -0800
+@@ -40,6 +40,10 @@ static void _s2s_pidfile(s2s_t s2s) {
+     char *pidfile;
+     FILE *f;
+     pid_t pid;
++    char piddir[PATH_MAX] = "";
++    struct stat statbuf;
++    int i, last;
++    int i_slash = 0;
  
-     s2s->id = config_get_one(s2s->config, "id", 0);
-     if(s2s->id == NULL)
-@@ -85,6 +86,10 @@ static void _s2s_config_expand(s2s_t s2s
+     pidfile = config_get_one(s2s->config, "pidfile", 0);
+     if(pidfile == NULL)
+@@ -47,6 +51,39 @@ static void _s2s_pidfile(s2s_t s2s) {
+ 
+     pid = getpid();
+ 
++    // Get the pid directory from the full file path
++    for (i = 0; pidfile[i] != '\0'; i++) {
++        if (pidfile[i] == '/')
++            i_slash = i;
++    }
++    do { // not a loop
++        if (i_slash == 0) {
++            // no directory provided in pidfile preference, or only one slash found in path... skip creation attempt
++            break;
++        } else {
++            last = i_slash+1;
++        }
++        if (i_slash > sizeof(piddir)) {
++            log_write(s2s->log, LOG_ERR, "specified PID path exceeds the maximum allowed length");
++            return;
++        }
++        strlcpy(piddir, pidfile, last);
++
++        // Create the pid directory if it does not exist (don't attempt to create intermediate directories)
++        if (stat(piddir, &statbuf)) {
++            log_debug(ZONE, "pid directory appears to not exist, trying to create it...");
++            if (mkdir(piddir, 0755)) {
++                if ((errno == EEXIST) && (! stat(piddir, &statbuf))) {
++                    log_debug(ZONE, "working around probable race condition, pid directory now exists");
++                    break;
++                }
++                log_write(s2s->log, LOG_ERR, "couldn't create pid directory %s: %s", piddir, strerror(errno));
++                return;
++            }
++            log_debug(ZONE, "created pid directory: %s", piddir);
++        }
++    } while(0); // not a loop
++
+     if((f = fopen(pidfile, "w+")) == NULL) {
+         log_write(s2s->log, LOG_ERR, "couldn't open %s for writing: %s", pidfile, strerror(errno));
+         return;
+@@ -88,6 +125,10 @@ static void _s2s_config_expand(s2s_t s2s
  
      s2s->router_pemfile = config_get_one(s2s->config, "router.pemfile", 0);
  
@@ -19,30 +62,48 @@
      s2s->retry_init = j_atoi(config_get_one(s2s->config, "router.retry.init", 0), 3);
      s2s->retry_lost = j_atoi(config_get_one(s2s->config, "router.retry.lost", 0), 3);
      if((s2s->retry_sleep = j_atoi(config_get_one(s2s->config, "router.retry.sleep", 0), 2)) < 1)
-@@ -141,10 +146,21 @@ static void _s2s_config_expand(s2s_t s2s
-     if (s2s->local_pemfile != NULL)
-  	log_debug(ZONE,"loaded local pemfile for peer s2s connections");
- 
-+    s2s->local_cachain = config_get_one(s2s->config, "local.cachain", 0);
-+
+@@ -147,12 +188,18 @@ static void _s2s_config_expand(s2s_t s2s
+     s2s->local_pemfile = config_get_one(s2s->config, "local.pemfile", 0);
+     s2s->local_cachain = config_get_one(s2s->config, "local.cachain", 0);
+     s2s->local_verify_mode = j_atoi(config_get_one(s2s->config, "local.verify-mode", 0), 0);
 +    s2s->local_private_key_password = config_get_one(s2s->config, "local.private_key_password", 0);
-+    
+ 
      s2s->io_max_fds = j_atoi(config_get_one(s2s->config, "io.max_fds", 0), 1024);
  
-     s2s->stanza_size_limit = j_atoi(config_get_one(s2s->config, "io.limits.stanzasize", 0), 0);
+     s2s->compression = (config_get(s2s->config, "io.compression") != NULL);
  
+     s2s->stanza_size_limit = j_atoi(config_get_one(s2s->config, "io.limits.stanzasize", 0), 0);
 +    s2s->require_tls = j_atoi(config_get_one(s2s->config, "security.require_tls", 0), 0);
 +    s2s->enable_whitelist = j_atoi(config_get_one(s2s->config, "security.enable_whitelist", 0), 0);
 +    if((elem = config_get(s2s->config, "security.whitelist_domain")) != NULL) {
 +        _s2s_populate_whitelist_domains(s2s, elem->values, elem->nvalues);
 +    }
-+
-+
+ 
      s2s->check_interval = j_atoi(config_get_one(s2s->config, "check.interval", 0), 60);
      s2s->check_queue = j_atoi(config_get_one(s2s->config, "check.queue", 0), 60);
-     s2s->check_keepalive = j_atoi(config_get_one(s2s->config, "check.keepalive", 0), 0);
-@@ -375,6 +391,191 @@ static void _s2s_time_checks(s2s_t s2s) 
-     return;
+@@ -211,16 +258,18 @@ static void _s2s_hosts_expand(s2s_t s2s)
+ 
+         host->host_verify_mode = j_atoi(j_attr((const char **) elem->attrs[i], "verify-mode"), 0);
+ 
++		host->host_private_key_password = j_attr((const char **) elem->attrs[i], "private-key-password");
++
+ #ifdef HAVE_SSL
+         if(host->host_pemfile != NULL) {
+             if(s2s->sx_ssl == NULL) {
+-                s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, host->realm, host->host_pemfile, host->host_cachain, host->host_verify_mode);
++                s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, host->realm, host->host_pemfile, host->host_cachain, host->host_verify_mode, host->host_private_key_password);
+                 if(s2s->sx_ssl == NULL) {
+                     log_write(s2s->log, LOG_ERR, "failed to load %s SSL pemfile", host->realm);
+                     host->host_pemfile = NULL;
+                 }
+             } else {
+-                if(sx_ssl_server_addcert(s2s->sx_ssl, host->realm, host->host_pemfile, host->host_cachain, host->host_verify_mode) != 0) {
++                if(sx_ssl_server_addcert(s2s->sx_ssl, host->realm, host->host_pemfile, host->host_cachain, host->host_verify_mode, host->host_private_key_password) != 0) {
+                     log_write(s2s->log, LOG_ERR, "failed to load %s SSL pemfile", host->realm);
+                     host->host_pemfile = NULL;
+                 }
+@@ -591,6 +640,191 @@ static int _mio_resolver_callback(mio_t 
+     return 0;
  }
  
 +/* Populate the whitelist_domains array with the config file values */
@@ -233,32 +294,21 @@
  JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S", "Jabber Open Source Server: Server to Server", "jabberd2router\0")
  {
      s2s_t s2s;
-@@ -486,25 +687,23 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
- 
+@@ -704,7 +938,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
  #ifdef HAVE_SSL
      /* get the ssl context up and running */
--    if(s2s->local_pemfile != NULL) {
--        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, s2s->local_pemfile, s2s->local_cachain, s2s->local_verify_mode);
-+    s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, s2s->local_pemfile, s2s->local_cachain, s2s->local_verify_mode, s2s->local_private_key_password);
+     if(s2s->local_pemfile != NULL) {
+-        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, NULL, s2s->local_pemfile, s2s->local_cachain, s2s->local_verify_mode);
++        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, NULL, s2s->local_pemfile, s2s->local_cachain, s2s->local_verify_mode, s2s->local_private_key_password);
  
          if(s2s->sx_ssl == NULL) {
              log_write(s2s->log, LOG_ERR, "failed to load local SSL pemfile, SSL will not be available to peers");
-             s2s->local_pemfile = NULL;
-         } else
-             log_debug(ZONE, "loaded pemfile for SSL connections to peers");
--    }
+@@ -715,7 +949,7 @@ JABBER_MAIN("jabberd2s2s", "Jabber 2 S2S
  
      /* try and get something online, so at least we can encrypt to the router */
      if(s2s->sx_ssl == NULL && s2s->router_pemfile != NULL) {
--        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, s2s->router_pemfile, NULL, NULL);
-+        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, s2s->router_pemfile, s2s->router_cachain, NULL, s2s->router_private_key_password);
+-        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, NULL, s2s->router_pemfile, NULL, NULL);
++        s2s->sx_ssl = sx_env_plugin(s2s->sx_env, sx_ssl_init, NULL, s2s->router_pemfile, s2s->router_cachain, NULL, s2s->router_private_key_password);
          if(s2s->sx_ssl == NULL) {
              log_write(s2s->log, LOG_ERR, "failed to load router SSL pemfile, channel to router will not be SSL encrypted");
              s2s->router_pemfile = NULL;
-         }
-     }
--#endif
-+#endif // HAVE_SSL
- 
-     /* get sasl online */
-     s2s->sx_sasl = sx_env_plugin(s2s->sx_env, sx_sasl_init, "xmpp", NULL, NULL);

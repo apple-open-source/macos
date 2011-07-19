@@ -28,10 +28,12 @@
 
 VPATH = \
     $(WebCore) \
+    $(WebCore)/bindings/generic \
     $(WebCore)/bindings/js \
     $(WebCore)/bindings/objc \
     $(WebCore)/css \
     $(WebCore)/dom \
+    $(WebCore)/fileapi \
     $(WebCore)/html \
     $(WebCore)/html/canvas \
     $(WebCore)/inspector \
@@ -41,7 +43,7 @@ VPATH = \
     $(WebCore)/plugins \
     $(WebCore)/storage \
     $(WebCore)/xml \
-    $(WebCore)/wml \
+    $(WebCore)/webaudio \
     $(WebCore)/workers \
     $(WebCore)/svg \
     $(WebCore)/websockets \
@@ -51,9 +53,33 @@ DOM_CLASSES = \
     AbstractView \
     AbstractWorker \
     Attr \
+    AudioBuffer \
+    AudioBufferSourceNode \
+    AudioChannelSplitter \
+    AudioChannelMerger \
+    AudioContext \
+    AudioDestinationNode \
+    AudioGain \
+    AudioGainNode \
+    AudioListener \
+    AudioNode \
+    AudioPannerNode \
+    AudioParam \
+    AudioProcessingEvent \
+    AudioSourceNode \
+    ConvolverNode \
+    DelayNode \
+    DynamicsCompressorNode \
+    HighPass2FilterNode \
+    JavaScriptAudioNode \
+    LowPass2FilterNode \
+    OfflineAudioCompletionEvent \
+    RealtimeAnalyserNode \
     BarInfo \
     BeforeLoadEvent \
+    BeforeProcessEvent \
     Blob \
+    WebKitBlobBuilder \
     CDATASection \
     CSSCharsetRule \
     CSSFontFaceRule \
@@ -69,18 +95,17 @@ DOM_CLASSES = \
     CSSUnknownRule \
     CSSValue \
     CSSValueList \
-    CSSVariablesRule \
-    CSSVariablesDeclaration \
     WebGLActiveInfo \
-    WebGLArray \
-    WebGLArrayBuffer \
+    ArrayBufferView \
+    ArrayBuffer \
+    DataView \
     WebGLBuffer \
-    WebGLByteArray \
+    Int8Array \
     WebGLContextAttributes \
-    WebGLFloatArray \
+    Float32Array \
     WebGLFramebuffer \
     CanvasGradient \
-    WebGLIntArray \
+    Int32Array \
     CanvasPattern \
     WebGLProgram \
     WebGLRenderbuffer \
@@ -88,34 +113,56 @@ DOM_CLASSES = \
     CanvasRenderingContext2D \
     WebGLRenderingContext \
     WebGLShader \
-    WebGLShortArray \
+    Int16Array \
     WebGLTexture \
     WebGLUniformLocation \
-    WebGLUnsignedByteArray \
-    WebGLUnsignedIntArray \
-    WebGLUnsignedShortArray \
+    Uint8Array \
+    Uint32Array \
+    Uint16Array \
     CharacterData \
     ClientRect \
     ClientRectList \
     Clipboard \
+    CloseEvent \
     Comment \
     CompositionEvent \
     Console \
     Coordinates \
     Counter \
+    Crypto \
     CustomEvent \
-    DataGridColumn \
-    DataGridColumnList \
+    DataTransferItem \
+    DataTransferItems \
     DedicatedWorkerContext \
     DOMApplicationCache \
     DOMCoreException \
+    DOMFileSystem \
+    DOMFileSystemSync \
     DOMFormData \
     DOMImplementation \
+    DOMMimeType \
+    DOMMimeTypeArray \
     DOMParser \
+    DOMPlugin \
+    DOMPluginArray \
     DOMSelection \
+    DOMStringList \
+    DOMStringMap \
+    DOMSettableTokenList \
+    DOMTokenList \
+    DOMURL \
     DOMWindow \
+    DataTransferItem \
+    DataTransferItems \
     Database \
     DatabaseCallback \
+    DatabaseSync \
+    DeviceMotionEvent \
+    DeviceOrientationEvent \
+    DirectoryEntry \
+    DirectoryEntrySync \
+    DirectoryReader \
+    DirectoryReaderSync \
     Document \
     DocumentFragment \
     DocumentType \
@@ -123,6 +170,13 @@ DOM_CLASSES = \
     ElementTimeControl \
     Entity \
     EntityReference \
+    EntriesCallback \
+    Entry \
+    EntrySync \
+    EntryArray \
+    EntryArraySync \
+    EntryCallback \
+    ErrorCallback \
     ErrorEvent \
     Event \
     EventException \
@@ -130,10 +184,23 @@ DOM_CLASSES = \
     EventSource \
     EventTarget \
     File \
+    FileCallback \
+    FileEntry \
+    FileEntrySync \
+    FileException \
     FileError \
     FileList \
+    FileReader \
+    FileReaderSync \
+    FileWriter \
+    FileWriterCallback \
+    FileWriterSync \
+    FileSystemCallback \
+    WebKitFlags \
     Geolocation \
     Geoposition \
+    HashChangeEvent \
+    History \
     HTMLAllCollection \
     HTMLAnchorElement \
     HTMLAppletElement \
@@ -147,11 +214,8 @@ DOM_CLASSES = \
     HTMLButtonElement \
     HTMLCanvasElement \
     HTMLCollection \
-    HTMLDataGridElement \
-    HTMLDataGridCellElement \
-    HTMLDataGridColElement \
-    HTMLDataGridRowElement \
     HTMLDataListElement \
+    HTMLDetailsElement \
     HTMLDListElement \
     HTMLDirectoryElement \
     HTMLDivElement \
@@ -171,6 +235,7 @@ DOM_CLASSES = \
     HTMLImageElement \
     HTMLInputElement \
     HTMLIsIndexElement \
+    HTMLKeygenElement \
     HTMLLIElement \
     HTMLLabelElement \
     HTMLLegendElement \
@@ -180,12 +245,14 @@ DOM_CLASSES = \
     HTMLMediaElement \
     HTMLMenuElement \
     HTMLMetaElement \
+    HTMLMeterElement \
     HTMLModElement \
     HTMLOListElement \
     HTMLObjectElement \
     HTMLOptGroupElement \
     HTMLOptionElement \
     HTMLOptionsCollection \
+    HTMLOutputElement \
     HTMLParagraphElement \
     HTMLParamElement \
     HTMLPreElement \
@@ -203,26 +270,43 @@ DOM_CLASSES = \
     HTMLTableSectionElement \
     HTMLTextAreaElement \
     HTMLTitleElement \
+    HTMLTrackElement \
     HTMLUListElement \
     HTMLVideoElement \
-    History \
+    IDBAny \
+    IDBCursor \
+    IDBDatabaseError \
+    IDBDatabaseException \
+    IDBDatabase \
+    IDBFactory \
+    IDBIndex \
+    IDBKey \
+    IDBKeyRange \
+    IDBObjectStore \
+    IDBRequest \
+    IDBTransaction \
     ImageData \
     InjectedScriptHost \
-    InspectorBackend \
     InspectorFrontendHost \
     KeyboardEvent \
     Location \
     MediaError \
     MediaList \
+    MediaQueryList \
+    MediaQueryListListener \
+    MemoryInfo \
     MessageChannel \
     MessageEvent \
     MessagePort \
-    MimeType \
-    MimeTypeArray \
+    Metadata \
+    MetadataCallback \
     MouseEvent \
     MutationEvent \
     NamedNodeMap \
     Navigator \
+    NavigatorUserMediaError \
+    NavigatorUserMediaErrorCallback \
+    NavigatorUserMediaSuccessCallback \
     Node \
     NodeFilter \
     NodeIterator \
@@ -230,10 +314,15 @@ DOM_CLASSES = \
     Notation \
     Notification \
     NotificationCenter \
+    OESStandardDerivatives \
+    OESTextureFloat \
+     OESVertexArrayObject \
+     WebGLVertexArrayObjectOES \
     OverflowEvent \
     PageTransitionEvent \
-    Plugin \
-    PluginArray \
+    Performance \
+    PerformanceNavigation \
+    PerformanceTiming \
     PopStateEvent \
     PositionError \
     ProcessingInstruction \
@@ -246,7 +335,11 @@ DOM_CLASSES = \
     SharedWorkerContext \
     ScriptProfile \
     ScriptProfileNode \
+    SpeechInputEvent \
+    SpeechInputResult \
+    SpeechInputResultList \
     SQLError \
+    SQLException \
     SQLResultSet \
     SQLResultSetRowList \
     SQLStatementCallback \
@@ -254,8 +347,14 @@ DOM_CLASSES = \
     SQLTransaction \
     SQLTransactionCallback \
     SQLTransactionErrorCallback \
+    SQLTransactionSync \
+    SQLTransactionSyncCallback \
     Storage \
     StorageEvent \
+    StorageInfo \
+    StorageInfoErrorCallback \
+    StorageInfoUsageCallback \
+    StringCallback \
     SVGAElement \
     SVGAltGlyphElement \
     SVGAngle \
@@ -270,8 +369,6 @@ DOM_CLASSES = \
     SVGAnimatedLengthList \
     SVGAnimatedNumber \
     SVGAnimatedNumberList \
-    SVGAnimatedPathData \
-    SVGAnimatedPoints \
     SVGAnimatedPreserveAspectRatio \
     SVGAnimatedRect \
     SVGAnimatedString \
@@ -295,9 +392,11 @@ DOM_CLASSES = \
     SVGFEColorMatrixElement \
     SVGFEComponentTransferElement \
     SVGFECompositeElement \
+    SVGFEConvolveMatrixElement \
     SVGFEDiffuseLightingElement \
     SVGFEDisplacementMapElement \
     SVGFEDistantLightElement \
+    SVGFEDropShadowElement \
     SVGFEFloodElement \
     SVGFEFuncAElement \
     SVGFEFuncBElement \
@@ -399,9 +498,11 @@ DOM_CLASSES = \
     SVGUnitTypes \
     SVGUseElement \
     SVGViewElement \
+    SVGVKernElement \
     SVGZoomAndPan \
     SVGZoomEvent \
     Screen \
+    StringCallback \
     StyleMedia \
     StyleSheet \
     StyleSheetList \
@@ -415,11 +516,14 @@ DOM_CLASSES = \
     TreeWalker \
     UIEvent \
     ValidityState \
+    WebKitAnimation \
     WebKitAnimationEvent \
+    WebKitAnimationList \
     WebKitCSSKeyframeRule \
     WebKitCSSKeyframesRule \
     WebKitCSSMatrix \
     WebKitCSSTransformValue \
+    WebKitLoseContext \
     WebKitPoint \
     WebKitTransitionEvent \
     WebSocket \
@@ -443,23 +547,27 @@ DOM_CLASSES = \
 
 .PHONY : all
 
-JS_DOM_HEADERS=$(filter-out JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS%.h))
+JS_DOM_HEADERS=$(filter-out JSMediaQueryListListener.h JSEventListener.h JSEventTarget.h,$(DOM_CLASSES:%=JS%.h))
+
+WEB_DOM_HEADERS :=
+ifeq ($(findstring BUILDING_WX,$(FEATURE_DEFINES)), BUILDING_WX)
+WEB_DOM_HEADERS := $(filter-out WebDOMXSLTProcessor.h WebDOMEventTarget.h,$(DOM_CLASSES:%=WebDOM%.h))
+endif # BUILDING_WX
 
 all : \
     $(JS_DOM_HEADERS) \
+    $(WEB_DOM_HEADERS) \
     \
     JSJavaScriptCallFrame.h \
     \
     CSSGrammar.cpp \
     CSSPropertyNames.h \
     CSSValueKeywords.h \
-    ColorData.c \
+    ColorData.cpp \
     DocTypeStrings.cpp \
     HTMLElementFactory.cpp \
-    HTMLEntityNames.c \
+    HTMLEntityTable.cpp \
     HTMLNames.cpp \
-    WMLElementFactory.cpp \
-    WMLNames.cpp \
     JSSVGElementWrapperFactory.cpp \
     SVGElementFactory.cpp \
     SVGNames.cpp \
@@ -544,22 +652,40 @@ CSSValueKeywords.h : $(WEBCORE_CSS_VALUE_KEYWORDS) css/makevalues.pl
 
 # DOCTYPE strings
 
-DocTypeStrings.cpp : html/DocTypeStrings.gperf
-	gperf -CEot -L ANSI-C -k "*" -N findDoctypeEntry -F ,PubIDInfo::eAlmostStandards,PubIDInfo::eAlmostStandards $< > $@
+DocTypeStrings.cpp : html/DocTypeStrings.gperf $(WebCore)/make-hash-tools.pl
+	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/html/DocTypeStrings.gperf
+
+# --------
+
+# XMLViewer CSS
+
+all : XMLViewerCSS.h
+
+XMLViewerCSS.h : xml/XMLViewer.css
+	perl $(WebCore)/inspector/xxd.pl XMLViewer_css $(WebCore)/xml/XMLViewer.css XMLViewerCSS.h
+
+# --------
+
+# XMLViewer JS
+
+all : XMLViewerJS.h
+
+XMLViewerJS.h : xml/XMLViewer.js
+	perl $(WebCore)/inspector/xxd.pl XMLViewer_js $(WebCore)/xml/XMLViewer.js XMLViewerJS.h
 
 # --------
 
 # HTML entity names
 
-HTMLEntityNames.c : html/HTMLEntityNames.gperf
-	gperf -a -L ANSI-C -C -G -c -o -t -k '*' -N findEntity -D -s 2 $< > $@
+HTMLEntityTable.cpp : html/parser/HTMLEntityNames.in $(WebCore)/html/parser/create-html-entity-table
+	python $(WebCore)/html/parser/create-html-entity-table -o HTMLEntityTable.cpp $(WebCore)/html/parser/HTMLEntityNames.in
 
 # --------
 
 # color names
 
-ColorData.c : platform/ColorData.gperf
-	gperf -CDEot -L ANSI-C -k '*' -N findColor -D -s 2 $< > $@
+ColorData.cpp : platform/ColorData.gperf $(WebCore)/make-hash-tools.pl
+	perl $(WebCore)/make-hash-tools.pl . $(WebCore)/platform/ColorData.gperf
 
 # --------
 
@@ -608,19 +734,17 @@ ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/svg.css 
 endif
 
-ifeq ($(findstring ENABLE_WML,$(FEATURE_DEFINES)), ENABLE_WML)
-    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/wml.css
-endif
-
 ifeq ($(findstring ENABLE_MATHML,$(FEATURE_DEFINES)), ENABLE_MATHML)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mathml.css
 endif
 
 ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControls.css
-ifeq ($(OS),MACOS)
     USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/mediaControlsQuickTime.css
 endif
+
+ifeq ($(findstring ENABLE_FULLSCREEN_API,$(FEATURE_DEFINES)), ENABLE_FULLSCREEN_API)
+    USER_AGENT_STYLE_SHEETS := $(USER_AGENT_STYLE_SHEETS) $(WebCore)/css/fullscreen.css $(WebCore)/css/fullscreenQuickTime.css
 endif
 
 UserAgentStyleSheets.h : css/make-css-file-arrays.pl $(USER_AGENT_STYLE_SHEETS)
@@ -634,6 +758,14 @@ ifeq ($(findstring ENABLE_DATALIST,$(FEATURE_DEFINES)), ENABLE_DATALIST)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_DATALIST=1
 endif
 
+ifeq ($(findstring ENABLE_DETAILS,$(FEATURE_DEFINES)), ENABLE_DETAILS)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_DETAILS=1
+endif
+
+ifeq ($(findstring ENABLE_METER_TAG,$(FEATURE_DEFINES)), ENABLE_METER_TAG)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_METER_TAG=1
+endif
+
 ifeq ($(findstring ENABLE_PROGRESS_TAG,$(FEATURE_DEFINES)), ENABLE_PROGRESS_TAG)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_PROGRESS_TAG=1
 endif
@@ -642,8 +774,8 @@ ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
     HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO=1
 endif
 
-ifeq ($(findstring ENABLE_RUBY,$(FEATURE_DEFINES)), ENABLE_RUBY)
-    HTML_FLAGS := $(HTML_FLAGS) ENABLE_RUBY=1
+ifeq ($(findstring ENABLE_VIDEO_TRACK,$(FEATURE_DEFINES)), ENABLE_VIDEO_TRACK)
+    HTML_FLAGS := $(HTML_FLAGS) ENABLE_VIDEO_TRACK=0
 endif
 
 ifdef HTML_FLAGS
@@ -670,12 +802,6 @@ XMLNames.cpp : dom/make_names.pl xml/xmlattrs.in
 
 # SVG tag and attribute names, and element factory
 
-ifeq ($(findstring ENABLE_SVG,$(FEATURE_DEFINES)), ENABLE_SVG)
-
-ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.exp
-endif
-
 ifeq ($(findstring ENABLE_SVG_USE,$(FEATURE_DEFINES)), ENABLE_SVG_USE)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_USE=1
 endif
@@ -686,9 +812,6 @@ endif
 
 ifeq ($(findstring ENABLE_FILTERS,$(FEATURE_DEFINES)), ENABLE_FILTERS)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_FILTERS=1
-ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Filters.exp
-endif
 endif
 
 ifeq ($(findstring ENABLE_SVG_AS_IMAGE,$(FEATURE_DEFINES)), ENABLE_SVG_AS_IMAGE)
@@ -697,16 +820,10 @@ endif
 
 ifeq ($(findstring ENABLE_SVG_ANIMATION,$(FEATURE_DEFINES)), ENABLE_SVG_ANIMATION)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_ANIMATION=1
-ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.Animation.exp
-endif
 endif
 
 ifeq ($(findstring ENABLE_SVG_FOREIGN_OBJECT,$(FEATURE_DEFINES)), ENABLE_SVG_FOREIGN_OBJECT)
     SVG_FLAGS := $(SVG_FLAGS) ENABLE_SVG_FOREIGN_OBJECT=1
-ifeq ($(findstring ENABLE_SVG_DOM_OBJC_BINDINGS,$(FEATURE_DEFINES)), ENABLE_SVG_DOM_OBJC_BINDINGS)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.SVG.ForeignObject.exp
-endif
 endif
 
 # SVG tag and attribute names (need to pass an extra flag if svg experimental features are enabled)
@@ -727,82 +844,69 @@ JSSVGElementWrapperFactory.cpp : SVGNames.cpp
 XLinkNames.cpp : dom/make_names.pl svg/xlinkattrs.in
 	perl -I $(WebCore)/bindings/scripts $< --attrs $(WebCore)/svg/xlinkattrs.in
 
-else
-
-SVGElementFactory.cpp :
-	echo > $@
-
-SVGNames.cpp :
-	echo > $@
-
-XLinkNames.cpp :
-	echo > $@
-
-# This file is autogenerated by make_names.pl when SVG is enabled.
-
-JSSVGElementWrapperFactory.cpp :
-	echo > $@
-
-endif
-
-# --------
-
-# WML tag and attribute names, and element factory
-
-ifeq ($(findstring ENABLE_WML,$(FEATURE_DEFINES)), ENABLE_WML)
-
-WMLElementFactory.cpp WMLNames.cpp : dom/make_names.pl wml/WMLTagNames.in wml/WMLAttributeNames.in
-	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/wml/WMLTagNames.in --attrs $(WebCore)/wml/WMLAttributeNames.in --factory --wrapperFactory
-
-else
-
-WMLElementFactory.cpp :
-	echo > $@
-
-WMLNames.cpp :
-	echo > $@
-
-endif
-
 # --------
  
 # MathML tag and attribute names, and element factory
 
-ifeq ($(findstring ENABLE_MATHML,$(FEATURE_DEFINES)), ENABLE_MATHML)
-
 MathMLElementFactory.cpp MathMLNames.cpp : dom/make_names.pl mathml/mathtags.in mathml/mathattrs.in
 	perl -I $(WebCore)/bindings/scripts $< --tags $(WebCore)/mathml/mathtags.in --attrs $(WebCore)/mathml/mathattrs.in --factory --wrapperFactory
 
-else
-
-MathMLElementFactory.cpp :
-	echo > $@
-
-MathMLNames.cpp :
-	echo > $@
-
-endif
-
-
-
 # --------
 
-# JavaScript bindings
+# Common generator things
 
-GENERATE_BINDINGS = perl -I $(WebCore)/bindings/scripts $(WebCore)/bindings/scripts/generate-bindings.pl \
-    --include dom --include html --include css --include page --include notifications --include xml --include svg --write-dependencies --outputDir .
-
-GENERATE_BINDINGS_SCRIPTS = \
+GENERATE_SCRIPTS = \
     bindings/scripts/CodeGenerator.pm \
     bindings/scripts/IDLParser.pm \
     bindings/scripts/IDLStructure.pm \
-    bindings/scripts/generate-bindings.pl \
-#
+    bindings/scripts/generate-bindings.pl
 
-JS%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm
-	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS $<
+generator_script = perl $(addprefix -I $(WebCore)/, $(sort $(dir $(1)))) $(WebCore)/bindings/scripts/generate-bindings.pl
+
+# JS bindings generator
+
+IDL_INCLUDES = \
+    $(WebCore)/dom \
+    $(WebCore)/fileapi \
+    $(WebCore)/html \
+    $(WebCore)/css \
+    $(WebCore)/page \
+    $(WebCore)/notifications \
+    $(WebCore)/xml \
+    $(WebCore)/svg
+
+IDL_COMMON_ARGS = $(IDL_INCLUDES:%=--include %) --write-dependencies --outputDir .
+
+JS_BINDINGS_SCRIPTS = $(GENERATE_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm
+
+JS%.h : %.idl $(JS_BINDINGS_SCRIPTS)
+	$(call generator_script, $(JS_BINDINGS_SCRIPTS)) $(IDL_COMMON_ARGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_JAVASCRIPT" --generator JS $<
+
+# Inspector interfaces generator
+
+Inspector.idl : Inspector.json inspector/generate-inspector-idl
+	python $(WebCore)/inspector/generate-inspector-idl -o Inspector.idl $(WebCore)/inspector/Inspector.json
+
+all : InspectorFrontend.h
+
+INSPECTOR_GENERATOR_SCRIPTS = $(GENERATE_SCRIPTS) inspector/CodeGeneratorInspector.pm
+
+InspectorFrontend.h : Inspector.idl $(INSPECTOR_GENERATOR_SCRIPTS)
+	$(call generator_script, $(INSPECTOR_GENERATOR_SCRIPTS)) --outputDir . --defines "$(FEATURE_DEFINES) LANGUAGE_JAVASCRIPT" --generator Inspector $<
+
+all : InjectedScriptSource.h
+
+InjectedScriptSource.h : InjectedScriptSource.js
+	perl $(WebCore)/inspector/xxd.pl InjectedScriptSource_js $(WebCore)/inspector/InjectedScriptSource.js InjectedScriptSource.h
 
 -include $(JS_DOM_HEADERS:.h=.dep)
+
+ifeq ($(findstring BUILDING_WX,$(FEATURE_DEFINES)), BUILDING_WX)
+CPP_BINDINGS_SCRIPTS = $(GENERATE_SCRIPTS) bindings/scripts/CodeGeneratorCPP.pm
+
+WebDOM%.h : %.idl $(CPP_BINDINGS_SCRIPTS)
+	$(call generator_script, $(CPP_BINDINGS_SCRIPTS)) $(IDL_COMMON_ARGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_CPP" --generator CPP $<
+endif # BUILDING_WX
 
 # ------------------------
 
@@ -810,11 +914,11 @@ JS%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorJS.pm
 
 ifeq ($(OS),MACOS)
 
-OBJC_DOM_HEADERS=$(filter-out DOMDOMWindow.h DOMMimeType.h DOMPlugin.h,$(DOM_CLASSES:%=DOM%.h))
+OBJC_DOM_HEADERS=$(filter-out DOMDOMWindow.h DOMDOMMimeType.h DOMDOMPlugin.h,$(DOM_CLASSES:%=DOM%.h))
 
 all : $(OBJC_DOM_HEADERS)
 
-all : CharsetData.cpp WebCore.exp WebCore.LP64.exp
+all : CharsetData.cpp
 
 # --------
 
@@ -825,90 +929,29 @@ CharsetData.cpp : platform/text/mac/make-charset-table.pl platform/text/mac/char
 
 # --------
 
-# export file
+ifneq ($(ACTION),installhdrs)
 
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_JAVA_BRIDGE | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.JNI.exp
-endif
+all : WebCore.exp WebCore.LP64.exp
 
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_NETSCAPE_PLUGIN_API | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.NPAPI.exp
-endif
+WebCore.exp : $(BUILT_PRODUCTS_DIR)/WebCoreExportFileGenerator
+	$^ > $@
 
-# FIXME: WTF_USE_PLUGIN_HOST_PROCESS is only true when building for x86_64, but we shouldn't have to know about that here.
-ifeq ($(findstring x86_64,$(ARCHS)) $(findstring x86_64,$(VALID_ARCHS)), x86_64 x86_64)
-ifeq ($(shell gcc -arch x86_64 -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PLUGIN_HOST_PROCESS | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.PluginHostProcess.exp
-endif
-endif
-
-ifeq ($(findstring ENABLE_3D_RENDERING,$(FEATURE_DEFINES)), ENABLE_3D_RENDERING)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.3DRendering.exp
-endif
-
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_CONTEXT_MENUS | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ContextMenus.exp
-endif
-
-ifeq ($(ENABLE_DASHBOARD_SUPPORT), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.DashboardSupport.exp
-endif
-
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_DRAG_SUPPORT | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.DragSupport.exp
-endif
-
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep ENABLE_INSPECTOR | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Inspector.exp
-endif
-
-ifeq ($(ENABLE_ORIENTATION_EVENTS), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.OrientationEvents.exp
-endif
-
-ifeq ($(findstring 10.4,$(MACOSX_DEPLOYMENT_TARGET)), 10.4)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Tiger.exp
-endif
-
-ifeq ($(findstring ENABLE_PLUGIN_PROXY_FOR_VIDEO,$(FEATURE_DEFINES)), ENABLE_PLUGIN_PROXY_FOR_VIDEO)
-     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.VideoProxy.exp
-endif
-
-ifeq ($(findstring ENABLE_VIDEO,$(FEATURE_DEFINES)), ENABLE_VIDEO)
-     WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Video.exp
-endif
-
-
-ifeq ($(findstring ENABLE_CLIENT_BASED_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_CLIENT_BASED_GEOLOCATION)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ClientBasedGeolocation.exp
-endif
-
-ifeq ($(findstring ENABLE_GEOLOCATION,$(FEATURE_DEFINES)), ENABLE_GEOLOCATION)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.Geolocation.exp
-endif
-
-ifeq ($(shell gcc -E -P -dM $(FRAMEWORK_FLAGS) WebCore/ForwardingHeaders/wtf/Platform.h | grep WTF_USE_PROTECTION_SPACE_AUTH_CALLBACK | cut -d' ' -f3), 1)
-    WEBCORE_EXPORT_DEPENDENCIES := $(WEBCORE_EXPORT_DEPENDENCIES) WebCore.ProtectionSpaceAuthCallback.exp
-endif
-
-WebCore.exp : WebCore.base.exp $(WEBCORE_EXPORT_DEPENDENCIES)
-	cat $^ > $@
-
-# Switch NSRect, NSSize and NSPoint with their CG counterparts for 64-bit.
+# Switch NSRect, NSSize and NSPoint with their CG counterparts for the 64-bit exports file.
 WebCore.LP64.exp : WebCore.exp
 	cat $^ | sed -e s/7_NSRect/6CGRect/ -e s/7_NSSize/6CGSize/ -e s/8_NSPoint/7CGPoint/ > $@
+
+endif # installhdrs
 
 # --------
 
 # Objective-C bindings
 
-DOM%.h : %.idl $(GENERATE_BINDINGS_SCRIPTS) bindings/scripts/CodeGeneratorObjC.pm bindings/objc/PublicDOMInterfaces.h
-	$(GENERATE_BINDINGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC $<
+DOM_BINDINGS_SCRIPTS = $(GENERATE_BINDING_SCRIPTS) bindings/scripts/CodeGeneratorObjC.pm
+DOM%.h : %.idl $(DOM_BINDINGS_SCRIPTS) bindings/objc/PublicDOMInterfaces.h
+	$(call generator_script, $(DOM_BINDINGS_SCRIPTS)) $(IDL_COMMON_ARGS) --defines "$(FEATURE_DEFINES) $(ADDITIONAL_IDL_DEFINES) LANGUAGE_OBJECTIVE_C" --generator ObjC $<
 
 -include $(OBJC_DOM_HEADERS:.h=.dep)
 
 # --------
 
 endif # MACOS
-
-# ------------------------

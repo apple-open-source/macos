@@ -1,5 +1,5 @@
 #!perl -wT
-# $Id: /local/CPAN/Class-Accessor-Grouped/t/manifest.t 1064 2007-12-28T23:18:25.520728Z claco  $
+# $Id: manifest.t 5159 2008-11-18 02:10:02Z claco $
 use strict;
 use warnings;
 
@@ -17,6 +17,6 @@ BEGIN {
 
 ok_manifest({
     exclude => ['/t/var', '/cover_db'],
-    filter  => [qr/\.svn/, qr/cover/, qr/Build(.(PL|bat))?/, qr/_build/, qr/\.DS_Store/],
+    filter  => [qr/\.(svn|git)/, qr/cover/, qr/Build(.(PL|bat))?/, qr/_build/, qr/\.DS_Store/],
     bool    => 'or'
 });

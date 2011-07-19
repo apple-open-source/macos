@@ -1,3 +1,193 @@
+2010-09-02  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotpriv.tcl: Fix bug in ScaleIsometric (division by integers; found by Torsten)
+
+2010-08-18  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Corrected export statement: createPolarplot
+	* plotchart.man: Corrected name of procedure: createPolarplot (found by Torsten Berg)
+
+2010-08-12  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added plotmethod to export
+	* plotconfig.tcl: Implemented plotmethod for customised commands
+	* plotpriv.tcl: Support for customised commands
+	* plotannot.tcl: Added missing anchor to the "dictionary" TextDir
+	  and new method for configuring plaintext annotations
+
+2010-07-15  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Fixed use of step sizes in createIsometricPlot (as found by Andreas)
+	* plotpriv.tcl: Import legend variable in drawing of horizontal bars
+	* plotpriv.tcl: Commented out some unfinished code in scrolling timecharts
+	* plotpriv.tcl: Fixed variable names in drawing label dots in polar plots
+	* plotpriv.tcl: Draw line with correct thickness in legend
+	* pkgIndex.tcl: Changed version to 1.9.2
+
+2010-07-09  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* plotannot.tcl: Made a number of fixes (mistyped variable names,
+	* plotaxis.tcl: unbraced expressions, ...) found by tclchecker.
+	* plotbusiness.tcl: Added a few checker pragmas for bogus warnings.
+	* plotcontour.tcl:
+	* plotpack.tcl:
+	* plotpriv.tcl:
+
+2010-07-06  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotaxis.tcl: Fixing a bug wrt stacked histograms (reported by Torsten Berg)
+	* plotaxis.tcl: Added support for minor tickmarks, ticklength, label offset
+	* plotconfig.tcl: Ditto
+	* plotaxis.tcl: Implemented solution for a bug in vtext method (supplied by Torsten Berg)
+	* plotaxis.tcl: Corrected positioning of vertical text (bug noted by Torsten Berg)
+	* plotchart.tcl: Added method for plotting functions (and several options)
+	* plotpriv.tcl: Added support for line width
+	* pkgIndex.tcl: Changed version Plotchart to 1.9.1
+
+2010-06-21  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added creation method for target diagrams, performance profiles and 3d ribbon plots
+	* plotdemos14.tcl: Added demonstration of so-called target diagram
+	* plotdemos15.tcl: Added demonstration of 3d ribbons (provided by Keith Vetter)
+	* plotdemos16.tcl: Added demonstration of performance profiles
+	* plotchart.man: Documentation added for target diagrams, performance profiles and 3d ribbon plots
+	* plotspecial.tcl: New file for methods that deal with specialised plots
+	* plot3d.tcl: Added ribbon plot method (by Keith Vetter)
+	* pkgIndex.tcl: Changed version Plotchart to 1.9.0
+
+2010-06-08  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Added a guard command to xyplot, this package
+	  requires Tcl 8.5+.
+
+2010-06-06  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* demo.tcl: Added demo program showing code and plot/chart
+	* plotpriv.tcl: Moving DrawVtext to plotaxis.tcl (also checking Tk version)
+	* plotpriv.tcl: Adding option to use darkening gradients
+	* plotpriv.tcl: Enable "exploding" segments in a piechart
+	* plotbind.tcl: Provide a procedure to explode a segment in a piechart
+	* plotaxis.tcl: Adjusted formatting of axis labels - Tcl 8.5 uses a large precision,
+	                leading to labels like 0.09999999 instead of 0.1
+	* plotaxis.tcl: Draw labels in bar charts centred wrt the bars, not the bars and gap (suggestion by Harald Oehlmann)
+	* plotaxis.tcl: Moving the legend interactively via Button-1
+	* scaling.tcl: Added a new scaling procedure: determineScaleFromList
+	* plotchart.tcl: Added this new scaling procedure to the exports
+	* plotchart.man: Describe the new scaling procedure
+	* plotchart.man: Describe the bindplot and bindlast subcommands
+	* plotchart.man: Describe the new option for darkening gradients
+	* plotchart.man: Describe the tags that are used (description of the current status)
+	* plotchart.test: Added tests for the new scaling procedure
+	* pkgIndex.tcl: Changed version Plotchart to 1.8.3 and xyplot to 1.0.1
+	* xyplot.tcl: Updates by Jos DeCoster (adjusted version to 1.0.1)
+	* plotannot.tcl: Support added for darkening gradients
+	* plotdemos13.tcl: Added to inspect the performance for large numbers of data points
+	* editgraph.tcl: Example for editing a data series
+
+
+2010-05-10  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.man: Corrected documentation bug (2999846, thanks to Oliver Bienert)
+
+2009-12-10  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added configuration method for barcharts
+	* plotchart.tcl: Added methods implemented by Michael Baudin for isolines
+	* plotchart.man: Documented this new configuration method and isoline methods
+	* plotpriv.tcl: Implementation of a number of configuration options for barcharts
+	* plotaxis.tcl: Solved bug 2906751 (formatting labels of right axis did not work)
+	* plotcontour.test: Added extra test by Michael Baudin for isoline plots
+	* rosenbrock.tcl: Demo by Michael Baudin of plotting isolines for the Rosenbrock function
+	* pkgIndex.tcl: Changed version to 1.8.2
+
+2009-11-24  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotaxis.tcl: Remove left-over debugging code in FormatNumber (reported by Dave Hanks)
+	* pkgIndex.tcl: Changed version to 1.8.1
+
+2009-11-20  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added interactive commands bindplot and bindlast
+	* plotbind.tcl: Preliminary implementation of the bindplot and bindlast commands
+	* pkgIndex.tcl: Changed version to 1.8.0
+
+2009-11-17  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added log X and log-log plots (patch by Paul Vogel)
+	* plotaxis.tcl: Added support for log X and log-log plots (patch by Paul Vogel)
+	                Corrected drawing of axis labels (patch by Paul Vogel)
+	* plotconfig.tcl: Support for log X and log-log plots (patch by Paul Vogel)
+	* plotpriv.tcl: Support for log X and log-log plots (patch by Paul Vogel)
+	* plotchart.man: Documentation of log-X and log-log plots
+	* pkgIndex.tcl: Changed version to 1.7.1
+
+2009-10-18  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Added wind rose diagrams, added new methods
+	* plotpriv.tcl: Drawing methods for wind rose diagrams
+	* plotpriv.tcl: Drawing bands and label-dots
+	* plotaxis.tcl: Drawing axes for wind rose diagrams
+	* plotchart.man: Documentation of new diagram and new methods
+	* pkgIndex.tcl: Changed version to 1.7.0
+
+2009-08-31  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Corrected version number (1.6.3)
+
+2009-07-14  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotaxis.tcl: Added support for formats like %x to label the axes
+
+2009-03-20  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* plotchart.tcl: Solved issue 2683544 (font size leading to clipped labels)
+	* plotpriv.tcl: Ditto
+	* plotaxis.tcl: Ditto
+	* plotconfig.tcl: Ditto
+	* pkgIndex.tcl: Bumped version number to 1.6.3
+
+2009-03-20  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+	* scaling.tcl: Added special case: very small ranges now clipped to 1.0e-8 (bug #2691870)
+	* plotchart.test: Added test forvery small range, introduced tolerance in matching
+
+2009-02-06  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* plothist.test: Moved to examples/plotchart, renamed to
+	  plothist.tcl. This is actually not a test suite in the standard
+	  form using tcltest, but an example application.
+
+	* plotcontour.test: Added boilerplate to make it more of a test
+	  suite, proper indentation.
+
+2008-02-06 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * plotcontour.tcl:  Commented out one remaining debug puts statement
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	*
+
+2008-01-20 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotpriv.tcl:  Removed spurious puts statements
+        * plotdemos*.tcl: Removed source statement - patch 2521626 (Stuart Cassoff)
+        * plothist.test: Corrected histogram test (same patch)
+
+2008-01-18 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Document the rescale method and the new options to createTimeChart
+        * plotchart.tcl: Implemented new options for createTimeChart and
+                         createGanttChart
+        * plotpriv.tcl:  Correction in label to time line - different position
+                         Smaller filled circle and central position for
+                         asterisk in box plots
+        * pkgIndex.tcl:  Bumped version to 1.6.1
+
+2008-12-16 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotdemo8.tcl: Additional demo script - boxplots
+
+2008-12-15 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * pkgIndex.tcl: Increased version number to 1.6.0
+        * plotgantt.tcl: Corrected a few tags and added reordering to
+                         get scrolling of Gantt charts
+        * plotchart.man: Added description of scrolling behaviour for
+                         timecharts and Gantt charts
+
+2008-12-09 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Added boxplot to the types of plots and charts
+
+2008-12-06 Arjen Markus  <arjenmarkus@users.sourceforge.net>
+        * plotchart.man: Added method box-and-whiskers (suggested by Steve Blinkhorn),
+        * plotchart.tcl: Added method box-and-whiskers, option -boxwidth,
+                         scrolling of time charts and Gantt charts (Dave Hanks)
+        * plotpriv.tcl: Added method box-and-whiskers, scrolling of time charts
+        * plotaxis.tcl: Scrolling of time charts and Gantt charts
+        * plotgantt.tcl: Scrolling of Gantt charts
+
 2008-10-26 Arjen Markus  <arjenmarkus@users.sourceforge.net>
         * plotaxis.tcl: Correct small glitch in drawing the legend (reported by Simon Geard)
 

@@ -1,17 +1,32 @@
 package # hide from PAUSE
     DBIx::Class::CDBICompat::Constructor;
 
+use base qw(DBIx::Class::CDBICompat::ImaDBI);
+
+use Sub::Name();
+
 use strict;
 use warnings;
 
+use Carp;
+
+__PACKAGE__->set_sql(Retrieve => <<'');
+SELECT __ESSENTIAL__
+FROM   __TABLE__
+WHERE  %s
+
 sub add_constructor {
-  my ($class, $meth, $sql) = @_;
-  $class = ref $class if ref $class;
-  no strict 'refs';
-  *{"${class}::${meth}"} =
-    sub {
-      my ($class, @args) = @_;
-      return $class->search_literal($sql, @args);
+    my ($class, $method, $fragment) = @_;
+    return croak("constructors needs a name") unless $method;
+
+    no strict 'refs';
+    my $meth = "$class\::$method";
+    return carp("$method already exists in $class")
+            if *$meth{CODE};
+
+    *$meth = Sub::Name::subname $meth => sub {
+            my $self = shift;
+            $self->sth_to_objects($self->sql_Retrieve($fragment), \@_);
     };
 }
 

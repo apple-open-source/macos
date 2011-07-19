@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2009, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -19,6 +19,7 @@
 
 #if !UCONFIG_NO_COLLATION
 
+#include "unicode/localpointer.h"
 #include "unicode/uchar.h"
 #include "unicode/ustring.h"
 
@@ -88,7 +89,9 @@ void IntlTestCollator::runIndexedTest( int32_t index, UBool exec, const char* &n
       TESTCLASS(14, LotusCollationKoreanTest);
       TESTCLASS(15, StringSearchTest);
       TESTCLASS(16, ContractionTableTest);
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
       TESTCLASS(17, DataDrivenCollatorTest);
+#endif
       TESTCLASS(18, UCAConformanceTest);
       TESTCLASS(19, CollationServiceTest);
       TESTCLASS(20, CollationFinnishTest); // removed by weiv - we have changed Finnish collation
@@ -263,13 +266,12 @@ IntlTestCollator::doTest(Collator* col, const UnicodeString &source, const Unico
     }
 
     UErrorCode status = U_ZERO_ERROR;
-    CollationElementIterator* c = ((RuleBasedCollator *)col)->createCollationElementIterator( source );
+    LocalPointer<CollationElementIterator> c(((RuleBasedCollator *)col)->createCollationElementIterator(source));
     logln("Testing iterating source: "+source);
     backAndForth(*c);
     c->setText(target, status);
     logln("Testing iterating target: "+target);
     backAndForth(*c);
-    delete c;
   }
 }
 
@@ -384,8 +386,10 @@ UnicodeString &IntlTestCollator::prettify(const CollationKey &source, UnicodeStr
 
     for (i = 0; i < byteCount; i += 1)
     {
+        if (i != 0) {
+            target += " ";
+        }
         appendHex(bytes[i], 2, target);
-        target += " ";
     }
 
     target += "]";
@@ -397,7 +401,7 @@ void IntlTestCollator::backAndForth(CollationElementIterator &iter)
 {
     // Run through the iterator forwards and stick it into an array
     int32_t orderLength = 0;
-    Order *orders = getOrders(iter, orderLength);
+    LocalArray<Order> orders(getOrders(iter, orderLength));
     UErrorCode status = U_ZERO_ERROR;
 
     // Now go through it backwards and make sure we get the same values
@@ -409,7 +413,7 @@ void IntlTestCollator::backAndForth(CollationElementIterator &iter)
 
     while ((o = iter.previous(status)) != CollationElementIterator::NULLORDER)
     {
-        int32_t offset = iter.getOffset();
+        /*int32_t offset = */iter.getOffset();
 
         if (index == 0) {
           if(o == 0) {
@@ -434,7 +438,7 @@ void IntlTestCollator::backAndForth(CollationElementIterator &iter)
                     errln("Mismatched order at index %d: 0x%0:8X vs. 0x%0:8X", index,
                     orders[index].order, o);
                 //break;
-                  goto bail;
+                  return;
                 }
             }
         }
@@ -444,7 +448,7 @@ void IntlTestCollator::backAndForth(CollationElementIterator &iter)
           errln("Mismatched offset at index %d: %d vs. %d", index,
             orders[index].offset, offset);
        //break;
-         goto bail;
+         return;
         }
 #endif
 
@@ -483,9 +487,6 @@ void IntlTestCollator::backAndForth(CollationElementIterator &iter)
         }
         errln("");
     }
-
-bail:
-    delete[] orders;
 }
 
 
@@ -497,7 +498,7 @@ IntlTestCollator::Order *IntlTestCollator::getOrders(CollationElementIterator &i
 {
     int32_t maxSize = 100;
     int32_t size = 0;
-    Order *orders = new Order[maxSize];
+    LocalArray<Order> orders(new Order[maxSize]);
     UErrorCode status = U_ZERO_ERROR;
     int32_t offset = iter.getOffset();
 
@@ -509,9 +510,8 @@ IntlTestCollator::Order *IntlTestCollator::getOrders(CollationElementIterator &i
             maxSize *= 2;
             Order *temp = new Order[maxSize];
 
-            uprv_memcpy(temp, orders, size * sizeof(Order));
-            delete[] orders;
-            orders = temp;
+            uprv_memcpy(temp, orders.getAlias(), size * sizeof(Order));
+            orders.adoptInstead(temp);
         }
 
         orders[size].order  = order;
@@ -525,13 +525,12 @@ IntlTestCollator::Order *IntlTestCollator::getOrders(CollationElementIterator &i
     {
         Order *temp = new Order[size];
 
-        uprv_memcpy(temp, orders, size * sizeof(Order));
-        delete[] orders;
-        orders = temp;
+        uprv_memcpy(temp, orders.getAlias(), size * sizeof(Order));
+        orders.adoptInstead(temp);
     }
 
     orderLength = size;
-    return orders;
+    return orders.orphan();
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

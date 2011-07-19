@@ -26,30 +26,53 @@
 #ifndef CanvasRenderingContext_h
 #define CanvasRenderingContext_h
 
+#include "GraphicsLayer.h"
+#include "HTMLCanvasElement.h"
+#include <wtf/HashSet.h>
 #include <wtf/Noncopyable.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-    class CanvasObject;
-    class HTMLCanvasElement;
+class CanvasPattern;
+class HTMLCanvasElement;
+class HTMLImageElement;
+class HTMLVideoElement;
+class KURL;
+class WebGLObject;
 
-    class CanvasRenderingContext : public Noncopyable {
-    public:
-        CanvasRenderingContext(HTMLCanvasElement*);
-        virtual ~CanvasRenderingContext() { }
-        
-        // Ref and deref the m_canvas
-        void ref();
-        void deref();
-        
-        HTMLCanvasElement* canvas() const { return m_canvas; }
-        
-        virtual bool is2d() const { return false; }
-        virtual bool is3d() const { return false; }
+class CanvasRenderingContext {
+    WTF_MAKE_NONCOPYABLE(CanvasRenderingContext); WTF_MAKE_FAST_ALLOCATED;
+public:
+    virtual ~CanvasRenderingContext() { }
 
-    private:
-        HTMLCanvasElement* m_canvas;
-    };
+    void ref() { m_canvas->ref(); }
+    void deref() { m_canvas->deref(); }
+    HTMLCanvasElement* canvas() const { return m_canvas; }
+
+    virtual bool is2d() const { return false; }
+    virtual bool is3d() const { return false; }
+    virtual bool isAccelerated() const { return false; }
+
+    virtual void paintRenderingResultsToCanvas() {}
+    virtual bool paintsIntoCanvasBuffer() const { return true; }
+
+#if USE(ACCELERATED_COMPOSITING)
+    virtual PlatformLayer* platformLayer() const { return 0; }
+#endif
+
+protected:
+    CanvasRenderingContext(HTMLCanvasElement*);
+    void checkOrigin(const CanvasPattern*);
+    void checkOrigin(const HTMLCanvasElement*);
+    void checkOrigin(const HTMLImageElement*);
+    void checkOrigin(const HTMLVideoElement*);
+    void checkOrigin(const KURL&);
+
+private:
+    HTMLCanvasElement* m_canvas;
+    HashSet<String> m_cleanOrigins;
+};
 
 } // namespace WebCore
 

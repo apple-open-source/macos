@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2008
+ * Copyright (c) 1996, 1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -27,10 +27,6 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
-#ifdef HAVE_SYS_BSDTYPES_H
-# include <sys/bsdtypes.h>
-#endif /* HAVE_SYS_BSDTYPES_H */
-#include <sys/time.h>
 #include <stdio.h>
 #ifdef STDC_HEADERS
 # include <stdlib.h>
@@ -45,11 +41,10 @@
 #  include <memory.h>
 # endif
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -57,64 +52,13 @@
 #include <errno.h>
 #include <signal.h>
 #include <fcntl.h>
-#ifdef HAVE_TERMIOS_H
-# include <termios.h>
-#else
-# ifdef HAVE_TERMIO_H
-#  include <termio.h>
-# else
-#  include <sgtty.h>
-#  include <sys/ioctl.h>
-# endif /* HAVE_TERMIO_H */
-#endif /* HAVE_TERMIOS_H */
 
 #include "sudo.h"
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: tgetpass.c,v 1.126 2008/12/09 20:55:49 millert Exp $";
-#endif /* lint */
-
-#ifndef TCSASOFT
-# define TCSASOFT	0
-#endif
-#ifndef ECHONL
-# define ECHONL	0
-#endif
-
-#ifndef _POSIX_VDISABLE
-# ifdef VDISABLE
-#  define _POSIX_VDISABLE	VDISABLE
-# else
-#  define _POSIX_VDISABLE	0
-# endif
-#endif
-
-/*
- * Compat macros for non-termios systems.
- */
-#ifndef HAVE_TERMIOS_H
-# ifdef HAVE_TERMIO_H
-#  undef termios
-#  define termios		termio
-#  define tcgetattr(f, t)	ioctl(f, TCGETA, t)
-#  define tcsetattr(f, a, t)	ioctl(f, a, t)
-#  undef TCSAFLUSH
-#  define TCSAFLUSH		TCSETAF
-# else
-#  undef termios
-#  define termios		sgttyb
-#  define c_lflag		sg_flags
-#  define tcgetattr(f, t)	ioctl(f, TIOCGETP, t)
-#  define tcsetattr(f, a, t)	ioctl(f, a, t)
-#  undef TCSAFLUSH
-#  define TCSAFLUSH		TIOCSETP
-# endif /* HAVE_TERMIO_H */
-#endif /* HAVE_TERMIOS_H */
-
-static volatile sig_atomic_t signo;
+static volatile sig_atomic_t signo[NSIG];
 
 static void handler __P((int));
-static char *getln __P((int, char *, size_t));
+static char *getln __P((int, char *, size_t, int));
 static char *sudo_askpass __P((const char *));
 
 /*
@@ -127,11 +71,10 @@ tgetpass(prompt, timeout, flags)
     int flags;
 {
     sigaction_t sa, savealrm, saveint, savehup, savequit, saveterm;
-    sigaction_t savetstp, savettin, savettou;
-    struct termios term, oterm;
+    sigaction_t savetstp, savettin, savettou, savepipe;
     char *pass;
     static char buf[SUDO_PASS_MAX + 1];
-    int input, output, save_errno;
+    int i, input, output, save_errno, neednl = 0, need_restart;
 
     (void) fflush(stdout);
 
@@ -140,14 +83,27 @@ tgetpass(prompt, timeout, flags)
 	return(sudo_askpass(prompt));
 
 restart:
-    signo = 0;
+    for (i = 0; i < NSIG; i++)
+	signo[i] = 0;
     pass = NULL;
     save_errno = 0;
+    need_restart = 0;
     /* Open /dev/tty for reading/writing if possible else use stdin/stderr. */
     if (ISSET(flags, TGP_STDIN) ||
 	(input = output = open(_PATH_TTY, O_RDWR|O_NOCTTY)) == -1) {
 	input = STDIN_FILENO;
 	output = STDERR_FILENO;
+    }
+
+    /*
+     * If we are using a tty but are not the foreground pgrp this will
+     * generate SIGTTOU, so do it *before* installing the signal handlers.
+     */
+    if (!ISSET(flags, TGP_ECHO)) {
+	if (def_pwfeedback)
+	    neednl = term_cbreak(input);
+	else
+	    neednl = term_noecho(input);
     }
 
     /*
@@ -167,41 +123,25 @@ restart:
     (void) sigaction(SIGTTIN, &sa, &savettin);
     (void) sigaction(SIGTTOU, &sa, &savettou);
 
-    /* Turn echo off/on as specified by flags.  */
-    if (tcgetattr(input, &oterm) == 0) {
-	(void) memcpy(&term, &oterm, sizeof(term));
-	if (!ISSET(flags, TGP_ECHO))
-	    CLR(term.c_lflag, ECHO|ECHONL);
-#ifdef VSTATUS
-	term.c_cc[VSTATUS] = _POSIX_VDISABLE;
-#endif
-	(void) tcsetattr(input, TCSAFLUSH|TCSASOFT, &term);
-    } else {
-	zero_bytes(&term, sizeof(term));
-	zero_bytes(&oterm, sizeof(oterm));
-    }
+    /* Ignore SIGPIPE in case stdin is a pipe and TGP_STDIN is set */
+    sa.sa_handler = SIG_IGN;
+    (void) sigaction(SIGPIPE, &sa, &savepipe);
 
-    /* No output if we are already backgrounded. */
-    if (signo != SIGTTOU && signo != SIGTTIN) {
-	if (prompt)
-	    (void) write(output, prompt, strlen(prompt));
+    if (prompt)
+	(void) write(output, prompt, strlen(prompt));
 
-	if (timeout > 0)
-	    alarm(timeout);
-	pass = getln(input, buf, sizeof(buf));
-	alarm(0);
-	save_errno = errno;
+    if (timeout > 0)
+	alarm(timeout);
+    pass = getln(input, buf, sizeof(buf), def_pwfeedback);
+    alarm(0);
+    save_errno = errno;
 
-	if (!ISSET(term.c_lflag, ECHO))
-	    (void) write(output, "\n", 1);
-    }
+    if (neednl || pass == NULL)
+	(void) write(output, "\n", 1);
 
     /* Restore old tty settings and signals. */
-    if (memcmp(&term, &oterm, sizeof(term)) != 0) {
-	while (tcsetattr(input, TCSAFLUSH|TCSASOFT, &oterm) == -1 &&
-	    errno == EINTR)
-	    continue;
-    }
+    if (!ISSET(flags, TGP_ECHO))
+	term_restore(input, 1);
     (void) sigaction(SIGALRM, &savealrm, NULL);
     (void) sigaction(SIGINT, &saveint, NULL);
     (void) sigaction(SIGHUP, &savehup, NULL);
@@ -210,6 +150,7 @@ restart:
     (void) sigaction(SIGTSTP, &savetstp, NULL);
     (void) sigaction(SIGTTIN, &savettin, NULL);
     (void) sigaction(SIGTTOU, &savettou, NULL);
+    (void) sigaction(SIGTTOU, &savepipe, NULL);
     if (input != STDIN_FILENO)
 	(void) close(input);
 
@@ -217,15 +158,20 @@ restart:
      * If we were interrupted by a signal, resend it to ourselves
      * now that we have restored the signal handlers.
      */
-    if (signo) {
-	kill(getpid(), signo);
-	switch (signo) {
-	    case SIGTSTP:
-	    case SIGTTIN:
-	    case SIGTTOU:
-		goto restart;
+    for (i = 0; i < NSIG; i++) {
+	if (signo[i]) {
+	    kill(getpid(), i);
+	    switch (i) {
+		case SIGTSTP:
+		case SIGTTIN:
+		case SIGTTOU:
+		    need_restart = 1;
+		    break;
+	    }
 	}
     }
+    if (need_restart)
+	goto restart;
 
     if (save_errno)
 	errno = save_errno;
@@ -252,6 +198,10 @@ sudo_askpass(prompt)
 
     if (pid == 0) {
 	/* child, point stdout to output side of the pipe and exec askpass */
+	if (dup2(pfd[1], STDOUT_FILENO) == -1) {
+	    warning("dup2");
+	    _exit(255);
+	}
 	(void) dup2(pfd[1], STDOUT_FILENO);
 	set_perms(PERM_FULL_USER);
 	closefrom(STDERR_FILENO + 1);
@@ -263,41 +213,70 @@ sudo_askpass(prompt)
     /* Ignore SIGPIPE in case child exits prematurely */
     zero_bytes(&sa, sizeof(sa));
     sigemptyset(&sa.sa_mask);
-    sa.sa_flags = 0;
+    sa.sa_flags = SA_INTERRUPT;
     sa.sa_handler = SIG_IGN;
     (void) sigaction(SIGPIPE, &sa, &saved_sa_pipe);
 
     /* Get response from child (askpass) and restore SIGPIPE handler */
     (void) close(pfd[1]);
-    pass = getln(pfd[0], buf, sizeof(buf));
+    pass = getln(pfd[0], buf, sizeof(buf), 0);
     (void) close(pfd[0]);
     (void) sigaction(SIGPIPE, &saved_sa_pipe, NULL);
 
     return(pass);
 }
 
+extern int term_erase, term_kill;
+
 static char *
-getln(fd, buf, bufsiz)
+getln(fd, buf, bufsiz, feedback)
     int fd;
     char *buf;
     size_t bufsiz;
+    int feedback;
 {
+    size_t left = bufsiz;
     ssize_t nr = -1;
     char *cp = buf;
     char c = '\0';
 
-    if (bufsiz == 0) {
+    if (left == 0) {
 	errno = EINVAL;
 	return(NULL);			/* sanity */
     }
 
-    while (--bufsiz) {
+    while (--left) {
 	nr = read(fd, &c, 1);
 	if (nr != 1 || c == '\n' || c == '\r')
 	    break;
+	if (feedback) {
+	    if (c == term_kill) {
+		while (cp > buf) {
+		    (void) write(fd, "\b \b", 3);
+		    --cp;
+		}
+		left = bufsiz;
+		continue;
+	    } else if (c == term_erase) {
+		if (cp > buf) {
+		    (void) write(fd, "\b \b", 3);
+		    --cp;
+		    left++;
+		}
+		continue;
+	    }
+	    (void) write(fd, "*", 1);
+	}
 	*cp++ = c;
     }
     *cp = '\0';
+    if (feedback) {
+	/* erase stars */
+	while (cp > buf) {
+	    (void) write(fd, "\b \b", 3);
+	    --cp;
+	}
+    }
 
     return(nr == 1 ? buf : NULL);
 }
@@ -307,7 +286,7 @@ handler(s)
     int s;
 {
     if (s != SIGALRM)
-	signo = s;
+	signo[s] = 1;
 }
 
 int

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2006, 2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,18 +36,18 @@ enum debug_message_type {
 	d_trim		=	0x0040	/* TRIM (discard/unmap) related messages */
 };
 
-/* Current debug level of fsck_hfs for printing messages via dprintf */
+/* Current debug level of fsck_hfs for printing messages via DPRINTF */
 extern unsigned long cur_debug_level;
 
-/* Function: dprintf
+/* Function: DPRINTF
  *
  * Description: Debug function similar to printf except the first parameter
- * which indicates the type of message to be printed by dprintf. Based on 
+ * which indicates the type of message to be printed by DPRINTF. Based on 
  * current debug level and the type of message, the function decides 
  * whether to print the message or not.
  *
  * Each unique message type has a bit assigned to it.  The message type 
- * passed to dprintf can be one or combination (OR-ed value) of pre-defined 
+ * passed to DPRINTF can be one or combination (OR-ed value) of pre-defined 
  * debug message types.  Only the messages whose type have one or more similar
  * bits set in comparison with current global debug level are printed. 
  *
@@ -67,6 +67,6 @@ extern unsigned long cur_debug_level;
  * Output:
  *	Nothing
  */
-extern void dprintf (unsigned long message_type, char *format, ...);
+extern void DPRINTF (unsigned long message_type, char *format, ...);
 
 #endif /* __FSCK_DEBUG__ */

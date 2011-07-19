@@ -34,7 +34,7 @@
  *  Damien Sauveron <damien.sauveron@labri.fr>
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: winscard_svc.c 2377 2007-02-05 13:13:56Z rousseau $
+ * $Id: winscard_svc.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**
@@ -342,8 +342,12 @@ LONG MSGFunctionDemarshall(psharedSegmentMsg msgStruct, DWORD dwContextIndex, ui
 	case SCARD_ESTABLISH_CONTEXT:
 		esStr = ((establish_struct *) msgStruct->data);
 		ntohlEstablishStruct(esStr);
-		esStr->rv = SCardEstablishContext(esStr->dwScope, 0, 0,
-			(int32_t *)&esStr->phContext);
+		{
+			SCARDCONTEXT hContext;
+			hContext = esStr->phContext;
+			esStr->rv = SCardEstablishContext(esStr->dwScope, 0, 0, &hContext);
+			esStr->phContext = hContext;
+		}
 
 		if (esStr->rv == SCARD_S_SUCCESS)
 			esStr->rv =

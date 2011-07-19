@@ -1,0 +1,17 @@
+-- $Id$
+
+GSS-API DEFINITIONS ::= BEGIN
+
+IMPORTS heim_any_set FROM heim;
+
+GSSAPIContextToken ::= [APPLICATION 0] IMPLICIT SEQUENCE {
+	thisMech OBJECT IDENTIFIER,
+	innerContextToken heim_any_set
+}
+
+IAKERB-HEADER ::= SEQUENCE {
+	target-realm	[1] UTF8String,
+	cookie		[2] OCTET STRING OPTIONAL
+}
+
+END

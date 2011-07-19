@@ -1,0 +1,89 @@
+use strict;
+use File::Path; # heh
+use Getopt::Std;
+
+die "Not running as root (uid=$<)\n" if $<;
+
+getopts( 'u:', \my %opt );
+
+if (!exists $opt{u}) {
+    die "You must specify a user (or uid) with the -u switch\n";
+}
+my ($uid, $gid) = $opt{u} =~ /\D/
+    ? (getpwnam($opt{u}))[2,3]
+    : (getpwuid($opt{u}))[2,3]
+;
+
+rmtree('EXTRA') if -d 'EXTRA';
+create_dir('EXTRA', 0755);
+
+# directory EXTRA/1 could be deleted by a
+# non-privileged account, including one file belonging to root.
+create_dir(  'EXTRA/1',   0777, $uid, $gid );
+create_file( 'EXTRA/1/a', 0600, $uid, $gid );
+create_file( 'EXTRA/1/b', 0400, $uid, $gid );
+
+# contents of EXTRA/2 can be removed by a
+# non-privileged account.
+create_dir(  'EXTRA/2',   0700, $uid, $gid );
+create_file( 'EXTRA/2/a', 0066, $<,   $(   );
+create_file( 'EXTRA/2/b', 0400, $<,   $(   );
+create_file( 'EXTRA/2/c', 0000, $uid, $gid );
+
+# directory EXTRA/3 contains sundry files
+create_dir(  'EXTRA/3',      0700, $uid, $gid );
+create_file( 'EXTRA/3/a',    0400, $<,   $(   );
+create_file( 'EXTRA/3/b',    0400, $uid, $gid );
+
+# directory EXTRA/4 is a symlink to EXTRA/3
+symlink './3',   'EXTRA/4' or die "symlink: $!";
+
+create_dir(  'EXTRA/3/M',    0700, $uid, $gid );
+create_file( 'EXTRA/3/M/xx', 0400, $uid, $gid );
+create_file( 'EXTRA/3/M/yy', 0400, $uid, $gid );
+create_dir(  'EXTRA/3/S',    0000, $<,   $( );
+create_dir(  'EXTRA/3/T',    0000, $<,   $( );
+create_dir(  'EXTRA/3/U',    0000, $<,   $( );
+create_dir(  'EXTRA/3/V',    0700, $uid, $gid );
+symlink './M', 'EXTRA/3/N' or die "symlink: $!";
+
+# inaccessible child dir
+create_dir(  'EXTRA/5',    0700, $<,   $( );
+create_file( 'EXTRA/5/xx', 0700, $<,   $( );
+create_file( 'EXTRA/5/yy', 0700, $<,   $( );
+chmod( 0200, 'EXTRA/5' );
+
+sub create_dir {
+    my $dir  = shift;
+    my $mask = shift;
+    my $uid  = shift;
+    my $gid  = shift;
+    if (!-d $dir) {
+        mkdir $dir, $mask or die "mkdir $dir: $!\n";
+    }
+    if (defined $uid and defined $gid) {
+        chown $uid, $gid, $dir
+            or die "failed to chown dir $dir to ($uid,$gid)\n"
+    }
+}
+
+sub create_file {
+    my $file = shift;
+    my $mask = shift;
+    my $uid  = shift;
+    my $gid  = shift;
+    open OUT, "> $file" or die "Cannot open $file for output: $!\n";
+    print OUT <<EOM;
+Test file for module File::Path
+If you can read this, feel free to delete this file.
+EOM
+    close OUT;
+    if ($uid and defined $gid) {
+        chown $uid, $gid, $file
+            or die "failed to chown $file to ($uid,$gid)\n"
+    }
+    if (defined $mask) {
+        chmod $mask, $file
+            or die "failed to chmod $file to $mask: $!\n";
+    }
+}

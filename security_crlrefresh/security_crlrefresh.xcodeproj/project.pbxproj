@@ -140,12 +140,13 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36090;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -180,10 +181,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36090;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -218,10 +220,11 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36090;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";

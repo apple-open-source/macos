@@ -1,0 +1,75 @@
+Upgrading Dovecot v1.2 to v2.0
+==============================
+
+A lot of settings have changed. Dovecot v2.0 can still use most of the v1.x
+configuration files, but it logs a lot of warnings at startup. A quick and easy
+way to convert your old config file to v2.0 format is:
+
+---%<-------------------------------------------------------------------------
+doveconf -n -c dovecot-1.conf > dovecot-2.conf
+---%<-------------------------------------------------------------------------
+
+This command logs a warning about each obsolete setting it converts to the new
+format. You can either go through the warnings to figure out what changes
+exactly were done, or you can simply trust doveconf and replace your old config
+with the newly generated one.
+
+Once running v2.0, it's safe to downgrade to v1.2.5 or newer. Older versions
+don't understand some of the changes to index files and will log errors.
+
+Other important changes:
+
+ * Dovecot uses two system users for internal purposes now by default:
+   "dovenull" and "dovecot". You need to create the "dovenull" user or change
+   'default_login_user' setting. "dovenull" user is used by completely
+   untrustworthy processes, while "dovecot" user is used for slightly more
+   trusted processes.
+    * If you want to be using something else than "dovecot" as the other user,
+      you need to change 'default_internal_user' setting.
+    * Just like with "dovecot" user, "dovenull" doesn't need a password, home
+      directory or anything else (but it's good to give it its own private
+      "dovenull" group).
+ * no more convert plugin, use <dsync> [Tools.Dsync.txt] instead
+ * no more expire-tool, use <doveadm expunge> [Plugins.Expire.txt] instead.
+   also expire configuration is different.
+ * <Post-login scripts are configured differently> [PostLoginScripting.txt] and
+   need to be modified
+ * <Quota warnings are configured differently> [Quota.Configuration.txt] and
+   the script may need to be modified (most environment settings like $USER are
+   gone)
+ * Global ACL filenames now require namespace prefix (e.g. if you use "INBOX."
+   prefix,'/etc/acls/foo' needs to be renamed to '/etc/acls/INBOX.foo'
+ * Maildir: Permissions for newly created mail files are no longer copied from
+   dovecot-shared file, but instead from the mail directory (e.g. for "foo"
+   mailbox, they're taken from '~/Maildir/.foo' directory)
+ * dbox: v2.0 format is slightly different, but backwards compatible. The main
+   problem is that v2.0 no longer supports maildir-dbox hybrid resulting from
+   "fast Maildir migration". If you have any Maildir files in your dbox, you
+   need to convert them somehow (some examples
+   [http://dovecot.org/list/dovecot/2010-September/053012.html]). You might
+   also consider using <dsync> [Tools.Dsync.txt] to get rid of the old unused
+   metadata in your dbox files.
+ * Pre-login and post-login CAPABILITY reply is now different. Dovecot expects
+   clients to recognize new automatically sent capabilities.
+   [http://dovecot.org/list/dovecot/2010-April/048147.html] This should work
+   with all commonly used clients, but some rarely used clients might have
+   problems. Either get the client fixed, or set 'imap_capability' manually.
+ * ManageSieve protocol [http://tools.ietf.org/html/rfc5804] was assigned an
+   official port by IANA: 4190. This is used by <Pigeonhole.txt> by default
+   now. If you want to listen also on the old 2000 port, see the
+   <Pigeonhole.ManageSieve.Configuration.txt> example.
+ * 'dovecot --exec-mail imap' has been replaced by simply running "imap"
+   binary. You can also use "imap -u<username>" to access other users' mails
+   more easily.
+
+LDA
+---
+
+ * deliver binary was renamed to dovecot-lda (but a symlink still exists for
+   now)
+ * -n parameter was replaced by lda_mailbox_autocreate setting. The default
+   also changed to "no".
+ * -s parameter was replaced by lda_mailbox_autosubscribe setting. The default
+   is "no", as before.
+
+(This file was created from the wiki on 2011-05-11 04:42)

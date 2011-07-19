@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>EnableTransactions</key>
+	<true/>
+	<key>KeepAlive</key>
+	<dict>
+		<key>PathState</key>
+		<dict>
+			<key>/private/var/mobile/Library/Preferences/ntp.conf</key>
+			<true/>
+		</dict>
+	</dict>
+	<key>Label</key>
+	<string>org.ntp.ntpd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>/usr/sbin/ntpd</string>
+		<string>-n</string>
+		<string>-g</string>
+		<string>-c</string>
+		<string>/private/etc/ntp-restrict.conf</string>
+		<string>-f</string>
+		<string>/private/var/mobile/Library/Preferences/ntp.drift</string>
+	</array>
+	<key>LimitLoadToHardware</key>
+	<dict>
+		<key>machine</key>
+		<array>
+			<string>AppleTV2,1</string>
+		</array>
+	</dict>
+	<key>SHAuthorizationRight</key>
+	<string>system.preferences</string>
+</dict>
+</plist>

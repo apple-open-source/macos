@@ -1,5 +1,5 @@
-# $Id: format_interval.t,v 1.1 2005/03/16 16:50:40 cfaerber Exp $
-use Test::More tests => 3;
+# $Id: format_interval.t 3403 2006-03-31 22:04:06Z lestrrat $
+use Test::More tests => 4;
 use DateTime 0.10;
 use DateTime::Duration;
 use DateTime::Format::Pg 0.02;
@@ -17,6 +17,10 @@ use DateTime::Format::Pg 0.02;
     hours     => 1,
     minutes   => 61,
     seconds   => 61, },
+
+  '@ 1 months 0.000003 seconds' => {
+    months      => 1,
+    nanoseconds => 3000, },
 );
 
 foreach my $result (keys %tests) {

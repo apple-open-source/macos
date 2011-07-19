@@ -28,6 +28,7 @@ NULL=nul
 CPP=cl.exe
 MTL=midl.exe
 RSC=rc.exe
+LIBXML=../../../../libxml2-2.7.3/win32/bin.msvc/libxml2.lib
 
 !IF  "$(CFG)" == "libisc - Win32 Release"
 _VC_MANIFEST_INC=0
@@ -115,6 +116,8 @@ ALL : "..\..\..\Build\Release\libisc.dll"
 CLEAN :
 	-@erase "$(INTDIR)\app.obj"
 	-@erase "$(INTDIR)\assertions.obj"
+	-@erase "$(INTDIR)\backtrace.obj"
+	-@erase "$(INTDIR)\backtrace-emptytbl.obj"
 	-@erase "$(INTDIR)\base32.obj"
 	-@erase "$(INTDIR)\base64.obj"
 	-@erase "$(INTDIR)\bitstring.obj"
@@ -174,6 +177,7 @@ CLEAN :
 	-@erase "$(INTDIR)\sha2.obj"
 	-@erase "$(INTDIR)\sockaddr.obj"
 	-@erase "$(INTDIR)\socket.obj"
+	-@erase "$(INTDIR)\stats.obj"
 	-@erase "$(INTDIR)\stdio.obj"
 	-@erase "$(INTDIR)\stdtime.obj"
 	-@erase "$(INTDIR)\strerror.obj"
@@ -196,14 +200,14 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "./" /I "../../../" /I "include" /I "../include" /I "../../../lib/isc/noatomic/include" /I "win32" /I "../../isccfg/include" /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
+CPP_PROJ=/nologo /MD /W3 /GX /O2 /I "./" /I "../../../" /I "include" /I "../include" /I "../../../lib/isc/noatomic/include" /I "win32" /I "../../isccfg/include" /I "../../../../libxml2-2.7.3/include" /D "BIND9" /D "WIN32" /D "NDEBUG" /D "__STDC__" /D "_WINDOWS" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /c 
 MTL_PROJ=/nologo /D "NDEBUG" /mktyplib203 /win32 
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\libisc.bsc" 
 BSC32_SBRS= \
 	
 LINK32=link.exe
-LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib /nologo /dll /incremental:no /pdb:"$(OUTDIR)\libisc.pdb" /machine:I386 /def:".\libisc.def" /out:"../../../Build/Release/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" 
+LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib $(LIBXML) /nologo /dll /incremental:no /pdb:"$(OUTDIR)\libisc.pdb" /machine:I386 /def:".\libisc.def" /out:"../../../Build/Release/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" 
 DEF_FILE= \
 	".\libisc.def"
 LINK32_OBJS= \
@@ -234,6 +238,8 @@ LINK32_OBJS= \
 	"$(INTDIR)\version.obj" \
 	"$(INTDIR)\win32os.obj" \
 	"$(INTDIR)\assertions.obj" \
+	"$(INTDIR)\backtrace.obj" \
+	"$(INTDIR)\backtrace-emptytbl.obj" \
 	"$(INTDIR)\base32.obj" \
 	"$(INTDIR)\base64.obj" \
 	"$(INTDIR)\bitstring.obj" \
@@ -273,6 +279,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\sha1.obj" \
 	"$(INTDIR)\sha2.obj" \
 	"$(INTDIR)\sockaddr.obj" \
+	"$(INTDIR)\stats.obj" \
 	"$(INTDIR)\string.obj" \
 	"$(INTDIR)\symtab.obj" \
 	"$(INTDIR)\task.obj" \
@@ -304,6 +311,10 @@ CLEAN :
 	-@erase "$(INTDIR)\app.sbr"
 	-@erase "$(INTDIR)\assertions.obj"
 	-@erase "$(INTDIR)\assertions.sbr"
+	-@erase "$(INTDIR)\backtrace.obj"
+	-@erase "$(INTDIR)\backtrace-emptytbl.obj"
+	-@erase "$(INTDIR)\backtrace.sbr"
+	-@erase "$(INTDIR)\backtrace-emptytbl.sbr"
 	-@erase "$(INTDIR)\base32.obj"
 	-@erase "$(INTDIR)\base32.sbr"
 	-@erase "$(INTDIR)\base64.obj"
@@ -422,6 +433,8 @@ CLEAN :
 	-@erase "$(INTDIR)\sockaddr.sbr"
 	-@erase "$(INTDIR)\socket.obj"
 	-@erase "$(INTDIR)\socket.sbr"
+	-@erase "$(INTDIR)\stats.obj"
+	-@erase "$(INTDIR)\stats.sbr"
 	-@erase "$(INTDIR)\stdio.obj"
 	-@erase "$(INTDIR)\stdio.sbr"
 	-@erase "$(INTDIR)\stdtime.obj"
@@ -462,7 +475,7 @@ CLEAN :
 "$(OUTDIR)" :
     if not exist "$(OUTDIR)/$(NULL)" mkdir "$(OUTDIR)"
 
-CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "./" /I "../../../" /I "include" /I "../include" /I "../../../lib/isc/noatomic/include" /I "win32" /I "../../isccfg/include" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "__STDC__" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /FR"$(INTDIR)\\" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
+CPP_PROJ=/nologo /MDd /W3 /Gm /GX /ZI /Od /I "./" /I "../../../" /I "include" /I "../include" /I "../../../lib/isc/noatomic/include" /I "win32" /I "../../isccfg/include" /I "../../../../libxml2-2.7.3/include" /D "BIND9" /D "WIN32" /D "_DEBUG" /D "_WINDOWS" /D "__STDC__" /D "_MBCS" /D "_USRDLL" /D "LIBISC_EXPORTS" /FR"$(INTDIR)\\" /Fp"$(INTDIR)\libisc.pch" /YX /Fo"$(INTDIR)\\" /Fd"$(INTDIR)\\" /FD /GZ /c 
 MTL_PROJ=/nologo /D "_DEBUG" /mktyplib203 /win32 
 BSC32=bscmake.exe
 BSC32_FLAGS=/nologo /o"$(OUTDIR)\libisc.bsc" 
@@ -494,6 +507,8 @@ BSC32_SBRS= \
 	"$(INTDIR)\version.sbr" \
 	"$(INTDIR)\win32os.sbr" \
 	"$(INTDIR)\assertions.sbr" \
+	"$(INTDIR)\backtrace.sbr" \
+	"$(INTDIR)\backtrace-emptytbl.sbr" \
 	"$(INTDIR)\base32.sbr" \
 	"$(INTDIR)\base64.sbr" \
 	"$(INTDIR)\bitstring.sbr" \
@@ -533,6 +548,7 @@ BSC32_SBRS= \
 	"$(INTDIR)\sha1.sbr" \
 	"$(INTDIR)\sha2.sbr" \
 	"$(INTDIR)\sockaddr.sbr" \
+	"$(INTDIR)\stats.sbr" \
 	"$(INTDIR)\string.sbr" \
 	"$(INTDIR)\symtab.sbr" \
 	"$(INTDIR)\task.sbr" \
@@ -548,7 +564,7 @@ BSC32_SBRS= \
 <<
 
 LINK32=link.exe
-LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\libisc.pdb" /map:"$(INTDIR)\libisc.map" /debug /machine:I386 /def:".\libisc.def" /out:"../../../Build/Debug/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" /pdbtype:sept 
+LINK32_FLAGS=user32.lib advapi32.lib ws2_32.lib $(LIBXML) /nologo /dll /incremental:yes /pdb:"$(OUTDIR)\libisc.pdb" /map:"$(INTDIR)\libisc.map" /debug /machine:I386 /def:".\libisc.def" /out:"../../../Build/Debug/libisc.dll" /implib:"$(OUTDIR)\libisc.lib" /pdbtype:sept 
 DEF_FILE= \
 	".\libisc.def"
 LINK32_OBJS= \
@@ -579,6 +595,8 @@ LINK32_OBJS= \
 	"$(INTDIR)\version.obj" \
 	"$(INTDIR)\win32os.obj" \
 	"$(INTDIR)\assertions.obj" \
+	"$(INTDIR)\backtrace.obj" \
+	"$(INTDIR)\backtrace-emptytbl.obj" \
 	"$(INTDIR)\base32.obj" \
 	"$(INTDIR)\base64.obj" \
 	"$(INTDIR)\bitstring.obj" \
@@ -618,6 +636,7 @@ LINK32_OBJS= \
 	"$(INTDIR)\sha1.obj" \
 	"$(INTDIR)\sha2.obj" \
 	"$(INTDIR)\sockaddr.obj" \
+	"$(INTDIR)\stats.obj" \
 	"$(INTDIR)\string.obj" \
 	"$(INTDIR)\symtab.obj" \
 	"$(INTDIR)\task.obj" \
@@ -1090,6 +1109,42 @@ SOURCE=..\assertions.c
 
 
 "$(INTDIR)\assertions.obj"	"$(INTDIR)\assertions.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\backtrace.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\backtrace.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\backtrace.obj"	"$(INTDIR)\backtrace.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\backtrace-emptytbl.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\backtrace-emptytbl.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\backtrace-emptytbl.obj"	"$(INTDIR)\backtrace-emptytbl.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 
@@ -1864,6 +1919,24 @@ SOURCE=..\sockaddr.c
 
 
 "$(INTDIR)\sockaddr.obj"	"$(INTDIR)\sockaddr.sbr" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ENDIF 
+
+SOURCE=..\stats.c
+
+!IF  "$(CFG)" == "libisc - Win32 Release"
+
+
+"$(INTDIR)\stats.obj" : $(SOURCE) "$(INTDIR)"
+	$(CPP) $(CPP_PROJ) $(SOURCE)
+
+
+!ELSEIF  "$(CFG)" == "libisc - Win32 Debug"
+
+
+"$(INTDIR)\stats.obj"	"$(INTDIR)\stats.sbr" : $(SOURCE) "$(INTDIR)"
 	$(CPP) $(CPP_PROJ) $(SOURCE)
 
 

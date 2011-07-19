@@ -80,6 +80,9 @@ static struct callrpc_private {
 
 int
 callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
+	int prognum;
+	int versnum;
+	int procnum;
 	char *host;
 	xdrproc_t inproc, outproc;
 	char *in, *out;
@@ -121,10 +124,12 @@ callrpc(host, prognum, versnum, procnum, inproc, in, outproc, out)
 		server_addr.sin_family = AF_INET;
 		server_addr.sin_port =  0;
 #ifdef __LP64__
-		if ((crp->client = clntudp_create(&server_addr, (uint32_t)prognum, (uint32_t)versnum, timeout, &crp->socket)) == NULL)
+		if ((crp->client = clntudp_create(&server_addr, (uint32_t)prognum,
+			(uint32_t)versnum, timeout, &crp->socket)) == NULL)
 			return ((int) rpc_createerr.cf_stat);
 #else
-		if ((crp->client = clntudp_create(&server_addr, (u_long)prognum, (u_long)versnum, timeout, &crp->socket)) == NULL)
+		if ((crp->client = clntudp_create(&server_addr, (u_long)prognum,
+			(u_long)versnum, timeout, &crp->socket)) == NULL)
 			return ((int) rpc_createerr.cf_stat);
 #endif
 		crp->valid = 1;

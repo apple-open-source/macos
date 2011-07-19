@@ -1,24 +1,31 @@
 /*
- * Copyright (c) 2000-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
  *
- * @APPLE_LICENSE_HEADER_START@
- * 
- * The contents of this file constitute Original Code as defined in and
- * are subject to the Apple Public Source License Version 1.1 (the
- * "License").  You may not use this file except in compliance with the
- * License.  Please obtain a copy of the License at
- * http://www.apple.com/publicsource and read it before using this file.
- * 
- * This Original Code and all software distributed under the License are
- * distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License.
- * 
- * @APPLE_LICENSE_HEADER_END@
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
+
 /*
  * natd - Network Address Translation Daemon for FreeBSD.
  *
@@ -829,7 +836,7 @@ static void FlushPacketBuffer (int fd)
 		}
 		else {
 
-			sprintf (msgBuf, "failed to write packet back");
+			snprintf (msgBuf, sizeof(msgBuf), "failed to write packet back");
 			Warn (msgBuf);
 		}
 	}
@@ -1272,13 +1279,13 @@ static char* FormatPacket (struct ip* ip)
 	char		src[20];
 	char		dst[20];
 
-	strcpy (src, inet_ntoa (ip->ip_src));
-	strcpy (dst, inet_ntoa (ip->ip_dst));
+	strlcpy (src, inet_ntoa (ip->ip_src), sizeof(src));
+	strlcpy (dst, inet_ntoa (ip->ip_dst), sizeof(dst));
 
 	switch (ip->ip_p) {
 	case IPPROTO_TCP:
 		tcphdr = (struct tcphdr*) ((char*) ip + (ip->ip_hl << 2));
-		sprintf (buf, "[TCP] %s:%d -> %s:%d",
+		snprintf (buf, sizeof(buf), "[TCP] %s:%d -> %s:%d",
 			      src,
 			      ntohs (tcphdr->th_sport),
 			      dst,
@@ -1287,7 +1294,7 @@ static char* FormatPacket (struct ip* ip)
 
 	case IPPROTO_UDP:
 		udphdr = (struct udphdr*) ((char*) ip + (ip->ip_hl << 2));
-		sprintf (buf, "[UDP] %s:%d -> %s:%d",
+		snprintf (buf, sizeof(buf), "[UDP] %s:%d -> %s:%d",
 			      src,
 			      ntohs (udphdr->uh_sport),
 			      dst,
@@ -1296,7 +1303,7 @@ static char* FormatPacket (struct ip* ip)
 
 	case IPPROTO_ICMP:
 		icmphdr = (struct icmp*) ((char*) ip + (ip->ip_hl << 2));
-		sprintf (buf, "[ICMP] %s -> %s %u(%u)",
+		snprintf (buf, sizeof(buf), "[ICMP] %s -> %s %u(%u)",
 			      src,
 			      dst,
 			      icmphdr->icmp_type,
@@ -1304,7 +1311,7 @@ static char* FormatPacket (struct ip* ip)
 		break;
 
 	default:
-		sprintf (buf, "[%d] %s -> %s ", ip->ip_p, src, dst);
+		snprintf (buf, sizeof(buf), "[%d] %s -> %s ", ip->ip_p, src, dst);
 		break;
 	}
 
@@ -2062,7 +2069,7 @@ void SetupPortRedirect (const char* parms)
 	int             i;
 	struct alias_link *link = NULL;
 
-	strcpy (buf, parms);
+	strlcpy (buf, parms, sizeof(buf));
 /*
  * Extract protocol.
  */
@@ -2193,7 +2200,7 @@ SetupProtoRedirect(const char* parms)
 	char*		protoName;
 	struct protoent *protoent;
 
-	strcpy (buf, parms);
+	strlcpy (buf, parms, sizeof(buf));
 /*
  * Extract protocol.
  */
@@ -2247,7 +2254,7 @@ void SetupAddressRedirect (const char* parms)
 	char*		serverPool;
 	struct alias_link *link;
 
-	strcpy (buf, parms);
+	strlcpy (buf, parms, sizeof(buf));
 /*
  * Extract local address.
  */

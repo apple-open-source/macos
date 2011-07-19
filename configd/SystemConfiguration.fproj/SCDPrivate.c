@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,9 @@
  * - initial revision
  */
 
+//#define DO_NOT_CRASH
+//#define DO_NOT_INFORM
+
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
@@ -51,6 +54,12 @@
 #include <execinfo.h>
 #include <libproc.h>
 #include <unistd.h>
+#include <dlfcn.h>
+
+
+#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+#include <CoreFoundation/CFUserNotification.h>
+#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
 
 #define	N_QUICK	32
 
@@ -182,11 +191,52 @@ _SC_sendMachMessage(mach_port_t port, mach_msg_id_t msg_id)
 			  MACH_PORT_NULL,		/* rcv_name */
 			  0,				/* timeout */
 			  MACH_PORT_NULL);		/* notify */
-	if (status == MACH_SEND_TIMED_OUT) {
+	if (status != MACH_MSG_SUCCESS) {
 		mach_msg_destroy(&msg.header);
 	}
 
 	return;
+}
+
+
+CFStringRef
+_SC_trimDomain(CFStringRef domain)
+{
+	CFIndex	length;
+
+	if (!isA_CFString(domain)) {
+		return NULL;
+	}
+
+	// remove any leading/trailing dots
+	length = CFStringGetLength(domain);
+	if ((length > 0) &&
+	    (CFStringFindWithOptions(domain,
+				     CFSTR("."),
+				     CFRangeMake(0, 1),
+				     kCFCompareAnchored,
+				     NULL) ||
+	     CFStringFindWithOptions(domain,
+				     CFSTR("."),
+				     CFRangeMake(0, length),
+				     kCFCompareAnchored|kCFCompareBackwards,
+				     NULL))) {
+		     CFMutableStringRef	trimmed;
+
+		     trimmed = CFStringCreateMutableCopy(NULL, 0, domain);
+		     CFStringTrim(trimmed, CFSTR("."));
+		     domain = (CFStringRef)trimmed;
+		     length = CFStringGetLength(domain);
+	     } else {
+		     CFRetain(domain);
+	     }
+
+	if (length == 0) {
+		CFRelease(domain);
+		domain = NULL;
+	}
+
+	return domain;
 }
 
 
@@ -198,19 +248,17 @@ Boolean
 _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dataLen)
 {
 	CFDataRef		myXml;
-	CFWriteStreamRef	stream;
 
 	if ((xml == NULL) && ((dataRef == NULL) || (dataLen == NULL))) {
 		/* if not keeping track of allocated space */
 		return FALSE;
 	}
 
-	stream = CFWriteStreamCreateWithAllocatedBuffers(NULL, NULL);
-	CFWriteStreamOpen(stream);
-	CFPropertyListWriteToStream(obj, stream, kCFPropertyListBinaryFormat_v1_0, NULL);
-	CFWriteStreamClose(stream);
-	myXml = CFWriteStreamCopyProperty(stream, kCFStreamPropertyDataWritten);
-	CFRelease(stream);
+	myXml = CFPropertyListCreateData(NULL,
+					 obj,
+					 kCFPropertyListBinaryFormat_v1_0,
+					 0,
+					 NULL);
 	if (myXml == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("_SCSerialize() failed"));
 		if (xml != NULL) {
@@ -257,16 +305,13 @@ _SCSerialize(CFPropertyListRef obj, CFDataRef *xml, void **dataRef, CFIndex *dat
 Boolean
 _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dataLen)
 {
-	CFStringRef	xmlError;
+	CFErrorRef	error;
 
 	if (xml == NULL) {
 		kern_return_t	status;
 
 		xml = CFDataCreateWithBytesNoCopy(NULL, (void *)dataRef, dataLen, kCFAllocatorNull);
-		*obj = CFPropertyListCreateFromXMLData(NULL,
-						       xml,
-						       kCFPropertyListImmutable,
-						       &xmlError);
+		*obj = CFPropertyListCreateWithData(NULL, xml, kCFPropertyListImmutable, NULL, &error);
 		CFRelease(xml);
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
@@ -275,16 +320,13 @@ _SCUnserialize(CFPropertyListRef *obj, CFDataRef xml, void *dataRef, CFIndex dat
 			/* non-fatal???, proceed */
 		}
 	} else {
-		*obj = CFPropertyListCreateFromXMLData(NULL,
-						       xml,
-						       kCFPropertyListImmutable,
-						       &xmlError);
+		*obj = CFPropertyListCreateWithData(NULL, xml, kCFPropertyListImmutable, NULL, &error);
 	}
 
 	if (*obj == NULL) {
-		if (xmlError != NULL) {
-			SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserialize(): %@"), xmlError);
-			CFRelease(xmlError);
+		if (error != NULL) {
+			SCLog(TRUE, LOG_ERR, CFSTR("_SCUnserialize(): %@"), error);
+			CFRelease(error);
 		}
 		_SCErrorSet(kSCStatusFailed);
 		return FALSE;
@@ -801,10 +843,11 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 							     &errCode)) {
 			CFDictionaryRef	table;
 
-			table = (CFDictionaryRef)CFPropertyListCreateFromXMLData(NULL,
-										 data,
-										 kCFPropertyListImmutable,
-										 NULL);
+			table = CFPropertyListCreateWithData(NULL,
+							     data,
+							     kCFPropertyListImmutable,
+							     NULL,
+							     NULL);
 			if (table != NULL) {
 				if (isA_CFDictionary(table)) {
 					str = CFDictionaryGetValue(table, key);
@@ -827,6 +870,55 @@ _SC_CFBundleCopyNonLocalizedString(CFBundleRef bundle, CFStringRef key, CFString
 	}
 
 	return str;
+}
+
+
+#pragma mark -
+#pragma mark Mach port / CFMachPort management
+
+
+CFMachPortRef
+_SC_CFMachPortCreateWithPort(const char		*portDescription,
+				 mach_port_t		portNum,
+				 CFMachPortCallBack	callout,
+				 CFMachPortContext	*context)
+{
+	CFMachPortRef	port;
+	Boolean	shouldFree	= FALSE;
+
+	port = CFMachPortCreateWithPort(NULL, portNum, callout, context, &shouldFree);
+	if ((port == NULL) || shouldFree) {
+		CFStringRef	err;
+		char		*crash_info	= NULL;
+		char		name[64]	= "";
+
+		SCLog(TRUE, LOG_ERR,
+		      CFSTR("%s: CFMachPortCreateWithPort() failed , port = %p"),
+		      portDescription,
+		      portNum);
+		if (port != NULL) {
+			err = CFStringCreateWithFormat(NULL, NULL,
+						       CFSTR("%s: CFMachPortCreateWithPort recycled, [old] port = %@"),
+						       portDescription, port);
+		} else {
+			err = CFStringCreateWithFormat(NULL, NULL,
+						       CFSTR("%s: CFMachPortCreateWithPort returned NULL"),
+						       portDescription);
+		}
+		crash_info = _SC_cfstring_to_cstring(err, NULL, 0, kCFStringEncodingASCII);
+		CFRelease(err);
+
+		(void) proc_name(getpid(), name, sizeof(name));
+		err = CFStringCreateWithFormat(NULL,
+					       NULL,
+					       CFSTR("A recycled mach_port has been detected by \"%s\"."),
+					       name);
+		_SC_crash(crash_info, CFSTR("CFMachPort error"), err);
+		CFAllocatorDeallocate(NULL, crash_info);
+		CFRelease(err);
+	}
+
+	return port;
 }
 
 
@@ -940,7 +1032,7 @@ _SC_logMachPortStatus(void)
 	mach_msg_type_number_t	pi, pn, tn;
 	CFMutableStringRef	str;
 
-	SCLog(TRUE, LOG_DEBUG, CFSTR("----------"));
+	SCLog(TRUE, LOG_NOTICE, CFSTR("----------"));
 
 	/* report on ALL mach ports associated with this task */
 	status = mach_port_names(mach_task_self(), &ports, &pn, &types, &tn);
@@ -967,7 +1059,7 @@ _SC_logMachPortStatus(void)
 			*rp = '\0';
 			CFStringAppendFormat(str, NULL, CFSTR(" %d%s"), ports[pi], rights);
 		}
-		SCLog(TRUE, LOG_DEBUG, CFSTR("Task ports (n=%d):%@"), pn, str);
+		SCLog(TRUE, LOG_NOTICE, CFSTR("Task ports (n=%d):%@"), pn, str);
 		CFRelease(str);
 	}
 
@@ -1018,7 +1110,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 
 	status = mach_port_type(mach_task_self(), port, &pt);
 	if (status != KERN_SUCCESS) {
-		SCLog(TRUE, LOG_DEBUG,
+		SCLog(TRUE, LOG_NOTICE,
 		      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
 		      buf,
 		      port,
@@ -1028,7 +1120,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_SEND) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND,      &refs_send);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND): %s"),
 			      buf,
 			      port,
@@ -1041,7 +1133,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_RECEIVE,   &refs_recv);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_RECEIVE): %s"),
 			      buf,
 			      port,
@@ -1055,7 +1147,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 					       (mach_port_info_t)&recv_status,
 					       &count);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%mach_port_get_attributes(..., %d, MACH_PORT_RECEIVE_STATUS): %s"),
 			      buf,
 			      port,
@@ -1066,7 +1158,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_SEND_ONCE) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_SEND_ONCE, &refs_once);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_SEND_ONCE): %s"),
 			      buf,
 			      port,
@@ -1077,7 +1169,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_PORT_SET) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_PORT_SET,  &refs_pset);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_PORT_SET): %s"),
 			      buf,
 			      port,
@@ -1088,7 +1180,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 	if ((pt & MACH_PORT_TYPE_DEAD_NAME) != 0) {
 		status = mach_port_get_refs(mach_task_self(), port, MACH_PORT_RIGHT_DEAD_NAME, &refs_dead);
 		if (status != KERN_SUCCESS) {
-			SCLog(TRUE, LOG_DEBUG,
+			SCLog(TRUE, LOG_NOTICE,
 			      CFSTR("%smach_port_get_refs(..., %d, MACH_PORT_RIGHT_DEAD_NAME): %s"),
 			      buf,
 			      port,
@@ -1096,7 +1188,7 @@ _SC_logMachPortReferences(const char *str, mach_port_t port)
 		}
 	}
 
-	SCLog(TRUE, LOG_DEBUG,
+	SCLog(TRUE, LOG_NOTICE,
 	      CFSTR("%smach port 0x%x (%d): send=%d, receive=%d, send once=%d, port set=%d, dead name=%d%s%s"),
 	      buf,
 	      port,
@@ -1141,4 +1233,103 @@ _SC_copyBacktrace()
 	}
 
 	return trace;
+}
+
+
+/* CrashReporter info */
+const char *__crashreporter_info__ = NULL;
+asm(".desc ___crashreporter_info__, 0x10");
+
+
+static Boolean
+_SC_SimulateCrash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
+{
+	static bool	(*dyfunc_SimulateCrash)(pid_t, mach_exception_data_type_t, CFStringRef)	= NULL;
+	static void	*image											= NULL;
+	Boolean	ok											= FALSE;
+
+	if ((dyfunc_SimulateCrash == NULL) && (image == NULL)) {
+		const char	*framework	= "/System/Library/PrivateFrameworks/CrashReporterSupport.framework/"
+#if	!TARGET_OS_EMBEDDED
+							"Versions/A/"
+#endif	// !TARGET_OS_EMBEDDED
+							"CrashReporterSupport";
+		struct stat	statbuf;
+		const char	*suffix	= getenv("DYLD_IMAGE_SUFFIX");
+		char		path[MAXPATHLEN];
+
+		strlcpy(path, framework, sizeof(path));
+		if (suffix) strlcat(path, suffix, sizeof(path));
+		if (0 <= stat(path, &statbuf)) {
+			image = dlopen(path, RTLD_LAZY | RTLD_LOCAL);
+		} else {
+			image = dlopen(framework, RTLD_LAZY | RTLD_LOCAL);
+		}
+
+		if (image != NULL) {
+			dyfunc_SimulateCrash = dlsym(image, "SimulateCrash");
+		} else {
+			image = (void *)0x1;	// to ensure that we only dlopen() once
+		}
+	}
+
+	if (dyfunc_SimulateCrash != NULL) {
+		CFStringRef	str;
+
+		str = CFStringCreateWithCString(NULL, crash_info, kCFStringEncodingUTF8);
+		ok = dyfunc_SimulateCrash(getpid(), 0xbad0005cull, str);
+		CFRelease(str);
+	}
+
+#if	TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+	if (ok) {
+		static Boolean	warned	= FALSE;
+
+		if (!warned) {
+			notifyMessage = CFStringCreateWithFormat(NULL,
+								 NULL,
+								 CFSTR("%@\n\nPlease collect the crash report and file a Radar."),
+								 notifyMessage);
+			CFUserNotificationDisplayNotice(0,
+							kCFUserNotificationStopAlertLevel,
+							NULL,
+							NULL,
+							NULL,
+							notifyHeader,
+							notifyMessage,
+							NULL);
+			CFRelease(notifyMessage);
+			warned = TRUE;
+		}
+	}
+#endif	// TARGET_OS_EMBEDDED && !TARGET_OS_EMBEDDED_OTHER && !defined(DO_NOT_INFORM)
+
+	return ok;
+}
+
+
+void
+_SC_crash(const char *crash_info, CFStringRef notifyHeader, CFStringRef notifyMessage)
+{
+	Boolean	ok	= FALSE;
+
+	if (crash_info != NULL) {
+		__crashreporter_info__ = crash_info;
+
+		SCLog(TRUE, LOG_ERR, CFSTR("%s"), crash_info);
+	}
+
+	if (_SC_isAppleInternal()) {
+		// simulate a crash report
+		ok = _SC_SimulateCrash(crash_info, notifyHeader, notifyMessage);
+#ifndef DO_NOT_CRASH
+		if (!ok) {
+			// if we could not simulate a crash report, crash for real
+			__builtin_trap();
+		}
+#endif	// DO_NOT_CRASH
+	}
+
+	__crashreporter_info__ = NULL;
+	return;
 }

@@ -1,4 +1,4 @@
-/* $Id: nameprep.h,v 1.1.1.1 2003/06/04 00:25:39 marka Exp $ */
+/* $Id: nameprep.h,v 1.1.1.1 2003-06-04 00:25:39 marka Exp $ */
 /*
  * Copyright (c) 2001 Japan Network Information Center.  All rights reserved.
  *  

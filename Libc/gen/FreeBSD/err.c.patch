@@ -1,6 +1,6 @@
---- err.c.orig	2009-05-12 11:21:55.000000000 -0700
-+++ err.c	2009-05-23 13:27:52.000000000 -0700
-@@ -44,12 +44,105 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/err
+--- err.c.orig	2011-02-15 16:29:48.000000000 -0800
++++ err.c	2011-02-15 18:01:51.000000000 -0800
+@@ -40,12 +40,107 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/err
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
@@ -49,10 +49,12 @@
 + * (NUL isn't used)
 + */
 +static unsigned char escape[256] = {
-+     /* NUL  SOH  STX  ETX  EOT  ENQ  ACK  BEL */
-+	0  , 255, 255, 255, 255, 255, 255, 'a',
++     /* NUL */
++	 0, /* Unused: strings can't contain nulls */
++     /*      SOH  STX  ETX  EOT  ENQ  ACK  BEL */
++	     255, 255, 255, 255, 255, 255, 'a',
 +     /* BS   HT   NL   VT   NP   CR   SO   SI  */
-+	'b', 't', 'n', 'v', 'f', 'r', 255, 255,
++	'b',  0,   0,  'v', 'f', 'r', 255, 255,
 +     /* DLE  DC1  DC2  DC3  DC4  NAK  SYN  ETB */
 +	255, 255, 255, 255, 255, 255, 255, 255,
 +     /* CAN  EM   SUB  ESC  FS   GS   RS   US  */
@@ -83,7 +85,7 @@
 +					*tp++ = *fp;
 +					break;
 +				case 255:
-+					sprintf(tp, "\\%03o", *fp);
++					sprintf((char *)tp, "\\%03o", *fp);
 +					tp += 4;
 +					break;
 +				default:
@@ -108,7 +110,7 @@
  
  /*
   * This is declared to take a `void *' so that the caller is not required
-@@ -60,16 +153,27 @@ void
+@@ -56,16 +151,27 @@ void
  err_set_file(void *fp)
  {
  	if (fp)
@@ -139,9 +141,9 @@
  
  __weak_reference(_err, err);
  
-@@ -107,16 +211,21 @@ verrc(eval, code, fmt, ap)
- 	const char *fmt;
- 	va_list ap;
+@@ -99,16 +205,21 @@ errc(int eval, int code, const char *fmt
+ void
+ verrc(int eval, int code, const char *fmt, va_list ap)
  {
 -	if (err_file == 0)
 +	if (_e_err_file == 0)
@@ -168,9 +170,9 @@
  	exit(eval);
  }
  
-@@ -135,14 +244,19 @@ verrx(eval, fmt, ap)
- 	const char *fmt;
- 	va_list ap;
+@@ -124,14 +235,19 @@ errx(int eval, const char *fmt, ...)
+ void
+ verrx(int eval, const char *fmt, va_list ap)
  {
 -	if (err_file == 0)
 +	if (_e_err_file == 0)
@@ -194,9 +196,9 @@
  	exit(eval);
  }
  
-@@ -180,14 +294,14 @@ vwarnc(code, fmt, ap)
- 	const char *fmt;
- 	va_list ap;
+@@ -164,14 +280,14 @@ warnc(int code, const char *fmt, ...)
+ void
+ vwarnc(int code, const char *fmt, va_list ap)
  {
 -	if (err_file == 0)
 +	if (_e_err_file == 0)
@@ -214,9 +216,9 @@
  }
  
  void
-@@ -204,10 +318,10 @@ vwarnx(fmt, ap)
- 	const char *fmt;
- 	va_list ap;
+@@ -186,10 +302,10 @@ warnx(const char *fmt, ...)
+ void
+ vwarnx(const char *fmt, va_list ap)
  {
 -	if (err_file == 0)
 +	if (_e_err_file == 0)

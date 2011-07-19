@@ -1,10 +1,9 @@
 /*
- * "$Id: pdftops.c 1533 2009-05-22 21:55:51Z msweet $"
+ * "$Id: pdftops.c 3277 2011-05-20 07:30:39Z msweet $"
  *
- *   PDF to PostScript filter front-end for the Common UNIX Printing
- *   System (CUPS).
+ *   PDF to PostScript filter front-end for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -24,8 +23,9 @@
  */
 
 #include <cups/cups.h>
-#include <cups/string.h>
-#include <cups/i18n.h>
+#include <cups/ppd.h>
+#include <cups/string-private.h>
+#include <cups/language-private.h>
 #include <signal.h>
 #include <sys/wait.h>
 #include <errno.h>
@@ -94,13 +94,19 @@ main(int  argc,				/* I - Number of command-line args */
   setbuf(stderr, NULL);
 
  /*
+  * Ignore broken pipe signals...
+  */
+
+  signal(SIGPIPE, SIG_IGN);
+
+ /*
   * Make sure we have the right number of arguments for CUPS!
   */
 
   if (argc < 6 || argc > 7)
   {
     _cupsLangPrintf(stderr,
-                    _("Usage: %s job user title copies options [filename]\n"),
+                    _("Usage: %s job user title copies options [filename]"),
                     argv[0]);
     return (1);
   }
@@ -133,7 +139,7 @@ main(int  argc,				/* I - Number of command-line args */
 
     if ((fd = cupsTempFd(tempfile, sizeof(tempfile))) < 0)
     {
-      _cupsLangPrintError(_("ERROR: Unable to copy PDF file"));
+      perror("DEBUG: Unable to copy PDF file");
       return (1);
     }
 
@@ -270,7 +276,11 @@ main(int  argc,				/* I - Number of command-line args */
   pdf_argv[2] = (char *)"-dNOPAUSE";
   pdf_argv[3] = (char *)"-dBATCH";
   pdf_argv[4] = (char *)"-dSAFER";
+#  ifdef HAVE_GHOSTSCRIPT_PS2WRITE
+  pdf_argv[5] = (char *)"-sDEVICE=ps2write";
+#  else
   pdf_argv[5] = (char *)"-sDEVICE=pswrite";
+#  endif /* HAVE_GHOSTSCRIPT_PS2WRITE */
   pdf_argv[6] = (char *)"-sOUTPUTFILE=%stdout";
   pdf_argc    = 7;
 #endif /* HAVE_PDFTOPS */
@@ -310,8 +320,8 @@ main(int  argc,				/* I - Number of command-line args */
     if ((val = cupsGetOption("fitplot", num_options, options)) == NULL)
       val = cupsGetOption("fit-to-page", num_options, options);
 
-    if (val && strcasecmp(val, "no") && strcasecmp(val, "off") &&
-	strcasecmp(val, "false"))
+    if (val && _cups_strcasecmp(val, "no") && _cups_strcasecmp(val, "off") &&
+	_cups_strcasecmp(val, "false"))
       fit = 1;
     else
       fit = 0;
@@ -331,11 +341,12 @@ main(int  argc,				/* I - Number of command-line args */
 
       if ((val = cupsGetOption("landscape", num_options, options)) != NULL)
       {
-	if (strcasecmp(val, "no") != 0 && strcasecmp(val, "off") != 0 &&
-	    strcasecmp(val, "false") != 0)
+	if (_cups_strcasecmp(val, "no") != 0 && _cups_strcasecmp(val, "off") != 0 &&
+	    _cups_strcasecmp(val, "false") != 0)
 	  orientation = 1;
       }
-      else if ((val = cupsGetOption("orientation-requested", num_options, options)) != NULL)
+      else if ((val = cupsGetOption("orientation-requested", num_options,
+                                    options)) != NULL)
       {
        /*
 	* Map IPP orientation values to 0 to 3:
@@ -389,6 +400,17 @@ main(int  argc,				/* I - Number of command-line args */
       pdf_argv[pdf_argc++] = pdf_height;
 #endif /* HAVE_PDFTOPS */
     }
+#if defined(HAVE_PDFTOPS) && defined(HAVE_PDFTOPS_WITH_ORIGPAGESIZES)
+    else
+    {
+     /*
+      *  Use the page sizes of the original PDF document, this way documents
+      *  which contain pages of different sizes can be printed correctly
+      */
+
+      pdf_argv[pdf_argc++] = (char *)"-origpagesizes";
+    }
+#endif /* HAVE_PDFTOPS && HAVE_PDFTOPS_WITH_ORIGPAGESIZES */
   }
 
 #ifdef HAVE_PDFTOPS
@@ -409,7 +431,7 @@ main(int  argc,				/* I - Number of command-line args */
 
   if (pipe(pstops_pipe))
   {
-    _cupsLangPrintError(_("ERROR: Unable to create pipe"));
+    perror("DEBUG: Unable to create pipe");
 
     exit_status = 1;
     goto error;
@@ -427,10 +449,10 @@ main(int  argc,				/* I - Number of command-line args */
 
 #ifdef HAVE_PDFTOPS
     execv(CUPS_PDFTOPS, pdf_argv);
-    _cupsLangPrintError(_("ERROR: Unable to execute pdftops program"));
+    perror("DEBUG: Unable to execute pdftops program");
 #else
     execv(CUPS_GHOSTSCRIPT, pdf_argv);
-    _cupsLangPrintError(_("ERROR: Unable to execute gs program"));
+    perror("DEBUG: Unable to execute gs program");
 #endif /* HAVE_PDFTOPS */
 
     exit(1);
@@ -442,9 +464,9 @@ main(int  argc,				/* I - Number of command-line args */
     */
 
 #ifdef HAVE_PDFTOPS
-    _cupsLangPrintError(_("ERROR: Unable to execute pdftops program"));
+    perror("DEBUG: Unable to execute pdftops program");
 #else
-    _cupsLangPrintError(_("ERROR: Unable to execute gs program"));
+    perror("DEBUG: Unable to execute gs program");
 #endif /* HAVE_PDFTOPS */
 
     exit_status = 1;
@@ -464,7 +486,7 @@ main(int  argc,				/* I - Number of command-line args */
     close(pstops_pipe[1]);
 
     execv(pstops_path, pstops_argv);
-    _cupsLangPrintError(_("ERROR: Unable to execute pstops program"));
+    perror("DEBUG: Unable to execute pstops program");
 
     exit(1);
   }
@@ -474,7 +496,7 @@ main(int  argc,				/* I - Number of command-line args */
     * Unable to fork!
     */
 
-    _cupsLangPrintError(_("ERROR: Unable to execute pstops program"));
+    perror("DEBUG: Unable to execute pstops program");
 
     exit_status = 1;
     goto error;
@@ -524,7 +546,7 @@ main(int  argc,				/* I - Number of command-line args */
 	exit_status = WEXITSTATUS(wait_status);
 
         fprintf(stderr, "DEBUG: PID %d (%s) stopped with status %d!\n",
-	        wait_pid,		
+	        wait_pid,
 #ifdef HAVE_PDFTOPS
                 wait_pid == pdf_pid ? "pdftops" : "pstops",
 #else
@@ -536,7 +558,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
         fprintf(stderr,
 	        "DEBUG: PID %d (%s) was terminated normally with signal %d!\n",
-	        wait_pid,		
+	        wait_pid,
 #ifdef HAVE_PDFTOPS
                 wait_pid == pdf_pid ? "pdftops" : "pstops",
 #else
@@ -548,7 +570,7 @@ main(int  argc,				/* I - Number of command-line args */
       {
 	exit_status = WTERMSIG(wait_status);
 
-        fprintf(stderr, "DEBUG: PID %d (%s) crashed on signal %d!\n", wait_pid,		
+        fprintf(stderr, "DEBUG: PID %d (%s) crashed on signal %d!\n", wait_pid,
 #ifdef HAVE_PDFTOPS
                 wait_pid == pdf_pid ? "pdftops" : "pstops",
 #else
@@ -559,7 +581,7 @@ main(int  argc,				/* I - Number of command-line args */
     }
     else
     {
-      fprintf(stderr, "DEBUG: PID %d (%s) exited with no errors.\n", wait_pid,		
+      fprintf(stderr, "DEBUG: PID %d (%s) exited with no errors.\n", wait_pid,
 #ifdef HAVE_PDFTOPS
 	      wait_pid == pdf_pid ? "pdftops" : "pstops");
 #else
@@ -595,5 +617,5 @@ cancel_job(int sig)			/* I - Signal number (unused) */
 
 
 /*
- * End of "$Id: pdftops.c 1533 2009-05-22 21:55:51Z msweet $".
+ * End of "$Id: pdftops.c 3277 2011-05-20 07:30:39Z msweet $".
  */

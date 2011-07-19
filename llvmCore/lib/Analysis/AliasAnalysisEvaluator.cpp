@@ -26,12 +26,11 @@
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Assembly/Writer.h"
 #include "llvm/Target/TargetData.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/InstIterator.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/Compiler.h"
-#include "llvm/Support/Streams.h"
-#include <set>
-#include <sstream>
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/ADT/SetVector.h"
 using namespace llvm;
 
 static cl::opt<bool> PrintAll("print-all-alias-modref-info", cl::ReallyHidden);
@@ -46,7 +45,7 @@ static cl::opt<bool> PrintRef("print-ref", cl::ReallyHidden);
 static cl::opt<bool> PrintModRef("print-modref", cl::ReallyHidden);
 
 namespace {
-  class VISIBILITY_HIDDEN AAEval : public FunctionPass {
+  class AAEval : public FunctionPass {
     unsigned NoAlias, MayAlias, MustAlias;
     unsigned NoModRef, Mod, Ref, ModRef;
 
@@ -81,18 +80,21 @@ X("aa-eval", "Exhaustive Alias Analysis Precision Evaluator", false, true);
 
 FunctionPass *llvm::createAAEvalPass() { return new AAEval(); }
 
-static void PrintResults(const char *Msg, bool P, const Value *V1, const Value *V2,
-                         const Module *M) {
+static void PrintResults(const char *Msg, bool P, const Value *V1,
+                         const Value *V2, const Module *M) {
   if (P) {
-    std::stringstream s1, s2;
-    WriteAsOperand(s1, V1, true, M);
-    WriteAsOperand(s2, V2, true, M);
-    std::string o1(s1.str()), o2(s2.str());
+    std::string o1, o2;
+    {
+      raw_string_ostream os1(o1), os2(o2);
+      WriteAsOperand(os1, V1, true, M);
+      WriteAsOperand(os2, V2, true, M);
+    }
+    
     if (o2 < o1)
-        std::swap(o1, o2);
-    cerr << "  " << Msg << ":\t"
-         << o1 << ", "
-         << o2 << "\n";
+      std::swap(o1, o2);
+    errs() << "  " << Msg << ":\t"
+           << o1 << ", "
+           << o2 << "\n";
   }
 }
 
@@ -100,56 +102,69 @@ static inline void
 PrintModRefResults(const char *Msg, bool P, Instruction *I, Value *Ptr,
                    Module *M) {
   if (P) {
-    cerr << "  " << Msg << ":  Ptr: ";
-    WriteAsOperand(*cerr.stream(), Ptr, true, M);
-    cerr << "\t<->" << *I;
+    errs() << "  " << Msg << ":  Ptr: ";
+    WriteAsOperand(errs(), Ptr, true, M);
+    errs() << "\t<->" << *I << '\n';
   }
+}
+
+static inline bool isInterestingPointer(Value *V) {
+  return V->getType()->isPointerTy()
+      && !isa<ConstantPointerNull>(V);
 }
 
 bool AAEval::runOnFunction(Function &F) {
   AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
-  const TargetData &TD = AA.getTargetData();
-
-  std::set<Value *> Pointers;
-  std::set<CallSite> CallSites;
+  SetVector<Value *> Pointers;
+  SetVector<CallSite> CallSites;
 
   for (Function::arg_iterator I = F.arg_begin(), E = F.arg_end(); I != E; ++I)
-    if (isa<PointerType>(I->getType()))    // Add all pointer arguments
+    if (I->getType()->isPointerTy())    // Add all pointer arguments.
       Pointers.insert(I);
 
   for (inst_iterator I = inst_begin(F), E = inst_end(F); I != E; ++I) {
-    if (isa<PointerType>(I->getType())) // Add all pointer instructions
+    if (I->getType()->isPointerTy()) // Add all pointer instructions.
       Pointers.insert(&*I);
     Instruction &Inst = *I;
-    User::op_iterator OI = Inst.op_begin();
     CallSite CS = CallSite::get(&Inst);
-    if (CS.getInstruction() &&
-        isa<Function>(CS.getCalledValue()))
-      ++OI;  // Skip actual functions for direct function calls.
-    for (; OI != Inst.op_end(); ++OI)
-      if (isa<PointerType>((*OI)->getType()) && !isa<ConstantPointerNull>(*OI))
-        Pointers.insert(*OI);
+    if (CS) {
+      Value *Callee = CS.getCalledValue();
+      // Skip actual functions for direct function calls.
+      if (!isa<Function>(Callee) && isInterestingPointer(Callee))
+        Pointers.insert(Callee);
+      // Consider formals.
+      for (CallSite::arg_iterator AI = CS.arg_begin(), AE = CS.arg_end();
+           AI != AE; ++AI)
+        if (isInterestingPointer(*AI))
+          Pointers.insert(*AI);
+    } else {
+      // Consider all operands.
+      for (Instruction::op_iterator OI = Inst.op_begin(), OE = Inst.op_end();
+           OI != OE; ++OI)
+        if (isInterestingPointer(*OI))
+          Pointers.insert(*OI);
+    }
 
     if (CS.getInstruction()) CallSites.insert(CS);
   }
 
   if (PrintNoAlias || PrintMayAlias || PrintMustAlias ||
       PrintNoModRef || PrintMod || PrintRef || PrintModRef)
-    cerr << "Function: " << F.getName() << ": " << Pointers.size()
-         << " pointers, " << CallSites.size() << " call sites\n";
+    errs() << "Function: " << F.getName() << ": " << Pointers.size()
+           << " pointers, " << CallSites.size() << " call sites\n";
 
   // iterate over the worklist, and run the full (n^2)/2 disambiguations
-  for (std::set<Value *>::iterator I1 = Pointers.begin(), E = Pointers.end();
+  for (SetVector<Value *>::iterator I1 = Pointers.begin(), E = Pointers.end();
        I1 != E; ++I1) {
-    unsigned I1Size = 0;
+    unsigned I1Size = ~0u;
     const Type *I1ElTy = cast<PointerType>((*I1)->getType())->getElementType();
-    if (I1ElTy->isSized()) I1Size = TD.getTypeStoreSize(I1ElTy);
+    if (I1ElTy->isSized()) I1Size = AA.getTypeStoreSize(I1ElTy);
 
-    for (std::set<Value *>::iterator I2 = Pointers.begin(); I2 != I1; ++I2) {
-      unsigned I2Size = 0;
+    for (SetVector<Value *>::iterator I2 = Pointers.begin(); I2 != I1; ++I2) {
+      unsigned I2Size = ~0u;
       const Type *I2ElTy =cast<PointerType>((*I2)->getType())->getElementType();
-      if (I2ElTy->isSized()) I2Size = TD.getTypeStoreSize(I2ElTy);
+      if (I2ElTy->isSized()) I2Size = AA.getTypeStoreSize(I2ElTy);
 
       switch (AA.alias(*I1, I1Size, *I2, I2Size)) {
       case AliasAnalysis::NoAlias:
@@ -162,21 +177,21 @@ bool AAEval::runOnFunction(Function &F) {
         PrintResults("MustAlias", PrintMustAlias, *I1, *I2, F.getParent());
         ++MustAlias; break;
       default:
-        cerr << "Unknown alias query result!\n";
+        errs() << "Unknown alias query result!\n";
       }
     }
   }
 
   // Mod/ref alias analysis: compare all pairs of calls and values
-  for (std::set<CallSite>::iterator C = CallSites.begin(),
+  for (SetVector<CallSite>::iterator C = CallSites.begin(),
          Ce = CallSites.end(); C != Ce; ++C) {
     Instruction *I = C->getInstruction();
 
-    for (std::set<Value *>::iterator V = Pointers.begin(), Ve = Pointers.end();
+    for (SetVector<Value *>::iterator V = Pointers.begin(), Ve = Pointers.end();
          V != Ve; ++V) {
-      unsigned Size = 0;
+      unsigned Size = ~0u;
       const Type *ElTy = cast<PointerType>((*V)->getType())->getElementType();
-      if (ElTy->isSized()) Size = TD.getTypeStoreSize(ElTy);
+      if (ElTy->isSized()) Size = AA.getTypeStoreSize(ElTy);
 
       switch (AA.getModRefInfo(*C, *V, Size)) {
       case AliasAnalysis::NoModRef:
@@ -192,7 +207,7 @@ bool AAEval::runOnFunction(Function &F) {
         PrintModRefResults("  ModRef", PrintModRef, I, *V, F.getParent());
         ++ModRef; break;
       default:
-        cerr << "Unknown alias query result!\n";
+        errs() << "Unknown alias query result!\n";
       }
     }
   }
@@ -201,45 +216,45 @@ bool AAEval::runOnFunction(Function &F) {
 }
 
 static void PrintPercent(unsigned Num, unsigned Sum) {
-  cerr << "(" << Num*100ULL/Sum << "."
-            << ((Num*1000ULL/Sum) % 10) << "%)\n";
+  errs() << "(" << Num*100ULL/Sum << "."
+         << ((Num*1000ULL/Sum) % 10) << "%)\n";
 }
 
 bool AAEval::doFinalization(Module &M) {
   unsigned AliasSum = NoAlias + MayAlias + MustAlias;
-  cerr << "===== Alias Analysis Evaluator Report =====\n";
+  errs() << "===== Alias Analysis Evaluator Report =====\n";
   if (AliasSum == 0) {
-    cerr << "  Alias Analysis Evaluator Summary: No pointers!\n";
+    errs() << "  Alias Analysis Evaluator Summary: No pointers!\n";
   } else {
-    cerr << "  " << AliasSum << " Total Alias Queries Performed\n";
-    cerr << "  " << NoAlias << " no alias responses ";
+    errs() << "  " << AliasSum << " Total Alias Queries Performed\n";
+    errs() << "  " << NoAlias << " no alias responses ";
     PrintPercent(NoAlias, AliasSum);
-    cerr << "  " << MayAlias << " may alias responses ";
+    errs() << "  " << MayAlias << " may alias responses ";
     PrintPercent(MayAlias, AliasSum);
-    cerr << "  " << MustAlias << " must alias responses ";
+    errs() << "  " << MustAlias << " must alias responses ";
     PrintPercent(MustAlias, AliasSum);
-    cerr << "  Alias Analysis Evaluator Pointer Alias Summary: "
-         << NoAlias*100/AliasSum  << "%/" << MayAlias*100/AliasSum << "%/"
-         << MustAlias*100/AliasSum << "%\n";
+    errs() << "  Alias Analysis Evaluator Pointer Alias Summary: "
+           << NoAlias*100/AliasSum  << "%/" << MayAlias*100/AliasSum << "%/"
+           << MustAlias*100/AliasSum << "%\n";
   }
 
   // Display the summary for mod/ref analysis
   unsigned ModRefSum = NoModRef + Mod + Ref + ModRef;
   if (ModRefSum == 0) {
-    cerr << "  Alias Analysis Mod/Ref Evaluator Summary: no mod/ref!\n";
+    errs() << "  Alias Analysis Mod/Ref Evaluator Summary: no mod/ref!\n";
   } else {
-    cerr << "  " << ModRefSum << " Total ModRef Queries Performed\n";
-    cerr << "  " << NoModRef << " no mod/ref responses ";
+    errs() << "  " << ModRefSum << " Total ModRef Queries Performed\n";
+    errs() << "  " << NoModRef << " no mod/ref responses ";
     PrintPercent(NoModRef, ModRefSum);
-    cerr << "  " << Mod << " mod responses ";
+    errs() << "  " << Mod << " mod responses ";
     PrintPercent(Mod, ModRefSum);
-    cerr << "  " << Ref << " ref responses ";
+    errs() << "  " << Ref << " ref responses ";
     PrintPercent(Ref, ModRefSum);
-    cerr << "  " << ModRef << " mod & ref responses ";
+    errs() << "  " << ModRef << " mod & ref responses ";
     PrintPercent(ModRef, ModRefSum);
-    cerr << "  Alias Analysis Evaluator Mod/Ref Summary: "
-         << NoModRef*100/ModRefSum  << "%/" << Mod*100/ModRefSum << "%/"
-         << Ref*100/ModRefSum << "%/" << ModRef*100/ModRefSum << "%\n";
+    errs() << "  Alias Analysis Evaluator Mod/Ref Summary: "
+           << NoModRef*100/ModRefSum  << "%/" << Mod*100/ModRefSum << "%/"
+           << Ref*100/ModRefSum << "%/" << ModRef*100/ModRefSum << "%\n";
   }
 
   return false;

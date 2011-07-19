@@ -140,11 +140,10 @@ OSStatus HIDSetUsageValue(HIDReportType reportType,
 /*
  *				Write out the data
 */
-				iStart = ptReportItem->startBit
-					  + (ptReportItem->globals.reportSize * iUsageIndex);
-				iStatus = HIDPreProcessRIValue (ptReportItem, &iUsageValue);
+				iStart = ptReportItem->startBit + (int)(ptReportItem->globals.reportSize * iUsageIndex);
+				HIDPreProcessRIValue (ptReportItem, &iUsageValue); // error ignored
 				iStatus = HIDPutData(psReport, iReportLength, iStart,
-									   ptReportItem->globals.reportSize, iUsageValue);
+									   (int)ptReportItem->globals.reportSize, iUsageValue);
 				if (iStatus != kHIDSuccess)
 					return iStatus;
 				return kHIDSuccess;

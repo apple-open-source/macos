@@ -36,7 +36,7 @@
 
   <li><a href="#using">Using alias analysis results</a>
     <ul>
-    <li><a href="#loadvn">Using the <tt>-load-vn</tt> Pass</a></li>
+    <li><a href="#memdep">Using the <tt>MemoryDependenceAnalysis</tt> Pass</a></li>
     <li><a href="#ast">Using the <tt>AliasSetTracker</tt> class</a></li>
     <li><a href="#direct">Using the <tt>AliasAnalysis</tt> interface directly</a></li>
     </ul>
@@ -225,12 +225,7 @@ method for testing dependencies between function calls.  This method takes two
 call sites (CS1 &amp; CS2), returns NoModRef if the two calls refer to disjoint
 memory locations, Ref if CS1 reads memory written by CS2, Mod if CS1 writes to
 memory read or written by CS2, or ModRef if CS1 might read or write memory
-accessed by CS2.  Note that this relation is not commutative.  Clients that use
-this method should be predicated on the <tt>hasNoModRefInfoForCalls()</tt>
-method, which indicates whether or not an analysis can provide mod/ref
-information for function call pairs (most can not).  If this predicate is false,
-the client shouldn't waste analysis time querying the <tt>getModRefInfo</tt>
-method many times.</p>
+accessed by CS2.  Note that this relation is not commutative.</p>
 
 </div>
 
@@ -246,21 +241,6 @@ method many times.</p>
 Several other tidbits of information are often collected by various alias
 analysis implementations and can be put to good use by various clients.
 </p>
-
-</div>
-
-<!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection">
-  The <tt>getMustAliases</tt> method
-</div>
-
-<div class="doc_text">
-
-<p>The <tt>getMustAliases</tt> method returns all values that are known to
-always must alias a pointer.  This information can be provided in some cases for
-important objects like the null pointer and global values.  Knowing that a
-pointer always points to a particular function allows indirect calls to be
-turned into direct calls, for example.</p>
 
 </div>
 
@@ -423,7 +403,7 @@ implementing, you just override the interfaces you can improve.</p>
 href="#basic-aa">basicaa</a></tt> and <a href="#no-aa"><tt>no-aa</tt></a>
 passes) every alias analysis pass chains to another alias analysis
 implementation (for example, the user can specify "<tt>-basicaa -ds-aa
--anders-aa -licm</tt>" to get the maximum benefit from the three alias
+-licm</tt>" to get the maximum benefit from both alias
 analyses).  The alias analysis class automatically takes care of most of this
 for methods that you don't override.  For methods that you do override, in code
 paths that return a conservative MayAlias or Mod/Ref result, simply return
@@ -537,16 +517,16 @@ preference, these are...</p>
 
 <!-- ======================================================================= -->
 <div class="doc_subsection">
-  <a name="loadvn">Using the <tt>-load-vn</tt> Pass</a>
+  <a name="memdep">Using the <tt>MemoryDependenceAnalysis</tt> Pass</a>
 </div>
 
 <div class="doc_text">
 
-<p>The <tt>load-vn</tt> pass uses alias analysis to provide value numbering
-information for <tt>load</tt> instructions and pointer values.  If your analysis
-or transformation can be modeled in a form that uses value numbering
-information, you don't have to do anything special to handle load instructions:
-just use the <tt>load-vn</tt> pass, which uses alias analysis.</p>
+<p>The <tt>memdep</tt> pass uses alias analysis to provide high-level dependence
+information about memory-using instructions.  This will tell you which store
+feeds into a load, for example.  It uses caching and other techniques to be
+efficient, and is used by Dead Store Elimination, GVN, and memcpy optimizations.
+</p>
 
 </div>
 
@@ -710,7 +690,7 @@ aggressive local analysis that "knows" many important facts:</p>
 for internal global variables that don't "have their address taken".  If a
 global does not have its address taken, the pass knows that no pointers alias
 the global.  This pass also keeps track of functions that it knows never access
-memory or never read memory.  This allows certain optimizations (e.g. GCSE) to
+memory or never read memory.  This allows certain optimizations (e.g. GVN) to
 eliminate call instructions entirely.
 </p>
 
@@ -721,25 +701,6 @@ loads and stores to be eliminated.</p>
 
 <p>Note that this pass is somewhat limited in its scope (only support 
 non-address taken globals), but is very quick analysis.</p>
-</div>
-
-<!-- _______________________________________________________________________ -->
-<div class="doc_subsubsection">
-  <a name="anders-aa">The <tt>-anders-aa</tt> pass</a>
-</div>
-
-<div class="doc_text">
-
-<p>The <tt>-anders-aa</tt> pass implements the well-known "Andersen's algorithm"
-for interprocedural alias analysis.  This algorithm is a subset-based,
-flow-insensitive, context-insensitive, and field-insensitive alias analysis that
-is widely believed to be fairly precise.  Unfortunately, this algorithm is also
-O(N<sup>3</sup>).  The LLVM implementation currently does not implement any of
-the refinements (such as "online cycle elimination" or "offline variable
-substitution") to improve its efficiency, so it can be quite slow in common
-cases.
-</p>
-
 </div>
 
 <!-- _______________________________________________________________________ -->
@@ -855,26 +816,14 @@ pointer.</p>
 
 <!-- _______________________________________________________________________ -->
 <div class="doc_subsubsection">
-  <a name="gcseloadvn">The <tt>-load-vn</tt> &amp; <tt>-gcse</tt> passes</a>
+  <a name="gvn">The <tt>-gvn</tt>, <tt>-memcpyopt</tt>, and <tt>-dse</tt>
+     passes</a>
 </div>
 
 <div class="doc_text">
 
-<p>The <tt>-load-vn</tt> pass uses alias analysis to "<a href="#loadvn">value
-number</a>" loads and pointers values, which is used by the GCSE pass to
-eliminate instructions.  The <tt>-load-vn</tt> pass relies on alias information
-and must-alias information.  This combination of passes can make the following
-transformations:</p>
-
-<ul>
-<li>Redundant load instructions are eliminated.</li>
-<li>Load instructions that follow a store to the same location are replaced with
-the stored value ("store forwarding").</li>
-<li>Pointers values (e.g. formal arguments) that must-alias simpler expressions
-(e.g. global variables or the null pointer) are replaced.  Note that this
-implements transformations like "virtual method resolution", turning indirect
-calls into direct calls.</li>
-</ul>
+<p>These passes use AliasAnalysis information to reason about loads and stores.
+</p>
 
 </div>
 
@@ -887,7 +836,7 @@ calls into direct calls.</li>
 <div class="doc_text">
 
 <p>These passes are useful for evaluating the various alias analysis
-implementations.  You can use them with commands like '<tt>opt -anders-aa -ds-aa
+implementations.  You can use them with commands like '<tt>opt -ds-aa
 -aa-eval foo.bc -disable-output -stats</tt>'.</p>
 
 </div>
@@ -981,7 +930,7 @@ analysis directly.</p>
 
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="http://llvm.org">LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2008-12-17 18:15:05 -0800 (Wed, 17 Dec 2008) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 
 </body>

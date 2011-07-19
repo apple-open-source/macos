@@ -1,0 +1,46 @@
+IO::Tty and IO::Pty provide an interface to pseudo tty's
+
+To build this distribution, run
+
+  perl Makefile.PL
+  make
+  make test
+  make install
+
+This version (v1.08) now adds posix_openpt() as a means of allocating 
+the pty, thanks goes to Ed Schouten who provided a patch.
+
+Please note that pty creation is very system-dependend, and there 
+are a *lot* of different systems out there.  If you have problems 
+on your system, please send me (<RGiersig@cpan.org>) the output 
+of a manual installation ('perl Makefile.PL; make; make test;') 
+and I'll see what I can deduce from it.
+
+Supported systems include Linux, Solaris, AIX, OSF, *BSD, IRIX, HP-UX
+and Darwin.
+
+Windows is supported only under the Cygwin environment, see
+http://www.cygwin.com/.
+
+Sorry, ActiveState Perl on Windows is NOT supported, basically 
+because there are no pseudo-terminals under Windows. 
+
+If it's working on your system, please send me a short note with
+details (version number, distribution, etc. 'uname -a' and 'perl -V'
+is a good start; also, the output from "perl Makefile.PL" contains a
+lot of interesting info, so please include that as well) so I can get
+an overview.  Thanks!
+
+See the ChangeLog and the docs for details.
+
+Oh, and many thanks to all testers, without their support this project
+would still be limited to a few systems that I have access to.  Thanks
+also to SourceForge (http://sf.net) who is hosting this and many other
+projects, their services have made development and support a real
+pleasure.  If you intend to donate something to the Open Source cause,
+think about lending them a machine with a commercial OS license for
+their compile farm!
+
+
+Roland <RGiersig@cpan.org>
+2009-02-23

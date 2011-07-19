@@ -25,8 +25,10 @@
 #define _SPAWN_PRIVATE_H_
 
 #include <spawn.h>
+#include <sys/cdefs.h>
+#include <Availability.h>
 
-int     posix_spawnattr_getpcontrol_np(const posix_spawnattr_t * __restrict, int * __restrict);
-int     posix_spawnattr_setpcontrol_np(posix_spawnattr_t *, const int);
+int     posix_spawnattr_getpcontrol_np(const posix_spawnattr_t * __restrict, int * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
+int     posix_spawnattr_setpcontrol_np(posix_spawnattr_t *, const int) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 
 #endif /* !defined _SPAWN_PRIVATE_H_*/

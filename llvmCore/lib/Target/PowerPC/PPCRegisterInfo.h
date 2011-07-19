@@ -37,7 +37,7 @@ public:
 
   /// getPointerRegClass - Return the register class to use to hold pointers.
   /// This is used for addressing modes.
-  virtual const TargetRegisterClass *getPointerRegClass() const;  
+  virtual const TargetRegisterClass *getPointerRegClass(unsigned Kind=0) const;  
 
   /// Code Generation virtual methods...
   const unsigned *getCalleeSavedRegs(const MachineFunction* MF = 0) const;
@@ -66,8 +66,9 @@ public:
                          int SPAdj, RegScavenger *RS) const;
   void lowerCRSpilling(MachineBasicBlock::iterator II, unsigned FrameIndex,
                        int SPAdj, RegScavenger *RS) const;
-  void eliminateFrameIndex(MachineBasicBlock::iterator II,
-                           int SPAdj, RegScavenger *RS = NULL) const;
+  unsigned eliminateFrameIndex(MachineBasicBlock::iterator II,
+                               int SPAdj, FrameIndexValue *Value = NULL,
+                               RegScavenger *RS = NULL) const;
 
   /// determineFrameLayout - Determine the size of the frame and maximum call
   /// frame size.
@@ -75,12 +76,14 @@ public:
 
   void processFunctionBeforeCalleeSavedScan(MachineFunction &MF,
                                             RegScavenger *RS = NULL) const;
+  void processFunctionBeforeFrameFinalized(MachineFunction &MF) const;
+
   void emitPrologue(MachineFunction &MF) const;
   void emitEpilogue(MachineFunction &MF, MachineBasicBlock &MBB) const;
 
   // Debug information queries.
   unsigned getRARegister() const;
-  unsigned getFrameRegister(MachineFunction &MF) const;
+  unsigned getFrameRegister(const MachineFunction &MF) const;
   void getInitialFrameState(std::vector<MachineMove> &Moves) const;
 
   // Exception handling queries.

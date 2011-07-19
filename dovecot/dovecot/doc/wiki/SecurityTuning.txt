@@ -1,0 +1,22 @@
+Security tuning
+===============
+
+Dovecot is pretty secure out-of-the box. It uses multiple processes and
+privilege separation to isolate different parts from each others in case a
+security hole is found from one part.
+
+Some things you can do more:
+
+ * Allocate each user their own UID and GID (see <UserIds.txt>)
+ * Use a separate /dovecot-auth/ user for authentication process (see
+   <UserIds.txt>)
+ * You can chroot authentication and mail processes (see <Chrooting.txt>)
+ * Compiling Dovecot with garbage collection ('--with-gc' configure option)
+   fixes at least in theory any security holes caused by double free()s.
+   However this hasn't been tested much and there may be problems.
+ * There are some security related SSL settings (see
+   <SSL.DovecotConfiguration.txt>)
+ * Set 'first/last_valid_uid/gid' settings to contain only the range actually
+   used by mail processes
+
+(This file was created from the wiki on 2011-05-11 04:42)

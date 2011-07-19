@@ -27,13 +27,13 @@
 #ifndef HTTPHeaderMap_h
 #define HTTPHeaderMap_h
 
-#include "AtomicString.h"
-#include "AtomicStringHash.h"
-#include "StringHash.h"
 #include <utility>
 #include <wtf/HashMap.h>
 #include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
+#include <wtf/text/AtomicStringHash.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -41,20 +41,17 @@ namespace WebCore {
 
     class HTTPHeaderMap : public HashMap<AtomicString, String, CaseFoldingHash> {
     public:
+        HTTPHeaderMap();
+        ~HTTPHeaderMap();
+
         // Gets a copy of the data suitable for passing to another thread.
         PassOwnPtr<CrossThreadHTTPHeaderMapData> copyData() const;
 
         void adopt(PassOwnPtr<CrossThreadHTTPHeaderMapData>);
         
-        String get(const AtomicString& name) const
-        {
-            return HashMap<AtomicString, String, CaseFoldingHash>::get(name);
-        }
+        String get(const AtomicString& name) const;
 
-        pair<iterator, bool> add(const AtomicString& name, const String& value)
-        {
-            return HashMap<AtomicString, String, CaseFoldingHash>::add(name, value);
-        }
+        pair<iterator, bool> add(const AtomicString& name, const String& value);
 
         // Alternate accessors that are faster than converting the char* to AtomicString first.
         bool contains(const char*) const;

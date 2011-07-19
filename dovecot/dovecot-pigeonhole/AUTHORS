@@ -1,0 +1,8 @@
+Stephan Bosch <stephan@rename-it.nl>
+
+This package is built for and partly based on the Dovecot Secure IMAP server 
+written by:
+
+Timo Sirainen <tss@iki.fi>. 
+
+Grepping 'patch by' from ChangeLog shows up more people.

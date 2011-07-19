@@ -23,6 +23,7 @@
  
 #include <pthread_internals.h>
 #include "magmallocProvider.h"
+#include <mach-o/dyld.h>	/* for NSVersionOfLinkTimeLibrary() */
 
 #import <stdlib.h>
 #import <stdio.h>
@@ -43,6 +44,7 @@
 #import "stack_logging.h"
 #import "malloc_printf.h"
 #import "_simple.h"
+#import "CrashReporterClient.h"
 
 /*
  * MALLOC_ABSOLUTE_MAX_SIZE - There are many instances of addition to a
@@ -66,7 +68,9 @@ __private_extern__ pthread_lock_t _malloc_lock = 0; // initialized in __libc_ini
 /* The following variables are exported for the benefit of performance tools
  *
  * It should always be safe to first read malloc_num_zones, then read
- * malloc_zones without taking the lock, if only iteration is required
+ * malloc_zones without taking the lock, if only iteration is required and
+ * provided that when malloc_destroy_zone is called all prior operations on that
+ * zone are complete and no further calls referencing that zone can be made.
  */
 unsigned malloc_num_zones = 0;
 unsigned malloc_num_zones_allocated = 0;
@@ -101,30 +105,105 @@ static const char Malloc_Facility[] = "com.apple.Libsystem.malloc";
 #define MALLOC_LOCK()		LOCK(_malloc_lock)
 #define MALLOC_UNLOCK()		UNLOCK(_malloc_lock)
 
+/*
+ * Counters that coordinate zone destruction (in malloc_zone_unregister) with
+ * find_registered_zone (here abbreviated as FRZ).
+ */
+static int counterAlice = 0, counterBob = 0;
+static int *pFRZCounterLive= &counterAlice, *pFRZCounterDrain = &counterBob;
+
 #define MALLOC_LOG_TYPE_ALLOCATE	stack_logging_type_alloc
 #define MALLOC_LOG_TYPE_DEALLOCATE	stack_logging_type_dealloc
 #define MALLOC_LOG_TYPE_HAS_ZONE	stack_logging_flag_zone
 #define MALLOC_LOG_TYPE_CLEARED		stack_logging_flag_cleared
 
 /*********	Utilities	************/
+__private_extern__ uint64_t malloc_entropy[2] = {0, 0};
+
+void __malloc_entropy_setup(const char *apple[]) __attribute__ ((visibility ("hidden")));
+
+static int
+__entropy_from_kernel(const char *str)
+{
+    unsigned long long val;
+    char tmp[20], *p;
+    int idx = 0;
+
+    /* Skip over key to the first value */
+    str = strchr(str, '=');
+    if (str == NULL)
+	return 0;
+    str++;
+
+    while (str && idx < sizeof(malloc_entropy)/sizeof(malloc_entropy[0])) {
+	strlcpy(tmp, str, 20);
+	p = strchr(tmp, ',');
+	if (p) *p = '\0';
+	val = strtoull(tmp, NULL, 0);
+	malloc_entropy[idx] = (uint64_t)val;
+	idx++;
+	if ((str = strchr(str, ',')) != NULL)
+	    str++;
+    }
+    return idx;
+}
+
+void
+__malloc_entropy_setup(const char *apple[])
+{
+    const char **p;
+    for (p = apple; p && *p; p++) {
+	if (strstr(*p, "malloc_entropy") == *p) {
+	    if (sizeof(malloc_entropy)/sizeof(malloc_entropy[0]) == __entropy_from_kernel(*p))
+		return;
+	    else
+		break;
+	}
+    }
+
+    malloc_entropy[0] = ((uint64_t)arc4random()) << 32 | ((uint64_t)arc4random());
+    malloc_entropy[1] = ((uint64_t)arc4random()) << 32 | ((uint64_t)arc4random());
+    return;
+}
 
 static inline malloc_zone_t * find_registered_zone(const void *, size_t *) __attribute__((always_inline));
 static inline malloc_zone_t *
 find_registered_zone(const void *ptr, size_t *returned_size) {
     // Returns a zone which contains ptr, else NULL
-    unsigned index;
-    malloc_zone_t	**zones = malloc_zones;
+ 
+    if (0 == malloc_num_zones) {
+	if (returned_size) *returned_size = 0;
+	return NULL;
+    }
+
+    // The default zone is registered in malloc_zones[0]. There's no danger that it will ever be unregistered.
+    // So don't advance the FRZ counter yet.
+    malloc_zone_t *zone = malloc_zones[0];
+    size_t size = zone->size(zone, ptr);
+    if (size) { // Claimed by this zone?
+	if (returned_size) *returned_size = size;
+	return zone;
+    }
+
+    int *pFRZCounter = pFRZCounterLive; // Capture pointer to the counter of the moment
+    __sync_fetch_and_add(pFRZCounter, 1); // Advance this counter -- our thread is in FRZ
     
-    for (index = 0; index < malloc_num_zones; ++index, ++zones) {
-        malloc_zone_t *zone = *zones;
-        size_t size = zone->size(zone, ptr);
+    unsigned		index;
+    unsigned		limit = malloc_num_zones;
+    malloc_zone_t	**zones = &malloc_zones[1];
+    
+    for (index = 1; index < limit; ++index, ++zones) {
+        zone = *zones;
+        size = zone->size(zone, ptr);
         if (size) { // Claimed by this zone?
             if (returned_size) *returned_size = size;
+	    __sync_fetch_and_sub(pFRZCounter, 1); // our thread is leaving FRZ
             return zone;
         }
     }
     // Unclaimed by any zone.
     if (returned_size) *returned_size = 0;
+    __sync_fetch_and_sub(pFRZCounter, 1); // our thread is leaving FRZ
     return NULL;
 }
 
@@ -206,13 +285,13 @@ malloc_zone_register_while_locked(malloc_zone_t *zone) {
         /* If we don't need to reallocate zones, we need to briefly change the
          * page protection the malloc zones to allow writes */
         protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
-        vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ | VM_PROT_WRITE);
+	mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
     }
     malloc_zones[malloc_num_zones++] = zone;
     
     /* Finally, now that the zone is registered, disallow write access to the
      * malloc_zones array */
-    vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ);
+    mprotect(malloc_zones, protect_size, PROT_READ);
     //_malloc_printf(ASL_LEVEL_INFO, "Registered malloc_zone %p in malloc_zones %p [%u zones, %u bytes]\n", zone, malloc_zones, malloc_num_zones, protect_size);
 }
 
@@ -232,14 +311,15 @@ _malloc_initialize(void) {
 	if (n != 0) { // make the default first, for efficiency
 		unsigned protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
 		malloc_zone_t *hold = malloc_zones[0];
+		
 		if(hold->zone_name && strcmp(hold->zone_name, "DefaultMallocZone") == 0) {
-			free((void *)hold->zone_name);
-			hold->zone_name = NULL;
+		malloc_set_zone_name(hold, NULL);
 		}
-		vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ | VM_PROT_WRITE);
+		
+		mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
 		malloc_zones[0] = malloc_zones[n];
 		malloc_zones[n] = hold;
-		vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ);
+		mprotect(malloc_zones, protect_size, PROT_READ);
 	}
 	// _malloc_printf(ASL_LEVEL_INFO, "%d registered zones\n", malloc_num_zones);
 	// _malloc_printf(ASL_LEVEL_INFO, "malloc_zones is at %p; malloc_num_zones is at %p\n", (unsigned)&malloc_zones, (unsigned)&malloc_num_zones);
@@ -260,12 +340,39 @@ malloc_default_zone(void) {
     return inline_malloc_default_zone();
 }
 
+static inline malloc_zone_t *inline_malloc_default_scalable_zone(void) __attribute__((always_inline));
+static inline malloc_zone_t *
+inline_malloc_default_scalable_zone(void) {
+    unsigned index;
+
+    if (malloc_def_zone_state < 2) _malloc_initialize();
+    // _malloc_printf(ASL_LEVEL_INFO, "In inline_malloc_default_scalable_zone with %d %d\n", malloc_num_zones, malloc_has_debug_zone);
+
+    MALLOC_LOCK();
+    for (index = 0; index < malloc_num_zones; ++index) {
+	malloc_zone_t *z = malloc_zones[index];
+
+	if(z->zone_name && strcmp(z->zone_name, "DefaultMallocZone") == 0) {
+	    MALLOC_UNLOCK();
+	    return z;
+	}
+    }
+    MALLOC_UNLOCK();
+
+    malloc_printf("*** malloc_default_scalable_zone() failed to find 'DefaultMallocZone'\n");
+    return NULL; // FIXME: abort() instead?
+}
+
 malloc_zone_t *
 malloc_default_purgeable_zone(void) {
     static malloc_zone_t *dpz;
 
     if (!dpz) {
-        malloc_zone_t *tmp = create_purgeable_zone(0, malloc_default_zone(), malloc_debug_flags);
+	//
+	// PR_7288598: Must pass a *scalable* zone (szone) as the helper for create_purgeable_zone().
+	// Take care that the zone so obtained is not subject to interposing.
+	//
+        malloc_zone_t *tmp = create_purgeable_zone(0, inline_malloc_default_scalable_zone(), malloc_debug_flags);
 	malloc_zone_register(tmp);
         malloc_set_zone_name(tmp, "DefaultPurgeableMallocZone");
         if (!__sync_bool_compare_and_swap(&dpz, NULL, tmp))
@@ -297,7 +404,11 @@ set_flags_from_environment(void) {
 #if __LP64__
     malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION; // Set always on 64-bit processes
 #else
-    malloc_debug_flags = 0;
+    int libSystemVersion  = NSVersionOfLinkTimeLibrary("System");
+    if ((-1 != libSystemVersion) && ((libSystemVersion >> 16) < 126) /* CFSystemVersionBarolo */)
+	malloc_debug_flags = 0;
+    else
+	malloc_debug_flags = SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
 #endif
     stack_logging_enable_logging = 0;
     stack_logging_dontcompact = 0;
@@ -332,7 +443,7 @@ set_flags_from_environment(void) {
 	}
     }
     if (getenv("MallocGuardEdges")) {
-	malloc_debug_flags = SCALABLE_MALLOC_ADD_GUARD_PAGES;
+	malloc_debug_flags |= SCALABLE_MALLOC_ADD_GUARD_PAGES;
 	_malloc_printf(ASL_LEVEL_INFO, "protecting edges\n");
 	if (getenv("MallocDoNotProtectPrelude")) {
 	    malloc_debug_flags |= SCALABLE_MALLOC_DONT_PROTECT_PRELUDE;
@@ -389,8 +500,11 @@ set_flags_from_environment(void) {
 #if __LP64__
     /* initialization above forces SCALABLE_MALLOC_ABORT_ON_CORRUPTION of 64-bit processes */
 #else
-    if (getenv("MallocCorruptionAbort")) { // Set from an environment variable in 32-bit processes
-	malloc_debug_flags |= SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
+    flag = getenv("MallocCorruptionAbort");
+    if (flag && (flag[0] == '0')) { // Set from an environment variable in 32-bit processes
+        malloc_debug_flags &= ~SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
+    } else if (flag) {
+        malloc_debug_flags |= SCALABLE_MALLOC_ABORT_ON_CORRUPTION;
     }
 #endif
     flag = getenv("MallocCheckHeapStart");
@@ -481,13 +595,12 @@ malloc_create_legacy_default_zone(void)
     //
     malloc_zone_t *hold = malloc_zones[0];
     if(hold->zone_name && strcmp(hold->zone_name, "DefaultMallocZone") == 0) {
-	free((void *)hold->zone_name);
-	hold->zone_name = NULL;
+	malloc_set_zone_name(hold, NULL);
     }
     malloc_set_zone_name(zone, "DefaultMallocZone");
 
     unsigned protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
-    vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ | VM_PROT_WRITE);
+    mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
 
     // assert(zone == malloc_zones[malloc_num_zones - 1];
     for (i = malloc_num_zones - 1; i > 0; --i) {
@@ -495,12 +608,13 @@ malloc_create_legacy_default_zone(void)
     }
     malloc_zones[0] = zone;
 
-    vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ);
+    mprotect(malloc_zones, protect_size, PROT_READ);
     MALLOC_UNLOCK();
 }
 
 void
 malloc_destroy_zone(malloc_zone_t *zone) {
+    malloc_set_zone_name(zone, NULL); // Deallocate zone name wherever it may reside PR_7701095
     malloc_zone_unregister(zone);
     zone->destroy(zone);
 }
@@ -510,14 +624,21 @@ __private_extern__ void
 __malloc_check_env_name(const char *name)
 {
     MALLOC_LOCK();
+    /*
+     * <rdar://problem/8686255>
+     * 
+     * 2. malloc will no longer take notice of *programmatic* changes to the MALLOC_* environment variables 
+     * (i.e. calls to putenv() or setenv() that manipulate these environment variables.)
+     *
+     */
+#if 0 
     if(malloc_def_zone_state == 2 && strncmp(name, "Malloc", 6) == 0)
 	malloc_def_zone_state = 1;
+#endif
     MALLOC_UNLOCK();
 }
 
 /*********	Block creation and manipulation	************/
-
-extern const char *__crashreporter_info__;
 
 static void
 internal_check(void) {
@@ -556,7 +677,7 @@ internal_check(void) {
 	    malloc_printf("*** Recommend using 'setenv MallocCheckHeapStart %d; setenv MallocCheckHeapEach %d' to narrow down failure\n", recomm_start, recomm_each);
 	}
 	if (malloc_check_abort) {
-	    __crashreporter_info__ = b ? _simple_string(b) : "*** MallocCheckHeap: FAILED check";
+	    CRSetCrashLogMessage(b ? _simple_string(b) : "*** MallocCheckHeap: FAILED check");
 	    abort();
 	} else if (b)
 	    _simple_sfree(b);
@@ -584,7 +705,8 @@ malloc_zone_malloc(malloc_zone_t *zone, size_t size) {
 	return NULL;
     }
     ptr = zone->malloc(zone, size);
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
+    if (malloc_logger) 
+	malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
     return ptr;
 }
 
@@ -598,7 +720,9 @@ malloc_zone_calloc(malloc_zone_t *zone, size_t num_items, size_t size) {
 	return NULL;
     }
     ptr = zone->calloc(zone, num_items, size);
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (uintptr_t)zone, (uintptr_t)(num_items * size), 0, (uintptr_t)ptr, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE | MALLOC_LOG_TYPE_CLEARED, (uintptr_t)zone, (uintptr_t)(num_items * size), 0, 
+	    (uintptr_t)ptr, 0);
     return ptr;
 }
 
@@ -612,7 +736,8 @@ malloc_zone_valloc(malloc_zone_t *zone, size_t size) {
 	return NULL;
     }
     ptr = zone->valloc(zone, size);
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
     return ptr;
 }
 
@@ -626,13 +751,16 @@ malloc_zone_realloc(malloc_zone_t *zone, void *ptr, size_t size) {
 	return NULL;
     }
     new_ptr = zone->realloc(zone, ptr, size);
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, (uintptr_t)size, (uintptr_t)new_ptr, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, (uintptr_t)size, 
+	    (uintptr_t)new_ptr, 0);
     return new_ptr;
 }
 
 void
 malloc_zone_free(malloc_zone_t *zone, void *ptr) {
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
@@ -641,7 +769,8 @@ malloc_zone_free(malloc_zone_t *zone, void *ptr) {
 
 static void
 malloc_zone_free_definite_size(malloc_zone_t *zone, void *ptr, size_t size) {
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_DEALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)ptr, 0, 0, 0);
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
@@ -674,7 +803,8 @@ malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size) {
 	return NULL;
     }
     ptr = zone->memalign(zone, alignment, size);
-    if (malloc_logger) malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
+    if (malloc_logger)
+	malloc_logger(MALLOC_LOG_TYPE_ALLOCATE | MALLOC_LOG_TYPE_HAS_ZONE, (uintptr_t)zone, (uintptr_t)size, 0, (uintptr_t)ptr, 0);
     return ptr;
 }
 
@@ -702,16 +832,28 @@ malloc_zone_unregister(malloc_zone_t *z) {
         // Modify the page to be allow write access, so that we can update the
         // malloc_zones array.
         size_t protect_size = malloc_num_zones_allocated * sizeof(malloc_zone_t *);
-        vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ | VM_PROT_WRITE);
+	mprotect(malloc_zones, protect_size, PROT_READ | PROT_WRITE);
 
-        // If we found a match, swap it with the entry on the back of the list
-        // and null out the back of the list.
+        // If we found a match, replace it with the entry at the end of the list, shrink the list,
+	// and leave the end of the list intact to avoid racing with find_registered_zone().
+
         malloc_zones[index] = malloc_zones[malloc_num_zones - 1];
-        malloc_zones[malloc_num_zones - 1] = NULL;
         --malloc_num_zones;
         
-        vm_protect(mach_task_self(), (uintptr_t)malloc_zones, protect_size, 0, VM_PROT_READ);
+	mprotect(malloc_zones, protect_size, PROT_READ);
+	
+	// Exchange the roles of the FRZ counters. The counter that has captured the number of threads presently
+	// executing *inside* find_regiatered_zone is swapped with the counter drained to zero last time through.
+	// The former is then allowed to drain to zero while this thread yields.
+	int *p = pFRZCounterLive;
+	pFRZCounterLive = pFRZCounterDrain;
+	pFRZCounterDrain = p;
+	__sync_synchronize(); // Full memory barrier
+
+	while (0 != *pFRZCounterDrain) { pthread_yield_np(); }
+	
         MALLOC_UNLOCK();
+	
         return;
     }
     MALLOC_UNLOCK();
@@ -721,13 +863,23 @@ malloc_zone_unregister(malloc_zone_t *z) {
 void
 malloc_set_zone_name(malloc_zone_t *z, const char *name) {
     char	*newName;
+    
+    mprotect(z, sizeof(malloc_zone_t), PROT_READ | PROT_WRITE);
     if (z->zone_name) {
         free((char *)z->zone_name);
         z->zone_name = NULL;
     }
-    newName = malloc_zone_malloc(z, strlen(name) + 1);
-    strcpy(newName, name);
-    z->zone_name = (const char *)newName;
+    if (name) {
+	size_t buflen = strlen(name) + 1;
+	newName = malloc_zone_malloc(z, buflen);
+	if (newName) {
+	    strlcpy(newName, name, buflen);
+	    z->zone_name = (const char *)newName;
+	} else {
+	    z->zone_name = NULL;
+	}
+    }
+    mprotect(z, sizeof(malloc_zone_t), PROT_READ);
 }
 
 const char *
@@ -824,8 +976,16 @@ free(void *ptr) {
 	malloc_printf("*** error for object %p: pointer being freed was not allocated\n"
 	"*** set a breakpoint in malloc_error_break to debug\n", ptr);
 	malloc_error_break();
-	if ((malloc_debug_flags & (SCALABLE_MALLOC_ABORT_ON_CORRUPTION|SCALABLE_MALLOC_ABORT_ON_ERROR)))
-		abort();
+	if ((malloc_debug_flags & (SCALABLE_MALLOC_ABORT_ON_CORRUPTION|SCALABLE_MALLOC_ABORT_ON_ERROR))) {
+	    _SIMPLE_STRING b = _simple_salloc();
+	    if (b) {
+		_simple_sprintf(b, "*** error for object %p: pointer being freed was not allocated\n", ptr);
+		CRSetCrashLogMessage(_simple_string(b));
+	    } else {
+		CRSetCrashLogMessage("*** error: pointer being freed was not allocated\n");
+	    }
+	    abort();
+	}
     } else if (zone->version >= 6 && zone->free_definite_size)
 	malloc_zone_free_definite_size(zone, ptr, size);
     else
@@ -834,7 +994,7 @@ free(void *ptr) {
 
 void *
 realloc(void *in_ptr, size_t new_size) {
-    void		*retval;
+    void		*retval = NULL;
     void		*old_ptr;
     malloc_zone_t	*zone;
     size_t		old_size = 0;
@@ -852,13 +1012,23 @@ realloc(void *in_ptr, size_t new_size) {
 	retval = malloc_zone_malloc(inline_malloc_default_zone(), new_size);
     } else {
 	zone = find_registered_zone(old_ptr, &old_size);
-        if (zone && old_size >= new_size) 
-            return old_ptr;
-	
-	if (!zone)
-            zone = inline_malloc_default_zone();
-	    
-	retval = malloc_zone_realloc(zone, old_ptr, new_size);
+	if (!zone) {
+	    malloc_printf("*** error for object %p: pointer being realloc'd was not allocated\n"
+	    "*** set a breakpoint in malloc_error_break to debug\n", old_ptr);
+	    malloc_error_break();
+	    if ((malloc_debug_flags & (SCALABLE_MALLOC_ABORT_ON_CORRUPTION|SCALABLE_MALLOC_ABORT_ON_ERROR))) {
+		_SIMPLE_STRING b = _simple_salloc();
+		if (b) {
+		    _simple_sprintf(b, "*** error for object %p: pointer being realloc'd was not allocated\n", old_ptr);
+		    CRSetCrashLogMessage(_simple_string(b));
+		} else {
+		    CRSetCrashLogMessage("*** error: pointer being realloc'd was not allocated\n");
+		}
+		abort();
+	    }
+	} else {
+	    retval = malloc_zone_realloc(zone, old_ptr, new_size);
+	}
     }
     if (retval == NULL) {
 	errno = ENOMEM;
@@ -995,12 +1165,46 @@ malloc_make_nonpurgeable(void *ptr) {
     return 0;
 }
 
+size_t malloc_zone_pressure_relief(malloc_zone_t *zone, size_t goal)
+{
+    if (!zone) {
+	unsigned index = 0;
+	size_t total = 0;
+
+	// Take lock to defend against malloc_destroy_zone()
+	MALLOC_LOCK();
+        while (index < malloc_num_zones) {
+            zone = malloc_zones[index++];
+	    if (zone->version < 8)
+		continue;
+	    if (NULL == zone->pressure_relief)
+		continue;
+	    if (0 == goal) /* Greedy */
+		total += zone->pressure_relief(zone, 0);
+	    else if (goal > total)
+		total += zone->pressure_relief(zone, goal - total);
+	    else /* total >= goal */
+		break;
+        }
+	MALLOC_UNLOCK();
+	return total;
+    } else {
+	// Assumes zone is not destroyed for the duration of this call
+	if (zone->version < 8)
+	    return 0;
+	if (NULL == zone->pressure_relief)
+	    return 0;
+	return zone->pressure_relief(zone, goal);
+    }
+}
+
 /*********	Batch methods	************/
 
 unsigned
 malloc_zone_batch_malloc(malloc_zone_t *zone, size_t size, void **results, unsigned num_requested) {
     unsigned	(*batch_malloc)(malloc_zone_t *, size_t, void **, unsigned) = zone-> batch_malloc;
-    if (! batch_malloc) return 0;
+    if (! batch_malloc)
+	return 0;
     if (malloc_check_start && (malloc_check_counter++ >= malloc_check_start)) {
 	internal_check();
     }
@@ -1171,10 +1375,10 @@ DefaultMallocError(int x) {
     if (b) {
 	_simple_sprintf(b, "*** error %d", x);
 	malloc_printf("%s\n", _simple_string(b));
-	__crashreporter_info__ = _simple_string(b);
+	CRSetCrashLogMessage(_simple_string(b));
     } else {
 	_malloc_printf(MALLOC_PRINTF_NOLOG, "*** error %d", x);
-	__crashreporter_info__ = "*** DefaultMallocError called";
+	CRSetCrashLogMessage("*** DefaultMallocError called");
     }
     abort();
 #endif
@@ -1247,6 +1451,62 @@ mstats(void)
     m.bytes_free = m.bytes_total - m.bytes_used;	/* isn't this somewhat obvious? */
 
     return(m);
+}
+
+boolean_t
+malloc_zone_enable_discharge_checking(malloc_zone_t *zone)
+{
+    if (zone->version < 7) // Version must be >= 7 to look at the new discharge checking fields.
+	return FALSE;
+    if (NULL == zone->introspect->enable_discharge_checking)
+	return FALSE;
+    return zone->introspect->enable_discharge_checking(zone);
+}
+
+void
+malloc_zone_disable_discharge_checking(malloc_zone_t *zone)
+{
+    if (zone->version < 7) // Version must be >= 7 to look at the new discharge checking fields.
+	return;
+    if (NULL == zone->introspect->disable_discharge_checking)
+	return;
+    zone->introspect->disable_discharge_checking(zone);
+}
+
+void
+malloc_zone_discharge(malloc_zone_t *zone, void *memory)
+{
+    if (NULL == zone)
+        zone = malloc_zone_from_ptr(memory);
+    if (NULL == zone)
+	return;
+    if (zone->version < 7) // Version must be >= 7 to look at the new discharge checking fields.
+	return;
+    if (NULL == zone->introspect->discharge)
+	return;
+    zone->introspect->discharge(zone, memory);
+}
+ 
+void
+malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void (^report_discharged)(void *memory, void *info))
+{
+    if (!zone) {
+        unsigned	index = 0;
+        while (index < malloc_num_zones) {
+            zone = malloc_zones[index++];
+	    if (zone->version < 7)
+		continue;
+	    if (NULL == zone->introspect->enumerate_discharged_pointers)
+		continue;
+            zone->introspect->enumerate_discharged_pointers(zone, report_discharged);
+        }
+    } else {
+	if (zone->version < 7)
+	    return;
+	if (NULL == zone->introspect->enumerate_discharged_pointers)
+	    return;
+	zone->introspect->enumerate_discharged_pointers(zone, report_discharged);
+    }
 }
 
 /*****************	OBSOLETE ENTRY POINTS	********************/

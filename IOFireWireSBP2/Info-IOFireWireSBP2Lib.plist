@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>IOFireWireSBP2Lib</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFireWireSBP2 version 4.0.6, Copyright © 2009 Apple Inc. All rights reserved.</string>
+	<string>IOFireWireSBP2 version 4.2.0, Copyright © 2010 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,11 +19,11 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.0.6</string>
+	<string>4.2.0</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.0.6</string>
+	<string>4.2.0</string>
 	<key>CFPlugInDynamicRegistration</key>
 	<string>NO</string>
 	<key>CFPlugInFactories</key>

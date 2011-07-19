@@ -19,7 +19,7 @@ setprogname(const char *progname)
 	
 	p = strrchr(progname, '/');
 	if (p != NULL)
-		__progname = (char *)(p + 1);
+		__progname = (char *)(p = p + 1);
 	else
 		__progname = (char *)(p = progname);
 

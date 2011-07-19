@@ -5681,8 +5681,8 @@ ImgGetPhoto(
 	} else if (optPtr->options & OPT_GRAYSCALE) {
 	    for (y = blockPtr->height; y > 0; y--) {
 		for (x = blockPtr->width; x > 0; x--) {
-		    *destPtr = (unsigned char)
-			    (srcPtr[0]*11+srcPtr[1]*16+srcPtr[2]*5 + 16) >> 5;
+		    *destPtr = (unsigned char) ((srcPtr[0]*11 + srcPtr[1]*16
+			    + srcPtr[2]*5 + 16) >> 5);
 		    srcPtr += blockPtr->pixelSize;
 		    destPtr += newPixelSize;
 		}

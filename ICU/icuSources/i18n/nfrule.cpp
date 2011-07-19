@@ -757,7 +757,8 @@ NFRule::doParse(const UnicodeString& text,
                 ParsePosition& parsePosition,
                 UBool isFractionRule,
                 double upperBound,
-                Formattable& resVal) const
+                Formattable& resVal,
+                UBool isDecimFmtParseable) const
 {
     // internally we operate on a copy of the string being parsed
     // (because we're going to change it) and use our own ParsePosition
@@ -797,6 +798,17 @@ NFRule::doParse(const UnicodeString& text,
         parsePosition.setErrorIndex(pp.getErrorIndex());
         resVal.setLong(0);
         return TRUE;
+    }
+
+    // Detect when this rule's main job is to parse a decimal format and we're not
+    // supposed to.
+    if (!isDecimFmtParseable) {
+       // The following tries to detect a rule like "x.x: =#,##0.#=;"
+        if ( sub1->isDecimalFormatSubstitutionOnly() && sub2->isRuleSetSubstitutionOnly() ) {
+            parsePosition.setErrorIndex(pp.getErrorIndex());
+            resVal.setLong(0);
+            return TRUE;
+        }
     }
 
     // this is the fun part.  The basic guts of the rule-matching

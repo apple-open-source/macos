@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -25,16 +25,57 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
+
 #import "config.h"
 #import "FileSystem.h"
 
 #import "PlatformString.h"
+#import <wtf/RetainPtr.h>
+#import <wtf/text/CString.h>
+#import <wtf/UnusedParam.h>
 
 namespace WebCore {
 
 String homeDirectoryPath()
 {
     return NSHomeDirectory();
+}
+
+String openTemporaryFile(const String& prefix, PlatformFileHandle& platformFileHandle)
+{
+    platformFileHandle = invalidPlatformFileHandle;
+    
+    Vector<char> temporaryFilePath(PATH_MAX);
+    if (!confstr(_CS_DARWIN_USER_TEMP_DIR, temporaryFilePath.data(), temporaryFilePath.size()))
+        return String();
+
+    // Shrink the vector.   
+    temporaryFilePath.shrink(strlen(temporaryFilePath.data()));
+    ASSERT(temporaryFilePath.last() == '/');
+
+    // Append the file name.
+    CString prefixUtf8 = prefix.utf8();
+    temporaryFilePath.append(prefixUtf8.data(), prefixUtf8.length());
+    temporaryFilePath.append("XXXXXX", 6);
+    temporaryFilePath.append('\0');
+
+    platformFileHandle = mkstemp(temporaryFilePath.data());
+    if (platformFileHandle == invalidPlatformFileHandle)
+        return String();
+
+    return String::fromUTF8(temporaryFilePath.data());
+}
+
+bool canExcludeFromBackup()
+{
+    return true;
+}
+
+bool excludeFromBackup(const String& path)
+{
+    // It is critical to pass FALSE for excludeByPath because excluding by path requires root privileges.
+    CSBackupSetItemExcluded(pathAsURL(path).get(), TRUE, FALSE); 
+    return true;
 }
 
 } // namespace WebCore

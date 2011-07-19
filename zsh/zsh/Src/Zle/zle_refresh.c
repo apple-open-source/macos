@@ -247,8 +247,9 @@ struct region_highlight *region_highlights;
  * for the first few elements of region_highlights.
  * 0: region between point and mark
  * 1: isearch region
+ * 2: suffix
  */
-#define N_SPECIAL_HIGHLIGHTS	(2)
+#define N_SPECIAL_HIGHLIGHTS	(3)
 /*
  * Number of elements in region_highlights.
  * This includes the special elements above.
@@ -340,6 +341,7 @@ zle_set_highlight(void)
     int special_atr_on_set = 0;
     int region_atr_on_set = 0;
     int isearch_atr_on_set = 0;
+    int suffix_atr_on_set = 0;
     struct region_highlight *rhp;
 
     special_atr_on = default_atr_on = 0;
@@ -361,7 +363,7 @@ zle_set_highlight(void)
 		/* reset attributes for consistency... usually unnecessary */
 		special_atr_on = default_atr_on = 0;
 		special_atr_on_set = region_atr_on_set =
-		    isearch_atr_on_set = 1;
+		    isearch_atr_on_set = suffix_atr_on_set = 1;
 	    } else if (strpfx("default:", *atrs)) {
 		match_highlight(*atrs + 8, &default_atr_on);
 	    } else if (strpfx("special:", *atrs)) {
@@ -373,6 +375,9 @@ zle_set_highlight(void)
 	    } else if (strpfx("isearch:", *atrs)) {
 		match_highlight(*atrs + 8, &(region_highlights[1].atr));
 		isearch_atr_on_set = 1;
+	    } else if (strpfx("suffix:", *atrs)) {
+		match_highlight(*atrs + 7, &(region_highlights[2].atr));
+		suffix_atr_on_set = 1;
 	    }
 	}
     }
@@ -384,6 +389,8 @@ zle_set_highlight(void)
 	region_highlights->atr = TXTSTANDOUT;
     if (!isearch_atr_on_set)
 	region_highlights[1].atr = TXTUNDERLINE;
+    if (!suffix_atr_on_set)
+	region_highlights[2].atr = TXTBOLDFACE;
 
     allocate_colour_buffer();
 }
@@ -699,6 +706,8 @@ freevideo(void)
 #endif
 	nbuf = NULL;
 	obuf = NULL;
+	winw_alloc = -1;
+	winh_alloc = -1;
     }
 }
 
@@ -1058,6 +1067,13 @@ zrefresh(void)
     } else {
 	region_highlights[1].start = region_highlights[1].end = -1;
     }
+    /* check for an active completion suffix */
+    if (suffixnoinslen) {
+	region_highlights[2].start = zlecs - suffixnoinslen;
+	region_highlights[2].end = zlecs;
+    } else {
+	region_highlights[2].start = region_highlights[2].end = -1;
+    }
 
     if (clearlist && listshown > 0) {
 	if (tccan(TCCLEAREOD)) {
@@ -1247,7 +1263,11 @@ zrefresh(void)
 	    }
 	}
 #ifdef MULTIBYTE_SUPPORT
-	else if (iswprint(*t) && (width = WCWIDTH(*t)) > 0) {
+	else if (
+#ifdef __STDC_ISO_10646__
+		 !ZSH_INVALID_WCHAR_TEST(*t) &&
+#endif
+		 iswprint(*t) && (width = WCWIDTH(*t)) > 0) {
 	    int ichars;
 	    if (width > rpms.sen - rpms.s) {
 		int started = 0;
@@ -1351,6 +1371,12 @@ zrefresh(void)
 	    wchar_t wc;
 	    int started = 0;
 
+#ifdef __STDC_ISO_10646__
+	    if (ZSH_INVALID_WCHAR_TEST(*t)) {
+		int c = ZSH_INVALID_WCHAR_TO_INT(*t);
+		sprintf(dispchars, "<%.02x>", c);
+	    } else
+#endif
 	    if ((unsigned)*t > 0xffffU) {
 		sprintf(dispchars, "<%.08x>", (unsigned)*t);
 	    } else {
@@ -1763,7 +1789,7 @@ refreshline(int ln)
 /* 0: setup */
     nl = nbuf[ln];
     rnllen = nllen = nl ? ZR_strlen(nl) : 0;
-    if (obuf[ln]) {
+    if (ln < olnct && obuf[ln]) {
 	ol = obuf[ln];
 	ollen = ZR_strlen(ol);
     }
@@ -1879,6 +1905,8 @@ refreshline(int ln)
 /* 3: main display loop - write out the buffer using whatever tricks we can */
 
     for (;;) {
+	int now_off;
+
 #ifdef MULTIBYTE_SUPPORT
 	if ((!nl->chr || nl->chr != WEOF) && (!ol->chr || ol->chr != WEOF)) {
 #endif
@@ -1971,8 +1999,18 @@ refreshline(int ln)
 		   eg. oldline: hifoobar \ hopefully cheaper here to delete two
 		   newline: foobar	 / characters, then we have six matches */
 		if (tccan(TCDEL)) {
-		    for (i = 1; ol[i].chr; i++)
+		    int first = 1;
+		    for (i = 1; ol[i].chr; i++) {
 			if (tcdelcost(i) < wpfxlen(ol + i, nl)) {
+			    /*
+			     * Some terminals will output the current
+			     * attributes into cells added at the end by
+			     * deletions, so turn off text attributes.
+			     */
+			    if (first) {
+				clearattributes();
+				first = 0;
+			    }
 			    tc_delchars(i);
 			    ol += i;
 			    char_ins -= i;
@@ -1982,27 +2020,22 @@ refreshline(int ln)
 				char_ins--;
 			    }
 #endif
-			    /*
-			     * If the sequence we're deleting ended
-			     * by turning off an attribute, make sure
-			     * it stays turned off.  I don't think we
-			     * should need this.
-			     */
-			    if (ol[-1].atr & TXT_ATTR_OFF_MASK)
-				settextattributes(ol[-1].atr &
-						  TXT_ATTR_OFF_MASK);
 			    i = 0;
 			    break;
 			}
+		    }
 		    if (!i)
 			continue;
 		}
-		/* inserting characters - characters pushed off the right should be
-		   annihilated, but we don't do this if we're on the last line lest
-		   undesired scrolling occurs due to `illegal' characters on screen */
-
-		if (tccan(TCINS) && (vln != lines - 1)) {	/* not on last line */
-		    for (i = 1; nl[i].chr; i++)
+		/*
+		 * inserting characters - characters pushed off the right
+		 * should be annihilated, but we don't do this if we're on the
+		 * last line lest undesired scrolling occurs due to `illegal'
+		 * characters on screen
+		 */ 
+		if (tccan(TCINS) && (vln != lines - 1)) {
+		    /* not on last line */
+		    for (i = 1; nl[i].chr; i++) {
 			if (tcinscost(i) < wpfxlen(ol, nl + i)) {
 			    tc_inschars(i);
 			    zwrite(nl, i);
@@ -2015,19 +2048,37 @@ refreshline(int ln)
 #endif
 			    char_ins += i;
 			    ccs = (vcs += i);
-			    /* if we've pushed off the right, truncate oldline */
-			    for (i = 0; ol[i].chr && i < winw - ccs; i++);
+			    /*
+			     * if we've pushed off the right, truncate
+			     * oldline
+			     */
+			    for (i = 0; ol[i].chr && i < winw - ccs; i++)
+				;
 #ifdef MULTIBYTE_SUPPORT
 			    while (ol[i].chr == WEOF)
 				i++;
-#endif
+			    if (i >= winw - ccs) {
+				/*
+				 * Yes, we're over the right.
+				 * Make sure we truncate at the real
+				 * character, not a WEOF added to
+				 * make up the width.
+				 */
+				while (ol[i-1].chr == WEOF)
+				    i--;
+				ol[i] = zr_zr;
+				ins_last = 1;
+			    }
+#else
 			    if (i >= winw - ccs) {
 				ol[i] = zr_zr;
 				ins_last = 1;
 			    }
+#endif
 			    i = 0;
 			    break;
 			}
+		    }
 		    if (!i)
 			continue;
 		}
@@ -2050,12 +2101,19 @@ refreshline(int ln)
 	     * If an attribute was on here but isn't any more,
 	     * output the sequence to turn it off.
 	     */
-	    int now_off = ol->atr & ~nl->atr & TXT_ATTR_ON_MASK;
+	    now_off = ol->atr & ~nl->atr & TXT_ATTR_ON_MASK;
 	    if (now_off)
 		settextattributes(TXT_ATTR_OFF_FROM_ON(now_off));
 
+	    /*
+	     * This is deliberately called if nl->chr is WEOF
+	     * in order to keep text attributes consistent.
+	     * We check for WEOF inside.
+	     */
 	    zputc(nl);
-	    nl++, ol++;
+	    nl++;
+	    if (ol->chr)
+	      ol++;
 	    ccs++, vcs++;
 #ifdef MULTIBYTE_SUPPORT
 	    /*
@@ -2312,7 +2370,7 @@ singlerefresh(ZLE_STRING_T tmpline, int tmpll, int tmpcs)
 	if (tmpline[t0] == ZWC('\t'))
 	    vsiz = (vsiz | 7) + 2;
 #ifdef MULTIBYTE_SUPPORT
-	else if (iswprint(tmpline[t0]) && (width = WCWIDTH(tmpline[t0]) > 0)) {
+	else if (iswprint(tmpline[t0]) && ((width = WCWIDTH(tmpline[t0])) > 0)) {
 	    vsiz += width;
 	    if (isset(COMBININGCHARS) && IS_BASECHAR(tmpline[t0])) {
 		while (t0 < tmpll-1 && IS_COMBINING(tmpline[t0+1]))
@@ -2639,6 +2697,10 @@ zle_refresh_finish(void)
     freevideo();
 
     if (region_highlights)
+    {
 	zfree(region_highlights,
 	      sizeof(struct region_highlight) * n_region_highlights);
+	region_highlights = NULL;
+	n_region_highlights = 0;
+    }
 }

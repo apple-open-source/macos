@@ -80,7 +80,7 @@ EAPSSLCipherSuiteString(SSLCipherSuite cs);
 const char *
 EAPSSLProtocolVersionString(SSLProtocol prot);
 
-#endif 0
+#endif /* 0 */
 
 const char *
 EAPSSLErrorString(OSStatus err);
@@ -214,4 +214,4 @@ EAPTLSCreateSecTrust(CFDictionaryRef properties, CFArrayRef server_certs,
 
 #endif /* TARGET_OS_EMBEDDED */
 
-#endif _EAP8021X_EAPTLSUTIL_H
+#endif /* _EAP8021X_EAPTLSUTIL_H */

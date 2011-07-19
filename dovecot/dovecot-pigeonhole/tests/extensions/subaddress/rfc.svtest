@@ -1,0 +1,59 @@
+require "vnd.dovecot.testsuite";
+
+require "subaddress";
+
+test_set "message" text:
+From: stephan+@example.org
+To: timo+spam@example.net
+CC: nico@example.com
+Subject: fetch my spam
+
+Mouhahahaha... Spam!
+.
+;
+
+
+/*
+ * The ":user" argument specifies the user sub-part of the local-part of
+ * an address.  If the address is not encoded to contain a detail sub-
+ * part, then ":user" specifies the entire left side of the address
+ * (equivalent to ":localpart").
+ */
+
+test "User sub-part" {
+	if not address :user "cc" "nico" {
+		test_fail "wrong :user part extracted (1)";
+	}
+
+	if not address :user "to" "timo" {
+		test_fail "wrong :user part extracted (2)";
+	}
+
+	if not address :user "from" "stephan" {
+		test_fail "wrong :user part extracted (3)";
+	}
+}
+
+/* The ":detail" argument specifies the detail sub-part of the local-
+ * part of an address.  If the address is not encoded to contain a
+ * detail sub-part, then the address fails to match any of the specified
+ * keys.  If a zero-length string is encoded as the detail sub-part,
+ * then ":detail" resolves to the empty value ("").
+ */
+
+test "Detail sub-part" {
+	if not address :detail "to" "spam" {
+		test_fail "wrong :detail part extracted";
+	}	
+
+	if anyof (
+		address :detail :matches "cc" ["*", "?"],
+		address :detail :contains "cc" "",
+		address :detail :is "cc" "" ) {
+		test_fail ":detail inappropriately matched missing detail sub-part";
+	}
+
+	if not address :detail "from" "" {
+		test_fail "wrong empty :detail part extracted";
+	}		
+}

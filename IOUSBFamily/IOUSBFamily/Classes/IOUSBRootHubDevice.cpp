@@ -128,7 +128,6 @@ IOUSBRootHubDevice::InitializeCharacteristics()
 		characteristics |= kIOUSBHubDeviceIsOnHighSpeedBus;
 		
 	SetHubCharacteristics(characteristics);
-	
 	return true;
 }
 
@@ -139,14 +138,25 @@ IOUSBRootHubDevice::start(IOService *provider)
 {
 	mach_timespec_t				timeSpec;
 	bool						returnValue = false;
+	OSString *					cardTypeRef = NULL;
 	
 	USBLog(5, "%s[%p]::start", getName(), this);
 
- 	timeSpec.tv_sec = 5;
-	timeSpec.tv_nsec = 0;
+	// Only do this for "Built-in" controllers. If we ever are to support PCI cards, then we need to convert
+	// this to a dictionary with entries for the different possible controllers.
+	cardTypeRef = OSDynamicCast(OSString, provider->getProperty("Card Type"));
+	if ( cardTypeRef && cardTypeRef->isEqualTo("Built-in") )
+	{
+		timeSpec.tv_sec = 5;
+		timeSpec.tv_nsec = 0;
+		
+		_IORESOURCESENTRY = waitForService(serviceMatching("IOResources"), &timeSpec);
+	}
+	else
+	{
+		USBLog(6, "IOUSBRootHubDevice[%p]::start - no 'Card Type' property or is NOT 'Built'-in' ", this);
+	}
 	
-	_IORESOURCESENTRY = waitForService(serviceMatching("IOResources"), &timeSpec);
-
 	returnValue = super::start(provider);
 	if ( !returnValue)
 	{
@@ -471,12 +481,12 @@ IOUSBRootHubDevice::RequestExtraPower(UInt32 requestedPower)
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 	
-	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleCurrentAvailable);
+	propertyObject = (_IORESOURCESENTRY)->copyProperty(kAppleMaxPortCurrent);
 	numberObject = OSDynamicCast(OSNumber, propertyObject);
 	if (numberObject)
 	{
 		maxPowerPerPort = numberObject->unsigned32BitValue();
-		USBLog(5, "%s[%p]::RequestExtraPower - we have a kAppleCurrentAvailable with %d", getName(), this, (uint32_t) maxPowerPerPort);
+		USBLog(5, "%s[%p]::RequestExtraPower - we have a kAppleMaxPortCurrent with %d", getName(), this, (uint32_t) maxPowerPerPort);
 	}
 	SAFE_RELEASE_NULL(propertyObject);
 

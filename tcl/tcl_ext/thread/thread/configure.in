@@ -3,7 +3,7 @@ dnl	This file is an input file used by the GNU "autoconf" program to
 dnl	generate the file "configure", which is run during Tcl installation
 dnl	to configure the system for the local environment.
 #
-# RCS: @(#) $Id: configure.in,v 1.31 2007/08/07 06:59:06 das Exp $
+# RCS: @(#) $Id: configure.in,v 1.32 2010/03/31 08:51:18 vasiljevic Exp $
 
 #-----------------------------------------------------------------------
 # Sample configure.in for Tcl Extensions.  The only places you should
@@ -19,7 +19,7 @@ dnl	to configure the system for the local environment.
 # so you can encode the package version directly into the source files.
 #-----------------------------------------------------------------------
 
-AC_INIT([thread], [2.6.5])
+AC_INIT([thread], [2.6.6])
 
 #--------------------------------------------------------------------
 # Call TEA_INIT as the first TEA_ macro to set up initial vars.
@@ -27,7 +27,7 @@ AC_INIT([thread], [2.6.5])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

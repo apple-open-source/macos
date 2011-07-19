@@ -1,0 +1,47 @@
+LDA Indexing
+============
+
+LDA's indexing basically does two things while message is being saved:
+
+ 1. It updates the main index file.
+     * This improves performance with <mbox> [MailboxFormat.mbox.txt] format,
+       especially if 'mbox_very_dirty_syncs=no'.
+     * With <Maildir> [MailboxFormat.Maildir.txt] the benefits of this are
+       almost irrelevant.
+ 2. It updates the 'dovecot.index.cache' file.
+
+Cache file
+----------
+
+The LDA also updates the cache file, which can be very useful with all mailbox
+formats. It means that when an IMAP client wants to fetch the message's
+metadata (e.g. some header fields), they're can be retrieved from the cache
+file and Dovecot doesn't have to open and parse the message file. There are
+some tradeoffs though:
+
+ * LDA indexing wastes disk I/O because it has to open and update index files
+ * LDA indexing saves disk I/O because it already has the message body in
+   memory, so it doesn't need to read it from disk.
+ * IMAP indexing wastes disk I/O because it has to open and read message files
+ * IMAP indexing may save disk I/O because IMAP process always has index files
+   opened, and many IMAP clients are configured to download all new message
+   bodies anyway, so the second time message bodies are read they're already in
+   memory
+
+So it depends on IMAP client if it's faster to use LDA or IMAP time indexing.
+In any case the user experience is typically faster with LDA indexing, because
+the message list metadata can be returned faster when it's pre-indexed.
+
+See <IndexFiles.txt> for more information about what the index files contain.
+
+Non-indexed mail delivery
+-------------------------
+
+Ignoring the benefits of cache file updates, the only thing left is the main
+index updates. As mentioned above, with Maildir format these benefits are very
+small. This also means that it's perfectly fine to use a non-Dovecot MDA to
+deliver mails that doesn't update indexes. Dovecot can efficiently see and
+index such new mails without doing anything expensive like "rebuilding
+indexes".
+
+(This file was created from the wiki on 2011-05-11 04:42)

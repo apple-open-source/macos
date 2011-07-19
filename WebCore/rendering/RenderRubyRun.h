@@ -31,8 +31,6 @@
 #ifndef RenderRubyRun_h
 #define RenderRubyRun_h
 
-#if ENABLE(RUBY)
-
 #include "RenderBlock.h"
 
 namespace WebCore {
@@ -48,8 +46,6 @@ public:
     RenderRubyRun(Node*);
     virtual ~RenderRubyRun();
 
-    virtual void destroy();
-
     bool hasRubyText() const;
     bool hasRubyBase() const;
     bool isEmpty() const;
@@ -57,12 +53,17 @@ public:
     RenderRubyBase* rubyBase() const;
     RenderRubyBase* rubyBaseSafe(); // creates the base if it doesn't already exist
 
+    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren);
+    virtual void layout();
+
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
     virtual void addChild(RenderObject* child, RenderObject* beforeChild = 0);
     virtual void removeChild(RenderObject* child);
 
     virtual RenderBlock* firstLineBlock() const;
     virtual void updateFirstLetter();
+
+    void getOverhang(bool firstLine, RenderObject* startRenderer, RenderObject* endRenderer, int& startOverhang, int& endOverhang) const;
 
     static RenderRubyRun* staticCreateRubyRun(const RenderObject* parentRuby);
 
@@ -74,12 +75,22 @@ private:
     virtual const char* renderName() const { return "RenderRubyRun (anonymous)"; }
     virtual bool createsAnonymousWrapper() const { return true; }
     virtual void removeLeftoverAnonymousBlock(RenderBlock*) { }
-
-    bool m_beingDestroyed;
 };
 
-} // namespace WebCore
+inline RenderRubyRun* toRenderRubyRun(RenderObject* object)
+{
+    ASSERT(!object || object->isRubyRun());
+    return static_cast<RenderRubyRun*>(object);
+}
 
-#endif
+inline const RenderRubyRun* toRenderRubyRun(const RenderObject* object)
+{
+    ASSERT(!object || object->isBox());
+    return static_cast<const RenderRubyRun*>(object);
+}
+
+void toRenderRubyRun(const RenderRubyRun*);
+
+} // namespace WebCore
 
 #endif // RenderRubyRun_h

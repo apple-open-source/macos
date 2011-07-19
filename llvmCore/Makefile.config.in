@@ -76,21 +76,24 @@ endif
 
 LLVMMAKE := $(LLVM_SRC_ROOT)/make
 
-PROJ_bindir     := $(DESTDIR)$(PROJ_prefix)/bin
-PROJ_libdir     := $(DESTDIR)$(PROJ_prefix)/lib
-PROJ_datadir    := $(DESTDIR)$(PROJ_prefix)/share
-PROJ_docsdir    := $(DESTDIR)$(PROJ_prefix)/docs/llvm
-PROJ_etcdir     := $(DESTDIR)$(PROJ_prefix)/etc/llvm
-PROJ_includedir := $(DESTDIR)$(PROJ_prefix)/include
-PROJ_infodir    := $(DESTDIR)$(PROJ_prefix)/info
-PROJ_mandir     := $(DESTDIR)$(PROJ_prefix)/share/man
+PROJ_bindir     := $(PROJ_prefix)/bin
+PROJ_libdir     := $(PROJ_prefix)/lib
+PROJ_datadir    := $(PROJ_prefix)/share
+PROJ_docsdir    := $(PROJ_prefix)/docs/llvm
+PROJ_etcdir     := $(PROJ_prefix)/etc/llvm
+PROJ_includedir := $(PROJ_prefix)/include
+PROJ_infodir    := $(PROJ_prefix)/info
+PROJ_mandir     := $(PROJ_prefix)/share/man
 
 # Determine if we're on a unix type operating system
 LLVM_ON_UNIX:=@LLVM_ON_UNIX@
 LLVM_ON_WIN32:=@LLVM_ON_WIN32@
 
-# Target operating system for which LLVM will be compiled.
+# Host operating system for which LLVM will be run.
 OS=@OS@
+HOST_OS=@HOST_OS@
+# Target operating system for which LLVM will compile for.
+TARGET_OS=@TARGET_OS@
 
 # Target hardware architecture
 ARCH=@ARCH@
@@ -106,6 +109,9 @@ BUILD_EXEEXT=@BUILD_EXEEXT@
 # call if we're cross-compiling).
 BUILD_CC=@BUILD_CC@
 BUILD_CXX=@BUILD_CXX@
+
+# Triple for configuring build tools when cross-compiling
+BUILD_TRIPLE=@build@
 
 # Target triple (cpu-vendor-os) for which we should generate code
 TARGET_TRIPLE=@target@
@@ -128,6 +134,7 @@ LDFLAGS+=@LDFLAGS@
 
 # Path to the library archiver program.
 AR_PATH = @AR@
+AR = @AR@
 
 # Path to the nm program
 NM_PATH = @NM@
@@ -149,6 +156,7 @@ TAR        := @TAR@
 # Paths to miscellaneous programs we hope are present but might not be
 PERL       := @PERL@
 BZIP2      := @BZIP2@
+CAT        := @CAT@
 DOT        := @DOT@
 DOXYGEN    := @DOXYGEN@
 GROFF      := @GROFF@
@@ -160,6 +168,7 @@ OCAMLDOC   := @OCAMLDOC@
 GAS        := @GAS@
 POD2HTML   := @POD2HTML@
 POD2MAN    := @POD2MAN@
+PDFROFF    := @PDFROFF@
 RUNTEST    := @RUNTEST@
 TCLSH      := @TCLSH@
 ZIP        := @ZIP@
@@ -176,24 +185,20 @@ TARGETS_TO_BUILD=@TARGETS_TO_BUILD@
 # want to override the value set by configure.
 LLVMGCCDIR := @LLVMGCCDIR@
 
-# Determine the target for which LLVM should generate code.
-ifeq (@LLVMGCC_MAJVERS@,3)
-LLVMGCCARCH := @target@/3.4-llvm
-else
-LLVMGCCARCH := @target@/@LLVMGCC_VERSION@
-endif
-
-# Determine the path where the library executables are
-LLVMGCCLIBEXEC := @LLVMGCCLIBEXEC@
-
 # Full pathnames of LLVM C/C++ front-end 'cc1' and 'cc1plus' binaries:
 LLVMGCC  := @LLVMGCC@
 LLVMGXX  := @LLVMGXX@
 LLVMCC1  := @LLVMCC1@
 LLVMCC1PLUS := @LLVMCC1PLUS@
-LLVMGCC_VERSION := @LLVMGCC_VERSION@
-LLVMGCC_MAJVERS := @LLVMGCC_MAJVERS@
 LLVMGCC_LANGS := @LLVMGCC_LANGS@
+
+# Information on Clang, if configured.
+CLANGPATH := @CLANGPATH@
+CLANGXXPATH := @CLANGXXPATH@
+ENABLE_BUILT_CLANG := @ENABLE_BUILT_CLANG@
+
+# The LLVM capable compiler to use.
+LLVMCC_OPTION := @LLVMCC_OPTION@
 
 # Path to directory where object files should be stored during a build.
 # Set OBJ_ROOT to "." if you do not want to use a separate place for
@@ -223,7 +228,7 @@ RDYNAMIC := @RDYNAMIC@
 #ENABLE_PROFILING = 1
 @ENABLE_PROFILING@
 
-# When DISABLE_ASSERTIONS is enabled, builds of all of the LLVM code will 
+# When DISABLE_ASSERTIONS is enabled, builds of all of the LLVM code will
 # exclude assertion checks, otherwise they are included.
 #DISABLE_ASSERTIONS = 1
 @DISABLE_ASSERTIONS@
@@ -238,6 +243,14 @@ RDYNAMIC := @RDYNAMIC@
 #DEBUG_RUNTIME = 1
 @DEBUG_RUNTIME@
 
+# When DEBUG_SYMBOLS is enabled, the compiler libraries will retain debug
+# symbols.
+#DEBUG_SYMBOLS = 1
+@DEBUG_SYMBOLS@
+
+# The compiler flags to use for optimized builds.
+OPTIMIZE_OPTION := @OPTIMIZE_OPTION@
+
 # When ENABLE_PROFILING is enabled, the llvm source base is built with profile
 # information to allow gprof to be used to get execution frequencies.
 #ENABLE_PROFILING = 1
@@ -251,8 +264,14 @@ ENABLE_THREADS := @ENABLE_THREADS@
 # Do we want to build with position independent code?
 ENABLE_PIC := @ENABLE_PIC@
 
+# Do we want to build a shared library and link the tools with it?
+ENABLE_SHARED := @ENABLE_SHARED@
+
 # Use -fvisibility-inlines-hidden?
 ENABLE_VISIBILITY_INLINES_HIDDEN := @ENABLE_VISIBILITY_INLINES_HIDDEN@
+
+# Do we want to allow timestamping information into builds?
+ENABLE_TIMESTAMPS := @ENABLE_TIMESTAMPS@
 
 # This option tells the Makefiles to produce verbose output.
 # It essentially prints the commands that make is executing
@@ -260,6 +279,9 @@ ENABLE_VISIBILITY_INLINES_HIDDEN := @ENABLE_VISIBILITY_INLINES_HIDDEN@
 
 # Enable JIT for this platform
 TARGET_HAS_JIT = @TARGET_HAS_JIT@
+
+# Environment variable to set to change the runtime shared library search path.
+SHLIBPATH_VAR = @SHLIBPATH_VAR@
 
 # Shared library extension for host platform.
 SHLIBEXT = @SHLIBEXT@
@@ -297,3 +319,30 @@ endif
 
 # Location of the plugin header file for gold.
 BINUTILS_INCDIR := @BINUTILS_INCDIR@
+
+C_INCLUDE_DIRS := @C_INCLUDE_DIRS@
+CXX_INCLUDE_ROOT := @CXX_INCLUDE_ROOT@
+CXX_INCLUDE_ARCH := @CXX_INCLUDE_ARCH@
+CXX_INCLUDE_32BIT_DIR = @CXX_INCLUDE_32BIT_DIR@
+CXX_INCLUDE_64BIT_DIR = @CXX_INCLUDE_64BIT_DIR@
+
+# When ENABLE_LLVMC_DYNAMIC is enabled, LLVMC will link libCompilerDriver
+# dynamically. This is needed to make dynamic plugins work on some targets
+# (Windows).
+ENABLE_LLVMC_DYNAMIC = 0
+#@ENABLE_LLVMC_DYNAMIC@
+
+# When ENABLE_LLVMC_DYNAMIC_PLUGINS is enabled, LLVMC will have dynamic plugin
+# support (via the -load option).
+ENABLE_LLVMC_DYNAMIC_PLUGINS = 1
+#@ENABLE_LLVMC_DYNAMIC_PLUGINS@
+
+# Optional flags supported by the compiler
+# -Wno-missing-field-initializers
+NO_MISSING_FIELD_INITIALIZERS = @NO_MISSING_FIELD_INITIALIZERS@
+# -Wno-variadic-macros
+NO_VARIADIC_MACROS = @NO_VARIADIC_MACROS@
+
+# Flags supported by the linker.
+# bfd ld / gold -retain-symbols-file file
+HAVE_LINK_RETAIN_SYMBOLS_FILE = @HAVE_LINK_RETAIN_SYMBOLS_FILE@

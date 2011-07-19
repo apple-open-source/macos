@@ -1,8 +1,16 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG SDK=macosx GC=1
+// TEST_CFLAGS -framework Foundation
+
+#import <objc/objc-auto.h>
 #import <Foundation/Foundation.h>
 #import <Block.h>
-
-
-// CONFIG GC
+#import "test.h"
 
 int countem(NSHashTable *table) {
     int result = 0;
@@ -11,7 +19,8 @@ int countem(NSHashTable *table) {
     return result;
 }
 
-int main(char *argc, char *argv[]) {
+int main() {
+    NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     NSHashTable *weakSet = [NSHashTable hashTableWithWeakObjects];
     void (^local)(void) = ^{ [weakSet count]; };
     extern id _Block_copy_collectable(void *);
@@ -23,14 +32,15 @@ int main(char *argc, char *argv[]) {
     [weakSet addObject:Block_copy(local)];
     [weakSet addObject:Block_copy(local)];
     //printf("gc block... we hope\n%s\n", _Block_dump(Block_copy(local)));
-    [[NSGarbageCollector defaultCollector] collectExhaustively];
-    int count = countem(weakSet);
-    if (count == 6) {
-        printf("%s: success\n", argv[0]);
-        exit(0);
+    if (objc_collectingEnabled()) {
+        objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
+        int count = countem(weakSet);
+        if (count != 6) {
+            fail("didn't recover %d of %d items", count, 6);
+        }
     }
-    else {
-        printf("%s: didn't recovered %d of %d items\n", argv[0], count, 6);
-    }
-    exit(1);
+
+    [pool release];
+
+    succeed(__FILE__);
 }

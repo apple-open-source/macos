@@ -64,6 +64,9 @@ ATTRIBUTE	h323-voice-quality			31	string
 ATTRIBUTE	h323-gw-id				33	string
 ATTRIBUTE	h323-incoming-conf-id			35	string
 
+ATTRIBUTE	Cisco-Policy-Up				37	string
+ATTRIBUTE	Cisco-Policy-Down			38	string
+
 ATTRIBUTE	sip-conf-id				100	string
 ATTRIBUTE	h323-credit-amount			101	string
 ATTRIBUTE	h323-credit-time			102	string
@@ -122,6 +125,7 @@ ATTRIBUTE	Cisco-Maximum-Channels			235	integer
 ATTRIBUTE	Cisco-Data-Filter			242	integer
 ATTRIBUTE	Cisco-Call-Filter			243	integer
 ATTRIBUTE	Cisco-Idle-Limit			244	integer
+ATTRIBUTE	Cisco-Subscriber-Password		249	string
 ATTRIBUTE	Cisco-Account-Info			250	string
 ATTRIBUTE	Cisco-Service-Info			251	string
 ATTRIBUTE	Cisco-Command-Code			252	string

@@ -1,0 +1,89 @@
+.\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
+.TH "PIGEONHOLE" 7 "2010-03-05" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.\"------------------------------------------------------------------------
+.SH NAME
+pigeonhole \- Overview of the Pigeonhole project\(aqs Sieve support for the
+Dovecot secure IMAP and POP3 server
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.PP
+The Pigeonhole project <http://pigeonhole.dovecot.org> adds support for the
+Sieve language (RFC 5228) and the ManageSieve protocol (RFC 5804) to the
+Dovecot Secure IMAP and POP3 Server (\fBdovecot\fR(1)). In the literal sense,
+a pigeonhole is a a hole or recess inside a dovecot for pigeons to nest in.
+It is, however, also the name for one of a series of small, open compartments
+in a cabinet used for filing or sorting mail. As a verb, it describes the act
+of putting an item into one of those pigeonholes. The name \(dqPigeonhole\(dq
+therefore well describes an important part of the functionality that this
+project adds to Dovecot: sorting and filing e\-mail messages.
+.PP
+The Sieve language is used to specify how e\-mail needs to be processed. By
+writing Sieve scripts, users can customize how messages are delivered, e.g.
+whether they are forwarded or stored in special folders. Unwanted messages can
+be discarded or rejected, and, when the user is not available, the Sieve
+interpreter can send an automated reply. Above all, the Sieve language is meant
+to be simple, extensible and system independent. And, unlike most other mail
+filtering script languages, it does not allow users to execute arbitrary
+programs. This is particularly useful to prevent virtual users from having full
+access to the mail store. The intention of the language is to make it impossible
+for users to do anything more complex (and dangerous) than write simple mail
+filters.
+.PP
+Using the ManageSieve protocol, users can upload their Sieve scripts remotely,
+without needing direct filesystem access through FTP or SCP. Additionally, a
+ManageSieve server always makes sure that uploaded scripts are valid, preventing
+compile failures at mail delivery.
+.PP
+The Pigeonhole project provides the following items:
+.IP \(bu 4
+The LDA Sieve plugin for Dovecot\(aqs Local Delivery Agent (LDA)
+(\fBdovecot\-lda\fR(1)) that facilitates the actual Sieve filtering upon
+delivery.
+.IP \(bu
+The ManageSieve Service that implements the ManageSieve protocol through which
+users can remotely manage Sieve scripts on the server.
+.IP \(bu
+Command line tools that provide the means to manually compile, analyse and test
+Sieve scripts.
+.PP
+The functionality and configuration of the LDA Sieve plugin and the ManageSieve
+service is described in detail in the README and INSTALL files contained in the
+Pigeonhole package and in the Dovecot Wiki
+<http://wiki2.dovecot.org/Pigeonhole>.
+.PP
+The following command line tools are available:
+.TP
+.BR sievec (1)
+Compiles Sieve scripts into a binary representation for later execution.
+.TP
+.BR sieve\-test (1)
+The universal Sieve test tool for testing the effect of a Sieve script on a
+particular message.
+.TP
+.BR sieve\-dump (1)
+Dumps the content of a Sieve binary file for (development) debugging purposes.
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH AUTHOR
+Pigeonhole <http://pigeonhole.dovecot.org> and its manual pages were written by
+the Pigeonhole authors <http://pigeonhole.dovecot.org/doc/AUTHORS>, mainly
+Stephan Bosch <stephan at rename\-it.nl>, and are licensed under the terms of the
+LGPLv2.1 license, which is the same license as Dovecot, see
+<http://dovecot.org/doc/COPYING> for details.
+.\"------------------------------------------------------------------------
+.SH "SEE ALSO"
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR sieve\-dump (1),
+.BR sieve\-test (1),
+.BR sievec (1)
+.\"-------------------------------------
+.PP
+Additional resources:
+.IP "Dovecot website"
+http://www.dovecot.org
+.IP "Dovecot v2.0 Wiki"
+http://wiki2.dovecot.org/Pigeonhole
+.IP "Pigeonhole website"
+http://pigeonhole.dovecot.org

@@ -30,6 +30,7 @@
 
 
 var Preferences = {
+    canEditScriptSource: false,
     maxInlineTextChildLength: 80,
     minConsoleHeight: 75,
     minSidebarWidth: 100,
@@ -41,62 +42,68 @@ var Preferences = {
     showColorNicknames: true,
     debuggerAlwaysEnabled: false,
     profilerAlwaysEnabled: false,
-    auditsPanelEnabled: false
-}
-
-WebInspector.populateFrontendSettings = function(settingsString)
-{
-    WebInspector.settings._load(settingsString);
+    onlineDetectionEnabled: true,
+    nativeInstrumentationEnabled: false,
+    useDataURLForResourceImageIcons: true,
+    showTimingTab: false,
+    showCookiesTab: false,
+    debugMode: false,
+    heapProfilerPresent: false,
+    detailedHeapProfiles: false,
+    saveAsAvailable: false,
+    useLowerCaseMenuTitlesOnWindows: false
 }
 
 WebInspector.Settings = function()
 {
+    this.installApplicationSetting("colorFormat", "hex");
+    this.installApplicationSetting("consoleHistory", []);
+    this.installApplicationSetting("debuggerEnabled", false);
+    this.installApplicationSetting("domWordWrap", true);
+    this.installApplicationSetting("profilerEnabled", false);
+    this.installApplicationSetting("eventListenersFilter", "all");
+    this.installApplicationSetting("lastActivePanel", "elements");
+    this.installApplicationSetting("lastViewedScriptFile", "application");
+    this.installApplicationSetting("monitoringXHREnabled", false);
+    this.installApplicationSetting("pauseOnExceptionStateString", WebInspector.ScriptsPanel.PauseOnExceptionsState.DontPauseOnExceptions);
+    this.installApplicationSetting("resourcesLargeRows", true);
+    this.installApplicationSetting("resourcesSortOptions", {timeOption: "responseTime", sizeOption: "transferSize"});
+    this.installApplicationSetting("resourceViewTab", "content");
+    this.installApplicationSetting("showInheritedComputedStyleProperties", false);
+    this.installApplicationSetting("showUserAgentStyles", true);
+    this.installApplicationSetting("watchExpressions", []);
+    this.installApplicationSetting("breakpoints", []);
+    this.installApplicationSetting("eventListenerBreakpoints", []);
+    this.installApplicationSetting("domBreakpoints", []);
+    this.installApplicationSetting("xhrBreakpoints", []);
 }
 
 WebInspector.Settings.prototype = {
-    _load: function(settingsString)
+    installApplicationSetting: function(key, defaultValue)
     {
-        try {
-            this._store = JSON.parse(settingsString);
-        } catch (e) {
-            // May fail;
-            this._store = {};
-        }
+        if (key in this)
+            return;
 
-        this._installSetting("eventListenersFilter", "event-listeners-filter", "all");
-        this._installSetting("colorFormat", "color-format", "hex");
-        this._installSetting("resourcesLargeRows", "resources-large-rows", true);
-        this._installSetting("watchExpressions", "watch-expressions", []);
-        this._installSetting("lastViewedScriptFile", "last-viewed-script-file");
-        this._installSetting("showInheritedComputedStyleProperties", "show-inherited-computed-style-properties", false);
-        this._installSetting("showUserAgentStyles", "show-user-agent-styles", true);
-        this._installSetting("resourceViewTab", "resource-view-tab", "content");
-        this._installSetting("consoleHistory", "console-history", []);
-        this.dispatchEventToListeners("loaded");
+        this.__defineGetter__(key, this._get.bind(this, key, defaultValue));
+        this.__defineSetter__(key, this._set.bind(this, key));
     },
 
-    _installSetting: function(name, propertyName, defaultValue)
+    _get: function(key, defaultValue)
     {
-        this.__defineGetter__(name, this._get.bind(this, propertyName));
-        this.__defineSetter__(name, this._set.bind(this, propertyName));
-        if (!(propertyName in this._store)) {
-            this._store[propertyName] = defaultValue;
+        if (window.localStorage != null && key in window.localStorage) {
+            try {
+                return JSON.parse(window.localStorage[key]);
+            } catch(e) {
+                window.localStorage.removeItem(key);
+            }
         }
+        return defaultValue;
     },
 
-    _get: function(propertyName)
+    _set: function(key, value)
     {
-        return this._store[propertyName];
-    },
-
-    _set: function(propertyName, newValue)
-    {
-        this._store[propertyName] = newValue;
-        try {
-            InspectorBackend.saveFrontendSettings(JSON.stringify(this._store));
-        } catch (e) {
-            // May fail;
-        }
+        if (window.localStorage != null)
+            window.localStorage[key] = JSON.stringify(value);
     }
 }
 

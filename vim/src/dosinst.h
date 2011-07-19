@@ -62,6 +62,11 @@ char *searchpath(char *name);
 #  define vim_mkdir(x, y) mkdir((char *)(x))
 # endif
 #endif
+
+#ifndef DJGPP
+# define sleep(n) Sleep((n) * 1000)
+#endif
+
 /* ---------------------------------------- */
 
 
@@ -77,6 +82,14 @@ char *searchpath(char *name);
 #ifndef TRUE
 # define TRUE 1
 #endif
+
+/*
+ * Modern way of creating registry entries, also works on 64 bit windows when
+ * compiled as a 32 bit program.
+ */
+# ifndef KEY_WOW64_64KEY
+#  define KEY_WOW64_64KEY 0x0100
+# endif
 
 #define VIM_STARTMENU "Programs\\Vim " VIM_VERSION_SHORT
 
@@ -395,9 +408,10 @@ char *(icon_link_names[ICON_COUNT]) =
 	 "gVim Easy " VIM_VERSION_SHORT ".lnk",
 	 "gVim Read only " VIM_VERSION_SHORT ".lnk"};
 
-/* This is only used for dosinst.c and for uninstal.c when not being able to
- * directly access registry entries. */
-#if !defined(WIN3264) || defined(DOSINST)
+/* This is only used for dosinst.c when WIN3264 is defined and for uninstal.c
+ * when not being able to directly access registry entries. */
+#if (defined(DOSINST) && defined(WIN3264)) \
+	|| (!defined(DOSINST) && !defined(WIN3264))
 /*
  * Run an external command and wait for it to finish.
  */
@@ -418,12 +432,12 @@ run_command(char *cmd)
 	/* There is a cmd.exe, so this might be Windows NT.  If it is,
 	 * we need to call cmd.exe explicitly.  If it is a later OS,
 	 * calling cmd.exe won't hurt if it is present.
-	 * Also, "wait" on NT expects a window title argument.
+	 * Also, "start" on NT expects a window title argument.
 	 */
 	/* Replace the slashes with backslashes. */
 	while ((p = strchr(cmd_path, '/')) != NULL)
 	    *p = '\\';
-	sprintf(cmd_buf, "%s /c start \"vimcmd\" /w %s", cmd_path, cmd);
+	sprintf(cmd_buf, "%s /c start \"vimcmd\" /wait %s", cmd_path, cmd);
 	free(cmd_path);
     }
     else

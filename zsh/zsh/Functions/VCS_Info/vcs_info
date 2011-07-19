@@ -17,8 +17,11 @@ static_functions=(
     VCS_INFO_bydir_detect
     VCS_INFO_check_com
     VCS_INFO_formats
+    VCS_INFO_get_cmd
+    VCS_INFO_hook
     VCS_INFO_maxexports
     VCS_INFO_nvcsformats
+    VCS_INFO_quilt
     VCS_INFO_realpath
     VCS_INFO_reposub
     VCS_INFO_set
@@ -38,17 +41,35 @@ vcs_info_setsys
 # and now, finally create the real vcs_info function
 vcs_info () {
     emulate -L zsh
-    setopt extendedglob
+    setopt extendedglob NO_warn_create_global
 
-    local -i found
-    local -a enabled disabled
-    local -x usercontext vcs rrn
+    [[ -r . ]] || return 0
+
+    local pat
+    local -i found retval
+    local -a enabled disabled dps
+    local -x usercontext vcs rrn quiltmode LC_MESSAGES
     local -ix maxexports
     local -ax msgs
-    local -Ax vcs_comm
+    local -Ax vcs_comm hook_com backend_misc user_data
 
-    vcs='-init-'; rrn='-all-'
+    LC_MESSAGES=C
+    if [[ -n ${LC_ALL} ]]; then
+        local -x LANG
+        LANG=${LC_ALL}
+        local -x LC_ALL
+    fi
+    vcs='-init-'; rrn='-all-'; quiltmode='addon'
     usercontext=${1:-default}
+
+    VCS_INFO_hook "start-up"
+    retval=$?
+    if (( retval == 1 )); then
+        return 0
+    elif (( retval == 2 )); then
+        VCS_INFO_set --nvcs
+        return 0
+    fi
 
     zstyle -a ":vcs_info:${vcs}:${usercontext}:${rrn}" "enable" enabled
     (( ${#enabled} == 0 )) && enabled=( all )
@@ -63,6 +84,15 @@ vcs_info () {
         zstyle -a ":vcs_info:${vcs}:${usercontext}:${rrn}" "disable" disabled
     fi
 
+    zstyle -a ":vcs_info:${vcs}:${usercontext}:${rrn}" "disable-patterns" dps
+
+    for pat in ${dps} ; do
+        if [[ ${PWD} == ${~pat} ]] ; then
+            [[ -n ${vcs_info_msg_0_} ]] && VCS_INFO_set --clear
+            return 0
+        fi
+    done
+
     VCS_INFO_maxexports
 
     (( found = 0 ))
@@ -74,13 +104,24 @@ vcs_info () {
             continue
         fi
         vcs_comm=()
+        VCS_INFO_get_cmd
         VCS_INFO_detect_${vcs} && (( found = 1 )) && break
     done
 
     (( found == 0 )) && {
-        VCS_INFO_set --nvcs
+        vcs='-quilt-'; quiltmode='standalone'
+        VCS_INFO_quilt standalone || VCS_INFO_set --nvcs
         return 0
     }
+
+    VCS_INFO_hook "pre-get-data"
+    retval=$?
+    if (( retval == 1 )); then
+        return 0
+    elif (( retval == 2 )); then
+        VCS_INFO_set --nvcs
+        return 0
+    fi
 
     VCS_INFO_get_data_${vcs} || {
         VCS_INFO_set --nvcs

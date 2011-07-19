@@ -1,0 +1,1040 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+                      "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[]>
+
+<article>
+  <articleinfo>
+    <author><firstname>Eamon</firstname><othername>F.</othername><surname>Walsh</surname></author>
+    <authorinitials>efw</authorinitials>
+    <publisher><publishername>National Security Agency</publishername></publisher>
+    <pubdate>2009</pubdate>
+    <title>X Access Control Extension Specification</title>
+    <titleabbrev>XACE-Spec</titleabbrev>
+    <revhistory>
+      <revision>
+	<revnumber>1.0</revnumber>
+	<date>19 Oct 2006</date>
+	<authorinitials>efw</authorinitials>
+	<revremark>Initial Version</revremark>
+      </revision>
+      <revision>
+	<revnumber>2.0</revnumber>
+	<date>10 Mar 2008</date>
+	<authorinitials>efw</authorinitials>
+	<revremark>Version 2.0</revremark>
+      </revision>
+      <revision>
+	<revnumber>2.1</revnumber>
+	<date>19 Jun 2009</date>
+	<authorinitials>efw</authorinitials>
+	<revremark>Version 2.1 (XI2)</revremark>
+      </revision>
+      <revision>
+	<revnumber>2.2</revnumber>
+	<date>29 Jun 2009</date>
+	<authorinitials>efw</authorinitials>
+	<revremark>Version 2.2 (Property post-data hook)</revremark>
+      </revision>
+    </revhistory>
+    <legalnotice>
+      <para>THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OF OR OTHER DEALINGS IN THE SOFTWARE.</para>
+    </legalnotice>
+    <abstract>
+    <para>The X Access Control Extension (XACE) is a set of generic "hooks" that can be used by other X extensions to perform access checks. The goal of XACE is to prevent clutter in the core dix/os code by providing a common mechanism for doing these sorts of checks. The concept is identical to the Linux Security Module (LSM) in the Linux Kernel.</para>
+    <para>XACE version 1.0 was a generalization of the SECURITY extension, which provides a simple on/off trust model where "untrusted" clients are restricted in certain areas.  Its hooks were for the most part straight replacements of the old SECURITY logic with generic hook calls.  XACE version 2.0 has substantially modified many of the hooks, adding additional parameters and many new access types.  Coverage has also been extended to many additional extensions, such as Render and Composite.  Finally, there is new support for polyinstantiation, or duplicate, window properties and selections.</para>
+    <para>This paper describes the implementation of XACE version 2.0, changes to the core server DIX and OS layers that have been made or are being considered, and each of the security hooks that XACE offers at the current time and their function.  It is expected that changes to XACE be documented here.  Please notify the authors of this document of any changes to XACE so that they may be properly documented.</para>
+    </abstract>
+  </articleinfo>
+
+  <section>
+    <title>Introduction</title>
+    <section>
+      <title>Prerequisites</title>
+      <para>This document is targeted to programmers who are writing security extensions for X.  It is assumed that the reader is familiar with the C programming language.  It is assumed that the reader understands the general workings of the X protocol and X server.</para>
+    </section>
+    <section>
+      <title>Purpose</title>
+      <para>XACE makes it easier to implement new security models for X by providing a set of pluggable hooks that extension writers can use.  The idea is to provide an abstraction layer between security extensions and the core DIX/OS code of the X server.  This prevents security extensions writers from having to understand the inner workings of the X server and it prevents X server maintainers from having to deal with multiple security subsystems, each with its own intrusive code.</para>
+      <para>For example, consider the X.Org X server's resource subsystem, which is used to track different types of server objects using ID numbers.  The act of looking up an object by its ID number is a security-relevant operation which security extension writers would likely wish to control.  For one or two security extensions it may be acceptable to simply insert the extension's code directly into the resource manager code, bracketed by <literal>ifdef</literal>'s.  However for more extensions this approach leads to a tangle of code, particularly when results need to be logically combined, as in <literal>if</literal> statement conditions.  Additionally, different extension writers might place their resource checking code in different places in the server, leading to difficulty in tracking down where exactly a particular lookup operation is being blocked.  Finally, this approach may lead to unexpected interactions between the code of different extensions, since there is no collaboration between extension writers.</para>
+      <para>The solution employed by the X Access Control Extension is to place hooks (calls into XACE) at security-relevant places, such as the resource subsystem mentioned above.  Other extensions, typically in their initialization routines, can register callback functions on these hooks.  When the hook is called from the server code, each callback function registered on it is called in turn.  The callback function is provided with necessary arguments needed to make a security decision, including a return value argument which can be set to indicate the result.  XACE itself does not make security decisions, or even know or care how such decisions are made.  XACE merely enforces the result of the decision, such as by returning a <errorname>BadAccess</errorname> error to the requesting client.</para>
+      <para>This separation between the decision-making logic and the enforcement logic is advantageous because it allows a great variety of security models to be developed without resorting to intrusive modifications to the core systems being secured.  The challenge is to ensure that the hook framework itself provides hooks everywhere they need to be provided.  Once created, however, a hook can be used by everyone, leading to less duplication of effort.</para>
+    </section>
+
+    <section>
+      <title>Prior Work</title>
+      <section>
+	<title>Security Extension</title>
+	<para>XACE was initially based on the SECURITY extension.  This extension introduced the concept of "trusted" and "untrusted" client connections, with the trust level established by the authorization token used in the initial client connection.  Untrusted clients are restricted in several areas, notably in the use of background "None" windows, access to server resources owned by trusted clients, and certain keyboard input operations.  Server extensions are also declared "trusted" or "untrusted," with only untrusted extensions being visible to untrusted client connections.</para>
+      </section>
+      <section>
+	<title>Solaris Trusted Extensions</title>
+	<para>Trusted Extensions for Solaris has an X extension (Xtsol) which adds security functionality.  Some of the XACE hooks in the current set were derived from security checks made by the Xtsol code.  In other places, where the Xtsol and SECURITY extensions both have checks, a single XACE hook replaces both.</para>
+      </section>
+      <section>
+	<title>Linux Security Modules</title>
+	<para>XACE is influenced by the Linux Security Modules project, which provides a similar framework of security hooks for the Linux kernel.</para>
+      </section>
+    </section>
+
+    <section>
+      <title>Version 2.0 Changes</title>
+      <section id="changes_status">
+	<title>Different Return-Value Semantics</title>
+	<para>The status value returned by security modules has been changed.  Formerly, security modules were expected to set the "rval" field of the input structure to "False" if access was to be denied.  In version 2.0, this field has been removed in all hooks.  Security modules must now set the "status" field to an X error code to describe the error.  Typically, <literal>BadAccess</literal> will be returned, but this change allows security modules to return <literal>BadAlloc</literal> to report memory allocation failure and <literal>BadMatch</literal> to report a polyinstantiated object lookup failure (<xref linkend="changes_poly"/>).</para>
+      </section>
+      <section id="changes_privates">
+	<title>DevPrivates Mechanism</title>
+	<para>The devPrivates mechanism in the X server was substantially revised to better support security extensions.  The interface for using devPrivates has been unified across the different structures that support private data.  Private space allocation is now independent of whether objects have already been created, and the private indexes are now global rather than being structure specific.  Callbacks are available to initialize newly allocated space and to clean up before it is freed.  Finally, there is a mechanism for looking up the offset of the private pointer field in a structure, given the structure's resource type.</para>
+      </section>
+      <section id="changes_modes">
+	<title>New Access Modes</title>
+	<para>In the previous version, there were four possible modes for the "access_mode" field: read, write, create, and destroy.  In version 2.0, many new modes have been introduced to better describe X operations, particularly on window objects.  The access_mode field has also been added to additional hooks as described in the individual hook changes.</para>
+      </section>
+      <section id="changes_poly">
+	<title>Polyinstantiation</title>
+	<para>XACE now supports polyinstantiation of selections and window properties.  <xref linkend="property_access_hook"/> and <xref linkend="selection_access_hook"/> describe the details, but the basic idea is that the property and selection access hooks may be used to not only change the return value of a lookup operation but also to modify the lookup result.  This allows more than one property or selection with the same atom name to be maintained.</para>
+      </section>
+      <section id="changes_removed">
+	<title>Removed Hooks</title>
+	<para>The "drawable," "map," "window init", and "background" hooks have been removed.  They have been folded into the resource access hook using new access modes.  The "hostlist" hook has been removed and replaced by a new server access hook (see <xref linkend="server_access_hook"/>).  The "site policy" and "declare extension security" hooks have been removed as the SECURITY extension has been revised to no longer require them.</para>
+      </section>
+      <section id="changes_new">
+	<title>New Hooks</title>
+	<para>New "send" and "receive" hooks have been added to allow basic control over event delivery.  "Client" and "server" access hooks have been added to control access by clients to other clients (for example, through the <literal>KillClient</literal> call) and to the server (for example when changing the host access list or changing the font path).  "Screen" and "screen saver" hooks have been added to control access to screens and screen saver requests.  A "selection" hook has been added to control access to selections.</para>
+      </section>
+      <section id="changes_existing">
+	<title>Changes to Existing Hooks</title>
+	<itemizedlist>
+	  <listitem><para>The resource access hook structure now has additional fields to describe a "parent" object.  They are set only when a resource with a defined parent (such as a Window object) is being created, in which case the access mode will include <literal>DixCreateAccess</literal>.</para></listitem>
+	  <listitem><para>The device access hook structure has had the "fromRequest" field removed and an access mode field added.</para></listitem>
+	  <listitem><para>The property access hook structure has had the "propertyName" field removed and a "ppProp" field added, which contains a pointer to a pointer to the property structure itself.  The extra level of indirection supports polyinstantiation (see <xref linkend="changes_poly"/>).  Note that the property structure contains the property name.</para></listitem>
+	  <listitem><para>The extension dispatch/access hook structure now has an access mode field.</para></listitem>
+	</itemizedlist>
+      </section>
+    </section>
+
+    <section>
+      <title>Future Work</title>
+      <section id="future_hooks">
+	<title>Security Hooks</title>
+	<para>It is anticipated that the set of security hooks provided by XACE will change with time.  Some hooks may become deprecated.  More hooks will likely be added as well, as more portions of the X server are subjected to security analysis.  Existing hooks may be added in more places in the code, particularly protocol extensions.  Currently, the only method XACE provides for restricting access to some protocol extensions is to deny access to them entirely.</para>
+	<para>It should be noted that XACE includes hooks in the protocol dispatch table, which allow a security extension to examine any incoming protocol request (core or extension) and terminate the request before it is handled by the server.  This functionality can be used as a stopgap measure for security checks that are not supported by the other XACE hooks.  The end goal, however, is to have hooks integrated into the server proper.</para>
+      </section>
+      <section id="future_core">
+	<title>Core X Server</title>
+	<para>The set of extensions supported by X.org needs to be re-examined.  Many of them are essentially unused and removing them would be easier than attempting to secure them.  The GLX extension and the direct rendering kernel interfaces need to be secured.</para>
+	<para>The server's routines for event delivery need to be reworked to allow greater control by XACE modules.  In particular, security extensions need to be able to associate private data with each event at the time of its generation based on the context and then have that data available at a decision point just before the event is delivered to the client.  This would allow event delivery to be better controlled on a per-client basis, and would potentially allow additional security extension functionality such as piggyback events.</para>
+      </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Usage</title>
+    <section>
+      <title>Storing Security State</title>
+      <para>The first thing you, the security extension writer, should decide on is the state information that your extension will be storing and how it will be stored.  XACE itself does not provide any mechanism for storing state.</para>
+      <para>One method of storing state is global variables in the extension code.  Tables can be kept corresponding to internal server structures, updated to stay synchronized with the structures themselves.  One problem with this method is that the X server does not have consistent methods for lifecycle management of its objects, meaning that it might be difficult to keep state up to date with objects.</para>
+      <para>Another method of storing state is to attach your extension's security data directly to the server structures.  This method is possible via the <literal>devPrivates</literal> mechanism provide by the DIX layer.  Structures supporting this mechanism can be identified by the presence of a "devPrivates" field.  Full documentation of the devPrivates mechanism is described in the core X server documentation.</para>
+    </section>
+
+    <section>
+      <title>Using Hooks</title>
+
+      <section>
+	<title>Overview</title>
+	<para>XACE has two header files that security extension code may need to include.  Include <filename>Xext/xacestr.h</filename> if you need the structure definitions for the XACE hooks in your source file.  Otherwise, include <filename>Xext/xace.h</filename>, which contains everything else including constants and function declarations.</para>
+	<para>XACE hooks use the standard X server callback mechanism.  Your security extension's callback functions should all use the following prototype:
+	<blockquote>
+	  <funcsynopsis>
+	    <funcprototype><funcdef>void <function>MyCallback</function></funcdef>
+	    <paramdef>
+	      <parameter>CallbackListPtr *pcbl</parameter>
+	      <parameter>pointer userdata</parameter>
+	      <parameter>pointer calldata</parameter>
+	    </paramdef>
+	    </funcprototype>
+	  </funcsynopsis>
+	</blockquote>
+	When the callback is called, <parameter>pcbl</parameter> points to the callback list itself.  The X callback mechanism allows the list to be manipulated in various ways, but XACE callbacks should not do this.  Remember that other security extensions may be registered on the same hook.  <parameter>userdata</parameter> is set to the data argument that was passed to <function>XaceRegisterCallback</function> at registration time; this can be used by your extension to pass data into the callback.  <parameter>calldata</parameter> points to a value or structure which is specific to each XACE hook.  These are discussed in the documentation for each specific hook, below.  Your extension must cast this argument to the appropriate pointer type.</para>
+	<para>To register a callback on a given hook, use <function>XaceRegisterCallback</function>:
+	<blockquote>
+	  <funcsynopsis>
+	    <funcprototype><funcdef>Bool <function>XaceRegisterCallback</function></funcdef>
+	    <paramdef>
+	      <parameter>int hook</parameter>
+	      <parameter>CallbackProcPtr callback</parameter>
+	      <parameter>pointer userdata</parameter>
+	    </paramdef>
+	    </funcprototype>
+	  </funcsynopsis>
+	</blockquote>
+	Where <parameter>hook</parameter> is the XACE hook you wish to register on, <parameter>callback</parameter> is the callback function you wish to register, and <parameter>userdata</parameter> will be passed through to the callback as its second argument, as described above.  See <xref linkend="hooks_tab"/> for the list of XACE hook codes.  <function>XaceRegisterCallback</function> is typically called from the extension initialization code; see the SECURITY source for examples.  The return value is <literal>TRUE</literal> for success, <literal>FALSE</literal> otherwise.</para>
+	<para>To unregister a callback, use <function>XaceDeleteCallback</function>:
+	<blockquote>
+	  <funcsynopsis>
+	    <funcprototype><funcdef>Bool <function>XaceDeleteCallback</function></funcdef>
+	    <paramdef>
+	      <parameter>int hook</parameter>
+	      <parameter>CallbackProcPtr callback</parameter>
+	      <parameter>pointer userdata</parameter>
+	    </paramdef>
+	    </funcprototype>
+	  </funcsynopsis>
+	</blockquote>
+	where the three arguments are identical to those used in the call to <function>XaceRegisterCallback</function>.  The return value is <literal>TRUE</literal> for success, <literal>FALSE</literal> otherwise.</para>
+      </section>
+
+      <section>
+	<title>Hooks</title>
+	<para>The currently defined set of XACE hooks is shown in <xref linkend="hooks_tab"/>.  As discussed in <xref linkend="future_hooks"/>, the set of hooks is likely to change in the future as XACE is adopted and further security analysis of the X server is performed.</para>
+	<table frame="all" id="hooks_tab">
+	  <title>XACE security hooks.</title>
+	  <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	    <thead>
+	      <row>
+		<entry>Hook Identifier</entry>
+		<entry>Callback Argument Type</entry>
+		<entry>Refer to</entry>
+	      </row>
+	    </thead>
+	    <tbody>
+	      <row>
+		<entry><literal>XACE_CORE_DISPATCH</literal></entry>
+		<entry><type>XaceCoreDispatchRec</type></entry>
+		<entry><xref linkend="core_dispatch_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_EXT_DISPATCH</literal></entry>
+		<entry><type>XaceExtAccessRec</type></entry>
+		<entry><xref linkend="ext_dispatch_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_RESOURCE_ACCESS</literal></entry>
+		<entry><type>XaceResourceAccessRec</type></entry>
+		<entry><xref linkend="resource_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_DEVICE_ACCESS</literal></entry>
+		<entry><type>XaceDeviceAccessRec</type></entry>
+		<entry><xref linkend="device_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_PROPERTY_ACCESS</literal></entry>
+		<entry><type>XacePropertyAccessRec</type></entry>
+		<entry><xref linkend="property_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_SEND_ACCESS</literal></entry>
+		<entry><type>XaceSendAccessRec</type></entry>
+		<entry><xref linkend="send_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_RECEIVE_ACCESS</literal></entry>
+		<entry><type>XaceReceiveAccessRec</type></entry>
+		<entry><xref linkend="receive_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_CLIENT_ACCESS</literal></entry>
+		<entry><type>XaceClientAccessRec</type></entry>
+		<entry><xref linkend="client_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_EXT_ACCESS</literal></entry>
+		<entry><type>XaceExtAccessRec</type></entry>
+		<entry><xref linkend="ext_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_SERVER_ACCESS</literal></entry>
+		<entry><type>XaceServerAccessRec</type></entry>
+		<entry><xref linkend="server_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_SELECTION_ACCESS</literal></entry>
+		<entry><type>XaceSelectionAccessRec</type></entry>
+		<entry><xref linkend="selection_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_SCREEN_ACCESS</literal></entry>
+		<entry><type>XaceScreenAccessRec</type></entry>
+		<entry><xref linkend="screen_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_SCREENSAVER_ACCESS</literal></entry>
+		<entry><type>XaceScreenAccessRec</type></entry>
+		<entry><xref linkend="screensaver_access_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_AUTH_AVAIL</literal></entry>
+		<entry><type>XaceAuthAvailRec</type></entry>
+		<entry><xref linkend="auth_avail_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_KEY_AVAIL</literal></entry>
+		<entry><type>XaceKeyAvailRec</type></entry>
+		<entry><xref linkend="key_avail_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_AUDIT_BEGIN</literal></entry>
+		<entry><type>XaceAuditRec</type></entry>
+		<entry><xref linkend="audit_avail_hook"/></entry>
+	      </row>
+	      <row>
+		<entry><literal>XACE_AUDIT_END</literal></entry>
+		<entry><type>XaceAuditRec</type></entry>
+		<entry><xref linkend="audit_avail_hook"/></entry>
+	      </row>
+	    </tbody>
+	  </tgroup>
+	</table>
+	<para>In the descriptions that follow, it is helpful to have a listing of <filename>Xext/xacestr.h</filename> available for reference.</para>
+
+	<section id="core_dispatch_hook">
+	  <title>Core Dispatch</title>
+	  <para>This hook allows security extensions to examine all incoming core protocol requests before they are dispatched.  The hook argument is a pointer to a structure of type <type>XaceCoreDispatchRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the incoming request.  Note that the complete request is accessible via the <structfield>requestBuffer</structfield> member of the client structure.  The <function>REQUEST</function> family of macros, located in <filename>include/dix.h</filename>, are useful in verifying and reading from this member.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will not be processed further and the error code will be returned to the client.</para>
+	</section>
+
+	<section id="ext_dispatch_hook">
+	  <title>Extension Dispatch</title>
+	  <para>This hook allows security extensions to examine all incoming extension protocol requests before they are dispatched.  The hook argument is a pointer to a structure of type <type>XaceExtAccessRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>ext</structfield> field of type <type>ExtensionEntry*</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the incoming request.  Note that the complete request is accessible via the <structfield>requestBuffer</structfield> member of the client structure.  The <function>REQUEST</function> family of macros, located in <filename>include/dix.h</filename>, are useful in verifying and reading from this member.</para>
+	  <para>The <structfield>ext</structfield> field refers to the extension being accessed.  This is required information since extensions are not associated with any particular major number.</para>
+	  <para>The <structfield>access_mode</structfield> field is set to <literal>DixUseAccess</literal> when this hook is exercised.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will not be processed further and the error code will be returned to the client.</para>
+	</section>
+
+	<section id="resource_access_hook">
+	  <title>Resource Access</title>
+	  <para>This hook allows security extensions to monitor all resource lookups.  The hook argument is a pointer to a structure of type <type>XaceResourceAccessRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>id</structfield> field of type <type>XID</type>,
+	  a <structfield>rtype</structfield> field of type <type>RESTYPE</type>,
+	  a <structfield>res</structfield> field of type <type>pointer</type>,
+	  a <structfield>ptype</structfield> field of type <type>RESTYPE</type>,
+	  a <structfield>parent</structfield> field of type <type>pointer</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client on whose behalf the lookup is being performed.  Note that this may be <varname>serverClient</varname> for server lookups.</para>
+	  <para>The <structfield>id</structfield> field is the resource ID being looked up.</para>
+	  <para>The <structfield>rtype</structfield> field is the type of the resource being looked up.</para>
+	  <para>The <structfield>res</structfield> field is the resource itself: the result of the lookup.</para>
+	  <para>The <structfield>ptype</structfield> field is the type of the parent resource or RT_NONE if not set.</para>
+	  <para>The <structfield>parent</structfield> field is the parent resource itself or NULL if not set.  The parent resource is set only when two conditions are met: The resource in question is being created at the time of the call (in which case the <structfield>access_mode</structfield> will include <literal>DixCreateAccess</literal>) and the resource in question has a defined parent object. <xref linkend="resource_access_parents" /> lists the resources that support parent objects.  The purpose of these two fields is to provide generic support for "parent" resources.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are defined in <filename>include/dixaccess.h</filename>.  The meaning of the bits depends on the specific resource type.  Tables for some common types can be found in <xref linkend="resource_access_modes"/>.  Note that the <literal>DixCreateAccess</literal> access mode has special meaning: it signifies that the resource object is in the process of being created.  This provides an opportunity for the security extension to initialize its security label information in the structure devPrivates or otherwise.  If the status field is set to an error code in this case, the resource creation will fail and no entry will be made under the specified resource ID.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the resource lookup will fail and an error (usually, but not always, the status value) will be returned to the client.</para>
+	  <table frame="all" id="resource_access_modes">
+	    <title>Resource access hook access modes.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixReadAccess</literal></entry>
+		  <entry>The primary data or contents of the object are being read (drawables, cursors, colormaps).</entry>
+		  <entry>GetImage, GetCursorImage, CreatePicture, QueryColors</entry>
+		</row>
+		<row>
+		  <entry><literal>DixWriteAccess</literal></entry>
+		  <entry>The primary data or contents of the object are being written (drawables, cursors, colormaps).</entry>
+		  <entry>PutImage, RenderTriFan, ClearArea, StoreColors, RecolorCursor</entry>
+		</row>
+		<row>
+		  <entry><literal>DixDestroyAccess</literal></entry>
+		  <entry>The object is being removed.</entry>
+		  <entry>CloseFont, DestroyWindow, FreePixmap, FreeCursor, RenderFreePicture</entry>
+		</row>
+		<row>
+		  <entry><literal>DixCreateAccess</literal></entry>
+		  <entry>The object is being created.</entry>
+		  <entry>CreateWindow, CreatePixmap, CreateGC, CreateColormap</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>The object's attributes are being queried, or the object is being referenced.</entry>
+		  <entry>GetWindowAttributes, GetGeometry, QueryFont, CopyGC, QueryBestSize</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>The object's attributes are being changed.</entry>
+		  <entry>SetWindowAttributes, ChangeGC, SetClipRectangles, XFixesSetCursorName</entry>
+		</row>
+		<row>
+		  <entry><literal>DixListPropAccess</literal></entry>
+		  <entry>User properties set on the object are being listed (windows).</entry>
+		  <entry>ListProperties</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetPropAccess</literal></entry>
+		  <entry>A user property set on the object is being read (windows).</entry>
+		  <entry>GetProperty, RotateProperties</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetPropAccess</literal></entry>
+		  <entry>A user property set on the object is being written (windows).</entry>
+		  <entry>ChangeProperty, RotateProperties, DeleteProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixListAccess</literal></entry>
+		  <entry>Child objects of the object are being listed out (windows).</entry>
+		  <entry>QueryTree, MapSubwindows, UnmapSubwindows</entry>
+		</row>
+		<row>
+		  <entry><literal>DixAddAccess</literal></entry>
+		  <entry>A child object is being added to the object (drawables, fonts, colormaps).</entry>
+		  <entry>CreateWindow, ReparentWindow, AllocColor, RenderCreatePicture, RenderAddGlyphs</entry>
+		</row>
+		<row>
+		  <entry><literal>DixRemoveAccess</literal></entry>
+		  <entry>A child object is being removed from object (drawables, fonts, colormaps).</entry>
+		  <entry>DestroyWindow, ReparentWindow, FreeColors, RenderFreeGlyphs</entry>
+		</row>
+		<row>
+		  <entry><literal>DixHideAccess</literal></entry>
+		  <entry>Object is being unmapped or hidden from view (drawables, cursor).</entry>
+		  <entry>UnmapWindow, XFixesHideCursor</entry>
+		</row>
+		<row>
+		  <entry><literal>DixShowAccess</literal></entry>
+		  <entry>Object is being mapped or shown (drawables, cursor).</entry>
+		  <entry>MapWindow, XFixesShowCursor</entry>
+		</row>
+		<row>
+		  <entry><literal>DixBlendAccess</literal></entry>
+		  <entry>Drawable contents are being mixed in a way that may compromise contents.</entry>
+		  <entry>Background "None", CompositeRedirectWindow, CompositeRedirectSubwindows</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGrabAccess</literal></entry>
+		  <entry>Override-redirect bit on a window has been set.</entry>
+		  <entry>CreateWindow, ChangeWindowAttributes</entry>
+		</row>
+		<row>
+		  <entry><literal>DixInstallAccess</literal></entry>
+		  <entry>Colormap is being installed.</entry>
+		  <entry>InstallColormap</entry>
+		</row>
+		<row>
+		  <entry><literal>DixUninstallAccess</literal></entry>
+		  <entry>Colormap is being uninstalled.</entry>
+		  <entry>UninstallColormap</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSendAccess</literal></entry>
+		  <entry>An event is being sent to a window.</entry>
+		  <entry>SendEvent</entry>
+		</row>
+		<row>
+		  <entry><literal>DixReceiveAccess</literal></entry>
+		  <entry>A client is setting an event mask on a window.</entry>
+		  <entry>ChangeWindowAttributes, XiSelectExtensionEvent</entry>
+		</row>
+		<row>
+		  <entry><literal>DixUseAccess</literal></entry>
+		  <entry>The object is being used without modifying it (fonts, cursors, gc).</entry>
+		  <entry>CreateWindow, FillPoly, GrabButton, ChangeGC</entry>
+		</row>
+		<row>
+		  <entry><literal>DixManageAccess</literal></entry>
+		  <entry>Window-manager type actions on a drawable.</entry>
+		  <entry>CirculateWindow, ChangeSaveSet, ReparentWindow</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+
+	  <table frame="all" id="resource_access_parents">
+	    <title>Resource access hook parent objects.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Resource Type</entry>
+		  <entry>Parent Resource Type</entry>
+		  <entry>Notes</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>RT_WINDOW</literal></entry>
+		  <entry><literal>RT_WINDOW</literal></entry>
+		  <entry>Contains the parent window.  This will be NULL for root windows.</entry>
+		</row>
+		<row>
+		  <entry><literal>RT_PIXMAP</literal></entry>
+		  <entry><literal>RT_WINDOW</literal></entry>
+		  <entry>COMPOSITE extension only: the source window is passed as the parent for redirect pixmaps.</entry>
+		</row>
+		<row>
+		  <entry><literal>RenderPictureType</literal></entry>
+		  <entry><literal>RC_DRAWABLE</literal></entry>
+		  <entry>The source drawable is passed as the parent for Render picture objects.</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="device_access_hook">
+	  <title>Device Access</title>
+	  <para>This hook allows security extensions to restrict client actions on input devices.  The hook argument is a pointer to a structure of type <type>XaceDeviceAccessRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>dev</structfield> field of type <type>DeviceIntPtr</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client attempting to access the device (keyboard).  Note that this may be <varname>serverClient</varname>.</para>
+	  <para>The <structfield>dev</structfield> field refers to the input device being accessed.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the device operation will fail and an error (usually, but not always, the status value) will be returned to the client.</para>
+	  <table frame="all" id="device_access_modes">
+	    <title>Device access hook access modes.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Attributes of the device are being queried.</entry>
+		  <entry>GetKeyboardMapping, XiGetKeyboardControl, XkbGetDeviceInfo</entry>
+		</row>
+		<row>
+		  <entry><literal>DixReadAccess</literal></entry>
+		  <entry>The state of the device is being polled.</entry>
+		  <entry>QueryPointer, QueryKeymap, XkbGetState</entry>
+		</row>
+		<row>
+		  <entry><literal>DixWriteAccess</literal></entry>
+		  <entry>The state of the device is being programatically manipulated.</entry>
+		  <entry>WarpPointer, XTestFakeInput, XiSendExtensionEvent</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>Per-client device configuration is being performed.</entry>
+		  <entry>XkbPerClientFlags</entry>
+		</row>
+		<row>
+		  <entry><literal>DixManageAccess</literal></entry>
+		  <entry>Global device configuration is being performed.</entry>
+		  <entry>ChangeKeyboardMapping, XiChangeDeviceControl, XkbSetControls</entry>
+		</row>
+		<row>
+		  <entry><literal>DixUseAccess</literal></entry>
+		  <entry>The device is being opened or referenced.</entry>
+		  <entry>XiOpenDevice, XkbSelectEvents</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGrabAccess</literal></entry>
+		  <entry>The device is being grabbed.</entry>
+		  <entry>GrabPointer, GrabButton, GrabKey</entry>
+		</row>
+		<row>
+		  <entry><literal>DixFreezeAccess</literal></entry>
+		  <entry>The state of the device is being frozen by a synchronous grab.</entry>
+		  <entry>GrabKeyboard, GrabPointer</entry>
+		</row>
+		<row>
+		  <entry><literal>DixForceAccess</literal></entry>
+		  <entry>The device cursor is being overriden by a grab.</entry>
+		  <entry>GrabPointer, GrabButton</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetFocusAccess</literal></entry>
+		  <entry>The device focus is being retrieved.</entry>
+		  <entry>GetInputFocus, XiGetDeviceFocus</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetFocusAccess</literal></entry>
+		  <entry>The device focus is being set.</entry>
+		  <entry>SetInputFocus, XiSetDeviceFocus</entry>
+		</row>
+		<row>
+		  <entry><literal>DixBellAccess</literal></entry>
+		  <entry>The device bell is being rung.</entry>
+		  <entry>Bell, XiDeviceBell</entry>
+		</row>
+		<row>
+		  <entry><literal>DixCreateAccess</literal></entry>
+		  <entry>The device object has been newly allocated.</entry>
+		  <entry>XIChangeDeviceHierarchy, XIAddMaster</entry>
+		</row>
+		<row>
+		  <entry><literal>DixDestroyAccess</literal></entry>
+		  <entry>The device is being removed.</entry>
+		  <entry>XIChangeDeviceHierarchy, XIRemoveMaster</entry>
+		</row>
+		<row>
+		  <entry><literal>DixAddAccess</literal></entry>
+		  <entry>A slave device is being attached to the device.</entry>
+		  <entry>XIChangeDeviceHierarchy, XIChangeAttachment</entry>
+		</row>
+		<row>
+		  <entry><literal>DixRemoveAccess</literal></entry>
+		  <entry>A slave device is being unattached from the device.</entry>
+		  <entry>XIChangeDeviceHierarchy, XIChangeAttachment</entry>
+		</row>
+		<row>
+		  <entry><literal>DixListPropAccess</literal></entry>
+		  <entry>Properties set on the device are being listed.</entry>
+		  <entry>ListDeviceProperties, XIListProperties</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetPropAccess</literal></entry>
+		  <entry>A property set on the device is being read.</entry>
+		  <entry>GetDeviceProperty, XIGetProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetPropAccess</literal></entry>
+		  <entry>A property set on the device is being written.</entry>
+		  <entry>SetDeviceProperty, XISetProperty</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="property_access_hook">
+	  <title>Property Access</title>
+	  <para>This hook allows security extensions to monitor all property accesses and additionally to support polyinstantiation if desired.  The hook argument is a pointer to a structure of type <type>XacePropertyAccessRec</type>.  This structure contains a
+	    <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>pWin</structfield> field of type <type>WindowPtr</type>,
+	    a <structfield>ppProp</structfield> field of type <type>PropertyPtr*</type>,
+	    a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client which is accessing the property.  Note that this may be <varname>serverClient</varname> for server lookups.</para>
+	  <para>The <structfield>pWin</structfield> field is the window on which the property is being accessed.</para>
+	  <para>The <structfield>ppProp</structfield> field is a double-indirect pointer to the PropertyRec structure being accessed.  The extra level of indirection supports property polyinstantiation; see below.  If your extension does not use the polyinstantiation feature, simply dereference the pointer to obtain a <type>PropertyPtr</type> for the property</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the property request will not be processed further and the error code will be returned to the client.  However, the <literal>BadMatch</literal> code has special meaning; see below.</para>
+	  <table frame="all" id="property_access_modes">
+	    <title>Property access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixCreateAccess</literal></entry>
+		  <entry>The property object has been newly allocated (this bit will always occur in conjunction with <literal>DixWriteAccess</literal>).</entry>
+		  <entry>ChangeProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixWriteAccess</literal></entry>
+		  <entry>The property data is being completely overwritten with new data.</entry>
+		  <entry>ChangeProperty, RotateProperties</entry>
+		</row>
+		<row>
+		  <entry><literal>DixBlendAccess</literal></entry>
+		  <entry>The property data is being appended or prepended to.</entry>
+		  <entry>ChangeProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixReadAccess</literal></entry>
+		  <entry>The property data is being read.</entry>
+		  <entry>GetProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixDestroyAccess</literal></entry>
+		  <entry>The property data is being deleted.</entry>
+		  <entry>DeleteProperty</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Existence of the property is being disclosed.</entry>
+		  <entry>ListProperties</entry>
+		</row>
+		<row>
+		  <entry><literal>DixPostAccess</literal></entry>
+		  <entry>Post-write call reflecting new contents (this bit will always occur in conjunction with <literal>DixWriteAccess</literal>).</entry>
+		  <entry>ChangeProperty</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+
+	  <para>New in XACE Version 2.0, this hook supports the polyinstantiation of properties.  This means that more than one property may exist having the same name, and the security extension can control which property object is seen by which client.  To perform property polyinstantiation, your security extension should take the following steps:
+	    <itemizedlist>
+	      <listitem><para>When a property is being created (<literal>DixCreateAccess</literal>), the security extension should label it appropriately based on the client that is creating it.  In this case, the <structfield>ppProp</structfield> field should not be modified.</para></listitem>
+	      <listitem><para>When a property is being looked up, the <structfield>ppProp</structfield> field will refer to the first structure in the linked list with the given name.  The security extension may change the ppProp field to a different property structure by traversing the linked list (using the PropertyRec <structfield>next</structfield> field) to find an alternate structure with the same property name.</para></listitem>
+	      <listitem><para>Alternately, when a property is being looked up, the <structfield>status</structfield> may be set to <literal>BadMatch</literal> which will cause the DIX layer to treat the property as not existing.  This may result in an additional property object with the same name being created (in which case the hook will be called again with the create access mode).</para></listitem>
+	    </itemizedlist>
+	  </para>
+
+	  <para>New in XACE Version 2.2, this hook allows security extensions to verify the contents of properties after the client has written them.  On a property change, the property access hook will be called twice.  The first call is unchanged from previous versions.  The second call will have the <literal>DixPostAccess</literal> bit together with <literal>DixWriteAccess</literal> and the <structfield>ppProp</structfield> property pointer will contain the new data.  Setting the <structfield>status</structfield> field to something other than <literal>Success</literal> will cause the previous property contents to be restored and the client to receive the status code as an error.</para>
+	  <para>Note that in the case of property creation (when <literal>DixCreateAccess</literal> is set), the <structfield>ppProp</structfield> field already reflects the new data.  Hence security extensions wishing to validate property data should check for either <literal>DixPostAccess</literal> or <literal>DixCreateAccess</literal> in conjunction with <literal>DixWriteAccess</literal>.  If your extension does not need this feature, simply ignore calls with the <literal>DixPostAccess</literal> bit set.</para>
+	</section>
+
+	<section id="send_access_hook">
+	  <title>Send Access</title>
+	  <para>This hook allows security extensions to prevent devices and clients from posting X events to a given window.  The hook argument is a pointer to a structure of type <type>XaceSendAccessRec</type>.  This structure contains
+	    a <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>dev</structfield> field of type <type>DeviceIntPtr</type>,
+	    a <structfield>pWin</structfield> field of type <type>WindowPtr</type>,
+	    a <structfield>events</structfield> field of type <type>events</type>,
+	    a <structfield>count</structfield> field of type <type>int</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client attempting a <literal>SendEvent</literal> request or other synthetic event generation to the given window.  This field may be NULL if the <structfield>dev</structfield> field is set.</para>
+	  <para>The <structfield>dev</structfield> field refers to the device attempting to post an event which would be delivered to the given window.  This field may be NULL if the <structfield>client</structfield> field is set.</para>
+	  <para>The <structfield>pWin</structfield> field refers to the target window.</para>
+	  <para>The <structfield>events</structfield> field refers to the events that are being sent.</para>
+	  <para>The <structfield>count</structfield> field contains the number of events in the <structfield>events</structfield> array.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the events will be dropped on the floor instead of being delivered.</para>
+	  <warning><para>This hook does not currently cover all instances of event delivery.</para></warning>
+	</section>
+
+	<section id="receive_access_hook">
+	  <title>Receive Access</title>
+	  <para>This hook allows security extensions to prevent a client from receiving X events that have been delivered to a given window.  The hook argument is a pointer to a structure of type <type>XaceReceiveAccessRec</type>.  This structure contains
+	    a <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>pWin</structfield> field of type <type>WindowPtr</type>,
+	    a <structfield>events</structfield> field of type <type>events</type>,
+	    a <structfield>count</structfield> field of type <type>int</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client to which the event would be delivered.</para>
+	  <para>The <structfield>pWin</structfield> field refers to the window where the event has been sent.</para>
+	  <para>The <structfield>events</structfield> field refers to the events that are being sent.</para>
+	  <para>The <structfield>count</structfield> field contains the number of events in the <structfield>events</structfield> array.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the events will not be delivered to the client.</para>
+	  <warning><para>This hook does not currently cover all instances of event delivery.</para></warning>
+	</section>
+
+	<section id="client_access_hook">
+	  <title>Client Access</title>
+	  <para>This hook allows security extensions to prevent clients from manipulating other clients directly.  This hook applies to a small set of protocol requests such as <literal>KillClient</literal>.  The hook argument is a pointer to a structure of type <type>XaceClientAccessRec</type>.  This structure contains
+	  a <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>target</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the request.</para>
+	  <para>The <structfield>target</structfield> field refers to the client being manipulated.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will fail and an error (usually, but not always, the status value) will be returned to the client.</para>
+	  <table frame="all" id="client_access_modes">
+	    <title>Client access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Attributes of the client are being queried.</entry>
+		  <entry>SyncGetPriority</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>Attributes of the client are being set.</entry>
+		  <entry>SyncSetPriority</entry>
+		</row>
+		<row>
+		  <entry><literal>DixManageAccess</literal></entry>
+		  <entry>The client's close-down-mode (which affects global server resource management) is being set.</entry>
+		  <entry>SetCloseDownMode</entry>
+		</row>
+		<row>
+		  <entry><literal>DixDestroyAccess</literal></entry>
+		  <entry>The client is being killed.</entry>
+		  <entry>KillClient</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="ext_access_hook">
+	  <title>Extension Access</title>
+	  <para>This hook allows security extensions to approve or deny requests involving which extensions are supported by the server.  This allows control over which extensions are visible.  The hook argument is a pointer to a structure of type <type>XaceExtAccessRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>ext</structfield> field of type <type>ExtensionEntry*</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the incoming request, which is typically <literal>QueryExtension</literal> or <literal>ListExtensions</literal>.</para>
+	  <para>The <structfield>ext</structfield> field refers to the extension being accessed.  This is required information since extensions are not associated with any particular major number.</para>
+	  <para>The <structfield>access_mode</structfield> field is set to <literal>DixGetAttrAccess</literal> when this hook is exercised.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the extension will be reported as not supported (<literal>QueryExtensions</literal>) or omitted from the returned list (<literal>ListExtensions</literal>).</para>
+	  <warning><para>If this hook is used, an extension dispatch hook should also be installed to make sure that clients cannot circumvent the check by guessing the major opcodes of extensions.</para></warning>
+	</section>
+
+	<section id="server_access_hook">
+	  <title>Server Access</title>
+	  <para>This hook allows security extensions to approve or deny requests that affect the X server itself.  The hook argument is a pointer to a structure of type <type>XaceServerAccessRec</type>, which contains
+	  a <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	  and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the request.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will fail and an error (usually, but not always, the status value) will be returned to the client.</para>
+	  <table frame="all" id="server_access_modes">
+	    <title>Server access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Attributes of the server are being queried.</entry>
+		  <entry>GetFontPath</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>Attributes of the server are being set.</entry>
+		  <entry>SetFontPath</entry>
+		</row>
+		<row>
+		  <entry><literal>DixManageAccess</literal></entry>
+		  <entry>Server management is being performed.</entry>
+		  <entry>ChangeAccessControl, ListHosts</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGrabAccess</literal></entry>
+		  <entry>A server grab is being performed.</entry>
+		  <entry>GrabServer</entry>
+		</row>
+		<row>
+		  <entry><literal>DixReadAccess</literal></entry>
+		  <entry>The server's actions are being recorded.</entry>
+		  <entry>Record, XEVIE extensions</entry>
+		</row>
+		<row>
+		  <entry><literal>DixDebugAccess</literal></entry>
+		  <entry>Server debug facilities are being used.</entry>
+		  <entry>XTest extension, XkbSetDebuggingFlags</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="selection_access_hook">
+	  <title>Selection Access</title>
+	  <para>This hook allows security extensions to monitor all selection accesses and additionally to support polyinstantiation if desired.  The hook argument is a pointer to a structure of type <type>XaceSelectionAccessRec</type>.  This structure contains a
+	    <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>ppSel</structfield> field of type <type>Selection**</type>,
+	    a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client which is accessing the property.  Note that this may be <varname>serverClient</varname> for server lookups.</para>
+	  <para>The <structfield>ppSel</structfield> field is a double-indirect pointer to the Selection structure being accessed.  The extra level of indirection supports selection polyinstantiation; see below.  If your extension does not use the polyinstantiation feature, simply dereference the pointer to obtain a <type>SelectionRec *</type> for the selection.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the property request will not be processed further and the error code will be returned to the client.  However, the <literal>BadMatch</literal> code has special meaning; see below.</para>
+	  <table frame="all" id="selection_access_modes">
+	    <title>Selection access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixCreateAccess</literal></entry>
+		  <entry>The selection object has been newly allocated (this bit will always occur in conjunction with <literal>DixSetAttrAccess</literal>).</entry>
+		  <entry>SetSelectionOwner</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>The selection owner is being set.</entry>
+		  <entry>SetSelectionOwner</entry>
+		</row>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>The selection owner is being queried.</entry>
+		  <entry>GetSelectionOwner</entry>
+		</row>
+		<row>
+		  <entry><literal>DixReadAccess</literal></entry>
+		  <entry>A convert operation is being requested on the selection.</entry>
+		  <entry>ConvertSelection</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+
+	  <para>This hook supports the polyinstantiation of selections.  This means that more than one selection may exist having the same name, and the security extension can control which selection object is seen by which client.  To perform selection polyinstantiation, your security extension should take the following steps:
+	    <itemizedlist>
+	      <listitem><para>When selection ownership is being established (<literal>DixSetAttrAccess</literal>), the security extension should label it appropriately based on the client that is taking ownership.  In this case, the <structfield>ppSel</structfield> field should not be modified.</para></listitem>
+	      <listitem><para>When a selection is being looked up, the <structfield>ppProp</structfield> field will refer to the first structure in the linked list with the given name.  The security extension may change the ppSel field to a different selection structure by traversing the linked list (using the Selection <structfield>next</structfield> field) to find an alternate structure with the same selection name.</para></listitem>
+	      <listitem><para>Alternately, when a selection is being looked up, the <structfield>status</structfield> may be set to <literal>BadMatch</literal> which will cause the DIX layer to treat the selection as not existing.  This may result in an additional selection object with the same name being created (in which case the hook will be called again with the create access mode).</para></listitem>
+	    </itemizedlist>
+	  </para>
+	</section>
+
+	<section id="screen_access_hook">
+	  <title>Screen Access</title>
+	  <para>This hook allows security extensions to approve or deny requests that manipulate screen objects  The hook argument is a pointer to a structure of type <type>XaceScreenAccessRec</type>.  This structure contains a
+	    <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>screen</structfield> field of type <type>ScreenPtr</type>,
+	    a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the request.</para>
+	  <para>The <structfield>screen</structfield> field refers to the screen object being referenced.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will not be processed further and the error code will be returned to the client.</para>
+	  <table frame="all" id="screen_access_modes">
+	    <title>Screen access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Attributes of the screen object are being queried.</entry>
+		  <entry>ListInstalledColormaps, QueryBestSize</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>Attributes of the screen object are being set.</entry>
+		  <entry>InstallColormap</entry>
+		</row>
+		<row>
+		  <entry><literal>DixHideAccess</literal></entry>
+		  <entry>The cursor on the screen is being globally hidden.</entry>
+		  <entry>XFixesHideCursor</entry>
+		</row>
+		<row>
+		  <entry><literal>DixShowAccess</literal></entry>
+		  <entry>The cursor on the screen is being globally unhidden.</entry>
+		  <entry>XFixesShowCursor</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="screensaver_access_hook">
+	  <title>Screen Saver Access</title>
+	  <para>This hook allows security extensions to approve or deny requests that manipulate the screensaver.   The hook argument is a pointer to a structure of type <type>XaceScreenAccessRec</type>.  This structure contains a
+	    <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	    a <structfield>screen</structfield> field of type <type>ScreenPtr</type>,
+	    a <structfield>access_mode</structfield> field of type <type>Mask</type>,
+	    and a <structfield>status</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the client making the request.</para>
+	  <para>The <structfield>screen</structfield> field refers to the screen object being referenced.</para>
+	  <para>The <structfield>access_mode</structfield> field encodes the type of action being performed.  The valid mode bits are described in the table below.</para>
+	  <para>The <structfield>status</structfield> field may be set to a nonzero X protocol error code.  In this event, the request will not be processed further and the error code will be returned to the client.</para>
+	  <table frame="all" id="screensaver_access_modes">
+	    <title>Screen saver access hook mode bits.</title>
+	    <tgroup cols='3' align='left' colsep='1' rowsep='1'>
+	      <thead>
+		<row>
+		  <entry>Access Mode Bit</entry>
+		  <entry>Meaning</entry>
+		  <entry>Example Call Site</entry>
+		</row>
+	      </thead>
+	      <tbody>
+		<row>
+		  <entry><literal>DixGetAttrAccess</literal></entry>
+		  <entry>Attributes of the screen saver are being queried.</entry>
+		  <entry>GetScreenSaver, ScreenSaverQueryInfo</entry>
+		</row>
+		<row>
+		  <entry><literal>DixSetAttrAccess</literal></entry>
+		  <entry>Attributes of the screen saver are being set.</entry>
+		  <entry>SetScreenSaver, ScreenSaverSelectInput</entry>
+		</row>
+		<row>
+		  <entry><literal>DixHideAccess</literal></entry>
+		  <entry>The screen saver is being programmatically activated.</entry>
+		  <entry>ForceScreenSaver, DPMSEnable</entry>
+		</row>
+		<row>
+		  <entry><literal>DixShowAccess</literal></entry>
+		  <entry>The screen saver is being programmatically deactivated.</entry>
+		  <entry>ForceScreenSaver, DPMSDisable</entry>
+		</row>
+	      </tbody>
+	    </tgroup>
+	  </table>
+	</section>
+
+	<section id="auth_avail_hook">
+	  <title>Authorization Availability Hook</title>
+	  <para>This hook allows security extensions to examine the authorization associated with a newly connected client.  This can be used to set up client security state depending on the authorization method that was used.  The hook argument is a pointer to a structure of type <type>XaceAuthAvailRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  and a <structfield>authId</structfield> field of type <type>XID</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to the newly connected client.</para>
+	  <para>The <structfield>authId</structfield> field is the resource ID of the client's authorization.</para>
+	  <para>This hook has no return value.</para>
+	  <note>
+	    <para>This hook is called after the client enters the initial state and before the client enters the running state.  Keep this in mind if your security extension uses the <varname>ClientStateCallback</varname> list to keep track of clients.</para>
+	    <para>This hook is a legacy of the APPGROUP Extension.  In the future, this hook may be phased out in favor of a new client state, <literal>ClientStateAuthenticated</literal>.</para>
+	  </note>
+	</section>
+
+	<section id="key_avail_hook">
+	  <title>Keypress Availability Hook</title>
+	  <para>This hook allows security extensions to examine keypresses outside of the normal event mechanism.  This could be used to implement server-side hotkey support.  The hook argument is a pointer to a structure of type <type>XaceKeyAvailRec</type>.  This structure contains a
+	  <structfield>event</structfield> field of type <type>xEventPtr</type>,
+	  a <structfield>keybd</structfield> field of type <type>DeviceIntPtr</type>,
+	  and a <structfield>count</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>event</structfield> field refers to the keyboard event, typically a <literal>KeyPress</literal> or <literal>KeyRelease</literal>.</para>
+	  <para>The <structfield>keybd</structfield> field refers to the input device that generated the event.</para>
+	  <para>The <structfield>count</structfield> field is the number of repetitions of the event (not 100\% sure of this at present, however).</para>
+	  <para>This hook has no return value.</para>
+	</section>
+
+	<section id="audit_avail_hook">
+	  <title>Auditing Hooks</title>
+	  <para>Two hooks provide basic auditing support.  The begin hook is called immediately before an incoming client request is dispatched and before the dispatch hook is called (refer to <xref linkend="core_dispatch_hook"/>).  The end hook is called immedately after the processing of the request has finished.  The hook argument is a pointer to a structure of type <type>XaceKeyAvailRec</type>.  This structure contains a
+	  <structfield>client</structfield> field of type <type>ClientPtr</type>,
+	  and a <structfield>requestResult</structfield> field of type <type>int</type>.</para>
+	  <para>The <structfield>client</structfield> field refers to client making the request.</para>
+	  <para>The <structfield>requestResult</structfield> field contains the result of the request, either <literal>Success</literal> or one of the protocol error codes.  Note that this field is significant only in the end hook.</para>
+	  <para>These hooks have no return value.</para>
+	</section>
+
+     </section>
+    </section>
+  </section>
+
+  <section>
+    <title>Protocol</title>
+    <section>
+      <title>Requests</title>
+      <para>XACE does not define any X protocol.</para>
+    </section>
+    <section>
+      <title>Events</title>
+      <para>XACE does not define any X protocol.</para>
+    </section>
+    <section>
+      <title>Errors</title>
+      <para>XACE does not define any X protocol.</para>
+    </section>
+  </section>
+</article>

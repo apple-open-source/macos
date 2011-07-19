@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,6 +42,7 @@
 #include <sys/socket.h>
 #include <sys/kpi_mbuf.h>
 #include <sys/mount.h>
+#include <libkern/OSAtomic.h>
 
 #include <sys/kauth.h>
 
@@ -52,84 +53,61 @@
 #include <netsmb/smb_rq.h>
 #include <netsmb/smb_subr.h>
 #include <netsmb/smb_tran.h>
-#include <netsmb/smb_compat4.h>
 
 #include <sys/vnode.h>
 #include <smbfs/smbfs.h>
 #include <netsmb/smb_converter.h>
+#include <smbclient/ntstatus.h>
 
 MALLOC_DEFINE(M_SMBRQ, "SMBRQ", "SMB request");
 
-static int  smb_rq_reply(struct smb_rq *rqp);
-static int  smb_rq_getenv(struct smb_connobj *layer,
-		struct smb_vc **vcpp, struct smb_share **sspp);
-static int  smb_rq_new(struct smb_rq *rqp, u_char cmd);
-static int  smb_t2_reply(struct smb_t2rq *t2p);
+#define ALIGN4(a)	(((a) + 3) & ~3)
 
 /*
- * There is no KPI call for m_cat. Josh gave me the following
- * code to replace m_cat
+ * Given an object return the share or vc associated with that object. If the 
+ * object is a share then return the parent which should be the vc. In all cases
+ * take a reference on the objects being return.
  */
-void
-mbuf_cat_internal(mbuf_t md_top, mbuf_t m0)
+static int
+smb_rq_getenv(struct smb_connobj *obj, struct smb_vc **vcp, struct smb_share **share)
 {
-	mbuf_t m;
+	int error = 0;
 	
-	for (m = md_top; mbuf_next(m) != NULL; m = mbuf_next(m))
-		;
-	mbuf_setnext(m, m0);
-}
-
-int smb_rq_alloc(struct smb_connobj *layer, u_char cmd, 
-				 vfs_context_t context, struct smb_rq **rqpp)
-{
-	struct smb_rq *rqp;
-	int error;
-
-	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
-	if (rqp == NULL)
-		return ENOMEM;
-	error = smb_rq_init(rqp, layer, cmd, context);
-	rqp->sr_flags |= SMBR_ALLOCED;
-	if (error) {
-		smb_rq_done(rqp);
-		return error;
+	switch (obj->co_level) {
+		case SMBL_VC:
+			if (obj->co_parent == NULL) {
+				SMBERROR("zombie VC %s\n", ((struct smb_vc*)obj)->vc_srvname);
+				error = EINVAL;
+			} else if (vcp) {
+				*vcp = (struct smb_vc*)obj;
+				smb_vc_ref(*vcp);
+			}
+			break;
+		case SMBL_SHARE:
+			if (obj->co_parent == NULL) {
+				SMBERROR("zombie share %s\n", ((struct smb_share*)obj)->ss_name);
+				error = EINVAL;
+			} else {
+				error = smb_rq_getenv(obj->co_parent, vcp, NULL);
+				if (!error && share) {
+					*share = (struct smb_share *)obj;
+					smb_share_ref(*share);
+				}
+			}
+			break;
+		default:
+			SMBERROR("invalid layer %d passed\n", obj->co_level);
+			error = EINVAL;
 	}
-	*rqpp = rqp;
-	return 0;
-}
-
-int
-smb_rq_init(struct smb_rq *rqp, struct smb_connobj *layer, u_char cmd, vfs_context_t context)
-{
-	int error;
-
-	bzero(rqp, sizeof(*rqp));
-	lck_mtx_init(&rqp->sr_slock, srs_lck_group, srs_lck_attr);
-	error = smb_rq_getenv(layer, &rqp->sr_vc, &rqp->sr_share);
-	if (error)
-		return error;
-	error = smb_vc_access(rqp->sr_vc, context);
-	if (error)
-		return error;
-	rqp->sr_context = context;
-	rqp->sr_mid = smb_vc_nextmid(rqp->sr_vc);
-	error = smb_rq_new(rqp, cmd);
-	if (!error) {
-		rqp->sr_flags |= SMBR_VCREF;
-		smb_vc_ref(rqp->sr_vc);
-	}
-	return (error);
+	return error;
 }
 
 static int
-smb_rq_new(struct smb_rq *rqp, u_char cmd)
+smb_rq_new(struct smb_rq *rqp, u_char cmd, uint16_t extraFlags2)
 {
-	struct smb_vc *vcp = rqp->sr_vc;
 	struct mbchain *mbp = &rqp->sr_rq;
 	int error;
-	u_int16_t flags2;
-
+	
 	rqp->sr_cmd = cmd;
 	mb_done(mbp);
 	md_done(&rqp->sr_rp);
@@ -139,11 +117,12 @@ smb_rq_new(struct smb_rq *rqp, u_char cmd)
 	mb_put_mem(mbp, SMB_SIGNATURE, SMB_SIGLEN, MB_MSYSTEM);
 	mb_put_uint8(mbp, cmd);
 	mb_put_uint32le(mbp, 0);		/* DosError */
-	mb_put_uint8(mbp, vcp->vc_hflags);
-	flags2 = vcp->vc_hflags2;
+	mb_put_uint8(mbp, rqp->sr_vc->vc_hflags);
+	extraFlags2 |= rqp->sr_vc->vc_hflags2;
 	if (cmd == SMB_COM_NEGOTIATE)
-		flags2 &= ~SMB_FLAGS2_SECURITY_SIGNATURE;
-	mb_put_uint16le(mbp, flags2);
+		extraFlags2 &= ~SMB_FLAGS2_SECURITY_SIGNATURE;
+	mb_put_uint16le(mbp, extraFlags2);
+	mb_put_uint16le(mbp, rqp->sr_pidHigh);
 	/*
 	 * The old code would check for SMB_FLAGS2_SECURITY_SIGNATURE, before deciding 
 	 * if it need to reserve space for signing. If we are in the middle of reconnect
@@ -151,49 +130,219 @@ smb_rq_new(struct smb_rq *rqp, u_char cmd)
 	 * reserve and zero the space. It doesn't hurt anything and it means we 
 	 * can always handle signing.
 	 */
-	mb_put_uint16le(mbp, 0);
-	rqp->sr_rqsig = (u_int8_t *)mb_reserve(mbp, 8);
+	rqp->sr_rqsig = (uint8_t *)mb_reserve(mbp, 8);
 	bzero(rqp->sr_rqsig, 8);
 	mb_put_uint16le(mbp, 0);
-
-	rqp->sr_rqtid = (u_int16_t*)mb_reserve(mbp, sizeof(u_int16_t));
-	mb_put_uint16le(mbp, 1 /* proc_pid(scred->sc_p) & 0xffff*/);
-	rqp->sr_rquid = (u_int16_t*)mb_reserve(mbp, sizeof(u_int16_t));
+	
+	rqp->sr_rqtid = (uint16_t*)mb_reserve(mbp, sizeof(uint16_t));
+	mb_put_uint16le(mbp, rqp->sr_pidLow);
+	rqp->sr_rquid = (uint16_t*)mb_reserve(mbp, sizeof(uint16_t));
 	mb_put_uint16le(mbp, rqp->sr_mid);
 	return 0;
+}
+
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+static int 
+smb_rq_init_internal(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd, 
+					 int rq_flags, uint16_t flags2, vfs_context_t context)
+{
+	int error;
+	uint32_t mid;
+	
+	bzero(rqp, sizeof(*rqp));
+	rqp->sr_flags |= rq_flags;
+	lck_mtx_init(&rqp->sr_slock, srs_lck_group, srs_lck_attr);
+	error = smb_rq_getenv(obj, &rqp->sr_vc, &rqp->sr_share);
+	if (error)
+		goto done;
+	
+	error = smb_vc_access(rqp->sr_vc, context);
+	if (error)
+		goto done;
+	
+	rqp->sr_context = context;
+	/*
+	 * We need to get the mid for this request. We now combind the high pid value
+	 * and the mid when checking for matching message. So the vc mid is now a
+	 * uint32_t value which we split into the mid and high pid. This allows us
+	 * to wrap on a much larger number. 
+	 */
+	mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
+	if ((mid & 0xffff) == 0xffff) {
+		/* Reserverd for oplock breaks */
+		mid = OSIncrementAtomic(&rqp->sr_vc->vc_mid);
+	}
+	rqp->sr_mid = mid & 0xffff;
+	/*
+	 * Seems Windows and Darwin support setting the high pid, but Samba always
+	 * returns zero in the high pid field. To be safe we use the negotiate 
+	 * message to test if they support returning the high pid field. We always
+	 * set it to 1 on the negotiate message and if they return it then we turn
+	 * on supportHighPID otherwise we just use the low pid. 
+	 */
+	if (cmd == SMB_COM_NEGOTIATE) {
+		/* Set the high pid on the first message to see if */
+		rqp->sr_pidHigh = 1;
+		rqp->sr_pidLow = 1; 
+	} else if (rqp->sr_vc->supportHighPID) {
+		rqp->sr_pidHigh = (mid & 0xffff0000) >> 16;
+		rqp->sr_pidLow = 1; /* Currently we always keep it at one */
+	} else {
+		rqp->sr_pidLow = ((mid & 0xffff0000) >> 16) + 1;
+		rqp->sr_pidHigh = 0; /* Not supported by Samba */
+	}
+	error = smb_rq_new(rqp, cmd, flags2);
+done:
+	if (error) {
+		smb_rq_done(rqp);
+	}
+	return (error);
+}
+
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+int 
+smb_rq_init(struct smb_rq *rqp, struct smb_connobj *obj, u_char cmd, 
+				uint16_t flags2, vfs_context_t context)
+{
+	return smb_rq_init_internal(rqp, obj, cmd, 0, flags2, context);
+}
+
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+int 
+smb_rq_alloc(struct smb_connobj *obj, u_char cmd, uint16_t flags2,
+				 vfs_context_t context, struct smb_rq **rqpp)
+{
+	struct smb_rq *rqp;
+	int error;
+
+	MALLOC(rqp, struct smb_rq *, sizeof(*rqp), M_SMBRQ, M_WAITOK);
+	if (rqp == NULL)
+		return ENOMEM;
+	error = smb_rq_init_internal(rqp, obj, cmd, SMBR_ALLOCED, flags2, context);
+	if (! error) {
+		/* On error smb_rq_init will clean up rqp memory */
+		*rqpp = rqp;
+	}
+	return error;
 }
 
 void
 smb_rq_done(struct smb_rq *rqp)
 {
-	if (rqp->sr_flags & SMBR_VCREF) {
-		rqp->sr_flags &= ~SMBR_VCREF;
+	if (rqp->sr_share) {
+		smb_share_rele(rqp->sr_share, rqp->sr_context);
+	}
+	if (rqp->sr_vc) {
 		smb_vc_rele(rqp->sr_vc, rqp->sr_context);
 	}
+	rqp->sr_vc = NULL;
+	rqp->sr_share = NULL;
 	mb_done(&rqp->sr_rq);
 	md_done(&rqp->sr_rp);
 	lck_mtx_destroy(&rqp->sr_slock, srs_lck_group);
 	if (rqp->sr_flags & SMBR_ALLOCED)
-		free(rqp, M_SMBRQ);
+		SMB_FREE(rqp, M_SMBRQ);
 }
 
 /*
- * Given a share check and see if the volume is being forced unmounted. Make
- * sure we lock before checking. If we wake up any sleepers and return the 
- * correct error.
+ * Wait for reply on the request
  */
-static int smb_rq_isforce(struct smb_share* share)
+static int
+smb_rq_reply(struct smb_rq *rqp)
 {
-	int error = 0;
+	struct mdchain *mdp = &rqp->sr_rp;
+	uint32_t tdw;
+	uint8_t tb;
+	int error = 0, rperror = 0;
 	
-	lck_mtx_lock(&share->ss_mntlock);
-	/* If we have a ss_mount then we have a sm_mp */
-	if ((share->ss_mount) && (vfs_isforce(share->ss_mount->sm_mp))) {
-		wakeup(&share->ss_mount->sm_status);
-		error = ENXIO;			
+	/* If an async call then just remove it from the queue, no waiting required */
+	if (rqp->sr_flags & SMBR_ASYNC) {
+		smb_iod_removerq(rqp);
+		error = rqp->sr_lerror;
+	} else {
+		if (rqp->sr_timo == SMBNOREPLYWAIT)
+			return (smb_iod_removerq(rqp));
+		error = smb_iod_waitrq(rqp);
 	}
-	lck_mtx_unlock(&share->ss_mntlock);
-	return error;
+	if (error)
+		goto done;		
+	error = md_get_uint32(mdp, &tdw);
+	if (error)
+		goto done;		
+	error = md_get_uint8(mdp, &tb);
+	if (!error)
+		error = md_get_uint32le(mdp, &rqp->sr_ntstatus);
+	if (!error)
+		error = md_get_uint8(mdp, &rqp->sr_rpflags);
+	if (!error)
+		error = md_get_uint16le(mdp, &rqp->sr_rpflags2);
+	if (error)
+		goto done;		
+	
+	/* Convert any error class codes to be NTSTATUS error. */
+	if (!(rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS)) {
+		uint8_t errClass = rqp->sr_ntstatus & 0xff;
+		uint16_t errCode = rqp->sr_ntstatus >> 16;
+		rqp->sr_ntstatus = smb_errClassCodes_to_ntstatus(errClass, errCode);
+		/* We now have a NTSTATUS error, set the flag */
+		rqp->sr_rpflags2 |= SMB_FLAGS2_ERR_STATUS;
+	}
+	
+	rperror = smb_ntstatus_to_errno(rqp->sr_ntstatus);
+    if (rqp->sr_ntstatus == STATUS_INSUFFICIENT_RESOURCES) {
+        SMBWARNING("STATUS_INSUFFICIENT_RESOURCES: while attempting cmd %x\n", 
+                   rqp->sr_cmd);
+    }
+
+	/* The tree has gone away, umount the volume. */
+	if ((rperror == ENETRESET) && rqp->sr_share) {
+		lck_mtx_lock(&rqp->sr_share->ss_shlock);
+		if ( rqp->sr_share->ss_dead)
+			rqp->sr_share->ss_dead(rqp->sr_share);
+		lck_mtx_unlock(&rqp->sr_share->ss_shlock);
+	}
+	
+	if (rperror && (rqp->sr_ntstatus == STATUS_BUFFER_TOO_SMALL)) {
+		rqp->sr_flags |= SMBR_MOREDATA;
+	} else {
+		rqp->sr_flags &= ~SMBR_MOREDATA;
+	}
+	
+	if (!error)
+		error = md_get_uint16(mdp, &rqp->sr_rppidHigh);
+	if (!error)
+		error = md_get_uint16(mdp, NULL);
+	if (!error)
+		error = md_get_uint32(mdp, NULL);
+	if (!error)
+		error = md_get_uint32(mdp, NULL);
+	if (!error)
+		error = md_get_uint16le(mdp, &rqp->sr_rptid);
+	if (!error)
+		error = md_get_uint16le(mdp, &rqp->sr_rppidLow);
+	if (!error)
+		error = md_get_uint16le(mdp, &rqp->sr_rpuid);
+	if (!error)
+		error = md_get_uint16le(mdp, &rqp->sr_rpmid);
+	
+	if (error == 0 &&
+	    (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
+		error = smb_rq_verify(rqp);
+	
+done:
+	SMBSDEBUG("M:%04x, PHIGH:%04x, PLOW:%04x, U:%04x, T:%04x, E: %d\n",
+			  rqp->sr_rpmid, rqp->sr_rppidHigh, rqp->sr_rppidLow, 
+			  rqp->sr_rpuid, rqp->sr_rptid, rqp->sr_ntstatus);
+	return error ? error : rperror;
 }
 
 /*
@@ -202,17 +351,11 @@ static int smb_rq_isforce(struct smb_share* share)
 int
 smb_rq_simple_timed(struct smb_rq *rqp, int timo)
 {
-	int error = 0;
+	int error;
 
-	/* don't send any new requests if force unmount is underway */	
-	if (rqp->sr_share)
-		error = smb_rq_isforce(rqp->sr_share);
-
-	if (! error) {
-		rqp->sr_timo = timo;	/* in seconds */
-		rqp->sr_state = SMBRQ_NOTSENT;
-		error = smb_iod_rq_enqueue(rqp);		
-	}
+	rqp->sr_timo = timo;	/* in seconds */
+	rqp->sr_state = SMBRQ_NOTSENT;
+	error = smb_iod_rq_enqueue(rqp);		
 	if (! error)
 		error = smb_rq_reply(rqp);
 	return (error);
@@ -227,7 +370,7 @@ smb_rq_simple(struct smb_rq *rqp)
 void
 smb_rq_wstart(struct smb_rq *rqp)
 {
-	rqp->sr_wcount = (u_char *)mb_reserve(&rqp->sr_rq, sizeof(u_int8_t));
+	rqp->sr_wcount = (u_char *)mb_reserve(&rqp->sr_rq, sizeof(uint8_t));
 	rqp->sr_rq.mb_count = 0;
 }
 
@@ -250,9 +393,10 @@ smb_rq_bstart(struct smb_rq *rqp)
 	rqp->sr_rq.mb_count = 0;
 }
 
-void smb_rq_bend(struct smb_rq *rqp)
+void
+smb_rq_bend(struct smb_rq *rqp)
 {
-	u_int16_t bcnt;
+	uint16_t bcnt;
 
 	DBG_ASSERT(rqp->sr_bcount);
 	if (rqp->sr_bcount == NULL) {
@@ -263,18 +407,18 @@ void smb_rq_bend(struct smb_rq *rqp)
 	 * Byte Count field should be ignored when dealing with  SMB_CAP_LARGE_WRITEX 
 	 * or SMB_CAP_LARGE_READX messages. So we set it to zero in these cases.
 	 */
-	if (((rqp->sr_vc->vc_sopt.sv_caps & SMB_CAP_LARGE_READX) && (rqp->sr_cmd == SMB_COM_READ_ANDX)) ||
-		((rqp->sr_vc->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) && (rqp->sr_cmd == SMB_COM_WRITE_ANDX))) {
+	if (((VC_CAPS(rqp->sr_vc) & SMB_CAP_LARGE_READX) && (rqp->sr_cmd == SMB_COM_READ_ANDX)) ||
+		((VC_CAPS(rqp->sr_vc) & SMB_CAP_LARGE_WRITEX) && (rqp->sr_cmd == SMB_COM_WRITE_ANDX))) {
 		/* SAMBA 4 doesn't like the byte count to be zero */
 		if (rqp->sr_rq.mb_count > 0x0ffff) 
 			bcnt = 0; /* Set the byte count to zero here */
 		else
-			bcnt = (u_int16_t)rqp->sr_rq.mb_count;
+			bcnt = (uint16_t)rqp->sr_rq.mb_count;
 	} else if (rqp->sr_rq.mb_count > 0xffff) {
 		SMBERROR("byte count too large (%ld)\n", rqp->sr_rq.mb_count);
 		bcnt =  0xffff;	/* not sure what else to do here */
 	} else
-		bcnt = (u_int16_t)rqp->sr_rq.mb_count;
+		bcnt = (uint16_t)rqp->sr_rq.mb_count;
 	
 	*rqp->sr_bcount = htoles(bcnt);
 }
@@ -301,141 +445,39 @@ smb_rq_getreply(struct smb_rq *rqp, struct mdchain **mbpp)
 	return 0;
 }
 
-static int
-smb_rq_getenv(struct smb_connobj *layer,
-	struct smb_vc **vcpp, struct smb_share **sspp)
-{
-	struct smb_vc *vcp = NULL;
-	struct smb_share *ssp = NULL;
-	struct smb_connobj *cp;
-	int error = 0;
-
-	switch (layer->co_level) {
-	    case SMBL_VC:
-		vcp = CPTOVC(layer);
-		if (layer->co_parent == NULL) {
-			SMBERROR("zombie VC %s\n", vcp->vc_srvname);
-			error = EINVAL;
-			break;
-		}
-		break;
-	    case SMBL_SHARE:
-		ssp = CPTOSS(layer);
-		cp = layer->co_parent;
-		if (cp == NULL) {
-			SMBERROR("zombie share %s\n", ssp->ss_name);
-			error = EINVAL;
-			break;
-		}
-		error = smb_rq_getenv(cp, &vcp, NULL);
-		if (error)
-			break;
-		break;
-	    default:
-		SMBERROR("invalid layer %d passed\n", layer->co_level);
-		error = EINVAL;
-	}
-	if (vcpp)
-		*vcpp = vcp;
-	if (sspp)
-		*sspp = ssp;
-	return error;
-}
-
 /*
- * Wait for reply on the request
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
  */
-static int
-smb_rq_reply(struct smb_rq *rqp)
-{
-	struct mdchain *mdp = &rqp->sr_rp;
-	u_int32_t tdw;
-	u_int8_t tb;
-	int error, rperror = 0;
-
-	/* If an async call then just remove it from the queue, no waiting required */
-	if (rqp->sr_flags & SMBR_ASYNC)
-		smb_iod_removerq(rqp);
-	else {
-		if (rqp->sr_timo == SMBNOREPLYWAIT)
-			return (smb_iod_removerq(rqp));
-		error = smb_iod_waitrq(rqp);
-		if (error)
-			return error;		
-	}
-	error = md_get_uint32(mdp, &tdw);
-	if (error)
-		return error;
-	error = md_get_uint8(mdp, &tb);
-	error = md_get_uint32le(mdp, &rqp->sr_error);
-	error = md_get_uint8(mdp, &rqp->sr_rpflags);
-	error = md_get_uint16le(mdp, &rqp->sr_rpflags2);
-	if (rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS) {
-		/*
-		 * Do a special check for STATUS_BUFFER_OVERFLOW;
-		 * it's not an error.
-		 */
-		if (rqp->sr_error == NT_STATUS_BUFFER_OVERFLOW) {
-			/*
-			 * Don't report it as an error to our caller;
-			 * they can look at rqp->sr_error if they
-			 * need to know whether we got a
-			 * STATUS_BUFFER_OVERFLOW.
-			 * XXX - should we do that for all errors
-			 * where (error & 0xC0000000) is 0x80000000,
-			 * i.e. all warnings?
-			 */
-			rperror = 0;
-		} else
-			rperror = smb_maperr32(rqp->sr_error);
-	} else {
-		rqp->sr_errclass = rqp->sr_error & 0xff;
-		rqp->sr_serror = rqp->sr_error >> 16;
-		rperror = smb_maperror(rqp->sr_errclass, rqp->sr_serror);
-	}
-	if (rperror == EMOREDATA) {
-		rperror = E2BIG;
-		rqp->sr_flags |= SMBR_MOREDATA;
-	} else
-		rqp->sr_flags &= ~SMBR_MOREDATA;
-
-	error = md_get_uint32(mdp, &tdw);
-	error = md_get_uint32(mdp, &tdw);
-	error = md_get_uint32(mdp, &tdw);
-
-	error = md_get_uint16le(mdp, &rqp->sr_rptid);
-	error = md_get_uint16le(mdp, &rqp->sr_rppid);
-	error = md_get_uint16le(mdp, &rqp->sr_rpuid);
-	error = md_get_uint16le(mdp, &rqp->sr_rpmid);
-
-	if (error == 0 &&
-	    (rqp->sr_vc->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE))
-		error = smb_rq_verify(rqp);
-
-	SMBSDEBUG("M:%04x, P:%04x, U:%04x, T:%04x, E: %d:%d\n",
-	    rqp->sr_rpmid, rqp->sr_rppid, rqp->sr_rpuid, rqp->sr_rptid,
-	    rqp->sr_errclass, rqp->sr_serror);
-	return error ? error : rperror;
-}
-
-static int smb_nt_init(struct smb_ntrq *ntp, struct smb_connobj *source, 
-					   u_short fn, vfs_context_t context)
+static int 
+smb_nt_init(struct smb_ntrq *ntp, struct smb_connobj *obj, int nt_flags, 
+			uint16_t fn, vfs_context_t context)
 {
 	int error;
 	
 	bzero(ntp, sizeof(*ntp));
-	ntp->nt_source = source;
-	ntp->nt_function = fn;
-	ntp->nt_context = context;
-	ntp->nt_share = (source->co_level == SMBL_SHARE ?
-					 CPTOSS(source) : NULL); /* for smb up/down */
-	error = smb_rq_getenv(source, &ntp->nt_vc, NULL);
+	ntp->nt_flags |= nt_flags;
+	error = smb_rq_getenv(obj, &ntp->nt_vc, &ntp->nt_share);
 	if (error)
-		return error;
-	return 0;
+		goto done;
+	
+	ntp->nt_context = context;
+	/* obj is either the share or the vc, so we already have a reference on it */
+	ntp->nt_obj = obj;
+	ntp->nt_function = fn;
+done:
+	if (error) {
+		smb_nt_done(ntp);
+	}
+	return error;
 }
 
-int smb_nt_alloc(struct smb_connobj *layer, u_short fn, 
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+int 
+smb_nt_alloc(struct smb_connobj *obj, u_short fn, 
 				 vfs_context_t context, struct smb_ntrq **ntpp)
 {
 	struct smb_ntrq *ntp;
@@ -444,25 +486,88 @@ int smb_nt_alloc(struct smb_connobj *layer, u_short fn,
 	MALLOC(ntp, struct smb_ntrq *, sizeof(*ntp), M_SMBRQ, M_WAITOK);
 	if (ntp == NULL)
 		return ENOMEM;
-	error = smb_nt_init(ntp, layer, fn, context);
-	ntp->nt_flags |= SMBT2_ALLOCED;
-	if (error) {
-		smb_nt_done(ntp);
-		return error;
+	error = smb_nt_init(ntp, obj, SMBT2_ALLOCED, fn, context);
+	if (!error) {
+		/* On error smb_nt_init will clean up ntp memory */
+		*ntpp = ntp;
 	}
-	*ntpp = ntp;
-	return 0;
+	return error;
 }
 
+void
+smb_nt_done(struct smb_ntrq *ntp)
+{
+	if (ntp->nt_share) {
+		smb_share_rele(ntp->nt_share, ntp->nt_context);
+	}
+	if (ntp->nt_vc) {
+		smb_vc_rele(ntp->nt_vc, ntp->nt_context);
+	}
+	ntp->nt_share = NULL;
+	ntp->nt_vc = NULL;
+	mb_done(&ntp->nt_tsetup);
+	mb_done(&ntp->nt_tparam);
+	mb_done(&ntp->nt_tdata);
+	md_done(&ntp->nt_rparam);
+	md_done(&ntp->nt_rdata);
+	if (ntp->nt_flags & SMBT2_ALLOCED)
+		SMB_FREE(ntp, M_SMBRQ);
+}
 
-#define ALIGN4(a)	(((a) + 3) & ~3)
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+static int
+smb_t2_init_internal(struct smb_t2rq *t2p, struct smb_connobj *obj, int t2_flags,
+					 uint16_t *setup, int setupcnt, vfs_context_t context)
+{
+	int ii;
+	int error;
+	
+	bzero(t2p, sizeof(*t2p));
+	t2p->t2_flags |= t2_flags;
+	error = smb_rq_getenv(obj, &t2p->t2_vc, &t2p->t2_share);
+	if (error)
+		goto done;
+
+	t2p->t2_context = context;
+	/* obj is either the share or the vc, so we already have a reference on it */
+	t2p->t2_obj = obj;
+	t2p->t2_setupcount = setupcnt;
+	t2p->t2_setupdata = t2p->t2_setup;
+	for (ii = 0; ii < setupcnt; ii++)
+		t2p->t2_setup[ii] = setup[ii];
+	t2p->t2_fid = 0xffff;
+done:
+	if (error) {
+		smb_t2_done(t2p);
+	}
+	return error;
+}
+
+/*
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
+ */
+int
+smb_t2_init(struct smb_t2rq *t2p, struct smb_connobj *obj, u_short *setup,
+			int setupcnt, vfs_context_t context)
+{
+	return smb_t2_init_internal(t2p, obj, 0, setup, setupcnt, context);
+	
+}
 
 /*
  * TRANS2 request implementation
  * TRANS implementation is in the "t2" routines
  * NT_TRANSACTION implementation is the separate "nt" stuff
+ *
+ * The object is either a share or a vc in either case the calling routine
+ * must have a reference on the object before calling this routine.
  */
-int smb_t2_alloc(struct smb_connobj *layer, u_short setup, 
+int 
+smb_t2_alloc(struct smb_connobj *obj, u_short setup, int setupcnt, 
 				 vfs_context_t context, struct smb_t2rq **t2pp)
 {
 	struct smb_t2rq *t2p;
@@ -471,42 +576,25 @@ int smb_t2_alloc(struct smb_connobj *layer, u_short setup,
 	MALLOC(t2p, struct smb_t2rq *, sizeof(*t2p), M_SMBRQ, M_WAITOK);
 	if (t2p == NULL)
 		return ENOMEM;
-	error = smb_t2_init(t2p, layer, &setup, 1, context);
-	t2p->t2_flags |= SMBT2_ALLOCED;
-	if (error) {
-		smb_t2_done(t2p);
-		return error;
+	error = smb_t2_init_internal(t2p, obj, SMBT2_ALLOCED, &setup, setupcnt, context);
+	if (!error) {
+		/* On error smb_t2_init_internal will clean up ntp memory */
+		*t2pp = t2p;
 	}
-	*t2pp = t2p;
-	return 0;
-}
-
-int
-smb_t2_init(struct smb_t2rq *t2p, struct smb_connobj *source, u_short *setup,
-	int setupcnt, vfs_context_t context)
-{
-	int i;
-	int error;
-
-	bzero(t2p, sizeof(*t2p));
-	t2p->t2_source = source;
-	t2p->t2_setupcount = setupcnt;
-	t2p->t2_setupdata = t2p->t2_setup;
-	for (i = 0; i < setupcnt; i++)
-		t2p->t2_setup[i] = setup[i];
-	t2p->t2_fid = 0xffff;
-	t2p->t2_context = context;
-	t2p->t2_share = (source->co_level == SMBL_SHARE ?
-			 CPTOSS(source) : NULL); /* for smb up/down */
-	error = smb_rq_getenv(source, &t2p->t2_vc, NULL);
-	if (error)
-		return error;
-	return 0;
+	return error;
 }
 
 void
 smb_t2_done(struct smb_t2rq *t2p)
 {
+	if (t2p->t2_share) {
+		smb_share_rele(t2p->t2_share, t2p->t2_context);
+	}
+	if (t2p->t2_vc) {
+		smb_vc_rele(t2p->t2_vc, t2p->t2_context);
+	}
+	t2p->t2_share = NULL;
+	t2p->t2_vc = NULL;
 	mb_done(&t2p->t2_tparam);
 	mb_done(&t2p->t2_tdata);
 	md_done(&t2p->t2_rparam);
@@ -515,23 +603,12 @@ smb_t2_done(struct smb_t2rq *t2p)
 		free(t2p, M_SMBRQ);
 }
 
-void
-smb_nt_done(struct smb_ntrq *ntp)
-{
-	mb_done(&ntp->nt_tsetup);
-	mb_done(&ntp->nt_tparam);
-	mb_done(&ntp->nt_tdata);
-	md_done(&ntp->nt_rparam);
-	md_done(&ntp->nt_rdata);
-	if (ntp->nt_flags & SMBT2_ALLOCED)
-		free(ntp, M_SMBRQ);
-}
-
-static int smb_t2_placedata(mbuf_t mtop, u_int16_t offset, u_int16_t count, 
+static int 
+smb_t2_placedata(mbuf_t mtop, uint16_t offset, uint16_t count, 
 							struct mdchain *mdp)
 {
 	mbuf_t m, m0;
-	u_int16_t len = 0;
+	uint16_t len = 0;
 	size_t check_len = 0;
 	
 
@@ -548,7 +625,7 @@ static int smb_t2_placedata(mbuf_t mtop, u_int16_t offset, u_int16_t count,
 	if (check_len > 0xffff)
 		return EINVAL;
 	else
-		len = (u_int16_t)check_len;
+		len = (uint16_t)check_len;
 	
 	if (len > count) {
 		/* passing negative value to mbuf_adj trims off the end of the chain. */
@@ -571,27 +648,20 @@ smb_t2_reply(struct smb_t2rq *t2p)
 	struct mdchain *mdp;
 	struct smb_rq *rqp = t2p->t2_rq;
 	int error, error2, totpgot, totdgot;
-	u_int16_t totpcount, totdcount, pcount, poff, doff, pdisp, ddisp;
-	u_int16_t tmp, bc, dcount;
-	u_int8_t wc;
+	uint16_t totpcount, totdcount, pcount, poff, doff, pdisp, ddisp;
+	uint16_t tmp, bc, dcount;
+	uint8_t wc;
 
 	t2p->t2_flags &= ~SMBT2_MOREDATA;
 
 	error = smb_rq_reply(rqp);
 	if (rqp->sr_flags & SMBR_MOREDATA)
 		t2p->t2_flags |= SMBT2_MOREDATA;
-	t2p->t2_sr_errclass = rqp->sr_errclass;
-	t2p->t2_sr_serror = rqp->sr_serror;
-	/* 
-	 * The NT Status error. To mask off the  the "severity" and the "component"  bit
-	 * do the following:
-	 * t2p->t2_sr_error = rqp->sr_error & ~(0xe0000000));
-	 * Not really used anymore, but we may want it in the future.
-	 */
-	t2p->t2_sr_error = rqp->sr_error;
+	t2p->t2_ntstatus = rqp->sr_ntstatus;
 	t2p->t2_sr_rpflags2 = rqp->sr_rpflags2;
-	if (error && !(rqp->sr_flags & SMBR_MOREDATA))
+	if (error && !(rqp->sr_flags & SMBR_MOREDATA)) {
 		return error;
+	}
 	/*
 	 * Now we have to get all subseqent responses, if any.
 	 * The CIFS specification says that they can be misordered,
@@ -603,8 +673,19 @@ smb_t2_reply(struct smb_t2rq *t2p)
 	mdp = &rqp->sr_rp;
 	for (;;) {
 		m_dumpm(mdp->md_top);
-		if ((error2 = md_get_uint8(mdp, &wc)) != 0)
+		if ((error2 = md_get_uint8(mdp, &wc)) != 0) {
 			break;
+		}
+		/*
+		 * We got a STATUS_BUFFER_OVERFLOW warning and word count is zero, so no
+		 * data exist in the buffer. We are done so just return. This should all 
+		 * be cleaned up with <rdar://problem/7082077>.
+		 */
+		if ((wc == 0) && (rqp->sr_rpflags2 & SMB_FLAGS2_ERR_STATUS) && 
+			(rqp->sr_ntstatus == STATUS_BUFFER_OVERFLOW)) {
+			break;
+		}
+		
 		if (wc < 10) {
 			error2 = ENOENT;
 			break;
@@ -643,16 +724,13 @@ smb_t2_reply(struct smb_t2rq *t2p)
 			md_get_uint16(mdp, NULL);
 		if ((error2 = md_get_uint16le(mdp, &bc)) != 0)
 			break;
-/*		tmp = SMB_HDRLEN + 1 + 10 * 2 + 2 * wc + 2;*/
 		if (dcount) {
-			error2 = smb_t2_placedata(mdp->md_top, doff, dcount,
-			    &t2p->t2_rdata);
+			error2 = smb_t2_placedata(mdp->md_top, doff, dcount, &t2p->t2_rdata);
 			if (error2)
 				break;
 		}
 		if (pcount) {
-			error2 = smb_t2_placedata(mdp->md_top, poff, pcount,
-			    &t2p->t2_rparam);
+			error2 = smb_t2_placedata(mdp->md_top, poff, pcount, &t2p->t2_rparam);
 			if (error2)
 				break;
 		}
@@ -674,15 +752,7 @@ smb_t2_reply(struct smb_t2rq *t2p)
 			t2p->t2_flags |= SMBT2_MOREDATA;
 		if (!error2)
 			continue;
-		t2p->t2_sr_errclass = rqp->sr_errclass;
-		t2p->t2_sr_serror = rqp->sr_serror;
-		/* 
-		 * The NT Status error. To mask off the  the "severity" and the "component"  bit
-		 * do the following:
-		 * t2p->t2_sr_error = rqp->sr_error & ~(0xe0000000));
-		 * Not really used anymore, but we may want it in the future.
-		 */
-		t2p->t2_sr_error = rqp->sr_error;
+		t2p->t2_ntstatus = rqp->sr_ntstatus;
 		t2p->t2_sr_rpflags2 = rqp->sr_rpflags2;
 		error = error2;
 		if (!(rqp->sr_flags & SMBR_MOREDATA))
@@ -691,22 +761,27 @@ smb_t2_reply(struct smb_t2rq *t2p)
 	return (error ? error : error2);
 }
 
-int smb_nt_reply(struct smb_ntrq *ntp)
+int 
+smb_nt_reply(struct smb_ntrq *ntp)
 {
 	struct mdchain *mdp;
 	struct smb_rq *rqp = ntp->nt_rq;
 	int error, error2;
-	u_int32_t totpcount, totdcount, pcount, poff, doff, pdisp, ddisp;
-	u_int32_t tmp, dcount, totpgot, totdgot;
-	u_int16_t bc;
-	u_int8_t wc;
+	uint32_t totpcount, totdcount, pcount, poff, doff, pdisp, ddisp;
+	uint32_t tmp, dcount, totpgot, totdgot;
+	uint16_t bc;
+	uint8_t wc;
 
 	ntp->nt_flags &= ~SMBT2_MOREDATA;
 
 	error = smb_rq_reply(rqp);
 	if (rqp->sr_flags & SMBR_MOREDATA)
 		ntp->nt_flags |= SMBT2_MOREDATA;
-	ntp->nt_sr_error = rqp->sr_error;
+	ntp->nt_status = rqp->sr_ntstatus;
+	if (ntp->nt_status == STATUS_NOTIFY_ENUM_DIR) {
+		/* STATUS_NOTIFY_ENUM_DIR is not a real error */
+		return 0;
+	}
 	ntp->nt_sr_rpflags2 = rqp->sr_rpflags2;
 	if (error && !(rqp->sr_flags & SMBR_MOREDATA))
 		return error;
@@ -800,7 +875,7 @@ int smb_nt_reply(struct smb_ntrq *ntp)
 			ntp->nt_flags |= SMBT2_MOREDATA;
 		if (!error2)
 			continue;
-		ntp->nt_sr_error = rqp->sr_error;
+		ntp->nt_status = rqp->sr_ntstatus;
 		ntp->nt_sr_rpflags2 = rqp->sr_rpflags2;
 		error = error2;
 		if (!(rqp->sr_flags & SMBR_MOREDATA))
@@ -813,23 +888,22 @@ int smb_nt_reply(struct smb_ntrq *ntp)
 /*
  * Perform a full round of TRANS2 request
  */
-static int
-smb_t2_request_int(struct smb_t2rq *t2p)
+int smb_t2_request(struct smb_t2rq *t2p)
 {
-	u_int16_t * txpcountp = NULL;
-	u_int16_t * txpoffsetp = NULL;
-	u_int16_t * txdcountp = NULL;
-	u_int16_t * txdoffsetp = NULL;		
+	uint16_t * txpcountp = NULL;
+	uint16_t * txpoffsetp = NULL;
+	uint16_t * txdcountp = NULL;
+	uint16_t * txdoffsetp = NULL;		
 	struct smb_vc *vcp = t2p->t2_vc;
 	struct mbchain *mbp;
 	struct mdchain *mdp, mbparam, mbdata;
 	mbuf_t m;
 	struct smb_rq *rqp;
-	u_int16_t  ii;
+	uint16_t  ii;
 	int error;
 	size_t check_len;	
-	u_int16_t totpcount, totdcount, leftpcount, leftdcount;
-	u_int16_t doff, poff, len, txdcount, txpcount, txmax;
+	uint16_t totpcount, totdcount, leftpcount, leftdcount;
+	uint16_t doff, poff, len, txdcount, txpcount, txmax;
 
 	m = t2p->t2_tparam.mb_top;
 	if (m) {
@@ -837,7 +911,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 		check_len = m_fixhdr(m);
 		if (check_len > 0xffff)		/* maxvalue for u_short */
 			return EINVAL;
-		totpcount = (u_int16_t)check_len;
+		totpcount = (uint16_t)check_len;
 	} else
 		totpcount = 0;
 	
@@ -847,7 +921,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 		check_len =  m_fixhdr(m);
 		if (check_len > 0xffff)
 			return EINVAL;
-		totdcount = (u_int16_t)check_len;
+		totdcount = (uint16_t)check_len;
 	} else
 		totdcount = 0;
 	
@@ -856,10 +930,10 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	if (vcp->vc_txmax > 0xffff)		/* maxvalue for u_short */
 		txmax = 0xffff;
 	else
-		txmax = (u_int16_t)vcp->vc_txmax;
+		txmax = (uint16_t)vcp->vc_txmax;
 	
-	error = smb_rq_alloc(t2p->t2_source, t2p->t_name ?
-	    SMB_COM_TRANSACTION : SMB_COM_TRANSACTION2, t2p->t2_context, &rqp);
+	error = smb_rq_alloc(t2p->t2_obj, t2p->t_name ?
+	    SMB_COM_TRANSACTION : SMB_COM_TRANSACTION2, 0, t2p->t2_context, &rqp);
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
@@ -879,10 +953,10 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	mb_put_uint16le(mbp, 0);			/* reserved 2 */
 
 	/* Reserve these field so we can fill them in correctly later */
-	txpcountp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
-	txpoffsetp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
-	txdcountp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
-	txdoffsetp = (u_int16_t *)mb_reserve(mbp, sizeof(u_int16_t));
+	txpcountp = (uint16_t *)mb_reserve(mbp, sizeof(uint16_t));
+	txpoffsetp = (uint16_t *)mb_reserve(mbp, sizeof(uint16_t));
+	txdcountp = (uint16_t *)mb_reserve(mbp, sizeof(uint16_t));
+	txdoffsetp = (uint16_t *)mb_reserve(mbp, sizeof(uint16_t));
 
 	mb_put_uint8(mbp, t2p->t2_setupcount);
 	mb_put_uint8(mbp, 0);	/* Reserved */
@@ -893,7 +967,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 
 	smb_rq_bstart(rqp);
 	if (t2p->t_name)
-		smb_put_dstring(mbp, vcp, t2p->t_name, PATH_MAX, NO_SFM_CONVERSIONS);
+		smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), t2p->t_name, PATH_MAX, NO_SFM_CONVERSIONS);
 	else	
 		mb_put_uint8(mbp, 0);	/* No name so set it to null */
 
@@ -951,8 +1025,9 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	
 	smb_rq_bend(rqp);	/* incredible, but thats it... */
 	error = smb_iod_rq_enqueue(rqp);
-	if (error)
+	if (error) {
 		goto freerq;
+	}
 	if (leftpcount || leftdcount) {
 		error = smb_rq_reply(rqp);
 		if (error)
@@ -967,7 +1042,7 @@ smb_t2_request_int(struct smb_t2rq *t2p)
 	while (leftpcount || leftdcount) {
 		t2p->t2_flags |= SMBT2_SECONDARY;
 		error = smb_rq_new(rqp, t2p->t_name ? 
-		    SMB_COM_TRANSACTION_SECONDARY : SMB_COM_TRANSACTION2_SECONDARY);
+		    SMB_COM_TRANSACTION_SECONDARY : SMB_COM_TRANSACTION2_SECONDARY, 0);
 		if (error)
 			goto bad;
 		mbp = &rqp->sr_rq;
@@ -1058,8 +1133,8 @@ freerq:
 /*
  * Perform a full round of NT_TRANSACTION request
  */
-static int
-smb_nt_request_int(struct smb_ntrq *ntp)
+int
+smb_nt_request(struct smb_ntrq *ntp)
 {
 	struct smb_vc *vcp = ntp->nt_vc;
 	struct mbchain *mbp;
@@ -1068,9 +1143,9 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 	struct smb_rq *rqp;
 	int error;
 	size_t check_len;	
-	u_int32_t doff, poff, len, txdcount, txpcount;
-	u_int32_t totscount, totpcount, totdcount;
-	u_int32_t leftdcount, leftpcount;
+	uint32_t doff, poff, len, txdcount, txpcount;
+	uint32_t totscount, totpcount, totdcount;
+	uint32_t leftdcount, leftpcount;
 
 	m = ntp->nt_tsetup.mb_top;
 	if (m) {
@@ -1078,7 +1153,7 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		check_len = m_fixhdr(m);
 		if (check_len > 2 * 0xff)
 			return EINVAL;
-		totscount = (u_int32_t)check_len;
+		totscount = (uint32_t)check_len;
 	} else
 		totscount = 0;
 	
@@ -1088,7 +1163,7 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		check_len = m_fixhdr(m);
 		if (check_len > 0x7fffffff)
 			return EINVAL;
-		totpcount = (u_int32_t)check_len;
+		totpcount = (uint32_t)check_len;
 	} else
 		totpcount = 0;
 	
@@ -1098,13 +1173,13 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		check_len = m_fixhdr(m);
 		if (check_len > 0x7fffffff)
 			return EINVAL;
-		totdcount = (u_int32_t)check_len;
+		totdcount = (uint32_t)check_len;
 	} else
 		totdcount = 0;
 	
 	leftdcount = totdcount;
 	leftpcount = totpcount;
-	error = smb_rq_alloc(ntp->nt_source, SMB_COM_NT_TRANSACT, ntp->nt_context, &rqp);
+	error = smb_rq_alloc(ntp->nt_obj, SMB_COM_NT_TRANSACT, 0, ntp->nt_context, &rqp);
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
@@ -1123,7 +1198,7 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		error =  EINVAL;
 		goto freerq;
 	}
-	len = (u_int32_t)check_len;
+	len = (uint32_t)check_len;
 	/*
 	 * now we have known packet size as
 	 * ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2),
@@ -1137,7 +1212,7 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		doff = 0;
 	} else {
 		txpcount = leftpcount;
-		poff = txpcount ? (u_int32_t)len : 0;
+		poff = txpcount ? (uint32_t)len : 0;
 		len = ALIGN4(len + txpcount);
 		txdcount = MIN(leftdcount, vcp->vc_txmax - len);
 		doff = txdcount ? len : 0;
@@ -1148,7 +1223,7 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 	mb_put_uint32le(mbp, poff);
 	mb_put_uint32le(mbp, txdcount);
 	mb_put_uint32le(mbp, doff);
-	mb_put_uint8(mbp, (u_int8_t)(totscount+1)/2);
+	mb_put_uint8(mbp, (uint8_t)(totscount+1)/2);
 	mb_put_uint16le(mbp, ntp->nt_function);
 	if (totscount) {
 		error = md_get_mbuf(&mbsetup, totscount, &m);
@@ -1194,7 +1269,8 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		SMBRQ_SUNLOCK(rqp);
 	}
 	while (leftpcount || leftdcount) {
-		error = smb_rq_new(rqp, SMB_COM_NT_TRANSACT_SECONDARY);
+		mbp = NULL;	/* Just to shutup the static analyze */
+		error = smb_rq_new(rqp, SMB_COM_NT_TRANSACT_SECONDARY, 0);
 		if (error)
 			goto bad;
 		mbp = &rqp->sr_rq;
@@ -1213,10 +1289,10 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 			error =  EINVAL;
 			goto bad;
 		}
-		len = (u_int32_t)check_len;
+		len = (uint32_t)check_len;
 		if (len + leftpcount > vcp->vc_txmax) {
-			txpcount = (u_int32_t)MIN(leftpcount, vcp->vc_txmax - len);
-			poff = (u_int32_t)len;
+			txpcount = (uint32_t)MIN(leftpcount, vcp->vc_txmax - len);
+			poff = (uint32_t)len;
 			txdcount = 0;
 			doff = 0;
 		} else {
@@ -1228,10 +1304,10 @@ smb_nt_request_int(struct smb_ntrq *ntp)
 		}
 		mb_put_uint32le(mbp, txpcount);
 		mb_put_uint32le(mbp, poff);
-		mb_put_uint32le(mbp, (u_int32_t)(totpcount - leftpcount));
+		mb_put_uint32le(mbp, (uint32_t)(totpcount - leftpcount));
 		mb_put_uint32le(mbp, txdcount);
 		mb_put_uint32le(mbp, doff);
-		mb_put_uint32le(mbp, (u_int32_t)(totdcount - leftdcount));
+		mb_put_uint32le(mbp, (uint32_t)(totdcount - leftdcount));
 		leftpcount -= txpcount;
 		leftdcount -= txdcount;
 		smb_rq_wend(rqp);
@@ -1282,40 +1358,15 @@ freerq:
 	return error;
 }
 
-int
-smb_t2_request(struct smb_t2rq *t2p)
-{
-	int error = 0;
-	/* don't send any new requests if force unmount is underway  */
-	if (t2p->t2_share)
-		error = smb_rq_isforce(t2p->t2_share);
-	if (! error)
-		error = smb_t2_request_int(t2p);
-	return error;
-}
-
-
-int
-smb_nt_request(struct smb_ntrq *ntp)
-{
-	int error = 0;
-	/* don't send any new requests if force unmount is underway  */
-	if (ntp->nt_share)
-		error = smb_rq_isforce(ntp->nt_share);
-
-	if (! error)
-		error = smb_nt_request_int(ntp);
-
-	return error;
-}
-
 /*
  * Perform an Async NT_TRANSACTION request. We only support one message at
  * a time whne doing NT_TRANSACTION async.
  *
  * This is use for NT Notify Change request only currently
  */
-int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callback_args)
+int 
+smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, 
+					 void *nt_callback_args)
 {
 	struct smb_vc *vcp = ntp->nt_vc;
 	struct mbchain *mbp;
@@ -1324,8 +1375,8 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 	struct smb_rq *rqp;
 	int error;
 	size_t check_len;	
-	u_int32_t doff, poff, len, txdcount, txpcount;
-	u_int32_t totscount, totpcount, totdcount;
+	uint32_t doff, poff, len, txdcount, txpcount;
+	uint32_t totscount, totpcount, totdcount;
 	
 	m = ntp->nt_tsetup.mb_top;
 	if (m) {
@@ -1333,7 +1384,7 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 		check_len = m_fixhdr(m);
 		if (check_len > 2 * 0xff)
 			return EINVAL;
-		totscount = (u_int32_t)check_len;
+		totscount = (uint32_t)check_len;
 	} else
 		totscount = 0;
 	
@@ -1343,7 +1394,7 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 		check_len = m_fixhdr(m);
 		if (check_len > 0x7fffffff)
 			return EINVAL;
-		totpcount = (u_int32_t)check_len;
+		totpcount = (uint32_t)check_len;
 	} else
 		totpcount = 0;
 	
@@ -1353,11 +1404,11 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 		check_len = m_fixhdr(m);
 		if (check_len > 0x7fffffff)
 			return EINVAL;
-		totdcount = (u_int32_t)check_len;
+		totdcount = (uint32_t)check_len;
 	} else
 		totdcount = 0;
 	
-	error = smb_rq_alloc(ntp->nt_source, SMB_COM_NT_TRANSACT, ntp->nt_context, &rqp);
+	error = smb_rq_alloc(ntp->nt_obj, SMB_COM_NT_TRANSACT, 0, ntp->nt_context, &rqp);
 	if (error)
 		return error;
 	rqp->sr_timo = vcp->vc_timo;
@@ -1374,7 +1425,7 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 		error = EINVAL;
 		goto free_rqp;
 	}
-	len = (u_int32_t)check_len;
+	len = (uint32_t)check_len;
 	/*
 	 * now we have known packet size as
 	 * ALIGN4(len + 4 * 4 + 1 + 2 + ((totscount+1)&~1) + 2),
@@ -1386,7 +1437,7 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 		goto free_rqp;
 	} 
 	txpcount = totpcount;
-	poff = txpcount ? (u_int32_t)len : 0;
+	poff = txpcount ? (uint32_t)len : 0;
 	len = ALIGN4(len + txpcount);
 	txdcount = totdcount;
 	doff = txdcount ? len : 0;
@@ -1395,7 +1446,7 @@ int smb_nt_async_request(struct smb_ntrq *ntp, void *nt_callback, void *nt_callb
 	mb_put_uint32le(mbp, poff);
 	mb_put_uint32le(mbp, txdcount);
 	mb_put_uint32le(mbp, doff);
-	mb_put_uint8(mbp, (u_int8_t)(totscount+1)/2);
+	mb_put_uint8(mbp, (uint8_t)(totscount+1)/2);
 	mb_put_uint16le(mbp, ntp->nt_function);
 	if (totscount) {
 		error = md_get_mbuf(&mbsetup, totscount, &m);

@@ -1,6 +1,6 @@
---- dirname.3	2004-11-25 11:38:00.000000000 -0800
-+++ dirname.3.edit	2006-07-12 11:18:01.000000000 -0700
-@@ -36,7 +36,9 @@
+--- dirname.3.orig	2009-11-07 15:32:33.000000000 -0800
++++ dirname.3	2009-11-07 15:35:29.000000000 -0800
+@@ -25,7 +25,9 @@
  .Sh SYNOPSIS
  .In libgen.h
  .Ft char *
@@ -11,7 +11,7 @@
  .Sh DESCRIPTION
  The
  .Fn dirname
-@@ -88,12 +90,25 @@
+@@ -58,8 +60,20 @@ Other vendor implementations of
  .Fn dirname
  may modify the contents of the string passed to
  .Fn dirname ;
@@ -31,6 +31,10 @@
 +In legacy mode,
 +.Fa path
 +will not be changed.
+ .Sh RETURN VALUES
+ On successful completion,
+ .Fn dirname
+@@ -82,7 +96,8 @@ The path component to be returned was la
  .Sh SEE ALSO
  .Xr basename 1 ,
  .Xr dirname 1 ,

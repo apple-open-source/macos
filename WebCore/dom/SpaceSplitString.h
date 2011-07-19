@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,13 +21,15 @@
 #ifndef SpaceSplitString_h
 #define SpaceSplitString_h
 
-#include "AtomicString.h"
 #include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-    class SpaceSplitStringData : public Noncopyable {
+    class SpaceSplitStringData {
+        WTF_MAKE_NONCOPYABLE(SpaceSplitStringData); WTF_MAKE_FAST_ALLOCATED;
     public:
         SpaceSplitStringData(const String& string, bool shouldFoldCase)
             : m_string(string), m_shouldFoldCase(shouldFoldCase), m_createdVector(false)
@@ -47,6 +49,9 @@ namespace WebCore {
 
         bool containsAll(SpaceSplitStringData&);
 
+        void add(const AtomicString&);
+        void remove(const AtomicString&);
+
         size_t size() { ensureVector(); return m_vector.size(); }
         const AtomicString& operator[](size_t i) { ensureVector(); ASSERT(i < size()); return m_vector[i]; }
 
@@ -64,25 +69,23 @@ namespace WebCore {
     class SpaceSplitString {
     public:
         SpaceSplitString() { }
-        SpaceSplitString(const String& string, bool shouldFoldCase) : m_data(new SpaceSplitStringData(string, shouldFoldCase)) { }
+        SpaceSplitString(const String& string, bool shouldFoldCase) : m_data(adoptPtr(new SpaceSplitStringData(string, shouldFoldCase))) { }
 
-        void set(const String& string, bool shouldFoldCase) { m_data.set(new SpaceSplitStringData(string, shouldFoldCase)); }
+        void set(const String& string, bool shouldFoldCase) { m_data = adoptPtr(new SpaceSplitStringData(string, shouldFoldCase)); }
         void clear() { m_data.clear(); }
 
         bool contains(const AtomicString& string) const { return m_data && m_data->contains(string); }
         bool containsAll(const SpaceSplitString& names) const { return !names.m_data || (m_data && m_data->containsAll(*names.m_data)); }
+        void add(const AtomicString&);
+        void remove(const AtomicString&);
 
         size_t size() const { return m_data ? m_data->size() : 0; }
+        bool isNull() const { return !m_data; }
         const AtomicString& operator[](size_t i) const { ASSERT(i < size()); return (*m_data)[i]; }
 
     private:
         OwnPtr<SpaceSplitStringData> m_data;
     };
-
-    inline bool isClassWhitespace(UChar c)
-    {
-        return c == ' ' || c == '\r' || c == '\n' || c == '\t' || c == '\f';
-    }
 
 } // namespace WebCore
 

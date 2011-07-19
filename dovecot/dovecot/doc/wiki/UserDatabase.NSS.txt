@@ -1,0 +1,31 @@
+NSS
+===
+
+Usually NSS [http://en.wikipedia.org/wiki/Name_Service_Switch] is used with
+<passwd> [AuthDatabase.Passwd.txt] userdb, but it has one problem: It can't
+distinguish between temporary and permanent errors. So if you're using e.g.
+nss_ldap and your LDAP database is down, all userdb lookups may return "user
+doesn't exist" errors. This is especially bad if you're using <LDA.txt>, which
+causes the mails to be bounced back to sender.
+
+The NSS userdb works around this problem by loading the NSS modules and calling
+them itself. This is a bit kludgy, and it probably works only with Linux.
+
+This userdb has two parameters:
+
+ * *service=<name>*: This parameter is required. The name specifies what NSS
+   module to use, for example "ldap".
+ * *blocking=no* causes the lookups to be done in auth master processes instead
+   of in worker processes.
+
+Example
+-------
+
+---%<-------------------------------------------------------------------------
+userdb {
+  driver = nss
+  args = service=ldap
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

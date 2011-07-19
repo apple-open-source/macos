@@ -32,8 +32,9 @@
 #ifndef _CRYPTO_OPENSSL_H
 #define _CRYPTO_OPENSSL_H
 
+#include "vmbuf.h"
 #include "crypto_openssl.h"
-
+#ifdef HAVE_OPENSSL
 #include <openssl/x509v3.h>
 #include <openssl/rsa.h>
 
@@ -52,12 +53,8 @@ extern vchar_t *eay_hex2asn1dn __P((const char *, int));
 extern int eay_cmp_asn1dn __P((vchar_t *, vchar_t *));
 extern int eay_check_x509cert __P((vchar_t *, char *, char *, int));
 extern vchar_t *eay_get_x509asn1subjectname __P((vchar_t *));
-#ifdef __APPLE__
 extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int, int*));
 extern vchar_t *eay_get_x509_common_name __P((vchar_t *));
-#else
-extern int eay_get_x509subjectaltname __P((vchar_t *, char **, int *, int));
-#endif
 extern char *eay_get_x509text __P((vchar_t *));
 extern vchar_t *eay_get_x509cert __P((char *));
 extern vchar_t *eay_get_x509sign __P((vchar_t *, vchar_t *));
@@ -85,6 +82,7 @@ extern vchar_t *evp_crypt __P((vchar_t *data, vchar_t *key, vchar_t *iv,
 			       const EVP_CIPHER *e, int enc));
 extern int evp_weakkey __P((vchar_t *key, const EVP_CIPHER *e));
 extern int evp_keylen __P((int len, const EVP_CIPHER *e));
+#endif /* HAVE_OPENSSL */
 
 /* DES */
 extern vchar_t *eay_des_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
@@ -92,6 +90,7 @@ extern vchar_t *eay_des_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_des_weakkey __P((vchar_t *));
 extern int eay_des_keylen __P((int));
 
+#ifdef HAVE_OPENSSL
 /* IDEA */
 extern vchar_t *eay_idea_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern vchar_t *eay_idea_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
@@ -109,6 +108,7 @@ extern vchar_t *eay_rc5_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern vchar_t *eay_rc5_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_rc5_weakkey __P((vchar_t *));
 extern int eay_rc5_keylen __P((int));
+#endif /* HAVE_OPENSSL */
 
 /* 3DES */
 extern vchar_t *eay_3des_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
@@ -116,11 +116,13 @@ extern vchar_t *eay_3des_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_3des_weakkey __P((vchar_t *));
 extern int eay_3des_keylen __P((int));
 
+#ifdef HAVE_OPENSSL
 /* CAST */
 extern vchar_t *eay_cast_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern vchar_t *eay_cast_decrypt __P((vchar_t *, vchar_t *, vchar_t *));
 extern int eay_cast_weakkey __P((vchar_t *));
 extern int eay_cast_keylen __P((int));
+#endif
 
 /* AES(RIJNDAEL) */
 extern vchar_t *eay_aes_encrypt __P((vchar_t *, vchar_t *, vchar_t *));
@@ -131,8 +133,10 @@ extern int eay_aes_keylen __P((int));
 /* misc */
 extern int eay_null_keylen __P((int));
 extern int eay_null_hashlen __P((void));
+#ifdef HAVE_OPENSSL
 extern int eay_kpdk_hashlen __P((void));
 extern int eay_twofish_keylen __P((int));
+#endif
 
 /* hash */
 #if defined(WITH_SHA2)
@@ -208,20 +212,24 @@ extern u_int32_t eay_random __P((void));
 extern int eay_dh_generate __P((vchar_t *, u_int32_t, u_int, vchar_t **, vchar_t **));
 extern int eay_dh_compute __P((vchar_t *, u_int32_t, vchar_t *, vchar_t *, vchar_t *, vchar_t **));
 
+#ifdef HAVE_OPENSSL
 /* Base 64 */
 vchar_t *base64_encode(char *in, long inlen);
 vchar_t *base64_decode(char *in, long inlen);
 
 RSA *base64_pubkey2rsa(char *in);
 RSA *bignum_pubkey2rsa(BIGNUM *in);
+#endif
 
 /* misc */
+#ifdef HAVE_OPENSSL
 extern int eay_revbnl __P((vchar_t *));
 #include <openssl/bn.h>
 extern int eay_v2bn __P((BIGNUM **, vchar_t *));
 extern int eay_bn2v __P((vchar_t **, BIGNUM *));
 
 extern const char *eay_version __P((void));
+#endif
 
 #define CBC_BLOCKLEN 8
 #define IPSEC_ENCRYPTKEYLEN 8

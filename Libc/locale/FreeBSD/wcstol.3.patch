@@ -1,5 +1,5 @@
---- wcstol.3	2003-05-20 15:21:45.000000000 -0700
-+++ wcstol.3.edit	2006-07-12 11:29:16.000000000 -0700
+--- wcstol.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcstol.3	2009-11-09 15:05:26.000000000 -0800
 @@ -28,15 +28,18 @@
  .Dt WCSTOL 3
  .Os
@@ -24,7 +24,7 @@
  or
  .Vt uintmax_t
  integer
-@@ -45,25 +48,50 @@
+@@ -45,25 +48,50 @@ integer
  .Sh SYNOPSIS
  .In wchar.h
  .Ft long
@@ -83,7 +83,7 @@
  and
  .Fn wcstoumax
  functions are wide-character versions of the
-@@ -71,23 +99,42 @@
+@@ -71,23 +99,42 @@ functions are wide-character versions of
  .Fn strtoul ,
  .Fn strtoll ,
  .Fn strtoull ,

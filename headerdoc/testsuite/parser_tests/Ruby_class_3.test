@@ -1,0 +1,524 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$308|class RubyClassWithException < Exception
+=begin
+    !headerdoc!
+	Test
+=end
+  def initialize(input, line, pos)
+    super "Input '#{input}', line #{line}, position #{pos}"
+  end
+end
+
+=begin
+  !headerdoc!
+    This is a function that
+    takes one parameter.
+=end
+def myfunc(name)
+  @name = name.capitalize
+end
+
+$41|	Another class that throws an exception.
+$0|$14337|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Ruby_class_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Ruby_class_3.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inRubyClass} => 2
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 9
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => ruby
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{newlineIsSemi} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{returntype} => class RubyClassWithException < Exception 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => RubyClassWithException
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} =>  class RubyClassWithException < Exception 
+
+$parserState->{sublang} => ruby
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+$parserState->{waitingForExceptions} => 1
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 9
+typelist: class
+namelist: RubyClassWithException
+posstypes: class
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---RubyClassWithException
++--- 
++---<
++--- 
++---Exception
++---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+        Test
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---initialize
+|   +---(
+|   |   +---input
+|   |   +---,
+|   |   +--- 
+|   |   +---line
+|   |   +---,
+|   |   +--- 
+|   |   +---pos
+|   |   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---end
++---[ NEWLINE ]
++--- 
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Ruby class 3
+APIUID: //test_ref/doc/header/Ruby_class_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: RubyClassWithException
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>Another class that throws an exception.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/ruby/cl/class //test_ref/ruby/tdef/class //test_ref/ruby/tag/class //test_ref/ruby/struct/class //test_ref/ruby/intf/class //test_ref/ruby/econst/class //test_ref/ruby/data/class //test_ref/ruby/clconst/class //test_ref/ruby/instm/class //test_ref/ruby/clm/class //test_ref/ruby/intfcm/class //test_ref/ruby/intfm/class //test_ref/ruby/func/class //test_ref/ruby/ftmplt/class //test_ref/ruby/defn/class //test_ref/ruby/macro/class //test_ref/doc/com/intfm/class //test_ref/doc/anysymbol/class" machineGenerated="true" -->class<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Ruby_class_3.test" target="_top" machineGenerated="true">Ruby class 3</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: initialize
+        APIUID: //test_ref/ruby/instm/RubyClassWithException/initialize//(input,line,pos)
+        ABSTRACT: ""
+        DISCUSSION: "<p>Test
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  input
+            APIUID: //test_ref/ruby/internal_temporary_object/RubyClassWithException
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  line
+            APIUID: //test_ref/ruby/internal_temporary_object/RubyClassWithException
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: 
+            TYPE:  pos
+            APIUID: //test_ref/ruby/internal_temporary_object/RubyClassWithException
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: RubyClassWithException (HeaderDoc::CPPClass)
++---class
++--- 
++---RubyClassWithException
++--- 
++---<
++--- 
++---Exception
++---[ NEWLINE ]
+|   +---=begin
+|   |   +---[ NEWLINE ]
+|   |   +---    !headerdoc!
+|   |   +---
+        Test
+|   |   +---[ NEWLINE ]
+|   |   +---=end
+|   +---[ NEWLINE ]
+|   +---  
+|   +-*-def (HAS STATE)
+|   +--- 
+|   +---initialize
+|   +---(
+|   |   +---input
+|   |   +---,
+|   |   +--- 
+|   |   +---line
+|   |   +---,
+|   |   +--- 
+|   |   +---pos
+|   |   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---end
++---[ NEWLINE ]
++--- 
+END OF OBJECT
+
+
+OBJECT: initialize (HeaderDoc::Function)
++-*-def (HAS STATE)
++--- 
++---initialize
++---(
+|   +---input
+|   +---,
+|   +--- 
+|   +---line
+|   +---,
+|   +--- 
+|   +---pos
+|   +---)
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: RubyClassWithException (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/ruby/cl/RubyClassWithException //test_ref/ruby/tdef/RubyClassWithException //test_ref/ruby/tag/RubyClassWithException //test_ref/ruby/struct/RubyClassWithException //test_ref/ruby/intf/RubyClassWithException //test_ref/doc/anysymbol/RubyClassWithException" machineGenerated="true" --><span class="type">RubyClassWithException</span><!-- /a --> &lt; <!-- a logicalPath="//test_ref/ruby/econst/Exception //test_ref/ruby/data/Exception //test_ref/ruby/clconst/Exception " machineGenerated="true" --><span class="var">Exception</span><!-- /a --> <span class="comment">=begin
+	    !headerdoc!
+	        Test</span>
+	        <span class="comment">=end</span>
+	    <span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/initialize //test_ref/ruby/clm/initialize //test_ref/ruby/intfcm/initialize //test_ref/ruby/intfm/initialize //test_ref/ruby/func/initialize //test_ref/ruby/ftmplt/initialize //test_ref/ruby/defn/initialize //test_ref/ruby/macro/initialize //test_ref/doc/anysymbol/initialize" machineGenerated="true" --><span class="function">initialize</span><!-- /a -->(
+	        <span class="param">input</span>,
+	        <span class="param">line</span>,
+	        <span class="param">pos</span>) 
+	end 
+END OF OBJECT
+
+
+OBJECT: initialize (HeaderDoc::Function)
+	<span class="keyword">def</span> <!-- a logicalPath="//test_ref/ruby/instm/RubyClassWithException/initialize //test_ref/ruby/clm/RubyClassWithException/initialize //test_ref/ruby/intfcm/RubyClassWithException/initialize //test_ref/ruby/intfm/RubyClassWithException/initialize //test_ref/ruby/func/initialize //test_ref/ruby/ftmplt/RubyClassWithException/initialize //test_ref/ruby/defn/initialize //test_ref/ruby/macro/initialize //test_ref/doc/anysymbol/initialize" machineGenerated="true" --><span class="function">initialize</span><!-- /a -->(
+	    <span class="param">input</span>,
+	    <span class="param">line</span>,
+	    <span class="param">pos</span>)
+END OF OBJECT
+
+
+
+_$121|The function initialize is part of the class.
+The function myfunc is not and should not be parsed
+within the test suite.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Ruby_class_3.test$4|ruby$12|Ruby class 3$4|ruby$6|parser

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,19 +40,23 @@ extern "C" {
 	@function SecKeychainSearchGetTypeID
 	@abstract Returns the type identifier of SecKeychainSearch instances.
 	@result The CFTypeID of SecKeychainSearch instances.
+	@discussion This API is deprecated in 10.7. The SecKeychainSearchRef type is no longer used.
 */
-CFTypeID SecKeychainSearchGetTypeID(void);
+CFTypeID SecKeychainSearchGetTypeID(void)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecKeychainSearchCreateFromAttributes
 	@abstract Creates a search reference matching a list of zero or more specified attributes in the specified keychain.
-    @param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
+	@param keychainOrArray An reference to an array of keychains to search, a single keychain or NULL to search the user's default keychain search list.
 	@param itemClass The keychain item class.
 	@param attrList A pointer to a list of zero or more keychain attribute records to match.  Pass NULL to match any keychain attribute.
 	@param searchRef On return, a pointer to the current search reference. You are responsible for calling the CFRelease function to release this reference when finished with it.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in Mac OS X 10.7 and later; to find keychain items which match specified attributes, please use the SecItemCopyMatching API (see SecItem.h).
 */
-OSStatus SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef);
+OSStatus SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, SecKeychainSearchRef *searchRef)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecKeychainSearchCopyNext
@@ -60,8 +64,10 @@ OSStatus SecKeychainSearchCreateFromAttributes(CFTypeRef keychainOrArray, SecIte
 	@param searchRef A reference to the current search criteria.  The search reference is created in the SecKeychainSearchCreateFromAttributes function and must be released by calling the CFRelease function when you are done with it.
 	@param itemRef On return, a pointer to a keychain item reference of the next matching keychain item, if any.  	
 	@result A result code.  When there are no more items that match the parameters specified to SecPolicySearchCreate, errSecItemNotFound is returned. See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in Mac OS X 10.7 and later; to find keychain items which match specified attributes, please use the SecItemCopyMatching API (see SecItem.h).
 */
-OSStatus SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef);
+OSStatus SecKeychainSearchCopyNext(SecKeychainSearchRef searchRef, SecKeychainItemRef *itemRef)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

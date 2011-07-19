@@ -200,8 +200,7 @@ proc canvas:save {w} \
     lappend item [options [$w itemconfigure $id]]
     # type specifics
     set specifics {}
-    switch $type \
-    {
+    switch -- $type {
       arc       {}
       bitmap    {}
       image     \
@@ -266,8 +265,7 @@ proc canvas:restore {w save} \
       # get type
       set type [lindex $typeid 0]
       # create bitmap or window
-      switch $type \
-      {
+      switch -- $type {
         image   \
         {
           foreach {iname itype ioptions} $specifics break
@@ -293,8 +291,7 @@ proc canvas:restore {w save} \
       # item specifics
       if {$specifics != ""} \
       {
-        switch $type \
-        {
+        switch -- $type {
           text    \
           {
             foreach {insert sel.first sel.last} $specifics break

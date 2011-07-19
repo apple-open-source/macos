@@ -44,11 +44,20 @@ int histline;
 /* Previous search string use in an incremental search */
 
 /**/
-ZLE_STRING_T previous_search = NULL;
+char *previous_search = NULL;
 
 /**/
-int previous_search_len = 0;
+int previous_search_len;
 
+/* Previous aborted search string use in an incremental search */
+
+/**/
+char *previous_aborted_search = NULL;
+
+/* Local keymap in isearch mode */
+
+/**/
+Keymap isearch_keymap;
 
 /*** History text manipulation utilities ***/
 
@@ -625,6 +634,7 @@ insertlastword(char **args)
 	}
     }
 
+    fixsuffix();
     metafy_line();
     if (lastinsert && lastlen &&
 	lastpos <= zlemetacs &&
@@ -667,7 +677,7 @@ insertlastword(char **args)
 	 * a deleted word, because that can only have come
 	 * from a non-empty line.  I think.
 	 */
-	if (!(l = bufferwords(NULL, NULL, NULL))) {
+	if (!(l = bufferwords(NULL, NULL, NULL, 0))) {
 	    unmetafy_line();
 	    return 1;
 	}
@@ -887,32 +897,28 @@ zgetline(UNUSED(char **args))
 int
 historyincrementalsearchbackward(char **args)
 {
-    doisearch(args, -1, 0);
-    return 0;
+    return doisearch(args, -1, 0);
 }
 
 /**/
 int
 historyincrementalsearchforward(char **args)
 {
-    doisearch(args, 1, 0);
-    return 0;
+    return doisearch(args, 1, 0);
 }
 
 /**/
 int
 historyincrementalpatternsearchbackward(char **args)
 {
-    doisearch(args, -1, 1);
-    return 0;
+    return doisearch(args, -1, 1);
 }
 
 /**/
 int
 historyincrementalpatternsearchforward(char **args)
 {
-    doisearch(args, 1, 1);
-    return 0;
+    return doisearch(args, 1, 1);
 }
 
 static struct isrch_spot {
@@ -1019,6 +1025,24 @@ isearch_newpos(LinkList matchlist, int curpos, int dir,
     return -1;
 }
 
+/*
+ * Save an isearch buffer from sbuf to sbuf+sbptr
+ * into the string *search with length *searchlen.
+ * searchlen may be NULL; the string is a NULL-terminated metafied string.
+ */
+static void
+save_isearch_buffer(char *sbuf, int sbptr,
+		    char **search, int *searchlen)
+{
+    if (*search)
+	free(*search);
+    *search = zalloc(sbptr+1);
+    memcpy(*search, sbuf, sbptr);
+    if (searchlen)
+	*searchlen = sbptr;
+    (*search)[sbptr] = '\0';
+}
+
 #define ISEARCH_PROMPT		"XXXXXXX XXX-i-search: "
 #define FAILING_TEXT		"failing"
 #define INVALID_TEXT		"invalid"
@@ -1030,12 +1054,15 @@ isearch_newpos(LinkList matchlist, int curpos, int dir,
 int isearch_active, isearch_startpos, isearch_endpos;
 
 /**/
-static void
+static int
 doisearch(char **args, int dir, int pattern)
 {
     /* The full search buffer, including space for all prompts */
     char *ibuf = zhalloc(80);
-    /* The part of the search buffer with the search string */
+    /*
+     * The part of the search buffer with the search string.
+     * This is a normal metafied string.
+     */
     char *sbuf = ibuf + FIRST_SEARCH_CHAR;
     /* The previous line shown to the user */
     char *last_line = NULL;
@@ -1137,9 +1164,15 @@ doisearch(char **args, int dir, int pattern)
      * command line.
      */
     ZleIntFunc exitfn = (ZleIntFunc)0;
+    /*
+     * Flag that the search was aborted.
+     */
+    int aborted = 0;
 
     if (!(he = quietgethist(hl)))
-	return;
+	return 1;
+
+    selectlocalmap(isearch_keymap);
 
     clearlist = 1;
 
@@ -1422,6 +1455,8 @@ doisearch(char **args, int dir, int pattern)
 	    memset(&mbs, 0, sizeof(mbs));
 	    while (charpos < end_pos) {
 		ret = mb_metacharlenconv_r(zlemetaline + charpos, &wc, &mbs);
+		if (ret <= 0) /* Unrecognised, treat as single char */
+		    ret = 1;
 		if (charpos <= pos && pos < charpos + ret)
 		    isearch_startpos = charcount;
 		charcount++;
@@ -1437,9 +1472,13 @@ doisearch(char **args, int dir, int pattern)
 	} else
 	    isearch_active = 0;
     ref:
+	zlecallhook("zle-isearch-update", NULL);
 	zrefresh();
 	if (!(cmd = getkeycmd()) || cmd == Th(z_sendbreak)) {
 	    int i;
+	    aborted = 1;
+	    save_isearch_buffer(sbuf, sbptr,
+				&previous_aborted_search, NULL);
 	    get_isrch_spot(0, &hl, &pos, &pat_hl, &pat_pos, &end_pos,
 			   &i, &sbptr, &dir, &nomatch);
 	    he = quietgethist(hl);
@@ -1572,6 +1611,8 @@ doisearch(char **args, int dir, int pattern)
 		feep = 1;
 	    else
 		goto ins;
+	} else if (cmd == Th(z_acceptsearch)) {
+	    break;
 	} else {
 	    if(cmd == Th(z_selfinsertunmeta)) {
 		fixunmeta();
@@ -1589,8 +1630,12 @@ doisearch(char **args, int dir, int pattern)
 #endif
 	    } else {
 		ungetkeycmd();
-		if (cmd == Th(z_sendbreak))
+		if (cmd == Th(z_sendbreak)) {
+		    aborted = 1;
+		    save_isearch_buffer(sbuf, sbptr,
+					&previous_aborted_search, NULL);
 		    sbptr = 0;
+		}
 		break;
 	    }
 	ins:
@@ -1621,12 +1666,12 @@ doisearch(char **args, int dir, int pattern)
 	feep = 0;
     }
     if (sbptr) {
-	zfree(previous_search, previous_search_len);
-	previous_search = zalloc(sbptr);
-	memcpy(previous_search, sbuf, previous_search_len = sbptr);
+	save_isearch_buffer(sbuf, sbptr,
+			    &previous_search, &previous_search_len);
     }
     statusline = NULL;
     unmetafy_line();
+    zlecallhook("zle-isearch-exit", NULL);
     if (exitfn)
 	exitfn(zlenoargs);
     selectkeymap(okeymap, 1);
@@ -1640,6 +1685,10 @@ doisearch(char **args, int dir, int pattern)
      */
     if (savekeys >= 0 && kungetct > savekeys)
 	kungetct = savekeys;
+
+    selectlocalmap(NULL);
+
+    return aborted ? 3 : nomatch;
 }
 
 static Histent
@@ -1732,7 +1781,7 @@ getvisrchstr(void)
     selectkeymap("main", 1);
     while (sptr) {
 	sbuf[sptr] = '_';
-	sbuf[sptr] = '\0';
+	sbuf[sptr+1] = '\0';
 	zrefresh();
 	if (!(cmd = getkeycmd()) || cmd == Th(z_sendbreak)) {
 	    ret = 0;
@@ -1750,6 +1799,10 @@ getvisrchstr(void)
 	    	cmd == Th(z_vicmdmode)) {
 	    sbuf[sptr] = ZWC('\0');
 	    visrchstr = ztrdup(sbuf+1);
+	    if (!strlen(visrchstr)) {
+	        zsfree(visrchstr);
+		visrchstr = ztrdup(vipenultsrchstr);
+	    }
 	    ret = 1;
 	    sptr = 0;
 	} else if(cmd == Th(z_backwarddeletechar) ||
@@ -1894,7 +1947,7 @@ virepeatsearch(UNUSED(char **args))
 	    continue;
 	zt = GETZLETEXT(he);
 	if (zlinecmp(zt, zlemetaline) &&
-	    (*visrchstr == '^' ? strpfx(zt, visrchstr + 1) :
+	    (*visrchstr == '^' ? strpfx(visrchstr + 1, zt) :
 	     zlinefind(zt, 0, visrchstr, 1, 1) != 0)) {
 	    if (--n <= 0) {
 		unmetafy_line();

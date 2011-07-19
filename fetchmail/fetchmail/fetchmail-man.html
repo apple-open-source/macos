@@ -14,7 +14,7 @@
 <!-- .mso www.tmac -->
 <!-- ignored unsupported tag .mso -->
 <!-- .\" -->
-<!-- .TH fetchmail 1 "fetchmail 6.3.10" "fetchmail" "fetchmail reference manual" -->
+<!-- .TH fetchmail 1 "fetchmail 6.3.18" "fetchmail" "fetchmail reference manual" -->
 <CENTER>
 <H1><HR><I>Manual Reference Pages &nbsp;-&nbsp;</I><NOBR>fetchmail (1)</NOBR><HR></H1>
 </CENTER>
@@ -34,60 +34,62 @@ fetchmail - fetch mail from a POP, IMAP, ETRN, or ODMR-capable server
 <BLOCKQUOTE>
 <A HREF=#1>Synopsis</A><BR>
 <A HREF=#2>Description</A><BR>
-<A HREF=#3>General Operation</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#4>General Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#5>Disposal Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#6>Protocol and Query Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#7>Delivery Control Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#8>Resource Limit Control Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#9>Authentication Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#10>Miscellaneous Options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#11>Removed Options</A><BR>
-<A HREF=#12>User Authentication And Encryption</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#13>Using netrc files</A><BR>
-<A HREF=#14>Pop3 Variants</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#15>RETR or TOP</A><BR>
-<A HREF=#16>Alternate Authentication Forms</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#17>Secure Socket Layers (SSL) and Transport Layer Security (TLS)</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#18>Esmtp Auth</A><BR>
-<A HREF=#19>Daemon Mode</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#20>Introducing the daemon mode</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#21>Starting the daemon mode</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#22>Awakening the background daemon</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#23>Terminating the background daemon</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#24>Useful options for daemon mode</A><BR>
-<A HREF=#25>Administrative Options</A><BR>
-<A HREF=#26>Retrieval Failure Modes</A><BR>
-<A HREF=#27>Spam Filtering</A><BR>
-<A HREF=#28>Smtp/esmtp Error Handling</A><BR>
-<A HREF=#29>The Run Control File</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#30>Run Control Syntax</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#31>Poll vs. Skip</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#32>Keyword/Option Summary</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#33>Keywords Not Corresponding To Option Switches</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#34>Singledrop vs. Multidrop options</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#35>Miscellaneous Run Control Options</A><BR>
-<A HREF=#36>Debugging Fetchmail</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#37>Fetchmail crashing</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#38>Enabling fetchmail core dumps</A><BR>
-<A HREF=#39>Interaction With Rfc 822</A><BR>
-<A HREF=#40>Configuration Examples</A><BR>
-<A HREF=#41>The Use And Abuse Of Multidrop Mailboxes</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#42>Header vs. Envelope addresses</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#43>Good Ways To Use Multidrop Mailboxes</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#44>Bad Ways To Abuse Multidrop Mailboxes</A><BR>
-&nbsp; &nbsp; &nbsp;<A HREF=#45>Speeding Up Multidrop Checking</A><BR>
-<A HREF=#46>Socks</A><BR>
-<A HREF=#47>Exit Codes</A><BR>
-<A HREF=#48>Files</A><BR>
-<A HREF=#49>Environment</A><BR>
-<A HREF=#50>Signals</A><BR>
-<A HREF=#51>Bugs And Known Problems</A><BR>
-<A HREF=#52>Author</A><BR>
-<A HREF=#53>See Also</A><BR>
-<A HREF=#54>Applicable Standards</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#3>Support, Troubleshooting</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#4>Concepts</A><BR>
+<A HREF=#5>General Operation</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#6>General Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#7>Disposal Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#8>Protocol and Query Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#9>Delivery Control Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#10>Resource Limit Control Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#11>Authentication Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#12>Miscellaneous Options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#13>Removed Options</A><BR>
+<A HREF=#14>User Authentication And Encryption</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#15>Using netrc files</A><BR>
+<A HREF=#16>Pop3 Variants</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#17>RETR or TOP</A><BR>
+<A HREF=#18>Alternate Authentication Forms</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#19>Secure Socket Layers (SSL) and Transport Layer Security (TLS)</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#20>Esmtp Auth</A><BR>
+<A HREF=#21>Daemon Mode</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#22>Introducing the daemon mode</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#23>Starting the daemon mode</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#24>Awakening the background daemon</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#25>Terminating the background daemon</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#26>Useful options for daemon mode</A><BR>
+<A HREF=#27>Administrative Options</A><BR>
+<A HREF=#28>Retrieval Failure Modes</A><BR>
+<A HREF=#29>Spam Filtering</A><BR>
+<A HREF=#30>Smtp/esmtp Error Handling</A><BR>
+<A HREF=#31>The Run Control File</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#32>Run Control Syntax</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#33>Poll vs. Skip</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#34>Keyword/Option Summary</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#35>Keywords Not Corresponding To Option Switches</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#36>Singledrop vs. Multidrop options</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#37>Miscellaneous Run Control Options</A><BR>
+<A HREF=#38>Debugging Fetchmail</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#39>Fetchmail crashing</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#40>Enabling fetchmail core dumps</A><BR>
+<A HREF=#41>Interaction With Rfc 822</A><BR>
+<A HREF=#42>Configuration Examples</A><BR>
+<A HREF=#43>The Use And Abuse Of Multidrop Mailboxes</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#44>Header vs. Envelope addresses</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#45>Good Ways To Use Multidrop Mailboxes</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#46>Bad Ways To Abuse Multidrop Mailboxes</A><BR>
+&nbsp; &nbsp; &nbsp;<A HREF=#47>Speeding Up Multidrop Checking</A><BR>
+<A HREF=#48>Socks</A><BR>
+<A HREF=#49>Exit Codes</A><BR>
+<A HREF=#50>Files</A><BR>
+<A HREF=#51>Environment</A><BR>
+<A HREF=#52>Signals</A><BR>
+<A HREF=#53>Bugs And Known Problems</A><BR>
+<A HREF=#54>Author</A><BR>
+<A HREF=#55>See Also</A><BR>
+<A HREF=#56>Applicable Standards</A><BR>
 </BLOCKQUOTE>
-<A name=55>
+<A name=57>
 
      <H3>SYNOPSIS</H3>
 
@@ -125,8 +127,77 @@ While <B>fetchmail</B> is primarily intended to be used over on-demand
 TCP/IP links (such as SLIP or PPP connections), it may also be useful as
 a message transfer agent for sites which refuse for security reasons to
 permit (sender-initiated) SMTP transactions with sendmail.
+<P>
+<!-- .SS SUPPORT, TROUBLESHOOTING -->
+</BLOCKQUOTE>
+<A name=3>
+
+    <H4>&nbsp; &nbsp; SUPPORT, TROUBLESHOOTING</H4>
+</A>
+<BLOCKQUOTE>
 <!-- .PP -->
 <P>
+For troubleshooting, tracing and debugging, you need to increase
+fetchmail&#146;s verbosity to actually see what happens. To do that, please
+run <B>both of the two following commands,
+adding all of the options you&#146;d normally use.</B>
+<P>
+<!-- .IP -->
+<TABLE cellpadding=3>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+<!-- .nf -->
+<PRE>
+env LC_ALL=C fetchmail -V -v --nodetach --nosyslog
+<!-- .fi -->
+</PRE>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+(This command line prints in English how fetchmail understands your
+configuration.)
+<P>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+<!-- .nf -->
+<PRE>
+env LC_ALL=C fetchmail -vvv  --nodetach --nosyslog
+<!-- .fi -->
+</PRE>
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+(This command line actually runs fetchmail with verbose English output.)
+<!-- .PP -->
+</TD></TR>
+<!-- PP ends table -->
+<TR></TR></TABLE>Also see
+<!-- .URL "http://fetchmail.berlios.de/fetchmail-FAQ.html#G3" "item #G3 in fetchmail's FAQ" -->
+<!-- ignored unsupported tag .URL -->
+<!-- .PP -->
+<P>
+You can omit the LC_ALL=C part above if you want output in the local
+language (if supported). However if you are posting to mailing lists,
+please leave it in. The maintainers do not necessarily understand your
+language, please use English.
+<P>
+<P>
+<P>
+<!-- .SS CONCEPTS -->
+</BLOCKQUOTE>
+<A name=4>
+
+    <H4>&nbsp; &nbsp; CONCEPTS</H4>
+</A>
+<BLOCKQUOTE>
 If <B>fetchmail</B> is used with a POP or an IMAP server (but not with
 ETRN or ODMR), it has two fundamental modes of operation for each user
 account from which it retrieves mail: <I>singledrop</I>- and
@@ -136,7 +207,7 @@ account from which it retrieves mail: <I>singledrop</I>- and
  -->
 <TR></TR><TR></TR>
 <TR valign=top><TD width=6%>
-"In singledrop-mode,"
+In singledrop-mode,
 </TD><TD>
 <B>fetchmail</B> assumes that all messages in the user&#146;s account
 (mailbox) are intended for a single recipient.  The identity of the
@@ -154,7 +225,7 @@ account.
 <!-- .IP "In multidrop-mode," -->
 </TD></TR>
 <TR valign=top><TD width=6%>
-"In multidrop-mode,"
+In multidrop-mode,
 </TD><TD>
 <B>fetchmail</B> assumes that the mail server account actually contains
 mail intended for any number of different recipients.  Therefore,
@@ -186,7 +257,7 @@ configuration file.
 <!-- .IP "In ETRN and ODMR modes," -->
 </TD></TR>
 <TR valign=top><TD width=6%>
-"In ETRN and ODMR modes,"
+In ETRN and ODMR modes,
 </TD><TD>
 these considerations do not apply, as these protocols are based on SMTP,
 which provides explicit envelope recipient information. These protocols
@@ -224,7 +295,7 @@ server.
 <P>
 <!-- .SH GENERAL OPERATION -->
 </BLOCKQUOTE>
-<A name=3>
+<A name=5>
 
      <H3>GENERAL OPERATION</H3>
 
@@ -261,7 +332,7 @@ Some special options are not covered here, but are documented instead
 in sections on AUTHENTICATION and DAEMON MODE which follow.
 <!-- .SS General Options -->
 </BLOCKQUOTE>
-<A name=4>
+<A name=6>
 
     <H4>&nbsp; &nbsp; General Options</H4>
 </A>
@@ -332,7 +403,7 @@ mode in the next fetchmail release.
 <!-- .SS Disposal Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=5>
+<A name=7>
 
     <H4>&nbsp; &nbsp; Disposal Options</H4>
 </A>
@@ -410,7 +481,7 @@ work with ETRN or ODMR.
 <!-- .SS Protocol and Query Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=6>
+<A name=8>
 
     <H4>&nbsp; &nbsp; Protocol and Query Options</H4>
 </A>
@@ -571,7 +642,8 @@ Obsolete version of --service that does not take service names.
 <!-- Need break --><BR>
 The principal option permits you to specify a service principal for
 mutual authentication.  This is applicable to POP3 or IMAP with Kerberos
-authentication.
+4 authentication only.  It does not apply to Kerberos 5 or GSSAPI.  This
+option may be removed in a future fetchmail version.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
@@ -794,10 +866,10 @@ to try appropriate protocols depending on context.
 <!-- .br -->
 <!-- Need break --><BR>
 Causes fetchmail to strictly check the server certificate against a set of
-local trusted certificates (see the <B>sslcertpath</B> option). If the server
-certificate cannot be obtained or is not signed by one of the trusted ones
-(directly or indirectly), the SSL connection will fail, regardless of
-the <B>sslfingerprint</B> option.
+local trusted certificates (see the <B>sslcertfile</B> and <B>sslcertpath</B>
+options). If the server certificate cannot be obtained or is not signed by one
+of the trusted ones (directly or indirectly), the SSL connection will fail,
+regardless of the <B>sslfingerprint</B> option.
 <!-- .IP -->
 </TD></TR>
 <TR valign=top><TD width=6%>
@@ -816,22 +888,66 @@ fetchmail versions.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
+<!-- .B \-\-sslcertfile <file> -->
+<B>--sslcertfile &lt;file&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(Keyword: sslcertfile, since v6.3.17)
+<!-- .br -->
+<!-- Need break --><BR>
+Sets the file fetchmail uses to look up local certificates.  The default is
+empty.  This can be given in addition to <B>--sslcertpath</B> below, and
+certificates specified in <B>--sslcertfile</B> will be processed before those
+in <B>--sslcertpath</B>.  The option can be used in addition to
+<B>--sslcertpath</B>.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+The file is a text file. It contains the concatenation of trusted CA
+certificates in PEM format.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Note that using this option will suppress loading the default SSL trusted CA
+certificates file unless you set the environment variable
+<B>FETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS</B> to a non-empty value.
+<!-- .TP -->
+</TD></TR>
+<TR valign=top><TD colspan=2>
 <!-- .B \-\-sslcertpath <directory> -->
 <B>--sslcertpath &lt;directory&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
 (Keyword: sslcertpath)
 <!-- .br -->
 <!-- Need break --><BR>
-Sets the directory fetchmail uses to look up local certificates. The default
-is your OpenSSL default one. The directory must be hashed as OpenSSL expects
-it - every time you add or modify a certificate in the directory, you need
-to use the <B>c_rehash</B> tool (which comes with OpenSSL in the tools/
-subdirectory).
+Sets the directory fetchmail uses to look up local certificates. The default is
+your OpenSSL default directory. The directory must be hashed the way OpenSSL
+expects it - every time you add or modify a certificate in the directory, you
+need to use the <B>c_rehash</B> tool (which comes with OpenSSL in the tools/
+subdirectory). Also, after OpenSSL upgrades, you may need to run
+<B>c_rehash</B>; particularly when upgrading from 0.9.X to 1.0.0.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+This can be given in addition to <B>--sslcertfile</B> above, which see for
+precedence rules.
+<!-- .IP -->
+</TD></TR>
+<TR valign=top><TD width=6%>
+
+</TD><TD>
+Note that using this option will suppress adding the default SSL trusted CA
+certificates directory unless you set the environment variable
+<B>FETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS</B> to a non-empty value.
 <!-- .TP -->
 </TD></TR>
 <TR valign=top><TD colspan=2>
 <!-- .B \-\-sslcommonname <common name> -->
 <B>--sslcommonname &lt;common name&gt;</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
-(Keyword: sslcommonname)
+(Keyword: sslcommonname; since v6.3.9)
 <!-- .br -->
 <!-- Need break --><BR>
 Use of this option is discouraged. Before using it, contact the
@@ -892,7 +1008,7 @@ For details, see
 <!-- .SS Delivery Control Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=7>
+<A name=9>
 
     <H4>&nbsp; &nbsp; Delivery Control Options</H4>
 </A>
@@ -979,19 +1095,32 @@ be comma-separated.
 (Keyword: mda)
 <!-- .br -->
 <!-- Need break --><BR>
-You can force mail to be passed to an MDA directly
-(rather than forwarded to port 25) with the --mda or -m option.
+This option lets <B>fetchmail</B> use a Message or Local Delivery Agent
+(MDA or LDA) directly, rather than forward via SMTP or LMTP.
 <P>
-To
-avoid losing mail, use this option only with MDAs like maildrop or
-MTAs like sendmail that return a nonzero status on disk-full and other
-resource-exhaustion errors; the nonzero status tells fetchmail that
-delivery failed and prevents the message from being deleted off the
-server.
+To avoid losing mail, use this option only with MDAs like maildrop or
+MTAs like sendmail that exit with a nonzero status on disk-full and other
+delivery errors; the nonzero status tells fetchmail that delivery failed
+and prevents the message from being deleted on the server.
 <P>
-If <B>fetchmail</B> is running as root, it sets its user id to
-that of the target user while delivering mail through an MDA.  Some
-possible MDAs are "/usr/sbin/sendmail -i -f %F -- %T" (<B>Note:</B>
+If <B>fetchmail</B> is running as root, it sets its user id while
+delivering mail through an MDA as follows:  First, the FETCHMAILUSER,
+LOGNAME, and USER environment variables are checked in this order. The
+value of the first variable from his list that is defined (even if it is
+empty!) is looked up in the system user database. If none of the
+variables is defined, fetchmail will use the real user id it was started
+with. If one of the variables was defined, but the user stated there
+isn&#146;t found, fetchmail continues running as root, without checking
+remaining variables on the list.  Practically, this means that if you
+run fetchmail as root (not recommended), it is most useful to define the
+FETCHMAILUSER environment variable to set the user that the MDA should
+run as. Some MDAs (such as maildrop) are designed to be setuid root and
+setuid to the recipient&#146;s user id, so you don&#146;t lose functionality this
+way even when running fetchmail as unprivileged user.  Check the MDA&#146;s
+manual for details.
+<P>
+Some possible MDAs are "/usr/sbin/sendmail -i -f %F -- %T"
+(<B>Note:</B>
 some several older or vendor sendmail versions mistake -- for an
 address, rather than an indicator to mark the end of the option arguments),
 "/usr/bin/deliver" and "/usr/bin/maildrop -d %T".  Local delivery
@@ -1058,15 +1187,35 @@ port 25 will (in accordance with RFC 2033) not be accepted.
 <!-- Need break --><BR>
 Append fetched mail to a BSMTP file.  This simply contains the SMTP
 commands that would normally be generated by fetchmail when passing
-mail to an SMTP listener daemon.  An argument of &#146;-&#146; causes the mail
-to be written to standard output.  Note that fetchmail&#146;s
-reconstruction of MAIL FROM and RCPT TO lines is not guaranteed
-correct; the caveats discussed under THE USE AND ABUSE OF MULTIDROP
-MAILBOXES below apply.
+mail to an SMTP listener daemon.
+<P>
+An argument of &#146;-&#146; causes the SMTP batch to be written to standard
+output, which is of limited use: this only makes sense for debugging,
+because fetchmail&#146;s regular output is interspersed on the same channel,
+so this isn&#146;t suitable for mail delivery. This special mode may be
+removed in a later release.
+<P>
+Note that fetchmail&#146;s reconstruction of MAIL FROM and RCPT TO lines is
+not guaranteed correct; the caveats discussed under THE USE AND ABUSE OF
+MULTIDROP MAILBOXES below apply.  This mode has precedence before
+--mda and SMTP/LMTP.
+<!-- .TP -->
+</TD></TR>
+<TR valign=top><TD colspan=2>
+<!-- .B \-\-bad\-header {reject|accept} -->
+<B>--bad-header {reject|accept}</B> </TD></TR><TR valign=top><TD width=6%>&nbsp;</TD><TD>
+(Keyword: bad-header; since v6.3.15)
+<!-- .br -->
+<!-- Need break --><BR>
+Specify how fetchmail is supposed to treat messages with bad headers,
+i. e. headers with bad syntax. Traditionally, fetchmail has rejected such
+messages, but some distributors modified fetchmail to accept them. You can now
+configure fetchmail&#146;s behaviour per server.
+<P>
 <!-- .SS Resource Limit Control Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=8>
+<A name=10>
 
     <H4>&nbsp; &nbsp; Resource Limit Control Options</H4>
 </A>
@@ -1209,7 +1358,7 @@ or ODMR.
 <!-- .SS Authentication Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=9>
+<A name=11>
 
     <H4>&nbsp; &nbsp; Authentication Options</H4>
 </A>
@@ -1307,8 +1456,8 @@ excruciating exactness, <B>kerberos_v4</B>), <B>gssapi</B>,
 When <B>any</B> (the default) is specified, fetchmail tries
 first methods that don&#146;t require a password (EXTERNAL, GSSAPI, KERBEROS IV,
 KERBEROS 5); then it looks for methods that mask your password
-(CRAM-MD5, X-OTP - note that NTLM and MSN are not autoprobed for POP3
-and MSN is only supported for POP3); and only if the server doesn&#146;t
+(CRAM-MD5, NTLM, X-OTP - note that MSN is only supported for POP3, but not
+autoprobed); and only if the server doesn&#146;t
 support any of those will it ship your password en clair.  Other values
 may be used to force various authentication methods
 (<B>ssh</B> suppresses authentication and is thus useful for IMAP PREAUTH).
@@ -1324,7 +1473,7 @@ authentication.  This option does not work with ETRN.
 <!-- .SS Miscellaneous Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=10>
+<A name=12>
 
     <H4>&nbsp; &nbsp; Miscellaneous Options</H4>
 </A>
@@ -1469,7 +1618,7 @@ Python.  This option is meant to be used with an interactive
 <!-- .SS Removed Options -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=11>
+<A name=13>
 
     <H4>&nbsp; &nbsp; Removed Options</H4>
 </A>
@@ -1485,7 +1634,7 @@ had been discontinued and is no longer available.
 <!-- .SH USER AUTHENTICATION AND ENCRYPTION -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=12>
+<A name=14>
 
      <H3>USER AUTHENTICATION AND ENCRYPTION</H3>
 
@@ -1533,7 +1682,7 @@ not be compromised.  You may also specify your password in your
 <P>
 <!-- .SS Using netrc files -->
 </BLOCKQUOTE>
-<A name=13>
+<A name=15>
 
     <H4>&nbsp; &nbsp; Using netrc files</H4>
 </A>
@@ -1582,7 +1731,7 @@ a mailbox on the server.  Contact your server administrator if you don&#146;t kn
 the correct user-id and password for your mailbox account.
 <!-- .SH POP3 VARIANTS -->
 </BLOCKQUOTE>
-<A name=14>
+<A name=16>
 
      <H3>POP3 VARIANTS</H3>
 
@@ -1614,7 +1763,7 @@ database.
 man-in-the-middle attacks.</B>
 <!-- .SS RETR or TOP -->
 </BLOCKQUOTE>
-<A name=15>
+<A name=17>
 
     <H4>&nbsp; &nbsp; RETR or TOP</H4>
 </A>
@@ -1647,7 +1796,7 @@ particular, fetchmail may prefer the RETR command because the TOP
 command causes much grief on some servers and is only optional.
 <!-- .SH ALTERNATE AUTHENTICATION FORMS -->
 </BLOCKQUOTE>
-<A name=16>
+<A name=18>
 
      <H3>ALTERNATE AUTHENTICATION FORMS</H3>
 
@@ -1711,11 +1860,21 @@ username and the part to the right as the NTLM domain.
 <P>
 <!-- .SS Secure Socket Layers (SSL) and Transport Layer Security (TLS) -->
 </BLOCKQUOTE>
-<A name=17>
+<A name=19>
 
     <H4>&nbsp; &nbsp; Secure Socket Layers (SSL) and Transport Layer Security (TLS)</H4>
 </A>
 <BLOCKQUOTE>
+<!-- .PP -->
+<P>
+Note that fetchmail currently uses the OpenSSL library, which is
+severely underdocumented, so failures may occur just because the
+programmers are not aware of OpenSSL&#146;s requirement of the day.
+For instance, since v6.3.16, fetchmail calls
+OpenSSL_add_all_algorithms(), which is necessary to support certificates
+with SHA256 on OpenSSL 0.9.8 -- this information is deeply hidden in the
+documentation and not at all obvious.  Please do not hesitate to report
+subtle SSL failures.
 <!-- .PP -->
 <P>
 You can access SSL encrypted services by specifying the --ssl option.
@@ -1739,8 +1898,9 @@ command line or sslcertck run control file option should be used to
 force strict certificate checking - see below.
 <!-- .PP -->
 <P>
-<!-- .B \-\-sslcertck is recommended: When connecting to an SSL or TLS encrypted server, the  -->
-<B>--sslcertck is recommended: When connecting to an SSL or TLS encrypted server, the</B> server presents a certificate to the client for validation.  The
+<!-- .B \-\-sslcertck is recommended: -->
+<B>--sslcertck is recommended:</B> When connecting to an SSL or TLS encrypted server, the
+server presents a certificate to the client for validation.  The
 certificate is checked to verify that the common name in the certificate
 matches the name of the server being contacted and that the effective
 and expiration dates in the certificate indicate that it is currently
@@ -1751,7 +1911,7 @@ certificate. If the --sslcertck command line option or sslcertck run
 control file option is used, fetchmail will instead abort if any of
 these checks fail, because it must assume that there is a
 man-in-the-middle attack in this scenario, hence fetchmail must not
-expose cleartest passwords. Use of the sslcertck or --sslcertck option
+expose cleartext passwords. Use of the sslcertck or --sslcertck option
 is therefore advised.
 <!-- .PP -->
 <P>
@@ -1781,7 +1941,7 @@ security of your mailbox and passwords.
 <P>
 <!-- .SS ESMTP AUTH -->
 </BLOCKQUOTE>
-<A name=18>
+<A name=20>
 
     <H4>&nbsp; &nbsp; ESMTP AUTH</H4>
 </A>
@@ -1795,7 +1955,7 @@ defaults to the username of the calling user.
 <P>
 <!-- .SH DAEMON MODE -->
 </BLOCKQUOTE>
-<A name=19>
+<A name=21>
 
      <H3>DAEMON MODE</H3>
 
@@ -1803,7 +1963,7 @@ defaults to the username of the calling user.
 <BLOCKQUOTE>
 <!-- .SS Introducing the daemon mode -->
 </BLOCKQUOTE>
-<A name=20>
+<A name=22>
 
     <H4>&nbsp; &nbsp; Introducing the daemon mode</H4>
 </A>
@@ -1813,7 +1973,7 @@ forever, querying each specified host and then sleeping for a given
 polling interval.
 <!-- .SS Starting the daemon mode -->
 </BLOCKQUOTE>
-<A name=21>
+<A name=23>
 
     <H4>&nbsp; &nbsp; Starting the daemon mode</H4>
 </A>
@@ -1859,7 +2019,7 @@ make sure you aren&#146;t polling the same server with two processes at the
 same time.)
 <!-- .SS Awakening the background daemon -->
 </BLOCKQUOTE>
-<A name=22>
+<A name=24>
 
     <H4>&nbsp; &nbsp; Awakening the background daemon</H4>
 </A>
@@ -1874,7 +2034,7 @@ SIGUSR1, can also be sent manually. The wake-up action also clears any
 authentication or multiple timeouts.
 <!-- .SS Terminating the background daemon -->
 </BLOCKQUOTE>
-<A name=23>
+<A name=25>
 
     <H4>&nbsp; &nbsp; Terminating the background daemon</H4>
 </A>
@@ -1891,7 +2051,7 @@ will kill the running daemon process and then quit. Otherwise,
 continue running with the other options.
 <!-- .SS Useful options for daemon mode -->
 </BLOCKQUOTE>
-<A name=24>
+<A name=26>
 
     <H4>&nbsp; &nbsp; Useful options for daemon mode</H4>
 </A>
@@ -1978,7 +2138,7 @@ silently vanish away on startup.
 <P>
 <!-- .SH ADMINISTRATIVE OPTIONS -->
 </BLOCKQUOTE>
-<A name=25>
+<A name=27>
 
      <H3>ADMINISTRATIVE OPTIONS</H3>
 
@@ -2045,7 +2205,7 @@ default is not adding any such header.  In
 <P>
 <!-- .SH RETRIEVAL FAILURE MODES -->
 </BLOCKQUOTE>
-<A name=26>
+<A name=28>
 
      <H3>RETRIEVAL FAILURE MODES</H3>
 
@@ -2125,7 +2285,7 @@ to the client via SMTP.  Therefore it sends only undelivered messages.
 <P>
 <!-- .SH SPAM FILTERING -->
 </BLOCKQUOTE>
-<A name=27>
+<A name=29>
 
      <H3>SPAM FILTERING</H3>
 
@@ -2190,7 +2350,7 @@ we do not accept mail from it. See also BUGS.
 <P>
 <!-- .SH SMTP/ESMTP ERROR HANDLING -->
 </BLOCKQUOTE>
-<A name=28>
+<A name=30>
 
      <H3>SMTP/ESMTP ERROR HANDLING</H3>
 
@@ -2227,7 +2387,7 @@ bounce-mail to the originator.
 <P>
 <!-- .SH THE RUN CONTROL FILE -->
 </BLOCKQUOTE>
-<A name=29>
+<A name=31>
 
      <H3>THE RUN CONTROL FILE</H3>
 
@@ -2253,7 +2413,7 @@ be executed when
 is called with no arguments.
 <!-- .SS Run Control Syntax -->
 </BLOCKQUOTE>
-<A name=30>
+<A name=32>
 
     <H4>&nbsp; &nbsp; Run Control Syntax</H4>
 </A>
@@ -2316,7 +2476,7 @@ easier to read at a glance.  The punctuation characters &#146;:&#146;, &#146;;&#
 <P>
 <!-- .SS Poll vs. Skip -->
 </BLOCKQUOTE>
-<A name=31>
+<A name=33>
 
     <H4>&nbsp; &nbsp; Poll vs. Skip</H4>
 </A>
@@ -2331,7 +2491,7 @@ safely, or easily disable entries for hosts that are temporarily down.)
 <P>
 <!-- .SS Keyword/Option Summary -->
 </BLOCKQUOTE>
-<A name=32>
+<A name=34>
 
     <H4>&nbsp; &nbsp; Keyword/Option Summary</H4>
 </A>
@@ -2379,7 +2539,7 @@ bystanders.
 option if the configuration has been thoroughly tested.
 </TD></TR>
 <TR valign=top>
-<TD>set    spambounce</TD><TD></TD><TD></TD><TD>Keep permanently undeliverable mail as though a temporary error had
+<TD>set    softbounce</TD><TD></TD><TD></TD><TD>Keep permanently undeliverable mail as though a temporary error had
 occurred (default).
 </TD></TR>
 <TR valign=top>
@@ -2488,6 +2648,9 @@ considered a TCP/IP port number).
 <TR valign=top>
 <TD>esmtppassword</TD><TD></TD><TD></TD><TD>Set password for RFC2554 authentication to the ESMTP server.
 </TD></TR>
+<TR valign=top>
+<TD>bad-header</TD><TD></TD><TD></TD><TD>How to treat messages with a bad header. Can be reject (default) or accept.
+</TD></TR>
 </TABLE></BLOCKQUOTE>
 <P>
 Here are the legal user descriptions and options:
@@ -2518,10 +2681,16 @@ local user name if followed by &#146;here&#146;.
 <TD>ssl</TD><TD></TD><TD></TD><TD>Connect to server over the specified base protocol using SSL encryption
 </TD></TR>
 <TR valign=top>
-<TD>sslcert</TD><TD></TD><TD></TD><TD>Specify file for client side public SSL certificate
+<TD>sslcert</TD><TD></TD><TD></TD><TD>Specify file for <B>client side</B> public SSL certificate
 </TD></TR>
 <TR valign=top>
-<TD>sslkey</TD><TD></TD><TD></TD><TD>Specify file for client side private SSL key
+<TD>sslcertfile</TD><TD></TD><TD></TD><TD>Specify file with trusted CA certificates
+</TD></TR>
+<TR valign=top>
+<TD>sslcertpath</TD><TD></TD><TD></TD><TD>Specify c_rehash-ed directory with trusted CA certificates.
+</TD></TR>
+<TR valign=top>
+<TD>sslkey</TD><TD></TD><TD></TD><TD>Specify file for <B>client side</B> private SSL key
 </TD></TR>
 <TR valign=top>
 <TD>sslproto</TD><TD></TD><TD></TD><TD>Force ssl protocol for connection
@@ -2665,7 +2834,7 @@ agent or internal forwards (through mail inspection systems, for
 instance).
 <!-- .SS Keywords Not Corresponding To Option Switches -->
 </BLOCKQUOTE>
-<A name=33>
+<A name=35>
 
     <H4>&nbsp; &nbsp; Keywords Not Corresponding To Option Switches</H4>
 </A>
@@ -2701,7 +2870,7 @@ server less frequently than the basic poll interval.  If you say
 queried every N poll intervals.
 <!-- .SS Singledrop vs. Multidrop options -->
 </BLOCKQUOTE>
-<A name=34>
+<A name=36>
 
     <H4>&nbsp; &nbsp; Singledrop vs. Multidrop options</H4>
 </A>
@@ -2908,7 +3077,7 @@ associated with a user entry readily available to a Python script.
 <P>
 <!-- .SS Miscellaneous Run Control Options -->
 </BLOCKQUOTE>
-<A name=35>
+<A name=37>
 
     <H4>&nbsp; &nbsp; Miscellaneous Run Control Options</H4>
 </A>
@@ -2969,7 +3138,7 @@ syslogd(8).
 <P>
 <!-- .SH DEBUGGING FETCHMAIL -->
 </BLOCKQUOTE>
-<A name=36>
+<A name=38>
 
      <H3>DEBUGGING FETCHMAIL</H3>
 
@@ -2977,7 +3146,7 @@ syslogd(8).
 <BLOCKQUOTE>
 <!-- .SS Fetchmail crashing -->
 </BLOCKQUOTE>
-<A name=37>
+<A name=39>
 
     <H4>&nbsp; &nbsp; Fetchmail crashing</H4>
 </A>
@@ -3003,7 +3172,7 @@ backtrace".
 <P>
 <!-- .SS Enabling fetchmail core dumps -->
 </BLOCKQUOTE>
-<A name=38>
+<A name=40>
 
     <H4>&nbsp; &nbsp; Enabling fetchmail core dumps</H4>
 </A>
@@ -3062,7 +3231,7 @@ part of their name.
 <P>
 <!-- .SH INTERACTION WITH RFC 822 -->
 </BLOCKQUOTE>
-<A name=39>
+<A name=41>
 
      <H3>INTERACTION WITH RFC 822</H3>
 
@@ -3108,7 +3277,7 @@ copy of the mail.)
 <P>
 <!-- .SH CONFIGURATION EXAMPLES -->
 </BLOCKQUOTE>
-<A name=40>
+<A name=42>
 
      <H3>CONFIGURATION EXAMPLES</H3>
 
@@ -3369,7 +3538,7 @@ poll mailhost.net with proto imap:
 <!-- .SH THE USE AND ABUSE OF MULTIDROP MAILBOXES -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=41>
+<A name=43>
 
      <H3>THE USE AND ABUSE OF MULTIDROP MAILBOXES</H3>
 
@@ -3386,7 +3555,7 @@ to multiple users are delivered to a multidrop box.
 <P>
 <!-- .SS Header vs. Envelope addresses -->
 </BLOCKQUOTE>
-<A name=42>
+<A name=44>
 
     <H4>&nbsp; &nbsp; Header vs. Envelope addresses</H4>
 </A>
@@ -3486,7 +3655,7 @@ Delivered-To, X-Envelope-To).</B>
 <!-- .SS Good Ways To Use Multidrop Mailboxes -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=43>
+<A name=45>
 
     <H4>&nbsp; &nbsp; Good Ways To Use Multidrop Mailboxes</H4>
 </A>
@@ -3521,7 +3690,7 @@ way to know that that&#146;s actually the right thing.
 <P>
 <!-- .SS Bad Ways To Abuse Multidrop Mailboxes -->
 </BLOCKQUOTE>
-<A name=44>
+<A name=46>
 
     <H4>&nbsp; &nbsp; Bad Ways To Abuse Multidrop Mailboxes</H4>
 </A>
@@ -3555,7 +3724,7 @@ to haunt you.
 <P>
 <!-- .SS Speeding Up Multidrop Checking -->
 </BLOCKQUOTE>
-<A name=45>
+<A name=47>
 
     <H4>&nbsp; &nbsp; Speeding Up Multidrop Checking</H4>
 </A>
@@ -3579,7 +3748,7 @@ you can declare &#146;no dns&#146; to suppress DNS lookups entirely and
 <P>
 <!-- .SH SOCKS -->
 </BLOCKQUOTE>
-<A name=46>
+<A name=48>
 
      <H3>SOCKS</H3>
 
@@ -3605,7 +3774,7 @@ env SOCKS_CONF=/dev/null fetchmail
 <P>
 <!-- .SH EXIT CODES -->
 </BLOCKQUOTE>
-<A name=47>
+<A name=49>
 
      <H3>EXIT CODES</H3>
 
@@ -3756,7 +3925,7 @@ details.
 <!-- .IP "24 - 26, 28, 29" -->
 </TD></TR>
 <TR valign=top><TD width=6%>
-"24 - 26, 28, 29"
+24 - 26, 28, 29
 </TD><TD>
 These are internal codes and should not appear externally.
 <!-- .PP -->
@@ -3770,7 +3939,7 @@ that of the last host queried.
 <P>
 <!-- .SH FILES -->
 </BLOCKQUOTE>
-<A name=48>
+<A name=50>
 
      <H3>FILES</H3>
 
@@ -3817,14 +3986,30 @@ lock file to help prevent concurrent runs (root mode, systems without /var/run).
 <!-- .SH ENVIRONMENT -->
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
-<A name=49>
+<A name=51>
 
      <H3>ENVIRONMENT</H3>
 
 </A>
 <BLOCKQUOTE>
-<!-- .B FETCHMAILUSER: -->
-<B>FETCHMAILUSER:</B> If the FETCHMAILUSER variable is set, it is used as the name of the
+<!-- .IP \fBFETCHMAILHOME\fP -->
+<TABLE cellpadding=3>
+<TR valign=top><TD width=5%>
+<B>FETCHMAILHOME</B>
+</TD><TD>
+If this environment variable is set to a valid and
+existing directory name, fetchmail will read $FETCHMAILHOME/fetchmailrc
+(the dot is missing in this case), $FETCHMAILHOME/.fetchids and
+$FETCHMAILHOME/.fetchmail.pid rather than from the user&#146;s home
+directory.  The .netrc file is always looked for in the the invoking
+user&#146;s home directory regardless of FETCHMAILHOME&#146;s setting.
+<P>
+<!-- .IP \fBFETCHMAILUSER\fP -->
+</TD></TR>
+<TR valign=top><TD width=5%>
+<B>FETCHMAILUSER</B>
+</TD><TD>
+If this environment variable is set, it is used as the name of the
 calling user (default local name) for purposes such as mailing error
 notifications.  Otherwise, if either the LOGNAME or USER variable is
 correctly set (e.g. the corresponding UID matches the session user ID)
@@ -3833,45 +4018,55 @@ then that name is used as the default local name.  Otherwise
 session ID (this elaborate logic is designed to handle the case of
 multiple names per userid gracefully).
 <P>
-<!-- .B FETCHMAILHOME: -->
-<B>FETCHMAILHOME:</B> If the environment variable FETCHMAILHOME is set to a valid and
-existing directory name, fetchmail will read $FETCHMAILHOME/fetchmailrc
-(the dot is missing in this case), $FETCHMAILHOME/.fetchids and
-$FETCHMAILHOME/.fetchmail.pid rather than from the user&#146;s home
-directory.  The .netrc file is always looked for in the the invoking
-user&#146;s home directory regardless of FETCHMAILHOME&#146;s setting.
+<!-- .IP \fBFETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS\fP -->
+</TD></TR>
+<TR valign=top><TD width=5%>
+<B>FETCHMAIL_INCLUDE_DEFAULT_X509_CA_CERTS</B>
+</TD><TD>
+(since v6.3.17):
+If this environment variable is set and not empty, fetchmail will always load
+the default X.509 trusted certificate locations for SSL/TLS CA certificates,
+even if <B>--sslcertfile</B> and <B>--sslcertpath</B> are given.  The latter locations take precedence over the system default locations.
+This is useful in case there are broken certificates in the system directories
+and the user has no administrator privileges to remedy the problem.
 <P>
-<!-- .B HOME_ETC: -->
-<B>HOME_ETC:</B> If the HOME_ETC variable is set, fetchmail will read
+<!-- .IP \fBHOME_ETC\fP -->
+</TD></TR>
+<TR valign=top><TD width=5%>
+<B>HOME_ETC</B>
+</TD><TD>
+If the HOME_ETC variable is set, fetchmail will read
 $HOME_ETC/.fetchmailrc instead of ~/.fetchmailrc.
 <P>
 If HOME_ETC and FETCHMAILHOME are both set, HOME_ETC will be ignored.
 <P>
-<!-- .B SOCKS_CONF: -->
-<B>SOCKS_CONF:</B> (only if SOCKS support is compiled in) this variable is used by the
+<!-- .IP \fBSOCKS_CONF\fP -->
+</TD></TR>
+<TR valign=top><TD width=5%>
+<B>SOCKS_CONF</B>
+</TD><TD>
+(only if SOCKS support is compiled in) this variable is used by the
 socks library to find out which configuration file it should read. Set
 this to /dev/null to bypass the SOCKS proxy.
 <P>
 <!-- .SH SIGNALS -->
-</BLOCKQUOTE>
-<A name=50>
+</TD></TR>
+<TR></TR></TABLE></BLOCKQUOTE>
+<A name=52>
 
      <H3>SIGNALS</H3>
 
 </A>
 <BLOCKQUOTE>
-If a
-<B>fetchmail</B>
-daemon is running as root, SIGUSR1 wakes it up from its sleep phase and
-forces a poll of all non-skipped servers. For compatibility reasons,
-SIGHUP can also be used in 6.3.X but may not be available in future
+If a <B>fetchmail</B> daemon is running as root, SIGUSR1 wakes it up from its
+sleep phase and forces a poll of all non-skipped servers. For compatibility
+reasons, SIGHUP can also be used in 6.3.X but may not be available in future
 fetchmail versions.
 <!-- .PP -->
 <P>
-If
-<B>fetchmail</B>
-is running in daemon mode as non-root, use SIGUSR1 to wake it (this is
-so SIGHUP due to logout can retain the default action of killing it).
+If <B>fetchmail</B> is running in daemon mode as non-root, use SIGUSR1 to wake
+it (this is so SIGHUP due to logout can retain the default action of killing
+it).
 <!-- .PP -->
 <P>
 Running <B>fetchmail</B> in foreground while a background fetchmail is
@@ -3879,7 +4074,7 @@ running will do whichever of these is appropriate to wake it up.
 <P>
 <!-- .SH BUGS AND KNOWN PROBLEMS -->
 </BLOCKQUOTE>
-<A name=51>
+<A name=53>
 
      <H3>BUGS AND KNOWN PROBLEMS</H3>
 
@@ -3996,7 +4191,7 @@ installation.
 <P>
 <!-- .SH AUTHOR -->
 </BLOCKQUOTE>
-<A name=52>
+<A name=54>
 
      <H3>AUTHOR</H3>
 
@@ -4027,7 +4222,7 @@ Beinert, and H[&#146;e]ctor Garc[&#146;i]a.
 <P>
 <!-- .SH SEE ALSO -->
 </BLOCKQUOTE>
-<A name=53>
+<A name=55>
 
      <H3>SEE ALSO</H3>
 
@@ -4067,7 +4262,7 @@ Beinert, and H[&#146;e]ctor Garc[&#146;i]a.
 <P>
 <!-- .SH APPLICABLE STANDARDS -->
 </BLOCKQUOTE>
-<A name=54>
+<A name=56>
 
      <H3>APPLICABLE STANDARDS</H3>
 
@@ -4170,5 +4365,5 @@ RFC 2595.
 </TD></TR>
 <TR></TR></TABLE></BLOCKQUOTE>
 <P><HR>
-<TABLE width=100%><TR> <TD width=33%><I>"fetchmail"</I></TD> <TD width=33% align=center>fetchmail (1)</TD> <TD align=right width=33%><I>"fetchmail 6.3.10"</I></TD> </TR></TABLE><FONT SIZE=-1>Generated by <A HREF="http://www.squarebox.co.uk/users/rolf/download/manServer.shtml">manServer 1.07+ma1</A> from ../fetchmail.man using man macros with tbl support.</FONT>
+<TABLE width=100%><TR> <TD width=33%><I>fetchmail</I></TD> <TD width=33% align=center>fetchmail (1)</TD> <TD align=right width=33%><I>fetchmail 6.3.18</I></TD> </TR></TABLE><FONT SIZE=-1>Generated by <A HREF="http://www.squarebox.co.uk/users/rolf/download/manServer.shtml">manServer 1.07+ma1</A> from ../fetchmail.man using man macros with tbl support.</FONT>
 </BODY></HTML>

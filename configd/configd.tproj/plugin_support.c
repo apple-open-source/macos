@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,7 +37,6 @@
  * - initial revision
  */
 
-#include <mach-o/dyld.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/param.h>
@@ -709,9 +708,14 @@ stopBundles()
 	} else {
 		CFRunLoopTimerRef	timer;
 
-		/* sorry, we're not going to wait longer than 20 seconds */
+		/*
+		 * launchd will only wait 20 seconds before sending us a
+		 * SIGKILL and because we want to know what's stuck before
+		 * that time so set our own "we're not waiting any longer"
+		 * timeout for 15 seconds.
+		 */
 		timer = CFRunLoopTimerCreate(NULL,				/* allocator */
-					     CFAbsoluteTimeGetCurrent() + 20.0,	/* fireDate (in 20 seconds) */
+					     CFAbsoluteTimeGetCurrent() + 15.0,	/* fireDate (in 15 seconds) */
 					     0.0,				/* interval (== one-shot) */
 					     0,					/* flags */
 					     0,					/* order */
@@ -878,6 +882,19 @@ sortBundles(CFMutableArrayRef orig)
 }
 
 
+/*
+ * ALT_CFRelease()
+ *
+ * An alternate CFRelease() that we can use to fake out the
+ * static analyzer.
+ */
+static __inline__ void
+ALT_CFRelease(CFTypeRef cf)
+{
+	CFRelease(cf);
+}
+
+
 __private_extern__
 void *
 plugin_exec(void *arg)
@@ -923,6 +940,17 @@ plugin_exec(void *arg)
 
 					bundle = (CFBundleRef)CFArrayGetValueAtIndex(bundles, i);
 					addBundle(bundle, FALSE);
+
+					// The CFBundleCreateBundlesFromDirectory() API has
+					// a known/outstanding bug in that it over-retains the
+					// returned bundles.  Since we do not expect this to
+					// be fixed we release the extra references.
+					//
+					//   See <rdar://problems/4912137&6078752> for more info.
+					//
+					// Also, we use the hack below to keep the static
+					// analyzer happy.
+					ALT_CFRelease(bundle);
 				}
 				CFRelease(bundles);
 			}
@@ -1043,6 +1071,7 @@ plugin_exec(void *arg)
 	 */
 	SCLog(_configd_verbose, LOG_DEBUG, CFSTR("starting plugin CFRunLoop"));
 	plugin_runLoop = CFRunLoopGetCurrent();
+	pthread_setname_np("Main plugin thread");
 	CFRunLoopRun();
 
     done :

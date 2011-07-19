@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -33,10 +33,14 @@ void ParsePositionTest::runIndexedTest( int32_t index, UBool exec, const char* &
 }
 
 UBool 
-ParsePositionTest::failure(UErrorCode status, const char* msg)
+ParsePositionTest::failure(UErrorCode status, const char* msg, UBool possibleDataError)
 {
     if(U_FAILURE(status)) {
-        errln(UnicodeString("FAIL: ") + msg + " failed, error " + u_errorName(status));
+        if (possibleDataError) {
+            dataerrln(UnicodeString("FAIL: ") + msg + " failed, error " + u_errorName(status));
+        } else {
+            errln(UnicodeString("FAIL: ") + msg + " failed, error " + u_errorName(status));
+        }
         return TRUE;
     }
 
@@ -173,16 +177,16 @@ void ParsePositionTest::TestFieldPosition_example()
 
     UErrorCode status = U_ZERO_ERROR;
     NumberFormat *nf = NumberFormat::createInstance(status);
-    if (failure(status, "NumberFormat::createInstance")){
+    if (failure(status, "NumberFormat::createInstance", TRUE)){
         delete nf;
         return;
     };
 
-    if(nf->getDynamicClassID() != DecimalFormat::getStaticClassID()) {
+    DecimalFormat *fmt = dynamic_cast<DecimalFormat *>(nf);
+    if(fmt == NULL) {
         errln("NumberFormat::createInstance returned unexpected class type");
         return;
     }
-    DecimalFormat *fmt = (DecimalFormat*) nf;
     fmt->setDecimalSeparatorAlwaysShown(TRUE);
 
     const int tempLen = 20;

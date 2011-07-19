@@ -1,8 +1,7 @@
 /*
+ * Copyright (c) 2009 Apple, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 2009 Apple, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License

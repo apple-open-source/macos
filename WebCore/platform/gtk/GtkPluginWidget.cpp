@@ -47,7 +47,7 @@ void GtkPluginWidget::invalidateRect(const IntRect& _rect)
     if (!gtk_widget_get_has_window(platformWidget()))
         return;
 
-    GdkWindow* window = platformWidget()->window;
+    GdkWindow* window = gtk_widget_get_window(platformWidget());
     if (!window)
         return;
 
@@ -87,7 +87,11 @@ void GtkPluginWidget::paint(GraphicsContext* context, const IntRect& rect)
     event->expose.area.x = loc.x();
     event->expose.area.y = loc.y();
 
+#ifdef GTK_API_VERSION_2
     event->expose.region = gdk_region_rectangle(&event->expose.area);
+#else
+    event->expose.region = cairo_region_create_rectangle(&event->expose.area);
+#endif
 
     /*
      * This will be unref'ed by gdk_event_free.
@@ -97,7 +101,11 @@ void GtkPluginWidget::paint(GraphicsContext* context, const IntRect& rect)
     /*
      * If we are going to paint do the translation and GtkAllocation manipulation.
      */
+#ifdef GTK_API_VERSION_2
     if (!gdk_region_empty(event->expose.region))
+#else
+    if (!cairo_region_is_empty(event->expose.region))
+#endif
         gtk_widget_send_expose(widget, event);
 
     gdk_event_free(event);

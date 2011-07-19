@@ -7,7 +7,7 @@
  * CHICKEN language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_chicken_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/chicken.cxx,v 1.57 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_chicken_cxx[] = "$Id: chicken.cxx 11133 2009-02-20 07:52:24Z wsfulton $";
 
 #include "swigmod.h"
 
@@ -30,6 +30,7 @@ static char *module = 0;
 static char *chicken_path = (char *) "chicken";
 static int num_methods = 0;
 
+static File *f_begin = 0;
 static File *f_runtime = 0;
 static File *f_header = 0;
 static File *f_wrappers = 0;
@@ -101,12 +102,12 @@ protected:
   int isPointer(SwigType *t);
   void dispatchFunction(Node *n);
 
-  String *chickenNameMapping(String *, String_or_char *);
+  String *chickenNameMapping(String *, const_String_or_char_ptr );
   String *chickenPrimitiveName(String *);
 
   String *runtimeCode();
   String *defaultExternalRuntimeFilename();
-  String *buildClosFunctionCall(List *types, String_or_char *closname, String_or_char *funcname);
+  String *buildClosFunctionCall(List *types, const_String_or_char_ptr closname, const_String_or_char_ptr funcname);
 };
 
 /* -----------------------------------------------------------------------
@@ -188,11 +189,12 @@ int CHICKEN::top(Node *n) {
   /* Initialize all of the output files */
   String *outfile = Getattr(n, "outfile");
 
-  f_runtime = NewFile(outfile, "w");
-  if (!f_runtime) {
+  f_begin = NewFile(outfile, "w", SWIG_output_files());
+  if (!f_begin) {
     FileErrorDisplay(outfile);
     SWIG_exit(EXIT_FAILURE);
   }
+  f_runtime = NewString("");
   f_init = NewString("");
   f_header = NewString("");
   f_wrappers = NewString("");
@@ -205,6 +207,7 @@ int CHICKEN::top(Node *n) {
   /* Register file targets with the SWIG file handler */
   Swig_register_filebyname("header", f_header);
   Swig_register_filebyname("wrapper", f_wrappers);
+  Swig_register_filebyname("begin", f_begin);
   Swig_register_filebyname("runtime", f_runtime);
   Swig_register_filebyname("init", f_init);
 
@@ -215,13 +218,15 @@ int CHICKEN::top(Node *n) {
   clos_methods = NewString("");
   scm_const_defs = NewString("");
 
-  Printf(f_runtime, "/* -*- buffer-read-only: t -*- vi: set ro: */\n");
-  Swig_banner(f_runtime);
+  Swig_banner(f_begin);
 
-  Printf(f_runtime, "/* Implementation : CHICKEN */\n\n");
+  Printf(f_runtime, "\n");
+  Printf(f_runtime, "#define SWIGCHICKEN\n");
 
   if (no_collection)
     Printf(f_runtime, "#define SWIG_CHICKEN_NO_COLLECTION 1\n");
+
+  Printf(f_runtime, "\n");
 
   /* Set module name */
   module = Swig_copy_string(Char(Getattr(n, "name")));
@@ -251,14 +256,14 @@ int CHICKEN::top(Node *n) {
   Printf(f_init, "#endif\n");
 
   Printf(chicken_filename, "%s%s.scm", SWIG_output_directory(), module);
-  if ((f_scm = NewFile(chicken_filename, "w")) == 0) {
+  if ((f_scm = NewFile(chicken_filename, "w", SWIG_output_files())) == 0) {
     FileErrorDisplay(chicken_filename);
     SWIG_exit(EXIT_FAILURE);
   }
 
-  Printv(f_scm,
-	 ";; -*- buffer-read-only: t -*- vi: set ro:\n",
-	 ";; This file was created automatically by SWIG.\n", ";; Don't modify this file, modify the SWIG interface instead.\n", NIL);
+  Swig_banner_target_lang(f_scm, ";;");
+  Printf(f_scm, "\n");
+
   if (declare_unit)
     Printv(f_scm, "(declare (unit ", scmmodule, "))\n\n", NIL);
   Printv(f_scm, "(declare \n",
@@ -307,15 +312,17 @@ int CHICKEN::top(Node *n) {
   /* Close all of the files */
   Delete(primitive_names);
   Delete(scmmodule);
-  Dump(f_header, f_runtime);
-  Dump(f_wrappers, f_runtime);
-  Wrapper_pretty_print(f_init, f_runtime);
+  Dump(f_runtime, f_begin);
+  Dump(f_header, f_begin);
+  Dump(f_wrappers, f_begin);
+  Wrapper_pretty_print(f_init, f_begin);
   Delete(f_header);
   Delete(f_wrappers);
   Delete(f_sym_size);
   Delete(f_init);
-  Close(f_runtime);
+  Close(f_begin);
   Delete(f_runtime);
+  Delete(f_begin);
   return SWIG_OK;
 }
 
@@ -329,7 +336,6 @@ int CHICKEN::functionWrapper(Node *n) {
   Parm *p;
   int i;
   String *wname;
-  String *source;
   Wrapper *f;
   String *mangle = NewString("");
   String *get_pointers;
@@ -368,7 +374,7 @@ int CHICKEN::functionWrapper(Node *n) {
   Wrapper_add_local(f, "resultobj", "C_word resultobj");
 
   /* Write code to extract function parameters. */
-  emit_args(d, l, f);
+  emit_parameter_variables(l, f);
 
   /* Attach the standard typemaps */
   emit_attach_parmmaps(l, f);
@@ -398,8 +404,6 @@ int CHICKEN::functionWrapper(Node *n) {
     SwigType *pt = Getattr(p, "type");
     String *ln = Getattr(p, "lname");
 
-    source = NewStringf("scm%d", i + 1);
-
     Printf(f->def, ", C_word scm%d", i + 1);
     Printf(declfunc, ",C_word");
 
@@ -407,6 +411,7 @@ int CHICKEN::functionWrapper(Node *n) {
     if ((tm = Getattr(p, "tmap:in"))) {
       String *parse = Getattr(p, "tmap:in:parse");
       if (!parse) {
+        String *source = NewStringf("scm%d", i + 1);
 	Replaceall(tm, "$source", source);
 	Replaceall(tm, "$target", ln);
 	Replaceall(tm, "$input", source);
@@ -445,10 +450,8 @@ int CHICKEN::functionWrapper(Node *n) {
 	    }
 	  }
 	}
-
-      } else {
+        Delete(source);
       }
-
 
       p = Getattr(p, "tmap:in:next");
       continue;
@@ -456,9 +459,6 @@ int CHICKEN::functionWrapper(Node *n) {
       Swig_warning(WARN_TYPEMAP_IN_UNDEF, input_file, line_number, "Unable to use type %s as a function argument.\n", SwigType_str(pt, 0));
       break;
     }
-
-    Delete(source);
-    p = nextSibling(p);
   }
 
   /* finish argument marshalling */
@@ -501,9 +501,6 @@ int CHICKEN::functionWrapper(Node *n) {
     }
   }
 
-  /* Emit the function call */
-  emit_action(n, f);
-
   /* Insert argument output code */
   have_argout = 0;
   for (p = l; p;) {
@@ -512,7 +509,7 @@ int CHICKEN::functionWrapper(Node *n) {
       if (!have_argout) {
 	have_argout = 1;
 	// Print initial argument output code
-	Printf(f->code, "SWIG_Chicken_SetupArgout\n");
+	Printf(argout, "SWIG_Chicken_SetupArgout\n");
       }
 
       Replaceall(tm, "$source", Getattr(p, "lname"));
@@ -526,8 +523,13 @@ int CHICKEN::functionWrapper(Node *n) {
     }
   }
 
+  Setattr(n, "wrap:name", wname);
+
+  /* Emit the function call */
+  String *actioncode = emit_action(n);
+
   /* Return the function value */
-  if ((tm = Swig_typemap_lookup_new("out", n, "result", 0))) {
+  if ((tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode))) {
     Replaceall(tm, "$source", "result");
     Replaceall(tm, "$target", "resultobj");
     Replaceall(tm, "$result", "resultobj");
@@ -545,6 +547,7 @@ int CHICKEN::functionWrapper(Node *n) {
   } else {
     Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s in function %s.\n", SwigType_str(d, 0), name);
   }
+  emit_return_variable(n, d, f);
 
   /* Insert the argumetn output code */
   Printv(f->code, argout, NIL);
@@ -554,14 +557,14 @@ int CHICKEN::functionWrapper(Node *n) {
 
   /* Look to see if there is any newfree cleanup code */
   if (GetFlag(n, "feature:new")) {
-    if ((tm = Swig_typemap_lookup_new("newfree", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup("newfree", n, "result", 0))) {
       Replaceall(tm, "$source", "result");
       Printf(f->code, "%s\n", tm);
     }
   }
 
   /* See if there is any return cleanup code */
-  if ((tm = Swig_typemap_lookup_new("ret", n, "result", 0))) {
+  if ((tm = Swig_typemap_lookup("ret", n, "result", 0))) {
     Replaceall(tm, "$source", "result");
     Printf(f->code, "%s\n", tm);
   }
@@ -602,8 +605,6 @@ int CHICKEN::functionWrapper(Node *n) {
   /* Dump the function out */
   Printv(f_wrappers, "static ", declfunc, " C_noret;\n", NIL);
   Wrapper_print(f, f_wrappers);
-
-  Setattr(n, "wrap:name", wname);
 
   /* Now register the function with the interpreter.   */
   if (!Getattr(n, "sym:overloaded")) {
@@ -709,6 +710,8 @@ int CHICKEN::variableWrapper(Node *n) {
   if (overname) {
     Append(wname, overname);
   }
+  Setattr(n, "wrap:name", wname);
+
   // Check for interrupts
   Printv(f->code, "C_trace(\"", scmname, "\");\n", NIL);
 
@@ -724,12 +727,12 @@ int CHICKEN::variableWrapper(Node *n) {
     /* Check for a setting of the variable value */
     if (!GetFlag(n, "feature:immutable")) {
       Printf(f->code, "if (argc > 2) {\n");
-      if ((tm = Swig_typemap_lookup_new("varin", n, name, 0))) {
+      if ((tm = Swig_typemap_lookup("varin", n, name, 0))) {
 	Replaceall(tm, "$source", "value");
 	Replaceall(tm, "$target", name);
 	Replaceall(tm, "$input", "value");
 	/* Printv(f->code, tm, "\n",NIL); */
-	emit_action_code(n, f, tm);
+	emit_action_code(n, f->code, tm);
       } else {
 	Swig_warning(WARN_TYPEMAP_VARIN_UNDEF, input_file, line_number, "Unable to set variable of type %s.\n", SwigType_str(t, 0));
       }
@@ -745,13 +748,13 @@ int CHICKEN::variableWrapper(Node *n) {
 
     // Now return the value of the variable - regardless
     // of evaluating or setting.
-    if ((tm = Swig_typemap_lookup_new("varout", n, name, 0))) {
+    if ((tm = Swig_typemap_lookup("varout", n, name, 0))) {
       Replaceall(tm, "$source", varname);
       Replaceall(tm, "$varname", varname);
       Replaceall(tm, "$target", "resultobj");
       Replaceall(tm, "$result", "resultobj");
       /* Printf(f->code, "%s\n", tm); */
-      emit_action_code(n, f, tm);
+      emit_action_code(n, f->code, tm);
     } else {
       Swig_warning(WARN_TYPEMAP_VAROUT_UNDEF, input_file, line_number, "Unable to read variable of type %s\n", SwigType_str(t, 0));
     }
@@ -876,18 +879,18 @@ int CHICKEN::constantWrapper(Node *n) {
 
   /* Special hook for member pointer */
   if (SwigType_type(t) == T_MPOINTER) {
-    Printf(f_header, "static %s = %s;\n", SwigType_str(t, wname), rvalue);
-    value = wname;
-  }
-  if ((tm = Swig_typemap_lookup_new("constcode", n, name, 0))) {
-    Replaceall(tm, "$source", rvalue);
-    Replaceall(tm, "$target", source);
-    Replaceall(tm, "$result", source);
-    Replaceall(tm, "$value", rvalue);
-    Printf(f_header, "%s\n", tm);
+    Printf(f_header, "static %s = %s;\n", SwigType_str(t, source), rvalue);
   } else {
-    Swig_warning(WARN_TYPEMAP_CONST_UNDEF, input_file, line_number, "Unsupported constant value.\n");
-    return SWIG_NOWRAP;
+    if ((tm = Swig_typemap_lookup("constcode", n, name, 0))) {
+      Replaceall(tm, "$source", rvalue);
+      Replaceall(tm, "$target", source);
+      Replaceall(tm, "$result", source);
+      Replaceall(tm, "$value", rvalue);
+      Printf(f_header, "%s\n", tm);
+    } else {
+      Swig_warning(WARN_TYPEMAP_CONST_UNDEF, input_file, line_number, "Unsupported constant value.\n");
+      return SWIG_NOWRAP;
+    }
   }
 
   f = NewWrapper();
@@ -907,6 +910,7 @@ int CHICKEN::constantWrapper(Node *n) {
 
   if (1 || (SwigType_type(t) != T_USER) || (isPointer(t))) {
 
+    Setattr(n, "wrap:name", wname);
     Printv(f->def, "static ", "void ", wname, "(C_word, C_word, C_word) C_noret;\n", NIL);
 
     Printv(f->def, "static ", "void ", wname, "(C_word argc, C_word closure, " "C_word continuation) {\n", NIL);
@@ -916,14 +920,14 @@ int CHICKEN::constantWrapper(Node *n) {
     Printf(f->code, "if (argc!=2) C_bad_argc(argc,2);\n");
 
     // Return the value of the variable
-    if ((tm = Swig_typemap_lookup_new("varout", n, name, 0))) {
+    if ((tm = Swig_typemap_lookup("varout", n, name, 0))) {
 
       Replaceall(tm, "$source", source);
       Replaceall(tm, "$varname", source);
       Replaceall(tm, "$target", "resultobj");
       Replaceall(tm, "$result", "resultobj");
       /* Printf(f->code, "%s\n", tm); */
-      emit_action_code(n, f, tm);
+      emit_action_code(n, f->code, tm);
     } else {
       Swig_warning(WARN_TYPEMAP_VAROUT_UNDEF, input_file, line_number, "Unable to read variable of type %s\n", SwigType_str(t, 0));
     }
@@ -1162,6 +1166,8 @@ int CHICKEN::membervariableHandler(Node *n) {
   }
 
   Delete(proc);
+  Delete(setfunc);
+  Delete(getfunc);
   return SWIG_OK;
 }
 
@@ -1234,7 +1240,7 @@ int CHICKEN::importDirective(Node *n) {
   return Language::importDirective(n);
 }
 
-String *CHICKEN::buildClosFunctionCall(List *types, String_or_char *closname, String_or_char *funcname) {
+String *CHICKEN::buildClosFunctionCall(List *types, const_String_or_char_ptr closname, const_String_or_char_ptr funcname) {
   String *method_signature = NewString("");
   String *func_args = NewString("");
   String *func_call = NewString("");
@@ -1504,11 +1510,11 @@ int CHICKEN::validIdentifier(String *s) {
   /* ------------------------------------------------------------
    * closNameMapping()
    * Maps the identifier from C++ to the CLOS based on command 
-   * line paramaters and such.
+   * line parameters and such.
    * If class_name = "" that means the mapping is for a function or
    * variable not attached to any class.
    * ------------------------------------------------------------ */
-String *CHICKEN::chickenNameMapping(String *name, String_or_char *class_name) {
+String *CHICKEN::chickenNameMapping(String *name, const_String_or_char_ptr class_name) {
   String *n = NewString("");
 
   if (Strcmp(class_name, "") == 0) {

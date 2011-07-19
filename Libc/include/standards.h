@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,11 +29,6 @@
 
 #include <sys/cdefs.h>
 
-#if defined(_POSIX_C_SOURCE) && !defined(_DARWIN_C_SOURCE)
-#        ifndef __STRICT_ANSI__
-#                define __STRICT_ANSI__
-#        endif
-#        undef __STRICT_BSD__
-#endif /* (_POSIX_C_SOURCE && !_DARWIN_C_SOURCE) */
+#warning "The use of <standards.h> is deprecated, and it will be removed in a future release."
 
 #endif /* _STANDARDS_H */

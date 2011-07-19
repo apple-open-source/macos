@@ -393,7 +393,7 @@ namespace eval ::xotcl::serializer {
       set namespace($e) 1
       set namespace([namespace qualifiers $e]) 1
     }
-    ::xotcl::Object proc __trace__ {} {}
+    ::xotcl::Object instproc __trace__ {} {}
 
     # Handling of variable traces: traces might require a 
     # different topological sort, which is hard to handle.

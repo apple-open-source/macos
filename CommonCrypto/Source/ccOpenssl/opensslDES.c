@@ -64,7 +64,7 @@
  */
  
 #include <CommonCrypto/opensslDES.h>
-#include <ccOpenssl/des_locl.h>
+#include "ccOpenssl/des_locl.h"
 #include <strings.h>
 #include "spr.h"
 

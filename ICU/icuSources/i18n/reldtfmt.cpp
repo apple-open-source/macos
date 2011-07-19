@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2009, International Business Machines Corporation and    *
-* others. All Rights Reserved.                                                *
+* Copyright (C) 2007-2010, International Business Machines Corporation and
+* others. All Rights Reserved.
 *******************************************************************************
 */
 
@@ -124,7 +124,7 @@ UnicodeString& RelativeDateFormat::format(  Calendar& cal,
     int dayDiff = dayDifference(cal, status);
 
     // look up string
-    int32_t len;
+    int32_t len = 0;
     const UChar *theString = getStringForDay(dayDiff, len, status);
     if(U_SUCCESS(status) && (theString!=NULL)) {
         // found a relative string
@@ -288,8 +288,9 @@ RelativeDateFormat::toPatternDate(UnicodeString& result, UErrorCode& status) con
     if (!U_FAILURE(status)) {
         result.remove();
         if ( fDateFormat ) {
-            if ( fDateFormat->getDynamicClassID()==SimpleDateFormat::getStaticClassID() ) {
-                ((SimpleDateFormat*)fDateFormat)->toPattern(result);
+            SimpleDateFormat* sdtfmt = dynamic_cast<SimpleDateFormat*>(fDateFormat);
+            if (sdtfmt != NULL) {
+                sdtfmt->toPattern(result);
             } else {
                 status = U_UNSUPPORTED_ERROR;
             }
@@ -304,8 +305,9 @@ RelativeDateFormat::toPatternTime(UnicodeString& result, UErrorCode& status) con
     if (!U_FAILURE(status)) {
         result.remove();
         if ( fTimeFormat ) {
-            if ( fTimeFormat->getDynamicClassID()==SimpleDateFormat::getStaticClassID() ) {
-                ((SimpleDateFormat*)fTimeFormat)->toPattern(result);
+            SimpleDateFormat* sdtfmt = dynamic_cast<SimpleDateFormat*>(fTimeFormat);
+            if (sdtfmt != NULL) {
+                sdtfmt->toPattern(result);
             } else {
                 status = U_UNSUPPORTED_ERROR;
             }
@@ -318,21 +320,33 @@ void
 RelativeDateFormat::applyPatterns(const UnicodeString& datePattern, const UnicodeString& timePattern, UErrorCode &status)
 {
     if (!U_FAILURE(status)) {
-        if ( fDateFormat && fDateFormat->getDynamicClassID()!=SimpleDateFormat::getStaticClassID() ) {
+        SimpleDateFormat* sdtfmt = NULL;
+        SimpleDateFormat* stmfmt = NULL;
+        if (fDateFormat && (sdtfmt = dynamic_cast<SimpleDateFormat*>(fDateFormat)) == NULL) {
             status = U_UNSUPPORTED_ERROR;
             return;
         }
-        if ( fTimeFormat && fTimeFormat->getDynamicClassID()!=SimpleDateFormat::getStaticClassID() ) {
+        if (fTimeFormat && (stmfmt = dynamic_cast<SimpleDateFormat*>(fTimeFormat)) == NULL) {
             status = U_UNSUPPORTED_ERROR;
             return;
         }
         if ( fDateFormat ) {
-            ((SimpleDateFormat*)fDateFormat)->applyPattern(datePattern);
+            sdtfmt->applyPattern(datePattern);
         }
         if ( fTimeFormat ) {
-            ((SimpleDateFormat*)fTimeFormat)->applyPattern(timePattern);
+            stmfmt->applyPattern(timePattern);
         }
     }
+}
+
+const DateFormatSymbols*
+RelativeDateFormat::getDateFormatSymbols() const
+{
+    SimpleDateFormat* sdtfmt = NULL;
+    if (fDateFormat && (sdtfmt = dynamic_cast<SimpleDateFormat*>(fDateFormat)) != NULL) {
+    	return sdtfmt->getDateFormatSymbols();
+    }
+    return NULL;
 }
 
 void RelativeDateFormat::loadDates(UErrorCode &status) {
@@ -340,10 +354,39 @@ void RelativeDateFormat::loadDates(UErrorCode &status) {
     
     UErrorCode tempStatus = status;
     UResourceBundle *dateTimePatterns = calData.getByKey(DT_DateTimePatternsTag, tempStatus);
-    if(U_SUCCESS(tempStatus) && ures_getSize(dateTimePatterns) > DateFormat::kDateTime) {
-        int32_t resStrLen = 0;
-        const UChar *resStr = ures_getStringByIndex(dateTimePatterns, (int32_t)DateFormat::kDateTime, &resStrLen, &tempStatus);
-        fCombinedFormat = new MessageFormat(UnicodeString(TRUE, resStr, resStrLen), fLocale, tempStatus);
+    if(U_SUCCESS(tempStatus)) {
+        int32_t patternsSize = ures_getSize(dateTimePatterns);
+        if (patternsSize > kDateTime) {
+            int32_t resStrLen = 0;
+
+            int32_t glueIndex = kDateTime;
+            if (patternsSize >= (DateFormat::kDateTimeOffset + DateFormat::kShort + 1)) {
+                // Get proper date time format
+                switch (fDateStyle) { 
+                case kFullRelative: 
+                case kFull: 
+                    glueIndex = kDateTimeOffset + kFull; 
+                    break; 
+                case kLongRelative: 
+                case kLong: 
+                    glueIndex = kDateTimeOffset + kLong; 
+                    break; 
+                case kMediumRelative: 
+                case kMedium: 
+                    glueIndex = kDateTimeOffset + kMedium; 
+                    break;         
+                case kShortRelative: 
+                case kShort: 
+                    glueIndex = kDateTimeOffset + kShort; 
+                    break; 
+                default: 
+                    break; 
+                } 
+            }
+
+            const UChar *resStr = ures_getStringByIndex(dateTimePatterns, glueIndex, &resStrLen, &tempStatus);
+            fCombinedFormat = new MessageFormat(UnicodeString(TRUE, resStr, resStrLen), fLocale, tempStatus);
+        }
     }
 
     UResourceBundle *strings = calData.getByKey3("fields", "day", "relative", status);

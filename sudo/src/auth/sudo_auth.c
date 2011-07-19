@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2005, 2008 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 1999-2005, 2008-2010 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -32,15 +32,11 @@
 # endif
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
-# if defined(HAVE_MEMORY_H) && !defined(STDC_HEADERS)
-#  include <memory.h>
-# endif
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
@@ -51,11 +47,6 @@
 #include "sudo.h"
 #include "sudo_auth.h"
 #include "insults.h"
-#include "audit.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: sudo_auth.c,v 1.38 2008/11/07 17:45:52 millert Exp $";
-#endif /* lint */
 
 sudo_auth auth_switch[] = {
 #ifdef AUTH_STANDALONE
@@ -101,6 +92,9 @@ verify_user(pw, prompt)
     char *p;
     sudo_auth *auth;
     sigaction_t sa, osa;
+#ifdef HAVE_BSM_AUDIT
+    extern char **NewArgv;
+#endif
 
     /* Enable suspend during password entry. */
     sigemptyset(&sa.sa_mask);
@@ -110,12 +104,14 @@ verify_user(pw, prompt)
 
     /* Make sure we have at least one auth method. */
     if (auth_switch[0].name == NULL) {
-    	audit_fail(pw, "No authentication methods");
+#ifdef HAVE_BSM_AUDIT
+	audit_failure(NewArgv, "no authentication methods");
+#endif
     	log_error(0, "%s  %s %s",
 	    "There are no authentication methods compiled into sudo!",
 	    "If you want to turn off authentication, use the",
 	    "--disable-authentication configure option.");
-	}
+    }
 
     /* Set FLAG_ONEANDONLY if there is only one auth method. */
     if (auth_switch[1].name == NULL)
@@ -130,10 +126,12 @@ verify_user(pw, prompt)
 	    status = (auth->init)(pw, &prompt, auth);
 	    if (status == AUTH_FAILURE)
 		CLR(auth->flags, FLAG_CONFIGURED);
-	   else if (status == AUTH_FATAL)	/* XXX log */ {
-		audit_fail(pw, "Auth Failure");
+	    else if (status == AUTH_FATAL) {	/* XXX log */
+#ifdef HAVE_BSM_AUDIT
+		audit_failure(NewArgv, "authentication failure");
+#endif
 		exit(1);		/* assume error msg already printed */
-	   }
+	    }
 
 	    if (NEEDS_USER(auth))
 		set_perms(PERM_ROOT);
@@ -150,8 +148,10 @@ verify_user(pw, prompt)
 		status = (auth->setup)(pw, &prompt, auth);
 		if (status == AUTH_FAILURE)
 		    CLR(auth->flags, FLAG_CONFIGURED);
-	        else if (status == AUTH_FATAL)	/* XXX log */ {
-		    audit_fail(pw, "Auth Failure");
+		else if (status == AUTH_FATAL) {/* XXX log */
+#ifdef HAVE_BSM_AUDIT
+		    audit_failure(NewArgv, "authentication failure");
+#endif
 		    exit(1);		/* assume error msg already printed */
 		}
 
@@ -185,8 +185,9 @@ verify_user(pw, prompt)
 		goto cleanup;
 	}
 #ifndef AUTH_STANDALONE
-	if (p)
-	    zero_bytes(p, strlen(p));
+	if (p == NULL)
+	    break;
+	zero_bytes(p, strlen(p));
 #endif
 	if (!ISSET(tgetpass_flags, TGP_ASKPASS))
 	    pass_warn(stderr);
@@ -201,9 +202,11 @@ cleanup:
 
 	    status = (auth->cleanup)(pw, auth);
 	    if (status == AUTH_FATAL) {	/* XXX log */
-			audit_fail(pw, "Auth Failure");
-			exit(1);		/* assume error msg already printed */
-		}
+#ifdef HAVE_BSM_AUDIT
+		audit_failure(NewArgv, "authentication failure");
+#endif
+		exit(1);		/* assume error msg already printed */
+	    }
 
 	    if (NEEDS_USER(auth))
 		set_perms(PERM_ROOT);
@@ -221,16 +224,18 @@ cleanup:
 		    flags = 0;
 		else
 		    flags = NO_MAIL;
-		audit_fail(pw, "Incorrect password");
+#ifdef HAVE_BSM_AUDIT
+		audit_failure(NewArgv, "authentication failure");
+#endif
 		log_error(flags, "%d incorrect password attempt%s",
 		    def_passwd_tries - counter,
 		    (def_passwd_tries - counter == 1) ? "" : "s");
-	    } else {
-	        audit_fail(pw, "password attempt limit reached");
 	    }
 	    /* FALLTHROUGH */
 	case AUTH_FATAL:
-	    audit_fail(pw, "Auth failure");
+#ifdef HAVE_BSM_AUDIT
+	    audit_failure(NewArgv, "authentication failure");
+#endif
 	    exit(1);
     }
     /* NOTREACHED */

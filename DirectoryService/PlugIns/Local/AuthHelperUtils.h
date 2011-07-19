@@ -21,11 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
+
 #ifndef __AUTH_HELPER_UTILS__
 #define __AUTH_HELPER_UTILS__
 
 #include <CoreFoundation/CoreFoundation.h>
-#include "CDSLocalPlugin.h"
 #include "CDSAuthDefs.h"
 #include "CAuthAuthority.h"
 
@@ -133,3 +134,5 @@ __END_DECLS
 
 
 #endif
+
+#endif //DISABLE_LOCAL_PLUGIN

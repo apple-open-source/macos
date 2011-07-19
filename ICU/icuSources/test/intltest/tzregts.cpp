@@ -1,5 +1,5 @@
 /********************************************************************
- * Copyright (c) 1997-2007, International Business Machines
+ * Copyright (c) 1997-2010, International Business Machines
  * Corporation and others. All Rights Reserved.
  ********************************************************************/
  
@@ -139,7 +139,7 @@ void TimeZoneRegressionTest:: Test4073215()
 
     GregorianCalendar cal(1997, UCAL_JANUARY, 31, status);
     if(U_FAILURE(status)) {
-      errln("Error creating calendar %s", u_errorName(status));
+      dataerrln("Error creating calendar %s", u_errorName(status));
       return;
     }
     failure(status, "new GregorianCalendar");
@@ -147,7 +147,7 @@ void TimeZoneRegressionTest:: Test4073215()
 
     SimpleDateFormat sdf((UnicodeString)"E d MMM yyyy G HH:mm", status); 
     if(U_FAILURE(status)) {
-      errln("Error creating date format %s", u_errorName(status));
+      errcheckln(status, "Error creating date format %s", u_errorName(status));
       return;
     }
     sdf.setCalendar(cal); 
@@ -237,7 +237,7 @@ void TimeZoneRegressionTest:: Test4084933() {
     int32_t SToffset = (int32_t)(-8 * 60*60*1000L);
     int32_t DToffset = (int32_t)(-7 * 60*60*1000L);
         
-#define ERR_IF_FAIL(x) if(x) { errln("FAIL: TimeZone misbehaving - %s", #x); }
+#define ERR_IF_FAIL(x) if(x) { dataerrln("FAIL: TimeZone misbehaving - %s", #x); }
 
         ERR_IF_FAIL(U_FAILURE(status))
         ERR_IF_FAIL(offset1 != SToffset)
@@ -310,7 +310,7 @@ void TimeZoneRegressionTest:: Test4109314() {
     UErrorCode status = U_ZERO_ERROR;
     GregorianCalendar *testCal = (GregorianCalendar*)Calendar::createInstance(status); 
     if(U_FAILURE(status)) {
-      errln("Error creating calendar %s", u_errorName(status));
+      dataerrln("Error creating calendar %s", u_errorName(status));
       delete testCal;
       return;
     }
@@ -452,7 +452,7 @@ void TimeZoneRegressionTest:: Test4126678()
     UErrorCode status = U_ZERO_ERROR;
     Calendar *cal = Calendar::createInstance(status);
     if(U_FAILURE(status)) {
-      errln("Error creating calendar %s", u_errorName(status));
+      dataerrln("Error creating calendar %s", u_errorName(status));
       delete cal;
       return;
     }
@@ -460,11 +460,10 @@ void TimeZoneRegressionTest:: Test4126678()
     TimeZone *tz = TimeZone::createTimeZone("PST");
     cal->adoptTimeZone(tz);
 
-    cal->set(1998 - 1900, UCAL_APRIL, 5, 10, 0);
-    //Date dt = new Date(1998-1900, Calendar::APRIL, 5, 10, 0);
+    cal->set(1998, UCAL_APRIL, 5, 10, 0);
     
     if (! tz->useDaylightTime() || U_FAILURE(status))
-        errln("We're not in Daylight Savings Time and we should be.\n");
+        dataerrln("We're not in Daylight Savings Time and we should be. - %s", u_errorName(status));
 
     //cal.setTime(dt);
     int32_t era = cal->get(UCAL_ERA, status);
@@ -481,21 +480,8 @@ void TimeZoneRegressionTest:: Test4126678()
     failure(status, "cal->get");
     int32_t offset = tz->getOffset((uint8_t)era, year, month, day, (uint8_t)dayOfWeek, millis, status);
     int32_t raw_offset = tz->getRawOffset();
-    /* Because of better historical timezone support based on Olson data,
-     * DST is not observed in year 98.  Thus, the expected result is changed.
-     * As of Mar 2007, ICU timezone transition data is represented by 32-bit.
-     * When we support 64-bit Olson transition data, the actual offset in
-     * AD 98 for America/Los_Angeles will be changed again (-7:52:58).  Until
-     * then, expected result is offset == raw_offset.  -Yoshito
-     */
-    /*
+
     if (offset == raw_offset)
-        errln("Offsets should not match when in DST");
-    */
-    /* TODO: When ICU support the Olson LMT offset for America/Los_Angeles, we need to update
-     * the reference data.
-     */
-    if (offset != raw_offset)
         errln("Offsets should match");
 
     delete cal;
@@ -852,7 +838,7 @@ TimeZoneRegressionTest::Test4162593()
     UErrorCode status = U_ZERO_ERROR;
     SimpleDateFormat *fmt = new SimpleDateFormat("z", Locale::getUS(), status);
     if(U_FAILURE(status)) {
-      errln("Error creating calendar %s", u_errorName(status));
+      dataerrln("Error creating calendar %s", u_errorName(status));
       delete fmt;
       return;
     }
@@ -941,7 +927,10 @@ void TimeZoneRegressionTest::Test4176686() {
 
     // Also check DateFormat
     DateFormat* fmt1 = new SimpleDateFormat(UnicodeString("z"), status);
-    if(!assertSuccess("trying to construct", status))return;
+    if (U_FAILURE(status)) {
+        dataerrln("Failure trying to construct: %s", u_errorName(status));
+        return;
+    }
     fmt1->setTimeZone(*z1); // Format uses standard zone
     DateFormat* fmt2 = new SimpleDateFormat(UnicodeString("z"), status);
     if(!assertSuccess("trying to construct", status))return;
@@ -1046,7 +1035,7 @@ void TimeZoneRegressionTest::TestJ449() {
     // Make sure we got valid zones
     if (zoneWith->getID(str) != UnicodeString(idWithLocaleData) ||
         zoneWithout->getID(str) != UnicodeString(idWithoutLocaleData)) {
-      errln(UnicodeString("Fail: Unable to create zones - wanted ") + idWithLocaleData + ", got " + zoneWith->getID(str) + ", and wanted " + idWithoutLocaleData + " but got " + zoneWithout->getID(str));
+      dataerrln(UnicodeString("Fail: Unable to create zones - wanted ") + idWithLocaleData + ", got " + zoneWith->getID(str) + ", and wanted " + idWithoutLocaleData + " but got " + zoneWithout->getID(str));
     } else {
         GregorianCalendar calWith(*zoneWith, status);
         GregorianCalendar calWithout(*zoneWithout, status);
@@ -1104,10 +1093,7 @@ TimeZoneRegressionTest::TestJDK12API()
         return;
     }
 
-    SimpleTimeZone *cst = 0;
-
-    if(cst1->getDynamicClassID() == SimpleTimeZone::getStaticClassID())
-        cst = (SimpleTimeZone*) cst1;
+    SimpleTimeZone *cst = dynamic_cast<SimpleTimeZone *>(cst1);
 
     if(pst->hasSameRules(*cst)) {
         errln("FAILURE: PST and CST have same rules");

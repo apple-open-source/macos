@@ -43,7 +43,7 @@
 //
 // Global Constants
 //
-const unsigned long masks[] = {
+const unsigned int masks[] = {
     0x00000000,
     0x00000001, 0x00000003, 0x00000007, 0x0000000F,
     0x0000001F, 0x0000003F, 0x0000007F, 0x000000FF,
@@ -69,11 +69,11 @@ const unsigned long masks[] = {
 //
 // Routines
 //
-unsigned long
-bitfield_set(unsigned long *bf, int base, int length, unsigned long value)
+unsigned int
+bitfield_set(unsigned int *bf, int base, int length, unsigned int value)
 {
-    unsigned long t;
-    unsigned long m;
+    unsigned int t;
+    unsigned int m;
     int s;
 
     // compute shift & mask, coerce value to correct number of bits,
@@ -87,10 +87,10 @@ bitfield_set(unsigned long *bf, int base, int length, unsigned long value)
 }
 
 
-unsigned long
-bitfield_get(unsigned long bf, int base, int length)
+unsigned int
+bitfield_get(unsigned int bf, int base, int length)
 {
-    unsigned long m;
+    unsigned int m;
     int s;
 
     // compute shift & mask

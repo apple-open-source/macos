@@ -1,0 +1,33 @@
+Authentication
+==============
+
+Authentication is split into four parts:
+
+ 1. <Authentication mechanisms> [Authentication.Mechanisms.txt]
+ 2. <Password schemes> [Authentication.PasswordSchemes.txt]
+ 3. <Password databases> [PasswordDatabase.txt]
+ 4. <User databases> [UserDatabase.txt]
+
+Authentication mechanisms vs. password schemes
+----------------------------------------------
+
+Authentication mechanisms and password schemes are often confused, because they
+have somewhat similar values. For example there is a PLAIN auth mechanism and
+PLAIN password scheme. But they mean completely different things.
+
+ * *Authentication mechanism is a client/server protocol*. It's about how the
+   client and server talk to each others in order to perform the
+   authentication. Most people use only PLAIN authentication, which basically
+   means that the user and password are sent without any kind of encryption to
+   server. SSL/TLS can then be used to provide the encryption to make PLAIN
+   authentication secure.
+ * *Password scheme is about how the password is hashed in your password
+   database*. If you use a PLAIN scheme, your passwords are stored in cleartext
+   without any hashing in the password database. A popular password scheme
+   MD5-CRYPT (also commonly used in '/etc/shadow') where passwords looks like
+   "$1$oDMXOrCA$plmv4yuMdGhL9xekM.q.I/".
+ * Plaintext authentication mechanisms work with ALL password schemes.
+ * Non-plaintext authentication mechanisms require either PLAIN password scheme
+   or a mechanism-specific password scheme.
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -3,6 +3,7 @@
  * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  * Copyright (C) 2009-2010 ProFUSION embedded systems
  * Copyright (C) 2009-2010 Samsung Electronics
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,7 +26,9 @@
 
 #include "ChromeClient.h"
 #include "KURL.h"
-#include <Evas.h>
+#include "PopupMenu.h"
+
+typedef struct _Evas_Object Evas_Object;
 
 namespace WebCore {
 
@@ -36,6 +39,7 @@ public:
 
     virtual void chromeDestroyed();
 
+    virtual void* webView() const { return 0; }
     virtual void setWindowRect(const FloatRect&);
     virtual FloatRect windowRect();
 
@@ -50,8 +54,9 @@ public:
     virtual void takeFocus(FocusDirection);
 
     virtual void focusedNodeChanged(Node*);
+    virtual void focusedFrameChanged(Frame*);
 
-    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&);
+    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&);
     virtual void show();
 
     virtual bool canRunModal();
@@ -69,6 +74,9 @@ public:
     virtual void setMenubarVisible(bool);
     virtual bool menubarVisible();
 
+    virtual void createSelectPopup(PopupMenuClient*, int selected, const IntRect& rect);
+    virtual bool destroySelectPopup();
+
     virtual void setResizable(bool);
 
     virtual void addMessageToConsole(MessageSource, MessageType, MessageLevel, const String& message,
@@ -84,7 +92,7 @@ public:
     virtual bool runJavaScriptPrompt(Frame*, const String& message, const String& defaultValue, String& result);
     virtual void setStatusbarText(const String&);
     virtual bool shouldInterruptJavaScript();
-    virtual bool tabsToLinks() const;
+    virtual WebCore::KeyboardUIMode keyboardUIMode();
 
     virtual IntRect windowResizerRect() const;
 
@@ -106,15 +114,22 @@ public:
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t spaceNeeded);
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*);
+#endif
+
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
+#endif
+
+#if ENABLE(TOUCH_EVENTS)
+    virtual void needTouchEvents(bool);
 #endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>);
     virtual void chooseIconForFiles(const Vector<String>&, FileChooser*);
     virtual void formStateDidChange(const Node*);
 
-    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
-    virtual bool setCursor(PlatformCursorHandle);
+    virtual void setCursor(const Cursor&);
 
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
@@ -129,6 +144,16 @@ public:
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&);
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*);
     virtual void iconForFiles(const Vector<String, 0u>&, PassRefPtr<FileChooser>);
+
+    virtual void dispatchViewportDataDidChange(const ViewportArguments&) const;
+
+    virtual bool selectItemWritingDirectionIsNatural();
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection();
+    virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const;
+    virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const;
+
+    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return true; }
+    virtual void numWheelEventHandlersChanged(unsigned) { }
 
     Evas_Object* m_view;
     KURL m_hoveredLinkURL;

@@ -1,6 +1,6 @@
---- fgetws.3	2003-05-20 15:22:41.000000000 -0700
-+++ fgetws.3.edit	2006-08-12 09:44:23.000000000 -0700
-@@ -41,7 +41,8 @@
+--- fgetws.3.bsdnew	2009-11-11 13:33:05.000000000 -0800
++++ fgetws.3	2009-11-11 13:33:05.000000000 -0800
+@@ -37,7 +37,8 @@
  .Dt FGETWS 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd get a line of wide characters from a stream
  .Sh LIBRARY
  .Lb libc
-@@ -49,7 +50,21 @@
+@@ -45,7 +46,21 @@
  .In stdio.h
  .In wchar.h
  .Ft "wchar_t *"
@@ -33,7 +33,7 @@
  .Sh DESCRIPTION
  The
  .Fn fgetws
-@@ -57,7 +72,7 @@
+@@ -53,7 +68,7 @@ function
  reads at most one less than the number of characters specified by
  .Fa n
  from the given
@@ -42,7 +42,7 @@
  and stores them in the wide character string
  .Fa ws .
  Reading stops when a newline character is found,
-@@ -66,6 +81,14 @@
+@@ -62,6 +77,14 @@ The newline, if any, is retained.
  If any characters are read and there is no error, a
  .Ql \e0
  character is appended to end the string.
@@ -57,7 +57,7 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn fgetws
-@@ -84,7 +107,8 @@
+@@ -80,7 +103,8 @@ and the buffer contents are indeterminat
  The
  .Fn fgetws
  function
@@ -67,7 +67,7 @@
  .Xr feof 3
  and
  .Xr ferror 3
-@@ -96,7 +120,7 @@
+@@ -92,7 +116,7 @@ function will fail if:
  .Bl -tag -width Er
  .It Bq Er EBADF
  The given
@@ -76,7 +76,7 @@
  argument is not a readable stream.
  .It Bq Er EILSEQ
  The data obtained from the input stream does not form a valid
-@@ -116,7 +140,8 @@
+@@ -112,7 +136,8 @@ or
  .Sh SEE ALSO
  .Xr feof 3 ,
  .Xr ferror 3 ,

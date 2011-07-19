@@ -79,6 +79,7 @@ CYRUS_CONFIG = \
 	--with-cyrus-user=_cyrus \
 	--mandir=/usr/share/man \
 	--without-snmp \
+	"CC=llvm-gcc-4.2" \
 	BI_RC_CFLAGS="$(CFLAGS)"
 
 # These includes provide the proper paths to system utilities
@@ -89,7 +90,7 @@ include $(MAKEFILEPATH)/pb_makefiles/commands-$(OS).make
 
 default:: make_imap
 
-install :: make_imap_install clean_src strip_imap_binaries
+install :: make_imap_install clean_src strip_imap_binaries barolo_cleanup
 
 install_debug :: make_imap_install
 
@@ -159,6 +160,7 @@ install_imap : $(DSTROOT)$(LIB_PERL)
 	# Cyrus admin app
 	$(SILENT) install -d -m 755 $(DSTROOT)/$(ADMIN_DST_DIR)
 	$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/bin/cyradm" "$(DSTROOT)/$(ADMIN_DST_DIR)/"
+	#$(SILENT) install -m 0755 "$(DSTROOT)/usr/local/usr/bin/cyradm" "$(DSTROOT)/$(ADMIN_DST_DIR)/"
 
 	# Install man pages
 	$(SILENT) install -d -m 755 $(DSTROOT)/$(MAN_DST_DIR)
@@ -196,9 +198,9 @@ install_imap : $(DSTROOT)$(LIB_PERL)
 	done
 
 	# Setup & Migration Extras
-	$(SILENT) install -d -m 0755 $(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)
+	#$(SILENT) install -d -m 0755 $(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)
 	$(SILENT) install -d -m 0755 $(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)
-	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/cyrus" "$(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)"
+	#$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/cyrus" "$(DSTROOT)/$(SETUP_EXTRAS_DST_DIR)"
 	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/migrate_cyrus_db" "$(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)/61_migrate_cyrus_db"
 	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/upgrade_cyrus_opts" "$(DSTROOT)/$(MIGRATION_EXTRAS_DST_DIR)/62_upgrade_cyrus_opts"
 	$(SILENT) install -m 0755 "$(SRCROOT)/$(SETUP_EXTRAS_SRC_DIR)/migrate_pan_db" "$(DSTROOT)/$(TOOLS_DST_DIR)/migrate_pan_db"
@@ -243,6 +245,21 @@ strip_imap_binaries:
 	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/proxyd")
 	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/pop3proxyd")
 	$(SILENT) ($(STRIP) -S "$(DSTROOT)$(BIN_DST_DIR)/lmtpproxyd")
+
+barolo_cleanup:
+	$(SILENT) $(ECHO) "---- Cyrus binaries cleanup $(PROJECT_NAME)"
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/System")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/private")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/share")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/bin/cyrus/admin")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/bin/cyrus/sieve")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/bin/cyrus/test")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/bin/cyrus/tools")
+	$(SILENT) ($(MV) "$(DSTROOT)/usr/bin/cyrus/bin/cvt_cyrusdb" "$(DSTROOT)/usr/bin/cyrus/cvt_cyrusdb")
+	$(SILENT) ($(RM) -rf "$(DSTROOT)/usr/bin/cyrus/bin")
+	$(SILENT) (mkdir "$(DSTROOT)/usr/bin/cyrus/bin")
+	$(SILENT) ($(MV) "$(DSTROOT)/usr/bin/cyrus/cvt_cyrusdb" "$(DSTROOT)/usr/bin/cyrus/bin/cvt_cyrusdb")
+	$(SILENT) $(ECHO) "---- Cyrus binaries cleanup $(PROJECT_NAME) complete."
 
 .PHONY: clean installhdrs installsrc build install 
 

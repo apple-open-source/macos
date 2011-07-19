@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/request.c,v 1.125.2.8 2008/05/27 20:08:37 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/request.c,v 1.125.2.17 2010/06/10 17:39:48 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -128,10 +128,14 @@ ldap_send_initial_request(
 			if (ld->ld_options.ldo_cldapdn)
 				ldap_memfree(ld->ld_options.ldo_cldapdn);
 			ld->ld_options.ldo_cldapdn = ldap_strdup(dn);
+			ber_free( ber, 1 );
 			return 0;
 		}
 		if (msgtype != LDAP_REQ_ABANDON && msgtype != LDAP_REQ_SEARCH)
+		{
+			ber_free( ber, 1 );
 			return LDAP_PARAM_ERROR;
+		}
 	}
 #endif
 #ifdef LDAP_R_COMPILE
@@ -356,6 +360,32 @@ ldap_send_server_request(
 	return( msgid );
 }
 
+/* return 0 if no StartTLS ext, 1 if present, 2 if critical */
+static int
+find_tls_ext( LDAPURLDesc *srv )
+{
+	int i, crit;
+	char *ext;
+
+	if ( !srv->lud_exts )
+		return 0;
+
+	for (i=0; srv->lud_exts[i]; i++) {
+		crit = 0;
+		ext = srv->lud_exts[i];
+		if ( ext[0] == '!') {
+			ext++;
+			crit = 1;
+		}
+		if ( !strcasecmp( ext, "StartTLS" ) ||
+			!strcasecmp( ext, "X-StartTLS" ) ||
+			!strcmp( ext, LDAP_EXOP_START_TLS )) {
+			return crit + 1;
+		}
+	}
+	return 0;
+}
+
 LDAPConn *
 ldap_new_connection( LDAP *ld, LDAPURLDesc **srvlist, int use_ldsb,
 	int connect, LDAPreqinfo *bind )
@@ -429,6 +459,38 @@ ldap_new_connection( LDAP *ld, LDAPURLDesc **srvlist, int use_ldsb,
 #ifdef LDAP_R_COMPILE
 	ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
 #endif
+
+	if ( connect ) {
+#ifdef HAVE_TLS
+		if ( lc->lconn_server->lud_exts ) {
+			int rc, ext = find_tls_ext( lc->lconn_server );
+			if ( ext ) {
+				LDAPConn	*savedefconn;
+
+				savedefconn = ld->ld_defconn;
+				++lc->lconn_refcnt;	/* avoid premature free */
+				ld->ld_defconn = lc;
+
+#ifdef LDAP_R_COMPILE
+				ldap_pvt_thread_mutex_unlock( &ld->ld_req_mutex );
+				ldap_pvt_thread_mutex_unlock( &ld->ld_res_mutex );
+#endif
+				rc = ldap_start_tls_s( ld, NULL, NULL );
+#ifdef LDAP_R_COMPILE
+				ldap_pvt_thread_mutex_lock( &ld->ld_res_mutex );
+				ldap_pvt_thread_mutex_lock( &ld->ld_req_mutex );
+#endif
+				ld->ld_defconn = savedefconn;
+				--lc->lconn_refcnt;
+
+				if ( rc != LDAP_SUCCESS && ext == 2 ) {
+					ldap_free_connection( ld, lc, 1, 0 );
+					return NULL;
+				}
+			}
+		}
+#endif
+	}
 
 	if ( bind != NULL ) {
 		int		err = 0;
@@ -581,8 +643,7 @@ find_connection( LDAP *ld, LDAPURLDesc *srv, int any )
 
 			if ( lsu_port == lcu_port
 				&& strcmp( lcu->lud_scheme, lsu->lud_scheme ) == 0
-				&& lcu->lud_host != NULL && *lcu->lud_host != '\0'
-				&& lsu->lud_host != NULL && *lsu->lud_host != '\0'
+				&& lcu->lud_host != NULL && lsu->lud_host != NULL
 				&& strcasecmp( lsu->lud_host, lcu->lud_host ) == 0 )
 			{
 				found = 1;
@@ -646,6 +707,28 @@ ldap_free_connection( LDAP *ld, LDAPConn *lc, int force, int unbind )
 		ldap_pvt_thread_mutex_unlock( &ld->ld_conn_mutex );
 #endif
 
+		/* process connection callbacks */
+		{
+			struct ldapoptions *lo;
+			ldaplist *ll;
+			ldap_conncb *cb;
+
+			lo = &ld->ld_options;
+			if ( lo->ldo_conn_cbs ) {
+				for ( ll=lo->ldo_conn_cbs; ll; ll=ll->ll_next ) {
+					cb = ll->ll_data;
+					cb->lc_del( ld, lc->lconn_sb, cb );
+				}
+			}
+			lo = LDAP_INT_GLOBAL_OPT();
+			if ( lo->ldo_conn_cbs ) {
+				for ( ll=lo->ldo_conn_cbs; ll; ll=ll->ll_next ) {
+					cb = ll->ll_data;
+					cb->lc_del( ld, lc->lconn_sb, cb );
+				}
+			}
+		}
+
 		if ( lc->lconn_status == LDAP_CONNST_CONNECTED ) {
 			ldap_mark_select_clear( ld, lc->lconn_sb );
 			if ( unbind ) {
@@ -657,17 +740,15 @@ ldap_free_connection( LDAP *ld, LDAPConn *lc, int force, int unbind )
 		/* if we had callback callit now, we're freeing it */
 		ber_socket_t sd = -1;
 		ber_sockbuf_ctrl( lc->lconn_sb, LBER_SB_OPT_GET_FD, &sd );
-		if ( sd != -1 && ld->ld_options.ldo_notifydesc_proc != NULL ) {
-			ld->ld_options.ldo_notifydesc_proc(ld, sd, 0, 
-											   ld->ld_options.ldo_notifydesc_params);
-		}
-		
 
 		if ( lc->lconn_ber != NULL ) {
 			ber_free( lc->lconn_ber, 1 );
 		}
 
 		ldap_int_sasl_close( ld, lc );
+#ifdef HAVE_GSSAPI
+		ldap_int_gssapi_close( ld, lc );
+#endif
 
 		ldap_free_urllist( lc->lconn_server );
 
@@ -1014,10 +1095,18 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 		}
 
 		if( srv->lud_crit_exts ) {
-			/* we do not support any extensions */
-			ld->ld_errno = LDAP_NOT_SUPPORTED;
-			rc = -1;
-			goto done;
+			int ok = 0;
+#ifdef HAVE_TLS
+			/* If StartTLS is the only critical ext, OK. */
+			if ( find_tls_ext( srv ) == 2 && srv->lud_crit_exts == 1 )
+				ok = 1;
+#endif
+			if ( !ok ) {
+				/* we do not support any other extensions */
+				ld->ld_errno = LDAP_NOT_SUPPORTED;
+				rc = -1;
+				goto done;
+			}
 		}
 
 		/* check connection for re-bind in progress */
@@ -1025,7 +1114,7 @@ ldap_chase_v3referrals( LDAP *ld, LDAPRequest *lr, char **refs, int sref, char *
 			/* See if we've already requested this DN with this conn */
 			LDAPRequest *lp;
 			int looped = 0;
-			int len = srv->lud_dn ? strlen( srv->lud_dn ) : 0;
+			ber_len_t len = srv->lud_dn ? strlen( srv->lud_dn ) : 0;
 			for ( lp = origreq; lp; ) {
 				if ( lp->lr_conn == lc
 					&& len == lp->lr_dn.bv_len
@@ -1284,7 +1373,7 @@ ldap_chase_referrals( LDAP *ld,
 		if (( lc = find_connection( ld, srv, 1 )) != NULL ) {
 			LDAPRequest *lp;
 			int looped = 0;
-			int len = srv->lud_dn ? strlen( srv->lud_dn ) : 0;
+			ber_len_t len = srv->lud_dn ? strlen( srv->lud_dn ) : 0;
 			for ( lp = lr; lp; lp = lp->lr_parent ) {
 				if ( lp->lr_conn == lc
 					&& len == lp->lr_dn.bv_len )

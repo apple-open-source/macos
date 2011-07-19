@@ -1,7 +1,7 @@
 /*
  * (C) 1999 Lars Knoll (knoll@kde.org)
  * (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -25,10 +25,12 @@
 
 #include "InlineBox.h"
 #include "RenderText.h" // so textRenderer() can be inline
+#include "TextRun.h"
 
 namespace WebCore {
 
 struct CompositionUnderline;
+struct DocumentMarker;
 
 const unsigned short cNoTruncation = USHRT_MAX;
 const unsigned short cFullTruncation = USHRT_MAX - 1;
@@ -49,6 +51,8 @@ public:
     {
     }
 
+    virtual void destroy(RenderArena*);
+
     InlineTextBox* prevTextBox() const { return m_prevTextBox; }
     InlineTextBox* nextTextBox() const { return m_nextTextBox; }
     void setNextTextBox(InlineTextBox* n) { m_nextTextBox = n; }
@@ -63,32 +67,47 @@ public:
 
     void offsetRun(int d) { m_start += d; }
 
-    void setFallbackFonts(const HashSet<const SimpleFontData*>&);
-    Vector<const SimpleFontData*>* fallbackFonts() const;
-
-    void setGlyphOverflow(const GlyphOverflow&);
-    GlyphOverflow* glyphOverflow() const;
-
-    static void clearGlyphOverflowAndFallbackFontMap()
-    {
-        if (s_glyphOverflowAndFallbackFontsMap)
-            s_glyphOverflowAndFallbackFontsMap->clear();
-    }
-
     unsigned short truncation() { return m_truncation; }
 
+    bool hasHyphen() const { return m_hasEllipsisBoxOrHyphen; }
+    void setHasHyphen(bool hasHyphen) { m_hasEllipsisBoxOrHyphen = hasHyphen; }
+
+    bool canHaveLeadingExpansion() const { return m_hasSelectedChildrenOrCanHaveLeadingExpansion; }
+    void setCanHaveLeadingExpansion(bool canHaveLeadingExpansion) { m_hasSelectedChildrenOrCanHaveLeadingExpansion = canHaveLeadingExpansion; }
+
+    static inline bool compareByStart(const InlineTextBox* first, const InlineTextBox* second) { return first->start() < second->start(); }
+
+    virtual int baselinePosition(FontBaseline) const;
+    virtual int lineHeight() const;
+
+    bool getEmphasisMarkPosition(RenderStyle*, TextEmphasisPosition&) const;
+
+    IntRect logicalOverflowRect() const;
+    void setLogicalOverflowRect(const IntRect&);
+    int logicalTopVisualOverflow() const { return logicalOverflowRect().y(); }
+    int logicalBottomVisualOverflow() const { return logicalOverflowRect().maxY(); }
+    int logicalLeftVisualOverflow() const { return logicalOverflowRect().x(); }
+    int logicalRightVisualOverflow() const { return logicalOverflowRect().maxX(); }
+
+#ifndef NDEBUG
+    virtual void showBox(int = 0) const;
+    virtual const char* boxName() const;
+#endif
 private:
-    virtual int selectionTop();
-    virtual int selectionHeight();
+    int selectionTop();
+    int selectionBottom();
+    int selectionHeight();
 
 public:
+    virtual IntRect calculateBoundaries() const { return IntRect(x(), y(), width(), height()); }
+
     virtual IntRect selectionRect(int absx, int absy, int startPos, int endPos);
     bool isSelected(int startPos, int endPos) const;
     void selectionStartEnd(int& sPos, int& ePos);
 
-private:
-    virtual void paint(RenderObject::PaintInfo&, int tx, int ty);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty);
+protected:
+    virtual void paint(PaintInfo&, int tx, int ty, int lineTop, int lineBottom);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, int lineTop, int lineBottom);
 
 public:
     RenderText* textRenderer() const;
@@ -103,15 +122,15 @@ public:
 
 private:
     virtual void clearTruncation() { m_truncation = cNoTruncation; }
-    virtual int placeEllipsisBox(bool flowIsLTR, int visibleLeftEdge, int visibleRightEdge, int ellipsisWidth, bool& foundBox);
+    virtual float placeEllipsisBox(bool flowIsLTR, float visibleLeftEdge, float visibleRightEdge, float ellipsisWidth, bool& foundBox);
 
 public:
     virtual bool isLineBreak() const;
 
-    void setSpaceAdd(int add) { m_width -= m_toAdd; m_toAdd = add; m_width += m_toAdd; }
+    void setExpansion(int expansion) { m_logicalWidth -= m_expansion; m_expansion = expansion; m_logicalWidth += m_expansion; }
 
 private:
-    virtual bool isInlineTextBox() { return true; }    
+    virtual bool isInlineTextBox() const { return true; }    
 
 public:
     virtual int caretMinOffset() const;
@@ -120,13 +139,16 @@ public:
 private:
     virtual unsigned caretMaxRenderedOffset() const;
 
-    int textPos() const;
+    float textPos() const; // returns the x position relative to the left start of the text line.
 
 public:
-    virtual int offsetForPosition(int x, bool includePartialGlyphs = true) const;
-    virtual int positionForOffset(int offset) const;
+    virtual int offsetForPosition(float x, bool includePartialGlyphs = true) const;
+    virtual float positionForOffset(int offset) const;
 
     bool containsCaretOffset(int offset) const; // false for offset after line break
+
+    // Needs to be public, so the static paintTextWithShadows() function can use it.
+    static FloatSize applyShadowToGraphicsContext(GraphicsContext*, const ShadowData*, const FloatRect& textRect, bool stroked, bool opaque, bool horizontal);
 
 private:
     InlineTextBox* m_prevTextBox; // The previous box that also uses our RenderObject
@@ -138,23 +160,26 @@ private:
     unsigned short m_truncation; // Where to truncate when text overflow is applied.  We use special constants to
                       // denote no truncation (the whole run paints) and full truncation (nothing paints at all).
 
-    typedef HashMap<const InlineTextBox*, pair<Vector<const SimpleFontData*>, GlyphOverflow> > GlyphOverflowAndFallbackFontsMap;
-    static GlyphOverflowAndFallbackFontsMap* s_glyphOverflowAndFallbackFontsMap;
-
 protected:
-    void paintCompositionBackground(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&, int startPos, int endPos);
-    void paintDocumentMarkers(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&, bool background);
-    void paintCompositionUnderline(GraphicsContext*, int tx, int ty, const CompositionUnderline&);
+    void paintCompositionBackground(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&, int startPos, int endPos);
+    void paintDocumentMarkers(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&, bool background);
+    void paintCompositionUnderline(GraphicsContext*, const FloatPoint& boxOrigin, const CompositionUnderline&);
 #if PLATFORM(MAC)
     void paintCustomHighlight(int tx, int ty, const AtomicString& type);
 #endif
 
 private:
-    void paintDecoration(GraphicsContext*, int tx, int ty, int decoration, const ShadowData*);
-    void paintSelection(GraphicsContext*, int tx, int ty, RenderStyle*, const Font&);
-    void paintSpellingOrGrammarMarker(GraphicsContext*, int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&, bool grammar);
-    void paintTextMatchMarker(GraphicsContext*, int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&);
-    void computeRectForReplacementMarker(int tx, int ty, const DocumentMarker&, RenderStyle*, const Font&);
+    void paintDecoration(GraphicsContext*, const FloatPoint& boxOrigin, int decoration, const ShadowData*);
+    void paintSelection(GraphicsContext*, const FloatPoint& boxOrigin, RenderStyle*, const Font&);
+    void paintSpellingOrGrammarMarker(GraphicsContext*, const FloatPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&, bool grammar);
+    void paintTextMatchMarker(GraphicsContext*, const FloatPoint& boxOrigin, const DocumentMarker&, RenderStyle*, const Font&);
+    void computeRectForReplacementMarker(const DocumentMarker&, RenderStyle*, const Font&);
+
+    TextRun::ExpansionBehavior expansionBehavior() const
+    {
+        return (canHaveLeadingExpansion() ? TextRun::AllowLeadingExpansion : TextRun::ForbidLeadingExpansion)
+            | (m_expansion && nextLeafChild() ? TextRun::AllowTrailingExpansion : TextRun::ForbidTrailingExpansion);
+    }
 };
 
 inline RenderText* InlineTextBox::textRenderer() const

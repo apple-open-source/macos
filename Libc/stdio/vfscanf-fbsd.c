@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)vfscanf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.43 2009/01/19 06:19:51 das Exp $");
 
 #include "xlocale_private.h"
 
@@ -103,18 +99,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vfscanf.c,v 1.37 2004/05/02 10:55:05 das 
 static const u_char *__sccl(char *, const u_char *, locale_t);
 #ifndef NO_FLOATING_POINT
 static int parsefloat(FILE *, char **, size_t, locale_t);
-#endif /* !NO_FLOATING_POINT */
-
-/*
- * For ppc, we need to have the 64-bit long double version defining storage for
- * __scanfdebug, to be compatible with 10.3.  For ppc64 and i386, we want the
- * storage defined in the only version.
- */
-#if defined(__ppc__) && !defined(BUILDING_VARIANT)
-extern int __scanfdebug;
-#else /* !__ppc__ || BUILDING_VARIANT */
-int __scanfdebug = 0;
-#endif /* __ppc__ && !BUILDING_VARIANT */
+#endif
 
 __weak_reference(__vfscanf, vfscanf);
 
@@ -163,7 +148,6 @@ __svfscanf_l(FILE * __restrict fp, locale_t loc, const char * __restrict fmt0, v
 	char ccltab[256];	/* character class table for %[...] */
 	char buf[BUF];		/* buffer for numeric and mb conversions */
 	wchar_t *wcp;		/* handy wide character pointer */
-	wchar_t *wcp0;		/* saves original value of wcp */
 	size_t nconv;		/* length of multibyte sequence converted */
 	int index;		/* %index$, zero if unset */
 	va_list ap_orig;	/* to reset ap to first argument */
@@ -341,26 +325,28 @@ literal:
 			break;
 
 		case 'n':
-			if (flags & SUPPRESS)	/* ??? */
+		{
+			void *ptr = va_arg(ap, void *);
+			if ((ptr == NULL) || (flags & SUPPRESS))	/* ??? */
 				continue;
-			if (flags & SHORTSHORT)
-				*va_arg(ap, char *) = nread;
+			else if (flags & SHORTSHORT)
+				*(char *)ptr = nread;
 			else if (flags & SHORT)
-				*va_arg(ap, short *) = nread;
+				*(short *)ptr = nread;
 			else if (flags & LONG)
-				*va_arg(ap, long *) = nread;
+				*(long *)ptr = nread;
 			else if (flags & LONGLONG)
-				*va_arg(ap, long long *) = nread;
+				*(long long *)ptr = nread;
 			else if (flags & INTMAXT)
-				*va_arg(ap, intmax_t *) = nread;
+				*(intmax_t *)ptr = nread;
 			else if (flags & SIZET)
-				*va_arg(ap, size_t *) = nread;
+				*(size_t *)ptr = nread;
 			else if (flags & PTRDIFFT)
-				*va_arg(ap, ptrdiff_t *) = nread;
+				*(ptrdiff_t *)ptr = nread;
 			else
-				*va_arg(ap, int *) = nread;
+				*(int *)ptr = nread;
 			continue;
-
+		}
 		default:
 			goto match_failure;
 
@@ -465,7 +451,7 @@ literal:
 				}
 				nread += sum;
 			} else {
-				size_t r = fread((void *)va_arg(ap, char *), 1,
+				size_t r = __fread((void *)va_arg(ap, char *), 1,
 				    width, fp);
 
 				if (r == 0)
@@ -485,9 +471,9 @@ literal:
 				int nchars;
 
 				if ((flags & SUPPRESS) == 0)
-					wcp = wcp0 = va_arg(ap, wchar_t *);
+					wcp = va_arg(ap, wchar_t *);
 				else
-					wcp = wcp0 = &twc;
+					wcp = &twc;
 				n = 0;
 				nchars = 0;
 				while (width != 0) {
@@ -832,8 +818,6 @@ literal:
 					float res = strtof_l(pbuf, &p, loc);
 					*va_arg(ap, float *) = res;
 				}
-				if (__scanfdebug && p - pbuf != width)
-					LIBC_ABORT("p - pbuf %ld != width %ld", (long)(p - pbuf), width);
 				nassigned++;
 			}
 			nread += width;
@@ -1020,14 +1004,13 @@ static int
 parsefloat(FILE *fp, char **buf, size_t width, locale_t loc)
 {
 	char *commit, *p;
-	int infnanpos = 0;
+	int infnanpos = 0, decptpos = 0;
 	enum {
-		S_START, S_GOTSIGN, S_INF, S_NAN, S_MAYBEHEX,
-		S_DIGITS, S_FRAC, S_EXP, S_EXPDIGITS, S_DECIMAL_POINT
+		S_START, S_GOTSIGN, S_INF, S_NAN, S_DONE, S_MAYBEHEX,
+		S_DIGITS, S_DECPT, S_FRAC, S_EXP, S_EXPDIGITS
 	} state = S_START;
 	unsigned char c;
-	unsigned char *decpt = (unsigned char *)localeconv_l(loc)->decimal_point;
-	char *decpt_start;
+	const char *decpt = localeconv_l(loc)->decimal_point;
 	_Bool gotmantdig = 0, ishex = 0;
 	char *b;
 	char *e;
@@ -1089,8 +1072,6 @@ reswitch:
 			break;
 		case S_NAN:
 			switch (infnanpos) {
-			case -1:	/* XXX kludge to deal with nan(...) */
-				goto parsedone;
 			case 0:
 				if (c != 'A' && c != 'a')
 					goto parsedone;
@@ -1108,13 +1089,15 @@ reswitch:
 			default:
 				if (c == ')') {
 					commit = p;
-					infnanpos = -2;
+					state = S_DONE;
 				} else if (!isalnum_l(c, loc) && c != '_')
 					goto parsedone;
 				break;
 			}
 			infnanpos++;
 			break;
+		case S_DONE:
+			goto parsedone;
 		case S_MAYBEHEX:
 			state = S_DIGITS;
 			if (c == 'X' || c == 'x') {
@@ -1125,33 +1108,34 @@ reswitch:
 				goto reswitch;
 			}
 		case S_DIGITS:
-			if ((ishex && isxdigit_l(c, loc)) || isdigit_l(c, loc))
+			if ((ishex && isxdigit_l(c, loc)) || isdigit_l(c, loc)) {
 				gotmantdig = 1;
-			else {
-				state = S_DECIMAL_POINT;
-				decpt_start = p;
+				commit = p;
+				break;
+			} else {
+				state = S_DECPT;
 				goto reswitch;
 			}
-			if (gotmantdig)
-				commit = p;
-			break;
-		case S_DECIMAL_POINT:
-			if (*decpt == 0) {
-				if (gotmantdig)
-					commit = p - 1;
+		case S_DECPT:
+			if (c == decpt[decptpos]) {
+				if (decpt[++decptpos] == '\0') {
+					/* We read the complete decpt seq. */
+					state = S_FRAC;
+					if (gotmantdig)
+						commit = p;
+				}
+				break;
+			} else if (!decptpos) {
+				/* We didn't read any decpt characters. */
 				state = S_FRAC;
 				goto reswitch;
+			} else {
+				/*
+				 * We read part of a multibyte decimal point,
+				 * but the rest is invalid, so bail.
+				 */
+				goto parsedone;
 			}
-			if (*decpt++ == c)
-				break;
-			/* not decimal point */
-			state = S_FRAC;
-			if (decpt_start == p)
-				goto reswitch;
-			while (decpt_start < --p)
-				__ungetc(*(u_char *)p, fp);
-			c = *(u_char *)p;
-			goto reswitch;
 		case S_FRAC:
 			if (((c == 'E' || c == 'e') && !ishex) ||
 			    ((c == 'P' || c == 'p') && ishex)) {

@@ -1,0 +1,17 @@
+Index: src/move.c
+===================================================================
+--- src/move.c	(revision 57762)
++++ src/move.c	(working copy)
+@@ -2594,6 +2594,12 @@
+ 	return;
+     }
+ 
++    if (Unix2003_compat) {
++	if (p_window_unix2003) {
++		*lp = loff1;	/* one line overlap only */
++		return;
++	}
++    }
+     loff2 = *lp;
+     if (dir > 0)
+ 	botline_forw(lp);

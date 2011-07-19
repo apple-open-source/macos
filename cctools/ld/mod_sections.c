@@ -228,7 +228,7 @@ enum bool redo_live)
 	 */
 	section_map->flush_offset = ms->s.size;
 	if(redo_live == FALSE){
-	    ms->s.size = round(ms->s.size, 1 << s->align);
+	    ms->s.size = rnd(ms->s.size, 1 << s->align);
 	    section_map->offset = ms->s.size;
 	    ms->s.size   += s->size;
 	    ms->s.nreloc += s->nreloc;
@@ -287,7 +287,7 @@ cur_obj->file_name, ms->s.segname, ms->s.sectname, (unsigned int)r_address);
 		    }
 		}
 		if(nlive_pointers != 0){
-		    ms->s.size = round(ms->s.size, 1 << s->align);
+		    ms->s.size = rnd(ms->s.size, 1 << s->align);
 		    section_map->offset = ms->s.size;
 		    ms->s.size   += nlive_pointers * 4;
 		    ms->s.nreloc += s->nreloc;

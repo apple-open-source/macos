@@ -11,15 +11,13 @@ DBIx::Class::PK::Auto - Automatic primary key class
 
 =head1 SYNOPSIS
 
-__PACKAGE__->load_components(qw/Core/);
+use base 'DBIx::Class::Core';
 __PACKAGE__->set_primary_key('id');
 
 =head1 DESCRIPTION
 
 This class overrides the insert method to get automatically incremented primary
 keys.
-
-  __PACKAGE__->load_components(qw/Core/);
 
 PK::Auto is now part of Core.
 

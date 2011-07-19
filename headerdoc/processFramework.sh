@@ -10,11 +10,11 @@
 # The script is straightforward.  It reads a file called
 # FrameworkList that contains lines in the form
 #
-#    /path/to/headers MyFrameworkName
+#    /path/to/headers	MyFrameworkName
 #
-# and processes the directory "headers", storing results in a folder
-# called MyFrameworkName.  The Master TOC file is named
-# MyFrameworkName.html instead of the usual masterTOC.html.
+# (with a *tab* between words) and processes the directory "headers",
+# storing results in a folder called MyFrameworkName.  The Master TOC
+# file is named MyFrameworkName.html instead of the usual masterTOC.html.
 #
 # Finally, the third argument is used to create an xml file that
 # is used to store metadata about the newly-generated documentation
@@ -23,11 +23,29 @@
 # a separate version for such a tiny option.
 #
 
+FRAMEWORK_OUTPUT="framework_output"
+COPYFRAMEWORK="copyframework"
+
 XML=""
 if [ "x$1" = "x-X" ] ; then
 	XML="-X"
-	EVERYTHING="-E"
+	shift
+	FRAMEWORK_OUTPUT="framework_output_xml"
+	COPYFRAMEWORK="copyframework_xml"
 fi
+
+EVERYTHING=""
+if [ "x$1" = "x-E" ] ; then
+	EVERYTHING="-E"
+	shift
+fi
+
+ASK=0
+if [ "x$1" = "x-q" ] ; then
+	ASK=1
+	shift
+fi
+
 
 FRAMEWORKS="$(cat FrameworkList | grep -v '^\#')";
 oldifs="$IFS"
@@ -37,15 +55,22 @@ IFS="
 
 for frameworkline in $FRAMEWORKS ; do
 	if [ "$frameworklineX" != "X" ] ; then
-		framework="$(echo $frameworkline | cut -f1 -d' ')"
-		frameworkName="$(echo $frameworkline | cut -f2 -d' ')"
+	    framework="$(echo $frameworkline | cut -f1)"
+	    frameworkName="$(echo $frameworkline | cut -f2)"
 
-		echo "FRAMEWORK: $framework"
-		echo "FRAMEWORKNAME: $frameworkName"
+	    echo "FRAMEWORK: $framework"
+	    echo "FRAMEWORKNAME: $frameworkName"
+
+	    DO="y"
+	    if [ "$ASK" = "1" ] ; then
+		echo "Process this framework? (y/n) "
+		read DO
+	    fi
+	    if [ "$DO" = "y" -o "$DO" = "Y" ] ; then
 
 		frameworkDir="$(echo "$framework" | sed 's/\/$//g')"
 		# frameworkName=`basename $framework`
-		outputDir="framework_output/$frameworkName"
+		outputDir="$FRAMEWORK_OUTPUT/$frameworkName"
 		rm -rf $outputDir
 		mkdir -p $outputDir
 		echo "Processing $frameworkDir into $outputDir";
@@ -61,22 +86,24 @@ for frameworkline in $FRAMEWORKS ; do
 
 		echo "HDOC FILE WOULD BE $frameworkHDOC"
 		if [ -f "$frameworkHDOC" ] ; then
-			if [ -d copyframework ] ; then
-				rm -rf copyframework;
+			echo "COPYING FRAMEWORK..."
+			if [ -d $COPYFRAMEWORK ] ; then
+				rm -rf $COPYFRAMEWORK;
 			fi
-			mkdir copyframework;
-			cp -L $frameworkHDOC copyframework;
-			cp -L -R $frameworkDir copyframework;
-			frameworkDir="copyframework"
+			mkdir $COPYFRAMEWORK;
+			cp -L $frameworkHDOC $COPYFRAMEWORK;
+			cp -L -R $frameworkDir $COPYFRAMEWORK;
+			frameworkDir="$COPYFRAMEWORK"
 			cat $frameworkHDOC
 			delete=1
+			echo "DONE COPYING FRAMEWORK."
 		fi
 		# ls $frameworkDir
 
 		if [ $EXCLUDE -eq 1 ] ; then
-			./headerDoc2HTML.pl $XML $EVERYTHING -H -O -j -Q -n -p -e $EXCLUDELISTFILE -o $outputDir $frameworkDir
+			./headerDoc2HTML.pl $XML $EVERYTHING --apple --auto-availability -H -O -j -Q -n -p -e $EXCLUDELISTFILE -o $outputDir $frameworkDir
 		else
-			./headerDoc2HTML.pl $XML $EVERYTHING -H -O -j -Q -n -p -o $outputDir $frameworkDir
+			./headerDoc2HTML.pl $XML $EVERYTHING --apple --auto-availability -H -O -j -Q -n -p -o $outputDir $frameworkDir
 		fi
 		if [ $? != 0 ] ; then
 			echo "HeaderDoc crashed.  Exiting."
@@ -94,10 +121,10 @@ for frameworkline in $FRAMEWORKS ; do
 			echo "Cleaning up."
 			# echo "Will delete $frameworkDir";
 			# sleep 5;
-			chmod -R u+w copyframework
-			rm -rf copyframework
+			chmod -R u+w $COPYFRAMEWORK
+			rm -rf $COPYFRAMEWORK
 		fi
-
+	    fi
 
 	fi
 done
@@ -105,9 +132,9 @@ done
 if [ "x$XML" = "x" ] ; then
 	if [ -f "./breadcrumbtree.pl" ] ; then
 		if which perl5.8.9 > /dev/null ; then
-			perl5.8.9 ./breadcrumbtree.pl framework_output
+			perl5.8.9 ./breadcrumbtree.pl $FRAMEWORK_OUTPUT
 		else 
-			./breadcrumbtree.pl framework_output
+			./breadcrumbtree.pl $FRAMEWORK_OUTPUT
 		fi
 	fi
 fi

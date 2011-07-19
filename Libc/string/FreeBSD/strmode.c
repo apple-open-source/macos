@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,16 +31,14 @@
 static char sccsid[] = "@(#)strmode.c	8.3 (Berkeley) 8/15/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strmode.c,v 1.4 2002/03/21 18:44:54 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strmode.c,v 1.8 2009/04/14 11:39:56 trasz Exp $");
 
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <string.h>
 
 void
-strmode(mode, p)
-	mode_t mode;
-	char *p;
+strmode(/* mode_t */ int mode, char *p)
 {
 	 /* print type */
 	switch (mode & S_IFMT) {
@@ -149,6 +143,6 @@ strmode(mode, p)
 		*p++ = 't';
 		break;
 	}
-	*p++ = ' ';		/* will be a '+' if ACL's implemented */
+	*p++ = ' ';
 	*p = '\0';
 }

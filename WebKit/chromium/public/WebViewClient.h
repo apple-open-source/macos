@@ -31,10 +31,12 @@
 #ifndef WebViewClient_h
 #define WebViewClient_h
 
+#include "WebAccessibilityNotification.h"
 #include "WebDragOperation.h"
 #include "WebEditingAction.h"
 #include "WebFileChooserCompletion.h"
 #include "WebFileChooserParams.h"
+#include "WebPageVisibilityState.h"
 #include "WebPopupType.h"
 #include "WebString.h"
 #include "WebTextAffinity.h"
@@ -44,16 +46,27 @@
 namespace WebKit {
 
 class WebAccessibilityObject;
+class WebDeviceOrientationClient;
 class WebDragData;
+class WebElement;
+class WebExternalPopupMenu;
+class WebExternalPopupMenuClient;
 class WebFileChooserCompletion;
 class WebFrame;
+class WebGeolocationClient;
 class WebGeolocationService;
+class WebIconLoadingCompletion;
 class WebImage;
+class WebInputElement;
+class WebKeyboardEvent;
 class WebNode;
 class WebNotificationPresenter;
 class WebRange;
+class WebSpeechInputController;
+class WebSpeechInputListener;
 class WebStorageNamespace;
 class WebURL;
+class WebURLRequest;
 class WebView;
 class WebWidget;
 struct WebConsoleMessage;
@@ -72,16 +85,24 @@ public:
     // Create a new related WebView.  This method must clone its session storage
     // so any subsequent calls to createSessionStorageNamespace conform to the
     // WebStorage specification.
+    // The request parameter is only for the client to check if the request
+    // could be fulfilled.  The client should not load the request.
     virtual WebView* createView(WebFrame* creator,
-                                const WebWindowFeatures& features) { return 0; }
+                                const WebURLRequest& request,
+                                const WebWindowFeatures& features,
+                                const WebString& name) {
+        return 0;
+    }
 
     // Create a new WebPopupMenu.  In the second form, the client is
     // responsible for rendering the contents of the popup menu.
     virtual WebWidget* createPopupMenu(WebPopupType) { return 0; }
     virtual WebWidget* createPopupMenu(const WebPopupMenuInfo&) { return 0; }
+    virtual WebExternalPopupMenu* createExternalPopupMenu(
+        const WebPopupMenuInfo&, WebExternalPopupMenuClient*) { return 0; }
 
     // Create a session storage namespace object associated with this WebView.
-    virtual WebStorageNamespace* createSessionStorageNamespace() { return 0; }
+    virtual WebStorageNamespace* createSessionStorageNamespace(unsigned quota) { return 0; }
 
     // Misc ----------------------------------------------------------------
 
@@ -98,6 +119,16 @@ public:
     // Called to retrieve the provider of desktop notifications.
     virtual WebNotificationPresenter* notificationPresenter() { return 0; }
 
+    // Called to request an icon for the specified filenames.
+    // The icon is shown in a file upload control.
+    virtual bool queryIconForFiles(const WebVector<WebString>& filenames, WebIconLoadingCompletion*) { return false; }
+
+    // This method enumerates all the files in the path. It returns immediately
+    // and asynchronously invokes the WebFileChooserCompletion with all the
+    // files in the directory. Returns false if the WebFileChooserCompletion
+    // will never be called.
+    virtual bool enumerateChosenDirectory(const WebString& path, WebFileChooserCompletion*) { return false; }
+
 
     // Navigational --------------------------------------------------------
 
@@ -105,6 +136,10 @@ public:
     virtual void didStartLoading() { }
     virtual void didStopLoading() { }
 
+    // Notification that some progress was made loading the current page.
+    // loadProgress is a value between 0 (nothing loaded) and 1.0 (frame fully
+    // loaded).
+    virtual void didChangeLoadProgress(WebFrame*, double loadProgress) { }
 
     // Editing -------------------------------------------------------------
 
@@ -124,7 +159,6 @@ public:
 
     virtual bool isSmartInsertDeleteEnabled() { return true; }
     virtual bool isSelectTrailingWhitespaceEnabled() { return true; }
-    virtual void setInputMethodEnabled(bool enabled) { }
 
     virtual void didBeginEditing() { }
     virtual void didChangeSelection(bool isSelectionEmpty) { }
@@ -140,30 +174,6 @@ public:
     // Returns true if the keyboard event was handled by the embedder,
     // indicating that the default action should be suppressed.
     virtual bool handleCurrentKeyboardEvent() { return false; }
-
-
-    // Spellchecker --------------------------------------------------------
-
-    // The client should perform spell-checking on the given text.  If the
-    // text contains a misspelled word, then upon return misspelledOffset
-    // will point to the start of the misspelled word, and misspelledLength
-    // will indicates its length.  Otherwise, if there was not a spelling
-    // error, then upon return misspelledLength is 0.
-    virtual void spellCheck(
-        const WebString& text, int& misspelledOffset, int& misspelledLength) { }
-
-    // Computes an auto-corrected replacement for a misspelled word.  If no
-    // replacement is found, then an empty string is returned.
-    virtual WebString autoCorrectWord(const WebString& misspelledWord) { return WebString(); }
-
-    // Show or hide the spelling UI.
-    virtual void showSpellingUI(bool show) { }
-
-    // Returns true if the spelling UI is showing.
-    virtual bool isShowingSpellingUI() { return false; }
-
-    // Update the spelling UI with the given word.
-    virtual void updateSpellingUIWithMisspelledWord(const WebString& word) { }
 
 
     // Dialogs -------------------------------------------------------------
@@ -202,6 +212,9 @@ public:
     virtual bool runModalBeforeUnloadDialog(
         WebFrame*, const WebString& message) { return true; }
 
+    virtual bool supportsFullscreen() { return false; }
+    virtual void enterFullscreenForNode(const WebNode&) { }
+    virtual void exitFullscreenForNode(const WebNode&) { }
 
     // UI ------------------------------------------------------------------
 
@@ -234,6 +247,9 @@ public:
     virtual void focusNext() { }
     virtual void focusPrevious() { }
 
+    // Called when a new node gets focused.
+    virtual void focusedNodeChanged(const WebNode&) { }
+
 
     // Session history -----------------------------------------------------
 
@@ -253,12 +269,8 @@ public:
 
     // Accessibility -------------------------------------------------------
 
-    // Notifies embedder that the focus has changed to the given
-    // accessibility object.
-    virtual void focusAccessibilityObject(const WebAccessibilityObject&) { }
-
-    // Notifies embedder that the state of an accessibility object has changed.
-    virtual void didChangeAccessibilityObjectState(const WebAccessibilityObject&) { }
+    // Notifies embedder about an accessibility notification.
+    virtual void postAccessibilityNotification(const WebAccessibilityObject&, WebAccessibilityNotification) { }
 
 
     // Developer tools -----------------------------------------------------
@@ -267,32 +279,50 @@ public:
     // changed and should be saved.  See WebView::inspectorSettings.
     virtual void didUpdateInspectorSettings() { }
 
-
-    // Autofill ------------------------------------------------------------
-
-    // Queries the browser for suggestions to be shown for the form text
-    // field named |name|.  |value| is the text entered by the user so
-    // far and the WebNode corresponds to the input field.
-    virtual void queryAutofillSuggestions(const WebNode&,
-                                          const WebString& name,
-                                          const WebString& value) { }
-
-    // Instructs the browser to remove the autofill entry specified from
-    // its DB.
-    virtual void removeAutofillSuggestions(const WebString& name,
-                                           const WebString& value) { }
-
-    // Informs the browser that the user has selected an AutoFill suggestion
-    // for a WebNode.  |name| and |label| form a key into the set of AutoFill
-    // profiles.
-    virtual void didAcceptAutoFillSuggestion(const WebNode&,
-                                             const WebString& name,
-                                             const WebString& label) { }
+    virtual void didUpdateInspectorSetting(const WebString& key, const WebString& value) { }
 
     // Geolocation ---------------------------------------------------------
 
-    // Access the embedder API for geolocation services.
-    virtual WebKit::WebGeolocationService* geolocationService() { return 0; }
+    // Access the embedder API for (client-based) geolocation client .
+    virtual WebGeolocationClient* geolocationClient() { return 0; }
+    // Access the embedder API for (non-client-based) geolocation services.
+    virtual WebGeolocationService* geolocationService() { return 0; }
+
+    // Speech --------------------------------------------------------------
+
+    // Access the embedder API for speech input services.
+    virtual WebSpeechInputController* speechInputController(
+        WebSpeechInputListener*) { return 0; }
+
+    // Device Orientation --------------------------------------------------
+
+    // Access the embedder API for device orientation services.
+    virtual WebDeviceOrientationClient* deviceOrientationClient() { return 0; }
+
+
+    // Zoom ----------------------------------------------------------------
+
+    // Informs the browser that the zoom levels for this frame have changed from
+    // the default values.
+    virtual void zoomLimitsChanged(double minimumLevel, double maximumLevel) { }
+
+    // Informs the browser that the zoom level has changed as a result of an
+    // action that wasn't initiated by the client.
+    virtual void zoomLevelChanged() { }
+
+    // Registers a new URL handler for the given protocol.
+    virtual void registerProtocolHandler(const WebString& scheme,
+                                         const WebString& baseUrl,
+                                         const WebString& url,
+                                         const WebString& title) { }
+
+    // Visibility -----------------------------------------------------------
+
+    // Returns the current visibility of the WebView.
+    virtual WebPageVisibilityState visibilityState() const
+    {
+        return WebPageVisibilityStateVisible;
+    }
 
 protected:
     ~WebViewClient() { }

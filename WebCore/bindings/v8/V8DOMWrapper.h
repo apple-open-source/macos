@@ -31,13 +31,12 @@
 #ifndef V8DOMWrapper_h
 #define V8DOMWrapper_h
 
-#include "Document.h"
 #include "Event.h"
+#include "IsolatedWorld.h"
 #include "Node.h"
 #include "NodeFilter.h"
-#include "PlatformString.h" // for WebCore::String
+#include "PlatformString.h"
 #include "V8CustomXPathNSResolver.h"
-#include "V8DOMMap.h"
 #include "V8Event.h"
 #include "V8Utilities.h"
 #include "V8XPathNSResolver.h"
@@ -92,15 +91,7 @@ namespace WebCore {
 
 #if ENABLE(XPATH)
         // XPath-related utilities
-        static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value, V8Proxy* proxy = 0)
-        {
-            RefPtr<XPathNSResolver> resolver;
-            if (V8XPathNSResolver::HasInstance(value))
-                resolver = V8XPathNSResolver::toNative(v8::Handle<v8::Object>::Cast(value));
-            else if (value->IsObject())
-                resolver = V8CustomXPathNSResolver::create(value->ToObject());
-            return resolver;
-        }
+        static RefPtr<XPathNSResolver> getXPathNSResolver(v8::Handle<v8::Value> value, V8Proxy* proxy = 0);
 #endif
 
         // Wrap JS node filter in C++.
@@ -130,7 +121,19 @@ namespace WebCore {
 
         static v8::Local<v8::Object> instantiateV8Object(V8Proxy* proxy, WrapperTypeInfo*, void* impl);
 
-        static v8::Handle<v8::Object> getWrapper(Node*);
+        static v8::Handle<v8::Object> getWrapper(Node* node)
+        {
+            ASSERT(WTF::isMainThread());
+            if (LIKELY(!IsolatedWorld::count())) {
+                v8::Persistent<v8::Object>* wrapper = node->wrapper();
+                if (wrapper)
+                    return *wrapper;
+            }
+            return getWrapperSlow(node);
+        }
+
+    private:
+        static v8::Handle<v8::Object> getWrapperSlow(Node*);
     };
 
 }

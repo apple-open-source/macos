@@ -6,7 +6,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: sitecopy 0.11.4\n"
 "Report-Msgid-Bugs-To: neon@lists.manyfish.co.uk\n"
-"POT-Creation-Date: 2009-08-18 15:52+0100\n"
+"POT-Creation-Date: 2009-09-13 12:56+0100\n"
 "PO-Revision-Date: 2002-04-09 11:12+0100\n"
 "Last-Translator: Petr Prazak <prazak@grisoft.cz>\n"
 "Language-Team: cz\n"
@@ -24,110 +24,110 @@ msgstr ""
 "Stavová øádka byla: %s"
 
 # src/console_fe.c:961
-#: src/ne_auth.c:130
+#: src/ne_auth.c:134
 #, fuzzy, c-format
 msgid "Could not authenticate to server: %s"
 msgstr "Nelze se pøipojit k serveru"
 
 # src/console_fe.c:961
-#: src/ne_auth.c:135
+#: src/ne_auth.c:139
 #, fuzzy, c-format
 msgid "Could not authenticate to proxy server: %s"
 msgstr "Nelze se pøipojit k proxy serveru"
 
-#: src/ne_auth.c:359
+#: src/ne_auth.c:374
 #, c-format
 msgid "rejected %s challenge"
 msgstr ""
 
-#: src/ne_auth.c:375
+#: src/ne_auth.c:390
 msgid "missing realm in Basic challenge"
 msgstr ""
 
-#: src/ne_auth.c:470
+#: src/ne_auth.c:485
 msgid "invalid Negotiate token"
 msgstr ""
 
-#: src/ne_auth.c:493
+#: src/ne_auth.c:508
 #, fuzzy
 msgid "GSSAPI authentication error: "
 msgstr "Je vy¾adována autentizace na %s `%s':\n"
 
-#: src/ne_auth.c:506
+#: src/ne_auth.c:521
 #, c-format
 msgid "GSSAPI failure (code %u)"
 msgstr ""
 
-#: src/ne_auth.c:541
+#: src/ne_auth.c:556
 msgid "ignoring empty Negotiate continuation"
 msgstr ""
 
-#: src/ne_auth.c:556
+#: src/ne_auth.c:571
 #, c-format
 msgid "Negotiate response verification failed: invalid response header token"
 msgstr ""
 
-#: src/ne_auth.c:578
+#: src/ne_auth.c:593
 #, c-format
 msgid "Negotiate response verification failure: %s"
 msgstr ""
 
-#: src/ne_auth.c:700
+#: src/ne_auth.c:762
 msgid "unknown algorithm in Digest challenge"
 msgstr ""
 
-#: src/ne_auth.c:704
+#: src/ne_auth.c:766
 msgid "incompatible algorithm in Digest challenge"
 msgstr ""
 
-#: src/ne_auth.c:708
+#: src/ne_auth.c:770
 msgid "missing parameter in Digest challenge"
 msgstr ""
 
-#: src/ne_auth.c:712
+#: src/ne_auth.c:774
 msgid "initial Digest challenge was stale"
 msgstr ""
 
-#: src/ne_auth.c:719
+#: src/ne_auth.c:781
 msgid "stale Digest challenge with new algorithm or realm"
 msgstr ""
 
-#: src/ne_auth.c:731
+#: src/ne_auth.c:793
 #, fuzzy
 msgid "could not parse domain in Digest challenge"
 msgstr "Nelze zpracovat velikost bloku"
 
-#: src/ne_auth.c:1040
+#: src/ne_auth.c:1102
 #, c-format
 msgid "Digest mutual authentication failure: missing parameters"
 msgstr ""
 
-#: src/ne_auth.c:1045
+#: src/ne_auth.c:1107
 #, c-format
 msgid "Digest mutual authentication failure: client nonce mismatch"
 msgstr ""
 
-#: src/ne_auth.c:1055
+#: src/ne_auth.c:1117
 #, c-format
 msgid "Digest mutual authentication failure: could not parse nonce count"
 msgstr ""
 
-#: src/ne_auth.c:1060
+#: src/ne_auth.c:1122
 #, c-format
 msgid "Digest mutual authentication failure: nonce count mismatch (%u not %u)"
 msgstr ""
 
-#: src/ne_auth.c:1103
+#: src/ne_auth.c:1165
 #, c-format
 msgid "Digest mutual authentication failure: request-digest mismatch"
 msgstr ""
 
-#: src/ne_auth.c:1229
+#: src/ne_auth.c:1296
 #, c-format
 msgid "ignored %s challenge"
 msgstr ""
 
-#: src/ne_auth.c:1308
+#: src/ne_auth.c:1375
 #, fuzzy
 msgid "could not parse challenge"
 msgstr "Nelze zpracovat velikost bloku"
@@ -170,33 +170,52 @@ msgstr "Nelze otevøít soubor: "
 msgid "Could not initialize zlib"
 msgstr "Nelze otevøít soubor: "
 
-#: src/ne_gnutls.c:162
+#: src/ne_gnutls.c:172
 #, c-format
 msgid "[unprintable:#%lu]"
 msgstr ""
 
-#: src/ne_gnutls.c:188
+#: src/ne_gnutls.c:201
 msgid "[unprintable]"
 msgstr ""
 
-#: src/ne_gnutls.c:680 src/ne_openssl.c:407
+#: src/ne_gnutls.c:815
+msgid "signed using insecure algorithm"
+msgstr ""
+
+#: src/ne_gnutls.c:818
+#, c-format
+msgid "unrecognized errors (%u)"
+msgstr ""
+
+#: src/ne_gnutls.c:863 src/ne_openssl.c:467
 #, c-format
 msgid "Server certificate was missing commonName attribute in subject name"
 msgstr ""
 
 # src/console_fe.c:992
-#: src/ne_gnutls.c:721 src/ne_openssl.c:630
+#: src/ne_gnutls.c:877
 #, fuzzy, c-format
-msgid "SSL negotiation failed, client certificate was requested: %s"
+msgid "Could not verify server certificate: %s"
 msgstr "Nelze zapsat do souboru: %s"
+
+#: src/ne_gnutls.c:889 src/ne_openssl.c:454
+#, c-format
+msgid "Certificate verification error: %s"
+msgstr ""
+
+#: src/ne_gnutls.c:922 src/ne_openssl.c:673
+#, c-format
+msgid "SSL handshake failed, client certificate was requested: %s"
+msgstr ""
 
 # src/console_fe.c:992
-#: src/ne_gnutls.c:726 src/ne_openssl.c:635
+#: src/ne_gnutls.c:927 src/ne_openssl.c:678
 #, fuzzy, c-format
-msgid "SSL negotiation failed: %s"
+msgid "SSL handshake failed: %s"
 msgstr "Nelze zapsat do souboru: %s"
 
-#: src/ne_gnutls.c:736
+#: src/ne_gnutls.c:937
 #, c-format
 msgid "Server did not send certificate chain"
 msgstr ""
@@ -215,17 +234,12 @@ msgstr ""
 msgid "No activelock for <%s> returned in LOCK refresh response"
 msgstr ""
 
-#: src/ne_openssl.c:439
-#, c-format
-msgid "Certificate verification error: %s"
-msgstr ""
-
-#: src/ne_openssl.c:655
+#: src/ne_openssl.c:698
 #, c-format
 msgid "SSL server did not present certificate"
 msgstr ""
 
-#: src/ne_openssl.c:664
+#: src/ne_openssl.c:707
 #, c-format
 msgid "Server certificate changed: connection intercepted?"
 msgstr ""
@@ -269,189 +283,340 @@ msgstr "Nelze zapsat do souboru: %s"
 msgid "Could not send request body"
 msgstr "Nelze odeslat tìlo po¾adavku"
 
-#: src/ne_request.c:703
+#: src/ne_request.c:707
 msgid "Could not read chunk size"
 msgstr "Nelze naèíst velikost bloku"
 
-#: src/ne_request.c:710
+#: src/ne_request.c:714
 msgid "Could not parse chunk size"
 msgstr "Nelze zpracovat velikost bloku"
 
-#: src/ne_request.c:747
+#: src/ne_request.c:751
 msgid "Could not read response body"
 msgstr "Nelze naèíst tìlo odpovìdi"
 
-#: src/ne_request.c:763
+#: src/ne_request.c:767
 #, fuzzy
 msgid "Could not read chunk delimiter"
 msgstr "Nelze naèíst velikost bloku"
 
-#: src/ne_request.c:766
+#: src/ne_request.c:770
 msgid "Chunk delimiter was invalid"
 msgstr ""
 
-#: src/ne_request.c:872
+#: src/ne_request.c:875
 msgid "Could not read status line"
 msgstr "Nelze pøeèíst stavový øádek"
 
-#: src/ne_request.c:894
+#: src/ne_request.c:897
 #, fuzzy
 msgid "Could not parse response status line"
 msgstr "Nelze zpracovat stavový øádek odpovìdi."
 
-#: src/ne_request.c:906
+#: src/ne_request.c:909
 #, fuzzy
 msgid "Could not read interim response headers"
 msgstr "Nelze naèíst tìlo odpovìdi"
 
-#: src/ne_request.c:940
+#: src/ne_request.c:943
 msgid "Could not send request"
 msgstr "Nelze poslat po¾adavek"
 
-#: src/ne_request.c:988 src/ne_request.c:1006 src/ne_request.c:1016
+#: src/ne_request.c:991 src/ne_request.c:1009 src/ne_request.c:1019
 msgid "Error reading response headers"
 msgstr "Chyba pøi ètení hlavièek odpovìdi"
 
-#: src/ne_request.c:1034
+#: src/ne_request.c:1037
 #, c-format
 msgid "Response header too long"
 msgstr "Hlavièka odpovìdi je pøíli¹ dlouhá"
 
-#: src/ne_request.c:1116
+#: src/ne_request.c:1119
 #, fuzzy
 msgid "Response exceeded maximum number of header fields"
 msgstr "Odpovìï pøekrocila maximální poøet polo¾ek v hlavicce."
 
 # src/console_fe.c:956
-#: src/ne_request.c:1133
+#: src/ne_request.c:1134
 #, fuzzy, c-format
 msgid "Could not resolve hostname `%s': %s"
 msgstr "%s: Chyba: Nelze najít adresu vzdáleného poèítaèe (%s).\n"
 
-#: src/ne_request.c:1264
+#: src/ne_request.c:1265
 msgid "Unknown transfer-coding in response"
 msgstr ""
 
-#: src/ne_request.c:1277
+#: src/ne_request.c:1278
 msgid "Invalid Content-Length in response"
 msgstr ""
 
 # src/console_fe.c:992
-#: src/ne_request.c:1350
+#: src/ne_request.c:1351
 #, c-format
 msgid "Could not write to file: %s"
 msgstr "Nelze zapsat do souboru: %s"
 
-#: src/ne_request.c:1423
+#: src/ne_request.c:1424
 #, fuzzy, c-format
 msgid "Could not create SSL connection through proxy server: %s"
 msgstr "Nelze navázat SSL spojení pøes proxy server."
 
-#: src/ne_request.c:1470
+#: src/ne_request.c:1463
 #, fuzzy, c-format
 msgid "Could not create socket"
 msgstr "Nelze navázat SSL spojení"
 
 # src/console_fe.c:961
-#: src/ne_request.c:1532
-msgid "Could not connect to proxy server"
-msgstr "Nelze se pøipojit k proxy serveru"
-
-# src/console_fe.c:961
-#: src/ne_request.c:1533
+#: src/ne_request.c:1496
 msgid "Could not connect to server"
 msgstr "Nelze se pøipojit k serveru"
 
-#: src/ne_session.c:361 src/ne_session.c:372
+# src/console_fe.c:961
+#: src/ne_request.c:1498
+msgid "Could not connect to proxy server"
+msgstr "Nelze se pøipojit k proxy serveru"
+
+#: src/ne_request.c:1541
+#, c-format
+msgid "Could not find IPv4 address of hostname %s for SOCKS v4 proxy"
+msgstr ""
+
+#: src/ne_request.c:1599
+#, fuzzy, c-format
+msgid "Could not establish connection from SOCKS proxy (%s:%u): %s"
+msgstr "Nelze navázat SSL spojení pøes proxy server."
+
+#: src/ne_session.c:513 src/ne_session.c:524
 msgid "[invalid date]"
 msgstr ""
 
-#: src/ne_session.c:385
+#: src/ne_session.c:537
 msgid "certificate is not yet valid"
 msgstr ""
 
-#: src/ne_session.c:386
+#: src/ne_session.c:538
 msgid "certificate has expired"
 msgstr ""
 
-#: src/ne_session.c:387
+#: src/ne_session.c:539
 msgid "certificate issued for a different hostname"
 msgstr ""
 
-#: src/ne_session.c:388
+#: src/ne_session.c:540
 msgid "issuer is not trusted"
 msgstr ""
 
-#: src/ne_session.c:393
+#: src/ne_session.c:541
+msgid "bad certificate chain"
+msgstr ""
+
+#: src/ne_session.c:542
+msgid "certificate has been revoked"
+msgstr ""
+
+#: src/ne_session.c:547
 msgid "Server certificate verification failed: "
 msgstr ""
 
-#: src/ne_socket.c:514 src/ne_socket.c:568 src/ne_socket.c:671
+#: src/ne_socket.c:515 src/ne_socket.c:611 src/ne_socket.c:715
 #, fuzzy
 msgid "Connection closed"
 msgstr "Server ukonèil spojení."
 
-#: src/ne_socket.c:578 src/ne_socket.c:683
+#: src/ne_socket.c:621 src/ne_socket.c:727
 #, fuzzy
 msgid "Secure connection truncated"
 msgstr "Spojení vypr¹elo."
 
-#: src/ne_socket.c:590 src/ne_socket.c:695
+#: src/ne_socket.c:633 src/ne_socket.c:739
 #, fuzzy, c-format
 msgid "SSL error: %s"
 msgstr "%s: Chyba: %s\n"
 
-#: src/ne_socket.c:593
+#: src/ne_socket.c:636
 #, c-format
 msgid "SSL error code %d/%d/%lu"
 msgstr ""
 
-#: src/ne_socket.c:676
+#: src/ne_socket.c:720
 #, fuzzy, c-format
 msgid "SSL alert received: %s"
 msgstr "%s: Chyba: %s\n"
 
-#: src/ne_socket.c:691
+#: src/ne_socket.c:735
 msgid "SSL socket read failed"
 msgstr ""
 
-#: src/ne_socket.c:795
+#: src/ne_socket.c:866
 msgid "Line too long"
 msgstr "Øádek je pøíli¹ dlouhý"
 
-#: src/ne_socket.c:940 src/ne_socket.c:946
+#: src/ne_socket.c:1011 src/ne_socket.c:1017
 msgid "Host not found"
 msgstr "Poèítaè nenalezen"
 
-#: src/ne_socket.c:1072
+#: src/ne_socket.c:1187
 #, fuzzy
 msgid "Connection timed out"
 msgstr "%s: spojení vypr¹elo."
 
-#: src/ne_socket.c:1263
+#: src/ne_socket.c:1378
 msgid "Socket descriptor number exceeds FD_SETSIZE"
 msgstr ""
 
-#: src/ne_socket.c:1325
+#: src/ne_socket.c:1440
 msgid "Socket family not supported"
 msgstr ""
 
-#: src/ne_socket.c:1548
+#: src/ne_socket.c:1667
 msgid "Client certificate verification failed"
 msgstr ""
 
-#: src/ne_socket.c:1564
+#: src/ne_socket.c:1683
 msgid "SSL disabled due to lack of entropy"
 msgstr ""
 
-#: src/ne_socket.c:1571
+#: src/ne_socket.c:1690
 msgid "SSL disabled due to library version mismatch"
 msgstr ""
 
-#: src/ne_socket.c:1577
+#: src/ne_socket.c:1696
 #, fuzzy
 msgid "Could not create SSL structure"
 msgstr "Nelze navázat SSL spojení"
+
+#: src/ne_socks.c:65
+msgid "failure"
+msgstr ""
+
+#: src/ne_socks.c:68
+#, fuzzy
+msgid "connection not permitted"
+msgstr "%s: spojení vypr¹elo."
+
+#: src/ne_socks.c:71
+msgid "network unreachable"
+msgstr ""
+
+#: src/ne_socks.c:74
+msgid "host unreachable"
+msgstr ""
+
+#: src/ne_socks.c:77
+msgid "TTL expired"
+msgstr ""
+
+#: src/ne_socks.c:80
+msgid "command not supported"
+msgstr ""
+
+#: src/ne_socks.c:83
+msgid "address type not supported"
+msgstr ""
+
+#: src/ne_socks.c:86
+#, c-format
+msgid "%s: unrecognized error (%u)"
+msgstr ""
+
+#: src/ne_socks.c:128 src/ne_socks.c:328
+#, fuzzy
+msgid "Could not send message to proxy"
+msgstr "Nelze odeslat tìlo po¾adavku"
+
+#: src/ne_socks.c:133
+#, fuzzy
+msgid "Could not read initial response from proxy"
+msgstr "Nelze naèíst tìlo odpovìdi"
+
+#: src/ne_socks.c:136
+msgid "Invalid version in proxy response"
+msgstr ""
+
+#: src/ne_socks.c:157
+#, fuzzy
+msgid "Could not send login message"
+msgstr "Nelze poslat po¾adavek"
+
+#: src/ne_socks.c:162
+#, fuzzy
+msgid "Could not read login reply"
+msgstr "Nelze pøeèíst stavový øádek"
+
+#: src/ne_socks.c:165
+msgid "Invalid version in login reply"
+msgstr ""
+
+#: src/ne_socks.c:168
+#, fuzzy
+msgid "Authentication failed"
+msgstr "Je vy¾adována autentizace na %s `%s':\n"
+
+#: src/ne_socks.c:172
+msgid "No acceptable authentication method"
+msgstr ""
+
+#: src/ne_socks.c:174
+msgid "Unexpected authentication method chosen"
+msgstr ""
+
+#: src/ne_socks.c:210
+#, fuzzy
+msgid "Could not send connect request"
+msgstr "Nelze poslat po¾adavek"
+
+# src/console_fe.c:961
+#: src/ne_socks.c:215
+#, fuzzy
+msgid "Could not read connect reply"
+msgstr "Nelze se pøipojit k serveru"
+
+#: src/ne_socks.c:218
+msgid "Invalid version in connect reply"
+msgstr ""
+
+# src/console_fe.c:961
+#: src/ne_socks.c:221 src/ne_socks.c:337
+#, fuzzy
+msgid "Could not connect"
+msgstr "Nelze se pøipojit k serveru"
+
+#: src/ne_socks.c:235
+msgid "Could not read FQDN length in connect reply"
+msgstr ""
+
+#: src/ne_socks.c:240
+msgid "Unknown address type in connect reply"
+msgstr ""
+
+#: src/ne_socks.c:245
+#, fuzzy
+msgid "Could not read address in connect reply"
+msgstr "Nelze naèíst tìlo odpovìdi"
+
+#: src/ne_socks.c:266
+msgid "request rejected or failed"
+msgstr ""
+
+# src/console_fe.c:961
+#: src/ne_socks.c:269
+#, fuzzy
+msgid "could not establish connection to identd"
+msgstr "Nelze se pøipojit k serveru"
+
+#: src/ne_socks.c:272
+msgid "rejected due to identd user mismatch"
+msgstr ""
+
+#: src/ne_socks.c:275
+#, c-format
+msgid "%s: unrecognized failure (%u)"
+msgstr ""
+
+#: src/ne_socks.c:333
+#, fuzzy
+msgid "Could not read response from proxy"
+msgstr "Nelze naèíst tìlo odpovìdi"
 
 # src/console_fe.c:821
 #: src/ne_xml.c:280

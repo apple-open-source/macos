@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/gen/telldir.h,v 1.2 2001/01/24 12:59:24 deischen Exp $
+ * $FreeBSD: src/lib/libc/gen/telldir.h,v 1.3 2008/05/05 14:05:23 kib Exp $
  */
 
 #ifndef _TELLDIR_H_
@@ -59,7 +59,7 @@ struct _telldir {
 	long	td_loccnt;	/* index of entry for sequential readdir's */
 };
 
-struct dirent	*_readdir_unlocked(DIR *);
+struct dirent	*_readdir_unlocked(DIR *, int);
 void 		_reclaim_telldir(DIR *);
 void 		_seekdir(DIR *, long);
 

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2007-2008
+ * Copyright (c) 1996, 1998-2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -38,43 +38,22 @@
 #  include <memory.h>
 # endif
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #ifdef HAVE_UNISTD_H
 # include <unistd.h>
 #endif /* HAVE_UNISTD_H */
+#ifdef HAVE_SETAUTHDB
+# include <usersec.h>
+#endif /* HAVE_SETAUTHDB */
 #include <pwd.h>
 #include <grp.h>
+#include <membership.h>
 
 #include "sudo.h"
 #include "redblack.h"
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: pwutil.c,v 1.21 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
-
-#ifdef MYPW
-extern void (*my_setgrent) __P((void));
-extern void (*my_endgrent) __P((void));
-extern struct group *(*my_getgrnam) __P((const char *));
-extern struct group *(*my_getgrgid) __P((gid_t));
-#define setgrent()	my_setgrent()
-#define endgrent()	my_endgrent()
-#define getgrnam(n)	my_getgrnam(n)
-#define getgrgid(g)	my_getgrgid(g)
-
-extern void (*my_setpwent) __P((void));
-extern void (*my_endpwent) __P((void));
-extern struct passwd *(*my_getpwnam) __P((const char *));
-extern struct passwd *(*my_getpwuid) __P((uid_t));
-#define setpwent()	my_setpwent()
-#define endpwent()	my_endpwent()
-#define getpwnam(n)	my_getpwnam(n)
-#define getpwuid(u)	my_getpwuid(u)
-#endif
 
 /*
  * The passwd and group caches.
@@ -110,7 +89,7 @@ cmp_pwnam(v1, v2)
 {
     const struct passwd *pw1 = (const struct passwd *) v1;
     const struct passwd *pw2 = (const struct passwd *) v2;
-    return(strcmp(pw1->pw_name, pw2->pw_name));
+    return(strcasecmp(pw1->pw_name, pw2->pw_name));
 }
 
 #define FIELD_SIZE(src, name, size)			\
@@ -157,7 +136,9 @@ sudo_pwdup(pw)
 #endif
     FIELD_SIZE(pw, pw_gecos, gsize);
     FIELD_SIZE(pw, pw_dir, dsize);
-    FIELD_SIZE(pw, pw_shell, ssize);
+    /* Treat shell specially since we expand "" -> _PATH_BSHELL */
+    ssize = strlen(pw_shell) + 1;
+    total += ssize;
 
     if ((cp = malloc(total)) == NULL)
 	    return(NULL);
@@ -176,7 +157,9 @@ sudo_pwdup(pw)
 #endif
     FIELD_COPY(pw, newpw, pw_gecos, gsize);
     FIELD_COPY(pw, newpw, pw_dir, dsize);
-    FIELD_COPY(pw, newpw, pw_shell, ssize);
+    /* Treat shell specially since we expand "" -> _PATH_BSHELL */
+    memcpy(cp, pw_shell, ssize);
+    newpw->pw_shell = cp;
 
     return(newpw);
 }
@@ -196,31 +179,35 @@ sudo_getpwuid(uid)
     key.pw_uid = uid;
     if ((node = rbfind(pwcache_byuid, &key)) != NULL) {
 	pw = (struct passwd *) node->data;
-	return(pw->pw_name != NULL ? pw : NULL);
+	goto done;
     }
     /*
      * Cache passwd db entry if it exists or a negative response if not.
      */
+#ifdef HAVE_SETAUTHDB
+    aix_setauthdb(IDtouser(uid));
+#endif
     if ((pw = getpwuid(uid)) != NULL) {
 	pw = sudo_pwdup(pw);
 	cp = sudo_getepw(pw);		/* get shadow password */
 	if (pw->pw_passwd != NULL)
 	    zero_bytes(pw->pw_passwd, strlen(pw->pw_passwd));
 	pw->pw_passwd = cp;
-
-	if (rbinsert(pwcache_byname, (void *) pw) != NULL)
-	    errorx(1, "unable to cache user name, already exists");
 	if (rbinsert(pwcache_byuid, (void *) pw) != NULL)
-	    errorx(1, "unable to cache uid, already exists");
-	return(pw);
+	    errorx(1, "unable to cache uid %lu (%s), already exists",
+		uid, pw->pw_name);
     } else {
 	pw = emalloc(sizeof(*pw));
 	zero_bytes(pw, sizeof(*pw));
 	pw->pw_uid = uid;
 	if (rbinsert(pwcache_byuid, (void *) pw) != NULL)
-	    errorx(1, "unable to cache uid, already exists");
-	return(NULL);
+	    errorx(1, "unable to cache uid %lu, already exists", uid);
     }
+#ifdef HAVE_SETAUTHDB
+    aix_restoreauthdb();
+#endif
+done:
+    return(pw->pw_name != NULL ? pw : NULL);
 }
 
 /*
@@ -239,23 +226,22 @@ sudo_getpwnam(name)
     key.pw_name = (char *) name;
     if ((node = rbfind(pwcache_byname, &key)) != NULL) {
 	pw = (struct passwd *) node->data;
-	return(pw->pw_uid != (uid_t) -1 ? pw : NULL);
+	goto done;
     }
     /*
      * Cache passwd db entry if it exists or a negative response if not.
      */
+#ifdef HAVE_SETAUTHDB
+    aix_setauthdb((char *) name);
+#endif
     if ((pw = getpwnam(name)) != NULL) {
 	pw = sudo_pwdup(pw);
 	cp = sudo_getepw(pw);		/* get shadow password */
 	if (pw->pw_passwd != NULL)
 	    zero_bytes(pw->pw_passwd, strlen(pw->pw_passwd));
 	pw->pw_passwd = cp;
-
 	if (rbinsert(pwcache_byname, (void *) pw) != NULL)
-	    errorx(1, "unable to cache user name, already exists");
-	if (rbinsert(pwcache_byuid, (void *) pw) != NULL)
-	    errorx(1, "unable to cache uid, already exists");
-	return(pw);
+	    errorx(1, "unable to cache user %s, already exists", name);
     } else {
 	len = strlen(name) + 1;
 	cp = emalloc(sizeof(*pw) + len);
@@ -266,9 +252,13 @@ sudo_getpwnam(name)
 	pw->pw_name = cp;
 	pw->pw_uid = (uid_t) -1;
 	if (rbinsert(pwcache_byname, (void *) pw) != NULL)
-	    errorx(1, "unable to cache user name, already exists");
-	return(NULL);
+	    errorx(1, "unable to cache user %s, already exists", name);
     }
+#ifdef HAVE_SETAUTHDB
+    aix_restoreauthdb();
+#endif
+done:
+    return(pw->pw_uid != (uid_t) -1 ? pw : NULL);
 }
 
 /*
@@ -417,7 +407,7 @@ cmp_grnam(v1, v2)
 {
     const struct group *grp1 = (const struct group *) v1;
     const struct group *grp2 = (const struct group *) v2;
-    return(strcmp(grp1->gr_name, grp2->gr_name));
+    return(strcasecmp(grp1->gr_name, grp2->gr_name));
 }
 
 struct group *
@@ -480,26 +470,25 @@ sudo_getgrgid(gid)
     key.gr_gid = gid;
     if ((node = rbfind(grcache_bygid, &key)) != NULL) {
 	gr = (struct group *) node->data;
-	return(gr->gr_name != NULL ? gr : NULL);
+	goto done;
     }
     /*
      * Cache group db entry if it exists or a negative response if not.
      */
     if ((gr = getgrgid(gid)) != NULL) {
 	gr = sudo_grdup(gr);
-	if (rbinsert(grcache_byname, (void *) gr) != NULL)
-	    errorx(1, "unable to cache group name, already exists");
 	if (rbinsert(grcache_bygid, (void *) gr) != NULL)
-	    errorx(1, "unable to cache gid, already exists");
-	return(gr);
+	    errorx(1, "unable to cache gid %lu (%s), already exists",
+		gid, gr->gr_name);
     } else {
 	gr = emalloc(sizeof(*gr));
 	zero_bytes(gr, sizeof(*gr));
 	gr->gr_gid = gid;
 	if (rbinsert(grcache_bygid, (void *) gr) != NULL)
-	    errorx(1, "unable to cache gid, already exists");
-	return(NULL);
+	    errorx(1, "unable to cache gid %lu, already exists, gid");
     }
+done:
+    return(gr->gr_name != NULL ? gr : NULL);
 }
 
 /*
@@ -517,7 +506,7 @@ sudo_getgrnam(name)
     key.gr_name = (char *) name;
     if ((node = rbfind(grcache_byname, &key)) != NULL) {
 	gr = (struct group *) node->data;
-	return(gr->gr_gid != (gid_t) -1 ? gr : NULL);
+	goto done;
     }
     /*
      * Cache group db entry if it exists or a negative response if not.
@@ -525,10 +514,7 @@ sudo_getgrnam(name)
     if ((gr = getgrnam(name)) != NULL) {
 	gr = sudo_grdup(gr);
 	if (rbinsert(grcache_byname, (void *) gr) != NULL)
-	    errorx(1, "unable to cache group name, already exists");
-	if (rbinsert(grcache_bygid, (void *) gr) != NULL)
-	    errorx(1, "unable to cache gid, already exists");
-	return(gr);
+	    errorx(1, "unable to cache group %s, already exists", name);
     } else {
 	len = strlen(name) + 1;
 	cp = emalloc(sizeof(*gr) + len);
@@ -539,9 +525,10 @@ sudo_getgrnam(name)
 	gr->gr_name = cp;
 	gr->gr_gid = (gid_t) -1;
 	if (rbinsert(grcache_byname, (void *) gr) != NULL)
-	    errorx(1, "unable to cache group name, already exists");
-	return(NULL);
+	    errorx(1, "unable to cache group %s, already exists", name);
     }
+done:
+    return(gr->gr_gid != (gid_t) -1 ? gr : NULL);
 }
 
 void
@@ -576,4 +563,71 @@ sudo_endgrent()
 #ifdef PURIFY
     sudo_freegrcache();
 #endif
+}
+
+int
+user_in_group(pw, group)
+    struct passwd *pw;
+    const char *group;
+{
+#ifdef HAVE_MBR_CHECK_MEMBERSHIP
+    uuid_t gu, uu;
+    int ismember;
+#else
+    char **gr_mem;
+    int i;
+#endif
+    struct group *grp;
+
+#ifdef HAVE_SETAUTHDB
+    aix_setauthdb(pw->pw_name);
+#endif
+    grp = sudo_getgrnam(group);
+#ifdef HAVE_SETAUTHDB
+    aix_restoreauthdb();
+#endif
+    if (grp == NULL)
+	return(FALSE);
+
+    /* check against user's primary (passwd file) gid */
+    if (grp->gr_gid == pw->pw_gid)
+	return(TRUE);
+
+#ifdef HAVE_MBR_CHECK_MEMBERSHIP
+    /* If we are matching the invoking user use the stashed uuid. */
+    if (strcmp(pw->pw_name, user_name) == 0) {
+	if (mbr_gid_to_uuid(grp->gr_gid, gu) == 0 &&
+	    mbr_check_membership(user_uuid, gu, &ismember) == 0 && ismember)
+	    return(TRUE);
+    } else {
+	if (mbr_uid_to_uuid(pw->pw_uid, uu) == 0 &&
+	    mbr_gid_to_uuid(grp->gr_gid, gu) == 0 &&
+	    mbr_check_membership(uu, gu, &ismember) == 0 && ismember)
+	    return(TRUE);
+    }
+#else /* HAVE_MBR_CHECK_MEMBERSHIP */
+# ifdef HAVE_GETGROUPS
+    /*
+     * If we are matching the invoking or list user and that user has a
+     * supplementary group vector, check it.
+     */
+    if (user_ngroups > 0 &&
+	strcmp(pw->pw_name, list_pw ? list_pw->pw_name : user_name) == 0) {
+	for (i = 0; i < user_ngroups; i++) {
+	    if (grp->gr_gid == user_groups[i])
+		return(TRUE);
+	}
+    } else
+# endif /* HAVE_GETGROUPS */
+    {
+	if (grp != NULL && grp->gr_mem != NULL) {
+	    for (gr_mem = grp->gr_mem; *gr_mem; gr_mem++) {
+		if (strcmp(*gr_mem, pw->pw_name) == 0)
+		    return(TRUE);
+	    }
+	}
+    }
+#endif /* HAVE_MBR_CHECK_MEMBERSHIP */
+
+    return(FALSE);
 }

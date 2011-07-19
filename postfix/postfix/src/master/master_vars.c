@@ -49,6 +49,7 @@
 char   *var_inet_protocols;
 int     var_proc_limit;
 int     var_throttle_time;
+char   *var_master_disable;
 
 /* master_vars_init - initialize from global Postfix configuration file */
 
@@ -57,6 +58,7 @@ void    master_vars_init(void)
     char   *path;
     static const CONFIG_STR_TABLE str_table[] = {
 	VAR_INET_PROTOCOLS, DEF_INET_PROTOCOLS, &var_inet_protocols, 1, 0,
+	VAR_MASTER_DISABLE, DEF_MASTER_DISABLE, &var_master_disable, 0, 0,
 	0,
     };
     static const CONFIG_INT_TABLE int_table[] = {
@@ -68,9 +70,22 @@ void    master_vars_init(void)
 	0,
     };
     static char *saved_inet_protocols;
+    static char *saved_queue_dir;
+    static char *saved_config_dir;
+    static const MASTER_STR_WATCH str_watch_table[] = {
+	VAR_CONFIG_DIR, &var_config_dir, &saved_config_dir, 0, 0,
+	VAR_QUEUE_DIR, &var_queue_dir, &saved_queue_dir, 0, 0,
+	VAR_INET_PROTOCOLS, &var_inet_protocols, &saved_inet_protocols, 0, 0,
+	/* XXX Add inet_interfaces here after this code is burned in. */
+	0,
+    };
 
-    if (var_inet_protocols && !saved_inet_protocols)
-	saved_inet_protocols = mystrdup(var_inet_protocols);
+    /*
+     * Flush existing main.cf settings, so that we handle deleted main.cf
+     * settings properly.
+     */
+    mail_conf_flush();
+    set_mail_conf_str(VAR_PROCNAME, var_procname);
     mail_conf_read();
     get_mail_conf_str_table(str_table);
     get_mail_conf_int_table(int_table);
@@ -79,8 +94,8 @@ void    master_vars_init(void)
     fset_master_ent(path);
     myfree(path);
 
-    if (saved_inet_protocols && strcmp(var_inet_protocols, saved_inet_protocols)) {
-	msg_warn("ignoring %s change", VAR_INET_PROTOCOLS);
-	msg_warn("to change %s, stop and start Postfix", VAR_INET_PROTOCOLS);
-    }
+    /*
+     * Look for parameter changes that require special attention.
+     */
+    master_str_watch(str_watch_table);
 }

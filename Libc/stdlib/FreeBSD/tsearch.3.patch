@@ -1,5 +1,5 @@
---- tsearch.3.orig	2007-03-06 15:44:54.000000000 -0800
-+++ tsearch.3	2007-03-06 16:04:48.000000000 -0800
+--- tsearch.3.bsdnew	2009-11-13 14:11:52.000000000 -0800
++++ tsearch.3	2009-11-13 14:42:09.000000000 -0800
 @@ -31,18 +31,36 @@
  .Dt TSEARCH 3
  .Os
@@ -34,15 +34,15 @@
 +.Fa "int (*compar) (const void *key1, const void *key2)"
 +.Fc
  .Ft void
--.Fn twalk "const void *root" "void (*compar) (const void *, VISIT, int)"
+-.Fn twalk "const void *root" "void (*action) (const void *, VISIT, int)"
 +.Fo twalk
 +.Fa "const void *root"
-+.Fa "void (*compar) (const void *node, VISIT order, int level)"
++.Fa "void (*action) (const void *node, VISIT order, int level)"
 +.Fc
  .Sh DESCRIPTION
  The
  .Fn tdelete ,
-@@ -50,39 +68,46 @@
+@@ -50,39 +68,46 @@ The
  .Fn tsearch ,
  and
  .Fn twalk
@@ -101,7 +101,7 @@
  It takes the same arguments as
  .Fn tfind
  and
-@@ -93,20 +118,44 @@
+@@ -93,20 +118,44 @@ will be adjusted.
  .Pp
  The
  .Fn twalk
@@ -147,10 +147,10 @@
 +to what would typically be referred to as in-order, and the
 +traversal type "endorder" corresponds to what would typically
 +be referred to as post-order.
- .Sh SEE ALSO
- .Xr bsearch 3 ,
- .Xr hsearch 3 ,
-@@ -125,7 +174,7 @@
+ .Sh RETURN VALUES
+ The
+ .Fn tsearch
+@@ -121,7 +170,7 @@ and
  functions
  return NULL if
  .Fa rootp

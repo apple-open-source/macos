@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -189,6 +189,39 @@ IOReturn IOFilterScheme::unmap(IOService *       client,
     //
 
     return getProvider( )->unmap( this, extents, extentsCount, options );
+}
+
+bool IOFilterScheme::lockPhysicalExtents(IOService * client)
+{
+    //
+    // Lock the contents of the storage object against relocation temporarily,
+    // for the purpose of getting physical extents.
+    //
+
+    return getProvider( )->lockPhysicalExtents( this );
+}
+
+IOStorage * IOFilterScheme::copyPhysicalExtent(IOService * client,
+                                               UInt64 *    byteStart,
+                                               UInt64 *    byteCount)
+{
+    //
+    // Convert the specified byte offset into a physical byte offset, relative
+    // to a physical storage object.  This call should only be made within the
+    // context of lockPhysicalExtents().
+    //
+
+    return getProvider( )->copyPhysicalExtent( this, byteStart, byteCount );
+}
+
+void IOFilterScheme::unlockPhysicalExtents(IOService * client)
+{
+    //
+    // Unlock the contents of the storage object for relocation again.  This
+    // call must balance a successful call to lockPhysicalExtents().
+    //
+
+    getProvider( )->unlockPhysicalExtents( this );
 }
 
 OSMetaClassDefineReservedUnused(IOFilterScheme,  0);

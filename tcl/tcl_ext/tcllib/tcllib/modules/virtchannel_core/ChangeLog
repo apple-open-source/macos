@@ -1,0 +1,16 @@
+2010-07-28  Andreas Kupries  <andreask@activestate.com>
+
+	* core.man: New files, documentation for the packages in
+	* events.man: this module.
+	* transformcore.man:
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-12-01  Andreas Kupries  <andreask@activestate.com>
+
+	* New module 'virtchannel_core', with core classes for virtual
+	  channels aka reflected channels. TclOO based.

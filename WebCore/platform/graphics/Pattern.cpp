@@ -31,15 +31,15 @@
 
 namespace WebCore {
 
-Pattern::Pattern(Image* image, bool repeatX, bool repeatY)
+Pattern::Pattern(PassRefPtr<Image> image, bool repeatX, bool repeatY)
     : m_tileImage(image)
     , m_repeatX(repeatX)
     , m_repeatY(repeatY)
-#if PLATFORM(SKIA)
+#if USE(SKIA)
     , m_pattern(0)
 #endif
 {
-    ASSERT(image);
+    ASSERT(m_tileImage);
 }
 
 Pattern::~Pattern()
@@ -53,7 +53,7 @@ void Pattern::setPatternSpaceTransform(const AffineTransform& patternSpaceTransf
     setPlatformPatternSpaceTransform();
 }
 
-#if !PLATFORM(SKIA)
+#if !USE(SKIA)
 void Pattern::platformDestroy()
 {
 }

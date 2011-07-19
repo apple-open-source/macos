@@ -38,7 +38,7 @@ static char sccsid[] = "@(#)ls.c	8.1 (Berkeley) 6/6/93";
 #endif /* not lint */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/usr.bin/find/ls.c,v 1.17 2004/01/20 09:27:03 des Exp $");
+__FBSDID("$FreeBSD: src/usr.bin/find/ls.c,v 1.19 2009/12/13 03:14:06 delphij Exp $");
 
 #include <sys/param.h>
 #include <sys/stat.h>
@@ -54,9 +54,10 @@ __FBSDID("$FreeBSD: src/usr.bin/find/ls.c,v 1.17 2004/01/20 09:27:03 des Exp $")
 #include <string.h>
 #include <time.h>
 #include <unistd.h>
+
 #ifdef __APPLE__
-/* definition from utmp.h */
-#define UT_NAMESIZE     8
+#undef MAXLOGNAME
+#define MAXLOGNAME 17
 #endif /* __APPLE__ */
 
 #include "find.h"
@@ -73,13 +74,8 @@ printlong(char *name, char *accpath, struct stat *sb)
 
 	(void)printf("%6lu %8"PRId64" ", (u_long) sb->st_ino, sb->st_blocks);
 	(void)strmode(sb->st_mode, modep);
-#ifdef __APPLE__
-	(void)printf("%s %3u %-*s %-*s ", modep, sb->st_nlink, UT_NAMESIZE,
-	    user_from_uid(sb->st_uid, 0), UT_NAMESIZE,
-#else /* !__APPLE__ */
 	(void)printf("%s %3u %-*s %-*s ", modep, sb->st_nlink, MAXLOGNAME - 1,
 	    user_from_uid(sb->st_uid, 0), MAXLOGNAME - 1,
-#endif /* __APPLE__ */
 	    group_from_gid(sb->st_gid, 0));
 
 	if (S_ISCHR(sb->st_mode) || S_ISBLK(sb->st_mode))

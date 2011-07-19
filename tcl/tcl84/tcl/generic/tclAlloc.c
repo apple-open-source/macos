@@ -272,7 +272,7 @@ TclpAlloc(nbytes)
     register union overhead *op;
     register long bucket;
     register unsigned amt;
-    struct block *bigBlockPtr;
+    struct block *bigBlockPtr = NULL;
 
     if (!allocInit) {
 	/*
@@ -286,9 +286,11 @@ TclpAlloc(nbytes)
     /*
      * First the simple case: we simple allocate big blocks directly
      */
-    if (nbytes + OVERHEAD >= MAXMALLOC) {
-	bigBlockPtr = (struct block *) TclpSysAlloc((unsigned) 
-		(sizeof(struct block) + OVERHEAD + nbytes), 0);
+    if (nbytes >= MAXMALLOC - OVERHEAD) {
+	if (nbytes <= UINT_MAX - OVERHEAD - sizeof(struct block)) {
+	    bigBlockPtr = (struct block *) TclpSysAlloc((unsigned) 
+		    (sizeof(struct block) + OVERHEAD + nbytes), 0);
+	}
 	if (bigBlockPtr == NULL) {
 	    Tcl_MutexUnlock(allocMutexPtr);
 	    return NULL;

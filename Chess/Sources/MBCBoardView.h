@@ -2,7 +2,7 @@
 	File:		MBCBoardView.h
 	Contains:	Displays and manipulates an OpenGL chess board
 	Version:	1.0
-	Copyright:	© 2002-2007 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCBoardView.h,v $
+		Revision 1.31  2010/01/18 19:20:38  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 2
+		
 		Revision 1.30  2008/10/24 22:07:28  neerache
 		<rdar://problem/5459104> Chess: Rotating the playing board while computer is moving results with the mouse as the chess piece
 		
@@ -242,7 +245,6 @@ const float kMaxElevation		= 80.0f;
 - (MBCSquare) 	positionToSquare:(const MBCPosition *)position;
 - (MBCSquare) 	positionToSquareOrRegion:(const MBCPosition *)position;
 - (MBCPosition)	squareToPosition:(MBCSquare)square;
-- (NSRect)	    approximateBoundsOfSquare:(MBCSquare)square;
 - (void) snapToSquare:(MBCPosition *)position;
 - (MBCSide) 	facing;			// What player are we facing?
 - (BOOL) 		facingWhite;	// Are we facing white?

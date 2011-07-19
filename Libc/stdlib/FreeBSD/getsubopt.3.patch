@@ -1,6 +1,6 @@
---- _SB/Libc/stdlib/FreeBSD/getsubopt.3	2004-11-25 11:38:41.000000000 -0800
-+++ _SB/Libc/stdlib/FreeBSD/getsubopt.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -44,23 +44,27 @@
+--- getsubopt.3.bsdnew	2009-11-13 14:11:48.000000000 -0800
++++ getsubopt.3	2009-11-13 14:11:48.000000000 -0800
+@@ -40,23 +40,27 @@
  .In stdlib.h
  .Vt extern char *suboptarg ;
  .Ft int
@@ -34,7 +34,7 @@
  is a pointer to a
  .Dv NULL Ns -terminated
  array of pointers to strings.
-@@ -69,10 +73,10 @@
+@@ -65,10 +69,10 @@ The
  .Fn getsubopt
  function
  returns the zero-based offset of the pointer in the
@@ -49,7 +49,7 @@
  does not contain a matching string.
  .Pp
  If the token is of the form ``name=value'', the location referenced by
-@@ -97,7 +101,7 @@
+@@ -93,7 +97,7 @@ will be set to point to the ``value'' po
  if no ``value'' portion was present.
  .Sh EXAMPLES
  .Bd -literal -compact
@@ -58,7 +58,7 @@
  	#define	ONE	0
  		"one",
  	#define	TWO	1
-@@ -118,7 +122,7 @@
+@@ -114,7 +118,7 @@ while ((ch = getopt(argc, argv, "ab:")) 
  	case 'b':
  		options = optarg;
  		while (*options) {

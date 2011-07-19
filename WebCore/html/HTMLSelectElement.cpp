@@ -3,7 +3,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2009, 2010 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
@@ -28,11 +28,11 @@
 #include "HTMLSelectElement.h"
 
 #include "AXObjectCache.h"
+#include "Attribute.h"
 #include "EventNames.h"
 #include "HTMLNames.h"
 #include "HTMLOptionElement.h"
 #include "HTMLOptionsCollection.h"
-#include "MappedAttribute.h"
 #include "RenderListBox.h"
 #include "RenderMenuList.h"
 #include "ScriptEventListener.h"
@@ -49,14 +49,13 @@ static const unsigned maxSelectItems = 10000;
 HTMLSelectElement::HTMLSelectElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLFormControlElementWithState(tagName, document, form)
 {
-    ASSERT(hasTagName(selectTag) || hasTagName(keygenTag));
+    ASSERT(hasTagName(selectTag));
 }
 
-bool HTMLSelectElement::checkDTD(const Node* newChild)
+PassRefPtr<HTMLSelectElement> HTMLSelectElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
 {
-    // Make sure to keep <optgroup> in sync with this.
-    return newChild->isTextNode() || newChild->hasTagName(optionTag) || newChild->hasTagName(optgroupTag) || newChild->hasTagName(hrTag) ||
-           newChild->hasTagName(scriptTag);
+    ASSERT(tagName.matches(selectTag));
+    return adoptRef(new HTMLSelectElement(tagName, document, form));
 }
 
 void HTMLSelectElement::recalcStyle(StyleChange change)
@@ -79,15 +78,27 @@ int HTMLSelectElement::selectedIndex() const
 void HTMLSelectElement::deselectItems(HTMLOptionElement* excludeElement)
 {
     SelectElement::deselectItems(m_data, this, excludeElement);
+    setNeedsValidityCheck();
 }
 
 void HTMLSelectElement::setSelectedIndex(int optionIndex, bool deselect)
 {
     SelectElement::setSelectedIndex(m_data, this, optionIndex, deselect, false, false);
+    setNeedsValidityCheck();
 }
 
-void HTMLSelectElement::setSelectedIndexByUser(int optionIndex, bool deselect, bool fireOnChangeNow)
+void HTMLSelectElement::setSelectedIndexByUser(int optionIndex, bool deselect, bool fireOnChangeNow, bool allowMultipleSelection)
 {
+    // List box selects can fire onchange events through user interaction, such as
+    // mousedown events. This allows that same behavior programmatically.
+    if (!m_data.usesMenuList()) {
+        updateSelectedState(m_data, this, optionIndex, allowMultipleSelection, false);
+        setNeedsValidityCheck();
+        if (fireOnChangeNow)
+            listBoxOnChange();
+        return;
+    }
+
     // Bail out if this index is already the selected one, to avoid running unnecessary JavaScript that can mess up
     // autofill, when there is no actual change (see https://bugs.webkit.org/show_bug.cgi?id=35256 and rdar://7467917 ).
     // Perhaps this logic could be moved into SelectElement, but some callers of SelectElement::setSelectedIndex()
@@ -96,14 +107,51 @@ void HTMLSelectElement::setSelectedIndexByUser(int optionIndex, bool deselect, b
         return;
     
     SelectElement::setSelectedIndex(m_data, this, optionIndex, deselect, fireOnChangeNow, true);
+    setNeedsValidityCheck();
+}
+
+bool HTMLSelectElement::hasPlaceholderLabelOption() const
+{
+    // The select element has no placeholder label option if it has an attribute "multiple" specified or a display size of non-1.
+    // 
+    // The condition "size() > 1" is actually not compliant with the HTML5 spec as of Dec 3, 2010. "size() != 1" is correct.
+    // Using "size() > 1" here because size() may be 0 in WebKit.
+    // See the discussion at https://bugs.webkit.org/show_bug.cgi?id=43887
+    //
+    // "0 size()" happens when an attribute "size" is absent or an invalid size attribute is specified.
+    // In this case, the display size should be assumed as the default.
+    // The default display size is 1 for non-multiple select elements, and 4 for multiple select elements.
+    //
+    // Finally, if size() == 0 and non-multiple, the display size can be assumed as 1.
+    if (multiple() || size() > 1)
+        return false;
+
+    int listIndex = optionToListIndex(0);
+    ASSERT(listIndex >= 0);
+    if (listIndex < 0)
+        return false;
+    HTMLOptionElement* option = static_cast<HTMLOptionElement*>(listItems()[listIndex]);
+    return !option->disabled() && !listIndex && option->value().isEmpty();
+}
+
+bool HTMLSelectElement::valueMissing() const
+{
+    if (!isRequiredFormControl())
+        return false;
+
+    int firstSelectionIndex = selectedIndex();
+
+    // If a non-placeholer label option is selected (firstSelectionIndex > 0), it's not value-missing.
+    return firstSelectionIndex < 0 || (!firstSelectionIndex && hasPlaceholderLabelOption());
 }
 
 void HTMLSelectElement::listBoxSelectItem(int listIndex, bool allowMultiplySelections, bool shift, bool fireOnChangeNow)
 {
     if (!multiple())
-        setSelectedIndexByUser(listIndex, true, fireOnChangeNow);
+        setSelectedIndexByUser(listToOptionIndex(listIndex), true, fireOnChangeNow);
     else {
         updateSelectedState(m_data, this, listIndex, allowMultiplySelections, shift);
+        setNeedsValidityCheck();
         if (fireOnChangeNow)
             listBoxOnChange();
     }
@@ -128,7 +176,7 @@ unsigned HTMLSelectElement::length() const
     return SelectElement::optionCount(m_data, this);
 }
 
-void HTMLSelectElement::add(HTMLElement *element, HTMLElement *before, ExceptionCode& ec)
+void HTMLSelectElement::add(HTMLElement* element, HTMLElement* before, ExceptionCode& ec)
 {
     RefPtr<HTMLElement> protectNewChild(element); // make sure the element is ref'd and deref'd so we don't leak it
 
@@ -136,21 +184,29 @@ void HTMLSelectElement::add(HTMLElement *element, HTMLElement *before, Exception
         return;
 
     insertBefore(element, before, ec);
+    setNeedsValidityCheck();
 }
 
-void HTMLSelectElement::remove(int index)
+void HTMLSelectElement::remove(int optionIndex)
 {
-    int listIndex = optionToListIndex(index);
+    int listIndex = optionToListIndex(optionIndex);
     if (listIndex < 0)
         return;
 
-    Element* item = listItems()[listIndex];
-    ASSERT(item->parentNode());
     ExceptionCode ec;
-    item->parentNode()->removeChild(item, ec);
+    listItems()[listIndex]->remove(ec);
 }
 
-String HTMLSelectElement::value()
+void HTMLSelectElement::remove(HTMLOptionElement* option)
+{
+    if (option->ownerSelectElement() != this)
+        return;
+
+    ExceptionCode ec;
+    option->remove(ec);
+}
+
+String HTMLSelectElement::value() const
 {
     const Vector<Element*>& items = listItems();
     for (unsigned i = 0; i < items.size(); i++) {
@@ -187,9 +243,10 @@ bool HTMLSelectElement::saveFormControlState(String& value) const
 void HTMLSelectElement::restoreFormControlState(const String& state)
 {
     SelectElement::restoreFormControlState(m_data, this, state);
+    setNeedsValidityCheck();
 }
 
-void HTMLSelectElement::parseMappedAttribute(MappedAttribute* attr) 
+void HTMLSelectElement::parseMappedAttribute(Attribute* attr) 
 {
     bool oldUsesMenuList = m_data.usesMenuList();
     if (attr->name() == sizeAttr) {
@@ -207,6 +264,7 @@ void HTMLSelectElement::parseMappedAttribute(MappedAttribute* attr)
             recalcListItemsIfNeeded();
 
         m_data.setSize(size);
+        setNeedsValidityCheck();
         if ((oldUsesMenuList != m_data.usesMenuList() || (!oldUsesMenuList && m_data.size() != oldSize)) && attached()) {
             detach();
             attach();
@@ -247,6 +305,7 @@ bool HTMLSelectElement::canSelectAll() const
 void HTMLSelectElement::selectAll()
 {
     SelectElement::selectAll(m_data, this);
+    setNeedsValidityCheck();
 }
 
 RenderObject* HTMLSelectElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -290,6 +349,7 @@ void HTMLSelectElement::recalcListItemsIfNeeded()
 void HTMLSelectElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     setRecalcListItems();
+    setNeedsValidityCheck();
     HTMLFormControlElementWithState::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
     
     if (AXObjectCache::accessibilityEnabled() && renderer())
@@ -307,6 +367,7 @@ void HTMLSelectElement::setRecalcListItems()
 void HTMLSelectElement::reset()
 {
     SelectElement::reset(m_data, this);
+    setNeedsValidityCheck();
 }
 
 void HTMLSelectElement::dispatchFocusEvent()
@@ -342,6 +403,7 @@ void HTMLSelectElement::setActiveSelectionEndIndex(int index)
 void HTMLSelectElement::updateListBoxSelection(bool deselectOtherOptions)
 {
     SelectElement::updateListBoxSelection(m_data, this, deselectOtherOptions);
+    setNeedsValidityCheck();
 }
 
 void HTMLSelectElement::menuListOnChange()
@@ -372,7 +434,14 @@ void HTMLSelectElement::accessKeySetSelectedIndex(int index)
     
 void HTMLSelectElement::setMultiple(bool multiple)
 {
+    bool oldMultiple = this->multiple();
+    int oldSelectedIndex = selectedIndex();
     setAttribute(multipleAttr, multiple ? "" : 0);
+
+    // Restore selectedIndex after changing the multiple flag to preserve
+    // selection as single-line and multi-line has different defaults.
+    if (oldMultiple != this->multiple())
+        setSelectedIndex(oldSelectedIndex);
 }
 
 void HTMLSelectElement::setSize(int size)
@@ -402,7 +471,7 @@ void HTMLSelectElement::setOption(unsigned index, HTMLOptionElement* option, Exc
         setLength(index, ec);
         // replace an existing entry ?
     } else if (diff < 0) {
-        before = static_cast<HTMLElement*>(options()->item(index+1));
+        before = toHTMLElement(options()->item(index+1));
         remove(index);
     }
     // finally add the new element
@@ -424,7 +493,7 @@ void HTMLSelectElement::setLength(unsigned newLen, ExceptionCode& ec)
         do {
             RefPtr<Element> option = document()->createElement(optionTag, false);
             ASSERT(option);
-            add(static_cast<HTMLElement*>(option.get()), 0, ec);
+            add(toHTMLElement(option.get()), 0, ec);
             if (ec)
                 break;
         } while (++diff);
@@ -450,6 +519,7 @@ void HTMLSelectElement::setLength(unsigned newLen, ExceptionCode& ec)
             }
         }
     }
+    setNeedsValidityCheck();
 }
 
 void HTMLSelectElement::scrollToSelection()
@@ -461,6 +531,11 @@ void HTMLSelectElement::insertedIntoTree(bool deep)
 {
     SelectElement::insertedIntoTree(m_data, this);
     HTMLFormControlElementWithState::insertedIntoTree(deep);
+}
+
+bool HTMLSelectElement::isRequiredFormControl() const
+{
+    return required();
 }
 
 } // namespace

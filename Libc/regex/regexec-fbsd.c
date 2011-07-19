@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -41,7 +37,7 @@
 static char sccsid[] = "@(#)regexec.c	8.3 (Berkeley) 3/20/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.6 2004/07/12 07:35:59 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.8 2007/06/11 03:05:54 delphij Exp $");
 
 #include "xlocale_private.h"
 
@@ -68,13 +64,7 @@ __FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.6 2004/07/12 07:35:59 tjr E
 static int nope __unused = 0;	/* for use in asserts; shuts lint up */
 
 static __inline size_t
-xmbrtowc(wi, s, n, mbs, dummy, loc)
-wint_t *wi;
-const char *s;
-size_t n;
-mbstate_t *mbs;
-wint_t dummy;
-locale_t loc;
+xmbrtowc(wint_t *wi, const char *s, size_t n, mbstate_t *mbs, wint_t dummy, locale_t loc)
 {
 	size_t nr;
 	wchar_t wc;
@@ -94,13 +84,12 @@ locale_t loc;
 }
 
 static __inline size_t
-xmbrtowc_dummy(wi, s, n, mbs, dummy, loc)
-wint_t *wi;
-const char *s;
-size_t n __unused;
-mbstate_t *mbs __unused;
-wint_t dummy __unused;
-locale_t loc;
+xmbrtowc_dummy(wint_t *wi,
+		const char *s,
+		size_t n __unused,
+		mbstate_t *mbs __unused,
+		wint_t dummy __unused,
+		locale_t loc __unused)
 {
 
 	if (wi != NULL)
@@ -220,12 +209,11 @@ locale_t loc;
  * have been prototyped.
  */
 int				/* 0 success, REG_NOMATCH failure */
-regexec(preg, string, nmatch, pmatch, eflags)
-const regex_t * __restrict preg;
-const char * __restrict string;
-size_t nmatch;
-regmatch_t pmatch[__restrict];
-int eflags;
+regexec(const regex_t * __restrict preg,
+	const char * __restrict string,
+	size_t nmatch,
+	regmatch_t pmatch[__restrict],
+	int eflags)
 {
 	struct re_guts *g = preg->re_g;
 #ifdef REDEBUG

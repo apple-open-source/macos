@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclWin32Dll.c,v 1.54 2007/12/13 15:28:43 dgp Exp $
+ * RCS: @(#) $Id: tclWin32Dll.c,v 1.54.2.3 2010/09/08 15:42:13 dgp Exp $
  */
 
 #include "tclWinInt.h"
@@ -106,7 +106,7 @@ static TclWinProcs asciiProcs = {
     (DWORD (WINAPI *)(DWORD, WCHAR *)) GetTempPathA,
     (BOOL (WINAPI *)(CONST TCHAR *, WCHAR *, DWORD, LPDWORD, LPDWORD, LPDWORD,
 	    WCHAR *, DWORD)) GetVolumeInformationA,
-    (HINSTANCE (WINAPI *)(CONST TCHAR *)) LoadLibraryA,
+    (HINSTANCE (WINAPI *)(CONST TCHAR *, HANDLE, DWORD)) LoadLibraryExA,
     (TCHAR (WINAPI *)(WCHAR *, CONST TCHAR *)) lstrcpyA,
     (BOOL (WINAPI *)(CONST TCHAR *, CONST TCHAR *)) MoveFileA,
     (BOOL (WINAPI *)(CONST TCHAR *)) RemoveDirectoryA,
@@ -134,7 +134,8 @@ static TclWinProcs asciiProcs = {
     NULL, NULL, NULL, NULL, NULL, NULL,
     /* ReadConsole and WriteConsole */
     (BOOL (WINAPI *)(HANDLE, LPVOID, DWORD, LPDWORD, LPVOID)) ReadConsoleA,
-    (BOOL (WINAPI *)(HANDLE, const VOID*, DWORD, LPDWORD, LPVOID)) WriteConsoleA
+    (BOOL (WINAPI *)(HANDLE, const VOID*, DWORD, LPDWORD, LPVOID)) WriteConsoleA,
+    (BOOL (WINAPI *)(LPTSTR, LPDWORD)) GetUserNameA
 };
 
 static TclWinProcs unicodeProcs = {
@@ -164,7 +165,7 @@ static TclWinProcs unicodeProcs = {
     (DWORD (WINAPI *)(DWORD, WCHAR *)) GetTempPathW,
     (BOOL (WINAPI *)(CONST TCHAR *, WCHAR *, DWORD, LPDWORD, LPDWORD, LPDWORD,
 	    WCHAR *, DWORD)) GetVolumeInformationW,
-    (HINSTANCE (WINAPI *)(CONST TCHAR *)) LoadLibraryW,
+    (HINSTANCE (WINAPI *)(CONST TCHAR *, HANDLE, DWORD)) LoadLibraryExW,
     (TCHAR (WINAPI *)(WCHAR *, CONST TCHAR *)) lstrcpyW,
     (BOOL (WINAPI *)(CONST TCHAR *, CONST TCHAR *)) MoveFileW,
     (BOOL (WINAPI *)(CONST TCHAR *)) RemoveDirectoryW,
@@ -192,7 +193,8 @@ static TclWinProcs unicodeProcs = {
     NULL, NULL, NULL, NULL, NULL, NULL,
     /* ReadConsole and WriteConsole */
     (BOOL (WINAPI *)(HANDLE, LPVOID, DWORD, LPDWORD, LPVOID)) ReadConsoleW,
-    (BOOL (WINAPI *)(HANDLE, const VOID*, DWORD, LPDWORD, LPVOID)) WriteConsoleW
+    (BOOL (WINAPI *)(HANDLE, const VOID*, DWORD, LPDWORD, LPVOID)) WriteConsoleW,
+    (BOOL (WINAPI *)(LPTSTR, LPDWORD)) GetUserNameW
 };
 
 TclWinProcs *tclWinProcs;
@@ -317,7 +319,7 @@ DllMain(
 	 * an exception handler and the state of the stack might be unstable.
 	 */
 
-#ifdef HAVE_NO_SEH
+#if defined(HAVE_NO_SEH) && !defined(_WIN64)
 	__asm__ __volatile__ (
 
 	    /*
@@ -387,12 +389,16 @@ DllMain(
 	    "%eax", "%ebx", "%ecx", "%edx", "%esi", "%edi", "memory"
 	    );
 
-#else /* HAVE_NO_SEH */
+#else
+#ifndef HAVE_NO_SEH
 	__try {
+#endif
 	    Tcl_Finalize();
+#ifndef HAVE_NO_SEH
 	} __except (EXCEPTION_EXECUTE_HANDLER) {
 	    /* empty handler body. */
 	}
+#endif
 #endif
 
 	break;

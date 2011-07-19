@@ -3,7 +3,11 @@
 exec tclsh "$0" ${1+"$@"}
 
 # --------------------------------------------------------------
-# Installer for Tklib
+# Installer for Tklib. The lowest version of the tcl core supported
+# by any module is 8.2. So we enforce that the installer is run with
+# at least that.
+
+package require Tcl 8.2
 
 set distribution   [file dirname [info script]]
 lappend auto_path  [file join $distribution modules]
@@ -13,9 +17,19 @@ lappend auto_path  [file join $distribution modules]
 # Version information for tklib.
 # List of modules to install (and definitions guiding the process)
 
-source [file join $distribution tklib_version.tcl]    ; # Get version information.
-source [file join $distribution installed_modules.tcl] ; # Get list of installed modules.
-source [file join $distribution install_action.tcl]   ; # Get list of installed modules.
+proc package_name    {text} {global package_name    ; set package_name    $text}
+proc package_version {text} {global package_version ; set package_version $text}
+proc dist_exclude    {path} {}
+proc critcl       {name files} {}
+proc critcl_main  {name files} {}
+proc critcl_notes {text} {}
+
+source [file join $distribution support installation version.tcl] ; # Get version information.
+source [file join $distribution support installation modules.tcl] ; # Get list of installed modules.
+source [file join $distribution support installation actions.tcl] ; # Get code to perform install actions.
+
+set package_nv ${package_name}-${package_version}
+set package_name_cap [string toupper [string index $package_name 0]][string range $package_name 1 end]
 
 # --------------------------------------------------------------
 # Low-level commands of the installation engine.
@@ -76,20 +90,50 @@ proc xcopyfile {src dest} {
 
 proc xcopy {src dest recurse {pattern *}} {
     run file mkdir $dest
-    foreach file [glob [file join $src $pattern]] {
-        set base [file tail $file]
-	set sub  [file join $dest $base]
 
-	if {0 == [string compare CVS $base]} {continue}
+    if {[string equal $pattern *] || !$recurse} {
+	foreach file [glob [file join $src $pattern]] {
+	    set base [file tail $file]
+	    set sub  [file join $dest $base]
 
-        if {[file isdirectory $file]} then {
-	    if {$recurse} {
-		run file mkdir  $sub
-		xcopy $file $sub $recurse $pattern
+	    if {0 == [string compare CVS $base]} {continue}
+
+	    if {[file isdirectory $file]} then {
+		if {$recurse} {
+		    run file mkdir  $sub
+		    xcopy $file $sub $recurse $pattern
+
+		    # If the directory is empty after the recursion remove it again.
+		    if {![llength [glob -nocomplain [file join $sub *]]]} {
+			file delete $sub
+		    }
+		}
+	    } else {
+		xcopyfile $file $sub
 	    }
-        } else {
-            xcopyfile $file $sub
-        }
+	}
+    } else {
+	foreach file [glob [file join $src *]] {
+	    set base [file tail $file]
+	    set sub  [file join $dest $base]
+
+	    if {[string equal CVS $base]} {continue}
+
+	    if {[file isdirectory $file]} then {
+		if {$recurse} {
+		    run file mkdir $sub
+		    xcopy $file $sub $recurse $pattern
+
+		    # If the directory is empty after the recursion remove it again.
+		    if {![llength [glob -nocomplain [file join $sub *]]]} {
+			run file delete $sub
+		    }
+		}
+	    } else {
+		if {![string match $pattern $base]} {continue}
+		xcopyfile $file $sub
+	    }
+	}
     }
 }
 
@@ -133,8 +177,13 @@ proc run {args} {
 	log [join $args]
 	return
     }
-    eval $args
-
+    if {[catch {eval $args} msg]} {
+        if {$config(gui)} {
+            installErrorMsgBox $msg
+        } else {
+            return -code error "Install error:\n $msg" 
+        }
+    }
     log* .
     return
 }
@@ -147,8 +196,40 @@ proc xinstall {type args} {
     return
 }
 
+proc ainstall {} {
+    global apps config tcl_platform distribution
+
+    if {[string compare $tcl_platform(platform) windows] == 0} {
+	set ext .tcl
+    } else {
+	set ext ""
+    }
+
+    foreach a $apps {
+	set aexe [file join $distribution apps $a]
+	set adst [file join $config(app,path) ${a}$ext]
+
+	log "\nGenerating $adst"
+	if {!$config(dry)} {
+	    file mkdir [file dirname  $adst]
+	    catch {file delete -force $adst}
+	    file copy -force $aexe    $adst
+	}
+
+	if {[file exists $aexe.man]} {
+	    if {$config(doc,nroff)} {
+		_manfile $aexe.man nroff n $config(doc,nroff,path)
+	    }
+	    if {$config(doc,html)} {
+		_manfile $aexe.man html html $config(doc,html,path)
+	    }
+	}
+    }
+    return
+}
+
 proc doinstall {} {
-    global config tklib_version distribution tklib_name modules excluded
+    global config package_version distribution package_name modules excluded
 
     if {!$config(no-exclude)} {
 	foreach p $excluded {
@@ -158,16 +239,22 @@ proc doinstall {} {
 	}
     }
 
+    if {$config(doc,nroff)} {
+	set config(man.macros) [string trim [get_input \
+		[file join $distribution support installation man.macros]]]
+    }
     if {$config(pkg)}       {
 	xinstall   pkg $config(pkg,path)
-	gen_main_index $config(pkg,path) $tklib_name $tklib_version
+	gen_main_index $config(pkg,path) $package_name $package_version
     }
-    if {$config(doc,nroff)} {
-	set config(man.macros) [string trim [get_input [file join $distribution man.macros]]]
-	xinstall doc nroff n    $config(doc,nroff,path)
-    }
-    if {$config(doc,html)}  {xinstall doc html  html $config(doc,html,path)}
+	if {$config(doc,nroff)} {
+	    xinstall doc nroff n    $config(doc,nroff,path)
+	}
+	if {$config(doc,html)}  {
+	    xinstall doc html  html $config(doc,html,path)
+	}
     if {$config(exa)}       {xinstall exa $config(exa,path)}
+    if {$config(app)}       {ainstall}
     log ""
     return
 }
@@ -178,6 +265,7 @@ proc doinstall {} {
 
 array set config {
     pkg 1 pkg,path {}
+    app 1 app,path {}
     doc,nroff 0 doc,nroff,path {}
     doc,html  0 doc,html,path  {}
     exa 1 exa,path {}
@@ -189,7 +277,7 @@ array set config {
 # Determine a default configuration, if possible
 
 proc defaults {} {
-    global tcl_platform config tklib_version tklib_name distribution
+    global tcl_platform config package_version package_name distribution
 
     if {[string compare $distribution [info nameofexecutable]] == 0} {
 	# Starpack. No defaults for location.
@@ -217,16 +305,17 @@ proc defaults {} {
 
 	if {[string compare $tcl_platform(platform) windows] == 0} {
 	    set mandir  {}
-	    set htmldir [file join $basedir tklib_doc]
+	    set htmldir [file join $basedir ${package_name}_doc]
 	} else {
 	    set mandir  [file join $basedir man mann]
-	    set htmldir [file join $libdir  tklib${tklib_version} tklib_doc]
+	    set htmldir [file join $libdir  ${package_name}${package_version} ${package_name}_doc]
 	}
 
-	set config(pkg,path)       [file join $libdir ${tklib_name}${tklib_version}]
+	set config(app,path)       $bindir
+	set config(pkg,path)       [file join $libdir ${package_name}${package_version}]
 	set config(doc,nroff,path) $mandir
 	set config(doc,html,path)  $htmldir
-	set config(exa,path)       [file join $bindir tklib_examples${tklib_version}]
+	set config(exa,path)       [file join $bindir ${package_name}_examples${package_version}]
     }
 
     if {[string compare $tcl_platform(platform) windows] == 0} {
@@ -259,9 +348,9 @@ proc showpath {prefix key} {
 }
 
 proc showconfiguration {} {
-    global config tklib_version
+    global config package_version package_name_cap
 
-    puts "Installing Tklib $tklib_version"
+    puts "Installing $package_name_cap $package_version"
     if {$config(dry)} {
 	puts "\tDry run, simulation, no actual activity."
 	puts ""
@@ -271,6 +360,7 @@ proc showconfiguration {} {
     puts ""
 
     showpath "Packages:      " pkg
+    #showpath "Applications:  " app
     showpath "Examples:      " exa
 
     if {$config(doc,nroff) || $config(doc,html)} {
@@ -308,31 +398,34 @@ proc browse {label key} {
 }
 
 proc setupgui {} {
-    global config tklib_name tklib_version
+    global config package_name_cap package_version
     set config(gui) 1
 
     wm withdraw .
-    wm title . "Installing $tklib_name $tklib_version"
+    wm title . "Installing $package_name_cap $package_version"
 
+    # .app checkbutton 1 0 1 {-anchor w -text {Applications:} -variable config(app)}
+    # .appe entry 1 1 1 {-width 40 -textvariable config(app,path)}
+    # .appb button 1 2 1 {-text ... -command {browse Applications app,path}}
     foreach {w type cspan col row opts} {
-	.pkg checkbutton 1 0 0 {-anchor w -text {Packages:}    -variable config(pkg)}
-	.dnr checkbutton 1 0 1 {-anchor w -text {Doc. Nroff:}  -variable config(doc,nroff)}
-	.dht checkbutton 1 0 2 {-anchor w -text {Doc. HTML:}   -variable config(doc,html)}
-	.exa checkbutton 1 0 3 {-anchor w -text {Examples:}    -variable config(exa)}
+	.pkg checkbutton 1 0 0 {-anchor w -text {Packages:}     -variable config(pkg)}
+	.dnr checkbutton 1 0 1 {-anchor w -text {Doc. Nroff:}   -variable config(doc,nroff)}
+	.dht checkbutton 1 0 2 {-anchor w -text {Doc. HTML:}    -variable config(doc,html)}
+	.exa checkbutton 1 0 3 {-anchor w -text {Examples:}     -variable config(exa)}
 
 	.spa frame  3 0 4 {-bg black -height 2}
 
-	.dry checkbutton 2 0 6 {-anchor w -text {Simulate installation}   -variable config(dry)}
+	.dry checkbutton 2 0 6 {-anchor w -text {Simulate installation} -variable config(dry)}
 
 	.pkge entry 1 1 0 {-width 40 -textvariable config(pkg,path)}
 	.dnre entry 1 1 1 {-width 40 -textvariable config(doc,nroff,path)}
 	.dhte entry 1 1 2 {-width 40 -textvariable config(doc,html,path)}
 	.exae entry 1 1 3 {-width 40 -textvariable config(exa,path)}
 
-	.pkgb button 1 2 0 {-text ... -command {browse Packages pkg,path}}
-	.dnrb button 1 2 1 {-text ... -command {browse Nroff    doc,nroff,path}}
-	.dhtb button 1 2 2 {-text ... -command {browse HTML     doc,html,path}}
-	.exab button 1 2 3 {-text ... -command {browse Examples exa,path}}
+	.pkgb button 1 2 0 {-text ... -command {browse Packages     pkg,path}}
+	.dnrb button 1 2 1 {-text ... -command {browse Nroff        doc,nroff,path}}
+	.dhtb button 1 2 2 {-text ... -command {browse HTML         doc,html,path}}
+	.exab button 1 2 3 {-text ... -command {browse Examples     exa,path}}
 
 	.sep  frame  3 0 7 {-bg black -height 2}
 
@@ -392,13 +485,20 @@ proc processargs {} {
 	    -nroff       {set config(doc,nroff) 1}
 	    -examples    {set config(exa) 1}
 	    -pkgs        {set config(pkg) 1}
+	    -apps        {set config(app) 1}
 	    -no-html     {set config(doc,html) 0}
 	    -no-nroff    {set config(doc,nroff) 0}
 	    -no-examples {set config(exa) 0}
 	    -no-pkgs     {set config(pkg) 0}
+	    -no-apps     {set config(app) 0}
 	    -pkg-path {
 		set config(pkg) 1
 		set config(pkg,path) [lindex $argv 1]
+		set argv             [lrange $argv 1 end]
+	    }
+	    -app-path {
+		set config(app) 1
+		set config(app,path) [lindex $argv 1]
 		set argv             [lrange $argv 1 end]
 	    }
 	    -nroff-path {
@@ -418,7 +518,7 @@ proc processargs {} {
 	    }
 	    -help   -
 	    default {
-		puts stderr "usage: $argv0 ?-dry-run/-simulate? ?-no-wait? ?-no-gui? ?-html|-no-html? ?-nroff|-no-nroff? ?-examples|-no-examples? ?-pkgs|-no-pkgs? ?-pkg-path path? ?-nroff-path path? ?-html-path path? ?-example-path path?"
+		puts stderr "usage: $argv0 ?-dry-run/-simulate? ?-no-wait? ?-no-gui? ?-html|-no-html? ?-nroff|-no-nroff? ?-examples|-no-examples? ?-pkgs|-no-pkgs? ?-pkg-path path? ?-apps|-no-apps? ?-app-path path? ?-nroff-path path? ?-html-path path? ?-example-path path?"
 		exit 1
 	    }
 	}
@@ -445,6 +545,15 @@ proc validate {} {
 		-parent . -message [get]
 	clear
     }
+    exit 1
+}
+
+proc installErrorMsgBox {msg} {
+    tk_messageBox \
+	    -icon error -type ok \
+	    -default ok \
+	    -title "Install error" \
+	    -parent . -message $msg
     exit 1
 }
 

@@ -1,16 +1,49 @@
---- opensource_pkgs/jabberd-2.1.24.1/configure	2008-04-27 02:58:11.000000000 -0700
-+++ configure	2009-03-27 22:26:28.000000000 -0700
-@@ -1540,7 +1540,8 @@
-   --enable-pipe           enable pipe auth/reg support (no)
-   --enable-anon           enable anonymous auth/reg support (no)
-   --enable-fs             enable filesystem storage support (no)
--  --enable-mio=BACKENDS   use one of BACKENDS to drive MIO (select poll epoll)
-+  --enable-mio=BACKENDS   use one of BACKENDS to drive MIO (select poll kqueue
-+                          epoll)
-   --enable-superseded     enable superseded XEP support (yes)
-   --enable-experimental   enable experimental XEP support (no)
+--- /tmp/jabberd-2.2.13/configure	2011-02-23 08:24:49.000000000 -0800
++++ ./jabberd2/configure	2011-04-18 17:50:22.000000000 -0700
+@@ -701,7 +701,7 @@ MAKEFLAGS=
+ # Identity of this package.
+ PACKAGE_NAME='jabberd'
+ PACKAGE_TARNAME='jabberd'
+-PACKAGE_VERSION='2.2.13'
++PACKAGE_VERSION='2.2.13-373'
+ PACKAGE_STRING='jabberd 2.2.13'
+ PACKAGE_BUGREPORT='jabberd2@lists.xiaoka.com'
+ PACKAGE_URL=''
+@@ -775,6 +775,8 @@ STORAGE_DB_TRUE
+ DB_LIBS
+ STORAGE_SQLITE_FALSE
+ STORAGE_SQLITE_TRUE
++STORAGE_APPLE_FALSE
++STORAGE_APPLE_TRUE
+ SQLITE_LIBS
+ STORAGE_PGSQL_FALSE
+ STORAGE_PGSQL_TRUE
+@@ -925,6 +927,7 @@ with_zlib
+ enable_mysql
+ enable_pgsql
+ enable_sqlite
++enable_apple
+ enable_db
+ with_oracle_home
+ enable_oracle
+@@ -1582,6 +1585,7 @@ Optional Features:
+   --enable-mysql=DIR      enable MySQL auth/reg/storage support (no)
+   --enable-pgsql=DIR      enable PostgreSQL auth/reg/storage support (no)
+   --enable-sqlite         enable SQLite3 auth/reg/storage support (no)
++  --enable-apple          enable Apple OD auth, SQLite3 storage support (no)
+   --enable-db             enable Berkeley DB auth/reg/storage support (no)
+   --enable-oracle         enable Oracle auth/reg/storage support (no)
+   --enable-ldap           enable OpenLDAP auth/reg support (no)
+@@ -3076,7 +3080,7 @@ fi
  
-@@ -4155,7 +4156,7 @@
+ # Define the identity of the package.
+  PACKAGE='jabberd'
+- VERSION='2.2.13'
++ VERSION="$PACKAGE_VERSION"
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+@@ -4195,7 +4199,7 @@ $as_echo "$ac_try_echo"; } >&5
  else
    eval ac_cv_prog_cc_${ac_cc}_c_o=no
  fi
@@ -19,558 +52,115 @@
  
  fi
  if eval test \$ac_cv_prog_cc_${ac_cc}_c_o = yes; then
-@@ -5337,7 +5338,7 @@
-   ;;
- *-*-irix6*)
-   # Find out which ABI we are using.
--  echo '#line 5340 "configure"' > conftest.$ac_ext
-+  echo '#line 5341 "configure"' > conftest.$ac_ext
-   if { (eval echo "$as_me:$LINENO: \"$ac_compile\"") >&5
-   (eval $ac_compile) 2>&5
-   ac_status=$?
-@@ -5593,7 +5594,7 @@
- else
-   ac_cv_header_stdc=no
+@@ -10875,7 +10879,7 @@ fi
+ # check for optimisation level
+ { $as_echo "$as_me:${as_lineno-$LINENO}: checking CFLAGS optimization level" >&5
+ $as_echo_n "checking CFLAGS optimization level... " >&6; }
+-if echo $CFLAGS | grep '.*-O[3s].*' >/dev/null 2>&1; then
++if echo $CFLAGS | grep '.*-O[3].*' >/dev/null 2>&1; then
+     as_fn_error "maximum allowed optimization level is -O2" "$LINENO" 5
  fi
--rm -f conftest*
-+rm -f -r conftest*
- 
- fi
- 
-@@ -5614,7 +5615,7 @@
- else
-   ac_cv_header_stdc=no
- fi
--rm -f conftest*
-+rm -f -r conftest*
- 
- fi
- 
-@@ -7378,11 +7379,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:7381: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:7382: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:7385: \$? = $ac_status" >&5
-+   echo "$as_me:7386: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -7668,11 +7669,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:7671: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:7672: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:7675: \$? = $ac_status" >&5
-+   echo "$as_me:7676: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -7772,11 +7773,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:7775: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:7776: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>out/conftest.err)
-    ac_status=$?
-    cat out/conftest.err >&5
--   echo "$as_me:7779: \$? = $ac_status" >&5
-+   echo "$as_me:7780: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s out/conftest2.$ac_objext
-    then
-      # The compiler can only warn and ignore the option if not recognized
-@@ -10123,7 +10124,7 @@
-   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
-   lt_status=$lt_dlunknown
-   cat > conftest.$ac_ext <<EOF
--#line 10126 "configure"
-+#line 10127 "configure"
- #include "confdefs.h"
- 
- #if HAVE_DLFCN_H
-@@ -10223,7 +10224,7 @@
-   lt_dlunknown=0; lt_dlno_uscore=1; lt_dlneed_uscore=2
-   lt_status=$lt_dlunknown
-   cat > conftest.$ac_ext <<EOF
--#line 10226 "configure"
-+#line 10227 "configure"
- #include "confdefs.h"
- 
- #if HAVE_DLFCN_H
-@@ -12643,11 +12644,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:12646: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:12647: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:12650: \$? = $ac_status" >&5
-+   echo "$as_me:12651: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -12747,11 +12748,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:12750: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:12751: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>out/conftest.err)
-    ac_status=$?
-    cat out/conftest.err >&5
--   echo "$as_me:12754: \$? = $ac_status" >&5
-+   echo "$as_me:12755: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s out/conftest2.$ac_objext
-    then
-      # The compiler can only warn and ignore the option if not recognized
-@@ -14311,11 +14312,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:14314: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:14315: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:14318: \$? = $ac_status" >&5
-+   echo "$as_me:14319: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -14415,11 +14416,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:14418: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:14419: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>out/conftest.err)
-    ac_status=$?
-    cat out/conftest.err >&5
--   echo "$as_me:14422: \$? = $ac_status" >&5
-+   echo "$as_me:14423: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s out/conftest2.$ac_objext
-    then
-      # The compiler can only warn and ignore the option if not recognized
-@@ -16604,11 +16605,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:16607: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:16608: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:16611: \$? = $ac_status" >&5
-+   echo "$as_me:16612: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -16894,11 +16895,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:16897: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:16898: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>conftest.err)
-    ac_status=$?
-    cat conftest.err >&5
--   echo "$as_me:16901: \$? = $ac_status" >&5
-+   echo "$as_me:16902: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s "$ac_outfile"; then
-      # The compiler can only warn and ignore the option if not recognized
-      # So say no if there are warnings other than the usual output.
-@@ -16998,11 +16999,11 @@
-    -e 's:.*FLAGS}\{0,1\} :&$lt_compiler_flag :; t' \
-    -e 's: [^ ]*conftest\.: $lt_compiler_flag&:; t' \
-    -e 's:$: $lt_compiler_flag:'`
--   (eval echo "\"\$as_me:17001: $lt_compile\"" >&5)
-+   (eval echo "\"\$as_me:17002: $lt_compile\"" >&5)
-    (eval "$lt_compile" 2>out/conftest.err)
-    ac_status=$?
-    cat out/conftest.err >&5
--   echo "$as_me:17005: \$? = $ac_status" >&5
-+   echo "$as_me:17006: \$? = $ac_status" >&5
-    if (exit $ac_status) && test -s out/conftest2.$ac_objext
-    then
-      # The compiler can only warn and ignore the option if not recognized
-@@ -20151,7 +20152,7 @@
- else
-   ac_cv_header_stdc=no
- fi
--rm -f conftest*
-+rm -f -r conftest*
- 
- fi
- 
-@@ -20172,7 +20173,7 @@
- else
-   ac_cv_header_stdc=no
- fi
--rm -f conftest*
-+rm -f -r conftest*
- 
- fi
- 
-@@ -23127,7 +23128,7 @@
- else
-   ac_cv_os_cray=no
- fi
--rm -f conftest*
-+rm -f -r conftest*
- 
- fi
- { echo "$as_me:$LINENO: result: $ac_cv_os_cray" >&5
-@@ -25102,7 +25103,7 @@
- #define SELECT_TYPE_ARG5 ($3)
- _ACEOF
- 
--rm -f conftest*
-+rm -f -r conftest*
- 
- { echo "$as_me:$LINENO: checking return type of signal handlers" >&5
- echo $ECHO_N "checking return type of signal handlers... $ECHO_C" >&6; }
-@@ -25741,7 +25742,7 @@
- #define SELECT_TYPE_ARG5 ($3)
- _ACEOF
- 
--rm -f conftest*
-+rm -f -r conftest*
- 
- 
- 
-@@ -27626,7 +27627,7 @@
+ { $as_echo "$as_me:${as_lineno-$LINENO}: result: fine" >&5
+@@ -14504,7 +14508,7 @@ _ACEOF
  fi
  done
  
 -if test "x-$ac_cv_func_snprintf" = "x-yes" ; then
 +if test "x-$ac_cv_func_snprintf" = "x-yes" && test ! "x-$ac_cv_func_snprintf_handles_null" = "x-yes"; then
-     { echo "$as_me:$LINENO: checking if snprintf can handle NULL arguments" >&5
- echo $ECHO_N "checking if snprintf can handle NULL arguments... $ECHO_C" >&6; }
-     if test "$cross_compiling" = yes; then
-@@ -27688,7 +27689,7 @@
- 
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking if snprintf can handle NULL arguments" >&5
+ $as_echo_n "checking if snprintf can handle NULL arguments... " >&6; }
+     if test "$cross_compiling" = yes; then :
+@@ -14535,7 +14539,7 @@ rm -f core *.core core.conftest.* gmon.o
+ fi
  
  fi
 -if test "x-$ac_cv_func_vsnprintf" = "x-yes" ; then
 +if test "x-$ac_cv_func_vsnprintf" = "x-yes" && test ! "x-$ac_cv_func_vsnprintf_handles_null" = "x-yes" ; then
-     { echo "$as_me:$LINENO: checking if vsnprintf can handle NULL arguments" >&5
- echo $ECHO_N "checking if vsnprintf can handle NULL arguments... $ECHO_C" >&6; }
-     if test "$cross_compiling" = yes; then
-@@ -28049,7 +28050,7 @@
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking if vsnprintf can handle NULL arguments" >&5
+ $as_echo_n "checking if vsnprintf can handle NULL arguments... " >&6; }
+     if test "$cross_compiling" = yes; then :
+@@ -14731,7 +14735,7 @@ _ACEOF
  
  fi
  
 -if test "x-$ac_cv_lib_idn_stringprep_check_version" = "x-yes" ; then
 +if test "x-$ac_cv_lib_idn_stringprep_check_version" = "x-yes" && test ! "x-$ac_cv_lib_idn_have_version" = "x-yes"; then
-     { echo "$as_me:$LINENO: checking for Libidn version >= 0.3.0" >&5
- echo $ECHO_N "checking for Libidn version >= 0.3.0... $ECHO_C" >&6; }
-     if test "$cross_compiling" = yes; then
-@@ -28111,7 +28112,7 @@
- 
+     { $as_echo "$as_me:${as_lineno-$LINENO}: checking for Libidn version >= 0.3.0" >&5
+ $as_echo_n "checking for Libidn version >= 0.3.0... " >&6; }
+     if test "$cross_compiling" = yes; then :
+@@ -14764,7 +14768,7 @@ rm -f core *.core core.conftest.* gmon.o
+ fi
  
  fi
 -if test "x-$have_idn" != "x-yes" ; then
 +if test "x-$have_idn" != "x-yes" && test ! "x-$ac_cv_lib_idn_have_version" = "x-yes"; then
-     { { echo "$as_me:$LINENO: error: Libidn >= 0.3.0 not found" >&5
- echo "$as_me: error: Libidn >= 0.3.0 not found" >&2;}
-    { (exit 1); exit 1; }; }
-@@ -29126,7 +29127,7 @@
+     as_fn_error "Libidn >= 0.3.0 not found" "$LINENO" 5
+ fi
+ 
+@@ -15148,7 +15152,7 @@ _ACEOF
  fi
  
      fi
 -    if test "x-$ac_cv_lib_ssl_SSL_connect" = "x-yes" ; then
 +    if test "x-$ac_cv_lib_ssl_SSL_connect" = "x-yes" && test ! "x-$ac_cv_lib_ssl_have_version" = "x-yes"; then
-         { echo "$as_me:$LINENO: checking for OpenSSL version >= 0.9.6b" >&5
- echo $ECHO_N "checking for OpenSSL version >= 0.9.6b... $ECHO_C" >&6; }
-         if test "$cross_compiling" = yes; then
-@@ -29188,7 +29189,12 @@
- 
+         { $as_echo "$as_me:${as_lineno-$LINENO}: checking for OpenSSL version >= 0.9.6b" >&5
+ $as_echo_n "checking for OpenSSL version >= 0.9.6b... " >&6; }
+         if test "$cross_compiling" = yes; then :
+@@ -15181,6 +15185,10 @@ rm -f core *.core core.conftest.* gmon.o
+ fi
  
      fi
--    if test "x-$have_openssl" != "x-yes" ; then
-+
 +    if test "x-$ac_cv_lib_ssl_have_version" = "x-yes"; then
 +       have_openssl=yes
 +    fi
-+ 
-+    if test "x-$have_openssl" != "x-yes"; then
-         { { echo "$as_me:$LINENO: error: OpenSSL >= 0.9.6b not found" >&5
- echo "$as_me: error: OpenSSL >= 0.9.6b not found" >&2;}
-    { (exit 1); exit 1; }; }
-@@ -32608,7 +32614,7 @@
- if test "${enable_mio+set}" = set; then
-   enableval=$enable_mio; mio_check=$enableval
- else
--  mio_check='epoll poll select'
-+  mio_check='epoll kqueue poll select'
++
+     if test "x-$have_openssl" != "x-yes" ; then
+         as_fn_error "OpenSSL >= 0.9.6b not found" "$LINENO" 5
+     fi
+@@ -15621,6 +15629,35 @@ else
+   STORAGE_SQLITE_FALSE=
  fi
  
- 
-@@ -32866,6 +32872,256 @@
-             fi
-             ;;
- 
-+        x-kqueue)
++# Apple OD auth
++# Check whether --enable-apple-X was given.
 +
-+for ac_header in sys/event.h
-+do
-+as_ac_Header=`echo "ac_cv_header_$ac_header" | $as_tr_sh`
-+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
-+  { echo "$as_me:$LINENO: checking for $ac_header" >&5
-+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
-+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+fi
-+ac_res=`eval echo '${'$as_ac_Header'}'`
-+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-+echo "${ECHO_T}$ac_res" >&6; }
++if test "${enable_apple+set}" = set; then
++  enableval=$enable_apple; enable_apple=$enableval have_apple=no
 +else
-+  # Is the header compilable?
-+{ echo "$as_me:$LINENO: checking $ac_header usability" >&5
-+echo $ECHO_N "checking $ac_header usability... $ECHO_C" >&6; }
-+cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+$ac_includes_default
-+#include <$ac_header>
-+_ACEOF
-+rm -f conftest.$ac_objext
-+if { (ac_try="$ac_compile"
-+case "(($ac_try" in
-+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-+  *) ac_try_echo=$ac_try;;
-+esac
-+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-+  (eval "$ac_compile") 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } && {
-+	 test -z "$ac_c_werror_flag" ||
-+	 test ! -s conftest.err
-+       } && test -s conftest.$ac_objext; then
-+  ac_header_compiler=yes
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+	ac_header_compiler=no
++  enable_apple=no         have_apple=no
 +fi
 +
-+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
-+{ echo "$as_me:$LINENO: result: $ac_header_compiler" >&5
-+echo "${ECHO_T}$ac_header_compiler" >&6; }
-+
-+# Is the header present?
-+{ echo "$as_me:$LINENO: checking $ac_header presence" >&5
-+echo $ECHO_N "checking $ac_header presence... $ECHO_C" >&6; }
-+cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+#include <$ac_header>
-+_ACEOF
-+if { (ac_try="$ac_cpp conftest.$ac_ext"
-+case "(($ac_try" in
-+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-+  *) ac_try_echo=$ac_try;;
-+esac
-+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-+  (eval "$ac_cpp conftest.$ac_ext") 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } >/dev/null && {
-+	 test -z "$ac_c_preproc_warn_flag$ac_c_werror_flag" ||
-+	 test ! -s conftest.err
-+       }; then
-+  ac_header_preproc=yes
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+  ac_header_preproc=no
-+fi
-+
-+rm -f conftest.err conftest.$ac_ext
-+{ echo "$as_me:$LINENO: result: $ac_header_preproc" >&5
-+echo "${ECHO_T}$ac_header_preproc" >&6; }
-+
-+# So?  What about this header?
-+case $ac_header_compiler:$ac_header_preproc:$ac_c_preproc_warn_flag in
-+  yes:no: )
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&5
-+echo "$as_me: WARNING: $ac_header: accepted by the compiler, rejected by the preprocessor!" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the compiler's result" >&5
-+echo "$as_me: WARNING: $ac_header: proceeding with the compiler's result" >&2;}
-+    ac_header_preproc=yes
-+    ;;
-+  no:yes:* )
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: present but cannot be compiled" >&5
-+echo "$as_me: WARNING: $ac_header: present but cannot be compiled" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header:     check for missing prerequisite headers?" >&5
-+echo "$as_me: WARNING: $ac_header:     check for missing prerequisite headers?" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: see the Autoconf documentation" >&5
-+echo "$as_me: WARNING: $ac_header: see the Autoconf documentation" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&5
-+echo "$as_me: WARNING: $ac_header:     section \"Present But Cannot Be Compiled\"" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: proceeding with the preprocessor's result" >&5
-+echo "$as_me: WARNING: $ac_header: proceeding with the preprocessor's result" >&2;}
-+    { echo "$as_me:$LINENO: WARNING: $ac_header: in the future, the compiler will take precedence" >&5
-+echo "$as_me: WARNING: $ac_header: in the future, the compiler will take precedence" >&2;}
-+    ( cat <<\_ASBOX
-+## ---------------------------------- ##
-+## Report this to jabberd2@xiaoka.com ##
-+## ---------------------------------- ##
-+_ASBOX
-+     ) | sed "s/^/$as_me: WARNING:     /" >&2
-+    ;;
-+esac
-+{ echo "$as_me:$LINENO: checking for $ac_header" >&5
-+echo $ECHO_N "checking for $ac_header... $ECHO_C" >&6; }
-+if { as_var=$as_ac_Header; eval "test \"\${$as_var+set}\" = set"; }; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+else
-+  eval "$as_ac_Header=\$ac_header_preproc"
-+fi
-+ac_res=`eval echo '${'$as_ac_Header'}'`
-+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-+echo "${ECHO_T}$ac_res" >&6; }
-+
-+fi
-+if test `eval echo '${'$as_ac_Header'}'` = yes; then
-+  cat >>confdefs.h <<_ACEOF
-+#define `echo "HAVE_$ac_header" | $as_tr_cpp` 1
-+_ACEOF
-+
-+fi
-+
-+done
-+
-+            if test "x-$ac_cv_header_sys_event_h" = "x-yes" ; then
-+
-+for ac_func in kqueue
-+do
-+as_ac_var=`echo "ac_cv_func_$ac_func" | $as_tr_sh`
-+{ echo "$as_me:$LINENO: checking for $ac_func" >&5
-+echo $ECHO_N "checking for $ac_func... $ECHO_C" >&6; }
-+if { as_var=$as_ac_var; eval "test \"\${$as_var+set}\" = set"; }; then
-+  echo $ECHO_N "(cached) $ECHO_C" >&6
-+else
-+  cat >conftest.$ac_ext <<_ACEOF
-+/* confdefs.h.  */
-+_ACEOF
-+cat confdefs.h >>conftest.$ac_ext
-+cat >>conftest.$ac_ext <<_ACEOF
-+/* end confdefs.h.  */
-+/* Define $ac_func to an innocuous variant, in case <limits.h> declares $ac_func.
-+   For example, HP-UX 11i <limits.h> declares gettimeofday.  */
-+#define $ac_func innocuous_$ac_func
-+
-+/* System header to define __stub macros and hopefully few prototypes,
-+    which can conflict with char $ac_func (); below.
-+    Prefer <limits.h> to <assert.h> if __STDC__ is defined, since
-+    <limits.h> exists even on freestanding compilers.  */
-+
-+#ifdef __STDC__
-+# include <limits.h>
-+#else
-+# include <assert.h>
-+#endif
-+
-+#undef $ac_func
-+
-+/* Override any GCC internal prototype to avoid an error.
-+   Use char because int might match the return type of a GCC
-+   builtin and then its argument prototype would still apply.  */
-+#ifdef __cplusplus
-+extern "C"
-+#endif
-+char $ac_func ();
-+/* The GNU C library defines this for functions which it implements
-+    to always fail with ENOSYS.  Some functions are actually named
-+    something starting with __ and the normal name is an alias.  */
-+#if defined __stub_$ac_func || defined __stub___$ac_func
-+choke me
-+#endif
-+
-+int
-+main ()
-+{
-+return $ac_func ();
-+  ;
-+  return 0;
-+}
-+_ACEOF
-+rm -f conftest.$ac_objext conftest$ac_exeext
-+if { (ac_try="$ac_link"
-+case "(($ac_try" in
-+  *\"* | *\`* | *\\*) ac_try_echo=\$ac_try;;
-+  *) ac_try_echo=$ac_try;;
-+esac
-+eval "echo \"\$as_me:$LINENO: $ac_try_echo\"") >&5
-+  (eval "$ac_link") 2>conftest.er1
-+  ac_status=$?
-+  grep -v '^ *+' conftest.er1 >conftest.err
-+  rm -f conftest.er1
-+  cat conftest.err >&5
-+  echo "$as_me:$LINENO: \$? = $ac_status" >&5
-+  (exit $ac_status); } && {
-+	 test -z "$ac_c_werror_flag" ||
-+	 test ! -s conftest.err
-+       } && test -s conftest$ac_exeext &&
-+       $as_test_x conftest$ac_exeext; then
-+  eval "$as_ac_var=yes"
-+else
-+  echo "$as_me: failed program was:" >&5
-+sed 's/^/| /' conftest.$ac_ext >&5
-+
-+	eval "$as_ac_var=no"
-+fi
-+
-+rm -f core conftest.err conftest.$ac_objext conftest_ipa8_conftest.oo \
-+      conftest$ac_exeext conftest.$ac_ext
-+fi
-+ac_res=`eval echo '${'$as_ac_var'}'`
-+	       { echo "$as_me:$LINENO: result: $ac_res" >&5
-+echo "${ECHO_T}$ac_res" >&6; }
-+if test `eval echo '${'$as_ac_var'}'` = yes; then
-+  cat >>confdefs.h <<_ACEOF
-+#define `echo "HAVE_$ac_func" | $as_tr_cpp` 1
-+_ACEOF
-+
-+                    mio_backend='kqueue'
++if test "x-$enable_apple" = "x-yes" ; then
++  # stub...
++  have_apple=yes
++  APPLE_OD_LIBS="-lxmppodauth"
 +
 +cat >>confdefs.h <<\_ACEOF
-+#define MIO_KQUEUE 1
++#define STORAGE_APPLE 1
 +_ACEOF
 +
++
 +fi
-+done
 +
-+            fi
-+            ;;
 +
-         x-poll)
++if test "x-$have_apple" = "x-yes"; then
++  STORAGE_APPLE_TRUE=
++  STORAGE_APPLE_FALSE='#'
++else
++  STORAGE_APPLE_TRUE='#'
++  STORAGE_APPLE_FALSE=
++fi
  
- for ac_header in poll.h
+ # Berkeley DB
+ _save_libs="$LIBS"
+@@ -17035,6 +17072,10 @@ if test -z "${STORAGE_SQLITE_TRUE}" && t
+   as_fn_error "conditional \"STORAGE_SQLITE\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5
+ fi
++if test -z "${STORAGE_APPLE_TRUE}" && test -z "${STORAGE_APPLE_FALSE}"; then
++  as_fn_error "conditional \"STORAGE_APPLE\" was never defined.
++Usually this means the macro was only invoked conditionally." "$LINENO" 5
++fi
+ if test -z "${STORAGE_DB_TRUE}" && test -z "${STORAGE_DB_FALSE}"; then
+   as_fn_error "conditional \"STORAGE_DB\" was never defined.
+ Usually this means the macro was only invoked conditionally." "$LINENO" 5

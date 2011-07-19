@@ -25,6 +25,7 @@
 #define DocumentFragment_h
 
 #include "ContainerNode.h"
+#include "FragmentScriptingPermission.h"
 
 namespace WebCore {
 
@@ -32,13 +33,19 @@ class DocumentFragment : public ContainerNode {
 public:
     static PassRefPtr<DocumentFragment> create(Document*);
 
-private:
-    DocumentFragment(Document*);
+    void parseHTML(const String&, Element* contextElement, FragmentScriptingPermission = FragmentScriptingAllowed);
+    bool parseXML(const String&, Element* contextElement, FragmentScriptingPermission = FragmentScriptingAllowed);
+    
+    virtual bool canContainRangeEndPoint() const { return true; }
 
+protected:
+    DocumentFragment(Document*);
     virtual String nodeName() const;
+
+private:
     virtual NodeType nodeType() const;
     virtual PassRefPtr<Node> cloneNode(bool deep);
-    virtual bool childTypeAllowed(NodeType);
+    virtual bool childTypeAllowed(NodeType) const;
 };
 
 } //namespace

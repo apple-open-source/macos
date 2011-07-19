@@ -46,4 +46,4 @@ typedef char if_name_t[32];
 typedef char * xmlDataOut_t;
 
 
-#endif _EAPOLCONTROLLER_TYPES_H
+#endif /* _EAPOLCONTROLLER_TYPES_H */

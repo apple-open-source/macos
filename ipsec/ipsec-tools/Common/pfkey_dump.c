@@ -42,11 +42,7 @@
 #  include <netinet/ipsec.h>
 #endif
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -497,15 +493,6 @@ pfkey_spdump1(m, withports)
 	m_lftc = (void *)mhp[SADB_EXT_LIFETIME_CURRENT];
 	m_lfth = (void *)mhp[SADB_EXT_LIFETIME_HARD];
 
-#ifdef __linux__
-	/* *bsd indicates per-socket policies by omiting src and dst 
-	 * extensions. Linux always includes them, but we can catch it
-	 * by checkin for policy id.
-	 */
-	if (m_xpl->sadb_x_policy_id % 8 >= 3) {
-		printf("(per-socket policy) ");
-	} else
-#endif
 	if (m_saddr && m_daddr) {
 		/* source address */
 		sa = (void *)(m_saddr + 1);

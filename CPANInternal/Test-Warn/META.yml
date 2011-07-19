@@ -1,0 +1,33 @@
+--- #YAML:1.0
+name:               Test-Warn
+version:            0.21
+abstract:           Perl extension to test methods for warnings
+author:
+    - Alexandr Ciornii <alexchorny@gmail.com>
+license:            perl
+distribution_type:  module
+configure_requires:
+    ExtUtils::MakeMaker:  0
+build_requires:
+    ExtUtils::MakeMaker:  0
+requires:
+    File::Spec:           0
+    perl:                 5.006
+    Sub::Uplevel:         0.12
+    Test::Builder:        0.13
+    Test::Builder::Tester:  1.02
+    Test::More:           0
+    Tree::DAG_Node:       0
+resources:
+    repository:  http://github.com/chorny/test-warn/tree
+no_index:
+    directory:
+        - t
+        - inc
+generated_by:       ExtUtils::MakeMaker version 6.50
+meta-spec:
+    url:      http://module-build.sourceforge.net/META-spec-v1.4.html
+    version:  1.4
+keywords:
+    - testing
+    - warnings

@@ -14,7 +14,7 @@ if [[ ! -f ${LOG} ]]; then
     for (( CURTIMEOUT=TIMEOUT; SECONDS < DEADLINE; CURTIMEOUT=DEADLINE-SECONDS )); do
 	if scutil -w ${KEY} -t ${CURTIMEOUT}; then
 	    if [[ -f ${DNS} ]]; then 
-		break;
+			break;
 	    fi			# else retry false alarms
 	else
 	    logger -p daemon.err "$0: scutil key ${KEY} not present after ${TIMEOUT} seconds"
@@ -23,19 +23,12 @@ if [[ ! -f ${LOG} ]]; then
     done
 fi
 
-for server in $(awk '/^server/ {print $2}' /etc/ntp.conf); do
-    if sntp -v -r -P no -l /var/run/sntp.pid ${server} &> ${LOG}; then
+for server in $(awk '/^server/ {print $NF}' /etc/ntp.conf); do
+    if sntp -K /dev/null -s ${server} &> ${LOG}; then
 	break
     else
 	logger -p daemon.err -f ${LOG}
     fi
 done
 
-# Un-comment the following line to run ntp with a sandbox profile.
-# Sandbox profiles restrict processes from performing unauthorized
-# operations; so it may be necessary to update the profile
-# (/usr/share/sandbox/ntpd.sb) if any changes are made to the ntp
-# configuration (/etc/ntp.conf).
-#sb=/usr/bin/sandbox-exec -f /usr/share/sandbox/ntpd.sb
-
-exec $sb /usr/sbin/ntpd -c /private/etc/ntp-restrict.conf -n -g -p /var/run/ntpd.pid -f /var/db/ntp.drift
+exec /usr/sbin/ntpd -c /private/etc/ntp-restrict.conf -n -g -p /var/run/ntpd.pid -f /var/db/ntp.drift

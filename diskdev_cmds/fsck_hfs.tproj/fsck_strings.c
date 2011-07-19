@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@ fsck_messages_common[] = {
     { fsckVolumeCorruptNeedsRepair,         "The volume %s was found corrupt and needs to be repaired.",                fsckMsgFail,        fsckLevel0,   1, (const int[]) { fsckTypeVolume } },
     { fsckVolumeNotRepaired,                "The volume %s could not be repaired.",                                     fsckMsgFail,        fsckLevel0,   1, (const int[]) { fsckTypeVolume } },
 
-    /* 111 - 119 */
+    /* 111 - 121 */
     { fsckVolumeNotRepairedInUse,           "The volume %s cannot be repaired when it is in use.",                      fsckMsgFail,        fsckLevel0,   1, (const int[]) { fsckTypeVolume } },
     { fsckVolumeNotVerifiedInUse,           "The volume %s cannot be verified when it is in use.",                      fsckMsgFail,        fsckLevel0,   1, (const int[]) { fsckTypeVolume } },
     { fsckFileFolderDamage,                 "File/folder %s may be damaged.",                                           fsckMsgDamageInfo,  fsckLevel0,   1, (const int[]) { fsckTypePath } },
@@ -69,6 +69,7 @@ fsck_messages_common[] = {
     { fsckInformation,                      "Executing %s (version %s).",                                               fsckMsgInfo,        fsckLevel1,   2, (const int[]) { fsckTypeString, fsckTypeString }},
     { fsckProgress,                         "%d %%",                                                                    fsckMsgProgress,    fsckLevel0,   1, (const int[]) { fsckTypeProgress } },
     { fsckTrimming,                         "Trimming unused blocks.",                                                  fsckMsgVerify,      fsckLevel0,   0 },
+    { fsckVolumeName,                       "The volume name is %s",                                                    fsckMsgInfo,        fsckLevel0,   1, (const int[]) { fsckTypeVolume } },
     { 0, },
 };
 

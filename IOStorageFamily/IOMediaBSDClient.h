@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +39,8 @@
 class  AnchorTable;
 class  MinorTable;
 struct MinorSlot;
+
+UInt64 _IOMediaBSDClientGetThrottleMask(IOMedia * media);
 
 /*
  * Class

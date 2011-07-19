@@ -28,25 +28,24 @@
 #ifndef NetscapePluginInstanceProxy_h
 #define NetscapePluginInstanceProxy_h
 
-#include <JavaScriptCore/Protect.h>
+#include <JavaScriptCore/JSGlobalData.h>
+#include <JavaScriptCore/Strong.h>
 #include <WebCore/Timer.h>
 #include <WebKit/npapi.h>
 #include <wtf/Deque.h>
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RetainPtr.h>
 #include "WebKitPluginHostTypes.h"
 
-namespace WebCore {
-    class String;
-}
-
 namespace JSC {
     namespace Bindings {
         class Instance;
         class RootObject;
     }
+    class ArgList;
 }
 @class WebHostedNetscapePluginView;
 @class WebFrame;
@@ -60,10 +59,7 @@ class ProxyInstance;
     
 class NetscapePluginInstanceProxy : public RefCounted<NetscapePluginInstanceProxy> {
 public:
-    static PassRefPtr<NetscapePluginInstanceProxy> create(NetscapePluginHostProxy* pluginHostProxy, WebHostedNetscapePluginView *pluginView, bool fullFramePlugin)
-    {
-        return adoptRef(new NetscapePluginInstanceProxy(pluginHostProxy, pluginView, fullFramePlugin));
-    }
+    static PassRefPtr<NetscapePluginInstanceProxy> create(NetscapePluginHostProxy*, WebHostedNetscapePluginView *, bool fullFramePlugin);
     ~NetscapePluginInstanceProxy();
     
     uint32_t pluginID() const 
@@ -114,7 +110,7 @@ public:
     bool getPluginElementNPObject(uint32_t& objectID);
     bool forgetBrowserObjectID(uint32_t objectID); // Will fail if the ID is being sent to plug-in right now (i.e., retain/release calls aren't balanced).
 
-    bool evaluate(uint32_t objectID, const WebCore::String& script, data_t& resultData, mach_msg_type_number_t& resultLength, bool allowPopups);
+    bool evaluate(uint32_t objectID, const WTF::String& script, data_t& resultData, mach_msg_type_number_t& resultLength, bool allowPopups);
     bool invoke(uint32_t objectID, const JSC::Identifier& methodName, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool invokeDefault(uint32_t objectID, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
     bool construct(uint32_t objectID, data_t argumentsData, mach_msg_type_number_t argumentsLength, data_t& resultData, mach_msg_type_number_t& resultLength);
@@ -172,7 +168,7 @@ public:
     void didDraw();
     void privateBrowsingModeDidChange(bool isPrivateBrowsingEnabled);
     
-    static void setGlobalException(const WebCore::String&);
+    static void setGlobalException(const WTF::String&);
     static void moveGlobalExceptionToExecState(JSC::ExecState*);
 
     // Reply structs
@@ -318,11 +314,12 @@ private:
     bool demarshalValueFromArray(JSC::ExecState*, NSArray *array, NSUInteger& index, JSC::JSValue& result);
     void demarshalValues(JSC::ExecState*, data_t valuesData, mach_msg_type_number_t valuesLength, JSC::MarkedArgumentBuffer& result);
 
-    class LocalObjectMap : Noncopyable {
+    class LocalObjectMap {
+        WTF_MAKE_NONCOPYABLE(LocalObjectMap);
     public:
         LocalObjectMap();
         ~LocalObjectMap();
-        uint32_t idForObject(JSC::JSObject*);
+        uint32_t idForObject(JSC::JSGlobalData&, JSC::JSObject*);
         void retain(JSC::JSObject*);
         void release(JSC::JSObject*);
         void clear();
@@ -331,7 +328,7 @@ private:
         JSC::JSObject* get(uint32_t) const;
 
     private:
-        HashMap<uint32_t, JSC::ProtectedPtr<JSC::JSObject> > m_idToJSObjectMap;
+        HashMap<uint32_t, JSC::Strong<JSC::JSObject> > m_idToJSObjectMap;
         // The pair consists of object ID and a reference count. One reference belongs to remote plug-in,
         // and the proxy will add transient references for arguments that are being sent out.
         HashMap<JSC::JSObject*, pair<uint32_t, uint32_t> > m_jsObjectToIDMap;

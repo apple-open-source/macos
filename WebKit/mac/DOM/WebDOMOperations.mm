@@ -29,6 +29,7 @@
 #import "WebDOMOperationsPrivate.h"
 
 #import "DOMDocumentInternal.h"
+#import "DOMElementInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebArchiveInternal.h"
@@ -36,15 +37,69 @@
 #import "WebFrameInternal.h"
 #import "WebFramePrivate.h"
 #import "WebKitNSStringExtras.h"
-#import <WebCore/CSSHelper.h>
+#import <JavaScriptCore/APICast.h>
 #import <WebCore/Document.h>
+#import <WebCore/Element.h>
+#import <WebCore/HTMLInputElement.h>
+#import <WebCore/HTMLParserIdioms.h>
+#import <WebCore/JSElement.h>
 #import <WebCore/LegacyWebArchive.h>
 #import <WebCore/markup.h>
+#import <WebCore/RenderTreeAsText.h>
+#import <WebCore/ShadowRoot.h>
 #import <WebKit/DOMExtensions.h>
 #import <WebKit/DOMHTML.h>
+#import <runtime/JSLock.h>
+#import <runtime/JSValue.h>
 #import <wtf/Assertions.h>
 
 using namespace WebCore;
+using namespace JSC;
+
+@implementation DOMElement (WebDOMElementOperationsPrivate)
+
++ (DOMElement *)_DOMElementFromJSContext:(JSContextRef)context value:(JSValueRef)value
+{
+    if (!context)
+        return 0;
+
+    if (!value)
+        return 0;
+
+    JSLock lock(SilenceAssertionsOnly);
+    return kit(toElement(toJS(toJS(context), value)));
+}
+
+- (NSString *)_markerTextForListItem
+{
+    return WebCore::markerTextForListItem(core(self));
+}
+
+- (NSString *)_shadowPseudoId
+{
+    return core(self)->shadowPseudoId();
+}
+
+- (JSValueRef)_shadowRoot:(JSContextRef)context
+{
+    JSLock lock(SilenceAssertionsOnly);
+    ExecState* execState = toJS(context);
+    return toRef(execState, toJS(execState, deprecatedGlobalObjectForPrototype(execState), core(self)->shadowRoot()));
+}
+
+- (JSValueRef)_ensureShadowRoot:(JSContextRef)context
+{
+    JSLock lock(SilenceAssertionsOnly);
+    ExecState* execState = toJS(context);
+    return toRef(execState, toJS(execState, deprecatedGlobalObjectForPrototype(execState), core(self)->ensureShadowRoot()));
+}
+
+- (void)_removeShadowRoot
+{
+    core(self)->removeShadowRoot();
+}
+
+@end
 
 @implementation DOMNode (WebDOMNodeOperations)
 
@@ -53,9 +108,18 @@ using namespace WebCore;
     return [[[WebArchive alloc] _initWithCoreLegacyWebArchive:LegacyWebArchive::create(core(self))] autorelease];
 }
 
+@end
+
+@implementation DOMNode (WebDOMNodeOperationsPendingPublic)
+
 - (NSString *)markupString
 {
     return createFullMarkup(core(self));
+}
+
+- (NSRect)_renderRect:(bool *)isReplaced
+{
+    return NSRect(core(self)->renderRect(isReplaced));
 }
 
 @end
@@ -84,8 +148,7 @@ using namespace WebCore;
 
 - (WebFrame *)webFrame
 {
-    Document* document = core(self);
-    Frame* frame = document->frame();
+    Frame* frame = core(self)->frame();
     if (!frame)
         return nil;
     return kit(frame);
@@ -93,25 +156,21 @@ using namespace WebCore;
 
 - (NSURL *)URLWithAttributeString:(NSString *)string
 {
-    // FIXME: Is deprecatedParseURL appropriate here?
-    return core(self)->completeURL(deprecatedParseURL(string));
+    return core(self)->completeURL(stripLeadingAndTrailingHTMLSpaces(string));
 }
 
 @end
 
 @implementation DOMDocument (WebDOMDocumentOperationsInternal)
 
-/* This doesn't appear to be used by anyone.  We should consider removing this. */
-- (DOMRange *)_createRangeWithNode:(DOMNode *)node
-{
-    DOMRange *range = [self createRange];
-    [range selectNode:node];
-    return range;
-}
-
 - (DOMRange *)_documentRange
 {
-    return [self _createRangeWithNode:[self documentElement]];
+    DOMRange *range = [self createRange];
+
+    if (DOMNode* documentElement = [self documentElement])
+        [range selectNode:documentElement];
+
+    return range;
 }
 
 @end
@@ -158,6 +217,20 @@ using namespace WebCore;
 - (WebFrame *)contentFrame
 {
     return [[self contentDocument] webFrame];
+}
+
+@end
+
+@implementation DOMHTMLInputElement (WebDOMHTMLInputElementOperationsPrivate)
+
+- (void)_setAutofilled:(BOOL)autofilled
+{
+    static_cast<HTMLInputElement*>(core((DOMElement *)self))->setAutofilled(autofilled);
+}
+
+- (void)_setValueForUser:(NSString *)value
+{
+    static_cast<HTMLInputElement*>(core((DOMElement *)self))->setValueForUser(value);
 }
 
 @end

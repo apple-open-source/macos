@@ -25,7 +25,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This is responsible for client/server transport.
 
-$Id: winscard_msg.c,v 1.4 2004/10/21 01:17:53 mb Exp $
+$Id: winscard_msg.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 
 ********************************************************************/
 

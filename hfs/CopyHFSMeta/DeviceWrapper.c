@@ -59,9 +59,9 @@ writeExtent(struct IOWrapper *context, DeviceInfo_t *devp, off_t start, off_t le
 			warn("Cannot read from device at offset %lld", start + total);
 			return -1;
 		}
-		(void)pwrite(ctx->fd, (char*)buffer + total, amt, start + total);
-		bp(amt);
-		total += amt;
+		(void)pwrite(ctx->fd, (char*)buffer, nread, start + total);
+		bp(nread);
+		total += nread;
 	}
 	return 0;
 }

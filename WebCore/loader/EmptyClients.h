@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2006 Eric Seidel (eric@webkit.org)
- * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,17 +30,22 @@
 
 #include "ChromeClient.h"
 #include "ContextMenuClient.h"
-#include "Console.h"
+#include "DeviceMotionClient.h"
+#include "DeviceOrientationClient.h"
 #include "DocumentLoader.h"
 #include "DragClient.h"
 #include "EditCommand.h"
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "FloatRect.h"
 #include "FocusDirection.h"
 #include "FrameLoaderClient.h"
+#include "FrameNetworkingContext.h"
 #include "InspectorClient.h"
 #include "PluginHalterClient.h"
+#include "PopupMenu.h"
 #include "ResourceError.h"
+#include "SearchPopupMenu.h"
 
 /*
  This file holds empty Client stubs for use by WebCore.
@@ -56,11 +62,33 @@
 
 namespace WebCore {
 
+class SharedGraphicsContext3D;
+
+class EmptyPopupMenu : public PopupMenu {
+public:
+    virtual void show(const IntRect&, FrameView*, int) {}
+    virtual void hide() {}
+    virtual void updateFromElement() {}
+    virtual void disconnectClient() {}
+};
+
+class EmptySearchPopupMenu : public SearchPopupMenu {
+public:
+    virtual PopupMenu* popupMenu() { return m_popup.get(); }
+    virtual void saveRecentSearches(const AtomicString&, const Vector<String>&) {}
+    virtual void loadRecentSearches(const AtomicString&, Vector<String>&) {}
+    virtual bool enabled() { return false; }
+
+private:
+    RefPtr<EmptyPopupMenu> m_popup;
+};
+
 class EmptyChromeClient : public ChromeClient {
 public:
     virtual ~EmptyChromeClient() { }
     virtual void chromeDestroyed() { }
 
+    virtual void* webView() const { return 0; }
     virtual void setWindowRect(const FloatRect&) { }
     virtual FloatRect windowRect() { return FloatRect(); }
 
@@ -75,8 +103,9 @@ public:
     virtual void takeFocus(FocusDirection) { }
 
     virtual void focusedNodeChanged(Node*) { }
+    virtual void focusedFrameChanged(Frame*) { }
 
-    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&) { return 0; }
+    virtual Page* createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures&, const NavigationAction&) { return 0; }
     virtual void show() { }
 
     virtual bool canRunModal() { return false; }
@@ -108,9 +137,22 @@ public:
     virtual bool runJavaScriptPrompt(Frame*, const String&, const String&, String&) { return false; }
     virtual bool shouldInterruptJavaScript() { return false; }
 
+    virtual bool selectItemWritingDirectionIsNatural() { return false; }
+    virtual bool selectItemAlignmentFollowsMenuWritingDirection() { return false; }
+    virtual PassRefPtr<PopupMenu> createPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptyPopupMenu()); }
+    virtual PassRefPtr<SearchPopupMenu> createSearchPopupMenu(PopupMenuClient*) const { return adoptRef(new EmptySearchPopupMenu()); }
+
+#if ENABLE(CONTEXT_MENUS)
+    virtual void showContextMenu() { }
+#endif
+
+#if ENABLE(REGISTER_PROTOCOL_HANDLER)
+    virtual void registerProtocolHandler(const String&, const String&, const String&, const String&) { }
+#endif
+
     virtual void setStatusbarText(const String&) { }
 
-    virtual bool tabsToLinks() const { return false; }
+    virtual KeyboardUIMode keyboardUIMode() { return KeyboardAccessDefault; }
 
     virtual IntRect windowResizerRect() const { return IntRect(); }
 
@@ -118,6 +160,12 @@ public:
     virtual void invalidateContentsAndWindow(const IntRect&, bool) { }
     virtual void invalidateContentsForSlowScroll(const IntRect&, bool) {};
     virtual void scroll(const IntSize&, const IntRect&, const IntRect&) { }
+#if ENABLE(TILED_BACKING_STORE)
+    virtual void delegatedScrollRequested(const IntPoint&) { }
+#endif
+#if ENABLE(REQUEST_ANIMATION_FRAME)
+    virtual void scheduleAnimation() { }
+#endif
 
     virtual IntPoint screenToWindow(const IntPoint& p) const { return p; }
     virtual IntRect windowToScreen(const IntRect& r) const { return r; }
@@ -137,10 +185,15 @@ public:
 
 #if ENABLE(OFFLINE_WEB_APPLICATIONS)
     virtual void reachedMaxAppCacheSize(int64_t) { }
+    virtual void reachedApplicationCacheOriginQuota(SecurityOrigin*) { }
 #endif
 
 #if ENABLE(NOTIFICATIONS)
     virtual NotificationPresenter* notificationPresenter() const { return 0; }
+#endif
+
+#if ENABLE(DIRECTORY_UPLOAD)
+    virtual void enumerateChosenDirectory(const String&, FileChooser*) { }
 #endif
 
     virtual void runOpenPanel(Frame*, PassRefPtr<FileChooser>) { }
@@ -151,9 +204,7 @@ public:
     virtual void formDidFocus(const Node*) { }
     virtual void formDidBlur(const Node*) { }
 
-    virtual PassOwnPtr<HTMLParserQuirks> createHTMLParserQuirks() { return 0; }
-
-    virtual bool setCursor(PlatformCursorHandle) { return false; }
+    virtual void setCursor(const Cursor&) { }
 
     virtual void scrollRectIntoView(const IntRect&, const ScrollView*) const {}
 
@@ -161,18 +212,27 @@ public:
     virtual void cancelGeolocationPermissionRequestForFrame(Frame*, Geolocation*) {}
 
 #if USE(ACCELERATED_COMPOSITING)
-    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {};
-    virtual void setNeedsOneShotDrawingSynchronization() {};
-    virtual void scheduleCompositingLayerSync() {};
+    virtual void attachRootGraphicsLayer(Frame*, GraphicsLayer*) {}
+    virtual void setNeedsOneShotDrawingSynchronization() {}
+    virtual void scheduleCompositingLayerSync() {}
 #endif
 
+#if PLATFORM(WIN)
+    virtual void setLastSetCursorToCurrentCursor() { }
+#endif
 #if ENABLE(TOUCH_EVENTS)
     virtual void needTouchEvents(bool) { }
 #endif
+    
+    virtual void numWheelEventHandlersChanged(unsigned) { }
+    
+    virtual bool shouldRubberBandInDirection(WebCore::ScrollDirection) const { return false; }
 };
 
-class EmptyFrameLoaderClient : public FrameLoaderClient, public Noncopyable {
+class EmptyFrameLoaderClient : public FrameLoaderClient {
+    WTF_MAKE_NONCOPYABLE(EmptyFrameLoaderClient); WTF_MAKE_FAST_ALLOCATED;
 public:
+    EmptyFrameLoaderClient() { }
     virtual ~EmptyFrameLoaderClient() {  }
     virtual void frameLoaderDestroyed() { }
 
@@ -214,8 +274,8 @@ public:
     virtual void dispatchWillClose() { }
     virtual void dispatchDidReceiveIcon() { }
     virtual void dispatchDidStartProvisionalLoad() { }
-    virtual void dispatchDidReceiveTitle(const String&) { }
-    virtual void dispatchDidChangeIcons() { }
+    virtual void dispatchDidReceiveTitle(const StringWithDirection&) { }
+    virtual void dispatchDidChangeIcons(IconType) { }
     virtual void dispatchDidCommitLoad() { }
     virtual void dispatchDidFailProvisionalLoad(const ResourceError&) { }
     virtual void dispatchDidFailLoad(const ResourceError&) { }
@@ -224,10 +284,10 @@ public:
     virtual void dispatchDidFirstLayout() { }
     virtual void dispatchDidFirstVisuallyNonEmptyLayout() { }
 
-    virtual Frame* dispatchCreatePage() { return 0; }
+    virtual Frame* dispatchCreatePage(const NavigationAction&) { return 0; }
     virtual void dispatchShow() { }
 
-    virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String&, const ResourceRequest&) { }
+    virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&) { }
     virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&) { }
     virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>) { }
     virtual void cancelPolicyCheck() { }
@@ -270,6 +330,7 @@ public:
 
     virtual bool canHandleRequest(const ResourceRequest&) const { return false; }
     virtual bool canShowMIMEType(const String&) const { return false; }
+    virtual bool canShowMIMETypeAsHTML(const String&) const { return false; }
     virtual bool representationExistsForURLScheme(const String&) const { return false; }
     virtual String generatedMIMETypeForURLScheme(const String&) const { return ""; }
 
@@ -281,7 +342,7 @@ public:
     virtual void prepareForDataSourceReplacement() { }
 
     virtual PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest& request, const SubstituteData& substituteData) { return DocumentLoader::create(request, substituteData); }
-    virtual void setTitle(const String&, const KURL&) { }
+    virtual void setTitle(const StringWithDirection&, const KURL&) { }
 
     virtual String userAgent(const KURL&) { return ""; }
 
@@ -289,25 +350,35 @@ public:
     virtual void transitionToCommittedFromCachedFrame(CachedFrame*) { }
     virtual void transitionToCommittedForNewPage() { }    
 
+    virtual void didSaveToPageCache() { }
+    virtual void didRestoreFromPageCache() { }
+
+    virtual void dispatchDidBecomeFrameset(bool) { }
+
     virtual void updateGlobalHistory() { }
     virtual void updateGlobalHistoryRedirectLinks() { }
     virtual bool shouldGoToHistoryItem(HistoryItem*) const { return false; }
+    virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const { return false; }
     virtual void dispatchDidAddBackForwardItem(HistoryItem*) const { }
-    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { };
+    virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const { }
     virtual void dispatchDidChangeBackForwardIndex() const { }
+    virtual void updateGlobalHistoryItemForPage() { }
     virtual void saveViewStateToItem(HistoryItem*) { }
     virtual bool canCachePage() const { return false; }
     virtual void didDisplayInsecureContent() { }
-    virtual void didRunInsecureContent(SecurityOrigin*) { }
+    virtual void didRunInsecureContent(SecurityOrigin*, const KURL&) { }
     virtual PassRefPtr<Frame> createFrame(const KURL&, const String&, HTMLFrameOwnerElement*, const String&, bool, int, int) { return 0; }
-    virtual void didTransferChildFrameToNewDocument() { }
+    virtual void didTransferChildFrameToNewDocument(Page*) { }
+    virtual void transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*) { }
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool) { return 0; }
     virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL&, const Vector<String>&, const Vector<String>&) { return 0; }
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     virtual PassRefPtr<Widget> createMediaPlayerProxyPlugin(const IntSize&, HTMLMediaElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&) { return 0; }
+    virtual void hideMediaPlayerProxyPlugin(Widget*) { }
+    virtual void showMediaPlayerProxyPlugin(Widget*) { }
 #endif
 
-    virtual ObjectContentType objectContentType(const KURL&, const String&) { return ObjectContentType(); }
+    virtual ObjectContentType objectContentType(const KURL&, const String&, bool) { return ObjectContentType(); }
     virtual String overrideMediaType() const { return String(); }
 
     virtual void redirectDataToPlugin(Widget*) { }
@@ -321,19 +392,41 @@ public:
     virtual void didCreateScriptContextForFrame() { }
     virtual void didDestroyScriptContextForFrame() { }
     virtual void didCreateIsolatedScriptContext() { }
+    virtual bool allowScriptExtension(const String& extensionName, int extensionGroup) { return false; }
 #endif
 
 #if PLATFORM(MAC)
+    virtual RemoteAXObjectRef accessibilityRemoteObject() { return 0; }
     virtual NSCachedURLResponse* willCacheResponse(DocumentLoader*, unsigned long, NSCachedURLResponse* response) const { return response; }
 #endif
-#if USE(CFNETWORK)
+#if PLATFORM(WIN) && USE(CFNETWORK)
+    // FIXME: Windows should use willCacheResponse - <https://bugs.webkit.org/show_bug.cgi?id=57257>.
     virtual bool shouldCacheResponse(DocumentLoader*, unsigned long, const ResourceResponse&, const unsigned char*, unsigned long long) { return true; }
 #endif
 
+    virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext() { return PassRefPtr<FrameNetworkingContext>(); }
 };
 
-class EmptyEditorClient : public EditorClient, public Noncopyable {
+class EmptyTextCheckerClient : public TextCheckerClient {
 public:
+    virtual void ignoreWordInSpellDocument(const String&) { }
+    virtual void learnWord(const String&) { }
+    virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
+    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
+    virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
+
+#if USE(UNIFIED_TEXT_CHECKING)
+    virtual void checkTextOfParagraph(const UChar*, int, TextCheckingTypeMask, Vector<TextCheckingResult>&) { };
+#endif
+
+    virtual void getGuessesForWord(const String&, const String&, Vector<String>&) { }
+    virtual void requestCheckingOfString(SpellChecker*, int, TextCheckingTypeMask, const String&) { }
+};
+
+class EmptyEditorClient : public EditorClient {
+    WTF_MAKE_NONCOPYABLE(EmptyEditorClient); WTF_MAKE_FAST_ALLOCATED;
+public:
+    EmptyEditorClient() { }
     virtual ~EmptyEditorClient() { }
     virtual void pageDestroyed() { }
 
@@ -376,6 +469,8 @@ public:
     virtual void registerCommandForRedo(PassRefPtr<EditCommand>) { }
     virtual void clearUndoRedoOperations() { }
 
+    virtual bool canCopyCut(Frame*, bool defaultValue) const { return defaultValue; }
+    virtual bool canPaste(Frame*, bool defaultValue) const { return defaultValue; }
     virtual bool canUndo() const { return false; }
     virtual bool canRedo() const { return false; }
 
@@ -396,11 +491,12 @@ public:
     virtual void markedTextAbandoned(Frame*) { }
 
     virtual NSString* userVisibleString(NSURL*) { return 0; }
-#ifdef BUILDING_ON_TIGER
-    virtual NSArray* pasteboardTypesForSelection(Frame*) { return 0; }
+    virtual DocumentFragment* documentFragmentFromAttributedString(NSAttributedString*, Vector<RefPtr<ArchiveResource> >&) { return 0; };
+    virtual void setInsertionPasteboard(NSPasteboard*) { };
+    virtual NSURL* canonicalizeURL(NSURL*) { return 0; }
+    virtual NSURL* canonicalizeURLString(NSString*) { return 0; }
 #endif
-#endif
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD)
     virtual void uppercaseWord() { }
     virtual void lowercaseWord() { }
     virtual void capitalizeWord() { }
@@ -418,31 +514,39 @@ public:
     virtual bool isAutomaticSpellingCorrectionEnabled() { return false; }
     virtual void toggleAutomaticSpellingCorrection() { }
 #endif
-    virtual void ignoreWordInSpellDocument(const String&) { }
-    virtual void learnWord(const String&) { }
-    virtual void checkSpellingOfString(const UChar*, int, int*, int*) { }
-    virtual String getAutoCorrectSuggestionForMisspelledWord(const String&) { return String(); }
-    virtual void checkGrammarOfString(const UChar*, int, Vector<GrammarDetail>&, int*, int*) { }
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    virtual void checkTextOfParagraph(const UChar*, int, uint64_t, Vector<TextCheckingResult>&) { };
+    TextCheckerClient* textChecker() { return &m_textCheckerClient; }
+
+#if SUPPORT_AUTOCORRECTION_PANEL
+    virtual void showCorrectionPanel(CorrectionPanelInfo::PanelType, const FloatRect&, const String&, const String&, const Vector<String>&) { }
+    virtual void dismissCorrectionPanel(ReasonForDismissingCorrectionPanel) { }
+    virtual String dismissCorrectionPanelSoon(ReasonForDismissingCorrectionPanel) { return String(); }
+    virtual void recordAutocorrectionResponse(AutocorrectionResponseType, const String&, const String&) { }
 #endif
     virtual void updateSpellingUIWithGrammarString(const String&, const GrammarDetail&) { }
     virtual void updateSpellingUIWithMisspelledWord(const String&) { }
     virtual void showSpellingUI(bool) { }
     virtual bool spellingUIIsShowing() { return false; }
-    virtual void getGuessesForWord(const String&, Vector<String>&) { }
+
+    virtual void willSetInputMethodState() { }
     virtual void setInputMethodState(bool) { }
 
-
+private:
+    EmptyTextCheckerClient m_textCheckerClient;
 };
 
 #if ENABLE(CONTEXT_MENUS)
-class EmptyContextMenuClient : public ContextMenuClient, public Noncopyable {
+class EmptyContextMenuClient : public ContextMenuClient {
+    WTF_MAKE_NONCOPYABLE(EmptyContextMenuClient); WTF_MAKE_FAST_ALLOCATED;
 public:
+    EmptyContextMenuClient() { }
     virtual ~EmptyContextMenuClient() {  }
     virtual void contextMenuDestroyed() { }
 
+#if USE(CROSS_PLATFORM_CONTEXT_MENUS)
+    virtual PassOwnPtr<ContextMenu> customizeMenu(PassOwnPtr<ContextMenu>) { return nullptr; }
+#else
     virtual PlatformMenuDescription getCustomMenuFromDefaultItems(ContextMenu*) { return 0; }
+#endif
     virtual void contextMenuItemSelected(ContextMenuItem*, const ContextMenu*) { }
 
     virtual void downloadURL(const KURL&) { }
@@ -460,21 +564,24 @@ public:
 #endif // ENABLE(CONTEXT_MENUS)
 
 #if ENABLE(DRAG_SUPPORT)
-class EmptyDragClient : public DragClient, public Noncopyable {
+class EmptyDragClient : public DragClient {
+    WTF_MAKE_NONCOPYABLE(EmptyDragClient); WTF_MAKE_FAST_ALLOCATED;
 public:
+    EmptyDragClient() { }
     virtual ~EmptyDragClient() {}
     virtual void willPerformDragDestinationAction(DragDestinationAction, DragData*) { }
     virtual void willPerformDragSourceAction(DragSourceAction, const IntPoint&, Clipboard*) { }
     virtual DragDestinationAction actionMaskForDrag(DragData*) { return DragDestinationActionNone; }
     virtual DragSourceAction dragSourceActionMaskForPoint(const IntPoint&) { return DragSourceActionNone; }
     virtual void startDrag(DragImageRef, const IntPoint&, const IntPoint&, Clipboard*, Frame*, bool) { }
-    virtual DragImageRef createDragImageForLink(KURL&, const String&, Frame*) { return 0; }
     virtual void dragControllerDestroyed() { }
 };
 #endif // ENABLE(DRAG_SUPPORT)
 
-class EmptyInspectorClient : public InspectorClient, public Noncopyable {
+class EmptyInspectorClient : public InspectorClient {
+    WTF_MAKE_NONCOPYABLE(EmptyInspectorClient); WTF_MAKE_FAST_ALLOCATED;
 public:
+    EmptyInspectorClient() { }
     virtual ~EmptyInspectorClient() { }
 
     virtual void inspectorDestroyed() { }
@@ -484,11 +591,27 @@ public:
     virtual void highlight(Node*) { }
     virtual void hideHighlight() { }
 
-    virtual void populateSetting(const String&, String*) { }
-    virtual void storeSetting(const String&, const String&) { }
+    virtual bool sendMessageToFrontend(const String&) { return false; }
+};
+
+class EmptyDeviceMotionClient : public DeviceMotionClient {
+public:
+    virtual void setController(DeviceMotionController*) { }
+    virtual void startUpdating() { }
+    virtual void stopUpdating() { }
+    virtual DeviceMotionData* currentDeviceMotion() const { return 0; }
+    virtual void deviceMotionControllerDestroyed() { }
+};
+
+class EmptyDeviceOrientationClient : public DeviceOrientationClient {
+public:
+    virtual void setController(DeviceOrientationController*) { }
+    virtual void startUpdating() { }
+    virtual void stopUpdating() { }
+    virtual DeviceOrientation* lastOrientation() const { return 0; }
+    virtual void deviceOrientationControllerDestroyed() { }
 };
 
 }
 
 #endif // EmptyClients_h
-

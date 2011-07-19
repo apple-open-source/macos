@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceImportDate</key>
+        <string>2008-07-26</string>
+        <key>OpenSourceProject</key>
+        <string>Mac-Apps-Launch</string>
+        <key>OpenSourceVersion</key>
+        <string>1.93</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/C/CN/CNANDOR/Mac-Apps-Launch-1.93.tar.gz</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

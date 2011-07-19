@@ -1,0 +1,1509 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 45;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		1CFF7DB51021164C0097ADA4 /* pam_modules */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1CFF7DD4102116A60097ADA4 /* Build configuration list for PBXAggregateTarget "pam_modules" */;
+			buildPhases = (
+			);
+			dependencies = (
+				1CFF7DCF1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DCD1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DCB1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DC91021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DC71021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DC51021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DC31021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DC11021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DBF1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DBD1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DBB1021165B0097ADA4 /* PBXTargetDependency */,
+				1CFF7DB91021165B0097ADA4 /* PBXTargetDependency */,
+				7434C89F125544F9001D7F9E /* PBXTargetDependency */,
+				1CFF8088102119940097ADA4 /* PBXTargetDependency */,
+				1CFF80D910211B040097ADA4 /* PBXTargetDependency */,
+			);
+			name = pam_modules;
+			productName = pam_modules;
+		};
+		1CFF806D102119880097ADA4 /* Install Manpages */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1CFF809F102119E70097ADA4 /* Build configuration list for PBXAggregateTarget "Install Manpages" */;
+			buildPhases = (
+				1CFF806C102119880097ADA4 /* man8 */,
+				1CFF8096102119C90097ADA4 /* Compress */,
+			);
+			dependencies = (
+			);
+			name = "Install Manpages";
+			productName = "Install Manpages";
+		};
+		1CFF80BC10211AF10097ADA4 /* Cleanup */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = 1CFF80DC10211B140097ADA4 /* Build configuration list for PBXAggregateTarget "Cleanup" */;
+			buildPhases = (
+				1CFF80BB10211AF10097ADA4 /* ShellScript */,
+			);
+			dependencies = (
+			);
+			name = Cleanup;
+			productName = Cleanup;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		1C23731C10290C600055216A /* pam_env.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731010290C600055216A /* pam_env.8 */; };
+		1C23731D10290C600055216A /* pam_group.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731110290C600055216A /* pam_group.8 */; };
+		1C23731E10290C600055216A /* pam_krb5.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731210290C600055216A /* pam_krb5.8 */; };
+		1C23731F10290C600055216A /* pam_launchd.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731310290C600055216A /* pam_launchd.8 */; };
+		1C23732010290C600055216A /* pam_mount.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731410290C600055216A /* pam_mount.8 */; };
+		1C23732110290C600055216A /* pam_nologin.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731510290C600055216A /* pam_nologin.8 */; };
+		1C23732210290C600055216A /* pam_opendirectory.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731610290C600055216A /* pam_opendirectory.8 */; };
+		1C23732310290C600055216A /* pam_rootok.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731710290C600055216A /* pam_rootok.8 */; };
+		1C23732410290C600055216A /* pam_sacl.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731810290C600055216A /* pam_sacl.8 */; };
+		1C23732510290C600055216A /* pam_self.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731910290C600055216A /* pam_self.8 */; };
+		1C23732610290C600055216A /* pam_serialnumber.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731A10290C600055216A /* pam_serialnumber.8 */; };
+		1C23732710290C600055216A /* pam_uwtmp.8 in man8 */ = {isa = PBXBuildFile; fileRef = 1C23731B10290C600055216A /* pam_uwtmp.8 */; };
+		1C23758610290D290055216A /* pam_env.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732810290CBB0055216A /* pam_env.c */; };
+		1C23758710290D2B0055216A /* pam_group.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732910290CBB0055216A /* pam_group.c */; };
+		1C23758810290D8E0055216A /* pam_krb5.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732A10290CBB0055216A /* pam_krb5.c */; };
+		1C2375A810290D9D0055216A /* pam_launchd.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732B10290CBB0055216A /* pam_launchd.c */; };
+		1C2375A910290D9F0055216A /* pam_mount.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732C10290CBB0055216A /* pam_mount.c */; };
+		1C2375AA10290DA50055216A /* pam_nologin.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732D10290CBB0055216A /* pam_nologin.c */; };
+		1C2375AB10290DAD0055216A /* pam_opendirectory.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732E10290CBB0055216A /* pam_opendirectory.c */; };
+		1C2375AC10290DB20055216A /* pam_rootok.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23732F10290CBB0055216A /* pam_rootok.c */; };
+		1C2375AD10290DB50055216A /* pam_sacl.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23733010290CBB0055216A /* pam_sacl.c */; };
+		1C2375AE10290DB90055216A /* pam_self.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23733110290CBB0055216A /* pam_self.c */; };
+		1C2375AF10290DBC0055216A /* pam_serialnumber.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23733210290CBB0055216A /* pam_serialnumber.c */; };
+		1C2375B010290DC10055216A /* pam_uwtmp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1C23733310290CBB0055216A /* pam_uwtmp.c */; };
+		1C84D324113480B3005764CC /* AppleSystemInfo.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1C84D323113480B3005764CC /* AppleSystemInfo.framework */; };
+		1CFF7DD6102116B70097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DDE102116F40097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DDF102116FA0097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE0102116FF0097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE1102117040097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE2102117080097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE31021170D0097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE4102117120097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE5102117170097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE61021171D0097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE7102117220097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DE8102117270097ADA4 /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		1CFF7DFF102117810097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		1CFF7E21102117890097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		1CFF7F001021181C0097ADA4 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7E81102118100097ADA4 /* Security.framework */; };
+		1CFF7F06102118410097ADA4 /* NetFS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F05102118410097ADA4 /* NetFS.framework */; };
+		1CFF7F15102118530097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		1CFF7F16102118620097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		1CFF7F1B102118740097ADA4 /* DiskImages.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F17102118710097ADA4 /* DiskImages.framework */; };
+		1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		1CFF8061102118BA0097ADA4 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		1CFF8062102118BA0097ADA4 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7F55102118AF0097ADA4 /* IOKit.framework */; };
+		72603597125BDE38000B0172 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
+		726035BF125BDE8C000B0172 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
+		72A97A9E12A45DBF007B98B5 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
+		72A97AA112A45DE9007B98B5 /* ServerInformation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72603596125BDE38000B0172 /* ServerInformation.framework */; };
+		72A97ABB12A45F1F007B98B5 /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		72A97ABF12A45F61007B98B5 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		72B77D7E1260FA2100F47303 /* DiskArbitration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B77D7D1260FA2100F47303 /* DiskArbitration.framework */; };
+		7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */; };
+		7434C89D125544C7001D7F9E /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7434C88E12554434001D7F9E /* GSS.framework */; };
+		7434C8A11255452A001D7F9E /* pam_ntlm.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C8A01255452A001D7F9E /* pam_ntlm.c */; };
+		7434C8A912554588001D7F9E /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 7434C88F12554434001D7F9E /* Heimdal.framework */; };
+		7434C8AC125545E7001D7F9E /* pam_ntlm.8 in man8 */ = {isa = PBXBuildFile; fileRef = 7434C8AB125545DA001D7F9E /* pam_ntlm.8 */; };
+		7434C98812554EC1001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		7434C9A912554FBF001D7F9E /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */; };
+		7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */; };
+		7434CA761255560B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+		7434CA791255562B001D7F9E /* Common.c in Sources */ = {isa = PBXBuildFile; fileRef = 7434C97812554E6F001D7F9E /* Common.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1CFF7DB81021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D861021150B0097ADA4;
+			remoteInfo = wtmp;
+		};
+		1CFF7DBA1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D7E102114F80097ADA4;
+			remoteInfo = serialnumber;
+		};
+		1CFF7DBC1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D76102114E10097ADA4;
+			remoteInfo = self;
+		};
+		1CFF7DBE1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D6E102114C60097ADA4;
+			remoteInfo = sacl;
+		};
+		1CFF7DC01021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D66102114B50097ADA4;
+			remoteInfo = rootok;
+		};
+		1CFF7DC21021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D5E1021149E0097ADA4;
+			remoteInfo = opendirectory;
+		};
+		1CFF7DC41021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D56102114890097ADA4;
+			remoteInfo = nologin;
+		};
+		1CFF7DC61021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D4E1021147B0097ADA4;
+			remoteInfo = mount;
+		};
+		1CFF7DC81021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D461021146B0097ADA4;
+			remoteInfo = launchd;
+		};
+		1CFF7DCA1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D3E102114560097ADA4;
+			remoteInfo = krb5;
+		};
+		1CFF7DCC1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D361021142C0097ADA4;
+			remoteInfo = group;
+		};
+		1CFF7DCE1021165B0097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF7D2110210FC20097ADA4;
+			remoteInfo = env;
+		};
+		1CFF8087102119940097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF806D102119880097ADA4;
+			remoteInfo = "Install Manpages";
+		};
+		1CFF80D810211B040097ADA4 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 1CFF80BC10211AF10097ADA4;
+			remoteInfo = Cleanup;
+		};
+		7434C89E125544F9001D7F9E /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 7434C8911255449C001D7F9E;
+			remoteInfo = ntlm;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		1CFF806C102119880097ADA4 /* man8 */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				1C23731C10290C600055216A /* pam_env.8 in man8 */,
+				1C23731D10290C600055216A /* pam_group.8 in man8 */,
+				1C23731E10290C600055216A /* pam_krb5.8 in man8 */,
+				1C23731F10290C600055216A /* pam_launchd.8 in man8 */,
+				1C23732010290C600055216A /* pam_mount.8 in man8 */,
+				1C23732110290C600055216A /* pam_nologin.8 in man8 */,
+				7434C8AC125545E7001D7F9E /* pam_ntlm.8 in man8 */,
+				1C23732210290C600055216A /* pam_opendirectory.8 in man8 */,
+				1C23732310290C600055216A /* pam_rootok.8 in man8 */,
+				1C23732410290C600055216A /* pam_sacl.8 in man8 */,
+				1C23732510290C600055216A /* pam_self.8 in man8 */,
+				1C23732610290C600055216A /* pam_serialnumber.8 in man8 */,
+				1C23732710290C600055216A /* pam_uwtmp.8 in man8 */,
+			);
+			name = man8;
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		1C23731010290C600055216A /* pam_env.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_env.8; path = modules/pam_env/pam_env.8; sourceTree = "<group>"; };
+		1C23731110290C600055216A /* pam_group.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_group.8; path = modules/pam_group/pam_group.8; sourceTree = "<group>"; };
+		1C23731210290C600055216A /* pam_krb5.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_krb5.8; path = modules/pam_krb5/pam_krb5.8; sourceTree = "<group>"; };
+		1C23731310290C600055216A /* pam_launchd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_launchd.8; path = modules/pam_launchd/pam_launchd.8; sourceTree = "<group>"; };
+		1C23731410290C600055216A /* pam_mount.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_mount.8; path = modules/pam_mount/pam_mount.8; sourceTree = "<group>"; };
+		1C23731510290C600055216A /* pam_nologin.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_nologin.8; path = modules/pam_nologin/pam_nologin.8; sourceTree = "<group>"; };
+		1C23731610290C600055216A /* pam_opendirectory.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_opendirectory.8; path = modules/pam_opendirectory/pam_opendirectory.8; sourceTree = "<group>"; };
+		1C23731710290C600055216A /* pam_rootok.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_rootok.8; path = modules/pam_rootok/pam_rootok.8; sourceTree = "<group>"; };
+		1C23731810290C600055216A /* pam_sacl.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_sacl.8; path = modules/pam_sacl/pam_sacl.8; sourceTree = "<group>"; };
+		1C23731910290C600055216A /* pam_self.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_self.8; path = modules/pam_self/pam_self.8; sourceTree = "<group>"; };
+		1C23731A10290C600055216A /* pam_serialnumber.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_serialnumber.8; path = modules/pam_serialnumber/pam_serialnumber.8; sourceTree = "<group>"; };
+		1C23731B10290C600055216A /* pam_uwtmp.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_uwtmp.8; path = modules/pam_uwtmp/pam_uwtmp.8; sourceTree = "<group>"; };
+		1C23732810290CBB0055216A /* pam_env.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_env.c; path = modules/pam_env/pam_env.c; sourceTree = "<group>"; };
+		1C23732910290CBB0055216A /* pam_group.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_group.c; path = modules/pam_group/pam_group.c; sourceTree = "<group>"; };
+		1C23732A10290CBB0055216A /* pam_krb5.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_krb5.c; path = modules/pam_krb5/pam_krb5.c; sourceTree = "<group>"; };
+		1C23732B10290CBB0055216A /* pam_launchd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_launchd.c; path = modules/pam_launchd/pam_launchd.c; sourceTree = "<group>"; };
+		1C23732C10290CBB0055216A /* pam_mount.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_mount.c; path = modules/pam_mount/pam_mount.c; sourceTree = "<group>"; };
+		1C23732D10290CBB0055216A /* pam_nologin.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_nologin.c; path = modules/pam_nologin/pam_nologin.c; sourceTree = "<group>"; };
+		1C23732E10290CBB0055216A /* pam_opendirectory.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_opendirectory.c; path = modules/pam_opendirectory/pam_opendirectory.c; sourceTree = "<group>"; };
+		1C23732F10290CBB0055216A /* pam_rootok.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_rootok.c; path = modules/pam_rootok/pam_rootok.c; sourceTree = "<group>"; };
+		1C23733010290CBB0055216A /* pam_sacl.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_sacl.c; path = modules/pam_sacl/pam_sacl.c; sourceTree = "<group>"; };
+		1C23733110290CBB0055216A /* pam_self.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_self.c; path = modules/pam_self/pam_self.c; sourceTree = "<group>"; };
+		1C23733210290CBB0055216A /* pam_serialnumber.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_serialnumber.c; path = modules/pam_serialnumber/pam_serialnumber.c; sourceTree = "<group>"; };
+		1C23733310290CBB0055216A /* pam_uwtmp.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_uwtmp.c; path = modules/pam_uwtmp/pam_uwtmp.c; sourceTree = "<group>"; };
+		1C84D323113480B3005764CC /* AppleSystemInfo.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = AppleSystemInfo.framework; path = /System/Library/PrivateFrameworks/AppleSystemInfo.framework; sourceTree = "<absolute>"; };
+		1CFF7D2210210FC20097ADA4 /* pam_env.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_env.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D3D1021142C0097ADA4 /* pam_group.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_group.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D45102114560097ADA4 /* pam_krb5.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_krb5.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D4D1021146B0097ADA4 /* pam_launchd.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_launchd.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D551021147B0097ADA4 /* pam_mount.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_mount.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D5D102114890097ADA4 /* pam_nologin.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_nologin.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D651021149E0097ADA4 /* pam_opendirectory.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_opendirectory.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D6D102114B50097ADA4 /* pam_rootok.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_rootok.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D75102114C60097ADA4 /* pam_sacl.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_sacl.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D7D102114E10097ADA4 /* pam_self.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_self.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D85102114F80097ADA4 /* pam_serialnumber.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_serialnumber.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_uwtmp.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.2.dylib; path = /usr/lib/libpam.2.dylib; sourceTree = "<absolute>"; };
+		1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/Frameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
+		1CFF7E81102118100097ADA4 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
+		1CFF7F05102118410097ADA4 /* NetFS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = NetFS.framework; path = /System/Library/Frameworks/NetFS.framework; sourceTree = "<absolute>"; };
+		1CFF7F17102118710097ADA4 /* DiskImages.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskImages.framework; path = /System/Library/PrivateFrameworks/DiskImages.framework; sourceTree = "<absolute>"; };
+		1CFF7F55102118AF0097ADA4 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		72603596125BDE38000B0172 /* ServerInformation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServerInformation.framework; path = /System/Library/PrivateFrameworks/ServerInformation.framework; sourceTree = "<absolute>"; };
+		72B77D7D1260FA2100F47303 /* DiskArbitration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = DiskArbitration.framework; path = /System/Library/Frameworks/DiskArbitration.framework; sourceTree = "<absolute>"; };
+		7434C88E12554434001D7F9E /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
+		7434C88F12554434001D7F9E /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
+		7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = pam_ntlm.so.2; sourceTree = BUILT_PRODUCTS_DIR; };
+		7434C8A01255452A001D7F9E /* pam_ntlm.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = pam_ntlm.c; path = modules/pam_ntlm/pam_ntlm.c; sourceTree = "<group>"; };
+		7434C8AB125545DA001D7F9E /* pam_ntlm.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = pam_ntlm.8; path = modules/pam_ntlm/pam_ntlm.8; sourceTree = "<group>"; };
+		7434C97812554E6F001D7F9E /* Common.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = Common.c; path = common/Common.c; sourceTree = "<group>"; };
+		7434C97912554E6F001D7F9E /* Common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Common.h; path = common/Common.h; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		1CFF7D2010210FC20097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DD6102116B70097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D391021142C0097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DDE102116F40097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D41102114560097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7E21102117890097ADA4 /* OpenDirectory.framework in Frameworks */,
+				1CFF7DFF102117810097ADA4 /* CoreFoundation.framework in Frameworks */,
+				1CFF7DDF102116FA0097ADA4 /* libpam.2.dylib in Frameworks */,
+				7434C8A912554588001D7F9E /* Heimdal.framework in Frameworks */,
+				72A97A9E12A45DBF007B98B5 /* ServerInformation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D491021146B0097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7F001021181C0097ADA4 /* Security.framework in Frameworks */,
+				1CFF7DE0102116FF0097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D511021147B0097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7F1B102118740097ADA4 /* DiskImages.framework in Frameworks */,
+				1CFF7F16102118620097ADA4 /* OpenDirectory.framework in Frameworks */,
+				1CFF7F06102118410097ADA4 /* NetFS.framework in Frameworks */,
+				1CFF7F15102118530097ADA4 /* CoreFoundation.framework in Frameworks */,
+				1CFF7DE1102117040097ADA4 /* libpam.2.dylib in Frameworks */,
+				72B77D7E1260FA2100F47303 /* DiskArbitration.framework in Frameworks */,
+				72A97AA112A45DE9007B98B5 /* ServerInformation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D59102114890097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DE2102117080097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D611021149E0097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7F50102118980097ADA4 /* CoreFoundation.framework in Frameworks */,
+				1CFF7F51102118980097ADA4 /* OpenDirectory.framework in Frameworks */,
+				1CFF7DE31021170D0097ADA4 /* libpam.2.dylib in Frameworks */,
+				72603597125BDE38000B0172 /* ServerInformation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D69102114B50097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DE4102117120097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D71102114C60097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DE5102117170097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D79102114E10097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DE61021171D0097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D81102114F80097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C84D324113480B3005764CC /* AppleSystemInfo.framework in Frameworks */,
+				1CFF8061102118BA0097ADA4 /* CoreFoundation.framework in Frameworks */,
+				1CFF8062102118BA0097ADA4 /* IOKit.framework in Frameworks */,
+				1CFF7DE7102117220097ADA4 /* libpam.2.dylib in Frameworks */,
+				726035BF125BDE8C000B0172 /* ServerInformation.framework in Frameworks */,
+				72A97ABF12A45F61007B98B5 /* OpenDirectory.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D891021150B0097ADA4 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CFF7DE8102117270097ADA4 /* libpam.2.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7434C8961255449C001D7F9E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7434CA1A12554FE5001D7F9E /* OpenDirectory.framework in Frameworks */,
+				7434C9A912554FBF001D7F9E /* CoreFoundation.framework in Frameworks */,
+				7434C8991255449C001D7F9E /* libpam.2.dylib in Frameworks */,
+				7434C89D125544C7001D7F9E /* GSS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* pam_modules */ = {
+			isa = PBXGroup;
+			children = (
+				1C47A8A9112CB89F00013ABE /* Common */,
+				08FB7795FE84155DC02AAC07 /* Modules */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+				1CFF7DDD102116DB0097ADA4 /* Linked */,
+				72B77D7D1260FA2100F47303 /* DiskArbitration.framework */,
+				72603596125BDE38000B0172 /* ServerInformation.framework */,
+			);
+			name = pam_modules;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Modules */ = {
+			isa = PBXGroup;
+			children = (
+				1C23732810290CBB0055216A /* pam_env.c */,
+				1C23732910290CBB0055216A /* pam_group.c */,
+				1C23732A10290CBB0055216A /* pam_krb5.c */,
+				1C23732B10290CBB0055216A /* pam_launchd.c */,
+				1C23732C10290CBB0055216A /* pam_mount.c */,
+				1C23732D10290CBB0055216A /* pam_nologin.c */,
+				7434C8A01255452A001D7F9E /* pam_ntlm.c */,
+				1C23732E10290CBB0055216A /* pam_opendirectory.c */,
+				1C23732F10290CBB0055216A /* pam_rootok.c */,
+				1C23733010290CBB0055216A /* pam_sacl.c */,
+				1C23733110290CBB0055216A /* pam_self.c */,
+				1C23733210290CBB0055216A /* pam_serialnumber.c */,
+				1C23733310290CBB0055216A /* pam_uwtmp.c */,
+			);
+			name = Modules;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				1CFF7D2210210FC20097ADA4 /* pam_env.so.2 */,
+				1CFF7D3D1021142C0097ADA4 /* pam_group.so.2 */,
+				1CFF7D45102114560097ADA4 /* pam_krb5.so.2 */,
+				1CFF7D4D1021146B0097ADA4 /* pam_launchd.so.2 */,
+				1CFF7D551021147B0097ADA4 /* pam_mount.so.2 */,
+				1CFF7D5D102114890097ADA4 /* pam_nologin.so.2 */,
+				1CFF7D651021149E0097ADA4 /* pam_opendirectory.so.2 */,
+				1CFF7D6D102114B50097ADA4 /* pam_rootok.so.2 */,
+				1CFF7D75102114C60097ADA4 /* pam_sacl.so.2 */,
+				1CFF7D7D102114E10097ADA4 /* pam_self.so.2 */,
+				1CFF7D85102114F80097ADA4 /* pam_serialnumber.so.2 */,
+				1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */,
+				7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		1C47A8A9112CB89F00013ABE /* Common */ = {
+			isa = PBXGroup;
+			children = (
+				7434C97812554E6F001D7F9E /* Common.c */,
+				7434C97912554E6F001D7F9E /* Common.h */,
+			);
+			name = Common;
+			sourceTree = "<group>";
+		};
+		1CFF7DDD102116DB0097ADA4 /* Linked */ = {
+			isa = PBXGroup;
+			children = (
+				1C84D323113480B3005764CC /* AppleSystemInfo.framework */,
+				1CFF7DF2102117580097ADA4 /* CoreFoundation.framework */,
+				1CFF7E81102118100097ADA4 /* Security.framework */,
+				1CFF7DD5102116B70097ADA4 /* libpam.2.dylib */,
+				1CFF7F05102118410097ADA4 /* NetFS.framework */,
+				1CFF7DF5102117720097ADA4 /* OpenDirectory.framework */,
+				1CFF7F17102118710097ADA4 /* DiskImages.framework */,
+				1CFF7F55102118AF0097ADA4 /* IOKit.framework */,
+				7434C88E12554434001D7F9E /* GSS.framework */,
+				7434C88F12554434001D7F9E /* Heimdal.framework */,
+			);
+			name = Linked;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				7434C8AB125545DA001D7F9E /* pam_ntlm.8 */,
+				1C23731010290C600055216A /* pam_env.8 */,
+				1C23731110290C600055216A /* pam_group.8 */,
+				1C23731210290C600055216A /* pam_krb5.8 */,
+				1C23731310290C600055216A /* pam_launchd.8 */,
+				1C23731410290C600055216A /* pam_mount.8 */,
+				1C23731510290C600055216A /* pam_nologin.8 */,
+				1C23731610290C600055216A /* pam_opendirectory.8 */,
+				1C23731710290C600055216A /* pam_rootok.8 */,
+				1C23731810290C600055216A /* pam_sacl.8 */,
+				1C23731910290C600055216A /* pam_self.8 */,
+				1C23731A10290C600055216A /* pam_serialnumber.8 */,
+				1C23731B10290C600055216A /* pam_uwtmp.8 */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		1CFF7D1E10210FC20097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D371021142C0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D3F102114560097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D471021146B0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D4F1021147B0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D57102114890097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D5F1021149E0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D67102114B50097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D6F102114C60097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D77102114E10097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D7F102114F80097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D871021150B0097ADA4 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7434C8921255449C001D7F9E /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		1CFF7D2110210FC20097ADA4 /* env */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D2A10210FE80097ADA4 /* Build configuration list for PBXNativeTarget "env" */;
+			buildPhases = (
+				1CFF7D1E10210FC20097ADA4 /* Headers */,
+				1CFF7D1F10210FC20097ADA4 /* Sources */,
+				1CFF7D2010210FC20097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = env;
+			productName = pam_env;
+			productReference = 1CFF7D2210210FC20097ADA4 /* pam_env.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D361021142C0097ADA4 /* group */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D3A1021142C0097ADA4 /* Build configuration list for PBXNativeTarget "group" */;
+			buildPhases = (
+				1CFF7D371021142C0097ADA4 /* Headers */,
+				1CFF7D381021142C0097ADA4 /* Sources */,
+				1CFF7D391021142C0097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = group;
+			productName = pam_env;
+			productReference = 1CFF7D3D1021142C0097ADA4 /* pam_group.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D3E102114560097ADA4 /* krb5 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D42102114560097ADA4 /* Build configuration list for PBXNativeTarget "krb5" */;
+			buildPhases = (
+				1CFF7D3F102114560097ADA4 /* Headers */,
+				1CFF7D40102114560097ADA4 /* Sources */,
+				1CFF7D41102114560097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = krb5;
+			productName = pam_env;
+			productReference = 1CFF7D45102114560097ADA4 /* pam_krb5.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D461021146B0097ADA4 /* launchd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D4A1021146B0097ADA4 /* Build configuration list for PBXNativeTarget "launchd" */;
+			buildPhases = (
+				1CFF7D471021146B0097ADA4 /* Headers */,
+				1CFF7D481021146B0097ADA4 /* Sources */,
+				1CFF7D491021146B0097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = launchd;
+			productName = pam_env;
+			productReference = 1CFF7D4D1021146B0097ADA4 /* pam_launchd.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D4E1021147B0097ADA4 /* mount */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D521021147B0097ADA4 /* Build configuration list for PBXNativeTarget "mount" */;
+			buildPhases = (
+				1CFF7D4F1021147B0097ADA4 /* Headers */,
+				1CFF7D501021147B0097ADA4 /* Sources */,
+				1CFF7D511021147B0097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = mount;
+			productName = pam_env;
+			productReference = 1CFF7D551021147B0097ADA4 /* pam_mount.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D56102114890097ADA4 /* nologin */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D5A102114890097ADA4 /* Build configuration list for PBXNativeTarget "nologin" */;
+			buildPhases = (
+				1CFF7D57102114890097ADA4 /* Headers */,
+				1CFF7D58102114890097ADA4 /* Sources */,
+				1CFF7D59102114890097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = nologin;
+			productName = pam_env;
+			productReference = 1CFF7D5D102114890097ADA4 /* pam_nologin.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D5E1021149E0097ADA4 /* opendirectory */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D621021149E0097ADA4 /* Build configuration list for PBXNativeTarget "opendirectory" */;
+			buildPhases = (
+				1CFF7D5F1021149E0097ADA4 /* Headers */,
+				1CFF7D601021149E0097ADA4 /* Sources */,
+				1CFF7D611021149E0097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = opendirectory;
+			productName = pam_env;
+			productReference = 1CFF7D651021149E0097ADA4 /* pam_opendirectory.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D66102114B50097ADA4 /* rootok */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D6A102114B50097ADA4 /* Build configuration list for PBXNativeTarget "rootok" */;
+			buildPhases = (
+				1CFF7D67102114B50097ADA4 /* Headers */,
+				1CFF7D68102114B50097ADA4 /* Sources */,
+				1CFF7D69102114B50097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = rootok;
+			productName = pam_env;
+			productReference = 1CFF7D6D102114B50097ADA4 /* pam_rootok.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D6E102114C60097ADA4 /* sacl */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D72102114C60097ADA4 /* Build configuration list for PBXNativeTarget "sacl" */;
+			buildPhases = (
+				1CFF7D6F102114C60097ADA4 /* Headers */,
+				1CFF7D70102114C60097ADA4 /* Sources */,
+				1CFF7D71102114C60097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = sacl;
+			productName = pam_env;
+			productReference = 1CFF7D75102114C60097ADA4 /* pam_sacl.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D76102114E10097ADA4 /* self */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D7A102114E10097ADA4 /* Build configuration list for PBXNativeTarget "self" */;
+			buildPhases = (
+				1CFF7D77102114E10097ADA4 /* Headers */,
+				1CFF7D78102114E10097ADA4 /* Sources */,
+				1CFF7D79102114E10097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = self;
+			productName = pam_env;
+			productReference = 1CFF7D7D102114E10097ADA4 /* pam_self.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D7E102114F80097ADA4 /* serialnumber */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D82102114F80097ADA4 /* Build configuration list for PBXNativeTarget "serialnumber" */;
+			buildPhases = (
+				1CFF7D7F102114F80097ADA4 /* Headers */,
+				1CFF7D80102114F80097ADA4 /* Sources */,
+				1CFF7D81102114F80097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = serialnumber;
+			productName = pam_env;
+			productReference = 1CFF7D85102114F80097ADA4 /* pam_serialnumber.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		1CFF7D861021150B0097ADA4 /* uwtmp */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CFF7D8A1021150B0097ADA4 /* Build configuration list for PBXNativeTarget "uwtmp" */;
+			buildPhases = (
+				1CFF7D871021150B0097ADA4 /* Headers */,
+				1CFF7D881021150B0097ADA4 /* Sources */,
+				1CFF7D891021150B0097ADA4 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = uwtmp;
+			productName = pam_env;
+			productReference = 1CFF7D8D1021150B0097ADA4 /* pam_uwtmp.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+		7434C8911255449C001D7F9E /* ntlm */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7434C89A1255449C001D7F9E /* Build configuration list for PBXNativeTarget "ntlm" */;
+			buildPhases = (
+				7434C8921255449C001D7F9E /* Headers */,
+				7434C8931255449C001D7F9E /* Sources */,
+				7434C8961255449C001D7F9E /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = ntlm;
+			productName = pam_env;
+			productReference = 7434C89C1255449C001D7F9E /* pam_ntlm.so.2 */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "pam_modules" */;
+			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* pam_modules */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				1CFF7DB51021164C0097ADA4 /* pam_modules */,
+				1CFF7D2110210FC20097ADA4 /* env */,
+				1CFF7D361021142C0097ADA4 /* group */,
+				1CFF7D3E102114560097ADA4 /* krb5 */,
+				7434C8911255449C001D7F9E /* ntlm */,
+				1CFF7D461021146B0097ADA4 /* launchd */,
+				1CFF7D4E1021147B0097ADA4 /* mount */,
+				1CFF7D56102114890097ADA4 /* nologin */,
+				1CFF7D5E1021149E0097ADA4 /* opendirectory */,
+				1CFF7D66102114B50097ADA4 /* rootok */,
+				1CFF7D6E102114C60097ADA4 /* sacl */,
+				1CFF7D76102114E10097ADA4 /* self */,
+				1CFF7D7E102114F80097ADA4 /* serialnumber */,
+				1CFF7D861021150B0097ADA4 /* uwtmp */,
+				1CFF806D102119880097ADA4 /* Install Manpages */,
+				1CFF80BC10211AF10097ADA4 /* Cleanup */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		1CFF8096102119C90097ADA4 /* Compress */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = Compress;
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/bash;
+			shellScript = "set -ex\n\n/Developer/Makefiles/bin/compress-man-pages.pl -d \"$DSTROOT\" \"/usr/share/man/man8\"";
+		};
+		1CFF80BB10211AF10097ADA4 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "\ncd \"${DSTROOT}\"\n\n# Well, not pretty. \nfind . -exec chown root:wheel \"{}\" \\;";
+		};
+/* End PBXShellScriptBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		1CFF7D1F10210FC20097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C23758610290D290055216A /* pam_env.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D381021142C0097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C23758710290D2B0055216A /* pam_group.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D40102114560097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C23758810290D8E0055216A /* pam_krb5.c in Sources */,
+				7434CA761255560B001D7F9E /* Common.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D481021146B0097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375A810290D9D0055216A /* pam_launchd.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D501021147B0097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7434CA791255562B001D7F9E /* Common.c in Sources */,
+				1C2375A910290D9F0055216A /* pam_mount.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D58102114890097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375AA10290DA50055216A /* pam_nologin.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D601021149E0097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7434C98812554EC1001D7F9E /* Common.c in Sources */,
+				1C2375AB10290DAD0055216A /* pam_opendirectory.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D68102114B50097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375AC10290DB20055216A /* pam_rootok.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D70102114C60097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375AD10290DB50055216A /* pam_sacl.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D78102114E10097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375AE10290DB90055216A /* pam_self.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D80102114F80097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72A97ABB12A45F1F007B98B5 /* Common.c in Sources */,
+				1C2375AF10290DBC0055216A /* pam_serialnumber.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CFF7D881021150B0097ADA4 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C2375B010290DC10055216A /* pam_uwtmp.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		7434C8931255449C001D7F9E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				7434C8A11255452A001D7F9E /* pam_ntlm.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		1CFF7DB91021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D861021150B0097ADA4 /* uwtmp */;
+			targetProxy = 1CFF7DB81021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DBB1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D7E102114F80097ADA4 /* serialnumber */;
+			targetProxy = 1CFF7DBA1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DBD1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D76102114E10097ADA4 /* self */;
+			targetProxy = 1CFF7DBC1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DBF1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D6E102114C60097ADA4 /* sacl */;
+			targetProxy = 1CFF7DBE1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DC11021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D66102114B50097ADA4 /* rootok */;
+			targetProxy = 1CFF7DC01021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DC31021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D5E1021149E0097ADA4 /* opendirectory */;
+			targetProxy = 1CFF7DC21021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DC51021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D56102114890097ADA4 /* nologin */;
+			targetProxy = 1CFF7DC41021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DC71021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D4E1021147B0097ADA4 /* mount */;
+			targetProxy = 1CFF7DC61021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DC91021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D461021146B0097ADA4 /* launchd */;
+			targetProxy = 1CFF7DC81021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DCB1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D3E102114560097ADA4 /* krb5 */;
+			targetProxy = 1CFF7DCA1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DCD1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D361021142C0097ADA4 /* group */;
+			targetProxy = 1CFF7DCC1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF7DCF1021165B0097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF7D2110210FC20097ADA4 /* env */;
+			targetProxy = 1CFF7DCE1021165B0097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF8088102119940097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF806D102119880097ADA4 /* Install Manpages */;
+			targetProxy = 1CFF8087102119940097ADA4 /* PBXContainerItemProxy */;
+		};
+		1CFF80D910211B040097ADA4 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 1CFF80BC10211AF10097ADA4 /* Cleanup */;
+			targetProxy = 1CFF80D810211B040097ADA4 /* PBXContainerItemProxy */;
+		};
+		7434C89F125544F9001D7F9E /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 7434C8911255449C001D7F9E /* ntlm */;
+			targetProxy = 7434C89E125544F9001D7F9E /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1CFF7D2410210FC30097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = env;
+			};
+			name = Release;
+		};
+		1CFF7D3C1021142C0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = group;
+			};
+			name = Release;
+		};
+		1CFF7D44102114560097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = krb5;
+			};
+			name = Release;
+		};
+		1CFF7D4C1021146B0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = launchd;
+			};
+			name = Release;
+		};
+		1CFF7D541021147B0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = mount;
+			};
+			name = Release;
+		};
+		1CFF7D5C102114890097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = nologin;
+			};
+			name = Release;
+		};
+		1CFF7D641021149E0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = opendirectory;
+			};
+			name = Release;
+		};
+		1CFF7D6C102114B50097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = rootok;
+			};
+			name = Release;
+		};
+		1CFF7D74102114C60097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = sacl;
+			};
+			name = Release;
+		};
+		1CFF7D7C102114E10097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = self;
+			};
+			name = Release;
+		};
+		1CFF7D84102114F80097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = serialnumber;
+			};
+			name = Release;
+		};
+		1CFF7D8C1021150B0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = uwtmp;
+			};
+			name = Release;
+		};
+		1CFF7DB71021164C0097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = "-Ddarwin";
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				OTHER_CFLAGS = "-no-cpp-precomp";
+				PRODUCT_NAME = pam_modules;
+				WARNING_CFLAGS = "-Wall";
+			};
+			name = Release;
+		};
+		1CFF806E102119880097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_MODE_FLAG = 0644;
+				PRODUCT_NAME = "Install Manpages";
+			};
+			name = Release;
+		};
+		1CFF80BD10211AF10097ADA4 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = Cleanup;
+			};
+			name = Release;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				GCC_PREPROCESSOR_DEFINITIONS = darwin;
+				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				INSTALL_MODE_FLAG = 0444;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Werror",
+				);
+			};
+			name = Release;
+		};
+		7434C89B1255449C001D7F9E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				EXECUTABLE_EXTENSION = so.2;
+				EXECUTABLE_PREFIX = pam_;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				INSTALL_PATH = /usr/lib/pam;
+				PREBINDING = NO;
+				PRODUCT_NAME = ntlm;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1CFF7D2A10210FE80097ADA4 /* Build configuration list for PBXNativeTarget "env" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D2410210FC30097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D3A1021142C0097ADA4 /* Build configuration list for PBXNativeTarget "group" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D3C1021142C0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D42102114560097ADA4 /* Build configuration list for PBXNativeTarget "krb5" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D44102114560097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D4A1021146B0097ADA4 /* Build configuration list for PBXNativeTarget "launchd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D4C1021146B0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D521021147B0097ADA4 /* Build configuration list for PBXNativeTarget "mount" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D541021147B0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D5A102114890097ADA4 /* Build configuration list for PBXNativeTarget "nologin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D5C102114890097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D621021149E0097ADA4 /* Build configuration list for PBXNativeTarget "opendirectory" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D641021149E0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D6A102114B50097ADA4 /* Build configuration list for PBXNativeTarget "rootok" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D6C102114B50097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D72102114C60097ADA4 /* Build configuration list for PBXNativeTarget "sacl" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D74102114C60097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D7A102114E10097ADA4 /* Build configuration list for PBXNativeTarget "self" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D7C102114E10097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D82102114F80097ADA4 /* Build configuration list for PBXNativeTarget "serialnumber" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D84102114F80097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7D8A1021150B0097ADA4 /* Build configuration list for PBXNativeTarget "uwtmp" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7D8C1021150B0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF7DD4102116A60097ADA4 /* Build configuration list for PBXAggregateTarget "pam_modules" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF7DB71021164C0097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF809F102119E70097ADA4 /* Build configuration list for PBXAggregateTarget "Install Manpages" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF806E102119880097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1CFF80DC10211B140097ADA4 /* Build configuration list for PBXAggregateTarget "Cleanup" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CFF80BD10211AF10097ADA4 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "pam_modules" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7434C89A1255449C001D7F9E /* Build configuration list for PBXNativeTarget "ntlm" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7434C89B1255449C001D7F9E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

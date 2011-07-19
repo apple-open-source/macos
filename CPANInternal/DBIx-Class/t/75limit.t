@@ -7,11 +7,6 @@ use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
-BEGIN {
-    eval "use DBD::SQLite";
-    plan $@ ? (skip_all => 'needs DBD::SQLite for testing') : (tests => 9);
-}                                                                               
-
 # test LIMIT
 my $it = $schema->resultset("CD")->search( {},
     { rows => 3,
@@ -51,6 +46,15 @@ is( $it->next, undef, "software next past end of resultset ok" );
 );
 is( $cds[0]->title, "Spoonful of bees", "software offset ok" );
 
+
+@cds = $schema->resultset("CD")->search( {},
+    {
+      offset => 2,
+      order_by => 'year' }
+);
+is( $cds[0]->title, "Spoonful of bees", "offset with no limit" );
+
+
 # based on a failing criteria submitted by waswas
 # requires SQL::Abstract >= 1.20
 $it = $schema->resultset("CD")->search(
@@ -68,3 +72,4 @@ $it = $schema->resultset("CD")->search(
 );
 is( $it->count, 1, "complex abstract count ok" );
 
+done_testing;

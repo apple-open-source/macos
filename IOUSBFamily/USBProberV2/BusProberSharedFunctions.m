@@ -25,11 +25,35 @@
 
 #import "BusProberSharedFunctions.h"
 
+IOReturn GetNumberOfConfigurations( IOUSBDeviceRef deviceIntf, uint8_t * numberOfConfigs ) {
+	IOReturn err;
+    
+    err = (*deviceIntf)->GetNumberOfConfigurations(deviceIntf, (UInt8 *)numberOfConfigs);
+
+    return err;
+}
+
+IOReturn GetConfigurationDescriptor( IOUSBDeviceRef deviceIntf, uint8_t config, IOUSBConfigurationDescriptorPtr* description ) {
+	IOReturn err;
+    
+    err = (*deviceIntf)->GetConfigurationDescriptorPtr(deviceIntf, config, description);
+	
+    return err;
+}
+
 IOReturn GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo ) {
 	IOReturn err;
     
     err = (*deviceIntf)->GetUSBDeviceInformation(deviceIntf, (UInt32 *)portInfo);
+	
+    return err;
+}
 
+IOReturn GetConfiguration( IOUSBDeviceRef deviceIntf, uint8_t * currentConfig ) {
+	IOReturn err;
+    
+    err = (*deviceIntf)->GetConfiguration(deviceIntf, (UInt8 *)currentConfig);
+	
     return err;
 }
 
@@ -606,6 +630,8 @@ NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry) {
 	
 }
 
+#pragma mark Utilities
+
 void FreeString(char * cstr) {
     if (cstr != NULL) {
         free(cstr);
@@ -734,5 +760,118 @@ USBErrorToString(IOReturn status)
 			return "kIOUSBBitstufErr";
     }
     return "Unknown";
+	
 }
+
+IOUSBDescriptorHeader *
+NextDescriptor(const void *desc)
+{
+    const UInt8 *	next = (const UInt8 *)desc;
+    UInt8			length = next[0];
+	
+	if ( length == 0 )
+	{
+		return NULL;
+	}
+	
+    next = &next[length];
+	
+    return((IOUSBDescriptorHeader *)next);
+}
+
+
+
+IOUSBDescriptorHeader*
+FindNextDescriptor(IOUSBConfigurationDescriptor	*curConfDesc, const void *cur, UInt8 descType)
+{
+    IOUSBDescriptorHeader 		*hdr;
+    UInt16				curConfLength;
+	
+    if (!curConfDesc)
+	{
+		return NULL;
+	}
+	
+	
+    curConfLength = curConfDesc->wTotalLength;
+    if (!cur)
+		hdr = (IOUSBDescriptorHeader*)curConfDesc;
+    else
+    {
+		if (((uintptr_t)cur < (uintptr_t)curConfDesc) || (((uintptr_t)cur - (uintptr_t)curConfDesc) >= curConfLength))
+		{
+			return NULL;
+		}
+		hdr = (IOUSBDescriptorHeader *)cur;
+    }
+	
+    do 
+    {
+		IOUSBDescriptorHeader 		*lasthdr = hdr;
+		hdr = NextDescriptor(hdr);
+		
+		if (hdr == NULL)
+		{
+			return NULL;
+		}
+		
+		if (lasthdr == hdr)
+		{
+			return NULL;
+		}
+		
+        if (((uintptr_t)hdr - (uintptr_t)curConfDesc) >= curConfLength)
+		{
+            return NULL;
+		}
+        if (descType == 0)
+		{
+            return hdr;			// type 0 is wildcard.
+		}
+	    
+        if (hdr->bDescriptorType == descType)
+		{
+            return hdr;
+		}
+    } while(true);
+}
+
+
+
+IOReturn
+FindNextInterfaceDescriptor(const IOUSBConfigurationDescriptor *configDescIn, 
+							const IOUSBInterfaceDescriptor *intfDesc,
+							IOUSBInterfaceDescriptor **descOut)
+{
+    IOUSBConfigurationDescriptor *configDesc = (IOUSBConfigurationDescriptor *)configDescIn;
+    IOUSBInterfaceDescriptor *interface, *end;
+    
+    if (!configDesc || (configDesc->bDescriptorType != kUSBConfDesc))
+		return kIOReturnBadArgument;
+    
+    end = (IOUSBInterfaceDescriptor *)(((UInt8*)configDesc) + USBToHostWord(configDesc->wTotalLength));
+    
+    if (intfDesc != NULL)
+    {
+		if (((void*)intfDesc < (void*)configDesc) || (intfDesc->bDescriptorType != kUSBInterfaceDesc))
+			return kIOReturnBadArgument;
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(intfDesc);
+    }
+    else
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(configDesc);
+	
+    while (interface && (interface < end))
+    {
+		if (interface->bDescriptorType == kUSBInterfaceDesc)
+		{
+			{
+				*descOut = interface;
+				return kIOReturnSuccess;
+			}
+		}
+		interface = (IOUSBInterfaceDescriptor *)NextDescriptor(interface);
+    }
+	return kIOUSBInterfaceNotFound; 
+}
+
 

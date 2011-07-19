@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triodef.h,v 1.33 2009/05/24 11:39:24 breese Exp $
+ * $Id: triodef.h,v 1.35 2009/09/20 11:37:14 breese Exp $
  *
  * Copyright (C) 2001 Bjorn Reese <breese@users.sourceforge.net>
  *
@@ -148,7 +148,7 @@
 
 #if defined(__STDC__) \
  || defined(_MSC_EXTENSIONS) \
- || defined(TRIO_COMPILER_BORLAND)
+ || defined(TRIO_COMPILER_BCB)
 # define PREDEF_STANDARD_C89
 #endif
 #if defined(__STDC_VERSION__)
@@ -309,6 +309,27 @@ typedef void * trio_pointer_t;
 #if defined(TRIO_COMPILER_MSVC) || defined(TRIO_COMPILER_BCB)
 #else
 # define TRIO_COMPILER_SUPPORTS_LL
+#endif
+
+#if defined(__CYGWIN__)
+/*
+ * Cygwin defines the macros for hosted C99, but does not support certain
+ * long double math functions.
+ */
+# include <cygwin/version.h>
+# define TRIO_CYGWIN_VERSION_API CYGWIN_VERSION_API_MAJOR * 1000 + \
+   CYGWIN_VERSION_API_MINOR
+/*
+ * Please change the version number below when the Cygwin API supports
+ * long double math functions (powl, fmodl, etc.)
+ */
+# if TRIO_CYGWIN_VERSION_API < 99999999
+#  define TRIO_NO_FLOORL 1
+#  define TRIO_NO_CEILL 1
+#  define TRIO_NO_POWL 1
+#  define TRIO_NO_FMODL 1
+#  define TRIO_NO_LOG10L 1
+# endif
 #endif
 
 #endif /* TRIO_TRIODEF_H */

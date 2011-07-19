@@ -1,0 +1,28 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+circle "DISK"
+arrow "character" "defns"
+
+set CPU [box "CPU" "(16-bit mini)" width [3 cm]]
+group {
+    arrow <- from [$CPU top] up "input " rjust
+}
+arrow
+line up [4 mm] \
+    then right [15 mm] \
+    then right [15 mm] up [5 mm] \
+    then down [18 mm] \
+    then left [15 mm] up [5 mm] \
+    then left [15 mm] \
+    then up [4 mm]
+
+set CRT ["    CRT" ljust with nw at [last line 2]]
+
+set Paper [[last line 4] + [[2 mm] [-10 mm]]]
+
+circle rad [1 mm] at [$Paper + [[-2 mm] [5 mm]]]
+circle rad [1 mm] at [$Paper + [[ 2 mm] [5 mm]]]
+
+arrow <- from $Paper down [40 mm]
+
+" ... paper"  with west at [[last arrow end]   + [0     [-5 mm]]]
+"    rollers" with west at [[last arrow start] + [[1 mm] [5 mm]]]

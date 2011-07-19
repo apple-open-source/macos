@@ -32,13 +32,14 @@
 #define kFnFunctionUsageMapKey      "FnFunctionUsageMap"
 #define	kFnKeyboardUsageMapKey      "FnKeyboardUsageMap"
 #define	kNumLockKeyboardUsageMapKey "NumLockKeyboardUsageMap"
+#define kKeyboardUsageMapKey        "KeyboardUsageMap"
 
 #define super IOHIDEventDriver
 
-OSDefineMetaClassAndStructors( AppleEmbeddedKeyboard, super )
+OSDefineMetaClassAndStructors( AppleEmbeddedKeyboard, IOHIDEventDriver )
 
 //====================================================================================================
-// AppleEmbeddedKeyboard::handleStart
+// AppleEmbeddedKeyboard::init
 //====================================================================================================
 bool AppleEmbeddedKeyboard::init(OSDictionary * properties)
 {
@@ -48,6 +49,17 @@ bool AppleEmbeddedKeyboard::init(OSDictionary * properties)
     bzero(_secondaryKeys, sizeof(SecondaryKey)*255);
     
     return true;
+}
+
+//====================================================================================================
+// AppleEmbeddedKeyboard::free
+//====================================================================================================
+void AppleEmbeddedKeyboard::free()
+{
+    if ( _keyboardMap )
+        _keyboardMap->release();
+    
+    super::free();
 }
 
 //====================================================================================================
@@ -66,6 +78,7 @@ bool AppleEmbeddedKeyboard::handleStart( IOService * provider )
     
     parseSecondaryUsages();
 
+    _keyboardMap = OSDynamicCast(OSDictionary, copyProperty(kKeyboardUsageMapKey));
     setProperty(kIOHIDFKeyModeKey, _fKeyMode, sizeof(_fKeyMode));
             
     return true;
@@ -96,6 +109,8 @@ void AppleEmbeddedKeyboard::dispatchKeyboardEvent(
                                 UInt32                      value,
                                 IOOptionBits                options)
 {
+    filterKeyboardUsage(&usagePage, &usage, value);
+
     if ( (( usagePage == kHIDPage_AppleVendorTopCase ) && ( usage == kHIDUsage_AV_TopCase_KeyboardFn )) || 
          (( usagePage == kHIDPage_AppleVendorKeyboard ) && ( usage == kHIDUsage_AppleVendorKeyboard_Function )) )
     {        
@@ -263,6 +278,31 @@ bool AppleEmbeddedKeyboard::filterSecondaryNumLockKeyboardUsage(
 }
 
 //====================================================================================================
+// AppleEmbeddedKeyboard::filterKeyboardUsage
+//====================================================================================================
+bool AppleEmbeddedKeyboard::filterKeyboardUsage(UInt32 *                    usagePage,
+                                                UInt32 *                    usage,
+                                                bool                        down __unused)
+{
+    char key[32];
+    
+    bzero(key, sizeof(key));
+    snprintf(key, sizeof(key), "0x%04x%04x", (uint16_t)*usagePage, (uint16_t)*usage);
+    
+    if ( _keyboardMap ) {
+        OSNumber * map = OSDynamicCast(OSNumber, _keyboardMap->getObject(key));
+        
+        if ( map ) {            
+            *usagePage  = (map->unsigned32BitValue()>>16) & 0xffff;
+            *usage      = map->unsigned32BitValue()&0xffff;
+            
+        }
+    }
+    
+    return false;
+}
+
+//====================================================================================================
 // AppleEmbeddedKeyboard::findKeyboardRollOverElement
 //====================================================================================================
 void AppleEmbeddedKeyboard::findKeyboardRollOverElement(OSArray * reportElements)
@@ -296,7 +336,7 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
     OSString *      mappingString;
     char *          str;
     UInt32          index, value;
-
+    
 #define DECODE_MAP(type,key,bit)                                                    \
     do {                                                                            \
         mappingString = OSDynamicCast(OSString,getProperty(key));                   \
@@ -342,17 +382,40 @@ void AppleEmbeddedKeyboard::parseSecondaryUsages()
 IOReturn AppleEmbeddedKeyboard::setSystemProperties( OSDictionary * properties )
 {
     OSNumber * number;
+    OSString * string;
+    bool parseSecondaries = false;
     
-    if (number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDFKeyModeKey)))
+    if ((number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDFKeyModeKey))))
     {	
         _fKeyMode = number->unsigned32BitValue();
         setProperty(kIOHIDFKeyModeKey, number);
     }
 
-    if (_virtualMouseKeysSupport && (number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDMouseKeysOnKey))))
+    if (_virtualMouseKeysSupport && ((number = OSDynamicCast(OSNumber, properties->getObject(kIOHIDMouseKeysOnKey)))))
     {
         _numLockDown = number->unsigned32BitValue();
+    }
+    
+    if ((string = OSDynamicCast(OSString, properties->getObject(kFnFunctionUsageMapKey)))) {
+        setProperty(kFnFunctionUsageMapKey, string);
+        parseSecondaries = true;
+    }
+    
+    if ((string = OSDynamicCast(OSString, properties->getObject(kFnKeyboardUsageMapKey)))) {
+        setProperty(kFnKeyboardUsageMapKey, string);
+        parseSecondaries = true;
+    }
+    
+    if ((string = OSDynamicCast(OSString, properties->getObject(kNumLockKeyboardUsageMapKey)))) {
+        setProperty(kNumLockKeyboardUsageMapKey, string);
+        parseSecondaries = true;
+    }
+
+    if (parseSecondaries) {
+        parseSecondaryUsages();
     }
 
     return super::setSystemProperties(properties);
 }
+
+//====================================================================================================

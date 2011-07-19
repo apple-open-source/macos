@@ -29,14 +29,18 @@
 #include "config.h"
 #include "SecurityOrigin.h"
 
+#include "BlobURL.h"
 #include "Document.h"
+#include "FileSystem.h"
 #include "KURL.h"
 #include "OriginAccessEntry.h"
+#include "SchemeRegistry.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 static SecurityOrigin::LocalLoadPolicy localLoadPolicy = SecurityOrigin::AllowLocalLoadsForLocalOnly;
+const int MaxAllowedPort = 65535;
 
 typedef Vector<OriginAccessEntry> OriginAccessWhiteList;
 typedef HashMap<String, OriginAccessWhiteList*> OriginAccessMap;
@@ -45,48 +49,6 @@ static OriginAccessMap& originAccessMap()
 {
     DEFINE_STATIC_LOCAL(OriginAccessMap, originAccessMap, ());
     return originAccessMap;
-}
-
-static URLSchemesMap& localSchemes()
-{
-    DEFINE_STATIC_LOCAL(URLSchemesMap, localSchemes, ());
-
-    if (localSchemes.isEmpty()) {
-        localSchemes.add("file");
-#if PLATFORM(MAC)
-        localSchemes.add("applewebdata");
-#endif
-#if PLATFORM(QT)
-        localSchemes.add("qrc");
-#endif
-    }
-
-    return localSchemes;
-}
-
-static URLSchemesMap& secureSchemes()
-{
-    DEFINE_STATIC_LOCAL(URLSchemesMap, secureSchemes, ());
-
-    if (secureSchemes.isEmpty()) {
-        secureSchemes.add("https");
-        secureSchemes.add("about");
-        secureSchemes.add("data");
-    }
-
-    return secureSchemes;
-}
-
-static URLSchemesMap& schemesWithUniqueOrigins()
-{
-    DEFINE_STATIC_LOCAL(URLSchemesMap, schemesWithUniqueOrigins, ());
-
-    // This is a willful violation of HTML5.
-    // See https://bugs.webkit.org/show_bug.cgi?id=11885
-    if (schemesWithUniqueOrigins.isEmpty())
-        schemesWithUniqueOrigins.add("data");
-
-    return schemesWithUniqueOrigins;
 }
 
 static bool schemeRequiresAuthority(const String& scheme)
@@ -108,7 +70,7 @@ SecurityOrigin::SecurityOrigin(const KURL& url, SandboxFlags sandboxFlags)
     , m_protocol(url.protocol().isNull() ? "" : url.protocol().lower())
     , m_host(url.host().isNull() ? "" : url.host().lower())
     , m_port(url.port())
-    , m_isUnique(isSandboxed(SandboxOrigin) || shouldTreatURLSchemeAsNoAccess(m_protocol))
+    , m_isUnique(isSandboxed(SandboxOrigin) || SchemeRegistry::shouldTreatURLSchemeAsNoAccess(m_protocol))
     , m_universalAccess(false)
     , m_domainWasSetInDOM(false)
     , m_enforceFilePathSeparation(false)
@@ -117,8 +79,31 @@ SecurityOrigin::SecurityOrigin(const KURL& url, SandboxFlags sandboxFlags)
     if (m_protocol == "about" || m_protocol == "javascript")
         m_protocol = "";
 
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+    bool isBlobOrFileSystemProtocol = false;
+#if ENABLE(BLOB)
+    if (m_protocol == BlobURL::blobProtocol())
+        isBlobOrFileSystemProtocol = true;
+#endif
+#if ENABLE(FILE_SYSTEM)
+    if (m_protocol == "filesystem")
+        isBlobOrFileSystemProtocol = true;
+#endif
+    if (isBlobOrFileSystemProtocol) {
+        KURL originURL(ParsedURLString, url.path());
+        if (originURL.isValid()) {
+            m_protocol = originURL.protocol().lower();
+            m_host = originURL.host().lower();
+            m_port = originURL.port();
+        } else
+            m_isUnique = true;
+    }
+#endif
+
     // For edge case URLs that were probably misparsed, make sure that the origin is unique.
     if (schemeRequiresAuthority(m_protocol) && m_host.isEmpty())
+        m_isUnique = true;
+    if (m_protocol.isEmpty())
         m_isUnique = true;
 
     // document.domain starts as m_host, but can be set by the DOM.
@@ -128,7 +113,13 @@ SecurityOrigin::SecurityOrigin(const KURL& url, SandboxFlags sandboxFlags)
     m_canLoadLocalResources = isLocal();
     if (m_canLoadLocalResources) {
         // Directories should never be readable.
-        if (!url.hasPath() || url.path().endsWith("/"))
+        // Note that we do not do this check for blob or filesystem url because its origin is file:/// when it is created from local file urls.
+#if ENABLE(BLOB) || ENABLE(FILE_SYSTEM)
+        bool doDirectoryCheck = !isBlobOrFileSystemProtocol;
+#else
+        bool doDirectoryCheck = true;
+#endif
+        if (doDirectoryCheck && (!url.hasPath() || url.path().endsWith("/")))
             m_isUnique = true;
         // Store the path in case we are doing per-file origin checking.
         m_filePath = url.path();
@@ -212,6 +203,9 @@ bool SecurityOrigin::canAccess(const SecurityOrigin* other) const
     if (m_universalAccess)
         return true;
 
+    if (this == other)
+        return true;
+
     if (isUnique() || other->isUnique())
         return false;
 
@@ -271,6 +265,7 @@ bool SecurityOrigin::canRequest(const KURL& url) const
         return false;
 
     RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
+
     if (targetOrigin->isUnique())
         return false;
 
@@ -296,7 +291,7 @@ bool SecurityOrigin::taintsCanvas(const KURL& url) const
     // we special case data URLs below. If we change to match HTML5 w.r.t.
     // data URL security, then we can remove this function in favor of
     // !canRequest.
-    if (url.protocolIs("data"))
+    if (url.protocolIsData())
         return false;
 
     return true;
@@ -327,37 +322,27 @@ bool SecurityOrigin::isAccessWhiteListed(const SecurityOrigin* targetOrigin) con
     }
     return false;
 }
-  
-bool SecurityOrigin::canLoad(const KURL& url, const String& referrer, Document* document)
-{
-    if (!shouldTreatURLAsLocal(url.string()))
-        return true;
 
-    // If we were provided a document, we first check if the access has been white listed.
-    // Then we let its local file police dictate the result.
-    // Otherwise we allow local loads only if the supplied referrer is also local.
-    if (document) {
-        SecurityOrigin* documentOrigin = document->securityOrigin();
-        RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
-        if (documentOrigin->isAccessWhiteListed(targetOrigin.get()))
-            return true;
-        return documentOrigin->canLoadLocalResources();
-    }
-    if (!referrer.isEmpty())
-        return shouldTreatURLAsLocal(referrer);
-    return false;
+bool SecurityOrigin::isAccessToURLWhiteListed(const KURL& url) const
+{
+    RefPtr<SecurityOrigin> targetOrigin = SecurityOrigin::create(url);
+    return isAccessWhiteListed(targetOrigin.get());
 }
 
 bool SecurityOrigin::canDisplay(const KURL& url) const
 {
-    if (!shouldTreatURLAsLocal(url.string()))
-        return true;
+    String protocol = url.protocol().lower();
 
-    // First check if the access has been white listed.
-    // Then we let its local file policy dictate the result.
-    if (isAccessWhiteListed(SecurityOrigin::create(url).get()))
-        return true;
-    return canLoadLocalResources();
+    if (SchemeRegistry::canDisplayOnlyIfCanRequest(protocol))
+        return canRequest(url);
+
+    if (SchemeRegistry::shouldTreatURLSchemeAsDisplayIsolated(protocol))
+        return m_protocol == protocol || isAccessToURLWhiteListed(url);
+
+    if (restrictAccessToLocal() && SchemeRegistry::shouldTreatURLSchemeAsLocal(protocol))
+        return canLoadLocalResources() || isAccessToURLWhiteListed(url);
+
+    return true;
 }
 
 void SecurityOrigin::grantLoadLocalResources()
@@ -384,7 +369,7 @@ void SecurityOrigin::enforceFilePathSeparation()
 
 bool SecurityOrigin::isLocal() const
 {
-    return shouldTreatURLSchemeAsLocal(m_protocol);
+    return SchemeRegistry::shouldTreatURLSchemeAsLocal(m_protocol);
 }
 
 bool SecurityOrigin::isSecureTransitionTo(const KURL& url) const
@@ -435,13 +420,13 @@ static const char SeparatorCharacter = '_';
 PassRefPtr<SecurityOrigin> SecurityOrigin::createFromDatabaseIdentifier(const String& databaseIdentifier)
 { 
     // Make sure there's a first separator
-    int separator1 = databaseIdentifier.find(SeparatorCharacter);
-    if (separator1 == -1)
+    size_t separator1 = databaseIdentifier.find(SeparatorCharacter);
+    if (separator1 == notFound)
         return create(KURL());
         
     // Make sure there's a second separator
-    int separator2 = databaseIdentifier.reverseFind(SeparatorCharacter);
-    if (separator2 == -1)
+    size_t separator2 = databaseIdentifier.reverseFind(SeparatorCharacter);
+    if (separator2 == notFound)
         return create(KURL());
         
     // Ensure there were at least 2 separator characters. Some hostnames on intranets have
@@ -452,11 +437,11 @@ PassRefPtr<SecurityOrigin> SecurityOrigin::createFromDatabaseIdentifier(const St
     // Make sure the port section is a valid port number or doesn't exist
     bool portOkay;
     int port = databaseIdentifier.right(databaseIdentifier.length() - separator2 - 1).toInt(&portOkay);
-    bool portAbsent = (separator2 == static_cast<int>(databaseIdentifier.length()) - 1);
+    bool portAbsent = (separator2 == databaseIdentifier.length() - 1);
     if (!(portOkay || portAbsent))
         return create(KURL());
     
-    if (port < 0 || port > 65535)
+    if (port < 0 || port > MaxAllowedPort)
         return create(KURL());
         
     // Split out the 3 sections of data
@@ -467,77 +452,12 @@ PassRefPtr<SecurityOrigin> SecurityOrigin::createFromDatabaseIdentifier(const St
     return create(KURL(KURL(), protocol + "://" + host + ":" + String::number(port)));
 }
 
-// The following lower-ASCII characters need escaping to be used in a filename
-// across all systems, including Windows:
-//     - Unprintable ASCII (00-1F)
-//     - Space             (20)
-//     - Double quote      (22)
-//     - Percent           (25) (escaped because it is our escape character)
-//     - Asterisk          (2A)
-//     - Slash             (2F)
-//     - Colon             (3A)
-//     - Less-than         (3C)
-//     - Greater-than      (3E)
-//     - Question Mark     (3F)
-//     - Backslash         (5C)
-//     - Pipe              (7C)
-//     - Delete            (7F)
-
-static const bool needsEscaping[128] = {
-    /* 00-07 */ true,  true,  true,  true,  true,  true,  true,  true, 
-    /* 08-0F */ true,  true,  true,  true,  true,  true,  true,  true, 
-
-    /* 10-17 */ true,  true,  true,  true,  true,  true,  true,  true, 
-    /* 18-1F */ true,  true,  true,  true,  true,  true,  true,  true, 
-
-    /* 20-27 */ true,  false, true,  false, false, true,  false, false, 
-    /* 28-2F */ false, false, true,  false, false, false, false, true, 
-    
-    /* 30-37 */ false, false, false, false, false, false, false, false, 
-    /* 38-3F */ false, false, true,  false, true,  false, true,  true, 
-    
-    /* 40-47 */ false, false, false, false, false, false, false, false, 
-    /* 48-4F */ false, false, false, false, false, false, false, false,
-    
-    /* 50-57 */ false, false, false, false, false, false, false, false, 
-    /* 58-5F */ false, false, false, false, true,  false, false, false,
-    
-    /* 60-67 */ false, false, false, false, false, false, false, false, 
-    /* 68-6F */ false, false, false, false, false, false, false, false,
-    
-    /* 70-77 */ false, false, false, false, false, false, false, false, 
-    /* 78-7F */ false, false, false, false, true,  false, false, true, 
-};
-
-static inline bool shouldEscapeUChar(UChar c)
+PassRefPtr<SecurityOrigin> SecurityOrigin::create(const String& protocol, const String& host, int port)
 {
-    return c > 127 ? false : needsEscaping[c];
-}
-
-static const char hexDigits[17] = "0123456789ABCDEF";
-
-static String encodedHost(const String& host)
-{
-    unsigned length = host.length();
-    Vector<UChar, 512> buffer(length * 3 + 1);
-    UChar* p = buffer.data();
-
-    const UChar* str = host.characters();
-    const UChar* strEnd = str + length;
-
-    while (str < strEnd) {
-        UChar c = *str++;
-        if (shouldEscapeUChar(c)) {
-            *p++ = '%';
-            *p++ = hexDigits[(c >> 4) & 0xF];
-            *p++ = hexDigits[c & 0xF];
-        } else
-            *p++ = c;
-    }
-
-    ASSERT(p - buffer.data() <= static_cast<int>(buffer.size()));
-
-    return String(buffer.data(), p - buffer.data());
+    if (port < 0 || port > MaxAllowedPort)
+        create(KURL());
+    String decodedHost = decodeURLEscapeSequences(host);
+    return create(KURL(KURL(), protocol + "://" + host + ":" + String::number(port)));
 }
 
 String SecurityOrigin::databaseIdentifier() const 
@@ -545,7 +465,7 @@ String SecurityOrigin::databaseIdentifier() const
     String separatorString(&SeparatorCharacter, 1);
 
     if (m_encodedHost.isEmpty())
-        m_encodedHost = encodedHost(m_host);
+        m_encodedHost = encodeForFileName(m_host);
 
     return m_protocol + separatorString + m_encodedHost + separatorString + String::number(m_port); 
 }
@@ -582,85 +502,6 @@ bool SecurityOrigin::isSameSchemeHostPort(const SecurityOrigin* other) const
         return false;
 
     return true;
-}
-
-void SecurityOrigin::registerURLSchemeAsLocal(const String& scheme)
-{
-    localSchemes().add(scheme);
-}
-
-void SecurityOrigin::removeURLSchemeRegisteredAsLocal(const String& scheme)
-{
-    if (scheme == "file")
-        return;
-#if PLATFORM(MAC)
-    if (scheme == "applewebdata")
-        return;
-#endif
-    localSchemes().remove(scheme);
-}
-
-const URLSchemesMap& SecurityOrigin::localURLSchemes()
-{
-    return localSchemes();
-}
-
-bool SecurityOrigin::shouldTreatURLAsLocal(const String& url)
-{
-    // This avoids an allocation of another String and the HashSet contains()
-    // call for the file: and http: schemes.
-    if (url.length() >= 5) {
-        const UChar* s = url.characters();
-        if (s[0] == 'h' && s[1] == 't' && s[2] == 't' && s[3] == 'p' && s[4] == ':')
-            return false;
-        if (s[0] == 'f' && s[1] == 'i' && s[2] == 'l' && s[3] == 'e' && s[4] == ':')
-            return true;
-    }
-
-    int loc = url.find(':');
-    if (loc == -1)
-        return false;
-
-    String scheme = url.left(loc);
-    return localSchemes().contains(scheme);
-}
-
-bool SecurityOrigin::shouldTreatURLSchemeAsLocal(const String& scheme)
-{
-    // This avoids an allocation of another String and the HashSet contains()
-    // call for the file: and http: schemes.
-    if (scheme.length() == 4) {
-        const UChar* s = scheme.characters();
-        if (s[0] == 'h' && s[1] == 't' && s[2] == 't' && s[3] == 'p')
-            return false;
-        if (s[0] == 'f' && s[1] == 'i' && s[2] == 'l' && s[3] == 'e')
-            return true;
-    }
-
-    if (scheme.isEmpty())
-        return false;
-
-    return localSchemes().contains(scheme);
-}
-
-void SecurityOrigin::registerURLSchemeAsNoAccess(const String& scheme)
-{
-    schemesWithUniqueOrigins().add(scheme);
-}
-
-bool SecurityOrigin::shouldTreatURLSchemeAsNoAccess(const String& scheme)
-{
-    return schemesWithUniqueOrigins().contains(scheme);
-}
-
-void SecurityOrigin::registerURLSchemeAsSecure(const String& scheme)
-{
-    secureSchemes().add(scheme);
-}
-
-bool SecurityOrigin::shouldTreatURLSchemeAsSecure(const String& scheme)
-{
-    return secureSchemes().contains(scheme);
 }
 
 bool SecurityOrigin::shouldHideReferrer(const KURL& url, const String& referrer)

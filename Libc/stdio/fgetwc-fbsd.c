@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwc.c,v 1.12 2004/07/20 08:27:27 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fgetwc.c,v 1.13 2008/04/17 22:17:53 jhb Exp $");
 
 #include "xlocale_private.h"
 
@@ -89,7 +89,7 @@ __fgetwc(FILE *fp, locale_t loc)
 		return (wc);
 	}
 	do {
-		nconv = __mbrtowc(&wc, fp->_p, fp->_r, &fp->_extra->mbstate, loc);
+		nconv = __mbrtowc(&wc, fp->_p, fp->_r, &fp->_mbstate, loc);
 		if (nconv == (size_t)-1)
 			break;
 		else if (nconv == (size_t)-2)

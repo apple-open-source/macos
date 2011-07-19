@@ -6,7 +6,7 @@ dnl installation to configure the system for the local environment.
 
 AC_INIT([iwidgets], [4.0.2])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
 

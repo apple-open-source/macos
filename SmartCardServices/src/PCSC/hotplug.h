@@ -32,7 +32,7 @@
  * Copyright (C) 2000-2003
  *  David Corcoran <corcoran@linuxnet.com>
  *
- * $Id: hotplug.h 2310 2007-01-06 21:14:56Z rousseau $
+ * $Id: hotplug.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

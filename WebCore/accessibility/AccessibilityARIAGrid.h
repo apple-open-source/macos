@@ -30,10 +30,10 @@
 #define AccessibilityARIAGrid_h
 
 #include "AccessibilityTable.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
     
-class String;
 class AccessibilityTableCell;
 class AccessibilityTableHeaderContainer;
 
@@ -55,7 +55,7 @@ private:
     // ARIA treegrids and grids support selected rows.
     virtual bool supportsSelectedRows() { return true; }    
 
-    void addChild(AccessibilityObject* object, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount);
+    bool addChild(AccessibilityObject*, HashSet<AccessibilityObject*>& appendedRows, unsigned& columnCount);
 };
 
 } // namespace WebCore 

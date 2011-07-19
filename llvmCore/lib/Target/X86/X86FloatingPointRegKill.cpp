@@ -22,7 +22,6 @@
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/CFG.h"
 #include "llvm/ADT/Statistic.h"
 using namespace llvm;
@@ -30,11 +29,12 @@ using namespace llvm;
 STATISTIC(NumFPKill, "Number of FP_REG_KILL instructions added");
 
 namespace {
-  struct VISIBILITY_HIDDEN FPRegKiller : public MachineFunctionPass {
+  struct FPRegKiller : public MachineFunctionPass {
     static char ID;
     FPRegKiller() : MachineFunctionPass(&ID) {}
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.setPreservesCFG();
       AU.addPreservedID(MachineLoopInfoID);
       AU.addPreservedID(MachineDominatorsID);
       MachineFunctionPass::getAnalysisUsage(AU);
@@ -117,9 +117,10 @@ bool FPRegKiller::runOnMachineFunction(MachineFunction &MF) {
            !ContainsFPCode && SI != E; ++SI) {
         for (BasicBlock::const_iterator II = SI->begin();
              (PN = dyn_cast<PHINode>(II)); ++II) {
-          if (PN->getType()==Type::X86_FP80Ty ||
-              (!Subtarget.hasSSE1() && PN->getType()->isFloatingPoint()) ||
-              (!Subtarget.hasSSE2() && PN->getType()==Type::DoubleTy)) {
+          if (PN->getType()==Type::getX86_FP80Ty(LLVMBB->getContext()) ||
+              (!Subtarget.hasSSE1() && PN->getType()->isFloatingPointTy()) ||
+              (!Subtarget.hasSSE2() &&
+                PN->getType()==Type::getDoubleTy(LLVMBB->getContext()))) {
             ContainsFPCode = true;
             break;
           }
@@ -128,7 +129,7 @@ bool FPRegKiller::runOnMachineFunction(MachineFunction &MF) {
     }
     // Finally, if we found any FP code, emit the FP_REG_KILL instruction.
     if (ContainsFPCode) {
-      BuildMI(*MBB, MBBI->getFirstTerminator(), DebugLoc::getUnknownLoc(),
+      BuildMI(*MBB, MBBI->getFirstTerminator(), DebugLoc(),
               MF.getTarget().getInstrInfo()->get(X86::FP_REG_KILL));
       ++NumFPKill;
       Changed = true;

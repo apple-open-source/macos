@@ -28,38 +28,14 @@
 
 WebInspector.ResourceCategory = function(name, title, color)
 {
-    WebInspector.AbstractTimelineCategory.call(this, name, title, color);
-    this.resources = [];
+    this.name = name;
+    this.title = title;
+    this.color = color;
 }
 
 WebInspector.ResourceCategory.prototype = {
-
-    addResource: function(resource)
+    toString: function()
     {
-        var a = resource;
-        var resourcesLength = this.resources.length;
-        for (var i = 0; i < resourcesLength; ++i) {
-            var b = this.resources[i];
-            if (a._lastPathComponentLowerCase && b._lastPathComponentLowerCase)
-                if (a._lastPathComponentLowerCase < b._lastPathComponentLowerCase)
-                    break;
-            else if (a.name && b.name)
-                if (a.name < b.name)
-                    break;
-        }
-
-        this.resources.splice(i, 0, resource);
-    },
-
-    removeResource: function(resource)
-    {
-        this.resources.remove(resource, true);
-    },
-
-    removeAllResources: function(resource)
-    {
-        this.resources = [];
+        return this.title;
     }
 }
-
-WebInspector.ResourceCategory.prototype.__proto__ = WebInspector.AbstractTimelineCategory.prototype;

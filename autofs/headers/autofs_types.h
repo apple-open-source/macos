@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -25,6 +25,7 @@
 #define __AUTOFS_TYPES_H__
 
 #include <sys/syslimits.h>
+#include <sys/mount.h>		/* for fsid_t */
 #include "autofs_defs.h"
 
 /*

@@ -333,7 +333,7 @@ EAPMSCHAPv2ResponsePacketCreate(EAPClientPluginDataRef plugin,
 	if (CFDataGetLength(client_challenge)
 	    != sizeof(context->peer_challenge)) {
 	    syslog(LOG_NOTICE,
-		   "EAPMSCHAPv2ResponsePacketCreate: internal error %d !=%d",
+		   "EAPMSCHAPv2ResponsePacketCreate: internal error %ld != %ld",
 		   CFDataGetLength(client_challenge),
 		   sizeof(context->peer_challenge));
 	    *client_status = kEAPClientStatusInternalError;
@@ -386,7 +386,7 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
     CFDataRef				server_challenge;
 
     if (in_length < sizeof(*challenge_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_challenge: length %d < %d",
+	syslog(LOG_NOTICE, "eapmschapv2_challenge: length %d < %ld",
 	       in_length, sizeof(*challenge_p));
 	goto done;
     }
@@ -409,7 +409,7 @@ eapmschapv2_challenge(EAPClientPluginDataRef plugin,
 	if (CFDataGetLength(server_challenge) 
 	    != sizeof(context->auth_challenge)) {
 	    syslog(LOG_NOTICE,
-		   "eapmschapv2_challenge: internal error %d !=%d",
+		   "eapmschapv2_challenge: internal error %ld != %ld",
 		   CFDataGetLength(server_challenge),
 		   sizeof(context->auth_challenge));
 	    *client_status = kEAPClientStatusInternalError;
@@ -472,7 +472,7 @@ eapmschapv2_success_request(EAPClientPluginDataRef plugin,
     EAPMSCHAPv2SuccessResponsePacketRef	out_pkt_p = NULL;
 
     if (in_length < sizeof(*r_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_success_request: length %d < %d",
+	syslog(LOG_NOTICE, "eapmschapv2_success_request: length %d < %ld",
 	       in_length, sizeof(*r_p));
 	goto done;
     }
@@ -625,7 +625,7 @@ MSCHAPv2ParseFailureMessage(const uint8_t * message,
     }
     return (flags);
 }
-#endif 0
+#endif /* 0 */
 
 static EAPMSCHAPv2PacketRef
 eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
@@ -644,12 +644,12 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
     int32_t				r_retry = 0;
     int32_t				r_version = 0;
     uint8_t *				r_message;
-#endif 0
+#endif /* 0 */
     EAPMSCHAPv2FailureRequestPacketRef	r_p;
     EAPMSCHAPv2PacketRef		out_pkt_p = NULL;
 
     if (in_length < sizeof(*r_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_failure_request: length %d < %d",
+	syslog(LOG_NOTICE, "eapmschapv2_failure_request: length %d < %ld",
 	       in_length, sizeof(*r_p));
 	goto done;
     }
@@ -664,8 +664,8 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
     default:
 	goto done;
     }
-    r_p = (EAPMSCHAPv2FailureRequestPacketRef)in_pkt_p;
 #if 0
+    r_p = (EAPMSCHAPv2FailureRequestPacketRef)in_pkt_p;
     do { /* something to break out of */
 	/* allocate a message buffer that's guaranteed to be nul-terminated */
 	message_length = in_length - sizeof(*r_p);
@@ -757,7 +757,7 @@ eapmschapv2_failure_request(EAPClientPluginDataRef plugin,
 	}
 	handled = TRUE;
     } while (0); /* something to break out of */
-#endif 0
+#endif /* 0 */
 
     if (handled == FALSE) {
 	context->state = kMSCHAPv2ClientStateFailure;
@@ -794,18 +794,16 @@ eapmschapv2_request(EAPClientPluginDataRef plugin,
 		    EAPClientStatus * client_status,
 		    EAPClientDomainSpecificError * error)
 {
-    EAPMSCHAPv2PluginDataRef 	context;
     EAPMSCHAPv2PacketRef	mschap_in_p;
     EAPMSCHAPv2PacketRef	mschap_out_p = NULL;
     uint16_t			in_length = EAPPacketGetLength(in_pkt);
 
     mschap_in_p = (EAPMSCHAPv2PacketRef)in_pkt;
     if (in_length < sizeof(*mschap_in_p)) {
-	syslog(LOG_NOTICE, "eapmschapv2_request: length %d < %d",
+	syslog(LOG_NOTICE, "eapmschapv2_request: length %d < %ld",
 	       in_length, sizeof(*mschap_in_p));
 	goto done;
     }
-    context = (EAPMSCHAPv2PluginDataRef)plugin->private;
     switch (mschap_in_p->op_code) {
     case kMSCHAPv2OpCodeChallenge:
 	mschap_out_p = eapmschapv2_challenge(plugin, mschap_in_p, in_length,
@@ -1186,7 +1184,7 @@ static struct func_table_ent {
 } func_table[] = {
 #if 0
     { kEAPClientPluginFuncNameIntrospect, eapmschapv2_introspect },
-#endif 0
+#endif /* 0 */
     { kEAPClientPluginFuncNameVersion, eapmschapv2_version },
     { kEAPClientPluginFuncNameEAPType, eapmschapv2_type },
     { kEAPClientPluginFuncNameEAPName, eapmschapv2_name },

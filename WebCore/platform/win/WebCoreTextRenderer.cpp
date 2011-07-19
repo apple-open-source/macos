@@ -29,6 +29,7 @@
 #include "FontDescription.h"
 #include "GraphicsContext.h"
 #include "StringTruncator.h"
+#include "TextRun.h"
 #include <wtf/unicode/Unicode.h>
 
 namespace WebCore {
@@ -49,7 +50,7 @@ static void doDrawTextAtPoint(GraphicsContext& context, const String& text, cons
 {
     TextRun run(text.characters(), text.length());
 
-    context.setFillColor(color, DeviceColorSpace);
+    context.setFillColor(color, ColorSpaceDeviceRGB);
     if (isOneLeftToRightRun(run))
         font.drawText(&context, run, point);
     else
@@ -71,7 +72,7 @@ static void doDrawTextAtPoint(GraphicsContext& context, const String& text, cons
         IntPoint underlinePoint(point);
         underlinePoint.move(beforeWidth, 1);
 
-        context.setStrokeColor(color, DeviceColorSpace);
+        context.setStrokeColor(color, ColorSpaceDeviceRGB);
         context.drawLineForText(underlinePoint, underlinedWidth, false);
     }
 }
@@ -100,7 +101,7 @@ void WebCoreDrawDoubledTextAtPoint(GraphicsContext& context, const String& text,
 
 float WebCoreTextFloatWidth(const String& text, const Font& font)
 {
-    return StringTruncator::width(text, font, false);
+    return StringTruncator::width(text, font);
 }
 
 void WebCoreSetShouldUseFontSmoothing(bool smooth)

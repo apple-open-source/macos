@@ -26,7 +26,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#include <Kerberos/Kerberos.h>
+#include <Heimdal/krb5.h>
+#include <Heimdal/hx509.h>
 
 struct realm_mappings {
 	int lkdc;
@@ -38,6 +39,7 @@ struct realm_mappings {
 typedef struct KRBhelperContext {
 	CFStringRef     inHostName; /* User input string, still printable */
 	CFStringRef     hostname; /* calculated hostname */
+	struct addrinfo *addr;
 	CFStringRef	realm;  /* calculated realmname */
         struct {
 	    struct realm_mappings *data;
@@ -46,5 +48,11 @@ typedef struct KRBhelperContext {
 	CFStringRef	inAdvertisedPrincipal;
 	char            *useName, *useInstance, *useRealm, *defaultRealm;
 	krb5_context	krb5_ctx;
-    unsigned	noGuessing:1;
+	hx509_context	hx_ctx;
+	unsigned	noGuessing:1;
 } KRBhelperContext;
+
+OSStatus
+KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change, int excl);
+
+#define kGSSAPIMechSupportsAppleLKDC	    CFSTR("1.2.752.43.14.3")

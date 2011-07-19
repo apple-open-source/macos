@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Test::More tests => 8;
+use Test::More tests => 14;
 
 BEGIN {
     use_ok('MRO::Compat');
@@ -28,6 +28,8 @@ BEGIN {
     package GGG3; our @ISA = qw/FFF3/; use mro 'c3';
 }
 
+is(mro::get_mro('FFF3'), 'c3');
+
 is_deeply(
   mro::get_linear_isa('GGG'),
   [ 'GGG', 'FFF', 'EEE', 'BBB', 'AAA', 'CCC', 'DDD' ],
@@ -50,16 +52,33 @@ Class::C3::initialize();
 is(FFF3->testsub(), 'FFF3_first_in_c3', 'c3 resolution post-init');
 
 mro::set_mro('FFF3', 'dfs');
+is(mro::get_mro('FFF3'), 'dfs');
 is_deeply(
   mro::get_linear_isa('FFF3'),
   [ 'FFF3', 'EEE3', 'BBB3', 'AAA3', 'CCC3', 'DDD3' ],
   "get_linear_isa for FFF3 (dfs)",
 );
 
-is(FFF3->testsub(), 'FFF3_first_in_dfs', 'dfs resolution post- setmro dfs');
+is(FFF3->testsub(), 'FFF3_first_in_dfs', 'dfs resolution post- set_mro dfs');
 
 is_deeply(
   mro::get_linear_isa('GGG3'),
   [ 'GGG3', 'FFF3', 'EEE3', 'BBB3', 'CCC3', 'DDD3', 'AAA3' ],
   "get_linear_isa for GGG3 (still c3)",
+);
+
+mro::set_mro('FFF3', 'c3');
+is(mro::get_mro('FFF3'), 'c3');
+is_deeply(
+  mro::get_linear_isa('FFF3'),
+  [ 'FFF3', 'EEE3', 'BBB3', 'CCC3', 'DDD3', 'AAA3' ],
+  "get_linear_isa for FFF3 (reset to c3 via set_mro)",
+);
+
+eval "package FFF3; use mro 'dfs'";
+is(mro::get_mro('FFF3'), 'dfs');
+is_deeply(
+  mro::get_linear_isa('FFF3'),
+  [ 'FFF3', 'EEE3', 'BBB3', 'AAA3', 'CCC3', 'DDD3' ],
+  "get_linear_isa for FFF3 (reset to dfs via 'use mro')",
 );

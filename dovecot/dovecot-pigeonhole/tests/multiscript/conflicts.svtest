@@ -1,0 +1,100 @@
+require "vnd.dovecot.testsuite";
+
+test_set "message" text:
+From: stephan@example.org
+Message-ID: <frop33333333333333333@nl.example.com>
+To: nico@frop.example.org
+Subject: Frop.
+
+Friep.
+.
+;
+
+test "Graceful Conflicts" {
+	if not allof (
+		test_script_compile "fileinto-inbox.sieve",
+		test_script_run ){
+		test_fail "failed to compile and run first script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after first script";
+	}
+
+	if not allof ( 
+		test_script_compile "reject-1.sieve",
+		test_script_run :append_result ) {
+		test_fail "failed to compile and run second script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after second script";
+	}
+
+	if not allof ( 
+		test_script_compile "reject-2.sieve",
+		test_script_run :append_result ) {
+		test_fail "failed to compile and run third script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after third script";
+	}
+
+	if not test_result_action :index 1 "store" {
+		test_result_print;
+		test_fail "first action is not 'store'";
+	}
+
+	if not test_result_action :index 2 "reject" {
+		test_result_print;
+		test_fail "first reject action not retained";
+	}
+
+	if test_result_action :index 3 "reject" {
+		test_result_print;
+		test_fail "second reject action not discarded";
+	}
+
+}
+
+test "Duplicates" {
+	if not allof (
+		test_script_compile "fileinto-inbox.sieve",
+		test_script_run ){
+		test_fail "failed to compile and run first script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after first script";
+	}
+
+	if not allof ( 
+		test_script_compile "fileinto-inbox.sieve",
+		test_script_run :append_result ) {
+		test_fail "failed to compile and run second script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after second script";
+	}
+
+	if not allof ( 
+		test_script_compile "keep.sieve",
+		test_script_run :append_result ) {
+		test_fail "failed to compile and run third script";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed after third script";
+	}
+
+	if not test_result_action :index 1 "keep" {
+		test_fail "first action is not 'keep'";
+	}
+
+	if test_result_action :index 2 "store" {
+		test_fail "fileinto action not discarded";
+	}
+}
+

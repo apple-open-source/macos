@@ -307,8 +307,8 @@ int pptp_incoming_call(int fd,
     ctl_reply.bearer_caps = htonl(PPTP_ANALOG_ACCESS | PPTP_DIGITAL_ACCESS);
     ctl_reply.max_channels = htons(1);
     ctl_reply.firmware_rev = htons(1);
-    gethostname(ctl_reply.hostname, 64);
-    strlcpy(ctl_reply.vendor, PPTP_VENDOR, sizeof(ctl_reply.vendor));
+    gethostname((char*)ctl_reply.hostname, 64);
+    strlcpy((char*)ctl_reply.vendor, PPTP_VENDOR, sizeof(ctl_reply.vendor));
     if (pptp_send(fd, PPTP_START_CONTROL_CONNECTION_REPLY, &ctl_reply, sizeof(ctl_reply), "start_control_connection_reply"))
         return -1;
 

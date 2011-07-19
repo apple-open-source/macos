@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -164,14 +162,14 @@ struct symlink {
 #ifdef KERNEL
 /*
  * These are the values for the function argument to the function
- * fatentry().
+ * msdosfs_fatentry().
  */
 #define	FAT_GET		0x0001	/* get a fat entry */
 #define	FAT_SET		0x0002	/* set a fat entry */
 #define	FAT_GET_AND_SET	(FAT_GET | FAT_SET)
 
 /*
- * Flags to extendfile:
+ * Flags to msdosfs_extendfile:
  */
 #define	DE_CLEAR	1	/* Zero out the blocks allocated */
 #define DE_SYNC		IO_SYNC	/* 0x4 do it synchronisly...from vnode.h */
@@ -182,19 +180,19 @@ void msdosfs_fat_uninit(void);
 int  msdosfs_fat_init_vol(struct msdosfsmount *pmp);
 void msdosfs_fat_uninit_vol(struct msdosfsmount *pmp);
 int msdosfs_update_fsinfo(struct msdosfsmount *pmp, int waitfor, vfs_context_t context);
-int pcbmap (struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
-int pcbmap_internal(struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
-int clusterfree __P((struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcnp));
-int clusteralloc __P((struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith, uint32_t *retcluster, uint32_t *got));
-int fatentry __P((int function, struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcontents, uint32_t newcontents));
-int freeclusterchain __P((struct msdosfsmount *pmp, uint32_t startchain));
-int extendfile __P((struct denode *dep, uint32_t count));
+int msdosfs_pcbmap (struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
+int msdosfs_pcbmap_internal(struct denode *dep, uint32_t findcn, uint32_t numclusters, daddr64_t *bnp, uint32_t *cnp, uint32_t *sp);
+int msdosfs_clusterfree(struct msdosfsmount *pmp, uint32_t cn, uint32_t *oldcnp);
+int msdosfs_clusteralloc(struct msdosfsmount *pmp, uint32_t start, uint32_t count, uint32_t fillwith, uint32_t *retcluster, uint32_t *got);
+int msdosfs_fatentry(int function, struct msdosfsmount *pmp, uint32_t cluster, uint32_t *oldcontents, uint32_t newcontents);
+int msdosfs_freeclusterchain(struct msdosfsmount *pmp, uint32_t startchain);
+int msdosfs_extendfile(struct denode *dep, uint32_t count);
 
 /* [2753891]
  * Routine to mark a FAT16 or FAT32 volume as "clean" or "dirty" by manipulating the upper bit
  * of the FAT entry for cluster 1.  Note that this bit is not defined for FAT12 volumes.
  */
-int markvoldirty(struct msdosfsmount *pmp, int dirty);
+int msdosfs_markvoldirty(struct msdosfsmount *pmp, int dirty);
 
 /*
  * Write the primary/active FAT and all directories to the device.  This

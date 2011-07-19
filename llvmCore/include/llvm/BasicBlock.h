@@ -17,11 +17,14 @@
 #include "llvm/Instruction.h"
 #include "llvm/SymbolTableListTraits.h"
 #include "llvm/ADT/ilist.h"
-#include "llvm/Support/DataTypes.h"
+#include "llvm/ADT/Twine.h"
+#include "llvm/System/DataTypes.h"
 
 namespace llvm {
 
 class TerminatorInst;
+class LLVMContext;
+class BlockAddress;
 
 template<> struct ilist_traits<Instruction>
   : public SymbolTableListTraits<Instruction, BasicBlock> {
@@ -46,7 +49,7 @@ template<> struct ilist_traits<Instruction>
   Instruction *ensureHead(Instruction*) const { return createSentinel(); }
   static void noteHead(Instruction*, Instruction*) {}
 private:
-  mutable ilist_node<Instruction> Sentinel;
+  mutable ilist_half_node<Instruction> Sentinel;
 };
 
 /// This represents a single basic block in LLVM. A basic block is simply a
@@ -65,7 +68,7 @@ private:
 /// @brief LLVM Basic Block Representation
 class BasicBlock : public Value, // Basic blocks are data objects also
                    public ilist_node<BasicBlock> {
-
+  friend class BlockAddress;
 public:
   typedef iplist<Instruction> InstListType;
 private:
@@ -82,9 +85,12 @@ private:
   /// is automatically inserted at either the end of the function (if
   /// InsertBefore is null), or before the specified basic block.
   ///
-  explicit BasicBlock(const std::string &Name = "", Function *Parent = 0,
-                      BasicBlock *InsertBefore = 0);
+  explicit BasicBlock(LLVMContext &C, const Twine &Name = "",
+                      Function *Parent = 0, BasicBlock *InsertBefore = 0);
 public:
+  /// getContext - Get the context in which this basic block lives.
+  LLVMContext &getContext() const;
+  
   /// Instruction iterators...
   typedef InstListType::iterator                              iterator;
   typedef InstListType::const_iterator                  const_iterator;
@@ -92,9 +98,9 @@ public:
   /// Create - Creates a new BasicBlock. If the Parent parameter is specified,
   /// the basic block is automatically inserted at either the end of the
   /// function (if InsertBefore is 0), or before the specified basic block.
-  static BasicBlock *Create(const std::string &Name = "", Function *Parent = 0,
-                            BasicBlock *InsertBefore = 0) {
-    return new BasicBlock(Name, Parent, InsertBefore);
+  static BasicBlock *Create(LLVMContext &Context, const Twine &Name = "", 
+                            Function *Parent = 0,BasicBlock *InsertBefore = 0) {
+    return new BasicBlock(Context, Name, Parent, InsertBefore);
   }
   ~BasicBlock();
 
@@ -104,10 +110,10 @@ public:
         Function *getParent()       { return Parent; }
 
   /// use_back - Specialize the methods defined in Value, as we know that an
-  /// BasicBlock can only be used by Instructions (specifically PHI nodes and
-  /// terminators).
-  Instruction       *use_back()       { return cast<Instruction>(*use_begin());}
-  const Instruction *use_back() const { return cast<Instruction>(*use_begin());}
+  /// BasicBlock can only be used by Users (specifically PHI nodes, terminators,
+  /// and BlockAddress's).
+  User       *use_back()       { return cast<User>(*use_begin());}
+  const User *use_back() const { return cast<User>(*use_begin());}
   
   /// getTerminator() - If this is a well formed basic block, then this returns
   /// a pointer to the terminator instruction.  If it is not, then you get a
@@ -124,6 +130,12 @@ public:
   Instruction* getFirstNonPHI();
   const Instruction* getFirstNonPHI() const {
     return const_cast<BasicBlock*>(this)->getFirstNonPHI();
+  }
+
+  // Same as above, but also skip debug intrinsics.
+  Instruction* getFirstNonPHIOrDbg();
+  const Instruction* getFirstNonPHIOrDbg() const {
+    return const_cast<BasicBlock*>(this)->getFirstNonPHIOrDbg();
   }
   
   /// removeFromParent - This method unlinks 'this' from the containing
@@ -227,7 +239,29 @@ public:
   /// cause a degenerate basic block to be formed, having a terminator inside of
   /// the basic block).
   ///
-  BasicBlock *splitBasicBlock(iterator I, const std::string &BBName = "");
+  /// Also note that this doesn't preserve any passes. To split blocks while
+  /// keeping loop information consistent, use the SplitBlock utility function.
+  ///
+  BasicBlock *splitBasicBlock(iterator I, const Twine &BBName = "");
+
+  /// hasAddressTaken - returns true if there are any uses of this basic block
+  /// other than direct branches, switches, etc. to it.
+  bool hasAddressTaken() const { return getSubclassDataFromValue() != 0; }
+                     
+private:
+  /// AdjustBlockAddressRefCount - BasicBlock stores the number of BlockAddress
+  /// objects using it.  This is almost always 0, sometimes one, possibly but
+  /// almost never 2, and inconceivably 3 or more.
+  void AdjustBlockAddressRefCount(int Amt) {
+    setValueSubclassData(getSubclassDataFromValue()+Amt);
+    assert((int)(signed char)getSubclassDataFromValue() >= 0 &&
+           "Refcount wrap-around");
+  }
+  // Shadow Value::setValueSubclassData with a private forwarding method so that
+  // any future subclasses cannot accidentally use it.
+  void setValueSubclassData(unsigned short D) {
+    Value::setValueSubclassData(D);
+  }
 };
 
 } // End llvm namespace

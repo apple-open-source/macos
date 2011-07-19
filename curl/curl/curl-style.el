@@ -1,5 +1,4 @@
 ;;;; Emacs Lisp help for writing curl code. ;;;;
-;;;; $Id: curl-style.el,v 1.14 2009-05-02 02:37:34 yangtse Exp $
 
 ;;; The curl hacker's C conventions.
 ;;; See the sample.emacs file on how this file can be made to take

@@ -1,7 +1,7 @@
-/*	$OpenBSD: ecvt.c,v 1.3 2003/06/17 21:56:24 millert Exp $	*/
+/*	$OpenBSD: ecvt.c,v 1.7 2009/10/16 12:15:03 martynas Exp $	*/
 
 /*
- * Copyright (c) 2002 Todd C. Miller <Todd.Miller@courtesan.com>
+ * Copyright (c) 2002, 2006 Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
  * purpose with or without fee is hereby granted, provided that the above
@@ -21,23 +21,19 @@
  */
 
 #include <sys/cdefs.h>
-#if defined(LIBC_SCCS) && !defined(lint)
-static char rcsid[] = "$OpenBSD: ecvt.c,v 1.3 2003/06/17 21:56:24 millert Exp $";
-#endif /* LIBC_SCCS and not lint */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 extern char *__dtoa(double, int, int, int *, int *, char **);
-extern void __freedtoa(char *); /* special gdtoa free function */
+extern void  __freedtoa(char *);
 static char *__cvt(double, int, int *, int *, int, int);
 
 static char *
 __cvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign, int fmode, int pad)
 {
 	static char *s;
-	char *p, *rve;
+	char *p, *rve, c;
 	size_t siz;
 
 	if (ndigit == 0) {
@@ -67,14 +63,16 @@ __cvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign, i
 		*rve = '\0';
 	} else {
 		p = __dtoa(value, fmode + 2, ndigit, decpt, sign, &rve);
+		if (p == NULL)
+			return (NULL);
 		if (*decpt == 9999) {
-			/* Nan or Infinity */
+			/* Infinity or Nan, convert to inf or nan like printf */
 			*decpt = 0;
-			rve = (*p == 'N') ? "nan" : "inf";
+			c = *p;
 			__freedtoa(p);
-			return(rve);
+			return(c == 'I' ? "inf" : "nan");
 		}
-		/* make a local copy and adjust rve to be in terms of s */
+		/* Make a local copy and adjust rve to be in terms of s */
 		if (pad && fmode)
 			siz += *decpt;
 		if ((s = (char *)malloc(siz)) == NULL) {
@@ -86,8 +84,8 @@ __cvt(double value, int ndigit, int * __restrict decpt, int * __restrict sign, i
 		__freedtoa(p);
 	}
 
-	/* Add trailing zeros (unless we got NaN or Inf) */
-	if (pad && *decpt != 9999) {
+	/* Add trailing zeros */
+	if (pad) {
 		siz -= rve - s;
 		while (--siz)
 			*rve++ = '0';

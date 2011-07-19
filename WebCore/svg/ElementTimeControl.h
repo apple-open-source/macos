@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
  * Copyright (C) 2009 Cameron McCormack <cam@mcc.id.au>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,14 +33,14 @@
 
 namespace WebCore {
 
-    class ElementTimeControl {
-    public:
-        virtual ~ElementTimeControl() {}
-        virtual void beginElement() = 0;
-        virtual void beginElementAt(float offset) = 0;
-        virtual void endElement() = 0;
-        virtual void endElementAt(float offset) = 0;
-    };
+class ElementTimeControl {
+public:
+    virtual ~ElementTimeControl() {}
+    virtual void beginElement() = 0;
+    virtual void beginElementAt(float offset) = 0;
+    virtual void endElement() = 0;
+    virtual void endElementAt(float offset) = 0;
+};
         
 }
 

@@ -1,0 +1,79 @@
+#!/bin/sh
+#
+
+# Install config files
+_config_file="/etc/amavisd.conf"
+_default_config="/etc/amavisd.conf.default"
+if [ ! -e $_config_file ]; then
+  if [ -e $_default_config ]; then
+    cp $_default_config $_config_file
+  fi
+fi
+
+# Set language templates
+_languages_dir="/etc/mail/amavisd/languages"
+_default_lang=`/usr/bin/defaults read -g AppleLocale`
+if [ "$_default_lang" == "" ]; then
+  _language_dir="en.lproj";
+else
+  _language_dir="${_default_lang:0:2}.lproj";
+fi
+
+# Validate language directory, default to en
+_languages_path=""
+if [ -e "$_languages_dir/$_language_dir/charset" ]; then
+  _languages_path="$_languages_dir/$_language_dir";
+elif [ -e "$_languages_dir/en.lproj/charset" ]; then
+  _languages_path="$_languages_dir/en.lproj";
+fi
+
+_config_file_tmp="/etc/amavisd.conf.tmp"
+if [ -e $_config_file ]; then
+  # only set the key if it is enabled
+  if /usr/bin/grep "^read_l10n_templates" "$_config_file" > /dev/null ; then
+    # set key if language directory succeeded, otherwise disable key
+    if [ "$_languages_path" != "" ]; then
+      _key_template="read_l10n_templates('\/etc\/mail\/amavisd\/languages\/$_language_dir');"
+    else
+      _key_template="#read_l10n_templates('\/etc\/mail\/amavisd\/languages\/en.lproj');"
+    fi
+    # set key
+    sed -e "s/^read_l10n_templates.*/$_key_template/" "$_config_file" > "$_config_file_tmp"
+    if [ -e "$_config_file_tmp" ] ; then
+      /bin/rm "$_config_file"
+      /bin/mv "$_config_file_tmp" "$_config_file"
+    fi
+  fi
+fi
+
+if [ -e $_config_file ]; then
+  chown root:wheel $_config_file
+  chmod 644 $_config_file
+fi
+
+# Create log files
+_amavis_log="/var/log/amavis.log"
+if [ ! -e $_amavis_log ]; then
+  touch $_amavis_log
+fi
+chmod 640 $_amavis_log
+chown _amavisd:admin $_amavis_log
+
+# Setup data dirs
+_var_amavis_dir=/var/amavis
+if [ ! -d $_var_amavis_dir ]; then
+  mkdir $_var_amavis_dir
+fi
+chown -R _amavisd:_amavisd $_var_amavis_dir
+
+_amavis_sa_dir="/var/amavis/.spamassassin"
+_clamav_sa_dir="/var/clamav/.spamassassin"
+if [ ! -d $_amavis_sa_dir ]; then
+  if [ -d $_clamav_sa_dir ]; then
+    cp -r $_clamav_sa_dir $_amavis_sa_dir
+  else
+    mkdir $_amavis_sa_dir
+  fi
+fi
+chown -R _amavisd:_amavisd $_amavis_sa_dir
+

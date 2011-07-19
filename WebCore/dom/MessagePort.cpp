@@ -20,27 +20,28 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  *
  */
 
 #include "config.h"
 #include "MessagePort.h"
 
-#include "AtomicString.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "EventException.h"
 #include "EventNames.h"
+#include "ExceptionCode.h"
 #include "MessageEvent.h"
 #include "SecurityOrigin.h"
 #include "Timer.h"
+#include "WorkerContext.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
 MessagePort::MessagePort(ScriptExecutionContext& scriptExecutionContext)
-    : m_entangledChannel(0)
-    , m_started(false)
+    : m_started(false)
     , m_closed(false)
     , m_scriptExecutionContext(&scriptExecutionContext)
 {
@@ -72,7 +73,7 @@ void MessagePort::postMessage(PassRefPtr<SerializedScriptValue> message, Excepti
 
 void MessagePort::postMessage(PassRefPtr<SerializedScriptValue> message, const MessagePortArray* ports, ExceptionCode& ec)
 {
-    if (!m_entangledChannel)
+    if (!isEntangled())
         return;
     ASSERT(m_scriptExecutionContext);
 
@@ -118,8 +119,8 @@ void MessagePort::messageAvailable()
 
 void MessagePort::start()
 {
-    // Do nothing if we've been cloned
-    if (!m_entangledChannel)
+    // Do nothing if we've been cloned or closed.
+    if (!isEntangled())
         return;
 
     ASSERT(m_scriptExecutionContext);
@@ -133,7 +134,7 @@ void MessagePort::start()
 void MessagePort::close()
 {
     m_closed = true;
-    if (!m_entangledChannel)
+    if (!isEntangled())
         return;
     m_entangledChannel->close();
 }
@@ -152,8 +153,9 @@ void MessagePort::entangle(PassOwnPtr<MessagePortChannel> remote)
 void MessagePort::contextDestroyed()
 {
     ASSERT(m_scriptExecutionContext);
-    // Must close port before blowing away the cached context, to ensure that we get no more calls to messageAvailable().
-    close();
+    // Must be closed before blowing away the cached context, to ensure that we get no more calls to messageAvailable().
+    // ScriptExecutionContext::closeMessagePorts() takes care of that.
+    ASSERT(m_closed);
     m_scriptExecutionContext = 0;
 }
 
@@ -170,6 +172,13 @@ void MessagePort::dispatchMessages()
 
     OwnPtr<MessagePortChannel::EventData> eventData;
     while (m_entangledChannel && m_entangledChannel->tryGetMessageFromRemote(eventData)) {
+
+#if ENABLE(WORKERS)
+        // close() in Worker onmessage handler should prevent next message from dispatching.
+        if (m_scriptExecutionContext->isWorkerContext() && static_cast<WorkerContext*>(m_scriptExecutionContext)->isClosing())
+            return;
+#endif
+
         OwnPtr<MessagePortArray> ports = MessagePort::entanglePorts(*m_scriptExecutionContext, eventData->channels());
         RefPtr<Event> evt = MessageEvent::create(ports.release(), eventData->message());
 
@@ -183,7 +192,11 @@ bool MessagePort::hasPendingActivity()
 {
     // The spec says that entangled message ports should always be treated as if they have a strong reference.
     // We'll also stipulate that the queue needs to be open (if the app drops its reference to the port before start()-ing it, then it's not really entangled as it's unreachable).
-    return m_started && m_entangledChannel && m_entangledChannel->hasPendingActivity();
+    if (m_started && m_entangledChannel && m_entangledChannel->hasPendingActivity())
+        return true;
+    if (isEntangled() && !locallyEntangledPort())
+        return true;
+    return false;
 }
 
 MessagePort* MessagePort::locallyEntangledPort()
@@ -194,7 +207,7 @@ MessagePort* MessagePort::locallyEntangledPort()
 PassOwnPtr<MessagePortChannelArray> MessagePort::disentanglePorts(const MessagePortArray* ports, ExceptionCode& ec)
 {
     if (!ports || !ports->size())
-        return 0;
+        return nullptr;
 
     // HashSet used to efficiently check for duplicates in the passed-in array.
     HashSet<MessagePort*> portSet;
@@ -204,33 +217,33 @@ PassOwnPtr<MessagePortChannelArray> MessagePort::disentanglePorts(const MessageP
         MessagePort* port = (*ports)[i].get();
         if (!port || port->isCloned() || portSet.contains(port)) {
             ec = INVALID_STATE_ERR;
-            return 0;
+            return nullptr;
         }
         portSet.add(port);
     }
 
     // Passed-in ports passed validity checks, so we can disentangle them.
-    MessagePortChannelArray* portArray = new MessagePortChannelArray(ports->size());
+    OwnPtr<MessagePortChannelArray> portArray = adoptPtr(new MessagePortChannelArray(ports->size()));
     for (unsigned int i = 0 ; i < ports->size() ; ++i) {
         OwnPtr<MessagePortChannel> channel = (*ports)[i]->disentangle(ec);
         ASSERT(!ec); // Can't generate exception here if passed above checks.
         (*portArray)[i] = channel.release();
     }
-    return portArray;
+    return portArray.release();
 }
 
 PassOwnPtr<MessagePortArray> MessagePort::entanglePorts(ScriptExecutionContext& context, PassOwnPtr<MessagePortChannelArray> channels)
 {
     if (!channels || !channels->size())
-        return 0;
+        return nullptr;
 
-    MessagePortArray* portArray = new MessagePortArray(channels->size());
+    OwnPtr<MessagePortArray> portArray = adoptPtr(new MessagePortArray(channels->size()));
     for (unsigned int i = 0; i < channels->size(); ++i) {
         RefPtr<MessagePort> port = MessagePort::create(context);
         port->entangle((*channels)[i].release());
         (*portArray)[i] = port.release();
     }
-    return portArray;
+    return portArray.release();
 }
 
 EventTargetData* MessagePort::eventTargetData()

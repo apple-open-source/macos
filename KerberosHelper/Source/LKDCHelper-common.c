@@ -35,11 +35,10 @@ static const char *errorstring[] = {
 };
 #undef ERROR
 
-void LKDCLogFunc (const char *func, ...)
+void LKDCLogFunc (const char *func, const char *format, ...)
 {
 	char asl_buffer[2048];
 	va_list ap;
-	const char *format = NULL;
 	
 	ssize_t n = snprintf (asl_buffer, sizeof (asl_buffer), "    %s: ", func);
 	
@@ -47,9 +46,7 @@ void LKDCLogFunc (const char *func, ...)
 		return;
 	}
 	
-	va_start(ap, func);
-	format = va_arg (ap, const char *);
-	
+	va_start(ap, format);
 	vsnprintf(&asl_buffer[n], sizeof(asl_buffer)-n, format, ap);
 	va_end(ap);
 	

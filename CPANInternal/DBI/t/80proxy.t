@@ -109,7 +109,7 @@ else {
 	($dbitracelevel >= 2 ? ('--debug') : ()),
 	'--mode=single',
 	'--logfile=STDERR',
-	'--timeout=60'
+	'--timeout=90'
     );
     warn " starting test dbiproxy process: @child_args\n" if DBI->trace(0);
     ($handle, $port) = Net::Daemon::Test->Child($numTests, @child_args);

@@ -28,11 +28,6 @@
 #include "RenderTextFragment.h"
 #include "RenderTheme.h"
 
-#if ENABLE(WML)
-#include "WMLDoElement.h"
-#include "WMLNames.h"
-#endif
-
 namespace WebCore {
 
 using namespace HTMLNames;
@@ -42,6 +37,10 @@ RenderButton::RenderButton(Node* node)
     , m_buttonText(0)
     , m_inner(0)
     , m_default(false)
+{
+}
+
+RenderButton::~RenderButton()
 {
 }
 
@@ -88,11 +87,10 @@ void RenderButton::styleDidChange(StyleDifference diff, const RenderStyle* oldSt
         m_buttonText->setStyle(style());
     if (m_inner) // RenderBlock handled updating the anonymous block's style.
         setupInnerStyle(m_inner->style());
-    setReplaced(isInline());
 
     if (!m_default && theme()->isDefault(this)) {
         if (!m_timer)
-            m_timer.set(new Timer<RenderButton>(this, &RenderButton::timerFired));
+            m_timer = adoptPtr(new Timer<RenderButton>(this, &RenderButton::timerFired));
         m_timer->startRepeating(0.03);
         m_default = true;
     } else if (m_default && !theme()->isDefault(this)) {
@@ -108,11 +106,6 @@ void RenderButton::setupInnerStyle(RenderStyle* innerStyle)
     // safe to modify.
     innerStyle->setBoxFlex(1.0f);
     innerStyle->setBoxOrient(style()->boxOrient());
-
-    innerStyle->setPaddingTop(Length(theme()->buttonInternalPaddingTop(), Fixed));
-    innerStyle->setPaddingRight(Length(theme()->buttonInternalPaddingRight(), Fixed));
-    innerStyle->setPaddingBottom(Length(theme()->buttonInternalPaddingBottom(), Fixed));
-    innerStyle->setPaddingLeft(Length(theme()->buttonInternalPaddingLeft(), Fixed));
 }
 
 void RenderButton::updateFromElement()
@@ -123,19 +116,6 @@ void RenderButton::updateFromElement()
         String value = input->valueWithDefault();
         setText(value);
     }
-
-
-#if ENABLE(WML)
-    else if (node()->hasTagName(WMLNames::doTag)) {
-        WMLDoElement* doElement = static_cast<WMLDoElement*>(node());
-
-        String value = doElement->label();
-        if (value.isEmpty())
-            value = doElement->name();
-
-        setText(value);
-    }
-#endif
 }
 
 bool RenderButton::canHaveChildren() const

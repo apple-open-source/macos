@@ -23,11 +23,34 @@
 
 namespace JSC {
 
-const ClassInfo ErrorInstance::info = { "Error", 0, 0, 0 };
+const ClassInfo ErrorInstance::s_info = { "Error", &JSNonFinalObject::s_info, 0, 0 };
 
-ErrorInstance::ErrorInstance(NonNullPassRefPtr<Structure> structure)
-    : JSObject(structure)
+ErrorInstance::ErrorInstance(JSGlobalData* globalData, Structure* structure)
+    : JSNonFinalObject(*globalData, structure)
+    , m_appendSourceToMessage(false)
 {
+    ASSERT(inherits(&s_info));
+    putDirect(*globalData, globalData->propertyNames->message, jsString(globalData, ""));
+}
+
+ErrorInstance::ErrorInstance(JSGlobalData* globalData, Structure* structure, const UString& message)
+    : JSNonFinalObject(*globalData, structure)
+    , m_appendSourceToMessage(false)
+{
+    ASSERT(inherits(&s_info));
+    putDirect(*globalData, globalData->propertyNames->message, jsString(globalData, message));
+}
+
+ErrorInstance* ErrorInstance::create(JSGlobalData* globalData, Structure* structure, const UString& message)
+{
+    return new (globalData) ErrorInstance(globalData, structure, message);
+}
+
+ErrorInstance* ErrorInstance::create(ExecState* exec, Structure* structure, JSValue message)
+{
+    if (message.isUndefined())
+        return new (exec) ErrorInstance(&exec->globalData(), structure);
+    return new (exec) ErrorInstance(&exec->globalData(), structure, message.toString(exec));
 }
 
 } // namespace JSC

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -34,7 +34,7 @@
 #import "DSoException.h"
 
 #import <DirectoryService/DirServicesConst.h>
-#import <DirectoryServiceCore/CSharedData.h>
+#import <opendirectory/odutils.h>
 
 @interface PathRecordConfig (Private)
 
@@ -49,7 +49,7 @@
 {
 	// free _authExternalForm
 	if (_haveRights) {
-		[[_record node] customCall:eDSCustomCallConfigureDestroyAuthRef
+		[[_record node] customCall:eODCustomCallConfigureDestroyAuthRef
 				 withAuthorization:&_authExternalForm];
 		_haveRights = NO;
 	}
@@ -106,7 +106,7 @@
 		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
 		if (status == eDSNoErr && inAuthOnly == NO) {
 			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
-			status = [[_record node] customCall:eDSCustomCallConfigureGetAuthRef
+			status = [[_record node] customCall:eODCustomCallConfigureGetAuthRef
 									  sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
 									 outputData:outputData];
 			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )
@@ -159,7 +159,7 @@
 											ofType:[_record getType]
 										 matchType:eDSExact];
 	else
-		records = [[_record node] findRecordNames:@"dsConfigType::GetAllRecords"
+		records = [[_record node] findRecordNames:@kDSRecordsAll
 									andAttributes:[NSArray arrayWithObject:@kDSAttributesAll]
 											ofType:[_record getType]
 										 matchType:eDSExact];

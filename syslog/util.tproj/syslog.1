@@ -49,6 +49,7 @@ key val
 .Nm
 .Op Fl f Ar file ...
 .Op Fl d Ar dir ...
+.Op Fl B
 .Op Fl w Op Ar n
 .Op Fl F Ar format
 .Op Fl T Ar format
@@ -223,6 +224,17 @@ and
 options.
 .Pp
 The
+.Fl B
+option causes
+.Nm
+to start processing messages beginning at the time of the last system startup.
+If used in conjunction with
+.Fl w ,
+all messages since the last system startup are displayed, or matched against an expression, before
+.Nm
+waits for new messages.
+.Pp
+The
 .Fl w
 option causes
 .Nm
@@ -238,7 +250,25 @@ For example:
 .Pp
 .Dl syslog -w 20
 .Pp
-This usage is similar to watching a log file using, e.g.
+Use the value
+.Dq all
+to view all messages in the data store before watching for new messages.
+The value
+.Dq boot
+will display messages since the last system startup before watching for new messages.
+Specifying
+.Dq -w boot
+is equivalent to using
+.Fl w
+and
+.Fl B
+together.
+.Pp
+Using
+.Nm
+with the
+.Fl w
+option is similar to watching a log file using, e.g.
 .Pp
 .Dl tail -f /var/log/system.log
 .Pp

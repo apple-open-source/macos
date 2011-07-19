@@ -5,6 +5,7 @@
 [copyright {1998, Tcl port: Evan Rempel <erempel@uvic.ca>}]
 [moddesc   {Soundex}]
 [titledesc {Soundex}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require soundex [opt 1.0]]
 [description]

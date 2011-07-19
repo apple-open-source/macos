@@ -1,10 +1,10 @@
 /*
- * Copyright (c) 2006-2009, Google Inc. All rights reserved.
- * 
+ * Copyright (c) 2010, Google Inc. All rights reserved.
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +14,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -29,141 +29,105 @@
  */
 
 #include "config.h"
-
-#include "IntSize.h"
-#include "OwnArrayPtr.h"
 #include "PNGImageEncoder.h"
-#include "Vector.h"
 
+#include "ImageData.h"
+#include "IntSize.h"
 #include "SkBitmap.h"
-
+#include "SkColorPriv.h"
+#include "SkUnPreMultiply.h"
 extern "C" {
 #include "png.h"
 }
 
 namespace WebCore {
 
-// Converts BGRA->RGBA and RGBA->BGRA.
-static void convertBetweenBGRAandRGBA(const unsigned char* input, int numberOfPixels,
-                                      unsigned char* output)
+static void writeOutput(png_structp png, png_bytep data, png_size_t size)
 {
-    for (int x = 0; x < numberOfPixels; x++) {
-        const unsigned char* pixelIn = &input[x * 4];
-        unsigned char* pixelOut = &output[x * 4];
-        pixelOut[0] = pixelIn[2];
-        pixelOut[1] = pixelIn[1];
-        pixelOut[2] = pixelIn[0];
-        pixelOut[3] = pixelIn[3];
+    static_cast<Vector<unsigned char>*>(png->io_ptr)->append(data, size);
+}
+
+static void preMultipliedBGRAtoRGBA(const void* pixels, int pixelCount, unsigned char* output)
+{
+    static const SkUnPreMultiply::Scale* scale = SkUnPreMultiply::GetScaleTable();
+    const SkPMColor* input = static_cast<const SkPMColor*>(pixels);
+
+    for (; pixelCount-- > 0; ++input) {
+        const unsigned alpha = SkGetPackedA32(*input);
+        if ((alpha != 0) && (alpha != 255)) {
+            *output++ = SkUnPreMultiply::ApplyScale(scale[alpha], SkGetPackedR32(*input));
+            *output++ = SkUnPreMultiply::ApplyScale(scale[alpha], SkGetPackedG32(*input));
+            *output++ = SkUnPreMultiply::ApplyScale(scale[alpha], SkGetPackedB32(*input));
+            *output++ = alpha;
+        } else {
+            *output++ = SkGetPackedR32(*input);
+            *output++ = SkGetPackedG32(*input);
+            *output++ = SkGetPackedB32(*input);
+            *output++ = alpha;
+        }
     }
 }
 
-// Encoder --------------------------------------------------------------------
-//
-// This section of the code is based on nsPNGEncoder.cpp in Mozilla
-// (Copyright 2005 Google Inc.)
-
-// Passed around as the io_ptr in the png structs so our callbacks know where
-// to write data.
-struct PNGEncoderState {
-    PNGEncoderState(Vector<unsigned char>* o) : m_out(o) {}
-    Vector<unsigned char>* m_out;
-};
-
-// Called by libpng to flush its internal buffer to ours.
-void encoderWriteCallback(png_structp png, png_bytep data, png_size_t size)
+static bool encodePixels(const IntSize& inputSize, unsigned char* inputPixels,
+                         bool premultiplied, Vector<unsigned char>* output)
 {
-    PNGEncoderState* state = static_cast<PNGEncoderState*>(png_get_io_ptr(png));
-    ASSERT(state->m_out);
-
-    size_t oldSize = state->m_out->size();
-    state->m_out->resize(oldSize + size);
-    memcpy(&(*state->m_out)[oldSize], data, size);
-}
-
-// Automatically destroys the given write structs on destruction to make
-// cleanup and error handling code cleaner.
-class PNGWriteStructDestroyer {
-public:
-    PNGWriteStructDestroyer(png_struct** ps, png_info** pi)
-        : m_pngStruct(ps)
-        , m_pngInfo(pi) {
-    }
-
-    ~PNGWriteStructDestroyer() {
-        png_destroy_write_struct(m_pngStruct, m_pngInfo);
-    }
-
-private:
-    png_struct** m_pngStruct;
-    png_info** m_pngInfo;
-};
-
-// static
-bool PNGImageEncoder::encode(const SkBitmap& image, Vector<unsigned char>* output)
-{
-    if (image.config() != SkBitmap::kARGB_8888_Config)
-        return false;  // Only support ARGB at 8 bpp now.
-
-    image.lockPixels();
-    bool result = PNGImageEncoder::encode(static_cast<unsigned char*>(
-        image.getPixels()), IntSize(image.width(), image.height()),
-        image.rowBytes(), output);
-    image.unlockPixels();
-    return result;
-}
-
-// static
-bool PNGImageEncoder::encode(const unsigned char* input, const IntSize& size,
-                             int bytesPerRow,
-                             Vector<unsigned char>* output)
-{
-    int inputColorComponents = 4;
-    int outputColorComponents = 4;
-    int pngOutputColorType = PNG_COLOR_TYPE_RGB_ALPHA;
-    IntSize imageSize(size);
+    IntSize imageSize(inputSize);
     imageSize.clampNegativeToZero();
+    Vector<unsigned char> row;
 
-    // Row stride should be at least as long as the length of the data.
-    if (inputColorComponents * imageSize.width() > bytesPerRow) {
-        ASSERT(false);
+    png_struct* png = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
+    png_info* info = png_create_info_struct(png);
+    if (!png || !info || setjmp(png_jmpbuf(png))) {
+        png_destroy_write_struct(png ? &png : 0, info ? &info : 0);
         return false;
     }
 
-    png_struct* pngPtr = png_create_write_struct(PNG_LIBPNG_VER_STRING, 0, 0, 0);
-    if (!pngPtr)
-        return false;
+    // Optimize compression for speed.
+    // The parameters are the same as what libpng uses by default for RGB and RGBA images, except:
+    // - the zlib compression level is 3 instead of 6, to avoid the lazy Ziv-Lempel match searching;
+    // - the delta filter is 1 ("sub") instead of 5 ("all"), to reduce the filter computations.
+    // The zlib memory level (8) and strategy (Z_FILTERED) will be set inside libpng.
+    //
+    // Avoid the zlib strategies Z_HUFFMAN_ONLY or Z_RLE.
+    // Although they are the fastest for poorly-compressible images (e.g. photographs),
+    // they are very slow for highly-compressible images (e.g. text, drawings or business graphics).
+    png_set_compression_level(png, 3);
+    png_set_filter(png, PNG_FILTER_TYPE_BASE, PNG_FILTER_SUB);
 
-    png_info* infoPtr = png_create_info_struct(pngPtr);
-    if (!infoPtr) {
-        png_destroy_write_struct(&pngPtr, NULL);
-        return false;
-    }
-    PNGWriteStructDestroyer destroyer(&pngPtr, &infoPtr);
+    png_set_write_fn(png, output, writeOutput, 0);
+    png_set_IHDR(png, info, imageSize.width(), imageSize.height(),
+                 8, PNG_COLOR_TYPE_RGB_ALPHA, 0, 0, 0);
+    png_write_info(png, info);
 
-    if (setjmp(png_jmpbuf(pngPtr))) {
-        // The destroyer will ensure that the structures are cleaned up in this
-        // case, even though we may get here as a jump from random parts of the
-        // PNG library called below.
-        return false;
-    }
-
-    // Set our callback for libpng to give us the data.
-    PNGEncoderState state(output);
-    png_set_write_fn(pngPtr, &state, encoderWriteCallback, NULL);
-
-    png_set_IHDR(pngPtr, infoPtr, imageSize.width(), imageSize.height(), 8, pngOutputColorType,
-                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
-                 PNG_FILTER_TYPE_DEFAULT);
-    png_write_info(pngPtr, infoPtr);
-
-    OwnArrayPtr<unsigned char> rowPixels(new unsigned char[imageSize.width() * outputColorComponents]);
-    for (int y = 0; y < imageSize.height(); y ++) {
-        convertBetweenBGRAandRGBA(&input[y * bytesPerRow], imageSize.width(), rowPixels.get());
-        png_write_row(pngPtr, rowPixels.get());
+    unsigned char* pixels = inputPixels;
+    row.resize(imageSize.width() * sizeof(SkPMColor));
+    for (int y = 0; y < imageSize.height(); ++y) {
+        if (premultiplied) {
+            preMultipliedBGRAtoRGBA(pixels, imageSize.width(), row.data());
+            png_write_row(png, row.data());
+        } else
+            png_write_row(png, pixels);
+        pixels += imageSize.width() * 4;
     }
 
-    png_write_end(pngPtr, infoPtr);
+    png_write_end(png, info);
+    png_destroy_write_struct(&png, &info);
     return true;
 }
 
-}  // namespace WebCore
+bool PNGImageEncoder::encode(const SkBitmap& bitmap, Vector<unsigned char>* output)
+{
+    if (bitmap.config() != SkBitmap::kARGB_8888_Config)
+        return false; // Only support ARGB 32 bpp skia bitmaps.
+
+    SkAutoLockPixels bitmapLock(bitmap);
+    IntSize imageSize(bitmap.width(), bitmap.height());
+    return encodePixels(imageSize, static_cast<unsigned char*>(bitmap.getPixels()), true, output);
+}
+
+bool PNGImageEncoder::encode(const ImageData& bitmap, Vector<unsigned char>* output)
+{
+    return encodePixels(bitmap.size(), bitmap.data()->data()->data(), false, output);
+}
+
+} // namespace WebCore

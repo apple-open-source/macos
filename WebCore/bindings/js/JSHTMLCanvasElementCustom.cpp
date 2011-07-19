@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,7 +30,7 @@
 #include "CanvasContextAttributes.h"
 #include "HTMLCanvasElement.h"
 #include "JSCanvasRenderingContext2D.h"
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 #include "JSWebGLRenderingContext.h"
 #include "WebGLContextAttributes.h"
 #endif
@@ -39,27 +40,17 @@ using namespace JSC;
 
 namespace WebCore {
 
-void JSHTMLCanvasElement::markChildren(MarkStack& markStack)
-{
-    Base::markChildren(markStack);
-
-    HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(impl());
-    JSGlobalData& globalData = *Heap::heap(this)->globalData();
-
-    markDOMObjectWrapper(markStack, globalData, canvas->renderingContext());
-}
-
-JSValue JSHTMLCanvasElement::getContext(ExecState* exec, const ArgList& args)
+JSValue JSHTMLCanvasElement::getContext(ExecState* exec)
 {
     HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(impl());
-    const UString& contextId = args.at(0).toString(exec);
+    const UString& contextId = exec->argument(0).toString(exec);
     RefPtr<CanvasContextAttributes> attrs;
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     if (contextId == "experimental-webgl" || contextId == "webkit-3d") {
         attrs = WebGLContextAttributes::create();
         WebGLContextAttributes* webGLAttrs = static_cast<WebGLContextAttributes*>(attrs.get());
-        if (args.size() > 1 && args.at(1).isObject()) {
-            JSObject* jsAttrs = args.at(1).getObject();
+        if (exec->argumentCount() > 1 && exec->argument(1).isObject()) {
+            JSObject* jsAttrs = exec->argument(1).getObject();
             Identifier alpha(exec, "alpha");
             if (jsAttrs->hasProperty(exec, alpha))
                 webGLAttrs->setAlpha(jsAttrs->get(exec, alpha).toBoolean(exec));
@@ -75,10 +66,38 @@ JSValue JSHTMLCanvasElement::getContext(ExecState* exec, const ArgList& args)
             Identifier premultipliedAlpha(exec, "premultipliedAlpha");
             if (jsAttrs->hasProperty(exec, premultipliedAlpha))
                 webGLAttrs->setPremultipliedAlpha(jsAttrs->get(exec, premultipliedAlpha).toBoolean(exec));
+            Identifier preserveDrawingBuffer(exec, "preserveDrawingBuffer");
+            if (jsAttrs->hasProperty(exec, preserveDrawingBuffer))
+                webGLAttrs->setPreserveDrawingBuffer(jsAttrs->get(exec, preserveDrawingBuffer).toBoolean(exec));
         }
     }
 #endif
-    return toJS(exec, globalObject(), WTF::getPtr(canvas->getContext(ustringToString(contextId), attrs.get())));
+    CanvasRenderingContext* context = canvas->getContext(ustringToString(contextId), attrs.get());
+    if (!context)
+        return jsNull();
+    return toJS(exec, globalObject(), WTF::getPtr(context));
+}
+
+JSValue JSHTMLCanvasElement::toDataURL(ExecState* exec)
+{
+    const String& type = valueToStringWithUndefinedOrNullCheck(exec, exec->argument(0));
+    HTMLCanvasElement* canvas = static_cast<HTMLCanvasElement*>(impl());
+    ExceptionCode ec = 0;
+    
+    JSC::JSValue result;
+    double quality;
+    double* qualityPtr = 0;
+    if (exec->argumentCount() > 1) {
+        JSValue v = exec->argument(1);
+        if (v.isNumber()) {
+            quality = v.toNumber(exec);
+            qualityPtr = &quality;
+        }
+    }
+    
+    result = jsString(exec, canvas->toDataURL(type, qualityPtr, ec));
+    setDOMException(exec, ec);
+    return result;
 }
 
 } // namespace WebCore

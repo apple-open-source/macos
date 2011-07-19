@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,6 +22,13 @@
  */
 
 #include <si_module.h>
+
+/*
+ * SPI to disable / enable modules during Libinfo search.
+ * Currently known module names are "cache", "ds", "file", and "mdns".
+ * Use flag = 0 to disable a module, flag = 1 to enable.
+ */
+void si_search_module_set_flags(const char *name, uint32_t flag);
 
 /*
  * Most of these async callbacks get data that's held in thread-specific

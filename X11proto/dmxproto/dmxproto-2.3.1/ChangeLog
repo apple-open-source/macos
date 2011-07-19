@@ -1,0 +1,271 @@
+commit aade7161f63fd7f5a673e8432abd998fe1d9c7a2
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Wed Jan 5 17:26:54 2011 -0800
+
+    dmxproto 2.3.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d6131b3d0cf6b30fd059fe1a1a17d4be24d00e9b
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 28 18:26:35 2010 -0800
+
+    Remove accidentally added config.h header creation
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 710bb6773a0eeb3dfccc92ef0b414c97ee553103
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 28 17:59:39 2010 -0800
+
+    Add links to DMX website & protocol spec to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 9e9b74b7b6ba9427fdae736093263f87e098ae59
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 28 17:53:22 2010 -0800
+
+    config: Replace obsolete usage of AC_OUTPUT with AC_CONFIG_FILES
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 7df615d96ea2204b3922bf0600a55cbe661b3d69
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Dec 28 17:51:15 2010 -0800
+
+    config: Add missing AC_CONFIG_SRCDIR
+    
+    Regroup AC statements under the Autoconf initialization section.
+    Regroup AM statements under the Automake initialization section.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 2cef0867dcf92eb3cb08868fca23371785c19bad
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:25:52 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a60e6edd191a52287a65cfa1c04915578a1c998c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Mar 28 19:00:30 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 1d12dbdebd0fbf97dba8a77de0c9678b6439203e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 22 19:24:47 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 5932e06e39c7dad609e31d822670913ba352afc8
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 16 11:13:29 2009 -0500
+
+    README: file created or updated #24206
+    
+    Contains a set of URLs to freedesktop.org.
+
+commit be2d639aa3c509b90cdf78860a0180daead17fac
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 19:45:26 2009 -0500
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 304e9178168e33dbf6d5441824ac4c721521136a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:31:28 2009 -0500
+
+    Makefile.am: INSTALL file is missing or incorrect #24206
+    
+    The standard GNU file on building/installing  tarball is copied
+    using the XORG_INSTALL macro contained in XORG_DEFAULT_OPTIONS
+    Add INSTALL target
+
+commit cd7722d7265e6e8f90f4c0e8b6aa7aa39ebfa785
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 18:11:36 2009 -0500
+
+    configure.ac: deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit efbe0f2a6b4b1231b887f983bfb38f573ae2bf8c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Nov 15 13:55:24 2009 -0500
+
+    configure.ac: AM_MAINTAINER_MODE missing #24238
+    
+    This turns off maintainer mode build rules in tarballs.
+    Works in conjunction with autogen.sh --enable-maintainer-mode
+
+commit f7309b32556fd85353c8740fcaa14b57a667ec38
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Nov 14 18:26:46 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit a71c838e1130be28e1639a606b0a7cb56f44a3a8
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 19:34:15 2009 +1000
+
+    dmxproto 2.3
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit cfcd1d8985a8a1049ee2e9f9b80e835d33a23419
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 19:31:04 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7d2c367d67e236a93f7f73ca661caa3e167833c9
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 16:08:21 2009 +1000
+
+    dmxproto 2.2.99.1
+
+commit 593829475d400b5ae02fe772a38c1a5667dd1fb3
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 16:01:46 2009 +1000
+
+    Remove Xlib parts from dmxext.h, rename to dmx.h
+
+commit c7dc24d7cdad70235bd2dadd9e7be03ecd4ae62a
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Aug 25 15:45:10 2009 +1000
+
+    Remove RCS tags.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 98cc93cce22fb9b796dd78fba3df3724d48637e3
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 20:06:28 2009 -0200
+
+    Janitor: Correct make distcheck and dont distribute autogen.sh
+
+commit af9bdeb642e218500a682311f046b5a27db737e2
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:57 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 63fa6c1e1a859dcf0d3849b8d6b361563ef52af1
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:54:01 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit a1bbb97f81830dfb71b555ce281edbf79d82ff94
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jul 14 18:56:08 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit c5ab159290d949f2e9dcae4be23e4f7ea90b9d19
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:37 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit d8dde2e8a40c9ace276890efd4519aece86f3e38
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:13 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit fcab331fde54c6520ead9cb8796e16545400103f
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Aug 2 19:19:38 2005 +0000
+
+    Add basic .cvsignore files for proto modules.
+
+commit 3f32ad116e4e855aa6cdac3b30bef3a70d01ef9f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:54 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit f62289e0950f778535c855e13b7bdced29c1f8f2
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 21 03:48:19 2005 +0000
+
+    Change version to 2.2.
+
+commit 6f696172b30487d9c442c2658ff165116d3da2c6
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:38 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit 0293b29a30337df4d2252dc0b0412fd84185ea53
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:12 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit 96d46f2bec5c48b1cf0994f8c93ba8383e610973
+Author: Josh Triplett <josh@speakeasy.net>
+Date:   Sat May 14 07:55:10 2005 +0000
+
+    Add some COPYING files.
+
+commit fd693183812adc0ec06ac71ef43189d12111b15e
+Author: Daniel Stone <daniel@fooishbar.org>
+Date:   Sat May 14 03:22:59 2005 +0000
+
+    Fix typo; change first dmxproto.h to dmxext.h.
+
+commit b9a4ff2cc361fefbc3fa5c7aabde0ee7ad55f8e5
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Mon May 9 18:20:04 2005 +0000
+
+    Change all the protonames from <extension>Ext to <extension>Proto.
+
+commit 03f5e334c5292a3cc588295a3ce1320baa42150f
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri May 6 01:46:29 2005 +0000
+
+    Initial build system files for proto module.
+
+commit 58343d9425a6f710a902e7e1500b57e4a1ac6aa3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Jun 30 20:06:52 2004 +0000
+
+    Add Distributed Multihead X (DMX) support

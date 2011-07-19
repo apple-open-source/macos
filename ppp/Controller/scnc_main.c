@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,6 +40,7 @@ includes
 #include <CoreFoundation/CFUserNotification.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>      // for SCLog()
+#include <SystemConfiguration/SCPreferencesPathKey.h>
 #include <IOKit/pwr_mgt/IOPMLib.h>
 #include <IOKit/IOMessage.h>
 #include <mach/mach_time.h>
@@ -52,6 +53,13 @@ includes
 #include <notify.h>
 #include <sys/sysctl.h>
 #include <pthread.h>
+#if TARGET_OS_EMBEDDED
+#include <MobileInstallation/MobileInstallation.h>
+#endif			
+#include <NSSystemDirectories.h>
+#include <ifaddrs.h>
+#include <SystemConfiguration/SCNetworkSignature.h>
+#include <sys/proc.h>
 
 #include "scnc_mach_server.h"
 #include "scnc_main.h"
@@ -59,11 +67,15 @@ includes
 #include "ppp_privmsg.h"
 #include "scnc_client.h"
 #include "ipsec_manager.h"
+#include "sbslauncher.h"
 #include "ppp_manager.h"
 #include "ppp_option.h"
 #include "ppp_socket_server.h"
 #include "scnc_utils.h"
 #include "if_ppplink.h"
+#include "PPPControllerPriv.h"
+#include "pppd.h"
+
 
 /* -----------------------------------------------------------------------------
 definitions
@@ -78,6 +90,11 @@ enum {
 
 #define ICON 	"NetworkConnect.icns"
 
+
+#if TARGET_OS_EMBEDDED
+#define TIMEOUT_EDGE	2 /* give 2 second after edge is ready to propagate all network dns notification. */
+#endif
+
 /* -----------------------------------------------------------------------------
 forward declarations
 ----------------------------------------------------------------------------- */
@@ -89,10 +106,9 @@ static void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, vo
 static void print_services();
 static int update_service(CFStringRef serviceID);
 static void finish_update_services();
-static struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStringRef subtypeRef, CFStringRef iscisco);
+static struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStringRef subtypeRef);
 static int dispose_service(struct service *serv);
 static u_short findfreeunit(u_short type, u_short subtype);
-static int  cleanup_plugin_store();
 static int ondemand_add_service(struct service *serv);
 static int ondemand_remove_service(struct service *serv);
 static void post_ondemand_token(uint64_t state64);
@@ -105,7 +121,7 @@ static int  remove_all_clients(struct service *serv);
 static int can_sleep();
 static int will_sleep(int checking);
 static void wake_up();
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
 static void log_out();
 static void log_in();
 static void log_switch();
@@ -114,19 +130,29 @@ static void ipv4_state_changed();
 
 static void reorder_services();
 
+extern void proc_name(int pid, char * buf, int size);
+
+
 /* -----------------------------------------------------------------------------
 globals
 ----------------------------------------------------------------------------- */
 
 CFStringRef 		gPluginsDir = 0;
+CFStringRef 		gResourcesDir = 0;
 CFBundleRef 		gBundleRef = 0;
 CFURLRef			gBundleURLRef = 0;
+CFStringRef		gBundleDir = 0;
 CFURLRef			gIconURLRef = 0;
+CFStringRef		gIconDir = 0;
+CFMutableArrayRef	gVPNBundlesRef = 0;
 io_connect_t		gIOPort;
 int					gSleeping;
 long				gSleepArgument;
 CFUserNotificationRef 	gSleepNotification;
+time_t				gSleptAt = -1;
+time_t				gWokeAt = -1;
 uint64_t			gWakeUpTime = 0;
+double				gSleepWakeTimeout = (2 * 3600);	//2 hours... should be configurable
 double				gTimeScaleSeconds;
 CFRunLoopSourceRef 	gStopRls;
 CFStringRef			gLoggedInUser = NULL;
@@ -141,14 +167,14 @@ CFRunLoopRef		gControllerRunloop = NULL;
 CFRunLoopRef		gPluginRunloop = NULL;
 CFRunLoopSourceRef	gTerminalrls = NULL;
 
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 int					gNattKeepAliveInterval = -1;
 #endif
 
 
 TAILQ_HEAD(, service) 	service_head;
 
-#if !TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 static vproc_transaction_t gController_vt = NULL;		/* opaque handle used to track outstanding transactions, used by instant off */
 #endif
 static u_int32_t           gWaitForPrimaryService = 0;
@@ -227,7 +253,6 @@ stop plugin entry point, called by configd
 void stop(CFRunLoopSourceRef stopRls)
 {
 	
-	cleanup_plugin_store();
 	
     if (gStopRls)
         // should not happen
@@ -256,6 +281,7 @@ int allow_stop()
 			switch (serv->type) {
 				case TYPE_PPP:  status = ppp_getstatus(serv); break;
 				case TYPE_IPSEC:  status = ipsec_getstatus(serv); break;
+				default: status = kSCNetworkConnectionInvalid; break;
 			}
 			if (status != kSCNetworkConnectionDisconnected)
 				return 0;
@@ -276,12 +302,13 @@ service can be disposed now if necessary
 int allow_dispose(struct service *serv)
 {
     if (serv->flags & FLAG_FREE) {
-        serv->flags &= ~FLAG_FREE;
         dispose_service(serv);
 		return 1;
     }
 	return 0;
 }
+
+
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -304,14 +331,19 @@ int init_things()
     	kSCEntNetIPv6,
         kSCEntNetDNS,
         kSCEntNetIPSec,
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 		CFSTR("com.apple.payload"),
 #endif
         NULL,
     };
 	
-    gBundleURLRef = CFBundleCopyBundleURL(gBundleRef);
-    
+	gBundleURLRef = CFBundleCopyBundleURL(gBundleRef);
+ 	absurlref = CFURLCopyAbsoluteURL(gBundleURLRef);
+	if (absurlref) {
+		gBundleDir = CFURLCopyPath(absurlref);
+		CFRelease(absurlref);
+	}
+ 
     // create plugins dir
     urlref = CFBundleCopyBuiltInPlugInsURL(gBundleRef);
     if (urlref) {
@@ -322,10 +354,28 @@ int init_things()
         }
         CFRelease(urlref);
     }
-	
+
+    // create resources dir
+    urlref = CFBundleCopyResourcesDirectoryURL(gBundleRef);
+    if (urlref) {
+        absurlref = CFURLCopyAbsoluteURL(urlref);
+		if (absurlref) {
+            gResourcesDir = CFURLCopyPath(absurlref);
+            CFRelease(absurlref);
+        }
+        CFRelease(urlref);
+    }
+
     // create misc notification strings
     gIconURLRef = CFBundleCopyResourceURL(gBundleRef, CFSTR(ICON), NULL, NULL);
-
+ 	if (gIconURLRef) {
+		absurlref = CFURLCopyAbsoluteURL(gIconURLRef);
+		if (absurlref) {
+			gIconDir = CFURLCopyPath(absurlref);
+			CFRelease(absurlref);
+		}
+	}
+	
 	
 	post_ondemand_token(0);
 	
@@ -360,11 +410,10 @@ int init_things()
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(rls);
 
-	cleanup_plugin_store();
 
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
     gLoggedInUser = SCDynamicStoreCopyConsoleUser(gDynamicStore, &gLoggedInUserUID, 0);
-#endif	// !TARGET_EMBEDDED_OS
+#endif	// !TARGET_OS_EMBEDDED
 	
     keys = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
     patterns = CFArrayCreateMutable(0, 0, &kCFTypeArrayCallBacks);
@@ -390,16 +439,17 @@ int init_things()
     CFArrayAppendValue(keys, key);
     CFRelease(key);
 
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
 	/* install the notifier for user login/logout */
     if ((key = SCDynamicStoreKeyCreateConsoleUser(0)) == NULL)
         goto fail;
     CFArrayAppendValue(keys, key);
     CFRelease(key);    
-#endif	// !TARGET_EMBEDDED_OS
+#endif	// !TARGET_OS_EMBEDDED
 
     /* add all the notification in one chunk */
     SCDynamicStoreSetNotificationKeys(gDynamicStore, keys, patterns);
+	
 
 	/* init list of services */
     TAILQ_INIT(&service_head);
@@ -463,6 +513,7 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
         case kIOMessageSystemWillSleep:
             gSleeping  = 1;	// time to sleep
             gSleepArgument = (long)messageArgument;   
+            time(&gSleptAt);
              
             delay = will_sleep(0);
             if (delay == 0)
@@ -508,6 +559,7 @@ void iosleep_notifier(void * x, io_service_t y, natural_t messageType, void *mes
            break;
             
         case kIOMessageSystemHasPoweredOn:
+            time(&gWokeAt);
             wake_up();            
             break;
     }
@@ -522,17 +574,17 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
 {
     CFStringRef		setup, ipsetupkey, ipstatekey;
     int				i, nb, doreorder = 0, dopostsetup = 0;
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
     CFStringRef		userkey;
-#endif	// !TARGET_EMBEDDED_OS	
+#endif	// !TARGET_OS_EMBEDDED	
 	
     if (changedKeys == NULL) 
         return;
     
     setup = CREATEPREFIXSETUP();        
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
     userkey = SCDynamicStoreKeyCreateConsoleUser(0);
-#endif	// !TARGET_EMBEDDED_OS
+#endif	// !TARGET_OS_EMBEDDED
     ipsetupkey = CREATEGLOBALSETUP(kSCEntNetIPv4);
     ipstatekey = CREATEGLOBALSTATE(kSCEntNetIPv4);
     
@@ -540,12 +592,12 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
         SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cache_notifier can't allocate keys"));
         goto done;
     }
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
     if (userkey == NULL) {
-	SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cache_notifier can't allocate keys"));
-	goto done;
+		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cache_notifier can't allocate keys"));
+		goto done;
     }
-#endif	// !TARGET_EMBEDDED_OS	
+#endif	// !TARGET_OS_EMBEDDED	
 	
     nb = CFArrayGetCount(changedKeys);
     for (i = 0; i < nb; i++) {
@@ -554,7 +606,7 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
         
         change = CFArrayGetValueAtIndex(changedKeys, i);
 
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
 	    // --------- Check for change of console user --------- 
         if (CFEqual(change, userkey)) {
             CFStringRef olduser = gLoggedInUser;
@@ -568,7 +620,7 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
             if (olduser) CFRelease(olduser);
             continue;
         }
-#endif	// !TARGET_EMBEDDED_OS
+#endif	// !TARGET_OS_EMBEDDED
 
         // ---------  Check for change in service order --------- 
         if (CFEqual(change, ipsetupkey)) {
@@ -605,12 +657,54 @@ void store_notifier(SCDynamicStoreRef session, CFArrayRef changedKeys, void *inf
 
 done:
     my_CFRelease(&setup);
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
     my_CFRelease(&userkey);
-#endif	// !TARGET_EMBEDDED_OS	
+#endif	// !TARGET_OS_EMBEDDED	
     my_CFRelease(&ipsetupkey);
     my_CFRelease(&ipstatekey);
     return;
+}
+
+/* -----------------------------------------------------------------------------
+force reload services, to parse for new ones
+----------------------------------------------------------------------------- */
+static 
+void reload_services(CFStringRef entity)
+{
+    CFStringRef         key = NULL, setup = NULL;
+    CFArrayRef			services = NULL;
+    int					i, nb;
+  
+    /* read the initial configured interfaces */
+    key = CREATESERVICESETUP(entity);
+    setup = CREATEPREFIXSETUP();
+    if (key == NULL || setup == NULL)
+        goto done;
+
+    services = SCDynamicStoreCopyKeyList(gDynamicStore, key);
+    if (services == NULL)
+        goto done;	// no service setup
+
+    nb = CFArrayGetCount(services);
+    for (i = 0; i < nb; i++) {
+        CFStringRef serviceID;
+        if (serviceID = parse_component(CFArrayGetValueAtIndex(services, i), setup)) {
+		
+            update_service(serviceID);            
+            CFRelease(serviceID);
+        }
+    }
+    
+	reorder_services();
+    finish_update_services();
+
+	if (gSCNCVerbose)
+		print_services();
+
+done:
+    my_CFRelease(&key);
+    my_CFRelease(&setup);
+    my_CFRelease(&services);
 }
 
 /* -----------------------------------------------------------------------------
@@ -698,7 +792,7 @@ void service_started(struct service *serv)
 {      
 	switch (serv->type) {
 		case TYPE_PPP:  
-#if !TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 			/* transaction started */
 			serv->vt = vproc_transaction_begin(NULL);
 			if ( serv->vt == NULL)
@@ -732,7 +826,7 @@ service_ending_verify_primaryservice(struct service *serv)
 	if ((newPrimary == NULL) || 					// primary not back yet, or... 
 		_SC_CFEqual(serv->serviceID, newPrimary)) {	// primary is still our service
 
-#if !TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 		gController_vt = vproc_transaction_begin(NULL);
 		if (gController_vt)
 #endif
@@ -751,10 +845,30 @@ service has ended
  ----------------------------------------------------------------------------- */
 void service_ended(struct service *serv)
 {
+
+	/* perform service level cleanup */
+#if TARGET_OS_EMBEDDED
+	if (serv->cellular_timerref) {
+		CFRunLoopRemoveTimer(CFRunLoopGetCurrent(), serv->cellular_timerref, kCFRunLoopCommonModes);
+		my_CFRelease(&serv->cellular_timerref);
+	}
+	
+	if (serv->cellularRLS) {
+		CFRunLoopRemoveSource(CFRunLoopGetCurrent(), serv->cellularRLS, kCFRunLoopCommonModes);
+		my_CFRelease(&serv->cellularRLS);
+	}
+	if (serv->cellularPort) {
+		CFMachPortInvalidate(serv->cellularPort);
+		my_CFRelease(&serv->cellularPort);			
+	}
+	my_CFRelease(&serv->cellularConnection);
+#endif
+
+	
     service_ending_verify_primaryservice(serv);
 	switch (serv->type) {
 		case TYPE_PPP:  
-#if !TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 			/* transaction ends */
 			if ( serv->vt)
 				vproc_transaction_end(NULL, serv->vt);
@@ -765,7 +879,7 @@ void service_ended(struct service *serv)
 	}
 }
 
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
 
 /* -----------------------------------------------------------------------------
 user has looged out
@@ -850,7 +964,7 @@ void ipv4_state_changed()
         newPrimary &&
         gWaitForPrimaryService) {
 		gWaitForPrimaryService = 0;
-#if !TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED
 		vproc_transaction_end(NULL, gController_vt);
 		gController_vt = NULL;
 #endif
@@ -867,7 +981,7 @@ static
 int update_service(CFStringRef serviceID)
 {
     CFDictionaryRef	service = NULL, interface;
-    CFStringRef         subtype = NULL, iftype = NULL, iscisco = NULL;
+    CFStringRef         subtype = NULL, iftype = NULL;
     struct service 		*serv;
 
     serv = findbyserviceID(serviceID);
@@ -880,14 +994,14 @@ int update_service(CFStringRef serviceID)
         // check to see if service has disappear
         if (serv) {
             //SCDLog(LOG_INFO, CFSTR("Service has disappear : %@"), serviceID);
-            dispose_service(serv);
+           dispose_service(serv);
         }
         goto done;
     }
 
     //SCDLog(LOG_INFO, CFSTR("change appears, subtype = %d, serviceID = %@\n"), subtype, serviceID);
 
-    /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP */
+    /* kSCPropNetServiceSubType contains the entity key Modem, PPPoE, or L2TP or VPN plugin id */
     subtype = CFDictionaryGetValue(interface, kSCPropNetInterfaceSubType);
 
 	if (serv && !my_CFEqual(subtype, serv->subtypeRef)) {
@@ -895,14 +1009,11 @@ int update_service(CFStringRef serviceID)
         dispose_service(serv);
         serv = 0;
     }
-	
-	/* HACK TO TRICK THE UI... REMOVE IMMEDIATLY */
-    iscisco = CFDictionaryGetValue(interface, CFSTR("IsCisco"));
-	/* END HACK... REMOVE IMMEDIATLY */
-    
+
+
     // check to see if it is a new service
     if (!serv) {
-        serv = new_service(serviceID, iftype, subtype, iscisco);
+       serv = new_service(serviceID, iftype, subtype);
         if (!serv)
             goto done;
     }
@@ -921,7 +1032,7 @@ an interface structure needs to be created
 unit is the ppp managed unit
 ----------------------------------------------------------------------------- */
 static
-struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStringRef subtypeRef, CFStringRef iscisco)
+struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStringRef subtypeRef)
 {
     struct service 		*serv = 0;
     u_short				len;
@@ -946,17 +1057,7 @@ struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStri
 	if (my_CFEqual(typeRef, kSCValNetInterfaceTypePPP)) {
 		
 		serv->type = TYPE_PPP;
-		serv->subtype = ppp_subtype(subtypeRef);
-
-#if FAKE_L2TP_IPSEC
-		/* HACK TO TRICK THE UI... REMOVE IMMEDIATLY */
-		if (my_CFEqual(subtypeRef, kSCValNetInterfaceSubTypeL2TP) && iscisco) {
-			serv->type = TYPE_IPSEC;
-			serv->subtype = ipsec_subtype(subtypeRef);
-		}
-		/* END HACK... REMOVE IMMEDIATLY */
-#endif
-		
+		serv->subtype = ppp_subtype(subtypeRef);		
 	}
 	else if (my_CFEqual(typeRef, kSCValNetInterfaceTypeIPSec)) {
 		serv->type = TYPE_IPSEC;
@@ -972,13 +1073,12 @@ struct service * new_service(CFStringRef serviceID , CFStringRef typeRef, CFStri
 	switch (serv->type) {
 		case TYPE_PPP:  err = ppp_new_service(serv); break;
 		case TYPE_IPSEC:  err = ipsec_new_service(serv); break;
-	}
+ 	}
 	if (err)
 		goto failed;
 	
     serv->uid = 0;
 	serv->flags |= FLAG_FIRSTDIAL;
-    serv->pid = -1;
 
     TAILQ_INIT(&serv->client_head);
 
@@ -1020,8 +1120,15 @@ int dispose_service(struct service *serv)
     if (delay) {
 		serv->flags |= FLAG_FREE;
 		return 1;
-    }
+    }else {
+		serv->flags &= ~FLAG_FREE;
+	}
+
     
+#if TARGET_OS_EMBEDDED
+	my_CFRelease(&serv->profileIdentifier);
+#endif
+
 	if (serv->flags & FLAG_SETUP_ONDEMAND) {
 		serv->flags &= ~FLAG_SETUP_ONDEMAND;
 		ondemand_remove_service(serv);
@@ -1044,6 +1151,7 @@ int dispose_service(struct service *serv)
     my_CFRelease(&serv->serviceID);
     my_CFRelease(&serv->subtypeRef);
     my_CFRelease(&serv->typeRef);
+    my_CFRelease(&serv->environmentVars);
     free(serv);
     return 0;
 }
@@ -1103,6 +1211,18 @@ void finish_update_services()
 				case TYPE_IPSEC:  ipsec_setup_service(serv); break;
 			}
 			
+#if TARGET_OS_EMBEDDED
+			my_CFRelease(&serv->profileIdentifier);
+			CFDictionaryRef payloadRoot = copyEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, CFSTR("com.apple.payload/PayloadRoot"));
+			if (payloadRoot) {
+				serv->profileIdentifier = CFDictionaryGetValue(payloadRoot, CFSTR("PayloadIdentifier"));
+				serv->profileIdentifier = isA_CFString(serv->profileIdentifier);
+				if (serv->profileIdentifier)
+					CFRetain(serv->profileIdentifier);
+				CFRelease(payloadRoot);
+			}
+#endif
+	
 			if (serv->flags & FLAG_SETUP_ONDEMAND)
 				ondemand_add_service(serv);
 		}
@@ -1128,9 +1248,16 @@ struct service *findbypid(pid_t pid)
 {
     struct service		*serv;
 
-    TAILQ_FOREACH(serv, &service_head, next) 
-        if (serv->pid == pid)
-            return serv;
+    TAILQ_FOREACH(serv, &service_head, next) {
+		switch (serv->type) {
+			case TYPE_PPP: 
+				if (ppp_is_pid(serv, pid))
+					return serv;
+				break;
+			case TYPE_IPSEC: 
+				break;
+		}
+	}
     return 0;
 }
 
@@ -1206,9 +1333,19 @@ void print_services()
 {
     struct service		*serv;
 
-    SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Printing list of ppp services : "));
+    SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Printing list of services : "));
     TAILQ_FOREACH(serv, &service_head, next) {
-        SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Service = %@, type = %s, subtype = %d"), serv->serviceID, (serv->type == TYPE_PPP) ? "PPP" : (serv->type == TYPE_IPSEC) ? "IPSec" : "???" , serv->subtype);
+		switch (serv->type) {
+			case TYPE_PPP:
+				SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Service = %@, type = PPP, subtype = %@"), serv->serviceID, serv->subtypeRef);
+				break;
+			case TYPE_IPSEC:
+				SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Service = %@, type = IPSec"), serv->serviceID);
+				break;
+			default:
+				SCLog(TRUE, LOG_INFO, CFSTR("SCNC Controller: Service = %@, type = Unknown"), serv->serviceID);
+				break;
+		}
     }
 }
 
@@ -1223,6 +1360,69 @@ void phase_changed(struct service *serv, int phase)
 	
     client_notify(serv->serviceID, serv->sid, makeref(serv), phase, 0, CLIENT_FLAG_NOTIFY_STATUS, scnc_getstatus(serv));
 }
+
+#if TARGET_OS_EMBEDDED
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+int start_profile_janitor(struct service *serv)
+{
+	CFStringRef 	resourceDir = NULL;
+	CFURLRef 		resourceURL = NULL, absoluteURL = NULL;
+	char			thepath[MAXPATHLEN], payloadIdentifierStr[256];
+	int				ret = 0;
+	char 			*cmdarg[4];
+
+	if (serv->profileIdentifier == NULL)
+		return ret;
+	
+	if (!CFStringGetCString(serv->profileIdentifier, payloadIdentifierStr, sizeof(payloadIdentifierStr), kCFStringEncodingUTF8))
+		goto done;
+
+	resourceURL = CFBundleCopyResourcesDirectoryURL(gBundleRef);
+	if (resourceURL == NULL)
+		goto done;
+	
+	absoluteURL = CFURLCopyAbsoluteURL(resourceURL);
+	if (absoluteURL == NULL)
+		goto done;
+	
+	resourceDir = CFURLCopyPath(absoluteURL);
+	if (resourceDir == NULL)
+		goto done;
+				
+	if (!CFStringGetCString(resourceDir, thepath, sizeof(thepath), kCFStringEncodingMacRoman))
+		goto done;
+	
+	strlcat(thepath, "sbslauncher", sizeof(thepath));
+	
+	cmdarg[0] = "sbslauncher";
+	cmdarg[1] = SBSLAUNCHER_TYPE_PROFILE_JANITOR;
+	cmdarg[2] = payloadIdentifierStr;
+	cmdarg[3] = NULL;
+
+	if (_SCDPluginExecCommand(NULL, 0, 0 /*pid*/, 0/*gid*/, thepath, cmdarg) == 0)
+		goto done;
+
+	ret = 1;
+
+done:
+
+	if (ret)
+		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC Controller: Started Profile Janitor for profile '%@'"), serv->profileIdentifier);
+	else
+		SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: Failed to start Profile Janitor for profile '%@'"), serv->profileIdentifier);
+
+	if (resourceDir)
+		CFRelease(resourceDir);
+	if (absoluteURL)
+		CFRelease(absoluteURL);
+	if (resourceURL)
+		CFRelease(resourceURL);
+
+	return ret;
+}
+#endif
+
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -1252,25 +1452,6 @@ void user_notification_callback(CFUserNotificationRef userNotification, CFOption
 	}
 }
 
-
-/* -----------------------------------------------------------------------------
- ----------------------------------------------------------------------------- */
-int cleanup_plugin_store()
-{
-	CFStringRef			ondemand_key = NULL;
-	
-	/* create the global plugin key */
-	ondemand_key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, kSCEntNetOnDemand);
-	if (ondemand_key == NULL)
-		goto fail;
-	
-	/* remove the value */
-	SCDynamicStoreRemoveValue(gDynamicStore, ondemand_key);
-	
-fail:
-	my_CFRelease(&ondemand_key);
-	return 0;
-}
 
 /* -----------------------------------------------------------------------------
  ----------------------------------------------------------------------------- */
@@ -1385,6 +1566,7 @@ int ondemand_add_service(struct service *serv)
 	/* add type specicic keys */
 	switch (serv->type) {
 		case TYPE_PPP: 
+			ppp_ondemand_add_service_data(serv, new_trigger_dict);
 			break;
 		case TYPE_IPSEC:
 			ipsec_ondemand_add_service_data(serv, new_trigger_dict);
@@ -1523,6 +1705,169 @@ void disable_ondemand(struct service *serv)
 	}
 }
 
+#if TARGET_OS_EMBEDDED
+/* -----------------------------------------------------------------------------
+ Bring up EDGE
+ ----------------------------------------------------------------------------- */
+
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */
+static 
+void cellular_event(struct service	*serv, int event)
+{
+	switch (serv->type) {
+		case TYPE_IPSEC:  ipsec_cellular_event(serv, event); break;
+	}
+}
+
+static 
+void cellular_timer(CFRunLoopTimerRef timer, void *info)
+{
+	struct service *serv = info;
+	
+	my_CFRelease(&serv->cellular_timerref);
+	cellular_event(serv, CELLULAR_BRINGUP_SUCCESS_EVENT);
+}
+
+static 
+void cellular_callback(CTServerConnectionRef connection, CFStringRef notification, CFDictionaryRef notificationInfo, void* info) {
+	
+	struct service	*serv = (struct service *)info;
+	SInt32 which;
+    CFRunLoopTimerContext	timer_ctxt = { 0, serv, NULL, NULL, NULL };
+	
+	// You only want to act on notifications for the main PDP context.
+	if (CFNumberGetValue((CFNumberRef)CFDictionaryGetValue(notificationInfo, kCTRegistrationDataContextID), kCFNumberSInt32Type, &which) && (which == 0)) {		
+		
+		if (CFEqual(notification, kCTRegistrationDataStatusChangedNotification)) {
+			if (CFEqual(CFDictionaryGetValue(notificationInfo, kCTRegistrationDataActive), kCFBooleanTrue)) {
+				// It's good to go.  Tear down everything and run.
+				SCLog(gSCNCVerbose, LOG_INFO, CFSTR("SCNC Controller: cellular_callback activation succeeded"));
+				CFRunLoopRemoveSource(CFRunLoopGetCurrent(), serv->cellularRLS, kCFRunLoopCommonModes);
+				my_CFRelease(&serv->cellularRLS);			
+				CFMachPortInvalidate(serv->cellularPort);
+				my_CFRelease(&serv->cellularPort);			
+				my_CFRelease(&serv->cellularConnection);
+
+				serv->cellular_timerref = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + TIMEOUT_EDGE, FAR_FUTURE, 0, 0, cellular_timer, &timer_ctxt);
+				if (!serv->cellular_timerref) {
+					SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: cellular_callback, cannot create RunLoop timer"));
+					cellular_event(serv, CELLULAR_BRINGUP_FATAL_FAILURE_EVENT);
+					return;
+				}
+				CFRunLoopAddTimer(CFRunLoopGetCurrent(), serv->cellular_timerref, kCFRunLoopCommonModes);
+			}
+		}
+		else {
+			// Failed.  Tear down everything.
+			SCLog(gSCNCVerbose, LOG_INFO, CFSTR("SCNC Controller: callbackEDGE activation failed"));
+			cellular_event(serv, CELLULAR_BRINGUP_NETWORK_FAILURE_EVENT);
+		}
+	}
+}
+
+static 
+void _ServerConnectionHandleReply(CFMachPortRef port, void *msg, CFIndex size, void *info) {
+    
+    (void)port;	    /* Unused */
+    (void)size;	    /* Unused */
+    (void)info;	    /* Unused */
+    
+    _CTServerConnectionHandleReply(msg);
+}
+/* -----------------------------------------------------------------------------
+ ----------------------------------------------------------------------------- */ 
+int bringup_cellular(struct service *serv)
+{
+	_CTServerConnectionContext ctxt = { 0, serv, NULL, NULL, NULL };
+	CFMachPortContext mach_ctxt = { 0, serv, NULL, NULL, NULL };
+    CFRunLoopTimerContext	timer_ctxt = { 0, serv, NULL, NULL, NULL };
+	CTError error = { kCTErrorDomainNoError, 0 };
+	Boolean active = FALSE;
+	
+	serv->cellularConnection = _CTServerConnectionCreate(kCFAllocatorDefault, cellular_callback, &ctxt);
+	if (!serv->cellularConnection)
+		goto fail;
+	
+	error = _CTServerConnectionGetPacketContextActive(serv->cellularConnection, 0, &active);
+	
+	if (error.error)
+		goto fail;
+	
+	SCLog(gSCNCVerbose, LOG_INFO, CFSTR("SCNC Controller: BringUpEDGE active = %d"), active);
+
+	if (active) {
+		my_CFRelease(&serv->cellularConnection);
+		serv->cellular_timerref = CFRunLoopTimerCreate(NULL, CFAbsoluteTimeGetCurrent() + TIMEOUT_EDGE, FAR_FUTURE, 0, 0, cellular_timer, &timer_ctxt);
+		if (!serv->cellular_timerref) {
+			SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: BringUpCellular, cannot create RunLoop timer"));
+			goto fail;
+		}
+		CFRunLoopAddTimer(CFRunLoopGetCurrent(), serv->cellular_timerref, kCFRunLoopCommonModes);
+		return 1; // timer active, pretend connection in progress
+	}
+	
+	error = _CTServerConnectionRegisterForNotification(serv->cellularConnection, kCTRegistrationDataStatusChangedNotification);
+	if (error.error == 0)
+		error = _CTServerConnectionRegisterForNotification(serv->cellularConnection, kCTRegistrationDataActivateFailedNotification);
+	if (error.error == 0)
+		error = _CTServerConnectionSetPacketContextActive(serv->cellularConnection, 0, TRUE);		// Zero is the main PDP context.
+	
+	if (error.error)
+		goto fail;
+	
+	serv->cellularPort = _SC_CFMachPortCreateWithPort("PPPController/CT", _CTServerConnectionGetPort(serv->cellularConnection), (CFMachPortCallBack)_ServerConnectionHandleReply, &mach_ctxt);
+	serv->cellularRLS = CFMachPortCreateRunLoopSource(NULL, serv->cellularPort, 0);
+	CFRunLoopAddSource(CFRunLoopGetCurrent(), serv->cellularRLS, kCFRunLoopCommonModes);
+	
+	return 1; // connection in progress
+	
+fail:
+	SCLog(TRUE, LOG_ERR, CFSTR("SCNC Controller: BringUpEDGE cannot bring up cellular, error = %d"), error.error);
+	my_CFRelease(&serv->cellularConnection);
+	return 0; // connection failed
+}
+
+#endif
+
+// check to see if interface is captive and if it is not ready.
+int
+check_interface_captive_and_not_ready (SCDynamicStoreRef  dynamicStoreRef,
+									   char              *interface_buf)
+{
+	int rc = 0;
+
+	if (dynamicStoreRef) {
+		CFStringRef     captiveState = CFStringCreateWithFormat(NULL, NULL,
+																CFSTR("State:/Network/Interface/%s/CaptiveNetwork"),
+																interface_buf);
+		if (captiveState) {
+			CFStringRef key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL, kSCDynamicStoreDomainState, captiveState);
+			if (key) {
+				CFDictionaryRef dict = SCDynamicStoreCopyValue(dynamicStoreRef, key);
+				CFRelease(key);
+				if (dict) {
+					CFStringRef string = CFDictionaryGetValue(dict, CFSTR("Stage"));
+					if (string) {
+						// if string != Unknown && string != Online
+						if (CFStringCompare(string, CFSTR("Uknown"), 0) != kCFCompareEqualTo &&
+							CFStringCompare(string, CFSTR("Online"), 0) != kCFCompareEqualTo) {
+							SCLog(TRUE, LOG_NOTICE, CFSTR("underlying interface %s is captive and not yet ready."), interface_buf);
+							rc = 1;
+						} else {
+							SCLog(TRUE, LOG_NOTICE, CFSTR("underlying interface %s is either unknown or captive and ready."), interface_buf);
+						}
+					}
+					CFRelease(dict);
+				}
+			}
+			CFRelease(captiveState);
+		}
+	}
+	return rc;
+}
+
+
 /* -----------------------------------------------------------------------------
 --------------------------------------------------------------------------------
 --------------------------------------------------------------------------------
@@ -1531,22 +1876,6 @@ void disable_ondemand(struct service *serv)
 --------------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 
-/* -----------------------------------------------------------------------------
------------------------------------------------------------------------------ */
-int client_gone(void *client)
-{
-    struct service		*serv;
-    struct service_client 	*servclient;
-
-    /* arbitration mechanism */
-    TAILQ_FOREACH(serv, &service_head, next) {
-        servclient = get_client(serv, client);
-        if (servclient && servclient->autoclose) {
-			scnc_stop(serv, client, SIGTERM);
-        }
-    }
-    return 0;
-}
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -1611,6 +1940,69 @@ int remove_all_clients(struct service *serv)
     return 0;
 }
 
+static char *
+get_plugin_pid_str (struct service *serv, int pid, char *pid_buf, int pid_buf_len)
+{
+	char *p;
+	int   numchar;
+	int   spaceleft;
+
+	numchar = snprintf(pid_buf, pid_buf_len, ", triggered by ");
+	if (numchar > 0) {
+		p = pid_buf + numchar;
+		spaceleft = pid_buf_len - numchar;
+		proc_name(pid, p, spaceleft);
+	} else {
+		pid_buf[0] = 0;
+	}
+	return pid_buf;
+}
+
+static void
+log_scnc_stop (struct service *serv)
+{
+	if (serv->type == TYPE_IPSEC) {
+		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop, type %@"), CFSTR("IPSec"));	
+	} else {
+		SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: stop, type %@"), serv->subtypeRef);	
+	}
+}
+
+static void
+log_scnc_start (struct service *serv, int onDemand, CFStringRef onDemandHostName, int pid, int status)
+{
+	char pid_buf[128];
+	char *p = get_plugin_pid_str(serv, pid, pid_buf, sizeof(pid_buf));
+	
+	if (onDemand) {
+		if (serv->type == TYPE_IPSEC) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: start%s, type %@, onDemandHostName %@, status %d"),
+				  p,
+				  CFSTR("IPSec"),
+				  onDemandHostName,
+				  status);
+		} else {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: start%s, type %@, onDemandHostName %@, status %d"),
+				  p,
+				  serv->subtypeRef,
+				  onDemandHostName,
+				  status);
+		}
+	} else {
+		if (serv->type == TYPE_IPSEC) {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: start%s, type %@, status %d"),
+				  p,
+				  CFSTR("IPSec"),
+				  status);
+		} else {
+			SCLog(TRUE, LOG_NOTICE, CFSTR("SCNC: start%s, type %@, status %d"),
+				  p,
+				  serv->subtypeRef,
+				  status);
+		}
+	}
+}
+
 /* --------------------------------------------------------------------------
 -----------------------------------------------------------------------------
 -----------------------------------------------------------------------------
@@ -1634,8 +2026,9 @@ int scnc_stop(struct service *serv, void *client, int signal)
     else {
         remove_all_clients(serv);
     }
-    
-	
+
+	log_scnc_stop(serv);
+
 	switch (serv->type) {
 		case TYPE_PPP: ret = ppp_stop(serv, signal); break;
 		case TYPE_IPSEC:  ret = ipsec_stop(serv, signal); break;
@@ -1646,9 +2039,10 @@ int scnc_stop(struct service *serv, void *client, int signal)
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int scnc_start(struct service *serv, CFDictionaryRef options, void *client, int autoclose, uid_t uid, gid_t gid, mach_port_t bootstrap)
+int scnc_start(struct service *serv, CFDictionaryRef options, void *client, int autoclose, uid_t uid, gid_t gid, int pid, mach_port_t bootstrap)
 {
 	int ret = EIO, onDemand = 0;
+	CFStringRef    onDemandHostName = NULL;
 	
 	/* first determine autodial opportunity */
 	if (options) {
@@ -1659,9 +2053,12 @@ int scnc_start(struct service *serv, CFDictionaryRef options, void *client, int 
 		if (!CFDictionaryContainsKey(options, kSCNetworkConnectionSelectionOptionOnDemandHostName)) {
 			// option not set, regular dial request
 			goto dial;
+		} else {
+			// initialize ondemand hostname
+			onDemandHostName = isA_CFString(CFDictionaryGetValue(options, kSCNetworkConnectionSelectionOptionOnDemandHostName));
 		}
 
-#if	!TARGET_EMBEDDED_OS
+#if	!TARGET_OS_EMBEDDED
 		/* first, check if the user is he current console user */
 		if (!gLoggedInUser 
 			|| uid != gLoggedInUserUID) 
@@ -1722,11 +2119,17 @@ dial:
         (gSleeping && (serv->flags & FLAG_SETUP_DISCONNECTONSLEEP)))
         return EIO;	// not the right time to dial
 
+	serv->persist_connect = 0;
+	serv->persist_connect_status = 0;
+	serv->persist_connect_devstatus = 0;
+
 	switch (serv->type) {
 		case TYPE_PPP: ret = ppp_start(serv, options, uid, gid, bootstrap, 0, onDemand); break;
 		case TYPE_IPSEC:  ret = ipsec_start(serv, options, uid, gid, bootstrap, 0, onDemand); break;
 	}
 	
+	log_scnc_start(serv, onDemand, onDemandHostName, pid, ret);
+
 	if (ret == 0) {
 		// reset autodial flag;
 		serv->flags &= ~FLAG_FIRSTDIAL;
@@ -1835,3 +2238,63 @@ int scnc_getconnectsystemdata(struct service *serv, void **reply, u_int16_t *rep
 	
 	return ret;
 }
+
+#if !TARGET_OS_EMBEDDED
+static double scnc_getsleepwaketimeout (struct service *serv)
+{
+	if (serv->sleepwaketimeout == 0)
+		return (double)gSleepWakeTimeout;
+	return (double)serv->sleepwaketimeout;
+}
+#endif
+
+static void scnc_idle_disconnect (struct service *serv)
+{
+	switch (serv->type) {
+	case TYPE_PPP:
+		serv->u.ppp.laststatus = EXIT_IDLE_TIMEOUT;
+		ppp_stop(serv, SIGTERM);
+		break;
+	case TYPE_IPSEC:
+		serv->u.ipsec.laststatus = IPSEC_IDLETIMEOUT_ERROR;
+		ipsec_stop(serv, SIGTERM);
+		break;
+	}
+}
+
+int scnc_disconnectifoverslept (const char *function, struct service *serv, char *if_name)
+{
+#if TARGET_OS_EMBEDDED
+	if (gWakeUpTime != -1 && gSleptAt != -1) {
+		double sleptFor = difftime(gWokeAt, gSleptAt);
+		SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs, interface %s will disconnect\n"),
+		      function,
+		      sleptFor,
+		      if_name);
+		scnc_idle_disconnect(serv);
+	}
+	return 1;
+#else
+	if (gWakeUpTime != -1 && gSleptAt != -1) {
+		double sleptFor = difftime(gWokeAt, gSleptAt);
+		double timeout = scnc_getsleepwaketimeout(serv);
+		SCLog(gSCNCVerbose, LOG_INFO, CFSTR("%s: System slept for %f secs (interface %s's limit is %f secs)\n"),
+		      function,
+		      sleptFor,
+		      if_name,
+		      timeout);
+		serv->connectionslepttime += (u_int32_t)sleptFor;
+		if (sleptFor > timeout) {
+			SCLog(TRUE, LOG_ERR, CFSTR("%s: System slept for %f secs (more than %f secs), interface %s will disconnect\n"),
+				  function,
+				  sleptFor,
+				  timeout,
+				  if_name);
+			scnc_idle_disconnect(serv);
+			return 1;
+		}
+	}
+	return 0;
+#endif /* TARGET_OS_EMBEDDED */
+}
+

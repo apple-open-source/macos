@@ -1,5 +1,5 @@
---- strfmon.3.orig	2008-04-05 20:02:08.000000000 -0700
-+++ strfmon.3	2008-04-05 20:05:49.000000000 -0700
+--- strfmon.3.orig	2010-02-08 16:26:10.000000000 -0800
++++ strfmon.3	2010-02-08 17:57:07.000000000 -0800
 @@ -30,25 +30,49 @@
  .Dt STRFMON 3
  .Os
@@ -55,7 +55,7 @@
  The format string is composed of zero or more directives:
  ordinary characters (not
  .Cm % ) ,
-@@ -116,9 +140,9 @@
+@@ -116,9 +140,9 @@ character is written.
  .El
  .El
  .Sh RETURN VALUES
@@ -67,9 +67,24 @@
  .Fa maxsize ,
  .Fn strfmon
  returns the number of bytes placed into the array pointed to by
-@@ -144,7 +168,8 @@
+@@ -143,8 +167,23 @@ The format string is invalid.
+ .It Bq Er ENOMEM
  Not enough memory for temporary buffers.
  .El
++.Sh EXAMPLE
++.Bd -literal -offset indent -compact
++  #include <stdio.h>
++  #include <monetary.h>
++  #include <locale.h>
++
++  int main() {
++          char buf[200];
++          setlocale(LC_ALL, "en_US");
++          (void)strfmon (buf, sizeof(buf)-1, "%n" , 123456.78);
++          printf("%s\n", buf);
++  }
++.Ed
++.Pp
  .Sh SEE ALSO
 -.Xr localeconv 3
 +.Xr localeconv 3 ,

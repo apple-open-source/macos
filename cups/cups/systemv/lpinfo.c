@@ -1,9 +1,9 @@
 /*
- * "$Id: lpinfo.c 7810 2008-07-29 01:11:15Z mike $"
+ * "$Id: lpinfo.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   "lpinfo" command for the Common UNIX Printing System (CUPS).
+ *   "lpinfo" command for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -24,13 +24,7 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <errno.h>
-#include <cups/string.h>
-#include <cups/cups.h>
-#include <cups/i18n.h>
-#include <cups/debug.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -91,7 +85,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	    cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
             _cupsLangPrintf(stderr,
-		            _("%s: Sorry, no encryption support compiled in!\n"),
+		            _("%s: Sorry, no encryption support."),
 	                    argv[0]);
 #endif /* HAVE_SSL */
 	    break;
@@ -106,7 +100,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      if (i >= argc)
 	      {
 	        _cupsLangPuts(stderr,
-		              _("Error: need hostname after \'-h\' option!\n"));
+		              _("Error: need hostname after \"-h\" option."));
 		return (1);
               }
 
@@ -141,7 +135,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected 1284 device ID string "
-				"after --device-id!\n"));
+				"after \"--device-id\"."));
 		return (1);
 	      }
 	    }
@@ -159,7 +153,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected scheme list after "
-				"--exclude-schemes!\n"));
+				"\"--exclude-schemes\"."));
 		return (1);
 	      }
 	    }
@@ -177,7 +171,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected scheme list after "
-				"--include-schemes!\n"));
+				"\"--include-schemes\"."));
 		return (1);
 	      }
 	    }
@@ -194,7 +188,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected language after "
-				"--language!\n"));
+				"\"--language\"."));
 		return (1);
 	      }
 	    }
@@ -211,7 +205,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected make and model after "
-				"--make-and-model!\n"));
+				"\"--make-and-model\"."));
 		return (1);
 	      }
 	    }
@@ -228,7 +222,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 		_cupsLangPuts(stderr,
 			      _("lpinfo: Expected product string after "
-				"--product!\n"));
+				"\"--product\"."));
 		return (1);
 	      }
 	    }
@@ -244,7 +238,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      else
 	      {
 		_cupsLangPuts(stderr,
-			      _("lpinfo: Expected timeout after --timeout!\n"));
+			      _("lpinfo: Expected timeout after "
+			        "\"--timeout\"."));
 		return (1);
 	      }
 	    }
@@ -254,20 +249,20 @@ main(int  argc,				/* I - Number of command-line arguments */
 	    }
 	    else
 	    {
-	      _cupsLangPrintf(stderr, _("lpinfo: Unknown option \'%s\'!\n"),
+	      _cupsLangPrintf(stderr, _("lpinfo: Unknown option \"%s\"."),
 			      argv[i]);
 	      return (1);
 	    }
 	    break;
 
 	default :
-	    _cupsLangPrintf(stderr, _("lpinfo: Unknown option \'%c\'!\n"),
+	    _cupsLangPrintf(stderr, _("lpinfo: Unknown option \"%c\"."),
 	                    argv[i][1]);
 	    return (1);
       }
     else
     {
-      _cupsLangPrintf(stderr, _("lpinfo: Unknown argument \'%s\'!\n"),
+      _cupsLangPrintf(stderr, _("lpinfo: Unknown argument \"%s\"."),
                       argv[i]);
       return (1);
     }
@@ -307,12 +302,12 @@ device_cb(
 		      "        info = %s\n"
 		      "        make-and-model = %s\n"
 		      "        device-id = %s\n"
-		      "        location = %s\n"),
+		      "        location = %s"),
 		    device_uri, device_class, device_info,
 		    device_make_and_model, device_id, device_location);
   }
   else
-    _cupsLangPrintf(stdout, "%s %s\n", device_class, device_uri);
+    _cupsLangPrintf(stdout, "%s %s", device_class, device_uri);
 }
 
 
@@ -330,7 +325,7 @@ show_devices(
   if (cupsGetDevices(CUPS_HTTP_DEFAULT, timeout, include_schemes,
                      exclude_schemes, device_cb, &long_status) != IPP_OK)
   {
-    _cupsLangPrintf(stderr, "lpinfo: %s\n", cupsLastErrorString());
+    _cupsLangPrintf(stderr, "lpinfo: %s", cupsLastErrorString());
     return (1);
   }
 
@@ -409,7 +404,7 @@ show_models(
 
     if (response->request.status.status_code > IPP_OK_CONFLICT)
     {
-      _cupsLangPrintf(stderr, "lpinfo: %s\n", cupsLastErrorString());
+      _cupsLangPrintf(stderr, "lpinfo: %s", cupsLastErrorString());
       ippDelete(response);
       return (1);
     }
@@ -475,11 +470,11 @@ show_models(
 	                _("Model:  name = %s\n"
 			  "        natural_language = %s\n"
 			  "        make-and-model = %s\n"
-			  "        device-id = %s\n"),
+			  "        device-id = %s"),
 			ppd_name, ppd_language, ppd_make_model, ppd_device_id);
       }
       else
-        _cupsLangPrintf(stdout, "%s %s\n", ppd_name, ppd_make_model);
+        _cupsLangPrintf(stdout, "%s %s", ppd_name, ppd_make_model);
 
       if (attr == NULL)
         break;
@@ -489,7 +484,7 @@ show_models(
   }
   else
   {
-    _cupsLangPrintf(stderr, "lpinfo: %s\n", cupsLastErrorString());
+    _cupsLangPrintf(stderr, "lpinfo: %s", cupsLastErrorString());
 
     return (1);
   }
@@ -499,5 +494,5 @@ show_models(
 
 
 /*
- * End of "$Id: lpinfo.c 7810 2008-07-29 01:11:15Z mike $".
+ * End of "$Id: lpinfo.c 9042 2010-03-24 00:45:34Z mike $".
  */

@@ -1,4 +1,4 @@
-.TH "ZSHCALSYS" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHCALSYS" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshcalsys \- zsh calendar system
 .\" Yodl file: Zsh/calsys.yo
@@ -404,6 +404,10 @@ Show all items in the calendar, regardless of the \fBstart\fP and
 Brief:  don\&'t display continuation lines (i\&.e\&. indented lines following
 the line with the date/time), just the first line\&.
 .TP
+\fB\-B\fP \fIlines\fP
+Brief: display at most the first \fIlines\fP lines of the calendar
+entry\&.  `\fB\-B 1\fP\&' is equivalent to `\fB\-b\fP'\&.
+.TP
 \fB\-C\fP \fIcalfile\fP
 Explicitly specify a calendar file instead of the value of
 the \fBcalendar\-file\fP style or the the default \fB~/calendar\fP\&.
@@ -450,6 +454,53 @@ after the existing event\&.  Note that this is currently the only use
 made of the repeat count, so that it is not possible to query the schedule
 for a recurrence of an event in the calendar until the previous event
 has passed\&.
+.PP
+If \fBRPT\fP is used, it is also possible to specify that certain
+recurrences of an event are rescheduled or cancelled\&.  This is
+done with the \fBOCCURRENCE\fP keyword, followed by whitespace and the
+date and time of the occurrence in the regular sequence, followed by
+whitespace and either the date and time of the rescheduled event or
+the exact string \fBCANCELLED\fP\&.  In this case the date and time must
+be in exactly the "date with local time" format used by the
+\fBtext/calendar\fP MIME type (RFC 2445),
+\fI<YYYY><MM><DD>\fP\fBT\fP\fI<hh><mm><ss>\fP (note the presence of the literal
+character \fBT\fP)\&.  The first word (the regular recurrence) may be
+something other than a proper date/time to indicate that the event
+is additional to the normal sequence; a convention that retains
+the formatting appearance is \fBXXXXXXXXTXXXXXX\fP\&.
+.PP
+Furthermore, it is useful to record the next regular recurrence
+(as then the displayed date may be for a rescheduled event so cannot
+be used for calculating the regular sequence)\&.  This is specified by
+\fBRECURRENCE\fP and a time or date in the same format\&.  \fBcalendar_add\fP
+adds such an indication when it encounters a recurring event that does not
+include one, based on the headline date/time\&.
+.PP
+If \fBcalendar_add\fP is used to update occurrences the \fBUID\fP keyword
+described there should be present in both the existing entry and the added
+occurrence in order to identify recurring event sequences\&.
+.PP
+For example,
+.PP
+.RS
+.nf
+\fBThu May 6, 2010 11:00 Informal chat RPT 1 week
+  # RECURRENCE 20100506T110000
+  # OCCURRENCE 20100513T110000 20100513T120000
+  # OCCURRENCE 20100520T110000 CANCELLED\fP
+.fi
+.RE
+.PP
+The event that occurs at 11:00 on 13th May 2010 is rescheduled an hour
+later\&.  The event that occurs a week later is cancelled\&.  The occurrences
+are given on a continuation line starting with a \fB#\fP character so will
+not usually be displayed as part of the event\&.  As elsewhere, no account of
+time zones is taken with the times\&. After the next event occurs the headline
+date/time will be `\fBThu May 13, 2010 12:00\fP\&' while the \fBRECURRENCE\fP
+date/time will be `\fB20100513T110000\fP\&' (note that cancelled and
+moved events are not taken account of in the \fBRECURRENCE\fP, which
+records what the next regular recurrence is, but they are accounted for in
+the headline date/time)\&.
 .PP
 It is safe to run \fBcalendar \-s\fP to reschedule an existing event
 (if the calendar file has changed, for example), and also to have it
@@ -506,18 +557,41 @@ an indented continuation line starting with a \fB#\fP, for example:
 .RE
 .PP
 The second line will not be shown by the \fBcalendar\fP function\&.
+.PP
+It is possible to specify the \fBRPT\fP keyword followed by \fBCANCELLED\fP
+instead of a relative time\&.  This causes any matched event or series
+of events to be cancelled (the original event does not have to be marked
+as recurring in order to be cancelled by this method)\&.  A \fBUID\fP is
+required in order to match an existing event in the calendar\&.
+.PP
+\fBcalendar_add\fP will attempt to manage recurrences and occurrences of
+repeating events as described for event scheduling by \fBcalendar \-s\fP
+above\&.  To reschedule or cancel a single event \fBcalendar_add\fP should be
+called with an entry that includes the correct \fBUID\fP but does \fInot\fP
+include the \fBRPT\fP keyword as this is taken to mean the entry applies to a
+series of repeating events and hence replaces all existing information\&.
+Each rescheduled or cancelled occurrence must have an \fBOCCURRENCE\fP
+keyword in the entry passed to \fBcalendar_add\fP which will be merged into
+the calendar file\&.  Any existing reference to the occurrence is replaced\&.
+An occurrence that does not refer to a valid existing event is added as a
+one\-off occurrence to the same calendar entry\&.
 .RE
 .TP
 \fBcalendar_edit\fP
-This calls the user\&'s editor to edit the calendar file\&.  The editor
-is given by the variable \fBVISUAL\fP, if set, else the variable \fBEDITOR\fP\&.
+This calls the user\&'s editor to edit the calendar file\&.  If
+there are arguments, they are taken as the editor to use (the file name
+is appended to the commands); otherwise, the editor is given by the
+variable \fBVISUAL\fP, if set, else the variable \fBEDITOR\fP\&.
+.RS
+.PP
 If the calendar scheduler was running, then after editing the file
 \fBcalendar \-s\fP is called to update it\&.
-.RS
 .PP
 This function locks out the calendar system during the edit\&.
 Hence it should be used to edit the calendar file if there is any
-possibility of a calendar event occurring meanwhile\&.
+possibility of a calendar event occurring meanwhile\&.  Note this
+can lead to another shell with calendar functions enabled hanging waiting
+for a lock, so it is necessary to quit the editor as soon as possible\&.
 .RE
 .TP
 \fBcalendar_parse\fP \fIcalendar\-entry\fP
@@ -533,6 +607,12 @@ array \fBreply\fP as follows:
 time
 The time as a string of digits in the same units as
 \fB$EPOCHSECONDS\fP
+.TP
+schedtime
+The regularly scheduled time\&.  This may differ from
+the actual event time \fBtime\fP if this is a recurring event and the next
+occurrence has been rescheduled\&.  Then \fBtime\fP gives the actual time
+and \fBschedtime\fP the time of the regular recurrence before modification\&.
 .TP
 text1
 The text from the line not including the date and time of the
@@ -553,6 +633,12 @@ Any recurrence time given by the \fBRPT\fP keyword as a string
 of digits containing the time of the recurrence in the same units
 as \fB$EPOCHSECONDS\fP\&.  (Note this is an absolute time\&.)  Not set if
 no \fBRPT\fP keyword and value were matched\&.
+.TP
+schedrpttime
+The next regularly scheduled occurrence of a recurring
+event before modification\&.  This may differ from \fBrpttime\fP, which is the
+actual time of the event that may have been rescheduled from the regular
+time\&.
 .TP
 rptstr
 The raw string matched after the \fBRPT\fP keyword, else unset\&.
@@ -592,18 +678,8 @@ left in a file with the suffix \fB\&.old\fP\&.
 .PP
 The function \fBage\fP can be autoloaded and use separately from
 the calendar system, although it uses the function \fBcalendar_scandate\fP
-for date formatting\&.  It requires the \fBzsh/stat\fP builtin, which
-makes available the builtin \fBstat\fP\&.  This may conflict with an
-external programme of the same name; if it does, the builtin may be
-disabled for normal operation by including the following code in
-an initialization file:
-.PP
-.RS
-.nf
-\fBzmodload \-i zsh/stat
-disable stat\fP
-.fi
-.RE
+for date formatting\&.  It requires the \fBzsh/stat\fP builtin, but uses
+only the builtin \fBzstat\fP\&.
 .PP
 \fBage\fP selects files having a given modification time for use
 as a glob qualifier\&.  The format of the date is the same as that
@@ -695,9 +771,10 @@ The location of the main calendar\&.  The default is \fB~/calendar\fP\&.
 .TP
 \fBdate\-format\fP
 A \fBstrftime\fP format string (see \fIstrftime\fP(3)) with the zsh
-extensions \fB%f\fP for a day of the month with no leading zero or space
-for single digits, and \fB%k\fP or \fB%l\fP for the hour of the day on the 24\-
-or 12\-hour clock, again with no leading zero or space for single digits\&.
+extensions providing various numbers with no leading zero or space
+if the number is a single digit as described for the
+\fB%D{\fP\fIstring\fP\fB}\fP prompt format in
+the section EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1)\&.
 .RS
 .PP
 This is used for outputting dates in \fBcalendar\fP, both to support

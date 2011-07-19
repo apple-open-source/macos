@@ -29,8 +29,8 @@ static const char rcsid[] =
 #include <stdio.h>
 #include <stdlib.h>
 #include <strings.h>
-#include <rpc/rpc.h>
-#include <rpcsvc/sm_inter.h>
+#include <oncrpc/rpc.h>
+#include "sm_inter.h"
 
 char *progname;
 

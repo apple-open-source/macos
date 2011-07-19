@@ -22,6 +22,7 @@
 <div id="preamble"><h1>아파치 모듈 mod_autoindex</h1>
 <div class="toplang">
 <p><span>가능한 언어: </span><a href="../en/mod/mod_autoindex.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_autoindex.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_autoindex.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_autoindex.html" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_autoindex.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
@@ -80,6 +81,7 @@
 <li><img alt="" src="../images/down.gif" /> <a href="#addiconbytype">AddIconByType</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#defaulticon">DefaultIcon</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#headername">HeaderName</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#indexheadinsert">IndexHeadInsert</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexignore">IndexIgnore</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexoptions">IndexOptions</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#indexorderdefault">IndexOrderDefault</a></li>
@@ -449,6 +451,19 @@
     것이 좋다.</p>
 
 </div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="IndexHeadInsert" id="IndexHeadInsert">IndexHeadInsert</a> <a name="indexheadinsert" id="indexheadinsert">지시어</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">설명:</a></th><td>Inserts text in the HEAD section of an index page.</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">문법:</a></th><td><code>IndexHeadInsert <var>"markup ..."</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">사용장소:</a></th><td>주서버설정, 가상호스트, directory, .htaccess</td></tr>
+<tr><th><a href="directive-dict.html#Override">Override 옵션:</a></th><td>Indexes</td></tr>
+<tr><th><a href="directive-dict.html#Status">상태:</a></th><td>Base</td></tr>
+<tr><th><a href="directive-dict.html#Module">모듈:</a></th><td>mod_autoindex</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">지원:</a></th><td>Available in Apache 2.2.11 and later</td></tr>
+</table><p>The documentation for this directive has
+            not been translated yet. Please have a look at the English
+            version.</p></div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="IndexIgnore" id="IndexIgnore">IndexIgnore</a> <a name="indexignore" id="indexignore">지시어</a></h2>
 <table class="directive">
@@ -828,10 +843,11 @@ Name|Date|Size|Description</code></td></tr>
 </div>
 <div class="bottomlang">
 <p><span>가능한 언어: </span><a href="../en/mod/mod_autoindex.html" hreflang="en" rel="alternate" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/mod_autoindex.html" hreflang="fr" rel="alternate" title="Fran&#231;ais">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/mod_autoindex.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/mod_autoindex.html" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_autoindex.html" hreflang="tr" rel="alternate" title="T&#252;rk&#231;e">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">모듈</a> | <a href="../mod/directives.html">지시어들</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">용어</a> | <a href="../sitemap.html">사이트맵</a></p></div>
 </body></html>

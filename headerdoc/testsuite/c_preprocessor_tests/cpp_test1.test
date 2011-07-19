@@ -1,7 +1,7 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$22|void *FOO(BAZ(x, y));
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$22|void *FOO(BAZ(x, y));
 $0|$49|#define FOO bar
 #define BAZ(a, b) int a, char *b
-$3159|-=: CPP MACROS PARSED :=-
+$3187|-=: CPP MACROS PARSED :=-
 PARSED: FOO
 PARSED: BAZ
 
@@ -17,6 +17,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => **
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -68,9 +69,9 @@ $parserState->{sodname} => bar
 $parserState->{sodtype} =>  void *
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -118,7 +119,7 @@ VALUE: 0
 $CPP_HASH{BAZ} => int a, char *b
 $CPP_HASH{FOO} => bar
 $CPP_ARG_HASH{BAZ} => a, b
-$3159|-=: CPP MACROS PARSED :=-
+$3187|-=: CPP MACROS PARSED :=-
 PARSED: FOO
 PARSED: BAZ
 
@@ -134,6 +135,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => 0
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => **
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => 
@@ -185,9 +187,9 @@ $parserState->{sodname} => bar
 $parserState->{sodtype} =>  void *
 $parserState->{stackFrozen} => 0
 $parserState->{startOfDec} => 1
+$parserState->{sublang} => C
 $parserState->{temponlyComments} => 0
 $parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -235,238 +237,4 @@ VALUE: 0
 $CPP_HASH{BAZ} => int a, char *b
 $CPP_HASH{FOO} => bar
 $CPP_ARG_HASH{BAZ} => a, b
-_$45|testsuite/c_preprocessor_tests/cpp_test1.test$1|C$9|cpp_test1$3159|-=: CPP MACROS PARSED :=-
-PARSED: FOO
-PARSED: BAZ
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/cpp_test1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => void *
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => bar
-$parserState->{sodtype} =>  void *
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: function
-namelist: bar
-posstypes: function method
-value: 
-returntype:  void *
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 2
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int x
-Parsed Param 1 => char * y
--=: DUMP OF PARSE TREE :=-
-+---void
-+--- 
-+---*
-+---bar
-+---(
-|   +---int
-|   +--- 
-|   +---x
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +--- 
-|   +---y
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{BAZ} => int a, char *b
-$CPP_HASH{FOO} => bar
-$CPP_ARG_HASH{BAZ} => a, b
-$3159|-=: CPP MACROS PARSED :=-
-PARSED: FOO
-PARSED: BAZ
-
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/cpp_test1.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => 0
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => 
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 1
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => ;
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 1
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => void *
-$parserState->{seenBraces} => 0
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => bar
-$parserState->{sodtype} =>  void *
-$parserState->{stackFrozen} => 0
-$parserState->{startOfDec} => 1
-$parserState->{temponlyComments} => 0
-$parserState->{treePopTwo} => 0
-$parserState->{typestring} => void
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 1
-typelist: function
-namelist: bar
-posstypes: function method
-value: 
-returntype:  void *
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 2
-conformsToList: 
-functionContents: 
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int x
-Parsed Param 1 => char * y
--=: DUMP OF PARSE TREE :=-
-+---void
-+--- 
-+---*
-+---bar
-+---(
-|   +---int
-|   +--- 
-|   +---x
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +--- 
-|   +---y
-|   +---)
-+---;
-+--- 
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-$CPP_HASH{BAZ} => int a, char *b
-$CPP_HASH{FOO} => bar
-$CPP_ARG_HASH{BAZ} => a, b
-$1|C$3|cpp
+_$99|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/c_preprocessor_tests/cpp_test1.test$1|C$9|cpp_test1$1|C$3|cpp

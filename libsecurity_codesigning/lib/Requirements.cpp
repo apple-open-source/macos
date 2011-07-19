@@ -63,8 +63,28 @@ SecRequirement::SecRequirement(const Requirement *req, bool transferOwnership)
 // Clean up a SecRequirement object
 //
 SecRequirement::~SecRequirement() throw()
-{
+try {
 	::free((void *)mReq);
+} catch (...) {
+	return;
+}
+
+
+//
+// CF-level comparison of SecRequirement objects compares the entire requirement
+// structure for equality. This means that two requirement programs are recognized
+// as equal if they're written identically (modulo comments and syntactic sugar).
+// Obviously, equality of outcome is not in the cards. :-)
+//
+bool SecRequirement::equal(SecCFObject &secOther)
+{
+	SecRequirement *other = static_cast<SecRequirement *>(&secOther);
+	return !memcmp(this->requirement(), other->requirement(), this->requirement()->length());
+}
+
+CFHashCode SecRequirement::hash()
+{
+	return CFHash(CFTempDataWrap(*this->requirement()));
 }
 
 

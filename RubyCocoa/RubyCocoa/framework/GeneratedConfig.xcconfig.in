@@ -6,4 +6,5 @@ OTHER_LDFLAGS = %%%other_ldflags%%% %%%libruby_path%%%
 OTHER_CFLAGS = %%%other_cflags%%%
 FRAMEWORK_VERSION = %%%rubycocoa_framework_version%%%
 MACOSX_DEPLOYMENT_TARGET = %%%macosx_deployment_target%%%
-INSTALL_PATH = %%%install_path%%% 
+INSTALL_PATH = %%%install_path%%%
+ARCHS = %%%target_archs%%%

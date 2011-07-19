@@ -1,0 +1,273 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+require "vacation";
+
+test_set "message" text:
+From: sirius@example.com
+To: sirius@example.com
+Cc: stephan@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+/*
+ * No reply to own address
+ */
+
+test_set "envelope.from" "stephan@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply to own address" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * No reply to alternative address
+ */
+
+test_result_reset;
+
+test_set "envelope.from" "sirius@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply to alternative address" {
+	vacation :addresses "sirius@example.com" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * No reply to mailing list
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: dovecot@lists.example.com
+List-ID: <dovecot.lists.example.com>
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "<dovecot-bounces+timo=example.com@lists.example.com>";
+test_set "envelope.to" "dovecot@lists.example.com";
+
+test "No reply to mailing list" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+
+/*
+ * No reply to bulk mail
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: spam@example.com
+To: stephan@example.com
+Precedence: bulk
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "spam@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply to bulk mail" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * No reply to auto-submitted mail
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: spam@example.com
+To: stephan@example.com
+Auto-submitted: yes
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "spam@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply to auto-submitted mail" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * No reply to system address
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: dovecot@lists.example.com
+To: stephan@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "dovecot-request@lists.example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply to system address" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * No reply to implicitly delivered message
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: all@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "No reply for implicitly delivered message" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "vacation not supposed to send message";
+	}
+}
+
+/*
+ * Reply for normal mail
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: stephan@example.com
+Subject: Frop!
+Auto-submitted: no
+Precedence: normal
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "Reply for normal mail" {
+	vacation "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "vacation did not reply";
+	}
+}
+
+/*
+ * Reply for :addresses 
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: timo@example.com
+To: all@example.com
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "timo@example.com";
+test_set "envelope.to" "stephan@example.com";
+
+test "Reply for :addresses" {
+	vacation :addresses "all@example.com" "I am gone";
+
+	if not test_result_execute {
+		test_fail "failed to execute vacation";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "vacation did not reply";
+	}
+}
+
+
+
+

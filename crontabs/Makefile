@@ -26,8 +26,7 @@ FILES := System/Library/LaunchDaemons/com.apple.newsyslog.plist \
 	usr/share/man/man5/periodic.conf.5
 
 # Executables.
-BINS := private/etc/periodic/daily/100.clean-logs \
-	private/etc/periodic/daily/110.clean-tmps \
+BINS := private/etc/periodic/daily/110.clean-tmps \
 	private/etc/periodic/daily/130.clean-msgs \
 	private/etc/periodic/daily/140.clean-rwho \
 	private/etc/periodic/daily/199.clean-fax \

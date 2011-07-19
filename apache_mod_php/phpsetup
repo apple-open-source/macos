@@ -1,0 +1,24 @@
+#!/bin/sh
+#
+# Copyright 2011 Apple Inc. All rights reserved
+
+# Install pear if the build failed to install it
+_phar=/usr/lib/php/install-pear-nozlib.phar
+if [ ! -e ${_phar} ]; then
+	echo "Unable to install PEAR; missing phar."
+	if [ -e /usr/bin/pear ]; then
+	    exit 0
+	fi
+	exit 1
+fi
+
+if [ /usr/bin/pear -nt ${_phar} ]; then
+	exit 0
+fi
+
+echo "Running PEAR installer"
+/usr/bin/php -n \
+	-dphp_dir=/usr/lib/php -dshort_open_tag=0 -dsafe_mode=0 \
+	-dopen_basedir= -derror_reporting=1803 -dmemory_limit=-1 \
+	-ddetect_unicode=0 \
+	${_phar} -d "/usr/lib/php" -b "/usr/bin" -dp a -ds a

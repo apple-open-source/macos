@@ -4,17 +4,21 @@ use Data::Dumper;
 use Test::More;
 use JSON::Syck;
 
+my $HAS_JSON = 0;
 BEGIN {
 unless (defined &utf8::encode) {
     plan skip_all => 'No Unicode support';
+    exit;
+}
+eval { require JSON; $HAS_JSON = 1 };
+if ($HAS_JSON && $JSON::VERSION >= 2){
+    plan skip_all => 'JSON compatibility broken since JSON 2.0';
     exit;
 }
 }
 
 use Storable;
 
-our $HAS_JSON = 0;
-eval { require JSON; $HAS_JSON = 1 };
 
 $Data::Dumper::Indent = 0;
 $Data::Dumper::Terse  = 1;
@@ -24,11 +28,8 @@ my @tests = (
     '[1, 2, 3]',
     '[1, 2, 3]',
     '2',
-    '2.1',
     '"foo\'bar"',
     '[1,2,3]',
-    '[1.1, 2.2, 3.3]',
-    '[1.1,2.2,3.3]',
     '{"foo": "bar"}',
     '{"foo":"bar"}',
     '[{"foo": 2}, {"foo": "bar"}]',

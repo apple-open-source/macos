@@ -1,6 +1,6 @@
 # Removed provision of the backward compatible name. Moved to separate
 # file/package.
-package provide vfs::zip 1.0.1
+package provide vfs::zip 1.0.3
 
 package require vfs
 
@@ -111,7 +111,7 @@ proc vfs::zip::open {zipfd name mode permissions} {
 	    fconfigure $nfd -translation binary
 
 	    seek $zipfd $sb(ino) start
-	    zip::Data $zipfd sb data
+	    set data [zip::Data $zipfd sb 0]
 
 	    puts -nonewline $nfd $data
 
@@ -170,6 +170,9 @@ proc vfs::zip::utime {fd path actime mtime} {
 #
 # ZIP decoder:
 #
+# See the ZIP file format specification:
+#   http://www.pkware.com/documents/casestudies/APPNOTE.TXT
+#
 # Format of zip file:
 # [ Data ]* [ TOC ]* EndOfArchive
 #
@@ -198,6 +201,11 @@ namespace eval zip {
 	8	{deflate - The file is Deflated}
 	9	{reserved - Reserved for enhanced Deflating}
 	10	{pkimplode - PKWARE Date Compression Library Imploding}
+        11	{reserved - Reserved by PKWARE}
+        12	{bzip2 - The file is compressed using BZIP2 algorithm}
+        13	{reserved - Reserved by PKWARE}
+        14	{lzma - LZMA (EFS)}
+        15	{reserved - Reserved by PKWARE}
     }
     # Version types (high-order byte)
     array set systems {
@@ -274,75 +282,84 @@ proc zip::DosTime {date time} {
 }
 
 
-proc zip::Data {fd arr {varPtr ""} {verify 0}} {
+proc zip::Data {fd arr verify} {
     upvar 1 $arr sb
 
-    if { $varPtr != "" } {
-	upvar 1 $varPtr data
-    }
-
+    # APPNOTE A: Local file header
     set buf [read $fd 30]
     set n [binary scan $buf A4sssssiiiss \
-		hdr sb(ver) sb(flags) sb(method) \
-		time date \
-		sb(crc) sb(csize) sb(size) flen elen]
+               hdr sb(ver) sb(flags) sb(method) time date \
+               crc csize size namelen xtralen]
 
     if { ![string equal "PK\03\04" $hdr] } {
 	binary scan $hdr H* x
-	error "bad header: $x"
+	return -code error "bad header: $x"
     }
-    set sb(ver)		[u_short $sb(ver)]
-    set sb(flags)	[u_short $sb(flags)]
-    set sb(method)	[u_short $sb(method)]
-    set sb(mtime)	[DosTime $date $time]
-
-    set sb(name) [read $fd [u_short $flen]]
-    set sb(extra) [read $fd [u_short $elen]]
-
-    if { $varPtr == "" } {
-	seek $fd $sb(csize) current
-    } else {
-	# Added by Chuck Ferril 10-26-03 to fix reading of OpenOffice
-	#  .sxw files. Any files in the zip that had a method of 8
-	#  (deflate) failed here because size and csize were zero.
-	#  I'm not sure why the above computes the size and csize
-	#  wrong, but stat appears works properly. I originally
-	#  checked for csize of zero, but adding this change didn't
-	#  appear to break the none deflated file access and seemed
-	#  more natural.
- 	zip::stat $fd $sb(name) sb
-
-	set data [read $fd $sb(csize)]
+    set sb(ver)	   [expr {$sb(ver) & 0xffff}]
+    set sb(flags)  [expr {$sb(flags) & 0xffff}]
+    set sb(method) [expr {$sb(method) & 0xffff}]
+    set sb(mtime)  [DosTime $date $time]
+    if {!($sb(flags) & (1<<3))} {
+        set sb(crc)    [expr {$crc & 0xffffffff}]
+        set sb(csize)  [expr {$csize & 0xffffffff}]
+        set sb(size)   [expr {$size & 0xffffffff}]
     }
 
-    if { $sb(flags) & 0x4 } {
-	# Data Descriptor used
-	set buf [read $fd 12]
-	binary scan $buf iii sb(crc) sb(csize) sb(size)
+    set sb(name)   [read $fd [expr {$namelen & 0xffff}]]
+    set sb(extra)  [read $fd [expr {$xtralen & 0xffff}]]
+    if {$sb(flags) & (1 << 10)} {
+        set sb(name) [encoding convertfrom utf-8 $sb(name)]
+    }
+    set sb(name) [string trimleft $sb(name) "./"]
+
+    # APPNOTE B: File data
+    #   if bit 3 of flags is set the csize comes from the central directory
+    set data [read $fd $sb(csize)]
+
+    # APPNOTE C: Data descriptor
+    if { $sb(flags) & (1<<3) } {
+        binary scan [read $fd 4] i ddhdr
+        if {($ddhdr & 0xffffffff) == 0x08074b50} {
+            binary scan [read $fd 12] iii sb(crc) sb(csize) sb(size)
+        } else {
+            set sb(crc) $ddhdr
+            binary scan [read $fd 8] ii sb(csize) sb(size)
+        }
+        set sb(crc) [expr {$sb(crc) & 0xffffffff}]
+        set sb(csize) [expr {$sb(csize) & 0xffffffff}]
+        set sb(size) [expr {$sb(size) & 0xffffffff}]
+    }
+    
+    switch -exact -- $sb(method) {
+        0 {
+            # stored; no compression
+        }
+        8 {
+            # deflated
+            if {[catch {
+                set data [vfs::zip -mode decompress -nowrap 1 $data]
+            } err]} then {
+                return -code error "error inflating \"$sb(name)\": $err"
+            }
+        }
+        default {
+            set method $sb(method)
+            if {[info exists methods($method)]} {
+                set method $methods($method)
+            }
+            return -code error "unsupported compression method
+                \"$method\" used for \"$sb(name)\""
+        }
     }
 
-
-    if { $varPtr == "" } {
-	return ""
-    }
-
-    if { $sb(method) != 0 } {
-	if { [catch {
-	    set data [vfs::zip -mode decompress -nowrap 1 $data]
-	} err] } {
-	    ::vfs::log "$sb(name): inflate error: $err"
-	    binary scan $data H* x
-	    ::vfs::log $x
-	}
-    }
-    return
-    if { $verify } {
+    if { $verify && $sb(method) != 0} {
 	set ncrc [vfs::crc $data]
-	if { $ncrc != $sb(crc) } {
-	    tclLog [format {%s: crc mismatch: expected 0x%x, got 0x%x} \
-		    $sb(name) $sb(crc) $ncrc]
+	if { ($ncrc & 0xffffffff) != $sb(crc) } {
+	    vfs::log [format {%s: crc mismatch: expected 0x%x, got 0x%x} \
+                          $sb(name) $sb(crc) $ncrc]
 	}
     }
+    return $data
 }
 
 proc zip::EndOfArchive {fd arr} {
@@ -367,7 +384,13 @@ proc zip::EndOfArchive {fd arr} {
 
 	seek $fd $n end
 	set hdr [read $fd $len]
-	set pos [string first "PK\05\06" $hdr]
+
+	# We are using 'string last' as we are searching the first
+	# from the end, which is the last from the beginning. See [SF
+	# Bug 2256740]. A zip archive stored in a zip archive can
+	# confuse the unmodified code, triggering on the magic
+	# sequence for the inner, uncompressed archive.
+	set pos [string last "PK\05\06" $hdr]
 	if {$pos == -1} {
 	    if {$at >= $sz} {
 		return -code error "no header found"
@@ -380,8 +403,8 @@ proc zip::EndOfArchive {fd arr} {
 	}
     }
 
-    set hdr [string range $hdr [expr $pos + 4] [expr $pos + 21]]
-    set pos [expr [tell $fd] + $pos - 512]
+    set hdr [string range $hdr [expr {$pos + 4}] [expr {$pos + 21}]]
+    set pos [expr {[tell $fd] + $pos - 512}]
 
     binary scan $hdr ssssiis \
 	cb(ndisk) cb(cdisk) \
@@ -412,13 +435,15 @@ proc zip::TOC {fd arr} {
 
     if { ![string equal "PK\01\02" $hdr] } {
 	binary scan $hdr H* x
-	error "bad central header: $x"
+	return -code error "bad central header: $x"
     }
 
     foreach v {vem ver flags method disk attr} {
-	set cb($v) [u_short [set sb($v)]]
+	set sb($v) [expr {$sb($v) & 0xffff}]
     }
-
+    set sb(crc) [expr {$sb(crc) & 0xffffffff}]
+    set sb(csize) [expr {$sb(csize) & 0xffffffff}]
+    set sb(size) [expr {$sb(size) & 0xffffffff}]
     set sb(mtime) [DosTime $date $time]
     set sb(mode) [expr { ($sb(atx) >> 16) & 0xffff }]
     if { ( $sb(atx) & 0xff ) & 16 } {
@@ -429,9 +454,15 @@ proc zip::TOC {fd arr} {
     set sb(name) [read $fd [u_short $flen]]
     set sb(extra) [read $fd [u_short $elen]]
     set sb(comment) [read $fd [u_short $clen]]
+    if {$sb(flags) & (1 << 10)} {
+        set sb(name) [encoding convertfrom utf-8 $sb(name)]
+        set sb(comment) [encoding convertfrom utf-8 $sb(comment)]
+    }
+    set sb(name) [string trimleft $sb(name) "./"]
 }
 
 proc zip::open {path} {
+    #vfs::log [list open $path]
     set fd [::open $path]
     
     if {[catch {
@@ -446,7 +477,7 @@ proc zip::open {path} {
 
 	set toc(_) 0; unset toc(_); #MakeArray
 	
-	for { set i 0 } { $i < $cb(nitems) } { incr i } {
+	for {set i 0} {$i < $cb(nitems)} {incr i} {
 	    zip::TOC $fd sb
 	    
 	    set sb(depth) [llength [file split $sb(name)]]
@@ -492,6 +523,7 @@ proc zip::exists {fd path} {
 proc zip::stat {fd path arr} {
     upvar #0 zip::$fd.toc toc
     upvar 1 $arr sb
+    #vfs::log [list stat $fd $path $arr [info level -1]]
 
     set name [string tolower $path]
     if { $name == "" || $name == "." } {
@@ -519,16 +551,20 @@ proc zip::getdir {fd path {pat *}} {
     upvar #0 zip::$fd.toc toc
 
     if { $path == "." || $path == "" } {
-	set path [string tolower $pat]
+	set path [set tmp [string tolower $pat]]
     } else {
-	set path [string tolower $path]
+        set globmap [list "\[" "\\\[" "*" "\\*" "?" "\\?"]
+	set tmp [string tolower $path]
+        set path [string map $globmap $tmp]
 	if {$pat != ""} {
+	    append tmp /[string tolower $pat]
 	    append path /[string tolower $pat]
 	}
     }
-    set depth [llength [file split $path]]
+    # file split can be confused by the glob quoting so split tmp string
+    set depth [llength [file split $tmp]]
 
-    #puts stderr "getdir $fd $path $depth $pat [array names toc $path]"
+    #vfs::log "getdir $fd $path $depth $pat [array names toc $path]"
     if {$depth} {
 	set ret {}
 	foreach key [array names toc $path] {

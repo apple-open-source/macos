@@ -290,12 +290,12 @@ static const char gManifestVersion[] = {0x01, 0x00, 0x00, 0x00};
 
 
 
-void AppleManifest::CreateManifest (CFMutableDataRef data, ManifestInternal& manifest)
+void AppleManifest::CreateManifest (CFMutableDataRef manifest, ManifestInternal& internalManifest)
 {
 	// create the manifest header
-	CFDataAppendBytes (data, (UInt8*) gManifestHeader, sizeof (gManifestHeader));
-	CFDataAppendBytes (data, (UInt8*) gManifestVersion, sizeof (gManifestVersion));
-	AddManifestItemListToManifest (data, manifest.GetItemList ());
+	CFDataAppendBytes (manifest, (UInt8*) gManifestHeader, sizeof (gManifestHeader));
+	CFDataAppendBytes (manifest, (UInt8*) gManifestVersion, sizeof (gManifestVersion));
+	AddManifestItemListToManifest (manifest, internalManifest.GetItemList ());
 }
 
 

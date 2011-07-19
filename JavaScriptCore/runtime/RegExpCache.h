@@ -28,6 +28,8 @@
 #include "RegExp.h"
 #include "RegExpKey.h"
 #include "UString.h"
+#include <wtf/FixedArray.h>
+#include <wtf/HashMap.h>
 
 #ifndef RegExpCache_h
 #define RegExpCache_h
@@ -35,17 +37,26 @@
 namespace JSC {
 
 class RegExpCache {
+
+typedef HashMap<RegExpKey, RefPtr<RegExp> > RegExpCacheMap;
+
 public:
-    PassRefPtr<RegExp> lookupOrCreate(const UString& patternString, const UString& flags);
-    PassRefPtr<RegExp> create(const UString& patternString, const UString& flags);
+    PassRefPtr<RegExp> lookupOrCreate(const UString& patternString, RegExpFlags);
+    PassRefPtr<RegExp> create(const UString& patternString, RegExpFlags, RegExpCacheMap::iterator);
     RegExpCache(JSGlobalData* globalData);
 
 private:
     static const unsigned maxCacheablePatternLength = 256;
-    static const int maxCacheableEntries = 256;
 
-    typedef HashMap<RegExpKey, RefPtr<RegExp> > RegExpCacheMap;
-    RegExpKey patternKeyArray[maxCacheableEntries];
+#if PLATFORM(IOS)
+    // The RegExpCache can currently hold onto multiple Mb of memory;
+    // as a short-term fix some embedded platforms may wish to reduce the cache size.
+    static const int maxCacheableEntries = 32;
+#else
+    static const int maxCacheableEntries = 256;
+#endif
+
+    FixedArray<RegExpKey, maxCacheableEntries> patternKeyArray;
     RegExpCacheMap m_cacheMap;
     JSGlobalData* m_globalData;
     int m_nextKeyToEvict;

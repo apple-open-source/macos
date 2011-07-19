@@ -29,7 +29,7 @@
  *	$Log: IOFireWireLibIRMAllocation.h,v $
  *	Revision 1.3  2007/02/16 17:41:01  ayanowit
  *	More Leopard changes.
- *	
+ *
  *	Revision 1.2  2007/02/15 22:02:38  ayanowit
  *	More fixes for new IRMAllocation stuff.
  *	

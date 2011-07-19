@@ -49,26 +49,36 @@ enum {
     kHexOutputStyle = 1
 };
 
-IOReturn GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo );
-int GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID );
-int GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed );
-int GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address );
-int SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend );
-IOReturn GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len, IOReturn *actError);
-int GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
-int GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
-int GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len, Boolean inCurrentConfig);
-int GetCurrentConfiguration(IOUSBDeviceRef deviceIntf);
-//BusProbeClass * GetClassAndSubClass(UInt8 * pcls);
-BusProbeClass * GetDeviceClassAndSubClass(UInt8 * pcls);
-BusProbeClass * GetInterfaceClassAndSubClass(UInt8 * pcls);
-char * GetStringFromNumber(UInt32 value, int sizeInBytes, int style);
-char * GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf);
-NSString * VendorNameFromVendorID(NSString * intValueAsString);
-NSString * GetUSBProductNameFromRegistry(io_registry_entry_t entry);
-void FreeString(char * cstr);
-UInt16 Swap16(void *p);
-uint32_t	Swap32(void *p);
-uint64_t	Swap64(void *p);
-uint32_t	Swap24(void *p);
-const char *	USBErrorToString(IOReturn status);
+IOReturn 			GetNumberOfConfigurations( IOUSBDeviceRef deviceIntf, uint8_t * numberOfConfigs );
+IOReturn 			GetConfigurationDescriptor( IOUSBDeviceRef deviceIntf, uint8_t config, IOUSBConfigurationDescriptorPtr * description );
+IOReturn 			GetConfiguration( IOUSBDeviceRef deviceIntf, uint8_t * currentConfig );
+IOReturn 			GetPortInformation( IOUSBDeviceRef deviceIntf, uint32_t * portInfo );
+int 				GetDeviceLocationID( IOUSBDeviceRef deviceIntf, UInt32 * locationID );
+int 				GetDeviceSpeed( IOUSBDeviceRef deviceIntf, UInt8 * speed );
+int 				GetDeviceAddress( IOUSBDeviceRef deviceIntf, USBDeviceAddress * address );
+int 				SuspendDevice( IOUSBDeviceRef deviceIntf, BOOL suspend );
+IOReturn 			GetDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len, IOReturn *actError);
+int 				GetStringDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descIndex, void *buf, UInt16 len, UInt16 lang);
+int 				GetClassDescriptor(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, void *buf, UInt16 len);
+int 				GetDescriptorFromInterface(IOUSBDeviceRef deviceIntf, UInt8 descType, UInt8 descIndex, UInt16 wIndex, void *buf, UInt16 len, Boolean inCurrentConfig);
+int 				GetCurrentConfiguration(IOUSBDeviceRef deviceIntf);
+
+BusProbeClass * 	GetDeviceClassAndSubClass(UInt8 * pcls);
+BusProbeClass * 	GetInterfaceClassAndSubClass(UInt8 * pcls);
+char * 				GetStringFromNumber(UInt32 value, int sizeInBytes, int style);
+char * 				GetStringFromIndex(UInt8 strIndex, IOUSBDeviceRef deviceIntf);
+NSString * 			VendorNameFromVendorID(NSString * intValueAsString);
+NSString * 			GetUSBProductNameFromRegistry(io_registry_entry_t entry);
+
+void 				FreeString(char * cstr);
+UInt16 				Swap16(void *p);
+uint32_t			Swap32(void *p);
+uint64_t			Swap64(void *p);
+uint32_t			Swap24(void *p);
+
+const char *		USBErrorToString(IOReturn status);
+
+IOUSBDescriptorHeader *		NextDescriptor(const void *desc);
+IOUSBDescriptorHeader* 		FindNextDescriptor(IOUSBConfigurationDescriptor	*curConfDesc, const void *cur, UInt8 descType);
+IOReturn					FindNextInterfaceDescriptor(const IOUSBConfigurationDescriptor *configDescIn, const IOUSBInterfaceDescriptor *intfDesc,IOUSBInterfaceDescriptor **descOut);
+

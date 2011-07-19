@@ -53,6 +53,7 @@ fix_new_internal (fragS	*frag,		/* Which frag? */
 	fixP->fx_pcrel       = pcrel;
 	fixP->fx_pcrel_reloc = pcrel_reloc;
 	fixP->fx_r_type      = r_type;
+	fixP->fx_sectdiff_divide_by_two = 0;
 #if defined(I386) && defined(ARCH64)
 	if(fixP->fx_r_type == X86_64_RELOC_SIGNED){
 		switch(offset){

@@ -7,26 +7,10 @@ __all__ = ('initFrameworkWrapper', )
 
 import objc
 import pkg_resources
-import new, sys, os, struct
+import sys, os, struct
 import textwrap
 
-import objc._bindglobals
-
 from objc import function, registerMetaDataForSelector
-
-
-# Import ElementTree from one of the various locations where
-# it might be found
-try:
-        # Python 2.5
-        import xml.etree.cElementTree as ET
-except ImportError:
-        # And earlier (with separate install)
-        try:
-            import cElementTree as ET
-        
-        except ImportError:
-            import elementtree.ElementTree as ET
 
 
 # Are we in a 64-bit build:
@@ -46,8 +30,8 @@ _gBridgeSupportDirectories = (
 #        os.path.expanduser('~/Library/BridgeSupport'),
     )
 
-for method in ('alloc', 'copy', 'copyWithZone:', 'mutableCopy', 'mutableCopyWithZone:'):
-    objc.registerMetaDataForSelector('NSObject', method,
+for method in (b'alloc', b'copy', b'copyWithZone:', b'mutableCopy', b'mutableCopyWithZone:'):
+    objc.registerMetaDataForSelector(b'NSObject', method,
             dict(
                 retval=dict(already_retained=True),
             ))
@@ -181,7 +165,6 @@ def initFrameworkWrapper(frameworkName,
         path = os.path.join(dn, fn)
         if os.path.exists(path):
             data = open(path, 'rb').read()
-            doc = ET.fromstring(data)
 
             dylib_path = os.path.join(dn, frameworkName + '.dylib')
             if os.path.exists(dylib_path):
@@ -345,6 +328,3 @@ del objc._setStructConvenience
 # load time of importing Quartz.
 #objc._setSetupCFClasses(_setupCFClasses)
 #del objc._setSetupCFClasses
-
-# Optimize usage of global variables
-objc._bindglobals.bind_all(sys.modules[__name__])

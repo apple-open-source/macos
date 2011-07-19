@@ -46,9 +46,10 @@ public:
 	OSStatus evaluate(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient,
 		AuthorizationFlags flags, CFAbsoluteTime now,
 		const CredentialSet *inCredentials, CredentialSet &credentials,
-		AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
+		AuthorizationToken &auth, SecurityAgent::Reason &reason, bool savePassword) const;
 
 	string name() const { return mRightName; }
+	bool extractPassword() const { return mExtractPassword; }
 
 private:
 // internal machinery
@@ -62,19 +63,19 @@ private:
 	OSStatus evaluateRules(const AuthItemRef &inRight, const Rule &inRule,
     AuthItemSet &environmentToClient, AuthorizationFlags flags,
 	CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials,
-	AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
+	AuthorizationToken &auth, SecurityAgent::Reason &reason, bool savePassword) const;
 
 	void setAgentHints(const AuthItemRef &inRight, const Rule &inTopLevelRule, AuthItemSet &environmentToClient, AuthorizationToken &auth) const;
 
 	// perform authorization based on running specified mechanisms (see evaluateMechanism)
-	OSStatus evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationFlags flags, CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials, AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
+	OSStatus evaluateAuthentication(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationFlags flags, CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials, AuthorizationToken &auth, SecurityAgent::Reason &reason, bool savePassword) const;
 
 	OSStatus evaluateUser(const AuthItemRef &inRight, const Rule &inRule,
 		AuthItemSet &environmentToClient, AuthorizationFlags flags,
 		CFAbsoluteTime now, const CredentialSet *inCredentials, CredentialSet &credentials,
-		AuthorizationToken &auth, SecurityAgent::Reason &reason) const;
+		AuthorizationToken &auth, SecurityAgent::Reason &reason, bool savePassword) const;
 
-	OSStatus evaluateMechanismOnly(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationToken &auth, CredentialSet &outCredentials) const;
+	OSStatus evaluateMechanismOnly(const AuthItemRef &inRight, const Rule &inRule, AuthItemSet &environmentToClient, AuthorizationToken &auth, CredentialSet &outCredentials, bool savePassword) const;
 
 	// find username hint based on session owner
 	OSStatus evaluateSessionOwner(const AuthItemRef &inRight, const Rule &inRule, const AuthItemSet &environment, const CFAbsoluteTime now, const AuthorizationToken &auth, Credential &credential, SecurityAgent::Reason &reason) const;
@@ -82,6 +83,7 @@ private:
 	CredentialSet makeCredentials(const AuthorizationToken &auth) const;
 	
 	map<string,string> localizedPrompts() const { return mLocalizedPrompts; }
+	map<string,string> localizedButtons() const { return mLocalizedButtons; }
 	
     
 // parsed attributes
@@ -106,8 +108,10 @@ private:
 	vector<Rule> mRuleDef;
 	uint32_t mKofN;
 	mutable uint32_t mTries;
+	bool mExtractPassword;
 	bool mAuthenticateUser;
 	map<string,string> mLocalizedPrompts;
+	map<string,string> mLocalizedButtons;
 
 private:
 
@@ -118,7 +122,7 @@ private:
 		static double getDouble(CFDictionaryRef config, CFStringRef key, bool required, double defaultValue);
 		static string getString(CFDictionaryRef config, CFStringRef key, bool required, const char *defaultValue);
 		static vector<string> getVector(CFDictionaryRef config, CFStringRef key, bool required);
-		static bool getLocalizedPrompts(CFDictionaryRef config, map<string,string> &localizedPrompts);
+		static bool getLocalizedText(CFDictionaryRef config, map<string,string> &localizedPrompts, CFStringRef dictKey, const char *descriptionKey);
 	};
 
 
@@ -131,7 +135,9 @@ private:
 	static CFStringRef kSessionOwnerID;
 	static CFStringRef kKofNID;
 	static CFStringRef kPromptID;
+	static CFStringRef kButtonID;
     static CFStringRef kTriesID;
+	static CFStringRef kExtractPasswordID;
     
 	static CFStringRef kRuleClassID;
 	static CFStringRef kRuleAllowID;

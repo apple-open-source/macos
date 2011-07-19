@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: config-amigaos.h,v 1.19 2009-06-19 00:41:04 yangtse Exp $
  ***************************************************************************/
 
 #ifdef __AMIGA__ /* Any AmigaOS flavour */
@@ -84,6 +83,10 @@
 #define HAVE_SYS_IOCTL_H 1
 
 #define NEED_MALLOC_H 1
+
+#define SIZEOF_INT 4
+#define SIZEOF_SHORT 2
+#define SIZEOF_SIZE_T 4
 
 #define USE_OPENSSL 1
 #define USE_SSLEAY 1

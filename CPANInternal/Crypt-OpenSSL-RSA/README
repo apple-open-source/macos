@@ -9,7 +9,7 @@ in the OpenSSL library.  In particular, it provides the following functions:
        get_public_key_x509_string - save public portion of key to a string,
                                     using format compatibe with OpenSSL's
                                     command-line rsa tool
-       encrypt, decrypt, sign, verify,
+       encrypt, decrypt, private_encrypt, public_decrypt, sign, verify,
        use_pkcs1_oaep_padding, use_pkcs1_padding,
        use_sslv23_padding, use_no_padding
        use_md5_hash, use_sha1_hash, use_ripemd160_hash
@@ -17,38 +17,8 @@ in the OpenSSL library.  In particular, it provides the following functions:
        check_key - checks the validity of a key.
 
 Bugs:
-  There is a small memory leak when generating new keys of more than 512 bits.
-
-  The openssl functions RSA_public_decrypt, RSA_private_decrypt are
-  not yet implemented.
-
   There is no Crypt::CBC support.
 
-  (Reported by Max Baker <max@warped.org>) For making under Redhat 8
-  or 9 you may need to supply the include path to the kerberos header
-  files when running make
-
-    make C_INCLUDE_PATH=/usr/kerberos/include
-
-
-NOTE: as of version 0.17, the following methods are DEPRECATED:
-  - the no-arg new constructor - use new_from_public_key,
-    new_from_private_key or Crypt::OpenSSL::RSA->generate_key instead
-  - load_public_key - use new_from_public_key
-  - load_private_key - use new_from_private_key
-  - generate_key as an instance method - use it as a class constructor
-    method instead.
-  - set_padding_mode - use use_no_padding, use_pkcs1_padding,
-    use_pkcs1_oaep_padding, or use_sslv23_padding instead.
-  - get_padding_mode
-
-While I plan a grace period of several months at least before removing
-these methods, they will go away, so you should start migrating your
-code now.  Of course, I am open to arguments why some or all of these
-methods should be kept around longer/permanently; feel free to send
-email to me at iroberts@cpan.org, or visit
-http://perl-openssl.sourceforge.net/.
-
-Copyright (c) 2001-2004 Ian Robertson.  Crypt::OpenSSL::RSA is free
+Copyright (c) 2001-2005 Ian Robertson.  Crypt::OpenSSL::RSA is free
 software; you may redistribute it and/or modify it under the same
 terms as Perl itself.

@@ -112,7 +112,7 @@ AuditLogger::setClientInfo(const AuditToken &srcToken)
     mRuid = srcToken.ruid();
     mRgid = srcToken.rgid();
     mPid = srcToken.pid();
-    mAuditSessionId = srcToken.auditSession();
+    mAuditSessionId = srcToken.sessionId();
     memcpy(&mOldTerminalId, &(srcToken.terminalId()), sizeof(mOldTerminalId));
     
     mTerminalId.at_type = AU_IPv4;

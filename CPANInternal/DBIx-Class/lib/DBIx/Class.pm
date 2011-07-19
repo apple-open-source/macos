@@ -3,18 +3,22 @@ package DBIx::Class;
 use strict;
 use warnings;
 
+use MRO::Compat;
+use mro 'c3';
+
+use DBIx::Class::Optional::Dependencies;
+
 use vars qw($VERSION);
 use base qw/DBIx::Class::Componentised Class::Accessor::Grouped/;
 use DBIx::Class::StartupCheck;
 
-
-sub mk_classdata { 
+sub mk_classdata {
   shift->mk_classaccessor(@_);
 }
 
 sub mk_classaccessor {
   my $self = shift;
-  $self->mk_group_accessors('inherited', $_[0]); 
+  $self->mk_group_accessors('inherited', $_[0]);
   $self->set_inherited(@_) if @_ > 1;
 }
 
@@ -23,8 +27,9 @@ sub component_base_class { 'DBIx::Class' }
 # Always remember to do all digits for the version even if they're 0
 # i.e. first release of 0.XX *must* be 0.XX000. This avoids fBSD ports
 # brain damage and presumably various other packaging systems too
+$VERSION = '0.08120';
 
-$VERSION = '0.08010';
+$VERSION = eval $VERSION if $VERSION =~ /_/; # numify for warning-free dev releases
 
 sub MODIFY_CODE_ATTRIBUTES {
   my ($class,$code,@attrs) = @_;
@@ -47,53 +52,83 @@ sub _attr_cache {
 
 DBIx::Class - Extensible and flexible object <-> relational mapper.
 
+=head1 GETTING HELP/SUPPORT
+
+The community can be found via:
+
+=over
+
+=item * IRC: L<irc.perl.org#dbix-class (click for instant chatroom login)
+|http://mibbit.com/chat/#dbix-class@irc.perl.org>
+
+=item * Mailing list: L<http://lists.scsys.co.uk/mailman/listinfo/dbix-class>
+
+=item * RT Bug Tracker: L<https://rt.cpan.org/Dist/Display.html?Queue=DBIx-Class>
+
+=item * SVNWeb: L<http://dev.catalyst.perl.org/svnweb/bast/browse/DBIx-Class/0.08>
+
+=item * SVN: L<http://dev.catalyst.perl.org/repos/bast/DBIx-Class/0.08>
+
+=back
+
 =head1 SYNOPSIS
 
-Create a schema class called DB/Main.pm:
+Create a schema class called MyDB/Schema.pm:
 
-  package DB::Main;
+  package MyDB::Schema;
   use base qw/DBIx::Class::Schema/;
 
-  __PACKAGE__->load_classes();
+  __PACKAGE__->load_namespaces();
 
   1;
 
-Create a table class to represent artists, who have many CDs, in DB/Main/Artist.pm:
+Create a result class to represent artists, who have many CDs, in
+MyDB/Schema/Result/Artist.pm:
 
-  package DB::Main::Artist;
-  use base qw/DBIx::Class/;
+See L<DBIx::Class::ResultSource> for docs on defining result classes.
 
-  __PACKAGE__->load_components(qw/PK::Auto Core/);
+  package MyDB::Schema::Result::Artist;
+  use base qw/DBIx::Class::Core/;
+
   __PACKAGE__->table('artist');
   __PACKAGE__->add_columns(qw/ artistid name /);
   __PACKAGE__->set_primary_key('artistid');
-  __PACKAGE__->has_many(cds => 'DB::Main::CD');
+  __PACKAGE__->has_many(cds => 'MyDB::Schema::Result::CD');
 
   1;
 
-A table class to represent a CD, which belongs to an artist, in DB/Main/CD.pm:
+A result class to represent a CD, which belongs to an artist, in
+MyDB/Schema/Result/CD.pm:
 
-  package DB::Main::CD;
-  use base qw/DBIx::Class/;
+  package MyDB::Schema::Result::CD;
+  use base qw/DBIx::Class::Core/;
 
-  __PACKAGE__->load_components(qw/PK::Auto Core/);
+  __PACKAGE__->load_components(qw/InflateColumn::DateTime/);
   __PACKAGE__->table('cd');
-  __PACKAGE__->add_columns(qw/ cdid artist title year /);
+  __PACKAGE__->add_columns(qw/ cdid artistid title year /);
   __PACKAGE__->set_primary_key('cdid');
-  __PACKAGE__->belongs_to(artist => 'DB::Main::Artist');
+  __PACKAGE__->belongs_to(artist => 'MyDB::Schema::Artist', 'artistid');
 
   1;
 
 Then you can use these classes in your application's code:
 
   # Connect to your database.
-  use DB::Main;
-  my $schema = DB::Main->connect($dbi_dsn, $user, $pass, \%dbi_params);
+  use MyDB::Schema;
+  my $schema = MyDB::Schema->connect($dbi_dsn, $user, $pass, \%dbi_params);
 
   # Query for all artists and put them in an array,
   # or retrieve them as a result set object.
+  # $schema->resultset returns a DBIx::Class::ResultSet
   my @all_artists = $schema->resultset('Artist')->all;
   my $all_artists_rs = $schema->resultset('Artist');
+
+  # Output all artists names
+  # $artist here is a DBIx::Class::Row, which has accessors
+  # for all its columns. Rows are also subclasses of your Result class.
+  foreach $artist (@all_artists) {
+    print $artist->name, "\n";
+  }
 
   # Create a result set to search for artists.
   # This does not query the DB.
@@ -105,7 +140,7 @@ Then you can use these classes in your application's code:
   # Execute a joined query to get the cds.
   my @all_john_cds = $johns_rs->search_related('cds')->all;
 
-  # Fetch only the next row.
+  # Fetch the next available row.
   my $first_john = $johns_rs->next;
 
   # Specify ORDER BY on the query.
@@ -114,7 +149,7 @@ Then you can use these classes in your application's code:
     { order_by => 'title' }
   );
 
-  # Create a result set that will fetch the artist relationship
+  # Create a result set that will fetch the artist data
   # at the same time as it fetches CDs, using only one query.
   my $millennium_cds_rs = $schema->resultset('CD')->search(
     { year => 2000 },
@@ -122,7 +157,7 @@ Then you can use these classes in your application's code:
   );
 
   my $cd = $millennium_cds_rs->next; # SELECT ... FROM cds JOIN artists ...
-  my $cd_artist_name = $cd->artist->name; # Already has the data so no query
+  my $cd_artist_name = $cd->artist->name; # Already has the data so no 2nd query
 
   # new() makes a DBIx::Class::Row object but doesnt insert it into the DB.
   # create() is the same as new() then insert().
@@ -133,17 +168,18 @@ Then you can use these classes in your application's code:
 
   $schema->txn_do(sub { $new_cd->update }); # Runs the update in a transaction
 
-  $millennium_cds_rs->update({ year => 2002 }); # Single-query bulk update
+  # change the year of all the millennium CDs at once
+  $millennium_cds_rs->update({ year => 2002 });
 
 =head1 DESCRIPTION
 
 This is an SQL to OO mapper with an object API inspired by L<Class::DBI>
-(and a compatibility layer as a springboard for porting) and a resultset API
+(with a compatibility layer as a springboard for porting) and a resultset API
 that allows abstract encapsulation of database operations. It aims to make
 representing queries in your code as perl-ish as possible while still
 providing access to as many of the capabilities of the database as possible,
 including retrieving related records from multiple tables in a single query,
-JOIN, LEFT JOIN, COUNT, DISTINCT, GROUP BY and HAVING support.
+JOIN, LEFT JOIN, COUNT, DISTINCT, GROUP BY, ORDER BY and HAVING support.
 
 DBIx::Class can handle multi-column primary and foreign keys, complex
 queries and database-level paging, and does its best to only query the
@@ -168,16 +204,6 @@ The test suite is quite substantial, and several developer releases
 are generally made to CPAN before the branch for the next release is
 merged back to trunk for a major release.
 
-The community can be found via:
-
-  Mailing list: http://lists.scsys.co.uk/mailman/listinfo/dbix-class/
-
-  SVN: http://dev.catalyst.perl.org/repos/bast/DBIx-Class/
-
-  SVNWeb: http://dev.catalyst.perl.org/svnweb/bast/browse/DBIx-Class/
-
-  IRC: irc.perl.org#dbix-class
-
 =head1 WHERE TO GO NEXT
 
 L<DBIx::Class::Manual::DocMap> lists each task you might want help on, and
@@ -200,6 +226,8 @@ andyg: Andy Grundman <andy@hybridized.org>
 
 ank: Andres Kievsky
 
+arcanez: Justin Hunter <justin.d.hunter@gmail.com>
+
 ash: Ash Berlin <ash@cpan.org>
 
 bert: Norbert Csongradi <bert@cpan.org>
@@ -208,7 +236,13 @@ blblack: Brandon L. Black <blblack@gmail.com>
 
 bluefeet: Aran Deltac <bluefeet@cpan.org>
 
-captainL: Luke Saunders <luke.saunders@gmail.com>
+boghead: Bryan Beeley <cpan@beeley.org>
+
+bricas: Brian Cassidy <bricas@cpan.org>
+
+brunov: Bruno Vecchi <vecchi.b@gmail.com>
+
+caelum: Rafael Kitover <rkitover@cpan.org>
 
 castaway: Jess Robinson
 
@@ -218,21 +252,37 @@ clkao: CL Kao
 
 da5id: David Jack Olrik <djo@cpan.org>
 
+debolaz: Anders Nor Berle <berle@cpan.org>
+
+dew: Dan Thomas <dan@godders.org>
+
 dkubb: Dan Kubb <dan.kubb-cpan@onautopilot.com>
 
 dnm: Justin Wheeler <jwheeler@datademons.com>
-
-draven: Marcus Ramberg <mramberg@cpan.org>
 
 dwc: Daniel Westermann-Clark <danieltwc@cpan.org>
 
 dyfrgi: Michael Leuchtenburg <michael@slashhome.org>
 
+frew: Arthur Axel "fREW" Schmidt <frioux@gmail.com>
+
+goraxe: Gordon Irving <goraxe@cpan.org>
+
 gphat: Cory G Watson <gphat@cpan.org>
+
+groditi: Guillermo Roditi <groditi@cpan.org>
+
+ilmari: Dagfinn Ilmari MannsE<aring>ker <ilmari@ilmari.org>
+
+jasonmay: Jason May <jason.a.may@gmail.com>
 
 jesper: Jesper Krogh
 
+jgoulah: John Goulah <jgoulah@cpan.org>
+
 jguenther: Justin Guenther <jguenther@cpan.org>
+
+jhannah: Jay Hannah <jay@jays.net>
 
 jnapiorkowski: John Napiorkowski <jjn1056@yahoo.com>
 
@@ -242,9 +292,13 @@ jshirley: J. Shirley <jshirley@gmail.com>
 
 konobi: Scott McWhirter
 
-LTJake: Brian Cassidy <bricas@cpan.org>
+lukes: Luke Saunders <luke.saunders@gmail.com>
+
+marcus: Marcus Ramberg <mramberg@cpan.org>
 
 mattlaw: Matt Lawrence
+
+michaelr: Michael Reddick <michael.reddick@gmail.com>
 
 ned: Neil de Carteret
 
@@ -252,7 +306,15 @@ nigel: Nigel Metheringham <nigelm@cpan.org>
 
 ningu: David Kamholz <dkamholz@cpan.org>
 
+Nniuq: Ron "Quinn" Straight" <quinnfazigu@gmail.org>
+
+norbi: Norbert Buchmuller <norbi@nix.hu>
+
+nuba: Nuba Princigalli <nuba@cpan.org>
+
 Numa: Dan Sully <daniel@cpan.org>
+
+ovid: Curtis "Ovid" Poe <ovid@cpan.org>
 
 oyse: Øystein Torget <oystein.torget@dnv.com>
 
@@ -262,9 +324,27 @@ penguin: K J Cheetham
 
 perigrin: Chris Prather <chris@prather.org>
 
+peter: Peter Collingbourne <peter@pcc.me.uk>
+
 phaylon: Robert Sedlacek <phaylon@dunkelheit.at>
 
+plu: Johannes Plunien <plu@cpan.org>
+
 quicksilver: Jules Bean
+
+rafl: Florian Ragwitz <rafl@debian.org>
+
+rbuels: Robert Buels <rmb32@cornell.edu>
+
+rdj: Ryan D Johnson <ryan@innerfence.com>
+
+ribasushi: Peter Rabbitson <ribasushi@cpan.org>
+
+rjbs: Ricardo Signes <rjbs@cpan.org>
+
+robkinyon: Rob Kinyon <rkinyon@cpan.org>
+
+Roman: Roman Filippov <romanf@cpan.org>
 
 sc_: Just Another Perl Hacker
 
@@ -272,11 +352,19 @@ scotty: Scotty Allen <scotty@scottyallen.com>
 
 semifor: Marc Mims <marc@questright.com>
 
+solomon: Jared Johnson <jaredj@nmgi.com>
+
+spb: Stephen Bennett <stephen@freenode.net>
+
 sszabo: Stephan Szabo <sszabo@bigpanda.com>
+
+teejay : Aaron Trevena <teejay@cpan.org>
 
 Todd Lipcon
 
 Tom Hukins
+
+triode: Pete Gamache <gamache@cpan.org>
 
 typester: Daisuke Murase <typester@cpan.org>
 
@@ -286,10 +374,18 @@ wdh: Will Hawes
 
 willert: Sebastian Willert <willert@cpan.org>
 
+wreis: Wallace Reis <wreis@cpan.org>
+
 zamolxes: Bogdan Lucaciu <bogdan@wiz.ro>
+
+=head1 COPYRIGHT
+
+Copyright (c) 2005 - 2010 the DBIx::Class L</AUTHOR> and L</CONTRIBUTORS>
+as listed above.
 
 =head1 LICENSE
 
-You may distribute this code under the same terms as Perl itself.
+This library is free software and may be distributed under the same terms
+as perl itself.
 
 =cut

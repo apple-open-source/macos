@@ -61,8 +61,10 @@
 #include <sys/resource.h>
 #include <sys/sysctl.h>
 #include <sys/queue.h>
+#include <sys/mman.h>
 #include <machine/vmparam.h>
 #include <mach/vm_statistics.h>
+#include <mach/mach_init.h>
 #define	__APPLE_API_PRIVATE
 #include <machine/cpu_capabilities.h>
 #include <libkern/OSAtomic.h>
@@ -88,7 +90,6 @@ extern void mig_init(int);
 static int _pthread_create_pthread_onstack(pthread_attr_t *attrs, void **stack, pthread_t *thread);
 static kern_return_t _pthread_free_pthread_onstack(pthread_t t, int freestruct, int termthread);
 static void _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs, void * stack, size_t stacksize, int kernalloc, int nozero);
-static void _pthread_tsd_reinit(pthread_t t);
 static int  _new_pthread_create_suspended(pthread_t *thread, 
 	       const pthread_attr_t *attr,
 	       void *(*start_routine)(void *), 
@@ -145,7 +146,7 @@ __private_extern__ void _spin_lock_retry(pthread_lock_t *lock)
 	} while(!_spin_lock_try(lock));
 }
 
-extern mach_port_t thread_recycle_port;
+static mach_port_t thread_recycle_port = MACH_PORT_NULL;
 
 /* These are used to keep track of a semaphore pool shared by mutexes and condition
 ** variables.
@@ -163,24 +164,29 @@ static int pthread_concurrency;
 
 static OSSpinLock __workqueue_list_lock = OS_SPINLOCK_INIT;
 
-static void _pthread_exit(pthread_t self, void *value_ptr);
+static void _pthread_exit(pthread_t self, void *value_ptr) __dead2;
 static void _pthread_setcancelstate_exit(pthread_t self, void  *value_ptr, int conforming);
 static pthread_attr_t _pthread_attr_default = {0};
 static void _pthread_workq_init(pthread_workqueue_t wq, const pthread_workqueue_attr_t * attr);
 static int kernel_workq_setup = 0;
 static volatile int32_t kernel_workq_count = 0;
-static volatile unsigned int user_workq_count = 0; 
+static volatile unsigned int user_workq_count = 0; 	/* number of outstanding workqueues */
+static volatile unsigned int user_workitem_count = 0; 	/* number of outstanding workitems */
 #define KERNEL_WORKQ_ELEM_MAX  	64		/* Max number of elements in the kerrel */
 static int wqreadyprio = 0;	/* current highest prio queue ready with items */
 
-static int __pthread_workqueue_affinity = 1;	/* 0 means no affinity */
 __private_extern__ struct __pthread_workitem_pool __pthread_workitem_pool_head = TAILQ_HEAD_INITIALIZER(__pthread_workitem_pool_head);
 __private_extern__ struct __pthread_workqueue_pool __pthread_workqueue_pool_head = TAILQ_HEAD_INITIALIZER(__pthread_workqueue_pool_head);
+
+static struct _pthread_workitem *  __workqueue_pool_ptr;
+static size_t __workqueue_pool_size = 0;
+static int __workqueue_nitems = 0;
 
 struct _pthread_workqueue_head __pthread_workq0_head;
 struct _pthread_workqueue_head __pthread_workq1_head;
 struct _pthread_workqueue_head __pthread_workq2_head;
-pthread_workqueue_head_t __pthread_wq_head_tbl[WQ_NUM_PRIO_QS] = {&__pthread_workq0_head, &__pthread_workq1_head, &__pthread_workq2_head};
+struct _pthread_workqueue_head __pthread_workq3_head;
+pthread_workqueue_head_t __pthread_wq_head_tbl[WORKQ_NUM_PRIOQUEUE] = {&__pthread_workq0_head, &__pthread_workq1_head, &__pthread_workq2_head, &__pthread_workq3_head};
 
 static void workqueue_list_lock(void);
 static void workqueue_list_unlock(void);
@@ -193,10 +199,12 @@ extern void start_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, 
 extern void thread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int flags);
 static pthread_workitem_t alloc_workitem(void);
 static void free_workitem(pthread_workitem_t);
+static void grow_workitem(void);
 static pthread_workqueue_t alloc_workqueue(void);
 static void free_workqueue(pthread_workqueue_t);
 static int _pthread_work_internal_init(void);
 static void workqueue_exit(pthread_t self, pthread_workqueue_t workq, pthread_workitem_t item);
+void _pthread_fork_child_postinit();
 
 void pthread_workqueue_atfork_prepare(void);
 void pthread_workqueue_atfork_parent(void);
@@ -234,7 +242,7 @@ void _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthr
 
 static int pthread_setschedparam_internal(pthread_t, mach_port_t, int, const struct sched_param *);
 extern pthread_t __bsdthread_create(void *(*func)(void *), void * func_arg, void * stack, pthread_t  thread, unsigned int flags);
-extern int __bsdthread_register(void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), void (*)(pthread_t, mach_port_t, void *, pthread_workitem_t, int), int,void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), void (*)(pthread_t, mach_port_t, void *, pthread_workitem_t, int),__uint64_t);
+extern int __bsdthread_register(void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), void (*)(pthread_t, mach_port_t, void *, pthread_workitem_t, int), int,void (*)(pthread_t, mach_port_t, void *(*)(void *), void *, size_t, unsigned int), int32_t *,__uint64_t);
 extern int __bsdthread_terminate(void * freeaddr, size_t freesize, mach_port_t kport, mach_port_t joinsem);
 extern __uint64_t __thread_selfid( void );
 extern int __pthread_canceled(int);
@@ -365,7 +373,6 @@ _pthread_free_pthread_onstack(pthread_t t, int freestruct, int termthread)
 	kern_return_t res = 0;
     	vm_address_t freeaddr;
     	size_t freesize;
-	task_t self = mach_task_self();
 	int thread_count;
 	mach_port_t kport;
 	semaphore_t joinsem = SEMAPHORE_NULL;
@@ -820,13 +827,16 @@ static void
 _pthread_body(pthread_t self)
 {
     _pthread_set_self(self);
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+	if( (self->thread_id = __thread_selfid()) == (__uint64_t)-1)
+		printf("Failed to set thread_id in _pthread_body\n");
+#endif
     _pthread_exit(self, (self->fun)(self->arg));
 }
 
 void
 _pthread_start(pthread_t self, mach_port_t kport, void *(*fun)(void *), void * funarg, size_t stacksize, unsigned int pflags)
 {
-	int ret;
 #if WQ_DEBUG
 	pthread_t pself;
 #endif
@@ -916,7 +926,7 @@ _pthread_create(pthread_t t,
 		t->policy = attrs->policy;
 		t->param = attrs->param;
 		t->freeStackOnExit = attrs->freeStackOnExit;
-		t->mutexes = (struct _pthread_mutex *)NULL;
+		t->cancel_error = 0;
 		t->sig = _PTHREAD_SIG;
                 t->reply_port = MACH_PORT_NULL;
                 t->cthread_self = NULL;
@@ -936,7 +946,7 @@ _pthread_create(pthread_t t,
 void
 _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs, void * stack, size_t stacksize, int kernalloc, int nozero)
 {
-	mach_vm_offset_t stackaddr = (mach_vm_offset_t)(long)stack;
+	mach_vm_offset_t stackaddr = (mach_vm_offset_t)(uintptr_t)stack;
 
 		if (nozero == 0) {
 			memset(t, 0, sizeof(*t));
@@ -946,13 +956,13 @@ _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs, void * stack, siz
 		t->schedset = attrs->schedset;
 		t->tsd[0] = t;
 		if (kernalloc != 0) {
-			stackaddr = (mach_vm_offset_t)(long)t;
+			stackaddr = (mach_vm_offset_t)(uintptr_t)t;
 
 			/* if allocated from kernel set values appropriately */
 			t->stacksize = stacksize;
-       			t->stackaddr = (void *)(long)stackaddr;
+       			t->stackaddr = (void *)(uintptr_t)stackaddr;
 			t->freeStackOnExit = 1;
-			t->freeaddr = (void *)(long)(stackaddr - stacksize - vm_page_size);
+			t->freeaddr = (void *)(uintptr_t)(stackaddr - stacksize - vm_page_size);
 			t->freesize = pthreadsize + stacksize + vm_page_size;
 		} else {
 			t->stacksize = attrs->stacksize;
@@ -963,7 +973,7 @@ _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs, void * stack, siz
 		t->inherit = attrs->inherit;
 		t->policy = attrs->policy;
 		t->param = attrs->param;
-		t->mutexes = (struct _pthread_mutex *)NULL;
+		t->cancel_error = 0;
 		t->sig = _PTHREAD_SIG;
 		t->reply_port = MACH_PORT_NULL;
 		t->cthread_self = NULL;
@@ -978,13 +988,6 @@ _pthread_struct_init(pthread_t t, const pthread_attr_t *attrs, void * stack, siz
 		t->cur_workitem = 0;
 		t->max_tsd_key = 0;
 }
-
-static void
-_pthread_tsd_reinit(pthread_t t)
-{
-	bzero(&t->tsd[1], (_INTERNAL_POSIX_THREAD_KEYS_END-1) * sizeof(void *));
-}
-
 
 /* Need to deprecate this in future */
 int
@@ -1047,12 +1050,8 @@ pthread_t pthread_from_mach_thread_np(mach_port_t kernel_thread)
 size_t
 pthread_get_stacksize_np(pthread_t t)
 {
-	int ret,nestingDepth=0;
+	int ret;
 	size_t size = 0;
-	vm_address_t address=0;
-        vm_size_t region_size=0;
-	struct vm_region_submap_info_64 info;
- 	mach_msg_type_number_t  count;
 
 	if (t == NULL)
 		return(ESRCH);
@@ -1084,7 +1083,7 @@ pthread_get_stackaddr_np(pthread_t t)
 	void * addr = NULL;
 
 	if (t == NULL)
-		return((void *)(long)ESRCH);
+		return((void *)(uintptr_t)ESRCH);
 	
 	if(t == pthread_self() || t == &_thread) //since the main thread will not get deallocated from underneath us
 		return t->stackaddr;
@@ -1093,7 +1092,7 @@ pthread_get_stackaddr_np(pthread_t t)
 
 	if ((ret = _pthread_find_thread(t)) != 0) {
 		UNLOCK(_pthread_list_lock);
-		return((void *)(long)ret);
+		return((void *)(uintptr_t)ret);
 	}
 	addr = t->stackaddr;
 	UNLOCK(_pthread_list_lock);
@@ -1171,14 +1170,16 @@ int
 pthread_setname_np(const char *threadname)
 {
 	int rval;
-	size_t len;
+	int len;
 
 	rval = 0;
 	len = strlen(threadname);
-	rval = sysctlbyname("kern.threadname", NULL, 0, threadname, len);
+
+	/* protytype is in pthread_internals.h */
+	rval = proc_setthreadname((void *)threadname, len);
 	if(rval == 0)
 	{
-		strlcpy((pthread_self())->pthread_name, threadname, len+1);	
+		strlcpy((pthread_self())->pthread_name, threadname, MAXTHREADNAMESIZE);
 	}
 	return rval;
 
@@ -1309,7 +1310,7 @@ _new_pthread_create_suspended(pthread_t *thread,
 			__kdebug_trace(0x9000008, t, 0, 0, 1, 0);
 #endif
 			if(t->freeStackOnExit)
-                                vm_deallocate(self, (mach_vm_address_t)(long)t, pthreadsize);
+                                vm_deallocate(self, (mach_vm_address_t)(uintptr_t)t, pthreadsize);
                         else
 				free(t);
 			} else if (t->childrun == 0) {
@@ -1345,7 +1346,7 @@ _new_pthread_create_suspended(pthread_t *thread,
 #if PTH_TRACE
 			__kdebug_trace(0x9000008, t, pthreadsize, 0, 2, 0);
 #endif
-				vm_deallocate(self, (mach_vm_address_t)(long)t, pthreadsize);
+				vm_deallocate(self, (mach_vm_address_t)(uintptr_t)t, pthreadsize);
 			} else if (t->childrun == 0) {
 				TAILQ_INSERT_TAIL(&__pthread_head, t, plist);
 				_pthread_count++;
@@ -1921,16 +1922,21 @@ pthread_equal(pthread_t t1,
 	return (t1 == t2);
 }
 
-__private_extern__ void
+// Force LLVM not to optimise this to a call to __pthread_set_self, if it does
+// then _pthread_set_self won't be bound when secondary threads try and start up.
+void __attribute__((noinline))
 _pthread_set_self(pthread_t p)
 {
-	extern void __pthread_set_self(pthread_t);
+	extern void __pthread_set_self(void *);
+
         if (p == 0) {
-                bzero(&_thread, sizeof(struct _pthread));
+                if (_thread.tsd[0] != 0) {
+                        bzero(&_thread, sizeof(struct _pthread));
+                }
                 p = &_thread;
         }
         p->tsd[0] = p;
-	__pthread_set_self(p);
+	__pthread_set_self(&p->tsd[0]);
 }
 
 void 
@@ -2022,7 +2028,7 @@ pthread_setconcurrency(int new_level)
 /*
  * Perform package initialization - called automatically when application starts
  */
-__private_extern__ int
+int
 pthread_init(void)
 {
 	pthread_attr_t *attrs;
@@ -2082,6 +2088,7 @@ pthread_init(void)
 	workq_targetconc[WORKQ_HIGH_PRIOQUEUE] = ncpus;
 	workq_targetconc[WORKQ_DEFAULT_PRIOQUEUE] = ncpus;
 	workq_targetconc[WORKQ_LOW_PRIOQUEUE] =  ncpus;
+	workq_targetconc[WORKQ_BG_PRIOQUEUE] =  ncpus;
 
 	mach_port_deallocate(mach_task_self(), host);
     
@@ -2104,21 +2111,22 @@ pthread_init(void)
 		/* We ignore the return result here. The ObjC runtime will just have to deal. */
 }
 #endif
-
+	//added so that thread_recycle_port is initialized on new launch.
+	_pthread_fork_child_postinit();
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 	if (__oldstyle == 0) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
-		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (__uint64_t)(&thread->tsd[__PTK_LIBDISPATCH_KEY0]) - (__uint64_t)thread);
+		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (uintptr_t)(&thread->tsd[__PTK_LIBDISPATCH_KEY0]) - (uintptr_t)(&thread->tsd[0]));
 #else
-		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)), NULL, &workq_targetconc[0], (__uint64_t)&thread->tsd[__PTK_LIBDISPATCH_KEY0] - (__uint64_t)thread);
+		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)), NULL, &workq_targetconc[0], (uintptr_t)&thread->tsd[__PTK_LIBDISPATCH_KEY0] - (uintptr_t)thread);
 #endif
 	}
 
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
 	if( (thread->thread_id = __thread_selfid()) == (__uint64_t)-1)
 		printf("Failed to set thread_id in pthread_init\n");
-	return 0;
 #endif
+	return 0;
 }
 
 int sched_yield(void)
@@ -2128,8 +2136,12 @@ int sched_yield(void)
 }
 
 /* This used to be the "magic" that gets the initialization routine called when the application starts */
-static int _do_nothing(void) { return 0; }
-int (*_cthread_init_routine)(void) = _do_nothing;
+/*
+ * (These has been moved to setenv.c, so we can use it to fix a less than 10.5
+ * crt1.o issue)
+ * static int _do_nothing(void) { return 0; }
+ * int (*_cthread_init_routine)(void) = _do_nothing;
+ */
 
 /* Get a semaphore from the pool, growing it if necessary */
 
@@ -2186,6 +2198,15 @@ __private_extern__ void _pthread_fork_child(pthread_t p) {
 #endif
 }
 
+void _pthread_fork_child_postinit() {
+       kern_return_t kr;
+
+       kr = mach_port_allocate(mach_task_self(), MACH_PORT_RIGHT_RECEIVE, &thread_recycle_port);
+       if (kr != KERN_SUCCESS) {
+               abort();
+       }
+}
+
 /*
  * Query/update the cancelability 'state' of a thread
  */
@@ -2239,7 +2260,7 @@ int
 _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming)
 {
 	kern_return_t res;
-	int detached = 0, ret;
+	int ret;
 
 #if PTH_TRACE
 	__kdebug_trace(0x9000028, thread, 0, 0, 1, 0);
@@ -2288,7 +2309,7 @@ _pthread_join_cleanup(pthread_t thread, void ** value_ptr, int conforming)
 #if PTH_TRACE
 	__kdebug_trace(0x9000028, thread, 0, 0, 2, 0);
 #endif
-		vm_deallocate(mach_task_self(), (mach_vm_address_t)(long)thread, pthreadsize);
+		vm_deallocate(mach_task_self(), (mach_vm_address_t)(uintptr_t)thread, pthreadsize);
 	} else {
 		thread->sig = _PTHREAD_NO_SIG;
 #if PTH_TRACE
@@ -2390,6 +2411,7 @@ int error = 0;
 			case WORKQ_HIGH_PRIOQUEUE:
 			case WORKQ_DEFAULT_PRIOQUEUE:
 			case WORKQ_LOW_PRIOQUEUE:
+			case WORKQ_BG_PRIOQUEUE:
         			attr->queueprio = qprio;
 				break;
 			default:
@@ -2510,31 +2532,47 @@ _pthread_work_internal_init(void)
 {
 	int i, error;
 	pthread_workqueue_head_t headp;
-	pthread_workitem_t witemp;
 	pthread_workqueue_t wq;
+#if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
+	pthread_t self = pthread_self();
+#endif
 
 	if (kernel_workq_setup == 0) {
 #if defined(__i386__) || defined(__x86_64__) || defined(__arm__)
-		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL, NULL);
+		__bsdthread_register(thread_start, start_wqthread, round_page(sizeof(struct _pthread)), _pthread_start, &workq_targetconc[0], (uintptr_t)(&self->tsd[__PTK_LIBDISPATCH_KEY0]) - (uintptr_t)(&self->tsd[0]));
 #else
-		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL, NULL);
+		__bsdthread_register(_pthread_start, _pthread_wqthread, round_page(sizeof(struct _pthread)),NULL,NULL,0);
 #endif
 
 		_pthread_wq_attr_default.queueprio = WORKQ_DEFAULT_PRIOQUEUE;
 		_pthread_wq_attr_default.sig = PTHREAD_WORKQUEUE_ATTR_SIG;
 
-		for( i = 0; i< WQ_NUM_PRIO_QS; i++) {
+		for( i = 0; i< WORKQ_NUM_PRIOQUEUE; i++) {
 			headp = __pthread_wq_head_tbl[i];
 			TAILQ_INIT(&headp->wqhead);
 			headp->next_workq = 0;
 		}
 
-		/* create work item and workqueue pools */
-		witemp = (struct _pthread_workitem *)malloc(sizeof(struct _pthread_workitem) * WORKITEM_POOL_SIZE);
-		bzero(witemp, (sizeof(struct _pthread_workitem) * WORKITEM_POOL_SIZE));
-		for (i = 0; i < WORKITEM_POOL_SIZE; i++) {
-			TAILQ_INSERT_TAIL(&__pthread_workitem_pool_head, &witemp[i], item_entry);
-		}
+		__workqueue_pool_ptr = NULL;
+		__workqueue_pool_size = round_page(sizeof(struct _pthread_workitem) * WORKITEM_POOL_SIZE);
+
+		__workqueue_pool_ptr = (struct _pthread_workitem *)mmap(NULL, __workqueue_pool_size,
+			PROT_READ|PROT_WRITE,
+			MAP_ANON | MAP_PRIVATE,
+			0,
+			0);
+
+		if (__workqueue_pool_ptr == MAP_FAILED) {
+			/* Not expected to fail, if it does, always malloc for work items */
+			__workqueue_nitems = WORKITEM_POOL_SIZE;
+			__workqueue_pool_ptr = NULL;
+		} else 
+			__workqueue_nitems = 0;
+
+		/* sets up the workitem pool */
+		grow_workitem();
+
+		/* since the size is less than a page, leaving this in malloc pool */
 		wq = (struct _pthread_workqueue *)malloc(sizeof(struct _pthread_workqueue) * WORKQUEUE_POOL_SIZE);
 		bzero(wq, (sizeof(struct _pthread_workqueue) * WORKQUEUE_POOL_SIZE));
 		for (i = 0; i < WORKQUEUE_POOL_SIZE; i++) {
@@ -2544,7 +2582,9 @@ _pthread_work_internal_init(void)
 		if (error = __workq_open()) {
 			TAILQ_INIT(&__pthread_workitem_pool_head);
 			TAILQ_INIT(&__pthread_workqueue_pool_head);
-			free(witemp);
+			if (__workqueue_pool_ptr != NULL) {
+				munmap((void *)__workqueue_pool_ptr, __workqueue_pool_size);
+			}
 			free(wq);
 			return(ENOMEM);
 		}
@@ -2561,14 +2601,25 @@ alloc_workitem(void)
 	pthread_workitem_t witem;
 
 	if (TAILQ_EMPTY(&__pthread_workitem_pool_head)) {
-		workqueue_list_unlock();
-		witem = malloc(sizeof(struct _pthread_workitem));
-		witem->gencount = 0;
-		workqueue_list_lock();
-	} else {
-		witem = TAILQ_FIRST(&__pthread_workitem_pool_head);
-		TAILQ_REMOVE(&__pthread_workitem_pool_head, witem, item_entry);
+		/* the chunk size is set so some multiple of it is pool size */
+		if (__workqueue_nitems < WORKITEM_POOL_SIZE) {
+			grow_workitem();
+		} else {
+			workqueue_list_unlock();
+			witem = malloc(sizeof(struct _pthread_workitem));
+			workqueue_list_lock();
+			witem->fromcache = 0;
+			goto out;
+		}
 	}
+	witem = TAILQ_FIRST(&__pthread_workitem_pool_head);
+	TAILQ_REMOVE(&__pthread_workitem_pool_head, witem, item_entry);
+	witem->fromcache = 1;
+out:
+	witem->flags = 0;
+	witem->item_entry.tqe_next = 0;
+	witem->item_entry.tqe_prev = 0;
+	user_workitem_count++;
 	return(witem);
 }
 
@@ -2576,8 +2627,27 @@ alloc_workitem(void)
 static void
 free_workitem(pthread_workitem_t witem) 
 {
-	witem->gencount++;
-	TAILQ_INSERT_TAIL(&__pthread_workitem_pool_head, witem, item_entry);
+	user_workitem_count--;
+	witem->flags = 0;
+	if (witem->fromcache != 0)
+		TAILQ_INSERT_TAIL(&__pthread_workitem_pool_head, witem, item_entry);
+	else
+		free(witem);
+}
+
+static void
+grow_workitem(void)
+{
+	pthread_workitem_t witemp;
+	int i;
+
+	 witemp = &__workqueue_pool_ptr[__workqueue_nitems];
+	bzero(witemp, (sizeof(struct _pthread_workitem) * WORKITEM_CHUNK_SIZE));
+	for (i = 0; i < WORKITEM_CHUNK_SIZE; i++) {
+		witemp[i].fromcache = 1;
+		TAILQ_INSERT_TAIL(&__pthread_workitem_pool_head, &witemp[i], item_entry);
+	}
+	__workqueue_nitems += WORKITEM_CHUNK_SIZE;
 }
 
 /* This routine is called with list lock held */
@@ -2655,7 +2725,7 @@ pick_nextworkqueue_droplock()
 loop:
 	while (kernel_workq_count < KERNEL_WORKQ_ELEM_MAX) {
 		found = 0;
-		for (i = 0; i < WQ_NUM_PRIO_QS; i++)  {
+		for (i = 0; i < WORKQ_NUM_PRIOQUEUE; i++)  {
 			wqreadyprio = i;	/* because there is nothing else higher to run */
 			headp = __pthread_wq_head_tbl[i];
 
@@ -2776,7 +2846,6 @@ post_nextworkitem(pthread_workqueue_t workq)
 #if WQ_LISTTRACE
 	__kdebug_trace(0x90080a8, workq, &workq->item_listhead, workq->item_listhead.tqh_first,  workq->item_listhead.tqh_last, 0);
 #endif
-				witem->flags = 0;
 				free_workitem(witem);
 #if WQ_TRACE
 			__kdebug_trace(0x9000064, 4, workq->barrier_count, 0, 0, 0);
@@ -2805,7 +2874,6 @@ post_nextworkitem(pthread_workqueue_t workq)
 				__kdebug_trace(0x900006c, workq, workq->kq_count, 0, 0xff, 0);
 #endif
 				}
-				witem->flags = 0;
 				free_workitem(witem);
 				workq->flags |= PTHREAD_WORKQ_DESTROYED;
 #if WQ_TRACE
@@ -2989,7 +3057,6 @@ _pthread_wqthread(pthread_t self, mach_port_t kport, void * stackaddr, pthread_w
 static void
 workqueue_exit(pthread_t self, pthread_workqueue_t workq, pthread_workitem_t item)
 {
-	pthread_attr_t *attrs = &_pthread_attr_default;
 	pthread_workitem_t baritem;
 	pthread_workqueue_head_t headp;
 	void (*func)(pthread_workqueue_t, void *);
@@ -3001,7 +3068,6 @@ workqueue_exit(pthread_t self, pthread_workqueue_t workq, pthread_workitem_t ite
 #if WQ_TRACE
 	__kdebug_trace(0x9000070, self, 1, item->func_arg, workq->kq_count, 0);
 #endif
-	item->flags = 0;
 	free_workitem(item);
 
 	if ((workq->flags & PTHREAD_WORKQ_BARRIER_ON) == PTHREAD_WORKQ_BARRIER_ON) {
@@ -3027,7 +3093,6 @@ workqueue_exit(pthread_t self, pthread_workqueue_t workq, pthread_workitem_t ite
 #if WQ_LISTTRACE
 	__kdebug_trace(0x90080a8, workq, &workq->item_listhead, workq->item_listhead.tqh_first,  workq->item_listhead.tqh_last, 0);
 #endif
-			baritem->flags = 0;
 			free_workitem(baritem);
 			workq->flags &= ~PTHREAD_WORKQ_BARRIER_ON;
 #if WQ_TRACE
@@ -3147,10 +3212,7 @@ pthread_workqueue_additem_np(pthread_workqueue_t workq, void ( *workitem_func)(v
 	witem = alloc_workitem();
 	witem->func = workitem_func;
 	witem->func_arg = workitem_arg;
-	witem->flags = 0;
 	witem->workq = workq;
-	witem->item_entry.tqe_next = 0;
-	witem->item_entry.tqe_prev = 0;
 
 	/* alloc workitem can drop the lock, check the state  */
 	if ((workq->flags & (PTHREAD_WORKQ_IN_TERMINATE | PTHREAD_WORKQ_DESTROYED)) != 0) {
@@ -3163,7 +3225,7 @@ pthread_workqueue_additem_np(pthread_workqueue_t workq, void ( *workitem_func)(v
 	if (itemhandlep != NULL)
 		*itemhandlep = (pthread_workitem_handle_t *)witem;
 	if (gencountp != NULL)
-		*gencountp = witem->gencount;
+		*gencountp = 0;
 #if WQ_TRACE
 	__kdebug_trace(0x9008090, witem, witem->func, witem->func_arg,  workq, 0);
 #endif
@@ -3183,8 +3245,6 @@ pthread_workqueue_additem_np(pthread_workqueue_t workq, void ( *workitem_func)(v
 int
 pthread_workqueue_getovercommit_np(pthread_workqueue_t workq,  unsigned int *ocommp)
 {
-        pthread_workitem_t witem;
-
         if (valid_workq(workq) == 0) {
                 return(EINVAL);
         }
@@ -3194,13 +3254,6 @@ pthread_workqueue_getovercommit_np(pthread_workqueue_t workq,  unsigned int *oco
 	return(0);
 }
 
-
-/* DEPRECATED 
-int pthread_workqueue_removeitem_np(pthread_workqueue_t workq, pthread_workitem_handle_t itemhandle, unsigned int gencount)
-int pthread_workqueue_addbarrier_np(pthread_workqueue_t workq, void (* callback_func)(pthread_workqueue_t, void *), void * callback_arg, pthread_workitem_handle_t *itemhandlep, unsigned int *gencountp)
-int pthread_workqueue_suspend_np(pthread_workqueue_t workq)
-int pthread_workqueue_resume_np(pthread_workqueue_t workq)
-*/
 
 #else /* !BUILDING_VARIANT ] [ */
 extern int __unix_conforming;
@@ -3220,8 +3273,7 @@ __posix_join_cleanup(void *arg)
 	int already_exited, res;
 	void * dummy;
 	semaphore_t death;
-	mach_port_t joinport;
-	int newstyle = 0;
+	int newstyle;
 
 	LOCK(thread->lock);
 	already_exited = (thread->detached & _PTHREAD_EXITED);

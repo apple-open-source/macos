@@ -1,0 +1,55 @@
+require "vnd.dovecot.testsuite";
+
+require "body";
+require "variables";
+
+test_set "message" text:
+From: stephan@example.org
+To: s.bosch@twente.example.net
+Subject: Body test
+
+The big bad body test.
+.
+;
+
+# Test whether body test ignores match values
+test "Match values disabled" {
+	if not body :raw :matches "The * bad * test*" {
+		test_fail "should have matched";
+	}
+
+	if anyof (
+		string :is "${1}" "big",
+		string :is "${2}" "body",
+		not string :is "${0}" "",
+		not string :is "${1}" "",
+		not string :is "${2}" "") {
+		test_fail "match values not disabled";
+	}
+}
+
+test "Match values re-enabled" {
+	if not header :matches "from" "*@*" {
+		test_fail "should have matched";
+	}
+
+	if anyof (
+		not string :is "${0}" "stephan@example.org",
+		not string :is "${1}" "stephan",
+		not string :is "${2}" "example.org" ) {
+		test_fail "match values not re-enabled properly.";
+	}
+}
+
+test "Match values retained" {
+	if not body :raw :matches "The * bad * test*" {
+		test_fail "should have matched";
+	}
+
+	if anyof (
+		not string :is "${0}" "stephan@example.org",
+		not string :is "${1}" "stephan",
+		not string :is "${2}" "example.org" ) {
+		test_fail "match values not retained after body test.";
+	}
+}

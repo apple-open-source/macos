@@ -22,11 +22,14 @@
  */
 
 #include "smbclient.h"
+#include "smbclient_private.h"
+#include "ntstatus.h"
+#include <netsmb/upi_mbuf.h>
 #include <netsmb/smbio.h>
+#include <netsmb/smb_dev.h>
 #include <libkern/OSByteOrder.h>
 
-struct smb_header
-{
+struct smb_header {
     uint32_t    protocol_id;
     uint8_t     command;
     uint32_t    status;
@@ -39,8 +42,7 @@ struct smb_header
     uint16_t    pid;
     uint16_t    uid;
     uint16_t    mid;
-
-    /*
+	/*
      * After the header, we have the following fields:
      *
      * uint8_t  word_count
@@ -51,8 +53,7 @@ struct smb_header
      *      ...
      *      byte_count
      *      ...
-     */
-
+	 */
 } __attribute__((__packed__));
 
 #define ADVANCE(pointer, nbytes) do { \
@@ -61,14 +62,15 @@ struct smb_header
 
 static int
 smb_ioc_request(
-        void *                      hContext,
-        struct smb_header *         header,
-        const struct smb_lib_mbuf * words,
-        const struct smb_lib_mbuf * bytes,
-        struct smb_lib_mbuf *       response)
+        void *				hContext,
+        struct smb_header *	header,
+        const mbuf_t		words,
+        const mbuf_t		bytes,
+        mbuf_t				response)
 {
-    struct smbioc_rq krq = {0};
+    struct smbioc_rq krq;
 
+	bzero(&krq, sizeof(krq));
     krq.ioc_version = SMB_IOC_STRUCT_VERSION;
     krq.ioc_cmd = header->command;
 
@@ -79,79 +81,60 @@ smb_ioc_request(
      */
 
     /* Set transmit words buffer ... */
-    krq.ioc_twc = words->m_len / sizeof(uint16_t);
-    krq.ioc_twords = SMB_LIB_MTODATA(words, void *);
+    krq.ioc_twc = mbuf_len(words) / sizeof(uint16_t);
+    krq.ioc_twords = mbuf_data(words);
     /* Set transmit bytes buffer ... */
-    krq.ioc_tbc = bytes->m_len;
-    krq.ioc_tbytes = SMB_LIB_MTODATA(bytes, void *);
+    krq.ioc_tbc = mbuf_len(bytes);
+    krq.ioc_tbytes = mbuf_data(bytes);
     /* Set receive buffer, reserving space for the word count and byte count ... */
-    krq.ioc_rpbufsz = response->m_len - 3;
-    krq.ioc_rpbuf = SMB_LIB_MTODATA(response, void *);
+    krq.ioc_rpbufsz = (int32_t)mbuf_maxlen(response);
+    krq.ioc_rpbuf = mbuf_data(response);
 
     if (smb_ioctl_call(((struct smb_ctx *)hContext)->ct_fd,
                 SMBIOC_REQUEST, &krq) == -1) {
         return errno;
     }
 	
-    header->flags2 = krq.ioc_srflags2;
-    header->status = krq.ioc_nt_error;
-
-    /* The response buffer contains the parameter and bytes data packed
-     * together (ie. no separated by the byte count and word count). We
-     * need to reinsert the word count and byte count to reassemble the
-     * packet as it was on the wire. Sigh.
-     */
-
-    memmove(SMB_LIB_MTODATA(response, uint8_t *) +
-                    (krq.ioc_rwc * sizeof(uint16_t)) + 3,
-            SMB_LIB_MTODATA(response, uint8_t *) +
-                    (krq.ioc_rwc * sizeof(uint16_t)),
-            krq.ioc_rbc);
-    OSWriteLittleInt16(response->m_data,
-            sizeof(uint8_t) /* word count */ + (krq.ioc_rwc * sizeof(uint16_t)),
-            krq.ioc_rbc);
-
-    memmove(SMB_LIB_MTODATA(response, uint8_t *) + 1,
-            SMB_LIB_MTODATA(response, uint8_t *),
-			(krq.ioc_rwc * sizeof(uint16_t)));
-   *SMB_LIB_MTODATA(response, uint8_t *) = krq.ioc_rwc;
-
-    response->m_len = (krq.ioc_rwc * sizeof(uint16_t)) + krq.ioc_rbc + 3;
-
-    /* Response size is the word count + the byte count in units of bytes. */
+	header->flags = krq.ioc_flags;
+	header->flags2 = krq.ioc_flags2;
+	header->status = krq.ioc_ntstatus;
+	mbuf_setlen(response, krq.ioc_rpbufsz);
 
     return 0;
 }
 
 NTSTATUS
 SMBRawTransaction(
-    SMBHANDLE   hConnection,
+    SMBHANDLE   inConnection,
     const void *lpInBuffer,
-    off_t       nInBufferSize,
-    void *      lpOutBuffer,
-    off_t       nOutBufferSize,
-    off_t *     lpBytesRead)
+    size_t		nInBufferSize,
+    void		*lpOutBuffer,
+    size_t		nOutBufferSize,
+    size_t		*lpBytesRead)
 {
     NTSTATUS            status;
     int                 err;
 
     void *              hContext;
 
-    struct smb_header   header = {0};
-    struct smb_lib_mbuf words = {0};
-    struct smb_lib_mbuf bytes = {0};
-    struct smb_lib_mbuf response = {0};
+    struct smb_header   header;
+    mbuf_t				words = NULL;
+    mbuf_t				bytes = NULL;
+    mbuf_t				response = NULL;
+	size_t				len;
 
     const void * ptr;
 
-    status = SMBServerContext(hConnection, &hContext);
-    if (!NT_SUCCESS(status)) {
+	bzero(&header, sizeof(header));
+    status = SMBServerContext(inConnection, &hContext);
+	if (!NT_SUCCESS(status)) {
         return status;
     }
 
-    if (nInBufferSize < sizeof(struct smb_header) ||
-        nOutBufferSize < sizeof(struct smb_header)) {
-        return make_nterror(NT_STATUS_BUFFER_TOO_SMALL);
+    if ((size_t)nInBufferSize < sizeof(struct smb_header) ||
+        (size_t)nOutBufferSize < sizeof(struct smb_header)) {
+ 		err = STATUS_BUFFER_TOO_SMALL;
+        goto errout;
     }
 
     /* Split the request buffer into the header, the parameter words and the
@@ -162,64 +145,87 @@ SMBRawTransaction(
     ADVANCE(ptr, sizeof(uint32_t));
     header.command = *(uint8_t *)ptr;
 
-    if (nInBufferSize < (sizeof(struct smb_header) + sizeof(uint8_t))) {
-        return make_nterror(NT_STATUS_BUFFER_TOO_SMALL);
+    if ((size_t)nInBufferSize < (sizeof(struct smb_header) + sizeof(uint8_t))) {
+ 		err = STATUS_BUFFER_TOO_SMALL;
+        goto errout;
     }
 
     ptr = lpInBuffer;
     ADVANCE(ptr, sizeof(struct smb_header));
 
-    words.m_len = words.m_maxlen = (*(uint8_t *)ptr) * sizeof(uint16_t);
-    ADVANCE(ptr, sizeof(uint8_t));  /* skip word_count field */
-
-    words.m_data = (typeof(words.m_data))ptr;
-    ADVANCE(ptr, words.m_len);      /* skip parameter words */
+	len = (*(uint8_t *)ptr) * sizeof(uint16_t);
+	ADVANCE(ptr, sizeof(uint8_t));  /* skip word_count field */
+	if (mbuf_attachcluster(MBUF_WAITOK, MBUF_TYPE_DATA, &words, (void *)ptr, NULL, len, NULL)) {
+		err = STATUS_NO_MEMORY;
+        goto errout;
+	}
+	mbuf_setlen(words, len);
+	ADVANCE(ptr, len);      /* skip parameter words */
 
     if ((uintptr_t)ptr > ((uintptr_t)lpInBuffer + nInBufferSize) ||
-        (uintptr_t)ptr < (uintptr_t)words.m_data) {
-        return make_nterror(NT_STATUS_MARSHALL_OVERFLOW);
+        (uintptr_t)ptr < (uintptr_t)mbuf_data(words)) {
+		err = STATUS_MARSHALL_OVERFLOW;
+        goto errout;
     }
 
-    bytes.m_len = bytes.m_maxlen = OSReadLittleInt16(ptr, 0);
+    len = OSReadLittleInt16(ptr, 0);
     ADVANCE(ptr, sizeof(uint16_t)); /* skip byte_count field */
-
-    bytes.m_data = (typeof(bytes.m_data))ptr; 
-    ADVANCE(ptr, bytes.m_len);
+	if (mbuf_attachcluster(MBUF_WAITOK, MBUF_TYPE_DATA, &bytes, (void *)ptr, NULL, len, NULL)) {
+		err = STATUS_NO_MEMORY;
+        goto errout;
+	}
+	mbuf_setlen(bytes, len);
+    ADVANCE(ptr, len);
 
     if ((uintptr_t)ptr > ((uintptr_t)lpInBuffer + nInBufferSize) ||
-        (uintptr_t)ptr < (uintptr_t)bytes.m_data) {
-        return make_nterror(NT_STATUS_MARSHALL_OVERFLOW);
+        (uintptr_t)ptr < (uintptr_t)mbuf_data(bytes)) {
+		err = STATUS_MARSHALL_OVERFLOW;
+        goto errout;
     }
 
     /* Set up the response buffer so that we leave room to place the
      * SMB header at the front.
      */
-    response.m_len = response.m_maxlen = nOutBufferSize - sizeof(struct smb_header);
-    response.m_data = (typeof(response.m_data))((uint8_t *)lpOutBuffer +
-                                                sizeof(struct smb_header));
-
-    err = smb_ioc_request(hContext, &header, &words, &bytes, &response);
+    len = (size_t)(nOutBufferSize - sizeof(struct smb_header));
+ 	if (mbuf_attachcluster(MBUF_WAITOK, MBUF_TYPE_DATA, &response, ((uint8_t *)lpOutBuffer + sizeof(struct smb_header)), NULL, len, NULL)) {
+		err = STATUS_NO_MEMORY;
+        goto errout;
+    }
+	
+	err = smb_ioc_request(hContext, &header, words, bytes, response);
     if (err) {
-        return make_nterror(NT_STATUS_IO_DEVICE_ERROR);
+		err = STATUS_IO_DEVICE_ERROR;
+        goto errout;
     }
 
     /* Stash the new SMB header at the front of the output buffer so the
      * caller gets the server status code, etc.
      */
     memcpy(lpOutBuffer, lpInBuffer, sizeof(header));
-    OSWriteLittleInt32(lpOutBuffer, 0, *(const uint32_t *)SMB_SIGNATURE);
+    OSWriteLittleInt32(lpOutBuffer, 0, *(const uint32_t *)(void *)SMB_SIGNATURE);
     OSWriteLittleInt32(lpOutBuffer, offsetof(struct smb_header, status),
                     header.status);
+    OSWriteLittleInt16(lpOutBuffer, offsetof(struct smb_header, flags),
+					   header.flags);
     OSWriteLittleInt32(lpOutBuffer, offsetof(struct smb_header, flags2),
                     header.flags2);
 
-    *lpBytesRead = response.m_len + sizeof(struct smb_header);
+    *lpBytesRead = mbuf_len(response) + sizeof(struct smb_header);
 
     /* We return success, even though the server may have failed the call. The
      * caller is responsible for parsing the reply packet and looking at the
      * status field in the header.
      */
-    return NT_STATUS_SUCCESS;
+    err = STATUS_SUCCESS;
+	
+errout:
+    if (words)
+		mbuf_freem(words);
+    if (bytes)
+		mbuf_freem(bytes);
+    if (response)
+		mbuf_freem(response);
+	return err;
 }
 
 /* vim: set sw=4 ts=4 tw=79 et: */

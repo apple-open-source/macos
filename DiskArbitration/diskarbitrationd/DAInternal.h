@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,7 +40,8 @@ extern "C" {
 #define ___GID_UNKNOWN 99
 #define ___UID_UNKNOWN 99
 
-#define _kDAServiceName "com.apple.DiskArbitration.diskarbitrationd"
+#define _kDAAgentName  "com.apple.DiskArbitration.DiskArbitrationAgent"
+#define _kDADaemonName "com.apple.DiskArbitration.diskarbitrationd"
 
 enum
 {

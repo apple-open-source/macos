@@ -37,20 +37,21 @@ namespace WebCore { class IDBDatabaseError; }
 
 namespace WebKit {
 
-// See comment in WebIndexedDatabase for a high level overview these classes.
+// See comment in WebIDBFactory for a high level overview these classes.
 class WebIDBDatabaseError {
 public:
-    ~WebIDBDatabaseError();
+    ~WebIDBDatabaseError() { reset(); }
 
     WebIDBDatabaseError(unsigned short code, const WebString& message) { assign(code, message); }
-    WebIDBDatabaseError(const WebIDBDatabaseError& e) { assign(e); }
-    WebIDBDatabaseError& operator=(const WebIDBDatabaseError& e)
+    WebIDBDatabaseError(const WebIDBDatabaseError& error) { assign(error); }
+    WebIDBDatabaseError& operator=(const WebIDBDatabaseError& error)
     {
-        assign(e);
+        assign(error);
         return *this;
     }
 
     WEBKIT_API void assign(const WebIDBDatabaseError&);
+    WEBKIT_API void reset();
 
     WEBKIT_API unsigned short code() const;
     WEBKIT_API WebString message() const;

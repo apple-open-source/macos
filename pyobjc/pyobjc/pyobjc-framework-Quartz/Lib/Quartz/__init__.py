@@ -12,15 +12,15 @@ try:
 except ImportError:
     pass
 
-#try:
-    #from Quartz.CoreVideo import *
-#except ImportError:
-    #pass
+try:
+    from Quartz.CoreVideo import *
+except ImportError:
+    pass
 
-#try:
-    #from Quartz.QuartzCore import *
-#except ImportError:
-    #pass
+try:
+    from Quartz.QuartzCore import *
+except ImportError:
+    pass
 
 try:
     from Quartz.ImageKit import *
@@ -35,4 +35,9 @@ except ImportError:
 try:
     from Quartz.QuartzFilters import *
 except ImportError:
+    pass
+
+try:
+    from Quartz.QuickLookUI import *
+except ImportError, msg:
     pass

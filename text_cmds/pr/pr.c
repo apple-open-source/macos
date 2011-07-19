@@ -63,6 +63,7 @@ __FBSDID("$FreeBSD: src/usr.bin/pr/pr.c,v 1.18 2004/07/26 20:24:59 charnier Exp 
 #include <stdlib.h>
 #include <string.h>
 #include <unistd.h>
+#include <sysexits.h>
 
 #include "pr.h"
 #include "extern.h"
@@ -1055,6 +1056,9 @@ inln(FILE *inf, char *buf, int lim, int *cps, int trnc, int *mor)
 	}
 	col = ptbuf - buf;
 	if (ch == EOF) {
+		if (ferror(inf)) {
+			errx(EX_IOERR, NULL);
+		}
 		*mor = 0;
 		*cps = 0;
 		if (!col)
@@ -1080,6 +1084,9 @@ inln(FILE *inf, char *buf, int lim, int *cps, int trnc, int *mor)
 		while ((ch = getc(inf)) != EOF) {
 			if (ch == '\n')
 				break;
+		}
+		if (ferror(inf)) {
+			errx(EX_IOERR, NULL);
 		}
 		*cps = 0;
 		*mor = 0;
@@ -1255,6 +1262,9 @@ inskip(FILE *inf, int pgcnt, int lncnt)
 		while ((c = getc(inf)) != EOF) {
 			if ((c == '\n') && (--cnt == 0))
 				break;
+		}
+		if (ferror(inf)) {
+			errx(EX_IOERR, NULL);
 		}
 		if (c == EOF) {
 			if (inf != stdin)

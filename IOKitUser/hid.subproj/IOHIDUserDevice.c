@@ -75,6 +75,7 @@ static const CFRuntimeClass __IOHIDUserDeviceClass = {
     NULL,                       // hash
     NULL,                       // copyFormattingDesc
     NULL,
+    NULL,
     NULL
 };
 
@@ -142,7 +143,16 @@ void __IOHIDUserDeviceRelease( CFTypeRef object )
     }
 
     if ( device->queue.port ) {
+        mach_port_t port = CFMachPortGetPort(device->queue.port);
+        
+        CFMachPortInvalidate(device->queue.port);
         CFRelease(device->queue.port);
+
+        mach_port_mod_refs(mach_task_self(),
+                   port,
+                   MACH_PORT_RIGHT_RECEIVE,
+                   -1);
+
         device->queue.port = NULL;
     }
     
@@ -181,7 +191,7 @@ IOHIDUserDeviceRef IOHIDUserDeviceCreate(
                                 CFAllocatorRef                  allocator, 
                                 CFDictionaryRef                 properties)
 {
-    IOHIDUserDeviceRef  device;
+    IOHIDUserDeviceRef  device = NULL;
     CFDataRef           data;
     kern_return_t       kr;
     

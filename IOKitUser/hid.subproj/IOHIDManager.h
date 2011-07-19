@@ -157,7 +157,7 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
     @param      manager Reference to an IOHIDManager.
     @param      key CFStringRef containing key to be used when modifiying the 
                 device property.
-    @param      property CFTypeRef containg the property to be set.
+    @param      value CFTypeRef containing the property value to be set.
     @result     Returns TRUE if successful.
 */
 CF_EXPORT
@@ -327,7 +327,7 @@ void IOHIDManagerSetInputValueMatching(
                                 IOHIDManagerRef                 manager,
                                 CFDictionaryRef                 matching)
 AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
-                                
+
 /*! @function   IOHIDManagerSetInputValueMatchingMultiple
     @abstract   Sets multiple matching criteria for input values received via 
                 IOHIDManagerRegisterInputValueCallback.
@@ -336,8 +336,9 @@ AVAILABLE_MAC_OS_X_VERSION_10_5_AND_LATER;
                 in multiple, specific elements .
     @param      manager Reference to an IOHIDManager.
     @param      multiple CFArrayRef containing multiple CFDictionaryRef objects
-                containg input element matching criteria.
+                containing input element matching criteria.
 */
+
 CF_EXPORT
 void IOHIDManagerSetInputValueMatchingMultiple(
                                                IOHIDManagerRef                 manager,
@@ -368,3 +369,4 @@ AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 __END_DECLS
 
 #endif /* _IOKIT_HID_IOHIDMANAGER_H_ */
+

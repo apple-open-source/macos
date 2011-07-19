@@ -41,7 +41,12 @@ AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = \
 		Makefile.in.patch \
 		PR-4074918.ftp.c.patch \
-		configure.patch
+		configure.patch \
+		PR-7577277.cmds.c.patch \
+		PR-7577277.extern.h.patch \
+		PR-7577277.fetch.c.patch \
+		PR-7577277.main.c.patch \
+		PR-7577277.util.c.patch
 
 install_source::
 ifeq ($(AEP),YES)

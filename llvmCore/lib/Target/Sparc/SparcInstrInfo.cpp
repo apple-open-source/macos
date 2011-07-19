@@ -17,7 +17,10 @@
 #include "llvm/ADT/STLExtras.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "SparcGenInstrInfo.inc"
+#include "SparcMachineFunctionInfo.h"
 using namespace llvm;
 
 SparcInstrInfo::SparcInstrInfo(SparcSubtarget &ST)
@@ -108,7 +111,7 @@ SparcInstrInfo::InsertBranch(MachineBasicBlock &MBB,MachineBasicBlock *TBB,
                              MachineBasicBlock *FBB,
                              const SmallVectorImpl<MachineOperand> &Cond)const{
   // FIXME this should probably take a DebugLoc argument
-  DebugLoc dl = DebugLoc::getUnknownLoc();
+  DebugLoc dl;
   // Can only insert uncond branches so far.
   assert(Cond.empty() && !FBB && TBB && "Can only handle uncond branches!");
   BuildMI(&MBB, dl, get(SP::BA)).addMBB(TBB);
@@ -119,14 +122,12 @@ bool SparcInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
                                   MachineBasicBlock::iterator I,
                                   unsigned DestReg, unsigned SrcReg,
                                   const TargetRegisterClass *DestRC,
-                                  const TargetRegisterClass *SrcRC) const {
+                                  const TargetRegisterClass *SrcRC,
+                                  DebugLoc DL) const {
   if (DestRC != SrcRC) {
     // Not yet supported!
     return false;
   }
-
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (I != MBB.end()) DL = I->getDebugLoc();
 
   if (DestRC == SP::IntRegsRegisterClass)
     BuildMI(MBB, I, DL, get(SP::ORrr), DestReg).addReg(SP::G0).addReg(SrcReg);
@@ -145,52 +146,31 @@ bool SparcInstrInfo::copyRegToReg(MachineBasicBlock &MBB,
 void SparcInstrInfo::
 storeRegToStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                     unsigned SrcReg, bool isKill, int FI,
-                    const TargetRegisterClass *RC) const {
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+                    const TargetRegisterClass *RC,
+                    const TargetRegisterInfo *TRI) const {
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
 
   // On the order of operands here: think "[FrameIdx + 0] = SrcReg".
   if (RC == SP::IntRegsRegisterClass)
     BuildMI(MBB, I, DL, get(SP::STri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg, false, false, isKill);
+      .addReg(SrcReg, getKillRegState(isKill));
   else if (RC == SP::FPRegsRegisterClass)
     BuildMI(MBB, I, DL, get(SP::STFri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg, false, false, isKill);
+      .addReg(SrcReg,  getKillRegState(isKill));
   else if (RC == SP::DFPRegsRegisterClass)
     BuildMI(MBB, I, DL, get(SP::STDFri)).addFrameIndex(FI).addImm(0)
-      .addReg(SrcReg, false, false, isKill);
+      .addReg(SrcReg,  getKillRegState(isKill));
   else
-    assert(0 && "Can't store this register to stack slot");
-}
-
-void SparcInstrInfo::storeRegToAddr(MachineFunction &MF, unsigned SrcReg,
-                                    bool isKill,
-                                    SmallVectorImpl<MachineOperand> &Addr,
-                                    const TargetRegisterClass *RC,
-                                 SmallVectorImpl<MachineInstr*> &NewMIs) const {
-  unsigned Opc = 0;
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  if (RC == SP::IntRegsRegisterClass)
-    Opc = SP::STri;
-  else if (RC == SP::FPRegsRegisterClass)
-    Opc = SP::STFri;
-  else if (RC == SP::DFPRegsRegisterClass)
-    Opc = SP::STDFri;
-  else
-    assert(0 && "Can't load this register");
-  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc));
-  for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-    MIB.addOperand(Addr[i]);
-  MIB.addReg(SrcReg, false, false, isKill);
-  NewMIs.push_back(MIB);
-  return;
+    llvm_unreachable("Can't store this register to stack slot");
 }
 
 void SparcInstrInfo::
 loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
                      unsigned DestReg, int FI,
-                     const TargetRegisterClass *RC) const {
-  DebugLoc DL = DebugLoc::getUnknownLoc();
+                     const TargetRegisterClass *RC,
+                     const TargetRegisterInfo *TRI) const {
+  DebugLoc DL;
   if (I != MBB.end()) DL = I->getDebugLoc();
 
   if (RC == SP::IntRegsRegisterClass)
@@ -200,28 +180,7 @@ loadRegFromStackSlot(MachineBasicBlock &MBB, MachineBasicBlock::iterator I,
   else if (RC == SP::DFPRegsRegisterClass)
     BuildMI(MBB, I, DL, get(SP::LDDFri), DestReg).addFrameIndex(FI).addImm(0);
   else
-    assert(0 && "Can't load this register from stack slot");
-}
-
-void SparcInstrInfo::loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
-                                     SmallVectorImpl<MachineOperand> &Addr,
-                                     const TargetRegisterClass *RC,
-                                 SmallVectorImpl<MachineInstr*> &NewMIs) const {
-  unsigned Opc = 0;
-  if (RC == SP::IntRegsRegisterClass)
-    Opc = SP::LDri;
-  else if (RC == SP::FPRegsRegisterClass)
-    Opc = SP::LDFri;
-  else if (RC == SP::DFPRegsRegisterClass)
-    Opc = SP::LDDFri;
-  else
-    assert(0 && "Can't load this register");
-  DebugLoc DL = DebugLoc::getUnknownLoc();
-  MachineInstrBuilder MIB = BuildMI(MF, DL, get(Opc), DestReg);
-  for (unsigned i = 0, e = Addr.size(); i != e; ++i)
-    MIB.addOperand(Addr[i]);
-  NewMIs.push_back(MIB);
-  return;
+    llvm_unreachable("Can't load this register from stack slot");
 }
 
 MachineInstr *SparcInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
@@ -256,17 +215,20 @@ MachineInstr *SparcInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
     if (OpNum == 0) { // COPY -> STORE
       unsigned SrcReg = MI->getOperand(1).getReg();
       bool isKill = MI->getOperand(1).isKill();
+      bool isUndef = MI->getOperand(1).isUndef();
       NewMI = BuildMI(MF, MI->getDebugLoc(),
                       get(isFloat ? SP::STFri : SP::STDFri))
         .addFrameIndex(FI)
         .addImm(0)
-        .addReg(SrcReg, false, false, isKill);
+        .addReg(SrcReg, getKillRegState(isKill) | getUndefRegState(isUndef));
     } else {             // COPY -> LOAD
       unsigned DstReg = MI->getOperand(0).getReg();
       bool isDead = MI->getOperand(0).isDead();
+      bool isUndef = MI->getOperand(0).isUndef();
       NewMI = BuildMI(MF, MI->getDebugLoc(),
                       get(isFloat ? SP::LDFri : SP::LDDFri))
-        .addReg(DstReg, true, false, false, isDead)
+        .addReg(DstReg, RegState::Define |
+                getDeadRegState(isDead) | getUndefRegState(isUndef))
         .addFrameIndex(FI)
         .addImm(0);
     }
@@ -274,4 +236,26 @@ MachineInstr *SparcInstrInfo::foldMemoryOperandImpl(MachineFunction &MF,
   }
 
   return NewMI;
+}
+
+unsigned SparcInstrInfo::getGlobalBaseReg(MachineFunction *MF) const
+{
+  SparcMachineFunctionInfo *SparcFI = MF->getInfo<SparcMachineFunctionInfo>();
+  unsigned GlobalBaseReg = SparcFI->getGlobalBaseReg();
+  if (GlobalBaseReg != 0)
+    return GlobalBaseReg;
+
+  // Insert the set of GlobalBaseReg into the first MBB of the function
+  MachineBasicBlock &FirstMBB = MF->front();
+  MachineBasicBlock::iterator MBBI = FirstMBB.begin();
+  MachineRegisterInfo &RegInfo = MF->getRegInfo();
+
+  GlobalBaseReg = RegInfo.createVirtualRegister(&SP::IntRegsRegClass);
+
+
+  DebugLoc dl;
+
+  BuildMI(FirstMBB, MBBI, dl, get(SP::GETPCX), GlobalBaseReg);
+  SparcFI->setGlobalBaseReg(GlobalBaseReg);
+  return GlobalBaseReg;
 }

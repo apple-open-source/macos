@@ -24,17 +24,17 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef PluginPackage_H
-#define PluginPackage_H
+#ifndef PluginPackage_h
+#define PluginPackage_h
 
 #include "FileSystem.h"
 #include "PlatformString.h"
 #include "PluginQuirkSet.h"
-#include "StringHash.h"
 #include "Timer.h"
 #include "npruntime_internal.h"
 #include <wtf/HashMap.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/StringHash.h>
 
 #if OS(SYMBIAN)
 class QPluginLoader;
@@ -49,6 +49,9 @@ namespace WebCore {
     public:
         ~PluginPackage();
         static PassRefPtr<PluginPackage> createPackage(const String& path, const time_t& lastModified);
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        static PassRefPtr<PluginPackage> createPackageFromCache(const String& path, const time_t& lastModified, const String& name, const String& description, const String& mimeDescription);
+#endif
 
         const String& name() const { return m_name; }
         const String& description() const { return m_description; }
@@ -80,6 +83,11 @@ namespace WebCore {
         NPInterface* npInterface() const { return m_npInterface; }
 #endif // OS(SYMBIAN)
 
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        bool ensurePluginLoaded();
+        void setMIMEDescription(const String& mimeDescription);
+        String fullMIMEDescription() const { return m_fullMIMEDescription;}
+#endif
     private:
         PluginPackage(const String& path, const time_t& lastModified);
 
@@ -121,6 +129,10 @@ namespace WebCore {
         Timer<PluginPackage> m_freeLibraryTimer;
 
         PluginQuirkSet m_quirks;
+#if ENABLE(NETSCAPE_PLUGIN_METADATA_CACHE)
+        String m_fullMIMEDescription;
+        bool m_infoIsFromCache;
+#endif
     };
 
     struct PluginPackageHash {

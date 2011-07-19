@@ -267,7 +267,7 @@ CSSM_RETURN dotMacTpCertFetch(
 	unsigned rawUrlLen;
     unsigned domainLen = (domainName.Length && domainName.Data) ? domainName.Length : strlen(DOT_MAC_DOMAIN);
     uint8 *domain = (domainName.Length && domainName.Data) ? domainName.Data : (uint8 *) DOT_MAC_DOMAIN;
-	char *typeArg;
+	const char *typeArg;
 	CSSM_RETURN crtn = CSSM_OK;
 	
 	switch(certType) {

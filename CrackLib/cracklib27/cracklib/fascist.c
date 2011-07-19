@@ -6,7 +6,6 @@
  * and upwards.
  */
 
-static char vers_id[] = "fascist.c : v2.3p3 Alec Muffett 14 dec 1997";
 
 #include "packer.h"
 #include <sys/types.h>
@@ -14,6 +13,8 @@ static char vers_id[] = "fascist.c : v2.3p3 Alec Muffett 14 dec 1997";
 #include <stdlib.h>
 #include <pwd.h>
 #include <string.h>
+
+static char __unused vers_id[] = "fascist.c : v2.3p3 Alec Muffett 14 dec 1997";
 
 #define ISSKIP(x) (isspace(x) || ispunct(x))
 
@@ -506,8 +507,7 @@ FascistGecos(password, uid)
 
     /* lets get really paranoid and assume a dangerously long gecos entry */
 
-    strncpy(tbuffer, pwp->pw_name, STRINGSIZE);
-    tbuffer[STRINGSIZE-1] = '\0';
+    strlcpy(tbuffer, pwp->pw_name, sizeof(tbuffer));
     if (GTry(tbuffer, password))
     {
 	return ("it is based on your username");
@@ -515,9 +515,8 @@ FascistGecos(password, uid)
 
     /* it never used to be that you got passwd strings > 1024 chars, but now... */
 
-    strncpy(tbuffer, pwp->pw_gecos, STRINGSIZE);
-    tbuffer[STRINGSIZE-1] = '\0';
-    strcpy(gbuffer, Lowercase(tbuffer));
+    strlcpy(tbuffer, pwp->pw_gecos, sizeof(tbuffer));
+    strlcpy(gbuffer, Lowercase(tbuffer), sizeof(gbuffer));
 
     wc = 0;
     ptr = gbuffer;
@@ -580,16 +579,16 @@ FascistGecos(password, uid)
     {
 	for (i = 0; i < j; i++)
 	{
-	    strcpy(longbuffer, uwords[i]);
-	    strcat(longbuffer, uwords[j]);
+	    strlcpy(longbuffer, uwords[i], sizeof(longbuffer));
+	    strlcat(longbuffer, uwords[j], sizeof(longbuffer));
 
 	    if (GTry(longbuffer, password))
 	    {
 		return ("it is derived from your password entry");
 	    }
 
-	    strcpy(longbuffer, uwords[j]);
-	    strcat(longbuffer, uwords[i]);
+	    strlcpy(longbuffer, uwords[j], sizeof(longbuffer));
+	    strlcat(longbuffer, uwords[i], sizeof(longbuffer));
 
 	    if (GTry(longbuffer, password))
 	    {
@@ -598,7 +597,7 @@ FascistGecos(password, uid)
 
 	    longbuffer[0] = uwords[i][0];
 	    longbuffer[1] = '\0';
-	    strcat(longbuffer, uwords[j]);
+	    strlcat(longbuffer, uwords[j], sizeof(longbuffer));
 
 	    if (GTry(longbuffer, password))
 	    {
@@ -607,7 +606,7 @@ FascistGecos(password, uid)
 
 	    longbuffer[0] = uwords[j][0];
 	    longbuffer[1] = '\0';
-	    strcat(longbuffer, uwords[i]);
+	    strlcat(longbuffer, uwords[i], sizeof(longbuffer));
 
 	    if (GTry(longbuffer, password))
 	    {
@@ -635,8 +634,7 @@ FascistLook(pwp, instring)
     notfound = PW_WORDS(pwp);
     /* already truncated if from FascistCheck() */
     /* but pretend it wasn't ... */
-    strncpy(rpassword, instring, TRUNCSTRINGSIZE);
-    rpassword[TRUNCSTRINGSIZE - 1] = '\0';
+    strlcpy(rpassword, instring, TRUNCSTRINGSIZE);
     password = rpassword;
 
     if (strlen(password) < 4)
@@ -666,7 +664,7 @@ FascistLook(pwp, instring)
 	return ("it does not contain enough DIFFERENT characters");
     }
 
-    strcpy(password, Lowercase(password));
+    strlcpy(password, Lowercase(password), STRINGSIZE);
 
     Trim(password);
 
@@ -729,7 +727,7 @@ FascistLook(pwp, instring)
 	}
     }
 
-    strcpy(password, Reverse(password));
+    strlcpy(password, Reverse(password), STRINGSIZE);
 
     for (i = 0; r_destructors[i]; i++)
     {
@@ -760,20 +758,17 @@ FascistCheck(password, path)
     static PWDICT *pwp;
     char pwtrunced[STRINGSIZE];
 	
-	if (vers_id[0]) ;	// eliminate warning
-
     /* security problem: assume we may have been given a really long
        password (buffer attack) and so truncate it to a workable size;
        try to define workable size as something from which we cannot
        extend a buffer beyond its limits in the rest of the code */
 
-    strncpy(pwtrunced, password, TRUNCSTRINGSIZE);
-    pwtrunced[TRUNCSTRINGSIZE - 1] = '\0'; /* enforce */
+    strlcpy(pwtrunced, password, TRUNCSTRINGSIZE);
 
     /* perhaps someone should put something here to check if password
        is really long and syslog() a message denoting buffer attacks?  */
 
-    if (pwp && strncmp(lastpath, path, STRINGSIZE))
+    if (pwp && strncmp(lastpath, path, sizeof(lastpath)))
     {
 	PWClose(pwp);
 	pwp = (PWDICT *)0;
@@ -786,7 +781,7 @@ FascistCheck(password, path)
 	    perror("PWOpen");
 	    exit(-1);
 	}
-	strncpy(lastpath, path, STRINGSIZE);
+	strlcpy(lastpath, path, sizeof(lastpath));
     }
 
     return (FascistLook(pwp, pwtrunced));

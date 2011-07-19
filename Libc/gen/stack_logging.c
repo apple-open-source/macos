@@ -32,11 +32,11 @@
 #include <mach/vm_statistics.h>
 #import <malloc/malloc.h>
 #import <stdlib.h>
+#import <CrashReporterClient.h>
 
 extern void spin_lock(int *);
 extern void spin_unlock(int *);
 extern void thread_stack_pcs(vm_address_t *, unsigned, unsigned *);
-extern const char *__crashreporter_info__;
 
 static inline void *allocate_pages(unsigned) __attribute__((always_inline));
 static inline void *allocate_pages(unsigned bytes) {
@@ -44,7 +44,7 @@ static inline void *allocate_pages(unsigned bytes) {
     if (vm_allocate(mach_task_self(), (vm_address_t *)&address, bytes, 
                     VM_MAKE_TAG(VM_MEMORY_ANALYSIS_TOOL)| TRUE)) {
 	malloc_printf("*** out of memory while stack logging\n");
-	__crashreporter_info__ = "*** out of memory while stack logging\n";
+	CRSetCrashLogMessage("*** out of memory while stack logging\n");
 	abort();
     } 
     return (void *)address;
@@ -158,7 +158,7 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
         arg1 *= arg2; arg2 = arg3; arg3 = 0; type &= ~stack_logging_flag_calloc;
     }
     if (type & stack_logging_flag_object) {
-        unsigned	*class = (unsigned *)(long)arg1;
+        unsigned	*class = (unsigned *)(uintptr_t)arg1;
         arg1 = arg2 + class[5]; // corresponds to the instance_size field
         arg2 = 0; arg3 = 0; type = stack_logging_type_alloc;
     }
@@ -169,12 +169,12 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
         if (stack_logging_type_alloc) {
             if (!result) return;
             stack_logging_log_stack(stack_logging_type_alloc, 0, 0, 0, result, num_hot_to_skip+1);
-            stack_logging_log_stack(stack_logging_type_alloc, arg1, 0, 0, *((int *)(long)result), num_hot_to_skip+1);
+            stack_logging_log_stack(stack_logging_type_alloc, arg1, 0, 0, *((int *)(uintptr_t)result), num_hot_to_skip+1);
             return;
         }
         if (stack_logging_type_dealloc) {
             if (!arg1) return;
-            stack_logging_log_stack(stack_logging_type_dealloc, *((int *)(long)arg1), 0, 0, 0, num_hot_to_skip+1);
+            stack_logging_log_stack(stack_logging_type_dealloc, *((int *)(uintptr_t)arg1), 0, 0, 0, num_hot_to_skip+1);
             stack_logging_log_stack(stack_logging_type_dealloc, arg1, 0, 0, 0, num_hot_to_skip+1);
             return;
         }
@@ -183,9 +183,9 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
     if (type == stack_logging_flag_set_handle_size) {
         if (!arg1) return;
         // Thanks to a horrible hack, arg3 contains the prvious handle value
-        if (arg3 == *((int *)(long)arg1)) return;
+        if (arg3 == *((int *)(uintptr_t)arg1)) return;
         stack_logging_log_stack(stack_logging_type_dealloc, arg3, 0, 0, 0, num_hot_to_skip+1);
-        stack_logging_log_stack(stack_logging_type_alloc, arg2, 0, 0, *((int *)(long)arg1), num_hot_to_skip+1);
+        stack_logging_log_stack(stack_logging_type_alloc, arg2, 0, 0, *((int *)(uintptr_t)arg1), num_hot_to_skip+1);
         return;
     }            
     if (type == (stack_logging_type_dealloc|stack_logging_type_alloc)) {
@@ -229,7 +229,7 @@ void stack_logging_log_stack(unsigned type, unsigned arg1, unsigned arg2, unsign
 	// printf("Before getting samples  0x%x 0x%x 0x%x 0x%x -> 0x%x\n", type, arg1, arg2, arg3, result);
         thread_stack_pcs((vm_address_t *)stack_entries, MAX_NUM_PC - 1, &count);
         // We put at the bottom of the stack a marker that denotes the thread (+1 for good measure...)
-        stack_entries[count++] = (int)(long)pthread_self() + 1;
+        stack_entries[count++] = (int)(uintptr_t)pthread_self() + 1;
         /* now let's unique the sample */    
         // printf("Uniquing 0x%x 0x%x 0x%x 0x%x -> 0x%x\n", type, arg1, arg2, arg3, result);
         rec->uniqued_stack = stack_logging_get_unique_stack(&stack_logging_the_record_list->uniquing_table, &stack_logging_the_record_list->uniquing_table_num_pages, stack_entries, count, num_hot_to_skip+2); // we additionally skip the warmest 2 entries that are an artefact of the code
@@ -280,7 +280,7 @@ kern_return_t stack_logging_get_frames(task_t task, memory_reader_t reader, vm_a
         }
 	index++;
     }
-    fprintf(stderr, "*** stack_logging: no record found for 0x%lx\n", (long)address);
+    fprintf(stderr, "*** stack_logging: no record found for %p\n", address);
     return 0;
 }
 

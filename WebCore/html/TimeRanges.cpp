@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007, 2009 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2009, 2010 Apple Inc.  All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,6 +26,8 @@
 #include "config.h"
 
 #include "TimeRanges.h"
+
+#include <math.h>
 
 using namespace WebCore;
 
@@ -114,4 +116,22 @@ bool TimeRanges::contain(float time) const
             return true;
     }
     return false;
+}
+
+float TimeRanges::nearest(float time) const
+{ 
+    ExceptionCode unused;
+    float closest = 0;
+    unsigned count = length();
+    for (unsigned ndx = 0; ndx < count; ndx++) {
+        float startTime = start(ndx, unused);
+        float endTime = end(ndx, unused);
+        if (time >= startTime && time <= endTime)
+            return time;
+        if (fabs(startTime - time) < closest)
+            closest = fabsf(startTime - time);
+        else if (fabs(endTime - time) < closest)
+            closest = fabsf(endTime - time);
+    }
+    return closest;
 }

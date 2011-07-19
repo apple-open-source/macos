@@ -4,7 +4,8 @@
 #    Test suite for the math::fuzzy procs of tolerant comparisons
 #    (Tcl-only version)
 #
-#    version 0.2: imporved and extended implementation, march 2002
+#    version 0.2: improved and extended implementation, march 2002
+#    version 0.2.1: added test for bug #2933130, january 2010
 
 # -------------------------------------------------------------------------
 
@@ -103,6 +104,10 @@ test math-fuzzy-Lower-1.2 {Compare two floats - check lower} {
 test math-fuzzy-Lower-1.3 {Compare two floats - check lower} {
    tlt 1.0 1.000000000000001
 } 1
+test math-fuzzy-Lower-1.4 {Compare two floats - check lower} {
+   # They can not both be true
+   expr {[tlt 1.1 1.0] && [tlt 1.0 1.1]}
+} 0
 
 test math-fuzzy-LoEqual-1.0 {Compare two floats - check lower/equal} {
    tle 1.0 1.001

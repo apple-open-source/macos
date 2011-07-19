@@ -6,29 +6,29 @@
 /* Define if dlopen(0) will open the symbols of the program */
 #undef CAN_DLOPEN_SELF
 
-/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
-   systems. This function is required for `alloca.c' support on those systems.
-   */
-#undef CRAY_STACKSEG_END
-
-/* Define to 1 if using `alloca.c'. */
-#undef C_ALLOCA
-
 /* Define if CBE is enabled for printf %a output */
 #undef ENABLE_CBE_PRINTF_A
 
+/* Directories clang will search for headers */
+#define C_INCLUDE_DIRS "${C_INCLUDE_DIRS}"
+
+/* Directory clang will search for libstdc++ headers */
+#define CXX_INCLUDE_ROOT "${CXX_INCLUDE_ROOT}"
+
+/* Architecture of libstdc++ headers */
+#define CXX_INCLUDE_ARCH "${CXX_INCLUDE_ARCH}"
+
+/* 32 bit multilib directory */
+#define CXX_INCLUDE_32BIT_DIR "${CXX_INCLUDE_32BIT_DIR}"
+
+/* 64 bit multilib directory */
+#define CXX_INCLUDE_64BIT_DIR "${CXX_INCLUDE_64BIT_DIR}"
+
 /* Define if position independent code is enabled */
-#undef ENABLE_PIC
+#cmakedefine ENABLE_PIC ${ENABLE_PIC}
 
 /* Define if threads enabled */
 #cmakedefine ENABLE_THREADS ${ENABLE_THREADS}
-
-/* Define to 1 if you have `alloca', as a function or macro. */
-#undef HAVE_ALLOCA
-
-/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
-   */
-#undef HAVE_ALLOCA_H
 
 /* Define to 1 if you have the `argz_append' function. */
 #undef HAVE_ARGZ_APPEND
@@ -63,6 +63,9 @@
 /* Define to 1 if you have the `ceilf' function. */
 #cmakedefine HAVE_CEILF ${HAVE_CEILF}
 
+/* Define if the neat program is available */
+#cmakedefine HAVE_CIRCO ${HAVE_CIRCO}
+
 /* Define to 1 if you have the `closedir' function. */
 #undef HAVE_CLOSEDIR
 
@@ -92,10 +95,10 @@
 #cmakedefine HAVE_DL_H ${HAVE_DL_H}
 
 /* Define if the dot program is available */
-#undef HAVE_DOT
+#cmakedefine HAVE_DOT ${HAVE_DOT}
 
 /* Define if the dotty program is available */
-#undef HAVE_DOTTY
+#cmakedefine HAVE_DOTTY ${HAVE_DOTTY}
 
 /* Define if you have the _dyld_func_lookup function. */
 #undef HAVE_DYLD
@@ -112,8 +115,11 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #cmakedefine HAVE_FCNTL_H ${HAVE_FCNTL_H}
 
+/* Define if the neat program is available */
+#cmakedefine HAVE_FDP ${HAVE_FDP}
+
 /* Set to 1 if the finite function is found in <ieeefp.h> */
-#undef HAVE_FINITE_IN_IEEEFP_H
+#cmakedefine HAVE_FINITE_IN_IEEEFP_H ${HAVE_FINITE_IN_IEEEFP_H}
 
 /* Define to 1 if you have the `floorf' function. */
 #cmakedefine HAVE_FLOORF ${HAVE_FLOORF}
@@ -152,7 +158,7 @@
 #undef HAVE_GRAPHVIZ
 
 /* Define if the gv program is available */
-#undef HAVE_GV
+#cmakedefine HAVE_GV ${HAVE_GV}
 
 /* Define to 1 if you have the `index' function. */
 #undef HAVE_INDEX
@@ -164,7 +170,7 @@
 #cmakedefine HAVE_INTTYPES_H ${HAVE_INTTYPES_H}
 
 /* Define to 1 if you have the `isatty' function. */
-#undef HAVE_ISATTY
+#cmakedefine HAVE_ISATTY 1
 
 /* Set to 1 if the isinf function is found in <cmath> */
 #cmakedefine HAVE_ISINF_IN_CMATH ${HAVE_ISINF_IN_CMATH}
@@ -181,9 +187,6 @@
 /* Define if you have the libdl library or equivalent. */
 #undef HAVE_LIBDL
 
-/* Define to 1 if you have the `elf' library (-lelf). */
-#undef HAVE_LIBELF
-
 /* Define to 1 if you have the `imagehlp' library (-limagehlp). */
 #cmakedefine HAVE_LIBIMAGEHLP ${HAVE_LIBIMAGEHLP}
 
@@ -194,7 +197,7 @@
 #cmakedefine HAVE_LIBPSAPI ${HAVE_LIBPSAPI}
 
 /* Define to 1 if you have the `pthread' library (-lpthread). */
-#undef HAVE_LIBPTHREAD
+#cmakedefine HAVE_LIBPTHREAD ${HAVE_LIBPTHREAD}
 
 /* Define to 1 if you have the `udis86' library (-ludis86). */
 #undef HAVE_LIBUDIS86
@@ -228,7 +231,7 @@
 #cmakedefine HAVE_MALLOC_MALLOC_H ${HAVE_MALLOC_MALLOC_H}
 
 /* Define to 1 if you have the `malloc_zone_statistics' function. */
-#undef HAVE_MALLOC_ZONE_STATISTICS
+#cmakedefine HAVE_MALLOC_ZONE_STATISTICS ${HAVE_MALLOC_ZONE_STATISTICS}
 
 /* Define to 1 if you have the `memcpy' function. */
 #undef HAVE_MEMCPY
@@ -240,13 +243,13 @@
 #cmakedefine HAVE_MEMORY_H ${HAVE_MEMORY_H}
 
 /* Define to 1 if you have the `mkdtemp' function. */
-#undef HAVE_MKDTEMP
+#cmakedefine HAVE_MKDTEMP ${HAVE_MKDTEMP}
 
 /* Define to 1 if you have the `mkstemp' function. */
-#undef HAVE_MKSTEMP
+#cmakedefine HAVE_MKSTEMP ${HAVE_MKSTEMP}
 
 /* Define to 1 if you have the `mktemp' function. */
-#undef HAVE_MKTEMP
+#cmakedefine HAVE_MKTEMP ${HAVE_MKTEMP}
 
 /* Define to 1 if you have a working `mmap' system call. */
 #undef HAVE_MMAP
@@ -265,7 +268,10 @@
 #cmakedefine HAVE_NDIR_H ${HAVE_NDIR_H}
 
 /* Define to 1 if you have the `nearbyintf' function. */
-#undef HAVE_NEARBYINTF
+#cmakedefine HAVE_NEARBYINTF ${HAVE_NEARBYINTF}
+
+/* Define if the neat program is available */
+#cmakedefine HAVE_NEATO ${HAVE_NEATO}
 
 /* Define to 1 if you have the `opendir' function. */
 #undef HAVE_OPENDIR
@@ -276,8 +282,17 @@
 /* Define to have the %a format string */
 #undef HAVE_PRINTF_A
 
+/* Have pthread.h */
+#cmakedefine HAVE_PTHREAD_H ${HAVE_PTHREAD_H}
+
 /* Have pthread_mutex_lock */
 #cmakedefine HAVE_PTHREAD_MUTEX_LOCK ${HAVE_PTHREAD_MUTEX_LOCK}
+
+/* Have pthread_rwlock_init */
+#cmakedefine HAVE_PTHREAD_RWLOCK_INIT ${HAVE_PTHREAD_RWLOCK_INIT}
+
+/* Have pthread_getspecific */
+#cmakedefine HAVE_PTHREAD_GETSPECIFIC ${HAVE_PTHREAD_GETSPECIFIC}
 
 /* Define to 1 if srand48/lrand48/drand48 exist in <stdlib.h> */
 #undef HAVE_RAND48
@@ -297,8 +312,14 @@
 /* Define to 1 if you have the `roundf' function. */
 #undef HAVE_ROUNDF
 
+/* Define to 1 if you have the `round' function. */
+#cmakedefine HAVE_ROUND ${HAVE_ROUND}
+
 /* Define to 1 if you have the `sbrk' function. */
-#undef HAVE_SBRK
+#cmakedefine HAVE_SBRK ${HAVE_SBRK}
+
+/* Define to 1 if you have the `setenv' function. */
+#cmakedefine HAVE_SETENV ${HAVE_SETENV}
 
 /* Define to 1 if you have the `setjmp' function. */
 #undef HAVE_SETJMP
@@ -355,10 +376,13 @@
 #undef HAVE_STRDUP
 
 /* Define to 1 if you have the `strerror' function. */
-#undef HAVE_STRERROR
+#cmakedefine HAVE_STRERROR ${HAVE_STRERROR}
 
 /* Define to 1 if you have the `strerror_r' function. */
-#undef HAVE_STRERROR_R
+#cmakedefine HAVE_STRERROR_R ${HAVE_STRERROR_R}
+
+/* Define to 1 if you have the `strerror_s' function. */
+#cmakedefine HAVE_STRERROR_S ${HAVE_STRERROR_S}
 
 /* Define to 1 if you have the <strings.h> header file. */
 #undef HAVE_STRINGS_H
@@ -385,6 +409,9 @@
 /* Define to 1 if you have the <sys/dl.h> header file. */
 #cmakedefine HAVE_SYS_DL_H ${HAVE_SYS_DL_H}
 
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#cmakedefine HAVE_SYS_IOCTL_H ${HAVE_SYS_IOCTL_H}
+
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #cmakedefine HAVE_SYS_MMAN_H ${}
 
@@ -408,10 +435,16 @@
 #cmakedefine HAVE_SYS_TYPES_H ${HAVE_SYS_TYPES_H}
 
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
-#undef HAVE_SYS_WAIT_H
+#cmakedefine HAVE_SYS_WAIT_H ${HAVE_SYS_WAIT_H}
+
+/* Define if the neat program is available */
+#cmakedefine HAVE_TWOPI ${HAVE_TWOPI}
 
 /* Define to 1 if the system has the type `uint64_t'. */
 #undef HAVE_UINT64_T
+
+/* Define to 1 if you have the <termios.h> header file. */
+#cmakedefine HAVE_TERMIOS_H ${HAVE_TERMIOS_H}
 
 /* Define to 1 if you have the <unistd.h> header file. */
 #cmakedefine HAVE_UNISTD_H ${HAVE_UNISTD_H}
@@ -421,6 +454,9 @@
 
 /* Define to 1 if the system has the type `u_int64_t'. */
 #undef HAVE_U_INT64_T
+
+/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
+#cmakedefine HAVE_VALGRIND_VALGRIND_H ${HAVE_VALGRIND_VALGRIND_H}
 
 /* Define to 1 if you have the <windows.h> header file. */
 #cmakedefine HAVE_WINDOWS_H ${HAVE_WINDOWS_H}
@@ -452,6 +488,9 @@
 /* Installation directory for man pages */
 #undef LLVM_MANDIR
 
+/* Build multithreading support into LLVM */
+#cmakedefine LLVM_MULTITHREADED ${LLVM_MULTITHREADED}
+
 /* Define if this is Unixish platform */
 #cmakedefine LLVM_ON_UNIX ${LLVM_ON_UNIX}
 
@@ -461,17 +500,29 @@
 /* Added by Kevin -- Maximum path length */
 #cmakedefine MAXPATHLEN ${MAXPATHLEN}
 
+/* Define to path to circo program if found or 'echo circo' otherwise */
+#cmakedefine LLVM_PATH_CIRCO "${LLVM_PATH_CIRCO}"
+
 /* Define to path to dot program if found or 'echo dot' otherwise */
-#undef LLVM_PATH_DOT
+#cmakedefine LLVM_PATH_DOT "${LLVM_PATH_DOT}"
 
 /* Define to path to dotty program if found or 'echo dotty' otherwise */
-#undef LLVM_PATH_DOTTY
+#cmakedefine LLVM_PATH_DOTTY "${LLVM_PATH_DOTTY}"
+
+/* Define to path to fdp program if found or 'echo fdp' otherwise */
+#cmakedefine LLVM_PATH_FDP "${LLVM_PATH_FDP}"
 
 /* Define to path to Graphviz program if found or 'echo Graphviz' otherwise */
 #undef LLVM_PATH_GRAPHVIZ
 
 /* Define to path to gv program if found or 'echo gv' otherwise */
-#undef LLVM_PATH_GV
+#cmakedefine LLVM_PATH_GV "${LLVM_PATH_GV}"
+
+/* Define to path to neato program if found or 'echo neato' otherwise */
+#cmakedefine LLVM_PATH_NEATO "${LLVM_PATH_NEATO}"
+
+/* Define to path to twopi program if found or 'echo twopi' otherwise */
+#cmakedefine LLVM_PATH_TWOPI "${LLVM_PATH_TWOPI}"
 
 /* Installation prefix directory */
 #undef LLVM_PREFIX
@@ -571,3 +622,6 @@
 
 /* Define to a function implementing strdup */
 #cmakedefine strdup ${strdup}
+
+/* Native LLVM architecture */
+#cmakedefine LLVM_NATIVE_ARCH ${LLVM_NATIVE_ARCH}Target

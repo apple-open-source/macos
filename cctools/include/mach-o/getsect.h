@@ -58,8 +58,19 @@ extern const struct section *getsectbyname(
     const char *segname,
     const char *sectname);
 
+extern uint8_t *getsectiondata(
+    const struct mach_header *mhp,
+    const char *segname,
+    const char *sectname,
+    unsigned long *size);
+
 extern const struct segment_command *getsegbyname(
     const char *segname);
+
+extern uint8_t *getsegmentdata(
+    const struct mach_header *mhp,
+    const char *segname,
+    unsigned long *size);
 
 #else /* defined(__LP64__) */
 /*
@@ -69,8 +80,19 @@ extern const struct section_64 *getsectbyname(
     const char *segname,
     const char *sectname);
 
+extern uint8_t *getsectiondata(
+    const struct mach_header_64 *mhp,
+    const char *segname,
+    const char *sectname,
+    unsigned long *size);
+
 extern const struct segment_command_64 *getsegbyname(
     const char *segname);
+
+extern uint8_t *getsegmentdata(
+    const struct mach_header_64 *mhp,
+    const char *segname,
+    unsigned long *size);
 
 #endif /* defined(__LP64__) */
 

@@ -2,15 +2,15 @@
         <key>OpenSourceProject</key>
         <string>setuptools</string>
         <key>OpenSourceVersion</key>
-        <string>0.6c11</string>
+        <string>0.6c12dev-r8538</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://pypi.python.org/pypi/setuptools</string>
         <key>OpenSourceURL</key>
-        <string>http://pypi.python.org/packages/source/s/setuptools/setuptools-0.6c11.tar.gz#md5=7df2a529a074f613b509fb44feefe74e</string>
+        <string>http://peak.telecommunity.com/snapshots/setuptools-0.6c12dev-r85381.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2010-07-25</string>
+        <string>2010-08-26</string>
         <key>OpenSourceMD5</key>
-        <string>7df2a529a074f613b509fb44feefe74e</string>
+        <string>238656ae83a0c965cdb1bac226d930e3</string>
         <key>OpenSourceLicense</key>
         <string>PSFL</string>
         <key>OpenSourceLicenseFile</key>

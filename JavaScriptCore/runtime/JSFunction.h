@@ -24,7 +24,7 @@
 #ifndef JSFunction_h
 #define JSFunction_h
 
-#include "InternalFunction.h"
+#include "JSObjectWithGlobalObject.h"
 
 namespace JSC {
 
@@ -34,24 +34,36 @@ namespace JSC {
     class JSActivation;
     class JSGlobalObject;
     class NativeExecutable;
+    class VPtrHackExecutable;
 
-    class JSFunction : public InternalFunction {
+    EncodedJSValue JSC_HOST_CALL callHostFunctionAsConstructor(ExecState*);
+
+    class JSFunction : public JSObjectWithGlobalObject {
         friend class JIT;
         friend class JSGlobalData;
 
-        typedef InternalFunction Base;
+        typedef JSObjectWithGlobalObject Base;
 
     public:
-        JSFunction(ExecState*, NonNullPassRefPtr<Structure>, int length, const Identifier&, NativeFunction);
-        JSFunction(ExecState*, NonNullPassRefPtr<Structure>, int length, const Identifier&, NativeExecutable*, NativeFunction);
-        JSFunction(ExecState*, NonNullPassRefPtr<FunctionExecutable>, ScopeChainNode*);
+        JSFunction(ExecState*, JSGlobalObject*, Structure*, int length, const Identifier&, NativeFunction);
+        JSFunction(ExecState*, JSGlobalObject*, Structure*, int length, const Identifier&, NativeExecutable*);
+        JSFunction(ExecState*, FunctionExecutable*, ScopeChainNode*);
         virtual ~JSFunction();
 
-        JSObject* construct(ExecState*, const ArgList&);
-        JSValue call(ExecState*, JSValue thisValue, const ArgList&);
+        const UString& name(ExecState*);
+        const UString displayName(ExecState*);
+        const UString calculatedDisplayName(ExecState*);
 
-        void setScope(const ScopeChain& scopeChain) { setScopeChain(scopeChain); }
-        ScopeChain& scope() { return scopeChain(); }
+        ScopeChainNode* scope()
+        {
+            ASSERT(!isHostFunctionNonInline());
+            return m_scopeChain.get();
+        }
+        void setScope(JSGlobalData& globalData, ScopeChainNode* scopeChain)
+        {
+            ASSERT(!isHostFunctionNonInline());
+            m_scopeChain.set(globalData, this, scopeChain);
+        }
 
         ExecutableBase* executable() const { return m_executable.get(); }
 
@@ -59,76 +71,48 @@ namespace JSC {
         inline bool isHostFunction() const;
         FunctionExecutable* jsExecutable() const;
 
-        static JS_EXPORTDATA const ClassInfo info;
+        static JS_EXPORTDATA const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype) 
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype) 
         { 
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); 
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); 
         }
 
-        NativeFunction nativeFunction()
-        {
-            return *WTF::bitwise_cast<NativeFunction*>(m_data);
-        }
+        NativeFunction nativeFunction();
 
         virtual ConstructType getConstructData(ConstructData&);
         virtual CallType getCallData(CallData&);
 
     protected:
-        const static unsigned StructureFlags = OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesMarkChildren | OverridesGetPropertyNames | InternalFunction::StructureFlags;
+        const static unsigned StructureFlags = OverridesGetOwnPropertySlot | ImplementsHasInstance | OverridesVisitChildren | OverridesGetPropertyNames | JSObject::StructureFlags;
 
     private:
-        JSFunction(NonNullPassRefPtr<Structure>);
+        explicit JSFunction(VPtrStealingHackType);
 
         bool isHostFunctionNonInline() const;
 
+        virtual void preventExtensions(JSGlobalData&);
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
         virtual void getOwnPropertyNames(ExecState*, PropertyNameArray&, EnumerationMode mode = ExcludeDontEnumProperties);
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
         virtual bool deleteProperty(ExecState*, const Identifier& propertyName);
 
-        virtual void markChildren(MarkStack&);
-
-        virtual const ClassInfo* classInfo() const { return &info; }
+        virtual void visitChildren(SlotVisitor&);
 
         static JSValue argumentsGetter(ExecState*, JSValue, const Identifier&);
         static JSValue callerGetter(ExecState*, JSValue, const Identifier&);
         static JSValue lengthGetter(ExecState*, JSValue, const Identifier&);
 
-        RefPtr<ExecutableBase> m_executable;
-        ScopeChain& scopeChain()
-        {
-            ASSERT(!isHostFunctionNonInline());
-            return *WTF::bitwise_cast<ScopeChain*>(m_data);
-        }
-        void clearScopeChain()
-        {
-            ASSERT(!isHostFunctionNonInline());
-            new (m_data) ScopeChain(NoScopeChain());
-        }
-        void setScopeChain(ScopeChainNode* sc)
-        {
-            ASSERT(!isHostFunctionNonInline());
-            new (m_data) ScopeChain(sc);
-        }
-        void setScopeChain(const ScopeChain& sc)
-        {
-            ASSERT(!isHostFunctionNonInline());
-            *WTF::bitwise_cast<ScopeChain*>(m_data) = sc;
-        }
-        void setNativeFunction(NativeFunction func)
-        {
-            *WTF::bitwise_cast<NativeFunction*>(m_data) = func;
-        }
-        unsigned char m_data[sizeof(void*)];
+        WriteBarrier<ExecutableBase> m_executable;
+        WriteBarrier<ScopeChainNode> m_scopeChain;
     };
 
     JSFunction* asFunction(JSValue);
 
     inline JSFunction* asFunction(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&JSFunction::info));
+        ASSERT(asObject(value)->inherits(&JSFunction::s_info));
         return static_cast<JSFunction*>(asObject(value));
     }
 

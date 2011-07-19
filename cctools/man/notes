@@ -2,6 +2,37 @@ TODO:
 - Add -v description to checksyms.
 - The 4.4bsd a.out(5) man page is wrong for Rhapsody.
 
+Changes for the 5.27 release (the cctools-796 release):
+- Updated the -L option to otool(1) to include the share library ID.  Radar bug
+  #7885069.
+- Added the -arch option to pagestuff(1).  Radar bug #8379048.
+
+Changes for the 5.27 release (the cctools-782 release):
+- Added the -U option to nm(1).  Radar bug #7761111.
+- Added an ALSO SEE to the otool(1) man page that listed install_name_tool(1),
+  dyld(1) and libtool(1).  Radar bug #7531315. 
+
+Changes for the 5.27 release (the cctools-773 release):
+- Changed the description of otool(1)'s -X flag.  Radar bug #7328418.
+
+Changes for the 5.27 release (the cctools-765 release):
+- Moved the install location of motc(1) back to /usr/local/efi/share/man .
+  Radar bug #7117645.
+
+Changes for the 5.27 release (the cctools-761 release):
+- Moved the install location of motc(1) into /usr/share/man. Radar bug #7038602.
+
+Changes for the 5.27 release (the cctools-758 release):
+- Fixed the strings(1) man page for the -arch option and removed the comment
+  about -arch all being the default.  Radar bug #6945015.
+
+Changes for the 5.27 release (the cctools-751 release):
+- Fixed the typo of embed -> embedded in the codesign_allocate(1) manpage.
+  Radar bug #5859182.
+- Fixed the arch(3) man page for the prototype for NXFindBestFatArch() where
+  it incorrectly had unsigned long where it should have been uint32_t.
+  Radar bug #4717379.
+
 Changes for the 5.26 release (the cctools-750 release):
 - Added the -rpath, -add_rpath and -delete_rpath options to
   install_name_tool(1).  Radar bug #5684850.

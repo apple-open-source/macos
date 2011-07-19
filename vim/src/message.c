@@ -107,7 +107,7 @@ msg(s)
 }
 
 #if defined(FEAT_EVAL) || defined(FEAT_X11) || defined(USE_XSMP) \
-    || defined(PROTO)
+    || defined(FEAT_GUI_GTK) || defined(PROTO)
 /*
  * Like msg() but keep it silent when 'verbosefile' is set.
  */
@@ -808,7 +808,7 @@ delete_first_msg()
     p = first_msg_hist;
     first_msg_hist = p->next;
     if (first_msg_hist == NULL)
-        last_msg_hist = NULL;  /* history is empty */
+	last_msg_hist = NULL;  /* history is empty */
     vim_free(p->msg);
     vim_free(p);
     --msg_hist_len;
@@ -818,10 +818,9 @@ delete_first_msg()
 /*
  * ":messages" command.
  */
-/*ARGSUSED*/
     void
 ex_messages(eap)
-    exarg_T	*eap;
+    exarg_T	*eap UNUSED;
 {
     struct msg_hist *p;
     char_u	    *s;
@@ -976,7 +975,7 @@ wait_return(redraw)
 		    }
 		}
 		else if (msg_scrolled > Rows - 2
-				     && (c == 'j' || c == K_DOWN || c == 'd'))
+			 && (c == 'j' || c == K_DOWN || c == 'd' || c == 'f'))
 		    c = K_IGNORE;
 	    }
 	} while ((had_got_int && c == Ctrl_C)
@@ -988,6 +987,7 @@ wait_return(redraw)
 				|| c == K_LEFTDRAG   || c == K_LEFTRELEASE
 				|| c == K_MIDDLEDRAG || c == K_MIDDLERELEASE
 				|| c == K_RIGHTDRAG  || c == K_RIGHTRELEASE
+				|| c == K_MOUSELEFT  || c == K_MOUSERIGHT
 				|| c == K_MOUSEDOWN  || c == K_MOUSEUP
 				|| (!mouse_has(MOUSE_RETURN)
 				    && mouse_row < msg_row
@@ -1135,8 +1135,11 @@ msg_start()
 {
     int		did_return = FALSE;
 
-    vim_free(keep_msg);
-    keep_msg = NULL;			/* don't display old message now */
+    if (!msg_silent)
+    {
+	vim_free(keep_msg);
+	keep_msg = NULL;		/* don't display old message now */
+    }
 
 #ifdef FEAT_EVAL
     if (need_clr_eos)
@@ -2504,7 +2507,6 @@ do_more_prompt(typed_char)
 	    break;
 
 	case 'u':		/* Up half a page */
-	case K_PAGEUP:
 	    scroll = -(Rows / 2);
 	    break;
 
@@ -2513,10 +2515,12 @@ do_more_prompt(typed_char)
 	    break;
 
 	case 'b':		/* one page back */
+	case K_PAGEUP:
 	    scroll = -(Rows - 1);
 	    break;
 
 	case ' ':		/* one extra page */
+	case 'f':
 	case K_PAGEDOWN:
 	case K_LEFTMOUSE:
 	    scroll = Rows - 1;
@@ -2552,7 +2556,6 @@ do_more_prompt(typed_char)
 	    {
 		/* Jump to the choices of the dialog. */
 		retval = TRUE;
-		lines_left = Rows - 1;
 	    }
 	    else
 #endif
@@ -2560,6 +2563,9 @@ do_more_prompt(typed_char)
 		got_int = TRUE;
 		quit_more = TRUE;
 	    }
+	    /* When there is some more output (wrapping line) display that
+	     * without another prompt. */
+	    lines_left = Rows - 1;
 	    break;
 
 #ifdef FEAT_CLIPBOARD
@@ -3020,11 +3026,7 @@ redir_write(str, maxlen)
     if (*p_vfile != NUL)
 	verbose_write(s, maxlen);
 
-    if (redir_fd != NULL
-#ifdef FEAT_EVAL
-			  || redir_reg || redir_vname
-#endif
-				       )
+    if (redirecting())
     {
 	/* If the string doesn't start with CR or NL, go to msg_col */
 	if (*s != '\n' && *s != '\r')
@@ -3069,6 +3071,16 @@ redir_write(str, maxlen)
 	if (msg_silent != 0)	/* should update msg_col */
 	    msg_col = cur_col;
     }
+}
+
+    int
+redirecting()
+{
+    return redir_fd != NULL
+#ifdef FEAT_EVAL
+			  || redir_reg || redir_vname
+#endif
+				       ;
 }
 
 /*
@@ -3281,15 +3293,15 @@ msg_advance(col)
  * A '&' in a button name becomes a shortcut, so each '&' should be before a
  * different letter.
  */
-/* ARGSUSED */
     int
 do_dialog(type, title, message, buttons, dfltbutton, textfield)
-    int		type;
-    char_u	*title;
+    int		type UNUSED;
+    char_u	*title UNUSED;
     char_u	*message;
     char_u	*buttons;
     int		dfltbutton;
-    char_u	*textfield;	/* IObuff for inputdialog(), NULL otherwise */
+    char_u	*textfield UNUSED;	/* IObuff for inputdialog(), NULL
+					   otherwise */
 {
     int		oldState;
     int		retval = 0;
@@ -3770,7 +3782,7 @@ do_browse(flags, title, dflt, ext, initdir, filter, buf)
 	    filter = BROWSE_FILTER_DEFAULT;
 	if (flags & BROWSE_DIR)
 	{
-#  if defined(HAVE_GTK2) || defined(WIN3264)
+#  if defined(FEAT_GUI_GTK) || defined(WIN3264)
 	    /* For systems that have a directory dialog. */
 	    fname = gui_mch_browsedir(title, initdir);
 #  else
@@ -3778,7 +3790,7 @@ do_browse(flags, title, dflt, ext, initdir, filter, buf)
 	     * remove the file name. */
 	    fname = gui_mch_browse(0, title, dflt, ext, initdir, (char_u *)"");
 #  endif
-#  if !defined(HAVE_GTK2)
+#  if !defined(FEAT_GUI_GTK)
 	    /* Win32 adds a dummy file name, others return an arbitrary file
 	     * name.  GTK+ 2 returns only the directory, */
 	    if (fname != NULL && *fname != NUL && !mch_isdir(fname))
@@ -3965,6 +3977,47 @@ tv_float(tvs, idxp)
 /* When generating prototypes all of this is skipped, cproto doesn't
  * understand this. */
 #ifndef PROTO
+
+# ifdef HAVE_STDARG_H
+/* Like vim_vsnprintf() but append to the string. */
+    int
+vim_snprintf_add(char *str, size_t str_m, char *fmt, ...)
+{
+    va_list	ap;
+    int		str_l;
+    size_t	len = STRLEN(str);
+    size_t	space;
+
+    if (str_m <= len)
+	space = 0;
+    else
+	space = str_m - len;
+    va_start(ap, fmt);
+    str_l = vim_vsnprintf(str + len, space, fmt, ap, NULL);
+    va_end(ap);
+    return str_l;
+}
+# else
+/* Like vim_vsnprintf() but append to the string. */
+    int
+vim_snprintf_add(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
+    char	*str;
+    size_t	str_m;
+    char	*fmt;
+    long	a1, a2, a3, a4, a5, a6, a7, a8, a9, a10;
+{
+    size_t	len = STRLEN(str);
+    size_t	space;
+
+    if (str_m <= len)
+	space = 0;
+    else
+	space = str_m - len;
+    return vim_vsnprintf(str + len, space, fmt,
+				     a1, a2, a3, a4, a5, a6, a7, a8, a9, a10);
+}
+# endif
+
 # ifdef HAVE_STDARG_H
     int
 vim_snprintf(char *str, size_t str_m, char *fmt, ...)
@@ -4012,7 +4065,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 	if (*p != '%')
 	{
 	    char    *q = strchr(p + 1, '%');
-	    size_t  n = (q == NULL) ? STRLEN(p) : (q - p);
+	    size_t  n = (q == NULL) ? STRLEN(p) : (size_t)(q - p);
 
 	    /* Copy up to the next '%' or NUL without any changes. */
 	    if (str_l < str_m)
@@ -4259,7 +4312,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 				  precision <= (size_t)0x7fffffffL ? precision
 						       : (size_t)0x7fffffffL);
 #endif
-			str_arg_l = (q == NULL) ? precision : q - str_arg;
+			str_arg_l = (q == NULL) ? precision
+						      : (size_t)(q - str_arg);
 		    }
 		    break;
 
@@ -4359,7 +4413,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 					    get_a_arg(arg_idx);
 #else
 # if defined(FEAT_EVAL)
-					    tvs != NULL ? tv_nr(tvs, &arg_idx) :
+					    tvs != NULL ? (unsigned)
+							tv_nr(tvs, &arg_idx) :
 # endif
 						va_arg(ap, unsigned int);
 #endif
@@ -4372,7 +4427,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 					    get_a_arg(arg_idx);
 #else
 # if defined(FEAT_EVAL)
-					    tvs != NULL ? tv_nr(tvs, &arg_idx) :
+					    tvs != NULL ? (unsigned long)
+							tv_nr(tvs, &arg_idx) :
 # endif
 						va_arg(ap, unsigned long int);
 #endif
@@ -4695,7 +4751,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			size_t avail = str_m - str_l;
 
 			vim_memset(str + str_l, zero_padding ? '0' : ' ',
-					     (size_t)pn > avail ? avail : pn);
+					     (size_t)pn > avail ? avail
+								: (size_t)pn);
 		    }
 		    str_l += pn;
 		}
@@ -4722,7 +4779,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			size_t avail = str_m - str_l;
 
 			mch_memmove(str + str_l, str_arg,
-					     (size_t)zn > avail ? avail : zn);
+					     (size_t)zn > avail ? avail
+								: (size_t)zn);
 		    }
 		    str_l += zn;
 		}
@@ -4737,7 +4795,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			size_t avail = str_m-str_l;
 
 			vim_memset(str + str_l, '0',
-					     (size_t)zn > avail ? avail : zn);
+					     (size_t)zn > avail ? avail
+								: (size_t)zn);
 		    }
 		    str_l += zn;
 		}
@@ -4756,7 +4815,7 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 
 			mch_memmove(str + str_l,
 				str_arg + zero_padding_insertion_ind,
-				(size_t)sn > avail ? avail : sn);
+				(size_t)sn > avail ? avail : (size_t)sn);
 		    }
 		    str_l += sn;
 		}
@@ -4776,7 +4835,8 @@ vim_snprintf(str, str_m, fmt, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10)
 			size_t avail = str_m - str_l;
 
 			vim_memset(str + str_l, ' ',
-					     (size_t)pn > avail ? avail : pn);
+					     (size_t)pn > avail ? avail
+								: (size_t)pn);
 		    }
 		    str_l += pn;
 		}

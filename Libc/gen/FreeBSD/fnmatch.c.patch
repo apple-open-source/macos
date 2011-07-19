@@ -1,56 +1,64 @@
---- fnmatch.c.orig	2004-11-25 11:38:00.000000000 -0800
-+++ fnmatch.c	2005-03-30 14:33:09.000000000 -0800
-@@ -40,6 +40,8 @@
+--- fnmatch.c.orig	2011-02-17 17:11:04.000000000 -0800
++++ fnmatch.c	2011-02-18 12:00:31.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)fnmatch.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.16 2004/07/29 03:13:10 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.19 2010/04/16 22:29:24 jilles Exp $");
  
 +#include "xlocale_private.h"
 +
  /*
   * Function fnmatch() as specified in POSIX 1003.2-1992, section B.6.
   * Compares a filename or pathname to a pattern.
-@@ -66,12 +68,15 @@
+@@ -62,13 +64,16 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/fnm
  
  #define	EOS	'\0'
  
-+#if __DARWIN_UNIX03
 +#define RETURN_ERROR	2	/* neither 0 or FNM_NOMATCH */
-+#endif /* __DARWIN_UNIX03 */
  #define RANGE_MATCH     1
  #define RANGE_NOMATCH   0
  #define RANGE_ERROR     (-1)
  
 -static int rangematch(const char *, wchar_t, int, char **, mbstate_t *);
--static int fnmatch1(const char *, const char *, int, mbstate_t, mbstate_t);
++#define RECURSION_MAX	64
++
 +__private_extern__ int rangematch(const char *, wchar_t, const char *, int, char **, char **, mbstate_t *, mbstate_t *, locale_t);
-+static int fnmatch1(const char *, const char *, int, mbstate_t, mbstate_t, locale_t);
+ static int fnmatch1(const char *, const char *, const char *, int, mbstate_t,
+-		mbstate_t);
++		mbstate_t, locale_t, int);
  
  int
  fnmatch(pattern, string, flags)
-@@ -80,27 +85,32 @@
+@@ -76,27 +81,38 @@ fnmatch(pattern, string, flags)
+ 	int flags;
  {
  	static const mbstate_t initial;
- 
--	return (fnmatch1(pattern, string, flags, initial, initial));
-+	return (fnmatch1(pattern, string, flags, initial, initial, __current_locale()));
+-
+-	return (fnmatch1(pattern, string, string, flags, initial, initial));
++#if __DARWIN_UNIX03
++	return (fnmatch1(pattern, string, string, flags, initial, initial, __current_locale(), RECURSION_MAX));
++#else /* !__DARWIN_UNIX03 */
++	return (fnmatch1(pattern, string, string, flags, initial, initial, __current_locale(), RECURSION_MAX) != 0 ? FNM_NOMATCH : 0);
++#endif /* __DARWIN_UNIX03 */
  }
  
  static int
--fnmatch1(pattern, string, flags, patmbs, strmbs)
-+fnmatch1(pattern, string, flags, patmbs, strmbs, loc)
- 	const char *pattern, *string;
+-fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs)
++fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs, loc, recursion)
+ 	const char *pattern, *string, *stringstart;
  	int flags;
  	mbstate_t patmbs, strmbs;
 +	locale_t loc;
++	int recursion;
  {
- 	const char *stringstart;
 -	char *newp;
 +	char *newp, *news;
  	char c;
  	wchar_t pc, sc;
  	size_t pclen, sclen;
  
- 	for (stringstart = string;;) {
++	if (recursion-- <= 0)
++		return RETURN_ERROR;
+ 	for (;;) {
 -		pclen = mbrtowc(&pc, pattern, MB_LEN_MAX, &patmbs);
 +		pclen = mbrtowc_l(&pc, pattern, MB_LEN_MAX, &patmbs, loc);
  		if (pclen == (size_t)-1 || pclen == (size_t)-2)
@@ -65,21 +73,26 @@
  		if (sclen == (size_t)-1 || sclen == (size_t)-2) {
  			sc = (unsigned char)*string;
  			sclen = 1;
-@@ -150,10 +160,10 @@
+@@ -144,12 +160,13 @@ fnmatch1(pattern, string, stringstart, f
+ 			}
+ 
  			/* General case, use recursion. */
++			int ret;
  			while (sc != EOS) {
- 				if (!fnmatch1(pattern, string,
--				    flags & ~FNM_PERIOD, patmbs, strmbs))
-+				    flags & ~FNM_PERIOD, patmbs, strmbs, loc))
- 					return (0);
+-				if (!fnmatch1(pattern, string, stringstart,
+-				    flags, patmbs, strmbs))
+-					return (0);
 -				sclen = mbrtowc(&sc, string, MB_LEN_MAX,
 -				    &strmbs);
++				if ((ret = fnmatch1(pattern, string, stringstart,
++				    flags, patmbs, strmbs, loc, recursion)) != FNM_NOMATCH)
++					return (ret);
 +				sclen = mbrtowc_l(&sc, string, MB_LEN_MAX,
 +				    &strmbs, loc);
  				if (sclen == (size_t)-1 ||
  				    sclen == (size_t)-2) {
  					sc = (unsigned char)*string;
-@@ -175,35 +185,45 @@
+@@ -171,35 +188,45 @@ fnmatch1(pattern, string, stringstart, f
  			    ((flags & FNM_PATHNAME) && *(string - 1) == '/')))
  				return (FNM_NOMATCH);
  
@@ -131,7 +144,7 @@
  				;
  			else
  				return (FNM_NOMATCH);
-@@ -214,18 +234,22 @@
+@@ -210,18 +237,22 @@ fnmatch1(pattern, string, stringstart, f
  	/* NOTREACHED */
  }
  
@@ -162,7 +175,7 @@
  
  	/*
  	 * A bracket expression starting with an unquoted circumflex
-@@ -238,7 +262,7 @@
+@@ -234,7 +265,7 @@ rangematch(pattern, test, flags, newp, p
  		++pattern;
  
  	if (flags & FNM_CASEFOLD)
@@ -171,7 +184,7 @@
  
  	/*
  	 * A right bracket shall lose its special meaning and represent
-@@ -248,8 +272,8 @@
+@@ -244,8 +275,8 @@ rangematch(pattern, test, flags, newp, p
  	ok = 0;
  	origpat = pattern;
  	for (;;) {
@@ -181,7 +194,7 @@
  			break;
  		} else if (*pattern == '\0') {
  			return (RANGE_ERROR);
-@@ -258,39 +282,188 @@
+@@ -253,39 +284,188 @@ rangematch(pattern, test, flags, newp, p
  			return (RANGE_NOMATCH);
  		} else if (*pattern == '\\' && !(flags & FNM_NOESCAPE))
  			pattern++;

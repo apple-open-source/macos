@@ -4,7 +4,7 @@ Install_Dir = /usr/libexec
 
 CFILES = vndevice.c
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Wall \
 	-I"$(SDKROOT)"/System/Library/Frameworks/System.framework/PrivateHeaders
 Extra_LD_Flags = -dead_strip
 

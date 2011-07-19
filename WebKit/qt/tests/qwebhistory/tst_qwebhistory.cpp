@@ -59,6 +59,8 @@ private slots:
     void saveAndRestore_crash_1();
     void saveAndRestore_crash_2();
     void saveAndRestore_crash_3();
+    void popPushState_data();
+    void popPushState();
     void clear();
 
 
@@ -82,7 +84,7 @@ void tst_QWebHistory::init()
 {
     page = new QWebPage(this);
     frame = page->mainFrame();
-    connect(page, SIGNAL(loadFinished(bool)), &waitForLoadFinished, SLOT(quit()));
+    connect(page, SIGNAL(loadFinished(bool)), &waitForLoadFinished, SLOT(quit()), Qt::QueuedConnection);
 
     for (int i = 1;i < 6;i++) {
         loadPage(i);
@@ -124,6 +126,7 @@ void tst_QWebHistory::back()
     }
     //try one more time (too many). crash test
     hist->back();
+    QCOMPARE(page->mainFrame()->toPlainText(), QString("page1"));
 }
 
 /**
@@ -144,6 +147,7 @@ void tst_QWebHistory::forward()
     }
     //try one more time (too many). crash test
     hist->forward();
+    QCOMPARE(page->mainFrame()->toPlainText(), QString("page") + QString::number(histsize));
 }
 
 /**
@@ -347,6 +351,25 @@ void tst_QWebHistory::saveAndRestore_crash_3()
         hist2->clear();
     }
     delete page2;
+}
+
+void tst_QWebHistory::popPushState_data()
+{
+    QTest::addColumn<QString>("script");
+    QTest::newRow("pushState") << "history.pushState(123, \"foo\");";
+    QTest::newRow("replaceState") << "history.replaceState(\"a\", \"b\");";
+    QTest::newRow("back") << "history.back();";
+    QTest::newRow("forward") << "history.forward();";
+    QTest::newRow("clearState") << "history.clearState();";
+}
+
+/** Crash test, WebKit bug 38840 (https://bugs.webkit.org/show_bug.cgi?id=38840) */
+void tst_QWebHistory::popPushState()
+{
+    QFETCH(QString, script);
+    QWebPage page;
+    page.mainFrame()->setHtml("<html><body>long live Qt!</body></html>");
+    page.mainFrame()->evaluateJavaScript(script);
 }
 
 /** ::clear */

@@ -9,5 +9,11 @@ MDSRCS += \
        pthread_self.s \
        pthread_getspecific.s \
        start_wqthread.s \
-       thread_start.s
+       thread_start.s \
+       preempt.s
 
+DYLDSRCS += \
+	pthread_set_self.s \
+	pthread_self.s \
+	pthread_getspecific.s \
+	preempt.s

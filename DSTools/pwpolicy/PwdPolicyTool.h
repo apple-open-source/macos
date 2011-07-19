@@ -133,7 +133,7 @@ public:
 	tDirStatus			OpenDirNode				( char *inNodeName, tDirNodeReference *outNodeRef );
 	tDirStatus			CloseDirectoryNode		( tDirNodeReference inNodeRef );
     tDirStatus			DoNodePWAuth			( tDirNodeReference inNode,
-                                                    const char *inUserName,
+                                                    const char *inName,
                                                     const char *inPasswd,
 													const char *inMethod,
                                                     const char *inUserName,

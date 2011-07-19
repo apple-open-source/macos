@@ -1,9 +1,9 @@
 /*
- * "$Id: cancel.c 7720 2008-07-11 22:46:21Z mike $"
+ * "$Id: cancel.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   "cancel" command for the Common UNIX Printing System (CUPS).
+ *   "cancel" command for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -21,11 +21,7 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cups/string.h>
-#include <cups/cups.h>
-#include <cups/i18n.h>
+#include <cups/cups-private.h>
 
 
 /*
@@ -82,8 +78,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      httpEncryption(http, HTTP_ENCRYPT_REQUIRED);
 #else
             _cupsLangPrintf(stderr,
-	                    _("%s: Sorry, no encryption support compiled in!\n"),
-	                    argv[0]);
+	                    _("%s: Sorry, no encryption support."), argv[0]);
 #endif /* HAVE_SSL */
 	    break;
 
@@ -97,15 +92,14 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		                _("%s: Error - expected username after "
-				  "\'-U\' option!\n"),
-		        	argv[0]);
+				  "\"-U\" option."), argv[0]);
 	        return (1);
 	      }
 
               cupsSetUser(argv[i]);
 	    }
 	    break;
-	    
+
         case 'a' : /* Cancel all jobs */
 	    purge = 1;
 	    op    = IPP_PURGE_JOBS;
@@ -128,8 +122,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		        	_("%s: Error - expected hostname after "
-			          "\'-h\' option!\n"),
-				argv[0]);
+			          "\"-h\" option."), argv[0]);
 		return (1);
               }
 	      else
@@ -150,8 +143,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	      {
 	        _cupsLangPrintf(stderr,
 		        	_("%s: Error - expected username after "
-			          "\'-u\' option!\n"),
-				argv[0]);
+			          "\"-u\" option."), argv[0]);
 		return (1);
               }
 	      else
@@ -161,7 +153,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 	default :
 	    _cupsLangPrintf(stderr,
-	                    _("%s: Error - unknown option \'%c\'!\n"),
+	                    _("%s: Error - unknown option \"%c\"."),
 			    argv[0], argv[i][1]);
 	    return (1);
       }
@@ -219,7 +211,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	*/
 
         _cupsLangPrintf(stderr,
-	                _("%s: Error - unknown destination \"%s\"!\n"),
+	                _("%s: Error - unknown destination \"%s\"."),
 			argv[0], argv[i]);
 	return (1);
       }
@@ -242,8 +234,7 @@ main(int  argc,				/* I - Number of command-line arguments */
 	                               cupsEncryption())) == NULL)
 	{
 	  _cupsLangPrintf(stderr,
-	                  _("%s: Unable to contact server!\n"),
-			  argv[0]);
+	                  _("%s: Unable to connect to server."), argv[0]);
 	  return (1);
 	}
 
@@ -292,7 +283,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       * Do the request and get back a response...
       */
 
-      if (op == IPP_PURGE_JOBS && (!user || strcasecmp(user, cupsUser())))
+      if (op == IPP_PURGE_JOBS && (!user || _cups_strcasecmp(user, cupsUser())))
         response = cupsDoRequest(http, request, "/admin/");
       else
         response = cupsDoRequest(http, request, "/jobs/");
@@ -300,7 +291,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       if (response == NULL ||
           response->request.status.status_code > IPP_OK_CONFLICT)
       {
-	_cupsLangPrintf(stderr, _("%s: %s failed: %s\n"), argv[0],
+	_cupsLangPrintf(stderr, _("%s: %s failed: %s"), argv[0],
 	        	op == IPP_PURGE_JOBS ? "purge-jobs" : "cancel-job",
         		cupsLastErrorString());
 
@@ -323,8 +314,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
 	                             cupsEncryption())) == NULL)
       {
-	_cupsLangPrintf(stderr, _("%s: Unable to contact server!\n"),
-	                argv[0]);
+	_cupsLangPrintf(stderr, _("%s: Unable to contact server."), argv[0]);
 	return (1);
       }
 
@@ -364,7 +354,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     if (response == NULL ||
         response->request.status.status_code > IPP_OK_CONFLICT)
     {
-      _cupsLangPrintf(stderr, _("%s: %s failed: %s\n"), argv[0],
+      _cupsLangPrintf(stderr, _("%s: %s failed: %s"), argv[0],
 		      op == IPP_PURGE_JOBS ? "purge-jobs" : "cancel-job",
         	      cupsLastErrorString());
 
@@ -382,5 +372,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: cancel.c 7720 2008-07-11 22:46:21Z mike $".
+ * End of "$Id: cancel.c 9042 2010-03-24 00:45:34Z mike $".
  */

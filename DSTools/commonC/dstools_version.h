@@ -22,10 +22,9 @@
  */
 
 #ifndef BUILD_VERSION
-#warning VERIFY BUILD_VERSION NUMBER BEFORE SUBMITTING!!
-#define BUILD_VERSION "134"
-#define TOOLS_VERSION "10.6.0"
-
+#define BUILD_VERSION "engineering"
+#define TOOLS_VERSION "engineering"
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -36,4 +35,3 @@ void dsToolAppleVersionExit( const char *toolName );
 };
 #endif
 
-#endif

@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: digest.c,v 1.16 2001/08/21 05:51:33 tcl Exp $
+ * CVS: $Id: digest.c,v 1.18 2009/05/07 05:30:35 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -203,7 +203,7 @@ CONST Trf_MessageDigestDescription* md_desc;
   START (Trf_RegisterMessageDigest);
 
   /* THREADING: read-only access => safe */
-  md = (Trf_TypeDefinition*) Tcl_Alloc (sizeof (Trf_TypeDefinition));
+  md = (Trf_TypeDefinition*) ckalloc (sizeof (Trf_TypeDefinition));
 
   memcpy ((VOID*) md, (VOID*) &mdDefinition, sizeof (Trf_TypeDefinition));
 
@@ -268,7 +268,7 @@ ClientData    clientData;
   START (digest.CreateEncoder);
   PRINT ("%p: %s\n", md, md->name);
 
-  c = (EncoderControl*) Tcl_Alloc (sizeof (EncoderControl));
+  c = (EncoderControl*) ckalloc (sizeof (EncoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -304,7 +304,7 @@ ClientData    clientData;
 
   PRINT ("Setting up context (%d bytes)\n", md->context_size); FL;
 
-  c->context = (VOID*) Tcl_Alloc (md->context_size);
+  c->context = (VOID*) ckalloc (md->context_size);
   (*md->startProc) (c->context);
 
   DONE (digest.CreateEncoder);
@@ -337,8 +337,13 @@ ClientData       clientData;
 {
   EncoderControl* c = (EncoderControl*) ctrlBlock;
 
-  Tcl_Free ((char*) c->context);
-  Tcl_Free ((char*) c);
+  /* [Bug 2788106]. */
+  if (c->destHandle) {
+    ckfree (c->destHandle);
+  }
+
+  ckfree ((char*) c->context);
+  ckfree ((char*) c);
 }
 
 /*
@@ -474,7 +479,7 @@ ClientData       clientData;
   /*
    * Get a bit more, for a trailing \0 in 7.6, see 'WriteDigest' too
    */
-  digest = (char*) Tcl_Alloc (2 + md->digest_size);
+  digest = (char*) ckalloc (2 + md->digest_size);
   (*md->finalProc) (c->context, digest);
 
   if ((c->operation_mode == ATTACH_WRITE) ||
@@ -491,7 +496,7 @@ ClientData       clientData;
     res = c->write (c->writeClientData, (unsigned char*) digest, md->digest_size, interp);
   }
 
-  Tcl_Free (digest);
+  ckfree (digest);
   return res;
 }
 
@@ -555,7 +560,7 @@ ClientData    clientData;
   TrfMDOptionBlock*              o = (TrfMDOptionBlock*) optInfo;
   Trf_MessageDigestDescription* md = (Trf_MessageDigestDescription*) clientData;
 
-  c = (DecoderControl*) Tcl_Alloc (sizeof (DecoderControl));
+  c = (DecoderControl*) ckalloc (sizeof (DecoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -589,10 +594,10 @@ ClientData    clientData;
   c->buffer_pos = 0;
   c->charCount  = 0;
 
-  c->context = (VOID*) Tcl_Alloc (md->context_size);
+  c->context = (VOID*) ckalloc (md->context_size);
   (*md->startProc) (c->context);
 
-  c->digest_buffer = (unsigned char*) Tcl_Alloc (md->digest_size);
+  c->digest_buffer = (unsigned char*) ckalloc (md->digest_size);
   memset (c->digest_buffer, '\0', md->digest_size);
 
   return (ClientData) c;
@@ -623,9 +628,14 @@ ClientData clientData;
 {
   DecoderControl* c = (DecoderControl*) ctrlBlock;
 
-  Tcl_Free ((char*) c->digest_buffer);
-  Tcl_Free ((char*) c->context);
-  Tcl_Free ((char*) c);
+  /* [Bug 2788106]. */
+  if (c->destHandle) {
+    ckfree (c->destHandle);
+  }
+
+  ckfree ((char*) c->digest_buffer);
+  ckfree ((char*) c->context);
+  ckfree ((char*) c);
 }
 
 /*
@@ -912,7 +922,7 @@ ClientData       clientData;
   /*
    * Get a bit more, for a trailing \0 in 7.6, see 'WriteDigest' too
    */
-  digest = (char*) Tcl_Alloc (2 + md->digest_size);
+  digest = (char*) ckalloc (2 + md->digest_size);
   (*md->finalProc) (c->context, digest);
 
   if ((c->operation_mode == ATTACH_WRITE) ||
@@ -939,7 +949,7 @@ ClientData       clientData;
       char* temp;
       int i,j;
 
-      temp = (char*) Tcl_Alloc (md->digest_size);
+      temp = (char*) ckalloc (md->digest_size);
 
       for (i= c->buffer_pos, j=0;
 	   j < md->digest_size;
@@ -948,7 +958,7 @@ ClientData       clientData;
       }
 
       memcpy ((VOID*) c->digest_buffer, (VOID*) temp, md->digest_size);
-      Tcl_Free (temp);
+      ckfree (temp);
     }
 
     /*
@@ -961,7 +971,7 @@ ClientData       clientData;
     Tcl_SetVar (c->vInterp, c->matchFlag, result_text, TCL_GLOBAL_ONLY);
   }
 
-  Tcl_Free (digest);
+  ckfree (digest);
   return res;
 }
 

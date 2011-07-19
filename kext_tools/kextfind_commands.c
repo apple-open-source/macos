@@ -228,6 +228,7 @@ char * stringForData(const UInt8 * data, int numBytes)
         *scan++ = digits[binaryDigit2];
     }
     *scan++ = '\0';
+#pragma unused(scan)
 
 finish:
     return result;
@@ -262,9 +263,6 @@ void printProperty(
             kCFAllocatorDefault, NULL, CFSTR("%@ = %@%c"),
             propKey, value, lineEnd);
     } else if (type == CFDataGetTypeID()) {
-        propString = CFStringCreateWithFormat(
-            kCFAllocatorDefault, NULL, CFSTR("%@ = %@%c"),
-            propKey, value, lineEnd);
         CFIndex length = 0;
         length = CFDataGetLength(value);
         const UInt8 * data = CFDataGetBytePtr(value);

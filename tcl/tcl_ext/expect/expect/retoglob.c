@@ -34,6 +34,10 @@ ExpBackslash _ANSI_ARGS_ ((char prefix,
 			 Tcl_UniChar* str,
 			 int          strlen));
 
+static int
+ExpCountStar _ANSI_ARGS_ ((Tcl_UniChar* src, Tcl_UniChar* last));
+
+
 static char*
 xxx (Tcl_UniChar* x, int xl)
 {
@@ -122,6 +126,10 @@ exp_retoglob (
 			EMIT ('\\'); EMITX ((c)); \
 		      } else { \
 			EMIT ((c));}}
+#define MATCH_AREOPTS(c) (c == 'b' || c == 'c' || \
+          c == 'e' || c == 'i' || c == 'm' || c == 'n' || \
+          c == 'p' || c == 'q' || c == 's' || c == 't' || \
+          c == 'w' || c == 'x')
 
 #if DEBUG
 #define LOG if (1) fprintf
@@ -155,21 +163,56 @@ exp_retoglob (
    */
 
   if (MATCH (areopts)) { /* "(?" */
+    Tcl_UniChar* save = str;
+    Tcl_UniChar* stop;
+    int stoplen;
+    int save_strlen = strlen;
+    int all_ARE_opts = 1;
+
+    /* First, ensure that this is actually an ARE opts string.
+     * It could be something else (e.g., a non-capturing block).
+     */
     CHOP (2);
     mark = str; CHOPC (')');
+    stop = str;       /* Remember closing parens location, allows */
+    stoplen = strlen; /* us to avoid a second CHOPC run later */
 
     while (mark < str) {
-      if (*mark == 'q') {
-	CHOP (1);
-	nexto = ExpLiteral (nexto, str, strlen);
-	goto done;
-      } else if (*mark == 'x') {
-	expanded = 1;
-	LOG (stderr,"EXPANDED\n"); FF;
+      if (MATCH_AREOPTS(*mark)) {
+        mark++;
+      } else {
+        all_ARE_opts = 0;
+        break;
       }
-      mark++;
     }
-    CHOP (1);
+
+    /* Reset back to our entry point. */
+    str    = save;
+    strlen = save_strlen;
+
+    if (all_ARE_opts) {
+      /* Now actually perform the ARE option processing */
+      LOG (stderr, "%s\n", "Processing AREOPTS"); FF;
+
+      CHOP (2);
+      mark = str;
+      /* Equivalent to CHOPC (')') */
+      str    = stop; 
+      strlen = stoplen;
+
+      while (mark < str) {
+        if (*mark == 'q') {
+          CHOP (1);
+          nexto = ExpLiteral (nexto, str, strlen);
+          goto done;
+        } else if (*mark == 'x') {
+          expanded = 1;
+          LOG (stderr,"EXPANDED\n"); FF;
+        }
+        mark++;
+      }
+      CHOP (1);
+    }
   }
 
   while (strlen) {
@@ -426,6 +469,15 @@ exp_retoglob (
   LOG (stderr,"ST '%s'\n",xxx(out,nexto-out)); FF;
 
   /*
+   * Heuristic: if there are more than two *s, the risk is far too
+   * large that the result actually is slower than the normal re
+   * matching.  So bail out.
+   */
+  if (ExpCountStar (out,nexto) > 2) {
+      goto error;
+  }
+
+  /*
    * Check if the result is actually useful.
    * Empty or just a *, or ? are not. A series
    * of ?'s is borderline, as they semi-count
@@ -676,6 +728,31 @@ ExpCollapseQBack (src, last)
   LOG (stderr,"/%1d '%s' <-- \n",skip,xxx(base,dst-base)); FF;
   LOG (stderr,"'%s'\n",   xxx(src,last-src));  FF;
   return dst;
+}
+
+static int
+ExpCountStar (src, last)
+    Tcl_UniChar* src;
+    Tcl_UniChar* last;
+{
+    int skip = 0;
+    int stars = 0;
+
+    /* Count number of *'s. State machine. The complexity is due to the
+     * need of handling escaped characters.
+     */
+
+    for (; src < last; src++) {
+	if (skip) {
+	    skip = 0;
+	} else if (*src == '\\') {
+	    skip = 1;
+	} else if (*src == '*') {
+	    stars++;
+	}
+    }
+
+    return stars;
 }
 
 #undef CHOP

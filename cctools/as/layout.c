@@ -19,7 +19,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 
 #include <stdlib.h>
 #include <string.h>
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "as.h"
 #include "sections.h"
 #include "frags.h"
@@ -134,7 +134,7 @@ void)
 	     * on a address that is aligned correctly for the engine that runs
 	     * the assembler.
 	     */
-	    obstack_finish(&frags);
+	    (void)obstack_finish(&frags);
 
 	    /*
 	     * Make a fresh frag for the last frag.
@@ -142,7 +142,7 @@ void)
 	    frag_now = (fragS *)obstack_alloc(&frags, SIZEOF_STRUCT_FRAG);
 	    memset(frag_now, '\0', SIZEOF_STRUCT_FRAG);
 	    frag_now->fr_next = NULL;
-	    obstack_finish(&frags);
+	    (void)obstack_finish(&frags);
 
 	    /*
 	     * Append the new frag to current frchain.
@@ -168,6 +168,7 @@ void)
     relax_addressT slide, tmp;
     symbolS *symbolP;
     uint32_t nbytes, fill_size, repeat_expression, partial_bytes, layout_pass;
+    uint32_t section_type;
     relax_stateT old_fr_type;
     int changed;
 
@@ -195,7 +196,7 @@ void)
 	     * on a address that is aligned correctly for the engine that runs
 	     * the assembler.
 	     */
-	    obstack_finish(&frags);
+	    (void)obstack_finish(&frags);
 
 	    /*
 	     * Make a fresh frag for the last frag.
@@ -203,7 +204,7 @@ void)
 	    frag_now = (fragS *)obstack_alloc(&frags, SIZEOF_STRUCT_FRAG);
 	    memset(frag_now, '\0', SIZEOF_STRUCT_FRAG);
 	    frag_now->fr_next = NULL;
-	    obstack_finish(&frags);
+	    (void)obstack_finish(&frags);
 
 	    /*
 	     * Append the new frag to current frchain.
@@ -244,8 +245,9 @@ void)
 		    frchainP = frchainP->frch_next){
 		    if(frchainP->layout_pass != layout_pass)
 			continue;
-		    if((frchainP->frch_section.flags & SECTION_TYPE) ==
-		       S_ZEROFILL)
+		    section_type = frchainP->frch_section.flags & SECTION_TYPE;
+		    if(section_type == S_ZEROFILL ||
+		       section_type == S_THREAD_LOCAL_ZEROFILL)
 			continue;
 		    /*
 		     * This is done so in case md_estimate_size_before_relax()
@@ -268,9 +270,11 @@ void)
 	 */ 
 	slide = 0;
 	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
-	    if((frchainP->frch_section.flags & SECTION_TYPE) == S_ZEROFILL)
+	    section_type = frchainP->frch_section.flags & SECTION_TYPE;
+	    if(section_type == S_ZEROFILL ||
+	       section_type == S_THREAD_LOCAL_ZEROFILL)
 		continue;
-	    slide = round(slide, 1 << frchainP->frch_section.align);
+	    slide = rnd(slide, 1 << frchainP->frch_section.align);
 	    tmp = frchainP->frch_last->fr_address;
 	    if(slide != 0){
 		for(fragP = frchainP->frch_root; fragP; fragP = fragP->fr_next){
@@ -287,9 +291,11 @@ void)
 	 * is that section numbers do not end up in address order.
 	 */
 	for(frchainP = frchain_root; frchainP; frchainP = frchainP->frch_next){
-	    if((frchainP->frch_section.flags & SECTION_TYPE) != S_ZEROFILL)
+	    section_type = frchainP->frch_section.flags & SECTION_TYPE;
+	    if(section_type != S_ZEROFILL &&
+	       section_type != S_THREAD_LOCAL_ZEROFILL)
 		continue;
-	    slide = round(slide, 1 << frchainP->frch_section.align);
+	    slide = rnd(slide, 1 << frchainP->frch_section.align);
 
 	    tmp = frchainP->frch_root->fr_address;
 	    frchainP->frch_root->fr_address = slide;
@@ -537,7 +543,6 @@ int nsect)
 	    /* If the symbol is defined in this file, the linker won't set the
 	       low-order bit for a Thumb symbol, so we have to do it here.  */
 	    if(add_symbolP != NULL && add_symbolP->sy_desc & N_ARM_THUMB_DEF &&
-	       !(add_symbolP->sy_desc & N_WEAK_DEF) &&
 	       !(sub_symbolP != NULL && sub_symbolP->sy_desc & N_ARM_THUMB_DEF) &&
 	       !pcrel){
 	        value |= 1;
@@ -590,6 +595,20 @@ int nsect)
 		 */
 		else if((sub_symbolP->sy_type & N_TYPE) == N_SECT &&
 		        (add_symbolP->sy_type & N_TYPE) == N_SECT){
+#if defined(I386) && !defined(ARCH64)
+		    /*
+		     * For 'symbol@TLVP - subtract_symbol' type relocations the
+		     * subtract_symbol value is stored in the contents of the
+		     * item to be relocated.
+		     */
+		    if(fixP->fx_r_type == GENERIC_RELOC_TLV){
+			value += fixP->fx_frag->fr_address + where +
+				 fixP->fx_size - sub_symbolP->sy_value;
+			fixP->fx_subsy = NULL; /* no SECTDIFF reloc entry */
+			fixP->fx_pcrel = TRUE; /* force pcrel */
+			goto down;
+		    }
+#endif
 		    /*
 		     * We are use the new features that are incompatible with
 		     * 3.2 then just calculate the value and let this create a
@@ -612,7 +631,7 @@ int nsect)
 			}
 			else{
 			    as_warn("Can't emit reloc type %u {-symbol \"%s\"} "
-			            "@ file address %u (mode?).",
+			            "@ file address %llu (mode?).",
 				    fixP->fx_r_type, sub_symbolP->sy_name,
 				    fragP->fr_address + where);
 			}
@@ -706,6 +725,19 @@ int nsect)
 		    value -= sub_symbolP->sy_value;
 		    fixP->fx_subsy = NULL; /* no SECTDIFF relocation entry */
 		}
+#if defined(I386) && !defined(ARCH64)
+		/*
+		 * For 'symbol@TLVP - subtract_symbol' type relocations the
+		 * subtract_symbol value is stored in the contents of the item
+		 * to be relocated.
+		 */
+		else if(fixP->fx_r_type == GENERIC_RELOC_TLV){
+		    value += fixP->fx_frag->fr_address + where + fixP->fx_size -
+			     sub_symbolP->sy_value;
+		    fixP->fx_subsy = NULL; /* no SECTDIFF relocation entry */
+		    fixP->fx_pcrel = TRUE; /* force pcrel */
+		}
+#endif
 		/*
 		 * At this point we have something we can't generate a
 		 * relocation entry for (two undefined symbols, etc.).
@@ -811,7 +843,12 @@ int nsect)
 			if(((add_symbolP->sy_type & N_EXT) != N_EXT ||
 			    add_symbol_N_TYPE != N_SECT ||
 			    !is_section_coalesced(add_symbol_nsect)) &&
-			   (add_symbolP->sy_desc & N_WEAK_DEF) != N_WEAK_DEF)
+			   (add_symbolP->sy_desc & N_WEAK_DEF) != N_WEAK_DEF
+#if defined(I386) && !defined(ARCH64)
+			   &&
+			   fixP->fx_r_type != GENERIC_RELOC_TLV
+#endif
+			  )
 #endif
 			    value += add_symbolP->sy_value;
 			break;
@@ -848,10 +885,15 @@ down:
 
 	    if((size == 1 && (value & 0xffffff00) &&
 			    ((value & 0xffffff80) != 0xffffff80)) ||
-	       (size == 2 && (value & 0xffff8000) &&
-			    ((value & 0xffff8000) != 0xffff8000)))
+	       (size == 2 && (value & 0xffff0000) &&
+			    ((value & 0xffff8000) != 0xffff8000))){
+		layout_line = fixP->line;
+		layout_file = fixP->file;
 		as_bad("Fixup of %lld too large for field width of %d",
 			value, size);
+		layout_line = 0;
+		layout_file = NULL;
+	    }
 
 	    /*
 	     * Now place the fix expression's value in the place for the size.
@@ -1068,6 +1110,9 @@ int nsect)
 	 */
 	address = 0;
 	for(fragP = frag_root; fragP != NULL; fragP = fragP->fr_next){
+#ifdef ARM
+            fragP->relax_marker = 0;
+#endif /* ARM */
 	    fragP->fr_address = address;
 	    address += fragP->fr_fix;
 	    switch(fragP->fr_type){
@@ -1134,6 +1179,9 @@ int nsect)
 	    stretch = 0;
 	    stretched = 0;
 	    for(fragP = frag_root; fragP != NULL; fragP = fragP->fr_next){
+#ifdef ARM
+                fragP->relax_marker ^= 1;
+#endif /* ARM */
 		was_address = fragP->fr_address;
 		fragP->fr_address += stretch;
 		address = fragP->fr_address;

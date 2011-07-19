@@ -1,0 +1,404 @@
+# jsonrpc.test - Copyright (C) 2008 Ashok P. Nadkarni
+#
+# Provide a set of tests to excercise the JSONRPC package.
+#
+# @(#)$Id: jsonrpc.test,v 1.3 2008/07/15 14:01:38 apnadkarni Exp $
+
+# Initialize the required packages
+
+if {[lsearch [namespace children] ::tcltest] == -1} {
+    package require tcltest
+    namespace import ::tcltest::*
+    #source [file join [pwd] [file dirname [info script]] defs.tcl]
+}
+
+if {[catch {package require JSONRPC}]} {
+    catch {puts stderr "Cannot load the JSONRPC package"}
+    return
+}
+
+# -------------------------------------------------------------------------
+
+test jsonrpc-encode_value-1.0 {
+    Encoding of typed non-zero integer value as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean 1]
+} true
+
+test jsonrpc-encode_value-1.1 {
+    Encoding of typed zero integer value as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean 0]
+} false
+
+test jsonrpc-encode_value-1.2 {
+    Encoding of typed non-zero float value as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean 1.0]
+} true
+
+test jsonrpc-encode_value-1.3 {
+    Encoding of typed zero float value as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean 0.0]
+} false
+
+test jsonrpc-encode_value-1.4 {
+    Encoding of typed true as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean true]
+} true
+
+test jsonrpc-encode_value-1.5 {
+    Encoding of typed false as boolean
+} {
+    JSONRPC::encode_value [::rpcvar::rpcvar boolean false]
+} false
+
+test jsonrpc-encode_value-1.6 {
+    Encoding of untyped true value as boolean
+} {
+    JSONRPC::encode_value true
+} true
+
+test jsonrpc-encode_value-1.7 {
+    Encoding of untyped false value as boolean
+} {
+    JSONRPC::encode_value false
+} false
+
+test jsonrpc-encode_value-1.8 {
+    Encoding of untyped yes value as boolean
+} {
+    JSONRPC::encode_value yes
+} true
+
+test jsonrpc-encode_value-1.9 {
+    Encoding of untyped no value as boolean
+} {
+    JSONRPC::encode_value no
+} false
+
+test jsonrpc-encode_value-1.10 {
+    Encoding of untyped T as boolean
+} {
+    JSONRPC::encode_value T
+} true
+
+test jsonrpc-encode_value-1.11 {
+    Encoding of untyped F as boolean
+} {
+    JSONRPC::encode_value F
+} false
+
+test jsonrpc-encode_value-2.0 {
+    Encoding of typed integer value
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar int 10]
+} 10
+
+test jsonrpc-encode_value-2.1 {
+    Encoding of typed octal value
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar int 010]
+} 8
+
+test jsonrpc-encode_value-2.2 {
+    Encoding of typed hex value
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar int 0x10]
+} 16
+
+test jsonrpc-encode_value-2.3 {
+    Encoding of untyped integer value
+} {
+    JSONRPC::encode_value 100
+} 100
+
+test jsonrpc-encode_value-2.4 {
+    Encoding of untyped octal value
+} {
+    JSONRPC::encode_value 010
+} 8
+
+test jsonrpc-encode_value-2.5 {
+    Encoding of untyped hex value
+} {
+    JSONRPC::encode_value 0x10
+} 16
+
+test jsonrpc-encode_value-3.0 {
+    Encoding of typed float value
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar float 1.0]
+} 1.0
+
+test jsonrpc-encode_value-3.1 {
+    Encoding of typed float value with exponent
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar float 1.0e10]
+} 10000000000.0
+
+test jsonrpc-encode_value-3.2 {
+    Encoding of typed float value with large exponent
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar float 1.0e100]
+} 1e+100
+
+test jsonrpc-encode_value-3.3 {
+    Encoding of typed float value with negative exponent
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar float 1.2e-100]
+} 1.2e-100
+
+test jsonrpc-encode_value-3.4 {
+    Encoding of untyped float value
+} {
+    JSONRPC::encode_value 1.0
+} 1.0
+
+test jsonrpc-encode_value-3.5 {
+    Encoding of untyped float value with exponent
+} {
+    JSONRPC::encode_value 1.0e10
+} 10000000000.0
+
+test jsonrpc-encode_value-3.6 {
+    Encoding of untyped float value with large exponent
+} {
+    JSONRPC::encode_value 1.0e100
+} 1e+100
+
+test jsonrpc-encode_value-3.7 {
+    Encoding of untyped float value with negative exponent
+} {
+    JSONRPC::encode_value 1.2e-100
+} 1.2e-100
+
+test jsonrpc-encode_value-4.0 {
+    Encoding of typed string values
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string abc]
+} {"abc"}
+
+test jsonrpc-encode_value-4.1 {
+    Encoding of untyped string values
+} {
+    JSONRPC::encode_value abc
+} {"abc"}
+
+test jsonrpc-encode_value-4.2 {
+    Encoding of typed string values that look like a integer
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string 1]
+} {"1"}
+
+test jsonrpc-encode_value-4.2 {
+    Encoding of typed string values that look like a boolean
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string true]
+} {"true"}
+
+test jsonrpc-encode_value-4.3 {
+    Encoding of typed string values with control characters
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string "\000\001\002\003\004\005\006\007\010\011\012\013\014\015\016\017\020\021\022\023\024\025\026\027\030\031\032"]
+} {"\u0000\u0001\u0002\u0003\u0004\u0005\u0006\u0007\b\t\n\u000b\f\r\u000e\u000f\u0010\u0011\u0012\u0013\u0014\u0015\u0016\u0017\u0018\u0019\u001a"}
+
+test jsonrpc-encode_value-4.4 {
+    Encoding of typed string values with special characters
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string "\\/\""]
+} {"\\\/\""}
+
+
+test jsonrpc-encode_value-5.0 {
+    Encoding of an untyped array
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar array [list 1 2 abc 2.0 No]]
+} {[1,2,"abc",2.0,false]}
+
+test jsonrpc-encode_value-5.1 {
+    Encoding of an typed array
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar string() [list 1 2 abc 2.0 No]]
+} {["1","2","abc","2.0","No"]}
+
+test jsonrpc-encode_value-5.2 {
+    Encoding of an array of typedef'ed structs
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+    } teststruct;
+    JSONRPC::encode_value [rpcvar::rpcvar teststruct() {{i 1 j 2 b Yes} {i 100 j 200 b No}}]
+} {[{"i":1,"j":"2","b":true},{"i":100,"j":"200","b":false}]}
+
+test jsonrpc-encode_value-5.3 {
+    Encoding of an array of any
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar any() {1 abc Yes 2.0}]
+} {[1,"abc",true,2.0]}
+
+
+test jsonrpc-encode_value-6.0 {
+    Encoding of generic struct without a typedef
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar struct {i 1 s abc d .10}]
+} {{"i":1,"s":"abc","d":0.1}}
+
+test jsonrpc-encode_value-6.1 {
+    Encoding of generic object without a typedef
+} {
+    JSONRPC::encode_value [rpcvar::rpcvar object {i 1 j 2 s abc d .10}]
+} {{"i":1,"j":2,"s":"abc","d":0.1}}
+
+test jsonrpc-encode_value-6.2 {
+    Encoding of generic struct with a typedef
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+    } teststruct;
+    # Note 2 is an integer but should show as a string in output
+    JSONRPC::encode_value [rpcvar::rpcvar teststruct {i 1 j 2 b Yes}]
+} {{"i":1,"j":"2","b":true}}
+
+test jsonrpc-encode_value-6.3 {
+    Encoding of generic struct with a typedef
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct;
+    # Note 2 is an integer but should show as a string in output
+    JSONRPC::encode_value [rpcvar::rpcvar teststruct {i 1 j 2 b Yes a {100 200 300}}]
+} {{"i":1,"j":"2","b":true,"a":[100,200,300]}}
+
+test jsonrpc-encode_value-6.4 {
+    Encoding of nested struct with a typedef
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct
+
+    rpcvar::typedef {
+        s teststruct
+        i string
+    } outerstruct
+
+    JSONRPC::encode_value [rpcvar::rpcvar outerstruct {s {i 1 j 2 b Yes a {100 200 300}} i 500}]
+} {{"s":{"i":1,"j":"2","b":true,"a":[100,200,300]},"i":"500"}}
+
+test jsonrpc-command_with_no_arguments-1.0 {
+    RPC a method with no arguments
+} {
+    JSONRPC::create counter -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+    counter
+} 1
+
+test jsonrpc-command_with_one_string_argument-1.0 {
+    RPC a method with one string argument
+} {
+    JSONRPC::create echo -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s string}
+    echo "This is a test\b\\/\""
+} "This is a test\b\\/\""
+
+test jsonrpc-command_with_array_argument-1.0 {
+    RPC a method with an array as an argument
+} {
+    JSONRPC::create echoArgs -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s any()}
+    echoArgs [list a b {c d} 555]
+} {a b {c d} 555}
+
+test jsonrpc-command_with_array_argument-1.1 {
+    RPC a method with an array as an argument
+} {
+    JSONRPC::create total -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {s int()}
+    total [list 1 2 3 4]
+} 10
+
+test jsonrpc-command_with_object_argument-1.0 {
+    RPC a method with an object as an argument
+} {
+    rpcvar::typedef {
+        i int
+        j string
+        b boolean 
+        a int()
+    } teststruct
+
+    rpcvar::typedef {
+        s teststruct
+        i string
+    } outerstruct
+
+    JSONRPC::create echoObject -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx -params {o outerstruct}
+
+    array set _result [echoObject {s {i 1 j 2 b Yes a {100 200 300}} i 500}]
+    set outcome [expr {
+                       ($_result(i) == 500) &&
+                       ([dict get $_result(s) i] == 1) &&
+                       ([dict get $_result(s) j] == 2) &&
+                       ([dict get $_result(s) b] eq "true") &&
+                       ([dict get $_result(s) a] eq "100 200 300")
+                   }]
+    unset _result
+    set outcome
+} 1
+
+test jsonrpc-command_with_remote_error-1.0 {
+    RPC a method that is not implemented remotely
+} {
+    JSONRPC::create nosuchmethod -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    set status [catch {nosuchmethod} msg]
+    expr {($status == 1) &&
+          [string match "Error response from server*" $msg] &&
+          ([lindex $::errorCode 0] eq "JSONRPC") &&
+          ([lindex $::errorCode 1] eq "remote")}
+} 1
+
+test jsonrpc-command_with_nested_object_result-1.0 {
+    RPC a method that returns a nested object
+} {
+    JSONRPC::create getCouple -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    dict get [getCouple] husband firstName
+} Mickey
+
+test jsonrpc-command_with_array_of_objects_result-1.0 {
+    RPC a method that returns an array of objects
+} {
+    JSONRPC::create getDataTable -proxy http://www.raboof.com/Projects/Jayrock/demo.ashx
+
+    dict get [lindex [getDataTable] 0] FirstName
+} Nancy
+
+
+test jsonrpc-reflect-1.0 {
+    Verify the reflection transport
+} {
+    JSONRPC::create calc -params {s string} -proxy ::JSONRPC::Transport::reflect -transport ::JSONRPC::Transport::reflect::xfer
+    calc "1+1"
+} 2
+
+
+# -------------------------------------------------------------------------
+
+# Clean up the tests
+
+::tcltest::cleanupTests
+return
+
+# Local variables:
+#    mode: tcl
+#    indent-tabs-mode: nil
+# End:

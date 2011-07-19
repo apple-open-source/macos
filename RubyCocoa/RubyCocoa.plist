@@ -4,38 +4,19 @@
         <key>OpenSourceProject</key>
         <string>RubyCocoa</string>
         <key>OpenSourceVersion</key>
-        <string>0.13.1</string>
+        <string>trunk</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://rubycocoa.sourceforge.net</string>
         <key>OpenSourceURL</key>
-        <string></string>
+        <string>https://rubycocoa.svn.sourceforge.net/svnroot/rubycocoa/trunk/src</string>
         <key>OpenSourceSHA1</key>
-        <string>c3b5bdbe03375e2b78f6d5d793880e28a182db0a</string>
+        <string>e48f41cf9adbe3ff9f5572eaf0dcfaa7f3915802</string>
         <key>OpenSourceImportDate</key>
-        <string>2007-12-13</string>
+        <string>2010-10-20</string>
         <key>OpenSourceLicense</key>
         <string>Other</string>
         <key>OpenSourceLicenseFile</key>
         <string>rubycocoa.txt</string>
-        <key>OpenSourceModifications</key>
-        <array>
-        </array>
-</dict>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>RubyNode</string>
-        <key>OpenSourceVersion</key>
-        <string>0.1.3</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://rubynode.rubyforge.org</string>
-        <key>OpenSourceSHA1</key>
-        <string>f2ca487f41739226592dda11bc368d7a2321bc1e</string>
-        <key>OpenSourceImportDate</key>
-        <string>2007-06-28</string>
-        <key>OpenSourceLicense</key>
-        <string>Other</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>rubynode.txt</string>
         <key>OpenSourceModifications</key>
         <array>
         </array>

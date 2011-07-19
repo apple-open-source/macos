@@ -1,6 +1,6 @@
 
 /*
- * Copyright (c) 2001-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2001-2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -446,6 +446,9 @@ escape_path(const char * path, int path_len,
     len = data_len;
 
  done:
+    if (data != NULL) {
+	CFRelease(data);
+    }
     if (url != NULL) {
 	CFRelease(url);
     }
@@ -1039,13 +1042,17 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    entry->type_info.classic.private = offset;
 	    (void)my_CFStringToCStringAndLength(private_prop, 
 						offset, private_space);
+#if CHECK_TOTAL_SPACE
 	    offset += private_space;
+#endif /* CHECK_TOTAL_SPACE */
 	}
 	break;
     case kNBImageTypeNFS:
 	entry->type_info.nfs.root_path = offset;
 	strcpy((char *)entry->type_info.nfs.root_path, root_path);
+#if CHECK_TOTAL_SPACE
 	offset += root_path_len + 1;
+#endif /* CHECK_TOTAL_SPACE */
 	entry->type_info.nfs.indirect = indirect;
 	break;
     case kNBImageTypeHTTP:
@@ -1060,18 +1067,20 @@ NBImageEntry_create(NBSPEntryRef sharepoint, char * dir_name,
 	    entry->type_info.http.root_path_esc = offset;
 	    strcpy((char *)entry->type_info.http.root_path_esc, 
 		   root_path_esc);
+#if CHECK_TOTAL_SPACE
 	    offset += root_path_esc_len + 1;
+#endif /* CHECK_TOTAL_SPACE */
 	}
 	entry->type_info.http.indirect = indirect;
 	break;
     default:
 	break;
     }
-#if 0
+#if CHECK_TOTAL_SPACE
     printf("tail_space %d - actual %d = %d\n",
 	   tail_space, (offset - (char *)(entry + 1)),
 	   tail_space - (offset - (char *)(entry + 1)));
-#endif
+#endif /* CHECK_TOTAL_SPACE */
     my_CFRelease(&plist);
     return (entry);
 
@@ -1224,7 +1233,7 @@ NBImageList_add_images(NBImageListRef image_list, NBSPEntryRef sharepoint,
 	}
 	snprintf(dir, sizeof(dir), "%s/%s", 
 		 sharepoint->path, scan->d_name);
-	if (stat(dir, &sb) != 0 || (sb.st_mode & S_IFDIR) == 0) {
+	if (stat(dir, &sb) != 0 || !S_ISDIR(sb.st_mode)) {
 	    continue;
 	}
 	snprintf(info_path, sizeof(info_path), 

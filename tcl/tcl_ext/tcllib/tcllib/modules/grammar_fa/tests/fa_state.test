@@ -3,7 +3,7 @@
 #
 # Copyright (c) 2004-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 #
-# RCS: @(#) $Id: fa_state.test,v 1.6 2007/04/12 03:43:15 andreas_kupries Exp $
+# RCS: @(#) $Id: fa_state.test,v 1.8 2009/10/27 21:17:23 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -12,7 +12,8 @@ test fa-state-${setimpl}-1.0 {state, error} {
     catch {a state} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstate {type selfns win self cmd s args} 5]
+} {wrong number args: should be "::a state method args"}
+# [tcltest::wrongNumArgs {::a state method} {args} 0]
 
 
 test fa-state-${setimpl}-1.1 {state, error} {
@@ -20,7 +21,7 @@ test fa-state-${setimpl}-1.1 {state, error} {
     catch {a state add} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstate {type selfns win self cmd s args} 5]
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstate_add {type selfns win self s args} 4]
 
 
 test fa-state-${setimpl}-1.2 {state, error} {
@@ -29,7 +30,7 @@ test fa-state-${setimpl}-1.2 {state, error} {
     catch {a state foo x} res
     a destroy
     set res
-} {Expected add, exists, delete, or rename, got "foo"}
+} {"::a state foo" is not defined}
 
 
 test fa-state-${setimpl}-1.3 {state, error} {
@@ -46,7 +47,7 @@ test fa-state-${setimpl}-1.4 {state, error} {
     catch {a state exists} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstate {type selfns win self cmd s args} 5]
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstate_exists {type selfns win self s} 4]
 
 
 test fa-state-${setimpl}-1.5 {state, error} {
@@ -54,7 +55,7 @@ test fa-state-${setimpl}-1.5 {state, error} {
     catch {a state exists a b} res
     a destroy
     set res
-} {wrong#args: ::a state exists s}
+} {wrong # args: should be "::grammar::fa::Snit_hmethodstate_exists type selfns win self s"}
 
 
 test fa-state-${setimpl}-1.6 {state, error} {
@@ -62,7 +63,7 @@ test fa-state-${setimpl}-1.6 {state, error} {
     catch {a state delete} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstate {type selfns win self cmd s args} 5]
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstate_delete {type selfns win self s args} 4]
 
 
 test fa-state-${setimpl}-1.7 {state, error} {
@@ -78,7 +79,7 @@ test fa-state-${setimpl}-1.8 {state, error} {
     catch {a state rename} res
     a destroy
     set res
-} [tcltest::wrongNumArgs ::grammar::fa::Snit_methodstate {type selfns win self cmd s args} 0]
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstate_rename {type selfns win self s snew} 0]
 
 
 test fa-state-${setimpl}-1.9 {state, error} {
@@ -86,7 +87,7 @@ test fa-state-${setimpl}-1.9 {state, error} {
     catch {a state rename foo} res
     a destroy
     set res
-} {wrong#args: ::a state rename s s'}
+} [tcltest::wrongNumArgs ::grammar::fa::Snit_hmethodstate_rename {type selfns win self s snew} 1]
 
 
 test fa-state-${setimpl}-1.10 {state, error} {
@@ -285,6 +286,18 @@ test fa-state-${setimpl}-5.7 {state rename} {
     a destroy
     set res
 } {grammar::fa @ {x {0 0 {@ z}} z {0 0 {}}}}
+
+
+test fa-state-${setimpl}-6.0 {state rename with loop, SF bug 2595296} {
+    grammar::fa a
+    a state add x
+    a symbol add @
+    a next x @ --> x
+    a state rename x y
+    set res [a serialize]
+    a destroy
+    set res
+} {grammar::fa @ {y {0 0 {@ y}}}}
 
 
 # -------------------------------------------------------------------------

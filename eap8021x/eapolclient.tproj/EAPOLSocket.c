@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -55,11 +54,15 @@
 #include <net/dlil.h>
 #include <net/ndrv.h>
 #include <net/ethernet.h>
+#include <net/if_media.h>
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <SystemConfiguration/SCPrivate.h>
-#include <EAP8021X/EAPOLClient.h>
-#include "ndrv_socket.h"
-#include <EAP8021X/EAPUtil.h>
+#include "EAPOLClient.h"
+#include "EAPOLControl.h"
+#include "EAPOLControlPrivate.h"
+#include "EAPUtil.h"
+#include "EAPOLUtil.h"
+#include "eapol_socket.h"
 #include "FDHandler.h"
 #include "Timer.h"
 #include "EAPOLSocket.h"
@@ -71,22 +74,26 @@
 
 #if ! TARGET_OS_EMBEDDED
 #include "my_darwin.h"
-#include "InterestNotification.h"
 #endif /* TARGET_OS_EMBEDDED */
+
+#include "InterestNotification.h"
 
 #ifndef NO_WIRELESS
 #include "wireless.h"
-#endif NO_WIRELESS
-
-#define EAPOL_802_1_X_FAMILY	0x8021ec /* XXX needs official number! */
+#endif /* NO_WIRELESS */
 
 #define EAPOLSOCKET_RECV_BUFSIZE	1600
+#define EAPOLSOCKET_SEND_BUFSIZE	1600
 
 static const struct ether_addr eapol_multicast = {
     EAPOL_802_1_X_GROUP_ADDRESS
 };
 
-#define IEEE80211_PREAUTH_ETHERTYPE	0x88c7
+/* MTU */
+#define kMTU				CFSTR("MTU")
+#define EAPOL_MTU_DEFAULT		1280
+#define EAPOL_MTU_MIN			576
+static int				S_mtu;
 
 /* pre-auth tunables */
 #define kPreauthentication		CFSTR("Preauthentication")
@@ -166,21 +173,20 @@ struct EAPOLSocketSource_s {
     struct ether_addr			ether;
     EAPOLSocketReceiveData		rx;
     FDHandler *				handler;
-    int					mtu;
     bool				is_wireless;
     bool				is_wpa_enterprise;
     bool				link_active;
     bool				authenticated;
-#if ! TARGET_OS_EMBEDDED
     InterestNotificationRef		interest;
-#endif /* ! TARGET_OS_EMBEDDED */
+    struct ether_addr			authenticator_mac;
+    bool				authenticator_mac_valid;
 #ifndef NO_WIRELESS
     wireless_t				wref;
     CFStringRef				ssid;
     /* BSSID for the default 802.1X connection */
     struct ether_addr			bssid;
     bool				bssid_valid;
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
     CFRunLoopObserverRef		observer;
     bool				process_removals;
     TimerRef				scan_timer;
@@ -284,15 +290,33 @@ S_get_plist_int(CFDictionaryRef plist, CFStringRef key, int def)
     return (ret);
 }
 
-
 void
 EAPOLSocketSetGlobals(SCPreferencesRef prefs)
 {
     CFDictionaryRef	plist;
+    CFNumberRef		mtu;
 
     if (prefs == NULL) {
 	return;
     }
+    mtu = SCPreferencesGetValue(prefs, kMTU);
+    if (isA_CFNumber(mtu) != NULL) {
+	int		mtu_val;
+
+	if (CFNumberGetValue(mtu, kCFNumberIntType, 
+			     &mtu_val) == FALSE) {
+	    my_log(LOG_NOTICE, "com.apple.eapolclient.MTU invalid");
+	}
+	else if (mtu_val < EAPOL_MTU_MIN) {
+	    my_log(LOG_NOTICE,
+		   "com.apple.eapolclient.MTU %d < %d, using default %d",
+		   mtu_val, EAPOL_MTU_MIN, EAPOL_MTU_DEFAULT);
+	}
+	else {
+	    S_mtu = mtu_val;
+	}
+    }
+
     plist = SCPreferencesGetValue(prefs, kPreauthentication);
     if (isA_CFDictionary(plist) != NULL) {
 	S_enable_preauth
@@ -405,7 +429,7 @@ EAPOLSocketSetKey(EAPOLSocketRef sock, wirelessKeyType type,
 	return (FALSE);
     }
     return (wireless_set_key(sock->source->wref, type, index, key, key_length));
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
 }
 
 CFStringRef
@@ -418,13 +442,27 @@ EAPOLSocketGetSSID(EAPOLSocketRef sock)
 	return (NULL);
     }
     return (sock->source->ssid);
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
 }
 
 int
 EAPOLSocketMTU(EAPOLSocketRef sock)
 {
-    return (sock->source->mtu);
+    if (S_mtu != 0) {
+	return (S_mtu);
+    }
+    return (EAPOL_MTU_DEFAULT);
+}
+
+const struct ether_addr *
+EAPOLSocketGetAuthenticatorMACAddress(EAPOLSocketRef sock)
+{
+    EAPOLSocketSourceRef	source = sock->source;
+
+    if (source->sock != sock || source->authenticator_mac_valid == FALSE) {
+	return (NULL);
+    }
+    return (&source->authenticator_mac);
 }
 
 void
@@ -452,6 +490,22 @@ EAPOLSocketTransmit(EAPOLSocketRef sock,
 {
     return (EAPOLSocketSourceTransmit(sock->source, sock, packet_type,
 				      body, body_length));
+}
+
+void
+EAPOLSocketClearPMKCache(EAPOLSocketRef sock)
+{
+#ifndef NO_WIRELESS
+    EAPOLSocketSourceRef	source = sock->source;
+
+    if (source->is_wireless == FALSE || source->sock != sock) {
+	return;
+    }
+    if (wireless_clear_wpa_pmk_cache(source->wref)) {
+	eapolclient_log(kLogFlagBasic, "PMK cache cleared\n");
+    }
+#endif /* NO_WIRELESS */
+    return;
 }
 
 boolean_t
@@ -614,251 +668,28 @@ EAPOLSocketGetMode(EAPOLSocketRef sock)
     return (sock->source->mode);
 }
 
-/**
- ** eapol packet validation/printing routines
- **/
-
-static bool
-eapol_socket_add_multicast(int s)
+void
+EAPOLSocketStopClient(EAPOLSocketRef sock)
 {
-    struct sockaddr_dl		dl;
+    EAPOLSocketSourceRef	source = sock->source;
 
-    bzero(&dl, sizeof(dl));
-    dl.sdl_len = sizeof(dl);
-    dl.sdl_family = AF_LINK;
-    dl.sdl_type = IFT_ETHER;
-    dl.sdl_nlen = 0;
-    dl.sdl_alen = sizeof(eapol_multicast);
-    bcopy(&eapol_multicast,
-	  dl.sdl_data, 
-	  sizeof(eapol_multicast));
-    if (ndrv_socket_add_multicast(s, &dl) < 0) {
-	my_log(LOG_NOTICE, "eapol_socket: ndrv_socket_add_multicast failed, %s",
-	       strerror(errno));
-	return (FALSE);
+    if (source->sock != sock) {
+	return;
     }
-    return (TRUE);
-}
-
-static int
-eapol_socket(const char * ifname, bool is_wireless)
-{
-    uint16_t		ether_types[2] = { EAPOL_802_1_X_ETHERTYPE,
-					   IEEE80211_PREAUTH_ETHERTYPE };
-    int			ether_types_count;
-    int 		opt = 1;
-    int 		s;
-
-    s = ndrv_socket(ifname);
-    if (s < 0) {
-	my_log(LOG_NOTICE, "eapol_socket: ndrv_socket failed");
-	goto failed;
-    }
-    if (ioctl(s, FIONBIO, &opt) < 0) {
-	my_log(LOG_NOTICE, "eapol_socket: FIONBIO failed, %s", 
-	       strerror(errno));
-	goto failed;
-    }
-    if (is_wireless == FALSE) {
-	/* ethernet needs multicast */
-	ether_types_count = 1;
-	if (eapol_socket_add_multicast(s) == FALSE) {
-	    goto failed;
-	}
-    }
-    else {
-	ether_types_count = 2;
-    }
-    if (ndrv_socket_bind(s, EAPOL_802_1_X_FAMILY, ether_types,
-			 ether_types_count) < 0) {
-	my_log(LOG_NOTICE, "eapol_socket: ndrv_socket_bind failed, %s",
-	       strerror(errno));
-	goto failed;
-    }
-    return (s);
- failed:
-    if (s >= 0) {
-	close(s);
-    }
-    return (-1);
-    
-}
-
-/**
- ** eapol packet validation/printing routines
- **/
-
-static bool
-EAPOLPacketTypeValid(EAPOLPacketType type)
-{
-    if (type >= kEAPOLPacketTypeEAPPacket
-	&& type <= kEAPOLPacketTypeEncapsulatedASFAlert) {
-	return (TRUE);
-    }
-    return (FALSE);
-}
-
-static const char *
-EAPOLPacketTypeStr(EAPOLPacketType type)
-{
-    static const char * str[] = { 
-	"EAP Packet",
-	"Start",
-	"Logoff",
-	"Key",
-	"Encapsulated ASF Alert" 
-    };
-
-    if (EAPOLPacketTypeValid(type)) {
-	return (str[type]);
-    }
-    return ("<unknown>");
-}
-
-static void
-fprint_eapol_rc4_key_descriptor(FILE * f, 
-				EAPOLRC4KeyDescriptorRef descr_p,
-				unsigned int body_length)
-{
-    int				key_data_length;
-    u_int16_t			key_length;
-    const char *		which;
-    
-    if (descr_p->key_index & kEAPOLKeyDescriptorIndexUnicastFlag) {
-	which = "Unicast";
-    }
-    else {
-	which = "Broadcast";
-    }
-    key_length = EAPOLKeyDescriptorGetLength(descr_p);
-    key_data_length = body_length - sizeof(*descr_p);
-    fprintf(f, "EAPOL Key Descriptor: type RC4 (%d) length %d %s index %d\n",
-	   descr_p->descriptor_type, 
-	   key_length, 
-	   which,
-	   descr_p->key_index & kEAPOLKeyDescriptorIndexMask);
-    fprintf(f, "%-16s", "replay_counter:");
-    fprint_bytes(f, descr_p->replay_counter, sizeof(descr_p->replay_counter));
-    fprintf(f, "\n");
-    fprintf(f, "%-16s", "key_IV:");
-    fprint_bytes(f, descr_p->key_IV, sizeof(descr_p->key_IV));
-    fprintf(f, "\n");
-    fprintf(f, "%-16s", "key_signature:");
-    fprint_bytes(f, descr_p->key_signature, sizeof(descr_p->key_signature));
-    fprintf(f, "\n");
-    if (key_data_length > 0) {
-	fprintf(f, "%-16s", "key:");
-	fprint_bytes(f, descr_p->key, key_data_length);
-	fprintf(f, "\n");
+#if TARGET_OS_EMBEDDED
+    EAPOLControlStop(EAPOLSocketIfName(sock, NULL));
+#else /* TARGET_OS_EMBEDDED */
+    EAPOLClientUserCancelled(source->client);
+#endif /* TARGET_OS_EMBEDDED */
+    if (EAPOLSocketIsWireless(sock)) {
+	wireless_disassociate(source->wref);
     }
     return;
 }
 
-static void
-fprint_eapol_ieee80211_key_descriptor(FILE * f,
-				      EAPOLIEEE80211KeyDescriptorRef descr_p,
-				      unsigned int body_length)
-{
-    uint16_t		key_data_length;
-    uint16_t		key_information;
-    uint16_t		key_length;
-    
-    key_length = EAPOLIEEE80211KeyDescriptorGetLength(descr_p);
-    key_information =  EAPOLIEEE80211KeyDescriptorGetInformation(descr_p);
-    key_data_length =  EAPOLIEEE80211KeyDescriptorGetKeyDataLength(descr_p);
-    fprintf(f, "EAPOL Key Descriptor: type IEEE 802.11 (%d)\n",
-	   descr_p->descriptor_type);
-    fprintf(f, "%-18s0x%04x\n", "key_information:", key_information);
-    fprintf(f, "%-18s%d\n", "key_length:", key_length);
-    fprintf(f, "%-18s", "replay_counter:");
-    fprint_bytes(f, descr_p->replay_counter, sizeof(descr_p->replay_counter));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_nonce:");
-    fprint_bytes(f, descr_p->key_nonce, sizeof(descr_p->key_nonce));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "EAPOL_key_IV:");
-    fprint_bytes(f, descr_p->EAPOL_key_IV, sizeof(descr_p->EAPOL_key_IV));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_RSC:");
-    fprint_bytes(f, descr_p->key_RSC, sizeof(descr_p->key_RSC));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_reserved:");
-    fprint_bytes(f, descr_p->key_reserved, sizeof(descr_p->key_reserved));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s", "key_MIC:");
-    fprint_bytes(f, descr_p->key_MIC, sizeof(descr_p->key_MIC));
-    fprintf(f, "\n");
-    fprintf(f, "%-18s%d\n", "key_data_length:", key_data_length);
-    if (key_data_length > 0) {
-	fprintf(f, "%-18s", "key_data:");
-	fprint_bytes(f, descr_p->key_data, key_data_length);
-	fprintf(f, "\n");
-    }
-    return;
-}
-
-static bool
-eapol_key_descriptor_valid(void * body, unsigned int body_length, 
-			   FILE * f)
-{
-    EAPOLIEEE80211KeyDescriptorRef	ieee80211_descr_p = body;
-    EAPOLRC4KeyDescriptorRef		rc4_descr_p = body;
-
-    if (body_length < 1) {
-	if (f != NULL) {
-	    fprintf(f, "eapol_key_descriptor_valid: body_length is %d < 1\n",
-		    body_length);
-	}
-	return (FALSE);
-    }
-    switch (rc4_descr_p->descriptor_type) {
-    case kEAPOLKeyDescriptorTypeRC4:
-	if (body_length < sizeof(*rc4_descr_p)) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: body_length %d"
-			" < sizeof(*rc4_descr_p) %ld\n",
-			body_length, sizeof(*rc4_descr_p));
-	    }
-	    return (FALSE);
-	}
-	if (f != NULL) {
-	    fprint_eapol_rc4_key_descriptor(f, rc4_descr_p, body_length);
-	}
-	break;
-    case kEAPOLKeyDescriptorTypeIEEE80211:
-	if (body_length < sizeof(*ieee80211_descr_p)) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: body_length %d"
-			" < sizeof(*ieee80211_descr_p) %ld\n",
-			body_length, sizeof(*ieee80211_descr_p));
-	    }
-	    return (FALSE);
-	}
-	if (EAPOLIEEE80211KeyDescriptorGetKeyDataLength(ieee80211_descr_p)
-	    > (body_length - sizeof(*ieee80211_descr_p))) {
-	    if (f != NULL) {
-		fprintf(f, "eapol_key_descriptor_valid: key_data_length %d"
-			" > body_length - sizeof(*ieee80211_descr_p) %ld\n",
-			EAPOLIEEE80211KeyDescriptorGetKeyDataLength(ieee80211_descr_p),
-			body_length - sizeof(*ieee80211_descr_p));
-	    }
-	    return (FALSE);
-	}
-	if (f != NULL) {
-	    fprint_eapol_ieee80211_key_descriptor(f, ieee80211_descr_p,
-						  body_length);
-	}
-	break;
-    default:
-	if (f != NULL) {
-	    fprintf(f, "eapol_key_descriptor_valid: descriptor_type unknown %d",
-		    rc4_descr_p->descriptor_type);
-	}
-	return (FALSE);
-    }
-    return (TRUE);
-}
-
+/**
+ ** packet validation/printing routines
+ **/
 static void
 ether_header_fprint(FILE * f, struct ether_header * eh_p)
 {
@@ -886,80 +717,6 @@ ether_header_valid(struct ether_header * eh_p, unsigned int length,
 	ether_header_fprint(f, eh_p);
     }
     return (TRUE);
-}
-
-static bool
-eapol_body_valid(EAPOLPacket * eapol_p, unsigned int length, FILE * f)
-{
-    unsigned int 	body_length;
-    bool 		ret = TRUE;
-
-    body_length = EAPOLPacketGetLength(eapol_p);
-    length -= sizeof(*eapol_p);
-    if (length < body_length) {
-	if (f != NULL) {
-	    fprintf(f, "packet length %d < body_length %d\n",
-		    length, body_length);
-	}
-	return (FALSE);
-    }
-    switch (eapol_p->packet_type) {
-    case kEAPOLPacketTypeEAPPacket:
-	ret = EAPPacketValid((EAPPacketRef)eapol_p->body, body_length, f);
-	break;
-    case kEAPOLPacketTypeKey:
-	ret = eapol_key_descriptor_valid(eapol_p->body, body_length, f);
-	break;
-    case kEAPOLPacketTypeStart:
-    case kEAPOLPacketTypeLogoff:
-    case kEAPOLPacketTypeEncapsulatedASFAlert:
-	break;
-    default:
-	if (f != NULL) {
-	    fprintf(f, "unrecognized EAPOL packet type %d\n",
-		   eapol_p->packet_type);
-	    fprint_data(f, ((void *)eapol_p) + sizeof(*eapol_p), body_length);
-	}
-	break;
-    }
-
-    if (f != NULL) {
-	if (body_length < length) {
-	    fprintf(f, "EAPOL: %d bytes follow body:\n", length - body_length);
-	    fprint_data(f, ((void *)eapol_p) + sizeof(*eapol_p) + body_length, 
-			length - body_length);
-	}
-    }
-    return (ret);
-}
-
-static bool
-eapol_header_valid(EAPOLPacket * eapol_p, unsigned int length,
-		   FILE * f)
-{
-    if (length < sizeof(*eapol_p)) {
-	if (f != NULL) {
-	    fprintf(f, "Data length %d < sizeof(*eapol_p) %ld\n",
-		    length, sizeof(*eapol_p));
-	}
-	return (FALSE);
-    }
-    if (f != NULL) {
-	fprintf(f, "EAPOL: proto version 0x%x type %s (%d) length %d\n",
-		eapol_p->protocol_version, 
-		EAPOLPacketTypeStr(eapol_p->packet_type),
-		eapol_p->packet_type, EAPOLPacketGetLength(eapol_p));
-    }
-    return (TRUE);
-}
-
-static bool
-eapol_packet_valid(EAPOLPacket * eapol_p, unsigned int length, FILE * f)
-{
-    if (eapol_header_valid(eapol_p, length, f) == FALSE) {
-	return (FALSE);
-    }
-    return (eapol_body_valid(eapol_p, length, f));
 }
 
 /**
@@ -1113,35 +870,45 @@ EAPOLSocketSourceMarkPreauthSocketsForRemoval(EAPOLSocketSourceRef source)
     return;
 }
 
+static bool
+is_link_active(const char * name)
+{
+    bool		active = FALSE;
+    struct ifmediareq	ifm;
+    int			s;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) {
+	perror("socket");
+	goto done;
+    }
+    bzero(&ifm, sizeof(ifm));
+    strlcpy(ifm.ifm_name, name, sizeof(ifm.ifm_name));
+    if (ioctl(s, SIOCGIFMEDIA, (caddr_t)&ifm) < 0) {
+	goto done;
+    }
+    if ((ifm.ifm_status & IFM_AVALID) == 0
+	|| (ifm.ifm_status & IFM_ACTIVE) != 0) {
+	active = TRUE;
+    }
+
+ done:
+    if (s >= 0) {
+	close(s);
+    }
+    return (active);
+}
+
 static void
 EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 				   CFArrayRef _not_used,
 				   void * info)
 {
-    CFDictionaryRef		dict;
-    CFStringRef			key;
     EAPOLSocketSourceRef	source = (EAPOLSocketSourceRef)info;
 
-    key = SCDynamicStoreKeyCreate(NULL, 
-				  CFSTR("%@/%@/%@/%s/%@"),
-				  kSCDynamicStoreDomainState,
-				  kSCCompNetwork,
-				  kSCCompInterface,
-				  source->if_name,
-				  kSCEntNetLink);
-    dict = SCDynamicStoreCopyValue(source->store, key);
-    CFRelease(key);
-    if (isA_CFDictionary(dict) != NULL) {
-	CFBooleanRef active_cf;
-
-	active_cf = CFDictionaryGetValue(dict, kSCPropNetLinkActive);
-	if (isA_CFBoolean(active_cf) != NULL) {
-	    source->link_active = CFBooleanGetValue(active_cf);
-	}
-	CFRelease(dict);
-    }
+    source->link_active = is_link_active(source->if_name);
     eapolclient_log(kLogFlagBasic, "link %s\n",
-		    source->link_active ? "up" : "down");
+		    source->link_active ? "active" : "inactive");
 
     /* make sure our wireless information is up to date */
     if (source->is_wireless) {
@@ -1158,7 +925,7 @@ EAPOLSocketSourceLinkStatusChanged(SCDynamicStoreRef session,
 static void
 EAPOLSocketSourceReceive(void * arg1, void * arg2)
 {
-    char			buf[EAPOLSOCKET_RECV_BUFSIZE];
+    uint32_t			buf[EAPOLSOCKET_RECV_BUFSIZE / sizeof(uint32_t)];
     EAPOLPacketRef		eapol_p;
     struct ether_header *	eh_p = (struct ether_header *)buf;
     uint16_t			ether_type;
@@ -1168,8 +935,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     EAPOLSocketRef		sock = NULL;
     EAPOLSocketSourceRef 	source = (EAPOLSocketSourceRef)arg1;
 
-    n = recv(FDHandler_fd(source->handler), 
-	     buf, EAPOLSOCKET_RECV_BUFSIZE, 0);
+    n = recv(FDHandler_fd(source->handler), (char *)buf, sizeof(buf), 0);
     if (n <= 0) {
 	if (n < 0) {
 	    my_log(LOG_NOTICE, "EAPOLSocketSourceReceive: recv failed %s",
@@ -1200,19 +966,21 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
     }
     eapol_p = (void *)(eh_p + 1);
     length = n - sizeof(*eh_p);
-    if (eapol_header_valid(eapol_p, length, 
-			   S_debug ? stdout : NULL) == FALSE) {
+    if (EAPOLPacketValid(eapol_p, length, S_debug ? stdout : NULL) == FALSE) {
 	goto done;
     }
-    if (eapol_body_valid(eapol_p, length,
-			 S_debug ? stdout : NULL) == FALSE) {
-	goto done;
-    }
-    if (source->is_wireless && ether_type == EAPOL_802_1_X_ETHERTYPE) {
-	if (source->bssid_valid == FALSE
-	    || bcmp(eh_p->ether_shost, &source->bssid,
-		    sizeof(eh_p->ether_shost)) != 0) {
-	    EAPOLSocketSourceUpdateWirelessInfo(source);
+    if (ether_type == EAPOL_802_1_X_ETHERTYPE) {
+	bcopy(eh_p->ether_shost, &source->authenticator_mac, 
+	      sizeof(source->authenticator_mac));
+	source->authenticator_mac_valid = TRUE;
+	if (source->is_wireless) {
+	    if (source->bssid_valid == FALSE
+		|| bcmp(eh_p->ether_shost, &source->bssid,
+			sizeof(eh_p->ether_shost)) != 0) {
+		EAPOLSocketSourceUpdateWirelessInfo(source);
+	    }
+	}
+	else {
 	}
     }
     rx = &source->rx;
@@ -1224,7 +992,7 @@ EAPOLSocketSourceReceive(void * arg1, void * arg2)
 	eapolclient_log(kLogFlagPacketDetails,
 			"Receive Packet Size %d\n", n);
 	ether_header_fprint(log_file, eh_p);
-	eapol_packet_valid(eapol_p, length, log_file);
+	EAPOLPacketValid(eapol_p, length, log_file);
 	fflush(log_file);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
@@ -1261,7 +1029,7 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 			  EAPOLPacketType packet_type,
 			  void * body, unsigned int body_length)
 {
-    char			buf[1600];
+    uint32_t			buf[EAPOLSOCKET_SEND_BUFSIZE / sizeof(uint32_t)];
     EAPOLPacket *		eapol_p;
     struct ether_header *	eh_p;
     struct sockaddr_ndrv 	ndrv;
@@ -1334,7 +1102,7 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 	       "========================================\n");
 	timestamp_fprintf(stdout, "Transmit Packet Size %d\n", size);
 	ether_header_valid(eh_p, size, stdout);
-	eapol_packet_valid(eapol_p, body_length + sizeof(*eapol_p), stdout);
+	EAPOLPacketValid(eapol_p, body_length + sizeof(*eapol_p), stdout);
 	fflush(stdout);
 	fflush(stderr);
     }
@@ -1346,9 +1114,9 @@ EAPOLSocketSourceTransmit(EAPOLSocketSourceRef source,
 			"Transmit Packet Size %d\n", 
 			body_length + sizeof(*eapol_p));
 	ether_header_fprint(log_file, eh_p);
-	eapol_packet_valid(eapol_p, 
-			   body_length + sizeof(*eapol_p),
-			   log_file);
+	EAPOLPacketValid(eapol_p, 
+			 body_length + sizeof(*eapol_p),
+			 log_file);
 	fflush(log_file);
     }
     else if (eapolclient_should_log(kLogFlagBasic)) {
@@ -1409,6 +1177,19 @@ EAPOLSocketSourceObserver(CFRunLoopObserverRef observer,
     return;
 }
 
+static bool
+fd_is_socket(int fd)
+{
+    struct stat		sb;
+
+    if (fstat(fd, &sb) == 0) {
+	if (S_ISSOCK(sb.st_mode)) {
+	    return (TRUE);
+	}
+    }
+    return (FALSE);
+}
+
 EAPOLSocketSourceRef
 EAPOLSocketSourceCreate(const char * if_name,
 			const struct ether_addr * ether,
@@ -1430,12 +1211,18 @@ EAPOLSocketSourceCreate(const char * if_name,
     if (wireless_bind(if_name, &wref)) {
 	is_wireless = TRUE;
     }
-#endif NO_WIRELESS
-    fd = eapol_socket(if_name, is_wireless);
-    if (fd == -1) {
-	my_log(LOG_NOTICE,
-	       "EAPOLSocketSourceCreate: eapol_socket(%s) failed, %m");
-	goto failed;
+#endif /* NO_WIRELESS */
+    if (fd_is_socket(STDIN_FILENO)) {
+	/* already have the socket we need */
+	fd = 0;
+    }
+    else {
+	fd = eapol_socket(if_name, is_wireless);
+	if (fd == -1) {
+	    my_log(LOG_NOTICE,
+		   "EAPOLSocketSourceCreate: eapol_socket(%s) failed, %m");
+	    goto failed;
+	}
     }
     handler = FDHandler_create(fd);
     if (handler == NULL) {
@@ -1476,7 +1263,6 @@ EAPOLSocketSourceCreate(const char * if_name,
 	goto failed;
     }
     TAILQ_INIT(&source->preauth_sockets);
-    source->mtu = 1400; /* XXX - needs to be made generic */
     strlcpy(source->if_name, if_name, sizeof(source->if_name));
     source->if_name_length = strlen(source->if_name);
     source->ether = *ether;
@@ -1506,7 +1292,7 @@ EAPOLSocketSourceCreate(const char * if_name,
     if (wref != NULL) {
 	wireless_free(wref);
     }
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
     if (source != NULL) {
 	free(source);
     }
@@ -1619,7 +1405,7 @@ EAPOLSocketSourceUpdateWirelessInfo(EAPOLSocketSourceRef source)
 	}
     }
     return (changed);
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
 }
 
 void
@@ -1639,7 +1425,7 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p)
 	    wireless_free(source->wref);
 	}
 	my_CFRelease(&source->ssid);
-#endif NO_WIRELESS
+#endif /* NO_WIRELESS */
 	if (source->observer != NULL) {
 	    CFRunLoopRemoveObserver(CFRunLoopGetCurrent(), source->observer, 
 				    kCFRunLoopDefaultMode);
@@ -1649,9 +1435,7 @@ EAPOLSocketSourceFree(EAPOLSocketSourceRef * source_p)
 	EAPOLClientDetach(&source->client);
 
 	Timer_free(&source->scan_timer);
-#if ! TARGET_OS_EMBEDDED
 	EAPOLSocketSourceUnscheduleHandshakeNotification(source);
-#endif /* ! TARGET_OS_EMBEDDED */
 	free(source);
     }
     *source_p = NULL;
@@ -1685,15 +1469,14 @@ EAPOLSocketSourceCreateSocket(EAPOLSocketSourceRef source,
 
 SupplicantRef
 EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
-				  CFDictionaryRef control_dict,
-				  bool system_mode)
+				  CFDictionaryRef control_dict)
 {
     CFDictionaryRef		config_dict = NULL;
-    EAPOLControlMode		mode;
+    EAPOLControlMode		mode = kEAPOLControlModeNone;
+    bool			should_stop = FALSE;
     EAPOLSocketRef		sock = NULL;
     SupplicantRef		supp = NULL;
 
-    mode = system_mode ? kEAPOLControlModeSystem : kEAPOLControlModeNone;
     if (control_dict != NULL) {
 	EAPOLClientControlCommand	command;
 	CFNumberRef			command_cf;
@@ -1741,7 +1524,10 @@ EAPOLSocketSourceCreateSupplicant(EAPOLSocketSourceRef source,
 	break;
     }
     if (config_dict != NULL) {
-	Supplicant_update_configuration(supp, config_dict);
+	Supplicant_update_configuration(supp, config_dict, &should_stop);
+	if (should_stop) {
+	    return (NULL);
+	}
     }
     sock->supp = supp;
     return (supp);
@@ -1883,21 +1669,6 @@ EAPOLSocketSourceScheduleScan(EAPOLSocketSourceRef source, int delay)
     return;
 }
 
-#if TARGET_OS_EMBEDDED
-static void
-EAPOLSocketSourceScheduleHandshakeNotification(EAPOLSocketSourceRef source)
-{
-    return;
-}
-
-static void
-EAPOLSocketSourceUnscheduleHandshakeNotification(EAPOLSocketSourceRef source)
-{
-    return;
-}
-
-#else /* TARGET_OS_EMBEDDED */
-
 static boolean_t
 EAPOLSocketSourceReleaseHandshakeNotification(EAPOLSocketSourceRef source)
 {
@@ -1951,5 +1722,3 @@ EAPOLSocketSourceUnscheduleHandshakeNotification(EAPOLSocketSourceRef source)
     }
     return;
 }
-
-#endif /* TARGET_OS_EMBEDDED */

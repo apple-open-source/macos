@@ -7,7 +7,7 @@
  * Mzscheme language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_mzscheme_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/mzscheme.cxx,v 1.24 2006/11/01 23:54:51 wsfulton Exp $";
+char cvsroot_mzscheme_cxx[] = "$Id: mzscheme.cxx 11133 2009-02-20 07:52:24Z wsfulton $";
 
 #include "swigmod.h"
 
@@ -39,6 +39,7 @@ static String *module = 0;
 static char *mzscheme_path = (char *) "mzscheme";
 static String *init_func_def = 0;
 
+static File *f_begin = 0;
 static File *f_runtime = 0;
 static File *f_header = 0;
 static File *f_wrappers = 0;
@@ -129,11 +130,12 @@ public:
     /* Initialize all of the output files */
     String *outfile = Getattr(n, "outfile");
 
-    f_runtime = NewFile(outfile, "w");
-    if (!f_runtime) {
+    f_begin = NewFile(outfile, "w", SWIG_output_files());
+    if (!f_begin) {
       FileErrorDisplay(outfile);
       SWIG_exit(EXIT_FAILURE);
     }
+    f_runtime = NewString("");
     f_init = NewString("");
     f_header = NewString("");
     f_wrappers = NewString("");
@@ -141,13 +143,17 @@ public:
     /* Register file targets with the SWIG file handler */
     Swig_register_filebyname("header", f_header);
     Swig_register_filebyname("wrapper", f_wrappers);
+    Swig_register_filebyname("begin", f_begin);
     Swig_register_filebyname("runtime", f_runtime);
 
     init_func_def = NewString("");
     Swig_register_filebyname("init", init_func_def);
 
-    Printf(f_runtime, "/* -*- buffer-read-only: t -*- vi: set ro: */\n");
-    Swig_banner(f_runtime);
+    Swig_banner(f_begin);
+
+    Printf(f_runtime, "\n");
+    Printf(f_runtime, "#define SWIGMZSCHEME\n");
+    Printf(f_runtime, "\n");
 
     module = Getattr(n, "name");
 
@@ -186,14 +192,16 @@ public:
     }
 
     /* Close all of the files */
-    Dump(f_header, f_runtime);
-    Dump(f_wrappers, f_runtime);
-    Wrapper_pretty_print(f_init, f_runtime);
+    Dump(f_runtime, f_begin);
+    Dump(f_header, f_begin);
+    Dump(f_wrappers, f_begin);
+    Wrapper_pretty_print(f_init, f_begin);
     Delete(f_header);
     Delete(f_wrappers);
     Delete(f_init);
-    Close(f_runtime);
+    Close(f_begin);
     Delete(f_runtime);
+    Delete(f_begin);
     return SWIG_OK;
   }
 
@@ -248,8 +256,10 @@ public:
     if (Getattr(n, "sym:overloaded")) {
       overname = Getattr(n, "sym:overname");
     } else {
-      if (!addSymbol(iname, n))
+      if (!addSymbol(iname, n)) {
+        DelWrapper(f);
 	return SWIG_ERROR;
+      }
     }
     if (overname) {
       Append(wname, overname);
@@ -269,12 +279,8 @@ public:
        macros. */
     Printv(f->def, "#define FUNC_NAME \"", proc_name, "\"", NIL);
 
-    // Declare return variable and arguments
-    // number of parameters
-    // they are called arg0, arg1, ...
-    // the return value is called result
-
-    emit_args(d, l, f);
+    // Emit all of the local variables for holding arguments.
+    emit_parameter_variables(l, f);
 
     /* Attach the standard typemaps */
     emit_attach_parmmaps(l, f);
@@ -392,11 +398,10 @@ public:
 
     // Now write code to make the function call
 
-    emit_action(n, f);
+    String *actioncode = emit_action(n);
 
     // Now have return value, figure out what to do with it.
-
-    if ((tm = Swig_typemap_lookup_new("out", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode))) {
       Replaceall(tm, "$source", "result");
       Replaceall(tm, "$target", "values[0]");
       Replaceall(tm, "$result", "values[0]");
@@ -408,6 +413,7 @@ public:
     } else {
       throw_unhandled_mzscheme_type_error(d);
     }
+    emit_return_variable(n, d, f);
 
     // Dump the argument output code
     Printv(f->code, Char(outarg), NIL);
@@ -418,14 +424,14 @@ public:
     // Look for any remaining cleanup
 
     if (GetFlag(n, "feature:new")) {
-      if ((tm = Swig_typemap_lookup_new("newfree", n, "result", 0))) {
+      if ((tm = Swig_typemap_lookup("newfree", n, "result", 0))) {
 	Replaceall(tm, "$source", "result");
 	Printv(f->code, tm, "\n", NIL);
       }
     }
     // Free any memory allocated by the function being wrapped..
 
-    if ((tm = Swig_typemap_lookup_new("ret", n, "result", 0))) {
+    if ((tm = Swig_typemap_lookup("ret", n, "result", 0))) {
       Replaceall(tm, "$source", "result");
       Printv(f->code, tm, "\n", NIL);
     }
@@ -520,6 +526,7 @@ public:
     // Build the name for scheme.
     Printv(proc_name, iname, NIL);
     Replaceall(proc_name, "_", "-");
+    Setattr(n, "wrap:name", proc_name);
 
     if ((SwigType_type(t) != T_USER) || (is_a_pointer(t))) {
 
@@ -531,12 +538,12 @@ public:
       if (!GetFlag(n, "feature:immutable")) {
 	/* Check for a setting of the variable value */
 	Printf(f->code, "if (argc) {\n");
-	if ((tm = Swig_typemap_lookup_new("varin", n, name, 0))) {
+	if ((tm = Swig_typemap_lookup("varin", n, name, 0))) {
 	  Replaceall(tm, "$source", "argv[0]");
 	  Replaceall(tm, "$target", name);
 	  Replaceall(tm, "$input", "argv[0]");
 	  /* Printv(f->code, tm, "\n",NIL); */
-	  emit_action_code(n, f, tm);
+	  emit_action_code(n, f->code, tm);
 	} else {
 	  throw_unhandled_mzscheme_type_error(t);
 	}
@@ -545,12 +552,12 @@ public:
       // Now return the value of the variable (regardless
       // of evaluating or setting)
 
-      if ((tm = Swig_typemap_lookup_new("varout", n, name, 0))) {
+      if ((tm = Swig_typemap_lookup("varout", n, name, 0))) {
 	Replaceall(tm, "$source", name);
 	Replaceall(tm, "$target", "swig_result");
 	Replaceall(tm, "$result", "swig_result");
 	/* Printf (f->code, "%s\n", tm); */
-	emit_action_code(n, f, tm);
+	emit_action_code(n, f->code, tm);
       } else {
 	throw_unhandled_mzscheme_type_error(t);
       }
@@ -619,7 +626,7 @@ public:
       Clear(rvalue);
       Printv(rvalue, "'", temp, "'", NIL);
     }
-    if ((tm = Swig_typemap_lookup_new("constant", n, name, 0))) {
+    if ((tm = Swig_typemap_lookup("constant", n, name, 0))) {
       Replaceall(tm, "$source", rvalue);
       Replaceall(tm, "$value", rvalue);
       Replaceall(tm, "$target", name);
@@ -756,7 +763,7 @@ public:
       if ((SwigType_type(type) == T_USER) && (!is_a_pointer(type))) {
 	Printv(convert_tab, tab4, "fields[i++] = ", NIL);
 	Printv(convert_tab, "_swig_convert_struct_", swigtype, "((", SwigType_str(ctype_ptr, ""), ")&((ptr)->", name, "));\n", NIL);
-      } else if ((tm = Swig_typemap_lookup_new("varout", n, access_mem, 0))) {
+      } else if ((tm = Swig_typemap_lookup("varout", n, access_mem, 0))) {
 	Replaceall(tm, "$result", "fields[i++]");
 	Printv(convert_tab, tm, "\n", NIL);
       } else

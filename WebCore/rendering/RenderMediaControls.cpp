@@ -24,49 +24,65 @@
  */
 
 #include "config.h"
+
+#if ENABLE(VIDEO)
+
 #include "RenderMediaControls.h"
 
 #include "GraphicsContext.h"
 #include "HTMLMediaElement.h"
 #include "HTMLNames.h"
-#include "RenderThemeSafari.h"
-#include "SoftLinking.h"
+#include "PaintInfo.h"
+#include "RenderTheme.h"
+
+// FIXME: Unify more of the code for Mac and Win.
+#if PLATFORM(WIN)
+
 #include <CoreGraphics/CoreGraphics.h>
+#include <WebKitSystemInterface/WebKitSystemInterface.h>
+
+// The Windows version of WKSI defines these functions as capitalized, while the Mac version defines them as lower case.
+// FIXME: Is this necessary anymore?
+#define wkMediaControllerThemeAvailable(themeStyle) WKMediaControllerThemeAvailable(themeStyle)
+#define wkHitTestMediaUIPart(part, themeStyle, bounds, point) WKHitTestMediaUIPart(part, themeStyle, bounds, point)
+#define wkMeasureMediaUIPart(part, themeStyle, bounds, naturalSize) WKMeasureMediaUIPart(part, themeStyle, bounds, naturalSize)
+#define wkDrawMediaUIPart(part, themeStyle, context, rect, state) WKDrawMediaUIPart(part, themeStyle, context, rect, state)
+#define wkDrawMediaSliderTrack(themeStyle, context, rect, timeLoaded, currentTime, duration, state) WKDrawMediaSliderTrack(themeStyle, context, rect, timeLoaded, currentTime, duration, state)
+
+#endif
  
 using namespace std;
  
 namespace WebCore {
 
-#ifdef DEBUG_ALL
-SOFT_LINK_DEBUG_LIBRARY(SafariTheme)
-#else
-SOFT_LINK_LIBRARY(SafariTheme)
-#endif
+#if PLATFORM(WIN)
 
-SOFT_LINK(SafariTheme, paintThemePart, void, __stdcall, (ThemePart part, CGContextRef context, const CGRect& rect, NSControlSize size, ThemeControlState state), (part, context, rect, size, state))
-SOFT_LINK(SafariTheme, STPaintProgressIndicator, void, APIENTRY, (ProgressIndicatorType type, CGContextRef context, const CGRect& rect, NSControlSize size, ThemeControlState state, float value), (type, context, rect, size, state, value))
-
-#if ENABLE(VIDEO)
-
-static ThemeControlState determineState(RenderObject* o)
+static WKMediaControllerThemeState determineState(RenderObject* o)
 {
-    ThemeControlState result = 0;
+    int result = 0;
     RenderTheme* theme = o->theme();
-    if (theme->isActive(o))
-        result |= SafariTheme::ActiveState;
-    if (theme->isEnabled(o) && !theme->isReadOnlyControl(o))
-        result |= SafariTheme::EnabledState;
+    if (!theme->isEnabled(o) || theme->isReadOnlyControl(o))
+        result |= WKMediaControllerFlagDisabled;
     if (theme->isPressed(o))
-        result |= SafariTheme::PressedState;
-    if (theme->isChecked(o))
-        result |= SafariTheme::CheckedState;
-    if (theme->isIndeterminate(o))
-        result |= SafariTheme::IndeterminateCheckedState;
+        result |= WKMediaControllerFlagPressed;
     if (theme->isFocused(o))
-        result |= SafariTheme::FocusedState;
-    if (theme->isDefault(o))
-        result |= SafariTheme::DefaultState;
-    return result;
+        result |= WKMediaControllerFlagFocused;
+    return static_cast<WKMediaControllerThemeState>(result);
+}
+
+// Utility to scale when the UI part are not scaled by wkDrawMediaUIPart
+static FloatRect getUnzoomedRectAndAdjustCurrentContext(RenderObject* o, const PaintInfo& paintInfo, const IntRect &originalRect)
+{
+    float zoomLevel = o->style()->effectiveZoom();
+    FloatRect unzoomedRect(originalRect);
+    if (zoomLevel != 1.0f) {
+        unzoomedRect.setWidth(unzoomedRect.width() / zoomLevel);
+        unzoomedRect.setHeight(unzoomedRect.height() / zoomLevel);
+        paintInfo.context->translate(unzoomedRect.x(), unzoomedRect.y());
+        paintInfo.context->scale(FloatSize(zoomLevel, zoomLevel));
+        paintInfo.context->translate(-unzoomedRect.x(), -unzoomedRect.y());
+    }
+    return unzoomedRect;
 }
 
 static const int mediaSliderThumbWidth = 13;
@@ -74,73 +90,82 @@ static const int mediaSliderThumbHeight = 14;
 
 void RenderMediaControls::adjustMediaSliderThumbSize(RenderObject* o)
 {
-    if (o->style()->appearance() != MediaSliderThumbPart)
+    ControlPart part = o->style()->appearance();
+
+    if (part != MediaSliderThumbPart && part != MediaVolumeSliderThumbPart)
         return;
 
+    CGSize size;
+    wkMeasureMediaUIPart(part == MediaSliderThumbPart ? MediaSliderThumb : MediaVolumeSliderThumb, WKMediaControllerThemeQuickTime, 0, &size);
+
     float zoomLevel = o->style()->effectiveZoom();
-    o->style()->setWidth(Length(static_cast<int>(mediaSliderThumbWidth * zoomLevel), Fixed));
-    o->style()->setHeight(Length(static_cast<int>(mediaSliderThumbHeight * zoomLevel), Fixed));
+    o->style()->setWidth(Length(static_cast<int>(size.width * zoomLevel), Fixed));
+    o->style()->setHeight(Length(static_cast<int>(size.height * zoomLevel), Fixed));
 }
 
-bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, RenderObject* o, const RenderObject::PaintInfo& paintInfo, const IntRect& r)
+bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, RenderObject* o, const PaintInfo& paintInfo, const IntRect& r)
 {
-    ASSERT(SafariThemeLibrary());
+    static const int themeStyle = WKMediaControllerThemeQuickTime;
+    GraphicsContextStateSaver stateSaver(*paintInfo.context);
 
     switch (part) {
         case MediaFullscreenButton:
-            paintThemePart(SafariTheme::MediaFullscreenButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            wkDrawMediaUIPart(WKMediaUIPartFullscreenButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaShowClosedCaptionsButton:
         case MediaHideClosedCaptionsButton:
-#if SAFARI_THEME_VERSION >= 4
             if (MediaControlToggleClosedCaptionsButtonElement* btn = static_cast<MediaControlToggleClosedCaptionsButtonElement*>(o->node())) {
                 bool captionsVisible = btn->displayType() == MediaHideClosedCaptionsButton;
-                paintThemePart(captionsVisible ? SafariTheme::MediaHideClosedCaptionsButtonPart : SafariTheme::MediaShowClosedCaptionsButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+                wkDrawMediaUIPart(captionsVisible ? WKMediaUIPartHideClosedCaptionsButton : WKMediaUIPartShowClosedCaptionsButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             }
-#endif
             break;
         case MediaMuteButton:
         case MediaUnMuteButton:
             if (MediaControlMuteButtonElement* btn = static_cast<MediaControlMuteButtonElement*>(o->node())) {
                 bool audioEnabled = btn->displayType() == MediaMuteButton;
-                paintThemePart(audioEnabled ? SafariTheme::MediaMuteButtonPart : SafariTheme::MediaUnMuteButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+                wkDrawMediaUIPart(audioEnabled ? WKMediaUIPartMuteButton : WKMediaUIPartUnMuteButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             }
             break;
         case MediaPauseButton:
         case MediaPlayButton:
             if (MediaControlPlayButtonElement* btn = static_cast<MediaControlPlayButtonElement*>(o->node())) {
                 bool canPlay = btn->displayType() == MediaPlayButton;
-                paintThemePart(canPlay ? SafariTheme::MediaPlayButtonPart : SafariTheme::MediaPauseButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+                wkDrawMediaUIPart(canPlay ? WKMediaUIPartPlayButton : WKMediaUIPartPauseButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             }
             break;
+        case MediaRewindButton:
+            wkDrawMediaUIPart(WKMediaUIPartRewindButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
+            break;
+        case MediaReturnToRealtimeButton:
+            wkDrawMediaUIPart(WKMediaUIPartSeekToRealtimeButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
+            break;
         case MediaSeekBackButton:
-            paintThemePart(SafariTheme::MediaSeekBackButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            wkDrawMediaUIPart(WKMediaUIPartSeekBackButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaSeekForwardButton:
-            paintThemePart(SafariTheme::MediaSeekForwardButtonPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            wkDrawMediaUIPart(WKMediaUIPartSeekForwardButton, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaSlider: {
-            if (HTMLMediaElement* mediaElement = toParentMediaElement(o))
-                STPaintProgressIndicator(SafariTheme::MediaType, paintInfo.context->platformContext(), r, NSRegularControlSize, 0, mediaElement->percentLoaded());
+            if (HTMLMediaElement* mediaElement = toParentMediaElement(o)) {
+                FloatRect unzoomedRect = getUnzoomedRectAndAdjustCurrentContext(o, paintInfo, r);
+                wkDrawMediaSliderTrack(themeStyle, paintInfo.context->platformContext(), unzoomedRect, mediaElement->percentLoaded() * mediaElement->duration(), mediaElement->currentTime(), mediaElement->duration(), determineState(o));
+            }
             break;
         }
         case MediaSliderThumb:
-            paintThemePart(SafariTheme::MediaSliderThumbPart, paintInfo.context->platformContext(), r, NSRegularControlSize, determineState(o));
+            wkDrawMediaUIPart(WKMediaUIPartTimelineSliderThumb, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaVolumeSliderContainer:
-            // FIXME: Implement volume slider.
-            ASSERT_NOT_REACHED();
+            wkDrawMediaUIPart(WKMediaUIPartVolumeSliderContainer, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaVolumeSlider:
-            // FIXME: Implement volume slider.
-            ASSERT_NOT_REACHED();
+            wkDrawMediaUIPart(WKMediaUIPartVolumeSlider, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaVolumeSliderThumb:
-            // FIXME: Implement volume slider.
-            ASSERT_NOT_REACHED();
+            wkDrawMediaUIPart(WKMediaUIPartVolumeSliderThumb, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaTimelineContainer:
-            ASSERT_NOT_REACHED();
+            wkDrawMediaUIPart(WKMediaUIPartBackground, themeStyle, paintInfo.context->platformContext(), r, determineState(o));
             break;
         case MediaCurrentTimeDisplay:
             ASSERT_NOT_REACHED();
@@ -152,9 +177,25 @@ bool RenderMediaControls::paintMediaControlsPart(MediaControlElementType part, R
             ASSERT_NOT_REACHED();
             break;
     }
+
     return false;
 }
 
-#endif  // #if ENABLE(VIDEO)
+#endif
 
-} // namespace WebCore
+IntPoint RenderMediaControls::volumeSliderOffsetFromMuteButton(RenderBox* muteButtonBox, const IntSize& size)
+{
+    static const int xOffset = -4;
+    static const int yOffset = 5;
+
+    float zoomLevel = muteButtonBox->style()->effectiveZoom();
+    int y = yOffset * zoomLevel + muteButtonBox->offsetHeight() - size.height();
+    FloatPoint absPoint = muteButtonBox->localToAbsolute(FloatPoint(muteButtonBox->offsetLeft(), y), true, true);
+    if (absPoint.y() < 0)
+        y = muteButtonBox->height();
+    return IntPoint(xOffset * zoomLevel, y);
+}
+
+}
+
+#endif

@@ -1,10 +1,11 @@
-[manpage_begin base64 n 2.4]
+[manpage_begin base64 n 2.4.2]
 [copyright {2000, Eric Melski}]
 [copyright {2001, Miguel Sofer}]
 [moddesc   {Text encoding & decoding binary data}]
 [titledesc {base64-encode/decode binary data}]
+[category  {Text processing}]
 [require Tcl 8]
-[require base64 [opt 2.4]]
+[require base64 [opt 2.4.2]]
 [description]
 [para]
 
@@ -17,7 +18,7 @@ This package provides procedures to encode binary data into base64 and back.
 Base64 encodes the given binary [arg string] and returns the encoded
 result. Inserts the character [arg wrapchar] every [arg maxlen]
 characters of output. [arg wrapchar] defaults to newline. [arg maxlen]
-defaults to [const 60].
+defaults to [const 76].
 
 [para]
 

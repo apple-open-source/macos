@@ -3,9 +3,17 @@
 AINC+= -I${.CURDIR}/x86_64/sys
 
 MDSRCS+= OSAtomic.s \
-	i386_gettimeofday.s \
+	atomic.c \
+	spinlocks.c \
+	spinlocks_asm.s \
+	i386_gettimeofday_asm.s \
 	_setjmp.s \
 	setjmp.s \
-	_sigtramp.s
+	_sigtramp.s \
+	nanotime.s
 
-MDCOPYFILES+= ${.CURDIR}/Platforms/${RC_TARGET_CONFIG}/x86_64/libc.syscall.x86_64
+DYLDSRCS += \
+	OSAtomic.s \
+	i386_gettimeofday_asm.s \
+	spinlocks_asm.s \
+	nanotime.s

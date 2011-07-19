@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -204,6 +204,53 @@ Example2:
 </pre>
 */
 #define kIOPropertySASAddressKey					"SAS Address"
+
+
+/*!
+@defined kIOPropertySCSIPortIdentifierKey
+@discussion This key is the unique port identifier for the device server
+node located at this port, or for the initiating host port.  The format for
+this data is allowed to be vendor-specific, as long as it is guaranteed to
+be unique.  Length is arbitrary, to allow for itnerfaces with non-standard
+identifier rules.  It is recommended to have this be a copy of an existing
+standard unique identifier for this port, should one  already exist for your
+interface type
+
+Requirement: Mandatory.
+
+Example:
+<pre>
+@textblock
+<dict>
+	<key>Protocol Characteristics</key>
+	<dict>
+		<key>Physical Interconnect</key>
+		<string>Fibre Channel Interface</string>
+		<key>Physical Interconnect Location</key>
+		<string>External</string>
+		<key>Node World Wide Name</key>
+		<data>0011223344556677</data>
+		<key>Unique SCSI Port Identifier</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+
+Example2:
+<pre>
+@textblock
+<dict>
+	<key>Controller Characteristics</key>
+	<dict>
+		<key>Unique SCSI Port Identifier</key>
+		<data>0011223344556677</data>
+	</dict>
+</dict>
+@/textblock
+</pre>
+*/
+#define kIOPropertySCSIPortIdentifierKey		"Unique SCSI Port Identifier"
 
 
 /*!
@@ -879,7 +926,7 @@ Example:
 /*!
  @defined kIOPropertyPhysicalInterconnectTypeSecureDigital
  @discussion This key defines the value of Secure Digital for the key
- kIOPropertyPhysicalInterconnectTypeSecureDigital. If the device is a
+ kIOPropertyPhysicalInterconnectTypeSecureDigital. If the device is
  connected to a Secure Digital port and follows the Secure Digital 
  specification, this key should be set. 
  

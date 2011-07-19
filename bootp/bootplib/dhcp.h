@@ -1,9 +1,5 @@
-
-#ifndef _S_DHCP_H
-#define _S_DHCP_H
-
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +24,11 @@
  * dhcp.h
  * - definitions for DHCP (as specified in RFC2132)
  */
+
+#ifndef _S_DHCP_H
+#define _S_DHCP_H
+
+#include <stddef.h>
 #include <sys/types.h>
 #include <netinet/in.h>
 #include <netinet/in_systm.h>
@@ -61,6 +62,7 @@ struct dhcp_packet {
 
 #define DHCP_PACKET_OPTIONS_MIN	312
 #define DHCP_PACKET_MIN		(sizeof(struct dhcp) + DHCP_PACKET_OPTIONS_MIN)
+#define DHCP_PACKET_OVERHEAD	(offsetof(struct dhcp_packet, dhcp))
 
 /* dhcp message types */
 #define DHCPDISCOVER	1
@@ -150,4 +152,4 @@ dhcp_cstate_str(dhcp_cstate_t state)
     return ("<undefined>");
 }
 
-#endif _S_DHCP_H
+#endif /* _S_DHCP_H */

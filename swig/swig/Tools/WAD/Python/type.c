@@ -29,7 +29,7 @@
 #include "wad.h"
 #include "Python.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Python/type.c,v 1.7 2001/06/20 15:12:52 beazley Exp $";
+static char cvs[] = "$Id: type.c 10563 2008-06-23 21:23:54Z olly $";
 
 typedef struct {
   PyObject_HEAD
@@ -62,7 +62,7 @@ new_wadobject(WadFrame *f, int count) {
 /* release a wad object */
 static void
 wadobject_dealloc(wadobject *self) {
-  PyMem_DEL(self);
+  PyObject_Del(self);
 }
 
 static char message[65536];

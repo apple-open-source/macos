@@ -341,7 +341,7 @@ void DecodedExtensions::decodeFromNss(
 		NSS_CertExtension *nssExten = extensions[dex];
 		
 		/*
-		 * For this extension->extnId, cook up an approppriate 
+		 * For this extension->extnId, cook up an appropriate 
 		 * NSS-specific type (NSS_KeyUsage, etc.);
 		 */
 		CSSM_DATA &rawExtn = nssExten->value;

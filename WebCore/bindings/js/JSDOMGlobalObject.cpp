@@ -40,52 +40,53 @@ using namespace JSC;
 
 namespace WebCore {
 
-const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", 0, 0, 0 };
+const ClassInfo JSDOMGlobalObject::s_info = { "DOMGlobalObject", &JSGlobalObject::s_info, 0, 0 };
 
-JSDOMGlobalObject::JSDOMGlobalObject(NonNullPassRefPtr<Structure> structure, JSDOMGlobalObject::JSDOMGlobalObjectData* data, JSObject* thisValue)
-    : JSGlobalObject(structure, data, thisValue)
+JSDOMGlobalObject::JSDOMGlobalObject(JSGlobalData& globalData, Structure* structure, PassRefPtr<DOMWrapperWorld> world, JSObject* thisValue)
+    : JSGlobalObject(globalData, structure, thisValue)
+    , m_currentEvent(0)
+    , m_world(world)
 {
+    ASSERT(inherits(&s_info));
 }
 
-void JSDOMGlobalObject::markChildren(MarkStack& markStack)
+void JSDOMGlobalObject::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
 
     JSDOMStructureMap::iterator end = structures().end();
     for (JSDOMStructureMap::iterator it = structures().begin(); it != end; ++it)
-        markStack.append(it->second->storedPrototype());
+        visitor.append(&it->second);
 
     JSDOMConstructorMap::iterator end2 = constructors().end();
     for (JSDOMConstructorMap::iterator it2 = constructors().begin(); it2 != end2; ++it2)
-        markStack.append(it2->second);
+        visitor.append(&it2->second);
 
-    if (d()->m_injectedScript)
-        markStack.append(d()->m_injectedScript);
+    if (m_injectedScript)
+        visitor.append(&m_injectedScript);
 }
 
-void JSDOMGlobalObject::setCurrentEvent(Event* evt)
+void JSDOMGlobalObject::setCurrentEvent(Event* currentEvent)
 {
-    d()->evt = evt;
+    m_currentEvent = currentEvent;
 }
 
 Event* JSDOMGlobalObject::currentEvent() const
 {
-    return d()->evt;
+    return m_currentEvent;
 }
 
 void JSDOMGlobalObject::setInjectedScript(JSObject* injectedScript)
 {
-    d()->m_injectedScript = injectedScript;
+    m_injectedScript.setMayBeNull(globalData(), this, injectedScript);
 }
 
 JSObject* JSDOMGlobalObject::injectedScript() const
 {
-    return d()->m_injectedScript;
-}
-
-void JSDOMGlobalObject::destroyJSDOMGlobalObjectData(void* jsDOMGlobalObjectData)
-{
-    delete static_cast<JSDOMGlobalObjectData*>(jsDOMGlobalObjectData);
+    return m_injectedScript.get();
 }
 
 JSDOMGlobalObject* toJSDOMGlobalObject(Document* document, JSC::ExecState* exec)

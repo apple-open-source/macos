@@ -2,4 +2,6 @@
 
 .sinclude "${.CURDIR}/${MACHINE_ARCH}/threads/Makefile.inc"
 
-MISRCS += cprocs.c       cthreads.c     lu_utils.c     mig_support.c
+MISRCS += cprocs.c       cthreads.c     mig_support.c
+
+DYLDSRCS += mig_support.c

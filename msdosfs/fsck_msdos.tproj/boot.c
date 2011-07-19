@@ -3,21 +3,20 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2000 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.1 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -90,10 +89,14 @@ readboot(dosfs, boot)
 	* The first three bytes are an Intel x86 jump instruction.  It should be one
 	* of the following forms:
 	*    0xE9 0x?? 0x??
-	*    0xEC 0x?? 0x90
-	* where 0x?? means any byte value is OK.
+	*    0xEB 0x?? 0x90
+	*
+	* [5016947]
+	*
+	* Windows doesn't actually check the third byte if the first byte is 0xEB,
+	* so we don't either
 	*/
-	if (block[0] != 0xE9 && (block[0] != 0xEB || block[2] != 0x90))
+	if (block[0] != 0xE9 && block[0] != 0xEB)
 	{
 		pfatal("Invalid BS_jmpBoot in boot block: %02x%02x%02x\n", block[0], block[1], block[2]);
 		return FSFATAL;

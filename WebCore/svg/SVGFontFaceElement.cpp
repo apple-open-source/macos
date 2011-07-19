@@ -1,29 +1,30 @@
 /*
-   Copyright (C) 2007 Eric Seidel <eric@webkit.org>
-   Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-   Copyright (C) 2008 Apple Inc. All rights reserved.
-    
-   This library is free software; you can redistribute it and/or
-   modify it under the terms of the GNU Library General Public
-   License as published by the Free Software Foundation; either
-   version 2 of the License, or (at your option) any later version.
-
-   This library is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-   Library General Public License for more details.
-
-   You should have received a copy of the GNU Library General Public License
-   along with this library; see the file COPYING.LIB.  If not, write to
-   the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-   Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2007 Eric Seidel <eric@webkit.org>
+ * Copyright (C) 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2008 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG_FONTS)
 #include "SVGFontFaceElement.h"
 
+#include "Attribute.h"
 #include "CSSFontFaceRule.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSParser.h"
@@ -35,7 +36,6 @@
 #include "CSSValueList.h"
 #include "Document.h"
 #include "Font.h"
-#include "MappedAttribute.h"
 #include "SVGFontElement.h"
 #include "SVGFontFaceSrcElement.h"
 #include "SVGGlyphElement.h"
@@ -46,18 +46,20 @@ namespace WebCore {
 
 using namespace SVGNames;
 
-SVGFontFaceElement::SVGFontFaceElement(const QualifiedName& tagName, Document* doc)
-    : SVGElement(tagName, doc)
+inline SVGFontFaceElement::SVGFontFaceElement(const QualifiedName& tagName, Document* document)
+    : SVGElement(tagName, document)
     , m_fontFaceRule(CSSFontFaceRule::create())
     , m_styleDeclaration(CSSMutableStyleDeclaration::create())
 {
-    m_styleDeclaration->setParent(document()->mappedElementSheet());
+    ASSERT(hasTagName(font_faceTag));
+    m_styleDeclaration->setParent(document->mappedElementSheet());
     m_styleDeclaration->setStrictParsing(true);
     m_fontFaceRule->setDeclaration(m_styleDeclaration.get());
 }
 
-SVGFontFaceElement::~SVGFontFaceElement()
+PassRefPtr<SVGFontFaceElement> SVGFontFaceElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGFontFaceElement(tagName, document));
 }
 
 static int cssPropertyIdForSVGAttributeName(const QualifiedName& attrName)
@@ -70,51 +72,50 @@ static int cssPropertyIdForSVGAttributeName(const QualifiedName& attrName)
         propertyNameToIdMap = new HashMap<AtomicStringImpl*, int>;
         // This is a list of all @font-face CSS properties which are exposed as SVG XML attributes
         // Those commented out are not yet supported by WebCore's style system
-        //mapAttributeToCSSProperty(propertyNameToIdMap, accent_heightAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, alphabeticAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, ascentAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, bboxAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, cap_heightAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, descentAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, accent_heightAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, alphabeticAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, ascentAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, bboxAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, cap_heightAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, descentAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_familyAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_sizeAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_stretchAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_styleAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_variantAttr);
         mapAttributeToCSSProperty(propertyNameToIdMap, font_weightAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, hangingAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, ideographicAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, mathematicalAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, overline_positionAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, overline_thicknessAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, panose_1Attr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, slopeAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, stemhAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, stemvAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, strikethrough_positionAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, strikethrough_thicknessAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, underline_positionAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, underline_thicknessAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, unicode_rangeAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, units_per_emAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, v_alphabeticAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, v_hangingAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, v_ideographicAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, v_mathematicalAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, widthsAttr);
-        //mapAttributeToCSSProperty(propertyNameToIdMap, x_heightAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, hangingAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, ideographicAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, mathematicalAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, overline_positionAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, overline_thicknessAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, panose_1Attr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, slopeAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, stemhAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, stemvAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, strikethrough_positionAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, strikethrough_thicknessAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, underline_positionAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, underline_thicknessAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, unicode_rangeAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, units_per_emAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, v_alphabeticAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, v_hangingAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, v_ideographicAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, v_mathematicalAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, widthsAttr);
+        // mapAttributeToCSSProperty(propertyNameToIdMap, x_heightAttr);
     }
     
     return propertyNameToIdMap->get(attrName.localName().impl());
 }
 
-void SVGFontFaceElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGFontFaceElement::parseMappedAttribute(Attribute* attr)
 {    
     int propId = cssPropertyIdForSVGAttributeName(attr->name());
     if (propId > 0) {
         m_styleDeclaration->setProperty(propId, attr->value(), false);
-        if (inDocument())
-            rebuildFontFace();
+        rebuildFontFace();
         return;
     }
     
@@ -125,7 +126,7 @@ unsigned SVGFontFaceElement::unitsPerEm() const
 {
     const AtomicString& value = getAttribute(units_per_emAttr);
     if (value.isEmpty())
-        return defaultUnitsPerEm;
+        return gDefaultUnitsPerEm;
 
     return static_cast<unsigned>(ceilf(value.toFloat()));
 }
@@ -261,9 +262,15 @@ String SVGFontFaceElement::fontFamily() const
     return m_styleDeclaration->getPropertyValue(CSSPropertyFontFamily);
 }
 
+SVGFontElement* SVGFontFaceElement::associatedFontElement() const
+{
+    return m_fontElement.get();
+}
+
 void SVGFontFaceElement::rebuildFontFace()
 {
-    ASSERT(inDocument());
+    if (!inDocument())
+        return;
 
     // we currently ignore all but the first src element, alternatively we could concat them
     SVGFontFaceSrcElement* srcElement = 0;
@@ -327,8 +334,7 @@ void SVGFontFaceElement::removedFromDocument()
 void SVGFontFaceElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
     SVGElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-    if (inDocument())
-        rebuildFontFace();
+    rebuildFontFace();
 }
 
 void SVGFontFaceElement::removeFromMappedElementSheet()

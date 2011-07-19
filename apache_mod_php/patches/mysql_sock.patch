@@ -1,6 +1,6 @@
---- php-5.3.4/php.ini-development	2010-12-07 15:53:51.000000000 -0800
-+++ php/php.ini-development	2010-12-10 14:41:17.000000000 -0800
-@@ -1057,7 +1057,7 @@
+--- php-5.3.6/php.ini-development	2011-02-08 16:25:44.000000000 -0800
++++ php/php.ini-development	2011-03-18 14:07:34.000000000 -0700
+@@ -1061,7 +1061,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/pdo_mysql.default-socket
@@ -9,7 +9,7 @@
  
  [Phar]
  ; http://php.net/phar.readonly
-@@ -1206,12 +1206,12 @@
+@@ -1210,12 +1210,12 @@
  ; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
  ; at MYSQL_PORT.
  ; http://php.net/mysql.default-port
@@ -24,7 +24,7 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysql.default-host
-@@ -1262,7 +1262,7 @@
+@@ -1266,7 +1266,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysqli.default-socket
@@ -33,9 +33,9 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysqli.default-host
---- php-5.3.4/php.ini-production	2010-12-07 15:53:51.000000000 -0800
-+++ php/php.ini-production	2010-12-10 14:41:17.000000000 -0800
-@@ -1056,7 +1056,7 @@
+--- php-5.3.6/php.ini-production	2011-02-08 16:25:44.000000000 -0800
++++ php/php.ini-production	2011-03-18 14:07:34.000000000 -0700
+@@ -1060,7 +1060,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/pdo_mysql.default-socket
@@ -44,7 +44,7 @@
  
  [Phar]
  ; http://php.net/phar.readonly
-@@ -1205,12 +1205,12 @@
+@@ -1209,12 +1209,12 @@
  ; compile-time value defined MYSQL_PORT (in that order).  Win32 will only look
  ; at MYSQL_PORT.
  ; http://php.net/mysql.default-port
@@ -59,7 +59,7 @@
  
  ; Default host for mysql_connect() (doesn't apply in safe mode).
  ; http://php.net/mysql.default-host
-@@ -1269,7 +1269,7 @@
+@@ -1273,7 +1273,7 @@
  ; Default socket name for local MySQL connects.  If empty, uses the built-in
  ; MySQL defaults.
  ; http://php.net/mysqli.default-socket

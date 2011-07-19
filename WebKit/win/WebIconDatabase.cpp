@@ -28,17 +28,16 @@
 #include "WebIconDatabase.h"
 
 #include "CFDictionaryPropertyBag.h"
-#include "COMPtr.h"
 #include "WebPreferences.h"
 #include "WebNotificationCenter.h"
-#pragma warning(push, 0)
 #include <WebCore/BitmapInfo.h>
 #include <WebCore/BString.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/Image.h>
 #include <WebCore/PlatformString.h>
-#pragma warning(pop)
+#include <WebCore/SharedBuffer.h>
 #include <wtf/MainThread.h>
 #include "shlobj.h"
 
@@ -71,7 +70,7 @@ void WebIconDatabase::init()
         enabled = FALSE;
         LOG_ERROR("Unable to get icon database enabled preference");
     }
-    iconDatabase()->setEnabled(!!enabled);
+    iconDatabase().setEnabled(!!enabled);
     if (!(!!enabled))
         return;
 
@@ -82,7 +81,7 @@ void WebIconDatabase::startUpIconDatabase()
 {
     WebPreferences* standardPrefs = WebPreferences::sharedStandardPreferences();
 
-    iconDatabase()->setClient(this);
+    iconDatabase().setClient(this);
 
     BSTR prefDatabasePath = 0;
     if (FAILED(standardPrefs->iconDatabaseLocation(&prefDatabasePath)))
@@ -97,7 +96,7 @@ void WebIconDatabase::startUpIconDatabase()
             LOG_ERROR("Failed to construct default icon database path");
     }
 
-    if (!iconDatabase()->open(databasePath))
+    if (!iconDatabase().open(databasePath, WebCore::IconDatabase::defaultDatabaseFilename()))
             LOG_ERROR("Failed to open icon database path");
 }
 
@@ -172,7 +171,7 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::iconForURL(
 
     Image* icon = 0;
     if (url)
-        icon = iconDatabase()->iconForPageURL(String(url, SysStringLen(url)), intSize);
+        icon = iconDatabase().synchronousIconForPageURL(String(url, SysStringLen(url)), intSize);
 
     // Make sure we check for the case of an "empty image"
     if (icon && icon->width()) {
@@ -199,20 +198,20 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::defaultIconWithSize(
 HRESULT STDMETHODCALLTYPE WebIconDatabase::retainIconForURL(
         /* [in] */ BSTR url)
 {
-    iconDatabase()->retainIconForPageURL(String(url, SysStringLen(url)));
+    iconDatabase().retainIconForPageURL(String(url, SysStringLen(url)));
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebIconDatabase::releaseIconForURL(
         /* [in] */ BSTR url)
 {
-    iconDatabase()->releaseIconForPageURL(String(url, SysStringLen(url)));
+    iconDatabase().releaseIconForPageURL(String(url, SysStringLen(url)));
     return S_OK;
 }
 
 HRESULT STDMETHODCALLTYPE WebIconDatabase::removeAllIcons(void)
 {
-    iconDatabase()->removeAllIcons();
+    iconDatabase().removeAllIcons();
     return S_OK;
 }
 
@@ -234,7 +233,7 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::iconURLForURL(
 {
     if (!url || !iconURL)
         return E_POINTER;
-    BString iconURLBSTR(iconDatabase()->iconURLForPageURL(String(url, SysStringLen(url))));
+    BString iconURLBSTR(iconDatabase().synchronousIconURLForPageURL(String(url, SysStringLen(url))));
     *iconURL = iconURLBSTR.release();
     return S_OK;
 }
@@ -242,7 +241,7 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::iconURLForURL(
 HRESULT STDMETHODCALLTYPE WebIconDatabase::isEnabled( 
         /* [retval][out] */ BOOL *result)
 {
-    *result = iconDatabase()->isEnabled();
+    *result = iconDatabase().isEnabled();
     return S_OK;
 }
 
@@ -252,12 +251,32 @@ HRESULT STDMETHODCALLTYPE WebIconDatabase::setEnabled(
     BOOL currentlyEnabled;
     isEnabled(&currentlyEnabled);
     if (currentlyEnabled && !flag) {
-        iconDatabase()->setEnabled(false);
+        iconDatabase().setEnabled(false);
         shutDownIconDatabase();
     } else if (!currentlyEnabled && flag) {
-        iconDatabase()->setEnabled(true);
+        iconDatabase().setEnabled(true);
         startUpIconDatabase();
     }
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebIconDatabase::hasIconForURL(
+        /* [in] */ BSTR url,
+        /* [out][retval] */ BOOL* result)
+{
+    if (!url || !result)
+        return E_POINTER;
+
+    String urlString(url, SysStringLen(url));
+
+    // Passing a size parameter of 0, 0 means we don't care about the result of the image, we just
+    // want to make sure the read from disk to load the icon is kicked off.
+    iconDatabase().synchronousIconForPageURL(urlString, IntSize(0, 0));
+
+    // Check to see if we have a non-empty icon URL for the page, and if we do, we have an icon for
+    // the page.
+    *result = !(iconDatabase().synchronousIconURLForPageURL(urlString).isEmpty());
+
     return S_OK;
 }
 
@@ -291,7 +310,7 @@ HBITMAP WebIconDatabase::getOrCreateDefaultIconBitmap(LPSIZE size)
     result = createDIB(size);
 
     m_defaultIconMap.set(*size, result);
-    if (!iconDatabase()->defaultIcon(*size)->getHBITMAPOfSize(result, size)) {
+    if (!iconDatabase().defaultIcon(*size)->getHBITMAPOfSize(result, size)) {
         LOG_ERROR("Failed to draw Image to HBITMAP");
         return 0;
     }
@@ -300,7 +319,13 @@ HBITMAP WebIconDatabase::getOrCreateDefaultIconBitmap(LPSIZE size)
 
 // IconDatabaseClient
 
-void WebIconDatabase::dispatchDidRemoveAllIcons()
+bool WebIconDatabase::performImport()
+{
+    // Windows doesn't do any old-style database importing.
+    return true;
+}
+
+void WebIconDatabase::didRemoveAllIcons()
 {
     // Queueing the empty string is a special way of saying "this queued notification is the didRemoveAllIcons notification"
     MutexLocker locker(m_notificationMutex);
@@ -308,11 +333,27 @@ void WebIconDatabase::dispatchDidRemoveAllIcons()
     scheduleNotificationDelivery();
 }
 
-void WebIconDatabase::dispatchDidAddIconForPageURL(const String& pageURL)
-{   
+void WebIconDatabase::didImportIconURLForPageURL(const WTF::String& pageURL)
+{
     MutexLocker locker(m_notificationMutex);
     m_notificationQueue.append(pageURL.threadsafeCopy());
     scheduleNotificationDelivery();
+}
+
+void WebIconDatabase::didImportIconDataForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didChangeIconForPageURL(const WTF::String& pageURL)
+{
+    // WebKit1 only has a single "icon did change" notification.
+    didImportIconURLForPageURL(pageURL);
+}
+
+void WebIconDatabase::didFinishURLImport()
+{
 }
 
 void WebIconDatabase::scheduleNotificationDelivery()

@@ -12,7 +12,7 @@
  * software for any purpose.  It is provided "as is" without express or
  * implied warranty.
  *-----------------------------------------------------------------------------
- * $Id: tclXlib.c,v 1.4 2005/03/24 05:04:38 hobbs Exp $
+ * $Id: tclXlib.c,v 1.5 2008/12/15 20:00:27 andreas_kupries Exp $
  *-----------------------------------------------------------------------------
  */
 
@@ -239,7 +239,7 @@ EvalFilePart (interp, fileName, offset, length)
      */
     buf = ckalloc (strlen (fileName) + 64);
     sprintf (buf, "\n    (file \"%s\" line %d)", fileName,
-             interp->errorLine);
+             ERRORLINE(interp));
     Tcl_AddErrorInfo (interp, buf);
     ckfree (buf);
     goto errorExit;

@@ -60,11 +60,14 @@ char *auth_name(char *buf, size_t buflen, REQUEST *request, int do_cli)
  * Make sure user/pass are clean
  * and then log them
  */
-static int rad_authlog(const char *msg, REQUEST *request, int goodpass) {
-
+static int rad_authlog(const char *msg, REQUEST *request, int goodpass)
+{
+	int logit;
+	const char *extra_msg = NULL;
 	char clean_password[1024];
 	char clean_username[1024];
 	char buf[1024];
+	char extra[1024];
 	VALUE_PAIR *username = NULL;
 
 	if (!request->root->log_auth) {
@@ -117,20 +120,28 @@ static int rad_authlog(const char *msg, REQUEST *request, int goodpass) {
 	}
 
 	if (goodpass) {
-		radlog_request(L_AUTH, 0, request, "%s: [%s%s%s] (%s)",
-				msg,
-				clean_username,
-				request->root->log_auth_goodpass ? "/" : "",
-				request->root->log_auth_goodpass ? clean_password : "",
-				auth_name(buf, sizeof(buf), request, 1));
+		logit = request->root->log_auth_goodpass;
+		extra_msg = request->root->auth_goodpass_msg;
 	} else {
-		radlog_request(L_AUTH, 0, request, "%s: [%s%s%s] (%s)",
-				msg,
-				clean_username,
-				request->root->log_auth_badpass ? "/" : "",
-				request->root->log_auth_badpass ? clean_password : "",
-				auth_name(buf, sizeof(buf), request, 1));
+		logit = request->root->log_auth_badpass;
+		extra_msg = request->root->auth_badpass_msg;
 	}
+
+	if (extra_msg) {
+		extra[0] = ' ';
+		radius_xlat(extra + 1, sizeof(extra) - 1, extra_msg, request,
+			    NULL);
+	} else {
+		*extra = '\0';
+	}
+
+	radlog_request(L_AUTH, 0, request, "%s: [%s%s%s] (%s)%s",
+		       msg,
+		       clean_username,
+		       logit ? "/" : "",
+		       logit ? clean_password : "",
+		       auth_name(buf, sizeof(buf), request, 1),
+		       extra);
 
 	return 0;
 }
@@ -164,9 +175,11 @@ static int rad_check_password(REQUEST *request)
 	 */
 	cur_config_item = request->config_items;
 	while(((auth_type_pair = pairfind(cur_config_item, PW_AUTH_TYPE))) != NULL) {
+		DICT_VALUE *dv;
+
 		auth_type = auth_type_pair->vp_integer;
 		auth_type_count++;
-		DICT_VALUE *dv = dict_valbyattr(auth_type_pair->attribute,
+		dv = dict_valbyattr(auth_type_pair->attribute,
 						auth_type_pair->vp_integer);
 
 		RDEBUG2("Found Auth-Type = %s",
@@ -251,7 +264,7 @@ static int rad_check_password(REQUEST *request)
 		 	*
 		 	*	This is fail-safe.
 		 	*/
-			RDEBUG2("No authenticate method (Auth-Type) configuration found for the request: Rejecting the user");
+			RDEBUG2("ERROR: No authenticate method (Auth-Type) found for the request: Rejecting the user");
 			return -2;
 		}
 	}
@@ -494,10 +507,14 @@ int rad_authenticate(REQUEST *request)
 		 *	done by the server, by rejecting them here.
 		 */
 		case PW_AUTHENTICATION_REJECT:
-		default:
 			rad_authlog("Login incorrect (Home Server says so)",
 				    request, 0);
 			request->reply->code = PW_AUTHENTICATION_REJECT;
+			return RLM_MODULE_REJECT;
+
+		default:
+			rad_authlog("Login incorrect (Home Server failed to respond)",
+				    request, 0);
 			return RLM_MODULE_REJECT;
 		}
 	}

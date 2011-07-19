@@ -105,7 +105,7 @@ FloatRect Path::boundingRect() const
     return FloatRect();
 }
 
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
     notImplemented();
     return FloatRect();
@@ -115,12 +115,6 @@ bool Path::strokeContains(StrokeStyleApplier*, const FloatPoint&) const
 {
     notImplemented();
     return false;
-}
-
-String Path::debugString() const
-{
-    notImplemented();
-    return String();
 }
 
 Path& Path::operator=(const Path& path)
@@ -243,6 +237,13 @@ bool Path::isEmpty() const
 bool Path::hasCurrentPoint() const
 {
     return !isEmpty();
+}
+
+FloatPoint Path::currentPoint() const 
+{
+    // FIXME: return current point of subpath.
+    float quietNaN = std::numeric_limits<float>::quiet_NaN();
+    return FloatPoint(quietNaN, quietNaN);
 }
 
 }

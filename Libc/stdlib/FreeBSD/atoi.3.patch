@@ -1,6 +1,6 @@
---- atoi.3.orig	2007-04-08 18:49:34.000000000 -0700
-+++ atoi.3	2007-04-08 19:19:59.000000000 -0700
-@@ -40,7 +40,8 @@
+--- atoi.3.orig	2010-02-08 16:26:10.000000000 -0800
++++ atoi.3	2010-02-13 20:59:41.000000000 -0800
+@@ -36,7 +36,8 @@
  .Dt ATOI 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert
  .Tn ASCII
  string to integer
-@@ -49,20 +50,31 @@
+@@ -45,25 +46,46 @@ string to integer
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft int
@@ -34,7 +34,7 @@
 -(int)strtol(nptr, (char **)NULL, 10);
 +(int)strtol(str, (char **)NULL, 10);
  .Ed
-+.Pp
+ .Pp
 +While the
 +.Fn atoi
 +function uses the current locale, the
@@ -42,10 +42,26 @@
 +function may be passed a locale directly. See
 +.Xr xlocale 3
 +for more information.
- .Sh IMPLEMENTATION NOTES
++.Sh IMPLEMENTATION NOTES
++The
++.Fn atoi
++and
++.Fn atoi_l
++functions are thread-safe and async-cancel-safe.
++.Pp
  The
  .Fn atoi
-@@ -84,7 +96,8 @@
+-function has been deprecated by
++and
++.Fn atoi_l
++functions have been deprecated by
+ .Fn strtol
++and
++.Fn strtol_l
+ and should not be used in new code.
+ .Sh ERRORS
+ The function
+@@ -76,7 +98,8 @@ on an error.
  .Xr atol 3 ,
  .Xr strtod 3 ,
  .Xr strtol 3 ,

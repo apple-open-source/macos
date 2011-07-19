@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,8 +23,7 @@
 
 /*
  * FDSet.c
- * - maintains a list of file descriptors to watch and corresponding
- *   functions to call when the file descriptor is ready
+ * - contains FDCallout, a thin wrapper on CFSocketRef/CFFileDescriptorRef
  */
 /* 
  * Modification History
@@ -33,127 +32,159 @@
  * - created
  * June 12, 2000	Dieter Siegmund (dieter@apple.com)
  * - converted to use CFRunLoop
+ * January 27, 2010	Dieter Siegmund (dieter@apple.com)
+ * - use CFFileDescriptorRef for non-sockets
  */
-
 
 #include <stdlib.h>
 #include <unistd.h>
 #include <string.h>
 #include <stdio.h>
 #include <sys/types.h>
-#include <sys/wait.h>
+#include <sys/stat.h>
 #include <sys/errno.h>
 #include <sys/socket.h>
 #include <net/if_types.h>
 #include <syslog.h>
+#include <CoreFoundation/CFRunLoop.h>
+#include <CoreFoundation/CFSocket.h>
+#include <CoreFoundation/CFFileDescriptor.h>
 
 #include "dynarray.h"
 #include "FDSet.h"
+#include "symbol_scope.h"
 
-static void
-FDSet_process(CFSocketRef s, CFSocketCallBackType type, 
-	      CFDataRef address, const void *data, void *info);
+struct FDCallout {
+    Boolean			is_socket;
+    union {
+	CFSocketRef		socket;
+	CFFileDescriptorRef 	fdesc;
+    } u;
+    FDCalloutFuncRef		func;
+    void *			arg1;
+    void *			arg2;
+};
 
-FDCallout_t *
-FDSet_add_callout(FDSet_t * set, int fd, FDCallout_func_t * func,
-		  void * arg1, void * arg2)
+STATIC void
+FDCalloutSocketReceive(CFSocketRef s, CFSocketCallBackType type, 
+		       CFDataRef address, const void *data, void *info);
+
+STATIC void
+FDCalloutFileDescriptorReceive(CFFileDescriptorRef f, 
+			       CFOptionFlags callBackTypes, void *info);
+
+
+STATIC void
+FDCalloutCreateSocket(FDCalloutRef callout, int fd)
 {
     CFSocketContext	context = { 0, NULL, NULL, NULL, NULL };
-    FDCallout_t *	callout;
+    CFRunLoopSourceRef	rls;
 
-    callout = malloc(sizeof(*callout));
-    if (callout == NULL)
-	return (NULL);
-    bzero(callout, sizeof(*callout));
+    context.info = callout;
+    callout->is_socket = TRUE;
+    callout->u.socket 
+	= CFSocketCreateWithNative(NULL, fd, kCFSocketReadCallBack,
+				   FDCalloutSocketReceive, &context);
+    rls = CFSocketCreateRunLoopSource(NULL, callout->u.socket, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, 
+		       kCFRunLoopDefaultMode);
+    CFRelease(rls);
+    return;
+}
 
-    if (dynarray_add(&set->callouts, callout) == FALSE) {
-	free(callout);
+STATIC void
+FDCalloutCreateFileDescriptor(FDCalloutRef callout, int fd)
+{
+    CFFileDescriptorContext	context = { 0, NULL, NULL, NULL, NULL };
+    CFRunLoopSourceRef	rls;
+
+    context.info = callout;
+    callout->is_socket = FALSE;
+    callout->u.fdesc
+	= CFFileDescriptorCreate(NULL, fd, TRUE,
+				 FDCalloutFileDescriptorReceive, &context);
+    CFFileDescriptorEnableCallBacks(callout->u.fdesc,
+				    kCFFileDescriptorReadCallBack);
+    rls = CFFileDescriptorCreateRunLoopSource(NULL, callout->u.fdesc, 0);
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, 
+		       kCFRunLoopDefaultMode);
+    CFRelease(rls);
+    return;
+}
+
+PRIVATE_EXTERN FDCalloutRef
+FDCalloutCreate(int fd, FDCalloutFuncRef func,
+		void * arg1, void * arg2)
+{
+    FDCalloutRef	callout;
+    struct stat		sb;
+
+    if (fstat(fd, &sb) < 0) {
 	return (NULL);
     }
-    context.info = callout;
-    callout->socket 
-	= CFSocketCreateWithNative(NULL, fd, kCFSocketReadCallBack,
-				   FDSet_process, &context);
-    callout->rls = CFSocketCreateRunLoopSource(NULL, callout->socket, 0);
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), callout->rls, 
-		       kCFRunLoopDefaultMode);
-    callout->fd = fd;
+    callout = malloc(sizeof(*callout));
+    if (callout == NULL) {
+	return (NULL);
+    }
+    bzero(callout, sizeof(*callout));
+    if (S_ISSOCK(sb.st_mode)) {
+	FDCalloutCreateSocket(callout, fd);
+    }
+    else {
+	FDCalloutCreateFileDescriptor(callout, fd);
+    }
     callout->func = func;
     callout->arg1 = arg1;
     callout->arg2 = arg2;
     return (callout);
 }
 
-void
-FDSet_remove_callout(FDSet_t * set, FDCallout_t * * callout_p)
+STATIC void
+FDCalloutReleaseSocket(FDCalloutRef callout)
 {
-    int 	  i;
-    FDCallout_t * callout = *callout_p;
+    if (callout->u.socket != NULL) {
+	CFSocketInvalidate(callout->u.socket);
+	CFRelease(callout->u.socket);
+	callout->u.socket = NULL;
+    }
+    return;
+}
 
-    i = dynarray_index(&set->callouts, callout);
-    if (i == -1) {
-	/* this can't happen */
-	syslog(LOG_ERR, "FDSet_remove_callout: got back -1 index");
+STATIC void
+FDCalloutReleaseFileDescriptor(FDCalloutRef callout)
+{
+    if (callout->u.fdesc != NULL) {
+	CFFileDescriptorInvalidate(callout->u.fdesc);
+	CFRelease(callout->u.fdesc);
+	callout->u.fdesc = NULL;
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+FDCalloutRelease(FDCalloutRef * callout_p)
+{
+    FDCalloutRef callout = *callout_p;
+
+    if (callout == NULL) {
 	return;
     }
-    dynarray_free_element(&set->callouts, i);
+    if (callout->is_socket) {
+	FDCalloutReleaseSocket(callout);
+    }
+    else {
+	FDCalloutReleaseFileDescriptor(callout);
+    }
+    free(callout);
     *callout_p = NULL;
     return;
 }
 
-static void
-FDSet_callout_free(void * arg)
+STATIC void
+FDCalloutSocketReceive(CFSocketRef s, CFSocketCallBackType type, 
+		       CFDataRef address, const void *data, void *info)
 {
-    FDCallout_t * callout = arg;
-
-    if (callout->rls) {
-	/* cancel further callouts */
-	CFRunLoopRemoveSource(CFRunLoopGetCurrent(), callout->rls, 
-			      kCFRunLoopDefaultMode);
-
-	/* remove one socket reference, close the file descriptor */
-	CFSocketInvalidate(callout->socket);
-
-	/* release the socket */
-	CFRelease(callout->socket);
-	callout->socket = NULL;
-
-	/* release the run loop source */
-	CFRelease(callout->rls);
-	callout->rls = NULL;
-    }
-    free(callout);
-    return;
-}
-
-FDSet_t *
-FDSet_init()
-{
-    FDSet_t * set = malloc(sizeof(*set));
-    if (set == NULL)
-	return (NULL);
-    bzero(set, sizeof(*set));
-    dynarray_init(&set->callouts, FDSet_callout_free, NULL);
-    return (set);
-}
-
-void
-FDSet_free(FDSet_t * * set_p)
-{
-    FDSet_t * set = *set_p;
-
-    dynarray_free(&set->callouts);
-    bzero(set, sizeof(*set));
-    free(set);
-    *set_p = NULL;
-    return;
-}
-
-static void
-FDSet_process(CFSocketRef s, CFSocketCallBackType type, 
-	      CFDataRef address, const void *data, void *info)
-{
-    FDCallout_t * 	callout = (FDCallout_t *)info;
+    FDCalloutRef 	callout = (FDCalloutRef)info;
 
     if (callout->func) {
 	(*callout->func)(callout->arg1, callout->arg2);
@@ -161,3 +192,28 @@ FDSet_process(CFSocketRef s, CFSocketCallBackType type,
     return;
 }
 
+STATIC void
+FDCalloutFileDescriptorReceive(CFFileDescriptorRef f, 
+			       CFOptionFlags callBackTypes, void *info)
+{
+    FDCalloutRef 	callout = (FDCalloutRef)info;
+
+    if (callout->func) {
+	(*callout->func)(callout->arg1, callout->arg2);
+    }
+    /* each callback is one-shot, so we need to re-arm */
+    CFFileDescriptorEnableCallBacks(callout->u.fdesc,
+				    kCFFileDescriptorReadCallBack);
+    return;
+}
+
+PRIVATE_EXTERN int
+FDCalloutGetFD(FDCalloutRef callout)
+{
+    if (callout->is_socket) {
+	return (CFSocketGetNative(callout->u.socket));
+    }
+    else {
+	return (CFFileDescriptorGetNativeDescriptor(callout->u.fdesc));
+    }
+}

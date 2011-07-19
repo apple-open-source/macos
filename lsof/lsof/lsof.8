@@ -1,4 +1,4 @@
-.ds VN 4.82
+.ds VN 4.84
 .TH LSOF 8 Revision-\*(VN
 .if !\n()P .nr )P 1v
 .SH NAME
@@ -6,7 +6,7 @@ lsof \- list open files
 .SH SYNOPSIS
 .B lsof
 [
-.B \-?abChlnNOPRtUvVX
+.B \-?abChKlnNOPRtUvVX
 ] [
 .BI -A " A"
 ] [
@@ -65,10 +65,11 @@ opened by processes for the following UNIX dialects:
 .PP
 .nf
 	AIX 5.3
+	Apple Darwin 9 (Mac OS X 10.5)
 	FreeBSD 4.9 for x86-based systems
-	FreeBSD 7.[01] and 8.0 for AMD64-based systems
+	FreeBSD 7.[0123], 8.0 and 9.0 for AMD64-based systems
 	Linux 2.1.72 and above for x86-based systems
-	Solaris 9 and 10
+	Solaris 9, 10 and 11
 .fi
 .PP
 (See the
@@ -852,7 +853,7 @@ At least one address component \-
 .BR 4,
 .BR 6,
 .IR protocol ,
-,IR hostname ,
+.IR hostname ,
 .IR hostaddr ,
 or
 .I service
@@ -912,6 +913,27 @@ Here are some sample addresses:
 .br
 	:time \- either TCP, UDP or UDPLITE time service port
 .fi
+.TP \w'names'u+4
+.B \-K
+This option selects the listing of tasks of processes, on dialects
+where task reporting is supported.
+(If help output \- i.e., the output of the
+.B \-h
+or
+.B \-?
+options \- shows this option, then task reporting is supported by
+the dialect.)
+.IP
+When
+.B \-K
+and
+.B \-a
+are both specified and the tasks of a main process are selected
+by other options, the main process will also be listed as though
+it were a task, but without a task ID.
+(See the description of the TID column in the
+.B OUTPUT
+section.)
 .TP \w'names'u+4
 .BI \-k " k"
 This option specifies a kernel name list file,
@@ -2167,6 +2189,18 @@ command name descriptor.
 PID
 is the Process IDentification number of the process.
 .TP
+TID
+is the task IDentification number, if a task reporting is supported
+by the dialect and a task is being listed.
+(If help output \- i.e., the output of the
+.B \-h
+or
+.B \-?
+options \- shows this option, then task reporting is supported by
+the dialect.)
+.IP
+A blank TID column indicates a process \- i.e., a non\-task.
+.TP
 ZONE
 is the Solaris 10 and higher zone name.
 This column must be selected with the
@@ -2964,8 +2998,8 @@ process IDentifier (PID)).
 It extends to the beginning of the next PID field or the beginning
 of the first file set of the process, whichever comes first.
 Included in the process set are fields that identify the command,
-the process group IDentification (PGID) number, and the user ID (UID)
-number or login name.
+the process group IDentification (PGID) number, the task number and
+the user ID (UID) number or login name.
 .PP
 A file set begins with a field whose identifier is `f' (for
 file descriptor).
@@ -3025,7 +3059,9 @@ The single character listed first is the field identifier.
 	f	file descriptor
 	F	file structure address (0x<hexadecimal>)
 	G	file flaGs (0x<hexadecimal>; names if \fB+fg\fP follows)
+	g	process group ID
 	i	file's inode number
+	K	tasK ID
 	k	link count
 	l	file's lock status
 	L	process login name
@@ -3034,7 +3070,6 @@ The single character listed first is the field identifier.
 	N	node identifier (ox<hexadecimal>
 	o	file's offset (decimal)
 	p	process ID (always selected)
-	g	process group ID
 	P	protocol name
 	r	raw device number (0x<hexadecimal>)
 	R	parent process ID
@@ -3585,8 +3620,8 @@ and be allowed to surrender setgid permission.
 .nf
 	AIX 5.[12] and 5.3-ML1
 	Apple Darwin 7.x Power Macintosh systems
-	FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
-	FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+	FreeBSD 4.x, 4.1x, 5.x and [6789].x for x86-based systems
+	FreeBSD 5.x and [6789].x for Alpha, AMD64 and Sparc64-based
 	    systems
 	HP\-UX 11.00 
 	NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based

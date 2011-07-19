@@ -26,11 +26,13 @@
 #include "config.h"
 #include "WebContextMenuClient.h"
 
+#include "UserGestureIndicator.h"
 #include "WebElementPropertyBag.h"
 #include "WebLocalizableStrings.h"
 #include "WebView.h"
 
 #include <WebCore/ContextMenu.h>
+#include <WebCore/ContextMenuController.h>
 #include <WebCore/Event.h>
 #include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
@@ -38,8 +40,6 @@
 #include <WebCore/Page.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/NotImplemented.h>
-
-#include <tchar.h>
 
 using namespace WebCore;
 
@@ -53,59 +53,29 @@ void WebContextMenuClient::contextMenuDestroyed()
     delete this;
 }
 
-static bool isPreInspectElementTagSafari(IWebUIDelegate* uiDelegate)
+PassOwnPtr<ContextMenu> WebContextMenuClient::customizeMenu(PassOwnPtr<ContextMenu> popMenu)
 {
-    if (!uiDelegate)
-        return false;
+    OwnPtr<ContextMenu> menu = popMenu;
 
-    TCHAR modulePath[MAX_PATH];
-    DWORD length = ::GetModuleFileName(0, modulePath, _countof(modulePath));
-    if (!length)
-        return false;
-
-    return String(modulePath, length).endsWith("Safari.exe", false);
-}
-
-static HMENU fixMenuReceivedFromOldSafari(IWebUIDelegate* uiDelegate, ContextMenu* originalMenu, HMENU menuFromClient)
-{
-    ASSERT_ARG(originalMenu, originalMenu);
-    if (!isPreInspectElementTagSafari(uiDelegate))
-        return menuFromClient;
-
-    int count = ::GetMenuItemCount(originalMenu->platformDescription());
-    if (count < 1)
-        return menuFromClient;
-
-    if (::GetMenuItemID(originalMenu->platformDescription(), count - 1) != WebMenuItemTagInspectElement)
-        return menuFromClient;
-
-    count = ::GetMenuItemCount(menuFromClient);
-    if (count < 1)
-        return menuFromClient;
-
-    if (::GetMenuItemID(menuFromClient, count - 1) == WebMenuItemTagInspectElement)
-        return menuFromClient;
-
-    originalMenu->setPlatformDescription(menuFromClient);
-    originalMenu->addInspectElementItem();
-    return originalMenu->platformDescription();
-}
-
-HMENU WebContextMenuClient::getCustomMenuFromDefaultItems(ContextMenu* menu)
-{
     COMPtr<IWebUIDelegate> uiDelegate;
     if (FAILED(m_webView->uiDelegate(&uiDelegate)))
-        return menu->platformDescription();
+        return menu.release();
 
     ASSERT(uiDelegate);
 
-    HMENU newMenu = 0;
+    HMENU nativeMenu = menu->nativeMenu();
     COMPtr<WebElementPropertyBag> propertyBag;
-    propertyBag.adoptRef(WebElementPropertyBag::createInstance(menu->hitTestResult()));
+    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController()->hitTestResult()));
     // FIXME: We need to decide whether to do the default before calling this delegate method
-    if (FAILED(uiDelegate->contextMenuItemsForElement(m_webView, propertyBag.get(), (OLE_HANDLE)(ULONG64)menu->platformDescription(), (OLE_HANDLE*)&newMenu)))
-        return menu->platformDescription();
-    return fixMenuReceivedFromOldSafari(uiDelegate.get(), menu, newMenu);
+    if (FAILED(uiDelegate->contextMenuItemsForElement(m_webView, propertyBag.get(), (OLE_HANDLE)(ULONG64)nativeMenu, (OLE_HANDLE*)&nativeMenu))) {
+        ::DestroyMenu(nativeMenu);
+        return menu.release();
+    }
+    
+    OwnPtr<ContextMenu> customizedMenu = adoptPtr(new ContextMenu(nativeMenu));
+    ::DestroyMenu(nativeMenu);
+
+    return customizedMenu.release();
 }
 
 void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const ContextMenu* parentMenu)
@@ -119,9 +89,18 @@ void WebContextMenuClient::contextMenuItemSelected(ContextMenuItem* item, const 
     ASSERT(uiDelegate);
 
     COMPtr<WebElementPropertyBag> propertyBag;
-    propertyBag.adoptRef(WebElementPropertyBag::createInstance(parentMenu->hitTestResult()));
-            
-    uiDelegate->contextMenuItemSelected(m_webView, item->releasePlatformDescription(), propertyBag.get());
+    propertyBag.adoptRef(WebElementPropertyBag::createInstance(m_webView->page()->contextMenuController()->hitTestResult()));
+
+    // This call would leak the MENUITEMINFO's subMenu if it had one, but on Windows, subMenus can't be selected, so there is
+    // no way we would get to this point. Also, it can't be a separator, because separators cannot be selected.
+    ASSERT(item->type() != SubmenuType);
+    ASSERT(item->type() != SeparatorType);
+
+    // ContextMenuItem::nativeMenuItem doesn't set the dwTypeData of the MENUITEMINFO, but no WebKit clients
+    // use the title in IWebUIDelegate::contextMenuItemSelected, so we don't need to populate it here.
+    MENUITEMINFO selectedItem = item->nativeMenuItem();
+
+    uiDelegate->contextMenuItemSelected(m_webView, &selectedItem, propertyBag.get());
 }
 
 void WebContextMenuClient::downloadURL(const KURL& url)
@@ -131,7 +110,7 @@ void WebContextMenuClient::downloadURL(const KURL& url)
 
 void WebContextMenuClient::searchWithGoogle(const Frame* frame)
 {
-    String searchString = frame->selectedText();
+    String searchString = frame->editor()->selectedText();
     searchString.stripWhiteSpace();
     String encoded = encodeWithURLEscapeSequences(searchString);
     encoded.replace("%20", "+");
@@ -140,8 +119,10 @@ void WebContextMenuClient::searchWithGoogle(const Frame* frame)
     url.append(encoded);
     url.append("&ie=UTF-8&oe=UTF-8");
 
-    if (Page* page = frame->page())
-        page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, true, SendReferrer);
+    if (Page* page = frame->page()) {
+        UserGestureIndicator indicator(DefinitelyProcessingUserGesture);
+        page->mainFrame()->loader()->urlSelected(KURL(ParsedURLString, url), String(), 0, false, false, SendReferrer);
+    }
 }
 
 void WebContextMenuClient::lookUpInDictionary(Frame*)

@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/add.c,v 1.244.2.6 2008/03/21 01:01:07 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/add.c,v 1.244.2.10 2010/04/19 16:53:01 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -531,7 +531,7 @@ slap_entry2mods(
 
 	while ( a_new != NULL ) {
 		a_new_desc = a_new->a_desc;
-		mod = (Modifications *) malloc( sizeof( Modifications ));
+		mod = (Modifications *) ch_malloc( sizeof( Modifications ));
 		
 		mod->sml_op = LDAP_MOD_REPLACE;
 		mod->sml_flags = 0;
@@ -541,7 +541,7 @@ slap_entry2mods(
 		count = a_new->a_numvals;
 		mod->sml_numvals = a_new->a_numvals;
 
-		mod->sml_values = (struct berval*) malloc(
+		mod->sml_values = (struct berval*) ch_malloc(
 			(count+1) * sizeof( struct berval) );
 
 		/* see slap_mods_check() comments...
@@ -549,7 +549,7 @@ slap_entry2mods(
 		 * in this case, mod->sml_nvalues must be left NULL.
 		 */
 		if ( a_new->a_vals != a_new->a_nvals ) {
-			mod->sml_nvalues = (struct berval*) malloc(
+			mod->sml_nvalues = (struct berval*) ch_malloc(
 				(count+1) * sizeof( struct berval) );
 		} else {
 			mod->sml_nvalues = NULL;
@@ -592,7 +592,7 @@ int slap_add_opattrs(
 	struct berval name, timestamp, csn = BER_BVNULL;
 	struct berval nname, tmp;
 	char timebuf[ LDAP_LUTIL_GENTIME_BUFSIZE ];
-	char csnbuf[ LDAP_LUTIL_CSNSTR_BUFSIZE ];
+	char csnbuf[ LDAP_PVT_CSNSTR_BUFSIZE ];
 	Attribute *a;
 
 	if ( SLAP_LASTMOD( op->o_bd ) ) {

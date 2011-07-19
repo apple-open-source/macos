@@ -1,0 +1,174 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+                      "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd"
+[
+<!ENTITY % defs SYSTEM "/xorg-sgml-doctools/X11/defs.ent"> %defs;
+]>
+
+<article>
+
+<!-- Title information -->
+<articleinfo>
+
+ <title>X Window System support for <trademark>Solaris</trademark> &amp;
+      <trademark>OpenSolaris</trademark> from X.Org
+ </title>
+ <authorgroup>
+  <author>
+    <firstname>David</firstname><surname>Holland</surname>
+      <affiliation><orgname><ulink url="http://www.xfree86.org/">XFree86
+	      Project</ulink></orgname></affiliation>
+  </author>
+
+  <author>
+    <firstname>Marc</firstname><surname>Aurele La France</surname>
+      <affiliation><orgname><ulink url="http://www.xfree86.org/">XFree86
+	      Project</ulink></orgname></affiliation>
+  </author>
+
+  <author>
+      <firstname>Alan</firstname><surname>Coopersmith</surname>
+      <affiliation><orgname><ulink url="http://www.sun.com/">Sun
+	      Microsystems, Inc.</ulink></orgname></affiliation>
+  </author>
+ </authorgroup>
+
+ <date>2009 September 16</date>
+</articleinfo>
+
+<!-- Table of contents -->
+
+<!-- Begin the document -->
+<sect1>
+<title>The VT-switching sub-system in Solaris</title>
+
+<para>
+The original virtual terminal sub-system is a undocumented, and
+unsupported feature of Solaris x86 releases 2.1 through 7.  It was removed
+in Solaris 8 and later releases, and was never present on Solaris SPARC.
+Support for this version of virtual terminals is only present in Xorg 1.6.x
+and earlier releases of Xorg, and has been removed in Xorg 1.7 and later.
+If you use this form of virtual terminals, you do so at
+<emphasis remap="bf">YOUR OWN RISK</emphasis>.
+</para>
+
+<para>
+A new virtual terminal sub-system has been introduced in Solaris 11
+(currently available in pre-release development builds).   This version
+is supported on both SPARC and x86 platforms, though SPARC support is
+limited to devices with "Coherent Console" support in the kernel frame buffer
+driver.   Support for it is found only in Xorg 1.7 and later releases.
+</para>
+
+<para>
+When available, the virtual terminals of Solaris work basically the same way as
+most other VT sub-systems.
+</para>
+
+</sect1>
+
+<sect1>
+<title>Notes for building X11R&relvers; on Solaris</title>
+
+<para>
+
+<orderedlist>
+<listitem>
+<para>
+Both GCC, and the Sun Studio compilers are supported by X11R&relvers;.
+The minimum recommended GCC release is 3.4.
+Some earlier GCC's are known to not work and should be avoided.
+</para>
+<para>
+You should also make certain your version of GCC predefines `sun'.
+If needed edit <filename>/usr/local/lib/gcc-lib/*/*/specs</filename>, and modify the
+<literal remap="tt">*predefines:</literal> line.
+</para>
+
+</listitem>
+<listitem>
+<para>
+To build X11R&relvers; with GCC you need gcc and (optionally) c++filt from GNU
+binutils.
+Don't install gas or ld from GNU binutils, use the one provided by Sun.
+</para>
+</listitem>
+<listitem>
+<para>
+If you are using Sun compilers to compile the X11R&relvers; distribution, you need to
+modify your PATH appropriately so the Sun compiler tools are available.
+Normally, they should be in
+<filename class="directory">/opt/SUNWspro/bin</filename>
+</para>
+</listitem>
+<listitem>
+<para>
+You <emphasis remap="bf">MUST</emphasis> put
+<filename class="directory">/usr/ccs/bin</filename>
+at the front of your PATH.  There are known problems with some GNU
+replacements for the utilities found there,
+so the <filename class="directory">/usr/ccs/bin</filename> versions of
+these programs must be found before any possible GNU versions.
+(Most notably GNU '<command>ar</command>' does not work during the build).
+</para>
+</listitem>
+
+</orderedlist>
+
+</para>
+
+</sect1>
+
+<sect1>
+<title>Notes for running Xorg on Solaris</title>
+
+<para>
+
+<orderedlist>
+<listitem>
+<para>
+Depending on the release or architecture of Solaris you are running, you might
+need to install an OS driver for an aperture device.
+</para>
+<para>
+Under Solaris x86 2.5 and later, there's a system driver
+(<filename class="devicefile">/dev/xsvc</filename>)
+that provides this functionality.
+It will be detected automatically by the server, so you don't need to install
+the aperture driver.
+</para>
+
+<para>
+For older Solaris x86 and for Solaris SPARC releases, the source for this
+driver is included in
+<filename>hw/xfree86/os-support/solaris/apSolaris.shar</filename>
+in the xserver source distribution.
+Building, and installing the driver is relatively straight forward. Please read
+its accompanying README file.
+</para>
+</listitem>
+<listitem>
+<para>
+Xqueue is <emphasis remap="bf">NOT</emphasis> supported under Solaris.
+</para>
+</listitem>
+
+</orderedlist>
+
+</para>
+
+</sect1>
+
+
+<sect1>
+<title>Bug Notification</title>
+
+<para>
+Bug reports should be reported at
+<ulink url="http://bugs.freedesktop.org/"></ulink> using the
+xorg product or sent to <email>xorg@lists.freedesktop.org</email>.
+</para>
+
+</sect1>
+
+</article>

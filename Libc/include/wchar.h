@@ -68,6 +68,8 @@
 #define _WCHAR_H_
 
 #include <_types.h>
+#include <sys/cdefs.h>
+#include <Availability.h>
 
 #ifndef NULL
 #define	NULL	__DARWIN_NULL
@@ -113,6 +115,8 @@ typedef	__darwin_wchar_t	wchar_t;
 #include <time.h>
 #include <_wctype.h>
 
+
+/* Initially added in Issue 4 */
 __BEGIN_DECLS
 wint_t	btowc(int);
 wint_t	fgetwc(FILE *);
@@ -184,8 +188,19 @@ wchar_t	*wmemmove(wchar_t *, const wchar_t *, size_t);
 wchar_t	*wmemset(wchar_t *, wchar_t, size_t);
 int	wprintf(const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(wprintf);
 int	wscanf(const wchar_t * __restrict, ...) __DARWIN_LDBL_COMPAT(wscanf);
+int	wcswidth(const wchar_t *, size_t);
+int	wcwidth(wchar_t);
+__END_DECLS
 
-#if !defined(_ANSI_SOURCE)
+
+
+/* Additional functionality provided by:
+ * POSIX.1-2001
+ * ISO C99
+ */
+
+#if __DARWIN_C_LEVEL >= 200112L || defined(_C99_SOURCE) || defined(__cplusplus)
+__BEGIN_DECLS
 int	vfwscanf(FILE * __restrict, const wchar_t * __restrict,
 	    __darwin_va_list) __DARWIN_LDBL_COMPAT(vfwscanf);
 int	vswscanf(const wchar_t * __restrict, const wchar_t * __restrict,
@@ -200,24 +215,47 @@ long long
 unsigned long long
 	wcstoull(const wchar_t * __restrict, wchar_t ** __restrict, int);
 #endif /* !__DARWIN_NO_LONG_LONG */
-int	wcswidth(const wchar_t *, size_t);
-int	wcwidth(wchar_t);
-#endif /* !defined(_ANSI_SOURCE) */
+__END_DECLS
+#endif
 
-#if !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
-size_t	mbsnrtowcs(wchar_t * __restrict, const char ** __restrict, size_t,
-	    size_t, mbstate_t * __restrict);
+
+
+/* Additional functionality provided by:
+ * POSIX.1-2008
+ */
+
+#if __DARWIN_C_LEVEL >= 200809L
+__BEGIN_DECLS
+size_t  mbsnrtowcs(wchar_t * __restrict, const char ** __restrict, size_t,
+            size_t, mbstate_t * __restrict);
+wchar_t *wcpcpy(wchar_t * __restrict, const wchar_t * __restrict) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+wchar_t *wcpncpy(wchar_t * __restrict, const wchar_t * __restrict, size_t) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+wchar_t *wcsdup(const wchar_t *) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+int     wcscasecmp(const wchar_t *, const wchar_t *) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+int     wcsncasecmp(const wchar_t *, const wchar_t *, size_t n) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+size_t  wcsnlen(const wchar_t *, size_t) __pure __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+size_t  wcsnrtombs(char * __restrict, const wchar_t ** __restrict, size_t,
+            size_t, mbstate_t * __restrict);
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= 200809L */
+
+
+
+/* Darwin extensions */
+
+#if __DARWIN_C_LEVEL >= __DARWIN_C_FULL
+__BEGIN_DECLS
+wchar_t *fgetwln(FILE * __restrict, size_t *) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
 size_t	wcslcat(wchar_t *, const wchar_t *, size_t);
 size_t	wcslcpy(wchar_t *, const wchar_t *, size_t);
-size_t	wcsnrtombs(char * __restrict, const wchar_t ** __restrict, size_t,
-	    size_t, mbstate_t * __restrict);
-#endif /* !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)) */
+__END_DECLS
+#endif /* __DARWIN_C_LEVEL >= __DARWIN_C_FULL */
+
 
 /* Poison the following routines if -fshort-wchar is set */
 #if !defined(__cplusplus) && defined(__WCHAR_MAX__) && __WCHAR_MAX__ <= 0xffffU
-#pragma GCC poison fgetws fputwc fputws fwprintf fwscanf mbrtowc mbsnrtowcs mbsrtowcs putwc putwchar swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf vwprintf vwscanf wcrtomb wcscat wcschr wcscmp wcscoll wcscpy wcscspn wcsftime wcsftime wcslcat wcslcpy wcslen wcsncat wcsncmp wcsncpy wcsnrtombs wcspbrk wcsrchr wcsrtombs wcsspn wcsstr wcstod wcstof wcstok wcstol wcstold wcstoll wcstoul wcstoull wcswidth wcsxfrm wcwidth wmemchr wmemcmp wmemcpy wmemmove wmemset wprintf wscanf
+#pragma GCC poison fgetwln fgetws fputwc fputws fwprintf fwscanf mbrtowc mbsnrtowcs mbsrtowcs putwc putwchar swprintf swscanf vfwprintf vfwscanf vswprintf vswscanf vwprintf vwscanf wcrtomb wcscat wcschr wcscmp wcscoll wcscpy wcscspn wcsftime wcsftime wcslcat wcslcpy wcslen wcsncat wcsncmp wcsncpy wcsnrtombs wcspbrk wcsrchr wcsrtombs wcsspn wcsstr wcstod wcstof wcstok wcstol wcstold wcstoll wcstoul wcstoull wcswidth wcsxfrm wcwidth wmemchr wmemcmp wmemcpy wmemmove wmemset wprintf wscanf
 #endif
-__END_DECLS
 
 #ifdef _USE_EXTENDED_LOCALES_
 #include <xlocale/_wchar.h>

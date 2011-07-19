@@ -7,21 +7,18 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		055110CD061A2F89000F34F9 /* keymgr.h in Headers */ = {isa = PBXBuildFile; fileRef = 059768A803D6494200C9149F /* keymgr.h */; };
-		055110D0061A2F89000F34F9 /* keymgr.c in Sources */ = {isa = PBXBuildFile; fileRef = 0597689803D6472D00C9149F /* keymgr.c */; };
-		78E3EF030C0CD1FB0091F819 /* version.c in Sources */ = {isa = PBXBuildFile; fileRef = 78E3EF020C0CD1FB0091F819 /* version.c */; };
+		F98F991811A4A86400D21E1F /* keymgr.c in Sources */ = {isa = PBXBuildFile; fileRef = 0597689803D6472D00C9149F /* keymgr.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		055110D3061A2F8A000F34F9 /* libkeymgr.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libkeymgr.a; sourceTree = BUILT_PRODUCTS_DIR; };
-		0597689803D6472D00C9149F /* keymgr.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = keymgr.c; sourceTree = "<group>"; };
+		0597689803D6472D00C9149F /* keymgr.c */ = {isa = PBXFileReference; fileEncoding = 30; indentWidth = 4; lastKnownFileType = sourcecode.c.c; path = keymgr.c; sourceTree = "<group>"; tabWidth = 8; usesTabs = 1; };
 		059768A803D6494200C9149F /* keymgr.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = keymgr.h; sourceTree = "<group>"; };
 		05CA34F70433CFDF00C9149F /* basic-eh-app.cc */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = "basic-eh-app.cc"; path = "testcases/basic-eh-app.cc"; sourceTree = "<group>"; };
-		78E3EF020C0CD1FB0091F819 /* version.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = version.c; sourceTree = BUILT_PRODUCTS_DIR; };
+		F98F991611A4A85000D21E1F /* libkeymgr.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libkeymgr.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
-		055110D1061A2F89000F34F9 /* Frameworks */ = {
+		F98F991411A4A85000D21E1F /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -34,7 +31,6 @@
 		0597688C03D6465000C9149F = {
 			isa = PBXGroup;
 			children = (
-				78E3EF020C0CD1FB0091F819 /* version.c */,
 				0597689703D646C100C9149F /* Products */,
 				0597689803D6472D00C9149F /* keymgr.c */,
 				059768A803D6494200C9149F /* keymgr.h */,
@@ -45,43 +41,29 @@
 		0597689703D646C100C9149F /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				055110D3061A2F8A000F34F9 /* libkeymgr.a */,
+				F98F991611A4A85000D21E1F /* libkeymgr.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
 
-/* Begin PBXHeadersBuildPhase section */
-		055110CC061A2F89000F34F9 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				055110CD061A2F89000F34F9 /* keymgr.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-/* End PBXHeadersBuildPhase section */
-
 /* Begin PBXNativeTarget section */
-		055110CB061A2F89000F34F9 /* keymgr */ = {
+		F98F991511A4A85000D21E1F /* libkeymgr.dylib */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 05B1F3CB089068690080B6E2 /* Build configuration list for PBXNativeTarget "keymgr" */;
+			buildConfigurationList = F98F991911A4A8B900D21E1F /* Build configuration list for PBXNativeTarget "libkeymgr.dylib" */;
 			buildPhases = (
-				78E12D780C0CCF93001AAE13 /* ShellScript */,
-				055110CC061A2F89000F34F9 /* Headers */,
-				055110CF061A2F89000F34F9 /* Sources */,
-				055110D1061A2F89000F34F9 /* Frameworks */,
+				F98F991311A4A85000D21E1F /* Sources */,
+				F98F991411A4A85000D21E1F /* Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
 			);
-			name = keymgr;
-			productInstallPath = /usr/local/lib/system;
-			productName = libkeymgr.a;
-			productReference = 055110D3061A2F8A000F34F9 /* libkeymgr.a */;
-			productType = "com.apple.product-type.library.static";
+			name = libkeymgr.dylib;
+			productName = libkeymgr.dylib;
+			productReference = F98F991611A4A85000D21E1F /* libkeymgr.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
 
@@ -96,93 +78,66 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				055110CB061A2F89000F34F9 /* keymgr */,
+				F98F991511A4A85000D21E1F /* libkeymgr.dylib */,
 			);
 		};
 /* End PBXProject section */
 
-/* Begin PBXShellScriptBuildPhase section */
-		78E12D780C0CCF93001AAE13 /* ShellScript */ = {
-			isa = PBXShellScriptBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			inputPaths = (
-			);
-			outputPaths = (
-				"$(BUILT_PRODUCTS_DIR)/version.c",
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-			shellPath = /bin/sh;
-			shellScript = "/Developer/Makefiles/bin/version.pl ${ProjectName} > ${BUILT_PRODUCTS_DIR}/version.c";
-			showEnvVarsInLog = 0;
-		};
-/* End PBXShellScriptBuildPhase section */
-
 /* Begin PBXSourcesBuildPhase section */
-		055110CF061A2F89000F34F9 /* Sources */ = {
+		F98F991311A4A85000D21E1F /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				055110D0061A2F89000F34F9 /* keymgr.c in Sources */,
-				78E3EF030C0CD1FB0091F819 /* version.c in Sources */,
+				F98F991811A4A86400D21E1F /* keymgr.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin XCBuildConfiguration section */
-		05B1F3CC089068690080B6E2 /* Default */ = {
+		05B1F3D8089068690080B6E2 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
-				DEPLOYMENT_POSTPROCESSING = YES;
-				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 1;
-				GCC_CW_ASM_SYNTAX = NO;
-				GCC_ENABLE_PASCAL_STRINGS = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = PART_OF_SYSTEM_FRAMEWORK;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				HEADER_SEARCH_PATHS = /System/Library/Frameworks/System.framework/PrivateHeaders;
-				INSTALL_PATH = /usr/local/lib/system;
-				LIBRARY_STYLE = STATIC;
-				PRODUCT_NAME = keymgr;
-				STRIP_INSTALLED_PRODUCT = "$(STRIP_INSTALLED_PRODUCT_$(CURRENT_VARIANT))";
-				STRIP_INSTALLED_PRODUCT_debug = NO;
-				STRIP_INSTALLED_PRODUCT_normal = YES;
-				STRIP_INSTALLED_PRODUCT_profile = NO;
-				WARNING_CFLAGS = "-Wmost";
 			};
-			name = Default;
+			name = Release;
 		};
-		05B1F3D8089068690080B6E2 /* Default */ = {
+		F98F991711A4A85100D21E1F /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
+				DYLIB_CURRENT_VERSION = "$(RC_ProjectSourceVersion)";
+				EXECUTABLE_PREFIX = lib;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_ENABLE_SYMBOL_SEPARATION = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/lib/system;
+				OTHER_LDFLAGS = "-Wl,-umbrella,System";
+				PREBINDING = NO;
+				PRECOMPS_INCLUDE_HEADERS_FROM_BUILT_PRODUCTS_DIR = NO;
+				PRODUCT_NAME = keymgr;
+				VERSIONING_SYSTEM = "apple-generic";
 			};
-			name = Default;
+			name = Release;
 		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		05B1F3CB089068690080B6E2 /* Build configuration list for PBXNativeTarget "keymgr" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				05B1F3CC089068690080B6E2 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
-		};
 		05B1F3D7089068690080B6E2 /* Build configuration list for PBXProject "keymgr" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
-				05B1F3D8089068690080B6E2 /* Default */,
+				05B1F3D8089068690080B6E2 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Default;
+			defaultConfigurationName = Release;
+		};
+		F98F991911A4A8B900D21E1F /* Build configuration list for PBXNativeTarget "libkeymgr.dylib" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				F98F991711A4A85100D21E1F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
 	};

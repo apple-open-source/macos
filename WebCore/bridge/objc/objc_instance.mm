@@ -27,12 +27,13 @@
 #import "objc_instance.h"
 
 #import "runtime_method.h"
-#import "FoundationExtras.h"
+#import "JSDOMBinding.h"
 #import "ObjCRuntimeObject.h"
 #import "WebScriptObject.h"
 #import <objc/objc-auto.h>
 #import <runtime/Error.h>
 #import <runtime/JSLock.h>
+#import "runtime/FunctionPrototype.h"
 #import <wtf/Assertions.h>
 
 #ifdef NDEBUG
@@ -53,26 +54,22 @@ static NSMapTable *s_instanceWrapperCache;
 
 static NSMapTable *createInstanceWrapperCache()
 {
-#ifdef BUILDING_ON_TIGER
-    return NSCreateMapTable(NSNonOwnedPointerMapKeyCallBacks, NSNonOwnedPointerMapValueCallBacks, 0);
-#else
     // NSMapTable with zeroing weak pointers is the recommended way to build caches like this under garbage collection.
     NSPointerFunctionsOptions keyOptions = NSPointerFunctionsZeroingWeakMemory | NSPointerFunctionsOpaquePersonality;
     NSPointerFunctionsOptions valueOptions = NSPointerFunctionsOpaqueMemory | NSPointerFunctionsOpaquePersonality;
     return [[NSMapTable alloc] initWithKeyOptions:keyOptions valueOptions:valueOptions capacity:0];
-#endif
 }
 
 RuntimeObject* ObjcInstance::newRuntimeObject(ExecState* exec)
 {
-    return new (exec) ObjCRuntimeObject(exec, this);
+    return new (exec) ObjCRuntimeObject(exec, exec->lexicalGlobalObject(), this);
 }
 
 void ObjcInstance::setGlobalException(NSString* exception, JSGlobalObject* exceptionEnvironment)
 {
-    HardRelease(s_exception);
-    HardRetain(exception);
-    s_exception = exception;
+    NSString *oldException = s_exception;
+    s_exception = [exception copy];
+    [oldException release];
 
     s_exceptionEnvironment = exceptionEnvironment;
 }
@@ -86,12 +83,11 @@ void ObjcInstance::moveGlobalExceptionToExecState(ExecState* exec)
 
     if (!s_exceptionEnvironment || s_exceptionEnvironment == exec->dynamicGlobalObject()) {
         JSLock lock(SilenceAssertionsOnly);
-        throwError(exec, GeneralError, s_exception);
+        throwError(exec, s_exception);
     }
 
-    HardRelease(s_exception);
-    s_exception = 0;
-
+    [s_exception release];
+    s_exception = nil;
     s_exceptionEnvironment = 0;
 }
 
@@ -176,12 +172,18 @@ bool ObjcInstance::supportsInvokeDefaultMethod() const
 
 class ObjCRuntimeMethod : public RuntimeMethod {
 public:
-    ObjCRuntimeMethod(ExecState* exec, const Identifier& name, Bindings::MethodList& list)
-        : RuntimeMethod(exec, name, list)
+    ObjCRuntimeMethod(ExecState* exec, JSGlobalObject* globalObject, const Identifier& name, Bindings::MethodList& list)
+        // FIXME: deprecatedGetDOMStructure uses the prototype off of the wrong global object
+        // We need to pass in the right global object for "i".
+        : RuntimeMethod(exec, globalObject, WebCore::deprecatedGetDOMStructure<ObjCRuntimeMethod>(exec), name, list)
     {
+        ASSERT(inherits(&s_info));
     }
 
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    {
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
 
     static const ClassInfo s_info;
 };
@@ -191,13 +193,13 @@ const ClassInfo ObjCRuntimeMethod::s_info = { "ObjCRuntimeMethod", &RuntimeMetho
 JSValue ObjcInstance::getMethod(ExecState* exec, const Identifier& propertyName)
 {
     MethodList methodList = getClass()->methodsNamed(propertyName, this);
-    return new (exec) ObjCRuntimeMethod(exec, propertyName, methodList);
+    return new (exec) ObjCRuntimeMethod(exec, exec->lexicalGlobalObject(), propertyName, methodList);
 }
 
-JSValue ObjcInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, const ArgList &args)
+JSValue ObjcInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 {
     if (!asObject(runtimeMethod)->inherits(&ObjCRuntimeMethod::s_info))
-        return throwError(exec, TypeError, "Attempt to invoke non-plug-in method on plug-in object.");
+        return throwError(exec, createTypeError(exec, "Attempt to invoke non-plug-in method on plug-in object."));
 
     const MethodList& methodList = *runtimeMethod->methods();
 
@@ -205,10 +207,10 @@ JSValue ObjcInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod
     // name match for a particular method.
     ASSERT(methodList.size() == 1);
 
-    return invokeObjcMethod(exec, static_cast<ObjcMethod*>(methodList[0]), args);
+    return invokeObjcMethod(exec, static_cast<ObjcMethod*>(methodList[0]));
 }
 
-JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method, const ArgList &args)
+JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method)
 {
     JSValue result = jsUndefined();
     
@@ -234,9 +236,9 @@ JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method, cons
         [invocation setArgument:&jsName atIndex:2];
 
         NSMutableArray* objcArgs = [NSMutableArray array];
-        int count = args.size();
+        int count = exec->argumentCount();
         for (int i = 0; i < count; i++) {
-            ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
+            ObjcValue value = convertValueToObjcValue(exec, exec->argument(i), ObjcObjectType);
             [objcArgs addObject:value.objectValue];
         }
         [invocation setArgument:&objcArgs atIndex:3];
@@ -251,7 +253,7 @@ JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method, cons
             // types.
             ASSERT(objcValueType != ObjcInvalidType && objcValueType != ObjcVoidType);
 
-            ObjcValue value = convertValueToObjcValue(exec, args.at(i-2), objcValueType);
+            ObjcValue value = convertValueToObjcValue(exec, exec->argument(i-2), objcValueType);
 
             switch (objcValueType) {
                 case ObjcObjectType:
@@ -323,7 +325,7 @@ JSValue ObjcInstance::invokeObjcMethod(ExecState* exec, ObjcMethod* method, cons
     return const_cast<JSValue&>(result);
 }
 
-JSValue ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
+JSValue ObjcInstance::invokeDefaultMethod(ExecState* exec)
 {
     JSValue result = jsUndefined();
 
@@ -345,9 +347,9 @@ JSValue ObjcInstance::invokeDefaultMethod(ExecState* exec, const ArgList &args)
     }
 
     NSMutableArray* objcArgs = [NSMutableArray array];
-    unsigned count = args.size();
+    unsigned count = exec->argumentCount();
     for (unsigned i = 0; i < count; i++) {
-        ObjcValue value = convertValueToObjcValue(exec, args.at(i), ObjcObjectType);
+        ObjcValue value = convertValueToObjcValue(exec, exec->argument(i), ObjcObjectType);
         [objcArgs addObject:value.objectValue];
     }
     [invocation setArgument:&objcArgs atIndex:2];
@@ -391,7 +393,7 @@ bool ObjcInstance::setValueOfUndefinedField(ExecState* exec, const Identifier& p
         ObjcValue objcValue = convertValueToObjcValue(exec, aValue, ObjcObjectType);
 
         @try {
-            [targetObject setValue:objcValue.objectValue forUndefinedKey:[NSString stringWithCString:property.ascii() encoding:NSASCIIStringEncoding]];
+            [targetObject setValue:objcValue.objectValue forUndefinedKey:[NSString stringWithCString:property.ascii().data() encoding:NSASCIIStringEncoding]];
         } @catch(NSException* localException) {
             // Do nothing.  Class did not override valueForUndefinedKey:.
         }
@@ -417,7 +419,7 @@ JSValue ObjcInstance::getValueOfUndefinedField(ExecState* exec, const Identifier
         setGlobalException(nil);
     
         @try {
-            id objcValue = [targetObject valueForUndefinedKey:[NSString stringWithCString:property.ascii() encoding:NSASCIIStringEncoding]];
+            id objcValue = [targetObject valueForUndefinedKey:[NSString stringWithCString:property.ascii().data() encoding:NSASCIIStringEncoding]];
             result = convertObjcValueToValue(exec, &objcValue, ObjcObjectType, m_rootObject.get());
         } @catch(NSException* localException) {
             // Do nothing.  Class did not override valueForUndefinedKey:.
@@ -449,10 +451,10 @@ JSValue ObjcInstance::stringValue(ExecState* exec) const
     return convertNSStringToString(exec, [getObject() description]);
 }
 
-JSValue ObjcInstance::numberValue(ExecState* exec) const
+JSValue ObjcInstance::numberValue(ExecState*) const
 {
     // FIXME:  Implement something sensible
-    return jsNumber(exec, 0);
+    return jsNumber(0);
 }
 
 JSValue ObjcInstance::booleanValue() const

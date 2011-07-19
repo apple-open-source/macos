@@ -37,4 +37,4 @@
 
 bool kextd_process_kernel_requests(void);
 
-#endif __REQUEST_H__
+#endif

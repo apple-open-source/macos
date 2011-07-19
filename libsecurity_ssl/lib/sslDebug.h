@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -33,8 +33,13 @@
 #include <security_utilities/debugging.h>
 #include <assert.h>
 
-/* Dtrace just ain't working well enough for me to waste my time on it */
+#ifdef NDEBUG
+/* Dtrace probes add overhead; do not enable in deployment builds */
 #define SSL_DTRACE		0
+#else
+/* debug build */
+#define SSL_DTRACE		1
+#endif
 
 #if		SSL_DTRACE
 /* log changes in handshake state */
@@ -93,7 +98,7 @@
 #else
 /* !NDEBUG - tweak these */
 #define SD_HSHAKE_STATE		0	/* handshake state */
-#define SD_HSHAKE_MSG		0	/* handshakle msg */
+#define SD_HSHAKE_MSG		0	/* handshake msg */
 #define SD_NEGOTIATE		0	/* negotiated params */
 #define SD_NEGOTIATE_VERB	0	/* negotiated params, verbose */
 #define SD_RX_PROT			0	/* received protocol msgs */

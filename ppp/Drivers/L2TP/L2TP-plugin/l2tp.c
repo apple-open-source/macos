@@ -41,6 +41,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/socket.h>
+#include <sys/sysctl.h>
 
 #define APPLE 1
 #include "../L2TP-extension/l2tpk.h"
@@ -306,7 +307,7 @@ int l2tp_outgoing_call(int fd, struct sockaddr *peer_address,
     
     /* ------------- send ICRQ  -------------*/	 
     size = prepare_ICRQ(control_buf, MAX_CNTL_BUFFER_SIZE, our_params);
-    SEND_PACKET(fd, control_buf, size, 0, 0, "IRCQ");
+    SEND_PACKET(fd, control_buf, size, 0, 0, "ICRQ");
         
     /* ------------- read ICRP  -------------*/	 
     from.sa_len = sizeof(from);
@@ -1064,7 +1065,7 @@ size_t prepare_SCCRX(u_int8_t* buf, size_t len, u_int16_t type, struct l2tp_para
             return 0;
 
     /* Host name */
-    size = strlen(params->host_name);
+    size = strlen((char*)params->host_name) + 1;
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_HOST_NAME, size, L2TP_AVP_FLAGS_M))
             return 0;
     bcopy(params->host_name, buf, size);
@@ -1124,7 +1125,7 @@ int prepare_StopCCN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
     
     avp_size = L2TP_AVP_HDR_SIZE + sizeof(u_int16_t);
     if (params->error_code != 0)
-            avp_size += (sizeof(u_int16_t) + (str_size = strlen(params->error_message)));
+            avp_size += (sizeof(u_int16_t) + (str_size = strlen((char*)params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
     *((u_int16_t*)buf) = params->result_code;
@@ -1256,7 +1257,7 @@ size_t prepare_CDN(u_int8_t* buf, size_t len, struct l2tp_parameters* params)
     /* Result Code */
     avp_size = L2TP_AVP_HDR_SIZE + sizeof(u_int16_t);
     if (params->error_code != 0)
-            avp_size += (sizeof(u_int16_t) + (str_size = strlen(params->error_message)));
+            avp_size += (sizeof(u_int16_t) + (str_size = strlen((char*)params->error_message)));
     if (make_avp_hdr(&buf, &free_space, L2TP_AVP_RESULT_CODE, avp_size, L2TP_AVP_FLAGS_M))
             return 0;
     *((u_int16_t*)buf) = params->result_code;

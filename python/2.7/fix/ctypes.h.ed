@@ -1,0 +1,5 @@
+/_ctypes_get_ffi_type/a
+extern void ffi_closure_free(void *p);
+extern void *ffi_closure_alloc(size_t ignored, void** codeloc);
+.
+w

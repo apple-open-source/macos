@@ -24,18 +24,17 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 
 #include "config.h"
 
-#include <wtf/CurrentTime.h>
-
 #include <QBasicTimer>
 #include <QCoreApplication>
 #include <QDebug>
 #include <QPointer>
+#include <wtf/CurrentTime.h>
 
 namespace WebCore {
 
@@ -69,8 +68,12 @@ SharedTimerQt::SharedTimerQt()
 
 SharedTimerQt::~SharedTimerQt()
 {
-    if (m_timer.isActive())
-        (m_timerFunction)();
+    if (m_timer.isActive()) {
+        if (m_timerFunction) {
+            (m_timerFunction)();
+            m_timerFunction = 0;
+        }
+    }
 }
 
 void SharedTimerQt::destroy()

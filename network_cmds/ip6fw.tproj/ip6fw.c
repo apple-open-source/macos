@@ -1,4 +1,32 @@
 /*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ *
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ *
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+
+/*
  * Copyright (c) 1996 Alex Nash, Paul Traina, Poul-Henning Kamp
  * Copyright (c) 1994 Ugen J.S.Antsilevich
  *
@@ -208,7 +236,7 @@ show_ip6fw(struct ip6_fw *chain)
 		{
 			char timestr[30];
 
-			strcpy(timestr, ctime((time_t *)&chain->timestamp));
+			strlcpy(timestr, ctime((time_t *)&chain->timestamp), sizeof(timestr));
 			*strchr(timestr, '\n') = '\0';
 			printf("%s ", timestr);
 		}
@@ -738,7 +766,7 @@ fill_ip6opt(u_char *set, u_char *reset, char **vp)
 
 void
 fill_icmptypes(types, vp, fw_flg)
-	u_long *types;
+	unsigned *types;
 	char **vp;
 	u_short *fw_flg;
 {
@@ -760,7 +788,7 @@ fill_icmptypes(types, vp, fw_flg)
 			show_usage("ICMP6 type out of range");
 
 		types[icmptype / (sizeof(unsigned) * 8)] |=
-			1 << (icmptype % (sizeof(unsigned) * 8));
+			1U << (icmptype % (sizeof(unsigned) * 8));
 		*fw_flg |= IPV6_FW_F_ICMPBIT;
 	}
 }
@@ -1121,11 +1149,11 @@ badviacombo:
 			show_usage("can't mix 'frag' and port specifications");
 	}
 
-	if (!do_quiet)
-		show_ip6fw(&rule);
 	i = setsockopt(s, IPPROTO_IPV6, IPV6_FW_ADD, &rule, sizeof rule);
 	if (i)
 		err(EX_UNAVAILABLE, "setsockopt(%s)", "IPV6_FW_ADD");
+	if (!do_quiet)
+		show_ip6fw(&rule);
 }
 
 static void
@@ -1272,7 +1300,7 @@ main(ac, av)
 #define	WHITESP		" \t\f\v\n\r"
 	char	buf[BUFSIZ];
 	char	*a, *p, *args[MAX_ARGS], *cmd = NULL;
-	char	linename[10];
+	char	linename[16];
 	int 	i, c, lineno, qflag, pflag, status;
 	FILE	*f = NULL;
 	pid_t	preproc = 0;
@@ -1377,7 +1405,7 @@ main(ac, av)
 
 		while (fgets(buf, BUFSIZ, f)) {
 			lineno++;
-			sprintf(linename, "Line %d", lineno);
+			snprintf(linename, sizeof(linename), "Line %d", lineno);
 			args[0] = linename;
 
 			if (*buf == '#')

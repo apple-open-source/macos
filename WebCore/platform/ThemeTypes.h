@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -47,16 +47,18 @@ typedef unsigned ControlStates;
 // Must follow CSSValueKeywords.in order
 enum ControlPart {
     NoControlPart, CheckboxPart, RadioPart, PushButtonPart, SquareButtonPart, ButtonPart,
-    ButtonBevelPart, DefaultButtonPart, InnerSpinButtonPart, ListButtonPart, ListboxPart, ListItemPart,
+    ButtonBevelPart, DefaultButtonPart, InnerSpinButtonPart, InputSpeechButtonPart, ListButtonPart, ListboxPart, ListItemPart,
     MediaFullscreenButtonPart, MediaMuteButtonPart, MediaPlayButtonPart, MediaSeekBackButtonPart, 
     MediaSeekForwardButtonPart, MediaRewindButtonPart, MediaReturnToRealtimeButtonPart, MediaToggleClosedCaptionsButtonPart,
     MediaSliderPart, MediaSliderThumbPart, MediaVolumeSliderContainerPart, MediaVolumeSliderPart, MediaVolumeSliderThumbPart,
-    MediaControlsBackgroundPart, MediaCurrentTimePart, MediaTimeRemainingPart,
-    MenulistPart, MenulistButtonPart, MenulistTextPart, MenulistTextFieldPart, OuterSpinButtonPart, ProgressBarPart, ProgressBarValuePart,
+    MediaVolumeSliderMuteButtonPart, MediaControlsBackgroundPart, MediaControlsFullscreenBackgroundPart, MediaCurrentTimePart, MediaTimeRemainingPart,
+    MenulistPart, MenulistButtonPart, MenulistTextPart, MenulistTextFieldPart, MeterPart, OuterSpinButtonPart, ProgressBarPart, ProgressBarValuePart,
     SliderHorizontalPart, SliderVerticalPart, SliderThumbHorizontalPart,
     SliderThumbVerticalPart, CaretPart, SearchFieldPart, SearchFieldDecorationPart,
     SearchFieldResultsDecorationPart, SearchFieldResultsButtonPart,
-    SearchFieldCancelButtonPart, TextFieldPart, TextAreaPart, CapsLockIndicatorPart
+    SearchFieldCancelButtonPart, TextFieldPart,
+    RelevancyLevelIndicatorPart, ContinuousCapacityLevelIndicatorPart, DiscreteCapacityLevelIndicatorPart, RatingLevelIndicatorPart,
+    TextAreaPart, CapsLockIndicatorPart
 };
 
 enum SelectionPart {

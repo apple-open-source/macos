@@ -29,11 +29,11 @@
  * 30159 Hannover, Germany
  */
 
+#include "tcl.h"
+#include "compat/dlfcn.h"
 #include <stdio.h>
 #include <errno.h>
 #include <string.h>
-#include <tcl.h>
-#include "compat/dlfcn.h"
 #include <sys/types.h>
 #include <sys/ldr.h>
 #include <a.out.h>
@@ -48,7 +48,7 @@
 
 typedef struct {
 	char		*name;		/* the symbols's name */
-	VOID		*addr;		/* its relocated virtual address */
+	void		*addr;		/* its relocated virtual address */
 } Export, *ExportPtr;
 
 /*
@@ -56,18 +56,18 @@ typedef struct {
  * that contains functions to be called to initialize and terminate.
  */
 struct dl_info {
-	void (*init) _ANSI_ARGS_((void));
-	void (*fini) _ANSI_ARGS_((void));
+	void (*init) (void);
+	void (*fini) (void);
 };
 
 /*
- * The VOID * handle returned from dlopen is actually a ModulePtr.
+ * The void * handle returned from dlopen is actually a ModulePtr.
  */
 typedef struct Module {
 	struct Module	*next;
 	char		*name;		/* module name for refcounting */
 	int		refCnt;		/* the number of references */
-	VOID		*entry;		/* entry point from load */
+	void		*entry;		/* entry point from load */
 	struct dl_info	*info;		/* optional init/terminate functions */
 	struct dl_info	*cdtors;	/* optional C++ constructors */
 	int		nExports;	/* the number of exports found */
@@ -87,18 +87,18 @@ static ModulePtr modList;
 static char errbuf[BUFSIZ];
 static int errvalid;
 
-static void caterr _ANSI_ARGS_((char *));
-static int readExports _ANSI_ARGS_((ModulePtr));
-static void terminate _ANSI_ARGS_((void));
-static VOID *findMain _ANSI_ARGS_((void));
+static void caterr (char *);
+static int readExports (ModulePtr);
+static void terminate (void);
+static void *findMain (void);
 
-VOID *
+void *
 dlopen(path, mode)
     const char *path;
     int mode;
 {
 	register ModulePtr mp;
-	static VOID *mainModule;
+	static void *mainModule;
 
 	/*
 	 * Upon the first call register a terminate handler that will
@@ -116,13 +116,13 @@ dlopen(path, mode)
 	for (mp = modList; mp; mp = mp->next)
 		if (strcmp(mp->name, path) == 0) {
 			mp->refCnt++;
-			return (VOID *) mp;
+			return (void *) mp;
 		}
 	if ((mp = (ModulePtr)calloc(1, sizeof(*mp))) == NULL) {
 		errvalid++;
 		strcpy(errbuf, "calloc: ");
 		strcat(errbuf, strerror(errno));
-		return (VOID *) NULL;
+		return (void *) NULL;
 	}
 	mp->name = malloc((unsigned) (strlen(path) + 1));
 	strcpy(mp->name, path);
@@ -130,7 +130,7 @@ dlopen(path, mode)
 	 * load should be declared load(const char *...). Thus we
 	 * cast the path to a normal char *. Ugly.
 	 */
-	if ((mp->entry = (VOID *)load((char *)path, L_NOAUTODEFER, NULL)) == NULL) {
+	if ((mp->entry = (void *)load((char *)path, L_NOAUTODEFER, NULL)) == NULL) {
 		free(mp->name);
 		free(mp);
 		errvalid++;
@@ -153,7 +153,7 @@ dlopen(path, mode)
 			}
 		} else
 			strcat(errbuf, strerror(errno));
-		return (VOID *) NULL;
+		return (void *) NULL;
 	}
 	mp->refCnt = 1;
 	mp->next = modList;
@@ -163,7 +163,7 @@ dlopen(path, mode)
 		errvalid++;
 		strcpy(errbuf, "loadbind: ");
 		strcat(errbuf, strerror(errno));
-		return (VOID *) NULL;
+		return (void *) NULL;
 	}
 	/*
 	 * If the user wants global binding, loadbind against all other
@@ -177,12 +177,12 @@ dlopen(path, mode)
 				errvalid++;
 				strcpy(errbuf, "loadbind: ");
 				strcat(errbuf, strerror(errno));
-				return (VOID *) NULL;
+				return (void *) NULL;
 			}
 	}
 	if (readExports(mp) == -1) {
 		dlclose(mp);
-		return (VOID *) NULL;
+		return (void *) NULL;
 	}
 	/*
 	 * If there is a dl_info structure, call the init function.
@@ -203,7 +203,7 @@ dlopen(path, mode)
 		}
 	} else
 		errvalid = 0;
-	return (VOID *) mp;
+	return (void *) mp;
 }
 
 /*
@@ -247,9 +247,9 @@ caterr(s)
 	}
 }
 
-VOID *
+void *
 dlsym(handle, symbol)
-    VOID *handle;
+    void *handle;
     const char *symbol;
 {
 	register ModulePtr mp = (ModulePtr)handle;
@@ -281,7 +281,7 @@ dlerror()
 
 int
 dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
 	register ModulePtr mp = (ModulePtr)handle;
 	int result;
@@ -505,7 +505,7 @@ readExports(mp)
 		}
 		ep->name = malloc((unsigned) (strlen(symname) + 1));
 		strcpy(ep->name, symname);
-		ep->addr = (VOID *)((unsigned long)mp->entry +
+		ep->addr = (void *)((unsigned long)mp->entry +
 					ls->l_value - shdata.s_vaddr);
 		ep++;
 	}
@@ -519,14 +519,14 @@ readExports(mp)
  * Find the main modules entry point. This is used as export pointer
  * for loadbind() to be able to resolve references to the main part.
  */
-static VOID *
+static void *
 findMain()
 {
 	struct ld_info *lp;
 	char *buf;
 	int size = 4*1024;
 	int i;
-	VOID *ret;
+	void *ret;
 
 	if ((buf = malloc(size)) == NULL) {
 		errvalid++;

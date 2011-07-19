@@ -8,6 +8,7 @@
 #include  "config.h"
 #include  <stdio.h>
 #include  <string.h>
+#include  <strings.h>
 #include  <ctype.h>
 #if defined(STDC_HEADERS)
 #include  <stdlib.h>
@@ -49,7 +50,136 @@ static int actual_deletions = 0;
 static int saved_timeout = 0, idle_timeout = 0;
 static time_t idle_start_time = 0;
 
-static int imap_ok(int sock, char *argbuf)
+static int imap_untagged_response(int sock, const char *buf)
+/* interpret untagged status responses */
+{
+    /* For each individual check, use a BLANK before the word to avoid
+     * confusion with the \Recent flag or similar */
+    if (stage == STAGE_GETAUTH
+	    && !strncmp(buf, "* CAPABILITY", 12))
+    {
+	strlcpy(capabilities, buf + 12, sizeof(capabilities));
+    }
+    else if (stage == STAGE_GETAUTH
+	    && !strncmp(buf, "* PREAUTH", 9))
+    {
+	preauth = TRUE;
+    }
+    else if (stage != STAGE_LOGOUT
+	    && !strncmp(buf, "* BYE", 5))
+    {
+	/* log the unexpected bye from server as we expect the
+	 * connection to be cut-off after this */
+	if (outlevel > O_SILENT)
+	    report(stderr, GT_("Received BYE response from IMAP server: %s"), buf + 5);
+    }
+    else if (strstr(buf, " EXISTS"))
+    {
+	char *t; unsigned long u;
+	errno = 0;
+	u = strtoul(buf+2, &t, 10);
+	/*
+	 * Don't trust the message count passed by the server.
+	 * Without this check, it might be possible to do a
+	 * DNS-spoofing attack that would pass back a ridiculous 
+	 * count, and allocate a malloc area that would overlap
+	 * a portion of the stack.
+	 */
+	if (errno /* strtoul failed */
+		|| t == buf+2 /* no valid data */
+		|| u > (unsigned long)(INT_MAX/sizeof(int)) /* too large */)
+	{
+	    report(stderr, GT_("bogus message count in \"%s\"!"), buf);
+	    return(PS_PROTOCOL);
+	}
+	count = u; /* safe as long as count <= INT_MAX - checked above */
+
+	if ((recentcount = count - oldcount) < 0)
+	    recentcount = 0;
+
+	/*
+	 * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
+	 * we can't wait for the tag matching the IDLE; we have to tell the
+	 * server the IDLE is finished by shipping back a DONE when we
+	 * see an EXISTS.  Only after that will a tagged response be
+	 * shipped.  The idling flag also gets cleared on a timeout.
+	 */
+	if (stage == STAGE_IDLE)
+	{
+	    /* If IDLE isn't supported, we were only sending NOOPs anyway. */
+	    if (has_idle)
+	    {
+		/* we do our own write and report here to disable tagging */
+		SockWrite(sock, "DONE\r\n", 6);
+		if (outlevel >= O_MONITOR)
+		    report(stdout, "IMAP> DONE\n");
+	    }
+
+	    mytimeout = saved_timeout;
+	    stage = STAGE_GETRANGE;
+	}
+    }
+    /* we now compute recentcount as a difference between
+     * new and old EXISTS, hence disable RECENT check */
+# if 0
+    else if (strstr(buf, " RECENT"))
+    {
+	/* fixme: use strto[u]l and error checking */
+	recentcount = atoi(buf+2);
+    }
+# endif
+    else if (strstr(buf, " EXPUNGE"))
+    {
+	unsigned long u; char *t;
+	/* the response "* 10 EXPUNGE" means that the currently
+	 * tenth (i.e. only one) message has been deleted */
+	errno = 0;
+	u = strtoul(buf+2, &t, 10);
+	if (errno /* conversion error */ || t == buf+2 /* no number found */) {
+	    report(stderr, GT_("bogus EXPUNGE count in \"%s\"!"), buf);
+	    return PS_PROTOCOL;
+	}
+	if (u > 0)
+	{
+	    if (count > 0)
+		count--;
+	    if (oldcount > 0)
+		oldcount--;
+	    /* We do expect an EXISTS response immediately
+	     * after this, so this updation of recentcount is
+	     * just a precaution! */
+	    if ((recentcount = count - oldcount) < 0)
+		recentcount = 0;
+	    actual_deletions++;
+	}
+    }
+    /*
+     * The server may decide to make the mailbox read-only, 
+     * which causes fetchmail to go into a endless loop
+     * fetching the same message over and over again. 
+     * 
+     * However, for check_only, we use EXAMINE which will
+     * mark the mailbox read-only as per the RFC.
+     * 
+     * This checks for the condition and aborts if 
+     * the mailbox is read-only. 
+     *
+     * See RFC 2060 section 6.3.1 (SELECT).
+     * See RFC 2060 section 6.3.2 (EXAMINE).
+     */ 
+    else if (stage == STAGE_GETRANGE
+	    && !check_only && strstr(buf, "[READ-ONLY]"))
+    {
+	return(PS_LOCKBUSY);
+    }
+    else
+    {
+	return(PS_UNTAGGED);
+    }
+    return(PS_SUCCESS);
+}
+
+static int imap_response(int sock, char *argbuf)
 /* parse command response */
 {
     char buf[MSGBUFSIZE+1];
@@ -66,103 +196,23 @@ static int imap_ok(int sock, char *argbuf)
 	    if (islower((unsigned char)*cp))
 		*cp = toupper((unsigned char)*cp);
 
-	/* interpret untagged status responses
-	 * First check if we really have an untagged response, starting
-	 * with "*" SPACE. Then, for each individual check, use a BLANK
-	 * before the word to avoid confusion with the \Recent flag or
-	 * similar */
+	/* untagged responses start with "* " */
 	if (buf[0] == '*' && buf[1] == ' ') {
-	    if (strstr(buf, " CAPABILITY")) {
-		strlcpy(capabilities, buf + 12, sizeof(capabilities));
-	    }
-	    else if (strstr(buf, " EXISTS"))
+	    ok = imap_untagged_response(sock, buf);
+	    if (ok == PS_UNTAGGED)
 	    {
-		count = atoi(buf+2);
-		/*
-		 * Don't trust the message count passed by the server.
-		 * Without this check, it might be possible to do a
-		 * DNS-spoofing attack that would pass back a ridiculous 
-		 * count, and allocate a malloc area that would overlap
-		 * a portion of the stack.
-		 */
-		if ((unsigned)count > INT_MAX/sizeof(int))
+		if (argbuf && stage != STAGE_IDLE && tag[0] != '\0')
 		{
-		    report(stderr, GT_("bogus message count!"));
-		    return(PS_PROTOCOL);
-		}
-		if ((recentcount = count - oldcount) < 0)
-		    recentcount = 0;
-
-		/*
-		 * Nasty kluge to handle RFC2177 IDLE.  If we know we're idling
-		 * we can't wait for the tag matching the IDLE; we have to tell the
-		 * server the IDLE is finished by shipping back a DONE when we
-		 * see an EXISTS.  Only after that will a tagged response be
-		 * shipped.  The idling flag also gets cleared on a timeout.
-		 */
-		if (stage == STAGE_IDLE)
-		{
-		    /* If IDLE isn't supported, we were only sending NOOPs anyway. */
-		    if (has_idle)
-		    {
-			/* we do our own write and report here to disable tagging */
-			SockWrite(sock, "DONE\r\n", 6);
-			if (outlevel >= O_MONITOR)
-			    report(stdout, "IMAP> DONE\n");
-		    }
-
-		    mytimeout = saved_timeout;
-		    stage = STAGE_FETCH;
+		    /* if there is an unmatched response, pass it back to
+		     * the calling function for further analysis. The
+		     * calling function should call imap_response() again
+		     * to read the remaining response */
+		    strcpy(argbuf, buf);
+		    return(ok);
 		}
 	    }
-	    /* we now compute recentcount as a difference between
-	     * new and old EXISTS, hence disable RECENT check */
-# if 0
-	    else if (strstr(buf, " RECENT"))
-	    {
-		recentcount = atoi(buf+2);
-	    }
-# endif
-	    else if (strstr(buf, " EXPUNGE"))
-	    {
-		/* the response "* 10 EXPUNGE" means that the currently
-		 * tenth (i.e. only one) message has been deleted */
-		if (atoi(buf+2) > 0)
-		{
-		    if (count > 0)
-			count--;
-		    if (oldcount > 0)
-			oldcount--;
-		    /* We do expect an EXISTS response immediately
-		     * after this, so this updation of recentcount is
-		     * just a precaution! */
-		    if (recentcount > 0)
-			recentcount--;
-		    actual_deletions++;
-		}
-	    }
-	    else if (strstr(buf, " PREAUTH"))
-	    {
-		preauth = TRUE;
-	    }
-		/*
-		 * The server may decide to make the mailbox read-only, 
-		 * which causes fetchmail to go into a endless loop
-		 * fetching the same message over and over again. 
-		 * 
-		 * However, for check_only, we use EXAMINE which will
-		 * mark the mailbox read-only as per the RFC.
-		 * 
-		 * This checks for the condition and aborts if 
-		 * the mailbox is read-only. 
-		 *
-		 * See RFC 2060 section 6.3.1 (SELECT).
-		 * See RFC 2060 section 6.3.2 (EXAMINE).
-		 */ 
-	    else if (!check_only && strstr(buf, "[READ-ONLY]"))
-	    {
-		return(PS_LOCKBUSY);
-	    }
+	    else if (ok != PS_SUCCESS)
+		return(ok);
 	}
 
 	if (stage == STAGE_IDLE)
@@ -204,12 +254,24 @@ static int imap_ok(int sock, char *argbuf)
 	{
 	    if (stage == STAGE_GETAUTH) 
 		return(PS_AUTHFAIL);	/* RFC2060, 6.2.2 */
+	    else if (stage == STAGE_GETSIZES)
+		return(PS_SUCCESS);	/* see comments in imap_getpartialsizes() */
 	    else
 		return(PS_ERROR);
 	}
 	else
 	    return(PS_PROTOCOL);
     }
+}
+
+static int imap_ok(int sock, char *argbuf)
+/* parse command response */
+{
+    int ok;
+
+    while ((ok = imap_response(sock, argbuf)) == PS_UNTAGGED)
+	; /* wait for the tagged response */
+    return(ok);
 }
 
 #ifdef NTLM_ENABLE
@@ -228,57 +290,13 @@ static int imap_ok(int sock, char *argbuf)
 
 static int do_imap_ntlm(int sock, struct query *ctl)
 {
-    tSmbNtlmAuthRequest request;
-    tSmbNtlmAuthChallenge challenge;
-    tSmbNtlmAuthResponse response;
-
-    char msgbuf[2048];
-    int result,len;
+    int result;
 
     gen_send(sock, "AUTHENTICATE NTLM");
 
-    if ((result = gen_recv(sock, msgbuf, sizeof msgbuf)))
+    if ((result = ntlm_helper(sock, ctl, "IMAP")))
 	return result;
-  
-    if (msgbuf[0] != '+')
-	return PS_AUTHFAIL;
-  
-    buildSmbNtlmAuthRequest(&request,ctl->remotename,NULL);
 
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthRequest(stdout, &request);
-
-    memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, &request, SmbLength(&request));
-  
-    if (outlevel >= O_MONITOR)
-	report(stdout, "IMAP> %s\n", msgbuf);
-  
-    strcat(msgbuf,"\r\n");
-    SockWrite (sock, msgbuf, strlen (msgbuf));
-
-    if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
-	return result;
-  
-    len = from64tobits (&challenge, msgbuf, sizeof(challenge));
-    
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthChallenge(stdout, &challenge);
-    
-    buildSmbNtlmAuthResponse(&challenge, &response,ctl->remotename,ctl->password);
-  
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthResponse(stdout, &response);
-  
-    memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, &response, SmbLength(&response));
-
-    if (outlevel >= O_MONITOR)
-	report(stdout, "IMAP> %s\n", msgbuf);
-      
-    strcat(msgbuf,"\r\n");
-    SockWrite (sock, msgbuf, strlen (msgbuf));
-  
     result = imap_ok (sock, NULL);
     if (result == PS_SUCCESS)
 	return PS_SUCCESS;
@@ -357,7 +375,7 @@ static void capa_probe(int sock, struct query *ctl)
     peek_capable = (imap_version >= IMAP4);
 }
 
-static int do_authcert (int sock, char *command, const char *name)
+static int do_authcert (int sock, const char *command, const char *name)
 /* do authentication "external" (authentication provided by client cert) */
 {
     char buf[256];
@@ -423,7 +441,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	     * (see below). */
 	    if (gen_transact(sock, "STARTTLS") == PS_SUCCESS
 		    && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
-			ctl->sslcertpath, ctl->sslfingerprint, commonname,
+			ctl->sslcertfile, ctl->sslcertpath, ctl->sslfingerprint, commonname,
 			ctl->server.pollname, &ctl->remotename) != -1)
 	    {
 		/*
@@ -482,7 +500,7 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
      * and IGNORE errors. */
     {
 	char *tmp = strstr(capabilities, " ID");
-	if (tmp && !isalnum(tmp[3]) && strstr(ctl->server.via ? ctl->server.via : ctl->server.pollname, "yahoo.com")) {
+	if (tmp && !isalnum((unsigned char)tmp[3]) && strstr(ctl->server.via ? ctl->server.via : ctl->server.pollname, "yahoo.com")) {
 		(void)gen_transact(sock, "ID (\"guid\" \"1\")");
 	}
     }
@@ -504,15 +522,13 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     }
 
 #ifdef GSSAPI
-    if ((ctl->server.authenticate == A_ANY 
+    if (((ctl->server.authenticate == A_ANY && check_gss_creds("imap", ctl->server.truename) == PS_SUCCESS)
 	 || ctl->server.authenticate == A_GSSAPI)
 	&& strstr(capabilities, "AUTH=GSSAPI"))
     {
 	if ((ok = do_gssauth(sock, "AUTHENTICATE", "imap",
 			ctl->server.truename, ctl->remotename)))
 	{
-	    /* SASL cancellation of authentication */
-	    gen_send(sock, "*");
 	    if (ctl->server.authenticate != A_ANY)
                 return ok;
 	} else  {
@@ -549,8 +565,6 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
     {
 	if ((ok = do_cram_md5 (sock, "AUTHENTICATE", ctl, NULL)))
 	{
-	    /* SASL cancellation of authentication */
-	    gen_send(sock, "*");
 	    if(ctl->server.authenticate != A_ANY)
                 return ok;
 	}
@@ -586,8 +600,6 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	&& strstr (capabilities, "AUTH=NTLM")) {
 	if ((ok = do_imap_ntlm(sock, ctl)))
 	{
-	    /* SASL cancellation of authentication */
-	    gen_send(sock, "*");
 	    if(ctl->server.authenticate != A_ANY)
                 return ok;
 	}
@@ -641,8 +653,6 @@ static int imap_getauth(int sock, struct query *ctl, char *greeting)
 	free(remotename);
 	if (ok)
 	{
-	    /* SASL cancellation of authentication */
-	    gen_send(sock, "*");
 	    if(ctl->server.authenticate != A_ANY)
                 return ok;
 	}
@@ -713,7 +723,7 @@ static int imap_idle(int sock)
 		report(stdout, "IMAP> DONE\n");
 	    /* reset stage and timeout here: we are not idling any more */
 	    mytimeout = saved_timeout;
-	    stage = STAGE_FETCH;
+	    stage = STAGE_GETRANGE;
 	    /* get OK IDLE message */
 	    ok = imap_ok(sock, NULL);
 	}
@@ -746,8 +756,141 @@ static int imap_idle(int sock)
     /* restore normal timeout value */
     set_timeout(0);
     mytimeout = saved_timeout;
-    stage = STAGE_FETCH;
+    stage = STAGE_GETRANGE;
 
+    return(ok);
+}
+
+/* maximum number of numbers we can process in "SEARCH" response */
+# define IMAP_SEARCH_MAX 1000
+
+static int imap_search(int sock, struct query *ctl, int count)
+/* search for unseen messages */
+{
+    int ok, first, last;
+    char buf[MSGBUFSIZE+1], *cp;
+
+    /* Don't count deleted messages. Enabled only for IMAP4 servers or
+     * higher and only when keeping mails. This flag will have an
+     * effect only when user has marked some unread mails for deletion
+     * using another e-mail client. */
+    flag skipdeleted = (imap_version >= IMAP4) && ctl->keep;
+    const char *undeleted;
+
+    /* Skip range search if there are less than or equal to
+     * IMAP_SEARCH_MAX mails. */
+    flag skiprangesearch = (count <= IMAP_SEARCH_MAX);
+
+    /* startcount is higher than count so that if there are no
+     * unseen messages, imap_getsizes() will not need to do
+     * anything! */
+    startcount = count + 1;
+
+    for (first = 1, last = IMAP_SEARCH_MAX; first <= count; first += IMAP_SEARCH_MAX, last += IMAP_SEARCH_MAX)
+    {
+	if (last > count)
+	    last = count;
+
+restartsearch:
+	undeleted = (skipdeleted ? " UNDELETED" : "");
+	if (skiprangesearch)
+	    gen_send(sock, "SEARCH UNSEEN%s", undeleted);
+	else if (last == first)
+	    gen_send(sock, "SEARCH %d UNSEEN%s", last, undeleted);
+	else
+	    gen_send(sock, "SEARCH %d:%d UNSEEN%s", first, last, undeleted);
+	while ((ok = imap_response(sock, buf)) == PS_UNTAGGED)
+	{
+	    if ((cp = strstr(buf, "* SEARCH")))
+	    {
+		char	*ep;
+
+		cp += 8;	/* skip "* SEARCH" */
+		while (*cp && unseen < count)
+		{
+		    /* skip whitespace */
+		    while (*cp && isspace((unsigned char)*cp))
+			cp++;
+		    if (*cp) 
+		    {
+			unsigned long um;
+
+			errno = 0;
+			um = strtoul(cp,&ep,10);
+			if (errno == 0 && ep > cp
+				&& um <= INT_MAX && um <= (unsigned)count)
+			{
+			    unseen_messages[unseen++] = um;
+			    if (outlevel >= O_DEBUG)
+				report(stdout, GT_("%lu is unseen\n"), um);
+			    if (startcount > um)
+				startcount = um;
+			}
+			cp = ep;
+		    }
+		}
+	    }
+	}
+	/* if there is a protocol error on the first loop, try a
+	 * different search command */
+	if (ok == PS_ERROR && first == 1)
+	{
+	    if (skipdeleted)
+	    {
+		/* retry with "SEARCH 1:1000 UNSEEN" */
+		skipdeleted = FALSE;
+		goto restartsearch;
+	    }
+	    if (!skiprangesearch)
+	    {
+		/* retry with "SEARCH UNSEEN" */
+		skiprangesearch = TRUE;
+		goto restartsearch;
+	    }
+	    /* try with "FETCH 1:n FLAGS" */
+	    goto fetchflags;
+	}
+	if (ok != PS_SUCCESS)
+	    return(ok);
+	/* loop back only when searching in range */
+	if (skiprangesearch)
+	    break;
+    }
+    return(PS_SUCCESS);
+
+fetchflags:
+    if (count == 1)
+	gen_send(sock, "FETCH %d FLAGS", count);
+    else
+	gen_send(sock, "FETCH %d:%d FLAGS", 1, count);
+    while ((ok = imap_response(sock, buf)) == PS_UNTAGGED)
+    {
+	unsigned int num;
+	int consumed;
+
+	/* expected response format:
+	 * IMAP< * 1 FETCH (FLAGS (\Seen))
+	 * IMAP< * 2 FETCH (FLAGS (\Seen \Deleted))
+	 * IMAP< * 3 FETCH (FLAGS ())
+	 * IMAP< * 4 FETCH (FLAGS (\Recent))
+	 * IMAP< * 5 FETCH (UID 10 FLAGS (\Recent))
+	 */
+	if (unseen < count
+		&& sscanf(buf, "* %u %n", &num, &consumed) == 1
+		&& 0 == strncasecmp(buf+consumed, "FETCH", 5)
+		&& isspace((unsigned char)buf[consumed+5])
+		&& num >= 1 && num <= (unsigned)count
+		&& strstr(buf, "FLAGS ")
+		&& !strstr(buf, "\\SEEN")
+		&& !strstr(buf, "\\DELETED"))
+	{
+	    unseen_messages[unseen++] = num;
+	    if (outlevel >= O_DEBUG)
+		report(stdout, GT_("%u is unseen\n"), num);
+	    if (startcount > num)
+		startcount = num;
+	}
+    }
     return(ok);
 }
 
@@ -758,7 +901,6 @@ static int imap_getrange(int sock,
 /* get range of messages to be fetched */
 {
     int ok;
-    char buf[MSGBUFSIZE+1], *cp;
 
     /* find out how many messages are waiting */
     *bytes = -1;
@@ -862,50 +1004,12 @@ static int imap_getrange(int sock,
 	memset(unseen_messages, 0, count * sizeof(unsigned int));
 	unseen = 0;
 
-	/* don't count deleted messages, in case user enabled keep last time */
-	gen_send(sock, "SEARCH UNSEEN NOT DELETED");
-	do {
-	    ok = gen_recv(sock, buf, sizeof(buf));
-	    if (ok != 0)
-	    {
-		report(stderr, GT_("search for unseen messages failed\n"));
-		return(PS_PROTOCOL);
-	    }
-	    else if ((cp = strstr(buf, "* SEARCH")))
-	    {
-		char	*ep;
-
-		cp += 8;	/* skip "* SEARCH" */
-		/* startcount is higher than count so that if there are no
-		 * unseen messages, imap_getsizes() will not need to do
-		 * anything! */
-		startcount = count + 1;
-
-		while (*cp && unseen < count)
-		{
-		    /* skip whitespace */
-		    while (*cp && isspace((unsigned char)*cp))
-			cp++;
-		    if (*cp) 
-		    {
-			unsigned long um;
-
-			errno = 0;
-			um = strtoul(cp,&ep,10);
-			if (errno == 0 && um <= UINT_MAX && um <= (unsigned)count)
-			{
-			    unseen_messages[unseen++] = um;
-			    if (outlevel >= O_DEBUG)
-				report(stdout, GT_("%lu is unseen\n"), um);
-			    if (startcount > um)
-				startcount = um;
-			}
-			cp = ep;
-		    }
-		}
-	    }
-	} while
-	    (tag[0] != '\0' && strncmp(buf, tag, strlen(tag)));
+	ok = imap_search(sock, ctl, count);
+	if (ok != 0)
+	{
+	    report(stderr, GT_("search for unseen messages failed\n"));
+	    return(ok);
+	}
 
 	if (outlevel >= O_DEBUG && unseen > 0)
 	    report(stdout, GT_("%u is first unseen\n"), startcount);
@@ -923,6 +1027,7 @@ static int imap_getpartialsizes(int sock, int first, int last, int *sizes)
 /* capture the sizes of messages #first-#last */
 {
     char buf [MSGBUFSIZE+1];
+    int ok;
 
     /*
      * Some servers (as in, PMDF5.1-9.1 under OpenVMS 6.1)
@@ -954,7 +1059,7 @@ static int imap_getpartialsizes(int sock, int first, int last, int *sizes)
      *	* 1 FETCH (BODY ("TEXT" "PLAIN" ("CHARSET" "US-ASCII") NIL NIL "7BIT" 35 3))
      *	A006 OK FETCH completed.
      *
-     * To get around this, we terminate the read loop on a NO and count
+     * To get around this, we treat the final NO as success and count
      * on the fact that the sizes array has been preinitialized with a
      * known-bad size value.
      */
@@ -969,31 +1074,23 @@ static int imap_getpartialsizes(int sock, int first, int last, int *sizes)
 	gen_send(sock, "FETCH %d:%d RFC822.SIZE", first, last);
     else /* no unseen messages! */
 	return(PS_SUCCESS);
-    for (;;)
+    while ((ok = imap_response(sock, buf)) == PS_UNTAGGED)
     {
 	unsigned int size;
-	int ok, num;
-	char *cp;
+	int num;
+	int consumed;
+	char *ptr;
 
-	if ((ok = gen_recv(sock, buf, sizeof(buf))))
-	    return(ok);
-	/* we want response matching to be case-insensitive */
-	for (cp = buf; *cp; cp++)
-	    *cp = toupper((unsigned char)*cp);
-	/* an untagged NO means that a message was not readable */
-	if (strstr(buf, "* NO"))
-	    ;
-	else if (strstr(buf, "OK") || strstr(buf, "NO"))
-	    break;
-	else if (sscanf(buf, "* %d FETCH (RFC822.SIZE %u)", &num, &size) == 2
-	/* some servers (like mail.internode.on.net bld-mail04) return UID information here
-	 *
+	/* expected response formats:
 	 * IMAP> A0005 FETCH 1 RFC822.SIZE
+	 * IMAP< * 1 FETCH (RFC822.SIZE 1187)
 	 * IMAP< * 1 FETCH (UID 16 RFC822.SIZE 1447)
-	 * IMAP< A0005 OK FETCH completed
-	 *
 	 */
-		|| sscanf(buf, "* %d FETCH (UID %*s RFC822.SIZE %u)", &num, &size) == 2)
+	if (sscanf(buf, "* %d %n", &num, &consumed) == 1
+	    && 0 == strncasecmp(buf + consumed, "FETCH", 5)
+	    && isspace((unsigned char)buf[consumed + 5])
+		&& (ptr = strstr(buf, "RFC822.SIZE "))
+		&& sscanf(ptr, "RFC822.SIZE %u", &size) == 1)
 	{
 	    if (num >= first && num <= last)
 		sizes[num - first] = size;
@@ -1002,8 +1099,7 @@ static int imap_getpartialsizes(int sock, int first, int last, int *sizes)
 			GT_("Warning: ignoring bogus data for message sizes returned by the server.\n"));
 	}
     }
-
-    return(PS_SUCCESS);
+    return(ok);
 }
 
 static int imap_getsizes(int sock, int count, int *sizes)
@@ -1037,6 +1133,7 @@ static int imap_is_old(int sock, struct query *ctl, int number)
     return(seen);
 }
 
+#if 0
 static char *skip_token(char *ptr)
 {
     while(isspace((unsigned char)*ptr)) ptr++;
@@ -1044,12 +1141,15 @@ static char *skip_token(char *ptr)
     while(isspace((unsigned char)*ptr)) ptr++;
     return(ptr);
 }
+#endif
 
 static int imap_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
 /* request headers of nth message */
 {
     char buf [MSGBUFSIZE+1];
     int	num;
+    int ok;
+    char *ptr;
 
     (void)ctl;
     /* expunges change the fetch numbers */
@@ -1062,47 +1162,49 @@ static int imap_fetch_headers(int sock, struct query *ctl,int number,int *lenp)
     gen_send(sock, "FETCH %d RFC822.HEADER", number);
 
     /* looking for FETCH response */
-    for (;;) 
+    if ((ok = imap_response(sock, buf)) == PS_UNTAGGED)
     {
-	int	ok;
-	char	*ptr;
-
-	if ((ok = gen_recv(sock, buf, sizeof(buf))))
-	    return(ok);
- 	ptr = skip_token(buf);	/* either "* " or "AXXXX " */
-	if (sscanf(ptr, "%d FETCH (RFC822.HEADER {%d}", &num, lenp) == 2
-	/* some servers (like mail.internode.on.net bld-mail04) return UID information here
-	 *
+		int consumed;
+	/* expected response formats:
 	 * IMAP> A0006 FETCH 1 RFC822.HEADER
+	 * IMAP< * 1 FETCH (RFC822.HEADER {1360}
 	 * IMAP< * 1 FETCH (UID 16 RFC822.HEADER {1360}
-	 * ...
-	 * IMAP< )
-	 * IMAP< A0006 OK FETCH completed
-	 *
+	 * IMAP< * 1 FETCH (UID 16 RFC822.SIZE 4029 RFC822.HEADER {1360}
 	 */
-		|| sscanf(ptr, "%d FETCH (UID %*s RFC822.HEADER {%d}", &num, lenp) == 2)
-	    break;
-	/* try to recover from chronically fucked-up M$ Exchange servers */
- 	else if (!strncmp(ptr, "NO", 2))
+	if (sscanf(buf, "* %d %n", &num, &consumed) == 1
+	    && 0 == strncasecmp(buf + consumed, "FETCH", 5)
+	    && isspace((unsigned char)buf[5+consumed])
+		&& num == number
+		&& (ptr = strstr(buf, "RFC822.HEADER"))
+		&& sscanf(ptr, "RFC822.HEADER {%d}%n", lenp, &consumed) == 1
+		&& ptr[consumed-1] == '}')
 	{
-	    /* wait for a tagged response */
-	    if (strstr (buf, "* NO"))
-		imap_ok (sock, 0);
- 	    return(PS_TRANSIENT);
+	    return(PS_SUCCESS);
 	}
- 	else if (!strncmp(ptr, "BAD", 3))
-	{
-	    /* wait for a tagged response */
-	    if (strstr (buf, "* BAD"))
-		imap_ok (sock, 0);
- 	    return(PS_TRANSIENT);
-	}
-    }
 
-    if (num != number)
+	/* wait for a tagged response */
+	imap_ok (sock, 0);
+
+	/* try to recover for some responses */
+	if (!strncmp(buf, "* NO", 4) ||
+		!strncmp(buf, "* BAD", 5))
+	{
+	    return(PS_TRANSIENT);
+	}
+
+	/* a response which does not match any of the above */
+	if (outlevel > O_SILENT)
+	    report(stderr, GT_("Incorrect FETCH response: %s.\n"), buf);
 	return(PS_ERROR);
-    else
-	return(PS_SUCCESS);
+    }
+    else if (ok == PS_SUCCESS)
+    {
+	/* an unexpected tagged response */
+	if (outlevel > O_SILENT)
+	    report(stderr, GT_("Incorrect FETCH response: %s.\n"), buf);
+	return(PS_ERROR);
+    }
+    return(ok);
 }
 
 static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
@@ -1176,15 +1278,21 @@ static int imap_fetch_body(int sock, struct query *ctl, int number, int *lenp)
      * server called dbmail that returns huge garbage lengths.
      */
     if ((cp = strchr(buf, '{'))) {
+	long l; char *t;
         errno = 0;
-	*lenp = (int)strtol(cp + 1, (char **)NULL, 10);
-        if (errno == ERANGE || *lenp < 0)
-            *lenp = -1;    /* length is too big/small for us to handle */
-    }
-    else
+	++ cp;
+	l = strtol(cp, &t, 10);
+        if (errno || t == cp || (t && !strchr(t, '}')) /* parse error */
+		    || l < 0 || l > INT_MAX /* range check */) {
+	    *lenp = -1;
+	} else {
+	    *lenp = l;
+	}
+    } else {
 	*lenp = -1;	/* missing length part in FETCH reponse */
+    }
 
-    return(PS_SUCCESS);
+    return PS_SUCCESS;
 }
 
 static int imap_trail(int sock, struct query *ctl, const char *tag)
@@ -1194,24 +1302,9 @@ static int imap_trail(int sock, struct query *ctl, const char *tag)
     /* number -= expunged; */
 
     (void)ctl;
-    for (;;)
-    {
-	char buf[MSGBUFSIZE+1], *t;
-	int ok;
+    (void)tag;
 
-	if ((ok = gen_recv(sock, buf, sizeof(buf))))
-	    return(ok);
-
-	/* UW IMAP returns "OK FETCH", Cyrus returns "OK Completed" */
-	if (strncmp(buf, tag, strlen(tag)) == 0) {
-	    t = buf + strlen(tag);
-	    t += strspn(t, " \t");
-	    if (strncmp(t, "OK", 2) == 0)
-		break;
-	}
-    }
-
-    return(PS_SUCCESS);
+    return imap_ok(sock, NULL);
 }
 
 static int imap_delete(int sock, struct query *ctl, int number)

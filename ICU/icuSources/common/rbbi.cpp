@@ -1,7 +1,7 @@
 /*
 ***************************************************************************
-*   Copyright (C) 1999-2008 International Business Machines Corporation   *
-*   and others. All rights reserved.                                      *
+*   Copyright (C) 1999-2010 International Business Machines Corporation
+*   and others. All rights reserved.
 ***************************************************************************
 */
 //
@@ -9,6 +9,8 @@
 //                   runtime engine and the API implementation for
 //                   class RuleBasedBreakIterator
 //
+
+#include <typeinfo>  // for 'typeid' to work
 
 #include "unicode/utypes.h"
 
@@ -247,7 +249,10 @@ void RuleBasedBreakIterator::init() {
     fLastRuleStatusIndex  = 0;
     fLastStatusIndexValid = TRUE;
     fDictionaryCharCount  = 0;
-    fBreakType            = -1;
+    fBreakType            = UBRK_WORD;  // Defaulting BreakType to word gives reasonable
+                                        //   dictionary behavior for Break Iterators that are
+                                        //   built from rules.  Even better would be the ability to
+                                        //   declare the type in the rules.
 
     fCachedBreakPositions    = NULL;
     fLanguageBreakEngines    = NULL;
@@ -287,7 +292,7 @@ RuleBasedBreakIterator::clone(void) const {
  */
 UBool
 RuleBasedBreakIterator::operator==(const BreakIterator& that) const {
-    if (that.getDynamicClassID() != getDynamicClassID()) {
+    if (typeid(*this) != typeid(that)) {
         return FALSE;
     }
 
@@ -725,7 +730,7 @@ int32_t RuleBasedBreakIterator::following(int32_t offset) {
 
     utext_setNativeIndex(fText, offset);
     if (offset==0 || 
-        offset==1  && utext_getNativeIndex(fText)==0) {
+        (offset==1  && utext_getNativeIndex(fText)==0)) {
         return next();
     }
     result = previous();
@@ -1019,7 +1024,7 @@ int32_t RuleBasedBreakIterator::handleNext(const RBBIStateTable *statetable) {
 
         #ifdef RBBI_DEBUG
             if (fTrace) {
-                RBBIDebugPrintf("             %4d   ", utext_getNativeIndex(fText));
+                RBBIDebugPrintf("             %4ld   ", utext_getNativeIndex(fText));
                 if (0x20<=c && c<0x7f) {
                     RBBIDebugPrintf("\"%c\"  ", c);
                 } else {
@@ -1184,12 +1189,10 @@ int32_t RuleBasedBreakIterator::handlePrevious(const RBBIStateTable *statetable)
     for (;;) {
         if (c == U_SENTINEL) {
             // Reached end of input string.
-            if (mode == RBBI_END || 
-                *(int32_t *)fData->fHeader->fFormatVersion == 1 ) {
+            if (mode == RBBI_END) {
                 // We have already run the loop one last time with the 
                 //   character set to the psueudo {eof} value.  Now it is time
                 //   to unconditionally bail out.
-                //  (Or we have an old format binary rule file that does not support {eof}.)
                 if (lookaheadResult < result) {
                     // We ran off the end of the string with a pending look-ahead match.
                     // Treat this as if the look-ahead condition had been met, and return
@@ -1559,6 +1562,30 @@ int32_t RuleBasedBreakIterator::checkDictionary(int32_t startPos,
         return (reverse ? startPos : endPos);
     }
     
+    // Bug 5532.  The dictionary code will crash if the input text is UTF-8
+    //      because native indexes are different from UTF-16 indexes.
+    //      Temporary hack: skip dictionary lookup for UTF-8 encoded text.
+    //      It wont give the right breaks, but it's better than a crash.
+    //
+    //      Check the type of the UText by checking its pFuncs field, which
+    //      is UText's function dispatch table.  It will be the same for all
+    //      UTF-8 UTexts and different for any other UText type.
+    //
+    //      We have no other type of UText available with non-UTF-16 native indexing.
+    //      This whole check will go away once the dictionary code is fixed.
+    static const void *utext_utf8Funcs;
+    if (utext_utf8Funcs == NULL) {
+        // Cache the UTF-8 UText function pointer value.
+        UErrorCode status = U_ZERO_ERROR;
+        UText tempUText = UTEXT_INITIALIZER; 
+        utext_openUTF8(&tempUText, NULL, 0, &status);
+        utext_utf8Funcs = tempUText.pFuncs;
+        utext_close(&tempUText);
+    }
+    if (fText->pFuncs == utext_utf8Funcs) {
+        return (reverse ? startPos : endPos);
+    }
+
     // Starting from the starting point, scan towards the proposed result,
     // looking for the first dictionary character (which may be the one
     // we're on, if we're starting in the middle of a range).

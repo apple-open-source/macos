@@ -1,0 +1,65 @@
+Mail storage on shared disks
+============================
+
+Dovecot supports keeping mails and index files in clustered filesystems, such
+as Red Hat GFS [http://www.redhat.com/gfs/], Oracle OCFS2
+[http://oss.oracle.com/projects/ocfs2/] and HP Polyserve Matrix
+[http://h18006.www1.hp.com/storage/software/clusteredfs/index.html].
+
+Dovecot also supports keeping mails and index files on NFS. Everything
+described in this page applies to NFS as well, but see <NFS.txt> for more
+NFS-specific problems and optimizations.
+
+Memory mapping
+--------------
+
+By default Dovecot mmap()s the index files. This may not work with all
+clustered filesystems, and it most certainly won't work with NFS. Setting
+'mmap_disable = yes' disables mmap() and Dovecot does its own internal caching.
+If mmap() is supported by your filesystem, it's still not certain that it gives
+better performance. Try benchmarking to make sure.
+
+Locking
+-------
+
+Dovecot supports locking index files with fcntl (default), flock or dotlocks.
+Some clustered filesystems may not support fcntl, so you can change it to use
+flock instead. Fcntl locks may also cause problems with some NFS
+configurations, in which case you can try if switching to dotlocks helps. Note
+that dotlocks are the slowest locking method. You can change the locking method
+from 'lock_method' setting. Regardless of the 'lock_method' setting, Dovecot
+always uses dotlocks for some locks.
+
+Clock synchronization
+---------------------
+
+Run ntpd in each computer to make sure their clocks are synchronized. If the
+clocks are more than one second apart from each others and multiple computers
+access the same mailbox simultaneously, you may get errors.
+
+Caching
+-------
+
+Your cluster will probably perform better if users are usually redirected to
+the same server. This is because the mailbox may already be cached in the
+memory and it may also reduce the traffic between the clusterfs nodes. You can
+use <director> [Director.txt] service to do this easily automatically. Or at
+the very least make sure that your load balancer redirects connections from the
+same IP address to the same server.
+
+FUSE / GlusterFS
+----------------
+
+FUSE caches dentries and file attributes internally. If you're using multiple
+GlusterFS clients to access the same mailboxes, you're going to have problems.
+Worst of these problems can be avoided by using NFS cache flushes, which just
+happen to work with FUSE as well:
+
+---%<-------------------------------------------------------------------------
+mail_nfs_index = yes
+mail_nfs_storage = yes
+---%<-------------------------------------------------------------------------
+
+These probably don't work perfectly.
+
+(This file was created from the wiki on 2011-05-11 04:42)

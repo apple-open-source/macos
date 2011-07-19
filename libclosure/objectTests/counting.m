@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  counting.m
 //  testObjects
@@ -5,13 +11,15 @@
 //  Created by Blaine Garst on 9/23/08.
 //  Copyright 2008 Apple. All rights reserved.
 //
+// rdar://6557292
+// TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
+#import <objc/objc-auto.h>
 #import <Block.h>
 #import <stdio.h>
-#include <libkern/OSAtomic.h>
-
-// CONFIG RR -C99  rdar://6557292
+#import <libkern/OSAtomic.h>
+#import "test.h"
 
 int allocated = 0;
 int recovered = 0;
@@ -20,17 +28,17 @@ int recovered = 0;
 @end
 @implementation TestObject
 - init {
-    //printf("allocated...\n");
+    // printf("allocated...\n");
     OSAtomicIncrement32(&allocated);
     return self;
 }
 - (void)dealloc {
-    //printf("deallocated...\n");
+    // printf("deallocated...\n");
     OSAtomicIncrement32(&recovered);
     [super dealloc];
 }
 - (void)finalize {
-    //printf("finalized...\n");
+    // printf("finalized...\n");
     OSAtomicIncrement32(&recovered);
     [super finalize];
 }
@@ -49,48 +57,47 @@ int recovered = 0;
 @end
 
 void recoverMemory(const char *caller) {
-    NSGarbageCollector *collector = [NSGarbageCollector defaultCollector];
-    if (collector) {
-        [collector collectIfNeeded];
-        [collector collectExhaustively];
-    }
+    objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
+    objc_collect(OBJC_EXHAUSTIVE_COLLECTION|OBJC_WAIT_UNTIL_DONE);
     if (recovered != allocated) {
-        printf("after %s recovered %d vs allocated %d\n", caller, recovered, allocated);
-        exit(1);
+        fail("after %s recovered %d vs allocated %d", caller, recovered, allocated);
     }
 }
 
 // test that basic refcounting works
-void testsingle() {
+void *testsingle(void *arg __unused) {
+    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
     [b release];
     [to release];
-    recoverMemory("testSingle");
+    return NULL;
 }
 
-void testlatch() {
+void *testlatch(void *arg __unused) {
+    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
     for (int i = 0; i < 0xfffff; ++i) {
-        Block_copy(b);
+        (void)Block_copy(b);
     }
     for (int i = 0; i < 10; ++i) {
         Block_release(b);
     }
     [b release];
     [to release];
-    // cheat
+    // lie - b should not be recovered because it has been over-retained
     OSAtomicIncrement32(&recovered);
-    recoverMemory("testlatch");
+    return NULL;
 }
 
-void testmultiple() {
+void *testmultiple(void *arg __unused) {
+    objc_registerThreadWithCollector();
     TestObject *to = [TestObject new];
     void (^b)(void) = [^{ printf("hi %p\n", to); } copy];
 #if 2
     for (int i = 0; i < 10; ++i) {
-        Block_copy(b);
+        (void)Block_copy(b);
     }
     for (int i = 0; i < 10; ++i) {
         Block_release(b);
@@ -98,13 +105,29 @@ void testmultiple() {
 #endif
     [b release];
     [to release];
-    recoverMemory("testmultiple");
+    return NULL;
 }
 
-int main(int argc, char *argv[]) {
-    testsingle();
-    testlatch();
-    testmultiple();
-    printf("%s: success\n", argv[0]);
-    return 0;
+int main() {
+    pthread_t th;
+
+    pthread_create(&th, NULL, testsingle, NULL);
+    pthread_join(th, NULL);
+    pthread_create(&th, NULL, testsingle, NULL);
+    pthread_join(th, NULL);
+    pthread_create(&th, NULL, testsingle, NULL);
+    pthread_join(th, NULL);
+    pthread_create(&th, NULL, testsingle, NULL);
+    pthread_join(th, NULL);
+    recoverMemory("testsingle");
+
+    pthread_create(&th, NULL, testlatch, NULL);
+    pthread_join(th, NULL);
+    recoverMemory("testlatch");
+
+    pthread_create(&th, NULL, testmultiple, NULL);
+    pthread_join(th, NULL);
+    recoverMemory("testmultiple");
+
+    succeed(__FILE__);
 }

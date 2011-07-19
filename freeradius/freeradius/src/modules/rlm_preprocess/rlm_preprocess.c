@@ -151,8 +151,7 @@ static void cisco_vsa_hack(VALUE_PAIR *vp)
 			p = vp->vp_strvalue;
 			gettoken(&p, newattr, sizeof(newattr));
 
-			if (((dattr = dict_attrbyname(newattr)) != NULL) &&
-			    (dattr->type == PW_TYPE_STRING)) {
+			if ((dattr = dict_attrbyname(newattr)) != NULL) {
 				VALUE_PAIR *newvp;
 
 				/*
@@ -626,7 +625,7 @@ static int preprocess_preaccounting(void *instance, REQUEST *request)
 		return RLM_MODULE_FAIL;
 	}
 
-	r = hints_setup(data->hints, request);
+	hints_setup(data->hints, request);
 
 	if ((r = huntgroup_access(request,
 				  data->huntgroups)) != RLM_MODULE_OK) {

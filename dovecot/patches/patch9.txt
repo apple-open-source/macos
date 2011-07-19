@@ -1,0 +1,2486 @@
+diff -Nur dovecot-1.1.7/COPYING dovecot-patch/COPYING
+--- dovecot-1.1.7/COPYING	2008-10-26 10:00:38.000000000 -0500
++++ dovecot-patch/COPYING	2008-12-22 12:50:41.000000000 -0600
+@@ -75,3 +75,37 @@
+  not be used in advertising or otherwise to promote the sale, use or other
+  dealings in these Data Files or Software without prior written
+  authorization of the copyright holder.
++
++src/auth/db-od.c
++src/auth/db-od.h
++src/auth/passdb-od.c
++src/auth/userdb-od.c
++
++ Copyright (c) 2008 Apple Inc. All rights reserved.
++ 
++ Redistribution and use in source and binary forms, with or without  
++ modification, are permitted provided that the following conditions  
++ are met:
++ 
++ 1.  Redistributions of source code must retain the above copyright  
++ notice, this list of conditions and the following disclaimer.
++ 2.  Redistributions in binary form must reproduce the above  
++ copyright notice, this list of conditions and the following  
++ disclaimer in the documentation and/or other materials provided  
++ with the distribution.
++ 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ contributors may be used to endorse or promote products derived  
++ from this software without specific prior written permission.
++ 
++ THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ SUCH DAMAGE.
+diff -Nur dovecot-1.1.7/config.h.in dovecot-patch/config.h.in
+--- dovecot-1.1.7/config.h.in	2008-11-23 16:16:57.000000000 -0600
++++ dovecot-patch/config.h.in	2008-12-22 12:55:48.000000000 -0600
+@@ -1,5 +1,11 @@
+ /* config.h.in.  Generated from configure.in by autoheader.  */
+ 
++/* APPLE */
++#undef MAC_OS_X
++
++/* APPLE */
++#undef APPLE_OS_X_SERVER
++
+ /* Define if you have buggy CMSG macros */
+ #undef BUGGY_CMSG_MACROS
+ 
+@@ -512,6 +518,9 @@
+ /* Build with passwd-file support */
+ #undef PASSDB_PASSWD_FILE
+ 
++/* Build with Open Directory support */
++#undef PASSDB_OD
++
+ /* Build with shadow support */
+ #undef PASSDB_SHADOW
+ 
+@@ -584,6 +593,9 @@
+ /* Build with passwd-file support */
+ #undef USERDB_PASSWD_FILE
+ 
++/* Build with Open Directory support */
++#undef USERDB_OD
++
+ /* Build with prefetch userdb support */
+ #undef USERDB_PREFETCH
+ 
+diff -Nur dovecot-1.1.7/configure.in dovecot-patch/configure.in
+--- dovecot-1.1.7/configure.in	2008-11-23 16:16:26.000000000 -0600
++++ dovecot-patch/configure.in	2008-12-22 12:57:43.000000000 -0600
+@@ -22,6 +22,15 @@
+   xfs/xqm.h sasl.h sasl/sasl.h execinfo.h ucontext.h malloc_np.h \
+   sys/vmount.h sys/utsname.h)
+ 
++AC_ARG_ENABLE(apple,
++[  --enable-apple          Enable Apple-specific features (default)],
++	enable_apple=$enableval,
++	enable_apple=yes)
++if test x$enable_apple = xyes; then
++	AC_DEFINE(MAC_OS_X,, APPLE)
++	AC_DEFINE(APPLE_OS_X_SERVER,, APPLE)
++fi
++
+ AC_ARG_ENABLE(ipv6,
+ [  --enable-ipv6           Enable IPv6 support (auto)],
+ 	if test x$enableval = xno || test x$enableval = xauto; then
+@@ -95,6 +104,15 @@
+ 	fi,
+ 	want_passwd_file=yes)
+ 
++AC_ARG_WITH(od,
++[  --with-od               Build with Open Directory support (default)],
++	if test x$withval = xno || test x$withval = xauto; then
++		want_od=$withval
++	else
++		want_od=yes
++	fi,
++	want_od=yes)
++
+ AC_ARG_WITH(shadow,
+ [  --with-shadow           Build with shadow password support (auto)],
+ 	if test x$withval = xno || test x$withval = xauto; then
+@@ -1695,6 +1713,13 @@
+ 	passdb="$passdb passwd-file"
+ fi
+ 
++if test $want_od != no; then
++	AC_DEFINE(USERDB_OD,, Build with Open Directory support)
++	AC_DEFINE(PASSDB_OD,, Build with Open Directory support)
++	userdb="$userdb od"
++	passdb="$passdb od"
++fi
++
+ if test $want_shadow != no; then
+   AC_CHECK_FUNC(getspnam, [
+     AC_CHECK_HEADER(shadow.h, [
+diff -Nur dovecot-1.1.7/dovecot-example.conf dovecot-patch/dovecot-example.conf
+--- dovecot-1.1.7/dovecot-example.conf	2008-11-23 15:53:53.000000000 -0600
++++ dovecot-patch/dovecot-example.conf	2008-12-22 13:22:55.000000000 -0600
+@@ -821,6 +821,14 @@
+     #deny = yes
+   #}
+ 
++  #passdb od {
++    # Add "debug" to args to enable OD debugging.
++    # OD cache refresh intervals.  The positive cache TTL applies to
++    # enabled accounts.  The negative cache TTL applies to disabled
++    # accounts.  Nonexistent accounts are not cached.
++    #args = pos_cache_ttl=3600 neg_cache_ttl=60
++  #}
++
+   # PAM authentication. Preferred nowadays by most systems. 
+   # Note that PAM can only be used to verify if user's password is correct,
+   # so it can't be used as userdb. If you don't want to use a separate user
+@@ -943,6 +951,15 @@
+     #args =
+   #}
+ 
++  #userdb od {
++    # Add "debug" to args to enable OD debugging.
++    # OD cache refresh intervals.  The positive cache TTL applies to
++    # enabled accounts.  The negative cache TTL applies to disabled
++    # accounts.  Nonexistent accounts are not cached.
++    #args = pos_cache_ttl=3600 neg_cache_ttl=60
++    #args = partition=/etc/dovecot/partition_map.conf
++  #}
++
+   # static settings generated from template <doc/wiki/UserDatabase.Static.txt>
+   #userdb static {
+     # Template for the fields. Can return anything a userdb could normally
+diff -Nur dovecot-1.1.7/partition_map.conf dovecot-patch/partition_map.conf
+--- dovecot-1.1.7/partition_map.conf	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/partition_map.conf	2008-12-22 13:21:05.000000000 -0600
+@@ -0,0 +1 @@
++default:/var/spool/dovecot/mail
+diff -Nur dovecot-1.1.7/src/auth/Makefile.am dovecot-patch/src/auth/Makefile.am
+--- dovecot-1.1.7/src/auth/Makefile.am	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/Makefile.am	2008-12-22 12:59:14.000000000 -0600
+@@ -69,6 +69,7 @@
+ 	auth-worker-server.c \
+ 	db-sql.c \
+ 	db-passwd-file.c \
++	db-od.c \
+ 	main.c \
+ 	mech.c \
+ 	mech-anonymous.c \
+@@ -91,6 +92,7 @@
+ 	passdb-checkpassword.c \
+ 	passdb-passwd.c \
+ 	passdb-passwd-file.c \
++	passdb-od.c \
+ 	passdb-pam.c \
+ 	passdb-shadow.c \
+ 	passdb-sia.c \
+@@ -101,6 +103,7 @@
+ 	userdb-nss.c \
+ 	userdb-passwd.c \
+ 	userdb-passwd-file.c \
++	userdb-od.c \
+ 	userdb-prefetch.c \
+ 	userdb-static.c \
+ 	userdb-vpopmail.c \
+@@ -124,6 +127,7 @@
+ 	db-ldap.h \
+ 	db-sql.h \
+ 	db-passwd-file.h \
++	db-od.h \
+ 	common.h \
+ 	mech.h \
+ 	mycrypt.h \
+diff -Nur dovecot-1.1.7/src/auth/Makefile.in dovecot-patch/src/auth/Makefile.in
+--- dovecot-1.1.7/src/auth/Makefile.in	2008-11-23 16:16:39.000000000 -0600
++++ dovecot-patch/src/auth/Makefile.in	2008-12-22 12:59:49.000000000 -0600
+@@ -101,15 +101,15 @@
+ 	auth-client-connection.c auth-master-connection.c \
+ 	auth-master-listener.c auth-request.c auth-request-handler.c \
+ 	auth-stream.c auth-worker-client.c auth-worker-server.c \
+-	db-sql.c db-passwd-file.c main.c mech.c mech-anonymous.c \
++	db-sql.c db-passwd-file.c db-od.c main.c mech.c mech-anonymous.c \
+ 	mech-plain.c mech-login.c mech-cram-md5.c mech-digest-md5.c \
+ 	mech-ntlm.c mech-otp.c mech-skey.c mech-rpa.c mech-apop.c \
+ 	mech-winbind.c otp-skey-common.c plain-common.c passdb.c \
+ 	passdb-blocking.c passdb-bsdauth.c passdb-cache.c \
+-	passdb-checkpassword.c passdb-passwd.c passdb-passwd-file.c \
++	passdb-checkpassword.c passdb-passwd.c passdb-passwd-file.c passdb-od.c \
+ 	passdb-pam.c passdb-shadow.c passdb-sia.c passdb-vpopmail.c \
+ 	passdb-sql.c userdb.c userdb-blocking.c userdb-nss.c \
+-	userdb-passwd.c userdb-passwd-file.c userdb-prefetch.c \
++	userdb-passwd.c userdb-passwd-file.c userdb-od.c userdb-prefetch.c \
+ 	userdb-static.c userdb-vpopmail.c userdb-sql.c mech-gssapi.c \
+ 	db-ldap.c passdb-ldap.c userdb-ldap.c
+ @GSSAPI_PLUGIN_FALSE@am__objects_2 = mech-gssapi.$(OBJEXT)
+@@ -122,7 +122,7 @@
+ 	auth-master-listener.$(OBJEXT) auth-request.$(OBJEXT) \
+ 	auth-request-handler.$(OBJEXT) auth-stream.$(OBJEXT) \
+ 	auth-worker-client.$(OBJEXT) auth-worker-server.$(OBJEXT) \
+-	db-sql.$(OBJEXT) db-passwd-file.$(OBJEXT) main.$(OBJEXT) \
++	db-sql.$(OBJEXT) db-passwd-file.$(OBJEXT) db-od.$(OBJEXT) main.$(OBJEXT) \
+ 	mech.$(OBJEXT) mech-anonymous.$(OBJEXT) mech-plain.$(OBJEXT) \
+ 	mech-login.$(OBJEXT) mech-cram-md5.$(OBJEXT) \
+ 	mech-digest-md5.$(OBJEXT) mech-ntlm.$(OBJEXT) \
+@@ -132,12 +132,12 @@
+ 	passdb.$(OBJEXT) passdb-blocking.$(OBJEXT) \
+ 	passdb-bsdauth.$(OBJEXT) passdb-cache.$(OBJEXT) \
+ 	passdb-checkpassword.$(OBJEXT) passdb-passwd.$(OBJEXT) \
+-	passdb-passwd-file.$(OBJEXT) passdb-pam.$(OBJEXT) \
++	passdb-passwd-file.$(OBJEXT) passdb-od.$(OBJEXT) passdb-pam.$(OBJEXT) \
+ 	passdb-shadow.$(OBJEXT) passdb-sia.$(OBJEXT) \
+ 	passdb-vpopmail.$(OBJEXT) passdb-sql.$(OBJEXT) \
+ 	userdb.$(OBJEXT) userdb-blocking.$(OBJEXT) \
+ 	userdb-nss.$(OBJEXT) userdb-passwd.$(OBJEXT) \
+-	userdb-passwd-file.$(OBJEXT) userdb-prefetch.$(OBJEXT) \
++	userdb-passwd-file.$(OBJEXT) userdb-od.$(OBJEXT) userdb-prefetch.$(OBJEXT) \
+ 	userdb-static.$(OBJEXT) userdb-vpopmail.$(OBJEXT) \
+ 	userdb-sql.$(OBJEXT) $(am__objects_2) $(am__objects_4)
+ dovecot_auth_OBJECTS = $(am_dovecot_auth_OBJECTS)
+@@ -171,7 +171,7 @@
+ 	auth-client-interface.h auth-master-interface.h \
+ 	auth-master-connection.h auth-master-listener.h auth-request.h \
+ 	auth-request-handler.h auth-stream.h auth-worker-client.h \
+-	auth-worker-server.h db-ldap.h db-sql.h db-passwd-file.h \
++	auth-worker-server.h db-ldap.h db-sql.h db-passwd-file.h db-od.h \
+ 	common.h mech.h mycrypt.h otp-skey-common.h plain-common.h \
+ 	passdb.h passdb-blocking.h passdb-cache.h password-scheme.h \
+ 	userdb.h userdb-blocking.h userdb-static.h userdb-vpopmail.h
+@@ -193,7 +193,7 @@
+ AMTAR = @AMTAR@
+ AR = @AR@
+ AUTH_CFLAGS = @AUTH_CFLAGS@
+-AUTH_LIBS = @AUTH_LIBS@
++AUTH_LIBS = @AUTH_LIBS@ -framework CoreFoundation -framework OpenDirectory
+ AUTOCONF = @AUTOCONF@
+ AUTOHEADER = @AUTOHEADER@
+ AUTOMAKE = @AUTOMAKE@
+@@ -386,6 +386,7 @@
+ 	auth-worker-server.c \
+ 	db-sql.c \
+ 	db-passwd-file.c \
++	db-od.c \
+ 	main.c \
+ 	mech.c \
+ 	mech-anonymous.c \
+@@ -408,6 +409,7 @@
+ 	passdb-checkpassword.c \
+ 	passdb-passwd.c \
+ 	passdb-passwd-file.c \
++	passdb-od.c \
+ 	passdb-pam.c \
+ 	passdb-shadow.c \
+ 	passdb-sia.c \
+@@ -418,6 +420,7 @@
+ 	userdb-nss.c \
+ 	userdb-passwd.c \
+ 	userdb-passwd-file.c \
++	userdb-od.c \
+ 	userdb-prefetch.c \
+ 	userdb-static.c \
+ 	userdb-vpopmail.c \
+@@ -441,6 +444,7 @@
+ 	db-ldap.h \
+ 	db-sql.h \
+ 	db-passwd-file.h \
++	db-od.h \
+ 	common.h \
+ 	mech.h \
+ 	mycrypt.h \
+@@ -597,6 +601,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/checkpassword-reply.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/db-ldap.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/db-passwd-file.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/db-od.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/db-sql.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libauthdb_ldap_la-db-ldap.Plo@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/libauthdb_ldap_la-passdb-ldap.Plo@am__quote@
+@@ -625,6 +630,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-ldap.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-pam.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-passwd-file.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-od.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-passwd.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-shadow.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/passdb-sia.Po@am__quote@
+@@ -640,6 +646,7 @@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-ldap.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-nss.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-passwd-file.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-od.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-passwd.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-prefetch.Po@am__quote@
+ @AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/userdb-sql.Po@am__quote@
+diff -Nur dovecot-1.1.7/src/auth/db-od.c dovecot-patch/src/auth/db-od.c
+--- dovecot-1.1.7/src/auth/db-od.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/src/auth/db-od.c	2008-12-22 12:47:20.000000000 -0600
+@@ -0,0 +1,887 @@
++/*
++ * Copyright (c) 2008 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "common.h"
++
++#if defined (USERDB_OD) || defined(PASSDB_OD)
++
++#include "userdb.h"
++#include "db-od.h"
++
++#include "buffer.h"
++#include "istream.h"
++#include "hash.h"
++#include "str.h"
++#include "var-expand.h"
++
++#include <stdlib.h>
++#include <unistd.h>
++#include <fcntl.h>
++#include <sys/stat.h>
++
++#include <membership.h>
++#include <membershipPriv.h>
++
++bool			od_debug			= FALSE;
++int				od_pos_cache_ttl	= 3600;
++int				od_neg_cache_ttl	= 60;
++static bool		mail_sacl_enabled	= FALSE;
++static time_t	sacl_check_delta	= 0;
++
++static struct db_od *ods;
++
++static bool		od_open				( struct db_od *in_od_info );
++static void		od_get_acct_state	( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_auto_forward	( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_imap_login	( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_pop3_login	( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_acct_loc		( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_alt_loc		( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		od_get_mail_quota	( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec );
++static void		print_cf_error		( CFErrorRef in_cf_err_ref, const char *in_default_str );
++static struct od_user *od_get_user	( struct db_od *in_od_info, const char *in_user_name );
++
++/* ------------------------------------------------------------------
++ *	print_cf_error ()
++ *
++ *		print error returned in CFErrorRef
++ * ------------------------------------------------------------------*/
++
++static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_default_str )
++{
++	CFStringRef		cf_str_ref;
++
++	if ( in_cf_err_ref != NULL )
++	{
++		cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
++		if ( cf_str_ref != NULL )
++		{
++			const char *err_str = CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingUTF8 );
++			if ( err_str != NULL )
++			{
++				i_error( "od: %s", err_str );
++				return;
++			}
++		}
++	}
++
++	i_error( "od: %s", in_default_str );
++} /* print_cf_error */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_user_unref ()
++ * ------------------------------------------------------------------ */
++
++void db_od_user_unref ( struct od_user **_in_user_info )
++{
++	struct od_user *in_user_info = *_in_user_info;
++
++	*_in_user_info = NULL;
++
++	i_assert(in_user_info->refcount >= 1);
++	if (od_debug)
++		i_info("od-debug: (%s:%s): user %s refcount %d -> %d", __FILE__, __FUNCTION__, in_user_info->record_name, in_user_info->refcount, in_user_info->refcount - 1);
++	if (--in_user_info->refcount <= 0) {
++		p_free(in_user_info->pool, in_user_info->user_uuid);
++		p_free(in_user_info->pool, in_user_info->auth_id_name);
++		p_free(in_user_info->pool, in_user_info->record_name);
++		p_free(in_user_info->pool, in_user_info->acct_loc);
++		p_free(in_user_info->pool, in_user_info->alt_data_loc);
++		p_free(in_user_info->pool, in_user_info->auto_fwd);
++		p_free(in_user_info->pool, in_user_info);
++	}
++} /* db_od_user_unref */
++
++
++/* ------------------------------------------------------------------
++ *	od_add_user ()
++ * ------------------------------------------------------------------*/
++
++static void od_add_user ( struct db_od *in_od_info, struct od_user *in_od_user )
++{
++	if ( (in_od_user == NULL) || (in_od_user->record_name == NULL) )
++	{
++		i_error( "od: unable to add user to table: Null user id" );
++		return;
++	}
++
++	if ( hash_lookup( in_od_info->users_table, in_od_user->record_name ) != NULL )
++	{
++		i_error( "od: user %s exists more than once", in_od_user->record_name );
++		return;
++	}
++
++	if ( in_od_info->debug != 0 )
++	{
++		i_info( "od-debug: (%s:%s): adding user to table: %s ", __FILE__, __FUNCTION__, in_od_user->record_name );
++		i_info( "od-debug: (%s:%s):         auth ID name: %s ", __FILE__, __FUNCTION__, in_od_user->auth_id_name );
++		i_info( "od-debug: (%s:%s): alt account location: %s ", __FILE__, __FUNCTION__, in_od_user->alt_data_loc );
++		i_info( "od-debug: (%s:%s):      auto forwarding: %s ", __FILE__, __FUNCTION__, in_od_user->auto_fwd );
++		i_info( "od-debug: (%s:%s):        account state: %X ", __FILE__, __FUNCTION__, in_od_user->acct_state );
++		i_info( "od-debug: (%s:%s):           mail quota: %d ", __FILE__, __FUNCTION__, in_od_user->mail_quota );
++	}
++
++	if (od_debug)
++		i_info("od-debug: (%s:%s): user %s refcount %d -> %d", __FILE__, __FUNCTION__, in_od_user->record_name, in_od_user->refcount, in_od_user->refcount + 1);
++	++in_od_user->refcount;
++	hash_insert( in_od_info->users_table, in_od_user->record_name, in_od_user );
++
++} /* od_add_user */
++
++
++/* ------------------------------------------------------------------
++ *	od_open ()
++ * ------------------------------------------------------------------ */
++
++static bool od_open ( struct db_od *in_od_info )
++{
++	CFErrorRef	cf_err_ref;
++
++	in_od_info->od_session_ref = ODSessionCreate( kCFAllocatorDefault, NULL, &cf_err_ref );
++	if ( in_od_info->od_session_ref == NULL )
++	{
++		/* print the error and bail */
++		print_cf_error( cf_err_ref, "Unable to create OD Session" );
++		return( FALSE );
++	}
++
++	in_od_info->od_node_ref = ODNodeCreateWithNodeType( kCFAllocatorDefault, in_od_info->od_session_ref, kODNodeTypeAuthentication, &cf_err_ref );
++	if ( in_od_info->od_session_ref == NULL )
++	{
++		/* print the error and bail */
++		print_cf_error( cf_err_ref, "Unable to create OD Node Reference" );
++
++		/* release OD session */
++		CFRelease( in_od_info->od_session_ref );
++		in_od_info->od_session_ref = NULL;
++		return( FALSE );
++	}
++
++	in_od_info->mem_pool = system_pool;
++	in_od_info->users_table = hash_table_create( default_pool, in_od_info->mem_pool, 100, str_hash, (hash_cmp_callback_t *)strcmp);
++
++	CFRetain( in_od_info->od_session_ref );
++	CFRetain( in_od_info->od_node_ref );
++
++	return( TRUE );
++} /* od_open */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_init ()
++ * ------------------------------------------------------------------*/
++
++struct db_od * db_od_init ( bool in_userdb )
++{
++	struct db_od	*out_db = ods;
++
++	if ( out_db != NULL )
++	{
++		out_db->refcount++;
++		out_db->userdb = TRUE;
++		return( out_db );
++	}
++
++	out_db				= i_new( struct db_od, 1 );
++	out_db->refcount	= 1;
++	out_db->userdb		= in_userdb;
++	out_db->debug		= od_debug;
++	out_db->pos_cache_ttl = od_pos_cache_ttl;
++	out_db->neg_cache_ttl = od_neg_cache_ttl;
++
++	ods = out_db;
++
++	return( out_db );
++} /* db_od_init */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_do_init ()
++ * ------------------------------------------------------------------*/
++
++void db_od_do_init ( struct db_od *in_od_info )
++{
++	if ( in_od_info != NULL )
++	{
++		if ( od_open( in_od_info ) == FALSE )
++		{
++			exit( FATAL_DEFAULT );
++		}
++	}
++} /* db_od_do_init */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_unref ()
++ * ------------------------------------------------------------------*/
++
++void db_od_unref ( struct db_od **in_od_info_p )
++{
++	struct db_od *in_od_info = *in_od_info_p;
++
++	*in_od_info_p = NULL;
++	i_assert( in_od_info->refcount >= 0 );
++	if ( --in_od_info->refcount > 0 )
++	{
++		return;
++	}
++
++	if ( in_od_info->od_node_ref != NULL )
++	{
++		CFRelease( in_od_info->od_node_ref );
++		in_od_info->od_node_ref = NULL;
++	}
++
++	if ( in_od_info->od_session_ref != NULL )
++	{
++		CFRelease( in_od_info->od_session_ref );
++		in_od_info->od_session_ref = NULL;
++	}
++
++	if ( in_od_info->users_table != NULL )
++	{
++		hash_table_destroy( &in_od_info->users_table );
++	}
++
++	if ( in_od_info->mem_pool != NULL )
++	{
++		pool_unref( &in_od_info->mem_pool );
++	}
++
++	i_free( in_od_info );
++} /* db_od_unref */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_acct_state ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_acct_state ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str_ref	= NULL;
++	char		   *str			= NULL;
++
++	/* Default value */
++	out_user_rec->acct_state &= ~account_enabled;
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAcctState ) ) )
++	{
++		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAcctState ) );
++		if ( (cf_str_ref != NULL) && (CFGetTypeID( cf_str_ref ) == CFStringGetTypeID()) )
++		{
++			str = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
++			if ( str != NULL )
++			{
++				if ( strcasecmp( str, kXMLValueAcctEnabled ) == 0 )
++				{
++					out_user_rec->acct_state |= account_enabled;
++				}
++				else if ( strcasecmp( str, kXMLValueAcctFwd ) == 0 )
++				{
++					od_get_auto_forward( inCFDictRef, out_user_rec );
++				}
++			}
++		}
++	}
++} /* od_get_acct_state */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_auto_forward ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_auto_forward ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str_ref	= NULL;
++	char		   *str			= NULL;
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) ) )
++	{
++		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAutoFwd ) );
++		if ( (cf_str_ref != NULL) && (CFGetTypeID( cf_str_ref ) == CFStringGetTypeID()) )
++		{
++			str = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
++			if ( (str != NULL) && strlen( str ) )
++			{
++				if (out_user_rec->auto_fwd != NULL)
++					p_free( out_user_rec->pool, out_user_rec->auto_fwd );
++				out_user_rec->auto_fwd = p_strdup(out_user_rec->pool, str);
++
++				out_user_rec->acct_state |= auto_fwd_enabled;
++				out_user_rec->acct_state &= ~imap_enabled;
++				out_user_rec->acct_state &= ~pop_enabled;
++			}
++		}
++	}
++} /* od_get_auto_forward */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_imap_login ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_imap_login ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str_ref	= NULL;
++	char		   *str			= NULL;
++
++	/* Default value */
++	out_user_rec->acct_state &= ~imap_enabled;
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeykIMAPLoginState ) ) )
++	{
++		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeykIMAPLoginState ) );
++		if ( (cf_str_ref != NULL) && (CFGetTypeID( cf_str_ref ) == CFStringGetTypeID()) )
++		{
++			str = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
++			if ( (str != NULL)  && (strcasecmp( str, kXMLValueIMAPLoginOK ) == 0) )
++			{
++				out_user_rec->acct_state |= imap_enabled;
++			}
++		}
++	}
++} /* od_get_imap_login */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_pop3_login ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_pop3_login ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str_ref	= NULL;
++	char		   *str			= NULL;
++
++	/* Default value */
++	out_user_rec->acct_state &= ~pop_enabled;
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyPOP3LoginState ) ) )
++	{
++		cf_str_ref = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyPOP3LoginState ) );
++		if ( (cf_str_ref != NULL) && (CFGetTypeID( cf_str_ref ) == CFStringGetTypeID()) )
++		{
++			str = (char *)CFStringGetCStringPtr( cf_str_ref, kCFStringEncodingMacRoman );
++			if ( (str != NULL) && (strcasecmp( str, kXMLValuePOP3LoginOK ) == 0) )
++			{
++				out_user_rec->acct_state |= pop_enabled;
++			}
++		}
++	}
++} /* od_get_pop3_login */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_acct_loc ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_acct_loc ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str	= NULL;
++	char		   *str		= NULL;
++
++	/* don't leak previous value (if any) */
++	if ( out_user_rec->acct_loc != NULL )
++	{
++		p_free( out_user_rec->pool, out_user_rec->acct_loc );
++		out_user_rec->acct_loc = NULL;
++	}
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAcctLoc ) ) )
++	{
++		cf_str = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAcctLoc ) );
++		if ( (cf_str != NULL) && (CFGetTypeID( cf_str ) == CFStringGetTypeID()) )
++		{
++			str = (char*)CFStringGetCStringPtr( cf_str, kCFStringEncodingMacRoman );
++			if ( (str != NULL) && strlen( str ) )
++			{
++				out_user_rec->acct_loc = p_strdup(out_user_rec->pool, str);
++			}
++		}
++	}
++} /* od_get_acct_loc */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_alt_loc ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_alt_loc ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str	= NULL;
++	char		   *str		= NULL;
++
++	/* Default value */
++	if ( out_user_rec->alt_data_loc != NULL )
++	{
++		p_free( out_user_rec->pool, out_user_rec->alt_data_loc );
++		out_user_rec->alt_data_loc = NULL;
++	}
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyAltDataStoreLoc ) ) )
++	{
++		cf_str = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyAltDataStoreLoc ) );
++		if ( (cf_str != NULL) && (CFGetTypeID( cf_str ) == CFStringGetTypeID()) )
++		{
++			str = (char*)CFStringGetCStringPtr( cf_str, kCFStringEncodingMacRoman );
++			if ( (str != NULL) && strlen( str ) )
++			{
++				out_user_rec->alt_data_loc = p_strdup(out_user_rec->pool, str);
++			}
++		}
++	}
++} /* od_get_alt_loc */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_mail_quota ()
++ * ------------------------------------------------------------------*/
++
++static void od_get_mail_quota ( CFDictionaryRef inCFDictRef, struct od_user *out_user_rec )
++{
++	CFStringRef		cf_str	= NULL;
++	char		   *str		= NULL;
++
++	/* Default value */
++	out_user_rec->mail_quota = 0;
++
++	if ( CFDictionaryContainsKey( inCFDictRef, CFSTR( kXMLKeyDiskQuota ) ) )
++	{
++		cf_str = (CFStringRef)CFDictionaryGetValue( inCFDictRef, CFSTR( kXMLKeyDiskQuota ) );
++		if ( (cf_str != NULL) && (CFGetTypeID( cf_str ) == CFStringGetTypeID()) )
++		{
++			str = (char *)CFStringGetCStringPtr( cf_str, kCFStringEncodingMacRoman );
++			if ( str != NULL )
++			{
++				out_user_rec->mail_quota = atol( str );
++			}
++		}
++	}
++} /* od_get_mail_quota */
++
++
++/* ------------------------------------------------------------------
++ *	get_mail_attribute_values ()
++ * ------------------------------------------------------------------*/
++
++static void get_mail_attribute_values ( char *in_mail_attribute, struct od_user *out_user_rec )
++{
++	unsigned long		uiDataLen	= 0;
++	CFDataRef			cfDataRef	= NULL;
++	CFPropertyListRef	cfPlistRef	= NULL;
++	CFDictionaryRef		cfDictRef	= NULL;
++
++	if ( in_mail_attribute != NULL )
++	{
++		uiDataLen = strlen( in_mail_attribute );
++		cfDataRef = CFDataCreate( NULL, (const UInt8 *)in_mail_attribute, uiDataLen );
++		if ( cfDataRef != NULL )
++		{
++			cfPlistRef = CFPropertyListCreateFromXMLData( kCFAllocatorDefault, cfDataRef, kCFPropertyListImmutable, NULL );
++			if ( cfPlistRef != NULL )
++			{
++				if ( CFDictionaryGetTypeID() == CFGetTypeID( cfPlistRef ) )
++				{
++					cfDictRef = (CFDictionaryRef)cfPlistRef;
++					od_get_acct_state( cfDictRef, out_user_rec );
++					od_get_imap_login( cfDictRef, out_user_rec );
++					od_get_pop3_login( cfDictRef, out_user_rec );
++					od_get_acct_loc( cfDictRef, out_user_rec );
++					od_get_alt_loc( cfDictRef, out_user_rec );
++					od_get_mail_quota( cfDictRef, out_user_rec );
++				}
++				CFRelease( cfPlistRef );
++			}
++			CFRelease( cfDataRef );
++		}
++	}
++} /* get_mail_attribute_values */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_attr_from_record ()
++ * ------------------------------------------------------------------*/
++
++static CFStringRef od_get_attr_from_record ( ODRecordRef in_rec_ref, CFStringRef in_attr )
++{
++	CFArrayRef		cf_arry_values	= NULL;
++	CFErrorRef		cf_err_ref		= NULL;
++	CFStringRef		cf_str_out		= NULL;
++
++	cf_arry_values = ODRecordCopyValues( in_rec_ref, in_attr, &cf_err_ref );
++	if ( cf_arry_values == NULL )
++	{
++		/* print the error and bail */
++		if (od_debug)
++			print_cf_error( cf_err_ref, t_strconcat("Unable to extract attribute ", CFStringGetCStringPtr(in_attr, kCFStringEncodingMacRoman), NULL) );
++		return( NULL );
++	}
++
++	if ( CFArrayGetCount( cf_arry_values ) > 1 )
++	{
++		i_error( "od: multiple attribute values (%d) found in record user record: %s for attribute: %s",
++					(int)CFArrayGetCount( cf_arry_values ),
++					CFStringGetCStringPtr( ODRecordGetRecordName( in_rec_ref ), kCFStringEncodingUTF8 ),
++					CFStringGetCStringPtr( in_attr, kCFStringEncodingUTF8 ) );
++		CFRelease( cf_arry_values );
++		return( NULL );
++	}
++
++	cf_str_out = CFArrayGetValueAtIndex( cf_arry_values, 0 );
++	CFRetain( cf_str_out );
++
++	CFRelease( cf_arry_values );
++
++	return( cf_str_out );
++} /*  od_get_attr_from_record */
++
++
++/* ------------------------------------------------------------------
++ *	od_get_user ()
++ * ------------------------------------------------------------------*/
++
++static struct od_user *od_get_user ( struct db_od *in_od_info, const char *in_user_name )
++{
++	char		   *c_str			= NULL;
++	size_t			str_size		= 0;
++	ODQueryRef		cf_query_ref	= NULL;
++	ODRecordRef		od_rec_ref		= NULL;
++	CFStringRef		cf_str_ref		= NULL;
++	CFStringRef		cf_str_value	= NULL;
++	CFTypeRef		cf_type_ref[]	= { CFSTR(kDSAttributesStandardAll) };
++	CFArrayRef		cf_arry_ref		= CFArrayCreate( NULL, cf_type_ref, 1, &kCFTypeArrayCallBacks );
++	CFArrayRef		cf_arry_result	= NULL;
++	CFErrorRef		cf_err_ref		= NULL;
++	struct od_user *out_user_rec	= NULL;
++
++	cf_str_ref = CFStringCreateWithCString( NULL, in_user_name, kCFStringEncodingUTF8 );
++	if ( cf_str_ref == NULL )
++	{
++		i_error( "od: unable to create user name CFStringRef");
++		CFRelease( cf_arry_ref );
++		return( NULL );
++	}
++
++	/* create user record */
++	out_user_rec = p_new( in_od_info->mem_pool, struct od_user, 1 );
++	if ( out_user_rec == NULL )
++	{
++		i_panic("od_get_user: Out of memory error" );
++	}
++	out_user_rec->pool = in_od_info->mem_pool;
++	out_user_rec->refcount = 1;
++	out_user_rec->create_time = time(NULL);
++
++	cf_query_ref = ODQueryCreateWithNode( NULL, in_od_info->od_node_ref, CFSTR(kDSStdRecordTypeUsers), CFSTR(kDSNAttrRecordName),
++											kODMatchInsensitiveEqualTo, cf_str_ref, cf_arry_ref, 100, &cf_err_ref );
++	if ( cf_query_ref )
++	{
++		cf_arry_result = ODQueryCopyResults( cf_query_ref, false, &cf_err_ref );
++		if ( cf_arry_result )
++		{
++			if ( CFArrayGetCount( cf_arry_result ) == 1 )
++			{
++				od_rec_ref = (ODRecordRef)CFArrayGetValueAtIndex( cf_arry_result, 0 );
++				CFRetain(od_rec_ref);
++			}
++			else
++			{
++				if ( CFArrayGetCount( cf_arry_result ) == 0 )
++				{
++					i_error( "no user record found for: %s", in_user_name );
++				}
++				else
++				{
++					i_error( "multiple user records (%ld) found for: %s", CFArrayGetCount( cf_arry_result ), in_user_name );
++				}
++			}
++			CFRelease(cf_arry_result);
++		}
++		else
++		{
++			print_cf_error( cf_err_ref, "OD Query Copy Results failed" );
++		}
++		CFRelease( cf_query_ref );
++	}
++	else
++	{
++		print_cf_error( cf_err_ref, "OD Query Create With Node failed" );
++	}
++
++	CFRelease( cf_str_ref );
++	CFRelease( cf_arry_ref );
++
++	if ( od_rec_ref == NULL )
++	{
++		/* print the error and bail */
++		print_cf_error( cf_err_ref, "Unable to lookup user record" );
++
++		p_free(in_od_info->mem_pool, out_user_rec);
++
++		return( NULL );
++	}
++
++	cf_str_value = od_get_attr_from_record( od_rec_ref, CFSTR(kDS1AttrUniqueID) );
++	if ( cf_str_value != NULL )
++	{
++		out_user_rec->user_uid = CFStringGetIntValue( cf_str_value );
++		CFRelease( cf_str_value );
++	}
++
++	cf_str_value = od_get_attr_from_record( od_rec_ref, CFSTR(kDS1AttrPrimaryGroupID) );
++	if ( cf_str_value != NULL )
++	{
++		out_user_rec->user_gid = CFStringGetIntValue( cf_str_value );
++		CFRelease( cf_str_value );
++	}
++
++	/* get guid */
++	cf_str_value = od_get_attr_from_record( od_rec_ref, CFSTR(kDS1AttrGeneratedUID) );
++	if ( cf_str_value != NULL )
++	{
++		str_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength( cf_str_value ), kCFStringEncodingUTF8) + 1;
++		out_user_rec->user_uuid = p_malloc( out_user_rec->pool, str_size );
++		if ( out_user_rec->user_uuid != NULL )
++		{
++			CFStringGetCString( cf_str_value, out_user_rec->user_uuid, str_size, kCFStringEncodingUTF8 );
++		}
++		CFRelease( cf_str_value );
++	}
++
++	/* get mail attribute */
++	cf_str_value = od_get_attr_from_record( od_rec_ref, CFSTR(kDS1AttrMailAttribute) );
++	if ( cf_str_value != NULL )
++	{
++		str_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength( cf_str_value ), kCFStringEncodingUTF8) + 1;
++		c_str = malloc( str_size );
++		if ( c_str != NULL )
++		{
++			if( CFStringGetCString( cf_str_value, c_str, str_size, kCFStringEncodingUTF8 ) )
++			{
++				get_mail_attribute_values( c_str, out_user_rec );
++			}
++			free( c_str );
++		}
++		CFRelease( cf_str_value );
++	}
++
++
++	/* get record name */
++	cf_str_value = ODRecordGetRecordName( od_rec_ref );
++	if ( cf_str_value != NULL )
++	{
++		str_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength( cf_str_value ), kCFStringEncodingUTF8) + 1;
++		out_user_rec->record_name = p_malloc( out_user_rec->pool, str_size );
++		if ( out_user_rec->record_name != NULL )
++		{
++			CFStringGetCString( cf_str_value, out_user_rec->record_name, str_size, kCFStringEncodingUTF8 );
++		}
++	}
++
++	CFRelease(od_rec_ref);
++
++	if (od_debug)
++		i_info("od-debug: (%s:%s): user %s refcount=%d", __FILE__, __FUNCTION__, out_user_rec->record_name, out_user_rec->refcount);
++	return( out_user_rec );
++} /* od_get_user */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_sacl_check ()
++ * ------------------------------------------------------------------*/
++
++void db_od_sacl_check ( struct od_user *in_od_user, const char *in_group )
++{
++	int			err			= 0;
++	int			result		= 0;
++	uuid_t		user_uuid;
++
++	if ( mail_sacl_enabled == FALSE )
++	{
++		if ( sacl_check_delta > time( NULL ) )
++		{
++			return;
++		}
++		sacl_check_delta = time( NULL ) + 30;
++	}
++
++	/* we should already have this from previous user lookup */
++	if ( in_od_user->user_uuid != NULL )
++	{
++		err = mbr_string_to_uuid( (const char *)in_od_user->user_uuid, user_uuid );
++	}
++	else if ( in_od_user->record_name != NULL )
++	{
++		/* get the uuid for user */
++		err = mbr_user_name_to_uuid( in_od_user->record_name, user_uuid );
++	}
++	else
++	{
++		in_od_user->acct_state |= sacl_not_member;
++		in_od_user->acct_state &= ~account_enabled;
++		in_od_user->acct_state &= ~imap_enabled;
++		in_od_user->acct_state &= ~pop_enabled;
++
++		i_error( "od: no user record name or user uuid for SACL checks" );
++
++		return;
++	}
++
++	if ( err != 0 )
++	{
++		/* couldn't turn user into uuid settings form user record */
++
++		in_od_user->acct_state |= sacl_not_member;
++		in_od_user->acct_state &= ~account_enabled;
++		in_od_user->acct_state &= ~imap_enabled;
++		in_od_user->acct_state &= ~pop_enabled;
++
++		i_error( "od: mbr_user_name_to_uuid failed for user: %s (%s)", in_od_user->record_name, strerror( err ) );
++
++		return;
++	}
++
++	/* check the mail SACL */
++	err = mbr_check_service_membership( user_uuid, in_group, &result );
++	if ( err == ENOENT )
++	{
++		/* look for all SACL's */
++		err = mbr_check_service_membership( user_uuid, "access_all_services", &result );
++	}
++
++	/* service ACL is enabled */
++	if ( err == 0 )
++	{
++		mail_sacl_enabled = TRUE;
++
++		if ( od_debug == TRUE )
++		{
++			i_info( "od-debug: (%s:%s): Mail SACL is enabled", __FILE__, __FUNCTION__ );
++		}
++
++		/* set SACL enabled flag */
++		in_od_user->acct_state |= sacl_enabled;
++
++		/* check membership */
++		if ( result != 0 )
++		{
++			/* we are a member, enable all mail services */
++			in_od_user->acct_state |= account_enabled;
++			in_od_user->acct_state |= imap_enabled;
++			in_od_user->acct_state |= pop_enabled;
++		}
++		else
++		{
++			/* we are not a member override any settings form user record */
++			in_od_user->acct_state |= sacl_not_member;
++			in_od_user->acct_state &= ~account_enabled;
++			in_od_user->acct_state &= ~imap_enabled;
++			in_od_user->acct_state &= ~pop_enabled;
++		}
++	}
++	else
++	{
++		/* set SACL -not- enabled flag */
++		in_od_user->acct_state &= ~sacl_enabled;
++
++		mail_sacl_enabled = FALSE;
++
++		if ( od_debug == TRUE )
++		{
++			i_info( "od-debug: (%s:%s): Mail SACL is not enabled (%d)", __FILE__, __FUNCTION__, err );
++		}
++	}
++} /* db_od_sacl_check */
++
++
++/* ------------------------------------------------------------------
++ *	db_od_user_lookup ()
++ *
++ * Caller must release the returned object via db_od_user_unref().
++ * ------------------------------------------------------------------*/
++
++struct od_user *db_od_user_lookup ( struct db_od *in_od_info, const char *in_user_name, bool in_is_auth ATTR_UNUSED )
++{
++	struct od_user	   *out_user		= NULL;
++
++	/* TODO: use auth_cache */
++
++	/* does user exist in hash table */
++	out_user = hash_lookup( in_od_info->users_table, in_user_name );
++	if ( out_user != NULL )
++	{
++		/* is the cached entry fresh or stale? */
++		time_t now = time(NULL);
++		time_t expiry = out_user->create_time;
++		if ((out_user->acct_state & account_enabled) &&
++			(out_user->acct_state & (imap_enabled | pop_enabled | auto_fwd_enabled)))
++			expiry += in_od_info->pos_cache_ttl;
++		else
++			expiry += in_od_info->neg_cache_ttl;
++		if (expiry >= now) {
++			if (od_debug)
++				i_info("od-debug: (%s:%s): user %s refcount %d -> %d", __FILE__, __FUNCTION__, out_user->record_name, out_user->refcount, out_user->refcount + 1);
++			++out_user->refcount;
++
++			/* check for SACL changes */
++			db_od_sacl_check( out_user, "mail" );
++
++			if ( in_od_info->debug != 0 )
++				i_info( "od: found user in local table: user = %s", in_user_name );
++			return( out_user );
++		} else {
++			if ( in_od_info->debug != 0 )
++				i_info( "od: discarding stale user %s in local table (age=%ld)", out_user->record_name, now - out_user->create_time );
++
++			hash_remove(in_od_info->users_table, in_user_name);
++			db_od_user_unref(&out_user);
++		}
++	}
++
++	/* lookup user in OD */
++	if ( in_od_info->debug != 0 )
++		i_info( "od: directory lookup for: user = %s", in_user_name );
++
++	out_user = od_get_user( in_od_info, in_user_name );
++	if ( out_user != NULL )
++	{
++		if ( in_od_info->debug != 0 )
++			i_info( "od: adding user to cache: user = %s", in_user_name );
++		od_add_user( in_od_info, out_user );
++
++		/* do SACL check */
++		db_od_sacl_check( out_user, "mail" );
++	}
++
++	return( out_user );
++} /* db_od_user_lookup */
++
++#endif
+diff -Nur dovecot-1.1.7/src/auth/db-od.h dovecot-patch/src/auth/db-od.h
+--- dovecot-1.1.7/src/auth/db-od.h	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/src/auth/db-od.h	2008-12-22 12:47:20.000000000 -0600
+@@ -0,0 +1,136 @@
++/*
++ * Copyright (c) 2008 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#ifndef DB_OD_H
++#define DB_OD_H
++
++#include <uuid/uuid.h>
++
++#include <OpenDirectory/OpenDirectory.h>
++#include <OpenDirectory/OpenDirectoryPriv.h>
++#include <DirectoryService/DirServicesConst.h>
++
++#define OD_USER_CACHE_KEY	"%u"
++#define OD_DEFAULT_USERNAME_FORMAT "%u"
++#define OD_DEFAULT_PASS_SCHEME "CRYPT"
++
++//#define	OD_BUFFER_SIZE_SMALL		2048
++//#define	OD_BUFFER_SIZE_DEFAULT		4096
++//#define	OD_BUFFER_SIZE_LARGE		8192
++
++#define	kCRAM_MD5_AuthSuccess			"k-cram-md5-auth-success"
++#define	kCRAM_MD5_AuthFailed			"k-cram-md5-auth-failed"
++#define	kCRAM_APOP_AuthSuccess			"k-apop-auth-success"
++#define	kCRAM_APOP_AuthFailed			"k-apop-auth-failed"
++
++/* Mail user attribute version */
++#define	kXMLKeyAttrVersion				"kAttributeVersion"
++	#define	kXMLValueVersion				"Apple Mail 1.0"
++
++/* Account state */
++#define	kXMLKeyAcctState				"kMailAccountState"
++	#define	kXMLValueAcctEnabled			"Enabled"
++	#define	kXMLValueAcctDisabled			"Off"
++	#define	kXMLValueAcctFwd				"Forward"
++
++/* Auto forward key (has no specific value) */
++#define	kXMLKeyAutoFwd					"kAutoForwardValue"
++
++/* IMAP login state */
++#define	kXMLKeykIMAPLoginState			"kIMAPLoginState"
++	#define	kXMLValueIMAPLoginOK			"IMAPAllowed"
++	#define	kXMLValueIMAPLogInNotOK			"IMAPDeny"
++
++/* POP3 login state */
++#define	kXMLKeyPOP3LoginState			"kPOP3LoginState"
++	#define	kXMLValuePOP3LoginOK			"POP3Allowed"
++	#define	kXMLValuePOP3LoginNotOK			"POP3Deny"
++
++/* Account location key (has no specific value) */
++#define	kXMLKeyAcctLoc					"kMailAccountLocation"
++
++/* Account location key (has no specific value) */
++#define	kXMLKeyAltDataStoreLoc			"kAltMailStoreLoc"
++
++/* Disk Quota  (has no specific value) */
++#define	kXMLKeyDiskQuota				"kUserDiskQuota"
++
++extern bool	od_debug;
++extern int	od_pos_cache_ttl;
++extern int	od_neg_cache_ttl;
++
++typedef enum {
++	unknown_state			= 0x00000000,
++	unknown_user			= 0x00000001,
++	account_enabled			= 0x00000002,
++	imap_enabled			= 0x00000004,
++	pop_enabled				= 0x00000008,
++	auto_fwd_enabled		= 0x00000010,
++	sacl_enabled			= 0x00000020,
++	sacl_not_member			= 0x00000040
++} od_acct_state;
++
++struct od_user {
++	pool_t			pool;
++	int				refcount;
++	time_t			create_time;
++	uid_t			user_uid;
++	gid_t			user_gid;
++	od_acct_state	acct_state;
++	int				mail_quota;
++	char		   *user_uuid;
++	char		   *auth_id_name;
++	char		   *record_name;
++	char		   *acct_loc;
++	char		   *alt_data_loc;
++	char		   *auto_fwd;
++};
++
++struct db_od {
++	int					refcount;
++	pool_t				mem_pool;
++	ODSessionRef		od_session_ref;
++	ODNodeRef			od_node_ref;
++	unsigned int		userdb:1;
++	unsigned int		debug;
++	int					pos_cache_ttl;
++	int					neg_cache_ttl;
++	struct hash_table  *users_table;
++};
++
++struct od_user *db_od_user_lookup	( struct db_od *in_db, const char *in_user_name, bool in_is_auth );
++struct db_od   *db_od_init			( bool in_userdb );
++void			db_od_user_unref	( struct od_user **in_user_info );
++void			db_od_do_init		( struct db_od *in_od_info );
++void			db_od_unref			( struct db_od **in_od_info_p );
++void			db_od_sacl_check	( struct od_user *in_od_user, const char *in_group );
++
++#endif
+diff -Nur dovecot-1.1.7/src/auth/mech-apop.c dovecot-patch/src/auth/mech-apop.c
+--- dovecot-1.1.7/src/auth/mech-apop.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/mech-apop.c	2008-12-22 13:02:03.000000000 -0600
+@@ -29,9 +29,20 @@
+ 	unsigned char digest[16];
+ };
+ 
++#ifdef APPLE_OS_X_SERVER
++#include "db-od.h"
++#endif
++
+ static bool verify_credentials(struct apop_auth_request *request,
+ 			       const unsigned char *credentials, size_t size)
+ {
++#ifdef APPLE_OS_X_SERVER
++	if ( (size != 0) && (strcmp( (const char *)credentials, kCRAM_APOP_AuthSuccess ) == 0) )
++	{
++		return( TRUE );
++	}
++	return( FALSE );
++#else
+ 	unsigned char digest[16];
+ 	struct md5_context ctx;
+ 
+@@ -41,6 +52,7 @@
+ 	md5_final(&ctx, digest);
+ 
+ 	return memcmp(digest, request->digest, 16) == 0;
++#endif
+ }
+ 
+ static void
+diff -Nur dovecot-1.1.7/src/auth/mech-cram-md5.c dovecot-patch/src/auth/mech-cram-md5.c
+--- dovecot-1.1.7/src/auth/mech-cram-md5.c	2008-10-26 10:00:45.000000000 -0500
++++ dovecot-patch/src/auth/mech-cram-md5.c	2008-12-22 13:02:14.000000000 -0600
+@@ -45,10 +45,21 @@
+ 			       dec2str(ioloop_time), my_hostname);
+ }
+ 
++#ifdef APPLE_OS_X_SERVER
++#include "db-od.h"
++#endif
++
+ static bool verify_credentials(struct cram_auth_request *request,
+ 			       const unsigned char *credentials, size_t size)
+ {
+-	
++#ifdef APPLE_OS_X_SERVER
++	if ( (size != 0) && (strcmp( (const char *)credentials, kCRAM_MD5_AuthSuccess ) == 0) )
++	{
++		return( TRUE );
++	}
++
++	return( FALSE );
++#else
+ 	unsigned char digest[MD5_RESULTLEN];
+         struct hmac_md5_context ctx;
+ 	const char *response_hex;
+@@ -72,6 +83,7 @@
+ 	}
+ 
+ 	return TRUE;
++#endif
+ }
+ 
+ static bool parse_cram_response(struct cram_auth_request *request,
+diff -Nur dovecot-1.1.7/src/auth/passdb-od.c dovecot-patch/src/auth/passdb-od.c
+--- dovecot-1.1.7/src/auth/passdb-od.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/src/auth/passdb-od.c	2008-12-22 12:47:20.000000000 -0600
+@@ -0,0 +1,520 @@
++/*
++ * Copyright (c) 2008 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "common.h"
++
++#ifdef PASSDB_OD
++
++#include "str.h"
++#include "auth-cache.h"
++#include "var-expand.h"
++#include "passdb.h"
++#include "password-scheme.h"
++#include "db-od.h"
++#include "hex-binary.h"
++
++#include <syslog.h>
++
++#include <CoreFoundation/CFString.h>
++
++#include <OpenDirectory/OpenDirectory.h>
++#include <OpenDirectory/OpenDirectoryPriv.h>
++#include <DirectoryService/DirServicesTypes.h>
++
++struct od_passdb_module
++{
++	struct	passdb_module module;
++	struct	auth	*auth;
++	struct	db_od	*od_data;
++};
++
++struct od_cram_auth_request {
++	struct auth_request auth_request;
++
++	pool_t pool;
++
++	/* requested: */
++	char *challenge;
++
++	/* received: */
++	char *username;
++	char *response;
++	unsigned long maxbuf;
++};
++
++struct od_apop_auth_request {
++	struct auth_request auth_request;
++
++	pool_t pool;
++
++	/* requested: */
++	char *challenge;
++
++	/* received: */
++	unsigned char digest[16];
++};
++
++/* ------------------------------------------------------------------
++ *	print_cf_error ()
++ * ------------------------------------------------------------------*/
++
++static void print_cf_error ( CFErrorRef in_cf_err_ref, const char *in_default_str )
++{
++	char			c_str[1024 + 1];
++	CFStringRef		cf_str_ref		= NULL;
++
++	if ( in_cf_err_ref != NULL )
++	{
++		cf_str_ref = CFErrorCopyFailureReason( in_cf_err_ref );
++		if ( cf_str_ref != NULL )
++		{
++			CFStringGetCString( cf_str_ref, c_str, 1024, kCFStringEncodingUTF8 );
++
++			i_error( "od: %s", c_str );
++			return;
++		}
++	}
++
++	i_error( "od: %s", in_default_str );
++} /* print_cf_error */
++
++
++/* ------------------------------------------------------------------
++ *	is_acct_enabled ()
++ * ------------------------------------------------------------------*/
++
++static bool is_acct_enabled ( const char *in_service, od_acct_state in_acct_state, const char *in_user )
++{
++	/* make sure their account is enabled either in OD or via Server Admin SACL */
++	if ( !(in_acct_state & account_enabled) )
++	{
++		i_info( "od: Mail account for: %s is not enabled", in_user );
++		return( FALSE );
++	}
++
++	/* is the service enabled for this user */
++	/* Server Admin SACLs override settings in OD */
++	if ( (strcasecmp(in_service, "imap") == 0) && !(in_acct_state & imap_enabled) )
++	{
++		i_info( "od: IMAP mail service for user account: %s is not enabled", in_user );
++		return( FALSE );
++	}
++
++	if ( (strcasecmp(in_service, "pop3") == 0) && !(in_acct_state & pop_enabled) )
++	{
++		i_info( "od: POP mail service for user account: %s is not enabled", in_user );
++		return( FALSE );
++	}
++
++	return( TRUE );
++} /* is_acct_enabled */
++
++
++/* ------------------------------------------------------------------
++ *	validate_response ()
++ * ------------------------------------------------------------------*/
++
++static int validate_response ( struct auth_request *in_request,
++							   const char *in_user,
++							   const char *in_chal,
++							   const char *in_resp,
++							   const char *in_auth_type )
++{
++	bool					b_result		= FALSE;
++	struct passdb_module	*_module		= in_request->passdb->passdb;
++	struct od_passdb_module	*module			= (struct od_passdb_module *)_module;
++	struct db_od			*user_info		= NULL;
++	struct od_user			*db_user_info	= NULL;
++	CFErrorRef				cf_err_ref		= NULL;
++	ODRecordRef				od_rec_ref		= NULL;
++	CFStringRef				cf_str_user		= NULL;
++	CFStringRef				cf_str_chal		= NULL;
++	CFStringRef				cf_str_resp		= NULL;
++	CFMutableArrayRef		cf_arry_buf		= CFArrayCreateMutable( NULL, 3, &kCFTypeArrayCallBacks );
++	CFArrayRef				cf_arry_resp	= NULL;
++	CFTypeRef				cf_type_val[]	= { CFSTR(kDSAttributesStandardAll) };
++	CFArrayRef				cf_arry_attr	= CFArrayCreate( NULL, cf_type_val, 1, &kCFTypeArrayCallBacks );
++	ODContextRef			od_context_ref	= NULL;
++	ODAuthenticationType	od_auth_type;
++
++	user_info = module->od_data;
++
++	/* look up the user */
++	db_user_info = db_od_user_lookup( module->od_data, in_request->user, TRUE );
++	if ( db_user_info == NULL )
++	{
++		return( PASSDB_RESULT_USER_UNKNOWN );
++	}
++
++	if ( is_acct_enabled(in_request->service, db_user_info->acct_state, db_user_info->record_name) == FALSE)
++	{
++		db_od_user_unref(&db_user_info);
++		return( PASSDB_RESULT_USER_DISABLED );
++	}
++
++	cf_str_user = CFStringCreateWithCString( NULL, in_user, kCFStringEncodingUTF8 );
++	if ( cf_str_user == NULL )
++	{
++		i_error( "od: Unable to create user name CFStringRef");
++		db_od_user_unref(&db_user_info);
++		return( PASSDB_RESULT_INTERNAL_FAILURE );
++	}
++
++	od_rec_ref = ODNodeCopyRecord( user_info->od_node_ref, CFSTR(kDSStdRecordTypeUsers), cf_str_user, cf_arry_attr, &cf_err_ref );
++	CFRelease( cf_arry_attr );
++	if ( od_rec_ref == NULL )
++	{
++		/* print the error and bail */
++		print_cf_error( cf_err_ref, "Unable to lookup user record" );
++
++		/* release OD session */
++		CFRelease( cf_str_user );
++		db_od_user_unref(&db_user_info);
++		return( PASSDB_RESULT_INTERNAL_FAILURE );
++	}
++
++	if ( strcmp( in_auth_type, "CRAM-MD5" ) == 0 )
++	{
++		od_auth_type = kODAuthenticationTypeCRAM_MD5;
++	}
++	else if ( strcmp( in_auth_type, "APOP" ) == 0 )
++	{
++		od_auth_type = kODAuthenticationTypeAPOP;
++	}
++	else
++	{
++		CFRelease( cf_str_user );
++		CFRelease( od_rec_ref );
++		db_od_user_unref(&db_user_info);
++
++		i_error( "od: Unsupported authentication mechanism: %s", in_auth_type );
++		return( PASSDB_RESULT_SCHEME_NOT_AVAILABLE );
++	}
++
++	/* Stuff auth buffer with, user/record name, challenge and response  */
++	CFArrayAppendValue( cf_arry_buf, cf_str_user );
++	CFRelease( cf_str_user );
++
++	cf_str_chal = CFStringCreateWithCString( NULL, in_chal, kCFStringEncodingUTF8 );
++	CFArrayAppendValue( cf_arry_buf, cf_str_chal );
++	CFRelease( cf_str_chal );
++
++	cf_str_resp = CFStringCreateWithCString( NULL, in_resp, kCFStringEncodingUTF8 );
++	CFArrayAppendValue( cf_arry_buf, cf_str_resp );
++	CFRelease( cf_str_resp );
++
++	/* Make the "3 AM" call */
++	b_result = ODRecordVerifyPasswordExtended( od_rec_ref, od_auth_type, cf_arry_buf, &cf_arry_resp, &od_context_ref, &cf_err_ref );
++	CFRelease( od_rec_ref );
++	CFRelease( cf_arry_buf );
++	CFRelease( cf_arry_resp );
++
++	/* Do a quick membership check */
++	if ( b_result == TRUE )
++	{
++		if ( !(db_user_info->acct_state & account_enabled) )
++		{
++			b_result = FALSE;
++		}
++	}
++
++	/* clean up allocs */
++	db_od_user_unref( &db_user_info );
++
++	/* Were they ready to receive the "3 AM" call */
++	if ( b_result == TRUE )
++	{
++		return( PASSDB_RESULT_OK );
++	}
++
++	return( PASSDB_RESULT_PASSWORD_MISMATCH );
++
++} /* validate_response */
++
++
++/* ------------------------------------------------------------------
++ *	od_verify_plain ()
++ * ------------------------------------------------------------------*/
++
++static void od_verify_plain ( struct auth_request *in_request, const char *in_passwd, verify_plain_callback_t *callback )
++{
++	struct passdb_module	*_module		= in_request->passdb->passdb;
++	struct od_passdb_module	*module			= (struct od_passdb_module *)_module;
++	struct od_user			*db_user_info	= NULL;
++	struct db_od			*info			= NULL;
++	CFErrorRef				cf_err_ref		= NULL;
++	ODRecordRef				od_rec_ref		= NULL;
++	CFStringRef				cf_str_user		= NULL;
++	CFStringRef				cf_str_pwd		= NULL;
++	CFTypeRef				cf_type_val[]	= { CFSTR(kDSAttributesStandardAll) };
++	CFArrayRef				cf_arry_attr	= CFArrayCreate( NULL, cf_type_val, 1, &kCFTypeArrayCallBacks);
++
++	info = module->od_data;
++
++	db_user_info = db_od_user_lookup( module->od_data, in_request->user, TRUE );
++	if ( db_user_info == NULL )
++	{
++		i_error( "od: lookup failed for user: %s", in_request->user );
++
++		callback( PASSDB_RESULT_USER_UNKNOWN, in_request );
++		return;
++	}
++
++	if ( is_acct_enabled( in_request->service, db_user_info->acct_state, db_user_info->record_name) == FALSE )
++	{
++		/* print the error and bail */
++		i_error( "od: user account: %s not enabled for mail", db_user_info->record_name );
++
++		/* clean up allocs */
++		db_od_user_unref ( &db_user_info );
++
++		callback( PASSDB_RESULT_USER_DISABLED, in_request );
++		return;
++	}
++
++	cf_str_user = CFStringCreateWithCString( NULL, db_user_info->record_name, kCFStringEncodingUTF8 );
++	if ( cf_str_user == NULL )
++	{
++		/* print the error and bail */
++		i_error( "od: unable to create CFStringRef for user: %s", db_user_info->record_name );
++
++		/* clean up allocs */
++		db_od_user_unref ( &db_user_info );
++
++		callback( PASSDB_RESULT_INTERNAL_FAILURE, in_request );
++		return;
++	}
++
++	od_rec_ref = ODNodeCopyRecord( info->od_node_ref, CFSTR(kDSStdRecordTypeUsers), cf_str_user, cf_arry_attr, &cf_err_ref );
++	CFRelease( cf_str_user );
++	CFRelease( cf_arry_attr );
++	if ( od_rec_ref == NULL )
++	{
++		/* print the error and bail */
++		print_cf_error( cf_err_ref, "Unable to lookup user record" );
++
++		/* clean up allocs */
++		db_od_user_unref ( &db_user_info );
++
++		callback( PASSDB_RESULT_USER_UNKNOWN, in_request );
++		return;
++	}
++
++	cf_str_pwd = CFStringCreateWithCString( NULL, in_passwd, kCFStringEncodingUTF8 );
++	if ( cf_str_pwd == NULL )
++	{
++		/* print the error and bail */
++		i_error( "od: unable to create CFStringRef for user: %s", db_user_info->record_name );
++
++		/* clean up allocs */
++		db_od_user_unref ( &db_user_info );
++
++		CFRelease( od_rec_ref );
++
++		callback( PASSDB_RESULT_INTERNAL_FAILURE, in_request );
++		return;
++	}
++
++	if ( ODRecordVerifyPassword( od_rec_ref, cf_str_pwd, &cf_err_ref ) )
++	{
++		if ( !(db_user_info->acct_state & account_enabled) )
++		{
++			i_error( "od: bad password for user: %s", db_user_info->record_name );
++			callback( PASSDB_RESULT_PASSWORD_MISMATCH, in_request );
++		}
++		else
++		{
++			callback( PASSDB_RESULT_OK, in_request );
++		}
++	}
++	else
++	{
++		if ( cf_err_ref != NULL )
++		{
++			print_cf_error( cf_err_ref, "Auth failed" );
++		}
++		callback( PASSDB_RESULT_PASSWORD_MISMATCH, in_request );
++	}
++
++	/* clean up allocs */
++	db_od_user_unref ( &db_user_info );
++
++	CFRelease( od_rec_ref );
++	CFRelease( cf_str_pwd );
++} /* od_verify_plain */
++
++
++/* ------------------------------------------------------------------
++ *	od_lookup_credentials ()
++ * ------------------------------------------------------------------*/
++
++static void od_lookup_credentials ( struct auth_request *in_request, lookup_credentials_callback_t *callback )
++{
++	int							auth_response	= 0;
++
++	if ( od_debug == TRUE )
++	{
++		i_info( "od-debug: (%s:%s): auth mech: %s", __FILE__, __FUNCTION__, in_request->mech->mech_name );
++	}
++
++	if ( strcmp( in_request->mech->mech_name, "CRAM-MD5" ) == 0 )
++	{
++		struct od_cram_auth_request *md5_auth = (struct od_cram_auth_request *)in_request;
++
++		if ( od_debug == TRUE )
++		{
++			i_info( "od-debug: (%s:%s): username: %s, challenge: %s, response: %s", __FILE__, __FUNCTION__,
++												md5_auth->username, md5_auth->challenge, md5_auth->response );
++		}
++
++		auth_response = validate_response( in_request, md5_auth->username, md5_auth->challenge, md5_auth->response, in_request->mech->mech_name );
++		if ( auth_response == PASSDB_RESULT_OK )
++		{
++			callback( PASSDB_RESULT_OK, (const unsigned char *)kCRAM_MD5_AuthSuccess, strlen( kCRAM_MD5_AuthSuccess ), in_request );
++		}
++		else
++		{
++			callback( auth_response, (const unsigned char *)kCRAM_MD5_AuthFailed, strlen( kCRAM_MD5_AuthFailed ), in_request );
++		}
++		return;
++	}
++	else if ( strcmp( in_request->mech->mech_name, "APOP" ) == 0 )
++	{
++		const char					*apop_response	= NULL;;
++		struct od_apop_auth_request *apop_auth		= (struct od_apop_auth_request *)in_request;
++
++		apop_response = binary_to_hex( apop_auth->digest, sizeof(apop_auth->digest) );
++
++		if ( od_debug == TRUE )
++		{
++			i_info( "od-debug: (%s:%s): username: %s, challenge: %s, response: %s", __FILE__, __FUNCTION__,
++												in_request->user, apop_auth->challenge, apop_response );
++		}
++
++		auth_response = validate_response( in_request, in_request->user, apop_auth->challenge, apop_response, in_request->mech->mech_name );
++		if ( auth_response == PASSDB_RESULT_OK )
++		{
++			callback( auth_response, (const unsigned char *)kCRAM_APOP_AuthSuccess, strlen( kCRAM_APOP_AuthSuccess ), in_request );
++		}
++		else
++		{
++			callback( auth_response, (const unsigned char *)kCRAM_APOP_AuthFailed, strlen( kCRAM_APOP_AuthFailed ), in_request );
++		}
++		return;
++	}
++
++	callback( PASSDB_RESULT_USER_UNKNOWN, NULL, 0, in_request );
++
++} /* od_lookup_credentials */
++
++
++/* ------------------------------------------------------------------
++ *	od_preinit ()
++ * ------------------------------------------------------------------*/
++
++static struct passdb_module * od_preinit ( struct auth_passdb *in_auth_passdb, const char *in_args )
++{
++	struct od_passdb_module		*module;
++	const char *const *str;
++
++	module			= p_new( in_auth_passdb->auth->pool, struct od_passdb_module, 1 );
++	module->auth	= in_auth_passdb->auth;
++	module->module.cache_key = OD_USER_CACHE_KEY;
++	module->module.default_pass_scheme = OD_DEFAULT_PASS_SCHEME;
++
++	if (module->auth->verbose_debug)
++		od_debug = TRUE;
++
++	if ( in_args != NULL )
++	{
++		for ( str = t_strsplit(in_args, " "); *str != NULL; str++ )
++		{
++			if ( strcmp( *str, "debug") == 0 )
++			{
++				od_debug = TRUE;
++			} else if (!strncmp(*str, "pos_cache_ttl=", 14)) {
++				int ttl = atoi(*str + 14);
++				if (ttl >= 0)
++					od_pos_cache_ttl = ttl;
++			} else if (!strncmp(*str, "neg_cache_ttl=", 14)) {
++				int ttl = atoi(*str + 14);
++				if (ttl >= 0)
++					od_neg_cache_ttl = ttl;
++			}
++		}
++	}
++	if (od_debug)
++		i_info( "od-debug: (%s:%s): args = %s", __FILE__, __FUNCTION__, in_args );
++
++	module->od_data	= db_od_init( FALSE );
++
++	return( &module->module );
++
++} /* od_preinit */
++
++
++/* ------------------------------------------------------------------
++ *	od_init ()
++ * ------------------------------------------------------------------*/
++
++static void od_init ( struct passdb_module *_module, const char *args ATTR_UNUSED )
++{
++	struct od_passdb_module *module = (struct od_passdb_module *)_module;
++
++	db_od_do_init( module->od_data );
++} /* od_init */
++
++
++/* ------------------------------------------------------------------
++ *	od_deinit ()
++ * ------------------------------------------------------------------*/
++
++static void od_deinit ( struct passdb_module *_module )
++{
++	struct od_passdb_module *module = (struct od_passdb_module *)_module;
++
++	db_od_unref( &module->od_data );
++} /* od_deinit */
++
++
++struct passdb_module_interface passdb_od = {
++	"od",
++
++	od_preinit,
++	od_init,
++	od_deinit,
++
++	od_verify_plain,
++	od_lookup_credentials,
++	NULL
++};
++
++#endif
+diff -Nur dovecot-1.1.7/src/auth/passdb.c dovecot-patch/src/auth/passdb.c
+--- dovecot-1.1.7/src/auth/passdb.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/auth/passdb.c	2008-12-22 13:02:20.000000000 -0600
+@@ -187,6 +187,7 @@
+ extern struct passdb_module_interface passdb_bsdauth;
+ extern struct passdb_module_interface passdb_shadow;
+ extern struct passdb_module_interface passdb_passwd_file;
++extern struct passdb_module_interface passdb_od;
+ extern struct passdb_module_interface passdb_pam;
+ extern struct passdb_module_interface passdb_checkpassword;
+ extern struct passdb_module_interface passdb_vpopmail;
+@@ -206,6 +207,9 @@
+ #ifdef PASSDB_PASSWD_FILE
+ 	passdb_register_module(&passdb_passwd_file);
+ #endif
++#ifdef PASSDB_OD
++	passdb_register_module(&passdb_od);
++#endif
+ #ifdef PASSDB_PAM
+ 	passdb_register_module(&passdb_pam);
+ #endif
+diff -Nur dovecot-1.1.7/src/auth/userdb-od.c dovecot-patch/src/auth/userdb-od.c
+--- dovecot-1.1.7/src/auth/userdb-od.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/src/auth/userdb-od.c	2008-12-22 12:47:20.000000000 -0600
+@@ -0,0 +1,289 @@
++/*
++ * Copyright (c) 2008 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "common.h"
++
++#ifdef USERDB_OD
++
++#include "str.h"
++#include "istream.h"
++#include "auth-cache.h"
++#include "var-expand.h"
++#include "userdb.h"
++#include "db-od.h"
++
++#include <stdlib.h>
++#include <fcntl.h>
++
++#define OD_CACHE_KEY "%u"
++
++struct od_userdb_module {
++	struct userdb_module module;
++	struct auth		*auth;
++	struct db_od	*od_data;
++	const char		*od_partitions;
++};
++
++
++/* ------------------------------------------------------------------
++ *	od_lookup ()
++ * ------------------------------------------------------------------*/
++
++static void od_lookup ( struct auth_request *in_request, userdb_callback_t *callback )
++{
++	struct userdb_module	*user_module	= in_request->userdb->userdb;
++	struct od_userdb_module *od_user_module	= (struct od_userdb_module *)user_module;
++	struct od_user			*user_info		= NULL;
++	const char *const		*map_str		= NULL;
++	const char				*base_path		= NULL;
++	const char				*alt_path		= NULL;
++	const char				*partition_tag	= NULL;
++	const char				*quota_str		= NULL;
++
++	if ( od_debug == TRUE )
++	{
++		i_info( "od-debug: (%s:%s): user: %s", __FILE__, __FUNCTION__, in_request->user );
++	}
++
++	user_info = db_od_user_lookup( od_user_module->od_data, in_request->user, FALSE );
++	if ( user_info == NULL )
++	{
++		callback( USERDB_RESULT_USER_UNKNOWN, in_request );
++		return;
++	}
++
++	if ( od_debug == TRUE )
++	{
++		i_info( "od-debug: (%s:%s): rec name: %s", __FILE__, __FUNCTION__, user_info->record_name );
++		i_info( "od-debug: (%s:%s):      uid: %d", __FILE__, __FUNCTION__, user_info->user_uid );
++		i_info( "od-debug: (%s:%s):      gid: %d", __FILE__, __FUNCTION__, user_info->user_gid );
++	}
++
++	/* Check for alias record name */
++	if ( strcmp( in_request->user, user_info->record_name ) != 0 )
++	{
++		i_info( "od-debug: (%s:%s): setting alias name: %s to %s", __FILE__, __FUNCTION__, in_request->user, user_info->record_name );
++		in_request->user = t_strdup_noconst( user_info->record_name );
++	}
++
++	auth_request_init_userdb_reply( in_request );
++	if ( user_info->user_uid != (uid_t)-1 )
++	{
++		auth_request_set_userdb_field( in_request, "uid", dec2str( user_info->user_uid ) );
++	}
++
++	if ( user_info->user_gid != (gid_t)-1 )
++	{
++		auth_request_set_userdb_field( in_request, "gid", dec2str( user_info->user_gid ) );
++	}
++
++	/* Override global quota settings */
++	if ( user_info->mail_quota != 0 )
++	{
++		/* Make quota string from user specific settings */
++		quota_str = t_strdup_printf( "*:storage=%u", user_info->mail_quota * 1024 );
++
++		auth_request_set_userdb_field( in_request, "quota", "maildir" );
++		auth_request_set_userdb_field( in_request, "quota_rule", quota_str );
++
++		if ( od_debug == TRUE )
++		{
++			i_info( "od-debug: (%s:%s): setting quota for user: %s  to: %s", __FILE__, __FUNCTION__, user_info->record_name, quota_str );
++		}
++	}
++
++	if ( user_info->alt_data_loc != NULL )
++	{
++		/* If there are defined partitios, then we better have a partition map */
++		if ( od_user_module->od_partitions != NULL )
++		{
++			partition_tag = t_strconcat( user_info->alt_data_loc, ":", NULL );
++
++			/* We've already read in partition map file, look for a match  */
++			/*  ie.  default:/var/spool/dovecot/mail  */
++			/*       partition1:/var/spool/one  */
++
++			for ( map_str = t_strsplit( od_user_module->od_partitions, "\n"); *map_str != NULL; map_str++ )
++			{
++				if ( strncmp( partition_tag, *map_str, strlen(partition_tag)) == 0 )
++				{
++					base_path = t_strdup_noconst( *map_str + strlen(partition_tag) );
++					break;
++				}
++			}
++
++			if ( base_path != NULL )
++			{
++				alt_path = t_strconcat( "maildir:", base_path, "/", user_info->record_name, NULL );
++				auth_request_set_userdb_field( in_request, "mail", alt_path );
++				if ( od_debug == TRUE )
++				{
++					i_info( "od-debug: (%s:%s): alt loc: %s", __FILE__, __FUNCTION__, alt_path );
++				}
++			}
++			else
++			{
++				i_error( "od: Partition mapping is enabled for user %s but none matching %s tag were found.", user_info->record_name, user_info->alt_data_loc );
++			}
++
++
++			if ( od_debug == TRUE )
++			{
++				i_info( "od-debug: (%s:%s): Setting alternate mail location for user: %s with tag: %s", __FILE__, __FUNCTION__, alt_path, user_info->alt_data_loc );
++			}
++
++		}
++		else
++		{
++			i_error( "od: Partition mapping is enabled for user %s but none defined in map file.", user_info->record_name );
++		}
++	}
++
++	db_od_user_unref(&user_info);
++	callback( USERDB_RESULT_OK, in_request );
++} /* od_lookup */
++
++
++/* ------------------------------------------------------------------
++ *	od_preinit ()
++ * ------------------------------------------------------------------*/
++
++static struct userdb_module * od_preinit ( struct auth_userdb *in_auth_userdb, const char *in_args )
++{
++	struct od_userdb_module	*module;
++	const char *const *str;
++
++	module			= p_new( in_auth_userdb->auth->pool, struct od_userdb_module, 1 );
++	module->auth	= in_auth_userdb->auth;
++
++	module->module.cache_key = OD_CACHE_KEY;
++
++	if ( in_args != NULL )
++	{
++		for ( str = t_strsplit(in_args, " "); *str != NULL; str++ )
++		{
++			if ( strcmp( *str, "debug") == 0 )
++			{
++				od_debug = TRUE;
++			}
++			else if ( (strncmp( *str, "partition=", 10) == 0) && (strlen( *str ) > 10) )
++			{
++				int fd = open( *str + 10, O_RDONLY );
++				if ( fd == -1 )
++				{
++					i_warning( "failed to open partition file %s: %m", *str + 10 );
++				}
++				else
++				{
++					struct istream *input;
++					char *line	= NULL;
++					const char *data	= NULL;
++					input = i_stream_create_fd(fd, 1024, TRUE);
++					while ( (line = i_stream_read_next_line(input)) != NULL )
++					{
++						if ( data == NULL )
++						{
++							data = t_strdup_noconst( line );
++						}
++						else
++						{
++							data = t_strconcat( data, "\n", line, NULL );
++						}
++					}
++					module->od_partitions = p_strndup( in_auth_userdb->auth->pool, data, strlen( data ) );
++				}
++			} else if (!strncmp(*str, "pos_cache_ttl=", 14)) {
++				int ttl = atoi(*str + 14);
++				if (ttl >= 0)
++					od_pos_cache_ttl = ttl;
++			} else if (!strncmp(*str, "neg_cache_ttl=", 14)) {
++				int ttl = atoi(*str + 14);
++				if (ttl >= 0)
++					od_neg_cache_ttl = ttl;
++			}
++		}
++	}
++
++	module->od_data	= db_od_init( TRUE );
++
++	if ( module->auth->verbose_debug )
++	{
++		od_debug = TRUE;
++	}
++
++	if ( od_debug == TRUE )
++	{
++		i_info( "od-debug: (%s:%s): args = %s", __FILE__, __FUNCTION__, in_args );
++	}
++
++	return( &module->module );
++} /* od_preinit */
++
++
++/* ------------------------------------------------------------------
++ *	od_init ()
++ * ------------------------------------------------------------------*/
++
++static void od_init ( struct userdb_module *_module, const char *args ATTR_UNUSED )
++{
++	struct od_userdb_module *module = (struct od_userdb_module *)_module;
++
++	db_od_do_init( module->od_data );
++} /* od_init */
++
++
++/* ------------------------------------------------------------------
++ *	od_deinit ()
++ * ------------------------------------------------------------------*/
++
++static void od_deinit ( struct userdb_module *_module )
++{
++	struct od_userdb_module *module = (struct od_userdb_module *)_module;
++
++	db_od_unref( &module->od_data );
++} /* od_deinit */
++
++
++/* ------------------------------------------------------------------
++ *	userdb_module_interface
++ * ------------------------------------------------------------------*/
++
++struct userdb_module_interface userdb_od = {
++	"od",
++
++	od_preinit,
++	od_init,
++	od_deinit,
++
++	od_lookup
++};
++
++#endif
+diff -Nur dovecot-1.1.7/src/auth/userdb.c dovecot-patch/src/auth/userdb.c
+--- dovecot-1.1.7/src/auth/userdb.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/auth/userdb.c	2008-12-22 13:02:25.000000000 -0600
+@@ -154,6 +154,7 @@
+ extern struct userdb_module_interface userdb_static;
+ extern struct userdb_module_interface userdb_passwd;
+ extern struct userdb_module_interface userdb_passwd_file;
++extern struct userdb_module_interface userdb_od;
+ extern struct userdb_module_interface userdb_vpopmail;
+ extern struct userdb_module_interface userdb_ldap;
+ extern struct userdb_module_interface userdb_sql;
+@@ -168,6 +169,9 @@
+ #ifdef USERDB_PASSWD_FILE
+ 	userdb_register_module(&userdb_passwd_file);
+ #endif
++#ifdef USERDB_OD
++	userdb_register_module(&userdb_od);
++#endif
+ #ifdef USERDB_PREFETCH
+ 	userdb_register_module(&userdb_prefetch);
+ #endif
+diff -Nur dovecot-1.1.7/src/deliver/deliver.c dovecot-patch/src/deliver/deliver.c
+--- dovecot-1.1.7/src/deliver/deliver.c	2008-11-19 11:43:13.000000000 -0600
++++ dovecot-patch/src/deliver/deliver.c	2008-12-22 13:03:45.000000000 -0600
+@@ -969,6 +969,14 @@
+ 		if (ret != 0)
+ 			return ret;
+ 	}
++
++	/* APPLE - follow the cue if auth changed the user name */
++	if (array_count(&extra_fields) > 0) {
++		char *const *newuser = array_idx(&extra_fields, 0);
++		if (strcmp(user, *newuser))
++			user = *newuser;
++	}
++
+ 	if (destaddr == NULL)
+ 		destaddr = user;
+ 
+diff -Nur dovecot-1.1.7/src/imap-login/Makefile.in dovecot-patch/src/imap-login/Makefile.in
+--- dovecot-1.1.7/src/imap-login/Makefile.in	2008-11-23 16:16:39.000000000 -0600
++++ dovecot-patch/src/imap-login/Makefile.in	2008-12-22 13:04:05.000000000 -0600
+@@ -116,7 +116,7 @@
+ KRB5_CFLAGS = @KRB5_CFLAGS@
+ KRB5_LIBS = @KRB5_LIBS@
+ LDAP_LIBS = @LDAP_LIBS@
+-LDFLAGS = @LDFLAGS@
++LDFLAGS = @LDFLAGS@ -framework Security
+ LIBCAP = @LIBCAP@
+ LIBICONV = @LIBICONV@
+ LIBOBJS = @LIBOBJS@
+diff -Nur dovecot-1.1.7/src/login-common/ssl-proxy-openssl.c dovecot-patch/src/login-common/ssl-proxy-openssl.c
+--- dovecot-1.1.7/src/login-common/ssl-proxy-openssl.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/login-common/ssl-proxy-openssl.c	2008-12-22 13:09:54.000000000 -0600
+@@ -22,6 +22,25 @@
+ #include <openssl/err.h>
+ #include <openssl/rand.h>
+ 
++#ifdef APPLE_OS_X_SERVER
++#include <stdio.h>
++#include <sys/types.h>
++
++#include <Security/SecKeychain.h>
++#include <Security/SecKeychainItem.h>
++
++typedef struct
++{
++	int		len;
++	char	key[ FILENAME_MAX ];
++	int		reserved;
++} CallbackUserData;
++
++int apple_password_callback ( char *in_buf, int in_size, int in_rwflag, void *in_user_data );
++
++static CallbackUserData *s_user_data = NULL;
++#endif
++
+ #define DOVECOT_SSL_DEFAULT_CIPHER_LIST "ALL:!LOW:!SSLv2"
+ /* Check every 30 minutes if parameters file has been updated */
+ #define SSL_PARAMFILE_CHECK_INTERVAL (60*30)
+@@ -78,6 +97,77 @@
+ static void ssl_proxy_destroy(struct ssl_proxy *proxy);
+ static void ssl_proxy_unref(struct ssl_proxy *proxy);
+ 
++#ifdef APPLE_OS_X_SERVER
++/* -----------------------------------------------------------------
++        apple_password_callback ()
++   ----------------------------------------------------------------- */
++
++int apple_password_callback ( char *in_buf, int in_size, int in_rwflag ATTR_UNUSED, void *in_user_data )
++{
++	char			   *buf		= NULL;
++	ssize_t				len		= 0;
++	int					fd[ 2 ];
++	char			   *args[ 4 ];
++	CallbackUserData   *cb_data	= (CallbackUserData *)in_user_data;
++
++	if ( (cb_data == NULL) || strlen( cb_data->key ) == 0 ||
++		 (cb_data->len >= FILENAME_MAX) || (cb_data->len == 0) || !in_buf )
++	{
++		i_error("invalid arguments in callback" );
++		return( 0 );
++	}
++
++	/* open a pipe */
++	pipe( fd );
++
++	/* fork the child */
++	pid_t pid = fork();
++	if ( pid == 0 )
++	{
++		/* child: exec certadmin tool */
++		close(0);
++		close(1);
++
++		dup2( fd[1], 1 );
++
++		/* set up the args list */
++		args[ 0 ] = "/usr/sbin/certadmin";
++		args[ 1 ] = "--get-private-key-passphrase";
++		args[ 2 ] = cb_data->key;
++		args[ 3 ] = NULL;
++
++		/* get the passphrase */
++		execv("/usr/sbin/certadmin", args);
++
++		exit( 0 );
++	}
++	else if ( pid > 0 )
++	{
++		/* parent: read passphrase */
++		len = 0;
++
++		buf = malloc( in_size );
++		if ( buf == NULL )
++		{
++			i_error( "memory allocation error" );
++			return( 0 );
++		}
++
++		len = read( fd[0], buf, in_size);
++		if ( len != 0 )
++		{
++			/* copy passphrase into buffer & strip off /n */
++			strncpy( in_buf, buf, len - 1 );
++			in_buf[ len - 1 ] = '\0';
++		}
++	}
++
++	return( strlen(in_buf ) );
++
++} /* apple_password_callback */
++
++#endif
++
+ static void read_next(struct ssl_parameters *params, void *data, size_t size)
+ {
+ 	int ret;
+@@ -802,6 +892,38 @@
+ 
+         SSL_CTX_set_default_passwd_cb(ssl_ctx, pem_password_callback);
+         SSL_CTX_set_default_passwd_cb_userdata(ssl_ctx, password);
++
++#ifdef APPLE_OS_X_SERVER
++	if ( strlen( keyfile ) < FILENAME_MAX )
++	{
++		if ( s_user_data == NULL )
++		{
++			s_user_data = malloc( sizeof(CallbackUserData) );
++			if ( s_user_data != NULL )
++			{
++				memset( s_user_data, 0, sizeof(CallbackUserData) );
++			}
++		}
++
++		if ( s_user_data != NULL )
++		{
++			i_snprintf( s_user_data->key, FILENAME_MAX, "%s", keyfile );
++			s_user_data->len = strlen( s_user_data->key );
++
++			SSL_CTX_set_default_passwd_cb_userdata( ssl_ctx, (void *)s_user_data );
++			SSL_CTX_set_default_passwd_cb( ssl_ctx, &apple_password_callback );
++		}
++		else
++		{
++			i_info( "Could not set custom callback for: %s", keyfile );
++		}
++	}
++	else
++	{
++		i_info( "Key file path too big for custom callback for: %s", keyfile );
++	}
++#endif
++
+ 	if (SSL_CTX_use_PrivateKey_file(ssl_ctx, keyfile,
+ 					SSL_FILETYPE_PEM) != 1) {
+ 		i_fatal("Can't load private key file %s: %s",
+diff -Nur dovecot-1.1.7/src/master/main.c dovecot-patch/src/master/main.c
+--- dovecot-1.1.7/src/master/main.c	2008-10-29 12:28:26.000000000 -0500
++++ dovecot-patch/src/master/main.c	2008-12-22 13:15:20.000000000 -0600
+@@ -401,6 +401,9 @@
+ #ifdef PASSDB_LDAP
+ 		" ldap"
+ #endif
++#ifdef PASSDB_OD
++	        " od"
++#endif
+ #ifdef PASSDB_PAM
+ 		" pam"
+ #endif
+@@ -429,6 +432,9 @@
+ #ifdef USERDB_LDAP
+ 		" ldap"
+ #endif
++#ifdef USERDB_OD
++	        " od"
++#endif
+ #ifdef USERDB_PASSWD
+ 		" passwd"
+ #endif
+diff -Nur dovecot-1.1.7/src/pop3-login/Makefile.in dovecot-patch/src/pop3-login/Makefile.in
+--- dovecot-1.1.7/src/pop3-login/Makefile.in	2008-11-23 16:16:43.000000000 -0600
++++ dovecot-patch/src/pop3-login/Makefile.in	2008-12-22 13:17:19.000000000 -0600
+@@ -115,7 +115,7 @@
+ KRB5_CFLAGS = @KRB5_CFLAGS@
+ KRB5_LIBS = @KRB5_LIBS@
+ LDAP_LIBS = @LDAP_LIBS@
+-LDFLAGS = @LDFLAGS@
++LDFLAGS = @LDFLAGS@ -framework Security
+ LIBCAP = @LIBCAP@
+ LIBICONV = @LIBICONV@
+ LIBOBJS = @LIBOBJS@

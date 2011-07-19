@@ -1,0 +1,303 @@
+Prereq: "2.8.2"
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/global/mail_version.h ./src/global/mail_version.h
+*** /var/tmp/postfix-2.8.2/src/global/mail_version.h	Mon Mar 21 16:46:27 2011
+--- ./src/global/mail_version.h	Tue Apr 19 20:24:58 2011
+***************
+*** 20,27 ****
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20110321"
+! #define MAIL_VERSION_NUMBER	"2.8.2"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+--- 20,27 ----
+    * Patches change both the patchlevel and the release date. Snapshots have no
+    * patchlevel; they change the release date only.
+    */
+! #define MAIL_RELEASE_DATE	"20110509"
+! #define MAIL_VERSION_NUMBER	"2.8.3"
+  
+  #ifdef SNAPSHOT
+  # define MAIL_VERSION_DATE	"-" MAIL_RELEASE_DATE
+diff -cr --new-file /var/tmp/postfix-2.8.2/HISTORY ./HISTORY
+*** /var/tmp/postfix-2.8.2/HISTORY	Wed Mar 16 10:52:15 2011
+--- ./HISTORY	Tue Apr 19 19:09:09 2011
+***************
+*** 15616,15622 ****
+  	for the "virtual:" transport to "/etc/postfix/virtual:".
+  	Symptom reported by Christoph Anton Mitterer.
+  
+! 20200102
+  
+  	Workaround: don't report bogus Berkeley DB close errors as
+  	fatal errors. All operations before close are already error
+--- 15616,15622 ----
+  	for the "virtual:" transport to "/etc/postfix/virtual:".
+  	Symptom reported by Christoph Anton Mitterer.
+  
+! 20100102
+  
+  	Workaround: don't report bogus Berkeley DB close errors as
+  	fatal errors. All operations before close are already error
+***************
+*** 16569,16571 ****
+--- 16569,16585 ----
+  	expression of the form ``("text1" "text2") + constant'' so
+  	we don't try to be so clever. Fix by Victor Duchovni.  File:
+  	global/mail_params.h.
++ 
++ 20110411
++ 
++ 	Cleanup: postscreen(8) and verify(8) daemons now lock their
++ 	respective cache file exclusively upon open, to avoid massive
++ 	cache corruption by unsupported sharing. Files: util/dict.h,
++ 	util/dict_open.c, verify/verify.c, postscreen/postscreen.c.
++ 
++ 20110414
++ 
++ 	Bugfix (introduced with Postfix SASL patch 20000314): don't
++ 	reuse a server SASL handle after authentication failure.
++ 	Problem reported by Thomas Jarosch of Intra2net AG. File:
++ 	smtpd/smtpd_proto.c.
+diff -cr --new-file /var/tmp/postfix-2.8.2/html/postconf.1.html ./html/postconf.1.html
+*** /var/tmp/postfix-2.8.2/html/postconf.1.html	Sat Sep 11 19:05:04 2010
+--- ./html/postconf.1.html	Mon Mar 28 19:01:05 2011
+***************
+*** 88,95 ****
+                With  Postfix  version  2.8 and later, the <b>-e</b> is no
+                longer needed.
+  
+!        <b>-h</b>     Show parameter values only, not the "<i>name = " label</i>
+!               <i>that normally precedes the value.</i>
+  
+         <b>-l</b>     List  the  names  of  all supported mailbox locking
+                methods.  Postfix supports the following methods:
+--- 88,95 ----
+                With  Postfix  version  2.8 and later, the <b>-e</b> is no
+                longer needed.
+  
+!        <b>-h</b>     Show parameter values only, not the "<i>name =</i> " label
+!               that normally precedes the value.
+  
+         <b>-l</b>     List  the  names  of  all supported mailbox locking
+                methods.  Postfix supports the following methods:
+diff -cr --new-file /var/tmp/postfix-2.8.2/man/man1/postconf.1 ./man/man1/postconf.1
+*** /var/tmp/postfix-2.8.2/man/man1/postconf.1	Sat Sep 11 19:05:04 2010
+--- ./man/man1/postconf.1	Mon Mar 28 19:01:05 2011
+***************
+*** 83,89 ****
+  With Postfix version 2.8 and later, the \fB-e\fR is no
+  longer needed.
+  .IP \fB-h\fR
+! Show parameter values only, not the "\fIname = " label
+  that normally precedes the value.
+  .IP \fB-l\fR
+  List the names of all supported mailbox locking methods.
+--- 83,89 ----
+  With Postfix version 2.8 and later, the \fB-e\fR is no
+  longer needed.
+  .IP \fB-h\fR
+! Show parameter values only, not the "\fIname = \fR" label
+  that normally precedes the value.
+  .IP \fB-l\fR
+  List the names of all supported mailbox locking methods.
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/postconf/postconf.c ./src/postconf/postconf.c
+*** /var/tmp/postfix-2.8.2/src/postconf/postconf.c	Sat Sep 11 19:05:00 2010
+--- ./src/postconf/postconf.c	Mon Mar 28 19:00:58 2011
+***************
+*** 77,83 ****
+  /*	With Postfix version 2.8 and later, the \fB-e\fR is no
+  /*	longer needed.
+  /* .IP \fB-h\fR
+! /*	Show parameter values only, not the "\fIname = " label
+  /*	that normally precedes the value.
+  /* .IP \fB-l\fR
+  /*	List the names of all supported mailbox locking methods.
+--- 77,83 ----
+  /*	With Postfix version 2.8 and later, the \fB-e\fR is no
+  /*	longer needed.
+  /* .IP \fB-h\fR
+! /*	Show parameter values only, not the "\fIname = \fR" label
+  /*	that normally precedes the value.
+  /* .IP \fB-l\fR
+  /*	List the names of all supported mailbox locking methods.
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/postscreen/postscreen.c ./src/postscreen/postscreen.c
+*** /var/tmp/postfix-2.8.2/src/postscreen/postscreen.c	Tue Feb 22 17:21:34 2011
+--- ./src/postscreen/postscreen.c	Fri Apr 15 12:47:44 2011
+***************
+*** 823,829 ****
+       * 
+       * Start the cache maintenance pseudo thread after dropping privileges.
+       */
+! #define PSC_DICT_OPEN_FLAGS (DICT_FLAG_DUP_REPLACE | DICT_FLAG_SYNC_UPDATE)
+  
+      if (*var_psc_cache_map)
+  	psc_cache_map =
+--- 823,830 ----
+       * 
+       * Start the cache maintenance pseudo thread after dropping privileges.
+       */
+! #define PSC_DICT_OPEN_FLAGS (DICT_FLAG_DUP_REPLACE | DICT_FLAG_SYNC_UPDATE | \
+! 	    DICT_FLAG_OPEN_LOCK)
+  
+      if (*var_psc_cache_map)
+  	psc_cache_map =
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/smtpd/smtpd_sasl_proto.c ./src/smtpd/smtpd_sasl_proto.c
+*** /var/tmp/postfix-2.8.2/src/smtpd/smtpd_sasl_proto.c	Wed Jan  5 15:16:53 2011
+--- ./src/smtpd/smtpd_sasl_proto.c	Tue Apr 19 19:07:02 2011
+***************
+*** 184,189 ****
+--- 184,210 ----
+  	return (-1);
+      }
+  
++     /* Don't reuse the SASL handle after authentication failure. */
++ #ifndef SMTPD_FLAG_AUTH_USED
++ #define SMTPD_FLAG_AUTH_USED	(1<<15)
++ #endif
++ #ifndef XSASL_TYPE_CYRUS 
++ #define XSASL_TYPE_CYRUS	"cyrus"
++ #endif
++     if (state->flags & SMTPD_FLAG_AUTH_USED) {
++ 	smtpd_sasl_deactivate(state);
++ #ifdef USE_TLS
++ 	if (state->tls_context != 0)
++ 	    smtpd_sasl_activate(state, VAR_SMTPD_SASL_TLS_OPTS,
++ 				var_smtpd_sasl_tls_opts);
++ 	else
++ #endif
++ 	    smtpd_sasl_activate(state, VAR_SMTPD_SASL_OPTS,
++ 				var_smtpd_sasl_opts);
++     } else if (strcmp(var_smtpd_sasl_type, XSASL_TYPE_CYRUS) == 0) {
++ 	state->flags |= SMTPD_FLAG_AUTH_USED;
++     }
++ 
+      /*
+       * All authentication failures shall be logged. The 5xx reply code from
+       * the SASL authentication routine triggers tar-pit delays, which help to
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/util/Makefile.in ./src/util/Makefile.in
+*** /var/tmp/postfix-2.8.2/src/util/Makefile.in	Mon Jan 10 15:14:50 2011
+--- ./src/util/Makefile.in	Fri Apr 15 12:52:47 2011
+***************
+*** 948,953 ****
+--- 948,954 ----
+  dict_open.o: dict_unix.h
+  dict_open.o: htable.h
+  dict_open.o: msg.h
++ dict_open.o: myflock.h
+  dict_open.o: mymalloc.h
+  dict_open.o: split_at.h
+  dict_open.o: stringops.h
+***************
+*** 1309,1315 ****
+  mask_addr.o: sys_defs.h
+  match_list.o: argv.h
+  match_list.o: dict.h
+- match_list.o: htable.h
+  match_list.o: match_list.c
+  match_list.o: match_list.h
+  match_list.o: match_ops.h
+--- 1310,1315 ----
+***************
+*** 1324,1331 ****
+  match_ops.o: argv.h
+  match_ops.o: cidr_match.h
+  match_ops.o: dict.h
+- match_ops.o: htable.h
+- match_ops.o: match_list.h
+  match_ops.o: match_ops.c
+  match_ops.o: match_ops.h
+  match_ops.o: msg.h
+--- 1324,1329 ----
+***************
+*** 1788,1793 ****
+--- 1786,1793 ----
+  vstring_vstream.o: vstring.h
+  vstring_vstream.o: vstring_vstream.c
+  vstring_vstream.o: vstring_vstream.h
++ watchdog.o: events.h
++ watchdog.o: iostuff.h
+  watchdog.o: killme_after.h
+  watchdog.o: msg.h
+  watchdog.o: mymalloc.h
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/util/dict.h ./src/util/dict.h
+*** /var/tmp/postfix-2.8.2/src/util/dict.h	Mon Dec  3 14:42:26 2007
+--- ./src/util/dict.h	Fri Apr 15 12:47:44 2011
+***************
+*** 67,72 ****
+--- 67,73 ----
+  #define DICT_FLAG_FOLD_FIX	(1<<14)	/* case-fold key with fixed-case map */
+  #define DICT_FLAG_FOLD_MUL	(1<<15)	/* case-fold key with multi-case map */
+  #define DICT_FLAG_FOLD_ANY	(DICT_FLAG_FOLD_FIX | DICT_FLAG_FOLD_MUL)
++ #define DICT_FLAG_OPEN_LOCK	(1<<16)	/* open file with exclusive lock */
+  
+   /* IMPORTANT: Update the dict_mask[] table when the above changes */
+  
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/util/dict_open.c ./src/util/dict_open.c
+*** /var/tmp/postfix-2.8.2/src/util/dict_open.c	Sat Sep 11 17:49:58 2010
+--- ./src/util/dict_open.c	Mon Apr 11 13:37:49 2011
+***************
+*** 80,85 ****
+--- 80,89 ----
+  /* .IP DICT_FLAG_LOCK
+  /*	With maps where this is appropriate, acquire an exclusive lock
+  /*	before writing, and acquire a shared lock before reading.
++ /* .IP DICT_FLAG_OPEN_LOCK
++ /*	With maps where this is appropriate, acquire an exclusive
++ /*	lock upon open, and report a fatal run-time error if the
++ /*	table is already locked.
+  /* .IP DICT_FLAG_FOLD_FIX
+  /*	With databases whose lookup fields are fixed-case strings,
+  /*	fold the search key to lower case before accessing the
+***************
+*** 210,215 ****
+--- 214,220 ----
+  #include <stringops.h>
+  #include <split_at.h>
+  #include <htable.h>
++ #include <myflock.h>
+  
+   /*
+    * lookup table for available map types.
+***************
+*** 313,318 ****
+--- 318,333 ----
+  	msg_fatal("opening %s:%s %m", dict_type, dict_name);
+      if (msg_verbose)
+  	msg_info("%s: %s:%s", myname, dict_type, dict_name);
++     /* XXX the choice between wait-for-lock or no-wait is hard-coded. */
++     if (dict->lock_fd >= 0 && (dict_flags & DICT_FLAG_OPEN_LOCK) != 0) {
++ 	if (dict_flags & DICT_FLAG_LOCK)
++ 	    msg_panic("%s: attempt to open %s:%s with both \"open\" lock and \"access\" lock",
++ 		      myname, dict_type, dict_name);
++ 	if (myflock(dict->lock_fd, INTERNAL_LOCK,
++ 		    MYFLOCK_OP_EXCLUSIVE | MYFLOCK_OP_NOWAIT) < 0)
++ 	    msg_fatal("%s:%s: unable to get exclusive lock: %m",
++ 		      dict_type, dict_name);
++     }
+      return (dict);
+  }
+  
+diff -cr --new-file /var/tmp/postfix-2.8.2/src/verify/verify.c ./src/verify/verify.c
+*** /var/tmp/postfix-2.8.2/src/verify/verify.c	Sun Jan 31 13:56:29 2010
+--- ./src/verify/verify.c	Mon Apr 11 13:38:51 2011
+***************
+*** 664,670 ****
+       * 
+       * Start the cache cleanup thread after permanently dropping privileges.
+       */
+! #define VERIFY_DICT_OPEN_FLAGS (DICT_FLAG_DUP_REPLACE | DICT_FLAG_SYNC_UPDATE)
+  
+      saved_mask = umask(022);
+      verify_map =
+--- 664,671 ----
+       * 
+       * Start the cache cleanup thread after permanently dropping privileges.
+       */
+! #define VERIFY_DICT_OPEN_FLAGS (DICT_FLAG_DUP_REPLACE | DICT_FLAG_SYNC_UPDATE \
+! 	    | DICT_FLAG_OPEN_LOCK)
+  
+      saved_mask = umask(022);
+      verify_map =

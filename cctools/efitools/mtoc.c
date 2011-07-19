@@ -34,7 +34,7 @@
 #include "stuff/errors.h"
 #include "stuff/allocate.h"
 #include "stuff/reloc.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 
 #include "coff/ms_dos_stub.h"
 #include "coff/filehdr.h"
@@ -84,6 +84,7 @@ struct subsystem_argument subsystem_arguments[] = {
     { "application",		IMAGE_SUBSYSTEM_EFI_APPLICATION },
     { "app",			IMAGE_SUBSYSTEM_EFI_APPLICATION },
     { "UEFI_APPLICATION",	IMAGE_SUBSYSTEM_EFI_APPLICATION },
+    { "APPLICATION",	        IMAGE_SUBSYSTEM_EFI_APPLICATION },
 
     { "boot",			IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
     { "bsdrv",			IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
@@ -98,6 +99,12 @@ struct subsystem_argument subsystem_arguments[] = {
     { "USER_DEFINED",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
     { "UEFI_DRIVER",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
     { "DXE_CORE",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "SECURITY_CORE",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "COMBINED_PEIM_DRIVER",	IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "PIC_PEIM",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "RELOCATABLE_PEIM",	IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "BS_DRIVER",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
+    { "SMM_CORE",		IMAGE_SUBSYSTEM_EFI_BOOT_SERVICE_DRIVER },
 
     { "runtime",		IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER },
     { "rtdrv",			IMAGE_SUBSYSTEM_EFI_RUNTIME_DRIVER },
@@ -127,6 +134,16 @@ static enum bool ispoweroftwo(uint32_t x);
  * The string for the -d argument.
  */
 char *debug_filename = NULL;
+
+/*
+ * The string for the -u argument.
+ */
+char *debug_uuid = NULL;
+
+/*
+ * Format specifier for scanf() to convert UUID to individual bytes
+ */
+#define UUID_FORMAT_STRING "%02hhx%02hhx%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx-%02hhx%02hhx%02hhx%02hhx%02hhx%02hhx"
 
 /*
  * The string for the entry point symbol name.
@@ -224,6 +241,9 @@ static int cmp_base_relocs(
     struct base_reloc *x2);
 static uint32_t checksum(
     unsigned char *buf);
+static void string_to_uuid(
+    char *string,
+    uint8_t *uuid);
 
 static void create_debug(
     struct arch *arch);
@@ -295,6 +315,17 @@ char **envp)
 		    usage();
 		}
 		entry_point = argv[i+1];
+		i++;
+	    }
+	    else if(strcmp(argv[i], "-u") == 0){
+		if(i + 1 >= argc){
+		    warning("no argument specified for -u option");
+		    usage();
+		}
+		if(debug_filename == NULL) {
+		    fatal("-u option requires -d option");
+		}
+		debug_uuid = argv[i+1];
 		i++;
 	    }
 	    else if(strcmp(argv[i], "-section_alignment") == 0){
@@ -402,8 +433,8 @@ usage(
 void)
 {
 	fprintf(stderr, "Usage: %s [-subsystem type] "
-		"[-section_alignment hexvalue] [-align hexvalue] [-d filename]"
-		" input_Mach-O output_pecoff\n", progname);
+		"[-section_alignment hexvalue] [-align hexvalue] [-d debug_filename] "
+		"[-u debug_guid] input_Mach-O output_pecoff\n", progname);
 	exit(EXIT_FAILURE);
 }
 
@@ -631,7 +662,7 @@ struct arch *arch)
 		    state += sizeof(uint32_t);
 		    switch(arch->object->mh_cputype){
 		    case CPU_TYPE_I386:
-			switch(flavor){
+			switch((int)flavor){
 			i386_thread_state_t *cpu;
 			case i386_THREAD_STATE:
 #if i386_THREAD_STATE == 1
@@ -670,8 +701,10 @@ struct arch *arch)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	/* add one for the .reloc section to contain the base relocations */
-	nscns++;
+	if(reloc_size != 0){
+	    /* add one for the .reloc section to contain the base relocations */
+	    nscns++;
+	}
 
 	/*
 	 * If there is a -d flag add one for the .debug section to contain
@@ -737,7 +770,7 @@ struct arch *arch)
 		    scnhdrs[j].s_vsize = sg->vmsize;
 #endif
 		    scnhdrs[j].s_vaddr = sg->vmaddr;
-		    scnhdrs[j].s_size = round(sg->filesize, file_alignment);
+		    scnhdrs[j].s_size = rnd(sg->filesize, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -755,7 +788,7 @@ struct arch *arch)
 		    scnhdrs[j].s_vsize = sg->vmsize;
 #endif
 		    scnhdrs[j].s_vaddr = sg->vmaddr;
-		    scnhdrs[j].s_size = round(sg->filesize, file_alignment);
+		    scnhdrs[j].s_size = rnd(sg->filesize, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -802,7 +835,7 @@ struct arch *arch)
 		    strcpy(scnhdrs[j].s_name, ".import");
 		    scnhdrs[j].s_vsize = sg->vmsize;
 		    scnhdrs[j].s_vaddr = sg->vmaddr;
-		    scnhdrs[j].s_size = round(sg->filesize, file_alignment);
+		    scnhdrs[j].s_size = rnd(sg->filesize, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -819,7 +852,7 @@ struct arch *arch)
 			    continue;
 			scnhdrs[j].s_vsize = s->size;
 			scnhdrs[j].s_vaddr = s->addr;
-			scnhdrs[j].s_size = round(s->size, file_alignment);
+			scnhdrs[j].s_size = rnd(s->size, file_alignment);
 			scnhdrs[j].s_relptr = 0;
 			scnhdrs[j].s_lnnoptr = 0;
 			scnhdrs[j].s_nlnno = 0;
@@ -840,27 +873,32 @@ struct arch *arch)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	strcpy(scnhdrs[j].s_name, ".reloc");
-	scnhdrs[j].s_vsize = reloc_size;
-	reloc_addr = round(reloc_addr, section_alignment);
-	scnhdrs[j].s_vaddr = reloc_addr;
-	scnhdrs[j].s_size = round(reloc_size, file_alignment);
-	scnhdrs[j].s_relptr = 0;
-	scnhdrs[j].s_lnnoptr = 0;
-	scnhdrs[j].s_nlnno = 0;
-	scnhdrs[j].s_flags = IMAGE_SCN_MEM_READ |
-			     IMAGE_SCN_CNT_INITIALIZED_DATA |
-			     IMAGE_SCN_MEM_DISCARDABLE;
-	reloc_scnhdr = scnhdrs + j;
-	scn_contents[j] = reloc_contents;
-	j++;
+	if(reloc_size != 0){
+	    strcpy(scnhdrs[j].s_name, ".reloc");
+	    scnhdrs[j].s_vsize = reloc_size;
+	    reloc_addr = rnd(reloc_addr, section_alignment);
+	    scnhdrs[j].s_vaddr = reloc_addr;
+	    scnhdrs[j].s_size = rnd(reloc_size, file_alignment);
+	    scnhdrs[j].s_relptr = 0;
+	    scnhdrs[j].s_lnnoptr = 0;
+	    scnhdrs[j].s_nlnno = 0;
+	    scnhdrs[j].s_flags = IMAGE_SCN_MEM_READ |
+				 IMAGE_SCN_CNT_INITIALIZED_DATA |
+				 IMAGE_SCN_MEM_DISCARDABLE;
+	    reloc_scnhdr = scnhdrs + j;
+	    scn_contents[j] = reloc_contents;
+	    j++;
+	    debug_addr = reloc_addr + reloc_scnhdr->s_size;
+	}
+	else{
+	    debug_addr = rnd(reloc_addr, section_alignment);
+	}
 
 	if(debug_filename != NULL){
 	    strcpy(scnhdrs[j].s_name, ".debug");
 	    scnhdrs[j].s_vsize = debug_size;
-	    debug_addr = reloc_addr + reloc_scnhdr->s_size;
 	    scnhdrs[j].s_vaddr = debug_addr;
-	    scnhdrs[j].s_size = round(debug_size, file_alignment);
+	    scnhdrs[j].s_size = rnd(debug_size, file_alignment);
 	    scnhdrs[j].s_relptr = 0;
 	    scnhdrs[j].s_lnnoptr = 0;
 	    scnhdrs[j].s_nlnno = 0;
@@ -988,8 +1026,17 @@ struct arch *arch)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	/* add one for the .reloc section to contain the base relocations */
-	nscns++;
+	if(reloc_size != 0){
+	    /* add one for the .reloc section to contain the base relocations */
+	    nscns++;
+	}
+
+	/*
+	 * If there is a -d flag add one for the .debug section to contain
+	 * the information.
+	 */
+	if(debug_filename != NULL)
+	    nscns++;
 
 	/*
 	 * At the beginning of the COFF string table are 4 bytes that contain
@@ -1045,7 +1092,7 @@ struct arch *arch)
 		    strcpy(scnhdrs[j].s_name, ".text");
 		    scnhdrs[j].s_vsize = sg64->vmsize;
 		    scnhdrs[j].s_vaddr = sg64->vmaddr;
-		    scnhdrs[j].s_size = round(sg64->filesize, file_alignment);
+		    scnhdrs[j].s_size = rnd(sg64->filesize, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -1059,7 +1106,7 @@ struct arch *arch)
 		    strcpy(scnhdrs[j].s_name, ".data");
 		    scnhdrs[j].s_vsize = sg64->vmsize;
 		    scnhdrs[j].s_vaddr = sg64->vmaddr;
-		    scnhdrs[j].s_size = round(sg64->filesize, file_alignment);
+		    scnhdrs[j].s_size = rnd(sg64->filesize, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -1088,7 +1135,7 @@ struct arch *arch)
 		    /* NOTE zerofill sections are not handled */
 		    scnhdrs[j].s_vsize = s64->size;
 		    scnhdrs[j].s_vaddr = s64->addr;
-		    scnhdrs[j].s_size = round(s64->size, file_alignment);
+		    scnhdrs[j].s_size = rnd(s64->size, file_alignment);
 		    scnhdrs[j].s_relptr = 0;
 		    scnhdrs[j].s_lnnoptr = 0;
 		    scnhdrs[j].s_nlnno = 0;
@@ -1104,29 +1151,34 @@ struct arch *arch)
 	    }
 	    lc = (struct load_command *)((char *)lc + lc->cmdsize);
 	}
-	strcpy(scnhdrs[j].s_name, ".reloc");
-	scnhdrs[j].s_vsize = reloc_size;
-	reloc_addr = round(reloc_addr, section_alignment);
-	scnhdrs[j].s_vaddr = reloc_addr;
-	scnhdrs[j].s_size = round(reloc_size, file_alignment);
-	scnhdrs[j].s_relptr = 0;
-	scnhdrs[j].s_lnnoptr = 0;
-	scnhdrs[j].s_nlnno = 0;
-	scnhdrs[j].s_flags = IMAGE_SCN_MEM_READ |
-			     IMAGE_SCN_CNT_INITIALIZED_DATA |
-			     IMAGE_SCN_MEM_DISCARDABLE |
-			     IMAGE_SCN_CNT_CODE |
-			     IMAGE_SCN_MEM_EXECUTE;
-	reloc_scnhdr = scnhdrs + j;
-	scn_contents[j] = reloc_contents;
-	j++;
+	if(reloc_size != 0){
+	    strcpy(scnhdrs[j].s_name, ".reloc");
+	    scnhdrs[j].s_vsize = reloc_size;
+	    reloc_addr = rnd(reloc_addr, section_alignment);
+	    scnhdrs[j].s_vaddr = reloc_addr;
+	    scnhdrs[j].s_size = rnd(reloc_size, file_alignment);
+	    scnhdrs[j].s_relptr = 0;
+	    scnhdrs[j].s_lnnoptr = 0;
+	    scnhdrs[j].s_nlnno = 0;
+	    scnhdrs[j].s_flags = IMAGE_SCN_MEM_READ |
+				 IMAGE_SCN_CNT_INITIALIZED_DATA |
+				 IMAGE_SCN_MEM_DISCARDABLE |
+				 IMAGE_SCN_CNT_CODE |
+				 IMAGE_SCN_MEM_EXECUTE;
+	    reloc_scnhdr = scnhdrs + j;
+	    scn_contents[j] = reloc_contents;
+	    j++;
+	    debug_addr = reloc_addr + reloc_scnhdr->s_size;
+	}
+	else{
+	    debug_addr = rnd(reloc_addr, section_alignment);
+	}
 
 	if(debug_filename != NULL){
 	    strcpy(scnhdrs[j].s_name, ".debug");
 	    scnhdrs[j].s_vsize = debug_size;
-	    debug_addr = reloc_addr + reloc_scnhdr->s_size;
 	    scnhdrs[j].s_vaddr = debug_addr;
-	    scnhdrs[j].s_size = round(debug_size, file_alignment);
+	    scnhdrs[j].s_size = rnd(debug_size, file_alignment);
 	    scnhdrs[j].s_relptr = 0;
 	    scnhdrs[j].s_lnnoptr = 0;
 	    scnhdrs[j].s_nlnno = 0;
@@ -1157,7 +1209,7 @@ void
 layout_output(
 struct ofile *ofile)
 {
-    uint32_t i, header_size, offset;
+    uint32_t i, header_size, offset, least_vaddr;
 
 	/*
 	 * Determine the size of the output file and where each element will be
@@ -1171,12 +1223,26 @@ struct ofile *ofile)
 	    header_size += sizeof(struct aouthdr);
 	else
 	    header_size += sizeof(struct aouthdr_64);
-	header_size = round(header_size, file_alignment);
+	header_size = rnd(header_size, file_alignment);
 #ifdef HACK_TO_MATCH_TEST_CASE
 	/* for some unknown reason the header size is 0x488 not 0x400 */
 	if(ofile->mh64 != NULL)
 	    header_size += 0x88;
 #endif
+	/* 
+	 * If the lowest section virtual address is greater than the header
+	 * size, pad the header up to the virtual address.  This modification
+	 * will make the file offset and virtual address equal, and fixes
+	 * problems with XIP rebasing in the EFI tools.
+	 */
+	least_vaddr = 0xffffffff;
+	for(i = 0; i < nscns; i++){
+	    if(scnhdrs[i].s_vaddr < least_vaddr)
+		least_vaddr = scnhdrs[i].s_vaddr;      
+	}
+	if(least_vaddr > header_size)
+	    header_size = least_vaddr;
+
 	offset = header_size;
 	for(i = 0; i < nscns; i++){
 	    if((scnhdrs[i].s_flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA) == 0){
@@ -1192,11 +1258,11 @@ struct ofile *ofile)
 			  "0x%x or greater)", ofile->file_name, header_size);
 		/*
 		 * The s_scnptr is set to the offset and then the offset is
-		 * incremented by the SizeOfRawData field (s_size).
+		 * incremented by the SizeOfRawData field (s_vsize).
 		 */
 		scnhdrs[i].s_scnptr = offset;
 #ifndef HACK_TO_MATCH_TEST_CASE
-		offset += scnhdrs[i].s_size;
+		offset += scnhdrs[i].s_vsize;
 #else
 		/* for some unknown reason the offset after the __dyld section
 		   is changed from 0x10 bytes to 0x20 bytes */
@@ -1218,13 +1284,13 @@ struct ofile *ofile)
 #ifdef HACK_TO_MATCH_TEST_CASE
 		if(ofile->mh != NULL)
 #endif
-		    offset = round(offset, file_alignment);
+		    offset = rnd(offset, file_alignment);
 #ifdef HACK_TO_MATCH_TEST_CASE
 		else{
 		    /* for some unknown reason the next offset is moved up
 		       0x200 then rounded to 8 bytes */
 		    offset += 0x200;
-		    offset = round(offset, 8);
+		    offset = rnd(offset, 8);
 		}
 #endif
 	    }
@@ -1297,24 +1363,17 @@ struct ofile *ofile)
 	    aouthdr.magic = PE32MAGIC;
 	    aouthdr.vstamp = VSTAMP;
 
+      /* 
+       * EFI does not use t, d, or b size. 
+       * EFI uses SizeOfImage to errorcheck vaddrs in the image
+       */
 	    aouthdr.tsize = 0;
 	    aouthdr.dsize = 0;
 	    aouthdr.bsize = 0;
+	    aouthdr.SizeOfImage = rnd(header_size, section_alignment);
 	    for(i = 0; i < nscns; i++){
-		if((scnhdrs[i].s_flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA) ==0){
-		    if(scnhdrs[i].s_flags & IMAGE_SCN_CNT_CODE){
-			aouthdr.tsize += scnhdrs[i].s_size;
-		    }
-		    else {
-			aouthdr.dsize += scnhdrs[i].s_size;
-		    }
+	        aouthdr.SizeOfImage += rnd(scnhdrs[i].s_vsize, section_alignment); 
 		}
-		if(scnhdrs[i].s_vsize > scnhdrs[i].s_size){
-		    aouthdr.bsize += scnhdrs[i].s_vsize -
-				     scnhdrs[i].s_size;
-		}
-	    }
-	    aouthdr.bsize = round(aouthdr.bsize, file_alignment);
 
 	    aouthdr.entry = entry;
 
@@ -1343,13 +1402,8 @@ struct ofile *ofile)
 	    aouthdr.MajorSubsystemVersion = 0;
 	    aouthdr.MinorSubsystemVersion = 0;
 	    aouthdr.Win32VersionValue = 0;
-	    aouthdr.SizeOfImage = round(header_size, section_alignment) +
-				  round(aouthdr.tsize, section_alignment) +
-				  round(aouthdr.dsize, section_alignment) +
-				  round(aouthdr.bsize, section_alignment) +
-				  round(nsyments * sizeof(struct syment),
-					section_alignment) +
-				  round(strsize, section_alignment);
+				  
+				  
 	    aouthdr.SizeOfHeaders = header_size;
 	    aouthdr.CheckSum = 0;
 	    aouthdr.Subsystem = Subsystem;
@@ -1361,8 +1415,10 @@ struct ofile *ofile)
 	    aouthdr.LoaderFlags = 0;
 	    aouthdr.NumberOfRvaAndSizes = 16;
 	    /* Entry 5, Base Relocation Directory [.reloc] address & size */
-	    aouthdr.DataDirectory[5][0] = reloc_scnhdr->s_vaddr;
-	    aouthdr.DataDirectory[5][1] = reloc_scnhdr->s_vsize;
+	    if(reloc_size != 0){
+		aouthdr.DataDirectory[5][0] = reloc_scnhdr->s_vaddr;
+		aouthdr.DataDirectory[5][1] = reloc_scnhdr->s_vsize;
+	    }
 	    /*  Entry 6, Debug Directory [.debug] address & size */
 	    if(debug_filename != NULL){
 		aouthdr.DataDirectory[6][0] = debug_scnhdr->s_vaddr;
@@ -1373,21 +1429,18 @@ struct ofile *ofile)
 	    aouthdr64.magic = PE32PMAGIC;
 	    aouthdr64.vstamp = VSTAMP;
 
+      /* 
+       * EFI does not use t, d, or b size. 
+       * EFI uses SizeOfImage to errorcheck vaddrs in the image
+       */
 	    aouthdr64.tsize = 0;
 	    aouthdr64.dsize = 0;
 	    aouthdr64.bsize = 0;
+	    
+	    aouthdr64.SizeOfImage = rnd(header_size, section_alignment);
 	    for(i = 0; i < nscns; i++){
-		if((scnhdrs[i].s_flags & IMAGE_SCN_CNT_UNINITIALIZED_DATA) ==0){
-		    if(scnhdrs[i].s_flags & IMAGE_SCN_CNT_CODE)
-			aouthdr64.tsize += scnhdrs[i].s_size;
-		    else
-			aouthdr64.dsize += scnhdrs[i].s_size;
-		}
-		else{
-		    aouthdr64.bsize += scnhdrs[i].s_vsize;
-		}
+	        aouthdr64.SizeOfImage += rnd(scnhdrs[i].s_vsize, section_alignment); 
 	    }
-	    aouthdr64.bsize = round(aouthdr64.bsize, file_alignment);
 #ifdef HACK_TO_MATCH_TEST_CASE
 	    /* with the IMAGE_SCN_CNT_CODE flag set on all sections this is
 	       just a quick hack to match the PECOFF file */
@@ -1423,13 +1476,8 @@ struct ofile *ofile)
 	    aouthdr64.MajorSubsystemVersion = 0;
 	    aouthdr64.MinorSubsystemVersion = 0;
 	    aouthdr64.Win32VersionValue = 0;
-	    aouthdr64.SizeOfImage = round(header_size, section_alignment) +
-				    round(aouthdr64.tsize, section_alignment) +
-				    round(aouthdr64.dsize, section_alignment) +
-				    round(aouthdr64.bsize, section_alignment) +
-				    round(nsyments * sizeof(struct syment),
-					  section_alignment) +
-				    round(strsize, section_alignment);
+				    
+				    
 #ifdef HACK_TO_MATCH_TEST_CASE
 	    /* this is a hack as it seams that the minimum size is 0x10000 */
 	    if(aouthdr64.SizeOfImage < 0x10000)
@@ -1449,8 +1497,10 @@ struct ofile *ofile)
 	    aouthdr64.LoaderFlags = 0;
 	    aouthdr64.NumberOfRvaAndSizes = 16;
 	    /* Entry 5, Base Relocation Directory [.reloc] address & size */
-	    aouthdr64.DataDirectory[5][0] = reloc_scnhdr->s_vaddr;
-	    aouthdr64.DataDirectory[5][1] = reloc_scnhdr->s_vsize;
+	    if(reloc_size != 0){
+		aouthdr64.DataDirectory[5][0] = reloc_scnhdr->s_vaddr;
+		aouthdr64.DataDirectory[5][1] = reloc_scnhdr->s_vsize;
+	    }
 	    /*  Entry 6, Debug Directory [.debug] address & size */
 	    if(debug_filename != NULL){
 		aouthdr64.DataDirectory[6][0] = debug_scnhdr->s_vaddr;
@@ -1482,7 +1532,7 @@ char *out)
 	/*
 	 * Allocate the buffer to place the pecoff file in.
 	 */
-	buf = malloc(output_size);
+	buf = calloc(1, output_size);
 	if(buf == NULL)
 	    fatal("Can't allocate buffer for output file (size = %u)",
 		  output_size);
@@ -2062,8 +2112,17 @@ struct arch *arch)
 	    }
 	    else if(lc->cmd == LC_SEGMENT_64){
 		sg64 = (struct segment_command_64 *)lc;
+		if(arch->object->mh_cputype == CPU_TYPE_X86_64) {
+		    /*
+		     * X86_64 relocations are relative to the first writable segment
+		     */
+		    if((first_addr == 0) && ((sg64->initprot & VM_PROT_WRITE) != 0)) {
+		      first_addr = sg64->vmaddr;
+		    }
+		} else { 
 		if(first_addr == 0)
 		    first_addr = sg64->vmaddr;
+		}
 		s64 = (struct section_64 *)
 		      ((char *)sg64 + sizeof(struct segment_command_64));
 		for(j = 0; j < sg64->nsects; j++){
@@ -2106,8 +2165,9 @@ struct arch *arch)
 		    CPU_TYPE_X86_64, 3, X86_64_RELOC_UNSIGNED,
 		    IMAGE_REL_BASED_DIR64);
 	}
+	/*
 	if(dyst != NULL && dyst->nextrel != 0)
-	    ; /* TODO error if there are external relocation entries */
+	    ; TODO error if there are external relocation entries */
 
 	/*
 	 * Now with all the info gathered make the base relocation entries.
@@ -2395,6 +2455,9 @@ struct arch *arch)
 	for(i = 0; i < ncmds; i++){
 	    if(lc->cmd == LC_UUID){
 		uuid = (struct uuid_command *)lc;
+		if (debug_uuid != NULL) {
+		    string_to_uuid (debug_uuid, uuid->uuid);
+		}
 		mdi->uuid[0] = uuid->uuid[0];
 		mdi->uuid[1] = uuid->uuid[1];
 		mdi->uuid[2] = uuid->uuid[2];
@@ -2462,4 +2525,31 @@ unsigned char *buf)
 	    t = 0xffff & (t + (t >> 0x10));
 	}
 	return(0xffff & (t + (t >> 0x10)));
+}
+
+/*
+ * string_to_uuid() creates a 128-bit uuid from a well-formatted UUID string
+ * (i.e. aabbccdd-eeff-gghh-iijj-kkllmmnnoopp)
+ */
+static
+void
+string_to_uuid(
+char *string,
+uint8_t *uuid)
+{
+    uint8_t count;
+
+	/*
+	* scanned bytewise to ensure correct endianness of fields
+	*/
+	count = sscanf (string, UUID_FORMAT_STRING,
+	&uuid[3], &uuid[2], &uuid[1], &uuid[0],
+	&uuid[5], &uuid[4],
+	&uuid[7], &uuid[6],
+	&uuid[8], &uuid[9], &uuid[10], &uuid[11],
+	&uuid[12], &uuid[13], &uuid[14], &uuid[15]);
+
+	if (count != 16) {
+	    fatal ("invalid UUID specified for -u option");
+	}
 }

@@ -1,6 +1,6 @@
 /***********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation
+ * Copyright (c) 1997-2010, International Business Machines Corporation
  * and others. All Rights Reserved.
  ***********************************************************************/
 
@@ -97,7 +97,7 @@ CalendarLimitTest::TestCalendarExtremeLimit()
 {
     UErrorCode status = U_ZERO_ERROR;
     Calendar *cal = Calendar::createInstance(status);
-    if (failure(status, "Calendar::createInstance")) return;
+    if (failure(status, "Calendar::createInstance", TRUE)) return;
     cal->adoptTimeZone(TimeZone::createTimeZone("GMT"));
     DateFormat *fmt = DateFormat::createDateTimeInstance();
     if(!fmt || !cal) {
@@ -142,26 +142,28 @@ CalendarLimitTest::TestCalendarExtremeLimit()
 void
 CalendarLimitTest::TestLimits(void) {
     static const UDate DEFAULT_START = 944006400000.0; // 1999-12-01T00:00Z
+    static const int32_t DEFAULT_END = -120; // Default for non-quick is run 2 minutes
 
     static const struct {
         const char *type;
         UBool hasLeapMonth;
         UDate actualTestStart;
+        int32_t actualTestEnd;
     } TestCases[] = {
-        {"gregorian",       FALSE,      DEFAULT_START},
-        {"japanese",        FALSE,      596937600000.0}, // 1988-12-01T00:00Z, Showa 63
-        {"buddhist",        FALSE,      DEFAULT_START},
-        {"roc",             FALSE,      DEFAULT_START},
-        {"persian",         FALSE,      DEFAULT_START},
-        {"islamic-civil",   FALSE,      DEFAULT_START},
-        //{"islamic",         FALSE,      DEFAULT_START}, // TODO: there is a bug in monthlength calculation
-        {"hebrew",          TRUE,       DEFAULT_START},
-        {"chinese",         TRUE,       DEFAULT_START},
-        {"indian",          FALSE,      DEFAULT_START},
-        {"coptic",          FALSE,      DEFAULT_START},
-        {"ethiopic",        FALSE,      DEFAULT_START},
-        {"ethiopic-amete-alem", FALSE,  DEFAULT_START},
-        {NULL,              FALSE,      0.0}
+        {"gregorian",       FALSE,      DEFAULT_START, DEFAULT_END},
+        {"japanese",        FALSE,      596937600000.0, DEFAULT_END}, // 1988-12-01T00:00Z, Showa 63
+        {"buddhist",        FALSE,      DEFAULT_START, DEFAULT_END},
+        {"roc",             FALSE,      DEFAULT_START, DEFAULT_END},
+        {"persian",         FALSE,      DEFAULT_START, DEFAULT_END},
+        {"islamic-civil",   FALSE,      DEFAULT_START, DEFAULT_END},
+        {"islamic",         FALSE,      DEFAULT_START, 800000}, // Approx. 2250 years from now, after which some rounding errors occur in Islamic calendar
+        {"hebrew",          TRUE,       DEFAULT_START, DEFAULT_END},
+        {"chinese",         TRUE,       DEFAULT_START, DEFAULT_END},
+        {"indian",          FALSE,      DEFAULT_START, DEFAULT_END},
+        {"coptic",          FALSE,      DEFAULT_START, DEFAULT_END},
+        {"ethiopic",        FALSE,      DEFAULT_START, DEFAULT_END},
+        {"ethiopic-amete-alem", FALSE,  DEFAULT_START, DEFAULT_END},
+        {NULL,              FALSE,      0, 0}
     };
 
     int16_t i = 0;
@@ -172,7 +174,7 @@ CalendarLimitTest::TestLimits(void) {
         uprv_strcpy(buf, "root@calendar=");
         strcat(buf, TestCases[i].type);
         Calendar *cal = Calendar::createInstance(buf, status);
-        if (failure(status, "Calendar::createInstance")) {
+        if (failure(status, "Calendar::createInstance", TRUE)) {
             continue;
         }
         if (uprv_strcmp(cal->getType(), TestCases[i].type) != 0) {
@@ -183,7 +185,7 @@ CalendarLimitTest::TestLimits(void) {
         }
         // Do the test
         doTheoreticalLimitsTest(*cal, TestCases[i].hasLeapMonth);
-        doLimitsTest(*cal, TestCases[i].actualTestStart);
+        doLimitsTest(*cal, TestCases[i].actualTestStart,TestCases[i].actualTestEnd);
         delete cal;
     }
 }
@@ -260,8 +262,8 @@ CalendarLimitTest::doTheoreticalLimitsTest(Calendar& cal, UBool leapMonth) {
 }
 
 void
-CalendarLimitTest::doLimitsTest(Calendar& cal, UDate startDate) {
-    int32_t testTime = quick ? -3 : -120;
+CalendarLimitTest::doLimitsTest(Calendar& cal, UDate startDate, int32_t endTime) {
+    int32_t testTime = quick ? ( endTime / 40 ) : endTime;
     doLimitsTest(cal, NULL /*default fields*/, startDate, testTime);
 }
 
@@ -337,6 +339,7 @@ CalendarLimitTest::doLimitsTest(Calendar& cal,
             mark += 5000; // 5 sec
         }
         cal.setTime(greg.getTime(status), status);
+        cal.setMinimalDaysInFirstWeek(1);
         if (failure(status, "Calendar set/getTime")) {
             return;
         }

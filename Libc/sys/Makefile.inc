@@ -11,18 +11,16 @@ CWD := ${.CURDIR}/sys
 
 # Sources common to both syscall interfaces:
 
-MISRCS += chmod.c chmodx_np.c crt_externs.c \
-	errno.c fchmod.c \
-	getiopolicy_np.c getrlimit.c gettimeofday.c \
-	kill.c __libc_init.c \
-	mmap.c \
+MISRCS += chmodx_np.c crt_externs.c \
+	errno.c fork.c \
+	getiopolicy_np.c gettimeofday.c \
+	__libc_init.c _libc_fork_child.c \
 	openx_np.c \
 	posix_spawn.c \
-	remove_counter.c rename.c rmdir.c \
-	select.c setrlimit.c settimeofday.c \
-	sigaction.c sigcatch.c sigsuspend.c \
-	sigtramp.c statx_np.c \
-	umaskx_np.c unlink.c
+	settimeofday.c \
+	sigaction.c sigcatch.c \
+	sigtramp.c slot_name.c statx_np.c \
+	umaskx_np.c
 
 .ifdef FEATURE_MEM_THERM_NOTIFICATION_APIS
 MISRCS += OSMemoryNotification.c OSThermalNotification.c
@@ -40,33 +38,15 @@ MISRCS+= context-stubs.c
 OBSDMISRCS= stack_protector.c
 .include "Makefile.obsd_end"
 
-.ifdef FEATURE_PATCH_3375657
-# patches for sem_open() sem_unlink() shm_open() shm_unlink()
-MISRCS+= fix-3375657.c sem_open.c sem_unlink.c shm_open.c shm_unlink.c
-.endif # FEATURE_PATCH_3375657
-
 DARWINEXTSNSRCS += getgroups.c
 
 INODE32SRCS += statx_np.c
 
-CANCELABLESRCS += select.c sigsuspend.c
+DYLDSRCS += errno.c
 
-.if defined(LP64) || (${MACHINE_ARCH} == arm)
-CANCELABLESRCS+= fcntl.c
-MISRCS+= fcntl.c ioctl.c
-.endif
-.if defined(LP64)
-PRE1050SRCS+= select.c
-.endif
-
-LEGACYSRCS += accept.c bind.c connect.c \
-	getattrlist.c getpeername.c getsockname.c \
-	kill.c lchown.c listen.c \
-	mprotect.c msgctl.c msync.c munmap.c \
-	open.c \
-	recvfrom.c recvmsg.c \
-	select.c semctl.c sendmsg.c sendto.c setattrlist.c \
-	shmctl.c sigsuspend.c socketpair.c
+LEGACYSRCS += msgctl.c \
+	semctl.c \
+	shmctl.c
 
 .for _src in msgctl.c semctl.c shmctl.c
 CFLAGS-${_src} += -DKERNEL
@@ -86,24 +66,16 @@ CFLAGS-chmod.c += -DLIBC_ALIAS_CHMOD
 #CFLAGS-close.c += -DLIBC_ALIAS_CLOSE
 CFLAGS-connect.c += -DLIBC_ALIAS_CONNECT
 CFLAGS-fchmod.c += -DLIBC_ALIAS_FCHMOD
-CFLAGS-fcntl.c += -DLIBC_ALIAS_FCNTL
 #CFLAGS-fsync.c += -DLIBC_ALIAS_FSYNC
 CFLAGS-getattrlist.c += -DLIBC_ALIAS_GETATTRLIST
 CFLAGS-getpeername.c += -DLIBC_ALIAS_GETPEERNAME
-CFLAGS-getrlimit.c += -DLIBC_ALIAS_GETRLIMIT
 CFLAGS-getsockname.c += -DLIBC_ALIAS_GETSOCKNAME
-CFLAGS-kill.c += -DLIBC_ALIAS_KILL
 CFLAGS-lchmod.c += -DLIBC_ALIAS_LCHMOD
 CFLAGS-lchown.c += -DLIBC_ALIAS_LCHOWN
 CFLAGS-listen.c += -DLIBC_ALIAS_LISTEN
-CFLAGS-mmap.c += -DLIBC_ALIAS_MMAP
-CFLAGS-mprotect.c += -DLIBC_ALIAS_MPROTECT
 CFLAGS-msgctl.c += -DLIBC_ALIAS_MSGCTL
 #CFLAGS-msgrcv.c += -DLIBC_ALIAS_MSGRCV
 #CFLAGS-msgsnd.c += -DLIBC_ALIAS_MSGSND
-CFLAGS-msync.c += -DLIBC_ALIAS_MSYNC
-CFLAGS-munmap.c += -DLIBC_ALIAS_MUNMAP
-#CFLAGS-open.c += -DLIBC_ALIAS_OPEN
 #CFLAGS-poll.c += -DLIBC_ALIAS_POLL
 #CFLAGS-pread.c += -DLIBC_ALIAS_PREAD
 #CFLAGS-pwrite.c += -DLIBC_ALIAS_PWRITE
@@ -111,28 +83,21 @@ CFLAGS-munmap.c += -DLIBC_ALIAS_MUNMAP
 #CFLAGS-readv.c += -DLIBC_ALIAS_READV
 CFLAGS-recvfrom.c += -DLIBC_ALIAS_RECVFROM
 CFLAGS-recvmsg.c += -DLIBC_ALIAS_RECVMSG
-CFLAGS-select.c += -DLIBC_ALIAS_SELECT
 #CFLAGS-sem_wait.c += -DLIBC_ALIAS_SEM_WAIT
 CFLAGS-semctl.c += -DLIBC_ALIAS_SEMCTL
 CFLAGS-sendmsg.c += -DLIBC_ALIAS_SENDMSG
 CFLAGS-sendto.c += -DLIBC_ALIAS_SENDTO
 CFLAGS-setattrlist.c += -DLIBC_ALIAS_SETATTRLIST
-CFLAGS-setrlimit.c += -DLIBC_ALIAS_SETRLIMIT
 CFLAGS-shmctl.c += -DLIBC_ALIAS_SHMCTL
-CFLAGS-sigsuspend.c += -DLIBC_ALIAS_SIGSUSPEND
 CFLAGS-socketpair.c += -DLIBC_ALIAS_SOCKETPAIR
+CFLAGS-stack_protector-obsd.c += -fno-stack-protector
 #CFLAGS-waitid.c += -DLIBC_ALIAS_WAITID
 #CFLAGS-write.c += -DLIBC_ALIAS_WRITE
 #CFLAGS-writev.c += -DLIBC_ALIAS_WRITEV
 
-COPYFILES+= ${.CURDIR}/sys/libc.syscall
-
 .if ${LIB} == "c"
 MAN2+= pthread_kill.2 pthread_sigmask.2 \
-	sem_close.2 sem_open.2 sem_post.2 \
-	sem_unlink.2 sem_wait.2 shm_open.2 shm_unlink.2 \
-	sigwait.2 getdtablesize.2 setreuid.2 setregid.2 \
-	nanosleep.2 undelete.2
+	sigwait.2 nanosleep.2
 MAN3+= atomic.3 barrier.3 getiopolicy_np.3 spinlock.3 cache.3
 MLINKS+= atomic.3 OSAtomicAdd32.3
 MLINKS+= atomic.3 OSAtomicAdd32Barrier.3
@@ -178,7 +143,6 @@ MLINKS+= barrier.3 OSMemoryBarrier.3
 
 MLINKS+= getiopolicy_np.3 setiopolicy_np.3
 
-MLINKS+= sem_wait.2 sem_trywait.2
 MLINKS+= cache.3 sys_cache_control.3
 MLINKS+= cache.3 sys_icache_invalidate.3
 MLINKS+= cache.3 sys_dcache_flush.3
@@ -196,25 +160,25 @@ MLINKS+= spinlock.3 OSSpinLockLock.3			\
 #	fcntl.2 fhopen.2 flock.2 fork.2 fsync.2 \
 #	getdirentries.2 getdtablesize.2 \
 #	getfh.2 getfsstat.2 getgid.2 getgroups.2 getitimer.2 getlogin.2 \
-#	getpeername.2 getpgrp.2 getpid.2 getpriority.2 getrlimit.2 \
+#	getpeername.2 getpgrp.2 getpid.2 getpriority.2 \
 #	getrusage.2 getsid.2 getsockname.2 \
 #	getsockopt.2 gettimeofday.2 getuid.2 \
-#	intro.2 ioctl.2 issetugid.2 jail.2 kill.2 \
+#	intro.2 ioctl.2 issetugid.2 jail.2 \
 #	kldfind.2 kldfirstmod.2 kldload.2 kldnext.2 kldstat.2 kldsym.2 \
 #	kldunload.2 kqueue.2 link.2 listen.2 lseek.2 \
-#	madvise.2 mincore.2 minherit.2 mkdir.2 mkfifo.2 mknod.2 mlock.2 mmap.2 \
+#	madvise.2 mincore.2 minherit.2 mkdir.2 mkfifo.2 mknod.2 mlock.2 \
 #	modfind.2 modnext.2 modstat.2 \
-#	mount.2 mprotect.2 msync.2 munmap.2 nanosleep.2 \
-#	nfssvc.2 open.2 pathconf.2 pipe.2 poll.2 profil.2 ptrace.2 quotactl.2 \
-#	read.2 readlink.2 reboot.2 recv.2 rename.2 revoke.2 rfork.2 rmdir.2 \
-#	rtprio.2 select.2 semctl.2 semget.2 semop.2 send.2 sendfile.2 \
+#	mount.2 nanosleep.2 \
+#	nfssvc.2 pathconf.2 pipe.2 poll.2 profil.2 ptrace.2 quotactl.2 \
+#	read.2 readlink.2 reboot.2 recv.2 revoke.2 rfork.2 \
+#	rtprio.2 semctl.2 semget.2 semop.2 send.2 sendfile.2 \
 #	setgroups.2 setpgid.2 setregid.2 setresuid.2 setreuid.2 setsid.2 \
 #	setuid.2 shmat.2 shmctl.2 shmget.2 shutdown.2 \
 #	sigaction.2 sigaltstack.2 sigpending.2 sigprocmask.2 sigreturn.2 \
-#	sigstack.2 sigsuspend.2 socket.2 socketpair.2 stat.2 statfs.2 \
+#	sigstack.2 socket.2 socketpair.2 stat.2 statfs.2 \
 #	swapon.2 symlink.2 sync.2 sysarch.2 syscall.2 \
 #	truncate.2 umask.2 undelete.2 \
-#	unlink.2 utimes.2 vfork.2 wait.2 write.2
+#	utimes.2 vfork.2 wait.2 write.2
 #.if !defined(NO_P1003_1B)
 #MAN+=	sched_get_priority_max.2 sched_setparam.2 \
 #	sched_setscheduler.2 sched_yield.2
@@ -243,7 +207,6 @@ MLINKS+= spinlock.3 OSSpinLockLock.3			\
 #MLINKS+=getpgrp.2 getpgid.2
 #MLINKS+=getpid.2 getppid.2
 #MLINKS+=getpriority.2 setpriority.2
-#MLINKS+=getrlimit.2 setrlimit.2
 #MLINKS+=getsockopt.2 setsockopt.2
 #MLINKS+=gettimeofday.2 settimeofday.2
 #MLINKS+=getuid.2 geteuid.2

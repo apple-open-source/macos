@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.75.2.6 2008/02/11 23:26:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/options.c,v 1.75.2.12 2010/04/13 20:22:58 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -96,6 +96,11 @@ ldap_get_option(
 	void	*outvalue)
 {
 	struct ldapoptions *lo;
+
+#if defined(__APPLE__) && defined(LDAP_R_COMPILE)
+	/* Init the global options in a nice thread-safe manner. */
+	pthread_once(&ldap_global_opts_initialized, ldap_int_init_global_opts);
+#endif
 
 	/* Get pointer to global option structure */
 	lo = LDAP_INT_GLOBAL_OPT();   
@@ -258,7 +263,22 @@ ldap_get_option(
 	case LDAP_OPT_CONNECT_ASYNC:
 		* (int *) outvalue = (int) LDAP_BOOL_GET(lo, LDAP_BOOL_CONNECT_ASYNC);
 		return LDAP_OPT_SUCCESS;
-		
+
+	case LDAP_OPT_CONNECT_CB:
+		{
+			/* Getting deletes the specified callback */
+			ldaplist **ll = &lo->ldo_conn_cbs;
+			for (;*ll;ll = &(*ll)->ll_next) {
+				if ((*ll)->ll_data == outvalue) {
+					ldaplist *lc = *ll;
+					*ll = lc->ll_next;
+					LDAP_FREE(lc);
+					break;
+				}
+			}
+		}
+		return LDAP_OPT_SUCCESS;
+
 	case LDAP_OPT_RESULT_CODE:
 		if(ld == NULL) {
 			/* bad param */
@@ -336,6 +356,18 @@ ldap_get_option(
 	case LDAP_OPT_DEBUG_LEVEL:
 		* (int *) outvalue = lo->ldo_debug;
 		return LDAP_OPT_SUCCESS;
+	
+	case LDAP_OPT_X_KEEPALIVE_IDLE:
+		* (int *) outvalue = lo->ldo_keepalive_idle;
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_X_KEEPALIVE_PROBES:
+		* (int *) outvalue = lo->ldo_keepalive_probes;
+		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_X_KEEPALIVE_INTERVAL:
+		* (int *) outvalue = lo->ldo_keepalive_interval;
+		return LDAP_OPT_SUCCESS;
 
 	default:
 #ifdef HAVE_TLS
@@ -345,6 +377,11 @@ ldap_get_option(
 #endif
 #ifdef HAVE_CYRUS_SASL
 		if ( ldap_int_sasl_get_option( ld, option, outvalue ) == 0 ) {
+			return LDAP_OPT_SUCCESS;
+		}
+#endif
+#ifdef HAVE_GSSAPI
+		if ( ldap_int_gssapi_get_option( ld, option, outvalue ) == 0 ) {
 			return LDAP_OPT_SUCCESS;
 		}
 #endif
@@ -660,13 +697,41 @@ ldap_set_option(
 	case LDAP_OPT_API_FEATURE_INFO:
 		return LDAP_OPT_ERROR;
 
-	}
-	
-	if(invalue == NULL) {
-		/* no place to set from */
+	/* options which cannot withstand invalue == NULL */
+	case LDAP_OPT_DEREF:
+	case LDAP_OPT_SIZELIMIT:
+	case LDAP_OPT_TIMELIMIT:
+	case LDAP_OPT_PROTOCOL_VERSION:
+	case LDAP_OPT_RESULT_CODE:
+	case LDAP_OPT_DEBUG_LEVEL:
+	case LDAP_OPT_TIMEOUT:
+	case LDAP_OPT_NETWORK_TIMEOUT:
+	case LDAP_OPT_CONNECT_CB:
+	case LDAP_OPT_X_KEEPALIVE_IDLE:
+	case LDAP_OPT_X_KEEPALIVE_PROBES :
+	case LDAP_OPT_X_KEEPALIVE_INTERVAL :
+		if(invalue == NULL) {
+			/* no place to set from */
+			return LDAP_OPT_ERROR;
+		}
+		break;
+	default:
+#ifdef HAVE_TLS
+		if ( ldap_pvt_tls_set_option( ld, option, (void *)invalue ) == 0 )
+			return LDAP_OPT_SUCCESS;
+#endif
+#ifdef HAVE_CYRUS_SASL
+		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )
+			return LDAP_OPT_SUCCESS;
+#endif
+#ifdef HAVE_GSSAPI
+		if ( ldap_int_gssapi_set_option( ld, option, (void *)invalue ) == 0 )
+			return LDAP_OPT_SUCCESS;
+#endif
+			/* bad param */
 		return LDAP_OPT_ERROR;
 	}
-	
+
 	/* options which cannot withstand invalue == NULL */
 
 	switch(option) {
@@ -722,42 +787,33 @@ ldap_set_option(
 	case LDAP_OPT_DEBUG_LEVEL:
 		lo->ldo_debug = * (const int *) invalue;
 		return LDAP_OPT_SUCCESS;
+
+	case LDAP_OPT_CONNECT_CB:
+		{
+			/* setting pushes the callback */
+			ldaplist *ll;
+			ll = LDAP_MALLOC( sizeof( *ll ));
+			ll->ll_data = (void *)invalue;
+			ll->ll_next = lo->ldo_conn_cbs;
+			lo->ldo_conn_cbs = ll;
+		}
+		return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_X_KEEPALIVE_IDLE:
+		lo->ldo_keepalive_idle = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_X_KEEPALIVE_PROBES :
+		lo->ldo_keepalive_probes = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
+	case LDAP_OPT_X_KEEPALIVE_INTERVAL :
+		lo->ldo_keepalive_interval = * (const int *) invalue;
+		return LDAP_OPT_SUCCESS;
 	/* Apple specific options */
 	case LDAP_OPT_NOADDRERR:
-		lo->ldo_noaddr_option = * (const int *) invalue;
+		if(invalue == LDAP_OPT_OFF) 
+			lo->ldo_noaddr_option = 0;
+		else
+			lo->ldo_noaddr_option = 1;
 		return LDAP_OPT_SUCCESS;
-		
-	case LDAP_OPT_NOREVERSE_LOOKUP:
-		lo->ldo_noreverse_option = * (const int *) invalue;
-		
-#ifdef HAVE_CYRUS_SASL
-		/* here we also set the sasl option */
-		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )
-			return LDAP_OPT_SUCCESS;
-		return LDAP_OPT_ERROR;
-#else
-		return LDAP_OPT_SUCCESS;
-#endif
-		
-	case LDAP_OPT_NOTIFYDESC_PROC:
-		lo->ldo_notifydesc_proc = (LDAP_NOTIFYDESC_PROC *) invalue;
-		return LDAP_OPT_SUCCESS;
-		
-	case LDAP_OPT_NOTIFYDESC_PARAMS:
-		lo->ldo_notifydesc_params = invalue;
-		return LDAP_OPT_SUCCESS;
-	/* Apple specific options end */		
-	
-	default:
-#ifdef HAVE_TLS
-		if ( ldap_pvt_tls_set_option( ld, option, (void *)invalue ) == 0 )
-			return LDAP_OPT_SUCCESS;
-#endif
-#ifdef HAVE_CYRUS_SASL
-		if ( ldap_int_sasl_set_option( ld, option, (void *)invalue ) == 0 )
-			return LDAP_OPT_SUCCESS;
-#endif
-			
 	}
 	return LDAP_OPT_ERROR;
 }

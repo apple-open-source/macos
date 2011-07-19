@@ -155,12 +155,12 @@ struct sudo_defs_types sudo_defs_table[] = {
 	"Length at which to wrap log file lines (0 for no wrap): %d",
 	NULL,
     }, {
-	"timestamp_timeout", T_INT|T_BOOL,
-	"Authentication timestamp timeout: %d minutes",
+	"timestamp_timeout", T_FLOAT|T_BOOL,
+	"Authentication timestamp timeout: %.1f minutes",
 	NULL,
     }, {
-	"passwd_timeout", T_UINT|T_BOOL,
-	"Password prompt timeout: %d minutes",
+	"passwd_timeout", T_FLOAT|T_BOOL,
+	"Password prompt timeout: %.1f minutes",
 	NULL,
     }, {
 	"passwd_tries", T_UINT,
@@ -301,6 +301,34 @@ struct sudo_defs_types sudo_defs_table[] = {
     }, {
 	"visiblepw", T_FLAG,
 	"Allow sudo to prompt for a password even if it would be visisble",
+	NULL,
+    }, {
+	"pwfeedback", T_FLAG,
+	"Provide visual feedback at the password prompt when there is user input",
+	NULL,
+    }, {
+	"fast_glob", T_FLAG,
+	"Use faster globbing that is less accurate but does not access the filesystem",
+	NULL,
+    }, {
+	"umask_override", T_FLAG,
+	"The umask specified in sudoers will override the user's, even if it is more permissive",
+	NULL,
+    }, {
+	"log_input", T_FLAG,
+	"Log user's input for the command being run",
+	NULL,
+    }, {
+	"log_output", T_FLAG,
+	"Log the output of the command being run",
+	NULL,
+    }, {
+	"compress_io", T_FLAG,
+	"Compress I/O logs using zlib",
+	NULL,
+    }, {
+	"use_pty", T_FLAG,
+	"Always run commands in a pseudo-tty",
 	NULL,
     }, {
 	NULL, 0, NULL

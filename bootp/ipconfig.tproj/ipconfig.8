@@ -1,7 +1,7 @@
 .\"
 .\"     @(#)ipconfig.8
 .\"
-.Dd July 14, 2004
+.Dd June 2, 2010
 .Dt IPCONFIG 8
 .Os "Mac OS X"
 .Sh NAME
@@ -23,6 +23,12 @@
 .Cm getpacket
 .Ar interface-name
 .Nm
+.Cm getv6packet
+.Ar interface-name
+.Nm
+.Cm setverbose
+.Ar level
+.Nm
 .Cm set
 .Ar interface-name 
 .Cm NONE
@@ -37,8 +43,23 @@
 .Ar ip-address
 .Ar subnet-mask
 .Nm
-.Cm setverbose
-.Ar level
+.Cm set
+.Ar interface-name 
+.Cm NONE-V6
+.Nm
+.Cm set
+.Ar interface-name
+.Cm AUTOMATIC-V6
+.Nm
+.Cm set
+.Ar interface-name
+.Cm MANUAL-V6
+.Ar ipv6-address
+.Ar prefix-length
+.Nm
+.Cm set
+.Ar interface-name
+.Cm 6TO4
 .Sh DESCRIPTION
 .Nm 
 is a utility that communicates with the IPConfiguration agent
@@ -100,19 +121,31 @@ provided, and whether the values are sensible.  This command outputs nothing
 if DHCP/BOOTP is not active on the interface, or the attempt to acquire an 
 IP address was unsuccessful.
 .Pp
+.It Cm getv6packet Ar interface-name
+Prints to standard output the latest DHCPv6 packet that the client accepted from
+the DHCPv6 server.  In the case of stateful DHCPv6, it corresponds to the last
+packet from the server that contained addressing information.  This command is
+useful to check what the server provided, and whether the values are sensible.
+This command outputs nothing if DHCPv6 is not active on the interface.
+.Pp
 .It Cm set Ar interface-name Cm NONE
 .It Cm set Ar interface-name Cm ( DHCP | BOOTP )
 .It Cm set Ar interface-name Cm ( MANUAL | INFORM ) Ar ip-address Ar subnet-mask
+.It Cm set Ar interface-name Cm NONE-V6
+.It Cm set Ar interface-name Cm AUTOMATIC-V6
+.It Cm set Ar interface-name Cm MANUAL-V6 Ar ipv6-address Ar prefix-length
+.It Cm set Ar interface-name Cm 6TO4
 Sets the interface to have a new temporary network service of the
-given type.  All existing services on the interface are first de-configured
-before the new service is instantiated.  If NONE is supplied, no new service
-is instantiated.
+given type.  Any existing services on the interface for the particular protocol 
+(IPv4 or IPv6) are first de-configured before the new service is instantiated.
+.Pp
+If NONE is specified, all existing IPv4 services are de-configured.  If NONE-V6
+is specified, all existing IPv6 services are de-configured.
 .Pp
 DHCP and BOOTP require no additional arguments. The IP address, subnet mask,
 router, and DNS information are retrieved automatically.
 .Pp
-Both 
-MANUAL and INFORM require the specification of an IP address
+Both MANUAL and INFORM require the specification of an IP address
 .Ar ip-address
 and a subnet mask
 .Ar subnet-mask .
@@ -122,6 +155,18 @@ broadcasts DHCP INFORM packets to retrieve DHCP option
 information. If the DHCP server responds and supplies a subnet mask, that
 subnet mask is used instead of the specified
 .Ar subnet-mask .
+.Pp
+AUTOMATIC-V6 requires no additional arguments.  The IPv6 address, prefix length
+and router are retrieved automatically.
+.Pp
+MANUAL-V6 requires the specification of the IPv6 address
+.Ar ipv6-address
+and a prefix length
+.Ar prefix-length .
+.Pp
+6TO4 only works on Six To Four (IFT_STF) interfaces e.g. stf0.  If it is
+specified on a non-IFT_STF interface, it has the same effect as specifying
+NONE-V6.
 .Pp
 The \fBset\fR command requires root privileges.
 .Pp

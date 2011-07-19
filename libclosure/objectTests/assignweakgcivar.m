@@ -1,10 +1,24 @@
-#import <Foundation/Foundation.h>
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
 
-// CONFIG GC
+/*
+  TEST_CONFIG SDK=macosx GC=1
+  TEST_CFLAGS -framework Foundation
+ */
+
+#import <objc/objc-auto.h>
+#import <Foundation/Foundation.h>
+#import "test.h"
 
 int GlobalInt = 0;
 int GlobalInt2 = 0;
 
+#ifdef __cplusplus
+extern "C" {
+#endif
 id objc_assign_weak(id value, id *location) {
     GlobalInt = 1;
     *location = value;
@@ -15,6 +29,9 @@ id objc_read_weak(id *location) {
     GlobalInt2 = 1;
     return *location;
 }
+#ifdef __cplusplus
+}
+#endif
 
 @interface Foo : NSObject {
 @public
@@ -24,22 +41,15 @@ id objc_read_weak(id *location) {
 @implementation Foo
 @end
 
-//void (^GlobalVoidVoid)(void);
-
-void (^__weak Henry)(void);
-
-int main(char *argc, char *argv[]) {
+int main() {
     // an object should not be retained within a stack Block
     __block int i = 0;
-    void (^local)(void);
     Foo *foo = [[Foo alloc] init];
     foo->ivar = ^ {  ++i; };
-    if (GlobalInt == 1) {
-        printf("%s: success\n", argv[0]);
-        exit(0);
+    if (GlobalInt != 1) {
+        fail("problem with weak write-barrier assignment of ivar");
     }
-    else {
-        printf("%s: problem with weak write-barrier assignment of ivar\n", argv[0]);
-    }
-    exit(1);
+
+    succeed(__FILE__);
 }
+

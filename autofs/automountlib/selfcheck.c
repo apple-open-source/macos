@@ -26,7 +26,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)selfcheck.c	1.3	05/06/08 SMI"

@@ -78,7 +78,7 @@
 static int radius_papchap_check();
 static int radius_pap_auth(char *user, char *passwd, char **msgp,
 		struct wordlist **paddrs, struct wordlist **popts);
-static int radius_chap_auth(char *name, char *ourname, int id,
+static int radius_chap_auth(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space);
@@ -150,7 +150,7 @@ int (*old_pap_auth_hook) __P((char *user, char *passwd, char **msgp,
 				 struct wordlist **paddrs,
 				 struct wordlist **popts));
 
-int (*old_chap_verify_hook) __P((char *name, char *ourname, int id,
+int (*old_chap_verify_hook) __P((u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space));
@@ -298,7 +298,7 @@ void radius_system_inited(void *param, uintptr_t code)
 	CFStringRef	strRef;
 	CFArrayRef	serversArray, authArray;
 	CFDictionaryRef	serverDict;
-	int 	i, installPAP,	installMSCHAP2, installEAP;
+	int 	i, installPAP = 0,	installMSCHAP2 = 0, installEAP = 0;
 
 	radiusDict = NULL;
 
@@ -697,7 +697,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
                     break;
                     
                 case CHAP_MD5:
-                    slprintf(message, message_space, "Access granted");
+                    slprintf((char*)message, message_space, "Access granted");
                     break;
             
                 case CHAP_MICROSOFT:	   
@@ -716,7 +716,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 										
 										if(len != -1)
 										{
-											radius_decryptmppekey(mppe_send_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth, len);
+											radius_decryptmppekey((char*)mppe_send_key, attr_value, attr_len, (char*)rad_server_secret(h), auth, len);
 											mppe_keys_set = 1;
 										}
 										else
@@ -728,7 +728,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 										
 										if(len != -1)
 										{
-											radius_decryptmppekey(mppe_recv_key, attr_value, attr_len, (u_char*)rad_server_secret(h), auth, len);
+											radius_decryptmppekey((char*)mppe_recv_key, attr_value, attr_len, (char*)rad_server_secret(h), auth, len);
 											mppe_keys_set = 1;
 										}
 										else
@@ -736,7 +736,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 										break;
 
 									case RAD_MICROSOFT_MS_CHAP2_SUCCESS:
-										if ((attr_len - 1) < message_space) {
+										if (attr_len && (attr_len - 1) < message_space) {
 											memcpy(message, attr_value + 1, attr_len - 1);
 											message[attr_len - 1] = 0;
 										}
@@ -758,7 +758,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
                     break;
                     
                 case CHAP_MD5:
-                    slprintf(message, message_space, "Access denied");
+                    slprintf((char*)message, message_space, "Access denied");
                     break;
             
                 case CHAP_MICROSOFT:	   
@@ -774,34 +774,37 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 								switch (attr_type) {
 
 									case RAD_MICROSOFT_MS_CHAP_ERROR:
-										if ((attr_len - 1) < message_space) {
+
+#define RAD_MICROSOFT_MS_CHAP_ERROR_MESSAGE_TERM(x) (x - 1 + 3 + 2*MD4_SIGNATURE_SIZE)
+
+										if (attr_len && RAD_MICROSOFT_MS_CHAP_ERROR_MESSAGE_TERM(attr_len) < message_space) {
 											memcpy(message, attr_value + 1, attr_len - 1);
 											message[attr_len - 1] = 0;
-											if (strstr(message, "E=648")) {
+											if (strstr((char*)message, "E=648")) {
 												unsigned char *p;
 												int len;
 												/* stick the challenge in the packet */
-												p = strstr(message, " V=");
+												p = (u_char *)strstr((char*)message, " V=");
 												if (p == 0) {
 													error("Radius: couldn't find Version field in the MS-CHAP-ERROR packet\n");
 													ret = 0;
 													break;
 												}
-												len = strlen(message) - (p - message);
+												len = strlen((char*)message) - (p - message);
 												memcpy(p+3+2*MD4_SIGNATURE_SIZE, p, len);
 												*p++ = ' ';
 												*p++ = 'C';
 												*p++ = '=';
-												hex2ascii(challenge, MD4_SIGNATURE_SIZE, p);
-												message[attr_len - 1 + 3 + 2*MD4_SIGNATURE_SIZE] = 0;
+												hex2ascii((u_char*)challenge, MD4_SIGNATURE_SIZE, p);
+												message[RAD_MICROSOFT_MS_CHAP_ERROR_MESSAGE_TERM(attr_len)] = 0;
 												ret = -1;
 											}
-											else if (strstr(message, "E=691")) {
+											else if (strstr((char*)message, "E=691")) {
 												unsigned char *p;
 												int len;
 												/* look for retry flag and force it if necessary
 												  We have an option to force it because Windows Radius IAS set the R=0 flag */
-												p = strstr(message, " R=");
+												p = (u_char*)strstr((char*)message, " R=");
 												if (p && force_mschapv2_retry) 
 													p[3] = '1';
 												if (p == 0 || p[3] == '0') {
@@ -809,19 +812,19 @@ int radius_authenticate_user(char *user, char *passwd, int type,
 													break;
 												}
 												/* stick the challenge in the packet */
-												p = strstr(message, " V=");
+												p = (u_char*)strstr((char*)message, " V=");
 												if (p == 0) {
 													error("Radius: couldn't find Version field in the MS-CHAP-ERROR packet\n");
 													ret = 0;
 													break;
 												}
-												len = strlen(message) - (p - message);
+												len = strlen((char*)message) - (p - message);
 												memcpy(p+3+2*MD4_SIGNATURE_SIZE, p, len);
 												*p++ = ' ';
 												*p++ = 'C';
 												*p++ = '=';
-												hex2ascii(challenge, MD4_SIGNATURE_SIZE, p);
-												message[attr_len - 1 + 3 + 2*MD4_SIGNATURE_SIZE] = 0;
+												hex2ascii((u_char*)challenge, MD4_SIGNATURE_SIZE, p);
+												message[RAD_MICROSOFT_MS_CHAP_ERROR_MESSAGE_TERM(attr_len)] = 0;
 												ret = -1;
 											}
 										}
@@ -839,7 +842,7 @@ int radius_authenticate_user(char *user, char *passwd, int type,
             break;
         default: 
             error("Radius : Authentication error %d. %s.\n", err, rad_strerror(h));
-			slprintf(message, message_space, "Access denied");
+			slprintf((char*)message, message_space, "Access denied");
 
     }
     
@@ -863,7 +866,7 @@ radius_pap_auth(char *user, char *passwd, char **msgp,
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-static int radius_chap_auth(char *user, char *ourname, int id,
+static int radius_chap_auth(u_char *user, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space)
@@ -871,8 +874,8 @@ static int radius_chap_auth(char *user, char *ourname, int id,
     int challenge_len = *challenge++;
     int response_len = *response++;
 
-    return radius_authenticate_user(user, 0, digest->code,  
-        challenge, challenge_len, id, 
+    return radius_authenticate_user((char*)user, 0, digest->code,  
+        (char*)challenge, challenge_len, id, 
         response, response_len, message, message_space, 0);
 }
 
@@ -889,7 +892,7 @@ static int radius_chap_auth_unknown(char *user, char *ourname, int code, int id,
 	if (digest->code == CHAP_MICROSOFT_V2 && code == 7) {
 		/* pkt_len should be 582 */
 		return radius_authenticate_user(user, 0, digest->code,  
-			challenge, challenge_len, id, 
+			(char*)challenge, challenge_len, id, 
 			pkt, pkt_len, message, message_space, 1);
 	}
 	

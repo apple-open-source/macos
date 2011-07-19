@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/localeconv.3	2004-11-25 11:38:18.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/localeconv.3.edit	2006-06-29 11:04:42.000000000 -0700
-@@ -40,14 +40,22 @@
+--- localeconv.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ localeconv.3	2009-11-09 15:05:26.000000000 -0800
+@@ -36,14 +36,22 @@
  .Dt LOCALECONV 3
  .Os
  .Sh NAME
@@ -25,7 +25,7 @@
  .Sh DESCRIPTION
  The
  .Fn localeconv
-@@ -201,6 +209,14 @@
+@@ -197,6 +205,14 @@ a value that is not in the current local
  A
  .Dv CHAR_MAX
  result similarly denotes an unavailable value.
@@ -40,7 +40,7 @@
  .Sh RETURN VALUES
  The
  .Fn localeconv
-@@ -213,7 +229,8 @@
+@@ -209,7 +225,8 @@ or
  No errors are defined.
  .Sh SEE ALSO
  .Xr setlocale 3 ,

@@ -1,0 +1,1116 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$69|struct myStruct {
+	int field1;
+	int field2 : 23;
+	int field3 : 9;
+};
+$157|/*!
+ @struct myStruct
+ @abstract A structure with bitfields
+ @field field1 The first field
+ @field field2 The second field
+ @field field3 The third field
+*/
+$0|$14171|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 1
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/struct_bitfield_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/struct_bitfield_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 5
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => myStruct
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  struct myStruct {
+         int 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => struct
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 5
+typelist: struct
+namelist: myStruct
+posstypes:  struct
+value: 
+returntype:  struct myStruct {         int 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => int field1
+Parsed Param 1 => int field2 : 23
+Parsed Param 2 => int field3 : 9
+-=: DUMP OF PARSE TREE :=-
++---struct
++--- 
++---myStruct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field2
+|   +--- 
+|   +---:
+|   +--- 
+|   +---23
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field3
+|   +--- 
+|   +---:
+|   +--- 
+|   +---9
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: struct bitfield 1
+APIUID: //test_ref/doc/header/struct_bitfield_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Struct
+    NAME: myStruct
+    APIUID: //test_ref/c/tag/myStruct
+    ABSTRACT: "<p>A structure with bitfields
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Struct"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field1
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field2
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field3
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field1
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field1
+        ABSTRACT: ""
+        DISCUSSION: "<p>The first field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field2
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field2
+        ABSTRACT: ""
+        DISCUSSION: "<p>The second field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field3
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field3
+        ABSTRACT: ""
+        DISCUSSION: "<p>The third field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: myStruct (HeaderDoc::Struct)
++---struct
++--- 
++---myStruct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field2
+|   +--- 
+|   +---:
+|   +--- 
+|   +---23
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field3
+|   +--- 
+|   +---:
+|   +--- 
+|   +---9
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: myStruct (HeaderDoc::Struct)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/myStruct //test_ref/c/tdef/myStruct //test_ref/c/tag/myStruct //test_ref/c/struct/myStruct //test_ref/c/intf/myStruct //test_ref/doc/anysymbol/myStruct" machineGenerated="true" --><span class="type">myStruct</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/field1 //test_ref/c/data/field1 //test_ref/c/clconst/field1 " machineGenerated="true" --><span class="var">field1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/field2 //test_ref/c/tdef/field2 //test_ref/c/tag/field2 //test_ref/c/struct/field2 //test_ref/c/intf/field2 //test_ref/doc/anysymbol/field2" machineGenerated="true" --><span class="type">field2</span><!-- /a --> : <span class="number">23</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/field3 //test_ref/c/tdef/field3 //test_ref/c/tag/field3 //test_ref/c/struct/field3 //test_ref/c/intf/field3 //test_ref/doc/anysymbol/field3" machineGenerated="true" --><span class="type">field3</span><!-- /a --> : <span class="number">9</span>; 
+	};  
+END OF OBJECT
+
+
+
+$14171|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 1
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/struct_bitfield_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/struct_bitfield_1.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => struct
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inEnum} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{inUnion} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 5
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => myStruct
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} =>  struct
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  struct myStruct {
+         int 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{typestring} => struct
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 5
+typelist: struct
+namelist: myStruct
+posstypes:  struct
+value: 
+returntype:  struct myStruct {         int 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => int field1
+Parsed Param 1 => int field2 : 23
+Parsed Param 2 => int field3 : 9
+-=: DUMP OF PARSE TREE :=-
++---struct
++--- 
++---myStruct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field2
+|   +--- 
+|   +---:
+|   +--- 
+|   +---23
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field3
+|   +--- 
+|   +---:
+|   +--- 
+|   +---9
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: struct bitfield 1
+APIUID: //test_ref/doc/header/struct_bitfield_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Struct
+    NAME: myStruct
+    APIUID: //test_ref/c/tag/myStruct
+    ABSTRACT: "<p>A structure with bitfields
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Struct"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field1
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field2
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field3
+        TYPE: int
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+    TAGGED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field1
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field1
+        ABSTRACT: ""
+        DISCUSSION: "<p>The first field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field2
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field2
+        ABSTRACT: ""
+        DISCUSSION: "<p>The second field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: field3
+        TYPE: 
+        APIUID: //test_ref/doc/structfield/myStruct/field3
+        ABSTRACT: ""
+        DISCUSSION: "<p>The third field"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: myStruct (HeaderDoc::Struct)
++---struct
++--- 
++---myStruct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field2
+|   +--- 
+|   +---:
+|   +--- 
+|   +---23
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---int
+|   +--- 
+|   +---field3
+|   +--- 
+|   +---:
+|   +--- 
+|   +---9
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: myStruct (HeaderDoc::Struct)
+	<span class="keyword">struct</span> <!-- a logicalPath="//test_ref/c/cl/myStruct //test_ref/c/tdef/myStruct //test_ref/c/tag/myStruct //test_ref/c/struct/myStruct //test_ref/c/intf/myStruct //test_ref/doc/anysymbol/myStruct" machineGenerated="true" --><span class="type">myStruct</span><!-- /a --> { 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/field1 //test_ref/c/data/field1 //test_ref/c/clconst/field1 " machineGenerated="true" --><span class="var">field1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/field2 //test_ref/c/tdef/field2 //test_ref/c/tag/field2 //test_ref/c/struct/field2 //test_ref/c/intf/field2 //test_ref/doc/anysymbol/field2" machineGenerated="true" --><span class="type">field2</span><!-- /a --> : <span class="number">23</span>; 
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/cl/field3 //test_ref/c/tdef/field3 //test_ref/c/tag/field3 //test_ref/c/struct/field3 //test_ref/c/intf/field3 //test_ref/doc/anysymbol/field3" machineGenerated="true" --><span class="type">field3</span><!-- /a --> : <span class="number">9</span>; 
+	};  
+END OF OBJECT
+
+
+
+$46|This should parse the field names corrrectly.
+$99|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/struct_bitfield_1.test$1|C$17|struct bitfield 1$1|C$6|parser

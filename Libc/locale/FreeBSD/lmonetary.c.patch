@@ -1,5 +1,5 @@
---- lmonetary.c.orig	2004-11-25 11:38:17.000000000 -0800
-+++ lmonetary.c	2005-03-16 23:05:30.000000000 -0800
+--- lmonetary.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ lmonetary.c	2009-11-09 15:05:25.000000000 -0800
 @@ -27,14 +27,16 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/lmonetary.c,v 1.19 2003/06/26 10:46:16 phantom Exp $");
@@ -18,7 +18,7 @@
  extern const char * __fix_locale_grouping_str(const char *);
  
  #define LCMONETARY_SIZE_FULL (sizeof(struct lc_monetary_T) / sizeof(char *))
-@@ -50,7 +52,7 @@
+@@ -50,7 +52,7 @@ static const struct lc_monetary_T _C_mon
  	empty,		/* currency_symbol */
  	empty,		/* mon_decimal_point */
  	empty,		/* mon_thousands_sep */
@@ -27,7 +27,7 @@
  	empty,		/* positive_sign */
  	empty,		/* negative_sign */
  	numempty,	/* int_frac_digits */
-@@ -69,10 +71,6 @@
+@@ -69,10 +71,6 @@ static const struct lc_monetary_T _C_mon
  	numempty	/* int_n_sign_posn */
  };
  
@@ -38,7 +38,7 @@
  static char
  cnv(const char *str)
  {
-@@ -83,23 +81,57 @@
+@@ -83,23 +81,57 @@ cnv(const char *str)
  	return ((char)i);
  }
  
@@ -106,7 +106,7 @@
  
  		M_ASSIGN_CHAR(int_frac_digits);
  		M_ASSIGN_CHAR(frac_digits);
-@@ -117,9 +149,9 @@
+@@ -117,9 +149,9 @@ __monetary_load_locale(const char *name)
  		 */
  #define	M_ASSIGN_ICHAR(NAME)						\
  		do {							\
@@ -119,7 +119,7 @@
  			else						\
  				M_ASSIGN_CHAR(int_##NAME);		\
  		} while (0)
-@@ -130,21 +162,27 @@
+@@ -130,21 +162,27 @@ __monetary_load_locale(const char *name)
  		M_ASSIGN_ICHAR(n_sep_by_space);
  		M_ASSIGN_ICHAR(p_sign_posn);
  		M_ASSIGN_ICHAR(n_sign_posn);
@@ -151,7 +151,7 @@
  printf(	"int_curr_symbol = %s\n"
  	"currency_symbol = %s\n"
  	"mon_decimal_point = %s\n"
-@@ -166,27 +204,27 @@
+@@ -166,27 +204,27 @@ printf(	"int_curr_symbol = %s\n"
  	"int_n_sep_by_space = %d\n"
  	"int_p_sign_posn = %d\n"
  	"int_n_sign_posn = %d\n",

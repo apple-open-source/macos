@@ -24,7 +24,7 @@ BASIC_TESTS = uri-tests util-tests string-tests socket \
 ZLIB_TESTS = compress
 ZLIB_HELPERS = file1.gz file2.gz trailing.gz badcsum.gz truncated.gz \
 	corrupt1.gz corrupt2.gz empty.gz random.txt
-DAV_TESTS = xml xmlreq acl props lock
+DAV_TESTS = xml xmlreq oldacl acl3744 props lock
 SSL_TESTS = socket-ssl ssl
 SSL_HELPERS = ca-stamp
 TESTS = @TESTS@
@@ -66,7 +66,7 @@ all: $(TESTS)
 clean:
 	rm -f $(TESTS) $(HELPERS) *.*o common/*.*o libtest.*a *.log
 	rm -f *.gc* *.da *.bb* common/*.bb* common/*.gc* common/*.da
-	rm -rf ca .libs nssdb*
+	rm -rf ca ca2 .libs nssdb*
 	rm -f ca-stamp client.key *.csr ssigned.pem wrongcn.pem \
 	   server.cert client.cert *.p12 *.cert sparse.bin
 
@@ -129,7 +129,7 @@ random.txt: $(NEWS)
 # since it changes for every invocation; not helpful for regression
 # testing.
 ca-stamp: makekeys $(srcdir)/openssl.conf
-	rm -rf ca
+	rm -rf ca ca2
 	OPENSSL=$(OPENSSL) \
 	 $(SHELL) makekeys $(srcdir) 2>makekeys.out
 	@echo timestamp > ca-stamp
@@ -140,7 +140,7 @@ Makefile: $(srcdir)/Makefile.in
 makekeys: $(srcdir)/makekeys.sh
 	cd .. && ./config.status test/makekeys
 
-LIBOBJS = common/tests.lo common/child.lo utils.lo
+LIBOBJS = common/tests.lo common/child.lo utils.lo util-socks.lo
 
 $(LIBTEST): $(LIBOBJS)
 	$(LINK) -o $(LIBTEST) $(LIBOBJS) $(LIBNEON)
@@ -161,6 +161,7 @@ resolve: resolve.lo $(LIBNEON)
 common/tests.lo: $(srcdir)/common/tests.c $(OBJDEPS)
 common/child.lo: $(srcdir)/common/child.c $(OBJDEPS) 
 utils.lo: $(srcdir)/utils.c $(OBJDEPS)
+util-socks.lo: $(srcdir)/util-socks.c $(OBJDEPS)
 auth.lo: $(srcdir)/auth.c $(OBJDEPS)
 uri-tests.lo: $(srcdir)/uri-tests.c $(OBJDEPS)
 util-tests.lo: $(srcdir)/util-tests.c $(OBJDEPS)
@@ -170,7 +171,8 @@ server.lo: $(srcdir)/server.c $(OBJDEPS)
 request.lo: $(srcdir)/request.c $(OBJDEPS)
 regress.lo: $(srcdir)/regress.c $(OBJDEPS)
 compress.lo: $(srcdir)/compress.c $(OBJDEPS)
-acl.lo: $(srcdir)/acl.c $(OBJDEPS)
+oldacl.lo: $(srcdir)/oldacl.c $(OBJDEPS)
+acl3744.lo: $(srcdir)/acl3744.c $(OBJDEPS)
 utils.lo: $(srcdir)/utils.c $(OBJDEPS)
 stubs.lo: $(srcdir)/stubs.c $(OBJDEPS)
 props.lo: $(srcdir)/props.c $(OBJDEPS)
@@ -201,8 +203,10 @@ regress: regress.lo $(DEPS)
 	$(LINK) -o $@ regress.lo $(DEPS)
 compress: compress.lo $(DEPS)
 	$(LINK) -o $@ compress.lo $(DEPS)
-acl: acl.lo $(DEPS)
-	$(LINK) -o $@ acl.lo $(DEPS)
+oldacl: oldacl.lo $(DEPS)
+	$(LINK) -o $@ oldacl.lo $(DEPS)
+acl3744: acl3744.lo $(DEPS)
+	$(LINK) -o $@ acl3744.lo $(DEPS)
 utils: utils.lo $(DEPS)
 	$(LINK) -o $@ utils.lo $(DEPS)
 stubs: stubs.lo $(DEPS)

@@ -1,8 +1,11 @@
 [comment {-*- tcl -*-}]
 [manpage_begin pop3d n 1.1.0]
-[copyright {2002 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2002-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2005 Reinhard Max  <max@suse.de>}]
 [moddesc   {Tcl POP3 Server Package}]
 [titledesc {Tcl POP3 server implementation}]
+[category  Networking]
+[keywords pop3 internet network protocol {rfc 1939} ssl tls secure]
 [require Tcl 8.3]
 [require pop3d [opt 1.1.0]]
 [description]
@@ -86,23 +89,23 @@ the server is closed.
 
 Returns a list containing all options and their current values in a
 format suitable for use by the command [cmd {array set}]. The options
-themselves are described in section [sectref OPTIONS].
+themselves are described in section [sectref Options].
 
 [call [arg serverName] [method configure] [arg -option]]
 
 Returns the current value of the specified option. This is an alias
 for the method [method cget]. The options themselves are described in
-section [sectref OPTIONS].
+section [sectref Options].
 
 [call [arg serverName] [method configure] [arg {-option value}]...]
 
 Sets the specified option to the provided value. The options
-themselves are described in section [sectref OPTIONS].
+themselves are described in section [sectref Options].
 
 [call [arg serverName] [method cget] [arg -option]]
 
 Returns the current value of the specified option. The options
-themselves are described in section [sectref OPTIONS].
+themselves are described in section [sectref Options].
 
 [call [arg serverName] [method conn] list]
 
@@ -115,7 +118,7 @@ state of the connection referenced by [arg id].
 
 [list_end]
 
-[section OPTIONS]
+[section Options]
 
 The following options are available to pop3 server objects.
 
@@ -140,7 +143,7 @@ effect. It is at that time that the value returned when querying
 Defines a [arg command] prefix to call whenever the authentication of
 a user is required. If no such command is specified the server will
 reject all users. The interface which has to be provided by the
-command prefix is described in section [sectref AUTHENTICATION].
+command prefix is described in section [sectref Authentication].
 
 [def "[option -storage] [arg command]"]
 
@@ -148,16 +151,17 @@ Defines a [arg command] prefix to call whenever the handling of
 mailbox contents is required. If no such command is specified the
 server will claim that all mailboxes are empty. The interface which
 has to be provided by the command prefix is described in section
-[sectref MAILBOXES].
+[sectref Mailboxes].
 
 [def "[option -socket] [arg command]"]
+
 Defines a [arg command] prefix to call for opening the listening socket.
 This can be used to make the pop3 server listen on a SSL socket
-as provided by the tls package.
+as provided by the [package tls] package, see the command [cmd tls::socket].
 
 [list_end]
 
-[section AUTHENTICATION]
+[section Authentication]
 
 Here we describe the interface which has to be provided by the
 authentication callback so that pop3 servers following the interface
@@ -179,18 +183,18 @@ this order.
 [para]
 
 The storage reference is passed unchanged to the storage callback, see
-sections [sectref OPTIONS] and [sectref MAILBOXES] for either the
+sections [sectref Options] and [sectref Mailboxes] for either the
 option defining it and or the interface to provide, respectively.
 
 [list_end]
 
-[section MAILBOXES]
+[section Mailboxes]
 
 Here we describe the interface which has to be provided by the storage
 callback so that pop3 servers following the interface of this module
 are able to use it. The [arg mbox] argument is the storage reference
 as returned by the [method lookup] method of the authentication
-command, see section [sectref AUTHENTICATION].
+command, see section [sectref Authentication].
 
 [list_begin definitions]
 
@@ -233,17 +237,24 @@ pop3 connection.
 
 [list_end]
 
-[section {BUGS, IDEAS, FEEDBACK}]
+[section {Secure mail transfer}]
 
-This document, and the package it describes, will undoubtedly contain
-bugs and other problems.
+The option [option -socket] (see [sectref Options]) enables users of
+the package to override how the server opens its listening socket.
 
-Please report such in the category [emph pop3d] of the
-[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+The envisioned main use is the specification of the [cmd tls::socket]
+command, see package [package tls], to secure the communication.
 
-Please also report any ideas for enhancements you may have for either
-package and/or documentation.
+[example {
+	package require tls
+	tls::init \\
+		...
+
+	pop3d::new S -socket tls::socket
+	...
+}]
 
 
-[keywords pop3 internet network protocol {rfc 1939}]
+[vset CATEGORY pop3d]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

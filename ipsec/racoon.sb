@@ -1,0 +1,103 @@
+;; OriginatingProject: ipsec
+(version 1)
+(deny default)
+(allow system-socket sysctl-read sysctl-write)
+
+(allow ipc-posix* (ipc-posix-name "com.apple.securityd"))
+(allow ipc-posix-shm
+    (ipc-posix-name "apple.shm.notification_center")
+    (ipc-posix-name "com.apple.AppleDatabaseChanged"))
+
+(allow file-read* file-ioctl
+    (subpath "/private/etc/master.passwd")
+    (subpath "/private/var/run/racoon")
+    (literal "/private/var/preferences/SystemConfiguration/com.apple.ipsec.plist")
+    (subpath "/private/etc/racoon"))
+
+(allow file-read*
+    (subpath "/Library/Managed\ Preferences")
+    (subpath "/Library/Preferences")
+    (subpath "/private/var/root")
+    (literal "/private/var/db/mds/messages/se_SecurityMessages"))
+
+(allow file-write*
+    (literal "/private/var/run/racoon.sock")
+    (literal "/private/var/run/racoon.pid"))
+
+(allow file*
+    (literal "/var/log/racoon.log")
+    (literal "/private/var/log/racoon.log"))
+
+(allow iokit-open (iokit-user-client-class "RootDomainUserClient"))
+
+(allow network-outbound (subpath "/private/var/tmp/launchd"))
+(allow network*
+    (local udp "*:500" "*:4500")
+    (remote udp "*:*")
+    (literal "/private/var/run/racoon.sock"))
+
+(allow file*
+    (literal "/Library/Keychains/System.keychain")
+    (literal "/private/var/db/mds/system/mdsObject.db")
+    (literal "/private/var/db/mds/system/mds.lock")
+    (literal "/private/var/db/mds/system/mdsDirectory.db"))
+
+(allow mach-lookup
+    (global-name "com.apple.SecurityServer")
+    (global-name "com.apple.ocspd"))
+
+;;;;;; Common system sandbox rules
+;;;;;;
+;;;;;; Copyright (c) 2008-2010 Apple Inc.  All Rights reserved.
+;;;;;;
+;;;;;; WARNING: The sandbox rules in this file currently constitute
+;;;;;; Apple System Private Interface and are subject to change at any time and
+;;;;;; without notice. The contents of this file are also auto-generated and
+;;;;;; not user editable; it may be overwritten at any time.
+
+;;; Allow read access to standard system paths.
+
+(allow file-read*
+       (require-all (file-mode #o0004)
+                    (require-any (subpath "/System")
+                                 (subpath "/usr/lib")
+                                 (subpath "/usr/sbin")
+                                 (subpath "/usr/share"))))
+
+(allow file-read-metadata
+       (literal "/etc")
+       (literal "/tmp")
+       (literal "/var"))
+
+;;; Allow access to standard special files.
+
+(allow file-read*
+       (literal "/private/var/db/timezone/localtime")
+       (literal "/dev/random")
+       (literal "/dev/urandom"))
+
+(allow file-read*
+       file-write-data
+       (literal "/dev/null")
+       (literal "/dev/zero"))
+
+(allow file-read*
+       file-write-data
+       file-ioctl
+       (literal "/dev/aes_0")
+       (literal "/dev/sha1_0")
+       (literal "/dev/dtracehelper"))
+
+(allow network-outbound
+       (literal "/private/var/run/asl_input")
+       (literal "/private/var/run/syslog"))
+
+;;; Allow IPC to standard system agents.
+
+(allow mach-lookup
+       (global-name "com.apple.securityd")
+       (global-name "com.apple.bsd.dirhelper")
+       (global-name "com.apple.system.DirectoryService.libinfo_v1")
+       (global-name "com.apple.system.DirectoryService.membership_v1")
+       (global-name "com.apple.system.logger")
+       (global-name "com.apple.system.notification_center"))

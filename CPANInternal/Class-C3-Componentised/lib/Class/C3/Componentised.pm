@@ -22,7 +22,7 @@ Load mix-ins or components to your C3-based class.
   package main;
 
   MyModule->load_components( qw/Foo Bar/ ); 
-  # Will load MyModule::Component::Foo an MyModule::Component::Bar
+  # Will load MyModule::Component::Foo and MyModule::Component::Bar
 
 =head1 DESCRIPTION
 
@@ -40,11 +40,13 @@ L<MooseX::Object::Pluggable>.
 use strict;
 use warnings;
 
-use Class::C3;
+# see Makefile.PL for discussion on why we load both Class::C3 and MRO::Compat
+use Class::C3 ();
+use MRO::Compat;
 use Class::Inspector;
 use Carp;
 
-our $VERSION = 1.0003;
+our $VERSION = 1.0006;
 
 =head2 load_components( @comps )
 
@@ -58,14 +60,18 @@ Calling this will call C<Class::C3::reinitialize>.
 
 sub load_components {
   my $class = shift;
-  my $base = $class->component_base_class;
-  my @comp = map { /^\+(.*)$/ ? $1 : "${base}::$_" } grep { $_ !~ /^#/ } @_;
+  my @comp = map {
+              /^\+(.*)$/
+                ? $1
+                : join ('::', $class->component_base_class, $_)
+             }
+             grep { $_ !~ /^#/ } @_;
   $class->_load_components(@comp);
 }
 
 =head2 load_own_components( @comps )
 
-Simialr to L<load_components>, but assumes every class is C<"$class::$comp">.
+Similar to L<load_components>, but assumes every class is C<"$class::$comp">.
 
 =cut
 
@@ -93,9 +99,12 @@ found.
 
 sub load_optional_components {
   my $class = shift;
-  my $base = $class->component_base_class;
   my @comp = grep { $class->load_optional_class( $_ ) }
-             map { /^\+(.*)$/ ? $1 : "${base}::$_" } 
+             map {
+              /^\+(.*)$/
+                ? $1
+                : join ('::', $class->component_base_class, $_)
+             }
              grep { $_ !~ /^#/ } @_;
 
   $class->_load_components( @comp ) if scalar @comp;
@@ -136,7 +145,12 @@ sub ensure_class_loaded {
 =head2 ensure_class_found
 
 Returns true if the specified class is installed or already loaded, false
-otherwise
+otherwise.
+
+Note that the underlying mechanism (Class::Inspector->installed()) used by this
+sub will not, at the time of writing, correctly function when @INC includes
+coderefs. Since PAR relies upon coderefs in @INC, this function should be
+avoided in modules that are likely to be included within a PAR.
 
 =cut
 
@@ -163,11 +177,33 @@ sub inject_base {
     }
   }
 
-  # Yes, this is hack. But it *does* work. Please don't submit tickets about
-  # it on the basis of the comments in Class::C3, the author was on #dbix-class
-  # while I was implementing this.
+  mro::set_mro($target, 'c3');
+}
 
-  eval "package $target; import Class::C3;" unless exists $Class::C3::MRO{$target};
+=head2 load_optional_class
+
+Returns a true value if the specified class is installed and loaded
+successfully, throws an exception if the class is found but not loaded
+successfully, and false if the class is not installed
+
+=cut
+
+sub load_optional_class {
+  my ($class, $f_class) = @_;
+  eval { $class->ensure_class_loaded($f_class) };
+  my $err = $@;   # so we don't lose it
+  if (! $err) {
+    return 1;
+  }
+  else {
+    my $fn = (join ('/', split ('::', $f_class) ) ) . '.pm';
+    if ($err =~ /Can't locate ${fn} in \@INC/ ) {
+      return 0;
+    }
+    else {
+      die $err;
+    }
+  }
 }
 
 =head1 AUTHOR

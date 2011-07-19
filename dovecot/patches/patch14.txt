@@ -1,0 +1,53 @@
+diff -Nur dovecot-1.1.7+patches9-10/src/master/master-settings.c dovecot-patch/src/master/master-settings.c
+--- dovecot-1.1.7+patches9-10/src/master/master-settings.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/master/master-settings.c	2009-01-06 16:59:45.000000000 -0600
+@@ -614,8 +614,13 @@
+ 	   automatically */
+ 	static const char *generated_capability = NULL;
+ 	static const char *args[] = {
++#ifdef APPLE_OS_X_SERVER
++		"uid=98",	/* _dovecot's uid */
++		"gid=6",	/* _dovecot's gid */
++#else
+ 		"uid=65534",
+ 		"gid=65534",
++#endif
+ 		"home=/tmp",
+ 		NULL
+ 	};
+@@ -810,8 +815,8 @@
+ #endif
+ 
+ 	if (set->max_mail_processes < 1) {
+-		i_error("max_mail_processes must be at least 1");
+-		return FALSE;
++		/* APPLE - treat as "unlimited" */
++		set->max_mail_processes = 1000000;
+ 	}
+ 
+ 	/* APPLE */
+@@ -1466,6 +1471,24 @@
+ 			fd_count += server->pop3->login_max_processes_count;
+ 		fd_count += server->defaults->max_mail_processes;
+ 	}
++/* Apple mod --- XXX: This should be made runtime configurable */
++        if ( rlim.rlim_cur < fd_count )
++        {
++                rlim.rlim_cur = 8192;
++                rlim.rlim_max = 8192;
++                if ( setrlimit( RLIMIT_NOFILE, &rlim ) < 0 )
++                {
++                        i_warning( "***: Unable to set rlimits" );
++                }
++                else
++                {
++                        if ( getrlimit(RLIMIT_NOFILE, &rlim) < 0 )
++                        {
++                                i_warning( "***: getrlimit failed" );
++                                return;
++                        }
++                }
++        }
+ 
+ 	if (rlim.rlim_cur < fd_count) {
+ 		i_warning("fd limit %d is lower than what Dovecot can use under "

@@ -21,11 +21,12 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "ContextMenuItem.h"
+
 #include "ContextMenu.h"
 
 namespace WebCore {
@@ -46,6 +47,16 @@ ContextMenuItem::ContextMenuItem(ContextMenuItemType type, ContextMenuAction act
     m_platformDescription.title = title;
     if (subMenu)
         setSubMenu(subMenu);
+}
+
+ContextMenuItem::ContextMenuItem(ContextMenuItemType, ContextMenuAction, const String&, bool, bool)
+{
+    // FIXME: Implement
+}
+
+ContextMenuItem::ContextMenuItem(ContextMenuAction, const String&, bool, bool, Vector<ContextMenuItem>&)
+{
+    // FIXME: Implement
 }
 
 ContextMenuItem::~ContextMenuItem()
@@ -98,9 +109,20 @@ void ContextMenuItem::setSubMenu(ContextMenu* menu)
     m_platformDescription.subMenuItems = *menu->platformDescription();
 }
 
+void ContextMenuItem::setSubMenu(Vector<ContextMenuItem>&)
+{
+    // FIXME: Implement
+}
+
 void ContextMenuItem::setChecked(bool on)
 {
     m_platformDescription.checked = on;
+}
+
+bool ContextMenuItem::checked() const
+{
+    // FIXME - Implement
+    return false;
 }
 
 void ContextMenuItem::setEnabled(bool on)

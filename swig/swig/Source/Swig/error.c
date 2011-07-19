@@ -8,7 +8,7 @@
  * error messages.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_error_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/error.c,v 1.14 2006/11/01 23:54:53 wsfulton Exp $";
+char cvsroot_error_c[] = "$Id: error.c 11080 2009-01-24 13:15:51Z bhy $";
 
 #include "swig.h"
 #include <stdarg.h>
@@ -50,7 +50,7 @@ static char wrn_nnum_fmt[64];
 static char err_line_fmt[64];
 static char err_eof_fmt[64];
 
-static String *format_filename(const String_or_char *filename);
+static String *format_filename(const_String_or_char_ptr filename);
 
 /* -----------------------------------------------------------------------------
  * Swig_warning()
@@ -58,7 +58,7 @@ static String *format_filename(const String_or_char *filename);
  * Issue a warning message
  * ----------------------------------------------------------------------------- */
 
-void Swig_warning(int wnum, const String_or_char *filename, int line, const char *fmt, ...) {
+void Swig_warning(int wnum, const_String_or_char_ptr filename, int line, const char *fmt, ...) {
   String *out;
   char *msg;
   int wrn = 1;
@@ -89,10 +89,14 @@ void Swig_warning(int wnum, const String_or_char *filename, int line, const char
     char *f = Char(filter);
     sprintf(temp, "%d", wnum);
     while (*f != '\0' && (c = strstr(f, temp))) {
-      if (*(c - 1) == '-')
+      if (*(c - 1) == '-') {
 	wrn = 0;		/* Warning disabled */
-      if (*(c - 1) == '+')
+        break;
+      }
+      if (*(c - 1) == '+') {
 	wrn = 1;		/* Warning enabled */
+        break;
+      }
       f += strlen(temp);
     }
   }
@@ -117,7 +121,7 @@ void Swig_warning(int wnum, const String_or_char *filename, int line, const char
  * Issue an error message
  * ----------------------------------------------------------------------------- */
 
-void Swig_error(const String_or_char *filename, int line, const char *fmt, ...) {
+void Swig_error(const_String_or_char_ptr filename, int line, const char *fmt, ...) {
   va_list ap;
   String *formatted_filename = NULL;
 
@@ -166,11 +170,10 @@ void Swig_error_silent(int s) {
  * Takes a comma separate list of warning numbers and puts in the filter.
  * ----------------------------------------------------------------------------- */
 
-void Swig_warnfilter(const String_or_char *wlist, int add) {
+void Swig_warnfilter(const_String_or_char_ptr wlist, int add) {
   char *c;
   char *cw;
   String *s;
-
   if (!filter)
     filter = NewStringEmpty();
 
@@ -187,19 +190,22 @@ void Swig_warnfilter(const String_or_char *wlist, int add) {
   c = strtok(c, ", ");
   while (c) {
     if (isdigit((int) *c) || (*c == '+') || (*c == '-')) {
+      /* Even if c is a digit, the rest of the string might not be, eg in the case of typemap 
+       * warnings (a bit odd really), eg: %warnfilter(SWIGWARN_TYPEMAP_CHARLEAK_MSG) */
       if (add) {
 	Insert(filter, 0, c);
 	if (isdigit((int) *c)) {
 	  Insert(filter, 0, "-");
 	}
       } else {
-	char temp[32];
+	char *temp = (char *)malloc(sizeof(char)*strlen(c) + 2);
 	if (isdigit((int) *c)) {
 	  sprintf(temp, "-%s", c);
 	} else {
 	  strcpy(temp, c);
 	}
 	Replace(filter, temp, "", DOH_REPLACE_FIRST);
+        free(temp);
       }
     }
     c = strtok(NULL, ", ");
@@ -262,7 +268,7 @@ void Swig_error_msg_format(ErrorMessageFormat format) {
  *
  * Remove double backslashes in Windows filename paths for display
  * ----------------------------------------------------------------------------- */
-static String *format_filename(const String_or_char *filename) {
+static String *format_filename(const_String_or_char_ptr filename) {
   String *formatted_filename = NewString(filename);
 #if defined(_WIN32)
   Replaceall(formatted_filename, "\\\\", "\\");

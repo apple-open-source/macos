@@ -6,8 +6,8 @@ import sys
 #NSObject = objc.lookUpClass('NSObject')
 
 # Use a class that isn't used in the rest of the testsuite,
-# should write a native class for this! NSPortCoder
-BaseName = 'NSPortCoder'
+# should write a native class for this! 
+BaseName = 'NSAttributedString'
 BaseClass = objc.lookUpClass(BaseName)
 
 if sys.maxint >= 2 ** 32:
@@ -35,7 +35,7 @@ else:
 
             # XXX: next assertion fails because the runtime seems to copy the
             # original class.
-            #self.assert_(isinstance(obj, PoseClass))
+            #self.assertIsInstance(obj, PoseClass)
             self.assertNotEquals(BaseClass.__name__, BaseName)
             self.assertEquals(PoseClass.__name__, BaseName)
             del obj

@@ -2,7 +2,7 @@
 #  passwddlg.tcl
 #  This file is part of Unifix BWidget Toolkit
 #   by Stephane Lavirotte (Stephane.Lavirotte@sophia.inria.fr)
-#  $Id: passwddlg.tcl,v 1.11 2006/09/28 22:31:28 dev_null42a Exp $
+#  $Id: passwddlg.tcl,v 1.12 2009/06/11 15:42:51 oehhar Exp $
 # -----------------------------------------------------------------------------
 #  Index of commands:
 #     - PasswdDlg::create
@@ -166,8 +166,12 @@ proc PasswdDlg::_verifonlogin { path labpass } {
 # -----------------------------------------------------------------------------
 #  Command PasswdDlg::_verifonpasswd
 # -----------------------------------------------------------------------------
-proc PasswdDlg::_verifonpasswd { path lablog } {
-    focus $lablog
+proc PasswdDlg::_verifonpasswd { path labpass } {
+    if {[string equal [$labpass cget -state] "disabled"]} {
+        Dialog::enddialog $path 0
+    } else {
+        focus $labpass
+    }
 }
 
 # -----------------------------------------------------------------------------

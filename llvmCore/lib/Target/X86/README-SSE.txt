@@ -67,8 +67,8 @@ no_exit.i7:		; preds = %no_exit.i7, %build_tree.exit
                                    [ %tmp.34.i18, %no_exit.i7 ]
 	%tmp.0.0.0.i10 = phi double [ 0.000000e+00, %build_tree.exit ],
                                     [ %tmp.28.i16, %no_exit.i7 ]
-	%tmp.28.i16 = add double %tmp.0.0.0.i10, 0.000000e+00
-	%tmp.34.i18 = add double %tmp.0.1.0.i9, 0.000000e+00
+	%tmp.28.i16 = fadd double %tmp.0.0.0.i10, 0.000000e+00
+	%tmp.34.i18 = fadd double %tmp.0.1.0.i9, 0.000000e+00
 	br i1 false, label %Compute_Tree.exit23, label %no_exit.i7
 
 Compute_Tree.exit23:		; preds = %no_exit.i7
@@ -97,7 +97,7 @@ pcmp/pand/pandn/por to do a selection instead of a conditional branch:
 
 double %X(double %Y, double %Z, double %A, double %B) {
         %C = setlt double %A, %B
-        %z = add double %Z, 0.0    ;; select operand is not a load
+        %z = fadd double %Z, 0.0    ;; select operand is not a load
         %D = select bool %C, double %Y, double %z
         ret double %D
 }
@@ -376,7 +376,7 @@ ret
 ... saving two instructions.
 
 The basic idea is that a reload from a spill slot, can, if only one 4-byte 
-chunk is used, bring in 3 zeros the the one element instead of 4 elements.
+chunk is used, bring in 3 zeros the one element instead of 4 elements.
 This can be used to simplify a variety of shuffle operations, where the
 elements are fixed zeros.
 
@@ -545,7 +545,7 @@ eliminates a constant pool load.  For example, consider:
 
 define i64 @ccosf(float %z.0, float %z.1) nounwind readonly  {
 entry:
- %tmp6 = sub float -0.000000e+00, %z.1		; <float> [#uses=1]
+ %tmp6 = fsub float -0.000000e+00, %z.1		; <float> [#uses=1]
  %tmp20 = tail call i64 @ccoshf( float %tmp6, float %z.0 ) nounwind readonly
  ret i64 %tmp20
 }
@@ -914,5 +914,76 @@ _MonteCarlo_num_flops:
 There are also other cases in scimark where using fpstack is better, it is
 cheaper to do fld1 than load from a constant pool for example, so
 "load, add 1.0, store" is better done in the fp stack, etc.
+
+//===---------------------------------------------------------------------===//
+
+The X86 backend should be able to if-convert SSE comparisons like "ucomisd" to
+"cmpsd".  For example, this code:
+
+double d1(double x) { return x == x ? x : x + x; }
+
+Compiles into:
+
+_d1:
+	ucomisd	%xmm0, %xmm0
+	jnp	LBB1_2
+	addsd	%xmm0, %xmm0
+	ret
+LBB1_2:
+	ret
+
+Also, the 'ret's should be shared.  This is PR6032.
+
+//===---------------------------------------------------------------------===//
+
+These should compile into the same code (PR6214): Perhaps instcombine should
+canonicalize the former into the later?
+
+define float @foo(float %x) nounwind {
+  %t = bitcast float %x to i32
+  %s = and i32 %t, 2147483647
+  %d = bitcast i32 %s to float
+  ret float %d
+}
+
+declare float @fabsf(float %n)
+define float @bar(float %x) nounwind {
+  %d = call float @fabsf(float %x)
+  ret float %d
+}
+
+//===---------------------------------------------------------------------===//
+
+This IR (from PR6194):
+
+target datalayout = "e-p:64:64:64-i1:8:8-i8:8:8-i16:16:16-i32:32:32-i64:64:64-f32:32:32-f64:64:64-v64:64:64-v128:128:128-a0:0:64-s0:64:64-f80:128:128-n8:16:32:64"
+target triple = "x86_64-apple-darwin10.0.0"
+
+%0 = type { double, double }
+%struct.float3 = type { float, float, float }
+
+define void @test(%0, %struct.float3* nocapture %res) nounwind noinline ssp {
+entry:
+  %tmp18 = extractvalue %0 %0, 0                  ; <double> [#uses=1]
+  %tmp19 = bitcast double %tmp18 to i64           ; <i64> [#uses=1]
+  %tmp20 = zext i64 %tmp19 to i128                ; <i128> [#uses=1]
+  %tmp10 = lshr i128 %tmp20, 32                   ; <i128> [#uses=1]
+  %tmp11 = trunc i128 %tmp10 to i32               ; <i32> [#uses=1]
+  %tmp12 = bitcast i32 %tmp11 to float            ; <float> [#uses=1]
+  %tmp5 = getelementptr inbounds %struct.float3* %res, i64 0, i32 1 ; <float*> [#uses=1]
+  store float %tmp12, float* %tmp5
+  ret void
+}
+
+Compiles to:
+
+_test:                                  ## @test
+	movd	%xmm0, %rax
+	shrq	$32, %rax
+	movl	%eax, 4(%rdi)
+	ret
+
+This would be better kept in the SSE unit by treating XMM0 as a 4xfloat and
+doing a shuffle from v[1] to v[0] then a float store.
 
 //===---------------------------------------------------------------------===//

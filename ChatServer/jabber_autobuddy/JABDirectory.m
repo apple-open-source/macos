@@ -207,5 +207,48 @@
 	return recList;
 }
 
+//--------------------------------------------------------------------------------
+- (NSString *) findGroupNameForGeneratedUID: (NSString *) groupGuid
+{
+	// Given a group's GeneratedUID, return the group's Real Name (or record name if a Real Name
+	// is not available)
+
+	NSString *groupName = nil;
+	do { // not a loop
+
+		if (![self isNodeOpen]) {
+			break; // no open node -- abort
+		}
+		NSError *queryErr = nil;
+		ODQuery *aQuery = [ODQuery queryWithNode: self.directoryNode
+                                  forRecordTypes: kODRecordTypeGroups
+                                       attribute: kODAttributeTypeGUID
+                                       matchType: kODMatchEqualTo
+                                     queryValues: groupGuid
+								returnAttributes: nil
+								  maximumResults: 0
+                                           error: &queryErr];
+
+		NSArray *recList = [aQuery resultsAllowingPartial: NO error: &queryErr];
+		for (ODRecord *aRec in recList) {
+			NSError *anErr = nil;
+			NSArray *attribVals = [aRec valuesForAttribute: kODAttributeTypeFullName error: &anErr];
+			// If the group  has a full name defined, use it
+			if (nil != attribVals) {
+				groupName = [attribVals objectAtIndex: 0];
+			} else {
+				// Otherwise, fall back to the group's record name
+				attribVals = [aRec valuesForAttribute: kODAttributeTypeRecordName error: &anErr];
+				if (nil != attribVals)
+					groupName = [attribVals objectAtIndex: 0];
+			}
+			break; // done
+		}
+
+	} while (0); // not a loop
+
+	return groupName;
+}
+
 
 @end

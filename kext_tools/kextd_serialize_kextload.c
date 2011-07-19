@@ -30,30 +30,19 @@
 #include <IOKit/kext/OSKext.h>
 #include "kext_tools_util.h"
 #include "kextd_globals.h"
+#include <dispatch/dispatch.h>
 
-CFMachPortRef _gKextutilLock = NULL;
-static CFRunLoopSourceRef _sKextloadLockRunLoopSource = NULL;
+dispatch_source_t _gKextutilLock = NULL;
 
-static void _gKextutilLock_died(CFMachPortRef port, void * info);
 void kextd_process_kernel_requests(void);
 
 /******************************************************************************
- * _kextmanager_lock_volume tries to lock volumes for clients (kextload)
+ * _kextmanager_lock_volume tries to lock volumes for clients (kextutil)
  *****************************************************************************/
-static void removeKextloadLock(void)
+static void removeKextutilLock(void)
 {
     if (_gKextutilLock) {
-        mach_port_t machPort;
-
-        CFMachPortSetInvalidationCallBack(_gKextutilLock, NULL);
-        machPort = CFMachPortGetPort(_gKextutilLock);
-        SAFE_RELEASE_NULL(_gKextutilLock);
-        mach_port_deallocate(mach_task_self(), machPort);
-    }
-
-    if (_sKextloadLockRunLoopSource) {
-       CFRunLoopSourceInvalidate(_sKextloadLockRunLoopSource);
-       SAFE_RELEASE_NULL(_sKextloadLockRunLoopSource);
+        dispatch_source_cancel(_gKextutilLock);
     }
     
     if (gKernelRequestsPending) {
@@ -65,7 +54,7 @@ static void removeKextloadLock(void)
 }
 
 /******************************************************************************
- * _kextmanager_lock_volume tries to lock volumes for clients (kextload)
+ * _kextmanager_lock_volume tries to lock volumes for clients (kextutil)
  *****************************************************************************/
 kern_return_t _kextmanager_lock_kextload(
     mach_port_t server,
@@ -100,35 +89,41 @@ kern_return_t _kextmanager_lock_kextload(
     }
 
     result = ENOMEM;
-    _gKextutilLock = CFMachPortCreateWithPort(kCFAllocatorDefault,
-        client, /* callback */ NULL,
-        /* context */ NULL, /* shouldFree */ false);
-    if (!_gKextutilLock) {
-        goto finish;
-    }
-    CFMachPortSetInvalidationCallBack(_gKextutilLock, _gKextutilLock_died);
-    _sKextloadLockRunLoopSource = CFMachPortCreateRunLoopSource(
-        kCFAllocatorDefault, _gKextutilLock, /* order */ 0);
-    if (!_sKextloadLockRunLoopSource) {
-        goto finish;
-    }
-    CFRunLoopAddSource(CFRunLoopGetCurrent(), _sKextloadLockRunLoopSource,
-        kCFRunLoopDefaultMode);
-    // Don't release it, we reference it elsewhere
 
-    mig_result = KERN_SUCCESS;
-    result = 0;
+    _gKextutilLock = dispatch_source_create(DISPATCH_SOURCE_TYPE_MACH_SEND, client,
+                        DISPATCH_MACH_SEND_DEAD, dispatch_get_main_queue());
+
+    if (_gKextutilLock) {
+    
+        dispatch_source_set_event_handler(_gKextutilLock, ^{
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogIPCFlag,
+                    "Client exited without releasing kextutil lock.");
+                removeKextutilLock();
+            });
+    
+        dispatch_source_set_cancel_handler(_gKextutilLock, ^{
+                dispatch_release(_gKextutilLock);
+                mach_port_deallocate(mach_task_self(), client);
+                _gKextutilLock = NULL;
+            });
+
+        dispatch_resume(_gKextutilLock);
+            
+        mig_result = KERN_SUCCESS;
+        result = 0;
+    }
 
 finish:
     if (mig_result != KERN_SUCCESS) {
         if (gClientUID == 0) {
             OSKextLog(/* kext */ NULL,
                 kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-                "Trouble while locking for kextload - %s.",
+                "Trouble while locking for kextutil - %s.",
                 safe_mach_error_string(mig_result));
         }
-        removeKextloadLock();
-    } else {
+        removeKextutilLock();
+    } else if (lockstatus) {
         *lockstatus = result;  // only meaningful if mig_result == KERN_SUCCESS
     }
 
@@ -136,7 +131,7 @@ finish:
 }
 
 /******************************************************************************
- * _kextmanager_unlock_kextload unlocks for clients (kextload)
+ * _kextmanager_unlock_kextload unlocks for clients (kextutil)
  *****************************************************************************/
 kern_return_t _kextmanager_unlock_kextload(
     mach_port_t server,
@@ -147,19 +142,19 @@ kern_return_t _kextmanager_unlock_kextload(
     if (gClientUID != 0) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-            "Non-root kextload doesn't need to lock/unlock.");
+            "Non-root kextutil doesn't need to lock/unlock.");
         mig_result = KERN_SUCCESS;
         goto finish;
     }
     
-    if (client != CFMachPortGetPort(_gKextutilLock)) {
+    if (client != (mach_port_t)dispatch_source_get_handle(_gKextutilLock)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-            "%d not used to lock for kextload.", client);
+            "%d not used to lock for kextutil.", client);
         goto finish;
     }
 
-    removeKextloadLock();
+    removeKextutilLock();
     
     mig_result = KERN_SUCCESS;
     
@@ -170,17 +165,3 @@ finish:
     return mig_result;
 }
 
-/******************************************************************************
- * _gKextutilLock_died tells us when the receive right went away
- * - this is okay if we're currently unlocked; bad otherwise
- *****************************************************************************/
-static void _gKextutilLock_died(CFMachPortRef port, void * info)
-{
-    if (port == _gKextutilLock) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogErrorLevel | kOSKextLogIPCFlag,
-            "Client exited without releasing kextload lock.");
-        removeKextloadLock();
-    }
-    return;
-}

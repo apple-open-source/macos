@@ -58,9 +58,16 @@ do_update_generic_password(const char *keychainName,
 	 SecAccessRef access)
 {
 	OSStatus status;
-    SecKeychainItemRef itemRef;
+	SecKeychainRef keychainRef = NULL;
+	SecKeychainItemRef itemRef = NULL;
 	
-	itemRef = find_first_generic_password(keychainName,itemCreator,itemType,kind,value,comment,label,serviceName,accountName);
+	if (keychainName) {
+		keychainRef = keychain_open(keychainName);
+	}
+	itemRef = find_first_generic_password(keychainRef,itemCreator,itemType,kind,value,comment,label,serviceName,accountName);
+	if (keychainRef) {
+		CFRelease(keychainRef);
+	}
 	if (!itemRef) {
 		return errSecItemNotFound;
 	}
@@ -253,10 +260,17 @@ do_update_internet_password(const char *keychainName,
 	 SecAccessRef access)
 {
 	OSStatus status;
-    SecKeychainItemRef itemRef;
+	SecKeychainRef keychainRef = NULL;
+	SecKeychainItemRef itemRef = NULL;
 	
-	itemRef = find_first_internet_password(keychainName,itemCreator,itemType,kind,comment,label,serverName,
+	if (keychainName) {
+		keychainRef = keychain_open(keychainName);
+	}
+	itemRef = find_first_internet_password(keychainRef,itemCreator,itemType,kind,comment,label,serverName,
 										   securityDomain,accountName,path,port,protocol,authenticationType);
+	if (keychainRef) {
+		CFRelease(keychainRef);
+	}
 	if (!itemRef) {
 		return errSecItemNotFound;
 	}

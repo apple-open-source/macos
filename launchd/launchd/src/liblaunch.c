@@ -42,6 +42,7 @@
 #include <assert.h>
 #include <uuid/uuid.h>
 #include <sys/syscall.h>
+#include <dlfcn.h>
 
 #ifdef __LP64__
 /* workaround: 5723161 */
@@ -122,31 +123,6 @@ struct launch_msg_header {
 
 #define LAUNCH_MSG_HEADER_MAGIC 0xD2FEA02366B39A41ull
 
-struct _launch_data {
-	uint64_t type;
-	union {
-		struct {
-			union {
-				launch_data_t *_array;
-				char *string;
-				void *opaque;
-				int64_t __junk;
-			};
-			union {
-				uint64_t _array_cnt;
-				uint64_t string_len;
-				uint64_t opaque_size;
-			};
-		};
-		int64_t fd;
-		uint64_t  mp;
-		uint64_t err;
-		int64_t number;
-		uint64_t boolean; /* We'd use 'bool' but this struct needs to be used under Rosetta, and sizeof(bool) is different between PowerPC and Intel */
-		double float_num;
-	};
-};
-
 enum {
 	LAUNCHD_USE_CHECKIN_FD,
 	LAUNCHD_USE_OTHER_FD,
@@ -223,8 +199,8 @@ launch_client_init(void)
 	if (where && where[0] != '\0') {
 		strncpy(sun.sun_path, where, sizeof(sun.sun_path));
 	} else {
-		if( _vprocmgr_getsocket(spath) == 0 ) {
-			if( (getenv("SUDO_COMMAND") || getenv("__USE_SYSTEM_LAUNCHD")) && geteuid() == 0 ) {
+		if (_vprocmgr_getsocket(spath) == 0) {
+			if ((getenv("SUDO_COMMAND") || getenv("__USE_SYSTEM_LAUNCHD")) && geteuid() == 0) {
 				/* Talk to the system launchd. */
 				strncpy(sun.sun_path, LAUNCHD_SOCK_PREFIX "/sock", sizeof(sun.sun_path));
 			} else {
@@ -246,7 +222,7 @@ launch_client_init(void)
 	(void)vproc_swap_integer(NULL, VPROC_GSK_EMBEDDEDROOTEQUIVALENT, NULL, &s_am_embedded_god);
 #endif
 	if (-1 == connect(lfd, (struct sockaddr *)&sun, sizeof(sun))) {
-		if( cifd != -1 || s_am_embedded_god ) {
+		if (cifd != -1 || s_am_embedded_god) {
 			/* There is NO security enforced by this check. This is just a hint to our
 			 * library that we shouldn't error out due to failing to open this socket. If
 			 * we inherited a trusted file descriptor, we shouldn't fail. This should be
@@ -273,7 +249,7 @@ out_bad:
 		launchd_close(_lc->l, close);
 	else if (lfd != -1)
 		close(lfd);
-	if( cifd != -1 ) {
+	if (cifd != -1) {
 		close(cifd);
 	}
 	if (_lc)
@@ -284,7 +260,7 @@ out_bad:
 launch_data_t
 launch_data_alloc(launch_data_type_t t)
 {
-	launch_data_t d = calloc(1, sizeof(struct _launch));
+	launch_data_t d = calloc(1, sizeof(struct _launch_data));
 
 	if (d) {
 		d->type = t;
@@ -293,6 +269,8 @@ launch_data_alloc(launch_data_type_t t)
 		case LAUNCH_DATA_ARRAY:
 			d->_array = malloc(0);
 			break;
+		case LAUNCH_DATA_OPAQUE:
+			d->opaque = malloc(0);
 		default:
 			break;
 		}
@@ -315,8 +293,11 @@ launch_data_free(launch_data_t d)
 	switch (d->type) {
 	case LAUNCH_DATA_DICTIONARY:
 	case LAUNCH_DATA_ARRAY:
-		for (i = 0; i < d->_array_cnt; i++)
-			launch_data_free(d->_array[i]);
+		for (i = 0; i < d->_array_cnt; i++) {
+			if (d->_array[i]) {
+				launch_data_free(d->_array[i]);
+			}
+		}
 		free(d->_array);
 		break;
 	case LAUNCH_DATA_STRING:
@@ -600,9 +581,9 @@ launchd_fdopen(int fd, int cifd)
 	c->fd = fd;
 	c->cifd = cifd;
 
-	if( c->fd == -1 || (c->fd != -1 && c->cifd != -1) ) {
+	if (c->fd == -1 || (c->fd != -1 && c->cifd != -1)) {
 		c->which = LAUNCHD_USE_CHECKIN_FD;
-	} else if( c->cifd == -1 ) {
+	} else if (c->cifd == -1) {
 		c->which = LAUNCHD_USE_OTHER_FD;
 	}
 
@@ -831,7 +812,7 @@ launchd_msg_send(launch_t lh, launch_data_t d)
 	int r;
 
 	int fd2use = launchd_getfd(lh);
-	if( fd2use == -1 ) {
+	if (fd2use == -1) {
 		errno = EPERM;
 		return -1;
 	}
@@ -849,8 +830,19 @@ launchd_msg_send(launch_t lh, launch_data_t d)
 		/* hack, see the above assert to verify "correctness" */
 		free(lh->sendbuf);
 		lh->sendbuf = malloc(good_enough_size);
+		if (!lh->sendbuf) {
+			errno = ENOMEM;
+			return -1;
+		}
+
 		free(lh->sendfds);
 		lh->sendfds = malloc(4 * 1024);
+		if (!lh->sendfds) {
+			free(lh->sendbuf);
+			lh->sendbuf = NULL;
+			errno = ENOMEM;
+			return -1;
+		}
 
 		lh->sendlen = launch_data_pack(d, lh->sendbuf, good_enough_size, lh->sendfds, &fd_slots_used);
 
@@ -993,7 +985,7 @@ static inline bool
 uuid_data_is_null(launch_data_t d)
 {
 	bool result = false;
-	if( launch_data_get_type(d) == LAUNCH_DATA_OPAQUE && launch_data_get_opaque_size(d) == sizeof(uuid_t) ) {
+	if (launch_data_get_type(d) == LAUNCH_DATA_OPAQUE && launch_data_get_opaque_size(d) == sizeof(uuid_t)) {
 		uuid_t existing_uuid;
 		memcpy(existing_uuid, launch_data_get_opaque(d), sizeof(uuid_t));
 		
@@ -1022,7 +1014,7 @@ launch_msg_internal(launch_data_t d)
 	}
 
 	int fd2use = -1;
-	if( (launch_data_get_type(d) == LAUNCH_DATA_STRING && strcmp(launch_data_get_string(d), LAUNCH_KEY_CHECKIN) == 0) || s_am_embedded_god ) {
+	if ((launch_data_get_type(d) == LAUNCH_DATA_STRING && strcmp(launch_data_get_string(d), LAUNCH_KEY_CHECKIN) == 0) || s_am_embedded_god) {
 		_lc->l->which = LAUNCHD_USE_CHECKIN_FD;
 	} else {
 		_lc->l->which = LAUNCHD_USE_OTHER_FD;
@@ -1030,7 +1022,7 @@ launch_msg_internal(launch_data_t d)
 	
 	fd2use = launchd_getfd(_lc->l);
 	
-	if( fd2use == -1 ) {
+	if (fd2use == -1) {
 		errno = EPERM;
 		return NULL;
 	}
@@ -1039,31 +1031,31 @@ launch_msg_internal(launch_data_t d)
 	uuid_t uuid;
 	launch_data_t uuid_d = NULL;
 	size_t jobs_that_need_sessions = 0;
-	if( d && launch_data_get_type(d) == LAUNCH_DATA_DICTIONARY ) {
+	if (d && launch_data_get_type(d) == LAUNCH_DATA_DICTIONARY) {
 		launch_data_t v = launch_data_dict_lookup(d, LAUNCH_KEY_SUBMITJOB);
 
-		if( v && launch_data_get_type(v) == LAUNCH_DATA_ARRAY ) {
+		if (v && launch_data_get_type(v) == LAUNCH_DATA_ARRAY) {
 			size_t cnt = launch_data_array_get_count(v);
 			size_t i = 0;
 
 			uuid_generate(uuid);
-			for( i = 0; i < cnt; i++ ) {
+			for (i = 0; i < cnt; i++) {
 				launch_data_t ji = launch_data_array_get_index(v, i);
-				if( launch_data_get_type(ji) == LAUNCH_DATA_DICTIONARY ) {
+				if (launch_data_get_type(ji) == LAUNCH_DATA_DICTIONARY) {
 					launch_data_t existing_v = launch_data_dict_lookup(ji, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
-					if( !existing_v ) {
+					if (!existing_v) {
 						/* I really wish these were reference-counted. Sigh... */
 						uuid_d = launch_data_new_opaque(uuid, sizeof(uuid));
 						launch_data_dict_insert(ji, uuid_d, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
 						jobs_that_need_sessions++;
-					} else if( launch_data_get_type(existing_v) == LAUNCH_DATA_OPAQUE ) {
+					} else if (launch_data_get_type(existing_v) == LAUNCH_DATA_OPAQUE) {
 						jobs_that_need_sessions += uuid_data_is_null(existing_v) ? 0 : 1;
 					}
 				}
 			}
-		} else if( v && launch_data_get_type(v) == LAUNCH_DATA_DICTIONARY ) {
+		} else if (v && launch_data_get_type(v) == LAUNCH_DATA_DICTIONARY) {
 			launch_data_t existing_v = launch_data_dict_lookup(v, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
-			if( !existing_v ) {
+			if (!existing_v) {
 				uuid_generate(uuid);
 				uuid_d = launch_data_new_opaque(uuid, sizeof(uuid));
 				launch_data_dict_insert(v, uuid_d, LAUNCH_JOBKEY_SECURITYSESSIONUUID);
@@ -1108,32 +1100,32 @@ launch_msg_internal(launch_data_t d)
 
 out:
 #if !TARGET_OS_EMBEDDED
-	if( !uuid_is_null(uuid) && resp && jobs_that_need_sessions > 0 ) {
+	if (!uuid_is_null(uuid) && resp && jobs_that_need_sessions > 0) {
 		mach_port_t session_port = _audit_session_self();
 		launch_data_type_t resp_type = launch_data_get_type(resp);
 		
 		bool set_session = false;
-		if( resp_type == LAUNCH_DATA_ERRNO ) {
+		if (resp_type == LAUNCH_DATA_ERRNO) {
 			set_session = ( launch_data_get_errno(resp) == ENEEDAUTH );
-		} else if( resp_type == LAUNCH_DATA_ARRAY ) {
+		} else if (resp_type == LAUNCH_DATA_ARRAY) {
 			set_session = true;
 		}
 		
 		kern_return_t kr = KERN_FAILURE;
-		if( set_session ) {
+		if (set_session) {
 			kr = vproc_mig_set_security_session(bootstrap_port, uuid, session_port);
 		}
 		
-		if( kr == KERN_SUCCESS ) {
-			if( resp_type == LAUNCH_DATA_ERRNO ) {
+		if (kr == KERN_SUCCESS) {
+			if (resp_type == LAUNCH_DATA_ERRNO) {
 				launch_data_set_errno(resp, 0);
 			} else {
 				size_t i = 0;
-				for( i = 0; i < launch_data_array_get_count(resp); i++ ) {
+				for (i = 0; i < launch_data_array_get_count(resp); i++) {
 					launch_data_t ri = launch_data_array_get_index(resp, i);
 					
 					int recvd_err = 0;
-					if( launch_data_get_type(ri) == LAUNCH_DATA_ERRNO && (recvd_err = launch_data_get_errno(ri)) ) {
+					if (launch_data_get_type(ri) == LAUNCH_DATA_ERRNO && (recvd_err = launch_data_get_errno(ri))) {
 						launch_data_set_errno(ri, recvd_err == ENEEDAUTH ? 0 : recvd_err);
 					}
 				}
@@ -1160,7 +1152,7 @@ launchd_msg_recv(launch_t lh, void (*cb)(launch_data_t, void *), void *context)
 	int r;
 
 	int fd2use = launchd_getfd(lh);
-	if( fd2use == -1 ) {
+	if (fd2use == -1) {
 		errno = EPERM;
 		return -1;
 	}
@@ -1285,26 +1277,6 @@ launch_data_copy(launch_data_t o)
 	}
 
 	return r;
-}
-
-void
-launchd_batch_enable(bool b)
-{
-	int64_t val = b;
-
-	vproc_swap_integer(NULL, VPROC_GSK_GLOBAL_ON_DEMAND, &val, NULL);
-}
-
-bool
-launchd_batch_query(void)
-{
-	int64_t val;
-
-	if (vproc_swap_integer(NULL, VPROC_GSK_GLOBAL_ON_DEMAND, NULL, &val) == NULL) {
-		return (bool)val;
-	}
-
-	return false;
 }
 
 int

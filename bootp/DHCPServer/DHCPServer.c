@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 - 2004 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -37,6 +37,8 @@
 #include <sys/types.h>
 #include <sys/time.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include "NICache.h"
+#include "NICachePrivate.h"
 #include "netinfo.h"
 #include "bsdp.h"
 #include "DHCPServer.h"
@@ -61,116 +63,58 @@ static CFMutableArrayRef
 read_host_list(const char * filename)
 {
     CFMutableArrayRef		arr = NULL;		
-    CFMutableDictionaryRef	dict = NULL;
-    FILE *			file = NULL;
-    int				line_number = 0;
-    char			line[1024];
-    enum { 
-	nowhere_e,
-	start_e, 
-	body_e, 
-	end_e 
-    }		where = nowhere_e;
+    PLCache_t			cache;
+    PLCacheEntry_t * 		scan;
 
-    file = fopen(filename, "r");
-    if (file == NULL) {
-	//perror(filename);
-	goto failed;
+    PLCache_init(&cache);
+#define ARBITRARILY_LARGE_NUMBER	(100 * 1024 * 1024)
+    PLCache_set_max(&cache, ARBITRARILY_LARGE_NUMBER);
+    if (PLCache_read(&cache, filename) == FALSE) {
+	return (NULL);
     }
 
     arr = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    for (scan = cache.head; scan != NULL; scan = scan->next) {
+	int			i;
+	CFMutableDictionaryRef	dict = NULL;
+	ni_proplist *		pl = &scan->pl;
 
-    while (1) {
-	if (fgets(line, sizeof(line), file) != line) {
-	    if (where == start_e || where == body_e) {
-		fprintf(stderr, "file ends prematurely\n");
-	    }
-	    break;
+	if (pl->ni_proplist_len == 0) {
+	    continue;
 	}
-	line_number++;
-	if (strcmp(line, "{\n") == 0) {
-	    if (where != end_e && where != nowhere_e) {
-		fprintf(stderr, "unexpected '{' at line %d\n", 
-			line_number);
-		goto failed;
-	    }
-	    where = start_e;
-	    dict = CFDictionaryCreateMutable(NULL, 0,
-					     &kCFTypeDictionaryKeyCallBacks,
-					     &kCFTypeDictionaryValueCallBacks);
-	}
-	else if (strcmp(line, "}\n") == 0) {
-	    if (where != start_e && where != body_e) {
-		fprintf(stderr, "unexpected '}' at line %d\n", 
-			line_number);
-		goto failed;
-	    }
-	    if (CFDictionaryGetCount(dict) > 0) {
-		CFArrayAppendValue(arr, dict);
-		CFRelease(dict);
-		dict = NULL;
-	    }
-	    where = end_e;
-	}
-	else {
-	    char	propname[128];
-	    char	propval[768] = "";
-	    int 	len = strlen(line);
-	    char *	sep = strchr(line, '=');
-	    CFStringRef propstr = NULL;
-	    CFStringRef valstr = NULL;
-	    int 	whitespace_len = strspn(line, " \t\n");
+	for (i = 0; i < pl->ni_proplist_len; i++) {
+	    CFStringRef		name;
+	    ni_property *	prop;
+	    CFStringRef		val;
 
-	    if (dict == NULL) {
-		fprintf(stderr, "missing '{' at line %d\n", line_number);
-		goto failed;
-	    }
-	    if (whitespace_len == len) {
+	    prop = pl->nipl_val + i;
+	    if (prop->nip_val.ninl_len == 0) {
 		continue;
 	    }
-	    if (sep) {
-		int nlen = (sep - line) - whitespace_len;
-		int vlen = len - whitespace_len - nlen - 2;
-
-		strncpy(propname, line + whitespace_len, nlen);
-		propname[nlen] = '\0';
-		strncpy(propval, sep + 1, vlen);
-		propval[vlen] = '\0';
-		
-		propstr = CFStringCreateWithCString(NULL, propname, 
-						    kCFStringEncodingMacRoman);
-		
-		valstr = CFStringCreateWithCString(NULL, propval,
-						    kCFStringEncodingMacRoman);
-		if (propstr != NULL && valstr != NULL) {
-		    CFDictionarySetValue(dict, propstr, valstr);
-		}
-		if (propstr != NULL) {
-		    CFRelease(propstr);
-		}
-		if (valstr != NULL) {
-		    CFRelease(valstr);
-		}
+	    if (dict == NULL) {
+		dict = CFDictionaryCreateMutable(NULL, 0,
+						 &kCFTypeDictionaryKeyCallBacks,
+						 &kCFTypeDictionaryValueCallBacks);
 	    }
-	    where = body_e;
+	    name = CFStringCreateWithCString(NULL, prop->nip_name,
+					     kCFStringEncodingUTF8);
+	    val = CFStringCreateWithCString(NULL,
+					    prop->nip_val.ninl_val[0],
+					     kCFStringEncodingUTF8);
+	    CFDictionarySetValue(dict, name, val);
+	    CFRelease(name);
+	    CFRelease(val);
+	}
+	if (dict != NULL) {
+	    CFArrayAppendValue(arr, dict);
+	    CFRelease(dict);
 	}
     }
-
- failed:
-    if (file) {
-	fclose(file);
-    }
-    if (dict) {
-	fprintf(stderr, "missing '}' at line %d\n", line_number);
-	CFRelease(dict);
-	dict = NULL;
+    if (CFArrayGetCount(arr) == 0) {
 	CFRelease(arr);
 	arr = NULL;
     }
-    else if (arr && CFArrayGetCount(arr) == 0) {
-	CFRelease(arr);
-	arr = NULL;
-    }
+    PLCache_free(&cache);
     return (arr);
 }
 
@@ -178,12 +122,11 @@ static int
 cfstring_to_cstring(CFStringRef cfstr, char * str, int len)
 {
     CFIndex		l;
-    CFIndex		n;
     CFRange		range;
 
     range = CFRangeMake(0, CFStringGetLength(cfstr));
-    n = CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
-			 0, FALSE, (UInt8 *)str, len, &l);
+    (void)CFStringGetBytes(cfstr, range, kCFStringEncodingMacRoman,
+			   0, FALSE, (UInt8 *)str, len, &l);
     str[l] = '\0';
     return (l);
 }
@@ -229,7 +172,6 @@ cook_for_dhcp(CFArrayRef arr)
     count = CFArrayGetCount(arr);
     for (i = 0; i < count; i++) {
 	char			buf[128];
-	CFAbsoluteTime		abs_exp;
 	CFDateRef		expiration;
 	long			lease_val = 0;
 	long			lease_delta = 0;
@@ -241,10 +183,13 @@ cook_for_dhcp(CFArrayRef arr)
 	    cfstring_to_cstring(lease, buf, sizeof(buf));
 	    lease_val = strtol(buf, 0, 0);
 	    lease_delta = lease_val - now.tv_sec;
-	    abs_exp = lease_delta + now_cf;
 #ifdef TEST_DHCPHOSTLIST
-	    show_date(abs_exp);
-#endif TEST_DHCPHOSTLIST
+	    {
+		CFAbsoluteTime		abs_exp;
+		abs_exp = lease_delta + now_cf;
+		show_date(abs_exp);
+	    }
+#endif /* TEST_DHCPHOSTLIST */
 	    expiration = CFDateCreate(NULL, lease_delta + now_cf);
 	    CFDictionarySetValue(dict, kDHCPSPropDHCPLease,
 				 expiration);
@@ -267,7 +212,6 @@ cook_for_netboot(CFArrayRef arr)
     
     count = CFArrayGetCount(arr);
     for (i = 0; i < count; i++) {
-	CFAbsoluteTime		abs_exp;
 	CFMutableDictionaryRef 	dict;
 	char			buf[128];
 	CFStringRef		image_id_str;
@@ -284,10 +228,13 @@ cook_for_netboot(CFArrayRef arr)
 	    cfstring_to_cstring(last_boot_time_str, buf, sizeof(buf));
 	    last_boot_val = strtol(buf, 0, 0);
 	    last_boot_delta = last_boot_val - now.tv_sec;
-	    abs_exp = last_boot_delta + now_cf;
 #ifdef TEST_DHCPHOSTLIST
-	    show_date(abs_exp);
-#endif TEST_DHCPHOSTLIST
+	    {
+		CFAbsoluteTime		abs_exp;
+		abs_exp = last_boot_delta + now_cf;
+		show_date(abs_exp);
+	    }
+#endif /* TEST_DHCPHOSTLIST */
 	    last_boot_time = CFDateCreate(NULL, last_boot_delta + now_cf);
 	    CFDictionarySetValue(dict, kDHCPSPropNetBootLastBootTime,
 				 last_boot_time);

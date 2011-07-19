@@ -29,16 +29,13 @@
 
 #include "MarshallingHelpers.h"
 #include "MemoryStream.h"
-
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 
 // WebResource ---------------------------------------------------------------------
 
-WebResource::WebResource(IStream* data, const WebCore::KURL& url, const WebCore::String& mimeType, const WebCore::String& textEncodingName, const WebCore::String& frameName)
+WebResource::WebResource(IStream* data, const WebCore::KURL& url, const WTF::String& mimeType, const WTF::String& textEncodingName, const WTF::String& frameName)
     : m_refCount(0)
     , m_data(data)
     , m_url(url)

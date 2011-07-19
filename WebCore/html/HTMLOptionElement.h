@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2010 Google Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
@@ -30,22 +30,42 @@
 namespace WebCore {
 
 class HTMLSelectElement;
-class HTMLFormElement;
-class MappedAttribute;
 
 class HTMLOptionElement : public HTMLFormControlElement, public OptionElement {
     friend class HTMLSelectElement;
     friend class RenderMenuList;
 
 public:
-    HTMLOptionElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
-
+    static PassRefPtr<HTMLOptionElement> create(Document*, HTMLFormElement*);
+    static PassRefPtr<HTMLOptionElement> create(const QualifiedName&, Document*, HTMLFormElement*);
     static PassRefPtr<HTMLOptionElement> createForJSConstructor(Document*, const String& data, const String& value,
        bool defaultSelected, bool selected, ExceptionCode&);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusOptional; }
-    virtual int tagPriority() const { return 2; }
-    virtual bool checkDTD(const Node* newChild);
+    virtual String text() const;
+    void setText(const String&, ExceptionCode&);
+
+    int index() const;
+
+    virtual String value() const;
+    void setValue(const String&);
+
+    virtual bool selected() const;
+    void setSelected(bool);
+
+    HTMLSelectElement* ownerSelectElement() const;
+
+    bool defaultSelected() const;
+    void setDefaultSelected(bool);
+
+    String label() const;
+
+    bool ownElementDisabled() const { return HTMLFormControlElement::disabled(); }
+
+    virtual bool disabled() const;
+
+private:
+    HTMLOptionElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
+
     virtual bool supportsFocus() const;
     virtual bool isFocusable() const;
     virtual bool rendererIsNeeded(RenderStyle*) { return false; }
@@ -55,38 +75,17 @@ public:
 
     virtual const AtomicString& formControlType() const;
 
-    virtual String text() const;
-    void setText(const String&, ExceptionCode&);
+    virtual void parseMappedAttribute(Attribute*);
 
-    int index() const;
-    virtual void parseMappedAttribute(MappedAttribute*);
-
-    virtual String value() const;
-    void setValue(const String&);
-
-    virtual bool selected() const;
-    void setSelected(bool);
     virtual void setSelectedState(bool);
 
-    HTMLSelectElement* ownerSelectElement() const;
-
-    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
-
-    bool defaultSelected() const;
-    void setDefaultSelected(bool);
-
-    String label() const;
-    void setLabel(const String&);
-
     virtual String textIndentedToRespectGroupLabel() const;
-
-    bool ownElementDisabled() const { return HTMLFormControlElement::disabled(); }
-    virtual bool disabled() const;
 
     virtual void insertedIntoTree(bool);
     virtual void accessKeyAction(bool);
 
-private:
+    virtual void childrenChanged(bool changedByParser = false, Node* beforeChange = 0, Node* afterChange = 0, int childCountDelta = 0);
+
     virtual RenderStyle* nonRendererRenderStyle() const;
 
     OptionElementData m_data;

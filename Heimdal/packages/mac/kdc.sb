@@ -1,0 +1,80 @@
+;;
+;; kdc - sandbox profile
+;; Copyright (c) 2009 Apple Inc.  All Rights reserved.
+;;
+;; WARNING: The sandbox rules in this file currently constitute 
+;; Apple System Private Interface and are subject to change at any time and
+;; without notice. The contents of this file are also auto-generated and not
+;; user editable; it may be overwritten at any time.
+;;
+(version 1)
+
+(deny default)
+
+(import "com.apple.corefoundation.sb")
+ 
+(corefoundation)
+
+(allow file-ioctl
+       (literal "/dev/dtracehelper"))
+
+(allow file-read*
+       (literal "/")
+       (literal "/Library")
+       (literal "/Library/Keychains")
+       (literal "/Library/Keychains/System.keychain")
+       (literal "/Library/Security/Trust Settings/Admin.plist")
+       (literal "/Library/Preferences/edu.mit.Kerberos")
+       (literal "/Library/Preferences/com.apple.Kerberos.plist")
+       (literal "/Library/Preferences/SystemConfiguration/preferences.plist")
+       (literal "/dev/dtracehelper")
+       (literal "/dev/null")
+       (literal "/dev/random")
+       (literal "/tmp")
+       (literal "/etc")
+       (literal "/var")
+       (literal "/private/etc/hosts")
+       (literal "/private/etc/services")
+       (literal "/private/etc/localtime")
+       (subpath "/private/var/db/krb5kdc")
+       (subpath "/private/var/db/mds")
+       (subpath "/System")
+       (subpath "/usr/lib")
+       (subpath "/usr/share"))
+
+(allow file-write*
+       (literal "/dev/random")
+       (literal "/private/var/log/krb5kdc/kdc.log")
+       (literal "/private/var/run/kdc.pid"))
+
+(allow file-write-data
+       (literal "/dev/dtracehelper")
+       (literal "/private/var/db/mds/system/mds.lock")
+       (literal "/private/var/log/krb5kdc/kdc.log"))
+
+(allow ipc-posix-shm)
+
+(allow mach-lookup
+       (global-name "com.apple.TrustEvaluationAgent")
+       (global-name "com.apple.system.opendirectoryd.api")
+       (global-name "com.apple.SecurityServer")
+       (global-name "com.apple.ocspd")
+       (global-name "com.apple.SystemConfiguration.configd")
+       (global-name "com.apple.system.DirectoryService.libinfo_v1")
+       (global-name "com.apple.system.DirectoryService.membership_v1")
+       (global-name "com.apple.system.logger")
+       (global-name "com.apple.system.notification_center"))
+
+(allow network-inbound
+       (local tcp "*:88")
+       (local udp "*:88"))
+
+(allow network-outbound
+       (literal "/private/var/run/mDNSResponder")
+       (remote udp)
+       (remote tcp))
+
+(allow process-exec
+       (literal "/usr/local/heimdal/libexec/kdc"))
+
+(allow sysctl-read)

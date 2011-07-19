@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc.  All rights reserved.
- * Copyright (C) 2009 Apple, Inc.  All rights reserved.
+ * Copyright (C) 2009, 2010 Apple, Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -44,21 +44,33 @@ using namespace JSC;
 
 namespace WebCore {
 
-// Custom functions
-JSValue JSWebSocket::send(ExecState* exec, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL JSWebSocketConstructor::constructJSWebSocket(ExecState* exec)
 {
-    if (args.size() < 1)
-        return throwError(exec, SyntaxError, "Not enough arguments");
+    JSWebSocketConstructor* jsConstructor = static_cast<JSWebSocketConstructor*>(exec->callee());
+    ScriptExecutionContext* context = jsConstructor->scriptExecutionContext();
+    if (!context)
+        return throwVMError(exec, createReferenceError(exec, "WebSocket constructor associated document is unavailable"));
 
-    const String& msg = ustringToString(args.at(0).toString(exec));
+    if (!exec->argumentCount())
+        return throwVMError(exec, createSyntaxError(exec, "Not enough arguments"));
+
+    String urlString = ustringToString(exec->argument(0).toString(exec));
     if (exec->hadException())
-        return throwError(exec, SyntaxError, "bad message data.");
+        return throwVMError(exec, createSyntaxError(exec, "wrong URL"));
+    RefPtr<WebSocket> webSocket = WebSocket::create(context);
     ExceptionCode ec = 0;
-    JSValue ret = jsBoolean(impl()->send(msg, ec));
+    if (exec->argumentCount() < 2)
+        webSocket->connect(urlString, ec);
+    else {
+        String protocol = ustringToString(exec->argument(1).toString(exec));
+        if (exec->hadException())
+            return JSValue::encode(JSValue());
+        webSocket->connect(urlString, protocol, ec);
+    }
     setDOMException(exec, ec);
-    return ret;
+    return JSValue::encode(CREATE_DOM_WRAPPER(exec, jsConstructor->globalObject(), WebSocket, webSocket.get()));
 }
 
-}  // namespace WebCore
+} // namespace WebCore
 
 #endif

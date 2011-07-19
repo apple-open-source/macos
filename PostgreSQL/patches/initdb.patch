@@ -1,0 +1,47 @@
+--- postgresql-9.0.2/src/bin/initdb/initdb.c	2010-12-13 18:55:50.000000000 -0800
++++ postgresql/src/bin/initdb/initdb.c	2010-12-22 14:47:10.000000000 -0800
+@@ -3132,6 +3132,36 @@
+ 	strcpy(bin_dir, argv[0]);
+ 	get_parent_directory(bin_dir);
+ 
++#ifdef AC_APPLE_UNIVERSAL_BUILD
++	/* If the effective user id is _postgres (uid 216), and a Mac OS X-default
++	 * location is used, suggest serveradmin.
++	 */
++	if ((geteuid() == 216)
++		&& (!strcmp(pg_data_native, "/var/pgsql")
++			|| !strcmp(pg_data_native, "/Library/Server/PostgreSQL/Data")))
++	{
++		printf(_("\nSuccess. Since you appear to be using the default database,\n"
++			 "the system-wide instance of postgres will be launched on-demand by\n"
++			 "the various services which use it.\n\n"
++			 "If necessary, you can now start the database server using:\n\n"
++			 "    serveradmin start postgres\n\n"
++			 "See webappctl(8) to learn how to launch postgres on-demand for\n"
++			 "your web application.\n"));
++	}
++	else
++	{
++		printf(_("\nSuccess. You can now start the database server using:\n\n"
++				 "    %s%s%spostgres%s -D %s%s%s -k %s%s%s\n"
++				 "or\n"
++				 "    %s%s%spg_ctl%s -D %s%s%s -l logfile -o \"-k %s%s%s\" start\n\n"),
++		   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
++			   QUOTE_PATH, pg_data_native, QUOTE_PATH,
++			   QUOTE_PATH, pg_data_native, QUOTE_PATH,
++		   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
++			   QUOTE_PATH, pg_data_native, QUOTE_PATH,
++			   QUOTE_PATH, pg_data_native, QUOTE_PATH);
++	}
++#else	/* AC_APPLE_UNIVERSAL_BUILD */
+ 	printf(_("\nSuccess. You can now start the database server using:\n\n"
+ 			 "    %s%s%spostgres%s -D %s%s%s\n"
+ 			 "or\n"
+@@ -3140,6 +3170,7 @@
+ 		   QUOTE_PATH, pg_data_native, QUOTE_PATH,
+ 	   QUOTE_PATH, bin_dir, (strlen(bin_dir) > 0) ? DIR_SEP : "", QUOTE_PATH,
+ 		   QUOTE_PATH, pg_data_native, QUOTE_PATH);
++#endif	/* AC_APPLE_UNIVERSAL_BUILD */
+ 
+ 	return 0;
+ }

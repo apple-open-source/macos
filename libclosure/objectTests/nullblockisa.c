@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  nullblockisa.m
 //  testObjects
@@ -5,32 +11,32 @@
 //  Created by Blaine Garst on 9/24/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG rdar://6244520
-
-
+// TEST_CONFIG
+// rdar://6244520
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <Block_private.h>
-
+#include "test.h"
 
 void check(void (^b)(void)) {
-    struct Block_byref *innerp;
-    innerp = (struct Block_byref *)(((long)(void *)b) + (Block_size(b)));
+    struct _custom {
+        struct Block_layout layout;
+        struct Block_byref *innerp;
+    } *custom  = (struct _custom *)(void *)(b);
     //printf("block is at %p, size is %lx, inner is %p\n", (void *)b, Block_size(b), innerp);
-    if (innerp->isa != (void *)NULL) {
-        printf("not a NULL __block isa\n");
-        exit(1);
+    if (custom->innerp->isa != (void *)NULL) {
+        fail("not a NULL __block isa");
     }
     return;
 }
         
-int main(int argc, char *argv[]) {
+int main() {
 
    __block int i;
    
    check(^{ printf("%d\n", ++i); });
-   printf("%s: success\n", argv[0]);
-   return 0;
+
+   succeed(__FILE__);
 }
    

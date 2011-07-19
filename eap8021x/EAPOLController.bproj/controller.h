@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,7 +44,8 @@ ControllerGetState(if_name_t if_name, int * state);
 
 int
 ControllerStart(if_name_t if_name, uid_t uid, gid_t gid,
-		CFDictionaryRef config_dict, mach_port_t bootstrap);
+		CFDictionaryRef config_dict, mach_port_t bootstrap,
+		mach_port_t au_session);
 
 int
 ControllerStartSystem(if_name_t if_name, uid_t uid, gid_t gid,
@@ -72,6 +73,12 @@ ControllerSetLogLevel(if_name_t if_name, uid_t uid, gid_t gid,
 int 
 ControllerCopyLoginWindowConfiguration(if_name_t if_name, 
 				       CFDictionaryRef * config_data_p);
+int
+ControllerCopyAutoDetectInformation(CFDictionaryRef * info_p);
+
+boolean_t
+ControllerDidUserCancel(if_name_t if_name);
+
 #endif /* ! TARGET_OS_EMBEDDED */
 
 int
@@ -79,7 +86,8 @@ ControllerClientAttach(pid_t pid, if_name_t if_name,
 		       mach_port_t notify_port,
 		       mach_port_t * session_port,
 		       CFDictionaryRef * control_dict,
-		       mach_port_t * bootstrap);
+		       mach_port_t * bootstrap,
+		       mach_port_t * au_session);
 
 int
 ControllerClientDetach(mach_port_t session_port);
@@ -97,4 +105,12 @@ ControllerClientForceRenew(mach_port_t session_port);
 
 int
 ControllerClientPortDead(mach_port_t session_port);
-#endif _S_CONTROLLER_H
+
+#if ! TARGET_OS_EMBEDDED
+
+int
+ControllerClientUserCancelled(mach_port_t session_port);
+
+#endif /* ! TARGET_OS_EMBEDDED */
+
+#endif /* _S_CONTROLLER_H */

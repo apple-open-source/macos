@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,8 +23,6 @@
 
 /*
  * main.cpp - main() for OCSP helper daemon
- *
- * Created 6 July 2004 by dmitch
  */
 
 #include <stdlib.h>
@@ -153,24 +151,27 @@ int main(int argc, char **argv)
 			exit(1);	// can't daemonize
 	}
 
-    /* create the main server object and register it */
- 	OcspdServer server(bootStrapName);
+	try {
+		/* create the main server object and register it */
+		OcspdServer server(bootStrapName);
 
-	/* FIXME - any signal handlers? */
-	
-	ocspdDebug("ocspd: starting main run loop");
+		/* FIXME - any signal handlers? */
 
-	ServerActivity();
-	TimeoutTimer tt(server);
-	/* These options copied from securityd - they enable the audit trailer */
-	server.setTimer(&tt, Time::Interval(kTimeoutCheckTime));
-	
-	server.run(4096,		// copied from machserver default
-		MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) |
-		MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT));
+		ocspdDebug("ocspd: starting main run loop");
 
+		ServerActivity();
+		TimeoutTimer tt(server);
+		/* These options copied from securityd - they enable the audit trailer */
+		server.setTimer(&tt, Time::Interval(kTimeoutCheckTime));
+
+		server.run(4096,		// copied from machserver default
+			MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0) |
+			MACH_RCV_TRAILER_ELEMENTS(MACH_RCV_TRAILER_AUDIT));
+	}
+	catch(...) {}
 	/* fell out of runloop (should not happen) */
+	#ifndef NDEBUG
 	Syslog::alert("Aborting");
-    
+	#endif
 	return 1;
 }

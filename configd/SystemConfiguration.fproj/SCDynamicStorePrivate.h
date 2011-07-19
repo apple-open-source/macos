@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004, 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004, 2005, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -31,6 +31,69 @@
 
 /*!
 	@header SCDynamicStorePrivate
+	@discussion The SCDynamicStore APIs provide access to a key-value
+		dictionary maintained by a server process.  The dictionary is
+		accessible by all processes on the system.  The APIs allow you
+		to list the current key-value pairs, add or remove key-value
+		pairs, add or change the values associated with a key, and
+		request change notifications.
+
+		The SCDynamicStore is not "persistent" (the store content
+		starts off empty and is not saved across boot).
+
+		All interaction with the SCDynamicStore [server] is via Mach
+		IPC (MiG) messages.
+
+		A client process, using the SCDynamicStoreSetNotificationKeys
+		API, specifies a list of specific keys of interest and/or a
+		list of regex(3) pattern strings that will be matched on
+		current (and future) keys in the store.  Any matched keys that
+		are added, updated, or removed will trigger a notification.
+		The notification is delivered to the monitoring session via
+		a "something has changed" Mach IPC message.  The callback
+		notification, as part of its implementation, issues a request
+		to the server to identify the specific list of changes and
+		this list is passed along as part of the callback.  Any
+		subsequent changes to the SCDynamicStore will trigger a new
+		"something has changed" Mach IPC message and an additional
+		callback.
+
+		Note: the list (array) of changed keys passed to the
+		      notification callback will be always be non-NULL
+		      and non-empty with one exception.  That exception
+		      is when the SCDynamicStore server has been restarted.
+		      In that case, if no reconnect callback was setup
+		      with the SCDynamicStoreSetReconnectCallBack API
+		      then a non-NULL but empty array will be passed.
+
+		Disconnect/reconnect considerations:
+
+		1. We don't expect the SCDynamicStore server to fail but one
+		   should always be prepared for the unexpected.
+
+		2. Processes that write to the SCDynamicStore should be
+		   prepared to repost any content when/if the server fails.
+		   A callout, registered with the SCDynamicStoreSetReconnectCallBack
+		   API, should be used to post any updates the SCDynamicStore
+		   after a failure.
+
+		3. Processes that cache SCDynamicStore content (or otherwise
+		   maintain state based on previous notifications) should be
+		   aware that all store content is lost when/if the server
+		   fails.  After handling a SCDynamicStore notification with
+		   no keys or a disconnect/reconnect callout, your code should
+		   assume that any cached content is no longer valid.
+
+		Performance considerations:
+
+		1. We recommend that any code trying to capture a snapshot of
+		   more than one SCDynamicStore key should use the SCDynamicStoreCopyMultiple
+		   API (and not make multiple calls to SCDynamicStoreCopyValue).
+
+		2. We recommend that any code making multiple (and related)
+		   changes to the SCDynamicStore should batch them into a
+		   single call using the SCDynamicStoreSetMultiple API (and
+		   not make multiple calls to SCDynamicStoreSetValue).
  */
 
 /*!
@@ -44,6 +107,18 @@ typedef boolean_t (*SCDynamicStoreCallBack_v1)	(
 						SCDynamicStoreRef	store,
 						void			*info
 						);
+
+/*!
+	@typedef SCDynamicStoreDisconnectCallBack
+	@discussion Type of callback function used when notification of
+		the dynamic store session being disconnected is delivered.
+	@param store The dynamic store session.
+	@param info A C pointer to a user-specified block of data.
+ */
+typedef void (*SCDynamicStoreDisconnectCallBack)	(
+							 SCDynamicStoreRef	store,
+							 void			*info
+							 );
 
 
 __BEGIN_DECLS
@@ -236,6 +311,24 @@ SCDynamicStoreNotifyWait		(SCDynamicStoreRef		store);
  */
 Boolean
 SCDynamicStoreNotifyCancel		(SCDynamicStoreRef		store);
+
+/*!
+	@function SCDynamicStoreSetDisconnectCallBack
+	@discussion Assigns a callback to a SCDynamicStore session.  The function
+		is called when the session has been disconnected.  The callback
+		should be established before a client writes any content to the
+		SCDynamicStore to ensure that the information can be re-posted
+		when/if a disconnect is detected.
+	@param store A reference to the dynamic store session.
+	@param callout The function to be called when the session was disconnected.
+		If NULL, the current callback is removed.
+	@result Returns TRUE on success, FALSE on failure.
+ */
+Boolean
+SCDynamicStoreSetDisconnectCallBack	(
+					 SCDynamicStoreRef			store,
+					 SCDynamicStoreDisconnectCallBack	callout
+					)				__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
 
 Boolean
 SCDynamicStoreSnapshot			(SCDynamicStoreRef		store);

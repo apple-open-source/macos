@@ -1,48 +1,39 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/en_IE.xml
 // *
 // ***************************************************************************
 en_IE{
-    Currencies{
-        GBP{
-            "GBP",
-            "British Pound Sterling",
-        }
-        IEP{
-            "£",
-            "Irish Pound",
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"¤#,##0.00"}
+            }
         }
     }
-    NumberPatterns{
-        "#,##0.###",
-        "¤#,##0.00",
-        "#,##0%",
-        "#E0",
-    }
-    Version{"1.57"}
+    Version{"2.0.45.82"}
     calendar{
         gregorian{
             AmPmMarkers{
                 "a.m.",
                 "p.m.",
             }
-            DateTimeElements:intvector{
-                1,
-                1,
-            }
             DateTimePatterns{
-                "HH:mm:ss v",
+                "HH:mm:ss zzzz",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE d MMMM yyyy",
-                "d MMMM yyyy",
-                "d MMM yyyy",
+                "EEEE d MMMM y",
+                "d MMMM y",
+                "d MMM y",
                 "dd/MM/yyyy",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
                 "{1} {0}",
             }
             availableFormats{
@@ -52,9 +43,16 @@ en_IE{
                 Md{"d/M"}
                 yMEd{"EEE, d/M/yyyy"}
                 yyyyMM{"MM/yyyy"}
-                yyyyMMMM{"MMMM yyyy"}
+                yyyyMMMM{"MMMM y"}
             }
             intervalFormats{
+                Hm{
+                    m{"HH:mm-HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm-HH:mm v"}
+                    m{"HH:mm-HH:mm v"}
+                }
                 M{
                     M{"M-M"}
                 }
@@ -82,11 +80,11 @@ en_IE{
                 }
                 fallback{"{0} - {1}"}
                 hm{
-                    m{"HH:mm-HH:mm"}
+                    m{"h:mm-h:mm a"}
                 }
                 hmv{
-                    h{"HH:mm-HH:mm v"}
-                    m{"HH:mm-HH:mm v"}
+                    h{"h:mm-h:mm a v"}
+                    m{"h:mm-h:mm a v"}
                 }
                 y{
                     y{"y-y"}
@@ -101,18 +99,18 @@ en_IE{
                     y{"E dd/MM/yyyy - E dd/MM/yyyy"}
                 }
                 yMMM{
-                    M{"MMM-MMM yyyy"}
-                    y{"MMM yyyy - MMM yyyy"}
+                    M{"MMM-MMM y"}
+                    y{"MMM y - MMM y"}
                 }
                 yMMMEd{
-                    M{"E d MMM - E d MMM yyyy"}
-                    d{"E d - E d MMM yyyy"}
-                    y{"E d MMM yyyy - E d MMM yyyy"}
+                    M{"E d MMM - E d MMM y"}
+                    d{"E d - E d MMM y"}
+                    y{"E d MMM y - E d MMM y"}
                 }
                 yMMMd{
-                    M{"d MMM - d MMM yyyy"}
-                    d{"d-d MMM yyyy"}
-                    y{"d MMM yyyy - d MMM yyyy"}
+                    M{"d MMM - d MMM y"}
+                    d{"d-d MMM y"}
+                    y{"d MMM y - d MMM y"}
                 }
                 yMd{
                     M{"dd/MM/yyyy - dd/MM/yyyy"}

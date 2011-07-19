@@ -45,8 +45,8 @@
 /* .ad
 /* .fi
 /* .IP "\fBcontent_filter (empty)\fR"
-/*	The name of a mail delivery transport that filters mail after
-/*	it is queued.
+/*	After the message is queued, send the entire message to the
+/*	specified \fItransport:destination\fR.
 /* .IP "\fBreceive_override_options (empty)\fR"
 /*	Enable or disable recipient validation, built-in content
 /*	filtering, or address mapping.
@@ -106,19 +106,21 @@
 /*	The process name of a Postfix command or daemon process.
 /* .IP "\fBqmqpd_authorized_clients (empty)\fR"
 /*	What clients are allowed to connect to the QMQP server port.
-/* .IP "\fBqmqpd_client_port_logging (no)\fR"
-/*	Enable logging of the remote QMQP client port in addition to
-/*	the hostname and IP address.
 /* .IP "\fBqueue_directory (see 'postconf -d' output)\fR"
 /*	The location of the Postfix top-level queue directory.
 /* .IP "\fBsyslog_facility (mail)\fR"
 /*	The syslog facility of Postfix logging.
-/* .IP "\fBsyslog_name (postfix)\fR"
+/* .IP "\fBsyslog_name (see 'postconf -d' output)\fR"
 /*	The mail system name that is prepended to the process name in syslog
 /*	records, so that "smtpd" becomes, for example, "postfix/smtpd".
 /* .IP "\fBverp_delimiter_filter (-=+)\fR"
 /*	The characters Postfix accepts as VERP delimiter characters on the
 /*	Postfix \fBsendmail\fR(1) command line and in SMTP commands.
+/* .PP
+/*	Available in Postfix version 2.5 and later:
+/* .IP "\fBqmqpd_client_port_logging (no)\fR"
+/*	Enable logging of the remote QMQP client port in addition to
+/*	the hostname and IP address.
 /* SEE ALSO
 /*	http://cr.yp.to/proto/qmqp.html, QMQP protocol
 /*	cleanup(8), message canonicalization
@@ -320,32 +322,38 @@ static void qmqpd_write_attributes(QMQPD_STATE *state)
     /*
      * Logging attributes, also used for XFORWARD.
      */
-    if (IS_AVAIL_CLIENT_NAME(state->name))
-	rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
-		    MAIL_ATTR_LOG_CLIENT_NAME, state->name);
-    if (IS_AVAIL_CLIENT_ADDR(state->addr))
-	rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
-		    MAIL_ATTR_LOG_CLIENT_ADDR, state->rfc_addr);
-    if (IS_AVAIL_CLIENT_PORT(state->port))
-	rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
-		    MAIL_ATTR_LOG_CLIENT_PORT, state->port);
-    if (IS_AVAIL_CLIENT_NAMADDR(state->namaddr))
-	rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
-		    MAIL_ATTR_LOG_ORIGIN, state->namaddr);
+    rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
+		MAIL_ATTR_LOG_CLIENT_NAME, state->name);
+    rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
+		MAIL_ATTR_LOG_CLIENT_ADDR, state->rfc_addr);
+    rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
+		MAIL_ATTR_LOG_CLIENT_PORT, state->port);
+    rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
+		MAIL_ATTR_LOG_ORIGIN, state->namaddr);
     rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
 		MAIL_ATTR_LOG_PROTO_NAME, state->protocol);
 
     /*
-     * Provenance attributes for Milter policy etc.
+     * For consistency with the smtpd Milter client, we need to provide the
+     * real client attributes to the cleanup Milter client. This does not
+     * matter much with qmqpd which speaks to trusted clients only, but we
+     * want to be sure that the cleanup input protocol is ready when a new
+     * type of network daemon is added to receive mail from the Internet.
+     * 
+     * See also the comments in smtpd.c.
      */
     rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
 		MAIL_ATTR_ACT_CLIENT_NAME, state->name);
     rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
-		MAIL_ATTR_ACT_CLIENT_ADDR, state->rfc_addr);
+		MAIL_ATTR_ACT_CLIENT_ADDR, state->addr);
     rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
 		MAIL_ATTR_ACT_CLIENT_PORT, state->port);
     rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%u",
 		MAIL_ATTR_ACT_CLIENT_AF, state->addr_family);
+    rec_fprintf(state->cleanup, REC_TYPE_ATTR, "%s=%s",
+		MAIL_ATTR_ACT_PROTO_NAME, state->protocol);
+
+    /* XXX What about the address rewriting context? */
 }
 
 /* qmqpd_copy_recipients - copy message recipients */

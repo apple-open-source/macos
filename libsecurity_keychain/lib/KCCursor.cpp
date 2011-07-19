@@ -169,8 +169,6 @@ KCCursorImpl::~KCCursorImpl() throw()
 {
 }
 
-ModuleNexus<Mutex> gOpenMutex;
-
 bool
 KCCursorImpl::next(Item &item)
 {
@@ -196,10 +194,6 @@ KCCursorImpl::next(Item &item)
 			
 			try
 			{
-				// we need to serialize activation of the data objects.  Otherwise, parallel threads
-				// will stomp on the object, rendering it useless
-				StLock<Mutex> _(gOpenMutex());
-				
 				(*mCurrent)->database()->activate();
 				mDbCursor = DbCursor((*mCurrent)->database(), *this);
 			}
@@ -226,6 +220,7 @@ KCCursorImpl::next(Item &item)
 			// iff all calls to KCCursorImpl::next failed
 			status = err.osStatus();
 			gotRecord = false;
+            dbAttributes.invalidate();
 		}
 		catch(...)
 		{
@@ -267,6 +262,10 @@ KCCursorImpl::next(Item &item)
 					if (attrData.length() > 4 && !memcmp(attrData.data(), "ssgp", 4))
 						groupKey = true;
 				}
+                else
+                {
+                    dbAttributes.invalidate();
+                }
 			}
 			catch (...) {}
 

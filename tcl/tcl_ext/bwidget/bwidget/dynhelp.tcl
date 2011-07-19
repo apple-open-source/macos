@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  dynhelp.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: dynhelp.tcl,v 1.16 2006/11/10 19:58:49 dev_null42a Exp $
+#  $Id: dynhelp.tcl,v 1.22 2009/09/03 17:23:30 oehhar Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - DynamicHelp::configure
@@ -19,22 +19,30 @@
 namespace eval DynamicHelp {
     Widget::define DynamicHelp dynhelp -classonly
 
-    Widget::declare DynamicHelp {
-        {-foreground     TkResource black         0 label}
-        {-topbackground  TkResource black         0 {label -foreground}}
-        {-background     TkResource "#FFFFC0"     0 label}
-        {-borderwidth    TkResource 1             0 label}
-        {-justify        TkResource left          0 label}
-        {-font           TkResource "helvetica 8" 0 label}
-        {-delay          Int        600           0 "%d >= 100 & %d <= 2000"}
-	{-state          Enum       "normal"      0 {normal disabled}}
-        {-padx           TkResource 1             0 label}
-        {-pady           TkResource 1             0 label}
-        {-bd             Synonym    -borderwidth}
-        {-bg             Synonym    -background}
-        {-fg             Synonym    -foreground}
-        {-topbg          Synonym    -topbackground}
+    if {$::tcl_version >= 8.5} {
+        set fontdefault TkTooltipFont
+    } elseif {$Widget::_aqua} {
+        set fontdefault {helvetica 11}
+    } else {
+        set fontdefault {helvetica 8}
     }
+
+    Widget::declare DynamicHelp [list\
+        {-foreground     TkResource black         0 label}\
+        {-topbackground  TkResource black         0 {label -foreground}}\
+        {-background     TkResource "#FFFFC0"     0 label}\
+        {-borderwidth    TkResource 1             0 label}\
+        {-justify        TkResource left          0 label}\
+        [list -font      TkResource $fontdefault  0 label]\
+        {-delay          Int        600           0 "%d >= 100 & %d <= 2000"}\
+	{-state          Enum       "normal"      0 {normal disabled}}\
+        {-padx           TkResource 1             0 label}\
+        {-pady           TkResource 1             0 label}\
+        {-bd             Synonym    -borderwidth}\
+        {-bg             Synonym    -background}\
+        {-fg             Synonym    -foreground}\
+        {-topbg          Synonym    -topbackground}\
+    ]
 
     proc use {} {}
 
@@ -58,7 +66,6 @@ namespace eval DynamicHelp {
     bind BwHelpBalloon <Destroy> {DynamicHelp::_unset_help %W}
 
     bind BwHelpVariable <Enter>   {DynamicHelp::_motion_info %W}
-    bind BwHelpVariable <Motion>  {DynamicHelp::_motion_info %W}
     bind BwHelpVariable <Leave>   {DynamicHelp::_leave_info  %W}
     bind BwHelpVariable <Destroy> {DynamicHelp::_unset_help  %W}
 
@@ -91,6 +98,7 @@ proc DynamicHelp::include { class type } {
     set helpoptions [list \
 	    [list -helptext String "" 0] \
 	    [list -helpvar  String "" 0] \
+	    [list -helpcmd  String "" 0] \
 	    [list -helptype Enum $type 0 [list balloon variable]] \
 	    ]
     Widget::declare $class $helpoptions
@@ -254,7 +262,7 @@ proc DynamicHelp::register { path type args } {
             set text  [lindex $args 1]
             set index [lindex $args 0]
 	    if {$text == "" || $index == ""} {
-		set idx [lsearch $_registed($path) [list $index *]]
+		set idx [lsearch $_registered($path) [list $index *]]
 		set _registered($path) [lreplace $_registered($path) $idx $idx]
 		return 0
 	    }
@@ -538,6 +546,8 @@ proc DynamicHelp::_motion_balloon { type path x y {isCanvasItem 0} {isTextItem 0
                 set cmd [list DynamicHelp::_show_help $path $w $x $y]
                 set _id [after $_delay $cmd]
             }
+            # Bug 923942 proposes to destroy on motion to remove dynhelp on motion.
+            # this might be an optional behaviour in future versions
         } else {
             destroy $_top
             set _current_balloon ""
@@ -567,7 +577,7 @@ proc DynamicHelp::_motion_info { path {isCanvasItem 0} {isTextItem 0} } {
         if {![info exists _saved]} { set _saved [GlobalVar::getvar $varName] }
         set string [lindex $_registered($path,variable) 1]
         if {[info exists _registered($path,command)]} {
-            set string [eval $_registered($path,command)]
+            set string [uplevel #0 $_registered($path,command)]
         }
         GlobalVar::setvar $varName $string
         set _current_variable $path
@@ -577,6 +587,7 @@ proc DynamicHelp::_motion_info { path {isCanvasItem 0} {isTextItem 0} } {
 
 # ----------------------------------------------------------------------------
 #  Command DynamicHelp::_leave_info
+#    Leave event may be called twice (in case of pointer grab)
 # ----------------------------------------------------------------------------
 proc DynamicHelp::_leave_info { path {isCanvasItem 0} {isTextItem 0} } {
     variable _saved
@@ -589,31 +600,34 @@ proc DynamicHelp::_leave_info { path {isCanvasItem 0} {isTextItem 0} } {
 	set path [_get_text_path $path variable] 
     }
 
-    if { [info exists _registered($path,variable)] } {
+    if { [string equal $_current_variable $path] \
+         && [info exists _registered($path,variable)] } {
         set varName [lindex $_registered($path,variable) 0]
         GlobalVar::setvar $varName $_saved
+        unset _saved
+        set _current_variable ""
     }
-    catch {unset _saved}
-    set _current_variable ""
 }
 
 
 # ----------------------------------------------------------------------------
 #  Command DynamicHelp::_menu_info
-#    Version of R1v1 restored, due to lack of [winfo ismapped] and <Unmap>
-#    under windows for menu.
 # ----------------------------------------------------------------------------
+# We have to check for unmap event on Unix. On Windows, unmap
+# is not delivered, but <<MenuSelect>> is triggered appropriately when menu
+# is unmapped.
 proc DynamicHelp::_menu_info { event path } {
     variable _registered
 
     if { [info exists _registered($path)] } {
         set index   [$path index active]
         set varName [lindex $_registered($path) 0]
-        if { ![string equal $index "none"] &&
+        if { ![string equal $event "unmap"] &&
+             ![string equal $index "none"] &&
              [set idx [lsearch $_registered($path) [list $index *]]] != -1 } {
 	    set string [lindex [lindex $_registered($path) $idx] 1]
 	    if {[info exists _registered($path,$index,command)]} {
-		set string [eval $_registered($path,$index,command)]
+		set string [uplevel #0 $_registered($path,$index,command)]
 	    }
             GlobalVar::setvar $varName $string
         } else {
@@ -645,7 +659,7 @@ proc DynamicHelp::_show_help { path w x y } {
 	}
 
         if {[info exists _registered($path,command)]} {
-            set string [eval $_registered($path,command)]
+            set string [uplevel #0 $_registered($path,command)]
         }
 
 	if {$string == ""} { return }
@@ -656,8 +670,7 @@ proc DynamicHelp::_show_help { path w x y } {
             -screen [winfo screen $w]
 
         wm withdraw $_top
-	if {$::tk_version >= 8.4
-	    && [string equal [tk windowingsystem] "aqua"]} {
+	if { $Widget::_aqua } {
 	    ::tk::unsupported::MacWindowStyle style $_top help none
 	} else {
 	    wm overrideredirect $_top 1
@@ -684,14 +697,27 @@ proc DynamicHelp::_show_help { path w x y } {
         set  scrheight [winfo vrootheight .]
         set  width     [winfo reqwidth  $_top]
         set  height    [winfo reqheight $_top]
-        incr y 12
-        incr x 8
 
-        if { $x+$width > $scrwidth } {
-            set x [expr {$scrwidth - $width}]
+        # On windows multi screen configurations, coordinates may get outside
+        # the main screen. We suppose that all screens have the same size
+        # because it is not possible to query the size of the other screens.
+        
+        set screenx [expr {$x % $scrwidth} ]
+        set screeny [expr {$y % $scrheight} ]
+        
+        # Increment the required size by the deplacement from the passed point
+        incr width 8
+        incr height 12
+        
+        if { $screenx+$width > $scrwidth } {
+            set x [expr {$x + ($scrwidth - $screenx) - ($width - 8)}]
+        } else {
+            incr x 8
         }
-        if { $y+$height > $scrheight } {
-            set y [expr {$y - 12 - $height}]
+        if { $screeny+$height > $scrheight } {
+            set y [expr {$y - $height}]
+        } else {
+            incr y 12
         }
 
         wm geometry  $_top "+$x+$y"
@@ -711,6 +737,7 @@ proc DynamicHelp::_unset_help { path } {
     variable _texts
     variable _registered
     variable _top
+    variable _current_balloon
 
     if {[info exists _registered($path)]} { unset _registered($path) }
     if {[winfo exists $path]} {
@@ -720,7 +747,7 @@ proc DynamicHelp::_unset_help { path } {
     array unset _canvases   $path,*
     array unset _texts      $path,*
     array unset _registered $path,*
-    destroy $_top
+    if {[string equal $path $_current_balloon]} {destroy $_top}
 }
 
 # ----------------------------------------------------------------------------

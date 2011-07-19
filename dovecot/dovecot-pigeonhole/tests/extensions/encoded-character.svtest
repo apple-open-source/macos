@@ -1,0 +1,180 @@
+require "vnd.dovecot.testsuite";
+
+require "encoded-character";
+require "variables";
+
+test "HEX equality one" {
+	if not string "${hex:42}" "B" {
+		test_fail "failed to match the string 'B'";
+	}
+
+	if string "${hex:42}" "b" {
+		test_fail "matched nonsense";
+	}
+
+	if string "${hex:42}" "" {
+		test_fail "substitution failed";
+	}
+}
+
+test "HEX equality one middle" {
+	if not string " ${hex:42} " " B " {
+		test_fail "failed to match the string ' B '";
+	}
+
+	if string " ${hex:42} " " b " {
+		test_fail "matched nonsense";
+	}
+
+	if string " ${hex:42} " "  " {
+		test_fail "substitution failed";
+	}
+}
+
+test "HEX equality one begin" {
+	if not string "${hex:42} " "B " {
+		test_fail "failed to match the string 'B '";
+	}
+
+	if string "${hex:42} " " b" {
+		test_fail "matched nonsense";
+	}
+
+	if string "${hex:42} " " " {
+		test_fail "substitution failed";
+	}
+}
+
+test "HEX equality one end" {
+	if not string " ${hex:42}" " B" {
+		test_fail "failed to match the string ' B'";
+	}
+
+	if string " ${hex:42}" " b " {
+		test_fail "matched nonsense";
+	}
+
+	if string " ${hex:42}" " " {
+		test_fail "substitution failed";
+	}
+}
+
+test "HEX equality two triple" {
+	if not string "${hex:42 61 64}${hex: 61 73 73}" "Badass" {
+		test_fail "failed to match the string 'Badass'";
+	}
+
+	if string "${hex:42 61 64}${hex: 61 73 73}" "Sadass" {
+		test_fail "matched nonsense";
+	}
+
+	if string "${hex:42 61 64}${hex: 61 73 73}" "" {
+		test_fail "substitution failed";
+	}
+}
+
+test "HEX equality braindead" {
+	if not string "${hex:42 72 61 69 6E 64 65 61 64}" "Braindead" {
+		test_fail "failed to match the string 'Braindead'";
+	}
+
+	if string "${hex:42 72 61 69 6E 64 65 61 64}" "Brian Nut" {
+		test_fail "matched nonsense";
+	}
+}
+
+test "Syntax errors" {
+	if anyof( not string "$" "${hex:24}", not string "$ " "${hex:24} ", not string " $" " ${hex:24}" ) {
+		test_fail "loose $ handled inappropriately";
+	}
+
+	if anyof( not string "${" "${hex:24}{", not string "a${" "a${hex:24}{", not string "${a" "${hex:24}{a" ) {
+		test_fail "loose ${ handled inappropriately";
+	}
+
+	if anyof( not string "${}" "${hex:24}{}", not string "b${}" "b${hex:24}{}", not string "${}b" "${hex:24}{}b" ) {
+		test_fail "entirely missing content handled inappropriately";
+	}
+
+	if not string "${:}" "${hex:24}{:}" {
+		test_fail "missing content handled inappropriately";
+	}
+
+	if not string "${hex:}" "${hex:24}{hex:}" {
+		test_fail "missing hex content handled inappropriately";
+	}
+
+	if not string "${unicode:}" "${hex:24}{unicode:}" {
+		test_fail "missing unicode content handled inappropriately";
+	}
+
+	if not string "${hex:sss}" "${hex:24}{hex:sss}" {
+		test_fail "erroneous hex content handled inappropriately";
+	}
+
+	if not string "${unicode:ttt}" "${hex:24}{unicode:ttt}" {
+		test_fail "erroneous unicode content handled inappropriately";
+	}
+
+	if not string "${hex:aa aa" "${hex:24}{hex:aa aa" {
+		test_fail "unterminated hex content handled inappropriately";
+	}
+
+	if not string "${unicode: aaaa aaaa" "${hex:24}{unicode: aaaa aaaa" {
+		test_fail "unterminated unicode content handled inappropriately";
+	}
+}
+
+/*
+ * RFC Examples
+ */
+
+test "RFC Examples" {
+	if not string "$${hex:40}" "$@" {
+		test_fail "failed RFC example 1";
+	}
+
+	if not string "${hex: 40 }" "@" {
+		test_fail "failed RFC example 2";
+	}
+
+	if not string "${HEX: 40}" "@" {
+		test_fail "failed RFC example 3";
+	}
+	
+	if not string "${hex:40" "${hex:40" {
+		test_fail "failed RFC example 4";
+	}
+
+	if not string "${hex:400}" "${hex:400}" {
+		test_fail "failed RFC example 5";
+	}
+
+	if not string "${hex:4${hex:30}}" "${hex: 24}{hex:40}" {
+		test_fail "failed RFC example 6";
+	}
+
+	if not string "${unicode:40}" "@" {
+		test_fail "failed RFC example 7";
+	}
+     
+	if not string "${ unicode:40}" "${ unicode:40}" {
+		test_fail "failed RFC example 8";
+	}
+
+	if not string "${UNICODE:40}" "@" {
+		test_fail "failed RFC example 9";
+	}
+
+	if not string "${UnICoDE:0000040}" "@" {
+		test_fail "failed RFC example 10";
+	}
+
+	if not string "${Unicode:40}" "@" {
+		test_fail "failed RFC example 11";
+	}
+
+	if not string "${Unicode:Cool}" "${Unicode:Cool}" {
+		test_fail "failed RFC example 12";
+	}
+}

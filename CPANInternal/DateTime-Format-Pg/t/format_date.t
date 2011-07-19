@@ -1,4 +1,4 @@
-# $Id: format_date.t,v 1.2 2003/05/30 14:04:49 cfaerber Exp $
+# $Id: format_date.t 1039 2003-05-30 14:04:49Z cfaerber $
 use Test::More tests => 3;
 use DateTime 0.10;
 use DateTime::Format::Pg 0.02;

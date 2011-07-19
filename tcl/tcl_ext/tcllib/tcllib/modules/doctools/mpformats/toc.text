@@ -1,6 +1,6 @@
 # -*- tcl -*-
 #
-# $Id: toc.text,v 1.7 2005/09/28 04:51:19 andreas_kupries Exp $
+# $Id: toc.text,v 1.8 2010/06/08 19:13:53 andreas_kupries Exp $
 #
 # Engine to convert a doctoc document into plain text.
 #
@@ -34,10 +34,10 @@ proc fmt_toc_begin     {label title} {
 
     set     title "$label -- $title"
     set     hdr ""
-    append  hdr "Table of contents [textutil::uncap [c_provenance]]\n"
+    append  hdr "Table of contents [textutil::string::uncap [c_provenance]]\n"
     append  hdr \n
     append  hdr $title \n
-    append  hdr [textutil::strRepeat = [string length $title]]
+    append  hdr [textutil::repeat::strRepeat = [string length $title]]
     Text   $hdr
     CloseParagraph [Verbatim]
 }
@@ -47,7 +47,7 @@ proc fmt_division_start {title symfile} {
     global max     ; set max 0
 
     Text $title\n
-    Text [textutil::strRepeat - [string length $title]]
+    Text [textutil::repeat::strRepeat - [string length $title]]
     CloseParagraph [Verbatim]
     SaveContext
     NewEnv Division {
@@ -65,11 +65,11 @@ proc fmt_division_end   {}      {
 	if {$rmargin < 20} {set rmargin 20}
 	set pfx [textutil::blank $max]
 	incr max -1
-	set fpfx "[textutil::strRepeat . $max] "
+	set fpfx "[textutil::repeat::strRepeat . $max] "
 
 	foreach {file desc} $seclist {
 	    set   opfx "$file [string range $fpfx [string length $file] end]"
-	    Text $opfx[textutil::indent [textutil::adjust $desc -length $rmargin] $pfx 1]
+	    Text $opfx[textutil::adjust::indent [textutil::adjust::adjust $desc -length $rmargin] $pfx 1]
 	    CloseParagraph [Verbatim]
 	}
 	set seclist {}

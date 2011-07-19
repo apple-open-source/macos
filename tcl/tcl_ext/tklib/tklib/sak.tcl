@@ -9,13 +9,35 @@ exec tclsh "$0" ${1+"$@"}
 set distribution   [file dirname [info script]]
 lappend auto_path  [file join $distribution modules]
 
-source [file join $distribution tklib_version.tcl] ; # Get version information.
+set critcldefault {}
+set critclnotes   {}
+set dist_excluded {}
+
+proc package_name    {text} {global package_name    ; set package_name    $text}
+proc package_version {text} {global package_version ; set package_version $text}
+proc dist_exclude    {path} {global dist_excluded   ; lappend dist_excluded $path}
+proc critcl {name files} {
+    global critclmodules
+    set    critclmodules($name) $files
+    return
+}
+proc critcl_main {name files} {
+    global critcldefault
+    set critcldefault $name
+    critcl $name $files
+    return
+}
+proc critcl_notes {text} {
+    global critclnotes
+    set critclnotes [string map {{\n    } \n} $text]
+    return
+}
+
+source [file join $distribution support installation version.tcl] ; # Get version information.
+
+set package_nv ${package_name}-${package_version}
 
 catch {eval file delete -force [glob [file rootname [info script]].tmp.*]}
-
-# Transduction old/new names (release uses new information).
-set package_version $tklib_version
-set package_name    $tklib_name
 
 # --------------------------------------------------------------
 # SAK internal debugging support.
@@ -33,18 +55,35 @@ if {$debug} {
 # Internal helper to load packages straight out of the local directory
 # tree. Not something from an installation, possibly incompatible.
 
-proc getpackage {package} {
-    package require $package
+proc getpackage {package tclmodule} {
+    global distribution
+    if {[catch {package present $package}]} {
+	set src [file join \
+		$distribution modules \
+		$tclmodule]
+	if {[file exists $src]} {
+	    uplevel #0 [list source $src]
+	} else {
+	    # Fallback
+	    package require $package
+	}
+    }
 }
 
 # --------------------------------------------------------------
 
 proc tclfiles {} {
     global distribution
-    package require fileutil
+    getpackage fileutil fileutil/fileutil.tcl
     set fl [fileutil::findByPattern $distribution -glob *.tcl]
-    proc tclfiles {} [list return $fl]
-    return $fl
+    # Remove files under SCCS. They are repository, not sources to check.
+    set tmp {}
+    foreach f $fl {
+	if {[string match *SCCS* $f]} continue
+	lappend tmp $f
+    }
+    proc tclfiles {} [list return $tmp]
+    return $tmp
 }
 
 proc modtclfiles {modules} {
@@ -56,7 +95,6 @@ proc modtclfiles {modules} {
     }
     return $mfiles
 }
-
 
 proc modules {} {
     global distribution
@@ -78,10 +116,21 @@ proc modules_mod {m} {
     return [expr {[lsearch -exact [modules] $m] >= 0}]
 }
 
+proc dealias {modules} {
+    set _ {}
+    foreach m $modules {
+	if {[file exists $m]} {
+	    set m [file tail $m]
+	}
+	lappend _ $m
+    }
+    return $_
+}
+
 proc load_modinfo {} {
     global distribution modules guide
-    source [file join $distribution installed_modules.tcl] ; # Get list of installed modules.
-    source [file join $distribution install_action.tcl] ; # Get list of installed modules.
+    source [file join $distribution support installation modules.tcl] ; # Get list of installed modules.
+    source [file join $distribution support installation actions.tcl] ; # Get installer support code.
     proc load_modinfo {} {}
     return
 }
@@ -94,16 +143,23 @@ proc imodules_mod {m} {
     return [expr {[lsearch -exact $modules $m] > 0}]
 }
 
+# Result: dict (package name --> list of package versions).
 
 proc loadpkglist {fname} {
     set f [open $fname r]
     foreach line [split [read $f] \n] {
+	set line [string trim $line]
+	if {[string match @* $line]} continue
+	if {$line == {}} continue
 	foreach {n v} $line break
-	set p($n) $v
+	lappend p($n) $v
+	set p($n) [lsort -uniq -dict $p($n)]
     }
     close $f
     return [array get p]
 }
+
+# Result: dict (package name => list of (list of package versions, module)).
 
 proc ipackages {args} {
     # Determine indexed packages (ifneeded, pkgIndex.tcl)
@@ -120,15 +176,25 @@ proc ipackages {args} {
 	    if {![regexp {ifneeded} $line]} {continue}
 	    regsub {^.*ifneeded } $line {} line
 	    regsub {([0-9]) \[.*$}  $line {\1} line
-	    regsub {([0-9]) \{.*$}  $line {\1} line
 
 	    foreach {n v} $line break
-	    set p($n) $v
+
+	    if {![info exists p($n)]} {
+		set p($n) [list $v $m]
+	    } else {
+		# We have multiple versions of the same package. We
+		# remember all versions.
+
+		foreach {vlist m} $p($n) break
+		lappend vlist $v
+		set p($n) [list [lsort -uniq -dict $vlist] $m]
+	    }
 	}
 	close $f
     }
     return [array get p]
 }
+
 
 # Result: dict (package name --> list of package versions).
 
@@ -151,9 +217,11 @@ proc ppackages {args} {
 	set files [modtclfiles $args]
     }
 
-    getpackage fileutil
+    getpackage fileutil fileutil/fileutil.tcl
     set capout [fileutil::tempfile] ; set capcout [open $capout w]
     set caperr [fileutil::tempfile] ; set capcerr [open $caperr w]
+
+    array set notprovided {}
 
     foreach f $files {
 	# We ignore package indices and all files not in a module.
@@ -179,9 +247,17 @@ proc ppackages {args} {
 
 	set ok -1
 	foreach line [split [read $fh] \n] {
+	    if {[regexp "\#\\s*@sak\\s+notprovided\\s+(\[^\\s\]+)" $line -> nppname]} {
+		sakdebug {puts stderr "PRAGMA notprovided = $nppname"}
+		set notprovided($nppname) .
+	    }
+
 	    regsub "\#.*$" $line {} line
 	    if {![regexp {provide} $line]} {continue}
 	    if {![regexp {package} $line]} {continue}
+
+	    # Now a stronger check for the actual command
+	    if {![regexp {package[ 	][ 	]*provide} $line]} {continue}
 
 	    set xline $line
 	    regsub {^.*provide } $line {} line
@@ -294,6 +370,14 @@ proc ppackages {args} {
     close $capcout ; file delete $capout
     close $capcerr ; file delete $caperr
 
+    # Process the accumulated pragma information, remove all the
+    # packages which exist but not really, in terms of indexing.
+
+    foreach n [array names notprovided] {
+	catch { unset p($n) }
+	array unset pf $n,*
+    }
+
     set   pp [array get p]
     unset p
 
@@ -303,7 +387,6 @@ proc ppackages {args} {
 
 proc xNULL    {args} {}
 proc xPackage {cmd args} {
-
     if {[string equal $cmd provide]} {
 	global p pf currentfile
 	foreach {n v} $args break
@@ -311,81 +394,23 @@ proc xPackage {cmd args} {
 	# No version specified, this is an inquiry, we ignore these.
 	if {$v == {}} {return}
 
-	set p($n) $v
-	set pf($n) $currentfile
+	sakdebug {puts stderr \tOK\ $n\ =\ $v}
+
+	lappend p($n) $v
+	set p($n) [lsort -uniq -dict $p($n)]
+	set pf($n,$v) $currentfile
     }
     return
 }
-
-
 
 proc sep {} {puts ~~~~~~~~~~~~~~~~~~~~~~~~}
 
-proc gendoc {fmt ext args} {
-    global distribution
-    global tcl_platform
-
-    set null 0
-    if {![string compare $fmt null]} {set null 1}
-    if {[llength $args] == 0} {set args [modules]}
-
-    # Direct usage of the doctools instead of the mini application 'mpexpand' ...
-
-    package require doctools
-    ::doctools::new mpe -format $fmt
-
-    if {!$null} {
-	file mkdir [file join doc $fmt]
-    } else {
-	mpe configure -deprecated 1
-    }
-
-    foreach m $args {
-	set fl [glob -nocomplain [file join $distribution modules $m *.man]]
-	if {[llength $fl] == 0} {continue}
-
-	mpe configure -module $m
-
-	foreach f $fl {
-	    if {!$null} {
-                set target [file join doc $fmt \
-                                [file rootname [file tail $f]].$ext]
-                if {[file exists $target] 
-                    && [file mtime $target] > [file mtime $f]} {
-                    continue
-                }
-	    }
-	    puts "Gen ($fmt): $f"
-
-	    if {[catch {
-		set result [mpe format [read [set if [open $f r]]][close $if]]
-	    } msg]} {
-		puts stdout $msg
-	    }
-
-	    set warnings [mpe warnings]
-	    if {[llength $warnings] > 0} {
-		puts stdout [join $warnings \n]
-	    }
-
-	    if {!$null} {
-		set of [open $target w]
-		puts -nonewline $of $result
-		close $of
-	    }
-	}
-    }
-
-    mpe destroy
-    return
-}
-
 proc gd-cleanup {} {
-    global tklib_version
+    global package_nv
 
     puts {Cleaning up...}
 
-    set        fl [glob -nocomplain tklib-${tklib_version}*]
+    set        fl [glob -nocomplain ${package_nv}*]
     foreach f $fl {
 	puts "    Deleting $f ..."
 	catch {file delete -force $f}
@@ -394,49 +419,51 @@ proc gd-cleanup {} {
 }
 
 proc gd-gen-archives {} {
-    global tklib_version
+    global package_name package_nv
 
     puts {Generating archives...}
 
     set tar [auto_execok tar]
     if {$tar != {}} {
-        puts "    Gzipped tarball (tklib-${tklib_version}.tar.gz)..."
+        puts "    Gzipped tarball (${package_nv}.tar.gz)..."
         catch {
-            exec $tar cf - tklib-${tklib_version} | gzip --best > tklib-${tklib_version}.tar.gz
+            exec $tar cf - ${package_nv} | gzip --best > ${package_nv}.tar.gz
         }
 
         set bzip [auto_execok bzip2]
         if {$bzip != {}} {
-            puts "    Bzipped tarball (tklib-${tklib_version}.tar.bz2)..."
-            exec tar cf - tklib-${tklib_version} | bzip2 > tklib-${tklib_version}.tar.bz2
+            puts "    Bzipped tarball (${package_nv}.tar.bz2)..."
+            exec tar cf - ${package_nv} | bzip2 > ${package_nv}.tar.bz2
         }
     }
 
     set zip [auto_execok zip]
     if {$zip != {}} {
-        puts "    Zip archive     (tklib-${tklib_version}.zip)..."
+        puts "    Zip archive     (${package_nv}.zip)..."
         catch {
-            exec $zip -r   tklib-${tklib_version}.zip             tklib-${tklib_version}
+            exec $zip -r ${package_nv}.zip ${package_nv}
         }
     }
 
     set sdx [auto_execok sdx]
     if {$sdx != {}} {
-	file rename tklib-${tklib_version} tklib.vfs
+	file copy -force [file join ${package_nv} support installation main.tcl] \
+		[file join ${package_nv} main.tcl]
+	file rename ${package_nv} ${package_name}.vfs
 
-	puts "    Starkit         (tklib-${tklib_version}.kit)..."
-	exec sdx wrap tklib
-	file rename   tklib tklib-${tklib_version}.kit
+	puts "    Starkit         (${package_nv}.kit)..."
+	exec sdx wrap ${package_name}
+	file rename   ${package_name} ${package_nv}.kit
 
 	if {![file exists tclkit]} {
 	    puts "    No tclkit present in current working directory, no starpack."
 	} else {
-	    puts "    Starpack        (tklib-${tklib_version}.exe)..."
-	    exec sdx wrap tklib -runtime tclkit
-	    file rename   tklib tklib-${tklib_version}.exe
+	    puts "    Starpack        (${package_nv}.exe)..."
+	    exec sdx wrap ${package_name} -runtime tclkit
+	    file rename   ${package_name} ${package_nv}.exe
 	}
 
-	file rename tklib.vfs tklib-${tklib_version}
+	file rename ${package_name}.vfs ${package_nv}
     }
 
     puts {    Keeping directory for other archive types}
@@ -469,17 +496,21 @@ proc xcopy {src dest recurse {pattern *}} {
 
 
 proc xxcopy {src dest recurse {pattern *}} {
+    global package_name
+
     file mkdir $dest
     foreach file [glob -nocomplain [file join $src $pattern]] {
         set base [file tail $file]
 	set sub  [file join $dest $base]
 
-	# Exclude CVS automatically, and possibly the temp hierarchy
-	# itself too.
+	# Exclude CVS, SCCS, ... automatically, and possibly the temp
+	# hierarchy itself too.
 
-	if {0 == [string compare CVS $base]} {continue}
-	if {[string match tklib-*   $base]} {continue}
-	if {[string match *~         $base]} {continue}
+	if {0 == [string compare CVS        $base]} {continue}
+	if {0 == [string compare SCCS       $base]} {continue}
+	if {0 == [string compare BitKeeper  $base]} {continue}
+	if {[string match ${package_name}-* $base]} {continue}
+	if {[string match *~                $base]} {continue}
 
         if {[file isdirectory $file]} then {
 	    if {$recurse} {
@@ -494,17 +525,15 @@ proc xxcopy {src dest recurse {pattern *}} {
 }
 
 proc gd-assemble {} {
-    global tklib_version distribution
+    global package_nv distribution dist_excluded
 
-    puts "Assembling distribution in directory 'tklib-${tklib_version}'"
+    puts "Assembling distribution in directory '${package_nv}'"
 
-    xxcopy $distribution tklib-${tklib_version} 1
-    file delete -force \
-	    tklib-${tklib_version}/config \
-	    tklib-${tklib_version}/modules/ftp/example \
-	    tklib-${tklib_version}/modules/ftpd/examples \
-	    tklib-${tklib_version}/modules/stats \
-	    tklib-${tklib_version}/modules/fileinput
+    xxcopy $distribution ${package_nv} 1
+
+    foreach f $dist_excluded {
+	file delete -force [file join $package_nv $f]
+    }
     puts ""
     return
 }
@@ -519,8 +548,8 @@ proc normalize-version {v} {
 }
 
 proc gd-gen-tap {} {
-    getpackage textutil
-    getpackage fileutil
+    getpackage textutil textutil/textutil.tcl
+    getpackage fileutil fileutil/fileutil.tcl
 
     global package_name package_version distribution tcl_platform
 
@@ -564,34 +593,15 @@ proc gd-gen-tap {} {
     foreach m $modules {
 	# File set of module ...
 
-	puts "M $m"
-	catch { unset ps }
-	array set ps {}
-
 	lappend lines {}
 	lappend lines "# #########[::textutil::strRepeat {#} [string length $m]]" ; # {}
 	lappend lines "# Module \"$m\""
 	set n 0
 	foreach {p vlist} [ppackages $m] {
-	    puts "  | $p"
 	    foreach v $vlist {
 		lappend lines "# \[[format %1d [incr n]]\]    | \"$p\" ($v)"
 	    }
-	    set ps($p) .
 	}
-	if {$m == "tablelist"} {
-	    # Tablelist contains dynamics in the provide statements
-	    # the analysis in ppackages is unable to deal with,
-	    # causing it to locate only tablelist::common. We now fix
-	    # this here by adding the indexed package names as well
-	    # and assuming that they are provided.
-	    foreach {p vlist} [ipackages $m] {
-		if {[info exists ps($p)]} continue
-		puts "  / $p"
-		lappend lines "# \[[format %1d [incr n]]\]    | \"$p\" ($v)"
-	    }
-	}
-
 	if {$n > 1} {
 	    # Multiple packages (*). We create one hidden package to
 	    # contain all the files and then have all the true
@@ -600,21 +610,10 @@ proc gd-gen-tap {} {
 	    # (*) This can also be one package for which we have
 	    # several versions. Or a combination thereof.
 
-	    catch { unset ps }
-	    array set ps {}
 	    array set _ {}
 	    foreach {p vlist} [ppackages $m] {
 		catch {set _([lindex $pd($p) 0]) .}
-		set ps($p) .
 	    }
-	    if {$m == "tablelist"} {
-		# S.a. for explantions.
-		foreach {p vlist} [ipackages $m] {
-		    if {[info exists ps($p)]} continue
-		    catch {set _([lindex $pd($p) 0]) .}
-		}
-	    }
-
 	    set desc [string trim [join [array names _] ", "] " \n\t\r,"]
 	    if {$desc == ""} {set desc "$pname module"}
 	    unset _
@@ -631,12 +630,8 @@ proc gd-gen-tap {} {
 		lappend lines "Path     [fileutil::stripN $f $strip]"
 	    }
 
-	    catch { unset ps }
-	    array set ps {}
-
 	    # Packages in the module ...
 	    foreach {p vlist} [ppackages $m] {
-		set ps($p) .
 		# NO DANGER. As we are listing only the packages P for
 		# the module any other version of P in a different
 		# module is _not_ listed here.
@@ -653,31 +648,10 @@ proc gd-gen-tap {} {
 		    lappend lines "Desc     \{$desc\}"
 		}
 	    }
-
-	    if {$m == "tablelist"} {
-		# S.a. for explantions.
-		foreach {p vlist} [ipackages $m] {
-		    if {[info exists ps($p)]} continue
-
-		    # factor into procedure ...
-		    set desc ""
-		    catch {set desc [string trim [lindex $pd($p) 1]]}
-		    if {$desc == ""} {set desc "$pname package"}
-
-		    foreach v $vlist {
-			lappend lines {}
-			lappend lines [list Package [list $p [normalize-version $v]]]
-			lappend lines "See   [list __$m]"
-			lappend lines "Platform *"
-			lappend lines "Desc     \{$desc\}"
-		    }
-		}
-	    }
 	} else {
 	    # A single package in the module. And only one version of
 	    # it as well. Otherwise we are in the multi-pkg branch.
 
-	    foreach {p vlist} {{} {}} break
 	    foreach {p vlist} [ppackages $m] break
 	    set desc ""
 	    catch {set desc [string trim [lindex $pd($p) 1]]}
@@ -718,7 +692,8 @@ proc gd-gen-tap {} {
 proc getpdesc  {} {
     global argv ; if {![checkmod]} return
 
-    eval gendoc desc l $argv
+    package require sak::doc
+    sak::doc::Gen desc l $argv
     
     array set _ {}
     foreach file [glob -nocomplain doc/desc/*.l] {
@@ -735,128 +710,64 @@ proc getpdesc  {} {
 }
 
 proc gd-gen-rpmspec {} {
-    global tklib_version tklib_name distribution
+    global package_version package_name distribution
 
-    set header [string map [list @@@@ $tklib_version @__@ $tklib_name] {# $Id: sak.tcl,v 1.7 2008/05/01 17:16:01 andreas_kupries Exp $
+    set in  [file join $distribution support releases package_rpm.txt]
+    set out [file join $distribution ${package_name}.spec]
 
-%define version @@@@
-%define directory /usr
-
-Summary: The standard Tk library
-Name: @__@
-Version: %{version}
-Release: 2
-Copyright: BSD
-Group: Development/Languages
-Source: %{name}-%{version}.tar.bz2
-URL: http://tcllib.sourceforge.net/
-Packager: Jean-Luc Fontaine <jfontain@free.fr>
-BuildArchitectures: noarch
-Prefix: /usr
-Requires: tcl >= 8.3.1
-BuildRequires: tcl >= 8.3.1
-Buildroot: /var/tmp/%{name}-%{version}
-
-%description
-Tklib, the Tk Standard Library is a collection of Tcl packages that
-provide Tk utility functions and widgets useful to a large collection
-of Tcl/Tk programmers.
-The home web site for this code is http://tcllib.sourceforge.net/.
-At this web site, you will find mailing lists, web forums, databases
-for bug reports and feature requests, the CVS repository (browsable
-on the web, or read-only accessible via CVS), and more.
-Note: also grab source tarball for more documentation, examples, ...
-
-%prep
-
-%setup -q
-
-%install
-# compensate for missing manual files:
-# - nothing yet
-/usr/bin/tclsh installer.tcl -no-gui -no-wait -no-html -no-examples\
-    -pkg-path $RPM_BUILD_ROOT/usr/lib/%{name}-%{version}\
-    -nroff-path $RPM_BUILD_ROOT/usr/share/man/mann/
-# install HTML documentation to specific modules sub-directories:
-# generate list of files in the package (man pages are compressed):
-find $RPM_BUILD_ROOT ! -type d |\
-    sed -e "s,^$RPM_BUILD_ROOT,,;" -e 's,\.n$,\.n\.gz,;' >\
-    %{_builddir}/%{name}-%{version}/files
-
-%clean
-rm -rf $RPM_BUILD_ROOT
-
-%files -f %{_builddir}/%{name}-%{version}/files
-%defattr(-,root,root)
-%doc README ChangeLog license.terms
-}]
-
-    set    f [open [file join $distribution tklib.spec] w]
-    puts  $f $header
-    close $f
+    write_out $out [string map \
+			[list \
+			     @PACKAGE_VERSION@ $package_version \
+			     @PACKAGE_NAME@    $package_name] \
+			[get_input $in]]
     return
 }
 
 proc gd-gen-yml {} {
     # YAML is the format used for the FreePAN archive network.
     # http://freepan.org/
-    global tklib_version tklib_name distribution
-    set yml [string map \
-                 [list %V $tklib_version %N $tklib_name] \
-                 {dist_id: tklib
-version: %V
-language: tcl
-description: |
-   This package is intended to be a collection of Tcl packages that provide
-   Tk utility functions and widgets useful to a large collection of Tcl/Tk
-   programmers.
 
-   The home web site for this code is http://tcllib.sourceforge.net/.
-   At this web site, you will find mailing lists, web forums, databases
-   for bug reports and feature requests, the CVS repository (browsable
-   on the web, or read-only accessible via CVS), and more.
+    global package_version package_name distribution
 
-categories: 
-  - Library/Utility
-  - Library/UI
-  - Library/Graphics
-license: BSD
-owner_id: AndreasKupries
-wrapped_content: %N-%V/
-}]
-    set f [open [file join $distribution tklib.yml] w]
-    puts $f $yml
-    close $f
+    set in  [file join $distribution support releases package_yml.txt]
+    set out [file join $distribution ${package_name}.yml]
+
+    write_out $out [string map \
+			[list \
+			     @PACKAGE_VERSION@ $package_version \
+			     @PACKAGE_NAME@    $package_name] \
+			[get_input $in]]
+    return
 }
 
 proc docfiles {} {
     global distribution
-    package require fileutil
+
+    getpackage fileutil fileutil/fileutil.tcl
+
     set res [list]
     foreach f [fileutil::findByPattern $distribution -glob *.man] {
+	# Remove files under SCCS. They are repository, not sources to check.
+	if {[string match *SCCS* $f]} continue
 	lappend res [file rootname [file tail $f]].n
     }
-    proc tclfiles {} [list return $res]
+    proc docfiles {} [list return $res]
     return $res
 }
 
 proc gd-tip55 {} {
-    global tklib_version tklib_name distribution contributors
+    global package_version package_name distribution contributors
     contributors
 
-    set md {Identifier: %N
-Title:  Tk Standard Library
-Description: This package is intended to be a collection of
-    Tcl packages that provide Tk utility functions and widgets
-    useful to a large collection of Tcl/Tk programmers.
-Rights: BSD
-Version: %V
-URL: http://tcllib.sourceforge.net/
-Architecture: tcl
-}
+    set in  [file join $distribution support releases package_tip55.txt]
+    set out [file join $distribution DESCRIPTION.txt]
 
-    regsub {Version: %V} $md "Version: $tklib_version" md
-    regsub {Identifier: %N} $md "Identifier: $tklib_name" md
+    set md [string map \
+		[list \
+		     @PACKAGE_VERSION@ $package_version \
+		     @PACKAGE_NAME@    $package_name] \
+		[get_input $in]]
+
     foreach person [lsort [array names contributors]] {
         set mail $contributors($person)
         regsub {@}  $mail " at " mail
@@ -864,13 +775,12 @@ Architecture: tcl
         append md "Contributor: $person <$mail>\n"
     }
 
-    set f [open [file join $distribution DESCRIPTION.txt] w]
-    puts $f $md
-    close $f
+    write_out $out $md
+    return
 }
 
-# Fill the global array of contributors to tklib by processing the
-# ChangeLog entries.
+# Fill the global array of contributors to the bundle by processing
+# the ChangeLog entries.
 #
 proc contributors {} {
     global distribution contributors
@@ -935,6 +845,9 @@ proc validate_imodules_mod {m} {
     return
 }
 proc validate_versions_cmp {ipvar ppvar} {
+    global pf
+    getpackage struct::set struct/sets.tcl
+
     upvar $ipvar ip $ppvar pp
     set maxl 0
     foreach name [array names ip] {if {[string length $name] > $maxl} {set maxl [string length $name]}}
@@ -947,29 +860,33 @@ proc validate_versions_cmp {ipvar ppvar} {
     }
     foreach p [lsort [array names pp]] {
 	if {![info exists ip($p)]} {
-	    puts "  Provided, not indexed:          [format "%-*s | %s" $maxl $p $pp($p)]"
+	    foreach k [array names pf $p,*] {
+		puts "  Provided, not indexed:          [format "%-*s | %s" $maxl $p $pf($k)]"
+	    }
 	}
     }
     foreach p [lsort [array names ip]] {
-	if {
-	    [info exists pp($p)] && ![string equal $pp($p) $ip($p)]
-	} {
-	    puts "  Index/provided versions differ: [format "%-*s | %8s | %8s" $maxl $p $ip($p) $pp($p)]"
-	}
+	if {![info exists pp($p)]}               continue
+	if {[struct::set equal $pp($p) $ip($p)]} continue
+
+	# Compute intersection and set differences.
+	foreach {__ pmi imp} [struct::set intersect3 $pp($p) $ip($p)] break
+
+	puts "  Index/provided versions differ: [format "%-*s | %8s | %8s" $maxl $p $imp $pmi]"
     }
 }
 
 proc validate_versions {} {
-    foreach {p v} [ipackages] {set ip($p) $v}
-    foreach {p v} [ppackages] {set pp($p) $v}
+    foreach {p vm}    [ipackages] {set ip($p) [lindex $vm 0]}
+    foreach {p vlist} [ppackages] {set pp($p) $vlist}
 
     validate_versions_cmp ip pp
     return
 }
 
 proc validate_versions_mod {m} {
-    foreach {p v} [ipackages $m] {set ip($p) $v}
-    foreach {p v} [ppackages $m] {set pp($p) $v}
+    foreach {p vm}    [ipackages $m] {set ip($p) [lindex $vm 0]}
+    foreach {p vlist} [ppackages $m] {set pp($p) $vlist}
 
     validate_versions_cmp ip pp
     return
@@ -981,6 +898,88 @@ proc validate_testsuite_mod {m} {
 	puts "  Without testsuite : $m"
     }
     return
+}
+
+proc bench_mod {mlist paths interp flags norm format verbose output} {
+    global distribution env tcl_platform
+
+    getpackage logger logger/logger.tcl
+    getpackage bench  bench/bench.tcl
+
+    ::logger::setlevel $verbose
+
+    set pattern tclsh*
+    if {$interp != {}} {
+	set pattern [file tail $interp]
+	set paths [list [file dirname $interp]]
+    } elseif {![llength $paths]} {
+	# Using the environment PATH is not a good default for
+	# SAK. Use the interpreter running SAK as the default.
+	if 0 {
+	    set paths [split $env(PATH) \
+			   [expr {($tcl_platform(platform) == "windows") ? ";" : ":"}]]
+	}
+	set interp [info nameofexecutable]
+	set pattern [file tail $interp]
+	set paths [list [file dirname $interp]]
+    }
+
+    set interps [bench::versions \
+	    [bench::locate $pattern $paths]]
+
+    if {![llength $interps]} {
+	puts "No interpreters found"
+	return
+    }
+
+    if {[llength $flags]} {
+	set cmd [linsert $flags 0 bench::run]
+    } else {
+	set cmd [list bench::run]
+    }
+
+    array set DATA {}
+
+    foreach m $mlist {
+	set files [glob -nocomplain [file join $distribution modules $m *.bench]]
+	if {![llength $files]} {
+	    bench::log::warn "No benchmark files found for module \"$m\""
+	    continue
+	}
+
+	set run $cmd
+	lappend run $interps $files
+	array set DATA [eval $run]
+    }
+
+    _bench_write $output [array get DATA] $norm $format
+    return
+}
+
+proc bench_all {flags norm format verbose output} {
+    bench_mod [modules] $flags $norm $format $verbose $output
+    return
+}
+
+
+proc _bench_write {output data norm format} {
+    if {$norm != {}} {
+	getpackage logger logger/logger.tcl
+	getpackage bench  bench/bench.tcl
+
+	set data [bench::norm $data $norm]
+    }
+
+    set data [bench::out::$format $data]
+
+    if {$output == {}} {
+	puts $data
+    } else {
+	set    output [open $output w]
+	puts  $output "# -*- tcl -*- bench/$format"
+	puts  $output $data
+	close $output
+    }
 }
 
 proc validate_testsuites {} {
@@ -1034,15 +1033,16 @@ proc validate_doc_existence {} {
 
 
 proc validate_doc_markup_mod {m} {
-    gendoc null null $m
+    package require sak::doc
+    sak::doc::Gen null null [list $m]
     return
 }
 
 proc validate_doc_markup {} {
-    gendoc null null
+    package require sak::doc
+    sak::doc::Gen null null [modules]
     return
 }
-
 
 proc run-frink {args} {
     global distribution
@@ -1052,7 +1052,7 @@ proc run-frink {args} {
     if {[llength $args] == 0} {
 	set files [tclfiles]
     } else {
-	set files [modtclfiles $args]
+	set files [lsort -dict [modtclfiles $args]]
     }
 
     foreach f $files {
@@ -1060,7 +1060,7 @@ proc run-frink {args} {
 	puts "$f..."
 	puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
 
-	catch {exec frink 2> $tmp -H $f}
+	catch {exec frink 2> $tmp -HJ $f}
 	set data [get_input $tmp]
 	if {[string length $data] > 0} {
 	    puts $data
@@ -1076,7 +1076,7 @@ proc run-procheck {args} {
     if {[llength $args] == 0} {
 	set files [tclfiles]
     } else {
-	set files [modtclfiles $args]
+	set files [lsort -dict [modtclfiles $args]]
     }
 
     foreach f $files {
@@ -1089,12 +1089,62 @@ proc run-procheck {args} {
     return
 }
 
+proc run-tclchecker {args} {
+    global distribution
+
+    if {[llength $args] == 0} {
+	set files [tclfiles]
+    } else {
+	set files [lsort -dict [modtclfiles $args]]
+    }
+
+    foreach f $files {
+	puts "TCLCHECKER ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	puts "$f ..."
+	puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
+	catch {exec tclchecker >@ stdout $f}
+    }
+    return
+}
+
+proc run-nagelfar {args} {
+    global distribution
+
+    if {[llength $args] == 0} {
+	set files [tclfiles]
+    } else {
+	set files [lsort -dict [modtclfiles $args]]
+    }
+
+    foreach f $files {
+	puts "NAGELFAR ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+	puts "$f ..."
+	puts "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~"
+
+	catch {exec nagelfar >@ stdout $f}
+    }
+    return
+}
+
+
 proc get_input {f} {return [read [set if [open $f r]]][close $if]}
+
+proc write_out {f text} {
+    catch {file delete -force $f}
+    puts -nonewline [set of [open $f w]] $text
+    close $of
+}
+
+proc location_PACKAGES {} {
+    global distribution
+    return [file join $distribution support releases PACKAGES]
+}
 
 proc gd-gen-packages {} {
     global package_version distribution
 
-    set P [file join $distribution PACKAGES]
+    set P [location_PACKAGES]
     file copy -force $P $P.LAST
     set f [open $P w]
     puts $f "@@ RELEASE $package_version"
@@ -1108,6 +1158,8 @@ proc gd-gen-packages {} {
     nparray packages $f
     close $f
 }
+
+
 
 proc modified-modules {} {
     global distribution
@@ -1147,88 +1199,274 @@ proc modified-modules {} {
 }
 
 # --------------------------------------------------------------
-# Help
+# Handle modules using docstrip
 
-proc __help {} {
-    ##    critcl-modules   - Return a list of modules with critcl enhancements.
-    ##    critcl ?module?  - Build a critcl module [default is tklibc].
+proc docstripUser {m} {
+    global distribution
 
-    puts stdout {
-	Commands avalable through the swiss army knife aka SAK:
+    set mdir [file join $distribution modules $m]
 
-	help     - This help
+    if {[llength [glob -nocomplain -dir $mdir *.stitch]]} {return 1}
+    return 0
+}
 
-	/Configuration
-	version  - Return tklib version number
-	major    - Return tklib major version number
-	minor    - Return tklib minor version number
-	name     - Return tklib package name
+proc docstripRegen {m} {
+    global distribution
+    puts "$m ..."
 
-	/Development
-	modules          - Return list of modules.
-        contributors     - Print a list of contributors to tklib.
-	lmodules         - See above, however one module per line
-	imodules         - Return list of modules known to the installer.
+    getpackage docstrip docstrip/docstrip.tcl
 
-	packages         - Return indexed packages in tklib, plus versions,
-	                   one package per line. Extracted from the
-	                   package indices found in the modules.
-	provided         - Return list and versions of provided packages
-	                   (in contrast to indexed).
-	vcompare pkglist - Compare package list of previous 'packages'
-	                   call with current packages. Marks all new
-	                   and unchanged packages for higher attention.
+    set mdir [file join $distribution modules $m]
 
-        validate ?module..?     - Check listed modules for problems.
-                                  For all modules if none specified.
+    foreach sf [glob -nocomplain -dir $mdir *.stitch] {
+	puts "* [file tail $sf] ..."
 
-	test ?module...?        - Run testsuite for listed modules.
-	                          For all modules if none specified.
+	set here [pwd]
+	set fail [catch {
+	    cd [file dirname $sf]
+	    docstripRunStitch [file tail $sf]
+	} msg]
+	cd $here
+	if {$fail} {
+	    puts "  [join [split $::errorInfo \n] "\n  "]"
+	}
+    }
+    return
+}
 
-	/Release engineering
-	gendist  - Generate distribution from CVS snapshot
-        gentip55 - Generate a TIP55-style DESCRIPTION.txt file.
-	rpmspec  - Generate a spec file for the creation of RPM's.
-	tap      - Generate a TclApp Package Definition for use in the Tcl Dev Kit.
-        yml      - Generate a YAML description file.
+proc docstripRunStitch {sf} {
+    # Run the stitch file in a restricted sandbox ...
 
-        release name sf-user-id
-                 - Marks the current state of all files as a new
-                   release. This updates all ChangeLog's, and
-                   regenerates the contents of PACKAGES
+    set box [restrictedIp {
+	input   ::dsrs::Input
+	options ::dsrs::Options
+	stitch  ::dsrs::Stitch
+	reset   ::dsrs::Reset
+    }]
 
-        rstatus  - Determines the status of the code base with regard
-                   to the last release.
+    ::dsrs::Init
+    set fail [catch {interp eval $box [get_input $sf]} msg]
+    if {$fail} {
+	puts "    [join [split $::errorInfo \n] "\n    "]"
+    } else {
+	::dsrs::Final
+    }
 
-	/Documentation
-	nroff ?module...?    - Generate manpages
-	html  ?module...?    - Generate HTML pages
-	tmml  ?module...?    - Generate TMML
-	text  ?module...?    - Generate plain text
-	list  ?module...?    - Generate a list of manpages
-	wiki  ?module...?    - Generate wiki markup
-	latex ?module...?    - Generate LaTeX pages
-	dvi   ?module...?    - See latex, + conversion to dvi
-	ps    ?module...?    - See dvi,   + conversion to PostScript
+    interp delete $box
+    return
+}
 
-        desc  ?module...?    - Module/Package descriptions
-        desc/2 ?module...?   - Module/Package descriptions, alternate format.
+proc emptyIp {} {
+    set box [interp create]
+    foreach c [interp eval $box {info commands}] {
+	if {[string equal $c "rename"]} continue
+	interp eval $box [list rename $c {}]
+    }
+    # Rename command goes last.
+    interp eval $box [list rename rename {}]
+    return $box
+}
+
+proc restrictedIp {dict} {
+    set box [emptyIp]
+    foreach {cmd localcmd} $dict {
+	interp alias $box $cmd {} $localcmd
+    }
+    return $box
+}
+
+# --------------------------------------------------------------
+# docstrip low level operations for stitching.
+
+namespace eval ::dsrs {
+    # Standard preamble to preambles
+
+    variable preamble {}
+    append   preamble                                       \n
+    append   preamble "This is the file `@output@',"        \n
+    append   preamble "generated with the SAK utility"      \n
+    append   preamble "(sak docstrip/regen)."               \n
+    append   preamble                                       \n
+    append   preamble "The original source files were:"     \n
+    append   preamble                                       \n
+    append   preamble "@input@  (with options: `@guards@')" \n
+    append   preamble                                       \n
+
+    # Standard postamble to postambles
+
+    variable postamble {}
+    append   postamble                           \n
+    append   postamble                           \n
+    append   postamble "End of file `@output@'."
+
+    # Default values for the options which are relevant to the
+    # application itself and thus have to be defined always.
+    # They are processed as global options, as part of argv.
+
+    variable defaults {-metaprefix {%} -preamble {} -postamble {}}
+
+    variable options ; array set options {}
+    variable outputs ; array set outputs {}
+    variable inputs  ; array set inputs  {}
+    variable input   {}
+}
+
+proc ::dsrs::Init {} {
+    variable outputs ; unset outputs ; array set outputs {}
+    variable inputs  ; unset inputs  ; array set inputs  {}
+    variable input   {}
+
+    Reset ; # options
+    return
+}
+
+proc ::dsrs::Reset {} {
+    variable defaults
+    variable options ; unset options ; array set options {}
+    eval [linsert $defaults 0 Options]
+    return
+}
+
+proc ::dsrs::Input {sourcefile} {
+    # Relative to current directory = directory containing the active
+    # stitch file.
+
+    variable input $sourcefile
+}
+
+proc ::dsrs::Options {args} {
+    variable options
+    variable preamble
+    variable postamble
+
+    while {[llength $args]} {
+	set opt [lindex $args 0]
+
+	switch -exact -- $opt {
+	    -nopreamble -
+	    -nopostamble {
+		set o -[string range $opt 3 end]
+		set options($o) ""
+		set args [lrange $args 1 end]
+	    }
+	    -preamble {
+		set val $preamble[lindex $args 1]
+		set options($opt) $val
+		set args [lrange $args 2 end]
+	    }
+	    -postamble {
+		set val [lindex $args 1]$postamble
+		set options($opt) $val
+		set args [lrange $args 2 end]
+	    }
+	    -metaprefix -
+	    -onerror    -
+	    -trimlines  {
+		set val [lindex $args 1]
+		set options($opt) $val
+		set args [lrange $args 2 end]
+	    }
+	    default {
+		return -code error "Unknown option: \"$opt\""
+	    }
+	}
+    }
+    return
+}
+
+proc ::dsrs::Stitch {outputfile guards} {
+    variable options
+    variable inputs
+    variable input
+    variable outputs
+    variable preamble
+    variable postamble
+
+    if {[string equal $input {}]} {
+	return -code error "No input file defined"
+    }
+
+    if {![info exist inputs($input)]} {
+	set inputs($input) [get_input $input]
+    }
+
+    set intext $inputs($input)
+    set otext  ""
+
+    set c   $options(-metaprefix)
+    set cc  $c$c
+
+    set pmap [list @output@ $outputfile \
+		  @input@   $input  \
+		  @guards@  $guards]
+
+    if {[info exists options(-preamble)]} {
+	set pre $options(-preamble)
+
+	if {![string equal $pre ""]} {
+	    append otext [Subst $pre $pmap $cc] \n
+	}
+    }
+
+    array set o [array get options]
+    catch {unset o(-preamble)}
+    catch {unset o(-postamble)}
+    set opt [array get o]
+
+    append otext [eval [linsert $opt 0 docstrip::extract $intext $guards]]
+
+    if {[info exists options(-postamble)]} {
+	set post $options(-postamble)
+
+	if {![string equal $post ""]} {
+	    append otext [Subst $post $pmap $cc]
+	}
+    }
+
+    # Accumulate outputs in memory
+
+    append outputs($outputfile) $otext
+    return
+}
+
+proc ::dsrs::Subst {text pmap cc} {
+    return [string trim "$cc [join [split [string map $pmap $text] \n] "\n$cc "]"]
+}
+
+proc ::dsrs::Final {} {
+    variable outputs
+    foreach o [array names outputs] {
+	puts "  = Writing $o ..."
+
+	if {[string equal \
+		 docstrip/docstrip.tcl \
+		 [file join [file tail [pwd]] $o]]} {
+
+	    # We are writing over code required by ourselves.
+	    # For easy recovery in case of problems we save
+	    # the original 
+
+	    puts "    *Saving original of code important to docstrip/regen itself*"
+	    write_out $o.bak [get_input $o]
+	}
+
+	write_out $o $outputs($o)
     }
 }
 
 # --------------------------------------------------------------
 # Configuration
 
-proc __name    {} {global tklib_name    ; puts -nonewline $tklib_name}
-proc __version {} {global tklib_version ; puts -nonewline $tklib_version}
-proc __minor   {} {global tklib_version ; puts -nonewline [lindex [split $tklib_version .] 1]}
-proc __major   {} {global tklib_version ; puts -nonewline [lindex [split $tklib_version .] 0]}
+proc __name    {} {global package_name    ; puts -nonewline $package_name}
+proc __version {} {global package_version ; puts -nonewline $package_version}
+proc __minor   {} {global package_version ; puts -nonewline [lindex [split $package_version .] 1]}
+proc __major   {} {global package_version ; puts -nonewline [lindex [split $package_version .] 0]}
 
 # --------------------------------------------------------------
 # Development
 
-proc __imodules {}  {puts [imodules]}
-proc __modules {}  {puts [modules]}
+proc __imodules {} {puts [imodules]}
+proc __modules  {} {puts [modules]}
 proc __lmodules {} {puts [join [modules] \n]}
 
 
@@ -1250,7 +1488,10 @@ proc nparray {a {chan stdout}} {
 }
 
 proc __packages {} {
-    array set packages [ipackages]
+    array set packages {}
+    foreach {p vm} [ipackages] {
+	set packages($p) [lindex $vm 0]
+    }
     nparray packages
     return
 }
@@ -1283,14 +1524,14 @@ proc __rstatus {} {
 	}
 	close $f
     }
-    pkg-compare [file join $distribution PACKAGES]
+    pkg-compare [location_PACKAGES]
     return
 }
 
 proc pkg-compare {oldplist} {
     global approved ; array set approved {}
 
-    getpackage struct::set
+    getpackage struct::set struct/sets.tcl
 
     array set curpkg [ipackages]
     array set oldpkg [loadpkglist $oldplist]
@@ -1413,68 +1654,97 @@ proc pkg-compare {oldplist} {
     return
 }
 
-proc __test {} {
-    global argv distribution
-    # Run testsuite
-
-    set modules $argv
-    if {[llength $modules] == 0} {
-	set modules [modules]
-    }
-
-    exec [info nameofexecutable] \
-	    [file join $distribution all.tcl] \
-	    -modules $modules \
-	    >@ stdout 2>@ stderr
-    return
-}
-
 proc checkmod {} {
     global argv
-    set fail 0
-    foreach m $argv {
-	if {![modules_mod $m]} {
-	    puts "  Bogus module: $m"
-	    set fail 1
-	}
-    }
-    if {$fail} {
-	puts "  Stop."
-	return 0
-    }
-    return 1
+    package require sak::util
+    return [sak::util::checkModules argv]
 }
 
 # -------------------------------------------------------------------------
 # Critcl stuff
 # -------------------------------------------------------------------------
 
-array set critclmodules {
-    tklibc   {}
-}
-
-# Build critcl modules. If no args then build the tklibc module.
-proc **__critcl {} {
-    global argv critcl critclmodules tcl_platform
+# Build critcl modules. If no args then build the default critcl module.
+proc __critcl {} {
+    global argv critcl critclmodules critcldefault critclnotes tcl_platform
     if {$tcl_platform(platform) == "windows"} {
-        set critcl [auto_execok tclkitsh]
-        if {$critcl != {}} {
-            set critcl [concat $critcl [auto_execok critcl.kit]]
+
+	# Windows is a bit more complicated. We have to choose an
+	# interpreter, and a starkit for it, and call both.
+	#
+	# We prefer tclkitsh, but try to make do with a tclsh. That
+	# one will have to have all the necessary packages to support
+	# starkits. ActiveTcl for example.
+
+	set interpreter {}
+	foreach i {critcl.exe tclkitsh tclsh} {
+	    set interpreter [auto_execok $i]
+	    if {$interpreter != {}} break
+	}
+
+	if {$interpreter == {}} {
+            return -code error \
+		    "failed to find either tclkitsh.exe or tclsh.exe in path"
+	}
+
+	# The critcl starkit can come out of the environment, or we
+	# try to locate it using several possible names. We try to
+	# find it if and only if we did not find a critcl starpack
+	# before.
+
+	if {[file tail $interpreter] == "critcl.exe"} {
+	    set critcl $interpreter
+	} else {
+	    set kit {}
+            if {[info exists ::env(CRITCL)]} {
+                set kit $::env(CRITCL)
+            } else {
+		foreach k {critcl.kit critcl} {
+		    set kit [auto_execok $k]
+		    if {$kit != {}} break
+		}
+            }
+
+            if {$kit == {}} {
+                return -code error "failed to find critcl.kit or critcl in \
+                  path.\n\
+                  You may wish to set the CRITCL environment variable to the\
+                  location of your critcl(.kit) file."
+            }
+            set critcl [concat $interpreter $kit]
         }
     } else {
+        # My, isn't it simpler under unix.
         set critcl [auto_execok critcl]
+    }
+
+    set flags ""
+    while {[string match -* [set option [lindex $argv 0]]]} {
+        # -debug and -clean only work with critcl >= v04
+        switch -exact -- $option {
+            -keep  { append flags " -keep" }
+            -debug { append flags " -debug" }
+            -clean { append flags " -clean" }
+            -- { set argv [lreplace $argv 0 0]; break }
+            default { break }
+        }
+        set argv [lreplace $argv 0 0]
     }
 
     if {$critcl != {}} {
         if {[llength $argv] == 0} {
-            #foreach p [array names critclmodules] {
-            #    critcl_module $p
-            #}
-            critcl_module tklibc
+            puts stderr "[string repeat - 72]"
+	    puts stderr "Building critcl components."
+	    if {$critclnotes != {}} {
+		puts stderr $critclnotes
+	    }
+	    puts stderr "[string repeat - 72]"
+
+            critcl_module $critcldefault $flags
         } else {
-            foreach m $argv {
+            foreach m [dealias $argv] {
                 if {[info exists critclmodules($m)]} {
-                    critcl_module $m
+                    critcl_module $m $flags
                 } else {
                     puts "warning: $m is not a critcl module"
                 }
@@ -1488,20 +1758,27 @@ proc **__critcl {} {
 }
 
 # Prints a list of all the modules supporting critcl enhancement.
-proc **__critcl-modules {} {
-    global critclmodules
-    puts tklibc
-    foreach m [array names critclmodules] {
-        puts $m
+proc __critcl-modules {} {
+    global critclmodules critcldefault
+    foreach m [lsort -dict [array names critclmodules]] {
+	if {$m == $critcldefault} {
+	    puts "$m **"
+	} else {
+	    puts $m
+	}
     }
     return
 }
 
-proc critcl_module {pkg} {
-    global critcl distribution critclmodules
-    if {$pkg == "tklibc"} {
-        set files [file join $distribution modules tklibc.tcl]
+proc critcl_module {pkg {extra ""}} {
+    global critcl distribution critclmodules critcldefault
+    if {$pkg == $critcldefault} {
+	set files {}
+	foreach f $critclmodules($critcldefault) {
+	    lappend files [file join $distribution modules $f]
+	}
         foreach m [array names critclmodules] {
+	    if {$m == $critcldefault} continue
             foreach f $critclmodules($m) {
                 lappend files [file join $distribution modules $f]
             }
@@ -1513,8 +1790,8 @@ proc critcl_module {pkg} {
     }
     set target [file join $distribution modules]
     catch {
-        puts "$critcl -force -libdir [list $target] -pkg [list $pkg] $files"
-        eval exec $critcl -force -libdir [list $target] -pkg [list $pkg] $files 
+        puts "$critcl $extra -force -libdir [list $target] -pkg [list $pkg] $files"
+        eval exec $critcl $extra -force -libdir [list $target] -pkg [list $pkg] $files 
     } r
     puts $r
     return
@@ -1522,7 +1799,320 @@ proc critcl_module {pkg} {
 
 # -------------------------------------------------------------------------
 
-proc __validate {} {
+proc __bench/edit {} {
+    global argv argv0
+
+    set format text
+    set output {}
+
+    while {[string match -* [set option [lindex $argv 0]]]} {
+	set val [lindex $argv 1]
+        switch -exact -- $option {
+	    -format {
+		switch -exact -- $val {
+		    raw - csv - text {}
+		    default {
+			return -error "Bad format \"$val\", expected text, csv, or raw"
+		    }
+		}
+		set format $val
+	    }
+	    -o    {set output $val}
+            -- {
+		set argv [lrange $argv 1 end]
+		break
+	    }
+            default { break }
+        }
+        set argv [lrange $argv 2 end]
+    }
+
+    switch -exact -- $format {
+	raw {}
+	csv {
+	    getpackage csv             csv/csv.tcl
+	    getpackage bench::out::csv bench/bench_wcsv.tcl
+	}
+	text {
+	    getpackage report           report/report.tcl
+	    getpackage struct::matrix   struct/matrix.tcl
+	    getpackage bench::out::text bench/bench_wtext.tcl
+	}
+    }
+
+    getpackage bench::in bench/bench_read.tcl
+    getpackage bench     bench/bench.tcl
+
+    if {[llength $argv] != 3} {
+	puts "Usage: $argv0 benchdata column newvalue"
+    }
+
+    foreach {in col new} $argv break
+
+    _bench_write $output \
+	[bench::edit \
+	     [bench::in::read $in] \
+	     $col $new] \
+	{} $format
+    return
+}
+
+proc __bench/del {} {
+    global argv argv0
+
+    set format text
+    set output {}
+
+    while {[string match -* [set option [lindex $argv 0]]]} {
+	set val [lindex $argv 1]
+        switch -exact -- $option {
+	    -format {
+		switch -exact -- $val {
+		    raw - csv - text {}
+		    default {
+			return -error "Bad format \"$val\", expected text, csv, or raw"
+		    }
+		}
+		set format $val
+	    }
+	    -o    {set output $val}
+            -- {
+		set argv [lrange $argv 1 end]
+		break
+	    }
+            default { break }
+        }
+        set argv [lrange $argv 2 end]
+    }
+
+    switch -exact -- $format {
+	raw {}
+	csv {
+	    getpackage csv             csv/csv.tcl
+	    getpackage bench::out::csv bench/bench_wcsv.tcl
+	}
+	text {
+	    getpackage report           report/report.tcl
+	    getpackage struct::matrix   struct/matrix.tcl
+	    getpackage bench::out::text bench/bench_wtext.tcl
+	}
+    }
+
+    getpackage bench::in bench/bench_read.tcl
+    getpackage bench     bench/bench.tcl
+
+    if {[llength $argv] < 2} {
+	puts "Usage: $argv0 benchdata column..."
+    }
+
+    set in [lindex $argv 0]
+
+    set data [bench::in::read $in]
+
+    foreach c [lrange $argv 1 end] {
+	set data [bench::del $data $c]
+    }
+
+    _bench_write $output $data {} $format
+    return
+}
+
+proc __bench/show {} {
+    global argv
+
+    set format text
+    set output {}
+    set norm   {}
+
+    while {[string match -* [set option [lindex $argv 0]]]} {
+	set val [lindex $argv 1]
+        switch -exact -- $option {
+	    -format {
+		switch -exact -- $val {
+		    raw - csv - text {}
+		    default {
+			return -error "Bad format \"$val\", expected text, csv, or raw"
+		    }
+		}
+		set format $val
+	    }
+	    -o    {set output $val}
+	    -norm {set norm $val}
+            -- {
+		set argv [lrange $argv 1 end]
+		break
+	    }
+            default { break }
+        }
+        set argv [lrange $argv 2 end]
+    }
+
+    switch -exact -- $format {
+	raw {}
+	csv {
+	    getpackage csv             csv/csv.tcl
+	    getpackage bench::out::csv bench/bench_wcsv.tcl
+	}
+	text {
+	    getpackage report           report/report.tcl
+	    getpackage struct::matrix   struct/matrix.tcl
+	    getpackage bench::out::text bench/bench_wtext.tcl
+	}
+    }
+
+    getpackage bench::in bench/bench_read.tcl
+
+    array set DATA {}
+
+    foreach path $argv {
+	array set DATA [bench::in::read $path]
+    }
+
+    _bench_write $output [array get DATA] $norm $format
+    return
+}
+
+proc __bench {} {
+    global argv
+
+    # I. Process command line arguments for the
+    #    benchmark commands - Validation, possible
+    #    translation ...
+
+    set flags   {}
+    set norm    {}
+    set format  text
+    set verbose warn
+    set output  {}
+    set paths   {}
+    set interp  {}
+
+    while {[string match -* [set option [lindex $argv 0]]]} {
+	set val [lindex $argv 1]
+        switch -exact -- $option {
+	    -throwerrors {lappend flags -errors $val}
+	    -match -
+	    -rmatch -
+	    -iters -
+	    -threads {lappend flags $option $val}
+	    -o       {set output $val}
+	    -norm    {set norm $val}
+	    -path    {lappend paths $val}
+	    -interp  {set interp $val}
+	    -format  {
+		switch -exact -- $val {
+		    raw - csv - text {}
+		    default {
+			return -error "Bad format \"$val\", expected text, csv, or raw"
+		    }
+		}
+		set format $val
+	    }
+	    -verbose {
+		set verbose info
+		set argv [lrange $argv 1 end]
+		continue
+	    }
+	    -debug {
+		set verbose debug
+		set argv [lrange $argv 1 end]
+		continue
+	    }
+            -- {
+		set argv [lrange $argv 1 end]
+		break
+	    }
+            default { break }
+        }
+        set argv [lrange $argv 2 end]
+    }
+
+    switch -exact -- $format {
+	raw {}
+	csv {
+	    getpackage csv             csv/csv.tcl
+	    getpackage bench::out::csv bench/bench_wcsv.tcl
+	}
+	text {
+	    getpackage report           report/report.tcl
+	    getpackage struct::matrix   struct/matrix.tcl
+	    getpackage bench::out::text bench/bench_wtext.tcl
+	}
+    }
+
+    # Choose between benchmarking everything, or
+    # only selected modules.
+
+    if {[llength $argv] == 0} {
+	_bench_all $paths $interp $flags $norm $format $verbose $output
+    } else {
+	if {![checkmod]} {return}
+	_bench_module [dealias $argv] $paths $interp $flags $norm $format $verbose $output
+    }
+    return
+}
+
+proc _bench_module {mlist paths interp flags norm format verbose output} {
+    global package_name package_version
+
+    puts "Benchmarking $package_name $package_version development"
+    puts "======================================================"
+    bench_mod $mlist $paths $interp $flags $norm $format $verbose $output
+    puts "------------------------------------------------------"
+    puts ""
+    return
+}
+
+proc _bench_all {paths flags interp norm format verbose output} {
+    _bench_module [modules] $paths $interp $flags $norm $format $verbose $output
+    return
+}
+
+# -------------------------------------------------------------------------
+
+proc __oldvalidate_v {} {
+    global argv
+    if {[llength $argv] == 0} {
+	_validate_all_v
+    } else {
+	if {![checkmod]} {return}
+	foreach m [dealias $argv] {
+	    _validate_module_v $m
+	}
+    }
+    return
+}
+
+proc _validate_all_v {} {
+    global package_name package_version
+    set i 0
+
+    puts "Validating $package_name $package_version development"
+    puts "==================================================="
+    puts "[incr i]: Consistency of package versions ..."
+    puts "------------------------------------------------------"
+    validate_versions
+    puts "------------------------------------------------------"
+    puts ""
+    return
+}
+
+proc _validate_module_v {m} {
+    global package_name package_version
+    set i 0
+
+    puts "Validating $package_name $package_version development -- $m"
+    puts "==================================================="
+    puts "[incr i]: Consistency of package versions ..."
+    puts "------------------------------------------------------"
+    validate_versions_mod $m
+    puts "------------------------------------------------------"
+    puts ""
+    return
+}
+
+
+proc __oldvalidate {} {
     global argv
     if {[llength $argv] == 0} {
 	_validate_all
@@ -1536,10 +2126,10 @@ proc __validate {} {
 }
 
 proc _validate_all {} {
-    global tklib_name tklib_version
+    global package_name package_version
     set i 0
 
-    puts "Validating $tklib_name $tklib_version development"
+    puts "Validating $package_name $package_version development"
     puts "==================================================="
     puts "[incr i]: Existence of testsuites ..."
     puts "------------------------------------------------------"
@@ -1580,35 +2170,49 @@ proc _validate_all {} {
     puts "[incr i]: Static syntax check ..."
     puts "------------------------------------------------------"
 
-    set frink    [auto_execok frink]
-    set procheck [auto_execok procheck]
+    set frink      [auto_execok frink]
+    set procheck   [auto_execok procheck]
+    set tclchecker [auto_execok tclchecker]
+    set nagelfar [auto_execok nagelfar]
 
-    if {$frink    == {}} {puts "  Tool 'frink'    not found, no check"}
-    if {$procheck == {}} {puts "  Tool 'procheck' not found, no check"}
-    if {($frink == {}) || ($procheck == {})} {
+    if {$frink == {}} {puts "  Tool 'frink'    not found, no check"}
+    if {($procheck == {}) || ($tclchecker == {})} {
+	puts "  Tools 'procheck'/'tclchecker' not found, no check"
+    }
+    if {$nagelfar == {}} {puts "  Tool 'nagelfar' not found, no check"}
+
+    if {($frink == {}) || ($procheck == {}) || ($tclchecker == {}) 
+        || ($nagelfar == {})} {
 	puts "------------------------------------------------------"
     }
-    if {($frink == {}) && ($procheck == {})} {
+    if {($frink == {}) && ($procheck == {}) && ($tclchecker == {})
+        && ($nagelfar == {})} {
 	return
     }
-    if {$frink    != {}} {
+    if {$frink != {}} {
 	run-frink
 	puts "------------------------------------------------------"
     }
-    if {$procheck    != {}} {
+    if {$tclchecker != {}} {
+	run-tclchecker
+	puts "------------------------------------------------------"
+    } elseif {$procheck != {}} {
 	run-procheck
 	puts "------------------------------------------------------"
     }
+    if {$nagelfar    !={}} {
+    	run-nagelfar 
+	puts "------------------------------------------------------"
+    }
     puts ""
-
     return
 }
 
 proc _validate_module {m} {
-    global tklib_name tklib_version
+    global package_name package_version
     set i 0
 
-    puts "Validating $tklib_name $tklib_version development -- $m"
+    puts "Validating $package_name $package_version development -- $m"
     puts "==================================================="
     puts "[incr i]: Existence of testsuites ..."
     puts "------------------------------------------------------"
@@ -1651,21 +2255,36 @@ proc _validate_module {m} {
 
     set frink    [auto_execok frink]
     set procheck [auto_execok procheck]
-
+    set nagelfar [auto_execok nagelfar]
+    set tclchecker [auto_execok tclchecker]
+    
     if {$frink    == {}} {puts "  Tool 'frink'    not found, no check"}
-    if {$procheck == {}} {puts "  Tool 'procheck' not found, no check"}
-    if {($frink == {}) || ($procheck == {})} {
+    if {($procheck == {}) || ($tclchecker == {})} {
+	puts "  Tools 'procheck'/'tclchecker' not found, no check"
+    }
+    if {$nagelfar == {}} {puts "  Tool 'nagelfar' not found, no check"}
+    
+    if {($frink == {}) || ($procheck == {}) || ($tclchecker == {}) ||
+    	($nagelfar == {})} {
 	puts "------------------------------------------------------"
     }
-    if {($frink == {}) && ($procheck == {})} {
+    if {($frink == {}) && ($procheck == {}) && ($nagelfar == {})
+        && ($tclchecker == {})} {
 	return
     }
     if {$frink    != {}} {
 	run-frink $m
 	puts "------------------------------------------------------"
     }
-    if {$procheck    != {}} {
+    if {$tclchecker != {}} {
+	run-tclchecker $m
+	puts "------------------------------------------------------"
+    } elseif {$procheck != {}} {
 	run-procheck $m
+	puts "------------------------------------------------------"
+    }
+    if {$nagelfar    !={}} {
+    	run-nagelfar $m
 	puts "------------------------------------------------------"
     }
     puts ""
@@ -1681,6 +2300,7 @@ proc __gendist {} {
     gd-tip55
     gd-gen-rpmspec
     gd-gen-tap
+    gd-gen-yml
     gd-assemble
     gd-gen-archives
 
@@ -1695,8 +2315,9 @@ proc __gentip55 {} {
 }
 
 proc __yml {} {
+    global package_name
     gd-gen-yml
-    puts "Created YAML spec file \"tklib.yml\""
+    puts "Created YAML spec file \"${package_name}.yml\""
     return
 }
 
@@ -1710,21 +2331,24 @@ proc __contributors {} {
 }
 
 proc __tap {} {
+    global package_name
     gd-gen-tap
-    puts "Created Tcl Dev Kit \"tklib.tap\""
+    puts "Created Tcl Dev Kit \"${package_name}.tap\""
 }
 
 proc __rpmspec {} {
+    global package_name
     gd-gen-rpmspec
-    puts "Created RPM spec file \"tklib.spec\""
+    puts "Created RPM spec file \"${package_name}.spec\""
 }
+
 
 proc __release {} {
     # Regenerate PACKAGES, and extend
 
     global argv argv0 distribution package_name package_version
 
-    getpackage textutil
+    getpackage textutil textutil/textutil.tcl
 
     if {[llength $argv] != 2} {
 	puts stderr "$argv0: wrong#args: release name sf-user-id"
@@ -1776,64 +2400,15 @@ proc __approve {} {
     return
 }
 
-
 # --------------------------------------------------------------
 # Documentation
-
-proc __html  {} {global argv ; if {![checkmod]} return ; eval gendoc html  html $argv}
-proc __nroff {} {global argv ; if {![checkmod]} return ; eval gendoc nroff n    $argv}
-proc __tmml  {} {global argv ; if {![checkmod]} return ; eval gendoc tmml  tmml $argv}
-proc __text  {} {global argv ; if {![checkmod]} return ; eval gendoc text  txt  $argv}
-proc __wiki  {} {global argv ; if {![checkmod]} return ; eval gendoc wiki  wiki $argv}
-proc __latex {} {global argv ; if {![checkmod]} return ; eval gendoc latex tex  $argv}
-proc __dvi   {} {
-    global argv ; if {![checkmod]} return
-    __latex
-    file mkdir [file join doc dvi]
-    cd         [file join doc dvi]
-    foreach f [glob -nocomplain ../latex/*.tex] {
-	puts "Gen (dvi): $f"
-	exec latex $f 1>@ stdout 2>@ stderr
-    }
-    cd ../..
-}
-proc __ps   {} {
-    global argv ; if {![checkmod]} return
-    __dvi
-    file mkdir [file join doc ps]
-    cd         [file join doc ps]
-    foreach f [glob -nocomplain ../dvi/*.dvi] {
-	puts "Gen (dvi): $f"
-	exec dvips -o [file rootname [file tail $f]].ps $f 1>@ stdout 2>@ stderr
-    }
-    cd ../..
-}
-
-proc __list  {} {
-    global argv ; if {![checkmod]} return
-    eval gendoc list l $argv
-    
-    set FILES [glob -nocomplain doc/list/*.l]
-    set LIST [open [file join doc list manpages.tcl] w]
-
-    foreach file $FILES {
-        set f [open $file r]
-        puts $LIST [read $f]
-        close $f
-    }
-    close $LIST
-
-    eval file delete -force $FILES
-
-    return
-}
 
 proc __desc  {} {
     global argv ; if {![checkmod]} return
     array set pd [getpdesc]
 
-    getpackage struct::matrix
-    getpackage textutil
+    getpackage struct::matrix struct/matrix.tcl
+    getpackage textutil       textutil/textutil.tcl
 
     struct::matrix m
     m add columns 3
@@ -1841,7 +2416,7 @@ proc __desc  {} {
     puts {Descriptions...}
     if {[llength $argv] == 0} {set argv [modules]}
 
-    foreach m [lsort $argv] {
+    foreach m [lsort [dealias $argv]] {
 	array set _ {}
 	set pkg {}
 	foreach {p vlist} [ppackages $m] {
@@ -1878,13 +2453,13 @@ proc __desc/2  {} {
     global argv ; if {![checkmod]} return
     array set pd [getpdesc]
 
-    getpackage struct::matrix
-    getpackage textutil
+    getpackage struct::matrix struct/matrix.tcl
+    getpackage textutil       textutil/textutil.tcl
 
     puts {Descriptions...}
     if {[llength $argv] == 0} {set argv [modules]}
 
-    foreach m [lsort $argv] {
+    foreach m [lsort [dealias $argv]] {
 	struct::matrix m
 	m add columns 3
 
@@ -1921,19 +2496,74 @@ proc __desc/2  {} {
 
 # --------------------------------------------------------------
 
-set cmd [lindex $argv 0]
-if {[llength [info procs __$cmd]] == 0} {
-    puts stderr "unknown command $cmd"
-    set fl {}
-    foreach p [lsort [info procs __*]] {
-	lappend fl [string range $p 2 end]
+proc __docstrip/users {} {
+    # Print the list of modules using docstrip for their code.
+
+    set argv [modules]
+    foreach m [lsort $argv] {
+	if {[docstripUser $m]} {
+	    puts $m
+	}
     }
-    puts stderr "use: [join $fl ", "]"
-    exit 1
+
+    return
 }
 
+proc __docstrip/regen {} {
+    # Regenerate modules based on docstrip.
+
+    global argv ; if {![checkmod]} return
+    if {[llength $argv] == 0} {set argv [modules]}
+
+    foreach m [lsort [dealias $argv]] {
+	if {[docstripUser $m]} {
+	    docstripRegen $m
+	}
+    }
+
+    return
+}
+
+# --------------------------------------------------------------
+## Make sak specific packages visible.
+
+lappend auto_path [file join $distribution support devel sak]
+
+# --------------------------------------------------------------
+## Dispatcher to the sak commands.
+
+set  cmd  [lindex $argv 0]
 set  argv [lrange $argv 1 end]
 incr argc -1
+
+# Prefer a command implementation found in the support tree.
+# Then see if the command is implemented here, in this file.
+# At last fail and report possible commands.
+
+set base  [file dirname [info script]]
+set sbase [file join $base support devel sak]
+set cbase [file join $sbase $cmd]
+set cmdf  [file join $cbase cmd.tcl]
+
+if {[file exists $cmdf] && [file readable $cmdf]} {
+    source $cmdf
+    exit 0
+}
+
+if {[llength [info procs __$cmd]] == 0} {
+    puts stderr "$argv0 : Illegal command \"$cmd\""
+    set fl {}
+    foreach p [info procs __*] {
+	lappend fl [string range $p 2 end]
+    }
+    foreach p [glob -nocomplain -directory $sbase */cmd.tcl] {
+	lappend fl [lindex [file split $p] end-1]
+    }
+
+    regsub -all . $argv0 { } blank
+    puts stderr "$blank : Should have been [linsert [join [lsort -uniq $fl] ", "] end-1 or]"
+    exit 1
+}
 
 __$cmd
 exit 0

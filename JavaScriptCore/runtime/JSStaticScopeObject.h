@@ -31,39 +31,30 @@
 namespace JSC{
     
     class JSStaticScopeObject : public JSVariableObject {
-    protected:
-        using JSVariableObject::JSVariableObjectData;
-        struct JSStaticScopeObjectData : public JSVariableObjectData {
-            JSStaticScopeObjectData()
-                : JSVariableObjectData(&symbolTable, &registerStore + 1)
-            {
-            }
-            SymbolTable symbolTable;
-            Register registerStore;
-        };
-        
     public:
         JSStaticScopeObject(ExecState* exec, const Identifier& ident, JSValue value, unsigned attributes)
-            : JSVariableObject(exec->globalData().staticScopeStructure, new JSStaticScopeObjectData())
+            : JSVariableObject(exec->globalData(), exec->globalData().staticScopeStructure.get(), &m_symbolTable, reinterpret_cast<Register*>(&m_registerStore + 1))
         {
-            d()->registerStore = value;
-            symbolTable().add(ident.ustring().rep(), SymbolTableEntry(-1, attributes));
+            m_registerStore.set(exec->globalData(), this, value);
+            symbolTable().add(ident.impl(), SymbolTableEntry(-1, attributes));
         }
-        virtual ~JSStaticScopeObject();
-        virtual void markChildren(MarkStack&);
+
+        virtual void visitChildren(SlotVisitor&);
         bool isDynamicScope(bool& requiresDynamicChecks) const;
         virtual JSObject* toThisObject(ExecState*) const;
+        virtual JSValue toStrictThisObject(ExecState*) const;
         virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
         void putWithAttributes(ExecState*, const Identifier&, JSValue, unsigned attributes);
 
-        static PassRefPtr<Structure> createStructure(JSValue proto) { return Structure::create(proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount); }
+        static Structure* createStructure(JSGlobalData& globalData, JSValue proto) { return Structure::create(globalData, proto, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info); }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesMarkChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | NeedsThisConversion | OverridesVisitChildren | OverridesGetPropertyNames | JSVariableObject::StructureFlags;
 
     private:
-        JSStaticScopeObjectData* d() { return static_cast<JSStaticScopeObjectData*>(JSVariableObject::d); }
+        SymbolTable m_symbolTable;
+        WriteBarrier<Unknown> m_registerStore;
     };
 
 }

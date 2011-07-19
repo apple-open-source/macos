@@ -17,6 +17,7 @@
 
 #include "PIC16InstrInfo.h"
 #include "PIC16ISelLowering.h"
+#include "PIC16SelectionDAGInfo.h"
 #include "PIC16RegisterInfo.h"
 #include "PIC16Subtarget.h"
 #include "llvm/Target/TargetData.h"
@@ -32,17 +33,15 @@ class PIC16TargetMachine : public LLVMTargetMachine {
   const TargetData      DataLayout;       // Calculates type size & alignment
   PIC16InstrInfo        InstrInfo;
   PIC16TargetLowering   TLInfo;
+  PIC16SelectionDAGInfo TSInfo;
 
   // PIC16 does not have any call stack frame, therefore not having 
   // any PIC16 specific FrameInfo class.
   TargetFrameInfo       FrameInfo;
 
-protected:
-  virtual const TargetAsmInfo *createTargetAsmInfo() const;
-
 public:
-  PIC16TargetMachine(const Module &M, const std::string &FS, 
-                     bool Cooper = false);
+  PIC16TargetMachine(const Target &T, const std::string &TT,
+                     const std::string &FS, bool Cooper = false);
 
   virtual const TargetFrameInfo *getFrameInfo() const { return &FrameInfo; }
   virtual const PIC16InstrInfo *getInstrInfo() const  { return &InstrInfo; }
@@ -53,22 +52,18 @@ public:
     return &(InstrInfo.getRegisterInfo()); 
   }
 
-  virtual PIC16TargetLowering *getTargetLowering() const { 
-    return const_cast<PIC16TargetLowering*>(&TLInfo); 
+  virtual const PIC16TargetLowering *getTargetLowering() const { 
+    return &TLInfo;
+  }
+
+  virtual const PIC16SelectionDAGInfo* getSelectionDAGInfo() const {
+    return &TSInfo;
   }
 
   virtual bool addInstSelector(PassManagerBase &PM,
                                CodeGenOpt::Level OptLevel);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM,
-                                  CodeGenOpt::Level OptLevel,
-                                  bool Verbose, raw_ostream &Out);
+  virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
 }; // PIC16TargetMachine.
-
-/// CooperTargetMachine
-class CooperTargetMachine : public PIC16TargetMachine {
-public:
-  CooperTargetMachine(const Module &M, const std::string &FS);
-}; // CooperTargetMachine.
 
 } // end namespace llvm
 

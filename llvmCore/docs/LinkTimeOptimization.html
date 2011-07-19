@@ -166,7 +166,7 @@ $ llvm-gcc a.o main.o -o main # &lt;-- standard link command without any modific
     provided by the linker on various platform are not unique. This means, 
     this new tool needs to support all such features and platforms in one 
     super tool or a separate tool per platform is required. This increases 
-    maintance cost for link time optimizer significantly, which is not 
+    maintenance cost for link time optimizer significantly, which is not 
     necessary. This approach also requires staying synchronized with linker 
     developements on various platforms, which is not the main focus of the link 
     time optimizer. Finally, this approach increases end user's build time due 
@@ -189,7 +189,7 @@ $ llvm-gcc a.o main.o -o main # &lt;-- standard link command without any modific
   user-supplied information, such as a list of exported symbols. LLVM 
   optimizer collects control flow information, data flow information and knows 
   much more about program structure from the optimizer's point of view. 
-  Our goal is to take advantage of tight intergration between the linker and 
+  Our goal is to take advantage of tight integration between the linker and 
   the optimizer by sharing this information during various linking phases.
 </p>
 </div>
@@ -256,7 +256,7 @@ $ llvm-gcc a.o main.o -o main # &lt;-- standard link command without any modific
   <p>In this phase, the linker reads optimized a native object file and 
   updates the internal global symbol table to reflect any changes. The linker 
   also collects information about any changes in use of external symbols by 
-  LLVM bitcode files. In the examle above, the linker notes that 
+  LLVM bitcode files. In the example above, the linker notes that 
   <tt>foo4()</tt> is not used any more. If dead code stripping is enabled then 
   the linker refreshes the live symbol information appropriately and performs 
   dead code stripping.</p>
@@ -382,7 +382,7 @@ of the native object files.</p>
 
   Devang Patel and Nick Kledzik<br>
   <a href="http://llvm.org">LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2008-12-15 19:07:49 -0800 (Mon, 15 Dec 2008) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 
 </body>

@@ -236,6 +236,10 @@ int ppp_link_input(struct ppp_link *link, mbuf_t m)
 
 	if (mbuf_len(m) < PPP_HDRLEN && 
 		mbuf_pullup(&m, PPP_HDRLEN)) {
+			if (m) {
+				mbuf_freem(m);
+				m = NULL;
+			}
 			IOLog("ppp_link_input: cannot pullup header\n");
 			return 0;
 	}

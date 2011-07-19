@@ -1,0 +1,141 @@
+Plugins Support on AIX
+======================
+
+/How to build Dovecot with plugins supported on AIX./
+
+Tested with:
+
+ * AIX 5.2, VAC 5.0.2 and Dovecot 1.0rc21 to 1.0.13 /(Dovecot 1.1.x does not
+   build with VAC 5.0.2)/
+ * AIX 5.2, VAC 8.0.0 and Dovecot 1.1.1
+
+The Problem
+-----------
+
+ * When you trying to use plugins on AIX you seen error messages like this:
+   ---%<----------------------------------------------------------------------
+   imap(root): Error:
+   dlopen(/usr/local/lib/dovecot/imap/lib20_zlib_plugin.so) failed:
+   rtld: 0712-001 Symbol i_error was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol i_stream_get_data was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol i_stream_skip was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol i_stream_seek was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol i_stream_close was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol i_panic was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   rtld: 0712-001 Symbol pool_get_exp_grown_size was referenced
+         from module /usr/local/lib/dovecot/imap/lib20_zlib_plugin.so(),
+         but a runtime definition of the symbol was not found.
+   Additional errors occurred but are not reported.
+   ---%<----------------------------------------------------------------------
+
+ * .. produced by executing
+   ---%<----------------------------------------------------------------------
+   # MAIL_PLUGINS=zlib /usr/local/libexec/dovecot/imap
+   ---%<----------------------------------------------------------------------
+
+Compiler Script
+---------------
+
+ * Create a compiler script to rewrite the /xlc/ command line on the fly:
+   *dovecot-cc*
+
+   ---%<----------------------------------------------------------------------
+   #!/bin/bash
+
+   xlc=/usr/bin/xlc
+   ar=/bin/ar
+   sed=/bin/sed
+
+   dest=NOBINARY
+
+   for i in "$@"; do
+           case "$i" in
+           '-o')  dest=;;
+           *)     if [ -z "$dest" ]; then dest="$i"; break; fi;;
+           esac
+   done
+
+   case "$dest" in
+   imap-login) args1="../lib-charset/libcharset.a ../lib-mail/libmail.a
+   -liconv";;
+   imap)       args1="../lib-sql/libsql.a";;
+   pop3)       args1="../lib-sql/libsql.a";;
+   deliver)    args1="../lib-sql/libsql.a";;
+   esac
+
+   for i in "$@" $args1; do
+           case "$i" in
+           */*.a) lib="${i##*/}"; obj=`$ar -t $i | $sed "s:^:${i%/*}/:"`;;
+           *.a)   lib="$i";       obj=`$ar -t $i | $sed "s:^:./:"`;;
+           *)     continue;;
+           esac
+           test -d .libs || mkdir .libs
+           > .libs/${lib%.a}.exp
+           args2="$args2 -bE:.libs/${lib%.a}.exp"
+
+           (set -x ; exec $xlc -qmkshrobj -qexpfile=.libs/${lib%.a}.exp $obj)
+   2>/dev/null
+   done
+   (set -x ; exec $xlc "$@" $args1 $args2)
+   ---%<----------------------------------------------------------------------
+
+Compiling Dovecot
+-----------------
+
+ * Expand Dovecot:
+   ---%<----------------------------------------------------------------------
+   gzip -cd doveccot-1.0.rc21.tar.gz | tar xvf -
+   ---%<----------------------------------------------------------------------
+
+ * Setup build environment:
+   ---%<----------------------------------------------------------------------
+   export CC=$PWD/dovecot-cc
+   export LDFLAGS="-bexpall -brtl"
+   ---%<----------------------------------------------------------------------
+
+ * Configure and build Dovecot
+   ---%<----------------------------------------------------------------------
+   cd dovecot-1.0.rc21
+   bash configure
+   make
+   ---%<----------------------------------------------------------------------
+
+ * Test a plugin (e.g. zlib)
+   ---%<----------------------------------------------------------------------
+   echo 0 logout | MAIL_PLUGIN_DIR=src/plugins/zlib/.libs/ MAIL_PLUGINS="zlib"
+   MAIL=maildir:/tmp src/imap/imap
+   ---%<----------------------------------------------------------------------
+
+   you should see this:
+   ---%<----------------------------------------------------------------------
+   * PREAUTH [CAPABILITY IMAP4rev1 SASL-IR SORT THREAD=REFERENCES MULTIAPPEND
+   UNSELECT LITERAL+ IDLE CHILDREN NAMESPACE LOGIN-REFERRALS] Logged in as root
+   * BYE Logging out
+   0 OK Logout completed.
+   imap(root): Info: Disconnected: Logged out
+   ---%<----------------------------------------------------------------------
+
+ * Install Dovecot
+   ---%<----------------------------------------------------------------------
+   make install
+   ---%<----------------------------------------------------------------------
+
+Prebuild Binaries for AIX 5.2
+-----------------------------
+
+You will find prebuild AIX 5.2 binaries here:
+http://www.fh-trier.de/~beckerr/dovecot/
+
+(This file was created from the wiki on 2011-05-11 04:42)

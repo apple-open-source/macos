@@ -163,7 +163,7 @@ int main(argc, argv)
 	    if (result < 0) {
 		errflg++;
 		if (!signaled)
-		    warn("%s key(%ld): ", IPC_TO_STRING(c), target_key);
+		    warn("%s key(%d): ", IPC_TO_STRING(c), target_key);
 		else
 		    warnx("%ss are not configured in the running kernel",
 			  IPC_TO_STRING(c));

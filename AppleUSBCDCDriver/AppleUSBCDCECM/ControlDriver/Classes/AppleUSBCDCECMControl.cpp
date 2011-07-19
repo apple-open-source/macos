@@ -101,7 +101,7 @@ OSDefineMetaClassAndStructors(AppleUSBCDCECMControl, IOService);
 //
 /****************************************************************************************************/
 
-AppleUSBCDC *findCDCDriverEC(void *controlAddr)
+AppleUSBCDC *findCDCDriverEC(void *controlAddr, IOReturn *retCode)
 {
     AppleUSBCDCECMControl	*me = (AppleUSBCDCECMControl *)controlAddr;
     AppleUSBCDC		*CDCDriver = NULL;
@@ -117,6 +117,7 @@ AppleUSBCDC *findCDCDriverEC(void *controlAddr)
     if (!matchingDictionary)
     {
         XTRACE(me, 0, 0, "findCDCDriverEC - Couldn't create a matching dictionary");
+		*retCode = kIOReturnError;
         return NULL;
     }
     
@@ -127,6 +128,7 @@ AppleUSBCDC *findCDCDriverEC(void *controlAddr)
     {
         XTRACE(me, 0, 0, "findCDCDriverEC - No AppleUSBCDC driver found!");
         matchingDictionary->release();
+		*retCode = kIOReturnError;
         return NULL;
     }
 
@@ -135,11 +137,11 @@ AppleUSBCDC *findCDCDriverEC(void *controlAddr)
     CDCDriver = (AppleUSBCDC *)iterator->getNextObject();
     while (CDCDriver)
     {
-        XTRACE(me, 0, CDCDriver, "findCDCDriverEC - CDC driver candidate");
+        XTRACEP(me, 0, CDCDriver, "findCDCDriverEC - CDC driver candidate");
         
         if (me->fControlInterface->GetDevice() == CDCDriver->getCDCDevice())
         {
-            XTRACE(me, 0, CDCDriver, "findCDCDriverEC - Found our CDC driver");
+            XTRACEP(me, 0, CDCDriver, "findCDCDriverEC - Found our CDC driver");
             driverOK = CDCDriver->confirmControl(kUSBEthernetControlModel, me->fControlInterface);
             break;
         }
@@ -152,14 +154,18 @@ AppleUSBCDC *findCDCDriverEC(void *controlAddr)
     if (!CDCDriver)
     {
         XTRACE(me, 0, 0, "findCDCDriverEC - CDC driver not found");
+		*retCode = kIOReturnNotReady;
         return NULL;
     }
    
     if (!driverOK)
     {
         XTRACE(me, kUSBEthernetControlModel, 0, "findCDCDriverEC - Not my interface");
+		*retCode = kIOReturnError;
         return NULL;
     }
+	
+	*retCode = kIOReturnSuccess;
 
     return CDCDriver;
     
@@ -232,11 +238,19 @@ void AppleUSBCDCECMControl::commReadComplete(void *obj, void *param, IOReturn rc
                 case kUSBNETWORK_CONNECTION:
                     me->fLinkStatus = me->fCommPipeBuffer[2];
                     XTRACE(me, 0, me->fLinkStatus, "commReadComplete - kNetwork_Connection");
+					if (me->fDataDriver)
+					{
+						me->fDataDriver->linkStatusChange(me->fLinkStatus);
+					}
                     break;
-                case kUSBCONNECTION_SPEED_CHANGE:				// In you-know-whose format
+                case kUSBCONNECTION_SPEED_CHANGE:
                     me->fUpSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[8]);
                     me->fDownSpeed = USBToHostLong((UInt32)me->fCommPipeBuffer[13]);
                     XTRACE(me, me->fUpSpeed, me->fDownSpeed, "commReadComplete - kConnection_Speed_Change");
+					if (me->fDataDriver)
+					{
+						me->fDataDriver->linkSpeedChange(me->fUpSpeed, me->fDownSpeed);
+					}
                     break;
                 default:
                     XTRACE(me, 0, notif, "commReadComplete - Unknown notification");
@@ -466,10 +480,13 @@ IOService* AppleUSBCDCECMControl::probe(IOService *provider, SInt32 *score)
 
 bool AppleUSBCDCECMControl::start(IOService *provider)
 {
+	IOReturn	rtn;
+	UInt16		devDriverCount = 0;
 
-    XTRACE(this, 0, provider, "start");
+    XTRACE(this, 0, 0, "start");
 
     fCurrStat = 0;
+	fCDCDriver = NULL;
     fStatInProgress = false;
     fMax_Block_Size = MAX_BLOCK_SIZE;
     fCommDead = false;
@@ -493,10 +510,37 @@ bool AppleUSBCDCECMControl::start(IOService *provider)
         return false;
     }
 	
-	fCDCDriver = findCDCDriverEC(this);
+		// See if we can find/wait for the CDC driver
+		
+	while (!fCDCDriver)
+	{
+		rtn = kIOReturnSuccess;
+		fCDCDriver = findCDCDriverEC(this, &rtn);
+		if (fCDCDriver)
+		{
+			XTRACE (this, 0, fControlInterface->GetInterfaceNumber(), "start: Found the CDC device driver");
+			break;
+		} else {
+			if (rtn == kIOReturnNotReady)
+			{
+				devDriverCount++;
+				XTRACE(this, devDriverCount, fControlInterface->GetInterfaceNumber(), "start - Waiting for CDC device driver...");
+				if (devDriverCount > 9)
+				{
+					break;
+				}
+				IOSleep(100);
+			} else {
+				break;
+			}
+		}
+	}
+	
+		// If we didn't find him then we have to bail
+
 	if (!fCDCDriver)
 	{
-		ALERT(0, 0, "start - Failed to find the CDC driver");
+		ALERT(0, fControlInterface->GetInterfaceNumber(), "start - Failed to find the CDC driver");
         return false;
 	}
     
@@ -866,7 +910,7 @@ bool AppleUSBCDCECMControl::allocateResources()
         fCommPipeBuffer = NULL;
         fLinkStatus = 1;					// Mark it active cause we'll never get told
     } else {
-        XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, fCommPipe, "allocateResources - comm pipe.");
+        XTRACE(this, epReq.maxPacketSize << 16 |epReq.interval, 0, "allocateResources - comm pipe.");
 
             // Allocate Memory Descriptor Pointer with memory for the Interrupt pipe:
 
@@ -878,7 +922,7 @@ bool AppleUSBCDCECMControl::allocateResources()
         }
 
         fCommPipeBuffer = (UInt8*)fCommPipeMDP->getBytesNoCopy();
-        XTRACE(this, 0, fCommPipeBuffer, "allocateResources - comm buffer");
+        XTRACEP(this, 0, fCommPipeBuffer, "allocateResources - comm buffer");
     }
     
     return true;
@@ -938,6 +982,12 @@ bool AppleUSBCDCECMControl::USBSetMulticastFilter(IOEthernetAddress *addrs, UInt
     UInt32		i,j,rnum;
 	
     XTRACE(this, fMcFilters, count, "USBSetMulticastFilter");
+    
+    if (!fControlInterface)
+    {
+        XTRACE(this, fMcFilters, count, "USBSetMulticastFilter - Control interface has gone");
+        return true;
+    }
 
     if (count > (UInt32)(fMcFilters & kFiltersSupportedMask))
     {
@@ -1019,6 +1069,12 @@ bool AppleUSBCDCECMControl::USBSetPacketFilter()
     IOUSBDevRequest	*MER;
 	
     XTRACE(this, 0, fPacketFilter, "USBSetPacketFilter");
+    
+    if (!fControlInterface)
+    {
+        XTRACE(this, 0, fPacketFilter, "USBSetPacketFilter - Control interface has gone");
+        return true;
+    }
 	
     MER = (IOUSBDevRequest*)IOMalloc(sizeof(IOUSBDevRequest));
     if (!MER)
@@ -1080,7 +1136,7 @@ bool AppleUSBCDCECMControl::checkInterfaceNumber(AppleUSBCDCECMData *dataDriver)
 {
     IOUSBInterface	*dataInterface;
 
-    XTRACE(this, 0, dataDriver, "checkInterfaceNumber");
+    XTRACEP(this, 0, dataDriver, "checkInterfaceNumber");
     
         // First check we have the same provider (Device)
     
@@ -1091,7 +1147,7 @@ bool AppleUSBCDCECMControl::checkInterfaceNumber(AppleUSBCDCECMData *dataDriver)
         return FALSE;
     }
     
-    XTRACE(this, dataInterface->GetDevice(), fControlInterface->GetDevice(), "checkInterfaceNumber - Checking device");
+    XTRACEP(this, dataInterface->GetDevice(), fControlInterface->GetDevice(), "checkInterfaceNumber - Checking device");
     if (dataInterface->GetDevice() == fControlInterface->GetDevice())
     {
     
@@ -1131,7 +1187,7 @@ IOReturn AppleUSBCDCECMControl::checkPipe(IOUSBPipe *thePipe, bool devReq)
 {
     IOReturn 	rtn = kIOReturnSuccess;
     
-    XTRACE(this, 0, thePipe, "checkPipe");
+    XTRACEP(this, 0, thePipe, "checkPipe");
     
     if (!devReq)
     {
@@ -1386,7 +1442,7 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
                     fCommDead = false;
                 }
             }
-            break;
+            return kIOReturnSuccess;
         case kIOUSBMessageHubResumePort:
             XTRACE(this, 0, type, "message - kIOUSBMessageHubResumePort");
             break;
@@ -1395,7 +1451,7 @@ IOReturn AppleUSBCDCECMControl::message(UInt32 type, IOService *provider, void *
             break;
     }
     
-    return kIOReturnUnsupported;
+    return super::message(type, provider, argument);
     
 }/* end message */
 

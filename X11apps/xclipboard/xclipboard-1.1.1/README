@@ -1,0 +1,28 @@
+xclipboard is used to collect and display text selections that are
+sent to the CLIPBOARD by other clients.  It is typically used to save
+CLIPBOARD selections for later use.  It stores each CLIPBOARD
+selection as a separate string, each of which can be selected.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xclipboard
+
+        http://cgit.freedesktop.org/xorg/app/xclipboard
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

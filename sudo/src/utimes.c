@@ -31,10 +31,6 @@
 
 #include <compat.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: utimes.c,v 1.10 2008/11/09 14:13:12 millert Exp $";
-#endif /* lint */
-
 #ifndef HAVE_UTIMES
 /*
  * Emulate utimes() via utime()

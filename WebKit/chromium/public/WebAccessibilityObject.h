@@ -42,7 +42,10 @@ namespace WTF { template <typename T> class PassRefPtr; }
 namespace WebKit {
 
 class WebAccessibilityObjectPrivate;
+class WebNode;
+class WebDocument;
 class WebString;
+class WebURL;
 struct WebPoint;
 struct WebRect;
 
@@ -61,45 +64,61 @@ public:
 
     WEBKIT_API void reset();
     WEBKIT_API void assign(const WebAccessibilityObject&);
+    WEBKIT_API bool equals(const WebAccessibilityObject&) const;
 
     bool isNull() const { return !m_private; }
 
-    WebString accessibilityDescription() const;
-    WebString actionVerb() const;
-    bool canSetFocusAttribute() const;
-    bool canSetValueAttribute() const;
+    WEBKIT_API WebString accessibilityDescription() const;
+    WEBKIT_API WebString actionVerb() const;
+    WEBKIT_API bool canSetFocusAttribute() const;
+    WEBKIT_API bool canSetValueAttribute() const;
+    WEBKIT_API bool isValid() const;
 
-    unsigned childCount() const;
+    WEBKIT_API unsigned childCount() const;
 
-    WebAccessibilityObject childAt(unsigned) const;
-    WebAccessibilityObject firstChild() const;
-    WebAccessibilityObject focusedChild() const;
-    WebAccessibilityObject lastChild() const;
-    WebAccessibilityObject nextSibling() const;
-    WebAccessibilityObject parentObject() const;
-    WebAccessibilityObject previousSibling() const;
+    WEBKIT_API WebAccessibilityObject childAt(unsigned) const;
+    WEBKIT_API WebAccessibilityObject firstChild() const;
+    WEBKIT_API WebAccessibilityObject focusedChild() const;
+    WEBKIT_API WebAccessibilityObject lastChild() const;
+    WEBKIT_API WebAccessibilityObject nextSibling() const;
+    WEBKIT_API WebAccessibilityObject parentObject() const;
+    WEBKIT_API WebAccessibilityObject previousSibling() const;
 
-    bool isAnchor() const;
-    bool isChecked() const;
-    bool isFocused() const;
-    bool isEnabled() const;
-    bool isHovered() const;
-    bool isIndeterminate() const;
-    bool isMultiSelectable() const;
-    bool isOffScreen() const;
-    bool isPasswordField() const;
-    bool isPressed() const;
-    bool isReadOnly() const;
-    bool isVisited() const;
+    WEBKIT_API bool canSetSelectedAttribute() const;
+    WEBKIT_API bool isAnchor() const;
+    WEBKIT_API bool isChecked() const;
+    WEBKIT_API bool isCollapsed() const;
+    WEBKIT_API bool isFocused() const;
+    WEBKIT_API bool isEnabled() const;
+    WEBKIT_API bool isHovered() const;
+    WEBKIT_API bool isIndeterminate() const;
+    WEBKIT_API bool isLinked() const;
+    WEBKIT_API bool isMultiSelectable() const;
+    WEBKIT_API bool isOffScreen() const;
+    WEBKIT_API bool isPasswordField() const;
+    WEBKIT_API bool isPressed() const;
+    WEBKIT_API bool isReadOnly() const;
+    WEBKIT_API bool isSelected() const;
+    WEBKIT_API bool isVisible() const;
+    WEBKIT_API bool isVisited() const;
 
-    WebRect boundingBoxRect() const;
-    WebString helpText() const;
-    WebAccessibilityObject hitTest(const WebPoint&) const;
-    WebString keyboardShortcut() const;
-    bool performDefaultAction() const;
-    WebAccessibilityRole roleValue() const;
-    WebString stringValue() const;
-    WebString title() const;
+    WEBKIT_API WebRect boundingBoxRect() const;
+    WEBKIT_API WebString helpText() const;
+    WEBKIT_API int headingLevel() const;
+    WEBKIT_API WebAccessibilityObject hitTest(const WebPoint&) const;
+    WEBKIT_API WebString keyboardShortcut() const;
+    WEBKIT_API bool performDefaultAction() const;
+    WEBKIT_API WebAccessibilityRole roleValue() const;
+    WEBKIT_API void setFocused(bool) const;
+    WEBKIT_API WebString stringValue() const;
+    WEBKIT_API WebString title() const;
+    WEBKIT_API WebURL url() const;
+
+    WEBKIT_API WebNode node() const;
+    WEBKIT_API WebDocument document() const;
+    WEBKIT_API bool hasComputedStyle() const;
+    WEBKIT_API WebString computedStyleDisplay() const;
+    WEBKIT_API bool accessibilityIsIgnored() const;
 
 #if WEBKIT_IMPLEMENTATION
     WebAccessibilityObject(const WTF::PassRefPtr<WebCore::AccessibilityObject>&);

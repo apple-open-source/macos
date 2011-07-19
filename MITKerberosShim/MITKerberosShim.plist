@@ -1,0 +1,18 @@
+<plist version="1.0">
+<array>
+<dict>
+        <key>OpenSourceProject</key>
+        <string>MITKerberosShim</string>
+	<key>OpenSourceVersion</key>
+	<string>1.0</string>
+	<key>OpenSourceImportDate</key>
+	<string>2010-07-10</string>
+	<key>OpenSourceSCM</key>
+	<string>git://github.com/heimdal/MKShim.git</string>
+        <key>OpenSourceLicense</key>
+        <string>BSD</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>MITKerberosShim.txt</string>
+</dict>
+</array>
+</plist>

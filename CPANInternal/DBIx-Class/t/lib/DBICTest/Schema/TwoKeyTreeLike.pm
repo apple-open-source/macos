@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::TwoKeyTreeLike;
 
-use base qw/DBIx::Class::Core/;
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('twokeytreelike');
 __PACKAGE__->add_columns(

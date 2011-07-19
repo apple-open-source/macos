@@ -27,7 +27,7 @@
 
 #import <DirectoryService/DirectoryService.h>
 #import <DSObjCWrappers/DSObjCWrappers.h>
-#import <DirectoryServiceCore/CSharedData.h>
+#import <opendirectory/odutils.h>
 
 #import "PathNodeConfig.h"
 #import "PathRecordTypeConfig.h"
@@ -45,7 +45,7 @@
 {
 	// free _authExternalForm
 	if (_haveRights) {
-		[_node customCall:eDSCustomCallConfigureDestroyAuthRef
+		[_node customCall:eODCustomCallConfigureDestroyAuthRef
 			  withAuthorization:&_authExternalForm];
 	}
 }
@@ -95,7 +95,7 @@
 		status = [[user node] authenticateName:inUsername withPassword:inPassword authOnly:YES];
 		if (status == eDSNoErr && inAuthOnly == NO) {
 			outputData = [NSMutableData dataWithLength:sizeof(AuthorizationExternalForm)];
-			status = [_node customCall:eDSCustomCallConfigureGetAuthRef
+			status = [_node customCall:eODCustomCallConfigureGetAuthRef
 							 sendItems:[NSArray arrayWithObjects:inUsername,inPassword,nil]
 							outputData:outputData];
 			if (status == eDSNoErr && [outputData length] >= sizeof( AuthorizationExternalForm ) )

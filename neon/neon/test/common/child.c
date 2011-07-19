@@ -1,6 +1,6 @@
 /* 
    Framework for testing with a server process
-   Copyright (C) 2001-2004, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2001-2008, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -225,6 +225,7 @@ int spawn_server_addr(int bind_local, int port, server_fn fn, void *ud)
 	}
 	
 	/* and quit the child. */
+        NE_DEBUG(NE_DBG_HTTP, "child exiting with %d\n", ret);
 	exit(ret);
     } else {
 	char ch;
@@ -331,14 +332,24 @@ int dead_server(void)
 
 int await_server(void)
 {
-    int status;
+    int status, code;
 
     (void) wait(&status);
     
     /* so that we aren't reaped by mistake. */
     child = 0;
 
-    ONN("error from server process", WEXITSTATUS(status));
+    if (WIFEXITED(status)) {
+        code = WEXITSTATUS(status);
+        
+        ONV(code,
+            ("server process terminated abnormally: %s (%d)",
+             code == FAIL ? "FAIL" : "error", code));
+    }
+    else {
+        ONV(WIFSIGNALED(status),
+            ("server process terminated by signal %d", WTERMSIG(status)));
+    }
 
     return OK;
 }

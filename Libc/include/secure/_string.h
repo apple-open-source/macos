@@ -33,19 +33,22 @@
 
 #if _USE_FORTIFY_LEVEL > 0
 
-/* memcpy, mempcpy, memmove, memset, strcpy, stpcpy, strncpy, strcat
-   and strncat */
+/* memcpy, mempcpy, memmove, memset, strcpy, stpcpy, strncpy, stpncpy,
+   strcat, and strncat */
 
 #undef memcpy
 #undef memmove
 #undef memset
 #undef strcpy
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#if __DARWIN_C_LEVEL >= 200809L
 #undef stpcpy
-#endif  /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+#undef stpncpy
+#endif
 #undef strncpy
 #undef strcat
+#if ! (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < 32000)
 #undef strncat
+#endif
 
 #define memcpy(dest, src, len)					\
   ((__darwin_obsz0 (dest) != (size_t) -1)				\
@@ -91,7 +94,7 @@ __inline_strcpy_chk (char *__restrict __dest, const char *__restrict __src)
   return __builtin___strcpy_chk (__dest, __src, __darwin_obsz(__dest));
 }
 
-#if !defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE)
+#if __DARWIN_C_LEVEL >= 200809L
 #define stpcpy(dest, src)					\
   ((__darwin_obsz0 (dest) != (size_t) -1)				\
    ? __builtin___stpcpy_chk (dest, src, __darwin_obsz (dest))		\
@@ -102,7 +105,19 @@ __inline_stpcpy_chk (char *__dest, const char *__src)
 {
   return __builtin___stpcpy_chk (__dest, __src, __darwin_obsz(__dest));
 }
-#endif  /* (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
+
+#define stpncpy(dest, src, len)					\
+  ((__darwin_obsz0 (dest) != (size_t) -1)				\
+   ? __builtin___stpncpy_chk (dest, src, len, __darwin_obsz (dest))	\
+   : __inline_stpncpy_chk (dest, src, len))
+
+static __inline char *
+__inline_stpncpy_chk (char *__restrict __dest, const char *__restrict __src,
+		      size_t __len)
+{
+  return __builtin___stpncpy_chk (__dest, __src, __len, __darwin_obsz(__dest));
+}
+#endif
 
 #define strncpy(dest, src, len)					\
   ((__darwin_obsz0 (dest) != (size_t) -1)				\
@@ -127,6 +142,7 @@ __inline_strcat_chk (char *__restrict __dest, const char *__restrict __src)
   return __builtin___strcat_chk (__dest, __src, __darwin_obsz(__dest));
 }
 
+#if ! (defined(__IPHONE_OS_VERSION_MIN_REQUIRED) && __IPHONE_OS_VERSION_MIN_REQUIRED < 32000)
 #define strncat(dest, src, len)					\
   ((__darwin_obsz0 (dest) != (size_t) -1)				\
    ? __builtin___strncat_chk (dest, src, len, __darwin_obsz (dest))	\
@@ -138,6 +154,7 @@ __inline_strncat_chk (char *__restrict __dest, const char *__restrict __src,
 {
   return __builtin___strncat_chk (__dest, __src, __len, __darwin_obsz(__dest));
 }
+#endif
 
 #endif
 #endif

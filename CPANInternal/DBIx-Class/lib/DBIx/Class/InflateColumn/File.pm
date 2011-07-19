@@ -5,112 +5,104 @@ use warnings;
 use base 'DBIx::Class';
 use File::Path;
 use File::Copy;
-use IO::File;
+use Path::Class;
 
 __PACKAGE__->load_components(qw/InflateColumn/);
 
-
 sub register_column {
-  my ($self, $column, $info, @rest) = @_;
-  $self->next::method($column, $info, @rest);
-  return unless defined($info->{is_file_column});
-    $self->inflate_column(
-      $column =>
-        {
-          inflate => sub { 
+    my ($self, $column, $info, @rest) = @_;
+    $self->next::method($column, $info, @rest);
+    return unless defined($info->{is_file_column});
+
+    $self->inflate_column($column => {
+        inflate => sub { 
             my ($value, $obj) = @_;
-            #$self->_inflate_file_column;
-          },
-          deflate => sub {
+            $obj->_inflate_file_column($column, $value);
+        },
+        deflate => sub {
             my ($value, $obj) = @_;
-            #my ( $file, @column_names ) = $self->_load_file_column_information;
-            #$self->_save_file_column( $file, $self, @column_names );
-          },
-        }
-    );
+            $obj->_save_file_column($column, $value);
+        },
+    });
 }
 
+sub _file_column_file {
+    my ($self, $column, $filename) = @_;
+
+    my $column_info = $self->column_info($column);
+
+    return unless $column_info->{is_file_column};
+
+    my $id = $self->id || $self->throw_exception(
+        'id required for filename generation'
+    );
+
+    $filename ||= $self->$column->{filename};
+    return Path::Class::file(
+        $column_info->{file_column_path}, $id, $filename,
+    );
+}
 
 sub delete {
     my ( $self, @rest ) = @_;
 
-    my @column_names = $self->columns;
-    for (@column_names) {
+    for ( $self->columns ) {
         if ( $self->column_info($_)->{is_file_column} ) {
-            my $path =
-              File::Spec->catdir( $self->column_info($_)->{file_column_path},
-                $self->id );
-            rmtree( [$path], 0, 0 );
+            rmtree( [$self->_file_column_file($_)->dir], 0, 0 );
+            last; # if we've deleted one, we've deleted them all
         }
     }
 
-    my $ret = $self->next::method(@rest);
-
-    return $ret;
+    return $self->next::method(@rest);
 }
+
+sub insert {
+    my $self = shift;
+
+    # cache our file columns so we can write them to the fs
+    # -after- we have a PK
+    my %file_column;
+    for ( $self->columns ) {
+        if ( $self->column_info($_)->{is_file_column} ) {
+            $file_column{$_} = $self->$_;
+            $self->store_column($_ => $self->$_->{filename});
+        }
+    }
+
+    $self->next::method(@_);
+
+    # write the files to the fs
+    while ( my ($col, $file) = each %file_column ) {
+        $self->_save_file_column($col, $file);
+    }
+
+    return $self;
+}
+
 
 sub _inflate_file_column {
-    my $self = shift;
+    my ( $self, $column, $value ) = @_;
 
-    my @column_names = $self->columns;
-    for(@column_names) {
-        if ( $self->column_info($_)->{is_file_column} ) {
-            # make sure everything checks out
-            unless (defined $self->$_) {
-                # if something is wrong set it to undef
-                $self->$_(undef);
-                next;
-            }
-            my $fs_file =
-              File::Spec->catfile( $self->column_info($_)->{file_column_path}, 
-                $self->id, $self->$_ );
-            $self->$_({handle => new IO::File($fs_file, "r"), filename => $self->$_});
-        }
-    }
-}
+    my $fs_file = $self->_file_column_file($column, $value);
 
-sub _load_file_column_information {
-    my $self = shift;
-
-    my $file;
-    my @column_names;
-
-    @column_names = $self->columns;
-    for (@column_names) {
-        if ( $self->column_info($_)->{is_file_column} ) {
-            # make sure everything checks out
-            unless ((defined $self->$_) ||
-             (defined $self->$_->{filename} && defined $self->$_->{handle})) {
-                # if something is wrong set it to undef
-                $self->$_(undef);
-                next;
-            }
-            $file->{$_} = $self->$_;
-            $self->$_( $self->$_->{filename} );
-        }
-    }
-
-    return ( $file, @column_names );
+    return { handle => $fs_file->open('r'), filename => $value };
 }
 
 sub _save_file_column {
-    my ( $self, $file, $ret, @column_names ) = @_;
+    my ( $self, $column, $value ) = @_;
 
-    for (@column_names) {
-        if ( $ret->column_info($_)->{is_file_column} ) {
-            next unless (defined $ret->$_);
-            my $file_path =
-              File::Spec->catdir( $ret->column_info($_)->{file_column_path},
-                $ret->id );
-            mkpath [$file_path];
-            
-            my $outfile =
-              File::Spec->catfile( $file_path, $file->{$_}->{filename} );
-            File::Copy::copy( $file->{$_}->{handle}, $outfile );
-        
-            $self->_file_column_callback($file->{$_},$ret,$_);
-        }
-    }
+    return unless ref $value;
+
+    my $fs_file = $self->_file_column_file($column, $value->{filename});
+    mkpath [$fs_file->dir];
+
+    # File::Copy doesn't like Path::Class (or any for that matter) objects,
+    # thus ->stringify (http://rt.perl.org/rt3/Public/Bug/Display.html?id=59650)
+    File::Copy::copy($value->{handle}, $fs_file->stringify);
+
+    $self->_file_column_callback($value, $self, $column);
+
+    return $value->{filename};
 }
 
 =head1 NAME
@@ -121,8 +113,10 @@ DBIx::Class::InflateColumn::File -  map files from the Database to the filesyste
 
 In your L<DBIx::Class> table class:
 
-    __PACKAGE__->load_components( "PK::Auto", "InflateColumn::File", "Core" );
-    
+    use base 'DBIx::Class::Core';
+
+    __PACKAGE__->load_components(qw/InflateColumn::File/);
+
     # define your columns
     __PACKAGE__->add_columns(
         "id",
@@ -144,7 +138,7 @@ In your L<DBIx::Class> table class:
             size                => 255,
         },
     );
-    
+
 
 In your L<Catalyst::Controller> class:
 
@@ -160,15 +154,15 @@ name as name.
         body => '....'
     });
     $c->stash->{entry}=$entry;
-    
+
 
 And Place the following in your TT template
-    
+
     Article Subject: [% entry.subject %]
     Uploaded File: 
     <a href="/static/files/[% entry.id %]/[% entry.filename.filename %]">File</a>
     Body: [% entry.body %]
-    
+
 The file will be stored on the filesystem for later retrieval.  Calling delete
 on your resultset will delete the file from the filesystem.  Retrevial of the
 record automatically inflates the column back to the set hash with the
@@ -182,13 +176,11 @@ InflateColumn::File
 
 =head2 _file_column_callback ($file,$ret,$target)
 
-method made to be overridden for callback purposes.
+Method made to be overridden for callback purposes.
 
 =cut
 
-sub _file_column_callback {
-    my ($self,$file,$ret,$target) = @_;
-}
+sub _file_column_callback {}
 
 =head1 AUTHOR
 

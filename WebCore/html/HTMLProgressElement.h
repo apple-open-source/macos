@@ -26,9 +26,14 @@
 
 namespace WebCore {
 
+class ProgressValueElement;
+
 class HTMLProgressElement : public HTMLFormControlElement {
 public:
-    static PassRefPtr<HTMLProgressElement> create(const QualifiedName&, Document*, HTMLFormElement* = 0);
+    static const double IndeterminatePosition;
+    static const double InvalidPosition;
+
+    static PassRefPtr<HTMLProgressElement> create(const QualifiedName&, Document*, HTMLFormElement*);
 
     double value() const;
     void setValue(double, ExceptionCode&);
@@ -38,16 +43,28 @@ public:
 
     double position() const;
 
+    virtual bool canContainRangeEndPoint() const { return false; }
+
 private:
     HTMLProgressElement(const QualifiedName&, Document*, HTMLFormElement*);
+    virtual ~HTMLProgressElement();
 
-    virtual bool isOptionalFormControl() const { return true; }
+    virtual bool supportsFocus() const;
+
+    virtual bool recalcWillValidate() const { return false; }
 
     virtual const AtomicString& formControlType() const;
 
     virtual RenderObject* createRenderer(RenderArena*, RenderStyle*);
 
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual void parseMappedAttribute(Attribute*);
+
+    virtual void attach();
+
+    void didElementStateChange();
+    void createShadowSubtree();
+
+    RefPtr<ProgressValueElement> m_value;
 };
 
 } // namespace

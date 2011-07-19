@@ -11,7 +11,7 @@ License               = doc/license.terms
 
 # Fetch info
 Release               = 2.2.1
-TEApotVersion         = $(Release).2008.10.20.18.13.18
+TEApotVersion         = $(Release).2009.05.20.12.31.28
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)
 Extra_Environment     = $(TEA_Environment)

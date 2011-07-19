@@ -1,4 +1,4 @@
-/* @(#)$Id: dbd_xsh.h 2488 2006-02-07 22:24:43Z timbo $
+/* @(#)$Id: dbd_xsh.h 11724 2008-09-02 13:34:31Z mjevans $
  *
  * Copyright 2000-2002 Tim Bunce
  * Copyright 2002      Jonathan Leffler
@@ -21,6 +21,7 @@ SV      *dbd_take_imp_data _((SV *h, imp_xxh_t *imp_xxh, void *foo));
 /* function to get the list of data sources */
 AV	*dbd_dr_data_sources(SV *drh, imp_drh_t *imp_drh, SV *attrs);
 
+int      dbd_db_login6_sv _((SV *dbh, imp_dbh_t *imp_dbh, SV *dbname, SV *uid, SV *pwd, SV*attribs));
 int      dbd_db_login6 _((SV *dbh, imp_dbh_t *imp_dbh, char *dbname, char *uid, char *pwd, SV*attribs));
 int      dbd_db_login  _((SV *dbh, imp_dbh_t *imp_dbh, char *dbname, char *uid, char *pwd)); /* deprecated */
 /* Note: interface of dbd_db_do changed in v1.33 */
@@ -37,6 +38,7 @@ SV	*dbd_db_last_insert_id _((SV *dbh, imp_dbh_t *imp_dbh, SV *catalog, SV *schem
 AV      *dbd_db_data_sources _((SV *dbh, imp_dbh_t *imp_dbh, SV *attr));
 
 int      dbd_st_prepare _((SV *sth, imp_sth_t *imp_sth, char *statement, SV *attribs));
+int      dbd_st_prepare_sv _((SV *sth, imp_sth_t *imp_sth, SV *statement, SV *attribs));
 int      dbd_st_rows    _((SV *sth, imp_sth_t *imp_sth));
 int      dbd_st_execute _((SV *sth, imp_sth_t *imp_sth));
 AV      *dbd_st_fetch   _((SV *sth, imp_sth_t *imp_sth));

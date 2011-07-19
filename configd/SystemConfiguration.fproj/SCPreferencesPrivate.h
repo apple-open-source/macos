@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2007-2009, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -35,6 +35,8 @@
 	@header SCPreferencesPrivate
  */
 
+#define kSCPreferencesOptionRemoveWhenEmpty	CFSTR("remove-when-empty")	// CFBooleanRef
+
 /*!
 	@enum SCPreferencesKeyType
 	@discussion Used with the SCDynamicStoreKeyCreatePreferences() function
@@ -45,6 +47,7 @@
 		to be applied to the active system configuration.
  */
 enum {
+	kSCPreferencesKeyLock	= 1,
 	kSCPreferencesKeyCommit	= 2,
 	kSCPreferencesKeyApply	= 3
 };
@@ -71,6 +74,54 @@ SCDynamicStoreKeyCreatePreferences	(
 					CFStringRef		prefsID,
 					SCPreferencesKeyType	keyType
 					)	__OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_1,__MAC_10_4,__IPHONE_2_0,__IPHONE_2_0);
+
+/*!
+	@function SCPreferencesCreateWithOptions
+	@discussion Initiates access to the per-system set of configuration
+		preferences.
+	@param allocator The CFAllocator that should be used to allocate
+		memory for this preferences session.
+		This parameter may be NULL in which case the current
+		default CFAllocator is used.
+		If this reference is not a valid CFAllocator, the behavior
+		is undefined.
+	@param name A string that describes the name of the calling
+		process.
+	@param prefsID A string that identifies the name of the
+		group of preferences to be accessed or updated.
+	@param authorization An authorization reference that is used to
+		authorize any access to the enhanced privileges needed
+		to manage the preferences session.
+	@param options A CFDictionary with options that affect the
+		configuration preferences and how the APIs interact
+		with the plist.
+	@result Returns a reference to the new SCPreferences.
+		You must release the returned value.
+ */
+SCPreferencesRef
+SCPreferencesCreateWithOptions		(
+					 CFAllocatorRef		allocator,
+					 CFStringRef		name,
+					 CFStringRef		prefsID,
+					 AuthorizationRef	authorization,
+					 CFDictionaryRef	options
+					 )			__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
+
+/*!
+	@function SCPreferencesRemoveAllValues
+	@discussion Removes all data associated with the preferences.
+
+	This function removes all data associated with the preferences.
+	To commit these changes to permanent storage a call must be made
+	to the SCPreferencesCommitChanges function.
+	@param prefs The preferences session.
+	@result Returns TRUE if the value was removed;
+		FALSE if the key did not exist or if an error occurred.
+ */
+Boolean
+SCPreferencesRemoveAllValues		(
+					 SCPreferencesRef	prefs
+					 )			__OSX_AVAILABLE_STARTING(__MAC_10_7,__IPHONE_5_0/*SPI*/);
 
 __END_DECLS
 

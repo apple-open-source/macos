@@ -1,4 +1,4 @@
-.TH "ZSHMODULES" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHMODULES" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshmodules \- zsh loadable modules
 .\" Yodl file: Zsh/modules.yo
@@ -14,6 +14,9 @@ are bundled with the zsh distribution are:
 .PD 0
 .TP
 .PD
+\fBzsh/attr\fP
+Builtins for manipulating extended attributes (xattr)\&.
+.TP
 \fBzsh/cap\fP
 Builtins for manipulating POSIX\&.1e (POSIX\&.6) capability (privilege) sets\&.
 .TP
@@ -109,6 +112,39 @@ Block and return when file descriptors are ready\&.
 Some utility builtins, e\&.g\&. the one for supporting configuration via 
 styles\&.
 .\" Yodl file: Zsh/modmenu.yo
+.SH "THE ZSH/ATTR MODULE"
+.\" Yodl file: Zsh/mod_attr.yo
+
+The \fBzsh/attr\fP module is used for manipulating extended attributes\&.
+The \fB\-h\fP option causes all commands to operate on symbolic links instead
+of their targets\&.
+The builtins in this module are:
+.PP
+.PD 0
+.TP
+.PD
+\fBzgetattr\fP [ \fB\-h\fP ] \fIfilename\fP \fIattribute\fP [ \fIparameter\fP ]
+Get the extended attribute \fIattribute\fP from the specified
+\fIfilename\fP\&. If the optional argument \fIparameter\fP is given, the
+attribute is set on that parameter instead of being printed to stdout\&.
+.TP
+\fBzsetattr\fP [ \fB\-h\fP ] \fIfilename\fP \fIattribute\fP \fIvalue\fP
+Set the extended attribute \fIattribute\fP on the specified
+\fIfilename\fP to \fIvalue\fP\&.
+.TP
+\fBzdelattr\fP [ \fB\-h\fP ] \fIfilename\fP \fIattribute\fP
+Remove the extended attribute \fIattribute\fP from the specified
+\fIfilename\fP\&.
+.TP
+\fBzlistattr\fP [ \fB\-h\fP ] \fIfilename\fP [ \fIparameter\fP ]
+List the extended attributes currently set on the specified
+\fIfilename\fP\&. If the optional argument \fIparameter\fP is given, the
+list of attributes is set on that parameter instead of being printed to stdout\&.
+.PP
+\fBzgetattr\fP and \fBzlistattr\fP allocate memory dynamically\&.  If the
+attribute or list of attributes grows between the allocation and the call
+to get them, they return 2\&.  On all other errors, 1 is returned\&.  This
+allows the calling function to check for this case and retry\&.
 .SH "THE ZSH/CAP MODULE"
 .\" Yodl file: Zsh/mod_cap.yo
 
@@ -170,7 +206,7 @@ the cloned shell will have job control disabled, and the job
 .PP
 This does not apply when cloning to an \fBunused\fP vc\&.
 .PP
-Cloning to an used (and unprepared) terminal will result in two
+Cloning to a used (and unprepared) terminal will result in two
 processes reading simultaneously from the same terminal, with
 input bytes going randomly to either process\&.
 .PP
@@ -263,6 +299,10 @@ for world writable directories with sticky bit set
 .TP
 \fBow 34;43\fP
 for world writable directories without sticky bit set
+.TP
+\fBsa\fP \fInone\fP
+for files with an associated suffix alias; this is only tested
+after specific suffixes, as described below
 .TP
 \fBst 37;44\fP
 for directories with sticky bit set but not world writable
@@ -386,6 +426,9 @@ scrolls forward one line
 .PD
 \fBexpand\-or\-complete\-prefix\fP, \fBmenu\-complete\-or\-expand\fP
 scrolls forward one screenful
+.TP
+\fBaccept\-search\fP
+stop listing but take no other action
 .PP
 Every other character stops listing and immediately processes the key
 as usual\&.  Any key that is not bound in the \fBlistscroll\fP keymap or
@@ -470,13 +513,17 @@ Selecting matches is done by moving the mark around using the zle movement
 functions\&.  When not all matches can be shown on the screen at the same 
 time, the list will scroll up and down when crossing the top or
 bottom line\&.  The following zle functions have special meaning during
-menu selection:
+menu selection\&.  Note that the following always
+perform the same task within the menu selection map and cannot be
+replaced by user defined widgets, nor can the set of functions
+be extended:
 .PP
 .PD 0
 .TP
 .PD
-\fBaccept\-line\fP
-accepts the current match and leaves menu selection
+\fBaccept\-line\fP, \fBaccept\-search\fP
+accept the current match and leave menu selection (but do
+not cause the command line to be accepted)
 .TP
 \fBsend\-break\fP
 leaves menu selection and restores the previous contents of the
@@ -1611,7 +1658,7 @@ function  the line number is reported as zero\&.
 The format of each element is \fIfilename\fP\fB:\fP\fIlineno\fP\&.
 For functions autoloaded from a file in native zsh format, where only the
 body of the function occurs in the file, or for files that have been
-executed by the \fBsource\fP or \fB\&.\fP builtins, the trace information is
+executed by the \fBsource\fP or `\fB\&.\fP\&' builtins, the trace information is
 shown as \fIfilename\fP\fB:\fP\fI0\fP, since the entire file is the definition\&.
 .RS
 .PP
@@ -1630,7 +1677,7 @@ This array contains the names and line numbers of the callers
 corresponding to the functions currently being executed\&.
 The format of each element is \fIname\fP\fB:\fP\fIlineno\fP\&.
 Callers are also shown for sourced files; the caller is the point
-where the \fBsource\fP or \fB\&.\fP command was executed\&.
+where the \fBsource\fP or `\fB\&.\fP\&' command was executed\&.
 .SH "THE ZSH/PCRE MODULE"
 .\" Yodl file: Zsh/mod_pcre.yo
 
@@ -1639,7 +1686,7 @@ The \fBzsh/pcre\fP module makes some commands available as builtins:
 .PD 0
 .TP
 .PD
-\fBpcre_compile\fP [ \fB\-aimx\fP ] \fIPCRE\fP
+\fBpcre_compile\fP [ \fB\-aimxs\fP ] \fIPCRE\fP
 Compiles a perl\-compatible regular expression\&.
 .RS
 .PP
@@ -1649,24 +1696,61 @@ Option \fB\-m\fP will compile a multi\-line pattern; that is,
 \fB^\fP and \fB$\fP will match newlines within the pattern\&.
 Option \fB\-x\fP will compile an extended pattern, wherein
 whitespace and \fB#\fP comments are ignored\&.
+Option \fB\-s\fP makes the dot metacharacter match all characters,
+including those that indicate newline\&.
 .RE
 .TP
 \fBpcre_study\fP
 Studies the previously\-compiled PCRE which may result in faster
 matching\&.
 .TP
-\fBpcre_match\fP [ \fB\-v\fP \fIvar\fP ] [ \fB\-a\fP \fIarr\fP ] \fIstring\fP
+\fBpcre_match\fP [ \fB\-v\fP \fIvar\fP ] [ \fB\-a\fP \fIarr\fP ] [ \fB\-n\fP \fIoffset\fP ] [ \fB\-b\fP ] \fIstring\fP
 Returns successfully if \fBstring\fP matches the previously\-compiled
 PCRE\&.
 .RS
 .PP
-If the expression captures substrings within parentheses,
+Upon successful match,
+if the expression captures substrings within parentheses,
 \fBpcre_match\fP will set the array \fI$match\fP to those
 substrings, unless the \fB\-a\fP option is given, in which
 case it will set the array \fIarr\fP\&.  Similarly, the variable
 \fIMATCH\fP will be set to the entire matched portion of the
 string, unless the \fB\-v\fP option is given, in which case the variable
 \fIvar\fP will be set\&.
+No variables are altered if there is no successful match\&.
+A \fB\-n\fP option starts searching for a match from the
+byte \fIoffset\fP position in \fIstring\fP\&.  If the \fB\-b\fP option is given,
+the variable \fIZPCRE_OP\fP will be set to an offset pair string,
+representing the byte offset positions of the entire matched portion
+within the \fIstring\fP\&.  For example, a \fIZPCRE_OP\fP set to "32 45" indicates
+that the matched portion began on byte offset 32 and ended on byte offset 44\&.
+Here, byte offset position 45 is the position directly after the matched
+portion\&.  Keep in mind that the byte position isn\&'t necessarily the same
+as the character position when UTF\-8 characters are involved\&.
+Consequently, the byte offset positions are only to be relied on in the
+context of using them for subsequent searches on \fIstring\fP, using an offset
+position as an argument to the \fB\-n\fP option\&.  This is mostly
+used to implement the "find all non\-overlapping matches" functionality\&.
+.PP
+A simple example of "find all non\-overlapping matches":
+.PP
+.RS
+.nf
+\fB
+string="The following zip codes: 78884 90210 99513"
+pcre_compile \-m "\ed{5}"
+accum=()
+pcre_match \-b \-\- $string
+while [[ $? \-eq 0 ]] do
+    b=($=ZPCRE_OP)
+    accum+=$MATCH
+    pcre_match \-b \-n $b[2] \-\- $string
+done
+print \-l $accum
+.PP
+\fP
+.fi
+.RE
 .RE
 .RE
 .PP
@@ -1692,9 +1776,11 @@ The \fBzsh/regex\fP module makes available the following test condition:
 .PD
 \fIexpr\fP \fB\-regex\-match\fP \fIregex\fP
 Matches a string against a POSIX extended regular expression\&.
-The matched portion of the string will normally be placed in the \fBMATCH\fP
+On successful match,
+matched portion of the string will normally be placed in the \fBMATCH\fP
 variable\&.  If there are any capturing parentheses within the regex, then
 the \fBmatch\fP array variable will contain those\&.
+If the match is not successful, then the variables will not be altered\&.
 .RS
 .PP
 For example,
@@ -1985,6 +2071,8 @@ Perform an \fBlstat\fP (see \fIlstat\fP(2)) rather than a \fBstat\fP
 system call\&.  In this case, if the file is a link, information
 about the link itself rather than the target file is returned\&.
 This option is required to make the \fBlink\fP element useful\&.
+It\&'s important to note that this is the exact opposite from \fIls\fP(1),
+etc\&.
 .TP
 \fB\-n\fP
 Always show the names of files\&.  Usually these are
@@ -2023,10 +2111,10 @@ Never show the type names of the \fBstruct stat\fP elements\&.
 .SH "THE ZSH/SYSTEM MODULE"
 .\" Yodl file: Zsh/mod_system.yo
 
-The \fBzsh/system\fP module makes available three builtin commands and
-two parameters\&.
+The \fBzsh/system\fP module makes available various builtin commands and
+parameters\&.
 .PP
-.SH "BUILTINS"
+.SS "Builtins"
 .PP
 .PD 0
 .TP
@@ -2139,9 +2227,62 @@ to the command, or 2 for an error on the write; no error message is
 printed in the last case, but the parameter \fBERRNO\fP will reflect
 the error that occurred\&.
 .RE
-.RE
+.TP
+.PD 0
+\fBzsystem flock [ \-t\fP \fItimeout\fP \fB] [ \-f\fP \fIvar\fP \fB] [\-er]\fP \fIfile\fP
+.TP
+.PD
+\fBzsystem flock \-u\fP \fIfd_expr\fP
+The builtin \fBzsystem\fP\&'s subcommand \fBflock\fP performs advisory file
+locking (via the \fIfcntl\fP(2) system call) over the entire contents
+of the given file\&.  This form of locking requires the processes
+accessing the file to cooperate; its most obvious use is between two
+instances of the shell itself\&.
+.RS
 .PP
-.SH "PARAMETERS"
+In the first form the named \fIfile\fP, which must already exist, is
+locked by opening a file descriptor to the file and applying a lock to
+the file descriptor\&.  The lock terminates when the shell process that
+created the lock exits; it is therefore often convenient to create file
+locks within subshells, since the lock is automatically released when
+the subshell exits\&.  Status 0 is returned if the lock succeeds, else
+status 1\&.
+.PP
+In the second form the file descriptor given by the arithmetic
+expression \fBfd_expr\fP is closed, releasing a lock\&.  The file descriptor
+can be queried by using the `\fB\-f\fP \fIvar\fP\&' form during the lock;
+on a successful lock, the shell variable \fIvar\fP is set to the file
+descriptor used for locking\&.  The lock will be released if the
+file descriptor is closed by any other means, for example using
+`\fBexec {\fP\fIvar\fP\fB}>&\-\fP\&'; however, the form described here performs
+a safety check that the file descriptor is in use for file locking\&.
+.PP
+By default the shell waits indefinitely for the lock to succeed\&.
+The option \fB\-t\fP \fItimeout\fP specifies a timeout for the lock in
+seconds; currently this must be an integer\&.  The shell will attempt
+to lock the file once a second during this period\&.  If the attempt
+times out, status 2 is returned\&.
+.PP
+If the option \fB\-e\fP is given, the file descriptor for the lock is
+preserved when the shell uses \fBexec\fP to start a new process;
+otherwise it is closed at that point and the lock released\&.
+.PP
+If the option \fB\-r\fP is given, the lock is only for reading, otherwise
+it is for reading and writing\&.  The file descriptor is opened
+accordingly\&.
+.RE
+.TP
+\fBzsystem supports\fP \fIsubcommand\fP
+The builtin \fBzsystem\fP\&'s subcommand \fBsupports\fP tests whether a
+given subcommand is supported\&.  It returns status 0 if so, else
+status 1\&.  It operates silently unless there was a syntax error
+(i\&.e\&. the wrong number of arguments), in which case status 255
+is returned\&.  Status 1 can indicate one of two things:  \fIsubcommand\fP
+is known but not supported by the current operating system, or
+\fIsubcommand\fP is not known (possibly because this is an older
+version of the shell before it was implemented)\&.
+.PP
+.SS "Parameters"
 .PP
 .PD 0
 .TP
@@ -2990,7 +3131,7 @@ at least once\&.  This summary is sorted in decreasing order of the
 amount of time spent in each\&.  The lines contain
 the number of the function in order, which is used in 
 other parts of the list in suffixes of the form
-`\fB[\fP\fInum\fP\fB]\fP\&'.RE, then the number of calls made to the function\&.
+`\fB[\fP\fInum\fP\fB]\fP\&', then the number of calls made to the function\&.
 The next three columns list the time in
 milliseconds spent in the function and its descendants, the average
 time in milliseconds spent in the function and its descendants per
@@ -3028,7 +3169,7 @@ multiple invocations of the \fBzprof\fP builtin command will show the
 times and numbers of calls since the module was loaded\&.  With the
 \fB\-c\fP option, the \fBzprof\fP builtin command will reset its internal
 counters and will not show the listing\&.
-)
+.RE
 .RE
 .SH "THE ZSH/ZPTY MODULE"
 .\" Yodl file: Zsh/mod_zpty.yo
@@ -3075,7 +3216,7 @@ were typed, so beware when sending special tty driver characters such as
 word\-erase, line\-kill, and end\-of\-file\&.
 .RE
 .TP
-\fBzpty\fP \fB\-r\fP [ \fB\-t\fP ] \fIname\fP [ \fIparam\fP [ \fIpattern\fP ] ]
+\fBzpty\fP \fB\-r\fP [ \fB\-mt\fP ] \fIname\fP [ \fIparam\fP [ \fIpattern\fP ] ]
 The \fB\-r\fP option can be used to read the output of the command \fIname\fP\&.
 With only a \fIname\fP argument, the output read is copied to the standard
 output\&.  Unless the pseudo\-terminal is non\-blocking, copying continues
@@ -3092,10 +3233,11 @@ one character is stored in \fIparam\fP\&.
 If a \fIpattern\fP is given as well, output is read until the whole string
 read matches the \fIpattern\fP, even in the non\-blocking case\&.  The return
 status is zero if the string read matches the pattern, or if the command
-has exited but at least one character could still be read\&.  As of this
-writing, a maximum of one megabyte of output can be consumed this way; if
-a full megabyte is read without matching the pattern, the return status is
-non\-zero\&.
+has exited but at least one character could still be read\&.  If the option
+\fB\-m\fP is present, the return status is zero only if the pattern matches\&.
+As of this writing, a maximum of one megabyte of output can be consumed
+this way; if a full megabyte is read without matching the pattern, the
+return status is non\-zero\&.
 .PP
 In all cases, the return status is non\-zero if nothing could be read, and
 is \fB2\fP if this is because the command has finished\&.
@@ -3155,7 +3297,7 @@ The option `\fB\-t\fP \fItimeout\fP\&' specifies a timeout in hundredths of a
 second\&.  This may be zero, in which case the file descriptors will simply
 be polled and \fBzselect\fP will return immediately\&.  It is possible to call
 zselect with no file descriptors and a non\-zero timeout for use as a
-finer\-grained replacement for `sleep\&'; not, however, the return status is
+finer\-grained replacement for `sleep\&'; note, however, the return status is
 always 1 for a timeout\&.
 .PP
 The option `\fB\-a\fP \fIarray\fP\&' indicates that \fBarray\fP should be set to

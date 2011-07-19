@@ -64,12 +64,12 @@ openpam_borrow_cred(pam_handle_t *pamh,
 	ENTERI(pwd->pw_uid);
 	r = pam_get_data(pamh, PAM_SAVED_CRED, &scredp);
 	if (r == PAM_SUCCESS && scredp != NULL) {
-		openpam_log(PAM_LOG_DEBUG,
+		openpam_log(PAM_LOG_LIBDEBUG,
 		    "already operating under borrowed credentials");
 		RETURNC(PAM_SYSTEM_ERR);
 	}
 	if (geteuid() != 0 && geteuid() != pwd->pw_uid) {
-		openpam_log(PAM_LOG_DEBUG, "called with non-zero euid: %d",
+		openpam_log(PAM_LOG_LIBDEBUG, "called with non-zero euid: %d",
 		    (int)geteuid());
 		RETURNC(PAM_PERM_DENIED);
 	}

@@ -30,7 +30,7 @@
 
 #define RPCGEN_VERSION	199506
 
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 
 #define RQ_PATHLEN 1024
 

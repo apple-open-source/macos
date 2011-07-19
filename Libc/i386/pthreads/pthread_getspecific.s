@@ -28,5 +28,5 @@
 .globl _pthread_getspecific
 _pthread_getspecific:
 	movl	4(%esp),%eax
-	movl	%gs:_PTHREAD_TSD_OFFSET(,%eax,4),%eax
+	movl	%gs:(,%eax,4),%eax
 	ret

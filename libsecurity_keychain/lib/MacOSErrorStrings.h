@@ -31,7 +31,6 @@
 /* Definitions for miscellaneous OS errors that can be returned (with appropriate error strings) */
 enum
 {
-    errSecMisc_dskFulErr             = -34,     /* The disk is full. */
     errSecMisc_nsvErr                = -35,     /* The disk couldn't be found. It may have been ejected. */
     errSecMisc_bdNamErr              = -37,     /* Tried to open a file whose name contains an illegal character. */
     errSecMisc_fnfErr                = -43,     /* The file could not be found. */

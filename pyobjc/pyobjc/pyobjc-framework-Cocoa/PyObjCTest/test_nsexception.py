@@ -11,58 +11,61 @@ class TestNSExceptionInteraction(TestCase):
 
     def testFormat(self):
         try:
-            NSException.raise_format_('ExceptionName', 'Format: %s %d', 'hello', 42)
+            NSException.raise_format_('ExceptionName', 'Format: %s %d', b'hello', 42)
 
         except TypeError:
             raise
 
         except objc.error, e:
-            self.assertEquals(e._pyobjc_info_['name'], 'ExceptionName')
-            self.assertEquals(e._pyobjc_info_['reason'], 'Format: hello 42')
+            self.assertEqual(e._pyobjc_info_['name'], 'ExceptionName')
+            self.assertEqual(e._pyobjc_info_['reason'], 'Format: hello 42')
 
 
 class TestNSException (TestCase):
     def testConstants(self):
-        self.failUnless( isinstance(NSGenericException, unicode) )
-        self.failUnless( isinstance(NSRangeException, unicode) )
-        self.failUnless( isinstance(NSInvalidArgumentException, unicode) )
-        self.failUnless( isinstance(NSInternalInconsistencyException, unicode) )
-        self.failUnless( isinstance(NSMallocException, unicode) )
-        self.failUnless( isinstance(NSObjectInaccessibleException, unicode) )
-        self.failUnless( isinstance(NSObjectNotAvailableException, unicode) )
-        self.failUnless( isinstance(NSDestinationInvalidException, unicode) )
-        self.failUnless( isinstance(NSPortTimeoutException, unicode) )
-        self.failUnless( isinstance(NSInvalidSendPortException, unicode) )
-        self.failUnless( isinstance(NSInvalidReceivePortException, unicode) )
-        self.failUnless( isinstance(NSPortSendException, unicode) )
-        self.failUnless( isinstance(NSPortReceiveException, unicode) )
-        self.failUnless( isinstance(NSOldStyleException, unicode) )
+        self.assertIsInstance(NSGenericException, unicode)
+        self.assertIsInstance(NSRangeException, unicode)
+        self.assertIsInstance(NSInvalidArgumentException, unicode)
+        self.assertIsInstance(NSInternalInconsistencyException, unicode)
+        self.assertIsInstance(NSMallocException, unicode)
+        self.assertIsInstance(NSObjectInaccessibleException, unicode)
+        self.assertIsInstance(NSObjectNotAvailableException, unicode)
+        self.assertIsInstance(NSDestinationInvalidException, unicode)
+        self.assertIsInstance(NSPortTimeoutException, unicode)
+        self.assertIsInstance(NSInvalidSendPortException, unicode)
+        self.assertIsInstance(NSInvalidReceivePortException, unicode)
+        self.assertIsInstance(NSPortSendException, unicode)
+        self.assertIsInstance(NSPortReceiveException, unicode)
+        self.assertIsInstance(NSOldStyleException, unicode)
+
+    @min_os_level('10.6')
+    def testConstants10_6(self):
+        self.assertIsInstance(NSAssertionHandlerKey, unicode)
 
     @expectedFailure
     def testUncaughtExceptionHandler(self):
         self.fail("NSSetUncaughtExceptionHandler")
 
     def testNoAssert(self):
-        self.failIf(hasattr(Foundation, 'NSAssert5'))
-        self.failIf(hasattr(Foundation, 'NSAssert4'))
-        self.failIf(hasattr(Foundation, 'NSAssert3'))
-        self.failIf(hasattr(Foundation, 'NSAssert2'))
-        self.failIf(hasattr(Foundation, 'NSAssert1'))
-        self.failIf(hasattr(Foundation, 'NSAssert'))
-        self.failIf(hasattr(Foundation, 'NSParameterAssert'))
-        self.failIf(hasattr(Foundation, 'NSCAssert5'))
-        self.failIf(hasattr(Foundation, 'NSCAssert4'))
-        self.failIf(hasattr(Foundation, 'NSCAssert3'))
-        self.failIf(hasattr(Foundation, 'NSCAssert2'))
-        self.failIf(hasattr(Foundation, 'NSCAssert1'))
-        self.failIf(hasattr(Foundation, 'NSCAssert'))
-        self.failIf(hasattr(Foundation, 'NSCParameterAssert'))
-    
+        self.assertNotHasAttr(Foundation, 'NSAssert5')
+        self.assertNotHasAttr(Foundation, 'NSAssert4')
+        self.assertNotHasAttr(Foundation, 'NSAssert3')
+        self.assertNotHasAttr(Foundation, 'NSAssert2')
+        self.assertNotHasAttr(Foundation, 'NSAssert1')
+        self.assertNotHasAttr(Foundation, 'NSAssert')
+        self.assertNotHasAttr(Foundation, 'NSParameterAssert')
+        self.assertNotHasAttr(Foundation, 'NSCAssert5')
+        self.assertNotHasAttr(Foundation, 'NSCAssert4')
+        self.assertNotHasAttr(Foundation, 'NSCAssert3')
+        self.assertNotHasAttr(Foundation, 'NSCAssert2')
+        self.assertNotHasAttr(Foundation, 'NSCAssert1')
+        self.assertNotHasAttr(Foundation, 'NSCAssert')
+        self.assertNotHasAttr(Foundation, 'NSCParameterAssert')
     def testMethods(self):
-        self.failUnlessArgIsPrintf(NSException.raise_format_, 1)
+        self.assertArgIsPrintf(NSException.raise_format_, 1)
 
-        self.failUnlessArgIsPrintf(NSAssertionHandler.handleFailureInMethod_object_file_lineNumber_description_, 4)
-        self.failUnlessArgIsPrintf(NSAssertionHandler.handleFailureInFunction_file_lineNumber_description_, 3)
+        self.assertArgIsPrintf(NSAssertionHandler.handleFailureInMethod_object_file_lineNumber_description_, 4)
+        self.assertArgIsPrintf(NSAssertionHandler.handleFailureInFunction_file_lineNumber_description_, 3)
 
 
 if __name__ == '__main__':

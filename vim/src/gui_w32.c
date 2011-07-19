@@ -183,9 +183,10 @@
 # define ID_BEVAL_TOOLTIP   200
 # define BEVAL_TEXT_LEN	    MAXPATHL
 
-#if _MSC_VER < 1300
+#if (defined(_MSC_VER) && _MSC_VER < 1300) || !defined(MAXULONG_PTR)
 /* Work around old versions of basetsd.h which wrongly declares
  * UINT_PTR as unsigned long. */
+# undef  UINT_PTR
 # define UINT_PTR UINT
 #endif
 
@@ -212,12 +213,14 @@ typedef struct _DllVersionInfo
     DWORD dwPlatformID;
 } DLLVERSIONINFO;
 
+#include <poppack.h>
+
 typedef struct tagTOOLINFOA_NEW
 {
 	UINT cbSize;
 	UINT uFlags;
 	HWND hwnd;
-	UINT uId;
+	UINT_PTR uId;
 	RECT rect;
 	HINSTANCE hinst;
 	LPSTR lpszText;
@@ -227,14 +230,12 @@ typedef struct tagTOOLINFOA_NEW
 typedef struct tagNMTTDISPINFO_NEW
 {
     NMHDR      hdr;
-    LPTSTR     lpszText;
+    LPSTR      lpszText;
     char       szText[80];
     HINSTANCE  hinst;
     UINT       uFlags;
     LPARAM     lParam;
 } NMTTDISPINFO_NEW;
-
-#include <poppack.h>
 
 typedef HRESULT (WINAPI* DLLGETVERSIONPROC)(DLLVERSIONINFO *);
 #ifndef TTM_SETMAXTIPWIDTH
@@ -680,40 +681,6 @@ _OnSettingChange(UINT n)
 #endif
     return 0;
 }
-
-#if 0	/* disabled, a gap appears below and beside the window, and the window
-	   can be moved (in a strange way) */
-/*
- * Even though we have _DuringSizing() which makes the rubber band a valid
- * size, we need this for when the user maximises the window.
- * TODO: Doesn't seem to adjust the width though for some reason.
- */
-    static BOOL
-_OnWindowPosChanging(
-    HWND hwnd,
-    LPWINDOWPOS lpwpos)
-{
-    RECT    workarea_rect;
-
-    if (!(lpwpos->flags & SWP_NOSIZE))
-    {
-	if (IsMaximized(hwnd)
-		&& (os_version.dwPlatformId == VER_PLATFORM_WIN32_WINDOWS
-		    || (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
-			&& os_version.dwMajorVersion >= 4)))
-	{
-	    SystemParametersInfo(SPI_GETWORKAREA, 0, &workarea_rect, 0);
-	    lpwpos->x = workarea_rect.left;
-	    lpwpos->y = workarea_rect.top;
-	    lpwpos->cx = workarea_rect.right - workarea_rect.left;
-	    lpwpos->cy = workarea_rect.bottom - workarea_rect.top;
-	}
-	gui_mswin_get_valid_dimensions(lpwpos->cx, lpwpos->cy,
-				     &lpwpos->cx, &lpwpos->cy);
-    }
-    return 0;
-}
-#endif
 
 #ifdef FEAT_NETBEANS_INTG
     static void
@@ -1278,24 +1245,12 @@ gui_mch_prepare(int *argc, char **argv)
 	for (arg = 1; arg < *argc; arg++)
 	    if (strncmp("-nb", argv[arg], 3) == 0)
 	    {
-		usingNetbeans++;
 		netbeansArg = argv[arg];
 		mch_memmove(&argv[arg], &argv[arg + 1],
 					    (--*argc - arg) * sizeof(char *));
 		argv[*argc] = NULL;
 		break;	/* enough? */
 	    }
-
-	if (usingNetbeans)
-	{
-	    WSADATA wsaData;
-	    int wsaerr;
-
-	    /* Init WinSock */
-	    wsaerr = WSAStartup(MAKEWORD(2, 2), &wsaData);
-	    if (wsaerr == 0)
-		WSInitialized = TRUE;
-	}
     }
 #endif
 
@@ -1329,6 +1284,7 @@ gui_mch_init(void)
     WNDCLASS wndclass;
 #ifdef FEAT_MBYTE
     const WCHAR szVimWndClassW[] = VIM_CLASSW;
+    const WCHAR szTextAreaClassW[] = L"VimTextArea";
     WNDCLASSW wndclassw;
 #endif
 #ifdef GLOBAL_IME
@@ -1479,6 +1435,28 @@ gui_mch_init(void)
 #endif
 
     /* Create the text area window */
+#ifdef FEAT_MBYTE
+    if (wide_WindowProc)
+    {
+	if (GetClassInfoW(s_hinst, szTextAreaClassW, &wndclassw) == 0)
+	{
+	    wndclassw.style = CS_OWNDC;
+	    wndclassw.lpfnWndProc = _TextAreaWndProc;
+	    wndclassw.cbClsExtra = 0;
+	    wndclassw.cbWndExtra = 0;
+	    wndclassw.hInstance = s_hinst;
+	    wndclassw.hIcon = NULL;
+	    wndclassw.hCursor = LoadCursor(NULL, IDC_ARROW);
+	    wndclassw.hbrBackground = NULL;
+	    wndclassw.lpszMenuName = NULL;
+	    wndclassw.lpszClassName = szTextAreaClassW;
+
+	    if (RegisterClassW(&wndclassw) == 0)
+		return FAIL;
+	}
+    }
+    else
+#endif
     if (GetClassInfo(s_hinst, szTextAreaClass, &wndclass) == 0)
     {
 	wndclass.style = CS_OWNDC;
@@ -2249,12 +2227,8 @@ gui_mch_draw_string(
 #ifdef FEAT_MBYTE
 	if (has_mbyte)
 	{
-	    int cell_len = 0;
-
 	    /* Compute the length in display cells. */
-	    for (n = 0; n < len; n += MB_BYTE2LEN(text[n]))
-		cell_len += (*mb_ptr2cells)(text + n);
-	    rc.right = FILL_X(col + cell_len);
+	    rc.right = FILL_X(col + mb_string2cells(text, len));
 	}
 	else
 #endif
@@ -2955,7 +2929,7 @@ dialog_callback(
 	     * codepage: use wide function and convert text. */
 	    if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
 		    && enc_codepage >= 0 && (int)GetACP() != enc_codepage)
-            {
+	    {
 	       WCHAR  *wp = (WCHAR *)alloc(IOSIZE * sizeof(WCHAR));
 	       char_u *p;
 
@@ -3070,14 +3044,8 @@ gui_mch_dialog(
 	return dfltbutton;   /* return default option */
 #endif
 
-#if 0
-    /* If there is no window yet, open it. */
-    if (s_hwnd == NULL && gui_mch_init() == FAIL)
-	return dfltbutton;
-#else
     if (s_hwnd == NULL)
 	get_dialog_font_metrics();
-#endif
 
     if ((type < 0) || (type > VIM_LAST_TYPE))
 	type = 0;
@@ -3435,15 +3403,6 @@ gui_mch_dialog(
 	    DLG_NONBUTTON_CONTROL + 0, (WORD)0x0082,
 	    dlg_icons[type]);
 
-#if 0
-    /* Dialog message */
-    p = add_dialog_element(p, SS_LEFT,
-	    PixelToDialogX(2 * dlgPaddingX + DLG_ICON_WIDTH),
-	    PixelToDialogY(dlgPaddingY),
-	    (WORD)(PixelToDialogX(messageWidth) + 1),
-	    PixelToDialogY(msgheight),
-	    DLG_NONBUTTON_CONTROL + 1, (WORD)0x0082, message);
-#else
     /* Dialog message */
     p = add_dialog_element(p, ES_LEFT|scroll_flag|ES_MULTILINE|ES_READONLY,
 	    PixelToDialogX(2 * dlgPaddingX + DLG_ICON_WIDTH),
@@ -3451,7 +3410,6 @@ gui_mch_dialog(
 	    (WORD)(PixelToDialogX(messageWidth) + 1),
 	    PixelToDialogY(msgheight),
 	    DLG_NONBUTTON_CONTROL + 1, (WORD)0x0081, message);
-#endif
 
     /* Edit box */
     if (textfield != NULL)
@@ -4281,18 +4239,6 @@ dyn_imm_load(void)
     return;
 }
 
-# if 0	/* not used */
-    int
-dyn_imm_unload(void)
-{
-    if (!hLibImm)
-	return FALSE;
-    FreeLibrary(hLibImm);
-    hLibImm = NULL;
-    return TRUE;
-}
-# endif
-
 #endif
 
 #if defined(FEAT_SIGN_ICONS) || defined(PROTO)
@@ -4686,7 +4632,7 @@ gui_mch_enable_beval_area(beval)
     if (beval == NULL)
 	return;
     // TRACE0("gui_mch_enable_beval_area {{{");
-    BevalTimerId = SetTimer(s_textArea, 0, p_bdlay / 2, BevalTimerProc);
+    BevalTimerId = SetTimer(s_textArea, 0, (UINT)(p_bdlay / 2), BevalTimerProc);
     // TRACE0("gui_mch_enable_beval_area }}}");
 }
 
@@ -4754,9 +4700,7 @@ gui_mch_create_beval_area(target, mesg, mesgCB, clientData)
 
 /*ARGSUSED*/
     static void
-Handle_WM_Notify(hwnd, pnmh)
-    HWND hwnd;
-    LPNMHDR pnmh;
+Handle_WM_Notify(HWND hwnd, LPNMHDR pnmh)
 {
     if (pnmh->idFrom != ID_BEVAL_TOOLTIP) /* it is not our tooltip */
 	return;
@@ -4817,6 +4761,9 @@ netbeans_draw_multisign_indicator(int row)
     int y;
     int x;
 
+    if (!netbeans_active())
+	return;
+
     x = 0;
     y = TEXT_Y(row);
 
@@ -4830,5 +4777,22 @@ netbeans_draw_multisign_indicator(int row)
     SetPixel(s_hdc, x+2, y, gui.currFgColor);
     SetPixel(s_hdc, x+3, y++, gui.currFgColor);
     SetPixel(s_hdc, x+2, y, gui.currFgColor);
+}
+
+/*
+ * Initialize the Winsock dll.
+ */
+    void
+netbeans_init_winsock()
+{
+    WSADATA wsaData;
+    int wsaerr;
+
+    if (WSInitialized)
+	return;
+
+    wsaerr = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (wsaerr == 0)
+	WSInitialized = TRUE;
 }
 #endif

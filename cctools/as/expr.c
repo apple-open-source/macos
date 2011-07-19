@@ -27,7 +27,7 @@ the Free Software Foundation, 675 Mass Ave, Cambridge, MA 02139, USA.  */
 #include <ctype.h>
 #include <stdlib.h>
 #include <string.h>
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "as.h"
 #include "flonum.h"
 #include "struc-symbol.h"
@@ -1365,7 +1365,7 @@ expressionS *expressionP) /* Deliver result here. */
 			while(!fail && frag != NULL &&
 			      frag != add_symbol->sy_frag){
 			    if(frag->fr_type == rs_align)
-				size = round(size + frag->fr_fix,
+				size = rnd(size + frag->fr_fix,
 					     1 << frag->fr_offset);
 			    else if(frag->fr_type == rs_fill)
 				size += frag->fr_fix +

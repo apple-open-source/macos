@@ -17,7 +17,7 @@ instead. Skip this part if you know what joins are..
 But I'll explain anyway. Assuming you have created your database in a
 more or less sensible way, you will end up with several tables that
 contain C<related> information. For example, you may have a table
-containing information about C<CDs>, containing the CD title and it's
+containing information about C<CD>s, containing the CD title and it's
 year of publication, and another table containing all the C<Track>s
 for the CDs, one track per row.
 
@@ -34,7 +34,8 @@ to fetch the tracks, or you can use a join. Compare:
 So, joins are a way of extending simple select statements to include
 fields from other, related, tables. There are various types of joins,
 depending on which combination of the data you wish to retrieve, see
-L<MySQL's doc on JOINs|http://dev.mysql.com/doc/refman/5.0/en/join.html>.
+MySQL's doc on JOINs:
+L<http://dev.mysql.com/doc/refman/5.0/en/join.html>.
 
 =head1 DEFINING JOINS AND RELATIONSHIPS
 
@@ -42,7 +43,7 @@ In L<DBIx::Class> each relationship between two tables needs to first
 be defined in the L<ResultSource|DBIx::Class::Manual::Glossary/ResultSource> for the
 table. If the relationship needs to be accessed in both directions
 (i.e. Fetch all tracks of a CD, and fetch the CD data for a Track),
-then it needs to be defined in both tables.
+then it needs to be defined for both tables.
 
 For the CDs/Tracks example, that means writing, in C<MySchema::CD>:
 
@@ -68,14 +69,15 @@ L<DBIx::Class::Relationship> docs.
 
 When performing either a L<search|DBIx::Class::ResultSet/search> or a
 L<find|DBIx::Class::ResultSet/find> operation, you can specify which
-C<relations> to also fetch data from (or sort by), using the
+C<relations> to also refine your results based on, using the
 L<join|DBIx::Class::ResultSet/join> attribute, like this:
 
   $schema->resultset('CD')->search(
-    { 'Title' => 'Funky CD' },
+    { 'Title' => 'Funky CD',
+      'tracks.Name' => { like => 'T%' }
+    },
     { join      => 'tracks',
-      '+select' => [ 'tracks.Name', 'tracks.Artist' ],
-      '+as'     => [ 'TrackName', 'ArtistName' ]
+      order_by  => ['tracks.id'],
     }
   );
 
@@ -84,24 +86,131 @@ read L<DBIx::Class::ResultSet/search> and
 L<DBIx::Class::ResultSet/ATTRIBUTES>, but here's a quick break down:
 
 The first argument to search is a hashref of the WHERE attributes, in
-this case a simple restriction on the Title column. The second
-argument is a hashref of attributes to the search, '+select' adds
-extra columns to the select (from the joined table(s) or from
-calculations), and '+as' gives aliases to those fields.
+this case a restriction on the Title column in the CD table, and a
+restriction on the name of the track in the Tracks table, but ONLY for
+tracks actually related to the chosen CD(s). The second argument is a
+hashref of attributes to the search, the results will be returned
+sorted by the C<id> of the related tracks.
 
-'join' specifies which C<relationships> to include in the query. The
-distinction between C<relationships> and C<tables> is important here,
-only the C<relationship> names are valid.
+The special 'join' attribute specifies which C<relationships> to
+include in the query. The distinction between C<relationships> and
+C<tables> is important here, only the C<relationship> names are valid.
 
-This example should magically produce SQL like the second select in
-L</WHAT ARE JOINS> above.
+This slightly nonsense example will produce SQL similar to:
+
+  SELECT cd.ID, cd.Title, cd.Year FROM CD cd JOIN Tracks tracks ON cd.ID = tracks.CDID WHERE cd.Title = 'Funky CD' AND tracks.Name LIKE 'T%' ORDER BY 'tracks.id';
+
+=head1 FETCHING RELATED DATA
+
+Another common use for joining to related tables, is to fetch the data
+from both tables in one query, preventing extra round-trips to the
+database. See the example above in L</WHAT ARE JOINS>.
+
+Three techniques are described here. Of the three, only the
+C<prefetch> technique will deal sanely with fetching related objects
+over a C<has_many> relation. The others work fine for 1 to 1 type
+relationships.
+
+=head2 Whole related objects
+
+To fetch entire related objects, e.g. CDs and all Track data, use the
+'prefetch' attribute:
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD',
+    },
+    { prefetch      => 'tracks',
+      order_by  => ['tracks.id'],
+    }
+  );
+
+This will produce SQL similar to the following:
+
+  SELECT cd.ID, cd.Title, cd.Year, tracks.id, tracks.Name, tracks.Artist FROM CD JOIN Tracks ON CD.ID = tracks.CDID WHERE cd.Title = 'Funky CD' ORDER BY 'tracks.id';
+
+The syntax of 'prefetch' is the same as 'join' and implies the
+joining, so there is no need to use both together.
+
+=head2 Subset of related fields
+
+To fetch a subset or the related fields, the '+select' and '+as'
+attributes can be used. For example, if the CD data is required and
+just the track name from the Tracks table:
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD',
+    },
+    { join      => 'tracks',
+      '+select' => ['tracks.Name'],
+      '+as'     => ['track_name'],
+      order_by  => ['tracks.id'],
+    }
+  );
+
+Which will produce the query:
+
+  SELECT cd.ID, cd.Title, cd.Year, tracks.Name FROM CD JOIN Tracks ON CD.ID = tracks.CDID WHERE cd.Title = 'Funky CD' ORDER BY 'tracks.id';
+
+Note that the '+as' does not produce an SQL 'AS' keyword in the
+output, see the L<DBIx::Class::Manual::FAQ> for an explanation.
+
+This type of column restriction has a downside, the resulting $row
+object will have no 'track_name' accessor:
+
+  while(my $row = $search_rs->next) {
+     print $row->track_name; ## ERROR
+  }
+
+Instead C<get_column> must be used:
+
+  while(my $row = $search_rs->next) {
+     print $row->get_colum('track_name'); ## WORKS
+  }
+
+=head2 Incomplete related objects
+
+In rare circumstances, you may also wish to fetch related data as
+incomplete objects. The usual reason to do is when the related table
+has a very large field you don't need for the current data
+output. This is better solved by storing that field in a separate
+table which you only join to when needed.
+
+To fetch an incomplete related object, supply the dotted notation to the '+as' attribute: 
+
+  $schema->resultset('CD')->search(
+    { 'Title' => 'Funky CD',
+    },
+    { join      => 'tracks',
+      '+select' => ['tracks.Name'],
+      '+as'     => ['tracks.Name'], 
+      order_by  => ['tracks.id'],
+    }
+  );
+
+Which will produce same query as above;
+
+  SELECT cd.ID, cd.Title, cd.Year, tracks.Name FROM CD JOIN Tracks ON CD.ID = tracks.CDID WHERE cd.Title = 'Funky CD' ORDER BY 'tracks.id';
+
+Now you can access the result using the relationship accessor:
+
+  while(my $row = $search_rs->next) {
+     print $row->tracks->name; ## WORKS
+  }
+
+However, this will produce broken objects. If the tracks id column is
+not fetched, the object will not be usable for any operation other
+than reading its data. Use the L</Whole related objects> method as
+much as possible to avoid confusion in your code later.
+
+Broken means: Update will not work. Fetching other related objects
+will not work. Deleting the object will not work.
 
 =head1 COMPLEX JOINS AND STUFF
 
 =head2 Across multiple relations
 
 For simplicity in the example above, the C<Artist> was shown as a
-simple text firld in the C<Tracks> table, in reality, you'll want to
+simple text field in the C<Tracks> table, in reality, you'll want to
 have the artists in their own table as well, thus to fetch the
 complete set of data we'll need to join to the Artist table too.
 
@@ -114,18 +223,16 @@ The search:
   $schema->resultset('CD')->search(
     { 'Title' => 'Funky CD' },
     { join      => { 'tracks' => 'artist' },
-      '+select' => [ 'tracks.Name', 'artist.Artist' ],
-      '+as'     => [ 'TrackName', 'ArtistName' ]
     }
   );
 
 Which is:
 
-  SELECT me.ID, me.Title, me.Year, tracks.Name, artist.Artist FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD';
+  SELECT me.ID, me.Title, me.Year FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD';
 
 To perform joins using relations of the tables you are joining to, use
 a hashref to indicate the join depth. This can theoretically go as
-deep as you like (warning, contrived examples!): 
+deep as you like (warning: contrived examples!): 
 
   join => { room => { table => 'leg' } }
 
@@ -147,12 +254,10 @@ you need to add grouping or ordering to your queries:
     { 'Title' => 'Funky CD' },
     { join      => { 'tracks' => 'artist' },
       order_by  => [ 'tracks.Name', 'artist.Artist' ],
-      '+select' => [ 'tracks.Name', 'artist.Artist' ],
-      '+as'     => [ 'TrackName', 'ArtistName' ]
     }
   );
 
-  SELECT me.ID, me.Title, me.Year, tracks.Name, artist.Artist FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD' ORDER BY tracks.Name, artist.Artist;
+  SELECT me.ID, me.Title, me.Year FROM CD me JOIN Tracks tracks ON CD.ID = tracks.CDID JOIN Artists artist ON tracks.ArtistID = artist.ID WHERE me.Title = 'Funky CD' ORDER BY tracks.Name, artist.Artist;
 
 This is essential if any of your tables have columns with the same names.
 

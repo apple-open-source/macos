@@ -42,9 +42,9 @@ time_t tstamp ( time_t last, FILE *f )
 
   now = time ( 0 ) ;
 
-  strftime ( tbuf, MAXTSTAMP,  ( now - last > 600 ) ? "%c" : "%M:%S",
-	    localtime( &now ) ) ;
-  fputs ( tbuf, f ) ;
+  if (strftime ( tbuf, MAXTSTAMP,  ( now - last > 600 ) ? "%c" : "%M:%S",
+	    localtime( &now ) ))
+    fputs ( tbuf, f ) ;
 
   return now ;
 }

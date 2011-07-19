@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2003-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2003-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -154,8 +154,8 @@ SCNetworkCheckReachabilityByAddress	(
 		Note: this API has been deprecated but you can
 		      get equivalent results with :
 <pre>
-	SCNetworkReachabiltyRef   target;
-	SCNetworkReachabiltyFlags flags = 0;
+	SCNetworkReachabilityRef   target;
+	SCNetworkReachabilityFlags flags = 0;
 	Boolean                   ok;
 
 	target = SCNetworkReachabilityCreateWithName(NULL, name);

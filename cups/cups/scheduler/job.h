@@ -1,9 +1,9 @@
 /*
  * "$Id: job.h 7883 2008-08-28 20:38:13Z mike $"
  *
- *   Print job definitions for the Common UNIX Printing System (CUPS) scheduler.
+ *   Print job definitions for the CUPS scheduler.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -40,6 +40,7 @@ struct cupsd_job_s			/**** Job request ****/
   char			*username;	/* Printing user */
   char			*dest;		/* Destination printer or class */
   cups_ptype_t		dtype;		/* Destination type */
+  cupsd_printer_t	*printer;	/* Printer this job is assigned to */
   int			num_files;	/* Number of files in job */
   mime_type_t		**filetypes;	/* File types */
   int			*compressions;	/* Compression status of each file */
@@ -68,21 +69,13 @@ struct cupsd_job_s			/**** Job request ****/
 					/* Filter process IDs, 0 terminated */
   int			backend;	/* Backend process ID */
   int			status;		/* Status code from filters */
-  cupsd_printer_t	*printer;	/* Printer this job is assigned to */
   int			tries;		/* Number of tries for this job */
-  char			*auth_username,	/* AUTH_USERNAME environment variable,
+  char			*auth_env[3],	/* AUTH_xxx environment variables,
                                          * if any */
-			*auth_domain,	/* AUTH_DOMAIN environment variable,
-					 * if any */
-			*auth_password;	/* AUTH_PASSWORD environment variable,
-					 * if any */
+			*auth_uid;	/* AUTH_UID environment variable */
   void			*profile;	/* Security profile */
   cups_array_t		*history;	/* Debug log history */
   int			progress;	/* Printing progress */
-#ifdef HAVE_GSSAPI
-  krb5_ccache		ccache;		/* Kerberos credential cache */
-  char			*ccname;	/* KRB5CCNAME environment variable */
-#endif /* HAVE_GSSAPI */
 };
 
 typedef struct cupsd_joblog_s		/**** Job log message ****/

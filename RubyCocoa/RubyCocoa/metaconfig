@@ -25,6 +25,14 @@ module RubyCocoaConfig
     # "#{RubyCocoaConfig::VERSION}_RUBY-#{RUBY_VERSION}"
     "A"
   end
+
+  def archs
+    # collect ruby's -arch flags from Config::CONFIG
+    flags = [Config::CONFIG['CFLAGS'], Config::CONFIG['LDFLAGS'],
+            Config::CONFIG['ARCH_FLAG']].join(' ')
+    archs = flags.scan(/(?:\s?-arch\s+(\w+))/).flatten.uniq
+    archs.join(' ')
+  end
 end
 
 ### install destination ### 
@@ -81,17 +89,14 @@ add_path_config 'ri-dir',
   "#{Config::CONFIG['datadir']}/ri/#{Config::CONFIG['ruby_version']}/site",
   'the directory for ri files'
 
-if RubyCocoaConfig.system_version.to_f >= 10.4
-  add_bool_config 'build-universal', RubyCocoaConfig.system_version.to_f >= 10.5,
-    'yes, build universal binary (requires Xcode 2.1 or later and SDK)'
-end
-
 add_config 'macosx-deployment-target', 'version', 
   sprintf('%02.1f', RubyCocoaConfig.system_version.to_f),
   'target Mac OS X version'
 
-add_config 'sdkroot', 'sdkroot path', '',
-  '$SDKROOT of Xcode. automatically sets when --build-universal=yes for 10.4'
+add_config 'sdkroot', 'sdkroot-path', '', '$SDKROOT of Xcode.'
+
+add_config 'target-archs', 'arch(s)', RubyCocoaConfig.archs,
+  '$ARCHS of Xcode. target architecture type(s)'
 
 ### versioning ### 
 

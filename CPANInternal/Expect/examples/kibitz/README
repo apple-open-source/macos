@@ -1,0 +1,18 @@
+This is a port of the tcl/expect script 'kibitz' to the perl Expect module.
+
+I have always found it useful to debug user problems and in training new
+admins.  Since the wonderful Expect module has come into existance I've
+had no need to install tcl/expect except to get the kibitz program on my
+system.  I finally got around to converting it for my own use and thought
+the rest of the world might find a similar use for it.
+
+It "should be", but is not quite compatible with the original.  I'm working
+on that.  I also plan to port xkibitz unless someone beats me to it.
+
+The man page is hacked from the original kibitz man page.  This version
+also takes a shortcut when deciding if the connection should use rlogin.
+If user@host is specified it assumes remote.  If only user is given it
+assumes local.  All options valid for the original program are accepted, but
+some are ignored (-catu).
+
+  -Lee

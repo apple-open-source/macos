@@ -30,6 +30,12 @@ def FeatureCIX : SubtargetFeature<"cix", "HasCT", "true",
 include "AlphaRegisterInfo.td"
 
 //===----------------------------------------------------------------------===//
+// Calling Convention Description
+//===----------------------------------------------------------------------===//
+
+include "AlphaCallingConv.td"
+
+//===----------------------------------------------------------------------===//
 // Schedule Description
 //===----------------------------------------------------------------------===//
 
@@ -41,11 +47,7 @@ include "AlphaSchedule.td"
 
 include "AlphaInstrInfo.td"
 
-def AlphaInstrInfo : InstrInfo {
-  // Define how we want to layout our target-specific information field.
- // let TSFlagsFields = [];
- // let TSFlagsShifts = [];
-}
+def AlphaInstrInfo : InstrInfo;
 
 //===----------------------------------------------------------------------===//
 // Alpha Processor Definitions

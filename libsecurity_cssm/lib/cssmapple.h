@@ -457,7 +457,7 @@ enum
 	CSSMERR_APPLETP_SMIME_EMAIL_ADDRS_NOT_FOUND =	CSSM_TP_PRIVATE_ERROR + 24,
 	/* Appropriate S/MIME ExtendedKeyUsage not found */
 	CSSMERR_APPLETP_SMIME_BAD_EXT_KEY_USE =			CSSM_TP_PRIVATE_ERROR + 25,
-	/* S/MIME KeyUsage incompatiblity */
+	/* S/MIME KeyUsage incompatibility */
 	CSSMERR_APPLETP_SMIME_BAD_KEY_USE =	  			CSSM_TP_PRIVATE_ERROR + 26,
 	/* S/MIME, cert with KeyUsage flagged !critical */
 	CSSMERR_APPLETP_SMIME_KEYUSAGE_NOT_CRITICAL =	CSSM_TP_PRIVATE_ERROR + 27,

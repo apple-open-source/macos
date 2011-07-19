@@ -28,17 +28,8 @@ bool Path::operator==(const Path &that) const {
   return path == that.path;
 }
 
-bool Path::operator!=(const Path &that) const {
-  return path != that.path;
-}
-
 bool Path::operator<(const Path& that) const {
   return path < that.path;
-}
-
-std::ostream& llvm::operator<<(std::ostream &strm, const sys::Path &aPath) {
-  strm << aPath.toString();
-  return strm;
 }
 
 Path
@@ -55,7 +46,7 @@ LLVMFileType
 sys::IdentifyFileType(const char *magic, unsigned length) {
   assert(magic && "Invalid magic number string");
   assert(length >=4 && "Invalid magic number length");
-  switch (magic[0]) {
+  switch ((unsigned char)magic[0]) {
     case 0xDE:  // 0x0B17C0DE = BC wraper
       if (magic[1] == (char)0xC0 && magic[2] == (char)0x17 &&
           magic[3] == (char)0x0B)
@@ -185,7 +176,7 @@ Path::FindLibrary(std::string& name) {
   return sys::Path();
 }
 
-std::string Path::GetDLLSuffix() {
+StringRef Path::GetDLLSuffix() {
   return LTDL_SHLIB_EXT;
 }
 
@@ -200,23 +191,11 @@ Path::isBitcodeFile() const {
   return FT == Bitcode_FileType;
 }
 
-bool Path::hasMagicNumber(const std::string &Magic) const {
+bool Path::hasMagicNumber(StringRef Magic) const {
   std::string actualMagic;
   if (getMagicNumber(actualMagic, static_cast<unsigned>(Magic.size())))
     return Magic == actualMagic;
   return false;
-}
-
-void Path::makeAbsolute() {
-  if (isAbsolute())
-    return;
-
-  Path CWD = Path::GetCurrentDirectory();
-  assert(CWD.isAbsolute() && "GetCurrentDirectory returned relative path!");
-
-  CWD.appendComponent(path);
-
-  path = CWD.toString();
 }
 
 static void getPathList(const char*path, std::vector<Path>& Paths) {
@@ -238,8 +217,9 @@ static void getPathList(const char*path, std::vector<Path>& Paths) {
         Paths.push_back(tmpPath);
 }
 
-static std::string getDirnameCharSep(const std::string& path, char Sep) {
-  
+static StringRef getDirnameCharSep(StringRef path, const char *Sep) {
+  assert(Sep[0] != '\0' && Sep[1] == '\0' &&
+         "Sep must be a 1-character string literal.");
   if (path.empty())
     return ".";
   
@@ -248,31 +228,31 @@ static std::string getDirnameCharSep(const std::string& path, char Sep) {
   
   signed pos = static_cast<signed>(path.size()) - 1;
   
-  while (pos >= 0 && path[pos] == Sep)
+  while (pos >= 0 && path[pos] == Sep[0])
     --pos;
   
   if (pos < 0)
-    return path[0] == Sep ? std::string(1, Sep) : std::string(".");
+    return path[0] == Sep[0] ? Sep : ".";
   
   // Any slashes left?
   signed i = 0;
   
-  while (i < pos && path[i] != Sep)
+  while (i < pos && path[i] != Sep[0])
     ++i;
   
   if (i == pos) // No slashes?  Return "."
     return ".";
   
   // There is at least one slash left.  Remove all trailing non-slashes.  
-  while (pos >= 0 && path[pos] != Sep)
+  while (pos >= 0 && path[pos] != Sep[0])
     --pos;
   
   // Remove any trailing slashes.
-  while (pos >= 0 && path[pos] == Sep)
+  while (pos >= 0 && path[pos] == Sep[0])
     --pos;
   
   if (pos < 0)
-    return path[0] == Sep ? std::string(1, Sep) : std::string(".");
+    return path[0] == Sep[0] ? Sep : ".";
   
   return path.substr(0, pos+1);
 }

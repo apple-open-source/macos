@@ -71,15 +71,20 @@ bool AccessibilityTableCell::accessibilityIsIgnored() const
 AccessibilityObject* AccessibilityTableCell::parentTable() const
 {
     if (!m_renderer || !m_renderer->isTableCell())
-        return false;
+        return 0;
     
-    return axObjectCache()->getOrCreate(toRenderTableCell(m_renderer)->table());
+    // Do not use getOrCreate. parentTable() can be called while the render tree is being modified 
+    // by javascript, and creating a table element may try to access the render tree while in a bad state.
+    // By using only get() implies that the AXTable must be created before AXTableCells. This should
+    // always be the case when AT clients access a table.
+    // https://bugs.webkit.org/show_bug.cgi?id=42652    
+    return axObjectCache()->get(toRenderTableCell(m_renderer)->table());
 }
     
 bool AccessibilityTableCell::isTableCell() const
 {
     AccessibilityObject* table = parentTable();
-    if (!table || !table->isDataTable())
+    if (!table || !table->isAccessibilityTable())
         return false;
     
     return true;
@@ -160,7 +165,7 @@ AccessibilityObject* AccessibilityTableCell::titleUIElement() const
     if (!section)
         return 0;
     
-    RenderTableCell* headerCell = section->cellAt(row, 0).cell;
+    RenderTableCell* headerCell = section->primaryCellAt(row, 0);
     if (!headerCell || headerCell == renderCell)
         return 0;
 

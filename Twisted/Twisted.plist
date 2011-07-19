@@ -3,21 +3,21 @@
 <plist version="1.0">
 <dict>
 	<key>OpenSourceImportDate</key>
-	<string>2009-03-16</string>
+	<string>2011-04-05</string>
 	<key>OpenSourceLicense</key>
 	<string>MIT</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>Twisted.txt</string>
 	<key>OpenSourceMD5</key>
-	<string>c85f151999df3ecf04c49a781b4438d2</string>
+	<string>d7f94a1609a1b8f3b8c8d0146d4cfe54</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceProject</key>
 	<string>Twisted</string>
 	<key>OpenSourceURL</key>
-	<string>http://tmrc.mit.edu/mirror/twisted/Twisted/8.2/Twisted-8.2.0.tar.bz2</string>
+	<string>http://pypi.python.org/packages/source/T/Twisted/Twisted-11.0.0.tar.bz2</string>
 	<key>OpenSourceVersion</key>
-	<string>8.2.0</string>
+	<string>11.0.0</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://twistedmatrix.com/</string>
 </dict>

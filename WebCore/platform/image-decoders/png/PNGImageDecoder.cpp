@@ -39,7 +39,15 @@
 
 #include "config.h"
 #include "PNGImageDecoder.h"
+
 #include "png.h"
+#include <wtf/PassOwnPtr.h>
+
+#if defined(PNG_LIBPNG_VER_MAJOR) && defined(PNG_LIBPNG_VER_MINOR) && (PNG_LIBPNG_VER_MAJOR > 1 || (PNG_LIBPNG_VER_MAJOR == 1 && PNG_LIBPNG_VER_MINOR >= 4))
+#define JMPBUF(png_ptr) png_jmpbuf(png_ptr)
+#else
+#define JMPBUF(png_ptr) png_ptr->jmpbuf
+#endif
 
 namespace WebCore {
 
@@ -54,7 +62,7 @@ const unsigned long cMaxPNGSize = 1000000UL;
 // Called if the decoding of the image fails.
 static void PNGAPI decodingFailed(png_structp png, png_const_charp)
 {
-    longjmp(png->jmpbuf, 1);
+    longjmp(JMPBUF(png), 1);
 }
 
 // Callbacks given to the read struct.  The first is for warnings (we want to
@@ -125,10 +133,8 @@ public:
         PNGImageDecoder* decoder = static_cast<PNGImageDecoder*>(png_get_progressive_ptr(m_png));
 
         // We need to do the setjmp here. Otherwise bad things will happen.
-        if (setjmp(m_png->jmpbuf)) {
-            close();
+        if (setjmp(JMPBUF(m_png)))
             return decoder->setFailed();
-        }
 
         const char* segment;
         while (unsigned segmentLength = data.getSomeData(segment, m_readOffset)) {
@@ -165,7 +171,10 @@ private:
     unsigned m_currentBufferSize;
 };
 
-PNGImageDecoder::PNGImageDecoder()
+PNGImageDecoder::PNGImageDecoder(ImageSource::AlphaOption alphaOption,
+                                 ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
+    , m_doNothingOnFailure(false)
 {
 }
 
@@ -190,41 +199,88 @@ bool PNGImageDecoder::setSize(unsigned width, unsigned height)
     return true;
 }
 
-RGBA32Buffer* PNGImageDecoder::frameBufferAtIndex(size_t index)
+ImageFrame* PNGImageDecoder::frameBufferAtIndex(size_t index)
 {
     if (index)
         return 0;
 
-    if (m_frameBufferCache.isEmpty())
+    if (m_frameBufferCache.isEmpty()) {
         m_frameBufferCache.resize(1);
+        m_frameBufferCache[0].setPremultiplyAlpha(m_premultiplyAlpha);
+    }
 
-    RGBA32Buffer& frame = m_frameBufferCache[0];
-    if (frame.status() != RGBA32Buffer::FrameComplete)
+    ImageFrame& frame = m_frameBufferCache[0];
+    if (frame.status() != ImageFrame::FrameComplete)
         decode(false);
     return &frame;
+}
+
+bool PNGImageDecoder::setFailed()
+{
+    if (m_doNothingOnFailure)
+        return false;
+    m_reader.clear();
+    return ImageDecoder::setFailed();
+}
+
+static ColorProfile readColorProfile(png_structp png, png_infop info)
+{
+#ifdef PNG_iCCP_SUPPORTED
+    char* profileName;
+    int compressionType;
+#if (PNG_LIBPNG_VER < 10500)
+    png_charp profile;
+#else
+    png_bytep profile;
+#endif
+    png_uint_32 profileLength;
+    if (png_get_iCCP(png, info, &profileName, &compressionType, &profile, &profileLength)) {
+        ColorProfile colorProfile;
+        colorProfile.append(profile, profileLength);
+        return colorProfile;
+    }
+#endif
+    return ColorProfile();
 }
 
 void PNGImageDecoder::headerAvailable()
 {
     png_structp png = m_reader->pngPtr();
     png_infop info = m_reader->infoPtr();
-    png_uint_32 width = png->width;
-    png_uint_32 height = png->height;
+    png_uint_32 width = png_get_image_width(png, info);
+    png_uint_32 height = png_get_image_height(png, info);
     
     // Protect against large images.
-    if (png->width > cMaxPNGSize || png->height > cMaxPNGSize) {
-        longjmp(png->jmpbuf, 1);
+    if (width > cMaxPNGSize || height > cMaxPNGSize) {
+        longjmp(JMPBUF(png), 1);
         return;
     }
     
-    // We can fill in the size now that the header is available.
-    if (!setSize(width, height)) {
-        longjmp(png->jmpbuf, 1);
+    // We can fill in the size now that the header is available.  Avoid memory
+    // corruption issues by neutering setFailed() during this call; if we don't
+    // do this, failures will cause |m_reader| to be deleted, and our jmpbuf
+    // will cease to exist.  Note that we'll still properly set the failure flag
+    // in this case as soon as we longjmp().
+    m_doNothingOnFailure = true;
+    bool result = setSize(width, height);
+    m_doNothingOnFailure = false;
+    if (!result) {
+        longjmp(JMPBUF(png), 1);
         return;
     }
 
     int bitDepth, colorType, interlaceType, compressionType, filterType, channels;
     png_get_IHDR(png, info, &width, &height, &bitDepth, &colorType, &interlaceType, &compressionType, &filterType);
+
+    if ((colorType == PNG_COLOR_TYPE_RGB || colorType == PNG_COLOR_TYPE_RGB_ALPHA) && !m_ignoreGammaAndColorProfile) {
+        // We currently support color profiles only for RGB and RGBA PNGs.  Supporting
+        // color profiles for gray-scale images is slightly tricky, at least using the
+        // CoreGraphics ICC library, because we expand gray-scale images to RGB but we
+        // don't similarly transform the color profile.  We'd either need to transform
+        // the color profile or we'd need to decode into a gray-scale image buffer and
+        // hand that to CoreGraphics.
+        m_colorProfile = readColorProfile(png, info);
+    }
 
     // The options we set here match what Mozilla does.
 
@@ -247,7 +303,7 @@ void PNGImageDecoder::headerAvailable()
 
     // Deal with gamma and keep it under our control.
     double gamma;
-    if (png_get_gAMA(png, info, &gamma)) {
+    if (!m_ignoreGammaAndColorProfile && png_get_gAMA(png, info, &gamma)) {
         if ((gamma <= 0.0) || (gamma > cMaxGamma)) {
             gamma = cInverseGamma;
             png_set_gAMA(png, info, gamma);
@@ -268,9 +324,14 @@ void PNGImageDecoder::headerAvailable()
     m_reader->setHasAlpha(channels == 4);
 
     if (m_reader->decodingSizeOnly()) {
-        // If we only needed the size, halt the reader.     
+        // If we only needed the size, halt the reader.
+#if defined(PNG_LIBPNG_VER_MAJOR) && defined(PNG_LIBPNG_VER_MINOR) && (PNG_LIBPNG_VER_MAJOR > 1 || (PNG_LIBPNG_VER_MAJOR == 1 && PNG_LIBPNG_VER_MINOR >= 5))
+        // '0' argument to png_process_data_pause means: Do not cache unprocessed data.
+        m_reader->setReadOffset(m_reader->currentBufferSize() - png_process_data_pause(png, 0));
+#else
         m_reader->setReadOffset(m_reader->currentBufferSize() - png->buffer_size);
         png->buffer_size = 0;
+#endif
     }
 }
 
@@ -280,19 +341,20 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
         return;
 
     // Initialize the framebuffer if needed.
-    RGBA32Buffer& buffer = m_frameBufferCache[0];
-    if (buffer.status() == RGBA32Buffer::FrameEmpty) {
+    ImageFrame& buffer = m_frameBufferCache[0];
+    if (buffer.status() == ImageFrame::FrameEmpty) {
         if (!buffer.setSize(scaledSize().width(), scaledSize().height())) {
-            longjmp(m_reader->pngPtr()->jmpbuf, 1);
+            longjmp(JMPBUF(m_reader->pngPtr()), 1);
             return;
         }
-        buffer.setStatus(RGBA32Buffer::FramePartial);
+        buffer.setStatus(ImageFrame::FramePartial);
         buffer.setHasAlpha(false);
+        buffer.setColorProfile(m_colorProfile);
 
         // For PNGs, the frame always fills the entire image.
-        buffer.setRect(IntRect(IntPoint(), size()));
+        buffer.setOriginalFrameRect(IntRect(IntPoint(), size()));
 
-        if (m_reader->pngPtr()->interlaced)
+        if (png_get_interlace_type(m_reader->pngPtr(), m_reader->infoPtr()) != PNG_INTERLACE_NONE)
             m_reader->createInterlaceBuffer((m_reader->hasAlpha() ? 4 : 3) * size().width() * size().height());
     }
 
@@ -341,24 +403,25 @@ void PNGImageDecoder::rowAvailable(unsigned char* rowBuffer, unsigned rowIndex, 
     // Copy the data into our buffer.
     int width = scaledSize().width();
     int destY = scaledY(rowIndex);
-    if (destY < 0)
+
+    // Check that the row is within the image bounds. LibPNG may supply an extra row.
+    if (destY < 0 || destY >= scaledSize().height())
         return;
-    bool sawAlpha = buffer.hasAlpha();
+    bool nonTrivialAlpha = false;
     for (int x = 0; x < width; ++x) {
         png_bytep pixel = row + (m_scaled ? m_scaledColumns[x] : x) * colorChannels;
         unsigned alpha = hasAlpha ? pixel[3] : 255;
         buffer.setRGBA(x, destY, pixel[0], pixel[1], pixel[2], alpha);
-        if (!sawAlpha && alpha < 255) {
-            sawAlpha = true;
-            buffer.setHasAlpha(true);
-        }
+        nonTrivialAlpha |= alpha < 255;
     }
+    if (nonTrivialAlpha && !buffer.hasAlpha())
+        buffer.setHasAlpha(nonTrivialAlpha);
 }
 
 void PNGImageDecoder::pngComplete()
 {
     if (!m_frameBufferCache.isEmpty())
-        m_frameBufferCache.first().setStatus(RGBA32Buffer::FrameComplete);
+        m_frameBufferCache.first().setStatus(ImageFrame::FrameComplete);
 }
 
 void PNGImageDecoder::decode(bool onlySize)
@@ -367,14 +430,15 @@ void PNGImageDecoder::decode(bool onlySize)
         return;
 
     if (!m_reader)
-        m_reader.set(new PNGImageReader(this));
+        m_reader = adoptPtr(new PNGImageReader(this));
 
     // If we couldn't decode the image but we've received all the data, decoding
     // has failed.
     if (!m_reader->decode(*m_data, onlySize) && isAllDataReceived())
         setFailed();
-    
-    if (failed() || isComplete())
+    // If we're done decoding the image, we don't need the PNGImageReader
+    // anymore.  (If we failed, |m_reader| has already been cleared.)
+    else if (isComplete())
         m_reader.clear();
 }
 

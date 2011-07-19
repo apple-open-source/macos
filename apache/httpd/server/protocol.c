@@ -608,6 +608,9 @@ static int read_request_line(request_rec *r, apr_bucket_brigade *bb)
                 r->proto_num = HTTP_VERSION(1,0);
                 r->protocol  = apr_pstrdup(r->pool, "HTTP/1.0");
             }
+            else if (APR_STATUS_IS_TIMEUP(rv)) {
+                r->status = HTTP_REQUEST_TIME_OUT;
+            }
             return 0;
         }
     } while ((len <= 0) && (++num_blank_lines < max_blank_lines));
@@ -691,7 +694,12 @@ AP_DECLARE(void) ap_get_mime_headers_core(request_rec *r, apr_bucket_brigade *bb
                          &len, r, 0, bb);
 
         if (rv != APR_SUCCESS) {
-            r->status = HTTP_BAD_REQUEST;
+            if (APR_STATUS_IS_TIMEUP(rv)) {
+                r->status = HTTP_REQUEST_TIME_OUT;
+            }
+            else {
+                r->status = HTTP_BAD_REQUEST;
+            }
 
             /* ap_rgetline returns APR_ENOSPC if it fills up the buffer before
              * finding the end-of-line.  This is only going to happen if it
@@ -877,7 +885,7 @@ request_rec *ap_read_request(conn_rec *conn)
     r->read_length     = 0;
     r->read_body       = REQUEST_NO_BODY;
 
-    r->status          = HTTP_REQUEST_TIME_OUT;  /* Until we get a request */
+    r->status          = HTTP_OK;  /* Until further notice */
     r->the_request     = NULL;
 
     /* Begin by presuming any module can make its own path_info assumptions,
@@ -895,6 +903,14 @@ request_rec *ap_read_request(conn_rec *conn)
             ap_send_error_response(r, 0);
             ap_update_child_status(conn->sbh, SERVER_BUSY_LOG, r);
             ap_run_log_transaction(r);
+            apr_brigade_destroy(tmp_bb);
+            return r;
+        }
+        else if (r->status == HTTP_REQUEST_TIME_OUT) {
+            ap_update_child_status(conn->sbh, SERVER_BUSY_LOG, r);
+            if (!r->connection->keepalives) {
+                ap_run_log_transaction(r);
+            }
             apr_brigade_destroy(tmp_bb);
             return r;
         }
@@ -916,7 +932,7 @@ request_rec *ap_read_request(conn_rec *conn)
 
     if (!r->assbackwards) {
         ap_get_mime_headers_core(r, tmp_bb);
-        if (r->status != HTTP_REQUEST_TIME_OUT) {
+        if (r->status != HTTP_OK) {
             ap_log_rerror(APLOG_MARK, APLOG_ERR, 0, r,
                           "request failed: error reading the headers");
             ap_send_error_response(r, 0);
@@ -956,8 +972,6 @@ request_rec *ap_read_request(conn_rec *conn)
     }
 
     apr_brigade_destroy(tmp_bb);
-
-    r->status = HTTP_OK;                         /* Until further notice. */
 
     /* update what we think the virtual host is based on the headers we've
      * now read. may update status.
@@ -1641,6 +1655,7 @@ AP_DECLARE(void) ap_send_interim_response(request_rec *r, int send_headers)
 {
     hdr_ptr x;
     char *status_line = NULL;
+    request_rec *rr;
 
     if (r->proto_num < 1001) {
         /* don't send interim response to HTTP/1.0 Client */
@@ -1650,6 +1665,14 @@ AP_DECLARE(void) ap_send_interim_response(request_rec *r, int send_headers)
         ap_log_rerror(APLOG_MARK, APLOG_DEBUG, 0, NULL,
                       "Status is %d - not sending interim response", r->status);
         return;
+    }
+
+    /* if we send an interim response, we're no longer in a state of
+     * expecting one.  Also, this could feasibly be in a subrequest,
+     * so we need to propagate the fact that we responded.
+     */
+    for (rr = r; rr != NULL; rr = rr->main) {
+        rr->expecting_100 = 0;
     }
 
     status_line = apr_pstrcat(r->pool, AP_SERVER_PROTOCOL, " ", r->status_line, CRLF, NULL);

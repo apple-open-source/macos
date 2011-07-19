@@ -5,15 +5,15 @@
 	<key>OpenSourceProject</key>
 	<string>bzip2</string>
 	<key>OpenSourceVersion</key>
-	<string>1.0.5</string>
+	<string>1.0.6</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.bzip.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.bzip.org/1.0.5/bzip2-1.0.5.tar.gz</string>
+	<string>http://www.bzip.org/1.0.6/bzip2-1.0.6.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>8b02713ea0c8eb501cc8bdac4432d7f29700f767</string>
+	<string>3f89f861209ce81a6bab1fd1998c0ef311712002</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-03-17</string>
+	<string>2011-03-02</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>EA support.</string>

@@ -23,6 +23,7 @@
 <div class="toplang">
 <p><span>Available Languages: </span><a href="../de/mod/core.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/core.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div>
@@ -55,6 +56,7 @@ available</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#files">&lt;Files&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#filesmatch">&lt;FilesMatch&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#forcetype">ForceType</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#gprofdir">GprofDir</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#hostnamelookups">HostnameLookups</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#ifdefine">&lt;IfDefine&gt;</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#ifmodule">&lt;IfModule&gt;</a></li>
@@ -75,6 +77,7 @@ available</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#maxkeepaliverequests">MaxKeepAliveRequests</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#namevirtualhost">NameVirtualHost</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#options">Options</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#protocol">Protocol</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#require">Require</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#rlimitcpu">RLimitCPU</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#rlimitmem">RLimitMEM</a></li>
@@ -91,6 +94,7 @@ available</td></tr>
 <li><img alt="" src="../images/down.gif" /> <a href="#sethandler">SetHandler</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#setinputfilter">SetInputFilter</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#setoutputfilter">SetOutputFilter</a></li>
+<li><img alt="" src="../images/down.gif" /> <a href="#suexec">Suexec</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#timeout">TimeOut</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#traceenable">TraceEnable</a></li>
 <li><img alt="" src="../images/down.gif" /> <a href="#usecanonicalname">UseCanonicalName</a></li>
@@ -109,12 +113,12 @@ available</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 <tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.1.5 and later</td></tr>
 </table>
-    <p>This directive enables operating system specific optimizations for a 
-       listening socket by the Protocol type. The basic premise is for the 
-       kernel to not send a socket to the server process until either data 
+    <p>This directive enables operating system specific optimizations for a
+       listening socket by the Protocol type. The basic premise is for the
+       kernel to not send a socket to the server process until either data
        is received or an entire HTTP Request is buffered. Only
        <a href="http://www.freebsd.org/cgi/man.cgi?query=accept_filter&amp;sektion=9">
-       FreeBSD's Accept Filters</a> and Linux's more primitive 
+       FreeBSD's Accept Filters</a> and Linux's more primitive
        <code>TCP_DEFER_ACCEPT</code> are currently supported.</p>
 
     <p>The default values on FreeBSD are:</p>
@@ -122,12 +126,12 @@ available</td></tr>
         AcceptFilter http httpready <br />
         AcceptFilter https dataready
     </code></p></div>
-    
+
     <p>The <code>httpready</code> accept filter buffers entire HTTP requests at
-       the kernel level.  Once an entire request is received, the kernel then 
-       sends it to the server. See the 
+       the kernel level.  Once an entire request is received, the kernel then
+       sends it to the server. See the
        <a href="http://www.freebsd.org/cgi/man.cgi?query=accf_http&amp;sektion=9">
-       accf_http(9)</a> man page for more details.  Since HTTPS requests are 
+       accf_http(9)</a> man page for more details.  Since HTTPS requests are
        encrypted only the <a href="http://www.freebsd.org/cgi/man.cgi?query=accf_data&amp;sektion=9">
        accf_data(9)</a> filter is used.</p>
 
@@ -138,18 +142,22 @@ available</td></tr>
     </code></p></div>
 
     <p>Linux's <code>TCP_DEFER_ACCEPT</code> does not support buffering http
-       requests.  Any value besides <code>none</code> will enable 
+       requests.  Any value besides <code>none</code> will enable
        <code>TCP_DEFER_ACCEPT</code> on that listener. For more details
-       see the Linux 
+       see the Linux
        <a href="http://homepages.cwi.nl/~aeb/linux/man2html/man7/tcp.7.html">
        tcp(7)</a> man page.</p>
 
-    <p>Using <code>none</code> for an argument will disable any accept filters 
+    <p>Using <code>none</code> for an argument will disable any accept filters
        for that protocol.  This is useful for protocols that require a server
        send data first, such as <code>nntp</code>:</p>
     <div class="example"><p><code>AcceptFilter nntp none</code></p></div>
 
 
+<h3>See also</h3>
+<ul>
+<li><code class="directive">Protocol</code></li>
+</ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="AcceptPathInfo" id="AcceptPathInfo">AcceptPathInfo</a> <a name="acceptpathinfo" id="acceptpathinfo">Directive</a></h2>
@@ -381,26 +389,35 @@ content-type is <code>text/plain</code> or <code>text/html</code></td></tr>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Determines whether encoded path separators in URLs are allowed to
 be passed through</td></tr>
-<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AllowEncodedSlashes On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>AllowEncodedSlashes On|Off|NoDecode</code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>AllowEncodedSlashes Off</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
-<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.0.46 and later</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache httpd 2.0.46 and later.
+NoDecode option available in 2.2.18 and later.</td></tr>
 </table>
     <p>The <code class="directive">AllowEncodedSlashes</code> directive allows URLs
     which contain encoded path separators (<code>%2F</code> for <code>/</code>
     and additionally <code>%5C</code> for <code>\</code> on according systems)
-    to be used. Normally such URLs are refused with a 404 (Not found) error.</p>
+    to be used in the path info.</p>
+
+    <p>With the default value, <code>Off</code>, such URLs are refused
+    with a 404 (Not found) error.</p>
+
+    <p>With the value <code>On</code>, such URLs are accepted, and encoded
+      slashes are decoded like all other encoded characters.</p>
+
+    <p>With the value <code>NoDecode</code>, such URLs are accepted, but
+      encoded slashes are not decoded but left in their encoded state.</p>
 
     <p>Turning <code class="directive">AllowEncodedSlashes</code> <code>On</code> is
     mostly useful when used in conjunction with <code>PATH_INFO</code>.</p>
 
     <div class="note"><h3>Note</h3>
-      <p>Allowing encoded slashes does <em>not</em> imply <em>decoding</em>.
-      Occurrences of <code>%2F</code> or <code>%5C</code> (<em>only</em> on
-      according systems) will be left as such in the otherwise decoded URL
-      string.</p>
+      <p>If encoded slashes are needed in path info, use of <code>NoDecode</code> is
+      strongly recommended as a security measure.  Allowing slashes
+      to be decoded could potentially allow unsafe paths.</p>
     </div>
 
 <h3>See also</h3>
@@ -503,7 +520,7 @@ be passed through</td></tr>
     server error.</p>
 
     <div class="note"><p>For security and performance reasons, do not set
-    <code>AllowOverride</code> to anything other than <code>None</code> 
+    <code>AllowOverride</code> to anything other than <code>None</code>
     in your <code>&lt;Directory /&gt;</code> block. Instead, find (or
     create) the <code>&lt;Directory&gt;</code> block that refers to the
     directory where you're actually planning to place a
@@ -686,7 +703,7 @@ server cannot determine a type in any other way</td></tr>
 <div class="directive-section"><h2><a name="Directory" id="Directory">&lt;Directory&gt;</a> <a name="directory" id="directory">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enclose a group of directives that apply only to the
-named file-system directory and sub-directories</td></tr>
+named file-system directory, sub-directories, and their contents</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>&lt;Directory <var>directory-path</var>&gt;
 ... &lt;/Directory&gt;</code></td></tr>
 <tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
@@ -695,8 +712,9 @@ named file-system directory and sub-directories</td></tr>
 </table>
     <p><code class="directive">&lt;Directory&gt;</code> and
     <code>&lt;/Directory&gt;</code> are used to enclose a group of
-    directives that will apply only to the named directory and
-    sub-directories of that directory. Any directive that is allowed
+    directives that will apply only to the named directory,
+    sub-directories of that directory, and the files within the respective
+    directories.  Any directive that is allowed
     in a directory context may be used. <var>Directory-path</var> is
     either the full path to a directory, or a wild-card string using
     Unix shell-style matching. In a wild-card string, <code>?</code> matches
@@ -748,7 +766,7 @@ named file-system directory and sub-directories</td></tr>
       </span>
       &lt;/Directory&gt;<br />
       <br />
-      &lt;Directory /home/&gt;<br />
+      &lt;Directory /home&gt;<br />
       <span class="indent">
         AllowOverride FileInfo<br />
       </span>
@@ -835,9 +853,9 @@ subdirectories</td></tr>
 </table>
     <p><code class="directive">&lt;DirectoryMatch&gt;</code> and
     <code>&lt;/DirectoryMatch&gt;</code> are used to enclose a group
-    of directives which will apply only to the named directory and
-    <em>sub-directories of that directory</em>, the same as <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code>. However, it
-    takes as an argument a <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular 
+    of directives which will apply only to the named directory  and
+    <em>sub-directories of that directory</em> (and the files within), the same as <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code>. However, it
+    takes as an argument a <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular
     expression</a>. For example:</p>
 
     <div class="example"><p><code>
@@ -884,7 +902,7 @@ from the web</td></tr>
 
     <p>then an access to
     <code>http://www.my.host.com/index.html</code> refers to
-    <code>/usr/web/index.html</code>. If the <var>directory-path</var> is 
+    <code>/usr/web/index.html</code>. If the <var>directory-path</var> is
     not absolute then it is assumed to be relative to the <code class="directive"><a href="#serverroot">ServerRoot</a></code>.</p>
 
     <p>The <code class="directive">DocumentRoot</code> should be specified without
@@ -944,12 +962,6 @@ Locations</a></li>
       </span>
       &lt;/Directory&gt;
     </code></p></div>
-    <p>Please note that the per-directory and .htaccess configuration
-       of <code class="directive">EnableSendfile</code> is not supported by
-       <code class="module"><a href="../mod/mod_disk_cache.html">mod_disk_cache</a></code>.
-       Only global definition of <code class="directive">EnableSendfile</code>
-       is taken into account by the module.
-    </p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1007,6 +1019,13 @@ Locations</a></li>
       </span>
       &lt;/Directory&gt;
     </code></p></div>
+
+    <p>Please note that the per-directory and .htaccess configuration
+       of <code class="directive">EnableSendfile</code> is not supported by
+       <code class="module"><a href="../mod/mod_disk_cache.html">mod_disk_cache</a></code>.
+       Only global definition of <code class="directive">EnableSendfile</code>
+       is taken into account by the module.
+    </p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1128,7 +1147,7 @@ in case of an error</td></tr>
 </table>
     <p>The <code class="directive">ErrorLog</code> directive sets the name of
     the file to which the server will log any errors it encounters. If
-    the <var>file-path</var> is not absolute then it is assumed to be 
+    the <var>file-path</var> is not absolute then it is assumed to be
     relative to the <code class="directive"><a href="#serverroot">ServerRoot</a></code>.</p>
 
     <div class="example"><h3>Example</h3><p><code>
@@ -1163,8 +1182,8 @@ in case of an error</td></tr>
     anyone other than the user that starts the server.</p>
     <div class="warning"><h3>Note</h3>
       <p>When entering a file path on non-Unix platforms, care should be taken
-      to make sure that only forward slashed are used even though the platform
-      may allow the use of back slashes. In general it is a good idea to always 
+      to make sure that only forward slashes are used even though the platform
+      may allow the use of back slashes. In general it is a good idea to always
       use forward slashes throughout the configuration files.</p>
     </div>
 
@@ -1234,8 +1253,8 @@ HTTP response header for static files</td></tr>
     changed via <code class="directive">FileETag</code>.
     </div>
     <div class="note"><h3>Server Side Includes</h3>
-    An ETag is not generated for responses parsed by <code class="module"><a href="../mod/mod_include.html">mod_include</a></code>, 
-    since the response entity can change without a change of the INode, MTime, or Size 
+    An ETag is not generated for responses parsed by <code class="module"><a href="../mod/mod_include.html">mod_include</a></code>,
+    since the response entity can change without a change of the INode, MTime, or Size
     of the static file with embedded SSI directives.
     </div>
 
@@ -1270,7 +1289,7 @@ filenames</td></tr>
     <p>The <var>filename</var> argument should include a filename, or
     a wild-card string, where <code>?</code> matches any single character,
     and <code>*</code> matches any sequences of characters.
-    <a class="glossarylink" href="../glossary.html#regex" title="see glossary">Regular expressions</a> 
+    <a class="glossarylink" href="../glossary.html#regex" title="see glossary">Regular expressions</a>
     can also be used, with the addition of the
     <code>~</code> character. For example:</p>
 
@@ -1307,7 +1326,7 @@ filenames</td></tr>
     <p>The <code class="directive">&lt;FilesMatch&gt;</code> directive
     limits the scope of the enclosed directives by filename, just as the
     <code class="directive"><a href="#files">&lt;Files&gt;</a></code> directive
-    does. However, it accepts a <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular 
+    does. However, it accepts a <a class="glossarylink" href="../glossary.html#regex" title="see glossary">regular
     expression</a>. For example:</p>
 
     <div class="example"><p><code>
@@ -1371,6 +1390,25 @@ MIME content-type</td></tr>
       </span>
       &lt;/Location&gt;
     </code></p></div>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="GprofDir" id="GprofDir">GprofDir</a> <a name="gprofdir" id="gprofdir">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Directory to write gmon.out profiling data to.  </td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>GprofDir <var>/tmp/gprof/</var>|<var>/tmp/gprof/</var>%</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+</table>
+    <p>When the server has been compiled with gprof profiling suppport,
+    <code class="directive">GprofDir</code> causes <code>gmon.out</code> files to
+    be written to the specified directory when the process exits.  If the
+    argument ends with a percent symbol ('%'), subdirectories are created
+    for each process id.</p>
+
+    <p>This directive currently only works with the <code class="module"><a href="../mod/prefork.html">prefork</a></code>
+    MPM.</p>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1559,7 +1597,7 @@ the server configuration files</td></tr>
     files in a directory that can cause <code class="program"><a href="../programs/httpd.html">httpd</a></code> to
     fail.</p>
 
-    <p>The file path specified may be an absolute path, or may be relative 
+    <p>The file path specified may be an absolute path, or may be relative
     to the <code class="directive"><a href="#serverroot">ServerRoot</a></code> directory.</p>
 
     <p>Examples:</p>
@@ -1640,7 +1678,7 @@ requests on a persistent connection</td></tr>
     may cause performance problems in heavily loaded servers. The
     higher the timeout, the more server processes will be kept
     occupied waiting on connections with idle clients.</p>
-    
+
     <p>In a name-based virtual host context, the value of the first
     defined virtual host (the default host) in a set of <code class="directive"><a href="#namevirtualhost">NameVirtualHost</a></code> will be used.
     The other values will be ignored.</p>
@@ -1805,6 +1843,7 @@ from the client</td></tr>
       LimitRequestBody 102400
     </code></p></div>
 
+    <div class="note">Note: not applicable to proxy requests.</div>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1814,7 +1853,7 @@ from the client</td></tr>
 will be accepted from the client</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitRequestFields <var>number</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>LimitRequestFields 100</code></td></tr>
-<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
@@ -1847,6 +1886,12 @@ will be accepted from the client</td></tr>
       LimitRequestFields 50
     </code></p></div>
 
+     <div class="warning"><h3>Warning</h3>
+     <p> When name-based virtual hosting is used, the value for this
+     directive is taken from the default (first-listed) virtual host for the
+     <code class="directive">NameVirtualHost</code> the connection was mapped to.</p>
+     </div>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1856,7 +1901,7 @@ will be accepted from the client</td></tr>
 client</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitRequestFieldSize <var>bytes</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>LimitRequestFieldSize 8190</code></td></tr>
-<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
@@ -1864,11 +1909,11 @@ client</td></tr>
     that will be allowed in an HTTP request header.</p>
 
     <p>The <code class="directive">LimitRequestFieldSize</code> directive
-    allows the server administrator to reduce or increase the limit 
+    allows the server administrator to reduce or increase the limit
     on the allowed size of an HTTP request header field. A server
-    needs this value to be large enough to hold any one header field 
-    from a normal client request. The size of a normal request header 
-    field will vary greatly among different client implementations, 
+    needs this value to be large enough to hold any one header field
+    from a normal client request. The size of a normal request header
+    field will vary greatly among different client implementations,
     often depending upon the extent to which a user has configured
     their browser to support detailed content negotiation. SPNEGO
     authentication headers can be up to 12392 bytes.</p>
@@ -1886,6 +1931,12 @@ client</td></tr>
     <div class="note">Under normal conditions, the value should not be changed from
     the default.</div>
 
+    <div class="warning"><h3>Warning</h3>
+    <p> When name-based virtual hosting is used, the value for this
+    directive is taken from the default (first-listed) virtual host for the
+    <code class="directive">NameVirtualHost</code> the connection was mapped to.</p>
+    </div>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1895,11 +1946,11 @@ client</td></tr>
 from the client</td></tr>
 <tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>LimitRequestLine <var>bytes</var></code></td></tr>
 <tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>LimitRequestLine 8190</code></td></tr>
-<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
 <tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
-    <p>This directive sets the number of <var>bytes</var> that will be 
+    <p>This directive sets the number of <var>bytes</var> that will be
     allowed on the HTTP request-line.</p>
 
     <p>The <code class="directive">LimitRequestLine</code> directive allows
@@ -1924,6 +1975,13 @@ from the client</td></tr>
 
     <div class="note">Under normal conditions, the value should not be changed from
     the default.</div>
+
+    <div class="warning"><h3>Warning</h3>
+    <p> When name-based virtual hosting is used, the value for this
+    directive is taken from the default (first-listed) virtual host for the
+    <code class="directive">NameVirtualHost</code> the connection was mapped to.</p>
+    </div>
+
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
@@ -1974,12 +2032,39 @@ URLs</td></tr>
     locations.  Since several different URLs may map to the same
     filesystem location, such access controls may by circumvented.</p>
 
+    <p>The enclosed directives will be applied to the request if the path component
+    of the URL meets <em>any</em> of the following criteria:</p>
+    <ul>
+      <li>The specified location matches exactly the path component of the URL.
+      </li>
+      <li>The specified location, which ends in a forward slash, is a prefix
+      of the path component of the URL (treated as a context root).
+      </li>
+      <li>The specified location, with the addition of a trailing slash, is a
+      prefix of the path component of the URL (also treated as a context root).
+      </li>
+    </ul>
+    <p>In the example below, where no trailing slash is used, requests to
+    /private1, /private1/ and /private1/file.txt will have the enclosed
+    directives applied, but /private1other would not.</p>
+    <div class="example"><p><code>
+      &lt;Location /private1&gt;
+          ...
+    </code></p></div>
+    <p>In the example below, where a trailing slash is used, requests to
+    /private2/ and /private2/file.txt will have the enclosed
+    directives applied, but /private2 and /private2other would not.</p>
+    <div class="example"><p><code>
+      &lt;Location /private2<em>/</em>&gt;
+          ...
+    </code></p></div>
+
     <div class="note"><h3>When to use <code class="directive">&lt;Location&gt;</code></h3>
 
     <p>Use <code class="directive">&lt;Location&gt;</code> to apply
     directives to content that lives outside the filesystem.  For
     content that lives in the filesystem, use <code class="directive"><a href="#directory">&lt;Directory&gt;</a></code> and <code class="directive"><a href="#files">&lt;Files&gt;</a></code>.  An exception is
-    <code>&lt;Location /&gt;</code>, which is an easy way to 
+    <code>&lt;Location /&gt;</code>, which is an easy way to
     apply a configuration to the entire server.</p>
     </div>
 
@@ -2463,6 +2548,38 @@ directory</td></tr>
 
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="Protocol" id="Protocol">Protocol</a> <a name="protocol" id="protocol">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Protocol for a listening socket</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>Protocol <var>protocol</var></code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config, virtual host</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache 2.1.5 and later.
+On Windows from Apache 2.3.3 and later.</td></tr>
+</table>
+    <p>This directive specifies the protocol used for a specific listening socket.
+       The protocol is used to determine which module should handle a request, and
+       to apply protocol specific optimizations with the <code class="directive">AcceptFilter</code>
+       directive.</p>
+
+    <p>You only need to set the protocol if you are running on non-standard ports, otherwise <code>http</code> is assumed for port 80 and <code>https</code> for port 443.</p>
+
+    <p>For example, if you are running <code>https</code> on a non-standard port, specify the protocol explicitly:</p>
+
+    <div class="example"><p><code>
+      Protocol https
+    </code></p></div>
+
+    <p>You can also specify the protocol using the <code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code> directive.</p>
+
+<h3>See also</h3>
+<ul>
+<li><code class="directive">AcceptFilter</code></li>
+<li><code class="directive"><a href="../mod/mpm_common.html#listen">Listen</a></code></li>
+</ul>
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="Require" id="Require">Require</a> <a name="require" id="require">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Selects which authenticated users can access
@@ -2474,7 +2591,9 @@ a resource</td></tr>
 <tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
 </table>
     <p>This directive selects which authenticated users can access a
-    resource.  The restrictions are processed by authorization
+    resource.  Multipe instances of this directive are combined with a logical
+    "OR", such that a user matching any <code class="directive">Require </code>line is
+    granted access.  The restrictions are processed by authorization
     modules.  Some of the allowed syntaxes provided by
     <code class="module"><a href="../mod/mod_authz_user.html">mod_authz_user</a></code> and
     <code class="module"><a href="../mod/mod_authz_groupfile.html">mod_authz_groupfile</a></code> are:</p>
@@ -2518,8 +2637,8 @@ a resource</td></tr>
     place the <code class="directive">Require</code> statement into a
     <code class="directive"><a href="#limit">&lt;Limit&gt;</a></code>
     section.</p>
- 
-    <p>If <code class="directive">Require</code> is used together with 
+
+    <p>If <code class="directive">Require</code> is used together with
     the <code class="directive"><a href="../mod/mod_authz_host.html#allow">Allow</a></code> or
     <code class="directive"><a href="../mod/mod_authz_host.html#deny">Deny</a></code> directives,
     then the interaction of these restrictions is controlled by
@@ -2547,7 +2666,7 @@ a resource</td></tr>
       &lt;/Directory&gt;<br />
     </code></p></div>
     </div>
-      
+
 
 <h3>See also</h3>
 <ul>
@@ -2864,14 +2983,20 @@ itself</td></tr>
     <p>The <code class="directive">ServerName</code> directive sets the
     request scheme, hostname and
     port that the server uses to identify itself.  This is used when
-    creating redirection URLs. For example, if the name of the
+    creating redirection URLs.</p>
+
+    <p>Additionally, <code class="directive">ServerName</code> is used (possibly
+    in conjunction with <code class="directive">ServerAlias</code>) to uniquely
+    identify a virtual host, when using <a href="../vhosts/name-based.html">name-based virtual hosts</a>.</p>
+
+    <p>For example, if the name of the
     machine hosting the web server is <code>simple.example.com</code>,
     but the machine also has the DNS alias <code>www.example.com</code>
     and you wish the web server to be so identified, the following
     directive should be used:</p>
 
     <div class="example"><p><code>
-      ServerName www.example.com:80
+      ServerName www.example.com
     </code></p></div>
 
     <p>If no <code class="directive">ServerName</code> is specified, then the
@@ -2895,7 +3020,7 @@ itself</td></tr>
     <code>https://</code> scheme and the port number to which the
     clients connect in the <code class="directive">ServerName</code> directive
     to make sure that the server generates the correct
-    self-referential URLs. 
+    self-referential URLs.
     </p>
 
     <p>See the description of the
@@ -2950,7 +3075,7 @@ is accessed by an incompatible browser</td></tr>
     <p>The <code class="directive">ServerRoot</code> directive sets the
     directory in which the server lives. Typically it will contain the
     subdirectories <code>conf/</code> and <code>logs/</code>. Relative
-    paths in other configuration directives (such as <code class="directive"><a href="#include">Include</a></code> or <code class="directive"><a href="../mod/mod_so.html#loadmodule">LoadModule</a></code>, for example) are taken as 
+    paths in other configuration directives (such as <code class="directive"><a href="#include">Include</a></code> or <code class="directive"><a href="../mod/mod_so.html#loadmodule">LoadModule</a></code>, for example) are taken as
     relative to this directory.</p>
 
     <div class="example"><h3>Example</h3><p><code>
@@ -3176,6 +3301,24 @@ server</td></tr>
 </ul>
 </div>
 <div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
+<div class="directive-section"><h2><a name="Suexec" id="Suexec">Suexec</a> <a name="suexec" id="suexec">Directive</a></h2>
+<table class="directive">
+<tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Enable or disable the suEXEC feature</td></tr>
+<tr><th><a href="directive-dict.html#Syntax">Syntax:</a></th><td><code>Suexec On|Off</code></td></tr>
+<tr><th><a href="directive-dict.html#Default">Default:</a></th><td><code>On if suexec binary exists with proper owner and mode,
+Off otherwise</code></td></tr>
+<tr><th><a href="directive-dict.html#Context">Context:</a></th><td>server config</td></tr>
+<tr><th><a href="directive-dict.html#Status">Status:</a></th><td>Core</td></tr>
+<tr><th><a href="directive-dict.html#Module">Module:</a></th><td>core</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Compatibility:</a></th><td>Available in Apache httpd 2.2.18 and later</td></tr>
+</table>
+    <p>When On, startup will fail if the suexec binary doesn't exist
+    or has an invalid owner or file mode.</p>
+    <p>When Off, suEXEC will be disabled even if the suexec binary exists
+    and has a valid owner and file mode.</p>
+
+</div>
+<div class="top"><a href="#page-header"><img alt="top" src="../images/up.gif" /></a></div>
 <div class="directive-section"><h2><a name="TimeOut" id="TimeOut">TimeOut</a> <a name="timeout" id="timeout">Directive</a></h2>
 <table class="directive">
 <tr><th><a href="directive-dict.html#Description">Description:</a></th><td>Amount of time the server will wait for
@@ -3232,7 +3375,7 @@ requests</td></tr>
     allowed) error to the client.</p>
 
     <p>Finally, for testing and diagnostic purposes only, request
-    bodies may be allowed using the non-compliant <code>TraceEnable 
+    bodies may be allowed using the non-compliant <code>TraceEnable
     extended</code> directive.  The core (as an origin server) will
     restrict the request body to 64k (plus 8k for chunk headers if
     <code>Transfer-Encoding: chunked</code> is used).  The core will
@@ -3340,7 +3483,7 @@ port</td></tr>
       <li>Port provided in <code>Servername</code></li>
       <li>Default port</li>
      </ul>
-    
+
     <p>With <code>UseCanonicalPhysicalPort Off</code>, the
     physical ports are removed from the ordering.</p>
     </div>
@@ -3478,9 +3621,10 @@ hostname or IP address</td></tr>
 <div class="bottomlang">
 <p><span>Available Languages: </span><a href="../de/mod/core.html" hreflang="de" rel="alternate" title="Deutsch">&nbsp;de&nbsp;</a> |
 <a href="../en/mod/core.html" title="English">&nbsp;en&nbsp;</a> |
+<a href="../fr/mod/core.html" hreflang="fr" rel="alternate" title="Français">&nbsp;fr&nbsp;</a> |
 <a href="../ja/mod/core.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../tr/mod/core.html" hreflang="tr" rel="alternate" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

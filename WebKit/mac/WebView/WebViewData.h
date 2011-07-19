@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -34,6 +35,7 @@
 #import <wtf/RetainPtr.h>
 
 namespace WebCore {
+    class HistoryItem;
     class Page;
 }
 
@@ -43,9 +45,13 @@ namespace WebCore {
 @class WebPreferences;
 @class WebTextCompletionController;
 @protocol WebFormDelegate;
+@protocol WebDeviceOrientationProvider;
 @protocol WebGeolocationProvider;
 #if ENABLE(VIDEO)
 @class WebVideoFullscreenController;
+#endif
+#if ENABLE(FULLSCREEN_API)
+@class WebFullScreenController;
 #endif
 
 extern BOOL applicationIsTerminating;
@@ -76,9 +82,10 @@ extern int pluginDatabaseClientCount;
     BOOL allowsUndo;
         
     float zoomMultiplier;
+    BOOL zoomsTextOnly;
 
     NSString *applicationNameForUserAgent;
-    WebCore::String userAgent;
+    WTF::String userAgent;
     BOOL userAgentOverridden;
     
     WebPreferences *preferences;
@@ -99,7 +106,6 @@ extern int pluginDatabaseClientCount;
     BOOL shouldCloseWithWindow;
     BOOL mainFrameDocumentReady;
     BOOL drawsBackground;
-    BOOL editable;
     BOOL tabKeyCyclesThroughElementsChanged;
     BOOL becomingFirstResponder;
     BOOL becomingFirstResponderFromOutside;
@@ -135,7 +141,7 @@ extern int pluginDatabaseClientCount;
 
     BOOL shouldUpdateWhileOffscreen;
     
-    // When this flag is set, we will not make any subviews underneath this WebView.  This means no WebFrameViews and no WebHTMLViews.
+    // When this flag is unset, we will not make any subviews underneath this WebView.  This means no WebFrameViews and no WebHTMLViews.
     BOOL usesDocumentViews;
 
     BOOL includesFlattenedCompositingLayersWhenDrawingToBitmap;
@@ -168,7 +174,20 @@ extern int pluginDatabaseClientCount;
 #if ENABLE(VIDEO)
     WebVideoFullscreenController *fullscreenController;
 #endif
+    
+#if ENABLE(FULLSCREEN_API)
+    WebFullScreenController *newFullscreenController;
+#endif
 
+#if ENABLE(GLIB_SUPPORT)
+    CFRunLoopObserverRef glibRunLoopObserver;
+#endif
     id<WebGeolocationProvider> _geolocationProvider;
+    id<WebDeviceOrientationProvider> m_deviceOrientationProvider;
+
+    RefPtr<WebCore::HistoryItem> _globalHistoryItem;
+
+    BOOL interactiveFormValidationEnabled;
+    int validationMessageTimerMagnification;
 }
 @end

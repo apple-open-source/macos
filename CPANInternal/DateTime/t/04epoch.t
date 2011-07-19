@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 32;
+use Test::More tests => 38;
 
 use DateTime;
 
@@ -75,7 +75,7 @@ use DateTime;
 
 # Adding/subtracting should affect epoch
 {
-    my $expected = '1049160602';
+    my $expected = 1049160602;
     my $epochtest = DateTime->from_epoch( epoch => $expected  );
 
     is( $epochtest->epoch, $expected,
@@ -92,28 +92,6 @@ use DateTime;
 
 }
 
-my $negative_epoch_ok = defined( (localtime(-1))[0] ) ? 1 : 0;
-
-SKIP:
-{
-    skip 'Negative epoch times do not work on some operating systems, including Win32', 1
-        unless $negative_epoch_ok;
-
-    is( DateTime->new( year => 1904 )->epoch, -2082844800,
-        "epoch should work back to at least 1904" );
-}
-
-SKIP:
-{
-    skip 'Negative epoch times do not work on some operating systems, including Win32', 3
-        unless $negative_epoch_ok;
-
-    my $dt = DateTime->from_epoch( epoch => -2082844800 );
-    is( $dt->year, 1904, 'year should be 1904' );
-    is( $dt->month,   1, 'month should be 1904' );
-    is( $dt->day,     1, 'day should be 1904' );
-}
-
 {
     my $dt = DateTime->from_epoch( epoch => 0.5 );
     is( $dt->nanosecond, 500_000_000, 'nanosecond should be 500,000,000 with 0.5 as epoch' );
@@ -125,4 +103,69 @@ SKIP:
 {
     my $dt = DateTime->from_epoch( epoch => 0.1234567891 );
     is( $dt->nanosecond, 123_456_789, 'nanosecond should be an integer ' );
+}
+
+my $negative_epoch_ok = defined( (localtime(-1))[0] ) ? 1 : 0;
+
+SKIP:
+{
+    skip 'Negative epoch times do not work on some operating systems, including Win32', 4
+        unless $negative_epoch_ok;
+
+    is( DateTime->new( year => 1904 )->epoch, -2082844800,
+        "epoch should work back to at least 1904" );
+
+    my $dt = DateTime->from_epoch( epoch => -2082844800 );
+    is( $dt->year, 1904, 'year should be 1904' );
+    is( $dt->month,   1, 'month should be 1904' );
+    is( $dt->day,     1, 'day should be 1904' );
+}
+
+{
+    package Number::Overloaded;
+    use overload
+        "0+"          => sub { $_[0]->{num} },
+        fallback      => 1;
+
+    sub new { bless { num => $_[1] }, $_[0] }
+}
+
+{
+    my $time = Number::Overloaded->new(12345);
+
+    my $dt = DateTime->from_epoch( epoch => $time );
+    is( $dt->epoch, 12345, 'can pass overloaded object to from_epoch' );
+
+    $time = Number::Overloaded->new(12345.1234);
+    $dt = DateTime->from_epoch( epoch => $time );
+    is( $dt->epoch, 12345, 'decimal epoch in overloaded object' );
+}
+
+SKIP:
+{
+    skip 'Negative epoch times do not work on some operating systems, including Win32', 1
+        unless $negative_epoch_ok;
+
+    my $time = Number::Overloaded->new(-12345);
+    my $dt = DateTime->from_epoch( epoch => $time );
+
+    is( $dt->epoch, -12345, 'negative epoch in overloaded object' );
+}
+
+{
+    my @tests = ( 'asldkjlkjd',
+                  '1234 foo',
+                  'adlkj 1234',
+                );
+
+    for my $test (@tests)
+    {
+        eval
+        {
+            DateTime->from_epoch( epoch => $test );
+        };
+
+        like( $@, qr/did not pass regex check/,
+              qq{'$test' is not a valid epoch value} );
+    }
 }

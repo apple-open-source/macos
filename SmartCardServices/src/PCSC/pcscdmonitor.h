@@ -28,6 +28,7 @@
 #ifndef _H_PCSCDMONITOR
 #define _H_PCSCDMONITOR
 
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include <security_utilities/powerwatch.h>
 #include <security_utilities/pcsc++.h>
 #include <security_utilities/refcount.h>

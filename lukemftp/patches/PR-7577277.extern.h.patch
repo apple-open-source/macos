@@ -1,0 +1,11 @@
+--- src/extern.h.orig	2007-06-07 00:00:20.000000000 -0400
++++ src/extern.h	2010-02-23 15:05:54.000000000 -0500
+@@ -142,7 +142,7 @@
+ void	get(int, char **);
+ struct cmd *getcmd(const char *);
+ int	getit(int, char **, int, const char *);
+-int	getline(FILE *, char *, size_t, const char **);
++int	get_line(FILE *, char *, size_t, const char **);
+ struct option *getoption(const char *);
+ char   *getoptionvalue(const char *);
+ void	getremoteinfo(void);

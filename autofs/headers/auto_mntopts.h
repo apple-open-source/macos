@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -32,11 +32,15 @@
  */
 #define NFS_MNT_PORT	0x00000001
 #define NFS_MNT_VERS	0x00000002
-#define NFS_MNT_PROTO	0x00000004
-#define NFS_MNT_TCP	0x00000008
-#define NFS_MNT_UDP	0x00000010
+#define NFS_MNT_NFSVERS	0x00000004
+#define NFS_MNT_PROTO	0x00000008
+#define NFS_MNT_TCP	0x00000010
+#define NFS_MNT_UDP	0x00000020
 
-#define MOPT_VERS		{ "vers",	0, NFS_MNT_VERS, 1 }
+#define MOPT_VERS \
+	{ "vers",	0, NFS_MNT_VERS, 1 }, \
+	{ "nfsvers",	0, NFS_MNT_NFSVERS, 1 }
+
 #define MOPT_NFS \
 	{ "port",	0, NFS_MNT_PORT, 1 },	\
 	MOPT_VERS,				\
@@ -44,3 +48,5 @@
 	{ "tcp",	0, NFS_MNT_TCP, 1 },	\
 	{ "udp",	0, NFS_MNT_UDP, 1 },	\
 	{ NULL,		0, 0, 0 }
+
+extern int get_nfs_vers(mntoptparse_t, int);

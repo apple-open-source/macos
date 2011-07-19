@@ -52,6 +52,9 @@ static flag has_cram = FALSE;
 #ifdef OPIE_ENABLE
 flag has_otp = FALSE;
 #endif /* OPIE_ENABLE */
+#ifdef NTLM_ENABLE
+flag has_ntlm = FALSE;
+#endif /* NTLM_ENABLE */
 #ifdef SSL_ENABLE
 static flag has_stls = FALSE;
 #endif /* SSL_ENABLE */
@@ -82,60 +85,17 @@ char *sdps_envto;
 static int do_pop3_ntlm(int sock, struct query *ctl,
 	int msn_instead /** if true, send AUTH MSN, else send AUTH NTLM */)
 {
-    tSmbNtlmAuthRequest request;
-    tSmbNtlmAuthChallenge challenge;
-    tSmbNtlmAuthResponse response;
+    char msgbuf[POPBUFSIZE+1];
+    int result;
 
-    char msgbuf[2048];
-    int result,len;
-  
     gen_send(sock, msn_instead ? "AUTH MSN" : "AUTH NTLM");
 
-    if ((result = gen_recv(sock, msgbuf, sizeof msgbuf)))
+    if ((result = ntlm_helper(sock, ctl, "POP3")))
 	return result;
-  
-    if (msgbuf[0] != '+')
-	return PS_AUTHFAIL;
-  
-    buildSmbNtlmAuthRequest(&request,ctl->remotename,NULL);
 
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthRequest(stdout, &request);
-
-    memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, &request, SmbLength(&request));
-  
-    if (outlevel >= O_MONITOR)
-	report(stdout, "POP3> %s\n", msgbuf);
-  
-    strcat(msgbuf,"\r\n");
-    SockWrite (sock, msgbuf, strlen (msgbuf));
-
-    if ((gen_recv(sock, msgbuf, sizeof msgbuf)))
-	return result;
-  
-    len = from64tobits (&challenge, msgbuf, sizeof(msgbuf));
-    
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthChallenge(stdout, &challenge);
-    
-    buildSmbNtlmAuthResponse(&challenge, &response,ctl->remotename,ctl->password);
-  
-    if (outlevel >= O_DEBUG)
-	dumpSmbNtlmAuthResponse(stdout, &response);
-  
-    memset(msgbuf,0,sizeof msgbuf);
-    to64frombits (msgbuf, &response, SmbLength(&response));
-
-    if (outlevel >= O_MONITOR)
-	report(stdout, "POP3> %s\n", msgbuf);
-      
-    strcat(msgbuf,"\r\n");
-    SockWrite (sock, msgbuf, strlen (msgbuf));
-  
     if ((result = gen_recv (sock, msgbuf, sizeof msgbuf)))
 	return result;
-  
+
     if (strstr (msgbuf, "OK"))
 	return PS_SUCCESS;
     else
@@ -252,6 +212,9 @@ static int capa_probe(int sock)
 #ifdef OPIE_ENABLE
     has_otp = FALSE;
 #endif /* OPIE_ENABLE */
+#ifdef NTLM_ENABLE
+    has_ntlm = FALSE;
+#endif /* NTLM_ENABLE */
 
     ok = gen_transact(sock, "CAPA");
     if (ok == PS_SUCCESS)
@@ -263,22 +226,32 @@ static int capa_probe(int sock)
 	{
 	    if (DOTLINE(buffer))
 		break;
+
 #ifdef SSL_ENABLE
 	    if (strstr(buffer, "STLS"))
 		has_stls = TRUE;
 #endif /* SSL_ENABLE */
+
 #if defined(GSSAPI)
 	    if (strstr(buffer, "GSSAPI"))
 		has_gssapi = TRUE;
 #endif /* defined(GSSAPI) */
+
 #if defined(KERBEROS_V4)
 	    if (strstr(buffer, "KERBEROS_V4"))
 		has_kerberos = TRUE;
 #endif /* defined(KERBEROS_V4)  */
+
 #ifdef OPIE_ENABLE
 	    if (strstr(buffer, "X-OTP"))
 		has_otp = TRUE;
 #endif /* OPIE_ENABLE */
+
+#ifdef NTLM_ENABLE
+	    if (strstr(buffer, "NTLM"))
+		has_ntlm = TRUE;
+#endif /* NTLM_ENABLE */
+
 	    if (strstr(buffer, "CRAM-MD5"))
 		has_cram = TRUE;
 	}
@@ -371,22 +344,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
         ctl->server.sdps = TRUE;
 #endif /* SDPS_ENABLE */
 
-#ifdef NTLM_ENABLE
-    /* MSN servers require the use of NTLM (MSN) authentication */
-    if (!strcasecmp(ctl->server.pollname, "pop3.email.msn.com") ||
-	    ctl->server.authenticate == A_MSN)
-	return (do_pop3_ntlm(sock, ctl, 1) == 0) ? PS_SUCCESS : PS_AUTHFAIL;
-    if (ctl->server.authenticate == A_NTLM)
-	return (do_pop3_ntlm(sock, ctl, 0) == 0) ? PS_SUCCESS : PS_AUTHFAIL;
-#else
-    if (ctl->server.authenticate == A_NTLM || ctl->server.authenticate == A_MSN)
-    {
-	report(stderr,
-	   GT_("Required NTLM capability not compiled into fetchmail\n"));
-    }
-#endif
-
-    switch (ctl->server.protocol) {
+   switch (ctl->server.protocol) {
     case P_POP3:
 #ifdef RPA_ENABLE
 	/* XXX FIXME: AUTH probing (RFC1734) should become global */
@@ -491,7 +449,7 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 		* (see below). */
 	       if (gen_transact(sock, "STLS") == PS_SUCCESS
 		       && SSLOpen(sock, ctl->sslcert, ctl->sslkey, "tls1", ctl->sslcertck,
-			   ctl->sslcertpath, ctl->sslfingerprint, commonname,
+			   ctl->sslcertfile, ctl->sslcertpath, ctl->sslfingerprint, commonname,
 			   ctl->server.pollname, &ctl->remotename) != -1)
 	       {
 		   /*
@@ -565,7 +523,8 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 #if defined(GSSAPI)
 	if (has_gssapi &&
 	    (ctl->server.authenticate == A_GSSAPI ||
-	     ctl->server.authenticate == A_ANY))
+	    (ctl->server.authenticate == A_ANY
+	     && check_gss_creds("pop", ctl->server.truename) == PS_SUCCESS)))
 	{
 	    ok = do_gssauth(sock,"AUTH","pop",ctl->server.truename,ctl->remotename);
 	    if (ok == PS_SUCCESS || ctl->server.authenticate != A_ANY)
@@ -584,7 +543,25 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	}
 #endif /* OPIE_ENABLE */
 
-	if (ctl->server.authenticate == A_CRAM_MD5 || 
+#ifdef NTLM_ENABLE
+    /* MSN servers require the use of NTLM (MSN) authentication */
+    if (!strcasecmp(ctl->server.pollname, "pop3.email.msn.com") ||
+	    ctl->server.authenticate == A_MSN)
+	return (do_pop3_ntlm(sock, ctl, 1) == 0) ? PS_SUCCESS : PS_AUTHFAIL;
+    if (ctl->server.authenticate == A_NTLM || (has_ntlm && ctl->server.authenticate == A_ANY)) {
+	ok = do_pop3_ntlm(sock, ctl, 0);
+        if (ok == 0 || ctl->server.authenticate != A_ANY)
+	    break;
+    }
+#else
+    if (ctl->server.authenticate == A_NTLM || ctl->server.authenticate == A_MSN)
+    {
+	report(stderr,
+	   GT_("Required NTLM capability not compiled into fetchmail\n"));
+    }
+#endif
+
+ 	if (ctl->server.authenticate == A_CRAM_MD5 || 
 	    (has_cram && ctl->server.authenticate == A_ANY))
 	{
 	    ok = do_cram_md5(sock, "AUTH", ctl, NULL);
@@ -690,10 +667,10 @@ static int pop3_getauth(int sock, struct query *ctl, char *greeting)
 	msg = (char *)xmalloc((end-start+1) + strlen(ctl->password) + 1);
 	strcpy(msg,start);
 	strcat(msg,ctl->password);
-	strcpy(ctl->digest, MD5Digest((unsigned char *)msg));
+	strcpy((char *)ctl->digest, MD5Digest((unsigned char *)msg));
 	free(msg);
 
-	ok = gen_transact(sock, "APOP %s %s", ctl->remotename, ctl->digest);
+	ok = gen_transact(sock, "APOP %s %s", ctl->remotename, (char *)ctl->digest);
 	break;
 
     case P_RPOP:
@@ -774,7 +751,7 @@ static int pop3_gettopid(int sock, int num , char *id, size_t idsize)
     if ((ok = gen_transact(sock, "%s", buf)) != 0)
        return ok;
     got_it = 0;
-    while ((ok = gen_recv(sock, buf, sizeof(buf))) == 0) 
+    while (gen_recv(sock, buf, sizeof(buf)) == 0)
     {
 	if (DOTLINE(buf))
 	    break;
@@ -856,7 +833,7 @@ static int pop3_fastuidl( int sock,  struct query *ctl, unsigned int count, int 
 	    if (mark == UID_DELETED || mark == UID_EXPUNGED)
 	    {
 		if (outlevel >= O_VERBOSE)
-		    report(stderr, GT_("id=%s (num=%d) was deleted, but is still present!\n"), id, try_nr);
+		    report(stderr, GT_("id=%s (num=%u) was deleted, but is still present!\n"), id, try_nr);
 		/* just mark it as seen now! */
 		newl->val.status.mark = mark = UID_SEEN;
 	    }
@@ -1009,9 +986,13 @@ static int pop3_getrange(int sock,
     /* get the total message count */
     gen_send(sock, "STAT");
     ok = pop3_ok(sock, buf);
-    if (ok == 0)
-	sscanf(buf,"%d %d", countp, bytes);
-    else
+    if (ok == 0) {
+	int asgn;
+
+	asgn = sscanf(buf,"%d %d", countp, bytes);
+	if (asgn != 2)
+		return PS_PROTOCOL;
+    } else
 	return(ok);
 
     /*
@@ -1065,10 +1046,10 @@ static int pop3_getrange(int sock,
 	    if (dofastuidl)
 		return(pop3_fastuidl( sock, ctl, *countp, newp));
 	    /* grab the mailbox's UID list */
-	    if ((ok = gen_transact(sock, "UIDL")) != 0)
+	    if (gen_transact(sock, "UIDL") != 0)
 	    {
 		/* don't worry, yet! do it the slow way */
-		if ((ok = pop3_slowuidl(sock, ctl, countp, newp)))
+		if (pop3_slowuidl(sock, ctl, countp, newp))
 		{
 		    report(stderr, GT_("protocol error while fetching UIDLs\n"));
 		    return(PS_ERROR);
@@ -1080,7 +1061,7 @@ static int pop3_getrange(int sock,
 		unsigned long unum;
 
 		*newp = 0;
-		while ((ok = gen_recv(sock, buf, sizeof(buf))) == PS_SUCCESS)
+		while (gen_recv(sock, buf, sizeof(buf)) == PS_SUCCESS)
 		{
 		    if (DOTLINE(buf))
 			break;
@@ -1289,12 +1270,12 @@ static int pop3_fetch(int sock, struct query *ctl, int number, int *lenp)
 		 * as a workaround. */
 		if (strspn(buf, " \t") == strlen(buf))
 		    strcpy(buf, "<>");
-		sdps_envfrom = xmalloc(strlen(buf)+1);
+		sdps_envfrom = (char *)xmalloc(strlen(buf)+1);
 		strcpy(sdps_envfrom,buf);
 		break;
 	    case 5:
                 /* Wrap address with To: <> so nxtaddr() likes it */
-                sdps_envto = xmalloc(strlen(buf)+7);
+                sdps_envto = (char *)xmalloc(strlen(buf)+7);
                 sprintf(sdps_envto,"To: <%s>",buf);
 		break;
             }

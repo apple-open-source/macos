@@ -1,3 +1,282 @@
+2010-09-01  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclExecute.c: [Bug 3057639]. Applied patch by Jeff to
+	* generic/tclVar.c: make the behaviour of lappend in bytecompiled
+	* tests/append.test: mode consistent with direct-eval and 'append'
+	* tests/appendComp.test: generally. Added tests (append*-9.*)
+	showing the difference.
+
+2010-07-25  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tclInt.h: [Bug 3030870] make itcl 3.x built with pre-8.6
+	* generic/tclBasic.c: work in 8.6 revert tclInt.h to what it was
+	before, and relax the relation between Tcl_CallFrame and
+	CallFrame.
+
+2010-07-18  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tcl.h: [Bug 3031278] fixed merge problem in previous
+	commit.
+
+2010-07-17  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tcl.h: [Bug 3030870] make itcl 3.x built with pre-8.6
+	* generic/tclInt.h: work in 8.6
+
+2010-07-16  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tcl.h: (Backport) take over definitions of _WIN32,
+	DLLIMPORT, DLLEXPORT and TCL_LL_MODIFIER macros from Tcl8.5/8.6
+
+2010-06-28  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tclPosixStr.c: [Bug 3019634] errno.h and tclWinPort.h
+	have conflicting definitions.
+
+2010-06-09  Andreas Kupries  <andreask@activestate.com>
+
+	* library/platform/platform.tcl: Added OSX Intel 64bit
+	* library/platform/pkgIndex.tcl: Package updated to version 1.0.9.
+
+2010-05-07  Andreas Kupries  <andreask@activestate.com>
+
+	* library/platform/platform.tcl: Fix cpu name for Solaris/Intel 64bit.
+	* library/platform/pkgIndex.tcl: Package updated to version 1.0.8.
+
+2010-04-29  Andreas Kupries  <andreask@activestate.com>
+
+	* library/platform/platform.tcl: Another stab at getting the /lib,
+	* library/platform/pkgIndex.tcl: /lib64 difference right for
+	linux. Package updated to version 1.0.7.
+
+2010-04-18  Donal K. Fellows  <dkf@users.sf.net>
+
+	* doc/unset.n: [Bug 2988940]: Fix typo.
+
+2010-04-14  Andreas Kupries  <andreask@activestate.com>
+
+	* library/platform/platform.tcl: Linux platform identification:
+	* library/platform/pkgIndex.tcl: Check /lib64 for existence of
+	files matching libc* before accepting it as base directory. This
+	can happen on weirdly installed 32bit systems which have an empty
+	or partially filled /lib64 without an actual libc. Bumped to
+	version 1.0.6.
+
+2010-04-06  Zoran Vasiljevic <vasiljevic@users.sourceforge.net>
+
+	* generic/tclCmdMZ.c (Tcl_RegexpObjCmd): fixed object leak.
+
+2010-04-02  Zoran Vasiljevic <vasiljevic@users.sourceforge.net>
+
+	* generic/tclStringObj.c: (SetStringFromAny): avoid trampling
+	over the tclEmptyStringRep->bytes as it is thread-shared
+	(thx to Gustaf Neumann for the (hard) work of locating this one).
+
+2010-03-01  Alexandre Ferrieux  <ferrieux@users.sourceforge.net>
+
+	* unix/tclUnixChan.c: [backported] Refrain from a possibly lengthy
+	reverse-DNS lookup on 0.0.0.0 when calling [fconfigure -sockname]
+	on an universally-bound (default) server socket.
+
+2010-02-22  Jan Nijtmans  <nijtmans@users.sf.net>
+
+	* generic/tclExecute.c:   Fix [Bug 2954959] expr abs(-0.0) is -0.0
+	* tests/expr.test         Added some test cases, backported from 8.5
+
+2010-02-11  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclCompile.c: [Bug 2949302]: Fixed leak of support
+	structures for [info frame] which occured when bytecode
+	compilation fails.
+
+2010-02-01  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/regexec.c (ccondissect, crevdissect): [Bug 2942697]: Rework
+	these functions so that certain pathological patterns are matched much
+	more rapidly. Many thanks to Tom Lane for dianosing this issue and
+	providing an initial patch.
+
+2009-11-16  Alexandre Ferrieux  <ferrieux@users.sourceforge.net>
+
+	* generic/tclEncoding.c: (Backport) Fix [Bug 2891556] and improve
+	* tests/econding.test:   test to detect similar manifestations in the
+				 future.
+	
+2009-11-12  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclIO.c (CopyData): [Bug 2895565]. Dropped bogosity
+	* tests/io.test: which used the number of _written_ bytes or
+	character to update the counters for the read bytes/characters.
+	New test io-53.11. This is a backward port from the 8.5 branch.
+
+2009-11-10  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* tests/fCmd.test:     Fixed a number of issues for Vista
+	* tests/registry.test: and Win7 that are due to restricted
+	* tests/tcltest.test:  permissions under UAC.
+	* tests/winFCmd.test:
+
+2009-11-10  Stuart Cassoff <stwo@users.sf.net>
+
+	* win/README: [bug 2459744]: Removed outdated Msys + Mingw info.
+
+2009-11-10  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclObj.c: Plug memory leak in TclContinuationsEnter().
+	[Bug 2895323]. Backport from Tcl 8.5 branch, change by Don Porter.
+
+2009-11-09  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclBasic.c (TclEvalObjEx): Moved the #280 decrement of
+	refCount for the file path out of the branch after the whole
+	conditional, closing a memory leak. Added clause on structure type
+	to prevent seg.faulting. Backport from valgrinding the Tcl 8.5
+	branch.
+
+	* tests/info.test: Resolve ambiguous resolution of variable
+	"res". Backport from 8.5
+
+2009-10-23  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclCompCmds.c: [Bug 2881263] (TclCompileForeachCmd,
+	TclCompileLindexCmd): Fixed. Moved the use of
+	DefineLineInformation after all regular variable declarations, so
+	that an empty statement (-UTIP_280) doesn't confuse c89 compilers.
+
+	* library/platform/pkgIndex.tcl: Backported the platform packages
+	* library/platform/platform.tcl: from head and8.5 into the 8.4
+	* library/platform/shell.tcl: branch. Updated makefiles to install
+	* unix/Makfile.in: the packages.
+	* win/Makefile.in:
+
+	* generic/tclIO.c (FlushChannel): Skip OutputProc for low-level
+	0-length writes. When closing pipes which have already been closed
+	not skipping leads to spurious SIG_PIPE signals. Reported by
+	Mikhail Teterin <mi+thun@aldan.algebra.com>.
+
+2009-10-21  Donal K. Fellows  <dkf@users.sf.net>
+
+	* generic/tclPosixStr.c: [Bug 2882561]: Work around oddity on Haiku OS
+	where SIGSEGV and SIGBUS are the same value.
+
+2009-10-18  Joe Mistachkin  <joe@mistachkin.com>
+
+	* tests/thread.test (thread-4.[345]): [Bug 1565466]: Correct tests to
+	save their error state before the final call to threadReap just in case
+	it triggers an "invalid thread id" error.  This error can occur if one
+	or more of the target threads has exited prior to the attempt to send
+	it an asynchronous exit command.
+
+2009-10-04  Daniel Steffen  <das@users.sourceforge.net>
+
+	* macosx/tclMacOSXBundle.c:	Workaround CF memory managment bug in
+	* unix/tclUnixInit.c:		Mac OS X 10.4 & earlier. [Bug 2569449]
+
+2009-09-28  Don Porter  <dgp@users.sourceforge.net>
+
+	* generic/tclAlloc.c:		Cleaned up various routines in the
+	* generic/tclCkalloc.c:		call stacks for memory allocation to
+	* generic/tclParse.c:		guarantee that any size values computed
+	* generic/tclThreadAlloc.c:	are within the domains of the routines
+	they get passed to.  [Bugs 2557696 and 2557796].
+
+2009-09-18  Don Porter  <dgp@users.sourceforge.net>
+
+	* generic/tclCmdMZ.c (Tcl_SubstObj):	Pass 'length' values to
+	recursive parsing calls to convert O(N^2) operations of [subst]
+	to O(N).
+
+2009-08-25  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclBasic.c (Tcl_CreateInterp, Tcl_EvalTokensStandard,
+	(EvalTokensStandard, Tcl_EvalEx, EvalEx, TclAdvanceContinuations,
+	(TclEvalObjEx):
+	* generic/tclCmdMZ.c (Tcl_SwitchObjCmd, ListLines):
+	* generic/tclCompCmds.c (*):
+	* generic/tclCompile.c (TclSetByteCodeFromAny, TclInitCompileEnv,
+	(TclFreeCompileEnv, TclCompileScript):
+	* generic/tclCompile.h (CompileEnv):
+	* generic/tclInt.h (ContLineLoc, Interp):
+	* generic/tclObj.c (ThreadSpecificData, ContLineLocFree,
+	(TclThreadFinalizeObjects, TclInitObjSubsystem,
+	(TclContinuationsEnter, TclContinuationsEnterDerived,
+	(TclContinuationsCopy, TclContinuationsGet, TclFreeObj):
+	* generic/tclProc.c (TclCreateProc):
+	* generic/tclVar.c (TclPtrSetVar):
+	* tests/info.test (info-30.0-22):
+
+	Extended parser, compiler, and execution with code and attendant
+	data structures tracking the positions of continuation lines which
+	are not visible in script's, to properly account for them while
+	counting lines for #280, during direct and compiled execution.
+
+2009-08-17  Don Porter  <dgp@users.sourceforge.net>
+
+	* generic/tclFileName.c: Correct result from [glob */test] when *
+	* tests/fileName.test:	matches something like ~foo.  [Bug 2837800]
+
+2009-07-23  Joe Mistachkin  <joe@mistachkin.com>
+
+	* generic/tclNotify.c: Fix for [Bug 2820349].
+
+2009-07-14  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclBasic.c (DeleteInterpProc,TclArgumentBCEnter,
+	(TclArgumentBCRelease, TclArgumentGet):
+	* generic/tclCompile.c (EnterCmdWordIndex, TclCleanupByteCode,
+	(TclInitCompileEnv, TclCompileScript):
+	* generic/tclCompile.h (ExtCmdLoc): 
+	* generic/tclExecute.c (TclExecuteByteCode):
+	* generic/tclInt.h (ExtIndex, CFWordBC):
+	* tests/info.test (info-39.0):
+
+	Backport of some changes made to the Tcl head, to handle literal
+	sharing better. The code here is much simpler (trimmed down)
+	compared to the head as the 8.4 branch is not bytecode compiling
+	whole files, and doesn't compile eval'd code either.
+	
+	Reworked the handling of literal command arguments in bytecode to
+	be saved (compiler) and used (execution) per command (See the
+	TCL_INVOKE_STK* instructions), and not per the whole bytecode.
+	This removes the problems with location data caused by literal
+	sharing in proc bodies. Simplified the associated datastructures
+	(ExtIndex is gone, as is the function EnterCmdWordIndex).
+
+2009-06-13  Don Porter  <dgp@users.sourceforge.net>
+
+	* generic/tclCompile.c: The value stashed in iPtr->compiledProcPtr
+	* generic/tclProc.c:    when compiling a proc survives too long.  We
+	* tests/execute.test:   only need it there long enough for the right
+	TclInitCompileEnv() call to re-stash it into envPtr->procPtr.  Once
+	that is done, the CompileEnv controls.  If we let the value of
+	iPtr->compiledProcPtr linger, though, then any other bytecode compile
+	operation that takes place will also have its CompileEnv initialized
+	with it, and that's not correct.  The value is meant to control the
+	compile of the proc body only, not other compile tasks that happen
+	along.  Thanks to Carlos Tasada for discovering and reporting the
+	problem.  [Bug 2802881].
+
+2009-04-28  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* unix/tcl.m4, unix/configure (SC_CONFIG_CFLAGS): harden the check
+	to add _r to CC on AIX with threads.
+
+2009-04-27  Alexandre Ferrieux  <ferrieux@users.sourceforge.net>
+
+	* generic/tclInt.h:   Backport fix for [Bug 1028264]: WSACleanup() too
+	* generic/tclEvent.c: early. The fix introduces "late exit handlers"
+	* win/tclWinSock.c:   for similar late process-wide cleanups.
+
+2009-04-27  Alexandre Ferrieux  <ferrieux@users.sourceforge.net>
+
+	* win/tclWinSock.c: Backport fix for [Bug 2446662]: resync Win
+	behavior on RST with that of unix (EOF).
+
+2009-04-22  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclStringObj.c (UpdateStringOfString): Added cast to fix
+	signed/unsigned mismatch breaking win32 symbol/debug build.
+
 2009-04-15  Don Porter  <dgp@users.sourceforge.net>
 
 	* generic/tclStringObj.c:       AppendUnicodeToUnicodeRep failed
@@ -108,7 +387,7 @@
 	  looping during finalization of channels not bound to
 	  interpreters.
 
-2008-08-23  Andreas Kupries  <andreask@activestate.com>
+2008-11-23  Andreas Kupries  <andreask@activestate.com>
 
 	* generic/tclIO.c: Backport of fix for [Bug 2333466].
 

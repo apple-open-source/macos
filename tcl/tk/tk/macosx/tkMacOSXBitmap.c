@@ -428,7 +428,7 @@ TkMacOSXIconBitmapObjCmd(
 	}
     }
 #endif
-    ib.value = ckalloc(len);
+    ib.value = ckalloc(len + 1);
     strcpy(ib.value, value);
     if (!iconBitmapTable.buckets) {
 	Tcl_InitHashTable(&iconBitmapTable, TCL_STRING_KEYS);

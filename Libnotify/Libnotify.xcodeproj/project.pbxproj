@@ -78,7 +78,10 @@
 		2D312B92102CA38F00F90022 /* notify.3 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = notify.3; sourceTree = "<group>"; };
 		2DCB287110D99ADA00DF3A8D /* notify_private.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = notify_private.h; sourceTree = "<group>"; };
 		2DF9EA0B102CF33400DE9E8D /* APPLE_LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = APPLE_LICENSE; sourceTree = "<group>"; };
-		D2AAC046055464E500DB518D /* libnotify.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libnotify.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F82235D12B18551005DD509 /* libnotify.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = libnotify.xcconfig; path = xcodeconfig/libnotify.xcconfig; sourceTree = "<group>"; };
+		3F8223B412B18877005DD509 /* libnotify.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libnotify.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		3F8223B612B18936005DD509 /* fix-dylib-id.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "fix-dylib-id.sh"; path = "xcodescripts/fix-dylib-id.sh"; sourceTree = "<group>"; };
+		3F8223BD12B18AE9005DD509 /* no-sim-man.sh */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.script.sh; name = "no-sim-man.sh"; path = "xcodescripts/no-sim-man.sh"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -95,6 +98,7 @@
 		08FB7794FE84155DC02AAC07 /* Libnotify */ = {
 			isa = PBXGroup;
 			children = (
+				3F82235912B18515005DD509 /* Build Support */,
 				2DF9EA0A102CF31700DE9E8D /* Additional Files */,
 				2D312B83102CA35300F90022 /* Project Headers */,
 				2D312B80102CA33600F90022 /* Private Headers */,
@@ -109,7 +113,7 @@
 		1AB674ADFE9D54B511CA2CBB /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				D2AAC046055464E500DB518D /* libnotify.a */,
+				3F8223B412B18877005DD509 /* libnotify.dylib */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -160,6 +164,16 @@
 			name = "Additional Files";
 			sourceTree = "<group>";
 		};
+		3F82235912B18515005DD509 /* Build Support */ = {
+			isa = PBXGroup;
+			children = (
+				3F8223BD12B18AE9005DD509 /* no-sim-man.sh */,
+				3F8223B612B18936005DD509 /* fix-dylib-id.sh */,
+				3F82235D12B18551005DD509 /* libnotify.xcconfig */,
+			);
+			name = "Build Support";
+			sourceTree = "<group>";
+		};
 		C6A0FF2B0290797F04C91782 /* Documentation */ = {
 			isa = PBXGroup;
 			children = (
@@ -206,6 +220,8 @@
 				D2AAC044055464E500DB518D /* Sources */,
 				D289987405E68DCB004EDB86 /* Frameworks */,
 				2D38AA09102CD87C00D3D622 /* Copy man3 Files */,
+				3F82236F12B186C1005DD509 /* SIM: Fix Dylib ID */,
+				3F8223BF12B18AF6005DD509 /* SIM: Remove Man Pages */,
 			);
 			buildRules = (
 			);
@@ -213,8 +229,8 @@
 			);
 			name = libnotify;
 			productName = Libnotify;
-			productReference = D2AAC046055464E500DB518D /* libnotify.a */;
-			productType = "com.apple.product-type.library.static";
+			productReference = 3F8223B412B18877005DD509 /* libnotify.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
 		};
 /* End PBXNativeTarget section */
 
@@ -223,7 +239,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1DEB91EF08733DB70010E9CD /* Build configuration list for PBXProject "Libnotify" */;
 			compatibilityVersion = "Xcode 3.1";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* Libnotify */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -232,6 +255,41 @@
 			);
 		};
 /* End PBXProject section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		3F82236F12B186C1005DD509 /* SIM: Fix Dylib ID */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/xcodescripts/fix-dylib-id.sh",
+			);
+			name = "SIM: Fix Dylib ID";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
+			showEnvVarsInLog = 0;
+		};
+		3F8223BF12B18AF6005DD509 /* SIM: Remove Man Pages */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/xcodescripts/no-sim-man.sh",
+			);
+			name = "SIM: Remove Man Pages";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "exec \"${SCRIPT_INPUT_FILE_0}\"";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		D2AAC044055464E500DB518D /* Sources */ = {
@@ -250,41 +308,15 @@
 /* Begin XCBuildConfiguration section */
 		1DEB91ED08733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
 			buildSettings = {
-				ALWAYS_SEARCH_USER_PATHS = YES;
-				CURRENT_PROJECT_VERSION = "$(RC_ProjectSourceVersion)";
-				EXECUTABLE_PREFIX = "";
-				GCC_ENABLE_CPP_EXCEPTIONS = NO;
-				GCC_ENABLE_CPP_RTTI = NO;
-				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
-				GCC_PREPROCESSOR_DEFINITIONS = "__DARWIN_NON_CANCELABLE=1";
-				INSTALL_PATH = /usr/local/lib/system;
-				OTHER_CFLAGS = (
-					"-fno-unwind-tables",
-					"-fno-exceptions",
-				);
-				PRODUCT_NAME = libnotify;
-				PUBLIC_HEADERS_FOLDER_PATH = /usr/include;
-				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Release;
 		};
 		1DEB91F108733DB70010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 3F82235D12B18551005DD509 /* libnotify.xcconfig */;
 			buildSettings = {
-				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
-				BUILD_VARIANTS = (
-					normal,
-					debug,
-					profile,
-				);
-				CODE_SIGN_IDENTITY = "-";
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_C_LANGUAGE_STANDARD = gnu99;
-				GCC_WARN_ABOUT_RETURN_TYPE = YES;
-				GCC_WARN_UNUSED_VARIABLE = YES;
-				OTHER_CFLAGS_debug = "-O0";
-				PREBINDING = NO;
 			};
 			name = Release;
 		};

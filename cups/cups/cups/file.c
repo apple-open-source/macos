@@ -1,14 +1,14 @@
 /*
- * "$Id: file.c 7672 2008-06-18 22:03:02Z mike $"
+ * "$Id: file.c 9159 2010-06-16 18:02:57Z mike $"
  *
- *   File functions for the Common UNIX Printing System (CUPS).
+ *   File functions for CUPS.
  *
  *   Since stdio files max out at 256 files on many systems, we have to
  *   write similar functions without this limit.  At the same time, using
  *   our own file functions allows us to provide transparent support of
  *   gzip'd print files, PPD files, etc.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -19,39 +19,43 @@
  *
  * Contents:
  *
- *   cupsFileClose()       - Close a CUPS file.
- *   cupsFileCompression() - Return whether a file is compressed.
- *   cupsFileEOF()         - Return the end-of-file status.
- *   cupsFileFind()        - Find a file using the specified path.
- *   cupsFileFlush()       - Flush pending output.
- *   cupsFileGetChar()     - Get a single character from a file.
- *   cupsFileGetConf()     - Get a line from a configuration file...
- *   cupsFileGetLine()     - Get a CR and/or LF-terminated line that may contain
- *                           binary data.
- *   cupsFileGets()        - Get a CR and/or LF-terminated line.
- *   cupsFileLock()        - Temporarily lock access to a file.
- *   cupsFileNumber()      - Return the file descriptor associated with a CUPS
- *                           file.
- *   cupsFileOpen()        - Open a CUPS file.
- *   cupsFileOpenFd()      - Open a CUPS file using a file descriptor.
- *   cupsFilePeekChar()    - Peek at the next character from a file.
- *   cupsFilePrintf()      - Write a formatted string.
- *   cupsFilePutChar()     - Write a character.
- *   cupsFilePuts()        - Write a string.
- *   cupsFileRead()        - Read from a file.
- *   cupsFileRewind()      - Set the current file position to the beginning of
- *                           the file.
- *   cupsFileSeek()        - Seek in a file.
- *   cupsFileStderr()      - Return a CUPS file associated with stderr.
- *   cupsFileStdin()       - Return a CUPS file associated with stdin.
- *   cupsFileStdout()      - Return a CUPS file associated with stdout.
- *   cupsFileTell()        - Return the current file position.
- *   cupsFileUnlock()      - Unlock access to a file.
- *   cupsFileWrite()       - Write to a file.
- *   cups_compress()       - Compress a buffer of data...
- *   cups_fill()           - Fill the input buffer...
- *   cups_read()           - Read from a file descriptor.
- *   cups_write()          - Write to a file descriptor.
+ *   _cupsFileCheck()       - Check the permissions of the given filename.
+ *   _cupsFileCheckFilter() - Report file check results as CUPS filter messages.
+ *   cupsFileClose()        - Close a CUPS file.
+ *   cupsFileCompression()  - Return whether a file is compressed.
+ *   cupsFileEOF()          - Return the end-of-file status.
+ *   cupsFileFind()         - Find a file using the specified path.
+ *   cupsFileFlush()        - Flush pending output.
+ *   cupsFileGetChar()      - Get a single character from a file.
+ *   cupsFileGetConf()      - Get a line from a configuration file.
+ *   cupsFileGetLine()      - Get a CR and/or LF-terminated line that may
+ *                            contain binary data.
+ *   cupsFileGets()         - Get a CR and/or LF-terminated line.
+ *   cupsFileLock()         - Temporarily lock access to a file.
+ *   cupsFileNumber()       - Return the file descriptor associated with a CUPS
+ *                            file.
+ *   cupsFileOpen()         - Open a CUPS file.
+ *   cupsFileOpenFd()       - Open a CUPS file using a file descriptor.
+ *   cupsFilePeekChar()     - Peek at the next character from a file.
+ *   cupsFilePrintf()       - Write a formatted string.
+ *   cupsFilePutChar()      - Write a character.
+ *   cupsFilePutConf()      - Write a configuration line.
+ *   cupsFilePuts()         - Write a string.
+ *   cupsFileRead()         - Read from a file.
+ *   cupsFileRewind()       - Set the current file position to the beginning of
+ *                            the file.
+ *   cupsFileSeek()         - Seek in a file.
+ *   cupsFileStderr()       - Return a CUPS file associated with stderr.
+ *   cupsFileStdin()        - Return a CUPS file associated with stdin.
+ *   cupsFileStdout()       - Return a CUPS file associated with stdout.
+ *   cupsFileTell()         - Return the current file position.
+ *   cupsFileUnlock()       - Unlock access to a file.
+ *   cupsFileWrite()        - Write to a file.
+ *   cups_compress()        - Compress a buffer of data.
+ *   cups_fill()            - Fill the input buffer.
+ *   cups_open()            - Safely open a file for writing.
+ *   cups_read()            - Read from a file descriptor.
+ *   cups_write()           - Write to a file descriptor.
  */
 
 /*
@@ -74,6 +78,285 @@ static ssize_t	cups_fill(cups_file_t *fp);
 static int	cups_open(const char *filename, int mode);
 static ssize_t	cups_read(cups_file_t *fp, char *buf, size_t bytes);
 static ssize_t	cups_write(cups_file_t *fp, const char *buf, size_t bytes);
+
+
+/*
+ * '_cupsFileCheck()' - Check the permissions of the given filename.
+ */
+
+_cups_fc_result_t			/* O - Check result */
+_cupsFileCheck(
+    const char          *filename,	/* I - Filename to check */
+    _cups_fc_filetype_t filetype,	/* I - Type of file checks? */
+    int                 dorootchecks,	/* I - Check for root permissions? */
+    _cups_fc_func_t     cb,		/* I - Callback function */
+    void                *context)	/* I - Context pointer for callback */
+
+{
+  struct stat		fileinfo;	/* File information */
+  char			message[1024],	/* Message string */
+			temp[1024],	/* Parent directory filename */
+			*ptr;		/* Pointer into parent directory */
+  _cups_fc_result_t	result;		/* Check result */
+
+
+ /*
+  * Does the filename contain a relative path ("../")?
+  */
+
+  if (strstr(filename, "../"))
+  {
+   /*
+    * Yes, fail it!
+    */
+
+    result = _CUPS_FILE_CHECK_RELATIVE_PATH;
+    goto finishup;
+  }
+
+ /*
+  * Does the program even exist and is it accessible?
+  */
+
+  if (stat(filename, &fileinfo))
+  {
+   /*
+    * Nope...
+    */
+
+    result = _CUPS_FILE_CHECK_MISSING;
+    goto finishup;
+  }
+
+ /*
+  * Check the execute bit...
+  */
+
+  result = _CUPS_FILE_CHECK_OK;
+
+  switch (filetype)
+  {
+    case _CUPS_FILE_CHECK_DIRECTORY :
+        if (!S_ISDIR(fileinfo.st_mode))
+	  result = _CUPS_FILE_CHECK_WRONG_TYPE;
+        break;
+
+    default :
+        if (!S_ISREG(fileinfo.st_mode))
+	  result = _CUPS_FILE_CHECK_WRONG_TYPE;
+        break;
+  }
+
+  if (result)
+    goto finishup;
+
+ /*
+  * Are we doing root checks?
+  */
+
+  if (!dorootchecks)
+  {
+   /*
+    * Nope, so anything (else) goes...
+    */
+
+    goto finishup;
+  }
+
+ /*
+  * Verify permission of the file itself:
+  *
+  * 1. Must be owned by root
+  * 2. Must not be writable by group unless group is root/wheel/admin
+  * 3. Must not be setuid
+  * 4. Must not be writable by others
+  */
+
+  if (fileinfo.st_uid ||		/* 1. Must be owned by root */
+#ifdef __APPLE__
+      ((fileinfo.st_mode & S_IWGRP) && fileinfo.st_gid &&
+       fileinfo.st_gid != 80) ||	/* 2. Must not be writable by group */
+#else
+      ((fileinfo.st_mode & S_IWGRP) && fileinfo.st_gid) ||
+					/* 2. Must not be writable by group */
+#endif /* __APPLE__ */
+      (fileinfo.st_mode & S_ISUID) ||	/* 3. Must not be setuid */
+      (fileinfo.st_mode & S_IWOTH))	/* 4. Must not be writable by others */
+  {
+    result = _CUPS_FILE_CHECK_PERMISSIONS;
+    goto finishup;
+  }
+
+  if (filetype == _CUPS_FILE_CHECK_DIRECTORY ||
+      filetype == _CUPS_FILE_CHECK_FILE_ONLY)
+    goto finishup;
+
+ /*
+  * Now check the containing directory...
+  */
+
+  strlcpy(temp, filename, sizeof(temp));
+  if ((ptr = strrchr(temp, '/')) != NULL)
+  {
+    if (ptr == temp)
+      ptr[1] = '\0';
+    else
+      *ptr = '\0';
+  }
+
+  if (stat(temp, &fileinfo))
+  {
+   /*
+    * Doesn't exist?!?
+    */
+
+    result   = _CUPS_FILE_CHECK_MISSING;
+    filetype = _CUPS_FILE_CHECK_DIRECTORY;
+    filename = temp;
+
+    goto finishup;
+  }
+
+  if (fileinfo.st_uid ||		/* 1. Must be owned by root */
+#ifdef __APPLE__
+      ((fileinfo.st_mode & S_IWGRP) && fileinfo.st_gid &&
+       fileinfo.st_gid != 80) ||	/* 2. Must not be writable by group */
+#else
+      ((fileinfo.st_mode & S_IWGRP) && fileinfo.st_gid) ||
+					/* 2. Must not be writable by group */
+#endif /* __APPLE__ */
+      (fileinfo.st_mode & S_ISUID) ||	/* 3. Must not be setuid */
+      (fileinfo.st_mode & S_IWOTH))	/* 4. Must not be writable by others */
+  {
+    result   = _CUPS_FILE_CHECK_PERMISSIONS;
+    filetype = _CUPS_FILE_CHECK_DIRECTORY;
+    filename = temp;
+  }
+
+ /*
+  * Common return point...
+  */
+
+  finishup:
+
+  if (cb)
+  {
+    cups_lang_t *lang = cupsLangDefault();
+					/* Localization information */
+
+    switch (result)
+    {
+      case _CUPS_FILE_CHECK_OK :
+	  if (filetype == _CUPS_FILE_CHECK_DIRECTORY)
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("Directory \"%s\" permissions OK "
+					     "(0%o/uid=%d/gid=%d).")),
+		     filename, fileinfo.st_mode, (int)fileinfo.st_uid,
+		     (int)fileinfo.st_gid);
+	  else
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("File \"%s\" permissions OK "
+					     "(0%o/uid=%d/gid=%d).")),
+		     filename, fileinfo.st_mode, (int)fileinfo.st_uid,
+		     (int)fileinfo.st_gid);
+          break;
+
+      case _CUPS_FILE_CHECK_MISSING :
+	  if (filetype == _CUPS_FILE_CHECK_DIRECTORY)
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("Directory \"%s\" not available: "
+					     "%s")),
+		     filename, strerror(errno));
+	  else
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("File \"%s\" not available: %s")),
+		     filename, strerror(errno));
+          break;
+
+      case _CUPS_FILE_CHECK_PERMISSIONS :
+	  if (filetype == _CUPS_FILE_CHECK_DIRECTORY)
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("Directory \"%s\" has insecure "
+					     "permissions "
+					     "(0%o/uid=%d/gid=%d).")),
+		     filename, fileinfo.st_mode, (int)fileinfo.st_uid,
+		     (int)fileinfo.st_gid);
+	  else
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("File \"%s\" has insecure "
+		                             "permissions "
+					     "(0%o/uid=%d/gid=%d).")),
+		     filename, fileinfo.st_mode, (int)fileinfo.st_uid,
+		     (int)fileinfo.st_gid);
+          break;
+
+      case _CUPS_FILE_CHECK_WRONG_TYPE :
+	  if (filetype == _CUPS_FILE_CHECK_DIRECTORY)
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("Directory \"%s\" is a file.")),
+		     filename);
+	  else
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("File \"%s\" is a directory.")),
+		     filename);
+          break;
+
+      case _CUPS_FILE_CHECK_RELATIVE_PATH :
+	  if (filetype == _CUPS_FILE_CHECK_DIRECTORY)
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("Directory \"%s\" contains a "
+					     "relative path.")), filename);
+	  else
+	    snprintf(message, sizeof(message),
+		     _cupsLangString(lang, _("File \"%s\" contains a relative "
+					     "path.")), filename);
+          break;
+    }
+
+    (*cb)(context, result, message);
+  }
+
+  return (result);
+}
+
+
+/*
+ * '_cupsFileCheckFilter()' - Report file check results as CUPS filter messages.
+ */
+
+void
+_cupsFileCheckFilter(
+    void              *context,		/* I - Context pointer (unused) */
+    _cups_fc_result_t result,		/* I - Result code */
+    const char        *message)		/* I - Message text */
+{
+  const char	*prefix;		/* Messaging prefix */
+
+
+  (void)context;
+
+  switch (result)
+  {
+    default :
+    case _CUPS_FILE_CHECK_OK :
+        prefix = "DEBUG2";
+	break;
+
+    case _CUPS_FILE_CHECK_MISSING :
+    case _CUPS_FILE_CHECK_WRONG_TYPE :
+        prefix = "ERROR";
+	fputs("STATE: +cups-missing-filter-warning\n", stderr);
+	break;
+
+    case _CUPS_FILE_CHECK_PERMISSIONS :
+    case _CUPS_FILE_CHECK_RELATIVE_PATH :
+        prefix = "ERROR";
+	fputs("STATE: +cups-insecure-filter-warning\n", stderr);
+	break;
+  }
+
+  fprintf(stderr, "%s: %s\n", prefix, message);
+}
 
 
 /*
@@ -386,7 +669,7 @@ cupsFileFlush(cups_file_t *fp)		/* I - CUPS file */
 
     fp->ptr = fp->buf;
   }
-   
+
   return (0);
 }
 
@@ -406,7 +689,7 @@ cupsFileGetChar(cups_file_t *fp)	/* I - CUPS file */
 
   if (!fp || (fp->mode != 'r' && fp->mode != 's'))
   {
-    DEBUG_puts("3cupsFileGetChar: Bad arguments!");
+    DEBUG_puts("5cupsFileGetChar: Bad arguments!");
     return (-1);
   }
 
@@ -417,7 +700,7 @@ cupsFileGetChar(cups_file_t *fp)	/* I - CUPS file */
   if (fp->ptr >= fp->end)
     if (cups_fill(fp) < 0)
     {
-      DEBUG_puts("3cupsFileGetChar: Unable to fill buffer!");
+      DEBUG_puts("5cupsFileGetChar: Unable to fill buffer!");
       return (-1);
     }
 
@@ -425,18 +708,18 @@ cupsFileGetChar(cups_file_t *fp)	/* I - CUPS file */
   * Return the next character in the buffer...
   */
 
-  DEBUG_printf(("3cupsFileGetChar: Returning %d...", *(fp->ptr) & 255));
+  DEBUG_printf(("5cupsFileGetChar: Returning %d...", *(fp->ptr) & 255));
 
   fp->pos ++;
 
-  DEBUG_printf(("4cupsFileGetChar: pos=" CUPS_LLFMT, CUPS_LLCAST fp->pos));
+  DEBUG_printf(("6cupsFileGetChar: pos=" CUPS_LLFMT, CUPS_LLCAST fp->pos));
 
   return (*(fp->ptr)++ & 255);
 }
 
 
 /*
- * 'cupsFileGetConf()' - Get a line from a configuration file...
+ * 'cupsFileGetConf()' - Get a line from a configuration file.
  *
  * @since CUPS 1.2/Mac OS X 10.5@
  */
@@ -1358,7 +1641,7 @@ cupsFileRead(cups_file_t *fp,		/* I - CUPS file */
   * Range check input...
   */
 
-  if (!fp || !buf || bytes < 0 || (fp->mode != 'r' && fp->mode != 's'))
+  if (!fp || !buf || (fp->mode != 'r' && fp->mode != 's'))
     return (-1);
 
   if (bytes == 0)
@@ -1805,7 +2088,7 @@ cupsFileWrite(cups_file_t *fp,		/* I - CUPS file */
   DEBUG_printf(("2cupsFileWrite(fp=%p, buf=%p, bytes=" CUPS_LLFMT ")",
                 fp, buf, CUPS_LLCAST bytes));
 
-  if (!fp || !buf || bytes < 0 || (fp->mode != 'w' && fp->mode != 's'))
+  if (!fp || !buf || (fp->mode != 'w' && fp->mode != 's'))
     return (-1);
 
   if (bytes == 0)
@@ -1855,7 +2138,7 @@ cupsFileWrite(cups_file_t *fp,		/* I - CUPS file */
 
 #ifdef HAVE_LIBZ
 /*
- * 'cups_compress()' - Compress a buffer of data...
+ * 'cups_compress()' - Compress a buffer of data.
  */
 
 static ssize_t				/* O - Number of bytes written or -1 */
@@ -1906,7 +2189,7 @@ cups_compress(cups_file_t *fp,		/* I - CUPS file */
 
 
 /*
- * 'cups_fill()' - Fill the input buffer...
+ * 'cups_fill()' - Fill the input buffer.
  */
 
 static ssize_t				/* O - Number of bytes or -1 */
@@ -2437,5 +2720,5 @@ cups_write(cups_file_t *fp,		/* I - CUPS file */
 
 
 /*
- * End of "$Id: file.c 7672 2008-06-18 22:03:02Z mike $".
+ * End of "$Id: file.c 9159 2010-06-16 18:02:57Z mike $".
  */

@@ -41,17 +41,28 @@
 #include "DSUtils.h"
 #include "CPlugInList.h"
 #include "ServerControl.h"
+#include "od_passthru.h"
 #include <DirectoryService/DirServicesPriv.h>
 
 extern	CPlugInList		*gPlugins;
 extern dsBool			gDSLocalOnlyMode;
 
-extern DSEventSemaphore gKickConfigRequests;
+#ifndef DISABLE_CONFIGURE_PLUGIN
+	extern DSEventSemaphore gKickConfigRequests;
+#endif
 extern DSEventSemaphore gKickNodeRequests;
-extern DSEventSemaphore gKickLocalNodeRequests;
-extern DSEventSemaphore gKickSearchRequests;
-extern DSEventSemaphore gKickCacheRequests;
-extern DSEventSemaphore gKickBSDRequests;
+#ifndef DISABLE_LOCAL_PLUGIN
+	extern DSEventSemaphore gKickLocalNodeRequests;
+#endif
+#ifndef DISABLE_SEARCH_PLUGIN
+	extern DSEventSemaphore gKickSearchRequests;
+#endif
+#ifndef DISABLE_CACHE_PLUGIN
+	extern DSEventSemaphore gKickCacheRequests;
+#endif
+#ifndef DISABLE_BSD_PLUGIN
+	extern DSEventSemaphore gKickBSDRequests;
+#endif
 
 extern	dsBool			gDSInstallDaemonMode;
 
@@ -73,7 +84,6 @@ CNodeList::CNodeList ( void ) : fMutex("CNodeList::fMutex")
 	fLocalHostedNodes			= nil;
 	fDefaultNetworkNodes		= nil;
 	fBSDNode					= nil;
-    bDHCPLDAPv3InitComplete		= false;
 } // CNodeList
 
 
@@ -292,12 +302,6 @@ SInt32 CNodeList::AddNode ( const char		*inNodeName,
 				else
 				{
 					DbgLog( kLogApplication, "Attempt to register second BSD Node failed." );
-				}
-				break;
-			case kDHCPLDAPv3NodeType:
-				if ( !bDHCPLDAPv3InitComplete )
-				{
-					siResult = AddDHCPLDAPv3Node( inNodeName, inListPtr, inType, inPlugInPtr, inToken );
 				}
 				break;
 			case kDirNodeType:
@@ -890,26 +894,6 @@ SInt32 CNodeList:: AddBSDNode (	const char		*inNodeName,
 	
 } // AddBSDNode
 
-
-// ---------------------------------------------------------------------------
-//	* AddDHCPLDAPv3Node () RETURNS ZERO IF NODE ALREADY EXISTS
-// simply used as an indicator to note that DHCP LDAPv3 initialization has completed
-// ---------------------------------------------------------------------------
-
-SInt32 CNodeList::AddDHCPLDAPv3Node (	const char		*inNodeName,
-                                        tDataList		*inListPtr,
-                                        eDirNodeType	 inType,
-                                        CServerPlugin	*inPlugInPtr,
-										UInt32			 inToken )
-{
-	bDHCPLDAPv3InitComplete = true;
-	fWaitForDHCPLDAPv3InitFlag.PostEvent();
-
-	return( eDSNoErr );
-
-} // AddDHCPLDAPv3Node
-
-
 // ---------------------------------------------------------------------------
 //	* AddNodeToTree ()
 // ---------------------------------------------------------------------------
@@ -1268,6 +1252,27 @@ void CNodeList::RegisterAll ( void )
 	try
 	{
 		this->Register( fTreePtr );
+		if (fAuthenticationSearchNode != NULL) {
+			od_passthru_register_node(fAuthenticationSearchNode->fNodeName, false);
+		}
+
+		if (fContactsSearchNode != NULL) {
+			od_passthru_register_node(fContactsSearchNode->fNodeName, false);
+		}
+
+		if (fNetworkSearchNode != NULL) {
+			od_passthru_register_node(fNetworkSearchNode->fNodeName, true);
+		}
+		
+		if (fConfigureNode != NULL) {
+			od_passthru_register_node(fConfigureNode->fNodeName, true);
+		}
+		
+		if (fCacheNode != NULL) {
+			od_passthru_register_node(fCacheNode->fNodeName, true);
+		}
+		
+		gPlugins->RegisterPlugins();
 	}
 
 	catch( SInt32 err )
@@ -1287,6 +1292,10 @@ void CNodeList::Register ( sTreeNode *inTree )
 {
 	if ( inTree != nil )
 	{
+		if (inTree->fType == kDirNodeType) {
+			od_passthru_register_node(inTree->fNodeName, false);
+		}
+		
 		Register( inTree->left );
 		Register( inTree->right );
 	}
@@ -1368,43 +1377,65 @@ SInt32 CNodeList::GetNodes ( char			   *inStr,
 	//	it is free for node registration
 	if ( (inMatch == eDSLocalNodeNames) && (fLocalNode == nil) )
 	{
+#ifndef DISABLE_LOCAL_PLUGIN
 		WaitForLocalNode();
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	if ( (inMatch == eDSCacheNodeName) && (fCacheNode == nil) )
 	{
+#ifndef DISABLE_CACHE_PLUGIN
 		WaitForCacheNode();
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	if ( (inMatch == eDSAuthenticationSearchNodeName) && (fAuthenticationSearchNode == nil) )
 	{
+#ifndef DISABLE_SEARCH_PLUGIN
 		if ( gDSLocalOnlyMode == true ) {
 			return eDSUnknownNodeName;
 		}
 		WaitForLocalNode();
 		WaitForBSDNode();
-        WaitForDHCPLDAPv3Init();
 		WaitForAuthenticationSearchNode();
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	else if ( (inMatch == eDSContactsSearchNodeName) && (fContactsSearchNode == nil) )
 	{
+#ifndef DISABLE_SEARCH_PLUGIN
 		if ( gDSLocalOnlyMode == true ) {
 			return eDSUnknownNodeName;
 		}
 		WaitForLocalNode();
 		WaitForBSDNode();
-        WaitForDHCPLDAPv3Init();
 		WaitForContactsSearchNode();
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	else if ( (inMatch == eDSNetworkSearchNodeName) && (fNetworkSearchNode == nil) )
 	{
+#ifndef DISABLE_SEARCH_PLUGIN
 		if ( gDSLocalOnlyMode == true ) {
 			return eDSUnknownNodeName;
 		}
 		WaitForLocalNode(); //assumes that the local node is part of the networksearchnode path
 		WaitForNetworkSearchNode();
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	else if ( (inMatch == eDSDefaultNetworkNodes) && (fNetworkSearchNode == nil) )
 	{
+#ifndef DISABLE_SEARCH_PLUGIN
 		WaitForLocalNode(); //assumes that the local node is part of the networksearchnode path
+#else
+		return eDSUnknownNodeName;
+#endif
 	}
 	else if ( (inMatch == eDSConfigNodeName) && (fConfigureNode == nil) )
 	{
@@ -1922,9 +1953,11 @@ bool CNodeList::DeleteNodeFromTree ( char *inStr, sTreeNode  *inTree )
 				aTreeParent->right = remTree;
 			}
 		}
-
+		
 		if ( aTree->fNodeName != nil )
 		{
+			od_passthru_unregister_node(aTree->fNodeName);
+			
 			free( aTree->fNodeName );
 			aTree->fNodeName = nil;
 		}
@@ -2355,8 +2388,10 @@ SInt32 CNodeList::AddNodePathToTDataBuff ( tDataList *inPtr, tDataBuffer *inBuff
 
 void CNodeList::WaitForAuthenticationSearchNode( void )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	fWaitForAuthenticationSN.WaitForEvent();
 	gKickSearchRequests.WaitForEvent();
+#endif
 } // WaitForAuthenticationSearchNode
 
 
@@ -2366,8 +2401,10 @@ void CNodeList::WaitForAuthenticationSearchNode( void )
 
 void CNodeList:: WaitForContactsSearchNode ( void )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	fWaitForContactsSN.WaitForEvent();
 	gKickSearchRequests.WaitForEvent();
+#endif
 } // WaitForContactsSearchNode
 
 
@@ -2377,8 +2414,10 @@ void CNodeList:: WaitForContactsSearchNode ( void )
 
 void CNodeList:: WaitForNetworkSearchNode ( void )
 {
+#ifndef DISABLE_SEARCH_PLUGIN
 	fWaitForNetworkSN.WaitForEvent();
 	gKickSearchRequests.WaitForEvent();
+#endif
 } // WaitForNetworkSearchNode
 
 
@@ -2388,8 +2427,10 @@ void CNodeList:: WaitForNetworkSearchNode ( void )
 
 void CNodeList::WaitForLocalNode( void )
 {
+#ifndef DISABLE_LOCAL_PLUGIN
 	fWaitForLN.WaitForEvent();
 	gKickLocalNodeRequests.WaitForEvent();
+#endif
 } // WaitForLocalNode
 
 
@@ -2399,8 +2440,10 @@ void CNodeList::WaitForLocalNode( void )
 
 void CNodeList::WaitForCacheNode( void )
 {
+#ifndef DISABLE_CACHE_PLUGIN
 	fWaitForCacheN.WaitForEvent();
 	gKickCacheRequests.WaitForEvent();
+#endif
 } // WaitForCacheNode
 
 // ---------------------------------------------------------------------------
@@ -2409,8 +2452,10 @@ void CNodeList::WaitForCacheNode( void )
 
 void CNodeList::WaitForBSDNode( void )
 {
+#ifndef DISABLE_BSD_PLUGIN
 	fWaitForBSDN.WaitForEvent();
 	gKickBSDRequests.WaitForEvent();
+#endif
 } // WaitForCacheNode
 
 
@@ -2420,19 +2465,8 @@ void CNodeList::WaitForBSDNode( void )
 
 void CNodeList::WaitForConfigureNode( void )
 {
+#ifndef DISABLE_CONFIGURE_PLUGIN
 	fWaitForConfigureN.WaitForEvent();
 	gKickConfigRequests.WaitForEvent();
+#endif
 } // WaitForConfigureNode
-
-// ---------------------------------------------------------------------------
-//	* WaitForDHCPLDAPv3Init ()
-// ---------------------------------------------------------------------------
-
-void CNodeList::WaitForDHCPLDAPv3Init( void )
-{
-	if (!gDSInstallDaemonMode)
-	{
-		fWaitForDHCPLDAPv3InitFlag.WaitForEvent();
-	}
-} // WaitForDHCPLDAPv3Init
-

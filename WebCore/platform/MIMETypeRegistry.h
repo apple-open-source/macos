@@ -27,18 +27,22 @@
 #define MIMETypeRegistry_h
 
 #include "PlatformString.h"
-#include "StringHash.h"
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 class MIMETypeRegistry {
 public:
-    static String getMIMETypeForExtension(const String& ext);
+    static String getMIMETypeForExtension(const String& extension);
+#if ENABLE(FILE_SYSTEM) && ENABLE(WORKERS)
+    static String getMIMETypeForExtensionThreadSafe(const String& extension);
+#endif
     static Vector<String> getExtensionsForMIMEType(const String& type);
     static String getPreferredExtensionForMIMEType(const String& type);
-    static String getMediaMIMETypeForExtension(const String& ext);
+    static String getMediaMIMETypeForExtension(const String& extension);
+    static Vector<String> getMediaMIMETypesForExtension(const String& extension);
 
     static String getMIMETypeForPath(const String& path);
 
@@ -64,6 +68,10 @@ public:
     // Check to see if a mime type is suitable for being loaded using <video> and <audio>
     static bool isSupportedMediaMIMEType(const String& mimeType); 
 
+    // Check to see if the mime type is not suitable for being loaded as a text
+    // document in a frame. Only valid for mime types begining with "text/".
+    static bool isUnsupportedTextMIMEType(const String& mimeType);
+
     // Check to see if a mime type is a valid Java applet mime type
     static bool isJavaAppletMIMEType(const String& mimeType);
 
@@ -76,6 +84,7 @@ public:
     static HashSet<String>& getSupportedImageMIMETypesForEncoding();
     static HashSet<String>& getSupportedNonImageMIMETypes();
     static HashSet<String>& getSupportedMediaMIMETypes();
+    static HashSet<String>& getUnsupportedTextMIMETypes();
 };
 
 const String& defaultMIMEType();

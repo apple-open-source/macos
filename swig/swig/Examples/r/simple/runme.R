@@ -1,7 +1,7 @@
 # file: runme.R
 
-dyn.load('example_wrap.so')
-source('example_wrap.R')
+dyn.load(paste("example", .Platform$dynlib.ext, sep=""))
+source("example.R")
 cacheMetaData(1)
 
 # Call our gcd() function

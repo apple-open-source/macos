@@ -1,8 +1,6 @@
-Index: setenv.c
-===================================================================
---- setenv.c	(revision 41051)
-+++ setenv.c	(working copy)
-@@ -40,32 +40,79 @@
+--- setenv.c.orig	2011-04-13 01:21:14.000000000 -0700
++++ setenv.c	2011-04-13 14:44:04.000000000 -0700
+@@ -36,32 +36,115 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  #include <stddef.h>
  #include <stdlib.h>
  #include <string.h>
@@ -14,23 +12,59 @@ Index: setenv.c
  
 -char *__findenv(const char *, int *);
 +#define	ZONE_OWNS_PTR(zone, ptr)	(malloc_zone_from_ptr((ptr)) == zone)
- 
++
 +extern malloc_zone_t *__zone0;
 +extern void __malloc_check_env_name(const char *);
 +
 +__private_extern__ char *__findenv(const char *, int *, char **);
 +__private_extern__ int __setenv(const char *, const char *, int, int, char ***, malloc_zone_t *);
 +__private_extern__ void __unsetenv(const char *, char **, malloc_zone_t *);
-+
-+#ifndef BUILDING_VARIANT
++__private_extern__ int init__zone0(int);
+ 
  /*
 - * setenv --
 - *	Set the value of the environmental variable "name" to be
 - *	"value".  If rewrite is set, replace any current value.
-+ * Create the environment malloc zone and give it a recognizable name.
++ * _cthread_init_routine used to be called from crt1.o to initialize threads.
++ * This is no longer needed, as initialization happens in dylib initializers,
++ * but is provided to maintain backwards compatibility.  Normally, for 10.5
++ * or greater, _cthread_init_routine does nothing.
++ *
++ * Before 10.5, the _start routine in crt1.o clobbers environ with the original
++ * stack value, which effectively undoes any environment changes made in
++ * initializers.  When LEGACY_CRT1_ENVIRON is defined, we replace the
++ * do-nothing routine with one that attempts to restore the environ value.
++ * But this only works if the setenv (and family) routines were used
++ * exclusively, (no direct manipulation of environ).  Note that according to
++ * SUSv3, direct manipulation of environ may result in undefined behavior in
++ * setenv and family, so we don't support that (on less than 10.5).
   */
 -int
 -setenv(name, value, rewrite)
++#ifdef BUILDING_VARIANT
++#  ifdef LEGACY_CRT1_ENVIRON
++extern char **_saved_environ;
++#  endif /* LEGACY_CRT1_ENVIRON */
++#else /* !BUILDING_VARIANT */
++#  ifdef LEGACY_CRT1_ENVIRON
++__private_extern__ char **_saved_environ = NULL;
++
++static int
++_legacy_crt1_environ(void)
++{
++	if (_saved_environ) *_NSGetEnviron() = _saved_environ;
++	return 0;
++}
++int (*_cthread_init_routine)(void) = _legacy_crt1_environ;
++
++#  else /* !LEGACY_CRT1_ENVIRON */
++static int _do_nothing(void) { return 0; }
++int (*_cthread_init_routine)(void) = _do_nothing;
++#  endif /* !LEGACY_CRT1_ENVIRON */
++
++/*
++ * Create the environment malloc zone and give it a recognizable name.
++ */
 +__private_extern__ int
 +init__zone0(int should_set_errno)
 +{
@@ -97,7 +131,7 @@ Index: setenv.c
  			while ( (*c++ = *value++) );
  			return (0);
  		}
-@@ -73,48 +120,225 @@
+@@ -69,48 +152,235 @@ setenv(name, value, rewrite)
  		int cnt;
  		char **p;
  
@@ -178,7 +212,7 @@ Index: setenv.c
 +}
 +
 +/****************************************************************************/
- /*
++/*
 + * _allocenvstate -- SPI that creates a new state (opaque)
 + */
 +void *
@@ -276,6 +310,10 @@ Index: setenv.c
 +	const char *value;
 +	int rewrite;
 +{
++#ifdef LEGACY_CRT1_ENVIRON
++	int ret;
++#endif /* LEGACY_CRT1_ENVIRON */
++
 +	/* no null ptr or empty str */
 +	if(name == NULL || *name == 0) {
 +		errno = EINVAL;
@@ -295,10 +333,16 @@ Index: setenv.c
 +	/* insure __zone0 is set up before calling __malloc_check_env_name */
 +	if (init__zone0(1)) return (-1);
 +	__malloc_check_env_name(name); /* see if we are changing a malloc environment variable */
++#ifdef LEGACY_CRT1_ENVIRON
++	ret = __setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0);
++	_saved_environ = *_NSGetEnviron();
++	return ret;
++#else /* !LEGACY_CRT1_ENVIRON */
 +	return (__setenv(name, value, rewrite, 1, _NSGetEnviron(), __zone0));
++#endif /* !LEGACY_CRT1_ENVIRON */
 +}
 +
-+/*
+ /*
   * unsetenv(name) --
   *	Delete environmental variable "name".
   */

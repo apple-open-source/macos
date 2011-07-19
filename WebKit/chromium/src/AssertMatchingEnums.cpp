@@ -35,28 +35,75 @@
 
 #include "AccessibilityObject.h"
 #include "ApplicationCacheHost.h"
+#include "AsyncFileSystem.h"
+#include "DocumentMarker.h"
 #include "EditorInsertAction.h"
+#include "ExceptionCode.h"
+#include "FileError.h"
+#include "FileMetadata.h"
+#include "FontDescription.h"
+#include "FontSmoothingMode.h"
+#include "GeolocationError.h"
+#include "GeolocationPosition.h"
 #include "HTMLInputElement.h"
+#include "IconURL.h"
+#include "IDBFactoryBackendInterface.h"
+#include "IDBKey.h"
 #include "MediaPlayer.h"
 #include "NotificationPresenter.h"
+#include "PageVisibilityState.h"
 #include "PasteboardPrivate.h"
 #include "PlatformCursor.h"
-#include "StringImpl.h"
+#include "Settings.h"
+#include "StorageInfo.h"
 #include "TextAffinity.h"
+#include "UserContentTypes.h"
+#include "UserScriptTypes.h"
+#include "UserStyleSheetTypes.h"
+#include "VideoFrameChromium.h"
 #include "WebAccessibilityObject.h"
 #include "WebApplicationCacheHost.h"
 #include "WebClipboard.h"
 #include "WebCursorInfo.h"
 #include "WebEditingAction.h"
+#include "WebFileError.h"
+#include "WebFileInfo.h"
+#include "WebFileSystem.h"
+#include "WebFontDescription.h"
+#include "WebGeolocationError.h"
+#include "WebGeolocationPosition.h"
+#include "WebIDBFactory.h"
+#include "WebIDBKey.h"
+#include "WebIconURL.h"
 #include "WebInputElement.h"
 #include "WebMediaPlayer.h"
 #include "WebNotificationPresenter.h"
+#include "WebPageVisibilityState.h"
+#include "WebScrollbar.h"
+#include "WebSettings.h"
+#include "WebStorageQuotaError.h"
+#include "WebStorageQuotaType.h"
 #include "WebTextAffinity.h"
 #include "WebTextCaseSensitivity.h"
+#include "WebTextCheckingResult.h"
+#include "WebVideoFrame.h"
+#include "WebView.h"
 #include <wtf/Assertions.h>
+#include <wtf/text/StringImpl.h>
+
+#if OS(DARWIN)
+#include "PlatformBridge.h"
+#include "mac/WebThemeEngine.h"
+#endif
 
 #define COMPILE_ASSERT_MATCHING_ENUM(webkit_name, webcore_name) \
     COMPILE_ASSERT(int(WebKit::webkit_name) == int(WebCore::webcore_name), mismatching_enums)
+
+// These constants are in WTF, bring them into WebCore so the ASSERT still works for them!
+namespace WebCore {
+    using WTF::TextCaseSensitive;
+    using WTF::TextCaseInsensitive;
+};
 
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleUnknown, UnknownRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleButton, ButtonRole);
@@ -124,6 +171,7 @@ COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleDefinitionListDefinition, Defin
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleAnnotation, AnnotationRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleSliderThumb, SliderThumbRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleIgnored, IgnoredRole);
+COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRolePresentational, PresentationalRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleTab, TabRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleTabList, TabListRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleTabPanel, TabPanelRole);
@@ -133,6 +181,10 @@ COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleTreeItemRole, TreeItemRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleDirectory, DirectoryRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleEditableText, EditableTextRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleListItem, ListItemRole);
+COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleParagraph, ParagraphRole);
+COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleLabel, LabelRole);
+COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleDiv, DivRole);
+COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleForm, FormRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleLandmarkApplication, LandmarkApplicationRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleLandmarkBanner, LandmarkBannerRole);
 COMPILE_ASSERT_MATCHING_ENUM(WebAccessibilityRoleLandmarkComplementary, LandmarkComplementaryRole);
@@ -171,12 +223,14 @@ COMPILE_ASSERT_MATCHING_ENUM(WebApplicationCacheHost::CachedEvent, ApplicationCa
 COMPILE_ASSERT_MATCHING_ENUM(WebApplicationCacheHost::ObsoleteEvent, ApplicationCacheHost::OBSOLETE_EVENT);
 #endif
 
+COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::FormatPlainText, PasteboardPrivate::PlainTextFormat);
 COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::FormatHTML, PasteboardPrivate::HTMLFormat);
 COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::FormatBookmark, PasteboardPrivate::BookmarkFormat);
 COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::FormatSmartPaste, PasteboardPrivate::WebSmartPasteFormat);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::BufferStandard, PasteboardPrivate::StandardBuffer);
 COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::BufferSelection, PasteboardPrivate::SelectionBuffer);
+COMPILE_ASSERT_MATCHING_ENUM(WebClipboard::BufferDrag, PasteboardPrivate::DragBuffer);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypePointer, PlatformCursor::TypePointer);
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeCross, PlatformCursor::TypeCross);
@@ -219,36 +273,43 @@ COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeNone, PlatformCursor::TypeNone);
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeNotAllowed, PlatformCursor::TypeNotAllowed);
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeZoomIn, PlatformCursor::TypeZoomIn);
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeZoomOut, PlatformCursor::TypeZoomOut);
+COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeGrab, PlatformCursor::TypeGrab);
+COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeGrabbing, PlatformCursor::TypeGrabbing);
 COMPILE_ASSERT_MATCHING_ENUM(WebCursorInfo::TypeCustom, PlatformCursor::TypeCustom);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebEditingActionTyped, EditorInsertActionTyped);
 COMPILE_ASSERT_MATCHING_ENUM(WebEditingActionPasted, EditorInsertActionPasted);
 COMPILE_ASSERT_MATCHING_ENUM(WebEditingActionDropped, EditorInsertActionDropped);
 
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Text, HTMLInputElement::TEXT);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Password, HTMLInputElement::PASSWORD);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::IsIndex, HTMLInputElement::ISINDEX);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::CheckBox, HTMLInputElement::CHECKBOX);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Radio, HTMLInputElement::RADIO);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Submit, HTMLInputElement::SUBMIT);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Reset, HTMLInputElement::RESET);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::File, HTMLInputElement::FILE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Hidden, HTMLInputElement::HIDDEN);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Image, HTMLInputElement::IMAGE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Button, HTMLInputElement::BUTTON);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Search, HTMLInputElement::SEARCH);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Range, HTMLInputElement::RANGE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Email, HTMLInputElement::EMAIL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Number, HTMLInputElement::NUMBER);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Telephone, HTMLInputElement::TELEPHONE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::URL, HTMLInputElement::URL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Color, HTMLInputElement::COLOR);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Date, HTMLInputElement::DATE);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::DateTime, HTMLInputElement::DATETIME);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::DateTimeLocal, HTMLInputElement::DATETIMELOCAL);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Month, HTMLInputElement::MONTH);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Time, HTMLInputElement::TIME);
-COMPILE_ASSERT_MATCHING_ENUM(WebInputElement::Week, HTMLInputElement::WEEK);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilyNone, FontDescription::NoFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilyStandard, FontDescription::StandardFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilySerif, FontDescription::SerifFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilySansSerif, FontDescription::SansSerifFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilyMonospace, FontDescription::MonospaceFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilyCursive, FontDescription::CursiveFamily);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::GenericFamilyFantasy, FontDescription::FantasyFamily);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::SmoothingAuto, AutoSmoothing);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::SmoothingNone, NoSmoothing);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::SmoothingGrayscale, Antialiased);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::SmoothingSubpixel, SubpixelAntialiased);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight100, FontWeight100);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight200, FontWeight200);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight300, FontWeight300);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight400, FontWeight400);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight500, FontWeight500);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight600, FontWeight600);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight700, FontWeight700);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight800, FontWeight800);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::Weight900, FontWeight900);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::WeightNormal, FontWeightNormal);
+COMPILE_ASSERT_MATCHING_ENUM(WebFontDescription::WeightBold, FontWeightBold);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebIconURL::TypeInvalid, InvalidIcon);
+COMPILE_ASSERT_MATCHING_ENUM(WebIconURL::TypeFavicon, Favicon);
+COMPILE_ASSERT_MATCHING_ENUM(WebIconURL::TypeTouch, TouchIcon);
+COMPILE_ASSERT_MATCHING_ENUM(WebIconURL::TypeTouchPrecomposed, TouchPrecomposedIcon);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebNode::ElementNode, Node::ELEMENT_NODE);
 COMPILE_ASSERT_MATCHING_ENUM(WebNode::AttributeNode, Node::ATTRIBUTE_NODE);
@@ -283,6 +344,21 @@ COMPILE_ASSERT_MATCHING_ENUM(WebMediaPlayer::Unknown, MediaPlayer::Unknown);
 COMPILE_ASSERT_MATCHING_ENUM(WebMediaPlayer::Download, MediaPlayer::Download);
 COMPILE_ASSERT_MATCHING_ENUM(WebMediaPlayer::StoredStream, MediaPlayer::StoredStream);
 COMPILE_ASSERT_MATCHING_ENUM(WebMediaPlayer::LiveStream, MediaPlayer::LiveStream);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatInvalid, VideoFrameChromium::Invalid);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatRGB555, VideoFrameChromium::RGB555);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatRGB565, VideoFrameChromium::RGB565);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatRGB24, VideoFrameChromium::RGB24);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatRGB32, VideoFrameChromium::RGB32);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatRGBA, VideoFrameChromium::RGBA);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatYV12, VideoFrameChromium::YV12);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatYV16, VideoFrameChromium::YV16);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatNV12, VideoFrameChromium::NV12);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatEmpty, VideoFrameChromium::Empty);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::FormatASCII, VideoFrameChromium::ASCII);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::SurfaceTypeSystemMemory, VideoFrameChromium::TypeSystemMemory);
+COMPILE_ASSERT_MATCHING_ENUM(WebVideoFrame::SurfaceTypeTexture, VideoFrameChromium::TypeTexture);
 #endif
 
 #if ENABLE(NOTIFICATIONS)
@@ -291,8 +367,93 @@ COMPILE_ASSERT_MATCHING_ENUM(WebNotificationPresenter::PermissionNotAllowed, Not
 COMPILE_ASSERT_MATCHING_ENUM(WebNotificationPresenter::PermissionDenied, NotificationPresenter::PermissionDenied);
 #endif
 
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::Horizontal, HorizontalScrollbar);
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::Vertical, VerticalScrollbar);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::ScrollByLine, ScrollByLine);
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::ScrollByPage, ScrollByPage);
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::ScrollByDocument, ScrollByDocument);
+COMPILE_ASSERT_MATCHING_ENUM(WebScrollbar::ScrollByPixel, ScrollByPixel);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebSettings::EditingBehaviorMac, EditingMacBehavior);
+COMPILE_ASSERT_MATCHING_ENUM(WebSettings::EditingBehaviorWin, EditingWindowsBehavior);
+COMPILE_ASSERT_MATCHING_ENUM(WebSettings::EditingBehaviorUnix, EditingUnixBehavior);
+
 COMPILE_ASSERT_MATCHING_ENUM(WebTextAffinityUpstream, UPSTREAM);
 COMPILE_ASSERT_MATCHING_ENUM(WebTextAffinityDownstream, DOWNSTREAM);
 
 COMPILE_ASSERT_MATCHING_ENUM(WebTextCaseSensitive, TextCaseSensitive);
 COMPILE_ASSERT_MATCHING_ENUM(WebTextCaseInsensitive, TextCaseInsensitive);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserScriptInjectAtDocumentStart, InjectAtDocumentStart);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserScriptInjectAtDocumentEnd, InjectAtDocumentEnd);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserContentInjectInAllFrames, InjectInAllFrames);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserContentInjectInTopFrameOnly, InjectInTopFrameOnly);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserStyleInjectInExistingDocuments, InjectInExistingDocuments);
+COMPILE_ASSERT_MATCHING_ENUM(WebView::UserStyleInjectInSubsequentDocuments, InjectInSubsequentDocuments);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::NullType, IDBKey::NullType);
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::StringType, IDBKey::StringType);
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::DateType, IDBKey::DateType);
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBKey::NumberType, IDBKey::NumberType);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBFactory::DefaultBackingStore, IDBFactoryBackendInterface::DefaultBackingStore);
+COMPILE_ASSERT_MATCHING_ENUM(WebIDBFactory::LevelDBBackingStore, IDBFactoryBackendInterface::LevelDBBackingStore);
+
+#if ENABLE(FILE_SYSTEM)
+COMPILE_ASSERT_MATCHING_ENUM(WebFileSystem::TypeTemporary, AsyncFileSystem::Temporary);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileSystem::TypePersistent, AsyncFileSystem::Persistent);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileSystem::TypeExternal, AsyncFileSystem::External);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileInfo::TypeUnknown, FileMetadata::TypeUnknown);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileInfo::TypeFile, FileMetadata::TypeFile);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileInfo::TypeDirectory, FileMetadata::TypeDirectory);
+#endif
+
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorNotFound, FileError::NOT_FOUND_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorSecurity, FileError::SECURITY_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorAbort, FileError::ABORT_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorNotReadable, FileError::NOT_READABLE_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorEncoding, FileError::ENCODING_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorNoModificationAllowed, FileError::NO_MODIFICATION_ALLOWED_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorInvalidState, FileError::INVALID_STATE_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorSyntax, FileError::SYNTAX_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorInvalidModification, FileError::INVALID_MODIFICATION_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorQuotaExceeded, FileError::QUOTA_EXCEEDED_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorTypeMismatch, FileError::TYPE_MISMATCH_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebFileErrorPathExists, FileError::PATH_EXISTS_ERR);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebGeolocationError::ErrorPermissionDenied, GeolocationError::PermissionDenied);
+COMPILE_ASSERT_MATCHING_ENUM(WebGeolocationError::ErrorPositionUnavailable, GeolocationError::PositionUnavailable);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebTextCheckingResult::ErrorSpelling, DocumentMarker::Spelling);
+COMPILE_ASSERT_MATCHING_ENUM(WebTextCheckingResult::ErrorGrammar, DocumentMarker::Grammar);
+
+#if ENABLE(QUOTA)
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaErrorNotSupported, NOT_SUPPORTED_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaErrorAbort, ABORT_ERR);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaTypeTemporary, StorageInfo::TEMPORARY);
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaTypePersistent, StorageInfo::PERSISTENT);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaErrorNotSupported, NOT_SUPPORTED_ERR);
+COMPILE_ASSERT_MATCHING_ENUM(WebStorageQuotaErrorAbort, ABORT_ERR);
+#endif
+
+#if OS(DARWIN)
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::StateDisabled, PlatformBridge::StateDisabled);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::StateInactive, PlatformBridge::StateInactive);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::StateActive, PlatformBridge::StateActive);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::StatePressed, PlatformBridge::StatePressed);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::SizeRegular, PlatformBridge::SizeRegular);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::SizeSmall, PlatformBridge::SizeSmall);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::ScrollbarOrientationHorizontal, PlatformBridge::ScrollbarOrientationHorizontal);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::ScrollbarOrientationVertical, PlatformBridge::ScrollbarOrientationVertical);
+
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::ScrollbarParentScrollView, PlatformBridge::ScrollbarParentScrollView);
+COMPILE_ASSERT_MATCHING_ENUM(WebThemeEngine::ScrollbarParentRenderLayer, PlatformBridge::ScrollbarParentRenderLayer);
+#endif
+
+COMPILE_ASSERT_MATCHING_ENUM(WebPageVisibilityStateVisible, PageVisibilityStateVisible);
+COMPILE_ASSERT_MATCHING_ENUM(WebPageVisibilityStateHidden, PageVisibilityStateHidden);

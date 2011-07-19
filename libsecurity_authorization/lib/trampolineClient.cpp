@@ -25,6 +25,7 @@
 //
 // trampolineClient - Authorization trampoline client-side implementation
 //
+#include <asl.h>
 #include <sys/types.h>
 #include <unistd.h>
 #include <errno.h>
@@ -69,6 +70,13 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 	char *const *arguments,
 	FILE **communicationsPipe)
 {
+	// report the caller to the authorities
+	aslmsg m = asl_new(ASL_TYPE_MSG);
+	asl_set(m, "com.apple.message.domain", "com.apple.libsecurity_authorization.AuthorizationExecuteWithPrivileges");
+	asl_set(m, "com.apple.message.signature", getprogname());
+	asl_log(NULL, m, ASL_LEVEL_NOTICE, "AuthorizationExecuteWithPrivileges!");
+	asl_free(m);    
+
 	// flags are currently reserved
 	if (flags != 0)
 		return errAuthorizationInvalidFlags;
@@ -144,7 +152,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 				status = errAuthorizationToolEnvironmentError;
 				// fall through
 			case sizeof(status):	// read succeeded: child reported an error
-				secdebug("authexec", "parent received status=%ld", status);
+				secdebug("authexec", "parent received status=%d", (int)status);
 				close(notify[READ]);
 				if (communicationsPipe) { close(comm[READ]); close(comm[WRITE]); }
 				return status;
@@ -195,6 +203,7 @@ OSStatus AuthorizationExecuteWithPrivileges(AuthorizationRef authorization,
 			// execute failed - tell the parent
 			{
 				OSStatus error = errAuthorizationToolExecuteFailure;
+				error = h2n(error);
 				write(1, &error, sizeof(error));
 				_exit(1);
 			}

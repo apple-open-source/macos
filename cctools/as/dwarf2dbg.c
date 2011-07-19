@@ -205,6 +205,16 @@ static struct dwarf2_line_info current = {
   DWARF2_LINE_DEFAULT_IS_STMT ? DWARF2_FLAG_IS_STMT : 0
 };
 
+/* When creating dwarf2 debugging information for assembly files, the --gdwarf2
+   flag is specified, the variable dwarf2_file_number is used to generate a
+   .file for each assembly source file in read_a_source_file().  */
+uint32_t dwarf2_file_number = 0;
+
+/* Info gathered where creating dwarf2 debugging information for assembly files
+   when --gdwarf2 is specified.  This is done in make_subprogram_for_symbol()
+   in symbols.c . */
+struct dwarf2_subprogram_info *dwarf2_subprograms_info = NULL;
+
 /* The size of an address on the target.  */
 static unsigned int sizeof_address;
 
@@ -444,7 +454,7 @@ dwarf2_emit_insn (int size)
       if (debug_type != DEBUG_DWARF2)
 	loc_directive_seen = FALSE;
     }
-  else if (debug_type != DEBUG_DWARF2)
+  else if (debug_type != DEBUG_DWARF2 || frchain_now->frch_nsect != text_nsect)
     return;
   else
     dwarf2_where (&loc);
@@ -670,6 +680,18 @@ dwarf2_directive_file (uintptr_t dummy ATTRIBUTE_UNUSED)
   return filename;
 }
 
+/*
+ * Same functionality as above but this is used when generating dwarf debugging
+ * info for assembly files with --gdwarf2.
+ */
+void
+dwarf2_file (
+char *filename,
+offsetT num)
+{
+  get_filenum (filename, num);
+}
+
 void
 dwarf2_directive_loc (uintptr_t dummy ATTRIBUTE_UNUSED)
 {
@@ -782,6 +804,17 @@ dwarf2_directive_loc (uintptr_t dummy ATTRIBUTE_UNUSED)
 
   demand_empty_rest_of_line ();
   loc_directive_seen = TRUE;
+}
+
+/*
+ * Same functionality as above but this is used when generating dwarf debugging
+ * info for assembly files with --gdwarf2.
+ */
+void
+dwarf2_loc (offsetT filenum, offsetT line)
+{
+  current.filenum = filenum;
+  current.line = line;
 }
 
 void
@@ -1676,7 +1709,9 @@ struct frchain *ranges_section)
     out_byte (0);
 }
 
-/* Emit data for .debug_aranges.  */
+/* When generating debug info directly for assembly files, this routine is
+   called to emit data for .debug_aranges and or set the text_end field which
+   is used by out_debug_info() in the compile_unit.  */
 
 static
 void
@@ -1689,9 +1724,6 @@ struct frchain *info_section)
   struct line_seg *s;
   expressionS expr;
   char *p;
-/*
-symbolS *sect_sym;
-*/
 
   size = 4 + 2 + 4 + 1 + 1;
 
@@ -1771,7 +1803,8 @@ symbolS *sect_sym;
   md_number_to_chars (p + addr_size, 0, addr_size);
 }
 
-/* Emit data for .debug_abbrev.  Note that this must be kept in
+/* When generating debug info directly for assembly files, this routine is
+   called to output the data for .debug_abbrev.  Note that this must be kept in
    sync with out_debug_info below.  */
 
 static
@@ -1781,9 +1814,10 @@ struct frchain * abbrev_section)
 {
   section_set(abbrev_section);
 
+  /* DW_TAG_compile_unit DIE abbrev (1) */
   out_uleb128 (1);
   out_uleb128 (DW_TAG_compile_unit);
-  out_byte (DW_CHILDREN_no);
+  out_byte (DW_CHILDREN_yes);
   out_abbrev (DW_AT_stmt_list, DW_FORM_data4);
   if (all_segs->next == NULL)
     {
@@ -1799,15 +1833,29 @@ struct frchain * abbrev_section)
     }
   out_abbrev (DW_AT_name, DW_FORM_string);
   out_abbrev (DW_AT_comp_dir, DW_FORM_string);
+  if(apple_flags != NULL)
+    out_abbrev (DW_AT_APPLE_flags, DW_FORM_string);
   out_abbrev (DW_AT_producer, DW_FORM_string);
   out_abbrev (DW_AT_language, DW_FORM_data2);
+  out_abbrev (0, 0);
+
+  /* DW_TAG_subprogram DIE abbrev (2) */
+  out_uleb128 (2);
+  out_uleb128 (DW_TAG_subprogram);
+  out_byte (DW_CHILDREN_no);
+  out_abbrev (DW_AT_name, DW_FORM_string);
+  out_abbrev (DW_AT_decl_file, DW_FORM_data4);
+  out_abbrev (DW_AT_decl_line, DW_FORM_data4);
+  out_abbrev (DW_AT_low_pc, DW_FORM_addr);
+  out_abbrev (DW_AT_high_pc, DW_FORM_addr);
   out_abbrev (0, 0);
 
   /* Terminate the abbreviations for this compilation unit.  */
   out_byte (0);
 }
 
-/* Emit a description of this compilation unit for .debug_info.  */
+/* When generating debug info directly for assembly files, this routine is
+   called to output the compilation unit and subprograms for .debug_info . */
 
 static
 void
@@ -1826,6 +1874,7 @@ struct frchain *ranges_section)
   int len;
   enum dwarf2_format d2f;
   int sizeof_offset;
+  struct dwarf2_subprogram_info *subs;
 
   section_set(info_section);
 
@@ -1938,9 +1987,16 @@ struct frchain *ranges_section)
   p = frag_more (len);
   memcpy (p, comp_dir, len);
 
+  if(apple_flags != NULL){
+    /* DW_AT_APPLE_flags */
+    len = strlen (apple_flags) + 1;
+    p = frag_more (len);
+    memcpy (p, apple_flags, len);
+  }
+
   /* DW_AT_producer */
-#define VERSION "1.38" /* Mac OS X version of GAS */
-  sprintf (producer, "GNU AS %s", VERSION);
+  sprintf (producer, "%s %s, %s", APPLE_INC_VERSION, apple_version,
+	   version_string);
   len = strlen (producer) + 1;
   p = frag_more (len);
   memcpy (p, producer, len);
@@ -1948,6 +2004,53 @@ struct frchain *ranges_section)
   /* DW_AT_language.  Yes, this is probably not really MIPS, but the
      dwarf2 draft has no standard code for assembler.  */
   out_two (DW_LANG_Mips_Assembler);
+
+  for(subs = dwarf2_subprograms_info; subs != NULL; subs = subs->next){
+    uint32_t n_sect;
+    fragS *frag;
+    symbolS *end;
+
+    /* DW_TAG_subprogram DIE abbrev */
+    out_uleb128 (2);
+
+    /* DW_AT_name */
+    len = strlen (subs->name) + 1;
+    p = frag_more (len);
+    memcpy (p, subs->name, len);
+
+    /* DW_AT_decl_file */
+    out_four (subs->file_number);
+
+    /* DW_AT_decl_line */
+    out_four (subs->line_number);
+
+    /* DW_AT_low_pc */
+    memset(&expr, '\0', sizeof(expr));
+    expr.X_op = O_symbol;
+    expr.X_add_symbol = subs->symbol;
+    expr.X_add_number = 0;
+    emit_expr (&expr, sizeof_address);
+
+    /* DW_AT_high_pc */
+    if(subs->next != NULL)
+      {
+	end = subs->next->symbol;
+      }
+    else
+      {
+        n_sect = subs->symbol->sy_nlist.n_sect;
+        frag = last_frag_for_seg (n_sect);
+        end = symbol_temp_new (n_sect, get_frag_fix (frag, n_sect), frag);
+      }
+    memset(&expr, '\0', sizeof(expr));
+    expr.X_op = O_symbol;
+    expr.X_add_symbol = end;
+    expr.X_add_number = 0;
+    emit_expr (&expr, sizeof_address);
+  }
+
+  /* Add the NULL DIE terminating the Compile Unit DIE's.  */
+  out_byte (0);
 
   symbol_set_value_now (info_end);
 }
@@ -2105,7 +2208,8 @@ dwarf2_finish (void)
       out_debug_abbrev (abbrev_seg);
       out_debug_info (info_seg, abbrev_seg, line_seg, ranges_seg);
 #else
-      if (all_segs != NULL && all_segs->next != NULL)
+      if (all_segs != NULL &&
+	  (all_segs->next != NULL || debug_type == DEBUG_DWARF2))
 	{
 	  out_debug_aranges (aranges_section, info_section);
 	  out_debug_abbrev (abbrev_section);

@@ -3,17 +3,17 @@
 <plist version="1.0">
 <dict>
 	<key>CFBundleGetInfoString</key>
-	<string>USB CDC Drivers 4.0.2</string>
+	<string>USB CDC Drivers 4.1.14</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.apple.USBCDC</string>
 	<key>CFBundleName</key>
 	<string>USB CDC Drivers</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.0.2</string>
+	<string>4.1.14</string>
 	<key>IFMajorVersion</key>
 	<integer>4</integer>
 	<key>IFMinorVersion</key>
-	<integer>0</integer>
+	<integer>1</integer>
 	<key>IFPkgFlagAllowBackRev</key>
 	<true/>
 	<key>IFPkgFlagAuthorizationAction</key>
@@ -33,6 +33,6 @@
 	<key>IFPkgFlagUpdateInstalledLanguages</key>
 	<false/>
 	<key>IFPkgFormatVersion</key>
-	<real>0.10000000149011611</real>
+	<real>0.1000000014901161</real>
 </dict>
 </plist>

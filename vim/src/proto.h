@@ -69,6 +69,9 @@ extern int _stricoll __ARGS((char *a, char *b));
 #  include "os_qnx.pro"
 # endif
 
+# ifdef FEAT_CRYPT
+#  include "blowfish.pro"
+# endif
 # include "buffer.pro"
 # include "charset.pro"
 # ifdef FEAT_CSCOPE
@@ -107,16 +110,25 @@ int
 _RTLENTRYF
 #  endif
 smsg __ARGS((char_u *, ...));
+
 int
 #  ifdef __BORLANDC__
 _RTLENTRYF
 #  endif
 smsg_attr __ARGS((int, char_u *, ...));
+
+int
+#  ifdef __BORLANDC__
+_RTLENTRYF
+#  endif
+vim_snprintf_add __ARGS((char *, size_t, char *, ...));
+
 int
 #  ifdef __BORLANDC__
 _RTLENTRYF
 #  endif
 vim_snprintf __ARGS((char *, size_t, char *, ...));
+
 #  if defined(HAVE_STDARG_H)
 int vim_vsnprintf(char *str, size_t str_m, char *fmt, va_list ap, typval_T *tvs);
 #  endif
@@ -146,6 +158,9 @@ void qsort __ARGS((void *base, size_t elm_count, size_t elm_size, int (*cmp)(con
 # endif
 # include "regexp.pro"
 # include "screen.pro"
+# if defined(FEAT_CRYPT) || defined(FEAT_PERSISTENT_UNDO)
+#  include "sha256.pro"
+# endif
 # include "search.pro"
 # include "spell.pro"
 # include "syntax.pro"
@@ -159,6 +174,10 @@ void qsort __ARGS((void *base, size_t elm_count, size_t elm_size, int (*cmp)(con
 # include "version.pro"
 # include "window.pro"
 
+# ifdef FEAT_LUA
+#  include "if_lua.pro"
+# endif
+
 # ifdef FEAT_MZSCHEME
 #  include "if_mzsch.pro"
 # endif
@@ -167,12 +186,26 @@ void qsort __ARGS((void *base, size_t elm_count, size_t elm_size, int (*cmp)(con
 #  include "if_python.pro"
 # endif
 
+# ifdef FEAT_PYTHON3
+#  include "if_python3.pro"
+# endif
+
 # ifdef FEAT_TCL
 #  include "if_tcl.pro"
 # endif
 
 # ifdef FEAT_RUBY
 #  include "if_ruby.pro"
+# endif
+
+/* Ugly solution for "BalloonEval" not being defined while it's used in some
+ * .pro files. */
+# ifndef FEAT_BEVAL
+#  define BalloonEval int
+# endif
+
+# ifdef FEAT_NETBEANS_INTG
+#  include "netbeans.pro"
 # endif
 
 # ifdef FEAT_GUI
@@ -188,11 +221,6 @@ extern char_u *vimpty_getenv __ARGS((const char_u *string));	/* from pty.c */
 #  endif
 #  ifdef FEAT_GUI_W16
 #   include "gui_w16.pro"
-#  endif
-    /* Ugly solution for "BalloonEval" not being defined while it's used in
-     * the prototypes. */
-#  ifndef FEAT_BEVAL
-#   define BalloonEval int
 #  endif
 #  ifdef FEAT_GUI_W32
 #   include "gui_w32.pro"
@@ -226,9 +254,6 @@ extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path,
 #  ifdef FEAT_SUN_WORKSHOP
 #   include "workshop.pro"
 #  endif
-#  ifdef FEAT_NETBEANS_INTG
-#   include "netbeans.pro"
-#  endif
 # endif	/* FEAT_GUI */
 
 # ifdef FEAT_OLE
@@ -259,6 +284,13 @@ extern char *vim_SelFile __ARGS((Widget toplevel, char *prompt, char *init_path,
 
 #ifdef MACOS_CONVERT
 # include "os_mac_conv.pro"
+#endif
+#if defined(MACOS_X_UNIX) && defined(FEAT_CLIPBOARD) && !defined(FEAT_GUI)
+/* functions in os_macosx.m */
+void clip_mch_lose_selection(VimClipboard *cbd);
+int clip_mch_own_selection(VimClipboard *cbd);
+void clip_mch_request_selection(VimClipboard *cbd);
+void clip_mch_set_selection(VimClipboard *cbd);
 #endif
 
 #ifdef __BORLANDC__

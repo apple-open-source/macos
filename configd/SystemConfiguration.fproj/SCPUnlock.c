@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,14 +46,14 @@ __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	uint32_t		status		= kSCStatusOK;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		// if no helper
 		goto fail;
 	}
 
 	// have the helper "unlock" the prefs
 //	status = kSCStatusOK;
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_PREFS_UNLOCK,
 			   NULL,
 			   &status,
@@ -72,9 +72,8 @@ __SCPreferencesUnlock_helper(SCPreferencesRef prefs)
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
 
 	status = kSCStatusAccessError;
@@ -141,6 +140,11 @@ SCPreferencesUnlock(SCPreferencesRef prefs)
 	}
 
 	pthread_mutex_lock(&prefsPrivate->lock);
+
+	if (prefsPrivate->sessionKeyLock != NULL) {
+		SCDynamicStoreRemoveValue(prefsPrivate->session,
+					  prefsPrivate->sessionKeyLock);
+	}
 
 	if (prefsPrivate->lockFD != -1)	{
 		if (prefsPrivate->lockPath != NULL) {

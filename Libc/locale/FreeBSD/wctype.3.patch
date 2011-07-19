@@ -1,5 +1,5 @@
---- _SB/Libc/locale/FreeBSD/wctype.3	2004-11-25 11:38:20.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/wctype.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- wctype.3.bsdnew	2009-11-10 13:13:11.000000000 -0800
++++ wctype.3	2009-11-10 14:11:00.000000000 -0800
 @@ -28,21 +28,42 @@
  .Dt WCTYPE 3
  .Os
@@ -47,7 +47,7 @@
  which represents the requested wide character class and
  may be used as the second argument for calls to
  .Fn iswctype .
-@@ -60,6 +81,18 @@
+@@ -60,6 +81,18 @@ function checks whether the wide charact
  .Fa wc
  is in the character class
  .Fa charclass .
@@ -66,7 +66,7 @@
  .Sh RETURN VALUES
  The
  .Fn iswctype
-@@ -75,7 +108,7 @@
+@@ -75,7 +108,7 @@ The
  .Fn wctype
  function returns 0 if
  .Fa property
@@ -75,12 +75,12 @@
  .Vt wctype_t
  that can be used in subsequent calls to
  .Fn iswctype .
-@@ -94,7 +127,8 @@
- }
+@@ -95,7 +128,8 @@ myiswalpha(wint_t wc)
  .Ed
  .Sh SEE ALSO
--.Xr ctype 3
-+.Xr ctype 3 ,
+ .Xr ctype 3 ,
+-.Xr nextwctype 3
++.Xr nextwctype 3 ,
 +.Xr xlocale 3
  .Sh STANDARDS
  The

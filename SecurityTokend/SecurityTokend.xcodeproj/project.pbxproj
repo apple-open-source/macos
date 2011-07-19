@@ -575,7 +575,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -587,7 +587,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -622,7 +621,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -634,7 +633,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -665,7 +663,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -677,7 +675,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
@@ -712,7 +709,7 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = /usr/local/SecurityPieces/Frameworks;
@@ -724,7 +721,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -755,9 +751,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36808;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
@@ -772,7 +768,6 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -804,9 +799,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36808;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
@@ -821,7 +816,6 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -850,9 +844,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36808;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
@@ -867,7 +861,6 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "$(OTHER_CFLAGS)";
@@ -899,9 +892,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36808;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36808;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/lib/SecurityTokend.exp";
@@ -916,7 +909,6 @@
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";

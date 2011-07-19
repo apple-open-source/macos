@@ -47,12 +47,10 @@ IODataQueueEntry *IODataQueuePeek(IODataQueueMemory *dataQueue)
         UInt32              headSize    = 0;
         UInt32              headOffset  = dataQueue->head;
         UInt32              queueSize   = dataQueue->queueSize;
-
         
         head 		= (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
         headSize 	= head->size;
-        
-        
+                
 		// Check if there's enough room before the end of the queue for a header.
         // If there is room, check if there's enough room to hold the header and
         // the data.
@@ -85,11 +83,9 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
             UInt32              headOffset  = dataQueue->head;
             UInt32              queueSize   = dataQueue->queueSize;
             
-
             head 		= (IODataQueueEntry *)((char *)dataQueue->queue + headOffset);
             headSize 	= head->size;
-            
-            
+                        
             // we wraped around to beginning, so read from there
 			// either there was not even room for the header
 			if ((headOffset + DATA_QUEUE_ENTRY_HEADER_SIZE > queueSize) ||
@@ -97,20 +93,15 @@ IODataQueueDequeue(IODataQueueMemory *dataQueue, void *data, uint32_t *dataSize)
 				((headOffset + headSize + DATA_QUEUE_ENTRY_HEADER_SIZE) > queueSize)) {
                 entry       = dataQueue->queue;
                 entrySize   = entry->size;
-
-
                 newHeadOffset = entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
             // else it is at the end
             } else {
                 entry = head;
                 entrySize = entry->size;
-
-
                 newHeadOffset = headOffset + entrySize + DATA_QUEUE_ENTRY_HEADER_SIZE;
             }
         }
 
-        
         if (entry) {
             if (data) {
                 if (dataSize) {
@@ -151,7 +142,6 @@ IODataQueueEnqueue(IODataQueueMemory *dataQueue, void *data, uint32_t dataSize)
     UInt32              entrySize   = dataSize + DATA_QUEUE_ENTRY_HEADER_SIZE;
     IOReturn            retVal      = kIOReturnSuccess;
     IODataQueueEntry *  entry;
-
 
     if ( tail >= head )
     {
@@ -284,7 +274,6 @@ IOReturn IODataQueueSetNotificationPort(IODataQueueMemory *dataQueue, mach_port_
         
     queueSize = dataQueue->queueSize;
     
-
     appendix = (IODataQueueAppendix *)((UInt8 *)dataQueue + queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE);
 
     appendix->msgh.msgh_bits        = MACH_MSGH_BITS(MACH_MSG_TYPE_COPY_SEND, 0);
@@ -303,7 +292,6 @@ IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue)
             
     queueSize = dataQueue->queueSize;
     
-
     appendix = (IODataQueueAppendix *)((UInt8 *)dataQueue + queueSize + DATA_QUEUE_MEMORY_HEADER_SIZE);
 
     if ( appendix->msgh.msgh_remote_port == MACH_PORT_NULL )
@@ -312,7 +300,7 @@ IOReturn _IODataQueueSendDataAvailableNotification(IODataQueueMemory *dataQueue)
     kern_return_t		kr;
     mach_msg_header_t   msgh = appendix->msgh;
         
-    kr = mach_msg(&msgh, MACH_SEND_MSG, msgh.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
+    kr = mach_msg(&msgh, MACH_SEND_MSG | MACH_SEND_TIMEOUT, msgh.msgh_size, 0, MACH_PORT_NULL, MACH_MSG_TIMEOUT_NONE, MACH_PORT_NULL);
     switch(kr) {
         case MACH_SEND_TIMED_OUT:	// Notification already sent
         case MACH_MSG_SUCCESS:

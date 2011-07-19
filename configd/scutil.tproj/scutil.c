@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -45,6 +45,7 @@
  * - initial revision
  */
 
+#include <TargetConditionals.h>
 #include <ctype.h>
 #include <getopt.h>
 #include <stdio.h>
@@ -63,6 +64,7 @@
 #include "commands.h"
 #include "dictionary.h"
 #include "net.h"
+#include "nc.h"
 #include "prefs.h"
 #include "session.h"
 #include "tests.h"
@@ -99,9 +101,31 @@ static const struct option longopts[] = {
 	{ "prefs",		no_argument,		NULL,	0	},
 	{ "proxy",		no_argument,		NULL,	0	},
 	{ "set",		required_argument,	NULL,	0	},
+	{ "nc",			required_argument,	NULL,	0	},
 	{ NULL,			0,			NULL,	0	}
 };
 
+
+__private_extern__
+CFStringRef
+_copyStringFromSTDIN()
+{
+	char		buf[1024];
+	size_t		len;
+	CFStringRef	utf8;
+
+	if (fgets(buf, sizeof(buf), stdin) == NULL) {
+		return NULL;
+	}
+
+	len = strlen(buf);
+	if (buf[len-1] == '\n') {
+		buf[--len] = '\0';
+	}
+
+	utf8 = CFStringCreateWithBytes(NULL, (UInt8 *)buf, len, kCFStringEncodingUTF8, TRUE);
+	return utf8;
+}
 
 static char *
 getLine(char *buf, int len, InputRef src)
@@ -133,7 +157,7 @@ getLine(char *buf, int len, InputRef src)
 		} while ((n != '\n') && (n != EOF));
 	}
 
-	if (src->h) {
+	if (src->h && (buf[0] != '\0')) {
 		HistEvent	ev;
 
 		history(src->h, &ev, H_ENTER, buf);
@@ -250,7 +274,7 @@ usage(const char *command)
 	SCPrint(TRUE, stderr, CFSTR("usage: %s\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the dynamic store.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
-	SCPrint(TRUE, stderr, CFSTR("   or: %s --prefs\n"), command);
+	SCPrint(TRUE, stderr, CFSTR("   or: %s --prefs [preference-file]\n"), command);
 	SCPrint(TRUE, stderr, CFSTR("\tinteractive access to the [raw] stored preferences.\n"));
 	SCPrint(TRUE, stderr, CFSTR("\n"));
 	SCPrint(TRUE, stderr, CFSTR("   or: %s [-W] -r nodename\n"), command);
@@ -307,6 +331,7 @@ main(int argc, char * const argv[])
 	int			opti;
 	const char		*prog	= argv[0];
 	char			*set	= NULL;
+	char			*nc_cmd	= NULL;
 	InputRef		src;
 	int			timeout	= 15;	/* default timeout (in seconds) */
 	char			*wait	= NULL;
@@ -364,6 +389,9 @@ main(int argc, char * const argv[])
 			} else if (strcmp(longopts[opti].name, "set") == 0) {
 				set = optarg;
 				xStore++;
+			} else if (strcmp(longopts[opti].name, "nc") == 0) {
+				nc_cmd = optarg;
+				xStore++;
 			}
 			break;
 		case '?':
@@ -377,7 +405,6 @@ main(int argc, char * const argv[])
 		// if we are attempting to process more than one type of request
 		usage(prog);
 	}
-
 	/* are we checking (or watching) the reachability of a host/address */
 	if (doReach) {
 		if (argc < 1) {
@@ -427,6 +454,15 @@ main(int argc, char * const argv[])
 		/* NOT REACHED */
 	}
 
+	/* network connection commands */
+	if (nc_cmd) {
+		if (find_nc_cmd(nc_cmd) < 0) {
+			usage(prog);
+		}
+		do_nc_cmd(nc_cmd, argc, (char **)argv, watch);
+		/* NOT REACHED */
+	}
+
 	if (doNet) {
 		/* if we are going to be managing the network configuration */
 		commands  = (cmdInfo *)commands_net;
@@ -445,7 +481,7 @@ main(int argc, char * const argv[])
 
 		do_dictInit(0, NULL);	/* start with an empty dictionary */
 		do_prefs_init();	/* initialization */
-		do_prefs_open(0, NULL);	/* open default prefs */
+		do_prefs_open(argc, (char **)argv);	/* open prefs */
 	} else {
 		/* if we are going to be managing the dynamic store */
 		commands  = (cmdInfo *)commands_store;

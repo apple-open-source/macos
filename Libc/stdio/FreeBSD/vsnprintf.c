@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)vsnprintf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vsnprintf.c,v 1.22 2003/07/02 07:08:44 jkh Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vsnprintf.c,v 1.24 2008/04/17 22:17:54 jhb Exp $");
 
 #include <limits.h>
 #include <stdio.h>
@@ -52,7 +48,6 @@ vsnprintf(char * __restrict str, size_t n, const char * __restrict fmt,
 	int ret;
 	char dummy[2];
 	FILE f;
-	struct __sFILEX ext;
 
 	on = n;
 	if (n != 0)
@@ -70,8 +65,8 @@ vsnprintf(char * __restrict str, size_t n, const char * __restrict fmt,
 	f._flags = __SWR | __SSTR;
 	f._bf._base = f._p = (unsigned char *)str;
 	f._bf._size = f._w = n;
-	f._extra = &ext;
-	INITEXTRA(&f);
+	f._orientation = 0;
+	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	ret = __vfprintf(&f, fmt, ap);
 	if (on > 0)
 		*f._p = '\0';

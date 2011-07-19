@@ -36,6 +36,7 @@
 #include <assert.h>
 #include <libkern/OSAtomic.h>
 #include <sys/syscall.h>
+#include <sys/event.h>
 
 #if HAVE_QUARANTINE
 #include <quarantine.h>
@@ -48,6 +49,9 @@
 
 #include "protocol_vproc.h"
 
+#include "launchd_helper.h"
+#include "launchd_helperServer.h"
+
 #include "reboot2.h"
 
 #define likely(x)	__builtin_expect((bool)(x), true)
@@ -55,17 +59,30 @@
 
 static mach_port_t get_root_bootstrap_port(void);
 
-const char *__crashreporter_info__; /* this should get merged with other versions of the symbol */
+ #define _vproc_set_crash_log_message(x)
 
 static int64_t cached_pid = -1;
 static struct vproc_shmem_s *vproc_shmem;
 static pthread_once_t shmem_inited = PTHREAD_ONCE_INIT;
 static uint64_t s_cached_transactions_enabled = 0;
 
+static _vproc_transaction_callout vproc_gone2zero;
+static _vproc_transaction_callout vproc_gonenonzero;
+
+static vproc_helper_recv_ping_t vprocmgr_helper_callout;
+
 struct vproc_s {
 	int32_t refcount;
 	mach_port_t j_port;
 };
+
+/* These functions are a total nightmare to get to through headers.
+ * See rdar://problem/8223092.
+ */
+typedef __darwin_mach_port_t fileport_t;
+#define FILEPORT_NULL ((fileport_t)0)
+extern int fileport_makeport(int, fileport_t *);
+extern int fileport_makefd(fileport_t);
 
 vproc_t vprocmgr_lookup_vproc(const char *label)
 {
@@ -73,14 +90,14 @@ vproc_t vprocmgr_lookup_vproc(const char *label)
 	
 	mach_port_t mp = MACH_PORT_NULL;
 	kern_return_t kr = vproc_mig_port_for_label(bootstrap_port, (char *)label, &mp);
-	if( kr == BOOTSTRAP_SUCCESS ) {
+	if (kr == BOOTSTRAP_SUCCESS) {
 		vp = (struct vproc_s *)calloc(1, sizeof(struct vproc_s));
-		if( vp ) {
+		if (vp) {
 			vp->refcount = 1;
 			mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_SEND, 1);
 			vp->j_port = mp;
 		}
-		mach_port_mod_refs(mach_task_self(), mp, MACH_PORT_RIGHT_SEND, -1);
+		(void)mach_port_deallocate(mach_task_self(), mp);
 	}
 	
 	return vp;
@@ -89,9 +106,9 @@ vproc_t vprocmgr_lookup_vproc(const char *label)
 vproc_t vproc_retain(vproc_t vp)
 {
 	int32_t orig = OSAtomicAdd32(1, &vp->refcount) - 1;	
-	if( orig <= 0 ) {
+	if (orig <= 0) {
 		/* We've gone from 0 to 1, which means that this object was due to be freed. */
-		__crashreporter_info__ = "Under-retain / over-release of vproc_t.";
+		_vproc_set_crash_log_message("Under-retain / over-release of vproc_t.");
 		abort();
 	}
 	
@@ -101,11 +118,11 @@ vproc_t vproc_retain(vproc_t vp)
 void vproc_release(vproc_t vp)
 {
 	int32_t newval = OSAtomicAdd32(-1, &vp->refcount);
-	if( newval < 0 ) {
+	if (newval < 0) {
 		/* We're in negative numbers, which is bad. */
-		__crashreporter_info__ = "Over-release of vproc_t.";
+		_vproc_set_crash_log_message("Over-release of vproc_t.");
 		abort();
-	} else if( newval == 0 ) {
+	} else if (newval == 0) {
 		mach_port_deallocate(mach_task_self(), vp->j_port);
 		free(vp);
 	}
@@ -129,7 +146,7 @@ vproc_shmem_init(void)
 		 * from the environment you intend to run in.
 		 */
 		void *_vm_addr = calloc(1, sizeof(struct vproc_shmem_s));
-		if( !_vm_addr ) {
+		if (!_vm_addr) {
 			return;
 		}
 
@@ -153,8 +170,8 @@ static void
 vproc_client_init(void)
 {
 	char *val = getenv(LAUNCHD_DO_APPLE_INTERNAL_LOGGING);
-	if( val ) {
-		if( strncmp(val, "true", sizeof("true") - 1) == 0 ) {
+	if (val) {
+		if (strncmp(val, "true", sizeof("true") - 1) == 0) {
 			do_apple_internal_logging = true;
 		}
 	}
@@ -166,9 +183,7 @@ vproc_transaction_t
 vproc_transaction_begin(vproc_t vp __attribute__((unused)))
 {
 	vproc_transaction_t vpt = (vproc_transaction_t)vproc_shmem_init; /* we need a "random" variable that is testable */
-#if !TARGET_OS_EMBEDDED
 	_vproc_transaction_begin();
-#endif
 
 	return vpt;
 }
@@ -176,7 +191,6 @@ vproc_transaction_begin(vproc_t vp __attribute__((unused)))
 void
 _vproc_transaction_begin(void)
 {
-#if !TARGET_OS_EMBEDDED
 	if (unlikely(vproc_shmem == NULL)) {
 		int po_r = pthread_once(&shmem_inited, vproc_client_init);
 		if (po_r != 0 || vproc_shmem == NULL) {
@@ -184,22 +198,40 @@ _vproc_transaction_begin(void)
 		}
 	}
 
+	/* We need to deal with the potential race condition of trying to open a
+	 * transaction after launchd has marked the process for death. Consider if
+	 * one thread closes the last transaction after marking the process for
+	 * death. Then we call _exit(2). But exiting isn't instantaneous. So if some
+	 * other threads come in very soon after and try to open transactions, we
+	 * have to cut them off so that they can't begin their work. Because if they
+	 * can manage to get to the point of, say, parking themselves in an
+	 * uninterruptible wait, then the process won't exit.
+	 *
+	 * We loop here so that, if someone's calling vproc_transaction_end() at the
+	 * same time, we can pick up the descent to -1 if launchd has marked us for
+	 * death.
+	 */
 	typeof(vproc_shmem->vp_shmem_transaction_cnt) old = 0;
 	do {
 		old = vproc_shmem->vp_shmem_transaction_cnt;
 		
 		if (unlikely(old < 0)) {
+			/* No transactions should be opened after this point, so make sure
+			 * this thread can't proceed. We don't crash here because it could
+			 * be a legitimate race, as described above.
+			 */
 			if (vproc_shmem->vp_shmem_flags & VPROC_SHMEM_EXITING) {
 				_exit(0);
 			} else {
-				__crashreporter_info__ = "Unbalanced: vproc_transaction_begin()";
+				_vproc_set_crash_log_message("Unbalanced: vproc_transaction_begin()");
 			}
 			abort();
+		} else if (old == 0 && vproc_gonenonzero) {
+			vproc_gonenonzero();
 		}
-	} while( !__sync_bool_compare_and_swap(&vproc_shmem->vp_shmem_transaction_cnt, old, old + 1) );
+	} while (!__sync_bool_compare_and_swap(&vproc_shmem->vp_shmem_transaction_cnt, old, old + 1));
 	
 	runtime_ktrace(RTKT_VPROC_TRANSACTION_INCREMENT, old + 1, 0, 0);
-#endif
 }
 
 size_t
@@ -238,7 +270,7 @@ _vproc_transaction_count_for_pid(pid_t p, int32_t *count, bool *condemned)
 {
 	boolean_t _condemned = false;
 	kern_return_t kr = vproc_mig_transaction_count_for_pid(bootstrap_port, p, count, &_condemned);
-	if( kr == KERN_SUCCESS && condemned ) {
+	if (kr == KERN_SUCCESS && condemned) {
 		*condemned = _condemned ? true : false;
 	}
 	
@@ -246,9 +278,9 @@ _vproc_transaction_count_for_pid(pid_t p, int32_t *count, bool *condemned)
 }
 
 void
-#if !TARGET_OS_EMBEDDED
 _vproc_transaction_try_exit(int status)
 {
+#if !TARGET_OS_EMBEDDED
 	if (unlikely(vproc_shmem == NULL)) {
 		return;
 	}
@@ -257,31 +289,25 @@ _vproc_transaction_try_exit(int status)
 		vproc_shmem->vp_shmem_flags |= VPROC_SHMEM_EXITING;
 		_exit(status);
 	}
-}
 #else
-_vproc_transaction_try_exit(int status __attribute__((unused)))
-{
 	
-}
 #endif
+}
 
 void
 vproc_transaction_end(vproc_t vp __attribute__((unused)), vproc_transaction_t vpt)
 {
 	if (unlikely(vpt != (vproc_transaction_t)vproc_shmem_init)) {
-		__crashreporter_info__ = "Bogus transaction handle passed to vproc_transaction_end() ";
+		_vproc_set_crash_log_message("Bogus transaction handle passed to vproc_transaction_end() ");
 		abort();
 	}
 
-#if !TARGET_OS_EMBEDDED
 	_vproc_transaction_end();
-#endif
 }
 
 void
 _vproc_transaction_end(void)
 {
-#if !TARGET_OS_EMBEDDED
 	typeof(vproc_shmem->vp_shmem_transaction_cnt) newval;
 
 	if (unlikely(vproc_shmem == NULL)) {
@@ -295,11 +321,12 @@ _vproc_transaction_end(void)
 		if (vproc_shmem->vp_shmem_flags & VPROC_SHMEM_EXITING) {
 			_exit(0);
 		} else {
-			__crashreporter_info__ = "Unbalanced: vproc_transaction_end()";
+			_vproc_set_crash_log_message("Unbalanced: vproc_transaction_end()");
 		}
 		abort();
+	} else if (newval == 0 && vproc_gone2zero) {
+		vproc_gone2zero();
 	}
-#endif
 }
 
 vproc_standby_t
@@ -332,7 +359,7 @@ _vproc_standby_begin(void)
 	newval = __sync_add_and_fetch(&vproc_shmem->vp_shmem_standby_cnt, 1);
 
 	if (unlikely(newval < 1)) {
-		__crashreporter_info__ = "Unbalanced: vproc_standby_begin()";
+		_vproc_set_crash_log_message("Unbalanced: vproc_standby_begin()");
 		abort();
 	}
 #else
@@ -345,7 +372,7 @@ vproc_standby_end(vproc_t vp __attribute__((unused)), vproc_standby_t vpt __attr
 {
 #ifdef VPROC_STANDBY_IMPLEMENTED
 	if (unlikely(vpt != (vproc_standby_t)vproc_shmem_init)) {
-		__crashreporter_info__ = "Bogus standby handle passed to vproc_standby_end() ";
+		_vproc_set_crash_log_message("Bogus standby handle passed to vproc_standby_end() ");
 		abort();
 	}
 
@@ -361,20 +388,48 @@ _vproc_standby_end(void)
 #ifdef VPROC_STANDBY_IMPLEMENTED
 	typeof(vproc_shmem->vp_shmem_standby_cnt) newval;
 
-	if( unlikely(vproc_shmem == NULL) ) {
-		__crashreporter_info__ = "Process called vproc_standby_end() when not enrolled in transaction model.";
+	if (unlikely(vproc_shmem == NULL)) {
+		_vproc_set_crash_log_message("Process called vproc_standby_end() when not enrolled in transaction model.");
 		abort();
 	}
 
 	newval = __sync_sub_and_fetch(&vproc_shmem->vp_shmem_standby_cnt, 1);
 
 	if (unlikely(newval < 0)) {
-		__crashreporter_info__ = "Unbalanced: vproc_standby_end()";
+		_vproc_set_crash_log_message("Unbalanced: vproc_standby_end()");
 		abort();
 	}
 #else
 	return;
 #endif
+}
+
+int32_t *
+_vproc_transaction_ptr(void)
+{
+	return NULL;
+}
+
+void
+_vproc_transaction_set_callouts(_vproc_transaction_callout gone2zero, _vproc_transaction_callout gonenonzero)
+{
+	if (unlikely(vproc_shmem == NULL)) {
+		int po_r = pthread_once(&shmem_inited, vproc_client_init);
+		if (po_r != 0 || vproc_shmem == NULL) {
+			return;
+		}
+	}
+
+	static bool once = false;
+	if (once) {
+		_vproc_set_crash_log_message("This SPI may only be called once. It is only meant for libxpc.");
+		abort();
+	}
+
+	once = true;
+
+	vproc_gone2zero = gone2zero;
+	vproc_gonenonzero = gonenonzero;
 }
 
 kern_return_t
@@ -413,7 +468,7 @@ _vproc_post_fork_ping(void)
 	do {
 		mach_port_t session = MACH_PORT_NULL;
 		kern_return_t kr = vproc_mig_post_fork_ping(bootstrap_port, mach_task_self(), &session);
-		if( kr != KERN_SUCCESS ) {
+		if (kr != KERN_SUCCESS) {
 			/* If this happens, our bootstrap port probably got hosed. */
 			_vproc_log(LOG_ERR, "Post-fork ping failed!");
 			break;
@@ -422,19 +477,19 @@ _vproc_post_fork_ping(void)
 		/* If we get back MACH_PORT_NULL, that means we just stick with the session
 		 * we inherited across fork(2).
 		 */
-		if( session == MACH_PORT_NULL ) {
+		if (session == MACH_PORT_NULL) {
 			s = ~AU_DEFAUDITSID;
 			break;
 		}
 		
 		s = _audit_session_join(session);
-		if( s == 0 ) {
+		if (s == 0) {
 			_vproc_log_error(LOG_ERR, "Could not join security session!");
 			s = AU_DEFAUDITSID;
 		} else {
 			_vproc_log(LOG_DEBUG, "Joined session %d.", s);
 		}
-	} while( 0 );
+	} while (0);
 	
 	return s != AU_DEFAUDITSID ? NULL : _vproc_post_fork_ping;
 #else
@@ -485,7 +540,7 @@ _vprocmgr_move_subset_to_user(uid_t target_user, const char *session_type, uint6
 		return (vproc_err_t)_vprocmgr_move_subset_to_user;
 	}
 	
-	if( is_bkgd ) {		
+	if (is_bkgd) {		
 		task_set_bootstrap_port(mach_task_self(), puc);
 		mach_port_deallocate(mach_task_self(), bootstrap_port);
 		bootstrap_port = puc;
@@ -511,7 +566,7 @@ _vprocmgr_switch_to_session(const char *target_session, vproc_flags_t flags __at
 
 	mach_port_t tnp = MACH_PORT_NULL;
 	task_name_for_pid(mach_task_self(), getpid(), &tnp);
-	if( (kr = vproc_mig_switch_to_session(bootstrap_port, tnp, (char *)target_session, _audit_session_self(), &new_bsport)) != KERN_SUCCESS ) {
+	if ((kr = vproc_mig_switch_to_session(bootstrap_port, tnp, (char *)target_session, _audit_session_self(), &new_bsport)) != KERN_SUCCESS) {
 		_vproc_log(LOG_NOTICE, "_vprocmgr_switch_to_session(): kr = 0x%x", kr);
 		return (vproc_err_t)_vprocmgr_switch_to_session;
 	}
@@ -568,6 +623,7 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 	launch_data_dict_insert(in_obj, tmp_array, LAUNCH_JOBKEY_PROGRAMARGUMENTS);
 
 	if (spawn_attrs) switch (struct_version) {
+	case 3:
 	case 2:
 #if HAVE_QUARANTINE
 		if (spawn_attrs->spawn_quarantine) {
@@ -606,6 +662,18 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_STOPPED) {
 			tmp = launch_data_new_bool(true);
 			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_WAITFORDEBUGGER);
+		}
+		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_TALAPP) {
+			tmp = launch_data_new_string(LAUNCH_KEY_POSIXSPAWNTYPE_TALAPP);
+			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_POSIXSPAWNTYPE);
+		}
+		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_WIDGET) {
+			tmp = launch_data_new_string(LAUNCH_KEY_POSIXSPAWNTYPE_WIDGET);
+			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_POSIXSPAWNTYPE);
+		}
+		if (spawn_attrs->spawn_flags & SPAWN_VIA_LAUNCHD_DISABLE_ASLR) {
+			tmp = launch_data_new_bool(true);
+			launch_data_dict_insert(in_obj, tmp, LAUNCH_JOBKEY_DISABLEASLR);
 		}
 
 		if (spawn_attrs->spawn_env) {
@@ -660,13 +728,19 @@ _spawn_via_launchd(const char *label, const char *const *argv, const struct spaw
 
 	indata = (vm_offset_t)buf;
 
-	kr = vproc_mig_spawn(bootstrap_port, indata, indata_cnt, _audit_session_self(), &p, &obsvr_port);
+	if (struct_version == 3) {
+		kr = vproc_mig_spawn2(bootstrap_port, indata, indata_cnt, _audit_session_self(), &p, &obsvr_port); 
+	} else {
+		_vproc_set_crash_log_message("Bogus version passed to _spawn_via_launchd(). For this release, the only valid version is 3.");
+	}
 
 	if (kr == VPROC_ERR_TRY_PER_USER) {
 		mach_port_t puc;
 
 		if (vproc_mig_lookup_per_user_context(bootstrap_port, 0, &puc) == 0) {
-			kr = vproc_mig_spawn(puc, indata, indata_cnt, _audit_session_self(), &p, &obsvr_port);
+			if (struct_version == 3) {
+				kr = vproc_mig_spawn2(puc, indata, indata_cnt, _audit_session_self(), &p, &obsvr_port);
+			}
 			mach_port_deallocate(mach_task_self(), puc);
 		}
 	}
@@ -685,7 +759,11 @@ out:
 		if (spawn_attrs && spawn_attrs->spawn_observer_port) {
 			*spawn_attrs->spawn_observer_port = obsvr_port;
 		} else {
-			mach_port_deallocate(mach_task_self(), obsvr_port);
+			if (struct_version == 3) {
+				mach_port_mod_refs(mach_task_self(), obsvr_port, MACH_PORT_RIGHT_RECEIVE, -1);
+			} else {
+				mach_port_deallocate(mach_task_self(), obsvr_port);
+			}
 		}
 		return p;
 	case BOOTSTRAP_NOT_PRIVILEGED:
@@ -704,15 +782,16 @@ out:
 }
 
 kern_return_t
-mpm_wait(mach_port_t ajob, int *wstatus)
+mpm_wait(mach_port_t ajob __attribute__((unused)), int *wstatus)
 {
-	return vproc_mig_wait(ajob, wstatus);
+	*wstatus = 0;
+	return 0;
 }
 
 kern_return_t
-mpm_uncork_fork(mach_port_t ajob)
+mpm_uncork_fork(mach_port_t ajob __attribute__((unused)))
 {
-	return vproc_mig_uncork_fork(ajob);
+	return KERN_FAILURE;
 }
 
 kern_return_t
@@ -823,17 +902,17 @@ vproc_swap_integer(vproc_t vp, vproc_gsk_t key, int64_t *inval, int64_t *outval)
 		break;
 	case VPROC_GSK_TRANSACTIONS_ENABLED:
 		/* Shared memory region is required for transactions. */
-		if( unlikely(vproc_shmem == NULL) ) {
+		if (unlikely(vproc_shmem == NULL)) {
 			int po_r = pthread_once(&shmem_inited, vproc_client_init);
-			if( po_r != 0 || vproc_shmem == NULL ) {
-				if( outval ) {
+			if (po_r != 0 || vproc_shmem == NULL) {
+				if (outval) {
 					*outval = -1;
 				}
 				return (vproc_err_t)vproc_swap_integer;
 			}
 		}
 	
-		if( s_cached_transactions_enabled && outval ) {
+		if (s_cached_transactions_enabled && outval) {
 			*outval = s_cached_transactions_enabled;
 			return NULL;
 		}
@@ -853,21 +932,21 @@ vproc_swap_integer(vproc_t vp, vproc_gsk_t key, int64_t *inval, int64_t *outval)
 			cached_is_managed = outval ? *outval : dummyval;
 			break;
 		case VPROC_GSK_TRANSACTIONS_ENABLED:
-			/* Once you're in the transaction model, you're in for good. Like the Mafia. */
 			s_cached_transactions_enabled = 1;
 			break;
-		case VPROC_GSK_PERUSER_SUSPEND: {
-			char peruser_label[NAME_MAX];
-			snprintf(peruser_label, NAME_MAX - 1, "com.apple.launchd.peruser.%u", (uid_t)*inval);
-			
-			vproc_t pu_vp = vprocmgr_lookup_vproc(peruser_label);
-			if( pu_vp ) {
-				int status = 0;
-				kr = vproc_mig_wait2(bootstrap_port, pu_vp->j_port, &status, false);
-				vproc_release(pu_vp);
+		case VPROC_GSK_PERUSER_SUSPEND:
+			if (dummyval) {
+				/* Wait for the per-user launchd to exit before returning. */
+				int kq = kqueue();
+				struct kevent kev;
+				EV_SET(&kev, dummyval, EVFILT_PROC, EV_ADD, NOTE_EXIT, 0, 0);
+				int r = kevent(kq, &kev, 1, &kev, 1, NULL);
+				(void)close(kq);
+				if (r != 1) {
+					return NULL;
+				}
+				break;
 			}
-			break;
-		}
 		default:
 			break;
 		}
@@ -959,15 +1038,15 @@ vproc_swap_string(vproc_t vp, vproc_gsk_t key, const char *instr, char **outstr)
 	launch_data_t outstr_data = NULL;
 	
 	vproc_err_t verr = vproc_swap_complex(vp, key, instr_data, &outstr_data);
-	if( !verr && outstr ) {
-		if( launch_data_get_type(outstr_data) == LAUNCH_DATA_STRING ) {
+	if (!verr && outstr) {
+		if (launch_data_get_type(outstr_data) == LAUNCH_DATA_STRING) {
 			*outstr = strdup(launch_data_get_string(outstr_data));
 		} else {
 			verr = (vproc_err_t)vproc_swap_string;
 		}
 		launch_data_free(outstr_data);
 	}
-	if( instr_data ) {
+	if (instr_data) {
 		launch_data_free(instr_data);
 	}
 	
@@ -985,35 +1064,17 @@ reboot2(uint64_t flags)
 }
 
 vproc_err_t
-_vproc_kickstart_by_label(const char *label, pid_t *out_pid, mach_port_t *out_port_name, mach_port_t *out_obsrvr_port, vproc_flags_t flags)
+_vproc_kickstart_by_label(const char *label, pid_t *out_pid, mach_port_t *out_port_name __attribute__((unused)), mach_port_t *out_obsrvr_port __attribute__((unused)), vproc_flags_t flags)
 {
-	mach_port_t junk = MACH_PORT_NULL;
-	mach_port_t junk2 = MACH_PORT_NULL;
-	
-	kern_return_t kr = vproc_mig_kickstart(bootstrap_port, (char *)label, out_pid, out_port_name ?: &junk, out_obsrvr_port ?: &junk2, flags);
-	if( kr == KERN_SUCCESS ) {
-		if( !out_port_name ) {
-			mach_port_mod_refs(mach_task_self(), junk, MACH_PORT_RIGHT_SEND, -1);
-		}
-		
-		if( !out_obsrvr_port ) {
-			mach_port_mod_refs(mach_task_self(), junk2, MACH_PORT_RIGHT_SEND, -1);
-		}
-		
+	/* Ignore the two port parameters. This SPI isn't long for this world, and
+	 * all the current clients just leak them anyway.
+	 */
+	kern_return_t kr = vproc_mig_kickstart(bootstrap_port, (char *)label, out_pid, flags);
+	if (kr == KERN_SUCCESS) {
 		return NULL;
 	}
 
 	return (vproc_err_t)_vproc_kickstart_by_label;
-}
-
-vproc_err_t
-_vproc_wait_by_label(const char *label, int *out_wstatus)
-{
-	if (vproc_mig_embedded_wait(bootstrap_port, (char *)label, out_wstatus) == 0) {
-		return NULL;
-	}
-
-	return (vproc_err_t)_vproc_wait_by_label;
 }
 
 vproc_err_t
@@ -1057,4 +1118,85 @@ _vproc_log_error(int pri, const char *msg, ...)
 	va_start(ap, msg);
 	_vproc_logv(pri, saved_errno, msg, ap);
 	va_end(ap);
+}
+
+bool
+vprocmgr_helper_check_in(const char *name, mach_port_t rp, launch_data_t *events, uint64_t *tokens)
+{
+	vm_offset_t events_packed = 0;
+	mach_msg_type_number_t sz = 0;
+	size_t data_off = 0;
+	
+	kern_return_t kr = vproc_mig_event_source_check_in(bootstrap_port, (char *)name, rp, &events_packed, &sz, tokens);
+	if (kr == 0) {
+		launch_data_t _events = launch_data_unpack((void *)events_packed, sz, NULL, 0, &data_off, 0);
+		*events = launch_data_copy(_events);
+		if (!*events) {
+			kr = 1;
+		}
+		
+		mig_deallocate(events_packed, sz);
+	}
+	
+	return (kr == 0);
+}
+
+bool
+vprocmgr_helper_event_set_state(const char *sysname, uint64_t token, bool state)
+{
+	kern_return_t kr = vproc_mig_event_set_state(bootstrap_port, (char *)sysname, token, state);
+	return (kr == 0);
+}
+
+void
+vprocmgr_helper_register(vproc_helper_recv_ping_t callout)
+{
+	vprocmgr_helper_callout = callout;
+}
+
+/* The type naming convention is as follows:
+ * For requests...
+ *     union __RequestUnion__<userprefix><subsystem>_subsystem
+ * For replies...
+ *     union __ReplyUnion__<userprefix><subsystem>_subsystem
+ */
+union maxmsgsz {
+	union __RequestUnion__helper_downcall_launchd_helper_subsystem req;
+	union __ReplyUnion__helper_downcall_launchd_helper_subsystem rep;
+};
+
+size_t vprocmgr_helper_maxmsgsz = sizeof(union maxmsgsz);
+
+kern_return_t
+helper_recv_ping(mach_port_t p, audit_token_t autok)
+{
+	return vprocmgr_helper_callout(p, autok);
+}
+
+boolean_t
+vprocmgr_helper_server_routine_for_dispatch(mach_msg_header_t *message, mach_msg_header_t *reply)
+{
+	return launchd_helper_server(message, reply);
+}
+
+kern_return_t
+helper_recv_wait(mach_port_t p, int status)
+{
+	/* Total hack. */
+	return (errno = mach_port_set_context(mach_task_self(), p, (mach_vm_address_t)status));
+}
+
+int
+launch_wait(mach_port_t port)
+{
+	int status = -1;
+	errno = mach_msg_server_once(launchd_helper_server, vprocmgr_helper_maxmsgsz, port, 0);
+	if (errno == MACH_MSG_SUCCESS) {
+		mach_vm_address_t ctx = 0;
+		if ((errno = mach_port_get_context(mach_task_self(), port, &ctx)) == KERN_SUCCESS) {
+			status = ctx;
+		}
+	}
+
+	return status;
 }

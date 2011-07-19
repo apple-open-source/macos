@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 
 //
 //  weakblockassign.m
@@ -6,9 +12,22 @@
 //  Created by Blaine Garst on 10/30/08.
 //  Copyright 2008 Apple. All rights reserved.
 //
-// CONFIG GC rdar://5847976
-//
+// TEST_CONFIG SDK=macosx
+// TEST_CFLAGS -framework Foundation
+
+// rdar://5847976
 // Super basic test - does compiler a) compile and b) call out on assignments
+
+#import <objc/objc-auto.h>
+#import "test.h"
+
+#if OBJC_NO_GC
+
+int main() {
+    succeed(__FILE__);
+}
+
+#else
 
 #import <Foundation/Foundation.h>
 
@@ -16,21 +35,10 @@
 
 int GotCalled = 0;
 
-#if 0
-void _Block_object_assign(void *destAddr, const void *object, const int flags) {
-    if (flags != 9) {
-        printf("flags value %d should be 9\n", flags);
-        exit(1);
-    }
-    printf("_Block_object_assign(dest %p, value %p, flags %x)\n", destAddr, object, flags);
+id objc_assign_weak(id value, id *location) {
     ++GotCalled;
+    return *location = value;
 }
-#else
-void objc_assign_weak(id value, id *location) {
-    ++GotCalled;
-    *location = value;
-}
-#endif
 
 int recovered = 0;
 
@@ -40,8 +48,7 @@ int recovered = 0;
 
 @implementation TestObject
 - (id)retain {
-    printf("Whoops, retain called!\n");
-    exit(1);
+    fail("Whoops, retain called!");
 }
 - (void)finalize {
     ++recovered;
@@ -65,14 +72,18 @@ void testRR() {
     testObject = [NSObject new];    // won't last long :-)
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     GotCalled = 0;
     testRR();
-    if (GotCalled == 0) {
-        printf("didn't call out to support function on assignment!!\n");
-        return 1;
+    if ([NSGarbageCollector defaultCollector] && GotCalled == 0) {
+        fail("didn't call out to support function on assignment!!");
+    } else if (! [NSGarbageCollector defaultCollector] && GotCalled != 0) {
+        fail("did call out to support function on assignment!!");
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+    [pool drain];
+
+    succeed(__FILE__);
 }
+
+#endif

@@ -1,2 +1,0 @@
-`include test file.'
-define()

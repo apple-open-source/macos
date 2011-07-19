@@ -73,5 +73,5 @@ eapolclient_log(uint32_t flags, const char * message, ...);
 void
 eapolclient_log_plist(uint32_t flags, CFPropertyListRef plist);
 
-#endif _S_MYLOG_H
+#endif /* _S_MYLOG_H */
 

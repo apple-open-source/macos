@@ -24,7 +24,7 @@
  * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- */
+ */ 
 
 #ifndef _WIN32_WINNT
 #define _WIN32_WINNT 0x0500
@@ -34,7 +34,7 @@
 #define WINVER 0x0500
 #endif
 
-// If we don't define these, they get defined in windef.h. 
+// If we don't define these, they get defined in windef.h.
 // We want to use std::min and std::max.
 #ifndef max
 #define max max

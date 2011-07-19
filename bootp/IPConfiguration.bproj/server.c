@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,9 @@
 #include <servers/bootstrap.h>
 #include <syslog.h>
 #include <CoreFoundation/CFMachPort.h>
+#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CFPropertyList.h>
+#include <SystemConfiguration/SCPrivate.h>
 
 #include "dprintf.h"
 #include "ipconfigServer.h"
@@ -38,6 +41,48 @@
 
 static uid_t S_uid = -1;
 static gid_t S_gid = -1;
+
+static CFPropertyListRef
+my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
+{
+    CFPropertyListRef	plist;
+    CFDataRef		xml_data;
+
+    xml_data = CFDataCreateWithBytesNoCopy(NULL, 
+					   (const UInt8 *)data, data_len,
+					   kCFAllocatorNull);
+    if (xml_data == NULL) {
+	return (NULL);
+    }
+    plist = CFPropertyListCreateFromXMLData(NULL,
+					    xml_data,
+					    kCFPropertyListImmutable,
+					    NULL);
+    CFRelease(xml_data);
+    return (plist);
+}
+
+static ipconfig_status_t
+method_info_from_xml_data(xmlData_t xml_data,
+			  mach_msg_type_number_t xml_data_len,
+			  ipconfig_method_t * method_p,
+			  ipconfig_method_data_t * * method_data_p)
+{
+    CFPropertyListRef	plist = NULL;
+    ipconfig_status_t	status;
+
+    if (xml_data != NULL) {
+	plist = my_CFPropertyListCreateWithBytePtrAndLength(xml_data,
+							    xml_data_len);
+	(void)vm_deallocate(mach_task_self(), (vm_address_t)xml_data,
+			    xml_data_len);
+    }
+    status = ipconfig_method_info_from_plist(plist, method_p, method_data_p);
+    if (plist != NULL) {
+	CFRelease(plist);
+    }
+    return (status);
+}
 
 static __inline__ void
 read_trailer(mig_reply_error_t * request)
@@ -58,57 +103,12 @@ read_trailer(mig_reply_error_t * request)
 }
 
 kern_return_t
-_ipconfig_config_if(mach_port_t p, if_name_t name)
-{
-    dprintf(("config called with %s\n", name));
-    return (KERN_SUCCESS);
-}
-
-kern_return_t
-_ipconfig_config_all(mach_port_t p)
-{
-    dprintf(("config all called\n"));
-    return (KERN_SUCCESS);
-}
-
-kern_return_t
-_ipconfig_wait_if(mach_port_t p, if_name_t name)
-{
-    dprintf(("Waiting for %s to complete\n", name));
-    if (S_uid == 0 && wait_if(name) == TRUE)
-	return (KERN_SUCCESS);
-    return (KERN_FAILURE);
-}
-
-kern_return_t
-_ipconfig_wait_all(mach_port_t p)
-{
-
-    dprintf(("Waiting for all interfaces to complete\n"));
-    if (S_uid == 0) {
-	wait_all();
-	return (KERN_SUCCESS);
-    }
-    return (KERN_FAILURE);
-}
-
-kern_return_t
-_ipconfig_if_name(mach_port_t p, int intface, if_name_t name)
-{
-
-    dprintf(("Getting interface name\n"));
-    if (get_if_name(intface, name, sizeof(if_name_t)) == TRUE)
-	return (KERN_SUCCESS);
-    return (KERN_FAILURE);
-}
-
-kern_return_t
-_ipconfig_if_addr(mach_port_t p, if_name_t name, u_int32_t * addr)
+_ipconfig_if_addr(mach_port_t p, if_name_t name, 
+		  u_int32_t * addr, ipconfig_status_t * status)
 {
     dprintf(("Getting interface address\n"));
-    if (get_if_addr(name, addr) == TRUE)
-	return (KERN_SUCCESS);
-    return (KERN_FAILURE);
+    *status = get_if_addr(name, addr);
+    return (KERN_SUCCESS);
 }
 
 kern_return_t
@@ -122,39 +122,59 @@ _ipconfig_if_count(mach_port_t p, int * count)
 kern_return_t
 _ipconfig_get_option(mach_port_t p, if_name_t name, int option_code,
 		     inline_data_t option_data,
-		     unsigned int * option_dataCnt)
+		     mach_msg_type_number_t * option_dataCnt,
+		     ipconfig_status_t * status)
+
 {
-    if (get_if_option(name, option_code, option_data, option_dataCnt) 
-	== TRUE) {
-	return (KERN_SUCCESS);
-    }
-    return (KERN_FAILURE);
+    *status = get_if_option(name, option_code, option_data, option_dataCnt);
+    return (KERN_SUCCESS);
 }
 
 kern_return_t
 _ipconfig_get_packet(mach_port_t p, if_name_t name,
 		     inline_data_t packet_data,
-		     unsigned int * packet_dataCnt)
+		     mach_msg_type_number_t * packet_dataCnt,
+		     ipconfig_status_t * status)
 {
-    if (get_if_packet(name, packet_data, packet_dataCnt) == TRUE) {
-	return (KERN_SUCCESS);
-    }
-    return (KERN_FAILURE);
+    *status = get_if_packet(name, packet_data, packet_dataCnt);
+    return (KERN_SUCCESS);
+}
+
+kern_return_t
+_ipconfig_get_v6_packet(mach_port_t p, if_name_t name,
+		     inline_data_t packet_data,
+		     mach_msg_type_number_t * packet_dataCnt,
+		     ipconfig_status_t * status)
+{
+    *status = get_if_v6_packet(name, packet_data, packet_dataCnt);
+    return (KERN_SUCCESS);
 }
 
 kern_return_t
 _ipconfig_set(mach_port_t p, if_name_t name,
-	      ipconfig_method_t method,
-	      inline_data_t method_data,
-	      unsigned int method_data_len,
-	      ipconfig_status_t * status)
+	      xmlData_t xml_data,
+	      mach_msg_type_number_t xml_data_len,
+	      ipconfig_status_t * ret_status)
 {
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    ipconfig_status_t		status;
+
     if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
+	status = ipconfig_status_permission_denied_e;
+	goto done;
     }
-    else {
-	*status = set_if(name, method, method_data, method_data_len);
+    status = method_info_from_xml_data(xml_data, xml_data_len,
+				       &method, &method_data);
+    if (status != ipconfig_status_success_e) {
+	goto done;
     }
+    status = set_if(name, method, method_data);
+    if (method_data != NULL) {
+	free(method_data);
+    }
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
@@ -178,47 +198,68 @@ _ipconfig_set_something(mach_port_t p, int verbose,
 {
     return (KERN_SUCCESS);
 }
-#endif IPCONFIG_TEST_NO_ENTRY
+#endif /* IPCONFIG_TEST_NO_ENTRY */
 
 kern_return_t
 _ipconfig_add_service(mach_port_t p, 
 		      if_name_t name,
-		      ipconfig_method_t method,
-		      inline_data_t method_data,
-		      unsigned int method_data_len,
+		      xmlData_t xml_data,
+		      mach_msg_type_number_t xml_data_len,
 		      inline_data_t service_id,
 		      mach_msg_type_number_t * service_id_len,
-		      ipconfig_status_t * status)
+		      ipconfig_status_t * ret_status)
 {
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    ipconfig_status_t		status;
+
     if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
+	status = ipconfig_status_permission_denied_e;
+	goto done;
     }
-    else {
-	*status = add_service(name, method, method_data, method_data_len,
-			      service_id, service_id_len);
-			      
+    status = method_info_from_xml_data(xml_data, xml_data_len,
+				       &method, &method_data);
+    if (status != ipconfig_status_success_e) {
+	goto done;
     }
+    status = add_service(name, method, method_data, service_id, service_id_len);
+    if (method_data != NULL) {
+	free(method_data);
+    }
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
 kern_return_t
 _ipconfig_set_service(mach_port_t p, 
 		      if_name_t name,
-		      ipconfig_method_t method,
-		      inline_data_t method_data,
-		      unsigned int method_data_len,
+		      xmlData_t xml_data,
+		      mach_msg_type_number_t xml_data_len,
 		      inline_data_t service_id,
 		      mach_msg_type_number_t * service_id_len,
-		      ipconfig_status_t * status)
+		      ipconfig_status_t * ret_status)
 {
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    ipconfig_status_t		status;
+
     if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
+	status = ipconfig_status_permission_denied_e;
+	goto done;
     }
-    else {
-	*status = set_service(name, method, method_data, method_data_len,
-			      service_id, service_id_len);
-			      
+    status = method_info_from_xml_data(xml_data, xml_data_len,
+				       &method, &method_data);
+    if (status != ipconfig_status_success_e) {
+	goto done;
     }
+    status = set_service(name, method, method_data, 
+			 service_id, service_id_len);
+    if (method_data != NULL) {
+	free(method_data);
+    }
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
@@ -226,14 +267,18 @@ kern_return_t
 _ipconfig_remove_service_with_id(mach_port_t server,
 				 inline_data_t service_id,
 				 mach_msg_type_number_t service_id_len,
-				 ipconfig_status_t *status)
+				 ipconfig_status_t * ret_status)
 {
+    ipconfig_status_t	status;
+
     if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
+	status = ipconfig_status_permission_denied_e;
+	goto done;
     }
-    else {
-	*status = remove_service_with_id(service_id, service_id_len);
-    }
+    status = remove_service_with_id(service_id, service_id_len);
+
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
@@ -241,32 +286,59 @@ kern_return_t
 _ipconfig_find_service(mach_port_t server,
 		       if_name_t name,
 		       boolean_t exact,
-		       ipconfig_method_t method,
-		       inline_data_t method_data,
-		       mach_msg_type_number_t method_data_len,
+		       xmlData_t xml_data,
+		       mach_msg_type_number_t xml_data_len,
 		       inline_data_t service_id,
 		       mach_msg_type_number_t *service_id_len,
-		       ipconfig_status_t *status)
+		       ipconfig_status_t * ret_status)
 {
-    *status = find_service(name, exact, method, method_data, method_data_len,
-			   service_id, service_id_len);
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    ipconfig_status_t		status;
+
+    status = method_info_from_xml_data(xml_data, xml_data_len,
+				       &method, &method_data);
+    if (status != ipconfig_status_success_e) {
+	goto done;
+    }
+    status = find_service(name, exact, method, method_data,
+			  service_id, service_id_len);
+    if (method_data != NULL) {
+	free(method_data);
+    }
+
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
 kern_return_t 
 _ipconfig_remove_service(mach_port_t server,
 			 if_name_t name,
-			 ipconfig_method_t method,
-			 inline_data_t method_data,
-			 mach_msg_type_number_t method_data_len,
-			 ipconfig_status_t *status)
+			 xmlData_t xml_data,
+			 mach_msg_type_number_t xml_data_len,
+			 ipconfig_status_t * ret_status)
 {
+    ipconfig_method_t		method;
+    ipconfig_method_data_t *	method_data;
+    ipconfig_status_t		status;
+
     if (S_uid != 0) {
-	*status = ipconfig_status_permission_denied_e;
+	status = ipconfig_status_permission_denied_e;
+	goto done;
     }
-    else {
-	*status = remove_service(name, method, method_data, method_data_len);
+    status = method_info_from_xml_data(xml_data, xml_data_len,
+				       &method, &method_data);
+    if (status != ipconfig_status_success_e) {
+	goto done;
     }
+    status = remove_service(name, method, method_data);
+    if (method_data != NULL) {
+	free(method_data);
+    }
+
+ done:
+    *ret_status = status;
     return (KERN_SUCCESS);
 }
 
@@ -289,12 +361,12 @@ S_ipconfig_server(CFMachPortRef port, void *msg, CFIndex size, void *info)
     char 		reply_buf[2048 + 256];
     mach_msg_options_t 	options = 0;
     mig_reply_error_t * request = (mig_reply_error_t *)msg;
-    mig_reply_error_t *	reply = (mig_reply_error_t *)reply_buf;
+    mig_reply_error_t *	reply;
     mach_msg_return_t 	r = MACH_MSG_SUCCESS;
 
     read_trailer(request);
     if (_ipconfig_subsystem.maxsize > sizeof(reply_buf)) {
-	syslog(LOG_NOTICE, "IPConfiguration server: %d > %d",
+	syslog(LOG_NOTICE, "IPConfiguration server: %d > %ld",
 	       _ipconfig_subsystem.maxsize, sizeof(reply_buf));
 	reply = (mig_reply_error_t *)
 	    malloc(_ipconfig_subsystem.maxsize);
@@ -360,21 +432,23 @@ server_init()
 {
     CFRunLoopSourceRef	rls;
     CFMachPortRef	ipconfigd_port;
+    mach_port_t		server_port;
     kern_return_t 	status;
 
-    ipconfigd_port = CFMachPortCreate(NULL, S_ipconfig_server, NULL, NULL);
+    status = bootstrap_check_in(bootstrap_port, IPCONFIG_SERVER, 
+				&server_port);
+    if (status != BOOTSTRAP_SUCCESS) {
+	my_log(LOG_NOTICE,
+	       "IPConfiguration: bootstrap_check_in failed, %s",
+	       mach_error_string(status));
+	return;
+    }
+    ipconfigd_port = _SC_CFMachPortCreateWithPort(NULL, server_port,
+						  S_ipconfig_server,
+						  NULL);
     rls = CFMachPortCreateRunLoopSource(NULL, ipconfigd_port, 0);
     CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
     CFRelease(rls);
-
-    status = bootstrap_register(bootstrap_port, IPCONFIG_SERVER, 
-				CFMachPortGetPort(ipconfigd_port));
-    if (status != BOOTSTRAP_SUCCESS) {
-	my_log(LOG_NOTICE, "failed to register " IPCONFIG_SERVER);
-	mach_error("bootstrap_register", status);
-	CFMachPortInvalidate(ipconfigd_port);
-	CFRelease(ipconfigd_port);
-    }
+    CFRelease(ipconfigd_port);
     return;
 }
-

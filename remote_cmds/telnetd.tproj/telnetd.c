@@ -49,7 +49,9 @@ __FBSDID("$FreeBSD: src/contrib/telnet/telnetd/telnetd.c,v 1.29 2006/09/26 21:46
 #endif
 #include <paths.h>
 #include <termcap.h>
+#ifndef __APPLE__
 #include <utmp.h>
+#endif
 
 #include <arpa/inet.h>
 
@@ -695,8 +697,9 @@ doit(struct sockaddr *who)
 	 * Find an available pty to use.
 	 */
 #ifndef	convex
-	pty = getpty(&ptynum);
-	if (pty < 0)
+	spty = -1;
+	mpty = getpty(&ptynum, &spty);
+	if (mpty < 0)
 		fatal(net, "All network ports in use");
 #else
 	for (;;) {
@@ -722,8 +725,7 @@ doit(struct sockaddr *who)
                 fatal(net, "Couldn't resolve your address into a host name.\r\n\
          Please contact your net administrator");
         } else if (hp &&
-            (strlen(hp->h_name) <= (unsigned int)((utmp_len < 0) ? -utmp_len
-                                                                 : utmp_len))) {
+            (strlen(hp->h_name) <= utmp_len)) {
                 host = hp->h_name;
         } else {
                 host = inet_ntoa(((struct sockaddr_in *)who)->sin_addr);
@@ -777,7 +779,7 @@ doit(struct sockaddr *who)
 	level = getterminaltype(user_name);
 	setenv("TERM", terminaltype ? terminaltype : "network", 1);
 
-	telnet(net, pty, remote_hostname);	/* begin server process */
+	telnet(net, mpty, remote_hostname);	/* begin server process */
 
 	/*NOTREACHED*/
 }  /* end of doit */
@@ -1252,7 +1254,7 @@ interrupt(void)
 	ptyflush();	/* half-hearted */
 
 #ifdef	TCSIG
-	(void) ioctl(pty, TCSIG, (char *)SIGINT);
+	(void) ioctl(mpty, TCSIG, (char *)SIGINT);
 #else	/* TCSIG */
 	init_termbuf();
 	*pfrontp++ = slctab[SLC_IP].sptr ?
@@ -1270,7 +1272,7 @@ sendbrk(void)
 {
 	ptyflush();	/* half-hearted */
 #ifdef	TCSIG
-	(void) ioctl(pty, TCSIG, (char *)SIGQUIT);
+	(void) ioctl(mpty, TCSIG, (char *)SIGQUIT);
 #else	/* TCSIG */
 	init_termbuf();
 	*pfrontp++ = slctab[SLC_ABORT].sptr ?
@@ -1284,7 +1286,7 @@ sendsusp(void)
 #ifdef	SIGTSTP
 	ptyflush();	/* half-hearted */
 # ifdef	TCSIG
-	(void) ioctl(pty, TCSIG, (char *)SIGTSTP);
+	(void) ioctl(mpty, TCSIG, (char *)SIGTSTP);
 # else	/* TCSIG */
 	*pfrontp++ = slctab[SLC_SUSP].sptr ?
 			(unsigned char)*slctab[SLC_SUSP].sptr : '\032';
@@ -1301,7 +1303,7 @@ recv_ayt(void)
 {
 #if	defined(SIGINFO) && defined(TCSIG)
 	if (slctab[SLC_AYT].sptr && *slctab[SLC_AYT].sptr != _POSIX_VDISABLE) {
-		(void) ioctl(pty, TCSIG, (char *)SIGINFO);
+		(void) ioctl(spty, TCSIG, (char *)SIGINFO);
 		return;
 	}
 #endif

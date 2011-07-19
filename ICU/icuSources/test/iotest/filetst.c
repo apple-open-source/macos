@@ -1,6 +1,6 @@
 /*
  **********************************************************************
- *   Copyright (C) 2004-2008, International Business Machines
+ *   Copyright (C) 2004-2010, International Business Machines
  *   Corporation and others.  All Rights Reserved.
  **********************************************************************
  *   file name:  filetst.c
@@ -18,6 +18,7 @@
 #include "unicode/uloc.h"
 
 #include <string.h>
+#include <stdlib.h>
 
 const char *STANDARD_TEST_FILE = "iotest-c.txt";
 
@@ -320,6 +321,10 @@ static void TestFile(void) {
     standardFile = fopen(STANDARD_TEST_FILE, "wb");
     TestFileFromICU(u_finit(standardFile, NULL, NULL));
     fclose(standardFile);
+
+    log_verbose("Testing u_fadopt\n");
+    standardFile = fopen(STANDARD_TEST_FILE, "wb");
+    TestFileFromICU(u_fadopt(standardFile, NULL, NULL));
 */
 }
 #endif
@@ -904,6 +909,69 @@ static void TestCodepage(void) {
 
 }
 
+static void TestCodepageFlush(void) {
+#if UCONFIG_NO_LEGACY_CONVERSION
+  log_verbose("Skipping, legacy conversion is disabled.");
+#else
+  UChar utf16String[] = { 0x39, 0x39, 0x39, 0x20, 0x65E0, 0x6CD6, 0x5728, 0x0000 };
+  uint8_t inBuf[200];
+  size_t inLen =0;
+  const char *enc = "IBM-1388"; /* GBK EBCDIC stateful */
+  UFILE *myFile = u_fopen(STANDARD_TEST_FILE, "wb", "en_US_POSIX", enc);
+  FILE *myCFile;
+  int shift = 0;
+  int i;
+
+  if (myFile == NULL) {
+    log_err("Can't write test file %s\n", STANDARD_TEST_FILE);
+    return;
+  }
+  
+  u_fprintf(myFile, "%S", utf16String);
+  u_fclose(myFile);
+
+  /* now read it back */
+    myCFile = fopen(STANDARD_TEST_FILE, "rb");
+    if (myCFile == NULL) {
+        log_err("Can't read test file.");
+        return;
+    }
+
+    inLen = fread(inBuf, 1, 200, myCFile);
+    fclose(myCFile);
+    
+    if(inLen<=0) {
+      log_err("Failed during read of test file.");
+      return;
+    }
+
+    /* check if shift in and out */
+    for(i=0;i<inLen;i++) {
+      if(inBuf[i]==0x0E) {  /* SO */
+        shift= 1;
+      } else if(inBuf[i]==0x0F) { /* SI */
+        shift= -1;
+      }
+    }
+    
+    if(shift==0) {
+      log_err("Err: shift was unchanged\n");
+    } else if(shift==1) {
+      log_err("Err: at end of string, we were still shifted out (SO, 0x0E).\n");
+    } else if(shift==-1) {
+      log_verbose("OK: Shifted in (SI, 0x0F)\n");
+    }
+
+    if(inLen != 12) {
+      log_err("Expected 12 bytes, read %d\n", inLen);
+    } else {
+      log_verbose("OK: read %d bytes\n", inLen);
+    }
+
+
+#endif
+}
+
 #if !UCONFIG_NO_FORMATTING
 static void TestFilePrintCompatibility(void) {
     UFILE *myFile = u_fopen(STANDARD_TEST_FILE, "wb", "en_US_POSIX", NULL);
@@ -1430,6 +1498,79 @@ static void TestUnicodeFormat(void)
 #endif
 }
 
+static void TestFileWriteRetval(const char * a_pszEncoding) { 
+    UChar * buffer; 
+    UFILE * myFile; 
+    int32_t count; 
+    int32_t expected = 10000; /* test with large data to test internal buffer looping */ 
+    UChar   testChar = 0xBEEF; 
+
+    if (!*a_pszEncoding || 0 == strcmp(a_pszEncoding, "ASCII")) { 
+        testChar = 0x65; /* 'A' - otherwise read test will fail */ 
+    } 
+
+    buffer = (UChar*) malloc(expected * sizeof(UChar)); 
+    if (!buffer) { 
+        log_err("Out of memory\n"); 
+        return; 
+    } 
+
+    /* write */ 
+    myFile = u_fopen(STANDARD_TEST_FILE, "w", NULL, a_pszEncoding); 
+    if (!myFile) { 
+        free(buffer); 
+        log_err("Test file can't be opened for write\n"); 
+        return; 
+    } 
+    u_memset(buffer, testChar, expected); 
+    count = u_file_write(buffer, expected, myFile); 
+    u_fclose(myFile); 
+    if (count != expected) { 
+        free(buffer); 
+        log_err("u_file_write returned incorrect number of characters written\n"); 
+        return; 
+    } 
+
+    free(buffer); 
+    buffer = NULL; 
+
+    /* read */ 
+    myFile = u_fopen(STANDARD_TEST_FILE, "r", NULL, a_pszEncoding); 
+    if (!myFile) { 
+        log_err("Test file can't be opened for read\n"); 
+        return; 
+    } 
+    for (count = 0; count < expected; ++count) { 
+        UChar gotChar = u_fgetc(myFile);
+	if(gotChar != testChar) {
+            log_err("u_fgetc returned unexpected character U+%04X expected U+%04X\n", gotChar, testChar); 
+            u_fclose(myFile); 
+            return; 
+        } 
+    } 
+    if (u_fgetc(myFile) != U_EOF) { 
+        log_err("u_fgetc did not return expected EOF\n"); 
+        u_fclose(myFile); 
+        return; 
+        } 
+    u_fclose(myFile); 
+} 
+
+static void TestFileWriteRetvalUTF16(void) { 
+    TestFileWriteRetval("UTF-16"); 
+} 
+
+static void TestFileWriteRetvalUTF8(void) { 
+    TestFileWriteRetval("UTF-8"); 
+} 
+
+static void TestFileWriteRetvalASCII(void) { 
+    TestFileWriteRetval("ASCII"); 
+} 
+
+static void TestFileWriteRetvalNONE(void) { 
+    TestFileWriteRetval(""); 
+} 
 
 U_CFUNC void
 addFileTest(TestNode** root) {
@@ -1444,6 +1585,11 @@ addFileTest(TestNode** root) {
     addTest(root, &TestfgetsNewLineCount, "file/TestfgetsNewLineCount");
     addTest(root, &TestFgetsLineBuffering, "file/TestFgetsLineBuffering");
     addTest(root, &TestCodepage, "file/TestCodepage");
+    addTest(root, &TestCodepageFlush, "file/TestCodepageFlush");
+    addTest(root, &TestFileWriteRetvalUTF16, "file/TestFileWriteRetvalUTF16");
+    addTest(root, &TestFileWriteRetvalUTF8, "file/TestFileWriteRetvalUTF8");
+    addTest(root, &TestFileWriteRetvalASCII, "file/TestFileWriteRetvalASCII");
+    addTest(root, &TestFileWriteRetvalNONE, "file/TestFileWriteRetvalNONE");
 #if !UCONFIG_NO_FORMATTING
     addTest(root, &TestCodepageAndLocale, "file/TestCodepageAndLocale");
     addTest(root, &TestFprintfFormat, "file/TestFprintfFormat");

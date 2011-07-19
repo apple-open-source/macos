@@ -941,7 +941,7 @@ _OnFindRepl(void)
     if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
 			&& enc_codepage >= 0 && (int)GetACP() != enc_codepage)
     {
-        findrep_wtoa(&s_findrep_struct, &s_findrep_struct_w);
+	findrep_wtoa(&s_findrep_struct, &s_findrep_struct_w);
     }
 # endif
 
@@ -1084,9 +1084,8 @@ _TextAreaWndProc(
 	case WM_NOTIFY: Handle_WM_Notify(hwnd, (LPNMHDR)lParam);
 	    return TRUE;
 #endif
-
-    default:
-	return MyWindowProc(hwnd, uMsg, wParam, lParam);
+	default:
+	    return MyWindowProc(hwnd, uMsg, wParam, lParam);
     }
 }
 
@@ -1733,7 +1732,7 @@ process_message(void)
 #ifdef FEAT_NETBEANS_INTG
     if (msg.message == WM_NETBEANS)
     {
-	messageFromNetbeansW32();
+	netbeans_read();
 	return;
     }
 #endif
@@ -2620,7 +2619,7 @@ gui_mch_find_dialog(exarg_T *eap)
 	    if (os_version.dwPlatformId == VER_PLATFORM_WIN32_NT
 		    && enc_codepage >= 0 && (int)GetACP() != enc_codepage)
 	    {
-	        findrep_atow(&s_findrep_struct_w, &s_findrep_struct);
+		findrep_atow(&s_findrep_struct_w, &s_findrep_struct);
 		s_findrep_hwnd = FindTextW(
 					(LPFINDREPLACEW) &s_findrep_struct_w);
 	    }
@@ -3342,11 +3341,11 @@ gui_mch_browseW(
     /* Convert the filter to Windows format. */
     filterp = convert_filterW(filter);
 
-    memset(&fileStruct, 0, sizeof(OPENFILENAMEW));
+    vim_memset(&fileStruct, 0, sizeof(OPENFILENAMEW));
 #ifdef OPENFILENAME_SIZE_VERSION_400
     /* be compatible with Windows NT 4.0 */
     /* TODO: what to use for OPENFILENAMEW??? */
-    fileStruct.lStructSize = sizeof(OPENFILENAME_SIZE_VERSION_400);
+    fileStruct.lStructSize = OPENFILENAME_SIZE_VERSION_400;
 #else
     fileStruct.lStructSize = sizeof(fileStruct);
 #endif
@@ -3504,10 +3503,10 @@ gui_mch_browse(
     /* Convert the filter to Windows format. */
     filterp = convert_filter(filter);
 
-    memset(&fileStruct, 0, sizeof(OPENFILENAME));
+    vim_memset(&fileStruct, 0, sizeof(OPENFILENAME));
 #ifdef OPENFILENAME_SIZE_VERSION_400
     /* be compatible with Windows NT 4.0 */
-    fileStruct.lStructSize = sizeof(OPENFILENAME_SIZE_VERSION_400);
+    fileStruct.lStructSize = OPENFILENAME_SIZE_VERSION_400;
 #else
     fileStruct.lStructSize = sizeof(fileStruct);
 #endif
@@ -3843,7 +3842,7 @@ get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
 		    /* Halve the number of backslashes. */
 		    if (i > 1 && pnew != NULL)
 		    {
-			memset(pnew, '\\', i / 2);
+			vim_memset(pnew, '\\', i / 2);
 			pnew += i / 2;
 		    }
 
@@ -3860,7 +3859,7 @@ get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
 		    /* Copy span of backslashes unmodified. */
 		    if (pnew != NULL)
 		    {
-			memset(pnew, '\\', i);
+			vim_memset(pnew, '\\', i);
 			pnew += i;
 		    }
 		    p += i;
@@ -3902,7 +3901,9 @@ get_cmd_args(char *prog, char *cmdline, char ***argvp, char **tofree)
 	}
     }
 
+#ifdef FEAT_MBYTE
 done:
+#endif
     argv[argc] = NULL;		/* NULL-terminated list */
     *argvp = argv;
     return argc;

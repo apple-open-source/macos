@@ -1,77 +1,102 @@
 CPAN_PROJECTS = \
-    MLDBM-2.01 \
+    MLDBM-2.04 \
     Mac-Errors-1.14 \
     Time-Epoch-0.02 \
-    URI-1.37 \
-    libwww-perl-5.813 \
-    Mac-Carbon-0.77 \
+    URI-1.53 \
+    HTML-Tagset-3.20 \
+    HTML-Parser-3.64 \
+    libwww-perl-5.837 \
+    Mac-Carbon-0.82 \
     Mac-Apps-Launch-1.93 \
     Mac-AppleEvents-Simple-1.18 \
     Mac-OSA-Simple-1.09 \
     Mac-Glue-1.30 \
     Convert-BinHex-1.119 \
-    Convert-UUlib-1.12 \
+    Convert-UUlib-1.33 \
     IO-String-1.08 \
-    Archive-Zip-1.26 \
-    BerkeleyDB-0.36 \
-    Test-Pod-1.26 \
-    TimeDate-1.16 \
-    MailTools-2.04 \
+    Archive-Zip-1.30 \
+    BerkeleyDB-0.42 \
+    Test-Pod-1.42 \
+    TimeDate-1.20 \
+    MailTools-2.06 \
     IO-stringy-2.110 \
     MIME-tools-5.427 \
     Convert-TNEF-0.17 \
-    Digest-SHA1-2.11 \
-    HTML-Tagset-3.20 \
-    HTML-Parser-3.59 \
+    Digest-SHA1-2.12 \
     Net-Server-0.97 \
     Unix-Syslog-1.1 \
     Socket6-0.23 \
-    IO-Socket-INET6-2.56 \
-    Digest-HMAC-1.01 \
+    IO-Socket-INET6-2.57 \
+    Digest-HMAC-1.02 \
     Net-IP-1.25 \
-    Net-DNS-0.65 \
+    Net-DNS-0.66 \
     Proc-Reliable-1.16 \
-    Sub-Uplevel-0.2002 \
-    Test-Exception-0.27 \
-    Carp-Clan-6.00 \
-    Bit-Vector-6.4 \
-    Date-Calc-5.4 \
+    Sub-Uplevel-0.22 \
+    Test-Exception-0.29 \
+    Carp-Clan-6.04 \
+    Bit-Vector-7.1 \
+    Date-Calc-6.3 \
     Convert-ASN1-0.22 \
     GSSAPI-0.26 \
-    Net-SSLeay-1.35 \
-    IO-Socket-SSL-1.22 \
-    Authen-SASL-2.12 \
-    XML-NamespaceSupport-1.09 \
+    Net-SSLeay-1.36 \
+    IO-Socket-SSL-1.35 \
+    Authen-SASL-2.14 \
+    XML-NamespaceSupport-1.10 \
     XML-SAX-0.96 \
-    perl-ldap-0.36 \
-    DBI-1.607 \
-    DBD-SQLite-1.14 \
-    XML-LibXML-Common-0.13 \
-    XML-LibXML-1.69 \
+    perl-ldap-0.40 \
+    DBI-1.609 \
+    DBD-SQLite-1.29 \
+    XML-LibXML-1.70 \
     XML-Parser-2.36 \
     XML-Writer-0.606 \
     XML-XPath-1.13 \
     XML-Simple-2.18 \
     IO-Stty-.02 \
-    IO-Tty-1.07 \
+    IO-Tty-1.08 \
     Expect-1.21 \
-    Regexp-Common-2.122 \
+    Regexp-Common-2010010201 \
     Pod-Readme-0.09 \
-    Alien-wxWidgets-0.42 \
-    Wx-0.89 \
-    Class-Accessor-0.31 \
+    Class-Accessor-0.34 \
     File-Slurp-9999.13 \
-    UNIVERSAL-require-0.11 \
+    UNIVERSAL-require-0.13 \
     File-chdir-0.1002 \
-    Wx-Demo-0.10 \
     Net-CIDR-Lite-0.20 \
     Sys-Hostname-Long-1.4 \
-    Mail-SPF-Query-1.999.1
+    Mail-SPF-Query-1.999.1 \
+    XML-LibXSLT-1.70 \
+    Digest-CRC-0.14 \
+    Error-0.17016 \
+    NetAddr-IP-4.028 \
+    Net-DNS-Resolver-Programmable-v0.003 \
+    Mail-SPF-v2.007 \
+    Crypt-OpenSSL-Random-0.04 \
+    Crypt-OpenSSL-RSA-0.26 \
+    Mail-DKIM-0.38 \
+    Try-Tiny-0.04 \
+    Sub-Name-0.04 \
+    Scope-Guard-0.12 \
+    Params-Util-1.00 \
+    Sub-Install-0.925 \
+    Data-OptList-0.106 \
+    Sub-Exporter-0.982 \
+    Devel-GlobalDestruction-0.02 \
+    Algorithm-C3-0.08 \
+    Class-C3-0.22 \
+    MRO-Compat-0.11 \
+    Task-Weaken-1.03 \
+    Class-MOP-1.00 \
+    Moose-1.01 \
+    HTML-Tree-3.23 \
+    Font-AFM-1.20 \
+    HTML-Format-2.04 \
+    Geography-Countries-2009041301 \
+    IP-Country-2.27 \
+    Encode-Detect-1.01
 
 SVK_PROJECTS = \
     Algorithm-Diff-1.1902 \
     Algorithm-Annotate-0.10 \
-    YAML-Syck-1.05 \
+    YAML-Syck-1.07 \
     Data-Hierarchy-0.34 \
     Internals-1.1 \
     PerlIO-via-dynamic-0.13 \
@@ -79,15 +104,15 @@ SVK_PROJECTS = \
     IO-Digest-0.10 \
     PerlIO-eol-0.14 \
     Class-Autouse-1.29 \
-    App-CLI-0.07 \
+    App-CLI-0.08 \
     List-MoreUtils-0.22 \
     Class-Data-Inheritable-0.08 \
-    Path-Class-0.16 \
+    Path-Class-0.18 \
     TermReadKey-2.30 \
-    Locale-Maketext-Lexicon-0.77 \
+    Locale-Maketext-Lexicon-0.79 \
     IO-Pager-0.06 \
-    FreezeThaw-0.43 \
-    Time-Progress-1.4 \
+    FreezeThaw-0.50 \
+    Time-Progress-1.5 \
     Compress-Bzip2-2.09 \
     PerlIO-via-Bzip2-0.02 \
     PerlIO-gzip-0.18

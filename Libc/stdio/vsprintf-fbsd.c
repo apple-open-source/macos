@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)vsprintf.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vsprintf.c,v 1.14 2002/09/06 11:23:56 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vsprintf.c,v 1.16 2008/04/17 22:17:54 jhb Exp $");
 
 #include "xlocale_private.h"
 
@@ -47,39 +43,28 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/vsprintf.c,v 1.14 2002/09/06 11:23:56 tjr
 #include "local.h"
 
 int
-vsprintf(char * __restrict str, const char * __restrict fmt, __va_list ap)
+vsprintf_l(char * __restrict str, locale_t loc, const char * __restrict fmt, __va_list ap)
 {
 	int ret;
 	FILE f;
 	struct __sFILEX ext;
-
-	f._file = -1;
-	f._flags = __SWR | __SSTR;
-	f._bf._base = f._p = (unsigned char *)str;
-	f._bf._size = f._w = INT_MAX;
 	f._extra = &ext;
 	INITEXTRA(&f);
-	ret = __vfprintf(&f, __current_locale(), fmt, ap);
-	*f._p = 0;
-	return (ret);
-}
-
-int
-vsprintf_l(char * __restrict str, locale_t loc, const char * __restrict fmt,
-    __va_list ap)
-{
-	int ret;
-	FILE f;
-	struct __sFILEX ext;
 
 	NORMALIZE_LOCALE(loc);
 	f._file = -1;
 	f._flags = __SWR | __SSTR;
 	f._bf._base = f._p = (unsigned char *)str;
 	f._bf._size = f._w = INT_MAX;
-	f._extra = &ext;
-	INITEXTRA(&f);
+	f._orientation = 0;
+	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	ret = __vfprintf(&f, loc, fmt, ap);
 	*f._p = 0;
 	return (ret);
+}
+
+int
+vsprintf(char * __restrict str, const char * __restrict fmt, __va_list ap)
+{
+	return vsprintf_l(str, __current_locale(), fmt, ap);
 }

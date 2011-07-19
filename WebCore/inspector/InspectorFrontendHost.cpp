@@ -41,8 +41,9 @@
 #include "FrameLoader.h"
 #include "HitTestResult.h"
 #include "HTMLFrameOwnerElement.h"
+#include "InspectorAgent.h"
+#include "InspectorController.h"
 #include "InspectorFrontendClient.h"
-#include "InspectorResource.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "ScriptFunctionCall.h"
@@ -92,8 +93,7 @@ private:
         if (m_frontendHost) {
             int itemNumber = item->action() - ContextMenuItemBaseCustomTag;
 
-            ScriptFunctionCall function(m_webInspector, "dispatch");
-            function.appendArgument("contextMenuItemSelected");
+            ScriptFunctionCall function(m_webInspector, "contextMenuItemSelected");
             function.appendArgument(itemNumber);
             function.call();
         }
@@ -102,8 +102,7 @@ private:
     virtual void contextMenuCleared()
     {
         if (m_frontendHost) {
-            ScriptFunctionCall function(m_webInspector, "dispatch");
-            function.appendArgument("contextMenuCleared");
+            ScriptFunctionCall function(m_webInspector, "contextMenuCleared");
             function.call();
 
             m_frontendHost->m_menuProvider = 0;
@@ -168,6 +167,14 @@ void InspectorFrontendHost::closeWindow()
     }
 }
 
+void InspectorFrontendHost::disconnectFromBackend()
+{
+    if (m_client) {
+        m_client->disconnectFromBackend();
+        disconnectClient(); // Disconnect from client.
+    }
+}
+
 void InspectorFrontendHost::bringToFront()
 {
     if (m_client)
@@ -192,6 +199,12 @@ void InspectorFrontendHost::moveWindowBy(float x, float y) const
         m_client->moveWindowBy(x, y);
 }
 
+void InspectorFrontendHost::setExtensionAPI(const String& script)
+{
+    ASSERT(m_frontendPage->inspectorController());
+    m_frontendPage->inspectorController()->setInspectorExtensionAPI(script);
+}
+
 String InspectorFrontendHost::localizedStringsURL()
 {
     return m_client->localizedStringsURL();
@@ -205,6 +218,32 @@ String InspectorFrontendHost::hiddenPanels()
 void InspectorFrontendHost::copyText(const String& text)
 {
     Pasteboard::generalPasteboard()->writePlainText(text);
+}
+
+void InspectorFrontendHost::saveAs(const String& fileName, const String& content)
+{
+    if (m_client)
+        m_client->saveAs(fileName, content);
+}
+
+void InspectorFrontendHost::saveSessionSetting(const String& key, const String& value)
+{
+    if (m_client)
+        m_client->saveSessionSetting(key, value);
+}
+
+String InspectorFrontendHost::loadSessionSetting(const String& key)
+{
+    String value;
+    if (m_client)
+        m_client->loadSessionSetting(key, &value);
+    return value;
+}
+
+void InspectorFrontendHost::sendMessageToBackend(const String& message)
+{
+    if (m_client)
+        m_client->sendMessageToBackend(message);
 }
 
 #if ENABLE(CONTEXT_MENUS)

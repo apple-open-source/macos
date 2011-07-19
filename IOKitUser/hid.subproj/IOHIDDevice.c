@@ -28,6 +28,8 @@
 #include <IOKit/IOKitLib.h>
 #include <IOKit/IOMessage.h>
 #include <IOKit/hid/IOHIDKeys.h>
+#include <asl.h>
+#include <AssertMacros.h>
 #include "IOHIDDevicePlugIn.h"
 #include "IOHIDDevice.h"
 #include "IOHIDQueue.h"
@@ -36,6 +38,7 @@
 #include "IOHIDLibPrivate.h"
 #include "IOHIDManagerPersistentProperties.h"
 
+//------------------------------------------------------------------------------
 static IOHIDDeviceRef   __IOHIDDeviceCreate(
                                     CFAllocatorRef          allocator, 
                                     CFAllocatorContext *    context __unused);
@@ -45,9 +48,9 @@ static CFArrayRef       __IOHIDDeviceCopyMatchingInputElements(
                                     IOHIDDeviceRef          device, 
                                     CFArrayRef              multiple);
 static void             __IOHIDDeviceRegisterMatchingInputElements(
-                                IOHIDDeviceRef                  device, 
-                                IOHIDQueueRef                   queue,
-                                CFArrayRef                      mutlipleMatch);
+                                    IOHIDDeviceRef          device, 
+                                    IOHIDQueueRef           queue,
+                                    CFArrayRef              mutlipleMatch);
 static void             __IOHIDDeviceInputElementValueCallback(
                                     void *                  context,
                                     IOReturn                result, 
@@ -62,7 +65,15 @@ static void             __IOHIDDeviceValueCallback(
                                     IOReturn                result, 
                                     void *                  sender, 
                                     IOHIDValueRef           value);
-static void             __IOHIDDeviceReportCallback(
+static void             __IOHIDDeviceReportCallbackOnce(
+                                    void *                  context, 
+                                    IOReturn                result, 
+                                    void *                  sender, 
+                                    IOHIDReportType         type, 
+                                    uint32_t                reportID, 
+                                    uint8_t *               report, 
+                                    CFIndex                 reportLength);
+static void             __IOHIDDeviceReportCallbackRegistered(
                                     void *                  context, 
                                     IOReturn                result, 
                                     void *                  sender, 
@@ -74,22 +85,39 @@ static void             __IOHIDDeviceTransactionCallback(
                                     void *                  context, 
                                     IOReturn                result, 
                                     void *                  sender);
-                                
+
+//------------------------------------------------------------------------------
 typedef struct __IOHIDDeviceCallbackInfo
 {
-    IOHIDDeviceRef  device;
-    void *          callback;
     void *          context;
+    void *          callback;
+    IOHIDDeviceRef  device;
 } IOHIDDeviceCallbackInfo;
 
 typedef struct __IOHIDDeviceTransactionCallbackInfo
 {
-    IOHIDDeviceRef  device;
-    void *          callback;
     void *          context;
+    void *          callback;
+    IOHIDDeviceRef  device;
     CFArrayRef      elements;
 } IOHIDDeviceTransactionCallbackInfo;
 
+typedef struct __IOHIDDeviceInputElementValueCallbackInfo {
+    void *              context;
+    IOHIDValueCallback  callback;
+} IOHIDDeviceInputElementValueCallbackInfo;
+
+typedef struct __IOHIDDeviceRemovalCallbackInfo {
+    void *          context;
+    IOHIDCallback   callback;
+} IOHIDDeviceRemovalCallbackInfo;
+
+typedef struct __IOHIDDeviceReportCallbackInfo
+{
+    void *              context;
+    IOHIDReportCallback callback;
+    IOHIDDeviceRef      device;
+} IOHIDDeviceReportCallbackInfo;
 
 typedef struct __IOHIDDevice
 {
@@ -107,16 +135,17 @@ typedef struct __IOHIDDevice
     CFTypeRef                       asyncEventSource;
     CFRunLoopRef                    runLoop;
     CFStringRef                     runLoopMode;
-    IOHIDCallback                   removalCallback;
-    void *                          removalContext;
-    IOHIDDeviceCallbackInfo         reportInfo;
     
     IOHIDQueueRef                   queue;
-    void *                          inputContext;
-    IOHIDValueCallback              inputCallback;
     CFArrayRef                      inputMatchingMultiple;
     Boolean                         loadProperties;
     Boolean                         isDirty;
+    
+    // For thread safety reasons, to add or remove an  element, first make a copy, 
+    // then modify that copy, then replace the original
+    CFMutableArrayRef               removalCallbackArray;
+    CFMutableArrayRef               reportCallbackArray;
+    CFMutableArrayRef               inputCallbackArray;
 } __IOHIDDevice, *__IOHIDDeviceRef;
 
 static const CFRuntimeClass __IOHIDDeviceClass = {
@@ -129,7 +158,8 @@ static const CFRuntimeClass __IOHIDDeviceClass = {
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
     NULL,                   // copyDebugDesc
-    NULL                    // reclaim
+    NULL,                   // reclaim
+    NULL
 };
 
 static pthread_once_t __deviceTypeInit = PTHREAD_ONCE_INIT;
@@ -188,6 +218,10 @@ void __IOHIDDeviceRelease( CFTypeRef object )
     CFRELEASE_IF_NOT_NULL(device->elements);
     CFRELEASE_IF_NOT_NULL(device->rootKey);
     
+    CFRELEASE_IF_NOT_NULL(device->removalCallbackArray);
+    CFRELEASE_IF_NOT_NULL(device->inputCallbackArray);
+    CFRELEASE_IF_NOT_NULL(device->reportCallbackArray);
+    
     if ( device->deviceInterface ) {
         (*device->deviceInterface)->Release(device->deviceInterface);
         device->deviceInterface = NULL;
@@ -223,14 +257,25 @@ void __IOHIDDeviceNotification(
                             natural_t               messageType,
                             void *                  messageArgument __unused)
 {
-    if ( !device || messageType != kIOMessageServiceIsTerminated || !device->removalCallback)
+    if ( !device || (messageType != kIOMessageServiceIsTerminated) || !device->removalCallbackArray )
         return;
+    
+    CFRetain(device);
+    
+    CFIndex index = 0;
+    CFIndex count = CFArrayGetCount(device->removalCallbackArray);
+    while ((index < count) && (count == CFArrayGetCount(device->removalCallbackArray))) {
+        CFDataRef infoRef = (CFDataRef)CFArrayGetValueAtIndex(device->removalCallbackArray, index);
+        IOHIDDeviceRemovalCallbackInfo *info = (IOHIDDeviceRemovalCallbackInfo *)CFDataGetBytePtr(infoRef);
+        if (info->callback)
+            info->callback(info->context, kIOReturnSuccess, device);
+        index++;
+    }
+    
+    if (count != CFArrayGetCount(device->removalCallbackArray))
+        _IOHIDLog(ASL_LEVEL_ERR, "%s removal callbacks altered while in use by IOHIDDeviceRef %p\n", __func__, device);
 
-    (*device->removalCallback)(
-                                device->removalContext, 
-                                kIOReturnSuccess, 
-                                device);
-
+    CFRelease(device);
 }
 
 //------------------------------------------------------------------------------
@@ -265,7 +310,7 @@ IOHIDDeviceRef IOHIDDeviceCreate(
     IOHIDDeviceRef                  device              = NULL;
     kern_return_t                   kr                  = kIOReturnSuccess;
     HRESULT                         result              = S_FALSE;
-    SInt32                          score;
+    SInt32                          score               = 0;
 
     kr = IOObjectRetain(service);
     
@@ -573,29 +618,61 @@ void IOHIDDeviceRegisterRemovalCallback(
                                 IOHIDDeviceRef                  device, 
                                 IOHIDCallback                   callback, 
                                 void *                          context)
-{
-    device->removalCallback = callback;
-    device->removalContext  = context;
+{    
+    CFDataRef infoRef = NULL;
+    CFRetain(device);   
+    if (!context)
+        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
     
-    if ( !device->notificationPort ) {
-    
-        device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
-        
-        if ( device->runLoop )
-            CFRunLoopAddSource(
-                device->runLoop, 
-                IONotificationPortGetRunLoopSource(device->notificationPort), 
-                device->runLoopMode);
-        
-        IOServiceAddInterestNotification(	
-            device->notificationPort,   // notifyPort
-            device->service,            // service
-            kIOGeneralInterest,         // interestType
-            (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
-            device,                     // refCon
-            &(device->notification)     // notification
-            );
+    if (!device->removalCallbackArray) {
+        device->removalCallbackArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
     }
+    require(device->removalCallbackArray, cleanup);
+    
+    if (callback) {
+        // adding a callback
+        IOHIDDeviceRemovalCallbackInfo info = { context, callback };
+        infoRef = CFDataCreate(NULL, (const UInt8 *) &info, sizeof(info));
+        require(infoRef, cleanup);
+        
+        CFArrayAppendValue(device->removalCallbackArray, infoRef);
+        
+        if ( !device->notificationPort ) {
+            device->notificationPort = IONotificationPortCreate(kIOMasterPortDefault);
+            
+            if ( device->runLoop ) {
+                CFRunLoopAddSource(device->runLoop, 
+                                   IONotificationPortGetRunLoopSource(device->notificationPort), 
+                                   device->runLoopMode);
+            }
+            
+            IOServiceAddInterestNotification(device->notificationPort,   // notifyPort
+                                             device->service,            // service
+                                             kIOGeneralInterest,         // interestType
+                                             (IOServiceInterestCallback)__IOHIDDeviceNotification, // callback
+                                             device,                     // refCon
+                                             &(device->notification)     // notification
+                                             );
+        }
+    }
+    else {
+        // removing a callback
+        CFIndex index = 0;
+        while (index < CFArrayGetCount(device->removalCallbackArray)) {
+            CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(device->removalCallbackArray, index);
+            IOHIDDeviceRemovalCallbackInfo *info = (IOHIDDeviceRemovalCallbackInfo *)CFDataGetBytePtr(data);
+            if (info->context == context) {
+                CFArrayRemoveValueAtIndex(device->removalCallbackArray, index);
+            }
+            else {
+                index++;
+            }
+        }
+    }
+    
+cleanup:
+    CFRELEASE_IF_NOT_NULL(infoRef);
+    CFRelease(device);
 }
 
 //******************************************************************************
@@ -627,13 +704,12 @@ CFArrayRef __IOHIDDeviceCopyMatchingInputElements(IOHIDDeviceRef device, CFArray
         CFStringRef key = CFSTR(kIOHIDElementTypeKey);
         for ( index=0; index<count; index++ ) {            
             CFNumberRef number = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &inputTypes[index]);
-            matching[index] = CFDictionaryCreate(   
-                                            kCFAllocatorDefault, 
-                                            (const void **)&key,
-                                            (const void **)&number,
-                                            1, 
-                                            &kCFCopyStringDictionaryKeyCallBacks, 
-                                            &kCFTypeDictionaryValueCallBacks);
+            matching[index] = CFDictionaryCreate(kCFAllocatorDefault, 
+                                                 (const void **)&key,
+                                                 (const void **)&number,
+                                                 1, 
+                                                 &kCFCopyStringDictionaryKeyCallBacks, 
+                                                 &kCFTypeDictionaryValueCallBacks);
             CFRelease(number);
         }
         
@@ -711,32 +787,65 @@ void IOHIDDeviceRegisterInputValueCallback(
                                 IOHIDValueCallback              callback, 
                                 void *                          context)
 {
-    if ( !device->queue ) {
-        device->queue = IOHIDQueueCreate(kCFAllocatorDefault, device, 20, 0);
+    CFDataRef infoRef = NULL;
+    CFRetain(device);
+    if (!context)
+        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
     
-        if ( !device->queue )
-            return;
+    if (!device->inputCallbackArray) {
+        device->inputCallbackArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    }
+    require(device->inputCallbackArray, cleanup);
+
+    if (callback) {
+        // adding a callback
+        if ( !device->queue ) {
+            device->queue = IOHIDQueueCreate(kCFAllocatorDefault, device, 20, 0);
+            require(device->queue, cleanup);
             
-        __IOHIDDeviceRegisterMatchingInputElements(device, device->queue, device->inputMatchingMultiple);
-        
-        // If a run loop has been already set, go ahead and schedule the queues
-        if ( device->runLoop ) {
-            IOHIDQueueScheduleWithRunLoop(  device->queue, 
-                                            device->runLoop, 
-                                            device->runLoopMode);
-         
-            IOHIDQueueStart(device->queue);
+            __IOHIDDeviceRegisterMatchingInputElements(device, device->queue, device->inputMatchingMultiple);
+            
+            // If a run loop has been already set, go ahead and schedule the queues
+            if ( device->runLoop ) {
+                IOHIDQueueScheduleWithRunLoop(  device->queue, 
+                                              device->runLoop, 
+                                              device->runLoopMode);
+                
+                IOHIDQueueStart(device->queue);
+            }
+            
         }
         
+        IOHIDDeviceInputElementValueCallbackInfo info = { context, callback };
+        infoRef = CFDataCreate(NULL, (const UInt8 *) &info, sizeof(info));
+        require(infoRef, cleanup);
+        
+        CFArrayAppendValue(device->inputCallbackArray, infoRef);
+    }
+    else {
+        // removing a callback
+        CFIndex index = 0;
+        while (index < CFArrayGetCount(device->inputCallbackArray)) {
+            CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(device->inputCallbackArray, index);
+            const IOHIDDeviceInputElementValueCallbackInfo *info = 
+                    (const IOHIDDeviceInputElementValueCallbackInfo *)CFDataGetBytePtr(data);
+            if (info->context == context) {
+                CFArrayRemoveValueAtIndex(device->inputCallbackArray, index);
+            }
+            else {
+                index++;
+            }
+        }
     }
     
-    device->inputContext    = context;
-    device->inputCallback   = callback;
+    if (device && device->queue)
+        IOHIDQueueRegisterValueAvailableCallback(device->queue, 
+                                                 __IOHIDDeviceInputElementValueCallback, 
+                                                 device);
 
-    IOHIDQueueRegisterValueAvailableCallback( 
-                                device->queue, 
-                                __IOHIDDeviceInputElementValueCallback, 
-                                device);
+cleanup:
+    CFRELEASE_IF_NOT_NULL(infoRef);
+    CFRelease(device);
 }
 
 //------------------------------------------------------------------------------
@@ -1136,11 +1245,10 @@ void __IOHIDDeviceValueCallback(
     if ( elementInfo->callback ) {
         IOHIDValueCallback callback = elementInfo->callback;
         
-        (*callback)(
-                        elementInfo->context,
-                        result, 
-                        device,
-                        value);
+        (*callback)(elementInfo->context,
+                    result, 
+                    device,
+                    value);
     }
     
     free(elementInfo);
@@ -1158,20 +1266,31 @@ void __IOHIDDeviceInputElementValueCallback(
     IOHIDQueueRef   queue   = (IOHIDQueueRef)sender;
     IOHIDValueRef   value   = NULL;
     
-    if ( queue != device->queue || kIOReturnSuccess != result)
+    if ( (queue != device->queue) || (kIOReturnSuccess != result) )
         return;
     
+    CFRetain(device);
+
     // Drain the queue and dispatch the values
     while ( (value = IOHIDQueueCopyNextValue(queue)) ) {
-    
-        if ( device->inputCallback )        
-            (*device->inputCallback)(   device->inputContext,
-                                        result,
-                                        device, 
-                                        value);
-        
+        if ( device->inputCallbackArray ) {
+            CFIndex index = 0;
+            CFIndex count = CFArrayGetCount(device->inputCallbackArray);
+            while ((index < count) && (count == CFArrayGetCount(device->inputCallbackArray))) {
+                CFDataRef infoRef = (CFDataRef)CFArrayGetValueAtIndex(device->inputCallbackArray, index);
+                IOHIDDeviceInputElementValueCallbackInfo *info = (IOHIDDeviceInputElementValueCallbackInfo *)CFDataGetBytePtr(infoRef);
+                if (info->callback)
+                    info->callback(info->context, kIOReturnSuccess, sender, value);
+                index++;
+            }
+            
+            if (count != CFArrayGetCount(device->inputCallbackArray))
+                _IOHIDLog(ASL_LEVEL_ERR, "%s input value callbacks altered while in use for IOHIDDeviceRef %p\n", __func__, device);
+        }
         CFRelease(value);
     }
+
+    CFRelease(device);
 }
 
 //------------------------------------------------------------------------------
@@ -1182,11 +1301,11 @@ void __IOHIDDeviceTransactionCallback(
                                     IOReturn                result, 
                                     void *                  sender)
 {
-    IOHIDTransactionRef                 transaction = (IOHIDTransactionRef)sender;
-    IOHIDDeviceTransactionCallbackInfo *elementInfo = (IOHIDDeviceTransactionCallbackInfo *)context;
-    IOHIDDeviceRef                      device      = elementInfo->device;
-    IOHIDValueMultipleCallback          callback    = elementInfo->callback;
-    CFMutableDictionaryRef              values      = NULL;
+    IOHIDTransactionRef                 transaction     = (IOHIDTransactionRef)sender;
+    IOHIDDeviceTransactionCallbackInfo  *elementInfo    = (IOHIDDeviceTransactionCallbackInfo *)context;
+    IOHIDDeviceRef                      device          = elementInfo->device;
+    IOHIDValueMultipleCallback          callback        = elementInfo->callback;
+    CFMutableDictionaryRef              values          = NULL;
     
     do {
         if ( !transaction )
@@ -1250,59 +1369,129 @@ void __IOHIDDeviceTransactionCallback(
 //******************************************************************************
 // HID REPORT SUPPORT
 //******************************************************************************
-
 //------------------------------------------------------------------------------
-// __IOHIDDeviceReportCallback
+// __IOHIDDeviceReportCallbackOnce
 //------------------------------------------------------------------------------
-void __IOHIDDeviceReportCallback(
-                                    void *                  context, 
-                                    IOReturn                result, 
-                                    void *                  sender, 
-                                    IOHIDReportType         type, 
-                                    uint32_t                reportID, 
-                                    uint8_t *               report, 
-                                    CFIndex                 reportLength)
+void __IOHIDDeviceReportCallbackOnce(void *                  context, 
+                                     IOReturn                result, 
+                                     void *                  sender, 
+                                     IOHIDReportType         type, 
+                                     uint32_t                reportID, 
+                                     uint8_t *               report, 
+                                     CFIndex                 reportLength)
 {
-    IOHIDDeviceCallbackInfo *   reportInfo  = (IOHIDDeviceCallbackInfo *)context;
-    IOHIDDeviceRef              device      = reportInfo->device;
+    IOHIDDeviceReportCallbackInfo   *info   = (IOHIDDeviceReportCallbackInfo *)context;
+    IOHIDDeviceRef                  device      = info->device;
     
-    if ( reportInfo->callback && sender == device->deviceInterface ) {
-        IOHIDReportCallback callback = reportInfo->callback;
-        
-        (*callback)(    reportInfo->context, 
-                        result, 
-                        device,
-                        type,
-                        reportID,
-                        report,
-                        reportLength);
+    CFRetain(device);
+    if ( info->callback && sender == device->deviceInterface ) {
+            info->callback(info->context, 
+                           result, 
+                           device,
+                           type,
+                           reportID,
+                           report,
+                           reportLength);
     }
     
-    if ( &(device->reportInfo) != reportInfo )
-        free(reportInfo);
+    free(context);
+    CFRelease(device);
 }
-                                
+
+//------------------------------------------------------------------------------
+// __IOHIDDeviceReportCallbackRegistered
+//------------------------------------------------------------------------------
+void __IOHIDDeviceReportCallbackRegistered(void *                  context, 
+                                           IOReturn                result, 
+                                           void *                  sender __unused, 
+                                           IOHIDReportType         type, 
+                                           uint32_t                reportID, 
+                                           uint8_t *               report, 
+                                           CFIndex                 reportLength)
+{
+    CFDataRef                       infoRef = (CFDataRef)context;
+    IOHIDDeviceReportCallbackInfo   *info   = (IOHIDDeviceReportCallbackInfo *)CFDataGetBytePtr(infoRef);
+    IOHIDDeviceRef                  device  = info->device;
+    
+    if (!device || !device->reportCallbackArray)
+        return;
+    
+    CFRetain(device);
+
+    CFIndex index = 0;
+    CFIndex count = CFArrayGetCount(device->reportCallbackArray);
+    while ((index < count) && (count == CFArrayGetCount(device->reportCallbackArray))) {
+        infoRef = (CFDataRef)CFArrayGetValueAtIndex(device->reportCallbackArray, index);
+        info = (IOHIDDeviceReportCallbackInfo *)CFDataGetBytePtr(infoRef);
+        if (info->callback)
+            info->callback(info->context, result, device, type, reportID, report, reportLength);
+        index++;
+    }
+    
+    if (count != CFArrayGetCount(device->reportCallbackArray))
+        _IOHIDLog(ASL_LEVEL_ERR, "%s report callbacks altered while in use for IOHIDDeviceRef %p\n", __func__, device);
+
+    CFRelease(device);
+}
+
 //------------------------------------------------------------------------------
 // IOHIDDeviceRegisterInputReportCallback
 //------------------------------------------------------------------------------
 void IOHIDDeviceRegisterInputReportCallback( 
-                                IOHIDDeviceRef                  device, 
-                                uint8_t *                       report, 
-                                CFIndex                         reportLength,
-                                IOHIDReportCallback             callback, 
-                                void *                          context)
-{
-    device->reportInfo.device   = device;
-    device->reportInfo.callback = callback;
-    device->reportInfo.context  = context;
+                                            IOHIDDeviceRef                  device, 
+                                            uint8_t *                       report, 
+                                            CFIndex                         reportLength,
+                                            IOHIDReportCallback             callback, 
+                                            void *                          context)
+{    
+    CFDataRef infoRef = NULL;
+    CFRetain(device);   
+    if (!context)
+        _IOHIDLog(ASL_LEVEL_WARNING, "%s called with a null context\n", __func__);
     
-    (*device->deviceInterface)->setInputReportCallback(
-                                                device->deviceInterface, 
-                                                report,
-                                                reportLength,
-                                                __IOHIDDeviceReportCallback,
-                                                &(device->reportInfo),
-                                                0);
+    if (!device->reportCallbackArray) {
+        device->reportCallbackArray = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+    }
+    require(device->reportCallbackArray, cleanup);
+    
+    if (callback) {
+        // adding or modifying a callback
+        IOHIDDeviceReportCallbackInfo info = {
+            context,
+            callback,
+            device
+        };
+        infoRef = CFDataCreate(NULL, (const UInt8 *) &info, sizeof(info));
+        require(infoRef, cleanup);
+        
+        CFArrayAppendValue(device->reportCallbackArray, infoRef);
+        
+        (*device->deviceInterface)->setInputReportCallback(device->deviceInterface, 
+                                                           report,
+                                                           reportLength,
+                                                           __IOHIDDeviceReportCallbackRegistered,
+                                                           (void *) infoRef,
+                                                           0);
+    }
+    else {
+        // removing a callback
+        CFIndex index = 0;
+        while (index < CFArrayGetCount(device->reportCallbackArray)) {
+            CFDataRef data = (CFDataRef)CFArrayGetValueAtIndex(device->reportCallbackArray, index);
+            const IOHIDDeviceInputElementValueCallbackInfo *info = 
+                    (const IOHIDDeviceInputElementValueCallbackInfo *)CFDataGetBytePtr(data);
+            if (info->context == context) {
+                CFArrayRemoveValueAtIndex(device->reportCallbackArray, index);
+            }
+            else {
+                index++;
+            }
+        }
+    }
+    
+cleanup:
+    CFRELEASE_IF_NOT_NULL(infoRef);
+    CFRelease(device);
 }
 
 //------------------------------------------------------------------------------
@@ -1340,28 +1529,29 @@ IOReturn IOHIDDeviceSetReportWithCallback(
                                 IOHIDReportCallback             callback,
                                 void *                          context)
 {
-    IOHIDDeviceCallbackInfo * reportInfo = 
-        (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
-    
-    if ( !reportInfo )
+    IOHIDDeviceReportCallbackInfo *info_ptr = (IOHIDDeviceReportCallbackInfo*)malloc(sizeof(IOHIDDeviceReportCallbackInfo));
+
+    if ( !info_ptr )
         return kIOReturnNoMemory;
 
-    reportInfo->device      = device;
-    reportInfo->callback    = callback;
-    reportInfo->context     = context;
-
+    info_ptr->context = context;
+    info_ptr->callback = callback;
+    info_ptr->device = device;
+    
     uint32_t timeoutMS = timeout * 1000;
     
-    return (*device->deviceInterface)->setReport(
-                                                device->deviceInterface,
-                                                reportType,
-                                                reportID,
-                                                report,
-                                                reportLength,
-                                                timeoutMS,
-                                                __IOHIDDeviceReportCallback,
-                                                reportInfo,
-                                                0);
+    IOReturn result = (*device->deviceInterface)->setReport(device->deviceInterface,
+                                                             reportType,
+                                                             reportID,
+                                                             report,
+                                                             reportLength,
+                                                             timeoutMS,
+                                                             __IOHIDDeviceReportCallbackOnce,
+                                                             info_ptr,
+                                                             0);
+    if (result)
+        free(info_ptr);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1399,28 +1589,32 @@ IOReturn IOHIDDeviceGetReportWithCallback(
                                 IOHIDReportCallback             callback,
                                 void *                          context)
 {
-    IOHIDDeviceCallbackInfo * reportInfo = 
-            (IOHIDDeviceCallbackInfo *)malloc(sizeof(IOHIDDeviceCallbackInfo));
+    IOHIDDeviceReportCallbackInfo info = {
+        context,
+        callback,
+        device
+    };
+    void *info_ptr = malloc(sizeof(info));
     
-    if ( !reportInfo )
+    if ( !info_ptr )
         return kIOReturnNoMemory;
-
-    reportInfo->device      = device;
-    reportInfo->callback    = callback;
-    reportInfo->context     = context;
+    
+    memcpy(info_ptr, &info, sizeof(info));
     
     uint32_t timeoutMS = timeout * 1000;
     
-    return (*device->deviceInterface)->getReport(
-                                                device->deviceInterface,
-                                                reportType,
-                                                reportID,
-                                                report,
-                                                pReportLength,
-                                                timeoutMS,
-                                                __IOHIDDeviceReportCallback,
-                                                reportInfo,
-                                                0);
+    IOReturn result = (*device->deviceInterface)->getReport(device->deviceInterface,
+                                                            reportType,
+                                                            reportID,
+                                                            report,
+                                                            pReportLength,
+                                                            timeoutMS,
+                                                            __IOHIDDeviceReportCallbackOnce,
+                                                            (void *) info_ptr,
+                                                            0);
+    if (result)
+        free(info_ptr);
+    return result;
 }
 
 //------------------------------------------------------------------------------
@@ -1537,7 +1731,7 @@ void __IOHIDDeviceLoadProperties(IOHIDDeviceRef device)
             // Are there any UUIDs for this device?
             CFArrayRef uuids = (CFArrayRef)CFPreferencesCopyAppValue(__IOHIDDeviceGetRootKey(device), kCFPreferencesCurrentApplication);
             if (uuids && (CFGetTypeID(uuids) == CFArrayGetTypeID()) && CFArrayGetCount(uuids)) {
-                // VTN3 â€¢ TODO: Add optional matching based on location ID and anything else you can think of
+                // VTN3 ¥ TODO: Add optional matching based on location ID and anything else you can think of
                 uuidStr = (CFStringRef)CFArrayGetValueAtIndex(uuids, 0);
             }
         }

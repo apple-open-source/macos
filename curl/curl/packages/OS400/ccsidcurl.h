@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: ccsidcurl.h,v 1.3 2009-08-31 15:22:16 patrickm Exp $
  *
  ***************************************************************************/
 

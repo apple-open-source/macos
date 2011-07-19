@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"	@(#)dbopen.3	8.5 (Berkeley) 1/2/94
-.\" $FreeBSD: src/lib/libc/db/man/dbopen.3,v 1.10 2004/07/02 23:52:10 ru Exp $
+.\" $FreeBSD: src/lib/libc/db/man/dbopen.3,v 1.13 2007/01/09 00:27:51 imp Exp $
 .\"
 .Dd January 2, 1994
 .Dt DBOPEN 3
@@ -98,7 +94,7 @@ is not possible.)
 .\".Bl -tag -width indent
 .\".It Dv DB_LOCK
 .\"Do the necessary locking in the database to support concurrent access.
-.\"If concurrent access isn't needed or the database is read-only this
+.\"If concurrent access is not needed or the database is read-only this
 .\"flag should not be set, as it tends to have an associated performance
 .\"penalty.
 .\".It Dv DB_SHMEM
@@ -154,10 +150,10 @@ least the following fields:
 .Bd -literal
 typedef struct {
 	DBTYPE type;
-	int (*close)(const DB *db);
+	int (*close)(DB *db);
 	int (*del)(const DB *db, const DBT *key, u_int flags);
 	int (*fd)(const DB *db);
-	int (*get)(const DB *db, DBT *key, DBT *data, u_int flags);
+	int (*get)(const DB *db, const DBT *key, DBT *data, u_int flags);
 	int (*put)(const DB *db, DBT *key, const DBT *data,
 	     u_int flags);
 	int (*sync)(const DB *db, u_int flags);
@@ -541,7 +537,7 @@ The typedef
 is a mnemonic for
 .Dq "data base thang" ,
 and was used
-because noone could think of a reasonable name that wasn't already used.
+because noone could think of a reasonable name that was not already used.
 .Pp
 The file descriptor interface is a kluge and will be deleted in a
 future version of the interface.

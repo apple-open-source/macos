@@ -36,8 +36,14 @@ void DeleteDeadBlock(BasicBlock *BB);
 /// when all entries to the PHI nodes in a block are guaranteed equal, such as
 /// when the block has exactly one predecessor.
 void FoldSingleEntryPHINodes(BasicBlock *BB);
-  
-  
+
+/// DeleteDeadPHIs - Examine each PHI in the given block and delete it if it
+/// is dead. Also recursively delete any operands that become dead as
+/// a result. This includes tracing the def-use list from the PHI to see if
+/// it is ultimately unused or if it reaches an unused cycle. Return true
+/// if any PHIs were deleted.
+bool DeleteDeadPHIs(BasicBlock *BB);
+
 /// MergeBlockIntoPredecessor - Attempts to merge a block into its predecessor,
 /// if possible.  The return value indicates success or failure.
 bool MergeBlockIntoPredecessor(BasicBlock* BB, Pass* P = 0);
@@ -59,11 +65,6 @@ void ReplaceInstWithInst(BasicBlock::InstListType &BIL,
 // instruction specified by To.
 //
 void ReplaceInstWithInst(Instruction *From, Instruction *To);
-
-/// CopyPrecedingStopPoint - If I is immediately preceded by a StopPoint,
-/// make a copy of the stoppoint before InsertPos (presumably before copying
-/// or moving I).
-void CopyPrecedingStopPoint(Instruction *I, BasicBlock::iterator InsertPos);
 
 /// FindAvailableLoadedValue - Scan the ScanBB block backwards (starting at the
 /// instruction before ScanFrom) checking to see if we have the value at the
@@ -101,6 +102,12 @@ void FindFunctionBackedges(const Function &F,
 //
 void RemoveSuccessor(TerminatorInst *TI, unsigned SuccNum);
 
+/// GetSuccessorNumber - Search for the specified successor of basic block BB
+/// and return its position in the terminator instruction's list of
+/// successors.  It is an error to call this with a block that is not a
+/// successor.
+unsigned GetSuccessorNumber(BasicBlock *BB, BasicBlock *Succ);
+
 /// isCriticalEdge - Return true if the specified edge is a critical edge.
 /// Critical edges are edges from a block with multiple successors to a block
 /// with multiple predecessors.
@@ -111,8 +118,8 @@ bool isCriticalEdge(const TerminatorInst *TI, unsigned SuccNum,
 /// SplitCriticalEdge - If this edge is a critical edge, insert a new node to
 /// split the critical edge.  This will update DominatorTree and
 /// DominatorFrontier information if it is available, thus calling this pass
-/// will not invalidate either of them. This returns true if the edge was split,
-/// false otherwise.  
+/// will not invalidate either of them. This returns the new block if the edge
+/// was split, null otherwise.
 ///
 /// If MergeIdenticalEdges is true (not the default), *all* edges from TI to the
 /// specified successor will be merged into the same critical edge block.  
@@ -121,10 +128,16 @@ bool isCriticalEdge(const TerminatorInst *TI, unsigned SuccNum,
 /// dest go to one block instead of each going to a different block, but isn't 
 /// the standard definition of a "critical edge".
 ///
-bool SplitCriticalEdge(TerminatorInst *TI, unsigned SuccNum, Pass *P = 0,
-                       bool MergeIdenticalEdges = false);
+/// It is invalid to call this function on a critical edge that starts at an
+/// IndirectBrInst.  Splitting these edges will almost always create an invalid
+/// program because the address of the new block won't be the one that is jumped
+/// to.
+///
+BasicBlock *SplitCriticalEdge(TerminatorInst *TI, unsigned SuccNum,
+                              Pass *P = 0, bool MergeIdenticalEdges = false);
 
-inline bool SplitCriticalEdge(BasicBlock *BB, succ_iterator SI, Pass *P = 0) {
+inline BasicBlock *SplitCriticalEdge(BasicBlock *BB, succ_iterator SI,
+                                     Pass *P = 0) {
   return SplitCriticalEdge(BB->getTerminator(), SI.getSuccessorIndex(), P);
 }
 
@@ -138,7 +151,7 @@ inline bool SplitCriticalEdge(BasicBlock *Succ, pred_iterator PI, Pass *P = 0) {
   TerminatorInst *TI = (*PI)->getTerminator();
   for (unsigned i = 0, e = TI->getNumSuccessors(); i != e; ++i)
     if (TI->getSuccessor(i) == Succ)
-      MadeChange |= SplitCriticalEdge(TI, i, P);
+      MadeChange |= !!SplitCriticalEdge(TI, i, P);
   return MadeChange;
 }
 
@@ -146,8 +159,9 @@ inline bool SplitCriticalEdge(BasicBlock *Succ, pred_iterator PI, Pass *P = 0) {
 /// and return true, otherwise return false.  This method requires that there be
 /// an edge between the two blocks.  If P is specified, it updates the analyses
 /// described above.
-inline bool SplitCriticalEdge(BasicBlock *Src, BasicBlock *Dst, Pass *P = 0,
-                              bool MergeIdenticalEdges = false) {
+inline BasicBlock *SplitCriticalEdge(BasicBlock *Src, BasicBlock *Dst,
+                                     Pass *P = 0,
+                                     bool MergeIdenticalEdges = false) {
   TerminatorInst *TI = Src->getTerminator();
   unsigned i = 0;
   while (1) {
@@ -175,8 +189,12 @@ BasicBlock *SplitBlock(BasicBlock *Old, Instruction *SplitPt, Pass *P);
 /// Preds array, which has NumPreds elements in it.  The new block is given a
 /// suffix of 'Suffix'.  This function returns the new block.
 ///
-/// This currently updates the LLVM IR, AliasAnalysis, DominatorTree and
-/// DominanceFrontier, but no other analyses.
+/// This currently updates the LLVM IR, AliasAnalysis, DominatorTree,
+/// DominanceFrontier, LoopInfo, and LCCSA but no other analyses.
+/// In particular, it does not preserve LoopSimplify (because it's
+/// complicated to handle the case where one of the edges being split
+/// is an exit of a loop with other exits).
+///
 BasicBlock *SplitBlockPredecessors(BasicBlock *BB, BasicBlock *const *Preds,
                                    unsigned NumPreds, const char *Suffix,
                                    Pass *P = 0);

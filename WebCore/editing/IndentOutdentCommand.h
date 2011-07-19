@@ -26,31 +26,34 @@
 #ifndef IndentOutdentCommand_h
 #define IndentOutdentCommand_h
 
-#include "CompositeEditCommand.h"
+#include "ApplyBlockElementCommand.h"
+#include "EditAction.h"
 
 namespace WebCore {
 
-class IndentOutdentCommand : public CompositeEditCommand {
+class IndentOutdentCommand : public ApplyBlockElementCommand {
 public:
     enum EIndentType { Indent, Outdent };
     static PassRefPtr<IndentOutdentCommand> create(Document* document, EIndentType type, int marginInPixels = 0)
     {
         return adoptRef(new IndentOutdentCommand(document, type, marginInPixels));
     }
-    
+
     virtual bool preservesTypingStyle() const { return true; }
 
 private:
     IndentOutdentCommand(Document*, EIndentType, int marginInPixels);
 
-    virtual void doApply();
     virtual EditAction editingAction() const { return m_typeOfAction == Indent ? EditActionIndent : EditActionOutdent; }
 
     void indentRegion(const VisiblePosition&, const VisiblePosition&);
     void outdentRegion(const VisiblePosition&, const VisiblePosition&);
     void outdentParagraph();
-    bool tryIndentingAsListItem(const VisiblePosition&);
-    void indentIntoBlockquote(const VisiblePosition&, const VisiblePosition&, RefPtr<Element>&);
+    bool tryIndentingAsListItem(const Position&, const Position&);
+    void indentIntoBlockquote(const Position&, const Position&, RefPtr<Element>&);
+
+    void formatSelection(const VisiblePosition& startOfSelection, const VisiblePosition& endOfSelection);
+    void formatRange(const Position& start, const Position& end, const Position& endOfSelection, RefPtr<Element>& blockquoteForNextIndent);
 
     EIndentType m_typeOfAction;
     int m_marginInPixels;

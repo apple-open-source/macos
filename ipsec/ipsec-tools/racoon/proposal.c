@@ -1036,11 +1036,7 @@ set_proposal_from_policy(iph2, sp_main, sp_sub)
 		 *       me +--- SA1 ---+ peer1
 		 *       me +--- SA2 --------------+ peer2
 		 */
-#ifdef __linux__
-		if (req->saidx.src.ss_family && req->saidx.dst.ss_family) {
-#else
 		if (req->saidx.src.ss_len && req->saidx.dst.ss_len) {
-#endif
 			/* check the end of ip addresses of SA */
 			if (iph2->side == INITIATOR)
 				paddr = (caddr_t)&req->saidx.dst;

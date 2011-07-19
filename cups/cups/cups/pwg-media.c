@@ -1,9 +1,9 @@
 /*
- * "$Id: pwg-media.c 2641 2010-09-15 21:22:02Z msweet $"
+ * "$Id: pwg-media.c 3287 2011-05-26 03:54:43Z msweet $"
  *
  *   PWG media name API implementation for CUPS.
  *
- *   Copyright 2009-2010 by Apple Inc.
+ *   Copyright 2009-2011 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -32,8 +32,7 @@
  * Include necessary headers...
  */
 
-#include "globals.h"
-#include "debug.h"
+#include "cups-private.h"
 #include <math.h>
 
 
@@ -104,8 +103,8 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_IN("na_eur-edp_12x14in", NULL, NULL, 12, 14),
   _PWG_MEDIA_IN("na_arch-b_12x18in", "arch-b", "ARCHB", 12, 18),
   _PWG_MEDIA_IN("na_12x19_12x19in", NULL, "12x19", 12, 19),
-  _PWG_MEDIA_IN("na_b-plus_12x19.17in", NULL, "SuperB", 12, 19.17),
-  _PWG_MEDIA_IN("na_super-b_13x19in", "super-b", NULL, 13, 19),
+  _PWG_MEDIA_IN("na_b-plus_12x19.17in", NULL, NULL, 12, 19.17),
+  _PWG_MEDIA_IN("na_super-b_13x19in", "super-b", "SuperB", 13, 19),
   _PWG_MEDIA_IN("na_c_17x22in", "c", "AnsiC", 17, 22),
   _PWG_MEDIA_IN("na_arch-c_18x24in", "arch-c", "ARCHC", 18, 24),
   _PWG_MEDIA_IN("na_d_22x34in", "d", "AnsiD", 22, 34),
@@ -117,7 +116,7 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_IN("na_f_44x68in", NULL, "AnsiF", 44, 68),
 
   /* Chinese Standard Sheet Media Inch Sizes */
-  _PWG_MEDIA_IN("roc_16k_7.75x10.75in", NULL, NULL, 7.75, 10.75),
+  _PWG_MEDIA_IN("roc_16k_7.75x10.75in", NULL, "roc16k", 7.75, 10.75),
   _PWG_MEDIA_IN("roc_8k_10.75x15.5in", NULL, NULL, 10.75, 15.5),
 
   /* ISO Standard Sheet Media Sizes */
@@ -226,6 +225,9 @@ static _pwg_media_t const cups_pwg_media[] =
   _PWG_MEDIA_MM("om_pa-kai_267x389mm", NULL, NULL, 267, 389),
   _PWG_MEDIA_MM("om_dai-pa-kai_275x395mm", NULL, NULL, 275, 395),
   _PWG_MEDIA_MM("prc_10_324x458mm", NULL, "EnvPRC10", 324, 458),
+
+  /* Other English Standard Sheet Media Sizes */
+  _PWG_MEDIA_IN("oe_photo-l_3.5x5in", NULL, "3.5x5", 3.5, 5),
 
   /* Other Metric Standard Sheet Media Sizes */
   _PWG_MEDIA_MM("om_small-photo_100x150mm", NULL, NULL, 100, 150),
@@ -442,9 +444,9 @@ _pwgInitSize(_pwg_size_t *size,		/* I - Size to initialize */
 	  const char	*suffix;	/* Suffix on media string */
 
 	  pwg = _pwgMediaForPPD(name);
-	  if (pwg && 
+	  if (pwg &&
 	      (suffix = name + strlen(name) - 10 /* .FullBleed */) > name &&
-	      !strcasecmp(suffix, ".FullBleed"))
+	      !_cups_strcasecmp(suffix, ".FullBleed"))
 	  {
 	   /*
 	    * Indicate that margins are set with the default values of 0.
@@ -587,7 +589,7 @@ _pwgMediaForPPD(const char *ppd)	/* I - PPD size name */
     struct lconv	*loc;		/* Locale data */
     int			custom;		/* Custom page size? */
 
-    if (!strncasecmp(ppd, "Custom.", 7))
+    if (!_cups_strncasecmp(ppd, "Custom.", 7))
     {
       custom = 1;
       factor = 2540.0 / 72.0;
@@ -609,34 +611,34 @@ _pwgMediaForPPD(const char *ppd)	/* I - PPD size name */
 
       if (ptr &&
 	  (!*ptr ||
-	   !strcasecmp(ptr, "FullBleed") ||
-	   !strcasecmp(ptr, ".FullBleed") ||
-	   !strcasecmp(ptr, "cm") ||
-	   !strcasecmp(ptr, "cm.FullBleed") ||
-	   !strcasecmp(ptr, "ft") ||
-	   !strcasecmp(ptr, "ft.FullBleed") ||
-	   !strcasecmp(ptr, "in") ||
-	   !strcasecmp(ptr, "in.FullBleed") ||
-	   !strcasecmp(ptr, "m") ||
-	   !strcasecmp(ptr, "m.FullBleed") ||
-	   !strcasecmp(ptr, "mm") ||
-	   !strcasecmp(ptr, "mm.FullBleed") ||
-	   !strcasecmp(ptr, "pt") ||
-	   !strcasecmp(ptr, "pt.FullBleed")))
+	   !_cups_strcasecmp(ptr, "FullBleed") ||
+	   !_cups_strcasecmp(ptr, ".FullBleed") ||
+	   !_cups_strcasecmp(ptr, "cm") ||
+	   !_cups_strcasecmp(ptr, "cm.FullBleed") ||
+	   !_cups_strcasecmp(ptr, "ft") ||
+	   !_cups_strcasecmp(ptr, "ft.FullBleed") ||
+	   !_cups_strcasecmp(ptr, "in") ||
+	   !_cups_strcasecmp(ptr, "in.FullBleed") ||
+	   !_cups_strcasecmp(ptr, "m") ||
+	   !_cups_strcasecmp(ptr, "m.FullBleed") ||
+	   !_cups_strcasecmp(ptr, "mm") ||
+	   !_cups_strcasecmp(ptr, "mm.FullBleed") ||
+	   !_cups_strcasecmp(ptr, "pt") ||
+	   !_cups_strcasecmp(ptr, "pt.FullBleed")))
       {
 	size = &(cg->pwg_media);
 
-	if (!strncasecmp(ptr, "cm", 2))
+	if (!_cups_strncasecmp(ptr, "cm", 2))
 	  factor = 1000.0;
-	else if (!strncasecmp(ptr, "ft", 2))
+	else if (!_cups_strncasecmp(ptr, "ft", 2))
 	  factor = 2540.0 * 12.0;
-	else if (!strncasecmp(ptr, "in", 2))
+	else if (!_cups_strncasecmp(ptr, "in", 2))
 	  factor = 2540.0;
-	else if (!strncasecmp(ptr, "mm", 2))
+	else if (!_cups_strncasecmp(ptr, "mm", 2))
 	  factor = 100.0;
 	else if (*ptr == 'm' || *ptr == 'M')
 	  factor = 100000.0;
-	else if (!strncasecmp(ptr, "pt", 2))
+	else if (!_cups_strncasecmp(ptr, "pt", 2))
 	  factor = 2540.0 / 72.0;
 
        /*
@@ -845,5 +847,5 @@ pwg_compare_pwg(_pwg_media_t *a,	/* I - First size */
 
 
 /*
- * End of "$Id: pwg-media.c 2641 2010-09-15 21:22:02Z msweet $".
+ * End of "$Id: pwg-media.c 3287 2011-05-26 03:54:43Z msweet $".
  */

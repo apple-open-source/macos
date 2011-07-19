@@ -33,11 +33,13 @@
 #include "IconDatabase.h"
 #include "Logging.h"
 #include "ResourceHandle.h"
+#include "ResourceLoadScheduler.h"
 #include "ResourceResponse.h"
 #include "ResourceRequest.h"
 #include "SharedBuffer.h"
 #include "SubresourceLoader.h"
 #include <wtf/UnusedParam.h>
+#include <wtf/text/CString.h>
 
 using namespace std;
 
@@ -51,7 +53,7 @@ IconLoader::IconLoader(Frame* frame)
 
 PassOwnPtr<IconLoader> IconLoader::create(Frame* frame)
 {
-    return new IconLoader(frame);
+    return adoptPtr(new IconLoader(frame));
 }
 
 IconLoader::~IconLoader()
@@ -67,7 +69,10 @@ void IconLoader::startLoading()
     // SubresourceLoader::create returns.
     m_loadIsInProgress = true;
 
-    RefPtr<SubresourceLoader> loader = SubresourceLoader::create(m_frame, this, m_frame->loader()->iconURL());
+    ResourceRequest resourceRequest(m_frame->loader()->iconURL());
+    resourceRequest.setPriority(ResourceLoadPriorityLow);
+
+    RefPtr<SubresourceLoader> loader = resourceLoadScheduler()->scheduleSubresourceLoad(m_frame, this, resourceRequest);
     if (!loader)
         LOG_ERROR("Failed to start load for icon at url %s", m_frame->loader()->iconURL().string().ascii().data());
 
@@ -91,7 +96,7 @@ void IconLoader::didReceiveResponse(SubresourceLoader* resourceLoader, const Res
 
     if (status && (status < 200 || status > 299)) {
         ResourceHandle* handle = resourceLoader->handle();
-        finishLoading(handle ? handle->request().url() : KURL(), 0);
+        finishLoading(handle ? handle->firstRequest().url() : KURL(), 0);
     }
 }
 
@@ -115,7 +120,7 @@ void IconLoader::didFail(SubresourceLoader* resourceLoader, const ResourceError&
     if (m_loadIsInProgress) {
         ASSERT(resourceLoader == m_resourceLoader);
         ResourceHandle* handle = resourceLoader->handle();
-        finishLoading(handle ? handle->request().url() : KURL(), 0);
+        finishLoading(handle ? handle->firstRequest().url() : KURL(), 0);
     }
 }
 
@@ -126,7 +131,7 @@ void IconLoader::didReceiveAuthenticationChallenge(SubresourceLoader*, const Aut
     m_resourceLoader->cancel();
 }
 
-void IconLoader::didFinishLoading(SubresourceLoader* resourceLoader)
+void IconLoader::didFinishLoading(SubresourceLoader* resourceLoader, double)
 {
     LOG(IconDatabase, "IconLoader::didFinishLoading() - Loader %p", resourceLoader);
 
@@ -137,7 +142,7 @@ void IconLoader::didFinishLoading(SubresourceLoader* resourceLoader)
     if (m_loadIsInProgress) {
         ASSERT(resourceLoader == m_resourceLoader);
         ResourceHandle* handle = resourceLoader->handle();
-        finishLoading(handle ? handle->request().url() : KURL(), m_resourceLoader->resourceData());
+        finishLoading(handle ? handle->firstRequest().url() : KURL(), m_resourceLoader->resourceData());
     }
 }
 
@@ -156,7 +161,7 @@ void IconLoader::finishLoading(const KURL& iconURL, PassRefPtr<SharedBuffer> dat
         // Setting the icon data only after committing to the database ensures that the data is
         // kept in memory (so it does not have to be read from the database asynchronously), since
         // there is a page URL referencing it.
-        iconDatabase()->setIconDataForIconURL(data, iconURL.string());
+        iconDatabase().setIconDataForIconURL(data, iconURL.string());
         m_frame->loader()->client()->dispatchDidReceiveIcon();
     }
 

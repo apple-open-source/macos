@@ -25,6 +25,7 @@
 #include <string.h>
 #include <sys/param.h>
 #include <unistd.h>
+#include <pthread.h>
 
 #define NSUserDomainIndex	0
 #define NSLocalDomainIndex	1
@@ -226,7 +227,7 @@ static struct {
     },
     { // NSCachesDirectory
 	1,
-	(const void * const * const)prefixAll,
+	(const void * const * const)prefixNoNetwork,
 	(const void * const)NSCachesDirectoryBase
     },
     { // NSApplicationSupportDirectory
@@ -241,7 +242,7 @@ static struct {
     },
     { // NSInputMethodsDirectory
 	1,
-	(const void * const * const)prefixAll,
+	(const void * const * const)prefixAllSystem,
 	(const void * const)NSInputMethodsDirectoryBase
     },
     { // NSMoviesDirectory
@@ -315,8 +316,21 @@ NSSearchPathEnumerationState NSStartSearchPathEnumeration(NSSearchPathDirectory 
     return (dir << DirShift) + domainMask;
 }
 
+static const char       *nextRoot = NULL;
+static pthread_once_t   nextRoot_init_once = PTHREAD_ONCE_INIT;
+
+static void
+nextRoot_init(void)
+{
+    if (!issetugid() && (nextRoot = getenv("NEXT_ROOT")) != NULL) {
+	nextRoot = strdup(nextRoot);
+    }
+    if (nextRoot == NULL) {
+	nextRoot = "";
+    }
+}
+
 NSSearchPathEnumerationState NSGetNextSearchPathEnumeration(NSSearchPathEnumerationState state, char *path) {
-    static const char *nextRoot = NULL;
     int dir = (state >> DirShift) & ByteMask;
     int domainMask = state & DomainMask;
     int domain, i, n;
@@ -359,14 +373,8 @@ NSSearchPathEnumerationState NSGetNextSearchPathEnumeration(NSSearchPathEnumerat
     }
 
     if (addNextRoot(prefix)) {
-	if (nextRoot == NULL) { // Get NEXT_ROOT
-	    if (!issetugid() && (nextRoot = getenv("NEXT_ROOT")) != NULL) {
-		nextRoot = strdup(nextRoot);
-	    }
-	    if (nextRoot == NULL) {
-		nextRoot = "";
-	    }
-	}
+	if (pthread_once(&nextRoot_init_once, nextRoot_init) != 0 || nextRoot == NULL)// Error
+	    return 0;
 	strlcpy(path, nextRoot, PATH_MAX);
     } else {
 	*path = 0;

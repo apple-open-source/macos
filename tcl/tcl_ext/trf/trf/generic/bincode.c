@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: bincode.c,v 1.11 1999/11/12 22:43:31 aku Exp $
+ * CVS: $Id: bincode.c,v 1.12 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include <limits.h>
@@ -264,7 +264,7 @@ ClientData    clientData;
 {
   EncoderControl* c;
 
-  c = (EncoderControl*) Tcl_Alloc (sizeof (EncoderControl));
+  c = (EncoderControl*) ckalloc (sizeof (EncoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -296,7 +296,7 @@ ClientData       clientData;
 {
   EncoderControl* c = (EncoderControl*) ctrlBlock;
 
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c);
 }
 
 /*
@@ -377,7 +377,7 @@ Tcl_Interp* interp;
 ClientData clientData;
 {
   EncoderControl* c   = (EncoderControl*) ctrlBlock;
-  char*  out = (char*) Tcl_Alloc (8*bufLen+1);
+  char*  out = (char*) ckalloc (8*bufLen+1);
   int    res, i, j;
   CONST char*  ch;
 
@@ -392,7 +392,7 @@ ClientData clientData;
 
   res = c->write (c->writeClientData, (unsigned char*) out, 8*bufLen, interp);
 
-  Tcl_Free ((char*) out);
+  ckfree ((char*) out);
   return res;
 }
 
@@ -480,7 +480,7 @@ ClientData    clientData;
 {
   DecoderControl* c;
 
-  c = (DecoderControl*) Tcl_Alloc (sizeof (DecoderControl));
+  c = (DecoderControl*) ckalloc (sizeof (DecoderControl));
   c->write           = fun;
   c->writeClientData = writeClientData;
 
@@ -515,7 +515,7 @@ ClientData       clientData;
 {
   DecoderControl* c = (DecoderControl*) ctrlBlock;
 
-  Tcl_Free ((char*) c);
+  ckfree ((char*) c);
 }
 
 /*
@@ -620,7 +620,7 @@ ClientData       clientData;
 #define IN_RANGE(low,x,high) (((low) <= (x)) && ((x) <= (high)))
 
   DecoderControl* c      = (DecoderControl*) ctrlBlock;
-  char*  out             = (char*) Tcl_Alloc (7+bufLen/8);
+  char*  out             = (char*) ckalloc (7+bufLen/8);
   int    res, i, j;
   unsigned char character;
 

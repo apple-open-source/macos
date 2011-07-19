@@ -1,8 +1,8 @@
 /* rwm.h - dn rewrite/attribute mapping header file */
-/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwm.h,v 1.15.2.3 2008/02/11 23:26:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/overlays/rwm.h,v 1.15.2.8 2010/04/19 19:31:17 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999-2003 Howard Chu.
  * Portions Copyright 2000-2003 Pierangelo Masarati.
  * All rights reserved.
@@ -81,6 +81,7 @@ struct ldaprwmap {
 
 #define	RWM_F_NONE			(0x0000U)
 #define	RWM_F_NORMALIZE_MAPPED_ATTRS    (0x0001U)
+#define	RWM_F_DROP_UNREQUESTED_ATTRS	(0x0002U)
 #define	RWM_F_SUPPORT_T_F		(0x4000U)
 #define	RWM_F_SUPPORT_T_F_DISCOVER	(0x8000U)
 #define	RWM_F_SUPPORT_T_F_MASK		(RWM_F_SUPPORT_T_F)
@@ -119,15 +120,18 @@ rwm_map_filter(
 		struct ldapmap *oc_map,
 		struct berval *f );
 
+#if 0 /* unused! */
 int
 rwm_map_attrs(
 		struct ldapmap *at_map,
 		AttributeName *a,
 		int remap,
 		char ***mapped_attrs );
+#endif
 
 int
 rwm_map_attrnames(
+		Operation *op,
 		struct ldapmap *at_map,
 		struct ldapmap *oc_map,
 		AttributeName *an,
@@ -175,7 +179,7 @@ rwm_referral_rewrite(
 	void			*cookie,
 	BerVarray		a_vals,
 	BerVarray		*pa_nvals );
-extern int rwm_dnattr_result_rewrite( dncookie *dc, BerVarray a_vals );
+extern int rwm_dnattr_result_rewrite( dncookie *dc, BerVarray a_vals, BerVarray a_nvals );
 extern int rwm_referral_result_rewrite( dncookie *dc, BerVarray a_vals );
 
 LDAP_END_DECL

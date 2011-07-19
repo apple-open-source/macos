@@ -8,7 +8,7 @@ setmetatable(getfenv(),{__index=function (t,i) error("undefined global variable 
 
 -- helper to check type
 function is_std_string(s) 
-	return type(s)=='userdata' and swig_type(s)=='_p_std__string'
+	return type(s)=='userdata' and swig_type(s)=='std::string *'
 end
 
 -- std::string by value is just a Lua string
@@ -49,14 +49,14 @@ assert(ok==false and type(ex)=="string")	-- failed & threw string
 ok,ex=pcall(test_const_reference_throw)
 assert(ok==false and type(ex)=="string")	-- failed & threw string
 
--- const ptrs are thrown as str::string**
--- not quite right
+-- const ptrs are now converted to lua strings
+-- they used to be std::string*
 ok,ex=pcall(test_const_pointer_throw)
-assert(ok==false and type(ex)=="userdata")	-- failed & threw object
+assert(ok==false and type(ex)=="string")	-- failed & threw object
 
 -- ditto non const ptrs 
 ok,ex=pcall(test_pointer_throw)
-assert(ok==false and type(ex)=="userdata")	-- failed & threw object
+assert(ok==false and type(ex)=="string")	-- failed & threw object
 
 -- testing std::string variables
 -- Global variables
@@ -85,8 +85,8 @@ struc=Structure()
 assert(type(struc.MemberString2)=="string") -- typemaps make this a string
 assert(type(struc.ConstMemberString)=="string")
 
--- set them
-struc.ConstMemberString="c"	-- silently ignored
+-- set a const (should fail with error)
+assert(pcall(function () struc.ConstMemberString="c" end)==false)
 --print(struc.MemberString:data(),struc.MemberString2,struc.ConstMemberString:data())
 
 --check type again
@@ -100,9 +100,9 @@ assert(type(struc.ConstMemberString)=="string")
 assert(type(li_std_string.Structure_StaticMemberString2)=="string")
 assert(type(li_std_string.Structure_ConstStaticMemberString)=="string")
 
--- try setting
+-- try setting (should fail with error)
 --li_std_string.Structure_StaticMemberString2='e'
-li_std_string.Structure_ConstStaticMemberString='f' -- silently ignored
+assert(pcall(function () li_std_string.Structure_ConstStaticMemberString='f' end)==false)
 --[[print(li_std_string.Structure_StaticMemberString:data(),
 		li_std_string.Structure_StaticMemberString2,
 		li_std_string.Structure_ConstStaticMemberString:data())]]
@@ -111,4 +111,3 @@ li_std_string.Structure_ConstStaticMemberString='f' -- silently ignored
 assert(type(li_std_string.Structure_StaticMemberString)=="string")
 assert(type(li_std_string.Structure_StaticMemberString2)=="string")
 assert(type(li_std_string.Structure_ConstStaticMemberString)=="string")
-

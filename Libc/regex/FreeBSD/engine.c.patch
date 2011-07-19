@@ -1,6 +1,6 @@
---- engine.c.orig	2004-11-25 11:38:32.000000000 -0800
-+++ engine.c	2005-04-18 16:52:09.000000000 -0700
-@@ -270,7 +270,7 @@ int eflags;
+--- engine.c.bsdnew	2009-11-11 11:29:04.000000000 -0800
++++ engine.c	2009-11-11 11:30:28.000000000 -0800
+@@ -272,7 +272,7 @@ matcher(struct re_guts *g,
  				break;
  			assert(m->coldp < m->endp);
  			m->coldp += XMBRTOWC(NULL, m->coldp,
@@ -9,16 +9,16 @@
  		}
  		if (nmatch == 1 && !g->backrefs)
  			break;		/* no further info needed */
-@@ -331,7 +331,7 @@ int eflags;
+@@ -333,7 +333,7 @@ matcher(struct re_guts *g,
  		NOTE("false alarm");
  		/* recycle starting later */
  		start = m->coldp + XMBRTOWC(NULL, m->coldp,
--		    m->endp - m->coldp, &m->mbs, 0);
-+		    m->endp - m->coldp, &m->mbs, 0, g->loc);
+-		    stop - m->coldp, &m->mbs, 0);
++		    stop - m->coldp, &m->mbs, 0, g->loc);
  		assert(start <= stop);
  	}
  
-@@ -409,7 +409,7 @@ sopno stopst;
+@@ -410,7 +410,7 @@ dissect(struct match *m,
  			assert(nope);
  			break;
  		case OCHAR:
@@ -27,7 +27,7 @@
  			break;
  		case OBOL:
  		case OEOL:
-@@ -418,7 +418,7 @@ sopno stopst;
+@@ -419,7 +419,7 @@ dissect(struct match *m,
  			break;
  		case OANY:
  		case OANYOF:
@@ -36,7 +36,7 @@
  			break;
  		case OBACK_:
  		case O_BACK:
-@@ -479,6 +479,10 @@ sopno stopst;
+@@ -480,6 +480,10 @@ dissect(struct match *m,
  				sep = ssp;
  				ssp = oldssp;
  			}
@@ -47,7 +47,7 @@
  			assert(sep == rest);	/* must exhaust substring */
  			assert(slow(m, ssp, sep, ssub, esub) == rest);
  			dp = dissect(m, ssp, sep, ssub, esub);
-@@ -531,6 +535,14 @@ sopno stopst;
+@@ -532,6 +536,14 @@ dissect(struct match *m,
  			i = OPND(m->g->strip[ss]);
  			assert(0 < i && i <= m->g->nsub);
  			m->pmatch[i].rm_so = sp - m->offp;
@@ -62,7 +62,7 @@
  			break;
  		case ORPAREN:
  			i = OPND(m->g->strip[ss]);
-@@ -585,14 +597,14 @@ sopno lev;			/* PLUS nesting level */
+@@ -586,14 +598,14 @@ backref(struct match *m,
  		case OCHAR:
  			if (sp == stop)
  				return(NULL);
@@ -79,7 +79,7 @@
  			if (wc == BADCHAR)
  				return (NULL);
  			break;
-@@ -600,8 +612,8 @@ sopno lev;			/* PLUS nesting level */
+@@ -601,8 +613,8 @@ backref(struct match *m,
  			if (sp == stop)
  				return (NULL);
  			cs = &m->g->sets[OPND(s)];
@@ -90,7 +90,7 @@
  				return(NULL);
  			break;
  		case OBOL:
-@@ -625,8 +637,8 @@ sopno lev;			/* PLUS nesting level */
+@@ -626,8 +638,8 @@ backref(struct match *m,
  					(sp < m->endp && *(sp-1) == '\n' &&
  						(m->g->cflags&REG_NEWLINE)) ||
  					(sp > m->beginp &&
@@ -101,7 +101,7 @@
  				{ /* yes */ }
  			else
  				return(NULL);
-@@ -635,8 +647,8 @@ sopno lev;			/* PLUS nesting level */
+@@ -636,8 +648,8 @@ backref(struct match *m,
  			if (( (sp == m->endp && !(m->eflags&REG_NOTEOL)) ||
  					(sp < m->endp && *sp == '\n' &&
  						(m->g->cflags&REG_NEWLINE)) ||
@@ -112,16 +112,16 @@
  				{ /* yes */ }
  			else
  				return(NULL);
-@@ -807,7 +819,7 @@ sopno stopst;
- 		if (p == m->endp)
+@@ -811,7 +823,7 @@ fast(	struct match *m,
+ 			clen = 0;
  			c = OUT;
- 		else
+ 		} else
 -			clen = XMBRTOWC(&c, p, m->endp - p, &m->mbs, BADCHAR);
 +			clen = XMBRTOWC(&c, p, m->endp - p, &m->mbs, BADCHAR, m->g->loc);
  		if (EQ(st, fresh))
  			coldp = p;
  
-@@ -831,12 +843,12 @@ sopno stopst;
+@@ -835,12 +847,12 @@ fast(	struct match *m,
  		}
  
  		/* how about a word boundary? */
@@ -138,16 +138,16 @@
  			flagch = EOW;
  		}
  		if (flagch == BOW || flagch == EOW) {
-@@ -861,7 +873,7 @@ sopno stopst;
+@@ -865,7 +877,7 @@ fast(	struct match *m,
  	assert(coldp != NULL);
  	m->coldp = coldp;
  	if (ISSET(st, stopst))
--		return(p+XMBRTOWC(NULL, p, m->endp - p, &m->mbs, 0));
-+		return(p+XMBRTOWC(NULL, p, m->endp - p, &m->mbs, 0, m->g->loc));
+-		return(p+XMBRTOWC(NULL, p, stop - p, &m->mbs, 0));
++		return(p+XMBRTOWC(NULL, p, stop - p, &m->mbs, 0, m->g->loc));
  	else
  		return(NULL);
  }
-@@ -913,7 +925,7 @@ sopno stopst;
+@@ -916,7 +928,7 @@ slow(	struct match *m,
  			c = OUT;
  			clen = 0;
  		} else
@@ -156,7 +156,7 @@
  
  		/* is there an EOL and/or BOL between lastc and c? */
  		flagch = '\0';
-@@ -935,12 +947,12 @@ sopno stopst;
+@@ -938,12 +950,12 @@ slow(	struct match *m,
  		}
  
  		/* how about a word boundary? */
@@ -173,7 +173,7 @@
  			flagch = EOW;
  		}
  		if (flagch == BOW || flagch == EOW) {
-@@ -1031,7 +1043,7 @@ states aft;			/* states already known re
+@@ -1033,7 +1045,7 @@ step(struct re_guts *g,
  			break;
  		case OANYOF:
  			cs = &g->sets[OPND(s)];

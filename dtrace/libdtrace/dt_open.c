@@ -297,10 +297,17 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_type, "uint_t" },
 { "index", DT_IDENT_FUNC, 0, DIF_SUBR_INDEX, DT_ATTR_STABCMN, DT_VERS_1_1,
 	&dt_idops_func, "int(const char *, const char *, [int])" },
+#if !defined(__APPLE__)
 { "inet_ntoa", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(ipaddr_t *)" },
 { "inet_ntoa6", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(in6_addr_t *)" },
+#else
+{ "inet_ntoa", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA, DT_ATTR_STABCMN,
+	DT_VERS_1_5, &dt_idops_func, "string(uint32_t *)" },
+{ "inet_ntoa6", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOA6, DT_ATTR_STABCMN,
+	DT_VERS_1_5, &dt_idops_func, "string(struct in6_addr *)" },
+#endif
 { "inet_ntop", DT_IDENT_FUNC, 0, DIF_SUBR_INET_NTOP, DT_ATTR_STABCMN,
 	DT_VERS_1_5, &dt_idops_func, "string(int, void *)" },
 { "ipl", DT_IDENT_SCALAR, 0, DIF_VAR_IPL, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -353,6 +360,10 @@ static const dt_ident_t _dtrace_globals[] = {
 	&dt_idops_func, "void()" },
 { "pid", DT_IDENT_SCALAR, 0, DIF_VAR_PID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
+#if defined(__APPLE__)	
+{ "pidresume", DT_IDENT_ACTFUNC, 0, DT_ACT_PIDRESUME, DT_ATTR_STABCMN, DT_VERS_1_0,
+	&dt_idops_func, "void(pid_t)" },
+#endif /* __APPLE__ */	
 { "ppid", DT_IDENT_SCALAR, 0, DIF_VAR_PPID, DT_ATTR_STABCMN, DT_VERS_1_0,
 	&dt_idops_type, "pid_t" },
 { "printa", DT_IDENT_ACTFUNC, 0, DT_ACT_PRINTA, DT_ATTR_STABCMN, DT_VERS_1_0,
@@ -1217,12 +1228,20 @@ alloc:
 			return (set_open_errno(dtp, errp, EDT_NOMEM));
 	}
 
+#if defined(__APPLE__)
+	/*
+	 * To save space, the kernel may discard symbols that dtrace needs to
+	 * populate various providers. Update any missing kernel symbols.
+	 */
+	dtrace_update_kernel_symbols(dtp);
+#endif
+	
 	/*
 	 * Update the module list using /system/object and load the values for
 	 * the macro variable definitions according to the current process.
 	 */
 	dtrace_update(dtp);
-
+	
 	/*
 	 * Select the intrinsics and typedefs we want based on the data model.
 	 * The intrinsics are under "C".  The typedefs are added under "D".

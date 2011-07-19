@@ -722,10 +722,115 @@ vindex(VENDOR)
 item(tt(VENDOR))(
 The vendor, as determined at compile time.
 )
+vindex(zsh_eval_context)
+vindex(ZSH_EVAL_CONTEXT)
+item(tt(zsh_eval_context) <S> <Z> (tt(ZSH_EVAL_CONTEXT) <S>))(
+An array (colon-separated list) indicating the context of shell
+code that is being run.  Each time a piece of shell code that
+is stored within the shell is executed a string is temporarily appended to
+the array to indicate the type of operation that is being performed.
+Read in order the array gives an indication of the stack of
+operations being performed with the most immediate context last.
+
+Note that the variable does not give information on syntactic context such
+as pipelines or subshells.  Use tt($ZSH_SUBSHELL) to detect subshells.
+
+The context is one of the following:
+startitem()
+item(tt(cmdarg))(
+Code specified by the tt(-c) option to the command line that invoked
+the shell.
+)
+item(tt(cmdsubst))(
+Command substitution using the tt(`)var(...)tt(`) or
+tt($+LPAR())var(...)tt(RPAR()) construct.
+)
+item(tt(equalsubst))(
+File substitution using the tt(=+LPAR())var(...)tt(RPAR()) construct.
+)
+item(tt(eval))(
+Code executed by the tt(eval) builtin.
+)
+item(tt(evalautofunc))(
+Code executed with the tt(KSH_AUTOLOAD) mechanism in order to define
+an autoloaded function.
+)
+item(tt(fc))(
+Code from the shell history executed by the tt(-e) option to the tt(fc)
+builtin.
+)
+item(tt(file))(
+Lines of code being read directly from a file, for example by
+the tt(source) builtin.
+)
+item(tt(filecode))(
+Lines of code being read from a tt(.zwc) file instead of directly
+from the source file.
+)
+item(tt(globqual))(
+Code executed by the tt(e) or tt(+) glob qualifier.
+)
+item(tt(globsort))(
+Code executed to order files by the tt(o) glob qualifier.
+)
+item(tt(insubst))(
+File substitution using the tt(<LPAR())var(...)tt(RPAR()) construct.
+)
+item(tt(loadautofunc))(
+Code read directly from a file to define an autoloaded function.
+)
+item(tt(outsubst))(
+File substitution using the tt(>LPAR())var(...)tt(RPAR()) construct.
+)
+item(tt(sched))(
+Code executed by the tt(sched) builtin.
+)
+item(tt(shfunc))(
+A shell function.
+)
+item(tt(stty))(
+Code passed to tt(stty) by the tt(STTY) environment variable.
+Normally this is passed directly to the system's tt(stty) command,
+so this value is unlikely to be seen in practice.
+)
+item(tt(style))(
+Code executed as part of a style retrieved by the tt(zstyle) builtin
+from the tt(zsh/zutil) module.
+)
+item(tt(toplevel))(
+The highest execution level of a script or interactive shell.
+)
+item(tt(trap))(
+Code executed as a trap defined by the tt(trap) builtin.  Traps
+defined as functions have the context tt(shfunc).  As traps are
+asynchronous they may have a different hierarchy from other
+code.
+)
+item(tt(zpty))(
+Code executed by the tt(zpty) builtin from the tt(zsh/zpty) module.
+)
+item(tt(zregexparse-guard))(
+Code executed as a guard by the tt(zregexparse) command from the
+tt(zsh/zutil) module.
+)
+item(tt(zregexparse-action))(
+Code executed as an action by the tt(zregexparse) command from the
+tt(zsh/zutil) module.
+)
+enditem()
+)
 vindex(ZSH_NAME)
 item(tt(ZSH_NAME))(
 Expands to the basename of the command used to invoke this instance
 of zsh.
+)
+vindex(ZSH_PATCHLEVEL)
+item(tt(ZSH_PATCHLEVEL))(
+The revision string for the version number of the ChangeLog file
+in the zsh distribution.  This is most useful in order to keep
+track of versions of the shell during development between releases;
+hence most users should not use it and should instead rely on
+tt($ZSH_VERSION).
 )
 item(tt(zsh_scheduled_events))(
 See ifzman(the section `The zsh/sched Module' in zmanref(zshmodules))\
@@ -740,7 +845,7 @@ and `tt(print $(print $ZSH_SUBSHELL))' output 1, while
 )
 vindex(ZSH_VERSION)
 item(tt(ZSH_VERSION))(
-The version number of this zsh.
+The version number of the release of zsh.
 )
 enditem()
 texinode(Parameters Used By The Shell)()(Parameters Set By The Shell)(Parameters)
@@ -788,6 +893,17 @@ vindex(COLUMNS)
 item(tt(COLUMNS) <S>)(
 The number of columns for this terminal session.
 Used for printing select lists and for the line editor.
+)
+vindex(CORRECT_IGNORE)
+item(tt(CORRECT_IGNORE))(
+If set, is treated as a pattern during spelling correction.  Any
+potential correction that matches the pattern is ignored.  For example,
+if the value is `tt(_*)' then completion functions (which, by
+convention, have names beginning with `tt(_)') will never be offered
+as spelling corrections.  The pattern does not apply to the correction
+of file names, as applied by the tt(CORRECT_ALL) option (so with the
+example just given files beginning with `tt(_)' in the current
+directory would still be completed).
 )
 vindex(DIRSTACKSIZE)
 item(tt(DIRSTACKSIZE))(
@@ -874,6 +990,19 @@ character together with any adjacent IFS white space character delimit
 a field.  If an IFS white space character appears twice consecutively
 in the IFS, this character is treated as if it were not an IFS white
 space character.
+
+If the parameter is unset, the default is used.  Note this has
+a different effect from setting the parameter to an empty string.
+)
+vindex(KEYBOARD_HACK)
+item(tt(KEYBOARD_HACK))(
+This variable defines a character to be removed from the end of the
+command line before interpreting it (interactive shells only). It is
+intended to fix the problem with keys placed annoyingly close to return
+and replaces the tt(SUNKEYBOARDHACK) option which did this for
+backquotes only.  Should the chosen character be one of singlequote,
+doublequote or backquote, there must also be an odd number of them
+on the command line for the last one to be removed.
 )
 vindex(KEYTIMEOUT)
 item(tt(KEYTIMEOUT))(
@@ -898,7 +1027,12 @@ information within ranges in glob brackets and for sorting.
 vindex(LC_CTYPE)
 item(tt(LC_CTYPE) <S>)(
 This variable determines the locale category for character handling
-functions.
+functions.  If the tt(MULTIBYTE) option is in effect this variable or
+tt(LANG) should contain a value that reflects the character set in
+use, even if it is a single-byte character set, unless only the
+7-bit subset (ASCII) is used.  For example, if the character set
+is ISO-8859-1, a suitable value might be tt(en_US.iso88591) (certain
+Linux distributions) or tt(en_US.ISO8859-1) (MacOS).
 )
 vindex(LC_MESSAGES)
 item(tt(LC_MESSAGES) <S>)(
@@ -1019,11 +1153,21 @@ vindex(prompt)
 item(tt(prompt) <S> <Z>)(
 Same as tt(PS1).
 )
+vindex(PROMPT_EOL_MARK)
+item(tt(PROMPT_EOL_MARK))(
+When the tt(PROMPT_CR) and tt(PROMPT_SP) options are set, the
+tt(PROMPT_EOL_MARK) parameter can be used to customize how the end of
+partial lines are shown.  This parameter undergoes prompt expansion, with
+the tt(PROMPT_PERCENT) option set.  If not set or empty, the default
+behavior is equivalent to the value `tt(%B%S%#%s%b)'.
+)
 vindex(PS1)
 item(tt(PS1) <S>)(
 The primary prompt string, printed before a command is read.
-the default is `tt(%m%# )'.  It undergoes a special form of expansion
-before being displayed; see noderef(Prompt Expansion).
+It undergoes a special form of expansion
+before being displayed; see
+ifzman(EXPANSION OF PROMPT SEQUENCES in zmanref(zshmisc))\
+ifnzman(noderef(Prompt Expansion)).  The default is `tt(%m%# )'.
 )
 vindex(PS2)
 item(tt(PS2) <S>)(
@@ -1303,5 +1447,55 @@ vindex(ZDOTDIR)
 item(tt(ZDOTDIR))(
 The directory to search for shell startup files (.zshrc, etc),
 if not tt($HOME).
+)
+vindex(ZLE_LINE_ABORTED)
+item(tt(ZLE_LINE_ABORTED))(
+This parameter is set by the line editor when an error occurs.  It
+contains the line that was being edited at the point of the error.
+`tt(print -zr -- $ZLE_LINE_ABORTED)' can be used to recover the line.
+Only the most recent line of this kind is remembered.
+)
+vindex(ZLE_REMOVE_SUFFIX_CHARS)
+vindex(ZLE_SPACE_SUFFIX_CHARS)
+xitem(tt(ZLE_REMOVE_SUFFIX_CHARS))
+item(tt(ZLE_SPACE_SUFFIX_CHARS))(
+These parameters are used by the line editor.  In certain circumstances
+suffixes (typically space or slash) added by the completion system
+will be removed automatically, either because the next editing command
+was not an insertable character, or because the character was marked
+as requiring the suffix to be removed.
+
+These variables can contain the sets of characters that will cause the
+suffix to be removed.  If tt(ZLE_REMOVE_SUFFIX_CHARS) is set, those
+characters will cause the suffix to be removed; if
+tt(ZLE_SPACE_SUFFIX_CHARS) is set, those characters will cause the
+suffix to be removed and replaced by a space.
+
+If tt(ZLE_REMOVE_SUFFIX_CHARS) is not set, the default behaviour is
+equivalent to:
+
+example(ZLE_REMOVE_SUFFIX_CHARS=$' \t\n;&|')
+
+If tt(ZLE_REMOVE_SUFFIX_CHARS) is set but is empty, no characters have this
+behaviour.  tt(ZLE_SPACE_SUFFIX_CHARS) takes precedence, so that the
+following:
+
+example(ZLE_SPACE_SUFFIX_CHARS=$'&|')
+
+causes the characters `tt(&)' and `tt(|)' to remove the suffix but to
+replace it with a space.
+
+To illustrate the difference, suppose that the option tt(AUTO_REMOVE_SLASH)
+is in effect and the directory tt(DIR) has just been completed, with an
+appended tt(/), following which the user types `tt(&)'.  The default result
+is `tt(DIR&)'.  With tt(ZLE_REMOVE_SUFFIX_CHARS) set but without including
+`tt(&)' the result is `tt(DIR/&)'.  With tt(ZLE_SPACE_SUFFIX_CHARS) set to
+include `tt(&)' the result is `tt(DIR &)'.
+
+Note that certain completions may provide their own suffix removal
+or replacement behaviour which overrides the values described here.
+See the completion system documentation in
+ifzman(zmanref(zshcompsys))\
+ifnzman(noderef(Completion System)).
 )
 enditem()

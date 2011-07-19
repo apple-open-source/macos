@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1999-2008, International Business Machines Corporation and   *
+* Copyright (C) 1999-2010, International Business Machines Corporation and   *
 * others. All Rights Reserved.                                               *
 ******************************************************************************
 *
@@ -295,6 +295,32 @@ UnicodeString::UnicodeString(const char *src, int32_t length, EInvariant)
   }
 }
 
+#if U_CHARSET_IS_UTF8
+
+UnicodeString::UnicodeString(const char *codepageData)
+  : fShortLength(0),
+    fFlags(kShortString) {
+  if(codepageData != 0) {
+    setToUTF8(codepageData);
+  }
+}
+
+UnicodeString::UnicodeString(const char *codepageData, int32_t dataLength)
+  : fShortLength(0),
+    fFlags(kShortString) {
+  // if there's nothing to convert, do nothing
+  if(codepageData == 0 || dataLength == 0 || dataLength < -1) {
+    return;
+  }
+  if(dataLength == -1) {
+    dataLength = (int32_t)uprv_strlen(codepageData);
+  }
+  setToUTF8(StringPiece(codepageData, dataLength));
+}
+
+// else see unistr_cnv.cpp
+#endif
+
 UnicodeString::UnicodeString(const UnicodeString& that)
   : Replaceable(),
     fShortLength(0),
@@ -346,7 +372,8 @@ UnicodeString::allocate(int32_t capacity) {
     // count bytes for the refCounter and the string capacity, and
     // round up to a multiple of 16; then divide by 4 and allocate int32_t's
     // to be safely aligned for the refCount
-    int32_t words = (int32_t)(((sizeof(int32_t) + capacity * U_SIZEOF_UCHAR + 15) & ~15) >> 2);
+    // the +1 is for the NUL terminator, to avoid reallocation in getTerminatedBuffer()
+    int32_t words = (int32_t)(((sizeof(int32_t) + (capacity + 1) * U_SIZEOF_UCHAR + 15) & ~15) >> 2);
     int32_t *array = (int32_t*) uprv_malloc( sizeof(int32_t) * words );
     if(array != 0) {
       // set initial refCount and point behind the refCount
@@ -375,6 +402,47 @@ UnicodeString::~UnicodeString()
   releaseArray();
 }
 
+//========================================
+// Factory methods
+//========================================
+
+UnicodeString UnicodeString::fromUTF8(const StringPiece &utf8) {
+  UnicodeString result;
+  result.setToUTF8(utf8);
+  return result;
+}
+
+UnicodeString UnicodeString::fromUTF32(const UChar32 *utf32, int32_t length) {
+  UnicodeString result;
+  int32_t capacity;
+  // Most UTF-32 strings will be BMP-only and result in a same-length
+  // UTF-16 string. We overestimate the capacity just slightly,
+  // just in case there are a few supplementary characters.
+  if(length <= US_STACKBUF_SIZE) {
+    capacity = US_STACKBUF_SIZE;
+  } else {
+    capacity = length + (length >> 4) + 4;
+  }
+  do {
+    UChar *utf16 = result.getBuffer(capacity);
+    int32_t length16;
+    UErrorCode errorCode = U_ZERO_ERROR;
+    u_strFromUTF32WithSub(utf16, result.getCapacity(), &length16,
+        utf32, length,
+        0xfffd,  // Substitution character.
+        NULL,    // Don't care about number of substitutions.
+        &errorCode);
+    result.releaseBuffer(length16);
+    if(errorCode == U_BUFFER_OVERFLOW_ERROR) {
+      capacity = length16 + 1;  // +1 for the terminating NUL.
+      continue;
+    } else if(U_FAILURE(errorCode)) {
+      result.setToBogus();
+    }
+    break;
+  } while(TRUE);
+  return result;
+}
 
 //========================================
 // Assignment
@@ -421,7 +489,7 @@ UnicodeString::copyFrom(const UnicodeString &src, UBool fastCopy) {
   case kShortString:
     // short string using the stack buffer, do the same
     fFlags = kShortString;
-    uprv_memcpy(fUnion.fStackBuffer, src.fUnion.fStackBuffer, fShortLength * U_SIZEOF_UCHAR);
+    uprv_memcpy(fUnion.fStackBuffer, src.fUnion.fStackBuffer, srcLength * U_SIZEOF_UCHAR);
     break;
   case kLongString:
     // src uses a refCounted string buffer, use that buffer with refCount
@@ -712,6 +780,46 @@ UnicodeString::extract(int32_t start,
   return u_terminateChars(target, targetCapacity, length, &status);
 }
 
+UnicodeString
+UnicodeString::tempSubString(int32_t start, int32_t len) const {
+  pinIndices(start, len);
+  const UChar *array = getBuffer();  // not getArrayStart() to check kIsBogus & kOpenGetBuffer
+  if(array==NULL) {
+    array=fUnion.fStackBuffer;  // anything not NULL because that would make an empty string
+    len=-2;  // bogus result string
+  }
+  return UnicodeString(FALSE, array + start, len);
+}
+
+int32_t
+UnicodeString::toUTF8(int32_t start, int32_t len,
+                      char *target, int32_t capacity) const {
+  pinIndices(start, len);
+  int32_t length8;
+  UErrorCode errorCode = U_ZERO_ERROR;
+  u_strToUTF8WithSub(target, capacity, &length8,
+                     getBuffer() + start, len,
+                     0xFFFD,  // Standard substitution character.
+                     NULL,    // Don't care about number of substitutions.
+                     &errorCode);
+  return length8;
+}
+
+#if U_CHARSET_IS_UTF8
+
+int32_t
+UnicodeString::extract(int32_t start, int32_t len,
+                       char *target, uint32_t dstSize) const {
+  // if the arguments are illegal, then do nothing
+  if(/*dstSize < 0 || */(dstSize > 0 && target == 0)) {
+    return 0;
+  }
+  return toUTF8(start, len, target, dstSize <= 0x7fffffff ? (int32_t)dstSize : 0x7fffffff);
+}
+
+// else see unistr_cnv.cpp
+#endif
+
 void 
 UnicodeString::extractBetween(int32_t start,
                   int32_t limit,
@@ -719,6 +827,66 @@ UnicodeString::extractBetween(int32_t start,
   pinIndex(start);
   pinIndex(limit);
   doExtract(start, limit - start, target);
+}
+
+// When converting from UTF-16 to UTF-8, the result will have at most 3 times
+// as many bytes as the source has UChars.
+// The "worst cases" are writing systems like Indic, Thai and CJK with
+// 3:1 bytes:UChars.
+void
+UnicodeString::toUTF8(ByteSink &sink) const {
+  int32_t length16 = length();
+  if(length16 != 0) {
+    char stackBuffer[1024];
+    int32_t capacity = (int32_t)sizeof(stackBuffer);
+    UBool utf8IsOwned = FALSE;
+    char *utf8 = sink.GetAppendBuffer(length16 < capacity ? length16 : capacity,
+                                      3*length16,
+                                      stackBuffer, capacity,
+                                      &capacity);
+    int32_t length8 = 0;
+    UErrorCode errorCode = U_ZERO_ERROR;
+    u_strToUTF8WithSub(utf8, capacity, &length8,
+                       getBuffer(), length16,
+                       0xFFFD,  // Standard substitution character.
+                       NULL,    // Don't care about number of substitutions.
+                       &errorCode);
+    if(errorCode == U_BUFFER_OVERFLOW_ERROR) {
+      utf8 = (char *)uprv_malloc(length8);
+      if(utf8 != NULL) {
+        utf8IsOwned = TRUE;
+        errorCode = U_ZERO_ERROR;
+        u_strToUTF8WithSub(utf8, length8, &length8,
+                           getBuffer(), length16,
+                           0xFFFD,  // Standard substitution character.
+                           NULL,    // Don't care about number of substitutions.
+                           &errorCode);
+      } else {
+        errorCode = U_MEMORY_ALLOCATION_ERROR;
+      }
+    }
+    if(U_SUCCESS(errorCode)) {
+      sink.Append(utf8, length8);
+      sink.Flush();
+    }
+    if(utf8IsOwned) {
+      uprv_free(utf8);
+    }
+  }
+}
+
+int32_t
+UnicodeString::toUTF32(UChar32 *utf32, int32_t capacity, UErrorCode &errorCode) const {
+  int32_t length32=0;
+  if(U_SUCCESS(errorCode)) {
+    // getBuffer() and u_strToUTF32WithSub() check for illegal arguments.
+    u_strToUTF32WithSub(utf32, capacity, &length32,
+        getBuffer(), length(),
+        0xfffd,  // Substitution character.
+        NULL,    // Don't care about number of substitutions.
+        &errorCode);
+  }
+  return length32;
 }
 
 int32_t 
@@ -989,6 +1157,31 @@ UnicodeString::setTo(UChar *buffer,
   return *this;
 }
 
+UnicodeString &UnicodeString::setToUTF8(const StringPiece &utf8) {
+  unBogus();
+  int32_t length = utf8.length();
+  int32_t capacity;
+  // The UTF-16 string will be at most as long as the UTF-8 string.
+  if(length <= US_STACKBUF_SIZE) {
+    capacity = US_STACKBUF_SIZE;
+  } else {
+    capacity = length + 1;  // +1 for the terminating NUL.
+  }
+  UChar *utf16 = getBuffer(capacity);
+  int32_t length16;
+  UErrorCode errorCode = U_ZERO_ERROR;
+  u_strFromUTF8WithSub(utf16, getCapacity(), &length16,
+      utf8.data(), length,
+      0xfffd,  // Substitution character.
+      NULL,    // Don't care about number of substitutions.
+      &errorCode);
+  releaseBuffer(length16);
+  if(U_FAILURE(errorCode)) {
+    setToBogus();
+  }
+  return *this;
+}
+
 UnicodeString&
 UnicodeString::setCharAt(int32_t offset,
              UChar c)
@@ -1037,14 +1230,34 @@ UnicodeString::doReplace(int32_t start,
     return *this;
   }
 
+  int32_t oldLength = this->length();
+
+  // optimize (read-only alias).remove(0, start) and .remove(start, end)
+  if((fFlags&kBufferIsReadonly) && srcLength == 0) {
+    if(start == 0) {
+      // remove prefix by adjusting the array pointer
+      pinIndex(length);
+      fUnion.fFields.fArray += length;
+      fUnion.fFields.fCapacity -= length;
+      setLength(oldLength - length);
+      return *this;
+    } else {
+      pinIndex(start);
+      if(length >= (oldLength - start)) {
+        // remove suffix by reducing the length (like truncate())
+        setLength(start);
+        fUnion.fFields.fCapacity = start;  // not NUL-terminated any more
+        return *this;
+      }
+    }
+  }
+
   if(srcChars == 0) {
     srcStart = srcLength = 0;
   } else if(srcLength < 0) {
     // get the srcLength if necessary
     srcLength = u_strlen(srcChars + srcStart);
   }
-
-  int32_t oldLength = this->length();
 
   // calculate the size of the string after the replace
   int32_t newSize;
@@ -1164,26 +1377,31 @@ UBool UnicodeString::hasMetaData() const {
 }
 
 UnicodeString&
-UnicodeString::doReverse(int32_t start,
-             int32_t length)
-{
-  if(this->length() <= 1 || !cloneArrayIfNeeded()) {
+UnicodeString::doReverse(int32_t start, int32_t length) {
+  if(length <= 1 || !cloneArrayIfNeeded()) {
     return *this;
   }
 
   // pin the indices to legal values
   pinIndices(start, length);
+  if(length <= 1) {  // pinIndices() might have shrunk the length
+    return *this;
+  }
 
   UChar *left = getArrayStart() + start;
-  UChar *right = left + length;
+  UChar *right = left + length - 1;  // -1 for inclusive boundary (length>=2)
   UChar swap;
   UBool hasSupplementary = FALSE;
 
-  while(left < --right) {
-    hasSupplementary |= (UBool)UTF_IS_LEAD(swap = *left);
-    hasSupplementary |= (UBool)UTF_IS_LEAD(*left++ = *right);
-    *right = swap;
-  }
+  // Before the loop we know left<right because length>=2.
+  do {
+    hasSupplementary |= (UBool)U16_IS_LEAD(swap = *left);
+    hasSupplementary |= (UBool)U16_IS_LEAD(*left++ = *right);
+    *right-- = swap;
+  } while(left < right);
+  // Make sure to test the middle code unit of an odd-length string.
+  // Redundant if the length is even.
+  hasSupplementary |= (UBool)U16_IS_LEAD(*left);
 
   /* if there are supplementary code points in the reversed range, then re-swap their surrogates */
   if(hasSupplementary) {
@@ -1192,7 +1410,7 @@ UnicodeString::doReverse(int32_t start,
     left = getArrayStart() + start;
     right = left + length - 1; // -1 so that we can look at *(left+1) if left<right
     while(left < right) {
-      if(UTF_IS_TRAIL(swap = *left) && UTF_IS_LEAD(swap2 = *(left + 1))) {
+      if(U16_IS_TRAIL(swap = *left) && U16_IS_LEAD(swap2 = *(left + 1))) {
         *left++ = swap2;
         *left++ = swap;
       } else {
@@ -1326,7 +1544,7 @@ UnicodeString::cloneArrayIfNeeded(int32_t newCapacity,
    */
   if(forceClone ||
      fFlags & kBufferIsReadonly ||
-     fFlags & kRefCounted && refCount() > 1 ||
+     (fFlags & kRefCounted && refCount() > 1) ||
      newCapacity > getCapacity()
   ) {
     // check growCapacity for default value and use of the stack buffer
@@ -1356,7 +1574,7 @@ UnicodeString::cloneArrayIfNeeded(int32_t newCapacity,
 
     // allocate a new array
     if(allocate(growCapacity) ||
-       newCapacity < growCapacity && allocate(newCapacity)
+       (newCapacity < growCapacity && allocate(newCapacity))
     ) {
       if(doCopyArray && oldArray != 0) {
         // copy the contents
@@ -1413,4 +1631,3 @@ static void uprv_UnicodeStringDummy(void) {
     delete [] (new UnicodeString[2]);
 }
 #endif
-

@@ -1,12 +1,18 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CFLAGS -framework Foundation
+
 #import <Foundation/Foundation.h>
-
 #import <Block_private.h>
-
-// CONFIG RR
+#import "test.h"
 
 typedef void (^void_block_t)(void);
 
-int main (int argc, const char * argv[]) {
+int main () {
     void_block_t c = ^{ NSLog(@"Hello!"); };
     
     //printf("global block c looks like: %s\n", _Block_dump(c));
@@ -17,6 +23,6 @@ int main (int argc, const char * argv[]) {
         //if (j == 0) printf("copy looks like %s\n", _Block_dump(d));
         [d release];
     }
-    
-    return 0;
+
+    succeed(__FILE__);
 }

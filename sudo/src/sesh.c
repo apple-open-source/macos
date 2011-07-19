@@ -29,10 +29,6 @@
 
 #include "compat.h"
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: sesh.c,v 1.1 2008/02/09 14:30:06 millert Exp $";
-#endif /* lint */
-
 int
 main (int argc, char **argv)
 {

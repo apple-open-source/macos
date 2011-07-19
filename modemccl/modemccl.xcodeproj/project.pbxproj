@@ -282,26 +282,6 @@
 			};
 			name = Development;
 		};
-		0284171E09E580260060E31A /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				GCC_ENABLE_OBJC_GC = NO;
-				INSTALL_PATH = /System/Library/Extensions/PPPSerial.ppp/Contents/PlugIns;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = CCLEngine;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Deployment;
-		};
 		0284171F09E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -329,25 +309,13 @@
 					x86_64,
 				);
 				GCC_ENABLE_CPP_EXCEPTIONS = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_EXCEPTIONS = NO;
 				GCC_ENABLE_OBJC_GC = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 			};
 			name = Development;
-		};
-		0284172209E580260060E31A /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				ARCHS = (
-					i386,
-					x86_64,
-				);
-				GCC_ENABLE_OBJC_GC = YES;
-				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
-				SDKROOT = "";
-			};
-			name = Deployment;
 		};
 		0284172309E580260060E31A /* Default */ = {
 			isa = XCBuildConfiguration;
@@ -356,7 +324,7 @@
 					i386,
 					x86_64,
 				);
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_ENABLE_OBJC_GC = YES;
 				PRIVATE_HEADERS_FOLDER_PATH = /usr/local/include;
 			};
@@ -375,19 +343,6 @@
 				ZERO_LINK = YES;
 			};
 			name = Development;
-		};
-		0CA08B240B6E78890041EB29 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				GCC_MODEL_TUNING = G5;
-				INSTALL_PATH = /usr/local/lib;
-				PREBINDING = NO;
-				PRODUCT_NAME = ccl;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
 		};
 		0CA08B250B6E78890041EB29 /* Default */ = {
 			isa = XCBuildConfiguration;
@@ -410,16 +365,6 @@
 			};
 			name = Development;
 		};
-		0CD436360B70AB700006D11B /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				PRODUCT_NAME = modemccl;
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
 		0CD436370B70AB700006D11B /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -434,7 +379,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0284171D09E580260060E31A /* Development */,
-				0284171E09E580260060E31A /* Deployment */,
 				0284171F09E580260060E31A /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -444,7 +388,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0284172109E580260060E31A /* Development */,
-				0284172209E580260060E31A /* Deployment */,
 				0284172309E580260060E31A /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -454,7 +397,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0CA08B230B6E78890041EB29 /* Development */,
-				0CA08B240B6E78890041EB29 /* Deployment */,
 				0CA08B250B6E78890041EB29 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
@@ -464,7 +406,6 @@
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				0CD436350B70AB700006D11B /* Development */,
-				0CD436360B70AB700006D11B /* Deployment */,
 				0CD436370B70AB700006D11B /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;

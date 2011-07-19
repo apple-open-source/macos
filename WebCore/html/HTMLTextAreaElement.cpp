@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2010 Apple Inc. All rights reserved.
  *           (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  * Copyright (C) 2007 Samuel Weinig (sam@webkit.org)
  *
@@ -26,10 +26,11 @@
 #include "config.h"
 #include "HTMLTextAreaElement.h"
 
+#include "Attribute.h"
 #include "BeforeTextInsertedEvent.h"
+#include "CSSValueKeywords.h"
 #include "Chrome.h"
 #include "ChromeClient.h"
-#include "CSSValueKeywords.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventNames.h"
@@ -38,8 +39,6 @@
 #include "FormDataList.h"
 #include "Frame.h"
 #include "HTMLNames.h"
-#include "InputElement.h"
-#include "MappedAttribute.h"
 #include "Page.h"
 #include "RenderStyle.h"
 #include "RenderTextControlMultiLine.h"
@@ -75,7 +74,11 @@ HTMLTextAreaElement::HTMLTextAreaElement(const QualifiedName& tagName, Document*
 {
     ASSERT(hasTagName(textareaTag));
     setFormControlValueMatchesRenderer(true);
-    notifyFormStateChanged(this);
+}
+
+PassRefPtr<HTMLTextAreaElement> HTMLTextAreaElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+{
+    return adoptRef(new HTMLTextAreaElement(tagName, document, form));
 }
 
 const AtomicString& HTMLTextAreaElement::formControlType() const
@@ -100,11 +103,12 @@ void HTMLTextAreaElement::restoreFormControlState(const String& state)
 
 void HTMLTextAreaElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    setNonDirtyValue(defaultValue());
+    if (!m_isDirty)
+        setNonDirtyValue(defaultValue());
     HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
 }
     
-void HTMLTextAreaElement::parseMappedAttribute(MappedAttribute* attr)
+void HTMLTextAreaElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == rowsAttr) {
         int rows = attr->value().toInt();
@@ -218,7 +222,7 @@ void HTMLTextAreaElement::updateFocusAppearance(bool restorePreviousSelection)
     }
 
     if (document()->frame())
-        document()->frame()->revealSelection();
+        document()->frame()->selection()->revealSelection();
 }
 
 void HTMLTextAreaElement::defaultEventHandler(Event* event)
@@ -273,6 +277,7 @@ void HTMLTextAreaElement::updateValue() const
     const_cast<HTMLTextAreaElement*>(this)->setFormControlValueMatchesRenderer(true);
     notifyFormStateChanged(this);
     m_isDirty = true;
+    const_cast<HTMLTextAreaElement*>(this)->updatePlaceholderVisibility(false);
 }
 
 String HTMLTextAreaElement::value() const
@@ -283,11 +288,21 @@ String HTMLTextAreaElement::value() const
 
 void HTMLTextAreaElement::setValue(const String& value)
 {
-    setNonDirtyValue(value);
+    setValueCommon(value);
     m_isDirty = true;
+    setNeedsValidityCheck();
+    setTextAsOfLastFormControlChangeEvent(value);
 }
 
 void HTMLTextAreaElement::setNonDirtyValue(const String& value)
+{
+    setValueCommon(value);
+    m_isDirty = false;
+    setNeedsValidityCheck();
+    setTextAsOfLastFormControlChangeEvent(value);
+}
+
+void HTMLTextAreaElement::setValueCommon(const String& value)
 {
     // Code elsewhere normalizes line endings added by the user via the keyboard or pasting.
     // We normalize line endings coming from JavaScript here.
@@ -303,8 +318,6 @@ void HTMLTextAreaElement::setNonDirtyValue(const String& value)
     m_value = normalizedValue;
     updatePlaceholderVisibility(false);
     setNeedsStyleRecalc();
-    setNeedsValidityCheck();
-    m_isDirty = false;
     setFormControlValueMatchesRenderer(true);
 
     // Set the caret to the end of the text value.
@@ -326,12 +339,6 @@ String HTMLTextAreaElement::defaultValue() const
             value += static_cast<Text*>(n)->data();
     }
 
-    UChar firstCharacter = value[0];
-    if (firstCharacter == '\r' && value[1] == '\n')
-        value.remove(0, 2);
-    else if (firstCharacter == '\r' || firstCharacter == '\n')
-        value.remove(0, 1);
-
     return value;
 }
 
@@ -350,17 +357,14 @@ void HTMLTextAreaElement::setDefaultValue(const String& defaultValue)
         removeChild(textNodes[i].get(), ec);
 
     // Normalize line endings.
-    // Add an extra line break if the string starts with one, since
-    // the code to read default values from the DOM strips the leading one.
     String value = defaultValue;
     value.replace("\r\n", "\n");
     value.replace('\r', '\n');
-    if (value[0] == '\n')
-        value = "\n" + value;
 
     insertBefore(document()->createTextNode(value), firstChild(), ec);
 
-    setNonDirtyValue(value);
+    if (!m_isDirty)
+        setNonDirtyValue(value);
 }
 
 int HTMLTextAreaElement::maxLength() const
@@ -378,31 +382,26 @@ void HTMLTextAreaElement::setMaxLength(int newValue, ExceptionCode& ec)
         setAttribute(maxlengthAttr, String::number(newValue));
 }
 
-bool HTMLTextAreaElement::tooLong() const
+bool HTMLTextAreaElement::tooLong(const String& value, NeedsToCheckDirtyFlag check) const
 {
     // Return false for the default value even if it is longer than maxLength.
-    if (!m_isDirty)
+    if (check == CheckDirtyFlag && !m_isDirty)
         return false;
 
     int max = maxLength();
     if (max < 0)
         return false;
-    return numGraphemeClusters(value()) > static_cast<unsigned>(max);
+    return numGraphemeClusters(value) > static_cast<unsigned>(max);
+}
+
+bool HTMLTextAreaElement::isValidValue(const String& candidate) const
+{
+    return !valueMissing(candidate) && !tooLong(candidate, IgnoreDirtyFlag);
 }
 
 void HTMLTextAreaElement::accessKeyAction(bool)
 {
     focus();
-}
-
-const AtomicString& HTMLTextAreaElement::accessKey() const
-{
-    return getAttribute(accesskeyAttr);
-}
-
-void HTMLTextAreaElement::setAccessKey(const String& value)
-{
-    setAttribute(accesskeyAttr, value);
 }
 
 void HTMLTextAreaElement::setCols(int cols)
@@ -413,6 +412,13 @@ void HTMLTextAreaElement::setCols(int cols)
 void HTMLTextAreaElement::setRows(int rows)
 {
     setAttribute(rowsAttr, String::number(rows));
+}
+
+bool HTMLTextAreaElement::lastChangeWasUserEdit() const
+{
+    if (!renderer())
+        return false;
+    return toRenderTextControl(renderer())->lastChangeWasUserEdit();
 }
 
 bool HTMLTextAreaElement::shouldUseInputMethod() const

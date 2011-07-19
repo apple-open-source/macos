@@ -227,7 +227,14 @@
 			isa = PBXProject;
 			buildConfigurationList = C27AD2B70987FCDD001272E0 /* Build configuration list for PBXProject "libsecurity_authorization" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 4CA1FEA7052A3C3800F22E42;
 			productRefGroup = 4CA1FEBF052A3C8100F22E42 /* Products */;
 			projectDirPath = "";
@@ -339,7 +346,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36329;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -356,7 +363,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -395,7 +402,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36329;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -409,7 +416,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -448,7 +455,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36329;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				FRAMEWORK_SEARCH_PATHS = (
@@ -462,7 +469,7 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
+				OPT_INLINEFLAGS = "";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";

@@ -45,16 +45,14 @@ using namespace KeychainCore;
 //	END_API3(name, bad) // like END_API1, with API name as debug scope for printing function result
 //
 #define BEGIN_SECAPI \
-    OSStatus __secapiresult; \
-	try { globals().storageManager.cleanup();
-#define END_SECAPI \
-	__secapiresult=noErr; } \
+    OSStatus __secapiresult = noErr; \
+	try {
+#define END_SECAPI }\
 	catch (const MacOSError &err) { __secapiresult=err.osStatus(); } \
 	catch (const CommonError &err) { __secapiresult=SecKeychainErrFromOSStatus(err.osStatus()); } \
 	catch (const std::bad_alloc &) { __secapiresult=memFullErr; } \
 	catch (...) { __secapiresult=internalComponentErr; } \
     return __secapiresult;
-	
 #define END_SECAPI1(BAD_RETURN_VAL) \
 	} \
 	catch (...) \
@@ -62,9 +60,10 @@ using namespace KeychainCore;
 		__secapiresult=BAD_RETURN_VAL; \
 	} \
 	return __secapiresult;
-
-#define END_SECAPI0 \
+#define END_SECAPI1(BAD_RETURN_VAL) }\
+    catch (...) { __secapiresult=BAD_RETURN_VAL; } \
+    return __secapiresult;
+#define END_SECAPI0 }\
     catch (...) { return; }
-
 
 #endif /* !_SECURITY_SECBRIDGE_H_ */

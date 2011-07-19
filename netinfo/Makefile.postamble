@@ -139,4 +139,6 @@ install:
 	-$(CHGRP) -R wheel $(DSTROOT)$(STRINGDIR)
 	-$(CHMOD) -R ugo-w $(DSTROOT)$(STRINGDIR)
 	-$(CHMOD) -R go+rX $(DSTROOT)$(STRINGDIR)
-
+	-$(CHMOD) -h 0755 $(DSTROOT)/System/Library/PrivateFrameworks/NetInfo.framework/Headers
+	-$(CHMOD) -h 0755 $(DSTROOT)/System/Library/PrivateFrameworks/NetInfo.framework/NetInfo
+	-$(CHMOD) -h 0755 $(DSTROOT)/System/Library/PrivateFrameworks/NetInfo.framework/Resources

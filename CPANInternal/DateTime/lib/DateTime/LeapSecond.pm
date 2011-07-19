@@ -1,7 +1,9 @@
 package DateTime::LeapSecond;
 
-use 5.005;
 use strict;
+use warnings;
+
+our $VERSION = '0.53';
 
 use vars qw( $VERSION );
 use vars qw( @RD @LEAP_SECONDS %RD_LENGTH );
@@ -73,7 +75,7 @@ sub day_length {
     exists $RD_LENGTH{ $_[0] } ? 86400 + $RD_LENGTH{ $_[0] } : 86400
 }
 
-sub initialize {
+sub _initialize {
     # this table: ftp://62.161.69.5/pub/tai/publication/leaptab.txt
     # known accurate until (at least): 2005-12-31
     #
@@ -106,10 +108,11 @@ sub initialize {
 1997  Jul. 1  +1
 1999  Jan. 1  +1
 2006  Jan. 1  +1
+2009  Jan. 1  +1
     ) );
 }
 
-__PACKAGE__->initialize;
+__PACKAGE__->_initialize();
 
 1;
 __END__
@@ -133,7 +136,7 @@ This module is used to calculate leap seconds for a given Rata Die
 day.  It is used when DateTime.pm cannot compile the XS version of
 this code.
 
-This library is known to be accurate for dates until december 2005.
+This library is known to be accurate for dates until December 2009.
 
 There are no leap seconds before 1972, because that's the year this
 system was implemented.
@@ -163,7 +166,7 @@ Flávio Soibelmann Glock, E<lt>fglock@pucrs.brE<gt>
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003 Flávio Soibelmann Glock.  Copyright (c) 2004-2005
+Copyright (c) 2003 Flávio Soibelmann Glock.  Copyright (c) 2004-2009
 David Rolsky.  All rights reserved.  This program is free software;
 you can redistribute it and/or modify it under the same terms as Perl
 itself.

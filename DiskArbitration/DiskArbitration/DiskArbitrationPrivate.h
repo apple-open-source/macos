@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -283,6 +283,8 @@ extern const CFStringRef kDAApprovalRunLoopMode;
 
 extern const CFStringRef kDADiskDescriptionAppearanceTimeKey;
 
+extern const CFStringRef kDADiskDescriptionMediaMatchKey;
+
 #ifndef __DISKARBITRATIOND__
 
 extern DASessionRef _DADiskGetSession( DADiskRef disk );
@@ -291,15 +293,11 @@ extern DAReturn _DADiskSetAdoption( DADiskRef disk, Boolean adoption );
 
 extern DAReturn _DADiskSetEncoding( DADiskRef disk, UInt32 encoding );
 
-extern DADiskRef DADiskCreateFromVolumePath( CFAllocatorRef allocator, DASessionRef session, CFURLRef path );
-
 extern pid_t DADissenterGetProcessID( DADissenterRef dissenter );
 
 typedef void ( *DAIdleCallback )( void * context );
 
 extern void DARegisterIdleCallback( DASessionRef session, DAIdleCallback callback, void * context );
-
-extern void DASessionSetDispatchQueue( DASessionRef session, dispatch_queue_t queue );
 
 #endif /* !__DISKARBITRATIOND__ */
 

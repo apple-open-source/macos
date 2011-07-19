@@ -34,8 +34,7 @@
 #if ENABLE(DOM_STORAGE)
 
 #include "EventListener.h"
-#include "ScriptObject.h"
-#include "ScriptState.h"
+#include "InspectorFrontend.h"
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -53,6 +52,7 @@ namespace WebCore {
         {
             return adoptRef(new InspectorDOMStorageResource(domStorage, isLocalStorage, frame));
         }
+
         static const InspectorDOMStorageResource* cast(const EventListener* listener)
         {
             return listener->type() == InspectorDOMStorageResourceType ? static_cast<const InspectorDOMStorageResource*>(listener) : 0;
@@ -66,7 +66,7 @@ namespace WebCore {
         virtual bool operator==(const EventListener& listener);
 
         bool isSameHostAndType(Frame*, bool isLocalStorage) const;
-        long id() const { return m_id; }
+        int id() const { return m_id; }
         Storage* domStorage() const { return m_domStorage.get(); }
 
     private:
@@ -76,7 +76,7 @@ namespace WebCore {
         RefPtr<Storage> m_domStorage;
         bool m_isLocalStorage;
         RefPtr<Frame> m_frame;
-        InspectorFrontend* m_frontend;
+        InspectorFrontend::DOMStorage* m_frontend;
         int m_id;
         bool m_reportingChangesToFrontend;
 

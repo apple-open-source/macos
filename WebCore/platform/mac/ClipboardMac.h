@@ -44,10 +44,11 @@ class Frame;
 class FileList;
 
 class ClipboardMac : public Clipboard, public CachedResourceClient {
+    WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassRefPtr<ClipboardMac> create(bool forDragging, NSPasteboard *pasteboard, ClipboardAccessPolicy policy, Frame* frame)
+    static PassRefPtr<ClipboardMac> create(ClipboardType clipboardType, NSPasteboard *pasteboard, ClipboardAccessPolicy policy, Frame* frame)
     {
-        return adoptRef(new ClipboardMac(forDragging, pasteboard, policy, frame));
+        return adoptRef(new ClipboardMac(clipboardType, pasteboard, policy, frame));
     }
 
     virtual ~ClipboardMac();
@@ -79,7 +80,7 @@ public:
     NSPasteboard *pasteboard() { return m_pasteboard.get(); }
 
 private:
-    ClipboardMac(bool forDragging, NSPasteboard *, ClipboardAccessPolicy, Frame*);
+    ClipboardMac(ClipboardType, NSPasteboard *, ClipboardAccessPolicy, Frame*);
 
     void setDragImage(CachedImage*, Node*, const IntPoint&);
 

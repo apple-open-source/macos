@@ -25,6 +25,7 @@
 #include "Chrome.h"
 #include "DataObjectGtk.h"
 #include "Frame.h"
+#include "GtkVersioning.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "TextResourceDecoder.h"
@@ -33,13 +34,41 @@
 
 namespace WebCore {
 
-static GdkAtom gdkMarkupAtom = gdk_atom_intern("text/html", FALSE);
-static GdkAtom netscapeURLAtom = gdk_atom_intern("_NETSCAPE_URL", FALSE);
-static GdkAtom uriListAtom = gdk_atom_intern("text/uri-list", FALSE);
+static GdkAtom textPlainAtom;
+static GdkAtom markupAtom;
+static GdkAtom netscapeURLAtom;
+static GdkAtom uriListAtom;
+static String gMarkupPrefix;
+
+static void removeMarkupPrefix(String& markup)
+{
+
+    // The markup prefix is not harmful, but we remove it from the string anyway, so that
+    // we can have consistent results with other ports during the layout tests.
+    if (markup.startsWith(gMarkupPrefix))
+        markup.remove(0, gMarkupPrefix.length());
+}
+
+static void initGdkAtoms()
+{
+    static gboolean initialized = FALSE;
+
+    if (initialized)
+        return;
+
+    initialized = TRUE;
+
+    textPlainAtom = gdk_atom_intern("text/plain;charset=utf-8", FALSE);
+    markupAtom = gdk_atom_intern("text/html", FALSE);
+    netscapeURLAtom = gdk_atom_intern("_NETSCAPE_URL", FALSE);
+    uriListAtom = gdk_atom_intern("text/uri-list", FALSE);
+    gMarkupPrefix = "<meta http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">";
+}
 
 PasteboardHelper::PasteboardHelper()
     : m_targetList(gtk_target_list_new(0, 0))
 {
+    initGdkAtoms();
 }
 
 PasteboardHelper::~PasteboardHelper()
@@ -47,13 +76,13 @@ PasteboardHelper::~PasteboardHelper()
     gtk_target_list_unref(m_targetList);
 }
 
-
 void PasteboardHelper::initializeTargetList()
 {
     gtk_target_list_add_text_targets(m_targetList, getIdForTargetType(TargetTypeText));
-    gtk_target_list_add(m_targetList, gdkMarkupAtom, 0, getIdForTargetType(TargetTypeMarkup));
+    gtk_target_list_add(m_targetList, markupAtom, 0, getIdForTargetType(TargetTypeMarkup));
     gtk_target_list_add_uri_targets(m_targetList, getIdForTargetType(TargetTypeURIList));
     gtk_target_list_add(m_targetList, netscapeURLAtom, 0, getIdForTargetType(TargetTypeNetscapeURL));
+    gtk_target_list_add_image_targets(m_targetList, getIdForTargetType(TargetTypeImage), TRUE);
 }
 
 static inline GtkWidget* widgetFromFrame(Frame* frame)
@@ -90,15 +119,11 @@ GtkTargetList* PasteboardHelper::targetList() const
     return m_targetList;
 }
 
-static Vector<KURL> urisToKURLVector(gchar** uris)
+static String selectionDataToUTF8String(GtkSelectionData* data)
 {
-    ASSERT(uris);
-
-    Vector<KURL> uriList;
-    for (int i = 0; *(uris + i); i++)
-        uriList.append(KURL(KURL(), *(uris + i)));
-
-    return uriList;
+    // g_strndup guards against selection data that is not null-terminated.
+    GOwnPtr<gchar> markupString(g_strndup(reinterpret_cast<const char*>(gtk_selection_data_get_data(data)), gtk_selection_data_get_length(data)));
+    return String::fromUTF8(markupString.get());
 }
 
 void PasteboardHelper::getClipboardContents(GtkClipboard* clipboard)
@@ -112,23 +137,18 @@ void PasteboardHelper::getClipboardContents(GtkClipboard* clipboard)
             dataObject->setText(String::fromUTF8(textData.get()));
     }
 
-    if (gtk_clipboard_wait_is_target_available(clipboard, gdkMarkupAtom)) {
-       if (GtkSelectionData* data = gtk_clipboard_wait_for_contents(clipboard, gdkMarkupAtom)) {
-          RefPtr<TextResourceDecoder> decoder(TextResourceDecoder::create("text/plain", "UTF-8", true));
-          String markup(decoder->decode(reinterpret_cast<char*>(data->data), data->length));
-          markup += decoder->flush();
-          dataObject->setMarkup(markup);
-          gtk_selection_data_free(data);
-       }
+    if (gtk_clipboard_wait_is_target_available(clipboard, markupAtom)) {
+        if (GtkSelectionData* data = gtk_clipboard_wait_for_contents(clipboard, markupAtom)) {
+            String markup(selectionDataToUTF8String(data));
+            removeMarkupPrefix(markup);
+            dataObject->setMarkup(markup);
+            gtk_selection_data_free(data);
+        }
     }
 
     if (gtk_clipboard_wait_is_target_available(clipboard, uriListAtom)) {
         if (GtkSelectionData* data = gtk_clipboard_wait_for_contents(clipboard, uriListAtom)) {
-            gchar** uris = gtk_selection_data_get_uris(data);
-            if (uris) {
-                dataObject->setURIList(urisToKURLVector(uris));
-                g_strfreev(uris);
-            }
+            dataObject->setURIList(selectionDataToUTF8String(data));
             gtk_selection_data_free(data);
         }
     }
@@ -140,18 +160,16 @@ void PasteboardHelper::fillSelectionData(GtkSelectionData* selectionData, guint 
         gtk_selection_data_set_text(selectionData, dataObject->text().utf8().data(), -1);
 
     else if (info == getIdForTargetType(TargetTypeMarkup)) {
-        GOwnPtr<gchar> markup(g_strdup(dataObject->markup().utf8().data()));
-        gtk_selection_data_set(selectionData, selectionData->target, 8,
-            reinterpret_cast<const guchar*>(markup.get()), strlen(markup.get()));
+        // Some Linux applications refuse to accept pasted markup unless it is
+        // prefixed by a content-type meta tag.
+        CString markup = String(gMarkupPrefix + dataObject->markup()).utf8();
+        gtk_selection_data_set(selectionData, markupAtom, 8,
+            reinterpret_cast<const guchar*>(markup.data()), markup.length() + 1);
 
     } else if (info == getIdForTargetType(TargetTypeURIList)) {
-        Vector<KURL> uriList(dataObject->uriList());
-        gchar** uris = g_new0(gchar*, uriList.size() + 1);
-        for (size_t i = 0; i < uriList.size(); i++)
-            uris[i] = g_strdup(uriList[i].string().utf8().data());
-
-        gtk_selection_data_set_uris(selectionData, uris);
-        g_strfreev(uris);
+        CString uriList = dataObject->uriList().utf8();
+        gtk_selection_data_set(selectionData, uriListAtom, 8,
+            reinterpret_cast<const guchar*>(uriList.data()), uriList.length() + 1);
 
     } else if (info == getIdForTargetType(TargetTypeNetscapeURL) && dataObject->hasURL()) {
         String url(dataObject->url());
@@ -164,8 +182,8 @@ void PasteboardHelper::fillSelectionData(GtkSelectionData* selectionData, guint 
             result.append(url);
 
         GOwnPtr<gchar> resultData(g_strdup(result.utf8().data()));
-        gtk_selection_data_set(selectionData, selectionData->target, 8,
-            reinterpret_cast<const guchar*>(resultData.get()), strlen(resultData.get()));
+        gtk_selection_data_set(selectionData, netscapeURLAtom, 8,
+            reinterpret_cast<const guchar*>(resultData.get()), strlen(resultData.get()) + 1);
 
     } else if (info == getIdForTargetType(TargetTypeImage))
         gtk_selection_data_set_pixbuf(selectionData, dataObject->image());
@@ -179,7 +197,7 @@ GtkTargetList* PasteboardHelper::targetListForDataObject(DataObjectGtk* dataObje
         gtk_target_list_add_text_targets(list, getIdForTargetType(TargetTypeText));
 
     if (dataObject->hasMarkup())
-        gtk_target_list_add(list, gdkMarkupAtom, 0, getIdForTargetType(TargetTypeMarkup));
+        gtk_target_list_add(list, markupAtom, 0, getIdForTargetType(TargetTypeMarkup));
 
     if (dataObject->hasURIList()) {
         gtk_target_list_add_uri_targets(list, getIdForTargetType(TargetTypeURIList));
@@ -190,6 +208,53 @@ GtkTargetList* PasteboardHelper::targetListForDataObject(DataObjectGtk* dataObje
         gtk_target_list_add_image_targets(list, getIdForTargetType(TargetTypeImage), TRUE);
 
     return list;
+}
+
+void PasteboardHelper::fillDataObjectFromDropData(GtkSelectionData* data, guint info, DataObjectGtk* dataObject)
+{
+    if (!gtk_selection_data_get_data(data))
+        return;
+
+    GdkAtom target = gtk_selection_data_get_target(data);
+    if (target == textPlainAtom)
+        dataObject->setText(selectionDataToUTF8String(data));
+    else if (target == markupAtom) {
+        String markup(selectionDataToUTF8String(data));
+        removeMarkupPrefix(markup);
+        dataObject->setMarkup(markup);
+    } else if (target == uriListAtom) {
+        dataObject->setURIList(selectionDataToUTF8String(data));
+    } else if (target == netscapeURLAtom) {
+        String urlWithLabel(selectionDataToUTF8String(data));
+        Vector<String> pieces;
+        urlWithLabel.split("\n", pieces);
+
+        // Give preference to text/uri-list here, as it can hold more
+        // than one URI but still take  the label if there is one.
+        if (!dataObject->hasURIList())
+            dataObject->setURIList(pieces[0]);
+        if (pieces.size() > 1)
+            dataObject->setText(pieces[1]);
+    }
+}
+
+Vector<GdkAtom> PasteboardHelper::dropAtomsForContext(GtkWidget* widget, GdkDragContext* context)
+{
+    // Always search for these common atoms.
+    Vector<GdkAtom> dropAtoms;
+    dropAtoms.append(textPlainAtom);
+    dropAtoms.append(markupAtom);
+    dropAtoms.append(uriListAtom);
+    dropAtoms.append(netscapeURLAtom);
+
+    // For images, try to find the most applicable image type.
+    GRefPtr<GtkTargetList> list(gtk_target_list_new(0, 0));
+    gtk_target_list_add_image_targets(list.get(), getIdForTargetType(TargetTypeImage), TRUE);
+    GdkAtom atom = gtk_drag_dest_find_target(widget, context, list.get());
+    if (atom != GDK_NONE)
+        dropAtoms.append(atom);
+
+    return dropAtoms;
 }
 
 static DataObjectGtk* settingClipboardDataObject = 0;
@@ -234,6 +299,7 @@ void PasteboardHelper::writeClipboardContents(GtkClipboard* clipboard, GClosure*
 
         gtk_clipboard_set_with_data(clipboard, table, numberOfTargets,
             getClipboardContentsCallback, clearClipboardContentsCallback, callback);
+        gtk_clipboard_set_can_store(clipboard, 0, 0);
 
         settingClipboardDataObject = 0;
 

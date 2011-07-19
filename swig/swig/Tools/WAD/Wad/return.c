@@ -26,7 +26,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/return.c,v 1.7 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: return.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* Maximum number of return points */
 #define WAD_NUMBER_RETURN  128

@@ -8,14 +8,14 @@
 .Nd monitors scheduling and interrupt latency
 .Sh SYNOPSIS
 .Nm latency
-.Op Fl rt
+.Op Fl p
 .Op Fl h
-.Op Fl c Ar code_file
-.Op Fl l Ar log_file
+.Op Fl m
 .Op Fl st Ar threshold
 .Op Fl it Ar threshold
-.Op Fl s Ar sleep_in_usecs
-.Op Fl d Ar decrementer_in_usecs
+.Op Fl c Ar code_file
+.Op Fl l Ar log_file
+.Op Fl R Ar raw_file
 .Op Fl n Ar kernel
 .Sh DESCRIPTION
 The
@@ -35,9 +35,11 @@ that contains the mappings for the system calls.
 This option overrides the default location of the system call code file,
 which is found in /usr/share/misc/trace.codes.
 .\" ==========
-.It Fl d Ar decrementer_in_usecs
-Sets the decrementer, using a value expressed in microseconds.
-On exit, the decrementer is set back to the system default value.
+.It Fl h
+Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.
+.\" ==========
+.It Fl m
+Display per-CPU interrupt latency statistics.
 .\" ==========
 .It Fl it Ar threshold
 Set the interrupt latency threshold,
@@ -56,21 +58,16 @@ By default,
 acts on the default /mach_kernel.
 This option allows you to specify an alternate booted kernel.
 .\" ==========
-.It Fl rt
-Sets the real-time scheduling policy.
-Default policy is timeshare.
-.\" ==========
-.It Fl h
-Display high resolution interrupt latencies and write them to latencies.csv (truncate existing file) upon exit.
-.\" ==========
-.It Fl s Ar sleep_in_usecs
-Sets the timer, taking an argument expressed in microseconds.
-The default timer is set to 1000 microseconds.
+.It Fl p Ar priority
+Specifies the priority level to observe scheduler latencies for.
 .\" ==========
 .It Fl st Ar threshold
 Set the scheduler latency threshold in microseconds.
 If latency exceeds this, and a log file has been specified,
 a record of what occurred during this time is recorded.
+.\" ==========
+.It Fl R Ar raw_file
+Specifies a raw trace file to use as input.
 .El
 .Pp
 The data columns displayed are as follows:
@@ -87,11 +84,11 @@ utility is also SIGWINCH savvy, so adjusting your window geometry will change
 the list of delay values displayed.
 .Sh SAMPLE USAGE
 .Pp
-latency -rt -st 20000 -it 1000 -l /var/tmp/latency.log
+latency -p 97 -st 20000 -it 1000 -l /var/tmp/latency.log
 .Pp
 The
 .Nm latency
-utility will set the realtime scheduling policy.
+utility will watch threads with priority 97 for scheduling latencies.
 The threshold for the scheduler is set to 20000 microseconds.
 The threshold for interrupts is set to 1000 microseconds.
 Latencies that exceed these thresholds will be logged in /var/tmp/latency.log.

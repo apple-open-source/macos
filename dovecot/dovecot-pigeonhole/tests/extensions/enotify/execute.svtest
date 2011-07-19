@@ -1,0 +1,99 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+
+
+/*
+ * Execution testing (currently just meant to trigger any segfaults)
+ */
+
+test "RFC Example 1" {
+	if not test_script_compile "execute/draft-rfc-ex1.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script run failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+test "RFC Example 2" {
+	if not test_script_compile "execute/draft-rfc-ex2.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+/* tel: not supported
+test "RFC Example 3" {
+	if not test_script_compile "execute/draft-rfc-ex3.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+*/
+
+/* tel: and xmmp: not supported
+test "RFC Example 5" {
+	if not test_script_compile "execute/draft-rfc-ex5.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+*/
+
+test "RFC Example 6" {
+	if not test_script_compile "execute/draft-rfc-ex6.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}
+
+test "Duplicate recipients" {
+	if not test_script_compile "execute/duplicates.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if test_result_action :count "ne" "2" {
+		test_fail "second notify action was discarded entirely";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";
+	}
+}

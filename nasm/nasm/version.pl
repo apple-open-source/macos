@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 #
 # version.pl
-# $Id: version.pl,v 1.1.1.1 2005/10/13 22:21:48 echristo Exp $
+# $Id: version.pl,v 1.1.1.1 2005-10-13 22:21:48 echristo Exp $
 #
 # Parse the NASM version file and produce appropriate macros
 #

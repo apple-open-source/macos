@@ -1,11 +1,16 @@
 %module li_std_wstring
+%include <std_basic_string.i>
 %include <std_wstring.i>
 
 
 %inline %{
-#include <string>
 
-typedef std::wstring A;
+struct A : std::wstring 
+{
+  A(const std::wstring& s) : std::wstring(s)
+  {
+  }
+};
 
 struct B 
 {

@@ -31,7 +31,7 @@
 	$Log: IOFireWireLibPriv.h,v $
 	Revision 1.70  2009/01/16 02:53:19  collin
 	and finally put TOT back...
-	
+
 	Revision 1.66  2009/01/15 01:40:02  collin
 	<rdar://problem/6400981> BRB-VERIFY: 10A222: Trying to record a movie through QT X, getting error message.
 	

@@ -1,41 +1,44 @@
-/* -----------------------------------------------------------------------------
- * See the LICENSE file for information on copyright, usage and redistribution
- * of SWIG, and the README file for authors - http://www.swig.org/release.html.
- *
- * std_common.i
- *
- * SWIG typemaps for STL - common utilities
- * ----------------------------------------------------------------------------- */
-
 %include <std/std_except.i>
+%include <rubystdcommon.swg>
+%include <rubystdautodoc.swg>
 
-%apply size_t { std::size_t };
 
-%{
-#include <string>
+/*
+  Generate the traits for a 'primitive' type, such as 'double',
+  for which the SWIG_AsVal and SWIG_From methods are already defined.
+*/
 
-#define SWIG_FLOAT_P(x) ((TYPE(x) == T_FLOAT) || FIXNUM_P(x))
+%define %traits_ptypen(Type...)
+  %fragment(SWIG_Traits_frag(Type),"header",
+	    fragment=SWIG_AsVal_frag(Type),
+	    fragment=SWIG_From_frag(Type),
+	    fragment="StdTraits") {
+namespace swig {
+  template <> struct traits<Type > {
+    typedef value_category category;
+    static const char* type_name() { return  #Type; }
+  };  
+  template <>  struct traits_asval<Type > {   
+    typedef Type value_type;
+    static int asval(VALUE obj, value_type *val) { 
+      return SWIG_AsVal(Type)(obj, val);
+    }
+  };
+  template <>  struct traits_from<Type > {
+    typedef Type value_type;
+    static VALUE from(const value_type& val) {
+      return SWIG_From(Type)(val);
+    }
+  };
+}
+}
+%enddef
 
-bool SWIG_BOOL_P(VALUE) {
-    // dummy test, RTEST should take care of everything
-    return true;
-}
-bool SWIG_RB2BOOL(VALUE x) {
-    return RTEST(x);
-}
-VALUE SWIG_BOOL2RB(bool b) {
-    return b ? Qtrue : Qfalse;
-}
-double SWIG_NUM2DBL(VALUE x) {
-    return (FIXNUM_P(x) ? FIX2INT(x) : NUM2DBL(x));
-}
-bool SWIG_STRING_P(VALUE x) {
-    return TYPE(x) == T_STRING;
-}
-std::string SWIG_RB2STR(VALUE x) {
-    return std::string(RSTRING_PTR(x), RSTRING_LEN(x));
-}
-VALUE SWIG_STR2RB(const std::string& s) {
-    return rb_str_new(s.data(), s.size());
-}
-%}
+
+%include <std/std_common.i>
+
+//
+// Generates the traits for all the known primitive
+// C++ types (int, double, ...)
+//
+%apply_cpptypes(%traits_ptypen);

@@ -16,32 +16,35 @@
 
 #include "llvm/ExecutionEngine/ExecutionEngine.h"
 #include "llvm/PassManager.h"
+#include "llvm/Support/ValueHandle.h"
 
 namespace llvm {
 
 class Function;
-class TargetMachine;
-class TargetJITInfo;
+struct JITEvent_EmittedFunctionDetails;
 class MachineCodeEmitter;
+class MachineCodeInfo;
+class TargetJITInfo;
+class TargetMachine;
 
 class JITState {
 private:
   FunctionPassManager PM;  // Passes to compile a function
-  ModuleProvider *MP;      // ModuleProvider used to create the PM
+  Module *M;               // Module used to create the PM
 
   /// PendingFunctions - Functions which have not been code generated yet, but
   /// were called from a function being code generated.
-  std::vector<Function*> PendingFunctions;
+  std::vector<AssertingVH<Function> > PendingFunctions;
 
 public:
-  explicit JITState(ModuleProvider *MP) : PM(MP), MP(MP) {}
+  explicit JITState(Module *M) : PM(M), M(M) {}
 
   FunctionPassManager &getPM(const MutexGuard &L) {
     return PM;
   }
   
-  ModuleProvider *getMP() const { return MP; }
-  std::vector<Function*> &getPendingFunctions(const MutexGuard &L) {
+  Module *getModule() const { return M; }
+  std::vector<AssertingVH<Function> > &getPendingFunctions(const MutexGuard &L){
     return PendingFunctions;
   }
 };
@@ -50,17 +53,28 @@ public:
 class JIT : public ExecutionEngine {
   TargetMachine &TM;       // The current target we are compiling to
   TargetJITInfo &TJI;      // The JITInfo for the target we are compiling to
-  MachineCodeEmitter *MCE; // MCE object
+  JITCodeEmitter *JCE;     // JCE object
+  std::vector<JITEventListener*> EventListeners;
+
+  /// AllocateGVsWithCode - Some applications require that global variables and
+  /// code be allocated into the same region of memory, in which case this flag
+  /// should be set to true.  Doing so breaks freeMachineCodeForFunction.
+  bool AllocateGVsWithCode;
+
+  /// True while the JIT is generating code.  Used to assert against recursive
+  /// entry.
+  bool isAlreadyCodeGenerating;
 
   JITState *jitstate;
 
-  JIT(ModuleProvider *MP, TargetMachine &tm, TargetJITInfo &tji, 
-      JITMemoryManager *JMM, CodeGenOpt::Level OptLevel);
+  JIT(Module *M, TargetMachine &tm, TargetJITInfo &tji,
+      JITMemoryManager *JMM, CodeGenOpt::Level OptLevel,
+      bool AllocateGVsWithCode);
 public:
   ~JIT();
 
   static void Register() {
-    JITCtor = create;
+    JITCtor = createJIT;
   }
   
   /// getJITInfo - Return the target JIT information structure.
@@ -70,24 +84,22 @@ public:
   /// create - Create an return a new JIT compiler if there is one available
   /// for the current target.  Otherwise, return null.
   ///
-  static ExecutionEngine *create(ModuleProvider *MP, std::string *Err,
+  static ExecutionEngine *create(Module *M,
+                                 std::string *Err,
+                                 JITMemoryManager *JMM,
                                  CodeGenOpt::Level OptLevel =
-                                   CodeGenOpt::Default) {
-    return createJIT(MP, Err, 0, OptLevel);
+                                   CodeGenOpt::Default,
+                                 bool GVsWithCode = true,
+				 CodeModel::Model CMM = CodeModel::Default) {
+    return ExecutionEngine::createJIT(M, Err, JMM, OptLevel, GVsWithCode,
+				      CMM);
   }
 
-  virtual void addModuleProvider(ModuleProvider *MP);
+  virtual void addModule(Module *M);
   
-  /// removeModuleProvider - Remove a ModuleProvider from the list of modules.
-  /// Relases the Module from the ModuleProvider, materializing it in the
-  /// process, and returns the materialized Module.
-  virtual Module *removeModuleProvider(ModuleProvider *MP,
-                                       std::string *ErrInfo = 0);
-
-  /// deleteModuleProvider - Remove a ModuleProvider from the list of modules,
-  /// and deletes the ModuleProvider and owned Module.  Avoids materializing 
-  /// the underlying module.
-  virtual void deleteModuleProvider(ModuleProvider *P,std::string *ErrInfo = 0);
+  /// removeModule - Remove a Module from the list of modules.  Returns true if
+  /// M is found.
+  virtual bool removeModule(Module *M);
 
   /// runFunction - Start execution with the specified function and arguments.
   ///
@@ -115,6 +127,11 @@ public:
   ///
   void *getPointerToFunction(Function *F);
 
+  void *getPointerToBasicBlock(BasicBlock *BB) {
+    assert(0 && "JIT does not support address-of-label yet!");
+    return 0;
+  }
+  
   /// getOrEmitGlobalVariable - Return the address of the specified global
   /// variable, possibly emitting it to memory if needed.  This is used by the
   /// Emitter.
@@ -142,23 +159,50 @@ public:
   /// addPendingFunction - while jitting non-lazily, a called but non-codegen'd
   /// function was encountered.  Add it to a pending list to be processed after 
   /// the current function.
-  /// 
+  ///
   void addPendingFunction(Function *F);
-  
+
   /// getCodeEmitter - Return the code emitter this JIT is emitting into.
-  MachineCodeEmitter *getCodeEmitter() const { return MCE; }
-  
-  static ExecutionEngine *createJIT(ModuleProvider *MP, std::string *Err,
+  ///
+  JITCodeEmitter *getCodeEmitter() const { return JCE; }
+
+  /// selectTarget - Pick a target either via -march or by guessing the native
+  /// arch.  Add any CPU features specified via -mcpu or -mattr.
+  static TargetMachine *selectTarget(Module *M,
+                                     StringRef MArch,
+                                     StringRef MCPU,
+                                     const SmallVectorImpl<std::string>& MAttrs,
+                                     std::string *Err);
+
+  static ExecutionEngine *createJIT(Module *M,
+                                    std::string *ErrorStr,
                                     JITMemoryManager *JMM,
-                                    CodeGenOpt::Level OptLevel);
-  
+                                    CodeGenOpt::Level OptLevel,
+                                    bool GVsWithCode,
+                                    CodeModel::Model CMM,
+                                    StringRef MArch,
+                                    StringRef MCPU,
+                                    const SmallVectorImpl<std::string>& MAttrs);
+
+  // Run the JIT on F and return information about the generated code
+  void runJITOnFunction(Function *F, MachineCodeInfo *MCI = 0);
+
+  virtual void RegisterJITEventListener(JITEventListener *L);
+  virtual void UnregisterJITEventListener(JITEventListener *L);
+  /// These functions correspond to the methods on JITEventListener.  They
+  /// iterate over the registered listeners and call the corresponding method on
+  /// each.
+  void NotifyFunctionEmitted(
+      const Function &F, void *Code, size_t Size,
+      const JITEvent_EmittedFunctionDetails &Details);
+  void NotifyFreeingMachineCode(void *OldPtr);
+
 private:
-  static MachineCodeEmitter *createEmitter(JIT &J, JITMemoryManager *JMM);
-  void runJITOnFunction(Function *F);
+  static JITCodeEmitter *createEmitter(JIT &J, JITMemoryManager *JMM,
+                                       TargetMachine &tm);
   void runJITOnFunctionUnlocked(Function *F, const MutexGuard &locked);
   void updateFunctionStub(Function *F);
-  void updateDlsymStubTable();
-  
+
 protected:
 
   /// getMemoryforGV - Allocate memory for a global variable.

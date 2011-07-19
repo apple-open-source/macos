@@ -5,7 +5,7 @@
 #                            | (__| |_| |  _ <| |___
 #                             \___|\___/|_| \_\_____|
 #
-# Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+# Copyright (C) 1998 - 2010, Daniel Stenberg, <daniel@haxx.se>, et al.
 #
 # This software is licensed as described in the file COPYING, which
 # you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
 # This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
 # KIND, either express or implied.
 #
-# $Id: Makefile.am,v 1.84 2009-07-14 13:25:15 gknauf Exp $
 ###########################################################################
 AUTOMAKE_OPTIONS = foreign nostdinc
 
@@ -27,7 +26,8 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 # being currently built and tested are searched before the library which
 # might possibly already be installed in the system.
 #
-# $(top_builddir)/include is for libcurl's generated curl/curlbuild.h file
+# $(top_builddir)/include/curl for generated curlbuild.h included from curl.h
+# $(top_builddir)/include for generated curlbuild.h included from lib/setup.h
 # $(top_srcdir)/include is for libcurl's external include files
 # $(top_builddir)/lib is for libcurl's generated lib/curl_config.h file
 # $(top_srcdir)/lib is for libcurl's lib/setup.h and other "borrowed" files
@@ -35,25 +35,49 @@ AUTOMAKE_OPTIONS = foreign nostdinc
 # $(top_srcdir)/ares is for in-tree c-ares's external include files
 
 if USE_EMBEDDED_ARES
-INCLUDES = -I$(top_builddir)/include \
-           -I$(top_srcdir)/include   \
-           -I$(top_builddir)/lib     \
-           -I$(top_srcdir)/lib       \
-           -I$(top_builddir)/ares    \
+INCLUDES = -I$(top_builddir)/include/curl \
+           -I$(top_builddir)/include      \
+           -I$(top_srcdir)/include        \
+           -I$(top_builddir)/lib          \
+           -I$(top_srcdir)/lib            \
+           -I$(top_builddir)/ares         \
            -I$(top_srcdir)/ares
 else
-INCLUDES = -I$(top_builddir)/include \
-           -I$(top_srcdir)/include   \
-           -I$(top_builddir)/lib     \
-           -I$(top_srcdir)/lib 
+INCLUDES = -I$(top_builddir)/include/curl \
+           -I$(top_builddir)/include      \
+           -I$(top_srcdir)/include        \
+           -I$(top_builddir)/lib          \
+           -I$(top_srcdir)/lib
 endif
 
 EXTRA_DIST = test75.pl test307.pl test610.pl test613.pl test1013.pl	\
 test1022.pl Makefile.inc
 
 # Dependencies (may need to be overriden)
-LDADD = $(top_builddir)/lib/libcurl.la
+LDADD = $(top_builddir)/lib/libcurl.la @CURL_LIBS@
 DEPENDENCIES = $(top_builddir)/lib/libcurl.la
 
-# Makefile.inc provides the source defines (TESTUTIL, SUPPORTFILES, noinst_PROGRAMS, lib*_SOURCES, and lib*_CFLAGS)
+# Makefile.inc provides the source defines (TESTUTIL, SUPPORTFILES,
+# noinst_PROGRAMS, lib*_SOURCES, and lib*_CFLAGS)
 include Makefile.inc
+
+# Preloading of libhostname allows host name overriding,
+# this is used to make some tests machine independent.
+
+if BUILD_LIBHOSTNAME
+noinst_LTLIBRARIES = libhostname.la
+else
+noinst_LTLIBRARIES =
+endif
+
+if NO_UNDEFINED
+# The -no-undefined flag is crucial to build fine on some platforms
+UNDEF = -no-undefined
+endif
+
+libhostname_la_SOURCES = sethostname.c sethostname.h
+
+libhostname_la_LIBADD =
+libhostname_la_DEPENDENCIES =
+libhostname_la_LDFLAGS = -module -avoid-version $(UNDEF) -rpath /nowhere
+

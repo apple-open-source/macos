@@ -7,15 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LLVM_TYPE_H
 #define LLVM_TYPE_H
 
 #include "llvm/AbstractTypeUser.h"
 #include "llvm/Support/Casting.h"
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/iterator.h"
 #include <string>
 #include <vector>
 
@@ -27,6 +25,7 @@ class IntegerType;
 class TypeMapBase;
 class raw_ostream;
 class Module;
+class LLVMContext;
 
 /// This file contains the declaration of the Type class.  For more "Type" type
 /// stuff, look in DerivedTypes.h.
@@ -65,6 +64,7 @@ public:
   /// value, you can cast to a "DerivedType" subclass (see DerivedTypes.h)
   /// Note: If you add an element to this, you need to add an element to the
   /// Type::getPrimitiveType function, or else things will break!
+  /// Also update LLVMTypeKind and LLVMGetTypeKind () in the C binding.
   ///
   enum TypeID {
     // PrimitiveTypes .. make sure LastPrimitiveTyID stays up to date
@@ -75,19 +75,21 @@ public:
     FP128TyID,       ///<  4: 128 bit floating point type (112-bit mantissa)
     PPC_FP128TyID,   ///<  5: 128 bit floating point type (two 64-bits)
     LabelTyID,       ///<  6: Labels
+    MetadataTyID,    ///<  7: Metadata
 
     // Derived types... see DerivedTypes.h file...
     // Make sure FirstDerivedTyID stays up to date!!!
-    IntegerTyID,     ///<  7: Arbitrary bit width integers
-    FunctionTyID,    ///<  8: Functions
-    StructTyID,      ///<  9: Structures
-    ArrayTyID,       ///< 10: Arrays
-    PointerTyID,     ///< 11: Pointers
-    OpaqueTyID,      ///< 12: Opaque: type with unknown structure
-    VectorTyID,      ///< 13: SIMD 'packed' format, or other vector type
+    IntegerTyID,     ///<  8: Arbitrary bit width integers
+    FunctionTyID,    ///<  9: Functions
+    StructTyID,      ///< 10: Structures
+    UnionTyID,       ///< 11: Unions
+    ArrayTyID,       ///< 12: Arrays
+    PointerTyID,     ///< 13: Pointers
+    OpaqueTyID,      ///< 14: Opaque: type with unknown structure
+    VectorTyID,      ///< 15: SIMD 'packed' format, or other vector type
 
     NumTypeIDs,                         // Must remain as last defined ID
-    LastPrimitiveTyID = LabelTyID,
+    LastPrimitiveTyID = MetadataTyID,
     FirstDerivedTyID = IntegerTyID
   };
 
@@ -103,6 +105,10 @@ private:
   ///
   mutable unsigned RefCount;
 
+  /// Context - This refers to the LLVMContext in which this type was uniqued.
+  LLVMContext &Context;
+  friend class LLVMContextImpl;
+
   const Type *getForwardedTypeInternal() const;
 
   // Some Type instances are allocated as arrays, some aren't. So we provide
@@ -110,8 +116,10 @@ private:
   void destroy() const; // const is a lie, this does "delete this"!
 
 protected:
-  explicit Type(TypeID id) : ID(id), Abstract(false), SubclassData(0),
-                             RefCount(0), ForwardType(0), NumContainedTys(0),
+  explicit Type(LLVMContext &C, TypeID id) :
+                             ID(id), Abstract(false), SubclassData(0),
+                             RefCount(0), Context(C),
+                             ForwardType(0), NumContainedTys(0),
                              ContainedTys(0) {}
   virtual ~Type() {
     assert(AbstractTypeUsers.empty() && "Abstract types remain");
@@ -158,7 +166,6 @@ protected:
 
 public:
   void print(raw_ostream &O) const;
-  void print(std::ostream &O) const;
 
   /// @brief Debugging support: print to stderr
   void dump() const;
@@ -167,44 +174,102 @@ public:
   /// module).
   void dump(const Module *Context) const;
 
+  /// getContext - Fetch the LLVMContext in which this type was uniqued.
+  LLVMContext &getContext() const { return Context; }
+
   //===--------------------------------------------------------------------===//
   // Property accessors for dealing with types... Some of these virtual methods
   // are defined in private classes defined in Type.cpp for primitive types.
   //
+
+  /// getDescription - Return the string representation of the type.
+  std::string getDescription() const;
 
   /// getTypeID - Return the type id for the type.  This will return one
   /// of the TypeID enum elements defined above.
   ///
   inline TypeID getTypeID() const { return ID; }
 
-  /// getDescription - Return the string representation of the type.
-  std::string getDescription() const;
+  /// isVoidTy - Return true if this is 'void'.
+  bool isVoidTy() const { return ID == VoidTyID; }
 
-  /// isInteger - True if this is an instance of IntegerType.
-  ///
-  bool isInteger() const { return ID == IntegerTyID; } 
-
-  /// isIntOrIntVector - Return true if this is an integer type or a vector of
-  /// integer types.
-  ///
-  bool isIntOrIntVector() const;
+  /// isFloatTy - Return true if this is 'float', a 32-bit IEEE fp type.
+  bool isFloatTy() const { return ID == FloatTyID; }
   
-  /// isFloatingPoint - Return true if this is one of the two floating point
+  /// isDoubleTy - Return true if this is 'double', a 64-bit IEEE fp type.
+  bool isDoubleTy() const { return ID == DoubleTyID; }
+
+  /// isX86_FP80Ty - Return true if this is x86 long double.
+  bool isX86_FP80Ty() const { return ID == X86_FP80TyID; }
+
+  /// isFP128Ty - Return true if this is 'fp128'.
+  bool isFP128Ty() const { return ID == FP128TyID; }
+
+  /// isPPC_FP128Ty - Return true if this is powerpc long double.
+  bool isPPC_FP128Ty() const { return ID == PPC_FP128TyID; }
+
+  /// isFloatingPointTy - Return true if this is one of the five floating point
   /// types
-  bool isFloatingPoint() const { return ID == FloatTyID || ID == DoubleTyID ||
+  bool isFloatingPointTy() const { return ID == FloatTyID || ID == DoubleTyID ||
       ID == X86_FP80TyID || ID == FP128TyID || ID == PPC_FP128TyID; }
 
-  /// isFPOrFPVector - Return true if this is a FP type or a vector of FP types.
+  /// isFPOrFPVectorTy - Return true if this is a FP type or a vector of FP.
   ///
-  bool isFPOrFPVector() const;
+  bool isFPOrFPVectorTy() const;
+ 
+  /// isLabelTy - Return true if this is 'label'.
+  bool isLabelTy() const { return ID == LabelTyID; }
+
+  /// isMetadataTy - Return true if this is 'metadata'.
+  bool isMetadataTy() const { return ID == MetadataTyID; }
+
+  /// isIntegerTy - True if this is an instance of IntegerType.
+  ///
+  bool isIntegerTy() const { return ID == IntegerTyID; } 
+
+  /// isIntegerTy - Return true if this is an IntegerType of the given width.
+  bool isIntegerTy(unsigned Bitwidth) const;
+
+  /// isIntOrIntVectorTy - Return true if this is an integer type or a vector of
+  /// integer types.
+  ///
+  bool isIntOrIntVectorTy() const;
   
+  /// isFunctionTy - True if this is an instance of FunctionType.
+  ///
+  bool isFunctionTy() const { return ID == FunctionTyID; }
+
+  /// isStructTy - True if this is an instance of StructType.
+  ///
+  bool isStructTy() const { return ID == StructTyID; }
+
+  /// isUnionTy - True if this is an instance of UnionType.
+  ///
+  bool isUnionTy() const { return ID == UnionTyID; }
+
+  /// isArrayTy - True if this is an instance of ArrayType.
+  ///
+  bool isArrayTy() const { return ID == ArrayTyID; }
+
+  /// isPointerTy - True if this is an instance of PointerType.
+  ///
+  bool isPointerTy() const { return ID == PointerTyID; }
+
+  /// isOpaqueTy - True if this is an instance of OpaqueType.
+  ///
+  bool isOpaqueTy() const { return ID == OpaqueTyID; }
+
+  /// isVectorTy - True if this is an instance of VectorType.
+  ///
+  bool isVectorTy() const { return ID == VectorTyID; }
+
   /// isAbstract - True if the type is either an Opaque type, or is a derived
   /// type that includes an opaque type somewhere in it.
   ///
   inline bool isAbstract() const { return Abstract; }
 
   /// canLosslesslyBitCastTo - Return true if this type could be converted 
-  /// with a lossless BitCast to type 'Ty'. For example, uint to int. BitCasts 
+  /// with a lossless BitCast to type 'Ty'. For example, i8* to i32*. BitCasts 
   /// are valid for types of the same size only where no re-interpretation of 
   /// the bits is done.
   /// @brief Determine if this type could be losslessly bitcast to Ty
@@ -241,7 +306,7 @@ public:
   /// does not include vector types.
   ///
   inline bool isAggregateType() const {
-    return ID == StructTyID || ID == ArrayTyID;
+    return ID == StructTyID || ID == ArrayTyID || ID == UnionTyID;
   }
 
   /// isSized - Return true if it makes sense to take the size of this type.  To
@@ -250,11 +315,12 @@ public:
   ///
   bool isSized() const {
     // If it's a primitive, it is always sized.
-    if (ID == IntegerTyID || isFloatingPoint() || ID == PointerTyID)
+    if (ID == IntegerTyID || isFloatingPointTy() || ID == PointerTyID)
       return true;
     // If it is not something that can have a size (e.g. a function or label),
     // it doesn't have a size.
-    if (ID != StructTyID && ID != ArrayTyID && ID != VectorTyID)
+    if (ID != StructTyID && ID != ArrayTyID && ID != VectorTyID &&
+        ID != UnionTyID)
       return false;
     // If it is something that can have a size and it's concrete, it definitely
     // has a size, otherwise we have to try harder to decide.
@@ -266,20 +332,22 @@ public:
   /// This will return zero if the type does not have a size or is not a
   /// primitive type.
   ///
+  /// Note that this may not reflect the size of memory allocated for an
+  /// instance of the type or the number of bytes that are written when an
+  /// instance of the type is stored to memory. The TargetData class provides
+  /// additional query functions to provide this information.
+  ///
   unsigned getPrimitiveSizeInBits() const;
-  
+
+  /// getScalarSizeInBits - If this is a vector type, return the
+  /// getPrimitiveSizeInBits value for the element type. Otherwise return the
+  /// getPrimitiveSizeInBits value for this type.
+  unsigned getScalarSizeInBits() const;
+
   /// getFPMantissaWidth - Return the width of the mantissa of this type.  This
-  /// is only valid on scalar floating point types.  If the FP type does not
+  /// is only valid on floating point types.  If the FP type does not
   /// have a stable mantissa (e.g. ppc long double), this method returns -1.
-  int getFPMantissaWidth() const {
-    assert(isFloatingPoint() && "Not a floating point type!");
-    if (ID == FloatTyID) return 24;
-    if (ID == DoubleTyID) return 53;
-    if (ID == X86_FP80TyID) return 64;
-    if (ID == FP128TyID) return 113;
-    assert(ID == PPC_FP128TyID && "unknown fp type");
-    return -1;
-  }
+  int getFPMantissaWidth() const;
 
   /// getForwardedType - Return the type that this type has been resolved to if
   /// it has been resolved to anything.  This is used to implement the
@@ -293,7 +361,11 @@ public:
   /// getVAArgsPromotedType - Return the type an argument of this type
   /// will be promoted to if passed through a variable argument
   /// function.
-  const Type *getVAArgsPromotedType() const; 
+  const Type *getVAArgsPromotedType(LLVMContext &C) const; 
+
+  /// getScalarType - If this is a vector type, return the element type,
+  /// otherwise return this.
+  const Type *getScalarType() const;
 
   //===--------------------------------------------------------------------===//
   // Type Iteration support
@@ -321,14 +393,42 @@ public:
   //
 
   /// getPrimitiveType - Return a type based on an identifier.
-  static const Type *getPrimitiveType(TypeID IDNumber);
+  static const Type *getPrimitiveType(LLVMContext &C, TypeID IDNumber);
 
   //===--------------------------------------------------------------------===//
   // These are the builtin types that are always available...
   //
-  static const Type *VoidTy, *LabelTy, *FloatTy, *DoubleTy, *EmptyStructTy;
-  static const Type *X86_FP80Ty, *FP128Ty, *PPC_FP128Ty;
-  static const IntegerType *Int1Ty, *Int8Ty, *Int16Ty, *Int32Ty, *Int64Ty;
+  static const Type *getVoidTy(LLVMContext &C);
+  static const Type *getLabelTy(LLVMContext &C);
+  static const Type *getFloatTy(LLVMContext &C);
+  static const Type *getDoubleTy(LLVMContext &C);
+  static const Type *getMetadataTy(LLVMContext &C);
+  static const Type *getX86_FP80Ty(LLVMContext &C);
+  static const Type *getFP128Ty(LLVMContext &C);
+  static const Type *getPPC_FP128Ty(LLVMContext &C);
+  static const IntegerType *getIntNTy(LLVMContext &C, unsigned N);
+  static const IntegerType *getInt1Ty(LLVMContext &C);
+  static const IntegerType *getInt8Ty(LLVMContext &C);
+  static const IntegerType *getInt16Ty(LLVMContext &C);
+  static const IntegerType *getInt32Ty(LLVMContext &C);
+  static const IntegerType *getInt64Ty(LLVMContext &C);
+
+  //===--------------------------------------------------------------------===//
+  // Convenience methods for getting pointer types with one of the above builtin
+  // types as pointee.
+  //
+  static const PointerType *getFloatPtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getDoublePtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getX86_FP80PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getFP128PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getPPC_FP128PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getIntNPtrTy(LLVMContext &C, unsigned N,
+                                         unsigned AS = 0);
+  static const PointerType *getInt1PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getInt8PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getInt16PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getInt32PtrTy(LLVMContext &C, unsigned AS = 0);
+  static const PointerType *getInt64PtrTy(LLVMContext &C, unsigned AS = 0);
 
   /// Methods for support type inquiry through isa, cast, and dyn_cast:
   static inline bool classof(const Type *) { return true; }
@@ -351,10 +451,7 @@ public:
   /// addAbstractTypeUser - Notify an abstract type that there is a new user of
   /// it.  This function is called primarily by the PATypeHandle class.
   ///
-  void addAbstractTypeUser(AbstractTypeUser *U) const {
-    assert(isAbstract() && "addAbstractTypeUser: Current type not abstract!");
-    AbstractTypeUsers.push_back(U);
-  }
+  void addAbstractTypeUser(AbstractTypeUser *U) const;
   
   /// removeAbstractTypeUser - Notify an abstract type that a user of the class
   /// no longer has a handle to the type.  This function is called primarily by
@@ -366,7 +463,7 @@ public:
 
   /// getPointerTo - Return a pointer to the current type.  This is equivalent
   /// to PointerType::get(Foo, AddrSpace).
-  PointerType *getPointerTo(unsigned AddrSpace = 0) const;
+  const PointerType *getPointerTo(unsigned AddrSpace = 0) const;
 
 private:
   /// isSizedDerivedType - Derived types like structures and arrays are sized
@@ -454,11 +551,12 @@ template <> struct GraphTraits<const Type*> {
   }
 };
 
-template <> inline bool isa_impl<PointerType, Type>(const Type &Ty) {
-  return Ty.getTypeID() == Type::PointerTyID;
-}
+template <> struct isa_impl<PointerType, Type> {
+  static inline bool doit(const Type &Ty) {
+    return Ty.getTypeID() == Type::PointerTyID;
+  }
+};
 
-std::ostream &operator<<(std::ostream &OS, const Type &T);
 raw_ostream &operator<<(raw_ostream &OS, const Type &T);
 
 } // End llvm namespace

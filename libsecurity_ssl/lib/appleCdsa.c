@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2007 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -23,7 +23,7 @@
 
 	Written by:	Doug Mitchell
 
-	Copyright: (c) 1999-2010 Apple Inc., all rights reserved.
+	Copyright: (c) 1999-2007 Apple Inc., all rights reserved.
 
 */
 
@@ -1036,6 +1036,7 @@ abort:
 	return serr;
 }
 
+#ifdef UNUSED_FUNCTIONS
 /*
  * NULL-unwrap a raw key to a ref key. Caller must free the returned key. 
  */
@@ -1095,6 +1096,7 @@ static OSStatus sslNullUnwrapKey(
 	}
 	return crtn;
 }
+#endif
 
 /*
  * NULL-wrap a ref key to a raw key. Caller must free the returned key. 

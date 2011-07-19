@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: thread.c,v 1.24 2007/06/19 23:47:19 tbox Exp $ */
+/* $Id: thread.c,v 1.24 2007-06-19 23:47:19 tbox Exp $ */
 
 #include <config.h>
 

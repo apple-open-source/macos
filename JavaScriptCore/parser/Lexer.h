@@ -1,6 +1,7 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
  *  Copyright (C) 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ *  Copyright (C) 2010 Zoltan Herczeg (zherczeg@inf.u-szeged.hu)
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Library General Public
@@ -22,10 +23,12 @@
 #ifndef Lexer_h
 #define Lexer_h
 
+#include "JSParser.h"
 #include "Lookup.h"
 #include "ParserArena.h"
 #include "SourceCode.h"
 #include <wtf/ASCIICType.h>
+#include <wtf/AlwaysInline.h>
 #include <wtf/SegmentedVector.h>
 #include <wtf/Vector.h>
 #include <wtf/unicode/Unicode.h>
@@ -34,7 +37,8 @@ namespace JSC {
 
     class RegExp;
 
-    class Lexer : public Noncopyable {
+    class Lexer {
+        WTF_MAKE_NONCOPYABLE(Lexer); WTF_MAKE_FAST_ALLOCATED;
     public:
         // Character manipulation functions.
         static bool isWhiteSpace(int character);
@@ -45,10 +49,15 @@ namespace JSC {
         // Functions to set up parsing.
         void setCode(const SourceCode&, ParserArena&);
         void setIsReparsing() { m_isReparsing = true; }
+        bool isReparsing() const { return m_isReparsing; }
 
         // Functions for the parser itself.
-        int lex(void* lvalp, void* llocp);
+        enum LexType { IdentifyReservedWords, IgnoreReservedWords };
+        JSTokenType lex(JSTokenData* lvalp, JSTokenInfo* llocp, LexType, bool strictMode);
+        bool nextTokenIsColon();
         int lineNumber() const { return m_lineNumber; }
+        void setLastLineNumber(int lastLineNumber) { m_lastLineNumber = lastLineNumber; }
+        int lastLineNumber() const { return m_lastLineNumber; }
         bool prevTerminator() const { return m_terminator; }
         SourceCode sourceCode(int openBrace, int closeBrace, int firstLine);
         bool scanRegExp(const Identifier*& pattern, const Identifier*& flags, UChar patternPrefix = 0);
@@ -57,6 +66,24 @@ namespace JSC {
         // Functions for use after parsing.
         bool sawError() const { return m_error; }
         void clear();
+        int currentOffset() { return m_code - m_codeStart; }
+        void setOffset(int offset)
+        {
+            m_error = 0;
+            m_code = m_codeStart + offset;
+            m_buffer8.resize(0);
+            m_buffer16.resize(0);
+            // Faster than an if-else sequence
+            m_current = -1;
+            if (LIKELY(m_code < m_codeEnd))
+                m_current = *m_code;
+        }
+        void setLineNumber(int line)
+        {
+            m_lineNumber = line;
+        }
+
+        SourceProvider* sourceProvider() const { return m_source->provider(); }
 
     private:
         friend class JSGlobalData;
@@ -64,28 +91,37 @@ namespace JSC {
         Lexer(JSGlobalData*);
         ~Lexer();
 
-        void shift1();
-        void shift2();
-        void shift3();
-        void shift4();
-        void shiftLineTerminator();
-
         void record8(int);
         void record16(int);
         void record16(UChar);
 
         void copyCodeWithoutBOMs();
 
-        int currentOffset() const;
-        const UChar* currentCharacter() const;
+        ALWAYS_INLINE void shift();
+        ALWAYS_INLINE int peek(int offset);
+        int getUnicodeCharacter();
+        void shiftLineTerminator();
 
-        const Identifier* makeIdentifier(const UChar* characters, size_t length);
+        ALWAYS_INLINE const UChar* currentCharacter() const;
+        ALWAYS_INLINE int currentOffset() const;
 
-        bool lastTokenWasRestrKeyword() const;
+        ALWAYS_INLINE const Identifier* makeIdentifier(const UChar* characters, size_t length);
+
+        ALWAYS_INLINE bool lastTokenWasRestrKeyword() const;
+
+        ALWAYS_INLINE JSTokenType parseIdentifier(JSTokenData*, LexType);
+        ALWAYS_INLINE bool parseString(JSTokenData* lvalp, bool strictMode);
+        ALWAYS_INLINE void parseHex(double& returnValue);
+        ALWAYS_INLINE bool parseOctal(double& returnValue);
+        ALWAYS_INLINE bool parseDecimal(double& returnValue);
+        ALWAYS_INLINE void parseNumberAfterDecimalPoint();
+        ALWAYS_INLINE bool parseNumberAfterExponentIndicator();
+        ALWAYS_INLINE bool parseMultilineComment();
 
         static const size_t initialReadBufferCapacity = 32;
 
         int m_lineNumber;
+        int m_lastLineNumber;
 
         Vector<char> m_buffer8;
         Vector<UChar> m_buffer16;
@@ -103,22 +139,17 @@ namespace JSC {
 
         // current and following unicode characters (int to allow for -1 for end-of-file marker)
         int m_current;
-        int m_next1;
-        int m_next2;
-        int m_next3;
-        
+
         IdentifierArena* m_arena;
 
         JSGlobalData* m_globalData;
 
         const HashTable m_keywordTable;
-
-        Vector<UChar> m_codeWithoutBOMs;
     };
 
     inline bool Lexer::isWhiteSpace(int ch)
     {
-        return isASCII(ch) ? (ch == ' ' || ch == '\t' || ch == 0xB || ch == 0xC) : WTF::Unicode::isSeparatorSpace(ch);
+        return isASCII(ch) ? (ch == ' ' || ch == '\t' || ch == 0xB || ch == 0xC) : (WTF::Unicode::isSeparatorSpace(ch) || ch == 0xFEFF);
     }
 
     inline bool Lexer::isLineTerminator(int ch)
@@ -134,12 +165,6 @@ namespace JSC {
     inline UChar Lexer::convertUnicode(int c1, int c2, int c3, int c4)
     {
         return (convertHex(c1, c2) << 8) | convertHex(c3, c4);
-    }
-
-    // A bridge for yacc from the C world to the C++ world.
-    inline int jscyylex(void* lvalp, void* llocp, void* globalData)
-    {
-        return static_cast<JSGlobalData*>(globalData)->lexer->lex(lvalp, llocp);
     }
 
 } // namespace JSC

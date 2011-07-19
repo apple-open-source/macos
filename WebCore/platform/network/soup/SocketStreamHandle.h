@@ -32,8 +32,8 @@
 #ifndef SocketStreamHandle_h
 #define SocketStreamHandle_h
 
+#include "GRefPtr.h"
 #include "SocketStreamHandleBase.h"
-
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
@@ -48,12 +48,23 @@ namespace WebCore {
         static PassRefPtr<SocketStreamHandle> create(const KURL& url, SocketStreamHandleClient* client) { return adoptRef(new SocketStreamHandle(url, client)); }
 
         virtual ~SocketStreamHandle();
+        void connected(GSocketConnection*, GError*);
+        void readBytes(signed long, GError*);
+        void writeReady();
+        void* id() { return m_id; }
 
     protected:
         virtual int platformSend(const char* data, int length);
         virtual void platformClose();
 
     private:
+        GRefPtr<GSocketConnection> m_socketConnection;
+        GRefPtr<GInputStream> m_inputStream;
+        GRefPtr<GPollableOutputStream> m_outputStream;
+        GRefPtr<GSource> m_writeReadySource;
+        char* m_readBuffer;
+        void* m_id;
+
         SocketStreamHandle(const KURL&, SocketStreamHandleClient*);
 
         // No authentication for streams per se, but proxy may ask for credentials.
@@ -61,6 +72,8 @@ namespace WebCore {
         void receivedCredential(const AuthenticationChallenge&, const Credential&);
         void receivedRequestToContinueWithoutCredential(const AuthenticationChallenge&);
         void receivedCancellation(const AuthenticationChallenge&);
+        void beginWaitingForSocketWritability();
+        void stopWaitingForSocketWritability();
     };
 
 }  // namespace WebCore

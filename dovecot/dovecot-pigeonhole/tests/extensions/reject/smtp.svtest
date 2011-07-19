@@ -1,0 +1,56 @@
+require "vnd.dovecot.testsuite";
+require "envelope";
+require "reject";
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Subject: Frop!
+
+Frop!
+.
+;
+
+test_set "envelope.from" "sirius@example.org";
+test_set "envelope.to" "timo@example.net";
+
+test "Basic" {
+	reject "I don't want your mail";
+
+	if not test_result_execute {
+        test_fail "failed to execute reject";
+    }
+
+    test_message :smtp 0;
+
+    if not address :is "to" "sirius@example.org" {
+        test_fail "to address incorrect";
+    }
+
+    if not header :contains "from" "Mail Delivery Subsystem" {
+        test_fail "from address incorrect";
+    }
+
+	if not envelope :is "to" "sirius@example.org" {
+		test_fail "envelope recipient incorrect";
+	}
+
+	if not envelope :is "from" "" {
+		test_fail "envelope sender not null";
+	}
+}
+
+test_result_reset;
+test_set "envelope.from" "<>";
+
+test "Null Sender" {
+	reject "I don't want your mail";
+
+	if not test_result_execute {
+		test_fail "failed to execute reject";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "reject sent message to NULL sender";
+	}
+}

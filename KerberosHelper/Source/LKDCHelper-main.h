@@ -27,7 +27,8 @@
 extern void helplog (int, const char *, ...)
      __attribute__ ((format (printf, 2, 3)));
 extern void update_idle_timer (void);
-extern int  authorized(audit_token_t *token);
+extern int  authorized(audit_token_t token);
+extern char *LocalLKDCRealm;
 
 #endif /* H_LKDCHELPER_MAIN_H */
 

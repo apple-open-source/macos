@@ -38,6 +38,7 @@ using namespace SQLite;
 // It auto-adapts to readonly vs. writable use.
 //
 ModuleNexus<SignatureDatabase> signatureDatabase;
+ModuleNexus<SignatureDatabaseWriter> signatureDatabaseWriter;
 
 
 //
@@ -112,7 +113,7 @@ FilterRep *SignatureDatabase::findCode(DiskRep *rep)
 // This writes exactly one Global record, plus one Code record per architecture
 // (where non-architectural code is treated as single-architecture).
 //
-void SignatureDatabase::storeCode(const BlobCore *sig, const char *location)
+void SignatureDatabaseWriter::storeCode(const BlobCore *sig, const char *location)
 {
 	Transaction xa(*this, Transaction::exclusive);	// lock out everyone
 	if (this->empty())
@@ -136,7 +137,7 @@ void SignatureDatabase::storeCode(const BlobCore *sig, const char *location)
 
 }
 
-int64 SignatureDatabase::insertGlobal(const char *location, const BlobCore *blob)
+int64 SignatureDatabaseWriter::insertGlobal(const char *location, const BlobCore *blob)
 {
 	Statement insert(*this, "insert into global (sign_location, signature) values (?1, ?2);");
 	insert.bind(1) = location;
@@ -146,7 +147,7 @@ int64 SignatureDatabase::insertGlobal(const char *location, const BlobCore *blob
 	return lastInsert();
 }
 
-void SignatureDatabase::insertCode(int64 globid, int arch, const EmbeddedSignatureBlob *sig)
+void SignatureDatabaseWriter::insertCode(int64 globid, int arch, const EmbeddedSignatureBlob *sig)
 {
 	// retrieve binary identifier (was added by signer)
 	const BlobWrapper *ident = BlobWrapper::specific(sig->find(cdIdentificationSlot));

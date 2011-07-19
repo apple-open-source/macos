@@ -94,6 +94,7 @@ static const struct arch_flag arch_flags[] = {
     { "armv5",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V5TEJ},
     { "xscale", CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_XSCALE},
     { "armv6",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V6 },
+    { "armv7",  CPU_TYPE_ARM,     CPU_SUBTYPE_ARM_V7 },
     { NULL,	0,		  0 }
 };
 
@@ -210,6 +211,7 @@ const struct arch_flag *flag)
       flag->cputype == CPU_TYPE_VEO)
         return BIG_ENDIAN_BYTE_SEX;
     else if(flag->cputype == CPU_TYPE_I386 ||
+	    flag->cputype == CPU_TYPE_X86_64 ||
 	    flag->cputype == CPU_TYPE_ARM)
         return LITTLE_ENDIAN_BYTE_SEX;
     else

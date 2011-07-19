@@ -6,13 +6,13 @@
 #  - "replace" will complete the original text for editing
 #  - completing priorities will cycle through A to Z (even without
 #    menu completion)
-#  - list and listall will complete p:<project> and @<where> from
+#  - list and listall will complete +<project> and @<where> from
 #    values in existing entries
-#  - will complete after p: and @ if typed in message text
+#  - will complete after + and @ if typed in message text
 
 setopt localoptions braceccl
 
-local expl curcontext="$curcontext" state line pri nextstate
+local expl curcontext="$curcontext" state line pri nextstate item
 local -a cmdlist itemlist match mbegin mend
 integer NORMARG
 
@@ -29,32 +29,44 @@ _arguments -s -n : \
 local projmsg="context or project"
 local txtmsg="text with contexts or projects"
 
+# Skip "command" as command prefix if words after
+if [[ $words[NORMARG] == command && NORMARG -lt CURRENT ]]; then
+  (( NORMARG++ ))
+fi
+
 case $state in
   (commands)
   cmdlist=(
-    "add:Add TODO ITEM to todo.txt."
-    "append:Adds to item on line NUMBER the text TEXT."
-    "archive:Moves done items from todo.txt to done.txt."
-    "del:Deletes the item on line NUMBER in todo.txt."
-    "do:Marks item on line NUMBER as done in todo.txt."
-    "list:Displays all todo items containing TERM(s), sorted by priority."
-    "listall:Displays items including done ones containing TERM(s)"
-    "listpri:Displays all items prioritized at PRIORITY."
-    "prepend:Adds to the beginning of the item on line NUMBER text TEXT."
-    "pri:Adds or replace in NUMBER the priority PRIORITY (upper case letter)."
-    "replace:Replace in NUMBER the TEXT."
-    "remdup:Remove exact duplicates from todo.txt."
-    "report:Adds the number of open and done items to report.txt."
+    "add:add TODO ITEM to todo.txt."
+    "addm:add TODO ITEMs, one per line, to todo.txt."
+    "addto:add text to file (not item)"
+    "append:adds to item on line NUMBER the text TEXT."
+    "archive:moves done items from todo.txt to done.txt."
+    "command:run internal commands only"
+    "del:deletes the item on line NUMBER in todo.txt."
+    "depri:remove prioritization from item"
+    "do:marks item on line NUMBER as done in todo.txt."
+    "help:display help"
+    "list:displays all todo items containing TERM(s), sorted by priority."
+    "listall:displays items including done ones containing TERM(s)"
+    "listcon:list all contexts"
+    "listfile:display all files in .todo directory"
+    "listpri:displays all items prioritized at PRIORITY."
+    "move:move item between files"
+    "prepend:adds to the beginning of the item on line NUMBER text TEXT."
+    "pri:adds or replace in NUMBER the priority PRIORITY (upper case letter)."
+    "replace:replace in NUMBER the TEXT."
+    "remdup:remove exact duplicates from todo.txt."
+    "report:adds the number of open and done items to report.txt."
   )
   _describe -t todo-commands 'todo.sh command' cmdlist
   ;;
 
   (arguments)
   case $words[NORMARG] in
-    (append|del|do|prepend|pri|replace)
+    (append|command|del|move|mv|prepend|pri|replace|rm)
     if (( NORMARG == CURRENT - 1 )); then
-      itemlist=(${${(M)${(f)"$(todo.sh -p list)"}##<-> *}/(#b)(<->) (*)/${match[1]}:${match[2]}})
-      _describe -t todo-items 'todo item' itemlist
+      nextstate=item
     else
       case $words[NORMARG] in
 	(pri)
@@ -63,18 +75,42 @@ case $state in
 	(append|prepend)
 	nextstate=proj
 	;;
+	(move|mv)
+	nextstate=file
+	;;
 	(replace)
-	compadd -Q -- "${(qq)$(todo.sh -p list "^0*${words[CURRENT-1]} ")##<-> }"
+	item=${words[CURRENT-1]##0##}
+	compadd -Q -- "${(qq)$(todo.sh -p list "^[ 0]*$item " | sed '/^--/,$d')##<-> (\([A-Z]\) |)}"
 	;;
       esac
     fi
     ;;
 
-    (add|list|listall)
+    (depri|do|dp)
+    nextstate=item
+    ;;
+
+    (a|add|addm|list|ls|listall|lsa)
     nextstate=proj
     ;;
 
-    (listpri)
+    (addto)
+    if (( NORMARG == CURRENT - 1 )); then
+      nextstate=file
+    else
+      nexstate=proj
+    fi
+    ;;
+
+    (listfile|lf)
+    if (( NORMARG == CURRENT -1 )); then
+      nextstate=file
+    else
+      _message "Term to search file for"
+    fi
+    ;;
+
+    (listpri|lsp)
     nextstate=pri
     ;;
 
@@ -86,6 +122,15 @@ case $state in
 esac
 
 case $nextstate in
+  (file)
+  _path_files -W ~/.todo
+  ;;
+
+  (item)
+  itemlist=(${${(M)${(f)"$(todo.sh -p list | sed '/^--/,$d')"}##<-> *}/(#b)(<->) (*)/${match[1]}:${match[2]}})
+  _describe -t todo-items 'todo item' itemlist
+  ;;
+
   (pri)
   if [[ $words[CURRENT] = (|[A-Z]) ]]; then
     if [[ $words[CURRENT] = (|Z) ]]; then
@@ -102,15 +147,15 @@ case $nextstate in
   ;;
 
   (proj)
-  # This completes stuff beginning with p: (projects) or @ (contexts);
+  # This completes stuff beginning with + (projects) or @ (contexts);
   # these are todo.sh conventions.
-  if [[ ! -prefix p: && ! -prefix @ ]]; then
+  if [[ ! -prefix + && ! -prefix @ ]]; then
     projmsg=$txtmsg
   fi
   # In case there are quotes, ignore anything up to whitespace before
-  # the p: or @ (which may not even be there yet).
+  # the + or @ (which may not even be there yet).
   compset -P '*[[:space:]]'
   _wanted search expl $projmsg \
-    compadd ${${=${${(M)${(f)"$(todo.sh -p list)"}##<-> *}##<-> }}:#^(p:*|@*)}
+    compadd $(todo.sh lsprj) $(todo.sh lsc)
   ;;
 esac

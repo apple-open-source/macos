@@ -1,7 +1,7 @@
 /* Dtrace providers for SMTP */
 
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without  
  * modification, are permitted provided that the following conditions  
@@ -44,6 +44,11 @@
 provider postfix {
 	probe od__lookup__start(char *user_name, void *od_opts);
 	probe od__lookup__finish(char *user_name, void *od_opts, int ret);
+
+	probe sacl__start(char *user_name);
+	probe sacl__cached(char *user_name, int ret);
+	probe sacl__resolve(char *user_name, int found);
+	probe sacl__finish(char *user_name, int ret);
 
 	probe smtp__receive(void *state);
 	probe smtp__dequeue(void *message);

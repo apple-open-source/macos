@@ -30,11 +30,9 @@
 #include "PlatformString.h"
 #include <wtf/PassRefPtr.h>
 
-#if ENABLE(SVG_FONTS)
-#include "SVGFontFaceElement.h"
-#endif
-
 namespace WebCore {
+
+class SVGFontFaceElement;
 
 class CSSFontFaceSrcValue : public CSSValue {
 public:
@@ -47,7 +45,7 @@ public:
         return adoptRef(new CSSFontFaceSrcValue(resource, true));
     }
 
-    virtual ~CSSFontFaceSrcValue() { }
+    virtual ~CSSFontFaceSrcValue();
 
     const String& resource() const { return m_resource; }
     const String& format() const { return m_format; }

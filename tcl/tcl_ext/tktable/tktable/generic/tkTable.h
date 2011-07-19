@@ -9,7 +9,7 @@
  * See the file "license.txt" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tkTable.h,v 1.17 2004/07/20 20:46:21 hobbs Exp $
+ * RCS: @(#) $Id: tkTable.h,v 1.18 2010/08/05 23:23:20 hobbs Exp $
  */
 
 #ifndef _TKTABLE_H_
@@ -108,7 +108,7 @@
 #define MIN(A,B)	(((A)>(B))?(B):(A))
 #define BETWEEN(val,min,max)	( ((val)<(min)) ? (min) : \
 				( ((val)>(max)) ? (max) : (val) ) )
-#define CONSTRAIN(val,min,max)	if ((val) < (min)) { (val) = (min); } \
+#define CONSTRAIN(val,min,max)	if ((val) < (min)) { (val) = MIN(min,max); } \
 				else if ((val) > (max)) { (val) = (max); }
 #define STREQ(s1, s2)	(strcmp((s1), (s2)) == 0)
 #define ARSIZE(A)	(sizeof(A)/sizeof(*A))

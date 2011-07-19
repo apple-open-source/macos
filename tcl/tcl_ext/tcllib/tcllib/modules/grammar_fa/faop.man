@@ -3,6 +3,7 @@
 [copyright {2004-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Finite automaton operations and usage}]
 [titledesc {Operations on finite automatons}]
+[category  {Grammars and finite automata}]
 [require Tcl 8.4]
 [require snit]
 [require struct::list]

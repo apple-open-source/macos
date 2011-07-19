@@ -3,14 +3,16 @@
 #	Collection of geometry functions.
 #
 # Copyright (c) 2001 by Ideogramic ApS and other parties.
+# Copyright (c) 2004 Arjen Markus
+# Copyright (c) 2010 Andreas Kupries
+# Copyright (c) 2010 Kevin Kenny
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: geometry.tcl,v 1.8 2005/10/04 17:31:23 andreas_kupries Exp $
+# RCS: @(#) $Id: geometry.tcl,v 1.12 2010/05/24 21:44:16 andreas_kupries Exp $
 
-namespace eval ::math::geometry {
-}
+namespace eval ::math::geometry {}
 
 package require math
 
@@ -51,7 +53,133 @@ package require math
 #
 ###
 
+# Point constructor
+proc ::math::geometry::p {x y} {
+    return [list $x $y]
+}
 
+# Vector addition
+proc ::math::geometry::+ {pa pb} {
+    foreach {ax ay} $pa break
+    foreach {bx by} $pb break
+    return [list [expr {$ax + $bx}] [expr {$ay + $by}]]
+}
+
+# Vector difference
+proc ::math::geometry::- {pa pb} {
+    foreach {ax ay} $pa break
+    foreach {bx by} $pb break
+    return [list [expr {$ax - $bx}] [expr {$ay - $by}]]
+}
+
+# Distance between 2 points
+proc ::math::geometry::distance {pa pb} {
+    foreach {ax ay} $pa break
+    foreach {bx by} $pb break
+    return [expr {hypot($bx-$ax,$by-$ay)}]
+}
+
+# Length of a vector
+proc ::math::geometry::length {v} {
+    foreach {x y} $v break
+    return [expr {hypot($x,$y)}]
+}
+
+# Scaling a vector by a factor
+proc ::math::geometry::s* {factor p} {
+    foreach {x y} $p break
+    return [list [expr {$x * $factor}] [expr {$y * $factor}]]
+}
+
+# Unit vector into specific direction given by angle (degrees)
+proc ::math::geometry::direction {angle} {
+    variable torad
+    set x [expr {  cos($angle * $torad)}]
+    set y [expr {- sin($angle * $torad)}]
+    return [list $x $y]
+}
+
+# Vertical vector of specified length.
+proc ::math::geometry::v {h} {
+    return [list 0 $h]
+}
+
+# Horizontal vector of specified length.
+proc ::math::geometry::h {w} {
+    return [list $w 0]
+}
+
+# Find point on a line between 2 points at a distance
+# distance 0 => a, distance 1 => b
+proc ::math::geometry::between {pa pb s} {
+    return [+ $pa [s* $s [- $pb $pa]]]
+}
+
+# Find direction octant the point (vector) lies in.
+proc ::math::geometry::octant {p} {
+    variable todeg
+    foreach {x y} $p break
+
+    set a [expr {(atan2(-$y,$x)*$todeg)}]
+    while {$a >  360} {set a [expr {$a - 360}]}
+    while {$a < -360} {set a [expr {$a + 360}]}
+    if {$a < 0} {set a [expr {360 + $a}]}
+
+    #puts "p ($x, $y) @ angle $a | [expr {atan2($y,$x)}] | [expr {atan2($y,$x)*$todeg}]"
+    # XXX : Add outer conditions to make a log2 tree of checks.
+
+    if {$a <= 157.5} {
+	if {$a <= 67.5} {
+	    if {$a <= 22.5} { return east }
+	    return northeast
+	}
+	if {$a <=  112.5} { return north }
+	return northwest
+    } else {
+	if {$a <=  247.5} {
+	    if {$a <=  202.5} { return west }
+	    return southwest
+	}
+	if {$a <=  337.5} {
+	    if {$a <=  292.5} { return south }
+	    return southeast
+	}
+	return east ; # a <= 360.0
+    }
+}
+
+# Return the NW and SE corners of the rectangle.
+proc ::math::geometry::nwse {rect} {
+    foreach {xnw ynw xse yse} $rect break
+    return [list [p $xnw $ynw] [p $xse $yse]]
+}
+
+# Construct rectangle from NW and SE corners.
+proc ::math::geometry::rect {pa pb} {
+    foreach {ax ay} $pa break
+    foreach {bx by} $pb break
+    return [list $ax $ay $bx $by]
+}
+
+proc ::math::geometry::conjx {p} {
+    foreach {x y} $p break
+    return [list [expr {- $x}] $y]
+}
+
+proc ::math::geometry::conjy {p} {
+    foreach {x y} $p break
+    return [list $x [expr {- $y}]]
+}
+
+proc ::math::geometry::x {p} {
+    foreach {x y} $p break
+    return $x
+}
+
+proc ::math::geometry::y {p} {
+    foreach {x y} $p break
+    return $y
+}
 
 # ::math::geometry::calculateDistanceToLine
 #
@@ -574,70 +702,38 @@ proc ::math::geometry::findLineSegmentIntersection {linesegment1 linesegment2} {
 #       Result: none
 #
 proc ::math::geometry::findLineIntersection {line1 line2} {
+
+    # References:
+    # http://wiki.tcl.tk/12070 (Kevin Kenny)
+    # http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
+
     set l1x1 [lindex $line1 0]
     set l1y1 [lindex $line1 1]
     set l1x2 [lindex $line1 2]
     set l1y2 [lindex $line1 3]
+
     set l2x1 [lindex $line2 0]
     set l2y1 [lindex $line2 1]
     set l2x2 [lindex $line2 2]
     set l2y2 [lindex $line2 3]
 
-    # Is one of the lines vertical?
-    if {$l1x1==$l1x2 || $l2x1==$l2x2} {
-	# One of the lines is vertical
-	if {$l1x1==$l1x2 && $l2x1==$l2x2} {
-	    # both lines are vertical
-	    if {$l1x1==$l2x1} {
-		return "coincident"
-	    } else {
-		return "none"
-	    }
-	}
+    set d [expr {($l2y2 - $l2y1) * ($l1x2 - $l1x1) -
+		 ($l2x2 - $l2x1) * ($l1y2 - $l1y1)}]
+    set na [expr {($l2x2 - $l2x1) * ($l1y1 - $l2y1) -
+		  ($l2y2 - $l2y1) * ($l1x1 - $l2x1)}]
 
-	# make sure line1 is a vertical line
-	if {$l1x1!=$l1x2} {
-	    # interchange line 1 and 2
-	    set l1x1 [lindex $line2 0]
-	    set l1y1 [lindex $line2 1]
-	    set l1x2 [lindex $line2 2]
-	    set l1y2 [lindex $line2 3]
-	    set l2x1 [lindex $line1 0]
-	    set l2y1 [lindex $line1 1]
-	    set l2x2 [lindex $line1 2]
-	    set l2y2 [lindex $line1 3]
-	}
-
-	# get equation of line 2 (y=a*x+b)
-	set a [expr {1.0*($l2y2-$l2y1)/($l2x2-$l2x1)}]
-	set b [expr {$l2y1-$a*$l2x1}]
-
-	# Calculate intersection
-	set y [expr {$a*$l1x1+$b}]
-	return [list $l1x1 $y]
-    } else {
-	# None of the lines are vertical
-	# - get equation of line 1 (y=a1*x+b1)
-	set a1 [expr {(1.0*$l1y2-$l1y1)/($l1x2-$l1x1)}]
-	set b1 [expr {$l1y1-$a1*$l1x1}]
-	# - get equation of line 2 (y=a2*x+b2)
-	set a2 [expr {(1.0*$l2y2-$l2y1)/($l2x2-$l2x1)}]
-	set b2 [expr {$l2y1-$a2*$l2x1}]
-	
-	if {abs($a2-$a1) > 0.0001} {
-	    # the lines are not parallel
-	    set x [expr {($b2-$b1)/($a1-$a2)}]
-	    set y [expr {$a1*$x+$b1}]
-	    return [list $x $y]
+    # http://local.wasp.uwa.edu.au/~pbourke/geometry/lineline2d/
+    if {$d == 0} {
+	if {$na == 0} {
+	    return "coincident"
 	} else {
-	    # the lines are parallel
-	    if {abs($b1-$b2) < 0.00001} {
-		return "coincident"
-	    } else {
-		return "none"
-	    }
+	    return "none"
 	}
     }
+    set r [list \
+               [expr {$l1x1 + $na * ($l1x2 - $l1x1) / $d}] \
+               [expr {$l1y1 + $na * ($l1y2 - $l1y1) / $d}]]
+    return $r 
 }
 
 
@@ -916,9 +1012,29 @@ proc ::math::geometry::bbox {polyline} {
     return [list $minX $minY $maxX $maxY]
 }
 
+# ::math::geometry::ClosedPolygon
+#
+#       Return a closed polygon - used internally
+#
+# Arguments:
+#       polygon       a polygon
+#
+# Results:
+#       closedpolygon a polygon whose first and last vertices
+#                     coincide
+#
+proc ::math::geometry::ClosedPolygon {polygon} {
 
+    if { [lindex $polygon 0] != [lindex $polygon end-1] ||
+         [lindex $polygon 1] != [lindex $polygon end]     } {
 
+        return [concat $polygon [lrange $polygon 0 1]]
 
+    } else {
+
+        return $polygon
+    }
+}
 
 
 # ::math::geometry::pointInsidePolygon
@@ -944,7 +1060,8 @@ proc ::math::geometry::bbox {polyline} {
 proc ::math::geometry::pointInsidePolygon {P polygon} {
     # check if P is on one of the polygon's sides (if so, P is not
     # inside the polygon)
-    set closedPolygon [concat $polygon [lrange $polygon 0 1]]
+    set closedPolygon [ClosedPolygon $polygon]
+
     foreach {x1 y1} [lrange $closedPolygon 0 end-2] {x2 y2} [lrange $closedPolygon 2 end] {
 	if {[calculateDistanceToLineSegment $P [list $x1 $y1 $x2 $y2]]<0.0000001} {
 	    return 0
@@ -970,19 +1087,22 @@ proc ::math::geometry::pointInsidePolygon {P polygon} {
 
     # get point far away and define the line
     set polygonBbox [bbox $polygon]
-    set pointFarAway [list [expr {[lindex $polygonBbox 0]-1}] [expr {[lindex $polygonBbox 1]-1}]]
+
+    set pointFarAway [list \
+        [expr {[lindex $polygonBbox 0]-[lindex $polygonBbox 2]}] \
+        [expr {[lindex $polygonBbox 1]-0.1*[lindex $polygonBbox 3]}]]
+
     set infinityLine [concat $pointFarAway $P]
     # calculate number of intersections
     set noOfIntersections 0
     #   1. count intersections between the line and the polygon's sides
-    set closedPolygon [concat $polygon [lrange $polygon 0 1]]
     foreach {x1 y1} [lrange $closedPolygon 0 end-2] {x2 y2} [lrange $closedPolygon 2 end] {
 	if {[lineSegmentsIntersect $infinityLine [list $x1 $y1 $x2 $y2]]} {
 	    incr noOfIntersections
 	}
     }
     #   2. count intersections between the line and the polygon's points
-    foreach {x1 y1} $polygon {
+    foreach {x1 y1} $closedPolygon {
 	if {[calculateDistanceToLineSegment [list $x1 $y1] $infinityLine]<0.0000001} {
 	    incr noOfIntersections
 	}
@@ -1045,7 +1165,7 @@ proc ::math::geometry::rectangleInsidePolygon {P1 P2 polygon} {
     # 2. if one of the line segments of the polygon intersect with the
     # rectangle, then the rectangle cannot be inside the polygon
     set rectanglePolyline [list $bx1 $by1 $bx2 $by1 $bx2 $by2 $bx1 $by2 $bx1 $by1]
-    set closedPolygon [concat $polygon [lrange $polygon 0 1]]
+    set closedPolygon [ClosedPolygon $polygon]
     if {[polylinesIntersect $closedPolygon $rectanglePolyline]} {
 	return 0
     }
@@ -1090,4 +1210,17 @@ proc ::math::geometry::areaPolygon {polygon} {
     expr {0.5*abs($area)}
 }
 
-package provide math::geometry 1.0.3
+# # ## ### ##### #############
+
+namespace eval ::math::geometry {
+    variable pi    [expr { 4 * atan(1) }]
+    variable torad [expr { (4 * atan(1)) / 180.0 }]
+    variable todeg [expr { 180.0 / (4 * atan(1)) }]
+
+    namespace export \
+	+ - s* direction v h p between distance length \
+	nwse rect octant findLineSegmentIntersection \
+	findLineIntersection bbox x y conjx conjy
+}
+
+package provide math::geometry 1.1.2

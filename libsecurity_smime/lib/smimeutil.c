@@ -144,6 +144,7 @@ static smime_cipher_map_entry smime_cipher_map[] = {
     { SMIME_RC2_CBC_64,		SEC_OID_RC2_CBC,	&param_int64,	PR_TRUE, PR_TRUE },
     { SMIME_RC2_CBC_128,	SEC_OID_RC2_CBC,	&param_int128,	PR_TRUE, PR_TRUE },
     { SMIME_DES_EDE3_168,	SEC_OID_DES_EDE3_CBC,	NULL,		PR_TRUE, PR_TRUE },
+    { SMIME_AES_CBC_128,        SEC_OID_AES_128_CBC,    NULL,           PR_TRUE, PR_TRUE },
     { SMIME_FORTEZZA,		SEC_OID_FORTEZZA_SKIPJACK, NULL,	PR_TRUE, PR_TRUE }
 };
 static const int smime_cipher_map_count = sizeof(smime_cipher_map) / sizeof(smime_cipher_map_entry);
@@ -261,6 +262,9 @@ nss_smime_get_cipher_for_alg_and_key(SECAlgorithmID *algid, SecSymmetricKeyRef k
 	break;
     case SEC_OID_DES_EDE3_CBC:
 	c = SMIME_DES_EDE3_168;
+	break;
+    case SEC_OID_AES_128_CBC:
+	c = SMIME_AES_CBC_128;
 	break;
     case SEC_OID_FORTEZZA_SKIPJACK:
 	c = SMIME_FORTEZZA;
@@ -526,6 +530,7 @@ smime_keysize_by_cipher (unsigned long which)
 	keysize = 64;
 	break;
       case SMIME_RC2_CBC_128:
+      case SMIME_AES_CBC_128:
 	keysize = 128;
 	break;
       case SMIME_DES_CBC_56:

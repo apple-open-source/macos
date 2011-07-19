@@ -1,4 +1,7 @@
-use t::TestYAML tests => 25;
+use t::TestYAML tests => 29, (
+    ($] < 5.008) ? (todo => [19..20, 26..29])
+                 : ()
+);
 
 ok(YAML::Syck->VERSION);
 
@@ -24,6 +27,14 @@ run_ref_ok(qw(
     !!moose             moose
 ));
 
+my $rx = qr/123/;
+is(Dump($rx), "--- !!perl/regexp (?-xism:123)\n");
+is(Dump(Load(Dump($rx))), "--- !!perl/regexp (?-xism:123)\n");
+
+my $rx_obj = bless qr/123/i => 'Foo';
+is(Dump($rx_obj), "--- !!perl/regexp:Foo (?i-xsm:123)\n");
+is(Dump(Load(Dump($rx_obj))), "--- !!perl/regexp:Foo (?i-xsm:123)\n");
+
 my $obj = bless(\(my $undef) => 'Foo');
 is(Dump($obj), "--- !!perl/scalar:Foo ~\n");
 is(Dump(Load(Dump($obj))), "--- !!perl/scalar:Foo ~\n");
@@ -39,14 +50,15 @@ $YAML::Syck::UseCode = 1;
 }
 
 {
-	my $sub = Load(Dump(bless(sub { 42 }, "foobar")));
+	my $sub = eval { Load(Dump(bless(sub { 42 }, "foobar"))) };
 	is(ref($sub), "foobar", "blessed to foobar");
 	is(eval { $sub->() }, 42, "it's a CODE");
 }
 
 {
-	my $sub = Load(Dump(bless(sub { 42 }, "code")));
+	my $sub = eval { Load(Dump(bless(sub { 42 }, "code"))) };
 	is(ref($sub), "code", "blessed to code");
 	is(eval { $sub->() }, 42, "it's a CODE");
 }
 
+exit;

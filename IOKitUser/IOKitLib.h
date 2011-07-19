@@ -53,6 +53,8 @@
 
 #include <AvailabilityMacros.h>
 
+#include <dispatch/dispatch.h>
+
 __BEGIN_DECLS
 
 /*! @header IOKitLib
@@ -124,6 +126,9 @@ IONotificationPortCreate(
 
 /*! @function IONotificationPortDestroy
     @abstract Destroys a notification object created with IONotificationPortCreate.
+                Also destroys any mach_port's or CFRunLoopSources obatined from 
+                <code>@link IONotificationPortGetRunLoopSource @/link</code>
+                or <code>@link IONotificationPortGetMachPort @/link</code>
     @param notify A reference to the notification object. */
 
 void
@@ -132,7 +137,12 @@ IONotificationPortDestroy(
 
 /*! @function IONotificationPortGetRunLoopSource
     @abstract Returns a CFRunLoopSource to be used to listen for notifications.
-    @discussion A notification object may deliver notifications to a CFRunLoop client by adding the run loop source returned by this function to the run loop.
+    @discussion A notification object may deliver notifications to a CFRunLoop 
+                by adding the run loop source returned by this function to the run loop.
+
+                The caller should not release this CFRunLoopSource. Just call 
+                <code>@link IONotificationPortDestroy @/link</code> to dispose of the
+                IONotificationPortRef and the CFRunLoopSource when done.
     @param notify The notification object.
     @result A CFRunLoopSourceRef for the notification object. */
 
@@ -142,7 +152,14 @@ IONotificationPortGetRunLoopSource(
 
 /*! @function IONotificationPortGetMachPort
     @abstract Returns a mach_port to be used to listen for notifications.
-    @discussion A notification object may deliver notifications to a mach messaging client if they listen for messages on the port obtained from this function. Callbacks associated with the notifications may be delivered by calling IODispatchCalloutFromMessage with messages received 
+    @discussion A notification object may deliver notifications to a mach messaging client 
+                if they listen for messages on the port obtained from this function. 
+                Callbacks associated with the notifications may be delivered by calling 
+                IODispatchCalloutFromMessage with messages received.
+                
+                The caller should not release this mach_port_t. Just call 
+                <code>@link IONotificationPortDestroy @/link</code> to dispose of the
+                mach_port_t and IONotificationPortRef when done.
     @param notify The notification object.
     @result A mach_port for the notification object. */
 
@@ -152,10 +169,22 @@ IONotificationPortGetMachPort(
 
 /*! @function IODispatchCalloutFromMessage
     @abstract Dispatches callback notifications from a mach message.
-    @discussion A notification object may deliver notifications to a mach messaging client, which should call this function to generate the callbacks associated with the notifications arriving on the port.
+    @discussion A notification object may deliver notifications to a mach messaging client, 
+                which should call this function to generate the callbacks associated with the notifications arriving on the port.
     @param unused Not used, set to zero.
     @param msg A pointer to the message received.
     @param reference Pass the IONotificationPortRef for the object. */
+
+/*! @function IONotificationPortSetDispatchQueue
+    @abstract Sets a dispatch queue to be used to listen for notifications.
+    @discussion A notification object may deliver notifications to a dispatch client.
+    @param notify The notification object.
+    @param queue A dispatch queue. */
+
+void
+IONotificationPortSetDispatchQueue(
+	IONotificationPortRef notify, dispatch_queue_t queue )
+__OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_4_3);
 
 void
 IODispatchCalloutFromMessage(
@@ -215,7 +244,7 @@ IOObjectGetClass(
 	io_object_t	object,
 	io_name_t	className );
 	
-/*! @function CFStringRef IOObjectCopyClass
+/*! @function IOObjectCopyClass
     @abstract Return the class name of an IOKit object.
 	@discussion This function does the same thing as IOObjectGetClass, but returns the result as a CFStringRef.
 	@param object The IOKit object.
@@ -225,7 +254,7 @@ CFStringRef
 IOObjectCopyClass(io_object_t object)
 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
-/*! @function CFStringRef IOObjectCopySuperclassForClass
+/*! @function IOObjectCopySuperclassForClass
     @abstract Return the superclass name of the given class.
     @discussion This function uses the OSMetaClass system in the kernel to derive the name of the superclass of the class.
 	@param classname The name of the class as a CFString.
@@ -235,7 +264,7 @@ CFStringRef
 IOObjectCopySuperclassForClass(CFStringRef classname)
 AVAILABLE_MAC_OS_X_VERSION_10_4_AND_LATER;
 
-/*! @function CFStringRef IOObjectCopyBundleIdentifierForClass
+/*! @function IOObjectCopyBundleIdentifierForClass
     @abstract Return the bundle identifier of the given class.
 	@discussion This function uses the OSMetaClass system in the kernel to derive the name of the kmod, which is the same as the bundle identifier.
 	@param classname The name of the class as a CFString.
@@ -639,7 +668,7 @@ kern_return_t IOConnectMapMemory64(
     @discussion This is a generic method to remove a mapping in the callers task.
     @param connect The connect handle created by IOServiceOpen.
     @param memoryType The memory type originally requested in IOConnectMapMemory.
-    @param intoTask The task port for the task in which to remove the mapping. This may be different to the task which the opened the connection.
+    @param fromTask The task port for the task in which to remove the mapping. This may be different to the task which the opened the connection.
     @param atAddress The address of the mapping to be removed.
     @result A kern_return_t error code. */
 
@@ -669,7 +698,7 @@ IOConnectUnmapMemory(
     @discussion This is a generic method to remove a mapping in the callers task.
     @param connect The connect handle created by IOServiceOpen.
     @param memoryType The memory type originally requested in IOConnectMapMemory.
-    @param intoTask The task port for the task in which to remove the mapping. This may be different to the task which the opened the connection.
+    @param fromTask The task port for the task in which to remove the mapping. This may be different to the task which the opened the connection.
     @param atAddress The address of the mapping to be removed.
     @result A kern_return_t error code. */
 
@@ -1148,7 +1177,7 @@ IORegistryEntryGetParentIterator(
     @discussion This function will return the parent to which the registry entry was first attached in a plane.
     @param entry The registry entry whose parent to look up.
     @param plane The name of an existing registry plane. Plane names are defined in IOKitKeys.h, eg. kIOServicePlane.
-    @param child The first parent of the registry entry, on success. The parent must be released by the caller.
+    @param parent The first parent of the registry entry, on success. The parent must be released by the caller.
     @result A kern_return_t error code. */
 
 kern_return_t
@@ -1330,6 +1359,10 @@ IOCatalogueModuleLoaded(
         mach_port_t             masterPort,
         io_name_t               name );
 
+/* Use IOCatalogueSendData(), with kIOCatalogResetDrivers, to replace catalogue
+ * rather than emptying it. Doing so keeps instance counts down by uniquing
+ * existing personalities.
+ */
 kern_return_t
 IOCatalogueReset(
         mach_port_t             masterPort,

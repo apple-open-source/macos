@@ -35,13 +35,14 @@
 #include "DefaultSharedWorkerRepository.h"
 
 #include "ActiveDOMObject.h"
+#include "CrossThreadTask.h"
 #include "Document.h"
-#include "GenericWorkerTask.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "MessageEvent.h"
 #include "MessagePort.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include "ScriptCallStack.h"
 #include "SecurityOrigin.h"
 #include "SecurityOriginHash.h"
 #include "SharedWorker.h"
@@ -57,7 +58,7 @@
 
 namespace WebCore {
 
-class SharedWorkerProxy : public ThreadSafeShared<SharedWorkerProxy>, public WorkerLoaderProxy, public WorkerReportingProxy {
+class SharedWorkerProxy : public ThreadSafeRefCounted<SharedWorkerProxy>, public WorkerLoaderProxy, public WorkerReportingProxy {
 public:
     static PassRefPtr<SharedWorkerProxy> create(const String& name, const KURL& url, PassRefPtr<SecurityOrigin> origin) { return adoptRef(new SharedWorkerProxy(name, url, origin)); }
 
@@ -155,7 +156,7 @@ void SharedWorkerProxy::postTaskForModeToWorkerContext(PassOwnPtr<ScriptExecutio
 
 static void postExceptionTask(ScriptExecutionContext* context, const String& errorMessage, int lineNumber, const String& sourceURL)
 {
-    context->reportException(errorMessage, lineNumber, sourceURL);
+    context->reportException(errorMessage, lineNumber, sourceURL, 0);
 }
 
 void SharedWorkerProxy::postExceptionToWorkerObject(const String& errorMessage, int lineNumber, const String& sourceURL)
@@ -167,7 +168,7 @@ void SharedWorkerProxy::postExceptionToWorkerObject(const String& errorMessage, 
 
 static void postConsoleMessageTask(ScriptExecutionContext* document, MessageSource source, MessageType type, MessageLevel level, const String& message, unsigned lineNumber, const String& sourceURL)
 {
-    document->addMessage(source, type, level, message, lineNumber, sourceURL);
+    document->addMessage(source, type, level, message, lineNumber, sourceURL, 0);
 }
 
 void SharedWorkerProxy::postConsoleMessageToWorkerObject(MessageSource source, MessageType type, MessageLevel level, const String& message, int lineNumber, const String& sourceURL)
@@ -224,7 +225,7 @@ class SharedWorkerConnectTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<SharedWorkerConnectTask> create(PassOwnPtr<MessagePortChannel> channel)
     {
-        return new SharedWorkerConnectTask(channel);
+        return adoptPtr(new SharedWorkerConnectTask(channel));
     }
 
 private:
@@ -274,7 +275,7 @@ SharedWorkerScriptLoader::SharedWorkerScriptLoader(PassRefPtr<SharedWorker> work
 void SharedWorkerScriptLoader::load(const KURL& url)
 {
     // Mark this object as active for the duration of the load.
-    m_scriptLoader = new WorkerScriptLoader(ResourceRequestBase::TargetIsSharedWorker);
+    m_scriptLoader = adoptPtr(new WorkerScriptLoader(ResourceRequestBase::TargetIsSharedWorker));
     m_scriptLoader->loadAsynchronously(m_worker->scriptExecutionContext(), url, DenyCrossOriginRequests, this);
 
     // Stay alive (and keep the SharedWorker and JS wrapper alive) until the load finishes.
@@ -291,10 +292,7 @@ void SharedWorkerScriptLoader::notifyFinished()
     if (m_scriptLoader->failed())
         m_worker->dispatchEvent(Event::create(eventNames().errorEvent, false, true));
     else {
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = m_worker->scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(m_scriptLoader->identifier(), m_scriptLoader->script());
-#endif
+        InspectorInstrumentation::scriptImported(m_worker->scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
         DefaultSharedWorkerRepository::instance().workerScriptLoaded(*m_proxy, m_worker->scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script(), m_port.release());
     }
     m_worker->unsetPendingActivity(m_worker.get());
@@ -387,7 +385,7 @@ void DefaultSharedWorkerRepository::connectToWorker(PassRefPtr<SharedWorker> wor
     if (proxy->thread())
         proxy->thread()->runLoop().postTask(SharedWorkerConnectTask::create(port));
     else {
-        RefPtr<SharedWorkerScriptLoader> loader = adoptRef(new SharedWorkerScriptLoader(worker, port.release(), proxy.release()));
+        RefPtr<SharedWorkerScriptLoader> loader = adoptRef(new SharedWorkerScriptLoader(worker, port, proxy.release()));
         loader->load(url);
     }
 }

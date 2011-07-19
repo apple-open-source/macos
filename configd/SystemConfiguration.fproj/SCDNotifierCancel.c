@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,18 +52,9 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 		return FALSE;
 	}
 
-	if (storePrivate->server == MACH_PORT_NULL) {
-		/* sorry, you must have an open session to play */
-		_SCErrorSet(kSCStatusNoStoreServer);
-		return FALSE;
-	}
-
 	switch (storePrivate->notifyStatus) {
 		case NotifierNotRegistered :
 			/* if no notifications have been registered */
-			return TRUE;
-		case Using_NotifierInformViaRunLoop :
-			CFRunLoopSourceInvalidate(storePrivate->rls);
 			return TRUE;
 		case Using_NotifierInformViaCallback :
 			/* invalidate and release the run loop source */
@@ -84,17 +75,26 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			storePrivate->callbackArgument	= NULL;
 			storePrivate->callbackFunction	= NULL;
 			break;
+		case Using_NotifierInformViaRunLoop :
+			CFRunLoopSourceInvalidate(storePrivate->rls);
+			storePrivate->rls = NULL;
+			return TRUE;
+		case Using_NotifierInformViaDispatch :
+			(void) SCDynamicStoreSetDispatchQueue(store, NULL);
+			return TRUE;
 		default :
 			break;
 	}
 
+	if (storePrivate->server == MACH_PORT_NULL) {
+		/* sorry, you must have an open session to play */
+		sc_status = kSCStatusNoStoreServer;
+		goto done;
+	}
+
 	status = notifycancel(storePrivate->server, (int *)&sc_status);
-
-	/* set notifier inactive */
-	storePrivate->notifyStatus = NotifierNotRegistered;
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -102,9 +102,18 @@ SCDynamicStoreNotifyCancel(SCDynamicStoreRef store)
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreNotifyCancel notifycancel(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return FALSE;
+		if (((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED))
+		    && __SCDynamicStoreReconnect(store)) {
+			sc_status = kSCStatusOK;
+		} else {
+			sc_status = status;
+		}
 	}
+
+    done :
+
+	/* set notifier inactive */
+	storePrivate->notifyStatus = NotifierNotRegistered;
 
 	if (sc_status != kSCStatusOK) {
 		_SCErrorSet(sc_status);

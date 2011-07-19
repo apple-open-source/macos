@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/wcscoll.3	2003-05-20 15:23:55.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/wcscoll.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -41,37 +41,57 @@
+--- wcscoll.3.bsdnew	2009-11-18 18:24:39.000000000 -0800
++++ wcscoll.3	2009-11-18 18:24:39.000000000 -0800
+@@ -37,37 +37,57 @@
  .Dt WCSCOLL 3
  .Os
  .Sh NAME
@@ -65,7 +65,7 @@
  .Pp
  No return value is reserved to indicate errors;
  callers should set
-@@ -95,7 +115,8 @@
+@@ -91,7 +111,8 @@ Cannot allocate enough memory for tempor
  .Xr setlocale 3 ,
  .Xr strcoll 3 ,
  .Xr wcscmp 3 ,

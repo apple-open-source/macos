@@ -37,5 +37,7 @@
 		<key>com.apple.kpi.mach</key>
 		<string>9.0.0</string>
 	</dict>
+	<key>OSBundleAllowUserLoad</key>
+	<true/>	
 </dict>
 </plist>

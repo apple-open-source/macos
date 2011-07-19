@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -52,7 +52,7 @@ static char uline[MAXLINE + 1];
 #define FMT_LEGACY 0
 #define FMT_ASL 1
 
-asl_msg_t *
+aslmsg 
 udp_in_acceptmsg(int fd)
 {
 	socklen_t fromlen;
@@ -91,7 +91,7 @@ udp_in_acceptmsg(int fd)
 	p = strrchr(uline, '\n');
 	if (p != NULL) *p = '\0';
 
-	return asl_input_parse(uline, len, r, 0);
+	return asl_input_parse(uline, len, r, SOURCE_UDP_SOCKET);
 }
 
 int
@@ -166,12 +166,6 @@ udp_in_init(void)
 }
 
 int
-udp_in_reset(void)
-{
-	return 0;
-}
-
-int
 udp_in_close(void)
 {
 	int i;
@@ -180,11 +174,22 @@ udp_in_close(void)
 
 	for (i = 0; i < nsock; i++)
 	{
-		if (ufd[i] != -1) close(ufd[i]);
+		if (ufd[i] != -1)
+		{
+			aslevent_removefd(ufd[i]);
+			close(ufd[i]);
+		}
+
 		ufd[i] = -1;
 	}
 
 	nsock = 0;
 
+	return 0;
+}
+
+int
+udp_in_reset(void)
+{
 	return 0;
 }

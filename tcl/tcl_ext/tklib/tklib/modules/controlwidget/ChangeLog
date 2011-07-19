@@ -1,0 +1,26 @@
+2010-08-11  Andreas Kupries  <andreask@activestate.com>
+
+ 	* controlwidget.man: Resolved merge conflict regarding markup of
+	  configure/cget in favor of 'method' over 'emph'.
+
+2010-08-10  Arjen Markus <arjenmarkus@users.sourceforge.net>
+
+	* controlwidget.man: Expanded the description of all widgets and
+	  their options
+	* vertical_meter.tcl: Fixed a bug in the slider widget
+	  moved the test code to the examples (demo-meters.tcl)
+	* radioMatrix.tcl: Changed the name of the Set and Get methods -
+	  now set and get, in accordance with the other widgets
+	* voltmeter.tcl: Moved the test code to the examples
+	* tachometer.tcl: Moved the test code to the examples
+	* rdial.tcl: Moved the test code to the examples
+
+
+2010-07-16  Andreas Kupries  <andreask@activestate.com>
+
+	* controlwidget.man: Fixed the bad documentation syntax found by
+	  running "./sak.tcl doc validate modules/controlwidget" from the
+	  tklib toplevel directory.
+
+	* ChangeLog begun.
+

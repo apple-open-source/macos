@@ -1,19 +1,21 @@
 package DateTime::TimeZone;
 
+use 5.006;
+
 use strict;
+use warnings;
 
-use vars qw( $VERSION );
-$VERSION = '0.41';
+our $VERSION = '1.10';
 
-use DateTime::TimeZoneCatalog;
+use DateTime::TimeZone::Catalog;
 use DateTime::TimeZone::Floating;
 use DateTime::TimeZone::Local;
 use DateTime::TimeZone::OffsetOnly;
 use DateTime::TimeZone::UTC;
 use Params::Validate qw( validate validate_pos SCALAR ARRAYREF BOOLEAN );
 
-use constant INFINITY     =>       100 ** 100 ** 100 ;
-use constant NEG_INFINITY => -1 * (100 ** 100 ** 100);
+use constant INFINITY     =>       100 ** 1000 ;
+use constant NEG_INFINITY => -1 * (100 ** 1000);
 
 # the offsets for each span element
 use constant UTC_START   => 0;
@@ -24,7 +26,7 @@ use constant OFFSET      => 4;
 use constant IS_DST      => 5;
 use constant SHORT_NAME  => 6;
 
-my %SpecialName = map { $_ => 1 } qw( EST MST HST EST5EDT CST6CDT MST7MDT PST8PDT );
+my %SpecialName = map { $_ => 1 } qw( EST MST HST CET EET MET WET EST5EDT CST6CDT MST7MDT PST8PDT );
 
 sub new
 {
@@ -33,13 +35,13 @@ sub new
                       { name => { type => SCALAR } },
                     );
 
-    if ( exists $DateTime::TimeZone::LINKS{ $p{name} } )
+    if ( exists $DateTime::TimeZone::Catalog::LINKS{ $p{name} } )
     {
-        $p{name} = $DateTime::TimeZone::LINKS{ $p{name} };
+        $p{name} = $DateTime::TimeZone::Catalog::LINKS{ $p{name} };
     }
-    elsif ( exists $DateTime::TimeZone::LINKS{ uc $p{name} } )
+    elsif ( exists $DateTime::TimeZone::Catalog::LINKS{ uc $p{name} } )
     {
-        $p{name} = $DateTime::TimeZone::LINKS{ uc $p{name} };
+        $p{name} = $DateTime::TimeZone::Catalog::LINKS{ uc $p{name} };
     }
 
     unless ( $p{name} =~ m,/,
@@ -53,7 +55,7 @@ sub new
 
         if ( $p{name} eq 'local' )
         {
-            return DateTime::TimeZone::Local::local_time_zone();
+            return DateTime::TimeZone::Local->TimeZone();
         }
 
         if ( $p{name} eq 'UTC' || $p{name} eq 'Z' )
@@ -74,25 +76,45 @@ sub new
 
     unless ( $real_class->can('instance') )
     {
-        eval "require $real_class";
+        my $e = do { local $@;
+                     local $SIG{__DIE__};
+                     eval "require $real_class";
+                     $@;
+                   };
 
-        if ($@)
+        if ($e)
         {
             my $regex = join '.', split /::/, $real_class;
             $regex .= '\\.pm';
 
-            if ( $@ =~ /^Can't locate $regex/i )
+            if ( $e =~ /^Can't locate $regex/i )
             {
                 die "The timezone '$p{name}' could not be loaded, or is an invalid name.\n";
             }
             else
             {
-                die $@;
+                die $e;
             }
         }
     }
 
-    return $real_class->instance( name => $p{name}, is_olson => 1 );
+    my $zone = $real_class->instance( name => $p{name}, is_olson => 1 );
+
+    if ( $zone->is_olson() )
+    {
+        my $object_version =
+            $zone->can('olson_version')
+            ? $zone->olson_version()
+            : 'unknown';
+        my $catalog_version = DateTime::TimeZone::Catalog->OlsonVersion();
+
+        if ( $object_version ne $catalog_version )
+        {
+            warn "Loaded $real_class, which is from an older version ($object_version) of the Olson database than this installation of DateTime::TimeZone ($catalog_version).\n";
+        }
+    }
+
+    return $zone;
 }
 
 sub _init
@@ -240,6 +262,10 @@ sub _spans_binary_search
             # Russia by the US).  Always prefer latest span.
             if ( $current->[IS_DST] && $type eq 'local' )
             {
+                # Asia/Dhaka in 2009j goes into DST without any known
+                # end-of-DST date (wtf, Bangladesh).
+                return $current if $current->[UTC_END] == INFINITY;
+
                 my $next = $self->{spans}[$i + 1];
                 # Sometimes we will get here and the span we're
                 # looking at is the last that's been generated so far.
@@ -388,9 +414,14 @@ sub category  { (split /\//, $_[0]->{name}, 2)[0] }
 
 sub is_valid_name
 {
-    my $tz = eval { $_[0]->new( name => $_[1] ) };
+    my $tz;
+    {
+        local $@;
+        local $SIG{__DIE__};
+        $tz = eval { $_[0]->new( name => $_[1] ) };
+    }
 
-    return $tz && UNIVERSAL::isa( $tz, 'DateTime::TimeZone') ? 1 : 0
+    return $tz && $tz->isa('DateTime::TimeZone') ? 1 : 0
 }
 
 sub STORABLE_freeze
@@ -418,11 +449,6 @@ sub STORABLE_thaw
         $obj = $class->new( name => $serialized );
     }
 
-    # This breaks the "singleton-ness" of timezone objects, but
-    # there's no way to tell Storable to simply use an existing
-    # object.  This shouldn't matter since we copy the underlying
-    # structures by reference here, so span generation in one object
-    # will be visible in another also in memory.
     %$self = %$obj;
 
     return $self;
@@ -433,6 +459,12 @@ sub STORABLE_thaw
 #
 sub offset_as_seconds
 {
+    {
+        local $@;
+        local $SIG{__DIE__};
+        shift if eval { $_[0]->isa('DateTime::TimeZone') };
+    }
+
     my $offset = shift;
 
     return undef unless defined $offset;
@@ -467,6 +499,12 @@ sub offset_as_seconds
 
 sub offset_as_string
 {
+    {
+        local $@;
+        local $SIG{__DIE__};
+        shift if eval { $_[0]->isa('DateTime::TimeZone') };
+    }
+
     my $offset = shift;
 
     return undef unless defined $offset;
@@ -486,6 +524,56 @@ sub offset_as_string
              sprintf( '%s%02d%02d%02d', $sign, $hours, $mins, $secs ) :
              sprintf( '%s%02d%02d', $sign, $hours, $mins )
            );
+}
+
+# These methods all operate on data contained in the DateTime/TimeZone/Catalog.pm file.
+
+sub all_names
+{
+    return wantarray ? @DateTime::TimeZone::Catalog::ALL : [@DateTime::TimeZone::Catalog::ALL];
+}
+
+sub categories
+{
+    return wantarray
+        ? @DateTime::TimeZone::Catalog::CATEGORY_NAMES
+        : [@DateTime::TimeZone::Catalog::CATEGORY_NAMES];
+}
+
+sub links
+{
+    return
+        wantarray ? %DateTime::TimeZone::Catalog::LINKS : {%DateTime::TimeZone::Catalog::LINKS};
+}
+
+sub names_in_category
+{
+    shift if $_[0]->isa('DateTime::TimeZone');
+    return unless exists $DateTime::TimeZone::Catalog::CATEGORIES{ $_[0] };
+
+    return
+        wantarray
+        ? @{ $DateTime::TimeZone::Catalog::CATEGORIES{ $_[0] } }
+        : [ $DateTime::TimeZone::Catalog::CATEGORIES{ $_[0] } ];
+}
+
+sub countries
+{
+    wantarray
+        ? ( sort keys %DateTime::TimeZone::Catalog::ZONES_BY_COUNTRY )
+        : [ sort keys %DateTime::TimeZone::Catalog::ZONES_BY_COUNTRY ];
+}
+
+sub names_in_country
+{
+    shift if $_[0]->isa('DateTime::TimeZone');
+
+    return unless exists $DateTime::TimeZone::Catalog::ZONES_BY_COUNTRY{ lc $_[0] };
+
+    return
+        wantarray
+        ? @{ $DateTime::TimeZone::Catalog::ZONES_BY_COUNTRY{ lc $_[0] } }
+        : $DateTime::TimeZone::Catalog::ZONES_BY_COUNTRY{ lc $_[0] };
 }
 
 
@@ -522,9 +610,7 @@ methods.
 
 This class has the following methods:
 
-=over 4
-
-=item * new( name => $tz_name )
+=head2 DateTime::TimeZone->new( name => $tz_name )
 
 Given a valid time zone name, this method returns a new time zone
 blessed into the appropriate subclass.  Subclasses are named for the
@@ -534,6 +620,13 @@ DateTime::TimeZone::America::Chicago class.
 If the name given is a "link" name in the Olson database, the object
 created may have a different name.  For example, there is a link from
 the old "EST5EDT" name to "America/New_York".
+
+When loading a time zone from the Olson database, the constructor
+checks the version of the loaded class to make sure it matches the
+version of the current DateTime::TimeZone installation. If they do not
+match it will issue a warning. This is useful because time zone names
+may fall out of use, but you may have an old module file installed for
+that time zone.
 
 There are also several special values that can be given as names.
 
@@ -550,56 +643,35 @@ object is returned.
 If the "name" is an offset string, it is converted to a number, and a
 C<DateTime::TimeZone::OffsetOnly> object is returned.
 
-=back
-
 =head3 The "local" time zone
 
 If the "name" parameter is "local", then the module attempts to
 determine the local time zone for the system.
 
-First it checks C<$ENV> for keys named "TZ", "SYS$TIMEZONE_RULE",
-"SYS$TIMEZONE_NAME", "UCX$TZ", or "TCPIP$TZC" (the last 4 are for
-VMS).  If this is defined, and it is not the string "local", then it
-is treated as any other valid name (including "floating"), and the
-constructor tries to create a time zone based on that name.
-
-Next, it checks for the existence of a symlink at F</etc/localtime>.
-It follows this link to the real file and figures out what the file's
-name is.  It then tries to turn this name into a valid time zone.  For
-example, if this file is linked to F</usr/share/zoneinfo/US/Central>,
-it will end up trying "US/Central", which will then be converted to
-"America/Chicago" internally.
-
-Some systems just copy the relevant file to F</etc/localtime> instead
-of making a symlink.  In this case, we look in F</usr/share/zoneinfo>
-for a file that has the same size and content as F</etc/localtime> to
-determine the local time zone.
-
-Then it checks for a file called F</etc/timezone> or F</etc/TIMEZONE>.
-If one of these exists, it is read and it tries to create a time zone
-with the name contained in the file.
-
-Finally, it checks for a file called F</etc/sysconfig/clock>.  If this
-file exists, it looks for a line inside the file matching
-C</^(?:TIME)?ZONE="([^"]+)"/>.  If this line exists, it tries the
-value as a time zone name.
-
-If none of these methods work, it gives up and dies.
-
-=head2 Object Methods
-
-C<DateTime::TimeZone> objects provide the following methods:
+The method for finding the local zone varies by operating system. See
+the appropriate module for details of how we check for the local time
+zone.
 
 =over 4
 
-=item * offset_for_datetime( $dt )
+=item * L<DateTime::TimeZone::Local::Unix>
+
+=item * L<DateTime::TimeZone::Local::Win32>
+
+=item * L<DateTime::TimeZone::Local::VMS>
+
+=back
+
+If a local time zone is not found, then an exception will be thrown.
+
+=head2 $tz->offset_for_datetime( $dt )
 
 Given a C<DateTime> object, this method returns the offset in seconds
 for the given datetime.  This takes into account historical time zone
 information, as well as Daylight Saving Time.  The offset is
 determined by looking at the object's UTC Rata Die days and seconds.
 
-=item * offset_for_local_datetime( $dt )
+=head2 $tz->offset_for_local_datetime( $dt )
 
 Given a C<DateTime> object, this method returns the offset in seconds
 for the given datetime.  Unlike the previous method, this method uses
@@ -607,12 +679,12 @@ the local time's Rata Die days and seconds.  This should only be done
 when the corresponding UTC time is not yet known, because local times
 can be ambiguous due to Daylight Saving Time rules.
 
-=item * name
+=head2 $tz->name
 
 Returns the name of the time zone.  If this value is passed to the
 C<new()> method, it is guaranteed to create the same object.
 
-=item * short_name_for_datetime( $dt )
+=head2 $tz->short_name_for_datetime( $dt )
 
 Given a C<DateTime> object, this method returns the "short name" for
 the current observance and rule this datetime is in.  These are names
@@ -624,92 +696,84 @@ of them are simply the invention of the Olson database maintainers.
 Moreover, these names are not unique.  For example, there is an "EST"
 at both -0500 and +1000/+1100.
 
-=item * is_floating
+=head2 $tz->is_floating
 
 Returns a boolean indicating whether or not this object represents a
 floating time zone, as defined by RFC 2445.
 
-=item * is_utc
+=head2 $tz->is_utc
 
 Indicates whether or not this object represents the UTC (GMT) time
 zone.
 
-=item * has_dst_changes
+=head2 $tz->has_dst_changes
 
-Indicates whether or not this zone I<ever> has a change to and from
-DST.
+Indicates whether or not this zone has I<ever> had a change to and
+from DST, either in the past or future.
 
-=item * is_olson
+=head2 $tz->is_olson
 
 Returns true if the time zone is a named time zone from the Olson
 database.
 
-=item * category
+=head2 $tz->category
 
 Returns the part of the time zone name before the first slash.  For
 example, the "America/Chicago" time zone would return "America".
 
-=back
-
-=head2 Class Methods
-
-This class provides one class method:
-
-=over 4
-
-=item * is_valid_name ($name)
+=head2 DateTime::TimeZone->is_valid_name($name)
 
 Given a string, this method returns a boolean value indicating whether
 or not the string is a valid time zone name.  If you are using
 C<DateTime::TimeZone::Alias>, any aliases you've created will be valid.
 
-=back
-
-=head2 Storable Hooks
-
-This module provides freeze and thaw hooks for C<Storable> so that the
-huge data structures for Olson time zones are not actually stored in
-the serialized structure.
-
-If you subclass C<DateTime::TimeZone>, you will inherit its hooks,
-which may not work for your module, so please test the interaction of
-your module with Storable.
-
-=head2 Functions
-
-This class also contains several functions, none of which are
-exported.  Calling these as class methods will also work.
-
-=over 4
-
-=item * all_names
+=head2 DateTime::TimeZone->all_names
 
 This returns a pre-sorted list of all the time zone names.  This list
 does not include link names.  In scalar context, it returns an array
 reference, while in list context it returns an array.
 
-=item * categories
+=head2 DateTime::TimeZone->categories
 
 This returns a list of all time zone categories.  In scalar context,
 it returns an array reference, while in list context it returns an
 array.
 
-=item * links
+=head2 DateTime::TimeZone->links
 
 This returns a hash of all time zone links, where the keys are the
 old, deprecated names, and the values are the new names.  In scalar
 context, it returns a hash reference, while in list context it returns
 a hash.
 
-=item * names_in_category( $category )
+=head2 DateTime::TimeZone->names_in_category( $category )
 
 Given a valid category, this method returns a list of the names in
 that category, without the category portion.  So the list for the
 "America" category would include the strings "Chicago",
-"Kentucky/Monticello", and "New_York".  In scalar context, it returns
+"Kentucky/Monticello", and "New_York". In scalar context, it returns
 an array reference, while in list context it returns an array.
 
-=item * offset_as_seconds( $offset )
+The list is returned in order of population by zone, which should mean
+that this order will be the best to use for most UIs.
+
+=head2 DateTime::TimeZone->countries()
+
+Returns a sorted list of all the valid country codes (in lower-case)
+which can be passed to C<names_in_country()>. In scalar context, it
+returns an array reference, while in list context it returns an array.
+
+If you need to convert country codes to names or vice versa you can
+use C<Locale::Country> to do so.
+
+=head2 DateTime::TimeZone->names_in_country( $country_code )
+
+Given a two-letter ISO3166 country code, this method returns a list of
+time zones used in that country. The country code may be of any
+case. In scalar context, it returns an array reference, while in list
+context it returns an array.
+
+=head2 DateTime::TimeZone->offset_as_seconds( $offset )
 
 Given an offset as a string, this returns the number of seconds
 represented by the offset as a positive or negative number.  Returns
@@ -723,21 +787,50 @@ these, C<undef> will be returned.
 This means that if you want to specify hours as a single digit, then
 each element of the offset must be separated by a colon (:).
 
-=item * offset_as_string( $offset )
+=head2 DateTime::TimeZone->offset_as_string( $offset )
 
 Given an offset as a number, this returns the offset as a string.
 Returns C<undef> if $offset is not in the range C<-359999> to C<359999>.
 
-=back
+=head2 Storable Hooks
+
+This module provides freeze and thaw hooks for C<Storable> so that the
+huge data structures for Olson time zones are not actually stored in
+the serialized structure.
+
+If you subclass C<DateTime::TimeZone>, you will inherit its hooks,
+which may not work for your module, so please test the interaction of
+your module with Storable.
 
 =head1 SUPPORT
 
 Support for this module is provided via the datetime@perl.org email
-list.  See http://lists.perl.org/ for more details.
+list. See http://datetime.perl.org/?MailingList for details.
 
 Please submit bugs to the CPAN RT system at
 http://rt.cpan.org/NoAuth/ReportBug.html?Queue=datetime%3A%3Atimezone
 or via email at bug-datetime-timezone@rt.cpan.org.
+
+=head1 DONATIONS
+
+If you'd like to thank me for the work I've done on this module,
+please consider making a "donation" to me via PayPal. I spend a lot of
+free time creating free software, and would appreciate any support
+you'd care to offer.
+
+Please note that B<I am not suggesting that you must do this> in order
+for me to continue working on this particular software. I will
+continue to do so, inasmuch as I have in the past, for as long as it
+interests me.
+
+Similarly, a donation made in this way will probably not make me work
+on this software much more, unless I get so many donations that I can
+consider working on free software full time, which seems unlikely at
+best.
+
+To donate, log into PayPal and send money to autarch@urth.org or use
+the button on this page:
+L<http://www.urth.org/~autarch/fs-donation.html>
 
 =head1 AUTHOR
 
@@ -751,9 +844,9 @@ datetime@perl.org list.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003 David Rolsky.  All rights reserved.  This program
-is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
+Copyright (c) 2003-2008 David Rolsky.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
 
 The full text of the license can be found in the LICENSE file included
 with this module.

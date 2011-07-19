@@ -45,5 +45,7 @@ extern char *input_scrub_new_file(
     char *filename);
 extern char *input_scrub_next_buffer(
     char **bufp);
+extern char *find_an_include_file(
+    char *no_path_name);
 extern void read_an_include_file(
     char *no_path_name);

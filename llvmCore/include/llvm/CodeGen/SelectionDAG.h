@@ -17,9 +17,9 @@
 
 #include "llvm/ADT/ilist.h"
 #include "llvm/ADT/DenseSet.h"
-#include "llvm/ADT/FoldingSet.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/CodeGen/SelectionDAGNodes.h"
+#include "llvm/Support/RecyclingAllocator.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
 #include <vector>
@@ -29,16 +29,18 @@
 namespace llvm {
 
 class AliasAnalysis;
-class TargetLowering;
-class MachineModuleInfo;
-class DwarfWriter;
-class MachineFunction;
-class MachineConstantPoolValue;
 class FunctionLoweringInfo;
+class MachineConstantPoolValue;
+class MachineFunction;
+class MDNode;
+class SDNodeOrdering;
+class SDDbgValue;
+class TargetLowering;
+class TargetSelectionDAGInfo;
 
 template<> struct ilist_traits<SDNode> : public ilist_default_traits<SDNode> {
 private:
-  mutable ilist_node<SDNode> Sentinel;
+  mutable ilist_half_node<SDNode> Sentinel;
 public:
   SDNode *createSentinel() const {
     return static_cast<SDNode*>(&Sentinel);
@@ -56,11 +58,65 @@ private:
   static void createNode(const SDNode &);
 };
 
+/// SDDbgInfo - Keeps track of dbg_value information through SDISel.  We do
+/// not build SDNodes for these so as not to perturb the generated code;
+/// instead the info is kept off to the side in this structure. Each SDNode may
+/// have one or more associated dbg_value entries. This information is kept in
+/// DbgValMap.
+/// Byval parameters are handled separately because they don't use alloca's,
+/// which busts the normal mechanism.  There is good reason for handling all
+/// parameters separately:  they may not have code generated for them, they
+/// should always go at the beginning of the function regardless of other code
+/// motion, and debug info for them is potentially useful even if the parameter
+/// is unused.  Right now only byval parameters are handled separately.
+class SDDbgInfo {
+  SmallVector<SDDbgValue*, 32> DbgValues;
+  SmallVector<SDDbgValue*, 32> ByvalParmDbgValues;
+  DenseMap<const SDNode*, SmallVector<SDDbgValue*, 2> > DbgValMap;
+
+  void operator=(const SDDbgInfo&);   // Do not implement.
+  SDDbgInfo(const SDDbgInfo&);   // Do not implement.
+public:
+  SDDbgInfo() {}
+
+  void add(SDDbgValue *V, const SDNode *Node, bool isParameter) {
+    if (isParameter) {
+      ByvalParmDbgValues.push_back(V);
+    } else     DbgValues.push_back(V);
+    if (Node)
+      DbgValMap[Node].push_back(V);
+  }
+
+  void clear() {
+    DbgValMap.clear();
+    DbgValues.clear();
+    ByvalParmDbgValues.clear();
+  }
+
+  bool empty() const {
+    return DbgValues.empty() && ByvalParmDbgValues.empty();
+  }
+
+  SmallVector<SDDbgValue*,2> &getSDDbgValues(const SDNode *Node) {
+    return DbgValMap[Node];
+  }
+
+  typedef SmallVector<SDDbgValue*,32>::iterator DbgIterator;
+  DbgIterator DbgBegin() { return DbgValues.begin(); }
+  DbgIterator DbgEnd()   { return DbgValues.end(); }
+  DbgIterator ByvalParmDbgBegin() { return ByvalParmDbgValues.begin(); }
+  DbgIterator ByvalParmDbgEnd()   { return ByvalParmDbgValues.end(); }
+};
+
 enum CombineLevel {
   Unrestricted,   // Combine may create illegal operations and illegal types.
   NoIllegalTypes, // Combine may create illegal operations but no illegal types.
   NoIllegalOperations // Combine may only create legal operations and types.
 };
+
+class SelectionDAG;
+void checkForCycles(const SDNode *N);
+void checkForCycles(const SelectionDAG *DAG);
 
 /// SelectionDAG class - This is used to represent a portion of an LLVM function
 /// in a low-level Data Dependence DAG representation suitable for instruction
@@ -74,11 +130,12 @@ enum CombineLevel {
 /// linear form.
 ///
 class SelectionDAG {
-  TargetLowering &TLI;
+  const TargetMachine &TM;
+  const TargetLowering &TLI;
+  const TargetSelectionDAGInfo &TSI;
   MachineFunction *MF;
   FunctionLoweringInfo &FLI;
-  MachineModuleInfo *MMI;
-  DwarfWriter *DW;
+  LLVMContext *Context;
 
   /// EntryNode - The starting token.
   SDNode EntryNode;
@@ -99,7 +156,7 @@ class SelectionDAG {
   NodeAllocatorType NodeAllocator;
 
   /// CSEMap - This structure is used to memoize nodes, automatically performing
-  /// CSE with existing nodes with a duplicate is requested.
+  /// CSE with existing nodes when a duplicate is requested.
   FoldingSet<SDNode> CSEMap;
 
   /// OperandAllocator - Pool allocation for machine-opcode SDNode operands.
@@ -108,6 +165,13 @@ class SelectionDAG {
   /// Allocator - Pool allocation for misc. objects that are created once per
   /// SelectionDAG.
   BumpPtrAllocator Allocator;
+
+  /// SDNodeOrdering - The ordering of the SDNodes. It roughly corresponds to
+  /// the ordering of the original LLVM instructions.
+  SDNodeOrdering *Ordering;
+
+  /// DbgInfo - Tracks dbg_value information through SDISel.
+  SDDbgInfo *DbgInfo;
 
   /// VerifyNode - Sanity check the given node.  Aborts if it is invalid.
   void VerifyNode(SDNode *N);
@@ -119,14 +183,17 @@ class SelectionDAG {
                               DenseSet<SDNode *> &visited,
                               int level, bool &printed);
 
+  void operator=(const SelectionDAG&); // Do not implement.
+  SelectionDAG(const SelectionDAG&);   // Do not implement.
+
 public:
-  SelectionDAG(TargetLowering &tli, FunctionLoweringInfo &fli);
+  SelectionDAG(const TargetMachine &TM, FunctionLoweringInfo &fli);
   ~SelectionDAG();
 
   /// init - Prepare this SelectionDAG to process code in the given
   /// MachineFunction.
   ///
-  void init(MachineFunction &mf, MachineModuleInfo *mmi, DwarfWriter *dw);
+  void init(MachineFunction &mf);
 
   /// clear - Clear state and free memory necessary to make this
   /// SelectionDAG ready to process a new block.
@@ -134,11 +201,11 @@ public:
   void clear();
 
   MachineFunction &getMachineFunction() const { return *MF; }
-  const TargetMachine &getTarget() const;
-  TargetLowering &getTargetLoweringInfo() const { return TLI; }
+  const TargetMachine &getTarget() const { return TM; }
+  const TargetLowering &getTargetLoweringInfo() const { return TLI; }
+  const TargetSelectionDAGInfo &getSelectionDAGInfo() const { return TSI; }
   FunctionLoweringInfo &getFunctionLoweringInfo() const { return FLI; }
-  MachineModuleInfo *getMachineModuleInfo() const { return MMI; }
-  DwarfWriter *getDwarfWriter() const { return DW; }
+  LLVMContext *getContext() const {return Context; }
 
   /// viewGraph - Pop up a GraphViz/gv window with the DAG rendered using 'dot'.
   ///
@@ -194,7 +261,12 @@ public:
   const SDValue &setRoot(SDValue N) {
     assert((!N.getNode() || N.getValueType() == MVT::Other) &&
            "DAG root value is not a chain!");
-    return Root = N;
+    if (N.getNode())
+      checkForCycles(N.getNode());
+    Root = N;
+    if (N.getNode())
+      checkForCycles(this);
+    return Root;
   }
 
   /// Combine - This iterates over the nodes in the SelectionDAG, folding
@@ -218,7 +290,20 @@ public:
   ///
   /// Note that this is an involved process that may invalidate pointers into
   /// the graph.
-  void Legalize(bool TypesNeedLegalizing, CodeGenOpt::Level OptLevel);
+  void Legalize(CodeGenOpt::Level OptLevel);
+
+  /// LegalizeVectors - This transforms the SelectionDAG into a SelectionDAG
+  /// that only uses vector math operations supported by the target.  This is
+  /// necessary as a separate step from Legalize because unrolling a vector
+  /// operation can introduce illegal types, which requires running
+  /// LegalizeTypes again.
+  ///
+  /// This returns true if it made any changes; in that case, LegalizeTypes
+  /// is called again before Legalize.
+  ///
+  /// Note that this is an involved process that may invalidate pointers into
+  /// the graph.
+  bool LegalizeVectors();
 
   /// RemoveDeadNodes - This method deletes all unreachable nodes in the
   /// SelectionDAG.
@@ -230,82 +315,88 @@ public:
 
   /// getVTList - Return an SDVTList that represents the list of values
   /// specified.
-  SDVTList getVTList(MVT VT);
-  SDVTList getVTList(MVT VT1, MVT VT2);
-  SDVTList getVTList(MVT VT1, MVT VT2, MVT VT3);
-  SDVTList getVTList(MVT VT1, MVT VT2, MVT VT3, MVT VT4);
-  SDVTList getVTList(const MVT *VTs, unsigned NumVTs);
+  SDVTList getVTList(EVT VT);
+  SDVTList getVTList(EVT VT1, EVT VT2);
+  SDVTList getVTList(EVT VT1, EVT VT2, EVT VT3);
+  SDVTList getVTList(EVT VT1, EVT VT2, EVT VT3, EVT VT4);
+  SDVTList getVTList(const EVT *VTs, unsigned NumVTs);
 
   //===--------------------------------------------------------------------===//
   // Node creation methods.
   //
-  SDValue getConstant(uint64_t Val, MVT VT, bool isTarget = false);
-  SDValue getConstant(const APInt &Val, MVT VT, bool isTarget = false);
-  SDValue getConstant(const ConstantInt &Val, MVT VT, bool isTarget = false);
+  SDValue getConstant(uint64_t Val, EVT VT, bool isTarget = false);
+  SDValue getConstant(const APInt &Val, EVT VT, bool isTarget = false);
+  SDValue getConstant(const ConstantInt &Val, EVT VT, bool isTarget = false);
   SDValue getIntPtrConstant(uint64_t Val, bool isTarget = false);
-  SDValue getTargetConstant(uint64_t Val, MVT VT) {
+  SDValue getTargetConstant(uint64_t Val, EVT VT) {
     return getConstant(Val, VT, true);
   }
-  SDValue getTargetConstant(const APInt &Val, MVT VT) {
+  SDValue getTargetConstant(const APInt &Val, EVT VT) {
     return getConstant(Val, VT, true);
   }
-  SDValue getTargetConstant(const ConstantInt &Val, MVT VT) {
+  SDValue getTargetConstant(const ConstantInt &Val, EVT VT) {
     return getConstant(Val, VT, true);
   }
-  SDValue getConstantFP(double Val, MVT VT, bool isTarget = false);
-  SDValue getConstantFP(const APFloat& Val, MVT VT, bool isTarget = false);
-  SDValue getConstantFP(const ConstantFP &CF, MVT VT, bool isTarget = false);
-  SDValue getTargetConstantFP(double Val, MVT VT) {
+  // The forms below that take a double should only be used for simple
+  // constants that can be exactly represented in VT.  No checks are made.
+  SDValue getConstantFP(double Val, EVT VT, bool isTarget = false);
+  SDValue getConstantFP(const APFloat& Val, EVT VT, bool isTarget = false);
+  SDValue getConstantFP(const ConstantFP &CF, EVT VT, bool isTarget = false);
+  SDValue getTargetConstantFP(double Val, EVT VT) {
     return getConstantFP(Val, VT, true);
   }
-  SDValue getTargetConstantFP(const APFloat& Val, MVT VT) {
+  SDValue getTargetConstantFP(const APFloat& Val, EVT VT) {
     return getConstantFP(Val, VT, true);
   }
-  SDValue getTargetConstantFP(const ConstantFP &Val, MVT VT) {
+  SDValue getTargetConstantFP(const ConstantFP &Val, EVT VT) {
     return getConstantFP(Val, VT, true);
   }
-  SDValue getGlobalAddress(const GlobalValue *GV, MVT VT,
-                           int64_t offset = 0, bool isTargetGA = false);
-  SDValue getTargetGlobalAddress(const GlobalValue *GV, MVT VT,
-                                 int64_t offset = 0) {
-    return getGlobalAddress(GV, VT, offset, true);
+  SDValue getGlobalAddress(const GlobalValue *GV, EVT VT,
+                           int64_t offset = 0, bool isTargetGA = false,
+                           unsigned char TargetFlags = 0);
+  SDValue getTargetGlobalAddress(const GlobalValue *GV, EVT VT,
+                                 int64_t offset = 0,
+                                 unsigned char TargetFlags = 0) {
+    return getGlobalAddress(GV, VT, offset, true, TargetFlags);
   }
-  SDValue getFrameIndex(int FI, MVT VT, bool isTarget = false);
-  SDValue getTargetFrameIndex(int FI, MVT VT) {
+  SDValue getFrameIndex(int FI, EVT VT, bool isTarget = false);
+  SDValue getTargetFrameIndex(int FI, EVT VT) {
     return getFrameIndex(FI, VT, true);
   }
-  SDValue getJumpTable(int JTI, MVT VT, bool isTarget = false);
-  SDValue getTargetJumpTable(int JTI, MVT VT) {
-    return getJumpTable(JTI, VT, true);
+  SDValue getJumpTable(int JTI, EVT VT, bool isTarget = false,
+                       unsigned char TargetFlags = 0);
+  SDValue getTargetJumpTable(int JTI, EVT VT, unsigned char TargetFlags = 0) {
+    return getJumpTable(JTI, VT, true, TargetFlags);
   }
-  SDValue getConstantPool(Constant *C, MVT VT,
-                            unsigned Align = 0, int Offs = 0, bool isT=false);
-  SDValue getTargetConstantPool(Constant *C, MVT VT,
-                                  unsigned Align = 0, int Offset = 0) {
-    return getConstantPool(C, VT, Align, Offset, true);
+  SDValue getConstantPool(const Constant *C, EVT VT,
+                          unsigned Align = 0, int Offs = 0, bool isT=false,
+                          unsigned char TargetFlags = 0);
+  SDValue getTargetConstantPool(const Constant *C, EVT VT,
+                                unsigned Align = 0, int Offset = 0,
+                                unsigned char TargetFlags = 0) {
+    return getConstantPool(C, VT, Align, Offset, true, TargetFlags);
   }
-  SDValue getConstantPool(MachineConstantPoolValue *C, MVT VT,
-                            unsigned Align = 0, int Offs = 0, bool isT=false);
+  SDValue getConstantPool(MachineConstantPoolValue *C, EVT VT,
+                          unsigned Align = 0, int Offs = 0, bool isT=false,
+                          unsigned char TargetFlags = 0);
   SDValue getTargetConstantPool(MachineConstantPoolValue *C,
-                                  MVT VT, unsigned Align = 0,
-                                  int Offset = 0) {
-    return getConstantPool(C, VT, Align, Offset, true);
+                                  EVT VT, unsigned Align = 0,
+                                  int Offset = 0, unsigned char TargetFlags=0) {
+    return getConstantPool(C, VT, Align, Offset, true, TargetFlags);
   }
   // When generating a branch to a BB, we don't in general know enough
   // to provide debug info for the BB at that time, so keep this one around.
   SDValue getBasicBlock(MachineBasicBlock *MBB);
   SDValue getBasicBlock(MachineBasicBlock *MBB, DebugLoc dl);
-  SDValue getExternalSymbol(const char *Sym, MVT VT);
-  SDValue getExternalSymbol(const char *Sym, DebugLoc dl, MVT VT);
-  SDValue getTargetExternalSymbol(const char *Sym, MVT VT);
-  SDValue getTargetExternalSymbol(const char *Sym, DebugLoc dl, MVT VT);
-  SDValue getArgFlags(ISD::ArgFlagsTy Flags);
-  SDValue getValueType(MVT);
-  SDValue getRegister(unsigned Reg, MVT VT);
-  SDValue getDbgStopPoint(SDValue Root, unsigned Line, unsigned Col,
-                          Value *CU);
-  SDValue getLabel(unsigned Opcode, DebugLoc dl, SDValue Root,
-                   unsigned LabelID);
+  SDValue getExternalSymbol(const char *Sym, EVT VT);
+  SDValue getExternalSymbol(const char *Sym, DebugLoc dl, EVT VT);
+  SDValue getTargetExternalSymbol(const char *Sym, EVT VT,
+                                  unsigned char TargetFlags = 0);
+  SDValue getValueType(EVT);
+  SDValue getRegister(unsigned Reg, EVT VT);
+  SDValue getEHLabel(DebugLoc dl, SDValue Root, MCSymbol *Label);
+  SDValue getBlockAddress(const BlockAddress *BA, EVT VT,
+                          bool isTarget = false, unsigned char TargetFlags = 0);
 
   SDValue getCopyToReg(SDValue Chain, DebugLoc dl, unsigned Reg, SDValue N) {
     return getNode(ISD::CopyToReg, dl, MVT::Other, Chain,
@@ -330,7 +421,7 @@ public:
     return getNode(ISD::CopyToReg, dl, VTs, Ops, Flag.getNode() ? 4 : 3);
   }
 
-  SDValue getCopyFromReg(SDValue Chain, DebugLoc dl, unsigned Reg, MVT VT) {
+  SDValue getCopyFromReg(SDValue Chain, DebugLoc dl, unsigned Reg, EVT VT) {
     SDVTList VTs = getVTList(VT, MVT::Other);
     SDValue Ops[] = { Chain, getRegister(Reg, VT) };
     return getNode(ISD::CopyFromReg, dl, VTs, Ops, 2);
@@ -339,7 +430,7 @@ public:
   // This version of the getCopyFromReg method takes an extra operand, which
   // indicates that there is potentially an incoming flag value (if Flag is not
   // null) and that there should be a flag result.
-  SDValue getCopyFromReg(SDValue Chain, DebugLoc dl, unsigned Reg, MVT VT,
+  SDValue getCopyFromReg(SDValue Chain, DebugLoc dl, unsigned Reg, EVT VT,
                            SDValue Flag) {
     SDVTList VTs = getVTList(VT, MVT::Other, MVT::Flag);
     SDValue Ops[] = { Chain, getRegister(Reg, VT), Flag };
@@ -350,23 +441,31 @@ public:
 
   /// Returns the ConvertRndSat Note: Avoid using this node because it may
   /// disappear in the future and most targets don't support it.
-  SDValue getConvertRndSat(MVT VT, DebugLoc dl, SDValue Val, SDValue DTy,
+  SDValue getConvertRndSat(EVT VT, DebugLoc dl, SDValue Val, SDValue DTy,
                            SDValue STy,
                            SDValue Rnd, SDValue Sat, ISD::CvtCode Code);
   
   /// getVectorShuffle - Return an ISD::VECTOR_SHUFFLE node.  The number of
   /// elements in VT, which must be a vector type, must match the number of
-  /// mask elements NumElts.  A negative integer mask element is treated as
+  /// mask elements NumElts.  A integer mask element equal to -1 is treated as
   /// undefined.
-  SDValue getVectorShuffle(MVT VT, DebugLoc dl, SDValue N1, SDValue N2, 
+  SDValue getVectorShuffle(EVT VT, DebugLoc dl, SDValue N1, SDValue N2, 
                            const int *MaskElts);
+
+  /// getSExtOrTrunc - Convert Op, which must be of integer type, to the
+  /// integer type VT, by either sign-extending or truncating it.
+  SDValue getSExtOrTrunc(SDValue Op, DebugLoc DL, EVT VT);
+
+  /// getZExtOrTrunc - Convert Op, which must be of integer type, to the
+  /// integer type VT, by either zero-extending or truncating it.
+  SDValue getZExtOrTrunc(SDValue Op, DebugLoc DL, EVT VT);
 
   /// getZeroExtendInReg - Return the expression required to zero extend the Op
   /// value assuming it was the smaller SrcTy value.
-  SDValue getZeroExtendInReg(SDValue Op, DebugLoc DL, MVT SrcTy);
+  SDValue getZeroExtendInReg(SDValue Op, DebugLoc DL, EVT SrcTy);
 
   /// getNOT - Create a bitwise NOT operation as (XOR Val, -1).
-  SDValue getNOT(DebugLoc DL, SDValue Val, MVT VT);
+  SDValue getNOT(DebugLoc DL, SDValue Val, EVT VT);
 
   /// getCALLSEQ_START - Return a new CALLSEQ_START node, which always must have
   /// a flag result (to ensure it's not CSE'd).  CALLSEQ_START does not have a
@@ -374,8 +473,7 @@ public:
   SDValue getCALLSEQ_START(SDValue Chain, SDValue Op) {
     SDVTList VTs = getVTList(MVT::Other, MVT::Flag);
     SDValue Ops[] = { Chain,  Op };
-    return getNode(ISD::CALLSEQ_START, DebugLoc::getUnknownLoc(),
-                   VTs, Ops, 2);
+    return getNode(ISD::CALLSEQ_START, DebugLoc(), VTs, Ops, 2);
   }
 
   /// getCALLSEQ_END - Return a new CALLSEQ_END node, which always must have a
@@ -389,42 +487,41 @@ public:
     Ops.push_back(Op1);
     Ops.push_back(Op2);
     Ops.push_back(InFlag);
-    return getNode(ISD::CALLSEQ_END, DebugLoc::getUnknownLoc(), NodeTys,
-                   &Ops[0],
+    return getNode(ISD::CALLSEQ_END, DebugLoc(), NodeTys, &Ops[0],
                    (unsigned)Ops.size() - (InFlag.getNode() == 0 ? 1 : 0));
   }
 
   /// getUNDEF - Return an UNDEF node.  UNDEF does not have a useful DebugLoc.
-  SDValue getUNDEF(MVT VT) {
-    return getNode(ISD::UNDEF, DebugLoc::getUnknownLoc(), VT);
+  SDValue getUNDEF(EVT VT) {
+    return getNode(ISD::UNDEF, DebugLoc(), VT);
   }
 
   /// getGLOBAL_OFFSET_TABLE - Return a GLOBAL_OFFSET_TABLE node.  This does
   /// not have a useful DebugLoc.
-  SDValue getGLOBAL_OFFSET_TABLE(MVT VT) {
-    return getNode(ISD::GLOBAL_OFFSET_TABLE, DebugLoc::getUnknownLoc(), VT);
+  SDValue getGLOBAL_OFFSET_TABLE(EVT VT) {
+    return getNode(ISD::GLOBAL_OFFSET_TABLE, DebugLoc(), VT);
   }
 
   /// getNode - Gets or creates the specified node.
   ///
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT, SDValue N);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT, SDValue N1, SDValue N2);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT);
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT, SDValue N);
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT, SDValue N1, SDValue N2);
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT,
                   SDValue N1, SDValue N2, SDValue N3);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT,
                   SDValue N1, SDValue N2, SDValue N3, SDValue N4);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT,
                   SDValue N1, SDValue N2, SDValue N3, SDValue N4,
                   SDValue N5);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT,
                   const SDUse *Ops, unsigned NumOps);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, MVT VT,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, EVT VT,
                   const SDValue *Ops, unsigned NumOps);
   SDValue getNode(unsigned Opcode, DebugLoc DL,
-                  const std::vector<MVT> &ResultTys,
+                  const std::vector<EVT> &ResultTys,
                   const SDValue *Ops, unsigned NumOps);
-  SDValue getNode(unsigned Opcode, DebugLoc DL, const MVT *VTs, unsigned NumVTs,
+  SDValue getNode(unsigned Opcode, DebugLoc DL, const EVT *VTs, unsigned NumVTs,
                   const SDValue *Ops, unsigned NumOps);
   SDValue getNode(unsigned Opcode, DebugLoc DL, SDVTList VTs,
                   const SDValue *Ops, unsigned NumOps);
@@ -440,24 +537,30 @@ public:
                   SDValue N1, SDValue N2, SDValue N3, SDValue N4,
                   SDValue N5);
 
+  /// getStackArgumentTokenFactor - Compute a TokenFactor to force all
+  /// the incoming stack arguments to be loaded from the stack. This is
+  /// used in tail call lowering to protect stack arguments from being
+  /// clobbered.
+  SDValue getStackArgumentTokenFactor(SDValue Chain);
+
   SDValue getMemcpy(SDValue Chain, DebugLoc dl, SDValue Dst, SDValue Src,
-                    SDValue Size, unsigned Align, bool AlwaysInline,
+                    SDValue Size, unsigned Align, bool isVol, bool AlwaysInline,
                     const Value *DstSV, uint64_t DstSVOff,
                     const Value *SrcSV, uint64_t SrcSVOff);
 
   SDValue getMemmove(SDValue Chain, DebugLoc dl, SDValue Dst, SDValue Src,
-                     SDValue Size, unsigned Align,
+                     SDValue Size, unsigned Align, bool isVol,
                      const Value *DstSV, uint64_t DstOSVff,
                      const Value *SrcSV, uint64_t SrcSVOff);
 
   SDValue getMemset(SDValue Chain, DebugLoc dl, SDValue Dst, SDValue Src,
-                    SDValue Size, unsigned Align,
+                    SDValue Size, unsigned Align, bool isVol,
                     const Value *DstSV, uint64_t DstSVOff);
 
   /// getSetCC - Helper function to make it easier to build SetCC's if you just
   /// have an ISD::CondCode instead of an SDValue.
   ///
-  SDValue getSetCC(DebugLoc DL, MVT VT, SDValue LHS, SDValue RHS,
+  SDValue getSetCC(DebugLoc DL, EVT VT, SDValue LHS, SDValue RHS,
                    ISD::CondCode Cond) {
     return getNode(ISD::SETCC, DL, VT, LHS, RHS, getCondCode(Cond));
   }
@@ -465,7 +568,7 @@ public:
   /// getVSetCC - Helper function to make it easier to build VSetCC's nodes
   /// if you just have an ISD::CondCode instead of an SDValue.
   ///
-  SDValue getVSetCC(DebugLoc DL, MVT VT, SDValue LHS, SDValue RHS,
+  SDValue getVSetCC(DebugLoc DL, EVT VT, SDValue LHS, SDValue RHS,
                     ISD::CondCode Cond) {
     return getNode(ISD::VSETCC, DL, VT, LHS, RHS, getCondCode(Cond));
   }
@@ -481,81 +584,93 @@ public:
 
   /// getVAArg - VAArg produces a result and token chain, and takes a pointer
   /// and a source value as input.
-  SDValue getVAArg(MVT VT, DebugLoc dl, SDValue Chain, SDValue Ptr,
+  SDValue getVAArg(EVT VT, DebugLoc dl, SDValue Chain, SDValue Ptr,
                    SDValue SV);
 
   /// getAtomic - Gets a node for an atomic op, produces result and chain and
   /// takes 3 operands
-  SDValue getAtomic(unsigned Opcode, DebugLoc dl, MVT MemVT, SDValue Chain,
+  SDValue getAtomic(unsigned Opcode, DebugLoc dl, EVT MemVT, SDValue Chain,
                     SDValue Ptr, SDValue Cmp, SDValue Swp, const Value* PtrVal,
                     unsigned Alignment=0);
+  SDValue getAtomic(unsigned Opcode, DebugLoc dl, EVT MemVT, SDValue Chain,
+                    SDValue Ptr, SDValue Cmp, SDValue Swp,
+                    MachineMemOperand *MMO);
 
   /// getAtomic - Gets a node for an atomic op, produces result and chain and
   /// takes 2 operands.
-  SDValue getAtomic(unsigned Opcode, DebugLoc dl, MVT MemVT, SDValue Chain,
+  SDValue getAtomic(unsigned Opcode, DebugLoc dl, EVT MemVT, SDValue Chain,
                     SDValue Ptr, SDValue Val, const Value* PtrVal,
                     unsigned Alignment = 0);
+  SDValue getAtomic(unsigned Opcode, DebugLoc dl, EVT MemVT, SDValue Chain,
+                    SDValue Ptr, SDValue Val,
+                    MachineMemOperand *MMO);
 
   /// getMemIntrinsicNode - Creates a MemIntrinsicNode that may produce a
-  /// result and takes a list of operands.
+  /// result and takes a list of operands. Opcode may be INTRINSIC_VOID,
+  /// INTRINSIC_W_CHAIN, or a target-specific opcode with a value not
+  /// less than FIRST_TARGET_MEMORY_OPCODE.
   SDValue getMemIntrinsicNode(unsigned Opcode, DebugLoc dl,
-                              const MVT *VTs, unsigned NumVTs,
+                              const EVT *VTs, unsigned NumVTs,
                               const SDValue *Ops, unsigned NumOps,
-                              MVT MemVT, const Value *srcValue, int SVOff,
+                              EVT MemVT, const Value *srcValue, int SVOff,
                               unsigned Align = 0, bool Vol = false,
                               bool ReadMem = true, bool WriteMem = true);
 
   SDValue getMemIntrinsicNode(unsigned Opcode, DebugLoc dl, SDVTList VTList,
                               const SDValue *Ops, unsigned NumOps,
-                              MVT MemVT, const Value *srcValue, int SVOff,
+                              EVT MemVT, const Value *srcValue, int SVOff,
                               unsigned Align = 0, bool Vol = false,
                               bool ReadMem = true, bool WriteMem = true);
+
+  SDValue getMemIntrinsicNode(unsigned Opcode, DebugLoc dl, SDVTList VTList,
+                              const SDValue *Ops, unsigned NumOps,
+                              EVT MemVT, MachineMemOperand *MMO);
 
   /// getMergeValues - Create a MERGE_VALUES node from the given operands.
   SDValue getMergeValues(const SDValue *Ops, unsigned NumOps, DebugLoc dl);
 
-  /// getCall - Create a CALL node from the given information.
-  ///
-  SDValue getCall(unsigned CallingConv, DebugLoc dl, bool IsVarArgs,
-                  bool IsTailCall, bool isInreg, SDVTList VTs,
-                  const SDValue *Operands, unsigned NumOperands);
-
   /// getLoad - Loads are not normal binary operators: their result type is not
   /// determined by their operands, and they produce a value AND a token chain.
   ///
-  SDValue getLoad(MVT VT, DebugLoc dl, SDValue Chain, SDValue Ptr,
-                    const Value *SV, int SVOffset, bool isVolatile=false,
-                    unsigned Alignment=0);
-  SDValue getExtLoad(ISD::LoadExtType ExtType, DebugLoc dl, MVT VT,
-                       SDValue Chain, SDValue Ptr, const Value *SV,
-                       int SVOffset, MVT EVT, bool isVolatile=false,
-                       unsigned Alignment=0);
+  SDValue getLoad(EVT VT, DebugLoc dl, SDValue Chain, SDValue Ptr,
+                  const Value *SV, int SVOffset, bool isVolatile,
+                  bool isNonTemporal, unsigned Alignment);
+  SDValue getExtLoad(ISD::LoadExtType ExtType, DebugLoc dl, EVT VT,
+                     SDValue Chain, SDValue Ptr, const Value *SV,
+                     int SVOffset, EVT MemVT, bool isVolatile,
+                     bool isNonTemporal, unsigned Alignment);
   SDValue getIndexedLoad(SDValue OrigLoad, DebugLoc dl, SDValue Base,
                            SDValue Offset, ISD::MemIndexedMode AM);
   SDValue getLoad(ISD::MemIndexedMode AM, DebugLoc dl, ISD::LoadExtType ExtType,
-                    MVT VT, SDValue Chain,
-                    SDValue Ptr, SDValue Offset,
-                    const Value *SV, int SVOffset, MVT EVT,
-                    bool isVolatile=false, unsigned Alignment=0);
+                  EVT VT, SDValue Chain, SDValue Ptr, SDValue Offset,
+                  const Value *SV, int SVOffset, EVT MemVT,
+                  bool isVolatile, bool isNonTemporal, unsigned Alignment);
+  SDValue getLoad(ISD::MemIndexedMode AM, DebugLoc dl, ISD::LoadExtType ExtType,
+                  EVT VT, SDValue Chain, SDValue Ptr, SDValue Offset,
+                  EVT MemVT, MachineMemOperand *MMO);
 
   /// getStore - Helper function to build ISD::STORE nodes.
   ///
   SDValue getStore(SDValue Chain, DebugLoc dl, SDValue Val, SDValue Ptr,
-                     const Value *SV, int SVOffset, bool isVolatile=false,
-                     unsigned Alignment=0);
+                   const Value *SV, int SVOffset, bool isVolatile,
+                   bool isNonTemporal, unsigned Alignment);
+  SDValue getStore(SDValue Chain, DebugLoc dl, SDValue Val, SDValue Ptr,
+                   MachineMemOperand *MMO);
   SDValue getTruncStore(SDValue Chain, DebugLoc dl, SDValue Val, SDValue Ptr,
-                          const Value *SV, int SVOffset, MVT TVT,
-                          bool isVolatile=false, unsigned Alignment=0);
+                        const Value *SV, int SVOffset, EVT TVT,
+                        bool isNonTemporal, bool isVolatile,
+                        unsigned Alignment);
+  SDValue getTruncStore(SDValue Chain, DebugLoc dl, SDValue Val, SDValue Ptr,
+                        EVT TVT, MachineMemOperand *MMO);
   SDValue getIndexedStore(SDValue OrigStoe, DebugLoc dl, SDValue Base,
                            SDValue Offset, ISD::MemIndexedMode AM);
 
   /// getSrcValue - Construct a node to track a Value* through the backend.
   SDValue getSrcValue(const Value *v);
 
-  /// getMemOperand - Construct a node to track a memory reference
-  /// through the backend.
-  SDValue getMemOperand(const MachineMemOperand &MO);
-
+  /// getMDNode - Return an MDNodeSDNode which holds an MDNode.
+  SDValue getMDNode(const MDNode *MD);
+  
   /// getShiftAmountOperand - Return the specified value casted to
   /// the target's desired shift amount type.
   SDValue getShiftAmountOperand(SDValue Op);
@@ -581,96 +696,99 @@ public:
   /// specified node to have the specified return type, Target opcode, and
   /// operands.  Note that target opcodes are stored as
   /// ~TargetOpcode in the node opcode field.  The resultant node is returned.
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT, SDValue Op1);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT,
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT, SDValue Op1);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT,
                        SDValue Op1, SDValue Op2);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT,
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT,
                        SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT,
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT,
                        const SDValue *Ops, unsigned NumOps);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1, MVT VT2);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, const SDValue *Ops, unsigned NumOps);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, MVT VT3, const SDValue *Ops, unsigned NumOps);
-  SDNode *SelectNodeTo(SDNode *N, unsigned MachineOpc, MVT VT1,
-                       MVT VT2, MVT VT3, MVT VT4, const SDValue *Ops,
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1, EVT VT2);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, const SDValue *Ops, unsigned NumOps);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, EVT VT3, const SDValue *Ops, unsigned NumOps);
+  SDNode *SelectNodeTo(SDNode *N, unsigned MachineOpc, EVT VT1,
+                       EVT VT2, EVT VT3, EVT VT4, const SDValue *Ops,
                        unsigned NumOps);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, SDValue Op1);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, SDValue Op1, SDValue Op2);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, MVT VT1,
-                       MVT VT2, MVT VT3, SDValue Op1, SDValue Op2, SDValue Op3);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, SDValue Op1);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, SDValue Op1, SDValue Op2);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, SDValue Op1, SDValue Op2, SDValue Op3);
+  SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, EVT VT1,
+                       EVT VT2, EVT VT3, SDValue Op1, SDValue Op2, SDValue Op3);
   SDNode *SelectNodeTo(SDNode *N, unsigned TargetOpc, SDVTList VTs,
                        const SDValue *Ops, unsigned NumOps);
 
-  /// MorphNodeTo - These *mutate* the specified node to have the specified
+  /// MorphNodeTo - This *mutates* the specified node to have the specified
   /// return type, opcode, and operands.
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT, SDValue Op1);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT,
-                      SDValue Op1, SDValue Op2);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT,
-                      SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT,
-                      const SDValue *Ops, unsigned NumOps);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1, MVT VT2);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1,
-                      MVT VT2, const SDValue *Ops, unsigned NumOps);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1,
-                      MVT VT2, MVT VT3, const SDValue *Ops, unsigned NumOps);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1,
-                      MVT VT2, SDValue Op1);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1,
-                      MVT VT2, SDValue Op1, SDValue Op2);
-  SDNode *MorphNodeTo(SDNode *N, unsigned Opc, MVT VT1,
-                      MVT VT2, SDValue Op1, SDValue Op2, SDValue Op3);
   SDNode *MorphNodeTo(SDNode *N, unsigned Opc, SDVTList VTs,
                       const SDValue *Ops, unsigned NumOps);
 
-  /// getTargetNode - These are used for target selectors to create a new node
-  /// with specified return type(s), target opcode, and operands.
+  /// getMachineNode - These are used for target selectors to create a new node
+  /// with specified return type(s), MachineInstr opcode, and operands.
   ///
-  /// Note that getTargetNode returns the resultant node.  If there is already a
-  /// node of the specified opcode and operands, it returns that node instead of
-  /// the current one.
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT, SDValue Op1);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT, SDValue Op1,
-                        SDValue Op2);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT,
-                        SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT,
-                        const SDValue *Ops, unsigned NumOps);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2,
-                        SDValue Op1);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1,
-                        MVT VT2, SDValue Op1, SDValue Op2);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1,
-                        MVT VT2, SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2,
-                        const SDValue *Ops, unsigned NumOps);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2, MVT VT3,
-                        SDValue Op1, SDValue Op2);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2, MVT VT3,
-                        SDValue Op1, SDValue Op2, SDValue Op3);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2, MVT VT3,
-                        const SDValue *Ops, unsigned NumOps);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl, MVT VT1, MVT VT2, MVT VT3,
-                        MVT VT4, const SDValue *Ops, unsigned NumOps);
-  SDNode *getTargetNode(unsigned Opcode, DebugLoc dl,
-                        const std::vector<MVT> &ResultTys, const SDValue *Ops,
-                        unsigned NumOps);
+  /// Note that getMachineNode returns the resultant node.  If there is already
+  /// a node of the specified opcode and operands, it returns that node instead
+  /// of the current one.
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT,
+                                SDValue Op1);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT,
+                                SDValue Op1, SDValue Op2);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT,
+                         SDValue Op1, SDValue Op2, SDValue Op3);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT,
+                         const SDValue *Ops, unsigned NumOps);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         SDValue Op1);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1,
+                         EVT VT2, SDValue Op1, SDValue Op2);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1,
+                         EVT VT2, SDValue Op1, SDValue Op2, SDValue Op3);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         const SDValue *Ops, unsigned NumOps);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         EVT VT3, SDValue Op1, SDValue Op2);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         EVT VT3, SDValue Op1, SDValue Op2, SDValue Op3);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         EVT VT3, const SDValue *Ops, unsigned NumOps);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, EVT VT1, EVT VT2,
+                         EVT VT3, EVT VT4, const SDValue *Ops, unsigned NumOps);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl,
+                         const std::vector<EVT> &ResultTys, const SDValue *Ops,
+                         unsigned NumOps);
+  MachineSDNode *getMachineNode(unsigned Opcode, DebugLoc dl, SDVTList VTs,
+                         const SDValue *Ops, unsigned NumOps);
+
+  /// getTargetExtractSubreg - A convenience function for creating
+  /// TargetInstrInfo::EXTRACT_SUBREG nodes.
+  SDValue getTargetExtractSubreg(int SRIdx, DebugLoc DL, EVT VT,
+                                 SDValue Operand);
+
+  /// getTargetInsertSubreg - A convenience function for creating
+  /// TargetInstrInfo::INSERT_SUBREG nodes.
+  SDValue getTargetInsertSubreg(int SRIdx, DebugLoc DL, EVT VT,
+                                SDValue Operand, SDValue Subreg);
 
   /// getNodeIfExists - Get the specified node if it's already available, or
   /// else return NULL.
   SDNode *getNodeIfExists(unsigned Opcode, SDVTList VTs,
                           const SDValue *Ops, unsigned NumOps);
+
+  /// getDbgValue - Creates a SDDbgValue node.
+  ///
+  SDDbgValue *getDbgValue(MDNode *MDPtr, SDNode *N, unsigned R, uint64_t Off,
+                          DebugLoc DL, unsigned O);
+  SDDbgValue *getDbgValue(MDNode *MDPtr, const Value *C, uint64_t Off,
+                          DebugLoc DL, unsigned O);
+  SDDbgValue *getDbgValue(MDNode *MDPtr, unsigned FI, uint64_t Off,
+                          DebugLoc DL, unsigned O);
 
   /// DAGUpdateListener - Clients of various APIs that cause global effects on
   /// the DAG can optionally implement this interface.  This allows the clients
@@ -768,25 +886,53 @@ public:
     }
   }
 
+  /// AssignOrdering - Assign an order to the SDNode.
+  void AssignOrdering(const SDNode *SD, unsigned Order);
+
+  /// GetOrdering - Get the order for the SDNode.
+  unsigned GetOrdering(const SDNode *SD) const;
+
+  /// AddDbgValue - Add a dbg_value SDNode. If SD is non-null that means the
+  /// value is produced by SD.
+  void AddDbgValue(SDDbgValue *DB, SDNode *SD, bool isParameter);
+
+  /// GetDbgValues - Get the debug values which reference the given SDNode.
+  SmallVector<SDDbgValue*,2> &GetDbgValues(const SDNode* SD) {
+    return DbgInfo->getSDDbgValues(SD);
+  }
+
+  /// hasDebugValues - Return true if there are any SDDbgValue nodes associated
+  /// with this SelectionDAG.
+  bool hasDebugValues() const { return !DbgInfo->empty(); }
+
+  SDDbgInfo::DbgIterator DbgBegin() { return DbgInfo->DbgBegin(); }
+  SDDbgInfo::DbgIterator DbgEnd()   { return DbgInfo->DbgEnd(); }
+  SDDbgInfo::DbgIterator ByvalParmDbgBegin() { 
+    return DbgInfo->ByvalParmDbgBegin(); 
+  }
+  SDDbgInfo::DbgIterator ByvalParmDbgEnd()   { 
+    return DbgInfo->ByvalParmDbgEnd(); 
+  }
+
   void dump() const;
 
   /// CreateStackTemporary - Create a stack temporary, suitable for holding the
   /// specified value type.  If minAlign is specified, the slot size will have
   /// at least that alignment.
-  SDValue CreateStackTemporary(MVT VT, unsigned minAlign = 1);
+  SDValue CreateStackTemporary(EVT VT, unsigned minAlign = 1);
 
   /// CreateStackTemporary - Create a stack temporary suitable for holding
   /// either of the specified value types.
-  SDValue CreateStackTemporary(MVT VT1, MVT VT2);
+  SDValue CreateStackTemporary(EVT VT1, EVT VT2);
 
   /// FoldConstantArithmetic -
   SDValue FoldConstantArithmetic(unsigned Opcode,
-                                 MVT VT,
+                                 EVT VT,
                                  ConstantSDNode *Cst1,
                                  ConstantSDNode *Cst2);
 
   /// FoldSetCC - Constant fold a setcc to true or false.
-  SDValue FoldSetCC(MVT VT, SDValue N1,
+  SDValue FoldSetCC(EVT VT, SDValue N1,
                     SDValue N2, ISD::CondCode Cond, DebugLoc dl);
 
   /// SignBitIsZero - Return true if the sign bit of Op is known to be zero.  We
@@ -816,13 +962,43 @@ public:
   /// class to allow target nodes to be understood.
   unsigned ComputeNumSignBits(SDValue Op, unsigned Depth = 0) const;
 
+  /// isKnownNeverNan - Test whether the given SDValue is known to never be NaN.
+  bool isKnownNeverNaN(SDValue Op) const;
+
+  /// isKnownNeverZero - Test whether the given SDValue is known to never be
+  /// positive or negative Zero.
+  bool isKnownNeverZero(SDValue Op) const;
+
+  /// isEqualTo - Test whether two SDValues are known to compare equal. This
+  /// is true if they are the same value, or if one is negative zero and the
+  /// other positive zero.
+  bool isEqualTo(SDValue A, SDValue B) const;
+
   /// isVerifiedDebugInfoDesc - Returns true if the specified SDValue has
   /// been verified as a debug information descriptor.
   bool isVerifiedDebugInfoDesc(SDValue Op) const;
 
   /// getShuffleScalarElt - Returns the scalar element that will make up the ith
   /// element of the result of the vector shuffle.
-  SDValue getShuffleScalarElt(const SDNode *N, unsigned Idx);
+  SDValue getShuffleScalarElt(const ShuffleVectorSDNode *N, unsigned Idx);
+
+  /// UnrollVectorOp - Utility function used by legalize and lowering to
+  /// "unroll" a vector operation by splitting out the scalars and operating
+  /// on each element individually.  If the ResNE is 0, fully unroll the vector
+  /// op. If ResNE is less than the width of the vector op, unroll up to ResNE.
+  /// If the  ResNE is greater than the width of the vector op, unroll the
+  /// vector op and fill the end of the resulting vector with UNDEFS.
+  SDValue UnrollVectorOp(SDNode *N, unsigned ResNE = 0);
+
+  /// isConsecutiveLoad - Return true if LD is loading 'Bytes' bytes from a 
+  /// location that is 'Dist' units away from the location that the 'Base' load 
+  /// is loading from.
+  bool isConsecutiveLoad(LoadSDNode *LD, LoadSDNode *Base,
+                         unsigned Bytes, int Dist) const;
+
+  /// InferPtrAlignment - Infer alignment of a load / store address. Return 0 if
+  /// it cannot be inferred.
+  unsigned InferPtrAlignment(SDValue Ptr) const;
 
 private:
   bool RemoveNodeFromCSEMaps(SDNode *N);
@@ -836,7 +1012,7 @@ private:
   void DeleteNodeNotInCSEMaps(SDNode *N);
   void DeallocateNode(SDNode *N);
 
-  unsigned getMVTAlignment(MVT MemoryVT) const;
+  unsigned getEVTAlignment(EVT MemoryVT) const;
 
   void allnodes_clear();
 
@@ -847,9 +1023,10 @@ private:
   std::vector<CondCodeSDNode*> CondCodeNodes;
 
   std::vector<SDNode*> ValueTypeNodes;
-  std::map<MVT, SDNode*, MVT::compareRawBits> ExtendedValueTypeNodes;
+  std::map<EVT, SDNode*, EVT::compareRawBits> ExtendedValueTypeNodes;
   StringMap<SDNode*> ExternalSymbols;
-  StringMap<SDNode*> TargetExternalSymbols;
+  
+  std::map<std::pair<std::string, unsigned char>,SDNode*> TargetExternalSymbols;
 };
 
 template <> struct GraphTraits<SelectionDAG*> : public GraphTraits<SDNode*> {

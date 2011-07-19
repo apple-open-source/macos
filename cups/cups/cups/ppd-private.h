@@ -1,9 +1,9 @@
 /*
- * "$Id: ppd-private.h 2254 2010-06-22 03:36:06Z msweet $"
+ * "$Id: ppd-private.h 3102 2011-03-30 16:58:46Z msweet $"
  *
- *   Private PPD definitions for the Common UNIX Printing System (CUPS).
+ *   Private PPD definitions for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,7 +31,9 @@
  * Include necessary headers...
  */
 
-#  include "cups.h"
+#  include <cups/cups.h>
+#  include <cups/ppd.h>
+#  include "pwg-private.h"
 
 
 /*
@@ -41,6 +43,13 @@
 #  ifdef __cplusplus
 extern "C" {
 #  endif /* __cplusplus */
+
+
+/*
+ * Constants...
+ */
+
+#  define _PPD_CACHE_VERSION	1	/* Version number in cache file */
 
 
 /*
@@ -69,14 +78,83 @@ typedef struct _ppd_cups_uiconsts_s	/**** cupsUIConstraints ****/
   _ppd_cups_uiconst_t *constraints;	/* Constraints */
 } _ppd_cups_uiconsts_t;
 
+typedef enum _pwg_print_color_mode_e	/**** PWG print-color-mode indices ****/
+{
+  _PWG_PRINT_COLOR_MODE_MONOCHROME = 0,	/* print-color-mode=monochrome */
+  _PWG_PRINT_COLOR_MODE_COLOR,		/* print-color-mode=color */
+  /* Other proposed values are not supported by CUPS yet. */
+  _PWG_PRINT_COLOR_MODE_MAX
+} _pwg_print_color_mode_t;
+
+typedef enum _pwg_print_quality_e	/**** PWG print-quality indices ****/
+{
+  _PWG_PRINT_QUALITY_DRAFT = 0,		/* print-quality=3 */
+  _PWG_PRINT_QUALITY_NORMAL,		/* print-quality=4 */
+  _PWG_PRINT_QUALITY_HIGH,		/* print-quality=5 */
+  _PWG_PRINT_QUALITY_MAX
+} _pwg_print_quality_t;
+
+struct _ppd_cache_s			/**** PPD cache and PWG conversion data ****/
+{
+  int		num_bins;		/* Number of output bins */
+  _pwg_map_t	*bins;			/* Output bins */
+  int		num_sizes;		/* Number of media sizes */
+  _pwg_size_t	*sizes;			/* Media sizes */
+  int		custom_max_width,	/* Maximum custom width in 2540ths */
+		custom_max_length,	/* Maximum custom length in 2540ths */
+		custom_min_width,	/* Minimum custom width in 2540ths */
+		custom_min_length;	/* Minimum custom length in 2540ths */
+  char		*custom_max_keyword,	/* Maximum custom size PWG keyword */
+		*custom_min_keyword,	/* Minimum custom size PWG keyword */
+		custom_ppd_size[41];	/* Custom PPD size name */
+  _pwg_size_t	custom_size;		/* Custom size record */
+  char		*source_option;		/* PPD option for media source */
+  int		num_sources;		/* Number of media sources */
+  _pwg_map_t	*sources;		/* Media sources */
+  int		num_types;		/* Number of media types */
+  _pwg_map_t	*types;			/* Media types */
+  int		num_presets[_PWG_PRINT_COLOR_MODE_MAX][_PWG_PRINT_QUALITY_MAX];
+					/* Number of print-color-mode/print-quality options */
+  cups_option_t	*presets[_PWG_PRINT_COLOR_MODE_MAX][_PWG_PRINT_QUALITY_MAX];
+					/* print-color-mode/print-quality options */
+  char		*sides_option,		/* PPD option for sides */
+		*sides_1sided,		/* Choice for one-sided */
+		*sides_2sided_long,	/* Choice for two-sided-long-edge */
+		*sides_2sided_short;	/* Choice for two-sided-short-edge */
+  char		*product;		/* Product value */
+  cups_array_t	*filters,		/* cupsFilter/cupsFilter2 values */
+		*prefilters;		/* cupsPreFilter values */
+  int		single_file;		/* cupsSingleFile value */
+};
+
 
 /*
  * Prototypes...
  */
 
+extern _ppd_cache_t	*_ppdCacheCreateWithFile(const char *filename,
+			                         ipp_t **attrs);
+extern _ppd_cache_t	*_ppdCacheCreateWithPPD(ppd_file_t *ppd);
+extern void		_ppdCacheDestroy(_ppd_cache_t *pc);
+extern const char	*_ppdCacheGetBin(_ppd_cache_t *pc,
+			                 const char *output_bin);
+extern const char	*_ppdCacheGetInputSlot(_ppd_cache_t *pc, ipp_t *job,
+			                       const char *keyword);
+extern const char	*_ppdCacheGetMediaType(_ppd_cache_t *pc, ipp_t *job,
+			                       const char *keyword);
+extern const char	*_ppdCacheGetOutputBin(_ppd_cache_t *pc,
+			                       const char *keyword);
+extern const char	*_ppdCacheGetPageSize(_ppd_cache_t *pc, ipp_t *job,
+			                      const char *keyword, int *exact);
+extern _pwg_size_t	*_ppdCacheGetSize(_ppd_cache_t *pc,
+			                  const char *page_size);
+extern const char	*_ppdCacheGetSource(_ppd_cache_t *pc,
+			                    const char *input_slot);
+extern const char	*_ppdCacheGetType(_ppd_cache_t *pc,
+			                  const char *media_type);
+extern int		_ppdCacheWriteFile(_ppd_cache_t *pc,
+			                   const char *filename, ipp_t *attrs);
 extern void		_ppdFreeLanguages(cups_array_t *languages);
-extern int		_ppdGet1284Values(const char *device_id,
-			                  cups_option_t **values);
 extern cups_encoding_t	_ppdGetEncoding(const char *name);
 extern cups_array_t	*_ppdGetLanguages(ppd_file_t *ppd);
 extern unsigned		_ppdHashName(const char *name);
@@ -88,6 +166,12 @@ extern char		*_ppdNormalizeMakeAndModel(const char *make_and_model,
 extern int		_ppdParseOptions(const char *s, int num_options,
 			                 cups_option_t **options,
 					 _ppd_parse_t which);
+extern const char	*_pwgInputSlotForSource(const char *media_source,
+			                        char *name, size_t namesize);
+extern const char	*_pwgMediaTypeForType(const char *media_type,
+					      char *name, size_t namesize);
+extern const char	*_pwgPageSizeForMedia(_pwg_media_t *media,
+			                      char *name, size_t namesize);
 
 
 /*
@@ -100,5 +184,5 @@ extern int		_ppdParseOptions(const char *s, int num_options,
 #endif /* !_CUPS_PPD_PRIVATE_H_ */
 
 /*
- * End of "$Id: ppd-private.h 2254 2010-06-22 03:36:06Z msweet $".
+ * End of "$Id: ppd-private.h 3102 2011-03-30 16:58:46Z msweet $".
  */

@@ -30,18 +30,19 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  */
-#ifdef __APPLE__
 #define __APPLE_API_PRIVATE
-#endif
 
 #include "config.h"
 
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
+#include <sys/ioctl.h>
 #include <sys/queue.h>
 
 #include <netinet/in.h>
+#include <net/if_var.h>
+#include <netinet6/in6_var.h>
 #include <arpa/inet.h>
 
 #ifndef HAVE_NETINET6_IPSEC
@@ -121,23 +122,14 @@
 # include "nattraversal.h"
 #endif
 #include "ike_session.h"
-# ifdef __linux__
-#  include <linux/udp.h>
-#  include <linux/ip.h>
-#  ifndef SOL_UDP
-#   define SOL_UDP 17
-#  endif
-# endif /* __linux__ */
-# if defined(__NetBSD__) || defined(__FreeBSD__) ||	\
-  (defined(__APPLE__) && defined(__MACH__))
 #  include <netinet/in.h>
 #  include <netinet/udp.h>
 #  include <netinet/in_systm.h>
 #  include <netinet/ip.h>
 #  define SOL_UDP IPPROTO_UDP
-# endif /* __NetBSD__ / __FreeBSD__ */
 #include "ipsecSessionTracer.h"
 #include "ipsecMessageTracer.h"
+#include "power_mgmt.h"
 
 static int nostate1 __P((struct ph1handle *, vchar_t *));
 static int nostate2 __P((struct ph2handle *, vchar_t *));
@@ -212,11 +204,7 @@ isakmp_handler(so_isakmp)
 		char		buf[sizeof (isakmp) + 4];
 		u_int32_t	non_esp[2];
 		char		lbuf[sizeof(struct udphdr) + 
-#ifdef __linux
-				     sizeof(struct iphdr) + 
-#else
 				     sizeof(struct ip) + 
-#endif
 				     sizeof(isakmp) + 4];
 	} x;
 	struct sockaddr_storage remote;
@@ -227,6 +215,12 @@ isakmp_handler(so_isakmp)
 	u_short port;
 	vchar_t *buf = NULL, *tmpbuf = NULL;
 	int error = -1;
+
+	if (slept_at || woke_at) {
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "ignoring isakmp port until power-mgmt event is handled.\n");
+		return 0;
+	}
 
 	/* read message by MSG_PEEK */
 	while ((len = recvfromto(so_isakmp, x.buf, sizeof(x),
@@ -255,15 +249,6 @@ isakmp_handler(so_isakmp)
 	/* Lucent IKE in UDP encapsulation */
 	{
 		struct udphdr *udp;
-#ifdef __linux__
-		struct iphdr *ip;
-
-		udp = (struct udphdr *)&x.lbuf[0];
-		if (ntohs(udp->dest) == 501) {
-			ip = (struct iphdr *)(x.lbuf + sizeof(*udp));
-			extralen += sizeof(*udp) + ip->ihl;
-		}
-#else
 		struct ip *ip;
 
 		udp = (struct udphdr *)&x.lbuf[0];
@@ -271,7 +256,6 @@ isakmp_handler(so_isakmp)
 			ip = (struct ip *)(x.lbuf + sizeof(*udp));
 			extralen += sizeof(*udp) + ip->ip_hl;
 		}
-#endif
 	}	
 
 #ifdef ENABLE_NATT
@@ -324,9 +308,7 @@ isakmp_handler(so_isakmp)
 			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to receive isakmp packet: %s\n", 
 				strerror (errno));
-#ifdef __APPLE__
 				error = -2;    /* serious problem with socket */
-#endif
 		}
 		goto end;
 	}
@@ -339,6 +321,13 @@ isakmp_handler(so_isakmp)
 		plog(LLV_ERROR, LOCATION, NULL,
 			"failed to receive isakmp packet: %s\n",
 			strerror (errno));
+		goto end;
+	}
+
+	if (len < extralen) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "invalid len (%d Bytes) & extralen (%d Bytes)\n",
+			 len, extralen);
 		goto end;
 	}
 
@@ -396,6 +385,9 @@ isakmp_handler(so_isakmp)
 	/* simply reply if the packet was processed. */
 	if (check_recvdpkt((struct sockaddr *)&remote,
 			(struct sockaddr *)&local, buf)) {
+		IPSECLOGASLMSG("Received retransmitted packet from %s.\n",
+					   saddr2str((struct sockaddr *)&remote));
+
 		plog(LLV_NOTIFY, LOCATION, NULL,
 			"the packet is retransmitted by %s.\n",
 			saddr2str((struct sockaddr *)&remote));
@@ -547,12 +539,8 @@ isakmp_main(msg, remote, local)
 			plog (LLV_INFO, LOCATION, NULL, 
 			      "NAT-T: ports changed to: %s\n",
 			      saddr2str_fromto ("%s<->%s", iph1->remote, iph1->local));
-#ifndef __APPLE__
-			natt_keepalive_add_ph1 (iph1);
-#endif
 		}
 #endif
-
 		/* must be same addresses in one stream of a phase at least. */
 		if (cmpsaddrstrict(iph1->remote, remote) != 0) {
 			char *saddr_db, *saddr_act;
@@ -819,7 +807,14 @@ isakmp_main(msg, remote, local)
 			     isakmp->etype, saddr2str(remote));
 			return -1;
 		}
-
+		if (iph1->status != PHASE1ST_ESTABLISHED) {
+			plog(LLV_ERROR, LOCATION, NULL,
+			     "mode config %d from %s, "
+			     "but ISAKMP-SA %s isn't established.\n",
+			     isakmp->etype, saddr2str(remote),
+				 isakmp_pindex(&iph1->index, iph1->msgid));
+			return -1;
+		}
 #ifdef ENABLE_FRAG
 		if (isakmp->np == ISAKMP_NPTYPE_FRAG)
 			return frag_handler(iph1, msg, remote, local);
@@ -1073,6 +1068,7 @@ ph1_main(iph1, msg)
 
 #ifdef ENABLE_VPNCONTROL_PORT
 		vpncontrol_notify_phase_change(0, FROM_LOCAL, iph1, NULL);
+		vpncontrol_notify_peer_resp_ph1(1, iph1);
 #endif
 
 	}
@@ -1182,7 +1178,6 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
-#ifdef __APPLE__
 	if (link_rmconf_to_ph1(rmconf) < 0) {
 		plog(LLV_ERROR, LOCATION, remote,
 			 "couldn't link "
@@ -1192,7 +1187,6 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 		delph1(iph1);
 		return -1;
 	}
-#endif
 	iph1->side = INITIATOR;
 	iph1->started_by_api = started_by_api;
 	iph1->version = ISAKMP_VERSION_NUMBER;
@@ -1234,6 +1228,13 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 		delph1(iph1);
 		return -1;
 	}
+	// HACK!!! to track rekeys across SIGHUPs
+	if (started_by_api == VPN_RESTARTED_BY_API &&
+		!iph1->is_rekey) {
+		iph1->parent_session->established = 1;
+		iph1->parent_session->ikev1_state.ph2cnt++;
+		iph1->is_rekey = 1;
+	}
 
 	/* start phase 1 exchange */
 	iph1->etype = rmconf->etypes->type;
@@ -1258,6 +1259,9 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 	gettimeofday(&iph1->start, NULL);
 	gettimeofday(&start, NULL);
 #endif
+
+	IPSECLOGASLMSG("IPSec Phase1 started (Initiated by me).\n");
+
 	/* start exchange */
 	if ((ph1exchange[etypesw1(iph1->etype)]
 			[iph1->side]
@@ -1280,7 +1284,6 @@ isakmp_ph1begin_i(rmconf, remote, local, started_by_api)
 #ifdef ENABLE_VPNCONTROL_PORT
 	vpncontrol_notify_phase_change(1, FROM_LOCAL, iph1, NULL);
 #endif
-
 	
 	return 0;
 }
@@ -1325,7 +1328,6 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	memcpy(&iph1->index.i_ck, &isakmp->i_ck, sizeof(iph1->index.i_ck));
 	iph1->status = PHASE1ST_START;
 	iph1->rmconf = rmconf;
-#ifdef __APPLE__
 	if (link_rmconf_to_ph1(rmconf) < 0) {
 		plog(LLV_ERROR, LOCATION, remote,
 			 "couldn't link "
@@ -1335,7 +1337,6 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 		delph1(iph1);
 		return -1;
 	}
-#endif
 	iph1->flags = 0;
 	iph1->side = RESPONDER;
 	iph1->started_by_api = 0;
@@ -1400,6 +1401,8 @@ isakmp_ph1begin_r(msg, remote, local, etype)
 	gettimeofday(&iph1->start, NULL);
 	gettimeofday(&start, NULL);
 #endif
+
+	IPSECLOGASLMSG("IPSec Phase1 started (Initiated by peer).\n");
 
 #ifndef ENABLE_FRAG
 
@@ -1485,6 +1488,8 @@ isakmp_ph2begin_i(iph1, iph2)
 		return -1;
 	}
 	iph2->status = PHASE2ST_STATUS2;
+
+	IPSECLOGASLMSG("IPSec Phase2 started (Initiated by me).\n");
 
 	if ((ph2exchange[etypesw2(ISAKMP_ETYPE_QUICK)]
 			 [iph2->side]
@@ -1614,6 +1619,8 @@ isakmp_ph2begin_r(iph1, msg)
 #ifdef ENABLE_STATS
 	gettimeofday(&start, NULL);
 #endif
+
+	IPSECLOGASLMSG("IPSec Phase2 started (Initiated by peer).\n");
 
 	error = (ph2exchange[etypesw2(ISAKMP_ETYPE_QUICK)]
 	                   [iph2->side]
@@ -1765,29 +1772,8 @@ isakmp_parse(buf)
 	return result;
 }
 
-/* %%% */
-#ifndef __APPLE__
 int
-isakmp_init()
-{
-	/* initialize a isakmp status table */
-	initph1tree();
-	initph2tree();
-	initctdtree();
-	init_recvdpkt();
-
-	if (isakmp_open() < 0)
-		goto err;
-
-	return(0);
-
-err:
-	isakmp_close();
-	return(-1);
-}
-#else
-int
-isakmp_init(int ignore_phX)
+isakmp_init(int ignore_phX, int *tentative_failures)
 {
 	/* initialize a isakmp status table */
 	if (!ignore_phX) {
@@ -1797,7 +1783,7 @@ isakmp_init(int ignore_phX)
 	initctdtree();
 	init_recvdpkt();
 
-	if (isakmp_open() < 0)
+	if (isakmp_open(tentative_failures) < 0)
 		goto err;
 
 	return(0);
@@ -1806,7 +1792,6 @@ err:
 	isakmp_close();
 	return(-1);
 }
-#endif /* __APPLE__ */
 
 void
 isakmp_cleanup()
@@ -1851,7 +1836,7 @@ isakmp_pindex(index, msgid)
 
 /* open ISAKMP sockets. */
 int
-isakmp_open()
+isakmp_open(int *tentative_failures)
 {
 	const int yes = 1;
 	int ifnum = 0, encap_ifnum = 0;
@@ -1860,18 +1845,19 @@ isakmp_open()
 #endif
 	struct myaddrs *p;
 
+	if (tentative_failures) {
+		*tentative_failures = FALSE;
+	}
+
 	for (p = lcconf->myaddrs; p; p = p->next) {
 		if (!p->addr)
 			continue;
-
-#ifdef __APPLE__
 		if (p->sock != -1) {
 			ifnum++;
 			if (p->udp_encap)
 				encap_ifnum++;
 			continue;		// socket already open	
 		}
-#endif
 
 		/* warn if wildcard address - should we forbid this? */
 		switch (p->addr->sa_family) {
@@ -1924,11 +1910,7 @@ isakmp_open()
 		switch (p->addr->sa_family) {
 		case AF_INET:
 			if (setsockopt(p->sock, IPPROTO_IP,
-#ifdef __linux__
-				       IP_PKTINFO,
-#else
 				       IP_RECVDSTADDR,
-#endif
 					(const void *)&yes, sizeof(yes)) < 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"setsockopt IP_RECVDSTADDR (%s)\n", 
@@ -1939,11 +1921,7 @@ isakmp_open()
 #ifdef INET6
 		case AF_INET6:
 #ifdef INET6_ADVAPI
-#ifdef IPV6_RECVPKTINFO
 			pktinfo = IPV6_RECVPKTINFO;
-#else  /* old adv. API */
-			pktinfo = IPV6_PKTINFO;
-#endif /* IPV6_RECVPKTINFO */
 #else
 			pktinfo = IPV6_RECVDSTADDR;
 #endif
@@ -1973,7 +1951,6 @@ isakmp_open()
 		if (setsockopt_bypass(p->sock, p->addr->sa_family) < 0)
 			goto err_and_next;
 
-#ifdef __APPLE__
 		if (extract_port(p->addr) == PORT_ISAKMP) {
 			if (setsockopt(p->sock, SOL_SOCKET, SO_NOTIFYCONFLICT, 
 				(void *)&yes, sizeof(yes)) < 0) {
@@ -1982,59 +1959,60 @@ isakmp_open()
 				goto err_and_next;
 			}
 		}
-#endif
 
 		if (bind(p->sock, p->addr, sysdep_sa_len(p->addr)) < 0) {
+			int tmp_errno = errno;
 			plog(LLV_ERROR, LOCATION, p->addr,
 				"failed to bind to address %s (%s).\n",
-				saddr2str(p->addr), strerror(errno));
+				saddr2str(p->addr), strerror(tmp_errno));
+#ifdef INET6
+			// if bind failed b/c of a tentative v6 address, try again later
+			if (tmp_errno == EADDRNOTAVAIL && p->addr->sa_family == AF_INET6) {
+				struct in6_ifreq ifr6;
+
+				bzero(&ifr6, sizeof(ifr6));
+				strlcpy(ifr6.ifr_name, p->ifname, sizeof(ifr6.ifr_name));
+				memcpy(&ifr6.ifr_addr, p->addr, sizeof(ifr6.ifr_addr));
+				if (ioctl(p->sock, SIOCGIFAFLAG_IN6, &ifr6) >= 0) {
+					/*
+					 * the tentative flag may have cleared between the bind() and ioctl() calls (i.e due to timing), so 
+					 * try infering that it was tentative from ensuring the absense other cases of EADDRNOTAVAIL.
+					 */
+					if ((ifr6.ifr_ifru.ifru_flags6 & (IN6_IFF_ANYCAST | IN6_IFF_DUPLICATED | IN6_IFF_DETACHED | IN6_IFF_DEPRECATED)) == 0) {
+						// address may have been tentantive... invalidate sock but leave address around for another try later
+						plog(LLV_ERROR, LOCATION, p->addr,
+							 "failed to bind to address %s: because interface address is/was not ready (flags %x).\n",
+							 saddr2str(p->addr), ifr6.ifr_ifru.ifru_flags6);
+						close(p->sock);
+						p->sock = -1;
+						if (tentative_failures) {
+							*tentative_failures = TRUE;
+						}
+						continue;
+					} else {
+						plog(LLV_ERROR, LOCATION, p->addr,
+							 "failed to bind to address %s: because of interface address error, flags %x.\n",
+							 saddr2str(p->addr), ifr6.ifr_ifru.ifru_flags6);
+					}
+				} else {
+					plog(LLV_ERROR, LOCATION, p->addr,
+						 "failed to bind to address %s: can't read interface address flags.\n",
+						 saddr2str(p->addr));
+				}
+			}
+#endif
 			close(p->sock);
 			p->sock = -1;
 			goto err_and_next;
 		}
 		
 		ifnum++;
-#ifdef __APPLE__
 		if (p->udp_encap)
 			encap_ifnum++;
-#endif
 
 		plog(LLV_INFO, LOCATION, NULL,
 			"%s used as isakmp port (fd=%d)\n",
 			saddr2str(p->addr), p->sock);
-
-#ifndef __APPLE__
-#ifdef ENABLE_NATT
-		if (p->addr->sa_family == AF_INET) {
-			int option = -1;
-
-			if(p->udp_encap)
-				option = UDP_ENCAP_ESPINUDP;
-#if defined(ENABLE_NATT_00) || defined(ENABLE_NATT_01)
-			else
-				option = UDP_ENCAP_ESPINUDP_NON_IKE;
-#endif
-			if(option != -1){
-				if (setsockopt (p->sock, SOL_UDP, 
-				    UDP_ENCAP, &option, sizeof (option)) < 0) {
-					plog(LLV_WARNING, LOCATION, NULL,
-					    "setsockopt(%s): UDP_ENCAP %s\n",
-					    option == UDP_ENCAP_ESPINUDP ? "UDP_ENCAP_ESPINUDP" : "UDP_ENCAP_ESPINUDP_NON_IKE",
-						 strerror(errno));
-					goto skip_encap;
-				}
-				else {
-					plog(LLV_INFO, LOCATION, NULL,
-						 "%s used for NAT-T\n",
-						 saddr2str(p->addr));
-					encap_ifnum++;
-				}
-			}
-		}
-skip_encap:
-#endif
-#endif /* __APPLE__ */
-
 		continue;
 
 	err_and_next:
@@ -2212,6 +2190,13 @@ int
 isakmp_ph1resend(iph1)
 	struct ph1handle *iph1;
 {
+	time_t retry_interval;
+	
+	// make sure there is a buffer to send
+	// isakmp_plist_set_all() could have returned NULL
+	if (iph1->sendbuf == NULL)
+		return -1;
+
 	/* Note: NEVER do the rem/del here, it will be done by the caller or by the _stub function
 	 */
 	if (iph1->retry_counter <= 0) {
@@ -2231,6 +2216,8 @@ isakmp_ph1resend(iph1)
 				return 0;
 		}
 		return -1;
+	} else {
+		ike_session_ph1_retransmits(iph1);
 	}
 
 	if (isakmp_send(iph1, iph1->sendbuf) < 0){
@@ -2260,8 +2247,9 @@ isakmp_ph1resend(iph1)
 		isakmp_pindex(&iph1->index, iph1->msgid));
 
 	iph1->retry_counter--;
-
-	iph1->scr = sched_new(iph1->rmconf->retry_interval,
+	retry_interval = get_exp_retx_interval((iph1->rmconf->retry_counter - iph1->retry_counter),
+										   iph1->rmconf->retry_interval);
+	iph1->scr = sched_new(retry_interval,
 		isakmp_ph1resend_stub, iph1);
 
 	return 0;
@@ -2287,6 +2275,8 @@ int
 isakmp_ph2resend(iph2)
 	struct ph2handle *iph2;
 {
+	time_t retry_interval;
+
 	/* Note: NEVER do the unbind/rem/del here, it will be done by the caller or by the _stub function
 	 */
 	//%%% BUG FIX - related to commit bit usage - crash happened here
@@ -2347,8 +2337,9 @@ isakmp_ph2resend(iph2)
 		isakmp_pindex(&iph2->ph1->index, iph2->msgid));
 
 	iph2->retry_counter--;
-
-	iph2->scr = sched_new(iph2->ph1->rmconf->retry_interval,
+	retry_interval = get_exp_retx_interval((iph2->ph1->rmconf->retry_counter - iph2->ph1->retry_counter),
+										   iph2->ph1->rmconf->retry_interval);
+	iph2->scr = sched_new(retry_interval,
 		isakmp_ph2resend_stub, iph2);
 
 #ifdef ENABLE_DPD
@@ -2446,7 +2437,7 @@ int               ignore_sess_drop_policy;
 	racoon_free(src);
 	racoon_free(dst);
 
-	if (!ignore_sess_drop_policy && ike_session_drop_rekey(iph1->parent_session)) {
+	if (!ignore_sess_drop_policy && ike_session_drop_rekey(iph1->parent_session, IKE_SESSION_REKEY_TYPE_PH1)) {
 		return;
 	}
 
@@ -2514,6 +2505,13 @@ struct ph1handle *iph1;
 		 isakmp_pindex(&iph1->index, 0));
 	racoon_free(src);
 	racoon_free(dst);
+
+	if (ike_session_drop_rekey(iph1->parent_session, IKE_SESSION_REKEY_TYPE_PH1)) {
+		plog(LLV_INFO, LOCATION, iph1->remote,
+			 "request for ISAKMP-SA rekey was ignored "
+			 "due to idleness.\n");
+		return 0;
+	}
 
 	// exit if there is another ph1 that is established (with a pending rekey timer)
 	if (ike_session_has_other_established_ph1(iph1->parent_session, iph1)) {
@@ -2758,10 +2756,18 @@ isakmp_post_acquire(iph2)
 			"due to no phase1 found.\n",
 			saddrwop2str(iph2->dst));
 
+		// exit if there is another ph1 that is established (with a pending rekey timer)
+		if (ike_session_has_negoing_ph1(iph2->parent_session)) {
+			plog(LLV_INFO, LOCATION, iph2->dst,
+				 "request for phase1 was ignored "
+				 "due to another negotiating ph1.\n");
+			return 0;
+		}
+
 		/* start phase 1 negotiation as a initiator. */
 		if (isakmp_ph1begin_i(rmconf, iph2->dst, iph2->src, 0) < 0) {
-			SCHED_KILL(sc);
-			return -1;
+			plog(LLV_INFO, LOCATION, iph2->dst,
+				 "request for phase1 failed. will try later.\n");
 		}
 
 		return 0;
@@ -3128,6 +3134,13 @@ isakmp_p2ph(buf, gen)
 		return -1;
 	}
 
+	if (ntohs(gen->len) < sizeof(*gen)) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "ignore this payload, invalid payload len %d.\n",
+			 ntohs(gen->len));
+		return -1;
+	}
+
 	*buf = vmalloc(ntohs(gen->len) - sizeof(*gen));
 	if (*buf == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -3285,9 +3298,7 @@ getname(ap)
 	static char ntop_buf[NI_MAXHOST];
 
 	memset(&addr, 0, sizeof(addr));
-#ifndef __linux__
 	addr.sin_len = sizeof(struct sockaddr_in);
-#endif
 	addr.sin_family = AF_INET;
 	memcpy(&addr.sin_addr, ap, sizeof(addr.sin_addr));
 	if (getnameinfo((struct sockaddr *)&addr, sizeof(addr),
@@ -3552,6 +3563,9 @@ log_ph1established(iph1)
 	racoon_free(src);
 	racoon_free(dst);
 
+	IPSECLOGASLMSG("IPSec Phase1 established (Initiated by %s).\n",
+				   (iph1->side == INITIATOR)? "me" : "peer");
+
 	return;
 }
 
@@ -3641,6 +3655,19 @@ frag_handler(iph1, msg, remote, local)
 			    "Packet reassembly failed\n");
 			return -1;
 		}
+
+		/* simply reply if the packet was processed. */
+		if (check_recvdpkt((struct sockaddr *)remote,
+						   (struct sockaddr *)local, newmsg) > 0) {
+			IPSECLOGASLMSG("Received (reassembled) retransmitted packet from %s.\n",
+						   saddr2str((struct sockaddr *)remote));
+
+			plog(LLV_NOTIFY, LOCATION, NULL,
+				 "the reassembled packet is retransmitted by %s.\n",
+				 saddr2str((struct sockaddr *)remote));
+			return 0;
+		}
+
 		return isakmp_main(newmsg, remote, local);
 	}
 
@@ -3707,11 +3734,18 @@ script_hook(iph1, script)
 		}
 	}
 
+#ifdef HAVE_OPENSSL
 	if (privsep_script_exec(iph1->rmconf->script[script]->v, 
 	    script, envp) != 0) 
 		plog(LLV_ERROR, LOCATION, NULL, 
 		    "Script %s execution failed\n", script_names[script]);
-
+#else
+	if (script_exec(iph1->rmconf->script[script]->v, 
+							script, envp) != 0) 
+		plog(LLV_ERROR, LOCATION, NULL, 
+			 "Script %s execution failed\n", script_names[script]);	
+#endif
+	
 out:
 	for (c = envp; *c; c++)
 		racoon_free(*c);
@@ -4211,14 +4245,14 @@ setscopeid(sp_addr0, sa_addr0)
 
 vchar_t *
 isakmp_plist_append_initial_contact (iph1, plist)
-struct ph1handle *iph1;
-struct payload_list *plist;
+	struct ph1handle *iph1;
+	struct payload_list *plist;
 {
 	if (!iph1->is_rekey && iph1->rmconf->ini_contact && !getcontacted(iph1->remote)) {
 		vchar_t *notp_ini = NULL;
 		struct isakmp_pl_n np, *nptr;
 		char *cptr;
-		
+
 		np.doi = htonl(iph1->rmconf->doitype);
 		np.proto_id = IPSECDOI_PROTO_ISAKMP;
 		np.spi_size = sizeof(isakmp_index);

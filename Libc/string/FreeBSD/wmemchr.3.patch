@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/wmemchr.3	2003-05-20 15:23:56.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/wmemchr.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -43,11 +43,6 @@
+--- wmemchr.3.orig	2009-12-16 13:19:24.000000000 -0800
++++ wmemchr.3	2009-12-16 13:30:23.000000000 -0800
+@@ -39,11 +39,6 @@
  .Dt WMEMCHR 3
  .Os
  .Sh NAME
@@ -9,10 +9,10 @@
 -.Nm wmemcpy ,
 -.Nm wmemmove ,
 -.Nm wmemset ,
- .Nm wcscat ,
- .Nm wcschr ,
- .Nm wcscmp ,
-@@ -62,57 +57,131 @@
+ .Nm wcpcpy ,
+ .Nm wcpncpy ,
+ .Nm wcscasecmp ,
+@@ -64,23 +59,18 @@
  .Nm wcspbrk ,
  .Nm wcsrchr ,
  .Nm wcsspn ,
@@ -30,16 +30,7 @@
  .In wchar.h
  .Ft wchar_t *
 -.Fn wmemchr "const wchar_t *s" "wchar_t c" "size_t n"
-+.Fo wcscat
-+.Fa "wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcschr
-+.Fa "const wchar_t *ws"
-+.Fa "wchar_t wc"
-+.Fc
- .Ft int
+-.Ft int
 -.Fn wmemcmp "const wchar_t *s1" "const wchar_t *s2" "size_t n"
 -.Ft wchar_t *
 -.Fn wmemcpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
@@ -48,136 +39,67 @@
 -.Ft wchar_t *
 -.Fn wmemset "wchar_t *s" "wchar_t c" "size_t n"
 -.Ft wchar_t *
--.Fn wcscat "wchar_t * restrict s1" "const wchar_t * restrict s2"
--.Ft wchar_t *
--.Fn wcschr "const wchar_t *s" "wchar_t c"
--.Ft int
--.Fn wcscmp "const wchar_t *s1" "const wchar_t *s2"
--.Ft wchar_t *
--.Fn wcscpy "wchar_t * restrict s1" "const wchar_t * restrict s2"
-+.Fo wcscmp
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fc
+ .Fn wcpcpy "wchar_t *s1" "wchar_t *s2"
+ .Ft wchar_t *
+ .Fn wcpncpy "wchar_t *s1" "wchar_t *s2" "size_t n"
+@@ -122,6 +112,22 @@
+ .Fn wcsspn "const wchar_t *s1" "const wchar_t *s2"
+ .Ft wchar_t *
+ .Fn wcsstr "const wchar_t * restrict s1" "const wchar_t * restrict s2"
 +.Ft wchar_t *
-+.Fo wcscpy
-+.Fa "wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fc
- .Ft size_t
--.Fn wcscspn "const wchar_t *s1" "const wchar_t *s2"
-+.Fo wcscspn
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fc
- .Ft size_t
--.Fn wcslcat "wchar_t *s1" "const wchar_t *s2" "size_t n"
-+.Fo wcslcat
-+.Fa "wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fa "size_t n"
-+.Fc
- .Ft size_t
--.Fn wcslcpy "wchar_t *s1" "const wchar_t *s2" "size_t n"
-+.Fo wcslcpy
-+.Fa "wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fa "size_t n"
-+.Fc
- .Ft size_t
--.Fn wcslen "const wchar_t *s"
--.Ft wchar_t *
--.Fn wcsncat "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
-+.Fo wcslen
-+.Fa "const wchar_t *ws"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcsncat
-+.Fa "wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fa "size_t n"
-+.Fc
- .Ft int
--.Fn wcsncmp "const wchar_t *s1" "const wchar_t * s2" "size_t n"
--.Ft wchar_t *
--.Fn wcsncpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
--.Ft wchar_t *
--.Fn wcspbrk "const wchar_t *s1" "const wchar_t *s2"
--.Ft wchar_t *
--.Fn wcsrchr "const wchar_t *s" "wchar_t c"
-+.Fo wcsncmp
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fa "size_t n"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcsncpy
-+.Fa "wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fa "size_t n"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcspbrk
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcsrchr
-+.Fa "const wchar_t *ws"
-+.Fa "wchar_t wc"
-+.Fc
- .Ft size_t
--.Fn wcsspn "const wchar_t *s1" "const wchar_t *s2"
--.Ft wchar_t *
--.Fn wcsstr "const wchar_t * restrict s1" "const wchar_t * restrict s2"
-+.Fo wcsspn
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fc
-+.Ft wchar_t *
-+.Fo wcsstr
-+.Fa "const wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fc
-+.Ft wchar_t *
-+.Fo wmemchr
-+.Fa "const wchar_t *ws"
-+.Fa "wchar_t wc"
-+.Fa "size_t n"
-+.Fc
++.Fn wmemchr "const wchar_t *s" "wchar_t c" "size_t n"
 +.Ft int
-+.Fo wmemcmp
-+.Fa "const wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fa "size_t n"
-+.Fc
++.Fn wmemcmp "const wchar_t *s1" "const wchar_t *s2" "size_t n"
 +.Ft wchar_t *
-+.Fo wmemcpy
-+.Fa "wchar_t *restrict ws1"
-+.Fa "const wchar_t *restrict ws2"
-+.Fa "size_t n"
-+.Fc
++.Fn wmemcpy "wchar_t * restrict s1" "const wchar_t * restrict s2" "size_t n"
 +.Ft wchar_t *
-+.Fo wmemmove
-+.Fa "wchar_t *ws1"
-+.Fa "const wchar_t *ws2"
-+.Fa "size_t n"
-+.Fc
++.Fn wmemmove "wchar_t *s1" "const wchar_t *s2" "size_t n"
 +.Ft wchar_t *
-+.Fo wmemset
-+.Fa "wchar_t *ws"
-+.Fa "wchar_t wc"
-+.Fa "size_t n"
-+.Fc
++.Fn wmemset "wchar_t *s" "wchar_t c" "size_t n"
++.In wchar.h
++.In xlocale.h
++.Ft int
++.Fn wcscasecmp_l "const wchar_t *s1" "const wchar_t *s2" "locale_t loc"
++.Ft int
++.Fn wcsncasecmp_l "const wchar_t *s1" "const wchar_t *s2" "size_t n" "locale_t loc"
  .Sh DESCRIPTION
--The functions implement string manipulation operations over wide character
--strings.
--For a detailed description, refer to documents for the respective single-byte
--counterpart, such as
-+The functions implement string manipulation operations
-+over wide character strings.
-+For a detailed description,
-+refer to documents for the respective single-byte counterpart, such as
- .Xr memchr 3 .
- .Sh SEE ALSO
- .Xr memchr 3 ,
+ The functions implement string manipulation operations over wide character
+ strings.
+@@ -137,6 +143,7 @@ counterpart, such as
+ .Xr stpcpy 3 ,
+ .Xr stpncpy 3 ,
+ .Xr strcasecmp 3 ,
++.Xr strcasecmp_l 3 ,
+ .Xr strcat 3 ,
+ .Xr strchr 3 ,
+ .Xr strcmp 3 ,
+@@ -146,6 +153,8 @@ counterpart, such as
+ .Xr strlcat 3 ,
+ .Xr strlcpy 3 ,
+ .Xr strlen 3 ,
++.Xr strncasecmp 3 ,
++.Xr strncasecmp_l 3 ,
+ .Xr strncat 3 ,
+ .Xr strncmp 3 ,
+ .Xr strncpy 3 ,
+@@ -153,7 +162,8 @@ counterpart, such as
+ .Xr strpbrk 3 ,
+ .Xr strrchr 3 ,
+ .Xr strspn 3 ,
+-.Xr strstr 3
++.Xr strstr 3 ,
++.Xr xlocale 3
+ .Sh STANDARDS
+ These functions conform to
+ .St -isoC-99 ,
+@@ -161,8 +171,10 @@ with the exception of
+ .Fn wcpcpy ,
+ .Fn wcpncpy ,
+ .Fn wcscasecmp ,
++.Fn wcscasecmp_l ,
+ .Fn wcsdup ,
+ .Fn wcsncasecmp ,
++.Fn wcsncasecmp_l ,
+ and
+ .Fn wcsnlen ,
+ which conform to

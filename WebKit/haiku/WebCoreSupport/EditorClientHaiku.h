@@ -32,6 +32,7 @@
 #define EditorClientHaiku_H
 
 #include "EditorClient.h"
+#include "TextCheckerClient.h"
 #include "RefCounted.h"
 #include "Page.h"
 
@@ -40,7 +41,7 @@
 
 namespace WebCore {
 
-    class EditorClientHaiku : public EditorClient {
+class EditorClientHaiku : public EditorClient, public TextCheckerClient {
     public:
         EditorClientHaiku();
         void setPage( Page* page );
@@ -56,8 +57,6 @@ namespace WebCore {
         virtual bool isGrammarCheckingEnabled();
         virtual void toggleGrammarChecking();
         virtual int spellCheckerDocumentTag();
-
-        virtual bool isEditable();
 
         virtual bool shouldBeginEditing(Range*);
         virtual bool shouldEndEditing(Range*);
@@ -80,6 +79,8 @@ namespace WebCore {
         virtual void registerCommandForRedo(PassRefPtr<EditCommand>);
         virtual void clearUndoRedoOperations();
 
+        virtual bool canCopyCut(Frame*, bool defaultValue) const;
+        virtual bool canPaste(Frame*, bool defaultValue) const;
         virtual bool canUndo() const;
         virtual bool canRedo() const;
 
@@ -107,8 +108,11 @@ namespace WebCore {
         virtual void updateSpellingUIWithMisspelledWord(const String&);
         virtual void showSpellingUI(bool show);
         virtual bool spellingUIIsShowing();
-        virtual void getGuessesForWord(const String&, Vector<String>& guesses);
+        virtual void getGuessesForWord(const String& word, const String& context, Vector<String>& guesses);
+        virtual void willSetInputMethodState();
         virtual void setInputMethodState(bool enabled);
+        virtual void requestCheckingOfString(SpellChecker*, int, WebCore::TextCheckingTypeMask, const String&) {}
+        virtual TextCheckerClient* textChecker() { return this; }
 
         bool isEditing() const;
 
@@ -121,4 +125,3 @@ namespace WebCore {
 } // namespace WebCore
 
 #endif // EditorClientHaiku_h
-

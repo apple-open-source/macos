@@ -75,11 +75,26 @@ SWIG_NUMBER_TYPEMAP(long); SWIG_NUMBER_TYPEMAP(unsigned long); SWIG_NUMBER_TYPEM
 SWIG_NUMBER_TYPEMAP(float);
 SWIG_NUMBER_TYPEMAP(double);
 SWIG_NUMBER_TYPEMAP(enum SWIGTYPE);
-SWIG_NUMBER_TYPEMAP(enum SWIGTYPE);
 // also for long longs's
 SWIG_NUMBER_TYPEMAP(long long); SWIG_NUMBER_TYPEMAP(unsigned long long); SWIG_NUMBER_TYPEMAP(signed long long);
 
 // note we dont do char, as a char* is probably a string not a ptr to a single char
+
+// similar for booleans
+%typemap(in,checkfn="lua_isboolean") bool *INPUT(bool temp), bool &INPUT(bool temp)
+%{ temp = (lua_toboolean(L,$input)!=0);
+   $1 = &temp; %}
+
+%typemap(in, numinputs=0) bool *OUTPUT (bool temp),bool &OUTPUT (bool temp)
+%{ $1 = &temp; %}
+
+%typemap(argout) bool *OUTPUT,bool &OUTPUT
+%{  lua_pushboolean(L, (int)((*$1)!=0)); SWIG_arg++;%}
+
+%typemap(in) bool *INOUT = bool *INPUT;
+%typemap(argout) bool *INOUT = bool *OUTPUT;
+%typemap(in) bool &INOUT = bool &INPUT;
+%typemap(argout) bool &INOUT = bool &OUTPUT;
 
 /* -----------------------------------------------------------------------------
  *                          Basic Array typemaps
@@ -95,7 +110,7 @@ and quite a few functions defined
 assuming we have functions
 void process_array(int arr[3]);	// nice fixed size array
 void process_var_array(float arr[],int len);	// variable sized array
-void process_var_array_inout(double arr*,int len);	// variable sized array
+void process_var_array_inout(double* arr,int len);	// variable sized array
 			// data passed in & out
 void process_enum_inout_array_var(enum Days *arrinout, int len);	// using enums
 void return_array_5(int arrout[5]);	// out array only
@@ -126,7 +141,7 @@ a few things of note:
 	so for the above mentioned return_array_5() would look like
 	arr=return_array_5() -- no parameters passed in
 * for INOUT arrays, a table must be passed in, and a new table will be returned
-	(this is consistant with the way that numbers are processed
+	(this is consistant with the way that numbers are processed)
 	if you want just use
 	arr={...}
 	arr=process_var_array_inout(arr)	-- arr is replaced by the new version
@@ -173,18 +188,27 @@ void SWIG_write_NAME_num_array(lua_State* L,TYPE *array,int size);
 int SWIG_read_NAME_num_array(lua_State* L,int index,TYPE *array,int size);
 
 */
-%{
 
-#ifdef __cplusplus	/* generic alloc/dealloc fns*/
-#define SWIG_ALLOC_ARRAY(TYPE,LEN) 	new (TYPE)[LEN]
+/* Reported that you don't need to check for NULL for delete & free
+There probably is some compiler that its not true for, so the code is left here just in case.
+#ifdef __cplusplus	
+#define SWIG_ALLOC_ARRAY(TYPE,LEN) 	new TYPE[LEN]
 #define SWIG_FREE_ARRAY(PTR)		if(PTR){delete[] PTR;}
 #else
 #define SWIG_ALLOC_ARRAY(TYPE,LEN) 	(TYPE *)malloc(LEN*sizeof(TYPE))
 #define SWIG_FREE_ARRAY(PTR)		if(PTR){free(PTR);}
 #endif
-
+*/
+%{
+#ifdef __cplusplus	/* generic alloc/dealloc fns*/
+#define SWIG_ALLOC_ARRAY(TYPE,LEN) 	new TYPE[LEN]
+#define SWIG_FREE_ARRAY(PTR)		delete[] PTR;
+#else
+#define SWIG_ALLOC_ARRAY(TYPE,LEN) 	(TYPE *)malloc(LEN*sizeof(TYPE))
+#define SWIG_FREE_ARRAY(PTR)		free(PTR);
+#endif
 /* counting the size of arrays:*/
-int SWIG_itable_size(lua_State* L, int index)
+SWIGINTERN int SWIG_itable_size(lua_State* L, int index)
 {
 	int n=0;
 	while(1){
@@ -197,7 +221,7 @@ int SWIG_itable_size(lua_State* L, int index)
 	return n;
 }
 
-int SWIG_table_size(lua_State* L, int index)
+SWIGINTERN int SWIG_table_size(lua_State* L, int index)
 {
 	int n=0;
 	lua_pushnil(L);  /* first key*/
@@ -210,7 +234,7 @@ int SWIG_table_size(lua_State* L, int index)
 
 /* super macro to declare array typemap helper fns */
 #define SWIG_DECLARE_TYPEMAP_ARR_FN(NAME,TYPE)\
-	int SWIG_read_##NAME##_num_array(lua_State* L,int index,TYPE *array,int size){\
+	SWIGINTERN int SWIG_read_##NAME##_num_array(lua_State* L,int index,TYPE *array,int size){\
 		int i;\
 		for (i = 0; i < size; i++) {\
 			lua_rawgeti(L,index,i+1);\
@@ -224,7 +248,7 @@ int SWIG_table_size(lua_State* L, int index)
 		}\
 		return 1;\
 	}\
-	static TYPE* SWIG_get_##NAME##_num_array_fixed(lua_State* L, int index, int size){\
+	SWIGINTERN TYPE* SWIG_get_##NAME##_num_array_fixed(lua_State* L, int index, int size){\
 		TYPE *array;\
 		if (!lua_istable(L,index) || SWIG_itable_size(L,index) != size) {\
 			lua_pushfstring(L,"expected a table of size %d",size);\
@@ -238,7 +262,7 @@ int SWIG_table_size(lua_State* L, int index)
 		}\
 		return array;\
 	}\
-	static TYPE* SWIG_get_##NAME##_num_array_var(lua_State* L, int index, int* size)\
+	SWIGINTERN TYPE* SWIG_get_##NAME##_num_array_var(lua_State* L, int index, int* size)\
 	{\
 		TYPE *array;\
 		if (!lua_istable(L,index)) {\
@@ -258,7 +282,7 @@ int SWIG_table_size(lua_State* L, int index)
 		}\
 		return array;\
 	}\
-	void SWIG_write_##NAME##_num_array(lua_State* L,TYPE *array,int size){\
+	SWIGINTERN void SWIG_write_##NAME##_num_array(lua_State* L,TYPE *array,int size){\
 		int i;\
 		lua_newtable(L);\
 		for (i = 0; i < size; i++){\
@@ -312,6 +336,11 @@ for array handling
 %typemap(freearg) (TYPE *INOUT,int)=(TYPE *INPUT,int);
 
 // TODO out variable arrays (is there a standard form for such things?)
+
+// referencing so that (int *INPUT,int) and (int INPUT[],int) are the same
+%typemap(in) (TYPE INPUT[],int)=(TYPE *INPUT,int);
+%typemap(freearg) (TYPE INPUT[],int)=(TYPE *INPUT,int);
+
 %enddef
 
 // the following line of code
@@ -406,7 +435,7 @@ so if the C/C++ frees then Lua is not aware
 */
 
 %{
-int SWIG_read_ptr_array(lua_State* L,int index,void **array,int size,swig_type_info *type){
+SWIGINTERN int SWIG_read_ptr_array(lua_State* L,int index,void **array,int size,swig_type_info *type){
 	int i;
 	for (i = 0; i < size; i++) {
 		lua_rawgeti(L,index,i+1);
@@ -418,7 +447,7 @@ int SWIG_read_ptr_array(lua_State* L,int index,void **array,int size,swig_type_i
 	}
 	return 1;
 }
-static void** SWIG_get_ptr_array_fixed(lua_State* L, int index, int size,swig_type_info *type){
+SWIGINTERN void** SWIG_get_ptr_array_fixed(lua_State* L, int index, int size,swig_type_info *type){
 	void **array;
 	if (!lua_istable(L,index) || SWIG_itable_size(L,index) != size) {
 		lua_pushfstring(L,"expected a table of size %d",size);
@@ -432,7 +461,7 @@ static void** SWIG_get_ptr_array_fixed(lua_State* L, int index, int size,swig_ty
 	}
 	return array;
 }
-static void** SWIG_get_ptr_array_var(lua_State* L, int index, int* size,swig_type_info *type){
+SWIGINTERN void** SWIG_get_ptr_array_var(lua_State* L, int index, int* size,swig_type_info *type){
 	void **array;
 	if (!lua_istable(L,index)) {
 		lua_pushstring(L,"expected a table");
@@ -451,7 +480,7 @@ static void** SWIG_get_ptr_array_var(lua_State* L, int index, int* size,swig_typ
 	}
 	return array;
 }
-void SWIG_write_ptr_array(lua_State* L,void **array,int size,swig_type_info *type,int own){
+SWIGINTERN void SWIG_write_ptr_array(lua_State* L,void **array,int size,swig_type_info *type,int own){
 	int i;
 	lua_newtable(L);
 	for (i = 0; i < size; i++){

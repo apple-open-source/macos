@@ -9,8 +9,8 @@ Project               = tclvfs
 ProjectName           = TclVFS
 
 # Fetch info
-Release               = 1.4
-TEApotVersion         = 0.0.0.2008.12.04.11.48.37
+Release               = 1.4.1
+TEApotVersion         = 0.0.0.2010.08.18.09.08.49
 TEApotProject         = vfs
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)

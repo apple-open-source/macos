@@ -28,7 +28,7 @@
 
 #import "DSAuthenticateNT.h"
 #import <openssl/rand.h>
-#import <DirectoryServiceCore/SMBAuth.h>
+#import "SMBAuth.h"
 
 extern BOOL doVerbose;
 

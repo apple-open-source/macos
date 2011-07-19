@@ -144,6 +144,58 @@ static int getport(const char *name)
 	return ntohs(svp->s_port);
 }
 
+#define R_RECV (0)
+#define R_SENT (1)
+static void debug_packet(RADIUS_PACKET *packet, int direction)
+{
+	VALUE_PAIR *vp;
+	char buffer[1024];
+	const char *received, *from;
+	const fr_ipaddr_t *ip;
+	int port;
+
+	if (!packet) return;
+
+	if (direction == 0) {
+		received = "Received";
+		from = "from";	/* what else? */
+		ip = &packet->src_ipaddr;
+		port = packet->src_port;
+
+	} else {
+		received = "Sending";
+		from = "to";	/* hah! */
+		ip = &packet->dst_ipaddr;
+		port = packet->dst_port;
+	}
+	
+	/*
+	 *	Client-specific debugging re-prints the input
+	 *	packet into the client log.
+	 *
+	 *	This really belongs in a utility library
+	 */
+	if ((packet->code > 0) && (packet->code < FR_MAX_PACKET_CODE)) {
+		printf("%s %s packet %s host %s port %d, id=%d, length=%d\n",
+		       received, fr_packet_codes[packet->code], from,
+		       inet_ntop(ip->af, &ip->ipaddr, buffer, sizeof(buffer)),
+		       port, packet->id, packet->data_len);
+	} else {
+		printf("%s packet %s host %s port %d code=%d, id=%d, length=%d\n",
+		       received, from,
+		       inet_ntop(ip->af, &ip->ipaddr, buffer, sizeof(buffer)),
+		       port,
+		       packet->code, packet->id, packet->data_len);
+	}
+
+	for (vp = packet->vps; vp != NULL; vp = vp->next) {
+		vp_prints(buffer, sizeof(buffer), vp);
+		printf("\t%s\n", buffer);
+	}
+	fflush(stdout);
+}
+
+
 static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 {
 	int i;
@@ -151,6 +203,8 @@ static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 
 	for (i = 0; i < retries; i++) {
 		fd_set		rdfdesc;
+
+		debug_packet(req, R_SENT);
 
 		rad_send(req, NULL, secret);
 
@@ -220,13 +274,11 @@ static int send_packet(RADIUS_PACKET *req, RADIUS_PACKET **rep)
 
 	/* libradius debug already prints out the value pairs for us */
 	if (!fr_debug_flag && do_output) {
-		printf("Received response ID %d, code %d, length = %d\n",
-				(*rep)->id, (*rep)->code, (*rep)->data_len);
-		vp_printlist(stdout, (*rep)->vps);
+		debug_packet(*rep, R_RECV);
 	}
 	if((*rep)->code == PW_AUTHENTICATION_ACK) {
 		totalapp++;
-	} else {
+	} else if ((*rep)->code == PW_AUTHENTICATION_REJECT) {
 		totaldeny++;
 	}
 
@@ -289,7 +341,7 @@ static int process_eap_start(RADIUS_PACKET *req,
 	/* verify that the attribute length is big enough for a length field */
 	if(vp->length < 4)
 	{
-		fprintf(stderr, "start message has illegal VERSION_LIST. Too short: %d\n", vp->length);
+		fprintf(stderr, "start message has illegal VERSION_LIST. Too short: %u\n", (unsigned int) vp->length);
 		return 0;
 	}
 
@@ -299,7 +351,7 @@ static int process_eap_start(RADIUS_PACKET *req,
 	 */
 	if((unsigned)vp->length <= (versioncount*2 + 2))
 	{
-		fprintf(stderr, "start message is too short. Claimed %d versions does not fit in %d bytes\n", versioncount, vp->length);
+		fprintf(stderr, "start message is too short. Claimed %d versions does not fit in %u bytes\n", versioncount, (unsigned int) vp->length);
 		return 0;
 	}
 
@@ -643,9 +695,6 @@ static int respond_eap_sim(RADIUS_PACKET *req,
 	 */
 	unmap_eapsim_types(req);
 
-	printf("<+++ EAP-sim decoded packet:\n");
-	vp_printlist(stdout, req->vps);
-
 	if((vp = pairfind(req->vps, ATTRIBUTE_EAP_SIM_SUBTYPE)) == NULL)
 	{
 		return 0;
@@ -755,8 +804,8 @@ static int respond_eap_md5(RADIUS_PACKET *req,
 	/* sanitize items */
 	if(valuesize > vp->length)
 	{
-		fprintf(stderr, "radeapclient: md5 valuesize if too big (%d > %d)\n",
-			valuesize, vp->length);
+		fprintf(stderr, "radeapclient: md5 valuesize if too big (%u > %u)\n",
+			(unsigned int) valuesize, (unsigned int) vp->length);
 		return 0;
 	}
 
@@ -812,9 +861,6 @@ static int sendrecv_eap(RADIUS_PACKET *rep)
 
  again:
 	rep->id++;
-
-	printf("\n+++> About to send encoded packet:\n");
-	vp_printlist(stdout, rep->vps);
 
 	/*
 	 * if there are EAP types, encode them into an EAP-Message
@@ -887,8 +933,7 @@ static int sendrecv_eap(RADIUS_PACKET *rep)
 	/* okay got back the packet, go and decode the EAP-Message. */
 	unmap_eap_types(req);
 
-	printf("<+++ EAP decoded packet:\n");
-	vp_printlist(stdout, req->vps);
+	debug_packet(req, R_RECV);
 
 	/* now look for the code type. */
 	for (vp = req->vps; vp != NULL; vp = vpnext) {
@@ -1283,6 +1328,7 @@ static void unmap_eap_types(RADIUS_PACKET *rep)
 		/* verify the length is big enough to hold type */
 		if(len < 5)
 		{
+			free(e);
 			return;
 		}
 
@@ -1302,6 +1348,7 @@ static void unmap_eap_types(RADIUS_PACKET *rep)
 		break;
 	}
 
+	free(e);
 	return;
 }
 
@@ -1390,13 +1437,18 @@ main(int argc, char *argv[])
 			break;
 		}
 
-		printf("\nRead:\n");
-		vp_printlist(stdout, req->vps);
+		if (fr_debug_flag > 1) {
+			printf("\nRead:\n");
+			vp_printlist(stdout, req->vps);
+		}
 
 		map_eapsim_types(req);
 		map_eap_types(req);
-		printf("Mapped to:\n");
-		vp_printlist(stdout, req->vps);
+
+		if (fr_debug_flag > 1) {
+			printf("Mapped to:\n");
+			vp_printlist(stdout, req->vps);
+		}
 
 		/* find the EAP-Message, copy it to req2 */
 		vp = paircopy2(req->vps, PW_EAP_MESSAGE);
@@ -1409,8 +1461,10 @@ main(int argc, char *argv[])
 		unmap_eap_types(req2);
 		unmap_eapsim_types(req2);
 
-		printf("Unmapped to:\n");
-		vp_printlist(stdout, req2->vps);
+		if (fr_debug_flag > 1) {
+			printf("Unmapped to:\n");
+			vp_printlist(stdout, req2->vps);
+		}
 
 		vp = pairfind(req2->vps,
 			      ATTRIBUTE_EAP_SIM_BASE+PW_EAP_SIM_MAC);

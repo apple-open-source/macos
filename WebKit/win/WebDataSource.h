@@ -27,8 +27,8 @@
 #define WebDataSource_H
 
 #include "WebKit.h"
-#include "COMPtr.h"
-#include <WTF/RefPtr.h>
+#include <WebCore/COMPtr.h>
+#include <wtf/RefPtr.h>
 
 class WebDocumentLoader;
 class WebMutableURLRequest;
@@ -109,6 +109,9 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE mainDocumentError(
         /* [retval][out] */ IWebError** error);
+
+    virtual HRESULT STDMETHODCALLTYPE setDeferMainResourceDataLoad(
+        /* [in] */ BOOL flag);
 
     // WebDataSource
     WebDocumentLoader* documentLoader() const;

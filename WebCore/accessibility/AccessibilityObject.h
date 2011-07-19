@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Nuanti Ltd.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -31,9 +31,9 @@
 #define AccessibilityObject_h
 
 #include "IntRect.h"
-#include "Range.h"
 #include "VisiblePosition.h"
 #include "VisibleSelection.h"
+#include <wtf/Forward.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
@@ -87,92 +87,53 @@ class Node;
 class RenderObject;
 class RenderListItem;
 class VisibleSelection;
-class String;
 class Widget;
 
 typedef unsigned AXID;
 
 enum AccessibilityRole {
-    UnknownRole = 1,
-    ButtonRole,
-    RadioButtonRole,
-    CheckBoxRole,
-    SliderRole,
-    TabGroupRole,
-    TextFieldRole,
-    StaticTextRole,
-    TextAreaRole,
-    ScrollAreaRole,
-    PopUpButtonRole,
-    MenuButtonRole,
-    TableRole,
+    AnnotationRole = 1,
     ApplicationRole,
-    GroupRole,
-    RadioGroupRole,
-    ListRole,
-    ScrollBarRole,
-    ValueIndicatorRole,
-    ImageRole,
-    MenuBarRole,
-    MenuRole,
-    MenuItemRole,
-    ColumnRole,
-    RowRole,
-    ToolbarRole,
-    BusyIndicatorRole,
-    ProgressIndicatorRole,
-    WindowRole,
-    DrawerRole,
-    SystemWideRole,
-    OutlineRole,
-    IncrementorRole,
+    ApplicationAlertRole,
+    ApplicationAlertDialogRole,
+    ApplicationDialogRole,
+    ApplicationLogRole,
+    ApplicationMarqueeRole,
+    ApplicationStatusRole,
+    ApplicationTimerRole, 
     BrowserRole,
-    ComboBoxRole,
-    SplitGroupRole,
-    SplitterRole,
-    ColorWellRole,
-    GrowAreaRole,
-    SheetRole,
-    HelpTagRole,
-    MatteRole,
-    RulerRole,
-    RulerMarkerRole,
-    LinkRole,
-    DisclosureTriangleRole,
-    GridRole,
+    BusyIndicatorRole,
+    ButtonRole,
     CellRole, 
+    CheckBoxRole,
+    ColorWellRole,
+    ColumnRole,
     ColumnHeaderRole,
-    RowHeaderRole,
-    // AppKit includes SortButtonRole but it is misnamed and really a subrole of ButtonRole so we do not include it here.
-
-    // WebCore-specific roles
-    WebCoreLinkRole,
-    ImageMapLinkRole,
-    ImageMapRole,
-    ListMarkerRole,
-    WebAreaRole,
-    HeadingRole,
-    ListBoxRole,
-    ListBoxOptionRole,
-    TableHeaderContainerRole,
+    ComboBoxRole,
     DefinitionListTermRole,
     DefinitionListDefinitionRole,
-    AnnotationRole,
-    SliderThumbRole,
-    IgnoredRole,
-    TabRole,
-    TabListRole,
-    TabPanelRole,
-    TreeRole,
-    TreeGridRole,
-    TreeItemRole,
     DirectoryRole,
+    DisclosureTriangleRole,
+    DivRole,
+    DocumentRole,
+    DocumentArticleRole,
+    DocumentMathRole,
+    DocumentNoteRole,
+    DocumentRegionRole,            
+    DrawerRole,
     EditableTextRole,
-    ListItemRole,
-    MenuListPopupRole,
-    MenuListOptionRole,
-
-    // ARIA Grouping roles
+    FormRole,
+    GridRole,
+    GroupRole,
+    GrowAreaRole,
+    HeadingRole,
+    HelpTagRole,
+    IgnoredRole,
+    ImageRole,
+    ImageMapRole,
+    ImageMapLinkRole,
+    IncrementorRole,
+    LabelRole,
     LandmarkApplicationRole,
     LandmarkBannerRole,
     LandmarkComplementaryRole,
@@ -180,22 +141,57 @@ enum AccessibilityRole {
     LandmarkMainRole,
     LandmarkNavigationRole,
     LandmarkSearchRole,
-    
-    ApplicationAlertRole,
-    ApplicationAlertDialogRole,
-    ApplicationDialogRole,
-    ApplicationLogRole,
-    ApplicationMarqueeRole,
-    ApplicationStatusRole,
-    ApplicationTimerRole,
-    
-    DocumentRole,
-    DocumentArticleRole,
-    DocumentMathRole,
-    DocumentNoteRole,
-    DocumentRegionRole,
-    
-    UserInterfaceTooltipRole
+    LinkRole,
+    ListRole,
+    ListBoxRole,
+    ListBoxOptionRole,
+    ListItemRole,
+    ListMarkerRole,
+    MatteRole,
+    MenuRole,
+    MenuBarRole,
+    MenuButtonRole,
+    MenuItemRole,
+    MenuListPopupRole,
+    MenuListOptionRole,
+    OutlineRole,
+    ParagraphRole,
+    PopUpButtonRole,
+    PresentationalRole,
+    ProgressIndicatorRole,
+    RadioButtonRole,
+    RadioGroupRole,
+    RowHeaderRole,
+    RowRole,
+    RulerRole,
+    RulerMarkerRole,
+    ScrollAreaRole,
+    ScrollBarRole,
+    SheetRole,
+    SliderRole,
+    SliderThumbRole,
+    SplitGroupRole,
+    SplitterRole,
+    StaticTextRole,
+    SystemWideRole,
+    TabGroupRole,
+    TabListRole,
+    TabPanelRole,            
+    TabRole,
+    TableRole,
+    TableHeaderContainerRole,
+    TextAreaRole,
+    TreeRole,
+    TreeGridRole,
+    TreeItemRole,
+    TextFieldRole,
+    ToolbarRole,
+    UnknownRole,
+    UserInterfaceTooltipRole,
+    ValueIndicatorRole,            
+    WebAreaRole,
+    WebCoreLinkRole,
+    WindowRole,
 };
 
 enum AccessibilityOrientation {
@@ -207,6 +203,18 @@ enum AccessibilityObjectInclusion {
     IncludeObject,
     IgnoreObject,
     DefaultBehavior,
+};
+    
+enum AccessibilityButtonState {
+    ButtonStateOff = 0,
+    ButtonStateOn, 
+    ButtonStateMixed,
+};
+    
+enum AccessibilitySortDirection {
+    SortDirectionNone,
+    SortDirectionAscending,
+    SortDirectionDescending,
 };
 
 struct VisiblePositionRange {
@@ -252,6 +260,9 @@ public:
     typedef Vector<RefPtr<AccessibilityObject> > AccessibilityChildrenVector;
     
     virtual bool isAccessibilityRenderObject() const { return false; }
+    virtual bool isAccessibilityScrollbar() const { return false; }
+    virtual bool isAccessibilityScrollView() const { return false; }
+    
     virtual bool isAnchor() const { return false; }
     virtual bool isAttachment() const { return false; }
     virtual bool isHeading() const { return false; }
@@ -260,10 +271,10 @@ public:
     virtual bool isNativeImage() const { return false; }
     virtual bool isImageButton() const { return false; }
     virtual bool isPasswordField() const { return false; }
-    virtual bool isTextControl() const { return false; }
     virtual bool isNativeTextControl() const { return false; }
     virtual bool isWebArea() const { return false; }
-    virtual bool isCheckboxOrRadio() const { return false; }
+    virtual bool isCheckbox() const { return roleValue() == CheckBoxRole; }
+    virtual bool isRadioButton() const { return roleValue() == RadioButtonRole; }
     virtual bool isListBox() const { return roleValue() == ListBoxRole; }
     virtual bool isMediaTimeline() const { return false; }
     virtual bool isMenuRelated() const { return false; }
@@ -275,8 +286,10 @@ public:
     virtual bool isInputImage() const { return false; }
     virtual bool isProgressIndicator() const { return false; }
     virtual bool isSlider() const { return false; }
+    virtual bool isInputSlider() const { return false; }
     virtual bool isControl() const { return false; }
     virtual bool isList() const { return false; }
+    virtual bool isAccessibilityTable() const { return false; }
     virtual bool isDataTable() const { return false; }
     virtual bool isTableRow() const { return false; }
     virtual bool isTableColumn() const { return false; }
@@ -288,6 +301,7 @@ public:
     virtual bool isMenuList() const { return false; }
     virtual bool isMenuListPopup() const { return false; }
     virtual bool isMenuListOption() const { return false; }
+    bool isTextControl() const { return roleValue() == TextAreaRole || roleValue() == TextFieldRole; }
     bool isTabList() const { return roleValue() == TabListRole; }
     bool isTabItem() const { return roleValue() == TabRole; }
     bool isRadioGroup() const { return roleValue() == RadioGroupRole; }
@@ -296,6 +310,9 @@ public:
     bool isTreeItem() const { return roleValue() == TreeItemRole; }
     bool isScrollbar() const { return roleValue() == ScrollBarRole; }
     bool isButton() const { return roleValue() == ButtonRole; }
+    bool isListItem() const { return roleValue() == ListItemRole; }
+    bool isCheckboxOrRadio() const { return isCheckbox() || isRadioButton(); }
+    bool isScrollView() const { return roleValue() == ScrollAreaRole; }
     
     virtual bool isChecked() const { return false; }
     virtual bool isEnabled() const { return false; }
@@ -311,7 +328,7 @@ public:
     virtual bool isVisited() const { return false; }
     virtual bool isRequired() const { return false; }
     virtual bool isLinked() const { return false; }
-    virtual bool isExpanded() const { return false; }
+    virtual bool isExpanded() const;
     virtual bool isVisible() const { return true; }
     virtual bool isCollapsed() const { return false; }
     virtual void setIsExpanded(bool) { }
@@ -319,20 +336,20 @@ public:
     virtual bool canSetFocusAttribute() const { return false; }
     virtual bool canSetTextRangeAttributes() const { return false; }
     virtual bool canSetValueAttribute() const { return false; }
+    virtual bool canSetNumericValue() const { return false; }
     virtual bool canSetSelectedAttribute() const { return false; }
     virtual bool canSetSelectedChildrenAttribute() const { return false; }
     virtual bool canSetExpandedAttribute() const { return false; }
     
-    virtual bool hasIntValue() const { return false; }
-
     // A programmatic way to set a name on an AccessibleObject.
     virtual void setAccessibleName(String&) { }
     
-    bool accessibilityShouldUseUniqueId() const { return true; }
+    virtual Node* node() const { return 0; }
+    virtual RenderObject* renderer() const { return 0; }
     virtual bool accessibilityIsIgnored() const  { return true; }
 
     virtual int headingLevel() const { return 0; }
-    virtual int intValue() const { return 0; }
+    virtual AccessibilityButtonState checkboxOrRadioValue() const;
     virtual String valueDescription() const { return String(); }
     virtual float valueForRange() const { return 0.0f; }
     virtual float maxValueForRange() const { return 0.0f; }
@@ -348,6 +365,10 @@ public:
     virtual bool supportsARIAFlowTo() const { return false; }
     virtual void ariaFlowToElements(AccessibilityChildrenVector&) const { }
     virtual bool ariaHasPopup() const { return false; }
+    bool ariaIsMultiline() const;
+    virtual const AtomicString& invalidStatus() const;
+    bool supportsARIAExpanded() const;
+    AccessibilitySortDirection sortDirection() const;
     
     // ARIA drag and drop
     virtual bool supportsARIADropping() const { return false; }
@@ -356,8 +377,12 @@ public:
     virtual void setARIAGrabbed(bool) { }
     virtual void determineARIADropEffects(Vector<String>&) { }
     
-    virtual AccessibilityObject* doAccessibilityHitTest(const IntPoint&) const { return 0; }
-    virtual AccessibilityObject* focusedUIElement() const { return 0; }
+    // Called on the root AX object to return the deepest available element.
+    virtual AccessibilityObject* accessibilityHitTest(const IntPoint&) const { return 0; }
+    // Called on the AX object after the render tree determines which is the right AccessibilityRenderObject.
+    virtual AccessibilityObject* elementAccessibilityHitTest(const IntPoint&) const;
+
+    virtual AccessibilityObject* focusedUIElement() const;
 
     virtual AccessibilityObject* firstChild() const { return 0; }
     virtual AccessibilityObject* lastChild() const { return 0; }
@@ -372,8 +397,10 @@ public:
     virtual void linkedUIElements(AccessibilityChildrenVector&) const { }
     virtual AccessibilityObject* titleUIElement() const { return 0; }
     virtual bool exposesTitleUIElement() const { return true; }
+    virtual AccessibilityObject* correspondingLabelForControlElement() const { return 0; }
     virtual AccessibilityObject* correspondingControlForLabelElement() const { return 0; }
-
+    virtual AccessibilityObject* scrollBar(AccessibilityOrientation) const { return 0; }
+    
     virtual AccessibilityRole ariaRoleAttribute() const { return UnknownRole; }
     virtual bool isPresentationalChildOfAriaRole() const { return false; }
     virtual bool ariaRoleHasPresentationalChildren() const { return false; }
@@ -383,9 +410,8 @@ public:
     virtual String ariaLabeledByAttribute() const { return String(); }
     virtual String ariaDescribedByAttribute() const { return String(); }
     virtual String accessibilityDescription() const { return String(); }
-    virtual PassRefPtr<Range> ariaSelectedTextDOMRange() const { return 0; }
 
-    virtual AXObjectCache* axObjectCache() const { return 0; }
+    virtual AXObjectCache* axObjectCache() const;
     AXID axObjectID() const { return m_id; }
     void setAXObjectID(AXID axObjectID) { m_id = axObjectID; }
     
@@ -394,7 +420,7 @@ public:
     virtual Element* actionElement() const { return 0; }
     virtual IntRect boundingBoxRect() const { return IntRect(); }
     virtual IntRect elementRect() const = 0;
-    virtual IntSize size() const = 0;
+    virtual IntSize size() const { return elementRect().size(); }
     virtual IntPoint clickPoint() const;
 
     virtual PlainTextRange selectedTextRange() const { return PlainTextRange(); }
@@ -414,17 +440,18 @@ public:
     const String& actionVerb() const;
     virtual Widget* widget() const { return 0; }
     virtual Widget* widgetForAttachmentView() const { return 0; }
-    virtual Document* document() const { return 0; }
+    virtual Document* document() const;
     virtual FrameView* topDocumentFrameView() const { return 0; }
     virtual FrameView* documentFrameView() const;
-    virtual String language() const;
-    String language(Node*) const;
+    String language() const;
     virtual unsigned hierarchicalLevel() const { return 0; }
+    const AtomicString& placeholderValue() const;
     
     virtual void setFocused(bool) { }
     virtual void setSelectedText(const String&) { }
     virtual void setSelectedTextRange(const PlainTextRange&) { }
     virtual void setValue(const String&) { }
+    virtual void setValue(float) { }
     virtual void setSelected(bool) { }
     virtual void setSelectedRows(AccessibilityChildrenVector&) { }
     
@@ -442,16 +469,17 @@ public:
     virtual void addChildren() { }
     virtual bool canHaveChildren() const { return true; }
     virtual bool hasChildren() const { return m_haveChildren; }
-    virtual void updateChildrenIfNecessary() { }
+    virtual void updateChildrenIfNecessary();
     virtual void selectedChildren(AccessibilityChildrenVector&) { }
     virtual void visibleChildren(AccessibilityChildrenVector&) { }
     virtual void tabChildren(AccessibilityChildrenVector&) { }
     virtual bool shouldFocusActiveDescendant() const { return false; }
     virtual AccessibilityObject* activeDescendant() const { return 0; }    
     virtual void handleActiveDescendantChanged() { }
-
+    virtual void handleAriaExpandedChanged() { }
+    
     static AccessibilityRole ariaRoleToWebCoreRole(const String&);
-    static const AtomicString& getAttribute(Node*, const QualifiedName&);
+    const AtomicString& getAttribute(const QualifiedName&) const;
 
     virtual VisiblePositionRange visiblePositionRange() const { return VisiblePositionRange(); }
     virtual VisiblePositionRange visiblePositionRangeForLine(unsigned) const { return VisiblePositionRange(); }
@@ -526,6 +554,9 @@ public:
     
     bool supportsARIAAttributes() const;
     
+    // CSS3 Speech properties.
+    virtual ESpeak speakProperty() const { return SpeakNormal; }
+    
 #if HAVE(ACCESSIBILITY)
 #if PLATFORM(GTK)
     AccessibilityObjectWrapper* wrapper() const;
@@ -551,7 +582,7 @@ public:
 
     // allows for an AccessibilityObject to update its render tree or perform
     // other operations update type operations
-    virtual void updateBackingStore() { }
+    void updateBackingStore();
     
 protected:
     AXID m_id;
@@ -561,8 +592,15 @@ protected:
     
     virtual void clearChildren();
     virtual bool isDetached() const { return true; }
-    RenderListItem* renderListItemContainerForNode(Node* node) const;
     
+#if PLATFORM(GTK)
+    bool allowsTextRanges() const;
+    unsigned getLengthForTextRange() const;
+#else
+    bool allowsTextRanges() const { return isTextControl(); }
+    unsigned getLengthForTextRange() const { return text().length(); }
+#endif
+
 #if PLATFORM(MAC)
     RetainPtr<AccessibilityObjectWrapper> m_wrapper;
 #elif PLATFORM(WIN) && !OS(WINCE)

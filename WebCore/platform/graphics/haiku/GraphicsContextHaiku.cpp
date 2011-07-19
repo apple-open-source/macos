@@ -34,7 +34,6 @@
 #include "FontData.h"
 #include "NotImplemented.h"
 #include "Path.h"
-#include "Pen.h"
 #include <wtf/text/CString.h>
 #include <GraphicsDefs.h>
 #include <Region.h>
@@ -62,16 +61,14 @@ GraphicsContextPlatformPrivate::~GraphicsContextPlatformPrivate()
 {
 }
 
-GraphicsContext::GraphicsContext(PlatformGraphicsContext* context)
-    : m_common(createGraphicsContextPrivate())
-    , m_data(new GraphicsContextPlatformPrivate(context))
+void GraphicsContext::platformInit(PlatformGraphicsContext* context)
 {
+    m_data = new GraphicsContextPlatformPrivate(context);
     setPaintingDisabled(!context);
 }
 
-GraphicsContext::~GraphicsContext()
+void GraphicsContext::platformDestroy()
 {
-    destroyGraphicsContextPrivate(m_common);
     delete m_data;
 }
 
@@ -132,7 +129,7 @@ void GraphicsContext::strokeArc(const IntRect& rect, int startAngle, int angleSp
     m_data->m_view->StrokeArc(rect, startAngle, angleSpan, getHaikuStrokeStyle());
 }
 
-void GraphicsContext::strokePath()
+void GraphicsContext::strokePath(const Path&)
 {
     notImplemented();
 }
@@ -150,6 +147,17 @@ void GraphicsContext::drawConvexPolygon(size_t pointsLength, const FloatPoint* p
     if (strokeStyle() != NoStroke)
         // Stroke with low color
         m_data->m_view->StrokePolygon(bPoints, pointsLength, true, getHaikuStrokeStyle());
+}
+
+void GraphicsContext::clipConvexPolygon(size_t numPoints, const FloatPoint* points, bool antialiased)
+{
+    if (paintingDisabled())
+        return;
+
+    if (numPoints <= 1)
+        return;
+    
+    // FIXME: IMPLEMENT!!
 }
 
 void GraphicsContext::fillRect(const FloatRect& rect, const Color& color, ColorSpace colorSpace)
@@ -180,17 +188,7 @@ void GraphicsContext::fillRoundedRect(const IntRect& rect, const IntSize& topLef
     // FillRect and FillArc calls are needed.
 }
 
-void GraphicsContext::fillPath()
-{
-    notImplemented();
-}
-
-void GraphicsContext::beginPath()
-{
-    notImplemented();
-}
-
-void GraphicsContext::addPath(const Path& path)
+void GraphicsContext::fillPath(const Path&)
 {
     notImplemented();
 }
@@ -204,7 +202,7 @@ void GraphicsContext::clip(const FloatRect& rect)
     m_data->m_view->ConstrainClippingRegion(&region);
 }
 
-void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+void GraphicsContext::drawFocusRing(const Path& path, int width, int offset, const Color& color)
 {
     // FIXME: implement
 }
@@ -237,7 +235,7 @@ void GraphicsContext::drawLineForText(const IntPoint& origin, int width, bool pr
     drawLine(origin, endPoint);
 }
 
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint&, int width, bool grammar)
+void GraphicsContext::drawLineForTextChecking(const IntPoint&, int width, TextCheckingLineStyle)
 {
     if (paintingDisabled())
         return;
@@ -344,7 +342,7 @@ void GraphicsContext::setAlpha(float opacity)
     notImplemented();
 }
 
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
+void GraphicsContext::setPlatformCompositeOperation(CompositeOperator op)
 {
     if (paintingDisabled())
         return;
@@ -359,7 +357,7 @@ void GraphicsContext::setCompositeOperation(CompositeOperator op)
         mode = B_OP_OVER;
         break;
     default:
-        printf("GraphicsContext::setCompositeOperation: Unsupported composite operation %s\n",
+        printf("GraphicsContext::setPlatformCompositeOperation: Unsupported composite operation %s\n",
                 compositeOperatorName(op).utf8().data());
     }
     m_data->m_view->SetDrawingMode(mode);
@@ -405,12 +403,6 @@ void GraphicsContext::translate(float x, float y)
     notImplemented();
 }
 
-IntPoint GraphicsContext::origin()
-{
-    notImplemented();
-    return IntPoint(0, 0);
-}
-
 void GraphicsContext::rotate(float radians)
 {
     if (paintingDisabled())
@@ -435,14 +427,6 @@ void GraphicsContext::clipOut(const IntRect& rect)
     notImplemented();
 }
 
-void GraphicsContext::clipOutEllipseInRect(const IntRect& rect)
-{
-    if (paintingDisabled())
-        return;
-
-    notImplemented();
-}
-
 void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness)
 {
     if (paintingDisabled())
@@ -452,6 +436,14 @@ void GraphicsContext::addInnerRoundedRectClip(const IntRect& rect, int thickness
 }
 
 void GraphicsContext::concatCTM(const AffineTransform& transform)
+{
+    if (paintingDisabled())
+        return;
+
+    notImplemented();
+}
+
+void GraphicsContext::setCTM(const AffineTransform& transform)
 {
     if (paintingDisabled())
         return;
@@ -469,6 +461,12 @@ void GraphicsContext::setPlatformShouldAntialias(bool enable)
 
 void GraphicsContext::setImageInterpolationQuality(InterpolationQuality)
 {
+}
+
+InterpolationQuality GraphicsContext::imageInterpolationQuality() const
+{
+    notImplemented();
+    return InterpolationDefault;
 }
 
 void GraphicsContext::setURLForRect(const KURL& link, const IntRect& destRect)
@@ -509,7 +507,7 @@ pattern GraphicsContext::getHaikuStrokeStyle()
     }
 }
 
-void GraphicsContext::setPlatformStrokeStyle(const StrokeStyle& strokeStyle)
+void GraphicsContext::setPlatformStrokeStyle(StrokeStyle strokeStyle)
 {
     // FIXME: see getHaikuStrokeStyle.
     notImplemented();
@@ -536,7 +534,7 @@ void GraphicsContext::clearPlatformShadow()
     notImplemented();
 }
 
-void GraphicsContext::setPlatformShadow(IntSize const&, int, Color const&, ColorSpace)
+void GraphicsContext::setPlatformShadow(FloatSize const&, float, Color const&, ColorSpace)
 {
     notImplemented();
 }

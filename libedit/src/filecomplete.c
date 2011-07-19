@@ -1,4 +1,4 @@
-/*	$NetBSD: filecomplete.c,v 1.11 2008/04/29 06:53:01 martin Exp $	*/
+/*	$NetBSD: filecomplete.c,v 1.18 2010/01/18 19:17:42 christos Exp $	*/
 
 /*-
  * Copyright (c) 1997 The NetBSD Foundation, Inc.
@@ -28,13 +28,13 @@
  * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE
  * POSSIBILITY OF SUCH DAMAGE.
  */
-  
+
 /* AIX requires this to be the first thing in the file.  */
 #if defined (_AIX) && !defined (__GNUC__)
  #pragma alloca
 #endif
 
-#include <config.h>
+#include "config.h"
 
 #ifdef __GNUC__
 # undef alloca
@@ -50,7 +50,7 @@ extern char *alloca ();
 #endif
 
 #if !defined(lint) && !defined(SCCSID)
-__RCSID("$NetBSD: filecomplete.c,v 1.11 2008/04/29 06:53:01 martin Exp $");
+__RCSID("$NetBSD: filecomplete.c,v 1.18 2010/01/18 19:17:42 christos Exp $");
 #endif /* not lint && not SCCSID */
 
 #include <sys/types.h>
@@ -72,8 +72,8 @@ __RCSID("$NetBSD: filecomplete.c,v 1.11 2008/04/29 06:53:01 martin Exp $");
 #include "histedit.h"
 #include "filecomplete.h"
 
-static char break_chars[] = { ' ', '\t', '\n', '"', '\\', '\'', '`', '@', '$',
-    '>', '<', '=', ';', '|', '&', '{', '(', '\0' };
+static Char break_chars[] = { ' ', '\t', '\n', '"', '\\', '\'', '`', '@',
+    '$', '>', '<', '=', ';', '|', '&', '{', '(', '\0' };
 
 
 /********************************/
@@ -116,7 +116,7 @@ fn_tilde_expand(const char *txt)
 			pass = NULL;
 #elif HAVE_GETPW_R_DRAFT
 		pass = getpwuid_r(getuid(), &pwres, pwbuf, sizeof(pwbuf));
-#else 
+#else
       pass = getpwuid(getuid());
 #endif
 	} else {
@@ -171,6 +171,7 @@ fn_filename_completion_function(const char *text, int state)
 			nptr = realloc(filename, strlen(temp) + 1);
 			if (nptr == NULL) {
 				free(filename);
+				filename = NULL;
 				return NULL;
 			}
 			filename = nptr;
@@ -178,13 +179,15 @@ fn_filename_completion_function(const char *text, int state)
 			len = temp - text;	/* including last slash */
 			nptr = realloc(dirname, len + 1);
 			if (nptr == NULL) {
-				free(filename);
+				free(dirname);
+				dirname = NULL;
 				return NULL;
 			}
 			dirname = nptr;
 			(void)strncpy(dirname, text, len);
 			dirname[len] = '\0';
 		} else {
+			free(filename);
 			if (*text == 0)
 				filename = NULL;
 			else {
@@ -192,6 +195,7 @@ fn_filename_completion_function(const char *text, int state)
 				if (filename == NULL)
 					return NULL;
 			}
+			free(dirname);
 			dirname = NULL;
 		}
 
@@ -201,11 +205,10 @@ fn_filename_completion_function(const char *text, int state)
 		}
 
 		/* support for ``~user'' syntax */
-		free(dirpath);
-
 		if (dirname == NULL && (dirname = strdup("./")) == NULL)
 			return NULL;
 
+		free(dirpath);
 		if (*dirname == '~')
 			dirpath = fn_tilde_expand(dirname);
 		else
@@ -233,7 +236,7 @@ fn_filename_completion_function(const char *text, int state)
 		/* otherwise, get first entry where first */
 		/* filename_len characters are equal	  */
 		if (entry->d_name[0] == filename[0]
-         /* Some dirents have d_namlen, but it is not portable. */
+          /* Some dirents have d_namlen, but it is not portable. */
 		    && strlen(entry->d_name) >= filename_len
 		    && strncmp(entry->d_name, filename,
 			filename_len) == 0)
@@ -242,8 +245,9 @@ fn_filename_completion_function(const char *text, int state)
 
 	if (entry) {		/* match found */
 
-      /* Some dirents have d_namlen, but it is not portable. */
+       /* Some dirents have d_namlen, but it is not portable. */
 		len = strlen(entry->d_name);
+
 		temp = malloc(strlen(dirname) + len + 1);
 		if (temp == NULL)
 			return NULL;
@@ -263,7 +267,7 @@ append_char_function(const char *name)
 {
 	struct stat stbuf;
 	char *expname = *name == '~' ? fn_tilde_expand(name) : NULL;
-	const char *rs = "";
+	const char *rs = " ";
 
 	if (stat(expname ? expname : name, &stbuf) == -1)
 		goto out;
@@ -353,9 +357,9 @@ _fn_qsort_string_compare(const void *i1, const void *i2)
  * 'max' is maximum length of string in 'matches'.
  */
 void
-fn_display_match_list (EditLine *el, char **matches, int len, int max)
+fn_display_match_list (EditLine *el, char **matches, size_t len, size_t max)
 {
-	int i, idx, limit, count;
+	size_t i, idx, limit, count;
 	int screenwidth = el->el_term.t_size.h;
 
 	/*
@@ -367,19 +371,19 @@ fn_display_match_list (EditLine *el, char **matches, int len, int max)
 		limit = 1;
 
 	/* how many lines of output */
-	count = len / limit;
-	if (count * limit < len)
-		count++;
+	count = (len + (limit - 1)) / limit;
 
 	/* Sort the items if they are not already sorted. */
-	qsort(&matches[1], (size_t)(len - 1), sizeof(char *),
-	    _fn_qsort_string_compare);
+	qsort(matches, len, sizeof(char *), _fn_qsort_string_compare);
 
-	idx = 1;
+	idx = 0;
 	for(; count > 0; count--) {
-		for(i = 0; i < limit && matches[idx]; i++, idx++)
-			(void)fprintf(el->el_outfile, "%-*s  ", max,
-			    matches[idx]);
+		int more = 1;
+		for(i = 0; more; idx++) {
+			more = ++i < limit && matches[idx + 1];
+			(void)fprintf(el->el_outfile, "%-*s%s", (int)max,
+			    matches[idx], more ? "  " : "");
+		}
 		(void)fprintf(el->el_outfile, "\n");
 	}
 }
@@ -400,13 +404,14 @@ int
 fn_complete(EditLine *el,
 	char *(*complet_func)(const char *, int),
 	char **(*attempted_completion_function)(const char *, int, int),
-	const char *word_break, const char *special_prefixes,
-	const char *(*app_func)(const char *), int query_items,
+	const Char *word_break, const Char *special_prefixes,
+	const char *(*app_func)(const char *), size_t query_items,
 	int *completion_type, int *over, int *point, int *end)
 {
-	const LineInfo *li;
-	char *temp, **matches;
-	const char *ctemp;
+	const TYPE(LineInfo) *li;
+	Char *temp;
+        char **matches;
+	const Char *ctemp;
 	size_t len;
 	int what_to_do = '\t';
 	int retval = CC_NORM;
@@ -424,45 +429,45 @@ fn_complete(EditLine *el,
 		app_func = append_char_function;
 
 	/* We now look backwards for the start of a filename/variable word */
-	li = el_line(el);
-	ctemp = (const char *) li->cursor;
+	li = FUN(el,line)(el);
+	ctemp = li->cursor;
 	while (ctemp > li->buffer
-	    && !strchr(word_break, ctemp[-1])
-	    && (!special_prefixes || !strchr(special_prefixes, ctemp[-1]) ) )
+	    && !Strchr(word_break, ctemp[-1])
+	    && (!special_prefixes || !Strchr(special_prefixes, ctemp[-1]) ) )
 		ctemp--;
 
 	len = li->cursor - ctemp;
 #if defined(__SSP__) || defined(__SSP_ALL__)
-	temp = malloc(len + 1);
+	temp = malloc(sizeof(*temp) * (len + 1));
 #else
-	temp = alloca(len + 1);
+	temp = alloca(sizeof(*temp) * (len + 1));
 #endif
-	(void)strncpy(temp, ctemp, len);
+	(void)Strncpy(temp, ctemp, len);
 	temp[len] = '\0';
 
 	/* these can be used by function called in completion_matches() */
 	/* or (*attempted_completion_function)() */
 	if (point != 0)
-		*point = li->cursor - li->buffer;
+		*point = (int)(li->cursor - li->buffer);
 	if (end != NULL)
-		*end = li->lastchar - li->buffer;
+		*end = (int)(li->lastchar - li->buffer);
 
 	if (attempted_completion_function) {
-		int cur_off = li->cursor - li->buffer;
-		matches = (*attempted_completion_function) (temp,
+		int cur_off = (int)(li->cursor - li->buffer);
+		matches = (*attempted_completion_function) (ct_encode_string(temp, &el->el_scratch),
 		    (int)(cur_off - len), cur_off);
 	} else
 		matches = 0;
 	if (!attempted_completion_function || 
 	    (over != NULL && !*over && !matches))
-		matches = completion_matches(temp, complet_func);
+		matches = completion_matches(ct_encode_string(temp, &el->el_scratch), complet_func);
 
 	if (over != NULL)
 		*over = 0;
 
 	if (matches) {
 		int i;
-		int matches_num, maxlen, match_len, match_display=1;
+		size_t matches_num, maxlen, match_len, match_display=1;
 
 		retval = CC_REFRESH;
 		/*
@@ -471,7 +476,8 @@ fn_complete(EditLine *el,
 		 */
 		if (matches[0][0] != '\0') {
 			el_deletestr(el, (int) len);
-			el_insertstr(el, matches[0]);
+			FUN(el,insertstr)(el,
+			    ct_decode_string(matches[0], &el->el_scratch));
 		}
 
 		if (what_to_do == '?')
@@ -483,7 +489,9 @@ fn_complete(EditLine *el,
 			 * it, unless we do filename completion and the
 			 * object is a directory.
 			 */
-			el_insertstr(el, (*append_char_function)(matches[0])); 
+			FUN(el,insertstr)(el,
+			    ct_decode_string((*app_func)(matches[0]),
+			    &el->el_scratch));
 		} else if (what_to_do == '!') {
     display_matches:
 			/*
@@ -491,7 +499,7 @@ fn_complete(EditLine *el,
 			 * matches.
 			 */
 
-			for(i=1, maxlen=0; matches[i]; i++) {
+			for(i = 1, maxlen = 0; matches[i]; i++) {
 				match_len = strlen(matches[i]);
 				if (match_len > maxlen)
 					maxlen = match_len;
@@ -507,7 +515,7 @@ fn_complete(EditLine *el,
 			 */
 			if (matches_num > query_items) {
 				(void)fprintf(el->el_outfile,
-				    "Display all %d possibilities? (y or n) ",
+				    "Display all %zu possibilities? (y or n) ",
 				    matches_num);
 				(void)fflush(el->el_outfile);
 				if (getc(stdin) != 'y')
@@ -516,8 +524,8 @@ fn_complete(EditLine *el,
 			}
 
 			if (match_display)
-				fn_display_match_list(el, matches, matches_num,
-					maxlen);
+				fn_display_match_list(el, matches + 1, matches_num,
+				    maxlen);
 			retval = CC_REDISPLAY;
 		} else if (matches[0][0]) {
 			/*
@@ -555,4 +563,33 @@ _el_fn_complete(EditLine *el, int ch __attribute__((__unused__)))
 	return (unsigned char)fn_complete(el, NULL, NULL,
 	    break_chars, NULL, NULL, 100,
 	    NULL, NULL, NULL, NULL);
+}
+
+
+/*
+ * Compensate for readline.c running in multi-byte mode (WIDECHAR undefined)
+ * and the rest of libedit in wide character mode.  This converts the word
+ * break and special prefix character strings to wide character string before
+ * calling the real fn_complete().
+ */
+__private_extern__ int
+_rl_fn_complete(EditLine *el,
+	char *(*complet_func)(const char *, int),
+	char **(*attempted_completion_function)(const char *, int, int),
+	const char *word_break, const char *special_prefixes,
+	const char *(*app_func)(const char *), size_t query_items,
+	int *completion_type, int *over, int *point, int *end)
+{
+#ifdef WIDECHAR
+	static ct_buffer_t wbreak_conv, sprefix_conv;
+#endif
+	return fn_complete(el,
+	    complet_func,
+	    attempted_completion_function,
+	    ct_decode_string(word_break, &wbreak_conv),
+	    ct_decode_string(special_prefixes, &sprefix_conv),
+	    app_func,
+	    query_items,
+	    completion_type, over,
+	    point, end);
 }

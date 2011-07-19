@@ -48,26 +48,19 @@ public:
                             MachineBasicBlock::iterator MI,
                             unsigned DestReg, unsigned SrcReg,
                             const TargetRegisterClass *DestRC,
-                            const TargetRegisterClass *SrcRC) const;
+                            const TargetRegisterClass *SrcRC,
+                            DebugLoc DL) const;
   virtual void storeRegToStackSlot(MachineBasicBlock &MBB,
                                    MachineBasicBlock::iterator MBBI,
                                    unsigned SrcReg, bool isKill, int FrameIndex,
-                                   const TargetRegisterClass *RC) const;
-
-  virtual void storeRegToAddr(MachineFunction &MF, unsigned SrcReg, bool isKill,
-                              SmallVectorImpl<MachineOperand> &Addr,
-                              const TargetRegisterClass *RC,
-                              SmallVectorImpl<MachineInstr*> &NewMIs) const;
+                                   const TargetRegisterClass *RC,
+                                   const TargetRegisterInfo *TRI) const;
 
   virtual void loadRegFromStackSlot(MachineBasicBlock &MBB,
                                     MachineBasicBlock::iterator MBBI,
                                     unsigned DestReg, int FrameIndex,
-                                    const TargetRegisterClass *RC) const;
-
-  virtual void loadRegFromAddr(MachineFunction &MF, unsigned DestReg,
-                               SmallVectorImpl<MachineOperand> &Addr,
-                               const TargetRegisterClass *RC,
-                               SmallVectorImpl<MachineInstr*> &NewMIs) const;
+                                    const TargetRegisterClass *RC,
+                                    const TargetRegisterInfo *TRI) const;
   
   virtual MachineInstr* foldMemoryOperandImpl(MachineFunction &MF,
                                               MachineInstr* MI,
@@ -88,8 +81,19 @@ public:
   unsigned RemoveBranch(MachineBasicBlock &MBB) const;
   void insertNoop(MachineBasicBlock &MBB, 
                   MachineBasicBlock::iterator MI) const;
-  bool BlockHasNoFallThrough(const MachineBasicBlock &MBB) const;
   bool ReverseBranchCondition(SmallVectorImpl<MachineOperand> &Cond) const;
+
+  /// getGlobalBaseReg - Return a virtual register initialized with the
+  /// the global base register value. Output instructions required to
+  /// initialize the register in the function entry block, if necessary.
+  ///
+  unsigned getGlobalBaseReg(MachineFunction *MF) const;
+
+  /// getGlobalRetAddr - Return a virtual register initialized with the
+  /// the global return address register value. Output instructions required to
+  /// initialize the register in the function entry block, if necessary.
+  ///
+  unsigned getGlobalRetAddr(MachineFunction *MF) const;
 };
 
 }

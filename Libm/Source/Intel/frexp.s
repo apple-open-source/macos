@@ -9,7 +9,7 @@
  
 #define LOCAL_STACK_SIZE	(32 - FRAME_SIZE)
 
-#include <machine/asm.h>
+#include "machine/asm.h"
 #include "abi.h"
 
 #if defined( __LP64__ )

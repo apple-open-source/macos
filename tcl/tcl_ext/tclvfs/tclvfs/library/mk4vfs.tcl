@@ -2,7 +2,7 @@
 # Copyright (C) 1997-2003 Sensus Consulting Ltd. All Rights Reserved.
 # Matt Newman <matt@sensus.org> and Jean-Claude Wippler <jcw@equi4.com>
 #
-# $Id: mk4vfs.tcl,v 1.42 2008/12/03 02:16:19 hobbs Exp $
+# $Id: mk4vfs.tcl,v 1.43 2008/12/22 01:19:34 patthoyts Exp $
 #
 # 05apr02 jcw	1.3	fixed append mode & close,
 #			privatized memchan_handler
@@ -168,7 +168,6 @@ namespace eval vfs::mk4 {
 		if { $sb(csize) != $sb(size) } {
 		    if {$::mk4vfs::zstreamed} {
 		      set fd [mk::channel $sb(ino) contents r]
-		      fconfigure $fd -translation binary
 		      set fd [vfs::zstream decompress $fd $sb(csize) $sb(size)]
 		    } else {
 		      set fd [vfs::memchan]

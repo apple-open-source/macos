@@ -3,12 +3,16 @@
 SUBPROJECTS = apr apr-util
 
 installsrc::
-	@cp Makefile $(SRCROOT)
+	@cp Makefile apr.plist $(SRCROOT)
+
+OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 
 install::
 	@for proj in $(SUBPROJECTS); do \
 		mkdir -p $(SYMROOT)/$${proj}; \
 	done
+	/bin/mkdir -p -m 0755 $(OSV)
+	/usr/bin/install -m 0444 $(SRCROOT)/apr.plist $(OSV)
 
 installsrc clean installhdrs install::
 	@for proj in $(SUBPROJECTS); do \

@@ -352,6 +352,7 @@
 #define kRASValIPSecPolicyEncryptionAlgorithmDES		CFSTR("DES")                       
 #define kRASValIPSecPolicyEncryptionAlgorithm3DES		CFSTR("3DES")                       
 #define kRASValIPSecPolicyEncryptionAlgorithmAES		CFSTR("AES")                       
+#define kRASValIPSecPolicyEncryptionAlgorithmAES256		CFSTR("AES256")
 
 /* kRASPropIPSecPolicyCompressionAlgorithm values */
 #define kRASValIPSecPolicyCompressionAlgorithmDeflate	CFSTR("Deflate")                       

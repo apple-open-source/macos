@@ -18,6 +18,7 @@ static int set_lto_cputype(
 
 static int tried_to_load_lto = 0;
 static void *lto_handle = NULL;
+static int (*lto_is_object)(const void* mem, size_t length) = NULL;
 static lto_module_t (*lto_create)(const void* mem, size_t length) = NULL;
 static void (*lto_dispose)(void *mod) = NULL;
 static char * (*lto_get_target)(void *mod) = NULL;
@@ -53,6 +54,13 @@ size_t size)
 	 * OFILE_LLVM_BITCODE or not.  As the addr and size of of this
 	 *"llvm bitcode file" could be in an archive or fat file.
 	 */
+
+	/*
+	 * The libLTO API's can't handle empty files.  So return 0 to indicate
+	 * this is not a bitcode file if it has a zero size.
+	 */
+	if(size == 0)
+	    return(0);
 
 	if(tried_to_load_lto == 0){
 	    tried_to_load_lto = 1;
@@ -93,6 +101,8 @@ size_t size)
 	    if(lto_handle == NULL)
 		return(0);
 
+	    lto_is_object = dlsym(lto_handle,
+				  "lto_module_is_object_file_in_memory");
 	    lto_create = dlsym(lto_handle, "lto_module_create_from_memory");
 	    lto_dispose = dlsym(lto_handle, "lto_module_dispose");
 	    lto_get_target = dlsym(lto_handle, "lto_module_get_target_triple");
@@ -102,7 +112,8 @@ size_t size)
 				     "lto_module_get_symbol_attribute");
 	    lto_get_sym_name = dlsym(lto_handle, "lto_module_get_symbol_name");
 
-	    if(lto_create == NULL ||
+	    if(lto_is_object == NULL ||
+	       lto_create == NULL ||
 	       lto_dispose == NULL ||
 	       lto_get_target == NULL ||
 	       lto_get_num_symbols == NULL ||
@@ -117,6 +128,9 @@ size_t size)
 	if(lto_handle == NULL)
 	    return(0);
 	    
+	if(!lto_is_object(addr, size))
+	    return(0);
+	
 	ofile->lto = lto_create(addr, size);
 	if(ofile->lto == NULL)
 	    return(0);

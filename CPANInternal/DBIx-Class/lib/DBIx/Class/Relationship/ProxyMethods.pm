@@ -3,8 +3,13 @@ package # hide from PAUSE
 
 use strict;
 use warnings;
-
+use Sub::Name ();
 use base qw/DBIx::Class/;
+
+our %_pod_inherit_config = 
+  (
+   class_map => { 'DBIx::Class::Relationship::ProxyMethods' => 'DBIx::Class::Relationship' }
+  );
 
 sub register_relationship {
   my ($class, $rel, $info) = @_;
@@ -20,7 +25,8 @@ sub proxy_to_related {
   no strict 'refs';
   no warnings 'redefine';
   foreach my $proxy (@proxy) {
-    *{"${class}::${proxy}"} =
+    my $name = join '::', $class, $proxy;
+    *$name = Sub::Name::subname $name,
       sub {
         my $self = shift;
         my $val = $self->$rel;

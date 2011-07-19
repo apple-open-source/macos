@@ -40,6 +40,12 @@
 #define PPPCONTROLLER_SERVER		"com.apple.SystemConfiguration.PPPController"
 
 /*
+ * installed events values
+ */
+#define APPLICATION_INSTALLED	1
+#define APPLICATION_REMOVED		2
+
+/*
  * Input arguments: serialized key's, list delimiters, ...
  *	(sent as out-of-line data in a message)
  */

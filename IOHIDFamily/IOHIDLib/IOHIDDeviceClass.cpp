@@ -34,6 +34,7 @@
 #include "IOHIDParserPriv.h"
 
 __BEGIN_DECLS
+#include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
@@ -115,11 +116,12 @@ IOHIDDeviceClass::IOHIDDeviceClass()
 
     fService 			= MACH_PORT_NULL;
     fConnection 		= MACH_PORT_NULL;
-    fAsyncPort 			= MACH_PORT_NULL;
-    fNotifyPort 		= MACH_PORT_NULL;
+    fAsyncPort 			= NULL;
+    fNotifyPort 		= NULL;
     fDeviceValidPort    = MACH_PORT_NULL;
     fRunLoop 			= NULL;
-    fCFSource			= NULL;
+    fAsyncCFMachPort    = NULL;
+    fAsyncCFSource      = NULL;
 	fNotifyCFSource		= NULL;
     fIsOpen 			= false;
     fIsLUNZero			= false;
@@ -186,20 +188,32 @@ IOHIDDeviceClass::~IOHIDDeviceClass()
     if (fQueues)
         CFRelease(fQueues);
         
+    if ( fDeviceValidPort )
+        mach_port_mod_refs(mach_task_self(), fDeviceValidPort, MACH_PORT_RIGHT_RECEIVE, -1);
+        
 	if (fNotifyCFSource) {
         if ( fRunLoop )
             CFRunLoopRemoveSource(fRunLoop, fNotifyCFSource, kCFRunLoopDefaultMode);
-        CFRelease(fNotifyCFSource);
+        // Per IOKit documentation, this run loop source should not be retained/released
+        fNotifyCFSource = NULL;
     }
     
-    if (fCFSource)
-        CFRelease(fCFSource);
-        
-    if ( fDeviceValidPort )
-        mach_port_destroy(mach_task_self(), fDeviceValidPort);
-        
     if (fNotifyPort)
         IONotificationPortDestroy(fNotifyPort);
+    
+    if (fRunLoop)
+        CFRelease(fRunLoop);
+    fRunLoop = NULL;
+    
+    // Even though we are leveraging IONotificationPort, we don't actually uses it's event source or CFMachPort
+    // because we wanted to filter the message.  As such, we need to manually clean up our CFMachPort and source.
+    if ( fAsyncCFMachPort ) {
+        CFMachPortInvalidate(fAsyncCFMachPort);
+        CFRelease(fAsyncCFMachPort);
+    }
+        
+    if (fAsyncCFSource)
+        CFRelease(fAsyncCFSource);
         
     if (fAsyncPort)
         IONotificationPortDestroy(fAsyncPort);
@@ -355,7 +369,6 @@ IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inS
 {
     IOReturn 			res;
     kern_return_t 		kr;
-    mach_port_t 		masterPort;
     CFMutableDictionaryRef	properties;
 
     fService = inService;
@@ -367,17 +380,13 @@ IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inS
 
     connectCheck();
 
-    // First create a master_port for my task
-    kr = IOMasterPort(MACH_PORT_NULL, &masterPort);
-    if (kr || !masterPort)
-        return kIOReturnError;
-    
-    fNotifyPort = IONotificationPortCreate(masterPort);
+    fNotifyPort = IONotificationPortCreate(kIOMasterPortDefault);
+
+    // Per IOKit documentation, this run loop source should not be retained/released
     fNotifyCFSource = IONotificationPortGetRunLoopSource(fNotifyPort);
-    if ( fNotifyCFSource )
-        CFRetain(fNotifyCFSource);
     
-    fRunLoop = CFRunLoopGetMain();//CFRunLoopGetCurrent();
+    fRunLoop = CFRunLoopGetMain();
+    CFRetain(fRunLoop);
     CFRunLoopAddSource(fRunLoop, fNotifyCFSource, kCFRunLoopDefaultMode);
 
     fNotifyPrivateDataRef = (MyPrivateData *)malloc(sizeof(MyPrivateData));
@@ -394,9 +403,7 @@ IOReturn IOHIDDeviceClass::start(CFDictionaryRef propertyTable, io_service_t inS
                                             fNotifyPrivateDataRef,
                                             &(fNotifyPrivateDataRef->notification));
 
-    // Now done with the master_port
-    mach_port_deallocate(mach_task_self(), masterPort);
-    
+
     // Create port to determine if mem maps are valid.  Use 
     // IODataQueueAllocateNotificationPort cause that limits the msg queue to 
     // one entry.
@@ -601,75 +608,71 @@ void IOHIDDeviceClass::_deviceNotification(void *refCon, io_service_t service, n
     self->fAsyncPrivateDataRef = 0;
 }
 
-IOReturn IOHIDDeviceClass::getAsyncEventSource(CFRunLoopSourceRef *source)
+IOReturn IOHIDDeviceClass::getAsyncEventSource(CFTypeRef *source)
 {
-    IOReturn ret;
-    CFMachPortRef cfPort;
-    CFMachPortContext context;
-    Boolean shouldFreeInfo;
+    connectCheck();
 
     if (!fAsyncPort) {     
+        IOReturn ret;
         ret = getAsyncPort(0);
         if (kIOReturnSuccess != ret)
             return ret;
     }
 
-    context.version = 1;
-    context.info = this;
-    context.retain = NULL;
-    context.release = NULL;
-    context.copyDescription = NULL;
+    if (!fAsyncCFMachPort) {
+        CFMachPortContext   context;
+        Boolean             shouldFreeInfo = FALSE;
 
-    cfPort = CFMachPortCreateWithPort(NULL, IONotificationPortGetMachPort(fAsyncPort),
-                (CFMachPortCallBack) _cfmachPortCallback,
-                &context, &shouldFreeInfo);
-    if (!cfPort)
-        return kIOReturnNoMemory;
+        context.version         = 1;
+        context.info            = this;
+        context.retain          = NULL;
+        context.release         = NULL;
+        context.copyDescription = NULL;
+
+        fAsyncCFMachPort = CFMachPortCreateWithPort(NULL, IONotificationPortGetMachPort(fAsyncPort),
+                    (CFMachPortCallBack) _cfmachPortCallback,
+                    &context, &shouldFreeInfo);
+                    
+        if ( shouldFreeInfo ) {
+            // The CFMachPort we got might not work, but we'll proceed with it anyway.
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
+        }
+            
+        if (!fAsyncCFMachPort)
+            return kIOReturnNoMemory;
+    }
     
-    fCFSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-    CFRelease(cfPort);
-    if (!fCFSource)
-        return kIOReturnNoMemory;
+    if ( !fAsyncCFSource ) {
+        fAsyncCFSource = CFMachPortCreateRunLoopSource(NULL, fAsyncCFMachPort, 0);
+        if (!fAsyncCFSource)
+            return kIOReturnNoMemory;
+    }
 
     if (source)
-        *source = fCFSource;
+        *source = fAsyncCFSource;
 
     return kIOReturnSuccess;
 }
 
 IOReturn IOHIDDeviceClass::getAsyncPort(mach_port_t *port)
 {
-    IOReturn		ret;
-    mach_port_t		masterPort;
+    IOReturn ret = kIOReturnSuccess;
 
     connectCheck();
     
-    // If we already have a port, don't create a new one.
-    if (fAsyncPort) {
-        if (port)
-            *port = IONotificationPortGetMachPort(fAsyncPort);
-        return kIOReturnSuccess;
+    if ( !fAsyncPort )  {
+
+        fAsyncPort = IONotificationPortCreate(kIOMasterPortDefault);
+        if (!fAsyncPort)
+            return kIOReturnNoMemory;
+        
+        if (fIsOpen)
+            ret = finishAsyncPortSetup();
     }
 
-    // First create a master_port for my task
-    ret = IOMasterPort(MACH_PORT_NULL, &masterPort);
-    if (ret || !masterPort)
-        return kIOReturnError;
-
-	fAsyncPort = IONotificationPortCreate(masterPort);
-	
-    if (fAsyncPort) {
-        if (port)
-            *port = IONotificationPortGetMachPort(fAsyncPort);
-
-        if (fIsOpen) {
-			ret = finishAsyncPortSetup();
-        }
-    }
+    if (port)
+        *port = IONotificationPortGetMachPort(fAsyncPort);
     
-	mach_port_deallocate(mach_task_self(), masterPort);
-    masterPort = 0;
-
     return ret;
 }
 
@@ -920,7 +923,10 @@ IOHIDDeviceClass::getReport(IOHIDReportType reportType, uint32_t reportID, uint8
     size_t      reportLength = *pReportLength;
 
     allChecks();
-
+    
+    if (!pReportLength || (*pReportLength < 0))
+    	return kIOReturnNoMemory;
+    	
     // Async getReport
     if (callback) 
     {
@@ -965,9 +971,9 @@ IOHIDDeviceClass::getReport(IOHIDReportType reportType, uint32_t reportID, uint8
     
     if (ret == MACH_SEND_INVALID_DEST)
     {
-	fIsOpen = false;
-	fConnection = MACH_PORT_NULL;
-	ret = kIOReturnNoDevice;
+		fIsOpen = false;
+		fConnection = MACH_PORT_NULL;
+		ret = kIOReturnNoDevice;
     }
     return ret;
 }
@@ -1655,7 +1661,7 @@ IOReturn IOHIDDeviceClass::_getAsyncPort(void * self, mach_port_t * port)
 { return getThis(self)->getAsyncPort(port); }
 
 IOReturn IOHIDDeviceClass::_getAsyncEventSource(void * self, CFTypeRef * pSource)
-{ return getThis(self)->getAsyncEventSource((CFRunLoopSourceRef*)pSource); }
+{ return getThis(self)->getAsyncEventSource(pSource); }
     
 IOReturn IOHIDDeviceClass::_copyMatchingElements(void * self, CFDictionaryRef matchingDict, CFArrayRef * elements, IOOptionBits options)
 {
@@ -1925,12 +1931,16 @@ IOReturn IOHIDObsoleteDeviceClass::_createAsyncEventSource(void * self, CFRunLoo
 
 CFRunLoopSourceRef IOHIDObsoleteDeviceClass::_getAsyncEventSource(void *self)
 { 
-    return getThis(self)->fCFSource;
+    CFTypeRef source = NULL; 
+    getThis(self)->getAsyncEventSource(&source); 
+    return (CFRunLoopSourceRef)source;
 }
 
 mach_port_t IOHIDObsoleteDeviceClass::_getAsyncPort(void *self)
 { 
-    return IONotificationPortGetMachPort(getThis(self)->fAsyncPort);
+    mach_port_t port = MACH_PORT_NULL; 
+    getThis(self)->getAsyncPort(&port); 
+    return port;
 }
 
 IOReturn IOHIDObsoleteDeviceClass::_close(void *self)
@@ -2060,7 +2070,7 @@ HRESULT IOHIDObsoleteDeviceClass::queryInterface(REFIID iid, void **ppv)
 
 IOReturn IOHIDObsoleteDeviceClass::createAsyncEventSource(CFRunLoopSourceRef * pSource)
 {
-    IOReturn ret = IOHIDDeviceClass::getAsyncEventSource(pSource);
+    IOReturn ret = IOHIDDeviceClass::getAsyncEventSource((CFTypeRef*)pSource);
     
     if ( ret == kIOReturnSuccess && pSource && *pSource )
         CFRetain(*pSource);

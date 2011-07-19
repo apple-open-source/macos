@@ -26,6 +26,7 @@
 #define Animation_h
 
 #include "PlatformString.h"
+#include "RenderStyleConstants.h"
 #include "TimingFunction.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -83,7 +84,7 @@ public:
     double delay() const { return m_delay; }
 
     enum AnimationDirection { AnimationDirectionNormal, AnimationDirectionAlternate };
-    AnimationDirection direction() const { return m_direction; }
+    AnimationDirection direction() const { return static_cast<AnimationDirection>(m_direction); }
 
     unsigned fillMode() const { return m_fillMode; }
 
@@ -92,9 +93,9 @@ public:
     enum { IterationCountInfinite = -1 };
     int iterationCount() const { return m_iterationCount; }
     const String& name() const { return m_name; }
-    unsigned playState() const { return m_playState; }
+    EAnimPlayState playState() const { return static_cast<EAnimPlayState>(m_playState); }
     int property() const { return m_property; }
-    const TimingFunction& timingFunction() const { return m_timingFunction; }
+    const PassRefPtr<TimingFunction> timingFunction() const { return m_timingFunction; }
 
     void setDelay(double c) { m_delay = c; m_delaySet = true; }
     void setDirection(AnimationDirection d) { m_direction = d; m_directionSet = true; }
@@ -102,9 +103,9 @@ public:
     void setFillMode(unsigned f) { m_fillMode = f; m_fillModeSet = true; }
     void setIterationCount(int c) { m_iterationCount = c; m_iterationCountSet = true; }
     void setName(const String& n) { m_name = n; m_nameSet = true; }
-    void setPlayState(unsigned d) { m_playState = d; m_playStateSet = true; }
+    void setPlayState(EAnimPlayState d) { m_playState = d; m_playStateSet = true; }
     void setProperty(int t) { m_property = t; m_propertySet = true; }
-    void setTimingFunction(const TimingFunction& f) { m_timingFunction = f; m_timingFunctionSet = true; }
+    void setTimingFunction(PassRefPtr<TimingFunction> f) { m_timingFunction = f; m_timingFunctionSet = true; }
 
     void setIsNoneAnimation(bool n) { m_isNone = n; }
 
@@ -129,8 +130,8 @@ private:
     int m_iterationCount;
     double m_delay;
     double m_duration;
-    TimingFunction m_timingFunction;
-    AnimationDirection m_direction : 1;
+    RefPtr<TimingFunction> m_timingFunction;
+    unsigned m_direction : 1; // AnimationDirection
     unsigned m_fillMode : 2;
 
     unsigned m_playState     : 2;
@@ -154,9 +155,9 @@ public:
     static unsigned initialAnimationFillMode() { return AnimationFillModeNone; }
     static int initialAnimationIterationCount() { return 1; }
     static String initialAnimationName() { return String("none"); }
-    static unsigned initialAnimationPlayState() { return AnimPlayStatePlaying; }
+    static EAnimPlayState initialAnimationPlayState() { return AnimPlayStatePlaying; }
     static int initialAnimationProperty() { return cAnimateAll; }
-    static TimingFunction initialAnimationTimingFunction() { return TimingFunction(); }
+    static PassRefPtr<TimingFunction> initialAnimationTimingFunction() { return CubicBezierTimingFunction::create(); }
 };
 
 } // namespace WebCore

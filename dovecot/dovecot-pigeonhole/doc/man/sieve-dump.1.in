@@ -1,0 +1,99 @@
+.\" Copyright (c) 2010-2011 Pigeonhole authors, see the included COPYING file
+.TH "SIEVE\-DUMP" 1 "2011-02-23" "Pigeonhole for Dovecot v2.0" "Pigeonhole"
+.\"------------------------------------------------------------------------
+.SH NAME
+sieve\-dump \- Pigeonhole\(aqs Sieve script binary dump tool
+.\"------------------------------------------------------------------------
+.SH SYNOPSIS
+.B sieve\-dump
+.RI [ options ]
+.I sieve\-binary
+.RI [ out\-file ]
+.\"------------------------------------------------------------------------
+.SH DESCRIPTION
+.PP
+The \fBsieve\-dump\fP command is part of the Pigeonhole Project
+(\fBpigeonhole\fR(7)), which adds Sieve (RFC 5228) support to the Dovecot
+secure IMAP and POP3 server (\fBdovecot\fR(1)).
+.PP
+Using the \fBsieve\-dump\fP command, Sieve binaries, which are produced for
+instance by \fBsievec\fP(1), can be transformed into a human\-readable textual
+representation. This can provide valuable insight in how the Sieve script is
+executed. This is also particularly useful to view corrupt binaries that can
+result from bugs in the Sieve implementation. This tool is intended mainly for
+development purposes, so normally system administrators and users will not need
+to use this tool.
+.PP
+The format of the output is not explained here in detail, but it should be
+relatively easy to understand. The Sieve binaries comprise a set of data blocks,
+each of which can contain arbitrary data. For the base language implementation
+two blocks are used: the first containing a specification of all required
+language extensions and the second containing the main Sieve program. Compiled
+Sieve programs are represented as flat byte code and therefore the dump of the
+main program is a disassembly listing of the interpreter operations. Extensions
+can define new operations and use additional blocks. Therefore, the output of
+\fBsieve\-dump\fP depends greatly on the language extensions used when compiling
+the binary.
+.\"------------------------------------------------------------------------
+.SH OPTIONS
+.TP
+.BI \-c\  config\-file
+Alternative Dovecot configuration file path.
+.TP
+.B \-h
+Produce per\-block hexdump output of the whole binary instead of the normal
+human\-readable output.
+.TP
+.BI \-x\  extensions
+Set the available extensions. The parameter is a space\-separated list of the
+active extensions. By prepending the extension identifiers with \fB+\fP or
+\fB\-\fP, extensions can be included or excluded relative to the default set of
+extensions. If no extensions have a \fB+\fP or \fB\-\fP prefix, only those
+extensions that are explicitly listed will be enabled. Unknown extensions are
+ignored and a warning is produced. By default, all supported extensions are
+available, except for deprecated extensions or those that are still under
+development.
+
+For example \fB\-x\fP \(dq+imapflags \-enotify\(dq will enable the deprecated
+imapflags extension along with all extensions that are available by default,
+except for the enotify extension.
+.\"------------------------------------------------------------------------
+.SH ARGUMENTS
+.TP
+.I sieve\-binary
+Specifies the Sieve binary file that needs to be dumped.
+.TP
+.I out\-file
+Specifies where the output must be written. This argument is optional. If
+omitted, the output is written to \fBstdout\fR.
+.\"------------------------------------------------------------------------
+.SH "EXIT STATUS"
+.B sieve\-dump
+will exit with one of the following values:
+.TP 4
+.B 0
+Delivery was successful. (EX_OK, EXIT_SUCCES)
+.TP
+.B 1
+Operation failed. This is returned for almost all failures.
+(EXIT_FAILURE)
+.TP
+.B 64
+Invalid parameter given. (EX_USAGE)
+.\"------------------------------------------------------------------------
+.SH FILES
+.TP
+.I @pkgsysconfdir@/dovecot.conf
+Dovecot\(aqs main configuration file.
+.TP
+.I @pkgsysconfdir@/conf.d/90\-sieve.conf
+Sieve interpreter settings (included from Dovecot\(aqs main configuration file)
+.\"------------------------------------------------------------------------
+@INCLUDE:reporting-bugs@
+.\"------------------------------------------------------------------------
+.SH "SEE ALSO"
+.BR dovecot (1),
+.BR dovecot\-lda (1),
+.BR sieve\-test (1),
+.BR sievec (1),
+.BR pigeonhole (7)

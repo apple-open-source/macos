@@ -104,6 +104,7 @@ then
   echo "Learning what is junk mail"
   find "$JUNK_MAIL_PATH/cur" "$JUNK_MAIL_PATH/new" -type f -print | while read file
   do
+    echo "--- sudo -u _amavisd $SA_LEARN_PATH --dbpath $DB_PATH --spam --no-sync < $file"
     sudo -u _amavisd $SA_LEARN_PATH --dbpath $DB_PATH --spam --no-sync < "$file" > /dev/null
   done
 fi

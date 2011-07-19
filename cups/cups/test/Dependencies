@@ -1,5 +1,19 @@
 # DO NOT DELETE THIS LINE -- make depend depends on it.
 
-ipptest.o: ../cups/string.h ../config.h ../cups/cups.h ../cups/ipp.h
-ipptest.o: ../cups/http.h ../cups/versioning.h ../cups/ppd.h ../cups/array.h
-ipptest.o: ../cups/file.h ../cups/language.h ../cups/language.h
+ippserver.o: ../cups/cups-private.h ../cups/cups.h ../cups/file.h
+ippserver.o: ../cups/versioning.h ../cups/ipp.h ../cups/http.h
+ippserver.o: ../cups/array.h ../cups/language.h ../cups/string-private.h
+ippserver.o: ../config.h ../cups/debug-private.h ../cups/ppd-private.h
+ippserver.o: ../cups/ppd.h ../cups/cups.h ../cups/pwg-private.h
+ippserver.o: ../cups/http-private.h ../cups/http.h ../cups/md5-private.h
+ippserver.o: ../cups/ipp-private.h ../cups/ipp.h ../cups/language-private.h
+ippserver.o: ../cups/transcode.h ../cups/thread-private.h
+ipptool.o: ../cups/cups-private.h ../cups/cups.h ../cups/file.h
+ipptool.o: ../cups/versioning.h ../cups/ipp.h ../cups/http.h ../cups/array.h
+ipptool.o: ../cups/language.h ../cups/string-private.h ../config.h
+ipptool.o: ../cups/debug-private.h ../cups/ppd-private.h ../cups/ppd.h
+ipptool.o: ../cups/cups.h ../cups/pwg-private.h ../cups/http-private.h
+ipptool.o: ../cups/http.h ../cups/md5-private.h ../cups/ipp-private.h
+ipptool.o: ../cups/ipp.h ../cups/language-private.h ../cups/transcode.h
+ipptool.o: ../cups/thread-private.h ../cups/file-private.h
+ipptool.o: ../cups/cups-private.h

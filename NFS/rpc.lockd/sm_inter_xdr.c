@@ -25,7 +25,7 @@
  * It was generated using rpcgen.
  */
 
-#include <rpcsvc/sm_inter.h>
+#include "sm_inter.h"
 #ifndef lint
 /*static char sccsid[] = "from: @(#)sm_inter.x 1.7 87/06/24 Copyr 1987 Sun Micro";*/
 /*static char sccsid[] = "from: @(#)sm_inter.x	2.2 88/08/01 4.0 RPCSRC";*/

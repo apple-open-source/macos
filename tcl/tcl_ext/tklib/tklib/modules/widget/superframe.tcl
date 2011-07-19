@@ -4,7 +4,7 @@
 #
 #	Superframe widget - enhanced labelframe widget
 #
-# RCS: @(#) $Id: superframe.tcl,v 1.3 2006/09/29 16:25:07 hobbs Exp $
+# RCS: @(#) $Id: superframe.tcl,v 1.4 2010/06/01 18:06:52 hobbs Exp $
 #
 
 # Allows 3 styles of labelframes:
@@ -20,8 +20,6 @@
 ## Prerequisites
 
 package require widget
-# We could do this without tile ... but let's not
-package require tile
 
 # ### ######### ###########################
 ## Implementation
@@ -139,4 +137,4 @@ snit::widgetadaptor widget::superframe {
 # ### ######### ###########################
 ## Ready for use
 
-package provide widget::superframe 1.0
+package provide widget::superframe 1.0.1

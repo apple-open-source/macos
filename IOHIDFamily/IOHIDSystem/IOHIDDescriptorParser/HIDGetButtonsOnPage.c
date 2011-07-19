@@ -94,7 +94,7 @@ OSStatus HIDGetButtonsOnPage(HIDReportType reportType,
 	HIDReportItem *ptReportItem;
 	OSStatus iStatus;
 	int iR, iE;
-	long iValue;
+	SInt32 iValue;
 	int iStart;
 	int iMaxUsages;
 	int iReportItem;
@@ -161,7 +161,7 @@ OSStatus HIDGetButtonsOnPage(HIDReportType reportType,
 									 ptReportItem->globals.reportSize,
 									 &iValue, false);
 						if (!iStatus)
-							iStatus = HIDPostProcessRIValue (ptReportItem, &iValue);
+							HIDPostProcessRIValue (ptReportItem, &iValue); // error ignored
 						HIDUsageAndPageFromIndex(preparsedDataRef,
 									 ptReportItem,
 									 iValue-ptReportItem->globals.logicalMinimum,

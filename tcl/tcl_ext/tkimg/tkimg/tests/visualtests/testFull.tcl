@@ -75,14 +75,14 @@ foreach elem $fmtList {
     writePhotoFile $ph $fname "$fmt $opt" 1
     if { $testMode & $modeFile } {
 	set ph [readPhotoFile1 $fname "$fmt $opt"]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.1: $fname Format: $fmt $sep (Read from file 1)"
 	ui_addphoto $ph $msg
 
 	set ph [readPhotoFile2 $fname "$fmt $opt" -1 -1]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.2: $fname Format: $fmt $sep (Read from file 2)"
@@ -90,14 +90,14 @@ foreach elem $fmtList {
     }
     if { $testMode & $modeBin } {
 	set ph [readPhotoBinary1 $fname "$fmt $opt"]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.3: $fname Format: $fmt $sep (Read as binary 1)"
 	ui_addphoto $ph $msg
 
 	set ph [readPhotoBinary2 $fname "$fmt $opt" -1 -1]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.4: $fname Format: $fmt $sep (Read as binary 2)"
@@ -106,11 +106,11 @@ foreach elem $fmtList {
     if { $testMode & $modeUU } {
 	set ph [getCanvasPhoto .t.c]
 	set str [writePhotoString $ph "$fmt $opt" 1]
-	if { $str == "" } {
+	if { $str eq "" } {
 	    set ph [createErrImg]
 	} else {
 	    set ph [readPhotoString $str "$fmt $opt" -1 -1]
-	    if { $ph == {} } {
+	    if { $ph eq "" } {
 		set ph [createErrImg]
 	    }
 	}

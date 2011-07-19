@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Alexey Proskuryakov <ap@nypop.com>
  *
  * Redistribution and use in source and binary forms, with or without
@@ -27,16 +27,14 @@
 #include "config.h"
 #include "TextCodecICU.h"
 
-#include "CharacterNames.h"
-#include "PlatformString.h"
 #include "ThreadGlobalData.h"
 #include <unicode/ucnv.h>
 #include <unicode/ucnv_cb.h>
 #include <wtf/Assertions.h>
-#include <wtf/text/CString.h>
-#include <wtf/PassOwnPtr.h>
 #include <wtf/StringExtras.h>
 #include <wtf/Threading.h>
+#include <wtf/text/CString.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using std::min;
 
@@ -55,26 +53,12 @@ static UConverter*& cachedConverterICU()
     return threadGlobalData().cachedConverterICU().converter;
 }
 
-static PassOwnPtr<TextCodec> newTextCodecICU(const TextEncoding& encoding, const void*)
+PassOwnPtr<TextCodec> TextCodecICU::create(const TextEncoding& encoding, const void*)
 {
-    return new TextCodecICU(encoding);
+    return adoptPtr(new TextCodecICU(encoding));
 }
 
-void TextCodecICU::registerBaseEncodingNames(EncodingNameRegistrar registrar)
-{
-    registrar("UTF-8", "UTF-8");
-}
-
-void TextCodecICU::registerBaseCodecs(TextCodecRegistrar registrar)
-{
-    registrar("UTF-8", newTextCodecICU, 0);
-}
-
-// FIXME: Registering all the encodings we get from ucnv_getAvailableName
-// includes encodings we don't want or need. For example, all
-// the encodings with commas and version numbers.
-
-void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar)
+void TextCodecICU::registerEncodingNames(EncodingNameRegistrar registrar)
 {
     // We register Hebrew with logical ordering using a separate name.
     // Otherwise, this would share the same canonical name as the
@@ -136,47 +120,65 @@ void TextCodecICU::registerExtendedEncodingNames(EncodingNameRegistrar registrar
     // table in WebKit on Macintosh that don't seem to be present in ICU.
     // Perhaps we can prove these are not used on the web and remove them.
     // Or perhaps we can get them added to ICU.
-    registrar("xmacroman", "macintosh");
-    registrar("xmacukrainian", "x-mac-cyrillic");
-    registrar("cnbig5", "Big5");
-    registrar("xxbig5", "Big5");
-    registrar("cngb", "GBK");
+    registrar("x-mac-roman", "macintosh");
+    registrar("x-mac-ukrainian", "x-mac-cyrillic");
+    registrar("cn-big5", "Big5");
+    registrar("x-x-big5", "Big5");
+    registrar("cn-gb", "GBK");
     registrar("csgb231280", "GBK");
-    registrar("xeuccn", "GBK");
-    registrar("xgbk", "GBK");
-    registrar("csISO88598I", "ISO_8859-8-I");
+    registrar("x-euc-cn", "GBK");
+    registrar("x-gbk", "GBK");
+    registrar("csISO88598I", "ISO-8859-8-I");
     registrar("koi", "KOI8-R");
     registrar("logical", "ISO-8859-8-I");
-    registrar("unicode11utf8", "UTF-8");
-    registrar("unicode20utf8", "UTF-8");
-    registrar("xunicode20utf8", "UTF-8");
     registrar("visual", "ISO-8859-8");
     registrar("winarabic", "windows-1256");
     registrar("winbaltic", "windows-1257");
     registrar("wincyrillic", "windows-1251");
-    registrar("iso885911", "windows-874");
-    registrar("dos874", "windows-874");
+    registrar("iso-8859-11", "windows-874");
+    registrar("iso8859-11", "windows-874");
+    registrar("dos-874", "windows-874");
     registrar("wingreek", "windows-1253");
     registrar("winhebrew", "windows-1255");
     registrar("winlatin2", "windows-1250");
     registrar("winturkish", "windows-1254");
     registrar("winvietnamese", "windows-1258");
-    registrar("xcp1250", "windows-1250");
-    registrar("xcp1251", "windows-1251");
-    registrar("xeuc", "EUC-JP");
-    registrar("xwindows949", "windows-949");
-    registrar("xuhc", "windows-949");
+    registrar("x-cp1250", "windows-1250");
+    registrar("x-cp1251", "windows-1251");
+    registrar("x-euc", "EUC-JP");
+    registrar("x-windows-949", "windows-949");
+    registrar("KSC5601", "KSC_5601");
+    registrar("x-uhc", "windows-949");
+    registrar("shift-jis", "Shift_JIS");
 
     // These aliases are present in modern versions of ICU, but use different codecs, and have no standard names.
     // They are not present in ICU 3.2.
-    registrar("dos720", "cp864");
+    registrar("dos-720", "cp864");
     registrar("jis7", "ISO-2022-JP");
+
+    // Alternative spelling of ISO encoding names.
+    registrar("ISO8859-1", "ISO-8859-1");
+    registrar("ISO8859-2", "ISO-8859-2");
+    registrar("ISO8859-3", "ISO-8859-3");
+    registrar("ISO8859-4", "ISO-8859-4");
+    registrar("ISO8859-5", "ISO-8859-5");
+    registrar("ISO8859-6", "ISO-8859-6");
+    registrar("ISO8859-7", "ISO-8859-7");
+    registrar("ISO8859-8", "ISO-8859-8");
+    registrar("ISO8859-8-I", "ISO-8859-8-I");
+    registrar("ISO8859-9", "ISO-8859-9");
+    registrar("ISO8859-10", "ISO-8859-10");
+    registrar("ISO8859-13", "ISO-8859-13");
+    registrar("ISO8859-14", "ISO-8859-14");
+    registrar("ISO8859-15", "ISO-8859-15");
+    // Not registering ISO8859-16, because Firefox (as of version 3.6.6) doesn't know this particular alias,
+    // and because older versions of ICU don't support ISO-8859-16 encoding at all.
 }
 
-void TextCodecICU::registerExtendedCodecs(TextCodecRegistrar registrar)
+void TextCodecICU::registerCodecs(TextCodecRegistrar registrar)
 {
     // See comment above in registerEncodingNames.
-    registrar("ISO-8859-8-I", newTextCodecICU, 0);
+    registrar("ISO-8859-8-I", create, 0);
 
     int32_t numEncodings = ucnv_countAvailable();
     for (int32_t i = 0; i < numEncodings; ++i) {
@@ -189,7 +191,7 @@ void TextCodecICU::registerExtendedCodecs(TextCodecRegistrar registrar)
             if (!U_SUCCESS(error) || !standardName)
                 continue;
         }
-        registrar(standardName, newTextCodecICU, 0);
+        registrar(standardName, create, 0);
     }
 }
 
@@ -283,6 +285,7 @@ public:
             ASSERT(err == U_ZERO_ERROR);
         }
     }
+
 private:
     UConverter* m_converter;
     bool m_shouldStopOnEncodingErrors;
@@ -337,28 +340,26 @@ String TextCodecICU::decode(const char* bytes, size_t length, bool flush, bool s
 }
 
 // We need to apply these fallbacks ourselves as they are not currently supported by ICU and
-// they were provided by the old TEC encoding path
-// Needed to fix <rdar://problem/4708689>
-static UChar getGbkEscape(UChar32 codePoint)
+// they were provided by the old TEC encoding path. Needed to fix <rdar://problem/4708689>.
+static UChar fallbackForGBK(UChar32 character)
 {
-    switch (codePoint) {
-        case 0x01F9:
-            return 0xE7C8;
-        case 0x1E3F:
-            return 0xE7C7;
-        case 0x22EF:
-            return 0x2026;
-        case 0x301C:
-            return 0xFF5E;
-        default:
-            return 0;
+    switch (character) {
+    case 0x01F9:
+        return 0xE7C8;
+    case 0x1E3F:
+        return 0xE7C7;
+    case 0x22EF:
+        return 0x2026;
+    case 0x301C:
+        return 0xFF5E;
     }
+    return 0;
 }
 
 // Invalid character handler when writing escaped entities for unrepresentable
 // characters. See the declaration of TextCodec::encode for more.
 static void urlEscapedEntityCallback(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
-                                     UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err)
+    UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err)
 {
     if (reason == UCNV_UNASSIGNED) {
         *err = U_ZERO_ERROR;
@@ -372,10 +373,10 @@ static void urlEscapedEntityCallback(const void* context, UConverterFromUnicodeA
 
 // Substitutes special GBK characters, escaping all other unassigned entities.
 static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
-                              UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
+    UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
     UChar outChar;
-    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
+    if (reason == UCNV_UNASSIGNED && (outChar = fallbackForGBK(codePoint))) {
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -386,10 +387,10 @@ static void gbkCallbackEscape(const void* context, UConverterFromUnicodeArgs* fr
 
 // Combines both gbkUrlEscapedEntityCallback and GBK character substitution.
 static void gbkUrlEscapedEntityCallack(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
-                                       UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
+    UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
     if (reason == UCNV_UNASSIGNED) {
-        if (UChar outChar = getGbkEscape(codePoint)) {
+        if (UChar outChar = fallbackForGBK(codePoint)) {
             const UChar* source = &outChar;
             *err = U_ZERO_ERROR;
             ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -402,10 +403,10 @@ static void gbkUrlEscapedEntityCallack(const void* context, UConverterFromUnicod
 }
 
 static void gbkCallbackSubstitute(const void* context, UConverterFromUnicodeArgs* fromUArgs, const UChar* codeUnits, int32_t length,
-                                  UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
+    UChar32 codePoint, UConverterCallbackReason reason, UErrorCode* err) 
 {
     UChar outChar;
-    if (reason == UCNV_UNASSIGNED && (outChar = getGbkEscape(codePoint))) {
+    if (reason == UCNV_UNASSIGNED && (outChar = fallbackForGBK(codePoint))) {
         const UChar* source = &outChar;
         *err = U_ZERO_ERROR;
         ucnv_cbFromUWriteUChars(fromUArgs, &source, source + 1, 0, err);
@@ -468,6 +469,5 @@ CString TextCodecICU::encode(const UChar* characters, size_t length, Unencodable
 
     return CString(result.data(), size);
 }
-
 
 } // namespace WebCore

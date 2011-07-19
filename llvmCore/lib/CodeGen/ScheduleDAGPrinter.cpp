@@ -18,7 +18,6 @@
 #include "llvm/CodeGen/MachineConstantPool.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
-#include "llvm/CodeGen/PseudoSourceValue.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/Debug.h"
@@ -33,6 +32,9 @@ using namespace llvm;
 namespace llvm {
   template<>
   struct DOTGraphTraits<ScheduleDAG*> : public DefaultDOTGraphTraits {
+
+  DOTGraphTraits (bool isSimple=false) : DefaultDOTGraphTraits(isSimple) {}
+
     static std::string getGraphName(const ScheduleDAG *G) {
       return G->MF.getFunction()->getName();
     }
@@ -58,8 +60,7 @@ namespace llvm {
     }
     
 
-    static std::string getNodeLabel(const SUnit *Node,
-                                    const ScheduleDAG *Graph);
+    std::string getNodeLabel(const SUnit *Node, const ScheduleDAG *Graph);
     static std::string getNodeAttributes(const SUnit *N,
                                          const ScheduleDAG *Graph) {
       return "shape=Mrecord";
@@ -84,14 +85,14 @@ void ScheduleDAG::viewGraph() {
 // This code is only for debugging!
 #ifndef NDEBUG
   if (BB->getBasicBlock())
-    ViewGraph(this, "dag." + MF.getFunction()->getName(),
-              "Scheduling-Units Graph for " + MF.getFunction()->getName() + ':' +
-              BB->getBasicBlock()->getName());
+    ViewGraph(this, "dag." + MF.getFunction()->getNameStr(), false,
+              "Scheduling-Units Graph for " + MF.getFunction()->getNameStr() + 
+              ":" + BB->getBasicBlock()->getNameStr());
   else
-    ViewGraph(this, "dag." + MF.getFunction()->getName(),
-              "Scheduling-Units Graph for " + MF.getFunction()->getName());
+    ViewGraph(this, "dag." + MF.getFunction()->getNameStr(), false,
+              "Scheduling-Units Graph for " + MF.getFunction()->getNameStr());
 #else
-  cerr << "ScheduleDAG::viewGraph is only available in debug builds on "
-       << "systems with Graphviz or gv!\n";
+  errs() << "ScheduleDAG::viewGraph is only available in debug builds on "
+         << "systems with Graphviz or gv!\n";
 #endif  // NDEBUG
 }

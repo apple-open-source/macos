@@ -7,7 +7,7 @@
 # Copyright (c) 2001-2008 by Andreas Kupries <a.kupries@westend.com>
 # All rights reserved.
 #
-# RCS: @(#) $Id: csv.test,v 1.21 2008/10/02 22:26:48 andreas_kupries Exp $
+# RCS: @(#) $Id: csv.test,v 1.22 2010/01/19 20:21:57 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -433,6 +433,33 @@ test csv-5.8 {reading csv files, auto expansion mode} {
     m destroy
     set result
 } {{227 {STR append (1MB + 1MB * 3)} 125505 327765 38.29} {228 {STR append (1MB + 1MB * 5)} 158507 855295 18.53} {229 {STR append (1MB + (1b + 1K + 1b) * 100)} 33101 174031 19.02} {230 {STR info locals match} 946 1521 62.20} {231 {TRACE no trace set} 34 121 28.10}}
+
+# =========================================================================
+# Bug 2926387
+
+test csv-5.9.0 {reading csv files, inner field newline processing, bug 2926387} {
+    set m [struct::matrix]
+    set f [open [file join $::tcltest::testsDirectory 2926387.csv] r]
+    csv::read2matrix $f $m , auto
+    close $f
+    set result [$m serialize]
+    $m destroy
+    set result
+} {2 3 {{a b c} {d {e,
+e} f}}}
+
+test csv-5.9.1 {reading csv files, inner field newline processing, bug 2926387} {
+    set q [struct::queue]
+    set f [open [file join $::tcltest::testsDirectory 2926387.csv] r]
+    csv::read2queue $f $q
+    close $f
+    set result [$q get [$q size]]
+    $q destroy
+    set result
+} {{a b c} {d {e,
+e} f}}
+
+# =========================================================================
 
 test csv-6.1 {writing csv files} {
     set f [open [localPath eval.csv] r]

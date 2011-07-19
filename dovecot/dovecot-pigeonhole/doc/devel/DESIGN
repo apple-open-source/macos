@@ -1,0 +1,45 @@
+The compiler consists of the following stages:
+
+PARSER: sieve-parser.c, sieve-lexer.c
+  Parses the scriptfile and produces an abstract syntax tree for it 
+  (sieve-ast.c). 
+
+VALIDATOR: sieve-validator.c
+  Performs contextual analysis on the ast produced by the parser. This checks 
+  for the validity of commands, tests and arguments. Also, the ast is decorated 
+  with any context data acquired during the process. This context is used by the 
+  last compiler stage. 
+
+GENERATOR: sieve-generator.c
+  This last compiler stage uses a visitor pattern to wander through the ast and 
+  produces sieve byte code (sieve-binary.c).
+
+The resulting (in-memory) binary can be fed to the interpreter for execution:
+
+INTERPRETER: sieve-interpreter.c 
+  The interpreter executes the byte code and produces a sieve_result object. 
+  This result is no more than just a collection of actions to be performed. 
+  During execution, action commands add actions to the result. Duplates and 
+  conflicts between actions are handled in this execution phase.
+
+RESULT: sieve-result.c sieve-actions.c
+  When the result is to be executed, it needs no further checking, as the 
+  validity of the result was verified during interpretation already. The 
+  result's actions are executed in a transaction-like atomic manner. If one of 
+  the actions fails, the whole transaction is rolled back meaning that either 
+  everything succeeds or everything fails. This is only possible to some extent:
+  transmitted responses can of course not be rolled back. However, these are 
+  executed in the commit phase, meaning that they will only be performed if all
+  other actions were successful.
+  
+Debugging:
+
+BINARY-DUMPER: sieve-code-dumper.c sieve-binary-dumper.c
+  A loaded binary can be dumped to a stream in human-readable form using the 
+  binary-dumper. The binary-dumper displays information on all the blocks that
+  the binary consists off. Program code blocks are dumped using the code-dumper.
+  It's implementation is similar to the interpreter, with the exception that it 
+  performs no actions and just sequentially wanders through the byte code 
+  printing instructions along the way. The term human-readable is a bit optimistic 
+  though; currently, the presented data looks like an assembly language. 
+

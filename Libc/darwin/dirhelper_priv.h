@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -30,9 +30,9 @@
 #define VAR_FOLDERS_PATH		"/var/folders/"
 
 #define DIRHELPER_BOOTSTRAP_NAME	"com.apple.bsd.dirhelper"
-#define DIRHELPER_CACHE_STR		"-Caches-/"
-#define DIRHELPER_TEMP_STR		"-Tmp-/"
-#define DIRHELPER_TOP_STR		""
+#define DIRHELPER_CACHE_STR		"C/"
+#define DIRHELPER_TEMP_STR		"T/"
+#define DIRHELPER_TOP_STR		"0/"
 
 typedef enum {
     DIRHELPER_USER_LOCAL = 0,

@@ -238,6 +238,12 @@ public:
     virtual HRESULT STDMETHODCALLTYPE setEditableLinkBehavior( 
         /* [in] */ WebKitEditableLinkBehavior behavior);
 
+    virtual HRESULT STDMETHODCALLTYPE editingBehavior(
+        /* [retval][out] */ WebKitEditingBehavior* behavior);
+
+    virtual HRESULT STDMETHODCALLTYPE setEditingBehavior(
+        /* [in] */ WebKitEditingBehavior behavior);
+
     virtual HRESULT STDMETHODCALLTYPE cookieStorageAcceptPolicy( 
         /* [retval][out] */ WebKitCookieStorageAcceptPolicy *acceptPolicy);
         
@@ -416,6 +422,18 @@ public:
 
     virtual HRESULT STDMETHODCALLTYPE setDNSPrefetchingEnabled(BOOL);
     virtual HRESULT STDMETHODCALLTYPE isDNSPrefetchingEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE setMemoryInfoEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE memoryInfoEnabled(BOOL*);
+
+    virtual HRESULT STDMETHODCALLTYPE hyperlinkAuditingEnabled(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setHyperlinkAuditingEnabled(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE loadsSiteIconsIgnoringImageLoadingPreference(BOOL*);
+    virtual HRESULT STDMETHODCALLTYPE setLoadsSiteIconsIgnoringImageLoadingPreference(BOOL);
+
+    virtual HRESULT STDMETHODCALLTYPE setFullScreenEnabled(BOOL);
+    virtual HRESULT STDMETHODCALLTYPE isFullScreenEnabled(BOOL*);
 
     // WebPreferences
 

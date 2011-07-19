@@ -42,7 +42,9 @@
 #include <dlfcn.h>
 #include <errno.h>
 #include <fnmatch.h>
+#if ENABLE(GLIB_SUPPORT)
 #include <glib.h> // TODO: remove me after following TODO is solved.
+#endif
 #include <limits.h>
 #include <stdio.h>
 #include <sys/stat.h>
@@ -53,21 +55,19 @@ namespace WebCore {
 
 CString fileSystemRepresentation(const String& path)
 {
-    return path.utf8();
-}
-
-char* filenameFromString(const String& string)
-{
 // WARNING: this is just used by platform/network/soup, thus must be GLIB!!!
 // TODO: move this to CString and use it instead in both, being more standard
-#if PLATFORM(WIN_OS)
-    return g_strdup(string.utf8().data());
+#if !PLATFORM(WIN_OS) && defined(WTF_USE_SOUP)
+    char* filename = g_uri_unescape_string(path.utf8().data(), 0);
+    CString cfilename(filename);
+    g_free(filename);
+    return cfilename;
 #else
-    return g_uri_unescape_string(string.utf8().data(), 0);
+    return path.utf8();
 #endif
 }
 
-CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
     char buffer[PATH_MAX];
     const char* tmpDir = getenv("TMPDIR");
@@ -75,18 +75,18 @@ CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
     if (!tmpDir)
         tmpDir = "/tmp";
 
-    if (snprintf(buffer, PATH_MAX, "%s/%sXXXXXX", tmpDir, prefix) >= PATH_MAX)
+    if (snprintf(buffer, PATH_MAX, "%s/%sXXXXXX", tmpDir, prefix.utf8().data()) >= PATH_MAX)
         goto end;
 
     handle = mkstemp(buffer);
     if (handle < 0)
         goto end;
 
-    return CString(buffer);
+    return String::fromUTF8(buffer);
 
 end:
     handle = invalidPlatformFileHandle;
-    return CString();
+    return String();
 }
 
 bool unloadModule(PlatformModule module)

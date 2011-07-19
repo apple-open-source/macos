@@ -39,6 +39,7 @@ if ($< != 0) {
 umask 022;
 
 my ($source);
+my $source_version = '10.5'; # if not given, assume Leopard
 
 my $argc = scalar @ARGV;
 my $i;
@@ -46,12 +47,21 @@ for ($i = 0; $i < $argc; ++$i) {
 	if ($ARGV[$i] eq '--source') {
 		die "Error: --source requires an argument\n" unless ++$i < $argc;
 		$source = $ARGV[$i];
+	} elsif ($ARGV[$i] eq '--source-version') {
+		die "Error: --source-version requires an argument\n" unless ++$i < $argc;
+		$source_version = $ARGV[$i]
 	} else {
 		die "Error: unknown argument $ARGV[$i]\n";
 	}
 }
 
 die "--source not defined" unless defined $source;
+
+#
+# For pre-Leopard, skip migration
+#
+
+$source_version >= 10.5 or exit 0;
 
 #
 # If there is no database, skip migration
@@ -79,21 +89,39 @@ if ($targetrealm eq '') {
 	exit 1;
 }
 
-my $migrationkdcconf = "/var/db/krb5kdc/kdc.conf.old";
+my $source_kdc_local = $source.$kdc_local;
+if (not open (KDC_LOCAL, '/usr/libexec/PlistBuddy -c "Print :realname:" '. $source_kdc_local. '|')) {
+	print 'Error: '. $progname ." failed to find $kdc_local\n";
+	exit 1;
+}
+my $configrealm = join ('', <KDC_LOCAL>);
+close KDC_LOCAL;
+$configrealm =~ s/^.*(LKDC:SHA1\.[0-9A-F]{40}).*$/\1/s;
+
+if ($configrealm eq '') {
+	print 'Error: '. $progname ." cannot parse $source_kdc_local\n";
+	exit 1;
+}
+
+my $migrationkdcconf = "/var/db/krb5kdc/migration.conf";
 my $migrationdump = "/var/db/krb5kdc/lkdc-migration-dump";
 
-my ($IN, $OUT, $configrealm, %sourceusers, %targetusers);
+my $CONF;
 
-open IN, "$source/var/db/krb5kdc/kdc.conf" or die "open source kdc.conf: $!";
-open OUT, ">$migrationkdcconf";
-
-while(<IN>) {
-    s@/var/db/krb5kdc/@$source/var/db/krb5kdc/@;
-    $configrealm = $1 if (m/(LKDC:.*) = {/);
-    print OUT $_;
+open CONF, ">$migrationkdcconf";
+print CONF "[kdc]\n";
+print CONF "database = {\n";
+if ($source_version < 10.7) {
+    print CONF "\tdbname = mit-db:$source/var/db/krb5kdc/principal.$configrealm\n";
+    print CONF "\tmkey_file = FILE:$source/var/db/krb5kdc/.k5.$configrealm\n";
+    print CONF "\tlog_file = /var/db/krb5kdc/log-$configrealm\n";
+} else {
+    print CONF "\tdbname = od:/Local/Default&$source/var/db/dslocal/nodes/Default\n";
+    print CONF "\tmkey_file = $source/var/db/krb5kdc/m-key\n";
+    print CONF "\tlog_file = /var/db/krb5kdc/log-$configrealm\n";
 }
-close IN;
-close OUT;
+print CONF "}\n";
+close CONF;
 
 die "no Local KDC realm in source kdc.conf" unless defined $configrealm;
 
@@ -106,14 +134,9 @@ print "-----> configrealm: $configrealm\n";
 
 $ENV{'KRB5_KDC_PROFILE'} = $migrationkdcconf;
 
-open IN, "/usr/sbin/kdb5_util -r $configrealm ".
-    "dump ".
-    "-mkey_convert ".
-    "-new_mkey_file /var/db/krb5kdc/.k5.$targetrealm ".
-    "-new_mkey_principal K/M\@$targetrealm |";
+open IN, "/usr/sbin/kadmin -c $migrationkdcconf -l -r $configrealm dump -d |";
 open OUT, ">$migrationdump";
-
-my ($user, $realm, $sourcerealm);
+my (%sourceusers, %targetusers, $user, $realm, $sourcerealm);
 
 #
 # Iterate over the data base and strip out all principals that doesn't
@@ -121,16 +144,11 @@ my ($user, $realm, $sourcerealm);
 #
 
 while(<IN>) {
-    # keep header
-    if (m/^kdb5_util load_dump version/) {
-	print OUT $_;
-	next;
-    }
-
-    next if (not m/^princ\s+\d+\s+\d+\s+\d+\s+\d+\s+\d+\s+([^@]*)\@([^ \t]*)\s+/);
+    next if (not m/^([^@]*)\@([^ \t]*)\s+/);
     ($user, $realm) = ($1, $2);
     # skip admin/meta principals
     next if ($user eq "K/M");
+    next if ($user eq "_krbtgt");
     next if ($user =~ "^kadmin/"); # ignore kadmin foo
     next if ($user =~ m@^krbtgt/.*@); # ignore tgt and cross realm
     next if ($user =~ m@^.*/LKDC:*@); # ignore LKDC services
@@ -172,19 +190,17 @@ print "-----> migration kdc.conf: $migrationkdcconf\n";
 print "-----> migration dump: $migrationdump\n";
 
 # Load the migration dump into the database
-system("/usr/sbin/kdb5_util load -update $migrationdump");
+system("/usr/sbin/kadmin -l -r $targetrealm merge --fix-salts /var/db/krb5kdc/lkdc-migration-dump");
 
-# Rename all users to the new realm name
+# Fix the attributes
 foreach my $a (keys %sourceusers) {
-    print "-----> renaming user: $a\n";
-    system("/usr/sbin/kadmin.local ".
-	   "-r $targetrealm ".
-	   "-p kadmin/local\@$targetrealm ".
-	   "-q \"renprinc -force $a\@$sourcerealm $a\@$targetrealm\"");
-    system("/usr/sbin/kadmin.local ".
-	   "-r $targetrealm ".
-	   "-p kadmin/local\@$targetrealm ".
-	   "-q \"modprinc -allow_svr $a\@$targetrealm\"");
+    print "-----> fixing attributes: $a\n";
+    system("/usr/sbin/kadmin -l -r $targetrealm ".
+        "modify -a -disallow-tgt-based $a\@$targetrealm");
+    system("/usr/sbin/kadmin -l -r $targetrealm ".
+        "modify -a -disallow-forwardable $a\@$targetrealm");
+    system "/System/Library/PrivateFrameworks/Heimdal.framework/Helpers/hod-admin . ".
+        "principal-setflags $a RequireStrongPreAuth";
 }
 
 unlink $migrationkdcconf;

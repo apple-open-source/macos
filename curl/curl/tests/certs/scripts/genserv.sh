@@ -3,7 +3,7 @@
 # (c) CopyRight EdelWeb for EdelKey and OpenEvidence, 2000-2004, 2009
 # Author: Peter Sylvester
 
-# "libre" for integration with curl 
+# "libre" for integration with curl
 
 OPENSSL=openssl
 if [ -f /usr/local/ssl/bin/openssl ] ; then
@@ -39,7 +39,7 @@ if [ ".$CAPREFIX" = . ] ; then
 	NOTOK=1
 else
     if [ ! -f $CAPREFIX-ca.cacert ] ; then
-	echo No CA certficate file $PREFIX-ca.caert
+	echo No CA certficate file $CAPREFIX-ca.caert
 	NOTOK=1
     fi
     if [ ! -f $CAPREFIX-ca.key ] ; then
@@ -59,7 +59,7 @@ if [ ".$SERIAL" = . ] ; then
 	SERIAL=`/usr/bin/env perl -e "$GETSERIAL"`
 fi
 
-echo SERIAL=$SERIAL PREFIX=$PREFIX CAPREFIX=$CAPREFIX DURATION=$DURATION KEYSIZE=$KEYSIZE 
+echo SERIAL=$SERIAL PREFIX=$PREFIX CAPREFIX=$CAPREFIX DURATION=$DURATION KEYSIZE=$KEYSIZE
 
 if [ "$DHP." = YES. ] ; then
    echo "openssl dhparam -2 -out $PREFIX-sv.dhp $KEYSIZE"
@@ -72,9 +72,8 @@ if [ "$REQ." = YES. ] ; then
 fi
 
 echo "openssl rsa -in $PREFIX-sv.key -out $PREFIX-sv.key"
-$OPENSSL rsa -in $PREFIX-sv.key -out $PREFIX-sv.key -passin pass:secret 
+$OPENSSL rsa -in $PREFIX-sv.key -out $PREFIX-sv.key -passin pass:secret
 echo pseudo secrets generated
-read
 
 echo "openssl x509 -set_serial $SERIAL -extfile $PREFIX-sv.prm -days $DURATION  -CA $CAPREFIX-ca.cacert -CAkey $CAPREFIX-ca.key -in $PREFIX-sv.csr -req -out $PREFIX-sv.crt -text -nameopt multiline -sha1"
 
@@ -84,23 +83,30 @@ if [ "$P12." = YES. ] ; then
 
    echo "$OPENSSL pkcs12 -export -des3 -out $PREFIX-sv.p12 -caname $CAPREFIX -name $PREFIX -inkey $PREFIX-sv.key -in $PREFIX-sv.crt -certfile $CAPREFIX-ca.crt "
 
-   $OPENSSL pkcs12 -export -des3 -out $PREFIX-sv.p12 -caname $CAPREFIX -name $PREFIX -inkey $PREFIX-sv.key -in $PREFIX-sv.crt -certfile $CAPREFIX-ca.crt 
-
-   read
+   $OPENSSL pkcs12 -export -des3 -out $PREFIX-sv.p12 -caname $CAPREFIX -name $PREFIX -inkey $PREFIX-sv.key -in $PREFIX-sv.crt -certfile $CAPREFIX-ca.crt
 fi
 
 echo "openssl x509 -noout -text -hash -in $PREFIX-sv.selfcert -nameopt multiline"
 $OPENSSL x509 -noout -text -hash -in $PREFIX-sv.crt -nameopt multiline
 
+# revoke server cert
+touch $CAPREFIX-ca.db
+echo 01 > $CAPREFIX-ca.cnt
+echo "openssl ca -config $CAPREFIX-ca.cnf -revoke $PREFIX-sv.crt"
+$OPENSSL ca -config $CAPREFIX-ca.cnf -revoke $PREFIX-sv.crt
+
+# issue CRL
+echo "openssl ca -config $CAPREFIX-ca.cnf -gencrl -out $PREFIX-sv.crl"
+$OPENSSL ca -config $CAPREFIX-ca.cnf -gencrl -out $PREFIX-sv.crl
+
 echo "openssl x509 -in $PREFIX-sv.crt -outform der -out $PREFIX-sv.der "
-$OPENSSL x509 -in $PREFIX-sv.crt -outform der -out $PREFIX-sv.der 
-read
+$OPENSSL x509 -in $PREFIX-sv.crt -outform der -out $PREFIX-sv.der
 
 # all together now
 touch $PREFIX-sv.dhp
 cat $PREFIX-sv.prm $PREFIX-sv.key  $PREFIX-sv.crt $PREFIX-sv.dhp >$PREFIX-sv.pem
-chmod o-r $PREFIX-sv.prm  
+chmod o-r $PREFIX-sv.prm
 
 echo "$PREFIX-sv.pem done"
 
- 
+

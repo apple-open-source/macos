@@ -37,7 +37,7 @@ SSPBufferSize("stack-protector-buffer-size", cl::init(8),
                        "stack protection"));
 
 namespace {
-  class VISIBILITY_HIDDEN StackProtector : public FunctionPass {
+  class StackProtector : public FunctionPass {
     /// TLI - Keep a pointer of a TargetLowering to consult for determining
     /// target type sizes.
     const TargetLowering *TLI;
@@ -111,11 +111,16 @@ bool StackProtector::RequiresStackProtector() const {
           // protectors.
           return true;
 
-        if (const ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType()))
+        if (const ArrayType *AT = dyn_cast<ArrayType>(AI->getAllocatedType())) {
+          // We apparently only care about character arrays.
+          if (!AT->getElementType()->isIntegerTy(8))
+            continue;
+
           // If an array has more than SSPBufferSize bytes of allocated space,
           // then we emit stack protectors.
-          if (SSPBufferSize <= TD->getTypePaddedSize(AT))
+          if (SSPBufferSize <= TD->getTypeAllocSize(AT))
             return true;
+        }
       }
   }
 
@@ -148,7 +153,8 @@ bool StackProtector::InsertStackProtectors() {
       //     StackGuard = load __stack_chk_guard
       //     call void @llvm.stackprotect.create(StackGuard, StackGuardSlot)
       // 
-      PointerType *PtrTy = PointerType::getUnqual(Type::Int8Ty);
+      PointerType *PtrTy = PointerType::getUnqual(
+          Type::getInt8Ty(RI->getContext()));
       StackGuardVar = M->getOrInsertGlobal("__stack_chk_guard", PtrTy);
 
       BasicBlock &Entry = F->getEntryBlock();
@@ -201,7 +207,7 @@ bool StackProtector::InsertStackProtectors() {
     // Generate the stack protector instructions in the old basic block.
     LoadInst *LI1 = new LoadInst(StackGuardVar, "", false, BB);
     LoadInst *LI2 = new LoadInst(AI, "", true, BB);
-    ICmpInst *Cmp = new ICmpInst(CmpInst::ICMP_EQ, LI1, LI2, "", BB);
+    ICmpInst *Cmp = new ICmpInst(*BB, CmpInst::ICMP_EQ, LI1, LI2, "");
     BranchInst::Create(NewBB, FailBB, Cmp, BB);
   }
 
@@ -215,10 +221,12 @@ bool StackProtector::InsertStackProtectors() {
 /// CreateFailBB - Create a basic block to jump to when the stack protector
 /// check fails.
 BasicBlock *StackProtector::CreateFailBB() {
-  BasicBlock *FailBB = BasicBlock::Create("CallStackCheckFailBlk", F);
+  BasicBlock *FailBB = BasicBlock::Create(F->getContext(),
+                                          "CallStackCheckFailBlk", F);
   Constant *StackChkFail =
-    M->getOrInsertFunction("__stack_chk_fail", Type::VoidTy, NULL);
+    M->getOrInsertFunction("__stack_chk_fail",
+                           Type::getVoidTy(F->getContext()), NULL);
   CallInst::Create(StackChkFail, "", FailBB);
-  new UnreachableInst(FailBB);
+  new UnreachableInst(F->getContext(), FailBB);
   return FailBB;
 }

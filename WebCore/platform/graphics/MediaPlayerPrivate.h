@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,15 +29,17 @@
 #if ENABLE(VIDEO)
 
 #include "MediaPlayer.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
 class IntRect;
 class IntSize;
-class String;
 
-class MediaPlayerPrivateInterface : public Noncopyable {
+class MediaPlayerPrivateInterface {
+    WTF_MAKE_NONCOPYABLE(MediaPlayerPrivateInterface); WTF_MAKE_FAST_ALLOCATED;
 public:
+    MediaPlayerPrivateInterface() { }
     virtual ~MediaPlayerPrivateInterface() { }
 
     virtual void load(const String& url) = 0;
@@ -107,6 +109,9 @@ public:
 #if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
     virtual void deliverNotification(MediaPlayerProxyNotificationType) = 0;
     virtual void setMediaPlayerProxy(WebMediaPlayerProxy*) = 0;
+    virtual void setControls(bool) { }
+    virtual void enterFullscreen() { }
+    virtual void exitFullscreen() { }
 #endif
 
 #if USE(ACCELERATED_COMPOSITING)
@@ -120,6 +125,27 @@ public:
 
     virtual MediaPlayer::MovieLoadType movieLoadType() const { return MediaPlayer::Unknown; }
 
+    virtual void prepareForRendering() { }
+
+    // Time value in the movie's time scale. It is only necessary to override this if the media
+    // engine uses rational numbers to represent media time.
+    virtual float mediaTimeForTimeValue(float timeValue) const { return timeValue; }
+
+    // Overide this if it is safe for HTMLMediaElement to cache movie time and report
+    // 'currentTime' as [cached time + elapsed wall time]. Returns the maximum wall time
+    // it is OK to calculate movie time before refreshing the cached time.
+    virtual double maximumDurationToCacheMediaTime() const { return 0; }
+
+    virtual unsigned decodedFrameCount() const { return 0; }
+    virtual unsigned droppedFrameCount() const { return 0; }
+    virtual unsigned audioDecodedByteCount() const { return 0; }
+    virtual unsigned videoDecodedByteCount() const { return 0; }
+
+    void getSitesInMediaCache(Vector<String>&) { }
+    void clearMediaCache() { }
+    void clearMediaCacheForSite(const String&) { }
+
+    virtual void setPrivateBrowsingMode(bool) { }
 };
 
 }

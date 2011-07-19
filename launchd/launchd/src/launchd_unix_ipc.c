@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23921 $";
+static const char *const __rcs_file_version__ = "$Revision: 24557 $";
 
 #include "config.h"
 #include "launchd_unix_ipc.h"
@@ -174,7 +174,7 @@ ipc_server_init(void)
 
 out_bad:
 	if (!ipc_inited && fd != -1) {
-		launchd_assumes(runtime_close(fd) == 0);
+		(void)launchd_assumes(runtime_close(fd) == 0);
 	}
 }
 
@@ -186,7 +186,7 @@ ipc_open(int fd, job_t j)
 	fcntl(fd, F_SETFL, O_NONBLOCK);
 
 	c->kqconn_callback = ipc_callback;
-	if( j ) {
+	if (j) {
 		c->conn = launchd_fdopen(-1, fd);
 	} else {
 		c->conn = launchd_fdopen(fd, -1);
@@ -244,7 +244,7 @@ static void
 set_user_env(launch_data_t obj, const char *key, void *context __attribute__((unused)))
 {
 	const char *v = launch_data_get_string(obj);
-	if( v ) {
+	if (v) {
 		setenv(key, v, 1);
 	} else {
 		runtime_syslog(LOG_WARNING, "Attempt to set NULL environment variable: %s (type = %d)", key, launch_data_get_type(obj));
@@ -278,7 +278,7 @@ ipc_close_fds(launch_data_t o)
 		break;
 	case LAUNCH_DATA_FD:
 		if (launch_data_get_fd(o) != -1) {
-			launchd_assumes(runtime_close(launch_data_get_fd(o)) == 0);
+			(void)launchd_assumes(runtime_close(launch_data_get_fd(o)) == 0);
 		}
 		break;
 	default:
@@ -365,14 +365,14 @@ ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 	bool allow_privileged_ops = !rmc->c->j;
 #endif
 	
-	if( rmc->c->j && strcmp(cmd, LAUNCH_KEY_CHECKIN) == 0 ) {
+	if (rmc->c->j && strcmp(cmd, LAUNCH_KEY_CHECKIN) == 0) {
 		resp = job_export(rmc->c->j);
 		job_checkin(rmc->c->j);
-	} else if( allow_privileged_ops ) {
+	} else if (allow_privileged_ops) {
 	#if TARGET_OS_EMBEDDED
 		g_embedded_privileged_action = rmc->c->j && job_is_god(rmc->c->j);
 	#endif
-		if( data == NULL ) {
+		if (data == NULL) {
 			if (!strcmp(cmd, LAUNCH_KEY_SHUTDOWN)) {
 				launchd_shutdown();
 				resp = launch_data_new_errno(0);
@@ -395,18 +395,18 @@ ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 			}
 		} else {
 			if (!strcmp(cmd, LAUNCH_KEY_STARTJOB)) {
-				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+				if ((j = job_find(NULL, launch_data_get_string(data))) != NULL) {
 					errno = job_dispatch(j, true) ? 0 : errno;
 				}
 				resp = launch_data_new_errno(errno);
 			} else if (!strcmp(cmd, LAUNCH_KEY_STOPJOB)) {
-				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+				if ((j = job_find(NULL, launch_data_get_string(data))) != NULL) {
 					errno = 0;
 					job_stop(j);
 				}
 				resp = launch_data_new_errno(errno);
 			} else if (!strcmp(cmd, LAUNCH_KEY_REMOVEJOB)) {
-				if ((j = job_find(launch_data_get_string(data))) != NULL) {
+				if ((j = job_find(NULL, launch_data_get_string(data))) != NULL) {
 					errno = 0;
 					job_remove(j);
 				}
@@ -429,13 +429,13 @@ ipc_readmsg2(launch_data_t data, const char *cmd, void *context)
 			} else if (!strcmp(cmd, LAUNCH_KEY_SETRESOURCELIMITS)) {
 				resp = adjust_rlimits(data);
 			} else if (!strcmp(cmd, LAUNCH_KEY_GETJOB)) {
-				if ((j = job_find(launch_data_get_string(data))) == NULL) {
+				if ((j = job_find(NULL, launch_data_get_string(data))) == NULL) {
 					resp = launch_data_new_errno(errno);
 				} else {
 					resp = job_export(j);
 					ipc_revoke_fds(resp);
 				}
-			} else if( !strcmp(cmd, LAUNCH_KEY_SETPRIORITYLIST) ) {
+			} else if (!strcmp(cmd, LAUNCH_KEY_SETPRIORITYLIST)) {
 				resp = launch_data_new_errno(launchd_set_jetsam_priorities(data));
 			}
 		}
@@ -471,7 +471,7 @@ adjust_rlimits(launch_data_t in)
 	size_t i,ltmpsz;
 
 	for (i = 0; i < RLIM_NLIMITS; i++) {
-		launchd_assumes(getrlimit(i, l + i) != -1);
+		(void)launchd_assumes(getrlimit(i, l + i) != -1);
 	}
 
 	if (in) {
@@ -507,19 +507,19 @@ adjust_rlimits(launch_data_t in)
 				}
 
 				if (gval > 0) {
-					launchd_assumes(sysctl(gmib, 2, NULL, NULL, &gval, sizeof(gval)) != -1);
+					(void)launchd_assumes(sysctl(gmib, 2, NULL, NULL, &gval, sizeof(gval)) != -1);
 				} else {
 					runtime_syslog(LOG_WARNING, "sysctl(\"%s\"): can't be zero", gstr);
 				}
 				if (pval > 0) {
-					launchd_assumes(sysctl(pmib, 2, NULL, NULL, &pval, sizeof(pval)) != -1);
+					(void)launchd_assumes(sysctl(pmib, 2, NULL, NULL, &pval, sizeof(pval)) != -1);
 				} else {
 					runtime_syslog(LOG_WARNING, "sysctl(\"%s\"): can't be zero", pstr);
 				}
 			}
-			launchd_assumes(setrlimit(i, ltmp + i) != -1);
+			(void)launchd_assumes(setrlimit(i, ltmp + i) != -1);
 			/* the kernel may have clamped the values we gave it */
-			launchd_assumes(getrlimit(i, l + i) != -1);
+			(void)launchd_assumes(getrlimit(i, l + i) != -1);
 		}
 	}
 

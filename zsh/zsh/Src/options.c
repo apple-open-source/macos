@@ -35,6 +35,11 @@
 /**/
 mod_export int emulation;
  
+/* current sticky emulation:  0 means none */
+
+/**/
+mod_export int sticky_emulation;
+
 /* the options; e.g. if opts[SHGLOB] != 0, SH_GLOB is turned on */
  
 /**/
@@ -58,9 +63,12 @@ mod_export HashTable optiontab;
 #define OPT_NONBOURNE	(OPT_ALL & ~OPT_BOURNE)
 #define OPT_NONZSH	(OPT_ALL & ~OPT_ZSH)
 
-#define OPT_EMULATE	(1<<5)	/* option is relevant to emulation */
-#define OPT_SPECIAL	(1<<6)	/* option should never be set by emulate() */
-#define OPT_ALIAS	(1<<7)	/* option is an alias to an other option */
+/* option is relevant to emulation */
+#define OPT_EMULATE	(EMULATE_UNUSED)
+/* option should never be set by emulate() */
+#define OPT_SPECIAL	(EMULATE_UNUSED<<1)
+/* option is an alias to an other option */
+#define OPT_ALIAS	(EMULATE_UNUSED<<2)
 
 #define defset(X) (!!((X)->node.flags & emulation))
 
@@ -141,6 +149,7 @@ static struct optname optns[] = {
 {{NULL, "histignorealldups",  0},			 HISTIGNOREALLDUPS},
 {{NULL, "histignoredups",     0},			 HISTIGNOREDUPS},
 {{NULL, "histignorespace",    0},			 HISTIGNORESPACE},
+{{NULL, "histlexwords",	      0},			 HISTLEXWORDS},
 {{NULL, "histnofunctions",    0},			 HISTNOFUNCTIONS},
 {{NULL, "histnostore",	      0},			 HISTNOSTORE},
 {{NULL, "histsubstpattern",   OPT_EMULATE},              HISTSUBSTPATTERN},
@@ -190,8 +199,14 @@ static struct optname optns[] = {
 {{NULL, "octalzeroes",        OPT_EMULATE|OPT_SH},	 OCTALZEROES},
 {{NULL, "overstrike",	      0},			 OVERSTRIKE},
 {{NULL, "pathdirs",	      OPT_EMULATE},		 PATHDIRS},
+{{NULL, "pathscript",	      OPT_EMULATE|OPT_BOURNE},	 PATHSCRIPT},
+{{NULL, "posixaliases",       OPT_EMULATE|OPT_BOURNE},	 POSIXALIASES},
 {{NULL, "posixbuiltins",      OPT_EMULATE|OPT_BOURNE},	 POSIXBUILTINS},
+{{NULL, "posixcd",            OPT_EMULATE|OPT_BOURNE},	 POSIXCD},
 {{NULL, "posixidentifiers",   OPT_EMULATE|OPT_BOURNE},	 POSIXIDENTIFIERS},
+{{NULL, "posixjobs",          OPT_EMULATE|OPT_BOURNE},	 POSIXJOBS},
+{{NULL, "posixstrings",       OPT_EMULATE|OPT_BOURNE},   POSIXSTRINGS},
+{{NULL, "posixtraps",         OPT_EMULATE|OPT_BOURNE},	 POSIXTRAPS},
 {{NULL, "printeightbit",      0},                        PRINTEIGHTBIT},
 {{NULL, "printexitvalue",     0},			 PRINTEXITVALUE},
 {{NULL, "privileged",	      OPT_SPECIAL},		 PRIVILEGED},
@@ -222,6 +237,7 @@ static struct optname optns[] = {
 {{NULL, "shwordsplit",	      OPT_EMULATE|OPT_BOURNE},	 SHWORDSPLIT},
 {{NULL, "singlecommand",      OPT_SPECIAL},		 SINGLECOMMAND},
 {{NULL, "singlelinezle",      OPT_KSH},			 SINGLELINEZLE},
+{{NULL, "sourcetrace",        0},			 SOURCETRACE},
 {{NULL, "sunkeyboardhack",    0},			 SUNKEYBOARDHACK},
 {{NULL, "transientrprompt",   0},			 TRANSIENTRPROMPT},
 {{NULL, "trapsasync",	      0},			 TRAPSASYNC},
@@ -477,6 +493,14 @@ setemulate(HashNode hn, int fully)
 
 /**/
 void
+installemulation(void)
+{
+    scanhashtable(optiontab, 0, 0, 0, setemulate,
+		  !!(emulation & EMULATE_FULLY));
+}
+
+/**/
+void
 emulate(const char *zsh_name, int fully)
 {
     char ch = *zsh_name;
@@ -494,7 +518,9 @@ emulate(const char *zsh_name, int fully)
     else
 	emulation = EMULATE_ZSH;
 
-    scanhashtable(optiontab, 0, 0, 0, setemulate, fully);
+    if (fully)
+	emulation |= EMULATE_FULLY;
+    installemulation();
 }
 
 /* setopt, unsetopt */
@@ -711,7 +737,7 @@ dosetopt(int optno, int value, int force)
     } else if (!force && optno == MONITOR && value) {
 	if (opts[optno] == value)
 	    return 0;
-	if (interact && (SHTTY != -1)) {
+	if (SHTTY != -1) {
 	    origpgrp = GETPGRP();
 	    acquire_pgrp();
 	} else
@@ -727,6 +753,9 @@ dosetopt(int optno, int value, int force)
     } else if ((optno == EMACSMODE || optno == VIMODE) && value) {
 	zleentry(ZLE_CMD_SET_KEYMAP, optno);
 	opts[(optno == EMACSMODE) ? VIMODE : EMACSMODE] = 0;
+    } else if (optno == SUNKEYBOARDHACK) {
+	/* for backward compatibility */
+	keyboardhackchar = (value ? '`' : '\0');
     }
     opts[optno] = value;
     if (optno == BANGHIST || optno == SHINSTDIN)

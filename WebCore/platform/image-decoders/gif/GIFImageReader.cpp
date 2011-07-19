@@ -77,6 +77,7 @@ mailing address.
 
 #include <string.h>
 #include "GIFImageDecoder.h"
+#include "ImageSource.h"
 
 using WebCore::GIFImageDecoder;
 
@@ -557,7 +558,7 @@ bool GIFImageReader::read(const unsigned char *buf, unsigned len,
     case gif_image_start:
     {
       if (*q == ';') { /* terminator */
-        state = gif_done;
+        GETN(0, gif_done);
         break;
       }
 
@@ -571,21 +572,10 @@ bool GIFImageReader::read(const unsigned char *buf, unsigned len,
        * between blocks. The GIF87a spec tells us to keep reading
        * until we find an image separator, but GIF89a says such
        * a file is corrupt. We follow GIF89a and bail out. */
-      if (*q != ',') {
-        if (images_decoded > 0) {
-          /* The file is corrupt, but one or more images have
-           * been decoded correctly. In this case, we proceed
-           * as if the file were correctly terminated and set
-           * the state to gif_done, so the GIF will display.
-           */
-          state = gif_done;
-        } else {
-          /* No images decoded, there is nothing to display. */
-          return clientptr ? clientptr->setFailed() : false;
-        }
-        break;
-      } else
-        GETN(9, gif_image_header);
+      if (*q != ',')
+        return clientptr ? clientptr->setFailed() : false;
+
+      GETN(9, gif_image_header);
     }
     break;
 
@@ -648,11 +638,11 @@ bool GIFImageReader::read(const unsigned char *buf, unsigned len,
         }
         // NOTE: This relies on the values in the FrameDisposalMethod enum
         // matching those in the GIF spec!
-        frame_reader->disposal_method = (WebCore::RGBA32Buffer::FrameDisposalMethod)(((*q) >> 2) & 0x7);
+        frame_reader->disposal_method = (WebCore::ImageFrame::FrameDisposalMethod)(((*q) >> 2) & 0x7);
         // Some specs say 3rd bit (value 4), other specs say value 3
         // Let's choose 3 (the more popular)
         if (frame_reader->disposal_method == 4)
-          frame_reader->disposal_method = WebCore::RGBA32Buffer::DisposeOverwritePrevious;
+          frame_reader->disposal_method = WebCore::ImageFrame::DisposeOverwritePrevious;
         frame_reader->delay_time = GETINT16(q + 1) * 10;
       }
       GETN(1, gif_consume_block);
@@ -698,6 +688,10 @@ bool GIFImageReader::read(const unsigned char *buf, unsigned len,
          loop count during the first iteration. */
       if (netscape_extension == 1) {
         loop_count = GETINT16(q + 1);
+
+        /* Zero loop count is infinite animation loop request */
+        if (loop_count == 0)
+          loop_count = WebCore::cAnimationLoopInfinite;
 
         GETN(1, gif_netscape_extension_block);
       }

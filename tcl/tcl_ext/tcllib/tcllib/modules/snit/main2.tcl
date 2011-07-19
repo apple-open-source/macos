@@ -350,6 +350,10 @@ proc ::snit::Comp.Init {} {
 
         # Initialize the interpreter
 	$compiler eval {
+	    catch {close stdout}
+	    catch {close stderr}
+	    catch {close stdin}
+
             # Load package information
             # TBD: see if this can be moved outside.
 	    # @mdgen NODEP: ::snit::__does_not_exist__
@@ -2373,6 +2377,8 @@ proc snit::RT.UnknownTypemethod {type eId eCmd method args} {
             # Or should we treat it as an instance name?
             return [list ]
         }
+    } elseif {[llength $fullMethod] > 1} {
+	return [list ]
     } elseif {$Snit_info(hasinstances)} {
         # Assume the unknown name is an instance name to create, unless
         # this is a widget and the style of the name is wrong, or the
@@ -3020,7 +3026,7 @@ proc ::snit::RT.typemethod.destroy {type} {
     variable ${type}::Snit_info
         
     # FIRST, destroy all instances
-    foreach selfns [namespace children $type] {
+    foreach selfns [namespace children $type "${type}::Snit_inst*"] {
         if {![namespace exists $selfns]} {
             continue
         }
@@ -3586,7 +3592,7 @@ proc ::snit::RT.typemethod.info.default {type method aname dvar} {
 proc ::snit::RT.typemethod.info.instances {type {pattern *}} {
     set result {}
 
-    foreach selfns [namespace children $type] {
+    foreach selfns [namespace children $type "${type}::Snit_inst*"] {
         namespace upvar $selfns Snit_instance instance
 
         if {[string match $pattern $instance]} {

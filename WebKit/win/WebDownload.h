@@ -26,8 +26,8 @@
 #ifndef WebDownload_h
 #define WebDownload_h
 
-#include "COMPtr.h"
 #include "WebKit.h"
+#include <WebCore/COMPtr.h>
 #include <WebCore/PlatformString.h>
 #include <wtf/RetainPtr.h>
 
@@ -122,15 +122,10 @@ public:
 #endif
 
 protected:
-    static CFDataRef extractResumeDataFromBundle(const WebCore::String&);
-    static HRESULT appendResumeDataToBundle(CFDataRef, const WebCore::String&);
-    static const WebCore::String& bundleExtension();
-    static UInt32 bundleMagicNumber();
-
     ULONG m_refCount;
 
-    WebCore::String m_destination;
-    WebCore::String m_bundlePath;
+    WTF::String m_destination;
+    WTF::String m_bundlePath;
 #if USE(CFNETWORK)
     RetainPtr<CFURLDownloadRef> m_download;
 #endif

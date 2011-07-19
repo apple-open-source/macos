@@ -28,6 +28,8 @@ sub filter {
     $$dataref = $self->{_parser}{output} if $self->{rw};
 }
 
+sub will_modify { $_[0]->{rw} }
+
 1;
 
 __END__
@@ -104,7 +106,7 @@ A reference to the HTTP::Protocol object.
 
 =head1 METHODS
 
-This filter defines only two methods, called automatically:
+This filter defines three methods, called automatically:
 
 =over 4
 
@@ -116,6 +118,12 @@ object.
 =item init()
 
 Initialise the filter with the HTML::Parser object passed to the constructor.
+
+=item will_modify()
+
+This method returns a boolean value that indicates to the system
+if it will modify the data passing through. The value is actually
+the value of the C<rw> parameter passed to the constructor.
 
 =back
 
@@ -130,7 +138,7 @@ Philippe "BooK" Bruhat, E<lt>book@cpan.orgE<gt>.
 
 =head1 COPYRIGHT
 
-Copyright 2003-2005, Philippe Bruhat.
+Copyright 2003-2006, Philippe Bruhat.
 
 =head1 LICENSE
 

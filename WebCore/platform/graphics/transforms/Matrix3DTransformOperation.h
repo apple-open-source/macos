@@ -37,6 +37,8 @@ public:
         return adoptRef(new Matrix3DTransformOperation(matrix));
     }
 
+    TransformationMatrix matrix() const {return m_matrix; }
+
 private:    
     virtual bool isIdentity() const { return m_matrix.isIdentity(); }
 
@@ -53,7 +55,7 @@ private:
 
     virtual bool apply(TransformationMatrix& transform, const IntSize&) const
     {
-        transform.multLeft(TransformationMatrix(m_matrix));
+        transform.multiply(TransformationMatrix(m_matrix));
         return false;
     }
 

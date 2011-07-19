@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -47,19 +47,21 @@ extern void DADiskDescriptionChangedCallback( DADiskRef disk, CFTypeRef key );
 
 extern void DADiskDisappearedCallback( DADiskRef disk );
 
-extern void DADiskEject( DADiskRef disk, DACallbackRef callback );
+extern void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DACallbackRef callback );
 
 extern void DADiskEjectApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext );
 
-extern void DADiskMount( DADiskRef disk, CFURLRef mountpoint, CFStringRef arguments, DACallbackRef callback );
+extern void DADiskMount( DADiskRef disk, CFURLRef mountpoint, DADiskMountOptions options, DACallbackRef callback );
 
 extern void DADiskMountApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext );
+
+extern void DADiskMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DADiskMountOptions options, DACallbackRef callback, CFStringRef arguments );
 
 extern void DADiskPeekCallback( DADiskRef disk, DACallbackRef callback, DAResponseCallback response, void * responseContext );
 
 extern void DADiskRefresh( DADiskRef disk, DACallbackRef callback );
 
-extern void DADiskUnmount( DADiskRef disk, DACallbackRef callback );
+extern void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DACallbackRef callback );
 
 extern void DADiskUnmountApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext );
 

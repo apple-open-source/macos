@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2002, 2004-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2002, 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -680,6 +680,7 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 	SFCB * fcb;
 	SVCB * vcb;
 	Boolean	 isHFSPlus;
+	Boolean foundOverAlloc = false;
 	int err = 0;
 	
 	vcb = g->calculatedVCB;
@@ -797,16 +798,22 @@ int CheckVolumeBitMap(SGlobPtr g, Boolean repair)
 			 */
 			for (indx = 0; indx < kBytesPerSegment; indx++) {
 				uint8_t *bufp, *diskp;
-				bufp = buffer;
+				bufp = (uint8_t *)buffer;
 				diskp = vbmBlockP + (bit & bitsWithinFileBlkMask)/8;
 				if (bufp[indx] & ~diskp[indx]) {
 					underalloc++;
 					break;
 				}
 			}
-			fsckPrint(g->context, underalloc ? E_VBMDamaged : E_VBMDamagedOverAlloc);
 			g->VIStat = g->VIStat | S_VBM;
-			break; /* stop checking after first miss */
+			if (underalloc) {
+				fsckPrint(g->context, E_VBMDamaged);
+				break; /* stop checking after first miss */
+			} else if (!foundOverAlloc) {
+				/* Only print out a message on the first find */
+				fsckPrint(g->context, E_VBMDamagedOverAlloc);
+				foundOverAlloc = true;
+			}
 		}
 		++g->itemsProcessed;
 	}

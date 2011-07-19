@@ -13,9 +13,9 @@
 # Configuration and logfile names: If the filenames you specify for many
 # of the server's control files begin with "/" (or "drive:/" for Win32), the
 # server will use that explicit path.  If the filenames do *not* begin
-# with "/", the value of ServerRoot is prepended -- so "@rel_logfiledir@/foo_log"
+# with "/", the value of ServerRoot is prepended -- so "log/foo_log"
 # with ServerRoot set to "@@ServerRoot@@" will be interpreted by the
-# server as "@@ServerRoot@@/@rel_logfiledir@/foo_log".
+# server as "@@ServerRoot@@/log/foo_log".
 
 #
 # ServerRoot: The top of the directory tree under which the server's

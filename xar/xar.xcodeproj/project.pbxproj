@@ -536,7 +536,14 @@
 			isa = PBXProject;
 			buildConfigurationList = B41FC04209F6B74500006FAE /* Build configuration list for PBXProject "xar" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = B41FC03F09F6B74500006FAE;
 			productRefGroup = B41FC06009F6B7C200006FAE /* Products */;
 			projectDirPath = "";
@@ -723,8 +730,9 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = NO;
-				CURRENT_PROJECT_VERSION = 36.2;
+				CURRENT_PROJECT_VERSION = 45;
 				STRIP_STYLE = debugging;
+				VALID_ARCHS = "i386 x86_64";
 				VERSIONING_SYSTEM = "apple-generic";
 			};
 			name = Development;
@@ -735,6 +743,7 @@
 				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
 				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
 				COPY_PHASE_STRIP = YES;
+				VALID_ARCHS = "i386 x86_64";
 			};
 			name = Release;
 		};
@@ -787,7 +796,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 36.2;
+				CURRENT_PROJECT_VERSION = 45;
 				EXECUTABLE_PREFIX = lib;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
@@ -871,7 +880,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				COPY_PHASE_STRIP = YES;
-				CURRENT_PROJECT_VERSION = 36.2;
+				CURRENT_PROJECT_VERSION = 45;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;

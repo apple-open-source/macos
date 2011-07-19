@@ -29,11 +29,12 @@
 #include <mach/mach_host.h>
 #include <mach/bootstrap.h>
 #include <mach/kmod.h>
+#include <notify.h>
 #include <sys/proc_info.h>
 #include <libproc.h>
 #include <libgen.h>
 #include <bsm/libbsm.h>
-#include <servers/bootstrap.h>	// bootstrap mach ports
+#include <servers/bootstrap.h>  // bootstrap mach ports
 
 #include <IOKit/kext/kextmanager_types.h>
 #include <IOKit/kext/OSKext.h>
@@ -42,7 +43,7 @@
 #include <System/libkern/kext_request_keys.h>
 
 #include "kext_tools_util.h"
-#include "bootfiles.h"
+#include <bootfiles.h>
 #include "fork_program.h"
 #include "kextd_globals.h"
 #include "paths.h"
@@ -54,7 +55,16 @@
 
 #include "bootcaches.h"
 
-CFArrayRef readKextPropertyValues(CFStringRef propertyKey);
+
+#define setCrashLogMessage(m)
+
+
+#define CRASH_INFO_KERNEL_KEXT_LOAD      "kernel kext load request: id %s"
+#define CRASH_INFO_KERNEL_KEXT_RESOURCE  "kext resource request: %s from id %s"
+#define CRASH_INFO_USER_KEXT_LOAD        "user kext load request: %s"
+#define CRASH_INFO_USER_KEXT_PATH        "user kext path request: %s"
+#define CRASH_INFO_USER_PROPERTY         "user kext property request: %s"
+ 
 kern_return_t sendPropertyValueResponse(
     CFArrayRef    propertyValues,
     char       ** xml_data_out,
@@ -86,6 +96,13 @@ kern_return_t _kextmanager_path_for_bundle_id(
     OSKextRef     theKext   = NULL;  // must release
     CFURLRef      kextURL   = NULL;  // do not release
     CFURLRef      absURL    = NULL;  // must release
+    char          crashInfo[sizeof(CRASH_INFO_USER_KEXT_PATH) +
+                  KMOD_MAX_NAME + PATH_MAX];
+
+    snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_USER_KEXT_PATH,
+        bundle_id);
+
+    setCrashLogMessage(crashInfo);
 
     *kext_result = kOSReturnError;
     path[0] = '\0';
@@ -142,6 +159,8 @@ finish:
     SAFE_RELEASE(theKext);
     SAFE_RELEASE(absURL);
 
+    setCrashLogMessage(NULL);
+
     return result;
 }
 
@@ -161,6 +180,8 @@ kern_return_t _kextmanager_create_property_value_array(
 
     CFStringRef   propertyKey    = NULL;  // must release
     CFArrayRef    propertyValues = NULL;  // must release
+    char          crashInfo[sizeof(CRASH_INFO_USER_PROPERTY) +
+                  KMOD_MAX_NAME + PATH_MAX];
 
     OSKextLog(/* kext */ NULL,
         kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
@@ -174,6 +195,11 @@ kern_return_t _kextmanager_create_property_value_array(
     *xml_data_length = 0;
     *xml_data_out    = NULL;
 
+    snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_USER_PROPERTY,
+        property_key);
+
+    setCrashLogMessage(crashInfo);
+
     propertyKey = CFStringCreateWithCString(kCFAllocatorDefault, property_key,
         kCFStringEncodingUTF8);
     if (!propertyKey) {
@@ -181,65 +207,23 @@ kern_return_t _kextmanager_create_property_value_array(
         goto finish;
     }
 
-    propertyValues = readKextPropertyValues(propertyKey);
-    if (propertyValues) {
-        result = sendPropertyValueResponse(propertyValues,
-            xml_data_out, xml_data_length);
-        goto finish;
+    if (readSystemKextPropertyValues(propertyKey, gKernelArchInfo,
+        /* forceUpdate? */ FALSE, &propertyValues)) {
+
+            result = sendPropertyValueResponse(propertyValues,
+                xml_data_out, xml_data_length);
+            goto finish;
     }
 
 finish:
     SAFE_RELEASE(propertyKey);
     SAFE_RELEASE(propertyValues);
 
+    setCrashLogMessage(NULL);
+
     OSKextFlushInfoDictionary(NULL /* all kexts */);
     OSKextFlushLoadInfo(NULL /* all kexts */, /* flushDependencies */ true);
 
-    return result;
-}
-
-/*******************************************************************************
-*******************************************************************************/
-CFArrayRef readKextPropertyValues(CFStringRef propertyKey)
-{
-    CFMutableArrayRef result                     = NULL;
-    CFArrayRef        systemExtensionsFolderURLs = NULL;  // need not release
-    CFArrayRef        directoryValues            = NULL;  // must release
-    CFIndex           count, i;
-
-    systemExtensionsFolderURLs = OSKextGetSystemExtensionsFolderURLs();
-    if (!systemExtensionsFolderURLs ||
-        !CFArrayGetCount(systemExtensionsFolderURLs)) {
-        goto finish;
-    }
-
-    result = CFArrayCreateMutable(
-        kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
-    if (!result) {
-        OSKextLogMemError();
-        goto finish;
-    }
-
-    count = CFArrayGetCount(systemExtensionsFolderURLs);
-    for (i = 0; i < count; i++) {
-        CFURLRef directoryURL = CFArrayGetValueAtIndex(
-            systemExtensionsFolderURLs, i);
-
-        SAFE_RELEASE_NULL(directoryValues);
-        
-       /* We bravely soldier on in event of any errors getting the values.
-        * Errors will be logged.
-        */
-        if (readKextPropertyValuesForDirectory(directoryURL, propertyKey,
-            gKernelArchInfo, /* forceUpdate? */ false, &directoryValues)) {
-
-            CFArrayAppendArray(result, directoryValues,
-                RANGE_ALL(directoryValues));
-        }
-    }
-
-finish:
-    SAFE_RELEASE(directoryValues);
     return result;
 }
 
@@ -290,6 +274,9 @@ finish:
 }
 
 #pragma mark Kernel Kext Requests
+
+#define KEXTD_LOCKED() (_gKextutilLock ? true:false)
+
 /*******************************************************************************
 * Incoming MIG message from kernel to let us know we should fetch requests from
 * it using kextd_process_kernel_requests().
@@ -298,7 +285,7 @@ kern_return_t svc_kextd_ping(mach_port_t mp __unused)
 {
     bool shutdownRequested = false;
 
-    if (_gKextutilLock) {
+    if (KEXTD_LOCKED()) {
         gKernelRequestsPending = true;
         return kOSReturnSuccess;
     } else {
@@ -314,18 +301,20 @@ kern_return_t svc_kextd_ping(mach_port_t mp __unused)
 *******************************************************************************/
 bool kextd_process_kernel_requests(void)
 {
-    CFArrayRef      kernelRequests           = NULL;  // must release
-    Boolean         prelinkedKernelRequested = false;
-    Boolean         shutdownRequested        = false;
-    char          * scratchCString           = NULL;  // must free
+    CFArrayRef      kernelRequests             = NULL;  // must release
+    Boolean         loadNotificationReceived   = false;
+    Boolean         unloadNotificationReceived = false;
+    Boolean         prelinkedKernelRequested   = false;
+    Boolean         shutdownRequested          = false;
+    char          * scratchCString             = NULL;  // must free
     CFIndex         count, i;
 
-   /* Stay in the while loop until _OSKextGetKernelRequests() returns
+   /* Stay in the while loop until _OSKextCopyKernelRequests() returns
     * no more requests.
     */
     while (1) {
         SAFE_RELEASE_NULL(kernelRequests);
-        kernelRequests = _OSKextGetKernelRequests();
+        kernelRequests = _OSKextCopyKernelRequests();
         if (!kernelRequests || !CFArrayGetCount(kernelRequests)) {
             break;
         }
@@ -372,6 +361,16 @@ bool kextd_process_kernel_requests(void)
                     kOSKextLogProgressLevel | kOSKextLogIPCFlag,
                     "Got load request from kernel.");
                 kextdProcessKernelLoadRequest(request);
+            } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateLoadNotification))) {
+               /* We don't do anything with the kext identifier because notify(3)
+                * doesn't allow for an argument.
+                */
+                loadNotificationReceived = true;
+            } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateUnloadNotification))) {
+               /* We don't do anything with the kext identifier because notify(3)
+                * doesn't allow for an argument.
+                */
+                unloadNotificationReceived = true;
             } else if (CFEqual(predicate, CFSTR(kKextRequestPredicateRequestResource))) {
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogProgressLevel | kOSKextLogIPCFlag,
@@ -390,23 +389,47 @@ bool kextd_process_kernel_requests(void)
     
 // finish:
 
-    if (prelinkedKernelRequested && !isBootRootActive()) {
-        char * const kextcacheArgs[] = {
-            "/usr/sbin/kextcache",
-            "-F",
-            "-system-prelinked-kernel",
-            NULL };
+    if (prelinkedKernelRequested) {
+        Boolean       readOnlyFS = FALSE;
+        struct statfs statfsBuffer;
 
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
-            "Building prelinked kernel.");
+       /* If the statfs() fails we will forge ahead and try kextcache.
+        * Only if we know for sure it's read-only do we skip.
+        */
+        if (statfs("/System/Library/Caches", &statfsBuffer) == 0) {
+            if (statfsBuffer.f_flags & MNT_RDONLY) {
+                readOnlyFS = TRUE;
 
-        (void)fork_program("/usr/sbin/kextcache",
-            kextcacheArgs,
-            /* waitFlag */ false);
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogProgressLevel | kOSKextLogFileAccessFlag,
+                    "Skipping prelinked kernel build; read-only filesystem.");
+            }
+        }
 
+        if (!readOnlyFS) {
+            char * const kextcacheArgs[] = {
+                "/usr/sbin/kextcache",
+                "-F",
+                "-system-prelinked-kernel",
+                NULL };
+
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogProgressLevel | kOSKextLogGeneralFlag,
+                "Building prelinked kernel.");
+
+            (void)fork_program("/usr/sbin/kextcache",
+                kextcacheArgs,
+                /* waitFlag */ false);
+        }
     }
     
+    if (loadNotificationReceived) {
+        notify_post(kOSKextLoadNotification);
+    }
+    if (unloadNotificationReceived) {
+        notify_post(kOSKextUnloadNotification);
+    }
+
     gKernelRequestsPending = false;
 
     SAFE_FREE(scratchCString);
@@ -432,6 +455,7 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     CFStringRef     kextIdentifier  = NULL;  // do not release
     CFStringRef     kextPath        = NULL;  // must release
     char          * kext_id         = NULL;  // must free
+    char            crashInfo[sizeof(CRASH_INFO_KERNEL_KEXT_LOAD) + KMOD_MAX_NAME + PATH_MAX];
 
     requestArgs = request ? CFDictionaryGetValue(request,
         CFSTR(kKextRequestArgumentsKey)) : NULL;
@@ -457,6 +481,11 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
         goto finish;
     }
 
+    snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_KERNEL_KEXT_LOAD,
+        kext_id);
+
+    setCrashLogMessage(crashInfo);
+    
    /* Read the extensions if necessary (also resets the release timer).
     */
     readExtensions();
@@ -469,11 +498,11 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     if (!osKext) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-            "Kext id %s not found; removing personalities.", kext_id);
+            "Kext id %s not found; removing personalities from kernel.", kext_id);
         OSKextRemovePersonalitiesForIdentifierFromKernel(kextIdentifier);
         goto finish;
     }
-
+    
    /* xxx - under what circumstances should we remove personalities?
     * xxx - if the request gets into the kernel and fails, OSKext.cpp
     * xxx - removes them, but there can be other failures on the way....
@@ -482,7 +511,7 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     if (osLoadResult != kOSReturnSuccess) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-            "Load %s failed; removing personalities.", kext_id);
+            "Load %s failed; removing personalities from kernel.", kext_id);
         OSKextRemoveKextPersonalitiesFromKernel(osKext);
     } else {
         if (kOSReturnSuccess != IOCatalogueModuleLoaded(
@@ -506,8 +535,11 @@ kextdProcessKernelLoadRequest(CFDictionaryRef   request)
     }
 
 finish:
-    SAFE_FREE(kext_id);
+    SAFE_RELEASE(loadList);
     SAFE_RELEASE(kextPath);
+    SAFE_FREE(kext_id);
+    setCrashLogMessage(NULL);
+
     return;
 }
 
@@ -520,8 +552,6 @@ void
 kextdProcessKernelResourceRequest(
     CFDictionaryRef   request)
 {
-    OSReturn        osResult               = kOSReturnError;
-
     CFDictionaryRef requestArgs            = NULL;  // do not release
     OSKextRef       osKext                 = NULL;  // must release
     CFDataRef       resource               = NULL;  // must release
@@ -533,6 +563,8 @@ kextdProcessKernelResourceRequest(
     char          * kextIdentifierCString  = NULL;  // must free
     char          * resourceNameCString    = NULL;  // must free
     char            kextPathCString[PATH_MAX];
+    char            crashInfo[sizeof(CRASH_INFO_KERNEL_KEXT_RESOURCE) +
+                    KMOD_MAX_NAME + PATH_MAX];
 
     requestArgs = request ? CFDictionaryGetValue(request,
         CFSTR(kKextRequestArgumentsKey)) : NULL;
@@ -574,6 +606,11 @@ kextdProcessKernelResourceRequest(
         goto finish;
     }
 
+    snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_KERNEL_KEXT_RESOURCE,
+        resourceNameCString, kextIdentifierCString);
+
+    setCrashLogMessage(crashInfo);
+
     if (CFEqual(resourceName, CFSTR(kDSStoreFilename))) {
         requestResult = kOSKextReturnInvalidArgument;
         OSKextLog(/* kext */ NULL,
@@ -602,8 +639,6 @@ kextdProcessKernelResourceRequest(
             kextIdentifierCString);
         goto finish;
     }
-    
-    requestResult = kOSReturnError;
 
     kextURL = OSKextGetURL(osKext);
     if (!kextURL ||
@@ -657,12 +692,13 @@ kextdProcessKernelResourceRequest(
 
 finish:
     // now we send it to the kernel
-    osResult = _OSKextSendResource(request, requestResult, resource);
+    (void) _OSKextSendResource(request, requestResult, resource);
 
     SAFE_RELEASE(resource);
     SAFE_RELEASE(osKext);
     SAFE_FREE(kextIdentifierCString);
     SAFE_FREE(resourceNameCString);
+    setCrashLogMessage(NULL);
     return;
 }
 
@@ -721,6 +757,9 @@ finish:
     SAFE_RELEASE(request);
     SAFE_RELEASE(error);
 
+    OSKextFlushInfoDictionary(NULL /* all kexts */);
+    OSKextFlushLoadInfo(NULL /* all kexts */, /* flushDependencies */ true);
+
    /* MIG is consume-on-success
     * xxx - do we need separate result & op-result?
     */
@@ -770,7 +809,6 @@ static CFURLRef createAbsOrRealURLForURL(
     OSReturn localError  = kOSReturnSuccess;
     Boolean  inSLE       = FALSE;
     Boolean  inSLF       = FALSE;
-    Boolean  checkedReal = FALSE;
     char     urlPathCString[PATH_MAX];
     char     realpathCString[PATH_MAX];
 
@@ -808,9 +846,8 @@ static CFURLRef createAbsOrRealURLForURL(
                 OSKextLog(/* kext */ NULL,
                     kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                     "Request from non-root process '%s' (euid %d) to load %s - "
-                    "not in system extensions or filesystems folder%s.",
-                    nameForPID(remote_pid), remote_euid, urlPathCString,
-                    checkedReal ? " (symlink redirect?)" : "");
+                    "not in system extensions or filesystems folder.",
+                    nameForPID(remote_pid), remote_euid, urlPathCString);
             }
             goto finish;
         }
@@ -831,7 +868,6 @@ static CFURLRef createAbsOrRealURLForURL(
             strlen(_kSystemExtensionsDirSlash)));
         inSLF = (0 == strncmp(realpathCString, _kSystemFilesystemsDirSlash,
             strlen(_kSystemFilesystemsDirSlash)));
-        checkedReal = TRUE;
 
         if (!inSLE && !inSLF) {
 
@@ -967,7 +1003,9 @@ kextdProcessUserLoadRequest(
     CFURLRef          dependencyAbsURL         = NULL;  // must release
     CFArrayRef        dependencyKexts          = NULL;  // must release
     CFArrayRef        loadList                 = NULL;  // must release
-    char              scratchCString[PATH_MAX] = "unknown";
+    char              kextPathOrIDCString[PATH_MAX] = "unknown";
+    char              crashInfo[sizeof(CRASH_INFO_USER_KEXT_LOAD) +
+                      KMOD_MAX_NAME + PATH_MAX];
     CFIndex           count, index;
 
    /* First get the identifier or URL to load, and convert it to a C string
@@ -979,8 +1017,8 @@ kextdProcessUserLoadRequest(
             result = kOSKextReturnInvalidArgument;
             goto finish;
         }
-        CFStringGetCString(kextID, scratchCString,
-            sizeof(scratchCString), kCFStringEncodingUTF8);
+        CFStringGetCString(kextID, kextPathOrIDCString,
+            sizeof(kextPathOrIDCString), kCFStringEncodingUTF8);
     } else {
         kextPath = (CFStringRef)CFDictionaryGetValue(request, kKextLoadPathKey);
         if (!kextPath || CFGetTypeID(kextPath) != CFStringGetTypeID()) {
@@ -1009,7 +1047,7 @@ kextdProcessUserLoadRequest(
             goto finish;
         }
         CFURLGetFileSystemRepresentation(kextAbsURL, /* resolveToBase */ true,
-            (UInt8 *)scratchCString, sizeof(scratchCString));
+            (UInt8 *)kextPathOrIDCString, sizeof(kextPathOrIDCString));
     }
 
    /* Read the extensions if necessary (also resets the release timer).
@@ -1022,7 +1060,7 @@ kextdProcessUserLoadRequest(
         OSKextLog(/* kext */ NULL,
             kOSKextLogProgressLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
                 "Request from '%s' (euid %d) to load %s.",
-                nameForPID(remote_pid), remote_euid, scratchCString);
+                nameForPID(remote_pid), remote_euid, kextPathOrIDCString);
     }
 
    /* Open any dependencies provided, *before* we create the kext, since
@@ -1086,6 +1124,12 @@ kextdProcessUserLoadRequest(
         }
     }
 
+    snprintf(crashInfo, sizeof(crashInfo), CRASH_INFO_USER_KEXT_LOAD,
+        kextPathOrIDCString);
+
+    setCrashLogMessage(crashInfo);
+
+
     if (kextID) {
         theKext = OSKextGetKextWithIdentifier(kextID);
         if (theKext) {
@@ -1105,7 +1149,7 @@ kextdProcessUserLoadRequest(
     if (!theKext) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
-            "Error: Kext %s - not found/unable to create.", scratchCString);
+            "Error: Kext %s - not found/unable to create.", kextPathOrIDCString);
         result = kOSKextReturnNotFound;
         goto finish;
     }
@@ -1141,5 +1185,8 @@ finish:
     SAFE_RELEASE(dependencyAbsURL);
     SAFE_RELEASE(dependencyKexts);
     SAFE_RELEASE(loadList);
+
+    setCrashLogMessage(NULL);
+
     return result;
 }

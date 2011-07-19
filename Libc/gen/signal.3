@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)signal.3	8.3 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/gen/signal.3,v 1.38 2004/07/03 22:30:08 ru Exp $
+.\" $FreeBSD: src/lib/libc/gen/signal.3,v 1.43 2008/07/17 21:54:23 simon Exp $
 .\"
 .Dd June 7, 2004
 .Dt SIGNAL 3
@@ -42,14 +38,23 @@
 .Lb libc
 .Sh SYNOPSIS
 .In signal.h
-.\" The following is Quite Ugly, but syntactically correct.
-.\" Don't try to
-.\" fix it.
-.Ft void \*(lp*
-.Fn signal "int sig" "void \*(lp*func\*(rp\*(lpint\*(rp\*(rp\*(rp\*(lpint"
+.\" XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
+.\" The prototype for signal(3) cannot be cleanly marked up in -mdoc
+.\" without the following lower-level tweak.
+.nr in-synopsis-section 0
 .Pp
+.Ft "void \*(lp*" Ns
+.Fo signal
+.Fa "int sig"
+.Fa "void \*(lp*func\*(rp\*(lpint\*(rp"
+.Fc Ns
+.Ft "\*(rp\*(lpint\*(rp" ;
+.Pp
+.nr in-synopsis-section 1
+.\" XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX XXX
 or in the equivalent but easier to read typedef'd version:
 .Ft typedef "void \*(lp*sig_t\*(rp \*(lpint\*(rp" ;
+.Pp
 .Ft sig_t
 .Fn signal "int sig" "sig_t func"
 .Sh DESCRIPTION
@@ -172,10 +177,12 @@ func() remains installed after a signal has been delivered.
 For some system calls, if a signal is caught while the call is
 executing and the call is prematurely terminated,
 the call is automatically restarted.
-(The handler is installed using the
+Any handler installed with
+.Xr signal 3
+will have the
 .Dv SA_RESTART
-flag with
-.Xr sigaction 2 . )
+flag set, meaning that any restartable system call will not return on
+receipt of a signal.
 The affected system calls include
 .Xr read 2 ,
 .Xr write 2 ,
@@ -243,7 +250,7 @@ is not a valid signal number.
 An attempt is made to ignore or supply a handler for
 .Dv SIGKILL
 or
-.Ev SIGSTOP .
+.Dv SIGSTOP .
 .El
 .Sh SEE ALSO
 .Xr kill 1 ,
@@ -259,8 +266,8 @@ or
 .Xr siginterrupt 3 ,
 .Xr tty 4
 .Sh HISTORY
-This
-.Fn signal
+The
+.Nm
 facility appeared in
 .Bx 4.0 .
 The option to avoid the creation of child zombies through ignoring

@@ -166,7 +166,13 @@ unsigned short	server_priority = BSDP_PRIORITY_BASE;
 char *		testing_control = "";
 char		server_name[MAXHOSTNAMELEN + 1];
 SubnetListRef	subnets;
-char 		transmit_buffer[2048];
+/*
+ * transmit_buffer is cast to some struct types containing short fields;
+ * force it to be aligned as much as an int
+ */
+static int	transmit_buffer_aligned[512];
+char *		transmit_buffer = (char *)transmit_buffer_aligned;
+
 #if ! TARGET_OS_EMBEDDED
 bool		use_open_directory = TRUE;
 #endif /* ! TARGET_OS_EMBEDDED */
@@ -226,6 +232,7 @@ my_log(int priority, const char *message, ...)
     }
     va_start(ap, message);
     vsyslog(priority, message, ap);
+    va_end(ap);
     return;
 }
 
@@ -1575,7 +1582,7 @@ sendreply(interface_t * if_p, struct bootp * bp, int n,
 	my_log(LOG_DEBUG, "replying to %s", inet_ntoa(dst));
     }
     if (bootp_transmit(bootp_socket, transmit_buffer, if_name(if_p),
-		       bp->bp_htype,
+		       if_link_arptype(if_p),
 		       hwaddr,
 		       bp->bp_hlen,
 		       dst, if_inet_addr(if_p),

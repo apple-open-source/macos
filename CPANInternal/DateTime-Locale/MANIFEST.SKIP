@@ -1,23 +1,51 @@
-^blib/
-^Makefile$
-^Makefile\.[a-z]+$
-^pm_to_blib$
-CVS/.*
+# Avoid version control files.
+^RCS
+^CVS
 ,v$
-^tmp/
+\.svn.*
+^\.hg
+^\.git
+
+# Avoid Makemaker generated and utility files.
+^Makefile$
+^blib
+^MakeMaker-\d
+^pm_to_blib$
+^blibdirs$
+^MANIFEST\.SKIP$
+
+# Avoid Module::Build generated and utility files.
+\bBuild$
+\bBuild.bat$
+\b_build
+\bBuild.COM$
+\bBUILD.COM$
+\bbuild.com$
+
+# Avoid temp and backup files.
+~$
 \.old$
 \.bak$
-~$
-^#
-\.shar$
-\.tar$
-\.tgz$
-\.tar\.gz$
-\.zip$
-_uu$
-\.cvsignore
-_build.*
-icu-xml.*
-^Build$
-generator.*
-generated.*
+\#$
+^\.#
+\.rej$
+\.orig$
+
+# Avoid Devel::Cover generated files
+^cover_db
+
+# kwalitee.t junk
+^Debian_CPANTS\.txt
+
+# Avoid tarballs
+\.(?:tar|tgz|tar\.gz)$
+
+^DateTime-Locale-
+
+# No need to ship this
+\.shipit
+
+t/zd.+
+
+\.shipit
+^MYMETA.yml$

@@ -1,16 +1,16 @@
---- /tmp/jabberd-2.1.24.1/s2s/s2s.h	2008-04-27 02:57:31.000000000 -0700
-+++ ./jabberd2/s2s/s2s.h	2009-06-08 17:55:19.000000000 -0700
-@@ -32,6 +32,9 @@
- # include <sys/stat.h>
- #endif
+--- /tmp/jabberd-2.2.13/s2s/s2s.h	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/s2s/s2s.h	2011-02-24 16:48:53.000000000 -0800
+@@ -55,6 +55,9 @@ struct host_st {
  
-+#include <sys/resource.h>
-+#include <sys/syslimits.h>
+     /** verify-mode  */
+     int                 host_verify_mode;
 +
- /* forward decl */
- typedef struct s2s_st       *s2s_t;
- typedef struct pkt_st       *pkt_t;
-@@ -48,6 +51,8 @@ struct s2s_st {
++    /** private key password */
++    char                *host_private_key_password;    
+ };
+ 
+ struct s2s_st {
+@@ -67,6 +70,8 @@ struct s2s_st {
      char                *router_user;
      char                *router_pass;
      char                *router_pemfile;
@@ -19,7 +19,7 @@
      int                 router_default;
  
      /** mio context */
-@@ -100,6 +105,9 @@ struct s2s_st {
+@@ -119,6 +124,9 @@ struct s2s_st {
      /** pemfile for peer connections */
      char                *local_pemfile;
  
@@ -29,9 +29,9 @@
      /** certificate chain */
      char                *local_cachain;
  
-@@ -119,6 +127,12 @@ struct s2s_st {
-     int                 check_keepalive;
-     int                 check_idle;
+@@ -166,6 +174,12 @@ struct s2s_st {
+     time_t              next_check;
+     time_t              next_expiry;
  
 +    /** Apple security options */
 +	int					require_tls;
@@ -39,18 +39,18 @@
 +	char                **whitelist_domains;
 +	int					n_whitelist_domains;
 +
-     time_t              last_queue_check;
-     time_t              last_invalid_check;
+     /** list of sx_t on the way out */
+     jqueue_t            dead;
  
-@@ -231,6 +245,7 @@ extern sig_atomic_t s2s_lost_router;
+@@ -341,6 +355,7 @@ extern sig_atomic_t s2s_lost_router;
  
  int             s2s_router_mio_callback(mio_t m, mio_action_t a, mio_fd_t fd, void *data, void *arg);
  int             s2s_router_sx_callback(sx_t s, sx_event_t e, void *data, void *arg);
 +int             s2s_domain_in_whitelist(s2s_t s2s, char *in_domain);
  
  char            *s2s_route_key(pool_t p, char *local, char *remote);
- char            *s2s_db_key(pool_t p, char *secret, char *remote, char *id);
-@@ -246,6 +261,9 @@ int             in_mio_callback(mio_t m,
+ int             s2s_route_key_match(char *local, char *remote, char *rkey, int rkeylen);
+@@ -364,6 +379,9 @@ int             in_mio_callback(mio_t m,
  /* sx flag for outgoing dialback streams */
  #define S2S_DB_HEADER   (1<<10)
  

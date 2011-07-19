@@ -34,10 +34,12 @@
 #include "FrameLoaderTypes.h"
 #include "SubresourceLoaderClient.h"
 #include "ThreadableLoader.h"
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
     class Document;
@@ -46,12 +48,14 @@ namespace WebCore {
     class ThreadableLoaderClient;
 
     class DocumentThreadableLoader : public RefCounted<DocumentThreadableLoader>, public ThreadableLoader, private SubresourceLoaderClient  {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         static void loadResourceSynchronously(Document*, const ResourceRequest&, ThreadableLoaderClient&, const ThreadableLoaderOptions&);
-        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&);
+        static PassRefPtr<DocumentThreadableLoader> create(Document*, ThreadableLoaderClient*, const ResourceRequest&, const ThreadableLoaderOptions&, const String& optionalOutgoingReferrer = String());
         virtual ~DocumentThreadableLoader();
 
         virtual void cancel();
+        virtual void setDefersLoading(bool);
 
         using RefCounted<DocumentThreadableLoader>::ref;
         using RefCounted<DocumentThreadableLoader>::deref;
@@ -66,25 +70,26 @@ namespace WebCore {
             LoadAsynchronously
         };
 
-        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, BlockingBehavior blockingBehavior, const ResourceRequest&, const ThreadableLoaderOptions& options);
+        DocumentThreadableLoader(Document*, ThreadableLoaderClient*, BlockingBehavior, const ResourceRequest&, const ThreadableLoaderOptions&, const String& optionalOutgoingReferrer);
 
         virtual void willSendRequest(SubresourceLoader*, ResourceRequest&, const ResourceResponse& redirectResponse);
         virtual void didSendData(SubresourceLoader*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
 
         virtual void didReceiveResponse(SubresourceLoader*, const ResourceResponse&);
-        virtual void didReceiveData(SubresourceLoader*, const char*, int lengthReceived);
-        virtual void didFinishLoading(SubresourceLoader*);
+        virtual void didReceiveData(SubresourceLoader*, const char*, int dataLength);
+        virtual void didReceiveCachedMetadata(SubresourceLoader*, const char*, int dataLength);
+        virtual void didFinishLoading(SubresourceLoader*, double);
         virtual void didFail(SubresourceLoader*, const ResourceError&);
 
         virtual bool getShouldUseCredentialStorage(SubresourceLoader*, bool& shouldUseCredentialStorage);
         virtual void didReceiveAuthenticationChallenge(SubresourceLoader*, const AuthenticationChallenge&);
         virtual void receivedCancellation(SubresourceLoader*, const AuthenticationChallenge&);
 
-        void didFinishLoading(unsigned long identifier);
+        void didFinishLoading(unsigned long identifier, double finishTime);
         void makeSimpleCrossOriginAccessRequest(const ResourceRequest& request);
         void makeCrossOriginAccessRequestWithPreflight(const ResourceRequest& request);
         void preflightSuccess();
-        void preflightFailure();
+        void preflightFailure(const String& url, const String& errorDescription);
 
         void loadRequest(const ResourceRequest&, SecurityCheckPolicy);
         bool isAllowedRedirect(const KURL&);
@@ -93,6 +98,7 @@ namespace WebCore {
         ThreadableLoaderClient* m_client;
         Document* m_document;
         ThreadableLoaderOptions m_options;
+        String m_optionalOutgoingReferrer;
         bool m_sameOriginRequest;
         bool m_async;
         OwnPtr<ResourceRequest> m_actualRequest;  // non-null during Access Control preflight checks

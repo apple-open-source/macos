@@ -1,0 +1,7 @@
+#!/bin/bash
+
+echo Making images of the figures
+cd figures
+rm *.png
+tclsh8.5 ../../../apps/dia convert -o . png *.dia
+exit

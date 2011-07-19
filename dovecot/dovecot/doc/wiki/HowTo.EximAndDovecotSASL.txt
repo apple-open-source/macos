@@ -1,0 +1,43 @@
+Exim and Dovecot SASL
+=====================
+
+Exim v4.64+ users can use Dovecot SASL instead of Cyrus SASL for authenticating
+SMTP clients.
+
+conf.d/10-master.conf
+---------------------
+
+---%<-------------------------------------------------------------------------
+service auth {
+...
+#SASL
+  unix_listener auth-client {
+    mode = 0660
+    user = mail
+  }
+...
+}
+---%<-------------------------------------------------------------------------
+
+exim.conf
+---------
+
+Create authenticators for Dovecot:
+
+---%<-------------------------------------------------------------------------
+dovecot_login:
+  driver = dovecot
+  public_name = LOGIN
+  server_socket = /var/run/dovecot/auth-client
+# setting server_set_id might break several headers in mails sent by
+authenticated smtp. So be careful.
+  server_set_id = $auth1
+
+dovecot_plain:
+  driver = dovecot
+  public_name = PLAIN
+  server_socket = /var/run/dovecot/auth-client
+  server_set_id = $auth1
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

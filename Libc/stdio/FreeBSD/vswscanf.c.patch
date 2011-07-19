@@ -1,57 +1,30 @@
---- vswscanf.c.orig	2004-11-25 11:38:36.000000000 -0800
-+++ vswscanf.c	2005-02-23 17:03:30.000000000 -0800
-@@ -43,6 +43,8 @@
+--- vswscanf.c.orig	2009-11-30 16:15:30.000000000 -0800
++++ vswscanf.c	2009-12-03 15:21:47.000000000 -0800
+@@ -39,6 +39,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdio/vs
  #endif
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vswscanf.c,v 1.3 2004/04/07 09:55:05 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vswscanf.c,v 1.6 2009/01/15 18:53:52 rdivacky Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <limits.h>
  #include <stdarg.h>
  #include <stdio.h>
-@@ -71,15 +73,55 @@
- 	char *mbstr;
+@@ -57,7 +59,7 @@ eofread(void *cookie, char *buf, int len
+ }
+ 
+ int
+-vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
++vswscanf_l(const wchar_t * __restrict str, locale_t loc, const wchar_t * __restrict fmt,
+     va_list ap)
+ {
+ 	static const mbstate_t initial;
+@@ -67,16 +69,20 @@ vswscanf(const wchar_t * __restrict str,
  	size_t mlen;
  	int r;
-+	locale_t loc = __current_locale();
-+
-+	/*
-+	 * XXX Convert the wide character string to multibyte, which
-+	 * __vfwscanf() will convert back to wide characters.
-+	 */
-+	if ((mbstr = malloc(wcslen(str) * MB_CUR_MAX_L(loc) + 1)) == NULL)
-+		return (EOF);
-+	mbs = initial;
-+	if ((mlen = wcsrtombs_l(mbstr, &str, SIZE_T_MAX, &mbs, loc)) == (size_t)-1) {
-+		free(mbstr);
-+		return (EOF);
-+	}
-+	f._file = -1;
-+	f._flags = __SRD;
-+	f._bf._base = f._p = (unsigned char *)mbstr;
-+	f._bf._size = f._r = mlen;
-+	f._read = eofread;
-+	f._ub._base = NULL;
-+	f._lb._base = NULL;
+ 	const wchar_t *strp;
++	struct __sFILEX ext;
 +	f._extra = &ext;
 +	INITEXTRA(&f);
-+	r = __vfwscanf(&f, loc, fmt, ap);
-+	free(mbstr);
-+
-+	return (r);
-+}
-+
-+int
-+vswscanf_l(const wchar_t * __restrict str, locale_t loc,
-+    const wchar_t * __restrict fmt, va_list ap)
-+{
-+	static const mbstate_t initial;
-+	mbstate_t mbs;
-+	FILE f;
-+	struct __sFILEX ext;
-+	char *mbstr;
-+	size_t mlen;
-+	int r;
  
 +	NORMALIZE_LOCALE(loc);
  	/*
@@ -62,17 +35,27 @@
 +	if ((mbstr = malloc(wcslen(str) * MB_CUR_MAX_L(loc) + 1)) == NULL)
  		return (EOF);
  	mbs = initial;
--	if ((mlen = wcsrtombs(mbstr, &str, SIZE_T_MAX, &mbs)) == (size_t)-1) {
-+	if ((mlen = wcsrtombs_l(mbstr, &str, SIZE_T_MAX, &mbs, loc)) == (size_t)-1) {
+ 	strp = str;
+-	if ((mlen = wcsrtombs(mbstr, &strp, SIZE_T_MAX, &mbs)) == (size_t)-1) {
++	if ((mlen = wcsrtombs_l(mbstr, &strp, SIZE_T_MAX, &mbs, loc)) == (size_t)-1) {
  		free(mbstr);
  		return (EOF);
  	}
-@@ -92,7 +134,7 @@
+@@ -89,8 +95,16 @@ vswscanf(const wchar_t * __restrict str,
  	f._lb._base = NULL;
- 	f._extra = &ext;
- 	INITEXTRA(&f);
+ 	f._orientation = 0;
+ 	memset(&f._mbstate, 0, sizeof(mbstate_t));
 -	r = __vfwscanf(&f, fmt, ap);
 +	r = __vfwscanf(&f, loc, fmt, ap);
  	free(mbstr);
  
  	return (r);
+ }
++
++int
++vswscanf(const wchar_t * __restrict str, const wchar_t * __restrict fmt,
++    va_list ap)
++{
++	return vswscanf_l(str, __current_locale(), fmt, ap);
++}
++

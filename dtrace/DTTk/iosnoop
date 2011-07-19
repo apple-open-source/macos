@@ -239,7 +239,8 @@ fi
 	(OPT_device == 1 && DEVICE == args[1]->dev_statname)? self->ok = 1 : 1;
 	(OPT_file == 1 && FILENAME == args[2]->fi_pathname) ? self->ok = 1 : 1;
 	(OPT_mount == 1 && MOUNT == args[2]->fi_mount) ? self->ok = 1 : 1;
-	(OPT_name == 1 && NAME == execname) ? self->ok = 1 : 1;
+	(OPT_name == 1 && NAME == strstr(NAME, execname)) ? self->ok = 1 : 1;
+	(OPT_name == 1 && execname == strstr(execname, NAME)) ? self->ok = 1 : 1;
 	(OPT_pid == 1 && PID == pid) ? self->ok = 1 : 1;
  }
 

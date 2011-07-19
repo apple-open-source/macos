@@ -1,5 +1,5 @@
 
-#include <Kerberos/Kerberos.h>
+#include <Heimdal/krb5.h>
 #include <err.h>
 #include <stdio.h>
 
@@ -23,7 +23,7 @@ main(int argc, char **argv)
 	if (ret)
 		errx(1, "krb5_cc_get_config");
 	
-	printf("FriendlyName: %.*s\n", (int)data.length, data.data);
+	printf("FriendlyName: %.*s\n", (int)data.length, (char *)data.data);
 	
 	return 0;
 }

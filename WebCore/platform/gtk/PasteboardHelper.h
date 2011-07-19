@@ -32,11 +32,6 @@
 
 #include "Frame.h"
 
-typedef struct _GtkClipboard GtkClipboard;
-typedef struct _GtkTargetList GtkTargetList;
-typedef struct _GtkWidget GtkWidget;
-typedef struct _GtkSelectionData GtkSelectionData;
-
 namespace WebCore {
 
 class DataObjectGtk;
@@ -52,6 +47,8 @@ public:
     GtkTargetList* targetList() const;
     GtkTargetList* targetListForDataObject(DataObjectGtk*);
     void fillSelectionData(GtkSelectionData*, guint, DataObjectGtk*);
+    void fillDataObjectFromDropData(GtkSelectionData*, guint, DataObjectGtk*);
+    Vector<GdkAtom> dropAtomsForContext(GtkWidget*, GdkDragContext*);
     void writeClipboardContents(GtkClipboard*, GClosure* closure = 0);
     void getClipboardContents(GtkClipboard*);
 

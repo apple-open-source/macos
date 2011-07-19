@@ -30,7 +30,6 @@
 #include "MarshallingHelpers.h"
 #include "DOMCoreClasses.h"
 #include "WebFrame.h"
-#pragma warning(push, 0)
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
 #include <WebCore/HitTestResult.h>
@@ -38,13 +37,12 @@
 #include <WebCore/Image.h>
 #include <WebCore/KURL.h>
 #include <WebCore/RenderObject.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 
 // WebElementPropertyBag -----------------------------------------------
 WebElementPropertyBag::WebElementPropertyBag(const HitTestResult& result)
-    : m_result(new HitTestResult(result))
+    : m_result(adoptPtr(new HitTestResult(result)))
     , m_refCount(0)
 {
     gClassCount++;
@@ -159,7 +157,10 @@ HRESULT STDMETHODCALLTYPE WebElementPropertyBag::Read(LPCOLESTR pszPropName, VAR
         else
             V_BOOL(pVar) = VARIANT_FALSE;
         return S_OK;
-    } else if (isEqual(WebElementSpellingToolTipKey, key)) {
+    }
+    if (isEqual(WebElementMediaURLKey, key))
+        return convertStringToVariant(pVar, m_result->absoluteMediaURL().string());
+    if (isEqual(WebElementSpellingToolTipKey, key)) {
         TextDirection dir;
         return convertStringToVariant(pVar, m_result->spellingToolTip(dir));
     } else if (isEqual(WebElementTitleKey, key)) {

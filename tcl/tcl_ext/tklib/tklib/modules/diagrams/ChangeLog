@@ -1,3 +1,46 @@
+2010-08-26  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* application.tcl: Extended with option '-t' when trusting the input,
+	* pkgIndex.tcl: using a simple slave interp, instead of a safe
+	  one. Further extended with a bility to load canvas::* packages
+	  as formatting backends. Bumped version to 1.1.
+
+2010-06-09  Andreas Kupries  <andreask@activestate.com>
+
+	* ChangeLog: New files. Complete reworking of the diagram
+	* application.tcl: system, whole new code base. Note that
+	* attributes.tcl: this requires Tcl 8.5 or higher.
+	* basic.tcl: Version 1.
+	* core.tcl:
+	* diagram.man:
+	* diagram.tcl:
+	* direction.tcl:
+	* element.tcl:
+	* navigation.tcl:
+	* pkgIndex.tcl:
+	* point.tcl:
+	* include: Documentation text blocks.
+	* figures: Figures for the documentation, examples.
+	* ../../apps/dia:
+	* ../../apps/dia.man:
+
+	* draw_diagram.tcl: Removed.
+	* draw_diagram.man:
+
+2009-02-14  Arjen Markus  <arjenmarkus@users.sourceforge.net>
+
+        * added missing directions in dirinfo array
+        * corrected anchor coordinate for drums
+        * solved a bug in the handling of the current position
+          (currentpos set last item)
+        * added documentation of "bracket" (and exporting the procedure)
+
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	*
+
 2006-11-19 Arjen Markus  <arjenmarkus@users.sourceforge.net>
 
         * added missing "package provide" statement
@@ -11,4 +54,3 @@
         * started with documentation
 
 	* New module 'diagrams', by Arjen Markus.
-

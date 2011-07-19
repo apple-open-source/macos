@@ -10,11 +10,9 @@ extern "C" {
 	
 #if TARGET_RT_MAC_MACHO
 
-int	Tcl_BeepObjCmd (ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj *CONST84 objv[]);
+OSErr FSpLocationFromPath (int length, CONST84 char *path, FSRefPtr fileRefPtr);
 
-OSErr FSpLocationFromPath (int length, CONST84 char *path, FSSpecPtr fileSpecPtr);
-
-OSErr FSpPathFromLocation (FSSpecPtr spec, int* length, Handle *fullPath);
+OSErr FSpPathFromLocation (FSRefPtr fsrefP, int* length, Handle *fullPath);
 
 /* CFString to external DString */
 int CFStringToExternalDString(Tcl_Interp * interp, CFStringRef strRef, Tcl_DString * dsPtr);

@@ -75,7 +75,7 @@ enum {
 #define MAX_DOS_BLOCKSIZE	2048
 
 /* Internal function */
-CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized);
+CFStringRef FSCopyFormatNameForFSType(CFStringRef fsType, int16_t fsSubtype, bool localized, bool encrypted);
 bool getfstype(char *devnode, char *fsname, int *fssubtype);
 bool is_hfs(char *devnode, int *fssubtype);
 bool is_msdos(char *devnode, int *fssubtype);

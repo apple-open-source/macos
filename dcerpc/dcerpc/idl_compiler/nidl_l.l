@@ -1,0 +1,557 @@
+%{
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LICENSE_HEADER_START@
+ *
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+ *     contributors may be used to endorse or promote products derived from
+ *     this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * Portions of this software have been released under the following terms:
+ *
+ * (c) Copyright 1989-1993 OPEN SOFTWARE FOUNDATION, INC.
+ * (c) Copyright 1989-1993 HEWLETT-PACKARD COMPANY
+ * (c) Copyright 1989-1993 DIGITAL EQUIPMENT CORPORATION
+ *
+ * To anyone who acknowledges that this file is provided "AS IS"
+ * without any express or implied warranty:
+ * permission to use, copy, modify, and distribute this file for any
+ * purpose is hereby granted without fee, provided that the above
+ * copyright notices and this notice appears in all source code copies,
+ * and that none of the names of Open Software Foundation, Inc., Hewlett-
+ * Packard Company or Digital Equipment Corporation be used
+ * in advertising or publicity pertaining to distribution of the software
+ * without specific, written prior permission.  Neither Open Software
+ * Foundation, Inc., Hewlett-Packard Company nor Digital
+ * Equipment Corporation makes any representations about the suitability
+ * of this software for any purpose.
+ *
+ * Copyright (c) 2007, Novell, Inc. All rights reserved.
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following conditions
+ * are met:
+ *
+ * 1.  Redistributions of source code must retain the above copyright
+ *     notice, this list of conditions and the following disclaimer.
+ * 2.  Redistributions in binary form must reproduce the above copyright
+ *     notice, this list of conditions and the following disclaimer in the
+ *     documentation and/or other materials provided with the distribution.
+ * 3.  Neither the name of Novell Inc. nor the names of its contributors
+ *     may be used to endorse or promote products derived from this
+ *     this software without specific prior written permission.
+ *
+ * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDERS OR CONTRIBUTORS BE LIABLE FOR ANY
+ * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+ * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+ * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+ * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+ * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ *
+ * @APPLE_LICENSE_HEADER_END@
+ */
+
+/*
+**  NAME:
+**
+**      IDL.L
+**
+**  FACILITY:
+**
+**      Interface Definition Language (IDL) Compiler
+**
+**  ABSTRACT:
+**
+**      This file defines the tokenizing rules for lexical analysis.
+**
+**  VERSION: DCE 1.0
+**
+*/
+
+/*  Get definitions for token values    */
+#define PROCESSING_LEX          /* Define before including nidl.h */
+#define PROCESSING_NIDL_LEX     /* Define before including nidl.h */
+#include <nidl.h>
+#include <ctype.h>
+#include <errors.h>
+#include <nametbl.h>
+#include <ast.h>
+#include <astp.h>
+#include <nidl_y.h>
+#include <driver.h>
+#include <command.h>
+
+/* Tank Trap to stop non-flex lexxers */
+/* The macro FLEX_SCANNER is defined and generated by FLEX */
+
+#ifndef FLEX_SCANNER
+This grammar file needs to be built with GNU Flex V2.4.6 or later.
+  GNU Flex can be be obtained from ftp://prep.ai.mit.edu:/pub/gnu
+#endif
+
+boolean search_attributes_table = false ;
+
+void commenteof (yyscan_t scanner);
+void read_c_comment (yyscan_t scanner);
+
+/* From acf_l.l */
+void acf_yymark (yyscan_t scanner);
+static int yyuuid (yyscan_t, const char *, nidl_uuid_t *);
+static int yyolduuid (yyscan_t, const char *, nidl_uuid_t *);
+
+%}
+
+/* regular definitions  */
+
+delim           [ \t\n\f]
+opt_ws          {delim}*
+ws              {delim}
+letter          [A-Za-z_$]
+digit           [0-9]
+hex_digit       [0-9A-Fa-f]
+id              {letter}({letter}|{digit})*
+l_suffix        (l|L)
+u_suffix        (u|U)
+f_suffix        (u|U)
+integer         -?{digit}+(({u_suffix}{l_suffix})|({l_suffix}{u_suffix})|{l_suffix}|{u_suffix})?
+c_hex_integer   (0(x|X){hex_digit}*)(({l_suffix}{u_suffix}?)|({u_suffix}{l_suffix}?))?
+float           {digit}+\.{digit}+({f_suffix}|{l_suffix})?
+octet           {hex_digit}{hex_digit}
+octet2          {octet}{octet}
+octet_dot       {octet}\.
+octet2_dash     {octet2}\-
+olduuid         \({opt_ws}{octet2}{octet2}{octet}{octet_dot}{octet_dot}{octet_dot}{octet_dot}{octet_dot}{octet_dot}{octet_dot}{octet_dot}{octet}{opt_ws}\)
+uuid            \({opt_ws}{octet2}{octet2_dash}{octet2_dash}{octet2_dash}{octet2_dash}{octet2}{octet2}{octet2}{opt_ws}\)
+other           .
+
+%option reentrant
+%option prefix="nidl_yy"
+%option yylineno
+%option header-file="nidl_l.h"
+%option bison-bridge
+%option bison-locations
+%option noyywrap
+
+%%
+{ws}            { /* No action, and no return */ }
+'\n'            { /* GNU FLEX doesnt automatically track line #'s */
+		    int lineno = yyget_lineno(yyscanner);
+		    yyset_lineno(lineno + 1, yyscanner);
+		    /* XXX %option lineno, tracks lines automatically. We
+		     * ought to be able to remove this -- jpeach
+		     */
+                }
+":"             {return(COLON);}
+","             {return(COMMA);}
+".."            {return(DOTDOT);}
+"="             {return(EQUAL);}
+\[              {return(LBRACKET);}
+"("             {return(LPAREN);}
+\]              {return(RBRACKET);}
+")"             {return(RPAREN);}
+";"             {return(SEMI);}
+"*"             {return(STAR);}
+"{"             {return(LBRACE);}
+"??<"           {return(LBRACE);}
+"}"             {return(RBRACE);}
+"??>"           {return(RBRACE);}
+"?"             {return(QUESTION);}
+"|"             {return(BAR);}
+"||"            {return(BARBAR);}
+"<"             {return(LANGLE);}
+"<<"            {return(LANGLEANGLE);}
+">"             {return(RANGLE);}
+">>"            {return(RANGLEANGLE);}
+"&"             {return(AMP);}
+"&&"            {return(AMPAMP);}
+"<="            {return(LESSEQUAL);}
+">="            {return(GREATEREQUAL);}
+"=="            {return(EQUALEQUAL);}
+"^"             {return(CARET);}
+"+"             {return(PLUS);}
+"-"             {return(MINUS);}
+"!"             {return(NOT);}
+"!="            {return(NOTEQUAL);}
+"/"             {return(SLASH);}
+"%"             {return(PERCENT);}
+"~"             {return(TILDE);}
+
+^"#".*\n            { acf_yymark(yyscanner) ;}
+^"%"(c|C){ws}\n     {
+    log_error(yyget_lineno(yyscanner) - 1, NIDL_USETRANS, NULL);
+}
+
+^"%pascal"{ws}\n    {
+    log_error(yyget_lineno(yyscanner) - 1, NIDL_USETRANS, NULL);
+}
+
+^"%PASCAL"{ws}\n    {
+    log_error(yyget_lineno(yyscanner) - 1, NIDL_USETRANS, NULL);
+}
+
+'\\''   {
+    /* Simple escaped single quote character literal */
+    yylval->y_char = '\'';
+    return(CHAR);
+}
+
+'[^'\n\\]'  {
+    /* Simple character constants */
+    yylval->y_char = yytext [1];
+    return(CHAR);
+}
+
+'\\[^'\n]*' {
+    /* Character constants with an escape */
+    if ((yyleng > 6) || (yyleng < 4)) {
+          log_error(yyget_lineno(yyscanner), NIDL_INVCHARLIT, NULL);
+          return(UNKNOWN);
+    }
+    switch (yytext[2]) {
+        case 'n':   yylval->y_char = '\n'; break;
+        case 't':   yylval->y_char = '\t'; break;
+        case 'v':   yylval->y_char = '\v'; break;
+        case 'b':   yylval->y_char = '\b'; break;
+        case 'r':   yylval->y_char = '\r'; break;
+        case 'f':   yylval->y_char = '\f'; break;
+        case 'a':   yylval->y_char = AUDIBLE_BELL; break;
+        case '\\':  yylval->y_char = '\\'; break;
+        case '?':   yylval->y_char = '\?'; break;
+        case '\'':  yylval->y_char = '\''; break;
+        case '\"':  yylval->y_char = '\"'; break;
+        case 'x' :  {
+            /* Hex literal value */
+            int char_value;
+            if (sscanf((char *)&yytext[3],"%x",&char_value) != 1)
+                log_error(yyget_lineno(yyscanner), NIDL_INVCHARLIT, NULL);
+            else
+            {
+                yylval->y_char = (char )char_value;
+                log_warning(yyget_lineno(yyscanner), NIDL_NONPORTCHAR, NULL);
+            }
+            break;
+        }
+        case '0':
+        case '1':
+        case '2':
+        case '3':
+        case '4':
+        case '5':
+        case '7':   {
+            /* Octal literal value */
+            int char_value;
+            if (sscanf((char *)&yytext[2],"%o",&char_value) != 1)
+                log_error(yyget_lineno(yyscanner), NIDL_INVCHARLIT, NULL);
+            else
+            {
+                yylval->y_char = (char )char_value;
+                log_warning(yyget_lineno(yyscanner), NIDL_NONPORTCHAR, NULL);
+            }
+            break;
+        }
+        default:
+            /* all others are illegal */
+            log_error(yyget_lineno(yyscanner), NIDL_INVCHARLIT, NULL);
+            return(UNKNOWN);
+    }
+
+    return (CHAR);
+}
+
+\"[^\"\n]*  {
+    char stripped_string[max_string_len] ATTRIBUTE_UNUSED;
+    if (yytext[yyleng-1] == '\\')
+    {
+	/* Allow backslashed " within strings, look for next " */
+        yymore();
+    }
+    else
+    {
+	yylval->y_string = STRTAB_add_string((char *)&yytext[1]);
+        if (input(yyscanner) == '\n')
+            log_error(yyget_lineno(yyscanner), NIDL_STRUNTERM, NULL);
+        return(STRING);
+    }
+}
+
+"/*"    { read_c_comment(yyscanner); }
+"//".*\n	{ /* read_cpp_comment */ }
+
+{id}    {
+    int token;
+    NAMETABLE_id_t id;
+    /* If id is too long, truncate it and issue a warning */
+    if (yyleng > MAX_ID) {
+        char const *identifier;
+        id = NAMETABLE_add_id((char *)yytext);
+        NAMETABLE_id_to_string(id, &identifier);
+        log_warning(yyget_lineno(yyscanner), NIDL_IDTOOLONG, identifier, MAX_ID, NULL);
+        /* Truncate the string */
+        yytext[MAX_ID] = '\0';
+        id = NAMETABLE_add_id((char *)yytext);
+    }
+    if ((token = KEYWORDS_screen((char *)yytext, &id))==IDENTIFIER) {
+        yylval->y_id = id;
+    }
+    else {
+        yylval->y_id = NAMETABLE_NIL_ID;
+    }
+    return token;
+}
+
+{integer}   {
+    int unsigned_int = false;
+#if defined(vax) && defined(ultrix)
+    float fval;
+#define FLOAT_FORMAT "%f"
+#define FLOAT float
+#else
+    double fval;
+#define FLOAT_FORMAT "%lf"
+#define FLOAT double
+#endif
+
+    /*
+    ** Remove suffix for long and/or unsigned, if present
+    */
+    if ((yytext[yyleng-1] == 'L') ||
+        (yytext[yyleng-1] == 'l') ||
+        (yytext[yyleng-1] == 'U') ||
+        (yytext[yyleng-1] == 'u'))
+    {
+        if ((yytext[yyleng-1] == 'U') ||
+            (yytext[yyleng-1] == 'u'))
+                unsigned_int = true;
+        yytext[yyleng-1] = '\0';
+        if ((yytext[yyleng-2] == 'L') ||
+            (yytext[yyleng-2] == 'l') ||
+            (yytext[yyleng-2] == 'U') ||
+            (yytext[yyleng-2] == 'u'))
+        {
+            if ((yytext[yyleng-2] == 'U') ||
+                (yytext[yyleng-2] == 'u'))
+                    unsigned_int = true;
+            yytext[yyleng-2] = '\0';
+        }
+    }
+
+    /*
+    ** Convert to a float to get overflow detection.
+    */
+    sscanf((char *)yytext, FLOAT_FORMAT, &fval);
+    yylval->y_int_info.int_val = 0;
+
+    /*
+    ** Throw out integers that are out of range.
+    */
+    if (unsigned_int &&
+        ((strlen((char *)yytext) > 10)
+        || (fval > (FLOAT)ASTP_C_ULONG_MAX)
+        || (fval < (FLOAT)ASTP_C_ULONG_MIN)
+        ))
+        log_error(yyget_lineno(yyscanner), NIDL_INTOVERFLOW,
+		  KEYWORDS_lookup_text(LONG_KW), NULL);
+    else if ((strlen((char *)yytext) > 11) ||
+        (fval > (FLOAT)ASTP_C_LONG_MAX) ||
+        (fval < (FLOAT)ASTP_C_LONG_MIN)
+        )
+        log_error(yyget_lineno(yyscanner), NIDL_INTOVERFLOW,
+		  KEYWORDS_lookup_text(LONG_KW), NULL);
+    else {
+        sscanf((char *)yytext, "%ld", &yylval->y_int_info.int_val);
+    }
+
+    if ((yytext[0] == '0') && (strlen((char *)yytext) != strspn((char *)yytext,"01234567"))) {
+        char const *int_text;           /* Text of integer */
+        STRTAB_str_t string_id;         /* Entry in string table of integer */
+        string_id = STRTAB_add_string(yytext);
+        STRTAB_str_to_string(string_id, &int_text);
+        log_error(yyget_lineno(yyscanner), NIDL_INVOCTDIGIT, int_text, NULL);
+    }
+
+	/* remember the signed-ness */
+	yylval->y_int_info.int_signed = !unsigned_int;
+
+    return(INTEGER_NUMERIC);
+}
+
+{c_hex_integer} {
+	 int unsigned_int = true;
+    /*
+    ** Remove suffix for long and/or unsigned, if present
+    */
+    if ((yytext[yyleng-1] == 'L') ||
+        (yytext[yyleng-1] == 'l') ||
+        (yytext[yyleng-1] == 'U') ||
+        (yytext[yyleng-1] == 'u'))
+	 {
+		  if (yytext[yyleng-1] == 'U' || yytext[yyleng-1] == 'u')
+				unsigned_int = true;
+		  yytext[yyleng-1] = '\0';
+		  if ((yytext[yyleng-2] == 'L') ||
+					 (yytext[yyleng-2] == 'l') ||
+					 (yytext[yyleng-2] == 'U') ||
+					 (yytext[yyleng-2] == 'u'))
+		  {
+				if (yytext[yyleng-2] == 'U' || yytext[yyleng-2] == 'u')
+					 unsigned_int = true;
+
+				yytext[yyleng-2] = '\0';
+		  }
+	 }
+
+    /*
+    ** Scan the hex integer and return the value as an integer
+    */
+    sscanf((char *)&yytext[2],"%lx", &yylval->y_int_info.int_val);
+	 yylval->y_int_info.int_signed = !unsigned_int;
+    return(INTEGER_NUMERIC);
+}
+
+{float} {
+    yylval->y_float = STRTAB_add_string((char *)yytext);
+    return(FLOAT_NUMERIC);
+}
+
+{uuid}      {   return (yyuuid(yyscanner, &yytext[1], &yylval->y_uuid)); }
+{olduuid}   {   return (yyolduuid(yyscanner, &yytext[1], &yylval->y_uuid)); }
+{other}     {   return (UNKNOWN); }
+
+%%
+
+void commenteof
+(
+    yyscan_t scanner
+)
+{
+    log_error (yyget_lineno(scanner), NIDL_COMMENTEOF, NULL);
+    nidl_terminate();
+}
+
+void read_c_comment
+(
+    yyscan_t scanner
+)
+{
+    register int c;
+
+    /* While not EOF look for end of comment */
+    while ((c = input(scanner)))
+    {
+        if (c == '*')
+        {
+            if ((c = input(scanner)) == '/')
+                break ;
+            else
+		yyunput(c, yyget_text(scanner), scanner);
+        }
+    }
+
+    /* Didn't find end comment before EOF, issue error */
+    if (c == 0) commenteof(scanner);
+}
+
+static int yyolduuid
+(
+    yyscan_t	scanner,
+    const char *str,
+    nidl_uuid_t *uuid
+)
+{
+    unsigned32 v1_time_high;
+    unsigned32 v1_time_low;
+    unsigned32 v1_reserved = 0;  /* v1 UUID always zero here */
+    unsigned32 v1_family;
+    unsigned32 v1_host[7];
+    int        i;
+    char *uuid_str;
+
+    if (sscanf(str, "%8lX%4lX.%2lX.%2lX.%2lX.%2lX.%2lX.%2lX.%2lX.%2lX",
+              &v1_time_high, &v1_time_low, &v1_family,
+              &v1_host[0], &v1_host[1], &v1_host[2], &v1_host[3],
+              &v1_host[4], &v1_host[5], &v1_host[6]) != 10)
+    {
+        log_error(yyget_lineno(scanner), NIDL_SYNTAXUUID, NULL);
+    }
+
+    /* scanf only returns ints, so scan into ints and copy into smaller types */
+    uuid->time_low                  = v1_time_high;
+    uuid->time_mid                  = v1_time_low;
+    uuid->time_hi_and_version       = v1_reserved;
+    uuid->clock_seq_hi_and_reserved = v1_family;
+    uuid->clock_seq_low             = v1_host[0];
+
+    for (i=0; i < 6; i++)
+        uuid->node[i] = v1_host[i+1];
+
+    uuid_str = (char *)malloc(sizeof("xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"));
+
+    sprintf(uuid_str, "%08lX-%04X-%04X-%02X%02X-%02X%02X%02X%02X%02X%02X",
+              uuid->time_low, uuid->time_mid, uuid->time_hi_and_version,
+              uuid->clock_seq_hi_and_reserved, uuid->clock_seq_low,
+              uuid->node[0], uuid->node[1], uuid->node[2],
+              uuid->node[3], uuid->node[4], uuid->node[5]);
+
+    log_warning(yyget_lineno(scanner), NIDL_OLDUUID, NULL);
+    log_warning(yyget_lineno(scanner), NIDL_NEWUUID, uuid_str, NULL);
+    return (UUID_REP) ;
+}
+
+static int yyuuid
+(
+    yyscan_t	scanner,
+    const char	*str,
+    nidl_uuid_t *uuid
+)
+{
+    int i;
+    unsigned32 time_low, time_mid, time_hi_and_version,
+              clock_seq_hi_and_reserved, clock_seq_low,
+              node[6];
+
+    if (sscanf(str,
+	      "%08lX-%04lX-%04lX-%02lX%02lX-%02lX%02lX%02lX%02lX%02lX%02lX",
+              &time_low, &time_mid, &time_hi_and_version,
+              &clock_seq_hi_and_reserved, &clock_seq_low,
+              &node[0], &node[1], &node[2],
+              &node[3], &node[4], &node[5]) != 11)
+    {
+        log_error(yyget_lineno(scanner), NIDL_SYNTAXUUID, NULL);
+    }
+
+    /* scanf only returns ints, so scan into ints and copy into smaller types */
+    uuid->time_low = time_low;
+    uuid->time_mid = time_mid;
+    uuid->time_hi_and_version = time_hi_and_version;
+    uuid->clock_seq_hi_and_reserved = clock_seq_hi_and_reserved;
+    uuid->clock_seq_low = clock_seq_low;
+    for (i=0; i < 6; i++)
+        uuid->node[i] = node[i];
+    return (UUID_REP);
+}
+
+/* preserve coding style vim: set tw=78 sw=4 : */

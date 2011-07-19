@@ -1,12 +1,13 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin transfer::data::source n 0.1]
-[copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin transfer::data::source n 0.2]
+[copyright {2006-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Data transfer facilities}]
 [titledesc {Data source}]
+[category  {Transfer module}]
 [require Tcl                    8.4]
 [require snit                   [opt 1.0]]
-[require transfer::copy         [opt 0.1]]
-[require transfer::data::source [opt 0.1]]
+[require transfer::copy         [opt 0.2]]
+[require transfer::data::source [opt 0.2]]
 [description]
 [keywords transfer copy channel {data source}]
 [para]
@@ -18,60 +19,56 @@ described information to a channel using the foundation package
 
 
 [section API]
+[subsection {Package commands}]
 
 [list_begin definitions]
 
 [call [cmd transfer::data::source] \
-	[arg object] \
+	[arg objectName] \
 	[opt [arg options]...]]
 
-This command creates and configures a new source [arg object]. The
-fully qualified name of the object command is returned as the result
-of the command.
+This command creates a new data source object with an associated Tcl
+command whose name is [arg objectName].
+
+This [term object] command is explained in full detail in the sections
+[sectref {Object command}] and [sectref {Object methods}]. The set of
+supported [arg options] is explained in section [sectref {Options}].
 
 [para]
 
-The recognized options are listed below. It should be noted that the
-first four options are semi-exclusive, each specifying a different
-type of data source and associated content. If these options are
-specified more than once then the last option specified is used to
-actually configure the object.
+The object command will be created under the current namespace if the
+[arg objectName] is not fully qualified, and in the specified
+namespace otherwise.
 
-
-[list_begin options]
-[opt_def -string   [arg text]]
-
-This option specifies that the source of the data is an immediate
-string, and its associated argument contains the string in question.
-
-[opt_def -channel  [arg handle]]
-
-This option specifies that the source of the data is a channel, and
-its associated argument is the handle of the channel containing the
-data.
-
-[opt_def -file     [arg path]]
-
-This option specifies that the source of the data is a file, and its
-associated argument is the path of the file containing the data.
-
-[opt_def -variable [arg varname]]
-
-This option specifies that the source of the data is a string stored
-in a variable, and its associated argument contains the name of the
-variable in question. The variable is assumed to be global or
-namespaced, anchored at the global namespace.
-
-[opt_def -size     [arg int]]
-
-This option specifies the size of the data transfer. It is optional
-and defaults to -1. This value, and any other value less than zero
-signals to transfer all the data from the source.
+The fully qualified name of the object command is returned as the
+result of the command.
 
 [list_end]
 
 
-[call [arg object] [method destroy]]
+[subsection {Object command}]
+
+All objects created by the [cmd ::transfer::data::source] command have
+the following general form:
+
+[list_begin definitions]
+
+[call [arg objectName] [method method] [opt [arg "arg arg ..."]]]
+
+The method [method method] and its [arg arg]'uments determine the
+exact behavior of the command.
+
+See section [sectref {Object methods}] for the detailed
+specifications.
+
+[list_end]
+
+
+[subsection {Object methods}]
+
+[list_begin definitions]
+
+[call [arg objectName] [method destroy]]
 
 This method destroys the object. Doing so while a transfer initiated
 by the object is active is safe as all data required for the transfer
@@ -80,7 +77,7 @@ access the initiating object anymore. i.e. the transfer is completely
 separate from the source object itself.
 
 
-[call [arg object] [method type]]
+[call [arg objectName] [method type]]
 
 This method returns a string describing the type of the data the
 object is refering to. The possible values and their meanings are:
@@ -98,7 +95,7 @@ The data to transfer is contained in a channel.
 
 [list_end]
 
-[call [arg object] [method data]]
+[call [arg objectName] [method data]]
 
 This method returns a value depending on the type of the data the
 object refers to, through which the data can be accessed.
@@ -109,7 +106,7 @@ type [const channel] the returned result is the handle of the channel
 containing the data.
 
 
-[call [arg object] [method size]]
+[call [arg objectName] [method size]]
 
 This method returns a value depending on the type of the data the
 object refers to, the size of the data.
@@ -119,7 +116,7 @@ a negative value signals that the object is unable to determine an
 absolute size upfront (like for data in a channel).
 
 
-[call [arg object] [method valid] [arg msgvar]]
+[call [arg objectName] [method valid] [arg msgvar]]
 
 This method checks the configuration of the object for validity. It
 returns a boolean flag as result, whose value is [const True] if the
@@ -128,7 +125,7 @@ variable whose name is stored in [arg msgvar] is set to an error
 message describing the problem found with the configuration. Otherwise
 this variable is not touched.
 
-[call [arg object] [method transmit] [arg channel] [arg blocksize] [arg done]]
+[call [arg objectName] [method transmit] [arg channel] [arg blocksize] [arg done]]
 
 This method initiates a transfer of the referenced data to the
 specified [arg channel].
@@ -143,4 +140,21 @@ one go. See the option [option -blocksize] of command
 
 [list_end]
 
+
+
+[subsection Options]
+
+All data sources support the options listed below. It should be noted
+that the first four options are semi-exclusive, each specifying a
+different type of data source and associated content. If these options
+are specified more than once then the last option specified is used to
+actually configure the object.
+
+[list_begin options]
+[include include/dsource_options.inc]
+[list_end]
+
+
+[vset CATEGORY transfer]
+[include ../doctools2base/include/feedback.inc]
 [manpage_end]

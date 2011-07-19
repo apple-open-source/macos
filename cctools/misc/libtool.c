@@ -42,7 +42,7 @@
 #include <sys/mman.h>
 #include "stuff/bool.h"
 #include "stuff/ofile.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/errors.h"
 #include "stuff/allocate.h"
 #include "stuff/execute.h"
@@ -78,6 +78,13 @@ static enum byte_sex host_byte_sex = UNKNOWN_BYTE_SEX;
  * modification time of the output file to be set to.
  */
 static time_t toc_time = 0;
+
+/*
+ * The environment variable ZERO_AR_DATE is used here and other places that
+ * write archives to allow testing and comparing things for exact binary
+ * equality.
+ */
+static enum bool zero_ar_date = FALSE;
 
 /*
  * The mode of the table of contents member (S_IFREG | (0666 & ~umask))
@@ -305,7 +312,7 @@ static void print_block_list(void);
 static struct block *get_block(void);
 static void remove_block(
     struct block *block);
-static uint32_t trunc(
+static uint32_t trnc(
     uint32_t v,
     uint32_t r);
 
@@ -332,7 +339,19 @@ char **envp)
 
 	host_byte_sex = get_host_byte_sex();
 
-	toc_time = time(0);
+	/*
+	 * The environment variable ZERO_AR_DATE is used here and other
+	 * places that write archives to allow testing and comparing
+	 * things for exact binary equality.
+	 */
+	if(getenv("ZERO_AR_DATE") == NULL)
+	    zero_ar_date = FALSE;
+	else
+	    zero_ar_date = TRUE;
+	if(zero_ar_date == FALSE)
+	    toc_time = time(0);
+	else
+	    toc_time = 0;
 
 	numask = 0;
 	oumask = umask(numask);
@@ -1688,13 +1707,13 @@ struct ofile *ofile)
 	 * bytes are set to the character '\n'.
 	 */
 	if(ofile->mh != NULL || ofile->mh64 != NULL)
-	    size = round(ofile->object_size, 8);
+	    size = rnd(ofile->object_size, 8);
 #ifdef LTO_SUPPORT
 	else if(ofile->lto != NULL && ofile->file_type == OFILE_LLVM_BITCODE)
-	    size = round(ofile->file_size, 8);
+	    size = rnd(ofile->file_size, 8);
 #endif /* LTO_SUPPORT */
 	else
-	    size = round(ofile->member_size, 8);
+	    size = rnd(ofile->member_size, 8);
 
 	/* select or create an arch type to put this in */
 	i = 0;
@@ -1743,9 +1762,15 @@ struct ofile *ofile)
 	     * If -arch_only is specified then only add this file if it matches
 	     * the architecture specified.
 	     */
-	    if(cmd_flags.arch_only_flag.name != NULL &&
-	       cmd_flags.arch_only_flag.cputype != ofile->mh_cputype)
-		return;
+	    if(cmd_flags.arch_only_flag.name != NULL){
+		if(cmd_flags.arch_only_flag.cputype != ofile->mh_cputype)
+		    return;
+		if(cmd_flags.arch_only_flag.cputype == CPU_TYPE_ARM){
+		    if(cmd_flags.arch_only_flag.cpusubtype !=
+							ofile->mh_cpusubtype)
+			return;
+		}
+	    }
 
 	    for( ; i < narchs; i++){
 		if(archs[i].arch_flag.cputype == ofile->mh_cputype){
@@ -1900,8 +1925,8 @@ struct ofile *ofile)
 	    if(cmd_flags.use_long_names == TRUE){
 		member->output_long_name = TRUE;
 		member->member_name_size = member->input_base_name_size;
-		ar_name_size = round(member->input_base_name_size, 8) +
-			       (round(sizeof(struct ar_hdr), 8) -
+		ar_name_size = rnd(member->input_base_name_size, 8) +
+			       (rnd(sizeof(struct ar_hdr), 8) -
 				sizeof(struct ar_hdr));
 		sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
 			(int)(sizeof(member->ar_hdr.ar_name) -
@@ -1927,6 +1952,8 @@ struct ofile *ofile)
 		    p[sizeof(member->ar_hdr.ar_name)] = c;
 		member->member_name_size = size_ar_name(&member->ar_hdr);
 	    }
+	    if(zero_ar_date == TRUE)
+		stat_buf.st_mtime = 0;
 	    /*
 	     * Create the rest of the archive header after the name.
 	     */
@@ -1981,8 +2008,8 @@ struct ofile *ofile)
 			   break;
 		    }
 		    member->member_name_size = ar_name_size;
-		    ar_name_size = round(ar_name_size, 8) +
-				   (round(sizeof(struct ar_hdr), 8) -
+		    ar_name_size = rnd(ar_name_size, 8) +
+				   (rnd(sizeof(struct ar_hdr), 8) -
 				    sizeof(struct ar_hdr));
 		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
 			    (int)(sizeof(member->ar_hdr.ar_name) -
@@ -1998,8 +2025,8 @@ struct ofile *ofile)
 		     * struct ar_hdr rounded to 8 bytes.
 		     */
 		    member->member_name_size = size_ar_name(&member->ar_hdr);
-		    ar_name_size = round(ofile->member_name_size, 8) +
-				   (round(sizeof(struct ar_hdr), 8) -
+		    ar_name_size = rnd(ofile->member_name_size, 8) +
+				   (rnd(sizeof(struct ar_hdr), 8) -
 				    sizeof(struct ar_hdr));
 		    member->output_long_name = TRUE;
 		    sprintf(ar_name_buf, "%s%-*lu", AR_EFMT1,
@@ -2142,8 +2169,13 @@ char *output)
 	    else{
 		if(cmd_flags.dynamic == FALSE ||
 		   cmd_flags.no_files_ok == FALSE){
-		    error("no library created (no object files in input "
-			  "files)");
+		    if(cmd_flags.arch_only_flag.name != NULL)
+			error("no library created (no object files in input "
+			      "files matching -arch_only %s)",
+			      cmd_flags.arch_only_flag.name);
+		    else
+			error("no library created (no object files in input "
+			      "files)");
 		    return;
 		}
 	    }
@@ -2340,7 +2372,7 @@ char *output)
 	    if(arch->toc_long_name == TRUE){
 		memcpy(p, arch->toc_name, arch->toc_name_size);
 		p += arch->toc_name_size +
-		     (round(sizeof(struct ar_hdr), 8) -
+		     (rnd(sizeof(struct ar_hdr), 8) -
 		      sizeof(struct ar_hdr));
 	    }
 
@@ -2386,8 +2418,8 @@ char *output)
 		if(arch->members[j].output_long_name == TRUE){
 		    strncpy(p, arch->members[j].member_name,
 			    arch->members[j].member_name_size);
-		    p += round(arch->members[j].member_name_size, 8) +
-			       (round(sizeof(struct ar_hdr), 8) -
+		    p += rnd(arch->members[j].member_name_size, 8) +
+			       (rnd(sizeof(struct ar_hdr), 8) -
 				sizeof(struct ar_hdr));
 		}
 
@@ -2417,7 +2449,7 @@ char *output)
 			 VM_SYNC_DEACTIVATE);
 #endif /* VM_SYNC_DEACTIVATE */
 		p += arch->members[j].object_size;
-		pad = round(arch->members[j].object_size, 8) -
+		pad = rnd(arch->members[j].object_size, 8) -
 		      arch->members[j].object_size;
 		/* as with the UNIX ar(1) program pad with '\n' characters */
 		for(k = 0; k < pad; k++)
@@ -2459,6 +2491,8 @@ char *output)
 	    system_error("can't open output file: %s", output);
 	    return;
 	}
+	if(zero_ar_date == TRUE)
+	    stat_buf.st_mtime = 0;
 	/*
          * With the time from the file system the library is on set the ar_date
 	 * using the modification time returned by stat.  Then write this into
@@ -2631,10 +2665,10 @@ uint32_t size)
 		else
 		    write_offset =before->written_offset + before->written_size;
 		if(after->written_size == 0)
-		    write_size = trunc(after->offset + after->size -
+		    write_size = trnc(after->offset + after->size -
 				       write_offset, host_pagesize);
 		else
-		    write_size = trunc(after->written_offset - write_offset,
+		    write_size = trnc(after->written_offset - write_offset,
 				       host_pagesize);
 		if(write_size != 0){
 		    before->written_size += write_size;
@@ -2655,7 +2689,7 @@ uint32_t size)
 		 * before the new area.
 		 */
 		write_offset = before->written_offset + before->written_size;
-		write_size = trunc(offset + size - write_offset, host_pagesize);
+		write_size = trnc(offset + size - write_offset, host_pagesize);
 		if(write_size != 0)
 		    before->written_size += write_size;
 		before->size += size;
@@ -2672,12 +2706,12 @@ uint32_t size)
 	     * (if any) ends.  The new area is folded into this block after the
 	     * new area.
 	     */
-	    write_offset = round(offset, host_pagesize);
+	    write_offset = rnd(offset, host_pagesize);
 	    if(after->written_size == 0)
-		write_size = trunc(after->offset + after->size - write_offset,
+		write_size = trnc(after->offset + after->size - write_offset,
 				   host_pagesize);
 	    else
-		write_size = trunc(after->written_offset - write_offset,
+		write_size = trnc(after->written_offset - write_offset,
 				   host_pagesize);
 	    if(write_size != 0){
 		after->written_offset = write_offset;
@@ -2696,8 +2730,8 @@ uint32_t size)
 	     * it (if any) starts.  A new block is created and the new area is
 	     * is placed in it.
 	     */
-	    write_offset = round(offset, host_pagesize);
-	    write_size = trunc(offset + size - write_offset, host_pagesize);
+	    write_offset = rnd(offset, host_pagesize);
+	    write_size = trnc(offset + size - write_offset, host_pagesize);
 	    block = get_block();
 	    block->offset = offset;
 	    block->size = size;
@@ -2854,12 +2888,12 @@ struct block *block)
 }
 
 /*
- * trunc() truncates the value 'v' to the power of two value 'r'.  If v is
+ * trnc() truncates the value 'v' to the power of two value 'r'.  If v is
  * less than zero it returns zero.
  */
 static
 uint32_t
-trunc(
+trnc(
 uint32_t v,
 uint32_t r)
 {
@@ -2913,7 +2947,7 @@ char *output)
 	 */
 	for(i = 0; i < narchs || (i == 0 && narchs == 0); i++){
 	    reset_execute_list();
-	    add_execute_list("ld");
+	    add_execute_list_with_prefix("ld");
 	    if(narchs != 0 && cmd_flags.arch_only_flag.name == NULL)
 		add_execute_list("-arch_multiple");
 	    if(archs != NULL){
@@ -3009,7 +3043,7 @@ char *output)
 	 */
 	if(narchs > 1){
 	    reset_execute_list();
-	    add_execute_list("lipo");
+	    add_execute_list_with_prefix("lipo");
 	    add_execute_list("-create");
 	    add_execute_list("-output");
 	    add_execute_list(cmd_flags.output);
@@ -3028,19 +3062,19 @@ char *output)
 	    }
 	}
 	/*
-	 * If we are doing prebinding then run /usr/bin/objcunique on the
+	 * If we are doing prebinding then run objcunique on the
 	 * output.
 	 */
 	if(cmd_flags.prebinding == TRUE){
 	    if(stat("/usr/bin/objcunique", &stat_buf) != -1){
 		reset_execute_list();
-		add_execute_list("/usr/bin/objcunique");
+		add_execute_list_with_prefix("objcunique");
 		add_execute_list(cmd_flags.output);
 		add_execute_list("-prebind");
 		for(j = 0; j < cmd_flags.nLdirs; j++)
 		    add_execute_list(cmd_flags.Ldirs[j]);
 		if(execute_list(cmd_flags.verbose) == 0)
-		    fatal("internal /usr/bin/objcunique command failed");
+		    fatal("internal objcunique command failed");
 	    }
 	}
 }
@@ -3241,7 +3275,7 @@ char *output)
 	 */
 	arch->toc_ranlibs = allocate(sizeof(struct ranlib) *arch->toc_nranlibs);
 	arch->tocs = allocate(sizeof(struct toc) * arch->toc_nranlibs);
-	arch->toc_strsize = round(arch->toc_strsize, 8);
+	arch->toc_strsize = rnd(arch->toc_strsize, 8);
 	arch->toc_strings = allocate(arch->toc_strsize);
 
 	/*
@@ -3333,7 +3367,7 @@ char *output)
 		    /*
 		     * This  assumes that "__.SYMDEF\0\0\0\0\0\0\0" is 16 bytes
 		     * and
-		     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+		     * (rnd(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
 		     * is 4 bytes.
 		     */
 		    ar_name = AR_EFMT1 "20";
@@ -3357,7 +3391,7 @@ char *output)
 		    arch->toc_long_name = TRUE;
 		    /*
 		     * This assumes that "__.SYMDEF SORTED" is 16 bytes and
-		     * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+		     * (rnd(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
 		     * is 4 bytes.
 		     */
 		    ar_name = AR_EFMT1 "20";
@@ -3376,7 +3410,7 @@ char *output)
 		arch->toc_long_name = TRUE;
 		/*
 		 * This  assumes that "__.SYMDEF\0\0\0\0\0\0\0" is 16 bytes and
-		 * (round(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
+		 * (rnd(sizeof(struct ar_hdr), 8) - sizeof(struct ar_hdr)
 		 * is 4 bytes.
 		 */
 		ar_name = AR_EFMT1 "20";
@@ -3408,7 +3442,7 @@ char *output)
 	/* add the size of the name is a long name is used */
 	if(arch->toc_long_name == TRUE)
 	    arch->toc_size += arch->toc_name_size +
-			      (round(sizeof(struct ar_hdr), 8) -
+			      (rnd(sizeof(struct ar_hdr), 8) -
 			       sizeof(struct ar_hdr));
 	for(i = 0; i < arch->nmembers; i++)
 	    arch->members[i].offset += SARMAG + arch->toc_size;

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -54,8 +54,32 @@ void hashOfCertificate(SecCertificateRef cert, SHA1::Digest digest);
 // Extends to end of file, or (if limit > 0) at most limit bytes.
 // Returns number of bytes digested.
 //
-size_t hashFileData(const char *path, SHA1 &hasher);
-size_t hashFileData(UnixPlusPlus::FileDesc fd, SHA1 &hasher, size_t limit = 0);
+template <class _Hash>
+size_t hashFileData(const char *path, _Hash *hasher)
+{
+	UnixPlusPlus::AutoFileDesc fd(path);
+	return hashFileData(fd, hasher);
+}
+
+template <class _Hash>
+size_t hashFileData(UnixPlusPlus::FileDesc fd, _Hash *hasher, size_t limit = 0)
+{
+	unsigned char buffer[4096];
+	size_t total = 0;
+	for (;;) {
+		size_t size = sizeof(buffer);
+		if (limit && limit < size)
+			size = limit;
+		size_t got = fd.read(buffer, size);
+		total += got;
+		if (fd.atEnd())
+			break;
+		hasher->update(buffer, got);
+		if (limit && (limit -= got) == 0)
+			break;
+	}
+	return total;
+}
 
 
 //
@@ -63,6 +87,7 @@ size_t hashFileData(UnixPlusPlus::FileDesc fd, SHA1 &hasher, size_t limit = 0);
 // even ones not recognized by the local CL. It does not return any value, only presence.
 //
 bool certificateHasField(SecCertificateRef cert, const CssmOid &oid);
+bool certificateHasPolicy(SecCertificateRef cert, const CssmOid &policyOid);
 
 
 //

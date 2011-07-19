@@ -58,9 +58,7 @@ public:
 
     enum TargetType {
         TargetIsMainFrame = 0,
-        TargetIsSubFrame = 1,   // Temporary for backward compatibility.
         TargetIsSubframe = 1,
-        TargetIsSubResource = 2,  // Temporary for backward comptibility.
         TargetIsSubresource = 2,
         TargetIsStyleSheet = 3,
         TargetIsScript = 4,
@@ -69,7 +67,9 @@ public:
         TargetIsObject = 7,
         TargetIsMedia = 8,
         TargetIsWorker = 9,
-        TargetIsSharedWorker = 10
+        TargetIsSharedWorker = 10,
+        TargetIsPrefetch = 11,
+        TargetIsFavicon = 12,
     };
 
     ~WebURLRequest() { reset(); }
@@ -129,8 +129,21 @@ public:
     WEBKIT_API bool reportUploadProgress() const;
     WEBKIT_API void setReportUploadProgress(bool);
 
+    // Controls whether load timing info is collected for the request.
+    WEBKIT_API bool reportLoadTiming() const;
+    WEBKIT_API void setReportLoadTiming(bool);
+
+    // Controls whether actual headers sent and received for request are
+    // collected and reported.
+    WEBKIT_API bool reportRawHeaders() const;
+    WEBKIT_API void setReportRawHeaders(bool);
+
     WEBKIT_API TargetType targetType() const;
     WEBKIT_API void setTargetType(TargetType);
+
+    // True if the request was user initiated.
+    WEBKIT_API bool hasUserGesture() const;
+    WEBKIT_API void setHasUserGesture(bool);
 
     // A consumer controlled value intended to be used to identify the
     // requestor.
@@ -145,6 +158,11 @@ public:
     // Allows the request to be matched up with its app cache host.
     WEBKIT_API int appCacheHostID() const;
     WEBKIT_API void setAppCacheHostID(int id);
+
+    // If true, the response body will be downloaded to a file managed by the
+    // WebURLLoader.  See WebURLResponse::downloadedFilePath.
+    WEBKIT_API bool downloadToFile() const;
+    WEBKIT_API void setDownloadToFile(bool);
 
 #if defined(WEBKIT_IMPLEMENTATION)
     WebCore::ResourceRequest& toMutableResourceRequest();

@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -145,9 +145,9 @@ static void TestTertiary( )
 
     int32_t i;
     UErrorCode status = U_ZERO_ERROR;
-    myCollation = ucol_open("fr_FR", &status);
+    myCollation = ucol_open("fr_CA", &status);
     if(U_FAILURE(status) || !myCollation){
-        log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator: %s\n", myErrorName(status));
         return;
     }
 
@@ -156,7 +156,7 @@ static void TestTertiary( )
         log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
         return;
     }
-    log_verbose("Testing French Collation with Tertiary strength\n");
+    log_verbose("Testing fr_CA Collation with Tertiary strength\n");
     ucol_setStrength(myCollation, UCOL_QUATERNARY);
     for (i = 0; i < 12 ; i++)
     {
@@ -170,9 +170,9 @@ static void TestSecondary()
     int32_t i,j, testAcuteSize;
     UCollationResult expected=UCOL_EQUAL;
     UErrorCode status = U_ZERO_ERROR;
-    myCollation = ucol_open("fr_FR", &status);
+    myCollation = ucol_open("fr_CA", &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator: %s\n", myErrorName(status));
         return;
     }
     ucol_setAttribute(myCollation, UCOL_STRENGTH, UCOL_SECONDARY, &status);
@@ -180,7 +180,7 @@ static void TestSecondary()
         log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
         return;
     }
-    log_verbose("Testing French Collation with Secondary strength\n");
+    log_verbose("Testing fr_CA Collation with Secondary strength\n");
     /*test acute and grave ordering (compare to french collation)*/
     testAcuteSize = sizeof(testAcute) / sizeof(testAcute[0]);
     for (i = 0; i < testAcuteSize; i++)
@@ -200,12 +200,12 @@ static void TestExtra()
 {
     int32_t i, j;
     UErrorCode status = U_ZERO_ERROR;
-    myCollation = ucol_open("fr_FR", &status);
+    myCollation = ucol_open("fr_CA", &status);
     if(U_FAILURE(status)){
-        log_err("ERROR: in creation of rule based collator: %s\n", myErrorName(status));
+        log_err_status(status, "ERROR: in creation of rule based collator: %s\n", myErrorName(status));
         return;
     }
-    log_verbose("Testing French Collation extra with secondary strength\n");
+    log_verbose("Testing fr_CA Collation extra with secondary strength\n");
     ucol_setStrength(myCollation, UCOL_TERTIARY);
     for (i = 0; i < 9 ; i++)
     {
@@ -314,7 +314,7 @@ static void TestGetSortKey() {
     pCollator = ucol_openFromShortString("LFR_AN_CX_EX_FO_HX_NX_S3", 0, NULL, &status);
 
     if (U_FAILURE(status)) {
-        log_err("error opening collator\n");
+        log_data_err("error opening collator -> %s. (Are you missing data?)\n", u_errorName(status));
         return;
     }
 

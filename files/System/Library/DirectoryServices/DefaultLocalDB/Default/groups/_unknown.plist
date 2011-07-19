@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000063</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>99</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_unknown</string>
+		<string>unknown</string>
+		<string>BUILTIN\Guests</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>Guests</string>
+	</array>
+	<key>smb_sid</key>
+	<array>
+		<string>S-1-5-32-546</string>
+	</array>
+</dict>
+</plist>

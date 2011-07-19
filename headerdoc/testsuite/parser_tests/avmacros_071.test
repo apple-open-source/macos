@@ -1,0 +1,1277 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$626|NS_CLASS_AVAILABLE(10_7, NA)
+@interface avmacros_071_class : NSObject
+{
+        IOBluetoothRFCOMMChannel *              _rfcommChannel;
+}
+/*!
+ @method                setSupportedFeatures:featuresBitmap
+ @abstract              Set the supported features
+ @discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+ @param                 featuresBitmap The features bitmap
+ */
+@property (assign)                              uint32_t                                        supportedFeatures NS_AVAILABLE_MAC(10_7);
+@end
+$34|/*! @class avmacros_071_class
+ */
+$0|$19327|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/avmacros_071.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/avmacros_071.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{attributeState} => 0
+$parserState->{availability} => 
+$parserState->{availabilityNodesArray} => ARRAY(OBJID)
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface avmacros_071_class : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  avmacros_071_class NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: avmacros_071_class
+posstypes: NSObject
+value: 
+returntype: avmacros_071_class NSObject
+pridec: 
+simpleTDcontents: 
+bpavail:  Available in Mac OS X v10.7. Not available in iPhone OS.
+blockOffset: 5
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---NS_CLASS_AVAILABLE
+|   +---(
+|   +---10_7
+|   +---,
+|   +--- 
+|   +---NA
+|   +---)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---avmacros_071_class
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-IOBluetoothRFCOMMChannel (HAS STATE)
+|   |   +--- 
+|   |   +---*
+|   |   +---              
+|   |   +---_rfcommChannel
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method                setSupportedFeatures:featuresBitmap
+|   |   +---
+@abstract              Set the supported features
+|   |   +---
+@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+|   |   +---
+@param                 featuresBitmap The features bitmap
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---assign
+|   |   +---)
+|   +---                              
+|   +---uint32_t
+|   +---                                        
+|   +---supportedFeatures
+|   +--- 
+|   +---NS_AVAILABLE_MAC
+|   |   +---(
+|   |   +---10_7
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: avmacros 071
+APIUID: //test_ref/doc/header/avmacros_071.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: avmacros_071_class
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/avmacros_071.test" target="_top" machineGenerated="true">avmacros 071</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: setSupportedFeatures:featuresBitmap
+        APIUID: //test_ref/doc/title:instp/avmacros_071_class/setSupportedFeatures:featuresBitmap
+        ABSTRACT: "<p>Set the supported features
+"
+        DISCUSSION: "<p>Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "uint32_t                                         supportedFeatures"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/occ/instp/avmacros_071_class/supportedFeatures">supportedFeatures</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: featuresBitmap
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/setSupportedFeatures:featuresBitmap/featuresBitmap
+            ABSTRACT: ""
+            DISCUSSION: "<p>The features bitmap"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: supportedFeatures
+        APIUID: //test_ref/occ/instp/avmacros_071_class/supportedFeatures
+        ABSTRACT: "<p>Set the supported features
+"
+        DISCUSSION: "<p>Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "uint32_t                                         supportedFeatures"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:instp/avmacros_071_class/setSupportedFeatures:featuresBitmap">setSupportedFeatures:featuresBitmap</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: featuresBitmap
+            TYPE: 
+            APIUID: //test_ref/doc/typedeffield/avmacros_071_class/supportedFeatures/featuresBitmap
+            ABSTRACT: ""
+            DISCUSSION: "<p>The features bitmap"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: avmacros_071_class (HeaderDoc::ObjCClass)
++---NS_CLASS_AVAILABLE
+|   +---(
+|   +---10_7
+|   +---,
+|   +--- 
+|   +---NA
+|   +---)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---avmacros_071_class
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-IOBluetoothRFCOMMChannel (HAS STATE)
+|   |   +--- 
+|   |   +---*
+|   |   +---              
+|   |   +---_rfcommChannel
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method                setSupportedFeatures:featuresBitmap
+|   |   +---
+@abstract              Set the supported features
+|   |   +---
+@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+|   |   +---
+@param                 featuresBitmap The features bitmap
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---assign
+|   |   +---)
+|   +---                              
+|   +---uint32_t
+|   +---                                        
+|   +---supportedFeatures
+|   +--- 
+|   +---NS_AVAILABLE_MAC
+|   |   +---(
+|   |   +---10_7
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---assign
+|   +---)
++---                              
++---uint32_t
++---                                        
++---supportedFeatures
++--- 
++---NS_AVAILABLE_MAC
+|   +---(
+|   +---10_7
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---assign
+|   +---)
++---                              
++---uint32_t
++---                                        
++---supportedFeatures
++--- 
++---NS_AVAILABLE_MAC
+|   +---(
+|   +---10_7
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: avmacros_071_class (HeaderDoc::ObjCClass)
+	 @<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/avmacros_071_class //test_ref/occ/tdef/avmacros_071_class //test_ref/occ/tag/avmacros_071_class //test_ref/occ/struct/avmacros_071_class //test_ref/occ/intf/avmacros_071_class //test_ref/doc/anysymbol/avmacros_071_class" machineGenerated="true" --><span class="type">avmacros_071_class</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> { 
+	        <!-- a logicalPath="//test_ref/occ/cl/IOBluetoothRFCOMMChannel //test_ref/occ/tdef/IOBluetoothRFCOMMChannel //test_ref/occ/tag/IOBluetoothRFCOMMChannel //test_ref/occ/struct/IOBluetoothRFCOMMChannel //test_ref/occ/intf/IOBluetoothRFCOMMChannel //test_ref/doc/anysymbol/IOBluetoothRFCOMMChannel" machineGenerated="true" --><span class="type">IOBluetoothRFCOMMChannel</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/_rfcommChannel //test_ref/occ/data/_rfcommChannel //test_ref/occ/clconst/_rfcommChannel " machineGenerated="true" --><span class="var">_rfcommChannel</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@method                setSupportedFeatures:featuresBitmap
+	@abstract              Set the supported features
+	@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+	@param                 featuresBitmap The features bitmap</span>
+	        <span class="comment">*/</span>
+	    @property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ;  @@end 
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
+	@property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ; 
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
+	@property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ; 
+END OF OBJECT
+
+
+
+$21386|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/avmacros_071.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/avmacros_071.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{attributeState} => 0
+$parserState->{availability} => 
+$parserState->{availabilityNodesArray} => ARRAY(OBJID)
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} =>  
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface avmacros_071_class : NSObject
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  avmacros_071_class NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: @interface
+namelist: avmacros_071_class
+posstypes: NSObject
+value: 
+returntype: avmacros_071_class NSObject
+pridec: 
+simpleTDcontents: 
+bpavail:  Available in Mac OS X v10.7. Not available in iPhone OS.
+blockOffset: 5
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---NS_CLASS_AVAILABLE
+|   +---(
+|   +---10_7
+|   +---,
+|   +--- 
+|   +---NA
+|   +---)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---avmacros_071_class
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-IOBluetoothRFCOMMChannel (HAS STATE)
+|   |   +--- 
+|   |   +---*
+|   |   +---              
+|   |   +---_rfcommChannel
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method                setSupportedFeatures:featuresBitmap
+|   |   +---
+@abstract              Set the supported features
+|   |   +---
+@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+|   |   +---
+@param                 featuresBitmap The features bitmap
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---assign
+|   |   +---)
+|   +---                              
+|   +---uint32_t
+|   +---                                        
+|   +---supportedFeatures
+|   +--- 
+|   +---NS_AVAILABLE_MAC
+|   |   +---(
+|   |   +---10_7
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: avmacros 071
+APIUID: //test_ref/doc/header/avmacros_071.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: avmacros_071_class
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/avmacros_071.test" target="_top" machineGenerated="true">avmacros 071</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: _rfcommChannel
+        APIUID: //test_ref/occ/data/avmacros_071_class/_rfcommChannel
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "IOBluetoothRFCOMMChannel *"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: setSupportedFeatures:featuresBitmap
+        APIUID: //test_ref/doc/title:instp/avmacros_071_class/setSupportedFeatures:featuresBitmap
+        ABSTRACT: "<p>Set the supported features
+"
+        DISCUSSION: "<p>Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "uint32_t                                         supportedFeatures"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/occ/instp/avmacros_071_class/supportedFeatures">supportedFeatures</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: featuresBitmap
+            TYPE: 
+            APIUID: //test_ref/doc/title:internal_temporary_object/setSupportedFeatures:featuresBitmap/featuresBitmap
+            ABSTRACT: ""
+            DISCUSSION: "<p>The features bitmap"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: supportedFeatures
+        APIUID: //test_ref/occ/instp/avmacros_071_class/supportedFeatures
+        ABSTRACT: "<p>Set the supported features
+"
+        DISCUSSION: "<p>Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: " Available in Mac OS X v10.7. Not available in iPhone OS."
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "uint32_t                                         supportedFeatures"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: <p><b>See Also</b></p><div class='list_indent'><dl>
+<dt><p><hd_link posstarget="//test_ref/doc/title:instp/avmacros_071_class/setSupportedFeatures:featuresBitmap">setSupportedFeatures:featuresBitmap</hd_link></p></dt><dd></dd></dl></div>
+
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: featuresBitmap
+            TYPE: 
+            APIUID: //test_ref/doc/typedeffield/avmacros_071_class/supportedFeatures/featuresBitmap
+            ABSTRACT: ""
+            DISCUSSION: "<p>The features bitmap"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: "0"
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: avmacros_071_class (HeaderDoc::ObjCClass)
++---NS_CLASS_AVAILABLE
+|   +---(
+|   +---10_7
+|   +---,
+|   +--- 
+|   +---NA
+|   +---)
++---[ NEWLINE ]
++---@
++---interface
+|   +--- 
+|   +---avmacros_071_class
+|   +--- 
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-IOBluetoothRFCOMMChannel (HAS STATE)
+|   |   +--- 
+|   |   +---*
+|   |   +---              
+|   |   +---_rfcommChannel
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method                setSupportedFeatures:featuresBitmap
+|   |   +---
+@abstract              Set the supported features
+|   |   +---
+@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+|   |   +---
+@param                 featuresBitmap The features bitmap
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---assign
+|   |   +---)
+|   +---                              
+|   +---uint32_t
+|   +---                                        
+|   +---supportedFeatures
+|   +--- 
+|   +---NS_AVAILABLE_MAC
+|   |   +---(
+|   |   +---10_7
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: _rfcommChannel (HeaderDoc::Var)
++-*-IOBluetoothRFCOMMChannel (HAS STATE)
++--- 
++---*
++---              
++---_rfcommChannel
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---assign
+|   +---)
++---                              
++---uint32_t
++---                                        
++---supportedFeatures
++--- 
++---NS_AVAILABLE_MAC
+|   +---(
+|   +---10_7
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---assign
+|   +---)
++---                              
++---uint32_t
++---                                        
++---supportedFeatures
++--- 
++---NS_AVAILABLE_MAC
+|   +---(
+|   +---10_7
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: avmacros_071_class (HeaderDoc::ObjCClass)
+	 @<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/avmacros_071_class //test_ref/occ/tdef/avmacros_071_class //test_ref/occ/tag/avmacros_071_class //test_ref/occ/struct/avmacros_071_class //test_ref/occ/intf/avmacros_071_class //test_ref/doc/anysymbol/avmacros_071_class" machineGenerated="true" --><span class="type">avmacros_071_class</span><!-- /a --> : <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> { 
+	        <!-- a logicalPath="//test_ref/occ/cl/IOBluetoothRFCOMMChannel //test_ref/occ/tdef/IOBluetoothRFCOMMChannel //test_ref/occ/tag/IOBluetoothRFCOMMChannel //test_ref/occ/struct/IOBluetoothRFCOMMChannel //test_ref/occ/intf/IOBluetoothRFCOMMChannel //test_ref/doc/anysymbol/IOBluetoothRFCOMMChannel" machineGenerated="true" --><span class="type">IOBluetoothRFCOMMChannel</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/_rfcommChannel //test_ref/occ/data/_rfcommChannel //test_ref/occ/clconst/_rfcommChannel " machineGenerated="true" --><span class="var">_rfcommChannel</span><!-- /a -->; 
+	        } <span class="comment">/*!
+	@method                setSupportedFeatures:featuresBitmap
+	@abstract              Set the supported features
+	@discussion    Sets the supported features bitmap. The values are described in “IOBluetoothHandsFreeDeviceFeatures and IOBluetoothHandsFreeAudioGatewayFeatures.”
+	@param                 featuresBitmap The features bitmap</span>
+	        <span class="comment">*/</span>
+	    @property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ;  @@end 
+END OF OBJECT
+
+
+OBJECT: _rfcommChannel (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/IOBluetoothRFCOMMChannel //test_ref/occ/tdef/IOBluetoothRFCOMMChannel //test_ref/occ/tag/IOBluetoothRFCOMMChannel //test_ref/occ/struct/IOBluetoothRFCOMMChannel //test_ref/occ/intf/IOBluetoothRFCOMMChannel //test_ref/doc/anysymbol/IOBluetoothRFCOMMChannel" machineGenerated="true" --><span class="type">IOBluetoothRFCOMMChannel</span><!-- /a --> <span class="type">*</span> <!-- a logicalPath="//test_ref/occ/econst/_rfcommChannel //test_ref/occ/data/avmacros_071_class/_rfcommChannel //test_ref/occ/data/_rfcommChannel //test_ref/occ/clconst/avmacros_071_class/_rfcommChannel " machineGenerated="true" --><span class="var">_rfcommChannel</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
+	@property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ; 
+END OF OBJECT
+
+
+OBJECT: supportedFeatures (HeaderDoc::Var)
+	@property (<span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/uint32_t //test_ref/occ/tdef/uint32_t //test_ref/occ/tag/uint32_t //test_ref/occ/struct/uint32_t //test_ref/occ/intf/uint32_t //test_ref/doc/anysymbol/uint32_t" machineGenerated="true" --><span class="type">uint32_t</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/supportedFeatures //test_ref/occ/tdef/supportedFeatures //test_ref/occ/tag/supportedFeatures //test_ref/occ/struct/supportedFeatures //test_ref/occ/intf/supportedFeatures //test_ref/doc/anysymbol/supportedFeatures" machineGenerated="true" --><span class="type">supportedFeatures</span><!-- /a --> ; 
+END OF OBJECT
+
+
+
+_$17|avmacros_071.test$1|C$12|avmacros 071$1|C$6|parser

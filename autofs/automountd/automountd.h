@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2007-2011 Apple Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,6 +26,12 @@
  * GSSD task special port at a time.
  */
 extern pthread_mutex_t gssd_port_lock;
+
+/*
+ * Routine, called while that mutex is held, to put back the old GSSD
+ * task special port value and release the mutex.
+ */
+extern void put_back_gssd_port(mach_port_t saved_gssd_port);
 
 extern int automountd_nobrowse;
 extern char *automountd_defopts;

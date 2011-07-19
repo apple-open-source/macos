@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2008, International Business Machines
+*   Copyright (C) 2000-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -74,11 +74,11 @@ static const char* javaClass1=  " extends ListResourceBundle {\n\n"
                                 "          return  contents;\n"
                                 "    }\n\n"
                                 "    private static Object[][] contents = {\n";
-static const char* javaClassICU= " extends ListResourceBundle {\n\n"
+/*static const char* javaClassICU= " extends ListResourceBundle {\n\n"
                                  "    public %s  () {\n"
                                  "          super.contents = data;\n"
                                  "    }\n"
-                                 "    static final Object[][] data = new Object[][] { \n";
+                                 "    static final Object[][] data = new Object[][] { \n";*/
 static int tabCount = 3;
 
 static FileStream* out=NULL;
@@ -259,11 +259,11 @@ str_write_java( uint16_t* src, int32_t srcLen, UBool printEndLine, UErrorCode *s
             add = columnCount-(tabCount*4)-5/* for ", +\n */;
             current = buf +len;
             if (add < (bufLen-len)) {
-                uint32_t index = strrch(current,add,'\\');
-                if (index > add) {
-                    index = add;
+                uint32_t idx = strrch(current,add,'\\');
+                if (idx > add) {
+                    idx = add;
                 } else {
-                    int32_t num =index-1;
+                    int32_t num =idx-1;
                     uint32_t seqLen;
                     while(num>0){
                         if(current[num]=='\\'){
@@ -272,12 +272,12 @@ str_write_java( uint16_t* src, int32_t srcLen, UBool printEndLine, UErrorCode *s
                             break;
                         }
                     }
-                    if ((index-num)%2==0) {
-                        index--;
+                    if ((idx-num)%2==0) {
+                        idx--;
                     }
-                    seqLen = (current[index+1]=='u') ? 6 : 2;
-                    if ((add-index) < seqLen) {
-                        add = index + seqLen;
+                    seqLen = (current[idx+1]=='u') ? 6 : 2;
+                    if ((add-idx) < seqLen) {
+                        add = idx + seqLen;
                     }
                 }
             }
@@ -306,10 +306,12 @@ str_write_java( uint16_t* src, int32_t srcLen, UBool printEndLine, UErrorCode *s
 /* Writing Functions */
 static void
 string_write_java(struct SResource *res,UErrorCode *status) {
+    char resKeyBuffer[8];
+    const char *resname = res_getKeyString(srBundle, res, resKeyBuffer);
 
     str_write_java(res->u.fString.fChars,res->u.fString.fLength,TRUE,status);
     
-	if(res->fKey > 0 && uprv_strcmp(srBundle->fKeys+res->fKey,"Rule")==0)
+	if(resname != NULL && uprv_strcmp(resname,"Rule")==0)
 	{
         UChar* buf = (UChar*) uprv_malloc(sizeof(UChar)*res->u.fString.fLength);
         uprv_memcpy(buf,res->u.fString.fChars,res->u.fString.fLength);
@@ -388,12 +390,14 @@ intvector_write_java( struct SResource *res, UErrorCode *status) {
     const char* intArr = "new int[] {\n";
     /* const char* intC   = "new Integer(";   */
     const char* stringArr = "new String[]{\n";
+    char resKeyBuffer[8];
+    const char *resname = res_getKeyString(srBundle, res, resKeyBuffer);
     char buf[100];
     int len =0;
     buf[0]=0;
     write_tabs(out);
 
-    if(res->fKey > 0 && uprv_strcmp(srBundle->fKeys+res->fKey,"DateTimeElements")==0){
+    if(resname != NULL && uprv_strcmp(resname,"DateTimeElements")==0){
         T_FileStream_write(out, stringArr, (int32_t)uprv_strlen(stringArr));
         tabCount++;
         for(i = 0; i<res->u.fIntVector.fCount; i++) {
@@ -528,6 +532,9 @@ table_write_java(struct SResource *res, UErrorCode *status) {
 
 
         while (current != NULL) {
+            char currentKeyBuffer[8];
+            const char *currentKeyString = res_getKeyString(srBundle, current, currentKeyBuffer);
+
             assert(i < res->u.fTable.fCount);
             write_tabs(out);
 
@@ -538,10 +545,10 @@ table_write_java(struct SResource *res, UErrorCode *status) {
             allStrings=FALSE;
 
             write_tabs(out);
-            if(current->fKey > 0){
+            if(currentKeyString != NULL) {
                 T_FileStream_write(out, "\"", 1);
-                T_FileStream_write(out, srBundle->fKeys+current->fKey,
-                                   (int32_t)uprv_strlen(srBundle->fKeys+current->fKey));
+                T_FileStream_write(out, currentKeyString,
+                                   (int32_t)uprv_strlen(currentKeyString));
                 T_FileStream_write(out, "\",\n", 2);
 
                 T_FileStream_write(out, "\n", 1);
@@ -586,7 +593,7 @@ res_write_java(struct SResource *res,UErrorCode *status) {
              string_write_java    (res, status);
              return;
         case URES_ALIAS:
-             printf("Encountered unsupported resource type of alias\n", res->fType);
+             printf("Encountered unsupported resource type %d of alias\n", res->fType);
              *status = U_UNSUPPORTED_ERROR;
 			 return;
         case URES_INT_VECTOR:
@@ -602,7 +609,6 @@ res_write_java(struct SResource *res,UErrorCode *status) {
              array_write_java     (res, status);
              return;
         case URES_TABLE:
-        case URES_TABLE32:
              table_write_java     (res, status);
              return;
         default:
@@ -621,8 +627,8 @@ bundle_write_java(struct SRBRoot *bundle, const char *outputDir,const char* outp
 
     char fileName[256] = {'\0'};
     char className[256]={'\0'};
-    char constructor[1000] = { 0 };
-    UBool j1 =FALSE;
+    /*char constructor[1000] = { 0 };*/
+    /*UBool j1 =FALSE;*/
     outDir = outputDir;
 
     start = TRUE;                        /* Reset the start indictor*/

@@ -1,0 +1,9 @@
+Identifier: @PACKAGE_NAME@
+Title:  Tk Standard Library
+Description: This package is intended to be a collection of
+    Tcl packages that provide utility functions useful to a
+    large collection of Tk programmers.
+Rights: BSD
+Version: @PACKAGE_VERSION@
+URL: http://tcllib.sourceforge.net/
+Architecture: tcl

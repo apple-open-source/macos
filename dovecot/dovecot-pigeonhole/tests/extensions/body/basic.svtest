@@ -1,0 +1,97 @@
+require "vnd.dovecot.testsuite";
+require "relational";
+require "comparator-i;ascii-numeric";
+
+require "body";
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Subject: Test message.
+
+Test!
+
+.
+;
+
+/* Empty line
+ * 
+ *  RFC 5173: 
+ *    'The body test matches content in the body of an email message, that
+ *     is, anything following the first empty line after the header.  (The
+ *     empty line itself, if present, is not considered to be part of the
+ *     body.)'
+ */
+test "The empty line" {
+
+	if not body :raw :is text:
+Test!
+
+.
+	{
+		test_fail "invalid message body extracted (1)";
+	}
+
+	if body :raw :is text:
+
+Test!
+
+.
+	{
+		test_fail "invalid message body extracted (2)";
+	}
+
+	if body :raw :is "Test"
+	{
+		test_fail "body test matches nonsense (3)";
+	}
+}
+
+/* Default comparator and match type
+ *
+ *  RFC 5173:
+ *    'The COMPARATOR and MATCH-TYPE keyword parameters are defined in
+ *     [SIEVE].  As specified in Sections 2.7.1 and 2.7.3 of [SIEVE], the
+ *     default COMPARATOR is "i;ascii-casemap" and the default MATCH-TYPE is
+ *     ":is".'
+ */
+
+test "Defaults" {
+	if anyof ( body :raw "Test", body :raw "*Test*" ) {
+		test_fail "default match type is not :is as is required";
+	}
+
+	if allof( not body :raw :contains "tesT", body :raw :contains "Test" ) {
+		test_fail "default comparator is not i;ascii-casemap as is required";
+	}
+}
+
+/* No body
+ *
+ *  RFC 5173:
+ *    'If a message consists of a header only, not followed by an empty line, 
+ *     then that set is empty and all "body" tests return false, including 
+ *     those that test for an empty string.  (This is similar to how the 
+ *     "header" test always fails when the named header fields aren't present.)'
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: tss@example.net
+Subject: No body is here!
+.
+;
+
+test "No body" {
+	if body :raw :contains "" {
+		test_fail "matched against non-existent body (:contains \"\")";
+	}
+
+	if body :raw :is "" {
+		test_fail "matched against non-existent body (:is \"\")";
+	}
+
+	if body :raw :matches "*" {
+		test_fail "matched against non-existent body (:matches \"*\")";
+	}
+}

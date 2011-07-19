@@ -25,7 +25,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: convert.c,v 1.9 2000/11/18 22:42:31 aku Exp $
+ * CVS: $Id: convert.c,v 1.10 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -125,7 +125,7 @@ ClientData clientData;
 {
   Trf_ConverterOptionBlock* o;
 
-  o = (Trf_ConverterOptionBlock*) Tcl_Alloc (sizeof (Trf_ConverterOptionBlock));
+  o = (Trf_ConverterOptionBlock*) ckalloc (sizeof (Trf_ConverterOptionBlock));
   o->mode = TRF_UNKNOWN_MODE;
 
   return (Trf_Options) o;
@@ -156,7 +156,7 @@ Trf_Options options;
 ClientData  clientData;
 {
   Trf_ConverterOptionBlock* o = (Trf_ConverterOptionBlock*) options;
-  Tcl_Free ((VOID*) o);
+  ckfree ((VOID*) o);
 }
 
 /*

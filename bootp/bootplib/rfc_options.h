@@ -1,7 +1,7 @@
 #ifndef _S_RFC_OPTIONS_H
 #define _S_RFC_OPTIONS_H
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

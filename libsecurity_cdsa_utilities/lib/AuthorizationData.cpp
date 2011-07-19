@@ -258,11 +258,14 @@ AuthItemRef::AuthItemRef(AuthorizationString name, AuthorizationValue value, Aut
 // AuthItemSet
 //
 AuthItemSet::AuthItemSet()
+: firstItemName(NULL)
 {
 }
 
 AuthItemSet::~AuthItemSet()
 {
+	if (NULL != firstItemName)
+		free(firstItemName);
 }
 
 AuthItemSet &
@@ -276,15 +279,46 @@ AuthItemSet::operator = (const AuthorizationItemSet& itemSet)
     return *this;
 }
 
-AuthItemSet::AuthItemSet(const AuthorizationItemSet *itemSet)
+AuthItemSet&
+AuthItemSet::operator=(const AuthItemSet& itemSet)
 {
-	if (itemSet)
+	std::set<AuthItemRef>::operator=(itemSet);	
+	
+	if (this != &itemSet) {
+		duplicate(itemSet);
+	}
+	
+	return *this;
+}
+
+AuthItemSet::AuthItemSet(const AuthorizationItemSet *itemSet)
+: firstItemName(NULL)
+{
+	if (NULL != itemSet && NULL != itemSet->items)
 	{
+		if (0 < itemSet->count && NULL != itemSet->items[0].name)
+			firstItemName = strdup(itemSet->items[0].name);
+
 		for (unsigned int i=0; i < itemSet->count; i++)
 			insert(AuthItemRef(itemSet->items[i]));
 	}
 }
 
+AuthItemSet::AuthItemSet(const AuthItemSet& itemSet)
+: std::set<AuthItemRef>(itemSet)
+{
+	duplicate(itemSet);
+}
+
+void
+AuthItemSet::duplicate(const AuthItemSet& itemSet)
+{
+	if (itemSet.firstItemName != NULL)
+		firstItemName = strdup(itemSet.firstItemName);
+	else
+		firstItemName = NULL;	
+}
+	
 void
 AuthItemSet::copy(AuthorizationItemSet *&data, size_t &length, Allocator &alloc) const
 {

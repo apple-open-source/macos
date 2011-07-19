@@ -1,5 +1,6 @@
 /*
- * Copyright (C) 2003, 2006, 2009 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2006, 2009, 2011 Apple Inc.  All rights reserved.
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +27,10 @@
 #ifndef LocalizedStrings_h
 #define LocalizedStrings_h
 
+#include <wtf/Forward.h>
+
 namespace WebCore {
 
-    class String;
     class IntSize;
     
     String inputElementAltText();
@@ -37,7 +39,12 @@ namespace WebCore {
     String submitButtonDefaultLabel();
     String fileButtonChooseFileLabel();
     String fileButtonNoFileSelectedLabel();
+    String defaultDetailsSummaryText();
+
+#if PLATFORM(MAC)
     String copyImageUnknownFileLabel();
+#endif
+
 #if ENABLE(CONTEXT_MENUS)
     String contextMenuItemTagOpenLinkInNewWindow();
     String contextMenuItemTagDownloadLinkToDisk();
@@ -45,6 +52,9 @@ namespace WebCore {
     String contextMenuItemTagOpenImageInNewWindow();
     String contextMenuItemTagDownloadImageToDisk();
     String contextMenuItemTagCopyImageToClipboard();
+#if PLATFORM(QT) || PLATFORM(GTK)
+    String contextMenuItemTagCopyImageUrlToClipboard();
+#endif
     String contextMenuItemTagOpenFrameInNewWindow();
     String contextMenuItemTagCopy();
     String contextMenuItemTagGoBack();
@@ -55,15 +65,17 @@ namespace WebCore {
     String contextMenuItemTagPaste();
 #if PLATFORM(GTK)
     String contextMenuItemTagDelete();
-    String contextMenuItemTagSelectAll();
     String contextMenuItemTagInputMethods();
     String contextMenuItemTagUnicode();
+#endif
+#if PLATFORM(GTK) || PLATFORM(QT)
+    String contextMenuItemTagSelectAll();
 #endif
     String contextMenuItemTagNoGuessesFound();
     String contextMenuItemTagIgnoreSpelling();
     String contextMenuItemTagLearnSpelling();
     String contextMenuItemTagSearchWeb();
-    String contextMenuItemTagLookUpInDictionary();
+    String contextMenuItemTagLookUpInDictionary(const String& selectedString);
     String contextMenuItemTagOpenLink();
     String contextMenuItemTagIgnoreGrammar();
     String contextMenuItemTagSpellingMenu();
@@ -103,6 +115,16 @@ namespace WebCore {
     String contextMenuItemTagCapitalize();
     String contextMenuItemTagChangeBack(const String& replacedString);
 #endif
+    String contextMenuItemTagOpenVideoInNewWindow();
+    String contextMenuItemTagOpenAudioInNewWindow();
+    String contextMenuItemTagCopyVideoLinkToClipboard();
+    String contextMenuItemTagCopyAudioLinkToClipboard();
+    String contextMenuItemTagToggleMediaControls();
+    String contextMenuItemTagToggleMediaLoop();
+    String contextMenuItemTagEnterVideoFullscreen();
+    String contextMenuItemTagMediaPlay();
+    String contextMenuItemTagMediaPause();
+    String contextMenuItemTagMediaMute();
     String contextMenuItemTagInspectElement();
 #endif // ENABLE(CONTEXT_MENUS)
 
@@ -117,7 +139,10 @@ namespace WebCore {
     String AXHeadingText();
     String AXDefinitionListTermText();
     String AXDefinitionListDefinitionText();
+
+#if PLATFORM(MAC)
     String AXARIAContentGroupText(const String& ariaType);
+#endif
     
     String AXButtonActionVerb();
     String AXRadioButtonActionVerb();
@@ -138,6 +163,13 @@ namespace WebCore {
     String allFilesText();
 #endif
 
+#if PLATFORM(MAC)
+    String keygenMenuItem512();
+    String keygenMenuItem1024();
+    String keygenMenuItem2048();
+    String keygenKeychainItemName(const String& host);
+#endif
+
     String imageTitle(const String& filename, const IntSize& size);
 
     String mediaElementLoadingStateText();
@@ -147,13 +179,27 @@ namespace WebCore {
     String localizedMediaTimeDescription(float);
 
     String validationMessageValueMissingText();
+    String validationMessageValueMissingForCheckboxText();
+    String validationMessageValueMissingForFileText();
+    String validationMessageValueMissingForMultipleFileText();
+    String validationMessageValueMissingForRadioText();
+    String validationMessageValueMissingForSelectText();
     String validationMessageTypeMismatchText();
+    String validationMessageTypeMismatchForEmailText();
+    String validationMessageTypeMismatchForMultipleEmailText();
+    String validationMessageTypeMismatchForURLText();
     String validationMessagePatternMismatchText();
-    String validationMessageTooLongText();
-    String validationMessageRangeUnderflowText();
-    String validationMessageRangeOverflowText();
-    String validationMessageStepMismatchText();
+    String validationMessageTooLongText(int valueLength, int maxLength);
+    String validationMessageRangeUnderflowText(const String& minimum);
+    String validationMessageRangeOverflowText(const String& maximum);
+    String validationMessageStepMismatchText(const String& base, const String& step);
 
-}
 
-#endif
+#define WEB_UI_STRING(string, description) WebCore::localizedString(string)
+#define WEB_UI_STRING_KEY(string, key, description) WebCore::localizedString(key)
+
+    String localizedString(const char* key);
+
+} // namespace WebCore
+
+#endif // LocalizedStrings_h

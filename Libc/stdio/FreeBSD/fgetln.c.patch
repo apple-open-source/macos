@@ -1,0 +1,29 @@
+--- fgetln.c.orig	2010-07-09 13:54:22.000000000 -0700
++++ fgetln.c	2010-07-10 12:23:58.000000000 -0700
+@@ -37,6 +37,7 @@ static char sccsid[] = "@(#)fgetln.c	8.2
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fgetln.c,v 1.11 2007/01/09 00:28:06 imp Exp $");
+ 
+ #include "namespace.h"
++#include <errno.h>
+ #include <stdio.h>
+ #include <stdlib.h>
+ #include <string.h>
+@@ -61,6 +62,10 @@ __slbexpand(FILE *fp, size_t newsize)
+ #endif
+ 	if (fp->_lb._size >= newsize)
+ 		return (0);
++	if (newsize > INT_MAX) {
++		errno = ENOMEM;
++		return (-1);
++	}
+ 	if ((p = realloc(fp->_lb._base, newsize)) == NULL)
+ 		return (-1);
+ 	fp->_lb._base = p;
+@@ -159,6 +164,7 @@ fgetln(FILE *fp, size_t *lenp)
+ 
+ error:
+ 	*lenp = 0;		/* ??? */
++	fp->_flags |= __SERR;
+ 	FUNLOCKFILE(fp);
+ 	return (NULL);		/* ??? */
+ }

@@ -1,12 +1,8 @@
 ChangeLog
-inc/Module/AutoInstall.pm
 inc/Module/Install.pm
-inc/Module/Install/AutoInstall.pm
 inc/Module/Install/Base.pm
-inc/Module/Install/Build.pm
 inc/Module/Install/Can.pm
 inc/Module/Install/Fetch.pm
-inc/Module/Install/Include.pm
 inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
@@ -38,6 +34,7 @@ t/33_next_method_used_with_NEXT.t
 t/34_next_method_in_eval.t
 t/35_next_method_in_anon.t
 t/36_next_goto.t
+t/37_mro_warn.t
 t/lib/A.pm
 t/lib/B.pm
 t/lib/C.pm

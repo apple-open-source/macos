@@ -5,6 +5,7 @@ eg/anonymiser.pl
 eg/ayb.pl
 eg/bork.pl
 eg/dragon.pl
+eg/flv.pl
 eg/fudd.pl
 eg/https.pl
 eg/javascript.pl
@@ -38,6 +39,7 @@ lib/HTTP/Proxy/Engine.pm
 lib/HTTP/Proxy/Engine/Legacy.pm
 lib/HTTP/Proxy/Engine/NoFork.pm
 lib/HTTP/Proxy/Engine/ScoreBoard.pm
+lib/HTTP/Proxy/FilterStack.pm
 lib/HTTP/Proxy/HeaderFilter.pm
 lib/HTTP/Proxy/HeaderFilter/simple.pm
 lib/HTTP/Proxy/HeaderFilter/standard.pm
@@ -64,6 +66,7 @@ t/23connect.t
 t/23https.t
 t/40push_filters.t
 t/41filters.t
+t/42will_modify.t
 t/50hopbyhop.t
 t/50standard.t
 t/50via.t
@@ -75,6 +78,8 @@ t/64htmltext.t
 t/64lines.t
 t/64tags.t
 t/66htmlparser.t
+t/67complete.t
+t/67save.t
 t/71rot13.t
 t/90diveintomark.t
 t/README

@@ -1,13 +1,14 @@
-INSTALL - CUPS v1.4.7 - 2011-01-06
-----------------------------------
+INSTALL - CUPS v1.5rc1 - 2011-06-14
+-----------------------------------
 
 This file describes how to compile and install CUPS from source code. For more
 information on CUPS see the file called "README.txt".  A complete change log can
 be found in "CHANGES.txt".
 
-**** IF YOU HAVE A NON-POSTSCRIPT PRINTER AND ARE NOT RUNNING MAC OS X,     ****
-**** YOU WILL ALSO NEED TO INSTALL GPL GHOSTSCRIPT WITH THE "cups" DRIVER   ****
-**** AFTER YOU INSTALL CUPS.                                                ****
+**** IF YOU HAVE A NON-POSTSCRIPT PRINTER AND ARE NOT       ****
+**** RUNNING MAC OS X, YOU WILL ALSO NEED TO INSTALL GPL    ****
+**** GHOSTSCRIPT WITH THE "cups" DRIVER AFTER YOU INSTALL   ****
+**** CUPS.                                                  ****
 
 
 BEFORE YOU BEGIN
@@ -165,7 +166,6 @@ CREATING BINARY DISTRIBUTIONS WITH EPM
 	deb       - Builds a Debian package
 	depot     - Builds a HP-UX package (also swinstall)
 	inst      - Builds an IRIX package (also tardist)
-	osx       - Builds a MacOS X package
 	pkg       - Builds a Solaris package
 	rpm       - Builds a RPM package
 	setld     - Build a Tru64 UNIX package

@@ -26,7 +26,7 @@
 
 module html {
     interface [
-        Conditional=3D_CANVAS,
+        Conditional=WEBGL,
         OmitConstructor
     ] WebGLContextAttributes {
         attribute boolean alpha;
@@ -34,5 +34,6 @@ module html {
         attribute boolean stencil;
         attribute boolean antialias;
         attribute boolean premultipliedAlpha;
+        attribute boolean preserveDrawingBuffer;
     };
 }

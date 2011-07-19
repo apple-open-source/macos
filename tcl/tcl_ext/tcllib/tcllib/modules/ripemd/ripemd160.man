@@ -2,6 +2,7 @@
 [moddesc   {RIPEMD Message-Digest Algorithm}]
 [copyright {2004, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {RIPEMD-160 Message-Digest Algorithm}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require ripemd160 [opt 1.0.3]]
 [description]

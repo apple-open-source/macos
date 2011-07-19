@@ -9,7 +9,7 @@ wireless_p: wireless.c
 	$(CC) -arch armv6 -isysroot $(SYSROOT) -I../EAP8021X.fproj -DTEST_WIRELESS -g -o wireless_p wireless.c $(PF_INC) -framework CoreFoundation -framework EAP8021X -lio80211
 
 Dialogue: Dialogue.c
-	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration
+	cc -Wall -DTEST_DIALOGUE -g -o Dialogue Dialogue.c mylog.c -I../EAP8021X.fproj ../EAP8021X.fproj/myCFUtil.c -framework CoreFoundation -framework SystemConfiguration -framework EAP8021X -F/System/Library/PrivateFrameworks -framework Security
 
 InterestNotification: InterestNotification.c
 	cc -DTEST_INTERESTNOTIFICATION -Wall -g -o InterestNotification InterestNotification.c -framework CoreFoundation -framework IOKit

@@ -27,7 +27,6 @@
 #include "WebKitDLL.h"
 #include "WebURLAuthenticationChallenge.h"
 
-#include "COMPtr.h"
 #include "WebError.h"
 #include "WebKit.h"
 #include "WebURLAuthenticationChallengeSender.h"
@@ -35,11 +34,9 @@
 #include "WebURLProtectionSpace.h"
 #include "WebURLResponse.h"
 #include "WebKit.h"
-
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/ResourceHandle.h>
-#pragma warning(pop)
 
 using namespace WebCore;
 

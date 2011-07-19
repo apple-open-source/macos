@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: pluginmgr.tcl,v 1.7 2007/09/20 04:17:14 andreas_kupries Exp $
+# RCS: @(#) $Id: pluginmgr.tcl,v 1.8 2009/03/31 02:14:40 andreas_kupries Exp $
 
 # ### ### ### ######### ######### #########
 ## Description
@@ -42,6 +42,9 @@ snit::type ::pluginmgr {
     #   Key: cmds for plugin, value is cmds to invoke for them.
     # - Interpreter to use for the -cmds (invoked commands). Default
     #   is current interp.
+    # - Callback for additional setup actions on the plugin
+    #   interpreter after its creation, but before plugin is loaded into
+    #   it. Empty list default.
 
     option -pattern {}
     option -api     {}
@@ -80,7 +83,7 @@ snit::type ::pluginmgr {
 	$self SetupIp
 	if {![$self LoadPlugin $name]} {
 	    set sip $save
-	    return -code error "Unable to locate plugin \"$name\""
+	    return -code error "Unable to locate or load plugin \"$name\" ($myloaderror)"
 	}
 
 	if {![$self CheckAPI missing]} {
@@ -182,6 +185,7 @@ snit::type ::pluginmgr {
     variable paths  {} ; # List of paths to provide the sip with.
     variable sip    {} ; # Safe interp used for plugin execution.
     variable plugin {} ; # Name of currently loaded plugin.
+    variable myloaderror {} ; # Last error reported by the Safe base
 
     # ### ### ### ######### ######### #########
     ## Internal - Object construction and descruction.
@@ -263,11 +267,15 @@ snit::type ::pluginmgr {
 
 	set pluginpackage [string map \
 		[list * $name] $options(-pattern)]
+
+	::safe::setLogCmd [mymethod PluginError]
 	if {[catch {
 	    $sip eval [list package require $pluginpackage]
 	} res]} {
+	    ::safe::setLogCmd {}
 	    return 0
 	}
+	::safe::setLogCmd {}
 	return 1
     }
 
@@ -300,6 +308,12 @@ snit::type ::pluginmgr {
 	    eval [linsert $ecmd 0 interp alias $sip $pcmd $cip]
 	    #interp alias $sip $pcmd $cip {*}$ecmd
 	}
+	return
+    }
+
+    method PluginError {message} {
+	if {[string match {*script error*} $message]} return
+	set myloaderror $message
 	return
     }
 
@@ -404,4 +418,4 @@ snit::type ::pluginmgr {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide pluginmgr 0.2
+package provide pluginmgr 0.3

@@ -38,7 +38,7 @@
 
 namespace WebKit {
 
-WebCString WebFontInfo::familyForChars(const WebUChar* characters, size_t numCharacters)
+WebCString WebFontInfo::familyForChars(const WebUChar* characters, size_t numCharacters, const char* preferredLocale)
 {
     FcCharSet* cset = FcCharSetCreate();
     for (size_t i = 0; i < numCharacters; ++i) {
@@ -61,6 +61,13 @@ WebCString WebFontInfo::familyForChars(const WebUChar* characters, size_t numCha
     fcvalue.type = FcTypeBool;
     fcvalue.u.b = FcTrue;
     FcPatternAdd(pattern, FC_SCALABLE, fcvalue, FcFalse);
+
+    if (preferredLocale) {
+        FcLangSet* langset = FcLangSetCreate();
+        FcLangSetAdd(langset, reinterpret_cast<const FcChar8 *>(preferredLocale));
+        FcPatternAddLangSet(pattern, FC_LANG, langset);
+        FcLangSetDestroy(langset);
+    }
 
     FcConfigSubstitute(0, pattern, FcMatchPattern);
     FcDefaultSubstitute(pattern);
@@ -147,10 +154,8 @@ void WebFontInfo::renderStyleForStrike(const char* family, int sizeAndStyle, Web
 
     out->setDefaults();
 
-    if (!match) {
-        FcPatternDestroy(match);
+    if (!match)
         return;
-    }
 
     FcBool b;
     int i;
@@ -165,6 +170,23 @@ void WebFontInfo::renderStyleForStrike(const char* family, int sizeAndStyle, Web
         out->useHinting = b;
     if (FcPatternGetInteger(match, FC_HINT_STYLE, 0, &i) == FcResultMatch)
         out->hintStyle = i;
+    if (FcPatternGetInteger(match, FC_RGBA, 0, &i) == FcResultMatch) {
+        switch (i) {
+        case FC_RGBA_NONE:
+            out->useSubpixel = 0;
+            break;
+        case FC_RGBA_RGB:
+        case FC_RGBA_BGR:
+        case FC_RGBA_VRGB:
+        case FC_RGBA_VBGR:
+            out->useSubpixel = 1;
+            break;
+        default:
+            // This includes FC_RGBA_UNKNOWN.
+            out->useSubpixel = 2;
+            break;
+        }
+    }
 
     FcPatternDestroy(match);
 }

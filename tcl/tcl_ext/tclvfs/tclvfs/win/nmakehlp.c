@@ -11,14 +11,19 @@
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
  * ----------------------------------------------------------------------------
- * RCS: @(#) $Id: nmakehlp.c,v 1.1 2008/04/30 15:18:56 patthoyts Exp $
+ * RCS: @(#) $Id: nmakehlp.c,v 1.2 2009/01/22 14:36:58 patthoyts Exp $
  * ----------------------------------------------------------------------------
  */
 
 #define _CRT_SECURE_NO_DEPRECATE
 #include <windows.h>
+#define NO_SHLWAPI_GDI
+#define NO_SHLWAPI_STREAM
+#define NO_SHLWAPI_REG
+#include <shlwapi.h>
 #pragma comment (lib, "user32.lib")
 #pragma comment (lib, "kernel32.lib")
+#pragma comment (lib, "shlwapi.lib")
 #include <stdio.h>
 #include <math.h>
 
@@ -45,6 +50,7 @@ int		CheckForLinkerFeature(const char *option);
 int		IsIn(const char *string, const char *substring);
 int		GrepForDefine(const char *file, const char *string);
 int		SubstituteFile(const char *substs, const char *filename);
+int		QualifyPath(const char *path);
 const char *    GetVersionFromFile(const char *filename, const char *match);
 DWORD WINAPI	ReadFromPipe(LPVOID args);
 
@@ -165,10 +171,21 @@ main(
 	    }
 	    printf("%s\n", GetVersionFromFile(argv[2], argv[3]));
 	    return 0;
+	case 'Q':
+	    if (argc != 3) {
+		chars = snprintf(msg, sizeof(msg) - 1,
+		    "usage: %s -q path\n"
+		    "Emit the fully qualified path\n"
+		    "exitcodes: 0 == no, 1 == yes, 2 == error\n", argv[0]);
+		WriteFile(GetStdHandle(STD_ERROR_HANDLE), msg, chars,
+		    &dwWritten, NULL);
+		return 2;
+	    }
+	    return QualifyPath(argv[2]);
 	}
     }
     chars = snprintf(msg, sizeof(msg) - 1,
-	    "usage: %s -c|-l|-f|-g|-V ...\n"
+	    "usage: %s -c|-l|-f|-g|-V|-s|-Q ...\n"
 	    "This is a little helper app to equalize shell differences between WinNT and\n"
 	    "Win9x and get nmake.exe to accomplish its job.\n",
 	    argv[0]);
@@ -712,6 +729,30 @@ SubstituteFile(
 	list_free(&substPtr);
     }
     fclose(fp);
+    return 0;
+}
+
+/*
+ * QualifyPath --
+ *
+ *	This composes the current working directory with a provided path
+ *	and returns the fully qualified and normalized path.
+ *	Mostly needed to setup paths for testing.
+ */
+
+int
+QualifyPath(
+    const char *szPath)
+{
+    char szCwd[MAX_PATH + 1];
+    char szTmp[MAX_PATH + 1];
+    char *p;
+    GetCurrentDirectory(MAX_PATH, szCwd);
+    while ((p = strchr(szPath, '/')) && *p)
+	*p = '\\';
+    PathCombine(szTmp, szCwd, szPath);
+    PathCanonicalize(szCwd, szTmp);
+    printf("%s\n", szCwd);
     return 0;
 }
 

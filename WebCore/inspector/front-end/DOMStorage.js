@@ -39,11 +39,6 @@ WebInspector.DOMStorage.prototype = {
         return this._id;
     },
 
-    get domStorage()
-    {
-        return this._domStorage;
-    },
-
     get domain()
     {
         return this._domain;
@@ -56,23 +51,39 @@ WebInspector.DOMStorage.prototype = {
 
     getEntries: function(callback)
     {
-        var callId = WebInspector.Callback.wrap(callback);
-        InspectorBackend.getDOMStorageEntries(callId, this._id);
+        DOMStorageAgent.getDOMStorageEntries(this._id, callback);
     },
     
     setItem: function(key, value, callback)
     {
-        var callId = WebInspector.Callback.wrap(callback);
-        InspectorBackend.setDOMStorageItem(callId, this._id, key, value);
+        DOMStorageAgent.setDOMStorageItem(this._id, key, value, callback);
     },
     
     removeItem: function(key, callback)
     {
-        var callId = WebInspector.Callback.wrap(callback);
-        InspectorBackend.removeDOMStorageItem(callId, this._id, key);
+        DOMStorageAgent.removeDOMStorageItem(this._id, key, callback);
     }
 }
 
-WebInspector.didGetDOMStorageEntries = WebInspector.Callback.processCallback;
-WebInspector.didSetDOMStorageItem = WebInspector.Callback.processCallback;
-WebInspector.didRemoveDOMStorageItem = WebInspector.Callback.processCallback;
+
+WebInspector.DOMStorageDispatcher = function()
+{
+}
+
+WebInspector.DOMStorageDispatcher.prototype = {
+    addDOMStorage: function(payload)
+    {
+        var domStorage = new WebInspector.DOMStorage(
+            payload.id,
+            payload.host,
+            payload.isLocalStorage);
+        WebInspector.panels.resources.addDOMStorage(domStorage);
+    },
+
+    updateDOMStorage: function(storageId)
+    {
+        WebInspector.panels.resources.updateDOMStorage(storageId);
+    }
+}
+
+InspectorBackend.registerDomainDispatcher("DOMStorage", new WebInspector.DOMStorageDispatcher());

@@ -1,29 +1,35 @@
 
 from PyObjCTools.TestSupport import *
-from Quartz.CoreGraphics import *
+from Quartz import *
+import Quartz
 from Foundation import NSMutableData
 
 class TestCGPDFContext (TestCase):
+    @min_os_level('10.5')
+    def testFunctions10_5(self):
+        # Note actual test is in the function below this one.
+        CGPDFContextClose
+
     def testFunctions(self):
         data = NSMutableData.data()
-        self.failUnlessIsInstance(data, CFMutableDataRef)
+        self.assertIsInstance(data, CFMutableDataRef)
 
         consumer = CGDataConsumerCreateWithCFData(data)
-        self.failUnlessIsInstance(consumer, CGDataConsumerRef)
+        self.assertIsInstance(consumer, CGDataConsumerRef)
 
-        self.failUnlessArgIsIn(CGPDFContextCreate, 1)
-        self.failUnlessResultIsCFRetained(CGPDFContextCreate)
+        self.assertArgIsIn(CGPDFContextCreate, 1)
+        self.assertResultIsCFRetained(CGPDFContextCreate)
         context = CGPDFContextCreate(consumer, None, None)
-        self.failUnlessIsInstance(context, CGContextRef)
+        self.assertIsInstance(context, CGContextRef)
 
-        CGPDFContextClose(context)
+        if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
 
-        self.failUnlessResultIsCFRetained(CGPDFContextCreateWithURL)
+        self.assertResultIsCFRetained(CGPDFContextCreateWithURL)
         url = CFURLCreateWithFileSystemPath(None,
             "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
-        self.failUnlessArgIsIn(CGPDFContextCreateWithURL, 1)
+        self.assertArgIsIn(CGPDFContextCreateWithURL, 1)
         context = CGPDFContextCreateWithURL(url, None, None)
-        self.failUnlessIsInstance(context, CGContextRef)
+        self.assertIsInstance(context, CGContextRef)
 
         CGPDFContextBeginPage(context, None)
 
@@ -34,32 +40,35 @@ class TestCGPDFContext (TestCase):
 
         CGPDFContextEndPage(context)
 
-        CGPDFContextClose(context)
+        if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
+
+    @min_os_level('10.5')
+    def testConstants10_5(self):
+        self.assertIsInstance(kCGPDFContextSubject, unicode)
 
     def testConstants(self):
-        self.failUnlessIsInstance(kCGPDFContextMediaBox, unicode)
-        self.failUnlessIsInstance(kCGPDFContextCropBox, unicode)
-        self.failUnlessIsInstance(kCGPDFContextBleedBox, unicode)
-        self.failUnlessIsInstance(kCGPDFContextTrimBox, unicode)
-        self.failUnlessIsInstance(kCGPDFContextArtBox, unicode)
-        self.failUnlessIsInstance(kCGPDFContextTitle, unicode)
-        self.failUnlessIsInstance(kCGPDFContextAuthor, unicode)
-        self.failUnlessIsInstance(kCGPDFContextSubject, unicode)
-        self.failUnlessIsInstance(kCGPDFContextKeywords, unicode)
-        self.failUnlessIsInstance(kCGPDFContextCreator, unicode)
-        self.failUnlessIsInstance(kCGPDFContextOwnerPassword, unicode)
-        self.failUnlessIsInstance(kCGPDFContextUserPassword, unicode)
-        self.failUnlessIsInstance(kCGPDFContextEncryptionKeyLength, unicode)
-        self.failUnlessIsInstance(kCGPDFContextAllowsPrinting, unicode)
-        self.failUnlessIsInstance(kCGPDFContextAllowsCopying, unicode)
-        self.failUnlessIsInstance(kCGPDFContextOutputIntent, unicode)
-        self.failUnlessIsInstance(kCGPDFXOutputIntentSubtype, unicode)
-        self.failUnlessIsInstance(kCGPDFXOutputConditionIdentifier, unicode)
-        self.failUnlessIsInstance(kCGPDFXOutputCondition, unicode)
-        self.failUnlessIsInstance(kCGPDFXRegistryName, unicode)
-        self.failUnlessIsInstance(kCGPDFXInfo, unicode)
-        self.failUnlessIsInstance(kCGPDFXDestinationOutputProfile, unicode)
-        self.failUnlessIsInstance(kCGPDFContextOutputIntents, unicode)
+        self.assertIsInstance(kCGPDFContextMediaBox, unicode)
+        self.assertIsInstance(kCGPDFContextCropBox, unicode)
+        self.assertIsInstance(kCGPDFContextBleedBox, unicode)
+        self.assertIsInstance(kCGPDFContextTrimBox, unicode)
+        self.assertIsInstance(kCGPDFContextArtBox, unicode)
+        self.assertIsInstance(kCGPDFContextTitle, unicode)
+        self.assertIsInstance(kCGPDFContextAuthor, unicode)
+        self.assertIsInstance(kCGPDFContextKeywords, unicode)
+        self.assertIsInstance(kCGPDFContextCreator, unicode)
+        self.assertIsInstance(kCGPDFContextOwnerPassword, unicode)
+        self.assertIsInstance(kCGPDFContextUserPassword, unicode)
+        self.assertIsInstance(kCGPDFContextEncryptionKeyLength, unicode)
+        self.assertIsInstance(kCGPDFContextAllowsPrinting, unicode)
+        self.assertIsInstance(kCGPDFContextAllowsCopying, unicode)
+        self.assertIsInstance(kCGPDFContextOutputIntent, unicode)
+        self.assertIsInstance(kCGPDFXOutputIntentSubtype, unicode)
+        self.assertIsInstance(kCGPDFXOutputConditionIdentifier, unicode)
+        self.assertIsInstance(kCGPDFXOutputCondition, unicode)
+        self.assertIsInstance(kCGPDFXRegistryName, unicode)
+        self.assertIsInstance(kCGPDFXInfo, unicode)
+        self.assertIsInstance(kCGPDFXDestinationOutputProfile, unicode)
+        self.assertIsInstance(kCGPDFContextOutputIntents, unicode)
 
 
 

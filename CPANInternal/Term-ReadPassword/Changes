@@ -1,0 +1,29 @@
+Revision history for Perl extension Term::ReadPassword.
+
+0.01  Wed Dec 13 07:57:34 2000
+	- original version; created by h2xs 1.18
+
+0.02  Wed Dec 8 2004
+	- added support for ctrl-U (James FitzGibbon
+	  <jfitzgibbon@primustel.ca>)
+
+0.03  Tue Mar 29 18:35:03 2005
+	- updated tests to (try to) pass automated tests
+
+0.04  Thu Mar 31 13:17:00 2005
+	- tweaked tests some more, trying to pass those automated tests
+	- still no new functionality
+
+0.05  Tue Jun 14 11:50:00 2005
+	- a space in place of the password now skips the interactive test
+	- save and restore the cc array, which seems to fix a bug
+
+0.06  Sun Aug 28 13:07:00 2005
+	- Setting $Term::ReadPassword::USE_STARS to a true value now
+	  echoes stars for password characters.
+
+0.09  Wed Dec 12 11:20:00 2007
+	- Bug fix wrt CC_FIELDS, improved documentation 
+
+0.11  Fri Dec 14 12:00:00 2007
+	- Only documentation changes.

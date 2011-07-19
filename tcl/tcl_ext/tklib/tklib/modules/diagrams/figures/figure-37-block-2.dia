@@ -1,0 +1,16 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc make {} {
+    block {
+	circle
+	line up    from [last circle n]
+	line down  from [last circle s]
+	line right from [last circle e]
+	line left  from [last circle w]
+	box dashed with nw at [[last circle se] + [20 20]]
+	set Caption [last box center]
+    }
+}
+
+set A [make]
+text Hi! at [$A Caption]

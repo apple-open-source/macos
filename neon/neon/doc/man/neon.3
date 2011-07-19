@@ -2,12 +2,12 @@
 .\"     Title: neon
 .\"    Author: 
 .\" Generator: DocBook XSL Stylesheets v1.74.3 <http://docbook.sf.net/>
-.\"      Date: 18 August 2009
+.\"      Date: 13 September 2009
 .\"    Manual: neon API reference
-.\"    Source: neon 0.28.6
+.\"    Source: neon 0.29.0
 .\"  Language: English
 .\"
-.TH "NEON" "3" "18 August 2009" "neon 0.28.6" "neon API reference"
+.TH "NEON" "3" "13 September 2009" "neon 0.29.0" "neon API reference"
 .\" -----------------------------------------------------------------
 .\" * set default formatting
 .\" -----------------------------------------------------------------
@@ -69,7 +69,7 @@ or otherwise handled to avoid process termination when writing to a socket which
 .sp -1
 .IP \(bu 2.3
 .\}
-OpenSSL and GnuTLSrequire global initialization to load shared lookup tables\&.
+OpenSSL and GnuTLS require global initialization to load shared lookup tables\&.
 .RE
 .sp
 .RS 4
@@ -94,9 +94,14 @@ ne_sock_exit); neon neither checks whether these functions are called nor calls 
 For some applications and configurations it may be necessary to call
 ne_i18n_init
 to initialize the support for internationalization in neon\&.
+.SS "Asynchronous signal safety"
+.PP
+No function in neon is defined to be
+\(lqasync\-signal safe\(rq
+\- that is, no function is safe to call from a signal handler\&. Any call into the neon library from a signal handler will have undefined behaviour \- in other words, it may crash the process\&.
 .SS "Functions using global state"
 .PP
-Any function call in neon may modify the
+Any function in neon may modify the
 errno
 global variable as a side\-effect\&. Except where explicitly documented, the value of
 errno
@@ -182,6 +187,16 @@ Namespaces used by the zlib library; a relatively small number of symbols are us
 krb5, gss, GSS, asn1, decode_krb5, encode_krb5, profile, mit
 .RS 4
 Some of the prefixes used by the MIT GSSAPI library and dependencies thereof; a number of symbols lie outside these prefixes\&.
+.RE
+.PP
+pakchois_
+.RS 4
+Namespace used by the pakchois library\&.
+.RE
+.PP
+px_
+.RS 4
+Namespace used by the libproxy library\&.
 .RE
 .SS "Argument validation"
 .PP

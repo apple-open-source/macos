@@ -33,7 +33,9 @@
 #include <pthread.h>
 
 #include "webdav_cache.h"
+#include "webdav_parse.h"
 #include "OpaqueIDs.h"
+#include "LogMessage.h"
 
 /*****************************************************************************/
 
@@ -75,7 +77,7 @@ struct node_head g_file_list;
 static int internal_add_attributes(
 	struct node_entry *node,
 	uid_t uid,
-	struct stat *statp,
+	struct webdav_stat_attr *statp,
 	char *appledoubleheader);
 static int internal_remove_attributes(
 	struct node_entry *node,
@@ -113,7 +115,10 @@ static int internal_delete_invalid_directory_nodes(
 	struct node_entry *dir_node);
 static int internal_get_path_from_node(
 	struct node_entry *target_node,
+	bool *pathHasRedirection,
 	char **path);
+static CFArrayRef internal_get_locktokens(
+	struct node_entry *a_node);
 
 static int init_node_cache_lock(void);
 static void lock_node_cache(void);
@@ -125,7 +130,7 @@ static void unlock_node_cache(void);
 static int internal_add_attributes(
 	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
 	uid_t uid,						/* the uid these attributes are valid for */
-	struct stat *statp,				/* the stat buffer */
+	struct webdav_stat_attr *statp,	/* the stat buffer */
 	char *appledoubleheader)	/* pointer appledoubleheader or NULL */
 {
 	int error;
@@ -151,7 +156,7 @@ static int internal_add_attributes(
 	/* fill in the rest of the fields */
 	node->attr_uid = uid;
 	node->attr_time = current_time;
-	memcpy(&(node->attr_stat), statp, sizeof(struct stat));
+	memcpy(&(node->attr_stat_info), statp, sizeof(struct webdav_stat_attr));
 	
 malloc_attr_appledoubleheader:
 time:
@@ -164,7 +169,7 @@ time:
 int nodecache_add_attributes(
 	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
 	uid_t uid,						/* the uid these attributes are valid for */
-	struct stat *statp,				/* the stat buffer */
+	struct webdav_stat_attr *statp,	/* the stat buffer */
 	char *appledoubleheader)	/* pointer appledoubleheader or NULL */
 {
 	int error;
@@ -187,7 +192,8 @@ static int internal_remove_attributes(
 {
 	node->attr_uid = 0;
 	node->attr_time = 0;
-	memset(&node->attr_stat, 0, sizeof(struct stat));
+	node->attr_stat_info.attr_create_time.tv_sec = 0;
+	memset(&node->attr_stat_info, 0, sizeof(struct webdav_stat_attr));
 	if ( remove_appledoubleheader && (node->attr_appledoubleheader != NULL) )
 	{
 		free(node->attr_appledoubleheader);
@@ -312,6 +318,7 @@ static void invalidate_level(struct node_entry *dir_node)
 	LIST_FOREACH(node, &(dir_node->children), entries)
 	{
 		node->attr_time = 0;
+		node->attr_stat_info.attr_create_time.tv_sec = -1;
 		node->file_validated_time = 0;
 		/* invalidate this node's children (if any) */
 		invalidate_level(node);
@@ -327,6 +334,7 @@ void nodecache_invalidate_caches(void)
 	
 	node = g_root_node;
 	node->attr_time = 0;
+	node->attr_stat_info.attr_create_time.tv_sec = -1;
 	node->file_validated_time = 0;
 	/* invalidate this node's children (if any) */
 	invalidate_level(node);
@@ -710,6 +718,8 @@ static int internal_get_node(
 			node_ptr->fileid = g_next_fileid++;
 			node_ptr->node_type = node_type;
 			node_ptr->node_time = time(NULL);
+			node_ptr->attr_stat_info.attr_create_time.tv_sec = 0;
+			node_ptr->isRedirected = false;
 			if ( client_created )
 			{
 				node_ptr->flags |= nodeRecentMask;
@@ -828,6 +838,9 @@ static void internal_free_nodes(void)
 			/* free memory used by the node */
 			free(node->name);
 			CFRelease(node->name_ref);
+			if (node->redir_name != NULL) 
+				free (node->redir_name);
+
 			(void) internal_remove_attributes(node, TRUE);
 
 			free(node);
@@ -959,6 +972,7 @@ static int delete_node_tree(
 	
 	node->flags |= nodeDeletedMask;
 	node->attr_time = 0;
+	node->attr_stat_info.attr_create_time.tv_sec = 0;
 	
 internal_move_node:
 has_children:
@@ -1076,14 +1090,20 @@ int nodecache_delete_invalid_directory_nodes(
  * nodecache_get_path_from_node
  *
  * Builds a UTF-8 slash '/' delimited NULL terminated path from
- * the root node (but not including the root node) to target_node.
+ * the root node (but not including the root node) to the target_node.
+ *
+ * Note: If a node in the path has been redirected by an HTTP 3xx redirect, then
+ * the returned path will be from the redirected node 
+ * to the target_node, and the 'pathHasRedirection' output arg is set to true.
+ *
  * If the node is directory, the path MUST end with a slash.
- * The path will MUST NOT start with a slash since this is always a relative path.
+ * The path MUST NOT start with a slash since this is always a relative path.
  * If result is 0 (no error), then a newly allocated buffer containing the
  * path is returned and the caller is responsible for freeing it.
  */
 static int internal_get_path_from_node(
 	struct node_entry *target_node,
+	bool *pathHasRedirection,		/* true if path contains a URL from a redirected node (http 3xx redirect) */
 	char **path)
 {
 	int error;
@@ -1095,11 +1115,12 @@ static int internal_get_path_from_node(
 	error = 0;
 	pathbuf = NULL;
 	path_len = 0;
+	*pathHasRedirection = false;
 	
 	require_action(!NODE_IS_DELETED(target_node), node_deleted, error = ENOENT);
 	
 	pathbuf = malloc(PATH_MAX);
-	require_action(pathbuf != NULL, malloc_pathbuf, error = errno);
+	require_action(pathbuf != NULL, malloc_pathbuf, error = errno);	
 		
 	if ( target_node == g_root_node )
 	{
@@ -1116,6 +1137,24 @@ static int internal_get_path_from_node(
 		while ( cur_node != g_root_node )
 		{
 			require_action(cur_node != NULL, name_too_long, error = ENAMETOOLONG);
+			
+			/* was this node redirected? */
+			if (cur_node->isRedirected == TRUE) {
+				/* make sure there's enough room for the node redir_name and a slash */
+				require_action((cur_ptr - cur_node->redir_name_length + 1) >= pathbuf,
+							   name_too_long, error = ENAMETOOLONG);
+				
+				/* add a slash */
+				--cur_ptr;
+				*cur_ptr = '/';
+				
+				/* copy in the redir_name */
+				cur_ptr -= cur_node->redir_name_length;
+				memcpy(cur_ptr, cur_node->redir_name, cur_node->redir_name_length);
+				
+				*pathHasRedirection = true;
+				break;
+			}
 			
 			/* make sure there's enough room for the next node name and a slash */
 			require_action((cur_ptr - cur_node->name_length + 1) >= pathbuf,
@@ -1165,13 +1204,14 @@ node_deleted:
 
 int nodecache_get_path_from_node(
 	struct node_entry *node,		/* -> node */
+	bool *pathHasRedirection,		/* true if path contains a URL from a redirected node (http 3xx redirect) */
 	char **path)					/* <- relative path to root node */
 {
 	int error;
 
 	lock_node_cache();
 
-	error = internal_get_path_from_node(node, path);
+	error = internal_get_path_from_node(node, pathHasRedirection, path);
 
 	unlock_node_cache();
 
@@ -1179,8 +1219,257 @@ int nodecache_get_path_from_node(
 }
 
 /*****************************************************************************/
+
+int nodecache_redirect_node(
+	CFURLRef url,						/* original url that caused the redirect */
+	struct node_entry *redirected_node,	/* the node_entry that was redirected */
+	CFHTTPMessageRef responseRef,		/* the 3xx redirect response message */
+	CFIndex statusCode)					/* 3xx status code from response message */
+{
+	CFMutableStringRef newLocationRef;
+	CFStringRef locationRef, mmeHostRef, tmpStringRef;
+	CFURLRef newBaseURL;
+	boolean_t result, isRootNode = false;
+	size_t name_ptr_len;
+	char *name_ptr;	
+	int error = 0;
+	
+	newLocationRef = NULL;
+	locationRef = NULL;
+	mmeHostRef = NULL;
+	
+	if (responseRef == NULL) {
+		syslog(LOG_ERR, "%s: NULL responseRef\n", __FUNCTION__);
+		error = EIO;
+		goto out;
+	}
+	
+	newLocationRef = CFStringCreateMutable(kCFAllocatorDefault,0);
+	if (newLocationRef == NULL){
+		syslog(LOG_ERR, "%s: no mem for newLocationRef\n", __FUNCTION__);
+		error = ENOMEM;
+		goto out;
+	}
+	
+	// First need to build a Location string
+	if (statusCode == 330) {
+		// This is a MobileMe Realm type of redirection.
+		// Need to pull out X-Apple-MMe-Host
+		mmeHostRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("X-Apple-MMe-Host"));
+		
+		if (mmeHostRef == NULL) {
+			syslog(LOG_ERR, "%s: 330 Redirection missing MMe-Host header\n", __FUNCTION__);
+			error = EIO;
+			goto out;
+		}
+		
+		if (gSecureConnection == TRUE)
+			CFStringAppend(newLocationRef, CFSTR("https://"));
+		else 
+			CFStringAppend(newLocationRef, CFSTR("http://"));
+		
+		// add host from X-Apple-MMe-Host header
+		CFStringAppend(newLocationRef, mmeHostRef);
+		
+		// fetch the path from the original URL
+		tmpStringRef = CFURLCopyPath(url);
+		
+		if (tmpStringRef != NULL) {
+			CFStringAppend(newLocationRef, tmpStringRef);
+			CFRelease(tmpStringRef);
+		}
+	}
+	else {
+		// Not an MMe 330, just grab Location field
+		locationRef = CFHTTPMessageCopyHeaderFieldValue(responseRef, CFSTR("Location"));
+		
+		if (locationRef == NULL) {
+			syslog(LOG_ERR, "%s: 3xx response missing Location field\n", __FUNCTION__);
+			error = EIO;
+			return (error);
+		}
+
+		CFStringAppend(newLocationRef, locationRef);
+	}	
+	
+	if (redirected_node == NULL || redirected_node == g_root_node)
+		isRootNode = true;
+	else
+		isRootNode = false;
+	
+	// Add or remove trailing slash as needed
+	if (isRootNode == true) {
+		// we want a trailing slash
+		if (CFStringHasSuffix(newLocationRef, CFSTR("/")) == false)
+			CFStringAppend(newLocationRef, CFSTR("/"));
+	}
+	else {
+		// Not the root node, don't want a trailing slash
+		if (CFStringHasSuffix(newLocationRef, CFSTR("/")) == true)
+			CFStringDelete(newLocationRef, CFRangeMake(CFStringGetLength(newLocationRef) - 1, 1));
+	}
+			
+	// Setup C string for new redir_name
+	name_ptr = malloc(WEBDAV_MAX_URI_LEN + 1);
+	if (name_ptr == NULL) {
+		syslog(LOG_ERR, "%s: no mem for name_ptr\n", __FUNCTION__);
+		error = ENOMEM;
+		goto out;
+	}
+	
+	result = CFStringGetCString(newLocationRef, name_ptr, WEBDAV_MAX_URI_LEN, kCFStringEncodingUTF8);
+	if (result == false) {
+		syslog(LOG_ERR, "%s: CFStringGetCString returned false for newLocationRef\n", __FUNCTION__);
+		error = EIO;
+		free(name_ptr);
+		goto out;
+	}
+			
+	name_ptr_len = strlen(name_ptr);
+	if (name_ptr_len <= 0) {
+		error = EIO;
+		free(name_ptr);
+		goto out;		
+	}
+				
+	// Block any attempt to redirect from a secure host to a non-secure host
+	if (gSecureConnection == TRUE) {
+		if (CFStringHasPrefix(newLocationRef, CFSTR("https://")) == false) {
+			syslog(LOG_ERR, "%s: redirect to non-secure host denied: %s\n", __FUNCTION__, name_ptr);
+			error = EIO;
+			free(name_ptr);
+			goto out;
+		}
+	}
+			
+	lock_node_cache();
+			
+	if (isRootNode == false) {
+		if (redirected_node->isRedirected == true) {
+			// cleanup old redirection
+			if (redirected_node->redir_name != NULL)
+				free(redirected_node->redir_name);
+		}
+				
+		// now change node state
+		redirected_node->isRedirected = true;
+		redirected_node->redir_name = name_ptr;
+		redirected_node->redir_name_length = name_ptr_len;
+		
+		syslog(LOG_DEBUG, "Node %s redirected to: %s", redirected_node->name, name_ptr);
+	}
+	else {
+		// The root node, g_root_node is being redirected
+		// Create the new gBaseURL
+		newBaseURL = CFURLCreateAbsoluteURLWithBytes(kCFAllocatorDefault, (UInt8 *)name_ptr, name_ptr_len, kCFStringEncodingUTF8, NULL, FALSE);
+		if (newBaseURL == NULL) {
+			syslog(LOG_ERR, "%s: Location field was not legal UTF8: %s\n", __FUNCTION__, name_ptr);
+			free(name_ptr);
+			error = ENOMEM;
+			goto create_baseurl;
+		}
+				
+		if (g_root_node->isRedirected == true) {
+			// cleanup old redirection
+			if (g_root_node->redir_name != NULL)
+				free(g_root_node->redir_name);
+		}		
+				
+		// Now change node state
+		CFRelease(gBaseURL);
+		gBaseURL = newBaseURL;
+		g_root_node->isRedirected = true;
+		g_root_node->redir_name = name_ptr;
+		g_root_node->redir_name_length = name_ptr_len;
+		
+		syslog(LOG_DEBUG, "Base node redirected to: %s", name_ptr);
+	}
+
+create_baseurl:
+	unlock_node_cache();
+out:
+	if (newLocationRef != NULL)
+		CFRelease(newLocationRef);
+	if (locationRef != NULL)
+		CFRelease(locationRef);
+	if (mmeHostRef != NULL)
+		CFRelease(mmeHostRef);
+			
+	return (error);
+}
+			
+
+/* Returns a CFArray containing (1) the a_node's file_locktoken (if exists) */
+/* AND (2) all the a_node's children's file_locktokens (if any exists) */
+static CFArrayRef internal_get_locktokens(struct node_entry *a_node)
+{
+	int error;
+	CFMutableArrayRef arr;
+	CFStringRef lockTokenStr;
+	struct node_entry *node;
+	
+	arr = NULL;
+	error = 0;
+	arr = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+	require(arr != NULL, create_array);
+	
+	// First do parent
+	if (a_node->file_locktoken != NULL) {
+		lockTokenStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), a_node->file_locktoken);
+		if (lockTokenStr != NULL) {
+			CFArrayAppendValue(arr, lockTokenStr);
+			CFRelease(lockTokenStr);	// we don't need to hold a reference
+		}
+		else {
+			// apparently no mem to do our job, so punt.
+			goto done;
+		}
+	}
+	
+	// We're done if no child nodes
+	if (a_node->node_type != WEBDAV_DIR_TYPE)
+		goto done;
+	
+	// Now get child locktokens
+	LIST_FOREACH(node, &(a_node->children), entries)
+	{
+		if (node->file_locktoken != NULL) {
+			lockTokenStr = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("(<%s>)"), node->file_locktoken);
+			if (lockTokenStr != NULL) {
+				CFArrayAppendValue(arr, lockTokenStr);
+				CFRelease(lockTokenStr);	// we don't need to hold a reference
+			}
+		}
+	}
+	
+done:
+	if (!CFArrayGetCount(arr)) {
+		// no file_locktokens found, return NULL
+		CFRelease(arr);
+		arr = NULL;
+	}
+	
+create_array:
+	
+	return ( arr );
+}
+
 /*****************************************************************************/
 
+CFArrayRef nodecache_get_locktokens(struct node_entry *a_node)
+{
+	CFArrayRef arr;
+	
+	lock_node_cache();
+	
+	arr = internal_get_locktokens(a_node);
+	
+	unlock_node_cache();
+	
+	return ( arr );
+}
+
+/*****************************************************************************/
 static int init_node_cache_lock(void)
 {
 	int error;
@@ -1196,6 +1485,26 @@ pthread_mutex_init:
 pthread_mutexattr_init:
 
 	return ( error );
+}
+			
+/*****************************************************************************/
+			
+/*
+ * CFURLRef nodecache_get_baseURL(void)
+ *
+ * Returns a retained reference to the current gBaseURL. Caller must CFRelease
+ * the returned reference when done with it.
+ *
+ */
+CFURLRef nodecache_get_baseURL(void)
+{
+	CFURLRef baseURL;
+			
+	lock_node_cache();
+	CFRetain(gBaseURL);
+	baseURL = gBaseURL;
+	unlock_node_cache();
+	return baseURL;
 }
 
 /*****************************************************************************/

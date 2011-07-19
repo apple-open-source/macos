@@ -21,17 +21,17 @@
 #define LLVM_TARGET_TARGETDATA_H
 
 #include "llvm/Pass.h"
-#include "llvm/Support/DataTypes.h"
 #include "llvm/ADT/SmallVector.h"
-#include <string>
 
 namespace llvm {
 
 class Value;
 class Type;
+class IntegerType;
 class StructType;
 class StructLayout;
 class GlobalVariable;
+class LLVMContext;
 
 /// Enum used to categorize the alignment types stored by TargetAlignElem
 enum AlignTypeEnum {
@@ -59,8 +59,6 @@ struct TargetAlignElem {
                              unsigned char pref_align, uint32_t bit_width);
   /// Equality predicate
   bool operator==(const TargetAlignElem &rhs) const;
-  /// output stream operator
-  std::ostream &dump(std::ostream &os) const;
 };
 
 class TargetData : public ImmutablePass {
@@ -70,23 +68,22 @@ private:
   unsigned char PointerABIAlign;       ///< Pointer ABI alignment
   unsigned char PointerPrefAlign;      ///< Pointer preferred alignment
 
-  //! Where the primitive type alignment data is stored.
-  /*!
-   @sa init().
-   @note Could support multiple size pointer alignments, e.g., 32-bit pointers
-   vs. 64-bit pointers by extending TargetAlignment, but for now, we don't.
-   */
+  SmallVector<unsigned char, 8> LegalIntWidths; ///< Legal Integers.
+  
+  /// Alignments- Where the primitive type alignment data is stored.
+  ///
+  /// @sa init().
+  /// @note Could support multiple size pointer alignments, e.g., 32-bit
+  /// pointers vs. 64-bit pointers by extending TargetAlignment, but for now,
+  /// we don't.
   SmallVector<TargetAlignElem, 16> Alignments;
-  //! Alignment iterator shorthand
-  typedef SmallVector<TargetAlignElem, 16>::iterator align_iterator;
-  //! Constant alignment iterator shorthand
-  typedef SmallVector<TargetAlignElem, 16>::const_iterator align_const_iterator;
-  //! Invalid alignment.
-  /*!
-    This member is a signal that a requested alignment type and bit width were
-    not found in the SmallVector.
-   */
+  
+  /// InvalidAlignmentElem - This member is a signal that a requested alignment
+  /// type and bit width were not found in the SmallVector.
   static const TargetAlignElem InvalidAlignmentElem;
+
+  // The StructType -> StructLayout map.
+  mutable void *LayoutMap;
 
   //! Set/initialize target alignments
   void setAlignment(AlignTypeEnum align_type, unsigned char abi_align,
@@ -100,8 +97,8 @@ private:
   ///
   /// Predicate that tests a TargetAlignElem reference returned by get() against
   /// InvalidAlignmentElem.
-  inline bool validAlignment(const TargetAlignElem &align) const {
-    return (&align != &InvalidAlignmentElem);
+  bool validAlignment(const TargetAlignElem &align) const {
+    return &align != &InvalidAlignmentElem;
   }
 
 public:
@@ -109,14 +106,10 @@ public:
   ///
   /// @note This has to exist, because this is a pass, but it should never be
   /// used.
-  TargetData() : ImmutablePass(&ID) {
-    assert(0 && "ERROR: Bad TargetData ctor used.  "
-           "Tool did not specify a TargetData to use?");
-    abort();
-  }
-
+  TargetData();
+  
   /// Constructs a TargetData from a specification string. See init().
-  explicit TargetData(const std::string &TargetDescription)
+  explicit TargetData(StringRef TargetDescription)
     : ImmutablePass(&ID) {
     init(TargetDescription);
   }
@@ -130,22 +123,43 @@ public:
     PointerMemSize(TD.PointerMemSize),
     PointerABIAlign(TD.PointerABIAlign),
     PointerPrefAlign(TD.PointerPrefAlign),
-    Alignments(TD.Alignments)
+    LegalIntWidths(TD.LegalIntWidths),
+    Alignments(TD.Alignments),
+    LayoutMap(0)
   { }
 
   ~TargetData();  // Not virtual, do not subclass this class
 
   //! Parse a target data layout string and initialize TargetData alignments.
-  void init(const std::string &TargetDescription);
+  void init(StringRef TargetDescription);
 
   /// Target endianness...
-  bool          isLittleEndian()       const { return     LittleEndian; }
-  bool          isBigEndian()          const { return    !LittleEndian; }
+  bool isLittleEndian() const { return LittleEndian; }
+  bool isBigEndian() const { return !LittleEndian; }
 
   /// getStringRepresentation - Return the string representation of the
   /// TargetData.  This representation is in the same format accepted by the
   /// string constructor above.
   std::string getStringRepresentation() const;
+  
+  /// isLegalInteger - This function returns true if the specified type is
+  /// known tobe a native integer type supported by the CPU.  For example,
+  /// i64 is not native on most 32-bit CPUs and i37 is not native on any known
+  /// one.  This returns false if the integer width is not legal.
+  ///
+  /// The width is specified in bits.
+  ///
+  bool isLegalInteger(unsigned Width) const {
+    for (unsigned i = 0, e = (unsigned)LegalIntWidths.size(); i != e; ++i)
+      if (LegalIntWidths[i] == Width)
+        return true;
+    return false;
+  }
+  
+  bool isIllegalInteger(unsigned Width) const {
+    return !isLegalInteger(Width);
+  }
+  
   /// Target pointer alignment
   unsigned char getPointerABIAlignment() const { return PointerABIAlign; }
   /// Return target's alignment for stack-based pointers
@@ -154,6 +168,23 @@ public:
   unsigned char getPointerSize()         const { return PointerMemSize; }
   /// Target pointer size, in bits
   unsigned char getPointerSizeInBits()   const { return 8*PointerMemSize; }
+
+  /// Size examples:
+  ///
+  /// Type        SizeInBits  StoreSizeInBits  AllocSizeInBits[*]
+  /// ----        ----------  ---------------  ---------------
+  ///  i1            1           8                8
+  ///  i8            8           8                8
+  ///  i19          19          24               32
+  ///  i32          32          32               32
+  ///  i100        100         104              128
+  ///  i128        128         128              128
+  ///  Float        32          32               32
+  ///  Double       64          64               64
+  ///  X86_FP80     80          80               96
+  ///
+  /// [*] The alloc size depends on the alignment, and thus on the target.
+  ///     These values are for x86-32 linux.
 
   /// getTypeSizeInBits - Return the number of bits necessary to hold the
   /// specified type.  For example, returns 36 for i36 and 80 for x86_fp80.
@@ -173,26 +204,31 @@ public:
     return 8*getTypeStoreSize(Ty);
   }
 
-  /// getTypePaddedSize - Return the offset in bytes between successive objects
+  /// getTypeAllocSize - Return the offset in bytes between successive objects
   /// of the specified type, including alignment padding.  This is the amount
   /// that alloca reserves for this type.  For example, returns 12 or 16 for
   /// x86_fp80, depending on alignment.
-  uint64_t getTypePaddedSize(const Type* Ty) const {
+  uint64_t getTypeAllocSize(const Type* Ty) const {
     // Round up to the next alignment boundary.
     return RoundUpAlignment(getTypeStoreSize(Ty), getABITypeAlignment(Ty));
   }
 
-  /// getTypePaddedSizeInBits - Return the offset in bits between successive
+  /// getTypeAllocSizeInBits - Return the offset in bits between successive
   /// objects of the specified type, including alignment padding; always a
   /// multiple of 8.  This is the amount that alloca reserves for this type.
   /// For example, returns 96 or 128 for x86_fp80, depending on alignment.
-  uint64_t getTypePaddedSizeInBits(const Type* Ty) const {
-    return 8*getTypePaddedSize(Ty);
+  uint64_t getTypeAllocSizeInBits(const Type* Ty) const {
+    return 8*getTypeAllocSize(Ty);
   }
 
   /// getABITypeAlignment - Return the minimum ABI-required alignment for the
   /// specified type.
   unsigned char getABITypeAlignment(const Type *Ty) const;
+  
+  /// getABIIntegerTypeAlignment - Return the minimum ABI-required alignment for
+  /// an integer type of the specified bitwidth.
+  unsigned char getABIIntegerTypeAlignment(unsigned BitWidth) const;
+  
 
   /// getCallFrameTypeAlignment - Return the minimum ABI-required alignment
   /// for the specified type when it is part of a call frame.
@@ -211,7 +247,7 @@ public:
   /// getIntPtrType - Return an unsigned integer type that is the same size or
   /// greater to the host pointer size.
   ///
-  const Type *getIntPtrType() const;
+  const IntegerType *getIntPtrType(LLVMContext &C) const;
 
   /// getIndexedOffset - return the offset from the beginning of the type for
   /// the specified indices.  This is used to implement getelementptr.
@@ -275,7 +311,7 @@ public:
     return StructAlignment;
   }
 
-  /// getElementContainingOffset - Given a valid offset into the structure,
+  /// getElementContainingOffset - Given a valid byte offset into the structure,
   /// return the structure index that contains it.
   ///
   unsigned getElementContainingOffset(uint64_t Offset) const;

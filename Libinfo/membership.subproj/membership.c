@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -28,20 +28,22 @@
 #include <servers/bootstrap.h>
 #include <libkern/OSByteOrder.h>
 #ifdef DS_AVAILABLE
-#include <DSmemberdMIG.h>
-#include <DSmemberdMIG_types.h>
+#include "DSmemberdMIG.h"
 #endif
 
 #ifdef DS_AVAILABLE
 extern mach_port_t _mbr_port;
 extern int _ds_running(void);
 
-static const uint8_t _mbr_root_uuid[] = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
+static const uuid_t _user_compat_prefix = {0xff, 0xff, 0xee, 0xee, 0xdd, 0xdd, 0xcc, 0xcc, 0xbb, 0xbb, 0xaa, 0xaa, 0x00, 0x00, 0x00, 0x00};
+static const uuid_t _group_compat_prefix = {0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0xab, 0xcd, 0xef, 0x00, 0x00, 0x00, 0x00};
+
+#define COMPAT_PREFIX_LEN	(sizeof(uuid_t) - sizeof(id_t))
 
 #define MAX_LOOKUP_ATTEMPTS 10
 #endif
 
-__private_extern__ uid_t
+uid_t
 audit_token_uid(audit_token_t a)
 {
 	/*
@@ -59,7 +61,8 @@ _mbr_MembershipCall(struct kauth_identity_extlookup *req)
 	kern_return_t status;
 	uint32_t i;
 
-	if (_ds_running() == 0) return EIO;
+	/* call _ds_running() to look up _mbr_port */
+	_ds_running();
 	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	memset(&token, 0, sizeof(audit_token_t));
@@ -95,7 +98,8 @@ _mbr_MapName(char *name, int type, guid_t *uu)
 	if (name == NULL) return EINVAL;
 	if (strlen(name) > 255) return EINVAL;
 
-	if (_ds_running() == 0) return EIO;
+	/* call _ds_running() to look up _mbr_port */
+	_ds_running();
 	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	memset(&token, 0, sizeof(audit_token_t));
@@ -129,7 +133,8 @@ _mbr_ClearCache()
 	kern_return_t status;
 	uint32_t i;
 
-	if (_ds_running() == 0) return EIO;
+	/* call _ds_running() to look up _mbr_port */
+	_ds_running();
 	if (_mbr_port == MACH_PORT_NULL) return EIO;
 
 	status = MIG_SERVER_DIED;
@@ -151,55 +156,46 @@ _mbr_ClearCache()
 }
 #endif
 
+#ifdef DS_AVAILABLE
+static int
+_mbr_SetIdentifierTTL(int idType, const void *identifier, size_t identifier_size, unsigned int seconds)
+{
+	kern_return_t status;
+	uint32_t i;
+	
+	/* call _ds_running() to look up _mbr_port */
+	_ds_running();
+	if (_mbr_port == MACH_PORT_NULL) return EIO;
+	
+	status = MIG_SERVER_DIED;
+	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
+	{
+		status = memberdDSmig_SetIdentifierTTL(_mbr_port, idType, (identifier_data_t)identifier, identifier_size, seconds);
+		if (status == MACH_SEND_INVALID_DEST)
+		{
+			mach_port_mod_refs(mach_task_self(), _mbr_port, MACH_PORT_RIGHT_SEND, -1);
+			_mbr_port = MACH_PORT_NULL;
+			_ds_running();
+			status = MIG_SERVER_DIED;
+		}
+	}
+	
+	if (status != KERN_SUCCESS) return EIO;
+	
+	return 0;
+}
+#endif
+
 int
 mbr_uid_to_uuid(uid_t id, uuid_t uu)
 {
-#ifdef DS_AVAILABLE
-	struct kauth_identity_extlookup request;
-	int status;
-
-	if (id == 0)
-	{
-		memcpy(uu, _mbr_root_uuid, sizeof(uuid_t));
-		return 0;
-	}
-
-	/* used as a byte order field */
-	request.el_seqno = 1;
-	request.el_flags = KAUTH_EXTLOOKUP_VALID_UID | KAUTH_EXTLOOKUP_WANT_UGUID;
-	request.el_uid = id;
-
-	status = _mbr_MembershipCall(&request);
-	if (status != 0) return status;
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_UGUID) == 0) return ENOENT;
-
-	memcpy(uu, &request.el_uguid, sizeof(guid_t));
-	return 0;
-#else
-	return EIO;
-#endif
+	return mbr_identifier_to_uuid(ID_TYPE_UID, &id, sizeof(id), uu);
 }
 
 int
 mbr_gid_to_uuid(gid_t id, uuid_t uu)
 {
-#ifdef DS_AVAILABLE
-	struct kauth_identity_extlookup request;
-	int status;
-
-	request.el_seqno = 1;
-	request.el_flags = KAUTH_EXTLOOKUP_VALID_GID | KAUTH_EXTLOOKUP_WANT_GGUID;
-	request.el_gid = id;
-
-	status = _mbr_MembershipCall(&request);
-	if (status != 0) return status;
-	if ((request.el_flags & KAUTH_EXTLOOKUP_VALID_GGUID) == 0) return ENOENT;
-
-	memcpy(uu, &request.el_gguid, sizeof(guid_t));
-	return 0;
-#else
-	return EIO;
-#endif
+	return mbr_identifier_to_uuid(ID_TYPE_GID, &id, sizeof(id), uu);
 }
 
 int
@@ -208,14 +204,23 @@ mbr_uuid_to_id(const uuid_t uu, uid_t *id, int *id_type)
 #ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
 	int status;
+	id_t tempID;
 
 	if (id == NULL) return EIO;
 	if (id_type == NULL) return EIO;
 
-	if (!memcmp(uu, _mbr_root_uuid, sizeof(uuid_t)))
+	if (!memcmp(uu, _user_compat_prefix, COMPAT_PREFIX_LEN))
 	{
-		*id = 0;
+		memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
+		*id = ntohl(tempID);
 		*id_type = ID_TYPE_UID;
+		return 0;
+	}
+	else if (!memcmp(uu, _group_compat_prefix, COMPAT_PREFIX_LEN))
+	{
+		memcpy(&tempID, &uu[COMPAT_PREFIX_LEN], sizeof(tempID));
+		*id = ntohl(tempID);
+		*id_type = ID_TYPE_GID;
 		return 0;
 	}
 
@@ -284,17 +289,52 @@ mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_si
 	vm_offset_t ool = 0;
 	mach_msg_type_number_t oolCnt = 0;
 	uint32_t i;
+	id_t tempID;
 #if __BIG_ENDIAN__
 	id_t newID;
 #endif
-	
+
 	if (identifier == NULL) return EINVAL;
 	if (identifier_size == 0) return EINVAL;
 	else if (identifier_size == -1) identifier_size = strlen((char*) identifier) + 1;
-	
-	if (_ds_running() == 0) return EIO;
+
+	/* call _ds_running() to look up _mbr_port */
+	_ds_running();
+
+	/* if this is a UID or GID translation, we shortcut UID/GID 0 */
+	/* if no DS, we return compatibility UUIDs */
+	switch (id_type)
+	{
+		case ID_TYPE_UID:
+		{
+			if (identifier_size != sizeof(tempID)) return EINVAL;
+
+			tempID = *((id_t *) identifier);
+			if ((tempID == 0) || (_mbr_port == MACH_PORT_NULL))
+			{
+				uuid_copy(uu, _user_compat_prefix);
+				*((id_t *) &uu[COMPAT_PREFIX_LEN]) = htonl(tempID);
+				return 0;
+			}
+			break;
+		}
+		case ID_TYPE_GID:
+		{
+			if (identifier_size != sizeof(tempID)) return EINVAL;
+
+			tempID = *((id_t *) identifier);
+			if ((tempID == 0) || (_mbr_port == MACH_PORT_NULL))
+			{
+				uuid_copy(uu, _group_compat_prefix);
+				*((id_t *) &uu[COMPAT_PREFIX_LEN]) = htonl(tempID);
+				return 0;
+			}
+			break;
+		}
+	}
+
 	if (_mbr_port == MACH_PORT_NULL) return EIO;
-	
+
 	memset(&token, 0, sizeof(audit_token_t));
 
 #if __BIG_ENDIAN__
@@ -308,20 +348,20 @@ mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_si
 			break;
 	}
 #endif
-	
+
 	if (identifier_size > MAX_MIG_INLINE_DATA)
 	{
 		if (vm_read(mach_task_self(), (vm_offset_t) identifier, identifier_size, &ool, &oolCnt) != 0) return ENOMEM;
 		identifier = NULL;
 		identifier_size = 0;
 	}
-	
+
 	status = MIG_SERVER_DIED;
 	for (i = 0; (_mbr_port != MACH_PORT_NULL) && (status == MIG_SERVER_DIED) && (i < MAX_LOOKUP_ATTEMPTS); i++)
 	{
-		status = memberdDSmig_MapIdentifier(_mbr_port, id_type, (vm_offset_t)identifier, identifier_size, ool, oolCnt, uu, &token);
+		status = memberdDSmig_MapIdentifier(_mbr_port, id_type, (identifier_data_t) identifier, identifier_size, ool, oolCnt, (guid_t *)uu, &token);
 		if (status == KERN_FAILURE) return ENOENT;
-		
+
 		if (status == MACH_SEND_INVALID_DEST)
 		{
 			if (ool != 0) vm_deallocate(mach_task_self(), ool, oolCnt);
@@ -332,10 +372,10 @@ mbr_identifier_to_uuid(int id_type, const void *identifier, size_t identifier_si
 			status = MIG_SERVER_DIED;
 		}
 	}
-	
+
 	if (status != KERN_SUCCESS) return EIO;
 	if (audit_token_uid(token) != 0) return EAUTH;
-	
+
 	return 0;
 #else
 	return EIO;
@@ -396,7 +436,7 @@ mbr_uuid_to_sid(const uuid_t uu, nt_sid_t *sid)
 }
 
 int
-mbr_check_membership(uuid_t user, uuid_t group, int *ismember)
+mbr_check_membership(const uuid_t user, const uuid_t group, int *ismember)
 {
 #ifdef DS_AVAILABLE
 	struct kauth_identity_extlookup request;
@@ -502,7 +542,7 @@ mbr_check_service_membership(const uuid_t user, const char *servicename, int *is
 	char *all_services = "com.apple.access_all_services";
 	char groupName[256];
 	uuid_t group_uu;
-	int result, dummy;
+	int result;
 
 	if (servicename == NULL) return EINVAL;
 	if (strlen(servicename) > 255 - strlen(prefix)) return EINVAL;
@@ -522,17 +562,8 @@ mbr_check_service_membership(const uuid_t user, const char *servicename, int *is
 
 	if (result == 0)
 	{
-		result = mbr_check_membership_refresh(user, group_uu, ismember);
-	}
-	else if (result == EAUTH)
-	{
-		return result;
-	}
-	else
-	{
-		/* just force cache update with bogus membership check */
-		memset(group_uu, 0, sizeof(group_uu));
-		mbr_check_membership_refresh(user, group_uu, &dummy);
+		/* refreshes are driven at a higher level, just check membership */
+		result = mbr_check_membership(user, group_uu, ismember);
 	}
 
 	return result;
@@ -625,7 +656,11 @@ mbr_string_to_sid(const char *string, nt_sid_t *sid)
 	while (*current != '\0' && count < NTSID_MAX_AUTHORITIES)
 	{
 		current++;
+		errno = 0;
 		sid->sid_authorities[count] = (u_int32_t)strtoll(current, &current, 10);
+		if ((sid->sid_authorities[count] == 0) && (errno == EINVAL)) {
+			return EINVAL;
+		}
 		count++;
 	}
 
@@ -741,3 +776,13 @@ mbr_string_to_uuid(const char *string, uuid_t uu)
 #endif
 }
 
+int 
+mbr_set_identifier_ttl(int id_type, const void *identifier, size_t identifier_size, unsigned int seconds)
+{
+#ifdef DS_AVAILABLE
+	_mbr_SetIdentifierTTL(id_type, identifier, identifier_size, seconds);
+	return 0;
+#else
+	return EIO;
+#endif
+}

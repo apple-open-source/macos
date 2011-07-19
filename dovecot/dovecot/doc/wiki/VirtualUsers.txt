@@ -1,0 +1,149 @@
+Virtual Users
+=============
+
+There are many ways to configure Dovecot to use virtual users. If you have no
+idea how you want your users to be configured, select some <HOWTO> [HowTo.txt]
+and follow its instructions.
+
+Users are often categorized as being either system users (in '/etc/passwd') or
+virtual users (not in '/etc/passwd'). However from Dovecot's point of view
+there isn't much of a difference between them. If a <passwd>
+[AuthDatabase.Passwd.txt] lookup and a <SQL> [AuthDatabase.SQL.txt] lookup
+return the same <userdb> [UserDatabase.txt] information, Dovecot's behavior is
+identical.
+
+Password and user databases
+---------------------------
+
+Dovecot supports many different <password databases> [PasswordDatabase.txt] and
+<user databases> [UserDatabase.txt]. With virtual users the most commonly used
+ones are <LDAP> [AuthDatabase.LDAP.txt], <SQL> [AuthDatabase.SQL.txt] and
+<passwd-file> [AuthDatabase.PasswdFile.txt]. The databases usually contain the
+following information:
+
+ * Username
+ * Password
+ * UNIX User ID (UID) and primary UNIX Group ID (GID)
+ * Home directory and/or mail location
+
+Usernames and domains
+---------------------
+
+Dovecot doesn't care much about domains in usernames. IMAP and POP3 protocols
+currently have no concept of "domain", so the username is just something that
+shows up in your logs and maybe in some configuration, but they have no direct
+functionality.
+
+So although Dovecot makes it easier to handle "user@domain" style usernames
+(eg. %n and %d <variables> [Variables.txt]), nothing breaks if you use for
+example "domain%user" style usernames instead. However some <authentication
+mechanisms> [Authentication.Mechanisms.txt] do have an explicit support for
+realms (pretty much the same as domains). If those mechanisms are used, the
+username is changed to be "user@realm".
+
+And of course there's no need to have domains at all in the usernames.
+
+Passwords
+---------
+
+The password can be in <any format that Dovecot supports>
+[Authentication.PasswordSchemes.txt], but you need to tell the format to
+Dovecot because it won't try to guess it. The SQL and LDAP configuration files
+have the 'default_pass_scheme' setting for this. If you have passwords in
+multiple formats, or the passdb doesn't have such a setting, you'll need to
+prefix each password with "{<scheme>}", for example "{PLAIN}plaintext-password"
+or "{PLAIN-MD5}1a1dc91c907325c69271ddf0c944bc72".
+
+UNIX UIDs
+---------
+
+The most important thing you need to understand is that *Dovecot doesn't access
+the users' mails as the /dovecot/ user*! So *don't* put /dovecot/ into the
+/mail/ group, and don't make mails owned by the /dovecot/ user. That will only
+make your Dovecot installation less secure.
+
+So, if not the /dovecot/ user, what then? You can decide that yourself. You can
+create, for example, one /vmail/ user which owns all the mails, or you can
+assign a separate UID for each user. See <UserIds#mailusers> [UserIds.txt] for
+more information about different ways to allocate UIDs for users.
+
+UNIX GIDs
+---------
+
+Unless you're using <shared mailboxes> [SharedMailboxes.txt] and multiple UIDs,
+it doesn't really matter what GIDs you use. You can, for example, use a single
+GID for all users, or create a separate GID for each user. See <UserIds#gids>
+[UserIds.txt] for more information.
+
+Home directories
+----------------
+
+Some people are opposed to the idea of virtual users having home directories,
+but no matter what you call it, it's a good idea to have a directory where
+user-specific configuration and other state is stored. See
+<VirtualUsers.Home.txt> more information.
+
+Mail location
+-------------
+
+The userdb can return the 'mail' <field> [UserDatabase.txt] to override the
+default 'mail_location' setting. Usually you shouldn't need this.
+
+Examples
+========
+
+Dynamic passwd-file locations
+-----------------------------
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:/home/%d/%n/Maildir
+passdb {
+  driver = passwd-file
+  args = username_format=%n /home/%d/etc/shadow
+}
+userdb {
+  driver = passwd-file
+  args = username_format=%n /home/%d/etc/passwd
+}
+---%<-------------------------------------------------------------------------
+
+In the above examples users are expected to log in as "user@domain". Their mail
+is kept in their home directory at '/home/<domain>/<username>/Maildir'.
+
+The usernames in the passwd and shadow files are expected to contain only the
+user part, no domain. This is because the path itself already contained %d to
+specify the domain. If you want the files to contain full user@domain names,
+you can use 'username_format=%u'.
+
+static userdb
+=============
+
+Many people store only usernames and passwords in their database and don't want
+to deal with UIDs or GIDs. In that case the easiest way to get Dovecot running
+is to use the <static userdb> [UserDatabase.Static.txt]:
+
+---%<-------------------------------------------------------------------------
+mail_location = maildir:~/Maildir
+passdb {
+  driver = pam
+}
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/mail/virtual/%d/%n
+}
+---%<-------------------------------------------------------------------------
+
+This makes Dovecot look up the mails from
+'/var/mail/virtual/<domain>/<user>/Maildir/' directory, which should be owned
+by vmail user and vmail group.
+
+Existing virtual user management software
+-----------------------------------------
+
+ * VPopMail [http://www.inter7.com/vpopmail/]: Dovecot <supports VPopMail
+   directly> [AuthDatabase.VPopMail.txt].
+ * Linuxconf [http://www.solucorp.qc.ca/linuxconf/]: See
+   <Migration.Linuxconf.txt>
+ * Also see the <HowTo.txt> page
+
+(This file was created from the wiki on 2011-05-11 04:42)

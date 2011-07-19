@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /*
@@ -1674,14 +1674,14 @@ static void TestSub(int32_t inputsize, int32_t outputsize)
     log_verbose("Testing UTF-7 toUnicode with substitute callbacks\n");
     {
         static const uint8_t utf7[]={
-         /* a~            a+AB~                         a+AB\x0c                      a+AB-                         a+AB.                         a+. */
-            0x61, 0x7e,   0x61, 0x2b, 0x41, 0x42, 0x7e, 0x61, 0x2b, 0x41, 0x42, 0x0c, 0x61, 0x2b, 0x41, 0x42, 0x2d, 0x61, 0x2b, 0x41, 0x42, 0x2e, 0x61, 0x2b, 0x2e
+         /* a~            a+AB~                           a+AB\x0c                        a+AB-                         a+AB.                         a+. */
+            0x61, 0x7e,   0x61, 0x2b, 0x41, 0x42, 0x7e,   0x61, 0x2b, 0x41, 0x42, 0x0c,   0x61, 0x2b, 0x41, 0x42, 0x2d, 0x61, 0x2b, 0x41, 0x42, 0x2e, 0x61, 0x2b,   0x2e
         };
         static const UChar unicode[]={
-            0x61, 0xfffd, 0x61,       0xfffd,           0x61,       0xfffd,           0x61,       0xfffd,           0x61,       0xfffd,           0x61, 0xfffd
+            0x61, 0xfffd, 0x61,       0xfffd,     0xfffd, 0x61,       0xfffd,     0xfffd, 0x61,       0xfffd,           0x61,       0xfffd,     0x2e, 0x61, 0xfffd, 0x2e
         };
         static const int32_t offsets[]={
-            0,    1,      2,          4,                7,          9,                12,         14,               17,         19,               22,   23
+            0,    1,      2,          4,          6,      7,          9,          11,     12,         14,               17,         19,         21,   22,   23,     24
         };
 
         if(!testConvertToUnicode(utf7, ARRAY_LENGTH(utf7), unicode, ARRAY_LENGTH(unicode), "UTF-7", 
@@ -2743,7 +2743,7 @@ UBool testConvertFromUnicode(const UChar *source, int sourceLen,  const uint8_t 
 
     log_verbose("\nConversion done [%d uchars in -> %d chars out]. \nResult :",
         sourceLen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
 
         junk[0] = 0;
@@ -2941,7 +2941,7 @@ UBool testConvertToUnicode( const uint8_t *source, int sourcelen, const UChar *e
 
     log_verbose("\nConversion done. %d bytes -> %d chars.\nResult :",
         sourcelen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
 
         junk[0] = 0;
@@ -3120,7 +3120,7 @@ UBool testConvertFromUnicodeWithContext(const UChar *source, int sourceLen,  con
 
     log_verbose("\nConversion done [%d uchars in -> %d chars out]. \nResult :",
         sourceLen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
 
         junk[0] = 0;
@@ -3298,7 +3298,7 @@ UBool testConvertToUnicodeWithContext( const uint8_t *source, int sourcelen, con
 
     log_verbose("\nConversion done. %d bytes -> %d chars.\nResult :",
         sourcelen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
 
         junk[0] = 0;

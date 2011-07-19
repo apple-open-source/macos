@@ -1,35 +1,13 @@
 dnl
 dnl Process this file with autoconf to produce a configure script.
 dnl
-AC_REVISION($Id: configure.in,v 5.75 2008/10/03 17:05:14 andreas_kupries Exp $)
+AC_REVISION($Id: configure.in,v 5.80 2010/08/27 21:51:53 hobbs Exp $)
 
-AC_INIT([expect],[5.44.1.11])
+AC_INIT([expect],[5.45])
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(tclconfig)
-
-# Too many people send me configure output without identifying the version.
-# This forced identification should reduce my pain significantly.
-
-echo "configuring $PACKAGE_NAME $PACKAGE_VERSION"
-
-# People (when downloading Expect from CVS archive) sometimes run into
-# Make thinking configure is old and needs to be rebuilt.  If they
-# don't have a clue about autoconf, they get confused.  This is
-# particular irritating because the problem only crops up after
-# configure has successfully completed.  Help them out by checking it
-# right now and giving some advice.  Alas, we cannot summarily fix the
-# problem because it might conceivably be someone doing real
-# development.
-# Test if configure is older than configure.in and explain if no autoconf
-
-AC_CHECK_PROG(found,autoconf,yes,no,)
-
-# AK: Removed the checking and complaint. It makes automatic building
-# straight out of the CVS a true hassle simply because the build can
-# stop anytime and randomly (platform dependent, cvs dependent)
-
 
 #--------------------------------------------------------------------
 # Configure script for package 'Expect'.
@@ -43,6 +21,13 @@ AC_CHECK_PROG(found,autoconf,yes,no,)
 TEA_PATH_TCLCONFIG
 TEA_LOAD_TCLCONFIG
 
+# expectk has been removed from the distribution as Tcl has supported
+# dynamic extensions everywhere for a while.  We still allow 'expect'
+# to be built for the die-hard users, but expectk is just wish with
+# package require Expect
+if test "${with_tk+set}" = set ; then
+    AC_MSG_WARN([With Tk request ignored - use package require Tk & Expect])
+fi
 
 #-----------------------------------------------------------------------
 # Handle the --prefix=... option by defaulting to what Tcl gave.
@@ -71,30 +56,18 @@ TEA_SETUP_COMPILER
 
 #TEA_PUBLIC_TCL_HEADERS
 TEA_PRIVATE_TCL_HEADERS
-AC_SUBST(TK_INCLUDES)
 
 #--------------------------------------------------------------------
+# You can add more files to clean if your extension creates any extra
+# files by extending CLEANFILES.
+# Add pkgIndex.tcl if it is generated in the Makefile instead of ./configure
+# and change Makefile.in to move it from CONFIG_CLEAN_FILES to BINARIES var.
+#
 # A few miscellaneous platform-specific items:
-#
-# We have to define a special symbol for Windows (BUILD_Expect in this
-# case) so that we create the export library with the dll.
-#
-# Windows creates a few extra files that need to be cleaned up.
-# We can add more files to clean if our extension creates any extra
-# files in the future.
-#
-# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
-# These will be appended to the current set of compiler flags for
-# your system.
+# TEA_ADD_* any platform specific compiler/build info here.
 #--------------------------------------------------------------------
 
-if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_Expect)
-    CLEANFILES="pkgIndex.tcl *.lib *.dll *.exp *.ilk *.pdb vc*.pch"
-else
-    CLEANFILES="pkgIndex.tcl"
-fi
-AC_SUBST(CLEANFILES)
+TEA_ADD_CLEANFILES([pkgIndex.tcl])
 
 #--------------------------------------------------------------------
 # Check whether --enable-threads or --disable-threads was given.
@@ -119,44 +92,7 @@ TEA_ENABLE_SHARED
 # can be taken from the tclConfig.sh file, but this figures it all out.
 #--------------------------------------------------------------------
 
-dnl AC_PROG_CC and thus TEA_CONFIG_CFLAGS insists on sticking crap
-dnl -g and -O in CFLAGS but I want to control it.  Can't just throw
-dnl it out at the end alas, because the user might have defined CFLAGS.
-
-dnl NEW: We have to save/restore DEBUG and OPTIMIZE, but not the
-dnl regular CFLAGS. It does not contain the crap anymore, was split
-dnl into the aforementioned other variables. And its contents are
-dnl required for proper 64bit support.
-
-dnl echo ____BEFORE
-dnl echo CFLAGS_DEBUG... = $CFLAGS_DEBUG
-dnl echo CFLAGS_OPTIMIZE = $CFLAGS_OPTIMIZE
-dnl echo CFLAGS......... = $CFLAGS
-dnl echo DEFS........... = $DEFS
-dnl echo LIBS........... = $LIBS
-dnl echo ____
-
-OLD_CFLAGD=$CFLAGS_DEBUG
-OLD_CFLAGO=$CFLAGS_OPTIMIZE
-
 TEA_CONFIG_CFLAGS
-
-dnl echo ____AFTER
-dnl echo CFLAGS_DEBUG... = $CFLAGS_DEBUG
-dnl echo CFLAGS_OPTIMIZE = $CFLAGS_OPTIMIZE
-dnl echo CFLAGS......... = $CFLAGS
-dnl echo ____
-
-CFLAGS_DEBUG=$OLD_CFLAGD
-CFLAGS_OPTIMIZE=$OLD_CFLAGO
-
-dnl echo ____AFTER RESTORE
-dnl echo CFLAGS_DEBUG... = $CFLAGS_DEBUG
-dnl echo CFLAGS_OPTIMIZE = $CFLAGS_OPTIMIZE
-dnl echo CFLAGS......... = $CFLAGS
-dnl echo DEFS........... = $DEFS
-dnl echo LIBS........... = $LIBS
-dnl echo ____
 
 #--------------------------------------------------------------------
 # Set the default compiler switches based on the --enable-symbols option.
@@ -172,6 +108,7 @@ TEA_ENABLE_SYMBOLS
 #--------------------------------------------------------------------
 
 AC_DEFINE(USE_TCL_STUBS)
+AC_DEFINE(USE_TCL_STUBS, 1, [Use Tcl stubs])
 
 #-------------------------------------------------------------------------
 # Check for system header files.
@@ -196,11 +133,6 @@ AC_CHECK_HEADER(sys/fcntl.h,     AC_DEFINE(HAVE_SYS_FCNTL_H))
 AC_CHECK_HEADER(sys/ptem.h,      AC_DEFINE(HAVE_SYS_PTEM_H))
 AC_CHECK_HEADER(sys/strredir.h,  AC_DEFINE(HAVE_STRREDIR_H))
 AC_CHECK_HEADER(sys/strpty.h,    AC_DEFINE(HAVE_STRPTY_H))
-
-dnl #echo checking for ucbinclude/sys/ioctl.h (ucb-style ioctl.h under SV)
-dnl #if test -f /usr/ucbinclude/sys/ioctl.h ; then
-dnl #    AC_DEFINE(HAVE_UCB_IOCTL_H)
-dnl #fi
 
 AC_MSG_CHECKING([for sys/bsdtypes.h])
 if test "ISC_${ISC}" = "ISC_1"   ;    then
@@ -277,7 +209,7 @@ fi
 # Check for FreeBSD/NetBSD openpty()
 unset ac_cv_func_openpty
 
-AC_CHECK_FUNC(openpty, AC_DEFINE(HAVE_OPENPTY)  openpty=1, openpty=0)
+AC_CHECK_FUNC(openpty, AC_DEFINE(HAVE_OPENPTY) openpty=1 , openpty=0)
 if test $openpty -eq 0 ; then
   AC_CHECK_LIB(util, openpty, [
 	# we only need to define OPENPTY once, but since we are overriding
@@ -321,15 +253,6 @@ fi
 dnl AC_CONFIG_AUX_DIR(`cd $srcdir;pwd`/..)
 AC_CANONICAL_SYSTEM
 
-# /bin/sh on some systems is too deficient (in particular, Ultrix 4.3
-# sh lacks unset and we *need* that), but all these systems come with
-# alternatives, so take user's choice or whatever we're using here and
-# allow it to be seen by Make.
-
-AC_MSG_CHECKING([shell to use within Make])
-EXP_CONFIG_SHELL=${CONFIG_SHELL-/bin/sh}
-AC_MSG_RESULT($CONFIG_SHELL)
-
 # If `configure' is invoked (in)directly via `make', ensure that it
 # encounters no `make' conflicts.
 #
@@ -344,8 +267,7 @@ MAKEFLAGS=
 # references to their dependent libraries, i.e., any additional
 # libraries that must be linked to.  And some systems get upset if the
 # references are repeated on the link line.  So therefore, we create
-# one for Expect and Tk (EXP_AND_TK_LIBS), one for Expect and Tcl
-# (EXP_AND_TCL_LIBS), and finally, one for building Expect's own
+# one for Expect, one for Expect and Tcl, and one for building Expect's own
 # shared library.  Tcl's tclConfig.sh insists that any shared libs
 # that it "helps" build must pass the libraries as LIBS (see comment
 # near end of this configure file).  I would do but since we're close
@@ -360,16 +282,16 @@ MAKEFLAGS=
 
 eval "LIBS=\"$TCL_LIBS\""
 
+if test "${with_tcl+set}" = set ; then
+    case "${with_tcl}" in
+	..*)
+	    AC_MSG_WARN([Specify absolute path to --with-tcl for subdir configuration])
+	    ;;
+    esac
+fi
+
 # these are the other subdirectories we need to configure
 AC_CONFIG_SUBDIRS(testsuite)
-
-# This is for LynxOS, which needs a flag to force true POSIX when
-# building.  The flag varies depending how old the compiler is.
-# -X is for the old "cc" and "gcc" (based on 1.42)
-# -mposix is for the new gcc (at least 2.5.8)
-# This modifies the value of $CC to have the POSIX flag added
-# so it'll configure correctly
-CY_AC_TCL_LYNX_POSIX
 
 AC_TYPE_PID_T
 
@@ -509,9 +431,6 @@ if test $iunix -eq 1 ; then
 	LIBS="${LIBS} -Xp" 
 	])
 fi
-
-
-# some people would complain if this explanation wasn't provided...
 
 ######################################################################
 #
@@ -678,17 +597,6 @@ esac
 if test $convex -eq 1 ; then
   AC_MSG_RESULT(yes)
   AC_DEFINE(CONVEX)
-else
-  AC_MSG_RESULT(no)
-fi
-
-EXP_LDFLAGS="$LDFLAGS"
-
-AC_MSG_CHECKING([if on NeXT])
-if test -r /NextApps ; then
-  AC_MSG_RESULT(yes)
-  # "-m" flag suppresses complaints about multiple strtod
-  EXP_LDFLAGS="$EXP_LDFLAGS -m"
 else
   AC_MSG_RESULT(no)
 fi
@@ -1014,8 +922,7 @@ if test "$FRAMEWORK_BUILD" = "1" ; then
     EXP_LIB_SPEC="-framework Expect"
     EXP_LIB_FILE="Expect"
     AC_DEFINE(EXP_FRAMEWORK)
-
-elif test "$SHARED_BUILD" = "0" || test "$TCL_NEEDS_EXP_FILE" = "0"; then
+else
     if test "${TCL_LIB_VERSIONS_OK}" = "ok"; then
         EXP_LIB_FLAG="-lexpect${EXP_LIB_VERSION}"
     else
@@ -1023,59 +930,6 @@ elif test "$SHARED_BUILD" = "0" || test "$TCL_NEEDS_EXP_FILE" = "0"; then
     fi
     EXP_BUILD_LIB_SPEC="-L`pwd` ${EXP_LIB_FLAG}"
     EXP_LIB_SPEC="-L${libdir} ${EXP_LIB_FLAG}"
-
-else
-    EXP_EXPORT_FILE_SUFFIX="${EXP_LIB_VERSION}.exp"
-    EXP_BUILD_EXP_FILE="lib.exp"
-    eval "EXP_EXP_FILE=libexpect${EXP_EXPORT_FILE_SUFFIX}"
-
-    # Replace DBGX with EXP_DBGX
-    eval "EXP_EXP_FILE=\"${EXP_EXP_FILE}\""
-    
-    if test "$GCC" = "yes" ; then
-	EXP_BUILD_LIB_SPEC="-Wl,-bI:`pwd`/${EXP_BUILD_EXP_FILE} -L`pwd`"
-	EXP_LIB_SPEC="-Wl,-bI:${libdir}/${EXP_EXP_FILE} -L`pwd`"
-    else
-	EXP_BUILD_LIB_SPEC="-bI:`pwd`/${EXP_BUILD_EXP_FILE}"
-	EXP_LIB_SPEC="-bI:${libdir}/${EXP_EXP_FILE}"
-    fi
-fi
-
-EXP_UNSHARED_LIB_FILE=libexpect${EXP_LIB_VERSION}.a
-
-# The TCL_SHARED_LIB_SUFFIX macro below relies on the DBGX macro,
-# which is set way far above here.  Don't set it to the value of
-# TCL_DBGX, or you'll run into problems if you build Tcl with symbols
-# and expect without (and vice versa?)
-
-AC_MSG_CHECKING([for type of library to build])
-if test "$enable_shared" = "yes" && test "x${TCL_SHLIB_SUFFIX}" != "x" ; then
-  EXP_SHLIB_CFLAGS=$TCL_SHLIB_CFLAGS
-  eval "EXP_SHARED_LIB_FILE=libexpect${TCL_SHARED_LIB_SUFFIX}"
-  EXP_LIB_FILE=$EXP_SHARED_LIB_FILE
-  EXP_LIB_FILES="$EXP_SHARED_LIB_FILE $EXP_UNSHARED_LIB_FILE"
-  AC_MSG_RESULT(both shared and unshared)
-else
-  EXP_SHLIB_CFLAGS=
-  EXP_SHARED_LIB_FILE="reconfigure_Tcl_for_shared_library"
-  EXP_LIB_FILE=$EXP_UNSHARED_LIB_FILE
-  EXP_LIB_FILES="$EXP_UNSHARED_LIB_FILE"
-  AC_MSG_RESULT(unshared)
-fi
-
-# Sigh - Tcl defines SHLIB_LD_LIBS to be either empty or ${LIBS} and
-# LIBS is intended to be expanded by Make.  But since we're too close
-# to hitting config's max symbols, pack everything together here and
-# do test ourselves.  Ugh.  
-#
-if test "$enable_stubs" = "yes"; then
-    EXP_SHLIB_LD_LIBS="$TCL_BUILD_STUB_LIB_SPEC $TCL_DL_LIBS $LIBS $LIBS -lc"
-elif test "x$TCL_SHLIB_LD_LIBS" = "x" ; then
-	EXP_SHLIB_LD_LIBS="$LIBS"
-else
-	# seems a little strange to build in Tcl's build-lib, but
-	# that's what Tk does.
-	  EXP_SHLIB_LD_LIBS="$TCL_BUILD_LIB_SPEC $TCL_DL_LIBS $LIBS -lc"
 fi
 
 #--------------------------------------------------------------------
@@ -1109,9 +963,8 @@ fi
 # variable LIB_RUNTIME_DIR.
 
 eval "EXP_CC_SEARCH_FLAGS=\"$TCL_CC_SEARCH_FLAGS\""
-eval "EXP_LD_SEARCH_FLAGS=\"$TCL_LD_SEARCH_FLAGS\""
 
-# now broken out into EXP_AND_TCL_LIBS and EXP_AND_TK_LIBS.  Had to do this
+# now broken out into EXP_AND_TCL_LIBS.  Had to do this
 # in order to avoid repeating lib specs to which some systems object.
 
 LIBS="$LIBS $LD_SEARCH_FLAGS"
@@ -1119,36 +972,19 @@ LIBS="$LIBS $LD_SEARCH_FLAGS"
 #
 # Set up makefile substitutions
 #
-AC_SUBST(EXP_CONFIG_SHELL)
-AC_SUBST(EXP_SHARED_LIB_FILE)
-AC_SUBST(EXP_UNSHARED_LIB_FILE)
-AC_SUBST(EXP_SHLIB_CFLAGS)
-AC_SUBST(EXP_LIB_FILE)
-AC_SUBST(EXP_LIB_FILES)
 AC_SUBST(EXP_BUILD_LIB_SPEC)
-AC_SUBST(EXP_LIB_SPEC)
-AC_SUBST(EXP_CFLAGS)
-AC_SUBST(EXP_LDFLAGS)
-AC_SUBST(EXP_LD_SEARCH_FLAGS)
-AC_SUBST(TCL_LD_SEARCH_FLAGS)
 AC_SUBST(EXP_CC_SEARCH_FLAGS)
-AC_SUBST(TCL_CC_SEARCH_FLAGS)
-AC_SUBST(EXP_SHLIB_LD_LIBS)
 AC_SUBST(SETUID)
 AC_SUBST(SETPGRP_VOID)
 AC_SUBST(DEFAULT_STTY_ARGS)
+# Expect uses these from tclConfig.sh to make the main executable
+AC_SUBST(TCL_DL_LIBS)
+AC_SUBST(TCL_CC_SEARCH_FLAGS)
 
 #--------------------------------------------------------------------
-#--------------------------------------------------------------------
-# More TEA 3.2 code based on data we got from the original expect
+# More TEA code based on data we got from the original expect
 # configure code.
 #--------------------------------------------------------------------
-#--------------------------------------------------------------------
-
-dnl echo ____BEFORE TEA POST
-dnl echo DEFS........... = $DEFS
-dnl echo LIBS........... = $LIBS
-dnl echo ____
 
 #-----------------------------------------------------------------------
 # Specify the C source files to compile in TEA_ADD_SOURCES,
@@ -1183,12 +1019,6 @@ TEA_ADD_HEADERS([expect.h expect_tcl.h expect_comm.h tcldbg.h])
 
 TEA_ADD_INCLUDES([-I.])
 TEA_ADD_INCLUDES([-I\"`\${CYGPATH} \${srcdir}`\"])
-
-dnl echo ____
-dnl echo SCRIPTDIR.... = $SCRIPTDIR
-dnl echo EXECSCRIPTDIR = $EXECSCRIPTDIR
-dnl echo STTY_BIN..... = $STTY_BIN
-dnl echo ____
 
 TEA_ADD_LIBS([])
 TEA_ADD_CFLAGS([-DTCL_DEBUGGER -DUSE_NON_CONST])

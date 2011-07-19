@@ -53,7 +53,9 @@
 // * Externs
 // --------------------------------------------------------------------------------
 extern CFRunLoopRef			gPluginRunLoop;
+#ifndef DISABLE_CONFIGURE_PLUGIN
 extern CPluginConfig	   *gPluginConfig;
+#endif
 extern DSMutexSemaphore    *gKerberosMutex;
 
 //--------------------------------------------------------------------------------------------------
@@ -181,7 +183,11 @@ SInt32 CLauncher::ThreadMain ( void )
 					fPlugin->ProcessRequest( (void*)&aHeader ); // don't handle return
 				}
 
+#ifndef DISABLE_CONFIGURE_PLUGIN
 				pluginState = gPluginConfig->GetPluginState( fPlugin->GetPluginName() );
+#else
+				pluginState = kActive;
+#endif
 				if ( pluginState == kInactive )
 				{
 					siResult = fPlugin->SetPluginState( kInactive );

@@ -43,7 +43,7 @@
         'chromium_src_dir': '../../WebKit/chromium',
       },{
         # WebKit is checked out in src/chromium/third_party/WebKit
-        'chromium_src_dir': '../../../..',
+        'chromium_src_dir': '../../../../..',
       }],
     ],
   },
@@ -106,6 +106,8 @@
         '../wtf/unicode',
       ],
       'sources': [
+        '<@(javascriptcore_publicheader_files)',
+        '<@(javascriptcore_privateheader_files)',
         '<@(javascriptcore_files)',
       ],
       'sources/': [
@@ -113,10 +115,27 @@
         ['exclude', '../'],
         # ... Then include what we want.
         ['include', '../wtf/'],
+        # FIXME: This is clearly not sustainable. 
+        ['exclude', '../wtf/android'], 
+        ['exclude', '../wtf/brew'], 
+        ['exclude', '../wtf/efl'], 
+        ['exclude', '../wtf/gobject'], 
+        ['exclude', '../wtf/gtk'], 
+        ['exclude', '../wtf/haiku'], 
+        ['exclude', '../wtf/mac'], 
+        ['exclude', '../wtf/qt'], 
+        ['exclude', '../wtf/url'], 
+        ['exclude', '../wtf/wince'], 
+        ['exclude', '../wtf/wx'], 
+        ['exclude', '../wtf/unicode/brew'], 
+        ['exclude', '../wtf/unicode/wince'], 
+        ['exclude', '../wtf/unicode/glib'], 
+        ['exclude', '../wtf/unicode/qt4'], 
         # GLib/GTK, even though its name doesn't really indicate.
         ['exclude', '/(gtk|glib|gobject)/.*\\.(cpp|h)$'],
-        ['exclude', '(Default|Gtk|Mac|None|Qt|Win|Wx)\\.(cpp|mm)$'],
+        ['exclude', '(Default|Gtk|Mac|None|Qt|Win|Wx|Efl|Symbian)\\.(cpp|mm)$'],
         ['exclude', 'wtf/CurrentTime\\.cpp$'],
+        ['exclude', 'wtf/OSRandomSource\\.cpp$'],
         ['exclude', 'wtf/MainThread.cpp$'],
         ['exclude', 'wtf/TC.*\\.(cpp|h)$'],
       ],
@@ -124,6 +143,16 @@
         'include_dirs': [
           '../',
           '../wtf',
+        ],
+        # Some warnings occur in JSC headers, so they must also be disabled
+        # in targets that use JSC.
+        'msvs_disabled_warnings': [
+          # Don't complain about calling specific versions of templatized
+          # functions (e.g. in RefPtrHashMap.h).
+          4344,
+          # Don't complain about using "this" in an initializer list
+          # (e.g. in StringImpl.h).
+          4355,
         ],
       },
       'export_dependent_settings': [
@@ -137,16 +166,30 @@
           'sources/': [
             ['exclude', 'ThreadIdentifierDataPthreads\\.(h|cpp)$'],
             ['exclude', 'ThreadingPthreads\\.cpp$'],
-            ['include', 'Thread(ing|Specific)Win\\.cpp$']
+            ['include', 'Thread(ing|Specific)Win\\.cpp$'],
+            ['exclude', 'OSAllocatorPosix\\.cpp$'],
+            ['include', 'OSAllocatorWin\\.cpp$']
           ],
           'include_dirs!': [
             '<(SHARED_INTERMEDIATE_DIR)/webkit',
+          ],
+          'conditions': [
+            ['inside_chromium_build==1 and component=="shared_library"', {
+              # Chromium windows multi-dll build enables c++ exception and this
+              # causes wtf generates 4291 warning due to operator new/delete
+              # implementations. Disable the warning for chromium windows
+              # multi-dll build.
+              'msvs_disabled_warnings': [4291],
+              'direct_dependent_settings': {
+                'msvs_disabled_warnings': [4291],
+              },
+            }],
           ],
         }],
       ],
     },
     {
-      'target_name': 'pcre',
+      'target_name': 'yarr',
       'type': '<(library)',
       'dependencies': [
         'wtf',
@@ -159,18 +202,22 @@
       'msvs_guid': '49909552-0B0C-4C14-8CF6-DB8A2ADE0934',
       'actions': [
         {
-          'action_name': 'dftables',
+          'action_name': 'retgen',
           'inputs': [
-            '../pcre/dftables',
+            '../create_regex_tables',
+          ],
+          'arguments': [
+            '--no-tables',
           ],
           'outputs': [
-            '<(INTERMEDIATE_DIR)/chartables.c',
+            '<(INTERMEDIATE_DIR)/RegExpJitTables.h',
           ],
-          'action': ['perl', '-w', '<@(_inputs)', '<@(_outputs)'],
+          'action': ['python', '<@(_inputs)', '<@(_arguments)', '<@(_outputs)'],
         },
       ],
       'include_dirs': [
         '<(INTERMEDIATE_DIR)',
+        '../runtime',
       ],
       'sources': [
         '<@(javascriptcore_files)',
@@ -179,10 +226,9 @@
         # First exclude everything ...
         ['exclude', '../'],
         # ... Then include what we want.
-        ['include', '../pcre/'],
-        # ucptable.cpp is #included by pcre_ucp_searchfunchs.cpp and is not
-        # intended to be compiled directly.
-        ['exclude', '../pcre/ucptable.cpp$'],
+        ['include', '../yarr/'],
+        # The Yarr JIT isn't used in WebCore.
+        ['exclude', '../yarr/YarrJIT\\.(h|cpp)$'],
       ],
       'export_dependent_settings': [
         'wtf',

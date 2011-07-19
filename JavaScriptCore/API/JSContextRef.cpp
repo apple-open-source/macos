@@ -46,7 +46,7 @@ using namespace JSC;
 JSContextGroupRef JSContextGroupCreate()
 {
     initializeThreading();
-    return toRef(JSGlobalData::createContextGroup(ThreadStackTypeSmall).releaseRef());
+    return toRef(JSGlobalData::createContextGroup(ThreadStackTypeSmall).leakRef());
 }
 
 JSContextGroupRef JSContextGroupRetain(JSContextGroupRef group)
@@ -66,7 +66,7 @@ JSGlobalContextRef JSGlobalContextCreate(JSClassRef globalObjectClass)
 #if OS(DARWIN)
     // When running on Tiger or Leopard, or if the application was linked before JSGlobalContextCreate was changed
     // to use a unique JSGlobalData, we use a shared one for compatibility.
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     if (NSVersionOfLinkTimeLibrary("JavaScriptCore") <= webkitFirstVersionWithConcurrentGlobalContexts) {
 #else
     {
@@ -93,16 +93,16 @@ JSGlobalContextRef JSGlobalContextCreateInGroup(JSContextGroupRef group, JSClass
 #endif
 
     if (!globalObjectClass) {
-        JSGlobalObject* globalObject = new (globalData.get()) JSGlobalObject;
+        JSGlobalObject* globalObject = new (globalData.get()) JSGlobalObject(*globalData, JSGlobalObject::createStructure(*globalData, jsNull()));
         return JSGlobalContextRetain(toGlobalRef(globalObject->globalExec()));
     }
 
-    JSGlobalObject* globalObject = new (globalData.get()) JSCallbackObject<JSGlobalObject>(globalObjectClass);
+    JSGlobalObject* globalObject = new (globalData.get()) JSCallbackObject<JSGlobalObject>(*globalData, globalObjectClass, JSCallbackObject<JSGlobalObject>::createStructure(*globalData, jsNull()));
     ExecState* exec = globalObject->globalExec();
     JSValue prototype = globalObjectClass->prototype(exec);
     if (!prototype)
         prototype = jsNull();
-    globalObject->resetPrototype(prototype);
+    globalObject->resetPrototype(*globalData, prototype);
     return JSGlobalContextRetain(toGlobalRef(exec));
 }
 
@@ -138,13 +138,17 @@ void JSGlobalContextRelease(JSGlobalContextRef ctx)
     // * If this is the last reference to any contexts in the given context group,
     //   call destroy on the heap (the global data is being  freed).
     // * If this was the last reference to the global object, then unprotecting
-    //   it may  release a lot of GC memory - run the garbage collector now.
+    //   it may release a lot of GC memory - tickle the activity callback to
+    //   garbage collect soon.
     // * If there are more references remaining the the global object, then do nothing
     //   (specifically that is more protects, which we assume come from other JSGlobalContextRefs).
-    if (releasingContextGroup)
+    if (releasingContextGroup) {
+        globalData.clearBuiltinStructures();
         globalData.heap.destroy();
-    else if (releasingGlobalObject)
-        globalData.heap.collectAllGarbage();
+    } else if (releasingGlobalObject) {
+        globalData.heap.activityCallback()->synchronize();
+        (*globalData.heap.activityCallback())();
+    }
 
     globalData.deref();
 

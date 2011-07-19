@@ -1086,6 +1086,8 @@ enum {
 
 #define kIOFBMemorySizeKey              "IOFBMemorySize"
 
+#define kIOFBNeedsRefreshKey            "IOFBNeedsRefresh"
+
 #define kIOFBProbeOptionsKey            "IOFBProbeOptions"
 
 #define kIOFBGammaWidthKey              "IOFBGammaWidth"

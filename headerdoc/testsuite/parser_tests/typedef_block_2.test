@@ -1,0 +1,1047 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$258|#if defined(__x86_64__)
+
+typedef volatile struct {
+        void    *opaque1;
+        long     opaque2;
+} OSQueueHead __attribute__ ((aligned (16)));
+
+#else
+
+typedef volatile struct {
+        void    *opaque1;
+        long     opaque2;
+} OSQueueHead;
+
+#endif
+$211|/*! @abstract The data structure for a queue head.
+    @discussion
+        You should always initialize a queue head structure with the
+        initialization vector {@link OS_ATOMIC_QUEUE_INIT} before use.
+ */
+$0|$15004|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(__x86_64__)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(__x86_64__)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---__x86_64__
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 2
+APIUID: //test_ref/doc/header/typedef_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: OSQueueHead
+    APIUID: //test_ref/c/tdef/OSQueueHead
+    ABSTRACT: "<p>The data structure for a queue head.
+"
+    DISCUSSION: "<p>You should always initialize a queue head structure with the
+initialization vector <code><hd_link posstarget="OS_ATOMIC_QUEUE_INIT">OS_ATOMIC_QUEUE_INIT</hd_link></code> before use.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque1
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque2
+        TYPE: long
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque1
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque2
+        TYPE: long
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---[ NEWLINE ]
++---typedef
++--- 
++---volatile
++--- 
++---struct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---void
+|   +---    
+|   +---*
+|   +---opaque1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---long
+|   +---     
+|   +---opaque2
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---OSQueueHead
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---__x86_64__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---[ NEWLINE ]
++---typedef
++--- 
++---volatile
++--- 
++---struct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---void
+|   +---    
+|   +---*
+|   +---opaque1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---long
+|   +---     
+|   +---opaque2
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---OSQueueHead
++--- 
++---__attribute__
+|   +--- 
+|   +---(
+|   +---(
+|   +---aligned
+|   +--- 
+|   +---(
+|   +---16
+|   +---)
+|   +---)
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	 <span class="keyword">typedef</span> <span class="keyword">volatile</span> <span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/opaque1 //test_ref/c/data/opaque1 //test_ref/c/clconst/opaque1 " machineGenerated="true" --><span class="var">opaque1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/long //test_ref/c/tdef/long //test_ref/c/tag/long //test_ref/c/struct/long //test_ref/c/intf/long //test_ref/doc/anysymbol/long" machineGenerated="true" --><span class="type">long</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/opaque2 //test_ref/c/data/opaque2 //test_ref/c/clconst/opaque2 " machineGenerated="true" --><span class="var">opaque2</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/c/econst/OSQueueHead //test_ref/c/data/OSQueueHead //test_ref/c/clconst/OSQueueHead " machineGenerated="true" --><span class="var">OSQueueHead</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/struct/defined //test_ref/c/intf/defined //test_ref/c/econst/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined //test_ref/doc/anysymbol/defined" machineGenerated="true" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__x86_64__ //test_ref/c/tdef/__x86_64__ //test_ref/c/tag/__x86_64__ //test_ref/c/struct/__x86_64__ //test_ref/c/intf/__x86_64__ //test_ref/c/econst/__x86_64__ //test_ref/c/data/__x86_64__ //test_ref/c/clconst/__x86_64__ //test_ref/c/instm/__x86_64__ //test_ref/c/clm/__x86_64__ //test_ref/c/intfcm/__x86_64__ //test_ref/c/intfm/__x86_64__ //test_ref/c/func/__x86_64__ //test_ref/c/ftmplt/__x86_64__ //test_ref/c/defn/__x86_64__ //test_ref/c/macro/__x86_64__ //test_ref/doc/com/intfm/__x86_64__ //test_ref/doc/anysymbol/__x86_64__" machineGenerated="true" --><span class="preprocessor">__x86_64__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	 <span class="keyword">typedef</span> <span class="keyword">volatile</span> <span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/opaque1 //test_ref/c/data/opaque1 //test_ref/c/clconst/opaque1 " machineGenerated="true" --><span class="var">opaque1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/long //test_ref/c/tdef/long //test_ref/c/tag/long //test_ref/c/struct/long //test_ref/c/intf/long //test_ref/doc/anysymbol/long" machineGenerated="true" --><span class="type">long</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/opaque2 //test_ref/c/data/opaque2 //test_ref/c/clconst/opaque2 " machineGenerated="true" --><span class="var">opaque2</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/c/cl/OSQueueHead //test_ref/c/tdef/OSQueueHead //test_ref/c/tag/OSQueueHead //test_ref/c/struct/OSQueueHead //test_ref/c/intf/OSQueueHead //test_ref/doc/anysymbol/OSQueueHead" machineGenerated="true" --><span class="type">OSQueueHead</span><!-- /a --> <span class="keyword">__attribute__</span> ((<!-- a logicalPath="//test_ref/c/cl/aligned //test_ref/c/tdef/aligned //test_ref/c/tag/aligned //test_ref/c/struct/aligned //test_ref/c/intf/aligned //test_ref/doc/anysymbol/aligned" machineGenerated="true" --><span class="type">aligned</span><!-- /a --> (<span class="number">16</span>)));  
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#else</span> 
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#endif</span>  
+END OF OBJECT
+
+
+
+$15004|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/typedef_block_2.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/typedef_block_2.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 4
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #if defined(__x86_64__)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => 
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: MACRO
+namelist: )
+posstypes: MACRO
+value: 
+returntype:  #if defined(__x86_64__)
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---__x86_64__
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: typedef block 2
+APIUID: //test_ref/doc/header/typedef_block_2.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 5
+    INDEX GROUP: 
+    IS BLOCK: 1
+    OBJECT TYPE: HeaderDoc::Typedef
+    NAME: OSQueueHead
+    APIUID: //test_ref/c/tdef/OSQueueHead
+    ABSTRACT: "<p>The data structure for a queue head.
+"
+    DISCUSSION: "<p>You should always initialize a queue head structure with the
+initialization vector <code><hd_link posstarget="OS_ATOMIC_QUEUE_INIT">OS_ATOMIC_QUEUE_INIT</hd_link></code> before use.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Typedef"
+    MASTERENUM: "1"
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque1
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque2
+        TYPE: long
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque1
+        TYPE: void *
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: opaque2
+        TYPE: long
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---[ NEWLINE ]
++---typedef
++--- 
++---volatile
++--- 
++---struct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---void
+|   +---    
+|   +---*
+|   +---opaque1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---long
+|   +---     
+|   +---opaque2
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---OSQueueHead
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#if
+|   +--- 
+|   +---defined
+|   +---(
+|   +---__x86_64__
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---[ NEWLINE ]
++---typedef
++--- 
++---volatile
++--- 
++---struct
++--- 
++---{
+|   +---[ NEWLINE ]
+|   +---        
+|   +---void
+|   +---    
+|   +---*
+|   +---opaque1
+|   +---;
+|   +---[ NEWLINE ]
+|   +---        
+|   +---long
+|   +---     
+|   +---opaque2
+|   +---;
+|   +---[ NEWLINE ]
+|   +---}
++--- 
++---OSQueueHead
++--- 
++---__attribute__
+|   +--- 
+|   +---(
+|   +---(
+|   +---aligned
+|   +--- 
+|   +---(
+|   +---16
+|   +---)
+|   +---)
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#else
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
++---#endif
+|   +---[ NEWLINE ]
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	 <span class="keyword">typedef</span> <span class="keyword">volatile</span> <span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/opaque1 //test_ref/c/data/opaque1 //test_ref/c/clconst/opaque1 " machineGenerated="true" --><span class="var">opaque1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/long //test_ref/c/tdef/long //test_ref/c/tag/long //test_ref/c/struct/long //test_ref/c/intf/long //test_ref/doc/anysymbol/long" machineGenerated="true" --><span class="type">long</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/opaque2 //test_ref/c/data/opaque2 //test_ref/c/clconst/opaque2 " machineGenerated="true" --><span class="var">opaque2</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/c/econst/OSQueueHead //test_ref/c/data/OSQueueHead //test_ref/c/clconst/OSQueueHead " machineGenerated="true" --><span class="var">OSQueueHead</span><!-- /a -->;  
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#if</span> <!-- a logicalPath="//test_ref/c/cl/defined //test_ref/c/tdef/defined //test_ref/c/tag/defined //test_ref/c/struct/defined //test_ref/c/intf/defined //test_ref/c/econst/defined //test_ref/c/data/defined //test_ref/c/clconst/defined //test_ref/c/instm/defined //test_ref/c/clm/defined //test_ref/c/intfcm/defined //test_ref/c/intfm/defined //test_ref/c/func/defined //test_ref/c/ftmplt/defined //test_ref/c/defn/defined //test_ref/c/macro/defined //test_ref/doc/com/intfm/defined //test_ref/doc/anysymbol/defined" machineGenerated="true" --><span class="preprocessor">defined</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__x86_64__ //test_ref/c/tdef/__x86_64__ //test_ref/c/tag/__x86_64__ //test_ref/c/struct/__x86_64__ //test_ref/c/intf/__x86_64__ //test_ref/c/econst/__x86_64__ //test_ref/c/data/__x86_64__ //test_ref/c/clconst/__x86_64__ //test_ref/c/instm/__x86_64__ //test_ref/c/clm/__x86_64__ //test_ref/c/intfcm/__x86_64__ //test_ref/c/intfm/__x86_64__ //test_ref/c/func/__x86_64__ //test_ref/c/ftmplt/__x86_64__ //test_ref/c/defn/__x86_64__ //test_ref/c/macro/__x86_64__ //test_ref/doc/com/intfm/__x86_64__ //test_ref/doc/anysymbol/__x86_64__" machineGenerated="true" --><span class="preprocessor">__x86_64__</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	 <span class="keyword">typedef</span> <span class="keyword">volatile</span> <span class="keyword">struct</span> { 
+	    <!-- a logicalPath="//test_ref/c/cl/void //test_ref/c/tdef/void //test_ref/c/tag/void //test_ref/c/struct/void //test_ref/c/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <span class="type">*</span><!-- a logicalPath="//test_ref/c/econst/opaque1 //test_ref/c/data/opaque1 //test_ref/c/clconst/opaque1 " machineGenerated="true" --><span class="var">opaque1</span><!-- /a -->; 
+	    <!-- a logicalPath="//test_ref/c/cl/long //test_ref/c/tdef/long //test_ref/c/tag/long //test_ref/c/struct/long //test_ref/c/intf/long //test_ref/doc/anysymbol/long" machineGenerated="true" --><span class="type">long</span><!-- /a --> <!-- a logicalPath="//test_ref/c/econst/opaque2 //test_ref/c/data/opaque2 //test_ref/c/clconst/opaque2 " machineGenerated="true" --><span class="var">opaque2</span><!-- /a -->; 
+	} <!-- a logicalPath="//test_ref/c/cl/OSQueueHead //test_ref/c/tdef/OSQueueHead //test_ref/c/tag/OSQueueHead //test_ref/c/struct/OSQueueHead //test_ref/c/intf/OSQueueHead //test_ref/doc/anysymbol/OSQueueHead" machineGenerated="true" --><span class="type">OSQueueHead</span><!-- /a --> <span class="keyword">__attribute__</span> ((<!-- a logicalPath="//test_ref/c/cl/aligned //test_ref/c/tdef/aligned //test_ref/c/tag/aligned //test_ref/c/struct/aligned //test_ref/c/intf/aligned //test_ref/doc/anysymbol/aligned" machineGenerated="true" --><span class="type">aligned</span><!-- /a --> (<span class="number">16</span>)));  
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#else</span> 
+END OF OBJECT
+
+
+OBJECT: OSQueueHead (HeaderDoc::Typedef)
+	<span class="preprocessor">#endif</span>  
+END OF OBJECT
+
+
+
+$95|This should show the discussion and abstract for the block.
+If it doesn't, something is wrong.
+$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/typedef_block_2.test$1|C$15|typedef block 2$1|C$6|parser

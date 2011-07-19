@@ -27,7 +27,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/stab.c,v 1.22 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: stab.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* stabs data structure.   This appears to be somewhat universal. */
 typedef struct Stab {

@@ -3,6 +3,7 @@
 [copyright {Public domain}]
 [moddesc   {Base32 encoding}]
 [titledesc {base32 standard encoding}]
+[category  {Text processing}]
 [require Tcl 8.4]
 [require base32::core [opt 0.1]]
 [require base32       [opt 0.1]]

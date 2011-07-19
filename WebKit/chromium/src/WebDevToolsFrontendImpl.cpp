@@ -35,12 +35,9 @@
 #include "ContextMenuController.h"
 #include "ContextMenuItem.h"
 #include "DOMWindow.h"
-#include "DebuggerAgent.h"
-#include "DevToolsRPCJS.h"
 #include "Document.h"
 #include "Event.h"
 #include "Frame.h"
-#include "InspectorBackend.h"
 #include "InspectorController.h"
 #include "InspectorFrontendClientImpl.h"
 #include "InspectorFrontendHost.h"
@@ -48,10 +45,8 @@
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformString.h"
-#include "ProfilerAgent.h"
 #include "SecurityOrigin.h"
 #include "Settings.h"
-#include "ToolsAgent.h"
 #include "V8Binding.h"
 #include "V8DOMWrapper.h"
 #include "V8InspectorFrontendHost.h"
@@ -78,10 +73,6 @@ static v8::Local<v8::String> ToV8String(const String& s)
     return v8::String::New(reinterpret_cast<const uint16_t*>(s.characters()), s.length());
 }
 
-DEFINE_RPC_JS_BOUND_OBJ(DebuggerAgent, DEBUGGER_AGENT_STRUCT, DebuggerAgentDelegate, DEBUGGER_AGENT_DELEGATE_STRUCT)
-DEFINE_RPC_JS_BOUND_OBJ(ProfilerAgent, PROFILER_AGENT_STRUCT, ProfilerAgentDelegate, PROFILER_AGENT_DELEGATE_STRUCT)
-DEFINE_RPC_JS_BOUND_OBJ(ToolsAgent, TOOLS_AGENT_STRUCT, ToolsAgentDelegate, TOOLS_AGENT_DELEGATE_STRUCT)
-
 WebDevToolsFrontend* WebDevToolsFrontend::create(
     WebView* view,
     WebDevToolsFrontendClient* client,
@@ -100,97 +91,44 @@ WebDevToolsFrontendImpl::WebDevToolsFrontendImpl(
     : m_webViewImpl(webViewImpl)
     , m_client(client)
     , m_applicationLocale(applicationLocale)
-    , m_loaded(false)
 {
     InspectorController* ic = m_webViewImpl->page()->inspectorController();
-    ic->setInspectorFrontendClient(new InspectorFrontendClientImpl(m_webViewImpl->page(), m_client, this));
+    ic->setInspectorFrontendClient(adoptPtr(new InspectorFrontendClientImpl(m_webViewImpl->page(), m_client, this)));
 
-    WebFrameImpl* frame = m_webViewImpl->mainFrameImpl();
-    v8::HandleScope scope;
-    v8::Handle<v8::Context> frameContext = V8Proxy::context(frame->frame());
-
-    m_debuggerAgentObj.set(new JSDebuggerAgentBoundObj(this, frameContext, "RemoteDebuggerAgent"));
-    m_profilerAgentObj.set(new JSProfilerAgentBoundObj(this, frameContext, "RemoteProfilerAgent"));
-    m_toolsAgentObj.set(new JSToolsAgentBoundObj(this, frameContext, "RemoteToolsAgent"));
-
-    // Debugger commands should be sent using special method.
-    BoundObject debuggerCommandExecutorObj(frameContext, this, "RemoteDebuggerCommandExecutor");
-    debuggerCommandExecutorObj.addProtoFunction(
-        "DebuggerCommand",
-        WebDevToolsFrontendImpl::jsDebuggerCommand);
-    debuggerCommandExecutorObj.addProtoFunction(
-        "DebuggerPauseScript",
-        WebDevToolsFrontendImpl::jsDebuggerPauseScript);
-    debuggerCommandExecutorObj.build();
+    // Put each DevTools frontend Page into its own (single page) group so that it's not
+    // deferred along with the inspected page.
+    m_webViewImpl->page()->setGroupName(String());
 }
 
 WebDevToolsFrontendImpl::~WebDevToolsFrontendImpl()
 {
 }
 
-void WebDevToolsFrontendImpl::dispatchMessageFromAgent(const WebDevToolsMessageData& data)
-{
-    Vector<String> v;
-    v.append(data.className);
-    v.append(data.methodName);
-    for (size_t i = 0; i < data.arguments.size(); i++)
-        v.append(data.arguments[i]);
-    if (!m_loaded) {
-        m_pendingIncomingMessages.append(v);
-        return;
-    }
-    executeScript(v);
-}
-
-void WebDevToolsFrontendImpl::frontendLoaded()
-{
-    m_loaded = true;
-
-    // Grant the devtools page the ability to have source view iframes.
-    SecurityOrigin* origin = m_webViewImpl->page()->mainFrame()->domWindow()->securityOrigin();
-    origin->grantUniversalAccess();
-
-    for (Vector<Vector<String> >::iterator it = m_pendingIncomingMessages.begin();
-         it != m_pendingIncomingMessages.end();
-         ++it) {
-        executeScript(*it);
-    }
-    m_pendingIncomingMessages.clear();
-}
-
-void WebDevToolsFrontendImpl::executeScript(const Vector<String>& v)
+void WebDevToolsFrontendImpl::dispatchOnInspectorFrontend(const WebString& message)
 {
     WebFrameImpl* frame = m_webViewImpl->mainFrameImpl();
     v8::HandleScope scope;
     v8::Handle<v8::Context> frameContext = V8Proxy::context(frame->frame());
     v8::Context::Scope contextScope(frameContext);
-    v8::Handle<v8::Value> dispatchFunction = frameContext->Global()->Get(v8::String::New("devtools$$dispatch"));
-    ASSERT(dispatchFunction->IsFunction());
+    v8::Handle<v8::Value> inspectorBackendValue = frameContext->Global()->Get(v8::String::New("InspectorBackend"));
+    if (!inspectorBackendValue->IsObject())
+        return;
+    v8::Handle<v8::Object> inspectorBackend = v8::Handle<v8::Object>::Cast(inspectorBackendValue);
+    v8::Handle<v8::Value> dispatchFunction = inspectorBackend->Get(v8::String::New("dispatch"));
+     // The frame might have navigated away from the front-end page (which is still weird).
+    if (!dispatchFunction->IsFunction())
+        return;
     v8::Handle<v8::Function> function = v8::Handle<v8::Function>::Cast(dispatchFunction);
     Vector< v8::Handle<v8::Value> > args;
-    for (size_t i = 0; i < v.size(); i++)
-        args.append(ToV8String(v.at(i)));
-    function->Call(frameContext->Global(), args.size(), args.data());
+    args.append(ToV8String(message));
+    v8::TryCatch tryCatch;
+    tryCatch.SetVerbose(true);
+    function->Call(inspectorBackend, args.size(), args.data());
 }
 
-void WebDevToolsFrontendImpl::sendRpcMessage(const WebDevToolsMessageData& data)
+void WebDevToolsFrontendImpl::frontendLoaded()
 {
-    m_client->sendMessageToAgent(data);
-}
-
-v8::Handle<v8::Value> WebDevToolsFrontendImpl::jsDebuggerCommand(const v8::Arguments& args)
-{
-    WebDevToolsFrontendImpl* frontend = static_cast<WebDevToolsFrontendImpl*>(v8::External::Cast(*args.Data())->Value());
-    WebString command = WebCore::toWebCoreStringWithNullCheck(args[0]);
-    frontend->m_client->sendDebuggerCommandToAgent(command);
-    return v8::Undefined();
-}
-
-v8::Handle<v8::Value> WebDevToolsFrontendImpl::jsDebuggerPauseScript(const v8::Arguments& args)
-{
-    WebDevToolsFrontendImpl* frontend = static_cast<WebDevToolsFrontendImpl*>(v8::External::Cast(*args.Data())->Value());
-    frontend->m_client->sendDebuggerPauseScript();
-    return v8::Undefined();
+    m_client->sendFrontendLoaded();
 }
 
 } // namespace WebKit

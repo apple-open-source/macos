@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2011, Benjamin Poulain <ikipou@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,6 +25,8 @@
 #include "Assertions.h"
 #include "HashSet.h"
 #include "OwnPtr.h"
+#include "PassOwnPtr.h"
+#include "StdLibExtras.h"
 
 namespace WTF {
 
@@ -51,7 +54,8 @@ namespace WTF {
     template<typename ValueArg, size_t inlineCapacity> struct ListHashSetNodeAllocator;
     template<typename ValueArg, size_t inlineCapacity, typename HashArg> struct ListHashSetNodeHashFunctions;
 
-    template<typename ValueArg, size_t inlineCapacity = 256, typename HashArg = typename DefaultHash<ValueArg>::Hash> class ListHashSet : public FastAllocBase {
+    template<typename ValueArg, size_t inlineCapacity = 256, typename HashArg = typename DefaultHash<ValueArg>::Hash> class ListHashSet {
+        WTF_MAKE_FAST_ALLOCATED;
     private:
         typedef ListHashSetNode<ValueArg, inlineCapacity> Node;
         typedef ListHashSetNodeAllocator<ValueArg, inlineCapacity> NodeAllocator;
@@ -88,9 +92,23 @@ namespace WTF {
         const_iterator begin() const;
         const_iterator end() const;
 
+        ValueType& first();
+        const ValueType& first() const;
+
+        ValueType& last();
+        const ValueType& last() const;
+        void removeLast();
+
         iterator find(const ValueType&);
         const_iterator find(const ValueType&) const;
         bool contains(const ValueType&) const;
+
+        // An alternate version of find() that finds the object by hashing and comparing
+        // with some other type, to avoid the cost of type conversion.
+        // The HashTranslator interface is defined in HashSet.
+        template<typename T, typename HashTranslator> iterator find(const T&);
+        template<typename T, typename HashTranslator> const_iterator find(const T&) const;
+        template<typename T, typename HashTranslator> bool contains(const T&) const;
 
         // the return value is a pair of an iterator to the new value's location, 
         // and a bool that is true if an new entry was added
@@ -171,7 +189,7 @@ namespace WTF {
         }
 
     private:
-        Node* pool() { return reinterpret_cast<Node*>(m_pool.pool); }
+        Node* pool() { return reinterpret_cast_ptr<Node*>(m_pool.pool); }
         Node* pastPool() { return pool() + m_poolSize; }
 
         bool inPool(Node* node)
@@ -359,7 +377,7 @@ namespace WTF {
     inline ListHashSet<T, inlineCapacity, U>::ListHashSet()
         : m_head(0)
         , m_tail(0)
-        , m_allocator(new NodeAllocator)
+        , m_allocator(adoptPtr(new NodeAllocator))
     {
     }
 
@@ -367,7 +385,7 @@ namespace WTF {
     inline ListHashSet<T, inlineCapacity, U>::ListHashSet(const ListHashSet& other)
         : m_head(0)
         , m_tail(0)
-        , m_allocator(new NodeAllocator)
+        , m_allocator(adoptPtr(new NodeAllocator))
     {
         const_iterator end = other.end();
         for (const_iterator it = other.begin(); it != end; ++it)
@@ -440,6 +458,42 @@ namespace WTF {
     }
 
     template<typename T, size_t inlineCapacity, typename U>
+    inline T& ListHashSet<T, inlineCapacity, U>::first()
+    {
+        ASSERT(!isEmpty());
+        return m_head->m_value;
+    }
+
+    template<typename T, size_t inlineCapacity, typename U>
+    inline const T& ListHashSet<T, inlineCapacity, U>::first() const
+    {
+        ASSERT(!isEmpty());
+        return m_head->m_value;
+    }
+
+    template<typename T, size_t inlineCapacity, typename U>
+    inline T& ListHashSet<T, inlineCapacity, U>::last()
+    {
+        ASSERT(!isEmpty());
+        return m_tail->m_value;
+    }
+
+    template<typename T, size_t inlineCapacity, typename U>
+    inline const T& ListHashSet<T, inlineCapacity, U>::last() const
+    {
+        ASSERT(!isEmpty());
+        return m_tail->m_value;
+    }
+
+    template<typename T, size_t inlineCapacity, typename U>
+    inline void ListHashSet<T, inlineCapacity, U>::removeLast()
+    {
+        ASSERT(!isEmpty());
+        m_impl.remove(m_tail);
+        unlinkAndDelete(m_tail);
+    }
+
+    template<typename T, size_t inlineCapacity, typename U>
     inline typename ListHashSet<T, inlineCapacity, U>::iterator ListHashSet<T, inlineCapacity, U>::find(const ValueType& value)
     {
         typedef ListHashSetTranslator<ValueType, inlineCapacity, HashFunctions> Translator;
@@ -457,6 +511,45 @@ namespace WTF {
         if (it == m_impl.end())
             return end();
         return makeConstIterator(*it);
+    }
+
+    template<typename ValueType, size_t inlineCapacity, typename T, typename Translator>
+    struct ListHashSetTranslatorAdapter {
+    private:
+        typedef ListHashSetNode<ValueType, inlineCapacity> Node;
+    public:
+        static unsigned hash(const T& key) { return Translator::hash(key); }
+        static bool equal(Node* const& a, const T& b) { return Translator::equal(a->m_value, b); }
+    };
+
+    template<typename ValueType, size_t inlineCapacity, typename U>
+    template<typename T, typename HashTranslator>
+    inline typename ListHashSet<ValueType, inlineCapacity, U>::iterator ListHashSet<ValueType, inlineCapacity, U>::find(const T& value)
+    {
+        typedef ListHashSetTranslatorAdapter<ValueType, inlineCapacity, T, HashTranslator> Adapter;
+        ImplTypeConstIterator it = m_impl.template find<T, Adapter>(value);
+        if (it == m_impl.end())
+            return end();
+        return makeIterator(*it);
+    }
+
+    template<typename ValueType, size_t inlineCapacity, typename U>
+    template<typename T, typename HashTranslator>
+    inline typename ListHashSet<ValueType, inlineCapacity, U>::const_iterator ListHashSet<ValueType, inlineCapacity, U>::find(const T& value) const
+    {
+        typedef ListHashSetTranslatorAdapter<ValueType, inlineCapacity, T, HashTranslator> Adapter;
+        ImplTypeConstIterator it = m_impl.template find<T, Adapter>(value);
+        if (it == m_impl.end())
+            return end();
+        return makeConstIterator(*it);
+    }
+
+    template<typename ValueType, size_t inlineCapacity, typename U>
+    template<typename T, typename HashTranslator>
+    inline bool ListHashSet<ValueType, inlineCapacity, U>::contains(const T& value) const
+    {
+        typedef ListHashSetTranslatorAdapter<ValueType, inlineCapacity, T, HashTranslator> Adapter;
+        return m_impl.template contains<T, Adapter>(value);
     }
 
     template<typename T, size_t inlineCapacity, typename U>

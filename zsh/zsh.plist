@@ -1,23 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
 	<key>OpenSourceProject</key>
 	<string>zsh</string>
 	<key>OpenSourceVersion</key>
-	<string>4.3.9</string>
+	<string>4.3.11</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://zsh.org/</string>
+	<string>http://www.zsh.org/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.zsh.org/pub/zsh-4.3.9.tar.bz2</string>
+	<string>http://www.zsh.org/pub/zsh-4.3.11.tar.bz2</string>
 	<key>OpenSourceSHA1</key>
-	<string>7c80e1ad6b311ee5877172a1a7e0161a9a60da70</string>
+	<string>25cf0daadc4543d147f6241573d6730b60f16016</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-11-14</string>
+	<string>2011-02-14</string>
 	<key>OpenSourceModifications</key>
 	<array>
-		<string>Limit spname processing if too many '/' are input</string>
+		<string>Limit spname processing if too many &apos;/&apos; are input</string>
 	</array>
 	<key>OpenSourceLicense</key>
-	<string>BSD</string>
+	<string>Other</string>
 	<key>OpenSourceLicenseFile</key>
 	<string>zsh.txt</string>
 </dict>

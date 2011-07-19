@@ -4258,7 +4258,7 @@ define_common_symbols(void)
 	if((sect_spec != NULL && sect_spec->order_filename != NULL) ||
 	   dead_strip == TRUE){
 	    link_edit_common_symtab.strsize =
-			round(link_edit_common_symtab.strsize, sizeof(long));
+			rnd(link_edit_common_symtab.strsize, sizeof(long));
 	    link_edit_common_object.obj_size =
 			sizeof(struct mach_header) +
 			link_edit_common_symtab.nsyms * sizeof(struct nlist) +
@@ -4326,10 +4326,10 @@ define_common_symbols(void)
 			align++;
 		    /* round the address of the section to this alignment */
 #ifdef RLD
-		    sets[cur_set].link_edit_common_section->size = round(
+		    sets[cur_set].link_edit_common_section->size = rnd(
 		       sets[cur_set].link_edit_common_section->size, 1<< align);
 #else
-		    link_edit_common_section.size = round(
+		    link_edit_common_section.size = rnd(
 				link_edit_common_section.size, 1 << align);
 #endif /* RLD */
 		    /*
@@ -4418,13 +4418,13 @@ define_common_symbols(void)
 #ifdef RLD
 	sets[cur_set].link_edit_common_object->section_maps[0].output_section =
 									     ms;
-	ms->s.size = round(ms->s.size, 1 << ms->s.align);
+	ms->s.size = rnd(ms->s.size, 1 << ms->s.align);
 	sets[cur_set].link_edit_common_object->section_maps[0].offset =
 								     ms->s.size;
 	ms->s.size += sets[cur_set].link_edit_common_section->size;
 #else
 	link_edit_common_object.section_maps[0].output_section = ms;
-	ms->s.size = round(ms->s.size, 1 << ms->s.align);
+	ms->s.size = rnd(ms->s.size, 1 << ms->s.align);
 	link_edit_common_object.section_maps[0].offset = ms->s.size;
 	ms->s.size += link_edit_common_section.size;
 #endif /* RLD */

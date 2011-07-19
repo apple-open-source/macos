@@ -3,8 +3,6 @@
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
- * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
  * Version 2.0 (the 'License'). You may not use this file except in
@@ -167,7 +165,7 @@ struct denode {
 	 *
 	 * Note that the lock below should really also protect the start cluster
 	 * and file size fields (i.e. anything that might be affected by truncation
-	 * or used in pcbmap).
+	 * or used in msdosfs_pcbmap).
 	 */
 	lck_mtx_t *de_cluster_lock;	/* Protects the cached extent fields */
 	uint32_t de_cluster_physical;	/* First physical cluster of cached extent */
@@ -226,21 +224,21 @@ struct denode {
 #define	DETIMES(dep, acc, mod, cre) do {				\
 	if ((dep)->de_flag & DE_UPDATE) { 				\
 		(dep)->de_flag |= DE_MODIFIED;				\
-		unix2dostime((mod), &(dep)->de_MDate, &(dep)->de_MTime,	\
+		msdosfs_unix2dostime((mod), &(dep)->de_MDate, &(dep)->de_MTime,	\
 		    NULL);						\
 		(dep)->de_Attributes |= ATTR_ARCHIVE; 			\
 	}								\
 	if ((dep)->de_flag & DE_ACCESS) {				\
 	    	u_int16_t adate;					\
 									\
-		unix2dostime((acc), &adate, NULL, NULL);		\
+		msdosfs_unix2dostime((acc), &adate, NULL, NULL);		\
 		if (adate != (dep)->de_ADate) {				\
 			(dep)->de_flag |= DE_MODIFIED;			\
 			(dep)->de_ADate = adate;			\
 		}							\
 	}								\
 	if ((dep)->de_flag & DE_CREATE) {				\
-		unix2dostime((cre), &(dep)->de_CDate, &(dep)->de_CTime,	\
+		msdosfs_unix2dostime((cre), &(dep)->de_CDate, &(dep)->de_CTime,	\
 		    &(dep)->de_CHun);					\
 		    (dep)->de_flag |= DE_MODIFIED;			\
 	}								\
@@ -264,7 +262,7 @@ struct defid {
 
 extern int (**msdosfs_vnodeop_p)(void *);
 
-int msdosfs_lookup __P((struct vnop_lookup_args *ap));
+int msdosfs_vnop_lookup(struct vnop_lookup_args *ap);
 int msdosfs_lookup_name(
 	struct denode *dep,		/* parent directory */
 	struct componentname *cnp,	/* the name to look up */
@@ -272,32 +270,32 @@ int msdosfs_lookup_name(
 	uint32_t *diroffset,		/* byte offset from start of directory */
 	struct dosdirentry *direntry,	/* copy of found directory entry */
 	vfs_context_t context);
-int msdosfs_inactive __P((struct vnop_inactive_args *ap));
-int msdosfs_reclaim __P((struct vnop_reclaim_args *ap));
-int msdosfs_blktooff __P((struct vnop_blktooff_args *ap));
-int msdosfs_offtoblk __P((struct vnop_offtoblk_args *ap));
-int msdosfs_blockmap __P((struct vnop_blockmap_args *ap));
+int msdosfs_vnop_inactive(struct vnop_inactive_args *ap);
+int msdosfs_vnop_reclaim(struct vnop_reclaim_args *ap);
+int msdosfs_vnop_blktooff(struct vnop_blktooff_args *ap);
+int msdosfs_vnop_offtoblk(struct vnop_offtoblk_args *ap);
+int msdosfs_vnop_blockmap(struct vnop_blockmap_args *ap);
 
 /*
  * Internal service routine prototypes.
  */
 void msdosfs_hash_init(void);
 void msdosfs_hash_uninit(void);
-int deget(struct msdosfsmount *pmp, uint32_t dirclust, uint32_t diroffset, vnode_t dvp, struct componentname *cnp, struct denode **, vfs_context_t context);
-int uniqdosname __P((struct denode *, struct componentname *, u_char *, u_int8_t *lower_case, vfs_context_t context));
+int msdosfs_deget(struct msdosfsmount *pmp, uint32_t dirclust, uint32_t diroffset, vnode_t dvp, struct componentname *cnp, struct denode **, vfs_context_t context);
+int msdosfs_uniqdosname(struct denode *, struct componentname *, u_char *, u_int8_t *lower_case, vfs_context_t context);
 
-int readep __P((struct msdosfsmount *pmp, uint32_t dirclu, uint32_t dirofs,  struct buf **bpp, struct dosdirentry **epp, vfs_context_t context));
-int readde __P((struct denode *dep, struct buf **bpp, struct dosdirentry **epp, vfs_context_t context));
-int deextend __P((struct denode *dep, uint32_t length, int flags, vfs_context_t context));
-void reinsert __P((struct denode *dep));
-int dosdirempty __P((struct denode *dep, vfs_context_t context));
-int createde __P((struct denode *dep, struct denode *ddep, struct denode **depp, struct componentname *cnp, uint32_t offset, uint32_t long_count, vfs_context_t context));
-int deupdat __P((struct denode *dep, int waitfor, vfs_context_t context));
-int removede __P((struct denode *pdep, uint32_t offset, vfs_context_t context));
-int detrunc __P((struct denode *dep, uint32_t length, int flags, vfs_context_t context));
-int doscheckpath __P(( struct denode *source, struct denode *target, vfs_context_t context));
-int findslots __P((struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, uint32_t *offset, uint32_t *long_count, vfs_context_t context));
-uint32_t defileid(struct denode *dep);
+int msdosfs_readep(struct msdosfsmount *pmp, uint32_t dirclu, uint32_t dirofs,  struct buf **bpp, struct dosdirentry **epp, vfs_context_t context);
+int readde(struct denode *dep, struct buf **bpp, struct dosdirentry **epp, vfs_context_t context);
+int msdosfs_deextend(struct denode *dep, uint32_t length, int flags, vfs_context_t context);
+void msdosfs_hash_reinsert(struct denode *dep);
+int msdosfs_dosdirempty(struct denode *dep, vfs_context_t context);
+int msdosfs_createde(struct denode *dep, struct denode *ddep, struct denode **depp, struct componentname *cnp, uint32_t offset, uint32_t long_count, vfs_context_t context);
+int msdosfs_deupdat(struct denode *dep, int waitfor, vfs_context_t context);
+int msdosfs_removede(struct denode *pdep, uint32_t offset, vfs_context_t context);
+int msdosfs_detrunc(struct denode *dep, uint32_t length, int flags, vfs_context_t context);
+int msdosfs_doscheckpath( struct denode *source, struct denode *target, vfs_context_t context);
+int msdosfs_findslots(struct denode *dep, struct componentname *cnp, u_int8_t *lower_case, uint32_t *offset, uint32_t *long_count, vfs_context_t context);
+uint32_t msdosfs_defileid(struct denode *dep);
 int msdosfs_dir_flush(struct denode *dep, int sync);
 int msdosfs_dir_invalidate(struct denode *dep);
 #endif	/* KERNEL */

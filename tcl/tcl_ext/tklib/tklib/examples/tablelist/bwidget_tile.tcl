@@ -6,10 +6,10 @@ exec wish "$0" ${1+"$@"}
 # Demonstrates the interactive tablelist cell editing with the aid of some
 # widgets from the BWidget package and of the Tk core checkbutton widget.
 #
-# Copyright (c) 2004-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2004-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
-package require Tablelist_tile
+package require tablelist_tile 5.1
 package require BWidget
 
 wm title . "Serial Line Configuration"
@@ -207,7 +207,7 @@ proc editEndCmd {tbl row col text} {
 	    #
 	    if {![regexp {^[0-9]+$} $text] || $text < 50 || $text > 921600} {
 		bell
-		tk_messageBox -title Error -icon error -type ok -message \
+		tk_messageBox -title "Error" -icon error -message \
 		    "The baud rate must be an integer in the range 50..921600"
 		$tbl rejectinput
 	    }
@@ -219,8 +219,7 @@ proc editEndCmd {tbl row col text} {
 	    #
 	    if {[catch {clock scan $text} actDate] != 0} {
 		bell
-		tk_messageBox -title Error -icon error -type ok -message \
-		    "Invalid date"
+		tk_messageBox -title "Error" -icon error -message "Invalid date"
 		$tbl rejectinput
 		return ""
 	    }
@@ -234,7 +233,7 @@ proc editEndCmd {tbl row col text} {
 	    set actClock [clock scan [formatTime $actTime] -base $actDate]
 	    if {$actClock <= [clock seconds]} {
 		bell
-		tk_messageBox -title Error -icon error -type ok -message \
+		tk_messageBox -title "Error" -icon error -message \
 		    "The activation date & time must be in the future"
 		$tbl rejectinput
 	    } else {
@@ -250,8 +249,7 @@ proc editEndCmd {tbl row col text} {
 	    set actDate [$tbl cellcget $row,actDate -text]
 	    if {[catch {clock scan $text -base $actDate} actClock] != 0} {
 		bell
-		tk_messageBox -title Error -icon error -type ok -message \
-		    "Invalid time"
+		tk_messageBox -title "Error" -icon error -message "Invalid time"
 		$tbl rejectinput
 		return ""
 	    }
@@ -263,7 +261,7 @@ proc editEndCmd {tbl row col text} {
 	    #
 	    if {$actClock <= [clock seconds]} {
 		bell
-		tk_messageBox -title Error -icon error -type ok -message \
+		tk_messageBox -title "Error" -icon error -message \
 		    "The activation date & time must be in the future"
 		$tbl rejectinput
 	    } else {

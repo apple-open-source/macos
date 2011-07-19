@@ -23,18 +23,12 @@
 #include "Text.h"
 
 #include "ExceptionCode.h"
+#include "RenderCombineText.h"
 #include "RenderText.h"
-#include "TextBreakIterator.h"
-#include <wtf/text/CString.h>
 
 #if ENABLE(SVG)
 #include "RenderSVGInlineText.h"
 #include "SVGNames.h"
-#endif
-
-#if ENABLE(WML)
-#include "WMLDocument.h"
-#include "WMLVariables.h"
 #endif
 
 using namespace std;
@@ -153,7 +147,7 @@ PassRefPtr<Text> Text::replaceWholeText(const String& newText, ExceptionCode&)
     RefPtr<Text> endText = const_cast<Text*>(latestLogicallyAdjacentTextNode(this));
 
     RefPtr<Text> protectedThis(this); // Mutation event handlers could cause our last ref to go away
-    Node* parent = parentNode(); // Protect against mutation handlers moving this node during traversal
+    ContainerNode* parent = parentNode(); // Protect against mutation handlers moving this node during traversal
     ExceptionCode ignored = 0;
     for (RefPtr<Node> n = startText; n && n != this && n->isTextNode() && n->parentNode() == parent;) {
         RefPtr<Node> nodeToRemove(n.release());
@@ -237,35 +231,26 @@ bool Text::rendererIsNeeded(RenderStyle *style)
     return true;
 }
 
-RenderObject* Text::createRenderer(RenderArena* arena, RenderStyle*)
+RenderObject* Text::createRenderer(RenderArena* arena, RenderStyle* style)
 {
 #if ENABLE(SVG)
-    if (parentNode()->isSVGElement()
+    Node* parentOrHost = parentOrHostNode();
+    if (parentOrHost->isSVGElement()
 #if ENABLE(SVG_FOREIGN_OBJECT)
-        && !parentNode()->hasTagName(SVGNames::foreignObjectTag)
+        && !parentOrHost->hasTagName(SVGNames::foreignObjectTag)
 #endif
     )
         return new (arena) RenderSVGInlineText(this, dataImpl());
 #endif
-    
+
+    if (style->hasTextCombine())
+        return new (arena) RenderCombineText(this, dataImpl());
+
     return new (arena) RenderText(this, dataImpl());
 }
 
 void Text::attach()
 {
-#if ENABLE(WML)
-    if (document()->isWMLDocument() && !containsOnlyWhitespace()) {
-        String text = data();
-        ASSERT(!text.isEmpty());
-
-        text = substituteVariableReferences(text, document());
-
-        ExceptionCode code = 0;
-        setData(text, code);
-        ASSERT(!code);
-    }
-#endif
-
     createRendererIfNeeded();
     CharacterData::attach();
 }
@@ -286,10 +271,10 @@ void Text::recalcStyle(StyleChange change)
             attach();
         }
     }
-    setNeedsStyleRecalc(NoStyleChange);
+    clearNeedsStyleRecalc();
 }
 
-bool Text::childTypeAllowed(NodeType)
+bool Text::childTypeAllowed(NodeType) const
 {
     return false;
 }
@@ -299,37 +284,17 @@ PassRefPtr<Text> Text::virtualCreate(const String& data)
     return create(document(), data);
 }
 
-PassRefPtr<Text> Text::createWithLengthLimit(Document* document, const String& data, unsigned& charsLeft, unsigned maxChars)
+PassRefPtr<Text> Text::createWithLengthLimit(Document* document, const String& data, unsigned start, unsigned maxChars)
 {
     unsigned dataLength = data.length();
 
-    if (charsLeft == dataLength && charsLeft <= maxChars) {
-        charsLeft = 0;
+    if (!start && dataLength <= maxChars)
         return create(document, data);
-    }
 
-    unsigned start = dataLength - charsLeft;
-    unsigned end = start + min(charsLeft, maxChars);
-    
-    // Check we are not on an unbreakable boundary.
-    // Some text break iterator implementations work best if the passed buffer is as small as possible, 
-    // see <https://bugs.webkit.org/show_bug.cgi?id=29092>. 
-    // We need at least two characters look-ahead to account for UTF-16 surrogates.
-    if (end < dataLength) {
-        TextBreakIterator* it = characterBreakIterator(data.characters() + start, (end + 2 > dataLength) ? dataLength - start : end - start + 2);
-        if (!isTextBreak(it, end - start))
-            end = textBreakPreceding(it, end - start) + start;
-    }
-    
-    // If we have maxChars of unbreakable characters the above could lead to
-    // an infinite loop.
-    // FIXME: It would be better to just have the old value of end before calling
-    // textBreakPreceding rather than this, because this exceeds the length limit.
-    if (end <= start)
-        end = dataLength;
-    
-    charsLeft = dataLength - end;
-    return create(document, data.substring(start, end - start));
+    RefPtr<Text> result = Text::create(document, String());
+    result->parserAppendData(data.characters() + start, dataLength - start, maxChars);
+
+    return result;
 }
 
 #ifndef NDEBUG

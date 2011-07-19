@@ -83,7 +83,7 @@ static void keyboardChanged(CFNotificationCenterRef center, void *observer, CFSt
     observe(NSApplicationDidHideNotification, applicationShowHide:);
     observe(NSApplicationDidChangeScreenParametersNotification, displayChanged:);
     observe(NSTextInputContextKeyboardSelectionDidChangeNotification, keyboardChanged:);
-#undef observe(n, s)
+#undef observe
 #if MAC_OS_X_VERSION_MIN_REQUIRED < 1060
     CFNotificationCenterAddObserver(CFNotificationCenterGetDistributedCenter(), NULL, &keyboardChanged, kTISNotifySelectedKeyboardInputSourceChanged, NULL, CFNotificationSuspensionBehaviorCoalesce);
 #endif
@@ -567,7 +567,7 @@ TkMacOSXGetStringObjFromCFString(
 	CFIndex len;
 
 	if (CFStringGetBytes(str, all, kCFStringEncodingUTF8, 0, false, NULL,
-		0, &len) > 0) {
+		0, &len) > 0 && len < INT_MAX) {
 	    obj = Tcl_NewObj();
 	    Tcl_SetObjLength(obj, len);
 	    CFStringGetBytes(str, all, kCFStringEncodingUTF8, 0, false,

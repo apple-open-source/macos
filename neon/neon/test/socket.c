@@ -1,6 +1,6 @@
 /* 
    Socket handling tests
-   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2009, Joe Orton <joe@manyfish.co.uk>
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -222,6 +222,20 @@ raw6_cafe[16] = /* feed::cafe */ "\xfe\xed\0\0\0\0\0\0\0\0\0\0\0\0\xca\xfe",
 raw6_babe[16] = /* cafe:babe:: */ "\xca\xfe\xba\xbe\0\0\0\0\0\0\0\0\0\0\0\0";
 #endif
 
+/* Check the given inet addr is 127.0.0.1. */
+static int check_is_raw127(const ne_inet_addr *ia)
+{
+    unsigned char raw[5];
+
+    raw[4] = 'Z';
+    ONN("bogus ne_iaddr_typeof return", ne_iaddr_typeof(ia) != ne_iaddr_ipv4);
+    ONN("ne_iaddr_raw gave bad retval", ne_iaddr_raw(ia, raw) != raw);
+    ONN("raw address mismatch", memcmp(raw, raw_127, 4) != 0);
+    ONN("ne_iaddr_raw buffer overflow", raw[4] != 'Z');
+
+    return OK;
+}
+
 static int addr_make_v4(void)
 {
     ne_inet_addr *ia;
@@ -233,9 +247,24 @@ static int addr_make_v4(void)
     ne_iaddr_print(ia, pr, sizeof pr);
     ONV(strcmp(pr, "127.0.0.1"), ("address was %s not 127.0.0.1", pr));
 
-    ONN("bogus ne_iaddr_typeof return", ne_iaddr_typeof(ia) != ne_iaddr_ipv4);
+    CALL(check_is_raw127(ia));
+    
+    ne_iaddr_free(ia);
+
+    return OK;
+}
+
+static int parse_v4(void)
+{
+    ne_inet_addr *ia;
+
+    ia = ne_iaddr_parse("127.0.0.1", ne_iaddr_ipv4);
+    ONN("parse failed", ia == NULL);
+
+    CALL(check_is_raw127(ia));
 
     ne_iaddr_free(ia);
+
     return OK;
 }
 
@@ -256,6 +285,7 @@ static int addr_make_v6(void)
     for (n = 0; as[n].rep != NULL; n++) {
 	ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv6, as[n].addr);
 	char pr[128];
+        unsigned char raw[17];
 
 	ONV(ia == NULL, ("could not make address for '%s'", 
                          as[n].rep));
@@ -266,14 +296,29 @@ static int addr_make_v6(void)
 	
         ONN("bogus ne_iaddr_typeof return", ne_iaddr_typeof(ia) != ne_iaddr_ipv6);
 
+        raw[16] = 'Z';
+        ONN("ne_iaddr_raw gave bad retval", ne_iaddr_raw(ia, raw) != raw);
+        ONN("raw address mismatch", memcmp(raw, as[n].addr, 4) != 0);
+        ONN("ne_iaddr_raw buffer overflow", raw[16] != 'Z');
+        
 	ne_iaddr_free(ia);
-    }
+        
+        ia = ne_iaddr_parse(as[n].rep, ne_iaddr_ipv6);
+        ONV(ia == NULL, ("ne_iaddr_parse failed for %s", as[n].rep));
+        ONN("bogus ne_iaddr_typeof return", ne_iaddr_typeof(ia) != ne_iaddr_ipv6);
+        ONN("ne_iaddr_raw gave bad retval", ne_iaddr_raw(ia, raw) != raw);
+        ONN("raw address mismatch", memcmp(raw, as[n].addr, 4) != 0);
+        ONN("ne_iaddr_raw buffer overflow", raw[16] != 'Z');
+
+        ne_iaddr_free(ia);
+   }
 
     return OK;
 #else
     /* should fail when lacking IPv6 support. */
     ne_inet_addr *ia = ne_iaddr_make(ne_iaddr_ipv6, raw6_nuls);
     ONN("ne_iaddr_make did not return NULL", ia != NULL);
+    ONN("ne_iaddr_parse did not return NULL", ne_iaddr_parse("127.0.0.1", ne_iaddr_ipv6));
 #endif
     return OK;
 }
@@ -831,14 +876,6 @@ static int serve_expect(ne_socket *sock, void *ud)
     return OK;
 }
 
-static int full_write(ne_socket *sock, const char *data, size_t len)
-{
-    int ret = ne_sock_fullwrite(sock, data, len);
-    NE_DEBUG(NE_DBG_SOCKET, "wrote: [%.*s]\n", (int)len, data);
-    ONV(ret, ("write failed (%d): %s", ret, ne_sock_error(sock)));
-    return OK;
-}
-
 #define WRITEL(str) CALL(full_write(sock, str, strlen(str))); \
 minisleep()
 
@@ -873,6 +910,43 @@ static int large_writes(void)
     ne_free(str.data);
     return finish(sock, 1);    
 }
+
+static int full_writev(ne_socket *sock, struct ne_iovec *vec, int count)
+{
+    int ret = ne_sock_fullwritev(sock, vec, count);
+    NE_DEBUG(NE_DBG_SOCKET, "wrote vector (%d)\n", count);
+    ONV(ret, ("writev failed (%d): %s", ret, ne_sock_error(sock)));
+    return OK;
+}
+
+#undef LARGE_SIZE
+#define LARGE_SIZE (123456 * 4)
+
+static int large_writev(void)
+{
+    struct string str;
+    ne_socket *sock;
+    ssize_t n;
+    struct ne_iovec vec[4];
+
+    str.data = ne_malloc(LARGE_SIZE);
+    str.len = LARGE_SIZE;
+
+    for (n = 0; n < LARGE_SIZE; n++)
+	str.data[n] = 41 + n % 130;
+    
+    for (n = 0; n < 4; n++) {
+        vec[n].base = str.data + n * LARGE_SIZE / 4;
+        vec[n].len = LARGE_SIZE / 4;
+    }
+
+    CALL(begin(&sock, serve_expect, &str));
+    CALL(full_writev(sock, vec, 4));
+    
+    ne_free(str.data);
+    return finish(sock, 1);    
+}
+
 
 /* echoes back lines. */
 static int echo_server(ne_socket *sock, void *ud)
@@ -1202,6 +1276,151 @@ static int cipher(void)
     return finish(sock, 1);
 }
 
+static int error(void)
+{
+    ne_socket *sock = ne_sock_create();
+
+    ne_sock_set_error(sock, "%s:%s", "fish", "42");
+    
+    ONCMP("fish:42", ne_sock_error(sock), "socket error", "set");
+
+    ne_sock_close(sock);
+    return OK;
+}
+
+static int begin_socks(ne_socket **sock, struct socks_server *srv,
+                       server_fn server, void *userdata)
+{
+    srv->server = server;
+    srv->userdata = userdata;
+    srv->say_hello = 1;
+    CALL(spawn_server(7777, socks_server, srv));
+    return do_connect(sock, localhost, 7777);
+}
+
+static int socks_proxy(void)
+{
+    static const struct {
+        enum ne_sock_sversion version;
+        int addr;
+        const char *fqdn;
+        unsigned int port;
+        const char *username, *password;
+    } ts[] = {
+        { NE_SOCK_SOCKSV4, 4, NULL, 55555, NULL, NULL },
+        { NE_SOCK_SOCKSV4, 4, NULL, 55555, "foobar", NULL },
+        { NE_SOCK_SOCKSV4A, 0, "www.example.com", 55555, NULL, NULL },
+        { NE_SOCK_SOCKSV5, 0, "www.example.com", 55555, NULL, NULL },
+        { NE_SOCK_SOCKSV5, 4, NULL, 55555, NULL, NULL },
+#ifdef TEST_IPV6
+        { NE_SOCK_SOCKSV5, 6, NULL, 55555, NULL, NULL },
+#endif
+        { NE_SOCK_SOCKSV5, 0, "www.example.com", 55555, "norman", "foobar" }
+    };
+    unsigned n;
+
+    for (n = 0; n < sizeof(ts)/sizeof(ts[n]); n++) {
+        ne_socket *sock;
+        struct socks_server arg = {0};
+        int ret;
+
+        arg.version = ts[n].version;
+        arg.expect_port = ts[n].port;
+        if (ts[n].addr == 4)
+            arg.expect_addr = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+#ifdef TEST_IPV6
+        else if (ts[n].addr == 6)
+            arg.expect_addr = ne_iaddr_make(ne_iaddr_ipv4, raw6_cafe);
+#endif
+        else
+            arg.expect_fqdn = ts[n].fqdn;
+        arg.username = ts[n].username;
+        arg.password = ts[n].password;
+        
+        CALL(begin_socks(&sock, &arg, echo_server, NULL));
+
+        ret = ne_sock_proxy(sock, ts[n].version, arg.expect_addr, 
+                            ts[n].fqdn, ts[n].port,
+                            ts[n].username, ts[n].password);
+        ONV(ret, ("proxy connect #%u gave %d", n, ret));
+        FULLREAD("ok!\n");
+        ECHO("hello,\n");
+        ECHO("\n");
+        ECHO("world\n");
+        
+        if (ts[n].addr)
+            ne_iaddr_free(arg.expect_addr);
+
+        CALL(finish(sock, 0));
+    }
+
+    return OK;
+}
+
+static int fail_socks(void)
+{
+    static const struct {
+        enum ne_sock_sversion version;
+        enum socks_failure failure;
+        const char *expect;
+        const char *username, *password;
+    } ts[] = {
+        { NE_SOCK_SOCKSV5, fail_init_vers, 
+          "Invalid version in proxy response", NULL, NULL },
+        { NE_SOCK_SOCKSV5, fail_init_trunc,
+          "Could not read initial response from proxy: Connection closed",
+          NULL, NULL },
+        { NE_SOCK_SOCKSV5, fail_init_close, 
+          "Could not read initial response from proxy: Connection closed", 
+          NULL, NULL },
+        { NE_SOCK_SOCKSV5, fail_no_auth, 
+          "No acceptable authentication method",
+          NULL, NULL },
+        { NE_SOCK_SOCKSV5, fail_bogus_auth, 
+          "Unexpected authentication method chosen",
+          NULL, NULL },
+        { NE_SOCK_SOCKSV5, fail_auth_close, 
+          "Could not read login reply: Connection closed",
+          "foo", "bar" },
+        { NE_SOCK_SOCKSV5, fail_auth_denied, 
+          "Authentication failed", "foo", "bar" }
+    };
+    unsigned n;
+
+    for (n = 0; n < sizeof(ts)/sizeof(ts[n]); n++) {
+        ne_socket *sock;
+        struct socks_server arg = {0};
+        int ret;
+
+        arg.version = ts[n].version;
+        arg.failure = ts[n].failure;
+        arg.expect_port = 5555;
+        arg.expect_addr = ne_iaddr_make(ne_iaddr_ipv4, raw_127);
+        arg.username = ts[n].username;
+        arg.password = ts[n].password;
+        
+        CALL(begin_socks(&sock, &arg, echo_server, NULL));
+
+        ret = ne_sock_proxy(sock, ts[n].version, arg.expect_addr, 
+                            NULL, arg.expect_port,
+                            ts[n].username, ts[n].password);
+        ONV(ret == 0, 
+            ("proxy connect #%u succeeded, expected failure '%s'", n, 
+             ts[n].expect));
+        
+        if (ret != 0 && strstr(ne_sock_error(sock), ts[n].expect) == NULL) {
+            t_warning("proxy connect #%u got unexpected failure '%s', wanted '%s'",
+                      n, ne_sock_error(sock), ts[n].expect);
+        }    
+
+        ne_iaddr_free(arg.expect_addr);
+
+        CALL(finish(sock, 0));
+    }
+
+    return OK;
+}
+
 ne_test tests[] = {
     T(multi_init),
     T_LEAKY(resolve),
@@ -1210,6 +1429,7 @@ ne_test tests[] = {
     T_LEAKY(init_ssl),
 #endif
     T(addr_make_v4),
+    T(parse_v4),
     T(addr_make_v6),
     T(addr_compare),
     T(addr_reverse),
@@ -1235,9 +1455,11 @@ ne_test tests[] = {
     T(line_long_chunked),
     T(small_writes),
     T(large_writes),
+    T(large_writev),
     T(echo_lines),
     T(blocking),
     T(prebind),
+    T(error),
 #ifdef SOCKET_SSL
     T(ssl_closure),
     T(ssl_truncate),
@@ -1253,5 +1475,7 @@ ne_test tests[] = {
     T(readline_timeout),
     T(fullread_timeout),
     T(block_timeout),
+    T(socks_proxy),
+    T(fail_socks),
     T(NULL)
 };

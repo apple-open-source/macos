@@ -22,14 +22,20 @@
 #include "config.h"
 #include "ImageLoader.h"
 
-#include "CSSHelper.h"
 #include "CachedImage.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "Element.h"
 #include "HTMLNames.h"
 #include "HTMLObjectElement.h"
 #include "RenderImage.h"
+
+#if ENABLE(SVG)
+#include "RenderSVGImage.h"
+#endif
+#if ENABLE(VIDEO)
+#include "RenderVideo.h"
+#endif
 
 #if !ASSERT_DISABLED
 // ImageLoader objects are allocated as members of other objects, so generic pointer check would always fail.
@@ -51,7 +57,8 @@ template<> struct ValueCheck<WebCore::ImageLoader*> {
 
 namespace WebCore {
 
-class ImageEventSender : public Noncopyable {
+class ImageEventSender {
+    WTF_MAKE_NONCOPYABLE(ImageEventSender); WTF_MAKE_FAST_ALLOCATED;
 public:
     ImageEventSender(const AtomicString& eventType);
 
@@ -60,8 +67,11 @@ public:
 
     void dispatchPendingEvents();
 
-#if !ASSERT_DISABLED
-    bool hasPendingEvents(ImageLoader* loader) { return m_dispatchSoonList.find(loader) != notFound; }
+#ifndef NDEBUG
+    bool hasPendingEvents(ImageLoader* loader) const
+    {
+        return m_dispatchSoonList.find(loader) != notFound || m_dispatchingList.find(loader) != notFound;
+    }
 #endif
 
 private:
@@ -130,11 +140,8 @@ void ImageLoader::setImage(CachedImage* newImage)
             oldImage->removeClient(this);
     }
 
-    if (RenderObject* renderer = m_element->renderer()) {
-        if (!renderer->isImage())
-            return;
-        toRenderImage(renderer)->resetAnimation();
-    }
+    if (RenderImageResource* imageResource = renderImageResource())
+        imageResource->resetAnimation();
 }
 
 void ImageLoader::updateFromElement()
@@ -157,13 +164,15 @@ void ImageLoader::updateFromElement()
     CachedImage* newImage = 0;
     if (!(attr.isNull() || (attr.isEmpty() && document->baseURI().isLocalFile()))) {
         if (m_loadManually) {
-            document->docLoader()->setAutoLoadImages(false);
+            bool autoLoadOtherImages = document->cachedResourceLoader()->autoLoadImages();
+            document->cachedResourceLoader()->setAutoLoadImages(false);
             newImage = new CachedImage(sourceURI(attr));
             newImage->setLoading(true);
-            newImage->setDocLoader(document->docLoader());
-            document->docLoader()->m_documentResources.set(newImage->url(), newImage);
+            newImage->setOwningCachedResourceLoader(document->cachedResourceLoader());
+            document->cachedResourceLoader()->m_documentResources.set(newImage->url(), newImage);
+            document->cachedResourceLoader()->setAutoLoadImages(autoLoadOtherImages);
         } else
-            newImage = document->docLoader()->requestImage(sourceURI(attr));
+            newImage = document->cachedResourceLoader()->requestImage(sourceURI(attr));
 
         // If we do not have an image here, it means that a cross-site
         // violation occurred.
@@ -193,11 +202,8 @@ void ImageLoader::updateFromElement()
             oldImage->removeClient(this);
     }
 
-    if (RenderObject* renderer = m_element->renderer()) {
-        if (!renderer->isImage())
-            return;
-        toRenderImage(renderer)->resetAnimation();
-    }
+    if (RenderImageResource* imageResource = renderImageResource())
+        imageResource->resetAnimation();
 }
 
 void ImageLoader::updateFromElementIgnoringPreviousError()
@@ -207,9 +213,10 @@ void ImageLoader::updateFromElementIgnoringPreviousError()
     updateFromElement();
 }
 
-void ImageLoader::notifyFinished(CachedResource*)
+void ImageLoader::notifyFinished(CachedResource* resource)
 {
     ASSERT(m_failedLoadURL.isEmpty());
+    ASSERT(resource == m_image.get());
 
     m_imageComplete = true;
     if (haveFiredBeforeLoadEvent())
@@ -218,23 +225,48 @@ void ImageLoader::notifyFinished(CachedResource*)
     if (m_firedLoad)
         return;
 
+    if (resource->wasCanceled())
+        return;
+
     loadEventSender().dispatchEventSoon(this);
+}
+
+RenderImageResource* ImageLoader::renderImageResource()
+{
+    RenderObject* renderer = m_element->renderer();
+
+    if (!renderer)
+        return 0;
+
+    if (renderer->isImage())
+        return toRenderImage(renderer)->imageResource();
+
+#if ENABLE(SVG)
+    if (renderer->isSVGImage())
+        return toRenderSVGImage(renderer)->imageResource();
+#endif
+
+#if ENABLE(VIDEO)
+    if (renderer->isVideo())
+        return toRenderVideo(renderer)->imageResource();
+#endif
+
+    return 0;
 }
 
 void ImageLoader::updateRenderer()
 {
-    if (RenderObject* renderer = m_element->renderer()) {
-        if (!renderer->isImage() && !renderer->isVideo())
-            return;
-        RenderImage* imageRenderer = toRenderImage(renderer);
-        
-        // Only update the renderer if it doesn't have an image or if what we have
-        // is a complete image.  This prevents flickering in the case where a dynamic
-        // change is happening between two images.
-        CachedImage* cachedImage = imageRenderer->cachedImage();
-        if (m_image != cachedImage && (m_imageComplete || !cachedImage))
-            imageRenderer->setCachedImage(m_image.get());
-    }
+    RenderImageResource* imageResource = renderImageResource();
+
+    if (!imageResource)
+        return;
+
+    // Only update the renderer if it doesn't have an image or if what we have
+    // is a complete image.  This prevents flickering in the case where a dynamic
+    // change is happening between two images.
+    CachedImage* cachedImage = imageResource->cachedImage();
+    if (m_image != cachedImage && (m_imageComplete || !cachedImage))
+        imageResource->setCachedImage(m_image.get());
 }
 
 void ImageLoader::dispatchPendingBeforeLoadEvent()
@@ -334,6 +366,7 @@ void ImageEventSender::dispatchPendingEvents()
     size_t size = m_dispatchingList.size();
     for (size_t i = 0; i < size; ++i) {
         if (ImageLoader* loader = m_dispatchingList[i]) {
+            m_dispatchingList[i] = 0;
             if (m_eventType == eventNames().beforeloadEvent)
                 loader->dispatchPendingBeforeLoadEvent();
             else

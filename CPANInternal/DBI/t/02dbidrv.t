@@ -4,7 +4,7 @@ $|=1;
 
 use strict;
 
-use Test::More tests => 51;
+use Test::More tests => 53;
 
 ## ----------------------------------------------------------------------------
 ## 02dbidrv.t - ...
@@ -232,6 +232,9 @@ $drh->{FetchHashKeyName} = 'NAME_lc';
 is($drh->{FetchHashKeyName}, 'NAME_lc', '... FetchHashKeyName is now changed to NAME_lc');
 
 ok(!$drh->disconnect_all, '... calling $drh->disconnect_all (not implemented but will fail silently)');
+
+ok defined $drh->dbixs_revision, 'has dbixs_revision';
+ok($drh->dbixs_revision =~ m/^\d+$/, 'has integer dbixs_revision');
 
 SKIP: {
 	skip "using DBI::PurePerl", 5 if $DBI::PurePerl;

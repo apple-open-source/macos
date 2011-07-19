@@ -26,6 +26,7 @@
 
 #include "JSClass1.h"
 #include "JSClass2.h"
+#include "JSDOMStringList.h"
 #include "ScriptExecutionContext.h"
 #include <runtime/JSLock.h>
 #include <wtf/MainThread.h>
@@ -35,14 +36,20 @@ using namespace JSC;
 namespace WebCore {
 
 JSTestCallback::JSTestCallback(JSObject* callback, JSDOMGlobalObject* globalObject)
-    : m_data(new JSCallbackData(callback, globalObject))
-    , m_isolatedWorld(globalObject->world())
+    : ActiveDOMCallback(globalObject->scriptExecutionContext())
+    , m_data(new JSCallbackData(callback, globalObject))
 {
 }
 
 JSTestCallback::~JSTestCallback()
 {
-    callOnMainThread(JSCallbackData::deleteData, m_data);
+    ScriptExecutionContext* context = scriptExecutionContext();
+    // When the context is destroyed, all tasks with a reference to a callback
+    // should be deleted. So if the context is 0, we are on the context thread.
+    if (!context || context->isContextThread())
+        delete m_data;
+    else
+        context->postTask(DeleteCallbackDataTask::create(m_data));
 #ifndef NDEBUG
     m_data = 0;
 #endif
@@ -50,20 +57,33 @@ JSTestCallback::~JSTestCallback()
 
 // Functions
 
-bool JSTestCallback::callbackWithClass1Param(ScriptExecutionContext* context, Class1* class1Param)
+bool JSTestCallback::callbackWithNoParam()
 {
-    ASSERT(m_data);
-    ASSERT(context);
+    if (!canInvokeCallback())
+        return true;
 
     RefPtr<JSTestCallback> protect(this);
 
     JSLock lock(SilenceAssertionsOnly);
 
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(context, m_isolatedWorld.get());
-    if (!globalObject)
+    ExecState* exec = m_data->globalObject()->globalExec();
+    MarkedArgumentBuffer args;
+
+    bool raisedException = false;
+    m_data->invokeCallback(args, &raisedException);
+    return !raisedException;
+}
+
+bool JSTestCallback::callbackWithClass1Param(Class1* class1Param)
+{
+    if (!canInvokeCallback())
         return true;
 
-    ExecState* exec = globalObject->globalExec();
+    RefPtr<JSTestCallback> protect(this);
+
+    JSLock lock(SilenceAssertionsOnly);
+
+    ExecState* exec = m_data->globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, class1Param));
 
@@ -72,23 +92,37 @@ bool JSTestCallback::callbackWithClass1Param(ScriptExecutionContext* context, Cl
     return !raisedException;
 }
 
-bool JSTestCallback::callbackWithClass2Param(ScriptExecutionContext* context, Class2* class2Param, const String& strArg)
+bool JSTestCallback::callbackWithClass2Param(Class2* class2Param, const String& strArg)
 {
-    ASSERT(m_data);
-    ASSERT(context);
+    if (!canInvokeCallback())
+        return true;
 
     RefPtr<JSTestCallback> protect(this);
 
     JSLock lock(SilenceAssertionsOnly);
 
-    JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(context, m_isolatedWorld.get());
-    if (!globalObject)
-        return true;
-
-    ExecState* exec = globalObject->globalExec();
+    ExecState* exec = m_data->globalObject()->globalExec();
     MarkedArgumentBuffer args;
     args.append(toJS(exec, class2Param));
-    args.append(toJS(exec, strArg));
+    args.append(jsString(exec, strArg));
+
+    bool raisedException = false;
+    m_data->invokeCallback(args, &raisedException);
+    return !raisedException;
+}
+
+bool JSTestCallback::callbackWithStringList(DOMStringList* listParam)
+{
+    if (!canInvokeCallback())
+        return true;
+
+    RefPtr<JSTestCallback> protect(this);
+
+    JSLock lock(SilenceAssertionsOnly);
+
+    ExecState* exec = m_data->globalObject()->globalExec();
+    MarkedArgumentBuffer args;
+    args.append(toJS(exec, listParam));
 
     bool raisedException = false;
     m_data->invokeCallback(args, &raisedException);

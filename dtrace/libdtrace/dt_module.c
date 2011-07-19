@@ -446,17 +446,13 @@ static const dt_modops_t dt_modops_64 = {
 };
 
 #if defined(__APPLE__)
-#include <libiberty/demangle.h>
-__private_extern__ char * environ = ""; /* libiberty.a xmalloc wants this */
-
 char 
 *demangleSymbolCString(const char *mangled)
- {
-     if(mangled[0]!='_') return NULL;
-     if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-     if(mangled[1]!='Z') return NULL;
-     return cplus_demangle(mangled, 0);
- }
+{
+	// demangle() linked from CoreSymbolication
+	extern const char* demangle(const char*);
+	return (char*)demangle(mangled);
+}
 
 static uint_t
 dt_module_syminit_macho(dt_module_t *dmp)
@@ -480,9 +476,6 @@ dt_module_syminit_macho(dt_module_t *dmp)
 			
 		if (0 == sym->n_un.n_strx) // iff a null, "", name.
 			continue;
-
-		if ((tmp = demangleSymbolCString(name)))
-			name = tmp;
 
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore to match DWARF convention
@@ -556,9 +549,6 @@ dt_module_symname_macho(dt_module_t *dmp, const char *name,
 		sym = symtab + dsp->ds_symid;
 		const char *sname = strtab + sym->n_un.n_strx;
 		char *tmp;
-
-		if ((tmp = demangleSymbolCString(sname)))
-			sname = tmp;
 
 		if ('_' == sname[0])
 			sname++; // Lop off omnipresent underscore
@@ -648,9 +638,6 @@ dt_module_symaddr_macho(dt_module_t *dmp, GElf_Addr addr,
 		const char *name = strtab + sym->n_un.n_strx;
 		char *tmp;
 
-		if ((tmp = demangleSymbolCString(name)))
-			name = tmp;
-
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore
 
@@ -722,9 +709,6 @@ dt_module_syminit_macho_64(dt_module_t *dmp)
 			
 		if (0 == sym->n_un.n_strx) // iff a null, "", name.
 			continue;
-
-		if ((tmp = demangleSymbolCString(name)))
-			name = tmp;
 
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore to match DWARF convention
@@ -798,9 +782,6 @@ dt_module_symname_macho_64(dt_module_t *dmp, const char *name,
 		sym = symtab + dsp->ds_symid;
 		const char *sname = strtab + sym->n_un.n_strx;
 		char *tmp;
-
-		if ((tmp = demangleSymbolCString(sname)))
-			sname = tmp;
 
 		if ('_' == sname[0])
 			sname++; // Lop off omnipresent underscore
@@ -889,9 +870,6 @@ dt_module_symaddr_macho_64(dt_module_t *dmp, GElf_Addr addr,
 	if (sym->n_value <= addr) {
 		const char *name = strtab + sym->n_un.n_strx;
 		char *tmp;
-
-		if ((tmp = demangleSymbolCString(name)))
-			name = tmp;
 
 		if ('_' == name[0])
 			name++; // Lop off omnipresent underscore
@@ -1691,6 +1669,7 @@ dtrace_lookup_by_name(dtrace_hdl_t *dtp, const char *object, const char *name,
  * Exported interface to look up a symbol by address.  We return the GElf_Sym
  * and complete symbol information for the matching symbol.
  */
+#if !defined(__APPLE__)
 int
 dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
     GElf_Sym *symp, dtrace_syminfo_t *sip)
@@ -1736,6 +1715,7 @@ dtrace_lookup_by_addr(dtrace_hdl_t *dtp, GElf_Addr addr,
 
 	return (0);
 }
+#endif
 
 int
 dtrace_lookup_by_type(dtrace_hdl_t *dtp, const char *object, const char *name,

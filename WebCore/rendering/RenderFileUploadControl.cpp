@@ -28,13 +28,16 @@
 #include "GraphicsContext.h"
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
+#include "ShadowElement.h"
 #include "Icon.h"
 #include "LocalizedStrings.h"
 #include "Page.h"
+#include "PaintInfo.h"
 #include "RenderButton.h"
 #include "RenderText.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "TextRun.h"
 #include <math.h>
 
 using namespace std;
@@ -50,20 +53,8 @@ const int iconFilenameSpacing = 2;
 const int defaultWidthNumChars = 34;
 const int buttonShadowHeight = 2;
 
-class HTMLFileUploadInnerButtonElement : public HTMLInputElement {
-public:
-    HTMLFileUploadInnerButtonElement(Document*, Node* shadowParent);
-
-    virtual bool isShadowNode() const { return true; }
-    virtual Node* shadowParentNode() { return m_shadowParent; }
-
-private:
-    Node* m_shadowParent;    
-};
-
 RenderFileUploadControl::RenderFileUploadControl(HTMLInputElement* input)
     : RenderBlock(input)
-    , m_button(0)
 {
     FileList* list = input->files();
     Vector<String> filenames;
@@ -85,8 +76,6 @@ void RenderFileUploadControl::styleDidChange(StyleDifference diff, const RenderS
     RenderBlock::styleDidChange(diff, oldStyle);
     if (m_button)
         m_button->renderer()->setStyle(createButtonStyle(style()));
-
-    setReplaced(isInline());
 }
 
 void RenderFileUploadControl::valueChanged()
@@ -105,9 +94,28 @@ void RenderFileUploadControl::valueChanged()
 
 bool RenderFileUploadControl::allowsMultipleFiles()
 {
+#if ENABLE(DIRECTORY_UPLOAD)
+    if (allowsDirectoryUpload())
+      return true;
+#endif
+
     HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
-    return !input->getAttribute(multipleAttr).isNull();
+    return input->fastHasAttribute(multipleAttr);
 }
+
+#if ENABLE(DIRECTORY_UPLOAD)
+bool RenderFileUploadControl::allowsDirectoryUpload()
+{
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(node());
+    return input->fastHasAttribute(webkitdirectoryAttr);
+}
+
+void RenderFileUploadControl::receiveDropForDirectoryUpload(const Vector<String>& paths)
+{
+    if (Chrome* chromePointer = chrome())
+        chromePointer->enumerateChosenDirectory(paths[0], m_fileChooser.get());
+}
+#endif
 
 String RenderFileUploadControl::acceptTypes()
 {
@@ -122,8 +130,11 @@ void RenderFileUploadControl::chooseIconForFiles(FileChooser* chooser, const Vec
 
 void RenderFileUploadControl::click()
 {
+    // Requires a user gesture to open the file dialog.
+    if (!frame() || !frame()->loader()->isProcessingUserGesture())
+        return;
     if (Chrome* chromePointer = chrome())
-        chromePointer->runOpenPanel(node()->document()->frame(), m_fileChooser);
+        chromePointer->runOpenPanel(frame(), m_fileChooser);
 }
 
 Chrome* RenderFileUploadControl::chrome() const
@@ -140,11 +151,11 @@ Chrome* RenderFileUploadControl::chrome() const
 void RenderFileUploadControl::updateFromElement()
 {
     HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(node());
-    ASSERT(inputElement->inputType() == HTMLInputElement::FILE);
+    ASSERT(inputElement->isFileUpload());
     
     if (!m_button) {
-        m_button = new HTMLFileUploadInnerButtonElement(document(), inputElement);
-        m_button->setInputType("button");
+        m_button = ShadowInputElement::create(inputElement);
+        m_button->setType("button");
         m_button->setValue(fileButtonChooseFileLabel());
         RefPtr<RenderStyle> buttonStyle = createButtonStyle(style());
         RenderObject* renderer = m_button->createRenderer(renderArena(), buttonStyle.get());
@@ -198,12 +209,13 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
     ASSERT(m_fileChooser);
     
     // Push a clip.
+    GraphicsContextStateSaver stateSaver(*paintInfo.context, false);
     if (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseChildBlockBackgrounds) {
         IntRect clipRect(tx + borderLeft(), ty + borderTop(),
                          width() - borderLeft() - borderRight(), height() - borderBottom() - borderTop() + buttonShadowHeight);
         if (clipRect.isEmpty())
             return;
-        paintInfo.context->save();
+        stateSaver.save();
         paintInfo.context->clip(clipRect);
     }
 
@@ -211,14 +223,14 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         const String& displayedFilename = fileTextValue();
         unsigned length = displayedFilename.length();
         const UChar* string = displayedFilename.characters();
-        TextRun textRun(string, length, false, 0, 0, style()->direction() == RTL, style()->unicodeBidi() == Override);
+        TextRun textRun(string, length, false, 0, 0, TextRun::AllowTrailingExpansion, style()->direction(), style()->unicodeBidi() == Override);
         
         // Determine where the filename should be placed
         int contentLeft = tx + borderLeft() + paddingLeft();
         int buttonAndIconWidth = m_button->renderBox()->width() + afterButtonSpacing
             + (m_fileChooser->icon() ? iconWidth + iconFilenameSpacing : 0);
         int textX;
-        if (style()->direction() == LTR)
+        if (style()->isLeftToRightDirection())
             textX = contentLeft + buttonAndIconWidth;
         else
             textX = contentLeft + contentWidth() - buttonAndIconWidth - style()->font().width(textRun);
@@ -226,7 +238,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
         RenderButton* buttonRenderer = toRenderButton(m_button->renderer());
         int textY = buttonRenderer->absoluteBoundingBoxRect().y()
             + buttonRenderer->marginTop() + buttonRenderer->borderTop() + buttonRenderer->paddingTop()
-            + buttonRenderer->baselinePosition(true, false);
+            + buttonRenderer->baselinePosition(AlphabeticBaseline, true, HorizontalLine, PositionOnContainingLine);
 
         paintInfo.context->setFillColor(style()->visitedDependentColor(CSSPropertyColor), style()->colorSpace());
         
@@ -237,7 +249,7 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
             // Determine where the icon should be placed
             int iconY = ty + borderTop() + paddingTop() + (contentHeight() - iconHeight) / 2;
             int iconX;
-            if (style()->direction() == LTR)
+            if (style()->isLeftToRightDirection())
                 iconX = contentLeft + m_button->renderBox()->width() + afterButtonSpacing;
             else
                 iconX = contentLeft + contentWidth() - m_button->renderBox()->width() - afterButtonSpacing - iconWidth;
@@ -249,51 +261,59 @@ void RenderFileUploadControl::paintObject(PaintInfo& paintInfo, int tx, int ty)
 
     // Paint the children.
     RenderBlock::paintObject(paintInfo, tx, ty);
-
-    // Pop the clip.
-    if (paintInfo.phase == PaintPhaseForeground || paintInfo.phase == PaintPhaseChildBlockBackgrounds)
-        paintInfo.context->restore();
 }
 
-void RenderFileUploadControl::calcPrefWidths()
+void RenderFileUploadControl::computePreferredLogicalWidths()
 {
-    ASSERT(prefWidthsDirty());
+    ASSERT(preferredLogicalWidthsDirty());
 
-    m_minPrefWidth = 0;
-    m_maxPrefWidth = 0;
+    m_minPreferredLogicalWidth = 0;
+    m_maxPreferredLogicalWidth = 0;
 
     if (style()->width().isFixed() && style()->width().value() > 0)
-        m_minPrefWidth = m_maxPrefWidth = calcContentBoxWidth(style()->width().value());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeContentBoxLogicalWidth(style()->width().value());
     else {
         // Figure out how big the filename space needs to be for a given number of characters
         // (using "0" as the nominal character).
         const UChar ch = '0';
-        float charWidth = style()->font().floatWidth(TextRun(&ch, 1, false, 0, 0, false, false, false));
-        m_maxPrefWidth = (int)ceilf(charWidth * defaultWidthNumChars);
+        float charWidth = style()->font().width(TextRun(&ch, 1, false, 0, 0, TextRun::AllowTrailingExpansion));
+        m_maxPreferredLogicalWidth = (int)ceilf(charWidth * defaultWidthNumChars);
     }
 
     if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
-        m_maxPrefWidth = max(m_maxPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
-        m_minPrefWidth = max(m_minPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
+        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
     } else if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent()))
-        m_minPrefWidth = 0;
+        m_minPreferredLogicalWidth = 0;
     else
-        m_minPrefWidth = m_maxPrefWidth;
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
 
     if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength) {
-        m_maxPrefWidth = min(m_maxPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
-        m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
+        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
+        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
     }
 
     int toAdd = borderAndPaddingWidth();
-    m_minPrefWidth += toAdd;
-    m_maxPrefWidth += toAdd;
+    m_minPreferredLogicalWidth += toAdd;
+    m_maxPreferredLogicalWidth += toAdd;
 
-    setPrefWidthsDirty(false);
+    setPreferredLogicalWidthsDirty(false);
+}
+
+VisiblePosition RenderFileUploadControl::positionForPoint(const IntPoint&)
+{
+    return VisiblePosition();
 }
 
 void RenderFileUploadControl::receiveDroppedFiles(const Vector<String>& paths)
 {
+#if ENABLE(DIRECTORY_UPLOAD)
+    if (allowsDirectoryUpload()) {
+        receiveDropForDirectoryUpload(paths);
+        return;
+    }
+#endif
+
     if (allowsMultipleFiles())
         m_fileChooser->chooseFiles(paths);
     else
@@ -313,10 +333,4 @@ String RenderFileUploadControl::fileTextValue() const
     return m_fileChooser->basenameForWidth(style()->font(), maxFilenameWidth());
 }
     
-HTMLFileUploadInnerButtonElement::HTMLFileUploadInnerButtonElement(Document* doc, Node* shadowParent)
-    : HTMLInputElement(inputTag, doc)
-    , m_shadowParent(shadowParent)
-{
-}
-
 } // namespace WebCore

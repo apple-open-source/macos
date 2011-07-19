@@ -15,19 +15,115 @@
 #include "Record.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/Compiler.h"
-#include "llvm/Support/Streams.h"
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/VectorExtras.h"
 #include <set>
 #include <map>
 using namespace llvm;
 
 //===----------------------------------------------------------------------===//
+// Diagnostic category computation code.
+//===----------------------------------------------------------------------===//
+
+namespace {
+class DiagGroupParentMap {
+  std::map<const Record*, std::vector<Record*> > Mapping;
+public:
+  DiagGroupParentMap() {
+    std::vector<Record*> DiagGroups
+      = Records.getAllDerivedDefinitions("DiagGroup");
+    for (unsigned i = 0, e = DiagGroups.size(); i != e; ++i) {
+      std::vector<Record*> SubGroups =
+        DiagGroups[i]->getValueAsListOfDefs("SubGroups");
+      for (unsigned j = 0, e = SubGroups.size(); j != e; ++j)
+        Mapping[SubGroups[j]].push_back(DiagGroups[i]);
+    }
+  }
+  
+  const std::vector<Record*> &getParents(const Record *Group) {
+    return Mapping[Group];
+  }
+};
+} // end anonymous namespace.
+
+
+static std::string
+getCategoryFromDiagGroup(const Record *Group,
+                         DiagGroupParentMap &DiagGroupParents) {
+  // If the DiagGroup has a category, return it.
+  std::string CatName = Group->getValueAsString("CategoryName");
+  if (!CatName.empty()) return CatName;
+  
+  // The diag group may the subgroup of one or more other diagnostic groups,
+  // check these for a category as well.
+  const std::vector<Record*> &Parents = DiagGroupParents.getParents(Group);
+  for (unsigned i = 0, e = Parents.size(); i != e; ++i) {
+    CatName = getCategoryFromDiagGroup(Parents[i], DiagGroupParents);
+    if (!CatName.empty()) return CatName;
+  }
+  return "";
+}
+
+/// getDiagnosticCategory - Return the category that the specified diagnostic
+/// lives in.
+static std::string getDiagnosticCategory(const Record *R,
+                                         DiagGroupParentMap &DiagGroupParents) {
+  // If the diagnostic itself has a category, get it.
+  std::string CatName = R->getValueAsString("CategoryName");
+  if (!CatName.empty()) return CatName;
+  
+  DefInit *Group = dynamic_cast<DefInit*>(R->getValueInit("Group"));
+  if (Group == 0) return "";
+  
+  // Check the diagnostic's diag group for a category.
+  return getCategoryFromDiagGroup(Group->getDef(), DiagGroupParents);
+}
+
+namespace {
+  class DiagCategoryIDMap {
+    StringMap<unsigned> CategoryIDs;
+    std::vector<std::string> CategoryStrings;
+  public:
+    DiagCategoryIDMap() {
+      DiagGroupParentMap ParentInfo;
+      
+      // The zero'th category is "".
+      CategoryStrings.push_back("");
+      CategoryIDs[""] = 0;
+      
+      std::vector<Record*> Diags =
+      Records.getAllDerivedDefinitions("Diagnostic");
+      for (unsigned i = 0, e = Diags.size(); i != e; ++i) {
+        std::string Category = getDiagnosticCategory(Diags[i], ParentInfo);
+        if (Category.empty()) continue;  // Skip diags with no category.
+        
+        unsigned &ID = CategoryIDs[Category];
+        if (ID != 0) continue;  // Already seen.
+        
+        ID = CategoryStrings.size();
+        CategoryStrings.push_back(Category);
+      }
+    }
+    
+    unsigned getID(StringRef CategoryString) {
+      return CategoryIDs[CategoryString];
+    }
+    
+    typedef std::vector<std::string>::iterator iterator;
+    iterator begin() { return CategoryStrings.begin(); }
+    iterator end() { return CategoryStrings.end(); }
+  };
+} // end anonymous namespace.
+
+
+
+//===----------------------------------------------------------------------===//
 // Warning Tables (.inc file) generation.
 //===----------------------------------------------------------------------===//
 
-void ClangDiagsDefsEmitter::run(std::ostream &OS) {
+void ClangDiagsDefsEmitter::run(raw_ostream &OS) {
   // Write the #if guard
   if (!Component.empty()) {
     std::string ComponentName = UppercaseString(Component);
@@ -35,12 +131,15 @@ void ClangDiagsDefsEmitter::run(std::ostream &OS) {
     OS << "__" << ComponentName << "START = DIAG_START_" << ComponentName
        << ",\n";
     OS << "#undef " << ComponentName << "START\n";
-    OS << "#endif\n";
+    OS << "#endif\n\n";
   }
 
   const std::vector<Record*> &Diags =
     Records.getAllDerivedDefinitions("Diagnostic");
   
+  DiagCategoryIDMap CategoryIDs;
+  DiagGroupParentMap DGParentMap;
+
   for (unsigned i = 0, e = Diags.size(); i != e; ++i) {
     const Record &R = *Diags[i];
     // Filter by component.
@@ -53,18 +152,24 @@ void ClangDiagsDefsEmitter::run(std::ostream &OS) {
     
     // Description string.
     OS << ", \"";
-    std::string S = R.getValueAsString("Text");
-    EscapeString(S);
-    OS << S << "\"";
+    OS.write_escaped(R.getValueAsString("Text")) << '"';
     
     // Warning associated with the diagnostic.
     if (DefInit *DI = dynamic_cast<DefInit*>(R.getValueInit("Group"))) {
-      S = DI->getDef()->getValueAsString("GroupName");
-      EscapeString(S);
-      OS << ", \"" << S << "\"";
+      OS << ", \"";
+      OS.write_escaped(DI->getDef()->getValueAsString("GroupName")) << '"';
     } else {
       OS << ", 0";
     }
+
+    // SFINAE bit
+    if (R.getValueAsBit("SFINAE"))
+      OS << ", true";
+    else
+      OS << ", false";
+    
+    // Category number.
+    OS << ", " << CategoryIDs.getID(getDiagnosticCategory(&R, DGParentMap));
     OS << ")\n";
   }
 }
@@ -79,7 +184,10 @@ struct GroupInfo {
   unsigned IDNo;
 };
 
-void ClangDiagGroupsEmitter::run(std::ostream &OS) {
+void ClangDiagGroupsEmitter::run(raw_ostream &OS) {
+  // Compute a mapping from a DiagGroup to all of its parents.
+  DiagGroupParentMap DGParentMap;
+  
   // Invert the 1-[0/1] mapping of diags to group into a one to many mapping of
   // groups to diags in the group.
   std::map<std::string, GroupInfo> DiagsInGroup;
@@ -96,9 +204,10 @@ void ClangDiagGroupsEmitter::run(std::ostream &OS) {
   
   // Add all DiagGroup's to the DiagsInGroup list to make sure we pick up empty
   // groups (these are warnings that GCC supports that clang never produces).
-  Diags = Records.getAllDerivedDefinitions("DiagGroup");
-  for (unsigned i = 0, e = Diags.size(); i != e; ++i) {
-    Record *Group = Diags[i];
+  std::vector<Record*> DiagGroups
+    = Records.getAllDerivedDefinitions("DiagGroup");
+  for (unsigned i = 0, e = DiagGroups.size(); i != e; ++i) {
+    Record *Group = DiagGroups[i];
     GroupInfo &GI = DiagsInGroup[Group->getValueAsString("GroupName")];
     
     std::vector<Record*> SubGroups = Group->getValueAsListOfDefs("SubGroups");
@@ -130,7 +239,7 @@ void ClangDiagGroupsEmitter::run(std::ostream &OS) {
     
     const std::vector<std::string> &SubGroups = I->second.SubGroups;
     if (!SubGroups.empty()) {
-      OS << "static const char DiagSubGroup" << I->second.IDNo << "[] = { ";
+      OS << "static const short DiagSubGroup" << I->second.IDNo << "[] = { ";
       for (unsigned i = 0, e = SubGroups.size(); i != e; ++i) {
         std::map<std::string, GroupInfo>::iterator RI =
           DiagsInGroup.find(SubGroups[i]);
@@ -146,11 +255,10 @@ void ClangDiagGroupsEmitter::run(std::ostream &OS) {
   OS << "\n#ifdef GET_DIAG_TABLE\n";
   for (std::map<std::string, GroupInfo>::iterator
        I = DiagsInGroup.begin(), E = DiagsInGroup.end(); I != E; ++I) {
-    std::string S = I->first;
-    EscapeString(S);
     // Group option string.
-    OS << "  { \"" << S << "\","
-      << std::string(MaxLen-I->first.size()+1, ' ');
+    OS << "  { \"";
+    OS.write_escaped(I->first) << "\","
+                               << std::string(MaxLen-I->first.size()+1, ' ');
     
     // Diagnostics in the group.
     if (I->second.DiagsInGroup.empty())
@@ -166,4 +274,12 @@ void ClangDiagGroupsEmitter::run(std::ostream &OS) {
     OS << " },\n";
   }
   OS << "#endif // GET_DIAG_TABLE\n\n";
+  
+  // Emit the category table next.
+  DiagCategoryIDMap CategoriesByID;
+  OS << "\n#ifdef GET_CATEGORY_TABLE\n";
+  for (DiagCategoryIDMap::iterator I = CategoriesByID.begin(),
+       E = CategoriesByID.end(); I != E; ++I)
+    OS << "CATEGORY(\"" << *I << "\")\n";
+  OS << "#endif // GET_CATEGORY_TABLE\n\n";
 }

@@ -1,3 +1,13 @@
+2009-02-10    Create Python install dir if not yet present
+
+    As with C++ and Tcl, the installation directory is created if
+    it did not exist (patch provided by A. Sampson).
+
+2007-06-25    Various Tcl tweaks (recovered from SVN log)
+
+    Cleanup/overhaul, adding CONST86, stubs, and Tcl_GetErrorLine
+    compatibility to allow compiling Mk4tcl for Tcl 8.6*.
+
 2007-06-24    Tcl TEA3 overhaul
 
     Replace configure.in/Makefile.in with new versions, adapted from

@@ -1,9 +1,9 @@
 /*
  * "$Id: sysman.c 7928 2008-09-10 22:14:22Z mike $"
  *
- *   System management definitions for the CUPS scheduler.
+ *   System management functions for the CUPS scheduler.
  *
- *   Copyright 2007-2010 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -40,6 +40,12 @@
 #ifdef HAVE_VPROC_TRANSACTION_BEGIN
 #  include <vproc.h>
 #endif /* HAVE_VPROC_TRANSACTION_BEGIN */
+#ifdef __APPLE__
+#  include <IOKit/pwr_mgt/IOPMLib.h>
+#  ifdef HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H
+#    include <IOKit/pwr_mgt/IOPMLibPrivate.h>
+#  endif /* HAVE_IOKIT_PWR_MGT_IOPMLIBPRIVATE_H */
+#endif /* __APPLE__ */
 
 
 /*
@@ -52,12 +58,20 @@
  *
  * Power management support is currently only implemented on MacOS X, but
  * essentially we use four functions to let the OS know when it is OK to
- * put the system to idle sleep, typically when we are not in the middle of
+ * put the system to sleep, typically when we are not in the middle of
  * printing a job.
  *
  * Once put to sleep, we invalidate all remote printers since it is common
  * to wake up in a new location/on a new wireless network.
  */
+
+/*
+ * Local globals...
+ */
+
+#ifdef kIOPMAssertionTypeDenySystemSleep
+static IOPMAssertionID	dark_wake = 0;	/* "Dark wake" assertion for sharing */
+#endif /* kIOPMAssertionTypeDenySystemSleep */
 
 
 /*
@@ -136,8 +150,11 @@ cupsdMarkDirty(int what)		/* I - What file(s) are dirty? */
 void
 cupsdSetBusyState(void)
 {
-  int		newbusy;		/* New busy state */
-  static int	busy = 0;		/* Current busy state */
+  int			i;		/* Looping var */
+  cupsd_job_t		*job;		/* Current job */
+  cupsd_printer_t	*p;		/* Current printer */
+  int			newbusy;	/* New busy state */
+  static int		busy = 0;	/* Current busy state */
   static const char * const busy_text[] =
   {					/* Text for busy states */
     "Not busy",
@@ -154,9 +171,38 @@ cupsdSetBusyState(void)
 #endif /* HAVE_VPROC_TRANSACTION_BEGIN */
 
 
+ /*
+  * Figure out how busy we are...
+  */
+
   newbusy = (DirtyCleanTime ? 1 : 0) |
-            (cupsArrayCount(PrintingJobs) ? 2 : 0) |
 	    (cupsArrayCount(ActiveClients) ? 4 : 0);
+
+  for (job = (cupsd_job_t *)cupsArrayFirst(PrintingJobs);
+       job;
+       job = (cupsd_job_t *)cupsArrayNext(PrintingJobs))
+  {
+    if ((p = job->printer) != NULL)
+    {
+      for (i = 0; i < p->num_reasons; i ++)
+	if (!strcmp(p->reasons[i], "connecting-to-device"))
+	  break;
+
+      if (!p->num_reasons || i >= p->num_reasons)
+	break;
+    }
+  }
+
+  if (job)
+    newbusy |= 2;
+
+  cupsdLogMessage(CUPSD_LOG_DEBUG,
+                  "cupsdSetBusyState: newbusy=\"%s\", busy=\"%s\"",
+                  busy_text[newbusy], busy_text[busy]);
+
+ /*
+  * Manage state changes...
+  */
 
   if (newbusy != busy)
   {
@@ -171,9 +217,23 @@ cupsdSetBusyState(void)
       vtran = 0;
     }
 #endif /* HAVE_VPROC_TRANSACTION_BEGIN */
-
-    cupsdLogMessage(CUPSD_LOG_DEBUG, "cupsdSetBusyState: %s", busy_text[busy]);
   }
+
+#ifdef kIOPMAssertionTypeDenySystemSleep
+  if (cupsArrayCount(PrintingJobs) > 0 && !dark_wake)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Asserting dark wake.");
+    IOPMAssertionCreateWithName(kIOPMAssertionTypeDenySystemSleep,
+				kIOPMAssertionLevelOn,
+				CFSTR("org.cups.cupsd"), &dark_wake);
+  }
+  else if (cupsArrayCount(PrintingJobs) == 0 && dark_wake)
+  {
+    cupsdLogMessage(CUPSD_LOG_DEBUG, "Releasing dark wake assertion.");
+    IOPMAssertionRelease(dark_wake);
+    dark_wake = 0;
+  }
+#endif /* kIOPMAssertionTypeDenySystemSleep */
 }
 
 
@@ -720,6 +780,8 @@ sysEventTimerNotifier(
   cupsd_thread_data_t	*threadData;	/* Thread context data */
 
 
+  (void)timer;
+
   threadData = (cupsd_thread_data_t *)context;
 
  /*
@@ -821,6 +883,15 @@ sysUpdate(void)
 
       cupsdCleanDirty();
 
+#ifdef kIOPMAssertionTypeDenySystemSleep
+     /*
+      * Tell the OS it is OK to sleep when we remove our assertion...
+      */
+
+      IOAllowPowerChange(sysevent.powerKernelPort,
+                         sysevent.powerNotificationID);
+
+#else
      /*
       * If we have no printing jobs, allow the power change immediately.
       * Otherwise set the SleepJobs time to 15 seconds in the future when
@@ -832,9 +903,39 @@ sysUpdate(void)
 			   sysevent.powerNotificationID);
       else
       {
-        LastSysEvent = sysevent;
-        SleepJobs    = time(NULL) + 15;
+       /*
+	* If there are active printers that don't have the connecting-to-device
+	* printer-state-reason then delay the sleep request (i.e. this reason
+	* indicates a job that is not yet connected to the printer)...
+	*/
+
+	for (p = (cupsd_printer_t *)cupsArrayFirst(Printers);
+	     p;
+	     p = (cupsd_printer_t *)cupsArrayNext(Printers))
+	{
+	  if (p->job)
+	  {
+	    for (i = 0; i < p->num_reasons; i ++)
+	      if (!strcmp(p->reasons[i], "connecting-to-device"))
+		break;
+
+	    if (!p->num_reasons || i >= p->num_reasons)
+	      break;
+	  }
+	}
+
+	if (p)
+	{
+	  LastSysEvent = sysevent;
+	  SleepJobs    = time(NULL) + 10;
+	}
+	else
+	{
+	  IOAllowPowerChange(sysevent.powerKernelPort,
+			     sysevent.powerNotificationID);
+	}
       }
+#endif /* kIOPMAssertionTypeDenySystemSleep */
     }
 
     if (sysevent.event & SYSEVENT_WOKE)

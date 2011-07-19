@@ -38,7 +38,7 @@
 #include <syslog.h>
 #include <Security/Authorization.h>
 #include <DirectoryService/DirServicesConst.h>
-#include <DirectoryService/DirServicesPriv.h>
+#include "DirServicesPriv.h"
 
 #include "CServerPlugin.h"
 #include "CLog.h"

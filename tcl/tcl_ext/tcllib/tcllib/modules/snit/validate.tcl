@@ -32,12 +32,12 @@ snit::type ::snit::boolean {
 
     typemethod validate {value} {
         if {![string is boolean -strict $value]} {
-            return -code error \
+            return -code error -errorcode INVALID \
    "invalid boolean \"$value\", should be one of: 1, 0, true, false, yes, no, on, off"
 
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -77,11 +77,11 @@ snit::type ::snit::double {
 
     typemethod validate {value} {
         if {![string is double -strict $value]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", expected double"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -113,6 +113,8 @@ snit::type ::snit::double {
     #-------------------------------------------------------------------
     # Public Methods
 
+    # Fixed method for the snit::double type.
+    # WHD, 6/7/2010.
     method validate {value} {
         $type validate $value
 
@@ -125,12 +127,14 @@ snit::type ::snit::double {
                 append msg " in range $options(-min), $options(-max)"
             } elseif {"" != $options(-min)} {
                 append msg " no less than $options(-min)"
+            } elseif {"" != $options(-max)} {
+                append msg " no greater than $options(-max)"
             }
         
-            return -code error $msg
+            return -code error -errorcode INVALID $msg
         }
 
-        return
+        return $value
     }
 }
 
@@ -152,7 +156,7 @@ snit::type ::snit::enum {
 
     typemethod validate {value} {
         # No -values specified; it's always valid
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -172,9 +176,11 @@ snit::type ::snit::enum {
 
     method validate {value} {
         if {[lsearch -exact $options(-values) $value] == -1} {
-            return -code error \
+            return -code error -errorcode INVALID \
     "invalid value \"$value\", should be one of: [join $options(-values) {, }]"
         }
+        
+        return $value
     }
 }
 
@@ -208,11 +214,11 @@ snit::type ::snit::fpixels {
 
     typemethod validate {value} {
         if {[catch {winfo fpixels . $value} dummy]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", expected fpixels"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -260,10 +266,10 @@ snit::type ::snit::fpixels {
                 append msg " no less than $options(-min)"
             }
         
-            return -code error $msg
+            return -code error -errorcode INVALID $msg
         }
 
-        return
+        return $value
     }
 }
 
@@ -291,11 +297,11 @@ snit::type ::snit::integer {
 
     typemethod validate {value} {
         if {![string is integer -strict $value]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", expected integer"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -341,10 +347,10 @@ snit::type ::snit::integer {
                 append msg " no less than $options(-min)"
             }
         
-            return -code error $msg
+            return -code error -errorcode INVALID $msg
         }
 
-        return
+        return $value
     }
 }
 
@@ -378,11 +384,11 @@ snit::type ::snit::listtype {
 
     typemethod validate {value} {
         if {[catch {llength $value} result]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", expected list"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -425,11 +431,11 @@ snit::type ::snit::listtype {
         set len [llength $value]
 
         if {$len < $options(-minlen)} {
-            return -code error \
+            return -code error -errorcode INVALID \
               "value has too few elements; at least $options(-minlen) expected"
         } elseif {"" != $options(-maxlen)} {
             if {$len > $options(-maxlen)} {
-                return -code error \
+                return -code error -errorcode INVALID \
          "value has too many elements; no more than $options(-maxlen) expected"
             }
         }
@@ -442,6 +448,8 @@ snit::type ::snit::listtype {
                 uplevel \#0 $cmd
             }
         }
+        
+        return $value
     }
 }
 
@@ -475,11 +483,11 @@ snit::type ::snit::pixels {
 
     typemethod validate {value} {
         if {[catch {winfo pixels . $value} dummy]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", expected pixels"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -527,10 +535,10 @@ snit::type ::snit::pixels {
                 append msg " no less than $options(-min)"
             }
         
-            return -code error $msg
+            return -code error -errorcode INVALID $msg
         }
 
-        return
+        return $value
     }
 }
 
@@ -576,7 +584,7 @@ snit::type ::snit::stringtype {
 
     typemethod validate {value} {
         # By default, any string (hence, any Tcl value) is valid.
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -641,11 +649,11 @@ snit::type ::snit::stringtype {
         set len [string length $value]
 
         if {$len < $options(-minlen)} {
-            return -code error \
+            return -code error -errorcode INVALID \
               "too short: at least $options(-minlen) characters expected"
         } elseif {"" != $options(-maxlen)} {
             if {$len > $options(-maxlen)} {
-                return -code error \
+                return -code error -errorcode INVALID \
          "too long: no more than $options(-maxlen) characters expected"
             }
         }
@@ -659,7 +667,7 @@ snit::type ::snit::stringtype {
             }
             
             if {!$result} {
-                return -code error \
+                return -code error -errorcode INVALID \
                     "invalid value \"$value\""
             }
         }
@@ -673,10 +681,12 @@ snit::type ::snit::stringtype {
             }
             
             if {!$result} {
-                return -code error \
+                return -code error -errorcode INVALID \
                     "invalid value \"$value\""
             }
         }
+        
+        return $value
     }
 }
 
@@ -689,11 +699,11 @@ snit::type ::snit::window {
 
     typemethod validate {value} {
         if {![winfo exists $value]} {
-            return -code error \
+            return -code error -errorcode INVALID \
                 "invalid value \"$value\", value is not a window"
         }
 
-        return
+        return $value
     }
 
     #-------------------------------------------------------------------
@@ -708,4 +718,3 @@ snit::type ::snit::window {
         $type validate $value
     }
 }
-

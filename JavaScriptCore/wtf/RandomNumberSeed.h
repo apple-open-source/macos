@@ -38,7 +38,7 @@
 #include <unistd.h>
 #endif
 
-#if OS(WINCE)
+#if USE(MERSENNE_TWISTER_19937)
 extern "C" {
 void init_by_array(unsigned long init_key[],int key_length);
 }
@@ -53,17 +53,11 @@ inline void initializeRandomNumberGenerator()
     // On Darwin we use arc4random which initialises itself.
 #elif OS(WINCE)
     // initialize rand()
-    srand(static_cast<unsigned>(time(0)));
-
-    // use rand() to initialize the real RNG
-    unsigned long initializationBuffer[4];
-    initializationBuffer[0] = (rand() << 16) | rand();
-    initializationBuffer[1] = (rand() << 16) | rand();
-    initializationBuffer[2] = (rand() << 16) | rand();
-    initializationBuffer[3] = (rand() << 16) | rand();
-    init_by_array(initializationBuffer, 4);
+    srand(GetTickCount());
 #elif COMPILER(MSVC) && defined(_CRT_RAND_S)
     // On Windows we use rand_s which initialises itself
+#elif PLATFORM(BREWMP)
+    // On Brew MP we use AEECLSID_RANDOM which initialises itself
 #elif OS(UNIX)
     // srandomdev is not guaranteed to exist on linux so we use this poor seed, this should be improved
     timeval time;
@@ -72,17 +66,18 @@ inline void initializeRandomNumberGenerator()
 #else
     srand(static_cast<unsigned>(time(0)));
 #endif
-}
 
-inline void initializeWeakRandomNumberGenerator()
-{
-#if COMPILER(MSVC) && defined(_CRT_RAND_S)
-    // We need to initialise windows rand() explicitly for Math.random
-    unsigned seed = 0;
-    rand_s(&seed);
-    srand(seed);
+#if USE(MERSENNE_TWISTER_19937)
+    // use rand() to initialize the Mersenne Twister random number generator.
+    unsigned long initializationBuffer[4];
+    initializationBuffer[0] = (rand() << 16) | rand();
+    initializationBuffer[1] = (rand() << 16) | rand();
+    initializationBuffer[2] = (rand() << 16) | rand();
+    initializationBuffer[3] = (rand() << 16) | rand();
+    init_by_array(initializationBuffer, 4);
 #endif
 }
+
 }
 
 #endif

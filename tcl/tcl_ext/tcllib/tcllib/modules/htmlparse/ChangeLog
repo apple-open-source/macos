@@ -1,3 +1,17 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-02-10  Andreas Kupries  <andreask@activestate.com>
+
+	* htmlparse.tcl (::htmlparse::parse): Replaced the backslashed
+	* htmlparse.man: placeholder \\win\\ with the more regular @win@,
+	* htmlparse.text: to prevent quoting horrors. This fixes Glenn
+	* pkgIndex.tcl: Jackman's [SF Tcllib Bug 2586112]. Bumped the
+	  package version to 1.2.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

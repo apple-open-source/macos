@@ -1,6 +1,6 @@
---- regex.3	2004-11-25 11:38:32.000000000 -0800
-+++ regex.3.edit	2006-06-28 16:55:52.000000000 -0700
-@@ -41,8 +41,8 @@
+--- regex.3.bsdnew	2009-11-11 11:29:04.000000000 -0800
++++ regex.3	2009-11-11 11:29:04.000000000 -0800
+@@ -37,8 +37,8 @@
  .Os
  .Sh NAME
  .Nm regcomp ,
@@ -10,7 +10,7 @@
  .Nm regfree
  .Nd regular-expression library
  .Sh LIBRARY
-@@ -51,20 +51,29 @@
+@@ -47,20 +47,29 @@
  .In regex.h
  .Ft int
  .Fo regcomp
@@ -49,7 +49,7 @@
  .Sh DESCRIPTION
  These routines implement
  .St -p1003.2
-@@ -75,12 +84,11 @@
+@@ -71,12 +80,11 @@ see
  The
  .Fn regcomp
  function

@@ -5,14 +5,14 @@
 
 /* template workaround for compilers that cannot correctly implement the C++ standard */
 #ifndef SWIGTEMPLATEDISAMBIGUATOR
-# if defined(__SUNPRO_CC)
-#   if (__SUNPRO_CC <= 0x560)
-#     define SWIGTEMPLATEDISAMBIGUATOR template
-#   else
-#     define SWIGTEMPLATEDISAMBIGUATOR 
-#   endif
+# if defined(__SUNPRO_CC) && (__SUNPRO_CC <= 0x560)
+#  define SWIGTEMPLATEDISAMBIGUATOR template
+# elif defined(__HP_aCC)
+/* Needed even with `aCC -AA' when `aCC -V' reports HP ANSI C++ B3910B A.03.55 */
+/* If we find a maximum version that requires this, the test would be __HP_aCC <= 35500 for A.03.55 */
+#  define SWIGTEMPLATEDISAMBIGUATOR template
 # else
-#   define SWIGTEMPLATEDISAMBIGUATOR 
+#  define SWIGTEMPLATEDISAMBIGUATOR
 # endif
 #endif
 
@@ -38,6 +38,12 @@
 # else
 #   define SWIGUNUSED 
 # endif
+#endif
+
+#ifndef SWIG_MSC_UNSUPPRESS_4505
+# if defined(_MSC_VER)
+#   pragma warning(disable : 4505) /* unreferenced local function has been removed */
+# endif 
 #endif
 
 #ifndef SWIGUNUSEDPARM
@@ -94,3 +100,9 @@
 #if !defined(SWIG_NO_CRT_SECURE_NO_DEPRECATE) && defined(_MSC_VER) && !defined(_CRT_SECURE_NO_DEPRECATE)
 # define _CRT_SECURE_NO_DEPRECATE
 #endif
+
+/* Deal with Microsoft's attempt at deprecating methods in the standard C++ library */
+#if !defined(SWIG_NO_SCL_SECURE_NO_DEPRECATE) && defined(_MSC_VER) && !defined(_SCL_SECURE_NO_DEPRECATE)
+# define _SCL_SECURE_NO_DEPRECATE
+#endif
+

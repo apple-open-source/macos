@@ -4,7 +4,7 @@
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,6 +28,7 @@
 #include "CachedImage.h"
 #include "Document.h"
 #include "HTMLNames.h"
+#include "PaintInfo.h"
 #include "RenderTableCell.h"
 #include "RenderView.h"
 
@@ -54,12 +55,29 @@ void RenderTableRow::destroy()
 
 void RenderTableRow::styleWillChange(StyleDifference diff, const RenderStyle* newStyle)
 {
-    if (section() && style() && style()->height() != newStyle->height())
+    if (section() && style() && style()->logicalHeight() != newStyle->logicalHeight())
         section()->setNeedsCellRecalc();
 
     ASSERT(newStyle->display() == TABLE_ROW);
 
     RenderBox::styleWillChange(diff, newStyle);
+}
+
+void RenderTableRow::updateBeforeAndAfterContent()
+{
+    if (!isAnonymous() && document()->usesBeforeAfterRules()) {
+        children()->updateBeforeAfterContent(this, BEFORE);
+        children()->updateBeforeAfterContent(this, AFTER);
+    }
+}
+
+void RenderTableRow::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
+{
+    RenderBox::styleDidChange(diff, oldStyle);
+
+    if (parent())
+        updateBeforeAndAfterContent();
+
 }
 
 void RenderTableRow::addChild(RenderObject* child, RenderObject* beforeChild)
@@ -117,13 +135,18 @@ void RenderTableRow::layout()
     ASSERT(needsLayout());
 
     // Table rows do not add translation.
-    LayoutStateMaintainer statePusher(view(), this, IntSize());
+    LayoutStateMaintainer statePusher(view(), this, IntSize(), style()->isFlippedBlocksWritingMode());
 
+    bool paginated = view()->layoutState()->isPaginated();
+                
     for (RenderObject* child = firstChild(); child; child = child->nextSibling()) {
         if (child->isTableCell()) {
             RenderTableCell* cell = toRenderTableCell(child);
+            if (!cell->needsLayout() && paginated && view()->layoutState()->pageLogicalHeight() && view()->layoutState()->pageLogicalOffset(cell->logicalTop()) != cell->pageLogicalOffset())
+                cell->setChildNeedsLayout(true, false);
+
             if (child->needsLayout()) {
-                cell->calcVerticalMargins();
+                cell->computeBlockDirectionMargins(table());
                 cell->layout();
             }
         }
@@ -142,6 +165,7 @@ void RenderTableRow::layout()
     }
 
     statePusher.pop();
+    // RenderTableSection::layoutRows will set our logical height and width later, so it calls updateLayerTransform().
     setNeedsLayout(false);
 }
 
@@ -163,7 +187,7 @@ IntRect RenderTableRow::clippedOverflowRectForRepaint(RenderBoxModelObject* repa
 }
 
 // Hit Testing
-bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, int x, int y, int tx, int ty, HitTestAction action)
+bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& result, const IntPoint& pointInContainer, int tx, int ty, HitTestAction action)
 {
     // Table rows cannot ever be hit tested.  Effectively they do not exist.
     // Just forward to our children always.
@@ -172,9 +196,12 @@ bool RenderTableRow::nodeAtPoint(const HitTestRequest& request, HitTestResult& r
         // at the moment (a demoted inline <form> for example). If we ever implement a
         // table-specific hit-test method (which we should do for performance reasons anyway),
         // then we can remove this check.
-        if (child->isTableCell() && !toRenderBox(child)->hasSelfPaintingLayer() && child->nodeAtPoint(request, result, x, y, tx, ty, action)) {
-            updateHitTestResult(result, IntPoint(x - tx, y - ty));
-            return true;
+        if (child->isTableCell() && !toRenderBox(child)->hasSelfPaintingLayer()) {
+            IntPoint cellPoint = flipForWritingMode(toRenderTableCell(child), IntPoint(tx, ty), ParentToChildFlippingAdjustment);
+            if (child->nodeAtPoint(request, result, pointInContainer, cellPoint.x(), cellPoint.y(), action)) {
+                updateHitTestResult(result, pointInContainer - IntSize(cellPoint.x(), cellPoint.y()));
+                return true;
+            }
         }
     }
     

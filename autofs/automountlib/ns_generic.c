@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)ns_generic.c	1.33	05/06/08 SMI"
@@ -50,7 +50,7 @@ struct ns_info {
 	char	*ns_name;		/* service name */
 	void	(*ns_init)(char **, char ***);
 					/* initialization routine */
-	int	(*ns_getmapent)(char *, char *, struct mapline *,
+	int	(*ns_getmapent)(const char *, const char *, struct mapline *,
 		char **, char ***, bool_t *, bool_t);
 					/* get map entry given key */
 	int	(*ns_loadmaster)(char *, char *, char **, char ***);
@@ -68,9 +68,9 @@ static struct ns_info ns_info[] = {
 	  loadmaster_files, loaddirect_files,
 	  getmapkeys_files },
 
-	{ "ds",   init_ds,  getmapent_ds,
-	  loadmaster_ds, loaddirect_ds,
-	  getmapkeys_ds },
+	{ "od",   init_od,  getmapent_od,
+	  loadmaster_od, loaddirect_od,
+	  getmapkeys_od },
 
 	{ NULL, NULL, NULL, NULL, NULL, NULL }
 };
@@ -87,7 +87,7 @@ ns_setup(char **stack, char ***stkptr)
 
 int
 getmapent(key, mapname, ml, stack, stkptr, iswildcard, isrestricted)
-	char *key, *mapname;
+	const char *key, *mapname;
 	struct mapline *ml;
 	char **stack, ***stkptr;
 	bool_t *iswildcard;
@@ -168,6 +168,7 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 	char **p;
 	struct dir_entry *last = NULL;
 	struct hostent *ent;
+	int err;
 
 	*cache_time = RDDIR_CACHE_TIME * 2;
 	*error = 0;
@@ -179,9 +180,14 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 	while ((ent = gethostent()) != NULL) {
 		/*
 		 * add canonical name
+		 *
+		 * A return of -1 means the name isn't valid.
 		 */
-		if (add_dir_entry(ent->h_name, list, &last)) {
-			*error = ENOMEM;
+		err = add_dir_entry(ent->h_name, NULL, NULL, list, &last);
+		if (err == -1)
+			continue;
+		if (err != 0) {
+			*error = err;
 			goto done;
 		}
 		if (ent->h_aliases == NULL)
@@ -192,8 +198,12 @@ gethostkeys(struct dir_entry **list, int *error, int *cache_time)
 				 * add alias only if different
 				 * from canonical name
 				 */
-				if (add_dir_entry(*p, list, &last)) {
-					*error = ENOMEM;
+				err = add_dir_entry(*p, NULL, NULL, list,
+				    &last);
+				if (err == -1)
+					continue;
+				if (err != 0) {
+					*error = err;
 					goto done;
 				}
 			}

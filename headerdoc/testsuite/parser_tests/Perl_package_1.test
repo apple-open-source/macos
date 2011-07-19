@@ -1,0 +1,484 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$36|package HeaderDoc::LineRange::test;
+$18|/*! test class */
+$0|$7118|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_package_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_package_1.test
+$parserState->{ISFORWARDDECLARATION} => 1
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => package
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => test;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{perlClassName} => HeaderDoc::LineRange::
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => package
+$parserState->{returntype} => package HeaderDoc :: LineRange :: 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => test
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => package
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: forwarddeclaration-package
+namelist: HeaderDoc::LineRange::test
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---package
++--- 
++---HeaderDoc
++---::
++---LineRange
++---::
++---test
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl package 1
+APIUID: //test_ref/doc/header/Perl_package_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: HeaderDoc::LineRange::test
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>test class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Perl_package_1.test" target="_top" machineGenerated="true">Perl package 1</a></p>
+
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HeaderDoc::LineRange::test (HeaderDoc::CPPClass)
++---package
++--- 
++---HeaderDoc
++---::
++---LineRange
++---::
++---test
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HeaderDoc::LineRange::test (HeaderDoc::CPPClass)
+	<span class="keyword">package</span> <!-- a logicalPath="//test_ref/perl/cl/HeaderDoc" machineGenerated="true" -->HeaderDoc<!-- /a -->::<!-- a logicalPath="//test_ref/perl/instm/HeaderDoc/LineRange //test_ref/perl/clm/HeaderDoc/LineRange //test_ref/perl/func/LineRange //test_ref/perl/ftmplt/HeaderDoc/LineRange //test_ref/perl/defn/LineRange //test_ref/perl/macro/LineRange //test_ref/perl/cl/HeaderDoc/LineRange //test_ref/perl/tdef/LineRange //test_ref/perl/tag/LineRange //test_ref/perl/econst/LineRange //test_ref/perl/struct/LineRange //test_ref/perl/data/HeaderDoc/LineRange //test_ref/perl/clconst/HeaderDoc/LineRange //test_ref/perl/intfm/HeaderDoc/LineRange //test_ref/doc/com/intfm/HeaderDoc/HeaderDoc::LineRange" machineGenerated="true" -->LineRange<!-- /a -->::<!-- a logicalPath="//test_ref/perl/instm/HeaderDoc::LineRange/test //test_ref/perl/clm/HeaderDoc::LineRange/test //test_ref/perl/func/test //test_ref/perl/ftmplt/HeaderDoc::LineRange/test //test_ref/perl/defn/test //test_ref/perl/macro/test //test_ref/perl/cl/HeaderDoc::LineRange/test //test_ref/perl/tdef/test //test_ref/perl/tag/test //test_ref/perl/econst/test //test_ref/perl/struct/test //test_ref/perl/data/HeaderDoc::LineRange/test //test_ref/perl/clconst/HeaderDoc::LineRange/test //test_ref/perl/intfm/HeaderDoc::LineRange/test //test_ref/doc/com/intfm/HeaderDoc::LineRange/HeaderDoc::LineRange::test" machineGenerated="true" -->test<!-- /a -->;  
+END OF OBJECT
+
+
+
+$7118|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Perl_package_1.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Perl_package_1.test
+$parserState->{ISFORWARDDECLARATION} => 1
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => package
+$parserState->{forceClassDone} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => perl
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => test;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{perlClassName} => HeaderDoc::LineRange::
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => package
+$parserState->{returntype} => package HeaderDoc :: LineRange :: 
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => test
+$parserState->{sodtype} => 
+$parserState->{sodtypeclasstoken} => package
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => perl
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: forwarddeclaration-package
+namelist: HeaderDoc::LineRange::test
+posstypes: 
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---package
++--- 
++---HeaderDoc
++---::
++---LineRange
++---::
++---test
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Perl package 1
+APIUID: //test_ref/doc/header/Perl_package_1.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: HeaderDoc::LineRange::test
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p>test class "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/Perl_package_1.test" target="_top" machineGenerated="true">Perl package 1</a></p>
+
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: HeaderDoc::LineRange::test (HeaderDoc::CPPClass)
++---package
++--- 
++---HeaderDoc
++---::
++---LineRange
++---::
++---test
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: HeaderDoc::LineRange::test (HeaderDoc::CPPClass)
+	<span class="keyword">package</span> <!-- a logicalPath="//test_ref/perl/cl/HeaderDoc" machineGenerated="true" -->HeaderDoc<!-- /a -->::<!-- a logicalPath="//test_ref/perl/instm/HeaderDoc/LineRange //test_ref/perl/clm/HeaderDoc/LineRange //test_ref/perl/func/LineRange //test_ref/perl/ftmplt/HeaderDoc/LineRange //test_ref/perl/defn/LineRange //test_ref/perl/macro/LineRange //test_ref/perl/cl/HeaderDoc/LineRange //test_ref/perl/tdef/LineRange //test_ref/perl/tag/LineRange //test_ref/perl/econst/LineRange //test_ref/perl/struct/LineRange //test_ref/perl/data/HeaderDoc/LineRange //test_ref/perl/clconst/HeaderDoc/LineRange //test_ref/perl/intfm/HeaderDoc/LineRange //test_ref/doc/com/intfm/HeaderDoc/HeaderDoc::LineRange" machineGenerated="true" -->LineRange<!-- /a -->::<!-- a logicalPath="//test_ref/perl/instm/HeaderDoc::LineRange/test //test_ref/perl/clm/HeaderDoc::LineRange/test //test_ref/perl/func/test //test_ref/perl/ftmplt/HeaderDoc::LineRange/test //test_ref/perl/defn/test //test_ref/perl/macro/test //test_ref/perl/cl/HeaderDoc::LineRange/test //test_ref/perl/tdef/test //test_ref/perl/tag/test //test_ref/perl/econst/test //test_ref/perl/struct/test //test_ref/perl/data/HeaderDoc::LineRange/test //test_ref/perl/clconst/HeaderDoc::LineRange/test //test_ref/perl/intfm/HeaderDoc::LineRange/test //test_ref/doc/com/intfm/HeaderDoc::LineRange/HeaderDoc::LineRange::test" machineGenerated="true" -->test<!-- /a -->;  
+END OF OBJECT
+
+
+
+$45|Should be called HeaderDoc::LineRange::test.
+$96|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Perl_package_1.test$4|perl$14|Perl package 1$4|perl$6|parser

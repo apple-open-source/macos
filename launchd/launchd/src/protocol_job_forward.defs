@@ -38,16 +38,21 @@ skip; /* check_in */
 
 skip; /* register2 */
 
-simpleroutine look_up2_forward(
-				__bs_port				: job_t;
-replyport		__rport					: mach_port_move_send_once_t;
-				__service_name			: name_t;
-				__target_pid			: pid_t;
-				__flags					: uint64_t);
+simpleroutine
+look_up2_forward(
+				j				: job_t;
+replyport		rp				: mach_port_move_send_once_t;
+				servicename		: name_t;
+				targetpid		: pid_t;
+				instanceid		: uuid_t;
+				flags			: uint64_t
+);
 
 skip; /* send_signal */
 
-simpleroutine parent_forward(
-                __bs_port				: job_t;
-replyport		__rport					: mach_port_move_send_once_t);
+simpleroutine
+parent_forward(
+                j				: job_t;
+replyport		rp				: mach_port_move_send_once_t
+);
 

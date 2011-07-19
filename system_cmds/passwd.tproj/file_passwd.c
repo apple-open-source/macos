@@ -1,465 +1,236 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 1999 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
-#include <signal.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <unistd.h>
-#include <pwd.h>
+#include <ctype.h>
+#include <err.h>
 #include <errno.h>
 #include <fcntl.h>
+#include <pwd.h>
+#include <signal.h>
+#include <stdbool.h>
+#include <stdlib.h>
+#include <stdio.h>
+#include <string.h>
 #include <sysexits.h>
+#include <unistd.h>
 #include <sys/time.h>
-#include <sys/resource.h>
 #include <sys/stat.h>
-#include <sys/wait.h>
-#include "stringops.h"
-
-#define TEMP_FILE_TEMPLATE "/var/run/.pwtmpXXXXXX"
-#define LOCK_FILE "/var/run/.passwd.lock"
 
 #define _PASSWD_FILE "/etc/master.passwd"
 #define _COMPAT_FILE "/etc/passwd"
 #define _PASSWD_FIELDS 10
 #define BUFSIZE 8192
 
-extern void getpasswd(char *, int, int, int, int, char *, char **, char**, char **);
+void getpasswd(char *, int, int, int, int, char *, char **, char**, char **);
 
-//static int do_compat = 1; (unused)
-
-char *
-getline(FILE *fp)
+static struct passwd *
+parse_user(char *line, size_t len)
 {
-	static char s[BUFSIZE];
-	int len;
+	static struct passwd pw;
+	int i,j;
+	char *tokens[_PASSWD_FIELDS];
+	char *token = NULL;
+	bool comment = true;
 
-    s[0] = '\0';
+	free(pw.pw_name);
+	free(pw.pw_passwd);
+	free(pw.pw_class);
+	free(pw.pw_gecos);
+	free(pw.pw_dir);
+	free(pw.pw_shell);
+	memset(&pw, 0, sizeof(pw));
 
-    fgets(s, BUFSIZE, fp);
-    if (s == NULL || s[0] == '\0') return NULL;
+	if (line == NULL) return NULL;
 
-	if (s[0] == '#') return s;
+	memset(&tokens, 0, sizeof(char *) * _PASSWD_FIELDS);
 
-	len = strlen(s) - 1;
-	s[len] = '\0';
-
-	return s;
-}
-
-struct passwd *
-parse_user(char *line)
-{
-	static struct passwd pw = {0};
-	char **tokens;
-	int i, len;
-
-	if (pw.pw_name != NULL) free(pw.pw_name);
-	pw.pw_name = NULL;
-	if (pw.pw_passwd != NULL) free(pw.pw_passwd);
-	pw.pw_passwd = NULL;
-	if (pw.pw_gecos != NULL) free(pw.pw_gecos);
-	pw.pw_gecos = NULL;
-	if (pw.pw_dir != NULL) free(pw.pw_dir);
-	pw.pw_dir = NULL;
-	if (pw.pw_shell != NULL) free(pw.pw_shell);
-	pw.pw_shell = NULL;
-
-	if (pw.pw_class != NULL) free(pw.pw_class);
-	pw.pw_class = NULL;
-
-	if (line == NULL) return (struct passwd *)NULL;
-	tokens = explode(line, ':');
-	len = listLength(tokens);
-
-	if (len != _PASSWD_FIELDS)
-	{
-		freeList(tokens);
-		return (struct passwd *)NULL;
+	for (i = 0, j = 0; i < len && j < _PASSWD_FIELDS; ++i) {
+		int c = line[i];
+		if (!isspace(c) && c != '#') {
+			comment = false;
+		}
+		if (!comment && token == NULL) {
+			// start a new token
+			token = &line[i];
+		} else if (token && (c == ':' || c == '\n')) {
+			// end the current token
+			// special case for empty token
+			while (token[0] == ':' && token < &line[i]) {
+				tokens[j++] = strdup("");
+				++token;
+			}
+			tokens[j++] = strndup(token, &line[i] - token);
+			token = NULL;
+		}
 	}
 
-	i = 0;
-	pw.pw_name = tokens[i++];
-	pw.pw_passwd = tokens[i++];
-	pw.pw_uid = atoi(tokens[i]);
-	free(tokens[i++]);
-	pw.pw_gid = atoi(tokens[i]);
-	free(tokens[i++]);
-	pw.pw_class = tokens[i++];
-	pw.pw_change = atoi(tokens[i]);
-	free(tokens[i++]);
-	pw.pw_expire = atoi(tokens[i]);
-	free(tokens[i++]);
-	pw.pw_gecos = tokens[i++];
-	pw.pw_dir = tokens[i++];
-	pw.pw_shell = tokens[i++];
+	if (comment || j != _PASSWD_FIELDS) return NULL;
+
+	j = 0;
+	pw.pw_name = tokens[j++];
+	pw.pw_passwd = tokens[j++];
+	pw.pw_uid = atoi(tokens[j]);
+	free(tokens[j++]);
+	pw.pw_gid = atoi(tokens[j]);
+	free(tokens[j++]);
+	pw.pw_class = tokens[j++];
+	pw.pw_change = atoi(tokens[j]);
+	free(tokens[j++]);
+	pw.pw_expire = atoi(tokens[j]);
+	free(tokens[j++]);
+	pw.pw_gecos = tokens[j++];
+	pw.pw_dir = tokens[j++];
+	pw.pw_shell = tokens[j++];
 
 	return &pw;
 }
 
-struct passwd *
-find_user(char *uname, FILE *fp)
+static struct passwd *
+find_user(FILE *fp, char *uname)
 {
+	size_t len;
 	char *line;
-	struct passwd *pw;
 
 	rewind(fp);
 
-	while (NULL != (line = getline(fp)))
-	{
-		if (line[0] == '#') continue;
-		pw = parse_user(line);
-		if (pw == (struct passwd *)NULL) continue;
-		if (!strcmp(uname, pw->pw_name)) return pw;
+	while ((line = fgetln(fp, &len)) != NULL) {
+		struct passwd *pw = parse_user(line, len);
+		if (pw && strcmp(uname, pw->pw_name) == 0) {
+			return pw;
+		}
 	}
-
-	pw = parse_user(NULL);
-	return (struct passwd *)NULL;
+	return NULL;
 }
 
-void
-rewrite_file(char *pwname, FILE *fp, struct passwd *newpw, char *locn)
+static void
+rewrite_file(char *path, FILE *fp, struct passwd *newpw)
 {
-	char *line;
-	struct passwd *pw;
-	FILE *tfp, *cfp;
 	int fd;
-	char fname[256];
+	char *line;
+	size_t len;
+	FILE *tfp = NULL;
+	char *tempname = NULL; // temporary master.passwd file
+
+	asprintf(&tempname, "%s.XXXXXX", path);
 	
-	sprintf(fname, "%s.%.5d", TEMP_FILE_TEMPLATE, getpid());
-	fd = mkstemps(fname, 6);
-	if (fd == -1)
-	{
-		fprintf(stderr, "can't create temporary file \"%s\": ", fname);
-		perror("");
-		exit(1);
-	}
-	if (fchmod(fd, (S_IRUSR | S_IWUSR)) != 0)
-	{
-		close(fd);
-		unlink(fname);
-		fprintf(stderr, "can't set permissions for temporary file \"%s\": ", fname);
-		perror("");
-		exit(1);
+	fd = mkstemp(tempname);
+	if (fd == -1) {
+		err(EXIT_FAILURE, "%s", tempname);
 	}
 	tfp = fdopen(fd, "w+");
-	if (tfp == NULL)
-	{
-		close(fd);
-		unlink(fname);
-		fprintf(stderr, "can't write temporary file \"%s\": ", fname);
-		perror("");
-		exit(1);
+	if (tfp == NULL || fchmod(fd, S_IRUSR | S_IWUSR) != 0) {
+		int save = errno;
+		unlink(tempname);
+		errno = save;
+		err(EXIT_FAILURE, "%s", tempname);
 	}
 	
-	cfp = NULL;
-	if (!strcmp(pwname, _PASSWD_FILE))
-	{
-		cfp = fopen(_COMPAT_FILE, "w");
-		if (cfp == NULL)
-		{
-			fprintf(stderr, "warning: can't write compatability file \"%s\": ",
-				_COMPAT_FILE);
-			perror("");
+	while ((line = fgetln(fp, &len)) != NULL) {
+		struct passwd *pw = parse_user(line, len);
+
+		// if this is not the entry we're looking for or if parsing
+		// failed (likely a comment) then print the entry as is.
+		if (pw == NULL || strcmp(newpw->pw_name, pw->pw_name) != 0) {
+			fwrite(line, sizeof(char), len, tfp);
+		} else {
+			fprintf(tfp, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
+				newpw->pw_name,
+				newpw->pw_passwd,
+				newpw->pw_uid,
+				newpw->pw_gid,
+				newpw->pw_class,
+				newpw->pw_change,
+				newpw->pw_expire,
+				newpw->pw_gecos,
+				newpw->pw_dir,
+				newpw->pw_shell);
 		}
 	}
 
-	if (cfp != NULL)
-	{
-		fprintf(cfp, "#\n");
-		fprintf(cfp, "# 4.3BSD-compatable User Database\n");
-		fprintf(cfp, "#\n");
-		fprintf(cfp, "# Note that this file is not consulted for login.\n");
-		fprintf(cfp, "# It only exisits for compatability with 4.3BSD utilities.\n");
-		fprintf(cfp, "#\n");
-		fprintf(cfp, "# This file is automatically re-written by various system utilities.\n");
-		fprintf(cfp, "# Do not edit this file.  Changes will be lost.\n");
-		fprintf(cfp, "#\n");
-	}
-	
-	rewind(fp);
-
-	while (NULL != (line = getline(fp)))
-	{
-		if (line[0] == '#')
-		{
-			fprintf(tfp, "%s", line);
-			continue;
-		}
-
-		pw = parse_user(line);
-		if (pw == (struct passwd *)NULL)
-		{
-			fprintf(stderr, "warning: bad format for entry: \"%s\"\n", line);
-			fprintf(tfp, "%s\n", line);
-			if (cfp != NULL) fprintf(cfp, "%s\n", line);
-			continue;
-		}
-
-		if (strcmp(newpw->pw_name, pw->pw_name))
-		{
-			fprintf(tfp, "%s\n", line);
-			if (cfp != NULL) fprintf(cfp, "%s\n", line);
-			continue;
-		}
-		
-		fprintf(tfp, "%s:%s:%d:%d:%s:%ld:%ld:%s:%s:%s\n",
-			newpw->pw_name, newpw->pw_passwd, newpw->pw_uid, newpw->pw_gid,
-			newpw->pw_class, newpw->pw_change, newpw->pw_expire,
-			newpw->pw_gecos, newpw->pw_dir, newpw->pw_shell);
-		if (cfp != NULL)
-		{
-			fprintf(cfp, "%s:",newpw->pw_name);
-			if ((newpw->pw_passwd == NULL) || (newpw->pw_passwd[0] == '\0'))
-				fprintf(cfp, ":");
-			else
-				fprintf(cfp, "*:");
-			fprintf(cfp, "%d:%d:%s:%s:%s\n",
-				newpw->pw_uid, newpw->pw_gid, newpw->pw_gecos,
-				newpw->pw_dir, newpw->pw_shell);
-		}
+	// Move the temporary file into place.
+	if (fclose(tfp) != 0 || rename(tempname, path) != 0) {
+		int save = errno;
+		unlink(tempname);
+		errno = save;
+		err(EXIT_FAILURE, "%s", tempname);
 	}
 
-	if (cfp != NULL) fclose(cfp);
-	fclose(fp);
-	
-	rewind(tfp);
-
-	if (locn != NULL) {
-		if (seteuid(getuid()) != 0) {
-			fprintf(stderr, "Unable to set privileges.");
-			perror("seteuid");
-			exit(1);
-		}
-	}
-	fp = fopen(pwname, "w");
-	if (fp == NULL)
-	{
-		fprintf(stderr, "ERROR: can't update \"%s\"\n", pwname);
-		fprintf(stderr, "new passwd file is \"%s\"\n", fname);
-		perror("open");
-		exit(1);
-	}
-	
-	while (NULL != (line = getline(tfp)))
-	{
-		fprintf(fp, "%s", line);
-		if (line[0] != '#') fprintf(fp, "\n");
-	}
-	fclose(fp);
-	fclose(tfp);
-	unlink(fname);
+	free(tempname);
 }
 
 int
-_file_passwd_main(char *uname, char *locn)
+file_passwd(char *uname, char *locn)
 {
 	char *ne, *oc, *nc;
+	int fd;
 	FILE *fp;
+	uid_t uid;
 	char *fname;
 	struct passwd *pw;
 	struct passwd newpw;
-	struct stat sb;
-	int uid;
-	uid_t euid;
 	
 	fname = _PASSWD_FILE;
 	if (locn != NULL) fname = locn;
 	
-	umask((S_IRWXG | S_IRWXO));
-        
-	if ( lstat(fname, &sb) != 0 )
-	{
-		fprintf(stderr, "The file does not exist.\n");
-		exit(1);
+	fd = open(fname, O_RDONLY | O_EXLOCK);
+	if (fd == -1) {
+		err(EXIT_FAILURE, "%s", fname);
 	}
-	
-	euid = geteuid();
-	if (locn != NULL) {
-	if (seteuid(getuid()) != 0) {
-		fprintf(stderr, "Permission denied.\n");
-		exit(1);
+
+	fp = fdopen(fd, "r");
+	if (fp == NULL) {
+		err(EXIT_FAILURE, "%s", fname);
 	}
-	}
-	fp = fopen(fname, "a+");
-	if (locn != NULL) {
-	seteuid(euid);
-	}
-	
-	if (fp == NULL)
-	{
-		fprintf(stderr, "can't write to file \"%s\": ", fname);
-		perror("");
-		exit(1);
-	}
-	if (fchmod(fileno(fp), (S_IRUSR | S_IWUSR)) != 0)
-	{
-		fclose(fp);
-		fprintf(stderr, "can't set permissions for file \"%s\": ", fname);
-		perror("");
-		exit(1);
-	}
-	
-	pw = find_user(uname, fp);
-	if (pw == (struct passwd *)NULL)
-	{
-		fprintf(stderr, "user %s not found in file %s\n", uname, fname);
-		exit(1);
+
+	pw = find_user(fp, uname);
+	if (pw == NULL) {
+		errx(EXIT_FAILURE, "user %s not found in %s", uname, fname);
 	}
 
 	uid = getuid();
-	if ((uid != 0) && (uid != pw->pw_uid))
-	{
-		fprintf(stderr, "Permission denied\n");
-		exit(1);
+	if (uid != 0 && uid != pw->pw_uid) {
+		errno = EACCES;
+		err(EXIT_FAILURE, "%s", uname);
 	}
 
-	/*
-	 * Get the new password
-	 */
+	// Get the password
 	getpasswd(uname, (uid == 0), 5, 0, 0, pw->pw_passwd, &ne, &oc, &nc);
 
-	newpw.pw_name = copyString(pw->pw_name);
-	newpw.pw_passwd = copyString(ne);
+	newpw.pw_name = strdup(pw->pw_name);
+	newpw.pw_passwd = strdup(ne);
 	newpw.pw_uid = pw->pw_uid;
 	newpw.pw_gid = pw->pw_gid;
-	newpw.pw_class = copyString(pw->pw_class);
+	newpw.pw_class = strdup(pw->pw_class);
 	newpw.pw_change = pw->pw_change;
 	newpw.pw_expire = pw->pw_expire;
-	newpw.pw_gecos = copyString(pw->pw_gecos);
-	newpw.pw_dir = copyString(pw->pw_dir);
-	newpw.pw_shell = copyString(pw->pw_shell);
+	newpw.pw_gecos = strdup(pw->pw_gecos);
+	newpw.pw_dir = strdup(pw->pw_dir);
+	newpw.pw_shell = strdup(pw->pw_shell);
 
-	/*
-	 * Re-write the file
-	 */
-	rewrite_file(fname, fp, &newpw, locn);
-
-	/*
-	 * Clean up memory
-	 */
-	pw = parse_user(NULL);
-	free(newpw.pw_name);
-	free(newpw.pw_passwd);
-	free(newpw.pw_gecos);
-	free(newpw.pw_dir);
-	free(newpw.pw_shell);
-	free(newpw.pw_class);
+	// Rewrite the file
+	rewind(fp);
+	rewrite_file(fname, fp, &newpw);
 
 	fclose(fp);
 
 	return 0;
 }
-
-
-void sighandler(int inSignal)
-{
-	unlink(LOCK_FILE);
-	exit(1);
-}
-
-
-int
-file_passwd(char *uname, char *locn)
-{
-	pid_t pid;
-	int retVal = 0;
-	int waitResult = 0;
-	int retries = 0;
-	struct stat sb;
-	FILE *lockFile;
-	struct sigaction action = {{0}};
-	struct rlimit rlim;
-	
-	/* unlimit the resource limits */
-	rlim.rlim_cur = rlim.rlim_max = RLIM_INFINITY;
-	(void)setrlimit(RLIMIT_CPU, &rlim);
-	(void)setrlimit(RLIMIT_FSIZE, &rlim);
-	(void)setrlimit(RLIMIT_STACK, &rlim);
-	(void)setrlimit(RLIMIT_DATA, &rlim);
-	(void)setrlimit(RLIMIT_RSS, &rlim);
-	(void)setrlimit(RLIMIT_NOFILE, &rlim);
-	
-	/* trap signals */
-	sigfillset( &action.sa_mask );
-	action.sa_flags = SA_RESTART;
-	action.sa_handler = sighandler;
-	sigaction(SIGHUP, &action, NULL);
-	sigaction(SIGINT, &action, NULL);		// ctrl-c
-	sigaction(SIGQUIT, &action, NULL);
-	sigaction(SIGABRT, &action, NULL);
-	sigaction(SIGPIPE, &action, NULL);
-	sigaction(SIGALRM, &action, NULL);
-	sigaction(SIGTERM, &action, NULL);
-	sigaction(SIGSTOP, &action, NULL);
-	sigaction(SIGTSTP, &action, NULL);
-	
-	/* Check/create lock file */
-	for (retries = 0; retries < 5; retries++)
-	{
-		retVal = lstat(LOCK_FILE, &sb);
-		if (retVal != 0)
-			break;
-		/* try in 100 milliseconds */
-		usleep(100000);
-	}
-	if (retVal == 0)
-	{
-		fprintf(stderr, "another passwd process is running.\n");
-		exit(EX_TEMPFAIL);
-	}
-	
-	umask((S_IRWXG | S_IRWXO));
-	lockFile = fopen(LOCK_FILE, "w");
-	if (lockFile == NULL)
-	{
-		fprintf(stderr, "can't create lock file.\n");
-		exit(EX_CANTCREAT);
-	}
-	fprintf(lockFile, "%d\n", getpid());
-	fclose(lockFile);
-	
-	pid = fork();
-	if (pid == -1)
-	{
-		fprintf(stderr, "can't fork\n");
-		exit(EX_OSERR);
-	}
-	
-	/* Handle the child */
-	if (pid == 0)
-	{
-		retVal = _file_passwd_main(uname, locn);
-		exit(retVal);
-	}
-	
-	/* Handle the parent */
-	waitResult = waitpid(pid, &retVal, 0);
-	retVal = (waitResult == 0) ? WEXITSTATUS(retVal) : 1;
-	
-	/* delete lock file */
-	unlink(LOCK_FILE);
-	
-	return retVal;
-}
-

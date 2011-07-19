@@ -26,11 +26,17 @@
 
 #include <sys/types.h>
 #include <sys/queue.h>
+#include <CoreServices/CoreServices.h>
 
 /*****************************************************************************/
 
 /* define node_head structure */
 LIST_HEAD(node_head, node_entry);
+
+struct webdav_stat_attr {
+	struct stat				attr_stat;			/* stat attributes */
+	struct	timespec		attr_create_time;	/* time file was created */
+};
 
 struct node_entry
 {
@@ -57,7 +63,8 @@ struct node_entry
 	 */
 	uid_t					attr_uid;				/* user authorized to use attribute data */
 	time_t					attr_time;				/* local time - when attribute data was received from server */
-	struct stat				attr_stat;				/* stat attributes */
+	struct webdav_stat_attr	attr_stat_info;			/* stat attributes + misc. timestamps */
+	
 	/* file system specific attribute data */
 	time_t					attr_appledoubleheader_time; /* local time - when attr_appledoubleheader was received from server */
 	char					*attr_appledoubleheader; /* NULL if no appledoubleheader data */
@@ -96,6 +103,11 @@ struct node_entry
 
 	/* Context for sequential writes */
 	struct stream_put_ctx* put_ctx;
+	
+	/* Fields used for HTTP 3xx Redirects */
+	boolean_t				isRedirected;		/* TRUE if this node has been redirected */
+	size_t					redir_name_length;	/* length of redirected name */
+	char					*redir_name;		/* the redirected utf8 name (From Location header of 3xx response) */
 };
 
 #define WEBDAV_DOWNLOAD_NEVER		0
@@ -174,7 +186,7 @@ int nodecache_delete_node(
 int nodecache_add_attributes(
 	struct node_entry *node,		/* the node_entry to update or add attributes_entry to */
 	uid_t uid,						/* the uid these attributes are valid for */
-	struct stat *statp,				/* the stat buffer */
+	struct webdav_stat_attr *statp,	/* the stat buffer */
 	char *appledoubleheader);		/* pointer appledoubleheader or NULL */
 	
 int nodecache_remove_attributes(
@@ -194,13 +206,25 @@ struct node_entry *nodecache_get_next_file_cache_node(
 
 int nodecache_get_path_from_node(
 	struct node_entry *node,		/* -> node */
+	bool *pathHasRedirection,		/* true if path contains a URL from a redirected node (http 3xx redirect) */
 	char **path);					/* <- relative path to root node */
+
+int nodecache_redirect_node(
+	CFURLRef url,						/* original url that caused the redirect */
+	struct node_entry *redirected_node,	/* the node being redirected NULL if root node */
+	CFHTTPMessageRef responseRef,		/* the 3xx redirect response message */
+	CFIndex statusCode);				/* Actual 3xx status code from response message */
 
 int nodecache_invalidate_directory_node_time(
 	struct node_entry *dir_node);	/* parent directory node */
 
 int nodecache_delete_invalid_directory_nodes(
 	struct node_entry *dir_node);	/* parent directory node */
+
+CFURLRef nodecache_get_baseURL(void);
+
+CFArrayRef nodecache_get_locktokens(
+	struct node_entry *a_node);		/* node or directory node */
 
 /*****************************************************************************/
 

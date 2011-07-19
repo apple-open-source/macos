@@ -99,9 +99,7 @@ TransformationMatrix CAToTransform3D(const CATransform3D& fromT3D)
 
 static void setLayerBorderColor(WKCACFLayer* layer, const Color& color)
 {
-    CGColorRef borderColor = createCGColor(color);
-    layer->setBorderColor(borderColor);
-    CGColorRelease(borderColor);
+    layer->setBorderColor(cachedCGColor(color, ColorSpaceDeviceRGB));
 }
 
 static void clearBorderColor(WKCACFLayer* layer)
@@ -111,19 +109,12 @@ static void clearBorderColor(WKCACFLayer* layer)
 
 static void setLayerBackgroundColor(WKCACFLayer* layer, const Color& color)
 {
-    CGColorRef bgColor = createCGColor(color);
-    layer->setBackgroundColor(bgColor);
-    CGColorRelease(bgColor);
+    layer->setBackgroundColor(cachedCGColor(color, ColorSpaceDeviceRGB));
 }
 
 static void clearLayerBackgroundColor(WKCACFLayer* layer)
 {
     layer->setBackgroundColor(0);
-}
-
-GraphicsLayer::CompositingCoordinatesOrientation GraphicsLayer::compositingCoordinatesOrientation()
-{
-    return CompositingCoordinatesBottomUp;
 }
 
 PassOwnPtr<GraphicsLayer> GraphicsLayer::create(GraphicsLayerClient* client)
@@ -160,11 +151,6 @@ void GraphicsLayerCACF::setName(const String& name)
     GraphicsLayer::setName(longName);
     
     m_layer->setName(longName);
-}
-
-NativeLayer GraphicsLayerCACF::nativeLayer() const
-{
-    return m_layer.get();
 }
 
 bool GraphicsLayerCACF::setChildren(const Vector<GraphicsLayer*>& children)
@@ -395,15 +381,6 @@ void GraphicsLayerCACF::setContentsToMedia(PlatformLayer* mediaLayer)
     updateSublayerList();
 }
 
-void GraphicsLayerCACF::setGeometryOrientation(CompositingCoordinatesOrientation orientation)
-{
-    if (orientation == m_geometryOrientation)
-        return;
-
-    GraphicsLayer::setGeometryOrientation(orientation);
-    updateGeometryOrientation();
-}
-
 PlatformLayer* GraphicsLayerCACF::hostLayerForSublayers() const
 {
     return m_transformLayer ? m_transformLayer.get() : m_layer.get();
@@ -461,13 +438,6 @@ void GraphicsLayerCACF::swapFromOrToTiledLayer(bool useTiledLayer)
         m_layer = WebLayer::create(WKCACFLayer::Layer, this);
     
     m_usingTiledLayer = useTiledLayer;
-
-    if (useTiledLayer) {
-        if (GraphicsLayer::compositingCoordinatesOrientation() == GraphicsLayer::CompositingCoordinatesBottomUp)
-            m_layer->setContentsGravity(WKCACFLayer::BottomLeft);
-        else
-            m_layer->setContentsGravity(WKCACFLayer::TopLeft);
-    }
     
     m_layer->adoptSublayers(oldLayer.get());
     if (oldLayer->superlayer())
@@ -669,7 +639,7 @@ void GraphicsLayerCACF::updateLayerDrawsContent()
     if (m_drawsContent)
         m_layer->setNeedsDisplay();
     else
-        m_layer->setContents(nil);
+        m_layer->setContents(0);
 
     updateDebugIndicators();
 }
@@ -736,21 +706,6 @@ void GraphicsLayerCACF::updateContentsRect()
 
     m_contentsLayer->setPosition(point);
     m_contentsLayer->setBounds(rect);
-}
-
-void GraphicsLayerCACF::updateGeometryOrientation()
-{
-    switch (geometryOrientation()) {
-        case CompositingCoordinatesTopDown:
-            m_layer->setGeometryFlipped(false);
-            break;
-        
-        case CompositingCoordinatesBottomUp:
-            m_layer->setGeometryFlipped(true);
-            break;
-    }
-    // Geometry orientation is mapped onto children transform in older QuartzCores,
-    // so is handled via setGeometryOrientation().
 }
 
 void GraphicsLayerCACF::setupContentsLayer(WKCACFLayer* contentsLayer)

@@ -28,7 +28,6 @@
 #include "config.h"
 #include "FileSystem.h"
 
-#include "StringBuilder.h"
 #include "cutils/log.h"
 #include <dirent.h>
 #include <dlfcn.h>
@@ -36,6 +35,7 @@
 #include <fnmatch.h>
 #include <sys/stat.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringBuilder.h>
 
 namespace WebCore {
 
@@ -48,45 +48,30 @@ CString fileSystemRepresentation(const String& path)
     return path.utf8();
 }
 
-CString openTemporaryFile(const char* prefix, PlatformFileHandle& handle)
+String openTemporaryFile(const String& prefix, PlatformFileHandle& handle)
 {
     int number = rand() % 10000 + 1;
-    CString filename;
+    String filename;
     do {
         StringBuilder builder;
         builder.append(sPluginPath);
         builder.append('/');
         builder.append(prefix);
         builder.append(String::number(number));
-        filename = builder.toString().utf8();
-        const char* fstr = filename.data();
-        handle = open(filename.data(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
+        filename = builder.toString();
+        handle = open(filename.utf8().data(), O_WRONLY | O_CREAT | O_EXCL, S_IRUSR | S_IWUSR);
         number++;
         
         if (handle != -1)
             return filename;
     } while (errno == EEXIST);
     
-    return CString();
+    return String();
 }
 
 bool unloadModule(PlatformModule module)
 {
     return !dlclose(module);
-}
-
-int writeToFile(PlatformFileHandle handle, const char* data, int length)
-{
-    int totalBytesWritten = 0;
-    while (totalBytesWritten < length) {
-        int bytesWritten = write(handle, data, (size_t)(length - totalBytesWritten));
-        if (bytesWritten < 0 && errno != EINTR)
-            return -1;
-        if (bytesWritten > 0)
-            totalBytesWritten += bytesWritten;
-    }
-
-    return totalBytesWritten;
 }
 
 String homeDirectoryPath() 
@@ -102,17 +87,15 @@ Vector<String> listDirectory(const String& path, const String& filter)
     DIR* dir = opendir(cpath.data());
     if (dir) {
         struct dirent* dp;
-        while (dp = readdir(dir)) {
+        while ((dp = readdir(dir))) {
             const char* name = dp->d_name;
             if (!strcmp(name, ".") || !strcmp(name, ".."))
                 continue;
             if (fnmatch(cfilter.data(), name, 0))
                 continue;
             char filePath[1024];
-            if ((int) (sizeof(filePath) - 1) < snprintf(filePath,
-                    sizeof(filePath), "%s/%s", cpath.data(), name)) {
+            if (static_cast<int>(sizeof(filePath) - 1) < snprintf(filePath, sizeof(filePath), "%s/%s", cpath.data(), name))
                 continue; // buffer overflow
-            }
             entries.append(filePath);
         }
         closedir(dir);

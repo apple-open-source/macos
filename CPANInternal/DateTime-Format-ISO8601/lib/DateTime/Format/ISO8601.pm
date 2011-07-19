@@ -1,10 +1,14 @@
+# Copyright (C) 2003-2005  Joshua Hoblitt
+#
+# $Id: ISO8601.pm,v 1.25 2010/01/18 06:36:21 jhoblitt Exp $
+
 package DateTime::Format::ISO8601;
 
 use strict;
 use warnings;
 
 use vars qw( $VERSION );
-$VERSION = '0.0402';
+$VERSION = '0.07';
 
 use Carp qw( croak );
 use DateTime;
@@ -112,13 +116,14 @@ sub set_base_datetime {
     # ISO8601 only allows years 0 to 9999
     # this implimentation ignores the needs of expanded formats
     my $dt = DateTime->from_object( object => $args{ object } );
-    my $lower_bound = DateTime->new( year => 0 )->subtract( nanoseconds => 1 );
+    my $lower_bound = DateTime->new( year => 0 );
     my $upper_bound = DateTime->new( year => 10000 );
 
-    if ( DateTime->compare( $dt, $lower_bound ) != 1 ) {
-        croak "base_datetime must be greater then ", $lower_bound->iso8601;
+    if ( $dt < $lower_bound ) {
+        croak "base_datetime must be greater then or equal to ",
+            $lower_bound->iso8601;
     }
-    if ( DateTime->compare( $dt, $upper_bound ) != -1 ) {
+    if ( $dt >= $upper_bound ) {
         croak "base_datetime must be less then ", $upper_bound->iso8601;
     }
 

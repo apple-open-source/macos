@@ -32,16 +32,15 @@
 #ifndef EventTarget_h
 #define EventTarget_h
 
-#include "AtomicStringHash.h"
 #include "EventNames.h"
 #include "RegisteredEventListener.h"
 #include <wtf/Forward.h>
 #include <wtf/HashMap.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
-    class AbstractWorker;
-    class AtomicString;
+    class AudioContext;
     class DedicatedWorkerContext;
     class DOMApplicationCache;
     class DOMWindow;
@@ -49,6 +48,12 @@ namespace WebCore {
     class EventListener;
     class EventSource;
     class FileReader;
+    class FileWriter;
+    class IDBDatabase;
+    class IDBRequest;
+    class IDBTransaction;
+    class IDBVersionChangeRequest;
+    class JavaScriptAudioNode;
     class MessagePort;
     class Node;
     class Notification;
@@ -80,7 +85,10 @@ namespace WebCore {
     typedef Vector<RegisteredEventListener, 1> EventListenerVector;
     typedef HashMap<AtomicString, EventListenerVector*> EventListenerMap;
 
-    struct EventTargetData : Noncopyable {
+    struct EventTargetData {
+        WTF_MAKE_NONCOPYABLE(EventTargetData); WTF_MAKE_FAST_ALLOCATED;
+    public:
+        EventTargetData();
         ~EventTargetData();
 
         EventListenerMap eventListenerMap;
@@ -112,6 +120,12 @@ namespace WebCore {
         virtual SharedWorker* toSharedWorker();
         virtual SharedWorkerContext* toSharedWorkerContext();
 #endif
+
+#if ENABLE(WEB_AUDIO)
+        virtual AudioContext* toAudioContext();
+        virtual JavaScriptAudioNode* toJavaScriptAudioNode();
+#endif
+
 #if ENABLE(WEB_SOCKETS)
         virtual WebSocket* toWebSocket();
 #endif
@@ -119,8 +133,18 @@ namespace WebCore {
 #if ENABLE(NOTIFICATIONS)
         virtual Notification* toNotification();
 #endif
-#if ENABLE(FILE_READER)
+#if ENABLE(BLOB)
         virtual FileReader* toFileReader();
+#endif
+#if ENABLE(FILE_SYSTEM)
+        virtual FileWriter* toFileWriter();
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+        virtual IDBDatabase* toIDBDatabase();
+        virtual IDBRequest* toIDBRequest();
+        virtual IDBTransaction* toIDBTransaction();
+        virtual IDBVersionChangeRequest* toIDBVersionChangeRequest();
 #endif
 
         virtual ScriptExecutionContext* scriptExecutionContext() const = 0;
@@ -130,6 +154,7 @@ namespace WebCore {
         virtual void removeAllEventListeners();
         virtual bool dispatchEvent(PassRefPtr<Event>);
         bool dispatchEvent(PassRefPtr<Event>, ExceptionCode&); // DOM API
+        virtual void uncaughtExceptionInEventHandler();
 
         // Used for legacy "onEvent" attribute APIs.
         bool setAttributeEventListener(const AtomicString& eventType, PassRefPtr<EventListener>);
@@ -144,7 +169,7 @@ namespace WebCore {
         bool isFiringEventListeners();
 
 #if USE(JSC)
-        void markJSEventListeners(JSC::MarkStack&);
+        void visitJSEventListeners(JSC::SlotVisitor&);
         void invalidateJSEventListeners(JSC::JSObject*);
 #endif
 
@@ -159,15 +184,38 @@ namespace WebCore {
         virtual void derefEventTarget() = 0;
         
         void fireEventListeners(Event*, EventTargetData*, EventListenerVector&);
+
+        friend class EventListenerIterator;
     };
 
+    class EventListenerIterator {
+    public:
+        EventListenerIterator();
+
+        // EventTarget must not be modified while an iterator is active.
+        EventListenerIterator(EventTarget*);
+
+        EventListener* nextListener();
+
+    private:
+        EventListenerMap::iterator m_mapIterator;
+        EventListenerMap::iterator m_mapEnd;
+        unsigned m_index;
+    };
+
+    // FIXME: These macros should be split into separate DEFINE and DECLARE
+    // macros to avoid causing so many header includes.
     #define DEFINE_ATTRIBUTE_EVENT_LISTENER(attribute) \
         EventListener* on##attribute() { return getAttributeEventListener(eventNames().attribute##Event); } \
         void setOn##attribute(PassRefPtr<EventListener> listener) { setAttributeEventListener(eventNames().attribute##Event, listener); } \
 
-    #define DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(attribute) \
-        virtual EventListener* on##attribute() { return getAttributeEventListener(eventNames().attribute##Event); } \
-        virtual void setOn##attribute(PassRefPtr<EventListener> listener) { setAttributeEventListener(eventNames().attribute##Event, listener); } \
+    #define DECLARE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(attribute) \
+        virtual EventListener* on##attribute(); \
+        virtual void setOn##attribute(PassRefPtr<EventListener> listener); \
+
+    #define DEFINE_VIRTUAL_ATTRIBUTE_EVENT_LISTENER(type, attribute) \
+        EventListener* type::on##attribute() { return getAttributeEventListener(eventNames().attribute##Event); } \
+        void type::setOn##attribute(PassRefPtr<EventListener> listener) { setAttributeEventListener(eventNames().attribute##Event, listener); } \
 
     #define DEFINE_WINDOW_ATTRIBUTE_EVENT_LISTENER(attribute) \
         EventListener* on##attribute() { return document()->getWindowAttributeEventListener(eventNames().attribute##Event); } \
@@ -191,7 +239,7 @@ namespace WebCore {
 #endif
 
 #if USE(JSC)
-    inline void EventTarget::markJSEventListeners(JSC::MarkStack& markStack)
+    inline void EventTarget::visitJSEventListeners(JSC::SlotVisitor& visitor)
     {
         EventTargetData* d = eventTargetData();
         if (!d)
@@ -201,21 +249,7 @@ namespace WebCore {
         for (EventListenerMap::iterator it = d->eventListenerMap.begin(); it != end; ++it) {
             EventListenerVector& entry = *it->second;
             for (size_t i = 0; i < entry.size(); ++i)
-                entry[i].listener->markJSFunction(markStack);
-        }
-    }
-
-    inline void EventTarget::invalidateJSEventListeners(JSC::JSObject* wrapper)
-    {
-        EventTargetData* d = eventTargetData();
-        if (!d)
-            return;
-
-        EventListenerMap::iterator end = d->eventListenerMap.end();
-        for (EventListenerMap::iterator it = d->eventListenerMap.begin(); it != end; ++it) {
-            EventListenerVector& entry = *it->second;
-            for (size_t i = 0; i < entry.size(); ++i)
-                entry[i].listener->invalidateJSFunction(wrapper);
+                entry[i].listener->visitJSFunction(visitor);
         }
     }
 #endif

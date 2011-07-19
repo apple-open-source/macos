@@ -93,7 +93,7 @@ extern int errno;
 extern int	bindresvport();
 extern bool_t	xdr_opaque_auth();
 
-__private_extern__ u_short pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout);
+extern u_short pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout);
 
 static int	readtcp();
 static int	writetcp();

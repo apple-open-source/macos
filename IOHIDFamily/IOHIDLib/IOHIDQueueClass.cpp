@@ -31,6 +31,7 @@
 #include "IOHIDLibUserClient.h"
 
 __BEGIN_DECLS
+#include <asl.h>
 #include <IOKit/IODataQueueClient.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
@@ -85,6 +86,7 @@ IOHIDQueueClass::IOHIDQueueClass() : IOHIDIUnknown(NULL)
     fHIDQueue.obj = this;
     
     fAsyncPort              = MACH_PORT_NULL;
+    fCFMachPort             = NULL;
     fCFSource               = NULL;
     fIsCreated              = false;
     fCreatedFlags           = 0;
@@ -110,9 +112,15 @@ IOHIDQueueClass::~IOHIDQueueClass()
     // if we are owned, detatch
     if (fOwningDevice)
         fOwningDevice->detachQueue(this);
+        
+    if (fCFMachPort) {
+        CFMachPortInvalidate(fCFMachPort);
+        CFRelease(fCFMachPort);
+    }
 		
-	if (fAsyncPort)
-        mach_port_destroy(mach_task_self(), fAsyncPort);
+	if (fAsyncPort) {
+        mach_port_mod_refs(mach_task_self(), fAsyncPort, MACH_PORT_RIGHT_RECEIVE, -1);
+    }
         
     if (fCFSource)
         CFRelease(fCFSource);
@@ -142,9 +150,6 @@ HRESULT IOHIDQueueClass::queryInterface(REFIID iid, void **	ppv)
 IOReturn IOHIDQueueClass::getAsyncEventSource(CFTypeRef *source)
 {
     IOReturn ret;
-    CFMachPortRef cfPort;
-    CFMachPortContext context;
-    Boolean shouldFreeInfo;
 
     if (!fAsyncPort) {     
         ret = getAsyncPort(0);
@@ -152,23 +157,35 @@ IOReturn IOHIDQueueClass::getAsyncEventSource(CFTypeRef *source)
             return ret;
     }
 
-    context.version = 1;
-    context.info = this;
-    context.retain = NULL;
-    context.release = NULL;
-    context.copyDescription = NULL;
+    if ( !fCFMachPort ) {
+        CFMachPortContext   context;
+        Boolean             shouldFreeInfo = FALSE;
 
-    cfPort = CFMachPortCreateWithPort(NULL, fAsyncPort,
-                (CFMachPortCallBack) IOHIDQueueClass::queueEventSourceCallback,
-                &context, &shouldFreeInfo);
-    if (!cfPort)
-        return kIOReturnNoMemory;
+        context.version = 1;
+        context.info = this;
+        context.retain = NULL;
+        context.release = NULL;
+        context.copyDescription = NULL;
+
+        fCFMachPort = CFMachPortCreateWithPort(NULL, fAsyncPort,
+                    (CFMachPortCallBack) IOHIDQueueClass::queueEventSourceCallback,
+                    &context, &shouldFreeInfo);
+                    
+        if ( shouldFreeInfo ) {
+            // The CFMachPort we got might not work, but we'll proceed with it anyway.
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
+        }
+        
+        if (!fCFMachPort)
+            return kIOReturnNoMemory;
+    }
     
-    fCFSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-    CFRelease(cfPort);
-    if (!fCFSource)
-        return kIOReturnNoMemory;
-
+    if ( !fCFSource ) {
+        fCFSource = CFMachPortCreateRunLoopSource(NULL, fCFMachPort, 0);
+        if (!fCFSource)
+            return kIOReturnNoMemory;
+    }
+    
     if (source)
         *source = fCFSource;
 
@@ -193,17 +210,23 @@ void IOHIDQueueClass::queueEventSourceCallback(CFMachPortRef cfPort, mach_msg_he
 
 IOReturn IOHIDQueueClass::getAsyncPort(mach_port_t *port)
 {
-    IOReturn	ret;
-    mach_port_t asyncPort;
+    IOReturn	ret = kIOReturnSuccess;
+    
     connectCheck();
     
-    ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &asyncPort);
-    if (kIOReturnSuccess == ret) {		
-        if (port)
-            *port = asyncPort;
-
-		return setAsyncPort(asyncPort);
+    if ( fAsyncPort == MACH_PORT_NULL ) {
+        ret = IOCreateReceivePort(kOSAsyncCompleteMessageID, &fAsyncPort);
+        if ( kIOReturnSuccess != ret )
+            return ret;
+            
+        if ( fAsyncPort == MACH_PORT_NULL )
+            return kIOReturnNoMemory;
+        
+        ret = setAsyncPort(fAsyncPort);
     }
+
+    if (port)
+        *port = fAsyncPort;
 
     return ret;
 }
@@ -418,7 +441,7 @@ IOReturn IOHIDQueueClass::start (IOOptionBits options)
 {
     IOReturn ret = kIOReturnSuccess;
     
-    allChecks();
+    mostChecks();
     
     // if the queue size changes, we will need to dispose of the 
     // queue mapped memory
@@ -634,10 +657,14 @@ IOReturn IOHIDObsoleteQueueClass::_createAsyncEventSource(void * self, CFRunLoop
 }
 
 CFRunLoopSourceRef IOHIDObsoleteQueueClass::_getAsyncEventSource(void *self)
-    { return getThis(self)->fCFSource; }
+{
+    CFTypeRef source = NULL; 
+    getThis(self)->getAsyncEventSource(&source); 
+    return (CFRunLoopSourceRef)source;
+}
 
 mach_port_t IOHIDObsoleteQueueClass::_getAsyncPort(void *self)
-    { return getThis(self)->fAsyncPort; }
+    { mach_port_t port = MACH_PORT_NULL; getThis(self)->getAsyncPort(&port); return port; }
 
 IOReturn IOHIDObsoleteQueueClass::_create (void * self, uint32_t flags, uint32_t depth)
     { return getThis(self)->create(flags, depth); }

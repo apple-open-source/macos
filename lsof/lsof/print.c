@@ -32,7 +32,7 @@
 #ifndef lint
 static char copyright[] =
 "@(#) Copyright 1994 Purdue Research Foundation.\nAll rights reserved.\n";
-static char *rcsid = "$Id: print.c,v 1.50 2008/10/21 16:21:41 abe Exp $";
+static char *rcsid = "$Id: print.c,v 1.51 2010/07/29 15:59:28 abe Exp $";
 #endif
 
 
@@ -649,6 +649,11 @@ print_file()
 	    (void) printf("%-*.*s %*s", CmdColW, CmdColW, CMDTTL, PidColW,
 		PIDTTL);
 
+#if	defined(HASTASKS)
+	    if (TaskPrtFl)
+		(void) printf(" %*s", TidColW, TIDTTL);
+#endif	/* defined(HASTASKS)
+
 #if	defined(HASZONES)
 	    if (Fzone)
 		(void) printf(" %-*s", ZoneColW, ZONETTL);
@@ -730,6 +735,25 @@ print_file()
 		PidColW = len;
 	} else
 	    (void) printf(" %*d", PidColW, Lp->pid);
+
+#if	defined(HASTASKS)
+/*
+ * Size or print task ID.
+ */
+	if (!PrPass) {
+	    if (Lp->tid) {
+		(void) snpf(buf, sizeof(buf), "%d", Lp->tid);
+		if ((len = strlen(buf)) > TidColW)
+		    TidColW = len;
+		TaskPrtFl = 1;
+	    }
+	} else if (TaskPrtFl) {
+	    if (Lp->tid)
+		(void) printf(" %*d", TidColW, Lp->tid);
+	    else
+		(void) printf(" %*s", TidColW, "");
+	}
+#endif	/* defined(HASTASKS) */
 
 #if	defined(HASZONES)
 /*
@@ -1228,6 +1252,12 @@ print_init()
 	    SzOffColW = strlen(OFFTTL);
 	else
 	    SzOffColW = strlen(SZOFFTTL);
+	TaskPrtFl = 0;
+
+#if	defined(HASTASKS)
+	TidColW = strlen(TIDTTL);
+#endif	/* defined(HASTASKS) */
+
 	TypeColW = strlen(TYPETTL);
 	UserColW = strlen(USERTTL);
 
@@ -2133,8 +2163,7 @@ print_nma:
 	)) {
 	    if (ps)
 		putchar(' ');
-	    (void) print_tcptpi(1);
-	    return;
+	    (void) print_tcptpi(0);
 	}
 	if (nl)
 	    putchar('\n');

@@ -71,6 +71,12 @@ see bottom for a set of possible tests
 %rename(OrOperator) operator ||;
 #endif
 
+#ifdef SWIG_ALLEGRO_CL
+%{
+#include <stdio.h>
+%}
+#endif
+
 %rename(IntCast) operator int();
 %rename(DoubleCast) operator double();
 
@@ -182,6 +188,9 @@ inline bool operator>=(const Op& a,const Op& b){return a.i>=b.i;}
 	bool operator<=(const Op& b){return $self->i<=b.i;}
 	bool operator> (const Op& b){return $self->i>b.i;}
 	bool operator>=(const Op& b){return $self->i>=b.i;}
+
+	// subtraction with reversed arguments
+	Op __rsub__(const int b){return Op(b - $self->i);}
 
 	// we also add the __str__() fn to the class
 	// this allows it to be converted to a string (so it can be printed)

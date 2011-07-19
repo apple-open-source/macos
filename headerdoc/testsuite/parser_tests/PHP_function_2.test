@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$1348|function getLinkImage($file, $avoid_original=0, $only_extension=0)
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$1348|function getLinkImage($file, $avoid_original=0, $only_extension=0)
 {
     global $icondir;
 
@@ -52,7 +52,7 @@ $503|/*! This returns the image associated with a link file (e.g. foo.link).
     obtain the actual file), it uses it.  Otherwise, it returns
     the default link image ($icondir/biglink.png).
  */
-$0|$13081|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$12499|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -187,8 +187,8 @@ $parserState->{sodname} => getLinkImage
 $parserState->{sodtype} =>  function
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
+$parserState->{sublang} => php
 $parserState->{temponlyComments} => 0
-$parserState->{typestring} => function
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -322,8 +322,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -364,15 +364,15 @@ the default link image ($icondir/biglink.png).
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -414,8 +414,8 @@ the default link image ($icondir/biglink.png).
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -456,8 +456,8 @@ the default link image ($icondir/biglink.png).
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -498,8 +498,8 @@ the default link image ($icondir/biglink.png).
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: getLinkImage (HeaderDoc::Function)
 +---function
@@ -528,496 +528,12 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: getLinkImage (HeaderDoc::Function)
-	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/php/instm/getLinkImage //test_ref/php/clm/getLinkImage //test_ref/php/intfcm/getLinkImage //test_ref/php/intfm/getLinkImage //test_ref/php/func/getLinkImage //test_ref/php/ftmplt/getLinkImage //test_ref/php/defn/getLinkImage //test_ref/php/macro/getLinkImage" --><span class="function">getLinkImage</span><!-- /a -->(
+	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/php/instm/getLinkImage //test_ref/php/clm/getLinkImage //test_ref/php/intfcm/getLinkImage //test_ref/php/intfm/getLinkImage //test_ref/php/func/getLinkImage //test_ref/php/ftmplt/getLinkImage //test_ref/php/defn/getLinkImage //test_ref/php/macro/getLinkImage //test_ref/doc/anysymbol/getLinkImage" machineGenerated="true" --><span class="function">getLinkImage</span><!-- /a -->(
 	    $<span class="param">file</span>,
-	    $<!-- a logicalPath="//test_ref/php/cl/avoid_original //test_ref/php/tdef/avoid_original //test_ref/php/tag/avoid_original //test_ref/php/econst/avoid_original //test_ref/php/struct/avoid_original //test_ref/php/clconst/avoid_original //test_ref/php/intf/avoid_original" --><span class="type">avoid_original</span><!-- /a -->=<span class="number">0</span>,
-	    $<!-- a logicalPath="//test_ref/php/cl/only_extension //test_ref/php/tdef/only_extension //test_ref/php/tag/only_extension //test_ref/php/econst/only_extension //test_ref/php/struct/only_extension //test_ref/php/clconst/only_extension //test_ref/php/intf/only_extension" --><span class="type">only_extension</span><!-- /a -->=<span class="number">0</span>) 
+	    $<span class="param">avoid_original</span>=<span class="number">0</span>,
+	    $<span class="param">only_extension</span>=<span class="number">0</span>) 
 END OF OBJECT
 
 
 
-__$42|testsuite/parser_tests/PHP_function_2.test$3|php$14|PHP function 2$13081|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/PHP_function_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/PHP_function_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => getLinkImage
-$parserState->{functionContents} => {
-    global $icondir;
-
-    $ext = ".gif";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".png";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".tif";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".tiff";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".jpg";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".jpeg";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    if ($avoid_original || $only_extension) {
-        return "";
-    }
-    return $icondir."/biglink.png";
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 45
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => php
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => function
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => getLinkImage
-$parserState->{sodtype} =>  function
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{temponlyComments} => 0
-$parserState->{typestring} => function
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 45
-typelist: function
-namelist: getLinkImage
-posstypes: function method
-value: 
-returntype:  function
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-    global $icondir;
-
-    $ext = ".gif";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".png";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".tif";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".tiff";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".jpg";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    $ext = ".jpeg";
-    $imgfile = $file.$ext;
-    $temp = getThumbnailFileForPath($imgfile, 0, 1);
-    if ($temp != "" && file_exists($temp))
-        return $only_extension ? $ext : $temp;
-
-    if ($avoid_original || $only_extension) {
-        return "";
-    }
-    return $icondir."/biglink.png";
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => $file
-Parsed Param 1 => $avoid_original=0
-Parsed Param 2 => $only_extension=0
--=: DUMP OF PARSE TREE :=-
-+---function
-+--- 
-+---getLinkImage
-+---(
-|   +---$
-|   +---file
-|   +---,
-|   +--- 
-|   +---$
-|   +---avoid_original
-|   +---=
-|   +---0
-|   +---,
-|   +--- 
-|   +---$
-|   +---only_extension
-|   +---=
-|   +---0
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: PHP function 2
-APIUID: //test_ref/doc/header/PHP_function_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: getLinkImage
-    APIUID: //test_ref/php/func/getLinkImage
-    ABSTRACT: ""
-    DISCUSSION: "<p>This returns the image associated with a link file (e.g. foo.link).
-Briefly put, it tries each reasonable image file format---.gif,
-.png, .jp(e)g, and .tif(f)---and if a file exists with the name of
-the link file and that extension (e.g. foo.link.gif) in the
-MiniCache directory (it uses the function
-<code><hd_link posstarget="getThumbnailFileForPath"> getThumbnailFileForPath</hd_link></code> to
-obtain the actual file), it uses it.  Otherwise, it returns
-the default link image ($icondir/biglink.png).
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " function"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: file
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: avoid_original
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: only_extension
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: getLinkImage (HeaderDoc::Function)
-+---function
-+--- 
-+---getLinkImage
-+---(
-|   +---$
-|   +---file
-|   +---,
-|   +--- 
-|   +---$
-|   +---avoid_original
-|   +---=
-|   +---0
-|   +---,
-|   +--- 
-|   +---$
-|   +---only_extension
-|   +---=
-|   +---0
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: getLinkImage (HeaderDoc::Function)
-	<span class="keyword">function</span> <!-- a logicalPath="//test_ref/php/instm/getLinkImage //test_ref/php/clm/getLinkImage //test_ref/php/intfcm/getLinkImage //test_ref/php/intfm/getLinkImage //test_ref/php/func/getLinkImage //test_ref/php/ftmplt/getLinkImage //test_ref/php/defn/getLinkImage //test_ref/php/macro/getLinkImage" --><span class="function">getLinkImage</span><!-- /a -->(
-	    $<span class="param">file</span>,
-	    $<!-- a logicalPath="//test_ref/php/cl/avoid_original //test_ref/php/tdef/avoid_original //test_ref/php/tag/avoid_original //test_ref/php/econst/avoid_original //test_ref/php/struct/avoid_original //test_ref/php/clconst/avoid_original //test_ref/php/intf/avoid_original" --><span class="type">avoid_original</span><!-- /a -->=<span class="number">0</span>,
-	    $<!-- a logicalPath="//test_ref/php/cl/only_extension //test_ref/php/tdef/only_extension //test_ref/php/tag/only_extension //test_ref/php/econst/only_extension //test_ref/php/struct/only_extension //test_ref/php/clconst/only_extension //test_ref/php/intf/only_extension" --><span class="type">only_extension</span><!-- /a -->=<span class="number">0</span>) 
-END OF OBJECT
-
-
-
-_$3|php$6|parser
+__$96|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/PHP_function_2.test$3|php$14|PHP function 2$3|php$6|parser

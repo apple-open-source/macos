@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.1.24.1/s2s/router.c	2008-04-27 02:57:31.000000000 -0700
-+++ ./jabberd2/s2s/router.c	2009-05-26 13:09:10.000000000 -0700
+--- /tmp/jabberd-2.2.13/s2s/router.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/s2s/router.c	2011-02-24 16:25:21.000000000 -0800
 @@ -145,7 +145,7 @@ int s2s_router_sx_callback(sx_t s, sx_ev
                      if(ns >= 0) {
                          elem = nad_find_elem(nad, 0, ns, "starttls", 1);
@@ -9,3 +9,11 @@
                                  nad_free(nad);
                                  return 0;
                              }
+@@ -281,6 +281,7 @@ int s2s_router_sx_callback(sx_t s, sx_ev
+ 
+         case event_CLOSED:
+             mio_close(s2s->mio, s2s->fd);
++            s2s->fd = NULL;
+             return -1;
+     }
+ 

@@ -7,7 +7,7 @@
  * Ruby language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_ruby_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/ruby.cxx,v 1.139 2006/11/09 22:32:28 wsfulton Exp $";
+char cvsroot_ruby_cxx[] = "$Id: ruby.cxx 11246 2009-06-05 17:19:29Z wsfulton $";
 
 #include "swigmod.h"
 #include "cparse.h"
@@ -22,6 +22,7 @@ static int treduce = SWIG_cparse_template_reduce(0);
 class RClass {
 private:
   String *temp;
+
 public:
   String *name;			/* class name (renamed) */
   String *cname;		/* original C class/struct name */
@@ -29,7 +30,7 @@ public:
 
   /**
    * The C variable name used in the SWIG-generated wrapper code to refer to
-   * this class; usually it is of the form "cClassName.klass", where cClassName
+   * this class; usually it is of the form "SwigClassXXX.klass", where SwigClassXXX
    * is a swig_class struct instance and klass is a member of that struct.
    */
   String *vname;
@@ -38,7 +39,7 @@ public:
    * The C variable name used in the SWIG-generated wrapper code to refer to
    * the module that implements this class's methods (when we're trying to
    * support C++ multiple inheritance). Usually it is of the form
-   * "cClassName.mImpl", where cClassName is a swig_class struct instance
+   * "SwigClassClassName.mImpl", where SwigClassXXX is a swig_class struct instance
    * and mImpl is a member of that struct.
    */
   String *mImpl;
@@ -46,6 +47,7 @@ public:
   String *type;
   String *prefix;
   String *init;
+
 
   int constructor_defined;
   int destructor_defined;
@@ -76,7 +78,7 @@ public:
     Delete(temp);
   }
 
-  void set_name(const String_or_char *cn, const String_or_char *rn, const String_or_char *valn) {
+  void set_name(const_String_or_char_ptr cn, const_String_or_char_ptr rn, const_String_or_char_ptr valn) {
     /* Original C/C++ class (or struct) name */
     Clear(cname);
     Append(cname, cn);
@@ -91,18 +93,18 @@ public:
 
     /* Variable name for the VALUE that refers to the Ruby Class object */
     Clear(vname);
-    Printf(vname, "c%s.klass", name);
+    Printf(vname, "SwigClass%s.klass", name);
 
     /* Variable name for the VALUE that refers to the Ruby Class object */
     Clear(mImpl);
-    Printf(mImpl, "c%s.mImpl", name);
+    Printf(mImpl, "SwigClass%s.mImpl", name);
 
     /* Prefix */
     Clear(prefix);
     Printv(prefix, (rn ? rn : cn), "_", NIL);
   }
 
-  char *strip(const String_or_char *s) {
+  char *strip(const_String_or_char_ptr s) {
     Clear(temp);
     Append(temp, s);
     if (Strncmp(s, prefix, Len(prefix)) == 0) {
@@ -113,20 +115,33 @@ public:
 };
 
 
+/* flags for the make_autodoc function */
+enum autodoc_t {
+  AUTODOC_CLASS,
+  AUTODOC_CTOR,
+  AUTODOC_DTOR,
+  AUTODOC_STATICFUNC,
+  AUTODOC_FUNC,
+  AUTODOC_METHOD,
+  AUTODOC_GETTER,
+  AUTODOC_SETTER
+};
+
 static const char *usage = "\
 Ruby Options (available with -ruby)\n\
      -globalmodule   - Wrap everything into the global module\n\
      -minherit       - Attempt to support multiple inheritance\n\
      -nocppcast      - Disable C++ casting operators, useful for generating bugs\n\
-     -cppcast        - Enable C++ casting operators\n\
+     -cppcast        - Enable C++ casting operators (default)\n\
      -autorename     - Enable renaming of classes and methods to follow Ruby coding standards\n\
      -noautorename   - Disable renaming of classes and methods (default)\n\
      -prefix <name>  - Set a prefix <name> to be prepended to all names\n\
-     -feature <name> - Set feature name to <name> (used by `require')\n";
+     -initname <name> - Set entry function to Init_<name> (used by `require')\n";
 
 
 #define RCLASS(hash, name) (RClass*)(Getattr(hash, name) ? Data(Getattr(hash, name)) : 0)
 #define SET_RCLASS(hash, name, klass) Setattr(hash, name, NewVoid(klass, 0))
+
 
 class RUBY:public Language {
 private:
@@ -143,6 +158,7 @@ private:
   File *f_directors;
   File *f_directors_h;
   File *f_directors_helpers;
+  File *f_begin;
   File *f_runtime;
   File *f_runtime_h;
   File *f_header;
@@ -154,7 +170,7 @@ private:
   bool multipleInheritance;
 
   // Wrap modes
-  enum {
+  enum WrapperMode {
     NO_CPP,
     MEMBER_FUNC,
     CONSTRUCTOR_ALLOCATE,
@@ -165,6 +181,569 @@ private:
     STATIC_FUNC,
     STATIC_VAR
   };
+
+  /* ------------------------------------------------------------
+   * autodoc level declarations
+   * ------------------------------------------------------------ */
+
+  enum autodoc_l {
+    NO_AUTODOC = -2,		// no autodoc
+    STRING_AUTODOC = -1,	// use provided string
+    NAMES_AUTODOC = 0,		// only parameter names
+    TYPES_AUTODOC = 1,		// parameter names and types
+    EXTEND_AUTODOC = 2,		// extended documentation and parameter names
+    EXTEND_TYPES_AUTODOC = 3	// extended documentation and parameter types + names
+  };
+
+  autodoc_t last_mode;
+  String*   last_autodoc;
+
+
+
+  autodoc_l autodoc_level(String *autodoc) {
+    autodoc_l dlevel = NO_AUTODOC;
+    if (autodoc) {
+      char *c = Char(autodoc);
+      if (c && isdigit(c[0])) {
+	dlevel = (autodoc_l) atoi(c);
+      } else {
+	if (strcmp(c, "extended") == 0) {
+	  dlevel = EXTEND_AUTODOC;
+	} else {
+	  dlevel = STRING_AUTODOC;
+	}
+      }
+    }
+    return dlevel;
+  }
+
+
+
+  /* ------------------------------------------------------------
+   * have_docstring()
+   *    Check if there is a docstring directive and it has text,
+   *    or there is an autodoc flag set
+   * ------------------------------------------------------------ */
+
+  bool have_docstring(Node *n) {
+    String *str = Getattr(n, "feature:docstring");
+    return (str != NULL && Len(str) > 0) || (Getattr(n, "feature:autodoc") && !GetFlag(n, "feature:noautodoc"));
+  }
+
+  /* ------------------------------------------------------------
+   * docstring()
+   *    Get the docstring text, stripping off {} if neccessary,
+   *    and enclose in triple double quotes.  If autodoc is also
+   *    set then it will build a combined docstring.
+   * ------------------------------------------------------------ */
+
+  String *docstring(Node *n, autodoc_t ad_type) {
+
+    String *str = Getattr(n, "feature:docstring");
+    bool have_ds = (str != NULL && Len(str) > 0);
+    bool have_auto = (Getattr(n, "feature:autodoc") && !GetFlag(n, "feature:noautodoc"));
+    String *autodoc = NULL;
+    String *doc = NULL;
+
+    if (have_ds) {
+      char *t = Char(str);
+      if (*t == '{') {
+	Delitem(str, 0);
+	Delitem(str, DOH_END);
+      }
+    }
+
+    if (have_auto) {
+      autodoc = make_autodoc(n, ad_type);
+      have_auto = (autodoc != NULL && Len(autodoc) > 0);
+    }
+    // If there is more than one line then make docstrings like this:
+    //
+    //      This is line1
+    //      And here is line2 followed by the rest of them
+    //
+    // otherwise, put it all on a single line
+    //
+    if (have_auto && have_ds) {	// Both autodoc and docstring are present
+      doc = NewString("");
+      Printv(doc, "\n", autodoc, "\n", str, NIL);
+    } else if (!have_auto && have_ds) {	// only docstring
+      if (Strchr(str, '\n') == NULL) {
+	doc = NewString(str);
+      } else {
+	doc = NewString("");
+	Printv(doc, str, NIL);
+      }
+    } else if (have_auto && !have_ds) {	// only autodoc
+      if (Strchr(autodoc, '\n') == NULL) {
+	doc = NewStringf("%s", autodoc);
+      } else {
+	doc = NewString("");
+	Printv(doc, "\n", autodoc, NIL);
+      }
+    } else
+      doc = NewString("");
+
+    // Save the generated strings in the parse tree in case they are used later
+    // by post processing tools
+    Setattr(n, "ruby:docstring", doc);
+    Setattr(n, "ruby:autodoc", autodoc);
+    return doc;
+  }
+
+  /* ------------------------------------------------------------
+   * make_autodocParmList()
+   *   Generate the documentation for the function parameters
+   * ------------------------------------------------------------ */
+
+  String *make_autodocParmList(Node *n, bool showTypes) {
+    String *doc = NewString("");
+    String *pdocs = Copy(Getattr(n, "feature:pdocs"));
+    ParmList *plist = CopyParmList(Getattr(n, "parms"));
+    Parm *p;
+    Parm *pnext;
+    Node *lookup;
+    int lines = 0;
+    const int maxwidth = 50;
+
+    if (pdocs)
+      Append(pdocs, ".\n");
+
+
+    Swig_typemap_attach_parms("in", plist, 0);
+    Swig_typemap_attach_parms("doc", plist, 0);
+
+    for (p = plist; p; p = pnext) {
+      String *name = 0;
+      String *type = 0;
+      String *value = 0;
+      String *ptype = 0;
+      String *pdoc = Getattr(p, "tmap:doc");
+      if (pdoc) {
+	name = Getattr(p, "tmap:doc:name");
+	type = Getattr(p, "tmap:doc:type");
+	value = Getattr(p, "tmap:doc:value");
+	ptype = Getattr(p, "tmap:doc:pytype");
+      }
+
+      name = name ? name : Getattr(p, "name");
+      type = type ? type : Getattr(p, "type");
+      value = value ? value : Getattr(p, "value");
+
+
+      String *tm = Getattr(p, "tmap:in");
+      if (tm) {
+	pnext = Getattr(p, "tmap:in:next");
+      } else {
+	pnext = nextSibling(p);
+      }
+
+      // Skip ignored input attributes
+      if (checkAttribute(p, "tmap:in:numinputs", "0"))
+	continue;
+
+      // Skip the 'self' parameter which in ruby is implicit
+      if ( Cmp(name, "self") == 0 )
+	continue;
+
+      // Make __p parameters just p (as used in STL)
+      Replace( name, "__", "", DOH_REPLACE_FIRST );
+
+      if (Len(doc)) {
+	// add a comma to the previous one if any
+	Append(doc, ", ");
+
+	// Do we need to wrap a long line?
+	if ((Len(doc) - lines * maxwidth) > maxwidth) {
+	  Printf(doc, "\n%s", tab4);
+	  lines += 1;
+	}
+      }
+      // Do the param type too?
+      if (showTypes) {
+	type = SwigType_base(type);
+	lookup = Swig_symbol_clookup(type, 0);
+	if (lookup)
+	  type = Getattr(lookup, "sym:name");
+	Printf(doc, "%s ", type);
+      }
+
+      if (name) {
+	Append(doc, name);
+	if (pdoc) {
+	  if (!pdocs)
+	    pdocs = NewString("Parameters:\n");
+	  Printf(pdocs, "   %s.\n", pdoc);
+	}
+      } else {
+	Append(doc, "?");
+      }
+
+      if (value) {
+	if (Strcmp(value, "NULL") == 0)
+	  value = NewString("nil");
+	else if (Strcmp(value, "true") == 0 || Strcmp(value, "TRUE") == 0)
+	  value = NewString("true");
+	else if (Strcmp(value, "false") == 0 || Strcmp(value, "FALSE") == 0)
+	  value = NewString("false");
+	else {
+	  lookup = Swig_symbol_clookup(value, 0);
+	  if (lookup)
+	    value = Getattr(lookup, "sym:name");
+	}
+	Printf(doc, "=%s", value);
+      }
+    }
+    if (pdocs)
+      Setattr(n, "feature:pdocs", pdocs);
+    Delete(plist);
+    return doc;
+  }
+
+  /* ------------------------------------------------------------
+   * make_autodoc()
+   *    Build a docstring for the node, using parameter and other
+   *    info in the parse tree.  If the value of the autodoc
+   *    attribute is "0" then do not include parameter types, if
+   *    it is "1" (the default) then do.  If it has some other
+   *    value then assume it is supplied by the extension writer
+   *    and use it directly.
+   * ------------------------------------------------------------ */
+
+  String *make_autodoc(Node *n, autodoc_t ad_type) {
+    int extended = 0;
+    // If the function is overloaded then this funciton is called
+    // for the last one.  Rewind to the first so the docstrings are
+    // in order.
+    while (Getattr(n, "sym:previousSibling"))
+      n = Getattr(n, "sym:previousSibling");
+
+    Node *pn = Swig_methodclass(n);
+    String* super_names = NewString(""); 
+    String* class_name = Getattr(pn, "sym:name") ; 
+
+    if ( !class_name ) class_name = NewString("");
+    else
+      {
+	class_name = Copy(class_name);
+	List *baselist = Getattr(pn, "bases");
+	if (baselist && Len(baselist)) {
+	  Iterator base = First(baselist);
+	  while (base.item && GetFlag(base.item, "feature:ignore")) {
+	    base = Next(base);
+	  }
+	  
+	  int count = 0;
+	  for ( ;base.item; ++count) {
+	    if ( count ) Append(super_names, ", ");
+	    String *basename = Getattr(base.item, "sym:name");
+
+	    String* basenamestr = NewString(basename);
+	    Node* parent = parentNode(base.item);
+	    while (parent)
+	      {
+		String *parent_name = Copy( Getattr(parent, "sym:name") );
+		if ( !parent_name ) {
+		  Node* mod = Getattr(parent, "module");
+		  if ( mod )
+		    parent_name = Copy( Getattr(mod, "name") );
+		  if ( parent_name )
+		    {
+		      (Char(parent_name))[0] = (char)toupper((Char(parent_name))[0]);
+		    }
+		}
+		if ( parent_name )
+		  {
+		    Insert(basenamestr, 0, "::");
+		    Insert(basenamestr, 0, parent_name);
+		    Delete(parent_name);
+		  }
+		parent = parentNode(parent);
+	      }
+
+	    Append(super_names, basenamestr );
+	    Delete(basenamestr);
+	    base = Next(base);
+	  }
+	}
+      }
+    String* full_name;
+    if ( module ) {
+      full_name = NewString(module);
+      if (class_name && Len(class_name) > 0) Append(full_name, "::");
+    }
+    else
+      full_name = NewString("");
+    Append(full_name, class_name);
+
+    String* symname = Getattr(n, "sym:name");
+    if ( Getattr( special_methods, symname ) )
+      symname = Getattr( special_methods, symname );
+
+    String* methodName = NewString(full_name);
+    Append(methodName, symname);
+
+
+    // Each overloaded function will try to get documented,
+    // so we keep the name of the last overloaded function and its type.
+    // Documenting just from functionWrapper() is not possible as
+    // sym:name has already been changed to include the class name
+    if ( last_mode == ad_type && Cmp(methodName, last_autodoc) == 0 ) {
+      Delete(full_name);
+      Delete(class_name);
+      Delete(super_names);
+      Delete(methodName);
+      return NewString("");
+    }
+
+
+    last_mode    = ad_type;
+    last_autodoc = Copy(methodName);
+
+    String *doc = NewString("/*\n");
+    int counter = 0;
+    bool skipAuto = false;
+    Node* on = n;
+    for ( ; n; ++counter ) {
+      skipAuto = false;
+      bool showTypes = false;
+      String *autodoc = Getattr(n, "feature:autodoc");
+      autodoc_l dlevel = autodoc_level(autodoc);
+      switch (dlevel) {
+      case NO_AUTODOC:
+	break;
+      case NAMES_AUTODOC:
+	showTypes = false;
+	break;
+      case TYPES_AUTODOC:
+	showTypes = true;
+	break;
+      case EXTEND_AUTODOC:
+	extended = 1;
+	showTypes = false;
+	break;
+      case EXTEND_TYPES_AUTODOC:
+	extended = 1;
+	showTypes = true;
+	break;
+      case STRING_AUTODOC:
+	skipAuto = true;
+	break;
+      }
+
+      SwigType *type = Getattr(n, "type");
+
+      if (type) {
+	if (Strcmp(type, "void") == 0)
+	  type = NULL;
+	else {
+	  SwigType *qt = SwigType_typedef_resolve_all(type);
+	  if (SwigType_isenum(qt))
+	      type = NewString("int");
+	  else {
+	    type = SwigType_base(type);
+	    Node *lookup = Swig_symbol_clookup(type, 0);
+	      if (lookup)
+		type = Getattr(lookup, "sym:name");
+	  }
+	}
+      }
+
+      if (counter == 0) {
+	switch (ad_type) {
+	case AUTODOC_CLASS:
+	  Printf(doc, "  Document-class: %s", full_name);
+	  if ( Len(super_names) > 0 )
+	    Printf( doc, " < %s", super_names);
+	  Append(doc, "\n\n");
+	  break;
+	case AUTODOC_CTOR:
+ 	  Printf(doc, "  Document-method: %s.new\n\n", full_name);
+	  break;
+
+	case AUTODOC_DTOR:
+	  break;
+
+	case AUTODOC_STATICFUNC:
+ 	  Printf(doc, "  Document-method: %s.%s\n\n", full_name, symname);
+	  break;
+
+	case AUTODOC_FUNC:
+	case AUTODOC_METHOD:
+	case AUTODOC_GETTER:
+ 	  Printf(doc, "  Document-method: %s.%s\n\n", full_name, symname);
+	  break;
+	case AUTODOC_SETTER:
+ 	  Printf(doc, "  Document-method: %s.%s=\n\n", full_name, symname);
+	  break;
+	}
+      }
+
+
+      if (skipAuto) {
+	if ( counter == 0 ) Printf(doc, "  call-seq:\n");
+	switch( ad_type )
+	  {
+	  case AUTODOC_STATICFUNC:
+	  case AUTODOC_FUNC:
+	  case AUTODOC_METHOD:
+	  case AUTODOC_GETTER:
+	    {
+	      String *paramList = make_autodocParmList(n, showTypes);
+	      if (Len(paramList))
+		Printf(doc, "    %s(%s)", symname, paramList);
+	      else
+		Printf(doc, "    %s", symname);
+	      if (type)
+		Printf(doc, " -> %s", type);
+	      break;
+	    }
+	  case AUTODOC_SETTER:
+	    {
+	      Printf(doc, "    %s=(x)", symname);
+	      if (type) Printf(doc, " -> %s", type);
+	      break;
+	    }
+	  default:
+	    break;
+	  }
+      }
+      else {
+	switch (ad_type) {
+	case AUTODOC_CLASS:
+	  {
+	    // Only do the autodoc if there isn't a docstring for the class
+	    String *str = Getattr(n, "feature:docstring");
+	    if (counter == 0 && (str == NULL || Len(str) == 0)) {
+	      if (CPlusPlus) {
+		Printf(doc, "  Proxy of C++ %s class", full_name);
+	      } else {
+		Printf(doc, "  Proxy of C %s struct", full_name);
+	      }
+	    }
+	  }
+	  break;
+	case AUTODOC_CTOR:
+	  if (counter == 0) Printf(doc, "  call-seq:\n");
+	  if (Strcmp(class_name, symname) == 0) {
+	    String *paramList = make_autodocParmList(n, showTypes);
+	    if (Len(paramList))
+	      Printf(doc, "    %s.new(%s)", class_name, paramList);
+	    else
+	      Printf(doc, "    %s.new", class_name);
+	  } else
+	    Printf(doc, "    %s.new(%s)", class_name, 
+		   make_autodocParmList(n, showTypes));
+	  break;
+
+	case AUTODOC_DTOR:
+	  break;
+
+	case AUTODOC_STATICFUNC:
+	case AUTODOC_FUNC:
+	case AUTODOC_METHOD:
+	case AUTODOC_GETTER:
+	  {
+	    if (counter == 0) Printf(doc, "  call-seq:\n");
+	    String *paramList = make_autodocParmList(n, showTypes);
+	    if (Len(paramList))
+	      Printf(doc, "    %s(%s)", symname, paramList);
+	    else
+	      Printf(doc, "    %s", symname);
+	    if (type)
+	      Printf(doc, " -> %s", type);
+	    break;
+	  }
+	case AUTODOC_SETTER:
+	  {
+	    Printf(doc, "  call-seq:\n");
+	    Printf(doc, "    %s=(x)", symname);
+	    if (type) Printf(doc, " -> %s", type);
+	    break;
+	  }
+	}
+      }
+
+      // if it's overloaded then get the next decl and loop around again
+      n = Getattr(n, "sym:nextSibling");
+      if (n)
+	Append(doc, "\n");
+    }
+
+    Printf(doc, "\n\n");
+    if (!skipAuto) {
+      switch (ad_type) {
+      case AUTODOC_CLASS:
+      case AUTODOC_DTOR:
+	break;
+      case AUTODOC_CTOR:
+	Printf(doc, "Class constructor.\n");
+	break;
+      case AUTODOC_STATICFUNC:
+	Printf(doc, "A class method.\n");
+	break;
+      case AUTODOC_FUNC:
+	Printf(doc, "A module function.\n");
+	break;
+      case AUTODOC_METHOD:
+	Printf(doc, "An instance method.\n");
+	break;
+      case AUTODOC_GETTER:
+	Printf(doc, "Get value of attribute.\n");
+	break;
+      case AUTODOC_SETTER:
+	Printf(doc, "Set new value for attribute.\n");
+	break;
+      }
+    }
+
+
+    n = on;
+    while ( n ) {
+      String *autodoc = Getattr(n, "feature:autodoc");
+      autodoc_l dlevel = autodoc_level(autodoc);
+
+      symname = Getattr(n, "sym:name");
+      if ( Getattr( special_methods, symname ) )
+	symname = Getattr( special_methods, symname );
+
+      switch (dlevel) {
+      case NO_AUTODOC:
+      case NAMES_AUTODOC:
+      case TYPES_AUTODOC:
+	extended = 0;
+	break;
+      case STRING_AUTODOC:
+	extended = 2;
+	Replaceall( autodoc, "$class", class_name );
+	Printv(doc, autodoc, ".", NIL);
+	break;
+      case EXTEND_AUTODOC:
+      case EXTEND_TYPES_AUTODOC:
+	extended = 1;
+	break;
+      }
+
+
+      if (extended) {
+	String *pdocs = Getattr(n, "feature:pdocs");
+	if (pdocs) {
+	  Printv(doc, "\n\n", pdocs, NULL);
+	  break;
+	}
+	if ( extended == 2 ) break;
+      }
+      n = Getattr(n, "sym:nextSibling");
+    }
+
+    Append(doc, "\n*/\n");
+    Delete(full_name);
+    Delete(class_name);
+    Delete(super_names);
+    Delete(methodName);
+
+    return doc;
+  }
 
 public:
 
@@ -179,10 +758,12 @@ public:
     modvar = 0;
     feature = 0;
     prefix = 0;
+    last_autodoc = NewString("");
     current = NO_CPP;
     classes = 0;
     klass = 0;
     special_methods = 0;
+    f_begin = 0;
     f_runtime = 0;
     f_header = 0;
     f_wrappers = 0;
@@ -216,7 +797,20 @@ public:
     /* Look for certain command line options */
     for (int i = 1; i < argc; i++) {
       if (argv[i]) {
-	if (strcmp(argv[i], "-feature") == 0) {
+	if (strcmp(argv[i], "-initname") == 0) {
+	  if (argv[i + 1]) {
+	    char *name = argv[i + 1];
+	    feature = NewString(name);
+	    Swig_mark_arg(i);
+	    Swig_mark_arg(i + 1);
+	    i++;
+	  } else {
+	    Swig_arg_error();
+	  }
+	}
+	else if (strcmp(argv[i], "-feature") == 0) {
+	  fprintf( stderr, "Warning: Ruby -feature option is deprecated, "
+		   "please use -initname instead.\n");
 	  if (argv[i + 1]) {
 	    char *name = argv[i + 1];
 	    feature = NewString(name);
@@ -310,7 +904,7 @@ public:
 
     special_methods = NewHash();
 
-    /* Python style special method name. */
+    /* Python->Ruby style special method name. */
     /* Basic */
     Setattr(special_methods, "__repr__", "inspect");
     Setattr(special_methods, "__str__", "to_s");
@@ -395,20 +989,18 @@ public:
     String *outfile = Getattr(n, "outfile");
     String *outfile_h = Getattr(n, "outfile_h");
 
-    f_runtime = NewFile(outfile, "w");
-    if (!f_runtime) {
+    if (!outfile) {
+      Printf(stderr, "Unable to determine outfile\n");
+      SWIG_exit(EXIT_FAILURE);
+    }
+
+    f_begin = NewFile(outfile, "w", SWIG_output_files());
+    if (!f_begin) {
       FileErrorDisplay(outfile);
       SWIG_exit(EXIT_FAILURE);
     }
 
-    if (directorsEnabled()) {
-      f_runtime_h = NewFile(outfile_h, "w");
-      if (!f_runtime_h) {
-	FileErrorDisplay(outfile_h);
-	SWIG_exit(EXIT_FAILURE);
-      }
-    }
-
+    f_runtime = NewString("");
     f_init = NewString("");
     f_header = NewString("");
     f_wrappers = NewString("");
@@ -417,9 +1009,22 @@ public:
     f_directors_helpers = NewString("");
     f_initbeforefunc = NewString("");
 
+    if (directorsEnabled()) {
+      if (!outfile_h) {
+        Printf(stderr, "Unable to determine outfile_h\n");
+        SWIG_exit(EXIT_FAILURE);
+      }
+      f_runtime_h = NewFile(outfile_h, "w", SWIG_output_files());
+      if (!f_runtime_h) {
+	FileErrorDisplay(outfile_h);
+	SWIG_exit(EXIT_FAILURE);
+      }
+    }
+
     /* Register file targets with the SWIG file handler */
     Swig_register_filebyname("header", f_header);
     Swig_register_filebyname("wrapper", f_wrappers);
+    Swig_register_filebyname("begin", f_begin);
     Swig_register_filebyname("runtime", f_runtime);
     Swig_register_filebyname("init", f_init);
     Swig_register_filebyname("director", f_directors);
@@ -434,13 +1039,16 @@ public:
 
     registerMagicMethods();
 
-    Swig_banner(f_runtime);
+    Swig_banner(f_begin);
 
+    Printf(f_runtime, "\n");
     Printf(f_runtime, "#define SWIGRUBY\n");
 
     if (directorsEnabled()) {
       Printf(f_runtime, "#define SWIG_DIRECTORS\n");
     }
+
+    Printf(f_runtime, "\n");
 
     /* typedef void *VALUE */
     SwigType *value = NewSwigType(T_VOID);
@@ -457,6 +1065,7 @@ public:
       Replaceall(module_macro, "::", "__");
 
       Swig_banner(f_directors_h);
+      Printf(f_directors_h, "\n");
       Printf(f_directors_h, "#ifndef SWIG_%s_WRAP_H_\n", module_macro);
       Printf(f_directors_h, "#define SWIG_%s_WRAP_H_\n\n", module_macro);
       Printf(f_directors_h, "namespace Swig {\n");
@@ -482,6 +1091,8 @@ public:
     Printf(f_header, "static VALUE %s;\n", modvar);
 
     /* Start generating the initialization function */
+    String* docs = docstring(n, AUTODOC_CLASS);
+    Printf(f_init, "/*\n%s\n*/", docs );
     Printv(f_init, "\n", "#ifdef __cplusplus\n", "extern \"C\"\n", "#endif\n", "SWIGEXPORT void Init_", feature, "(void) {\n", "size_t i;\n", "\n", NIL);
 
     Printv(f_init, tab4, "SWIG_InitRuntime();\n", NIL);
@@ -507,27 +1118,29 @@ public:
     SwigType_emit_type_table(f_runtime, f_wrappers);
 
     /* Close all of the files */
-    Dump(f_header, f_runtime);
+    Dump(f_runtime, f_begin);
+    Dump(f_header, f_begin);
 
     if (directorsEnabled()) {
-      Dump(f_directors_helpers, f_runtime);
-      Dump(f_directors, f_runtime);
+      Dump(f_directors_helpers, f_begin);
+      Dump(f_directors, f_begin);
       Dump(f_directors_h, f_runtime_h);
       Printf(f_runtime_h, "\n");
       Printf(f_runtime_h, "#endif\n");
       Close(f_runtime_h);
     }
 
-    Dump(f_wrappers, f_runtime);
-    Dump(f_initbeforefunc, f_runtime);
-    Wrapper_pretty_print(f_init, f_runtime);
+    Dump(f_wrappers, f_begin);
+    Dump(f_initbeforefunc, f_begin);
+    Wrapper_pretty_print(f_init, f_begin);
 
     Delete(f_header);
     Delete(f_wrappers);
     Delete(f_init);
     Delete(f_initbeforefunc);
-    Close(f_runtime);
+    Close(f_begin);
     Delete(f_runtime);
+    Delete(f_begin);
 
     return SWIG_OK;
   }
@@ -591,7 +1204,7 @@ public:
 	while (m.item) {
 	  if (Len(m.item) > 0) {
 	    String *cap = NewString(m.item);
-	    (Char(cap))[0] = toupper((Char(cap))[0]);
+	    (Char(cap))[0] = (char)toupper((Char(cap))[0]);
 	    if (last != 0) {
 	      Append(module, "::");
 	    }
@@ -603,7 +1216,7 @@ public:
 	if (feature == 0) {
 	  feature = Copy(last);
 	}
-	(Char(last))[0] = toupper((Char(last))[0]);
+	(Char(last))[0] = (char)toupper((Char(last))[0]);
 	modvar = NewStringf("m%s", last);
 	Delete(modules);
       }
@@ -623,7 +1236,7 @@ public:
   /**
    * Process the comma-separated list of aliases (if any).
    */
-  void defineAliases(Node *n, const String_or_char *iname) {
+  void defineAliases(Node *n, const_String_or_char_ptr iname) {
     String *aliasv = Getattr(n, "feature:alias");
     if (aliasv) {
       List *aliases = Split(aliasv, ',', INT_MAX);
@@ -657,7 +1270,7 @@ public:
    * as another instance of the same class.
    * --------------------------------------------------------------------- */
 
-  void create_command(Node *n, const String_or_char *iname) {
+  void create_command(Node *n, const_String_or_char_ptr iname) {
 
     String *alloc_func = Swig_name_wrapper(iname);
     String *wname = Swig_name_wrapper(iname);
@@ -910,7 +1523,6 @@ public:
   void insertCleanupCode(ParmList *l, String *cleanup) {
     String *tm;
     for (Parm *p = l; p;) {
-      //      if (!checkAttribute(p,"tmap:in:numinputs","0") && (tm = Getattr(p,"tmap:freearg"))) {
       if ((tm = Getattr(p, "tmap:freearg"))) {
 	if (Len(tm) != 0) {
 	  Replaceall(tm, "$source", Getattr(p, "lname"));
@@ -942,7 +1554,7 @@ public:
 	Replaceall(tm, "$input", Getattr(p, "emit:input"));
 
 	Printv(outarg, tm, "\n", NIL);
-	need_result = 1;
+	need_result += 1;
 	p = Getattr(p, "tmap:argout:next");
       } else {
 	p = nextSibling(p);
@@ -985,6 +1597,7 @@ public:
    * --------------------------------------------------------------------- */
 
   virtual int functionWrapper(Node *n) {
+
     String *nodeType;
     bool constructor;
     bool destructor;
@@ -1046,7 +1659,7 @@ public:
 
     /* Emit arguments */
     if (current != CONSTRUCTOR_ALLOCATE) {
-      emit_args(t, l, f);
+      emit_parameter_variables(l, f);
     }
 
     /* Attach standard typemaps */
@@ -1080,6 +1693,14 @@ public:
       }
       Printf(f->code, "{rb_raise(rb_eArgError, \"wrong # of arguments(%%d for %d)\",argc); SWIG_fail;}\n", numreq - start);
     } else {
+
+      if ( current == NO_CPP )
+	{
+	  String* docs = docstring(n, AUTODOC_FUNC);
+	  Printf(f_wrappers, "%s", docs);
+	  Delete(docs);
+	}
+
       Printv(f->def, "SWIGINTERN VALUE\n", wname, "(int argc, VALUE *argv, VALUE self) {", NIL);
       if (!varargs) {
 	Printf(f->code, "if ((argc < %d) || (argc > %d)) ", numreq - start, numarg - start);
@@ -1110,7 +1731,7 @@ public:
     insertArgOutputCode(l, outarg, need_result);
 
     /* if the object is a director, and the method call originated from its
-     * underlying python object, resolve the call by going up the c++ 
+     * underlying Ruby object, resolve the call by going up the c++ 
      * inheritance chain.  otherwise try to resolve the method in python.  
      * without this check an infinite loop is set up between the director and 
      * shadow class method calls.
@@ -1148,9 +1769,9 @@ public:
 	  Wrapper_add_local(f, "classname", classname);
 	}
 	if (action) {
-	  Append(action, "DATA_PTR(self) = result;\n");
+	  Append(action, "\nDATA_PTR(self) = result;");
 	  if (GetFlag(pn, "feature:trackobjects")) {
-	    Append(action, "SWIG_RubyAddTracking(result, self);\n");
+	    Append(action, "\nSWIG_RubyAddTracking(result, self);");
 	  }
 	}
       }
@@ -1160,72 +1781,81 @@ public:
 	Printf(f->code, "try {\n");
       }
 
-      emit_action(n, f);
+      Setattr(n, "wrap:name", wname);
+
+      Swig_director_emit_dynamic_cast(n, f);
+      String *actioncode = emit_action(n);
 
       if (director_method) {
-	Printf(f->code, "} catch (Swig::DirectorException& e) {\n");
-	Printf(f->code, "  rb_exc_raise(e.getError());\n");
-	Printf(f->code, "  SWIG_fail;\n");
-	Printf(f->code, "}\n");
+	Printf(actioncode, "} catch (Swig::DirectorException& e) {\n");
+	Printf(actioncode, "  rb_exc_raise(e.getError());\n");
+	Printf(actioncode, "  SWIG_fail;\n");
+	Printf(actioncode, "}\n");
       }
-    }
 
-    /* Return value if necessary */
-    if (SwigType_type(t) != T_VOID && current != CONSTRUCTOR_ALLOCATE && current != CONSTRUCTOR_INITIALIZE) {
-      need_result = 1;
-      if (GetFlag(n, "feature:predicate")) {
-	Printv(f->code, tab4, "vresult = (result ? Qtrue : Qfalse);\n", NIL);
-      } else {
-	tm = Swig_typemap_lookup_new("out", n, "result", 0);
-	if (tm) {
-	  Replaceall(tm, "$result", "vresult");
-	  Replaceall(tm, "$source", "result");
-	  Replaceall(tm, "$target", "vresult");
+      /* Return value if necessary */
+      if (SwigType_type(t) != T_VOID && current != CONSTRUCTOR_INITIALIZE) {
+        need_result = 1;
+        if (GetFlag(n, "feature:predicate")) {
+          Printv(actioncode, tab4, "vresult = (result ? Qtrue : Qfalse);\n", NIL);
+        } else {
+          tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode);
+          actioncode = 0;
+          if (tm) {
+            Replaceall(tm, "$result", "vresult");
+            Replaceall(tm, "$source", "result");
+            Replaceall(tm, "$target", "vresult");
 
-	  if (GetFlag(n, "feature:new"))
-	    Replaceall(tm, "$owner", "SWIG_POINTER_OWN");
-	  else
-	    Replaceall(tm, "$owner", "0");
+            if (GetFlag(n, "feature:new"))
+              Replaceall(tm, "$owner", "SWIG_POINTER_OWN");
+            else
+              Replaceall(tm, "$owner", "0");
 
 #if 1
-	  // FIXME: this will not try to unwrap directors returned as non-director
-	  //        base class pointers!
+            // FIXME: this will not try to unwrap directors returned as non-director
+            //        base class pointers!
 
-	  /* New addition to unwrap director return values so that the original
-	   * Ruby object is returned instead. 
-	   */
-	  bool unwrap = false;
-	  String *decl = Getattr(n, "decl");
-	  int is_pointer = SwigType_ispointer_return(decl);
-	  int is_reference = SwigType_isreference_return(decl);
-	  if (is_pointer || is_reference) {
-	    String *type = Getattr(n, "type");
-	    Node *parent = Swig_methodclass(n);
-	    Node *modname = Getattr(parent, "module");
-	    Node *target = Swig_directormap(modname, type);
-	    if (target)
-	      unwrap = true;
-	  }
-	  if (unwrap) {
-	    Wrapper_add_local(f, "director", "Swig::Director *director = 0");
-	    Printf(f->code, "director = dynamic_cast<Swig::Director *>(result);\n");
-	    Printf(f->code, "if (director) {\n");
-	    Printf(f->code, "  vresult = director->swig_get_self();\n");
-	    Printf(f->code, "} else {\n");
-	    Printf(f->code, "%s\n", tm);
-	    Printf(f->code, "}\n");
-	    director_method = 0;
-	  } else {
-	    Printf(f->code, "%s\n", tm);
-	  }
+            /* New addition to unwrap director return values so that the original
+             * Ruby object is returned instead. 
+             */
+            bool unwrap = false;
+            String *decl = Getattr(n, "decl");
+            int is_pointer = SwigType_ispointer_return(decl);
+            int is_reference = SwigType_isreference_return(decl);
+            if (is_pointer || is_reference) {
+              String *type = Getattr(n, "type");
+              Node *parent = Swig_methodclass(n);
+              Node *modname = Getattr(parent, "module");
+              Node *target = Swig_directormap(modname, type);
+              if (target)
+                unwrap = true;
+            }
+            if (unwrap) {
+              Wrapper_add_local(f, "director", "Swig::Director *director = 0");
+              Printf(f->code, "director = dynamic_cast<Swig::Director *>(result);\n");
+              Printf(f->code, "if (director) {\n");
+              Printf(f->code, "  vresult = director->swig_get_self();\n");
+              Printf(f->code, "} else {\n");
+              Printf(f->code, "%s\n", tm);
+              Printf(f->code, "}\n");
+              director_method = 0;
+            } else {
+              Printf(f->code, "%s\n", tm);
+            }
 #else
-	  Printf(f->code, "%s\n", tm);
+            Printf(f->code, "%s\n", tm);
 #endif
-	  Delete(tm);
-	} else {
-	  Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s.\n", SwigType_str(t, 0));
-	}
+            Delete(tm);
+          } else {
+            Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s.\n", SwigType_str(t, 0));
+          }
+        }
       }
+      if (actioncode) {
+        Append(f->code, actioncode);
+        Delete(actioncode);
+      }
+      emit_return_variable(n, t, f);
     }
 
     /* Extra code needed for new and initialize methods */
@@ -1239,6 +1869,19 @@ public:
       need_result = 1;
       // Printf(f->code, "DATA_PTR(self) = result;\n");
     }
+    else
+      {
+	if ( need_result > 1 ) {
+	  if ( SwigType_type(t) == T_VOID )
+	    Printf(f->code, "vresult = rb_ary_new();\n");
+	  else
+	    {
+	      Printf(f->code, "if (vresult == Qnil) vresult = rb_ary_new();\n");
+	      Printf(f->code, "else vresult = SWIG_Ruby_AppendOutput( "
+		     "rb_ary_new(), vresult);\n");
+	    }
+	}
+      }
 
     /* Dump argument output code; */
     Printv(f->code, outarg, NIL);
@@ -1252,7 +1895,7 @@ public:
 
     /* Look for any remaining cleanup.  This processes the %new directive */
     if (current != CONSTRUCTOR_ALLOCATE && GetFlag(n, "feature:new")) {
-      tm = Swig_typemap_lookup_new("newfree", n, "result", 0);
+      tm = Swig_typemap_lookup("newfree", n, "result", 0);
       if (tm) {
 	Replaceall(tm, "$source", "result");
 	Printv(f->code, tm, "\n", NIL);
@@ -1261,7 +1904,7 @@ public:
     }
 
     /* Special processing on return value. */
-    tm = Swig_typemap_lookup_new("ret", n, "result", 0);
+    tm = Swig_typemap_lookup("ret", n, "result", 0);
     if (tm) {
       Replaceall(tm, "$source", "result");
       Printv(f->code, tm, NIL);
@@ -1269,7 +1912,7 @@ public:
     }
 
     if (director_method) {
-      if ((tm = Swig_typemap_lookup_new("directorfree", n, "result", 0))) {
+      if ((tm = Swig_typemap_lookup("directorfree", n, "result", 0))) {
 	Replaceall(tm, "$input", "result");
 	Replaceall(tm, "$result", "vresult");
 	Printf(f->code, "%s\n", tm);
@@ -1324,7 +1967,6 @@ public:
       if (current == CONSTRUCTOR_ALLOCATE) {
 	create_command(n, symname);
       } else {
-	Setattr(n, "wrap:name", wname);
 	if (!Getattr(n, "sym:nextSibling"))
 	  dispatchFunction(n);
       }
@@ -1369,25 +2011,74 @@ public:
     Wrapper_add_local(f, "ii", "int ii");
 
     if (current == MEMBER_FUNC || current == MEMBER_VAR || ctor_director) {
+      maxargs += 1;
       Printf(f->code, "argc = nargs + 1;\n");
       Printf(f->code, "argv[0] = self;\n");
-      Printf(f->code, "if (argc > %d) SWIG_fail;\n", maxargs + 1);
-      Printf(f->code, "for (ii = 1; (ii < argc); ii++) {\n");
+      Printf(f->code, "if (argc > %d) SWIG_fail;\n", maxargs);
+      Printf(f->code, "for (ii = 1; (ii < argc); ++ii) {\n");
       Printf(f->code, "argv[ii] = args[ii-1];\n");
       Printf(f->code, "}\n");
     } else {
       Printf(f->code, "argc = nargs;\n");
       Printf(f->code, "if (argc > %d) SWIG_fail;\n", maxargs);
-      Printf(f->code, "for (ii = 0; (ii < argc); ii++) {\n");
+      Printf(f->code, "for (ii = 0; (ii < argc); ++ii) {\n");
       Printf(f->code, "argv[ii] = args[ii];\n");
       Printf(f->code, "}\n");
     }
 
     Replaceall(dispatch, "$args", "nargs, args, self");
     Printv(f->code, dispatch, "\n", NIL);
-    Printf(f->code, "fail:\n");
-    Printf(f->code, "rb_raise(rb_eArgError, \"No matching function for overloaded '%s'\");\n", symname);
-    Printf(f->code, "return Qnil;\n");
+
+
+    
+    // Generate prototype list, go to first node
+    Node *sibl = n;
+
+    String* type = SwigType_str(Getattr(sibl,"type"),NULL);
+
+    while (Getattr(sibl, "sym:previousSibling"))
+      sibl = Getattr(sibl, "sym:previousSibling");	// go all the way up
+
+    // Constructors will be treated specially
+    const bool isCtor = Cmp(Getattr(sibl,"feature:new"), "1") == 0;
+    const bool isMethod = ( Cmp(Getattr(sibl, "ismember"), "1") == 0 &&
+			    (!isCtor) );
+
+    // Construct real method name
+    String* methodName = NewString("");
+    if ( isMethod ) 
+      Printv( methodName, Getattr(parentNode(sibl),"sym:name"), ".", NIL );
+    Append( methodName, Getattr(sibl,"sym:name" ) );
+    if ( isCtor ) Append( methodName, ".new" ); 
+
+    // Generate prototype list
+    String *protoTypes = NewString("");
+    do {
+      Append( protoTypes, "\n\"    ");
+      if ( !isCtor )  Printv( protoTypes, type, " ", NIL );
+      Printv(protoTypes, methodName, NIL );
+      Parm* p = Getattr(sibl, "wrap:parms");
+      if (p && (current == MEMBER_FUNC || current == MEMBER_VAR || 
+		ctor_director) )
+	p = nextSibling(p); // skip self
+      Append( protoTypes, "(" );
+      while(p)
+	{
+ 	  Append( protoTypes, SwigType_str(Getattr(p,"type"), Getattr(p,"name")) );
+	  if ( ( p = nextSibling(p)) ) Append(protoTypes, ", ");
+	}
+      Append( protoTypes, ")\\n\"" );
+    } while ((sibl = Getattr(sibl, "sym:nextSibling")));
+
+    Append(f->code, "fail:\n");
+    Printf(f->code, "Ruby_Format_OverloadedError( argc, %d, \"%s\", %s);\n", 
+	   maxargs, methodName, protoTypes);
+    Append(f->code, "\nreturn Qnil;\n");
+
+    Delete(methodName);
+    Delete(type);
+    Delete(protoTypes);
+
     Printv(f->code, "}\n", NIL);
     Wrapper_print(f, f_wrappers);
     create_command(n, Char(symname));
@@ -1403,6 +2094,10 @@ public:
    * --------------------------------------------------------------------- */
 
   virtual int variableWrapper(Node *n) {
+    String* docs = docstring(n, AUTODOC_GETTER);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
 
     char *name = GetChar(n, "name");
     char *iname = GetChar(n, "sym:name");
@@ -1416,19 +2111,21 @@ public:
 
     /* create getter */
     int addfail = 0;
-    getfname = Swig_name_get(iname);
+    String *getname = Swig_name_get(iname);
+    getfname = Swig_name_wrapper(getname);
+    Setattr(n, "wrap:name", getfname);
     Printv(getf->def, "SWIGINTERN VALUE\n", getfname, "(", NIL);
     Printf(getf->def, "VALUE self");
     Printf(getf->def, ") {");
     Wrapper_add_local(getf, "_val", "VALUE _val");
 
-    tm = Swig_typemap_lookup_new("varout", n, name, 0);
+    tm = Swig_typemap_lookup("varout", n, name, 0);
     if (tm) {
       Replaceall(tm, "$result", "_val");
       Replaceall(tm, "$target", "_val");
       Replaceall(tm, "$source", name);
       /* Printv(getf->code,tm, NIL); */
-      addfail = emit_action_code(n, getf, tm);
+      addfail = emit_action_code(n, getf->code, tm);
     } else {
       Swig_warning(WARN_TYPEMAP_VAROUT_UNDEF, input_file, line_number, "Unable to read variable of type %s\n", SwigType_str(t, 0));
     }
@@ -1445,16 +2142,22 @@ public:
       setfname = NewString("NULL");
     } else {
       /* create setter */
-      setfname = Swig_name_set(iname);
+      String* docs = docstring(n, AUTODOC_SETTER);
+      Printf(f_wrappers, "%s", docs);
+      Delete(docs);
+
+      String *setname = Swig_name_set(iname);
+      setfname = Swig_name_wrapper(setname);
+      Setattr(n, "wrap:name", setfname);
       Printv(setf->def, "SWIGINTERN VALUE\n", setfname, "(VALUE self, ", NIL);
       Printf(setf->def, "VALUE _val) {");
-      tm = Swig_typemap_lookup_new("varin", n, name, 0);
+      tm = Swig_typemap_lookup("varin", n, name, 0);
       if (tm) {
 	Replaceall(tm, "$input", "_val");
 	Replaceall(tm, "$source", "_val");
 	Replaceall(tm, "$target", name);
 	/* Printv(setf->code,tm,"\n",NIL); */
-	emit_action_code(n, setf, tm);
+	emit_action_code(n, setf->code, tm);
       } else {
 	Swig_warning(WARN_TYPEMAP_VARIN_UNDEF, input_file, line_number, "Unable to set variable of type %s\n", SwigType_str(t, 0));
       }
@@ -1463,6 +2166,7 @@ public:
       Printv(setf->code, tab4, "return Qnil;\n", NIL);
       Printf(setf->code, "}\n");
       Wrapper_print(setf, f_wrappers);
+      Delete(setname);
     }
 
     /* define accessor method */
@@ -1502,6 +2206,7 @@ public:
       Delete(s);
       break;
     }
+    Delete(getname);
     Delete(getfname);
     Delete(setfname);
     DelWrapper(setf);
@@ -1524,7 +2229,7 @@ public:
       return name;
 
     if (islower(name[0])) {
-      name[0] = toupper(name[0]);
+      name[0] = (char)toupper(name[0]);
       Swig_warning(WARN_RUBY_WRONG_NAME, input_file, line_number, "Wrong %s name (corrected to `%s')\n", reason, name);
       return name;
     }
@@ -1558,9 +2263,9 @@ public:
       Printf(f_header, "static %s = %s;\n", SwigType_str(type, wname), value);
       value = Char(wname);
     }
-    String *tm = Swig_typemap_lookup_new("constant", n, value, 0);
+    String *tm = Swig_typemap_lookup("constant", n, value, 0);
     if (!tm)
-      tm = Swig_typemap_lookup_new("constcode", n, value, 0);
+      tm = Swig_typemap_lookup("constcode", n, value, 0);
     if (tm) {
       Replaceall(tm, "$source", value);
       Replaceall(tm, "$target", iname);
@@ -1697,9 +2402,9 @@ public:
   void handleMarkFuncDirective(Node *n) {
     String *markfunc = Getattr(n, "feature:markfunc");
     if (markfunc) {
-      Printf(klass->init, "c%s.mark = (void (*)(void *)) %s;\n", klass->name, markfunc);
+      Printf(klass->init, "SwigClass%s.mark = (void (*)(void *)) %s;\n", klass->name, markfunc);
     } else {
-      Printf(klass->init, "c%s.mark = 0;\n", klass->name);
+      Printf(klass->init, "SwigClass%s.mark = 0;\n", klass->name);
     }
   }
 
@@ -1709,10 +2414,10 @@ public:
   void handleFreeFuncDirective(Node *n) {
     String *freefunc = Getattr(n, "feature:freefunc");
     if (freefunc) {
-      Printf(klass->init, "c%s.destroy = (void (*)(void *)) %s;\n", klass->name, freefunc);
+      Printf(klass->init, "SwigClass%s.destroy = (void (*)(void *)) %s;\n", klass->name, freefunc);
     } else {
       if (klass->destructor_defined) {
-	Printf(klass->init, "c%s.destroy = (void (*)(void *)) free_%s;\n", klass->name, klass->mname);
+	Printf(klass->init, "SwigClass%s.destroy = (void (*)(void *)) free_%s;\n", klass->name, klass->mname);
       }
     }
   }
@@ -1723,9 +2428,9 @@ public:
   void handleTrackDirective(Node *n) {
     int trackObjects = GetFlag(n, "feature:trackobjects");
     if (trackObjects) {
-      Printf(klass->init, "c%s.trackObjects = 1;\n", klass->name);
+      Printf(klass->init, "SwigClass%s.trackObjects = 1;\n", klass->name);
     } else {
-      Printf(klass->init, "c%s.trackObjects = 0;\n", klass->name);
+      Printf(klass->init, "SwigClass%s.trackObjects = 0;\n", klass->name);
     }
   }
 
@@ -1734,6 +2439,9 @@ public:
    * ---------------------------------------------------------------------- */
 
   virtual int classHandler(Node *n) {
+    String* docs = docstring(n, AUTODOC_CLASS);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
 
     String *name = Getattr(n, "name");
     String *symname = Getattr(n, "sym:name");
@@ -1747,28 +2455,25 @@ public:
 
     Clear(klass->type);
     Printv(klass->type, Getattr(n, "classtype"), NIL);
-    Printv(f_wrappers, "swig_class c", valid_name, ";\n\n", NIL);
+    Printv(f_wrappers, "swig_class SwigClass", valid_name, ";\n\n", NIL);
     Printv(klass->init, "\n", tab4, NIL);
-    if (multipleInheritance) {
-      if (!useGlobalModule) {
-	Printv(klass->init, klass->vname, " = rb_define_class_under(", modvar, ", \"", klass->name, "\", rb_cObject);\n", NIL);
-      } else {
-	Printv(klass->init, klass->vname, " = rb_define_class(\"", klass->name, "\", rb_cObject);\n", NIL);
-      }
-      Printv(klass->init, klass->mImpl, " = rb_define_module_under(", klass->vname, ", \"Impl\");\n", NIL);
+
+    if (!useGlobalModule) {
+      Printv(klass->init, klass->vname, " = rb_define_class_under(", modvar, ", \"", klass->name, "\", $super);\n", NIL);
     } else {
-      if (!useGlobalModule) {
-	Printv(klass->init, klass->vname, " = rb_define_class_under(", modvar, ", \"", klass->name, "\", $super);\n", NIL);
-      } else {
-	Printv(klass->init, klass->vname, " = rb_define_class(\"", klass->name, "\", $super);\n", NIL);
-      }
+      Printv(klass->init, klass->vname, " = rb_define_class(\"", klass->name, 
+	     "\", $super);\n", NIL);
+    }
+
+    if (multipleInheritance) {
+      Printv(klass->init, klass->mImpl, " = rb_define_module_under(", klass->vname, ", \"Impl\");\n", NIL);
     }
 
     SwigType *tt = NewString(name);
     SwigType_add_pointer(tt);
     SwigType_remember(tt);
     String *tm = SwigType_manglestr(tt);
-    Printf(klass->init, "SWIG_TypeClientData(SWIGTYPE%s, (void *) &c%s);\n", tm, valid_name);
+    Printf(klass->init, "SWIG_TypeClientData(SWIGTYPE%s, (void *) &SwigClass%s);\n", tm, valid_name);
     Delete(tm);
     Delete(tt);
     Delete(valid_name);
@@ -1825,6 +2530,11 @@ public:
 
   virtual int memberfunctionHandler(Node *n) {
     current = MEMBER_FUNC;
+
+    String* docs = docstring(n, AUTODOC_METHOD);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
     Language::memberfunctionHandler(n);
     current = NO_CPP;
     return SWIG_OK;
@@ -1845,7 +2555,7 @@ public:
     String *name = Copy(symname);
     char *cname = Char(name);
     if (cname)
-      cname[0] = toupper(cname[0]);
+      cname[0] = (char)toupper(cname[0]);
     Printv(director_prot_ctor_code,
 	   "if ( $comparison ) { /* subclassed */\n",
 	   "  $director_new \n",
@@ -1864,7 +2574,7 @@ public:
 
     /* First wrap the allocate method */
     current = CONSTRUCTOR_ALLOCATE;
-    Swig_name_register((String_or_char *) "construct", (String_or_char *) "%c_allocate");
+    Swig_name_register((const_String_or_char_ptr ) "construct", (const_String_or_char_ptr ) "%c_allocate");
 
 
     Language::constructorHandler(n);
@@ -1891,9 +2601,15 @@ public:
       Delete(self);
     }
 
+
+
     /* Now do the instance initialize method */
+    String* docs = docstring(n, AUTODOC_CTOR);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
     current = CONSTRUCTOR_INITIALIZE;
-    Swig_name_register((String_or_char *) "construct", (String_or_char *) "new_%c");
+    Swig_name_register((const_String_or_char_ptr ) "construct", (const_String_or_char_ptr ) "new_%c");
     Language::constructorHandler(n);
 
     /* Restore original parameter list */
@@ -1901,7 +2617,7 @@ public:
     Swig_restore(n);
 
     /* Done */
-    Swig_name_unregister((String_or_char *) "construct");
+    Swig_name_unregister((const_String_or_char_ptr ) "construct");
     current = NO_CPP;
     klass->constructor_defined = 1;
     return SWIG_OK;
@@ -1915,7 +2631,7 @@ public:
 
     /* First wrap the allocate method */
     current = CONSTRUCTOR_ALLOCATE;
-    Swig_name_register((String_or_char *) "construct", (String_or_char *) "%c_allocate");
+    Swig_name_register((const_String_or_char_ptr ) "construct", (const_String_or_char_ptr ) "%c_allocate");
 
     return Language::copyconstructorHandler(n);
   }
@@ -1926,10 +2642,16 @@ public:
    * -------------------------------------------------------------------- */
 
   virtual int destructorHandler(Node *n) {
+
+    /* Do no spit free function if user defined his own for this class */
+    Node *pn = Swig_methodclass(n);
+    String *freefunc = Getattr(pn, "feature:freefunc");
+    if (freefunc) return SWIG_OK;
+
     current = DESTRUCTOR;
     Language::destructorHandler(n);
 
-    String *freefunc = NewString("");
+    freefunc = NewString("");
     String *freebody = NewString("");
     String *pname0 = Swig_cparm_name(0, 0);
 
@@ -1938,7 +2660,6 @@ public:
 
     /* Check to see if object tracking is activated for the class
        that owns this destructor. */
-    Node *pn = Swig_methodclass(n);
     if (GetFlag(pn, "feature:trackobjects")) {
       Printf(freebody, "SWIG_RubyRemoveTracking(%s);\n", pname0);
       Printv(freebody, tab4, NIL);
@@ -1950,11 +2671,11 @@ public:
 	Printv(f_wrappers, wrap, NIL);
       }
       /*    Printv(freebody, Swig_name_destroy(name), "(", pname0, ")", NIL); */
-      Printv(freebody, Getattr(n, "wrap:action"), NIL);
+      Printv(freebody, Getattr(n, "wrap:action"), "\n", NIL);
     } else {
       String *action = Getattr(n, "wrap:action");
       if (action) {
-	Printv(freebody, action, NIL);
+	Printv(freebody, action, "\n", NIL);
       } else {
 	/* In the case swig emits no destroy function. */
 	if (CPlusPlus)
@@ -1983,6 +2704,16 @@ public:
    * -------------------------------------------------------------------- */
 
   virtual int membervariableHandler(Node *n) {
+    String* docs = docstring(n, AUTODOC_GETTER);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
+    if (is_assignable(n)) {
+      String* docs = docstring(n, AUTODOC_SETTER);
+      Printf(f_wrappers, "%s", docs);
+      Delete(docs);
+    }
+
     current = MEMBER_VAR;
     Language::membervariableHandler(n);
     current = NO_CPP;
@@ -1996,6 +2727,10 @@ public:
    * ---------------------------------------------------------------------- */
 
   virtual int staticmemberfunctionHandler(Node *n) {
+    String* docs = docstring(n, AUTODOC_STATICFUNC);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
     current = STATIC_FUNC;
     Language::staticmemberfunctionHandler(n);
     current = NO_CPP;
@@ -2009,6 +2744,10 @@ public:
    * --------------------------------------------------------------------- */
 
   virtual int memberconstantHandler(Node *n) {
+    String* docs = docstring(n, AUTODOC_STATICFUNC);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
     current = CLASS_CONST;
     Language::memberconstantHandler(n);
     current = NO_CPP;
@@ -2020,6 +2759,16 @@ public:
    * --------------------------------------------------------------------- */
 
   virtual int staticmembervariableHandler(Node *n) {
+    String* docs = docstring(n, AUTODOC_GETTER);
+    Printf(f_wrappers, "%s", docs);
+    Delete(docs);
+
+    if (is_assignable(n)) {
+      String* docs = docstring(n, AUTODOC_SETTER);
+      Printf(f_wrappers, "%s", docs);
+      Delete(docs);
+    }
+
     current = STATIC_VAR;
     Language::staticmembervariableHandler(n);
     current = NO_CPP;
@@ -2122,7 +2871,7 @@ public:
    *
    * --------------------------------------------------------------- */
 
-  void exceptionSafeMethodCall(String *className, Node *n, Wrapper *w, int argc, String *args) {
+  void exceptionSafeMethodCall(String *className, Node *n, Wrapper *w, int argc, String *args, bool initstack) {
     Wrapper *body = NewWrapper();
     Wrapper *rescue = NewWrapper();
 
@@ -2133,7 +2882,7 @@ public:
     String *depthCountName = NewStringf("%s_%s_call_depth", className, methodName);
 
     // Check for an exception typemap of some kind
-    String *tm = Swig_typemap_lookup_new("director:except", n, "result", 0);
+    String *tm = Swig_typemap_lookup("director:except", n, "result", 0);
     if (!tm) {
       tm = Getattr(n, "feature:director:except");
     }
@@ -2147,18 +2896,18 @@ public:
 	Printf(body->def, "VALUE %s(VALUE data) {\n", bodyName);
 	Wrapper_add_localv(body, "args", "Swig::body_args *", "args", "= reinterpret_cast<Swig::body_args *>(data)", NIL);
 	Wrapper_add_localv(body, "result", "VALUE", "result", "= Qnil", NIL);
-	Printf(body->code, "%s++;\n", depthCountName, NIL);
+	Printf(body->code, "%s++;\n", depthCountName);
 	Printv(body->code, "result = rb_funcall2(args->recv, args->id, args->argc, args->argv);\n", NIL);
-	Printf(body->code, "%s--;\n", depthCountName, NIL);
+	Printf(body->code, "%s--;\n", depthCountName);
 	Printv(body->code, "return result;\n", NIL);
 	Printv(body->code, "}", NIL);
 
 	// Exception handler
 	Printf(rescue->def, "VALUE %s(VALUE args, VALUE error) {\n", rescueName);
 	Replaceall(tm, "$error", "error");
-	Printf(rescue->code, "if (%s == 1) ", depthCountName);
-	Printv(rescue->code, Str(tm), "\n", NIL);
 	Printf(rescue->code, "%s--;\n", depthCountName);
+	Printf(rescue->code, "if (%s == 0) ", depthCountName);
+	Printv(rescue->code, Str(tm), "\n", NIL);
 	Printv(rescue->code, "rb_exc_raise(error);\n", NIL);
 	Printv(rescue->code, "}", NIL);
       }
@@ -2177,7 +2926,8 @@ public:
       } else {
 	Printv(w->code, "args.argv = 0;\n", NIL);
       }
-      Printf(w->code, "result = rb_protect(PROTECTFUNC(%s), reinterpret_cast<VALUE>(&args), &status);\n", bodyName, rescueName);
+      Printf(w->code, "result = rb_protect(PROTECTFUNC(%s), reinterpret_cast<VALUE>(&args), &status);\n", bodyName);
+      if ( initstack ) Printf(w->code, "SWIG_RELEASE_STACK;\n");
       Printf(w->code, "if (status) {\n");
       Printf(w->code, "VALUE lastErr = rb_gv_get(\"$!\");\n");
       Printf(w->code, "%s(reinterpret_cast<VALUE>(&args), lastErr);\n", rescueName);
@@ -2194,6 +2944,7 @@ public:
       } else {
 	Printf(w->code, "result = rb_funcall(swig_get_self(), rb_intern(\"%s\"), 0, NULL);\n", methodName);
       }
+      if ( initstack ) Printf(w->code, "SWIG_RELEASE_STACK;\n");
     }
 
     // Clean up
@@ -2225,6 +2976,8 @@ public:
     int status = SWIG_OK;
     int idx;
     bool ignored_method = GetFlag(n, "feature:ignore") ? true : false;
+    bool asvoid = checkAttribute( n, "feature:numoutputs", "0") ? true : false;
+    bool initstack = checkAttribute( n, "feature:initstack", "1") ? true : false;
 
     if (Cmp(storage, "virtual") == 0) {
       if (Cmp(value, "0") == 0) {
@@ -2305,6 +3058,10 @@ public:
     Append(w->def, " {");
     Append(declaration, ";\n");
 
+    if (initstack && !(ignored_method && !pure_virtual)) {
+      Append(w->def, "\nSWIG_INIT_STACK;\n");
+    }
+
     /* declare method return value 
      * if the return value is a reference or const reference, a specialized typemap must
      * handle it, including declaration of c_result ($result).
@@ -2342,23 +3099,29 @@ public:
       Swig_typemap_attach_parms("directorin", l, 0);
       Swig_typemap_attach_parms("directorargout", l, w);
 
-      int num_arguments = emit_num_arguments(l);
-      int i;
       char source[256];
 
       int outputs = 0;
-      if (!is_void)
+      if (!is_void && !asvoid)
 	outputs++;
 
       /* build argument list and type conversion string */
-      for (i = 0, idx = 0, p = l; i < num_arguments; i++) {
+      idx = 0; p = l;
+      while ( p ) {
 
-	while (Getattr(p, "tmap:ignore")) {
+	if (Getattr(p, "tmap:ignore")) {
 	  p = Getattr(p, "tmap:ignore:next");
+	  continue;
 	}
 
 	if (Getattr(p, "tmap:directorargout") != 0)
 	  outputs++;
+
+	if ( checkAttribute( p, "tmap:in:numinputs", "0") )
+	  {
+	    p = Getattr(p, "tmap:in:next");
+	    continue;
+	  }
 
 	String *parameterName = Getattr(p, "name");
 	String *parameterType = Getattr(p, "type");
@@ -2450,7 +3213,7 @@ public:
       Printv(w->code, wrap_args, NIL);
 
       /* pass the method call on to the Ruby object */
-      exceptionSafeMethodCall(classname, n, w, idx, arglist);
+      exceptionSafeMethodCall(classname, n, w, idx, arglist, initstack);
 
       /*
        * Ruby method may return a simple object, or an Array of objects.
@@ -2466,7 +3229,7 @@ public:
       if (outputs > 1) {
 	Wrapper_add_local(w, "output", "VALUE output");
 	Printf(w->code, "if (TYPE(result) != T_ARRAY) {\n");
-	Printf(w->code, "throw Swig::DirectorTypeMismatchException(\"Ruby method failed to return an array.\");\n");
+	Printf(w->code, "Ruby_DirectorTypeMismatchException(\"Ruby method failed to return an array.\");\n");
 	Printf(w->code, "}\n");
       }
 
@@ -2480,15 +3243,10 @@ public:
 	 * It's not just me, similar silliness also occurs in Language::cDeclaration().
 	 */
 	Setattr(n, "type", return_type);
-	tm = Swig_typemap_lookup_new("directorout", n, "result", w);
+	tm = Swig_typemap_lookup("directorout", n, "result", w);
 	Setattr(n, "type", type);
-	if (tm == 0) {
-	  String *name = NewString("result");
-	  tm = Swig_typemap_search("directorout", return_type, name, NULL);
-	  Delete(name);
-	}
 	if (tm != 0) {
-	  if (outputs > 1) {
+	  if (outputs > 1 && !asvoid ) {
 	    Printf(w->code, "output = rb_ary_entry(result, %d);\n", idx++);
 	    Replaceall(tm, "$input", "output");
 	  } else {

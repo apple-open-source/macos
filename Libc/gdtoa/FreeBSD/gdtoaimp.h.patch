@@ -1,6 +1,6 @@
---- gdtoaimp.h.orig	2008-10-28 11:36:44.000000000 -0700
-+++ gdtoaimp.h	2008-10-28 12:01:07.000000000 -0700
-@@ -170,6 +170,91 @@
+--- gdtoaimp.h.orig	2010-01-29 16:43:20.000000000 -0800
++++ gdtoaimp.h	2010-02-01 10:58:41.000000000 -0800
+@@ -172,6 +172,91 @@
  
  #ifndef GDTOAIMP_H_INCLUDED
  #define GDTOAIMP_H_INCLUDED
@@ -92,7 +92,7 @@
  #include "gdtoa.h"
  #include "gd_qnan.h"
  #ifdef Honor_FLT_ROUNDS
-@@ -181,8 +266,11 @@
+@@ -183,8 +268,11 @@
  #define Bug(x) {fprintf(stderr, "%s\n", x); exit(1);}
  #endif
  
@@ -104,7 +104,7 @@
  
  #ifdef KR_headers
  #define Char char
-@@ -196,6 +284,10 @@
+@@ -198,6 +286,10 @@
  #define MALLOC malloc
  #endif
  
@@ -115,7 +115,7 @@
  #undef IEEE_Arith
  #undef Avoid_Underflow
  #ifdef IEEE_MC68k
-@@ -455,10 +547,14 @@
+@@ -446,10 +538,14 @@
  #define ALL_ON 0xffff
  #endif
  
@@ -132,9 +132,9 @@
 +	if (__isthreaded) _SPINUNLOCK(&__gdtoa_locks[n]);	\
 +} while(0)
  
- #define Kmax 15
+ #define Kmax 9
  
-@@ -481,52 +577,6 @@
+@@ -472,52 +568,6 @@
  #define Bcopy(x,y) memcpy(&x->sign,&y->sign,y->wds*sizeof(ULong) + 2*sizeof(int))
  #endif /* NO_STRING_H */
  
@@ -187,7 +187,7 @@
   extern char *dtoa_result;
   extern CONST double bigtens[], tens[], tinytens[];
   extern unsigned char hexdig[];
-@@ -549,7 +599,7 @@
+@@ -540,7 +590,7 @@
   extern char *dtoa ANSI((double d, int mode, int ndigits,
  			int *decpt, int *sign, char **rve));
   extern char *g__fmt ANSI((char*, char*, char*, int, ULong, size_t));
@@ -196,17 +196,90 @@
   extern void hexdig_init_D2A(Void);
   extern int hexnan ANSI((CONST char**, FPI*, ULong*));
   extern int hi0bits_D2A ANSI((ULong));
-@@ -566,11 +616,12 @@
-  extern double ratio ANSI((Bigint*, Bigint*));
-  extern void rshift ANSI((Bigint*, int));
-  extern char *rv_alloc ANSI((int));
-- extern Bigint *s2b ANSI((CONST char*, int, int, ULong));
-+ extern Bigint *s2b ANSI((CONST char*, int, int, ULong, int));
-  extern Bigint *set_ones ANSI((Bigint*, int));
+@@ -562,6 +612,7 @@
   extern char *strcp ANSI((char*, const char*));
   extern int strtoIg ANSI((CONST char*, char**, FPI*, Long*, Bigint**, int*));
   extern double strtod ANSI((const char *s00, char **se));
 + extern double strtod_l ANSI((const char *s00, char **se, locale_t));
   extern Bigint *sum ANSI((Bigint*, Bigint*));
   extern int trailz ANSI((Bigint*));
-  extern double ulp ANSI((double));
+  extern double ulp ANSI((U*));
+@@ -613,4 +664,78 @@
+ #define SI 0
+ #endif
+ 
++/*
++ * For very large strings, strtod and family might exhaust memory in tight
++ * memory conditions (especially in 32-bits).  Such large strings could also
++ * tie up a CPU for minutes at a time.  Either can be considered a denial-of-
++ * service vunerability.
++ *
++ * To fix, we limit the string size to the maximum we need to calculate the
++ * rounding point correctly.  The longest string corresponding to the exact
++ * value of a floating point number occuring at 1.f...f p^-n, where n is
++ * the (absolute value of the) smallest exponent for a normalize number.
++ *
++ * To calculate this number of decimal digits, we use the formula:
++ *
++ * (n + m) - int(n * log10(2)) + 3
++ *
++ * where m is the number of bits in the f...f fraction.  This is the number
++ * of decimal digits for the least significant bit minus the number of leading
++ * zeros for the most significant bit (the '1'), plus a few to compensate for
++ * an extra digits due to the full 1.f...f value, an extra digit for the
++ * mid-way point for rounding and an extra guard digit.
++ *
++ * Using the approximation log10(2) ~ 1233 / (2^12), converting to the fpi.emin
++ * and fpi.nbits values, we get:
++ *
++ * -fpi.emin -((1233 * (-fpi.nbits - fpi.emin)) >> 12) + 3
++ *
++ * Finally, we add an extra digit, either '1' or '0', to represent whether
++ * to-be-truncated digits contain a non-zero digit, or are all zeros,
++ * respectively.
++ *
++ * The truncated string is allocated on the heap, so code using
++ * TRUNCATE_DIGITS() will need to free that space when no longer needed.
++ * Pass a char * as the second argument, initialized to NULL; if its value
++ * becomes non-NULL, memory was allocated.
++ */
++#define LOG2NUM 1233
++#define LOG2DENOMSHIFT 12
++#define TRUNCATEDIGITS(_nbits, _emin)	(-(_emin) - ((LOG2NUM * (-(_nbits) - (_emin))) >> LOG2DENOMSHIFT) + 3)
++
++#define TRUNCATE_DIGITS(_s0, _temp, _nd, _nd0, _nf, _nbits, _emin, _dplen) \
++{ \
++	int _maxdigits = TRUNCATEDIGITS((_nbits), (_emin)); \
++	if ((_nd) > _maxdigits && \
++	  ((_temp) = MALLOC(_maxdigits + (_dplen) + 2)) != NULL) { \
++		char *_tp = (_temp) + _maxdigits; \
++		if ((_nd0) >= _maxdigits) { \
++			memcpy((_temp), (_s0), _maxdigits); \
++			if ((_nd) > (_nd0)) *_tp++ = '1'; \
++			else { \
++			    const char *_q = (_s0) + _maxdigits; \
++			    int _n = (_nd0) - _maxdigits; \
++			    for(; _n > 0 && *_q == '0'; _n--, _q++) {} \
++			    *_tp++ = _n > 0 ? '1' : '0'; \
++			    } \
++			(_nf) = -((_nd0) - (_maxdigits + 1)); \
++			(_nd0) = _maxdigits + 1; \
++			} \
++		else if ((_nd0) == 0) { \
++			memcpy((_temp), (_s0), _maxdigits); \
++			*_tp++ = '1'; \
++			(_nf) -= ((_nd) - (_maxdigits + 1)); \
++			} \
++		else { \
++			memcpy((_temp), (_s0), _maxdigits + (_dplen)); \
++			_tp += (_dplen); \
++			*_tp++ = '1'; \
++			(_nf) = (_maxdigits + 1) - (_nd0); \
++			} \
++		*_tp = 0; \
++		(_nd) = _maxdigits + 1; \
++		(_s0) = (_temp); \
++		} \
++	}
++
+ #endif /* GDTOAIMP_H_INCLUDED */

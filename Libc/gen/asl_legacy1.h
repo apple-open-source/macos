@@ -62,6 +62,7 @@
 #include <stdint.h>
 #include <unistd.h>
 #include <asl.h>
+#include <Availability.h>
 
 typedef struct
 {
@@ -78,9 +79,9 @@ typedef struct
 	FILE *db;
 } asl_legacy1_t;
 
-uint32_t asl_legacy1_open(const char *path, asl_legacy1_t **s);
-uint32_t asl_legacy1_close(asl_legacy1_t *s);
-uint32_t asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, aslmsg *msg);
-uint32_t asl_legacy1_match(asl_legacy1_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction);
+uint32_t asl_legacy1_open(const char *path, asl_legacy1_t **s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_legacy1_close(asl_legacy1_t *s) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_legacy1_fetch(asl_legacy1_t *s, uint64_t msgid, aslmsg *msg) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
+uint32_t asl_legacy1_match(asl_legacy1_t *s, aslresponse query, aslresponse *res, uint64_t *last_id, uint64_t start_id, uint32_t count, int32_t direction) __OSX_AVAILABLE_STARTING(__MAC_10_5, __IPHONE_2_0);
 
 #endif /*__ASL_LEGACY1_H__*/

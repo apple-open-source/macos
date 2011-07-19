@@ -1,0 +1,34 @@
+NTLM
+====
+
+There are four authentication submethods inside the NTLM:
+
+ 1. LM: server nonce only, highly vulnerable to MITM and rogue server attacks.
+ 2. NTLM: different algorithm, almost equally vulnerable as LM today.
+ 3. NTLM2: server and client nonce, but MITM can force downgrade to NTLM/LM.
+ 4. NTLMv2: server and client nonce, MITM can't force downgrade.
+
+NTLM <password scheme> [Authentication.PasswordSchemes.txt] is required for
+NTLM, NTLM2 and NTLMv2.
+
+NTLMv2 can not be negotiated. It must be explicitly enabled on the client side
+by setting registry key below to at least 3:
+
+ * Win9x:
+   'HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\LSA\LMCompatibility'
+ * WinNT:
+   'HKEY_LOCAL_MACHINE\System\CurrentControlSet\Control\LSA\LMCompatibilityLevel'
+
+Dovecot's NTLM logic is:
+
+ 1. If we have only LM password scheme, try LM authentication;
+ 2. If client sends LM response only (some very old clients do it), try LM too;
+
+ 3. If NTLMv2 is guessed (using client response length), try NTLMv2;
+ 4. If NTLM2 was negotiated, try it;
+ 5. Otherwise try NTLM.
+
+For more information about NTLM internals, see http://ubiqx.org/cifs/ and
+http://davenport.sourceforge.net/ntlm.html
+
+(This file was created from the wiki on 2011-05-11 04:42)

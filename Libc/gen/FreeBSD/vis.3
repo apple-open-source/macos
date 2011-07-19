@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)vis.3	8.1 (Berkeley) 6/9/93
-.\" $FreeBSD: src/lib/libc/gen/vis.3,v 1.26 2004/07/17 12:27:25 tjr Exp $
+.\" $FreeBSD: src/lib/libc/gen/vis.3,v 1.30 2007/01/09 00:27:56 imp Exp $
 .\"
-.Dd March 21, 2004
+.Dd April 9, 2006
 .Dt VIS 3
 .Os
 .Sh NAME
@@ -231,16 +227,27 @@ Represents Meta-space.
 Use C-style backslash sequences to represent standard non-printable
 characters.
 The following sequences are used to represent the indicated characters:
-.Bd -unfilled -offset indent
-.Li \ea Tn  - BEL No (007)
-.Li \eb Tn  - BS No (010)
-.Li \ef Tn  - NP No (014)
-.Li \en Tn  - NL No (012)
-.Li \er Tn  - CR No (015)
-.Li \et Tn  - HT No (011)
-.Li \ev Tn  - VT No (013)
-.Li \e0 Tn  - NUL No (000)
-.Ed
+.Pp
+.Bl -tag -width ".Li \e0" -offset indent -compact
+.It Li \ea
+.Dv BEL No (007)
+.It Li \eb
+.Dv BS No (010)
+.It Li \ef
+.Dv NP No (014)
+.It Li \en
+.Dv NL No (012)
+.It Li \er
+.Dv CR No (015)
+.It Li \es
+.Dv SP No (040)
+.It Li \et
+.Dv HT No (011)
+.It Li \ev
+.Dv VT No (013)
+.It Li \e0
+.Dv NUL No (000)
+.El
 .Pp
 When using this format, the
 .Fa nextc

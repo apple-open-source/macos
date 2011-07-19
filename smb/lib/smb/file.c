@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,29 +33,11 @@
  *
  * $Id: file.c,v 1.4 2004/12/13 00:25:21 lindak Exp $
  */
-#include <sys/param.h>
-#include <sys/sysctl.h>
-#include <sys/ioctl.h>
-#include <sys/time.h>
-#include <sys/mount.h>
-#include <fcntl.h>
-#include <ctype.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <pwd.h>
-#include <grp.h>
-#include <unistd.h>
-
-#include <sys/types.h>
-
 #include <netsmb/smb_lib.h>
 #include <netsmb/smb_conn.h>
-#include <cflib.h>
 
 int
-smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, char *dst)
+smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, uint32_t count, char *dst)
 {
 	struct smbioc_rw rwrq;
 
@@ -71,8 +53,8 @@ smb_read(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, char *dst
 	return rwrq.ioc_cnt;
 }
 
-int
-smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, const char *src)
+int 
+smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, uint32_t count, const char *src)
 {
 	struct smbioc_rw rwrq;
 
@@ -82,6 +64,10 @@ smb_write(struct smb_ctx *ctx, smbfh fh, off_t offset, u_int32_t count, const ch
 	rwrq.ioc_base = (char *)src;
 	rwrq.ioc_cnt = count;
 	rwrq.ioc_offset = offset;
+	/* 
+	 * Curretly we don't support Write Modes from user land. We do support paasing
+	 * it down, but until we see a requirement lets leave it zero out.
+	 */
 	if (smb_ioctl_call(ctx->ct_fd, SMBIOC_WRITE, &rwrq) == -1) {
 		return -1;
 	}

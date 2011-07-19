@@ -291,10 +291,11 @@ main(int argc, char **argv)
 	}
 
 	if (argc == 1) {
-		SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available.\n\n"), newSet);
+		SCPrint(TRUE, stderr, CFSTR("Set \"%@\" not available.\n"), newSet);
+		exit(1);
 	}
 
-	SCPrint(TRUE, stderr,
+	SCPrint(TRUE, stdout,
 		CFSTR("Defined sets include:%s\n"),
 		(currentMatched > 0) ? " (* == current set)" : "");
 
@@ -303,7 +304,7 @@ main(int argc, char **argv)
 		CFDictionaryRef	dict = (CFDictionaryRef)setVals[i];
 		CFStringRef	udn  = CFDictionaryGetValue(dict, kSCPropUserDefinedName);
 
-		SCPrint(TRUE, stderr,
+		SCPrint(TRUE, stdout,
 			CFSTR(" %s %@\t(%@)\n"),
 			((currentMatched > 0) && CFEqual(key, current)) ? "*" : " ",
 			key,
@@ -312,19 +313,19 @@ main(int argc, char **argv)
 
 	switch (currentMatched) {
 		case -2 :
-			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet not defined.\n"));
+			SCPrint(TRUE, stdout, CFSTR("\nCurrent set not defined.\n"));
 			break;
 		case -1 :
-			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet \"%@\" may not be valid\n"), current);
+			SCPrint(TRUE, stdout, CFSTR("\nCurrent set \"%@\" may not be valid\n"), current);
 			break;
 		case  0 :
-			SCPrint(TRUE, stderr, CFSTR("\nCurrentSet \"%@\" not valid\n"), current);
+			SCPrint(TRUE, stdout, CFSTR("\nCurrent set \"%@\" not valid\n"), current);
 			break;
 		default :
 			break;
 	}
 
-	exit (1);
+	exit (0);
 
     found :
 

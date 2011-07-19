@@ -29,6 +29,7 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameLoaderStateMachine.h"
 #include "FrameLoaderClient.h"
 #include "Logging.h"
 #include "ResourceResponse.h"
@@ -49,7 +50,9 @@ static const double finalProgressValue = 0.9; // 1.0 - initialProgressValue
 
 static const int progressItemDefaultEstimatedLength = 1024 * 16;
 
-struct ProgressItem : Noncopyable {
+struct ProgressItem {
+    WTF_MAKE_NONCOPYABLE(ProgressItem); WTF_MAKE_FAST_ALLOCATED;
+public:
     ProgressItem(long long length) 
         : bytesReceived(0)
         , estimatedLength(length) { }
@@ -58,9 +61,10 @@ struct ProgressItem : Noncopyable {
     long long estimatedLength;
 };
 
+unsigned long ProgressTracker::s_uniqueIdentifier = 0;
+
 ProgressTracker::ProgressTracker()
-    : m_uniqueIdentifier(0)
-    , m_totalPageAndResourceBytesToLoad(0)
+    : m_totalPageAndResourceBytesToLoad(0)
     , m_totalBytesReceived(0)
     , m_lastNotifiedProgressValue(0)
     , m_lastNotifiedProgressTime(0)
@@ -99,7 +103,7 @@ void ProgressTracker::reset()
 
 void ProgressTracker::progressStarted(Frame* frame)
 {
-    LOG(Progress, "Progress started (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->name().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
+    LOG(Progress, "Progress started (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->uniqueName().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
 
     frame->loader()->client()->willChangeEstimatedProgress();
     
@@ -117,7 +121,7 @@ void ProgressTracker::progressStarted(Frame* frame)
 
 void ProgressTracker::progressCompleted(Frame* frame)
 {
-    LOG(Progress, "Progress completed (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->name().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
+    LOG(Progress, "Progress completed (%p) - frame %p(\"%s\"), value %f, tracked frames %d, originating frame %p", this, frame, frame->tree()->uniqueName().string().utf8().data(), m_progressValue, m_numProgressTrackedFrames, m_originatingProgressFrame.get());
     
     if (m_numProgressTrackedFrames <= 0)
         return;
@@ -168,7 +172,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const Resource
         item->bytesReceived = 0;
         item->estimatedLength = estimatedLength;
     } else
-        m_progressItems.set(identifier, new ProgressItem(estimatedLength));
+        m_progressItems.set(identifier, adoptPtr(new ProgressItem(estimatedLength)).leakPtr());
 }
 
 void ProgressTracker::incrementProgress(unsigned long identifier, const char*, int length)
@@ -204,7 +208,7 @@ void ProgressTracker::incrementProgress(unsigned long identifier, const char*, i
     // For documents that use WebCore's layout system, treat first layout as the half-way point.
     // FIXME: The hasHTMLView function is a sort of roundabout way of asking "do you use WebCore's layout system".
     bool useClampedMaxProgress = frame->loader()->client()->hasHTMLView()
-        && !frame->loader()->firstLayoutDone();
+        && !frame->loader()->stateMachine()->firstLayoutDone();
     double maxProgressValue = useClampedMaxProgress ? 0.5 : finalProgressValue;
     increment = (maxProgressValue - m_progressValue) * percentOfRemainingBytes;
     m_progressValue += increment;
@@ -239,7 +243,7 @@ void ProgressTracker::completeProgress(unsigned long identifier)
 {
     ProgressItem* item = m_progressItems.get(identifier);
     
-    // FIXME: Can this happen?
+    // This can happen if a load fails without receiving any response data.
     if (!item)
         return;
     
@@ -254,7 +258,7 @@ void ProgressTracker::completeProgress(unsigned long identifier)
 
 unsigned long ProgressTracker::createUniqueIdentifier()
 {
-    return ++m_uniqueIdentifier;
+    return ++s_uniqueIdentifier;
 }
 
 

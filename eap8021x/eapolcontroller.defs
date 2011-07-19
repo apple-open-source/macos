@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 - 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,14 +51,6 @@ type xmlDataOut = ^ array [] of MACH_MSG_TYPE_BYTE
 type if_name = array[32] of char
 	ctype : if_name_t;
 
-/*
- * additional types
- */
-/*
-type task_move_send_t = MACH_MSG_TYPE_MOVE_SEND
-	ctype: mach_port_t;
-*/
-
 /* 
  * routines called by UI/control to start/stop/update an 802.1x client process
  */
@@ -71,6 +63,7 @@ routine eapolcontroller_start	(	server		: mach_port_t;
 					if_name		: if_name;
 					config_data	: xmlData;
 					bootstrap	: bootstrap_t;
+					au_session	: mach_port_t;
 				 out	result		: int);
 
 routine eapolcontroller_stop	(	server		: mach_port_t;
@@ -132,6 +125,7 @@ routine eapolcontroller_client_attach (	server		: mach_port_t;
 				 out	session		: mach_port_move_send_t;
 				 out    control_data	: xmlDataOut, dealloc;
 				 out	bootstrap	: bootstrap_t;
+				 out	au_session	: mach_port_t;		
 				 out	result		: int);
 
 /*
@@ -151,4 +145,30 @@ routine eapolcontroller_client_report_status(server	: mach_port_t;
 
 routine eapolcontroller_client_force_renew(server	: mach_port_t;
 				 out	result		: int);
+
+#if ! TARGET_OS_EMBEDDED
+routine eapolcontroller_client_user_cancelled(server	: mach_port_t;
+				 out	result		: int);
+skip;
+skip;
+skip;
+skip;
+skip;
+skip;
+skip;
+skip;
+skip;
+skip;
+
+/*
+ * More routines called by UI/control.
+ */
+routine eapolcontroller_copy_autodetect_info	( server : mach_port_t;
+				 out	info		: xmlDataOut, dealloc;
+				 out	result		: int);
+
+routine eapolcontroller_did_user_cancel(server	: mach_port_t;
+     				if_name		: if_name;
+			 out	user_cancelled	: boolean_t);
+#endif /* ! TARGET_OS_EMBEDDED */
 

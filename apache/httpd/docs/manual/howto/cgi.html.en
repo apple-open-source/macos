@@ -334,6 +334,15 @@
       <p>In addition, if your CGI program depends on other <a href="#env">environment variables</a>, you will need to
       assure that those variables are passed by Apache.</p>
 
+      <div class="warning">
+      When editing CGI scripts on Windows, end-of-line characters may be
+      appended to the interpreter path. Ensure that files are then
+      transferred to the server in ASCII mode. Failure to do so may
+      result in "Command not found" warnings from the OS, due to the
+      unrecognized end-of-line character being interpreted as a part of
+      the interpreter filename.
+      </div>
+
     
 
     <h3><a name="syntaxerrors" id="syntaxerrors">Program errors</a></h3>
@@ -429,8 +438,9 @@
 
       <p>These variables are available to the CGI programmer, and
       are half of the story of the client-server communication. The
-      complete list of required variables is at 
-      <a href="http://hoohoo.ncsa.uiuc.edu/cgi/env.html">http://hoohoo.ncsa.uiuc.edu/cgi/env.html</a>.</p>
+      complete list of required variables is at
+      <a href="http://www.ietf.org/rfc/rfc3875">Common Gateway
+      Interface RFC</a>.</p>
 
       <p>This simple Perl CGI program will display all of the
       environment variables that are being passed around. Two
@@ -519,19 +529,14 @@
 <h2><a name="moreinfo" id="moreinfo">For more information</a></h2>
     
 
-    <p>There are a large number of CGI resources on the web. You
-    can discuss CGI problems with other users on the Usenet group
-    <a href="news:comp.infosystems.www.authoring.cgi">comp.infosystems.www.authoring.cgi</a>. And the -servers mailing
-    list from the HTML Writers Guild is a great source of answers
-    to your questions. You can find out more at 
+    <p>There are a large number of CGI resources on the web.
+    The list from the HTML Writers Guild is a great source of answers
+    to your questions. You can find out more at
     <a href="http://www.hwg.org/lists/hwg-servers/">http://www.hwg.org/lists/hwg-servers/</a>.</p>
 
-    <p>And, of course, you should probably read the CGI
-    specification, which has all the details on the operation of
-    CGI programs. You can find the original version at the 
-    <a href="http://hoohoo.ncsa.uiuc.edu/cgi/interface.html">NCSA</a> and there is an updated draft at the 
-    <a href="http://www.w3.org/CGI/">Common Gateway
-    Interface RFC project</a>.</p>
+    <p>The current CGI specification is available in the
+    <a href="http://www.ietf.org/rfc/rfc3875">Common Gateway
+    Interface RFC</a>.</p>
 
     <p>When you post a question about a CGI problem that you're
     having, whether to a mailing list, or to a newsgroup, make sure
@@ -550,6 +555,6 @@
 <a href="../ja/howto/cgi.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/howto/cgi.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br />Licensed under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a>.</p>
 <p class="menu"><a href="../mod/">Modules</a> | <a href="../mod/directives.html">Directives</a> | <a href="../faq/">FAQ</a> | <a href="../glossary.html">Glossary</a> | <a href="../sitemap.html">Sitemap</a></p></div>
 </body></html>

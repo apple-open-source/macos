@@ -75,11 +75,13 @@
 #define	unlikely(x)	__builtin_expect((bool)(x), false)
 
 struct ldcred {
-	uid_t   euid;
-	uid_t   uid;
-	gid_t   egid;
-	gid_t   gid;
-	pid_t   pid;
+	uid_t		euid;
+	uid_t		uid;
+	gid_t		egid;
+	gid_t		gid;
+	pid_t		pid;
+	au_asid_t	asid;
+	mach_port_t	asport;
 };
 
 /*
@@ -105,10 +107,12 @@ extern char g_my_label[128];
 extern bool g_shutdown_debugging;
 extern bool g_verbose_boot;
 extern bool g_use_gmalloc;
+extern bool g_malloc_log_stacks;
 extern bool g_log_per_user_shutdown;
 extern bool g_log_strict_usage;
 extern bool g_embedded_shutdown_log;
 extern bool g_runtime_busy_time;
+extern bool g_trap_sigkill_bugs;
 extern size_t runtime_busy_cnt;
 extern int32_t g_sync_frequency;
 extern pid_t g_wsp;
@@ -141,7 +145,6 @@ struct ldcred *runtime_get_caller_creds(void);
 
 const char *signal_to_C_name(unsigned int sig);
 const char *reboot_flags_to_C_names(unsigned int flags);
-const char *proc_flags_to_C_names(unsigned int flags);
 
 int kevent_bulk_mod(struct kevent *kev, size_t kev_cnt);
 int kevent_mod(uintptr_t ident, short filter, u_short flags, u_int fflags, intptr_t data, void *udata);
@@ -188,6 +191,7 @@ kern_return_t launchd_mport_create_recv(mach_port_t *name);
 kern_return_t launchd_mport_deallocate(mach_port_t name);
 kern_return_t launchd_mport_make_send(mach_port_t name);
 kern_return_t launchd_mport_copy_send(mach_port_t name);
+kern_return_t launchd_mport_make_send_once(mach_port_t name, mach_port_t *so);
 kern_return_t launchd_mport_close_recv(mach_port_t name);
 
 #endif

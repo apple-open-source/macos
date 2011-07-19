@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 /********************************************************************************
@@ -33,27 +33,31 @@
 #include "cbiapts.h"
 
 #define TEST_ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
-log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));}}
+log_data_err("Failure at file %s, line %d, error = %s (Are you missing data?)\n", __FILE__, __LINE__, u_errorName(status));}}
 
 #define TEST_ASSERT(expr) {if ((expr)==FALSE) { \
-log_err("Test Failure at file %s, line %d\n", __FILE__, __LINE__);}}
+log_data_err("Test Failure at file %s, line %d (Are you missing data?)\n", __FILE__, __LINE__);}}
 
 static void TestBreakIteratorSafeClone(void);
 static void TestBreakIteratorRules(void);
 static void TestBreakIteratorRuleError(void);
 static void TestBreakIteratorStatusVec(void);
 static void TestBreakIteratorUText(void);
+static void TestBreakIteratorTailoring(void);
 
 void addBrkIterAPITest(TestNode** root);
 
 void addBrkIterAPITest(TestNode** root)
 {
+#if !UCONFIG_NO_FILE_IO
     addTest(root, &TestBreakIteratorCAPI, "tstxtbd/cbiapts/TestBreakIteratorCAPI");
     addTest(root, &TestBreakIteratorSafeClone, "tstxtbd/cbiapts/TestBreakIteratorSafeClone");
+    addTest(root, &TestBreakIteratorUText, "tstxtbd/cbiapts/TestBreakIteratorUText");
+#endif
     addTest(root, &TestBreakIteratorRules, "tstxtbd/cbiapts/TestBreakIteratorRules");
     addTest(root, &TestBreakIteratorRuleError, "tstxtbd/cbiapts/TestBreakIteratorRuleError");
     addTest(root, &TestBreakIteratorStatusVec, "tstxtbd/cbiapts/TestBreakIteratorStatusVec");
-    addTest(root, &TestBreakIteratorUText, "tstxtbd/cbiapts/TestBreakIteratorUText");
+    addTest(root, &TestBreakIteratorTailoring, "tstxtbd/cbiapts/TestBreakIteratorTailoring");
 }
 
 #define CLONETEST_ITERATOR_COUNT 2
@@ -155,7 +159,7 @@ static void TestBreakIteratorCAPI()
         log_data_err("Check your data - it doesn't seem to be around\n");
         return;
     } else if(U_FAILURE(status)){
-        log_err("FAIL: Error in ubrk_open() for word breakiterator: %s\n", myErrorName(status));
+        log_err_status(status, "FAIL: Error in ubrk_open() for word breakiterator: %s\n", myErrorName(status));
     }
     else{
         log_verbose("PASS: Successfully opened  word breakiterator\n");
@@ -163,7 +167,7 @@ static void TestBreakIteratorCAPI()
     
     sentence     = ubrk_open(UBRK_SENTENCE, "en_US", text, u_strlen(text), &status);
     if(U_FAILURE(status)){
-        log_err("FAIL: Error in ubrk_open() for sentence breakiterator: %s\n", myErrorName(status));
+        log_err_status(status, "FAIL: Error in ubrk_open() for sentence breakiterator: %s\n", myErrorName(status));
         return;
     }
     else{
@@ -513,7 +517,7 @@ static UBreakIterator * testOpenRules(char *rules) {
                         &parseErr, &status);
     
     if (U_FAILURE(status)) {
-        log_err("FAIL: ubrk_openRules: ICU Error \"%s\"\n", u_errorName(status));
+        log_data_err("FAIL: ubrk_openRules: ICU Error \"%s\" (Are you missing data?)\n", u_errorName(status));
         bi = 0;
     };
     freeToUCharStrings(&strCleanUp);
@@ -598,7 +602,7 @@ static void TestBreakIteratorRuleError() {
         ubrk_close(bi);
     } else {
         if (parseErr.line != 3 || parseErr.offset != 8) {
-            log_err("FAIL: incorrect error position reported. Got line %d, char %d, expected line 3, char 7\n",
+            log_data_err("FAIL: incorrect error position reported. Got line %d, char %d, expected line 3, char 7 (Are you missing data?)\n",
                 parseErr.line, parseErr.offset);
         }
     }
@@ -675,7 +679,7 @@ static void TestBreakIteratorUText(void) {
 
     bi = ubrk_open(UBRK_WORD, "en_US", NULL, 0, &status);
     if (U_FAILURE(status)) {
-        log_err("Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
+        log_err_status(status, "Failure at file %s, line %d, error = %s\n", __FILE__, __LINE__, u_errorName(status));
         return;
     }
 
@@ -703,6 +707,109 @@ static void TestBreakIteratorUText(void) {
     utext_close(ut);
 }
 
+/*
+ *  static void TestBreakIteratorTailoring(void);
+ *
+ *         Test break iterator tailorings from CLDR data.
+ */
 
+/* Thai/Lao grapheme break tailoring */
+static const UChar thTest[] = { 0x0020, 0x0E40, 0x0E01, 0x0020,
+                                0x0E01, 0x0E30, 0x0020, 0x0E01, 0x0E33, 0x0020, 0 };
+static const int32_t thTestOffs_enFwd[] = {  1,      3,  4,      6,  7,      9, 10 };
+static const int32_t thTestOffs_thFwd[] = {  1,  2,  3,  4,  5,  6,  7,      9, 10 };
+static const int32_t thTestOffs_enRev[] = {  9,      7,  6,      4,  3,      1,  0 };
+static const int32_t thTestOffs_thRev[] = {  9,      7,  6,  5,  4,  3,  2,  1,  0 };
+
+/* Hebrew line break tailoring, for cldrbug 3028 */
+static const UChar heTest[] = { 0x0020, 0x002D, 0x0031, 0x0032, 0x0020,
+                                0x0061, 0x002D, 0x006B, 0x0020,
+                                0x0061, 0x0300, 0x2010, 0x006B, 0x0020,
+                                0x05DE, 0x05D4, 0x002D, 0x0069, 0x0020,
+                                0x05D1, 0x05BC, 0x2010, 0x0047, 0x0020, 0 };
+static const int32_t heTestOffs_enFwd[] = {  1,  5,  7,  9, 12, 14, 17, 19, 22, 24 };
+static const int32_t heTestOffs_heFwd[] = {  1,  5,  7,  9, 12, 14,     19,     24 };
+static const int32_t heTestOffs_enRev[] = { 22, 19, 17, 14, 12,  9,  7,  5,  1,  0 };
+static const int32_t heTestOffs_heRev[] = {     19,     14, 12,  9,  7,  5,  1,  0 };
+
+/* Finnish line break tailoring, for cldrbug 3029 */
+static const UChar fiTest[] = { /* 00 */ 0x0020, 0x002D, 0x0031, 0x0032, 0x0020,
+                                /* 05 */ 0x0061, 0x002D, 0x006B, 0x0020,
+                                /* 09 */ 0x0061, 0x0300, 0x2010, 0x006B, 0x0020,
+                                /* 14 */ 0x0061, 0x0020, 0x002D, 0x006B, 0x0020,
+                                /* 19 */ 0x0061, 0x0300, 0x0020, 0x2010, 0x006B, 0x0020, 0 };
+static const int32_t fiTestOffs_enFwd[] =  {  1,  5,  7,  9, 12, 14, 16, 17, 19, 22, 23, 25 };
+static const int32_t fiTestOffs_fiFwd[] =  {  1,  5,  7,  9, 12, 14, 16,     19, 22,     25 };
+static const int32_t fiTestOffs_enRev[] =  { 23, 22, 19, 17, 16, 14, 12,  9,  7,  5,  1,  0 };
+static const int32_t fiTestOffs_fiRev[] =  {     22, 19,     16, 14, 12,  9,  7,  5,  1,  0 };
+
+typedef struct {
+    const char * locale;
+    UBreakIteratorType type;
+    const UChar * test;
+    const int32_t * offsFwd;
+    const int32_t * offsRev;
+    int32_t numOffsets;
+} RBBITailoringTest;
+
+static const RBBITailoringTest tailoringTests[] = {
+    { "en", UBRK_CHARACTER, thTest, thTestOffs_enFwd, thTestOffs_enRev, sizeof(thTestOffs_enFwd)/sizeof(thTestOffs_enFwd[0]) },
+    { "th", UBRK_CHARACTER, thTest, thTestOffs_thFwd, thTestOffs_thRev, sizeof(thTestOffs_thFwd)/sizeof(thTestOffs_thFwd[0]) },
+    { "en", UBRK_LINE,      heTest, heTestOffs_enFwd, heTestOffs_enRev, sizeof(heTestOffs_enFwd)/sizeof(heTestOffs_enFwd[0]) },
+    { "he", UBRK_LINE,      heTest, heTestOffs_heFwd, heTestOffs_heRev, sizeof(heTestOffs_heFwd)/sizeof(heTestOffs_heFwd[0]) },
+    { "en", UBRK_LINE,      fiTest, fiTestOffs_enFwd, fiTestOffs_enRev, sizeof(fiTestOffs_enFwd)/sizeof(fiTestOffs_enFwd[0]) },
+    { "fi", UBRK_LINE,      fiTest, fiTestOffs_fiFwd, fiTestOffs_fiRev, sizeof(fiTestOffs_fiFwd)/sizeof(fiTestOffs_fiFwd[0]) },
+    { NULL, 0, NULL, NULL, NULL, 0 },
+};
+
+static void TestBreakIteratorTailoring(void) {
+    const RBBITailoringTest * testPtr;
+    for (testPtr = tailoringTests; testPtr->locale != NULL; ++testPtr) {
+        UErrorCode status = U_ZERO_ERROR;
+        UBreakIterator* ubrkiter = ubrk_open(testPtr->type, testPtr->locale, testPtr->test, -1, &status);
+        if ( U_SUCCESS(status) ) {
+            int32_t offset, offsindx;
+            UBool foundError;
+
+            foundError = FALSE;
+            for (offsindx = 0; (offset = ubrk_next(ubrkiter)) != UBRK_DONE; ++offsindx) {
+                if (!foundError && offsindx >= testPtr->numOffsets) {
+                    log_err("FAIL: locale %s, break type %d, ubrk_next expected UBRK_DONE, got %d\n",
+                            testPtr->locale, testPtr->type, offset);
+                    foundError = TRUE;
+                } else if (!foundError && offset != testPtr->offsFwd[offsindx]) {
+                    log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got %d\n",
+                            testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx], offset);
+                    foundError = TRUE;
+                }
+            }
+            if (!foundError && offsindx < testPtr->numOffsets) {
+                log_err("FAIL: locale %s, break type %d, ubrk_next expected %d, got UBRK_DONE\n",
+                    	testPtr->locale, testPtr->type, testPtr->offsFwd[offsindx]);
+            }
+
+            foundError = FALSE;
+            for (offsindx = 0; (offset = ubrk_previous(ubrkiter)) != UBRK_DONE; ++offsindx) {
+                if (!foundError && offsindx >= testPtr->numOffsets) {
+                    log_err("FAIL: locale %s, break type %d, ubrk_previous expected UBRK_DONE, got %d\n",
+                            testPtr->locale, testPtr->type, offset);
+                    foundError = TRUE;
+                } else if (!foundError && offset != testPtr->offsRev[offsindx]) {
+                    log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got %d\n",
+                            testPtr->locale, testPtr->type, testPtr->offsRev[offsindx], offset);
+                    foundError = TRUE;
+                }
+            }
+            if (!foundError && offsindx < testPtr->numOffsets) {
+                log_err("FAIL: locale %s, break type %d, ubrk_previous expected %d, got UBRK_DONE\n",
+                    	testPtr->locale, testPtr->type, testPtr->offsRev[offsindx]);
+            }
+
+            ubrk_close(ubrkiter);
+        } else {
+            log_err_status(status, "FAIL: locale %s, break type %d, ubrk_open status: %s\n", testPtr->locale, testPtr->type, u_errorName(status));
+        }
+    }
+}
 
 #endif /* #if !UCONFIG_NO_BREAK_ITERATION */

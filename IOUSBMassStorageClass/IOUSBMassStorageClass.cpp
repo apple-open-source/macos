@@ -232,7 +232,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
     	STATUS_LOG(( 1, "%s[%p]: superclass start failure.", getName(), this));
         return false;
     }
-	
+
 	RecordUSBTimeStamp (	UMC_TRACE ( kIOUSBMassStorageClassStart ),
 							( uintptr_t ) this, NULL,
 							NULL, NULL );
@@ -390,7 +390,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
             fPortSuspendResumeForPMEnabled = true;
         }
        		
-       	// Check to se if this device is known to have problems when waking from sleep.
+       	// Check if this device is known to have problems when waking from sleep
 		if ( characterDict->getObject( kIOUSBMassStorageResetOnResume ) != NULL )
 		{
 		
@@ -626,7 +626,7 @@ IOUSBMassStorageClass::start ( IOService * provider )
     
    	STATUS_LOG ( ( 6, "%s[%p]: successfully configured", getName(), this ) );
 
-#if defined (__i386__) 
+#if defined (__i386__) || defined (__x86_64__)
 	{
 		// As USB booting is only supporting on i386 based, do not compile for PPC. 
 		char				usbDeviceAddress [ kUSBDAddressLength ];
@@ -880,7 +880,7 @@ IOUSBMassStorageClass::message ( UInt32 type, IOService * provider, void * argum
 
 bool        
 IOUSBMassStorageClass::willTerminate (  IOService *     provider, 
-                                        IOOptionBits    options )
+										IOOptionBits    options )
 {
 
     STATUS_LOG ( ( 2, "%s[%p]: willTerminate called.", getName ( ), this ) );
@@ -894,7 +894,7 @@ IOUSBMassStorageClass::willTerminate (  IOService *     provider,
 	
 	// Let clients know that the device is gone.
 	SendNotification_DeviceRemoved ( );
-    
+	
     return super::willTerminate ( provider, options );
 	
 }
@@ -1358,7 +1358,12 @@ IOUSBMassStorageClass::CompleteSCSICommand ( SCSITaskIdentifier request, IORetur
 	}
 	else
 	{
+		
 		taskStatus = kSCSITaskStatus_CHECK_CONDITION;
+		
+		// Make this error easier to see in the trace output. 
+		RecordUSBTimeStamp ( UMC_TRACE ( kCompletingCommandWithError ), ( uintptr_t ) this, NULL, NULL, NULL );
+		
 	}
 
 	STATUS_LOG ( ( 6, "%s[%p]: CompleteSCSICommand request=%p taskStatus=0x%02x", getName(), this, request, taskStatus ) );
@@ -2089,7 +2094,7 @@ IOUSBMassStorageClass::CheckDeferredTermination ( void )
 {
 	
 	require ( fWorkLoop->inGate ( ) == true, Exit );
-    
+	
 	if ( fTerminationDeferred == true )
 	{
 		
@@ -2145,6 +2150,7 @@ IOUSBMassStorageClass::GatedCompleteSCSICommand (
 	
 	
 Exit:
+
 	
 	return;
 	
@@ -2755,7 +2761,7 @@ Exit:
 	
 	// If the reset didnt happen complete the failed command with an error here.
 	if ( ( result == KERN_FAILURE ) && 
-         ( fBulkOnlyCommandStructInUse | fCBICommandStructInUse ) )
+		 ( fBulkOnlyCommandStructInUse | fCBICommandStructInUse ) )
 	{
 		AbortCurrentSCSITask ( );
 	}

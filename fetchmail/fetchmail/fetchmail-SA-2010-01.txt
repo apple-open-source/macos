@@ -1,0 +1,144 @@
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
+
+fetchmail-SA-2010-01: Heap overrun in verbose SSL cert' info display.
+
+Topics:		Heap overrun in verbose SSL certificate information display.
+
+Author:		Matthias Andree
+Version:	1.0
+Announced:	2010-02-05
+Type:		malloc() Buffer overrun with printable characters
+Impact:		Code injection (difficult).
+Danger:		low
+
+CVE Name:	CVE-2010-0562
+CVSSv2:		(AV:N/AC:H/Au:N/C:N/I:C/A:P/E:U/RL:O/RC:C) proposed
+URL:		http://www.fetchmail.info/fetchmail-SA-2010-01.txt
+Project URL:	http://www.fetchmail.info/
+
+Affects:	fetchmail releases 6.3.11, 6.3.12, and 6.3.13
+
+Not affected:	fetchmail release 6.3.14 and newer
+
+Corrected:	2010-02-04 fetchmail SVN (r5467)
+		           Git (f1c7607615ebd48807db6170937fe79bb89d47d4)
+		2010-02-05 fetchmail release 6.3.14
+
+
+0. Release history
+==================
+
+2010-02-04 0.1	first draft (visible in SVN and through oss-security)
+2010-02-05 1.0	fixed signed/unsigned typo (found by Nico Golde)
+2010-02-09 1.1	added CVE/CVSS, Announced: date
+
+
+1. Background
+=============
+
+fetchmail is a software package to retrieve mail from remote POP2, POP3,
+IMAP, ETRN or ODMR servers and forward it to local SMTP, LMTP servers or
+message delivery agents. It supports SSL and TLS security layers through
+the OpenSSL library, if enabled at compile time and if also enabled at
+run time.
+
+
+2. Problem description and Impact
+=================================
+
+In verbose mode, fetchmail prints X.509 certificate subject and issuer
+information to the user, and counts and allocates a malloc() buffer for
+that purpose.
+
+If the material to be displayed contains characters with high bit set
+and the platform treats the "char" type as signed, this can cause a heap
+buffer overrun because non-printing characters are escaped as
+\xFF..FFnn, where nn is 80..FF in hex.
+
+This might be exploitable to inject code if
+- - fetchmail is run in verbose mode
+AND
+- - the host running fetchmail considers char signed
+AND
+- - the server uses malicious certificates with non-printing characters
+  that have the high bit set
+AND
+- - these certificates manage to inject shell-code that consists purely of
+  printable characters.
+
+It is believed to be difficult to achieve all this.
+
+
+3. Solution
+===========
+
+There are two alternatives, either of them by itself is sufficient:
+
+a. Apply the patch found in section B of this announcement to
+   fetchmail 6.3.13, recompile and reinstall it.
+
+b. Install fetchmail 6.3.14 or newer after it will have become available.
+   The fetchmail source code is always available from
+   <http://developer.berlios.de/project/showfiles.php?group_id=1824>.
+
+
+4. Workaround
+=============
+
+Run fetchmail without and verbose options.
+
+
+A. Copyright, License and Warranty
+==================================
+
+(C) Copyright 2010 by Matthias Andree, <matthias.andree@gmx.de>.
+Some rights reserved.
+
+This work is licensed under the Creative Commons
+Attribution-Noncommercial-No Derivative Works 3.0 Germany License.
+To view a copy of this license, visit
+http://creativecommons.org/licenses/by-nc-nd/3.0/de/ or send a letter to
+
+Creative Commons
+171 Second Street
+Suite 300
+SAN FRANCISCO, CALIFORNIA 94105
+USA
+
+
+THIS WORK IS PROVIDED FREE OF CHARGE AND WITHOUT ANY WARRANTIES.
+Use the information herein at your own risk.
+
+
+B. Patch to remedy the problem
+==============================
+
+Note that when taking this from a GnuPG clearsigned file, the lines
+starting with a "-" character are prefixed by another "- " (dash +
+blank) combination. Either feed this file through GnuPG to strip them,
+or strip them manually. You may want to use the "-p1" flag to patch.
+
+Whitespace differences can usually be ignored by invoking "patch -l",
+so try this if the patch does not apply.
+
+- --- a/sdump.c
++++ b/sdump.c
+@@ -36,7 +36,7 @@ char *sdump(const char *in, size_t len)
+ 	if (isprint((unsigned char)in[i])) {
+ 	    *(oi++) = in[i];
+ 	} else {
+- -	    oi += sprintf(oi, "\\x%02X", in[i]);
++	    oi += sprintf(oi, "\\x%02X", (unsigned char)in[i]);
+ 	}
+     }
+     *oi = '\0';
+
+END OF fetchmail-SA-2010-01.txt
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v2.0.12 (GNU/Linux)
+
+iEYEARECAAYFAktxLWcACgkQvmGDOQUufZUGBQCg8AU5mXRaGBo+tETsGYjFX10m
+6SYAnA6IVIeoTjKvspD8BnLLd0yGU2iw
+=b7ry
+-----END PGP SIGNATURE-----

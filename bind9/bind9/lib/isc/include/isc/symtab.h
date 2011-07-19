@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2007, 2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1996-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: symtab.h,v 1.24 2007/06/19 23:47:18 tbox Exp $ */
+/* $Id: symtab.h,v 1.26 2009-01-18 23:48:14 tbox Exp $ */
 
 #ifndef ISC_SYMTAB_H
 #define ISC_SYMTAB_H 1
@@ -27,7 +27,7 @@
 /*! \file isc/symtab.h
  * \brief Provides a simple memory-based symbol table.
  *
- * Keys are C strings, and key comparisons are case-insenstive.  A type may
+ * Keys are C strings, and key comparisons are case-insensitive.  A type may
  * be specified when looking up, defining, or undefining.  A type value of
  * 0 means "match any type"; any other value will only match the given
  * type.
@@ -126,6 +126,17 @@ isc_symtab_define(isc_symtab_t *symtab, const char *key, unsigned int type,
 isc_result_t
 isc_symtab_undefine(isc_symtab_t *symtab, const char *key, unsigned int type);
 
+/*% Retreives the undefine action function pointer and argument. */
+isc_result_t
+isc_symtab_getundefineaction(isc_symtab_t *symtab,
+			     isc_symtabaction_t *undefine_action,
+			     void **undefine_arg);
+
+/*% Sets the undefine action function pointer and argument. */
+isc_result_t
+isc_symtab_setundefineaction(isc_symtab_t *symtab,
+			     isc_symtabaction_t undefine_action,
+			     void *undefine_arg);
 ISC_LANG_ENDDECLS
 
 #endif /* ISC_SYMTAB_H */

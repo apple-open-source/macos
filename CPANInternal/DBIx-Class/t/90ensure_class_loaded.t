@@ -13,7 +13,7 @@ BEGIN {
 
 my $schema = DBICTest->init_schema();
 
-plan tests => 19;
+plan tests => 28;
 
 # Test ensure_class_found
 ok( $schema->ensure_class_found('DBIx::Class::Schema'),
@@ -39,6 +39,50 @@ ok( $retval, 'DBICTest::OptionalComponent loaded' );
 eval { $schema->load_optional_class('DBICTest::ErrorComponent') };
 like( $@, qr/did not return a true value/,
       'DBICTest::ErrorComponent threw ok' );
+
+# Simulate a PAR environment
+{
+  my @code;
+  local @INC = @INC;
+  unshift @INC, sub {
+    if ($_[1] eq 'VIRTUAL/PAR/PACKAGE.pm') {
+      return (sub { return 0 unless @code; $_ = shift @code; 1; } );
+    }
+    else {
+      return ();
+    }
+  };
+
+  $retval = eval { $schema->load_optional_class('FAKE::PAR::PACKAGE') };
+  ok( !$@, 'load_optional_class on a nonexistent PAR class did not throw' );
+  ok( !$retval, 'nonexistent PAR package not loaded' );
+
+
+  # simulate a class which does load but does not return true
+  @code = (
+    q/package VIRTUAL::PAR::PACKAGE;/,
+    q/0;/,
+  );
+
+  $retval = eval { $schema->load_optional_class('VIRTUAL::PAR::PACKAGE') };
+  ok( $@, 'load_optional_class of a no-true-returning PAR module did throw' );
+  ok( !$retval, 'no-true-returning PAR package not loaded' );
+
+  # simulate a normal class (no one adjusted %INC so it will be tried again
+  @code = (
+    q/package VIRTUAL::PAR::PACKAGE;/,
+    q/1;/,
+  );
+
+  $retval = eval { $schema->load_optional_class('VIRTUAL::PAR::PACKAGE') };
+  ok( !$@, 'load_optional_class of a PAR module did not throw' );
+  ok( $retval, 'PAR package "loaded"' );
+
+  # see if we can still load stuff with the coderef present
+  $retval = eval { $schema->load_optional_class('DBIx::Class::ResultClass::HashRefInflator') };
+  ok( !$@, 'load_optional_class did not throw' ) || diag $@;
+  ok( $retval, 'DBIx::Class::ResultClass::HashRefInflator loaded' );
+}
 
 # Test ensure_class_loaded
 ok( Class::Inspector->loaded('TestPackage::A'), 'anonymous package exists' );
@@ -71,5 +115,17 @@ ok( Class::Inspector->loaded('DBICTest::FakeComponent'),
   like( $@, qr/syntax error/,
         'load_optional_class(DBICTest::SyntaxErrorComponent2) threw ok' );
 }
+
+
+eval {
+  package Fake::ResultSet;
+
+  use base 'DBIx::Class::ResultSet';
+
+  __PACKAGE__->load_components('+DBICTest::SyntaxErrorComponent3');
+};
+
+# Make sure the errors in components of resultset classes are reported right.
+like($@, qr!\Qsyntax error at t/lib/DBICTest/SyntaxErrorComponent3.pm!, "Errors from RS components reported right");
 
 1;

@@ -35,24 +35,38 @@ Print usage information about
 .It Xo
 .Cm lookup
 .Op Fl w Ar host
+.Op Fl t Ar node_type
+.Op Fl e
 .Ar name
 .Xc
 Resolve the given
 .Ar name
 to an IP address.
-The NetBIOS name server can be directly specified via the
+The NetBIOS name server can be 
+directly specified via the
 .Fl w
-option.
+option. The NetBIOS name type can be specified via the 
+.Fl t ,
+the default is to lookup file servers. For a complete list of name type please see "http://support.microsoft.com/kb/163409".
+The NetBIOS names will be unpercent escaped out if the 
+.Fl e
+option is specified.
 .It Xo
 .Cm status
-.Ar server
+.Op Fl ae
+hostname
 .Xc
 Resolve given
-.Ar server
-(IP address or DNS name) to NetBIOS workgroup and system name.
+.Ar hostname
+(IP address or DNS name) to NetBIOS workgroup and system name. All 
+NetBIOS names will be displayed if the 
+.Fl a
+option is specified. All NetBIOS names will be percent escaped out if the 
+.Fl e
+option is specified.
 .It Xo
 .Cm view
-.Oo Fl Ar connection_options
+.Oo Fl Ar options
 .Oc // Ns Oo Ar domain ;
 .Oc Ns Oo Ar user Ns Oo
 .Pf \: Ar password
@@ -60,8 +74,49 @@ Resolve given
 .Xc
 List resources available on the specified
 .Ar server
-for the user
-.Ar user .
+for the 
+.Ar user . 
+The options are as follows:
+.Bl -tag -width indent
+.It Fl A 
+authorize only.
+.It Fl N 
+don't prompt for a password.
+.It Fl G 
+allow guest access.
+.It Fl g 
+authorize with guest only.
+.It Fl a
+authorize with anonymous only.
+.It Fl f
+don't share session.
+.El
+.Pp
+.It Xo
+.Cm identity
+.Oo Fl N
+.Oc // Ns Oo Ar domain ;
+.Oc Ns Oo Ar user Ns Oo
+.Pf \: Ar password
+.Oc Ns @ Ns Oc Ar server
+.Xc
+Display the user's identity as known by the
+.Ar server
+for the authenticated session. Will not prompt for a password if the 
+.Fl N
+option is specified.
+.It Xo
+.Cm dfs 
+.Pf smb:// Oo Ar domain ;
+.Oc Ns Oo Ar user Ns Oo
+.Pf : Ar password
+.Oc Ns @ Ns Oc Ns Ar server/DfsRoot Ns Oo
+.Pf / Ar DfsLink
+.Oc
+.Xc
+Display the Dfs referrals for this 
+.Ar URL
+for the authenticated session .
 .El
 .Sh FILES
 .Bl -tag -width ".Pa nsmb.conf" -compact

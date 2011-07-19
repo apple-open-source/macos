@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Collabora Ltd. All rights reserved.
  * Copyright (C) 2008 INdT - Instituto Nokia de Tecnologia
  * Copyright (C) 2009-2010 ProFUSION embedded systems
@@ -36,6 +36,7 @@
 #include "EWebKit.h"
 #include "FrameLoaderClient.h"
 #include "PluginView.h"
+#include "ResourceError.h"
 #include "ResourceResponse.h"
 
 namespace WebCore {
@@ -87,11 +88,11 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual void dispatchDidCancelAuthenticationChallenge(DocumentLoader*, unsigned long  identifier, const AuthenticationChallenge&);
     virtual void dispatchDidReceiveResponse(DocumentLoader*, unsigned long  identifier, const ResourceResponse&);
-    virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int lengthReceived);
+    virtual void dispatchDidReceiveContentLength(DocumentLoader*, unsigned long identifier, int dataLength);
     virtual void dispatchDidFinishLoading(DocumentLoader*, unsigned long  identifier);
     virtual void dispatchDidFailLoading(DocumentLoader*, unsigned long  identifier, const ResourceError&);
     virtual bool dispatchDidLoadResourceFromMemoryCache(DocumentLoader*, const ResourceRequest&, const ResourceResponse&, int length);
-    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const WebCore::ScriptString& sourceString);
+    virtual void dispatchDidLoadResourceByXMLHttpRequest(unsigned long identifier, const String& sourceString);
 
     virtual void dispatchDidHandleOnloadEvents();
     virtual void dispatchDidReceiveServerRedirectForProvisionalLoad();
@@ -101,8 +102,8 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
-    virtual void dispatchDidReceiveTitle(const String&);
-    virtual void dispatchDidChangeIcons();
+    virtual void dispatchDidReceiveTitle(const StringWithDirection&);
+    virtual void dispatchDidChangeIcons(WebCore::IconType);
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
     virtual void dispatchDidFailLoad(const ResourceError&);
@@ -111,10 +112,10 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-    virtual Frame* dispatchCreatePage();
+    virtual Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
-    virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction, const String& MIMEType, const ResourceRequest&);
+    virtual void dispatchDecidePolicyForResponse(FramePolicyFunction, const ResourceResponse&, const ResourceRequest&);
     virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, WTF::PassRefPtr<FormState>, const String& frameName);
     virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction, const NavigationAction&, const ResourceRequest&, WTF::PassRefPtr<FormState>);
     virtual void cancelPolicyCheck();
@@ -134,7 +135,8 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument();
+    virtual void didTransferChildFrameToNewDocument(Page*);
+    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const ResourceRequest&, WebCore::Page*);
 
     virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const WTF::Vector<String>&, const WTF::Vector<String>&, const String&, bool);
     virtual void redirectDataToPlugin(Widget* pluginWidget);
@@ -147,7 +149,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual void registerForIconNotification(bool);
 
-    virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
+    virtual ObjectContentType objectContentType(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages);
 
     virtual void setMainFrameDocumentReady(bool);
 
@@ -162,8 +164,9 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void updateGlobalHistory();
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
     virtual void didDisplayInsecureContent();
-    virtual void didRunInsecureContent(SecurityOrigin*);
+    virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
 
     virtual ResourceError cancelledError(const ResourceRequest&);
     virtual ResourceError blockedError(const ResourceRequest&);
@@ -178,6 +181,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
 
     virtual bool canHandleRequest(const ResourceRequest&) const;
     virtual bool canShowMIMEType(const String&) const;
+    virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
     virtual bool representationExistsForURLScheme(const String&) const;
     virtual String generatedMIMETypeForURLScheme(const String&) const;
 
@@ -189,7 +193,7 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void prepareForDataSourceReplacement();
 
     virtual WTF::PassRefPtr<DocumentLoader> createDocumentLoader(const ResourceRequest&, const SubstituteData&);
-    virtual void setTitle(const String& title, const KURL&);
+    virtual void setTitle(const StringWithDirection& title, const KURL&);
 
     virtual String userAgent(const KURL&);
 
@@ -197,14 +201,20 @@ class FrameLoaderClientEfl : public FrameLoaderClient {
     virtual void transitionToCommittedFromCachedFrame(CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void didSaveToPageCache();
+    virtual void didRestoreFromPageCache();
+
+    virtual void dispatchDidBecomeFrameset(bool);
+
     virtual bool canCachePage() const;
     virtual void download(ResourceHandle*, const ResourceRequest&, const ResourceRequest&, const ResourceResponse&);
+
+    virtual PassRefPtr<WebCore::FrameNetworkingContext> createNetworkingContext();
  private:
     Evas_Object *m_view;
     Evas_Object *m_frame;
 
     ResourceResponse m_response;
-    bool m_firstData;
     String m_userAgent;
     String m_customUserAgent;
 

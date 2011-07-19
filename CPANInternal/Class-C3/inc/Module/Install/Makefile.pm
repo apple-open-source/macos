@@ -2,14 +2,14 @@
 package Module::Install::Makefile;
 
 use strict 'vars';
-use Module::Install::Base;
-use ExtUtils::MakeMaker ();
+use ExtUtils::MakeMaker   ();
+use Module::Install::Base ();
 
-use vars qw{$VERSION $ISCORE @ISA};
+use vars qw{$VERSION @ISA $ISCORE};
 BEGIN {
-	$VERSION = '0.67';
+	$VERSION = '0.91';
+	@ISA     = 'Module::Install::Base';
 	$ISCORE  = 1;
-	@ISA     = qw{Module::Install::Base};
 }
 
 sub Makefile { $_[0] }
@@ -36,9 +36,9 @@ sub prompt {
 
 sub makemaker_args {
 	my $self = shift;
-	my $args = ($self->{makemaker_args} ||= {});
-	%$args = ( %$args, @_ ) if @_;
-	$args;
+	my $args = ( $self->{makemaker_args} ||= {} );
+	%$args = ( %$args, @_ );
+	return $args;
 }
 
 # For mm args that take multiple space-seperated args,
@@ -63,18 +63,18 @@ sub build_subdirs {
 sub clean_files {
 	my $self  = shift;
 	my $clean = $self->makemaker_args->{clean} ||= {};
-	%$clean = (
-		%$clean, 
-		FILES => join(' ', grep length, $clean->{FILES}, @_),
+	  %$clean = (
+		%$clean,
+		FILES => join ' ', grep { length $_ } ($clean->{FILES} || (), @_),
 	);
 }
 
 sub realclean_files {
-	my $self  = shift;
+	my $self      = shift;
 	my $realclean = $self->makemaker_args->{realclean} ||= {};
-	%$realclean = (
-		%$realclean, 
-		FILES => join(' ', grep length, $realclean->{FILES}, @_),
+	  %$realclean = (
+		%$realclean,
+		FILES => join ' ', grep { length $_ } ($realclean->{FILES} || (), @_),
 	);
 }
 
@@ -104,8 +104,8 @@ sub tests_recursive {
 	unless ( -d $dir ) {
 		die "tests_recursive dir '$dir' does not exist";
 	}
-	require File::Find;
 	%test_dir = ();
+	require File::Find;
 	File::Find::find( \&_wanted_t, $dir );
 	$self->tests( join ' ', map { "$_/*.t" } sort keys %test_dir );
 }
@@ -114,15 +114,41 @@ sub write {
 	my $self = shift;
 	die "&Makefile->write() takes no arguments\n" if @_;
 
+	# Check the current Perl version
+	my $perl_version = $self->perl_version;
+	if ( $perl_version ) {
+		eval "use $perl_version; 1"
+			or die "ERROR: perl: Version $] is installed, "
+			. "but we need version >= $perl_version";
+	}
+
+	# Make sure we have a new enough MakeMaker
+	require ExtUtils::MakeMaker;
+
+	if ( $perl_version and $self->_cmp($perl_version, '5.006') >= 0 ) {
+		# MakeMaker can complain about module versions that include
+		# an underscore, even though its own version may contain one!
+		# Hence the funny regexp to get rid of it.  See RT #35800
+		# for details.
+		$self->build_requires( 'ExtUtils::MakeMaker' => $ExtUtils::MakeMaker::VERSION =~ /^(\d+\.\d+)/ );
+		$self->configure_requires( 'ExtUtils::MakeMaker' => $ExtUtils::MakeMaker::VERSION =~ /^(\d+\.\d+)/ );
+	} else {
+		# Allow legacy-compatibility with 5.005 by depending on the
+		# most recent EU:MM that supported 5.005.
+		$self->build_requires( 'ExtUtils::MakeMaker' => 6.42 );
+		$self->configure_requires( 'ExtUtils::MakeMaker' => 6.42 );
+	}
+
+	# Generate the MakeMaker params
 	my $args = $self->makemaker_args;
 	$args->{DISTNAME} = $self->name;
-	$args->{NAME}     = $self->module_name || $self->name || $self->determine_NAME($args);
-	$args->{VERSION}  = $self->version || $self->determine_VERSION($args);
+	$args->{NAME}     = $self->module_name || $self->name;
+	$args->{VERSION}  = $self->version;
 	$args->{NAME}     =~ s/-/::/g;
 	if ( $self->tests ) {
 		$args->{test} = { TESTS => $self->tests };
 	}
-	if ($] >= 5.005) {
+	if ( $] >= 5.005 ) {
 		$args->{ABSTRACT} = $self->abstract;
 		$args->{AUTHOR}   = $self->author;
 	}
@@ -136,14 +162,17 @@ sub write {
 		delete $args->{SIGN};
 	}
 
-	# merge both kinds of requires into prereq_pm
+	# Merge both kinds of requires into prereq_pm
 	my $prereq = ($args->{PREREQ_PM} ||= {});
 	%$prereq = ( %$prereq,
 		map { @$_ }
 		map { @$_ }
 		grep $_,
-		($self->build_requires, $self->requires)
+		($self->configure_requires, $self->build_requires, $self->requires)
 	);
+
+	# Remove any reference to perl, PREREQ_PM doesn't support it
+	delete $args->{PREREQ_PM}->{perl};
 
 	# merge both kinds of requires into prereq_pm
 	my $subdirs = ($args->{DIR} ||= []);
@@ -167,7 +196,9 @@ sub write {
 
 	my $user_preop = delete $args{dist}->{PREOP};
 	if (my $preop = $self->admin->preop($user_preop)) {
-		$args{dist} = $preop;
+		foreach my $key ( keys %$preop ) {
+			$args{dist}->{$key} = $preop->{$key};
+		}
 	}
 
 	my $mm = ExtUtils::MakeMaker::WriteMakefile(%args);
@@ -180,7 +211,7 @@ sub fix_up_makefile {
 	my $top_class     = ref($self->_top) || '';
 	my $top_version   = $self->_top->VERSION || '';
 
-	my $preamble = $self->preamble 
+	my $preamble = $self->preamble
 		? "# Preamble by $top_class $top_version\n"
 			. $self->preamble
 		: '';
@@ -205,7 +236,7 @@ sub fix_up_makefile {
 	#$makefile =~ s/^PERL_ARCHLIB = .+/PERL_ARCHLIB =/m;
 
 	# Perl 5.005 mentions PERL_LIB explicitly, so we have to remove that as well.
-	$makefile =~ s/("?)-I\$\(PERL_LIB\)\1//g;
+	$makefile =~ s/(\"?)-I\$\(PERL_LIB\)\1//g;
 
 	# XXX - This is currently unused; not sure if it breaks other MM-users
 	# $makefile =~ s/^pm_to_blib\s+:\s+/pm_to_blib :: /mg;
@@ -234,4 +265,4 @@ sub postamble {
 
 __END__
 
-#line 363
+#line 394

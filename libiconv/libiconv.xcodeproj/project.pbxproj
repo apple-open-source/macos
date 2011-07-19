@@ -1672,7 +1672,14 @@
 			};
 			buildConfigurationList = 5976A9831007BEBD000AD30B /* Build configuration list for PBXProject "libiconv" */;
 			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 5976A97E1007BEBD000AD30B;
 			productRefGroup = 5976A9961007C08E000AD30B /* Products */;
 			projectDirPath = "";
@@ -1892,6 +1899,7 @@
 			buildSettings = {
 				ALWAYS_SEARCH_USER_PATHS = NO;
 				COPY_PHASE_STRIP = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu89;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
 				ZERO_LINK = NO;
 			};

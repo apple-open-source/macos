@@ -28,7 +28,7 @@
 #ifndef __CAuditUtils_h__
 #define	__CAuditUtils_h__		1
 
-#define USE_BSM_AUDIT		1
+#define USE_BSM_AUDIT		0
 
 #include <sys/ucred.h>
 #include <bsm/audit.h>

@@ -1,8 +1,5 @@
-
-#ifndef _S_DHCP_OPTIONS_H
-#define _S_DHCP_OPTIONS_H
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -30,12 +27,17 @@
  *   and create new dhcp option areas
  */
 
+
+#ifndef _S_DHCP_OPTIONS_H
+#define _S_DHCP_OPTIONS_H
+
 /*
  * Modification History
  *
  * November 23, 1999	Dieter Siegmund (dieter@apple)
  * - created
  */
+
 #include <stdio.h>
 #include <mach/boolean.h>
 #include "ptrlist.h"
@@ -168,7 +170,8 @@ void *			dhcpol_find(dhcpol_t * list, int tag, int * len_p,
 				    int * start);
 void *			dhcpol_find_with_length(dhcpol_t * options,
 						dhcptag_t tag, int min_length);
-void *			dhcpol_get(dhcpol_t * list, int tag, int * len_p);
+void *			dhcpol_option_copy(dhcpol_t * list, int tag,
+					   int * len_p);
 boolean_t		dhcpol_parse_packet(dhcpol_t * options, 
 					    struct dhcp * pkt, int len,
 					    dhcpo_err_str_t * err);
@@ -177,6 +180,8 @@ boolean_t		dhcpol_parse_vendor(dhcpol_t * vendor,
 					    dhcpo_err_str_t * err);
 void			dhcpol_print(dhcpol_t * list);
 void			dhcpol_fprint(FILE * f, dhcpol_t * list);
+int			dhcpol_count_params(dhcpol_t * options, 
+					    const uint8_t * tags, int size);
 
 /*
  * Functions: dhcptype_*, dhcptag_*
@@ -209,4 +214,4 @@ boolean_t		dhcptag_to_str(char * tmp, size_t tmplen, int tag,
 				       dhcpo_err_str_t * err);
 boolean_t		dhcptag_print(const void * vopt);
 
-#endif _S_DHCP_OPTIONS_H
+#endif /* _S_DHCP_OPTIONS_H */

@@ -1,8 +1,8 @@
 /*
  * ntfs_vfsops.c - NTFS kernel vfs operations.
  *
- * Copyright (c) 2006-2010 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2010 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -1162,7 +1162,7 @@ err:
 		ntfs_attr_search_ctx_put(ctx);
 	if (m)
 		OSFree(m, vol->mft_record_size, ntfs_malloc_tag);
-	/* vol->mft_ni will be cleaned up by the call to ntfs_unmount(). */
+	/* vol->mft_ni will be cleaned up by the caller. */
 	if (!vol->mft_ni)
 		ntfs_inode_reclaim(ni);
 	return err;
@@ -1377,6 +1377,7 @@ static errno_t ntfs_mft_mirror_load(ntfs_volume *vol)
 			ni->initialized_size & vol->mft_record_size_mask) {
 		ntfs_error(vol->mp, "$DATA attribute contains invalid size.  "
 				"$MFTMirr is corrupt.  Run chkdsk.");
+		(void)vnode_recycle(vn);
 		(void)vnode_put(vn);
 		return EIO;
 	}
@@ -1386,7 +1387,6 @@ static errno_t ntfs_mft_mirror_load(ntfs_volume *vol)
 		ntfs_error(vol->mp, "vnode_ref() failed!");
 	OSIncrementAtomic(&ni->nr_refs);
 	lck_rw_unlock_shared(&ni->lock);
-	(void)vnode_recycle(vn);
 	(void)vnode_put(vn);
 	vol->mftmirr_ni = ni;
 	ntfs_debug("Done.");
@@ -1429,7 +1429,7 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	}
 	mirr = (MFT_RECORD*)mirr_start;
 	ni = vol->mftmirr_ni;
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $MFTMirr.");
 		goto err;
@@ -1503,7 +1503,7 @@ static errno_t ntfs_mft_mirror_check(ntfs_volume *vol)
 	 * already read $MFTMirr records.
 	 */
 	ni = vol->mft_ni;
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $MFT.");
 		goto err;
@@ -1802,7 +1802,7 @@ static errno_t ntfs_volume_load(ntfs_volume *vol)
 		return err;
 	}
 	vol->vol_ni = ni;
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $Volume.");
 		return err;
@@ -2513,7 +2513,7 @@ not_enabled:
 				(unsigned)sizeof(USN_HEADER));
 		return EIO;
 	}
-	err = vnode_getwithref(max_ni->vn);
+	err = vnode_get(max_ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for "
 				"$UsnJrnl/$DATA/$Max.");
@@ -3110,7 +3110,7 @@ static errno_t ntfs_get_nr_set_bits(vnode_t vn, const s64 nr_bits, s64 *res)
 
 	ntfs_debug("Entering.");
 	/* Get an iocount reference on the bitmap vnode. */
-	err = vnode_getwithref(vn);
+	err = vnode_get(vn);
 	if (err)
 		return err;
 	lck_rw_lock_shared(&ni->lock);
@@ -3342,8 +3342,11 @@ static void ntfs_statfs(ntfs_volume *vol, struct vfsstatfs *sfs)
  */
 static int ntfs_unmount_callback_recycle(vnode_t vn, void *data __unused)
 {
-	ntfs_debug("Entering for mft_no 0x%llx.",
+#ifdef DEBUG
+	if (NTFS_I(vn))
+		ntfs_debug("Entering for mft_no 0x%llx.",
 				(unsigned long long)NTFS_I(vn)->mft_no);
+#endif
 	(void)vnode_recycle(vn);
 	ntfs_debug("Done.");
 	return VNODE_RETURNED;
@@ -3352,22 +3355,58 @@ static int ntfs_unmount_callback_recycle(vnode_t vn, void *data __unused)
 /**
  * ntfs_unmount_inode_detach - detach an inode at umount time
  * @pni:	pointer to the attached ntfs inode to detach
+ * @parent_ni:	parent ntfs inode
  *
  * Mark the vnode of the ntfs inode *@pni for termination and detach the ntfs
- * inode *@pni from the mounted ntfs volume @vol by dropping the reference on its
- * vnode and setting *@pni to NULL.
+ * inode *@pni from the mounted ntfs volume @vol by dropping the reference on
+ * its vnode and setting *@pni to NULL.
  */
-static void ntfs_unmount_inode_detach(ntfs_inode **pni)
+static void ntfs_unmount_inode_detach(ntfs_inode **pni, ntfs_inode *parent_ni)
 {
 	ntfs_inode *ni = *pni;
 	if (ni) {
 		ntfs_debug("Entering for mft_no 0x%llx.",
 				(unsigned long long)ni->mft_no);
+		/* Drop the internal reference on the parent inode. */
+		if (parent_ni)
+			OSDecrementAtomic(&parent_ni->nr_refs);
 		OSDecrementAtomic(&ni->nr_refs);
 		if (ni->vn) {
 			(void)vnode_recycle(ni->vn);
 			vnode_rele(ni->vn);
-		}
+		} else
+			ntfs_inode_reclaim(ni);
+		*pni = NULL;
+		ntfs_debug("Done.");
+	}
+}
+
+/**
+ * ntfs_unmount_attr_inode_detach - detach an attribute inode at umount time
+ * @pni:	pointer to the attached ntfs inode to detach
+ *
+ * Mark the vnode of the ntfs inode *@pni for termination and detach the ntfs
+ * inode *@pni from the mounted ntfs volume @vol by dropping the reference on
+ * its vnode and setting *@pni to NULL.
+ */
+static void ntfs_unmount_attr_inode_detach(ntfs_inode **pni)
+{
+	ntfs_inode *ni = *pni;
+	if (ni) {
+		ntfs_debug("Entering for mft_no 0x%llx.",
+				(unsigned long long)ni->mft_no);
+		/*
+		 * Drop the internal reference on the base inode @base_ni
+		 * (which is also the parent inode).
+		 */
+		if (NInoAttr(ni) && ni->base_ni)
+			OSDecrementAtomic(&ni->base_ni->nr_refs);
+		OSDecrementAtomic(&ni->nr_refs);
+		if (ni->vn) {
+			(void)vnode_recycle(ni->vn);
+			vnode_rele(ni->vn);
+		} else
+			ntfs_inode_reclaim(ni);
 		*pni = NULL;
 		ntfs_debug("Done.");
 	}
@@ -3395,18 +3434,27 @@ static void ntfs_unmount_inode_detach(ntfs_inode **pni)
 static int ntfs_unmount(mount_t mp, int mnt_flags,
 		vfs_context_t context __unused)
 {
-	ntfs_volume *vol = NTFS_MP(mp);
-	ntfs_inode *ni;
+	ntfs_volume *vol;
 	int vflags, err;
 	BOOL force;
 
 	ntfs_debug("Entering.");
-	vflags = err = 0;
+	vol = NTFS_MP(mp);
+	if (!vol)
+		goto unload;
+	if (!vol->mft_ni) {
+		/* Split our ntfs_volume away from the mount. */
+		vfs_setfsprivate(mp, NULL);
+		goto no_mft;
+	}
+	vflags = 0;
 	force = FALSE;
 	if (mnt_flags & MNT_FORCE) {
 		vflags |= FORCECLOSE;
 		force = TRUE;
 	}
+	if (!vol->root_ni)
+		goto no_root;
 	/*
 	 * Try to reclaim all non-root and non-system vnodes.  For a non-forced
 	 * unmount, this will fail if there are any open files.
@@ -3416,7 +3464,7 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 		ntfs_warning(mp, "Cannot unmount (vflush() returned error "
 				"%d).  Are there open files keeping the "
 				"volume busy?\n", err);
-		goto done;
+		goto abort;
 	}
 	/*
 	 * Once we get here, the only vnodes left are our system vnodes, which
@@ -3432,7 +3480,7 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	 * If a read-write mount and no volume errors have been detected, mark
 	 * the volume clean.
 	 */
-	if (!NVolReadOnly(vol)) {
+	if (!NVolReadOnly(vol) && vol->vol_ni) {
 		if (!NVolErrors(vol)) {
 			if (ntfs_volume_flags_clear(vol, VOLUME_IS_DIRTY))
 				ntfs_warning(mp, "Failed to clear dirty bit "
@@ -3443,25 +3491,24 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 					"marked dirty.  Run chkdsk.");
 	}
 	/* Ntfs 3.0+ specific clean up. */
-	if (vol->major_ver >= 3) {
-		ntfs_unmount_inode_detach(&vol->usnjrnl_j_ni);
-		ntfs_unmount_inode_detach(&vol->usnjrnl_max_ni);
-		ntfs_unmount_inode_detach(&vol->usnjrnl_ni);
-		ntfs_unmount_inode_detach(&vol->quota_q_ni);
-		ntfs_unmount_inode_detach(&vol->quota_ni);
-		ntfs_unmount_inode_detach(&vol->objid_o_ni);
-		ntfs_unmount_inode_detach(&vol->objid_ni);
-		ntfs_unmount_inode_detach(&vol->extend_ni);
-		ntfs_unmount_inode_detach(&vol->secure_sds_ni);
-		ntfs_unmount_inode_detach(&vol->secure_sdh_ni);
-		ntfs_unmount_inode_detach(&vol->secure_sii_ni);
-		ntfs_unmount_inode_detach(&vol->secure_ni);
+	if (vol->vol_ni && vol->major_ver >= 3) {
+		ntfs_unmount_attr_inode_detach(&vol->usnjrnl_j_ni);
+		ntfs_unmount_attr_inode_detach(&vol->usnjrnl_max_ni);
+		ntfs_unmount_inode_detach(&vol->usnjrnl_ni, vol->extend_ni);
+		ntfs_unmount_attr_inode_detach(&vol->quota_q_ni);
+		ntfs_unmount_inode_detach(&vol->quota_ni, vol->extend_ni);
+		ntfs_unmount_attr_inode_detach(&vol->objid_o_ni);
+		ntfs_unmount_inode_detach(&vol->objid_ni, vol->extend_ni);
+		ntfs_unmount_inode_detach(&vol->extend_ni, vol->root_ni);
+		ntfs_unmount_attr_inode_detach(&vol->secure_sds_ni);
+		ntfs_unmount_attr_inode_detach(&vol->secure_sdh_ni);
+		ntfs_unmount_attr_inode_detach(&vol->secure_sii_ni);
+		ntfs_unmount_inode_detach(&vol->secure_ni, vol->root_ni);
 	}
-	ntfs_unmount_inode_detach(&vol->vol_ni);
-	ntfs_unmount_inode_detach(&vol->root_ni);
-	ntfs_unmount_inode_detach(&vol->lcnbmp_ni);
-	ntfs_unmount_inode_detach(&vol->mftbmp_ni);
-	ntfs_unmount_inode_detach(&vol->logfile_ni);
+	ntfs_unmount_inode_detach(&vol->vol_ni, vol->root_ni);
+	ntfs_unmount_inode_detach(&vol->lcnbmp_ni, vol->root_ni);
+	ntfs_unmount_attr_inode_detach(&vol->mftbmp_ni);
+	ntfs_unmount_inode_detach(&vol->logfile_ni, vol->root_ni);
 	/*
 	 * The root directory vnode is still held by the parent vnode
 	 * references of the $MFT and $MFTMirr vnodes thus it will only be
@@ -3474,23 +3521,45 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	 * vnode references held by $MFT and $MFTMirr now so that the root
 	 * directory vnode can be recycled now.
 	 */
-	if (vol->mftmirr_ni && vol->mftmirr_ni->vn)
+	if (vol->mftmirr_ni && vol->mftmirr_ni->vn) {
+		/* Drop the internal reference on the parent inode. */
+		if (vol->root_ni)
+			OSDecrementAtomic(&vol->root_ni->nr_refs);
 		vnode_update_identity(vol->mftmirr_ni->vn, NULL, NULL, 0, 0,
 				VNODE_UPDATE_PARENT);
-	ni = vol->mft_ni;
-	if (ni && ni->vn)
-		vnode_update_identity(ni->vn, NULL, NULL, 0, 0,
+	}
+	if (vol->mft_ni && vol->mft_ni->vn) {
+		/* Drop the internal reference on the parent inode. */
+		if (vol->root_ni)
+			OSDecrementAtomic(&vol->root_ni->nr_refs);
+		vnode_update_identity(vol->mft_ni->vn, NULL, NULL, 0, 0,
 				VNODE_UPDATE_PARENT);
-	ntfs_unmount_inode_detach(&vol->mftmirr_ni);
-	if (ni) {
-		if (ni->vn)
-			ntfs_unmount_inode_detach(&vol->mft_ni);
+	}
+	/*
+	 * Nothing references the root inode any more so we can release it.
+	 * Note the VFS still holds a reference that it will drop after
+	 * ntfs_unmount() completes thus the root vnode will be the last one to
+	 * be reclaimed.
+	 */
+	ntfs_unmount_inode_detach(&vol->root_ni, NULL);
+	/*
+	 * Do a final flush to get rid of any vnodes that have not been
+	 * inactivated/recycled yet.  Note this must be done without the force
+	 * flag otherwise it blows away the mft mirror and mft inodes which we
+	 * will recycle below.
+	 */
+	(void)vflush(mp, NULLVP, vflags & ~FORCECLOSE);
+	ntfs_unmount_inode_detach(&vol->mftmirr_ni, NULL);
+no_root:
+	if (vol->mft_ni) {
+		if (vol->mft_ni->vn)
+			ntfs_unmount_inode_detach(&vol->mft_ni, NULL);
 		else {
 			/*
 			 * There may be no vnode in the error code paths of
 			 * ntfs_mount() which calls ntfs_unmount() to clean up.
 			 */
-			ntfs_inode_reclaim(ni);
+			ntfs_inode_reclaim(vol->mft_ni);
 			vol->mft_ni = NULL;
 		}
 	}
@@ -3550,6 +3619,7 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	/* If we cached a volume name, throw it away now. */
 	if (vol->name)
 		OSFree(vol->name, vol->name_size, ntfs_malloc_tag);
+no_mft:
 	/* Deinitialize the ntfs_volume locks. */
 	lck_rw_destroy(&vol->mftbmp_lock, ntfs_lock_grp);
 	lck_rw_destroy(&vol->lcnbmp_lock, ntfs_lock_grp);
@@ -3558,10 +3628,11 @@ static int ntfs_unmount(mount_t mp, int mnt_flags,
 	lck_spin_destroy(&vol->security_id_lock, ntfs_lock_grp);
 	/* Finally, free the ntfs volume. */
 	OSFree(vol, sizeof(ntfs_volume), ntfs_malloc_tag);
-	ntfs_debug("Done.");
+unload:
 	err = 0;
 	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
-done:
+abort:
+	ntfs_debug("Done.");
 	return err;
 }
 
@@ -3640,7 +3711,7 @@ static void ntfs_sync_helper(ntfs_inode *ni, struct ntfs_sync_args *args,
 {
 	errno_t err;
 
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(ni->vol->mp, "Failed to get vnode for $MFT%s "
 				"(error %d).",
@@ -3760,6 +3831,10 @@ static errno_t ntfs_remount(mount_t mp,
 	 * have occured.
 	 */
 	if (vfs_iswriteupgrade(mp)) {
+		/* We no longer allow (re-)mounting read/write. */
+		ntfs_error(mp, "Remounting read/write is not supported");
+		goto EROFS_exit;
+#if 0 
 		static const char es[] = ".  Cannot remount read-write.  To "
 				"fix this problem boot into Windows, run "
 				"chkdsk c: /f /v /x from the command prompt "
@@ -3804,6 +3879,7 @@ static errno_t ntfs_remount(mount_t mp,
 			goto EROFS_exit;
 		}
 		NVolClearReadOnly(vol);
+#endif /* r/w upgrade not supported */
 	} else if (!NVolReadOnly(vol) && vfs_isrdonly(mp)) {
 		/* Remounting read-only, flush all pending writes. */
 		err = ntfs_sync(mp, MNT_WAIT, NULL);
@@ -3839,6 +3915,9 @@ static errno_t ntfs_remount(mount_t mp,
 					"marked dirty.  Run chkdsk.");
 		NVolSetReadOnly(vol);
 	}
+	/* Don't allow the user to clear MNT_DONTBROWSE for read/write volumes. */
+	if (vfs_isrdwr(mp))
+		vfs_setflags(mp, MNT_DONTBROWSE);
 	// TODO: Copy mount options from @opts to @vol.
 	ntfs_debug("Done.");
 	return 0;
@@ -3897,7 +3976,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 	if (err) {
 		ntfs_error(mp, "Failed to copy mount options header from user "
 				"space (error %d).", err);
-		goto unload_exit;
+		goto unload;
 	}
 	ntfs_debug("Mount options header version %d.%d.", opts_hdr.major_ver,
 			opts_hdr.minor_ver);
@@ -3914,7 +3993,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 		if (err) {
 			ntfs_error(mp, "Failed to copy NTFS mount options "
 					"from user space (error %d).", err);
-			goto unload_exit;
+			goto unload;
 		}
 		break;
 	case 0:
@@ -3929,6 +4008,17 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 		break;
 	}
 	/*
+	 * We only allow read/write mounts if the "nobrowse" option was also
+	 * given.  This is to discourage end users from mounting read/write,
+	 * but still allows our utilities (such as an OS install) to make
+	 * changes to an NTFS volume.  Without the "nobrowse" option, we force
+	 * a read-only mount.  Note that we also check for non-update mounts
+	 * here.  In the case of an update mount, ntfs_remount() will do the
+	 * appropriate checking for changing the writability of the mount.
+	 */
+	if ((vfs_flags(mp) & MNT_DONTBROWSE) == 0 && !vfs_isupdate(mp))
+		vfs_setflags(mp, MNT_RDONLY);
+	/*
 	 * TODO: For now we do not implement ACLs thus we force the "noowners"
 	 * mount option.
 	 */
@@ -3940,7 +4030,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 	if (vfs_isreload(mp)) {
 		ntfs_error(mp, "MNT_RELOAD is not supported yet.");
 		err = ENOTSUP;
-		goto unload_exit;
+		goto unload;
 	}
 	/*
 	 * If this is a remount request, handle this elsewhere.  Note this
@@ -3982,7 +4072,7 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 	if (!vol) {
 		ntfs_error(mp, "Failed to allocate ntfs volume buffer.");
 		err = ENOMEM;
-		goto unload_exit;
+		goto unload;
 	}
 	*vol = (ntfs_volume) {
 		.mp = mp,
@@ -4254,16 +4344,19 @@ static int ntfs_mount(mount_t mp, vnode_t dev_vn, user_addr_t data,
 	ntfs_statfs(vol, sfs);
 	ntfs_debug("Done.");
 	return 0;
+unload:
+	/* Ensure NTFS_MP(mp) is NULL so it is safe to call ntfs_unmount(). */
+	vfs_setfsprivate(mp, NULL);
 err:
 	ntfs_error(mp, "Mount failed (error %d).", err);
 	/*
 	 * ntfs_unmount() will clean up everything we did until we encountered
 	 * the error condition including calling OSKextReleaseKextWithLoadTag().
+	 *
+	 * Note we need to pass MNT_FORCE to ensure ntfs_unmount() definitely
+	 * ends up calling OSKextReleaseKextWithLoadTag().
 	 */
-	ntfs_unmount(mp, 0, context);
-	return err;
-unload_exit:
-	OSKextReleaseKextWithLoadTag(OSKextGetCurrentLoadTag());
+	ntfs_unmount(mp, MNT_FORCE, context);
 	return err;
 }
 
@@ -4302,14 +4395,14 @@ static int ntfs_root(mount_t mp, struct vnode **vpp,
 	 * the root directory is loaded and attached to the ntfs volume (thus
 	 * we already hold a use count reference on the vnode).
 	 */
-	err = vnode_getwithref(vn);
+	err = vnode_get(vn);
 	if (!err) {
 		*vpp = vn;
 		ntfs_debug("Done.");
 	} else {
 		*vpp = NULL;
-		ntfs_error(mp, "Cannot return root vnode because "
-				"vnode_getwithref() failed (error %d).", err);
+		ntfs_error(mp, "Cannot return root vnode because vnode_get() "
+				"failed (error %d).", err);
 	}
 	return err;
 }
@@ -4369,7 +4462,7 @@ static int ntfs_vget(mount_t mp, ino64_t ino, struct vnode **vpp,
 		 */
 		ni = NTFS_MP(mp)->root_ni;
 		if (ni) {
-			err = vnode_getwithref(ni->vn);
+			err = vnode_get(ni->vn);
 			if (!err)
 				goto done;
 		}
@@ -5023,7 +5116,7 @@ static errno_t ntfs_volume_rename(ntfs_volume *vol, char *name)
 	}
 	if (strlcpy((char*)utf8_name, name, utf8_name_size) >= utf8_name_size)
 		panic("%s(): strlcpy() failed\n", __FUNCTION__);
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		ntfs_error(vol->mp, "Failed to get vnode for $Volume.");
 		goto err;

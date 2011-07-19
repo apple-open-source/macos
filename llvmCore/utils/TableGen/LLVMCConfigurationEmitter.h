@@ -21,12 +21,11 @@ namespace llvm {
   /// LLVMCConfigurationEmitter - TableGen backend that generates
   /// configuration code for LLVMC.
   class LLVMCConfigurationEmitter : public TableGenBackend {
-    RecordKeeper &Records;
   public:
-    explicit LLVMCConfigurationEmitter(RecordKeeper &R) : Records(R) {}
+    explicit LLVMCConfigurationEmitter(RecordKeeper&) {}
 
     // run - Output the asmwriter, returning true on failure.
-    void run(std::ostream &o);
+    void run(raw_ostream &o);
   };
 }
 

@@ -12,7 +12,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.6 2003/11/28 22:42:03 andreas_kupries Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.7 2009/11/25 20:01:48 andreas_kupries Exp $
 
 #========================================================================
 # Nothing of the variables below this line need to be changed.  Please
@@ -28,6 +28,7 @@ prefix		= @prefix@
 exec_prefix	= @exec_prefix@
 libdir		= @libdir@
 mandir		= @mandir@
+bindir		= @bindir@
 
 DESTDIR		=
 pkglibdir	= $(libdir)/@PACKAGE@@VERSION@
@@ -52,6 +53,7 @@ install:
 	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/installer.tcl` \
 		-no-examples -no-html \
 		-pkg-path   $(DESTDIR)$(pkglibdir) \
+		-app-path   $(DESTDIR)$(bindir) \
 		-nroff-path $(DESTDIR)$(mandir)/mann \
 		-no-wait -no-gui
 
@@ -59,16 +61,25 @@ install-libraries:
 	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/installer.tcl` \
 		-pkg-path   $(DESTDIR)$(pkglibdir) \
 		-no-examples -no-html -no-nroff \
-		-no-wait -no-gui
+		-no-wait -no-gui -no-apps
 
 install-doc:
 	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/installer.tcl` \
 		-nroff-path $(DESTDIR)$(mandir)/mann \
 		-no-examples -no-pkgs -no-html \
-		-no-wait -no-gui
+		-no-wait -no-gui -no-apps
 
 test:
-	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/sak.tcl` test
+	if test -t 1 ; \
+	then $(MAKE) test_interactive ; \
+	else $(MAKE) test_batch ; \
+	fi
+
+test_batch:
+	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/sak.tcl` test run -v -s "$(TCLSH_PROG)"
+
+test_interactive:
+	$(TCLSH_PROG) `$(CYGPATH) $(srcdir)/sak.tcl` test run -s "$(TCLSH_PROG)"
 
 depend:
 dist:

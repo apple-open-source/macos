@@ -22,16 +22,15 @@
 #include "llvm/System/Path.h"
 #include <map>
 #include <set>
-#include <fstream>
 
 namespace llvm {
   class MemoryBuffer;
 
 // Forward declare classes
-class ModuleProvider;      // From VMCore
 class Module;              // From VMCore
 class Archive;             // Declared below
 class ArchiveMemberHeader; // Internal implementation class
+class LLVMContext;         // Global data
 
 /// This class is the main class manipulated by users of the Archive class. It
 /// holds information about one member of the Archive. It is also the element
@@ -108,7 +107,7 @@ class ArchiveMember : public ilist_node<ArchiveMember> {
     /// into memory, the return value will be null.
     /// @returns a pointer to the member's data.
     /// @brief Get the data content of the archive member
-    const void* getData() const { return data; }
+    const char* getData() const { return data; }
 
     /// This method determines if the member is a regular compressed file.
     /// @returns true iff the archive member is a compressed regular file.
@@ -173,7 +172,7 @@ class ArchiveMember : public ilist_node<ArchiveMember> {
     sys::PathWithStatus path;     ///< Path of file containing the member
     sys::FileStatus     info;     ///< Status info (size,mode,date)
     unsigned            flags;    ///< Flags about the archive member
-    const void*         data;     ///< Data for the member
+    const char*         data;     ///< Data for the member
 
   /// @}
   /// @name Constructors
@@ -278,7 +277,8 @@ class Archive {
     /// @returns An Archive* that represents the new archive file.
     /// @brief Create an empty Archive.
     static Archive* CreateEmpty(
-      const sys::Path& Filename ///< Name of the archive to (eventually) create.
+      const sys::Path& Filename,///< Name of the archive to (eventually) create.
+      LLVMContext& C            ///< Context to use for global information
     );
 
     /// Open an existing archive and load its contents in preparation for
@@ -289,6 +289,7 @@ class Archive {
     /// @brief Open and load an archive file
     static Archive* OpenAndLoad(
       const sys::Path& filePath,  ///< The file path to open and load
+      LLVMContext& C,       ///< The context to use for global information
       std::string* ErrorMessage   ///< An optional error string
     );
 
@@ -310,6 +311,7 @@ class Archive {
     /// @brief Open an existing archive and load its symbols.
     static Archive* OpenAndLoadSymbols(
       const sys::Path& Filename,   ///< Name of the archive file to open
+      LLVMContext& C,              ///< The context to use for global info
       std::string* ErrorMessage=0  ///< An optional error string
     );
 
@@ -371,14 +373,14 @@ class Archive {
     /// returns the associated module that defines that symbol. This method can
     /// be called as many times as necessary. This is handy for linking the
     /// archive into another module based on unresolved symbols. Note that the
-    /// ModuleProvider returned by this accessor should not be deleted by the
-    /// caller. It is managed internally by the Archive class. It is possible
-    /// that multiple calls to this accessor will return the same ModuleProvider
-    /// instance because the associated module defines multiple symbols.
-    /// @returns The ModuleProvider* found or null if the archive does not
-    /// contain a module that defines the \p symbol.
+    /// Module returned by this accessor should not be deleted by the caller. It
+    /// is managed internally by the Archive class. It is possible that multiple
+    /// calls to this accessor will return the same Module instance because the
+    /// associated module defines multiple symbols.
+    /// @returns The Module* found or null if the archive does not contain a
+    /// module that defines the \p symbol.
     /// @brief Look up a module by symbol name.
-    ModuleProvider* findModuleDefiningSymbol(
+    Module* findModuleDefiningSymbol(
       const std::string& symbol,  ///< Symbol to be sought
       std::string* ErrMessage     ///< Error message storage, if non-zero
     );
@@ -394,7 +396,7 @@ class Archive {
     /// @brief Look up multiple symbols in the archive.
     bool findModulesDefiningSymbols(
       std::set<std::string>& symbols,     ///< Symbols to be sought
-      std::set<ModuleProvider*>& modules, ///< The modules matching \p symbols
+      std::set<Module*>& modules,         ///< The modules matching \p symbols
       std::string* ErrMessage             ///< Error msg storage, if non-zero
     );
 
@@ -449,7 +451,7 @@ class Archive {
   protected:
     /// @brief Construct an Archive for \p filename and optionally  map it
     /// into memory.
-    explicit Archive(const sys::Path& filename);
+    explicit Archive(const sys::Path& filename, LLVMContext& C);
 
     /// @param data The symbol table data to be parsed
     /// @param len  The length of the symbol table data
@@ -510,9 +512,9 @@ class Archive {
 
     /// This type is used to keep track of bitcode modules loaded from the
     /// symbol table. It maps the file offset to a pair that consists of the
-    /// associated ArchiveMember and the ModuleProvider.
+    /// associated ArchiveMember and the Module.
     /// @brief Module mapping type
-    typedef std::map<unsigned,std::pair<ModuleProvider*,ArchiveMember*> >
+    typedef std::map<unsigned,std::pair<Module*,ArchiveMember*> >
       ModuleMap;
 
 
@@ -530,6 +532,7 @@ class Archive {
     unsigned firstFileOffset; ///< Offset to first normal file.
     ModuleMap modules;        ///< The modules loaded via symbol lookup.
     ArchiveMember* foreignST; ///< This holds the foreign symbol table.
+    LLVMContext& Context;     ///< This holds global data.
   /// @}
   /// @name Hidden
   /// @{

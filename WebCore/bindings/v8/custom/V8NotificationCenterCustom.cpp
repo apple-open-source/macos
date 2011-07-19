@@ -37,8 +37,8 @@
 #include "Notification.h"
 #include "NotificationCenter.h"
 #include "V8Binding.h"
-#include "V8CustomEventListener.h"
 #include "V8CustomVoidCallback.h"
+#include "V8EventListener.h"
 #include "V8Notification.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
@@ -58,6 +58,7 @@ v8::Handle<v8::Value> V8NotificationCenter::createHTMLNotificationCallback(const
     if (ec)
         return throwError(ec);
 
+    notification->ref();
     return toV8(notification.get());
 }
 
@@ -72,6 +73,7 @@ v8::Handle<v8::Value> V8NotificationCenter::createNotificationCallback(const v8:
     if (ec)
         return throwError(ec);
 
+    notification->ref();
     return toV8(notification.get());
 }
 
@@ -79,7 +81,11 @@ v8::Handle<v8::Value> V8NotificationCenter::requestPermissionCallback(const v8::
 {
     INC_STATS(L"DOM.NotificationCenter.RequestPermission()");
     NotificationCenter* notificationCenter = V8NotificationCenter::toNative(args.Holder());
-    ScriptExecutionContext* context = notificationCenter->context();
+    ScriptExecutionContext* context = notificationCenter->scriptExecutionContext();
+
+    // Make sure that script execution context is valid.
+    if (!context)
+        return throwError(INVALID_STATE_ERR);
 
     // Requesting permission is only valid from a page context.
     if (context->isWorkerContext())
@@ -90,7 +96,7 @@ v8::Handle<v8::Value> V8NotificationCenter::requestPermissionCallback(const v8::
         if (!args[0]->IsObject())
             return throwError("Callback must be of valid type.", V8Proxy::TypeError);
  
-        callback = V8CustomVoidCallback::create(args[0], V8Proxy::retrieveFrameForCurrentContext());
+        callback = V8CustomVoidCallback::create(args[0], context);
     }
 
     notificationCenter->requestPermission(callback.release());

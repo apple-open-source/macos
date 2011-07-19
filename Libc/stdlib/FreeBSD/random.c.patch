@@ -1,8 +1,8 @@
---- random.c.org	2006-09-08 18:48:58.000000000 -0700
-+++ random.c	2006-09-08 18:50:03.000000000 -0700
-@@ -37,6 +37,14 @@
+--- random.c.bsdnew	2009-11-13 14:11:50.000000000 -0800
++++ random.c	2009-11-13 14:11:51.000000000 -0800
+@@ -33,6 +33,14 @@ static char sccsid[] = "@(#)random.c	8.2
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdlib/random.c,v 1.24 2004/01/20 03:02:18 das Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdlib/random.c,v 1.25 2007/01/09 00:28:10 imp Exp $");
  
 +/*
 + * We always compile with __DARWIN_UNIX03 set to one, relying on the fact that
@@ -15,7 +15,7 @@
  #include "namespace.h"
  #include <sys/time.h>          /* for srandomdev() */
  #include <fcntl.h>             /* for srandomdev() */
-@@ -220,7 +228,7 @@
+@@ -216,7 +224,7 @@ static int rand_deg = DEG_3;
  static int rand_sep = SEP_3;
  static uint32_t *end_ptr = &randtbl[DEG_3 + 1];
  
@@ -24,7 +24,7 @@
  
  static inline uint32_t good_rand (x)
  	int32_t x;
-@@ -269,7 +277,7 @@
+@@ -265,7 +273,7 @@ static inline uint32_t good_rand (x)
   */
  void
  srandom(x)
@@ -33,7 +33,7 @@
  {
  	int i, lim;
  
-@@ -357,9 +365,9 @@
+@@ -353,9 +361,9 @@ srandomdev()
   */
  char *
  initstate(seed, arg_state, n)
@@ -45,7 +45,7 @@
  {
  	char *ostate = (char *)(&state[-1]);
  	uint32_t *int_arg_state = (uint32_t *)arg_state;
-@@ -425,7 +433,7 @@
+@@ -421,7 +429,7 @@ initstate(seed, arg_state, n)
   */
  char *
  setstate(arg_state)

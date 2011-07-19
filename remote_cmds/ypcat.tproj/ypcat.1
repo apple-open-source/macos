@@ -26,7 +26,7 @@
 .\" (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 .\" THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 .\"
-.\"	$Id: ypcat.1,v 1.1 1999/05/02 03:59:01 wsanchez Exp $
+.\" $FreeBSD: src/usr.bin/ypcat/ypcat.1,v 1.13 2002/04/20 12:18:24 charnier Exp $
 .\"
 .Dd December 3, 1993
 .Dt YPCAT 1
@@ -35,18 +35,19 @@
 .Nm ypcat
 .Nd "print the values of all keys in a YP database"
 .Sh SYNOPSIS
-.Nm ypcat
+.Nm
 .Op Fl kt
 .Op Fl d Ar domainname
 .Ar mapname
-.Nm ypcat 
+.Nm
 .Fl x
 .Sh DESCRIPTION
-.Nm Ypcat
-prints out the values of all keys from the 
+The
+.Nm
+utility prints out the values of all keys from the
 .Tn YP
 database specified by
-.Ar mapname,
+.Ar mapname ,
 which may be a map name or a map nickname.
 .Pp
 The options are as follows:
@@ -64,7 +65,10 @@ to their corresponding map names.
 Display the map nickname table.
 .El
 .Sh SEE ALSO
+.Xr domainname 1 ,
 .Xr ypmatch 1 ,
-.Xr yp 8
-.Sh AUTHOR
-Theo De Raadt
+.Xr yp 8 ,
+.Xr ypbind 8 ,
+.Xr ypset 8
+.Sh AUTHORS
+.An Theo De Raadt Aq deraadt@theos.com .

@@ -20,10 +20,9 @@
 #include "XCoreSubtarget.h"
 #include "XCoreInstrInfo.h"
 #include "XCoreISelLowering.h"
+#include "XCoreSelectionDAGInfo.h"
 
 namespace llvm {
-
-class Module;
 
 class XCoreTargetMachine : public LLVMTargetMachine {
   XCoreSubtarget Subtarget;
@@ -31,31 +30,29 @@ class XCoreTargetMachine : public LLVMTargetMachine {
   XCoreInstrInfo InstrInfo;
   XCoreFrameInfo FrameInfo;
   XCoreTargetLowering TLInfo;
-
-protected:
-  virtual const TargetAsmInfo *createTargetAsmInfo() const;
-
+  XCoreSelectionDAGInfo TSInfo;
 public:
-  XCoreTargetMachine(const Module &M, const std::string &FS);
+  XCoreTargetMachine(const Target &T, const std::string &TT,
+                     const std::string &FS);
 
   virtual const XCoreInstrInfo *getInstrInfo() const { return &InstrInfo; }
   virtual const XCoreFrameInfo *getFrameInfo() const { return &FrameInfo; }
   virtual const XCoreSubtarget *getSubtargetImpl() const { return &Subtarget; }
-  virtual       XCoreTargetLowering *getTargetLowering() const {
-    return const_cast<XCoreTargetLowering*>(&TLInfo);
+  virtual const XCoreTargetLowering *getTargetLowering() const {
+    return &TLInfo;
+  }
+
+  virtual const XCoreSelectionDAGInfo* getSelectionDAGInfo() const {
+    return &TSInfo;
   }
 
   virtual const TargetRegisterInfo *getRegisterInfo() const {
     return &InstrInfo.getRegisterInfo();
   }
   virtual const TargetData       *getTargetData() const { return &DataLayout; }
-  static unsigned getModuleMatchQuality(const Module &M);
 
   // Pass Pipeline Configuration
   virtual bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM,
-                                  CodeGenOpt::Level OptLevel, 
-                                  bool Verbose, raw_ostream &Out);
 };
 
 } // end namespace llvm

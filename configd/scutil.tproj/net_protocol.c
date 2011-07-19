@@ -418,128 +418,6 @@ select_protocol(int argc, char **argv)
 
 
 #pragma mark -
-#pragma mark AppleTalk
-
-
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-
-
-static selections appletalkConfigMethods[] = {
-	{ CFSTR("node")      , &kSCValNetAppleTalkConfigMethodNode      , 0 },
-	{ CFSTR("router")    , &kSCValNetAppleTalkConfigMethodRouter    , 0 },
-	{ CFSTR("seedrouter"), &kSCValNetAppleTalkConfigMethodSeedRouter, 0 },
-	{ NULL               , NULL                                     , 0 }
-};
-
-
-static int
-__doAppleTalkConfigMethod(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
-{
-	CFStringRef	configMethod;
-
-	configMethod = CFDictionaryGetValue(newConfiguration, key);
-	if (!CFEqual(key, kSCValNetAppleTalkConfigMethodSeedRouter)) {
-		CFDictionaryRemoveValue(newConfiguration, kSCPropNetAppleTalkSeedZones);
-		CFDictionaryRemoveValue(newConfiguration, kSCPropNetAppleTalkSeedNetworkRange);
-	}
-
-	return 0;
-}
-
-
-static int
-__doAppleTalkNetworkRange(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
-{
-	if (argc < 1) {
-		SCPrint(TRUE, stdout, CFSTR("network range not specified\n"));
-		return -1;
-	}
-
-	if (strlen(argv[0]) > 0) {
-		CFArrayRef	array;
-		char		*cp;
-		CFNumberRef	range[2];
-
-		range[0] = _copy_number(argv[0]);
-		if (range[0] == NULL) {
-			SCPrint(TRUE, stdout, CFSTR("invalid start of range\n"));
-			return -1;
-		}
-
-		cp = strchr(argv[0], '-');
-		if (cp == NULL) {
-			range[1] = _copy_number(cp);
-			if (range[1] == NULL) {
-				CFRelease(range[0]);
-				SCPrint(TRUE, stdout, CFSTR("invalid end of range\n"));
-				return -1;
-			}
-		} else {
-			range[1] = CFRetain(range[0]);
-		}
-
-		array = CFArrayCreate(NULL,
-				      (const void **)range,
-				      sizeof(range)/sizeof(range[0]),
-				      &kCFTypeArrayCallBacks);
-		CFRelease(range[0]);
-		CFRelease(range[1]);
-
-		CFDictionarySetValue(newConfiguration, key, array);
-		CFRelease(array);
-	} else {
-		CFDictionaryRemoveValue(newConfiguration, key);
-	}
-
-	return 1;
-}
-
-
-static options appletalkOptions[] = {
-	{ "ConfigMethod"    , "configuration method"
-				       , isChooseOne  , &kSCPropNetAppleTalkConfigMethod    , __doAppleTalkConfigMethod, (void *)appletalkConfigMethods },
-	{   "config"        , "configuration method"
-				       , isChooseOne  , &kSCPropNetAppleTalkConfigMethod    , __doAppleTalkConfigMethod, (void *)appletalkConfigMethods },
-	{ "DefaultZone"     , "zone"   , isString     , &kSCPropNetAppleTalkDefaultZone     , NULL                     , NULL                           },
-	{ "NodeID"          , "node"   , isNumber     , &kSCPropNetAppleTalkNodeID          , NULL                     , NULL                           },
-	{   "node"          , "node"   , isNumber     , &kSCPropNetAppleTalkNodeID          , NULL                     , NULL                           },
-	{ "NetworkID"       , "network", isNumber     , &kSCPropNetAppleTalkNetworkID       , NULL                     , NULL                           },
-	{   "network"       , "network", isNumber     , &kSCPropNetAppleTalkNetworkID       , NULL                     , NULL                           },
-	{ "SeedNetworkRange", "range"  , isOther      , &kSCPropNetAppleTalkSeedNetworkRange, __doAppleTalkNetworkRange, NULL                           },
-	{ "SeedZones"       , "zone"   , isStringArray, &kSCPropNetAppleTalkSeedZones       , NULL                     , NULL                           },
-
-	{ "?"               , NULL   , isHelp       , NULL                                , NULL                     ,
-	    "\nAppleTalk configuration commands\n\n"
-	    " set protocol config {Node|Router|SeedRouter}\n"
-	    " set protocol defaultzone zone\n"
-	    " set protocol node id\n"
-	    " set protocol network id\n"
-	    "\n w/config=Node\n"
-	    "   None\n"
-	    "\n w/config=Router\n"
-	    "   None\n"
-	    "\n w/config=SeedRouter\n"
-	    "   set protocol seednetworkrange low[-high]\n"
-	    "   set protocol seedzones zone[,zone-2]\n"
-	}
-};
-#define	N_APPLETALK_OPTIONS	(sizeof(appletalkOptions) / sizeof(appletalkOptions[0]))
-
-
-static Boolean
-set_protocol_appletalk(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
-{
-	Boolean	ok;
-
-	ok = _process_options(appletalkOptions, N_APPLETALK_OPTIONS, argc, argv, newConfiguration);
-	return ok;
-}
-
-
-#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
-
-
-#pragma mark -
 #pragma mark DNS
 
 
@@ -714,6 +592,12 @@ static options dnsOptions[] = {
 	{ "ServerAddresses", "address", isOther, &kSCPropNetDNSServerAddresses, __doDNSServerAddresses, NULL },
 	{   "nameserver"   , "address", isOther, &kSCPropNetDNSServerAddresses, __doDNSServerAddresses, NULL },
 	{   "nameservers"  , "address", isOther, &kSCPropNetDNSServerAddresses, __doDNSServerAddresses, NULL },
+	{ "SupplementalMatchDomains",
+		"domain",
+		isOther,
+		&kSCPropNetDNSSupplementalMatchDomains,
+		__doDNSDomainArray,
+		NULL },
 
 	{ "?"              , NULL     , isHelp , NULL                         , NULL,
 	    "\nDNS configuration commands\n\n"
@@ -1598,10 +1482,6 @@ set_protocol(int argc, char **argv)
 		ok = set_protocol_ipv6(argc, argv, newConfiguration);
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeProxies)) {
 		ok = set_protocol_proxies(argc, argv, newConfiguration);
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
-		ok = set_protocol_appletalk(argc, argv, newConfiguration);
-#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
 #if	!TARGET_OS_IPHONE
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
 		ok = set_protocol_smb(argc, argv, newConfiguration);
@@ -1869,18 +1749,6 @@ _protocol_description(SCNetworkProtocolRef protocol, Boolean skipEmpty)
 					     CFStringGetLength(description) > 0 ? ", " : "",
 					     currentProxy->proxy);
 		}
-#if	!TARGET_OS_IPHONE && INCLUDE_APPLETALK
-	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeAppleTalk)) {
-		CFStringRef	method;
-
-		method = CFDictionaryGetValue(configuration, kSCPropNetAppleTalkConfigMethod);
-		if (isA_CFString(method)) {
-			CFStringAppendFormat(description,
-					     NULL,
-					     CFSTR("%@"),
-					     method);
-		}
-#endif	// !TARGET_OS_IPHONE && INCLUDE_APPLETALK
 #if	!TARGET_OS_IPHONE
 	} else if (CFEqual(protocolType, kSCNetworkProtocolTypeSMB)) {
 		CFStringRef	name;

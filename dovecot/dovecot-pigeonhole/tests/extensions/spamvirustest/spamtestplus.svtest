@@ -1,0 +1,136 @@
+require "vnd.dovecot.testsuite";
+require "spamtestplus";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "variables";
+
+/*
+ * Value
+ */
+
+test_set "message" text:
+From: legitimate@example.com
+To: victim@dovecot.example.net
+Subject: Not spammish
+X-SpamCheck: .00
+X-SpamCheck1: .01
+X-SpamCheck2: .13
+X-SpamCheck3: .29
+X-SpamCheck4: .51
+X-SpamCheck5: .73
+X-SpamCheck6: .89
+X-SpamCheck7: 1.01
+Test!
+.
+;
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck";
+test_config_set "sieve_spamtest_max_value" "1";
+test_config_set "sieve_spamtest_status_type" "score";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .00" {
+	if not spamtest :percent :is "0" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck1";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .01" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "1" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck2";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .13" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "13" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck3";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .29" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "29" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck4";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .51" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "51" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck5";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .73" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "73" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck6";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: .89" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "89" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_spamtest_status_header" "X-SpamCheck7";
+test_config_reload :extension "spamtestplus";
+
+test "Value percent: 1.01" {
+	if spamtest :percent :is "0" {
+		test_fail "spamtest not configured or test failed";
+	}
+
+	if not spamtest :percent :is "100" {
+		if spamtest :percent :matches "*" { }
+		test_fail "wrong percent spam value produced: ${1}";
+	}
+}
+

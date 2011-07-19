@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2004, 2005, 2006, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2004, 2005, 2006, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -30,7 +30,6 @@
 #include "JSString.h"
 #include "JSStringBuilder.h"
 #include "ObjectPrototype.h"
-#include "PrototypeFunction.h"
 #include <math.h>
 #include <time.h>
 #include <wtf/DateMath.h>
@@ -52,26 +51,47 @@ using namespace WTF;
 
 namespace JSC {
 
+static EncodedJSValue JSC_HOST_CALL dateParse(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateNow(ExecState*);
+static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState*);
+
+}
+
+#include "DateConstructor.lut.h"
+
+namespace JSC {
+
+const ClassInfo DateConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::dateConstructorTable };
+
+/* Source for DateConstructor.lut.h
+@begin dateConstructorTable
+  parse     dateParse   DontEnum|Function 1
+  UTC       dateUTC     DontEnum|Function 7
+  now       dateNow     DontEnum|Function 0
+@end
+*/
+
 ASSERT_CLASS_FITS_IN_CELL(DateConstructor);
 
-static JSValue JSC_HOST_CALL dateParse(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateNow(ExecState*, JSObject*, JSValue, const ArgList&);
-static JSValue JSC_HOST_CALL dateUTC(ExecState*, JSObject*, JSValue, const ArgList&);
-
-DateConstructor::DateConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, Structure* prototypeFunctionStructure, DatePrototype* datePrototype)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, datePrototype->classInfo()->className))
+DateConstructor::DateConstructor(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, DatePrototype* datePrototype)
+    : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, datePrototype->classInfo()->className))
 {
-      putDirectWithoutTransition(exec->propertyNames().prototype, datePrototype, DontEnum|DontDelete|ReadOnly);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().prototype, datePrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(7), ReadOnly | DontEnum | DontDelete);
+}
 
-      putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().parse, dateParse), DontEnum);
-      putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 7, exec->propertyNames().UTC, dateUTC), DontEnum);
-      putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 0, exec->propertyNames().now, dateNow), DontEnum);
+bool DateConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
+{
+    return getStaticFunctionSlot<InternalFunction>(exec, ExecState::dateConstructorTable(exec), this, propertyName, slot);
+}
 
-      putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 7), ReadOnly | DontEnum | DontDelete);
+bool DateConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticFunctionDescriptor<InternalFunction>(exec, ExecState::dateConstructorTable(exec), this, propertyName, descriptor);
 }
 
 // ECMA 15.9.3
-JSObject* constructDate(ExecState* exec, const ArgList& args)
+JSObject* constructDate(ExecState* exec, JSGlobalObject* globalObject, const ArgList& args)
 {
     int numArgs = args.size();
 
@@ -80,7 +100,7 @@ JSObject* constructDate(ExecState* exec, const ArgList& args)
     if (numArgs == 0) // new Date() ECMA 15.9.3.3
         value = jsCurrentTime();
     else if (numArgs == 1) {
-        if (args.at(0).inherits(&DateInstance::info))
+        if (args.at(0).inherits(&DateInstance::s_info))
             value = asDateInstance(args.at(0))->internalNumber();
         else {
             JSValue primitive = args.at(0).toPrimitive(exec);
@@ -90,35 +110,45 @@ JSObject* constructDate(ExecState* exec, const ArgList& args)
                 value = primitive.toNumber(exec);
         }
     } else {
-        if (isnan(args.at(0).toNumber(exec))
-                || isnan(args.at(1).toNumber(exec))
-                || (numArgs >= 3 && isnan(args.at(2).toNumber(exec)))
-                || (numArgs >= 4 && isnan(args.at(3).toNumber(exec)))
-                || (numArgs >= 5 && isnan(args.at(4).toNumber(exec)))
-                || (numArgs >= 6 && isnan(args.at(5).toNumber(exec)))
-                || (numArgs >= 7 && isnan(args.at(6).toNumber(exec))))
+        double doubleArguments[7] = {
+            args.at(0).toNumber(exec), 
+            args.at(1).toNumber(exec), 
+            args.at(2).toNumber(exec), 
+            args.at(3).toNumber(exec), 
+            args.at(4).toNumber(exec), 
+            args.at(5).toNumber(exec), 
+            args.at(6).toNumber(exec)
+        };
+        if (isnan(doubleArguments[0])
+                || isnan(doubleArguments[1])
+                || (numArgs >= 3 && isnan(doubleArguments[2]))
+                || (numArgs >= 4 && isnan(doubleArguments[3]))
+                || (numArgs >= 5 && isnan(doubleArguments[4]))
+                || (numArgs >= 6 && isnan(doubleArguments[5]))
+                || (numArgs >= 7 && isnan(doubleArguments[6])))
             value = NaN;
         else {
             GregorianDateTime t;
-            int year = args.at(0).toInt32(exec);
+            int year = JSC::toInt32(doubleArguments[0]);
             t.year = (year >= 0 && year <= 99) ? year : year - 1900;
-            t.month = args.at(1).toInt32(exec);
-            t.monthDay = (numArgs >= 3) ? args.at(2).toInt32(exec) : 1;
-            t.hour = args.at(3).toInt32(exec);
-            t.minute = args.at(4).toInt32(exec);
-            t.second = args.at(5).toInt32(exec);
+            t.month = JSC::toInt32(doubleArguments[1]);
+            t.monthDay = (numArgs >= 3) ? JSC::toInt32(doubleArguments[2]) : 1;
+            t.hour = JSC::toInt32(doubleArguments[3]);
+            t.minute = JSC::toInt32(doubleArguments[4]);
+            t.second = JSC::toInt32(doubleArguments[5]);
             t.isDST = -1;
-            double ms = (numArgs >= 7) ? args.at(6).toNumber(exec) : 0;
+            double ms = (numArgs >= 7) ? doubleArguments[6] : 0;
             value = gregorianDateTimeToMS(exec, t, ms, false);
         }
     }
 
-    return new (exec) DateInstance(exec, value);
+    return new (exec) DateInstance(exec, globalObject->dateStructure(), value);
 }
     
-static JSObject* constructWithDateConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithDateConstructor(ExecState* exec)
 {
-    return constructDate(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructDate(exec, asInternalFunction(exec->callee())->globalObject(), args));
 }
 
 ConstructType DateConstructor::getConstructData(ConstructData& constructData)
@@ -128,7 +158,7 @@ ConstructType DateConstructor::getConstructData(ConstructData& constructData)
 }
 
 // ECMA 15.9.2
-static JSValue JSC_HOST_CALL callDate(ExecState* exec, JSObject*, JSValue, const ArgList&)
+static EncodedJSValue JSC_HOST_CALL callDate(ExecState* exec)
 {
     time_t localTime = time(0);
     tm localTM;
@@ -138,7 +168,7 @@ static JSValue JSC_HOST_CALL callDate(ExecState* exec, JSObject*, JSValue, const
     DateConversionBuffer time;
     formatDate(ts, date);
     formatTime(ts, time);
-    return jsMakeNontrivialString(exec, date, " ", time);
+    return JSValue::encode(jsMakeNontrivialString(exec, date, " ", time));
 }
 
 CallType DateConstructor::getCallData(CallData& callData)
@@ -147,38 +177,47 @@ CallType DateConstructor::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-static JSValue JSC_HOST_CALL dateParse(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL dateParse(ExecState* exec)
 {
-    return jsNumber(exec, parseDate(exec, args.at(0).toString(exec)));
+    return JSValue::encode(jsNumber(parseDate(exec, exec->argument(0).toString(exec))));
 }
 
-static JSValue JSC_HOST_CALL dateNow(ExecState* exec, JSObject*, JSValue, const ArgList&)
+static EncodedJSValue JSC_HOST_CALL dateNow(ExecState*)
 {
-    return jsNumber(exec, jsCurrentTime());
+    return JSValue::encode(jsNumber(jsCurrentTime()));
 }
 
-static JSValue JSC_HOST_CALL dateUTC(ExecState* exec, JSObject*, JSValue, const ArgList& args) 
+static EncodedJSValue JSC_HOST_CALL dateUTC(ExecState* exec) 
 {
-    int n = args.size();
-    if (isnan(args.at(0).toNumber(exec))
-            || isnan(args.at(1).toNumber(exec))
-            || (n >= 3 && isnan(args.at(2).toNumber(exec)))
-            || (n >= 4 && isnan(args.at(3).toNumber(exec)))
-            || (n >= 5 && isnan(args.at(4).toNumber(exec)))
-            || (n >= 6 && isnan(args.at(5).toNumber(exec)))
-            || (n >= 7 && isnan(args.at(6).toNumber(exec))))
-        return jsNaN(exec);
+    double doubleArguments[7] = {
+        exec->argument(0).toNumber(exec), 
+        exec->argument(1).toNumber(exec), 
+        exec->argument(2).toNumber(exec), 
+        exec->argument(3).toNumber(exec), 
+        exec->argument(4).toNumber(exec), 
+        exec->argument(5).toNumber(exec), 
+        exec->argument(6).toNumber(exec)
+    };
+    int n = exec->argumentCount();
+    if (isnan(doubleArguments[0])
+            || isnan(doubleArguments[1])
+            || (n >= 3 && isnan(doubleArguments[2]))
+            || (n >= 4 && isnan(doubleArguments[3]))
+            || (n >= 5 && isnan(doubleArguments[4]))
+            || (n >= 6 && isnan(doubleArguments[5]))
+            || (n >= 7 && isnan(doubleArguments[6])))
+        return JSValue::encode(jsNaN());
 
     GregorianDateTime t;
-    int year = args.at(0).toInt32(exec);
+    int year = JSC::toInt32(doubleArguments[0]);
     t.year = (year >= 0 && year <= 99) ? year : year - 1900;
-    t.month = args.at(1).toInt32(exec);
-    t.monthDay = (n >= 3) ? args.at(2).toInt32(exec) : 1;
-    t.hour = args.at(3).toInt32(exec);
-    t.minute = args.at(4).toInt32(exec);
-    t.second = args.at(5).toInt32(exec);
-    double ms = (n >= 7) ? args.at(6).toNumber(exec) : 0;
-    return jsNumber(exec, timeClip(gregorianDateTimeToMS(exec, t, ms, true)));
+    t.month = JSC::toInt32(doubleArguments[1]);
+    t.monthDay = (n >= 3) ? JSC::toInt32(doubleArguments[2]) : 1;
+    t.hour = JSC::toInt32(doubleArguments[3]);
+    t.minute = JSC::toInt32(doubleArguments[4]);
+    t.second = JSC::toInt32(doubleArguments[5]);
+    double ms = (n >= 7) ? doubleArguments[6] : 0;
+    return JSValue::encode(jsNumber(timeClip(gregorianDateTimeToMS(exec, t, ms, true))));
 }
 
 } // namespace JSC

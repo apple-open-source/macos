@@ -1,0 +1,193 @@
+mbox configuration
+==================
+
+See <MailboxFormat.mbox.txt> for a complete description of how Dovecot has
+implemented mbox support.
+
+Mail location
+-------------
+
+In many systems the user's mails are by default stored in '/var/mail/username'
+file. This file is called INBOX in IMAP world. Since IMAP supports multiple
+mailboxes, you'll need to have a directory for them as well. Usually '~/mail'
+is a good choice for this. For installation such as this, the mail location is
+specified with:
+
+---%<-------------------------------------------------------------------------
+# %u is replaced with the username that logs in
+mail_location = mbox:~/mail:INBOX=/var/mail/%u
+---%<-------------------------------------------------------------------------
+
+It's in no way a requirement to have the INBOX in '/var/mail/' directory. In
+fact this often just brings problems because Dovecot might not be able to write
+dotlock files to the directory (see below). You can avoid this completely by
+just keeping everything in '~/mail/':
+
+---%<-------------------------------------------------------------------------
+# INBOX exists in ~/mail/inbox
+mail_location = mbox:~/mail
+---%<-------------------------------------------------------------------------
+
+Index files
+-----------
+
+See <MailLocation#indexfiles> [MailLocation.txt] for full explanation of how to
+change the index path. For example:
+
+---%<-------------------------------------------------------------------------
+mail_location = mbox:~/mail:INBOX=/var/mail/%u:INDEX=/var/indexes/%u
+---%<-------------------------------------------------------------------------
+
+Locking
+-------
+
+Make sure that all software accessing the mboxes are using the same locking
+methods in the same order. The order is important to prevent deadlocking. From
+Dovecot's side you can change these from 'mbox_read_locks' and
+'mbox_write_locks' settings. See <MboxLocking.txt> for more information.
+
+/var/mail/ dotlocks
+-------------------
+
+Often mbox write locks include dotlock, which means that Dovecot needs to
+create a new "<mbox>.lock" file to the directory where the mbox file exists. If
+your INBOXes are in '/var/mail/' directory you may have to give Dovecot write
+access to the directory. There are two ways the '/var/mail/' directory's
+permissions have traditionally been set up:
+
+ * World-writable with sticky bit set, allowing anyone to create new files but
+   not overwrite or delete existing files owned by someone else (ie. same as
+   /tmp). You can do this with 'chmod a+rwxt /var/mail'
+ * Directory owned by a mail group and the directory set to group-writable
+
+You can give Dovecot access to mail group by setting:
+
+---%<-------------------------------------------------------------------------
+mail_privileged_group = mail
+---%<-------------------------------------------------------------------------
+
+NOTE: With <LDA.txt> the 'mail_privileged_group' setting unfortunately doesn't
+work, so you'll have to use the sticky bit, disable dotlocking completely or
+use LMTP server instead.
+
+/var/mail/* permissions
+-----------------------
+
+In some systems the '/var/mail/$USER' files have 0660 mode permissions. This
+causes Dovecot to try to preserve the file's group, and if it doesn't have
+permissions to do so, it'll fail with an error:
+
+---%<-------------------------------------------------------------------------
+imap(user): Error: chown(/home/user/mail/.imap/INBOX, -1, 12(mail)) failed:
+Operation not permitted (egid=1000(user), group based on /var/mail/user)
+---%<-------------------------------------------------------------------------
+
+There is rarely any real need for the files to have 0660 mode, so the best
+solution for this problem is to just change the mode to 0600:
+
+---%<-------------------------------------------------------------------------
+chmod 0600 /var/mail/*
+---%<-------------------------------------------------------------------------
+
+Optimizations
+-------------
+
+The settings below are related to mbox performance. See
+<MailboxFormat.mbox.txt> for more complete description of what they do.
+
+ * 'mbox_lazy_writes=yes' (default): Metadata updates, such as writing X-UID
+   headers or flag changes, aren't written to mbox file until the mailbox is
+   closed or CHECK or EXPUNGE IMAP commands are sent by the client. The mbox
+   rewrites can be costly, so this may avoid a lot of disk writes.
+ * 'mbox_dirty_syncs=yes' (default): Dovecot assumes that external mbox file
+   changes only mean that new messages were appended to it. Without this
+   setting Dovecot re-reads the whole mbox file whenever it changes. There are
+   various safeguards in place to make this setting safe even when other
+   changes than appends were done to the mbox. The only downside to this
+   setting is that external message flag modifications may not be visible
+   immediately.
+ * 'mbox_very_dirty_syncs=yes' (not default): When opening mbox file that has
+   been changed externally, don't re-read it. Otherwise similar to
+   'mbox_dirty_syncs=yes'.
+ * 'mbox_min_index_size=n': If mbox file is smaller than n kilobytes, don't
+   update its index files. If an index file exists for it, it's still read
+   however.
+
+Only /var/mail/ mboxes
+----------------------
+
+With POP3 it's been traditional that users have their mails only in the
+'/var/mail/' directory. IMAP however supports having multiple mailboxes, so
+each user has to have a private directory where the mailboxes are stored.
+Dovecot also needs a directory for its index files unless you disable them
+completely.
+
+If you *really* want to use Dovecot as a plain POP3 server without index files,
+you can work around the problem of not having the per-user directory:
+
+ * Set users' home directory in userdb to some empty non-writable directory,
+   for example '/var/empty'
+ * Modify 'mail_location' setting so that the mail root directory is also the
+   empty directory and append ':INDEX=MEMORY' to it. For example:
+   'mail_location = mbox:/var/empty:INBOX=/var/mail/%u:INDEX=MEMORY'
+ * Note that if you have IMAP users, they'll see the '/var/empty' as the
+   directory containing other mailboxes than INBOX. If the directory is
+   writable, all the users will have their mailboxes shared.
+
+Directory layout
+----------------
+
+By default Dovecot uses filesystem layout under mbox. This means that mail is
+stored in mbox files under hierarchical directories, for example:
+
+ * '~/mail/inbox' - mbox file containing mail for INBOX
+ * '~/mail/foo' - mbox file containing mail for mailbox "foo"
+ * '~/mail/bar/baz' - mbox file containing mail for mailbox "bar/baz"
+
+One upshot of this is that it is not normally possible to have mailboxes which
+are subfolders of mailboxes containing messages.
+
+As an alternative, it is possible to configure Dovecot to store all mailboxes
+in a single directory with hierarchical levels separated by a dot. This can be
+configured by adding ':LAYOUT=maildir++' to the mail location. There are,
+however, some further considerations when doing this; see
+<MboxChildFolders.txt> for some examples.
+
+Control files
+-------------
+
+Under mbox format, Dovecot maintains the subscribed mailboxes list in a file
+'.subscriptions' which by default is stored in the mail location root. So in
+the example configuration this would be at '~/mail/.subscriptions'.
+
+If you want to put this somewhere else, you can change the directory in which
+the '.subscriptions' file is kept by using the 'CONTROL' parameter. So for
+example, if we configured the mail location using:
+
+---%<-------------------------------------------------------------------------
+mail_location = mbox:~/mail:CONTROL=~/mail-control
+---%<-------------------------------------------------------------------------
+
+then the subscribed mailboxes list would be maintained at
+'~/mail-control/.subscriptions'.
+
+One practical application of the 'CONTROL' parameter is described at
+<MboxChildFolders.txt>.
+
+Message file name
+-----------------
+
+By default, Dovecot stores messages for INBOX in an mbox file called "inbox",
+and messages for all other mailboxes in an mbox file whose relative path is
+equivalent to the name of the mailbox. Under this scheme, it is not possible to
+have mailboxes which contain both messages and child mailboxes.
+
+However, the behaviour (for mailboxes other than INBOX) can be changed using
+the 'DIRNAME' parameter. If the 'DIRNAME' parameter is specified with a
+particular value, then Dovecot will store messages in a file with a name of
+that value, in a directory with a name equivalent to the mailbox name.
+
+There are, however, some further considerations when doing this; see
+<MboxChildFolders.txt> for an example.
+
+(This file was created from the wiki on 2011-05-11 04:42)

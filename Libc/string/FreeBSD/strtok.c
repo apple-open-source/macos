@@ -15,10 +15,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notices, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by Softweyr LLC, the
- *      University of California, Berkeley, and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -40,7 +36,7 @@
 static char sccsid[] = "@(#)strtok.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strtok.c,v 1.9 2002/09/07 02:53:19 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strtok.c,v 1.10 2007/12/12 18:33:06 wes Exp $");
 
 #include <stddef.h>
 #ifdef DEBUG_STRTOK

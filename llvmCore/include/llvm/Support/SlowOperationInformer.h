@@ -31,7 +31,7 @@
 
 #include <string>
 #include <cassert>
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 
 namespace llvm {
   class SlowOperationInformer {
@@ -41,7 +41,7 @@ namespace llvm {
     SlowOperationInformer(const SlowOperationInformer&);   // DO NOT IMPLEMENT
     void operator=(const SlowOperationInformer&);          // DO NOT IMPLEMENT
   public:
-    SlowOperationInformer(const std::string &Name);
+    explicit SlowOperationInformer(const std::string &Name);
     ~SlowOperationInformer();
 
     /// progress - Clients should periodically call this method when they can

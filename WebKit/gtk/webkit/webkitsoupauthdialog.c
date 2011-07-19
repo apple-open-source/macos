@@ -25,6 +25,7 @@
 #include <gtk/gtk.h>
 #include <libsoup/soup.h>
 
+#include "GtkVersioning.h"
 #include "webkitmarshal.h"
 #include "webkitsoupauthdialog.h"
 
@@ -58,6 +59,19 @@ static void webkit_soup_auth_dialog_class_init(WebKitSoupAuthDialogClass* klass)
 {
     GObjectClass* object_class = G_OBJECT_CLASS(klass);
 
+    /**
+     * WebKitSoupAuthDialog::current-toplevel:
+     * @authDialog: the object on which the signal is emitted
+     * @message: the #SoupMessage being used in the authentication process
+     *
+     * This signal is emitted by the @authDialog when it needs to know
+     * the current toplevel widget in order to correctly set the
+     * transiency for the authentication dialog.
+     *
+     * Return value: (transfer none): the current toplevel #GtkWidget or %NULL if there's none
+     *
+     * Since: 1.1.1
+     */
     signals[CURRENT_TOPLEVEL] =
       g_signal_new("current-toplevel",
                    G_OBJECT_CLASS_TYPE(object_class),
@@ -212,11 +226,10 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
                            NULL);
 
     /* Set the dialog up with HIG properties */
-    gtk_dialog_set_has_separator(dialog, FALSE);
     gtk_container_set_border_width(GTK_CONTAINER(dialog), 5);
-    gtk_box_set_spacing(GTK_BOX(dialog->vbox), 2); /* 2 * 5 + 2 = 12 */
-    gtk_container_set_border_width(GTK_CONTAINER(dialog->action_area), 5);
-    gtk_box_set_spacing(GTK_BOX(dialog->action_area), 6);
+    gtk_box_set_spacing(GTK_BOX(gtk_dialog_get_content_area(dialog)), 2); /* 2 * 5 + 2 = 12 */
+    gtk_container_set_border_width(GTK_CONTAINER(gtk_dialog_get_action_area(dialog)), 5);
+    gtk_box_set_spacing(GTK_BOX(gtk_dialog_get_action_area(dialog)), 6);
 
     gtk_window_set_resizable(window, FALSE);
     gtk_window_set_title(window, "");
@@ -233,7 +246,7 @@ static void show_auth_dialog(WebKitAuthData* authData, const char* login, const 
     /* Build contents */
     hbox = gtk_hbox_new(FALSE, 12);
     gtk_container_set_border_width(GTK_CONTAINER(hbox), 5);
-    gtk_box_pack_start(GTK_BOX(dialog->vbox), hbox, TRUE, TRUE, 0);
+    gtk_box_pack_start(GTK_BOX(gtk_dialog_get_content_area(dialog)), hbox, TRUE, TRUE, 0);
 
     icon = gtk_image_new_from_stock(GTK_STOCK_DIALOG_AUTHENTICATION,
                                     GTK_ICON_SIZE_DIALOG);

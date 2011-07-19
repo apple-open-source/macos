@@ -143,10 +143,10 @@ Pass *createLoopIndexSplitPass();
 // this pass is:
 //
 //        FROM CODE                           TO CODE
-//   %X = alloca int, uint 1                 ret int 42
-//   store int 42, int *%X
-//   %Y = load int* %X
-//   ret int %Y
+//   %X = alloca i32, i32 1                 ret i32 42
+//   store i32 42, i32 *%X
+//   %Y = load i32* %X
+//   ret i32 %Y
 //
 FunctionPass *createPromoteMemoryToRegisterPass();
 extern const PassInfo *const PromoteMemoryToRegisterID;
@@ -168,14 +168,6 @@ extern const PassInfo *const DemoteRegisterToMemoryID;
 // For example:  4 + (x + 5)  ->  x + (4 + 5)
 //
 FunctionPass *createReassociatePass();
-
-//===----------------------------------------------------------------------===//
-//
-// CondPropagationPass - This pass propagates information about conditional
-// expressions through the program, allowing it to eliminate conditional
-// branches in some cases.
-//
-FunctionPass *createCondPropagationPass();
 
 //===----------------------------------------------------------------------===//
 //
@@ -220,18 +212,8 @@ extern const PassInfo *const BreakCriticalEdgesID;
 //
 //   AU.addRequiredID(LoopSimplifyID);
 //
-FunctionPass *createLoopSimplifyPass();
+Pass *createLoopSimplifyPass();
 extern const PassInfo *const LoopSimplifyID;
-
-//===----------------------------------------------------------------------===//
-//
-// LowerAllocations - Turn malloc and free instructions into %malloc and %free
-// calls.
-//
-//   AU.addRequiredID(LowerAllocationsID);
-//
-Pass *createLowerAllocationsPass(bool LowerMallocArgToInteger = false);
-extern const PassInfo *const LowerAllocationsID;
 
 //===----------------------------------------------------------------------===//
 //
@@ -259,6 +241,8 @@ extern const PassInfo *const LowerSwitchID;
 // lowering pass.
 //
 FunctionPass *createLowerInvokePass(const TargetLowering *TLI = 0);
+FunctionPass *createLowerInvokePass(const TargetLowering *TLI,
+                                    bool useExpensiveEHSupport);
 extern const PassInfo *const LowerInvokePassID;
 
 //===----------------------------------------------------------------------===//
@@ -278,24 +262,10 @@ extern const PassInfo *const LCSSAID;
 
 //===----------------------------------------------------------------------===//
 //
-// PredicateSimplifier - This pass collapses duplicate variables into one
-// canonical form, and tries to simplify expressions along the way.
-//
-FunctionPass *createPredicateSimplifierPass();
-
-//===----------------------------------------------------------------------===//
-//
-// GVN-PRE - This pass performs global value numbering and partial redundancy
-// elimination.
-//
-FunctionPass *createGVNPREPass();
-
-//===----------------------------------------------------------------------===//
-//
 // GVN - This pass performs global value numbering and redundant load 
 // elimination cotemporaneously.
 //
-FunctionPass *createGVNPass();
+FunctionPass *createGVNPass(bool NoLoads = false);
 
 //===----------------------------------------------------------------------===//
 //
@@ -329,7 +299,6 @@ FunctionPass *createSimplifyHalfPowrLibCallsPass();
 //
 FunctionPass *createCodeGenPreparePass(const TargetLowering *TLI = 0);
 
-  
 //===----------------------------------------------------------------------===//
 //
 // InstructionNamer - Give any unnamed non-void instructions "tmp" names.
@@ -337,6 +306,38 @@ FunctionPass *createCodeGenPreparePass(const TargetLowering *TLI = 0);
 FunctionPass *createInstructionNamerPass();
 extern const PassInfo *const InstructionNamerID;
   
+//===----------------------------------------------------------------------===//
+//
+// SSI - This pass converts instructions to Static Single Information form
+// on demand.
+//
+FunctionPass *createSSIPass();
+
+//===----------------------------------------------------------------------===//
+//
+// SSI - This pass converts every non-void instuction to Static Single
+// Information form.
+//
+FunctionPass *createSSIEverythingPass();
+
+//===----------------------------------------------------------------------===//
+//
+// GEPSplitter - Split complex GEPs into simple ones
+//
+FunctionPass *createGEPSplitterPass();
+
+//===----------------------------------------------------------------------===//
+//
+// ABCD - Elimination of Array Bounds Checks on Demand
+//
+FunctionPass *createABCDPass();
+
+//===----------------------------------------------------------------------===//
+//
+// Sink - Code Sinking
+//
+FunctionPass *createSinkingPass();
+
 } // End llvm namespace
 
 #endif

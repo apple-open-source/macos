@@ -120,6 +120,25 @@ bool ImplicitAnimation::startAnimation(double timeOffset)
     return false;
 }
 
+void ImplicitAnimation::pauseAnimation(double timeOffset)
+{
+    if (!m_object)
+        return;
+
+#if USE(ACCELERATED_COMPOSITING)
+    if (m_object->hasLayer()) {
+        RenderLayer* layer = toRenderBoxModelObject(m_object)->layer();
+        if (layer->isComposited())
+            layer->backing()->transitionPaused(timeOffset, m_animatingProperty);
+    }
+#else
+    UNUSED_PARAM(timeOffset);
+#endif
+    // Restore the original (unanimated) style
+    if (!paused())
+        setNeedsStyleRecalc(m_object->node());
+}
+
 void ImplicitAnimation::endAnimation()
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -273,7 +292,7 @@ double ImplicitAnimation::timeToNextService()
         
     // A return value of 0 means we need service. But if this is an accelerated animation we 
     // only need service at the end of the transition.
-    if (animationOfPropertyIsAccelerated(m_animatingProperty) && !isFallbackAnimating()) {
+    if (animationOfPropertyIsAccelerated(m_animatingProperty) && isAccelerated()) {
         bool isLooping;
         getTimeToNextEvent(t, isLooping);
     }

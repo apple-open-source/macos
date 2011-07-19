@@ -1,5 +1,5 @@
---- _SB/Libc/locale/FreeBSD/mbrtowc.3	2004-11-25 11:38:18.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/mbrtowc.3.edit	2006-06-29 11:10:29.000000000 -0700
+--- mbrtowc.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ mbrtowc.3	2009-11-09 15:05:25.000000000 -0800
 @@ -28,7 +28,8 @@
  .Dt MBRTOWC 3
  .Os
@@ -43,7 +43,7 @@
  to determine the number of bytes needed to complete the next multibyte
  character.
  If a character can be completed, and
-@@ -65,14 +78,14 @@
+@@ -65,14 +78,14 @@ is
  .Fn mbrtowc
  behaves as if
  .Fa pwc
@@ -62,7 +62,7 @@
  .Pp
  The
  .Vt mbstate_t
-@@ -86,6 +99,14 @@
+@@ -86,6 +99,14 @@ uses an internal, static
  .Vt mbstate_t
  object, which is initialized to the initial conversion state
  at program startup.
@@ -77,7 +77,7 @@
  .Sh RETURN VALUES
  The
  .Fn mbrtowc
-@@ -131,7 +152,8 @@
+@@ -131,7 +152,8 @@ The conversion state is invalid.
  .Xr mbtowc 3 ,
  .Xr multibyte 3 ,
  .Xr setlocale 3 ,

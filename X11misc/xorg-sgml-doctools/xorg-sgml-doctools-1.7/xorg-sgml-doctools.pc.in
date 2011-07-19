@@ -1,0 +1,7 @@
+prefix=@prefix@
+datarootdir=@datarootdir@
+sgmlrootdir=@sgmlrootdir@
+
+Name: xorg-sgml-doctools
+Description: Stylesheets and entities for X.Org documentation
+Version: @PACKAGE_VERSION@

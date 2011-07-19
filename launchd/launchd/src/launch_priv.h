@@ -58,11 +58,18 @@ __BEGIN_DECLS
 #define LAUNCH_JOBKEY_JETSAMPRIORITY					"JetsamPriority"
 #define LAUNCH_JOBKEY_JETSAMMEMORYLIMIT					"JetsamMemoryLimit"
 #define LAUNCH_JOBKEY_SECURITYSESSIONUUID				"SecuritySessionUUID"
+#define LAUNCH_JOBKEY_DISABLEASLR						"DisableASLR"
+#define LAUNCH_JOBKEY_XPCDOMAIN							"XPCDomain"
+#define LAUNCH_JOBKEY_POSIXSPAWNTYPE					"POSIXSpawnType"
 
 #define LAUNCH_KEY_JETSAMLABEL							"JetsamLabel"
 #define LAUNCH_KEY_JETSAMFRONTMOST						"JetsamFrontmost"
 #define LAUNCH_KEY_JETSAMPRIORITY						LAUNCH_JOBKEY_JETSAMPRIORITY
 #define LAUNCH_KEY_JETSAMMEMORYLIMIT					LAUNCH_JOBKEY_JETSAMMEMORYLIMIT
+
+#define LAUNCH_KEY_POSIXSPAWNTYPE_TALAPP				"TALApp"
+#define LAUNCH_KEY_POSIXSPAWNTYPE_WIDGET				"Widget"
+#define LAUNCH_KEY_POSIXSPAWNTYPE_IOSAPP				"iOSApp"
 
 #define LAUNCH_JOBKEY_EMBEDDEDPRIVILEGEDISPENSATION		"EmbeddedPrivilegeDispensation"
 #define LAUNCH_JOBKEY_EMBEDDEDMAINTHREADPRIORITY		"EmbeddedMainThreadPriority"
@@ -72,6 +79,10 @@ __BEGIN_DECLS
 #define LAUNCH_JOBKEY_SERVICEIPC						"ServiceIPC"
 #define LAUNCH_JOBKEY_BINARYORDERPREFERENCE				"BinaryOrderPreference"
 #define LAUNCH_JOBKEY_MACHEXCEPTIONHANDLER				"MachExceptionHandler"
+#define LAUNCH_JOBKEY_MULTIPLEINSTANCES					"MultipleInstances"
+#define LAUNCH_JOBKEY_EVENTMONITOR						"EventMonitor"
+#define LAUNCH_JOBKEY_SHUTDOWNMONITOR					"ShutdownMonitor"
+#define LAUNCH_JOBKEY_BEGINTRANSACTIONATSHUTDOWN		"BeginTransactionAtShutdown"
 
 #define LAUNCH_JOBKEY_MACH_KUNCSERVER					"kUNCServer"
 #define LAUNCH_JOBKEY_MACH_EXCEPTIONSERVER				"ExceptionServer"
@@ -79,17 +90,7 @@ __BEGIN_DECLS
 #define LAUNCH_JOBKEY_MACH_HOSTSPECIALPORT				"HostSpecialPort"
 #define LAUNCH_JOBKEY_MACH_ENTERKERNELDEBUGGERONCLOSE	"EnterKernelDebuggerOnClose"
 
-typedef struct _launch *launch_t;
-
-launch_t launchd_fdopen(int, int);
-int launchd_getfd(launch_t);
-void launchd_close(launch_t, __typeof__(close) closefunc);
-
-launch_data_t   launch_data_new_errno(int);
-bool		launch_data_set_errno(launch_data_t, int);
-
-int launchd_msg_send(launch_t, launch_data_t);
-int launchd_msg_recv(launch_t, void (*)(launch_data_t, void *), void *);
+#define LAUNCH_ENV_INSTANCEID							"LaunchInstanceID"
 
 /* For LoginWindow.
  *
@@ -107,20 +108,13 @@ pid_t create_and_switch_to_per_session_launchd(const char * /* loginname */, int
  */
 void load_launchd_jobs_at_loginwindow_prompt(int flags, ...);
 
-
-/* batch jobs will be implicity re-enabled when the last application who
- * disabled them exits.
- *
- * This API is really a hack to work around the lack of real-time APIs
- * at the VFS layer.
- */
-void launchd_batch_enable(bool);
-bool launchd_batch_query(void);
-
 /* For CoreProcesses
  */
 
-#define SPAWN_VIA_LAUNCHD_STOPPED	0x0001
+#define SPAWN_VIA_LAUNCHD_STOPPED 0x0001
+#define SPAWN_VIA_LAUNCHD_TALAPP 0x0002
+#define SPAWN_VIA_LAUNCHD_WIDGET 0x0004
+#define SPAWN_VIA_LAUNCHD_DISABLE_ASLR 0x0008
 
 struct spawn_via_launchd_attr {
 	uint64_t		spawn_flags;
@@ -136,17 +130,18 @@ struct spawn_via_launchd_attr {
 	const uint64_t *	spawn_seatbelt_flags;
 };
 
-#define spawn_via_launchd(a, b, c) _spawn_via_launchd(a, b, c, 2)
+#define spawn_via_launchd(a, b, c) _spawn_via_launchd(a, b, c, 3)
 pid_t _spawn_via_launchd(
 		const char *label,
 		const char *const *argv,
 		const struct spawn_via_launchd_attr *spawn_attrs,
 		int struct_version);
 
+int launch_wait(mach_port_t port);
+
 kern_return_t mpm_wait(mach_port_t ajob, int *wstatus);
 
 kern_return_t mpm_uncork_fork(mach_port_t ajob);
-
 
 __END_DECLS
 

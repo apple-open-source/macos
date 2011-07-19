@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2006, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2006, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,9 +42,9 @@
 
 
 #define	SNAPSHOT_PATH_STATE	_PATH_VARTMP "configd-state"
-#define	SNAPSHOT_PATH_STORE	_PATH_VARTMP "configd-store.xml"
-#define	SNAPSHOT_PATH_PATTERN	_PATH_VARTMP "configd-pattern.xml"
-#define	SNAPSHOT_PATH_SESSION	_PATH_VARTMP "configd-session.xml"
+#define	SNAPSHOT_PATH_STORE	_PATH_VARTMP "configd-store.plist"
+#define	SNAPSHOT_PATH_PATTERN	_PATH_VARTMP "configd-pattern.plist"
+#define	SNAPSHOT_PATH_SESSION	_PATH_VARTMP "configd-session.plist"
 
 
 #define N_QUICK	100
@@ -80,11 +80,9 @@ _expandStore(CFDictionaryRef storeData)
 			if (data) {
 				CFPropertyListRef	plist;
 
-				if (!_SCUnserialize(&plist, data, NULL, 0)) {
-					goto done;
-				}
-
 				nValues[i] = CFDictionaryCreateMutableCopy(NULL, 0, oValues[i]);
+
+				_SCUnserialize(&plist, data, NULL, 0);
 				CFDictionarySetValue((CFMutableDictionaryRef)nValues[i],
 						     kSCDData,
 						     plist);
@@ -102,13 +100,11 @@ _expandStore(CFDictionaryRef storeData)
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
 
-    done :
-
 	if (nElements > 0) {
 		CFIndex	i;
 
 		for (i = 0; i < nElements; i++) {
-			if (nValues[i])	CFRelease(nValues[i]);
+			CFRelease(nValues[i]);
 		}
 
 		if (keys != keys_q) {
@@ -169,10 +165,10 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 	}
 
 	expandedStoreData = _expandStore(storeData);
-	xmlData = CFPropertyListCreateXMLData(NULL, expandedStoreData);
+	xmlData = CFPropertyListCreateData(NULL, expandedStoreData, kCFPropertyListXMLFormat_v1_0, 0, NULL);
 	CFRelease(expandedStoreData);
-	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
+	if (xmlData == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}
@@ -188,9 +184,9 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 		return kSCStatusFailed;
 	}
 
-	xmlData = CFPropertyListCreateXMLData(NULL, patternData);
-	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
+	xmlData = CFPropertyListCreateData(NULL, patternData, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+	if (xmlData == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}
@@ -206,9 +202,9 @@ __SCDynamicStoreSnapshot(SCDynamicStoreRef store)
 		return kSCStatusFailed;
 	}
 
-	xmlData = CFPropertyListCreateXMLData(NULL, sessionData);
-	if (!xmlData) {
-		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateXMLData() failed"));
+	xmlData = CFPropertyListCreateData(NULL, sessionData, kCFPropertyListXMLFormat_v1_0, 0, NULL);
+	if (xmlData == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("__SCDynamicStoreSnapshot CFPropertyListCreateData() failed"));
 		close(fd);
 		return kSCStatusFailed;
 	}

@@ -31,7 +31,7 @@
 
 #define super OSObject
 
-OSDefineMetaClassAndStructors(IOHIDEvent, super)
+OSDefineMetaClassAndStructors(IOHIDEvent, OSObject)
 
 extern unsigned int hid_adb_2_usb_keymap[];
 
@@ -59,6 +59,7 @@ bool IOHIDEvent::initWithCapacity(IOByteCount capacity)
         
     bzero(_data, _capacity);
     _data->size = _capacity;
+    _children = NULL;
 
     return true;
 }
@@ -402,6 +403,35 @@ IOHIDEvent * IOHIDEvent::gyroEvent(
 }
 
 //==============================================================================
+// IOHIDEvent::compassEvent
+//==============================================================================
+IOHIDEvent * IOHIDEvent::compassEvent(
+                                   AbsoluteTime            timeStamp,
+                                   IOFixed                 x,
+                                   IOFixed                 y,
+                                   IOFixed                 z,
+                                   IOHIDCompassType		type,
+                                   IOOptionBits            options)
+{
+    IOHIDEvent *                event;
+    IOHIDCompassEventData *		data;    
+    
+    event = IOHIDEvent::_axisEvent( kIOHIDEventTypeCompass, 
+								   timeStamp, 
+								   x,
+								   y,
+								   z,
+								   options);
+	
+    if ( event ) {
+        data = (IOHIDCompassEventData *)event->_data;
+        data->compassType = type;
+    }
+    
+    return event;
+}
+
+//==============================================================================
 // IOHIDEvent::ambientLightSensorEvent
 //==============================================================================
 IOHIDEvent * IOHIDEvent::ambientLightSensorEvent(
@@ -508,6 +538,73 @@ IOHIDEvent * IOHIDEvent::buttonEvent(
     event->button.pressure   = pressure;
     
     return me;
+}
+
+//====================================================================================================
+// IOHIDEvent::absolutePointerEvent
+//====================================================================================================
+IOHIDEvent * IOHIDEvent::absolutePointerEvent(
+                                        AbsoluteTime                timeStamp,
+                                        SInt32                      x,
+                                        SInt32                      y,
+                                        IOGBounds *                 bounds,
+                                        UInt32                      buttonState,
+                                        bool                        inRange,
+                                        SInt32                      tipPressure,
+                                        SInt32                      tipPressureMin,
+                                        SInt32                      tipPressureMax,
+                                        IOOptionBits                options)
+{
+    const int kIOFixedScale = 16;
+
+    IOHIDEvent *me = new IOHIDEvent;
+
+    if (me && !me->initWithTypeTimeStamp(kIOHIDEventTypeDigitizer, timeStamp, options)) {
+        me->release();
+        return 0;
+    }
+    
+
+    IOHIDDigitizerEventData *event = (IOHIDDigitizerEventData *)me->_data;
+
+    x = min(max(x, bounds->minx), bounds->maxx);
+    y = min(max(y, bounds->miny), bounds->maxy);
+
+    event->position.x = IOFixedDivide( (x - bounds->minx)<<kIOFixedScale, (bounds->maxx - bounds->minx)<<kIOFixedScale);;
+    event->position.y = IOFixedDivide( (y - bounds->miny)<<kIOFixedScale, (bounds->maxy - bounds->miny)<<kIOFixedScale);;
+    event->position.z = 0;
+
+    event->transducerIndex = 1; // Multitouch uses this as a path ID
+    event->transducerType = 0;  // not used?
+    event->identity = 2;        // Multitouch interprets this as 'finger', hard code to 2 or index finger
+    event->eventMask = 0;       // todo:
+    event->buttonMask = 0;      // todo:
+    event->tipPressure = 0;     // todo: should be IOFixed tipPressure, scaled between min and max
+    event->barrelPressure = 0;
+    event->twist = 90<<kIOFixedScale;   // hard code to 90º for now, is multi-touch using this right?
+    event->orientationType = kIOHIDDigitizerOrientationTypeQuality;
+    event->orientation.quality.quality = 0;
+    event->orientation.quality.density = 0;
+    event->orientation.quality.irregularity = 0;
+    event->orientation.quality.majorRadius = 6<<kIOFixedScale;
+    event->orientation.quality.minorRadius = 6<<kIOFixedScale;
+
+    return me;
+}
+
+//==============================================================================
+// IOHIDEvent::appendChild
+//==============================================================================
+void IOHIDEvent::appendChild(IOHIDEvent *childEvent)
+{
+    if (!_children) {
+        const OSObject *events[] = { childEvent };
+        
+        _children = OSArray::withObjects(events, 1);
+    } else {
+        _children->setObject(childEvent);
+    }
+        
 }
 
 //==============================================================================
@@ -642,7 +739,7 @@ IOByteCount IOHIDEvent::appendBytes(UInt8 * bytes, IOByteCount withLength)
         IOHIDEvent *    child;
         
         childCount = _children->getCount();
-        
+
         for(i=0 ;i<childCount; i++) {
             if ( child = (IOHIDEvent *)_children->getObject(i) )
                 size += child->appendBytes(bytes + size, withLength - size);
@@ -713,3 +810,20 @@ IOByteCount IOHIDEvent::readBytes(void * bytes, IOByteCount withLength)
     return appendBytes((UInt8 *)queueElement->events, withLength);        
 }
 
+//==============================================================================
+// IOHIDEvent::getPhase
+//==============================================================================
+IOHIDEventPhaseBits IOHIDEvent::getPhase()
+{
+    return (_data->options >> kIOHIDEventEventOptionPhaseShift) & kIOHIDEventEventPhaseMask;
+}
+
+//==============================================================================
+// IOHIDEvent::setPhase
+//==============================================================================
+void IOHIDEvent::setPhase(IOHIDEventPhaseBits phase)
+{
+    _data->options &= ~(kIOHIDEventEventPhaseMask << kIOHIDEventEventOptionPhaseShift);
+    _data->options |= ((phase & kIOHIDEventEventPhaseMask) << kIOHIDEventEventOptionPhaseShift);
+}
+    

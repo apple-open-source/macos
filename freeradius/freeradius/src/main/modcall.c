@@ -239,6 +239,11 @@ static const char * const comp2str[] = {
 	"pre-proxy",
 	"post-proxy",
 	"post-auth"
+#ifdef WITH_COA
+	,
+	"recv-coa",
+	"send-coa"
+#endif
 };
 
 #ifdef HAVE_PTHREAD_H
@@ -267,14 +272,21 @@ static void safe_unlock(module_instance_t *instance)
 #define safe_unlock(foo)
 #endif
 
-static int call_modsingle(int component, modsingle *sp, REQUEST *request,
-			  int default_result)
+static int call_modsingle(int component, modsingle *sp, REQUEST *request)
 {
-	int myresult = default_result;
+	int myresult;
+
+	rad_assert(request != NULL);
 
 	RDEBUG3("  modsingle[%s]: calling %s (%s) for request %d",
 	       comp2str[component], sp->modinst->name,
 	       sp->modinst->entry->name, request->number);
+
+	if (sp->modinst->dead) {
+		myresult = RLM_MODULE_FAIL;
+		goto fail;
+	}
+
 	safe_lock(sp->modinst);
 
 	/*
@@ -287,6 +299,8 @@ static int call_modsingle(int component, modsingle *sp, REQUEST *request,
 
 	request->module = "";
 	safe_unlock(sp->modinst);
+
+ fail:
 	RDEBUG3("  modsingle[%s]: returned from %s (%s) for request %d",
 	       comp2str[component], sp->modinst->name,
 	       sp->modinst->entry->name, request->number);
@@ -303,7 +317,12 @@ static int default_component_results[RLM_COMPONENT_COUNT] = {
 	RLM_MODULE_FAIL,	/* SESS */
 	RLM_MODULE_NOOP,	/* PRE_PROXY */
 	RLM_MODULE_NOOP,	/* POST_PROXY */
-	RLM_MODULE_NOOP		/* POST_AUTH */
+	RLM_MODULE_NOOP       	/* POST_AUTH */
+#ifdef WITH_COA
+	,
+	RLM_MODULE_NOOP,       	/* RECV_COA_TYPE */
+	RLM_MODULE_NOOP		/* SEND_COA_TYPE */
+#endif
 };
 
 
@@ -361,6 +380,7 @@ int modcall(int component, modcallable *c, REQUEST *request)
 	stack.pointer = 0;
 	stack.priority[0] = 0;
 	stack.children[0] = c;
+	stack.start[0] = NULL;
 	myresult = stack.result[0] = default_component_results[component];
 	was_if = if_taken = FALSE;
 
@@ -447,6 +467,15 @@ int modcall(int component, modcallable *c, REQUEST *request)
 						       g->vps, child->name);
 			if (rcode != RLM_MODULE_UPDATED) {
 				myresult = rcode;
+			} else {
+				/*
+				 *	FIXME: Set priority based on
+				 *	previous priority, so that we
+				 *	don't stop on reject when the
+				 *	default priority was to
+				 *	continue...
+				 *	
+				 */
 			}
 			goto handle_result;
 		}
@@ -559,9 +588,22 @@ int modcall(int component, modcallable *c, REQUEST *request)
 
 #ifdef WITH_UNLANG
 			case MOD_SWITCH:
-				radius_xlat(buffer, sizeof(buffer),
-					    child->name, request, NULL);
+				if (!strchr(child->name, '%')) {
+					VALUE_PAIR *vp = NULL;
 
+					radius_get_vp(request, child->name,
+						      &vp);
+					if (vp) {
+						vp_prints_value(buffer,
+								sizeof(buffer),
+								vp, 0);
+					} else {
+						*buffer = '\0';
+					}
+				} else {
+					radius_xlat(buffer, sizeof(buffer),
+						    child->name, request, NULL);
+				}
 				null_case = q = NULL;
 				for(p = g->children; p; p = p->next) {
 					if (!p->name) {
@@ -625,8 +667,7 @@ int modcall(int component, modcallable *c, REQUEST *request)
 		 */
 		sp = mod_callabletosingle(child);
 
-		myresult = call_modsingle(child->method, sp, request,
-					  default_component_results[component]);
+		myresult = call_modsingle(child->method, sp, request);
 	handle_result:
 		RDEBUG2("%.*s[%s] returns %s",
 		       stack.pointer + 1, modcall_spaces,
@@ -1156,6 +1197,87 @@ defaultactions[RLM_COMPONENT_COUNT][GROUPTYPE_COUNT][RLM_MODULE_NUMCODES] =
 			MOD_ACTION_RETURN	/* updated  */
 		}
 	}
+#ifdef WITH_COA
+	,
+	/* recv-coa */
+	{
+		/* group */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			MOD_ACTION_RETURN,	/* fail     */
+			3,			/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			1,			/* notfound */
+			2,			/* noop     */
+			4			/* updated  */
+		},
+		/* redundant */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			1,			/* fail     */
+			MOD_ACTION_RETURN,	/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			MOD_ACTION_RETURN,	/* notfound */
+			MOD_ACTION_RETURN,	/* noop     */
+			MOD_ACTION_RETURN	/* updated  */
+		},
+		/* append */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			1,			/* fail     */
+			MOD_ACTION_RETURN,	/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			2,			/* notfound */
+			MOD_ACTION_RETURN,	/* noop     */
+			MOD_ACTION_RETURN	/* updated  */
+		}
+	},
+	/* send-coa */
+	{
+		/* group */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			MOD_ACTION_RETURN,	/* fail     */
+			3,			/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			1,			/* notfound */
+			2,			/* noop     */
+			4			/* updated  */
+		},
+		/* redundant */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			1,			/* fail     */
+			MOD_ACTION_RETURN,	/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			MOD_ACTION_RETURN,	/* notfound */
+			MOD_ACTION_RETURN,	/* noop     */
+			MOD_ACTION_RETURN	/* updated  */
+		},
+		/* append */
+		{
+			MOD_ACTION_RETURN,	/* reject   */
+			1,			/* fail     */
+			MOD_ACTION_RETURN,	/* ok       */
+			MOD_ACTION_RETURN,	/* handled  */
+			MOD_ACTION_RETURN,	/* invalid  */
+			MOD_ACTION_RETURN,	/* userlock */
+			2,			/* notfound */
+			MOD_ACTION_RETURN,	/* noop     */
+			MOD_ACTION_RETURN	/* updated  */
+		}
+	}
+#endif
 };
 
 
@@ -1165,6 +1287,7 @@ static modcallable *do_compile_modupdate(modcallable *parent,
 					 const char *name2)
 {
 	int i, ok = FALSE;
+	const char *vp_name;
 	modgroup *g;
 	modcallable *csingle;
 	CONF_ITEM *ci;
@@ -1173,8 +1296,7 @@ static modcallable *do_compile_modupdate(modcallable *parent,
 	static const char *attrlist_names[] = {
 		"request", "reply", "proxy-request", "proxy-reply",
 		"config", "control",
-		"outer.request", "outer.reply",
-		"outer.config", "outer.control",
+		"coa", "coa-reply", "disconnect", "disconnect-reply",
 		NULL
 	};
 
@@ -1186,8 +1308,13 @@ static modcallable *do_compile_modupdate(modcallable *parent,
 		return NULL;
 	}
 
+	vp_name = name2;
+	if (strncmp(vp_name, "outer.", 6) == 0) {
+		vp_name += 6;
+	} 
+
 	for (i = 0; attrlist_names[i] != NULL; i++) {
-		if (strcmp(name2, attrlist_names[i]) == 0) {
+		if (strcmp(vp_name, attrlist_names[i]) == 0) {
 			ok = TRUE;
 			break;
 		}
@@ -1234,6 +1361,7 @@ static modcallable *do_compile_modupdate(modcallable *parent,
 		    (vp->operator != T_OP_SUB) &&
 		    (vp->operator != T_OP_LE) &&
 		    (vp->operator != T_OP_GE) &&
+		    (vp->operator != T_OP_CMP_FALSE) &&
 		    (vp->operator != T_OP_SET)) {
 			pairfree(&head);
 			pairfree(&vp);
@@ -1802,7 +1930,7 @@ static modcallable *do_compile_modsingle(modcallable *parent,
 		}
 		
 		*modname = NULL;
-		cf_log_err(ci, "Failed to find module \"%s\".", modrefname);
+		cf_log_err(ci, "Failed to load module \"%s\".", modrefname);
 		return NULL;
 	} while (0);
 

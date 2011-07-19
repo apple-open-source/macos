@@ -2,15 +2,15 @@
 use ExtUtils::MakeMaker;
 WriteMakefile
 (
-          'PL_FILES' => {},
-          'INSTALLDIRS' => 'site',
           'NAME' => 'Tree::Simple',
-          'EXE_FILES' => [],
           'VERSION_FROM' => 'lib/Tree/Simple.pm',
           'PREREQ_PM' => {
-                           'Test::More' => '0.47',
                            'Scalar::Util' => '1.18',
-                           'Test::Exception' => '0.15'
-                         }
+                           'Test::Exception' => '0.15',
+                           'Test::More' => '0.47'
+                         },
+          'INSTALLDIRS' => 'site',
+          'EXE_FILES' => [],
+          'PL_FILES' => {}
         )
 ;

@@ -36,14 +36,14 @@
 #include "KURL.h"
 #include "PlatformString.h"
 #include "WebSocketHandshakeRequest.h"
-#include <wtf/Noncopyable.h>
+#include "WebSocketHandshakeResponse.h"
 
 namespace WebCore {
 
-    class HTTPHeaderMap;
     class ScriptExecutionContext;
 
-    class WebSocketHandshake : public Noncopyable {
+    class WebSocketHandshake {
+        WTF_MAKE_NONCOPYABLE(WebSocketHandshake);
     public:
         enum Mode {
             Incomplete, Normal, Failed, Connected
@@ -72,26 +72,24 @@ namespace WebCore {
         int readServerHandshake(const char* header, size_t len);
         Mode mode() const;
 
-        const String& serverWebSocketOrigin() const;
-        void setServerWebSocketOrigin(const String& webSocketOrigin);
+        String serverWebSocketOrigin() const;
+        String serverWebSocketLocation() const;
+        String serverWebSocketProtocol() const;
+        String serverSetCookie() const;
+        String serverSetCookie2() const;
+        String serverUpgrade() const;
+        String serverConnection() const;
 
-        const String& serverWebSocketLocation() const;
-        void setServerWebSocketLocation(const String& webSocketLocation);
-
-        const String& serverWebSocketProtocol() const;
-        void setServerWebSocketProtocol(const String& webSocketProtocol);
-
-        const String& serverSetCookie() const;
-        void setServerSetCookie(const String& setCookie);
-        const String& serverSetCookie2() const;
-        void setServerSetCookie2(const String& setCookie2);
+        const WebSocketHandshakeResponse& serverHandshakeResponse() const;
 
     private:
         KURL httpURLForAuthenticationAndCookies() const;
 
+        int readStatusLine(const char* header, size_t headerLength, int& statusCode, String& statusText);
+
         // Reads all headers except for the two predefined ones.
-        const char* readHTTPHeaders(const char* start, const char* end, HTTPHeaderMap* headers);
-        bool processHeaders(const HTTPHeaderMap& headers);
+        const char* readHTTPHeaders(const char* start, const char* end);
+        void processHeaders();
         bool checkResponseHeaders();
 
         KURL m_url;
@@ -101,16 +99,12 @@ namespace WebCore {
 
         Mode m_mode;
 
-        String m_wsOrigin;
-        String m_wsLocation;
-        String m_wsProtocol;
-        String m_setCookie;
-        String m_setCookie2;
-
         String m_secWebSocketKey1;
         String m_secWebSocketKey2;
         unsigned char m_key3[8];
         unsigned char m_expectedChallengeResponse[16];
+
+        WebSocketHandshakeResponse m_response;
     };
 
 } // namespace WebCore

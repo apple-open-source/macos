@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,20 +31,26 @@
 static char sccsid[] = "@(#)strerror.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strerror.c,v 1.13 2003/05/01 19:03:14 nectar Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strerror.c,v 1.16 2007/01/09 00:28:12 imp Exp $");
 
+#if defined(NLS)
+#include <nl_types.h>
+#endif
+
+#include <limits.h>
 #include <errno.h>
-#include <stdio.h>
 #include <string.h>
+#include <stdio.h>
 
-#define	UPREFIX		"Unknown error: "
+#define	UPREFIX		"Unknown error"
 
 /*
  * Define a buffer size big enough to describe a 64-bit signed integer
  * converted to ASCII decimal (19 bytes), with an optional leading sign
- * (1 byte); finally, we get the prefix and a trailing NUL from UPREFIX.
+ * (1 byte); finally, we get the prefix, delimiter (": ") and a trailing
+ * NUL from UPREFIX.
  */
-#define	EBUFSIZE	(20 + sizeof(UPREFIX))
+#define	EBUFSIZE	(20 + 2 + sizeof(UPREFIX))
 
 #ifndef BUILDING_VARIANT
 /*
@@ -56,7 +58,7 @@ __FBSDID("$FreeBSD: src/lib/libc/string/strerror.c,v 1.13 2003/05/01 19:03:14 ne
  * statically linked binaries.
  */
 __private_extern__ void
-__errstr(int num, char *buf, size_t len)
+__errstr(int num, char *uprefix, char *buf, size_t len)
 {
 	char *t;
 	unsigned int uerr;
@@ -70,21 +72,48 @@ __errstr(int num, char *buf, size_t len)
 	} while (uerr /= 10);
 	if (num < 0)
 		*--t = '-';
-	strlcpy(buf, UPREFIX, len);
+	*--t = ' ';
+	*--t = ':';
+	strlcpy(buf, uprefix, len);
 	strlcat(buf, t, len);
 }
 
 int
 strerror_r(int errnum, char *strerrbuf, size_t buflen)
 {
+	int retval = 0;
+#if defined(NLS)
+	int saved_errno = errno;
+	nl_catd catd;
+	catd = catopen("libc", NL_CAT_LOCALE);
+#endif
 
 	if (errnum < 0 || errnum >= sys_nerr) {
-		__errstr(errnum, strerrbuf, buflen);
-		return (EINVAL);
+		__errstr(errnum,
+#if defined(NLS)
+			catgets(catd, 1, 0xffff, UPREFIX),
+#else
+			UPREFIX,
+#endif
+			strerrbuf, buflen);
+		retval = EINVAL;
+	} else {
+		if (strlcpy(strerrbuf,
+#if defined(NLS)
+			catgets(catd, 1, errnum, sys_errlist[errnum]),
+#else
+			sys_errlist[errnum],
+#endif
+			buflen) >= buflen)
+		retval = ERANGE;
 	}
-	if (strlcpy(strerrbuf, sys_errlist[errnum], buflen) >= buflen)
-		return (ERANGE);
-	return (0);
+
+#if defined(NLS)
+	catclose(catd);
+	errno = saved_errno;
+#endif
+
+	return (retval);
 }
 #else /* BUILDING_VARIANT */
 __private_extern__ void __errstr(int, char *, size_t);
@@ -93,13 +122,13 @@ __private_extern__ void __errstr(int, char *, size_t);
 char *
 strerror(int num)
 {
-	static char ebuf[EBUFSIZE];
+	static char ebuf[NL_TEXTMAX];
 
-	if (num > 0 && num < sys_nerr)
-		return ((char *)sys_errlist[num]);
 #if !__DARWIN_UNIX03
+	if (strerror_r(num, ebuf, sizeof(ebuf)) != 0)
 	errno = EINVAL;
-#endif /* !__DARWIN_UNIX03 */
-	__errstr(num, ebuf, sizeof(ebuf));
+#else
+	(void)strerror_r(num, ebuf, sizeof(ebuf));
+#endif
 	return (ebuf);
 }

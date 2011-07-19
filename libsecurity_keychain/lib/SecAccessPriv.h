@@ -68,6 +68,7 @@ OSStatus SecKeychainAddIToolsPassword(SecKeychainRef keychain, UInt32 accountNam
 
 OSStatus SecAccessCreateWithTrustedApplications(CFStringRef trustedApplicationsPListPath, CFStringRef accessLabel, Boolean allowAny, SecAccessRef* returnedAccess);
 
+	
 #if defined(__cplusplus)
 }
 #endif

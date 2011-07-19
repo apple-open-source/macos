@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
- * 
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +15,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -29,29 +30,34 @@
  */
 
 #include "config.h"
-#include "SearchPopupMenu.h"
+#include "SearchPopupMenuChromium.h"
 
-#include "AtomicString.h"
 #include "NotImplemented.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
-SearchPopupMenu::SearchPopupMenu(PopupMenuClient* client)
-    : PopupMenu(client)
+SearchPopupMenuChromium::SearchPopupMenuChromium(PopupMenuClient* client)
+    : m_popup(adoptRef(new PopupMenuChromium(client)))
 {
 }
 
-bool SearchPopupMenu::enabled()
+PopupMenu* SearchPopupMenuChromium::popupMenu()
+{
+    return m_popup.get();
+}
+
+bool SearchPopupMenuChromium::enabled()
 {
     return false;
 }
 
-void SearchPopupMenu::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems)
+void SearchPopupMenuChromium::saveRecentSearches(const AtomicString& name, const Vector<String>& searchItems)
 {
     notImplemented();
 }
 
-void SearchPopupMenu::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems)
+void SearchPopupMenuChromium::loadRecentSearches(const AtomicString& name, Vector<String>& searchItems)
 {
     notImplemented();
 }

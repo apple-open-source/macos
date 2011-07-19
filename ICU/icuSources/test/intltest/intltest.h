@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2005, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -62,23 +62,55 @@ UnicodeString toString(int32_t n);
         name = #test;                 \
         if (exec) {                   \
             logln(#test "---");       \
-            logln((UnicodeString)""); \
+            logln();                  \
             test();                   \
         }                             \
         break
+
+// More convenient macros. These allow easy reordering of the test cases.
+//
+//| void MyTest::runIndexedTest(int32_t index, UBool exec,
+//|                             const char* &name, char* /*par*/) {
+//|     TESTCASE_AUTO_BEGIN;
+//|     TESTCASE_AUTO(TestSomething);
+//|     TESTCASE_AUTO(TestSomethingElse);
+//|     TESTCASE_AUTO(TestAnotherThing);
+//|     TESTCASE_AUTO_END;
+//| }
+#define TESTCASE_AUTO_BEGIN \
+    for(;;) { \
+        int32_t testCaseAutoNumber = 0
+
+#define TESTCASE_AUTO(test) \
+        if (index == testCaseAutoNumber++) { \
+            name = #test; \
+            if (exec) { \
+                logln(#test "---"); \
+                logln(); \
+                test(); \
+            } \
+            break; \
+        }
+
+#define TESTCASE_AUTO_END \
+        name = ""; \
+        break; \
+    }
 
 class IntlTest : public TestLog {
 public:
 
     IntlTest();
+    // TestLog has a virtual destructor.
 
-    virtual UBool runTest( char* name = NULL, char* par = NULL ); // not to be overidden
+    virtual UBool runTest( char* name = NULL, char* par = NULL, char *baseName = NULL); // not to be overidden
 
     virtual UBool setVerbose( UBool verbose = TRUE );
     virtual UBool setNoErrMsg( UBool no_err_msg = TRUE );
     virtual UBool setQuick( UBool quick = TRUE );
     virtual UBool setLeaks( UBool leaks = TRUE );
     virtual UBool setWarnOnMissingData( UBool warn_on_missing_data = TRUE );
+    virtual int32_t setThreadCount( int32_t count = 1);
 
     virtual int32_t getErrors( void );
     virtual int32_t getDataErrors (void );
@@ -107,6 +139,8 @@ public:
     virtual void dataerr( const UnicodeString &message );
 
     virtual void dataerrln( const UnicodeString &message );
+    
+    void errcheckln(UErrorCode status, const UnicodeString &message );
 
     // convenience functions: sprintf() + errln() etc.
     void log(const char *fmt, ...);
@@ -117,6 +151,7 @@ public:
     void errln(const char *fmt, ...);
     void dataerr(const char *fmt, ...);
     void dataerrln(const char *fmt, ...);
+    void errcheckln(UErrorCode status, const char *fmt, ...);
 
     // Print ALL named errors encountered so far
     void printErrors(); 
@@ -145,13 +180,18 @@ public:
      */
     UBool isICUVersionAtLeast(const UVersionInfo x);
 
+    enum { kMaxProps = 16 };
+
+    virtual void setProperty(const char* propline);
+    virtual const char* getProperty(const char* prop);
+
 protected:
     /* JUnit-like assertions. Each returns TRUE if it succeeds. */
-    UBool assertTrue(const char* message, UBool condition, UBool quiet=FALSE);
+    UBool assertTrue(const char* message, UBool condition, UBool quiet=FALSE, UBool possibleDataError=FALSE);
     UBool assertFalse(const char* message, UBool condition, UBool quiet=FALSE);
-    UBool assertSuccess(const char* message, UErrorCode ec);
+    UBool assertSuccess(const char* message, UErrorCode ec, UBool possibleDataError=FALSE);
     UBool assertEquals(const char* message, const UnicodeString& expected,
-                       const UnicodeString& actual);
+                       const UnicodeString& actual, UBool possibleDataError=FALSE);
     UBool assertEquals(const char* message, const char* expected,
                        const char* actual);
 #if !UCONFIG_NO_FORMATTING
@@ -170,7 +210,7 @@ protected:
 
     virtual void runIndexedTest( int32_t index, UBool exec, const char* &name, char* par = NULL ); // overide !
 
-    virtual UBool runTestLoop( char* testname, char* par );
+    virtual UBool runTestLoop( char* testname, char* par, char *baseName );
 
     virtual int32_t IncErrorCount( void );
 
@@ -184,6 +224,7 @@ protected:
     UBool       quick;
     UBool       leaks;
     UBool       warn_on_missing_data;
+    int32_t     threadCount;
 
 private:
     UBool       LL_linestart;
@@ -193,9 +234,14 @@ private:
     int32_t     dataErrorCount;
     IntlTest*   caller;
     char*       testPath;           // specifies subtests
+    
+    char basePath[1024];
 
     //FILE *testoutfp;
     void *testoutfp;
+
+    const char* proplines[kMaxProps];
+    int32_t     numProps;
 
 protected:
 

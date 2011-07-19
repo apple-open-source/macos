@@ -3,7 +3,7 @@
 .\" Originally written by Sergey A. Osokin
 .\" Rewritten by Tom Rhodes
 .\"
-.\" Portions Copyright (C) 2005 - 2007 Apple Inc. All rights reserved.
+.\" Portions Copyright (C) 2005 - 2010 Apple Inc. All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
 .\" modification, are permitted provided that the following conditions
@@ -39,7 +39,7 @@ requests
 .Sh DESCRIPTION
 The
 .Nm
-file contains information about the computers, users, and shares
+file contains information about the computers and shares
 or mount points for the
 .Tn SMB
 network protocol.
@@ -76,26 +76,21 @@ library uses the following information for section names:
 .It Ic B)
 .Bq Ar SERVER
 .It Ic C)
-.Bq Ar SERVER : Ns Ar USER
-.It Ic D)
-.Op Ar SERVER : Ns Ar USER : Ns Ar SHARE
+.Op Ar SERVER : Ns Ar SHARE
 .El
 .Pp
 Possible keywords may include:
-.Bl -column ".Va retry_count" ".Sy Section"
-.It Sy "Keyword	Section	Comment"
-.It Sy "	A B C D"
-.It Va addr         Ta "- + - -" Ta "IP address of the SMB server"
-.It Va dos charsets Ta "+ - - -" Ta "dos charset"
-.It Va nbns         Ta "+ + - -" Ta "address of NetBIOS name server (WINS)"
-.It Va nbscope      Ta "+ + - -" Ta "NetBIOS scope"
-.It Va nbtimeout    Ta "+ + - -" Ta "timeout for NetBIOS name servers"
-.It Va port445      Ta "+ + - -" Ta "how to use SMB TCP/UDP ports"
-.It Va minauth      Ta "+ + - -" Ta "minimum authentication level allowed"
-.It Va streams      Ta "+ + - -" Ta "use NTFS Streams if supported by the server"
-.It Va soft         Ta "+ + - -" Ta "Make the mount soft.  Fail file system calls after a number of seconds."
-.It Va notify_off   Ta "+ + - -" Ta "Turn off using notifications"
-.It Va domain       Ta "+ + + +" Ta "The domain name to use when logging into the server."
+.Bl -column ".Va notify_off" ".Sy Section" ".Va Default"
+.It Sy "Keyword	Section	Default    Comment"
+.It Sy "	A B C      Values"
+.It Va addr         Ta "- + -" Ta "" Ta "DNS name or IP address of server"
+.It Va nbtimeout    Ta "+ + -" Ta "1s" Ta "Timeout for resolving a NetBIOS name"
+.It Va minauth      Ta "+ + -" Ta "NTLM" Ta "Minimum authentication level allowed"
+.It Va port445      Ta "+ + -" Ta "normal" Ta "How to use SMB TCP/UDP ports"
+.It Va streams      Ta "+ + +" Ta "yes" Ta "Use NTFS Streams if server supported"
+.It Va soft         Ta "+ + +" Ta "" Ta "Make the mount soft"
+.It Va notify_off   Ta "+ + +" Ta "no" Ta "Turn off using notifications"
+.It Va kloglevel   Ta "+ - -" Ta "0" Ta "Turn on smb kernel logging"
 .El
 .Pp
 The minimum authentication level can be one of:
@@ -118,10 +113,6 @@ LM - Kerberos authentication is attempted if a Kerberos token can be
 obtained, otherwise NTLMv2 authentication is attempted and, if that
 fails, NTLMv1 authentication is attempted, including the LM hash; if the
 server doesn't support encrypted passwords, the authentication fails.
-.It Li ntlmv2_off
-Turn NTLMv2 Off - Kerberos authentication is attempted if a Kerberos token can be
-obtained, otherwise NTLMv1 authentication is attempted, including the LM hash; 
-if the server doesn't support encrypted passwords,  plain-text passwords are used.
 .It Li none
 none - The same as
 .Li lm
@@ -134,7 +125,7 @@ plain-text passwords are used.
 "how to use SMB TCP/UDP ports" can be one of:
 .Bl -tag -width ".Li netbios_only"
 .It Li normal
-(default) Attempt to connect via port 445. If that is
+Attempt to connect via port 445. If that is
 unsuccessful, try to connect via NetBIOS.
 .It Li netbios_only
 Do not attempt to connect via port 445.
@@ -159,9 +150,8 @@ minauth=ntlmv2
 streams=yes
 soft=yes
 notify_off=yes
-domain=DOMAIN
-[WIN98]
-addr=windows98.apple.com
+[WINXP]
+addr=windowsXP.apple.com
 .Ed
 .Pp
 All lines which begin with the

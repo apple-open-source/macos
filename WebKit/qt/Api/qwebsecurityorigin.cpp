@@ -19,13 +19,15 @@
 
 #include "config.h"
 #include "qwebsecurityorigin.h"
-#include "qwebsecurityorigin_p.h"
-#include "qwebdatabase.h"
-#include "qwebdatabase_p.h"
 
+#include "ApplicationCacheStorage.h"
 #include "DatabaseTracker.h"
 #include "KURL.h"
+#include "SchemeRegistry.h"
 #include "SecurityOrigin.h"
+#include "qwebdatabase.h"
+#include "qwebdatabase_p.h"
+#include "qwebsecurityorigin_p.h"
 #include <QStringList>
 
 using namespace WebCore;
@@ -47,6 +49,16 @@ using namespace WebCore;
     documents when used in HTML frame sets and JavaScript. At the same time it prevents
     \c{http://www.malicious.com/evil.html} from accessing \c{http://www.example.com/}'s resources,
     because they are of a different security origin.
+
+    By default local schemes like \c{file://} and \c{qrc://} are concidered to be in the same
+    security origin, and can access each other's resources. You can add additional local schemes
+    by using QWebSecurityOrigin::addLocalScheme(), or override the default same-origin behavior
+    by setting QWebSettings::LocalContentCanAccessFileUrls to \c{false}.
+
+    \note Local resources are by default restricted from accessing remote content, which
+    means your \c{file://} will not be able to access \c{http://domain.com/foo.html}. You
+    can relax this restriction by setting QWebSettings::LocalContentCanAccessRemoteUrls to
+    \c{true}.
 
     Call QWebFrame::securityOrigin() to get the QWebSecurityOrigin for a frame in a
     web page, and use host(), scheme() and port() to identify the security origin.
@@ -141,6 +153,12 @@ void QWebSecurityOrigin::setDatabaseQuota(qint64 quota)
 #endif
 }
 
+void QWebSecurityOrigin::setApplicationCacheQuota(qint64 quota)
+{
+#if ENABLE(OFFLINE_WEB_APPLICATIONS)
+    WebCore::cacheStorage().storeUpdatedQuotaForOrigin(d->origin.get(), quota);
+#endif
+}
 /*!
     Destroys the security origin.
 */
@@ -204,11 +222,15 @@ QList<QWebDatabase> QWebSecurityOrigin::databases() const
     \since 4.6
 
     Adds the given \a scheme to the list of schemes that are considered equivalent
-    to the \c file: scheme. They are not subject to cross domain restrictions.
+    to the \c file: scheme.
+
+    Cross domain restrictions depend on the two web settings QWebSettings::LocalContentCanAccessFileUrls
+    and QWebSettings::LocalContentCanAccessFileUrls. By default all local schemes are concidered to be
+    in the same security origin, and local schemes can not access remote content.
 */
 void QWebSecurityOrigin::addLocalScheme(const QString& scheme)
 {
-    SecurityOrigin::registerURLSchemeAsLocal(scheme);
+    SchemeRegistry::registerURLSchemeAsLocal(scheme);
 }
 
 /*!
@@ -216,22 +238,28 @@ void QWebSecurityOrigin::addLocalScheme(const QString& scheme)
 
     Removes the given \a scheme from the list of local schemes.
 
+    \note You can not remove the \c{file://} scheme from the list
+    of local schemes.
+
     \sa addLocalScheme()
 */
 void QWebSecurityOrigin::removeLocalScheme(const QString& scheme)
 {
-    SecurityOrigin::removeURLSchemeRegisteredAsLocal(scheme);
+    SchemeRegistry::removeURLSchemeRegisteredAsLocal(scheme);
 }
 
 /*!
     \since 4.6
-    Returns a list of all the schemes that were set by the application as local schemes,
+    Returns a list of all the schemes concidered to be local.
+
+    By default this is \c{file://} and \c{qrc://}.
+
     \sa addLocalScheme(), removeLocalScheme()
 */
 QStringList QWebSecurityOrigin::localSchemes()
 {
     QStringList list;
-    const URLSchemesMap& map = SecurityOrigin::localURLSchemes();
+    const URLSchemesMap& map = SchemeRegistry::localSchemes();
     URLSchemesMap::const_iterator end = map.end();
     for (URLSchemesMap::const_iterator i = map.begin(); i != end; ++i) {
         const QString scheme = *i;

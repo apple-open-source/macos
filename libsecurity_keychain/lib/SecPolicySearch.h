@@ -47,8 +47,10 @@ typedef struct OpaquePolicySearchRef *SecPolicySearchRef;
 	@function SecPolicySearchGetTypeID
 	@abstract Returns the type identifier of SecPolicySearch instances.
 	@result The CFTypeID of SecPolicySearch instances.
+	@discussion This API is deprecated in 10.7. The SecPolicySearchRef type is no longer used.
 */
-CFTypeID SecPolicySearchGetTypeID(void);
+CFTypeID SecPolicySearchGetTypeID(void)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecPolicySearchCreate
@@ -58,8 +60,10 @@ CFTypeID SecPolicySearchGetTypeID(void);
 	@param value Unused.  Pass NULL for this value.  Use SecPolicySetValue to set per policy data.
 	@param searchRef On return, a pointer to a policy search reference. The policy search reference is used for subsequent calls to the SecCopyNextPolicy function to obtain the remaining trust policies. You are responsible for releasing the search reference by calling the CFRelease function when finished with it.
     @result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in 10.7. To create a SecPolicyRef, use one of the SecPolicyCreate functions in SecPolicy.h.
 */
-OSStatus SecPolicySearchCreate(CSSM_CERT_TYPE certType, const CSSM_OID *policyOID, const CSSM_DATA *value, SecPolicySearchRef *searchRef);
+OSStatus SecPolicySearchCreate(CSSM_CERT_TYPE certType, const CSSM_OID *policyOID, const CSSM_DATA *value, SecPolicySearchRef *searchRef)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
 	@function SecPolicySearchCopyNext
@@ -67,8 +71,10 @@ OSStatus SecPolicySearchCreate(CSSM_CERT_TYPE certType, const CSSM_OID *policyOI
 	@param searchRef A reference to the current policy search criteria.	You create the policy search  reference by a calling the SecPolicySearchCreate function. You are responsible for releasing the policy by calling the CFRelease function when finished with it.
 	@param policyRef On return, a pointer to a policy reference.
 	@result A result code.  When there are no more policies that match the parameters specified to SecPolicySearchCreate, errSecPolicyNotFound is returned. See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in 10.7. To create a SecPolicyRef, use one of the SecPolicyCreate functions in SecPolicy.h.
 */
-OSStatus SecPolicySearchCopyNext(SecPolicySearchRef searchRef, SecPolicyRef *policyRef);
+OSStatus SecPolicySearchCopyNext(SecPolicySearchRef searchRef, SecPolicyRef *policyRef)
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

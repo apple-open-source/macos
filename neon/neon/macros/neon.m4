@@ -136,12 +136,12 @@ AC_DEFUN([NE_VERSIONS_BUNDLED], [
 
 # Define the current versions.
 NE_VERSION_MAJOR=0
-NE_VERSION_MINOR=28
-NE_VERSION_PATCH=6
+NE_VERSION_MINOR=29
+NE_VERSION_PATCH=0
 NE_VERSION_TAG=
 
-# 0.28.x is backwards-compatible with 0.27.x, so AGE=1
-NE_LIBTOOL_VERSINFO="28:${NE_VERSION_PATCH}:1"
+# 0.29.x is backwards-compatible to 0.27.x, so AGE=2
+NE_LIBTOOL_VERSINFO="29:${NE_VERSION_PATCH}:2"
 
 NE_DEFINE_VERSIONS
 
@@ -150,7 +150,11 @@ NE_DEFINE_VERSIONS
 dnl Adds an ABI variation tag which will be added to the SONAME of
 dnl a shared library.  e.g. NE_ADD_ABITAG(FOO)
 AC_DEFUN([NE_ADD_ABITAG], [
-: Disabled for 0.28 to retain 0.27 ABI
+if test "x${NE_LIBTOOL_RELEASE}y" = "xy"; then
+   NE_LIBTOOL_RELEASE="$1"
+else
+   NE_LIBTOOL_RELEASE="${NE_LIBTOOL_RELEASE}-$1"
+fi
 ])
 
 dnl Define the minimum required versions, usage:
@@ -259,7 +263,6 @@ NEON_CHECK_VERSION([
     NEON_CHECK_SUPPORT([zlib], [ZLIB], [zlib])
     NEON_CHECK_SUPPORT([ipv6], [IPV6], [IPv6])
     NEON_CHECK_SUPPORT([lfs], [LFS], [LFS])
-    NEON_CHECK_SUPPORT([socks], [SOCKS], [SOCKSv5])
     NEON_CHECK_SUPPORT([ts_ssl], [TS_SSL], [thread-safe SSL])
     neon_got_library=yes
     if test $NE_FLAG_LFS = yes; then
@@ -507,7 +510,6 @@ fi
 if test "$NE_FLAG_LFS" = "yes"; then
    AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF64_T], 
                       [Define to be printf format string for ne_off_t])
-   NE_ADD_ABITAG(LFS)
 else
    AC_DEFINE_UNQUOTED([NE_FMT_NE_OFF_T], [NE_FMT_OFF_T])
 fi
@@ -642,7 +644,8 @@ NE_SEARCH_LIBS(getaddrinfo, nsl,,
       AC_MSG_NOTICE([getaddrinfo support disabled on HP-UX 11.0x/11.1x]) ;;
    *)
      ne_enable_gai=yes
-     NE_CHECK_FUNCS(gai_strerror getnameinfo inet_ntop,,[ne_enable_gai=no; break]) ;;
+     NE_CHECK_FUNCS(gai_strerror getnameinfo inet_ntop inet_pton,,
+                    [ne_enable_gai=no; break]) ;;
    esac
 ])
 
@@ -709,12 +712,12 @@ if test "x$neon_no_acl" = "xyes"; then
     AC_MSG_RESULT(no)
 else
     AC_MSG_RESULT(yes)
-    NEON_EXTRAOBJS="$NEON_EXTRAOBJS ne_acl"
+    NEON_EXTRAOBJS="$NEON_EXTRAOBJS ne_oldacl ne_acl3744"
 fi
 
 NEON_SSL()
-NEON_SOCKS()
 NEON_GSSAPI()
+NEON_LIBPROXY()
 
 AC_SUBST(NEON_CFLAGS)
 AC_SUBST(NEON_LIBS)
@@ -849,19 +852,21 @@ good
 dnl Less noisy replacement for PKG_CHECK_MODULES
 AC_DEFUN([NE_PKG_CONFIG], [
 
+m4_define([ne_cvar], m4_translit(ne_cv_pkg_[$2], [.-], [__]))dnl
+
 AC_PATH_PROG(PKG_CONFIG, pkg-config, no)
 if test "$PKG_CONFIG" = "no"; then
    : Not using pkg-config
    $4
 else
-   AC_CACHE_CHECK([for $2 pkg-config data], ne_cv_pkg_$2,
+   AC_CACHE_CHECK([for $2 pkg-config data], ne_cvar,
      [if $PKG_CONFIG $2; then
-        ne_cv_pkg_$2=yes
+        ne_cvar=yes
       else
-        ne_cv_pkg_$2=no
+        ne_cvar=no
       fi])
 
-   if test "$ne_cv_pkg_$2" = "yes"; then
+   if test "$ne_cvar" = "yes"; then
       $1_CFLAGS=`$PKG_CONFIG --cflags $2`
       $1_LIBS=`$PKG_CONFIG --libs $2`
       : Using provided pkg-config data
@@ -870,7 +875,10 @@ else
       : No pkg-config for $2 provided
       $4
    fi
-fi])
+fi
+
+m4_undefine([ne_cvar])
+])
 
 dnl Check for an SSL library (GNU TLS or OpenSSL)
 AC_DEFUN([NEON_SSL], [
@@ -908,7 +916,7 @@ yes|openssl)
    if test "$ne_cv_lib_ssl097" = "yes"; then
       AC_MSG_NOTICE([OpenSSL >= 0.9.7; EGD support not needed in neon])
       NE_ENABLE_SUPPORT(SSL, [SSL support enabled, using OpenSSL (0.9.7 or later)])
-      NE_CHECK_FUNCS(CRYPTO_set_idptr_callback)
+      NE_CHECK_FUNCS(CRYPTO_set_idptr_callback SSL_SESSION_cmp)
    else
       # Fail if OpenSSL is older than 0.9.6
       NE_CHECK_OPENSSLVER(ne_cv_lib_ssl096, 0.9.6, 0x00906000L)
@@ -939,6 +947,8 @@ yes|openssl)
 
    AC_DEFINE([HAVE_OPENSSL], 1, [Define if OpenSSL support is enabled])
    NEON_EXTRAOBJS="$NEON_EXTRAOBJS ne_openssl"
+
+   AC_DEFINE([HAVE_NTLM], 1, [Define if NTLM is supported])
    ;;
 gnutls)
    NE_PKG_CONFIG(NE_SSL, gnutls,
@@ -961,12 +971,6 @@ gnutls)
       ne_gnutls_ver=`$GNUTLS_CONFIG --version`
      ])
 
-   case $ne_gnutls_ver in
-   1.0.?|1.0.1?|1.0.20|1.0.21) 
-      AC_MSG_ERROR([GNU TLS version $ne_gnutls_ver is too old -- 1.0.22 or later required]) 
-      ;;
-   esac
-
    AC_CHECK_HEADER([gnutls/gnutls.h],,
       [AC_MSG_ERROR([could not find gnutls/gnutls.h in include path])])
 
@@ -975,9 +979,16 @@ gnutls)
    AC_DEFINE([HAVE_GNUTLS], 1, [Define if GnuTLS support is enabled])
 
    # Check for functions in later releases
-   NE_CHECK_FUNCS(gnutls_session_get_data2 gnutls_x509_dn_get_rdn_ava \ 
-                  gnutls_sign_callback_set)
+   NE_CHECK_FUNCS([gnutls_session_get_data2 gnutls_x509_dn_get_rdn_ava \
+                  gnutls_sign_callback_set \
+                  gnutls_certificate_get_x509_cas \
+                  gnutls_certificate_verify_peers2])
 
+   # fail if gnutls_certificate_verify_peers2 is not found
+   if test x${ac_cv_func_gnutls_certificate_verify_peers2} != xyes; then
+       AC_MSG_ERROR([GnuTLS version predates gnutls_certificate_verify_peers2, newer version required])
+   fi
+                  
    # Check for iconv support if using the new RDN access functions:
    if test ${ac_cv_func_gnutls_x509_dn_get_rdn_ava}X${ac_cv_header_iconv_h} = yesXyes; then
       AC_CHECK_FUNCS(iconv)
@@ -1037,7 +1048,7 @@ noX*Y*) ;;
       [AC_MSG_NOTICE([[pakchois library not found; no PKCS#11 support]])])
    ;;
 esac
-])
+]) dnl -- end defun NEON_SSL
 
 dnl Check for Kerberos installation
 AC_DEFUN([NEON_GSSAPI], [
@@ -1074,6 +1085,20 @@ if test "x$KRB5_CONFIG" != "xnone"; then
    CPPFLAGS=$ne_save_CPPFLAGS
    NEON_LIBS=$ne_save_LIBS
 fi])
+
+AC_DEFUN([NEON_LIBPROXY], [
+AC_ARG_WITH(libproxy, AS_HELP_STRING(--without-libproxy, disable libproxy support))
+if test "x$with_libproxy" != "xno"; then
+   NE_PKG_CONFIG(NE_PXY, libproxy-1.0,
+     [AC_DEFINE(HAVE_LIBPROXY, 1, [Define if libproxy is supported])
+      CPPFLAGS="$CPPFLAGS $NE_PXY_CFLAGS"
+      NEON_LIBS="$NEON_LIBS ${NE_PXY_LIBS}"
+      NE_ENABLE_SUPPORT(LIBPXY, [libproxy support enabled])],
+     [NE_DISABLE_SUPPORT(LIBPXY, [libproxy support not enabled])])
+else
+   NE_DISABLE_SUPPORT(LIBPXY, [libproxy support not enabled])
+fi
+])   
 
 dnl Adds an --enable-warnings argument to configure to allow enabling
 dnl compiler warnings
@@ -1123,23 +1148,7 @@ esac])
 
 dnl Macro to optionally enable socks support
 AC_DEFUN([NEON_SOCKS], [
-
-AC_ARG_WITH([socks], AS_HELP_STRING([--with-socks],[use SOCKSv5 library]))
-
-if test "$with_socks" = "yes"; then
-  ne_save_LIBS=$LIBS
-
-  AC_CHECK_HEADERS(socks.h,
-    [AC_CHECK_LIB(socks5, connect, [:],
-      [AC_MSG_ERROR([could not find libsocks5 for SOCKS support])])],
-    [AC_MSG_ERROR([could not find socks.h for SOCKS support])])
-
-  NE_ENABLE_SUPPORT(SOCKS, [SOCKSv5 support is enabled])
-  NEON_LIBS="$NEON_LIBS -lsocks5"
-  LIBS=$ne_save_LIBS
-else
-  NE_DISABLE_SUPPORT(SOCKS, [SOCKSv5 support is not enabled])
-fi])
+])
 
 AC_DEFUN([NEON_WITH_LIBS], [
 AC_ARG_WITH([libs],

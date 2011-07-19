@@ -21,7 +21,7 @@ namespace eval ::dialog {
 # ### ### ### ######### ######### #########
 ## Start a new dialog server.
 
-proc ::dialog::setup {type cookie} {
+proc ::dialog::setup {type cookie {ssl 0}} {
     variable id
     variable port
 
@@ -197,6 +197,44 @@ proc ::dialog::setup {type cookie} {
 	    Log [list Channels $port = [lsort [file channels]]]
 	    Step $sock
 	    return
+	}
+    }
+
+    if {$ssl} {
+	# Replace various commands with tls aware variants
+	coserv::run $id [list set devtools [tcllibPath devtools]]
+	coserv::run $id {
+	    package require tls
+
+	    tls::init \
+		-keyfile  $devtools/transmitter.key \
+		-certfile $devtools/transmitter.crt \
+		-cafile   $devtools/ca.crt \
+		-ssl2 1    \
+		-ssl3 1    \
+		-tls1 0    \
+		-require 1
+
+	    proc Server {} {
+		global port
+		# Start listener for dialog
+		set listener [tls::socket -server Accept 0]
+		set port     [lindex [fconfigure $listener -sockname] 2]
+		# implied return of <port>
+	    }
+
+	    proc Client {port} {
+		global conn
+		catch {close $conn}
+
+		set conn [set sock [tls::socket localhost $port]]
+		fconfigure $sock -blocking 0
+		ClearTraces
+		Log [list Client @ $port = $sock]
+		Log [list Channels $port = [lsort [file channels]]]
+		Step $sock
+		return
+	    }
 	}
     }
 

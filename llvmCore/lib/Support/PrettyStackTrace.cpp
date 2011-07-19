@@ -15,11 +15,16 @@
 #include "llvm/Support/PrettyStackTrace.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/System/Signals.h"
+#include "llvm/System/ThreadLocal.h"
 #include "llvm/ADT/SmallString.h"
 using namespace llvm;
 
+namespace llvm {
+  bool DisablePrettyStackTrace = false;
+}
+
 // FIXME: This should be thread local when llvm supports threads.
-static const PrettyStackTraceEntry *PrettyStackTraceHead = 0;
+static sys::ThreadLocal<const PrettyStackTraceEntry> PrettyStackTraceHead;
 
 static unsigned PrintStack(const PrettyStackTraceEntry *Entry, raw_ostream &OS){
   unsigned NextID = 0;
@@ -34,12 +39,12 @@ static unsigned PrintStack(const PrettyStackTraceEntry *Entry, raw_ostream &OS){
 /// PrintCurStackTrace - Print the current stack trace to the specified stream.
 static void PrintCurStackTrace(raw_ostream &OS) {
   // Don't print an empty trace.
-  if (PrettyStackTraceHead == 0) return;
+  if (PrettyStackTraceHead.get() == 0) return;
   
   // If there are pretty stack frames registered, walk and emit them.
   OS << "Stack dump:\n";
   
-  PrintStack(PrettyStackTraceHead, OS);
+  PrintStack(PrettyStackTraceHead.get(), OS);
   OS.flush();
 }
 
@@ -66,15 +71,16 @@ static void CrashHandler(void *Cookie) {
   }
   
   if (!TmpStr.empty()) {
-    __crashreporter_info__ = strdup(TmpStr.c_str());
-    errs() << __crashreporter_info__;
+    __crashreporter_info__ = strdup(std::string(TmpStr.str()).c_str());
+    errs() << TmpStr.str();
   }
   
 #endif
 }
 
 static bool RegisterCrashPrinter() {
-  sys::AddSignalHandler(CrashHandler, 0);
+  if (!DisablePrettyStackTrace)
+    sys::AddSignalHandler(CrashHandler, 0);
   return false;
 }
 
@@ -84,14 +90,14 @@ PrettyStackTraceEntry::PrettyStackTraceEntry() {
   HandlerRegistered = HandlerRegistered;
     
   // Link ourselves.
-  NextEntry = PrettyStackTraceHead;
-  PrettyStackTraceHead = this;
+  NextEntry = PrettyStackTraceHead.get();
+  PrettyStackTraceHead.set(this);
 }
 
 PrettyStackTraceEntry::~PrettyStackTraceEntry() {
-  assert(PrettyStackTraceHead == this &&
+  assert(PrettyStackTraceHead.get() == this &&
          "Pretty stack trace entry destruction is out of order");
-  PrettyStackTraceHead = getNextEntry();
+  PrettyStackTraceHead.set(getNextEntry());
 }
 
 void PrettyStackTraceString::print(raw_ostream &OS) const {

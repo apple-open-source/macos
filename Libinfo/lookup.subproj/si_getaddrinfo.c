@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 2008-2011 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -29,6 +29,7 @@
 #include <sys/socket.h>
 #include <net/if.h>
 #include <netinet/in.h>
+#include <network/sa_compare.h>
 #include <arpa/inet.h>
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -53,34 +54,11 @@
 #define WANT_A6_PLUS_MAPPED_A4 3
 #define WANT_A6_OR_MAPPED_A4_IF_NO_A6 4
 
-#define TEREDO_PREFIX_32 0x20010000
 #define V6TO4_PREFIX_16 0x2002
-#define ULA_PREFIX_8 0xfc
-
-#define NET_TYPE_UNKNOWN	0x00000000
-#define NET_TYPE_V4			0x00000001
-#define NET_TYPE_V6			0x00000002
-#define NET_TYPE_TEREDO		0x00000012
-#define NET_TYPE_6TO4		0x00000022
-#define NET_TYPE_LINKLOCAL	0x00000042
-#define NET_TYPE_SITELOCAL	0x00000082
-#define NET_TYPE_ULA		0x00000102
-#define NET_MASK_T6LSU		0x000001f0
-
-typedef struct
-{
-	int v4_count;
-	int v6_count;
-	int v6to4_count;
-	int teredo_count;
-	int ula_count;
-	int ll_count;
-	int sl_count;
-	int gai_v6_preferred;
-} config_stats_t;
 
 static int net_config_token = -1;
-static config_stats_t config_stats_global;
+static uint32_t net_v4_count = 0;
+static uint32_t net_v6_count = 0;	// includes 6to4 addresses
 static pthread_mutex_t net_config_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 typedef struct {
@@ -90,46 +68,14 @@ typedef struct {
 	uint64_t ttl;
 } build_hostent_t;
 
-static int
-_si_net_addr_type(const struct sockaddr *s)
+__private_extern__ int
+si_inet_config(uint32_t *inet4, uint32_t *inet6)
 {
-	const struct sockaddr_in6 *sa6 = (const struct sockaddr_in6 *)s;
-
-	if (s == NULL) return NET_TYPE_UNKNOWN;
-	else if (s->sa_family == AF_INET) return NET_TYPE_V4;
-	else if (s->sa_family != AF_INET6) return NET_TYPE_UNKNOWN;
-	else if (sa6->sin6_addr.__u6_addr.__u6_addr32[0] == ntohs(TEREDO_PREFIX_32)) return NET_TYPE_TEREDO;
-	else if (sa6->sin6_addr.__u6_addr.__u6_addr16[0] == ntohs(V6TO4_PREFIX_16)) return NET_TYPE_6TO4;
-	else if (IN6_IS_ADDR_LINKLOCAL(&(sa6->sin6_addr))) return NET_TYPE_LINKLOCAL;
-	else if (IN6_IS_ADDR_SITELOCAL(&(sa6->sin6_addr))) return NET_TYPE_SITELOCAL;
-	else if ((sa6->sin6_addr.__u6_addr.__u6_addr8[0] & 0xfe) == ULA_PREFIX_8) return NET_TYPE_ULA;
-
-	return NET_TYPE_V6;
-}
-
-static int
-_si_net_type_is_IPv6_globably_reachable_non_transitional(int t)
-{
-	if (t & NET_TYPE_V6)
-	{
-		if (t & NET_MASK_T6LSU) return 0;
-		return 1;
-	}
-
-	return 0;
-}
-
-static int
-_si_netconfig(config_stats_t *stats)
-{
-	int status, checkit, net_type;
+	int status, checkit;
 	struct ifaddrs *ifa, *ifap;
-
-	if (stats == NULL) return 0;
 
 	pthread_mutex_lock(&net_config_mutex);
 
-	status = 0;
 	checkit = 1;
 
 	if (net_config_token < 0)
@@ -144,6 +90,8 @@ _si_netconfig(config_stats_t *stats)
 		if (status != 0) checkit = 1;
 	}
 
+	status = 0;
+
 	if (checkit != 0)
 	{
 		if (getifaddrs(&ifa) < 0)
@@ -152,76 +100,34 @@ _si_netconfig(config_stats_t *stats)
 		}
 		else
 		{
-			memset(&config_stats_global, 0, sizeof(config_stats_t));
+			net_v4_count = 0;
+			net_v6_count = 0;
 
 			for (ifap = ifa; ifap != NULL; ifap = ifap->ifa_next)
 			{
 				if (ifap->ifa_addr == NULL) continue;
 				if ((ifap->ifa_flags & IFF_UP) == 0) continue;
 
-				net_type = _si_net_addr_type(ifap->ifa_addr);
-		
-				if (net_type == NET_TYPE_UNKNOWN)
+				if (ifap->ifa_addr->sa_family == AF_INET)
 				{
+					net_v4_count++;
 				}
-				else if (net_type == NET_TYPE_V4)
+				else if (ifap->ifa_addr->sa_family == AF_INET6)
 				{
-					config_stats_global.v4_count++;
-				}
-				else
-				{
-					config_stats_global.v6_count++;
-
-					if (net_type == NET_TYPE_LINKLOCAL)
-					{
-						config_stats_global.ll_count++;
-						continue;
-					}
-					else if (net_type == NET_TYPE_ULA)
-					{
-						config_stats_global.ula_count++;
-						if (!strncmp(ifap->ifa_name, "utun", 4)) continue;
-					}
-					if (net_type == NET_TYPE_TEREDO)
-					{
-						config_stats_global.teredo_count++;
-					}
-					else if (net_type == NET_TYPE_6TO4)
-					{
-						config_stats_global.v6to4_count++;
-					}
-					else if (net_type == NET_TYPE_SITELOCAL)
-					{
-						config_stats_global.sl_count++;
-					}
-
-					if (_si_net_type_is_IPv6_globably_reachable_non_transitional(net_type))
-					{
-						config_stats_global.gai_v6_preferred = 1;
-					}
+					net_v6_count++;
 				}
 			}
-
-			freeifaddrs(ifa);
 		}
+
+		freeifaddrs(ifa);
 	}
 
-	*stats = config_stats_global;
+	if (inet4 != NULL) *inet4 = net_v4_count;
+	if (inet6 != NULL) *inet6 = net_v6_count;
 
 	pthread_mutex_unlock(&net_config_mutex);
 
 	return status;
-}
-
-__private_extern__ int
-si_inet_config(uint32_t *inet4, uint32_t *inet6)
-{
-	config_stats_t x;
-
-	if (_si_netconfig(&x) < 0) return -1;
-	if (inet4 != NULL) *inet4 = x.v4_count;
-	if (inet6 != NULL) *inet6 = x.v6_count;
-	return 0;
 }
 
 void
@@ -274,7 +180,7 @@ gai_strerror(int32_t err)
  * string.  If the caller specifies both NI_NUMERICHOST and NI_NUMERICSERV,
  * we inet_ntop() and printf() and return the results.
  */
-__private_extern__ si_item_t *
+si_item_t *
 si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err)
 {
 	si_item_t *out = NULL;
@@ -316,8 +222,8 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 		memcpy(&a6, &s6->sin6_addr, sizeof(a6));
 		port = s6->sin6_port;
 
-		/* Look for link-local IPv6 scope id */
-		if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr))
+		/* Look for scope id in IPv6 Link Local, Multicast Node Local, and Multicast Link Local */
+		if (IN6_IS_ADDR_LINKLOCAL(&s6->sin6_addr) || IN6_IS_ADDR_MC_NODELOCAL(&s6->sin6_addr) || IN6_IS_ADDR_MC_LINKLOCAL(&s6->sin6_addr))
 		{
 			ifnum = ntohs(a6.__u6_addr.__u6_addr16[1]);
 			if (ifnum == 0)
@@ -326,8 +232,7 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 				a6.__u6_addr.__u6_addr16[1] = htons(ifnum);
 			}
 
-			if (ifnum != s6->sin6_scope_id &&
-			    s6->sin6_scope_id != 0)
+			if ((ifnum != s6->sin6_scope_id) && (s6->sin6_scope_id != 0))
 			{
 				if (err != NULL) *err = SI_STATUS_EAI_FAIL;
 				return NULL;
@@ -359,12 +264,6 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 
 	if (do_host_lookup == 1)
 	{
-#if 0
-		if ((do_serv_lookup == 1) && (si->sim_nameinfo != NULL))
-		{
-			return si->sim_nameinfo(si, lookup_sa, flags, interface, err);
-		}
-#endif
 		si_item_t *item = si_host_byaddr(si, addr, lookup_sa->sa_family, interface, NULL);
 		if (item != NULL)
 		{
@@ -402,7 +301,7 @@ si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *inte
 	 * Return numeric host name for NI_NUMERICHOST or if lookup failed, but not
 	 * if NI_NAMEREQD is specified (so that we later fail with EAI_NONAME).
 	 */
-	if (host == NULL && (flags & NI_NAMEREQD) == 0)
+	if ((host == NULL) && ((flags & NI_NAMEREQD) == 0))
 	{
 		char tmp[INET6_ADDRSTRLEN + 1 + IF_NAMESIZE + 1];
 		tmp[0] = '\0';
@@ -505,7 +404,7 @@ _gai_numericserv(const char *serv, uint16_t *port)
 	return numeric;
 }
 
-__private_extern__ int
+int
 _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port)
 {
 	si_item_t *item;
@@ -527,7 +426,7 @@ _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port)
 	return 0;
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_addrinfo_v4(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname)
 {
 	socket_data_t sockdata;
@@ -552,7 +451,33 @@ si_addrinfo_v4(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_
 	return (si_item_t *)LI_ils_create("L448844444Ss", (unsigned long)si, CATEGORY_ADDRINFO, 1, unused, unused, flags, AF_INET, sock, proto, len, sockdata, cname);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
+si_addrinfo_v4_mapped(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname)
+{
+	socket_data_t sockdata;
+	struct sockaddr_in6 *sa;
+	int32_t len;
+	uint64_t unused;
+
+	unused = 0;
+	len = sizeof(struct sockaddr_in6);
+	memset(&sockdata, 0, sizeof(socket_data_t));
+	sa = (struct sockaddr_in6 *)&sockdata;
+
+	sa->sin6_len = len;
+	sa->sin6_family = AF_INET6;
+	sa->sin6_port = htons(port);
+	memset(&(sa->sin6_addr.__u6_addr.__u6_addr8[10]), 0xff, 2);
+	memcpy(&(sa->sin6_addr.__u6_addr.__u6_addr8[12]), addr, sizeof(struct in_addr));
+
+	/* sin6_scope_id is in host byte order */
+	sa->sin6_scope_id = iface;
+
+	return (si_item_t *)LI_ils_create("L448844444Ss", (unsigned long)si, CATEGORY_ADDRINFO, 1, unused, unused, flags, AF_INET6, sock, proto, len, sockdata, cname);
+}
+
+
+si_item_t *
 si_addrinfo_v6(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in6_addr *addr, uint16_t iface, const char *cname)
 {
 	socket_data_t sockdata;
@@ -587,34 +512,14 @@ si_addrinfo_v6(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_
 	return (si_item_t *)LI_ils_create("L448844444Ss", (unsigned long)si, CATEGORY_ADDRINFO, 1, unused, unused, flags, AF_INET6, sock, proto, len, sockdata, cname);
 }
 
-__private_extern__ si_list_t *
-si_addrinfo_list(si_mod_t *si, int socktype, int proto, struct in_addr *a4, struct in6_addr *a6, int port, int scopeid, const char *cname4, const char *cname6)
+si_list_t *
+si_addrinfo_list(si_mod_t *si, uint32_t flags, int socktype, int proto, struct in_addr *a4, struct in6_addr *a6, int port, int scopeid, const char *cname4, const char *cname6)
 {
+	int do_map = 0;
 	si_item_t *item = NULL;
 	si_list_t *out4 = NULL, *out6 = NULL;
-	if (a4 != NULL)
-	{
-		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
-		{
-			item = si_addrinfo_v4(si, 0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, cname4);
-			out4 = si_list_add(out4, item);
-			si_item_release(item);
-		}
 
-		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
-		{
-			item = si_addrinfo_v4(si, 0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, cname4);
-			out4 = si_list_add(out4, item);
-			si_item_release(item);
-		}
-
-		if (proto == IPPROTO_ICMP)
-		{
-			item = si_addrinfo_v4(si, 0, SOCK_RAW, IPPROTO_ICMP, port, a4, 0, cname4);
-			out4 = si_list_add(out4, item);
-			si_item_release(item);
-		}
-	}
+	if ((flags & AI_V4MAPPED) && ((flags & AI_ALL) || (a6 == NULL))) do_map = 1;
 
 	if (a6 != NULL)
 	{
@@ -640,6 +545,57 @@ si_addrinfo_list(si_mod_t *si, int socktype, int proto, struct in_addr *a4, stru
 		}
 	}
 
+	if (a4 != NULL)
+	{
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_UDP))
+		{
+			if (do_map == 0)
+			{
+				item = si_addrinfo_v4(si, 0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, cname4);
+				out4 = si_list_add(out4, item);
+			}
+			else
+			{
+				item = si_addrinfo_v4_mapped(si, 0, SOCK_DGRAM, IPPROTO_UDP, port, a4, 0, cname4);
+				out6 = si_list_add(out6, item);
+			}
+
+			si_item_release(item);
+		}
+
+		if ((proto == IPPROTO_UNSPEC) || (proto == IPPROTO_TCP))
+		{
+			if (do_map == 0)
+			{
+				item = si_addrinfo_v4(si, 0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, cname4);
+				out4 = si_list_add(out4, item);
+			}
+			else
+			{
+				item = si_addrinfo_v4_mapped(si, 0, SOCK_STREAM, IPPROTO_TCP, port, a4, 0, cname4);
+				out6 = si_list_add(out6, item);
+			}
+
+			si_item_release(item);
+		}
+
+		if (proto == IPPROTO_ICMP)
+		{
+			if (do_map == 0)
+			{
+				item = si_addrinfo_v4(si, 0, SOCK_RAW, IPPROTO_ICMP, port, a4, 0, cname4);
+				out4 = si_list_add(out4, item);
+			}
+			else
+			{
+				item = si_addrinfo_v4_mapped(si, 0, SOCK_RAW, IPPROTO_ICMP, port, a4, 0, cname4);
+				out6 = si_list_add(out6, item);
+			}
+
+			si_item_release(item);
+		}
+	}
+
 	out6 = si_list_concat(out6, out4);
 	si_list_release(out4);
 
@@ -654,9 +610,10 @@ si_addrinfo_list(si_mod_t *si, int socktype, int proto, struct in_addr *a4, stru
  * Returns 1 if host name is numeric or 0 if not, or -1 on error.
  */
 static int
-_gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_addr *a4, struct in6_addr *a6)
+_gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_addr *a4, struct in6_addr *a6, int *scope)
 {
 	int numerichost, passive;
+	in_addr_t test;
 
 	numerichost = 0;
 
@@ -665,7 +622,7 @@ _gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_ad
 		/* return loopback or passive addresses */
 		passive = (flags & AI_PASSIVE);
 
-		if ((*family == AF_UNSPEC) || (*family == AF_INET))
+		if (((*family == AF_UNSPEC) || (*family == AF_INET)) || ((*family == AF_INET6) && (flags & AI_V4MAPPED) && (flags & AI_ALL)))
 		{
 			if (passive) a4->s_addr = 0;
 			else a4->s_addr = htonl(INADDR_LOOPBACK);
@@ -681,12 +638,41 @@ _gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_ad
 	}
 	else
 	{
-		/* numeric IPv4 host valid for AF_UNSPEC and AF_INET */
+		/*
+		 * numeric IPv4 host valid for AF_UNSPEC and AF_INET
+		 * also valid for AF_INET6 with AI_V4MAPPED
+		 */
 		numerichost = inet_pton(AF_INET, nodename, a4);
+		if (numerichost == 0)
+		{
+			test = inet_addr(nodename);
+			if (test != (in_addr_t)-1)
+			{
+				a4->s_addr = test;
+				numerichost = 1;
+			}
+		}
+
 		if (numerichost == 1)
 		{
-			if (*family == AF_UNSPEC) *family = AF_INET;
-			else if (*family == AF_INET6) numerichost = -1;
+			if (*family == AF_UNSPEC)
+			{
+				*family = AF_INET;
+			}
+			else if (*family == AF_INET6)
+			{
+				if (flags & AI_V4MAPPED)
+				{
+					memset(a6, 0, sizeof(struct in6_addr));
+					memset(&(a6->__u6_addr.__u6_addr8[10]), 0xff, 2);
+					memcpy(&(a6->__u6_addr.__u6_addr8[12]), a4, sizeof(struct in_addr));
+				}
+				else
+				{
+					numerichost = -1;
+				}
+			}
+
 			return numerichost;
 		}
 
@@ -694,8 +680,28 @@ _gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_ad
 		numerichost = inet_pton(AF_INET6, nodename, a6);
 		if (numerichost == 1)
 		{
+			/* check for scope/zone id */
+			char *p = strrchr(nodename, SCOPE_DELIMITER);
+			if (p != NULL)
+			{
+				int i, d;
+				char *x;
+				
+				p++;
+				d = 1;
+				for (x = p; (*x != '\0') && (d == 1); x++)
+				{
+					i = *x;
+					d = isdigit(i);
+				}
+				
+				if (d == 1) *scope = atoi(p);
+				else *scope = if_nametoindex(p);
+			}
+
 			if (*family == AF_UNSPEC) *family = AF_INET6;
 			else if (*family == AF_INET) numerichost = -1;
+
 			return numerichost;
 		}
 	}
@@ -706,8 +712,8 @@ _gai_numerichost(const char* nodename, uint32_t *family, int flags, struct in_ad
 /* si_addrinfo_list_from_hostent
  * Returns an addrinfo list from IPv4 and IPv6 hostent entries
  */
-__private_extern__ si_list_t *
-si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6)
+si_list_t *
+si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t flags, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6)
 {
 	int i;
 	si_list_t *out = NULL;
@@ -719,7 +725,7 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 		{
 			struct in6_addr a6;
 			memcpy(&a6, h6->h_addr_list[i], h6->h_length);
-			list = si_addrinfo_list(si, socktype, proto, NULL, &a6, port, scope, NULL, h6->h_name);
+			list = si_addrinfo_list(si, flags, socktype, proto, NULL, &a6, port, scope, NULL, h6->h_name);
 			out = si_list_concat(out, list);
 			si_list_release(list);
 		}
@@ -731,7 +737,7 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 		{
 			struct in_addr a4;
 			memcpy(&a4, h4->h_addr_list[i], h4->h_length);
-			list = si_addrinfo_list(si, socktype, proto, &a4, NULL, port, 0, h4->h_name, NULL);
+			list = si_addrinfo_list(si, flags, socktype, proto, &a4, NULL, port, 0, h4->h_name, NULL);
 			out = si_list_concat(out, list);
 			si_list_release(list);
 		}
@@ -741,74 +747,107 @@ si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, u
 }
 
 int
-_gai_sa_dst_compare(const struct sockaddr *a, const struct sockaddr *b, int unused)
+_gai_addr_sort(const void *a, const void *b)
 {
-	int ta, tb, posn_a, posn_b;
-
-	ta = _si_net_addr_type(a);
-	tb = _si_net_addr_type(b);
-
-	posn_a = 2;
-	posn_b = 2;
-
-	if (ta & NET_TYPE_V4) posn_a = 1;
-	if (tb & NET_TYPE_V4) posn_b = 1;
-
-	if (_si_net_type_is_IPv6_globably_reachable_non_transitional(ta)) posn_a = 0;
-	if (_si_net_type_is_IPv6_globably_reachable_non_transitional(tb)) posn_b = 0;
-
-	return (posn_a - posn_b);
-}
-
-int
-_gai_addr_sort(void *thunk, const void *a, const void *b)
-{
-	si_item_t **ia, **ib;
+	si_item_t **item_a, **item_b;
 	si_addrinfo_t *p, *q;
 	struct sockaddr *sp, *sq;
-	uint32_t *v4first = (uint32_t *)thunk;
-
-	ia = (si_item_t **)a;
-	ib = (si_item_t **)b;
 	
-	p = (si_addrinfo_t *)((uintptr_t)*ia + sizeof(si_item_t));
-	q = (si_addrinfo_t *)((uintptr_t)*ib + sizeof(si_item_t));
+	item_a = (si_item_t **)a;
+	item_b = (si_item_t **)b;
+
+	p = (si_addrinfo_t *)((uintptr_t)*item_a + sizeof(si_item_t));
+	q = (si_addrinfo_t *)((uintptr_t)*item_b + sizeof(si_item_t));
 
 	sp = (struct sockaddr *)p->ai_addr.x;
 	sq = (struct sockaddr *)q->ai_addr.x;
 
-	if (*v4first == 1)
-	{
-		if (sp->sa_family == sq->sa_family) return 0;
-		if (sp->sa_family == AF_INET) return -1;
-		return 1;
-	}
-
-	return _gai_sa_dst_compare(sp, sq, 0);
+	/*
+	 * sa_dst_compare(A,B) returns -1 if A is less desirable than B,
+	 * 0 if they are equally desirable, and 1 if A is more desirable.
+	 * qsort() expects the inverse, so we swap sp and sq.
+	 */
+	return sa_dst_compare(sq, sp, 0);
 }
 
 static si_list_t *
-_gai_sort_list(si_list_t *in)
+_gai_sort_list(si_list_t *in, uint32_t flags)
 {
-	uint32_t v4first;
-	config_stats_t x;
+	si_list_t *out;
+	int filter_mapped;
+	uint32_t i;
+	uint32_t v4mapped_count = 0;
+	uint32_t v6_count = 0;
+	si_addrinfo_t *a;
 
 	if (in == NULL) return NULL;
 
-	memset(&x, 0, sizeof(config_stats_t));
-	if (_si_netconfig(&x) < 0) return in;
+	for (i = 0; i < in->count; i++)
+	{
+		a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
+		if (a->ai_family == AF_INET6)
+		{
+			struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)a->ai_addr.x;
+			if (IN6_IS_ADDR_V4MAPPED(&(s6->sin6_addr))) v4mapped_count++;
+			else v6_count++;
+		}
+	}
 
-	v4first = 1;
-	if (x.gai_v6_preferred != 0) v4first = 0;
+	filter_mapped = 1;
+	if ((flags & AI_V4MAPPED) && ((v6_count == 0) || (flags & AI_ALL))) filter_mapped = 0;
 
-	qsort_r(&in->entry[0], in->count, sizeof(si_item_t *), (void *)&v4first, _gai_addr_sort);
-	return in;
+	out = in;
+
+	if ((filter_mapped == 1) && (v4mapped_count > 0))
+	{
+		i = in->count - v4mapped_count;
+		if (i == 0) return NULL;
+
+		out = (si_list_t *)calloc(1, sizeof(si_list_t));
+		if (out == NULL) return in;
+
+		out->count = i;
+		out->refcount = in->refcount;
+
+		out->entry = (si_item_t **)calloc(out->count, sizeof(si_item_t *));
+		if (out->entry == NULL)
+		{
+			free(out);
+			return in;
+		}
+
+		out->curr = 0;
+
+		for (i = 0; i < in->count; i++)
+		{
+			a = (si_addrinfo_t *)((uintptr_t)in->entry[i] + sizeof(si_item_t));
+			if (a->ai_family == AF_INET6)
+			{
+				struct sockaddr_in6 *s6 = (struct sockaddr_in6 *)a->ai_addr.x;
+				if (IN6_IS_ADDR_V4MAPPED(&(s6->sin6_addr)))
+				{
+					si_item_release(in->entry[i]);
+					continue;
+				}
+			}
+
+			out->entry[out->curr++] = in->entry[i];
+		}
+
+		out->curr = 0;
+
+		free(in->entry);
+		free(in);
+	}
+
+	qsort(&out->entry[0], out->count, sizeof(si_item_t *), _gai_addr_sort);
+	return out;
 }
 
 /* _gai_simple
  * Simple lookup via gethostbyname2(3) mechanism.
  */
-__private_extern__ si_list_t *
+si_list_t *
 _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	si_item_t *h4_item = NULL, *h6_item = NULL;
@@ -863,30 +902,30 @@ _gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t fam
 		h6 = (struct hostent *)((uintptr_t)h6_item + sizeof(si_item_t));
 	}
 
-	out = si_addrinfo_list_from_hostent(si, socktype, proto, port, 0, h4, h6);
+	out = si_addrinfo_list_from_hostent(si, flags, socktype, proto, port, 0, h4, h6);
 	si_item_release(h4_item);
 	si_item_release(h6_item);
 
-	return _gai_sort_list(out);
+	return _gai_sort_list(out, flags);
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err)
 {
 	if (si == NULL) return 0;
-	if (si->sim_srv_byname == NULL) return 0;
+	if (si->vtable->sim_srv_byname == NULL) return 0;
 
-	return si->sim_srv_byname(si, qname, interface, err);
+	return si->vtable->sim_srv_byname(si, qname, interface, err);
 }
 
-__private_extern__ int
+int
 si_wants_addrinfo(si_mod_t *si)
 {
 	if (si == NULL) return 0;
-	if (si->sim_addrinfo == NULL) return 0;
-	if (si->sim_wants_addrinfo == NULL) return 0;
+	if (si->vtable->sim_addrinfo == NULL) return 0;
+	if (si->vtable->sim_wants_addrinfo == NULL) return 0;
 
-	return si->sim_wants_addrinfo(si);
+	return si->vtable->sim_wants_addrinfo(si);
 }
 
 static si_list_t *
@@ -903,13 +942,13 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 	/* Minimum SRV priority is zero. Start below that. */
 	int lastprio = -1;
 	int currprio;
-	
+
 	if (node == NULL || serv == NULL) return NULL;
-	
+
 	asprintf(&qname, "%s.%s", serv, node);
 	list = si_srv_byname(si, qname, interface, err);
 	free(qname);
-	
+
 	/* Iterate the SRV records starting at lowest priority and attempt to
 	 * lookup the target host name. Returns the first successful lookup.
 	 * It's an O(n^2) algorithm but data sets are small (less than 100) and
@@ -920,12 +959,12 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 		/* Find the next lowest priority level. */
 		/* Maximum SRV priority is UINT16_MAX. Start above that. */
 		currprio = INT_MAX;
-		
+
 		for (i = 0; i < list->count; ++i)
 		{
 			item = list->entry[i];
 			srv = (si_srv_t *)((uintptr_t)item + sizeof(si_item_t));
-			
+
 			if (srv->priority > lastprio && srv->priority < currprio)
 			{
 				currprio = srv->priority;
@@ -941,13 +980,13 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 		{
 			lastprio = currprio;
 		}
-		
+
 		/* Lookup hosts at the current priority level. Return first match. */
 		for (i = 0; i < list->count; ++i)
 		{
 			item = list->entry[i];
 			srv = (si_srv_t *)((uintptr_t)item + sizeof(si_item_t));
-			
+
 			if (srv->priority == currprio)
 			{
 				/* So that _gai_simple expects an integer service. */
@@ -966,14 +1005,15 @@ _gai_srv(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint
 	{
 		si_list_release(list);
 	}
-	
+
 	return result;
 }
 
-__private_extern__ si_list_t *
+si_list_t *
 si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err)
 {
 	int numerichost, numericserv = 0;
+	int scope = 0;
 	const void *nodeptr = NULL, *servptr = NULL;
 	uint16_t port;
 	struct in_addr a4, *p4;
@@ -1046,6 +1086,18 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		return NULL;
 	}
 
+	/* check AI_V4MAPPED and AI_ALL */
+	if (family != AF_INET6)
+	{
+		/* unset AI_V4MAPPED and AI_ALL unless family is AF_INET6 */
+		flags &= ~(AI_V4MAPPED | AI_ALL);
+	}
+	else if ((flags & AI_V4MAPPED) == 0)
+	{
+		/* unset AI_ALL unless family is AF_INET6 and AI_V4MAPPED is set */
+		flags &= ~AI_ALL;
+	}
+
 	memset(&a4, 0, sizeof(struct in_addr));
 	memset(&a6, 0, sizeof(struct in6_addr));
 
@@ -1059,7 +1111,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 	{
 		/* AI_SRV SPI */
 		out = _gai_srv(si, node, serv, family, socktype, proto, flags, interface, err);
-		return _gai_sort_list(out);
+		return _gai_sort_list(out, flags);
 	}
 	else
 	{
@@ -1074,7 +1126,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		return NULL;
 	}
 
-	if (serv != NULL)
+	if ((serv != NULL) && (strcmp(serv, "0") != 0))
 	{
 		if (numericserv == 1)
 		{
@@ -1087,7 +1139,7 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		}
 	}
 
-	numerichost = _gai_numerichost(node, &family, flags, &a4, &a6);
+	numerichost = _gai_numerichost(node, &family, flags, &a4, &a6, &scope);
 	if ((numerichost == -1) || ((flags & AI_NUMERICHOST) && (numerichost == 0)))
 	{
 		if (err != NULL) *err = SI_STATUS_EAI_NONAME;
@@ -1137,20 +1189,23 @@ si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, u
 		if (family == AF_INET6) p4 = NULL;
 		if (node == NULL) cname = "localhost";
 
+		/* allow nodename to be a mapped IPv4 address, e.g. "::ffff:10.0.0.1" */
+		if (p6 != NULL) flags |= AI_V4MAPPED;
+
 		/* handle trivial questions */
-		out = si_addrinfo_list(si, socktype, proto, p4, p6, port, 0, cname, cname);
-		return _gai_sort_list(out);
+		out = si_addrinfo_list(si, flags, socktype, proto, p4, p6, port, scope, cname, cname);
+		return _gai_sort_list(out, flags);
 	}
-	else if ((si->sim_wants_addrinfo != NULL) && si->sim_wants_addrinfo(si))
+	else if (si_wants_addrinfo(si))
 	{
 		/* or let the current module handle the host lookups intelligently */
-		out = si->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
-		return _gai_sort_list(out);
+		out = si->vtable->sim_addrinfo(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
+		return _gai_sort_list(out, flags);
 	}
 
 	/* fall back to a default path */
 	out = _gai_simple(si, nodeptr, servptr, family, socktype, proto, flags, interface, err);
-	return _gai_sort_list(out);
+	return _gai_sort_list(out, flags);
 }
 
 static struct addrinfo *
@@ -1194,7 +1249,7 @@ si_item_to_addrinfo(si_item_t *item)
 	return out;
 }
 
-__private_extern__ struct addrinfo *
+struct addrinfo *
 si_list_to_addrinfo(si_list_t *list)
 {
 	struct addrinfo *tail, *out;
@@ -1369,17 +1424,17 @@ free_build_hostent(build_hostent_t *h)
 	free(h);
 }
 
-__private_extern__ si_item_t *
+si_item_t *
 si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err)
 {
 	int i, status, want;
+	uint32_t if4, if6;
 	struct in_addr addr4;
 	struct in6_addr addr6;
 	si_item_t *item4, *item6;
 	build_hostent_t *out;
 	struct hostent *h;
 	uint64_t unused;
-	config_stats_t ifstats;
 
 	memset(&addr4, 0, sizeof(struct in_addr));
 	memset(&addr6, 0, sizeof(struct in6_addr));
@@ -1453,18 +1508,19 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 	 * IF AI_ADDRCONFIG is set, we need to know what interface flavors we really have.
 	 */
 
-	memset(&ifstats, 0, sizeof(config_stats_t));
+	if4 = 0;
+	if6 = 0;
 
 	if (flags & AI_ADDRCONFIG)
 	{
-		if (_si_netconfig(&ifstats) < 0)
+		if (si_inet_config(&if4, &if6) < 0)
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
 		}
 
 		/* Bail out if there are no interfaces */
-		if ((ifstats.v4_count == 0) && (ifstats.v6_count == 0))
+		if ((if4 == 0) && (if6 == 0))
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
@@ -1479,7 +1535,7 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 
 	if (family == AF_INET)
 	{
-		if ((flags & AI_ADDRCONFIG) && (ifstats.v4_count == 0))
+		if ((flags & AI_ADDRCONFIG) && (if4 == 0))
 		{
 			if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 			return NULL;
@@ -1503,7 +1559,7 @@ si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const ch
 		}
 		else
 		{
-			if ((flags & AI_ADDRCONFIG) && (ifstats.v6_count == 0)) 
+			if ((flags & AI_ADDRCONFIG) && (if6 == 0)) 
 			{
 				if (err != NULL) *err = SI_STATUS_H_ERRNO_NO_RECOVERY;
 				return NULL;

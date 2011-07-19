@@ -59,24 +59,15 @@ void CSSSegmentedFontFace::pruneTable()
     m_fontDataTable.clear();
 }
 
-bool CSSSegmentedFontFace::isLoaded() const
-{
-    unsigned size = m_fontFaces.size();
-    for (unsigned i = 0; i < size; i++) {
-        if (!m_fontFaces[i]->isLoaded())
-            return false;
-    }
-    return true;
-}
-
 bool CSSSegmentedFontFace::isValid() const
 {
+    // Valid if at least one font face is valid.
     unsigned size = m_fontFaces.size();
     for (unsigned i = 0; i < size; i++) {
-        if (!m_fontFaces[i]->isValid())
-            return false;
+        if (m_fontFaces[i]->isValid())
+            return true;
     }
-    return true;
+    return false;
 }
 
 void CSSSegmentedFontFace::fontLoaded(CSSFontFace*)
@@ -97,7 +88,7 @@ FontData* CSSSegmentedFontFace::getFontData(const FontDescription& fontDescripti
         return 0;
 
     FontTraitsMask desiredTraitsMask = fontDescription.traitsMask();
-    unsigned hashKey = fontDescription.computedPixelSize() << FontTraitsMaskWidth | desiredTraitsMask;
+    unsigned hashKey = ((fontDescription.computedPixelSize() + 1) << (FontTraitsMaskWidth + 1)) | ((fontDescription.orientation() == Vertical ? 1 : 0) << FontTraitsMaskWidth) | desiredTraitsMask;
 
     SegmentedFontData* fontData = m_fontDataTable.get(hashKey);
     if (fontData)
@@ -107,18 +98,20 @@ FontData* CSSSegmentedFontFace::getFontData(const FontDescription& fontDescripti
 
     unsigned size = m_fontFaces.size();
     for (unsigned i = 0; i < size; i++) {
+        if (!m_fontFaces[i]->isValid())
+            continue;
         FontTraitsMask traitsMask = m_fontFaces[i]->traitsMask();
         bool syntheticBold = !(traitsMask & (FontWeight600Mask | FontWeight700Mask | FontWeight800Mask | FontWeight900Mask)) && (desiredTraitsMask & (FontWeight600Mask | FontWeight700Mask | FontWeight800Mask | FontWeight900Mask));
         bool syntheticItalic = !(traitsMask & FontStyleItalicMask) && (desiredTraitsMask & FontStyleItalicMask);
-        if (const FontData* faceFontData = m_fontFaces[i]->getFontData(fontDescription, syntheticBold, syntheticItalic)) {
+        if (const SimpleFontData* faceFontData = m_fontFaces[i]->getFontData(fontDescription, syntheticBold, syntheticItalic)) {
             ASSERT(!faceFontData->isSegmented());
             const Vector<CSSFontFace::UnicodeRange>& ranges = m_fontFaces[i]->ranges();
             unsigned numRanges = ranges.size();
             if (!numRanges)
-                fontData->appendRange(FontDataRange(0, 0x7FFFFFFF, static_cast<const SimpleFontData*>(faceFontData)));
+                fontData->appendRange(FontDataRange(0, 0x7FFFFFFF, faceFontData));
             else {
                 for (unsigned j = 0; j < numRanges; ++j)
-                    fontData->appendRange(FontDataRange(ranges[j].from(), ranges[j].to(), static_cast<const SimpleFontData*>(faceFontData)));
+                    fontData->appendRange(FontDataRange(ranges[j].from(), ranges[j].to(), faceFontData));
             }
         }
     }

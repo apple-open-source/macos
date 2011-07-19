@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-* Copyright (C) 1996-2008, International Business Machines Corporation and
+* Copyright (C) 1996-2010, International Business Machines Corporation and
 * others. All Rights Reserved.
 ******************************************************************************
 */
@@ -389,6 +389,21 @@ public:
                                       UErrorCode &status) const;
 
     /**
+     * Compares two strings using the Collator.
+     * Returns whether the first one compares less than/equal to/greater than
+     * the second one.
+     * This version takes UCharIterator input.
+     * @param sIter the first ("source") string iterator
+     * @param tIter the second ("target") string iterator
+     * @param status ICU status
+     * @return UCOL_LESS, UCOL_EQUAL or UCOL_GREATER
+     * @stable ICU 4.2
+     */
+    virtual UCollationResult compare(UCharIterator &sIter,
+                                     UCharIterator &tIter,
+                                     UErrorCode &status) const;
+
+    /**
     * Transforms a specified region of the string into a series of characters
     * that can be compared with CollationKey.compare. Use a CollationKey when
     * you need to do repeated comparisions on the same string. For a single
@@ -650,6 +665,31 @@ public:
     * @deprecated ICU 2.6 Use setAttribute(UCOL_STRENGTH...) instead
     */
     virtual void setStrength(ECollationStrength newStrength);
+
+    /**
+     * Get the current reordering of scripts (if one has been set).
+     * @param dest The array to fill with the script ordering.
+     * @param destCapacity The length of dest. If it is 0, then dest may be NULL and the function will only return the length of the result without writing any of the result string (pre-flighting).
+     * @param pErrorCode Must be a valid pointer to an error code value, which must not indicate a failure before the function call.
+     * @return The length of the array of the script ordering.
+     * @see ucol_getReorderCodes
+     * @internal 
+     */
+    virtual int32_t getReorderCodes(int32_t* dest,
+                                    int32_t destCapacity,
+                                    UErrorCode& status) const;
+
+    /**
+     * Set the ordering of scripts for this collator.
+     * @param reorderCodes An array of script codes in the new order.
+     * @param reorderCodesLength The length of reorderCodes.
+     * @see ucol_setReorderCodes
+     * @internal 
+     */
+    virtual void setReorderCodes(const int32_t* reorderCodes,
+                                 int32_t reorderCodesLength,
+                                 UErrorCode& status);
+
 
 private:
 

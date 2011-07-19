@@ -15,20 +15,21 @@
 #ifndef TARGET_ARM_H
 #define TARGET_ARM_H
 
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Target/TargetMachine.h"
 #include <cassert>
 
 namespace llvm {
 
-class ARMTargetMachine;
+class ARMBaseTargetMachine;
 class FunctionPass;
-class MachineCodeEmitter;
-class raw_ostream;
+class JITCodeEmitter;
+class formatted_raw_ostream;
 
 // Enums corresponding to ARM condition codes
 namespace ARMCC {
-  // The CondCodes constants map directly to the 4-bit encoding of the 
-  // condition field for predicated instructions. 
+  // The CondCodes constants map directly to the 4-bit encoding of the
+  // condition field for predicated instructions.
   enum CondCodes {
     EQ,
     NE,
@@ -46,10 +47,10 @@ namespace ARMCC {
     LE,
     AL
   };
-  
-  inline static CondCodes getOppositeCondition(CondCodes CC){
+
+  inline static CondCodes getOppositeCondition(CondCodes CC) {
     switch (CC) {
-    default: assert(0 && "Unknown condition code");
+    default: llvm_unreachable("Unknown condition code");
     case EQ: return NE;
     case NE: return EQ;
     case HS: return LO;
@@ -66,11 +67,11 @@ namespace ARMCC {
     case LE: return GT;
     }
   }
-}
+} // namespace ARMCC
 
 inline static const char *ARMCondCodeToString(ARMCC::CondCodes CC) {
   switch (CC) {
-  default: assert(0 && "Unknown condition code");
+  default: llvm_unreachable("Unknown condition code");
   case ARMCC::EQ:  return "eq";
   case ARMCC::NE:  return "ne";
   case ARMCC::HS:  return "hs";
@@ -89,15 +90,25 @@ inline static const char *ARMCondCodeToString(ARMCC::CondCodes CC) {
   }
 }
 
-FunctionPass *createARMISelDag(ARMTargetMachine &TM);
-FunctionPass *createARMCodePrinterPass(raw_ostream &O,
-                                       ARMTargetMachine &TM,
-                                       CodeGenOpt::Level OptLevel,
-                                       bool Verbose);
-FunctionPass *createARMCodeEmitterPass(ARMTargetMachine &TM,
-                                       MachineCodeEmitter &MCE);
-FunctionPass *createARMLoadStoreOptimizationPass();
+/// ModelWithRegSequence - Return true if isel should use REG_SEQUENCE to model
+/// operations involving sub-registers.
+bool ModelWithRegSequence();
+
+FunctionPass *createARMISelDag(ARMBaseTargetMachine &TM,
+                               CodeGenOpt::Level OptLevel);
+
+FunctionPass *createARMJITCodeEmitterPass(ARMBaseTargetMachine &TM,
+                                          JITCodeEmitter &JCE);
+
+FunctionPass *createARMLoadStoreOptimizationPass(bool PreAlloc = false);
+FunctionPass *createARMExpandPseudoPass();
 FunctionPass *createARMConstantIslandPass();
+FunctionPass *createNEONPreAllocPass();
+FunctionPass *createNEONMoveFixPass();
+FunctionPass *createThumb2ITBlockPass();
+FunctionPass *createThumb2SizeReductionPass();
+
+extern Target TheARMTarget, TheThumbTarget;
 
 } // end namespace llvm;
 

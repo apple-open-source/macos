@@ -195,20 +195,23 @@ ingetc(void)
 	    return lastc;
 	}
 
+	/*
+	 * See if we have reached the end of input
+	 * (due to an error, or to reading from a single string).
+	 * Check the remaining characters left, since if there aren't
+	 * any we don't want to pop the stack---it'll mark any aliases
+	 * as not in use before we've finished processing.
+	 */
+	if (!inbufct && (strin || errflag)) {
+	    lexstop = 1;
+	    return ' ';
+	}
 	/* If the next element down the input stack is a continuation of
 	 * this, use it.
-	 */ 
+	 */
 	if (inbufflags & INP_CONT) {
 	    inpoptop();
 	    continue;
-	}
-	/*
-	 * Otherwise, see if we have reached the end of input
-	 * (due to an error, or to reading from a single string).
-	 */
-	if (strin || errflag) {
-	    lexstop = 1;
-	    return ' ';
 	}
 	/* As a last resort, get some more input */
 	if (inputline())
@@ -257,7 +260,7 @@ inputline(void)
 	    int pptlen;
 	    pptbuf = unmetafy(promptexpand(ingetcpmptl ? *ingetcpmptl : NULL,
 					   0, NULL, NULL, NULL), &pptlen);
-	    write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
+	    write_loop(2, pptbuf, pptlen);
 	    free(pptbuf);
 	}
 	ingetcline = shingetline();
@@ -291,20 +294,32 @@ inputline(void)
 	zputs(ingetcline, stderr);
 	fflush(stderr);
     }
-    if (*ingetcline && ingetcline[strlen(ingetcline) - 1] == '\n' &&
-	interact && isset(SUNKEYBOARDHACK) && isset(SHINSTDIN) &&
-	SHTTY != -1 && *ingetcline && ingetcline[1] &&
-	ingetcline[strlen(ingetcline) - 2] == '`') {
-	/* Junk an unmatched "`" at the end of the line. */
-	int ct;
-	char *ptr;
+    if (keyboardhackchar && *ingetcline &&
+	ingetcline[strlen(ingetcline) - 1] == '\n' &&
+	interact && isset(SHINSTDIN) &&
+	SHTTY != -1 && ingetcline[1])
+    {
+	char *stripptr = ingetcline + strlen(ingetcline) - 2;
+	if (*stripptr == keyboardhackchar) {
+	    /* Junk an unwanted character at the end of the line.
+	       (key too close to return key) */
+	    int ct = 1;  /* force odd */
+	    char *ptr;
 
-	for (ct = 0, ptr = ingetcline; *ptr; ptr++)
-	    if (*ptr == '`')
-		ct++;
-	if (ct & 1) {
-	    ptr[-2] = '\n';
-	    ptr[-1] = '\0';
+	    if (keyboardhackchar == '\'' || keyboardhackchar == '"' ||
+		keyboardhackchar == '`') {
+		/*
+		 * for the chars above, also require an odd count before
+		 * junking
+		 */
+		for (ct = 0, ptr = ingetcline; *ptr; ptr++)
+		    if (*ptr == keyboardhackchar)
+			ct++;
+	    }
+	    if (ct & 1) {
+		stripptr[0] = '\n';
+		stripptr[1] = '\0';
+	    }
 	}
     }
     isfirstch = 1;

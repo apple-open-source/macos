@@ -33,18 +33,20 @@
 
 #if ENABLE(DATABASE)
 
-#include "StringHash.h"
 #include <wtf/Deque.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
     class SQLTransaction;
 
-    class SQLTransactionCoordinator : public Noncopyable {
+    class SQLTransactionCoordinator {
+        WTF_MAKE_NONCOPYABLE(SQLTransactionCoordinator); WTF_MAKE_FAST_ALLOCATED;
     public:
+        SQLTransactionCoordinator() { }
         void acquireLock(SQLTransaction*);
         void releaseLock(SQLTransaction*);
         void shutdown();

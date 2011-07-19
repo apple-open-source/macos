@@ -19,20 +19,20 @@
  */
 
 #include "config.h"
-#include "StringImpl.h"
+#include <wtf/text/StringImpl.h>
 
-#if PLATFORM(CF)
+#if USE(CF)
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <wtf/MainThread.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/Threading.h>
 
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER)
+#if PLATFORM(MAC)
 #include <objc/objc-auto.h>
 #endif
 
-namespace WebCore {
+namespace WTF {
 
 namespace StringWrapperCFAllocator {
 
@@ -50,7 +50,7 @@ namespace StringWrapperCFAllocator {
 
     static CFStringRef copyDescription(const void*)
     {
-        return CFSTR("WebCore::String-based allocator");
+        return CFSTR("WTF::String-based allocator");
     }
 
     static void* allocate(CFIndex size, CFOptionFlags, void*)
@@ -114,7 +114,7 @@ namespace StringWrapperCFAllocator {
 
     static CFAllocatorRef create()
     {
-#if PLATFORM(MAC) && !defined(BUILDING_ON_TIGER)
+#if PLATFORM(MAC)
         // Since garbage collection isn't compatible with custom allocators, don't use this at all when garbage collection is active.
         if (objc_collectingEnabled())
             return 0;
@@ -159,4 +159,4 @@ CFStringRef StringImpl::createCFString()
 
 }
 
-#endif // PLATFORM(CF)
+#endif // USE(CF)

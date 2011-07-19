@@ -177,6 +177,7 @@ AppleUSBEHCI::MakeEmptyEndPoint(
 	
     pED->_qTD = pTD;
     pED->_TailTD =  pED->_qTD;
+	pED->_numTDs = 1;
 	
     pED->_responseToStall = 0;
 	
@@ -751,6 +752,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
     
     // First allocate the first of the new bunch
     pTD1 = AllocateTD();
+	pEDQueue->_numTDs++;
 	
     if (pTD1 == NULL)
     {
@@ -765,12 +767,14 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 		{
 			USBError(1, "AppleUSBEHCI[%p]::allocateTDs - no dmaCommand", this);
 			DeallocateTD(pTD);
+			pEDQueue->_numTDs--;
 			return kIOReturnNoMemory;
 		}
 		if (dmaCommand->getMemoryDescriptor() != CBP)
 		{
 			USBError(1, "AppleUSBEHCI[%p]::allocateTDs - mismatched CBP (%p) and dmaCommand memory descriptor (%p)", this, CBP, dmaCommand->getMemoryDescriptor());
 			DeallocateTD(pTD);
+			pEDQueue->_numTDs--;
 			return kIOReturnInternalError;
 		}
 	}
@@ -972,6 +976,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
 				}
 				else
 				{
+					pEDQueue->_numTDs++;
 					pTD->pShared->nextTD = HostToUSBLong(pTDnew->pPhysical);
 					pTD->pLogicalNext = pTDnew;
 					pTD->pShared->flags = HostToUSBLong(flags);		// Doesn't matter about flags, not linked in yet
@@ -1073,6 +1078,7 @@ AppleUSBEHCI::allocateTDs(AppleEHCIQueueHead* pEDQueue, IOUSBCommand *command, I
     {
 		USBLog(3, "AppleUSBEHCI[%p::allocateTDs  returning status 0x%x", this, status);
     }
+	USBLog(7, "AppleUSBEHCI[%p::allocateTDs  end: _numTDs now %d on %p", this, (uint32_t)pEDQueue->_numTDs, pEDQueue);
     return status;
 }
 
@@ -1396,7 +1402,13 @@ AppleUSBEHCI::EHCIUIMDoDoneQueueProcessing(EHCIGeneralTransferDescriptorPtr pHCD
 			}
 			pHCDoneTD->logicalBuffer = NULL;
 			USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - deallocating TD (%p)", this, pHCDoneTD);
+			if(pHCDoneTD->pQH)
+			{
+				pHCDoneTD->pQH->_numTDs--;
+				USBLog(7, "AppleUSBEHCI[%p]::EHCIUIMDoDoneQueueProcessing - _numTDs now: %d on %p", this, (uint32_t)pHCDoneTD->pQH->_numTDs, pHCDoneTD->pQH);
+			}
 			DeallocateTD(pHCDoneTD);
+			
 			pHCDoneTD = nextTD;	// New qHead
 		}
 		
@@ -1532,12 +1544,13 @@ IOReturn
 AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOUSBCompletionAction safeAction)
 {
     EHCIGeneralTransferDescriptorPtr	doneQueue = NULL, doneTail= NULL, qHead, qTD, qEnd;
-    UInt32								flags = 0, count = 0, flagsCErr = 0, debugRetryCount = 0;
+    UInt32								flags = 0, countq = 0, count = 0, flagsCErr = 0, debugRetryCount = 0;
     Boolean								TDisHalted, shortTransfer, foundNextTD, foundAltTD;
     AppleEHCIQueueHead					*pQH;
     
-    while( (pListElem != NULL) && (count++ < 150000) )
+    while( (pListElem != NULL) && (countq++ < 150000) )
     {
+		count = 0;
 		pQH = OSDynamicCast(AppleEHCIQueueHead, pListElem);
 		if (pQH)
 		{
@@ -1705,17 +1718,17 @@ AppleUSBEHCI::scavengeAnEndpointQueue(IOUSBControllerListElement *pListElem, IOU
 					}
 				}
 			}
+			if (count > pQH->_numTDs)
+			{
+				USBLog(1, "AppleUSBEHCI[%p]::scavengeAnEndpointQueue looks like bad ed queue, count: %d, pQH->_numTDs: %d", this, (uint32_t)count, (uint32_t)pQH->_numTDs);
+				USBTrace( kUSBTEHCI, kTPEHCIScavengeAnEndpointQueue , (uintptr_t)this, count, 0, 0);
+			}
 		}
 		pListElem = (IOUSBControllerListElement*)pListElem->_logicalNext;
     }
     if (doneQueue != NULL)
     {
 		EHCIUIMDoDoneQueueProcessing(doneQueue, kIOReturnSuccess, safeAction, NULL);
-    }
-    if (count > 1000)
-    {
-		USBLog(1, "AppleUSBEHCI[%p]::scavengeAnEndpointQueue looks like bad ed queue %x", this, (uint32_t)count);
-		USBTrace( kUSBTEHCI, kTPEHCIScavengeAnEndpointQueue , (uintptr_t)this, count, 0, 0);
     }
     
     return kIOReturnSuccess;
@@ -3480,7 +3493,7 @@ AppleUSBEHCI::CreateHSIsochTransfer(AppleEHCIIsochEndpoint * pEP, IOUSBIsocComma
 			USBLog(7, "AppleUSBEHCI[%p]::CreateHSIsochTransfer - forming transaction length (%d), pageOffset (0x%x), page (%d)", this, (uint32_t)trLen, (uint32_t)pageOffset, (uint32_t)page);
 			
 			*transactionPtr = HostToUSBLong(kEHCI_ITDStatus_Active |  (trLen<< kEHCI_ITDTr_LenPhase) | 
-										  (pageOffset << kEHCI_ITDTr_OffsetPhase) | (page << kEHCI_ITDTr_PagePhase) );
+											(pageOffset << kEHCI_ITDTr_OffsetPhase) | (page << kEHCI_ITDTr_PagePhase) );
 			
 			// Advance to the next transacton element, which depends on the interval
 			//

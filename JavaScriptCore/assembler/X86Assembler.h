@@ -131,6 +131,7 @@ private:
         OP_GROUP1_EbIb                  = 0x80,
         OP_GROUP1_EvIz                  = 0x81,
         OP_GROUP1_EvIb                  = 0x83,
+        OP_TEST_EbGb                    = 0x84,
         OP_TEST_EvGv                    = 0x85,
         OP_XCHG_EvGv                    = 0x87,
         OP_MOV_EvGv                     = 0x89,
@@ -219,53 +220,9 @@ private:
     class X86InstructionFormatter;
 public:
 
-    class JmpSrc {
-        friend class X86Assembler;
-        friend class X86InstructionFormatter;
-    public:
-        JmpSrc()
-            : m_offset(-1)
-        {
-        }
-
-    private:
-        JmpSrc(int offset)
-            : m_offset(offset)
-        {
-        }
-
-        int m_offset;
-    };
-    
-    class JmpDst {
-        friend class X86Assembler;
-        friend class X86InstructionFormatter;
-    public:
-        JmpDst()
-            : m_offset(-1)
-            , m_used(false)
-        {
-        }
-
-        bool isUsed() const { return m_used; }
-        void used() { m_used = true; }
-    private:
-        JmpDst(int offset)
-            : m_offset(offset)
-            , m_used(false)
-        {
-            ASSERT(m_offset == offset);
-        }
-
-        int m_offset : 31;
-        bool m_used : 1;
-    };
-
     X86Assembler()
     {
     }
-
-    size_t size() const { return m_formatter.size(); }
 
     // Stack operations:
 
@@ -298,7 +255,7 @@ public:
     // Arithmetic operations:
 
 #if !CPU(X86_64)
-    void adcl_im(int imm, void* addr)
+    void adcl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_ADC, addr);
@@ -375,7 +332,7 @@ public:
         }
     }
 #else
-    void addl_im(int imm, void* addr)
+    void addl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_ADD, addr);
@@ -441,7 +398,7 @@ public:
         }
     }
 #else
-    void andl_im(int imm, void* addr)
+    void andl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_AND, addr);
@@ -527,7 +484,7 @@ public:
         }
     }
 #else
-    void orl_im(int imm, void* addr)
+    void orl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_OR, addr);
@@ -593,7 +550,7 @@ public:
         }
     }
 #else
-    void subl_im(int imm, void* addr)
+    void subl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_SUB, addr);
@@ -866,12 +823,12 @@ public:
         }
     }
 #else
-    void cmpl_rm(RegisterID reg, void* addr)
+    void cmpl_rm(RegisterID reg, const void* addr)
     {
         m_formatter.oneByteOp(OP_CMP_EvGv, reg, addr);
     }
 
-    void cmpl_im(int imm, void* addr)
+    void cmpl_im(int imm, const void* addr)
     {
         if (CAN_SIGN_EXTEND_8_32(imm)) {
             m_formatter.oneByteOp(OP_GROUP1_EvIb, GROUP1_OP_CMP, addr);
@@ -918,7 +875,12 @@ public:
         m_formatter.oneByteOp(OP_GROUP3_EvIz, GROUP3_OP_TEST, base, offset);
         m_formatter.immediate32(imm);
     }
-    
+
+    void testb_rr(RegisterID src, RegisterID dst)
+    {
+        m_formatter.oneByteOp(OP_TEST_EbGb, src, dst);
+    }
+
     void testb_im(int imm, int offset, RegisterID base)
     {
         m_formatter.oneByteOp(OP_GROUP3_EbIb, GROUP3_OP_TEST, base, offset);
@@ -1038,7 +1000,7 @@ public:
         m_formatter.oneByteOp(OP_MOV_EvGv, src, base, index, scale, offset);
     }
     
-    void movl_mEAX(void* addr)
+    void movl_mEAX(const void* addr)
     {
         m_formatter.oneByteOp(OP_MOV_EAXOv);
 #if CPU(X86_64)
@@ -1075,7 +1037,7 @@ public:
         m_formatter.immediate32(imm);
     }
 
-    void movl_EAXm(void* addr)
+    void movl_EAXm(const void* addr)
     {
         m_formatter.oneByteOp(OP_MOV_OvEAX);
 #if CPU(X86_64)
@@ -1106,13 +1068,13 @@ public:
         m_formatter.oneByteOp64(OP_MOV_EvGv, src, base, index, scale, offset);
     }
 
-    void movq_mEAX(void* addr)
+    void movq_mEAX(const void* addr)
     {
         m_formatter.oneByteOp64(OP_MOV_EAXOv);
         m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
     }
 
-    void movq_EAXm(void* addr)
+    void movq_EAXm(const void* addr)
     {
         m_formatter.oneByteOp64(OP_MOV_OvEAX);
         m_formatter.immediate64(reinterpret_cast<int64_t>(addr));
@@ -1152,7 +1114,7 @@ public:
     
     
 #else
-    void movl_rm(RegisterID src, void* addr)
+    void movl_rm(RegisterID src, const void* addr)
     {
         if (src == X86Registers::eax)
             movl_EAXm(addr);
@@ -1160,7 +1122,7 @@ public:
             m_formatter.oneByteOp(OP_MOV_EvGv, src, addr);
     }
     
-    void movl_mr(void* addr, RegisterID dst)
+    void movl_mr(const void* addr, RegisterID dst)
     {
         if (dst == X86Registers::eax)
             movl_mEAX(addr);
@@ -1168,7 +1130,7 @@ public:
             m_formatter.oneByteOp(OP_MOV_GvEv, dst, addr);
     }
 
-    void movl_i32m(int imm, void* addr)
+    void movl_i32m(int imm, const void* addr)
     {
         m_formatter.oneByteOp(OP_GROUP11_EvIz, GROUP11_MOV, addr);
         m_formatter.immediate32(imm);
@@ -1206,16 +1168,16 @@ public:
 
     // Flow control:
 
-    JmpSrc call()
+    AssemblerLabel call()
     {
         m_formatter.oneByteOp(OP_CALL_rel32);
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc call(RegisterID dst)
+    AssemblerLabel call(RegisterID dst)
     {
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_CALLN, dst);
-        return JmpSrc(m_formatter.size());
+        return m_formatter.label();
     }
     
     void call_m(int offset, RegisterID base)
@@ -1223,19 +1185,19 @@ public:
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_CALLN, base, offset);
     }
 
-    JmpSrc jmp()
+    AssemblerLabel jmp()
     {
         m_formatter.oneByteOp(OP_JMP_rel32);
         return m_formatter.immediateRel32();
     }
     
-    // Return a JmpSrc so we have a label to the jump, so we can use this
+    // Return a AssemblerLabel so we have a label to the jump, so we can use this
     // To make a tail recursive call on x86-64.  The MacroAssembler
     // really shouldn't wrap this as a Jump, since it can't be linked. :-/
-    JmpSrc jmp_r(RegisterID dst)
+    AssemblerLabel jmp_r(RegisterID dst)
     {
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_JMPN, dst);
-        return JmpSrc(m_formatter.size());
+        return m_formatter.label();
     }
     
     void jmp_m(int offset, RegisterID base)
@@ -1243,95 +1205,95 @@ public:
         m_formatter.oneByteOp(OP_GROUP5_Ev, GROUP5_OP_JMPN, base, offset);
     }
 
-    JmpSrc jne()
+    AssemblerLabel jne()
     {
         m_formatter.twoByteOp(jccRel32(ConditionNE));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jnz()
+    AssemblerLabel jnz()
     {
         return jne();
     }
 
-    JmpSrc je()
+    AssemblerLabel je()
     {
         m_formatter.twoByteOp(jccRel32(ConditionE));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jz()
+    AssemblerLabel jz()
     {
         return je();
     }
 
-    JmpSrc jl()
+    AssemblerLabel jl()
     {
         m_formatter.twoByteOp(jccRel32(ConditionL));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jb()
+    AssemblerLabel jb()
     {
         m_formatter.twoByteOp(jccRel32(ConditionB));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jle()
+    AssemblerLabel jle()
     {
         m_formatter.twoByteOp(jccRel32(ConditionLE));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jbe()
+    AssemblerLabel jbe()
     {
         m_formatter.twoByteOp(jccRel32(ConditionBE));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jge()
+    AssemblerLabel jge()
     {
         m_formatter.twoByteOp(jccRel32(ConditionGE));
         return m_formatter.immediateRel32();
     }
 
-    JmpSrc jg()
+    AssemblerLabel jg()
     {
         m_formatter.twoByteOp(jccRel32(ConditionG));
         return m_formatter.immediateRel32();
     }
 
-    JmpSrc ja()
+    AssemblerLabel ja()
     {
         m_formatter.twoByteOp(jccRel32(ConditionA));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jae()
+    AssemblerLabel jae()
     {
         m_formatter.twoByteOp(jccRel32(ConditionAE));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc jo()
+    AssemblerLabel jo()
     {
         m_formatter.twoByteOp(jccRel32(ConditionO));
         return m_formatter.immediateRel32();
     }
 
-    JmpSrc jp()
+    AssemblerLabel jp()
     {
         m_formatter.twoByteOp(jccRel32(ConditionP));
         return m_formatter.immediateRel32();
     }
     
-    JmpSrc js()
+    AssemblerLabel js()
     {
         m_formatter.twoByteOp(jccRel32(ConditionS));
         return m_formatter.immediateRel32();
     }
 
-    JmpSrc jCC(Condition cond)
+    AssemblerLabel jCC(Condition cond)
     {
         m_formatter.twoByteOp(jccRel32(cond));
         return m_formatter.immediateRel32();
@@ -1364,7 +1326,7 @@ public:
     }
 
 #if !CPU(X86_64)
-    void cvtsi2sd_mr(void* address, XMMRegisterID dst)
+    void cvtsi2sd_mr(const void* address, XMMRegisterID dst)
     {
         m_formatter.prefix(PRE_SSE_F2);
         m_formatter.twoByteOp(OP2_CVTSI2SD_VsdEd, (RegisterID)dst, address);
@@ -1396,6 +1358,12 @@ public:
         m_formatter.twoByteOp64(OP2_MOVD_VdEd, (RegisterID)dst, src);
     }
 #endif
+
+    void movsd_rr(XMMRegisterID src, XMMRegisterID dst)
+    {
+        m_formatter.prefix(PRE_SSE_F2);
+        m_formatter.twoByteOp(OP2_MOVSD_VsdWsd, (RegisterID)dst, (RegisterID)src);
+    }
 
     void movsd_rm(XMMRegisterID src, int offset, RegisterID base)
     {
@@ -1503,17 +1471,17 @@ public:
 
     // Assembler admin methods:
 
-    JmpDst label()
+    size_t codeSize() const
     {
-        return JmpDst(m_formatter.size());
+        return m_formatter.codeSize();
     }
-    
-    static JmpDst labelFor(JmpSrc jump, intptr_t offset = 0)
+
+    AssemblerLabel label()
     {
-        return JmpDst(jump.m_offset + offset);
+        return m_formatter.label();
     }
-    
-    JmpDst align(int alignment)
+
+    AssemblerLabel align(int alignment)
     {
         while (!m_formatter.isAligned(alignment))
             m_formatter.oneByteOp(OP_HLT);
@@ -1529,32 +1497,33 @@ public:
     // writable region of memory; to modify the code in an execute-only execuable
     // pool the 'repatch' and 'relink' methods should be used.
 
-    void linkJump(JmpSrc from, JmpDst to)
+    void linkJump(AssemblerLabel from, AssemblerLabel to)
     {
-        ASSERT(from.m_offset != -1);
-        ASSERT(to.m_offset != -1);
+        ASSERT(from.isSet());
+        ASSERT(to.isSet());
 
         char* code = reinterpret_cast<char*>(m_formatter.data());
+        ASSERT(!reinterpret_cast<int32_t*>(code + from.m_offset)[-1]);
         setRel32(code + from.m_offset, code + to.m_offset);
     }
     
-    static void linkJump(void* code, JmpSrc from, void* to)
+    static void linkJump(void* code, AssemblerLabel from, void* to)
     {
-        ASSERT(from.m_offset != -1);
+        ASSERT(from.isSet());
 
         setRel32(reinterpret_cast<char*>(code) + from.m_offset, to);
     }
 
-    static void linkCall(void* code, JmpSrc from, void* to)
+    static void linkCall(void* code, AssemblerLabel from, void* to)
     {
-        ASSERT(from.m_offset != -1);
+        ASSERT(from.isSet());
 
         setRel32(reinterpret_cast<char*>(code) + from.m_offset, to);
     }
 
-    static void linkPointer(void* code, JmpDst where, void* value)
+    static void linkPointer(void* code, AssemblerLabel where, void* value)
     {
-        ASSERT(where.m_offset != -1);
+        ASSERT(where.isSet());
 
         setPointer(reinterpret_cast<char*>(code) + where.m_offset, value);
     }
@@ -1579,57 +1548,33 @@ public:
         setPointer(where, value);
     }
 
-    static void repatchLoadPtrToLEA(void* where)
+    static unsigned getCallReturnOffset(AssemblerLabel call)
     {
-#if CPU(X86_64)
-        // On x86-64 pointer memory accesses require a 64-bit operand, and as such a REX prefix.
-        // Skip over the prefix byte.
-        where = reinterpret_cast<char*>(where) + 1;
-#endif
-        *reinterpret_cast<unsigned char*>(where) = static_cast<unsigned char>(OP_LEA);
-    }
-    
-    static unsigned getCallReturnOffset(JmpSrc call)
-    {
-        ASSERT(call.m_offset >= 0);
+        ASSERT(call.isSet());
         return call.m_offset;
     }
 
-    static void* getRelocatedAddress(void* code, JmpSrc jump)
+    static void* getRelocatedAddress(void* code, AssemblerLabel label)
     {
-        ASSERT(jump.m_offset != -1);
-
-        return reinterpret_cast<void*>(reinterpret_cast<ptrdiff_t>(code) + jump.m_offset);
+        ASSERT(label.isSet());
+        return reinterpret_cast<void*>(reinterpret_cast<ptrdiff_t>(code) + label.m_offset);
     }
     
-    static void* getRelocatedAddress(void* code, JmpDst destination)
+    static int getDifferenceBetweenLabels(AssemblerLabel a, AssemblerLabel b)
     {
-        ASSERT(destination.m_offset != -1);
-
-        return reinterpret_cast<void*>(reinterpret_cast<ptrdiff_t>(code) + destination.m_offset);
-    }
-    
-    static int getDifferenceBetweenLabels(JmpDst src, JmpDst dst)
-    {
-        return dst.m_offset - src.m_offset;
-    }
-    
-    static int getDifferenceBetweenLabels(JmpDst src, JmpSrc dst)
-    {
-        return dst.m_offset - src.m_offset;
-    }
-    
-    static int getDifferenceBetweenLabels(JmpSrc src, JmpDst dst)
-    {
-        return dst.m_offset - src.m_offset;
+        return b.m_offset - a.m_offset;
     }
     
     void* executableCopy(ExecutablePool* allocator)
     {
-        void* copy = m_formatter.executableCopy(allocator);
-        ASSERT(copy);
-        return copy;
+        return m_formatter.executableCopy(allocator);
     }
+
+    void rewindToLabel(AssemblerLabel rewindTo) { m_formatter.rewindToLabel(rewindTo); }
+
+#ifndef NDEBUG
+    unsigned debugOffset() { return m_formatter.debugOffset(); }
+#endif
 
 private:
 
@@ -1726,7 +1671,7 @@ private:
         }
 
 #if !CPU(X86_64)
-        void oneByteOp(OneByteOpcodeID opcode, int reg, void* address)
+        void oneByteOp(OneByteOpcodeID opcode, int reg, const void* address)
         {
             m_buffer.ensureSpace(maxInstructionSize);
             m_buffer.putByteUnchecked(opcode);
@@ -1917,18 +1862,29 @@ private:
             m_buffer.putInt64Unchecked(imm);
         }
 
-        JmpSrc immediateRel32()
+        AssemblerLabel immediateRel32()
         {
             m_buffer.putIntUnchecked(0);
-            return JmpSrc(m_buffer.size());
+            return label();
         }
 
         // Administrative methods:
 
-        size_t size() const { return m_buffer.size(); }
+        size_t codeSize() const { return m_buffer.codeSize(); }
+        AssemblerLabel label() const { return m_buffer.label(); }
         bool isAligned(int alignment) const { return m_buffer.isAligned(alignment); }
         void* data() const { return m_buffer.data(); }
-        void* executableCopy(ExecutablePool* allocator) { return m_buffer.executableCopy(allocator); }
+
+        void* executableCopy(ExecutablePool* allocator)
+        {
+            return m_buffer.executableCopy(allocator);
+        }
+
+        void rewindToLabel(AssemblerLabel rewindTo) { m_buffer.rewindToLabel(rewindTo); }
+
+#ifndef NDEBUG
+        unsigned debugOffset() { return m_buffer.debugOffset(); }
+#endif
 
     private:
 

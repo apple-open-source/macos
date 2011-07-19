@@ -36,6 +36,7 @@
 #include <CoreFoundation/CFDate.h>
 #include <CoreFoundation/CFTimeZone.h>
 #include <ctype.h>
+#include <stdlib.h>
 
 namespace Security
 {
@@ -43,9 +44,12 @@ namespace Security
 namespace CSSMDateTimeUtils
 {
 
-#define MAX_TIME_STR_LEN  	30
-#define UTC_TIME_STRLEN  13
-#define GENERALIZED_TIME_STRLEN  15
+#define UTC_TIME_NOSEC_LEN			11
+#define UTC_TIME_STRLEN				13
+#define GENERALIZED_TIME_STRLEN		15
+#define LOCALIZED_UTC_TIME_STRLEN	17
+#define LOCALIZED_TIME_STRLEN		19
+#define MAX_TIME_STR_LEN			30
 
 
 void
@@ -262,6 +266,198 @@ void MacLongDateTimeToTimeString(const sint64 &inMacDate,
     }
     else
         MacOSError::throwMe(paramErr);
+}
+
+void
+CFDateToCssmDate(CFDateRef date, char *outCssmDate)
+{
+	CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
+	CFGregorianDate gd = CFAbsoluteTimeGetGregorianDate(CFDateGetAbsoluteTime(date), timeZone);
+	sprintf(outCssmDate, "%04d%02d%02d%02d%02d%02dZ", (int)gd.year, gd.month, gd.day, gd.hour, gd.minute, (unsigned int)gd.second);
+	CFRelease(timeZone);
+}
+
+void
+CssmDateToCFDate(const char *cssmDate, CFDateRef *outCFDate)
+{
+	CFTimeZoneRef timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, 0);
+	CFGregorianDate gd;
+	unsigned int year, month, day, hour, minute, second;
+	sscanf(cssmDate, "%4d%2d%2d%2d%2d%2d", &year, &month, &day, &hour, &minute, &second);
+	gd.year = year;
+	gd.month = month;
+	gd.day = day;
+	gd.hour = hour;
+	gd.minute = minute;
+	gd.second = second;
+	*outCFDate = CFDateCreate(NULL, CFGregorianDateGetAbsoluteTime(gd, timeZone));
+	CFRelease(timeZone);
+}
+
+int
+CssmDateStringToCFDate(const char *cssmDate, unsigned int len, CFDateRef *outCFDate)
+{
+	CFTimeZoneRef timeZone;
+	CFGregorianDate gd;
+	CFTimeInterval ti=0;
+	char szTemp[5];
+	unsigned isUtc=0, isLocal=0, x, i;
+	unsigned noSeconds=0;
+	char *cp;
+
+	if((cssmDate == NULL) || (len == 0) || (outCFDate == NULL))
+    	return 1;
+  	
+  	/* tolerate NULL terminated or not */
+  	if(cssmDate[len - 1] == '\0')
+  		len--;
+
+  	switch(len) {
+		case UTC_TIME_NOSEC_LEN:		// 2-digit year, no seconds, not y2K compliant
+   			isUtc = 1;
+			noSeconds = 1;
+  			break;
+ 		case UTC_TIME_STRLEN:			// 2-digit year, not Y2K compliant
+  			isUtc = 1;
+  			break;
+  		case GENERALIZED_TIME_STRLEN:	// 4-digit year
+			//isUtc = 0;
+  			break;
+		case LOCALIZED_UTC_TIME_STRLEN:	// "YYMMDDhhmmssThhmm" (where T=[+,-])
+			isUtc = 1;
+			// deliberate fallthrough
+		case LOCALIZED_TIME_STRLEN:		// "YYYYMMDDhhmmssThhmm" (where T=[+,-])
+			isLocal = 1;
+			break;
+  		default:						// unknown format 
+  			return 1;
+  	}
+  	
+  	cp = (char *)cssmDate;
+  	
+	/* check that all characters except last (or timezone indicator, if localized) are digits */
+	for(i=0; i<(len - 1); i++) {
+		if ( !(isdigit(cp[i])) )
+			if ( !isLocal || !(cp[i]=='+' || cp[i]=='-') )
+				return 1;
+	}
+	/* check last character is a 'Z', unless localized */
+	if(!isLocal && cp[len - 1] != 'Z' )	{
+		return 1;
+	}
+
+  	/* YEAR */
+	szTemp[0] = *cp++;
+	szTemp[1] = *cp++;
+	if(!isUtc) {
+		/* two more digits */
+		szTemp[2] = *cp++;
+		szTemp[3] = *cp++;
+		szTemp[4] = '\0';
+	}
+	else { 
+		szTemp[2] = '\0';
+	}
+	x = atoi( szTemp );
+	if(isUtc) {
+		/* 
+		 * 2-digit year. 
+		 *   0  <= year <  50 : assume century 21
+		 *   50 <= year <  70 : illegal per PKIX
+		 *   70 <  year <= 99 : assume century 20
+		 */
+		if(x < 50) {
+			x += 2000;
+		}
+		else if(x < 70) {
+			return 1;
+		}
+		else {
+			/* century 20 */
+			x += 1900;			
+		}
+	}
+	gd.year = x;
+
+  	/* MONTH */
+	szTemp[0] = *cp++;
+	szTemp[1] = *cp++;
+	szTemp[2] = '\0';
+	x = atoi( szTemp );
+	/* in the string, months are from 1 to 12 */
+	if((x > 12) || (x <= 0)) {
+    	return 1;
+	}
+	gd.month = x;
+
+ 	/* DAY */
+	szTemp[0] = *cp++;
+	szTemp[1] = *cp++;
+	szTemp[2] = '\0';
+	x = atoi( szTemp );
+	/* 1..31 in both formats */
+	if((x > 31) || (x <= 0)) {
+		return 1;
+	}
+	gd.day = x;
+
+	/* HOUR */
+	szTemp[0] = *cp++;
+	szTemp[1] = *cp++;
+	szTemp[2] = '\0';
+	x = atoi( szTemp );
+	if((x > 23) || (x < 0)) {
+		return 1;
+	}
+	gd.hour = x;
+
+  	/* MINUTE */
+	szTemp[0] = *cp++;
+	szTemp[1] = *cp++;
+	szTemp[2] = '\0';
+	x = atoi( szTemp );
+	if((x > 59) || (x < 0)) {
+		return 1;
+	}
+	gd.minute = x;
+
+  	/* SECOND */
+	if(noSeconds) {
+		gd.second = 0;
+	}
+	else {
+		szTemp[0] = *cp++;
+		szTemp[1] = *cp++;
+		szTemp[2] = '\0';
+		x = atoi( szTemp );
+		if((x > 59) || (x < 0)) {
+			return 1;
+		}
+		gd.second = x;
+	}
+	
+	if (isLocal) {
+		/* ZONE INDICATOR */
+		ti = (*cp++ == '+') ? 1 : -1;
+	  	/* ZONE HH OFFSET */
+		szTemp[0] = *cp++;
+		szTemp[1] = *cp++;
+		szTemp[2] = '\0';
+		x = atoi( szTemp ) * 60 * 60;
+		ti *= x;
+	  	/* ZONE MM OFFSET */
+		szTemp[0] = *cp++;
+		szTemp[1] = *cp++;
+		szTemp[2] = '\0';
+		x = atoi( szTemp ) * 60;
+		ti += ((ti < 0) ? (x*-1) : x);
+	}
+	timeZone = CFTimeZoneCreateWithTimeIntervalFromGMT(NULL, ti);
+	if (!timeZone) return 1;
+	*outCFDate = CFDateCreate(NULL, CFGregorianDateGetAbsoluteTime(gd, timeZone));
+	CFRelease(timeZone);
+	
+	return 0;
 }
 
 }; // end namespace CSSMDateTimeUtils

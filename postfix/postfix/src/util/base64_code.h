@@ -19,6 +19,7 @@
  /*
   * External interface.
   */
+extern VSTRING *base64_encode_append(VSTRING *, const char *, ssize_t);	/* APPLE - RFC 3030 */
 extern VSTRING *base64_encode(VSTRING *, const char *, ssize_t);
 extern VSTRING *base64_decode(VSTRING *, const char *, ssize_t);
 

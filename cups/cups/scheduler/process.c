@@ -1,9 +1,9 @@
 /*
- * "$Id: process.c 7256 2008-01-25 00:48:54Z mike $"
+ * "$Id: process.c 9790 2011-05-19 22:40:03Z mike $"
  *
- *   Process management routines for the Common UNIX Printing System (CUPS).
+ *   Process management routines for the CUPS scheduler.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -31,11 +31,7 @@
 #include <grp.h>
 #ifdef __APPLE__
 #  include <libgen.h>
-#endif /* __APPLE__ */ 
-#ifdef HAVE_SANDBOX_H
-#  define __APPLE_API_PRIVATE
-#  include <sandbox.h>
-#endif /* HAVE_SANDBOX_H */
+#endif /* __APPLE__ */
 
 
 /*
@@ -81,9 +77,10 @@ cupsdCreateProfile(int job_id)		/* I - Job ID or 0 for none */
 		request[1024],		/* Quoted RequestRoot */
 		root[1024],		/* Quoted ServerRoot */
 		temp[1024];		/* Quoted TempDir */
+  const char	*nodebug;		/* " (with no-log)" for no debug */
 
 
-  if (!UseProfiles || RunUser)
+  if (!UseProfiles)
   {
    /*
     * Only use sandbox profiles as root...
@@ -104,40 +101,101 @@ cupsdCreateProfile(int job_id)		/* I - Job ID or 0 for none */
     return (NULL);
   }
 
+  fchown(cupsFileNumber(fp), RunUser, Group);
+  fchmod(cupsFileNumber(fp), 0640);
+
   cupsd_requote(cache, CacheDir, sizeof(cache));
   cupsd_requote(request, RequestRoot, sizeof(request));
   cupsd_requote(root, ServerRoot, sizeof(root));
   cupsd_requote(temp, TempDir, sizeof(temp));
 
+  nodebug = LogLevel < CUPSD_LOG_DEBUG ? " (with no-log)" : "";
+
   cupsFilePuts(fp, "(version 1)\n");
-  cupsFilePuts(fp, "(debug deny)\n");
   cupsFilePuts(fp, "(allow default)\n");
   cupsFilePrintf(fp,
                  "(deny file-write* file-read-data file-read-metadata\n"
-                 "  (regex #\"^%s/\"))\n", request);
+                 "  (regex"
+		 " #\"^%s$\""		/* RequestRoot */
+		 " #\"^%s/\""		/* RequestRoot/... */
+		 ")%s)\n",
+		 request, request, nodebug);
+  if (!RunUser)
+    cupsFilePrintf(fp,
+		   "(deny file-write* file-read-data file-read-metadata\n"
+		   "  (regex"
+		   " #\"^/Users$\""
+		   " #\"^/Users/\""
+		   ")%s)\n", nodebug);
   cupsFilePrintf(fp,
                  "(deny file-write*\n"
-                 "  (regex #\"^%s\" #\"^/private/etc\" #\"^/usr/local/etc\" "
-		 "#\"^/Library\" #\"^/System\" #\"^/Users\"))\n", root);
+                 "  (regex"
+		 " #\"^%s$\""		/* ServerRoot */
+		 " #\"^%s/\""		/* ServerRoot/... */
+		 " #\"^/private/etc$\""
+		 " #\"^/private/etc/\""
+		 " #\"^/usr/local/etc$\""
+		 " #\"^/usr/local/etc/\""
+		 " #\"^/Library$\""
+		 " #\"^/Library/\""
+		 " #\"^/System$\""
+		 " #\"^/System/\""
+		 ")%s)\n",
+		 root, root, nodebug);
+  /* Specifically allow applications to stat RequestRoot */
+  cupsFilePrintf(fp,
+                 "(allow file-read-metadata\n"
+                 "  (regex"
+		 " #\"^%s$\""		/* RequestRoot */
+		 "))\n",
+		 request);
   cupsFilePrintf(fp,
                  "(allow file-write* file-read-data file-read-metadata\n"
-                 "  (regex #\"^%s$\" #\"^%s/\" #\"^%s$\" #\"^%s/\""
+                 "  (regex"
+		 " #\"^%s$\""		/* TempDir */
+		 " #\"^%s/\""		/* TempDir/... */
+		 " #\"^%s$\""		/* CacheDir */
+		 " #\"^%s/\""		/* CacheDir/... */
+		 " #\"^%s/Library$\""	/* RequestRoot/Library */
+		 " #\"^%s/Library/\""	/* RequestRoot/Library/... */
 		 " #\"^/Library/Application Support/\""
 		 " #\"^/Library/Caches/\""
 		 " #\"^/Library/Preferences/\""
-		 " #\"^/Library/Printers/\""
+		 " #\"^/Library/Printers/.*/\""
+		 " #\"^/Users/Shared/\""
 		 "))\n",
-		 temp, temp, cache, cache);
-  cupsFilePuts(fp,
-	       "(deny file-write*\n"
-	       "  (regex #\"^/Library/Printers/PPDs/\""
-	       " #\"^/Library/Printers/PPD Plugins/\""
-	       "))\n");
+		 temp, temp, cache, cache, request, request);
+  cupsFilePrintf(fp,
+		 "(deny file-write*\n"
+		 "  (regex"
+		 " #\"^/Library/Printers/PPDs$\""
+		 " #\"^/Library/Printers/PPDs/\""
+		 " #\"^/Library/Printers/PPD Plugins$\""
+		 " #\"^/Library/Printers/PPD Plugins/\""
+		 ")%s)\n", nodebug);
   if (job_id)
+  {
+   /*
+    * Allow job filters to read the spool file(s)...
+    */
+
     cupsFilePrintf(fp,
                    "(allow file-read-data file-read-metadata\n"
                    "  (regex #\"^%s/([ac]%05d|d%05d-[0-9][0-9][0-9])$\"))\n",
 		   request, job_id, job_id);
+  }
+  else
+  {
+   /*
+    * Allow email notifications from notifiers...
+    */
+
+    cupsFilePuts(fp,
+		 "(allow process-exec\n"
+		 "  (literal \"/usr/sbin/sendmail\")\n"
+		 "  (with no-sandbox)\n"
+		 ")\n");
+  }
 
   cupsFileClose(fp);
 
@@ -184,6 +242,19 @@ cupsdEndProcess(int pid,		/* I - Process ID */
 {
   cupsdLogMessage(CUPSD_LOG_DEBUG2, "cupsdEndProcess(pid=%d, force=%d)", pid,
                   force);
+
+  if (!pid)
+    return (0);
+
+  if (!RunUser)
+  {
+   /*
+    * When running as root, cupsd puts child processes in their own process
+    * group.  Using "-pid" sends a signal to all processes in the group.
+    */
+
+    pid = -pid;
+  }
 
   if (force)
     return (kill(pid, SIGKILL));
@@ -253,8 +324,11 @@ cupsdStartProcess(
     cupsd_job_t *job,			/* I - Job associated with process */
     int         *pid)			/* O - Process ID */
 {
+  int		i;			/* Looping var */
+  const char	*exec_path = command;	/* Command to be exec'd */
+  char		*real_argv[103],	/* Real command-line arguments */
+		cups_exec[1024];	/* Path to "cups-exec" program */
   int		user;			/* Command UID */
-  struct stat	commandinfo;		/* Command file information */
   cupsd_proc_t	*proc;			/* New process record */
 #if defined(HAVE_SIGACTION) && !defined(HAVE_SIGSET)
   struct sigaction action;		/* POSIX signal handler */
@@ -266,6 +340,12 @@ cupsdStartProcess(
 #endif /* __APPLE__ */
 
 
+  *pid = 0;
+
+ /*
+  * Figure out the UID for the child process...
+  */
+
   if (RunUser)
     user = RunUser;
   else if (root)
@@ -273,80 +353,19 @@ cupsdStartProcess(
   else
     user = User;
 
-  if (stat(command, &commandinfo))
-  {
-    *pid = 0;
+ /*
+  * Check the permissions of the command we are running...
+  */
 
-    cupsdLogMessage(CUPSD_LOG_DEBUG2,
-		    "cupsdStartProcess(command=\"%s\", argv=%p, envp=%p, "
-		    "infd=%d, outfd=%d, errfd=%d, backfd=%d, sidefd=%d, root=%d, "
-		    "profile=%p, job=%p(%d), pid=%p) = %d",
-		    command, argv, envp, infd, outfd, errfd, backfd, sidefd,
-		    root, profile, job, job ? job->id : 0, pid, *pid);
-    cupsdLogMessage(CUPSD_LOG_ERROR, "Unable to execute %s: %s", command,
-                    strerror(errno));
-
-    if (job && job->printer)
-    {
-      if (cupsdSetPrinterReasons(job->printer, "+cups-missing-filter-warning"))
-	cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, job->printer, NULL,
-		      "Printer driver %s is missing.", command);
-    }
-
+  if (_cupsFileCheck(command, _CUPS_FILE_CHECK_PROGRAM, !RunUser,
+                     cupsdLogFCMessage, job ? job->printer : NULL))
     return (0);
-  }
-  else if ((commandinfo.st_mode & (S_ISUID | S_IWOTH)) ||
-           (!RunUser && commandinfo.st_uid))
-  {
-    *pid = 0;
-
-    cupsdLogMessage(CUPSD_LOG_DEBUG2,
-		    "cupsdStartProcess(command=\"%s\", argv=%p, envp=%p, "
-		    "infd=%d, outfd=%d, errfd=%d, backfd=%d, sidefd=%d, root=%d, "
-		    "profile=%p, job=%p(%d), pid=%p) = %d",
-		    command, argv, envp, infd, outfd, errfd, backfd, sidefd,
-		    root, profile, job, job ? job->id : 0, pid, *pid);
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-                    "Unable to execute %s: insecure file permissions (0%o)",
-		    command, commandinfo.st_mode);
-
-    if (job && job->printer)
-    {
-      if (cupsdSetPrinterReasons(job->printer, "+cups-insecure-filter-warning"))
-	cupsdAddEvent(CUPSD_EVENT_PRINTER_STATE, job->printer, NULL,
-		      "Printer driver %s has insecure file permissions (0%o).",
-		      command, commandinfo.st_mode);
-    }
-
-    errno = EPERM;
-
-    return (0);
-  }
-  else if ((commandinfo.st_uid != user || !(commandinfo.st_mode & S_IXUSR)) &&
-           (commandinfo.st_gid != Group || !(commandinfo.st_mode & S_IXGRP)) &&
-           !(commandinfo.st_mode & S_IXOTH))
-  {
-    *pid = 0;
-
-    cupsdLogMessage(CUPSD_LOG_DEBUG2,
-		    "cupsdStartProcess(command=\"%s\", argv=%p, envp=%p, "
-		    "infd=%d, outfd=%d, errfd=%d, backfd=%d, sidefd=%d, root=%d, "
-		    "profile=%p, job=%p(%d), pid=%p) = %d",
-		    command, argv, envp, infd, outfd, errfd, backfd, sidefd,
-		    root, profile, job, job ? job->id : 0, pid, *pid);
-    cupsdLogMessage(CUPSD_LOG_ERROR,
-                    "Unable to execute %s: no execute permissions (0%o)",
-		    command, commandinfo.st_mode);
-
-    errno = EPERM;
-    return (0);
-  }
 
 #if defined(__APPLE__)
   if (envp)
   {
    /*
-    * Add special voodoo magic for MacOS X - this allows MacOS X 
+    * Add special voodoo magic for Mac OS X - this allows Mac OS X
     * programs to access their bundle resources properly...
     */
 
@@ -374,6 +393,29 @@ cupsdStartProcess(
 #endif	/* __APPLE__ */
 
  /*
+  * Use helper program when we have a sandbox profile...
+  */
+
+  if (profile)
+  {
+    snprintf(cups_exec, sizeof(cups_exec), "%s/daemon/cups-exec", ServerBin);
+
+    real_argv[0] = cups_exec;
+    real_argv[1] = profile;
+    real_argv[2] = (char *)command;
+
+    for (i = 0;
+         i < (int)(sizeof(real_argv) / sizeof(real_argv[0]) - 4) && argv[i];
+	 i ++)
+      real_argv[i + 3] = argv[i];
+
+    real_argv[i + 3] = NULL;
+
+    argv      = real_argv;
+    exec_path = cups_exec;
+  }
+
+ /*
   * Block signals before forking...
   */
 
@@ -382,9 +424,36 @@ cupsdStartProcess(
   if ((*pid = fork()) == 0)
   {
    /*
-    * Child process goes here...
-    *
-    * Update stdin/stdout/stderr as needed...
+    * Child process goes here; update stderr as needed...
+    */
+
+    if (errfd != 2)
+    {
+      if (errfd < 0)
+        errfd = open("/dev/null", O_WRONLY);
+
+      if (errfd != 2)
+      {
+        dup2(errfd, 2);
+	close(errfd);
+      }
+    }
+
+   /*
+    * Put this process in its own process group so that we can kill any child
+    * processes it creates.
+    */
+
+#ifdef HAVE_SETPGID
+    if (!RunUser && setpgid(0, 0))
+      exit(errno + 100);
+#else
+    if (!RunUser && setpgrp())
+      exit(errno + 100);
+#endif /* HAVE_SETPGID */
+
+   /*
+    * Update the remaining file descriptors as needed...
     */
 
     if (infd != 0)
@@ -411,18 +480,6 @@ cupsdStartProcess(
       }
     }
 
-    if (errfd != 2)
-    {
-      if (errfd < 0)
-        errfd = open("/dev/null", O_WRONLY);
-
-      if (errfd != 2)
-      {
-        dup2(errfd, 2);
-	close(errfd);
-      }
-    }
-
     if (backfd != 3 && backfd >= 0)
     {
       dup2(backfd, 3);
@@ -445,55 +502,22 @@ cupsdStartProcess(
     if (!root)
       nice(FilterNice);
 
-#ifdef HAVE_SANDBOX_H
    /*
-    * Run in a separate security profile...
+    * Reset group membership to just the main one we belong to.
     */
 
-    if (profile)
-    {
-      char *error = NULL;		/* Sandbox error, if any */
+    if (!RunUser && setgid(Group))
+      exit(errno + 100);
 
-      if (sandbox_init((char *)profile, SANDBOX_NAMED_EXTERNAL, &error))
-      {
-        fprintf(stderr, "ERROR: sandbox_init failed: %s (%s)\n", error,
-	        strerror(errno));
-	sandbox_free_error(error);
-      }
-    }
-#endif /* HAVE_SANDBOX_H */
+    if (!RunUser && setgroups(1, &Group))
+      exit(errno + 100);
 
    /*
     * Change user to something "safe"...
     */
 
-    if (!root && !RunUser)
-    {
-     /*
-      * Running as root, so change to non-priviledged user...
-      */
-
-      if (setgid(Group))
-	exit(errno);
-
-      if (setgroups(1, &Group))
-	exit(errno);
-
-      if (setuid(User))
-        exit(errno);
-    }
-    else
-    {
-     /*
-      * Reset group membership to just the main one we belong to.
-      */
-
-      if (setgid(Group) && !RunUser)
-        exit(errno);
-
-      if (setgroups(1, &Group) && !RunUser)
-        exit(errno);
-    }
+    if (!RunUser && user && setuid(user))
+      exit(errno + 100);
 
    /*
     * Change umask to restrict permissions on created files...
@@ -527,18 +551,16 @@ cupsdStartProcess(
     cupsdReleaseSignals();
 
    /*
-    * Execute the command; if for some reason this doesn't work,
-    * return the error code...
+    * Execute the command; if for some reason this doesn't work, log an error
+    * exit with a non-zero value...
     */
 
     if (envp)
-      execve(command, argv, envp);
+      execve(exec_path, argv, envp);
     else
-      execv(command, argv);
+      execv(exec_path, argv);
 
-    perror(command);
-
-    exit(errno);
+    exit(errno + 100);
   }
   else if (*pid < 0)
   {
@@ -562,7 +584,7 @@ cupsdStartProcess(
       {
         proc->pid    = *pid;
 	proc->job_id = job ? job->id : 0;
-	strcpy(proc->name, command);
+	_cups_strcpy(proc->name, command);
 
 	cupsArrayAdd(process_array, proc);
       }
@@ -630,5 +652,5 @@ cupsd_requote(char       *dst,		/* I - Destination buffer */
 
 
 /*
- * End of "$Id: process.c 7256 2008-01-25 00:48:54Z mike $".
+ * End of "$Id: process.c 9790 2011-05-19 22:40:03Z mike $".
  */

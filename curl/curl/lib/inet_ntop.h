@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: inet_ntop.h,v 1.8 2009-08-07 23:32:38 gknauf Exp $
  ***************************************************************************/
 
 #include "setup.h"

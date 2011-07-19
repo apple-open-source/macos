@@ -310,7 +310,7 @@ extern unsigned int hid_adb_2_usb_keymap[];  //In Cosmo_USB2ADB.cpp
 
 #define super IOHIDDeviceShim
 
-OSDefineMetaClassAndStructors( IOHIDKeyboardDevice, super )
+OSDefineMetaClassAndStructors( IOHIDKeyboardDevice, IOHIDDeviceShim )
 
 
 IOHIDKeyboardDevice * 

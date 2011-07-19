@@ -35,8 +35,8 @@
 
 static IOHIDValueRef __IOHIDValueCreatePrivate(CFAllocatorRef allocator, CFAllocatorContext * context __unused, size_t extraBytes);
 static void __IOHIDValueRelease( CFTypeRef object );
-static void __IOHIDValueConvertByteToWord(const UInt8 * src, uint32_t * dst, uint32_t bytesToCopy, Boolean signExtend, Boolean toKernel);
-static void __IOHIDValueConvertWordToByte(const uint32_t * src, UInt8 * dst, uint32_t bytesToCopy, Boolean fromKernel);
+static void __IOHIDValueConvertByteToWord(const UInt8 * src, uint32_t * dst, uint32_t bytesToCopy, Boolean signExtend);
+static void __IOHIDValueConvertWordToByte(const uint32_t * src, UInt8 * dst, uint32_t bytesToCopy);
 static void __IOHIDValueConvertByteToLongWord(const UInt8 * src, uint64_t * dst, uint64_t bytesToCopy, Boolean signExtend);
 static void __IOHIDValueConvertLongWordToByte(const uint64_t * src, UInt8 * dst, uint64_t bytesToCopy);
 typedef struct __IOHIDValue
@@ -59,6 +59,7 @@ static const CFRuntimeClass __IOHIDValueClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL,
     NULL
 };
@@ -118,11 +119,7 @@ IOHIDValueRef _IOHIDValueCreateWithElementValuePtr(CFAllocatorRef allocator, IOH
     event->timeStamp    = *((uint64_t *)&(pElementValue->timestamp));
     event->length       = length;
     
-    ROSETTA_ONLY(
-        event->timeStamp 	= OSSwapInt64(event->timeStamp);
-    );
-
-    __IOHIDValueConvertWordToByte((const uint32_t *)&(pElementValue->value[0]), event->bytes, length, TRUE);
+    __IOHIDValueConvertWordToByte((const uint32_t *)&(pElementValue->value[0]), event->bytes, length);
     
     return event;
 }
@@ -152,7 +149,7 @@ IOHIDValueRef _IOHIDValueCreateWithStruct(CFAllocatorRef allocator, IOHIDElement
         event->bytePtr  = pEventStruct->longValue;
     }
     else
-        __IOHIDValueConvertWordToByte((const uint32_t *)&(pEventStruct->value), event->bytes, min(sizeof(uint32_t), event->length), FALSE);
+        __IOHIDValueConvertWordToByte((const uint32_t *)&(pEventStruct->value), event->bytes, min(sizeof(uint32_t), event->length));
 
     return event;
 }
@@ -328,7 +325,7 @@ void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * p
 {
     IOHIDElementRef element = IOHIDValueGetElement(value);
     
-    __IOHIDValueConvertByteToWord(IOHIDValueGetBytePtr(value), (uint32_t *)(pElementValue->value), value->length, IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0, TRUE);
+    __IOHIDValueConvertByteToWord(IOHIDValueGetBytePtr(value), (uint32_t *)(pElementValue->value), value->length, IOHIDElementGetLogicalMin(element) < 0 || IOHIDElementGetLogicalMax(element) < 0);
 }
 
 #if defined (__LITTLE_ENDIAN__) 
@@ -339,40 +336,9 @@ void _IOHIDValueCopyToElementValuePtr(IOHIDValueRef value, IOHIDElementValue * p
 
 #define BIT_MASK(bits)  (((uint64_t)1 << (bits)) - 1)
 
-void __IOHIDValueConvertByteToWord(const UInt8 * src, uint32_t * dst, uint32_t length, Boolean signExtend, Boolean toKernel)
+void __IOHIDValueConvertByteToWord(const UInt8 * src, uint32_t * dst, uint32_t length, Boolean signExtend)
 {
-    if ( ON_INTEL || (toKernel && _OSRosettaCheck()) )
-    {
-        bcopy(src, dst, length);
-    }
-    else
-    {
-        uint32_t srcOffset      = 0;
-        uint32_t dstOffset      = 0;
-        uint32_t temp           = 0;
-        uint32_t tempShift      = 0;
-        uint32_t bytesToCopy    = length;
-        
-        while ( bytesToCopy >= 4 )
-        {                
-            dst[dstOffset] = OSSwapInt32(*((UInt32 *)&(src[srcOffset])));
-
-            srcOffset   += 4;
-            bytesToCopy -= 4;
-            dstOffset   ++;
-        }
-        
-        while ( bytesToCopy )
-        {
-            temp |= src[srcOffset++] << tempShift;
-            
-            tempShift += 8;
-            bytesToCopy --;
-            
-            if ( !bytesToCopy )
-                dst[dstOffset] = temp;
-        }
-    }
+    bcopy(src, dst, length);
     
     if ( signExtend && length )
     {
@@ -387,77 +353,14 @@ void __IOHIDValueConvertByteToWord(const UInt8 * src, uint32_t * dst, uint32_t l
     }
 }
 
-void __IOHIDValueConvertWordToByte(const uint32_t * src, UInt8 * dst, uint32_t bytesToCopy, Boolean fromKernel)
+void __IOHIDValueConvertWordToByte(const uint32_t * src, UInt8 * dst, uint32_t bytesToCopy)
 {
-    if ( ON_INTEL || (fromKernel && _OSRosettaCheck()) )
-    {
-        bcopy(src, dst, bytesToCopy);
-    }
-    else
-    {
-        uint32_t dstOffset  = 0;
-        uint32_t srcOffset  = 0;
-        uint32_t temp       = 0;
-        uint32_t tmpOffset  = 0;
-        
-        while ( bytesToCopy )
-        {        
-            temp = OSSwapInt32(src[srcOffset++]);
-
-            if ( bytesToCopy >= 4 )
-            {
-                *((UInt32 *)&(dst[dstOffset])) = temp;
-            
-                bytesToCopy -= 4;
-                dstOffset   += 4;
-            }
-            else 
-            {
-                tmpOffset = 0;
-                while ( bytesToCopy )
-                {
-                    dst[dstOffset++] = ((UInt8 *)&temp)[tmpOffset++];
-                    bytesToCopy--;
-                }
-            }
-        }
-    }
+    bcopy(src, dst, bytesToCopy);
 }
 
 void __IOHIDValueConvertByteToLongWord(const UInt8 * src, uint64_t * dst, uint64_t length, Boolean signExtend)
 {    
-    if ( ON_INTEL )
-    {
-        bcopy(src, dst, length);
-    }
-    else
-    {
-        uint64_t srcOffset  = 0;
-        uint64_t dstOffset  = 0;
-        uint64_t temp       = 0;
-        uint64_t tempShift  = 0;
-        uint64_t bytesToCopy= length;
-        
-        while ( bytesToCopy >= sizeof(uint64_t) )
-        {                
-            dst[dstOffset] = OSSwapInt64(*((uint64_t *)&(src[srcOffset])));
-
-            srcOffset   += sizeof(uint64_t);
-            bytesToCopy -= sizeof(uint64_t);
-            dstOffset   ++;
-        }
-        
-        while ( bytesToCopy )
-        {
-            temp |= src[srcOffset++] << tempShift;
-            
-            tempShift += 8;
-            bytesToCopy --;
-            
-            if ( !bytesToCopy )
-                dst[dstOffset] = temp;
-        }
-    }
+    bcopy(src, dst, length);
     
     if ( signExtend && length )
     {
@@ -474,37 +377,5 @@ void __IOHIDValueConvertByteToLongWord(const UInt8 * src, uint64_t * dst, uint64
 
 void __IOHIDValueConvertLongWordToByte(const uint64_t * src, UInt8 * dst, uint64_t bytesToCopy)
 {
-    if ( ON_INTEL )
-    {
-        bcopy(src, dst, bytesToCopy);
-    }
-    else
-    {
-        uint64_t dstOffset  = 0;
-        uint64_t srcOffset  = 0;
-        uint64_t temp       = 0;
-        uint64_t tmpOffset  = 0;
-        
-        while ( bytesToCopy )
-        {        
-            temp = OSSwapInt64(src[srcOffset++]);
-
-            if ( bytesToCopy >= sizeof(uint64_t) )
-            {
-                *((uint64_t *)&(dst[dstOffset])) = temp;
-            
-                bytesToCopy -= sizeof(uint64_t);
-                dstOffset   += sizeof(uint64_t);
-            }
-            else 
-            {
-                tmpOffset = 0;
-                while ( bytesToCopy )
-                {
-                    dst[dstOffset++] = ((uint8_t *)&temp)[tmpOffset++];
-                    bytesToCopy--;
-                }
-            }
-        }
-    }
+    bcopy(src, dst, bytesToCopy);
 }

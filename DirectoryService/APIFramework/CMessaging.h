@@ -39,7 +39,7 @@
 class CMessaging {
 public:
 
-	   			CMessaging					( CIPCVirtualClass *inEndPoint, int inTranslateMode );
+	   			CMessaging					( CIPCVirtualClass *inEndPoint, int inTranslateMode, bool internal = true );
 virtual		   ~CMessaging					( void );
 
 		SInt32	Add_tDataBuff_ToMsg			( tDataBuffer *inBuff, eValueType inType );
@@ -83,6 +83,7 @@ private:
 
 		CIPCVirtualClass	*fCommPort;
 		int					fTranslateMode;
+		bool				fInternal;
 
 		DSMutexSemaphore	fLock;
 

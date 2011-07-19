@@ -1,6 +1,6 @@
---- bstring.3	2003-05-20 15:23:54.000000000 -0700
-+++ bstring.3.edit	2006-07-12 10:55:13.000000000 -0700
-@@ -51,33 +51,76 @@
+--- bstring.3.bsdnew	2009-11-18 18:24:32.000000000 -0800
++++ bstring.3	2009-11-18 18:24:32.000000000 -0800
+@@ -47,33 +47,76 @@
  .Sh LIBRARY
  .Lb libc
  .Sh SYNOPSIS
@@ -89,7 +89,7 @@
  .Sh SEE ALSO
  .Xr bcmp 3 ,
  .Xr bcopy 3 ,
-@@ -87,7 +130,8 @@
+@@ -83,7 +126,8 @@ See the specific manual pages for more i
  .Xr memcmp 3 ,
  .Xr memcpy 3 ,
  .Xr memmove 3 ,

@@ -28,11 +28,12 @@
 
 #if ENABLE(XPATH)
 
+#include "Console.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "JSDOMWindowCustom.h"
-#include "ScriptController.h"
+#include "SecurityOrigin.h"
 #include <runtime/JSLock.h>
 
 namespace WebCore {
@@ -73,7 +74,7 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
         
     JSValue function = m_customResolver->get(exec, Identifier(exec, "lookupNamespaceURI"));
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone) {
         callType = m_customResolver->getCallData(callData);
         if (callType == CallTypeNone) {
@@ -89,9 +90,9 @@ String JSCustomXPathNSResolver::lookupNamespaceURI(const String& prefix)
     MarkedArgumentBuffer args;
     args.append(jsString(exec, prefix));
 
-    m_globalObject->globalData()->timeoutChecker.start();
+    m_globalObject->globalData().timeoutChecker.start();
     JSValue retval = JSC::call(exec, function, callType, callData, m_customResolver, args);
-    m_globalObject->globalData()->timeoutChecker.stop();
+    m_globalObject->globalData().timeoutChecker.stop();
 
     String result;
     if (exec->hadException())

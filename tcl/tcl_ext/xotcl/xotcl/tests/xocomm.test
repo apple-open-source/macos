@@ -1,8 +1,8 @@
 #!../../xotcl-0.9.4/xotclsh
 # $Id: xocomm.test,v 1.4 2005/09/09 21:09:01 neumann Exp $
-package require XOTcl; namespace import -force xotcl::*
+package require XOTcl 1; namespace import -force xotcl::*
 lappend auto_path [file dirname [info script]]/..
-package require xotcl::test
+package require xotcl::test 1
 
 @ @File {
   description {

@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: getenv.c,v 1.33 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -27,7 +26,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#ifdef VMS
+#ifdef __VMS
 #include <unixlib.h>
 #endif
 
@@ -51,7 +50,7 @@ char *GetEnv(const char *variable)
   return (env[0] != '\0')?strdup(env):NULL;
 #else
   char *env = getenv(variable);
-#ifdef VMS
+#ifdef __VMS
   if(env && strcmp("HOME",variable) == 0)
     env = decc_translate_vms(env);
 #endif

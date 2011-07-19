@@ -123,7 +123,7 @@ proc ::Plotchart::Draw3DBarchart { w yscale nobars } {
     set y4 $y1
 
     $w create polygon $x1 $y1 $x3 $y3 $x2 $y2 $x4 $y4 -fill gray65 -tag platform \
-         -outline black
+	-outline black
 
     set xw1 $x1
     foreach {dummy yw1} [coordsToPixel $w 0.0 $scaling($w,ymin)] {break}
@@ -145,19 +145,19 @@ proc ::Plotchart::Draw3DBarchart { w yscale nobars } {
     #
     # Draw the ticlines (NOTE: Something is wrong here!)
     #
-#   foreach {ymin ymax ystep} $yscale {break}
-#   if { $ymin > $ymax } {
-#       foreach {ymax ymin ystep} $yscale {break}
-#       set ystep [expr {abs($ystep)}]
-#   }
-#   set yv $ymin
-#   while { $yv < ($ymax-0.5*$ystep) } {
-#       foreach {dummy pyv} [coordsToPixel $w $scaling($w,xmin) $yv] {break}
-#       set pyv1 [expr {$pyv-5}]
-#       set pyv2 [expr {$pyv-35}]
-#       $w create line $xw1 $pyv1 $xw3 $pyv2 $xw5 $pyv2 -fill black -tag ticklines
-#       set yv [expr {$yv+$ystep}]
-#   }
+    #   foreach {ymin ymax ystep} $yscale {break}
+    #   if { $ymin > $ymax } {
+    #       foreach {ymax ymin ystep} $yscale {break}
+    #       set ystep [expr {abs($ystep)}]
+    #   }
+    #   set yv $ymin
+    #   while { $yv < ($ymax-0.5*$ystep) } {
+    #       foreach {dummy pyv} [coordsToPixel $w $scaling($w,xmin) $yv] {break}
+    #       set pyv1 [expr {$pyv-5}]
+    #       set pyv2 [expr {$pyv-35}]
+    #       $w create line $xw1 $pyv1 $xw3 $pyv2 $xw5 $pyv2 -fill black -tag ticklines
+    #       set yv [expr {$yv+$ystep}]
+    #   }
 
     Config3DBar $w -usebackground 0 -useticklines 0
 }
@@ -239,10 +239,12 @@ proc ::Plotchart::Draw3DBar { w label yvalue fill } {
 #    Shamelessly copied from R. Suchenwirths Wiki page on 3D bars
 #
 proc ::Plotchart::DimColour {color factor} {
-   foreach i {r g b} n [winfo rgb . $color] d [winfo rgb . white] {
-       set $i [expr int(255.*$n/$d*$factor)]
-   }
-   format #%02x%02x%02x $r $g $b
+    foreach i {r g b} n [winfo rgb . $color] d [winfo rgb . white] {
+	#checker exclude warnVarRef
+	set $i [expr {int(255.*$n/$d*$factor)}]
+    }
+    #checker exclude warnUndefinedVar
+    format #%02x%02x%02x $r $g $b
 }
 
 # GreyColour --
@@ -256,10 +258,12 @@ proc ::Plotchart::DimColour {color factor} {
 #    Shamelessly adapted from R. Suchenwirths Wiki page on 3D bars
 #
 proc ::Plotchart::GreyColour {color factor} {
-   foreach i {r g b} n [winfo rgb . $color] d [winfo rgb . white] e [winfo rgb . lightgrey] {
-       set $i [expr int(255.*($n*$factor+$e*(1.0-$factor))/$d)]
-   }
-   format #%02x%02x%02x $r $g $b
+    foreach i {r g b} n [winfo rgb . $color] d [winfo rgb . white] e [winfo rgb . lightgrey] {
+	#checker exclude warnVarRef
+	set $i [expr {int(255.*($n*$factor+$e*(1.0-$factor))/$d)}]
+    }
+    #checker exclude warnUndefinedVar
+    format #%02x%02x%02x $r $g $b
 }
 
 # Draw3DLine --
@@ -307,8 +311,8 @@ proc ::Plotchart::Draw3DLine { w data colour } {
         }
 
         $w create polygon $px11 $py11 $px21 $py21 $px22 $py22 \
-                          $px12 $py12 $px11 $py11 \
-                          -fill $colour -outline black
+	    $px12 $py12 $px11 $py11 \
+	    -fill $colour -outline black
     }
 }
 
@@ -349,8 +353,8 @@ proc ::Plotchart::Draw3DArea { w data colour } {
         foreach {px22 py22} [coords3DToPixel $w $xe $ye $ze] {break}
 
         $w create polygon $px11 $py11 $px21 $py21 $px22 $py22 \
-                          $px12 $py12 $px11 $py11 \
-                          -fill $dimmer -outline black
+	    $px12 $py12 $px11 $py11 \
+	    -fill $dimmer -outline black
 
         lappend facade $px11 $py11
     }
@@ -368,8 +372,8 @@ proc ::Plotchart::Draw3DArea { w data colour } {
     foreach {px1z py1z} [coords3DToPixel $w $xb $ye $zmin] {break}
 
     $w create polygon $px21 $py21 $px22 $py22 \
-                      $px2z $py2z $px1z $py1z \
-                      -fill $dim -outline black
+	$px2z $py2z $px1z $py1z \
+	-fill $dim -outline black
 
     foreach {pxb pyb} [coords3DToPixel $w $xb $ye $zmin] {break}
 

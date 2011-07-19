@@ -1,4 +1,5 @@
 # SOAP-domain.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sf.net>
+#                   Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # SOAP Domain Service module for the tclhttpd web server.
 #
@@ -15,14 +16,15 @@
 # for more details.
 # -------------------------------------------------------------------------
 
+package require SOAP::Utils;            # TclSOAP 1.6
 package require SOAP::CGI;              # TclSOAP 1.6
 package require rpcvar;                 # TclSOAP 1.6
 package require log;                    # tcllib 1.0
 
 namespace eval ::SOAP::Domain {
-    variable version 1.4  ;# package version number
+    variable version 1.4.1;# package version number
     variable debug 0      ;# flag to toggle debug output
-    variable rcs_id {$Id: SOAP-domain.tcl,v 1.14 2003/09/06 17:08:46 patthoyts Exp $}
+    variable rcs_id {$Id: SOAP-domain.tcl,v 1.15 2008/07/09 16:14:23 andreas_kupries Exp $}
 
     namespace export register
 
@@ -160,7 +162,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     }        
 
     # Parse the XML into a DOM tree.
-    set doc [dom::DOMImplementation parse $query]
+    set doc [parseXML $query]
     if { $debug } { set ::doc $doc }
 
     # Call the procedure and convert errors into SOAP Faults and the return
@@ -168,7 +170,7 @@ proc ::SOAP::Domain::domain_handler {optsname sock args} {
     set failed [catch {SOAP::CGI::soap_call $doc $options(-interp)} msg]
     Httpd_ReturnData $sock text/xml $msg [expr {$failed ? 500 : 200}]
 
-    catch {dom::DOMImplementation destroy $doc}
+    catch {deleteDocument $doc}
     return $failed
 }
 

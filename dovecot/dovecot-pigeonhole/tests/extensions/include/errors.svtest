@@ -1,0 +1,104 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Generic include errors
+ */
+
+test "Generic" {
+	if test_script_compile "errors/generic.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Circular - direct" {
+	if test_script_compile "errors/circular-1.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Circular - one intermittent" {
+	if test_script_compile "errors/circular-2.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "4" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+test "Circular - two intermittent" {
+	if test_script_compile "errors/circular-3.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "5" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/*
+ * Using global without variables required
+ */
+
+test "Variables inactive" {
+	if test_script_compile "errors/variables-inactive.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/*
+ * Generic variables errors
+ */
+
+test "Variables" {
+	if test_script_compile "errors/variables.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/*
+ * Global variable namespace
+ */
+
+test "Global Namespace" {
+	if test_script_compile "errors/global-namespace.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "4" {
+		test_fail "wrong number of errors reported";
+	}
+}
+
+/*
+ * Invalid script names
+ */
+
+test "Invalid Script Names" {
+        if test_script_compile "errors/scriptname.sieve" {
+                test_fail "compile should have failed";
+        }
+
+        if not test_error :count "eq" :comparator "i;ascii-numeric" "8" {
+                test_fail "wrong number of errors reported";
+        }
+}

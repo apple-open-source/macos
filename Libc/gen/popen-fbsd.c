@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -42,10 +38,11 @@
 static char sccsid[] = "@(#)popen.c	8.3 (Berkeley) 5/3/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/popen.c,v 1.18 2003/01/04 00:15:15 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/popen.c,v 1.21 2009/05/27 19:28:04 ed Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
+#include <sys/queue.h>
 #include <sys/wait.h>
 #include <sys/socket.h>
 #include <wchar.h>		/* fwide() */
@@ -64,9 +61,19 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/popen.c,v 1.18 2003/01/04 00:15:15 tjr Exp 
 #include <crt_externs.h>
 #define environ (*_NSGetEnviron())
 
+/* Our queue.h doesn't have SLIST_REMOVE_AFTER in it yet
+ * <rdar://problem/7431558> API: Add SLIST_REMOVE_AFTER to sys/queue.h (from FreeBSD)
+ */
+#ifndef SLIST_REMOVE_AFTER
+#define SLIST_REMOVE_AFTER(elm, field) do {                             \
+        SLIST_NEXT(elm, field) =                                        \
+            SLIST_NEXT(SLIST_NEXT(elm, field), field);                  \
+} while (0)
+#endif
+
 /* 3516149 - store file descriptor and use that to close to prevent blocking */
 struct pid {
-	struct pid *next;
+	SLIST_ENTRY(pid) next;
 	FILE *fp;
 	int fd;
 	pid_t pid;
@@ -74,10 +81,10 @@ struct pid {
 #define pidlist		__popen_pidlist
 #define pidlist_mutex	__popen_pidlist_mutex
 #ifndef BUILDING_VARIANT
-__private_extern__ struct pid *pidlist = NULL;
+__private_extern__ SLIST_HEAD(, pid) pidlist = SLIST_HEAD_INITIALIZER(pidlist);
 __private_extern__ pthread_mutex_t pidlist_mutex = PTHREAD_MUTEX_INITIALIZER;
 #else /* BUILDING_VARIANT */
-extern struct pid *pidlist;
+extern SLIST_HEAD(, pid) pidlist;
 extern pthread_mutex_t pidlist_mutex;
 #endif /* !BUILDING_VARIANT */
 
@@ -166,9 +173,8 @@ popen(command, type)
 		}
 		(void)posix_spawn_file_actions_addclose(&file_actions, pdes[1]);
 	}
-	for (p = pidlist; p; p = p->next) {
+	SLIST_FOREACH(p, &pidlist, next)
 		(void)posix_spawn_file_actions_addclose(&file_actions, p->fd);
-	}
 
 	argv[0] = "sh";
 	argv[1] = "-c";
@@ -200,8 +206,7 @@ popen(command, type)
 	cur->fp = iop;
 	cur->pid = pid;
 	THREAD_LOCK();
-	cur->next = pidlist;
-	pidlist = cur;
+	SLIST_INSERT_HEAD(&pidlist, cur, next);
 	THREAD_UNLOCK();
 	fwide(iop, -1);		/* byte stream */
 	return (iop);
@@ -217,7 +222,7 @@ int
 pclose(iop)
 	FILE *iop;
 {
-	struct pid *cur, *last;
+	struct pid *cur, *last = NULL;
 	int pstat;
 	pid_t pid;
 
@@ -225,17 +230,19 @@ pclose(iop)
 	 * Find the appropriate file pointer and remove it from the list.
 	 */
 	THREAD_LOCK();
-	for (last = NULL, cur = pidlist; cur; last = cur, cur = cur->next)
+	SLIST_FOREACH(cur, &pidlist, next) {
 		if (cur->fp == iop)
 			break;
+		last = cur;
+	}
 	if (cur == NULL) {
 		THREAD_UNLOCK();
 		return (-1);
 	}
 	if (last == NULL)
-		pidlist = cur->next;
+		SLIST_REMOVE_HEAD(&pidlist, next);
 	else
-		last->next = cur->next;
+		SLIST_REMOVE_AFTER(last, next);
 	THREAD_UNLOCK();
 
 	(void)fclose(iop);

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -140,6 +140,8 @@ static void __DACommandExecute( char * const *           argv,
         if ( outputPipe[1] != -1 )
         {
             dup2( outputPipe[1], STDOUT_FILENO );
+
+            close( outputPipe[1] );
         }
 
         /*

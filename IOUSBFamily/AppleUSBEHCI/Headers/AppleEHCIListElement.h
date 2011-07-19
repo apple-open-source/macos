@@ -103,6 +103,7 @@ public:
 	USBPhysicalAddress32					_inactiveTD;							// For inactive detection
 	IOPhysicalAddress						_lastSeenTD;							// For inactive QH detection
 	UInt32									_lastSeenFrame;							// Also for inactive detection
+	UInt32									_numTDs;								// For more intelligent broken queue detection
 };
 
 

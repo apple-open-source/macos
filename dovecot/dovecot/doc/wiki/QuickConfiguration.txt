@@ -1,0 +1,116 @@
+Quick Configuration
+===================
+
+If you just want to get Dovecot running with typical configuration in a typical
+environment, here's what you'll have to do:
+
+Contents
+
+
+ 1. Quick Configuration
+
+     1. Configuration file
+
+     2. Authentication
+
+     3. Mail Location
+
+     4. Mbox
+
+     5. Maildir
+
+     6. Client Workarounds
+
+     7. SSL and Plaintext Authentication
+
+     8. NFS
+
+     9. Running
+
+Configuration file
+------------------
+
+If you compiled and installed Dovecot from sources, Dovecot has installed only
+a '/usr/local/etc/dovecot/README' file, which contains the path to the
+installed example configuration files, usually
+'/usr/local/share/doc/dovecot/example-config'. Copy the 'dovecot.conf' file and
+'conf.d' directory from the example-config directory into
+'/usr/local/etc/dovecot/'. Prebuilt packages usually install the configuration
+files directly into '/etc/dovecot/'.
+ You'll find the path by running 'doveconf -n | head -n 1'.
+ It's a good idea to read through all the files and see what settings you might
+want to change.
+
+Authentication
+--------------
+
+You'll probably be using <PAM> [PasswordDatabase.PAM.txt] authentication. See
+the <PAM> [PasswordDatabase.PAM.txt] page for how to configure it. A typical
+configuration with Linux would be to create '/etc/pam.d/dovecot' which
+contains:
+
+---%<-------------------------------------------------------------------------
+auth    required        pam_unix.so
+account required        pam_unix.so
+---%<-------------------------------------------------------------------------
+
+If you're using something else, see <password databases> [PasswordDatabase.txt]
+and <user databases> [UserDatabase.txt].
+
+Mail Location
+-------------
+
+You can let Dovecot do its automatic mail location detection, but if that
+doesn't work, you can set the location manually in 'mail_location' setting. See
+<MailLocation.txt> for more information.
+
+Mbox
+----
+
+Make sure that all software accessing the mboxes are using the same locking
+methods in the same order. The order is important to prevent deadlocking. From
+Dovecot's side you can change these from 'mbox_read_locks' and
+'mbox_write_locks' settings. See <MboxLocking.txt> for more information.
+
+If you're using '/var/mail/' directory for INBOXes, you may need to set
+'mail_privileged_group = mail' so Dovecot can create dotlocks there.
+
+For better performance you may want to set 'mbox_very_dirty_syncs = yes'
+option.
+
+Maildir
+-------
+
+For better performance you may want to set 'maildir_very_dirty_syncs = yes'
+option.
+
+Client Workarounds
+------------------
+
+Check 'imap_client_workarounds' and 'pop3_client_workarounds' and see if you
+want to enable more of them than the defaults.
+
+SSL and Plaintext Authentication
+--------------------------------
+
+If you intend to use SSL, set 'ssl_cert' and 'ssl_key' settings. Otherwise set
+'ssl = no'. Easiest way to get SSL certificates built is to use Dovecot's
+'doc/mkcert.sh' script. See <SSL.txt>.
+
+By default Dovecot doesn't allow users to send passwords unencrypted to the
+server. Usually if SSL is enabled, it's a good idea not to allow this. However,
+if you don't offer SSL for some reason, you'll probably want to set
+'disable_plaintext_auth = no'.
+
+NFS
+---
+
+If you're using NFS or some other remote filesystem that's shared between
+multiple computers, you should read <NFS.txt>.
+
+Running
+-------
+
+See <RunningDovecot.txt> and <Logging.txt>.
+
+(This file was created from the wiki on 2011-05-11 04:42)

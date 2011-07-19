@@ -123,6 +123,13 @@ Path& Path::operator=(const Path& other)
     return *this;
 }
 
+FloatPoint Path::currentPoint() const 
+{
+    // FIXME: is this the way to return the current point of the subpath?
+    return m_currentPoint;
+}
+
+
 bool Path::contains(const FloatPoint& point, WindRule rule) const
 {
     notImplemented();
@@ -162,7 +169,7 @@ FloatRect Path::boundingRect() const
     return FloatRect(FloatPoint(minX, minY), FloatSize(width, height));
 }
 
-FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier)
+FloatRect Path::strokeBoundingRect(StrokeStyleApplier* applier) const
 {
     notImplemented();
 
@@ -429,18 +436,6 @@ bool Path::hasCurrentPoint() const
     return vgGetParameteri(m_path->vgPath(), VG_PATH_NUM_SEGMENTS) > 0;
 }
 
-String Path::debugString() const
-{
-    String debugString = "";
-
-    // OpenVG provides no means to retrieve path segment information.
-    // This is a bit unfortunate, we might need to store the segments in
-    // memory if we want to implement this function properly.
-    notImplemented();
-
-    return debugString;
-}
-
 void Path::apply(void* info, PathApplierFunction function) const
 {
     // OpenVG provides no means to retrieve path segment information.
@@ -459,8 +454,8 @@ void Path::transform(const AffineTransform& transformation)
     delete m_path;
     m_path = dst;
 
-    m_path->m_currentPoint = transform.mapPoint(m_path->m_currentPoint);
-    m_path->m_subpathStartPoint = transform.mapPoint(m_path->m_subpathStartPoint);
+    m_path->m_currentPoint = transformation.mapPoint(m_path->m_currentPoint);
+    m_path->m_subpathStartPoint = transformation.mapPoint(m_path->m_subpathStartPoint);
 }
 
 
@@ -469,7 +464,7 @@ void Path::transform(const AffineTransform& transformation)
 // functions and Path::apply() doesn't really work as long as we rely on VGPath
 // as primary path storage.
 
-float Path::length()
+float Path::length() const
 {
     m_path->makeCompatibleContextCurrent();
     VGfloat length = vgPathLength(m_path->vgPath(), 0, vgGetParameteri(m_path->vgPath(), VG_PATH_NUM_SEGMENTS));
@@ -477,7 +472,7 @@ float Path::length()
     return length;
 }
 
-FloatPoint Path::pointAtLength(float length, bool& ok)
+FloatPoint Path::pointAtLength(float length, bool& ok) const
 {
     VGfloat x = 0, y = 0;
     m_path->makeCompatibleContextCurrent();
@@ -488,7 +483,7 @@ FloatPoint Path::pointAtLength(float length, bool& ok)
     return FloatPoint(x, y);
 }
 
-float Path::normalAngleAtLength(float length, bool& ok)
+float Path::normalAngleAtLength(float length, bool& ok) const
 {
     VGfloat tangentX, tangentY;
     m_path->makeCompatibleContextCurrent();

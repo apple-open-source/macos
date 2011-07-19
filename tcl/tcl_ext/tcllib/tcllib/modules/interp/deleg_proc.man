@@ -3,6 +3,7 @@
 [copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Interpreter utilities}]
 [titledesc {Creation of comm delegates (procedures)}]
+[category  {Programming tools}]
 [require Tcl 8.3]
 [require interp::delegate::proc [opt 0.2]]
 [description]

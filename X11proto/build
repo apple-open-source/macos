@@ -1,5 +1,11 @@
 #!/usr/bin/perl
 
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{X11_APP_NAME}="X11" if ($ENV{X11_APP_NAME} eq '');
+$ENV{X11_PATHS_D_PREFIX}="50" if ($ENV{X11_PATHS_D_PREFIX} eq '');
+$ENV{CC}="gcc" if ($ENV{CC} eq '');
+$ENV{CC_BASE}=$ENV{CC};
+
 $target=shift @ARGV;
 sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
 
@@ -20,7 +26,7 @@ sub sys_print_nodie {
 }
 
 if($target eq 'installsrc') {
-    sys_print("ditto . $ENV{SRCROOT}");
+    sys_print("tar -cp --exclude .git --exclude .svn --exclude CVS . | tar -pox -C $ENV{SRCROOT}");
     chdir($ENV{SRCROOT});
     foreach $module (glob('*')) {
 	next if $module =~ /build/;
@@ -38,7 +44,6 @@ if($target eq 'installsrc') {
 if($target eq 'clean') {
     print "Cleaning out directory $ENV{SRCROOT}\n";
     chdir($ENV{SRCROOT});
-    sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
     sys_print("find . -name \"*.gz\" | xargs rm");
     sys_print("find . -name \"*.bz2\" | xargs rm");
@@ -51,7 +56,7 @@ sys_print("mkdir $ENV{DSTROOT}") unless -e $ENV{DSTROOT};
 sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
 $ENV{DESTDIR}=$ENV{DSTROOT};
     print "Install phase: \n";
-    $prefix="/usr/X11";
+    $prefix=$ENV{X11_PREFIX};
     
     ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
     print "Building on $osx_version\n";
@@ -61,13 +66,12 @@ $ENV{DESTDIR}=$ENV{DSTROOT};
     system "mkdir -p $ACLOCAL_LOCALDIR";
     
 # The following is required to make aclocal find our .m4 macros
-# Don't include $prefix/share/aclocal since X11proto is the first X11 package to build
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR";
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal -I/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
     
 # The following is required to make pkg-config find our .pc metadata files
-    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
-    
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/share/pkgconfig:$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/share/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";    
+
 # Set the library path so that locally built libs will be found by apps
     $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$ENV{LD_LIBRARY_PATH}";
     
@@ -78,7 +82,7 @@ $ENV{DESTDIR}=$ENV{DSTROOT};
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
         $arch_flags_lib .= "-arch $arch ";
-        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_LEO} eq "YES") {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
         } else {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
@@ -87,36 +91,53 @@ $ENV{DESTDIR}=$ENV{DSTROOT};
 
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
     
-    set_arch_exec();
-
-    build('util-macros');
-    build('pkg-config');
-
     set_arch_lib();
 
     build('freetype');
     fix_la();
+
     build('fontconfig');
     fix_la_reverse();
 
-    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cache");
-    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cat");
-    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-list");
-    lipoexec("$ENV{DSTROOT}$prefix/bin/fc-match");
+    # We want these to be fat because we want to be able to manipulate the caches for all architectures
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cache");
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-cat");
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-list");
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-match");
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-query");
+    #lipoexec("$ENV{DSTROOT}$prefix/bin/fc-scan");
 
     set_arch_exec();
 
     build_proto();
 
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+    if($ENV{MACOSFORGE_LEO} eq "YES") {
         sys_print("sed -i.bak 's_$ENV{DSTROOT}__g' $ENV{DSTROOT}$prefix/lib/*.la");
         sys_print("rm $ENV{DSTROOT}$prefix/lib/*.bak");
     } else {
         nuke_la();
+    }
+        
+    if($ENV{MACOSFORGE_RELEASE} ne "YES") {
         sys_print("echo X11 > $ENV{DSTROOT}".`python -c "import sys, os;print os.path.join(sys.prefix, 'Extras/X11.pth')"`);
     }
 
     make_dsyms();
+
+    if($prefix eq "/usr/X11") {
+        sys_print("ln -s X11 $ENV{DSTROOT}/usr/X11R6");
+        sys_print("mkdir -p $ENV{DSTROOT}/usr/include");
+        sys_print("ln -s ../X11/include/X11 $ENV{DSTROOT}/usr/include/X11");
+        sys_print("ln -s share/man $ENV{DSTROOT}/$prefix/man");
+    }
+
+    sys_print("mkdir -p $ENV{DSTROOT}/private/etc/paths.d");
+    sys_print("mkdir -p $ENV{DSTROOT}/private/etc/manpaths.d");
+    sys_print("echo $prefix/share/man > $ENV{DSTROOT}/private/etc/manpaths.d/$ENV{X11_PATHS_D_PREFIX}-$ENV{X11_APP_NAME}");
+    sys_print("echo $prefix/bin > $ENV{DSTROOT}/private/etc/paths.d/$ENV{X11_PATHS_D_PREFIX}-$ENV{X11_APP_NAME}");
+
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}/$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
+
 }
 
 sub get_workdir {
@@ -142,10 +163,11 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("rm -f m4/libtool.m4 m4/lt*.m4") if(-f "m4/libtool.m4");
     sys_print("autoreconf -fvi") unless ($module eq 'freetype');
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --cache-file=$ENV{OBJROOT}/configure.cache ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
 
@@ -155,6 +177,9 @@ sub build {
     }
 
     if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_BUILD_DOCS} ne "YES") {
+            $conf_flags .= " --disable-specs --disable-devel-docs --disable-docs ";
+        }
         sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
     } else {
         sys_print(q{sed -i.bak 's|from distutils import sysconfig; print sysconfig.get_python_lib(.*,.*,prefix=.*)|import sys, os;print os.path.join(sys.prefix, \\\\"Extras/X11\\\\")|' configure});
@@ -168,20 +193,19 @@ sub build {
 
 # protocol headers have no build order dependencies
 sub build_proto {
+    build("xorg-docs");
+
     build("applewmproto");
     build("bigreqsproto");
     build("compositeproto");
     build("damageproto");
     build("dmxproto");
     build("dri2proto");
-    build("evieext");
     build("fixesproto");
-    build("fontcacheproto");
     build("fontsproto");
     build("glproto");
     build("inputproto");
     build("kbproto");
-    build("printproto");
     build("randrproto");
     build("recordproto");
     build("renderproto");
@@ -192,40 +216,52 @@ sub build_proto {
     build("xextproto");
     build("xcbproto");
     build("xf86bigfontproto");
-    build("xf86dgaproto");
     build("xf86driproto");
-    build("xf86miscproto");
-    build("xf86rushproto");
     build("xf86vidmodeproto");
     build("xineramaproto");
     build("xproto");
-    build("xproxymanagementprotocol");
-    build("trapproto");
-}
 
+    # Include old, crufty, deprecated headers for binary compatability
+    if($ENV{MACOSFORGE_SL} ne "YES") {
+        build("evieext");
+        build("fontcacheproto");
+        build("printproto");
+        build("trapproto");
+        build("xf86dgaproto");
+        build("xf86miscproto");
+        build("xf86rushproto");
+    }
+}
 
 sub make_dsyms {
     open(FIND,"find $ENV{DSTROOT} -type f -exec file {} +|");
     while(<FIND>) {
 	if(/(.*): .*Mach-O/) {
 	    $basename=$1;
-	    $fullpath=$1;
+	    $fullname=$1;
 	    $basename =~ s/\/.*\///;
-	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
-	    sys_print_nodie("strip -S $fullpath");
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullname");
+	    sys_print_nodie("cp $fullname $ENV{SYMROOT}");
+	    sys_print_nodie("strip -S $fullname");
 	}
     }
     close FIND;
 }
 
 sub set_arch_exec {
-    $ENV{CFLAGS}="-D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include/freetype2 -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_exec -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub set_arch_lib {
-    $ENV{CFLAGS}="-D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include/freetype2 -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_lib -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub fix_la {
@@ -247,7 +283,7 @@ sub nuke_la {
 
 sub lipoexec {
     $fname=shift;
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+    if($ENV{MACOSFORGE_LEO} eq "YES") {
         sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
         sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
     } else {

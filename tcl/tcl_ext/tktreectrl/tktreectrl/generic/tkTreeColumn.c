@@ -3,11 +3,11 @@
  *
  *	This module implements treectrl widget's columns.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  * Copyright (c) 2002-2003 Christian Krone
  * Copyright (c) 2003 ActiveState Corporation
  *
- * RCS: @(#) $Id: tkTreeColumn.c,v 1.83 2008/10/08 19:25:16 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeColumn.c,v 1.92 2010/03/08 17:02:29 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -2066,6 +2066,11 @@ Column_Config(
     int visible = column->visible;
     int lock = column->lock;
 
+    /* Init these to prevent compiler warnings */
+    saved.image = NULL;
+    saved.itemBgCount = 0;
+    saved.itemBgColor = NULL;
+
     for (error = 0; error <= 1; error++) {
 	if (error == 0) {
 	    if (Tk_SetOptions(tree->interp, (char *) column,
@@ -2623,7 +2628,8 @@ Column_UpdateTextLayout(
 	flags |= TK_WHOLE_WORDS;
 
     column->textLayout = TextLayout_Compute(tkfont, text,
-	    Tcl_NumUtfChars(text, textLen), width, justify, maxLines, flags);
+	    Tcl_NumUtfChars(text, textLen), width, justify, maxLines,
+	    0, 0, flags);
 }
 
 /*
@@ -3196,8 +3202,8 @@ TreeColumn_NeededHeight(
 
 #if defined(MAC_OSX_TK)
     /* List headers are a fixed height on Aqua */
-    if (tree->useTheme) {
-	(void) TreeTheme_GetHeaderFixedHeight(tree, &column->neededHeight);
+    if (tree->useTheme &&
+	(TreeTheme_GetHeaderFixedHeight(tree, &column->neededHeight) == TCL_OK)) {
 	return column->neededHeight;
     }
 #endif
@@ -4512,6 +4518,8 @@ Column_Draw(
     TreeColumn column,		/* Column record. */
     TreeDrawable td,		/* Where to draw. */
     int x, int y,		/* Top-left corner of the column's header. */
+    int visIndex,		/* 0-based index in the list of visible
+				 * columns. */
     int dragImage		/* TRUE if we are creating a transparent
 				 * drag image for this header. */
     )
@@ -4540,7 +4548,7 @@ Column_Draw(
     } else {
 	if (tree->useTheme) {
 	    theme = TreeTheme_DrawHeaderItem(tree, td.drawable, column->state,
-		    column->arrow, x, y, width, height);
+		    column->arrow, visIndex, x, y, width, height);
 	}
 	if (theme != TCL_OK)
 	    Tk_Fill3DRectangle(tree->tkwin, td.drawable, border,
@@ -4684,7 +4692,7 @@ SetImageForColumn(
     td.drawable = Tk_GetPixmap(tree->display, Tk_WindowId(tree->tkwin),
 	    width, height, Tk_Depth(tree->tkwin));
 
-    Column_Draw(column, td, 0, 0, TRUE);
+    Column_Draw(column, td, 0, 0, 0, TRUE);
 
     /* Pixmap -> XImage */
     ximage = XGetImage(tree->display, td.drawable, 0, 0,
@@ -4693,7 +4701,7 @@ SetImageForColumn(
 	panic("tkTreeColumn.c:SetImageForColumn() ximage is NULL");
 
     /* XImage -> Tk_Image */
-    Tree_XImage2Photo(tree->interp, photoH, ximage, tree->columnDrag.alpha);
+    Tree_XImage2Photo(tree->interp, photoH, ximage, 0, tree->columnDrag.alpha);
 
     XDestroyImage(ximage);
     Tk_FreePixmap(tree->display, td.drawable);
@@ -4757,7 +4765,9 @@ DrawHeaderLeft(
     TreeColumn column = tree->columnLockLeft;
     Tk_Window tkwin = tree->tkwin;
     int x = Tree_HeaderLeft(tree), y = Tree_HeaderTop(tree);
+    int height = tree->headerHeight;
     TreeDrawable td2;
+    int visIndex = 0;
 
     td2.width = Tk_Width(tkwin);
     td2.height = Tree_HeaderBottom(tree);
@@ -4766,7 +4776,7 @@ DrawHeaderLeft(
 
     while (column != NULL && column->lock == COLUMN_LOCK_LEFT) {
 	if (column->visible) {
-	    Column_Draw(column, td2, x, y, FALSE);
+	    Column_Draw(column, td2, x, y, visIndex++, FALSE);
 	    x += column->useWidth;
 	}
 	column = column->next;
@@ -4774,9 +4784,10 @@ DrawHeaderLeft(
 
     DrawDragIndicator(tree, td2.drawable, COLUMN_LOCK_LEFT);
 
+    height = MIN(height, Tree_BorderBottom(tree) - Tree_BorderTop(tree));
     XCopyArea(tree->display, td2.drawable, td.drawable,
 	    tree->copyGC, Tree_HeaderLeft(tree), y,
-	    x - Tree_HeaderLeft(tree), tree->headerHeight,
+	    x - Tree_HeaderLeft(tree), height,
 	    Tree_HeaderLeft(tree), y);
 
     Tk_FreePixmap(tree->display, td2.drawable);
@@ -4791,7 +4802,9 @@ DrawHeaderRight(
     TreeColumn column = tree->columnLockRight;
     Tk_Window tkwin = tree->tkwin;
     int x = Tree_ContentRight(tree), y = Tree_HeaderTop(tree);
+    int height = tree->headerHeight;
     TreeDrawable td2;
+    int visIndex = 0;
 
     td2.width = Tk_Width(tkwin);
     td2.height = Tree_HeaderBottom(tree);
@@ -4800,7 +4813,7 @@ DrawHeaderRight(
 
     while (column != NULL && column->lock == COLUMN_LOCK_RIGHT) {
 	if (column->visible) {
-	    Column_Draw(column, td2, x, y, FALSE);
+	    Column_Draw(column, td2, x, y, visIndex++, FALSE);
 	    x += column->useWidth;
 	}
 	column = column->next;
@@ -4808,9 +4821,10 @@ DrawHeaderRight(
 
     DrawDragIndicator(tree, td2.drawable, COLUMN_LOCK_RIGHT);
 
+    height = MIN(height, Tree_BorderBottom(tree) - Tree_BorderTop(tree));
     XCopyArea(tree->display, td2.drawable, td.drawable,
 	    tree->copyGC, Tree_ContentRight(tree), y,
-	    x - Tree_ContentRight(tree), tree->headerHeight,
+	    x - Tree_ContentRight(tree), height,
 	    Tree_ContentRight(tree), y);
 
     Tk_FreePixmap(tree->display, td2.drawable);
@@ -4845,6 +4859,7 @@ Tree_DrawHeader(
     Drawable drawable = td.drawable;
     TreeDrawable tp;
     Drawable pixmap;
+    int visIndex = 0;
 
     /* Update layout if needed */
     (void) Tree_HeaderHeight(tree);
@@ -4867,7 +4882,7 @@ Tree_DrawHeader(
     while (column != NULL && column->lock == COLUMN_LOCK_NONE) {
 	if (column->visible) {
 	    if ((x < maxX) && (x + column->useWidth > minX))
-		Column_Draw(column, tp, x, y, FALSE);
+		Column_Draw(column, tp, x, y, visIndex++, FALSE);
 	    x += column->useWidth;
 	}
 	column = column->next;
@@ -4882,7 +4897,8 @@ Tree_DrawHeader(
 	    Tk_Fill3DRectangle(tkwin, pixmap, tree->border,
 		    x, y, width, height, 0, TK_RELIEF_FLAT);
 	} else if (tree->useTheme &&
-	    (TreeTheme_DrawHeaderItem(tree, pixmap, 0, 0, x, y, width, height) == TCL_OK)) {
+	    (TreeTheme_DrawHeaderItem(tree, pixmap, 0, 0, tree->columnCountVis,
+		x, y, width, height) == TCL_OK)) {
 	} else {
 	    Tk_3DBorder border;
 	    border = PerStateBorder_ForState(tree, &column->border,
@@ -4917,9 +4933,10 @@ Tree_DrawHeader(
     }
 
     if (tree->doubleBuffer == DOUBLEBUFFER_ITEM) {
+	height = MIN(tree->headerHeight, Tree_BorderBottom(tree) - Tree_BorderTop(tree));
 	XCopyArea(tree->display, pixmap, drawable,
 		tree->copyGC, Tree_HeaderLeft(tree), y,
-		Tree_HeaderWidth(tree), tree->headerHeight,
+		Tree_HeaderWidth(tree), height,
 		Tree_HeaderLeft(tree), y);
 
 	Tk_FreePixmap(tree->display, pixmap);
@@ -5589,18 +5606,25 @@ Tree_WidthOfLeftColumns(
     TreeCtrl *tree		/* Widget info. */
     )
 {
-    int showLocked = tree->vertical && (tree->wrapMode == TREE_WRAP_NONE);
+    if (tree->widthOfColumnsLeft >= 0)
+	return tree->widthOfColumnsLeft;
 
-    if (!showLocked) {
+    if (!Tree_ShouldDisplayLockedColumns(tree)) {
+	TreeColumn column = tree->columnLockLeft;
+	while (column != NULL && column->lock == COLUMN_LOCK_LEFT) {
+	    column->useWidth = 0;
+	    column = column->next;
+	}
 	tree->columnCountVisLeft = 0;
-	return tree->widthOfColumnsLeft = 0;
+	tree->widthOfColumnsLeft = 0;
+	return 0;
     }
-    if (tree->widthOfColumnsLeft < 0) {
-	tree->widthOfColumnsLeft = LayoutColumns(
-	    tree->columnLockLeft,
-	    NULL,
-	    &tree->columnCountVisLeft);
-    }
+
+    tree->widthOfColumnsLeft = LayoutColumns(
+	tree->columnLockLeft,
+	NULL,
+	&tree->columnCountVisLeft);
+
     return tree->widthOfColumnsLeft;
 }
 
@@ -5629,18 +5653,25 @@ Tree_WidthOfRightColumns(
     TreeCtrl *tree		/* Widget info. */
     )
 {
-    int showLocked = tree->vertical && (tree->wrapMode == TREE_WRAP_NONE);
+    if (tree->widthOfColumnsRight >= 0)
+	return tree->widthOfColumnsRight;
 
-    if (!showLocked) {
+    if (!Tree_ShouldDisplayLockedColumns(tree)) {
+	TreeColumn column = tree->columnLockRight;
+	while (column != NULL && column->lock == COLUMN_LOCK_RIGHT) {
+	    column->useWidth = 0;
+	    column = column->next;
+	}
 	tree->columnCountVisRight = 0;
-	return tree->widthOfColumnsRight = 0;
+	tree->widthOfColumnsRight = 0;
+	return 0;
     }
-    if (tree->widthOfColumnsRight < 0) {
-	tree->widthOfColumnsRight = LayoutColumns(
-	    tree->columnLockRight,
-	    NULL,
-	    &tree->columnCountVisRight);
-    }
+
+    tree->widthOfColumnsRight = LayoutColumns(
+	tree->columnLockRight,
+	NULL,
+	&tree->columnCountVisRight);
+
     return tree->widthOfColumnsRight;
 }
 

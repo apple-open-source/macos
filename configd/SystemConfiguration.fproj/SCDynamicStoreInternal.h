@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2006, 2009 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2006, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -27,9 +27,7 @@
 #include <Availability.h>
 #include <TargetConditionals.h>
 #include <sys/cdefs.h>
-#if	!TARGET_OS_IPHONE
 #include <dispatch/dispatch.h>
-#endif	// !TARGET_OS_IPHONE
 #include <sys/types.h>
 #include <mach/mach.h>
 #include <pthread.h>
@@ -57,6 +55,10 @@ typedef struct {
 	/* base CFType information */
 	CFRuntimeBase			cfBase;
 
+	/* client side of the "configd" session */
+	CFStringRef			name;
+	CFDictionaryRef			options;
+
 	/* server side of the "configd" session */
 	mach_port_t			server;
 
@@ -68,7 +70,7 @@ typedef struct {
 	__SCDynamicStoreNotificationStatus	notifyStatus;
 
 	/* "client" information associated with SCDynamicStoreCreateRunLoopSource() */
-	CFIndex				rlsRefs;
+	CFMutableArrayRef		rlList;
 	CFRunLoopSourceRef		rls;
 	SCDynamicStoreCallBack		rlsFunction;
 	SCDynamicStoreContext		rlsContext;
@@ -79,16 +81,18 @@ typedef struct {
 	CFMachPortRef			callbackPort;
 	CFRunLoopSourceRef		callbackRLS;
 
-#if	!TARGET_OS_IPHONE
 	/* "client" information associated with SCDynamicStoreSetDispatchQueue() */
 	dispatch_queue_t		dispatchQueue;
 	dispatch_source_t		callbackSource;
 	dispatch_queue_t		callbackQueue;
-#endif	// !TARGET_OS_IPHONE
+
+	/* "client" information associated with SCDynamicStoreSetDisconnectCallBack() */
+	SCDynamicStoreDisconnectCallBack	disconnectFunction;
+	Boolean					disconnectForceCallBack;
 
 	/* "server" SCDynamicStoreKeys being watched */
-	CFMutableSetRef			keys;
-	CFMutableSetRef			patterns;
+	CFMutableArrayRef		keys;
+	CFMutableArrayRef		patterns;
 
 	/* "server" information associated with SCDynamicStoreNotifyMachPort() */
 	mach_port_t			notifyPort;
@@ -112,6 +116,12 @@ __SCDynamicStoreCreatePrivate		(CFAllocatorRef			allocator,
 					 const CFStringRef		name,
 					 SCDynamicStoreCallBack		callout,
 					 SCDynamicStoreContext		*context);
+
+Boolean
+__SCDynamicStoreReconnect		(SCDynamicStoreRef		store);
+
+Boolean
+__SCDynamicStoreReconnectNotifications	(SCDynamicStoreRef		store);
 
 __END_DECLS
 

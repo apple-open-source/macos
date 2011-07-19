@@ -1,6 +1,6 @@
---- fmtmsg.c	2004-04-15 15:49:49.000000000 -0700
-+++ ../../../test/fmtmsg.c	2005-03-02 10:53:07.000000000 -0800
-@@ -31,6 +31,8 @@
+--- fmtmsg.c.orig	2009-11-07 14:51:37.000000000 -0800
++++ fmtmsg.c	2009-11-07 14:51:39.000000000 -0800
+@@ -31,6 +31,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/fmt
  #include <stdio.h>
  #include <stdlib.h>
  #include <string.h>
@@ -9,7 +9,7 @@
  
  /* Default value for MSGVERB. */
  #define	DFLT_MSGVERB	"label:severity:text:action:tag"
-@@ -55,6 +57,9 @@
+@@ -55,6 +57,9 @@ fmtmsg(long class, const char *label, in
  {
  	FILE *fp;
  	char *env, *msgverb, *output;
@@ -19,7 +19,7 @@
  
  	if (class & MM_PRINT) {
  		if ((env = getenv("MSGVERB")) != NULL && *env != '\0' &&
-@@ -76,8 +81,12 @@
+@@ -76,8 +81,12 @@ def:
  			free(msgverb);
  			return (MM_NOTOK);
  		}
@@ -34,7 +34,7 @@
  		free(msgverb);
  		free(output);
  	}
-@@ -87,16 +96,58 @@
+@@ -87,16 +96,58 @@ def:
  		if (output == NULL)
  			return (MM_NOCON);
  		if (*output != '\0') {

@@ -32,7 +32,7 @@
 #include "V8DOMWindow.h"
 
 #include "Chrome.h"
-#include "Database.h"
+#include "ContentSecurityPolicy.h"
 #include "DOMTimer.h"
 #include "DOMWindow.h"
 #include "ExceptionCode.h"
@@ -51,12 +51,11 @@
 #include "SharedWorkerRepository.h"
 #include "Storage.h"
 #include "V8Binding.h"
-#include "V8BindingDOMWindow.h"
+#include "V8BindingMacros.h"
 #include "V8BindingState.h"
-#include "V8CustomEventListener.h"
-#include "V8Database.h"
-#include "V8DatabaseCallback.h"
+#include "V8EventListener.h"
 #include "V8GCForContextDispose.h"
+#include "V8HiddenPropertyName.h"
 #include "V8HTMLAudioElementConstructor.h"
 #include "V8HTMLCollection.h"
 #include "V8HTMLImageElementConstructor.h"
@@ -69,10 +68,6 @@
 #include "WebSocket.h"
 #endif
 #include "WindowFeatures.h"
-
-// Horizontal and vertical offset, from the parent content area, around newly
-// opened popups that don't specify a location.
-static const int popupTilePixels = 10;
 
 namespace WebCore {
 
@@ -92,7 +87,7 @@ v8::Handle<v8::Value> WindowSetTimeoutImpl(const v8::Arguments& args, bool singl
     }
 
     v8::Handle<v8::Value> function = args[0];
-    WebCore::String functionString;
+    WTF::String functionString;
     if (!function->IsFunction()) {
         if (function->IsString())
             functionString = toWebCoreString(function);
@@ -131,13 +126,16 @@ v8::Handle<v8::Value> WindowSetTimeoutImpl(const v8::Arguments& args, bool singl
         }
 
         // params is passed to action, and released in action's destructor
-        ScheduledAction* action = new ScheduledAction(V8Proxy::context(imp->frame()), v8::Handle<v8::Function>::Cast(function), paramCount, params);
+        OwnPtr<ScheduledAction> action = adoptPtr(new ScheduledAction(V8Proxy::context(imp->frame()), v8::Handle<v8::Function>::Cast(function), paramCount, params));
 
+        // FIXME: We should use OwnArrayPtr for params.
         delete[] params;
 
-        id = DOMTimer::install(scriptContext, action, timeout, singleShot);
+        id = DOMTimer::install(scriptContext, action.release(), timeout, singleShot);
     } else {
-        id = DOMTimer::install(scriptContext, new ScheduledAction(V8Proxy::context(imp->frame()), functionString), timeout, singleShot);
+        if (imp->document() && !imp->document()->contentSecurityPolicy()->allowEval())
+            return v8::Integer::New(0);
+        id = DOMTimer::install(scriptContext, adoptPtr(new ScheduledAction(V8Proxy::context(imp->frame()), functionString)), timeout, singleShot);
     }
 
     // Try to do the idle notification before the timeout expires to get better
@@ -164,7 +162,7 @@ v8::Handle<v8::Value> V8DOMWindow::eventAccessorGetter(v8::Local<v8::String> nam
     if (context.IsEmpty())
         return v8::Undefined();
 
-    v8::Local<v8::String> eventSymbol = v8::String::NewSymbol("event");
+    v8::Handle<v8::String> eventSymbol = V8HiddenPropertyName::event();
     v8::Handle<v8::Value> jsEvent = context->Global()->GetHiddenValue(eventSymbol);
     if (jsEvent.IsEmpty())
         return v8::Undefined();
@@ -185,22 +183,25 @@ void V8DOMWindow::eventAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::
     if (context.IsEmpty())
         return;
 
-    v8::Local<v8::String> eventSymbol = v8::String::NewSymbol("event");
+    v8::Handle<v8::String> eventSymbol = V8HiddenPropertyName::event();
     context->Global()->SetHiddenValue(eventSymbol, value);
-}
-
-v8::Handle<v8::Value> V8DOMWindow::cryptoAccessorGetter(v8::Local<v8::String> name, const v8::AccessorInfo& info)
-{
-    // FIXME: Implement me.
-    return v8::Undefined();
 }
 
 void V8DOMWindow::locationAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
 {
     DOMWindow* imp = V8DOMWindow::toNative(info.Holder());
-    V8DOMWindowShell::setLocation(imp, toWebCoreString(value));
-}
+    State<V8Binding>* state = V8BindingState::Only();
 
+    DOMWindow* activeWindow = state->activeWindow();
+    if (!activeWindow)
+      return;
+
+    DOMWindow* firstWindow = state->firstWindow();
+    if (!firstWindow)
+      return;
+
+    imp->setLocation(toWebCoreString(value), activeWindow, firstWindow);
+}
 
 void V8DOMWindow::openerAccessorSetter(v8::Local<v8::String> name, v8::Local<v8::Value> value, const v8::AccessorInfo& info)
 {
@@ -374,271 +375,89 @@ v8::Handle<v8::Value> V8DOMWindow::captureEventsCallback(const v8::Arguments& ar
     return v8::Undefined();
 }
 
-static bool canShowModalDialogNow(const Frame* frame)
-{
-    // A frame can out live its page. See bug 1219613.
-    if (!frame || !frame->page())
-        return false;
-    return frame->page()->chrome()->canRunModalNow();
-}
-
-static bool allowPopUp()
-{
-    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
-
-    ASSERT(frame);
-    if (frame->script()->processingUserGesture())
-        return true;
-    Settings* settings = frame->settings();
-    return settings && settings->javaScriptCanOpenWindowsAutomatically();
-}
-
-static HashMap<String, String> parseModalDialogFeatures(const String& featuresArg)
-{
-    HashMap<String, String> map;
-
-    Vector<String> features;
-    featuresArg.split(';', features);
-    Vector<String>::const_iterator end = features.end();
-    for (Vector<String>::const_iterator it = features.begin(); it != end; ++it) {
-        String featureString = *it;
-        int pos = featureString.find('=');
-        int colonPos = featureString.find(':');
-        if (pos >= 0 && colonPos >= 0)
-            continue;  // ignore any strings that have both = and :
-        if (pos < 0)
-            pos = colonPos;
-        if (pos < 0) {
-            // null string for value means key without value
-            map.set(featureString.stripWhiteSpace().lower(), String());
-        } else {
-            String key = featureString.left(pos).stripWhiteSpace().lower();
-            String val = featureString.substring(pos + 1).stripWhiteSpace().lower();
-            int spacePos = val.find(' ');
-            if (spacePos != -1)
-                val = val.left(spacePos);
-            map.set(key, val);
-        }
+class DialogHandler {
+public:
+    explicit DialogHandler(v8::Handle<v8::Value> dialogArguments)
+        : m_dialogArguments(dialogArguments)
+    {
     }
 
-    return map;
+    void dialogCreated(DOMWindow*);
+    v8::Handle<v8::Value> returnValue() const;
+
+private:
+    v8::Handle<v8::Value> m_dialogArguments;
+    v8::Handle<v8::Context> m_dialogContext;
+};
+
+inline void DialogHandler::dialogCreated(DOMWindow* dialogFrame)
+{
+    m_dialogContext = V8Proxy::context(dialogFrame->frame());
+    if (m_dialogContext.IsEmpty())
+        return;
+    if (m_dialogArguments.IsEmpty())
+        return;
+    v8::Context::Scope scope(m_dialogContext);
+    m_dialogContext->Global()->Set(v8::String::New("dialogArguments"), m_dialogArguments);
+}
+
+inline v8::Handle<v8::Value> DialogHandler::returnValue() const
+{
+    if (m_dialogContext.IsEmpty())
+        return v8::Undefined();
+    v8::Context::Scope scope(m_dialogContext);
+    v8::Handle<v8::Value> returnValue = m_dialogContext->Global()->Get(v8::String::New("returnValue"));
+    if (returnValue.IsEmpty())
+        return v8::Undefined();
+    return returnValue;
+}
+
+static void setUpDialog(DOMWindow* dialog, void* handler)
+{
+    static_cast<DialogHandler*>(handler)->dialogCreated(dialog);
 }
 
 v8::Handle<v8::Value> V8DOMWindow::showModalDialogCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.DOMWindow.showModalDialog()");
+    DOMWindow* impl = V8DOMWindow::toNative(args.Holder());
 
-    String url = toWebCoreStringWithNullOrUndefinedCheck(args[0]);
-    v8::Local<v8::Value> dialogArgs = args[1];
-    String featureArgs = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
+    V8BindingState* state = V8BindingState::Only();
 
-    DOMWindow* window = V8DOMWindow::toNative(args.Holder());
-    Frame* frame = window->frame();
+    DOMWindow* activeWindow = state->activeWindow();
+    DOMWindow* firstWindow = state->firstWindow();
 
-    if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), frame, true))
-        return v8::Undefined();
+    // FIXME: Handle exceptions properly.
+    String urlString = toWebCoreStringWithNullOrUndefinedCheck(args[0]);
+    String dialogFeaturesString = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
 
-    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
-    if (!callingFrame)
-        return v8::Undefined();
+    DialogHandler handler(args[1]);
 
-    Frame* enteredFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!enteredFrame)
-        return v8::Undefined();
+    impl->showModalDialog(urlString, dialogFeaturesString, activeWindow, firstWindow, setUpDialog, &handler);
 
-    if (!canShowModalDialogNow(frame) || !allowPopUp())
-        return v8::Undefined();
-
-    const HashMap<String, String> features = parseModalDialogFeatures(featureArgs);
-
-    const bool trusted = false;
-
-    FloatRect screenRect = screenAvailableRect(frame->view());
-
-    WindowFeatures windowFeatures;
-    // default here came from frame size of dialog in MacIE.
-    windowFeatures.width = WindowFeatures::floatFeature(features, "dialogwidth", 100, screenRect.width(), 620);
-    windowFeatures.widthSet = true;
-    // default here came from frame size of dialog in MacIE.
-    windowFeatures.height = WindowFeatures::floatFeature(features, "dialogheight", 100, screenRect.height(), 450);
-    windowFeatures.heightSet = true;
-
-    windowFeatures.x = WindowFeatures::floatFeature(features, "dialogleft", screenRect.x(), screenRect.right() - windowFeatures.width, -1);
-    windowFeatures.xSet = windowFeatures.x > 0;
-    windowFeatures.y = WindowFeatures::floatFeature(features, "dialogtop", screenRect.y(), screenRect.bottom() - windowFeatures.height, -1);
-    windowFeatures.ySet = windowFeatures.y > 0;
-
-    if (WindowFeatures::boolFeature(features, "center", true)) {
-        if (!windowFeatures.xSet) {
-            windowFeatures.x = screenRect.x() + (screenRect.width() - windowFeatures.width) / 2;
-            windowFeatures.xSet = true;
-        }
-        if (!windowFeatures.ySet) {
-            windowFeatures.y = screenRect.y() + (screenRect.height() - windowFeatures.height) / 2;
-            windowFeatures.ySet = true;
-        }
-    }
-
-    windowFeatures.dialog = true;
-    windowFeatures.resizable = WindowFeatures::boolFeature(features, "resizable");
-    windowFeatures.scrollbarsVisible = WindowFeatures::boolFeature(features, "scroll", true);
-    windowFeatures.statusBarVisible = WindowFeatures::boolFeature(features, "status", !trusted);
-    windowFeatures.menuBarVisible = false;
-    windowFeatures.toolBarVisible = false;
-    windowFeatures.locationBarVisible = false;
-    windowFeatures.fullscreen = false;
-
-    Frame* dialogFrame = V8BindingDOMWindow::createWindow(V8BindingState::Only(), callingFrame, enteredFrame, frame, url, "", windowFeatures, dialogArgs);
-    if (!dialogFrame)
-        return v8::Undefined();
-
-    // Hold on to the context of the dialog window long enough to retrieve the
-    // value of the return value property.
-    v8::Local<v8::Context> context = V8Proxy::context(dialogFrame);
-
-    // Run the dialog.
-    dialogFrame->page()->chrome()->runModal();
-
-    // Extract the return value property from the dialog window.
-    v8::Local<v8::Value> returnValue;
-    if (!context.IsEmpty()) {
-        v8::Context::Scope scope(context);
-        returnValue = context->Global()->Get(v8::String::New("returnValue"));
-    }
-
-    if (!returnValue.IsEmpty())
-        return returnValue;
-
-    return v8::Undefined();
+    return handler.returnValue();
 }
-
 
 v8::Handle<v8::Value> V8DOMWindow::openCallback(const v8::Arguments& args)
 {
     INC_STATS("DOM.DOMWindow.open()");
+    DOMWindow* impl = V8DOMWindow::toNative(args.Holder());
 
+    V8BindingState* state = V8BindingState::Only();
+
+    DOMWindow* activeWindow = state->activeWindow();
+    DOMWindow* firstWindow = state->firstWindow();
+
+    // FIXME: Handle exceptions properly.
     String urlString = toWebCoreStringWithNullOrUndefinedCheck(args[0]);
     AtomicString frameName = (args[1]->IsUndefined() || args[1]->IsNull()) ? "_blank" : AtomicString(toWebCoreString(args[1]));
+    String windowFeaturesString = toWebCoreStringWithNullOrUndefinedCheck(args[2]);
 
-    DOMWindow* parent = V8DOMWindow::toNative(args.Holder());
-    Frame* frame = parent->frame();
-
-    if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), frame, true))
+    RefPtr<DOMWindow> openedWindow = impl->open(urlString, frameName, windowFeaturesString, activeWindow, firstWindow);
+    if (!openedWindow)
         return v8::Undefined();
-
-    Frame* enteredFrame = V8Proxy::retrieveFrameForEnteredContext();
-    if (!enteredFrame)
-        return v8::Undefined();
-
-    Frame* callingFrame = V8Proxy::retrieveFrameForCallingContext();
-    // We may not have a calling context if we are invoked by a plugin via NPAPI.
-    if (!callingFrame)
-        callingFrame = enteredFrame;
-
-    Page* page = frame->page();
-    if (!page)
-        return v8::Undefined();
-
-    // Because FrameTree::find() returns true for empty strings, we must check
-    // for empty framenames. Otherwise, illegitimate window.open() calls with
-    // no name will pass right through the popup blocker.
-    if (!allowPopUp() &&
-        (frameName.isEmpty() || !frame->tree()->find(frameName))) {
-        return v8::Undefined();
-    }
-
-    // Get the target frame for the special cases of _top and _parent.  In those
-    // cases, we can schedule a location change right now and return early.
-    bool topOrParent = false;
-    if (frameName == "_top") {
-        frame = frame->tree()->top();
-        topOrParent = true;
-    } else if (frameName == "_parent") {
-        if (Frame* parent = frame->tree()->parent())
-            frame = parent;
-        topOrParent = true;
-    }
-    if (topOrParent) {
-        if (!shouldAllowNavigation(frame))
-            return v8::Undefined();
-
-        String completedUrl;
-        if (!urlString.isEmpty())
-            completedUrl = completeURL(urlString);
-
-        if (!completedUrl.isEmpty() &&
-            (!protocolIsJavaScript(completedUrl) || ScriptController::isSafeScript(frame))) {
-            bool userGesture = processingUserGesture();
-
-            // For whatever reason, Firefox uses the entered frame to determine
-            // the outgoingReferrer.  We replicate that behavior here.
-            String referrer = enteredFrame->loader()->outgoingReferrer();
-
-            frame->redirectScheduler()->scheduleLocationChange(completedUrl, referrer, false, userGesture);
-        }
-        return toV8(frame->domWindow());
-    }
-
-    // In the case of a named frame or a new window, we'll use the
-    // createWindow() helper.
-
-    // Parse the values, and then work with a copy of the parsed values
-    // so we can restore the values we may not want to overwrite after
-    // we do the multiple monitor fixes.
-    WindowFeatures rawFeatures(toWebCoreStringWithNullOrUndefinedCheck(args[2]));
-    WindowFeatures windowFeatures(rawFeatures);
-    FloatRect screenRect = screenAvailableRect(page->mainFrame()->view());
-
-    // Set default size and location near parent window if none were specified.
-    // These may be further modified by adjustWindowRect, below.
-    if (!windowFeatures.xSet) {
-        windowFeatures.x = parent->screenX() - screenRect.x() + popupTilePixels;
-        windowFeatures.xSet = true;
-    }
-    if (!windowFeatures.ySet) {
-        windowFeatures.y = parent->screenY() - screenRect.y() + popupTilePixels;
-        windowFeatures.ySet = true;
-    }
-    if (!windowFeatures.widthSet) {
-        windowFeatures.width = parent->innerWidth();
-        windowFeatures.widthSet = true;
-    }
-    if (!windowFeatures.heightSet) {
-        windowFeatures.height = parent->innerHeight();
-        windowFeatures.heightSet = true;
-    }
-
-    FloatRect windowRect(windowFeatures.x, windowFeatures.y, windowFeatures.width, windowFeatures.height);
-
-    // The new window's location is relative to its current screen, so shift
-    // it in case it's on a secondary monitor. See http://b/viewIssue?id=967905.
-    windowRect.move(screenRect.x(), screenRect.y());
-    WebCore::DOMWindow::adjustWindowRect(screenRect, windowRect, windowRect);
-
-    windowFeatures.x = windowRect.x();
-    windowFeatures.y = windowRect.y();
-    windowFeatures.height = windowRect.height();
-    windowFeatures.width = windowRect.width();
-
-    // If either of the origin coordinates weren't set in the original
-    // string, make sure they aren't set now.
-    if (!rawFeatures.xSet) {
-        windowFeatures.x = 0;
-        windowFeatures.xSet = false;
-    }
-    if (!rawFeatures.ySet) {
-        windowFeatures.y = 0;
-        windowFeatures.ySet = false;
-    }
-
-    frame = V8BindingDOMWindow::createWindow(V8BindingState::Only(), callingFrame, enteredFrame, frame, urlString, frameName, windowFeatures, v8::Local<v8::Value>());
-
-    if (!frame)
-        return v8::Undefined();
-
-    return toV8(frame->domWindow());
+    return toV8(openedWindow.release());
 }
-
 
 v8::Handle<v8::Value> V8DOMWindow::indexedPropertyGetter(uint32_t index, const v8::AccessorInfo& info)
 {
@@ -715,31 +534,6 @@ v8::Handle<v8::Value> V8DOMWindow::setIntervalCallback(const v8::Arguments& args
     return WindowSetTimeoutImpl(args, false);
 }
 
-v8::Handle<v8::Value> V8DOMWindow::openDatabaseCallback(const v8::Arguments& args)
-{
-    INC_STATS("DOM.DOMWindow.openDatabase");
-    if (args.Length() < 4)
-        return v8::Undefined();
-
-    DOMWindow* imp = V8DOMWindow::toNative(args.Holder());
-    if (!V8BindingSecurity::canAccessFrame(V8BindingState::Only(), imp->frame(), true))
-        return v8::Undefined();
-
-    ExceptionCode ec = 0;
-    String name = toWebCoreString(args[0]);
-    String version = toWebCoreString(args[1]);
-    String displayName = toWebCoreString(args[2]);
-    unsigned long estimatedSize = args[3]->IntegerValue();
-    RefPtr<DatabaseCallback> creationCallback;
-    if ((args.Length() >= 5) && args[4]->IsObject())
-        creationCallback = V8DatabaseCallback::create(args[4], imp->frame());
-
-    v8::Handle<v8::Value> result = toV8(imp->openDatabase(name, version, displayName, estimatedSize, creationCallback.release(), ec));
-
-    V8Proxy::setDOMException(ec);
-    return result;
-}
-
 bool V8DOMWindow::namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::Value> key, v8::AccessType type, v8::Local<v8::Value>)
 {
     v8::Handle<v8::Object> window = V8DOMWrapper::lookupDOMWrapper(V8DOMWindow::GetTemplate(), host);
@@ -756,9 +550,11 @@ bool V8DOMWindow::namedSecurityCheck(v8::Local<v8::Object> host, v8::Local<v8::V
 
     if (key->IsString()) {
         String name = toWebCoreString(key);
-
-        // Allow access of GET and HAS if index is a subframe.
-        if ((type == v8::ACCESS_GET || type == v8::ACCESS_HAS) && target->tree()->child(name))
+        // Notice that we can't call HasRealNamedProperty for ACCESS_HAS
+        // because that would generate infinite recursion.
+        if (type == v8::ACCESS_HAS && target->tree()->child(name))
+            return true;
+        if (type == v8::ACCESS_GET && target->tree()->child(name) && !host->HasRealNamedProperty(key->ToString()))
             return true;
     }
 
@@ -779,8 +575,11 @@ bool V8DOMWindow::indexedSecurityCheck(v8::Local<v8::Object> host, uint32_t inde
     if (!target)
         return false;
 
-    // Allow access of GET and HAS if index is a subframe.
-    if ((type == v8::ACCESS_GET || type == v8::ACCESS_HAS) && target->tree()->child(index))
+    // Notice that we can't call HasRealNamedProperty for ACCESS_HAS
+    // because that would generate infinite recursion.
+    if (type == v8::ACCESS_HAS && target->tree()->child(index))
+        return true;
+    if (type == v8::ACCESS_GET && target->tree()->child(index) && !host->HasRealIndexedProperty(index))
         return true;
 
     return V8BindingSecurity::canAccessFrame(V8BindingState::Only(), target, false);

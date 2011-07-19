@@ -1,7 +1,7 @@
-                                  _   _ ____  _     
-                              ___| | | |  _ \| |    
-                             / __| | | | |_) | |    
-                            | (__| |_| |  _ <| |___ 
+                                  _   _ ____  _
+                              ___| | | |  _ \| |
+                             / __| | | | |_) | |
+                            | (__| |_| |  _ <| |___
                              \___|\___/|_| \_\_____|
 
                 Things that could be nice to do in the future
@@ -16,6 +16,7 @@
  1.2 More data sharing
  1.3 struct lifreq
  1.4 signal-based resolver timeouts
+ 1.5 get rid of PATH_MAX
 
  2. libcurl - multi interface
  2.1 More non-blocking
@@ -27,7 +28,7 @@
  3.1  More and better
 
  4. FTP
- 4.1 PRET
+ 4.1 HOST
  4.2 Alter passive/active on failure and retry
  4.3 Earlier bad letter detection
  4.4 REST for large files
@@ -37,8 +38,7 @@
  5. HTTP
  5.1 Better persistency for HTTP 1.0
  5.2 support FF3 sqlite cookie files
- 5.3 Sort outgoing cookies
- 5.4 Rearrange request header order
+ 5.3 Rearrange request header order
 
  6. TELNET
  6.1 ditch stdin
@@ -56,33 +56,27 @@
  7.7 Support other SSL libraries
  7.8  Support SRP on the TLS layer
  7.9 improve configure --with-ssl
- 7.10 Make NTLM work with other crypto functions
 
  8. GnuTLS
  8.1 SSL engine stuff
  8.2 SRP
- 8.3 non-blocking
- 8.4 check connection
+ 8.3 check connection
+ 8.4 non-gcrypt
 
  9. Other protocols
- 9.1 ditch ldap-specific select
 
  10. New protocols
- 10.1 RTSP
- 10.2 RSYNC
- 10.3 RTMP
+ 10.1 RSYNC
 
  11. Client
- 11.1 Content-Disposition
- 11.2 sync
- 11.3 glob posts
- 11.4 prevent file overwriting
- 11.5 ftp wildcard download
- 11.6 simultaneous parallel transfers
- 11.7 provide formpost headers
- 11.8 url-specific options
- 11.9 metalink support
- 11.10 warning when setting an option
+ 11.1 sync
+ 11.2 glob posts
+ 11.3 prevent file overwriting
+ 11.4 simultaneous parallel transfers
+ 11.5 provide formpost headers
+ 11.6 url-specific options
+ 11.7 metalink support
+ 11.8 warning when setting an option
 
  12. Build
  12.1 roffit
@@ -105,6 +99,7 @@
  15.4 remove several functions
  15.5 remove CURLOPT_FAILONERROR
  15.6 remove CURLOPT_DNS_USE_GLOBAL_CACHE
+ 15.7 remove progress meter from libcurl
 
 ==============================================================================
 
@@ -132,7 +127,7 @@
 
  libcurl built without an asynchronous resolver library uses alarm() to time
  out DNS lookups. When a timeout occurs, this causes libcurl to jump from the
- signal handler back into the library with a sigsetjmp, which effectively 
+ signal handler back into the library with a sigsetjmp, which effectively
  causes libcurl to continue running within the signal handler. This is
  non-portable and could cause problems on some platforms. A discussion on the
  problem is available at http://curl.haxx.se/mail/lib-2008-09/0197.html
@@ -140,12 +135,31 @@
  Also, alarm() provides timeout resolution only to the nearest second. alarm
  ought to be replaced by setitimer on systems that support it.
 
+1.5 get rid of PATH_MAX
+
+ Having code use and rely on PATH_MAX is not nice:
+ http://insanecoding.blogspot.com/2007/11/pathmax-simply-isnt.html
+
+ Currently the SSH based code uses it a bit, but to remove PATH_MAX from there
+ we need libssh2 to properly tell us when we pass in a too small buffer and
+ its current API (as of libssh2 1.2.7) doesn't.
+
 2. libcurl - multi interface
 
 2.1 More non-blocking
 
  Make sure we don't ever loop because of non-blocking sockets returning
- EWOULDBLOCK or similar. The GnuTLS connection etc.
+ EWOULDBLOCK or similar. Blocking cases include:
+
+ - Name resolves on non-windows unless c-ares is used
+ - NSS SSL connections
+ - Active FTP connections
+ - HTTP proxy CONNECT operations
+ - SOCKS proxy handshakes
+ - file:// transfers
+ - TELNET transfers
+ - The "DONE" operation (post transfer protocol-specific actions) for the
+   protocols SFTP, SMTP, FTP. Fixing Curl_done() for this is a worthy task.
 
 2.2 Remove easy interface internally
 
@@ -179,7 +193,6 @@
  serial requests and currently libcurl only supports that for HEAD and GET
  requests but it should also be possible for PUT.
 
-
 3. Documentation
 
 3.1  More and better
@@ -188,12 +201,12 @@
 
 4. FTP
 
-4.1 PRET
+4.1 HOST
 
- PRET is a command that primarily "drftpd" supports, which could be useful
- when using libcurl against such a server. It is a non-standard and a rather
- oddly designed command, but...
- http://curl.haxx.se/bug/feature.cgi?id=1729967
+ HOST is a suggested command in the works for a client to tell which host name
+ to use, to offer FTP servers named-based virtual hosting:
+
+ http://tools.ietf.org/html/draft-hethmon-mcmurray-ftp-hosts-11
 
 4.2 Alter passive/active on failure and retry
 
@@ -237,14 +250,7 @@
  We should consider how (lib)curl can/should support this.
  http://curl.haxx.se/bug/feature.cgi?id=1871388
 
-5.3 Sort outgoing cookies
-
- All the major browsers sort the cookies sent in the Cookie: header based on
- the length of the path for which the cookie is set with. This could lead to
- a small fraction of servers to not play well with curl:
- http://www.ietf.org/mail-archive/web/http-state/current/msg00150.html
-
-5.4 Rearrange request header order
+5.3 Rearrange request header order
 
  Server implementors often make an effort to detect browser and to reject
  clients it can detect to not match. One of the last details we cannot yet
@@ -339,14 +345,6 @@ to provide the data to send.
  make the configure --with-ssl option first check for OpenSSL, then GnuTLS,
  then NSS...
 
-7.10 Make NTLM work with other crypto functions
-
- Get NTLM working using the functions provided by NSS etc. Not strictly
- SSL/TLS related, but hey... Another option is to get available DES and MD4
- source code from the cryptopp library. They are fine license-wise, but are
- C++. NTLM currenly only works when libcurl is built with OpenSSL or GnuTLS
- support.
-
 8. GnuTLS
 
 8.1 SSL engine stuff
@@ -358,54 +356,34 @@ to provide the data to send.
  Work out a common method with Peter Sylvester's OpenSSL-patch for SRP on the
  TLS to provide name and password. GnuTLS already supports it...
 
-8.3 non-blocking
-
- Fix the connection phase to be non-blocking when multi interface is used
-
-8.4 check connection
+8.3 check connection
 
  Add a way to check if the connection seems to be alive, to correspond to the
  SSL_peak() way we use with OpenSSL.
 
+8.4 non-gcrypt
+
+ libcurl assumes that there are gcrypt functions available when
+ GnuTLS is.
+
+ GnuTLS can be built to use libnettle instead as crypto library,
+ which breaks the previously mentioned assumption
+
+ The correct fix would be to detect which crypto layer that is in use and
+ adapt our code to use that instead of blindly assuming gcrypt.
+
 9. Other protocols
-
-9.1 ditch ldap-specific select
-
- * Look over the implementation. The looping will have to "go away" from the
-   lib/ldap.c source file and get moved to the main network code so that the
-   multi interface and friends will work for LDAP as well.
-
-9.2 stop TFTP blocking
-
-  Stop TFTP from being blocking and doing its own read loop in tftp_do.
 
 10. New protocols
 
-10.1 RTSP
-
- RFC2326 (protocol - very HTTP-like, also contains URL description)
-
-10.2 RSYNC
+10.1 RSYNC
 
  There's no RFC for protocol nor URI/URL format.  An implementation should
  most probably use an existing rsync library, such as librsync.
 
-10.3 RTMP
-
- There exists a patch that claims to introduce this protocol:
- http://osdir.com/ml/gnu.gnash.devel2/2006-11/msg00278.html, further details
- in the feature-request: http://curl.haxx.se/bug/feature.cgi?id=1843469
-
 11. Client
 
-11.1 Content-Disposition
-
- Add option that is similar to -O but that takes the output file name from the
- Content-Disposition: header, and/or uses the local file name used in
- redirections for the cases the server bounces the request further to a
- different file (name): http://curl.haxx.se/bug/feature.cgi?id=1364676
-
-11.2 sync
+11.1 sync
 
  "curl --sync http://example.com/feed[1-100].rss" or
  "curl --sync http://example.net/{index,calendar,history}.html"
@@ -414,12 +392,12 @@ to provide the data to send.
  remote file is newer than the local file. A Last-Modified HTTP date header
  should also be used to set the mod date on the downloaded file.
 
-11.3 glob posts
+11.2 glob posts
 
  Globbing support for -d and -F, as in 'curl -d "name=foo[0-9]" URL'.
  This is easily scripted though.
 
-11.4 prevent file overwriting
+11.3 prevent file overwriting
 
  Add an option that prevents cURL from overwriting existing local files. When
  used, and there already is an existing file with the target file name
@@ -427,18 +405,14 @@ to provide the data to send.
  existing). So that index.html becomes first index.html.1 and then
  index.html.2 etc.
 
-11.5 ftp wildcard download
-
- "curl ftp://site.com/*.txt"
-
-11.6 simultaneous parallel transfers
+11.4 simultaneous parallel transfers
 
  The client could be told to use maximum N simultaneous parallel transfers and
  then just make sure that happens. It should of course not make more than one
  connection to the same remote host. This would require the client to use the
  multi interface. http://curl.haxx.se/bug/feature.cgi?id=1558595
 
-11.7 provide formpost headers
+11.5 provide formpost headers
 
  Extending the capabilities of the multipart formposting. How about leaving
  the ';type=foo' syntax as it is and adding an extra tag (headers) which
@@ -452,7 +426,7 @@ to provide the data to send.
  which should overwrite the program reasonable defaults (plain/text,
  8bit...)
 
-11.8 url-specific options
+11.6 url-specific options
 
  Provide a way to make options bound to a specific URL among several on the
  command line. Possibly by letting ':' separate options between URLs,
@@ -466,12 +440,12 @@ to provide the data to send.
 
  The example would do a POST-GET-POST combination on a single command line.
 
-11.9 metalink support
+11.7 metalink support
 
  Add metalink support to curl (http://www.metalinker.org/). This is most useful
  with simultaneous parallel transfers (11.6) but not necessary.
 
-11.10 warning when setting an option
+11.8 warning when setting an option
 
   Display a warning when libcurl returns an error when setting an option.
   This can be useful to tell when support for a particular feature hasn't been
@@ -585,3 +559,13 @@ to provide the data to send.
  Remove support for a global DNS cache. Anything global is silly, and we
  already offer the share interface for the same functionality but done
  "right".
+
+15.7 remove progress meter from libcurl
+
+ The internally provided progress meter output doesn't belong in the library.
+ Basically no application wants it (apart from curl) but instead applications
+ can and should do their own progress meters using the progress callback.
+
+ The progress callback should then be bumped as well to get proper 64bit
+ variable types passed to it instead of doubles so that big files work
+ correctly.

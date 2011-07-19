@@ -26,6 +26,9 @@
 #include "config.h"
 #include "LoaderRunLoopCF.h"
 
+#if USE(CFNETWORK)
+
+#include <CoreFoundation/CoreFoundation.h>
 #include <wtf/Threading.h>
 
 namespace WebCore {
@@ -63,4 +66,6 @@ CFRunLoopRef loaderRunLoop()
     return loaderRunLoopObject;
 }
 
-}
+} // namespace WebCore
+
+#endif // USE(CFNETWORK)

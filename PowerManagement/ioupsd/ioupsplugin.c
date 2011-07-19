@@ -66,7 +66,7 @@ boolean_t upsd_demux(
             //kextd_log("caller has eUID = %d, eGID = %d",
                 trailer->msgh_sender.val[0],
                 trailer->msgh_sender.val[1]);
-#endif 0
+#endif
         } else {
             //kextd_error_log("caller's credentials not available");
             gClientUID = -1;

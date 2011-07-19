@@ -2,7 +2,7 @@
  * Copyright (C) 2000 Lars Knoll (knoll@kde.org)
  *           (C) 2000 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003, 2005, 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2006 Graham Dennis (graham.dennis@gmail.com)
  * Copyright (C) 2009 Torch Mobile Inc. All rights reserved. (http://www.torchmobile.com/)
  *
@@ -51,6 +51,7 @@ enum StyleDifference {
     StyleDifferenceRepaint,
     StyleDifferenceRepaintLayer,
     StyleDifferenceLayoutPositionedMovementOnly,
+    StyleDifferenceSimplifiedLayout,
     StyleDifferenceLayout
 };
 
@@ -68,19 +69,18 @@ enum StyleDifferenceContextSensitiveProperty {
 enum PseudoId {
     // The order must be NOP ID, public IDs, and then internal IDs.
     NOPSEUDO, FIRST_LINE, FIRST_LETTER, BEFORE, AFTER, SELECTION, FIRST_LINE_INHERITED, SCROLLBAR, FILE_UPLOAD_BUTTON, INPUT_PLACEHOLDER,
-    SLIDER_THUMB, SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON, MEDIA_CONTROLS_PANEL,
-    MEDIA_CONTROLS_PLAY_BUTTON, MEDIA_CONTROLS_MUTE_BUTTON, MEDIA_CONTROLS_TIMELINE, MEDIA_CONTROLS_TIMELINE_CONTAINER,
-    MEDIA_CONTROLS_VOLUME_SLIDER, MEDIA_CONTROLS_VOLUME_SLIDER_CONTAINER, MEDIA_CONTROLS_CURRENT_TIME_DISPLAY, MEDIA_CONTROLS_TIME_REMAINING_DISPLAY, 
-    MEDIA_CONTROLS_SEEK_BACK_BUTTON, MEDIA_CONTROLS_SEEK_FORWARD_BUTTON, MEDIA_CONTROLS_FULLSCREEN_BUTTON, MEDIA_CONTROLS_REWIND_BUTTON, 
-    MEDIA_CONTROLS_RETURN_TO_REALTIME_BUTTON, MEDIA_CONTROLS_TOGGLE_CLOSED_CAPTIONS_BUTTON,
-    MEDIA_CONTROLS_STATUS_DISPLAY, SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
-    INPUT_LIST_BUTTON, INNER_SPIN_BUTTON, OUTER_SPIN_BUTTON, VISITED_LINK, PROGRESS_BAR_VALUE,
-
+    SEARCH_CANCEL_BUTTON, SEARCH_DECORATION, SEARCH_RESULTS_DECORATION, SEARCH_RESULTS_BUTTON,
+    SCROLLBAR_THUMB, SCROLLBAR_BUTTON, SCROLLBAR_TRACK, SCROLLBAR_TRACK_PIECE, SCROLLBAR_CORNER, RESIZER,
+    INPUT_LIST_BUTTON, INPUT_SPEECH_BUTTON, INNER_SPIN_BUTTON, OUTER_SPIN_BUTTON, VISITED_LINK,
+    METER_BAR, METER_OPTIMUM, METER_SUBOPTIMAL, METER_EVEN_LESS_GOOD,
     AFTER_LAST_INTERNAL_PSEUDOID,
+    FULL_SCREEN, FULL_SCREEN_DOCUMENT, FULL_SCREEN_ANCESTOR, ANIMATING_FULL_SCREEN_TRANSITION,
     FIRST_PUBLIC_PSEUDOID = FIRST_LINE,
     FIRST_INTERNAL_PSEUDOID = FILE_UPLOAD_BUTTON,
     PUBLIC_PSEUDOID_MASK = ((1 << FIRST_INTERNAL_PSEUDOID) - 1) & ~((1 << FIRST_PUBLIC_PSEUDOID) - 1)
 };
+
+enum EBorderCollapse { BSEPARATE = 0, BCOLLAPSE = 1 };
 
 // These have been defined in the order of their precedence for border-collapsing. Do
 // not change this order!
@@ -121,8 +121,13 @@ enum ETableLayout {
     TAUTO, TFIXED
 };
 
-enum EUnicodeBidi {
-    UBNormal, Embed, Override
+// CSS Text Layout Module Level 3: Vertical writing support
+enum WritingMode {
+    TopToBottomWritingMode, RightToLeftWritingMode, LeftToRightWritingMode, BottomToTopWritingMode
+};
+
+enum TextCombine {
+    TextCombineNone, TextCombineHorizontal
 };
 
 enum EFillAttachment {
@@ -274,8 +279,12 @@ enum EListStyleType {
     EthiopicAbegedeTiEt,
     UpperGreek,
     UpperNorwegian,
+    Asterisks,
+    Footnotes,
     Hebrew,
     Armenian,
+    LowerArmenian,
+    UpperArmenian,
     Georgian,
     CJKIdeographic,
     Hiragana,
@@ -286,7 +295,11 @@ enum EListStyleType {
 };
 
 enum StyleContentType {
-    CONTENT_NONE, CONTENT_OBJECT, CONTENT_TEXT, CONTENT_COUNTER
+    CONTENT_NONE, CONTENT_OBJECT, CONTENT_TEXT, CONTENT_COUNTER, CONTENT_QUOTE
+};
+
+enum QuoteType {
+    OPEN_QUOTE, CLOSE_QUOTE, NO_OPEN_QUOTE, NO_CLOSE_QUOTE
 };
 
 enum EBorderFit { BorderFitBorder, BorderFitLines };
@@ -298,14 +311,12 @@ enum EAnimPlayState {
     AnimPlayStatePaused = 0x1
 };
 
-enum ETimingFunctionType { LinearTimingFunction, CubicBezierTimingFunction };
-
 enum EWhiteSpace {
     NORMAL, PRE, PRE_WRAP, PRE_LINE, NOWRAP, KHTML_NOWRAP
 };
 
 enum ETextAlign {
-    TAAUTO, LEFT, RIGHT, CENTER, JUSTIFY, WEBKIT_LEFT, WEBKIT_RIGHT, WEBKIT_CENTER
+    TAAUTO, LEFT, RIGHT, CENTER, JUSTIFY, WEBKIT_LEFT, WEBKIT_RIGHT, WEBKIT_CENTER, TASTART, TAEND,
 };
 
 enum ETextTransform {
@@ -404,6 +415,16 @@ enum EBackfaceVisibility {
 };
     
 enum ELineClampType { LineClampLineCount, LineClampPercentage };
+
+enum Hyphens { HyphensNone, HyphensManual, HyphensAuto };
+
+enum ESpeak { SpeakNone, SpeakNormal, SpeakSpellOut, SpeakDigits, SpeakLiteralPunctuation, SpeakNoPunctuation };
+
+enum TextEmphasisFill { TextEmphasisFillFilled, TextEmphasisFillOpen };
+
+enum TextEmphasisMark { TextEmphasisMarkNone, TextEmphasisMarkAuto, TextEmphasisMarkDot, TextEmphasisMarkCircle, TextEmphasisMarkDoubleCircle, TextEmphasisMarkTriangle, TextEmphasisMarkSesame, TextEmphasisMarkCustom };
+
+enum TextEmphasisPosition { TextEmphasisPositionOver, TextEmphasisPositionUnder };
 
 } // namespace WebCore
 

@@ -1,0 +1,446 @@
+commit e67389ecc0c425bcfec0a3184ee48919e0e2c61a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 22:45:35 2010 -0700
+
+    makedepend 1.0.3
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit bf25a6cb4888e5cf6827cd51cb7ee282cfb6cf47
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 22:39:51 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Enables use of platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 7963cc382a3a351410b1342a9783df3af8516944
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Jul 20 18:45:18 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 58bd34e6c3662ef06e9ef0dd78d69f003df42bdc
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri May 14 21:14:44 2010 -0700
+
+    Convert testcase from bug 28045 into automake "make check" test
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8522c314da7537169996476fe5ba411f720a09fe
+Author: Martin Pärtel <lagitus@mbnet.fi>
+Date:   Fri May 14 21:00:15 2010 -0700
+
+    Bug 28045 - makedepend fails on directory named like an include file
+    
+    <https://bugs.freedesktop.org/show_bug.cgi?id=28045>
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit c976a7fc7c21772c00de9e61178cf467c6a10b57
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 22:08:09 2009 -0700
+
+    makedepend 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c2abfbb9ea21bec53706295064c328e5d2721abd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 22:07:44 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f3bbd454d8220a0c30c1a788965a7f16501350ab
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 21:03:53 2009 -0700
+
+    Remove CVS/RCS version tags
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 42ee120e8c49c5f9aaba35689e09f9ecef407758
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 18:47:23 2009 -0700
+
+    Fix gcc, sparse & lint warnings
+    
+    cppsetup.c:74:9: warning: Using plain integer as NULL pointer
+    
+    parse.c: In function `gobble':
+    parse.c:94: warning: int format, long int arg (arg 2)
+    parse.c: In function `find_includes':
+    parse.c:641: warning: int format, long int arg (arg 2)
+    parse.c:664: warning: int format, long int arg (arg 2)
+    parse.c:677: warning: int format, long int arg (arg 2)
+    parse.c:684: warning: int format, long int arg (arg 2)
+    
+    pr.c: In function `add_include':
+    pr.c:57: warning: int format, long int arg (arg 4)
+    pr.c:59: warning: int format, long int arg (arg 3)
+    
+    declared global, could be static
+        sig_act             main.c(142)
+        predefs             main.c:imakemdep.h(51)
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c7c7197d265a299c82c6629fba867730aad81375
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 18:22:37 2009 -0700
+
+    Increased constification
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit a6a8afb0a82a175822077442f44865c75ab70ff1
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 17:34:42 2009 -0700
+
+    Remove #ifdef'ed code that's never used
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 3e8c1a2a8e7db49b06f602c2fc5a8108d74dd384
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 17:27:47 2009 -0700
+
+    Remove ifdef checks for macII left over from ancient A/UX 3.0 support
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e3bc51e4ea2dce1901c4f7ce43df2f456ececdcf
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 17:25:56 2009 -0700
+
+    Use XORG_CHANGELOG, XORG_CWARNFLAGS, and XORG_WITH_LINT macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit cc3112b6d0434d8e7ecbe3832a5aa48cd0f5185d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 16:34:45 2009 -0700
+
+    Add additional predefines needed to match Solaris compilers
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit f871e026bedc296c235dae02e533617fe9a4d3f2
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 16:16:47 2009 -0700
+
+    Delete portions of imakemdep.h not used by makedepend
+    
+    This header was shared by imake & makedepend in the monolith, but each
+    got its own copy in the modular builds.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 26cb2802170d349fa1b2ab2237e6f2c0d1df1709
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 16:02:55 2009 -0700
+
+    Add .gitignore
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 4d821427ac3e7e3de86f46e3b1e638c65758b774
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Mar 24 16:00:19 2009 -0700
+
+    Use AM_CPPFLAGS instead of makedepend_CPPFLAGS to avoid mangled .o names
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 617fc1304afdca2fb82e3a65d9a4999058d86021
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:39:17 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 5239f25be018b2e9cf3620d5c1c62bac4e1e116d
+Author: Jeremy C. Reed <reed@glacier.reedmedia.net>
+Date:   Wed Mar 21 15:27:57 2007 -0500
+
+    Update version for release.
+
+commit e2bea6a0278f182f9cc8b7bac660da49d24d2e50
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jun 2 19:21:52 2006 +0000
+
+    Coverity #925: Pointer "file" dereferenced before NULL check
+
+commit fbb0a1b59b410a5873cf33c4cedc32f32ea03a59
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:40 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit cbb537c9276302f56c82c0dd010db400bd605f57
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Fri Dec 9 18:27:47 2005 +0000
+
+    Bug #4380: Avoid dividing by zero in gccmakedepend (Vincent Le Ligeour)
+
+commit 34c35bcb3851909468c679c2014b6197c7be270e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:47 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit c30b8896d6a6e1272e7e703cac5866802a5e30a2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:47 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 0f756745a930e995fb529ffe34cd7f7d36c68d4a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:00:24 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 9bd896db001a270770506c25232435ddeb7a7f22
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 03:24:01 2005 +0000
+
+    Remove duplicate setting of EXTRA_DIST
+
+commit 3a5f945b6e15c6799b2a796f82ed1222140fc62d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Nov 12 20:04:58 2005 +0000
+
+    Substitute variables in man page
+    [Also resync Changelog with monolith]
+
+commit aaa64b9dc41b6b3ed3f5acd7eb2b517c3499a521
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:25:57 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 3ead9564d1f63a1080c97b1ba44af17a74938485
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:24 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit d13a9d5d03bf5ebab5c847bdc616f276971d39d8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:17 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 3b21840ce7b2c7825c40dd3f0463d66aee692fc6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 3 16:17:10 2005 +0000
+
+    Bug #3812 <https://bugs.freedesktop.org/show_bug.cgi?id=3812> Patch #3462
+        <https://bugs.freedesktop.org/attachment.cgi?id=3462> GNU/kFreeBSD
+        Imake support (Robert Millan)
+
+commit f002b90281e623b7611565a49a5d12fb517800ae
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 02:13:55 2005 +0000
+
+    Pass through __BUILTIN_VA_STRUCT and __BUILTIN_VA_ARG_INCR defines in
+        makedepend so it doesn't issue errors when source files include
+        <varargs.h> or <stdarg.h> on Solaris 10.
+
+commit ddabc8840aee8a90ea6b7f6fe8f1af7f692a2576
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:58 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit c8e6f83244036256d3f56c35ec8c60f03dc51275
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 18:42:37 2005 +0000
+
+    Update #includes to use <X11/*.h> for modularization.
+
+commit 275c17136006f9d3929c9547642f1ed3f95d5683
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 5 19:02:01 2005 +0000
+
+    Bugzilla #2901 <https://bugs.freedesktop.org/show_bug.cgi?id=2901> Patch
+        #2320 <https://bugs.freedesktop.org/attachment.cgi?id=2320>
+    Remove warning about whitespace in pre-processor defines. (Peter
+        Breitenlohner)
+
+commit 9debe1d47d8869949b15f5ea43222f5b22465b32
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 22 19:01:58 2005 +0000
+
+    Add makedepend man page
+
+commit 1ee2b235655779213e8b5e0455104161a88a536c
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:22:44 2005 +0000
+
+    revert last change, didn't do right thing at all, sorry for the noise
+
+commit d22b9d44523591e042569112aaba3b7437dd4c7e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu May 19 00:10:23 2005 +0000
+
+    Require automake 1.7 in AM_INIT_AUTOMAKE
+
+commit b0e61cfcfbb56696597eb65511c74ad901d62b58
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 15 21:16:24 2005 +0000
+
+    Initial attempt at autotooling/modular conversion of makedepend
+
+commit dabc4c7abcba043e206745bdb101aafb48c00c71
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun May 15 21:06:38 2005 +0000
+
+    [Modularization/autotooling project] Add support for building with autoconf
+        #ifdefs if present. #include "makedepend-config.h" if HAVE_CONFIG_H is
+        defined.
+
+commit 4a64cca6526e26c93f7011ba5e4fedb511af4560
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Wed Mar 2 11:20:29 2005 +0000
+
+    xc/config/cf/DragonFly.cf
+    xc/config/cf/Imake.cf
+    xc/config/cf/Imakefile
+    xc/config/imake/imake.c
+    xc/config/imake/imakemdep.h
+    xc/extras/drm/shared/drm.h
+    xc/include/Xos_r.h
+    xc/lib/xtrans/Xtranssock.c
+    xc/programs/Xserver/hw/xfree86/os-support/xf86_OSlib.h
+    xc/programs/Xserver/hw/xfree86/os-support/xf86_libc.h
+    xc/programs/Xserver/hw/xfree86/os-support/linux/lnx_agp.c
+    //bugs.freedesktop.org/show_bug.cgi?id=1712) attachment #2004
+        (https://bugs.freedesktop.org/attachment.cgi?id=2004): Add support for
+        DragonFly/BSD platform. Patch by Jeroen Ruigrok <asmodai@tendra.org>
+        and Mike Verona <firedragonfly@gmail.com>.
+
+commit a2abf77f552d3930d07721e2aa388bb8d87a621a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Jan 19 22:28:20 2005 +0000
+
+    Pass through additional #defines for Solaris. (Sun bug id #5097074 - Alan
+        Coopersmith)
+
+commit 33dd47009fe09ce9e5628df51914821d416be78d
+Author: Alexander Gottwald <alexander.gottwald@s1999.tu-chemnitz.de>
+Date:   Mon Nov 15 15:06:52 2004 +0000
+
+    Bufzilla #1802, http://freedesktop.org/bugzilla/show_bug.cgi?id=1802 Added
+        mingw (Win32) port
+
+commit 67b078bc115ca3c52545b9dacb2b0fc0a1c9e90e
+Author: Egbert Eich <eich@suse.de>
+Date:   Tue Oct 19 13:50:06 2004 +0000
+
+    Enabling modules and DRI for Linux HPPA.
+    Removing hpsocket.c as it isn't used anywhere any more (Bugzilla #1584).
+
+commit 967895bc594e45f065a97005a248ef71139eb269
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon Oct 18 14:26:35 2004 +0000
+
+    powerpc/powerpc64 build fixes.
+
+commit f1300e657659259b4082ad83de3b59a7b6b1094b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Aug 11 21:14:02 2004 +0000
+
+    Apply PPC64 build patch (Bug #303, Mike A. Harris, Alan Coopersmith).
+
+commit 1529cb60b2652030598008c151678100ffc3f9ac
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu May 6 17:31:17 2004 +0000
+
+    BugZilla #601: Fixing makedepend choking on floating point exception
+        because CHAR_BIT is defined to __CHAR_BIT__ which is a compiler
+        intrinsic define. BugZilla #605: Fixing build on IA64 which is broken
+        due to the inclusion of the kernel header asm/page.h. Kernel headers
+        however don't work with
+    -ansi. The inclusion of asm/page.h can however savely be removed as it
+        there are plenty of other ways to determine the page size.
+
+commit 25324cd43b4735cafa7b6900ad23356f44077bc6
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:42:00 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 97527faa1b2b9f66be7171454161f273b986ee46
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:27:26 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit cc985b59a40838d617ec2c5b03771620e56fe461
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:09:38 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 9820a186a6d0e6b16909264c67f49b0a858ac07c
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:34:16 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit d5b34044c15be35736038c188d2681cf7cfb63a9
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:21:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 7ff0f162b4f5a062dd4e58e7ce110757f539465b
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Jan 29 08:06:33 2004 +0000
+
+    Importing vendor version xf86-012804-2330 on Thu Jan 29 00:06:33 PST 2004
+
+commit 200c9bd9793c0d2dbefd1f0a2be197a2d4e3a364
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:26:56 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit a15b8ac6912cef59d7e1ba7a80e58466e2c9fcba
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:20 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit ac5d447a2f18bdd07d5f97bb27cd9d065e30f683
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:29 2003 +0000
+
+    R6.6 is the Xorg base-line

@@ -38,7 +38,7 @@ enum {
 + (NSString *) getRecordName: (NSObject *) aRec;
 + (NSString *) getAttributeValue: (NSString *) attribKey fromRecord: (NSObject *) aRec;
 
-- (id) initWithScope: (int) iScope;
+- (id) initWithScope: (NSInteger) iScope;
 - (void) dealloc;
 
 // Directory Service access utilities
@@ -50,5 +50,6 @@ enum {
 
 - (NSString *) findAttribute: (NSString *) attrName inRecord: (NSString *) recName ofType: (NSString *) recType;
 - (NSArray *) findAllRecordsOfType: (NSString *) recType;
+- (NSString *) findGroupNameForGeneratedUID: (NSString *) groupGuid;
 
 @end

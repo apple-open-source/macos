@@ -16,8 +16,8 @@
 
 #include "llvm/AbstractTypeUser.h"
 #include "llvm/Use.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Casting.h"
-#include <iosfwd>
 #include <string>
 
 namespace llvm {
@@ -40,6 +40,9 @@ typedef StringMapEntry<Value*> ValueName;
 class raw_ostream;
 class AssemblyAnnotationWriter;
 class ValueHandleBase;
+class LLVMContext;
+class Twine;
+class MDNode;
 
 //===----------------------------------------------------------------------===//
 //                                 Value Class
@@ -54,7 +57,7 @@ class ValueHandleBase;
 ///
 /// Every value has a "use list" that keeps track of which other Values are
 /// using this Value.  A Value can also have an arbitrary number of ValueHandle
-/// objects that watch it and listen to RAUW and Destroy events see
+/// objects that watch it and listen to RAUW and Destroy events.  See
 /// llvm/Support/ValueHandle.h for details.
 ///
 /// @brief LLVM Value Representation
@@ -62,21 +65,33 @@ class Value {
   const unsigned char SubclassID;   // Subclass identifier (for isa/dyn_cast)
   unsigned char HasValueHandle : 1; // Has a ValueHandle pointing to this?
 protected:
+  /// SubclassOptionalData - This member is similar to SubclassData, however it
+  /// is for holding information which may be used to aid optimization, but
+  /// which may be cleared to zero without affecting conservative
+  /// interpretation.
+  unsigned char SubclassOptionalData : 7;
+
+private:
   /// SubclassData - This member is defined by this class, but is not used for
   /// anything.  Subclasses can use it to hold whatever state they find useful.
   /// This field is initialized to zero by the ctor.
   unsigned short SubclassData;
-private:
+
   PATypeHolder VTy;
   Use *UseList;
 
   friend class ValueSymbolTable; // Allow ValueSymbolTable to directly mod Name.
-  friend class SymbolTable;      // Allow SymbolTable to directly poke Name.
   friend class ValueHandleBase;
+  friend class AbstractTypeUser;
   ValueName *Name;
 
   void operator=(const Value &);     // Do not implement
   Value(const Value &);              // Do not implement
+
+protected:
+  /// printCustom - Value subclasses can override this to implement custom
+  /// printing behavior.
+  virtual void printCustom(raw_ostream &O) const;
 
 public:
   Value(const Type *Ty, unsigned scid);
@@ -84,46 +99,44 @@ public:
 
   /// dump - Support for debugging, callable in GDB: V->dump()
   //
-  virtual void dump() const;
+  void dump() const;
 
   /// print - Implement operator<< on Value.
   ///
-  void print(std::ostream &O, AssemblyAnnotationWriter *AAW = 0) const;
   void print(raw_ostream &O, AssemblyAnnotationWriter *AAW = 0) const;
 
   /// All values are typed, get the type of this value.
   ///
   inline const Type *getType() const { return VTy; }
 
+  /// All values hold a context through their type.
+  LLVMContext &getContext() const;
+
   // All values can potentially be named...
   inline bool hasName() const { return Name != 0; }
   ValueName *getValueName() const { return Name; }
-
-  /// getNameStart - Return a pointer to a null terminated string for this name.
-  /// Note that names can have null characters within the string as well as at
-  /// their end.  This always returns a non-null pointer.
-  const char *getNameStart() const;
-  /// getNameEnd - Return a pointer to the end of the name.
-  const char *getNameEnd() const { return getNameStart() + getNameLen(); }
   
-  /// isName - Return true if this value has the name specified by the provided
-  /// nul terminated string.
-  bool isName(const char *N) const;
-  
-  /// getNameLen - Return the length of the string, correctly handling nul
-  /// characters embedded into them.
-  unsigned getNameLen() const;
+  /// getName() - Return a constant reference to the value's name. This is cheap
+  /// and guaranteed to return the same reference as long as the value is not
+  /// modified.
+  ///
+  /// This is currently guaranteed to return a StringRef for which data() points
+  /// to a valid null terminated string. The use of StringRef.data() is 
+  /// deprecated here, however, and clients should not rely on it. If such 
+  /// behavior is needed, clients should use expensive getNameStr(), or switch 
+  /// to an interface that does not depend on null termination.
+  StringRef getName() const;
 
-  /// getName()/getNameStr() - Return the name of the specified value, 
-  /// *constructing a string* to hold it.  Because these are guaranteed to
-  /// construct a string, they are very expensive and should be avoided.
-  std::string getName() const { return getNameStr(); }
+  /// getNameStr() - Return the name of the specified value, *constructing a
+  /// string* to hold it.  This is guaranteed to construct a string and is very
+  /// expensive, clients should use getName() unless necessary.
   std::string getNameStr() const;
 
-
-  void setName(const std::string &name);
-  void setName(const char *Name, unsigned NameLen);
-  void setName(const char *Name);  // Takes a null-terminated string.
+  /// setName() - Change the name of the value, choosing a new unique name if
+  /// the provided name is taken.
+  ///
+  /// \arg Name - The new name; or "" if the value's name should be removed.
+  void setName(const Twine &Name);
 
   
   /// takeName - transfer the name from V to this value, setting V's name to
@@ -144,13 +157,13 @@ public:
   // Methods for handling the chain of uses of this Value.
   //
   typedef value_use_iterator<User>       use_iterator;
-  typedef value_use_iterator<const User> use_const_iterator;
+  typedef value_use_iterator<const User> const_use_iterator;
 
   bool               use_empty() const { return UseList == 0; }
   use_iterator       use_begin()       { return use_iterator(UseList); }
-  use_const_iterator use_begin() const { return use_const_iterator(UseList); }
+  const_use_iterator use_begin() const { return const_use_iterator(UseList); }
   use_iterator       use_end()         { return use_iterator(0);   }
-  use_const_iterator use_end()   const { return use_const_iterator(0);   }
+  const_use_iterator use_end()   const { return const_use_iterator(0);   }
   User              *use_back()        { return *use_begin(); }
   const User        *use_back()  const { return *use_begin(); }
 
@@ -159,7 +172,7 @@ public:
   /// traversing the whole use list.
   ///
   bool hasOneUse() const {
-    use_const_iterator I = use_begin(), E = use_end();
+    const_use_iterator I = use_begin(), E = use_end();
     if (I == E) return false;
     return ++I == E;
   }
@@ -195,23 +208,30 @@ public:
     GlobalAliasVal,           // This is an instance of GlobalAlias
     GlobalVariableVal,        // This is an instance of GlobalVariable
     UndefValueVal,            // This is an instance of UndefValue
+    BlockAddressVal,          // This is an instance of BlockAddress
     ConstantExprVal,          // This is an instance of ConstantExpr
     ConstantAggregateZeroVal, // This is an instance of ConstantAggregateNull
     ConstantIntVal,           // This is an instance of ConstantInt
     ConstantFPVal,            // This is an instance of ConstantFP
     ConstantArrayVal,         // This is an instance of ConstantArray
     ConstantStructVal,        // This is an instance of ConstantStruct
+    ConstantUnionVal,         // This is an instance of ConstantUnion
     ConstantVectorVal,        // This is an instance of ConstantVector
     ConstantPointerNullVal,   // This is an instance of ConstantPointerNull
-    MDStringVal,              // This is an instance of MDString
     MDNodeVal,                // This is an instance of MDNode
+    MDStringVal,              // This is an instance of MDString
+    NamedMDNodeVal,           // This is an instance of NamedMDNode
     InlineAsmVal,             // This is an instance of InlineAsm
     PseudoSourceValueVal,     // This is an instance of PseudoSourceValue
+    FixedStackPseudoSourceValueVal, // This is an instance of 
+                                    // FixedStackPseudoSourceValue
     InstructionVal,           // This is an instance of Instruction
-    
+    // Enum values starting at InstructionVal are used for Instructions;
+    // don't add new values here!
+
     // Markers:
     ConstantFirstVal = FunctionVal,
-    ConstantLastVal  = MDNodeVal
+    ConstantLastVal  = ConstantPointerNullVal
   };
 
   /// getValueID - Return an ID for the concrete type of this object.  This is
@@ -225,6 +245,25 @@ public:
   ///   the ValueTy enum.
   unsigned getValueID() const {
     return SubclassID;
+  }
+
+  /// getRawSubclassOptionalData - Return the raw optional flags value
+  /// contained in this value. This should only be used when testing two
+  /// Values for equivalence.
+  unsigned getRawSubclassOptionalData() const {
+    return SubclassOptionalData;
+  }
+
+  /// hasSameSubclassOptionalData - Test whether the optional flags contained
+  /// in this value are equal to the optional flags in the given value.
+  bool hasSameSubclassOptionalData(const Value *V) const {
+    return SubclassOptionalData == V->SubclassOptionalData;
+  }
+
+  /// intersectOptionalDataWith - Clear any optional flags in this value
+  /// that are not also set in the given value.
+  void intersectOptionalDataWith(const Value *V) {
+    SubclassOptionalData &= V->SubclassOptionalData;
   }
 
   // Methods for support type inquiry through isa, cast, and dyn_cast:
@@ -247,10 +286,11 @@ public:
   /// getUnderlyingObject - This method strips off any GEP address adjustments
   /// and pointer casts from the specified value, returning the original object
   /// being addressed.  Note that the returned value has pointer type if the
-  /// specified value does.
-  Value *getUnderlyingObject();
-  const Value *getUnderlyingObject() const {
-    return const_cast<Value*>(this)->getUnderlyingObject();
+  /// specified value does.  If the MaxLookup value is non-zero, it limits the
+  /// number of instructions to be stripped off.
+  Value *getUnderlyingObject(unsigned MaxLookup = 6);
+  const Value *getUnderlyingObject(unsigned MaxLookup = 6) const {
+    return const_cast<Value*>(this)->getUnderlyingObject(MaxLookup);
   }
   
   /// DoPHITranslation - If this value is a PHI node with CurBB as its parent,
@@ -263,12 +303,12 @@ public:
                                 const BasicBlock *PredBB) const{
     return const_cast<Value*>(this)->DoPHITranslation(CurBB, PredBB);
   }
+  
+protected:
+  unsigned short getSubclassDataFromValue() const { return SubclassData; }
+  void setValueSubclassData(unsigned short D) { SubclassData = D; }
 };
 
-inline std::ostream &operator<<(std::ostream &OS, const Value &V) {
-  V.print(OS);
-  return OS;
-}
 inline raw_ostream &operator<<(raw_ostream &OS, const Value &V) {
   V.print(OS);
   return OS;
@@ -284,36 +324,67 @@ void Use::set(Value *V) {
 // isa - Provide some specializations of isa so that we don't have to include
 // the subtype header files to test to see if the value is a subclass...
 //
-template <> inline bool isa_impl<Constant, Value>(const Value &Val) {
-  return Val.getValueID() >= Value::ConstantFirstVal &&
-         Val.getValueID() <= Value::ConstantLastVal;
-}
-template <> inline bool isa_impl<Argument, Value>(const Value &Val) {
-  return Val.getValueID() == Value::ArgumentVal;
-}
-template <> inline bool isa_impl<InlineAsm, Value>(const Value &Val) {
-  return Val.getValueID() == Value::InlineAsmVal;
-}
-template <> inline bool isa_impl<Instruction, Value>(const Value &Val) {
-  return Val.getValueID() >= Value::InstructionVal;
-}
-template <> inline bool isa_impl<BasicBlock, Value>(const Value &Val) {
-  return Val.getValueID() == Value::BasicBlockVal;
-}
-template <> inline bool isa_impl<Function, Value>(const Value &Val) {
-  return Val.getValueID() == Value::FunctionVal;
-}
-template <> inline bool isa_impl<GlobalVariable, Value>(const Value &Val) {
-  return Val.getValueID() == Value::GlobalVariableVal;
-}
-template <> inline bool isa_impl<GlobalAlias, Value>(const Value &Val) {
-  return Val.getValueID() == Value::GlobalAliasVal;
-}
-template <> inline bool isa_impl<GlobalValue, Value>(const Value &Val) {
-  return isa<GlobalVariable>(Val) || isa<Function>(Val) ||
-         isa<GlobalAlias>(Val);
-}
-  
+template <> struct isa_impl<Constant, Value> {
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() >= Value::ConstantFirstVal &&
+      Val.getValueID() <= Value::ConstantLastVal;
+  }
+};
+
+template <> struct isa_impl<Argument, Value> {
+  static inline bool doit (const Value &Val) {
+    return Val.getValueID() == Value::ArgumentVal;
+  }
+};
+
+template <> struct isa_impl<InlineAsm, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::InlineAsmVal;
+  }
+};
+
+template <> struct isa_impl<Instruction, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() >= Value::InstructionVal;
+  }
+};
+
+template <> struct isa_impl<BasicBlock, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::BasicBlockVal;
+  }
+};
+
+template <> struct isa_impl<Function, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::FunctionVal;
+  }
+};
+
+template <> struct isa_impl<GlobalVariable, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::GlobalVariableVal;
+  }
+};
+
+template <> struct isa_impl<GlobalAlias, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::GlobalAliasVal;
+  }
+};
+
+template <> struct isa_impl<GlobalValue, Value> { 
+  static inline bool doit(const Value &Val) {
+    return isa<GlobalVariable>(Val) || isa<Function>(Val) ||
+      isa<GlobalAlias>(Val);
+  }
+};
+
+template <> struct isa_impl<MDNode, Value> { 
+  static inline bool doit(const Value &Val) {
+    return Val.getValueID() == Value::MDNodeVal;
+  }
+};
   
 // Value* is only 4-byte aligned.
 template<>

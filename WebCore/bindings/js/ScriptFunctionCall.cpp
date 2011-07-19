@@ -32,7 +32,7 @@
 #include "ScriptFunctionCall.h"
 
 #include "JSDOMBinding.h"
-#include "ScriptString.h"
+#include "JSMainThreadExecState.h"
 #include "ScriptValue.h"
 
 #include <runtime/JSLock.h>
@@ -42,14 +42,7 @@ using namespace JSC;
 
 namespace WebCore {
 
-ScriptFunctionCall::ScriptFunctionCall(const ScriptObject& thisObject, const String& name)
-    : m_exec(thisObject.scriptState())
-    , m_thisObject(thisObject)
-    , m_name(name)
-{
-}
-
-void ScriptFunctionCall::appendArgument(const ScriptObject& argument)
+void ScriptCallArgumentHandler::appendArgument(const ScriptObject& argument)
 {
     if (argument.scriptState() != m_exec) {
         ASSERT_NOT_REACHED();
@@ -58,72 +51,74 @@ void ScriptFunctionCall::appendArgument(const ScriptObject& argument)
     m_arguments.append(argument.jsObject());
 }
 
-void ScriptFunctionCall::appendArgument(const ScriptString& argument)
-{
-    m_arguments.append(jsString(m_exec, argument.ustring()));
-}
-
-void ScriptFunctionCall::appendArgument(const ScriptValue& argument)
+void ScriptCallArgumentHandler::appendArgument(const ScriptValue& argument)
 {
     m_arguments.append(argument.jsValue());
 }
 
-void ScriptFunctionCall::appendArgument(const String& argument)
+void ScriptCallArgumentHandler::appendArgument(const String& argument)
 {
     JSLock lock(SilenceAssertionsOnly);
     m_arguments.append(jsString(m_exec, argument));
 }
 
-void ScriptFunctionCall::appendArgument(const JSC::UString& argument)
+void ScriptCallArgumentHandler::appendArgument(const JSC::UString& argument)
 {
     JSLock lock(SilenceAssertionsOnly);
     m_arguments.append(jsString(m_exec, argument));
 }
 
-void ScriptFunctionCall::appendArgument(const char* argument)
+void ScriptCallArgumentHandler::appendArgument(const char* argument)
 {
     JSLock lock(SilenceAssertionsOnly);
     m_arguments.append(jsString(m_exec, UString(argument)));
 }
 
-void ScriptFunctionCall::appendArgument(JSC::JSValue argument)
+void ScriptCallArgumentHandler::appendArgument(JSC::JSValue argument)
 {
     m_arguments.append(argument);
 }
 
-void ScriptFunctionCall::appendArgument(long argument)
+void ScriptCallArgumentHandler::appendArgument(long argument)
 {
     JSLock lock(SilenceAssertionsOnly);
-    m_arguments.append(jsNumber(m_exec, argument));
+    m_arguments.append(jsNumber(argument));
 }
 
-void ScriptFunctionCall::appendArgument(long long argument)
+void ScriptCallArgumentHandler::appendArgument(long long argument)
 {
     JSLock lock(SilenceAssertionsOnly);
-    m_arguments.append(jsNumber(m_exec, argument));
+    m_arguments.append(jsNumber(argument));
 }
 
-void ScriptFunctionCall::appendArgument(unsigned int argument)
+void ScriptCallArgumentHandler::appendArgument(unsigned int argument)
 {
     JSLock lock(SilenceAssertionsOnly);
-    m_arguments.append(jsNumber(m_exec, argument));
+    m_arguments.append(jsNumber(argument));
 }
 
-void ScriptFunctionCall::appendArgument(unsigned long argument)
+void ScriptCallArgumentHandler::appendArgument(unsigned long argument)
 {
     JSLock lock(SilenceAssertionsOnly);
-    m_arguments.append(jsNumber(m_exec, argument));
+    m_arguments.append(jsNumber(argument));
 }
 
-void ScriptFunctionCall::appendArgument(int argument)
+void ScriptCallArgumentHandler::appendArgument(int argument)
 {
     JSLock lock(SilenceAssertionsOnly);
-    m_arguments.append(jsNumber(m_exec, argument));
+    m_arguments.append(jsNumber(argument));
 }
 
-void ScriptFunctionCall::appendArgument(bool argument)
+void ScriptCallArgumentHandler::appendArgument(bool argument)
 {
     m_arguments.append(jsBoolean(argument));
+}
+
+ScriptFunctionCall::ScriptFunctionCall(const ScriptObject& thisObject, const String& name)
+    : ScriptCallArgumentHandler(thisObject.scriptState())
+    , m_thisObject(thisObject)
+    , m_name(name)
+{
 }
 
 ScriptValue ScriptFunctionCall::call(bool& hadException, bool reportExceptions)
@@ -142,11 +137,11 @@ ScriptValue ScriptFunctionCall::call(bool& hadException, bool reportExceptions)
     }
 
     CallData callData;
-    CallType callType = function.getCallData(callData);
+    CallType callType = getCallData(function, callData);
     if (callType == CallTypeNone)
         return ScriptValue();
 
-    JSValue result = JSC::call(m_exec, function, callType, callData, thisObject, m_arguments);
+    JSValue result = JSMainThreadExecState::call(m_exec, function, callType, callData, thisObject, m_arguments);
     if (m_exec->hadException()) {
         if (reportExceptions)
             reportException(m_exec, m_exec->exception());
@@ -155,7 +150,7 @@ ScriptValue ScriptFunctionCall::call(bool& hadException, bool reportExceptions)
         return ScriptValue();
     }
 
-    return ScriptValue(result);
+    return ScriptValue(m_exec->globalData(), result);
 }
 
 ScriptValue ScriptFunctionCall::call()
@@ -194,6 +189,38 @@ ScriptObject ScriptFunctionCall::construct(bool& hadException, bool reportExcept
     }
 
     return ScriptObject(m_exec, asObject(result));
+}
+
+ScriptCallback::ScriptCallback(ScriptState* state, ScriptValue function)
+    : ScriptCallArgumentHandler(state)
+    , m_function(function)
+{
+}
+
+ScriptValue ScriptCallback::call()
+{
+    bool hadException;
+    return call(hadException);
+}
+
+ScriptValue ScriptCallback::call(bool& hadException)
+{
+    JSLock lock(SilenceAssertionsOnly);
+
+    CallData callData;
+    CallType callType = getCallData(m_function.jsValue(), callData);
+    if (callType == CallTypeNone)
+        return ScriptValue();
+
+    JSValue result = JSC::call(m_exec, m_function.jsValue(), callType, callData, m_function.jsValue(), m_arguments);
+    hadException = m_exec->hadException();
+
+    if (hadException) {
+        reportException(m_exec, m_exec->exception());
+        return ScriptValue();
+    }
+
+    return ScriptValue(m_exec->globalData(), result);
 }
 
 } // namespace WebCore

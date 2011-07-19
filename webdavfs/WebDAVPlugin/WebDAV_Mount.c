@@ -171,6 +171,274 @@ static char* createUTF8CStringFromCFString(CFStringRef in_string)
 	return out_cstring;
 }
 
+static char *
+SkipSeparators(char *bytes)
+{
+    /* skip over slash characters to find firstChar */
+    while ( *bytes != '\0' ) {
+		if ( *bytes == '/' ) {
+			/* skip separator characters */
+			++bytes;
+		} else {
+			/* not a separator character */
+			break;
+		}
+    }
+    return ( bytes );
+}
+
+static void
+ParsePathSegment(char *bytes, char **firstChar, char **lastChar)
+{
+    /* skip over slash characters to find firstChar */
+    *firstChar = bytes = SkipSeparators(bytes);
+    
+    /* skip over non-slash characters */
+    while ( *bytes != '\0' ) {
+		if ( *bytes == '/' ) {
+			/* separator character */
+			break;
+		} else {
+			/* skip non-separator characters */
+			++bytes;
+		}
+    }
+    *lastChar = bytes;
+}
+
+static char *
+CopySegment(char *start, char *endPlusOne)
+{
+    int		length;
+    char	*result;
+    
+    /* get length of segment and allocate space for string */
+    length = endPlusOne - start;
+    result = malloc(length + 1);
+    if ( result != NULL ) {
+		/* copy the segment and terminate the string */
+		strncpy(result, start, length);
+		result[length] = '\0';
+    }
+    return ( result );
+}
+
+/* basename_from_path() parses hostport_abs_path
+ * to get name.
+ * If there are no path segments in abs_path, name is the host.
+ * Otherwise if the host is NOT idisk.mac.com OR abs_path is
+ * only one segment, name is the last path segment.
+ * Otherwise (host is idisk.mac.com AND there are multiple
+ * path segements), name is the first path segment concatenated
+ * with the last path segment separated with a dash character.
+ * name is assumed to be char[MAXNAMLEN].
+ */
+static int
+basename_from_path(const char *hostport_abs_path, char *name, size_t maxlength, int hostisidisk)
+{
+    int		error;
+    char	*path;
+    char	*host;
+    char	*firstPathSegment;
+    char	*lastPathSegment;
+    int		length;
+    char	*colon;
+    char	*slash;
+    char	*firstChar;
+    char	*lastChar;
+    
+    error = 0;
+    path = host = firstPathSegment = lastPathSegment = NULL;
+    
+    /* validate input parameters */
+    if ( (hostport_abs_path == NULL) || (name == NULL) ) {
+		error = EINVAL;
+		goto exit;
+    }
+    
+    /* no output name yet */
+    *name = '\0';
+	
+    /* get length of input */
+    length = strlen(hostport_abs_path);
+    if ( length == 0 ) {
+		error = EINVAL;
+		goto exit;
+    }
+	
+    /* allocate space for path */
+    path = malloc(length + 2); /* one extra for slash if needed */
+    if ( path == NULL ) {
+		error = ENOMEM;
+		goto exit;
+    }
+    /* and make a private copy of hostport_abs_path*/
+    strlcpy(path, hostport_abs_path, length + 2);
+	
+    /* add a trailing slash if needed */
+    if ( path[length] != '/' ) {
+		strcat(path, "/");
+    }
+    
+    /* find the first colon (if any) and the first slash */
+    colon = strchr(path, ':');
+    slash = strchr(path, '/');
+    
+    /* get the host name */
+    if ( (colon == NULL) || (colon > slash) ) {
+		/* if no colon, or the colon is after the slash,
+		 * then there is no port so the host is everything
+		 * up to the slash
+		 */
+		host = CopySegment(path, slash);
+    } else {
+		/* there is a port so the host is everything
+		 * up to the colon
+		 */
+		host = CopySegment(path, colon);
+    }
+    
+    /* find first path segment (if any) */
+    lastChar = slash;
+    ParsePathSegment(lastChar, &firstChar, &lastChar);
+    if (firstChar != lastChar) {
+		/* copy first path segment */
+		firstPathSegment = CopySegment(firstChar, lastChar);
+		percent_decode_in_place(firstPathSegment);
+		
+		/* find last path segment (if any) */
+		while ( *lastChar != '\0' ) {
+			ParsePathSegment(lastChar, &firstChar, &lastChar);
+			if (firstChar != lastChar) {
+				if  ( lastPathSegment != NULL ) {
+					/* free up the previous lastPathSegment */
+					free(lastPathSegment);
+				}
+				/* copy (new) last path segment */
+				lastPathSegment = CopySegment(firstChar, lastChar);
+			}
+		}
+		
+		if ( lastPathSegment != NULL ) {
+			percent_decode_in_place(lastPathSegment);
+			/* is this the iDisk server? */
+			if ( hostisidisk ) {
+				/* iDisk server -- name is "firstPathSegment-lastPathSegment" */
+				
+				/* check length of strings */
+				if ( (strlen(firstPathSegment) + strlen(lastPathSegment) + 2) > maxlength ) {
+					error = ENAMETOOLONG;
+					goto exit;
+				}
+				
+				/* combine strings */
+				strlcpy(name, firstPathSegment, maxlength);
+				strlcat(name, "-", maxlength);
+				strlcat(name, lastPathSegment, maxlength);
+			} else {
+				/* name is lastPathSegment */
+				if ( (strlen(lastPathSegment) + 1) > MAXNAMLEN ) {
+					error = ENAMETOOLONG;
+					goto exit;
+				}
+				
+				strlcpy(name, lastPathSegment, maxlength);
+			}
+		} else {
+			/* no last path segment -- name is firstPathSegment*/
+			if ( (strlen(firstPathSegment) + 1) > MAXNAMLEN ) {
+				error = ENAMETOOLONG;
+				goto exit;
+			}
+			
+			strlcpy(name, firstPathSegment, maxlength);
+		}
+    } else {
+		/* no path segments -- name is host */
+		if ( (strlen(host) + 1) > MAXNAMLEN ) {
+			error = ENAMETOOLONG;
+			goto exit;
+		}
+		
+		strlcpy(name, host, maxlength);
+    }
+	
+exit:
+    /* free up any memory and return any errors */
+    if ( path != NULL ) {
+		free(path);
+    }
+    if ( host != NULL ) {
+		free(host);
+    }
+    if ( firstPathSegment != NULL ) {
+		free(firstPathSegment);
+    }
+    if ( lastPathSegment != NULL ) {
+		free(lastPathSegment);
+    }
+    return ( error );
+}
+
+static int
+create_basename(const char *url, size_t maxlength, char *mountpoint,
+				char *basename, int hostisidisk)
+{
+    const char *namestart;
+    char *slash;
+    char realmountdir[MAXPATHLEN];
+    int error = 0;
+    
+    /* Find the real name of mountdir, by removing all ".", ".." and symlink components.
+     * Any extra "/" characters (including any trailing "/") are removed.
+     */
+    if (realpath(mountpoint, realmountdir) == NULL) {
+		error = errno;
+		goto errorexit;
+    }
+	
+    /* Check for obvious error cases first: */
+    if ((strlen(realmountdir)) + 1 > maxlength) {
+        return(ENAMETOOLONG);
+    }
+	
+    namestart = url;
+	
+    /* First pick out a name we can use */
+	
+    if (strncasecmp (url, HTTP_PREFIX, sizeof(HTTP_PREFIX) - 1) == 0 ||
+		strncasecmp (url, HTTPS_PREFIX, sizeof(HTTPS_PREFIX) - 1) == 0) {
+        /* path starts with http or https so lets skip that */
+#if DEBUG_TRACE
+		syslog(LOG_DEBUG, "WebDAV create_basename: stripping off HTTP(S)_PREFIX...\n");
+#endif
+        slash = strchr(url,'/');
+        if (slash) {
+			namestart = slash + 1;
+			while (*namestart == '/') {
+				++namestart;
+			}
+        }
+#if DEBUG_TRACE
+        syslog(LOG_DEBUG, "WebDAV create_basename: resulting name = '%s'...\n", namestart);
+#endif
+    }
+	
+    /* create a basename from the path and check the host for idisk */
+    error = basename_from_path(namestart, basename, maxlength, hostisidisk);
+    if ( error != 0 ) {
+		return ( error );
+    }
+    
+#if DEBUG_TRACE
+		syslog(LOG_DEBUG, "WebDAV create_basename: uniquename = '%s'...\n", basename);
+#endif
+	
+errorexit:
+	
+    return(error);
+} /* create_basename */
+
 static int
 GetMountURI(const char *arguri, char dst_buf[], size_t mntfrom_size)
 {
@@ -391,7 +659,7 @@ static int cfurl_is_idisk(CFURLRef url)
 	
 	if (cstr == NULL)
 		return (found_idisk);
-	
+
 	host_len = strlen(cstr);
 	idisk_server = idisk_server_names;
 	
@@ -418,7 +686,7 @@ static int curl_is_idisk(const char* url)
 	size_t len, shortest_len, url_len;
 	char*  colon;
 	char** idisk_server;
-	
+
 	found_idisk = FALSE;
 	
 	if (url == NULL)
@@ -440,7 +708,7 @@ static int curl_is_idisk(const char* url)
 	
 	if (strlen(colon) < shortest_len)
 		return (found_idisk);	// too short, not an idisk server name
-	
+
     /*
      * Move colon past "://".  We've already verified that
      * colon is at least as long as the shortest iDisk server name
@@ -460,7 +728,7 @@ static int curl_is_idisk(const char* url)
 		}
 		idisk_server++;
 	}
-	
+
 	return (found_idisk);
 }
 
@@ -478,7 +746,7 @@ WebDAVMountURL(const char *url,
 			   u_int32_t options)
 {
     int fd = -1;
-/*    char basename[MAXNAMLEN]; */
+    char basename[MAXNAMLEN];
     int error;
     int hostisidisk = FALSE;
 	
@@ -490,10 +758,14 @@ WebDAVMountURL(const char *url,
 	
     hostisidisk = curl_is_idisk(url);
 	
+    if ((error = create_basename(url, MAXNAMLEN, mountpoint, basename, hostisidisk)) != 0)
+        goto error;
+	
     if ((username != NULL) || (proxy_username != NULL)) {
-        char template[sizeof(WEBDAV_TEMPLATE)+1];
+		size_t len = sizeof(WEBDAV_TEMPLATE) + 1;
+        char template[len];
 		
-		strcpy(template, WEBDAV_TEMPLATE);
+		strlcpy(template, WEBDAV_TEMPLATE, len);
         if ((fd = mkstemp(template)) != -1) {
 			size_t len;
 			uint32_t be_len;
@@ -558,7 +830,7 @@ WebDAVMountURL(const char *url,
 		   url, mountpoint);
 #endif
 	
-    if (error = AttemptMount(url, mountpoint, options, fd, NULL, hostisidisk)) {
+    if (error = AttemptMount(url, mountpoint, options, fd, basename, hostisidisk)) {
 #if DEBUG_TRACE
 		syslog(LOG_DEBUG, 
 			   "WebDAV_MountURLWithAuthentication: AttemptMount returned %d\n", 
@@ -1206,14 +1478,14 @@ netfsError WebDAV_OpenSession(CFURLRef in_URL,
 		// Remove user name and password from the URL
 		// before passing to webdavlib
 		a_url = copyStripUserPassFromCFURL(in_URL);
-
+		
 		if (cfurl_is_idisk(a_url)) {
 			// iDisk server - we require credentials to be sent securely
 			authStat = connectToServer(a_url, serverCredsDict, TRUE, &error);
 		}
 		else
 			authStat = connectToServer(a_url, serverCredsDict, FALSE, &error);
-		
+
 		CFReleaseNull(a_url);
 		
 		switch (authStat) {

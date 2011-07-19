@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Alex Milowski (alex@milowski.com). All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -36,29 +37,24 @@ namespace WebCore {
     
 using namespace MathMLNames;
 
-MathMLTextElement::MathMLTextElement(const QualifiedName& tagName, Document* document)
+inline MathMLTextElement::MathMLTextElement(const QualifiedName& tagName, Document* document)
     : MathMLElement(tagName, document)
 {
 }
 
 PassRefPtr<MathMLTextElement> MathMLTextElement::create(const QualifiedName& tagName, Document* document)
 {
-    return new MathMLTextElement(tagName, document);
+    return adoptRef(new MathMLTextElement(tagName, document));
 }
 
 RenderObject* MathMLTextElement::createRenderer(RenderArena* arena, RenderStyle* style)
 {
-    if (hasLocalName(MathMLNames::moTag)) {
-        RenderObject* object = new (arena) RenderMathMLOperator(this);
-        object->setStyle(style);
-        return object;
-    }
+    if (hasLocalName(MathMLNames::moTag))
+        return new (arena) RenderMathMLOperator(this);
 
-    return RenderObject::createObject(this, style);
+    return MathMLElement::createRenderer(arena, style);
 }
 
-    
 }
 
 #endif // ENABLE(MATHML)
-

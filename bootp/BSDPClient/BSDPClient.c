@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2002-2004, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -152,7 +152,11 @@ struct BSDPClient_s {
     CFRunLoopSourceRef			rls;
     interface_t *			if_p;
     u_int32_t				xid;
-    char				send_buf[2048];
+    /*
+     * send_buf is cast to some struct types containing short fields;
+     * force it to be aligned as much as an int
+     */
+    int					send_buf[512];
     BSDPClientState			state;
     CFRunLoopTimerRef			timer;
     BSDPClientTimerCallBack		timer_callback;
@@ -172,24 +176,6 @@ struct BSDPClient_s {
     } callback;
 
 };
-
-static Boolean
-cfstring_to_ip(CFStringRef str, struct in_addr * ip_p)
-{
-    char        buf[32];
-
-    if (isA_CFString(str) == NULL) {
-	goto done;
-    }
-    (void)_SC_cfstring_to_cstring(str, buf, sizeof(buf), 
-				  kCFStringEncodingASCII);
-    if (inet_pton(AF_INET, buf, ip_p) == 1) {
-	return (TRUE);
-    }
- done:
-    ip_p->s_addr = 0;
-    return (FALSE);
-}
 
 /* 
  * Function: mySCNetworkServicePathCopyServiceID
@@ -312,13 +298,17 @@ get_dhcp_address(const char * ifname, struct in_addr * ret_ip)
 	/* grab the IP address for this IPv4 dict */
 	addrs = CFDictionaryGetValue(ipv4_dict, kSCPropNetIPv4Addresses);
 	if (isA_CFArray(addrs) != NULL && CFArrayGetCount(addrs) > 0
-	    && cfstring_to_ip(CFArrayGetValueAtIndex(addrs, 0), ret_ip)) {
+	    && my_CFStringToIPAddress(CFArrayGetValueAtIndex(addrs, 0),
+				      ret_ip)) {
 	    ret = TRUE;
 	}
 	break;
     }
     
  done:
+    if (ifname_cf != NULL) {
+	CFRelease(ifname_cf);
+    }
     if (values != NULL) {
 	free(values);
     }
@@ -457,13 +447,15 @@ SystemIdentifierCopy()
     return (NULL);
 }
 
+#define RX_BUF_SIZE		(8 * 1024)
+
 static struct dhcp * 
 make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
 		  dhcp_msgtype_t msg, u_char * hwaddr, u_char hwtype, 
 		  u_char hwlen, dhcpoa_t * options_p)
 {
     char	vendor_class_id[DHCP_OPTION_SIZE_MAX];
-    u_int16_t	max_message_size = htons(1500); /* max receive size */
+    uint16_t	max_dhcp_message_size = htons(ETHERMTU);
 
     bzero(request, pkt_size);
     request->dp_op = BOOTREQUEST;
@@ -493,7 +485,7 @@ make_bsdp_request(char * system_id, struct dhcp * request, int pkt_size,
     }
     /* add the max message size */
     if (dhcpoa_add(options_p, dhcptag_max_dhcp_message_size_e,
-		   sizeof(max_message_size), &max_message_size)
+		   sizeof(max_dhcp_message_size), &max_dhcp_message_size)
 	!= dhcpoa_success_e) {
 	fprintf(stderr, "make_bsdp_request: "
 	       "couldn't add max message size, %s",
@@ -706,7 +698,7 @@ BSDPClientProcess(CFSocketRef s, CFSocketCallBackType type,
     void *			opt;
     int				opt_len;
     dhcpol_t			options;
-    char			receive_buf[1500];
+    uint32_t			receive_buf[RX_BUF_SIZE / sizeof(uint32_t)];
     struct dhcp *		reply;
     struct in_addr		server_ip;
 
@@ -1173,8 +1165,8 @@ BSDPClientProcessList(BSDPClientRef client, struct in_addr server_ip,
 	selected_image_id = ntohl(*((bsdp_image_id_t *)opt));
     }
     /* get the list of images */
-    image_list = dhcpol_get(bsdp_options_p, bsdptag_boot_image_list_e,
-			    &image_list_len);
+    image_list = dhcpol_option_copy(bsdp_options_p, bsdptag_boot_image_list_e,
+				    &image_list_len);
     if (image_list == NULL) {
 	goto done;
     }
@@ -1213,6 +1205,7 @@ BSDPClientSendListRequest(BSDPClientRef client)
     char		buf[DHCP_PACKET_MIN];
     struct in_addr	ip_broadcast;
     dhcpoa_t		options;
+    uint16_t		max_message_size = htons(RX_BUF_SIZE); /* max receive size */
     unsigned char	msgtype;
     u_int16_t		port = htons(client->client_port);
     struct dhcp *	request;
@@ -1262,6 +1255,14 @@ BSDPClientSendListRequest(BSDPClientRef client)
 		dhcpoa_err(&bsdp_options));
 	goto failed;
     }
+    if (dhcpoa_add(&bsdp_options, bsdptag_max_message_size_e,
+		   sizeof(max_message_size), &max_message_size)
+	!= dhcpoa_success_e) {
+	fprintf(stderr,
+		"BSDPClientSendListRequest add max message size failed, %s",
+		dhcpoa_err(&bsdp_options));
+	goto failed;
+    }
     if (client->n_attrs > 0) {
 	if (dhcpoa_add(&bsdp_options,bsdptag_image_attributes_filter_list_e,
 		       client->n_attrs * sizeof(client->attrs[0]),
@@ -1293,7 +1294,7 @@ BSDPClientSendListRequest(BSDPClientRef client)
 	/* pad out to BOOTP-sized packet */
 	request_size = sizeof(struct bootp);
     }
-    if (bootp_transmit(client->fd, client->send_buf,
+    if (bootp_transmit(client->fd, (char *)client->send_buf,
 		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
 		       ip_broadcast, client->our_ip,
 		       IPPORT_BOOTPS, client->client_port,
@@ -1491,7 +1492,7 @@ BSDPClientSendSelectRequest(BSDPClientRef client)
 	request_size = sizeof(struct bootp);
     }
     /* send the packet */
-    if (bootp_transmit(client->fd, client->send_buf,
+    if (bootp_transmit(client->fd, (char *)client->send_buf,
 		       if_name(client->if_p), ARPHRD_ETHER, NULL, 0,
 		       ip_broadcast, client->our_ip,
 		       IPPORT_BOOTPS, client->client_port,
@@ -1544,7 +1545,7 @@ BSDPClientSelect(BSDPClientRef client,
     struct timeval	t;
     BSDPClientStatus	status = kBSDPClientStatusAllocationError;
 
-    (void)cfstring_to_ip(ServerAddress, &client->callback.server_ip);
+    (void)my_CFStringToIPAddress(ServerAddress, &client->callback.server_ip);
     client->state = kBSDPClientStateInit;
     BSDPClientCancelTimer(client);
     if (callback == NULL

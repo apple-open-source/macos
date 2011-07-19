@@ -84,6 +84,14 @@ int done;
 int mark;
 
 /*
+ * Status ($?) saved before function entry.  This is the
+ * status we need to use in prompts.
+ */
+
+/**/
+static int pre_zle_status;
+
+/*
  * Last character pressed.
  *
  * Depending how far we are with processing, the lastcharacter may
@@ -585,7 +593,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    fds[i+1].events = POLLIN;
 	}
 # endif
-	do {
+	for (;;) {
 # ifdef HAVE_POLL
 	    int poll_timeout;
 
@@ -694,6 +702,19 @@ raw_getbyte(long do_keytmout, char *cptr)
 	    /* If error or unhandled timeout, give up. */
 	    if (selret < 0)
 		break;
+	    /*
+	     * If there's user input handle it straight away.
+	     * This improves the user's ability to handle exceptional
+	     * conditions like runaway output.
+	     */
+	    if (
+# ifdef HAVE_POLL
+		 (fds[0].revents & POLLIN)
+# else
+		 FD_ISSET(SHTTY, &foofd)
+# endif
+		 )
+		break;
 	    if (nwatch && !errtry) {
 		/*
 		 * Copy the details of the watch fds in case the
@@ -755,13 +776,7 @@ raw_getbyte(long do_keytmout, char *cptr)
 		zfree(lwatch_fds, lnwatch*sizeof(int));
 		freearray(lwatch_funcs);
 	    }
-	} while (!
-# ifdef HAVE_POLL
-		 (fds[0].revents & POLLIN)
-# else
-		 FD_ISSET(SHTTY, &foofd)
-# endif
-		 );
+	}
 # ifdef HAVE_POLL
 	zfree(fds, sizeof(struct pollfd) * nfds);
 # endif
@@ -1100,7 +1115,6 @@ zleread(char **lp, char **rp, int flags, int context)
     char *s;
     int old_errno = errno;
     int tmout = getiparam("TMOUT");
-    Thingy initthingy;
 
 #if defined(HAVE_POLL) || defined(HAVE_SELECT)
     /* may not be set, but that's OK since getiparam() returns 0 == off */
@@ -1118,10 +1132,16 @@ zleread(char **lp, char **rp, int flags, int context)
 	pptbuf = unmetafy(promptexpand(lp ? *lp : NULL, 0, NULL, NULL,
 				       &pmpt_attr),
 			  &pptlen);
-	write(2, (WRITE_ARG_2_T)pptbuf, pptlen);
+	write_loop(2, pptbuf, pptlen);
 	free(pptbuf);
 	return shingetline();
     }
+    /*
+     * The current status is what we need if we are going
+     * to display a prompt.  We'll remember it here for
+     * use further in.
+     */
+    pre_zle_status = lastval;
 
     keytimeout = (time_t)getiparam("KEYTIMEOUT");
     if (!shout) {
@@ -1194,16 +1214,15 @@ zleread(char **lp, char **rp, int flags, int context)
 
     zrefresh();
 
-    if ((initthingy = rthingy_nocreate("zle-line-init"))) {
-	char *args[2];
-	args[0] = initthingy->nam;
-	args[1] = NULL;
-	execzlefunc(initthingy, args, 1);
-	unrefthingy(initthingy);
-	errflag = retflag = 0;
-    }
+    zlecallhook("zle-line-init", NULL);
 
     zlecore();
+
+    if (errflag)
+	setsparam("ZLE_LINE_ABORTED", zlegetline(NULL, NULL));
+
+    if (done && !exit_pending && !errflag)
+	zlecallhook("zle-line-finish", NULL);
 
     statusline = NULL;
     invalidatelist();
@@ -1442,7 +1461,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     Value v;
     Param pm = 0;
     int ifl;
-    int type = PM_SCALAR, obreaks = breaks, haso = 0;
+    int type = PM_SCALAR, obreaks = breaks, haso = 0, oSHTTY = 0;
     char *p1, *p2, *main_keymapname, *vicmd_keymapname;
     Keymap main_keymapsave = NULL, vicmd_keymapsave = NULL;
     FILE *oshout = NULL;
@@ -1551,10 +1570,20 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
 	s = ztrdup(s);
     }
 
-    if (SHTTY == -1) {
+    if (SHTTY == -1 || OPT_ISSET(ops,'t')) {
 	/* need to open /dev/tty specially */
-	if ((SHTTY = open("/dev/tty", O_RDWR|O_NOCTTY)) == -1) {
+	oSHTTY = SHTTY;
+	if ((SHTTY = open(OPT_ISSET(ops,'t') ? OPT_ARG(ops,'t') : "/dev/tty",
+			  O_RDWR|O_NOCTTY)) == -1) {
 	    zwarnnam(name, "can't access terminal");
+	    zsfree(s);
+	    return 1;
+	}
+	if (!isatty(SHTTY)) {
+	    zwarnnam(name, "%s: not a terminal", OPT_ARG(ops,'t'));
+	    close(SHTTY);
+	    SHTTY = oSHTTY;
+	    zsfree(s);
 	    return 1;
 	}
 	oshout = shout;
@@ -1589,7 +1618,7 @@ bin_vared(char *name, char **args, Options ops, UNUSED(int func))
     if (haso) {
 	fclose(shout);	/* close(SHTTY) */
 	shout = oshout;
-	SHTTY = -1;
+	SHTTY = oSHTTY;
     }
     if (!t || errflag) {
 	/* error in editing */
@@ -1726,6 +1755,14 @@ reexpandprompt(void)
     static int reexpanding;
 
     if (!reexpanding++) {
+	/*
+	 * If we're displaying a status in the prompt, it
+	 * needs to be the toplevel one, not the one from
+	 * any status set within the local zle function.
+	 */
+	int local_lastval = lastval;
+	lastval = pre_zle_status;
+
 	free(lpromptbuf);
 	lpromptbuf = promptexpand(raw_lp ? *raw_lp : NULL, 1, NULL, NULL,
 				  &pmpt_attr);
@@ -1733,6 +1770,7 @@ reexpandprompt(void)
 	free(rpromptbuf);
 	rpromptbuf = promptexpand(raw_rp ? *raw_rp : NULL, 1, NULL, NULL,
 				  &rpmpt_attr);
+	lastval = local_lastval;
     }
     reexpanding--;
 }
@@ -1879,7 +1917,7 @@ zle_main_entry(int cmd, va_list ap)
 
 static struct builtin bintab[] = {
     BUILTIN("bindkey", 0, bin_bindkey, 0, -1, 0, "evaM:ldDANmrsLRp", NULL),
-    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcehM:m:p:r:", NULL),
+    BUILTIN("vared",   0, bin_vared,   1,  1, 0, "aAcehM:m:p:r:t:", NULL),
     BUILTIN("zle",     0, bin_zle,     0, -1, 0, "aAcCDFgGIKlLmMNRU", NULL),
 };
 

@@ -38,8 +38,10 @@
 #include <sys/socket.h>	/* XXX for subjectaltname */
 #include <netinet/in.h>	/* XXX for subjectaltname */
 
+#ifdef HAVE_OPENSSL
 #include <openssl/pkcs7.h>
 #include <openssl/x509.h>
+#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -87,46 +89,61 @@
 #include "sainfo.h"
 #include "proposal.h"
 #include "crypto_openssl.h"
-#ifdef __APPLE__
 #include "crypto_cssm.h"
 #if HAVE_OPENDIR
 #include "open_dir.h"
-#endif
 #endif
 #include "dnssec.h"
 #include "sockmisc.h"
 #include "strnames.h"
 #include "gcmalloc.h"
+#ifdef HAVE_OPENSSL
 #include "rsalist.h"
-#ifdef __APPLE__
-#include <CoreFoundation/CoreFoundation.h>
 #endif
+#include <CoreFoundation/CoreFoundation.h>
 #include "remoteconf.h"
 #include "vpn_control.h"
-
+#if TARGET_OS_EMBEDDED
+#include <Security/SecCertificate.h>
+#include <Security/SecCertificatePriv.h>
+#endif
 #ifdef HAVE_GSSAPI
 #include "gssapi.h"
 #endif
+#include "vpn_control_var.h"
 
 #define OUTBOUND_SA	0
 #define INBOUND_SA	1
 
-#ifdef __APPLE__
 #define CERT_CHECKID_FROM_PEER 		0
 #define CERT_CHECKID_FROM_RMCONFIG	1
-#endif
 
+#ifdef HAVE_OPENSSL
 #define INITDHVAL(a, s, d, t)                                                  \
 do {                                                                           \
-	vchar_t buf;                                                           \
-	buf.v = str2val((s), 16, &buf.l);                                      \
-	memset(&a, 0, sizeof(struct dhgroup));                                 \
-	a.type = (t);                                                          \
-	a.prime = vdup(&buf);                                                  \
-	a.gen1 = 2;                                                            \
-	a.gen2 = 0;                                                            \
-	racoon_free(buf.v);                                                    \
+vchar_t buf;                                                           \
+buf.v = str2val((s), 16, &buf.l);                                      \
+memset(&a, 0, sizeof(struct dhgroup));                                 \
+a.type = (t);                                                          \
+a.prime = vdup(&buf);                                                  \
+a.gen1 = 2;                                                            \
+a.gen2 = 0;                                                            \
+racoon_free(buf.v);                                                    \
 } while(0);
+#else /* HAVE_OPENSSL */
+#define INITDHVAL(a, s, d, t)                                                  \
+do {                                                                           \
+vchar_t buf;                                                           \
+buf.v = str2val((s), 16, &buf.l);                                      \
+memset(&a, 0, sizeof(struct dhgroup));                                 \
+a.desc = (d);															\
+a.type = (t);                                                          \
+a.prime = vdup(&buf);                                                  \
+a.gen1 = 2;                                                            \
+a.gen2 = 0;                                                            \
+racoon_free(buf.v);                                                    \
+} while(0);
+#endif /* HAVE_OPENSSL */
 
 struct dhgroup dh_modp768;
 struct dhgroup dh_modp1024;
@@ -141,21 +158,32 @@ struct dhgroup dh_modp8192;
 static int oakley_check_dh_pub __P((vchar_t *, vchar_t **));
 static int oakley_compute_keymat_x __P((struct ph2handle *, int, int));
 static int get_cert_fromlocal __P((struct ph1handle *, int));
+#ifdef HAVE_OPENSSL
 static int get_plainrsa_fromlocal __P((struct ph1handle *, int));
-#ifdef __APPLE__
-static int oakley_check_certid __P((struct ph1handle *iph1, int));
-static int oakley_check_certid_1 __P((struct ph1handle*, int, int, void*));
-#else
-static int oakley_check_certid __P((struct ph1handle *iph1));
 #endif
+static int oakley_check_certid __P((struct ph1handle *iph1, int));
+static int oakley_check_certid_1 __P((vchar_t *, int, int, void*, cert_status_t *certStatus));
 static int check_typeofcertname __P((int, int));
 static cert_t *save_certbuf __P((struct isakmp_gen *));
+#ifdef HAVE_OPENSSL
 static cert_t *save_certx509 __P((X509 *));
+#endif
 static int oakley_padlen __P((int, int));
 
-#ifdef __APPLE__
 static int base64toCFData(vchar_t *, CFDataRef*);
+static cert_t *oakley_appendcert_to_certchain(cert_t *, cert_t *);
+
+static void oakley_cert_prettyprint (vchar_t *cert)
+{
+	char *p = NULL;
+#ifdef HAVE_OPENSSL
+	p = eay_get_x509text(cert);
+#else
+	/* add new cert dump code here */
 #endif
+	plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
+	racoon_free(p);
+}
 
 int
 oakley_get_defaultlifetime()
@@ -245,10 +273,9 @@ oakley_check_dh_pub(prime, pub0)
  * IN:	*dh, *pub, *priv, *pub_p
  * OUT: **gxy
  */
+#ifdef HAVE_OPENSSL
 int
-oakley_dh_compute(dh, pub, priv, pub_p, gxy)
-	const struct dhgroup *dh;
-	vchar_t *pub, *priv, *pub_p, **gxy;
+oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub, vchar_t *priv, vchar_t *pub_p, vchar_t **gxy)
 {
 #ifdef ENABLE_STATS
 	struct timeval start, end;
@@ -293,12 +320,69 @@ oakley_dh_compute(dh, pub, priv, pub_p, gxy)
 
 	return 0;
 }
+#else
+int
+oakley_dh_compute(const struct dhgroup *dh, vchar_t *pub_p, size_t publicKeySize, vchar_t **gxy, SecDHContext dhC)
+{
+	
+	vchar_t *computed_key = NULL;
+	size_t	computed_keylen;
+	size_t	maxKeyLen;
+	
+#ifdef ENABLE_STATS
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+#endif
+	
+	plog(LLV_DEBUG, LOCATION, NULL, "compute DH result.\n");
+
+	maxKeyLen = SecDHGetMaxKeyLength(dhC);
+	computed_key = vmalloc(maxKeyLen);
+	if (computed_key == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+		goto fail;
+	}
+	computed_keylen = computed_key->l;
+	if (SecDHComputeKey(dhC, pub_p->v + (maxKeyLen - publicKeySize), publicKeySize, 
+						computed_key->v, &computed_keylen)) {
+		plog(LLV_ERROR, LOCATION, NULL, "failed to compute dh value.\n");
+		goto fail;
+	}
+	
+#ifdef ENABLE_STATS
+	gettimeofday(&end, NULL);
+	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+		   s_attr_isakmp_group(dh->type), dh->prime->l << 3,
+		   timedelta(&start, &end));
+#endif
+	
+	*gxy = vmalloc(maxKeyLen);
+	if (*gxy == NULL) {
+		plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+		goto fail;
+	}
+	memcpy((*gxy)->v + (maxKeyLen - computed_keylen), computed_key->v, computed_keylen);
+	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's shared.\n");
+	plogdump(LLV_DEBUG, (*gxy)->v, (*gxy)->l);
+	SecDHDestroy(dhC);
+	vfree(computed_key);
+	return 0;
+	
+fail:
+	SecDHDestroy(dhC);
+	vfree(*gxy);
+	vfree(computed_key);
+	return -1;
+}
+
+#endif
 
 /*
  * generate values of DH
  * IN:	*dh
  * OUT: **pub, **priv
  */
+#ifdef HAVE_OPENSSL
 int
 oakley_dh_generate(dh, pub, priv)
 	const struct dhgroup *dh;
@@ -345,6 +429,90 @@ oakley_dh_generate(dh, pub, priv)
 
 	return 0;
 }
+#else
+int
+oakley_dh_generate(const struct dhgroup *dh, vchar_t **pub, size_t *publicKeySize, SecDHContext *dhC)
+{
+	vchar_t *public = NULL;
+	size_t maxKeyLen; 
+	
+#ifdef ENABLE_STATS
+	struct timeval start, end;
+	gettimeofday(&start, NULL);
+#endif
+		
+	plog(LLV_DEBUG, LOCATION, NULL, "generate DH key pair.\n");
+	*pub = NULL;
+	switch (dh->type) {
+		case OAKLEY_ATTR_GRP_TYPE_MODP:
+			if (dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1024 && dh->desc != OAKLEY_ATTR_GRP_DESC_MODP1536) {
+				plog(LLV_ERROR, LOCATION, NULL, "Invalid dh group.\n");
+				goto fail;
+			}	
+			if (SecDHCreate(dh->desc, dh->prime->v, dh->prime->l, 0, NULL, 0, dhC)) {
+				plog(LLV_ERROR, LOCATION, NULL, "failed to create dh context.\n");
+				goto fail;
+			}
+			maxKeyLen = SecDHGetMaxKeyLength(*dhC);
+			public = vmalloc(maxKeyLen);
+			*publicKeySize = public->l;
+			if (public == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+				goto fail;
+			}
+			if (SecDHGenerateKeypair(*dhC, public->v, publicKeySize)) {
+				plog(LLV_ERROR, LOCATION, NULL, "failed to generate dh key pair.\n");
+				goto fail;
+			}
+			plog(LLV_DEBUG, LOCATION, NULL, "got DH key pair.\n");
+			
+			*pub = vmalloc(maxKeyLen);
+			if (*pub == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+				goto fail;
+			}			
+			/* copy and fill with leading zeros */
+			memcpy((*pub)->v + (maxKeyLen - *publicKeySize), public->v, *publicKeySize);	
+			break;
+			
+		case OAKLEY_ATTR_GRP_TYPE_ECP:
+		case OAKLEY_ATTR_GRP_TYPE_EC2N:
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "dh type %d isn't supported.\n", dh->type);
+			goto fail;
+		default:
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "invalid dh type %d.\n", dh->type);
+			goto fail;
+	}
+	
+#ifdef ENABLE_STATS
+	gettimeofday(&end, NULL);
+	syslog(LOG_NOTICE, "%s(%s%d): %8.6f", __func__,
+		   s_attr_isakmp_group(dh->type), dh->prime->l << 3,
+		   timedelta(&start, &end));
+#endif
+	
+	if (oakley_check_dh_pub(dh->prime, pub) != 0) {
+		plog(LLV_DEBUG, LOCATION, NULL, "failed DH public key size check.\n");
+		goto fail;
+	}
+	
+	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's private.\n");
+	plog(LLV_DEBUG, LOCATION, NULL, "compute DH's public.\n");
+	plogdump(LLV_DEBUG, (*pub)->v, (*pub)->l);
+	
+	vfree(public);
+	return 0;
+	
+fail:
+	SecDHDestroy(*dhC);
+	vfree(*pub);
+	vfree(public);
+	return -1;
+	
+}
+#endif
 
 /*
  * copy pre-defined dhgroup values.
@@ -464,8 +632,12 @@ oakley_compute_keymat(iph2, side)
 
 	/* compute sharing secret of DH when PFS */
 	if (iph2->approval->pfs_group && iph2->dhpub_p) {
+#ifdef HAVE_OPENSSL
 		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub,
-				iph2->dhpriv, iph2->dhpub_p, &iph2->dhgxy) < 0)
+							  iph2->dhpriv, iph2->dhpub_p, &iph2->dhgxy) < 0)
+#else
+		if (oakley_dh_compute(iph2->pfsgrp, iph2->dhpub_p, iph2->publicKeySize, &iph2->dhgxy, iph2->dhC) < 0)
+#endif
 			goto end;
 	}
 
@@ -1250,6 +1422,81 @@ end:
 	return res;
 }
 
+#if HAVE_OPENDIR
+static int
+oakley_verify_userid(iph1)
+	struct ph1handle *iph1;
+{
+	cert_t  *p;
+	vchar_t *user_id;
+	int      user_id_found = 0;
+
+	for (p = iph1->cert_p; p; p = p->chain) {
+		user_id = eay_get_x509_common_name(&p->cert);
+		if (user_id) {
+			user_id_found = 1;
+			// the following functions will check if user_id == 0
+			if (open_dir_authorize_id(user_id, iph1->rmconf->open_dir_auth_group)) {
+				vfree(user_id);
+				return 0;
+			}
+			vfree(user_id);
+		}
+	}
+	if (user_id_found) {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "the peer is not authorized for access.\n");
+	} else {
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "the peer is not authorized for access - user ID not found.\n");
+	}
+	return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
+}
+#endif /* HAVE_OPENDIR */
+
+#ifdef HAVE_OPENSSL
+static int
+oakley_verify_x509sign(certchain, my_hash, my_sig)
+	cert_t *certchain;
+	vchar_t *my_hash;
+	vchar_t *my_sig;
+{
+	cert_t *p;
+	int     result = -1;
+
+	for (p = certchain; p; p = p->chain) {
+		if ((result = eay_check_x509sign(my_hash,
+										 my_sig,
+										 &p->cert)) == 0) {
+			break;
+		}
+	}
+	return result;
+}
+#endif
+#ifdef HAVE_OPENSSL
+static int
+oakley_check_x509cert(certchain, capath, cafile, local)
+	cert_t *certchain;
+	char   *capath;
+	char   *cafile;
+	int     local;
+{
+	cert_t *p;
+	int     result = 0;
+
+	for (p = certchain; p; p = p->chain) {
+		if ((result = eay_check_x509cert(&p->cert,
+										 capath, 
+										 cafile,
+										 local))) {
+			break;
+		}
+	}
+	return result;
+}
+#endif /* HAVE_OPENSSL */
+
 /*
  * compute each authentication method in phase 1.
  * OUT:
@@ -1269,6 +1516,9 @@ oakley_validate_auth(iph1)
 #endif
 #ifdef ENABLE_STATS
 	struct timeval start, end;
+#endif
+#if TARGET_OS_EMBEDDED
+	SecKeyRef publicKeyRef;
 #endif
 
 #ifdef ENABLE_STATS
@@ -1375,6 +1625,7 @@ oakley_validate_auth(iph1)
 				return ISAKMP_INTERNAL_ERROR;
 			}
 			break;
+#ifdef HAVE_OPENSSL
 		case ISAKMP_GETCERT_LOCALFILE:
 			switch (iph1->rmconf->certtype) {
 				case ISAKMP_CERT_X509SIGN:
@@ -1400,6 +1651,7 @@ oakley_validate_auth(iph1)
 			if (error)
 				return ISAKMP_INTERNAL_ERROR;
 			break;
+#endif
 		case ISAKMP_GETCERT_DNS:
 			if (iph1->rmconf->peerscertfile != NULL) {
 				plog(LLV_ERROR, LOCATION, NULL,
@@ -1430,14 +1682,8 @@ oakley_validate_auth(iph1)
 
 		/* compare ID payload and certificate name */
 		if (iph1->rmconf->verify_cert &&
-#ifdef __APPLE__
 		    (error = oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)) != 0)
-#else
-			(error = oakley_check_certid(iph1)) != 0)
-#endif
 			return error;
-			
-#ifdef __APPLE__
 
 		/* check configured peers identifier against cert IDs 		  		*/
 		/* allows checking of specified ID against multiple ids in the cert */
@@ -1451,27 +1697,11 @@ oakley_validate_auth(iph1)
 #if HAVE_OPENDIR
 		/* check cert common name against Open Directory authentication group */
 		if (iph1->rmconf->cert_verification_option == VERIFICATION_OPTION_OPEN_DIR) {
-			
-			vchar_t *user_id = NULL;
-			
-			user_id = eay_get_x509_common_name(&iph1->cert_p->cert);
-			if (user_id) {
-				// the following functions will check if user_id == 0
-				if (open_dir_authorize_id(user_id, iph1->rmconf->open_dir_auth_group) == 0) {
-					plog(LLV_ERROR, LOCATION, NULL,
-					"the peer is not authorized for access.\n");
-					vfree(user_id);
-					return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
-				}
-				vfree(user_id);
-			} else {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"the peer is not authorized for access - user ID not found.\n");
-					return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
+			if (oakley_verify_userid(iph1)) {
+				return ISAKMP_NTYPE_AUTHENTICATION_FAILED;
 			}
 		}
 #endif /* HAVE_OPENDIR */
-#endif /* __APPLE__ */
 
 		/* verify certificate */
 		if (iph1->rmconf->verify_cert
@@ -1521,17 +1751,17 @@ oakley_validate_auth(iph1)
 					} else
 						hostname = CFStringCreateWithBytes(NULL, (u_int8_t *)id_spec->id->v, id_spec->id->l, kCFStringEncodingUTF8, FALSE);
 				}
-				error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, hostname, iph1->cert_p->status);
+				error = crypto_cssm_check_x509cert(oakley_get_peer_cert_from_certchain(iph1), iph1->cert_p, hostname, &publicKeyRef);
 				if (hostname)
 					CFRelease(hostname);
 			}
 			
 #else /* TARGET_OS_EMBEDDED */
-#ifdef __APPLE__
 				if (iph1->rmconf->cert_verification == VERIFICATION_MODULE_SEC_FRAMEWORK)
-					error = crypto_cssm_check_x509cert(&iph1->cert_p->cert, NULL, iph1->cert_p->status);
+					error = crypto_cssm_check_x509cert(oakley_get_peer_cert_from_certchain(iph1),
+													   iph1->cert_p,
+													   NULL);
 				else 
-#endif /* __APPLE__ */
 				{
 					char path[MAXPATHLEN];
 					char *ca;
@@ -1545,9 +1775,9 @@ oakley_validate_auth(iph1)
 						ca = NULL;
 					}
 
-					error = eay_check_x509cert(&iph1->cert_p->cert,
-						lcconf->pathinfo[LC_PATHTYPE_CERT], 
-						ca, 0);
+					error = oakley_check_x509cert(iph1->cert_p,
+												  lcconf->pathinfo[LC_PATHTYPE_CERT], 
+												  ca, 0);
 				}
 #endif /* TARGET_OS_EMBEDDED */
 				break;
@@ -1602,16 +1832,24 @@ oakley_validate_auth(iph1)
 		switch (certtype) {
 		case ISAKMP_CERT_X509SIGN:
 		case ISAKMP_CERT_DNS:
-			error = eay_check_x509sign(my_hash,
-					iph1->sig_p,
-					&iph1->cert_p->cert);
+#if TARGET_OS_EMBEDDED
+			error = crypto_cssm_verify_x509sign(publicKeyRef, my_hash, iph1->sig_p);
+			if (error)	
+				plog(LLV_ERROR, LOCATION, NULL, "error verifying signature %s\n", GetSecurityErrorString(error));
+				
+			CFRelease(publicKeyRef);				
+#else
+			error = oakley_verify_x509sign(iph1->cert_p, my_hash, iph1->sig_p);
+#endif
 			break;
+#ifdef HAVE_OPENSSL
 		case ISAKMP_CERT_PLAINRSA:
 			iph1->rsa_p = rsa_try_check_rsasign(my_hash,
 					iph1->sig_p, iph1->rsa_candidates);
 			error = iph1->rsa_p ? 0 : -1;
 
 			break;
+#endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
 				"no supported certtype %d\n",
@@ -1722,6 +1960,47 @@ oakley_validate_auth(iph1)
 	return 0;
 }
 
+int
+oakley_find_status_in_certchain (cert_t *certchain, cert_status_t certStatus)
+{
+	cert_t *p;
+
+	for (p = certchain; p; p = p->chain) {
+		if (p->status == certStatus) {
+			return 1;
+		}
+	}
+	return 0;
+}
+
+static
+int
+oakley_vpncontrol_notify_ike_failed_if_mycert_invalid (struct ph1handle *iph1,
+													   int               notify_initiator)
+{
+#if TARGET_OS_EMBEDDED
+	int premature = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_PREMATURE);
+	int expired = oakley_find_status_in_certchain(iph1->cert, CERT_STATUS_EXPIRED);
+	if (premature || expired) {
+		u_int32_t address;
+		u_int32_t fail_reason;
+
+		if (iph1->remote->sa_family == AF_INET)
+			address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
+		else
+			address = 0;
+		if (premature) {
+			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_PREMATURE;
+		} else {
+			fail_reason = VPNCTL_NTYPE_LOCAL_CERT_EXPIRED;
+		}
+		vpncontrol_notify_ike_failed(fail_reason, notify_initiator, address, 0, NULL);
+		return -1;
+	}
+#endif /* TARGET_OS_EMBEDDED */
+	return 0;
+}
+
 /* get my certificate
  * NOTE: include certificate type.
  */
@@ -1736,26 +2015,18 @@ oakley_getmycert(iph1)
 		case ISAKMP_CERT_X509SIGN:
 			if (iph1->cert)
 				return 0;
-/* only do the local cert test on the phone */
-		{
 			if ( !(err = get_cert_fromlocal(iph1, 1))){
-				if ( iph1->cert->status == CERT_STATUS_EXPIRED || iph1->cert->status == CERT_STATUS_PREMATURE){
-					if (iph1->remote->sa_family == AF_INET)
-						address = ((struct sockaddr_in *)(iph1->remote))->sin_addr.s_addr;
-					else
-						address = 0;
-					vpncontrol_notify_ike_failed(VPNCTL_NTYPE_PH1_DELETE_CERT_ERROR + iph1->cert->status, FROM_LOCAL, address, 0, NULL);
+				if (oakley_vpncontrol_notify_ike_failed_if_mycert_invalid(iph1, FROM_LOCAL)) {
 					return -1;
 				}
 			}
-		}
 			return err;
-
+#ifdef HAVE_OPENSSL
 		case ISAKMP_CERT_PLAINRSA:
 			if (iph1->rsa)
 				return 0;
 			return get_plainrsa_fromlocal(iph1, 1);
-
+#endif
 		default:
 			plog(LLV_ERROR, LOCATION, NULL,
 			     "Unknown certtype #%d\n",
@@ -1790,19 +2061,13 @@ get_cert_fromlocal(iph1, my)
 		certfile = iph1->rmconf->peerscertfile;
 		certpl = &iph1->cert_p;
 	}
-
-#ifdef __APPLE__
 	if (!certfile && iph1->rmconf->identity_in_keychain == 0) {
-#else
-	if (!certfile) {
-#endif
 		plog(LLV_ERROR, LOCATION, NULL, "no CERT defined.\n");
 		return 0;
 	}
 
 	switch (iph1->rmconf->certtype) {
 	case ISAKMP_CERT_X509SIGN:
-#if defined(__APPLE__)
 		if (iph1->rmconf->identity_in_keychain) {
 			CFDataRef dataRef;
 			
@@ -1813,19 +2078,16 @@ get_cert_fromlocal(iph1, my)
 			CFRelease(dataRef);
 			break;
 		} // else fall thru
-#endif
+#ifdef HAVE_OPENSSL
 	case ISAKMP_CERT_DNS:
 		/* make public file name */
 		getpathname(path, sizeof(path), LC_PATHTYPE_CERT, certfile);
 		cert = eay_get_x509cert(path);
 		if (cert) {
-			char *p = NULL;
-			p = eay_get_x509text(cert);
-			plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
-			racoon_free(p);
+			oakley_cert_prettyprint(cert);
 		};
 		break;
-
+#endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"not supported certtype %d\n",
@@ -1863,7 +2125,8 @@ get_cert_fromlocal(iph1, my)
 
 	plog(LLV_DEBUG, LOCATION, NULL, "created CERT payload:\n");
 	plogdump(LLV_DEBUG, (*certpl)->pl->v, (*certpl)->pl->l);
-
+	oakley_cert_prettyprint(cert);
+		
 	error = 0;
 
 end:
@@ -1873,6 +2136,7 @@ end:
 	return error;
 }
 
+#ifdef HAVE_OPENSSL
 static int
 get_plainrsa_fromlocal(iph1, my)
 	struct ph1handle *iph1;
@@ -1924,6 +2188,7 @@ get_plainrsa_fromlocal(iph1, my)
 end:
 	return error;
 }
+#endif
 
 /* get signature */
 int
@@ -1936,7 +2201,6 @@ oakley_getsign(iph1)
 
 	switch (iph1->rmconf->certtype) {
 	case ISAKMP_CERT_X509SIGN:
-#if defined(__APPLE__)
 		// cert in keychain - use cssm to sign
 		if (iph1->rmconf->identity_in_keychain) {
 			CFDataRef dataRef;
@@ -1947,7 +2211,7 @@ oakley_getsign(iph1)
 			CFRelease(dataRef);
 			break;
 		} // else fall thru
-#endif
+#ifdef HAVE_OPENSSL
 	case ISAKMP_CERT_DNS:
 		if (iph1->rmconf->myprivfile == NULL) {
 			plog(LLV_ERROR, LOCATION, NULL, "no cert defined.\n");
@@ -1972,6 +2236,7 @@ oakley_getsign(iph1)
 	case ISAKMP_CERT_PLAINRSA:
 		iph1->sig = eay_get_rsasign(iph1->hash, iph1->rsa);
 		break;
+#endif
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 		     "Unknown certtype #%d\n",
@@ -1996,7 +2261,64 @@ end:
 	return error;
 }
 
-#ifdef __APPLE__
+void
+oakley_verify_certid(iph1)
+struct ph1handle *iph1;
+{
+	if (iph1->rmconf->verify_cert &&
+		oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)){
+		plog(LLV_DEBUG, LOCATION, NULL,
+			 "Discarding CERT: does not match ID:\n");
+		oakley_delcert(iph1->cert_p);
+		iph1->cert_p = NULL;
+	}
+}
+
+static int
+oakley_check_certid_in_certchain(certchain, idtype, idlen, id)
+	cert_t *certchain;
+	int idtype;
+	int idlen;
+	void *id;
+{
+	cert_t *p;
+
+	for (p = certchain; p; p = p->chain) {
+		if (oakley_check_certid_1(&p->cert, idtype, idlen, id, &p->status) == 0) {
+			return 0;
+		}
+	}
+	return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+}
+
+cert_t *
+oakley_get_peer_cert_from_certchain(iph1)
+	struct ph1handle * iph1;
+{
+	cert_t               *p;
+	struct ipsecdoi_id_b *id_b;
+	int                   idlen;
+	void                 *peers_id;
+
+	if (!iph1->id_p || !iph1->cert_p) {
+		plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
+		return NULL;
+	}
+	if (!iph1->cert_p->chain) {
+		// no chain: simply return the only cert
+		return iph1->cert_p;
+	}
+
+	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
+	peers_id = id_b + 1;
+	idlen = iph1->id_p->l - sizeof(*id_b);
+	for (p = iph1->cert_p; p; p = p->chain) {
+		if (oakley_check_certid_1(&p->cert, id_b->type, idlen, peers_id, &p->status) == 0) {
+			return p;
+		}
+	}
+	return NULL;
+}
 
 /*
  * compare certificate name and ID value.
@@ -2023,7 +2345,7 @@ oakley_check_certid(iph1, which_id)
 		peers_id = id_b + 1;
 		idlen = iph1->id_p->l - sizeof(*id_b);
 		
-		return oakley_check_certid_1(iph1, doi_type, idlen, peers_id);
+		return oakley_check_certid_in_certchain(iph1->cert_p, doi_type, idlen, peers_id);
 
 	} else {
 		/* use ID from remote configuration */	
@@ -2058,19 +2380,20 @@ oakley_check_certid(iph1, which_id)
 				peers_id = id_spec->id->v;
 				idlen = id_spec->id->l;
 			}
-			if (oakley_check_certid_1(iph1, doi_type, idlen, peers_id) == 0)
+			if (oakley_check_certid_in_certchain(iph1->cert_p, doi_type, idlen, peers_id) == 0)
 				return 0;
 		}
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 	}
 }
   
 static int
-oakley_check_certid_1(iph1, idtype, idlen, id)
-	struct ph1handle *iph1;
+oakley_check_certid_1(cert, idtype, idlen, id, certStatus)
+	vchar_t *cert;
 	int idtype;
 	int idlen;
 	void *id;
+	cert_status_t *certStatus;
 {
 
 	vchar_t *name = NULL;
@@ -2080,30 +2403,167 @@ oakley_check_certid_1(iph1, idtype, idlen, id)
 
 	switch (idtype) {
 	case IPSECDOI_ID_DER_ASN1_DN:
-		name = eay_get_x509asn1subjectname(&iph1->cert_p->cert);
+#if TARGET_OS_EMBEDDED
+	{
+		SecCertificateRef certificate;
+		CFDataRef subject;
+		UInt8* namePtr;
+		
+		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		if (certificate == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "failed to get SecCertificateRef\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID;
+			}
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;			
+		}
+		subject = SecCertificateCopySubjectSequence(certificate);
+		if (subject == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "failed to get subjectName\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		len = CFDataGetLength(subject);
+		namePtr = CFDataGetBytePtr(subject);
+		if (idlen != len) {
+			plog(LLV_ERROR, LOCATION, NULL, "Invalid ID length in phase 1.\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
+			CFRelease(subject);
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+		}
+		error = memcmp(id, namePtr, idlen);
+		if (error != 0) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "ID mismatched with subjectName.\n");
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "subjectName (type %s):\n",
+				 s_ipsecdoi_ident(idtype));
+			plogdump(LLV_ERROR, namePtr, len);
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "ID:\n");
+			plogdump(LLV_ERROR, id, idlen);
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
+			CFRelease(certificate);
+			CFRelease(subject);
+			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+		}
+	}
+#else
+		name = eay_get_x509asn1subjectname(cert);
 		if (!name) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"failed to get subjectName\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
 			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 		}
 		if (idlen != name->l) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"Invalid ID length in phase 1.\n");
 			vfree(name);
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
 		error = memcmp(id, name->v, idlen);
-		vfree(name);
 		if (error != 0) {
 			plog(LLV_ERROR, LOCATION, NULL,
 				"ID mismatched with subjectName.\n");
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "subjectName (type %s):\n",
+				 s_ipsecdoi_ident(idtype));
+			plogdump(LLV_ERROR, name->v, name->l);
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "ID:\n");
+			plogdump(LLV_ERROR, id, idlen);
+			vfree(name);
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJNAME;
+			}
 			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 		}
+		vfree(name);
+#endif
 		return 0;
+
 	case IPSECDOI_ID_IPV4_ADDR:			
 	case IPSECDOI_ID_IPV6_ADDR:
 	{
-
+#if TARGET_OS_EMBEDDED
+		CFIndex pos, count;
+		SecCertificateRef certificate;
+		CFArrayRef addresses;
+	
+		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		if (certificate == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get SecCertificateRef\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID;
+			}
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		addresses = SecCertificateCopyIPAddresses(certificate);
+		if (addresses == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "failed to get subjectName\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+			}
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		count = CFArrayGetCount(addresses);		
+		for (pos = 0; pos < count; pos++) {
+			
+			CFStringRef address;
+			CFIndex addressLen;
+			char *addressBuf, numAddress[128];
+			int result;
+			
+			address = CFArrayGetValueAtIndex(addresses, pos);			
+			addressLen = CFStringGetLength(address);
+			if (addressLen == 0)
+				continue;
+			addressBuf = racoon_malloc(addressLen + 1);
+			if (addressBuf == NULL) {
+				plog(LLV_ERROR, LOCATION, NULL, "out of memory\n");
+				return -1;
+			}
+			if (CFStringGetCString(address, addressBuf, addressLen + 1, kCFStringEncodingUTF8) == TRUE) {
+				result = inet_pton(idtype == IPSECDOI_ID_IPV4_ADDR ? AF_INET : AF_INET6, addressBuf, numAddress);
+				racoon_free(addressBuf);
+				if (result == 0)
+					continue;	// wrong type or invalid address
+				if (memcmp(id, numAddress, idtype == IPSECDOI_ID_IPV4_ADDR ? 32 : 128) == 0) {		// found a match ?
+					CFRelease(addresses);
+					CFRelease(certificate);
+					return 0;
+				}
+			} else
+				racoon_free(addressBuf);
+		}
+		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
+		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
+		plogdump(LLV_ERROR, id, idlen);
+		CFRelease(addresses);
+		CFRelease(certificate);		
+		if (certStatus && !*certStatus) {
+			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+		}
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+#else			
 		/* 
 		 * Openssl returns the IPAddress as an ASN1 octet string (binary format)
 		 * followed by a trailing NULL.  5 bytes for IPv4 and 17 bytes for IPv6
@@ -2121,14 +2581,22 @@ oakley_check_certid_1(iph1, idtype, idlen, id)
 		}
 
 		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert, &altname, &type, pos, &len) !=0) {
+			if (eay_get_x509subjectaltname(cert, &altname, &type, pos, &len) !=0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"failed to get subjectAltName\n");
+				if (certStatus && !*certStatus) {
+					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+				}
 				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 			}
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "invalid subjectAltName\n");
+				if (certStatus && !*certStatus) {
+					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+				}
 				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 			}
 
@@ -2161,36 +2629,187 @@ oakley_check_certid_1(iph1, idtype, idlen, id)
 				/* invalid IP address length in certificate - bad or bogus certificate */
 				plog(LLV_ERROR, LOCATION, NULL,
 					"invalid IP address in certificate.\n");
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "subjectAltName (expected type %s, got type %s):\n",
+					 s_ipsecdoi_ident(idtype),
+					 s_ipsecdoi_ident(type));
+				plogdump(LLV_ERROR, altname, len);
 				racoon_free(altname);
 				altname = NULL;
+				if (certStatus && !*certStatus) {
+					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+				}
 				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 			}
 			
 			/* compare the addresses */		
 			error = memcmp(id, altname, idlen);
+			if (error)
+				continue;
 			racoon_free(altname);
-			if (error != 0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"ID mismatched with subjectAltName.\n");
-				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-			}
 			return 0;
-		}
+		}		
+		/* failed to find a match */
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "ID mismatched with subjectAltName.\n");
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "subjectAltName (expected type %s, got type %s):\n",
+			 s_ipsecdoi_ident(idtype),
+			 s_ipsecdoi_ident(type));
+		plogdump(LLV_ERROR, altname, len);
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "ID:\n");
+		plogdump(LLV_ERROR, id, idlen);
+		racoon_free(altname);
+		if (certStatus && !*certStatus)
+			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+		
+#endif /* TARGET_OS_EMBEDDED */	
 	}
+
+#if TARGET_OS_EMBEDDED
+	case IPSECDOI_ID_FQDN:
+	{
+		CFIndex pos, count;
+		SecCertificateRef certificate;
+		CFArrayRef names;
+		CFStringRef name, ID;
+		
+		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		if (certificate == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get SecCertificateRef\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID;
+			}
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		names = SecCertificateCopyDNSNames(certificate);
+		if (names == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get subjectName\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+			}
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		count = CFArrayGetCount(names);		
+		ID = CFStringCreateWithCString(NULL, id, kCFStringEncodingUTF8);
+		if (ID== NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, "memory error\n");
+			CFRelease(names);
+			CFRelease(certificate);
+			
+		}
+		for (pos = 0; pos < count; pos++) {
+			name = CFArrayGetValueAtIndex(names, pos);
+			if (CFStringCompare(name, ID, 0) == kCFCompareEqualTo) {
+				CFRelease(ID);
+				CFRelease(names);
+				CFRelease(certificate);
+				return 0;
+			}
+		}
+		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
+		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
+		plogdump(LLV_ERROR, id, idlen);
+		CFRelease(ID);
+		CFRelease(names);
+		CFRelease(certificate);		
+		if (certStatus && !*certStatus) {
+			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+		}
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+	}
+		
+	case IPSECDOI_ID_USER_FQDN:
+	{
+		CFIndex pos, count;
+		
+		SecCertificateRef certificate;
+		CFArrayRef names;
+		CFStringRef name, ID;
+		
+		certificate = crypto_cssm_x509cert_get_SecCertificateRef(cert);
+		if (certificate == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get SecCertificateRef\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID;
+			}
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		names = SecCertificateCopyRFC822Names(certificate);
+		if (names == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "failed to get subjectName\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+			}
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}
+		count = CFArrayGetCount(names);
+		ID = CFStringCreateWithCString(NULL, id, kCFStringEncodingUTF8);
+		if (ID == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL,
+				 "memory error\n");
+			if (certStatus && !*certStatus) {
+				*certStatus = CERT_STATUS_INVALID;
+			}
+			CFRelease(names);
+			CFRelease(certificate);
+			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
+		}		
+		for (pos = 0; pos < count; pos++) {
+			name = CFArrayGetValueAtIndex(names, pos);
+			if (CFStringCompare(name, ID, 0) == kCFCompareEqualTo) {
+				CFRelease(ID);
+				CFRelease(names);
+				CFRelease(certificate);
+				return 0;
+			}
+		}
+		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "subjectAltName (expected type %s):\n", s_ipsecdoi_ident(idtype));
+		plog(LLV_ERROR, LOCATION, NULL, "ID:\n");
+		plogdump(LLV_ERROR, id, idlen);
+		CFRelease(ID);
+		CFRelease(names);
+		CFRelease(certificate);		
+		if (certStatus && !*certStatus) {
+			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+		}
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
+	}
+#else	
 	case IPSECDOI_ID_FQDN:
 	case IPSECDOI_ID_USER_FQDN:
 	{
 		int pos;
 
 		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert, &altname, &type, pos, &len) != 0) {
+			if (eay_get_x509subjectaltname(cert, &altname, &type, pos, &len) != 0) {
 				plog(LLV_ERROR, LOCATION, NULL,
 					"failed to get subjectAltName\n");
+				if (certStatus && !*certStatus) {
+					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+				}
 				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
 			}
 
 			/* it's the end condition of the loop. */
 			if (!altname) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "invalid subjectAltName\n");
+				if (certStatus && !*certStatus) {
+					*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+				}
 				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
 			}
 
@@ -2208,14 +2827,26 @@ oakley_check_certid_1(iph1, idtype, idlen, id)
 				continue;
 			}
 			error = memcmp(id, altname, idlen);
+			if (error)
+				continue;
 			racoon_free(altname);
-			if (error) {
-				plog(LLV_ERROR, LOCATION, NULL, "ID mismatched.\n");
-				return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-			}
 			return 0;
 		}
+		plog(LLV_ERROR, LOCATION, NULL, "ID mismatched with subjectAltName.\n");
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "subjectAltName (expected type %s, got type %s):\n",
+			 s_ipsecdoi_ident(idtype),
+			 s_ipsecdoi_ident(type));
+		plogdump(LLV_ERROR, altname, len);
+		plog(LLV_ERROR, LOCATION, NULL,
+			 "ID:\n");
+		plogdump(LLV_ERROR, id, idlen);
+		racoon_free(altname);
+		if (certStatus && !*certStatus)
+			*certStatus = CERT_STATUS_INVALID_SUBJALTNAME;
+		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;		
 	}
+#endif			
 	default:
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Impropper ID type passed: %s.\n",
@@ -2224,190 +2855,7 @@ oakley_check_certid_1(iph1, idtype, idlen, id)
 	}	
 	/*NOTREACHED*/
 }
-
-#else	/* __APPLE__ */
-
-/*
- * compare certificate name and ID value.
- */
-static int
-oakley_check_certid(iph1)
-	struct ph1handle *iph1;
-{
-	struct ipsecdoi_id_b *id_b;
-	vchar_t *name = NULL;
-	char *altname = NULL;
-	int idlen, type;
-	int error;
-
-	if (iph1->id_p == NULL || iph1->cert_p == NULL) {
-		plog(LLV_ERROR, LOCATION, NULL, "no ID nor CERT found.\n");
-		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-	}
-
-	id_b = (struct ipsecdoi_id_b *)iph1->id_p->v;
-	idlen = iph1->id_p->l - sizeof(*id_b);
-
-	switch (id_b->type) {
-	case IPSECDOI_ID_DER_ASN1_DN:
-		name = eay_get_x509asn1subjectname(&iph1->cert_p->cert);
-		if (!name) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"failed to get subjectName\n");
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		if (idlen != name->l) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"Invalid ID length in phase 1.\n");
-			vfree(name);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		error = memcmp(id_b + 1, name->v, idlen);
-		vfree(name);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID mismatched with ASN1 SubjectName.\n");
-			plogdump(LLV_DEBUG, id_b + 1, idlen);
-			plogdump(LLV_DEBUG, name->v, idlen);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		return 0;
-	case IPSECDOI_ID_IPV4_ADDR:
-	case IPSECDOI_ID_IPV6_ADDR:
-	{
-		/*
-		 * converting to binary from string because openssl return
-		 * a string even if object is a binary.
-		 * XXX fix it !  access by ASN.1 directly without.
-		 */
-		struct addrinfo hints, *res;
-		caddr_t a = NULL;
-		int pos;
-
-		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert,
-					&altname, &type, pos) !=0) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"failed to get subjectAltName\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-			}
-
-			/* it's the end condition of the loop. */
-			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"no proper subjectAltName.\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-			}
-
-			if (check_typeofcertname(id_b->type, type) == 0)
-				break;
-
-			/* next name */
-			racoon_free(altname);
-			altname = NULL;
-		}
-		memset(&hints, 0, sizeof(hints));
-		hints.ai_family = PF_UNSPEC;
-		hints.ai_socktype = SOCK_RAW;
-		hints.ai_flags = AI_NUMERICHOST;
-		error = getaddrinfo(altname, NULL, &hints, &res);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"no proper subjectAltName.\n");
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		switch (res->ai_family) {
-		case AF_INET:
-			a = (caddr_t)&((struct sockaddr_in *)res->ai_addr)->sin_addr.s_addr;
-			break;
-#ifdef INET6
-		case AF_INET6:
-			a = (caddr_t)&((struct sockaddr_in6 *)res->ai_addr)->sin6_addr.s6_addr;
-			break;
-#endif
-		default:
-			plog(LLV_ERROR, LOCATION, NULL,
-				"family not supported: %d.\n", res->ai_family);
-			racoon_free(altname);
-			freeaddrinfo(res);
-			return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-		}
-		error = memcmp(id_b + 1, a, idlen);
-		freeaddrinfo(res);
-		vfree(name);
-		if (error != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID mismatched with subjectAltName.\n");
-			plogdump(LLV_DEBUG, id_b + 1, idlen);
-			plogdump(LLV_DEBUG, a, idlen);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		return 0;
-	}
-	case IPSECDOI_ID_FQDN:
-	case IPSECDOI_ID_USER_FQDN:
-	{
-		int pos;
-
-		for (pos = 1; ; pos++) {
-			if (eay_get_x509subjectaltname(&iph1->cert_p->cert,
-					&altname, &type, pos) != 0){
-				plog(LLV_ERROR, LOCATION, NULL,
-					"failed to get subjectAltName\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-			}
-
-			/* it's the end condition of the loop. */
-			if (!altname) {
-				plog(LLV_ERROR, LOCATION, NULL,
-					"no proper subjectAltName.\n");
-				return ISAKMP_NTYPE_INVALID_CERTIFICATE;
-			}
-
-			if (check_typeofcertname(id_b->type, type) == 0)
-				break;
-
-			/* next name */
-			racoon_free(altname);
-			altname = NULL;
-		}
-		if (idlen != strlen(altname)) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"Invalid ID length in phase 1.\n");
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		if (check_typeofcertname(id_b->type, type) != 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"ID type mismatched. ID: %s CERT: %s.\n",
-				s_ipsecdoi_ident(id_b->type),
-				s_ipsecdoi_ident(type));
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		error = memcmp(id_b + 1, altname, idlen);
-		if (error) {
-			plog(LLV_ERROR, LOCATION, NULL, "ID mismatched.\n");
-			plogdump(LLV_DEBUG, id_b + 1, idlen);
-			plogdump(LLV_DEBUG, altname, idlen);
-			racoon_free(altname);
-			return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-		}
-		racoon_free(altname);
-		return 0;
-	}
-	default:
-		plog(LLV_ERROR, LOCATION, NULL,
-			"Impropper ID type passed: %s.\n",
-			s_ipsecdoi_ident(id_b->type));
-		return ISAKMP_NTYPE_INVALID_ID_INFORMATION;
-	}
-	/*NOTREACHED*/
-}
-
-#endif /* __APPLE__ */
-
+#ifdef HAVE_OPENSSL
 static int
 check_typeofcertname(doi, genid)
 	int doi, genid;
@@ -2438,6 +2886,7 @@ check_typeofcertname(doi, genid)
 	}
 	/*NOTREACHED*/
 }
+#endif
 
 /*
  * save certificate including certificate type.
@@ -2449,9 +2898,10 @@ oakley_savecert(iph1, gen)
 {
 	cert_t **c;
 	u_int8_t type;
+#ifdef HAVE_OPENSSL
 	STACK_OF(X509) *certs=NULL;
 	PKCS7 *p7;
-
+#endif
 	type = *(u_int8_t *)(gen + 1) & 0xff;
 
 	switch (type) {
@@ -2482,14 +2932,11 @@ oakley_savecert(iph1, gen)
 		return -1;
 	}
 
-	/* XXX choice the 1th cert, ignore after the cert. */ 
-	/* XXX should be processed. */
 	if (*c) {
 		plog(LLV_WARNING, LOCATION, NULL,
-			"ignore 2nd CERT payload.\n");
-		return 0;
+			"preexisting CERT payload... chaining.\n");
 	}
-
+#ifdef HAVE_OPENSSL
 	if (type == ISAKMP_CERT_PKCS7) {
 		u_char *bp;
 		int i;
@@ -2536,54 +2983,38 @@ oakley_savecert(iph1, gen)
 		for (i = 0; i < sk_X509_num(certs); i++) {
 			int len;
 			u_char *bp;
+			cert_t *new;
 			X509 *cert = sk_X509_value(certs,i);
 
 			plog(LLV_DEBUG, LOCATION, NULL, 
 			     "Trying PKCS#7 cert %d.\n", i);
 
 			/* We'll just try each cert in turn */
-			*c = save_certx509(cert);
-
-			if (!*c) {
+			new = save_certx509(cert);
+			if (!new) {
 				plog(LLV_ERROR, LOCATION, NULL,
 				     "Failed to get CERT buffer.\n");
 				continue;
 			}
-
-			/* Ignore cert if it doesn't match identity
-			 * XXX If verify cert is disabled, we still just take
-			 * the first certificate....
-			 */
-			if(iph1->rmconf->verify_cert &&
-			   oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)) {
-				plog(LLV_DEBUG, LOCATION, NULL,
-				     "Discarding CERT: does not match ID.\n");
-				oakley_delcert((*c));
-				*c = NULL;
-				continue;
-			}
-
-			{
-				char *p = eay_get_x509text(&(*c)->cert);
-				plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
-				plogdump(LLV_DEBUG, (*c)->cert.v, (*c)->cert.l);
-				plog(LLV_DEBUG, LOCATION, NULL, "%s", 
-				     p ? p : "\n");
-				racoon_free(p);
-			}
-			break;
+			*c = oakley_appendcert_to_certchain(*c, new);
+			plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
+			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
+			oakley_cert_prettyprint(&new->cert);
 		}
 		PKCS7_free(p7);
 
-	} else {
-		*c = save_certbuf(gen);
-		if (!*c) {
+	} else 
+#endif	
+	{
+		cert_t *new;
+		new = save_certbuf(gen);
+		if (!new) {
 			plog(LLV_ERROR, LOCATION, NULL,
 			     "Failed to get CERT buffer.\n");
 			return -1;
 		}
 
-		switch ((*c)->type) {
+		switch (new->type) {
 		case ISAKMP_CERT_DNS:
 			plog(LLV_WARNING, LOCATION, NULL,
 			     "CERT payload is unnecessary in DNSSEC. "
@@ -2597,34 +3028,23 @@ oakley_savecert(iph1, gen)
 			 * XXX If verify cert is disabled, we still just take
 			 * the first certificate....
 			 */
-			if(iph1->rmconf->verify_cert &&
-			   oakley_check_certid(iph1, CERT_CHECKID_FROM_PEER)){
-				plog(LLV_DEBUG, LOCATION, NULL,
-				     "Discarding CERT: does not match ID.\n");
-				oakley_delcert((*c));
-				*c = NULL;
-				return 0;
-			}
-
-			{
-				char *p = eay_get_x509text(&(*c)->cert);
-				plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
-				plogdump(LLV_DEBUG, (*c)->cert.v, (*c)->cert.l);
-				plog(LLV_DEBUG, LOCATION, NULL, "%s", p ? p : "\n");
-				racoon_free(p);
-			}
+			*c = oakley_appendcert_to_certchain(*c, new);
+			plog(LLV_DEBUG, LOCATION, NULL, "CERT saved:\n");
+			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
+			oakley_cert_prettyprint(&new->cert);
 			break;
 		case ISAKMP_CERT_CRL:
+			*c = oakley_appendcert_to_certchain(*c, new);
 			plog(LLV_DEBUG, LOCATION, NULL, "CRL saved:\n");
-			plogdump(LLV_DEBUG, (*c)->cert.v, (*c)->cert.l);
+			plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
+			oakley_cert_prettyprint(&new->cert);
 			break;
 		case ISAKMP_CERT_X509KE:
 		case ISAKMP_CERT_X509ATTR:
 		case ISAKMP_CERT_ARL:
 		default:
 			/* XXX */
-			oakley_delcert((*c));
-			*c = NULL;
+			oakley_delcert(new);
 			return 0;
 		}
 	}
@@ -2642,6 +3062,7 @@ oakley_savecr(iph1, gen)
 {
 	cert_t **c;
 	u_int8_t type;
+	cert_t *new;
 
 	type = *(u_int8_t *)(gen + 1) & 0xff;
 
@@ -2674,15 +3095,15 @@ oakley_savecr(iph1, gen)
 		return -1;
 	}
 
-	*c = save_certbuf(gen);
-	if (!*c) {
+	new = save_certbuf(gen);
+	if (!new) {
 		plog(LLV_ERROR, LOCATION, NULL,
 			"Failed to get CR buffer.\n");
 		return -1;
 	}
-
+	*c = oakley_appendcert_to_certchain(*c, new);
 	plog(LLV_DEBUG, LOCATION, NULL, "CR saved:\n");
-	plogdump(LLV_DEBUG, (*c)->cert.v, (*c)->cert.l);
+	plogdump(LLV_DEBUG, new->cert.v, new->cert.l);
 
 	return 0;
 }
@@ -2722,6 +3143,7 @@ save_certbuf(gen)
 	return new;
 }
 
+#ifdef HAVE_OPENSSL
 static cert_t *
 save_certx509(cert)
 	X509 *cert;
@@ -2754,6 +3176,7 @@ save_certx509(cert)
 
 	return new;
 }
+#endif
 
 /*
  * get my CR.
@@ -2861,7 +3284,6 @@ oakley_skeyid(iph1)
 	case FICTIVE_AUTH_METHOD_XAUTH_PSKEY_I:
 	case OAKLEY_ATTR_AUTH_METHOD_XAUTH_PSKEY_R:
 #endif
-#ifdef __APPLE__
     	if (iph1->rmconf->shared_secret) {
 
 			switch (iph1->rmconf->secrettype) {
@@ -2882,12 +3304,16 @@ oakley_skeyid(iph1)
 				case SECRETTYPE_USE:
 					/* in the remote configuration */
 				default:
-					iph1->authstr = vdup(iph1->rmconf->shared_secret);
+					/* rmconf->shared_secret is a string and contains a NULL character that must be removed */
+					iph1->authstr = vmalloc(iph1->rmconf->shared_secret->l - 1);
+					if (iph1->authstr == NULL) {
+						plog(LLV_ERROR, LOCATION, NULL, "memory error.\n");
+						break;
+					}
+					memcpy(iph1->authstr->v, iph1->rmconf->shared_secret->v, iph1->authstr->l);
 			}
-
 		}
 		else
-#endif
 		if (iph1->etype != ISAKMP_ETYPE_IDENT) {
 			iph1->authstr = getpskbyname(iph1->id_p);
 			if (iph1->authstr == NULL) {
@@ -3286,13 +3712,14 @@ oakley_newcert()
 	}
 
 	new->pl = NULL;
+	new->chain = NULL;
 
 	return new;
 }
 
 /* delete buffer for CERT */
 void
-oakley_delcert(cert)
+oakley_delcert_1(cert)
 	cert_t *cert;
 {
 	if (!cert)
@@ -3301,7 +3728,44 @@ oakley_delcert(cert)
 		VPTRINIT(cert->pl);
 	racoon_free(cert);
 }
-	
+
+/* delete buffer for CERT */
+void
+oakley_delcert(cert)
+	cert_t *cert;
+{
+	cert_t *p, *to_delete;
+
+	if (!cert)
+		return;
+
+	for (p = cert; p;) {
+		to_delete = p;
+		p = p->chain;
+		oakley_delcert_1(to_delete);
+	}
+}
+
+/* delete buffer for CERT */
+static cert_t *
+oakley_appendcert_to_certchain(certchain, new)
+	cert_t *certchain;
+	cert_t *new;
+{
+	cert_t *p;
+
+	if (!certchain)
+		return new;
+
+	for (p = certchain; p; p = p->chain) {
+		if (!p->chain) {
+			p->chain = new;
+			return certchain;
+		}
+	}
+	return NULL;
+}
+
 /*
  * compute IV and set to ph1handle
  *	IV = hash(g^xi | g^xr)
@@ -3735,7 +4199,6 @@ oakley_padlen(len, base)
 	return padlen;
 }
 
-#ifdef __APPLE__
 /* -----------------------------------------------------------------------------
 The base-64 encoding packs three 8-bit bytes into four 7-bit ASCII
 characters.  If the number of bytes in the original data isn't divisable
@@ -3813,4 +4276,4 @@ static int base64toCFData(vchar_t *textin, CFDataRef *dataRef)
 		return -1;
   
 }
-#endif
+

@@ -3,6 +3,7 @@
 [copyright {1999-2000 Marshall T. Rose}]
 [moddesc   {Mime}]
 [titledesc {Manipulation of MIME body parts}]
+[category  {Text processing}]
 [require Tcl]
 [require mime [opt 1.5.4]]
 [description]

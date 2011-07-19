@@ -19,6 +19,10 @@
  #include <dbghelp.h>
 #endif
 
+#ifdef _MSC_VER
+ #include <ntverp.h>
+#endif
+
 #ifdef __MINGW32__
  #if (HAVE_LIBIMAGEHLP != 1)
   #error "libimagehlp.a should be present"
@@ -44,7 +48,14 @@ static std::vector<HMODULE> OpenedHandles;
 #endif
 
 extern "C" {
-#if !defined(_MSC_VER) || _MSC_VER < 1500
+// Use old callback if:
+//  - Not using Visual Studio
+//  - Visual Studio 2005 or earlier but only if we are not using the Windows SDK 
+//    or Windows SDK version is older than 6.0
+// Use new callback if:
+//  - Newer Visual Studio (comes with newer SDK).
+//  - Visual Studio 2005 with Windows SDK 6.0+
+#if !defined(_MSC_VER) || _MSC_VER < 1500 && (!defined(VER_PRODUCTBUILD) || VER_PRODUCTBUILD < 6000)
   static BOOL CALLBACK ELM_Callback(PSTR  ModuleName,
                                     ModuleBaseType ModuleBase,
                                     ULONG ModuleSize,
@@ -68,7 +79,7 @@ extern "C" {
         // Mingw32 uses msvcrt.dll by default. Don't ignore it.
         // Otherwise, user should be aware, what he's doing :)
         stricmp(ModuleName, "msvcrt") != 0 &&
-#endif        
+#endif
         stricmp(ModuleName, "msvcrt20") != 0 &&
         stricmp(ModuleName, "msvcrt40") != 0) {
       OpenedHandles.push_back((HMODULE)ModuleBase);
@@ -77,32 +88,8 @@ extern "C" {
   }
 }
 
-DynamicLibrary::DynamicLibrary() : handle(0) {
-  handle = GetModuleHandle(NULL);
-  OpenedHandles.push_back((HMODULE)handle);
-}
-
-DynamicLibrary::~DynamicLibrary() {
-  if (handle == 0)
-    return;
-
-  // GetModuleHandle() does not increment the ref count, so we must not free
-  // the handle to the executable.
-  if (handle != GetModuleHandle(NULL))
-    FreeLibrary((HMODULE)handle);
-  handle = 0;
-
-  for (std::vector<HMODULE>::iterator I = OpenedHandles.begin(),
-       E = OpenedHandles.end(); I != E; ++I) {
-    if (*I == handle) {
-      // Note: don't use the swap/pop_back trick here. Order is important.
-      OpenedHandles.erase(I);
-    }
-  }
-}
- 
 bool DynamicLibrary::LoadLibraryPermanently(const char *filename,
-                                            std::string *ErrMsg) {
+                                            std::string *ErrMsg) {                                            
   if (filename) {
     HMODULE a_handle = LoadLibrary(filename);
 
@@ -132,39 +119,44 @@ bool DynamicLibrary::LoadLibraryPermanently(const char *filename,
     extern "C" { extern void *SYM; }
 
   #if defined(__MINGW32__)
-    EXPLICIT_SYMBOL_DEF(_alloca);
-    EXPLICIT_SYMBOL_DEF(__main);
-    EXPLICIT_SYMBOL_DEF(__ashldi3);
-    EXPLICIT_SYMBOL_DEF(__ashrdi3);
-    EXPLICIT_SYMBOL_DEF(__cmpdi2);
-    EXPLICIT_SYMBOL_DEF(__divdi3);
-    EXPLICIT_SYMBOL_DEF(__fixdfdi);
-    EXPLICIT_SYMBOL_DEF(__fixsfdi);
-    EXPLICIT_SYMBOL_DEF(__fixunsdfdi);
-    EXPLICIT_SYMBOL_DEF(__fixunssfdi);
-    EXPLICIT_SYMBOL_DEF(__floatdidf);
-    EXPLICIT_SYMBOL_DEF(__floatdisf);
-    EXPLICIT_SYMBOL_DEF(__lshrdi3);
-    EXPLICIT_SYMBOL_DEF(__moddi3);
-    EXPLICIT_SYMBOL_DEF(__udivdi3);
-    EXPLICIT_SYMBOL_DEF(__umoddi3);
+    EXPLICIT_SYMBOL_DEF(_alloca)
+    EXPLICIT_SYMBOL_DEF(__main)
+    EXPLICIT_SYMBOL_DEF(__ashldi3)
+    EXPLICIT_SYMBOL_DEF(__ashrdi3)
+    EXPLICIT_SYMBOL_DEF(__cmpdi2)
+    EXPLICIT_SYMBOL_DEF(__divdi3)
+    EXPLICIT_SYMBOL_DEF(__fixdfdi)
+    EXPLICIT_SYMBOL_DEF(__fixsfdi)
+    EXPLICIT_SYMBOL_DEF(__fixunsdfdi)
+    EXPLICIT_SYMBOL_DEF(__fixunssfdi)
+    EXPLICIT_SYMBOL_DEF(__floatdidf)
+    EXPLICIT_SYMBOL_DEF(__floatdisf)
+    EXPLICIT_SYMBOL_DEF(__lshrdi3)
+    EXPLICIT_SYMBOL_DEF(__moddi3)
+    EXPLICIT_SYMBOL_DEF(__udivdi3)
+    EXPLICIT_SYMBOL_DEF(__umoddi3)
   #elif defined(_MSC_VER)
-    EXPLICIT_SYMBOL_DEF(_alloca_probe);
+    EXPLICIT_SYMBOL_DEF(_alloca_probe)
   #endif
 #endif
 
 void* DynamicLibrary::SearchForAddressOfSymbol(const char* symbolName) {
   // First check symbols added via AddSymbol().
-  std::map<std::string, void *>::iterator I = g_symbols().find(symbolName);
-  if (I != g_symbols().end())
-    return I->second;
+  if (ExplicitSymbols) {
+    std::map<std::string, void *>::iterator I = 
+      ExplicitSymbols->find(symbolName);
+    std::map<std::string, void *>::iterator E = ExplicitSymbols->end();
+    if (I != E)
+      return I->second;
+  }
 
   // Now search the libraries.
   for (std::vector<HMODULE>::iterator I = OpenedHandles.begin(),
        E = OpenedHandles.end(); I != E; ++I) {
     FARPROC ptr = GetProcAddress((HMODULE)*I, symbolName);
-    if (ptr)
+    if (ptr) {
       return (void *) ptr;
+    }
   }
 
 #if defined(__MINGW32__)
@@ -189,7 +181,7 @@ void* DynamicLibrary::SearchForAddressOfSymbol(const char* symbolName) {
     EXPLICIT_SYMBOL2(alloca, _alloca);
 #undef EXPLICIT_SYMBOL
 #undef EXPLICIT_SYMBOL2
-#undef EXPLICIT_SYMBOL_DEF    
+#undef EXPLICIT_SYMBOL_DEF
   }
 #elif defined(_MSC_VER)
   {
@@ -197,8 +189,8 @@ void* DynamicLibrary::SearchForAddressOfSymbol(const char* symbolName) {
     EXPLICIT_SYMBOL2(_alloca, _alloca_probe);
 #undef EXPLICIT_SYMBOL
 #undef EXPLICIT_SYMBOL2
-#undef EXPLICIT_SYMBOL_DEF    
-  }  
+#undef EXPLICIT_SYMBOL_DEF
+  }
 #endif
 
   return 0;

@@ -32,6 +32,8 @@
 #define WebPlugin_h
 
 #include "WebCanvas.h"
+#include "WebString.h"
+#include "WebURL.h"
 
 struct NPObject;
 
@@ -41,10 +43,10 @@ class WebDataSource;
 class WebFrame;
 class WebInputEvent;
 class WebPluginContainer;
-class WebURL;
 class WebURLResponse;
 struct WebCursorInfo;
 struct WebPluginParams;
+struct WebPoint;
 struct WebRect;
 struct WebURLError;
 template <typename T> class WebVector;
@@ -92,6 +94,28 @@ public:
     virtual bool printPage(int pageNumber, WebCanvas* canvas) { return false; }
     // Ends the print operation.
     virtual void printEnd() { }
+
+    virtual bool hasSelection() const { return false; }
+    virtual WebString selectionAsText() const { return WebString(); }
+    virtual WebString selectionAsMarkup() const { return WebString(); }
+
+    // If the given position is over a link, returns the absolute url.
+    // Otherwise an empty url is returned.
+    virtual WebURL linkAtPosition(const WebPoint& position) const { return WebURL(); }
+
+    // Used for zooming of full page plugins.
+    virtual void setZoomLevel(double level, bool textOnly) { }
+
+    // Find interface.
+    // Start a new search.  The plugin should search for a little bit at a time so that it
+    // doesn't block the thread in case of a large document.  The results, along with the
+    // find's identifier, should be sent asynchronously to WebFrameClient's reportFindInPage* methods.
+    // Returns true if the search started, or false if the plugin doesn't support search.
+    virtual bool startFind(const WebString& searchText, bool caseSensitive, int identifier) { return false; }
+    // Tells the plugin to jump forward or backward in the list of find results.
+    virtual void selectFindResult(bool forward) { }
+    // Tells the plugin that the user has stopped the find operation.
+    virtual void stopFind() { }
 
 protected:
     ~WebPlugin() { }

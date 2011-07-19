@@ -25,7 +25,8 @@
 
 #define _XOPEN_SOURCE 600L
 #include <ucontext.h>
-#undef _ANSI_SOURCE
+#undef _XOPEN_SOURCE
+#undef _POSIX_C_SOURCE /* sigsetmask() */
 #include <signal.h>
 
 extern int _setcontext(const mcontext_t);

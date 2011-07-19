@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -118,9 +118,8 @@
  * NETBIOS addressing
  */
 struct nb_name {
-	u_int		nn_type;
+	unsigned	nn_type;
 	u_char		nn_name[NB_NAMELEN + 1];
-	u_char *	nn_scope;
 };
 
 /*
@@ -133,8 +132,13 @@ struct sockaddr_nb {
 	u_char				snb_name[1 + NB_ENCNAMELEN + 1];	/* encoded */
 };
 
-/*
- * Some day I would like to fix/clean this up, but that will have to way for IP6 */
-#define GET_IP_ADDRESS_FROM_NB(a) (((struct sockaddr_nb *)a)->snb_addrin)
+#define GET_IPV4_ADDRESS(a, b) \
+	if (a->sa_family == AF_NETBIOS) { \
+		b = (struct sockaddr_in *)((void *)&((struct sockaddr_nb *)((void *)a))->snb_addrin); \
+	} else if (a->sa_family == AF_INET) {\
+		b = (struct sockaddr_in *)((void *)a); \
+	} else { \
+		b = (struct sockaddr_in *)NULL; \
+	}
 
 #endif /* !_NETSMB_NETBIOS_H_ */

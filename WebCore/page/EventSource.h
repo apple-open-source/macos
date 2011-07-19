@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 2009 Ericsson AB
  * All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -35,15 +36,10 @@
 #if ENABLE(EVENTSOURCE)
 
 #include "ActiveDOMObject.h"
-#include "AtomicStringHash.h"
-#include "EventNames.h"
 #include "EventTarget.h"
 #include "KURL.h"
 #include "ThreadableLoaderClient.h"
 #include "Timer.h"
-
-#include <wtf/HashMap.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefPtr.h>
 #include <wtf/Vector.h>
 
@@ -55,8 +51,9 @@ namespace WebCore {
     class ThreadableLoader;
 
     class EventSource : public RefCounted<EventSource>, public EventTarget, private ThreadableLoaderClient, public ActiveDOMObject {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
-        static PassRefPtr<EventSource> create(const String& url, ScriptExecutionContext* context, ExceptionCode& ec) { return adoptRef(new EventSource(url, context, ec)); }
+        static PassRefPtr<EventSource> create(const String& url, ScriptExecutionContext*, ExceptionCode&);
         virtual ~EventSource();
 
         static const unsigned long long defaultReconnectDelay;
@@ -86,17 +83,17 @@ namespace WebCore {
         virtual void stop();
 
     private:
-        EventSource(const String& url, ScriptExecutionContext* context, ExceptionCode& ec);
+        EventSource(const KURL&, ScriptExecutionContext*);
 
         virtual void refEventTarget() { ref(); }
         virtual void derefEventTarget() { deref(); }
         virtual EventTargetData* eventTargetData();
         virtual EventTargetData* ensureEventTargetData();
 
-        virtual void didReceiveResponse(const ResourceResponse& response);
-        virtual void didReceiveData(const char* data, int length);
-        virtual void didFinishLoading(unsigned long);
-        virtual void didFail(const ResourceError& error);
+        virtual void didReceiveResponse(const ResourceResponse&);
+        virtual void didReceiveData(const char*, int);
+        virtual void didFinishLoading(unsigned long, double);
+        virtual void didFail(const ResourceError&);
         virtual void didFailRedirectCheck();
 
         void connect();

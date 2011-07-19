@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: libcurl.rc,v 1.10 2009-06-15 02:29:49 yangtse Exp $
  ***************************************************************************/
 #include <winver.h>
 #include "../include/curl/curlver.h"

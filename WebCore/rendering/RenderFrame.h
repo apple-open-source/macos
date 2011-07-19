@@ -32,13 +32,15 @@ class HTMLFrameElement;
 
 class RenderFrame : public RenderFrameBase {
 public:
-    RenderFrame(HTMLFrameElement*);
+    explicit RenderFrame(HTMLFrameElement*);
 
     FrameEdgeInfo edgeInfo() const;
 
 private:
     virtual const char* renderName() const { return "RenderFrame"; }
     virtual bool isFrame() const { return true; }
+
+    virtual void updateFromElement();
 
     virtual void viewCleared();
 };

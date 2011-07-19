@@ -3,20 +3,22 @@
 	<key>OpenSourceProject</key>
 	<string>pyOpenSSL</string>
 	<key>OpenSourceVersion</key>
-	<string>0.7</string>
+	<string>0.12</string>
 	<key>OpenSourceWebsiteURL</key>
-	<string>http://pyopenssl.sourceforge.net/</string>
+	<string>https://launchpad.net/pyopenssl/</string>
 	<key>OpenSourceURL</key>
-	<string>http://voxel.dl.sourceforge.net/sourceforge/pyopenssl/pyOpenSSL-0.7.tar.gz</string>
+	<string>http://pypi.python.org/packages/source/p/pyOpenSSL/pyOpenSSL-0.12.tar.gz#md5=60a7bbb6160950823eddcbba2cbcb0d6</string>
 	<key>OpenSourceMD5</key>
-	<string>1924edc58c1e99f27763971d9959ea15</string>
+	<string>60a7bbb6160950823eddcbba2cbcb0d6</string>
 	<key>OpenSourceImportDate</key>
-	<string>2008-07-14</string>
+	<string>2011-04-25</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceLicense</key>
-	<string>LGPL</string>
+	<string>Apache 2.0</string>
+<!--
 	<key>OpenSourceLicenseFile</key>
 	<string>pyOpenSSL.txt</string>
+ -->
 </dict>
 </plist>

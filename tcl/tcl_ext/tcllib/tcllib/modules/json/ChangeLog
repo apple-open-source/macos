@@ -1,3 +1,39 @@
+2009-12-10  Andreas Kupries  <andreask@activestate.com>
+
+	* json.tcl: [Patch 2909962]: Accepted rewrite of the json parser
+	* json.man: internals by Thomas Maeder
+	* pkgIndex.tcl: <thomasmaeder@users.sourceforge.net>. The new
+	  (regex-based) parser is considerably faster than the previous
+	  implementation. Bumped version to 1.1.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-24  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* json_write.tcl: New package 'json::write', supporting the
+	* json_write.test: generation of text in JSON format.
+	* json_write.man: Package version 1.
+	* json_write.pcx:
+	* pkgIndex.tcl: 
+
+2009-11-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* json.tcl: Bumped package to version 1.0.1 due to the bugfix made
+	* pkgIndex.tcl: on 2009-04-18.
+
+2009-05-26  KATO Kanryu  <kanryu6@users.sourceforge.net>
+
+	* json.test: improved to compare dicts
+
+2009-04-18  KATO Kanryu  <kanryu6@users.sourceforge.net>
+
+	* json.tcl: fixed to parse last integer
+	* json.test: improved to compare dicts
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

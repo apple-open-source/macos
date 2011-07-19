@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007, 2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 1999-2001  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: adb_test.c,v 1.68 2007/06/19 23:46:59 tbox Exp $ */
+/* $Id: adb_test.c,v 1.70 2009-09-02 23:48:01 tbox Exp $ */
 
 /*! \file */
 
@@ -249,8 +249,7 @@ lookup(const char *target) {
 	isc_buffer_add(&t, strlen(target));
 	isc_buffer_init(&namebuf, namedata, sizeof(namedata));
 	dns_name_init(&name, NULL);
-	result = dns_name_fromtext(&name, &t, dns_rootname, ISC_FALSE,
-				   &namebuf);
+	result = dns_name_fromtext(&name, &t, dns_rootname, 0, &namebuf);
 	check_result(result, "dns_name_fromtext %s", target);
 
 	result = dns_name_dup(&name, mctx, &client->name);

@@ -35,30 +35,19 @@ module core {
         void clearConsoleMessages();
 
         void copyText(in DOMString text);
-        [Custom] DOMObject nodeForId(in long nodeId);
-        [Custom] int pushNodePathToFrontend(in DOMObject node, in boolean withChildren, in boolean selectInUI);
+        [Custom] void inspect(in DOMObject objectId, in DOMObject hints);
+        [Custom] DOMObject inspectedNode(in int num);
+        [Custom] DOMObject internalConstructorName(in DOMObject object);
+        [Custom] boolean isHTMLAllCollection(in DOMObject object);
+        [Custom] DOMString type(in DOMObject object);
 
-        void addNodesToSearchResult(in DOMString nodeIds);
-        long pushNodeByPathToFrontend(in DOMString path);
-
-#if defined(ENABLE_JAVASCRIPT_DEBUGGER) && ENABLE_JAVASCRIPT_DEBUGGER
-        [Custom] DOMObject currentCallFrame();
-#endif
-
-#if defined(ENABLE_DATABASE) && ENABLE_DATABASE
-        [Custom] DOMObject databaseForId(in long databaseId);
-        [Custom] void selectDatabase(in DOMObject database);
-#endif
-
-#if defined(ENABLE_DOM_STORAGE) && ENABLE_DOM_STORAGE
-        [Custom] void selectDOMStorage(in DOMObject storage);
-#endif
+        [Custom] int databaseId(in DOMObject database);
+        [Custom] int storageId(in DOMObject storage);
 
 #if defined(ENABLE_WORKERS) && ENABLE_WORKERS
         void didCreateWorker(in long id, in DOMString url, in boolean isFakeWorker);
         void didDestroyWorker(in long id);
         long nextWorkerId();
 #endif
-        [Custom] void reportDidDispatchOnInjectedScript(in long callId, in DOMObject result, in boolean isException);
     };
 }

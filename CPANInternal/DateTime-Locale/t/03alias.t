@@ -1,6 +1,6 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
+
 use Test::More tests => 5;
 
 use DateTime::Locale;
@@ -16,7 +16,8 @@ my $l = DateTime::Locale->load('baz');
 isa_ok( $l, 'DateTime::Locale::Base' );
 is( $l->id, 'baz', 'id is baz' );
 
-ok( DateTime::Locale->remove_alias('baz'), 'remove_alias should return true' );
+ok( DateTime::Locale->remove_alias('baz'),
+    'remove_alias should return true' );
 
 eval { DateTime::Locale->load('baz') };
 like( $@, qr/invalid/i, 'removed alias should be gone' );

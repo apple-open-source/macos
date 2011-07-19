@@ -26,7 +26,7 @@ char versionString[] ="libntlm version 0.21";
 
 #define AddBytes(ptr, header, buf, count) \
 { \
-if (buf && count) \
+if (buf != NULL && count != 0) \
   { \
   SSVAL(&ptr->header.len,0,count); \
   SSVAL(&ptr->header.maxlen,0,count); \
@@ -44,23 +44,23 @@ else \
 
 #define AddString(ptr, header, string) \
 { \
-char *p = string; \
-int len = 0; \
-if (p) len = strlen(p); \
-AddBytes(ptr, header, ((unsigned char*)p), len); \
+char *p_ = string; \
+int len_ = 0; \
+if (p_) len_ = strlen(p_); \
+AddBytes(ptr, header, ((unsigned char*)p_), len_); \
 }
 
 #define AddUnicodeString(ptr, header, string) \
 { \
-char *p = string; \
-unsigned char *b = NULL; \
-int len = 0; \
-if (p) \
+char *p_ = string; \
+unsigned char *b_ = NULL; \
+int len_ = 0; \
+if (p_) \
   { \
-  len = strlen(p); \
-  b = strToUnicode(p); \
+  len_ = strlen(p_); \
+  b_ = strToUnicode(p_); \
   } \
-AddBytes(ptr, header, b, len*2); \
+AddBytes(ptr, header, b_, len_*2); \
 }
 
 
@@ -84,12 +84,12 @@ static void dumpRaw(FILE *fp, unsigned char *buf, size_t len)
 
 /* helper macro to destructively resize buffers; assumes that bufsiz
  * is initialized to 0 if buf is unallocated! */
-#define allocbuf(buf, bufsiz, need) do { \
-  if ((need) > (bufsiz)) \
+#define allocbuf(buf, bufsiz, need, type) do { \
+  if (!buf || (need) > (bufsiz)) \
     { \
     (bufsiz) = ((need) < 1024) ? 1024 : (need); \
     xfree(buf); \
-    (buf) = xmalloc(bufsiz); \
+    (buf) = (type)xmalloc(bufsiz); \
     } \
   } while (0);
 
@@ -101,7 +101,7 @@ static char *unicodeToString(char *p, size_t len)
   static char *buf;
   static size_t bufsiz;
 
-  allocbuf(buf, bufsiz, len + 1);
+  allocbuf(buf, bufsiz, len + 1, char *);
 
   for (i=0; i<len; ++i)
     {
@@ -121,7 +121,7 @@ static unsigned char *strToUnicode(char *p)
   size_t l = strlen(p);
   int i = 0;
 
-  allocbuf(buf, bufsiz, l * 2);
+  allocbuf(buf, bufsiz, l * 2, unsigned char *);
 
   while (l--)
     {
@@ -137,7 +137,7 @@ static unsigned char *toString(char *p, size_t len)
   static unsigned char *buf;
   static size_t bufsiz;
 
-  allocbuf(buf, bufsiz, len + 1);
+  allocbuf(buf, bufsiz, len + 1, unsigned char *);
 
   memcpy(buf,p,len);
   buf[len] = 0;
@@ -148,17 +148,17 @@ void dumpSmbNtlmAuthRequest(FILE *fp, tSmbNtlmAuthRequest *request)
   {
   fprintf(fp,"NTLM Request:\n");
   fprintf(fp,"      Ident = %s\n",request->ident);
-  fprintf(fp,"      mType = %d\n",IVAL(&request->msgType,0));
+  fprintf(fp,"      mType = %ld\n",(long int)IVAL(&request->msgType,0));
   fprintf(fp,"      Flags = %08x\n",IVAL(&request->flags,0));
-  fprintf(fp,"       User = %s\n",GetString(request,user));
-  fprintf(fp,"     Domain = %s\n",GetString(request,domain));
+  fprintf(fp,"       User = %s\n",(char *)GetString(request,user));
+  fprintf(fp,"     Domain = %s\n",(char *)GetString(request,domain));
   }
 
 void dumpSmbNtlmAuthChallenge(FILE *fp, tSmbNtlmAuthChallenge *challenge)
   {
   fprintf(fp,"NTLM Challenge:\n");
   fprintf(fp,"      Ident = %s\n",challenge->ident);
-  fprintf(fp,"      mType = %d\n",IVAL(&challenge->msgType,0));
+  fprintf(fp,"      mType = %ld\n",(long int)IVAL(&challenge->msgType,0));
   fprintf(fp,"     Domain = %s\n",GetUnicodeString(challenge,uDomain));
   fprintf(fp,"      Flags = %08x\n",IVAL(&challenge->flags,0));
   fprintf(fp,"  Challenge = "); dumpRaw(fp, challenge->challengeData,8);
@@ -168,7 +168,7 @@ void dumpSmbNtlmAuthResponse(FILE *fp, tSmbNtlmAuthResponse *response)
   {
   fprintf(fp,"NTLM Response:\n");
   fprintf(fp,"      Ident = %s\n",response->ident);
-  fprintf(fp,"      mType = %d\n",IVAL(&response->msgType,0));
+  fprintf(fp,"      mType = %ld\n",(long int)IVAL(&response->msgType,0));
   fprintf(fp,"     LmResp = "); DumpBuffer(fp,response,lmResponse);
   fprintf(fp,"     NTResp = "); DumpBuffer(fp,response,ntResponse);
   fprintf(fp,"     Domain = %s\n",GetUnicodeString(response,uDomain));

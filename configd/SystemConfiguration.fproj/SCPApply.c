@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2004-2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2004-2006, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,14 +44,14 @@ __SCPreferencesApplyChanges_helper(SCPreferencesRef prefs)
 	SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 	uint32_t		status		= kSCStatusOK;
 
-	if (prefsPrivate->helper == -1) {
+	if (prefsPrivate->helper_port == MACH_PORT_NULL) {
 		// if no helper
 		goto fail;
 	}
 
 	// have the helper "apply" the prefs
 //	status = kSCStatusOK;
-	ok = _SCHelperExec(prefsPrivate->helper,
+	ok = _SCHelperExec(prefsPrivate->helper_port,
 			   SCHELPER_MSG_PREFS_APPLY,
 			   NULL,
 			   &status,
@@ -69,9 +69,8 @@ __SCPreferencesApplyChanges_helper(SCPreferencesRef prefs)
     fail :
 
 	// close helper
-	if (prefsPrivate->helper != -1) {
-		_SCHelperClose(prefsPrivate->helper);
-		prefsPrivate->helper = -1;
+	if (prefsPrivate->helper_port != MACH_PORT_NULL) {
+		_SCHelperClose(&prefsPrivate->helper_port);
 	}
 
 	status = kSCStatusAccessError;
@@ -127,6 +126,12 @@ SCPreferencesApplyChanges(SCPreferencesRef prefs)
 
     done :
 
-	if (!wasLocked)	(void) SCPreferencesUnlock(prefs);
+	if (!wasLocked) {
+		uint32_t	status;
+
+		status = SCError();	// preserve status across unlock
+		(void) SCPreferencesUnlock(prefs);
+		_SCErrorSet(status);
+	}
 	return ok;
 }

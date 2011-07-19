@@ -21,8 +21,12 @@
 #ifndef FontCustomPlatformData_h
 #define FontCustomPlatformData_h
 
+#include "FontOrientation.h"
 #include "FontRenderingMode.h"
+#include "FontWidthVariant.h"
+#include "TextOrientation.h"
 #include <CoreFoundation/CFBase.h>
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 typedef struct CGFont* CGFontRef;
@@ -34,20 +38,26 @@ namespace WebCore {
 class FontPlatformData;
 class SharedBuffer;
 
-struct FontCustomPlatformData : Noncopyable {
-    FontCustomPlatformData(ATSFontContainerRef container, ATSFontRef atsFont, CGFontRef cgFont)
-    : m_atsContainer(container), m_atsFont(atsFont), m_cgFont(cgFont)
-    {}
+struct FontCustomPlatformData {
+    WTF_MAKE_NONCOPYABLE(FontCustomPlatformData);
+public:
+    FontCustomPlatformData(ATSFontContainerRef container, CGFontRef cgFont)
+        : m_atsContainer(container)
+        , m_cgFont(cgFont)
+    {
+    }
+
     ~FontCustomPlatformData();
 
-    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontRenderingMode = NormalRenderingMode);
+    FontPlatformData fontPlatformData(int size, bool bold, bool italic, FontOrientation = Horizontal, TextOrientation = TextOrientationVerticalRight, FontWidthVariant = RegularWidth, FontRenderingMode = NormalRenderingMode);
+
+    static bool supportsFormat(const String&);
 
     ATSFontContainerRef m_atsContainer;
-    ATSFontRef m_atsFont;
     CGFontRef m_cgFont;
 };
 
-FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer* buffer);
+FontCustomPlatformData* createFontCustomPlatformData(SharedBuffer*);
 
 }
 

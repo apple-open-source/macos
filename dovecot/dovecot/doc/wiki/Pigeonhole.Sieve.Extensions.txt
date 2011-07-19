@@ -1,0 +1,10 @@
+Pigeonhole Sieve Extensions
+===========================
+
+The following Sieve language extensions have a dedicated wiki page with
+specific configuration and usage information:
+
+ * <vacation and vacation-seconds> [Pigeonhole.Sieve.Extensions.Vacation.txt]
+ * <spamtest and virustest> [Pigeonhole.Sieve.Extensions.SpamtestVirustest.txt]
+
+(This file was created from the wiki on 2011-05-11 04:42)

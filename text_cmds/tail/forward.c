@@ -36,7 +36,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/tail/forward.c,v 1.39 2005/08/26 08:15:57 ps Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)forward.c	8.1 (Berkeley) 6/6/93";
@@ -197,6 +197,124 @@ rlines(fp, off, sbp)
 	off_t off;
 	struct stat *sbp;
 {
+#ifdef __APPLE__
+	/* Using mmap on network filesystems can frequently lead
+	to distress, and even on local file systems other processes
+	truncating the file can also lead to upset. */
+
+	/* Seek to sbp->st_blksize before the end of the file, find
+	all the newlines.   If there are enough, print the last off
+	lines.  Otherwise go back another sbp->st_blksize bytes,
+	and count newlines.  Avoid re-reading blocks when possible. */
+
+	// +1 because we capture line ends and we want off line _starts_,
+	// +1 because the first line might be partial when try_at != 0
+	off_t search_for = off +2;
+	off_t try_at = sbp->st_size;
+	off_t last_try = sbp->st_size;
+	off_t found_this_pass = 0;
+	off_t found_total = 0;
+	off_t *found_at = calloc(search_for, sizeof(off_t));
+
+	flockfile(fp);
+
+	if (found_at == NULL) {
+		ierr();
+		goto done;
+	}
+
+	if (off == 0 || sbp->st_size == 0) {
+		goto done;
+	}
+
+	/* The last character is special.  Check to make sure that it is a \n,
+	 * and if not, subtract one from the number of \n we need to search for.
+	 */
+	if (0 != fseeko(fp, sbp->st_size - 1, SEEK_SET)) {
+		ierr();
+		goto done;
+	}
+	if ('\n' != getc_unlocked(fp)) {
+		search_for--;
+	}
+
+	while(try_at != 0) {
+		found_this_pass = 0;
+
+		if (try_at < sbp->st_blksize) {
+			found_at[found_this_pass++] = 0;
+			try_at = 0;
+		} else {
+			last_try = try_at;
+			try_at -= sbp->st_blksize;
+		}
+
+		if (0 != fseeko(fp, try_at, SEEK_SET)) {
+			ierr();
+			goto done;
+		}
+
+		char ch;
+		while(EOF != (ch = getc_unlocked(fp))) {
+			if (ch == '\n') {
+				found_at[found_this_pass++ % search_for] = ftello(fp);
+				found_total++;
+			}
+			if (ftello(fp) == last_try && found_total < search_for) {
+				// We just reached the last block we scanned,
+				// and we know there arn't enough lines found
+				// so far to be happy, so we don't have to
+				// read it again.
+				break;
+			}
+		}
+
+		if (found_this_pass >= search_for || try_at == 0) {
+			off_t min = found_at[0];
+			int min_i = 0;
+			int i;
+			int lim = (found_this_pass < search_for) ? found_this_pass : search_for;
+			for(i = 1; i < lim; i++) {
+				if (found_at[i] < min) {
+					min = found_at[i];
+					min_i = i;
+				}
+			}
+
+			off_t target = min;
+
+			if (found_this_pass >= search_for) {
+				// min_i might be a partial line (unless
+				// try_at is 0).   If we  found search_for
+				// lines, min_i+1 is the first known full line
+				// _and_ because we look for an extra line we
+				// don't need to show it.
+				target = found_at[(min_i + 1) % search_for];
+			}
+
+			if (0 != fseeko(fp, target, SEEK_SET)) {
+				ierr();
+				goto done;
+			}
+
+			flockfile(stdout);
+			while(EOF != (ch = getc_unlocked(fp))) {
+				if (EOF == putchar_unlocked(ch)) {
+					funlockfile(stdout);
+					oerr();
+					goto done;
+				}
+			}
+			funlockfile(stdout);
+			goto done;
+		}
+	}
+
+done:
+	funlockfile(fp);
+	free(found_at);
+	return;
+#else
 	struct mapinfo map;
 	off_t curoff, size;
 	int i;
@@ -240,6 +358,7 @@ rlines(fp, off, sbp)
 		ierr();
 		return;
 	}
+#endif
 }
 
 static void
@@ -249,7 +368,8 @@ show(file_info_t *file)
 
     while ((ch = getc(file->fp)) != EOF) {
 	if (last != file && no_files > 1) {
-		(void)printf("\n==> %s <==\n", file->file_name);
+		if (!qflag)
+			(void)printf("\n==> %s <==\n", file->file_name);
 		last = file;
 	}
 	if (putchar(ch) == EOF)
@@ -257,11 +377,10 @@ show(file_info_t *file)
     }
     (void)fflush(stdout);
     if (ferror(file->fp)) {
-	    if (fileno(file->fp) != STDIN_FILENO)
-		    fclose(file->fp);
 	    file->fp = NULL;
-	    fname = file->file_name; /* cleared in tail.c */
+	    fname = file->file_name;
 	    ierr();
+	    fname = NULL;
     } else
 	    clearerr(file->fp);
 }
@@ -325,9 +444,11 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 		if (file->fp) {
 			active = 1;
 			n++;
-			if (no_files > 1)
+			if (no_files > 1 && !qflag)
 				(void)printf("\n==> %s <==\n", file->file_name);
+			fname = file->file_name;
 			forward(file->fp, style, off, &file->st);
+			fname = NULL;
 			if (Fflag && fileno(file->fp) != STDIN_FILENO)
 			    n++;
 		}
@@ -350,16 +471,13 @@ follow(file_info_t *files, enum STYLE style, off_t off)
 			if (! file->fp)
 				continue;
 			if (Fflag && file->fp && fileno(file->fp) != STDIN_FILENO) {
-				if (stat(file->file_name, &sb2) != 0) {
-					/* file was rotated, skip it until it reappears */
-					continue;
-				}
-				if (sb2.st_ino != file->st.st_ino ||
-				    sb2.st_dev != file->st.st_dev ||
-				    sb2.st_nlink == 0) {
+				if (stat(file->file_name, &sb2) == 0 &&
+				    (sb2.st_ino != file->st.st_ino ||
+				     sb2.st_dev != file->st.st_dev ||
+				     sb2.st_nlink == 0)) {
+					show(file);
 					file->fp = freopen(file->file_name, "r", file->fp);
 					if (file->fp == NULL) {
-						fname = file->file_name;
 						ierr();
 						continue;
 					} else {

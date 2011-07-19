@@ -10,46 +10,56 @@
 // This file implements Loop Index Splitting Pass. This pass handles three
 // kinds of loops.
 //
-// [1] Loop is eliminated when loop body is executed only once. For example,
+// [1] A loop may be eliminated if the body is executed exactly once.
+//     For example,
+//
 // for (i = 0; i < N; ++i) {
-//   if ( i == X) {
+//   if (i == X) {
+//     body;
+//   }
+// }
+//
+// is transformed to
+//
+// i = X;
+// body;
+//
+// [2] A loop's iteration space may be shrunk if the loop body is executed
+//     for a proper sub-range of the loop's iteration space. For example,
+//
+// for (i = 0; i < N; ++i) {
+//   if (i > A && i < B) {
 //     ...
 //   }
 // }
 //
-// [2] Loop's iteration space is shrunk if loop body is executed for certain
-//     range only. For example,
-// 
-// for (i = 0; i < N; ++i) {
-//   if ( i > A && i < B) {
-//     ...
-//   }
-// }
-// is trnasformed to iterators from A to B, if A > 0 and B < N.
+// is transformed to iterators from A to B, if A > 0 and B < N.
 //
-// [3] Loop is split if the loop body is dominated by an branch. For example,
+// [3] A loop may be split if the loop body is dominated by a branch.
+//     For example,
 //
 // for (i = LB; i < UB; ++i) { if (i < SV) A; else B; }
 //
 // is transformed into
+//
 // AEV = BSV = SV
 // for (i = LB; i < min(UB, AEV); ++i)
 //    A;
 // for (i = max(LB, BSV); i < UB; ++i);
 //    B;
+//
 //===----------------------------------------------------------------------===//
 
 #define DEBUG_TYPE "loop-index-split"
-
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/IntrinsicInst.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Transforms/Utils/BasicBlockUtils.h"
 #include "llvm/Transforms/Utils/Cloning.h"
 #include "llvm/Transforms/Utils/Local.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/Statistic.h"
 
@@ -61,8 +71,7 @@ STATISTIC(NumRestrictBounds, "Number of loop iteration space restricted");
 
 namespace {
 
-  class VISIBILITY_HIDDEN LoopIndexSplit : public LoopPass {
-
+  class LoopIndexSplit : public LoopPass {
   public:
     static char ID; // Pass ID, replacement for typeid
     LoopIndexSplit() : LoopPass(&ID) {}
@@ -200,6 +209,10 @@ bool LoopIndexSplit::runOnLoop(Loop *IncomingLoop, LPPassManager &LPM_Ref) {
   L = IncomingLoop;
   LPM = &LPM_Ref;
 
+  // If LoopSimplify form is not available, stay out of trouble.
+  if (!L->isLoopSimplifyForm())
+    return false;
+
   // FIXME - Nested loops make dominator info updates tricky. 
   if (!L->getSubLoops().empty())
     return false;
@@ -247,6 +260,9 @@ bool LoopIndexSplit::runOnLoop(Loop *IncomingLoop, LPPassManager &LPM_Ref) {
     IVExitValue = ExitCondition->getOperand(0);
   if (!L->isLoopInvariant(IVExitValue))
     return false;
+  if (!IVBasedValues.count(
+        ExitCondition->getOperand(IVExitValue == ExitCondition->getOperand(0))))
+    return false;
 
   // If start value is more then exit value where induction variable
   // increments by 1 then we are potentially dealing with an infinite loop.
@@ -272,36 +288,40 @@ bool LoopIndexSplit::runOnLoop(Loop *IncomingLoop, LPPassManager &LPM_Ref) {
 // isUsedOutsideLoop - Returns true iff V is used outside the loop L.
 static bool isUsedOutsideLoop(Value *V, Loop *L) {
   for(Value::use_iterator UI = V->use_begin(), E = V->use_end(); UI != E; ++UI)
-    if (!L->contains(cast<Instruction>(*UI)->getParent()))
+    if (!L->contains(cast<Instruction>(*UI)))
       return true;
   return false;
 }
 
 // Return V+1
-static Value *getPlusOne(Value *V, bool Sign, Instruction *InsertPt) {
-  ConstantInt *One = ConstantInt::get(V->getType(), 1, Sign);
+static Value *getPlusOne(Value *V, bool Sign, Instruction *InsertPt, 
+                         LLVMContext &Context) {
+  Constant *One = ConstantInt::get(V->getType(), 1, Sign);
   return BinaryOperator::CreateAdd(V, One, "lsp", InsertPt);
 }
 
 // Return V-1
-static Value *getMinusOne(Value *V, bool Sign, Instruction *InsertPt) {
-  ConstantInt *One = ConstantInt::get(V->getType(), 1, Sign);
+static Value *getMinusOne(Value *V, bool Sign, Instruction *InsertPt,
+                          LLVMContext &Context) {
+  Constant *One = ConstantInt::get(V->getType(), 1, Sign);
   return BinaryOperator::CreateSub(V, One, "lsp", InsertPt);
 }
 
 // Return min(V1, V1)
 static Value *getMin(Value *V1, Value *V2, bool Sign, Instruction *InsertPt) {
  
-  Value *C = new ICmpInst(Sign ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT,
-                          V1, V2, "lsp", InsertPt);
+  Value *C = new ICmpInst(InsertPt,
+                          Sign ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT,
+                          V1, V2, "lsp");
   return SelectInst::Create(C, V1, V2, "lsp", InsertPt);
 }
 
 // Return max(V1, V2)
 static Value *getMax(Value *V1, Value *V2, bool Sign, Instruction *InsertPt) {
  
-  Value *C = new ICmpInst(Sign ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT,
-                          V1, V2, "lsp", InsertPt);
+  Value *C = new ICmpInst(InsertPt, 
+                          Sign ? ICmpInst::ICMP_SLT : ICmpInst::ICMP_ULT,
+                          V1, V2, "lsp");
   return SelectInst::Create(C, V2, V1, "lsp", InsertPt);
 }
 
@@ -338,11 +358,8 @@ bool LoopIndexSplit::processOneIterationLoop() {
   // If BR operands are not IV or not loop invariants then skip this loop.
   Value *OPV = SplitCondition->getOperand(0);
   Value *SplitValue = SplitCondition->getOperand(1);
-  if (!L->isLoopInvariant(SplitValue)) {
-    Value *T = SplitValue;
-    SplitValue = OPV;
-    OPV = T;
-  }
+  if (!L->isLoopInvariant(SplitValue))
+    std::swap(OPV, SplitValue);
   if (!L->isLoopInvariant(SplitValue))
     return false;
   Instruction *OPI = dyn_cast<Instruction>(OPV);
@@ -413,15 +430,15 @@ bool LoopIndexSplit::processOneIterationLoop() {
   //      c1 = icmp uge i32 SplitValue, StartValue
   //      c2 = icmp ult i32 SplitValue, ExitValue
   //      and i32 c1, c2 
-  Instruction *C1 = new ICmpInst(ExitCondition->isSignedPredicate() ? 
+  Instruction *C1 = new ICmpInst(BR, ExitCondition->isSigned() ? 
                                  ICmpInst::ICMP_SGE : ICmpInst::ICMP_UGE,
-                                 SplitValue, StartValue, "lisplit", BR);
+                                 SplitValue, StartValue, "lisplit");
 
   CmpInst::Predicate C2P  = ExitCondition->getPredicate();
   BranchInst *LatchBR = cast<BranchInst>(Latch->getTerminator());
-  if (LatchBR->getOperand(0) != Header)
+  if (LatchBR->getOperand(1) != Header)
     C2P = CmpInst::getInversePredicate(C2P);
-  Instruction *C2 = new ICmpInst(C2P, SplitValue, ExitValue, "lisplit", BR);
+  Instruction *C2 = new ICmpInst(BR, C2P, SplitValue, ExitValue, "lisplit");
   Instruction *NSplitCond = BinaryOperator::CreateAnd(C1, C2, "lisplit", BR);
 
   SplitCondition->replaceAllUsesWith(NSplitCond);
@@ -465,7 +482,7 @@ bool LoopIndexSplit::processOneIterationLoop() {
 /// with a loop invariant value. Update loop's lower and upper bound based on 
 /// the loop invariant value.
 bool LoopIndexSplit::restrictLoopBound(ICmpInst &Op) {
-  bool Sign = Op.isSignedPredicate();
+  bool Sign = Op.isSigned();
   Instruction *PHTerm = L->getLoopPreheader()->getTerminator();
 
   if (IVisGT(*ExitCondition) || IVisGE(*ExitCondition)) {
@@ -477,22 +494,24 @@ bool LoopIndexSplit::restrictLoopBound(ICmpInst &Op) {
     EBR->setSuccessor(1, T);
   }
 
+  LLVMContext &Context = Op.getContext();
+
   // New upper and lower bounds.
   Value *NLB = NULL;
   Value *NUB = NULL;
   if (Value *V = IVisLT(Op)) {
     // Restrict upper bound.
     if (IVisLE(*ExitCondition)) 
-      V = getMinusOne(V, Sign, PHTerm);
+      V = getMinusOne(V, Sign, PHTerm, Context);
     NUB = getMin(V, IVExitValue, Sign, PHTerm);
   } else if (Value *V = IVisLE(Op)) {
     // Restrict upper bound.
     if (IVisLT(*ExitCondition)) 
-      V = getPlusOne(V, Sign, PHTerm);
+      V = getPlusOne(V, Sign, PHTerm, Context);
     NUB = getMin(V, IVExitValue, Sign, PHTerm);
   } else if (Value *V = IVisGT(Op)) {
     // Restrict lower bound.
-    V = getPlusOne(V, Sign, PHTerm);
+    V = getPlusOne(V, Sign, PHTerm, Context);
     NLB = getMax(V, IVStartValue, Sign, PHTerm);
   } else if (Value *V = IVisGE(Op))
     // Restrict lower bound.
@@ -684,11 +703,12 @@ void LoopIndexSplit::removeBlocks(BasicBlock *DeadBB, Loop *LP,
          E = df_end(DN); DI != E; ++DI) {
     BasicBlock *BB = DI->getBlock();
     WorkList.push_back(BB);
-    BB->replaceAllUsesWith(UndefValue::get(Type::LabelTy));
+    BB->replaceAllUsesWith(UndefValue::get(
+                                       Type::getLabelTy(DeadBB->getContext())));
   }
 
   while (!WorkList.empty()) {
-    BasicBlock *BB = WorkList.back(); WorkList.pop_back();
+    BasicBlock *BB = WorkList.pop_back_val();
     LPM->deleteSimpleAnalysisValue(BB, LP);
     for(BasicBlock::iterator BBI = BB->begin(), BBE = BB->end(); 
         BBI != BBE; ) {
@@ -706,7 +726,7 @@ void LoopIndexSplit::removeBlocks(BasicBlock *DeadBB, Loop *LP,
 
   // Update Frontier BBs' dominator info.
   while (!FrontierBBs.empty()) {
-    BasicBlock *FBB = FrontierBBs.back(); FrontierBBs.pop_back();
+    BasicBlock *FBB = FrontierBBs.pop_back_val();
     BasicBlock *NewDominator = FBB->getSinglePredecessor();
     if (!NewDominator) {
       pred_iterator PI = pred_begin(FBB), PE = pred_end(FBB);
@@ -772,25 +792,23 @@ void LoopIndexSplit::moveExitCondition(BasicBlock *CondBB, BasicBlock *ActiveBB,
   // ExitBB is now dominated by CondBB
   DT->changeImmediateDominator(ExitBB, CondBB);
   DF->changeImmediateDominator(ExitBB, CondBB, DT);
-  
-  // Basicblocks dominated by ActiveBB may have ExitingBB or
-  // a basic block outside the loop in their DF list. If so,
-  // replace it with CondBB.
-  DomTreeNode *Node = DT->getNode(ActiveBB);
-  for (df_iterator<DomTreeNode *> DI = df_begin(Node), DE = df_end(Node);
-       DI != DE; ++DI) {
-    BasicBlock *BB = DI->getBlock();
-    DominanceFrontier::iterator BBDF = DF->find(BB);
+
+  // Blocks outside the loop may have been in the dominance frontier of blocks
+  // inside the condition; this is now impossible because the blocks inside the
+  // condition no loger dominate the exit.  Remove the relevant blocks from
+  // the dominance frontiers.
+  for (Loop::block_iterator I = LP->block_begin(), E = LP->block_end();
+       I != E; ++I) {
+    if (*I == CondBB || !DT->dominates(CondBB, *I)) continue;
+    DominanceFrontier::iterator BBDF = DF->find(*I);
     DominanceFrontier::DomSetType::iterator DomSetI = BBDF->second.begin();
     DominanceFrontier::DomSetType::iterator DomSetE = BBDF->second.end();
     while (DomSetI != DomSetE) {
       DominanceFrontier::DomSetType::iterator CurrentItr = DomSetI;
       ++DomSetI;
       BasicBlock *DFBB = *CurrentItr;
-      if (DFBB == ExitingBB || !L->contains(DFBB)) {
+      if (!LP->contains(DFBB))
         BBDF->second.erase(DFBB);
-        BBDF->second.insert(CondBB);
-      }
     }
   }
 }
@@ -824,7 +842,7 @@ void LoopIndexSplit::updatePHINodes(BasicBlock *ExitBB, BasicBlock *Latch,
       for (Value::use_iterator UI = PHV->use_begin(), E = PHV->use_end(); 
            UI != E; ++UI) 
         if (PHINode *U = dyn_cast<PHINode>(*UI)) 
-          if (LP->contains(U->getParent())) {
+          if (LP->contains(U)) {
             NewV = U;
             break;
           }
@@ -864,6 +882,8 @@ bool LoopIndexSplit::splitLoop() {
   // loop may not be split safely.
   BasicBlock *ExitingBlock = ExitCondition->getParent();
   if (!cleanBlock(ExitingBlock)) return false;
+
+  LLVMContext &Context = Header->getContext();
 
   for (Loop::block_iterator I = L->block_begin(), E = L->block_end();
        I != E; ++I) {
@@ -917,7 +937,7 @@ bool LoopIndexSplit::splitLoop() {
     return false;
 
   // If the predicate sign does not match then skip.
-  if (ExitCondition->isSignedPredicate() != SplitCondition->isSignedPredicate())
+  if (ExitCondition->isSigned() != SplitCondition->isSigned())
     return false;
 
   unsigned EVOpNum = (ExitCondition->getOperand(1) == IVExitValue);
@@ -927,6 +947,25 @@ bool LoopIndexSplit::splitLoop() {
     return false;
   if (!IVBasedValues.count(SplitCondition->getOperand(!SVOpNum)))
     return false;
+
+  // Check for side effects.
+  for (Loop::block_iterator I = L->block_begin(), E = L->block_end();
+       I != E; ++I) {
+    BasicBlock *BB = *I;
+
+    assert(DT->dominates(Header, BB));
+    if (DT->properlyDominates(SplitCondition->getParent(), BB))
+      continue;
+
+    for (BasicBlock::iterator BI = BB->begin(), BE = BB->end();
+	 BI != BE; ++BI) {
+      Instruction *Inst = BI;
+
+      if (!Inst->isSafeToSpeculativelyExecute() && !isa<PHINode>(Inst)
+	  && !isa<BranchInst>(Inst) && !isa<DbgInfoIntrinsic>(Inst))
+        return false;
+    }
+  }
 
   // Normalize loop conditions so that it is easier to calculate new loop
   // bounds.
@@ -947,7 +986,7 @@ bool LoopIndexSplit::splitLoop() {
   //[*] Calculate new loop bounds.
   Value *AEV = SplitValue;
   Value *BSV = SplitValue;
-  bool Sign = SplitCondition->isSignedPredicate();
+  bool Sign = SplitCondition->isSigned();
   Instruction *PHTerm = L->getLoopPreheader()->getTerminator();
 
   if (IVisLT(*ExitCondition)) {
@@ -955,18 +994,18 @@ bool LoopIndexSplit::splitLoop() {
       /* Do nothing */
     }
     else if (IVisLE(*SplitCondition)) {
-      AEV = getPlusOne(SplitValue, Sign, PHTerm);
-      BSV = getPlusOne(SplitValue, Sign, PHTerm);
+      AEV = getPlusOne(SplitValue, Sign, PHTerm, Context);
+      BSV = getPlusOne(SplitValue, Sign, PHTerm, Context);
     } else {
       assert (0 && "Unexpected split condition!");
     }
   }
   else if (IVisLE(*ExitCondition)) {
     if (IVisLT(*SplitCondition)) {
-      AEV = getMinusOne(SplitValue, Sign, PHTerm);
+      AEV = getMinusOne(SplitValue, Sign, PHTerm, Context);
     }
     else if (IVisLE(*SplitCondition)) {
-      BSV = getPlusOne(SplitValue, Sign, PHTerm);
+      BSV = getPlusOne(SplitValue, Sign, PHTerm, Context);
     } else {
       assert (0 && "Unexpected split condition!");
     }
@@ -1060,7 +1099,7 @@ bool LoopIndexSplit::splitLoop() {
   DT->changeImmediateDominator(B_ExitBlock, B_ExitingBlock);
   DF->changeImmediateDominator(B_ExitBlock, B_ExitingBlock, DT);
 
- //[*] Split ALoop's exit edge. This creates a new block which
+  //[*] Split ALoop's exit edge. This creates a new block which
   //    serves two purposes. First one is to hold PHINode defnitions
   //    to ensure that ALoop's LCSSA form. Second use it to act
   //    as a preheader for BLoop.
@@ -1137,7 +1176,7 @@ bool LoopIndexSplit::cleanBlock(BasicBlock *BB) {
         || isa<DbgInfoIntrinsic>(I))
       continue;
 
-    if (I->mayWriteToMemory())
+    if (I->mayHaveSideEffects())
       return false;
 
     // I is used only inside this block then it is OK.

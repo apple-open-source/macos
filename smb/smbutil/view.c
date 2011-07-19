@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -42,126 +42,164 @@
 #include <stdlib.h>
 #include <sysexits.h>
 
-#include <cflib.h>
-
-#include <sys/mchain.h>
-
-#include <netsmb/smb_lib.h>
-#include <netsmb/smb_conn.h>
-#include <netsmb/smb_netshareenum.h>
+#include <smbclient/smbclient.h>
+#include <smbclient/ntstatus.h>
 
 #include "common.h"
+#include "netshareenum.h"
 
-static const char *shtype[] = {
-	"disk",
-	"printer",
-	"comm",		/* Communications device */
-	"pipe",		/* IPC Inter process communication */
-	"unknown"
-};
+/*
+ * Allocate a buffer and then use CFStringGetCString to copy the c-style string 
+ * into the buffer. The calling routine needs to free the buffer when done.
+ */
+static char *CStringCreateWithCFString(CFStringRef inStr)
+{
+	CFIndex maxLen;
+	char *str;
+	
+	if (inStr == NULL) {
+		return NULL;
+	}
+	maxLen = CFStringGetMaximumSizeForEncoding(CFStringGetLength(inStr), 
+											   kCFStringEncodingUTF8) + 1;
+	str = malloc(maxLen);
+	if (!str) {
+		return NULL;
+	}
+	CFStringGetCString(inStr, str, maxLen, kCFStringEncodingUTF8);
+	return str;
+}	
+
+/*
+ * Given a share dictionary create an array that contains the share entries in
+ * the dictionary.
+ */
+static CFArrayRef createShareArrayFromShareDictionary(CFDictionaryRef shareDict)
+{
+	CFIndex count = CFDictionaryGetCount(shareDict);
+	CFArrayRef keyArray = NULL;
+	void *shareKeys = CFAllocatorAllocate(kCFAllocatorDefault, count * sizeof(CFStringRef), 0);
+	
+	if (shareKeys) {
+		CFDictionaryGetKeysAndValues(shareDict, shareKeys, NULL);
+		keyArray = CFArrayCreate(kCFAllocatorDefault, shareKeys, count, &kCFTypeArrayCallBacks);
+		CFAllocatorDeallocate(kCFAllocatorDefault, shareKeys);
+	}
+	return keyArray;
+}
 
 int
 cmd_view(int argc, char *argv[])
 {
-	struct smb_ctx *ctx = NULL;
-	struct share_info *share_info = NULL;
-	struct share_info *ep;
-	int error, opt, i, entries, total;
-	const char *cp;
-	const  char * url = NULL;
-	int prompt_user = (isatty(STDIN_FILENO)) ? TRUE : FALSE;
+	const char *url = NULL;
+	int			opt;
+	SMBHANDLE	serverConnection = NULL;
+	uint64_t	options = 0;
+	NTSTATUS	status;
+	int			error;
+	CFDictionaryRef shareDict= NULL;
 	
-	if (argc < 2)
-		view_usage();
-	
-	/* Get the url from the argument list */
-	for (opt = 1; opt < argc; opt++) {
-		cp = argv[opt];
-		if (strncmp(cp, "//", 2) != 0)
-			continue;
-		url = cp;
-		break;
-	}
-	if (! url)	/* No URL then a bad argument list */
-		view_usage();
-	errno = smb_ctx_init(&ctx, url, SMBL_VC, SMB_ST_ANY, FALSE);
-	if (errno) {
-		/* 
-		 * We will either get an ENOMEM if the library 
-		 * intitialization failed or some error from the URL parse. 
-		 */
-		if (errno == ENOMEM)
-			err(EX_UNAVAILABLE, "failed to intitialize the smb library");
-		else
-			err(EX_UNAVAILABLE, "URL parsing failed, please correct the URL and try again");
-	}
-
-	while ((opt = getopt(argc, argv, "N")) != EOF) {
+	while ((opt = getopt(argc, argv, "ANGgaf")) != EOF) {
 		switch(opt){
+			case 'A':
+				options |= kSMBOptionSessionOnly;
+				break;
 			case 'N':
-				prompt_user = FALSE;
+				options |= kSMBOptionNoPrompt;
+				break;
+			case 'G':
+				options |= kSMBOptionAllowGuestAuth;
+				break;
+			case 'g':
+				if (options & kSMBOptionOnlyAuthMask)
+					view_usage();
+				options |= kSMBOptionUseGuestOnlyAuth;
+				options |= kSMBOptionNoPrompt;
+				break;
+			case 'a':
+				if (options & kSMBOptionOnlyAuthMask)
+					view_usage();
+				options |= kSMBOptionUseAnonymousOnlyAuth;
+				options |= kSMBOptionNoPrompt;
+				break;
+			case 'f':
+				options |= kSMBOptionForceNewSession;
 				break;
 			default:
 				view_usage();
-			/*NOTREACHED*/
+				/*NOTREACHED*/
 		}
 	}
-
-	smb_ctx_setshare(ctx, "IPC$", SMB_ST_ANY);
-	errno  = smb_connect(ctx);
-	if (errno)
-		err(EX_NOHOST, "server connection failed");
 	
-	/* The server supports Kerberos then see if we can connect with Kerberos. */
-	if (ctx->ct_vc_flags & SMBV_MECHTYPE_KRB5) {
-		ctx->ct_ssn.ioc_opt |= SMBV_KERBEROS_ACCESS;		
-		error = smb_session_security(ctx, NULL, NULL);
-	} else if (ctx->ct_vc_shared) {
-		/* See if we can use the same security session with this connectation */
-		error = smb_session_security(ctx, NULL, NULL);				
-	} else
-		error = ENOTSUP;
+	if (optind >= argc)
+		view_usage();
+	url = argv[optind];
+	argc -= optind;
+	/* One more check to make sure we have the correct number of arguments */
+	if (argc != 1)
+		view_usage();
 	
-	/* Either Kerberos failed or the server doesn't support Kerberos, so now try normal security */ 
-	if (error) {
-		/* need to command-line prompting for the password */
-		if (prompt_user && ((ctx->ct_flags & SMBCF_EXPLICITPWD) != SMBCF_EXPLICITPWD)) {
-			char passwd[SMB_MAXPASSWORDLEN + 1];
-			
-			strncpy(passwd, getpass(SMB_PASSWORD_KEY ":"), SMB_MAXPASSWORDLEN);
-			smb_ctx_setpassword(ctx, passwd);
-		}
-		
-		/* No username or password then they must want anonymous authentication */
-		if ((ctx->ct_setup.ioc_user[0] == 0) && (ctx->ct_setup.ioc_password[0] == 0)) {
-			ctx->ct_ssn.ioc_opt |= SMBV_ANONYMOUS_ACCESS;
-			fprintf(stderr, "Connecting with anonymous authentication.\n");
-		}
-
-		errno = smb_session_security(ctx, NULL, NULL);
-		if (errno)
-			err(EX_NOPERM, "server rejected the connection");
+	status = SMBOpenServerEx(url, &serverConnection, options);
+	/* 
+	 * SMBOpenServerEx now sets errno, so err will work correctly. We change 
+	 * the string based on the NTSTATUS Error.
+	 */
+	if (!NT_SUCCESS(status)) {
+		/* This routine will exit the program */
+		ntstatus_to_err(status);
 	}
-	
-	errno = smb_share_connect(ctx);
-	if (errno)
-		err(EX_IOERR, "connection to the share failed");
-	
-	
-	fprintf(stdout, "Share        Type       Comment\n");
+	if (options  & kSMBOptionSessionOnly) {
+		fprintf(stdout, "Authenticate successfully with %s\n", url);
+		goto done;
+	}
+	fprintf(stdout, "%-48s%-8s%s\n", "Share", "Type", "Comments");
 	fprintf(stdout, "-------------------------------\n");
-	errno = smb_netshareenum(ctx, &entries, &total, &share_info);
-	if (errno)
-		err(EX_IOERR, "unable to list resources");
 
-	for (ep = share_info, i = 0; i < entries; i++, ep++) {
-		fprintf(stdout, "%-12s %-10s %s\n", ep->netname,
-		    shtype[min(ep->type, sizeof shtype / sizeof(char *) - 1)],
-		    ep->remark ? ep->remark : "");
+	error = smb_netshareenum(serverConnection, &shareDict, FALSE);
+	if (error) {
+		errno = error;
+		SMBReleaseServer(serverConnection);
+		err(EX_IOERR, "unable to list resources");
+	} else {
+		CFArrayRef shareArray = createShareArrayFromShareDictionary(shareDict);
+		CFStringRef shareStr, shareTypeStr, commentStr;
+		CFDictionaryRef theDict;
+		CFIndex ii;
+		char *share, *sharetype, *comments;
+						
+		for (ii=0; shareArray && (ii < CFArrayGetCount(shareArray)); ii++) {
+			shareStr = CFArrayGetValueAtIndex(shareArray, ii);
+			/* Should never happen, but just to be safe */
+			if (shareStr == NULL) {
+				continue;
+			}
+			theDict = CFDictionaryGetValue(shareDict, shareStr);
+			/* Should never happen, but just to be safe */
+			if (theDict == NULL) {
+				continue;
+			}
+			shareTypeStr = CFDictionaryGetValue(theDict, kNetShareTypeStrKey);
+			commentStr = CFDictionaryGetValue(theDict, kNetCommentStrKey);
+			
+			share = CStringCreateWithCFString(shareStr);
+			sharetype = CStringCreateWithCFString(shareTypeStr);
+			comments = CStringCreateWithCFString(commentStr);
+			fprintf(stdout, "%-48s%-8s%s\n", share ? share : "",  
+					sharetype ? sharetype : "", comments ? comments : "");
+			free(share);
+			free(sharetype);
+			free(comments);
+		}
+		fprintf(stdout, "\n%ld shares listed\n", CFArrayGetCount(shareArray));
+		if (shareArray) {
+			CFRelease(shareArray);
+		}
+		if (shareDict) {
+			CFRelease(shareDict);
+		}
 	}
-	fprintf(stdout, "\n%d shares listed from %d available\n", entries, total);
-	smb_freeshareinfo(share_info, entries);
-	smb_ctx_done(ctx);
+done:
+	SMBReleaseServer(serverConnection);
 	return 0;
 }
 
@@ -172,6 +210,13 @@ view_usage(void)
 	fprintf(stderr, "usage: smbutil view [connection options] //"
 		"[domain;][user[:password]@]"
 	"server\n");
+	
+	fprintf(stderr, "where options are:\n"
+					"    -A    authorize only\n"
+					"    -N    don't prompt for a password\n"
+					"    -G    allow guest access\n"
+					"    -g    authorize with guest only\n"
+					"    -a    authorize with anonymous only\n"
+					"    -f    don't share session\n");
 	exit(1);
 }
-

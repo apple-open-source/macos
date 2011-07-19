@@ -42,6 +42,7 @@
 #include <errno.h>
 #include <fcntl.h>
 #include <float.h>
+#include <sandbox.h>
 
 #include <bsm/audit_uevents.h>      // AUE_ssauth*
 #include "ccaudit_extensions.h"
@@ -142,14 +143,24 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
 
     RightAuthenticationLogger logger(auth.creatorAuditToken(), AUE_ssauthorize);
     
-	AuthItemSet::const_iterator end = inRights.end();
-	for (AuthItemSet::const_iterator it = inRights.begin(); it != end; ++it)
+	// create a vector with the first right first
+	std::vector<AuthItemRef>		tempRights;
+	for (AuthItemSet::const_iterator it = inRights.begin(); it != inRights.end(); ++it) {
+		if (inRights.firstItemName != NULL && strcmp((*it)->name(), inRights.firstItemName) == 0)
+			tempRights.insert(tempRights.begin(), *it);
+		else
+			tempRights.push_back(*it);
+	}
+
+	bool authExtractPassword = false;
+	std::vector<AuthItemRef>::const_iterator end = tempRights.end();
+	for (std::vector<AuthItemRef>::const_iterator it = tempRights.begin(); it != end; ++it)
 	{
 		// Get the rule for each right we are trying to obtain.
 		const Rule &toplevelRule = mAuthdb.getRule(*it);
-		OSStatus result = toplevelRule->evaluate(*it, toplevelRule, environmentToClient, flags, now, inCredentials, credentials, auth, reason);
-		secdebug("autheval", "evaluate rule %s for right %s returned %d.", toplevelRule->name().c_str(), (*it)->name(), int(result));
-        SECURITYD_AUTH_EVALRIGHT(&auth, (char *)(*it)->name(), result);
+
+		if (false == authExtractPassword)
+			authExtractPassword = toplevelRule->extractPassword();
 
         string processName = "unknown";
         string authCreatorName = "unknown";
@@ -163,6 +174,19 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
             if (!SecCodeCopyPath(code, kSecCSDefaultFlags, &path.aref()))
                 authCreatorName = cfString(path);
         }
+		
+        if (sandbox_check(Server::process().pid(), "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, (*it)->name())) {
+            Syslog::error("Sandbox denied authorizing right '%s' by client '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid());
+            return errAuthorizationDenied;
+        }
+        if (auth.creatorSandboxed() && sandbox_check(auth.creatorPid(), "authorization-right-obtain", SANDBOX_FILTER_RIGHT_NAME, (*it)->name())) {
+            Syslog::error("Sandbox denied authorizing right '%s' for authorization created by '%s' [%d]", (*it)->name(), authCreatorName.c_str(), auth.creatorPid());
+            return errAuthorizationDenied;
+        }
+		
+		OSStatus result = toplevelRule->evaluate(*it, toplevelRule, environmentToClient, flags, now, inCredentials, credentials, auth, reason, authExtractPassword);
+		secdebug("autheval", "evaluate rule %s for right %s returned %d.", toplevelRule->name().c_str(), (*it)->name(), int(result));
+        SECURITYD_AUTH_EVALRIGHT(&auth, (char *)(*it)->name(), result);
         
         logger.setRight((*it)->name());
         logger.logAuthorizationResult(processName.c_str(), authCreatorName.c_str(), result);
@@ -170,13 +194,13 @@ Engine::authorize(const AuthItemSet &inRights, const AuthItemSet &environment,
         if (result == errAuthorizationSuccess)
         {
             outRights.insert(*it);
-            Syslog::info("Succeeded authorizing right '%s' by client '%s' for authorization created by '%s'", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+            Syslog::info("Succeeded authorizing right '%s' by client '%s' [%d] for authorization created by '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid());
         } 
         else if (result == errAuthorizationDenied || result == errAuthorizationInteractionNotAllowed) 
         {
             if (result == errAuthorizationDenied)
             {
-                 Syslog::notice("Failed to authorize right '%s' by client '%s' for authorization created by '%s'", (*it)->name(), processName.c_str(), authCreatorName.c_str());
+                 Syslog::notice("Failed to authorize right '%s' by client '%s' [%d] for authorization created by '%s' [%d]", (*it)->name(), processName.c_str(), Server::process().pid(), authCreatorName.c_str(), auth.creatorPid());
             }
 
             // add creator pid to authorization token

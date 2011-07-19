@@ -14,8 +14,6 @@
 #include <string.h>              /* memset */
 #include <sys/types.h>           /* sys/disklabel.h */
 #include <sys/param.h>           /* NBPG */
-#include <ufs/ufs/dinode.h>      /* ufs/ffs/fs.h */
-#include <ufs/ffs/fs.h>          /* BBSIZE, SBSIZE */
 
 #include <sys/disk.h>            /* DKIOCGETBLOCKSIZE ioctl */
 
@@ -176,8 +174,6 @@ int dkdisklabelregenerate(int fd, struct disklabel * lp, int newblksize)
 
     /* filesystem and partition information: */
     lp->d_npartitions    = MAXPARTITIONS; /* number of partitions */
-    lp->d_bbsize         = BBSIZE;        /* size of boot area at sn0, bytes */
-    lp->d_sbsize         = SBSIZE;        /* max size of fs superblock, bytes */
 
     for (index = 0; index < MAXPARTITIONS; index++)
     {

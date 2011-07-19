@@ -1,5 +1,5 @@
 #!/usr/bin/perl
-# $Id: regs.pl,v 1.1.1.1 2005/10/13 22:21:48 echristo Exp $
+# $Id: regs.pl,v 1.1.1.1 2005-10-13 22:21:48 echristo Exp $
 #
 # Read regs.dat and output regs.h and regs.c (included in names.c)
 #

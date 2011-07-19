@@ -27,6 +27,23 @@
 #ifndef Widget_h
 #define Widget_h
 
+#include "IntRect.h"
+#include <wtf/Forward.h>
+#include <wtf/RefCounted.h>
+
+#if PLATFORM(CHROMIUM)
+#include "PlatformWidget.h"
+#endif
+
+#if PLATFORM(MAC)
+#include <wtf/RetainPtr.h>
+#endif
+
+#if PLATFORM(QT)
+#include <qglobal.h>
+#include <QWeakPointer>
+#endif
+
 #if PLATFORM(MAC)
 #ifdef __OBJC__
 @class NSView;
@@ -35,7 +52,7 @@
 class NSView;
 class NSWindow;
 #endif
-typedef NSView* PlatformWidget;
+typedef NSView *PlatformWidget;
 #endif
 
 #if PLATFORM(WIN)
@@ -44,14 +61,12 @@ typedef HWND PlatformWidget;
 #endif
 
 #if PLATFORM(GTK)
-typedef struct _GdkDrawable GdkDrawable;
 typedef struct _GtkWidget GtkWidget;
 typedef struct _GtkContainer GtkContainer;
 typedef GtkWidget* PlatformWidget;
 #endif
 
 #if PLATFORM(QT)
-#include <qglobal.h>
 QT_BEGIN_NAMESPACE
 class QWidget;
 QT_END_NAMESPACE
@@ -68,14 +83,20 @@ class BView;
 typedef BView* PlatformWidget;
 #endif
 
-#if PLATFORM(CHROMIUM)
-#include "PlatformWidget.h"
+#if PLATFORM(BREWMP)
+typedef void* PlatformWidget;
 #endif
 
 #if PLATFORM(EFL)
-#include <Ecore_Evas.h>
-#include <Evas.h>
+typedef struct _Evas_Object Evas_Object;
+typedef struct _Evas Evas;
+typedef struct _Ecore_Evas Ecore_Evas;
 typedef Evas_Object* PlatformWidget;
+#endif
+
+#if PLATFORM(ANDROID)
+class WebCoreViewBridge;
+typedef WebCoreViewBridge* PlatformWidget;
 #endif
 
 #if PLATFORM(QT)
@@ -85,14 +106,9 @@ typedef QWebPageClient* PlatformPageClient;
 typedef PlatformWidget PlatformPageClient;
 #endif
 
-#include "IntPoint.h"
-#include "IntRect.h"
-#include "IntSize.h"
-
-#include <wtf/RefCounted.h>
-
 namespace WebCore {
 
+class AXObjectCache;
 class Cursor;
 class Event;
 class Font;
@@ -100,9 +116,6 @@ class GraphicsContext;
 class PlatformMouseEvent;
 class ScrollView;
 class WidgetPrivate;
-#if PLATFORM(EFL)
-class String;
-#endif
 
 enum WidgetNotification { WillPaintFlattened, DidPaintFlattened };
 
@@ -126,15 +139,9 @@ public:
     Widget(PlatformWidget = 0);
     virtual ~Widget();
 
-    PlatformWidget platformWidget() const { return m_widget; }
-    void setPlatformWidget(PlatformWidget widget)
-    {
-        if (widget != m_widget) {
-            releasePlatformWidget();
-            m_widget = widget;
-            retainPlatformWidget();
-        }
-    }
+    PlatformWidget platformWidget() const;
+    void setPlatformWidget(PlatformWidget);
+
 #if PLATFORM(HAIKU)
     PlatformWidget topLevelPlatformWidget() const { return m_topLevelPlatformWidget; }
     void setTopLevelPlatformWidget(PlatformWidget widget)
@@ -148,14 +155,15 @@ public:
     int width() const { return frameRect().width(); }
     int height() const { return frameRect().height(); }
     IntSize size() const { return frameRect().size(); }
-    IntPoint pos() const { return frameRect().location(); }
+    IntPoint location() const { return frameRect().location(); }
 
     virtual void setFrameRect(const IntRect&);
+    virtual void setBoundsSize(const IntSize&);
     virtual IntRect frameRect() const;
     IntRect boundsRect() const { return IntRect(0, 0, width(),  height()); }
 
-    void resize(int w, int h) { setFrameRect(IntRect(x(), y(), w, h)); }
-    void resize(const IntSize& s) { setFrameRect(IntRect(pos(), s)); }
+    void resize(int w, int h) { setFrameRect(IntRect(x(), y(), w, h)); setBoundsSize(IntSize(w, h)); }
+    void resize(const IntSize& s) { setFrameRect(IntRect(location(), s)); setBoundsSize(s); }
     void move(int x, int y) { setFrameRect(IntRect(x, y, width(), height())); }
     void move(const IntPoint& p) { setFrameRect(IntRect(p, size())); }
 
@@ -179,8 +187,8 @@ public:
 
     virtual bool isFrameView() const { return false; }
     virtual bool isPluginView() const { return false; }
-    // FIXME: The Mac plug-in code should inherit from PluginView. When this happens PluginWidget and PluginView can become one class.
-    virtual bool isPluginWidget() const { return false; }
+    // FIXME: The Mac plug-in code should inherit from PluginView. When this happens PluginViewBase and PluginView can become one class.
+    virtual bool isPluginViewBase() const { return false; }
     virtual bool isScrollbar() const { return false; }
 
     void removeFromParent();
@@ -230,12 +238,24 @@ public:
     const String edjeThemeRecursive() const;
 #endif
 
+#if PLATFORM(CHROMIUM)
+    virtual bool isPluginContainer() const { return false; }
+#endif
+
+#if PLATFORM(QT)
+    QObject* bindingObject() const;
+    void setBindingObject(QObject*);
+#endif
+
     // Virtual methods to convert points to/from the containing ScrollView
     virtual IntRect convertToContainingView(const IntRect&) const;
     virtual IntRect convertFromContainingView(const IntRect&) const;
     virtual IntPoint convertToContainingView(const IntPoint&) const;
     virtual IntPoint convertFromContainingView(const IntPoint&) const;
 
+    // A means to access the AX cache when this object can get a pointer to it.
+    virtual AXObjectCache* axObjectCache() const { return 0; }
+    
 private:
     void init(PlatformWidget); // Must be called by all Widget constructors to initialize cross-platform data.
 
@@ -252,7 +272,11 @@ private:
 
 private:
     ScrollView* m_parent;
+#if !PLATFORM(MAC)
     PlatformWidget m_widget;
+#else
+    RetainPtr<NSView> m_widget;
+#endif
     bool m_selfVisible;
     bool m_parentVisible;
 
@@ -270,10 +294,44 @@ private:
     WidgetPrivate* m_data;
 #endif
 
+#if PLATFORM(QT)
+    QWeakPointer<QObject> m_bindingObject;
+#endif
+
 #if PLATFORM(HAIKU)
     PlatformWidget m_topLevelPlatformWidget;
 #endif
 };
+
+#if !PLATFORM(MAC)
+
+inline PlatformWidget Widget::platformWidget() const
+{
+    return m_widget;
+}
+
+inline void Widget::setPlatformWidget(PlatformWidget widget)
+{
+    if (widget != m_widget) {
+        releasePlatformWidget();
+        m_widget = widget;
+        retainPlatformWidget();
+    }
+}
+
+#endif
+
+#if !PLATFORM(GTK)
+
+inline void Widget::releasePlatformWidget()
+{
+}
+
+inline void Widget::retainPlatformWidget()
+{
+}
+
+#endif
 
 } // namespace WebCore
 

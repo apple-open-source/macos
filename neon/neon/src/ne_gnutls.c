@@ -1,6 +1,6 @@
 /*
    neon SSL/TLS support using GNU TLS
-   Copyright (C) 2002-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 2002-2009, Joe Orton <joe@manyfish.co.uk>
    Copyright (C) 2004, Aleix Conchillo Flaque <aleix@member.fsf.org>
 
    This library is free software; you can redistribute it and/or
@@ -56,9 +56,19 @@ GCRY_THREAD_OPTION_PTHREAD_IMPL;
 #include "ne_private.h"
 #include "ne_privssl.h"
 
+#if LIBGNUTLS_VERSION_NUMBER >= 0x020302
+/* The GnuTLS DN functions in 2.3.2 and later allow a simpler DN
+ * abstraction to be used. */
+#define HAVE_NEW_DN_API
+#endif
+
 struct ne_ssl_dname_s {
+#ifdef HAVE_NEW_DN_API
+    gnutls_x509_dn_t dn;
+#else
     int subject; /* non-zero if this is the subject DN object */
     gnutls_x509_crt cert;
+#endif
 };
 
 struct ne_ssl_certificate_s {
@@ -179,6 +189,9 @@ char *ne_ssl_readable_dname(const ne_ssl_dname *name)
     ne_buffer *buf;
     gnutls_x509_ava_st val;
 
+#ifdef HAVE_NEW_DN_API
+    dn = name->dn;
+#else
     if (name->subject)
         ret = gnutls_x509_crt_get_subject(name->cert, &dn);
     else
@@ -186,6 +199,7 @@ char *ne_ssl_readable_dname(const ne_ssl_dname *name)
     
     if (ret)
         return ne_strdup(_("[unprintable]"));
+#endif /* HAVE_NEW_DN_API */
 
     buf = ne_buffer_create();
     
@@ -279,6 +293,14 @@ int ne_ssl_dname_cmp(const ne_ssl_dname *dn1, const ne_ssl_dname *dn2)
 {
     char c1[1024], c2[1024];
     size_t s1 = sizeof c1, s2 = sizeof c2;
+
+#ifdef HAVE_NEW_DN_API
+    if (gnutls_x509_dn_export(dn1->dn, GNUTLS_X509_FMT_DER, c1, &s1))
+        return 1;
+        
+    if (gnutls_x509_dn_export(dn2->dn, GNUTLS_X509_FMT_DER, c2, &s2))
+        return -1;
+#else
     int ret;
 
     if (dn1->subject)
@@ -294,6 +316,7 @@ int ne_ssl_dname_cmp(const ne_ssl_dname *dn1, const ne_ssl_dname *dn2)
         ret = gnutls_x509_crt_get_issuer_dn(dn2->cert, c2, &s2);
     if (ret)
         return -1;
+#endif /* HAVE_NEW_DN_API */
     
     if (s1 != s2)
         return s2 - s1;
@@ -433,14 +456,21 @@ static int check_identity(const ne_uri *server, gnutls_x509_crt cert,
     return match ? 0 : 1;
 }
 
-/* Populate an ne_ssl_certificate structure from an X509 object. */
+/* Populate an ne_ssl_certificate structure from an X509 object.  Note
+ * that x5 is owned by returned cert object and must not be otherwise
+ * freed by the caller.  */
 static ne_ssl_certificate *populate_cert(ne_ssl_certificate *cert,
                                          gnutls_x509_crt x5)
 {
+#ifdef HAVE_NEW_DN_API
+    gnutls_x509_crt_get_subject(x5, &cert->subj_dn.dn);
+    gnutls_x509_crt_get_issuer(x5, &cert->issuer_dn.dn);
+#else
     cert->subj_dn.cert = x5;
     cert->subj_dn.subject = 1;
     cert->issuer_dn.cert = x5;
     cert->issuer_dn.subject = 0;
+#endif
     cert->issuer = NULL;
     cert->subject = x5;
     cert->identity = NULL;
@@ -528,14 +558,52 @@ static int provide_client_cert(gnutls_session session,
         return GNUTLS_E_RECEIVED_ILLEGAL_PARAMETER;
     }
 
-    if (!sess->client_cert && sess->ssl_provide_fn) {
-        /* The dname array cannot be converted without better dname
-         * support from GNUTLS. */
-        sess->ssl_provide_fn(sess->ssl_provide_ud, sess,
-                             NULL, 0);
-    }
+    NE_DEBUG(NE_DBG_SSL, "ssl: Client cert provider callback; %d CA names.\n",
+             nreqs);
 
-    NE_DEBUG(NE_DBG_SSL, "In client cert provider callback.\n");
+    if (!sess->client_cert && sess->ssl_provide_fn) {
+#ifdef HAVE_NEW_DN_API
+        const ne_ssl_dname **dns;
+        ne_ssl_dname *dnarray;
+        unsigned dncount = 0;
+        int n;
+
+        dns = ne_malloc(nreqs * sizeof(ne_ssl_dname *));
+        dnarray = ne_calloc(nreqs * sizeof(ne_ssl_dname));
+
+        for (n = 0; n < nreqs; n++) {
+            gnutls_x509_dn_t dn;
+
+            if (gnutls_x509_dn_init(&dn) == 0) {
+                dnarray[n].dn = dn;
+                if (gnutls_x509_dn_import(dn, &req_ca_rdn[n]) == 0) {
+                    dns[dncount++] = &dnarray[n];
+                }
+                else {
+                    gnutls_x509_dn_deinit(dn);
+                }            
+            }
+        }
+       
+        NE_DEBUG(NE_DBG_SSL, "ssl: Mapped %d CA names to %u DN objects.\n",
+                 nreqs, dncount);
+
+        sess->ssl_provide_fn(sess->ssl_provide_ud, sess, dns, dncount);
+        
+        for (n = 0; n < nreqs; n++) {
+            if (dnarray[n].dn) {
+                gnutls_x509_dn_deinit(dnarray[n].dn);
+            }
+        }
+
+        ne_free(dns);
+        ne_free(dnarray);
+#else /* HAVE_NEW_DN_API */
+        /* Nothing to do here other than pretend no CA names were
+         * given, and hope the caller can cope. */
+        sess->ssl_provide_fn(sess->ssl_provide_ud, sess, NULL, 0);
+#endif
+    }
 
     if (sess->client_cert) {
         gnutls_certificate_type type = gnutls_certificate_type_get(session);
@@ -618,20 +686,41 @@ void ne_ssl_context_destroy(ne_ssl_context *ctx)
     ne_free(ctx);
 }
 
+#ifdef HAVE_GNUTLS_CERTIFICATE_GET_X509_CAS
+/* Return the issuer of the given certificate, or NULL if none can be
+ * found. */
+static gnutls_x509_crt find_issuer(gnutls_x509_crt *ca_list,
+                                   unsigned int num_cas,
+                                   gnutls_x509_crt cert)
+{
+    unsigned int n;
+
+    for (n = 0; n < num_cas; n++) {
+        if (gnutls_x509_crt_check_issuer(cert, ca_list[n]) == 1)
+            return ca_list[n];
+    }
+
+    return NULL;
+}
+#endif
+
 /* Return the certificate chain sent by the peer, or NULL on error. */
-static ne_ssl_certificate *make_peers_chain(gnutls_session sock)
+static ne_ssl_certificate *make_peers_chain(gnutls_session sock,
+                                            gnutls_certificate_credentials crd)
 {
     ne_ssl_certificate *current = NULL, *top = NULL;
     const gnutls_datum *certs;
     unsigned int n, count;
+    ne_ssl_certificate *cert;
 
     certs = gnutls_certificate_get_peers(sock, &count);
     if (!certs) {
         return NULL;
     }
+
+    NE_DEBUG(NE_DBG_SSL, "ssl: Got %u certs in peer chain.\n", count);
     
     for (n = 0; n < count; n++) {
-        ne_ssl_certificate *cert;
         gnutls_x509_crt x5;
 
         if (gnutls_x509_crt_init(&x5) ||
@@ -642,7 +731,7 @@ static ne_ssl_certificate *make_peers_chain(gnutls_session sock)
             return NULL;
         }
 
-        cert = populate_cert(ne_malloc(sizeof *cert), x5);
+        cert = populate_cert(ne_calloc(sizeof *cert), x5);
         
         if (top == NULL) {
             current = top = cert;
@@ -651,25 +740,119 @@ static ne_ssl_certificate *make_peers_chain(gnutls_session sock)
             current = cert;
         }
     }
+
+#ifdef HAVE_GNUTLS_CERTIFICATE_GET_X509_CAS
+    /* GnuTLS only returns the peers which were *sent* by the server
+     * in the Certificate list during the handshake.  Fill in the
+     * complete chain manually against the certs we trust: */
+    if (current->issuer == NULL) {
+        gnutls_x509_crt issuer;
+        gnutls_x509_crt *ca_list;
+        unsigned int num_cas;
+        
+        gnutls_certificate_get_x509_cas(crd, &ca_list, &num_cas);
+
+        do { 
+            /* Look up the issuer. */
+            issuer = find_issuer(ca_list, num_cas, current->subject);
+            if (issuer) {
+                issuer = x509_crt_copy(issuer);
+                cert = populate_cert(ne_calloc(sizeof *cert), issuer);
+                /* Check that the issuer does not match the current
+                 * cert. */
+                if (ne_ssl_cert_cmp(current, cert)) {
+                    current = current->issuer = cert;
+                }
+                else {
+                    ne_ssl_cert_free(cert);
+                    issuer = NULL;
+                }
+            }
+        } while (issuer);
+    }
+#endif
     
     return top;
+}
+
+/* Map from GnuTLS verify failure mask *status to NE_SSL_* failure
+ * bitmask, which is returned.  *status is modified, removing all
+ * mapped bits. */
+static int map_verify_failures(unsigned int *status)
+{
+    static const struct {
+        gnutls_certificate_status_t from;
+        int to;
+    } map[] = {
+        { GNUTLS_CERT_REVOKED, NE_SSL_REVOKED },
+        { GNUTLS_CERT_NOT_ACTIVATED, NE_SSL_NOTYETVALID },
+        { GNUTLS_CERT_EXPIRED, NE_SSL_EXPIRED },
+        { GNUTLS_CERT_INVALID|GNUTLS_CERT_SIGNER_NOT_FOUND, NE_SSL_UNTRUSTED },
+        { GNUTLS_CERT_INVALID|GNUTLS_CERT_SIGNER_NOT_CA, NE_SSL_UNTRUSTED }
+    };
+    size_t n;
+    int ret = 0;
+
+    for (n = 0; n < sizeof(map)/sizeof(map[0]); n++) {
+        if ((*status & map[n].from) == map[n].from) {
+            *status &= ~map[n].from;
+            ret |= map[n].to;
+        }
+    }
+
+    return ret;
+}
+
+/* Return a malloc-allocated human-readable error string describing
+ * GnuTLS verification error bitmask 'status'; return value must be
+ * freed by the caller. */
+static char *verify_error_string(unsigned int status)
+{
+    ne_buffer *buf = ne_buffer_create();
+
+    /* sorry, i18n-ers */
+    if (status & GNUTLS_CERT_INSECURE_ALGORITHM) {
+        ne_buffer_zappend(buf, _("signed using insecure algorithm"));
+    }
+    else {
+        ne_buffer_snprintf(buf, 64, _("unrecognized errors (%u)"),
+                           status);
+    }
+    
+    return ne_buffer_finish(buf);
+}
+
+/* Return NE_SSL_* failure bits after checking chain expiry. */
+static int check_chain_expiry(ne_ssl_certificate *chain)
+{
+    time_t before, after, now = time(NULL);
+    ne_ssl_certificate *cert;
+    int failures = 0;
+    
+    /* Check that all certs within the chain are inside their defined
+     * validity period.  Note that the errors flagged for the server
+     * cert are different from the generic error for issues higher up
+     * the chain. */
+    for (cert = chain; cert; cert = cert->issuer) {
+        before = gnutls_x509_crt_get_activation_time(cert->subject);
+        after = gnutls_x509_crt_get_expiration_time(cert->subject);
+        
+        if (now < before)
+            failures |= (cert == chain) ? NE_SSL_NOTYETVALID : NE_SSL_BADCHAIN;
+        else if (now > after)
+            failures |= (cert == chain) ? NE_SSL_EXPIRED : NE_SSL_BADCHAIN;
+    }
+
+    return failures;
 }
 
 /* Verifies an SSL server certificate. */
 static int check_certificate(ne_session *sess, gnutls_session sock,
                              ne_ssl_certificate *chain)
 {
-    time_t before, after, now = time(NULL);
-    int ret, failures = 0;
+    int ret, failures;
     ne_uri server;
-
-    before = gnutls_x509_crt_get_activation_time(chain->subject);
-    after = gnutls_x509_crt_get_expiration_time(chain->subject);
-
-    if (now < before)
-        failures |= NE_SSL_NOTYETVALID;
-    else if (now > after)
-        failures |= NE_SSL_EXPIRED;
+    unsigned int status;
 
     memset(&server, 0, sizeof server);
     ne_fill_server_uri(sess, &server);
@@ -680,15 +863,33 @@ static int check_certificate(ne_session *sess, gnutls_session sock,
         ne_set_error(sess, _("Server certificate was missing commonName "
                              "attribute in subject name"));
         return NE_ERROR;
-    } else if (ret > 0) {
+    } 
+    else if (ret > 0) {
         failures |= NE_SSL_IDMISMATCH;
     }
+    
+    failures |= check_chain_expiry(chain);
 
-    if (gnutls_certificate_verify_peers(sock)) {
-        failures |= NE_SSL_UNTRUSTED;
+    ret = gnutls_certificate_verify_peers2(sock, &status);
+    NE_DEBUG(NE_DBG_SSL, "ssl: Verify peers returned %d, status=%u\n", 
+             ret, status);
+    if (ret != GNUTLS_E_SUCCESS) {
+        ne_set_error(sess, _("Could not verify server certificate: %s"),
+                     gnutls_strerror(ret));
+        return NE_ERROR;
     }
 
-    NE_DEBUG(NE_DBG_SSL, "Failures = %d\n", failures);
+    failures |= map_verify_failures(&status);
+
+    NE_DEBUG(NE_DBG_SSL, "ssl: Verification failures = %d (status = %u).\n", 
+             failures, status);
+    
+    if (status && status != GNUTLS_CERT_INVALID) {
+        char *errstr = verify_error_string(status);
+        ne_set_error(sess, _("Certificate verification error: %s"), errstr);
+        ne_free(errstr);       
+        return NE_ERROR;
+    }
 
     if (failures == 0) {
         ret = NE_OK;
@@ -718,12 +919,12 @@ int ne__negotiate_ssl(ne_session *sess)
 
     if (ne_sock_connect_ssl(sess->socket, ctx, sess)) {
         if (sess->ssl_cc_requested) {
-            ne_set_error(sess, _("SSL negotiation failed, "
+            ne_set_error(sess, _("SSL handshake failed, "
                                  "client certificate was requested: %s"),
                          ne_sock_error(sess->socket));
         }
         else {
-            ne_set_error(sess, _("SSL negotiation failed: %s"),
+            ne_set_error(sess, _("SSL handshake failed: %s"),
                          ne_sock_error(sess->socket));
         }
         return NE_ERROR;
@@ -731,7 +932,7 @@ int ne__negotiate_ssl(ne_session *sess)
 
     sock = ne__sock_sslsock(sess->socket);
 
-    chain = make_peers_chain(sock);
+    chain = make_peers_chain(sock, ctx->cred);
     if (chain == NULL) {
         ne_set_error(sess, _("Server did not send certificate chain"));
         return NE_ERROR;

@@ -1,0 +1,279 @@
+require "vnd.dovecot.testsuite";
+require "notify";
+require "envelope";
+
+/*
+ * Denotify all
+ */
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify All" {
+	notify :options "timo@example.com";
+	notify :options "stephan@dovecot.example.net";
+	notify :options "postmaster@frop.example.org";
+	denotify;
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if test_message :smtp 0 {
+		test_fail "no notifications should have been sent";
+	}
+}
+
+/*
+ * Denotify First
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify ID First" {
+	/* #1 */
+	notify :options "timo@example.com" :id "aap";
+
+	/* #2 */
+	notify :options "stephan@dovecot.example.net" :id "noot";
+
+	/* #3 */
+	notify :options "postmaster@frop.example.org" :id "mies";
+
+	denotify :is "aap";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "two notifications should have been sent (#2 missing)";
+	}
+
+	if not envelope "to" "stephan@dovecot.example.net" {
+		test_fail "message #2 unexpectedly missing from output";
+	}
+
+	if not test_message :smtp 1 {
+		test_fail "two notifications should have been sent (#3 missing)";
+	}
+
+	if not envelope "to" "postmaster@frop.example.org" {
+		test_fail "message #3 unexpectedly missing from output";
+	}
+
+	if test_message :smtp 2 {
+		test_fail "too many notifications sent";
+	}
+}
+
+/*
+ * Denotify Middle
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify ID Middle" {
+	/* #1 */
+	notify :options "timo@example.com" :id "aap";
+
+	/* #2 */
+	notify :options "stephan@dovecot.example.net" :id "noot";
+
+	/* #3 */
+	notify :options "postmaster@frop.example.org" :id "mies";
+
+	denotify :is "noot";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "two notifications should have been sent (#1 missing)";
+	}
+
+	if not envelope "to" "timo@example.com" {
+		test_fail "message #1 unexpectedly missing from output";
+	}
+
+	if not test_message :smtp 1 {
+		test_fail "two notifications should have been sent (#3 missing)";
+	}
+
+	if not envelope "to" "postmaster@frop.example.org" {
+		test_fail "message #3 unexpectedly missing from output";
+	}
+
+	if test_message :smtp 2 {
+		test_fail "too many notifications sent";
+	}
+}
+
+/*
+ * Denotify Last
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify ID Last" {
+	/* #1 */
+	notify :options "timo@example.com" :id "aap";
+
+	/* #2 */
+	notify :options "stephan@dovecot.example.net" :id "noot";
+
+	/* #3 */
+	notify :options "postmaster@frop.example.org" :id "mies";
+
+	denotify :is "mies";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "two notifications should have been sent (#1 missing)";
+	}
+
+	if not envelope "to" "timo@example.com" {
+		test_fail "message #1 unexpectedly missing from output";
+	}
+
+	if not test_message :smtp 1 {
+		test_fail "two notifications should have been sent (#2 missing)";
+	}
+
+	if not envelope "to" "stephan@dovecot.example.net" {
+		test_fail "message #2 unexpectedly missing from output";
+	}
+
+	if test_message :smtp 2 {
+		test_fail "too many notifications sent";
+	}
+}
+
+
+/*
+ * Denotify Matching
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify Matching" {
+	/* #1 */
+	notify :options "timo@example.com" :id "frop";
+
+	/* #2 */
+	notify :options "stephan@dovecot.example.net" :id "noot";
+
+	/* #3 */
+	notify :options "postmaster@frop.example.org" :id "friep";
+
+	denotify :matches "fr*";
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "one notification should have been sent";
+	}
+
+	if not envelope "to" "stephan@dovecot.example.net" {
+		test_fail "message #2 unexpectedly missing from output";
+	}
+
+	if test_message :smtp 1 {
+		test_fail "too many notifications sent";
+	}
+}
+
+
+/*
+ * Denotify Matching
+ */
+
+test_result_reset;
+
+test_set "message" text:
+From: stephan@example.org
+To: nico@frop.example.org
+Subject: Frop!
+
+Klutsefluts.
+.
+;
+
+test "Denotify Matching Importance" {
+	/* #1 */
+	notify :options "timo@example.com" :id "frop" :low;
+
+	/* #2 */
+	notify :options "stephan@dovecot.example.net" :id "frml" :high;
+
+	/* #3 */
+	notify :options "postmaster@frop.example.org" :id "friep" :low;
+
+	denotify :matches "fr*" :low;
+
+	if not test_result_execute {
+		test_fail "failed to execute notify";
+	}
+
+	if not test_message :smtp 0 {
+		test_fail "one notification should have been sent";
+	}
+
+	if not envelope "to" "stephan@dovecot.example.net" {
+		test_fail "message #2 unexpectedly missing from output";
+	}
+
+	if test_message :smtp 1 {
+		test_fail "too many notifications sent";
+	}
+}
+
+

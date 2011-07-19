@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>AppleUSBCDCECMData</string>
 	<key>CFBundleGetInfoString</key>
-	<string>4.0.5, USB CDC ECM driver Data Interface</string>
+	<string>4.1.15, USB CDC ECM driver Data Interface</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,51 +19,59 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>4.0.5</string>
+	<string>4.1.15</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>4.0.5</string>
+	<string>4.1.15</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>AppleUSBCDCECMData</key>
 		<dict>
-			<key>CFBundleIdentifier</key>
-			<string>com.apple.driver.AppleUSBCDCECMData</string>
-			<key>IOClass</key>
-			<string>AppleUSBCDCECMData</string>
-			<key>IOProviderClass</key>
-			<string>IOUSBInterface</string>
-			<key>InputBuffers</key>
-			<integer>8</integer>
-			<key>OutputBuffers</key>
-			<integer>32</integer>
 			<key>bInterfaceClass</key>
 			<integer>10</integer>
 			<key>bInterfaceSubClass</key>
 			<integer>0</integer>
-		</dict>
-		<key>AppleUSBCDCECMData1</key>
-		<dict>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBCDCECMData</string>
+			<key>InputBuffers</key>
+			<integer>8</integer>
 			<key>IOClass</key>
 			<string>AppleUSBCDCECMData</string>
 			<key>IOProviderClass</key>
 			<string>IOUSBInterface</string>
-			<key>InputBuffers</key>
-			<integer>8</integer>
 			<key>OutputBuffers</key>
 			<integer>32</integer>
+		</dict>
+		<key>AppleUSBCDCECMData1</key>
+		<dict>
 			<key>bInterfaceClass</key>
 			<integer>10</integer>
 			<key>bInterfaceSubClass</key>
 			<integer>6</integer>
+			<key>CFBundleIdentifier</key>
+			<string>com.apple.driver.AppleUSBCDCECMData</string>
+			<key>InputBuffers</key>
+			<integer>8</integer>
+			<key>IOClass</key>
+			<string>AppleUSBCDCECMData</string>
+			<key>IOProviderClass</key>
+			<string>IOUSBInterface</string>
+			<key>OutputBuffers</key>
+			<integer>32</integer>
 		</dict>
 		<key>Broadcom220</key>
 		<dict>
+			<key>bConfigurationValue</key>
+			<integer>2</integer>
+			<key>bInterfaceNumber</key>
+			<integer>1</integer>
 			<key>CFBundleIdentifier</key>
 			<string>com.apple.driver.AppleUSBMergeNub</string>
+			<key>idProduct</key>
+			<integer>25344</integer>
+			<key>idVendor</key>
+			<integer>2652</integer>
 			<key>IOClass</key>
 			<string>AppleUSBMergeNub</string>
 			<key>IOProviderClass</key>
@@ -75,14 +83,6 @@
 				<key>OutputBuffers</key>
 				<integer>16</integer>
 			</dict>
-			<key>bConfigurationValue</key>
-			<integer>2</integer>
-			<key>bInterfaceNumber</key>
-			<integer>1</integer>
-			<key>idProduct</key>
-			<integer>25344</integer>
-			<key>idVendor</key>
-			<integer>2652</integer>
 		</dict>
 	</dict>
 	<key>OSBundleLibraries</key>
@@ -97,6 +97,8 @@
 		<string>10.0.0d1</string>
 		<key>com.apple.kpi.libkern</key>
 		<string>10.0.0d1</string>
+		<key>com.apple.kpi.mach</key>
+		<string>8.0d0</string>
 	</dict>
 </dict>
 </plist>

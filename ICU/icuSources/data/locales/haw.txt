@@ -1,6 +1,6 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/haw.xml
@@ -10,43 +10,19 @@
  *  ICU <specials> source: <path>/xml/main/haw.xml
  */
 haw{
-    AuxExemplarCharacters{"[b-d f g j q-t v x-z]"}
-    Countries{
-        AU{"Nūhōlani"}
-        CA{"Kanakā"}
-        CN{"Kina"}
-        DE{"Kelemānia"}
-        DK{"Kenemaka"}
-        ES{"Kepania"}
-        FR{"Palani"}
-        GB{"Aupuni Mōʻī Hui Pū ʻIa"}
-        GR{"Helene"}
-        IE{"ʻIlelani"}
-        IL{"ʻIseraʻela"}
-        IN{"ʻĪnia"}
-        IT{"ʻĪkālia"}
-        JP{"Iāpana"}
-        MX{"Mekiko"}
-        NL{"Hōlani"}
-        NZ{"Aotearoa"}
-        PH{"ʻĀina Pilipino"}
-        RU{"Lūkia"}
-        US{"ʻAmelika Hui Pū ʻIa"}
-    }
-    ExemplarCharacters{"[a ā e ē i ī o ō u ū h k-n p w ʻ]"}
-    Languages{
-        haw{"ʻōlelo Hawaiʻi"}
-    }
+    AuxExemplarCharacters{"[b c d f g j q r s t v x y z]"}
+    ExemplarCharacters{"[a ā e ē i ī o ō u ū h k l m n p w ʻ]"}
     LocaleScript{
         "Latn",
     }
-    NumberPatterns{
-        "#,##0.###",
-        "¤#,##0.00;(¤#,##0.00)",
-        "#,##0%",
-        "#E0",
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"¤#,##0.00;(¤#,##0.00)"}
+            }
+        }
     }
-    Version{"1.37"}
+    Version{"2.0.47.68"}
     calendar{
         gregorian{
             dayNames{
@@ -103,6 +79,33 @@ haw{
                     }
                 }
             }
+        }
+    }
+    measurementSystemNames{
+        US{"ʻAmelika Hui Pū ʻIa"}
+        metric{"Mekalika"}
+    }
+    units{
+        day{
+            other{"{0} lā"}
+        }
+        hour{
+            other{"{0} hola"}
+        }
+        minute{
+            other{"{0} minuke"}
+        }
+        month{
+            other{"{0} mahina"}
+        }
+        second{
+            other{"{0} kekona"}
+        }
+        week{
+            other{"{0} pule"}
+        }
+        year{
+            other{"{0} makahiki"}
         }
     }
 }

@@ -26,6 +26,7 @@
 //
 #include "cs.h"
 #include "StaticCode.h"
+#include <security_utilities/cfmunge.h>
 #include <fcntl.h>
 
 using namespace CodeSigning;
@@ -50,7 +51,38 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 	BEGIN_CSAPI
 	
 	checkFlags(flags);
-	Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str())))->handle();
+	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str())))->handle();
+
+	END_CSAPI
+}
+
+const CFStringRef kSecCodeAttributeArchitecture =	CFSTR("architecture");
+const CFStringRef kSecCodeAttributeSubarchitecture =CFSTR("subarchitecture");
+const CFStringRef kSecCodeAttributeBundleVersion =	CFSTR("bundleversion");
+
+OSStatus SecStaticCodeCreateWithPathAndAttributes(CFURLRef path, SecCSFlags flags, CFDictionaryRef attributes,
+	SecStaticCodeRef *staticCodeRef)
+{
+	BEGIN_CSAPI
+	
+	checkFlags(flags);
+	DiskRep::Context ctx;
+	std::string version; // holds memory placed into ctx
+	if (attributes) {
+		std::string archName;
+		int archNumber, subarchNumber;
+		if (cfscan(attributes, "{%O=%s}", kSecCodeAttributeArchitecture, &archName)) {
+			ctx.arch = Architecture(archName.c_str());
+		} else if (cfscan(attributes, "{%O=%d,%O=%d}",
+				kSecCodeAttributeArchitecture, &archNumber, kSecCodeAttributeSubarchitecture, &subarchNumber))
+			ctx.arch = Architecture(archNumber, subarchNumber);
+		else if (cfscan(attributes, "{%O=%d}", kSecCodeAttributeArchitecture, &archNumber))
+			ctx.arch = Architecture(archNumber);
+		if (cfscan(attributes, "{%O=%s}", kSecCodeAttributeBundleVersion, &version))
+			ctx.version = version.c_str();
+	}
+	
+	CodeSigning::Required(staticCodeRef) = (new SecStaticCode(DiskRep::bestGuess(cfString(path).c_str(), &ctx)))->handle();
 
 	END_CSAPI
 }
@@ -59,6 +91,36 @@ OSStatus SecStaticCodeCreateWithPath(CFURLRef path, SecCSFlags flags, SecStaticC
 //
 // Check static validity of a StaticCode
 //
+static void validate(SecStaticCode *code, const SecRequirement *req, SecCSFlags flags)
+{
+	try {
+		code->validateDirectory();
+		if (!(flags & kSecCSDoNotValidateExecutable))
+			code->validateExecutable();
+		if (!(flags & kSecCSDoNotValidateResources))
+			code->validateResources();
+		if (req)
+			code->validateRequirement(req->requirement(), errSecCSReqFailed);
+	} catch (CSError &err) {
+		if (Universal *fat = code->diskRep()->mainExecutableImage())	// Mach-O
+			if (MachO *mach = fat->architecture()) {
+				err.augment(kSecCFErrorArchitecture, CFTempString(mach->architecture().displayName()));
+				delete mach;
+			}
+		throw;
+	} catch (const MacOSError &err) {
+		// add architecture information if we can get it
+		if (Universal *fat = code->diskRep()->mainExecutableImage())
+			if (MachO *mach = fat->architecture()) {
+				CFTempString arch(mach->architecture().displayName());
+				delete mach;
+				CSError::throwMe(err.error, kSecCFErrorArchitecture, arch);
+			}
+		// else just pass it on
+		throw;
+	}
+}
+
 OSStatus SecStaticCodeCheckValidity(SecStaticCodeRef staticCodeRef, SecCSFlags flags,
 	SecRequirementRef requirementRef)
 {
@@ -77,14 +139,14 @@ OSStatus SecStaticCodeCheckValidityWithErrors(SecStaticCodeRef staticCodeRef, Se
 		| kSecCSConsiderExpiration);
 
 	SecPointer<SecStaticCode> code = SecStaticCode::requiredStatic(staticCodeRef);
+	const SecRequirement *req = SecRequirement::optional(requirementRef);
 	DTRACK(CODESIGN_EVAL_STATIC, code, (char*)code->mainExecutablePath().c_str());
-	code->validateDirectory();
-	if (!(flags & kSecCSDoNotValidateExecutable))
-		code->validateExecutable();
-	if (!(flags & kSecCSDoNotValidateResources))
-		code->validateResources();
-	if (const SecRequirement *req = SecRequirement::optional(requirementRef))
-		code->validateRequirements(req->requirement(), errSecCSReqFailed);
+	if (flags & kSecCSCheckAllArchitectures) {
+		SecStaticCode::AllArchitectures archs(code);
+		while (SecPointer<SecStaticCode> scode = archs())
+			validate(scode, req, flags);
+	} else
+		validate(code, req, flags);
 
 	END_CSAPI_ERRORS
 }
@@ -108,7 +170,7 @@ OSStatus SecCodeCopyPath(SecStaticCodeRef staticCodeRef, SecCSFlags flags, CFURL
 	
 	checkFlags(flags);
 	SecPointer<SecStaticCode> staticCode = SecStaticCode::requiredStatic(staticCodeRef);
-	Required(path) = staticCode->canonicalPath();
+	CodeSigning::Required(path) = staticCode->canonicalPath();
 
 	END_CSAPI
 }
@@ -125,7 +187,7 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef staticCodeRef, SecCSF
 	checkFlags(flags);
 	const Requirement *req =
 		SecStaticCode::requiredStatic(staticCodeRef)->designatedRequirement();
-	Required(requirementRef) = (new SecRequirement(req))->handle();
+	CodeSigning::Required(requirementRef) = (new SecRequirement(req))->handle();
 
 	END_CSAPI
 }
@@ -142,7 +204,7 @@ OSStatus SecCodeCopyInternalRequirement(SecStaticCodeRef staticCodeRef, SecRequi
 	checkFlags(flags);
 	const Requirement *req =
 		SecStaticCode::requiredStatic(staticCodeRef)->internalRequirement(type);
-	Required(requirementRef) = req ? (new SecRequirement(req))->handle() : NULL;
+	CodeSigning::Required(requirementRef) = req ? (new SecRequirement(req))->handle() : NULL;
 
 	END_CSAPI
 }

@@ -20,6 +20,8 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#if !defined(DISABLE_SEARCH_PLUGIN) || !defined(DISABLE_MEMBERSHIP_CACHE)
+
 #include "Mbrd_Cache.h"
 #include "CPlugInList.h"
 
@@ -390,12 +392,7 @@ UserGroup* MbrdCache_GetAndRetain( MbrdCache *cache, int recordType, int idType,
 	ntsid_t		tempsid;
 	ntsid_t		*sid			= (ntsid_t *) idValue;
 	const char *reqOrigin = ((flags & kKernelRequest) != 0 ? "mbr_syscall" : "mbr_mig");
-	int rc;
 
-	// need to hold the lock until we add, otherwise we run into race condition
-	rc = pthread_mutex_lock( &cache->fCacheLock );
-	assert(rc == 0);
-	
 	switch ( idType )
 	{
 		case ID_TYPE_UID:
@@ -481,9 +478,6 @@ UserGroup* MbrdCache_GetAndRetain( MbrdCache *cache, int recordType, int idType,
 	if ( cacheResult != NULL ) {
 		DbgLog( kLogDebug, "%s - Membership - Cache hit - %s (%X)", reqOrigin, (cacheResult->fName ? : "\"no name\""), cacheResult );
 	}
-	
-	rc = pthread_mutex_unlock(&cache->fCacheLock);
-	assert(rc == 0);
 		
 	return cacheResult;
 }
@@ -575,9 +569,7 @@ UserGroup *MbrdCache_AddOrUpdate( MbrdCache *cache, UserGroup *entry, uint32_t f
 			break;
 			
 		case kUGFoundByKerberos:
-			if ((entry->fFlags & kUGFlagHasKerberos) != 0) {
-				result = HashTable_GetAndRetain( &cache->fKerberosHash, entry->fKerberos[0] );
-			}
+			result = HashTable_GetAndRetain( &cache->fKerberosHash, entry->fKerberos[0] );
 			break;
 	}
 		
@@ -709,9 +701,6 @@ void MbrdCache_ResetCache( MbrdCache *cache )
 	HashTable_Reset( &cache->fGroupNameHash );
 	HashTable_Reset( &cache->fComputerNameHash );
 	HashTable_Reset( &cache->fComputerGroupNameHash );
-
-	HashTable_Reset(&cache->fX509Hash);
-	HashTable_Reset(&cache->fKerberosHash);
 
 	UserGroup* temp = cache->fListHead;
 	cache->fListHead = NULL;
@@ -890,3 +879,5 @@ int32_t MbrdCache_KerberosFallback( MbrdCache *cache )
 {
 	return cache->fKerberosFallback;
 }
+
+#endif // DISABLE_SEARCH_PLUGIN

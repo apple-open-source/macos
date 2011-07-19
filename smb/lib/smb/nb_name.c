@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,23 +33,12 @@
  *
  * $Id: nb_name.c,v 1.12 2005/05/06 23:16:29 lindak Exp $
  */
-#include <sys/param.h>
-#include <sys/socket.h>
-
-#include <ctype.h>
-#include <err.h>
-#include <errno.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-
 #include <netsmb/netbios.h>
+#include <sys/smb_byte_order.h>
 #include <netsmb/smb_lib.h>
 #include <netsmb/nb_lib.h>
-#include <sys/mchain.h>
 
-int
-nb_snballoc(int namelen, struct sockaddr_nb **dst)
+static int nb_snballoc(int namelen, struct sockaddr_nb **dst)
 {
 	struct sockaddr_nb *snb;
 	int slen;
@@ -66,67 +55,48 @@ nb_snballoc(int namelen, struct sockaddr_nb **dst)
 }
 
 /*
- * Create a full NETBIOS address
+ * Create a NetBIOS address, we expect the name to already be in the correct
+ * case.
  */
-int
-nb_sockaddr(struct sockaddr *peer, struct nb_name *np,
-	struct sockaddr_nb **dst)
+int nb_sockaddr(struct sockaddr *peer, const char *name, unsigned type,  
+				struct sockaddr **dst)
 
 {
+	struct nb_name nn;
+	struct nb_name *np = &nn;
 	struct sockaddr_nb *snb;
 	int nmlen, error;
 
 	if (peer && (peer->sa_family != AF_INET))
 		return EPROTONOSUPPORT;
-	nmlen = nb_name_len(np);
-	if (nmlen < NB_ENCNAMELEN)
-		return EINVAL;
+	
+	strlcpy((char *)nn.nn_name, name, sizeof(nn.nn_name));
+	nn.nn_type = type;
+	
+	nmlen = NB_ENCNAMELEN + 2;
 	error = nb_snballoc(nmlen, &snb);
 	if (error)
 		return error;
-	/* the only time the first argument to nb_name_encode()
-	*  is not NULL is when we are processing the server's
-	*  computer name from NBNS (the name with <20> at the
-	*  end), and we DON'T want to uppercase it, because we
-	*  don't know what the encoding is */
-	u_int8_t	UCflag=1; /* to upper or not to upper?
-				     that is the question */
-	if (peer)
-		UCflag = 0; /* don't do it! */
-	/* 
-	 * nmlen should already be set to the value return by
-	 * nb_name_encode. The old code had a debug print here
-	 * if they returned different value. Remove the debug 
-	 * code.
-	 */ 
-	nmlen = nb_name_encode(np, snb->snb_name,UCflag);
+	nb_name_encode(np, snb->snb_name);
 	if (peer)
 		memcpy(&snb->snb_addrin, peer, peer->sa_len);
-	*dst = snb;
+	*dst = (struct sockaddr *)snb;
 	return 0;
 }
 
-int
-nb_name_len(struct nb_name *np)
+/* 
+ * Convert a sockaddr into a sockaddr_nb. We always assume the type is server. On 
+ * error we leave the sockaddr in its original state.
+ */
+void convertToNetBIOSaddr(struct sockaddr_storage *storage, const char *name)
 {
-	u_char *name;
-	int len, sclen;
-
-	len = 1 + NB_ENCNAMELEN;
-	if (np->nn_scope == NULL)
-		return len + 1;
-	sclen = 0;
-	for (name = np->nn_scope; *name; name++) {
-		if (*name == '.') {
-			sclen = 0;
-		} else {
-			if (sclen < NB_MAXLABLEN) {
-				sclen++;
-				len++;
-			}
-		}
+	struct sockaddr *peer = (struct sockaddr *)storage;
+	struct sockaddr *dst = NULL;
+	
+	if (nb_sockaddr(peer, name, NBT_SERVER, &dst) == 0) {
+		memcpy(peer, dst, dst->sa_len);
+		free(dst);
 	}
-	return len + 1;
 }
 
 int
@@ -157,62 +127,41 @@ static void
 memsetw(char *dst, int n, u_short word)
 {
 	while (n--) {
-		*(u_short*)dst = word;
+		*(u_short*)((void *)dst) = word;
 		dst += 2;
 	}
 }
 
-int
-/* add new arg UCflag. 1=uppercase, 0=don't */
-nb_name_encode(struct nb_name *np, u_char *dst, u_int8_t UCflag)
+/*
+ * We never uppercase in this routine any more. If the calling process wants
+ * it uppercased then it shoud make sure nn_name is uppercase before entering
+ * this routine. There is no way for us to get that correct in the routine.
+ */
+void nb_name_encode(struct nb_name *np, u_char *dst)
 {
-	u_char *name, *plen;
+	u_char *name;
 	u_char *cp = dst;
-	int i, lblen;
+	int i;
 
 	*cp++ = NB_ENCNAMELEN;
 	name = np->nn_name;
 	if (name[0] == '*' && name[1] == 0) {
-		*(u_short*)cp = NBENCODE('*');
+		*(u_short*)((void *)cp) = NBENCODE('*');
 		memsetw((char *)cp + 2, NB_NAMELEN - 1, NBENCODE((char)0));
 		cp += NB_ENCNAMELEN;
 	} else {
 		/* freebsd bug: system names must be truncated to 15 chars not 16 */
 		for (i = 0; *name && i < NB_NAMELEN - 1; i++, cp += 2, name++)
-
-			if (UCflag) /* caller wants uppercase */ {
-				*(u_short*)cp = NBENCODE(toupper(*name));
-			} else {
-				*(u_short*)cp = NBENCODE(*name);
-			}
+				*(u_short*)((void *)cp) = NBENCODE(*name);
 
 		i = NB_NAMELEN - i - 1;
 		if (i > 0) {
 			memsetw((char *)cp, i, NBENCODE(' '));
 			cp += i * 2;
 		}
-		*(u_short*)cp = NBENCODE(np->nn_type);
+		*(u_short*)((void *)cp) = NBENCODE(np->nn_type);
 		cp += 2;
 	}
 	*cp = 0;
-	if (np->nn_scope == NULL)
-		return nb_encname_len((char *)dst);
-	plen = cp++;
-	lblen = 0;
-	for (name = np->nn_scope; ; name++) {
-		if (*name == '.' || *name == 0) {
-			*plen = lblen;
-			plen = cp++;
-			*plen = 0;
-			if (*name == 0)
-				break;
-		} else {
-			if (lblen < NB_MAXLABLEN) {
-				*cp++ = *name;
-				lblen++;
-			}
-		}
-	}
-	return nb_encname_len((char *)dst);
 }
 

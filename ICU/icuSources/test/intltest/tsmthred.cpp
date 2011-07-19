@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1999-2008, International Business Machines Corporation and
+ * Copyright (c) 1999-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -10,10 +10,7 @@
 # endif
 #endif
 
-/* Needed by z/OS to get usleep */
-#if !defined(_XOPEN_SOURCE_EXTENDED)
-#define _XOPEN_SOURCE_EXTENDED 1
-#endif
+#include "simplethread.h"
 
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
@@ -21,6 +18,7 @@
 #include "cmemory.h"
 #include "cstring.h"
 #include "uparse.h"
+#include "unicode/localpointer.h"
 #include "unicode/resbund.h"
 #include "unicode/udata.h"
 #include "unicode/uloc.h"
@@ -30,6 +28,17 @@
 #define POSIX 1
 #endif
 
+/* Needed by z/OS to get usleep */
+#if defined(OS390)
+#define __DOT1 1
+#define __UU
+#define _XOPEN_SOURCE_EXTENDED 1
+#ifndef _XPG4_2
+#define _XPG4_2
+#endif
+#include <unistd.h>
+/*#include "platform_xopen_source_extended.h"*/
+#endif
 #if defined(POSIX) || defined(U_SOLARIS) || defined(U_AIX) || defined(U_HPUX)
 
 #define HAVE_IMP
@@ -49,7 +58,13 @@
 #define __EXTENSIONS__
 #endif
 
+#if defined(OS390)
+#include <sys/types.h>
+#endif
+
+#if !defined(OS390)
 #include <signal.h>
+#endif
 
 /* Define _XPG4_2 for Solaris and friends. */
 #ifndef _XPG4_2
@@ -106,19 +121,13 @@ void MultithreadTest::runIndexedTest( int32_t index, UBool exec,
 }
 #else
 
-
-
-// Note: A LOT OF THE FUNCTIONS IN THIS FILE SHOULD LIVE ELSEWHERE!!!!!
-// Note: A LOT OF THE FUNCTIONS IN THIS FILE SHOULD LIVE ELSEWHERE!!!!!
-//   -srl
-
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>    // tolower, toupper
 
 #include "unicode/putil.h"
 
-/* for mthreadtest*/
+// for mthreadtest
 #include "unicode/numfmt.h"
 #include "unicode/choicfmt.h"
 #include "unicode/msgfmt.h"
@@ -127,359 +136,10 @@ void MultithreadTest::runIndexedTest( int32_t index, UBool exec,
 #include "unicode/calendar.h"
 #include "ucaconf.h"
 
-//-----------------------------------------------------------------------------------
-//
-//      class SimpleThread   Of course we need a thread class first..
-//                           This wrapper has a ported implementation.
-//
-//-----------------------------------------------------------------------------------
-class SimpleThread
-{
-public:
-    SimpleThread();
-    virtual  ~SimpleThread();
-    int32_t   start(void);        // start the thread
-    UBool     isRunning();        // return true if a started thread has exited.
-
-    virtual void run(void) = 0;   // Override this to provide the code to run
-                                  //   in the thread.
-    void *fImplementation;
-
-public:
-    static void sleep(int32_t millis); // probably shouldn't go here but oh well.
-    static void errorFunc();      // Empty function, provides a single convenient place
-                                  //   to break on errors.
-};
-
 void SimpleThread::errorFunc() {
     // *(char *)0 = 3;            // Force entry into a debugger via a crash;
 }
 
-
-
-
-#ifdef U_WINDOWS
-#define HAVE_IMP
-
-#   define VC_EXTRALEAN
-#   define WIN32_LEAN_AND_MEAN
-#   define NOUSER
-#   define NOSERVICE
-#   define NOIME
-#   define NOMCX
-#include <windows.h>
-#include <process.h>
-
-
-
-//-----------------------------------------------------------------------------------
-//
-//   class SimpleThread   Windows Implementation
-//
-//-----------------------------------------------------------------------------------
-struct Win32ThreadImplementation
-{
-    HANDLE         fHandle;
-    unsigned int   fThreadID;
-};
-
-
-extern "C" unsigned int __stdcall SimpleThreadProc(void *arg)
-{
-    ((SimpleThread*)arg)->run();
-    return 0;
-}
-
-SimpleThread::SimpleThread()
-:fImplementation(0)
-{
-    Win32ThreadImplementation *imp = new Win32ThreadImplementation;
-    imp->fHandle = 0;
-    fImplementation = imp;
-}
-
-SimpleThread::~SimpleThread()
-{
-    // Destructor.  Because we start the thread running with _beginthreadex(),
-    //              we own the Windows HANDLE for the thread and must 
-    //              close it here.
-    Win32ThreadImplementation *imp = (Win32ThreadImplementation*)fImplementation;
-    if (imp != 0) {
-        if (imp->fHandle != 0) {
-            CloseHandle(imp->fHandle);
-            imp->fHandle = 0;
-        }
-    }
-    delete (Win32ThreadImplementation*)fImplementation;
-}
-
-int32_t SimpleThread::start()
-{
-    Win32ThreadImplementation *imp = (Win32ThreadImplementation*)fImplementation;
-    if(imp->fHandle != NULL) {
-        // The thread appears to have already been started.
-        //   This is probably an error on the part of our caller.
-        return -1;
-    }
-
-    imp->fHandle = (HANDLE) _beginthreadex(
-        NULL,                                 // Security    
-        0x20000,                              // Stack Size 
-        SimpleThreadProc,                     // Function to Run
-        (void *)this,                         // Arg List
-        0,                                    // initflag.  Start running, not suspended
-        &imp->fThreadID                       // thraddr
-        );
-
-    if (imp->fHandle == 0) {
-        // An error occured
-        int err = errno;
-        if (err == 0) {
-            err = -1;
-        }
-        return err;
-    }
-    return 0;
-}
-
-
-UBool  SimpleThread::isRunning() {
-    //
-    //  Test whether the thread associated with the SimpleThread object is
-    //    still actually running.  
-    //
-    //  NOTE:  on Win64 on Itanium processors, a crashes
-    //    occur if the main thread of a process exits concurrently with some
-    //    other thread(s) exiting.  To avoid the possibility, we wait until the
-    //    OS indicates that all threads have  terminated, rather than waiting
-    //    only until the end of the user's Run function has been reached.
-    //
-    //   I don't know whether the crashes represent a Windows bug, or whether
-    //    main() programs are supposed to have to wait for their threads.
-    //
-    Win32ThreadImplementation *imp = (Win32ThreadImplementation*)fImplementation;
-    
-    bool      success;
-    DWORD     threadExitCode;
-
-    if (imp->fHandle == 0) {
-        // No handle, thread must not be running.
-        return FALSE;
-    }
-    success = GetExitCodeThread(imp->fHandle,   &threadExitCode) != 0;
-    if (! success) {
-        // Can't get status, thread must not be running.
-        return FALSE;
-    }
-    return (threadExitCode == STILL_ACTIVE);
-}
-
-
-void SimpleThread::sleep(int32_t millis)
-{
-    ::Sleep(millis);
-}
-
-//-----------------------------------------------------------------------------------
-//
-//   class SimpleThread   NULL  Implementation
-//
-//-----------------------------------------------------------------------------------
-#elif defined XP_MAC
-
-// since the Mac has no preemptive threading (at least on MacOS 8), only
-// cooperative threading, threads are a no-op.  We have no yield() calls
-// anywhere in the ICU, so we are guaranteed to be thread-safe.
-
-#define HAVE_IMP
-
-SimpleThread::SimpleThread()
-{}
-
-SimpleThread::~SimpleThread()
-{}
-
-int32_t 
-SimpleThread::start()
-{ return 0; }
-
-void 
-SimpleThread::run()
-{}
-
-void 
-SimpleThread::sleep(int32_t millis)
-{}
-
-UBool  
-SimpleThread::isRunning() {
-    return FALSE;
-}
-
-#endif
-
-
-//-----------------------------------------------------------------------------------
-//
-//   class SimpleThread   POSIX implementation
-//
-//        A note on the POSIX vs the Windows implementations of this class..
-//        On Windows, the main thread must verify that other threads have finished
-//        before exiting, or crashes occasionally occur.  (Seen on Itanium Win64 only)
-//        The function SimpleThread::isRunning() is used for this purpose.
-//
-//        On POSIX, there is NO reliable non-blocking mechanism to determine
-//        whether a thread has exited.  pthread_kill(thread, 0) almost works,
-//        but the system can recycle thread ids immediately, so seeing that a
-//        thread exists with this call could mean that the original thread has
-//        finished and a new one started with the same ID.  Useless.
-//
-//        So we need to do the check with user code, by setting a flag just before
-//        the thread function returns.  A technique that is guaranteed to fail
-//        on Windows, because it indicates that the thread is done before all
-//        system level cleanup has happened.
-//
-//-----------------------------------------------------------------------------------
-#if defined(POSIX)||defined(U_SOLARIS)||defined(U_AIX)||defined(U_HPUX)
-#define HAVE_IMP
-
-struct PosixThreadImplementation
-{
-    pthread_t        fThread;
-    UBool            fRunning;
-    UBool            fRan;          /* True if the thread was successfully started   */
-};
-
-extern "C" void* SimpleThreadProc(void *arg)
-{
-    // This is the code that is run in the new separate thread.
-    SimpleThread *This = (SimpleThread *)arg;
-    This->run();      // Run the user code.
-
-    // The user function has returned.  Set the flag indicating that this thread
-    // is done.  Need a mutex for memory barrier purposes only, so that other thread
-    //   will reliably see that the flag has changed.
-    PosixThreadImplementation *imp = (PosixThreadImplementation*)This->fImplementation;
-    umtx_lock(NULL);
-    imp->fRunning = FALSE;
-    umtx_unlock(NULL);
-    return 0;
-}
-
-SimpleThread::SimpleThread() 
-{
-    PosixThreadImplementation *imp = new PosixThreadImplementation;
-    imp->fRunning   = FALSE;
-    imp->fRan       = FALSE;
-    fImplementation = imp;
-}
-
-SimpleThread::~SimpleThread()
-{
-    PosixThreadImplementation *imp = (PosixThreadImplementation*)fImplementation;
-    if (imp->fRan) {
-        pthread_join(imp->fThread, NULL);
-    }
-    delete imp;
-    fImplementation = (void *)0xdeadbeef;
-}
-
-int32_t SimpleThread::start()
-{
-    int32_t        rc;
-    static pthread_attr_t attr;
-    static UBool attrIsInitialized = FALSE;
-
-    PosixThreadImplementation *imp = (PosixThreadImplementation*)fImplementation;
-    imp->fRunning = TRUE;
-    imp->fRan     = TRUE;
-
-#ifdef HPUX_CMA
-    if (attrIsInitialized == FALSE) {
-        rc = pthread_attr_create(&attr);
-        attrIsInitialized = TRUE;
-    }
-    rc = pthread_create(&(imp->fThread),attr,&SimpleThreadProc,(void*)this);
-#else
-    if (attrIsInitialized == FALSE) {
-        rc = pthread_attr_init(&attr);
-#if defined(OS390)
-        {
-            int detachstate = 0;  /* jdc30: detach state of zero causes
-                                  threads created with this attr to be in
-                                  an undetached state.  An undetached
-                                  thread will keep its resources after
-                                  termination.   */
-            pthread_attr_setdetachstate(&attr, &detachstate);
-        }
-#else
-        // pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
-        pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_JOINABLE);
-#endif
-        attrIsInitialized = TRUE;
-    }
-    rc = pthread_create(&(imp->fThread),&attr,&SimpleThreadProc,(void*)this);
-#endif
-    
-    if (rc != 0) {
-        // some kind of error occured, the thread did not start.
-        imp->fRan     = FALSE;
-        imp->fRunning = FALSE;
-    }
-
-    return rc;
-}
-
-
-UBool  
-SimpleThread::isRunning() {
-    // Note:  Mutex functions are used here not for synchronization, 
-    //        but to force memory barriors to exist, to ensure that one thread
-    //        can see changes made by another when running on processors
-    //        with memory models having weak coherency.
-    PosixThreadImplementation *imp = (PosixThreadImplementation*)fImplementation;
-    umtx_lock(NULL);
-    UBool retVal = imp->fRunning;
-    umtx_unlock(NULL);
-    return retVal;
-}
-
-
-void SimpleThread::sleep(int32_t millis)
-{
-#ifdef U_SOLARIS
-    sigignore(SIGALRM);
-#endif
-
-#ifdef HPUX_CMA
-    cma_sleep(millis/100);
-#elif defined(U_HPUX) || defined(OS390)
-    millis *= 1000;
-    while(millis >= 1000000) {
-        usleep(999999);
-        millis -= 1000000;
-    }
-    if(millis > 0) {
-        usleep(millis);
-    }
-#else
-    usleep(millis * 1000);
-#endif
-}
-
-#endif
-// end POSIX
-
-
-#ifndef HAVE_IMP
-#error  No implementation for threads! Cannot test.
-0 = 216; //die
-#endif
-
-
-// *************** end fluff ******************
-
-/* now begins the real test. */
 void MultithreadTest::runIndexedTest( int32_t index, UBool exec, 
                 const char* &name, char* /*par*/ ) {
     if (exec)
@@ -899,8 +559,7 @@ public:
     virtual void run()
     {
         fTraceInfo                     = 1;
-        NumberFormat *formatter        = NULL;
-        NumberFormat *percentFormatter = NULL;
+        LocalPointer<NumberFormat> percentFormatter;
         UErrorCode status = U_ZERO_ERROR;
 
 #if 0
@@ -979,15 +638,15 @@ public:
         int32_t iteration;
         
         status = U_ZERO_ERROR;
-        formatter = NumberFormat::createInstance(Locale::getEnglish(),status);
+        LocalPointer<NumberFormat> formatter(NumberFormat::createInstance(Locale::getEnglish(),status));
         if(U_FAILURE(status)) {
-            error("Error on NumberFormat::createInstance()");
+            error("Error on NumberFormat::createInstance().");
             goto cleanupAndReturn;
         }
         
-        percentFormatter = NumberFormat::createPercentInstance(Locale::getFrench(),status);
+        percentFormatter.adoptInstead(NumberFormat::createPercentInstance(Locale::getFrench(),status));
         if(U_FAILURE(status))             {
-            error("Error on NumberFormat::createPercentInstance()");
+            error("Error on NumberFormat::createPercentInstance().");
             goto cleanupAndReturn;
         }
         
@@ -1087,9 +746,6 @@ public:
         }   /*  end of for loop */
         
 cleanupAndReturn:
-        delete formatter;
-        delete percentFormatter;
-        
         //  while (fNum == 4) {SimpleThread::sleep(10000);}   // Force a failure by preventing thread from finishing
         fTraceInfo = 2;
     }
@@ -1112,14 +768,14 @@ void MultithreadTest::TestThreadedIntl()
     //
     logln("Spawning: %d threads * %d iterations each.",
                 kFormatThreadThreads, kFormatThreadIterations);
-    FormatThreadTest  *tests = new FormatThreadTest[kFormatThreadThreads];
+    LocalArray<FormatThreadTest> tests(new FormatThreadTest[kFormatThreadThreads]);
     for(int32_t j = 0; j < kFormatThreadThreads; j++) {
         tests[j].fNum = j;
         int32_t threadStatus = tests[j].start();
         if (threadStatus != 0) {
             errln("System Error %d starting thread number %d.", threadStatus, j);
             SimpleThread::errorFunc();
-            goto cleanupAndReturn;
+            return;
         }
         haveDisplayedInfo[j] = FALSE;
     }
@@ -1149,7 +805,7 @@ void MultithreadTest::TestThreadedIntl()
             } else if (haveDisplayedInfo[i] == FALSE) {
                 logln("Thread # %d is complete..", i);
                 if(tests[i].getError(theErr)) {
-                    errln(UnicodeString("#") + i + ": " + theErr);
+                    dataerrln(UnicodeString("#") + i + ": " + theErr);
                     SimpleThread::errorFunc();
                 }
                 haveDisplayedInfo[i] = TRUE;
@@ -1160,8 +816,6 @@ void MultithreadTest::TestThreadedIntl()
     //
     //  All threads have finished.
     //
-cleanupAndReturn:
-    delete [] tests;
 }
 #endif /* #if !UCONFIG_NO_FORMATTING */
 
@@ -1206,34 +860,34 @@ public:
     virtual void run() {
         //sleep(10000);
         int32_t line = 0;
-        
+
         uint8_t sk1[1024], sk2[1024];
         uint8_t *oldSk = NULL, *newSk = sk1;
         int32_t resLen = 0, oldLen = 0;
         int32_t i = 0;
-        
+
         for(i = 0; i < noLines; i++) {
             resLen = ucol_getSortKey(coll, lines[i].buff, lines[i].buflen, newSk, 1024);
-            
+
             int32_t res = 0, cmpres = 0, cmpres2 = 0;
-            
+
             if(oldSk != NULL) {
                 res = strcmp((char *)oldSk, (char *)newSk);
                 cmpres = ucol_strcoll(coll, lines[i-1].buff, lines[i-1].buflen, lines[i].buff, lines[i].buflen);
                 cmpres2 = ucol_strcoll(coll, lines[i].buff, lines[i].buflen, lines[i-1].buff, lines[i-1].buflen);
                 //cmpres = res;
                 //cmpres2 = -cmpres;
-                
+
                 if(cmpres != -cmpres2) {
                     error("Compare result not symmetrical on line "+ line);
                     break;
                 }
-                
+
                 if(((res&0x80000000) != (cmpres&0x80000000)) || (res == 0 && cmpres != 0) || (res != 0 && cmpres == 0)) {
                     error(UnicodeString("Difference between ucol_strcoll and sortkey compare on line ")+ UnicodeString(line));
                     break;
                 }
-                
+
                 if(res > 0) {
                     error(UnicodeString("Line %i is not greater or equal than previous line ")+ UnicodeString(i));
                     break;
@@ -1242,20 +896,24 @@ public:
                     if (res == 0) {
                         error(UnicodeString("Probable error in test file on line %i (comparing identical strings)")+ UnicodeString(i));
                         break;
-                    } else if (res > 0) {
-                        error(UnicodeString("Sortkeys are identical, but code point comapare gives >0 on line ")+ UnicodeString(i));
+                    }
+                    /*
+                     * UCA 6.0 test files can have lines that compare == if they are
+                     * different strings but canonically equivalent.
+                    else if (res > 0) {
+                        error(UnicodeString("Sortkeys are identical, but code point compare gives >0 on line ")+ UnicodeString(i));
                         break;
                     }
+                     */
                 }
             }
-            
+
             oldSk = newSk;
             oldLen = resLen;
-            
+
             newSk = (newSk == sk1)?sk2:sk1;
         }
     }
-    
 };
 
 void MultithreadTest::TestCollators()
@@ -1304,7 +962,7 @@ void MultithreadTest::TestCollators()
 
             if (testFile == 0) {
                 *(buffer+bufLen) = 0;
-                dataerrln("[DATA] could not open any of the conformance test files, tried opening base %s", buffer);
+                dataerrln("could not open any of the conformance test files, tried opening base %s", buffer);
                 return;        
             } else {
                 infoln(
@@ -1340,13 +998,13 @@ void MultithreadTest::TestCollators()
     }
     fclose(testFile);
     if(U_FAILURE(status)) {
-      dataerrln("[DATA] Couldn't read the test file!");
+      dataerrln("Couldn't read the test file!");
       return;
     }
 
     UCollator *coll = ucol_open("root", &status);
     if(U_FAILURE(status)) {
-        errln("Couldn't open UCA collator");
+        errcheckln(status, "Couldn't open UCA collator");
         return;
     }
     ucol_setAttribute(coll, UCOL_NORMALIZATION_MODE, UCOL_ON, &status);
@@ -1357,8 +1015,7 @@ void MultithreadTest::TestCollators()
 
     int32_t noSpawned = 0;
     int32_t spawnResult = 0;
-    CollatorThreadTest *tests;
-    tests = new CollatorThreadTest[kCollatorThreadThreads];
+    LocalArray<CollatorThreadTest> tests(new CollatorThreadTest[kCollatorThreadThreads]);
 
     logln(UnicodeString("Spawning: ") + kCollatorThreadThreads + " threads * " + kFormatThreadIterations + " iterations each.");
     int32_t j = 0;
@@ -1418,7 +1075,6 @@ void MultithreadTest::TestCollators()
                 SimpleThread::errorFunc();
             }
             ucol_close(coll);
-            delete[] tests;
             //for(i = 0; i < lineNum; i++) {
             //delete[] lines[i].buff;
             //}
@@ -1501,6 +1157,9 @@ void MultithreadTest::TestString()
 
     UnicodeString *testString = new UnicodeString("This is the original test string.");
 
+    // Not using LocalArray<StringThreadTest2> tests[kStringThreadThreads];
+    // because we don't always want to delete them.
+    // See the comments below the cleanupAndReturn label.
     StringThreadTest2  *tests[kStringThreadThreads];
     for(j = 0; j < kStringThreadThreads; j++) {
         tests[j] = new StringThreadTest2(testString, j);
@@ -1578,9 +1237,4 @@ cleanupAndReturn:
     }
 }
 
-
-
-
-
 #endif // ICU_USE_THREADS
-

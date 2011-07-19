@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1997-2008, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -15,12 +15,6 @@
 #include "cstring.h"
 #include "locmap.h"
 #include "uresimp.h"
-
-/*--------------------------------------------------------------------
-  Time bomb - allows temporary behavior that expires at a given
-              release
- ---------------------------------------------------------------------*/
-static const UVersionInfo ICU_37 = {3,7,0,0};
 
 /*
 returns a new UnicodeSet that is a flattened form of the original
@@ -43,7 +37,7 @@ createFlattenSet(USet *origSet, UErrorCode *status) {
     origItemCount = uset_getItemCount(origSet);
     for (idx = 0; idx < origItemCount; idx++) {
         graphmeSize = uset_getItem(origSet, idx,
-            &start, &end, 
+            &start, &end,
             graphme, (int32_t)(sizeof(graphme)/sizeof(graphme[0])),
             status);
         if (U_FAILURE(*status)) {
@@ -59,7 +53,7 @@ createFlattenSet(USet *origSet, UErrorCode *status) {
     }
     return newSet;
 }
-static UBool 
+static UBool
 isCurrencyPreEuro(const char* currencyKey){
     if( strcmp(currencyKey, "PTE") == 0 ||
         strcmp(currencyKey, "ESP") == 0 ||
@@ -76,7 +70,7 @@ static void
 TestKeyInRootRecursive(UResourceBundle *root, const char *rootName,
                        UResourceBundle *currentBundle, const char *locale) {
     UErrorCode errorCode = U_ZERO_ERROR;
-    UResourceBundle *subRootBundle = NULL, *subBundle = NULL;
+    UResourceBundle *subRootBundle = NULL, *subBundle = NULL, *arr = NULL;
 
     ures_resetIterator(root);
     ures_resetIterator(currentBundle);
@@ -88,11 +82,11 @@ TestKeyInRootRecursive(UResourceBundle *root, const char *rootName,
         currentBundleKey = ures_getKey(currentBundle);
         subBundle = ures_getNextResource(currentBundle, NULL, &errorCode);
         if (U_FAILURE(errorCode)) {
-            log_err("Can't open a resource for locale %s. Error: %s\n", locale, u_errorName(errorCode));
+            log_err("Can't open a resource for lnocale %s. Error: %s\n", locale, u_errorName(errorCode));
             continue;
         }
         subBundleKey = ures_getKey(subBundle);
-        
+
 
         subRootBundle = ures_getByKey(root, subBundleKey, NULL, &errorCode);
         if (U_FAILURE(errorCode)) {
@@ -205,12 +199,47 @@ TestKeyInRootRecursive(UResourceBundle *root, const char *rootName,
                         }
                     }
                     else {
-                        log_err("Got a NULL string with key \"%s\" in \"%s\" at index %d for root or locale \"%s\"\n",
+                        if ( rootStrLen > 1 && rootStr[0] == 0x41 && rootStr[1] >= 0x30 && rootStr[1] <= 0x39 ) {
+                           /* A2 or A4 in the root string indicates that the resource can optionally be an array instead of a */
+                           /* string.  Attempt to read it as an array. */
+                          errorCode = U_ZERO_ERROR;
+                          arr = ures_getByIndex(subBundle,idx,NULL,&errorCode);
+                          if (U_FAILURE(errorCode)) {
+                              log_err("Got a NULL string with key \"%s\" in \"%s\" at index %d for root or locale \"%s\"\n",
+                                      subBundleKey,
+                                      ures_getKey(currentBundle),
+                                      idx,
+                                      locale);
+                              continue;
+                          }
+                          if (ures_getType(arr) != URES_ARRAY || ures_getSize(arr) != (int32_t)rootStr[1] - 0x30) {
+                              log_err("Got something other than a string or array of size %d for key \"%s\" in \"%s\" at index %d for root or locale \"%s\"\n",
+                                      rootStr[1] - 0x30,
+                                      subBundleKey,
+                                      ures_getKey(currentBundle),
+                                      idx,
+                                      locale);
+                              ures_close(arr);
+                              continue;
+                          }
+                          localeStr = ures_getStringByIndex(arr,0,&localeStrLen,&errorCode);
+                          ures_close(arr);
+                          if (U_FAILURE(errorCode)) {
+                              log_err("Got something other than a string or array for key \"%s\" in \"%s\" at index %d for root or locale \"%s\"\n",
+                                      subBundleKey,
+                                      ures_getKey(currentBundle),
+                                      idx,
+                                      locale);
+                              continue;
+                          }
+                        } else {
+                            log_err("Got a NULL string with key \"%s\" in \"%s\" at index %d for root or locale \"%s\"\n",
                                 subBundleKey,
                                 ures_getKey(currentBundle),
                                 idx,
                                 locale);
-                        continue;
+                            continue;
+                        }
                     }
                     if (localeStr[0] == (UChar)0x20) {
                         log_err("key \"%s\" at index %d in \"%s\" starts with a space in locale \"%s\"\n",
@@ -363,7 +392,7 @@ TestKeyInRootRecursive(UResourceBundle *root, const char *rootName,
                             ures_getKey(currentBundle));
                     continue;
                 } else if (u_strcmp(string, rootString) == 0) {
-                    if (strcmp(locale, "de_CH") != 0 && strcmp(subBundleKey, "Countries") != 0 && 
+                    if (strcmp(locale, "de_CH") != 0 && strcmp(subBundleKey, "Countries") != 0 &&
                         strcmp(subBundleKey, "Version") != 0) {
                         log_err("Found duplicate data with key \"%s\" in \"%s\" in locale \"%s\"\n",
                                 ures_getKey(subRootBundle),
@@ -497,8 +526,8 @@ TestLocaleStructure(void) {
             if(U_SUCCESS(errorCode)) {
                 /* It's installed, but there is no data.
                    It's installed for the g18n white paper [grhoten] */
-                log_err("ERROR: Locale %-5s not installed, and it should be!\n",
-                    uloc_getAvailable(locIndex));
+                log_err("ERROR: Locale %-5s not installed, and it should be, err %s\n",
+                    uloc_getAvailable(locIndex), u_errorName(errorCode));
             } else {
                 log_err("%%%%%%% Unexpected error %d in %s %%%%%%%",
                     u_errorName(errorCode),
@@ -583,17 +612,17 @@ compareConsistentCountryInfo(const char *fromLocale, const char *toLocale) {
     fromCalendar = ures_getByKey(fromLocaleBund, "calendar", NULL, &errorCode);
     fromGregorian = ures_getByKeyWithFallback(fromCalendar, "gregorian", NULL, &errorCode);
     fromDateTimeElements = ures_getByKeyWithFallback(fromGregorian, "DateTimeElements", NULL, &errorCode);
- 
+
     toCalendar = ures_getByKey(toLocaleBund, "calendar", NULL, &errorCode);
     toGregorian = ures_getByKeyWithFallback(toCalendar, "gregorian", NULL, &errorCode);
     toDateTimeElements = ures_getByKeyWithFallback(toGregorian, "DateTimeElements", NULL, &errorCode);
-    
+
     if(U_FAILURE(errorCode)){
         log_err("Did not get DateTimeElements from the bundle %s or %s\n", fromLocale, toLocale);
         goto cleanup;
     }
 
-    fromWeekendData = ures_getByKeyWithFallback(fromGregorian, "weekend", NULL, &errorCode); 
+    fromWeekendData = ures_getByKeyWithFallback(fromGregorian, "weekend", NULL, &errorCode);
     if(U_FAILURE(errorCode)){
         log_err("Did not get weekend data from the bundle %s to compare against %s\n", fromLocale, toLocale);
         goto cleanup;
@@ -772,7 +801,7 @@ TestConsistentCountryInfo(void) {
 static int32_t
 findStringSetMismatch(const char *currLoc, const UChar *string, int32_t langSize,
                       const UChar *exemplarCharacters, int32_t exemplarLen,
-                      UBool ignoreNumbers) {
+                      UBool ignoreNumbers, UChar* badCharPtr) {
     UErrorCode errorCode = U_ZERO_ERROR;
     USet *origSet = uset_openPatternOptions(exemplarCharacters, exemplarLen, USET_CASE_INSENSITIVE, &errorCode);
     USet *exemplarSet = createFlattenSet(origSet, &errorCode);
@@ -785,15 +814,21 @@ findStringSetMismatch(const char *currLoc, const UChar *string, int32_t langSize
 
     for (strIdx = 0; strIdx < langSize; strIdx++) {
         if (!uset_contains(exemplarSet, string[strIdx])
-            && string[strIdx] != 0x0020 && string[strIdx] != 0x00A0 && string[strIdx] != 0x002e && string[strIdx] != 0x002c && string[strIdx] != 0x002d && string[strIdx] != 0x0027
+            && string[strIdx] != 0x0020 && string[strIdx] != 0x00A0 && string[strIdx] != 0x002e && string[strIdx] != 0x002c && string[strIdx] != 0x002d && string[strIdx] != 0x0027 && string[strIdx] != 0x2019 && string[strIdx] != 0x0f0b
             && string[strIdx] != 0x200C && string[strIdx] != 0x200D) {
             if (!ignoreNumbers || (ignoreNumbers && (string[strIdx] < 0x30 || string[strIdx] > 0x39))) {
                 uset_close(exemplarSet);
+                if (badCharPtr) {
+                    *badCharPtr = string[strIdx];
+                }
                 return strIdx;
             }
         }
     }
     uset_close(exemplarSet);
+    if (badCharPtr) {
+        *badCharPtr = 0;
+    }
     return -1;
 }
 /* include non-invariant chars */
@@ -809,8 +844,8 @@ myUCharsToChars(const UChar* us, char* cs, int32_t len){
     }
     return i;
 }
-static void 
-findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen, 
+static void
+findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen,
               USet *exemplarSet,
               const char  *locale){
     USet *scripts[10]= {0};
@@ -831,7 +866,7 @@ findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen,
             log_err("Could not create set for pattern %s. Error: %s\n", pattern, u_errorName(status));
             return;
         }
-        pattern[2] = 0; 
+        pattern[2] = 0;
     }
     if (strcmp(locale, "uk") == 0 || strcmp(locale, "uk_UA") == 0) {
         /* Special addition. Add the modifying apostrophe, which isn't in Cyrillic. */
@@ -850,7 +885,7 @@ findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen,
             UChar32 end = 0;
             UChar *str = NULL;
             int32_t strCapacity = 0;
-            
+
             strCapacity = uset_getItem(exemplarSet, i, &start, &end, str, strCapacity, &status);
             if(U_SUCCESS(status)){
                 int32_t j;
@@ -903,6 +938,7 @@ findSetMatch( UScriptCode *scriptCodes, int32_t scriptsLen,
 }
 
 static void VerifyTranslation(void) {
+    static const UVersionInfo icu47 = { 4, 7, 0, 0 };
     UResourceBundle *root, *currentLocale;
     int32_t locCount = uloc_countAvailable();
     int32_t locIndex;
@@ -947,33 +983,37 @@ static void VerifyTranslation(void) {
         if (U_FAILURE(errorCode)) {
             log_err("error ures_getStringByKey returned %s\n", u_errorName(errorCode));
         }
-        else if (QUICK && exemplarLen > 2048) {
+        else if (getTestOption(QUICK_OPTION) && exemplarLen > 2048) {
             log_verbose("skipping test for %s\n", currLoc);
+        }
+        else if (uprv_strncmp(currLoc,"bem",3) == 0) {
+            log_verbose("skipping test for %s, some month and country names known to use aux exemplars\n", currLoc);
         }
         else {
             UChar langBuffer[128];
             int32_t langSize;
             int32_t strIdx;
+            UChar badChar;
             langSize = uloc_getDisplayLanguage(currLoc, currLoc, langBuffer, sizeof(langBuffer)/sizeof(langBuffer[0]), &errorCode);
             if (U_FAILURE(errorCode)) {
                 log_err("error uloc_getDisplayLanguage returned %s\n", u_errorName(errorCode));
             }
             else {
-                strIdx = findStringSetMismatch(currLoc, langBuffer, langSize, exemplarCharacters, exemplarLen, FALSE);
+                strIdx = findStringSetMismatch(currLoc, langBuffer, langSize, exemplarCharacters, exemplarLen, FALSE, &badChar);
                 if (strIdx >= 0) {
-                    log_err("getDisplayLanguage(%s) at index %d returned characters not in the exemplar characters.\n",
-                        currLoc, strIdx);
+                    log_err("getDisplayLanguage(%s) at index %d returned characters not in the exemplar characters: %04X.\n",
+                        currLoc, strIdx, badChar);
                 }
             }
             langSize = uloc_getDisplayCountry(currLoc, currLoc, langBuffer, sizeof(langBuffer)/sizeof(langBuffer[0]), &errorCode);
             if (U_FAILURE(errorCode)) {
                 log_err("error uloc_getDisplayCountry returned %s\n", u_errorName(errorCode));
             }
-            else {
-              strIdx = findStringSetMismatch(currLoc, langBuffer, langSize, exemplarCharacters, exemplarLen, FALSE);
+            else if (uprv_strstr(currLoc, "ti_") != currLoc || isICUVersionAtLeast(icu47)) { /* TODO: restore DisplayCountry test for ti_* when cldrbug 3058 is fixed) */
+              strIdx = findStringSetMismatch(currLoc, langBuffer, langSize, exemplarCharacters, exemplarLen, FALSE, &badChar);
                 if (strIdx >= 0) {
-                    log_err("getDisplayCountry(%s) at index %d returned characters not in the exemplar characters.\n",
-                        currLoc, strIdx);
+                    log_err("getDisplayCountry(%s) at index %d returned characters not in the exemplar characters: %04X.\n",
+                        currLoc, strIdx, badChar);
                 }
             }
             {
@@ -986,7 +1026,7 @@ static void VerifyTranslation(void) {
                 if (U_FAILURE(errorCode)) {
                     log_err("error ures_getByKey returned %s\n", u_errorName(errorCode));
                 }
-                if (QUICK) {
+                if (getTestOption(QUICK_OPTION)) {
                     end = 1;
                 }
                 else {
@@ -1000,10 +1040,10 @@ static void VerifyTranslation(void) {
                         log_err("error ures_getStringByIndex(%d) returned %s\n", idx, u_errorName(errorCode));
                         continue;
                     }
-                    strIdx = findStringSetMismatch(currLoc, fromBundleStr, langSize, exemplarCharacters, exemplarLen, TRUE);
+                    strIdx = findStringSetMismatch(currLoc, fromBundleStr, langSize, exemplarCharacters, exemplarLen, TRUE, &badChar);
                     if (strIdx >= 0) {
-                        log_err("getDayNames(%s, %d) at index %d returned characters not in the exemplar characters.\n",
-                            currLoc, idx, strIdx);
+                        log_err("getDayNames(%s, %d) at index %d returned characters not in the exemplar characters: %04X.\n",
+                            currLoc, idx, strIdx, badChar);
                     }
                 }
                 ures_close(resArray);
@@ -1016,7 +1056,7 @@ static void VerifyTranslation(void) {
                 if (U_FAILURE(errorCode)) {
                     log_err("error ures_getByKey returned %s\n", u_errorName(errorCode));
                 }
-                if (QUICK) {
+                if (getTestOption(QUICK_OPTION)) {
                     end = 1;
                 }
                 else {
@@ -1029,10 +1069,10 @@ static void VerifyTranslation(void) {
                         log_err("error ures_getStringByIndex(%d) returned %s\n", idx, u_errorName(errorCode));
                         continue;
                     }
-                    strIdx = findStringSetMismatch(currLoc, fromBundleStr, langSize, exemplarCharacters, exemplarLen, TRUE);
+                    strIdx = findStringSetMismatch(currLoc, fromBundleStr, langSize, exemplarCharacters, exemplarLen, TRUE, &badChar);
                     if (strIdx >= 0) {
-                        log_err("getMonthNames(%s, %d) at index %d returned characters not in the exemplar characters.\n",
-                            currLoc, idx, strIdx);
+                        log_err("getMonthNames(%s, %d) at index %d returned characters not in the exemplar characters: %04X.\n",
+                            currLoc, idx, strIdx, badChar);
                     }
                 }
                 ures_close(resArray);
@@ -1046,7 +1086,7 @@ static void VerifyTranslation(void) {
             if (numScripts == 0) {
                 log_err("uscript_getCode(%s) doesn't work.\n", currLoc);
             }else if(scripts[0] == USCRIPT_COMMON){
-                log_err("uscript_getCode(%s) returned USCRIPT_COMMON.\n", currLoc); 
+                log_err("uscript_getCode(%s) returned USCRIPT_COMMON.\n", currLoc);
             }
 
             /* test that the scripts are a superset of exemplar characters. */
@@ -1076,7 +1116,7 @@ static void VerifyTranslation(void) {
                if(U_FAILURE(errorCode)){
                    log_err("ulocdata_getMeasurementSystem failed for locale %s with error: %s \n", currLoc, u_errorName(errorCode));
                }
-               if(strstr(currLoc, "_US")!=NULL){
+               if(strstr(currLoc, "_US")!=NULL || strstr(currLoc, "_MM")!=NULL || strstr(currLoc, "_LR")!=NULL){
                    if(measurementSystem != UMS_US){
                         log_err("ulocdata_getMeasurementSystem did not return expected data for locale %s \n", currLoc);
                    }
@@ -1110,7 +1150,7 @@ static void TestExemplarSet(void){
     int32_t itemCount;
     int32_t strLen;
     UChar32 start, end;
-    
+
     unassignedSet = NULL;
     exemplarSets[0] = NULL;
     exemplarSets[1] = NULL;
@@ -1133,7 +1173,7 @@ static void TestExemplarSet(void){
         log_verbose("%s\n", locale);
         for (k=0; k<2; ++k) {
             uint32_t option = (k==0) ? 0 : USET_CASE_INSENSITIVE;
-            ULocaleData *uld = ulocdata_open(locale,&ec); 
+            ULocaleData *uld = ulocdata_open(locale,&ec);
             USet* exemplarSet = ulocdata_getExemplarSet(uld,NULL, option, ULOCDATA_ES_STANDARD, &ec);
             uset_close(exemplarSets[k]);
             ulocdata_close(uld);
@@ -1201,7 +1241,7 @@ static void TestExemplarSet(void){
        and sometimes be equal. */
     assertTrue("case-folded is sometimes a strict superset, and sometimes equal",
                equalCount > 0 && equalCount < n);
-    
+
  END:
     uenum_close(avail);
     uset_close(exemplarSets[0]);
@@ -1210,6 +1250,28 @@ static void TestExemplarSet(void){
     for (i=0; i<MAX_SCRIPTS_PER_LOCALE; ++i) {
         uset_close(codeSets[i]);
     }
+}
+
+static void TestLocaleDisplayPattern(void){
+    UErrorCode status = U_ZERO_ERROR;
+    UChar pattern[32] = {0,};
+    UChar separator[32] = {0,};
+    ULocaleData *uld = ulocdata_open(uloc_getDefault(), &status);
+
+    if(U_FAILURE(status)){
+        log_data_err("ulocdata_open error");
+        return;
+    }
+    ulocdata_getLocaleDisplayPattern(uld, pattern, 32, &status);
+    if (U_FAILURE(status)){
+        log_err("ulocdata_getLocaleDisplayPattern error!");
+    }
+    status = U_ZERO_ERROR;
+    ulocdata_getLocaleSeparator(uld, separator, 32, &status);
+    if (U_FAILURE(status)){
+        log_err("ulocdata_getLocaleSeparator error!");
+    }
+    ulocdata_close(uld);
 }
 
 static void TestCoverage(void){
@@ -1226,7 +1288,7 @@ static void TestCoverage(void){
     ULocaleData *uld = ulocdata_open(uloc_getDefault(), &status);
 
     if(U_FAILURE(status)){
-        log_err("ulocdata_open error");
+        log_data_err("ulocdata_open error");
         return;
     }
 
@@ -1286,10 +1348,13 @@ void addCLDRTest(TestNode** root);
 
 void addCLDRTest(TestNode** root)
 {
+#if !UCONFIG_NO_FILE_IO && !UCONFIG_NO_LEGACY_CONVERSION
     TESTCASE(TestLocaleStructure);
+    TESTCASE(TestCurrencyList);
+#endif
     TESTCASE(TestConsistentCountryInfo);
     TESTCASE(VerifyTranslation);
     TESTCASE(TestExemplarSet);
-    TESTCASE(TestCurrencyList);
+    TESTCASE(TestLocaleDisplayPattern);
     TESTCASE(TestCoverage);
 }

@@ -40,8 +40,8 @@
 /*
  * Additional kernel API to drivers using the Event Driver
  */
- int
-EventCoalesceDisplayCmd( int cmd, int oldcmd )
+int EventCoalesceDisplayCmd( int cmd, int oldcmd );
+int EventCoalesceDisplayCmd( int cmd, int oldcmd )
 {
 	static const char coalesce[4][4] = {
 	    /* nop */  {EVNOP,  EVHIDE, EVSHOW, EVMOVE},

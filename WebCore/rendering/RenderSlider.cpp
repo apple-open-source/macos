@@ -22,28 +22,29 @@
 #include "RenderSlider.h"
 
 #include "CSSPropertyNames.h"
+#include "CSSStyleSelector.h"
 #include "Document.h"
 #include "Event.h"
 #include "EventHandler.h"
 #include "EventNames.h"
 #include "Frame.h"
 #include "HTMLInputElement.h"
-#include "HTMLDivElement.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
+#include "HTMLParserIdioms.h"
 #include "MediaControlElements.h"
 #include "MouseEvent.h"
+#include "Node.h"
 #include "RenderLayer.h"
 #include "RenderTheme.h"
 #include "RenderView.h"
+#include "ShadowRoot.h"
+#include "SliderThumbElement.h"
 #include "StepRange.h"
 #include <wtf/MathExtras.h>
 
 using std::min;
 
 namespace WebCore {
-
-using namespace HTMLNames;
 
 static const int defaultTrackLength = 129;
 
@@ -54,96 +55,6 @@ static double sliderPosition(HTMLInputElement* element)
     return range.proportionFromValue(range.valueFromElement(element));
 }
 
-class SliderThumbElement : public HTMLDivElement {
-public:
-    SliderThumbElement(Document*, Node* shadowParent);
-    
-    bool inDragMode() const { return m_inDragMode; }
-
-    virtual void defaultEventHandler(Event*);
-    virtual void detach();
-
-private:        
-    virtual bool isShadowNode() const { return true; }
-    virtual Node* shadowParentNode() { return m_shadowParent; }
-
-    FloatPoint m_offsetToThumb;
-    Node* m_shadowParent;
-    bool m_inDragMode;
-};
-
-SliderThumbElement::SliderThumbElement(Document* document, Node* shadowParent)
-    : HTMLDivElement(divTag, document)
-    , m_shadowParent(shadowParent)
-    , m_inDragMode(false)
-{
-}
-
-void SliderThumbElement::defaultEventHandler(Event* event)
-{
-    if (!event->isMouseEvent()) {
-        HTMLDivElement::defaultEventHandler(event);
-        return;
-    }
-
-    MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-    bool isLeftButton = mouseEvent->button() == LeftButton;
-    const AtomicString& eventType = event->type();
-
-    if (eventType == eventNames().mousedownEvent && isLeftButton) {
-        if (document()->frame() && renderer()) {
-            RenderSlider* slider = toRenderSlider(renderer()->parent());
-            if (slider) {
-                if (slider->mouseEventIsInThumb(mouseEvent)) {
-                    // We selected the thumb, we want the cursor to always stay at
-                    // the same position relative to the thumb.
-                    m_offsetToThumb = slider->mouseEventOffsetToThumb(mouseEvent);
-                } else {
-                    // We are outside the thumb, move the thumb to the point were
-                    // we clicked. We'll be exactly at the center of the thumb.
-                    m_offsetToThumb.setX(0);
-                    m_offsetToThumb.setY(0);
-                }
-
-                m_inDragMode = true;
-                document()->frame()->eventHandler()->setCapturingMouseEventsNode(m_shadowParent);
-                event->setDefaultHandled();
-                return;
-            }
-        }
-    } else if (eventType == eventNames().mouseupEvent && isLeftButton) {
-        if (m_inDragMode) {
-            if (Frame* frame = document()->frame())
-                frame->eventHandler()->setCapturingMouseEventsNode(0);      
-            m_inDragMode = false;
-            event->setDefaultHandled();
-            return;
-        }
-    } else if (eventType == eventNames().mousemoveEvent) {
-        if (m_inDragMode && renderer() && renderer()->parent()) {
-            RenderSlider* slider = toRenderSlider(renderer()->parent());
-            if (slider) {
-                FloatPoint curPoint = slider->absoluteToLocal(mouseEvent->absoluteLocation(), false, true);
-                IntPoint eventOffset(curPoint.x() + m_offsetToThumb.x(), curPoint.y() + m_offsetToThumb.y());
-                slider->setValueForPosition(slider->positionForOffset(eventOffset));
-                event->setDefaultHandled();
-                return;
-            }
-        }
-    }
-
-    HTMLDivElement::defaultEventHandler(event);
-}
-
-void SliderThumbElement::detach()
-{
-    if (m_inDragMode) {
-        if (Frame* frame = document()->frame())
-            frame->eventHandler()->setCapturingMouseEventsNode(0);      
-    }
-    HTMLDivElement::detach();
-}
-
 RenderSlider::RenderSlider(HTMLInputElement* element)
     : RenderBlock(element)
 {
@@ -151,89 +62,52 @@ RenderSlider::RenderSlider(HTMLInputElement* element)
 
 RenderSlider::~RenderSlider()
 {
-    if (m_thumb)
-        m_thumb->detach();
 }
 
-int RenderSlider::baselinePosition(bool, bool) const
+int RenderSlider::baselinePosition(FontBaseline, bool /*firstLine*/, LineDirectionMode, LinePositionMode) const
 {
+    // FIXME: Patch this function for writing-mode.
     return height() + marginTop();
 }
 
-void RenderSlider::calcPrefWidths()
+void RenderSlider::computePreferredLogicalWidths()
 {
-    m_minPrefWidth = 0;
-    m_maxPrefWidth = 0;
+    m_minPreferredLogicalWidth = 0;
+    m_maxPreferredLogicalWidth = 0;
 
     if (style()->width().isFixed() && style()->width().value() > 0)
-        m_minPrefWidth = m_maxPrefWidth = calcContentBoxWidth(style()->width().value());
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth = computeContentBoxLogicalWidth(style()->width().value());
     else
-        m_maxPrefWidth = defaultTrackLength * style()->effectiveZoom();
+        m_maxPreferredLogicalWidth = defaultTrackLength * style()->effectiveZoom();
 
     if (style()->minWidth().isFixed() && style()->minWidth().value() > 0) {
-        m_maxPrefWidth = max(m_maxPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
-        m_minPrefWidth = max(m_minPrefWidth, calcContentBoxWidth(style()->minWidth().value()));
+        m_maxPreferredLogicalWidth = max(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
+        m_minPreferredLogicalWidth = max(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->minWidth().value()));
     } else if (style()->width().isPercent() || (style()->width().isAuto() && style()->height().isPercent()))
-        m_minPrefWidth = 0;
+        m_minPreferredLogicalWidth = 0;
     else
-        m_minPrefWidth = m_maxPrefWidth;
+        m_minPreferredLogicalWidth = m_maxPreferredLogicalWidth;
     
     if (style()->maxWidth().isFixed() && style()->maxWidth().value() != undefinedLength) {
-        m_maxPrefWidth = min(m_maxPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
-        m_minPrefWidth = min(m_minPrefWidth, calcContentBoxWidth(style()->maxWidth().value()));
+        m_maxPreferredLogicalWidth = min(m_maxPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
+        m_minPreferredLogicalWidth = min(m_minPreferredLogicalWidth, computeContentBoxLogicalWidth(style()->maxWidth().value()));
     }
 
     int toAdd = borderAndPaddingWidth();
-    m_minPrefWidth += toAdd;
-    m_maxPrefWidth += toAdd;
+    m_minPreferredLogicalWidth += toAdd;
+    m_maxPreferredLogicalWidth += toAdd;
 
-    setPrefWidthsDirty(false); 
-}
-
-void RenderSlider::styleDidChange(StyleDifference diff, const RenderStyle* oldStyle)
-{
-    RenderBlock::styleDidChange(diff, oldStyle);
-
-    if (m_thumb)
-        m_thumb->renderer()->setStyle(createThumbStyle(style()));
-
-    setReplaced(isInline());
-}
-
-PassRefPtr<RenderStyle> RenderSlider::createThumbStyle(const RenderStyle* parentStyle)
-{
-    RefPtr<RenderStyle> style;
-    RenderStyle* pseudoStyle = getCachedPseudoStyle(SLIDER_THUMB);
-    if (pseudoStyle)
-        // We may be sharing style with another slider, but we must not share the thumb style.
-        style = RenderStyle::clone(pseudoStyle);
-    else
-        style = RenderStyle::create();
-
-    if (parentStyle)
-        style->inheritFrom(parentStyle);
-
-    style->setDisplay(BLOCK);
-
-    if (parentStyle->appearance() == SliderVerticalPart)
-        style->setAppearance(SliderThumbVerticalPart);
-    else if (parentStyle->appearance() == SliderHorizontalPart)
-        style->setAppearance(SliderThumbHorizontalPart);
-    else if (parentStyle->appearance() == MediaSliderPart)
-        style->setAppearance(MediaSliderThumbPart);
-    else if (parentStyle->appearance() == MediaVolumeSliderPart)
-        style->setAppearance(MediaVolumeSliderThumbPart);
-
-    return style.release();
+    setPreferredLogicalWidthsDirty(false); 
 }
 
 IntRect RenderSlider::thumbRect()
 {
-    if (!m_thumb)
+    SliderThumbElement* thumbElement = shadowSliderThumb();
+    if (!thumbElement)
         return IntRect();
 
     IntRect thumbRect;
-    RenderBox* thumb = toRenderBox(m_thumb->renderer());
+    RenderBox* thumb = toRenderBox(thumbElement->renderer());
 
     thumbRect.setWidth(thumb->style()->width().calcMinValue(contentWidth()));
     thumbRect.setHeight(thumb->style()->height().calcMinValue(contentHeight()));
@@ -255,7 +129,8 @@ void RenderSlider::layout()
 {
     ASSERT(needsLayout());
 
-    RenderBox* thumb = m_thumb ? toRenderBox(m_thumb->renderer()) : 0;
+    SliderThumbElement* thumbElement = shadowSliderThumb();
+    RenderBox* thumb = thumbElement ? toRenderBox(thumbElement->renderer()) : 0;
 
     IntSize baseSize(borderAndPaddingWidth(), borderAndPaddingHeight());
 
@@ -274,14 +149,15 @@ void RenderSlider::layout()
     IntSize oldSize = size();
 
     setSize(baseSize);
-    calcWidth();
-    calcHeight();
+    computeLogicalWidth();
+    computeLogicalHeight();
+    updateLayerTransform();
 
     if (thumb) {
         if (oldSize != size())
             thumb->setChildNeedsLayout(true, false);
 
-        LayoutStateMaintainer statePusher(view(), this, size());
+        LayoutStateMaintainer statePusher(view(), this, IntSize(x(), y()), style()->isFlippedBlocksWritingMode());
 
         IntRect oldThumbRect = thumb->frameRect();
 
@@ -301,126 +177,16 @@ void RenderSlider::layout()
     setNeedsLayout(false);
 }
 
-void RenderSlider::updateFromElement()
+SliderThumbElement* RenderSlider::shadowSliderThumb() const
 {
-    // Layout will take care of the thumb's size and position.
-    if (!m_thumb) {
-        m_thumb = new SliderThumbElement(document(), node());
-        RefPtr<RenderStyle> thumbStyle = createThumbStyle(style());
-        m_thumb->setRenderer(m_thumb->createRenderer(renderArena(), thumbStyle.get()));
-        m_thumb->renderer()->setStyle(thumbStyle.release());
-        m_thumb->setAttached();
-        m_thumb->setInDocument();
-        addChild(m_thumb->renderer());
-    }
-    setNeedsLayout(true);
-}
-
-bool RenderSlider::mouseEventIsInThumb(MouseEvent* evt)
-{
-    if (!m_thumb || !m_thumb->renderer())
-        return false;
-
-#if ENABLE(VIDEO)
-    if (style()->appearance() == MediaSliderPart || style()->appearance() == MediaVolumeSliderPart) {
-        MediaControlInputElement *sliderThumb = static_cast<MediaControlInputElement*>(m_thumb->renderer()->node());
-        return sliderThumb->hitTest(evt->absoluteLocation());
-    }
-#endif
-
-    FloatPoint localPoint = m_thumb->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
-    IntRect thumbBounds = m_thumb->renderBox()->borderBoxRect();
-    return thumbBounds.contains(roundedIntPoint(localPoint));
-}
-
-FloatPoint RenderSlider::mouseEventOffsetToThumb(MouseEvent* evt)
-{
-    ASSERT(m_thumb && m_thumb->renderer());
-    FloatPoint localPoint = m_thumb->renderBox()->absoluteToLocal(evt->absoluteLocation(), false, true);
-    IntRect thumbBounds = m_thumb->renderBox()->borderBoxRect();
-    FloatPoint offset;
-    offset.setX(thumbBounds.x() + thumbBounds.width() / 2 - localPoint.x());
-    offset.setY(thumbBounds.y() + thumbBounds.height() / 2 - localPoint.y());
-    return offset;
-}
-
-void RenderSlider::setValueForPosition(int position)
-{
-    if (!m_thumb || !m_thumb->renderer())
-        return;
-
-    HTMLInputElement* element = static_cast<HTMLInputElement*>(node());
-
-    // Calculate the new value based on the position, and send it to the element.
-    StepRange range(element);
-    double fraction = static_cast<double>(position) / trackSize();
-    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        fraction = 1 - fraction;
-    double value = range.clampValue(range.valueFromProportion(fraction));
-    element->setValueFromRenderer(serializeForNumberType(value));
-
-    // Also update the position if appropriate.
-    if (position != currentPosition()) {
-        setNeedsLayout(true);
-
-        // FIXME: It seems like this could send extra change events if the same value is set
-        // multiple times with no layout in between.
-        element->dispatchFormControlChangeEvent();
-    }
-}
-
-int RenderSlider::positionForOffset(const IntPoint& p)
-{
-    if (!m_thumb || !m_thumb->renderer())
-        return 0;
-
-    int position;
-    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        position = p.y() - m_thumb->renderBox()->height() / 2;
-    else
-        position = p.x() - m_thumb->renderBox()->width() / 2;
-    
-    return max(0, min(position, trackSize()));
-}
-
-int RenderSlider::currentPosition()
-{
-    ASSERT(m_thumb);
-    ASSERT(m_thumb->renderer());
-
-    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        return toRenderBox(m_thumb->renderer())->y() - contentBoxRect().y();
-    return toRenderBox(m_thumb->renderer())->x() - contentBoxRect().x();
-}
-
-int RenderSlider::trackSize()
-{
-    ASSERT(m_thumb);
-    ASSERT(m_thumb->renderer());
-
-    if (style()->appearance() == SliderVerticalPart || style()->appearance() == MediaVolumeSliderPart)
-        return contentHeight() - m_thumb->renderBox()->height();
-    return contentWidth() - m_thumb->renderBox()->width();
-}
-
-void RenderSlider::forwardEvent(Event* event)
-{
-    if (event->isMouseEvent()) {
-        MouseEvent* mouseEvent = static_cast<MouseEvent*>(event);
-        if (event->type() == eventNames().mousedownEvent && mouseEvent->button() == LeftButton) {
-            if (!mouseEventIsInThumb(mouseEvent)) {
-                IntPoint eventOffset = roundedIntPoint(absoluteToLocal(mouseEvent->absoluteLocation(), false, true));
-                setValueForPosition(positionForOffset(eventOffset));
-            }
-        }
-    }
-
-    m_thumb->defaultEventHandler(event);
+    Node* shadow = static_cast<Element*>(node())->shadowRoot();
+    return shadow ? toSliderThumbElement(shadow->firstChild()) : 0;
 }
 
 bool RenderSlider::inDragMode() const
 {
-    return m_thumb && m_thumb->inDragMode();
+    SliderThumbElement* thumbElement = shadowSliderThumb();
+    return thumbElement && thumbElement->inDragMode();
 }
 
 } // namespace WebCore

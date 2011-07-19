@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #ifndef	_AUTOMOUNT_H
@@ -116,6 +116,7 @@ struct mapline {
 typedef unsigned char uchar_t;
 typedef unsigned short ushort_t;
 typedef unsigned int uint_t;
+typedef uint32_t rpcprog_t;
 typedef uint32_t rpcvers_t;
 
 /*
@@ -203,6 +204,8 @@ struct dir_entry {
 	char		*name;		/* name of entry */
 	ino_t		nodeid;
 	off_t		offset;
+	char		*line;		/* map line for entry, or NULL */
+	char		*lineq;		/* map quote line for entry, or NULLs */
 	struct dir_entry *next;
 	struct dir_entry *left;		/* left element in binary tree */
 	struct dir_entry *right;	/* right element in binary tree */
@@ -284,19 +287,20 @@ extern void free_mapent(struct mapent *);
 /*
  * utilities
  */
-extern struct mapent *parse_entry(char *, char *, char *, char *, uint_t,
-				bool_t *, bool_t, bool_t, int *);
+extern struct mapent *parse_entry(const char *, const char *, const char *,
+				const char *, uint_t, int *, bool_t, bool_t,
+				int *);
 typedef enum {
 	MEXPAND_OK,			/* expansion worked */
 	MEXPAND_LINE_TOO_LONG,		/* line too long */
 	MEXPAND_VARNAME_TOO_LONG	/* variable name too long */
 } macro_expand_status;
-extern macro_expand_status macro_expand(char *, char *, char *, int);
+extern macro_expand_status macro_expand(const char *, char *, char *, int);
 extern void unquote(char *, char *);
 extern void trim(char *);
 extern char *get_line(FILE *, char *, char *, int);
 extern int getword(char *, char *, char **, char **, char, int);
-extern int get_retry(char *);
+extern int get_retry(const char *);
 extern int str_opt(struct mnttab *, char *, char **);
 extern void dirinit(char *, char *, char *, int, char **, char ***);
 extern void pr_msg(const char *, ...) __printflike(1, 2);
@@ -305,37 +309,40 @@ extern void free_action_list_fields(action_list *);
 
 extern int nopt(struct mnttab *, char *, int *);
 extern int set_versrange(rpcvers_t, rpcvers_t *, rpcvers_t *);
-extern enum clnt_stat pingnfs(char *, rpcvers_t *, rpcvers_t,
-	ushort_t, char *, char *);
+extern enum clnt_stat pingnfs(const char *, rpcvers_t *, rpcvers_t,
+	ushort_t, const char *, const char *);
 
 extern int self_check(char *);
 extern int host_is_us(const char *, size_t);
 extern void flush_host_name_cache(void);
 extern int we_are_a_server(void);
-extern int do_mount1(autofs_pathname, char *, autofs_pathname,
-	autofs_opts, autofs_pathname, boolean_t, uid_t, mach_port_t,
-	byte_buffer *, mach_msg_type_number_t *);
-extern int
-do_check_trigger(autofs_pathname mapname, char *key, autofs_pathname subdir,
-	autofs_opts mapopts, autofs_pathname path, boolean_t isdirect,
-	boolean_t *istrigger);
-extern int do_lookup1(autofs_pathname, char *, autofs_pathname, autofs_opts,
-	boolean_t, uid_t, int *);
-extern int do_unmount1(int32_t, int32_t, autofs_pathname, autofs_pathname,
+extern int do_mount1(const autofs_pathname, const char *,
+	const autofs_pathname, const autofs_opts, const autofs_pathname,
+	boolean_t, boolean_t, fsid_t, uid_t, mach_port_t, fsid_t *,
+	uint32_t *, byte_buffer *, mach_msg_type_number_t *);
+extern int do_lookup1(const autofs_pathname, const char *,
+	const autofs_pathname, const autofs_opts, boolean_t, uid_t, int *);
+extern int do_unmount1(fsid_t, autofs_pathname, autofs_pathname,
 	autofs_component, autofs_opts);
 extern int do_readdir(autofs_pathname, off_t, uint32_t, off_t *,
 	boolean_t *, byte_buffer *, mach_msg_type_number_t *);
+extern int do_readsubdir(autofs_pathname, char *, autofs_pathname,
+	autofs_opts, uint32_t, off_t, uint32_t, off_t *, boolean_t *,
+	byte_buffer *, mach_msg_type_number_t *);
 extern int nfsunmount(fsid_t *, struct mnttab *);
 extern int loopbackmount(char *, char *, char *);
 extern int mount_nfs(struct mapent *, char *, char *, boolean_t,
-	mach_port_t);
-extern int mount_autofs(struct mapent *, char *, action_list *,
-	char *root, char *subdir, char *key);
-extern int mount_generic(char *, char *, char *, char *, boolean_t, uid_t,
-	mach_port_t);
+	fsid_t, mach_port_t, fsid_t *, uint32_t *);
+extern int mount_autofs(const char *, struct mapent *, const char *, fsid_t,
+	action_list **, const char *, const char *, const char *, fsid_t *,
+	uint32_t *);
+extern int mount_generic(char *, char *, char *, int, char *, boolean_t,
+	boolean_t, fsid_t, uid_t, mach_port_t, fsid_t *, uint32_t *);
+extern int get_triggered_mount_info(const char *, fsid_t, fsid_t *,
+	uint32_t *);
 extern enum clnt_stat nfs_cast(struct mapfs *, struct mapfs **, int);
 
-extern bool_t hasrestrictopt(char *);
+extern bool_t hasrestrictopt(const char *);
 
 extern void flush_caches(void);
 
@@ -345,20 +352,20 @@ extern void flush_caches(void);
  */
 extern char *auto_rddir_malloc(unsigned);
 extern char *auto_rddir_strdup(const char *);
-extern struct dir_entry *btree_lookup(struct dir_entry *, char *);
+extern struct dir_entry *btree_lookup(struct dir_entry *, const char *);
 extern void btree_enter(struct dir_entry **, struct dir_entry *);
-extern int add_dir_entry(char *, struct dir_entry **, struct dir_entry **);
+extern int add_dir_entry(const char *, const char *, const char *,
+	struct dir_entry **, struct dir_entry **);
 extern void *cache_cleanup(void *);
-extern int rddir_cache_lookup(char *, struct rddir_cache **);
-extern struct dir_entry *rddir_entry_lookup(char *, struct dir_entry *);
+extern struct dir_entry *rddir_entry_lookup(const char *, const char *);
 #endif /* NO_RDDIR_CACHE */
 
 /*
  * generic interface to specific name service functions
  */
 extern void ns_setup(char **, char ***);
-extern int getmapent(char *, char *, struct mapline *, char **, char ***,
-			bool_t *, bool_t);
+extern int getmapent(const char *, const char *, struct mapline *, char **,
+			char ***, bool_t *, bool_t);
 extern int getmapkeys(char *, struct dir_entry **, int *, int *, char **,
 			char ***);
 extern int loadmaster_map(char *, char *, char **, char ***);
@@ -376,20 +383,20 @@ extern int loaddirect_map(char *, char *, char *, char **, char ***);
  * accessed directly, use the generic functions.
  */
 extern void init_files(char **, char ***);
-extern int getmapent_files(char *, char *, struct mapline *, char **, char ***,
-				bool_t *, bool_t);
+extern int getmapent_files(const char *, const char *, struct mapline *,
+				char **, char ***, bool_t *, bool_t);
 extern int loadmaster_files(char *, char *, char **, char ***);
 extern int loaddirect_files(char *, char *, char *, char **, char ***);
 extern int getmapkeys_files(char *, struct dir_entry **, int *, int *,
 	char **, char ***);
 extern int stack_op(int, char *, char **, char ***);
 
-extern void init_ds(char **, char ***);
-extern int getmapent_ds(char *, char *, struct mapline *, char **,
+extern void init_od(char **, char ***);
+extern int getmapent_od(const char *, const char *, struct mapline *, char **,
 				char ***, bool_t *, bool_t);
-extern int loadmaster_ds(char *, char *, char **, char ***);
-extern int loaddirect_ds(char *, char *, char *, char **, char ***);
-extern int getmapkeys_ds(char *, struct dir_entry **, int *, int *,
+extern int loadmaster_od(char *, char *, char **, char ***);
+extern int loaddirect_od(char *, char *, char *, char **, char ***);
+extern int getmapkeys_od(char *, struct dir_entry **, int *, int *,
 	char **, char ***);
 /*
  * Node for fstab entry.

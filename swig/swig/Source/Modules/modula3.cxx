@@ -7,7 +7,7 @@
  * Modula3 language module for SWIG.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_modula3_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/modula3.cxx,v 1.26 2006/11/15 23:45:47 wsfulton Exp $";
+char cvsroot_modula3_cxx[] = "$Id: modula3.cxx 11584 2009-08-16 00:04:29Z wsfulton $";
 
 /*
   Text formatted with
@@ -127,7 +127,7 @@ char cvsroot_modula3_cxx[] = "$Header: /cvsroot/swig/SWIG/Source/Modules/modula3
 #include <limits.h>		// for INT_MAX
 #include <ctype.h>
 
-const char usageArgDir[] = "m3wrapargdir typemap expect values: in, out, inout\n";
+#define USAGE_ARG_DIR "m3wrapargdir typemap expect values: in, out, inout\n"
 
 class MODULA3:public Language {
 public:
@@ -140,12 +140,12 @@ private:
     block_type bt;
     /* VC++ 6 doesn't allow the access to 'no_block'
        if it is a private member of MODULA3 class */
-     M3File():f(NewString("")), import(NewHash()), bt(no_block) {
-    };
+    M3File():f(NewString("")), import(NewHash()), bt(no_block) {
+    }
     ~M3File() {
       Delete(f);
       Delete(import);
-    };
+    }
 
     /* -----------------------------------------------------------------------------
      * enterBlock()
@@ -158,13 +158,13 @@ private:
 #ifdef DEBUG
       if ((bt < 0) || (4 < bt)) {
 	printf("bt %d out of range\n", bt);
-      };
+      }
 #endif
       if (newbt != bt) {
 	Append(f, ident[newbt]);
 	bt = newbt;
-      };
-    };
+      }
+    }
 
   };
 
@@ -172,6 +172,7 @@ private:
   const String *empty_string;
 
   Hash *swig_types_hash;
+  File *f_begin;
   File *f_runtime;
   File *f_header;
   File *f_wrappers;
@@ -237,6 +238,7 @@ public:
 MODULA3():
   empty_string(NewString("")),
       swig_types_hash(NULL),
+      f_begin(NULL),
       f_runtime(NULL),
       f_header(NULL),
       f_wrappers(NULL),
@@ -315,7 +317,7 @@ MODULA3():
    * ----------------------------------------------------------------------------- */
 
   String *getMappedTypeNew(Node *n, const char *map, const char *lname = "", bool warn = true) {
-    String *tm = Swig_typemap_lookup_new(map, n, lname, 0);
+    String *tm = Swig_typemap_lookup(map, n, lname, 0);
     if ((tm == NIL) && warn) {
       Swig_warning(WARN_MODULA3_TYPEMAP_TYPE_UNDEF, input_file, line_number,
 		   "No '%s' typemap defined for type '%s'\n", map, SwigType_str(Getattr(n, "type"), 0));
@@ -330,7 +332,7 @@ MODULA3():
    * ----------------------------------------------------------------------------- */
 
   void attachMappedType(Node *n, const char *map, const char *lname = "") {
-    String *tm = Swig_typemap_lookup_new(map, n, lname, 0);
+    String *tm = Swig_typemap_lookup(map, n, lname, 0);
     if (tm != NIL) {
       String *attr = NewStringf("tmap:%s", map);
       Setattr(n, attr, tm);
@@ -374,7 +376,7 @@ MODULA3():
     } else if (Strcmp(dir, "out") == 0) {
       return false;
     } else {
-      printf(usageArgDir);
+      printf("%s", USAGE_ARG_DIR);
       return false;
     }
   }
@@ -386,7 +388,7 @@ MODULA3():
     } else if ((Strcmp(dir, "out") == 0) || (Strcmp(dir, "inout") == 0)) {
       return true;
     } else {
-      printf(usageArgDir);
+      printf("%s", USAGE_ARG_DIR);
       return false;
     }
   }
@@ -472,9 +474,9 @@ MODULA3():
 	  cap = true;
 	} else {
 	  if (cap) {
-	    m3sym[i] = toupper(c);
+	    m3sym[i] = (char)toupper(c);
 	  } else {
-	    m3sym[i] = tolower(c);
+	    m3sym[i] = (char)tolower(c);
 	  }
 	  cap = false;
 	}
@@ -542,7 +544,7 @@ MODULA3():
    * ----------------------------------------------------------------------------- */
 
   File *openWriteFile(String *name) {
-    File *file = NewFile(name, "w");
+    File *file = NewFile(name, "w", SWIG_output_files());
     if (!file) {
       FileErrorDisplay(name);
       SWIG_exit(EXIT_FAILURE);
@@ -651,7 +653,7 @@ MODULA3():
     String *mode, *name, *type, *value;
     bool hold;
      writeArgState():mode(NIL), name(NIL), type(NIL), value(NIL), hold(false) {
-    };
+    }
   };
 
   void writeArg(File *f, writeArgState & state, String *mode, String *name, String *type, String *value) {
@@ -902,11 +904,12 @@ MODULA3():
     /* Initialize all of the output files */
     outfile = Getattr(n, "outfile");
 
-    f_runtime = NewFile(outfile, "w");
-    if (!f_runtime) {
+    f_begin = NewFile(outfile, "w", SWIG_output_files());
+    if (!f_begin) {
       FileErrorDisplay(outfile);
       SWIG_exit(EXIT_FAILURE);
     }
+    f_runtime = NewString("");
     f_init = NewString("");
     f_header = NewString("");
     f_wrappers = NewString("");
@@ -916,6 +919,7 @@ MODULA3():
     /* Register file targets with the SWIG file handler */
     Swig_register_filebyname("header", f_header);
     Swig_register_filebyname("wrapper", f_wrappers);
+    Swig_register_filebyname("begin", f_begin);
     Swig_register_filebyname("runtime", f_runtime);
     Swig_register_filebyname("init", f_init);
 
@@ -956,18 +960,17 @@ MODULA3():
     module_imports = NewString("");
     upcasts_code = NewString("");
 
-    Swig_banner(f_runtime);	// Print the SWIG banner message
+    Swig_banner(f_begin);
 
-    String *wrapper_name = NewString("");
+    Printf(f_runtime, "\n");
+    Printf(f_runtime, "#define SWIGMODULA3\n");
+    Printf(f_runtime, "\n");
 
-    Printf(wrapper_name, "Modula3_%%f", m3raw_name);
-    Swig_name_register((char *) "wrapper", Char(wrapper_name));
+    Swig_name_register((char *) "wrapper", (char *) "Modula3_%f");
     if (old_variable_names) {
       Swig_name_register((char *) "set", (char *) "set_%v");
       Swig_name_register((char *) "get", (char *) "get_%v");
     }
-
-    Delete(wrapper_name);
 
     Printf(f_wrappers, "\n#ifdef __cplusplus\n");
     Printf(f_wrappers, "extern \"C\" {\n");
@@ -1148,14 +1151,16 @@ MODULA3():
     typemapfilename = NULL;
 
     /* Close all of the files */
-    Dump(f_header, f_runtime);
-    Dump(f_wrappers, f_runtime);
-    Wrapper_pretty_print(f_init, f_runtime);
+    Dump(f_runtime, f_begin);
+    Dump(f_header, f_begin);
+    Dump(f_wrappers, f_begin);
+    Wrapper_pretty_print(f_init, f_begin);
     Delete(f_header);
     Delete(f_wrappers);
     Delete(f_init);
-    Close(f_runtime);
+    Close(f_begin);
     Delete(f_runtime);
+    Delete(f_begin);
     return SWIG_OK;
   }
 
@@ -1164,14 +1169,9 @@ MODULA3():
    * ----------------------------------------------------------------------------- */
 
   void emitBanner(File *f) {
-    Printf(f, "\
-(*******************************************************************************\n\
- * This file was automatically generated by SWIG (http://www.swig.org/).\n\
- * Version %s\n\
- *\n\
- * Do not make changes to this file unless you know what you are doing --\n\
- * modify the SWIG interface file instead.\n\
- *******************************************************************************)\n\n", Swig_package_version());
+    Printf(f, "(*******************************************************************************\n");
+    Swig_banner_target_lang(f, " *");
+    Printf(f, "*******************************************************************************)\n\n");
   }
 
   /* ----------------------------------------------------------------------
@@ -1309,7 +1309,7 @@ MODULA3():
     Printv(f->def, " SWIGEXPORT ", c_return_type, " ", wname, "(", NIL);
 
     // Emit all of the local variables for holding arguments.
-    emit_args(t, l, f);
+    emit_parameter_variables(l, f);
 
     /* Attach the standard typemaps */
     emit_attach_parmmaps(l, f);
@@ -1404,7 +1404,7 @@ MODULA3():
 
     // Get any Modula 3 exception classes in the throws typemap
     ParmList *throw_parm_list = NULL;
-    if ((throw_parm_list = Getattr(n, "throws"))) {
+    if ((throw_parm_list = Getattr(n, "catchlist"))) {
       Swig_typemap_attach_parms("throws", throw_parm_list, f);
       Parm *p;
       for (p = throw_parm_list; p; p = nextSibling(p)) {
@@ -1418,21 +1418,22 @@ MODULA3():
 
       // below based on Swig_VargetToFunction()
       SwigType *ty = Swig_wrapped_var_type(Getattr(n, "type"), use_naturalvar_mode(n));
-      Setattr(n, "wrap:action", NewStringf("result = (%s) %s;\n", SwigType_lstr(ty, 0), Getattr(n, "value")));
+      Setattr(n, "wrap:action", NewStringf("result = (%s) %s;", SwigType_lstr(ty, 0), Getattr(n, "value")));
     }
+
+    Setattr(n, "wrap:name", wname);
+
     // Now write code to make the function call
     if (!native_function_flag) {
-      emit_action(n, f);
-    }
+      String *actioncode = emit_action(n);
 
-    if (Cmp(nodeType(n), "constant") == 0) {
-      Swig_restore(n);
-    }
+      if (Cmp(nodeType(n), "constant") == 0) {
+        Swig_restore(n);
+      }
 
-    /* Return value if necessary  */
-    if (!native_function_flag) {
-      String *tm = getMappedTypeNew(n, "out", "result");
-      if (tm != NIL) {
+      /* Return value if necessary  */
+      String *tm;
+      if ((tm = Swig_typemap_lookup_out("out", n, "result", f, actioncode))) {
 	addThrows(throws_hash, "out", n);
 	Replaceall(tm, "$source", "result");	/* deprecated */
 	Replaceall(tm, "$target", "cresult");	/* deprecated */
@@ -1443,6 +1444,7 @@ MODULA3():
       } else {
 	Swig_warning(WARN_TYPEMAP_OUT_UNDEF, input_file, line_number, "Unable to use return type %s in function %s.\n", SwigType_str(t, 0), rawname);
       }
+      emit_return_variable(n, t, f);
     }
 
     /* Output argument output code */
@@ -1453,7 +1455,7 @@ MODULA3():
 
     /* Look to see if there is any newfree cleanup code */
     if (GetFlag(n, "feature:new")) {
-      String *tm = Swig_typemap_lookup_new("newfree", n, "result", 0);
+      String *tm = Swig_typemap_lookup("newfree", n, "result", 0);
       if (tm != NIL) {
 	addThrows(throws_hash, "newfree", n);
 	Replaceall(tm, "$source", "result");	/* deprecated */
@@ -1463,7 +1465,7 @@ MODULA3():
 
     /* See if there is any return cleanup code */
     if (!native_function_flag) {
-      String *tm = Swig_typemap_lookup_new("ret", n, "result", 0);
+      String *tm = Swig_typemap_lookup("ret", n, "result", 0);
       if (tm != NIL) {
 	Replaceall(tm, "$source", "result");	/* deprecated */
 	Printf(f->code, "%s\n", tm);
@@ -1493,8 +1495,6 @@ MODULA3():
     if (!native_function_flag) {
       Wrapper_print(f, f_wrappers);
     }
-
-    Setattr(n, "wrap:name", wname);
 
     Delete(c_return_type);
     Delete(cleanup);
@@ -2084,7 +2084,7 @@ MODULA3():
 	      Swig_warning(WARN_MODULA3_BAD_ENUMERATION, input_file, line_number, "Unknown name conversion tag <%s> with value <%s>.\n", tag, data);
 	    }
 	    Delete(nameassign);
-	  };
+	  }
 	  Delete(namedesc);
 	}
 	const char *stem = Char(name);
@@ -2230,23 +2230,23 @@ MODULA3():
       baseclass = NewString("");
 
     // Inheritance from pure Modula 3 classes
-    const String *pure_baseclass = typemapLookup("m3base", classDeclarationName, WARN_NONE);
+    const String *pure_baseclass = typemapLookup(n, "m3base", classDeclarationName, WARN_NONE);
     if (hasContent(pure_baseclass) && hasContent(baseclass)) {
       Swig_warning(WARN_MODULA3_MULTIPLE_INHERITANCE, input_file,
 		   line_number,
 		   "Warning for %s proxy: Base %s ignored. Multiple inheritance is not supported in Modula 3.\n", classDeclarationName, pure_baseclass);
     }
     // Pure Modula 3 interfaces
-    const String *pure_interfaces = typemapLookup(derived ? "m3interfaces_derived" : "m3interfaces",
+    const String *pure_interfaces = typemapLookup(n, derived ? "m3interfaces_derived" : "m3interfaces",
 						  classDeclarationName, WARN_NONE);
 
     // Start writing the proxy class
-    Printv(proxy_class_def, typemapLookup("m3imports", classDeclarationName, WARN_NONE),	// Import statements
-	   "\n", typemapLookup("m3classmodifiers", classDeclarationName, WARN_MODULA3_TYPEMAP_CLASSMOD_UNDEF),	// Class modifiers
+    Printv(proxy_class_def, typemapLookup(n, "m3imports", classDeclarationName, WARN_NONE),	// Import statements
+	   "\n", typemapLookup(n, "m3classmodifiers", classDeclarationName, WARN_MODULA3_TYPEMAP_CLASSMOD_UNDEF),	// Class modifiers
 	   " class $m3classname",	// Class name and bases
 	   (derived || *Char(pure_baseclass) || *Char(pure_interfaces)) ? " : " : "", baseclass, pure_baseclass, ((derived || *Char(pure_baseclass)) && *Char(pure_interfaces)) ?	// Interfaces
 	   ", " : "", pure_interfaces, " {\n", "  private IntPtr swigCPtr;\n",	// Member variables for memory handling
-	   derived ? "" : "  protected bool swigCMemOwn;\n", "\n", "  ", typemapLookup("m3ptrconstructormodifiers", classDeclarationName, WARN_MODULA3_TYPEMAP_PTRCONSTMOD_UNDEF),	// pointer constructor modifiers
+	   derived ? "" : "  protected bool swigCMemOwn;\n", "\n", "  ", typemapLookup(n, "m3ptrconstructormodifiers", classDeclarationName, WARN_MODULA3_TYPEMAP_PTRCONSTMOD_UNDEF),	// pointer constructor modifiers
 	   " $m3classname(IntPtr cPtr, bool cMemoryOwn) ",	// Constructor used for wrapping pointers
 	   derived ?
 	   ": base($imclassname.$m3classnameTo$baseclass(cPtr), cMemoryOwn) {\n"
@@ -2262,10 +2262,10 @@ MODULA3():
     Node *attributes = NewHash();
     String *destruct_methodname = NULL;
     if (derived) {
-      tm = typemapLookup("m3destruct_derived", classDeclarationName, WARN_NONE, attributes);
+      tm = typemapLookup(n, "m3destruct_derived", classDeclarationName, WARN_NONE, attributes);
       destruct_methodname = Getattr(attributes, "tmap:m3destruct_derived:methodname");
     } else {
-      tm = typemapLookup("m3destruct", classDeclarationName, WARN_NONE, attributes);
+      tm = typemapLookup(n, "m3destruct", classDeclarationName, WARN_NONE, attributes);
       destruct_methodname = Getattr(attributes, "tmap:m3destruct:methodname");
     }
     if (!destruct_methodname) {
@@ -2275,7 +2275,7 @@ MODULA3():
     if (tm) {
       // Finalize method
       if (*Char(destructor_call)) {
-	Printv(proxy_class_def, typemapLookup("m3finalize", classDeclarationName, WARN_NONE), NIL);
+	Printv(proxy_class_def, typemapLookup(n, "m3finalize", classDeclarationName, WARN_NONE), NIL);
       }
       // Dispose method
       Printv(destruct, tm, NIL);
@@ -2290,8 +2290,8 @@ MODULA3():
     Delete(destruct);
 
     // Emit various other methods
-    Printv(proxy_class_def, typemapLookup("m3getcptr", classDeclarationName, WARN_MODULA3_TYPEMAP_GETCPTR_UNDEF),	// getCPtr method
-	   typemapLookup("m3code", classDeclarationName, WARN_NONE),	// extra Modula 3 code
+    Printv(proxy_class_def, typemapLookup(n, "m3getcptr", classDeclarationName, WARN_MODULA3_TYPEMAP_GETCPTR_UNDEF),	// getCPtr method
+	   typemapLookup(n, "m3code", classDeclarationName, WARN_NONE),	// extra Modula 3 code
 	   "\n", NIL);
 
     // Substitute various strings into the above template
@@ -2387,7 +2387,7 @@ MODULA3():
       }
 
       String *filen = NewStringf("%s%s.m3", Swig_file_dirname(outfile), proxy_class_name);
-      f_proxy = NewFile(filen, "w");
+      f_proxy = NewFile(filen, "w", SWIG_output_files());
       if (!f_proxy) {
 	FileErrorDisplay(filen);
 	SWIG_exit(EXIT_FAILURE);
@@ -3179,8 +3179,7 @@ MODULA3():
 		Clear(result_m3wraptype);
 		Printv(result_m3wraptype, tm, NIL);
 	      } else {
-		Swig_warning(WARN_MODULA3_TYPEMAP_MULTIPLE_RETURN,
-			     input_file, line_number,
+		Swig_warning(WARN_MODULA3_TYPEMAP_MULTIPLE_RETURN, input_file, line_number,
 			     "Typemap m3wrapargdir set to 'out' for %s implies a RETURN value, but the routine %s has already one.\nUse %%multiretval feature.\n",
 			     SwigType_str(Getattr(p, "type"), 0), raw_name);
 	      }
@@ -3500,7 +3499,7 @@ MODULA3():
       Append(function_code, header);
 
       m3wrap_intf.enterBlock(no_block);
-      Printf(m3wrap_intf.f, "%s;\n\n", header, NIL);
+      Printf(m3wrap_intf.f, "%s;\n\n", header);
     }
 
     {
@@ -3582,17 +3581,28 @@ MODULA3():
     Delete(throws_hash);
   }
 
+  /*----------------------------------------------------------------------
+   * replaceSpecialVariables()
+   *--------------------------------------------------------------------*/
+
+  virtual void replaceSpecialVariables(String *method, String *tm, Parm *parm) {
+    (void)method;
+    SwigType *type = Getattr(parm, "type");
+    substituteClassname(type, tm);
+  }
+
   /* -----------------------------------------------------------------------------
    * substituteClassname()
    *
-   * Substitute $m3classname with the proxy class name for classes/structs/unions that SWIG knows about.
+   * Substitute the special variable $m3classname with the proxy class name for classes/structs/unions 
+   * that SWIG knows about.
    * Otherwise use the $descriptor name for the Modula 3 class name. Note that the $&m3classname substitution
    * is the same as a $&descriptor substitution, ie one pointer added to descriptor name.
    * Inputs:
    *   pt - parameter type
-   *   tm - m3wraptype typemap
+   *   tm - typemap contents that might contain the special variable to be replaced
    * Outputs:
-   *   tm - m3wraptype typemap with $m3classname substitution
+   *   tm - typemap contents complete with the special variable substitution
    * Return:
    *   substitution_performed - flag indicating if a substitution was performed
    * ----------------------------------------------------------------------------- */
@@ -3766,8 +3776,12 @@ MODULA3():
    * ----------------------------------------------------------------------------- */
 
   void emitTypeWrapperClass(String *classname, SwigType *type) {
+    Node *n = NewHash();
+    Setfile(n, input_file);
+    Setline(n, line_number);
+
     String *filen = NewStringf("%s%s.m3", Swig_file_dirname(outfile), classname);
-    File *f_swigtype = NewFile(filen, "w");
+    File *f_swigtype = NewFile(filen, "w", SWIG_output_files());
     if (!f_swigtype) {
       FileErrorDisplay(filen);
       SWIG_exit(EXIT_FAILURE);
@@ -3778,19 +3792,19 @@ MODULA3():
     emitBanner(f_swigtype);
 
     // Pure Modula 3 baseclass and interfaces
-    const String *pure_baseclass = typemapLookup("m3base", type, WARN_NONE);
-    const String *pure_interfaces = typemapLookup("m3interfaces", type, WARN_NONE);
+    const String *pure_baseclass = typemapLookup(n, "m3base", type, WARN_NONE);
+    const String *pure_interfaces = typemapLookup(n, "m3interfaces", type, WARN_NONE);
 
     // Emit the class
-    Printv(swigtype, typemapLookup("m3imports", type, WARN_NONE),	// Import statements
-	   "\n", typemapLookup("m3classmodifiers", type, WARN_MODULA3_TYPEMAP_CLASSMOD_UNDEF),	// Class modifiers
+    Printv(swigtype, typemapLookup(n, "m3imports", type, WARN_NONE),	// Import statements
+	   "\n", typemapLookup(n, "m3classmodifiers", type, WARN_MODULA3_TYPEMAP_CLASSMOD_UNDEF),	// Class modifiers
 	   " class $m3classname",	// Class name and bases
 	   *Char(pure_baseclass) ? " : " : "", pure_baseclass, *Char(pure_interfaces) ?	// Interfaces
-	   " : " : "", pure_interfaces, " {\n", "  private IntPtr swigCPtr;\n", "\n", "  ", typemapLookup("m3ptrconstructormodifiers", type, WARN_MODULA3_TYPEMAP_PTRCONSTMOD_UNDEF),	// pointer constructor modifiers
+	   " : " : "", pure_interfaces, " {\n", "  private IntPtr swigCPtr;\n", "\n", "  ", typemapLookup(n, "m3ptrconstructormodifiers", type, WARN_MODULA3_TYPEMAP_PTRCONSTMOD_UNDEF),	// pointer constructor modifiers
 	   " $m3classname(IntPtr cPtr, bool bFutureUse) {\n",	// Constructor used for wrapping pointers
 	   "    swigCPtr = cPtr;\n", "  }\n", "\n", "  protected $m3classname() {\n",	// Default constructor
-	   "    swigCPtr = IntPtr.Zero;\n", "  }\n", typemapLookup("m3getcptr", type, WARN_MODULA3_TYPEMAP_GETCPTR_UNDEF),	// getCPtr method
-	   typemapLookup("m3code", type, WARN_NONE),	// extra Modula 3 code
+	   "    swigCPtr = IntPtr.Zero;\n", "  }\n", typemapLookup(n, "m3getcptr", type, WARN_MODULA3_TYPEMAP_GETCPTR_UNDEF),	// getCPtr method
+	   typemapLookup(n, "m3code", type, WARN_NONE),	// extra Modula 3 code
 	   "}\n", "\n", NIL);
 
     Replaceall(swigtype, "$m3classname", classname);
@@ -3803,25 +3817,29 @@ MODULA3():
 
   /* -----------------------------------------------------------------------------
    * typemapLookup()
+   * n - for input only and must contain info for Getfile(n) and Getline(n) to work
+   * tmap_method - typemap method name
+   * type - typemap type to lookup
+   * warning - warning number to issue if no typemaps found
+   * typemap_attributes - the typemap attributes are attached to this node and will 
+   *   also be used for temporary storage if non null
+   * return is never NULL, unlike Swig_typemap_lookup()
    * ----------------------------------------------------------------------------- */
 
-  const String *typemapLookup(const String *op, String *type, int warning, Node *typemap_attributes = NULL) {
-    String *tm = NULL;
-    const String *code = NULL;
-
-    if ((tm = Swig_typemap_search(op, type, NULL, NULL))) {
-      code = Getattr(tm, "code");
-      if (typemap_attributes)
-	Swig_typemap_attach_kwargs(tm, op, typemap_attributes);
-    }
-
-    if (!code) {
-      code = empty_string;
+  const String *typemapLookup(Node *n, const_String_or_char_ptr tmap_method, SwigType *type, int warning, Node *typemap_attributes = 0) {
+    Node *node = !typemap_attributes ? NewHash() : typemap_attributes;
+    Setattr(node, "type", type);
+    Setfile(node, Getfile(n));
+    Setline(node, Getline(n));
+    const String *tm = Swig_typemap_lookup(tmap_method, node, "", 0);
+    if (!tm) {
+      tm = empty_string;
       if (warning != WARN_NONE)
-	Swig_warning(warning, input_file, line_number, "No %s typemap defined for %s\n", op, type);
+	Swig_warning(warning, Getfile(n), Getline(n), "No %s typemap defined for %s\n", tmap_method, SwigType_str(type, 0));
     }
-
-    return code ? code : empty_string;
+    if (!typemap_attributes)
+      Delete(node);
+    return tm;
   }
 
   /* -----------------------------------------------------------------------------

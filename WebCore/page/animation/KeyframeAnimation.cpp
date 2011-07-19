@@ -39,12 +39,15 @@
 #include "RenderStyle.h"
 #include <wtf/UnusedParam.h>
 
+using namespace std;
+
 namespace WebCore {
 
 KeyframeAnimation::KeyframeAnimation(const Animation* animation, RenderObject* renderer, int index, CompositeAnimation* compAnim, RenderStyle* unanimatedStyle)
     : AnimationBase(animation, renderer, compAnim)
     , m_keyframes(renderer, animation->name())
     , m_index(index)
+    , m_startEventDispatched(false)
     , m_unanimatedStyle(unanimatedStyle)
 {
     // Get the keyframe RenderStyles
@@ -62,46 +65,80 @@ KeyframeAnimation::~KeyframeAnimation()
         endAnimation();
 }
 
-void KeyframeAnimation::getKeyframeAnimationInterval(const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& prog) const
+void KeyframeAnimation::fetchIntervalEndpointsForProperty(int property, const RenderStyle*& fromStyle, const RenderStyle*& toStyle, double& prog) const
 {
     // Find the first key
     double elapsedTime = getElapsedTime();
+    if (m_animation->duration() && m_animation->iterationCount() != Animation::IterationCountInfinite)
+        elapsedTime = min(elapsedTime, m_animation->duration() * m_animation->iterationCount());
 
-    double t = m_animation->duration() ? (elapsedTime / m_animation->duration()) : 1;
+    double fractionalTime = m_animation->duration() ? (elapsedTime / m_animation->duration()) : 1;
 
-    ASSERT(t >= 0);
-    if (t < 0)
-        t = 0;
+    // FIXME: startTime can be before the current animation "frame" time. This is to sync with the frame time
+    // concept in AnimationTimeController. So we need to somehow sync the two. Until then, the possible
+    // error is small and will probably not be noticeable. Until we fix this, remove the assert.
+    // https://bugs.webkit.org/show_bug.cgi?id=52037
+    // ASSERT(fractionalTime >= 0);
+    if (fractionalTime < 0)
+        fractionalTime = 0;
 
-    int i = static_cast<int>(t);
-    t -= i;
-    if (m_animation->direction() && (i & 1))
-        t = 1 - t;
+    // FIXME: share this code with AnimationBase::progress().
+    int iteration = static_cast<int>(fractionalTime);
+    if (m_animation->iterationCount() != Animation::IterationCountInfinite)
+        iteration = min(iteration, m_animation->iterationCount() - 1);
+    fractionalTime -= iteration;
+    
+    bool reversing = (m_animation->direction() == Animation::AnimationDirectionAlternate) && (iteration & 1);
+    if (reversing)
+        fractionalTime = 1 - fractionalTime;
+
+    size_t numKeyframes = m_keyframes.size();
+    if (!numKeyframes)
+        return;
+    
+    ASSERT(!m_keyframes[0].key());
+    ASSERT(m_keyframes[m_keyframes.size() - 1].key() == 1);
+    
+    int prevIndex = -1;
+    int nextIndex = -1;
+    
+    // FIXME: with a lot of keys, this linear search will be slow. We could binary search.
+    for (size_t i = 0; i < numKeyframes; ++i) {
+        const KeyframeValue& currKeyFrame = m_keyframes[i];
+
+        if (!currKeyFrame.containsProperty(property))
+            continue;
+
+        if (fractionalTime < currKeyFrame.key()) {
+            nextIndex = i;
+            break;
+        }
+        
+        prevIndex = i;
+    }
 
     double scale = 1;
     double offset = 0;
-    Vector<KeyframeValue>::const_iterator endKeyframes = m_keyframes.endKeyframes();
-    for (Vector<KeyframeValue>::const_iterator it = m_keyframes.beginKeyframes(); it != endKeyframes; ++it) {
-        if (t < it->key()) {
-            // The first key should always be 0, so we should never succeed on the first key
-            if (!fromStyle)
-                break;
-            scale = 1.0 / (it->key() - offset);
-            toStyle = it->style();
-            break;
-        }
 
-        offset = it->key();
-        fromStyle = it->style();
-    }
+    if (prevIndex == -1)
+        prevIndex = 0;
 
-    if (!fromStyle || !toStyle)
-        return;
+    if (nextIndex == -1)
+        nextIndex = m_keyframes.size() - 1;
+
+    const KeyframeValue& prevKeyframe = m_keyframes[prevIndex];
+    const KeyframeValue& nextKeyframe = m_keyframes[nextIndex];
+
+    fromStyle = prevKeyframe.style();
+    toStyle = nextKeyframe.style();
+    
+    offset = prevKeyframe.key();
+    scale = 1.0 / (nextKeyframe.key() - prevKeyframe.key());
 
     const TimingFunction* timingFunction = 0;
     if (fromStyle->animations() && fromStyle->animations()->size() > 0) {
         // We get the timing function from the first animation, because we've synthesized a RenderStyle for each keyframe.
-        timingFunction = &(fromStyle->animations()->animation(0)->timingFunction());
+        timingFunction = fromStyle->animations()->animation(0)->timingFunction().get();
     }
 
     prog = progress(scale, offset, timingFunction);
@@ -131,18 +168,9 @@ void KeyframeAnimation::animate(CompositeAnimation*, RenderObject*, const Render
     // through to the style blend so that we get the fromStyle.
     if (waitingToStart() && m_animation->delay() > 0 && !m_animation->fillsBackwards())
         return;
-
-    // FIXME: we need to be more efficient about determining which keyframes we are animating between.
-    // We should cache the last pair or something.
     
-    // Get the from/to styles and progress between
-    const RenderStyle* fromStyle = 0;
-    const RenderStyle* toStyle = 0;
-    double progress;
-    getKeyframeAnimationInterval(fromStyle, toStyle, progress);
-
-    // If either style is 0 we have an invalid case, just stop the animation.
-    if (!fromStyle || !toStyle) {
+    // If we have no keyframes, don't animate.
+    if (!m_keyframes.size()) {
         updateStateMachine(AnimationStateInputEndAnimation, -1);
         return;
     }
@@ -152,9 +180,19 @@ void KeyframeAnimation::animate(CompositeAnimation*, RenderObject*, const Render
     if (!animatedStyle)
         animatedStyle = RenderStyle::clone(targetStyle);
 
+    // FIXME: we need to be more efficient about determining which keyframes we are animating between.
+    // We should cache the last pair or something.
     HashSet<int>::const_iterator endProperties = m_keyframes.endProperties();
     for (HashSet<int>::const_iterator it = m_keyframes.beginProperties(); it != endProperties; ++it) {
-        bool needsAnim = blendProperties(this, *it, animatedStyle.get(), fromStyle, toStyle, progress);
+        int property = *it;
+
+        // Get the from/to styles and progress between
+        const RenderStyle* fromStyle = 0;
+        const RenderStyle* toStyle = 0;
+        double progress = 0.0;
+        fetchIntervalEndpointsForProperty(property, fromStyle, toStyle, progress);
+    
+        bool needsAnim = blendProperties(this, property, animatedStyle.get(), fromStyle, toStyle, progress);
         if (needsAnim)
             setAnimating();
         else {
@@ -175,26 +213,29 @@ void KeyframeAnimation::getAnimatedStyle(RefPtr<RenderStyle>& animatedStyle)
     if (waitingToStart() && m_animation->delay() > 0 && !m_animation->fillsBackwards())
         return;
 
-    // Get the from/to styles and progress between
-    const RenderStyle* fromStyle = 0;
-    const RenderStyle* toStyle = 0;
-    double progress;
-    getKeyframeAnimationInterval(fromStyle, toStyle, progress);
-
-    // If either style is 0 we have an invalid case
-    if (!fromStyle || !toStyle)
+    if (!m_keyframes.size())
         return;
 
     if (!animatedStyle)
         animatedStyle = RenderStyle::clone(m_object->style());
 
     HashSet<int>::const_iterator endProperties = m_keyframes.endProperties();
-    for (HashSet<int>::const_iterator it = m_keyframes.beginProperties(); it != endProperties; ++it)
-        blendProperties(this, *it, animatedStyle.get(), fromStyle, toStyle, progress);
+    for (HashSet<int>::const_iterator it = m_keyframes.beginProperties(); it != endProperties; ++it) {
+        int property = *it;
+
+        // Get the from/to styles and progress between
+        const RenderStyle* fromStyle = 0;
+        const RenderStyle* toStyle = 0;
+        double progress = 0.0;
+        fetchIntervalEndpointsForProperty(property, fromStyle, toStyle, progress);
+
+        blendProperties(this, property, animatedStyle.get(), fromStyle, toStyle, progress);
+    }
 }
 
 bool KeyframeAnimation::hasAnimationForProperty(int property) const
 {
+    // FIXME: why not just m_keyframes.containsProperty()?
     HashSet<int>::const_iterator end = m_keyframes.endProperties();
     for (HashSet<int>::const_iterator it = m_keyframes.beginProperties(); it != end; ++it) {
         if (*it == property)
@@ -287,6 +328,9 @@ bool KeyframeAnimation::sendAnimationEvent(const AtomicString& eventType, double
         listenerType = Document::ANIMATIONEND_LISTENER;
     else {
         ASSERT(eventType == eventNames().webkitAnimationStartEvent);
+        if (m_startEventDispatched)
+            return false;
+        m_startEventDispatched = true;
         listenerType = Document::ANIMATIONSTART_LISTENER;
     }
 
@@ -346,27 +390,27 @@ void KeyframeAnimation::validateTransformFunctionList()
     if (m_keyframes.size() < 2 || !m_keyframes.containsProperty(CSSPropertyWebkitTransform))
         return;
 
-    Vector<KeyframeValue>::const_iterator end = m_keyframes.endKeyframes();
-
     // Empty transforms match anything, so find the first non-empty entry as the reference
-    size_t firstIndex = 0;
-    Vector<KeyframeValue>::const_iterator firstIt = end;
-    
-    for (Vector<KeyframeValue>::const_iterator it = m_keyframes.beginKeyframes(); it != end; ++it, ++firstIndex) {
-        if (it->style()->transform().operations().size() > 0) {
-            firstIt = it;
+    size_t numKeyframes = m_keyframes.size();
+    size_t firstNonEmptyTransformKeyframeIndex = numKeyframes;
+
+    for (size_t i = 0; i < numKeyframes; ++i) {
+        const KeyframeValue& currentKeyframe = m_keyframes[i];
+        if (currentKeyframe.style()->transform().operations().size()) {
+            firstNonEmptyTransformKeyframeIndex = i;
             break;
         }
     }
     
-    if (firstIt == end)
+    if (firstNonEmptyTransformKeyframeIndex == numKeyframes)
         return;
         
-    const TransformOperations* firstVal = &firstIt->style()->transform();
+    const TransformOperations* firstVal = &m_keyframes[firstNonEmptyTransformKeyframeIndex].style()->transform();
     
     // See if the keyframes are valid
-    for (Vector<KeyframeValue>::const_iterator it = firstIt+1; it != end; ++it) {
-        const TransformOperations* val = &it->style()->transform();
+    for (size_t i = firstNonEmptyTransformKeyframeIndex + 1; i < numKeyframes; ++i) {
+        const KeyframeValue& currentKeyframe = m_keyframes[i];
+        const TransformOperations* val = &currentKeyframe.style()->transform();
         
         // A null transform matches anything
         if (val->operations().isEmpty())
@@ -400,7 +444,7 @@ double KeyframeAnimation::timeToNextService()
     bool acceleratedPropertiesOnly = true;
     
     for (HashSet<int>::const_iterator it = m_keyframes.beginProperties(); it != endProperties; ++it) {
-        if (!animationOfPropertyIsAccelerated(*it) || isFallbackAnimating()) {
+        if (!animationOfPropertyIsAccelerated(*it) || !isAccelerated()) {
             acceleratedPropertiesOnly = false;
             break;
         }

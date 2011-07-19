@@ -36,7 +36,7 @@
 
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Wad/object.c,v 1.12 2001/06/20 15:12:53 beazley Exp $";
+static char cvs[] = "$Id: object.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 #include <ar.h>
 

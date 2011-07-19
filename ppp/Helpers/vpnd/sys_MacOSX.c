@@ -126,7 +126,7 @@ int ppp_available()
     // if that works, the kernel extension is loaded.
     if ((s = socket(PF_PPP, SOCK_RAW, PPPPROTO_CTL)) < 0) {
     
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
         if (!noload && !load_kext(PPP_NKE_PATH, 0))
 #else
         if (!noload && !load_kext(PPP_NKE_ID, 1))
@@ -228,6 +228,8 @@ int get_interface(struct sockaddr_in *primary_address, const struct sockaddr_in 
 						
 						if (ifa1->ifa_name 
 							&& !strncmp(ifa1->ifa_name, interface, IFNAMSIZ)
+							&& ifa1->ifa_addr
+							&& target_address
 							&& ifa1->ifa_addr->sa_family == target_address->sin_family) {
 								
 							bcopy(ifa1->ifa_addr, primary_address, sizeof(*primary_address));

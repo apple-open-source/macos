@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/wcsxfrm.3	2003-05-20 15:23:56.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/wcsxfrm.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -41,34 +41,47 @@
+--- wcsxfrm.3.bsdnew	2009-11-18 18:24:41.000000000 -0800
++++ wcsxfrm.3	2009-11-18 18:24:41.000000000 -0800
+@@ -37,34 +37,47 @@
  .Dt WCSXFRM 3
  .Os
  .Sh NAME
@@ -58,7 +58,7 @@
  is permitted to be a
  .Dv NULL
  pointer.
-@@ -80,6 +93,14 @@
+@@ -76,6 +89,14 @@ after
  is equivalent to comparing
  two original strings with
  .Fn wcscoll .
@@ -73,7 +73,7 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn wcsxfrm
-@@ -88,13 +109,14 @@
+@@ -84,13 +105,14 @@ the terminating null character.
  If this value is
  .Fa n
  or more, the contents of
@@ -90,7 +90,7 @@
  .Sh STANDARDS
  The
  .Fn wcsxfrm
-@@ -120,7 +142,7 @@
+@@ -116,7 +138,7 @@ always equivalent to comparison with
  .Fn wcscoll ;
  .Fn wcsxfrm
  only stores information about primary collation weights into

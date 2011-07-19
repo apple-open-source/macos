@@ -1,6 +1,6 @@
---- ctype.3.orig	Fri Mar 11 18:02:47 2005
-+++ ctype.3	Fri Mar 11 18:03:52 2005
-@@ -115,6 +115,12 @@
+--- ctype.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ ctype.3	2009-11-09 15:05:26.000000000 -0800
+@@ -111,6 +111,12 @@ They are available as macros, defined in
  .In ctype.h ,
  or as true functions in the C library.
  See the specific manual pages for more information.
@@ -13,7 +13,7 @@
  .Sh SEE ALSO
  .Xr digittoint 3 ,
  .Xr isalnum 3 ,
-@@ -138,7 +144,8 @@
+@@ -134,7 +140,8 @@ See the specific manual pages for more i
  .Xr tolower 3 ,
  .Xr toupper 3 ,
  .Xr wctype 3 ,

@@ -38,6 +38,7 @@ _cvs
 _darcs
 _date
 _dd
+_devtodo
 _dhclient
 _dict
 _diff
@@ -51,8 +52,11 @@ _elinks
 _elm
 _enscript
 _env
+_espeak
 _fakeroot
+_feh
 _fetchmail
+_ffmpeg
 _figlet
 _find
 _finger
@@ -66,6 +70,7 @@ _gdb
 _genisoimage
 _getconf
 _getent
+_getfacl
 _getmail
 _git
 _global
@@ -75,12 +80,14 @@ _gnutls
 _gpg
 _gphoto2
 _gprof
+_graphicsmagick
 _grep
 _groff
 _growisofs
 _gs
 _guilt
 _gzip
+_hg
 _iconv
 _id
 _ifconfig
@@ -113,7 +120,6 @@ _make
 _man
 _md5sum
 _mencal
-_mercurial
 _metaflac
 _mh
 _mkdir
@@ -132,6 +138,7 @@ _netcat
 _nice
 _nmap
 _nslookup
+_osc
 _pack
 _patch
 _pax
@@ -153,6 +160,7 @@ _prcs
 _printenv
 _psutils
 _pump
+_pydoc
 _python
 _qemu
 _quilt
@@ -174,6 +182,8 @@ _samba
 _sccs
 _screen
 _sed
+_service
+_setfacl
 _sh
 _showmount
 _sisu
@@ -201,8 +211,10 @@ _tidy
 _tiff
 _tin
 _tla
+_tmux
 _todo.sh
 _toilet
+_topgit
 _totd
 _tracepath
 _twisted
@@ -212,6 +224,7 @@ _unexpand
 _uniq
 _units
 _user_admin
+_uzbl
 _vim
 _vorbis
 _vorbiscomment
@@ -224,6 +237,7 @@ _whois
 _wiggle
 _xargs
 _xmlsoft
+_xmms2
 _yafc
 _yodl
 _yp

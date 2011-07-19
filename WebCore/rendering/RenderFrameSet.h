@@ -29,6 +29,7 @@ namespace WebCore {
 
 class HTMLFrameSetElement;
 class MouseEvent;
+class RenderFrame;
 
 enum FrameEdge { LeftFrameEdge, RightFrameEdge, TopFrameEdge, BottomFrameEdge };
 
@@ -70,10 +71,13 @@ public:
     bool canResizeRow(const IntPoint&) const;
     bool canResizeColumn(const IntPoint&) const;
 
+    void notifyFrameEdgeInfoChanged();
+
 private:
     static const int noSplit = -1;
 
-    class GridAxis : public Noncopyable {
+    class GridAxis {
+        WTF_MAKE_NONCOPYABLE(GridAxis);
     public:
         GridAxis();
         void resize(int);
@@ -92,7 +96,7 @@ private:
     virtual bool isFrameSet() const { return true; }
 
     virtual void layout();
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
     virtual void paint(PaintInfo&, int tx, int ty);
     virtual bool isChildAllowed(RenderObject*, RenderStyle*) const;
 

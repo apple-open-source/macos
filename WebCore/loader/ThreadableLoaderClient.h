@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -31,24 +31,30 @@
 #ifndef ThreadableLoaderClient_h
 #define ThreadableLoaderClient_h
 
+
 namespace WebCore {
 
     class ResourceError;
     class ResourceResponse;
 
-    class ThreadableLoaderClient : public Noncopyable {
+    class ThreadableLoaderClient {
+        WTF_MAKE_NONCOPYABLE(ThreadableLoaderClient); WTF_MAKE_FAST_ALLOCATED;
     public:
         virtual void didSendData(unsigned long long /*bytesSent*/, unsigned long long /*totalBytesToBeSent*/) { }
 
         virtual void didReceiveResponse(const ResourceResponse&) { }
-        virtual void didReceiveData(const char*, int /*lengthReceived*/) { }
-        virtual void didFinishLoading(unsigned long /*identifier*/) { }
+        virtual void didReceiveData(const char*, int /*dataLength*/) { }
+        virtual void didReceiveCachedMetadata(const char*, int /*dataLength*/) { }
+        virtual void didFinishLoading(unsigned long /*identifier*/, double /*finishTime*/) { }
         virtual void didFail(const ResourceError&) { }
         virtual void didFailRedirectCheck() { }
 
         virtual void didReceiveAuthenticationCancellation(const ResourceResponse&) { }
 
+        virtual bool isDocumentThreadableLoaderClient() { return false; }
+
     protected:
+        ThreadableLoaderClient() { }
         virtual ~ThreadableLoaderClient() { }
     };
 

@@ -1,75 +1,20 @@
---- gcvt.c.orig	Thu Jul  8 16:06:45 2004
-+++ gcvt.c	Fri Jul  9 12:16:25 2004
-@@ -27,14 +27,17 @@
- #include <stdio.h>
- #include <stdlib.h>
- #include <string.h>
-+#include <locale.h>
- 
- extern char *__dtoa(double, int, int, int *, int *, char **);
-+extern void __freedtoa(char *);
- 
- char *
- gcvt(double value, int ndigit, char *buf)
- {
- 	char *digits, *dst, *src;
- 	int i, decpt, sign;
-+	char *decimal_point = localeconv()->decimal_point;
- 
- 	if (ndigit == 0) {
- 		buf[0] = '\0';
-@@ -43,8 +46,12 @@
- 
- 	digits = __dtoa(value, 2, ndigit, &decpt, &sign, NULL);
- 	if (decpt == 9999) {
--		/* Infinity or NaN, assume buffer is at least ndigit long. */
--		strlcpy(buf, digits, ndigit + 1);
-+		/* Infinity or NaN, assume buffer is long enough. */
-+		dst = buf;
-+		if (sign)
-+			*dst++ = '-';
-+		strcpy(dst, (*digits == 'N') ? "nan" : "inf");
-+		__freedtoa(digits);
- 		return (buf);
- 	}
- 
-@@ -59,7 +66,10 @@
- 			decpt = -decpt;
- 		} else
+--- gcvt.c.orig	2009-11-06 00:45:45.000000000 -0800
++++ gcvt.c	2009-11-06 00:52:51.000000000 -0800
+@@ -68,7 +68,7 @@ gcvt(double value, int ndigit, char *buf
  			sign = 0;
--		for (src = digits; *src != '\0'; )
-+		src = digits;
-+		*dst++ = *src++;
-+		dst = stpcpy(dst, decimal_point);
-+		while (*src != '\0')
+ 		src = digits;
+ 		*dst++ = *src++;
+-		*dst++ = *lconv->decimal_point;
++		dst = stpcpy(dst, lconv->decimal_point);
+ 		while (*src != '\0')
  			*dst++ = *src++;
  		*dst++ = 'e';
- 		if (sign)
-@@ -72,8 +82,8 @@
- 			*dst = '\0';
- 		} else {
- 			/* XXX - optimize */
--			for (sign = decpt, i = 0; (sign /= 10) != 0; i++)
--				sign /= 10;
-+			for (sign = decpt, i = 0; (sign /= 10) != 0; i++) {}
-+			dst[i + 1] = '\0';
- 			while (decpt != 0) {
- 				dst[i--] = '0' + decpt % 10;
- 				decpt /= 10;
-@@ -88,12 +98,15 @@
- 				*dst++ = '0';
- 		}
+@@ -101,7 +101,7 @@ gcvt(double value, int ndigit, char *buf
  		if (*src != '\0') {
--			*dst++ = '.';		/* XXX - locale-specific (LC_NUMERIC) */
-+			if (src == digits) /* need leading zero */
-+				*dst++ = '0';
-+			dst = stpcpy(dst, decimal_point);
+ 			if (src == digits)
+ 				*dst++ = '0';	/* zero before decimal point */
+-			*dst++ = *lconv->decimal_point;
++			dst = stpcpy(dst, lconv->decimal_point);
  			for (i = decpt; digits[i] != '\0'; i++) {
  				*dst++ = digits[i];
  			}
- 		}
- 		*dst = '\0';
- 	}
-+	__freedtoa(digits);
- 	return (buf);
- }

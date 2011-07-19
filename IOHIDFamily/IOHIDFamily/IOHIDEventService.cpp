@@ -61,7 +61,6 @@ enum {
 #define     kMaxSystemBarrelPressure            32767
 #define     kMaxSystemTipPressure               65535
 
-#define     kEjectDelayMS                       250
 #define     kDelayedOption                      (1<<31)
 
 #define     NUB_LOCK                            if (_nubLock) IORecursiveLockLock(_nubLock)
@@ -102,6 +101,7 @@ enum {
 #define     _capsState                          _reserved->capsState
 #define     _capsOptions                        _reserved->capsOptions
 #define     _deviceUsagePairs                   _reserved->deviceUsagePairs
+#define     _commandGate                        _reserved->commandGate
 
 #if TARGET_OS_EMBEDDED
     #define     _clientDict                         _reserved->clientDict
@@ -111,7 +111,6 @@ enum {
     #define     _shouldSwapISO                      _reserved->shouldSwapISO
 
     #define     kDebuggerDelayMS                    2500
-    #define     kDebuggerDelayPwrOnlyMS             10000
 
     //===========================================================================
     // IOHIDClientData class
@@ -146,7 +145,7 @@ struct  TransducerData {
 
 #define super IOService
 
-OSDefineMetaClassAndAbstractStructors( IOHIDEventService, super )
+OSDefineMetaClassAndAbstractStructors( IOHIDEventService, IOService )
 //====================================================================================================
 // IOHIDEventService::init
 //====================================================================================================
@@ -166,7 +165,7 @@ bool IOHIDEventService::init ( OSDictionary * properties )
         return false;
 #endif /* TARGET_OS_EMBEDDED */
 
-    _ejectDelayMS = kEjectDelayMS;
+    _ejectDelayMS = kEjectKeyDelayMS;
     
     return true;
 }
@@ -202,6 +201,10 @@ bool IOHIDEventService::start ( IOService * provider )
         
     _capsTimerEventSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::capsTimerCallback));
     if (!_capsTimerEventSource || (_workLoop->addEventSource(_capsTimerEventSource) != kIOReturnSuccess))
+        return false;
+    
+    _commandGate = IOCommandGate::commandGate(this);
+    if (!_commandGate || (_workLoop->addEventSource(_commandGate) != kIOReturnSuccess))
         return false;
         
     calculateCapsLockDelay();
@@ -287,12 +290,32 @@ void IOHIDEventService::stop( IOService * provider )
 {
     handleStop ( provider );
 
-    if ( _capsTimerEventSource )
+    if (_capsTimerEventSource) {
         _capsTimerEventSource->cancelTimeout();
-
-    if ( _ejectTimerEventSource )
+        if ( _workLoop )
+            _workLoop->removeEventSource(_capsTimerEventSource);
+        
+        _capsTimerEventSource->release();
+        _capsTimerEventSource = 0;
+    }
+    
+    if (_ejectTimerEventSource) {
         _ejectTimerEventSource->cancelTimeout();
+        if ( _workLoop )
+            _workLoop->removeEventSource(_ejectTimerEventSource);
+        
+        _ejectTimerEventSource->release();
+        _ejectTimerEventSource = 0;
+    }
 
+    if (_commandGate) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_commandGate);
+        
+        _commandGate->release();
+        _commandGate = 0;
+    }
+    
 #if TARGET_OS_EMBEDDED
     
     if ( _debuggerTimerEventSource )
@@ -1199,6 +1222,14 @@ void IOHIDEventService::free()
         _ejectTimerEventSource = 0;
     }
     
+    if (_commandGate) {
+        if ( _workLoop )
+            _workLoop->removeEventSource(_commandGate);
+        
+        _commandGate->release();
+        _commandGate = 0;
+    }
+    
     if (_capsTimerEventSource) {
         if ( _workLoop )
             _workLoop->removeEventSource(_capsTimerEventSource);
@@ -1589,7 +1620,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
     else
         _debuggerMask &= ~debugMask;
         
-    if ( _debuggerMask == 0x3 || _debuggerMask == 0x1 ) {
+    if ( _debuggerMask == 0x3) {
         if ( !_debuggerTimerEventSource ) {
             _debuggerTimerEventSource = IOTimerEventSource::timerEventSource(this, OSMemberFunctionCast(IOTimerEventSource::Action, this, &IOHIDEventService::debuggerTimerCallback));
             if (_debuggerTimerEventSource) {
@@ -1600,12 +1631,7 @@ void IOHIDEventService::dispatchKeyboardEvent(
             }
         }
         if ( _debuggerTimerEventSource ) {
-            if ( _debuggerMask == 0x3 ) {
-                _debuggerTimerEventSource->setTimeoutMS( kDebuggerDelayMS );
-            }
-            else {
-                _debuggerTimerEventSource->setTimeoutMS( kDebuggerDelayPwrOnlyMS );
-            }
+            _debuggerTimerEventSource->setTimeoutMS( kDebuggerDelayMS );
             _startDebuggerMask = _debuggerMask;
         }
     }
@@ -1642,14 +1668,15 @@ void IOHIDEventService::dispatchKeyboardEvent(
     
         if ( _consumerNub ) {
             if ( (usagePage == kHIDPage_Consumer) && (usage == kHIDUsage_Csmr_Eject) && ((options & kDelayedOption) == 0) && _keyboardNub && ((_keyboardNub->eventFlags() & SPECIALKEYS_MODIFIER_MASK) == 0)) {
-                if ( _ejectState != value ) {
+                if (( _ejectState != value ) && _ejectTimerEventSource) {
                     if ( value ) {
                         _ejectOptions       = options;
     
                         _ejectTimerEventSource->setTimeoutMS( _ejectDelayMS );
                     }
-                    else
+                    else {
                         _ejectTimerEventSource->cancelTimeout();
+                    }
     
                    _ejectState = value;
                 }
@@ -1663,14 +1690,15 @@ void IOHIDEventService::dispatchKeyboardEvent(
             if ( (options & kDelayedOption) == 0) {
     
                 if ( getElementValue(kHIDPage_LEDs, kHIDUsage_LED_CapsLock) == 0 ) {
-                    if ( _capsState != value ) {
+                    if (( _capsState != value ) && _capsTimerEventSource ) {
                         if ( value ) {
                             _capsOptions       = options;
     
                             _capsTimerEventSource->setTimeoutMS( _capsDelayMS );
                         }
-                        else
+                        else {
                             _capsTimerEventSource->cancelTimeout();
+                        }
     
                         _capsState = value;
                     }
@@ -1733,7 +1761,72 @@ void IOHIDEventService::dispatchAbsolutePointerEvent(
                                 SInt32                      tipPressureMax,
                                 IOOptionBits                options)
 {
-#if !TARGET_OS_EMBEDDED
+#if TARGET_OS_EMBEDDED
+    IOHID_DEBUG(kIOHIDDebugCode_DispatchAbsolutePointer, x, y, buttonState, options);
+    IOHIDEvent *childEvent = IOHIDEvent::absolutePointerEvent(timeStamp, x, y, bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax, options);
+    
+    if (!childEvent) {
+        return;
+    }
+    
+    SInt32 eventMask = 0;   // what's changed
+
+    bool touch = (tipPressure > tipPressureMin);
+
+    if (inRange) {
+        childEvent->setIntegerValue(kIOHIDEventFieldDigitizerRange, TRUE, 0);
+        
+        if (!_reserved->previousRangeState) {
+            _reserved->previousX = x;
+            _reserved->previousY = y;
+            eventMask |= kIOHIDDigitizerEventIdentity;
+        }
+        
+        if ( (_reserved->previousX != x) || (_reserved->previousY != y) ) {
+            eventMask |= kIOHIDDigitizerEventPosition;
+        }
+
+        if (touch) {
+            childEvent->setIntegerValue(kIOHIDEventFieldDigitizerTouch, TRUE, 0);
+        }
+
+        if (touch != _reserved->prevousTouchState) {
+            eventMask |= kIOHIDDigitizerEventTouch;
+        }
+    }
+
+    if (inRange != _reserved->previousRangeState)
+        eventMask |= kIOHIDDigitizerEventRange;
+    
+    _reserved->previousRangeState = inRange;
+    _reserved->previousX = x;
+    _reserved->previousY = y;
+    _reserved->prevousTouchState = touch;
+    
+    
+    childEvent->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, eventMask, 0);
+
+    
+    IOHIDEvent *event = IOHIDEvent::absolutePointerEvent(timeStamp, x, y, bounds, buttonState, inRange, tipPressure, tipPressureMin, tipPressureMax, options);
+    
+    if (!event)
+    {
+        childEvent->release();
+    }
+
+    event->setIntegerValue(kIOHIDEventFieldDigitizerCollection, TRUE, 0);
+    event->setIntegerValue(kIOHIDEventFieldDigitizerRange, childEvent->getIntegerValue(kIOHIDEventFieldDigitizerRange, 0), 0);
+    event->setIntegerValue(kIOHIDEventFieldDigitizerEventMask, childEvent->getIntegerValue(kIOHIDEventFieldDigitizerEventMask, 0), 0);
+    event->setIntegerValue(kIOHIDEventFieldDigitizerTouch, childEvent->getIntegerValue(kIOHIDEventFieldDigitizerTouch, 0), 0);
+
+    event->appendChild(childEvent);
+    childEvent->release();
+    
+    if ( event ) {
+        dispatchEvent(event);
+        event->release();
+    }
+#else
     IOHID_DEBUG(kIOHIDDebugCode_DispatchAbsolutePointer, x, y, buttonState, options);
     
     if ( ! _readyForInputReports )
@@ -1971,6 +2064,16 @@ OSArray * IOHIDEventService::getDeviceUsagePairs()
 }
 
 #if TARGET_OS_EMBEDDED
+void IOHIDEventService::close(IOService *forClient, IOOptionBits options)
+{
+    _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::closeGated), forClient, (void*)options);
+}
+
+void IOHIDEventService::closeGated(IOService *forClient, IOOptionBits options)
+{
+    super::close(forClient, options);
+}
+
 OSDefineMetaClassAndStructors(IOHIDClientData, OSObject)
 
 IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* context, void * action)
@@ -1990,6 +2093,7 @@ IOHIDClientData * IOHIDClientData::withClientInfo(IOService *client, void* conte
     return data;
 }
 
+//==============================================================================
 // IOHIDEventService::open
 //==============================================================================
 OSMetaClassDefineReservedUsed(IOHIDEventService,  1);
@@ -1998,17 +2102,7 @@ bool IOHIDEventService::open(   IOService *                 client,
                                 void *                      context,
                                 Action                      action)
 {
-    IOHIDClientData * clientData = 
-                    IOHIDClientData::withClientInfo(client, context, (void*)action);
-    bool ret = false;
-
-    if ( clientData ) {
-        if ( super::open(client, options, clientData) )
-            ret = true;
-        clientData->release();
-    }
-    
-    return ret;
+    return _commandGate->runAction(OSMemberFunctionCast(IOCommandGate::Action, this, &IOHIDEventService::openGated), client, (void*)options, context, (void*)action);
 }
 
 //==============================================================================
@@ -2100,8 +2194,12 @@ UInt32 IOHIDEventService::getPrimaryUsage ()
 OSMetaClassDefineReservedUsed(IOHIDEventService,  5);
 UInt32 IOHIDEventService::getReportInterval()
 {
-    // default to 8 milliseconds
-    return 8000;
+    UInt32 interval = 8000; // default to 8 milliseconds
+    OSNumber *number = OSDynamicCast(OSNumber, getProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents));
+    if ( number )
+        interval = number->unsigned32BitValue();
+    
+    return interval;
 }
 
 //==============================================================================
@@ -2116,6 +2214,27 @@ IOHIDEvent * IOHIDEventService::copyEvent(
     return NULL;
 }
 
+//==============================================================================
+// IOHIDEventService::openGated
+//==============================================================================
+bool IOHIDEventService::openGated(IOService *                 client,
+                                  IOOptionBits                options,
+                                  void *                      context,
+                                  Action                      action)
+{
+    IOHIDClientData * clientData = 
+    IOHIDClientData::withClientInfo(client, context, (void*)action);
+    bool ret = false;
+    
+    if ( clientData ) {
+        if ( super::open(client, options, clientData) )
+            ret = true;
+        clientData->release();
+    }
+    
+    return ret;
+}
+
 #else
 
 OSMetaClassDefineReservedUnused(IOHIDEventService,  1);
@@ -2125,7 +2244,6 @@ OSMetaClassDefineReservedUnused(IOHIDEventService,  4);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  5);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  6);
 #endif /* TARGET_OS_EMBEDDED */
-
 OSMetaClassDefineReservedUnused(IOHIDEventService,  7);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  8);
 OSMetaClassDefineReservedUnused(IOHIDEventService,  9);

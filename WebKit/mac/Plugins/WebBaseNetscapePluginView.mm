@@ -41,6 +41,7 @@
 #import "WebView.h"
 #import "WebViewInternal.h"
 
+#import <WebCore/AuthenticationCF.h>
 #import <WebCore/AuthenticationMac.h>
 #import <WebCore/BitmapImage.h>
 #import <WebCore/Credential.h>
@@ -55,6 +56,7 @@
 #import <WebCore/ProtectionSpace.h>
 #import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
+#import <WebCore/SecurityOrigin.h>
 #import <WebCore/WebCoreObjCExtras.h>
 #import <WebKit/DOMPrivate.h>
 #import <runtime/InitializeThreading.h>
@@ -108,7 +110,7 @@ bool WebHaltablePlugin::isWindowed() const
 
 String WebHaltablePlugin::pluginName() const
 {
-    return [[m_view pluginPackage] name];
+    return [[m_view pluginPackage] pluginInfo].name;
 }
 
 @implementation WebBaseNetscapePluginView
@@ -117,9 +119,7 @@ String WebHaltablePlugin::pluginName() const
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
     WKSendUserChangeNotifications();
 }
 
@@ -143,10 +143,10 @@ String WebHaltablePlugin::pluginName() const
     _baseURL.adoptNS([baseURL copy]);
     _MIMEType.adoptNS([MIME copy]);
     
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     // Enable "kiosk mode" when instantiating the QT plug-in inside of Dashboard. See <rdar://problem/6878105>
     if ([[[NSBundle mainBundle] bundleIdentifier] isEqualToString:@"com.apple.dashboard.client"] &&
-        [[[_pluginPackage.get() bundle] bundleIdentifier] isEqualToString:@"com.apple.QuickTime Plugin.plugin"]) {
+        [_pluginPackage.get() bundleIdentifier] == "com.apple.QuickTime Plugin.plugin") {
         RetainPtr<NSMutableArray> mutableKeys(AdoptNS, [keys mutableCopy]);
         RetainPtr<NSMutableArray> mutableValues(AdoptNS, [values mutableCopy]);
 
@@ -163,7 +163,7 @@ String WebHaltablePlugin::pluginName() const
         _mode = NP_EMBED;
     
     _loadManually = loadManually;
-    _haltable = new WebHaltablePlugin(self);
+    _haltable = adoptPtr(new WebHaltablePlugin(self));
     return self;
 }
 
@@ -326,8 +326,6 @@ String WebHaltablePlugin::pluginName() const
 
 - (void)restartTimers
 {
-    ASSERT([self window]);
-    
     [self stopTimers];
     
     if (!_isStarted || [[self window] isMiniaturized])
@@ -509,10 +507,10 @@ String WebHaltablePlugin::pluginName() const
     ASSERT(!_isHalted);
     ASSERT(_isStarted);
     Element *element = [self element];
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-    CGImageRef cgImage = CGImageRetain([core([self webFrame])->nodeImage(element) CGImageForProposedRect:nil context:nil hints:nil]);
+#ifndef BUILDING_ON_LEOPARD
+    CGImageRef cgImage = CGImageRetain([core([self webFrame])->nodeImage(element).get() CGImageForProposedRect:nil context:nil hints:nil]);
 #else
-    RetainPtr<CGImageSourceRef> imageRef(AdoptCF, CGImageSourceCreateWithData((CFDataRef)[core([self webFrame])->nodeImage(element) TIFFRepresentation], 0));
+    RetainPtr<CGImageSourceRef> imageRef(AdoptCF, CGImageSourceCreateWithData((CFDataRef)[core([self webFrame])->nodeImage(element).get() TIFFRepresentation], 0));
     CGImageRef cgImage = CGImageSourceCreateImageAtIndex(imageRef.get(), 0, 0);
 #endif
     ASSERT(cgImage);
@@ -578,20 +576,7 @@ String WebHaltablePlugin::pluginName() const
 
 - (BOOL)supportsSnapshotting
 {
-    NSBundle *pluginBundle = [_pluginPackage.get() bundle];
-    if (![[pluginBundle bundleIdentifier] isEqualToString:@"com.macromedia.Flash Player.plugin"])
-        return YES;
-    
-    // Flash has a bogus Info.plist entry for CFBundleVersionString, so use CFBundleShortVersionString.
-    NSString *versionString = [pluginBundle objectForInfoDictionaryKey:@"CFBundleShortVersionString"];
-    
-    static const NSString *flash10dotOnePrefix = @"10.1";
-    if (![versionString hasPrefix:flash10dotOnePrefix])
-        return YES;
-    
-    // Some prerelease versions of Flash 10.1 crash when sent a drawRect event using the CA drawing model: <rdar://problem/7739922>
-    static const CFStringRef knownGoodFlash10dot1Release = CFSTR("10.1.53.60");
-    return CFStringCompare((CFStringRef)versionString, knownGoodFlash10dot1Release, kCFCompareNumerically) != kCFCompareLessThan;
+    return [_pluginPackage.get() supportsSnapshotting];
 }
 
 - (void)cacheSnapshot
@@ -608,7 +593,7 @@ String WebHaltablePlugin::pluginName() const
 
 - (void)clearCachedSnapshot
 {
-    _cachedSnapshot = 0;
+    _cachedSnapshot.clear();
 }
 
 - (BOOL)hasBeenHalted
@@ -634,9 +619,9 @@ String WebHaltablePlugin::pluginName() const
             // View will have no associated windows.
             [self stop];
             
-            // Stop observing WebPreferencesChangedNotification -- we only need to observe this when installed in the view hierarchy.
+            // Stop observing WebPreferencesChangedInternalNotification -- we only need to observe this when installed in the view hierarchy.
             // When not in the view hierarchy, -viewWillMoveToWindow: and -viewDidMoveToWindow will start/stop the plugin as needed.
-            [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedNotification object:nil];
+            [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedInternalNotification object:nil];
         }
     }
 }
@@ -649,9 +634,9 @@ String WebHaltablePlugin::pluginName() const
         // There is no need to start the plug-in when moving into a superview.  -viewDidMoveToWindow takes care of that.
         [self stop];
         
-        // Stop observing WebPreferencesChangedNotification -- we only need to observe this when installed in the view hierarchy.
+        // Stop observing WebPreferencesChangedInternalNotification -- we only need to observe this when installed in the view hierarchy.
         // When not in the view hierarchy, -viewWillMoveToWindow: and -viewDidMoveToWindow will start/stop the plugin as needed.
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedNotification object:nil];
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedInternalNotification object:nil];
     }
 }
 
@@ -660,11 +645,11 @@ String WebHaltablePlugin::pluginName() const
     [self resetTrackingRect];
     
     if ([self window]) {
-        // While in the view hierarchy, observe WebPreferencesChangedNotification so that we can start/stop depending
+        // While in the view hierarchy, observe WebPreferencesChangedInternalNotification so that we can start/stop depending
         // on whether plugins are enabled.
         [[NSNotificationCenter defaultCenter] addObserver:self
                                                  selector:@selector(preferencesHaveChanged:)
-                                                     name:WebPreferencesChangedNotification
+                                                     name:WebPreferencesChangedInternalNotification
                                                    object:nil];
 
         _isPrivateBrowsingEnabled = [[[self webView] preferences] privateBrowsingEnabled];
@@ -692,8 +677,8 @@ String WebHaltablePlugin::pluginName() const
         // View will have no associated windows.
         [self stop];
         
-        // Remove WebPreferencesChangedNotification observer -- we will observe once again when we move back into the window
-        [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedNotification object:nil];
+        // Remove WebPreferencesChangedInternalNotification observer -- we will observe once again when we move back into the window
+        [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedInternalNotification object:nil];
     }
 }
 
@@ -705,7 +690,7 @@ String WebHaltablePlugin::pluginName() const
     }
 }
 
-#pragma mark NOTIFICATIONS
+// MARK: NOTIFICATIONS
 
 - (void)windowWillClose:(NSNotification *)notification 
 {
@@ -872,8 +857,13 @@ String WebHaltablePlugin::pluginName() const
                  toX:(double *)destX andY:(double *)destY space:(NPCoordinateSpace)destSpace
 {
     // Nothing to do
-    if (sourceSpace == destSpace)
-        return TRUE;
+    if (sourceSpace == destSpace) {
+        if (destX)
+            *destX = sourceX;
+        if (destY)
+            *destY = sourceY;
+        return YES;
+    }
     
     NSPoint sourcePoint = NSMakePoint(sourceX, sourceY);
     
@@ -900,7 +890,7 @@ String WebHaltablePlugin::pluginName() const
             break;
             
         case NPCoordinateSpaceFlippedScreen:
-            sourcePoint.y = [[[NSScreen screens] objectAtIndex:0] frame].size.height - sourcePoint.y;
+            sourcePoint.y = [(NSScreen *)[[NSScreen screens] objectAtIndex:0] frame].size.height - sourcePoint.y;
             sourcePointInScreenSpace = sourcePoint;
             break;
         default:
@@ -931,7 +921,7 @@ String WebHaltablePlugin::pluginName() const
             
         case NPCoordinateSpaceFlippedScreen:
             destPoint = sourcePointInScreenSpace;
-            destPoint.y = [[[NSScreen screens] objectAtIndex:0] frame].size.height - destPoint.y;
+            destPoint.y = [(NSScreen *)[[NSScreen screens] objectAtIndex:0] frame].size.height - destPoint.y;
             break;
             
         default:
@@ -947,7 +937,7 @@ String WebHaltablePlugin::pluginName() const
 }
 
 
-- (CString)resolvedURLStringForURL:(const char*)url target:(const char*)target;
+- (CString)resolvedURLStringForURL:(const char*)url target:(const char*)target
 {
     String relativeURLString = String::fromUTF8(url);
     if (relativeURLString.isNull())
@@ -978,69 +968,30 @@ String WebHaltablePlugin::pluginName() const
     }
 }
 
+- (NSRect)actualVisibleRectInWindow
+{
+    RenderObject* renderer = _element->renderer();
+    if (!renderer || !renderer->view())
+        return NSZeroRect;
+
+    FrameView* frameView = renderer->view()->frameView();
+    if (!frameView)
+        return NSZeroRect;
+
+    IntRect widgetRect = renderer->absoluteClippedOverflowRect();
+    widgetRect = frameView->contentsToWindow(widgetRect);
+    return intersection(toRenderWidget(renderer)->windowClipRect(), widgetRect);
+}
+
+- (CALayer *)pluginLayer
+{
+    ASSERT_NOT_REACHED();
+    return nil;
+}
+
 @end
 
 namespace WebKit {
-
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
-CString proxiesForURL(NSURL *url)
-{
-    RetainPtr<CFDictionaryRef> systemProxies(AdoptCF, CFNetworkCopySystemProxySettings());
-    if (!systemProxies)
-        return "DIRECT";
-    
-    RetainPtr<CFArrayRef> proxiesForURL(AdoptCF, CFNetworkCopyProxiesForURL((CFURLRef)url, systemProxies.get()));
-    CFIndex proxyCount = proxiesForURL ? CFArrayGetCount(proxiesForURL.get()) : 0;
-    if (!proxyCount)
-        return "DIRECT";
- 
-    // proxiesForURL is a CFArray of CFDictionaries. Each dictionary represents a proxy.
-    // The format of the result should be:
-    // "PROXY host[:port]" (for HTTP proxy) or
-    // "SOCKS host[:port]" (for SOCKS proxy) or
-    // A combination of the above, separated by semicolon, in the order that they should be tried.
-    String proxies;
-    for (CFIndex i = 0; i < proxyCount; ++i) {
-        CFDictionaryRef proxy = static_cast<CFDictionaryRef>(CFArrayGetValueAtIndex(proxiesForURL.get(), i));
-        if (!proxy)
-            continue;
-
-        CFStringRef type = static_cast<CFStringRef>(CFDictionaryGetValue(proxy, kCFProxyTypeKey));
-        bool isHTTP = type == kCFProxyTypeHTTP || type == kCFProxyTypeHTTPS;
-        bool isSOCKS = type == kCFProxyTypeSOCKS;
-        
-        // We can only report HTTP and SOCKS proxies.
-        if (!isHTTP && !isSOCKS)
-            continue;
-        
-        CFStringRef host = static_cast<CFStringRef>(CFDictionaryGetValue(proxy, kCFProxyHostNameKey));
-        CFNumberRef port = static_cast<CFNumberRef>(CFDictionaryGetValue(proxy, kCFProxyPortNumberKey));
-        
-        // If we are inserting multiple entries, add a separator
-        if (!proxies.isEmpty())
-            proxies += ";";
-        
-        if (isHTTP)
-            proxies += "PROXY ";
-        else if (isSOCKS)
-            proxies += "SOCKS ";
-        
-        proxies += host;
-
-        if (port) {
-            SInt32 intPort;
-            CFNumberGetValue(port, kCFNumberSInt32Type, &intPort);
-            
-            proxies += ":" + String::number(intPort);
-        }
-    }
-    
-    if (proxies.isEmpty())
-        return "DIRECT";
-    
-    return proxies.utf8();
-}
-#endif
 
 bool getAuthenticationInfo(const char* protocolStr, const char* hostStr, int32_t port, const char* schemeStr, const char* realmStr,
                            CString& username, CString& password)

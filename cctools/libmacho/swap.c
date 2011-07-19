@@ -22,6 +22,7 @@
  */
 #ifndef RLD
 #include <stdint.h>
+#include <libkern/OSByteOrder.h>
 #include <mach-o/swap.h>
 #include <string.h>
 
@@ -30,8 +31,8 @@ swap_fat_header(
 struct fat_header *fat_header,
 enum NXByteOrder target_byte_sex)
 {
-	fat_header->magic     = NXSwapLong(fat_header->magic);
-	fat_header->nfat_arch = NXSwapLong(fat_header->nfat_arch);
+	fat_header->magic     = OSSwapInt32(fat_header->magic);
+	fat_header->nfat_arch = OSSwapInt32(fat_header->nfat_arch);
 }
 
 void
@@ -43,11 +44,11 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nfat_arch; i++){
-	    fat_archs[i].cputype    = NXSwapLong(fat_archs[i].cputype);
-	    fat_archs[i].cpusubtype = NXSwapLong(fat_archs[i].cpusubtype);
-	    fat_archs[i].offset     = NXSwapLong(fat_archs[i].offset);
-	    fat_archs[i].size       = NXSwapLong(fat_archs[i].size);
-	    fat_archs[i].align      = NXSwapLong(fat_archs[i].align);
+	    fat_archs[i].cputype    = OSSwapInt32(fat_archs[i].cputype);
+	    fat_archs[i].cpusubtype = OSSwapInt32(fat_archs[i].cpusubtype);
+	    fat_archs[i].offset     = OSSwapInt32(fat_archs[i].offset);
+	    fat_archs[i].size       = OSSwapInt32(fat_archs[i].size);
+	    fat_archs[i].align      = OSSwapInt32(fat_archs[i].align);
 	}
 }
 
@@ -56,13 +57,13 @@ swap_mach_header(
 struct mach_header *mh,
 enum NXByteOrder target_byte_sex)
 {
-	mh->magic = NXSwapLong(mh->magic);
-	mh->cputype = NXSwapLong(mh->cputype);
-	mh->cpusubtype = NXSwapLong(mh->cpusubtype);
-	mh->filetype = NXSwapLong(mh->filetype);
-	mh->ncmds = NXSwapLong(mh->ncmds);
-	mh->sizeofcmds = NXSwapLong(mh->sizeofcmds);
-	mh->flags = NXSwapLong(mh->flags);
+	mh->magic = OSSwapInt32(mh->magic);
+	mh->cputype = OSSwapInt32(mh->cputype);
+	mh->cpusubtype = OSSwapInt32(mh->cpusubtype);
+	mh->filetype = OSSwapInt32(mh->filetype);
+	mh->ncmds = OSSwapInt32(mh->ncmds);
+	mh->sizeofcmds = OSSwapInt32(mh->sizeofcmds);
+	mh->flags = OSSwapInt32(mh->flags);
 }
 
 void
@@ -70,14 +71,14 @@ swap_mach_header_64(
 struct mach_header_64 *mh,
 enum NXByteOrder target_byte_sex)
 {
-	mh->magic = NXSwapLong(mh->magic);
-	mh->cputype = NXSwapLong(mh->cputype);
-	mh->cpusubtype = NXSwapLong(mh->cpusubtype);
-	mh->filetype = NXSwapLong(mh->filetype);
-	mh->ncmds = NXSwapLong(mh->ncmds);
-	mh->sizeofcmds = NXSwapLong(mh->sizeofcmds);
-	mh->flags = NXSwapLong(mh->flags);
-	mh->reserved = NXSwapLong(mh->reserved);
+	mh->magic = OSSwapInt32(mh->magic);
+	mh->cputype = OSSwapInt32(mh->cputype);
+	mh->cpusubtype = OSSwapInt32(mh->cpusubtype);
+	mh->filetype = OSSwapInt32(mh->filetype);
+	mh->ncmds = OSSwapInt32(mh->ncmds);
+	mh->sizeofcmds = OSSwapInt32(mh->sizeofcmds);
+	mh->flags = OSSwapInt32(mh->flags);
+	mh->reserved = OSSwapInt32(mh->reserved);
 }
 
 void
@@ -85,8 +86,8 @@ swap_load_command(
 struct load_command *lc,
 enum NXByteOrder target_byte_sex)
 {
-	lc->cmd = NXSwapLong(lc->cmd);
-	lc->cmdsize = NXSwapLong(lc->cmdsize);
+	lc->cmd = OSSwapInt32(lc->cmd);
+	lc->cmdsize = OSSwapInt32(lc->cmdsize);
 }
 
 void
@@ -95,16 +96,16 @@ struct segment_command *sg,
 enum NXByteOrder target_byte_sex)
 {
 	/* segname[16] */
-	sg->cmd = NXSwapLong(sg->cmd);
-	sg->cmdsize = NXSwapLong(sg->cmdsize);
-	sg->vmaddr = NXSwapLong(sg->vmaddr);
-	sg->vmsize = NXSwapLong(sg->vmsize);
-	sg->fileoff = NXSwapLong(sg->fileoff);
-	sg->filesize = NXSwapLong(sg->filesize);
-	sg->maxprot = NXSwapLong(sg->maxprot);
-	sg->initprot = NXSwapLong(sg->initprot);
-	sg->nsects = NXSwapLong(sg->nsects);
-	sg->flags = NXSwapLong(sg->flags);
+	sg->cmd = OSSwapInt32(sg->cmd);
+	sg->cmdsize = OSSwapInt32(sg->cmdsize);
+	sg->vmaddr = OSSwapInt32(sg->vmaddr);
+	sg->vmsize = OSSwapInt32(sg->vmsize);
+	sg->fileoff = OSSwapInt32(sg->fileoff);
+	sg->filesize = OSSwapInt32(sg->filesize);
+	sg->maxprot = OSSwapInt32(sg->maxprot);
+	sg->initprot = OSSwapInt32(sg->initprot);
+	sg->nsects = OSSwapInt32(sg->nsects);
+	sg->flags = OSSwapInt32(sg->flags);
 }
 
 void 
@@ -113,16 +114,16 @@ struct segment_command_64* sg,
 enum NXByteOrder target_byte_sex)
 {
 	/* char segname[16] */
-	sg->cmd = NXSwapLong(sg->cmd);
-	sg->cmdsize = NXSwapLong(sg->cmdsize);
-	sg->vmaddr = NXSwapLongLong(sg->vmaddr);
-	sg->vmsize = NXSwapLongLong(sg->vmsize);
-	sg->fileoff = NXSwapLongLong(sg->fileoff);
-	sg->filesize = NXSwapLongLong(sg->filesize);
-	sg->maxprot = NXSwapLong(sg->maxprot);
-	sg->initprot = NXSwapLong(sg->initprot);
-	sg->nsects = NXSwapLong(sg->nsects);
-	sg->flags = NXSwapLong(sg->flags);
+	sg->cmd = OSSwapInt32(sg->cmd);
+	sg->cmdsize = OSSwapInt32(sg->cmdsize);
+	sg->vmaddr = OSSwapInt64(sg->vmaddr);
+	sg->vmsize = OSSwapInt64(sg->vmsize);
+	sg->fileoff = OSSwapInt64(sg->fileoff);
+	sg->filesize = OSSwapInt64(sg->filesize);
+	sg->maxprot = OSSwapInt32(sg->maxprot);
+	sg->initprot = OSSwapInt32(sg->initprot);
+	sg->nsects = OSSwapInt32(sg->nsects);
+	sg->flags = OSSwapInt32(sg->flags);
 }
 
 void
@@ -136,15 +137,15 @@ enum NXByteOrder target_byte_sex)
 	for(i = 0; i < nsects; i++){
 	    /* sectname[16] */
 	    /* segname[16] */
-	    s[i].addr = NXSwapLong(s[i].addr);
-	    s[i].size = NXSwapLong(s[i].size);
-	    s[i].offset = NXSwapLong(s[i].offset);
-	    s[i].align = NXSwapLong(s[i].align);
-	    s[i].reloff = NXSwapLong(s[i].reloff);
-	    s[i].nreloc = NXSwapLong(s[i].nreloc);
-	    s[i].flags = NXSwapLong(s[i].flags);
-	    s[i].reserved1 = NXSwapLong(s[i].reserved1);
-	    s[i].reserved2 = NXSwapLong(s[i].reserved2);
+	    s[i].addr = OSSwapInt32(s[i].addr);
+	    s[i].size = OSSwapInt32(s[i].size);
+	    s[i].offset = OSSwapInt32(s[i].offset);
+	    s[i].align = OSSwapInt32(s[i].align);
+	    s[i].reloff = OSSwapInt32(s[i].reloff);
+	    s[i].nreloc = OSSwapInt32(s[i].nreloc);
+	    s[i].flags = OSSwapInt32(s[i].flags);
+	    s[i].reserved1 = OSSwapInt32(s[i].reserved1);
+	    s[i].reserved2 = OSSwapInt32(s[i].reserved2);
 	}
 }
 
@@ -159,16 +160,16 @@ enum NXByteOrder target_byte_sex)
 	for(i = 0; i < nsects; i++){
 	    /* sectname[16] */
 	    /* segname[16] */
-	    s[i].addr = NXSwapLongLong(s[i].addr);
-	    s[i].size = NXSwapLongLong(s[i].size);
-	    s[i].offset = NXSwapLong(s[i].offset);
-	    s[i].align = NXSwapLong(s[i].align);
-	    s[i].reloff = NXSwapLong(s[i].reloff);
-	    s[i].nreloc = NXSwapLong(s[i].nreloc);
-	    s[i].flags = NXSwapLong(s[i].flags);
-	    s[i].reserved1 = NXSwapLong(s[i].reserved1);
-	    s[i].reserved2 = NXSwapLong(s[i].reserved2);
-	    s[i].reserved3 = NXSwapLong(s[i].reserved3);
+	    s[i].addr = OSSwapInt64(s[i].addr);
+	    s[i].size = OSSwapInt64(s[i].size);
+	    s[i].offset = OSSwapInt32(s[i].offset);
+	    s[i].align = OSSwapInt32(s[i].align);
+	    s[i].reloff = OSSwapInt32(s[i].reloff);
+	    s[i].nreloc = OSSwapInt32(s[i].nreloc);
+	    s[i].flags = OSSwapInt32(s[i].flags);
+	    s[i].reserved1 = OSSwapInt32(s[i].reserved1);
+	    s[i].reserved2 = OSSwapInt32(s[i].reserved2);
+	    s[i].reserved3 = OSSwapInt32(s[i].reserved3);
 	}
 }
 
@@ -177,12 +178,12 @@ swap_symtab_command(
 struct symtab_command *st,
 enum NXByteOrder target_byte_sex)
 {
-	st->cmd = NXSwapLong(st->cmd);
-	st->cmdsize = NXSwapLong(st->cmdsize);
-	st->symoff = NXSwapLong(st->symoff);
-	st->nsyms = NXSwapLong(st->nsyms);
-	st->stroff = NXSwapLong(st->stroff);
-	st->strsize = NXSwapLong(st->strsize);
+	st->cmd = OSSwapInt32(st->cmd);
+	st->cmdsize = OSSwapInt32(st->cmdsize);
+	st->symoff = OSSwapInt32(st->symoff);
+	st->nsyms = OSSwapInt32(st->nsyms);
+	st->stroff = OSSwapInt32(st->stroff);
+	st->strsize = OSSwapInt32(st->strsize);
 }
 
 void
@@ -190,26 +191,26 @@ swap_dysymtab_command(
 struct dysymtab_command *dyst,
 enum NXByteOrder target_byte_sex)
 {
-	dyst->cmd = NXSwapLong(dyst->cmd);
-	dyst->cmdsize = NXSwapLong(dyst->cmdsize);
-	dyst->ilocalsym = NXSwapLong(dyst->ilocalsym);
-	dyst->nlocalsym = NXSwapLong(dyst->nlocalsym);
-	dyst->iextdefsym = NXSwapLong(dyst->iextdefsym);
-	dyst->nextdefsym = NXSwapLong(dyst->nextdefsym);
-	dyst->iundefsym = NXSwapLong(dyst->iundefsym);
-	dyst->nundefsym = NXSwapLong(dyst->nundefsym);
-	dyst->tocoff = NXSwapLong(dyst->tocoff);
-	dyst->ntoc = NXSwapLong(dyst->ntoc);
-	dyst->modtaboff = NXSwapLong(dyst->modtaboff);
-	dyst->nmodtab = NXSwapLong(dyst->nmodtab);
-	dyst->extrefsymoff = NXSwapLong(dyst->extrefsymoff);
-	dyst->nextrefsyms = NXSwapLong(dyst->nextrefsyms);
-	dyst->indirectsymoff = NXSwapLong(dyst->indirectsymoff);
-	dyst->nindirectsyms = NXSwapLong(dyst->nindirectsyms);
-	dyst->extreloff = NXSwapLong(dyst->extreloff);
-	dyst->nextrel = NXSwapLong(dyst->nextrel);
-	dyst->locreloff = NXSwapLong(dyst->locreloff);
-	dyst->nlocrel = NXSwapLong(dyst->nlocrel);
+	dyst->cmd = OSSwapInt32(dyst->cmd);
+	dyst->cmdsize = OSSwapInt32(dyst->cmdsize);
+	dyst->ilocalsym = OSSwapInt32(dyst->ilocalsym);
+	dyst->nlocalsym = OSSwapInt32(dyst->nlocalsym);
+	dyst->iextdefsym = OSSwapInt32(dyst->iextdefsym);
+	dyst->nextdefsym = OSSwapInt32(dyst->nextdefsym);
+	dyst->iundefsym = OSSwapInt32(dyst->iundefsym);
+	dyst->nundefsym = OSSwapInt32(dyst->nundefsym);
+	dyst->tocoff = OSSwapInt32(dyst->tocoff);
+	dyst->ntoc = OSSwapInt32(dyst->ntoc);
+	dyst->modtaboff = OSSwapInt32(dyst->modtaboff);
+	dyst->nmodtab = OSSwapInt32(dyst->nmodtab);
+	dyst->extrefsymoff = OSSwapInt32(dyst->extrefsymoff);
+	dyst->nextrefsyms = OSSwapInt32(dyst->nextrefsyms);
+	dyst->indirectsymoff = OSSwapInt32(dyst->indirectsymoff);
+	dyst->nindirectsyms = OSSwapInt32(dyst->nindirectsyms);
+	dyst->extreloff = OSSwapInt32(dyst->extreloff);
+	dyst->nextrel = OSSwapInt32(dyst->nextrel);
+	dyst->locreloff = OSSwapInt32(dyst->locreloff);
+	dyst->nlocrel = OSSwapInt32(dyst->nlocrel);
 }
 
 void
@@ -217,10 +218,10 @@ swap_symseg_command(
 struct symseg_command *ss,
 enum NXByteOrder target_byte_sex)
 {
-	ss->cmd = NXSwapLong(ss->cmd);
-	ss->cmdsize = NXSwapLong(ss->cmdsize);
-	ss->offset = NXSwapLong(ss->offset);
-	ss->size = NXSwapLong(ss->size);
+	ss->cmd = OSSwapInt32(ss->cmd);
+	ss->cmdsize = OSSwapInt32(ss->cmdsize);
+	ss->offset = OSSwapInt32(ss->offset);
+	ss->size = OSSwapInt32(ss->size);
 }
 
 void
@@ -228,11 +229,11 @@ swap_fvmlib_command(
 struct fvmlib_command *fl,
 enum NXByteOrder target_byte_sex)
 {
-	fl->cmd = NXSwapLong(fl->cmd);
-	fl->cmdsize = NXSwapLong(fl->cmdsize);
-	fl->fvmlib.name.offset = NXSwapLong(fl->fvmlib.name.offset);
-	fl->fvmlib.minor_version = NXSwapLong(fl->fvmlib.minor_version);
-	fl->fvmlib.header_addr = NXSwapLong(fl->fvmlib.header_addr);
+	fl->cmd = OSSwapInt32(fl->cmd);
+	fl->cmdsize = OSSwapInt32(fl->cmdsize);
+	fl->fvmlib.name.offset = OSSwapInt32(fl->fvmlib.name.offset);
+	fl->fvmlib.minor_version = OSSwapInt32(fl->fvmlib.minor_version);
+	fl->fvmlib.header_addr = OSSwapInt32(fl->fvmlib.header_addr);
 }
 
 void
@@ -240,13 +241,13 @@ swap_dylib_command(
 struct dylib_command *dl,
 enum NXByteOrder target_byte_sex)
 {
-	dl->cmd = NXSwapLong(dl->cmd);
-	dl->cmdsize = NXSwapLong(dl->cmdsize);
-	dl->dylib.name.offset = NXSwapLong(dl->dylib.name.offset);
-	dl->dylib.timestamp = NXSwapLong(dl->dylib.timestamp);
-	dl->dylib.current_version = NXSwapLong(dl->dylib.current_version);
+	dl->cmd = OSSwapInt32(dl->cmd);
+	dl->cmdsize = OSSwapInt32(dl->cmdsize);
+	dl->dylib.name.offset = OSSwapInt32(dl->dylib.name.offset);
+	dl->dylib.timestamp = OSSwapInt32(dl->dylib.timestamp);
+	dl->dylib.current_version = OSSwapInt32(dl->dylib.current_version);
 	dl->dylib.compatibility_version =
-				NXSwapLong(dl->dylib.compatibility_version);
+				OSSwapInt32(dl->dylib.compatibility_version);
 }
 
 void
@@ -254,9 +255,9 @@ swap_sub_framework_command(
 struct sub_framework_command *sub,
 enum NXByteOrder target_byte_sex)
 {
-	sub->cmd = NXSwapLong(sub->cmd);
-	sub->cmdsize = NXSwapLong(sub->cmdsize);
-	sub->umbrella.offset = NXSwapLong(sub->umbrella.offset);
+	sub->cmd = OSSwapInt32(sub->cmd);
+	sub->cmdsize = OSSwapInt32(sub->cmdsize);
+	sub->umbrella.offset = OSSwapInt32(sub->umbrella.offset);
 }
 
 void
@@ -264,9 +265,9 @@ swap_sub_umbrella_command(
 struct sub_umbrella_command *usub,
 enum NXByteOrder target_byte_sex)
 {
-	usub->cmd = NXSwapLong(usub->cmd);
-	usub->cmdsize = NXSwapLong(usub->cmdsize);
-	usub->sub_umbrella.offset = NXSwapLong(usub->sub_umbrella.offset);
+	usub->cmd = OSSwapInt32(usub->cmd);
+	usub->cmdsize = OSSwapInt32(usub->cmdsize);
+	usub->sub_umbrella.offset = OSSwapInt32(usub->sub_umbrella.offset);
 }
 
 void
@@ -274,9 +275,9 @@ swap_sub_library_command(
 struct sub_library_command *lsub,
 enum NXByteOrder target_byte_sex)
 {
-	lsub->cmd = NXSwapLong(lsub->cmd);
-	lsub->cmdsize = NXSwapLong(lsub->cmdsize);
-	lsub->sub_library.offset = NXSwapLong(lsub->sub_library.offset);
+	lsub->cmd = OSSwapInt32(lsub->cmd);
+	lsub->cmdsize = OSSwapInt32(lsub->cmdsize);
+	lsub->sub_library.offset = OSSwapInt32(lsub->sub_library.offset);
 }
 
 void
@@ -284,9 +285,9 @@ swap_sub_client_command(
 struct sub_client_command *csub,
 enum NXByteOrder target_byte_sex)
 {
-	csub->cmd = NXSwapLong(csub->cmd);
-	csub->cmdsize = NXSwapLong(csub->cmdsize);
-	csub->client.offset = NXSwapLong(csub->client.offset);
+	csub->cmd = OSSwapInt32(csub->cmd);
+	csub->cmdsize = OSSwapInt32(csub->cmdsize);
+	csub->client.offset = OSSwapInt32(csub->client.offset);
 }
 
 
@@ -295,12 +296,12 @@ swap_prebound_dylib_command(
 struct prebound_dylib_command *pbdylib,
 enum NXByteOrder target_byte_sex)
 {
-	pbdylib->cmd = NXSwapLong(pbdylib->cmd);
-	pbdylib->cmdsize = NXSwapLong(pbdylib->cmdsize);
-	pbdylib->name.offset = NXSwapLong(pbdylib->name.offset);
-	pbdylib->nmodules = NXSwapLong(pbdylib->nmodules);
+	pbdylib->cmd = OSSwapInt32(pbdylib->cmd);
+	pbdylib->cmdsize = OSSwapInt32(pbdylib->cmdsize);
+	pbdylib->name.offset = OSSwapInt32(pbdylib->name.offset);
+	pbdylib->nmodules = OSSwapInt32(pbdylib->nmodules);
 	pbdylib->linked_modules.offset =
-		NXSwapLong(pbdylib->linked_modules.offset);
+		OSSwapInt32(pbdylib->linked_modules.offset);
 }
 
 void
@@ -308,9 +309,9 @@ swap_dylinker_command(
 struct dylinker_command *dyld,
 enum NXByteOrder target_byte_sex)
 {
-	dyld->cmd = NXSwapLong(dyld->cmd);
-	dyld->cmdsize = NXSwapLong(dyld->cmdsize);
-	dyld->name.offset = NXSwapLong(dyld->name.offset);
+	dyld->cmd = OSSwapInt32(dyld->cmd);
+	dyld->cmdsize = OSSwapInt32(dyld->cmdsize);
+	dyld->name.offset = OSSwapInt32(dyld->name.offset);
 }
 
 void
@@ -318,10 +319,10 @@ swap_fvmfile_command(
 struct fvmfile_command *ff,
 enum NXByteOrder target_byte_sex)
 {
-	ff->cmd = NXSwapLong(ff->cmd);
-	ff->cmdsize = NXSwapLong(ff->cmdsize);
-	ff->name.offset = NXSwapLong(ff->name.offset);
-	ff->header_addr = NXSwapLong(ff->header_addr);
+	ff->cmd = OSSwapInt32(ff->cmd);
+	ff->cmdsize = OSSwapInt32(ff->cmdsize);
+	ff->name.offset = OSSwapInt32(ff->name.offset);
+	ff->header_addr = OSSwapInt32(ff->header_addr);
 }
 
 
@@ -330,8 +331,8 @@ swap_thread_command(
 struct thread_command *ut,
 enum NXByteOrder target_byte_sex)
 {
-	ut->cmd = NXSwapLong(ut->cmd);
-	ut->cmdsize = NXSwapLong(ut->cmdsize);
+	ut->cmd = OSSwapInt32(ut->cmd);
+	ut->cmdsize = OSSwapInt32(ut->cmdsize);
 }
 
 void
@@ -339,8 +340,8 @@ swap_ident_command(
 struct ident_command *id_cmd,
 enum NXByteOrder target_byte_sex)
 {
-	id_cmd->cmd = NXSwapLong(id_cmd->cmd);
-	id_cmd->cmdsize = NXSwapLong(id_cmd->cmdsize);
+	id_cmd->cmd = OSSwapInt32(id_cmd->cmd);
+	id_cmd->cmdsize = OSSwapInt32(id_cmd->cmdsize);
 }
 
 void
@@ -348,16 +349,16 @@ swap_routines_command(
 struct routines_command *r_cmd,
 enum NXByteOrder target_byte_sex)
 {
-	r_cmd->cmd = NXSwapLong(r_cmd->cmd);
-	r_cmd->cmdsize = NXSwapLong(r_cmd->cmdsize);
-	r_cmd->init_address = NXSwapLong(r_cmd->init_address);
-	r_cmd->init_module = NXSwapLong(r_cmd->init_module);
-	r_cmd->reserved1 = NXSwapLong(r_cmd->reserved1);
-	r_cmd->reserved2 = NXSwapLong(r_cmd->reserved2);
-	r_cmd->reserved3 = NXSwapLong(r_cmd->reserved3);
-	r_cmd->reserved4 = NXSwapLong(r_cmd->reserved4);
-	r_cmd->reserved5 = NXSwapLong(r_cmd->reserved5);
-	r_cmd->reserved6 = NXSwapLong(r_cmd->reserved6);
+	r_cmd->cmd = OSSwapInt32(r_cmd->cmd);
+	r_cmd->cmdsize = OSSwapInt32(r_cmd->cmdsize);
+	r_cmd->init_address = OSSwapInt32(r_cmd->init_address);
+	r_cmd->init_module = OSSwapInt32(r_cmd->init_module);
+	r_cmd->reserved1 = OSSwapInt32(r_cmd->reserved1);
+	r_cmd->reserved2 = OSSwapInt32(r_cmd->reserved2);
+	r_cmd->reserved3 = OSSwapInt32(r_cmd->reserved3);
+	r_cmd->reserved4 = OSSwapInt32(r_cmd->reserved4);
+	r_cmd->reserved5 = OSSwapInt32(r_cmd->reserved5);
+	r_cmd->reserved6 = OSSwapInt32(r_cmd->reserved6);
 }
 
 void
@@ -365,16 +366,16 @@ swap_routines_command_64(
 struct routines_command_64 *r_cmd,
 enum NXByteOrder target_byte_sex)
 {
-	r_cmd->cmd = NXSwapLong(r_cmd->cmd);
-	r_cmd->cmdsize = NXSwapLong(r_cmd->cmdsize);
-	r_cmd->init_address = NXSwapLongLong(r_cmd->init_address);
-	r_cmd->init_module = NXSwapLongLong(r_cmd->init_module);
-	r_cmd->reserved1 = NXSwapLongLong(r_cmd->reserved1);
-	r_cmd->reserved2 = NXSwapLongLong(r_cmd->reserved2);
-	r_cmd->reserved3 = NXSwapLongLong(r_cmd->reserved3);
-	r_cmd->reserved4 = NXSwapLongLong(r_cmd->reserved4);
-	r_cmd->reserved5 = NXSwapLongLong(r_cmd->reserved5);
-	r_cmd->reserved6 = NXSwapLongLong(r_cmd->reserved6);
+	r_cmd->cmd = OSSwapInt32(r_cmd->cmd);
+	r_cmd->cmdsize = OSSwapInt32(r_cmd->cmdsize);
+	r_cmd->init_address = OSSwapInt64(r_cmd->init_address);
+	r_cmd->init_module = OSSwapInt64(r_cmd->init_module);
+	r_cmd->reserved1 = OSSwapInt64(r_cmd->reserved1);
+	r_cmd->reserved2 = OSSwapInt64(r_cmd->reserved2);
+	r_cmd->reserved3 = OSSwapInt64(r_cmd->reserved3);
+	r_cmd->reserved4 = OSSwapInt64(r_cmd->reserved4);
+	r_cmd->reserved5 = OSSwapInt64(r_cmd->reserved5);
+	r_cmd->reserved6 = OSSwapInt64(r_cmd->reserved6);
 }
 
 void
@@ -382,9 +383,9 @@ swap_prebind_cksum_command(
 struct prebind_cksum_command *cksum_cmd,
 enum NXByteOrder target_byte_sex)
 {
-	cksum_cmd->cmd = NXSwapLong(cksum_cmd->cmd);
-	cksum_cmd->cmdsize = NXSwapLong(cksum_cmd->cmdsize);
-	cksum_cmd->cksum = NXSwapLong(cksum_cmd->cksum);
+	cksum_cmd->cmd = OSSwapInt32(cksum_cmd->cmd);
+	cksum_cmd->cmdsize = OSSwapInt32(cksum_cmd->cmdsize);
+	cksum_cmd->cksum = OSSwapInt32(cksum_cmd->cksum);
 }
 
 void
@@ -392,8 +393,8 @@ swap_uuid_command(
 struct uuid_command *uuid_cmd,
 enum NXByteOrder target_byte_sex)
 {
-	uuid_cmd->cmd = NXSwapLong(uuid_cmd->cmd);
-	uuid_cmd->cmdsize = NXSwapLong(uuid_cmd->cmdsize);
+	uuid_cmd->cmd = OSSwapInt32(uuid_cmd->cmd);
+	uuid_cmd->cmdsize = OSSwapInt32(uuid_cmd->cmdsize);
 }
 
 void
@@ -405,11 +406,11 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nsymbols; i++){
-	    symbols[i].n_un.n_strx = NXSwapLong(symbols[i].n_un.n_strx);
+	    symbols[i].n_un.n_strx = OSSwapInt32(symbols[i].n_un.n_strx);
 	    /* n_type */
 	    /* n_sect */
-	    symbols[i].n_desc = NXSwapShort(symbols[i].n_desc);
-	    symbols[i].n_value = NXSwapLong(symbols[i].n_value);
+	    symbols[i].n_desc = OSSwapInt16(symbols[i].n_desc);
+	    symbols[i].n_value = OSSwapInt32(symbols[i].n_value);
 	}
 }
 
@@ -422,11 +423,11 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nsymbols; i++){
-	    symbols[i].n_un.n_strx = NXSwapLong(symbols[i].n_un.n_strx);
+	    symbols[i].n_un.n_strx = OSSwapInt32(symbols[i].n_un.n_strx);
 	    /* n_type */
 	    /* n_sect */
-	    symbols[i].n_desc = NXSwapShort(symbols[i].n_desc);
-	    symbols[i].n_value = NXSwapLongLong(symbols[i].n_value);
+	    symbols[i].n_desc = OSSwapInt16(symbols[i].n_desc);
+	    symbols[i].n_value = OSSwapInt64(symbols[i].n_value);
 	}
 }
 
@@ -439,8 +440,8 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nranlibs; i++){
-	    ranlibs[i].ran_un.ran_strx = NXSwapLong(ranlibs[i].ran_un.ran_strx);
-	    ranlibs[i].ran_off = NXSwapLong(ranlibs[i].ran_off);
+	    ranlibs[i].ran_un.ran_strx = OSSwapInt32(ranlibs[i].ran_un.ran_strx);
+	    ranlibs[i].ran_off = OSSwapInt32(ranlibs[i].ran_off);
 	}
 }
 
@@ -479,14 +480,14 @@ enum NXByteOrder target_byte_sex)
 
 	for(i = 0; i < nrelocs; i++){
 	    if(to_host_byte_sex)
-		scattered = (NXSwapLong(relocs[i].r_address) & R_SCATTERED) != 0;
+		scattered = (OSSwapInt32(relocs[i].r_address) & R_SCATTERED) != 0;
 	    else
 		scattered = ((relocs[i].r_address) & R_SCATTERED) != 0;
 	    if(scattered == FALSE){
 		if(to_host_byte_sex){
 		    memcpy(&sr, relocs + i, sizeof(struct relocation_info));
-		    sr.r_address = NXSwapLong(sr.r_address);
-		    sr.u.word = NXSwapLong(sr.u.word);
+		    sr.r_address = OSSwapInt32(sr.r_address);
+		    sr.u.word = OSSwapInt32(sr.u.word);
 		    relocs[i].r_address = sr.r_address;
 		    relocs[i].r_symbolnum = sr.u.fields.r_symbolnum;
 		    relocs[i].r_pcrel = sr.u.fields.r_pcrel;
@@ -501,15 +502,15 @@ enum NXByteOrder target_byte_sex)
 		    sr.u.fields.r_pcrel = relocs[i].r_pcrel;
 		    sr.u.fields.r_extern = relocs[i].r_extern;
 		    sr.u.fields.r_type = relocs[i].r_type;
-		    sr.r_address = NXSwapLong(sr.r_address);
-		    sr.u.word = NXSwapLong(sr.u.word);
+		    sr.r_address = OSSwapInt32(sr.r_address);
+		    sr.u.word = OSSwapInt32(sr.u.word);
 		    memcpy(relocs + i, &sr, sizeof(struct relocation_info));
 		}
 	    }
 	    else{
 		ssr = (struct swapped_scattered_relocation_info *)(relocs + i);
-		ssr->word = NXSwapLong(ssr->word);
-		ssr->r_value = NXSwapLong(ssr->r_value);
+		ssr->word = OSSwapInt32(ssr->word);
+		ssr->r_value = OSSwapInt32(ssr->r_value);
 	    }
 	}
 }
@@ -523,7 +524,7 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nindirect_symbols; i++)
-	    indirect_symbols[i] = NXSwapLong(indirect_symbols[i]);
+	    indirect_symbols[i] = OSSwapInt32(indirect_symbols[i]);
 }
 
 void
@@ -551,14 +552,14 @@ enum NXByteOrder target_byte_sex)
 	for(i = 0; i < nrefs; i++){
 	    if(target_byte_sex == host_byte_sex){
 		memcpy(&sref, refs + i, sizeof(struct swapped_dylib_reference));
-		sref.u.word = NXSwapLong(sref.u.word);
+		sref.u.word = OSSwapInt32(sref.u.word);
 		refs[i].flags = sref.u.fields.flags;
 		refs[i].isym = sref.u.fields.isym;
 	    }
 	    else{
 		sref.u.fields.isym = refs[i].isym;
 		sref.u.fields.flags = refs[i].flags;
-		sref.u.word = NXSwapLong(sref.u.word);
+		sref.u.word = OSSwapInt32(sref.u.word);
 		memcpy(refs + i, &sref, sizeof(struct swapped_dylib_reference));
 	    }
 	}
@@ -574,19 +575,19 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nmods; i++){
-	    mods[i].module_name = NXSwapLong(mods[i].module_name);
-	    mods[i].iextdefsym  = NXSwapLong(mods[i].iextdefsym);
-	    mods[i].nextdefsym  = NXSwapLong(mods[i].nextdefsym);
-	    mods[i].irefsym     = NXSwapLong(mods[i].irefsym);
-	    mods[i].nrefsym     = NXSwapLong(mods[i].nrefsym);
-	    mods[i].ilocalsym   = NXSwapLong(mods[i].ilocalsym);
-	    mods[i].nlocalsym   = NXSwapLong(mods[i].nlocalsym);
-	    mods[i].iextrel     = NXSwapLong(mods[i].iextrel);
-	    mods[i].nextrel     = NXSwapLong(mods[i].nextrel);
-	    mods[i].iinit_iterm = NXSwapLong(mods[i].iinit_iterm);
-	    mods[i].ninit_nterm = NXSwapLong(mods[i].ninit_nterm);
-	    mods[i].objc_module_info_size = NXSwapLong(mods[i].objc_module_info_size);
-	    mods[i].objc_module_info_addr = NXSwapLong(mods[i].objc_module_info_addr);
+	    mods[i].module_name = OSSwapInt32(mods[i].module_name);
+	    mods[i].iextdefsym  = OSSwapInt32(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = OSSwapInt32(mods[i].nextdefsym);
+	    mods[i].irefsym     = OSSwapInt32(mods[i].irefsym);
+	    mods[i].nrefsym     = OSSwapInt32(mods[i].nrefsym);
+	    mods[i].ilocalsym   = OSSwapInt32(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = OSSwapInt32(mods[i].nlocalsym);
+	    mods[i].iextrel     = OSSwapInt32(mods[i].iextrel);
+	    mods[i].nextrel     = OSSwapInt32(mods[i].nextrel);
+	    mods[i].iinit_iterm = OSSwapInt32(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = OSSwapInt32(mods[i].ninit_nterm);
+	    mods[i].objc_module_info_size = OSSwapInt32(mods[i].objc_module_info_size);
+	    mods[i].objc_module_info_addr = OSSwapInt32(mods[i].objc_module_info_addr);
 	}
 }
 
@@ -599,19 +600,19 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < nmods; i++){
-	    mods[i].module_name = NXSwapLong(mods[i].module_name);
-	    mods[i].iextdefsym  = NXSwapLong(mods[i].iextdefsym);
-	    mods[i].nextdefsym  = NXSwapLong(mods[i].nextdefsym);
-	    mods[i].irefsym     = NXSwapLong(mods[i].irefsym);
-	    mods[i].nrefsym     = NXSwapLong(mods[i].nrefsym);
-	    mods[i].ilocalsym   = NXSwapLong(mods[i].ilocalsym);
-	    mods[i].nlocalsym   = NXSwapLong(mods[i].nlocalsym);
-	    mods[i].iextrel     = NXSwapLong(mods[i].iextrel);
-	    mods[i].nextrel     = NXSwapLong(mods[i].nextrel);
-	    mods[i].iinit_iterm = NXSwapLong(mods[i].iinit_iterm);
-	    mods[i].ninit_nterm = NXSwapLong(mods[i].ninit_nterm);
-	    mods[i].objc_module_info_size = NXSwapLong(mods[i].objc_module_info_size);
-	    mods[i].objc_module_info_addr = NXSwapLongLong(mods[i].objc_module_info_addr);
+	    mods[i].module_name = OSSwapInt32(mods[i].module_name);
+	    mods[i].iextdefsym  = OSSwapInt32(mods[i].iextdefsym);
+	    mods[i].nextdefsym  = OSSwapInt32(mods[i].nextdefsym);
+	    mods[i].irefsym     = OSSwapInt32(mods[i].irefsym);
+	    mods[i].nrefsym     = OSSwapInt32(mods[i].nrefsym);
+	    mods[i].ilocalsym   = OSSwapInt32(mods[i].ilocalsym);
+	    mods[i].nlocalsym   = OSSwapInt32(mods[i].nlocalsym);
+	    mods[i].iextrel     = OSSwapInt32(mods[i].iextrel);
+	    mods[i].nextrel     = OSSwapInt32(mods[i].nextrel);
+	    mods[i].iinit_iterm = OSSwapInt32(mods[i].iinit_iterm);
+	    mods[i].ninit_nterm = OSSwapInt32(mods[i].ninit_nterm);
+	    mods[i].objc_module_info_size = OSSwapInt32(mods[i].objc_module_info_size);
+	    mods[i].objc_module_info_addr = OSSwapInt64(mods[i].objc_module_info_addr);
 	}
 }
 
@@ -624,8 +625,8 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < ntocs; i++){
-	    tocs[i].symbol_index = NXSwapLong(tocs[i].symbol_index);
-	    tocs[i].module_index = NXSwapLong(tocs[i].module_index);
+	    tocs[i].symbol_index = OSSwapInt32(tocs[i].symbol_index);
+	    tocs[i].module_index = OSSwapInt32(tocs[i].module_index);
 	}
 }
 #endif /* !defined(RLD) */

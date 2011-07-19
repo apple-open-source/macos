@@ -1,9 +1,6 @@
 /*
- *  smb_converter.h
- *  smb
- *
- *  Created by George Colley on 5/2/08.
- *  Copyright 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008 - 2009 Apple Inc. All rights reserved.
+
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,8 +25,6 @@
 #ifndef _SMB_CONVERTER_H_
 #define _SMB_CONVERTER_H_
 
-#include <sys/utfconv.h>
-
 /*
  * Don't use the SFM conversion tables, really defined so we know that we 
  * specifically do not want to use the SFM conversions.
@@ -49,19 +44,23 @@
  */
 #define SMB_FULLPATH_CONVERSIONS	0x0100
 
+#ifdef KERNEL
+#include <sys/utfconv.h>
+
+
 int smb_convert_to_network(const char **inbuf, size_t *inbytesleft, char **outbuf, 
-						   size_t *outbytesleft, int flags, int unicode);
+						   size_t *outbytesleft, int flags, int usingUnicode);
 int smb_convert_from_network(const char **inbuf, size_t *inbytesleft, char **outbuf, 
-							 size_t *outbytesleft, int flags, int unicode);
-size_t smb_strtouni(u_int16_t *dst, const char *src, size_t inlen, int flags);
-size_t smb_unitostr(char *dst, const u_int16_t *src, size_t inlen, size_t maxlen, int flags);
-size_t smb_utf16_strnlen(const uint16_t *, size_t /* max */);
+							 size_t *outbytesleft, int flags, int usingUnicode);
+size_t smb_strtouni(uint16_t *dst, const char *src, size_t inlen, int flags);
+size_t smb_unitostr(char *dst, const uint16_t *src, size_t inlen, size_t maxlen, int flags);
 size_t smb_utf16_strnsize(const uint16_t *s, size_t n_bytes);
 int smb_convert_path_to_network(char *path, size_t max_path_len, char *network, 
 								size_t *ntwrk_len, char ntwrk_delimiter, int inflags, 
 								int usingUnicode);
 int smb_convert_network_to_path(char *network, size_t max_ntwrk_len, char *path, 
-								size_t *path_len, char ntwrk_delimiter, int flags, 
-								int usingUnicode);
+							size_t *path_len, char ntwrk_delimiter, int flags, 
+							int usingUnicode);
+#endif // KERNEL
 
 #endif // _SMB_CONVERTER_H_

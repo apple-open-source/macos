@@ -1,4 +1,26 @@
-.Dd September 5, 2006
+.\" Copyright (c) 2006-2010 Apple Inc. All rights reserved.
+.\"
+.\" @APPLE_LICENSE_HEADER_START@
+.\"
+.\" This file contains Original Code and/or Modifications of Original Code
+.\" as defined in and that are subject to the Apple Public Source License
+.\" Version 2.0 (the 'License'). You may not use this file except in
+.\" compliance with the License. Please obtain a copy of the License at
+.\" http://www.opensource.apple.com/apsl/ and read it before using this
+.\" file.
+.\"
+.\" The Original Code and all software distributed under the License are
+.\" distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+.\" EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+.\" INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+.\" Please see the License for the specific language governing rights and
+.\" limitations under the License.
+.\"
+.\" @APPLE_LICENSE_HEADER_END@
+.\"
+.\"
+.Dd January 20, 2010
 .Dt notifyutil 1
 .Os "Mac OS X"
 .Sh NAME
@@ -9,6 +31,8 @@
 .Op Fl q
 .Op Fl v
 .Op Fl t
+.Op Fl T
+.Op Fl f
 .Op Fl p Ar key
 .Op Fl w Ar key
 .Op Fl Ar # Ar key
@@ -67,6 +91,19 @@ If all registrations are invoked with
 .Fl Ar # ,
 the program continues to run until the corresponding number of notifications for each key have been received.
 .Pp
+By default,
+.Nm
+uses mach port registration for keys given with a
+.Fl w
+or
+.Fl Ar #
+option.
+The
+.Fl f
+option causes
+.Nm 
+to use file descriptor registrations for all keys.
+.Pp
 When a notification for any key that is being monitored is received,
 .Nm
 prints the key on a single line on its standard output.
@@ -74,19 +111,38 @@ The
 .Fl v
 (verbose),
 .Fl t
-(time stamp), and
+(time stamp), 
+.Fl T
+(microsecond timer)
+and
 .Fl q
 (quiet) flags, if specified, modify the output behavior.
+.Pp
 The 
 .Fl v
 flag causes
 .Nm
 to print both the key and the current state value for that key.
+.Pp
 The
 .Fl t
 flag causes
 .Nm
-to print a time stamp preceeding the notification key.
+to print a time stamp preceding the notification key.
+.Pp
+The
+.Fl T
+option prints microsecond timing information as raw seconds with 6 decimal digits.
+Microsecond times are printed when a notification is received, and when a notification is posted.
+When posting,
+.Nm 
+collects the time before and after calling
+.Fn notify_post .
+Note that
+.Fl T
+overrides
+.Fl t .
+.Pp
 The
 .Fl q
 flag causes
@@ -94,7 +150,14 @@ flag causes
 to operate silently.
 .Pp
 .Nm
-processes its command-line arguments from left to right.
+processes 
+.Fl w ,
+.Fl Ar # ,
+.Fl p ,
+.Fl g ,
+and
+.Fl s
+arguments from left to right.
 For example, the following will register for a single notification for the key 
 .Dq test.abc
 and then post a notification for that key.

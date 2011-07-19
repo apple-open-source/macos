@@ -1,0 +1,20 @@
+require "vnd.dovecot.testsuite";
+require "include";
+require "variables";
+
+global "result";
+
+set "result" "ONE";
+
+test "Twice included" {
+	include "twice-1";
+	include "twice-2";
+
+	if string "${result}" "ONE TWO THREE" {
+		test_fail "duplicate include failed";
+	}
+
+	if not string "${result}" "ONE TWO THREE TWO" {
+		test_fail "unexpected result: ${result}";
+	}
+}

@@ -21,4 +21,4 @@ set ::tcltest::testsDirectory [file dirname [info script]]
 ::tcltest::normalizePath ::tcltest::testsDirectory
 
 run_tests
-return
+exit

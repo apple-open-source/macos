@@ -4,7 +4,7 @@
 # Copyright (c) 2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: Xsetup,v 1.2 2008/03/07 06:51:36 andreas_kupries Exp $
+# RCS: @(#) $Id: Xsetup,v 1.4 2009/11/03 17:38:30 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -15,9 +15,16 @@
 
 # -------------------------------------------------------------------------
 
-namespace import -force struct::graph
-
 ::tcltest::testConstraint graph_critcl [string equal $impl critcl]
+
+switch -exact -- $setimpl {
+    critcl {
+	proc tmSE {tcl critcl} {return $critcl}
+    }
+    tcl {
+	proc tmSE {tcl critcl} {return $tcl}
+    }
+}
 
 switch -exact -- $impl {
     critcl {

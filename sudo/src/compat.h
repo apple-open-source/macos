@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1996, 1998-2005, 2008
+ * Copyright (c) 1996, 1998-2005, 2008-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -17,8 +17,6 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
- *
- * $Sudo: compat.h,v 1.90 2008/11/09 14:13:12 millert Exp $
  */
 
 #ifndef _SUDO_COMPAT_H
@@ -244,6 +242,10 @@ typedef struct sigaction sigaction_t;
 # define HAVE_FUTIMES
 #endif
 
+#if !defined(HAVE_KILLPG) && !defined(killpg)
+# define killpg(s)	kill(-(s))
+#endif
+
 /*
  * If we lack getprogname(), emulate with __progname if possible.
  * Otherwise, add a prototype for use with our own getprogname.c.
@@ -257,22 +259,54 @@ const char *getprogname __P((void));
 #endif /* HAVE___PROGNAME */
 #endif /* !HAVE_GETPROGNAME */
 
-#ifndef timespecclear
-# define timespecclear(ts)	(ts)->tv_sec = (ts)->tv_nsec = 0
+#ifndef timevalclear
+# define timevalclear(tv)	((tv)->tv_sec = (tv)->tv_usec = 0)
 #endif
-#ifndef timespecisset
-# define timespecisset(ts)	((ts)->tv_sec || (ts)->tv_nsec)
+#ifndef timevalisset
+# define timevalisset(tv)	((tv)->tv_sec || (tv)->tv_usec)
 #endif
-#ifndef timespecsub
-# define timespecsub(minuend, subrahend, difference)			       \
+#ifndef timevalcmp
+# define timevalcmp(tv1, tv2, op)					       \
+    (((tv1)->tv_sec == (tv2)->tv_sec) ?					       \
+	((tv1)->tv_usec op (tv2)->tv_usec) :				       \
+	((tv1)->tv_sec op (tv2)->tv_sec))
+#endif
+#ifndef timevaladd
+# define timevaladd(tv1, tv2)						       \
     do {								       \
-	    (difference)->tv_sec = (minuend)->tv_sec - (subrahend)->tv_sec;    \
-	    (difference)->tv_nsec = (minuend)->tv_nsec - (subrahend)->tv_nsec; \
-	    if ((difference)->tv_nsec < 0) {				       \
-		    (difference)->tv_nsec += 1000000000L;		       \
-		    (difference)->tv_sec--;				       \
-	    }								       \
+	(tv1)->tv_sec += (tv2)->tv_sec;					       \
+	(tv1)->tv_usec += (tv2)->tv_usec;				       \
+	if ((tv1)->tv_usec >= 1000000) {				       \
+	    (tv1)->tv_sec++;						       \
+	    (tv1)->tv_usec -= 1000000;					       \
+	}								       \
     } while (0)
+#endif
+#ifndef timevalsub
+# define timevalsub(tv1, tv2)						       \
+    do {								       \
+	(tv1)->tv_sec -= (tv2)->tv_sec;					       \
+	(tv1)->tv_usec -= (tv2)->tv_usec;				       \
+	if ((tv1)->tv_usec < 0) {					       \
+	    (tv1)->tv_sec--;						       \
+	    (tv1)->tv_usec += 1000000;					       \
+	}								       \
+    } while (0)
+#endif
+
+/* Not all systems define NSIG in signal.h */
+#if !defined(NSIG)
+# if defined(_NSIG)
+#  define NSIG _NSIG
+# elif defined(__NSIG)
+#  define NSIG __NSIG
+# else
+#  define NSIG 64
+# endif
+#endif
+
+#ifndef WCOREDUMP
+# define WCOREDUMP(x)	((x) & 0x80)
 #endif
 
 #endif /* _SUDO_COMPAT_H */

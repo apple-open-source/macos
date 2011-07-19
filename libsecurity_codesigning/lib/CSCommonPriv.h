@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -86,6 +86,29 @@ enum {
 	kSecCodeMagicEntitlement = 0xfade7171,		/* entitlement blob */
 	
 	kSecCodeMagicByte = 0xfa					/* shared first byte */
+};
+
+
+/*!
+	Types of cryptographic digests (hashes) used to hold code signatures
+	together.
+
+	Each combination of type, length, and other parameters is a separate
+	hash type; we don't understand "families" here.
+
+	These type codes govern the digest links that connect a CodeDirectory
+	to its subordinate data structures (code pages, resources, etc.)
+	They do not directly control other uses of hashes (such as the
+	hash-of-CodeDirectory identifiers used in requirements).
+ */
+enum {
+	kSecCodeSignatureNoHash							=  0,	/* null value */
+	kSecCodeSignatureHashSHA1						=  1,	/* SHA-1 */
+	kSecCodeSignatureHashSHA256						=  2,	/* SHA-256 */
+	kSecCodeSignatureHashPrestandardSkein160x256	= 32,	/* Skein, 160 bits, 256 bit pool */
+	kSecCodeSignatureHashPrestandardSkein256x512	= 33,	/* Skein, 256 bits, 512 bit pool */
+	
+	kSecCodeSignatureDefaultDigestAlgorithm = kSecCodeSignatureHashSHA1
 };
 
 

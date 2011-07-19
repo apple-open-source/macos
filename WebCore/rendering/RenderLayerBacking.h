@@ -40,13 +40,21 @@ namespace WebCore {
 class KeyframeList;
 class RenderLayerCompositor;
 
+enum CompositingLayerType {
+    NormalCompositingLayer, // non-tiled layer with backing store
+    TiledCompositingLayer, // tiled layer (always has backing store)
+    MediaCompositingLayer, // layer that contains an image, video, webGL or plugin
+    ContainerCompositingLayer // layer with no backing store
+};
+
 // RenderLayerBacking controls the compositing behavior for a single RenderLayer.
 // It holds the various GraphicsLayers, and makes decisions about intra-layer rendering
 // optimizations.
 // 
 // There is one RenderLayerBacking for each RenderLayer that is composited.
 
-class RenderLayerBacking : public GraphicsLayerClient, public Noncopyable {
+class RenderLayerBacking : public GraphicsLayerClient {
+    WTF_MAKE_NONCOPYABLE(RenderLayerBacking); WTF_MAKE_FAST_ALLOCATED;
 public:
     RenderLayerBacking(RenderLayer*);
     ~RenderLayerBacking();
@@ -61,7 +69,6 @@ public:
     // Update graphics layer position and bounds.
     void updateGraphicsLayerGeometry(); // make private
     // Update contents and clipping structure.
-    void updateInternalHierarchy(); // make private
     void updateDrawsContent();
     
     GraphicsLayer* graphicsLayer() const { return m_graphicsLayer.get(); }
@@ -94,15 +101,17 @@ public:
     // r is in the coordinate space of the layer's render object
     void setContentsNeedDisplayInRect(const IntRect& r);
 
-    // Notification from the renderer that its content changed; used by RenderImage.
-    void rendererContentChanged();
+    // Notification from the renderer that its content changed.
+    void contentChanged(RenderLayer::ContentChangeType);
 
     // Interface to start, finish, suspend and resume animations and transitions
-    bool startAnimation(double timeOffset, const Animation* anim, const KeyframeList& keyframes);
     bool startTransition(double timeOffset, int property, const RenderStyle* fromStyle, const RenderStyle* toStyle);
-    void animationFinished(const String& name);
-    void animationPaused(double timeOffset, const String& name);
+    void transitionPaused(double timeOffset, int property);
     void transitionFinished(int property);
+
+    bool startAnimation(double timeOffset, const Animation* anim, const KeyframeList& keyframes);
+    void animationPaused(double timeOffset, const String& name);
+    void animationFinished(const String& name);
 
     void suspendAnimations(double time = 0);
     void resumeAnimations();
@@ -112,9 +121,6 @@ public:
     void updateCompositedBounds();
     
     void updateAfterWidgetResize();
-
-    FloatPoint graphicsLayerToContentsCoordinates(const GraphicsLayer*, const FloatPoint&);
-    FloatPoint contentsToGraphicsLayerCoordinates(const GraphicsLayer*, const FloatPoint&);
 
     // GraphicsLayerClient interface
     virtual void notifyAnimationStarted(const GraphicsLayer*, double startTime);
@@ -127,6 +133,15 @@ public:
 
     IntRect contentsBox() const;
     
+    // For informative purposes only.
+    CompositingLayerType compositingLayerType() const;
+    
+    void updateContentsScale(float);
+
+    GraphicsLayer* layerForHorizontalScrollbar() const { return m_layerForHorizontalScrollbar.get(); }
+    GraphicsLayer* layerForVerticalScrollbar() const { return m_layerForVerticalScrollbar.get(); }
+    GraphicsLayer* layerForScrollCorner() const { return m_layerForScrollCorner.get(); }
+
 private:
     void createGraphicsLayer();
     void destroyGraphicsLayer();
@@ -134,9 +149,14 @@ private:
     RenderBoxModelObject* renderer() const { return m_owningLayer->renderer(); }
     RenderLayerCompositor* compositor() const { return m_owningLayer->compositor(); }
 
+    void updateInternalHierarchy();
     bool updateClippingLayers(bool needsAncestorClip, bool needsDescendantClip);
+    bool updateOverflowControlsLayers(bool needsHorizontalScrollbarLayer, bool needsVerticalScrollbarLayer, bool needsScrollCornerLayer);
     bool updateForegroundLayer(bool needsForegroundLayer);
     bool updateMaskLayer(bool needsMaskLayer);
+    bool requiresHorizontalScrollbarLayer() const;
+    bool requiresVerticalScrollbarLayer() const;
+    bool requiresScrollCornerLayer() const;
 
     GraphicsLayerPaintingPhase paintingPhaseForPrimaryLayer() const;
     
@@ -162,14 +182,19 @@ private:
 
     bool rendererHasBackground() const;
     const Color rendererBackgroundColor() const;
+    void updateBackgroundColor();
 
-    bool hasNonCompositingContent() const;
+    bool hasNonCompositingDescendants() const;
     
     void paintIntoLayer(RenderLayer* rootLayer, GraphicsContext*, const IntRect& paintDirtyRect,
                     PaintBehavior paintBehavior, GraphicsLayerPaintingPhase, RenderObject* paintingRoot);
 
     static int graphicsLayerToCSSProperty(AnimatedPropertyID);
     static AnimatedPropertyID cssToGraphicsLayerProperty(int);
+
+#ifndef NDEBUG
+    String nameForLayer() const;
+#endif
 
 private:
     RenderLayer* m_owningLayer;
@@ -179,6 +204,10 @@ private:
     OwnPtr<GraphicsLayer> m_foregroundLayer;       // only used in cases where we need to draw the foreground separately
     OwnPtr<GraphicsLayer> m_clippingLayer;         // only used if we have clipping on a stacking context, with compositing children
     OwnPtr<GraphicsLayer> m_maskLayer;             // only used if we have a mask
+
+    OwnPtr<GraphicsLayer> m_layerForHorizontalScrollbar;
+    OwnPtr<GraphicsLayer> m_layerForVerticalScrollbar;
+    OwnPtr<GraphicsLayer> m_layerForScrollCorner;
 
     IntRect m_compositedBounds;
 

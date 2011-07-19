@@ -63,8 +63,7 @@
 
 #define BEGIN_RCSAPI	\
 	OSStatus __secapiresult; \
-	try { \
-		globals().storageManager.cleanup();
+	try {
 #define END_RCSAPI		\
 		__secapiresult=noErr; \
 	} \

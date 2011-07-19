@@ -232,7 +232,7 @@ qum_PEEK (Q* q, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv, int get)
 	    if (get) {
 		/* XXX AK : Should maintain max size info, and proper index, for discard. */
 		Tcl_ListObjReplace (interp, q->unget, j, i, 0, NULL);
-		// XXX CHECK index calcs.
+		/* XXX CHECK index calcs. */
 	    }
 	}
 	if (i < n) {
@@ -358,9 +358,6 @@ qum_UNGET (Q* q, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
      *	       [0]   [1]   [2]
      */
 
-    int	      listc = 0;
-    Tcl_Obj** listv = NULL;
-
     if (objc != 3) {
 	Tcl_WrongNumArgs (interp, 2, objv, "item");
 	return TCL_ERROR;
@@ -375,8 +372,11 @@ qum_UNGET (Q* q, Tcl_Interp* interp, int objc, Tcl_Obj* CONST* objv)
 	 * using the unget stack.
 	 */
 
+	int queuec = 0;
+	Tcl_ListObjLength (NULL, q->queue,  &queuec);
+
 	q->at --;
-	ASSERT_BOUNDS(q->at,listc);
+	ASSERT_BOUNDS(q->at,queuec);
 	Tcl_ListObjReplace (interp, q->queue, q->at, 1, 1, &objv[2]);
     }
 

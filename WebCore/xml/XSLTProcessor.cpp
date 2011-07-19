@@ -27,19 +27,18 @@
 #include "XSLTProcessor.h"
 
 #include "DOMImplementation.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "DocumentFragment.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "FrameView.h"
+#include "HTMLBodyElement.h"
 #include "HTMLDocument.h"
-#include "HTMLTokenizer.h" // for parseHTMLDocumentFragment
 #include "Page.h"
 #include "Text.h"
 #include "TextResourceDecoder.h"
-#include "XMLTokenizer.h"
-#include "loader.h"
 #include "markup.h"
+
 #include <wtf/Assertions.h>
 #include <wtf/Vector.h>
 
@@ -75,10 +74,10 @@ PassRefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourc
 
     RefPtr<Document> result;
     if (sourceMIMEType == "text/plain") {
-        result = Document::create(frame);
+        result = Document::create(frame, sourceIsDocument ? ownerDocument->url() : KURL());
         transformTextStringToXHTMLDocumentString(documentSource);
     } else
-        result = DOMImplementation::createDocument(sourceMIMEType, frame, false);
+        result = DOMImplementation::createDocument(sourceMIMEType, frame, sourceIsDocument ? ownerDocument->url() : KURL(), false);
 
     // Before parsing, we need to save & detach the old document and get the new document
     // in place. We have to do this only if we're rendering the result document.
@@ -89,31 +88,32 @@ PassRefPtr<Document> XSLTProcessor::createDocumentFromSource(const String& sourc
         frame->setDocument(result);
     }
 
-    if (sourceIsDocument)
-        result->setURL(ownerDocument->url());
-    result->open();
-
     RefPtr<TextResourceDecoder> decoder = TextResourceDecoder::create(sourceMIMEType);
     decoder->setEncoding(sourceEncoding.isEmpty() ? UTF8Encoding() : TextEncoding(sourceEncoding), TextResourceDecoder::EncodingFromXMLHeader);
     result->setDecoder(decoder.release());
 
-    result->write(documentSource);
-    result->finishParsing();
-    result->close();
+    result->setContent(documentSource);
 
     return result.release();
 }
 
 static inline RefPtr<DocumentFragment> createFragmentFromSource(const String& sourceString, const String& sourceMIMEType, Document* outputDoc)
 {
-    RefPtr<DocumentFragment> fragment = DocumentFragment::create(outputDoc);
+    RefPtr<DocumentFragment> fragment = outputDoc->createDocumentFragment();
 
-    if (sourceMIMEType == "text/html")
-        parseHTMLDocumentFragment(sourceString, fragment.get());
-    else if (sourceMIMEType == "text/plain")
-        fragment->addChild(Text::create(outputDoc, sourceString));
+    if (sourceMIMEType == "text/html") {
+        // As far as I can tell, there isn't a spec for how transformToFragment
+        // is supposed to work.  Based on the documentation I can find, it looks
+        // like we want to start parsing the fragment in the InBody insertion
+        // mode.  Unfortunately, that's an implementation detail of the parser.
+        // We achieve that effect here by passing in a fake body element as
+        // context for the fragment.
+        RefPtr<HTMLBodyElement> fakeBody = HTMLBodyElement::create(outputDoc);
+        fragment->parseHTML(sourceString, fakeBody.get());
+    } else if (sourceMIMEType == "text/plain")
+        fragment->parserAddChild(Text::create(outputDoc, sourceString));
     else {
-        bool successfulParse = parseXMLDocumentFragment(sourceString, fragment.get(), outputDoc->documentElement());
+        bool successfulParse = fragment->parseXML(sourceString, 0);
         if (!successfulParse)
             return 0;
     }

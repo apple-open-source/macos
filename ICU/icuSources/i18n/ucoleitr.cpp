@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 2001-2008, International Business Machines
+*   Copyright (C) 2001-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *
@@ -263,8 +263,15 @@ inline uint64_t processCE(UCollationElements *elems, uint32_t ce)
         primary = ucol_primaryOrder(ce);
     }
 
-    // Continuation?
-    if (elems->pce->toShift && (elems->pce->variableTop > ce && primary != 0)
+    // **** This should probably handle continuations too.  ****
+    // **** That means that we need 24 bits for the primary ****
+    // **** instead of the 16 that we're currently using.   ****
+    // **** So we can lay out the 64 bits as: 24.12.12.16.  ****
+    // **** Another complication with continuations is that ****
+    // **** the *second* CE is marked as a continuation, so ****
+    // **** we always have to peek ahead to know how long   ****
+    // **** the primary is...                               ****
+    if ((elems->pce->toShift && elems->pce->variableTop > ce && primary != 0)
                 || (elems->pce->isShifted && primary == 0)) {
 
         if (primary == 0) {
@@ -284,7 +291,6 @@ inline uint64_t processCE(UCollationElements *elems, uint32_t ce)
 
         elems->pce->isShifted = FALSE;
     }
-
 
     return primary << 48 | secondary << 32 | tertiary << 16 | quaternary;
 }
@@ -307,19 +313,16 @@ ucol_openElements(const UCollator  *coll,
                         int32_t    textLength,
                         UErrorCode *status)
 {
-    UCollationElements *result;
-
     if (U_FAILURE(*status)) {
         return NULL;
     }
 
-    result = (UCollationElements *)uprv_malloc(sizeof(UCollationElements));
-    /* test for NULL */
+    UCollationElements *result = new UCollationElements;
     if (result == NULL) {
         *status = U_MEMORY_ALLOCATION_ERROR;
         return NULL;
     }
-    
+
     result->reset_ = TRUE;
     result->isWritable = FALSE;
     result->pce = NULL;
@@ -327,10 +330,11 @@ ucol_openElements(const UCollator  *coll,
     if (text == NULL) {
         textLength = 0;
     }
-    uprv_init_collIterate(coll, text, textLength, &result->iteratordata_);
+    uprv_init_collIterate(coll, text, textLength, &result->iteratordata_, status);
 
     return result;
 }
+
 
 U_CAPI void U_EXPORT2
 ucol_closeElements(UCollationElements *elems)
@@ -338,30 +342,24 @@ ucol_closeElements(UCollationElements *elems)
 	if (elems != NULL) {
 	  collIterate *ci = &elems->iteratordata_;
 
-	  if (ci != NULL) {
-		  if (ci->writableBuffer != ci->stackWritableBuffer) {
-			uprv_free(ci->writableBuffer);
-		  }
+	  if (ci->extendCEs) {
+		  uprv_free(ci->extendCEs);
+	  }
 
-		  if (ci->extendCEs) {
-			  uprv_free(ci->extendCEs);
-		  }
-
-		  if (ci->offsetBuffer) {
-			  uprv_free(ci->offsetBuffer);
-		  }
+	  if (ci->offsetBuffer) {
+		  uprv_free(ci->offsetBuffer);
 	  }
 
 	  if (elems->isWritable && elems->iteratordata_.string != NULL)
 	  {
-		uprv_free(elems->iteratordata_.string);
+		uprv_free((UChar *)elems->iteratordata_.string);
 	  }
 
 	  if (elems->pce != NULL) {
 		  delete elems->pce;
 	  }
 
-	  uprv_free(elems);
+	  delete elems;
 	}
 }
 
@@ -375,20 +373,31 @@ ucol_reset(UCollationElements *elems)
         ci->endp      = ci->string + u_strlen(ci->string);
     }
     ci->CEpos       = ci->toReturn = ci->CEs;
-    ci->flags       = UCOL_ITER_HASLEN;
+    ci->flags       = (ci->flags & UCOL_FORCE_HAN_IMPLICIT) | UCOL_ITER_HASLEN;
     if (ci->coll->normalizationMode == UCOL_ON) {
         ci->flags |= UCOL_ITER_NORM;
     }
 
-    if (ci->stackWritableBuffer != ci->writableBuffer) {
-        uprv_free(ci->writableBuffer);
-        ci->writableBuffer = ci->stackWritableBuffer;
-        ci->writableBufSize = UCOL_WRITABLE_BUFFER_SIZE;
-    }
+    ci->writableBuffer.remove();
     ci->fcdPosition = NULL;
 
   //ci->offsetReturn = ci->offsetStore = NULL;
 	ci->offsetRepeatCount = ci->offsetRepeatValue = 0;
+}
+
+U_CAPI void U_EXPORT2
+ucol_forceHanImplicit(UCollationElements *elems, UErrorCode *status)
+{
+    if (U_FAILURE(*status)) {
+        return;
+    }
+
+    if (elems == NULL) {
+        *status = U_ILLEGAL_ARGUMENT_ERROR;
+        return;
+    }
+
+    elems->iteratordata_.flags |= UCOL_FORCE_HAN_IMPLICIT;
 }
 
 U_CAPI int32_t U_EXPORT2
@@ -664,7 +673,7 @@ ucol_setText(      UCollationElements *elems,
 
     if (elems->isWritable && elems->iteratordata_.string != NULL)
     {
-        uprv_free(elems->iteratordata_.string);
+        uprv_free((UChar *)elems->iteratordata_.string);
     }
 
     if (text == NULL) {
@@ -674,9 +683,13 @@ ucol_setText(      UCollationElements *elems,
     elems->isWritable = FALSE;
     
     /* free offset buffer to avoid memory leak before initializing. */
-    freeOffsetBuffer(&(elems->iteratordata_));
+    ucol_freeOffsetBuffer(&(elems->iteratordata_));
+    /* Ensure that previously allocated extendCEs is freed before setting to NULL. */
+    if (elems->iteratordata_.extendCEs != NULL) {
+        uprv_free(elems->iteratordata_.extendCEs);
+    }
     uprv_init_collIterate(elems->iteratordata_.coll, text, textLength, 
-                          &elems->iteratordata_);
+                          &elems->iteratordata_, status);
 
     elems->reset_   = TRUE;
 }
@@ -757,6 +770,15 @@ U_CAPI int32_t U_EXPORT2
 ucol_tertiaryOrder (int32_t order) 
 {
     return (order & UCOL_TERTIARYMASK);
+}
+
+
+void ucol_freeOffsetBuffer(collIterate *s) {
+    if (s != NULL && s->offsetBuffer != NULL) {
+        uprv_free(s->offsetBuffer);
+        s->offsetBuffer = NULL;
+        s->offsetBufferSize = 0;
+    }
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

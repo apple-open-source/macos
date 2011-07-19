@@ -1,3 +1,13 @@
+2009-07-27	Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* [Bug #2678265] img::gif crashes on some GIF images
+
+2009-01-12	Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* No longer Panic when an out-of-memory error occurs,
+	  when compiled with Tcl/Tk 8.5 or later and running with
+	  Tcl/Tk 8.5 and later (Tk bug #2477446)
+
 2004-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

@@ -1,5 +1,5 @@
 /*
-    Copyright (C) 2009 Nokia Corporation and/or its subsidiary(-ies)
+    Copyright (C) 2009, 2010 Nokia Corporation and/or its subsidiary(-ies)
 
     This library is free software; you can redistribute it and/or
     modify it under the terms of the GNU Library General Public
@@ -19,7 +19,7 @@
 #include "config.h"
 #include "PluginView.h"
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Element.h"
@@ -47,12 +47,13 @@
 #include "PluginPackage.h"
 #include "QWebPageClient.h"
 #include "RenderLayer.h"
-#include "ScriptController.h"
 #include "Settings.h"
 #include "npfunctions.h"
 #include "npinterface.h"
 #include "npruntime_impl.h"
 #include "qgraphicswebview.h"
+#include "qwebframe.h"
+#include "qwebframe_p.h"
 #include "runtime_root.h"
 #include <QGraphicsProxyWidget>
 #include <QKeyEvent>
@@ -62,6 +63,13 @@
 #include <QWidget>
 #include <runtime/JSLock.h>
 #include <runtime/JSValue.h>
+
+typedef void (*_qtwebkit_page_plugin_created)(QWebFrame*, void*, void*); // frame, plugin instance, plugin functions
+static _qtwebkit_page_plugin_created qtwebkit_page_plugin_created = 0;
+QWEBKIT_EXPORT void qtwebkit_setPluginCreatedCallback(_qtwebkit_page_plugin_created cb)
+{
+    qtwebkit_page_plugin_created = cb;
+}
 
 using JSC::ExecState;
 using JSC::Interpreter;
@@ -93,12 +101,7 @@ void PluginView::updatePluginWidget()
     if (m_windowRect == oldWindowRect && m_clipRect == oldClipRect)
         return;
 
-    // in order to move/resize the plugin window at the same time as the rest of frame
-    // during e.g. scrolling, we set the mask and geometry in the paint() function, but
-    // as paint() isn't called when the plugin window is outside the frame which can
-    // be caused by a scroll, we need to move/resize immediately.
-    if (!m_windowRect.intersects(frameView->frameRect()))
-        setNPWindowIfNeeded();
+    setNPWindowIfNeeded();
 }
 
 void PluginView::setFocus(bool focused)
@@ -180,6 +183,7 @@ void PluginView::handleKeyboardEvent(KeyboardEvent* event)
     if (m_isWindowed)
         return;
 
+    ASSERT(event->keyEvent()->qtEvent());
     QEvent& npEvent = *(event->keyEvent()->qtEvent());
     if (!dispatchNPEvent(npEvent))
         event->setDefaultHandled();
@@ -242,8 +246,11 @@ void PluginView::setParent(ScrollView* parent)
 {
     Widget::setParent(parent);
 
-    if (parent)
+    if (parent) {
         init();
+        if (m_status == PluginStatusLoadedSuccessfully)
+            updatePluginWidget();
+    }
 }
 
 void PluginView::setNPWindowRect(const IntRect&)
@@ -267,15 +274,15 @@ void PluginView::setNPWindowIfNeeded()
         m_npWindow.x = m_windowRect.x();
         m_npWindow.y = m_windowRect.y();
 
-        m_npWindow.clipRect.left = m_clipRect.x();
-        m_npWindow.clipRect.top = m_clipRect.y();
-        m_npWindow.clipRect.right = m_clipRect.width();
-        m_npWindow.clipRect.bottom = m_clipRect.height();
+        m_npWindow.clipRect.left = max(0, m_clipRect.x());
+        m_npWindow.clipRect.top = max(0, m_clipRect.y());
+        m_npWindow.clipRect.right = m_clipRect.x() + m_clipRect.width();
+        m_npWindow.clipRect.bottom = m_clipRect.y() + m_clipRect.height();
     
     } else {
         // always call this method before painting.
-        m_npWindow.x = 0;
-        m_npWindow.y = 0;
+        m_npWindow.x = m_windowRect.x();
+        m_npWindow.y = m_windowRect.y();
     
         m_npWindow.clipRect.left = 0;
         m_npWindow.clipRect.top = 0;
@@ -409,8 +416,12 @@ bool PluginView::platformStart()
         m_npWindow.type = NPWindowTypeDrawable;
         m_npWindow.window = 0; // Not used?
     }    
+    updatePluginWidget();
     setNPWindowIfNeeded();
-    
+
+    if (qtwebkit_page_plugin_created)
+        qtwebkit_page_plugin_created(QWebFramePrivate::kit(m_parentFrame.get()), m_instance, (void*)(m_plugin->pluginFuncs()));
+
     return true;
 }
 
@@ -418,8 +429,10 @@ void PluginView::platformDestroy()
 {
     if (platformPluginWidget()) {
         PluginContainerSymbian* container = static_cast<PluginContainerSymbian*>(platformPluginWidget());
-        delete container->proxy();
-        delete container;
+        if (container && container->proxy())
+            delete container->proxy();
+        else
+            delete container;
     }
 }
 

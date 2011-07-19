@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: tree_tcl.tcl,v 1.4 2005/10/27 21:56:04 andreas_kupries Exp $
+# RCS: @(#) $Id: tree_tcl.tcl,v 1.5 2009/06/22 18:21:59 andreas_kupries Exp $
 
 package require Tcl 8.2
 package require struct::list
@@ -1639,35 +1639,6 @@ proc ::struct::tree::_swap {name node1 node2} {
 	set parent($node1) $parent2
 	set parent($node2) $parent1
     }
-
-    # Swap the values
-    # More complicated now with the possibility that nodes do not have
-    # attribute storage associated with them.
-
-    variable ${name}::attribute
-
-    if {
-	[set ia [info exists attribute($node1)]] ||
-	[set ib [info exists attribute($node2)]]
-    } {
-	# At least one of the nodes has attribute data. We simply swap
-	# the references to the arrays containing them. No need to
-	# copy the actual data around.
-
-	if {$ia && $ib} {
-	    set tmp               $attribute($node1)
-	    set attribute($node1) $attribute($node2)
-	    set attribute($node2) $tmp
-	} elseif {$ia} {
-	    set   attribute($node2) $attribute($node1)
-	    unset attribute($node1)
-	} elseif {$ib} {
-	    set   attribute($node1) $attribute($node2)
-	    unset attribute($node2)
-	} else {
-	    return -code error "Impossible condition."
-	}
-    } ; # else: No attribute storage => Nothing to do {}
 
     return
 }

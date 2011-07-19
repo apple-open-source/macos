@@ -8,3 +8,7 @@ MDSRCS += \
        start_wqthread.s \
        thread_start.s
 
+DYLDSRCS +=	\
+	pthread_getspecific.s \
+	pthread_self.s \
+	pthread_set_self.s

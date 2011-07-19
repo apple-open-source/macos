@@ -75,10 +75,9 @@ typedef struct {
 
 #define kOptNoCaches          'c'
 #define kOptDebug             'd'
-#define kOptRepository        'r'
 #define kOptSafeBoot          'x'
 
-#define kOptChars             "cdhqr:vx"
+#define kOptChars             "cdhqvx"
 
 /* Options with no single-letter variant.  */
 // Do not use -1, that's getopt() end-of-args return value
@@ -94,14 +93,10 @@ typedef struct {
     Boolean            debugMode;
     Boolean            safeBootMode;     // actual or simulated
 
-    CFMutableArrayRef  repositoryURLs;   // must release
-    
     Boolean            firstBoot;
-    
-    // xxx - does stale mean crc mismatch, old mod time, or both? Ask S.
-    Boolean            staleStartupMkext;
-    Boolean            staleBootNotificationNeeded;
 } KextdArgs;
+
+extern CFArrayRef gRepositoryURLs;
 
 #pragma mark Function Prototypes
 /*******************************************************************************
@@ -131,4 +126,4 @@ void rescanExtensions(void);
 
 void usage(UsageLevel usageLevel);
 
-#endif /* _KEXTD_MAIN_H */
+#endif

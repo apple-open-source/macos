@@ -17,8 +17,10 @@
 
 using namespace llvm;
 
+namespace llvm {
 TEMPLATE_INSTANTIATION(class DomTreeNodeBase<MachineBasicBlock>);
 TEMPLATE_INSTANTIATION(class DominatorTreeBase<MachineBasicBlock>);
+}
 
 char MachineDominatorTree::ID = 0;
 
@@ -50,4 +52,8 @@ MachineDominatorTree::~MachineDominatorTree() {
 
 void MachineDominatorTree::releaseMemory() {
   DT->releaseMemory();
+}
+
+void MachineDominatorTree::print(raw_ostream &OS, const Module*) const {
+  DT->print(OS);
 }

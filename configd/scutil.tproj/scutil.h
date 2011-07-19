@@ -64,7 +64,8 @@ extern CFMutableArrayRef	watchedPatterns;
 
 __BEGIN_DECLS
 
-Boolean	process_line			(InputRef	src);
+Boolean		process_line		(InputRef	src);
+CFStringRef	_copyStringFromSTDIN	();
 
 __END_DECLS
 

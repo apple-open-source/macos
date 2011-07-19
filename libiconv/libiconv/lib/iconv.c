@@ -749,6 +749,7 @@ libiconvctl(iconv_t cd, int request, void* argument)
 	return iconvctl(cd, request, argument);
 }
 
+void
 libiconvlist(int (*do_one) (unsigned int namescount,
 				const char * const * names,
 				void* data),

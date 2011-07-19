@@ -81,45 +81,57 @@ FontPlatformData::FontPlatformData(const FontDescription& desc, const AtomicStri
 // this is a moot issue on Linux and Mac as they only accept the point argument. So,
 // we use the pixel size constructor on Windows, but we use point size on Linux and Mac.
 #if __WXMSW__
-    m_font = new FontHolder(new wxFont(   wxSize(0, -desc.computedPixelSize()), 
+    m_font = adoptRef(new FontHolder(new wxFont(   wxSize(0, -desc.computedPixelSize()), 
                                 fontFamilyToWxFontFamily(desc.genericFamily()), 
                                 italicToWxFontStyle(desc.italic()),
                                 fontWeightToWxFontWeight(desc.weight()),
                                 false,
                                 family.string()
                             )
-                        ); 
+                        )); 
 #else
-    m_font = new FontHolder(new wxFont(   desc.computedPixelSize(), 
+    m_font = adoptRef(new FontHolder(new wxFont(   desc.computedPixelSize(), 
                                 fontFamilyToWxFontFamily(desc.genericFamily()), 
                                 italicToWxFontStyle(desc.italic()),
                                 fontWeightToWxFontWeight(desc.weight()),
                                 false,
                                 family.string()
                             )
-                        ); 
+                        )); 
 #endif
 #if OS(DARWIN)
+#if !wxOSX_USE_CORE_TEXT
+#if wxCHECK_VERSION(2,9,0)
+    m_atsuFontID = m_font->font()->OSXGetATSUFontID();
+#else
     m_atsuFontID = m_font->font()->MacGetATSUFontID();
+#endif
+#endif
+    m_nsFont = 0;
     cacheNSFont();
 #endif
     m_size = desc.computedPixelSize();
     m_fontState = VALID;
     m_size = desc.computedPixelSize();
-     
 }
 
-unsigned FontPlatformData::computeHash() const {
-        wxFont* thisFont = m_font->font();
-        ASSERT(thisFont && thisFont->IsOk());
-        
-        // make a hash that is unique for this font, but not globally unique - that is,
-        // a font whose properties are equal should generate the same hash
-        uintptr_t hashCodes[6] = { thisFont->GetPointSize(), thisFont->GetFamily(), thisFont->GetStyle(), 
-                                    thisFont->GetWeight(), thisFont->GetUnderlined(), 
-                                    StringImpl::computeHash(thisFont->GetFaceName().utf8_str()) };
-        
-        return StringImpl::computeHash(reinterpret_cast<UChar*>(hashCodes), sizeof(hashCodes) / sizeof(UChar));
+unsigned FontPlatformData::computeHash() const
+{
+    wxFont* thisFont = m_font->font();
+    ASSERT(thisFont && thisFont->IsOk());
+
+    // make a hash that is unique for this font, but not globally unique - that is,
+    // a font whose properties are equal should generate the same hash
+    uintptr_t hashCodes[6] = {
+        thisFont->GetPointSize(),
+        thisFont->GetFamily(),
+        thisFont->GetStyle(),
+        thisFont->GetWeight(),
+        thisFont->GetUnderlined(), 
+        StringHasher::computeHash(thisFont->GetFaceName().utf8_str().data())
+    };
+
+    return StringHasher::hashMemory<sizeof(hashCodes)>(hashCodes);
 }
 
 FontPlatformData::~FontPlatformData()

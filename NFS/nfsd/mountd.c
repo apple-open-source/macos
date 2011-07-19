@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -68,9 +68,9 @@
 #include <sys/queue.h>
 #include <sys/types.h>
 
-#include <rpc/rpc.h>
-#include <rpc/pmap_clnt.h>
-#include <rpc/pmap_prot.h>
+#include <oncrpc/rpc.h>
+#include <oncrpc/pmap_clnt.h>
+#include <oncrpc/pmap_prot.h>
 #include <nfs/rpcv2.h>
 #include <nfs/nfsproto.h>
 #include <nfs/nfs.h>
@@ -224,16 +224,36 @@ struct expdir {
  * Structures for holding sets of exported-to hosts/nets/addresses
  */
 
+/* holds a host address list and name */
+struct hostinfo {
+	char 		*h_name;	/* host name */
+	struct addrinfo *h_ailist;	/* address list */
+};
+
 /* holds a network/mask and name */
 struct netmsk {
-	uint32_t	nt_net;		/* network address */
-	uint32_t	nt_mask;	/* network mask */
 	char 		*nt_name;	/* network name */
+	sa_family_t	nt_family;	/* network family */
+	union {
+	    struct {
+		in_addr_t	net;	/* IPv4 network address */
+		in_addr_t	mask;	/* IPv4 network mask */
+	    } ipv4;
+	    struct {
+		struct in6_addr	net;	/* IPv6 network address */
+		struct in6_addr	mask;	/* IPv6 network mask */
+	    } ipv6;
+	} nt_u;
 };
+
+#define nt_net		nt_u.ipv4.net
+#define nt_mask		nt_u.ipv4.mask
+#define nt_net6		nt_u.ipv6.net
+#define nt_mask6	nt_u.ipv6.mask
 
 /* holds either a host or network */
 union grouptypes {
-	struct hostent *gt_hostent;
+	struct hostinfo gt_hostinfo;
 	struct netmsk	gt_net;
 	char *		gt_netgroup;
 };
@@ -281,13 +301,14 @@ char *	add_expdir(struct expdir **, char *, int);
 int	add_grp(struct grouplist **, struct grouplist *);
 int	add_host(struct hosttqh *, struct host *);
 void	add_mlist(char *, char *);
+int	addrinfo_cmp(struct addrinfo *, struct addrinfo *);
 int	check_dirpath(char *);
 int	check_options(int);
 void	clear_export_error(uint32_t);
 int	cmp_secflavs(struct nfs_sec *, struct nfs_sec *);
 void	merge_secflavs(struct nfs_sec *, struct nfs_sec *);
 void	del_mlist(char *, char *);
-int	expdir_search(struct expfs *, char *, uint32_t, int *, struct nfs_sec *);
+int	expdir_search(struct expfs *, char *, struct sockaddr *, int *, struct nfs_sec *);
 int	do_export(int, struct expfs *, struct expdir *, struct grouplist *, int,
 		struct xucred *, struct nfs_sec *);
 int	do_opt(char **, char **, struct grouplist *, int *,
@@ -296,7 +317,7 @@ struct expfs *ex_search(u_char *);
 void	export_error(int, const char *, ...);
 void	export_error_cleanup(struct expfs *);
 struct host *find_group_address_match_in_host_list(struct hosttqh *, struct grouplist *);
-struct host *find_host(struct hosttqh *, uint32_t);
+struct host *find_host(struct hosttqh *, struct sockaddr *);
 void	free_dirlist(struct dirlist *dl);
 void	free_expdir(struct expdir *);
 void	free_expfs(struct expfs *);
@@ -312,6 +333,7 @@ void	get_mountlist(void);
 int	get_net(char *, struct netmsk *, int);
 int	get_sec_flavors(char *flavorlist, struct nfs_sec *);
 struct grouplist *get_grp(struct grouplist *);
+const char *grp_addr(struct grouplist *);
 char *	grp_name(struct grouplist *);
 int	hang_options_setup(struct expdir *, int, struct xucred *, struct grouplist *, struct nfs_sec *, int *);
 void	hang_options_finalize(struct expdir *);
@@ -319,7 +341,6 @@ void	hang_options_cleanup(struct expdir *);
 int	hang_options_mountdir(struct expdir *, char *, int, struct grouplist *, struct nfs_sec *);
 void	mntsrv(struct svc_req *, SVCXPRT *);
 void	nextfield(char **, char **);
-void	out_of_mem(const char *);
 int	parsecred(char *, struct xucred *);
 int	put_exlist(struct expdir *, XDR *);
 int	subdir_check(char *, char *);
@@ -359,9 +380,11 @@ struct xucred def_anon = {		/* default map credential: "nobody" */
 };
 
 LIST_HEAD(,errlist) xerrs;		/* list of export errors */
-int export_errors, hostnamecount, hostnamegoodcount;
+int export_errors, hostnamecount, hostnamegoodcount, missingexportcount;
 SVCXPRT *udptransp, *tcptransp;
+SVCXPRT *udp6transp, *tcp6transp;
 int mounttcpsock, mountudpsock;
+int mounttcp6sock, mountudp6sock;
 
 /* export options */
 #define	OP_MAPROOT	0x00000001	/* map root credentials */
@@ -432,10 +455,12 @@ mountd_init(void)
 void
 mountd(void)
 {
-	struct sockaddr_in inetaddr;
+	struct sockaddr_storage saddr;
+	struct sockaddr_in *sin = (struct sockaddr_in*)&saddr;
+	struct sockaddr_in6 *sin6 = (struct sockaddr_in6*)&saddr;
 	socklen_t socklen;
 	struct nfs_export_args nxa;
-	int error, on, init_retry;
+	int error, on = 1, init_retry, svcregcnt;
 	pthread_t thd;
 	time_t init_start;
 
@@ -460,8 +485,8 @@ mountd(void)
 	/* set up the export and mount lists */
 
 	/*
-	 * Note that the recheckexports functionality will allow us to retry exports for
-	 * a while if we have problems resolving any host names.  However, these problems
+	 * Note that the recheckexports_until functionality will allow us to retry exports
+	 * for a while if we have problems resolving any host names.  However, these problems
 	 * may not affect all exports (e.g. default exports) and that could result in some
 	 * hosts getting the wrong access until their export options are set up properly.
 	 * Since this could result in some hosts receiving errors or erroneous processing,
@@ -500,79 +525,244 @@ mountd(void)
 		return;
 	}
 
+	mountudpsock = mounttcpsock = -1;
+	mountudp6sock = mounttcp6sock = -1;
+
 	/* If we are serving UDP, set up the MOUNT/UDP socket. */
 	if (config.udp) {
-		if ((mountudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
-			log(LOG_ERR, "can't create MOUNT/UDP socket: %s (%d)", strerror(errno), errno);
-			exit(1);
-		}
-		inetaddr.sin_family = AF_INET;
-		inetaddr.sin_addr.s_addr = INADDR_ANY;
-		inetaddr.sin_port = htons(config.mount_port);
-		inetaddr.sin_len = sizeof(inetaddr);
-		if (bindresvport_sa(mountudpsock, (struct sockaddr*)&inetaddr) < 0) {
-			/* socket may still be lingering from previous incarnation */
-			/* wait a few seconds and try again */
-			sleep(6);
-			if (bindresvport_sa(mountudpsock, (struct sockaddr*)&inetaddr) < 0) {
-				log(LOG_ERR, "can't bind MOUNT/UDP addr: %s (%d)", strerror(errno), errno);
-				exit(1);
+
+		/* IPv4 */
+		if ((mountudpsock = socket(AF_INET, SOCK_DGRAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (mountudpsock >= 0) {
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.mount_port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(mountudpsock, (struct sockaddr*)sin) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bindresvport_sa(mountudpsock, (struct sockaddr*)sin) < 0) {
+					log(LOG_ERR, "can't bind MOUNT/UDP IPv4 addr: %s (%d)", strerror(errno), errno);
+					close(mountudpsock);
+					mountudpsock = -1;
+				}
 			}
 		}
-		socklen = sizeof(inetaddr);
-		if (getsockname(mountudpsock, (struct sockaddr*)&inetaddr, &socklen)) {
-			log(LOG_ERR, "can't getsockname on MOUNT/UDP socket: %s (%d)", strerror(errno), errno);
-		} else {
-			mountudpport = ntohs(inetaddr.sin_port);
+		if (mountudpsock >= 0) {
+			socklen = sizeof(*sin);
+			if (getsockname(mountudpsock, (struct sockaddr*)sin, &socklen)) {
+				log(LOG_ERR, "can't getsockname on MOUNT/UDP IPv4 socket: %s (%d)", strerror(errno), errno);
+				close(mountudpsock);
+				mountudpsock = -1;
+			} else {
+				mountudpport = ntohs(sin->sin_port);
+			}
 		}
-		if ((udptransp = svcudp_create(mountudpsock)) == NULL)
-			log(LOG_ERR, "Can't create MOUNT/UDP service");
-		else {
+		if ((mountudpsock >= 0) && ((udptransp = svcudp_create(mountudpsock)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/UDP IPv4 service");
+			close(mountudpsock);
+			mountudpsock = -1;
+			mountudpport = 0;
+		}
+		if (mountudpsock >= 0) {
+			svcregcnt = 0;
 			if (!svc_register(udptransp, RPCPROG_MNT, 1, mntsrv, 0))
-				log(LOG_ERR, "Can't register MOUNT/UDP v1 service");
+				log(LOG_ERR, "Can't register IPv4 MOUNT/UDP v1 service");
+			else
+				svcregcnt++;
 			if (!svc_register(udptransp, RPCPROG_MNT, 3, mntsrv, 0))
-				log(LOG_ERR, "Can't register MOUNT/UDP v3 service");
+				log(LOG_ERR, "Can't register IPv4 MOUNT/UDP v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(udptransp);
+				close(mountudpsock);
+				mountudpsock = -1;
+				mountudpport = 0;
+			}
 		}
+
+		/* IPv6 */
+		if ((mountudp6sock = socket(AF_INET6, SOCK_DGRAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (mountudp6sock >= 0) {
+			setsockopt(mountudp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.mount_port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(mountudp6sock, (struct sockaddr*)sin6) < 0) {
+				/* socket may still be lingering from previous incarnation */
+				/* wait a few seconds and try again */
+				sleep(6);
+				if (bindresvport_sa(mountudp6sock, (struct sockaddr*)sin6) < 0) {
+					log(LOG_ERR, "can't bind MOUNT/UDP IPv6 addr: %s (%d)", strerror(errno), errno);
+					close(mountudp6sock);
+					mountudp6sock = -1;
+				}
+			}
+		}
+		if (mountudp6sock >= 0) {
+			socklen = sizeof(*sin6);
+			if (getsockname(mountudp6sock, (struct sockaddr*)sin6, &socklen)) {
+				log(LOG_ERR, "can't getsockname on MOUNT/UDP IPv6 socket: %s (%d)", strerror(errno), errno);
+				close(mountudp6sock);
+				mountudp6sock = -1;
+			} else {
+				mountudp6port = ntohs(sin6->sin6_port);
+			}
+		}
+		if ((mountudp6sock >= 0) && ((udp6transp = svcudp_create(mountudp6sock)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/UDP IPv6 service");
+			close(mountudp6sock);
+			mountudp6sock = -1;
+			mountudp6port = 0;
+		}
+		if (mountudp6sock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(udp6transp, RPCPROG_MNT, 1, mntsrv, 0))
+				log(LOG_ERR, "Can't register IPv6 MOUNT/UDP v1 service");
+			else
+				svcregcnt++;
+			if (!svc_register(udp6transp, RPCPROG_MNT, 3, mntsrv, 0))
+				log(LOG_ERR, "Can't register IPv6 MOUNT/UDP v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(udp6transp);
+				close(mountudp6sock);
+				mountudp6sock = -1;
+				mountudp6port = 0;
+			}
+		}
+
 	}
 
 	/* If we are serving TCP, set up the MOUNT/TCP socket. */
-	on = 1;
 	if (config.tcp) {
-		if ((mounttcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-			log(LOG_ERR, "can't create MOUNT/TCP socket: %s (%d)", strerror(errno), errno);
-			exit(1);
+
+		/* IPv4 */
+		if ((mounttcpsock = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+		if (mounttcpsock >= 0) {
+			if (setsockopt(mounttcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt MOUNT/TCP IPv4 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			sin->sin_family = AF_INET;
+			sin->sin_addr.s_addr = INADDR_ANY;
+			sin->sin_port = htons(config.mount_port);
+			sin->sin_len = sizeof(*sin);
+			if (bindresvport_sa(mounttcpsock, (struct sockaddr*)sin) < 0) {
+				log(LOG_ERR, "can't bind MOUNT/TCP IPv4 addr: %s (%d)", strerror(errno), errno);
+				close(mounttcpsock);
+				mounttcpsock = -1;
+			}
 		}
-		if (setsockopt(mounttcpsock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
-			log(LOG_WARNING, "setsockopt SO_REUSEADDR: %s (%d)", strerror(errno), errno);
-		inetaddr.sin_family = AF_INET;
-		inetaddr.sin_addr.s_addr = INADDR_ANY;
-		inetaddr.sin_port = htons(config.mount_port);
-		inetaddr.sin_len = sizeof(inetaddr);
-		if (bindresvport_sa(mounttcpsock, (struct sockaddr*)&inetaddr) < 0) {
-			log(LOG_ERR, "can't bind MOUNT/TCP addr: %s (%d)", strerror(errno), errno);
-			exit(1);
+		if ((mounttcpsock >= 0) && (listen(mounttcpsock, 128) < 0)) {
+			log(LOG_ERR, "MOUNT IPv4 listen failed: %s (%d)", strerror(errno), errno);
+			close(mounttcpsock);
+			mounttcpsock = -1;
 		}
-		if (listen(mounttcpsock, 128) < 0) {
-			log(LOG_ERR, "MOUNT listen failed: %s (%d)", strerror(errno), errno);
-			exit(1);
+		if (mounttcpsock >= 0) {
+			socklen = sizeof(*sin);
+			if (getsockname(mounttcpsock, (struct sockaddr*)sin, &socklen)) {
+				log(LOG_ERR, "can't getsockname on MOUNT/TCP IPv4 socket: %s (%d)", strerror(errno), errno);
+				close(mounttcpsock);
+				mounttcpsock = -1;
+			} else {
+				mounttcpport = ntohs(sin->sin_port);
+			}
 		}
-		socklen = sizeof(inetaddr);
-		if (getsockname(mounttcpsock, (struct sockaddr*)&inetaddr, &socklen)) {
-			log(LOG_ERR, "can't getsockname on MOUNT/TCP socket: %s (%d)", strerror(errno), errno);
-		} else {
-			mounttcpport = ntohs(inetaddr.sin_port);
+		if ((mounttcpsock >= 0) && ((tcptransp = svctcp_create(mounttcpsock, 0, 0)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/TCP IPv4 service");
+			close(mounttcpsock);
+			mounttcpsock = -1;
+			mounttcpport = 0;
 		}
-		if ((tcptransp = svctcp_create(mounttcpsock, 0, 0)) == NULL)
-			log(LOG_ERR, "Can't create MOUNT/TCP service");
-		else {
+		if (mounttcpsock >= 0) {
+			svcregcnt = 0;
 			if (!svc_register(tcptransp, RPCPROG_MNT, 1, mntsrv, 0))
-				log(LOG_ERR, "Can't register MOUNT/TCP v1 service");
+				log(LOG_ERR, "Can't register IPv4 MOUNT/TCP v1 service");
+			else
+				svcregcnt++;
 			if (!svc_register(tcptransp, RPCPROG_MNT, 3, mntsrv, 0))
-				log(LOG_ERR, "Can't register MOUNT/TCP v3 service");
+				log(LOG_ERR, "Can't register IPv4 MOUNT/TCP v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(tcptransp);
+				close(mounttcpsock);
+				mounttcpsock = -1;
+				mounttcpport = 0;
+			}
 		}
+
+		/* IPv6 */
+		if ((mounttcp6sock = socket(AF_INET6, SOCK_STREAM, 0)) < 0)
+			log(LOG_ERR, "can't create MOUNT/TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+		if (mounttcp6sock >= 0) {
+			if (setsockopt(mounttcp6sock, SOL_SOCKET, SO_REUSEADDR, (char *)&on, sizeof(on)) < 0)
+				log(LOG_WARNING, "setsockopt MOUNT/TCP IPv6 SO_REUSEADDR: %s (%d)", strerror(errno), errno);
+			setsockopt(mounttcp6sock, IPPROTO_IPV6, IPV6_V6ONLY, &on, sizeof(on));
+			sin6->sin6_family = AF_INET6;
+			sin6->sin6_addr = in6addr_any;
+			sin6->sin6_port = htons(config.mount_port);
+			sin6->sin6_len = sizeof(*sin6);
+			if (bindresvport_sa(mounttcp6sock, (struct sockaddr*)sin6) < 0) {
+				log(LOG_ERR, "can't bind MOUNT/TCP IPv6 addr: %s (%d)", strerror(errno), errno);
+				close(mounttcp6sock);
+				mounttcp6sock = -1;
+			}
+		}
+		if ((mounttcp6sock >= 0) && (listen(mounttcp6sock, 128) < 0)) {
+			log(LOG_ERR, "MOUNT IPv6 listen failed: %s (%d)", strerror(errno), errno);
+			close(mounttcp6sock);
+			mounttcp6sock = -1;
+		}
+		if (mounttcp6sock >= 0) {
+			socklen = sizeof(*sin6);
+			if (getsockname(mounttcp6sock, (struct sockaddr*)sin6, &socklen)) {
+				log(LOG_ERR, "can't getsockname on MOUNT/TCP IPv6 socket: %s (%d)", strerror(errno), errno);
+				close(mounttcp6sock);
+				mounttcp6sock = -1;
+			} else {
+				mounttcp6port = ntohs(sin6->sin6_port);
+			}
+		}
+		if ((mounttcp6sock >= 0) && ((tcp6transp = svctcp_create(mounttcp6sock, 0, 0)) == NULL)) {
+			log(LOG_ERR, "Can't create MOUNT/TCP IPv6 service");
+			close(mounttcp6sock);
+			mounttcp6sock = -1;
+			mounttcp6port = 0;
+		}
+		if (mounttcp6sock >= 0) {
+			svcregcnt = 0;
+			if (!svc_register(tcp6transp, RPCPROG_MNT, 1, mntsrv, 0))
+				log(LOG_ERR, "Can't register IPv6 MOUNT/TCP v1 service");
+			else
+				svcregcnt++;
+			if (!svc_register(tcp6transp, RPCPROG_MNT, 3, mntsrv, 0))
+				log(LOG_ERR, "Can't register IPv6 MOUNT/TCP v3 service");
+			else
+				svcregcnt++;
+			if (!svcregcnt) {
+				svc_destroy(tcp6transp);
+				close(mounttcp6sock);
+				mounttcp6sock = -1;
+				mounttcp6port = 0;
+			}
+		}
+
 	}
-	if ((udptransp == NULL) && (tcptransp == NULL)) {
-		log(LOG_ERR, "Can't create MOUNT sockets");
+
+	if ((mountudp6sock < 0) && (mounttcp6sock < 0))
+		log(LOG_WARNING, "Can't create MOUNT IPv6 sockets");
+	if ((mountudpsock < 0) && (mounttcpsock < 0))
+		log(LOG_WARNING, "Can't create MOUNT IPv4 sockets");
+	if ((mountudp6sock < 0) && (mounttcp6sock < 0) &&
+	    (mountudpsock < 0) && (mounttcpsock < 0)) {
+		log(LOG_ERR, "Can't create any MOUNT sockets!");
 		exit(1);
 	}
 
@@ -622,17 +812,25 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	struct fhreturn fhr;
 	struct stat stb;
 	struct statfs fsb;
-	struct hostent *hp;
 	struct nfs_sec secflavs;
-	uint32_t saddr;
+	struct sockaddr *sa;
 	u_short sport;
-	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN], *mhost;
+	char rpcpath[RPCMNT_PATHLEN + 1], dirpath[MAXPATHLEN];
+	char addrbuf[2*INET6_ADDRSTRLEN], hostbuf[NI_MAXHOST];
 	int bad = ENOENT, options;
 	u_char uuid[16];
 
-	saddr = transp->xp_raddr.sin_addr.s_addr;
-	sport = ntohs(transp->xp_raddr.sin_port);
-	hp = NULL;
+	sa = svc_getcaller_sa(transp);
+	if (sa->sa_family == AF_INET)
+		sport = ntohs(((struct sockaddr_in*)sa)->sin_port);
+	else if (sa->sa_family == AF_INET6)
+		sport = ntohs(((struct sockaddr_in6*)sa)->sin6_port);
+	else
+		sport = 0;
+
+	strlcpy(hostbuf, "unknown_host", sizeof(hostbuf));
+	strlcpy(addrbuf, "unknown_host", sizeof(addrbuf));
+
 	switch (rqstp->rq_proc) {
 	case NULLPROC:
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
@@ -643,7 +841,7 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			svcerr_weakauth(transp);
 			return;
 		}
-		if (!svc_getargs(transp, xdr_dir, rpcpath)) {
+		if (!svc_getargs(transp, (xdrproc_t)xdr_dir, rpcpath)) {
 			svcerr_decode(transp);
 			return;
 		}
@@ -666,8 +864,8 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
 				log(LOG_ERR, "Can't send reply for failed mount");
 			if (config.verbose) {
-				mhost = inet_ntoa(transp->xp_raddr.sin_addr);
-				log(LOG_NOTICE, "Mount failed: %s %s", mhost, dirpath);
+				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
 			}
 			return;
 		}
@@ -679,20 +877,21 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
 				log(LOG_ERR, "Can't send reply for failed mount");
 			if (config.verbose) {
-				mhost = inet_ntoa(transp->xp_raddr.sin_addr);
-				log(LOG_NOTICE, "Mount failed: %s %s", mhost, dirpath);
+				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
 			}
 			return;
 		}
 
 		/* Check in the exports list */
 		xf = ex_search(uuid);
-		if (xf && expdir_search(xf, dirpath, saddr, &options, &secflavs)) {
+		if (xf && expdir_search(xf, dirpath, sa, &options, &secflavs)) {
 			fhr.fhr_flags = options;
 			fhr.fhr_vers = rqstp->rq_vers;
 			bcopy(&secflavs, &fhr.fhr_sec, sizeof(struct nfs_sec));
-			/* Get the file handle */
+			/* Get the file handle (specifying max fh size based on protocol version */
 			memset(&fhr.fhr_fh, 0, sizeof(fhandle_t));
+			fhr.fhr_fh.fh_len = (fhr.fhr_vers < 3) ? NFSV2_MAX_FH_SIZE : NFSV3_MAX_FH_SIZE;
 			if (getfh(dirpath, (fhandle_t *)&fhr.fhr_fh) < 0) {
 				DEBUG(1, "Can't get fh for %s: %s (%d)", dirpath,
 					strerror(errno), errno);
@@ -704,16 +903,14 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 			}
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_fhs, (caddr_t)&fhr))
 				log(LOG_ERR, "Can't send mount reply");
-			hp = gethostbyaddr((caddr_t)&transp->xp_raddr.sin_addr,
-				sizeof(transp->xp_raddr.sin_addr), AF_INET);
-			mhost = hp ? hp->h_name : inet_ntoa(transp->xp_raddr.sin_addr);
-			add_mlist(mhost, dirpath);
-			log(LOG_INFO, "Mount successful: %s %s", mhost, dirpath);
+			if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, 0))
+				add_mlist(hostbuf, dirpath);
+			log(LOG_INFO, "Mount successful: %s %s", hostbuf, dirpath);
 		} else {
 			bad = EACCES;
 			if (config.verbose) {
-				mhost = inet_ntoa(transp->xp_raddr.sin_addr);
-				log(LOG_NOTICE, "Mount failed: %s %s", mhost, dirpath);
+				getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+				log(LOG_NOTICE, "Mount failed: %s %s", addrbuf, dirpath);
 			}
 			if (!svc_sendreply(transp, (xdrproc_t)xdr_long, (caddr_t)&bad))
 				log(LOG_ERR, "Can't send reply for failed mount");
@@ -723,24 +920,29 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 	case RPCMNT_DUMP:
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_mlist, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send MOUNT dump reply");
+		if (config.verbose >= 3) {
+			getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+			DEBUG(1, "dump: %s", addrbuf);
+		}
 		return;
 	case RPCMNT_UMOUNT:
 		if ((sport >= IPPORT_RESERVED) && config.mount_require_resv_port) {
 			svcerr_weakauth(transp);
 			return;
 		}
-		if (!svc_getargs(transp, xdr_dir, dirpath)) {
+		if (!svc_getargs(transp, (xdrproc_t)xdr_dir, dirpath)) {
 			svcerr_decode(transp);
 			return;
 		}
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send UMOUNT reply");
-		hp = gethostbyaddr((caddr_t)&saddr, sizeof(saddr), AF_INET);
-		if (hp)
-			del_mlist(hp->h_name, dirpath);
-		del_mlist(inet_ntoa(transp->xp_raddr.sin_addr), dirpath);
-		mhost = hp ? hp->h_name : inet_ntoa(transp->xp_raddr.sin_addr);
-		log(LOG_INFO, "umount: %s %s", mhost, dirpath);
+		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
+			del_mlist(hostbuf, dirpath);
+		else
+			hostbuf[0] = '\0';
+		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
+			del_mlist(addrbuf, dirpath);
+		log(LOG_INFO, "umount: %s %s", hostbuf[0] ? hostbuf : addrbuf, dirpath);
 		return;
 	case RPCMNT_UMNTALL:
 		if ((sport >= IPPORT_RESERVED) && config.mount_require_resv_port) {
@@ -749,19 +951,23 @@ mntsrv(struct svc_req *rqstp, SVCXPRT *transp)
 		}
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_void, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send UMNTALL reply");
-		hp = gethostbyaddr((caddr_t)&saddr, sizeof(saddr), AF_INET);
-		if (hp)
-			del_mlist(hp->h_name, (char *)NULL);
-		del_mlist(inet_ntoa(transp->xp_raddr.sin_addr), (char *)NULL);
-		mhost = hp ? hp->h_name : inet_ntoa(transp->xp_raddr.sin_addr);
-		log(LOG_INFO, "umount all: %s", mhost);
+		if (!getnameinfo(sa, sa->sa_len, hostbuf, sizeof(hostbuf), NULL, 0, NI_NAMEREQD))
+			del_mlist(hostbuf, NULL);
+		else
+			hostbuf[0] = '\0';
+		if (!getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST))
+			del_mlist(addrbuf, (char *)NULL);
+		log(LOG_INFO, "umount all: %s", hostbuf[0] ? hostbuf : addrbuf);
 		return;
 	case RPCMNT_EXPORT:
 		lock_exports();
 		if (!svc_sendreply(transp, (xdrproc_t)xdr_explist, (caddr_t)NULL))
 			log(LOG_ERR, "Can't send EXPORT reply");
 		unlock_exports();
-		DEBUG(1, "export: %s", inet_ntoa(transp->xp_raddr.sin_addr));
+		if (config.verbose >= 3) {
+			getnameinfo(sa, sa->sa_len, addrbuf, sizeof(addrbuf), NULL, 0, NI_NUMERICHOST);
+			DEBUG(1, "export: %s", addrbuf);
+		}
 		return;
 	default:
 		svcerr_noproc(transp);
@@ -792,12 +998,12 @@ xdr_fhs(XDR *xdrsp, caddr_t cp)
 		return (0);
 	switch (fhrp->fhr_vers) {
 	case 1:
-		return (xdr_opaque(xdrsp, (caddr_t)fhrp->fhr_fh.fh_data, NFSX_V2FH));
+		return (xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, NFSX_V2FH));
 	case 3:
 		len = fhrp->fhr_fh.fh_len;
 		if (!xdr_long(xdrsp, &len))
 			return (0);
-		if (!xdr_opaque(xdrsp, (caddr_t)fhrp->fhr_fh.fh_data, fhrp->fhr_fh.fh_len))
+		if (!xdr_opaque(xdrsp, fhrp->fhr_fh.fh_data, fhrp->fhr_fh.fh_len))
 			return (0);
 		/* security flavors */
 		if (fhrp->fhr_sec.count == 0) {
@@ -1430,8 +1636,10 @@ uuidlist_restore(void)
 			}
 			/* parse XID and add to current UUID */
 			xid = malloc(sizeof(*xid));
-			if (xid == NULL)
-				out_of_mem("uuidlist_restore");
+			if (xid == NULL) {
+				log(LOG_ERR, "uuidlist_restore: Out of memory");
+				exit(2);
+			}
 			cp = str + 4;
 			slen -= 4;
 			if (sscanf(cp, "%i", &xid->xid_id) != 1) {
@@ -1460,8 +1668,10 @@ uuidlist_restore(void)
 			continue;
 		}
 		ulp = malloc(sizeof(*ulp));
-		if (ulp == NULL)
-			out_of_mem("uuidlist_restore");
+		if (ulp == NULL) {
+			log(LOG_ERR, "uuidlist_restore: Out of memory");
+			exit(2);
+		}
 		bzero(ulp, sizeof(*ulp));
 		LIST_INIT(&ulp->ul_exportids);
 		cp = str;
@@ -1824,6 +2034,7 @@ get_exportlist(void)
 	TAILQ_INIT(&names);
 	TAILQ_INIT(&netgroups);
 	hostnamecount = hostnamegoodcount = 0;
+	missingexportcount = 0;
 	export_errors = 0;
 	linenum = 0;
 
@@ -2176,6 +2387,7 @@ get_exportlist(void)
 
 		if (bestulp && (opt_flags & OP_MISSING)) {
 prepare_offline_export:
+			missingexportcount++;
 			export_error(LOG_WARNING, "using fallback (marked offline): %s", bestulp->ul_mntonname);
 			exflags |= NX_OFFLINE;
 			opt_flags |= OP_MISSING;
@@ -2492,7 +2704,12 @@ exports_read:
 			tgrp = NULL;
 			TAILQ_FOREACH_SAFE(ht, &htfree, ht_next, ht2) {
 				grp = ht->ht_grp;
-				if (!find_group_address_match_in_host_list(&xd->xd_hosts, grp)) {
+				if (grp->gr_type == GT_NETGROUP) {
+					/*
+					 * netgroup entries should just be freed up now with the host.
+					 * Don't bother trying to match up because they won't.
+					 */
+				} else if (!find_group_address_match_in_host_list(&xd->xd_hosts, grp)) {
 					/* no conflicts, so we can safely delete these */
 					/* steal the grp from the host */
 					ht->ht_grp = NULL;
@@ -2504,7 +2721,7 @@ exports_read:
 						tgrp = grp;
 					}
 				} else if (grp->gr_type == GT_HOST) {
-					uint32_t **a1, **a2, **a3, *atmp;
+					struct addrinfo *a1, *a2, *prea3, *a3, atmp, *anexttmp;
 					/*
 					 * Some or all of the addresses are still exported.
 					 * Find any addresses whose exports haven't been replaced.
@@ -2515,31 +2732,37 @@ exports_read:
 					 * delete exports for.  The effect is that addresses which
 					 * are still exported will be "squeezed" out of the array.
 					 */
-					a1 = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
+					a1 = grp->gr_u.gt_hostinfo.h_ailist;
+					prea3 = NULL;
 					a3 = a1;
-					while (*a1) {
+					while (a1) {
 						/* scan exports host list for GT_HOSTs w/matching address */
 						TAILQ_FOREACH(ht3, &xd->xd_hosts, ht_next) {
 							if (ht3->ht_grp->gr_type != GT_HOST)
 								continue;
-							a2 = (uint32_t **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
-							while (*a2 && (**a1 != **a2))
-								a2++;
-							if (*a2) /* we found a match */
+							a2 = ht3->ht_grp->gr_u.gt_hostinfo.h_ailist;
+							while (a2 && addrinfo_cmp(a1, a2))
+								a2 = a2->ai_next;
+							if (a2) /* we found a match */
 								break;
 						}
 						if (!ht3) {
 							/* didn't find address, so "add" it to the array */
-							if (*a3 != *a1) {
+							if (a3 != a1) {
+								/* switch all elements except ai_next */
 								atmp = *a3;
+								anexttmp = a3->ai_next;
 								*a3 = *a1;
+								a3->ai_next = anexttmp;
+								atmp.ai_next = a1->ai_next;
 								*a1 = atmp;
 							}
-							a3++;
+							prea3 = a3;
+							a3 = a3->ai_next;
 						}
-						a1++;
+						a1 = a1->ai_next;
 					}
-					if (a3 == (uint32_t **)grp->gr_u.gt_hostent->h_addr_list) {
+					if (a3 == grp->gr_u.gt_hostinfo.h_ailist) {
 						/* a3 hasn't moved, so we know that all of */
 						/* the addresses are being exported again */
 						/* so we shouldn't delete any of the exports */
@@ -2547,10 +2770,9 @@ exports_read:
 						/* some of the addresses are being exported again */
 						/* we've compacted the list of addresses that aren't */
 						/* and here we will free up the rest of them */
-						while (*a3) {
-							free(*a3);
-							*a3++ = NULL;
-						}
+						if (prea3)
+							prea3->ai_next = NULL;
+						freeaddrinfo(a3);
 						/* steal the grp from the host */
 						ht->ht_grp = NULL;
 						if (!add_grp(&tgrp, grp)) {
@@ -2570,14 +2792,8 @@ exports_read:
 				DEBUG(1, "deleting export for %s/%s", xf->xf_fsdir, xd->xd_xid->xid_path);
 				g = tgrp;
 				while (g) {
-					DEBUG(3, "    0x%x %d %s %s",
-						g, g->gr_refcnt, grp_name(g),
-						(g->gr_type == GT_HOST) ? 
-						inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
-						(g->gr_type == GT_NET) ? 
-						inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
-						(g->gr_type == GT_NETGROUP) ? "" : "???");
-					g = g->gr_cache;
+					DEBUG(3, "    %p %d %s %s", g, g->gr_refcnt, grp_name(g), grp_addr(g));
+					g = g->gr_next;
 				}
 			}
 			if (tgrp && do_export(NXA_DELETE, xf, xd, tgrp, 0, NULL, NULL)) {
@@ -2630,29 +2846,34 @@ exports_read:
 	 * If we appear to be having problems resolving host names on startup,
 	 * then we'll want to automatically recheck exports for a while.
 	 *
-	 * First time through, we make sure to set recheckexports.
+	 * First time through, we make sure to set recheckexports_until.
 	 * If we have problems then set the recheck timer - otherwise disable it.
 	 * On subsequent export checks, turn off the recheck timer once we no
 	 * longer need it or the timer expires.
 	 */
-	if (!checkexports && (recheckexports == 0)) {	/* first time through... */
+	if (!checkexports && (recheckexports_until == 0)) {	/* first time through... */
 		/* did we have any host names and were any of them problematic? */
 		if (hostnamegoodcount != hostnamecount) {
 			log(LOG_WARNING, "There seem to be problems resolving host names...");
 			log(LOG_WARNING, "...will periodically recheck exports for a while.");
-			recheckexports = time(NULL) + RECHECKEXPORTS_TIMEOUT; /* set the recheck timer */
+			recheckexports_until = time(NULL) + RECHECKEXPORTS_TIMEOUT; /* set the recheck timer */
 		} else {
-			recheckexports = -1; /* turn it off */
+			recheckexports_until = -1; /* turn it off */
 		}
-	} else if (recheckexports > 0) {
+	} else if (recheckexports_until > 0) {
 		/* if we don't need to recheck any more, turn it off */
 		if (hostnamegoodcount == hostnamecount) {
-			recheckexports = -1;
-		} else if (recheckexports < time(NULL)) {
+			recheckexports_until = -1;
+		} else if (recheckexports_until < time(NULL)) {
 			log(LOG_WARNING, "Giving up on automatic rechecking of exports.");
-			recheckexports = -1;
+			recheckexports_until = -1;
 		}
 	}
+	/* should we be rechecking exports? */
+	if (!checkexports && ((recheckexports_until > 0) || missingexportcount))
+		recheckexports = 1;
+	else
+		recheckexports = 0;
 
 	unlock_exports();
 
@@ -2704,8 +2925,51 @@ grp_name(struct grouplist *grp)
 	if (grp->gr_type == GT_NET)
 		return (grp->gr_u.gt_net.nt_name);
 	if (grp->gr_type == GT_HOST)
-		return (grp->gr_u.gt_hostent->h_name);
+		return (grp->gr_u.gt_hostinfo.h_name);
 	return (unknown_group);
+}
+
+/*
+ * Return a string (in a static buffer) for the (first) address of the given group.
+ */
+static char grpaddrbuf[MAXPATHLEN];
+const char *
+grp_addr(struct grouplist *grp)
+{
+	struct addrinfo *ai;
+	void *sinaddr;
+	const char *s = NULL;
+
+	if (grp->gr_type == GT_HOST) {
+		if ((ai = grp->gr_u.gt_hostinfo.h_ailist)) {
+			sinaddr = (ai->ai_family == AF_INET) ?
+				(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
+				(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+			if (inet_ntop(ai->ai_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf)))
+				s = grpaddrbuf;
+		}
+	} else if (grp->gr_type == GT_NET) {
+		sinaddr = (grp->gr_u.gt_net.nt_family == AF_INET) ?
+			(void*)&grp->gr_u.gt_net.nt_net : (void*)&grp->gr_u.gt_net.nt_net6;
+		if (inet_ntop(grp->gr_u.gt_net.nt_family, sinaddr, grpaddrbuf, sizeof(grpaddrbuf)))
+			s = grpaddrbuf;
+	} else if (grp->gr_type == GT_NETGROUP) {
+		s = "";
+	}
+
+	if (!s)
+		s = "???";
+	return (s);
+}
+
+int
+addrinfo_cmp(struct addrinfo *a1, struct addrinfo *a2)
+{
+	if (a1->ai_family != a2->ai_family)
+		return (a1->ai_family - a2->ai_family);
+	if (a1->ai_addrlen != a2->ai_addrlen)
+		return (a1->ai_addrlen - a2->ai_addrlen);
+	return bcmp(a1->ai_addr, a2->ai_addr, a1->ai_addrlen);
 }
 
 /*
@@ -2714,9 +2978,8 @@ grp_name(struct grouplist *grp)
 int
 grpcmp(struct grouplist *g1, struct grouplist *g2)
 {
-	struct hostent *h1, *h2;
 	struct netmsk *n1, *n2;
-	uint32_t **a1, **a2;
+	struct addrinfo *a1, *a2;
 	int rv;
 
 	rv = g1->gr_type - g2->gr_type;
@@ -2732,28 +2995,36 @@ grpcmp(struct grouplist *g1, struct grouplist *g2)
 		rv = strcmp(n1->nt_name, n2->nt_name);
 		if (rv)
 			break;
-		rv = n1->nt_net - n2->nt_net;
+		rv = n1->nt_family - n2->nt_family;
 		if (rv)
 			break;
-		rv = n1->nt_mask - n2->nt_mask;
-		break;
-	case GT_HOST:
-		h1 = g1->gr_u.gt_hostent;
-		h2 = g2->gr_u.gt_hostent;
-		rv = strcmp(h1->h_name, h2->h_name);
-		if (rv)
-			break;
-		a1 = (uint32_t **)h1->h_addr_list;
-		a2 = (uint32_t **)h2->h_addr_list;
-		while (*a1 && *a2) {
-			rv = **a1 - **a2;
+		if (n1->nt_family == AF_INET) {
+			rv = bcmp(&n1->nt_net, &n2->nt_net, sizeof(n1->nt_net));
 			if (rv)
 				break;
-			a1++;
-			a2++;
+			rv = bcmp(&n1->nt_mask, &n2->nt_mask, sizeof(n1->nt_mask));
+		} else if (n1->nt_family == AF_INET6) {
+			rv = bcmp(&n1->nt_net6, &n2->nt_net6, sizeof(n1->nt_net6));
+			if (rv)
+				break;
+			rv = bcmp(&n1->nt_mask6, &n2->nt_mask6, sizeof(n1->nt_mask6));
 		}
-		if (!rv && !(!*a1 && !*a2)) {
-			if (*a1)
+		break;
+	case GT_HOST:
+		rv = strcmp(g1->gr_u.gt_hostinfo.h_name, g2->gr_u.gt_hostinfo.h_name);
+		if (rv)
+			break;
+		a1 = g1->gr_u.gt_hostinfo.h_ailist;
+		a2 = g2->gr_u.gt_hostinfo.h_ailist;
+		while (a1 && a2) {
+			rv = addrinfo_cmp(a1, a2);
+			if (rv)
+				break;
+			a1 = a1->ai_next;
+			a2 = a2->ai_next;
+		}
+		if (!rv && !(!a1 && !a2)) {
+			if (a1)
 				rv = 1;
 			else
 				rv = -1;
@@ -2774,26 +3045,13 @@ struct grouplist *
 get_grp(struct grouplist *grptmp)
 {
 	struct grouplist *g, *g2;
-	char **addrp;
 	int cmp = 1, clean_up_gr_u = 1;
 
 	if (config.verbose >= 7) {
-		DEBUG(5, "get_grp: %s %s",
-			grp_name(grptmp),
-			(grptmp->gr_type == GT_HOST) ? 
-			inet_ntoa(*(struct in_addr *)*grptmp->gr_u.gt_hostent->h_addr_list) :
-			(grptmp->gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&grptmp->gr_u.gt_net.nt_net) :
-			(grptmp->gr_type == GT_NETGROUP) ? "" : "???");
+		DEBUG(5, "get_grp: %s %s", grp_name(grptmp), grp_addr(grptmp));
 		g = grpcache;
 		while (g) {
-			DEBUG(6, "grpcache: 0x%x %d %s %s",
-				g, g->gr_refcnt, grp_name(g),
-				(g->gr_type == GT_HOST) ? 
-				inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
-				(g->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
-				(g->gr_type == GT_NETGROUP) ? "" : "???");
+			DEBUG(6, "grpcache: %p %d %s %s", g, g->gr_refcnt, grp_name(g), grp_addr(g));
 			g = g->gr_cache;
 		}
 	}
@@ -2808,13 +3066,7 @@ get_grp(struct grouplist *grptmp)
 	if (!cmp) {
 		g->gr_refcnt++;
 		if (config.verbose >= 7)
-			DEBUG(5, "get_grp: found 0x%x %d %s %s",
-				g, g->gr_refcnt, grp_name(g),
-				(g->gr_type == GT_HOST) ? 
-				inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
-				(g->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
-				(g->gr_type == GT_NETGROUP) ? "" : "???");
+			DEBUG(5, "get_grp: found %p %d %s %s", g, g->gr_refcnt, grp_name(g), grp_addr(g));
 		g->gr_flags |= grptmp->gr_flags;
 		goto out;
 	}
@@ -2838,22 +3090,10 @@ get_grp(struct grouplist *grptmp)
 	}
 
 	if (config.verbose >= 7) {
-		DEBUG(5, "get_grp: ----- NEW 0x%x %d %s %s",
-			g, g->gr_refcnt, grp_name(g),
-			(g->gr_type == GT_HOST) ? 
-			inet_ntoa(*(struct in_addr *)*g->gr_u.gt_hostent->h_addr_list) :
-			(g->gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&g->gr_u.gt_net.nt_net) :
-			(g->gr_type == GT_NETGROUP) ? "" : "???");
+		DEBUG(5, "get_grp: ----- NEW %p %d %s %s", g, g->gr_refcnt, grp_name(g), grp_addr(g));
 		g2 = grpcache;
 		while (g2) {
-			DEBUG(6, "grpcache: 0x%x %d %s %s",
-				g2, g2->gr_refcnt, grp_name(g2),
-				(g2->gr_type == GT_HOST) ? 
-				inet_ntoa(*(struct in_addr *)*g2->gr_u.gt_hostent->h_addr_list) :
-				(g2->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&g2->gr_u.gt_net.nt_net) :
-				(g2->gr_type == GT_NETGROUP) ? "" : "???");
+			DEBUG(6, "grpcache: %p %d %s %s", g2, g2->gr_refcnt, grp_name(g2), grp_addr(g2));
 			g2 = g2->gr_cache;
 		}
 	}
@@ -2863,16 +3103,10 @@ out:
 		/* free up the contents of grptmp->gr_u */
 		switch (grptmp->gr_type) {
 		case GT_HOST:
-			if (grptmp->gr_u.gt_hostent) {
-				addrp = grptmp->gr_u.gt_hostent->h_addr_list;
-				while (addrp && *addrp)
-					free(*addrp++);
-				if (grptmp->gr_u.gt_hostent->h_addr_list)
-					free(grptmp->gr_u.gt_hostent->h_addr_list);
-				if (grptmp->gr_u.gt_hostent->h_name)
-					free(grptmp->gr_u.gt_hostent->h_name);
-				free(grptmp->gr_u.gt_hostent);
-			}
+			if (grptmp->gr_u.gt_hostinfo.h_ailist)
+				freeaddrinfo(grptmp->gr_u.gt_hostinfo.h_ailist);
+			if (grptmp->gr_u.gt_hostinfo.h_name)
+				free(grptmp->gr_u.gt_hostinfo.h_name);
 			break;
 		case GT_NET:
 			if (grptmp->gr_u.gt_net.nt_name)
@@ -2895,19 +3129,12 @@ void
 free_grp(struct grouplist *grp)
 {
 	struct grouplist **g;
-	char **addrp;
 
 	/* decrement reference count */
 	grp->gr_refcnt--;
 
 	if (config.verbose >= 7)
-		DEBUG(5, "free_grp: 0x%x %d %s %s",
-			grp, grp->gr_refcnt, grp_name(grp),
-			(grp->gr_type == GT_HOST) ? 
-			inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
-			(grp->gr_type == GT_NET) ? 
-			inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
-			(grp->gr_type == GT_NETGROUP) ? "" : "???");
+		DEBUG(5, "free_grp: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
 
 	if (grp->gr_refcnt > 0)
 		return;
@@ -2916,20 +3143,15 @@ free_grp(struct grouplist *grp)
 	g = &grpcache;
 	while (*g && (*g != grp))
 		g = &(*g)->gr_cache;
-	*g = (*g)->gr_cache;
+	if (*g)
+		*g = (*g)->gr_cache;
 
 	/* free up the memory */
 	if (grp->gr_type == GT_HOST) {
-		if (grp->gr_u.gt_hostent) {
-			addrp = grp->gr_u.gt_hostent->h_addr_list;
-			while (addrp && *addrp)
-				free(*addrp++);
-			if (grp->gr_u.gt_hostent->h_addr_list)
-				free(grp->gr_u.gt_hostent->h_addr_list);
-			if (grp->gr_u.gt_hostent->h_name)
-				free(grp->gr_u.gt_hostent->h_name);
-			free(grp->gr_u.gt_hostent);
-		}
+		if (grp->gr_u.gt_hostinfo.h_ailist)
+			freeaddrinfo(grp->gr_u.gt_hostinfo.h_ailist);
+		if (grp->gr_u.gt_hostinfo.h_name)
+			free(grp->gr_u.gt_hostinfo.h_name);
 	} else if (grp->gr_type == GT_NET) {
 		if (grp->gr_u.gt_net.nt_name)
 			free(grp->gr_u.gt_net.nt_name);
@@ -3267,25 +3489,26 @@ find_group_address_match_in_host_list(struct hosttqh *head, struct grouplist *gr
 {
 	struct host *ht;
 	struct netmsk *n1, *n2;
-	uint32_t **a1, **a2;
+	struct addrinfo *a1, *a2;
+	int i;
 
 	switch (grp->gr_type) {
 	case GT_HOST:
-		a1 = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
-		while (*a1) {
+		a1 = grp->gr_u.gt_hostinfo.h_ailist;
+		while (a1) {
 			TAILQ_FOREACH(ht, head, ht_next) {
 				if (ht->ht_grp->gr_type != GT_HOST)
 					continue;
 				if (ht->ht_flags & OP_DEL)
 					continue;
-				a2 = (uint32_t **) ht->ht_grp->gr_u.gt_hostent->h_addr_list;
-				while (*a2) {
-					if (**a1 == **a2)
+				a2 = ht->ht_grp->gr_u.gt_hostinfo.h_ailist;
+				while (a2) {
+					if (!addrinfo_cmp(a1, a2))
 						return (ht);
-					a2++;
+					a2 = a2->ai_next;
 				}
 			}
-			a1++;
+			a1 = a1->ai_next;
 		}
 		break;
 	case GT_NET:
@@ -3296,8 +3519,23 @@ find_group_address_match_in_host_list(struct hosttqh *head, struct grouplist *gr
 			if (ht->ht_flags & OP_DEL)
 				continue;
 			n2 = &ht->ht_grp->gr_u.gt_net;
-			if ((n1->nt_net & n1->nt_mask) == (n2->nt_net & n2->nt_mask))
-				return (ht);
+			if (n1->nt_family != n2->nt_family)
+				continue;
+			if (n1->nt_family == AF_INET) {
+				in_addr_t ina1, ina2;
+				ina1 = n1->nt_net & n1->nt_mask;
+				ina2 = n2->nt_net & n2->nt_mask;
+				if (ina1 == ina2)
+					return (ht);
+			} else if (n1->nt_family == AF_INET6) {
+				struct in6_addr ina1, ina2;
+				for (i=0; i < (int)sizeof(ina1.s6_addr); i++) {
+					ina1.s6_addr[i] = n1->nt_net6.s6_addr[i] & n1->nt_mask6.s6_addr[i];
+					ina2.s6_addr[i] = n2->nt_net6.s6_addr[i] & n2->nt_mask6.s6_addr[i];
+				}
+				if (!bcmp(&ina1, &ina2, sizeof(ina1)))
+					return (ht);
+			}
 		}
 		break;
 	}
@@ -3423,13 +3661,7 @@ hang_options_setup(struct expdir *xd, int opt_flags, struct xucred *cr, struct g
 		if (grp->gr_flags & GF_SHOW)
 			ht->ht_flags |= OP_SHOW;
 		if (config.verbose >= 6)
-			DEBUG(4, "grp2host: 0x%x %d %s %s",
-				grp, grp->gr_refcnt, grp_name(grp),
-				(grp->gr_type == GT_HOST) ? 
-				inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
-				(grp->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
-				(grp->gr_type == GT_NETGROUP) ? "" : "???");
+			DEBUG(4, "grp2host: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
 		if (!add_host(&xd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "duplicate host in export list: %s", grp_name(grp));
@@ -3624,13 +3856,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
 		if (grp->gr_flags & GF_SHOW)
 			ht->ht_flags |= OP_SHOW;
 		if (config.verbose >= 6)
-			DEBUG(4, "grp2host: 0x%x %d %s %s",
-				grp, grp->gr_refcnt, grp_name(grp),
-				(grp->gr_type == GT_HOST) ? 
-				inet_ntoa(*(struct in_addr *)*grp->gr_u.gt_hostent->h_addr_list) :
-				(grp->gr_type == GT_NET) ? 
-				inet_ntoa(*(struct in_addr *)&grp->gr_u.gt_net.nt_net) :
-				(grp->gr_type == GT_NETGROUP) ? "" : "???");
+			DEBUG(4, "grp2host: %p %d %s %s", grp, grp->gr_refcnt, grp_name(grp), grp_addr(grp));
 		if (!add_host(&mxd->xd_hosts, ht)) {
 			/* This shouldn't happen given the above checks */
 			log(LOG_ERR, "Can't add host to mountdir export list: %s", grp_name(grp));
@@ -3656,7 +3882,7 @@ hang_options_mountdir(struct expdir *xd, char *dir, int opt_flags, struct groupl
  * a subdir match on exported directory path with ALLDIRS
  */
 int
-expdir_search(struct expfs *xf, char *dirpath, uint32_t saddr, int *options, struct nfs_sec *secflavs)
+expdir_search(struct expfs *xf, char *dirpath, struct sockaddr *sa, int *options, struct nfs_sec *secflavs)
 {
 	struct expdir *xd, *mxd;
 	struct host *hp;
@@ -3677,7 +3903,7 @@ expdir_search(struct expfs *xf, char *dirpath, uint32_t saddr, int *options, str
 		/* exact match on exported directory path */
 check_xd_hosts:
 		/* find options for this host */
-		hp = find_host(&xd->xd_hosts, saddr);
+		hp = find_host(&xd->xd_hosts, sa);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s host %s", dirpath,
 				(chkalldirs ? "alldirs" : "match"));
@@ -3707,7 +3933,7 @@ check_xd_hosts:
 			dirpath, mxd->xd_dir);
 		chkalldirs = (cmp != 0);
 		/* found a match on a mountdir */
-		hp = find_host(&mxd->xd_hosts, saddr);
+		hp = find_host(&mxd->xd_hosts, sa);
 		if (hp && (!chkalldirs || (hp->ht_flags & OP_ALLDIRS))) {
 			DEBUG(2, "expdir_search: %s -> %s subdir host %s",
 				dirpath, mxd->xd_dir, (chkalldirs ? "alldirs" : "match"));
@@ -3734,27 +3960,52 @@ check_xd_hosts:
  * search a host list for a match for the given address
  */
 struct host *
-find_host(struct hosttqh *head, uint32_t saddr)
+find_host(struct hosttqh *head, struct sockaddr *sa)
 {
 	struct host *hp;
 	struct grouplist *grp;
-	uint32_t **addrp;
+	struct addrinfo *ai;
+	int i;
 
 	TAILQ_FOREACH(hp, head, ht_next) {
 		grp = hp->ht_grp;
 		switch (grp->gr_type) {
 		case GT_HOST:
-			addrp = (uint32_t **) grp->gr_u.gt_hostent->h_addr_list;
-			while (*addrp) {
-				if (**addrp == saddr)
-					return (hp);
-				addrp++;
+			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next) {
+				if (ai->ai_family != sa->sa_family)
+					continue;
+				if (ai->ai_addrlen != sa->sa_len)
+					continue;
+				if (ai->ai_family == AF_INET) {
+					struct sockaddr_in *sin1, *sin2;
+					sin1 = (struct sockaddr_in*)ai->ai_addr;
+					sin2 = (struct sockaddr_in*)sa;
+					if (!bcmp(&sin1->sin_addr, &sin2->sin_addr, sizeof(sin1->sin_addr)))
+						return (hp);
+				} else if (ai->ai_family == AF_INET6) {
+					struct sockaddr_in6 *sin1, *sin2;
+					sin1 = (struct sockaddr_in6*)ai->ai_addr;
+					sin2 = (struct sockaddr_in6*)sa;
+					if (!bcmp(&sin1->sin6_addr, &sin2->sin6_addr, sizeof(sin1->sin6_addr)))
+						return (hp);
+				}
 			}
 			break;
 		case GT_NET:
-			if ((saddr & grp->gr_u.gt_net.nt_mask) ==
-			    grp->gr_u.gt_net.nt_net)
-				return (hp);
+			if (grp->gr_u.gt_net.nt_family != sa->sa_family)
+				break;
+			if (grp->gr_u.gt_net.nt_family == AF_INET) {
+				in_addr_t ina = ((struct sockaddr_in*)sa)->sin_addr.s_addr;
+				if ((ina & grp->gr_u.gt_net.nt_mask) == grp->gr_u.gt_net.nt_net)
+					return (hp);
+			} else if (grp->gr_u.gt_net.nt_family == AF_INET6) {
+				struct sockaddr_in6 *sa6 = (struct sockaddr_in6*)sa;
+				struct in6_addr ina;
+				for (i=0; i < (int)sizeof(ina.s6_addr); i++)
+					ina.s6_addr[i] = sa6->sin6_addr.s6_addr[i] & grp->gr_u.gt_net.nt_mask6.s6_addr[i];
+				if (!bcmp(&ina, &grp->gr_u.gt_net.nt_net6, sizeof(ina)))
+					return (hp);
+			}
 			break;
 		}
 	}
@@ -3953,86 +4204,26 @@ out:
 int
 get_host_addresses(char *cp, struct grouplist *grp)
 {
-	struct hostent *hp, *nhp;
-	char **addrp, **naddrp;
-	struct hostent t_host;
-	int i;
-	uint32_t saddr;
-	char *aptr[2];
+	struct addrinfo *ailist, aihints;
 
 	if (grp->gr_type != GT_NULL)
 		return (1);
-	if ((hp = gethostbyname(cp)) == NULL) {
-		if (!isdigit(*cp)) {
-			log(LOG_ERR, "Gethostbyname failed for %s", cp);
-			hostnamecount++;
-			return (1);
-		}
-		saddr = inet_addr(cp);
-		if (saddr == INADDR_NONE) {
-			log(LOG_ERR, "Inet_addr failed for %s", cp);
-			hostnamecount++;
-			return (1);
-		}
-		if ((hp = gethostbyaddr((caddr_t)&saddr, sizeof (saddr),
-					AF_INET)) == NULL) {
-			hp = &t_host;
-			hp->h_name = cp;
-			hp->h_addrtype = AF_INET;
-			hp->h_length = sizeof (uint32_t);
-			hp->h_addr_list = aptr;
-			aptr[0] = (char *)&saddr;
-			aptr[1] = (char *)NULL;
-		}
-	} else {
+
+	bzero(&aihints, sizeof(aihints));
+	aihints.ai_socktype = SOCK_STREAM;
+	if (getaddrinfo(cp, NULL, &aihints, &ailist)) {
+		log(LOG_ERR, "getaddrinfo() failed for %s", cp);
 		hostnamecount++;
-		hostnamegoodcount++;
+		return (1);
 	}
-	nhp = malloc(sizeof(struct hostent));
-	if (nhp == NULL)
-		goto nomem;
-	memmove(nhp, hp, sizeof(struct hostent));
-	i = strlen(hp->h_name)+1;
-	nhp->h_name = malloc(i);
-	if (nhp->h_name == NULL)
-		goto nomem;
-	memmove(nhp->h_name, hp->h_name, i);
-	addrp = hp->h_addr_list;
-	i = 1;
-	while (*addrp++)
-		i++;
-	naddrp = nhp->h_addr_list = malloc(i*sizeof(char *));
-	if (naddrp == NULL)
-		goto nomem;
-	bzero(naddrp, i*sizeof(char *));
-	addrp = hp->h_addr_list;
-	while (*addrp) {
-		*naddrp = malloc(hp->h_length);
-		if (*naddrp == NULL)
-			goto nomem;
-		memmove(*naddrp, *addrp, hp->h_length);
-		addrp++;
-		naddrp++;
-	}
-	*naddrp = NULL;
+	hostnamecount++;
+	hostnamegoodcount++;
 	grp->gr_type = GT_HOST;
-	grp->gr_u.gt_hostent = nhp;
+	grp->gr_u.gt_hostinfo.h_ailist = ailist;
+	grp->gr_u.gt_hostinfo.h_name = strdup(cp);
 	return (0);
-nomem:
-	if (nhp) {
-		if (nhp->h_name) {
-			naddrp = nhp->h_addr_list;
-			while (naddrp && *naddrp)
-				free(*naddrp++);
-			if (nhp->h_addr_list)
-				free(nhp->h_addr_list);
-			free(nhp->h_name);
-		}
-		free(nhp);
-	}
-	log(LOG_ERR, "can't allocate memory for host address(es) for %s", cp);
-	return (1);
 }
+
 
 /*
  * Free up an exported directory structure
@@ -4110,16 +4301,6 @@ get_host(void)
 }
 
 /*
- * Out of memory, fatal
- */
-void
-out_of_mem(const char *msg)
-{
-	log(LOG_ERR, "%s: Out of memory", msg);
-	exit(2);
-}
-
-/*
  * Do the NFSSVC_EXPORT syscall to push the export info into the kernel.
  */
 int
@@ -4135,8 +4316,9 @@ do_export(
 	struct nfs_export_args nxa;
 	struct nfs_export_net_args *netargs, *na;
 	struct grouplist *grp;
-	uint32_t **addrp;
+	struct addrinfo *ai;
 	struct sockaddr_in *sin, *imask;
+	struct sockaddr_in6 *sin6, *imask6;
 	uint32_t net;
 
 	nxa.nxa_flags = expcmd;
@@ -4153,12 +4335,10 @@ do_export(
 	grp = grplist;
 	while (grp) {
 		if (grp->gr_type == GT_HOST) {
-			addrp = (uint32_t **)grp->gr_u.gt_hostent->h_addr_list;
 			/* count # addresses given for this host */
-			while (addrp && *addrp) {
-				nxa.nxa_netcount++;
-				addrp++;
-			}
+			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next)
+				if ((ai->ai_family == AF_INET) || (ai->ai_family == AF_INET6))
+					nxa.nxa_netcount++;
 		} else if (grp->gr_type == GT_NET) {
 			nxa.nxa_netcount++;
 		}
@@ -4173,27 +4353,38 @@ do_export(
 	}
 	nxa.nxa_nets = netargs;
 
-#define INIT_NETARG(N) \
+#define INIT_NETARG(N, F) \
 	do { \
 		(N)->nxna_flags = exflags; \
 		(N)->nxna_cred = cr ? *cr : def_anon; \
 		memset(&(N)->nxna_sec, 0, sizeof(struct nfs_sec)); \
 		if (secflavs != NULL) \
 			bcopy(secflavs, &(N)->nxna_sec, sizeof(struct nfs_sec)); \
-		sin = (struct sockaddr_in*)&(N)->nxna_addr; \
-		imask = (struct sockaddr_in*)&(N)->nxna_mask; \
-		memset(sin, 0, sizeof(*sin)); \
-		memset(imask, 0, sizeof(*imask)); \
-		sin->sin_family = AF_INET; \
-		sin->sin_len = sizeof(*sin); \
-		imask->sin_family = AF_INET; \
-		imask->sin_len = sizeof(*imask); \
+		if ((F) == AF_INET) { \
+			sin = (struct sockaddr_in*)&(N)->nxna_addr; \
+			imask = (struct sockaddr_in*)&(N)->nxna_mask; \
+			memset(sin, 0, sizeof(*sin)); \
+			memset(imask, 0, sizeof(*imask)); \
+			sin->sin_family = AF_INET; \
+			sin->sin_len = sizeof(*sin); \
+			imask->sin_family = AF_INET; \
+			imask->sin_len = sizeof(*imask); \
+		} else if ((F) == AF_INET6) { \
+			sin6 = (struct sockaddr_in6*)&(N)->nxna_addr; \
+			imask6 = (struct sockaddr_in6*)&(N)->nxna_mask; \
+			memset(sin6, 0, sizeof(*sin6)); \
+			memset(imask6, 0, sizeof(*imask6)); \
+			sin6->sin6_family = AF_INET6; \
+			sin6->sin6_len = sizeof(*sin6); \
+			imask6->sin6_family = AF_INET6; \
+			imask6->sin6_len = sizeof(*imask6); \
+		} \
 	} while (0)
 
 	na = netargs;
 	if (!grplist) {
 		/* default export, no address */
-		INIT_NETARG(na);
+		INIT_NETARG(na, AF_INET);
 		sin->sin_len = 0;
 		imask->sin_len = 0;
 		na++;
@@ -4202,34 +4393,45 @@ do_export(
 	while (grp) {
 		switch (grp->gr_type) {
 		case GT_HOST:
-			addrp = (uint32_t **)grp->gr_u.gt_hostent->h_addr_list;
-			/* handle each host address in h_addr_list */
-			while (*addrp) {
-				INIT_NETARG(na);
-				sin->sin_addr.s_addr = **addrp;
-				imask->sin_len = 0;
-				addrp++;
+			/* handle each host address in the list */
+			for (ai = grp->gr_u.gt_hostinfo.h_ailist; ai; ai = ai->ai_next) {
+				if ((ai->ai_family != AF_INET) && (ai->ai_family != AF_INET6))
+					continue;
+				INIT_NETARG(na, ai->ai_family);
+				if (ai->ai_family == AF_INET) {
+					sin->sin_addr.s_addr = ((struct sockaddr_in*)ai->ai_addr)->sin_addr.s_addr;
+					imask->sin_len = 0;
+				} else if (ai->ai_family == AF_INET6) {
+					bcopy(&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
+					imask6->sin6_len = 0;
+				}
 				na++;
 			}
 			break;
 		case GT_NET:
-			INIT_NETARG(na);
-			if (grp->gr_u.gt_net.nt_mask)
-			    imask->sin_addr.s_addr = grp->gr_u.gt_net.nt_mask;
-			else {
-			    net = ntohl(grp->gr_u.gt_net.nt_net);
-			    if (IN_CLASSA(net))
-				imask->sin_addr.s_addr = inet_addr("255.0.0.0");
-			    else if (IN_CLASSB(net))
-				imask->sin_addr.s_addr =
-				    inet_addr("255.255.0.0");
-			    else
-				imask->sin_addr.s_addr =
-				    inet_addr("255.255.255.0");
-			    grp->gr_u.gt_net.nt_mask = imask->sin_addr.s_addr;
+			INIT_NETARG(na, grp->gr_u.gt_net.nt_family);
+			if (grp->gr_u.gt_net.nt_family == AF_INET) {
+				if (grp->gr_u.gt_net.nt_mask)
+				    imask->sin_addr.s_addr = grp->gr_u.gt_net.nt_mask;
+				else {
+				    net = ntohl(grp->gr_u.gt_net.nt_net);
+				    if (IN_CLASSA(net))
+					imask->sin_addr.s_addr = inet_addr("255.0.0.0");
+				    else if (IN_CLASSB(net))
+					imask->sin_addr.s_addr =
+					    inet_addr("255.255.0.0");
+				    else
+					imask->sin_addr.s_addr =
+					    inet_addr("255.255.255.0");
+				    grp->gr_u.gt_net.nt_mask = imask->sin_addr.s_addr;
+				}
+				sin->sin_addr.s_addr = grp->gr_u.gt_net.nt_net;
+				na++;
+			} else if (grp->gr_u.gt_net.nt_family == AF_INET6) {
+				bcopy(&grp->gr_u.gt_net.nt_net6, &sin6->sin6_addr, sizeof(sin6->sin6_addr));
+				bcopy(&grp->gr_u.gt_net.nt_mask6, &imask6->sin6_addr, sizeof(imask6->sin6_addr));
+				na++;
 			}
-			sin->sin_addr.s_addr = grp->gr_u.gt_net.nt_net;
-			na++;
 			break;
 		case GT_NETGROUP:
 			break;
@@ -4269,14 +4471,21 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 	struct netent *np;
 	uint32_t netaddr;
 	struct in_addr inetaddr, inetaddr2;
-	char *name;
+	struct in6_addr inet6addr;
+	const char *name;
+	sa_family_t family;
+	char addrbuf[2*INET6_ADDRSTRLEN];
 
-	if (NULL != (np = getnetbyname(cp)))
+	if (NULL != (np = getnetbyname(cp))) {
 		inetaddr = inet_makeaddr(np->n_net, 0);
-	else if (isdigit(*cp)) {
+		family = AF_INET;
+	} else if (inet_pton(AF_INET6, cp, &inet6addr) == 1) {
+		family = AF_INET6;
+	} else if (isdigit(*cp)) {
 		if ((netaddr = inet_network(cp)) == INADDR_NONE)
 			return (1);
 		inetaddr = inet_makeaddr(netaddr, 0);
+		family = AF_INET;
 		/*
 		 * Due to arbritrary subnet masks, you don't know how many
 		 * bits to shift the address to make it into a network,
@@ -4293,22 +4502,48 @@ get_net(char *cp, struct netmsk *net, int maskflg)
 			}
 			endnetent();
 		}
-	} else
+	} else {
 		return (1);
-	if (maskflg)
-		net->nt_mask = inetaddr.s_addr;
-	else {
-		if (np)
-			name = np->n_name;
+	}
+	if (maskflg) {
+		if (net->nt_family == AF_UNSPEC) {
+			net->nt_family = family;
+		} else if (net->nt_family != family) {
+			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", family, net->nt_family, cp);
+			return (1);
+		}
+		if (family == AF_INET6)
+			net->nt_mask6 = inet6addr;
 		else
+			net->nt_mask = inetaddr.s_addr;
+	} else {
+		if (net->nt_family == AF_UNSPEC) {
+			net->nt_family = family;
+		} else if (net->nt_family != family) {
+			log(LOG_ERR, "net mask family (%d) does not match net address family (%d): %s", net->nt_family, family, cp);
+			return (1);
+		}
+		if (np) {
+			name = np->n_name;
+		} else if (family == AF_INET6) {
+			name = inet_ntop(AF_INET6, &inet6addr, addrbuf, sizeof(addrbuf));
+			if (!name) {
+				log(LOG_ERR, "can't convert IPv6 addr to name: %s", cp);
+				return (1);
+			}
+		} else {
 			name = inet_ntoa(inetaddr);
+		}
 		net->nt_name = malloc(strlen(name) + 1);
 		if (net->nt_name == NULL) {
 			log(LOG_ERR, "can't allocate memory for net: %s", cp);
 			return (1);
 		}
 		strlcpy(net->nt_name, name, strlen(name)+1);
-		net->nt_net = inetaddr.s_addr;
+		if (family == AF_INET6)
+			net->nt_net6 = inet6addr;
+		else
+			net->nt_net = inetaddr.s_addr;
 		DEBUG(3, "got net: %s", net->nt_name);
 	}
 	return (0);
@@ -4548,7 +4783,7 @@ parsecred(char *namelist, struct xucred *cr)
 	char *names;
 	struct passwd *pw;
 	struct group *gr;
-	int ngroups, groups[NGROUPS + 1];
+	int ngroups, groups[NGROUPS];
 
 	/* try to make a copy of the string so we don't butcher the original */
 	namelistcopy = strdup(namelist);
@@ -4582,12 +4817,12 @@ parsecred(char *namelist, struct xucred *cr)
 			return (ENOENT);
 		}
 		cr->cr_uid = pw->pw_uid;
-		ngroups = NGROUPS + 1;
+		ngroups = NGROUPS;
 		if (getgrouplist(pw->pw_name, pw->pw_gid, groups, &ngroups))
 			log(LOG_NOTICE, "Too many groups for %s", pw->pw_name);
 		/* Convert from int's to gid_t's */
-		cr->cr_ngroups = ngroups;
-		for (cnt = 0; cnt < ngroups; cnt++)
+		cr->cr_ngroups = (ngroups <= NGROUPS) ? ngroups : NGROUPS;
+		for (cnt = 0; cnt < cr->cr_ngroups; cnt++)
 			cr->cr_groups[cnt] = groups[cnt];
 		if (namelistcopy)
 			free(namelistcopy);
@@ -4863,17 +5098,23 @@ snprintf_flags(char *buf, int buflen, int flags, struct xucred *cr)
 	else
 		crbuf[0] = '\0';
 
-	snprintf(buf, buflen, "FLAGS: 0x%08x %s%s%s%s%s%s%s%s%s%s%s %s",
+	snprintf(buf, buflen, "FLAGS: 0x%08x %s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s%s %s",
 		flags,
 		(flags & OP_DEL) ? " DEL" : "",
 		(flags & OP_ADD) ? " ADD" : "",
-		(flags & OP_MISSING) ? " MISSING" : "",
-		(flags & OP_OFFLINE) ? " OFFLINE" : "",
 		(flags & OP_DEFEXP) ? " DEFEXP" : "",
+		(flags & OP_MISSING) ? " MISSING" : "",
+		(flags & OP_SHOW) ? " SHOW" : "",
+		(flags & OP_ONLINE) ? " ONLINE" : "",
+		(flags & OP_OFFLINE) ? " OFFLINE" : "",
+		(flags & OP_FSUUID) ? " FSUUID" : "",
+		(flags & OP_FSPATH) ? " FSPATH" : "",
+		(flags & OP_32BITCLIENTS) ? " 32" : "",
 		(flags & OP_READONLY) ? " READONLY" : "",
 		(flags & OP_ALLDIRS) ? " ALLDIRS" : "",
 		(flags & OP_NET) ? " NET" : "",
 		(flags & OP_MASK) ? " MASK" : "",
+		(flags & OP_SECFLAV) ? " SEC" : "",
 		(flags & OP_MAPALL) ? " MAPALL" : "",
 		(flags & OP_MAPROOT) ? " MAPROOT" : "",
 		crbuf);
@@ -4886,7 +5127,10 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 	struct host *ht;
 	struct grouplist *gr;
 	char buf[2048];
-	uint32_t **a;
+	struct addrinfo *ai;
+	void *sinaddr;
+	char addrbuf[2*INET6_ADDRSTRLEN];
+	const char *s;
 
 	snprintf_flags(buf, sizeof(buf), xd->xd_iflags, NULL);
 	DEBUG(1, "   %s  %s", xd->xd_dir, buf);
@@ -4905,21 +5149,46 @@ dump_expdir(struct expfs *xf, struct expdir *xd, int mdir)
 		if (gr) {
 			switch(gr->gr_type) {
 			case GT_NET:
-				snprintf(buf, sizeof(buf), "%s %s/", grp_name(gr),
-					inet_ntoa(*(struct in_addr*)&gr->gr_u.gt_net.nt_net));
-				strlcat(buf, inet_ntoa(*(struct in_addr *)&gr->gr_u.gt_net.nt_mask), sizeof(buf));
+				sinaddr = (gr->gr_u.gt_net.nt_family == AF_INET) ?
+					(void*)&gr->gr_u.gt_net.nt_net : (void*)&gr->gr_u.gt_net.nt_net6;
+				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf)))
+					s = addrbuf;
+				else
+					s = "???";
+				snprintf(buf, sizeof(buf), "%s %s/", grp_name(gr), s);
+				sinaddr = (gr->gr_u.gt_net.nt_family == AF_INET) ?
+					(void*)&gr->gr_u.gt_net.nt_mask : (void*)&gr->gr_u.gt_net.nt_mask6;
+				if (inet_ntop(gr->gr_u.gt_net.nt_family, sinaddr, addrbuf, sizeof(addrbuf)))
+					s = addrbuf;
+				else
+					s = "???";
+				strlcat(buf, s, sizeof(buf));
 				break;
 			case GT_HOST:
-				a = (uint32_t **)gr->gr_u.gt_hostent->h_addr_list;
-				snprintf(buf, sizeof(buf), "%s %s", grp_name(gr), inet_ntoa(*(struct in_addr *)*a));
-				a++;
-				while (*a) {
+				ai = gr->gr_u.gt_hostinfo.h_ailist;
+				sinaddr = (ai->ai_family == AF_INET) ?
+					(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
+					(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+				if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+					s = addrbuf;
+				else
+					s = "???";
+				snprintf(buf, sizeof(buf), "%s %s", grp_name(gr), s);
+				ai = ai->ai_next;
+				while (ai) {
 					strlcat(buf, " ", sizeof(buf));
-					if (strlcat(buf, inet_ntoa(*(struct in_addr *)*a), sizeof(buf)) > 2000) {
+					sinaddr = (ai->ai_family == AF_INET) ?
+						(void*)&((struct sockaddr_in*)ai->ai_addr)->sin_addr :
+						(void*)&((struct sockaddr_in6*)ai->ai_addr)->sin6_addr;
+					if (inet_ntop(ai->ai_family, sinaddr, addrbuf, sizeof(addrbuf)))
+						s = addrbuf;
+					else
+						s = "???";
+					if (strlcat(buf, s, sizeof(buf)) > 2000) {
 						strlcat(buf, " ...", sizeof(buf));
 						break;
 					}
-					a++;
+					ai = ai->ai_next;
 				}
 				break;
 			default:

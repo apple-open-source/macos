@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2008 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004, 2008, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,10 +67,20 @@ struct _acl_permset {
 /*
  * Argument validation.
  */
+/*
+ * Because of the use of special values for structure pointer (like
+ * _FILESEC_REMOVE_ACL), dereferences causes crashes.  Rather than try to
+ * enumerate all such special values, we will assume there are a small
+ * number of these values, centered about zero, so we can just check the
+ * values are in this range.  We have to do the check for both ACLs and
+ * ACEs, because the API uses the same routines on ACLs and ACEs.
+ */
 
-#define _ACL_VALID_ENTRY(_e)	((_e)->ae_magic == _ACL_ENTRY_MAGIC)
+#define _ACL_SPECIAL_RANGE	16
 
-#define _ACL_VALID_ACL(_a)	((_a)->a_magic == _ACL_ACL_MAGIC)
+#define _ACL_VALID_ENTRY(_e)	((((intptr_t)(_e)) > _ACL_SPECIAL_RANGE || ((intptr_t)(_e)) < -(_ACL_SPECIAL_RANGE)) && (_e)->ae_magic == _ACL_ENTRY_MAGIC)
+
+#define _ACL_VALID_ACL(_a)	((((intptr_t)(_a)) > _ACL_SPECIAL_RANGE || ((intptr_t)(_a)) < -(_ACL_SPECIAL_RANGE)) && (_a)->a_magic == _ACL_ACL_MAGIC)
 
 #define _ACL_ENTRY_CONTAINED(_a, _e) \
 	((_e) >= &(_a)->a_ace[0]) && ((_e) < &(_a)->a_ace[ACL_MAX_ENTRIES])

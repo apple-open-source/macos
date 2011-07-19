@@ -28,6 +28,8 @@
 
 #import "WebPDFView.h"
 
+#import "DOMNodeInternal.h"
+#import "DOMRangeInternal.h"
 #import "WebDataSourceInternal.h"
 #import "WebDelegateImplementationCaching.h"
 #import "WebDocumentInternal.h"
@@ -35,9 +37,8 @@
 #import "WebFrame.h"
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
-#import "WebLocalizableStrings.h"
+#import "WebLocalizableStringsInternal.h"
 #import "WebNSArrayExtras.h"
-#import "WebNSAttributedStringExtras.h"
 #import "WebNSPasteboardExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebPDFRepresentation.h"
@@ -53,11 +54,13 @@
 #import <WebCore/FrameLoadRequest.h>
 #import <WebCore/FrameLoader.h>
 #import <WebCore/HTMLFormElement.h>
+#import <WebCore/HTMLFrameOwnerElement.h>
 #import <WebCore/KURL.h>
 #import <WebCore/KeyboardEvent.h>
 #import <WebCore/MouseEvent.h>
 #import <WebCore/PlatformKeyboardEvent.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/WebNSAttributedStringExtras.h>
 #import <wtf/Assertions.h>
 
 using namespace WebCore;
@@ -103,7 +106,7 @@ extern "C" NSString *_NSPathForSystemFramework(NSString *framework);
 - (id)initWithView:(WebPDFView *)view;
 @end
 
-#pragma mark C UTILITY FUNCTIONS
+// MARK: C UTILITY FUNCTIONS
 
 static void _applicationInfoForMIMEType(NSString *type, NSString **name, NSImage **image)
 {
@@ -148,7 +151,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 
 @implementation WebPDFView
 
-#pragma mark WebPDFView API
+// MARK: WebPDFView API
 
 + (NSBundle *)PDFKitBundle
 {
@@ -187,12 +190,13 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return [PDFSubview document];
 }
 
-#pragma mark NSObject OVERRIDES
+// MARK: NSObject OVERRIDES
 
 - (void)dealloc
 {
     [dataSource release];
     [previewView release];
+    [PDFSubview setDelegate:nil];
     [PDFSubview release];
     [path release];
     [PDFSubviewProxy release];
@@ -200,7 +204,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [super dealloc];
 }
 
-#pragma mark NSResponder OVERRIDES
+// MARK: NSResponder OVERRIDES
 
 - (void)centerSelectionInVisibleArea:(id)sender
 {
@@ -253,7 +257,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [self centerSelectionInVisibleArea:nil];
 }
 
-#pragma mark NSView OVERRIDES
+// MARK: NSView OVERRIDES
 
 - (BOOL)acceptsFirstResponder {
     return YES;
@@ -351,11 +355,11 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     
     _applicationInfoForMIMEType([dataSource _responseMIMEType], &appName, &appIcon);
     if (!appName)
-        appName = UI_STRING("Finder", "Default application name for Open With context menu");
+        appName = UI_STRING_INTERNAL("Finder", "Default application name for Open With context menu");
     
     // To match the PDFKit style, we'll add Open with Preview even when there's no document yet to view, and
     // disable it using validateUserInterfaceItem.
-    NSString *title = [NSString stringWithFormat:UI_STRING("Open with %@", "context menu item for PDF"), appName];
+    NSString *title = [NSString stringWithFormat:UI_STRING_INTERNAL("Open with %@", "context menu item for PDF"), appName];
     NSMenuItem *item = [[NSMenuItem alloc] initWithTitle:title action:@selector(_openWithFinder:) keyEquivalent:@""];
     [item setTag:WebMenuItemTagOpenWithDefaultApplication];
     if (appIcon)
@@ -388,7 +392,9 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
         while ((menuItem = [e nextObject]) != nil) {
             // copy menuItem since a given menuItem can be in only one menu at a time, and we don't
             // want to mess with the menu returned from PDFKit.
-            [menu addItem:[menuItem copy]];
+            NSMenuItem *menuItemCopy = [menuItem copy];
+            [menu addItem:menuItemCopy];
+            [menuItemCopy release];
         }
     }
     
@@ -479,7 +485,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     firstResponderIsPDFDocumentView = NO;
 }
 
-#pragma mark NSUserInterfaceValidations PROTOCOL IMPLEMENTATION
+// MARK: NSUserInterfaceValidations PROTOCOL IMPLEMENTATION
 
 - (BOOL)validateUserInterfaceItemWithoutDelegate:(id <NSValidatedUserInterfaceItem>)item
 {
@@ -506,7 +512,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return CallUIDelegateReturningBoolean(result, [self _webView], @selector(webView:validateUserInterfaceItem:defaultValidation:), item, result);
 }
 
-#pragma mark INTERFACE BUILDER ACTIONS FOR SAFARI
+// MARK: INTERFACE BUILDER ACTIONS FOR SAFARI
 
 // Surprisingly enough, this isn't defined in any superclass, though it is defined in assorted AppKit classes since
 // it's a standard menu item IBAction.
@@ -522,7 +528,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [NSPasteboard _web_setFindPasteboardString:[[PDFSubview currentSelection] string] withOwner:self];
 }
 
-#pragma mark WebFrameView UNDECLARED "DELEGATE METHODS"
+// MARK: WebFrameView UNDECLARED "DELEGATE METHODS"
 
 // This is tested in -[WebFrameView canPrintHeadersAndFooters], but isn't declared anywhere (yuck)
 - (BOOL)canPrintHeadersAndFooters
@@ -536,7 +542,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return [[PDFSubview document] getPrintOperationForPrintInfo:printInfo autoRotate:YES];
 }
 
-#pragma mark WebDocumentView PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentView PROTOCOL IMPLEMENTATION
 
 - (void)setDataSource:(WebDataSource *)ds
 {
@@ -570,7 +576,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
 {
 }
 
-#pragma mark WebDocumentElement PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentElement PROTOCOL IMPLEMENTATION
 
 - (NSDictionary *)elementAtPoint:(NSPoint)point
 {
@@ -588,14 +594,14 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return [self elementAtPoint:point];
 }
 
-#pragma mark WebDocumentSearching PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentSearching PROTOCOL IMPLEMENTATION
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag
 {
     return [self searchFor:string direction:forward caseSensitive:caseFlag wrap:wrapFlag startInSelection:NO];
 }
 
-#pragma mark WebDocumentIncrementalSearching PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentIncrementalSearching PROTOCOL IMPLEMENTATION
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
 {
@@ -608,7 +614,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return YES;
 }
 
-#pragma mark WebMultipleTextMatches PROTOCOL IMPLEMENTATION
+// MARK: WebMultipleTextMatches PROTOCOL IMPLEMENTATION
 
 - (void)setMarkedTextMatchesAreHighlighted:(BOOL)newValue
 {
@@ -625,14 +631,28 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return NO;
 }
 
-- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag limit:(NSUInteger)limit
+static BOOL isFrameInRange(WebFrame *frame, DOMRange *range)
 {
+    BOOL inRange = NO;
+    for (HTMLFrameOwnerElement* ownerElement = core(frame)->ownerElement(); ownerElement; ownerElement = ownerElement->document()->frame()->ownerElement()) {
+        if (ownerElement->document() == core(range)->ownerDocument()) {
+            inRange = [range intersectsNode:kit(ownerElement)];
+            break;
+        }
+    }
+    return inRange;
+}
+
+- (NSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+{
+    if (range && !isFrameInRange([dataSource webFrame], range))
+        return 0;
+
     PDFSelection *previousMatch = nil;
-    PDFSelection *nextMatch = nil;
     NSMutableArray *matches = [[NSMutableArray alloc] initWithCapacity:limit];
     
     for (;;) {
-        nextMatch = [self _nextMatchFor:string direction:YES caseSensitive:caseFlag wrap:NO fromSelection:previousMatch startInSelection:NO];
+        PDFSelection *nextMatch = [self _nextMatchFor:string direction:YES caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:NO fromSelection:previousMatch startInSelection:NO];
         if (!nextMatch)
             break;
         
@@ -678,7 +698,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return result;
 }
 
-#pragma mark WebDocumentText PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentText PROTOCOL IMPLEMENTATION
 
 - (BOOL)supportsTextEncoding
 {
@@ -732,7 +752,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     [PDFSubview clearSelection];
 }
 
-#pragma mark WebDocumentViewState PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentViewState PROTOCOL IMPLEMENTATION
 
 // Even though to WebKit we are the "docView", in reality a PDFView contains its own scrollview and docView.
 // And it even turns out there is another PDFKit view between the docView and its enclosing ScrollView, so
@@ -753,7 +773,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     // PDFKit calling display from within its drawRect:. See bugzilla 4164.
     if (![frame parentFrame]) {
         NSView *realDocView = [PDFSubview documentView];
-        [[[realDocView enclosingScrollView] documentView] scrollPoint:p];
+        [(NSView *)[[realDocView enclosingScrollView] documentView] scrollPoint:p];
     }
 }
 
@@ -791,7 +811,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
         [PDFSubview setScaleFactor:[[state objectAtIndex:i++] floatValue]];
 }
 
-#pragma mark _WebDocumentTextSizing PROTOCOL IMPLEMENTATION
+// MARK: _WebDocumentTextSizing PROTOCOL IMPLEMENTATION
 
 - (IBAction)_zoomOut:(id)sender
 {
@@ -823,7 +843,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     return [PDFSubview scaleFactor] != 1.0;
 }
 
-#pragma mark WebDocumentSelection PROTOCOL IMPLEMENTATION
+// MARK: WebDocumentSelection PROTOCOL IMPLEMENTATION
 
 - (NSRect)selectionRect
 {
@@ -906,7 +926,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
     
     if ([types containsObject:NSRTFPboardType]) {
         if ([attributedString containsAttachments])
-            attributedString = [attributedString _web_attributedStringByStrippingAttachmentCharacters];
+            attributedString = attributedStringByStrippingAttachmentCharacters(attributedString);
 
         NSData *RTFData = [attributedString RTFFromRange:NSMakeRange(0, [attributedString length]) documentAttributes:nil];
         [pasteboard setData:RTFData forType:NSRTFPboardType];
@@ -916,7 +936,7 @@ static BOOL _PDFSelectionsAreEqual(PDFSelection *selectionA, PDFSelection *selec
         [pasteboard setString:[self selectedString] forType:NSStringPboardType];
 }
 
-#pragma mark PDFView DELEGATE METHODS
+// MARK: PDFView DELEGATE METHODS
 
 - (void)PDFViewWillClickOnLink:(PDFView *)sender withURL:(NSURL *)URL
 {

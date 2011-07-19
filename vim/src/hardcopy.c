@@ -442,12 +442,11 @@ prt_get_unit(idx)
 /*
  * Print the page header.
  */
-/*ARGSUSED*/
     static void
 prt_header(psettings, pagenum, lnum)
     prt_settings_T  *psettings;
     int		pagenum;
-    linenr_T	lnum;
+    linenr_T	lnum UNUSED;
 {
     int		width = psettings->chars_per_line;
     int		page_line;
@@ -569,7 +568,7 @@ ex_hardcopy(eap)
     int			page_line;
     int			jobsplit;
 
-    memset(&settings, 0, sizeof(prt_settings_T));
+    vim_memset(&settings, 0, sizeof(prt_settings_T));
     settings.has_color = TRUE;
 
 # ifdef FEAT_POSTSCRIPT
@@ -617,7 +616,7 @@ ex_hardcopy(eap)
 	else
 	    settings.modec = 't';
 
-    if (!syntax_present(curbuf))
+    if (!syntax_present(curwin))
 	settings.do_syntax = FALSE;
     else if (printer_opts[OPT_PRINT_SYNTAX].present
 	    && TOLOWER_ASC(printer_opts[OPT_PRINT_SYNTAX].string[0]) != 'a')
@@ -692,7 +691,7 @@ ex_hardcopy(eap)
 	prt_pos_T	page_prtpos;	/* print position at page start */
 	int		side;
 
-	memset(&page_prtpos, 0, sizeof(prt_pos_T));
+	vim_memset(&page_prtpos, 0, sizeof(prt_pos_T));
 	page_prtpos.file_line = eap->line1;
 	prtpos = page_prtpos;
 
@@ -1881,7 +1880,7 @@ prt_next_dsc(p_dsc_line)
 	return FALSE;
 
     /* Find type of DSC comment */
-    for (comment = 0; comment < NUM_ELEMENTS(prt_dsc_table); comment++)
+    for (comment = 0; comment < (int)NUM_ELEMENTS(prt_dsc_table); comment++)
 	if (prt_resfile_strncmp(0, prt_dsc_table[comment].string,
 					    prt_dsc_table[comment].len) == 0)
 	    break;
@@ -1944,6 +1943,7 @@ prt_open_resource(resource)
 	fclose(fd_resource);
 	return FALSE;
     }
+    fclose(fd_resource);
 
     prt_resfile.line_end = -1;
     prt_resfile.line_start = 0;
@@ -1957,7 +1957,6 @@ prt_open_resource(resource)
     {
 	EMSG2(_("E618: file \"%s\" is not a PostScript resource file"),
 		resource->filename);
-	fclose(fd_resource);
 	return FALSE;
     }
 
@@ -1975,7 +1974,6 @@ prt_open_resource(resource)
     {
 	EMSG2(_("E619: file \"%s\" is not a supported PostScript resource file"),
 		resource->filename);
-	fclose(fd_resource);
 	return FALSE;
     }
     offset += (int)STRLEN(PRT_RESOURCE_RESOURCE);
@@ -1994,7 +1992,6 @@ prt_open_resource(resource)
     {
 	EMSG2(_("E619: file \"%s\" is not a supported PostScript resource file"),
 		resource->filename);
-	fclose(fd_resource);
 	return FALSE;
     }
 
@@ -2037,11 +2034,8 @@ prt_open_resource(resource)
     {
 	EMSG2(_("E619: file \"%s\" is not a supported PostScript resource file"),
 		resource->filename);
-	fclose(fd_resource);
 	return FALSE;
     }
-
-    fclose(fd_resource);
 
     return TRUE;
 }
@@ -2454,12 +2448,11 @@ prt_match_charset(p_charset, p_cmap, pp_mbchar)
 }
 #endif
 
-/*ARGSUSED*/
     int
 mch_print_init(psettings, jobname, forceit)
     prt_settings_T *psettings;
     char_u	*jobname;
-    int		forceit;
+    int		forceit UNUSED;
 {
     int		i;
     char	*paper_name;
@@ -2514,7 +2507,7 @@ mch_print_init(psettings, jobname, forceit)
     if (!(props & ENC_8BIT) && ((*p_pmcs != NUL) || !(props & ENC_UNICODE)))
     {
 	p_mbenc_first = NULL;
-	for (cmap = 0; cmap < NUM_ELEMENTS(prt_ps_mbfonts); cmap++)
+	for (cmap = 0; cmap < (int)NUM_ELEMENTS(prt_ps_mbfonts); cmap++)
 	    if (prt_match_encoding((char *)p_encoding, &prt_ps_mbfonts[cmap],
 								    &p_mbenc))
 	    {
@@ -2642,7 +2635,7 @@ mch_print_init(psettings, jobname, forceit)
 	paper_name = "A4";
 	paper_strlen = 2;
     }
-    for (i = 0; i < PRT_MEDIASIZE_LEN; ++i)
+    for (i = 0; i < (int)PRT_MEDIASIZE_LEN; ++i)
 	if (STRLEN(prt_mediasize[i].name) == (unsigned)paper_strlen
 		&& STRNICMP(prt_mediasize[i].name, paper_name,
 							   paper_strlen) == 0)
@@ -3308,10 +3301,9 @@ mch_print_end_page()
     return !prt_file_error;
 }
 
-/*ARGSUSED*/
     int
 mch_print_begin_page(str)
-    char_u	*str;
+    char_u	*str UNUSED;
 {
     int		page_num[2];
 
@@ -3379,11 +3371,10 @@ mch_print_start_line(margin, page_line)
 #endif
 }
 
-/*ARGSUSED*/
     int
 mch_print_text_out(p, len)
     char_u	*p;
-    int		len;
+    int		len UNUSED;
 {
     int		need_break;
     char_u	ch;

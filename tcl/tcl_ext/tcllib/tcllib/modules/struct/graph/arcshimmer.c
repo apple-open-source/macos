@@ -3,6 +3,7 @@
  * Tcl_ObjType for arcs, and shimmering to it.
  */
 
+#include <string.h>
 #include <arc.h>
 
 /* .................................................. */

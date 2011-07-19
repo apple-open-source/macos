@@ -1,0 +1,11 @@
+require "vnd.dovecot.testsuite";
+require "notify";
+
+test "Execute" {
+	/* Test to catch runtime segfaults */
+	notify 
+		:message "This is probably very important"
+		:low
+		:method "mailto" 
+		:options ["stephan@example.com", "stephan@example.org"];
+}

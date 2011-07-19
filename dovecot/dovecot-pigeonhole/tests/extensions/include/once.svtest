@@ -1,0 +1,24 @@
+require "vnd.dovecot.testsuite";
+require "include";
+require "variables";
+
+global "result";
+
+set "result" "";
+
+test "Included Once" {
+	include "once-1";
+	include "once-2";
+
+	if string "${result}" " ONE TWO ONE" {
+		test_fail "duplicate included :once script";
+	}
+
+	if not string "${result}" " ONE TWO" {
+		test_fail "unexpected result value: ${result}";
+	}
+}
+
+test "Included Once recursive" {
+	include "once-3";
+}

@@ -1,10 +1,10 @@
 #! /usr/bin/perl
 #
-# Class name: PDefined
+# Class name: PDefine
 # Synopsis: Holds headerDoc comments of the @define type, which
 #           are used to comment symbolic constants declared with #define
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/03/04 16:12:05 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,31 +28,66 @@
 # @APPLE_LICENSE_HEADER_END@
 #
 ######################################################################
+
+# /*! @header
+#     @abstract
+#         <code>PDefine</code> class package file.
+#     @discussion
+#         This file contains the <code>PDefine</code> class, a class for content
+#         relating to a C preprocessor macro (<code>#define</code>) declaration.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         API object that describes a C preprocessor macro declaration.
+#     @discussion
+#         This class is a subclass of
+#         {@link //apple_ref/perl/cl/HeaderDoc::HeaderElement HeaderElement}.
+#         The majority of related fields and functions can be found there.
+#     @var RESULT
+#         The contents of the <code>\@result</code> or <code>\@return(s)</code> tags.
+#     @var BLOCKDISCUSSION
+#         The discussion for the define block that contains this define.
+#     @var PARSEONLY
+#         Set by the <code>\@parseOnly</code> flag.  See {@link parseOnly}.
+#     @var ISAVAILABILITYMACRO
+#         Set to 1 if this macro is an availability macro, else 0.
+#  */
+
+
 package HeaderDoc::PDefine;
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc convertCharsForFileMaker printArray printHash validTag);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash validTag);
 use HeaderDoc::HeaderElement;
 
 @ISA = qw( HeaderDoc::HeaderElement );
 use strict;
 use vars qw($VERSION @ISA);
 use Carp qw(cluck);
-$HeaderDoc::PDefine::VERSION = '$Revision: 1.16 $';
 
-sub new {
-    my($param) = shift;
-    my($class) = ref($param) || $param;
-    my $self = {};
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::PDefine::VERSION = '$Revision: 1299283925 $';
 
-    bless($self, $class);
-    $self->_initialize();
-    return($self);
-}
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>PDefine</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {    
     my($self) = shift;
 
     $self->SUPER::_initialize();
-    # $self->{ISBLOCK} = 0;
+    # $self->{ISBLOCK} = 0; # in HeaderElement.
     # $self->{RESULT} = undef;
     $self->{BLOCKDISCUSSION} = "";
     $self->{PARSETREELIST} = ();
@@ -60,13 +95,21 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::PDefine";
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>PDefine</code> object into another one.
+#     @param self
+#         The object to clone.
+#     @param clone
+#         The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
 	$clone = shift;
     } else {
-	$clone = HeaderDoc::PDefine->new();
+	$clone = HeaderDoc::PDefine->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     }
 
     $self->SUPER::clone($clone);
@@ -82,7 +125,21 @@ sub clone {
     return $clone;
 }
 
-
+# /*!
+#     @abstract
+#         Gets/sets the discussion; returns block discussion
+#         for <code>#define</code> macros that don't have a discussion of
+#         their own.
+#     @param self
+#         This object.
+#     @param newvalue
+#         The value to set. (Optional.)
+#     @discussion
+#         This differs from the main function in that it checks for
+#         discussion locking (used by define blocks) and falls back
+#         on the block discussion for individual defines if no
+#         define-specific discussion exists.
+#  */
 sub discussion
 {
     my $self = shift;
@@ -99,181 +156,62 @@ sub discussion
     my $realCheckDisc = $self->SUPER::halfbaked_discussion();
 
     if (!length($realCheckDisc) || ($realCheckDisc !~ /\S/)) {
-	# print "RETURNING BLOCK DISC FOR $self (".$self->name().")\n";
+	# print STDERR "RETURNING BLOCK DISC FOR $self (".$self->name().")\n";
+
+	my $bd = $self->blockDiscussion();
+
+	# print STDERR "WILL BE $bd\n";
+	# cluck("here\n");
+
 	return $self->blockDiscussion();
     }
+    # print STDERR "RETURNING LOCAL DISC FOR $self (".$self->name().")\n";
+
     return $realdisc;
 }
 
-
-sub processComment_old {
+# /*!
+#     @abstract
+#         Gets/sets the abstract for a <code>#define</code>.
+#     @param self
+#         The current object.
+#     @param throws
+#         The new value. (Optional.)
+#     @param isbrief
+#         Use for compatibility the Doxygen <code>\@brief</code> tag.  Pass 1
+#         for the <code>\@brief</code> behavior (abstract is limited to one paragraph
+#         of content, so everything after a gap becomes part of the
+#         discussion), 0 for the normal <code>\@abstract</code> behavior.
+#     @discussion
+#         This differs from the main function only in that it checks for
+#         abstract locking (used by define blocks).
+#  */
+sub abstract
+{
+    my $self = shift;
     my $localDebug = 0;
-    my($self) = shift;
-    my $fieldArrayRef = shift;
-    my @fields = @$fieldArrayRef;
-    my $fullpath = $self->fullpath();
-    my $linenum = $self->linenum();
-    my $olddisc = $self->discussion();
 
-    foreach my $field (@fields) {
-	my $fieldname = "";
-	my $top_level_field = 0;
-	if ($field =~ /^(\w+)(\s|$)/) {
-		$fieldname = $1;
-		# print STDERR "FIELDNAME: $fieldname\n";
-		$top_level_field = validTag($fieldname, 1);
+    if (@_) {
+	if ($localDebug) {
+
+	# cluck("here\n");
+		print STDERR "Set abstract for #define (or block) to ".@_[0]."..\n";
 	}
-	# print STDERR "TLF: $top_level_field, FN: \"$fieldname\"\n";
-	if ($localDebug) { print STDERR "FIELD: $field\n"; }
-        chomp($field);
-	# if ($localDebug) { print STDERR "CHOMPED FIELD: $field\n"; }
-		SWITCH: {
-            ($field =~ /^\/\*\!/o)&& do {
-                                my $copy = $field;
-                                $copy =~ s/^\/\*\!\s*//s;
-                                if (length($copy)) {
-                                        $self->discussion($copy);
-                                }
-                        last SWITCH;
-                        };
-            ($field =~ s/^abstract\s+//io) && do {$self->abstract($field); last SWITCH;};
-            ($field =~ s/^brief\s+//io) && do {$self->abstract($field, 1); last SWITCH;};
-            ($field =~ s/^(?:discussion|details)(\s+|$)//io) && do {
-			if ($self->inDefineBlock() && length($olddisc)) {
-				# Silently drop these....
-				$self->{DISCUSSION} = "";
-			}
-			if (!length($field)) { $field = "\n"; }
-			$self->discussion($field);
-			last SWITCH;
-		};
-            ($field =~ s/^availability\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^since\s+//io) && do {$self->availability($field); last SWITCH;};
-            ($field =~ s/^author\s+//io) && do {$self->attribute("Author", $field, 0); last SWITCH;};
-            ($field =~ s/^group\s+//io) && do {$self->group($field); last SWITCH;};
-            ($field =~ s/^indexgroup\s+//io) && do {$self->indexgroup($field); last SWITCH;};
-	    ($field =~ s/^version\s+//io) && do {$self->attribute("Version", $field, 0); last SWITCH;};
-            ($field =~ s/^deprecated\s+//io) && do {$self->attribute("Deprecated", $field, 0); last SWITCH;};
-            ($field =~ s/^updated\s+//io) && do {$self->updated($field); last SWITCH;};
-            ($field =~ s/^parseOnly(\s+|$)//io) && do { $self->parseOnly(1); last SWITCH; };
-            ($field =~ s/^noParse(\s+|$)//io) && do { print STDERR "Parsing will be skipped.\n" if ($localDebug); $HeaderDoc::skipNextPDefine = 1; last SWITCH; };
-            ($field =~ s/^(param|field)\s+//io) && do {
-                    $field =~ s/^\s+|\s+$//go; # trim leading and trailing whitespace
-                    # $field =~ /(\w*)\s*(.*)/so;
-                    $field =~ /(\S*)\s*(.*)/so;
-                    my $pName = $1;
-                    my $pDesc = $2;
-                    my $param = HeaderDoc::MinorAPIElement->new();
-                    $param->outputformat($self->outputformat);
-                    $param->name($pName);                    $param->discussion($pDesc);
-                    $self->addTaggedParameter($param);
-                                last SWITCH;
-		};
-	    ($field =~ s/^attribute\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 0);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attribute\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributelist\s+//io) && do {
-		    $field =~ s/^\s*//so;
-		    $field =~ s/\s*$//so;
-		    my ($name, $lines) = split(/\n/, $field, 2);
-		    $name =~ s/^\s*//so;
-		    $name =~ s/\s*$//so;
-		    $lines =~ s/^\s*//so;
-		    $lines =~ s/\s*$//so;
-		    if (length($name) && length($lines)) {
-			my @attlines = split(/\n/, $lines);
-			foreach my $line (@attlines) {
-			    $self->attributelist($name, $line);
-			}
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributelist\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ s/^attributeblock\s+//io) && do {
-		    my ($attname, $attdisc, $namedisc) = &getAPINameAndDisc($field);
-		    if (length($attname) && length($attdisc)) {
-			$self->attribute($attname, $attdisc, 1);
-		    } else {
-			warn "$fullpath:$linenum: warning: Missing name/discussion for attributeblock\n";
-		    }
-		    last SWITCH;
-		};
-	    ($field =~ /^see(also|)\s+/io) &&
-		do {
-		    $self->see($field);
-		    last SWITCH;
-		};
-	    ($field =~ s/^return\s+//io) && do {$self->result($field); last SWITCH;};
-	    ($field =~ s/^result\s+//io) && do {$self->result($field); last SWITCH;};
-		($top_level_field == 1) && do {
-			my $keepname = 1;
-			my $blockrequest = 0;
- 			if ($field =~ s/^(availabilitymacro)(\s+|$)/$2/io) {
-				$self->isAvailabilityMacro(1);
-				$keepname = 1;
-				$self->parseOnly(1);
- 			} elsif ($field =~ s/^(define(?:d)?|function)(\s+|$)/$2/io) {
-				$keepname = 1;
-				$blockrequest = 0;
-            		} elsif ($field =~ s/^(define(?:d)?block)(\s+)/$2/io) {
-				$keepname = 1;
-				$self->isBlock(1);
-				$blockrequest = 1;
-			} else {
-				$field =~ s/(\w+)(\s|$)/$2/io;
-				$keepname = 0;
-				$blockrequest = 0;
-			}
-		    	my ($defname, $defabstract_or_disc, $namedisc) = getAPINameAndDisc($field);
-		    	if ($self->isBlock()) {
-				print STDERR "ISBLOCK (BLOCKREQUEST=$blockrequest)\n" if ($localDebug);
-				# my ($defname, $defabstract_or_disc, $namedisc) = getAPINameAndDisc($field);
-				# In this case, we get a name and abstract.
-				if ($blockrequest) {
-					print STDERR "Added block name $defname\n" if ($localDebug);
-					$self->name($defname);
-					if (length($defabstract_or_disc)) {
-						if ($namedisc) {
-							$self->nameline_discussion($defabstract_or_disc);
-						} else {
-							$self->discussion($defabstract_or_disc);
-						}
-					}
-				} else {
-					print STDERR "Added block member $defname\n" if ($localDebug);
-					$self->attributelist("Included Defines", $field);
-				}
-		    	} else {
-				if (length($defname)) {
-					# print STDERR "NOT BLOCK.  NAME IS \"$defname\"\n";
-					$self->name($defname);
-				}
-				if (length($defabstract_or_disc)) {
-					if ($namedisc) {
-						$self->nameline_discussion($defabstract_or_disc);
-					} else {
-						$self->discussion($defabstract_or_disc);
-					}
-				}
-		    	}
-		    	last SWITCH;
-		};
-	    # my $fullpath = $HeaderDoc::headerObject->name();
-	    my $fullpath = $self->fullpath();
-	    my $linenum = $self->linenum();
-            # print STDERR "$fullpath:$linenum:Unknown field in #define comment: $field\n";
-		if (length($field)) { warn "$fullpath:$linenum: warning: Unknown field (\@$field) in #define comment (".$self->name().")\n"; }
-		}
-	}
+	return $self->SUPER::abstract(@_);
+    }
+
+    return $self->SUPER::abstract();
 }
 
+
+# /*!
+#     @abstract
+#         Sets the declaration.
+#     @param self
+#         This object.
+#     @param declaration
+#         The line array.
+#  */
 sub setDeclaration {
     my($self) = shift;
     my ($dec) = @_;
@@ -292,6 +230,16 @@ sub setDeclaration {
     return $dec;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this macro is an availability macro.
+#     @param self
+#         This object.
+#     @param newvalue
+#         The new value. (Optional.)
+#     @discussion
+#         Triggered by the <code>\@availabilitymacro</code> tag.
+#  */
 sub isAvailabilityMacro {
     my $self = shift;
 
@@ -303,30 +251,62 @@ sub isAvailabilityMacro {
 }
 
 
+# /*!
+#     @abstract
+#         Gets/sets the block discussion for a <code>#define</code>.
+#     @param self
+#         This object.
+#     @param newvalue
+#         The new block discussion. (Optional.)
+#     @discussion
+#         The block discussion for a <code>#define</code> is the discusion
+#         from the enclosing <code>\@defineblock</code> comment.  A copy is
+#         stored in each <code>#define</code> object.  It is returned by the
+#  {@link //apple_ref/perl/instm/HeaderDoc::PDefine/discussion//() discussion}
+#         function if no discussion specific to a given <code>#define</code>
+#         is available.
+#  */
 sub blockDiscussion {
     my $self = shift;
     my $localDebug = 0;
     
     if (@_) {
-	if ($localDebug) {
-		print STDERR "Set Discussion for #define (or block) to ".@_[0]."..\n";
-	}
         $self->{BLOCKDISCUSSION} = shift;
+	if ($localDebug) {
+		print STDERR "SET BLOCK DISCUSSION for #define (or block) $self to ".$self->{BLOCKDISCUSSION}."\n";
+	}
     }
     return $self->{BLOCKDISCUSSION};
 }
 
-
-sub result {
+# /*!
+#     @abstract
+#         Returns whether the macro is a function-like macro or not.
+#  */
+sub isFunctionLikeMacro()
+{
     my $self = shift;
-    
-    if (@_) {
-        $self->{RESULT} = shift;
+
+    my $ps = $self->parserState();
+
+    # print STDERR "PS: $ps\n";
+
+    if ($ps) {
+	return $ps->{cppMacroHasArgs};
+    } else {
+	warn("No parser state object found for $self\n");
     }
-    return $self->{RESULT};
+
+    return 0;
 }
 
 
+# /*!
+#     @abstract
+#         Prints this object for debugging purposes.
+#     @param self
+#         This object.
+#  */
 sub printObject {
     my $self = shift;
  
@@ -336,6 +316,17 @@ sub printObject {
     print STDERR "\n";
 }
 
+# /*!
+#    @abstract
+#         Gets/sets the parse tree associated with this object.
+#    @param self
+#         This object.
+#    @param treeref
+#         A reference to the parse tree to set/add. (Optional.)
+#    @discussion
+#        If this is a block declaration, the parse tree is added to
+#        its list of parse trees.
+#  */
 sub parseTree
 {
     my $self = shift;
@@ -365,6 +356,38 @@ sub parseTree
     return $self->SUPER::parseTree();
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this function has a conflict with
+#         another function of the same name.
+#     @param self
+#         The <code>Function</code> object.
+#     @param conflict
+#         The value to set.  (Optional.)
+#  */
+sub conflict {
+    my $self = shift;
+    my $localDebug = 0;
+    if (@_) { 
+        $self->{CONFLICT} = @_;
+    }
+    print STDERR "conflict $self->{CONFLICT}\n" if ($localDebug);
+    return $self->{CONFLICT};
+}
+
+# /*!
+#     @abstract
+#         Gets/sets the "parse only" flag for this <code>#define</code>.
+#     @param self
+#         This object.
+#     @param newvalue
+#         The new "parse only" flag value. (Optional.)
+#     @discussion
+#         This is triggered by the <code>\@parseOnly</code> tag in the
+#         HeaderDoc comment.  If set, the declaration is
+#         parsed for C preprocessing purposes, but is not
+#         emitted in the HTML.
+#  */
 sub parseOnly
 {
     my $self = shift;
@@ -372,13 +395,6 @@ sub parseOnly
 	$self->{PARSEONLY} = shift;
     }
     return $self->{PARSEONLY};
-}
-
-sub free
-{
-    my $self = shift;
-    $self->{PARSETREELIST} = ();
-    $self->SUPER::free();
 }
 
 1;

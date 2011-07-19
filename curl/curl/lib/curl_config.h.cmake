@@ -58,10 +58,7 @@
 /* to enable hidden symbols */
 #cmakedefine CURL_HIDDEN_SYMBOLS ${CURL_HIDDEN_SYMBOLS}
 
-/* W$ LDAP with non-W$ compiler */
-#cmakedefine CURL_LDAP_HYBRID ${CURL_LDAP_HYBRID}
-
-/* Use W$ LDAP implementation */
+/* Use Windows LDAP implementation */
 #cmakedefine CURL_LDAP_WIN ${CURL_LDAP_WIN}
 
 /* when not building a shared library */
@@ -853,6 +850,9 @@
 /* The size of `int', as computed by sizeof. */
 #cmakedefine SIZEOF_INT ${SIZEOF_INT}
 
+/* The size of `short', as computed by sizeof. */
+#cmakedefine SIZEOF_SHORT ${SIZEOF_SHORT}
+
 /* The size of `long', as computed by sizeof. */
 #cmakedefine SIZEOF_LONG ${SIZEOF_LONG}
 
@@ -885,6 +885,9 @@
 
 /* if GnuTLS is enabled */
 #cmakedefine USE_GNUTLS ${USE_GNUTLS}
+
+/* if PolarSSL is enabled */
+#cmakedefine USE_POLARSSL ${USE_POLARSSL}
 
 /* if libSSH2 is in use */
 #cmakedefine USE_LIBSSH2 ${USE_LIBSSH2}

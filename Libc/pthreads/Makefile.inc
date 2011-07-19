@@ -7,6 +7,8 @@ CFLAGS += -I${.CURDIR}/pthreads
 MISRCS += pthread_cancelable.c pthread_cond.c pthread_tsd.c pthread.c \
         pthread_mutex.c    thread_setup.c   stack.s pthread_rwlock.c
 
+DYLDSRCS += pthread.c pthread_mutex.c pthread_tsd.c
+
 .ifdef FEATURE_PLOCKSTAT
 ${SYMROOTINC}/plockstat.h: ${.CURDIR}/pthreads/plockstat.d
 	${MKDIR} ${SYMROOTINC}
@@ -17,7 +19,7 @@ ${_src:R}.${OBJSUFFIX}: ${SYMROOTINC}/plockstat.h
 .endfor
 .endif # FEATURE_PLOCKSTAT
 
-PTHREADS_INSTHDRS += pthread.h pthread_impl.h sched.h
+PTHREADS_INSTHDRS += pthread.h pthread_spis.h pthread_impl.h sched.h
 PTHREADS_INSTHDRS := ${PTHREADS_INSTHDRS:S/^/${.CURDIR}\/pthreads\//}
 INSTHDRS += ${PTHREADS_INSTHDRS}
 

@@ -30,7 +30,7 @@ namespace WebCore {
 
 class RenderFieldset : public RenderBlock {
 public:
-    RenderFieldset(Node*);
+    explicit RenderFieldset(Node*);
 
     RenderBox* findLegend() const;
 
@@ -38,18 +38,14 @@ private:
     virtual const char* renderName() const { return "RenderFieldSet"; }
     virtual bool isFieldset() const { return true; }
 
-    virtual RenderObject* layoutLegend(bool relayoutChildren);
+    virtual RenderObject* layoutSpecialExcludedChild(bool relayoutChildren);
 
-    virtual void calcPrefWidths();
+    virtual void computePreferredLogicalWidths();
     virtual bool avoidsFloats() const { return true; }
-    virtual bool stretchesToMinIntrinsicWidth() const { return true; }
-
-    virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
+    virtual bool stretchesToMinIntrinsicLogicalWidth() const { return true; }
 
     virtual void paintBoxDecorations(PaintInfo&, int tx, int ty);
-    virtual void paintMask(PaintInfo&, int tx, int ty);
-
-    void paintBorderMinusLegend(GraphicsContext*, int tx, int ty, int w, int h, const RenderStyle*, int lx, int lw, int lb);
+    virtual void paintMask(PaintInfo&, IntSize);
 };
 
 inline RenderFieldset* toRenderFieldset(RenderObject* object)

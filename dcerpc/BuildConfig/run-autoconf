@@ -1,0 +1,152 @@
+#! /bin/bash
+#
+#
+# Copyright (c) 2010 Apple Inc. All rights reserved.
+#
+# @APPLE_LICENSE_HEADER_START@
+#
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
+#
+# 1.  Redistributions of source code must retain the above copyright
+#     notice, this list of conditions and the following disclaimer.
+# 2.  Redistributions in binary form must reproduce the above copyright
+#     notice, this list of conditions and the following disclaimer in the
+#     documentation and/or other materials provided with the distribution.
+# 3.  Neither the name of Apple Inc. ("Apple") nor the names of its
+#     contributors may be used to endorse or promote products derived from
+#     this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
+# EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+# WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+# DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
+# DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+# (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+# LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+#
+# @APPLE_LICENSE_HEADER_END@
+#
+#
+
+set -e
+
+error()
+{
+    echo "$PROG: error: " "$@" 1>&2
+    exit 1
+}
+
+message()
+{
+    echo "$PROG: " "$@"
+}
+
+# We need to know something about the archs supported by the SDK
+# so that we can set CFLAGS to make sure that the compiler can
+# create executables. If we don't do this, configure will fail
+# unless once of the SDK archs happens to be our native arch.
+detect_sdk_arch()
+{
+    local crt1=${SDKROOT}/usr/lib/crt1.o
+    local native=$(xcrun arch)
+
+    # Get the list of archs that the SDK compiler will be able to
+    # link
+    local archs=$(xcrun lipo -info ${crt1} | awk -F: '{print $3}')
+
+    # If the SDK supports our native arch, prefer to use that.
+    for arch in $archs ; do
+	if [ "$arch" = "$native" ]; then
+	    echo $arch
+	    return
+	fi
+    done
+
+    # OK, just take anything
+    for arch in $archs ; do
+	echo $arch
+	return
+    done
+}
+
+# We need to run autoreconf if it hasn't been run or configure is
+# out of date WRT configure.in.
+autoreconf_is_required()
+{
+    if [ ! -e "./configure" ] ; then
+	return 0
+    fi
+
+    if [ "./configure.in" -nt "./configure" ] ; then
+	return 0
+    fi
+
+    return 1
+}
+
+# We need to run configure if it hasn't been run, it's out of
+# date, or the SDK changed.
+configure_is_required()
+{
+    # We need a reconfigure if there's no configure yet
+    if [ ! -e "./config.status" ]; then
+	return 0
+    fi
+
+    # We need a reconfigure if configure.in was updated and
+    # we name a new configure script
+    if [ "./configure" -nt "./config.status" ] ; then
+	return 0
+    fi
+
+    # We need a reconfigure if the SDKROOT does not match
+    if ! grep -q "#define SDKROOT \"$SDKROOT\"" \
+	    ${SRCROOT}/dcerpc/include/config.h ; then
+	message SDK changed, reconfiguring
+	return 0
+    fi
+
+    return 1
+}
+
+PROG=$(basename $0)
+SRCROOT=${SRCROOT:=$(cd $(dirname $0)/.. && pwd)}
+SDKROOT=${SDKROOT:-/}
+SDKARCH=$(detect_sdk_arch)
+
+cd "${SRCROOT}/dcerpc" || error "${SRCROOT}/dcerpc" has gone AWOL
+
+message SRCROOT is $SRCROOT
+message SDKROOT is $SDKROOT
+message SDK architecture is $SDKARCH
+
+if autoreconf_is_required ; then
+    message "running buildconf"
+    ./buildconf || error buildconf failed
+else
+    message "configure exists, skipping buildconf phase"
+fi
+
+if configure_is_required ; then
+    message "running configure"
+    ./configure \
+	--host=$SDKARCH-apple-darwin$(uname -r) \
+	--build=$(xcrun arch)-apple-darwin$(uname -r) \
+	CC=$(xcrun -find cc) \
+	CXX=$(xcrun -find c++) \
+	CFLAGS="-arch $SDKARCH -isysroot $SDKROOT" \
+	CXXFLAGS="-arch $SDKARCH -isysroot $SDKROOT" \
+	--disable-dependency-tracking \
+	--enable-idldumpers \
+	--disable-ncadg \
+	rpcd_cv_rpc_c_np_dir=/var/rpc/ncacn_np \
+	rpcd_cv_rpc_c_uxd_dir=/var/rpc/ncalrpc \
+	|| error configure failed
+else
+    message "config.status exists, skipping configure phase"
+fi

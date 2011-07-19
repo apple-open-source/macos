@@ -1,11 +1,11 @@
 
 #----------------------------------------------------------------
-# This file is a Makefile for Trf 2.1.3 (as of DEC-06-2008), usable for CygWin B20.1
+# This file is a Makefile for Trf 2.1.4 (as of MAY-06-2009), usable for CygWin B20.1
 # Donated by Jan Nijtmans <jan.nijtmans@cmg.nl> <nijtmans@wxs.nl>
 #----------------------------------------------------------------
 
 EXTENSION	= Trf
-VERSION		= 2.1.3
+VERSION		= 2.1.4
 #TCL_VERSION	= 81
 TCL_VERSION	= 82
 

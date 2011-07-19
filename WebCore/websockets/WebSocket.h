@@ -34,26 +34,24 @@
 #if ENABLE(WEB_SOCKETS)
 
 #include "ActiveDOMObject.h"
-#include "AtomicStringHash.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "KURL.h"
 #include "WebSocketChannelClient.h"
+#include <wtf/Forward.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
-    class String;
     class ThreadableWebSocketChannel;
 
     class WebSocket : public RefCounted<WebSocket>, public EventTarget, public ActiveDOMObject, public WebSocketChannelClient {
     public:
-#if USE(V8)
         static void setIsAvailable(bool);
         static bool isAvailable();
-#endif
         static PassRefPtr<WebSocket> create(ScriptExecutionContext* context) { return adoptRef(new WebSocket(context)); }
         virtual ~WebSocket();
 
@@ -63,8 +61,8 @@ namespace WebCore {
             CLOSED = 2
         };
 
-        void connect(const KURL&, ExceptionCode&);
-        void connect(const KURL&, const String& protocol, ExceptionCode&);
+        void connect(const String& url, ExceptionCode&);
+        void connect(const String& url, const String& protocol, ExceptionCode&);
 
         bool send(const String& message, ExceptionCode&);
 
@@ -85,7 +83,7 @@ namespace WebCore {
         virtual ScriptExecutionContext* scriptExecutionContext() const;
         virtual void contextDestroyed();
         virtual bool canSuspend() const;
-        virtual void suspend();
+        virtual void suspend(ReasonForSuspension);
         virtual void resume();
         virtual void stop();
 

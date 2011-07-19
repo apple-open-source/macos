@@ -668,7 +668,8 @@ patcompswitch(int paren, int *flagp)
 {
     long starter, br, ender, excsync = 0;
     int parno = 0;
-    int flags, gfchanged = 0, savglobflags = patglobflags;
+    int flags, gfchanged = 0;
+    long savglobflags = (long)patglobflags;
     Upat ptr;
 
     *flagp = 0;
@@ -688,7 +689,7 @@ patcompswitch(int paren, int *flagp)
     br = patnode(P_BRANCH);
     if (!patcompbranch(&flags))
 	return 0;
-    if (patglobflags != savglobflags)
+    if (patglobflags != (int)savglobflags)
 	gfchanged++;
     if (starter)
 	pattail(starter, br);
@@ -777,7 +778,7 @@ patcompswitch(int paren, int *flagp)
 		    patadd((char *)&up, 0, sizeof(union upat), 0);
 		}
 	    } else {
-		patglobflags = savglobflags;
+		patglobflags = (int)savglobflags;
 	    }
 	}
 	newbr = patcompbranch(&flags);
@@ -792,7 +793,7 @@ patcompswitch(int paren, int *flagp)
 	    return 0;
 	if (gfnode)
 	    pattail(gfnode, newbr);
-	if (!tilde && patglobflags != savglobflags)
+	if (!tilde && patglobflags != (int)savglobflags)
 	    gfchanged++;
 	pattail(starter, br);
 	if (excsync)
@@ -831,7 +832,7 @@ patcompswitch(int paren, int *flagp)
 	 * a later branch happened to put the flags back.
 	 */
 	pattail(ender, patnode(P_GFLAGS));
-	patglobflags = savglobflags;
+	patglobflags = (int)savglobflags;
 	patadd((char *)&savglobflags, 0, sizeof(long), 0);
     }
 
@@ -1794,9 +1795,9 @@ charnext(char *x, char *y)
 
 
 /* Get a character and increment */
-#define CHARREFINC(x, y)	charrefinc(&(x), (y))
+#define CHARREFINC(x, y, z)	charrefinc(&(x), (y), (z))
 static wchar_t
-charrefinc(char **x, char *y)
+charrefinc(char **x, char *y, int *z)
 {
     wchar_t wc;
     size_t ret;
@@ -1807,7 +1808,8 @@ charrefinc(char **x, char *y)
     ret = mbrtowc(&wc, *x, y-*x, &shiftstate);
 
     if (ret == MB_INVALID || ret == MB_INCOMPLETE) {
-	/* Error.  Treat as single byte. */
+	/* Error.  Treat as single byte, but flag. */
+	*z = 1;
 	/* Reset the shift state for next time. */
 	memset(&shiftstate, 0, sizeof(shiftstate));
 	return (wchar_t) STOUC(*(*x)++);
@@ -1864,7 +1866,7 @@ charsub(char *x, char *y)
 /* Increment a pointer past the current character. */
 #define CHARINC(x, y)	((x)++)
 /* Get a character and increment */
-#define CHARREFINC(x, y)	(STOUC(*(x)++))
+#define CHARREFINC(x, y, z)	(STOUC(*(x)++))
 /* Counter the number of characters between two pointers, smaller first */
 #define CHARSUB(x,y)	((y) - (x))
 
@@ -2418,9 +2420,21 @@ patmatch(Upat prog)
 	    while (chrop < chrend && patinput < patinend) {
 		char *savpatinput = patinput;
 		char *savchrop = chrop;
-		patint_t chin = CHARREFINC(patinput, patinend);
-		patint_t chpa = CHARREFINC(chrop, chrend);
-		if (!CHARMATCH(chin, chpa)) {
+		int badin = 0, badpa = 0;
+		/*
+		 * Care with character matching:
+		 * We do need to convert the character to wide
+		 * representation if possible, because we may need
+		 * to do case transformation.  However, we should
+		 * be careful in case one, but not the other, wasn't
+		 * representable in the current locale---in that
+		 * case they don't match even if the returned
+		 * values (one properly converted, one raw) are
+		 * the same.
+		 */
+		patint_t chin = CHARREFINC(patinput, patinend, &badin);
+		patint_t chpa = CHARREFINC(chrop, chrend, &badpa);
+		if (!CHARMATCH(chin, chpa) || badin != badpa) {
 		    fail = 1;
 		    patinput = savpatinput;
 		    chrop = savchrop;
@@ -3344,7 +3358,6 @@ mb_patmatchrange(char *range, wchar_t ch, wint_t *indptr, int *mtp)
 }
 
 
-#if 0
 /*
  * This is effectively the reverse of mb_patmatchrange().
  * Given a range descriptor of the same form, and an index into it,
@@ -3353,11 +3366,6 @@ mb_patmatchrange(char *range, wchar_t ch, wint_t *indptr, int *mtp)
  * return the type in mtp instead.  Return 1 if successful, 0 if
  * there was no corresponding index.  Note all pointer arguments
  * must be non-null.
- *
- * TODO: for now the completion matching code does not handle
- * multibyte.  When it does, we will need either this, or
- * patmatchindex(), but not both---unlike user-initiated pattern
- * matching, multibyte mode in the line editor is always on when available.
  */
 
 /**/
@@ -3438,10 +3446,9 @@ mb_patmatchindex(char *range, wint_t ind, wint_t *chr, int *mtp)
     /* No corresponding index. */
     return 0;
 }
-#endif
 
 /**/
-#endif
+#endif /* MULTIBYTE_SUPPORT */
 
 /*
  * Identical function to mb_patmatchrange() above for single-byte
@@ -3572,9 +3579,17 @@ patmatchrange(char *range, int ch, int *indptr, int *mtp)
     return 0;
 }
 
+
+/**/
+#ifndef MULTIBYTE_SUPPORT
+
 /*
  * Identical function to mb_patmatchindex() above for single-byte
  * characters.  Here -1 represents a character that needs a special type.
+ *
+ * Unlike patmatchrange, we only need this in ZLE, which always
+ * uses MULTIBYTE_SUPPORT if compiled in; hence we don't use
+ * this function in that case.
  */
 
 /**/
@@ -3657,6 +3672,9 @@ patmatchindex(char *range, int ind, int *chr, int *mtp)
     /* No corresponding index. */
     return 0;
 }
+
+/**/
+#endif /* MULTIBYTE_SUPPORT */
 
 /*
  * Repeatedly match something simple and say how many times.

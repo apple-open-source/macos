@@ -26,7 +26,7 @@ dnl  support, updates, enhancements, or modifications.
 dnl
 
 AC_INIT(Src/zsh.h)
-AC_PREREQ(2.53b)
+AC_PREREQ(2.59c)
 AC_CONFIG_HEADER(config.h)
 
 dnl What version of zsh are we building ?
@@ -304,6 +304,20 @@ fi], [sitescriptdir=${datadir}/${tzsh_name}/scripts])
 AC_SUBST(scriptdir)dnl
 AC_SUBST(sitescriptdir)dnl
 
+dnl htmldir is already handled, but if it wasn't set, use
+dnl the standard zsh default.
+if test x$htmldir = x'${docdir}' || test x$htmldir = x; then
+  htmldir='$(datadir)/$(tzsh)/htmldoc'
+fi
+
+AH_TEMPLATE([CUSTOM_PATCHLEVEL],
+[Define to a custom value for the ZSH_PATCHLEVEL parameter])
+AC_ARG_ENABLE(custom-patchlevel,
+AC_HELP_STRING([--enable-custom-patchlevel], [set a custom ZSH_PATCHLEVEL value]),
+[if test x$enableval != x && test x$enableval != xno; then
+  AC_DEFINE_UNQUOTED([CUSTOM_PATCHLEVEL], ["$enableval"])
+fi])
+
 dnl Do you want maildir support?
 ifdef([maildir_support],[undefine([maildir_support])])dnl
 AH_TEMPLATE([MAILDIR_SUPPORT],
@@ -448,8 +462,9 @@ AC_PROG_GCC_TRADITIONAL     dnl Do we need -traditional flag for gcc.
 AC_C_CONST                  dnl Does compiler support `const'.
 
 dnl Default preprocessing on Mac OS X produces warnings
+dnl Mac OS X 10.6 (darwin10.x.x) does not need this.
 case "$host_os" in
-  darwin*) CPP="$CPP -traditional-cpp" ;;
+  darwin[[0-9]].*) CPP="$CPP -traditional-cpp" ;;
 esac
 
 fp_PROG_CC_STDC
@@ -526,6 +541,7 @@ AC_PROG_EGREP               dnl sets $EGREP to grep -E or egrep
 AC_CHECK_PROGS([YODL], [yodl], [: yodl])
 AC_CHECK_PROGS([PDFETEX], [pdfetex], [: pdfetex])
 AC_CHECK_PROGS([TEXI2PDF], [texi2pdf], [])
+AC_CHECK_PROGS([TEXI2HTML], [texi2html], [])
 AC_CHECK_PROGS([ANSI2KNR], [ansi2knr], [: ansi2knr])
 
 if test x"$ansi2knr" = xyes && test x"$ANSI2KNR" = x": ansi2knr"; then
@@ -661,7 +677,7 @@ dnl Prefer BSD termcap library to SysV curses library, except on certain
 dnl SYSV-derived systems.  However, if we find terminfo and termcap
 dnl stuff in the same library we will use that; typically this
 dnl is ncurses or curses.
-dnl On HPUX, Hcurses is reported to work better than curses.
+dnl On pre-11.11 HPUX, Hcurses is reported to work better than curses.
 dnl Prefer ncurses to curses on all systems.  tinfo isn't very common now.
 AC_ARG_WITH(term-lib,
 AC_HELP_STRING([--with-term-lib=LIBS], [search space-separated LIBS for terminal handling]),
@@ -672,7 +688,10 @@ else
   termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses"
 fi],
 [case "$host_os" in
-  hpux10.*|hpux11.*|solaris*)
+  solaris*)
+   termcap_curses_order="$ncursesw_test $ncurses_test curses termcap" ;;
+  hpux10.*|hpux11.*)
+   DL_EXT="${DL_EXT=sl}"
    termcap_curses_order="Hcurses $ncursesw_test $ncurses_test curses termcap" ;;
   *)
    termcap_curses_order="$ncursesw_test tinfo termcap $ncurses_test curses" ;;
@@ -745,6 +764,13 @@ if test x$enable_cap = xyes; then
 fi
 
 AC_CHECK_LIB(socket, socket)
+AC_SEARCH_LIBS(gethostbyname2, bind)
+
+case $LIBS in
+  *-lbind*)
+  AC_CHECK_HEADERS(bind/netdb.h)
+  ;;
+esac
 
 dnl ---------------
 dnl CHECK FOR ICONV
@@ -842,6 +868,8 @@ if test x$gdbm != xno; then
   AC_CHECK_HEADERS(gdbm.h)
   AC_CHECK_LIB(gdbm, gdbm_open)
 fi
+
+AC_CHECK_HEADERS(sys/xattr.h)
 
 dnl --------------
 dnl CHECK TYPEDEFS
@@ -1140,7 +1168,9 @@ AC_CHECK_FUNCS(strftime strptime mktime timelocal \
 	       grantpt unlockpt ptsname \
 	       htons ntohs \
 	       regcomp regexec regerror regfree \
-	       gdbm_open)
+	       gdbm_open getxattr \
+	       realpath canonicalize_file_name \
+	       symlink getcwd)
 AC_FUNC_STRCOLL
 
 if test x$enable_cap = xyes; then
@@ -1234,6 +1264,49 @@ if test x$dynamic = xyes; then
 		shl_load shl_unload shl_findsym)
 fi
 
+AH_TEMPLATE([XATTR_EXTRA_ARGS],
+Define if getxattr() etc. require additional MacOS-style arguments)
+if test x$ac_cv_func_getxattr = xyes && test x$ac_cv_header_sys_xattr_h = xyes
+then
+  AC_CACHE_CHECK(if getxattr etc. are Linux-like,
+  zsh_cv_getxattr_linux,
+  [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/xattr.h>]],
+  [[
+  (void)listxattr("", 0, 0);
+  (void)getxattr("", "", 0, 0);
+  (void)setxattr("", "", "", 0, 0);
+  (void)removexattr("", "");
+  ]])],
+  [zsh_cv_getxattr_linux=yes],
+  [zsh_cv_getxattr_linux=no])])
+
+  if test x$zsh_cv_getxattr_linux != xyes; then
+    AC_CACHE_CHECK(if getxattr etc. are MAC-like,
+    zsh_cv_getxattr_mac,
+    [AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <sys/types.h>
+#include <sys/xattr.h>]],
+    [[(void)listxattr("", 0, 0, 0);
+    (void)getxattr("", "", 0, 0, 0, 0);
+    (void)setxattr("", "", "", 0, 0, 0);
+    (void)removexattr("", "", 0);]])],
+    [zsh_cv_getxattr_mac=yes],
+    [zsh_cv_getxattr_mac=no])])
+
+    if test x$zsh_cv_getxattr_mac = xyes; then
+      AC_DEFINE(XATTR_EXTRA_ARGS)
+    fi
+  fi
+fi
+
+AC_CACHE_CHECK(if getxattr etc. are usable,
+zsh_cv_use_xattr,
+[if test x$zsh_cv_getxattr_linux = xyes || test x$zsh_cv_getxattr_mac = xyes
+then
+zsh_cv_use_xattr=yes
+else
+zsh_cv_use_xattr=no
+fi])
 
 dnl -------------
 dnl CHECK SIGNALS
@@ -1274,7 +1347,7 @@ dnl but then you can get a rather long list of files to test.
 dnl The backslash substitution is to persuade cygwin to cough up
 dnl slashes rather than doubled backslashes in the path.
 echo "#include <signal.h>" > nametmp.c
-sigfile_list="`$CPP nametmp.c |
+sigfile_list="`$CPP $CPPFLAGS nametmp.c |
 sed -n -e 's/^#line[ 	].*\"\(.*\)\"/\1/p' \
        -e 's/^#[ 	].*\"\(.*\)\"/\1/p' |
 sed 's/\\\\\\\\/\//g' |
@@ -1322,7 +1395,7 @@ dnl but then you can get a rather long list of files to test.
 dnl The backslash substitution is to persuade cygwin to cough up
 dnl slashes rather than doubled backslashes in the path.
 echo "#include <errno.h>" > nametmp.c
-errfile_list="`$CPP nametmp.c |
+errfile_list="`$CPP $CPPFLAGS nametmp.c |
 sed -n -e 's/^#line[ 	].*\"\(.*\)\"/\1/p' \
        -e 's/^#[ 	0-9].*\"\(.*\)\"/\1/p' |
 sed 's/\\\\\\\\/\//g' |
@@ -1391,7 +1464,7 @@ else
   echo "#include <$zsh_cv_path_curses_header>" >nametmp.c
 fi
 
-curses_list="`$CPP nametmp.c |
+curses_list="`$CPP $CPPFLAGS nametmp.c |
 sed -n -e 's/^#line[ 	].*\"\(.*\)\"/\1/p' \
        -e 's/^#[ 	0-9].*\"\(.*\)\"/\1/p' |
 sed 's/\\\\\\\\/\//g' |
@@ -1476,27 +1549,27 @@ if test x$zsh_cv_path_term_header != xnone; then
   fi
 
   AC_MSG_CHECKING(if boolcodes is available)
-  AC_TRY_LINK($term_includes, [char **test = boolcodes; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = boolcodes; puts(*test);],
   AC_DEFINE(HAVE_BOOLCODES) boolcodes=yes, boolcodes=no)
   AC_MSG_RESULT($boolcodes)
   AC_MSG_CHECKING(if numcodes is available)
-  AC_TRY_LINK($term_includes, [char **test = numcodes; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = numcodes; puts(*test);],
   AC_DEFINE(HAVE_NUMCODES) numcodes=yes, numcodes=no)
   AC_MSG_RESULT($numcodes)
   AC_MSG_CHECKING(if strcodes is available)
-  AC_TRY_LINK($term_includes, [char **test = strcodes; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = strcodes; puts(*test);],
   AC_DEFINE(HAVE_STRCODES) strcodes=yes, strcodes=no)
   AC_MSG_RESULT($strcodes)
   AC_MSG_CHECKING(if boolnames is available)
-  AC_TRY_LINK($term_includes, [char **test = boolnames; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = boolnames; puts(*test);],
   AC_DEFINE(HAVE_BOOLNAMES) boolnames=yes, boolnames=no)
   AC_MSG_RESULT($boolnames)
   AC_MSG_CHECKING(if numnames is available)
-  AC_TRY_LINK($term_includes, [char **test = numnames; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = numnames; puts(*test);],
   AC_DEFINE(HAVE_NUMNAMES) numnames=yes, numnames=no)
   AC_MSG_RESULT($numnames)
   AC_MSG_CHECKING(if strnames is available)
-  AC_TRY_LINK($term_includes, [char **test = strnames; printf(*test);],
+  AC_TRY_LINK($term_includes, [char **test = strnames; puts(*test);],
   AC_DEFINE(HAVE_STRNAMES) strnames=yes, strnames=no)
   AC_MSG_RESULT($strnames)
 else
@@ -1513,7 +1586,7 @@ AC_CACHE_CHECK(where the RLIMIT macros are located,zsh_cv_path_rlimit_h,
 [dnl Look at the output from the preprocessor.
 dnl Copied from the search for the signal names above.
 echo "#include <sys/resource.h>" >restmp.c
-resourcefile_list="`$CPP restmp.c |
+resourcefile_list="`$CPP $CPPFLAGS restmp.c |
 sed -n -e 's/^#line[ 	].*\"\(.*\)\"/\1/p' \
        -e 's/^#[ 	].*\"\(.*\)\"/\1/p' |
 sed 's/\\\\\\\\/\//g' |
@@ -1786,9 +1859,17 @@ dnl be good enough.
 AH_TEMPLATE([PATH_DEV_FD],
 [Define to the path of the /dev/fd filesystem.])
 AC_CACHE_CHECK(for /dev/fd filesystem, zsh_cv_sys_path_dev_fd,
+[if test "$host_os" = cygwin; then
+dnl In current (2008/12/01) versions of Cygwin these are present but don't
+dnl seem to work smoothly for process substitution; no great surprise
+dnl since getting processes to work at all on Cygwin is a big challenge.
+dnl We'll rely on FIFOs, since they do what we need.
+zsh_cv_sys_path_dev_fd=no
+else
 [for zsh_cv_sys_path_dev_fd in /proc/self/fd /dev/fd no; do
    test x`echo ok|(exec 3<&0; cat $zsh_cv_sys_path_dev_fd/3 2>/dev/null;)` = xok && break
- done])
+ done]
+fi])
 if test x$zsh_cv_sys_path_dev_fd != xno; then
   AC_DEFINE_UNQUOTED(PATH_DEV_FD, "$zsh_cv_sys_path_dev_fd")
 fi
@@ -1816,6 +1897,40 @@ AH_TEMPLATE([USE_GETCWD],
 if test x$zsh_cv_use_getcwd = xyes; then
   AC_DEFINE(USE_GETCWD)
 fi
+
+dnl GNU getcwd() can allocate as much space as necessary for a
+dnl directory name, preventing guessing games.
+AH_TEMPLATE([GETCWD_CALLS_MALLOC],
+[Define to 1 if getcwd() calls malloc to allocate memory.])
+if test x$ac_cv_func_getcwd = xyes; then
+  AC_CACHE_CHECK(whether getcwd calls malloc to allocate memory,
+  zsh_cv_getcwd_malloc,
+  [AC_TRY_RUN([
+#include <unistd.h>
+#include <string.h>
+int main() {
+    char buf[1024], *ptr1, *ptr2;
+    ptr1 = getcwd(buf, 1024);
+    ptr2 = getcwd(NULL, 0);
+    if (ptr1 && ptr2 && !strcmp(ptr1, ptr2)) {
+      return 0;
+    }
+    return 1;
+}
+],
+  zsh_cv_getcwd_malloc=yes,
+  zsh_cv_getcwd_malloc=no,
+  zsh_cv_getcwd_malloc=no)])
+  if test x$zsh_cv_getcwd_malloc = xyes; then
+    AC_DEFINE(GETCWD_CALLS_MALLOC)
+  fi
+fi
+
+dnl CHECK FOR setproctitle() FOR jobs -Z / ARGV0
+AH_TEMPLATE([HAVE_SETPROCTITLE],
+[Define to 1 if the system supports `setproctitle' to change process name])
+AC_CHECK_FUNC(setproctitle,AC_DEFINE(HAVE_SETPROCTITLE),
+AC_SEARCH_LIBS(setproctitle,util,AC_DEFINE(HAVE_SETPROCTITLE)))
 
 dnl -------------
 dnl CHECK FOR NIS
@@ -1953,10 +2068,13 @@ fi
 dnl -----------
 dnl named FIFOs
 dnl -----------
+dnl
+dnl Named FIFOs work well enough on recent versions of Cygwin
+dnl to provide what we want.  Simply enable them.
 AC_CACHE_CHECK(if named FIFOs work,
 zsh_cv_sys_fifo,
 [if test "$host_os" = cygwin; then
-zsh_cv_sys_fifo=no
+zsh_cv_sys_fifo=yes
 else
 AC_TRY_RUN([
 #include <fcntl.h>
@@ -2356,7 +2474,7 @@ fi
 dnl ---------------
 dnl dynamic loading
 dnl ---------------
-AH_TEMPLATE([HPUXDYNAMIC],
+AH_TEMPLATE([HPUX10DYNAMIC],
 [Define to 1 if you want to use dynamically loaded modules on HPUX 10.])
 L=N
 INSTLIB="install.bin-\$(L)"
@@ -2389,7 +2507,7 @@ elif test "$ac_cv_func_dlopen"  != yes ||
     dnl going into a header, and we can't undefine anything, so
     dnl just define this anyway and rely on the later tests to
     dnl define DYNAMIC or not.
-    AC_DEFINE(HPUXDYNAMIC)dnl
+    AC_DEFINE(HPUX10DYNAMIC)dnl
   fi
 fi
 
@@ -2527,6 +2645,7 @@ char *argv[];
     aix*)         DLLDFLAGS="${DLLDFLAGS=-G -bexpall -lc}" ;;
     solaris*|sysv4*|esix*) DLLDFLAGS="${DLLDFLAGS=-G}" ;;
     darwin*)      DLLDFLAGS="${DLLDFLAGS=-bundle -flat_namespace -undefined suppress}" ;;
+    beos*|haiku*) DLLDFLAGS="${DLLDFLAGS=-nostart}" ;;
     openbsd*)
       if test x$zsh_cv_sys_elf = xyes; then
 	DLLDFLAGS="${DLLDFLAGS=-shared -fPIC}"
@@ -2568,6 +2687,15 @@ char *argv[];
        ;;
       esac
     ;;
+    *-beos*)
+      # gcc on BeOS doesn't like -rdynamic...
+      EXTRA_LDFLAGS="${EXTRA_LDFLAGS= }"
+      # also, dlopen() at least in Zeta respects $LIBRARY_PATH, so needs %A added to it.
+      export LIBRARY_PATH="$LIBRARY_PATH:%A/"
+    ;;
+    *-haiku*)
+      # 
+    ;;
   esac
 
   # Done with our shell code, so restore autotools quoting
@@ -2589,7 +2717,7 @@ EOM
     AC_TRY_COMMAND($DLLD $LDFLAGS $DLLDFLAGS -o conftest.$DL_EXT conftest.o 1>&AC_FD_CC) &&
     AC_TRY_RUN([
 #include <stdio.h>
-#ifdef HPUXDYNAMIC
+#ifdef HPUX10DYNAMIC
 #include <dl.h>
 #define RTLD_LAZY BIND_DEFERRED
 #define RTLD_GLOBAL DYNAMIC_PATH
@@ -2943,7 +3071,7 @@ echo "See config.modules for installed modules and functions.
 
 case x$LIBS in
   *-lgdbm*)
-  echo "WARNING: zsh has been linked against libgdbm.
+  echo "WARNING: zsh will be linked against libgdbm.
 This means the binary is covered by the GNU General Public License.
 This does not affect the source code.
 Run configure with --disable-gdbm if required."

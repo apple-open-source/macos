@@ -1,1 +1,1 @@
---sysconfdir=/usr/X11/lib
+--sysconfdir=$X11_PREFIX/lib --disable-devel-docs

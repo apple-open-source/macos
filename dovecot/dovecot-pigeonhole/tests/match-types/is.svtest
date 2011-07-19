@@ -1,0 +1,22 @@
+require "vnd.dovecot.testsuite";
+
+test_set "message" text:
+From: Stephan Bosch <stephan@example.org>
+To: nico@frop.example.org
+Subject: Test message
+Comment:                                     
+
+Test!
+
+.
+;
+
+test "Empty key" {
+	if header :is "from" "" {
+		test_fail "erroneously matched empty key against non-empty string"; 
+	}
+
+	if not header :is "comment" "" {
+		test_fail "failed to match empty string";
+	}
+}

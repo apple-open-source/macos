@@ -1,0 +1,22 @@
+require "vnd.dovecot.testsuite";
+
+/*
+ * Execution testing (currently just meant to trigger any segfaults)
+ */
+
+test_mailbox_create "INBOX.Junk";
+test_mailbox_create "INBOX.Nonsense";
+
+test "Flags Side Effect" {
+	if not test_script_compile "execute/flags-side-effect.sieve" {
+		test_fail "script compile failed";
+	}
+
+	if not test_script_run {
+		test_fail "script execute failed";
+	}
+
+	if not test_result_execute {
+		test_fail "result execute failed";	
+	}
+}

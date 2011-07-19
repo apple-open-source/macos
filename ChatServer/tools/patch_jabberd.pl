@@ -27,7 +27,7 @@ $SILENT = 0;
 $LOGGING = 1;
 $PATCHFILE_EXT = ".patch";
 #This may change from build to build and we can't predict.
-$JABBERD_DIST_DIR = "jabberd-2.1.24.1";
+$JABBERD_DIST_DIR = "jabberd-2.2.13";
 
 sub _usage() {
     print "$g_my_name: Tool for applying or creating patch files for jabberd source\n";
@@ -56,8 +56,8 @@ sub _usage() {
     print "		-s     :	Silent mode\n";
     print "\n";
 	print "Examples:\n";
-	print "$g_my_name -c -n $g_default_source_dir -f ./opensource_pkgs/jabberd-2.1.24.1.tar.bz2 -p $g_default_patch_dir\n";
-	print "$g_my_name -a -n $g_default_source_dir -f ./opensource_pkgs/jabberd-2.1.24.1.tar.bz2 -p $g_default_patch_dir\n";
+	print "$g_my_name -c -n $g_default_source_dir -f ./opensource_pkgs/jabberd-2.2.13.tar.bz2 -p $g_default_patch_dir\n";
+	print "$g_my_name -a -n $g_default_source_dir -f ./opensource_pkgs/jabberd-2.2.13.tar.bz2 -p $g_default_patch_dir\n";
     print "\n";
 }
 

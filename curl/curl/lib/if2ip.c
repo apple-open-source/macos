@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: if2ip.c,v 1.65 2009-04-21 11:46:17 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -53,7 +52,7 @@
 #ifdef HAVE_STROPTS_H
 #  include <stropts.h>
 #endif
-#ifdef VMS
+#ifdef __VMS
 #  include <inet.h>
 #endif
 

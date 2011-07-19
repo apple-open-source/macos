@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 2006 Don Gibson <dgibson77@gmail.com>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
- * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2006, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2007 Trolltech ASA
  * Copyright (C) 2007 Ryan Leavengood <leavengood@gmail.com> All rights reserved.
  * Copyright (C) 2009 Maxime Simon <simon.maxime@gmail.com> All rights reserved.
@@ -237,13 +237,13 @@ void FrameLoaderClientHaiku::dispatchDidStartProvisionalLoad()
     }
 }
 
-void FrameLoaderClientHaiku::dispatchDidReceiveTitle(const String& title)
+void FrameLoaderClientHaiku::dispatchDidReceiveTitle(const StringWithTitle& title)
 {
     if (m_webView) {
-        m_webView->SetPageTitle(title);
-
+        // FIXME: use direction of title.
+        m_webView->SetPageTitle(title.m_string());
         BMessage message(TITLE_CHANGED);
-        message.AddString("title", title);
+        message.AddString("title", title.string());
         m_messenger->SendMessage(&message);
     }
 }
@@ -261,7 +261,7 @@ void FrameLoaderClientHaiku::dispatchDidFinishDocumentLoad()
 {
     if (m_webView) {
         BMessage message(LOAD_DOC_COMPLETED);
-        message.AddString("url", m_frame->loader()->url().string());
+        message.AddString("url", m_frame->document()->url().string());
         m_messenger->SendMessage(&message);
     }
 }
@@ -323,7 +323,7 @@ void FrameLoaderClientHaiku::postProgressFinishedNotification()
 {
     if (m_webView) {
         BMessage message(LOAD_DL_COMPLETED);
-        message.AddString("url", m_frame->loader()->url().string());
+        message.AddString("url", m_frame->document()->url().string());
         m_messenger->SendMessage(&message);
     }
 }
@@ -361,6 +361,12 @@ void FrameLoaderClientHaiku::finishedLoading(DocumentLoader*)
     notImplemented();
 }
 
+bool FrameLoaderClientHaiku::canShowMIMETypeAsHTML(const String& MIMEType) const
+{
+    notImplemented();
+    return false;
+}
+    
 bool FrameLoaderClientHaiku::canShowMIMEType(const String& MIMEType) const
 {
     notImplemented();
@@ -477,6 +483,11 @@ bool FrameLoaderClientHaiku::shouldGoToHistoryItem(WebCore::HistoryItem*) const
     return true;
 }
 
+bool FrameLoaderClientHaiku::shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const
+{
+    return true;
+}
+
 void FrameLoaderClientHaiku::dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const
 {
 }
@@ -506,12 +517,7 @@ void FrameLoaderClientHaiku::setMainDocumentError(WebCore::DocumentLoader*, cons
 
 void FrameLoaderClientHaiku::committedLoad(WebCore::DocumentLoader* loader, const char* data, int length)
 {
-    if (!m_frame)
-        return;
-
-    FrameLoader* frameLoader = loader->frameLoader();
-    frameLoader->writer()->setEncoding(m_response.textEncodingName(), false);
-    frameLoader->addData(data, length);
+    loader->commitData(data, length);
 }
 
 WebCore::ResourceError FrameLoaderClientHaiku::cancelledError(const WebCore::ResourceRequest& request)
@@ -644,14 +650,14 @@ void FrameLoaderClientHaiku::dispatchDidFailLoad(const ResourceError&)
     notImplemented();
 }
 
-Frame* FrameLoaderClientHaiku::dispatchCreatePage()
+Frame* FrameLoaderClientHaiku::dispatchCreatePage(const WebCore::NavigationAction&)
 {
     notImplemented();
     return false;
 }
 
-void FrameLoaderClientHaiku::dispatchDecidePolicyForMIMEType(FramePolicyFunction function,
-                                                             const String& mimetype,
+void FrameLoaderClientHaiku::dispatchDecidePolicyForResponse(FramePolicyFunction function,
+                                                             const ResourceResponse& response,
                                                              const ResourceRequest& request)
 {
     if (!m_frame)
@@ -728,7 +734,7 @@ PassRefPtr<Frame> FrameLoaderClientHaiku::createFrame(const KURL& url, const Str
     childFrame->tree()->setName(name);
     m_frame->tree()->appendChild(childFrame);
 
-    childFrame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
+    m_frame->loader()->loadURLIntoChildFrame(url, referrer, childFrame.get());
 
     // The frame's onload handler may have removed it from the document.
     if (!childFrame->tree()->parent())
@@ -740,11 +746,15 @@ PassRefPtr<Frame> FrameLoaderClientHaiku::createFrame(const KURL& url, const Str
     return 0;
 }
 
-void FrameLoaderClientHaiku::didTransferChildFrameToNewDocument()
+void FrameLoaderClientHaiku::didTransferChildFrameToNewDocument(Page*)
 {
 }
 
-ObjectContentType FrameLoaderClientHaiku::objectContentType(const KURL& url, const String& mimeType)
+void FrameLoaderClientHaiku::transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*)
+{
+}
+
+ObjectContentType FrameLoaderClientHaiku::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
 {
     notImplemented();
     return ObjectContentType();
@@ -852,5 +862,16 @@ void FrameLoaderClientHaiku::transitionToCommittedForNewPage()
         m_frame->view()->setScrollbarModes(owner->scrollingMode(), owner->scrollingMode());
 }
 
-} // namespace WebCore
+void FrameLoaderClientHaiku::didSaveToPageCache()
+{
+}
 
+void FrameLoaderClientHaiku::didRestoreFromPageCache()
+{
+}
+
+void FrameLoaderClientHaiku::dispatchDidBecomeFrameset(bool)
+{
+}
+
+} // namespace WebCore

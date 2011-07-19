@@ -531,6 +531,13 @@ be printed and the program exits immediately.
 
 =back
 
+=head1 SHUTDOWN
+
+DBI::ProxyServer is built on L<RPC::PlServer> which is, in turn, built on L<Net::Daemon>.
+
+You should refer to L<Net::Daemon> for how to shutdown the server, except that
+you can't because it's not currently documented there (as of v0.43).
+The bottom-line is that it seems that there's no support for graceful shutdown.
 
 =head1 CONFIGURATION FILE
 

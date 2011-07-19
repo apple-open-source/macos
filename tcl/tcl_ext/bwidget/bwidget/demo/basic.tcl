@@ -1,3 +1,9 @@
+# ----------------------------------------------------------------------------
+#  basic.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: basic.tcl,v 1.4 2009/10/25 20:53:58 oberdorfer Exp $
+# ----------------------------------------------------------------------------
+#
 
 namespace eval DemoBasic {
     variable var
@@ -9,7 +15,7 @@ namespace eval DemoBasic {
 proc DemoBasic::create { nb } {
     set frame [$nb insert end demoBasic -text "Basic"]
 
-    set topf  [frame $frame.topf]
+    set topf  [BWidget::wrap frame $frame.topf]
     set titf1 [TitleFrame $topf.titf1 -text "Label"]
     set titf2 [TitleFrame $topf.titf2 -text "Entry"]
     set titf3 [TitleFrame $frame.titf3 -text "Button and ArrowButton"]
@@ -31,12 +37,12 @@ proc DemoBasic::_label { parent } {
 
     set lab [Label $parent.label -text "This is a Label widget" \
                  -helptext "Label widget"]
-    set chk [checkbutton $parent.chk -text "Disabled" \
+    set chk [BWidget::wrap checkbutton $parent.chk -text "Disabled" \
                  -variable DemoBasic::var($lab,-state) \
                  -onvalue  disabled -offvalue normal \
                  -command  "$lab configure -state \$DemoBasic::var($lab,-state)"]
-    pack $lab -anchor w -pady 4
-    pack $chk -anchor w
+    pack $lab -anchor w -padx 5 -pady 5
+    pack $chk -anchor w -padx 5
 }
 
 
@@ -44,29 +50,29 @@ proc DemoBasic::_entry { parent } {
     set ent  [Entry $parent.entry -text "Press enter" \
                   -command  {set DemoBasic::var(entcmd) "-command called" ; after 500 {set DemoBasic::var(entcmd) ""}} \
                    -helptext "Entry widget"]
-    set chk1 [checkbutton $parent.chk1 -text "Disabled" \
+    set chk1 [BWidget::wrap checkbutton $parent.chk1 -text "Disabled" \
                   -variable DemoBasic::var($ent,state) \
                   -onvalue  disabled -offvalue normal \
                   -command  "$ent configure -state \$DemoBasic::var($ent,state)"]
-    set chk2 [checkbutton $parent.chk2 -text "Non editable" \
+    set chk2 [BWidget::wrap checkbutton $parent.chk2 -text "Non editable" \
                   -variable DemoBasic::var($ent,editable) \
                   -onvalue  false -offvalue true \
                   -command  "$ent configure -editable \$DemoBasic::var($ent,editable)"]
-    set lab  [label $parent.cmd -textvariable DemoBasic::var(entcmd) -foreground red]
-    pack $ent -pady 4 -anchor w
-    pack $chk1 $chk2 -anchor w
-    pack $lab -pady 4
+    set lab  [BWidget::wrap label $parent.cmd -textvariable DemoBasic::var(entcmd) -foreground red]
+    pack $ent -pady 4 -anchor w -padx 5
+    pack $chk1 $chk2 -anchor w -padx 5
+    pack $lab -padx 5 -pady 5
 }
 
 
 proc DemoBasic::_button { parent } {
     variable var
 
-    set frame [frame $parent.butfr]
+    set frame [BWidget::wrap frame $parent.butfr]
     set but   [Button $frame.but -text "Press me!" \
                    -repeatdelay 300 \
                    -command  "DemoBasic::_butcmd command" \
-                   -helptext "This is a Button widget"]
+                   -helptext "This is a Button widget" -relief link]
     set sep1  [Separator $frame.sep1 -orient vertical]
     set arr1  [ArrowButton $frame.arr1 -type button \
                    -width 25 -height 25 \
@@ -93,16 +99,15 @@ proc DemoBasic::_button { parent } {
     set labf1 [LabelFrame $parent.labf1 -text "Command" -side top \
                    -anchor w -relief sunken -borderwidth 1]
     set subf  [$labf1 getframe]
-    set chk1  [checkbutton $subf.chk1 -text "Disabled" \
+    set chk1  [BWidget::wrap checkbutton $subf.chk1 -text "Disabled" \
                    -variable DemoBasic::var(bstate) -onvalue disabled -offvalue normal \
                    -command  "DemoBasic::_bstate \$DemoBasic::var(bstate) $but $arr1 $arr2"]
-    set chk2  [checkbutton $subf.chk2 -text "Use -armcommand/\n-disarmcommand" \
-                   -justify left \
+    set chk2  [BWidget::wrap checkbutton $subf.chk2 -text "Use -armcommand/\n-disarmcommand" \
                    -variable DemoBasic::var(barmcmd) \
                    -command  "DemoBasic::_barmcmd \$DemoBasic::var(barmcmd) $but $arr1 $arr2"]
-    pack $chk1 $chk2 -anchor w
+    pack $chk1 $chk2 -anchor w -padx 5
 
-    set label [label $parent.label -textvariable DemoBasic::var(butcmd) -foreground red]
+    set label [Label $parent.label -textvariable DemoBasic::var(butcmd) -foreground red]
     pack $label -side bottom -pady 4
 
     set labf2 [LabelFrame $parent.labf2 -text "Direction" -side top \
@@ -110,10 +115,10 @@ proc DemoBasic::_button { parent } {
     set subf  [$labf2 getframe]
     set var(bside) top
     foreach dir {top left bottom right} {
-        set rad [radiobutton $subf.$dir -text "$dir arrow" \
+        set rad [BWidget::wrap radiobutton $subf.$dir -text "$dir arrow" \
                      -variable DemoBasic::var(bside) -value $dir \
                      -command  "DemoBasic::_bside \$DemoBasic::var(bside) $arr1 $arr2"]
-        pack $rad -anchor w
+        pack $rad -anchor w -padx 5
     }
 
     set labf3 [LabelFrame $parent.labf3 -text "Relief" -side top \
@@ -121,12 +126,12 @@ proc DemoBasic::_button { parent } {
     set subf  [$labf3 getframe]
     set var(brelief) raised
     foreach {f lrelief} {f1 {raised sunken ridge groove} f2 {flat solid link}} {
-        set f [frame $subf.$f]
+        set f [BWidget::wrap frame $subf.$f]
         foreach relief $lrelief {
-            set rad [radiobutton $f.$relief -text $relief \
+            set rad [BWidget::wrap radiobutton $f.$relief -text $relief \
                          -variable DemoBasic::var(brelief) -value $relief \
                          -command  "DemoBasic::_brelief \$DemoBasic::var(brelief) $but $arr1 $arr2"]
-            pack $rad -anchor w
+            pack $rad -anchor w -padx 5
         }
         pack $f -side left -padx 2 -anchor n
     }

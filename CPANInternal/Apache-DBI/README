@@ -1,7 +1,7 @@
 DESCRIPTION:
 ------------
 
-This is version 1.06 of Apache::AuthDBI and Apache::DBI.
+This is version 1.08 of Apache::AuthDBI and Apache::DBI.
 
 These modules are supposed to be used with the Apache server together with 
 an embedded perl interpreter like mod_perl. They provide support for basic 

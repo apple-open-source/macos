@@ -35,6 +35,9 @@ TiledBackingStore::TiledBackingStore(TiledBackingStoreClient* client)
     , m_tileBufferUpdateTimer(new TileTimer(this, &TiledBackingStore::tileBufferUpdateTimerFired))
     , m_tileCreationTimer(new TileTimer(this, &TiledBackingStore::tileCreationTimerFired))
     , m_tileSize(defaultTileWidth, defaultTileHeight)
+    , m_tileCreationDelay(0.01)
+    , m_keepAreaMultiplier(2.f, 3.5f)
+    , m_coverAreaMultiplier(1.5f, 2.5f)
     , m_contentsScale(1.f)
     , m_pendingScale(0)
     , m_contentsFrozen(false)
@@ -46,13 +49,32 @@ TiledBackingStore::~TiledBackingStore()
     delete m_tileBufferUpdateTimer;
     delete m_tileCreationTimer;
 }
+    
+void TiledBackingStore::setTileSize(const IntSize& size)
+{
+    m_tileSize = size;
+    m_tiles.clear();
+    startTileCreationTimer();
+}
+
+void TiledBackingStore::setTileCreationDelay(double delay)
+{
+    m_tileCreationDelay = delay;
+}
+
+void TiledBackingStore::setKeepAndCoverAreaMultipliers(const FloatSize& keepMultiplier, const FloatSize& coverMultiplier)
+{
+    m_keepAreaMultiplier = keepMultiplier;
+    m_coverAreaMultiplier = coverMultiplier;
+    startTileCreationTimer();
+}
 
 void TiledBackingStore::invalidate(const IntRect& contentsDirtyRect)
 {
     IntRect dirtyRect(mapFromContents(contentsDirtyRect));
     
-    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
     
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
@@ -71,6 +93,8 @@ void TiledBackingStore::updateTileBuffers()
     if (m_contentsFrozen)
         return;
     
+    m_client->tiledBackingStorePaintBegin();
+
     Vector<IntRect> paintedArea;
     Vector<RefPtr<Tile> > dirtyTiles;
     TileMap::iterator end = m_tiles.end();
@@ -78,24 +102,22 @@ void TiledBackingStore::updateTileBuffers()
         if (!it->second->isDirty())
             continue;
         dirtyTiles.append(it->second);
-        // FIXME: should not request system repaint for the full tile.
-        paintedArea.append(mapToContents(it->second->rect()));
     }
     
-    if (dirtyTiles.isEmpty())
+    if (dirtyTiles.isEmpty()) {
+        m_client->tiledBackingStorePaintEnd(paintedArea);
         return;
-    
-    m_client->tiledBackingStorePaintBegin();
+    }
 
     // FIXME: In single threaded case, tile back buffers could be updated asynchronously 
     // one by one and then swapped to front in one go. This would minimize the time spent
     // blocking on tile updates.
     unsigned size = dirtyTiles.size();
-    for (unsigned n = 0; n < size; ++n)
-        dirtyTiles[n]->updateBackBuffer();
-
-    for (unsigned n = 0; n < size; ++n)
+    for (unsigned n = 0; n < size; ++n) {
+        Vector<IntRect> paintedRects = dirtyTiles[n]->updateBackBuffer();
+        paintedArea.append(paintedRects);
         dirtyTiles[n]->swapBackBufferToFront();
+    }
 
     m_client->tiledBackingStorePaintEnd(paintedArea);
 }
@@ -110,8 +132,8 @@ void TiledBackingStore::paint(GraphicsContext* context, const IntRect& rect)
     
     IntRect dirtyRect = mapFromContents(rect);
     
-    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(dirtyRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(dirtyRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(dirtyRect.maxX(), dirtyRect.maxY()));
 
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
@@ -120,22 +142,23 @@ void TiledBackingStore::paint(GraphicsContext* context, const IntRect& rect)
             if (currentTile && currentTile->isReadyToPaint())
                 currentTile->paint(context, dirtyRect);
             else {
-                FloatRect tileRect = tileRectForCoordinate(currentCoordinate);
-                FloatRect target = intersection(tileRect, FloatRect(rect));
-                Tile::paintCheckerPattern(context, target);
+                IntRect tileRect = tileRectForCoordinate(currentCoordinate);
+                IntRect target = intersection(tileRect, dirtyRect);
+                if (target.isEmpty())
+                    continue;
+                Tile::paintCheckerPattern(context, FloatRect(target));
             }
         }
     }
     context->restore();
 }
 
-void TiledBackingStore::viewportChanged(const IntRect& contentsViewport)
+void TiledBackingStore::adjustVisibleRect()
 {
-    IntRect viewport = mapFromContents(contentsViewport);
-    if (m_viewport == viewport)
+    IntRect visibleRect = mapFromContents(m_client->tiledBackingStoreVisibleRect());
+    if (m_previousVisibleRect == visibleRect)
         return;
-
-    m_viewport = viewport;
+    m_previousVisibleRect = visibleRect;
 
     startTileCreationTimer();
 }
@@ -177,24 +200,28 @@ void TiledBackingStore::createTiles()
 {
     if (m_contentsFrozen)
         return;
+    
+    IntRect visibleRect = mapFromContents(m_client->tiledBackingStoreVisibleRect());
+    m_previousVisibleRect = visibleRect;
 
-    if (m_viewport.isEmpty())
+    if (visibleRect.isEmpty())
         return;
 
     // Remove tiles that extend outside the current contents rect.
     dropOverhangingTiles();
 
-    // FIXME: Make configurable/adapt to memory.
-    IntRect keepRect = m_viewport;
-    keepRect.inflateX(m_viewport.width());
-    keepRect.inflateY(3 * m_viewport.height());
+    IntRect keepRect = visibleRect;
+    // Inflates to both sides, so divide inflate delta by 2
+    keepRect.inflateX(visibleRect.width() * (m_keepAreaMultiplier.width() - 1.f) / 2);
+    keepRect.inflateY(visibleRect.height() * (m_keepAreaMultiplier.height() - 1.f) / 2);
     keepRect.intersect(contentsRect());
     
     dropTilesOutsideRect(keepRect);
     
-    IntRect coverRect = m_viewport;
-    coverRect.inflateX(m_viewport.width() / 2);
-    coverRect.inflateY(2 * m_viewport.height());
+    IntRect coverRect = visibleRect;
+    // Inflates to both sides, so divide inflate delta by 2
+    coverRect.inflateX(visibleRect.width() * (m_coverAreaMultiplier.width() - 1.f) / 2);
+    coverRect.inflateY(visibleRect.height() * (m_coverAreaMultiplier.height() - 1.f) / 2);
     coverRect.intersect(contentsRect());
     
     // Search for the tile position closest to the viewport center that does not yet contain a tile. 
@@ -202,8 +229,8 @@ void TiledBackingStore::createTiles()
     double shortestDistance = std::numeric_limits<double>::infinity();
     Vector<Tile::Coordinate> tilesToCreate;
     unsigned requiredTileCount = 0;
-    Tile::Coordinate topLeft = tileCoordinateForPoint(coverRect.topLeft());
-    Tile::Coordinate bottomRight = tileCoordinateForPoint(coverRect.bottomRight());
+    Tile::Coordinate topLeft = tileCoordinateForPoint(coverRect.location());
+    Tile::Coordinate bottomRight = tileCoordinateForPoint(IntPoint(coverRect.maxX(), coverRect.maxY()));
     for (unsigned yCoordinate = topLeft.y(); yCoordinate <= bottomRight.y(); ++yCoordinate) {
         for (unsigned xCoordinate = topLeft.x(); xCoordinate <= bottomRight.x(); ++xCoordinate) {
             Tile::Coordinate currentCoordinate(xCoordinate, yCoordinate);
@@ -211,7 +238,7 @@ void TiledBackingStore::createTiles()
                 continue;
             ++requiredTileCount;
             // Distance is 0 for all currently visible tiles.
-            double distance = tileDistance(m_viewport, currentCoordinate);
+            double distance = tileDistance(visibleRect, currentCoordinate);
             if (distance > shortestDistance)
                 continue;
             if (distance < shortestDistance) {
@@ -236,7 +263,7 @@ void TiledBackingStore::createTiles()
 
     // Keep creating tiles until the whole coverRect is covered.
     if (requiredTileCount)
-        m_tileCreationTimer->startOneShot(0);
+        m_tileCreationTimer->startOneShot(m_tileCreationDelay);
 }
 
 void TiledBackingStore::dropOverhangingTiles()

@@ -31,7 +31,7 @@ WebInspector.Section = function(title, subtitle)
 {
     this.element = document.createElement("div");
     this.element.className = "section";
-    this.element.sectionForTest = this;
+    this.element._section = this;
 
     this.headerElement = document.createElement("div");
     this.headerElement.className = "header";
@@ -45,7 +45,7 @@ WebInspector.Section = function(title, subtitle)
     this.headerElement.appendChild(this.subtitleElement);
     this.headerElement.appendChild(this.titleElement);
 
-    this.headerElement.addEventListener("click", this.toggleExpanded.bind(this), false);
+    this.headerElement.addEventListener("click", this.handleClick.bind(this), false);
     this.element.appendChild(this.headerElement);
 
     this.title = title;
@@ -82,7 +82,19 @@ WebInspector.Section.prototype = {
         if (this._subtitle === x)
             return;
         this._subtitle = x;
-        this.subtitleElement.innerHTML = x;
+        this.subtitleElement.textContent = x;
+    },
+
+    get subtitleAsTextForTest()
+    {
+        var result = this.subtitleElement.textContent;
+        var child = this.subtitleElement.querySelector("[data-uncopyable]");
+        if (child) {
+            var linkData = child.getAttribute("data-uncopyable");
+            if (linkData)
+                result += linkData;
+        }
+        return result;
     },
 
     get expanded()
@@ -112,6 +124,26 @@ WebInspector.Section.prototype = {
         }
     },
 
+    get nextSibling()
+    {
+        var curElement = this.element;
+        do {
+            curElement = curElement.nextSibling;
+        } while (curElement && !curElement._section);
+
+        return curElement ? curElement._section : null;
+    },
+
+    get previousSibling()
+    {
+        var curElement = this.element;
+        do {
+            curElement = curElement.previousSibling;
+        } while (curElement && !curElement._section);
+
+        return curElement ? curElement._section : null;
+    },
+
     expand: function()
     {
         if (this._expanded)
@@ -136,5 +168,11 @@ WebInspector.Section.prototype = {
     toggleExpanded: function()
     {
         this.expanded = !this.expanded;
+    },
+
+    handleClick: function(e)
+    {
+        this.toggleExpanded();
+        e.stopPropagation();
     }
 }

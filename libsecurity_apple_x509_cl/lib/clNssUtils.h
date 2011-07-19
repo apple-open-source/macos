@@ -210,10 +210,49 @@ void CL_nssDistPointsToCssm(
 	Allocator						&alloc);
 
 void CL_nssIssuingDistPointToCssm(
-	NSS_IssuingDistributionPoint *nssIdp,
-	CE_IssuingDistributionPoint	*cssmIdp,
-	SecNssCoder					&coder,
-	Allocator					&alloc);
+	NSS_IssuingDistributionPoint	*nssIdp,
+	CE_IssuingDistributionPoint		*cssmIdp,
+	SecNssCoder						&coder,
+	Allocator						&alloc);
+
+void CL_cssmNameConstraintsToNss(
+	const CE_NameConstraints		&cdsaObj,
+	NSS_NameConstraints				&nssObj,
+	SecNssCoder 					&coder);
+void CL_nssNameConstraintsToCssm(
+	const NSS_NameConstraints		&nssObj,
+	CE_NameConstraints				&cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc);
+void CL_freeCssmNameConstraints(
+	CE_NameConstraints				*cssmNcs,
+	Allocator						&alloc);
+
+void CL_cssmPolicyMappingsToNss(
+	const CE_PolicyMappings			&cdsaObj,
+	NSS_PolicyMappings				&nssObj,
+	SecNssCoder						&coder);
+void CL_nssPolicyMappingsToCssm(
+	const NSS_PolicyMappings		&nssObj,
+	CE_PolicyMappings				&cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc);
+void CL_freeCssmPolicyMappings(
+	CE_PolicyMappings				*cssmPms,
+	Allocator						&alloc);
+
+void CL_cssmPolicyConstraintsToNss(
+	const CE_PolicyConstraints		*cdsaObj,
+	NSS_PolicyConstraints			*nssObj,
+	SecNssCoder						&coder);
+void CL_nssPolicyConstraintsToCssm(
+	const NSS_PolicyConstraints		*nssObj,
+	CE_PolicyConstraints			*cdsaObj,
+	SecNssCoder 					&coder,	// for temp decoding
+	Allocator						&alloc);
+void CL_freeCssmPolicyConstraints(
+	CE_PolicyConstraints			*cssmPcs,
+	Allocator						&alloc);
 
 CSSM_ALGORITHMS CL_nssDecodeECDSASigAlgParams(
 	const CSSM_DATA &algParams,

@@ -23,6 +23,8 @@
 #include "GraphicsLayer.h"
 #include "GraphicsLayerClient.h"
 
+#if !defined(QT_NO_GRAPHICSVIEW)
+
 namespace WebCore {
 
 class GraphicsLayerQtImpl;
@@ -35,7 +37,6 @@ public:
     virtual ~GraphicsLayerQt();
 
     // reimps from GraphicsLayer.h
-    virtual NativeLayer nativeLayer() const;
     virtual PlatformLayer* platformLayer() const;
     virtual void setNeedsDisplay();
     virtual void setNeedsDisplayInRect(const FloatRect&);
@@ -72,21 +73,20 @@ public:
     virtual void resumeAnimations();
 #endif // QT_NO_ANIMATION
     virtual void setContentsToImage(Image*);
+    virtual void setContentsNeedsDisplay();
     virtual void setContentsToMedia(PlatformLayer*);
+    virtual void setContentsToCanvas(PlatformLayer*);
     virtual void setContentsBackgroundColor(const Color&);
-#if ENABLE(3D_CANVAS)
-    virtual void setContentsToGraphicsContext3D(const GraphicsContext3D*);
-    virtual void setGraphicsContext3DNeedsDisplay();
-#endif
-    virtual void setGeometryOrientation(CompositingCoordinatesOrientation orientation);
     virtual void setContentsOrientation(CompositingCoordinatesOrientation orientation);
     virtual void distributeOpacity(float);
     virtual float accumulatedOpacity() const;
     virtual void syncCompositingState();
+    virtual void syncCompositingStateForThisLayerOnly();
 
 private:
     OwnPtr<GraphicsLayerQtImpl> m_impl;
 };
 
 }
+#endif
 #endif // GraphicsLayerQt_h

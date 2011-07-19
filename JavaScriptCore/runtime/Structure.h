@@ -27,99 +27,98 @@
 #define Structure_h
 
 #include "Identifier.h"
+#include "JSCell.h"
 #include "JSType.h"
 #include "JSValue.h"
 #include "PropertyMapHashTable.h"
 #include "PropertyNameArray.h"
 #include "Protect.h"
-#include "StructureChain.h"
 #include "StructureTransitionTable.h"
 #include "JSTypeInfo.h"
 #include "UString.h"
-#include "WeakGCPtr.h"
+#include "Weak.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
-#ifndef NDEBUG
-#define DUMP_PROPERTYMAP_STATS 0
-#else
-#define DUMP_PROPERTYMAP_STATS 0
-#endif
 
 namespace JSC {
 
     class MarkStack;
     class PropertyNameArray;
     class PropertyNameArrayData;
+    class StructureChain;
+    typedef MarkStack SlotVisitor;
+
+    struct ClassInfo;
 
     enum EnumerationMode {
         ExcludeDontEnumProperties,
         IncludeDontEnumProperties
     };
 
-    class Structure : public RefCounted<Structure> {
+    class Structure : public JSCell {
     public:
-        friend class JIT;
         friend class StructureTransitionTable;
-        static PassRefPtr<Structure> create(JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount)
+        static Structure* create(JSGlobalData& globalData, JSValue prototype, const TypeInfo& typeInfo, unsigned anonymousSlotCount, const ClassInfo* classInfo)
         {
-            return adoptRef(new Structure(prototype, typeInfo, anonymousSlotCount));
+            ASSERT(globalData.structureStructure);
+            ASSERT(classInfo);
+            return new (&globalData) Structure(globalData, prototype, typeInfo, anonymousSlotCount, classInfo);
         }
-
-        static void startIgnoringLeaks();
-        static void stopIgnoringLeaks();
 
         static void dumpStatistics();
 
-        static PassRefPtr<Structure> addPropertyTransition(Structure*, const Identifier& propertyName, unsigned attributes, JSCell* specificValue, size_t& offset);
-        static PassRefPtr<Structure> addPropertyTransitionToExistingStructure(Structure*, const Identifier& propertyName, unsigned attributes, JSCell* specificValue, size_t& offset);
-        static PassRefPtr<Structure> removePropertyTransition(Structure*, const Identifier& propertyName, size_t& offset);
-        static PassRefPtr<Structure> changePrototypeTransition(Structure*, JSValue prototype);
-        static PassRefPtr<Structure> despecifyFunctionTransition(Structure*, const Identifier&);
-        static PassRefPtr<Structure> getterSetterTransition(Structure*);
-        static PassRefPtr<Structure> toCacheableDictionaryTransition(Structure*);
-        static PassRefPtr<Structure> toUncacheableDictionaryTransition(Structure*);
+        static Structure* addPropertyTransition(JSGlobalData&, Structure*, const Identifier& propertyName, unsigned attributes, JSCell* specificValue, size_t& offset);
+        static Structure* addPropertyTransitionToExistingStructure(Structure*, const Identifier& propertyName, unsigned attributes, JSCell* specificValue, size_t& offset);
+        static Structure* removePropertyTransition(JSGlobalData&, Structure*, const Identifier& propertyName, size_t& offset);
+        static Structure* changePrototypeTransition(JSGlobalData&, Structure*, JSValue prototype);
+        static Structure* despecifyFunctionTransition(JSGlobalData&, Structure*, const Identifier&);
+        static Structure* getterSetterTransition(JSGlobalData&, Structure*);
+        static Structure* toCacheableDictionaryTransition(JSGlobalData&, Structure*);
+        static Structure* toUncacheableDictionaryTransition(JSGlobalData&, Structure*);
+        static Structure* sealTransition(JSGlobalData&, Structure*);
+        static Structure* freezeTransition(JSGlobalData&, Structure*);
+        static Structure* preventExtensionsTransition(JSGlobalData&, Structure*);
 
-        PassRefPtr<Structure> flattenDictionaryStructure(JSObject*);
+        bool isSealed(JSGlobalData&);
+        bool isFrozen(JSGlobalData&);
+        bool isExtensible() const { return !m_preventExtensions; }
+        bool didTransition() const { return m_didTransition; }
+
+        Structure* flattenDictionaryStructure(JSGlobalData&, JSObject*);
 
         ~Structure();
 
         // These should be used with caution.  
-        size_t addPropertyWithoutTransition(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
-        size_t removePropertyWithoutTransition(const Identifier& propertyName);
-        void setPrototypeWithoutTransition(JSValue prototype) { m_prototype = prototype; }
+        size_t addPropertyWithoutTransition(JSGlobalData&, const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
+        size_t removePropertyWithoutTransition(JSGlobalData&, const Identifier& propertyName);
+        void setPrototypeWithoutTransition(JSGlobalData& globalData, JSValue prototype) { m_prototype.set(globalData, this, prototype); }
         
         bool isDictionary() const { return m_dictionaryKind != NoneDictionaryKind; }
         bool isUncacheableDictionary() const { return m_dictionaryKind == UncachedDictionaryKind; }
 
-        const TypeInfo& typeInfo() const { return m_typeInfo; }
+        const TypeInfo& typeInfo() const { ASSERT(structure()->classInfo() == &s_info); return m_typeInfo; }
 
-        JSValue storedPrototype() const { return m_prototype; }
+        JSValue storedPrototype() const { return m_prototype.get(); }
         JSValue prototypeForLookup(ExecState*) const;
         StructureChain* prototypeChain(ExecState*) const;
+        void visitChildren(SlotVisitor&);
 
-        Structure* previousID() const { return m_previous.get(); }
+        Structure* previousID() const { ASSERT(structure()->classInfo() == &s_info); return m_previous.get(); }
 
         void growPropertyStorageCapacity();
-        unsigned propertyStorageCapacity() const { return m_propertyStorageCapacity; }
-        unsigned propertyStorageSize() const { return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->keyCount + (m_propertyTable->deletedOffsets ? m_propertyTable->deletedOffsets->size() : 0) : static_cast<unsigned>(m_offset + 1)); }
+        unsigned propertyStorageCapacity() const { ASSERT(structure()->classInfo() == &s_info); return m_propertyStorageCapacity; }
+        unsigned propertyStorageSize() const { ASSERT(structure()->classInfo() == &s_info); return m_anonymousSlotCount + (m_propertyTable ? m_propertyTable->propertyStorageSize() : static_cast<unsigned>(m_offset + 1)); }
         bool isUsingInlineStorage() const;
 
-        size_t get(const Identifier& propertyName);
-        size_t get(const UString::Rep* rep, unsigned& attributes, JSCell*& specificValue);
-        size_t get(const Identifier& propertyName, unsigned& attributes, JSCell*& specificValue)
+        size_t get(JSGlobalData&, const Identifier& propertyName);
+        size_t get(JSGlobalData&, StringImpl* propertyName, unsigned& attributes, JSCell*& specificValue);
+        size_t get(JSGlobalData& globalData, const Identifier& propertyName, unsigned& attributes, JSCell*& specificValue)
         {
             ASSERT(!propertyName.isNull());
-            return get(propertyName.ustring().rep(), attributes, specificValue);
-        }
-        bool transitionedFor(const JSCell* specificValue)
-        {
-            return m_specificValueInPrevious == specificValue;
-        }
-        bool hasTransition(UString::Rep*, unsigned attributes);
-        bool hasTransition(const Identifier& propertyName, unsigned attributes)
-        {
-            return hasTransition(propertyName._ustring.rep(), attributes);
+            ASSERT(structure()->classInfo() == &s_info);
+            return get(globalData, propertyName.impl(), attributes, specificValue);
         }
 
         bool hasGetterSetterProperties() const { return m_hasGetterSetterProperties; }
@@ -130,48 +129,74 @@ namespace JSC {
         bool hasAnonymousSlots() const { return !!m_anonymousSlotCount; }
         unsigned anonymousSlotCount() const { return m_anonymousSlotCount; }
         
-        bool isEmpty() const { return m_propertyTable ? !m_propertyTable->keyCount : m_offset == noOffset; }
+        bool isEmpty() const { return m_propertyTable ? m_propertyTable->isEmpty() : m_offset == noOffset; }
 
-        void despecifyDictionaryFunction(const Identifier& propertyName);
+        void despecifyDictionaryFunction(JSGlobalData&, const Identifier& propertyName);
         void disableSpecificFunctionTracking() { m_specificFunctionThrashCount = maxSpecificFunctionThrashCount; }
 
-        void setEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
-        void clearEnumerationCache(JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
+        void setEnumerationCache(JSGlobalData&, JSPropertyNameIterator* enumerationCache); // Defined in JSPropertyNameIterator.h.
         JSPropertyNameIterator* enumerationCache(); // Defined in JSPropertyNameIterator.h.
-        void getPropertyNames(PropertyNameArray&, EnumerationMode mode);
-        
-    private:
+        void getPropertyNames(JSGlobalData&, PropertyNameArray&, EnumerationMode mode);
 
-        Structure(JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount);
+        const ClassInfo* classInfo() const { return m_classInfo; }
+
+        static ptrdiff_t prototypeOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_prototype);
+        }
+
+        static ptrdiff_t typeInfoFlagsOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_typeInfo) + TypeInfo::flagsOffset();
+        }
+
+        static ptrdiff_t typeInfoTypeOffset()
+        {
+            return OBJECT_OFFSETOF(Structure, m_typeInfo) + TypeInfo::typeOffset();
+        }
+
+        static Structure* createStructure(JSGlobalData& globalData)
+        {
+            ASSERT(!globalData.structureStructure);
+            return new (&globalData) Structure(globalData);
+        }
+        
+        static JS_EXPORTDATA const ClassInfo s_info;
+
+    private:
+        Structure(JSGlobalData&, JSValue prototype, const TypeInfo&, unsigned anonymousSlotCount, const ClassInfo*);
+        Structure(JSGlobalData&);
+        Structure(JSGlobalData&, const Structure*);
+
+        static Structure* create(JSGlobalData& globalData, const Structure* structure)
+        {
+            ASSERT(globalData.structureStructure);
+            return new (&globalData) Structure(globalData, structure);
+        }
         
         typedef enum { 
             NoneDictionaryKind = 0,
             CachedDictionaryKind = 1,
             UncachedDictionaryKind = 2
         } DictionaryKind;
-        static PassRefPtr<Structure> toDictionaryTransition(Structure*, DictionaryKind);
+        static Structure* toDictionaryTransition(JSGlobalData&, Structure*, DictionaryKind);
 
-        size_t put(const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
+        size_t putSpecificValue(JSGlobalData&, const Identifier& propertyName, unsigned attributes, JSCell* specificValue);
         size_t remove(const Identifier& propertyName);
 
-        void expandPropertyMapHashTable();
-        void rehashPropertyMapHashTable();
-        void rehashPropertyMapHashTable(unsigned newTableSize);
-        void createPropertyMapHashTable();
-        void createPropertyMapHashTable(unsigned newTableSize);
-        void insertIntoPropertyMapHashTable(const PropertyMapEntry&);
+        void createPropertyMap(unsigned keyCount = 0);
         void checkConsistency();
 
-        bool despecifyFunction(const Identifier&);
-        void despecifyAllFunctions();
+        bool despecifyFunction(JSGlobalData&, const Identifier&);
+        void despecifyAllFunctions(JSGlobalData&);
 
-        PropertyMapHashTable* copyPropertyTable();
-        void materializePropertyMap();
-        void materializePropertyMapIfNecessary()
+        PassOwnPtr<PropertyTable> copyPropertyTable(JSGlobalData&, Structure* owner);
+        void materializePropertyMap(JSGlobalData&);
+        void materializePropertyMapIfNecessary(JSGlobalData& globalData)
         {
-            if (m_propertyTable || !m_previous)             
-                return;
-            materializePropertyMap();
+            ASSERT(structure()->classInfo() == &s_info);
+            if (!m_propertyTable && m_previous)
+                materializePropertyMap(globalData);
         }
 
         signed char transitionCount() const
@@ -180,24 +205,8 @@ namespace JSC {
             return m_offset == noOffset ? 0 : m_offset + 1;
         }
 
-        typedef std::pair<Structure*, Structure*> Transition;
-        typedef HashMap<StructureTransitionTableHash::Key, Transition, StructureTransitionTableHash, StructureTransitionTableHashTraits> TransitionTable;
-
-        inline bool transitionTableContains(const StructureTransitionTableHash::Key& key, JSCell* specificValue);
-        inline void transitionTableRemove(const StructureTransitionTableHash::Key& key, JSCell* specificValue);
-        inline void transitionTableAdd(const StructureTransitionTableHash::Key& key, Structure* structure, JSCell* specificValue);
-        inline bool transitionTableHasTransition(const StructureTransitionTableHash::Key& key) const;
-        inline Structure* transitionTableGet(const StructureTransitionTableHash::Key& key, JSCell* specificValue) const;
-
-        TransitionTable* transitionTable() const { ASSERT(!m_isUsingSingleSlot); return m_transitions.m_table; }
-        inline void setTransitionTable(TransitionTable* table);
-        Structure* singleTransition() const { ASSERT(m_isUsingSingleSlot); return m_transitions.m_singleTransition; }
-        void setSingleTransition(Structure* structure) { ASSERT(m_isUsingSingleSlot); m_transitions.m_singleTransition = structure; }
-        
         bool isValid(ExecState*, StructureChain* cachedPrototypeChain) const;
 
-        static const unsigned emptyEntryIndex = 0;
-    
         static const signed char s_maxTransitionLength = 64;
 
         static const signed char noOffset = -1;
@@ -206,22 +215,20 @@ namespace JSC {
 
         TypeInfo m_typeInfo;
 
-        JSValue m_prototype;
-        mutable RefPtr<StructureChain> m_cachedPrototypeChain;
+        WriteBarrier<Unknown> m_prototype;
+        mutable WriteBarrier<StructureChain> m_cachedPrototypeChain;
 
-        RefPtr<Structure> m_previous;
-        RefPtr<UString::Rep> m_nameInPrevious;
-        JSCell* m_specificValueInPrevious;
+        WriteBarrier<Structure> m_previous;
+        RefPtr<StringImpl> m_nameInPrevious;
+        WriteBarrier<JSCell> m_specificValueInPrevious;
 
-        // 'm_isUsingSingleSlot' indicates whether we are using the single transition optimisation.
-        union {
-            TransitionTable* m_table;
-            Structure* m_singleTransition;
-        } m_transitions;
+        const ClassInfo* m_classInfo;
 
-        WeakGCPtr<JSPropertyNameIterator> m_enumerationCache;
+        StructureTransitionTable m_transitionTable;
 
-        PropertyMapHashTable* m_propertyTable;
+        WriteBarrier<JSPropertyNameIterator> m_enumerationCache;
+
+        OwnPtr<PropertyTable> m_propertyTable;
 
         uint32_t m_propertyStorageCapacity;
 
@@ -242,53 +249,70 @@ namespace JSC {
 #endif
         unsigned m_specificFunctionThrashCount : 2;
         unsigned m_anonymousSlotCount : 5;
-        unsigned m_isUsingSingleSlot : 1;
-        // 4 free bits
+        unsigned m_preventExtensions : 1;
+        unsigned m_didTransition : 1;
+        // 3 free bits
     };
 
-    inline size_t Structure::get(const Identifier& propertyName)
+    inline size_t Structure::get(JSGlobalData& globalData, const Identifier& propertyName)
     {
-        ASSERT(!propertyName.isNull());
-
-        materializePropertyMapIfNecessary();
+        ASSERT(structure()->classInfo() == &s_info);
+        materializePropertyMapIfNecessary(globalData);
         if (!m_propertyTable)
-            return WTF::notFound;
+            return notFound;
 
-        UString::Rep* rep = propertyName._ustring.rep();
+        PropertyMapEntry* entry = m_propertyTable->find(propertyName.impl()).first;
+        ASSERT(!entry || entry->offset >= m_anonymousSlotCount);
+        return entry ? entry->offset : notFound;
+    }
 
-        unsigned i = rep->existingHash();
+    inline bool JSCell::isObject() const
+    {
+        return m_structure->typeInfo().type() == ObjectType;
+    }
 
-#if DUMP_PROPERTYMAP_STATS
-        ++numProbes;
+    inline bool JSCell::isString() const
+    {
+        return m_structure->typeInfo().type() == StringType;
+    }
+
+    inline const ClassInfo* JSCell::classInfo() const
+    {
+#if ENABLE(GC_VALIDATION)
+        return m_structure.unvalidatedGet()->classInfo();
+#else
+        return m_structure->classInfo();
 #endif
+    }
 
-        unsigned entryIndex = m_propertyTable->entryIndices[i & m_propertyTable->sizeMask];
-        if (entryIndex == emptyEntryIndex)
-            return WTF::notFound;
+    inline Structure* JSCell::createDummyStructure(JSGlobalData& globalData)
+    {
+        return Structure::create(globalData, jsNull(), TypeInfo(UnspecifiedType), AnonymousSlotCount, &s_dummyCellInfo);
+    }
 
-        if (rep == m_propertyTable->entries()[entryIndex - 1].key)
-            return m_propertyTable->entries()[entryIndex - 1].offset;
+    inline bool JSValue::needsThisConversion() const
+    {
+        if (UNLIKELY(!isCell()))
+            return true;
+        return asCell()->structure()->typeInfo().needsThisConversion();
+    }
 
-#if DUMP_PROPERTYMAP_STATS
-        ++numCollisions;
-#endif
+    ALWAYS_INLINE void MarkStack::internalAppend(JSCell* cell)
+    {
+        ASSERT(!m_isCheckingForDefaultMarkViolation);
+        ASSERT(cell);
+        if (Heap::testAndSetMarked(cell))
+            return;
+        if (cell->structure()->typeInfo().type() >= CompoundType)
+            m_values.append(cell);
+    }
 
-        unsigned k = 1 | WTF::doubleHash(rep->existingHash());
-
-        while (1) {
-            i += k;
-
-#if DUMP_PROPERTYMAP_STATS
-            ++numRehashes;
-#endif
-
-            entryIndex = m_propertyTable->entryIndices[i & m_propertyTable->sizeMask];
-            if (entryIndex == emptyEntryIndex)
-                return WTF::notFound;
-
-            if (rep == m_propertyTable->entries()[entryIndex - 1].key)
-                return m_propertyTable->entries()[entryIndex - 1].offset;
-        }
+    inline StructureTransitionTable::Hash::Key StructureTransitionTable::keyForWeakGCMapFinalizer(void*, Structure* structure)
+    {
+        // Newer versions of the STL have an std::make_pair function that takes rvalue references.
+        // When either of the parameters are bitfields, the C++ compiler will try to bind them as lvalues, which is invalid. To work around this, use unary "+" to make the parameter an rvalue.
+        // See https://bugs.webkit.org/show_bug.cgi?id=59261 for more details.
+        return Hash::Key(structure->m_nameInPrevious.get(), +structure->m_attributesInPrevious);
     }
 
 } // namespace JSC

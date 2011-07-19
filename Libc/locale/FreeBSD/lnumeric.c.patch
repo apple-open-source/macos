@@ -1,5 +1,5 @@
---- lnumeric.c.orig	2004-11-25 11:38:17.000000000 -0800
-+++ lnumeric.c	2005-03-16 23:06:13.000000000 -0800
+--- lnumeric.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ lnumeric.c	2009-11-09 15:05:25.000000000 -0800
 @@ -27,67 +27,103 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/lnumeric.c,v 1.16 2003/06/26 10:46:16 phantom Exp $");

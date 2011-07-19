@@ -2,6 +2,7 @@
 [manpage_begin irc n 0.6.1]
 [moddesc   {Low Level Tcl IRC Interface}]
 [titledesc {Create IRC connection and interface.}]
+[category  Networking]
 [require Tcl]
 [require irc [opt 0.6.1]]
 [description]
@@ -39,11 +40,6 @@ deprecated.  Use [cmd connect] instead to specify this information.
 
 Returns a list of all the current connections that were created with
 [const connection]
-
-
-[call [cmd ::irc::destroy] [arg net]]
-
-Deletes a connection and its associated namespace and information.
 
 [list_end]
 
@@ -213,6 +209,11 @@ Invites [arg target] to join the channel [arg channel]
 [call [arg net] [method send] [arg text]]
 
 Sends [arg text] to the IRC server.
+
+
+[call [arg net] [method destroy]]
+
+Deletes the connection and its associated namespace and information.
 
 [list_end]
 

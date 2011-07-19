@@ -1025,7 +1025,7 @@ ChapSendStatus(cstate, code)
 	    slprintf(p, q - p, "E=691 R=1 C=");
 	    p += 12;
 	    for (i = 0; i < cstate->chal_len; i++)
-		sprintf(p + i * 2, "%02X", cstate->challenge[i]);
+			snprintf(p + i * 2, q - (p + i * 2), "%02X", cstate->challenge[i]);
 	    p += cstate->chal_len * 2;
 	    slprintf(p, q - p, " V=0 M=");
 	    p += 7;

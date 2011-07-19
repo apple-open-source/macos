@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
 	<dict>
 		<key>OpenSourceCVS</key>
-		<string>cvs -d freebsdanoncvs@anoncvs.FreeBSD.org:/home/ncvs co -r RELENG_6_2_0_RELEASE gpt</string>
+		<string>cvs -d anoncvs@anoncvs1.FreeBSD.org:/home/ncvs co -r RELENG_7_3_0_RELEASE gpt</string>
 		<key>OpenSourceImportDate</key>
-		<string>2007-01-17</string>
+		<string>2010-04-08</string>
 		<key>OpenSourceLicense</key>
 		<string>BSD</string>
 		<key>OpenSourceLicenseFile</key>
@@ -14,7 +14,7 @@
 		<key>OpenSourceProject</key>
 		<string>gpt</string>
 		<key>OpenSourceVersion</key>
-		<string>RELENG_6_2_0_RELEASE</string>
+		<string>RELENG_7_3_0_RELEASE</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.freebsd.org/cgi/cvsweb.cgi/src/sbin/gpt/</string>
 	</dict>

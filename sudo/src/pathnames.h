@@ -1,6 +1,6 @@
 /* pathnames.h.  Generated from pathnames.h.in by configure.  */
 /*
- * Copyright (c) 1996, 1998, 1999, 2001, 2004
+ * Copyright (c) 1996, 1998, 1999, 2001, 2004, 2005, 2007-2010
  *	Todd C. Miller <Todd.Miller@courtesan.com>.
  *
  * Permission to use, copy, modify, and distribute this software for any
@@ -18,8 +18,6 @@
  * Sponsored in part by the Defense Advanced Research Projects
  * Agency (DARPA) and Air Force Research Laboratory, Air Force
  * Materiel Command, USAF, under agreement number F39502-99-1-0512.
- *
- * $Sudo: pathnames.h.in,v 1.63 2008/11/10 13:07:38 millert Exp $
  */
 
 /*
@@ -29,6 +27,10 @@
 #ifdef HAVE_PATHS_H
 #include <paths.h>
 #endif /* HAVE_PATHS_H */
+
+#ifdef HAVE_MAILLOCK_H
+#include <maillock.h>
+#endif /* HAVE_MAILLOCK_H */
 
 #ifndef _PATH_DEV
 #define _PATH_DEV		"/dev/"
@@ -46,6 +48,10 @@
 #define _PATH_DEFPATH		"/usr/bin:/bin"
 #endif /* _PATH_DEFPATH */
 
+#ifndef _PATH_STDPATH
+#define _PATH_STDPATH		"/usr/bin:/bin:/usr/sbin:/sbin"
+#endif /* _PATH_STDPATH */
+
 #ifndef _PATH_ENVIRONMENT
 #define _PATH_ENVIRONMENT	"/etc/environment"
 #endif /* _PATH_ENVIRONMENT */
@@ -54,7 +60,7 @@
  * NOTE: _PATH_SUDOERS is usually overridden by the Makefile.
  */
 #ifndef _PATH_SUDOERS
-#define _PATH_SUDOERS		"/etc/sudoers"
+#define _PATH_SUDOERS		"/private/etc/sudoers"
 #endif /* _PATH_SUDOERS */
 
 /*
@@ -70,6 +76,14 @@
 #endif /* _PATH_SUDO_TIMEDIR */
 
 /*
+ * Where to put the I/O log files.  Defaults to /var/log/sudo-io,
+ * /var/adm/sudo-io or /usr/adm/sudo-io depending on what exists.
+ */
+#ifndef _PATH_SUDO_IO_LOGDIR
+#define _PATH_SUDO_IO_LOGDIR "/var/log/sudo-io"
+#endif /* _PATH_SUDO_IO_LOGDIR */
+
+/*
  * Where to put the sudo log file when logging to a file.  Defaults to
  * /var/log/sudo.log if /var/log exists, else /var/adm/sudo.log.
  */
@@ -82,7 +96,7 @@
 #endif /* _PATH_SUDO_SENDMAIL */
 
 #ifndef _PATH_SUDO_NOEXEC
-/* #undef _PATH_SUDO_NOEXEC */
+#define _PATH_SUDO_NOEXEC "/usr/local/libexec/sudo_noexec.dylib"
 #endif /* _PATH_SUDO_NOEXEC */
 
 #ifndef _PATH_SUDO_ASKPASS
@@ -113,18 +127,26 @@
 #define	_PATH_USRTMP	"/usr/tmp/"
 #endif /* _PATH_USRTMP */
 
+#ifndef _PATH_MAILDIR
+#define _PATH_MAILDIR "/var/mail"
+#endif /* _PATH_MAILDIR */
+
 #ifndef _PATH_SUDO_SESH
 #define _PATH_SUDO_SESH "/usr/local/libexec/sesh"
 #endif /* _PATH_SUDO_SESH */
 
 #ifndef _PATH_LDAP_CONF
-#define	_PATH_LDAP_CONF "/etc/ldap.conf"
+#define _PATH_LDAP_CONF "/etc/ldap.conf"
 #endif /* _PATH_LDAP_CONF */
 
 #ifndef _PATH_LDAP_SECRET
-#define	_PATH_LDAP_SECRET "/etc/ldap.secret"
+#define _PATH_LDAP_SECRET "/etc/ldap.secret"
 #endif /* _PATH_LDAP_SECRET */
 
 #ifndef _PATH_NSSWITCH_CONF
-#define	_PATH_NSSWITCH_CONF "/etc/nsswitch.conf"
+#define _PATH_NSSWITCH_CONF "/etc/nsswitch.conf"
 #endif /* _PATH_NSSWITCH_CONF */
+
+#ifndef _PATH_NETSVC_CONF
+/* #undef _PATH_NETSVC_CONF */
+#endif /* _PATH_NETSVC_CONF */

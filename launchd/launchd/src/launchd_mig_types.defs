@@ -37,6 +37,7 @@ type bootstrap_property_array_t	= ^array [] of bootstrap_property_t;
 type bootstrap_status_t			= integer_t;
 type bootstrap_status_array_t	= ^array [] of bootstrap_status_t;
 type uuid_t						= array [16] of MACH_MSG_TYPE_BYTE;
+type event_token_array_t		= array [1024] of uint64_t;
 
 type job_t = mach_port_t
         intran		: job_t job_mig_intran(mach_port_t) 

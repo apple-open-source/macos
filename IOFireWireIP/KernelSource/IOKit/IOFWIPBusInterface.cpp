@@ -1485,7 +1485,7 @@ SInt32 IOFWIPBusInterface::txUnicastIP(mbuf_t m, UInt16 nodeID, UInt32 busGenera
 SInt32 IOFWIPBusInterface::txIP(mbuf_t m, UInt16 nodeID, UInt32 busGeneration, UInt16 ownMaxPayload, UInt16 maxBroadcastPayload, IOFWSpeed speed, UInt16 type)
 {
 	// If its not a packet header
-	if(not (mbuf_flags(m) & M_PKTHDR))
+	if(not (mbuf_flags(m) & MBUF_PKTHDR))
 	{
 		fIPLocalNode->freePacket(m);
 		fIPLocalNode->networkStatAdd(&(fIPLocalNode->getNetStats())->outputErrors);
@@ -1621,7 +1621,7 @@ void IOFWIPBusInterface::rxUnicastFlush()
 
     IORecursiveLockLock(fIPLock);
 	
-	if(fIPLocalNode->fPacketsQueued = true)
+	if(fIPLocalNode->fPacketsQueued == true)
 	{
 		count = fIPLocalNode->networkInterface->flushInputQueue();
         if(count > fIPLocalNode->fIPoFWDiagnostics.fMaxInputCount)
@@ -2070,7 +2070,7 @@ IOReturn IOFWIPBusInterface::rxIP(void *pkt, UInt32 len, UInt32 flags, UInt16 ty
 			{
 				if( updateNDPCache(rxMBuf) == true ) 
 				{
-					mbuf_prepend(&rxMBuf, sizeof(struct firewire_header), M_DONTWAIT);
+					mbuf_prepend(&rxMBuf, sizeof(struct firewire_header), MBUF_DONTWAIT);
 				}
 			}
         }
@@ -2203,7 +2203,7 @@ bool IOFWIPBusInterface::addNDPOptions(mbuf_t m)
 {
 	bool ret = false;
 
-	if(not (mbuf_flags(m) & M_PKTHDR))
+	if(not (mbuf_flags(m) & MBUF_PKTHDR))
 		return ret;
 
 	vm_address_t src = (vm_offset_t)mbuf_data(m);
@@ -2305,7 +2305,7 @@ bool IOFWIPBusInterface::updateNDPCache(mbuf_t m)
 {
 	bool result = false;
 
-	if(not (mbuf_flags(m) & M_PKTHDR))
+	if(not (mbuf_flags(m) & MBUF_PKTHDR))
 	{
 		return result;
 	}
@@ -3284,9 +3284,11 @@ static mbuf_t getPacket( UInt32 size,
 {
     mbuf_t packet;
 	UInt32 reqSize =  size + smask + lmask; 	// we over-request so we can fulfill alignment needs.
-	
-	if(reqSize > MHLEN && reqSize <= MINCLSIZE)	//as protection from drivers that incorrectly assume they always get a single-mbuf packet
-		reqSize = MINCLSIZE + 1;				//we force kernel to give us a cluster instead of chained small mbufs.
+	uint32_t mhlen = mbuf_get_mhlen();
+	uint32_t minclsize = mbuf_get_minclsize();
+
+	if(reqSize > mhlen && reqSize <= minclsize)	//as protection from drivers that incorrectly assume they always get a single-mbuf packet
+		reqSize = minclsize + 1;				//we force kernel to give us a cluster instead of chained small mbufs.
 
 	if( 0 == mbuf_allocpacket(how, reqSize, NULL, &packet))
 	{
@@ -3316,7 +3318,7 @@ static mbuf_t getPacket( UInt32 size,
 
 mbuf_t IOFWIPBusInterface::allocateMbuf( UInt32 size )
 {
-    return getPacket( size, M_DONTWAIT, kIOPacketBufferAlign1, kIOPacketBufferAlign16 );
+    return getPacket( size, MBUF_DONTWAIT, kIOPacketBufferAlign1, kIOPacketBufferAlign16 );
 }
 
 void IOFWIPBusInterface::moveMbufWithOffset(SInt32 tempOffset, mbuf_t *srcm, vm_address_t *src, SInt32 *srcLen)

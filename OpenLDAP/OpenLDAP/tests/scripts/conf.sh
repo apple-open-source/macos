@@ -1,8 +1,8 @@
 #! /bin/sh
-# $OpenLDAP: pkg/ldap/tests/scripts/conf.sh,v 1.49.2.8 2008/02/11 23:26:50 kurt Exp $
+# $OpenLDAP: pkg/ldap/tests/scripts/conf.sh,v 1.49.2.12 2010/04/19 19:14:31 quanah Exp $
 ## This work is part of OpenLDAP Software <http://www.openldap.org/>.
 ##
-## Copyright 1998-2008 The OpenLDAP Foundation.
+## Copyright 1998-2010 The OpenLDAP Foundation.
 ## All rights reserved.
 ##
 ## Redistribution and use in source and binary forms, with or without
@@ -33,6 +33,8 @@ else
 fi
 sed -e "s/@BACKEND@/${BACKEND}/"			\
 	-e "s/^#${BACKEND}#//"				\
+	-e "/^#~/s/^#[^#]*~${BACKEND}~[^#]*#/#omit: /"	\
+		-e "s/^#~[^#]*~#//"			\
 	-e "s/@RELAY@/${RELAY}/"			\
 	-e "s/^#relay-${RELAY}#//"			\
 	-e "s/^#${BACKENDTYPE}#//"			\
@@ -71,10 +73,6 @@ sed -e "s/@BACKEND@/${BACKEND}/"			\
 	-e "s;@PORT5@;${PORT5};"			\
 	-e "s;@PORT6@;${PORT6};"			\
 	-e "s/@SASL_MECH@/${SASL_MECH}/"		\
-	-e "s/@CACHETTL@/${CACHETTL}/"			\
-	-e "s/@NCACHETTL@/${NCACHETTL}/"		\
-	-e "s/@SCACHETTL@/${SCACHETTL}/"		\
-	-e "s/@ENTRY_LIMIT@/${CACHE_ENTRY_LIMIT}/"	\
 	-e "s;@TESTDIR@;${TESTDIR};"			\
 	-e "s;@DATADIR@;${DATADIR};"			\
 	-e "s;@SCHEMADIR@;${SCHEMADIR};"

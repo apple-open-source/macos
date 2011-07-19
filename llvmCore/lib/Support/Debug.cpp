@@ -25,31 +25,60 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/circular_raw_ostream.h"
+#include "llvm/System/Signals.h"
+
 using namespace llvm;
 
+// All Debug.h functionality is a no-op in NDEBUG mode.
+#ifndef NDEBUG
 bool llvm::DebugFlag;  // DebugFlag - Exported boolean set by the -debug option
 
+// -debug - Command line option to enable the DEBUG statements in the passes.
+// This flag may only be enabled in debug builds.
+static cl::opt<bool, true>
+Debug("debug", cl::desc("Enable debug output"), cl::Hidden,
+      cl::location(DebugFlag));
+
+// -debug-buffer-size - Buffer the last N characters of debug output
+//until program termination.
+static cl::opt<unsigned>
+DebugBufferSize("debug-buffer-size",
+                cl::desc("Buffer the last N characters of debug output"
+                         "until program termination. "
+                         "[default 0 -- immediate print-out]"),
+                cl::Hidden,
+                cl::init(0));
+
+static std::string CurrentDebugType;
+
 namespace {
-#ifndef NDEBUG
-  // -debug - Command line option to enable the DEBUG statements in the passes.
-  // This flag may only be enabled in debug builds.
-  static cl::opt<bool, true>
-  Debug("debug", cl::desc("Enable debug output"), cl::Hidden,
-        cl::location(DebugFlag));
 
-  static std::string CurrentDebugType;
-  static struct DebugOnlyOpt {
-    void operator=(const std::string &Val) const {
-      DebugFlag |= !Val.empty();
-      CurrentDebugType = Val;
-    }
-  } DebugOnlyOptLoc;
+struct DebugOnlyOpt {
+  void operator=(const std::string &Val) const {
+    DebugFlag |= !Val.empty();
+    CurrentDebugType = Val;
+  }
+};
 
-  static cl::opt<DebugOnlyOpt, true, cl::parser<std::string> >
-  DebugOnly("debug-only", cl::desc("Enable a specific type of debug output"),
-            cl::Hidden, cl::value_desc("debug string"),
-            cl::location(DebugOnlyOptLoc), cl::ValueRequired);
-#endif
+}
+
+static DebugOnlyOpt DebugOnlyOptLoc;
+
+static cl::opt<DebugOnlyOpt, true, cl::parser<std::string> >
+DebugOnly("debug-only", cl::desc("Enable a specific type of debug output"),
+          cl::Hidden, cl::value_desc("debug string"),
+          cl::location(DebugOnlyOptLoc), cl::ValueRequired);
+
+// Signal handlers - dump debug output on termination.
+static void debug_user_sig_handler(void *Cookie) {
+  // This is a bit sneaky.  Since this is under #ifndef NDEBUG, we
+  // know that debug mode is enabled and dbgs() really is a
+  // circular_raw_ostream.  If NDEBUG is defined, then dbgs() ==
+  // errs() but this will never be invoked.
+  llvm::circular_raw_ostream *dbgout =
+    static_cast<llvm::circular_raw_ostream *>(&llvm::dbgs());
+  dbgout->flushBufferWithBanner();
 }
 
 // isCurrentDebugType - Return true if the specified string is the debug type
@@ -57,21 +86,49 @@ namespace {
 // with the -debug-only=X option.
 //
 bool llvm::isCurrentDebugType(const char *DebugType) {
-#ifndef NDEBUG
   return CurrentDebugType.empty() || DebugType == CurrentDebugType;
-#else
-  return false;
-#endif
 }
 
-// getErrorOutputStream - Returns the error output stream (std::cerr). This
-// places the std::c* I/O streams into one .cpp file and relieves the whole
-// program from having to have hundreds of static c'tor/d'tors for them.
-// 
-OStream &llvm::getErrorOutputStream(const char *DebugType) {
-  static OStream cnoout(0);
-  if (DebugFlag && isCurrentDebugType(DebugType))
-    return cerr;
-  else
-    return cnoout;
+/// SetCurrentDebugType - Set the current debug type, as if the -debug-only=X
+/// option were specified.  Note that DebugFlag also needs to be set to true for
+/// debug output to be produced.
+///
+void llvm::SetCurrentDebugType(const char *Type) {
+  CurrentDebugType = Type;
 }
+
+/// dbgs - Return a circular-buffered debug stream.
+raw_ostream &llvm::dbgs() {
+  // Do one-time initialization in a thread-safe way.
+  static struct dbgstream {
+    circular_raw_ostream strm;
+
+    dbgstream() :
+        strm(errs(), "*** Debug Log Output ***\n",
+             (!EnableDebugBuffering || !DebugFlag) ? 0 : DebugBufferSize) {
+      if (EnableDebugBuffering && DebugFlag && DebugBufferSize != 0)
+        // TODO: Add a handler for SIGUSER1-type signals so the user can
+        // force a debug dump.
+        sys::AddSignalHandler(&debug_user_sig_handler, 0);
+      // Otherwise we've already set the debug stream buffer size to
+      // zero, disabling buffering so it will output directly to errs().
+    }
+  } thestrm;
+
+  return thestrm.strm;
+}
+
+#else
+// Avoid "has no symbols" warning.
+namespace llvm {
+  /// dbgs - Return errs().
+  raw_ostream &dbgs() {
+    return errs();
+  }
+}
+
+#endif
+
+/// EnableDebugBuffering - Turn on signal handler installation.
+///
+bool llvm::EnableDebugBuffering = false;

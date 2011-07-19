@@ -1,5 +1,5 @@
 /*
- * (C) Copyright IBM Corp. 1998-2007 - All Rights Reserved
+ * (C) Copyright IBM Corp. 1998-2009 - All Rights Reserved
  *
  */
 
@@ -55,6 +55,7 @@ public:
      * @param scriptCode - the script
      * @param langaugeCode - the language
      * @param gsubTable - the GSUB table
+     * @param success - set to an error code if the operation fails
      *
      * @see LayoutEngine::layoutEngineFactory
      * @see ScriptAndLangaugeTags.h for script and language codes
@@ -62,7 +63,7 @@ public:
      * @internal
      */
     OpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
-                            le_int32 typoFlags, const GlyphSubstitutionTableHeader *gsubTable);
+                            le_int32 typoFlags, const GlyphSubstitutionTableHeader *gsubTable, LEErrorCode &success);
 
     /**
      * This constructor is used when the font requires a "canned" GSUB table which can't be known
@@ -71,11 +72,12 @@ public:
      * @param fontInstance - the font
      * @param scriptCode - the script
      * @param langaugeCode - the language
+     * @param success - set to an error code if the operation fails
      *
      * @internal
      */
     OpenTypeLayoutEngine(const LEFontInstance *fontInstance, le_int32 scriptCode, le_int32 languageCode,
-			 le_int32 typoFlags);
+			 le_int32 typoFlags, LEErrorCode &success);
 
     /**
      * The destructor, virtual for correct polymorphic invocation.
@@ -87,6 +89,8 @@ public:
     /**
      * A convenience method used to convert the script code into
      * the four byte script tag required by OpenType.
+	 * For Indic languages where multiple script tags exist,
+	 * the version 1 (old style) tag is returned.
      *
      * @param scriptCode - the script code
      *
@@ -95,6 +99,19 @@ public:
      * @internal
      */
     static LETag getScriptTag(le_int32 scriptCode);
+    /**
+     * A convenience method used to convert the script code into
+     * the four byte script tag required by OpenType.
+	 * For Indic languages where multiple script tags exist,
+	 * the version 2 tag is returned.
+     *
+     * @param scriptCode - the script code
+     *
+     * @return the four byte script tag
+     *
+     * @internal
+     */
+    static LETag getV2ScriptTag(le_int32 scriptCode);
 
     /**
      * A convenience method used to convert the langauge code into
@@ -213,6 +230,13 @@ protected:
      * @internal
      */
     LETag fScriptTag;
+  
+    /**
+     * The four byte script tag for V2 fonts.
+     *
+     * @internal
+     */
+    LETag fScriptTagV2;
 
     /**
      * The four byte language tag
@@ -280,6 +304,8 @@ protected:
      */
     virtual le_int32 glyphProcessing(const LEUnicode chars[], le_int32 offset, le_int32 count, le_int32 max, le_bool rightToLeft,
             LEGlyphStorage &glyphStorage, LEErrorCode &success);
+ 
+    virtual le_int32 glyphSubstitution(le_int32 count, le_int32 max, le_bool rightToLeft, LEGlyphStorage &glyphStorage, LEErrorCode &success);
 
     /**
      * This method does any processing necessary to convert "fake"

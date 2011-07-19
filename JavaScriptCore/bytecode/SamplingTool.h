@@ -29,19 +29,18 @@
 #ifndef SamplingTool_h
 #define SamplingTool_h
 
+#include "Strong.h"
+#include "Nodes.h"
+#include "Opcode.h"
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
 #include <wtf/Threading.h>
-
-#include "Nodes.h"
-#include "Opcode.h"
 
 namespace JSC {
 
     class ScriptExecutable;
 
     class SamplingFlags {
-        friend class JIT;
     public:
         static void start();
         static void stop();
@@ -80,6 +79,11 @@ namespace JSC {
             int m_flag;
         };
     
+        static const void* addressOfFlags()
+        {
+            return &s_flags;
+        }
+
 #endif
     private:
         static uint32_t s_flags;
@@ -95,8 +99,8 @@ namespace JSC {
     struct Instruction;
 
     struct ScriptSampleRecord {
-        ScriptSampleRecord(ScriptExecutable* executable)
-            : m_executable(executable)
+        ScriptSampleRecord(JSGlobalData& globalData, ScriptExecutable* executable)
+            : m_executable(globalData, executable)
             , m_codeBlock(0)
             , m_sampleCount(0)
             , m_opcodeSampleCount(0)
@@ -113,7 +117,7 @@ namespace JSC {
         
         void sample(CodeBlock*, Instruction*);
 
-        RefPtr<ScriptExecutable> m_executable;
+        Strong<ScriptExecutable> m_executable;
         CodeBlock* m_codeBlock;
         int m_sampleCount;
         int m_opcodeSampleCount;
@@ -142,7 +146,8 @@ namespace JSC {
         friend class HostCallRecord;
         
 #if ENABLE(OPCODE_SAMPLING)
-        class CallRecord : public Noncopyable {
+        class CallRecord {
+            WTF_MAKE_NONCOPYABLE(CallRecord);
         public:
             CallRecord(SamplingTool* samplingTool)
                 : m_samplingTool(samplingTool)
@@ -172,7 +177,8 @@ namespace JSC {
             }
         };
 #else
-        class CallRecord : public Noncopyable {
+        class CallRecord {
+            WTF_MAKE_NONCOPYABLE(CallRecord);
         public:
             CallRecord(SamplingTool*)
             {
@@ -278,7 +284,6 @@ namespace JSC {
     // Implements a named set of counters, printed on exit if ENABLE(SAMPLING_COUNTERS).
     // See subclasses below, SamplingCounter, GlobalSamplingCounter and DeletableSamplingCounter.
     class AbstractSamplingCounter {
-        friend class JIT;
         friend class DeletableSamplingCounter;
     public:
         void count(uint32_t count = 1)
@@ -287,6 +292,8 @@ namespace JSC {
         }
 
         static void dump();
+
+        int64_t* addressOfCounter() { return &m_counter; }
 
     protected:
         // Effectively the contructor, however called lazily in the case of GlobalSamplingCounter.

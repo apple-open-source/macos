@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -566,7 +566,11 @@ SInt32 getAndOutputRecord(tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 					if (inVerbose) printf("dsDataBufferAllocate returned NULL\n");
 				}
 			}
-		} while ( ( (siResult == eDSBufferTooSmall) || ( (siResult == eDSNoErr) && (recCount == 0) && (context != 0) ) ) && (dataBuff != nil) );
+		} while (siResult == eDSBufferTooSmall || (siResult == eDSNoErr && context != 0));
+		
+		if (context != 0) {
+			dsReleaseContinueData(inDSNodeRef, context);
+		}
 		
 		if (recCount < 1)
 		{
@@ -918,7 +922,7 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 					if (inVerbose) printf("dsDataBufferAllocate returned NULL\n");
 				}
 			}
-		} while ( ( (*outResult == eDSBufferTooSmall) || ( (*outResult == eDSNoErr) && (recCount == 0) && (context != 0) ) ) && (dataBuff != nil) );
+		} while (*outResult == eDSBufferTooSmall || (*outResult == eDSNoErr && context != 0));
 		
 		if (recCount < 1)
 		{
@@ -989,6 +993,10 @@ char* getSingleRecordAttribute(tDirReference inDSRef, tDirNodeReference inDSNode
 		//always leave the while
 		break;
 	} while(true);
+	
+	if (context != 0) {
+		dsReleaseContinueData(inDSNodeRef, context);
+	}
 
 	if ( recName != nil )
 	{
@@ -1112,7 +1120,11 @@ bool UserIsMemberOfGroup( tDirReference inDSRef, tDirNodeReference inDSNodeRef, 
 			dataBuff = NULL;
 			dataBuff = dsDataBufferAllocate( inDSRef, buffSize * 2 );
 		}
-	} while (((dsStatus == eDSNoErr) && (curRecCount == 0) && (context != 0)) || (dsStatus == eDSBufferTooSmall));
+	} while ((dsStatus == eDSNoErr && context != 0) || dsStatus == eDSBufferTooSmall);
+	
+	if (context != 0) {
+		dsReleaseContinueData(inDSNodeRef, context);
+	}
 
 	if ( ( dsStatus == eDSNoErr ) && ( curRecCount > 0 ) )
 	{

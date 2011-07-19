@@ -1,0 +1,107 @@
+diff -ur dovecot-1.1.7/config.h.in dovecot-patch/config.h.in
+--- dovecot-1.1.7/config.h.in	2008-11-23 16:16:57.000000000 -0600
++++ dovecot-patch/config.h.in	2008-12-16 20:34:01.000000000 -0600
+@@ -458,9 +458,6 @@
+ /* Define if you have ldap_start_tls_s */
+ #undef LDAP_HAVE_START_TLS_S
+ 
+-/* Index file compatibility flags */
+-#undef MAIL_INDEX_COMPAT_FLAGS
+-
+ /* List of compiled in mail storages */
+ #undef MAIL_STORAGES
+ 
+diff -ur dovecot-1.1.7/configure.in dovecot-patch/configure.in
+--- dovecot-1.1.7/configure.in	2008-11-23 16:16:26.000000000 -0600
++++ dovecot-patch/configure.in	2008-12-16 20:35:08.000000000 -0600
+@@ -2164,15 +2164,18 @@
+ 
+ dnl * currently just checking for endianess
+ 
+-AC_C_BIGENDIAN
+-
+-if test $ac_cv_c_bigendian = yes; then
+-	flags=0
+-else
+-	flags=1
+-fi
+-
+-AC_DEFINE_UNQUOTED(MAIL_INDEX_COMPAT_FLAGS, $flags, Index file compatibility flags)
++dnl APPLE
++case "$host_os" in
++darwin*)
++	dnl The build system's endianness is not necessarily the same as
++	dnl the runtime system's endianness, thanks to the -arch gcc flag
++	dnl and fat binaries.  So leave the endianness determination up
++	dnl to gcc by using __BIG_ENDIAN__ which is set by -arch.
++	AC_DEFINE(WORDS_BIGENDIAN, __BIG_ENDIAN__, APPLE)
++	;;
++*)	AC_C_BIGENDIAN
++	;;
++esac
+ 
+ dnl **
+ dnl ** IPv6 support
+diff -ur dovecot-1.1.7/src/lib/sha1.c dovecot-patch/src/lib/sha1.c
+--- dovecot-1.1.7/src/lib/sha1.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib/sha1.c	2008-12-16 20:35:37.000000000 -0600
+@@ -80,7 +80,7 @@
+ 	size_t t, s;
+ 	uint32_t	tmp;
+ 
+-#ifndef WORDS_BIGENDIAN
++#if !WORDS_BIGENDIAN
+ 	struct sha1_ctxt tctxt;
+ 	memmove(&tctxt.m.b8[0], &ctxt->m.b8[0], 64);
+ 	ctxt->m.b8[0] = tctxt.m.b8[3]; ctxt->m.b8[1] = tctxt.m.b8[2];
+@@ -189,7 +189,7 @@
+ 	memset(&ctxt->m.b8[padstart], 0, padlen - 8);
+ 	COUNT += (padlen - 8);
+ 	COUNT %= 64;
+-#ifdef WORDS_BIGENDIAN
++#if WORDS_BIGENDIAN
+ 	PUTPAD(ctxt->c.b8[0]); PUTPAD(ctxt->c.b8[1]);
+ 	PUTPAD(ctxt->c.b8[2]); PUTPAD(ctxt->c.b8[3]);
+ 	PUTPAD(ctxt->c.b8[4]); PUTPAD(ctxt->c.b8[5]);
+@@ -235,7 +235,7 @@
+ 
+ 	digest = (uint8_t *)digest0;
+ 	sha1_pad(ctxt);
+-#ifdef WORDS_BIGENDIAN
++#if WORDS_BIGENDIAN
+ 	memmove(digest, &ctxt->h.b8[0], 20);
+ #else
+ 	digest[0] = ctxt->h.b8[3]; digest[1] = ctxt->h.b8[2];
+diff -ur dovecot-1.1.7/src/lib-index/mail-index-map.c dovecot-patch/src/lib-index/mail-index-map.c
+--- dovecot-1.1.7/src/lib-index/mail-index-map.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-index/mail-index-map.c	2008-12-16 20:35:15.000000000 -0600
+@@ -367,7 +367,7 @@
+ {
+         enum mail_index_header_compat_flags compat_flags = 0;
+ 
+-#ifndef WORDS_BIGENDIAN
++#if !WORDS_BIGENDIAN
+ 	compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+ #endif
+ 
+@@ -784,7 +784,7 @@
+ 	hdr->header_size = sizeof(*hdr);
+ 	hdr->record_size = sizeof(struct mail_index_record);
+ 
+-#ifndef WORDS_BIGENDIAN
++#if !WORDS_BIGENDIAN
+ 	hdr->compat_flags |= MAIL_INDEX_COMPAT_LITTLE_ENDIAN;
+ #endif
+ 
+diff -ur dovecot-1.1.7/src/lib-index/mail-index.c dovecot-patch/src/lib-index/mail-index.c
+--- dovecot-1.1.7/src/lib-index/mail-index.c	2008-10-26 10:03:45.000000000 -0500
++++ dovecot-patch/src/lib-index/mail-index.c	2008-12-16 20:35:31.000000000 -0600
+@@ -633,7 +633,7 @@
+         index->index_lock_timeout = FALSE;
+ }
+ 
+-#ifdef WORDS_BIGENDIAN
++#if WORDS_BIGENDIAN
+ /* FIXME: Unfortunately these functions were originally written to use
+    endian-specific code and we can't avoid that without breaking backwards
+    compatibility. When we do break it, just select one of these. */

@@ -20,7 +20,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: config-amigaos.h,v 1.9 2009-06-19 00:41:04 yangtse Exp $
  ***************************************************************************/
 
 #ifdef __AMIGA__ /* Any AmigaOS flavour */
@@ -62,6 +61,9 @@
 #ifndef LONG_MIN
 # define        LONG_MIN        (-0x7fffffffL-1)        /* min value for a long */
 #endif
+
+#define SIZEOF_INT              4
+#define SIZEOF_SHORT            2
 
 #endif /* __AMIGA__ */
 #endif /* CURL_CONFIG_AMIGAOS_H */

@@ -59,10 +59,10 @@ class IOHIDEvent: public OSObject
                                         IOOptionBits            options = 0);
     
 public:
-    static IOHIDEvent *     withBytes(      const void *            bytes,
+    static IOHIDEvent *     withBytes(  const void *            bytes,
                                         IOByteCount             size);
 
-    static IOHIDEvent *     withType(       IOHIDEventType          type    = kIOHIDEventTypeNULL,
+    static IOHIDEvent *     withType(   IOHIDEventType          type    = kIOHIDEventTypeNULL,
                                         IOOptionBits            options = 0);
                                         
     static IOHIDEvent *     withEventData (
@@ -108,18 +108,25 @@ public:
                                         IOHIDAccelerometerSubType  subType = 0,
                                         IOOptionBits            options = 0);
 
-    static IOHIDEvent *     gyroEvent (
-												AbsoluteTime            timeStamp,
-												IOFixed                 x,
-												IOFixed                 y,
-												IOFixed                 z,
-												IOHIDGyroType  type = 0,
-												IOHIDGyroSubType  subType = 0,
-												IOFixed                 qx=0,
-												IOFixed                 qy=0,												
-												IOFixed                 qz=0,												
-												IOFixed                 qw=0,												
-												IOOptionBits            options = 0);
+    static IOHIDEvent *     gyroEvent ( AbsoluteTime            timeStamp,
+                                        IOFixed                 x,
+                                        IOFixed                 y,
+                                        IOFixed                 z,
+                                        IOHIDGyroType           type = 0,
+                                        IOHIDGyroSubType        subType = 0,
+                                        IOFixed                 qx=0,
+                                        IOFixed                 qy=0,												
+                                        IOFixed                 qz=0,												
+                                        IOFixed                 qw=0,												
+                                        IOOptionBits            options = 0);
+
+    static IOHIDEvent *     compassEvent (
+                                        AbsoluteTime            timeStamp,
+                                        IOFixed                 x,
+                                        IOFixed                 y,
+                                        IOFixed                 z,
+                                        IOHIDCompassType        type = 0,
+                                        IOOptionBits            options = 0);    
 	
     static IOHIDEvent *     buttonEvent (
                                         AbsoluteTime            timeStamp,
@@ -145,18 +152,35 @@ public:
                                         AbsoluteTime				timeStamp,
                                         IOHIDProximityDetectionMask	mask,
 										UInt32						level,
-                                        IOOptionBits				options     = 0);
+                                        IOOptionBits				options = 0);
 	
     static IOHIDEvent *     temperatureEvent (
                                         AbsoluteTime            timeStamp,
                                         IOFixed                 temperature,
                                         IOOptionBits            options     = 0);
 
+    static IOHIDEvent *     absolutePointerEvent(
+                                        AbsoluteTime                timeStamp,
+                                        SInt32                      x,
+                                        SInt32                      y,
+                                        IOGBounds *                 bounds,
+                                        UInt32                      buttonState,
+                                        bool                        inRange,
+                                        SInt32                      tipPressure,
+                                        SInt32                      tipPressureMin,
+                                        SInt32                      tipPressureMax,
+                                        IOOptionBits                options);
+    
+    virtual void            appendChild(IOHIDEvent *childEvent);
+
     virtual AbsoluteTime    getTimeStamp();
     virtual void            setTimeStamp(AbsoluteTime timeStamp);
     
     virtual IOHIDEventType  getType();
     virtual void            setType(IOHIDEventType type);
+    
+    virtual IOHIDEventPhaseBits  getPhase();
+    virtual void            setPhase(IOHIDEventPhaseBits phase);
     
     virtual IOHIDEvent *    getEvent(   IOHIDEventType          type, 
                                         IOOptionBits            options = 0);

@@ -99,6 +99,7 @@ OBSDMISRCS=ecvt.c gcvt.c
 LEGACYSRCS+= getopt.c putenv.c realpath.c setenv.c system.c
 DARWINEXTSNSRCS += realpath.c
 CANCELABLESRCS += system.c
+DYLDSRCS += atexit.c exit.c gettimeofday.c heapsort.c merge.c qsort.c reallocf.c realpath.c
 
 # set the LIBC_ALIAS_* macros so we can decorate the symbol independent
 # of other macro settings

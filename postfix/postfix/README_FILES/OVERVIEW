@@ -4,10 +4,10 @@ PPoossttffiixx AArrcchhiitteeccttuurree OOvveerrvviiee
 
 IInnttrroodduuccttiioonn
 
-This document presents an overview of the Postfix architecture, and is the
-place where you find a pointer to every Postfix command or server program. The
-text gives the general context in which each command or server program is used,
-and provides pointers to documents with specific usage examples and background
+This document presents an overview of the Postfix architecture, and provides
+pointers to descriptions of every Postfix command or server program. The text
+gives the general context in which each command or server program is used, and
+provides pointers to documents with specific usage examples and background
 information.
 
 Topics covered by this document:
@@ -63,7 +63,7 @@ programs, while unnumbered names inside shaded areas represent Postfix queues.
     section), and postmaster notifications about problems with Postfix.
 
   * The cleanup(8) server implements the final processing stage before mail is
-    queued. It adds missing From: and other message headers, transforms
+    queued. It adds missing From: and other message headers, and transforms
     addresses as described in the ADDRESS_REWRITING_README document.
     Optionally, the cleanup(8) server can be configured to do light-weight
     content inspection with regular expressions as described in the
@@ -336,19 +336,63 @@ queues.
 
   * The verify(8) server verifies that a sender or recipient address is
     deliverable before the smtpd(8) server accepts it. The verify(8) server
-    injects probe messages into the Postfix queue and processes status updates
-    from delivery agents and/or queue manager. This process is described in the
-    ADDRESS_VERIFICATION_README document. The verify(8) service is available
-    with Postfix version 2.1 and later.
+    queries a cache with address verification results. If a result is not
+    found, the verify(8) server injects a probe message into the Postfix queue
+    and processes the status update from a delivery agent or queue manager.
+    This process is described in the ADDRESS_VERIFICATION_README document. The
+    verify(8) service is available with Postfix version 2.1 and later.
 
-                                                        qmgr(8)      Delivery
-    Network -> smtpd(8) <-> verify(8) ->  cleanup(8) -> Postfix  ->   agents
-                                                         queue
+                               
+                                             probe     Postfix
+                                            message ->   mail
+                                                        queue
+    Network -> smtpd(8) <->   verify(8)  ->
 
-                                      \                      |     /
-                                                             v
-                                        \                        /
-                                                <-   <-
+                                                            |
+                                                            v
+
+                                         <-  probe     Postfix  -> Local
+                                            status  <- delivery -> Network
+                                    ^                   agents
+                                    |
+                                    v
+                                          
+
+                              Address
+                            verification
+                               cache
+
+  * The postscreen(8) server can be put "in front" of Postfix smtpd(8)
+    processes. Its purpose is to accept connections from the network and to
+    decide what SMTP clients are allowed to talk to Postfix. According to the
+    2008 MessageLabs annual report, 81% of all email was spam, and 90% of that
+    was sent by botnets; by 2010, those numbers were 92% and 95%, respectively.
+    While postscreen(8) keeps the zombies away, more smtpd(8) processes remain
+    available for legitimate clients.
+
+    The postscreen(8) server is available with Postfix 2.8 and later. To keep
+    the implementation simple, postscreen(8) delegates DNS white/backlist
+    lookups to dnsblog(8) server processes, and delegates TLS encryption/
+    decryption to tlsproxy(8) server processes. This delegation is invisible to
+    the remote SMTP client, and is not shown in the diagram below.
+
+    zombie
+
+           \
+
+    zombie -                    - smtpd(8)
+
+             \               /
+
+    other  --- postscreen(8)
+
+             /               \
+
+    other  -                    - smtpd(8)
+
+           /
+
+    zombie
 
 PPoossttffiixx ssuuppppoorrtt ccoommmmaannddss
 
@@ -389,6 +433,10 @@ all named postsomething.
 
   * The postmap(1) command maintains Postfix lookup tables such as canonical
     (5), virtual(5) and others. It is a cousin of the UNIX makemap command.
+
+  * The postmulti(1) command repeats the "postfix start" etc. command for each
+    Postfix instance, and supports creation, deletion etc. of Postfix
+    instances. For a tutorial, see MULTI_INSTANCE_README.
 
   * The postqueue(1) command is the privileged command that is run by Postfix
     sendmail(1) and mailq(1) in order to flush or list the mail queue.

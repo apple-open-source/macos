@@ -88,7 +88,7 @@ private:
 };
 
 WorkerRunLoop::WorkerRunLoop()
-    : m_sharedTimer(new WorkerSharedTimer)
+    : m_sharedTimer(adoptPtr(new WorkerSharedTimer))
     , m_nestedCount(0)
     , m_uniqueId(0)
 {
@@ -104,7 +104,8 @@ String WorkerRunLoop::defaultMode()
     return String();
 }
 
-class RunLoopSetup : public Noncopyable {
+class RunLoopSetup {
+    WTF_MAKE_NONCOPYABLE(RunLoopSetup);
 public:
     RunLoopSetup(WorkerRunLoop& runLoop)
         : m_runLoop(runLoop)
@@ -188,7 +189,7 @@ void WorkerRunLoop::postTaskForMode(PassOwnPtr<ScriptExecutionContext::Task> tas
 
 PassOwnPtr<WorkerRunLoop::Task> WorkerRunLoop::Task::create(PassOwnPtr<ScriptExecutionContext::Task> task, const String& mode)
 {
-    return new Task(task, mode);
+    return adoptPtr(new Task(task, mode));
 }
 
 void WorkerRunLoop::Task::performTask(ScriptExecutionContext* context)

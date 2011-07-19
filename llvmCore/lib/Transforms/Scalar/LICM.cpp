@@ -35,6 +35,7 @@
 #include "llvm/Transforms/Scalar.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
+#include "llvm/IntrinsicInst.h"
 #include "llvm/Instructions.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Analysis/LoopInfo.h"
@@ -45,8 +46,8 @@
 #include "llvm/Analysis/ScalarEvolution.h"
 #include "llvm/Transforms/Utils/PromoteMemToReg.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/Debug.h"
 #include "llvm/ADT/Statistic.h"
 #include <algorithm>
@@ -62,17 +63,8 @@ static cl::opt<bool>
 DisablePromotion("disable-licm-promotion", cl::Hidden,
                  cl::desc("Disable memory promotion in LICM pass"));
 
-// This feature is currently disabled by default because CodeGen is not yet
-// capable of rematerializing these constants in PIC mode, so it can lead to
-// degraded performance. Compile test/CodeGen/X86/remat-constant.ll with
-// -relocation-model=pic to see an example of this.
-static cl::opt<bool>
-EnableLICMConstantMotion("enable-licm-constant-variables", cl::Hidden,
-                         cl::desc("Enable hoisting/sinking of constant "
-                                  "global variables"));
-
 namespace {
-  struct VISIBILITY_HIDDEN LICM : public LoopPass {
+  struct LICM : public LoopPass {
     static char ID; // Pass identification, replacement for typeid
     LICM() : LoopPass(&ID) {}
 
@@ -90,6 +82,7 @@ namespace {
       AU.addRequired<AliasAnalysis>();
       AU.addPreserved<ScalarEvolution>();
       AU.addPreserved<DominanceFrontier>();
+      AU.addPreservedID(LoopSimplifyID);
     }
 
     bool doFinalization() {
@@ -167,16 +160,17 @@ namespace {
 
       // Because the exit block is not in the loop, we know we have to get _at
       // least_ its immediate dominator.
-      do {
-        // Get next Immediate Dominator.
-        IDom = IDom->getIDom();
-
+      IDom = IDom->getIDom();
+      
+      while (IDom && IDom != BlockInLoopNode) {
         // If we have got to the header of the loop, then the instructions block
         // did not dominate the exit node, so we can't hoist it.
         if (IDom->getBlock() == LoopHeader)
           return false;
 
-      } while (IDom != BlockInLoopNode);
+        // Get next Immediate Dominator.
+        IDom = IDom->getIDom();
+      };
 
       return true;
     }
@@ -261,7 +255,6 @@ bool LICM::runOnLoop(Loop *L, LPPassManager &LPM) {
 
   // Get the preheader block to move instructions into...
   Preheader = L->getLoopPreheader();
-  assert(Preheader&&"Preheader insertion pass guarantees we have a preheader!");
 
   // Loop over the body of this loop, looking for calls, invokes, and stores.
   // Because subloops have already been incorporated into AST, we skip blocks in
@@ -284,12 +277,14 @@ bool LICM::runOnLoop(Loop *L, LPPassManager &LPM) {
   // us to sink instructions in one pass, without iteration.  After sinking
   // instructions, we perform another pass to hoist them out of the loop.
   //
-  SinkRegion(DT->getNode(L->getHeader()));
-  HoistRegion(DT->getNode(L->getHeader()));
+  if (L->hasDedicatedExits())
+    SinkRegion(DT->getNode(L->getHeader()));
+  if (Preheader)
+    HoistRegion(DT->getNode(L->getHeader()));
 
   // Now that all loop invariants have been removed from the loop, promote any
   // memory references to scalars that we can...
-  if (!DisablePromotion)
+  if (!DisablePromotion && Preheader && L->hasDedicatedExits())
     PromoteValuesInLoop();
 
   // Clear out loops state information for the next iteration
@@ -337,7 +332,6 @@ void LICM::SinkRegion(DomTreeNode *N) {
   }
 }
 
-
 /// HoistRegion - Walk the specified region of the CFG (defined by all blocks
 /// dominated by the specified block, and that are in the current loop) in depth
 /// first order w.r.t the DominatorTree.  This allows us to visit definitions
@@ -381,14 +375,13 @@ bool LICM::canSinkOrHoistInst(Instruction &I) {
 
     // Loads from constant memory are always safe to move, even if they end up
     // in the same alias set as something that ends up being modified.
-    if (EnableLICMConstantMotion &&
-        AA->pointsToConstantMemory(LI->getOperand(0)))
+    if (AA->pointsToConstantMemory(LI->getOperand(0)))
       return true;
     
     // Don't hoist loads which have may-aliased stores in loop.
     unsigned Size = 0;
     if (LI->getType()->isSized())
-      Size = AA->getTargetData().getTypeStoreSize(LI->getType());
+      Size = AA->getTypeStoreSize(LI->getType());
     return !pointerInvalidatedByLoop(LI->getOperand(0), Size);
   } else if (CallInst *CI = dyn_cast<CallInst>(&I)) {
     // Handle obvious cases efficiently.
@@ -436,7 +429,7 @@ bool LICM::isNotUsedInLoop(Instruction &I) {
         if (PN->getIncomingValue(i) == &I)
           if (CurLoop->contains(PN->getIncomingBlock(i)))
             return false;
-    } else if (CurLoop->contains(User->getParent())) {
+    } else if (CurLoop->contains(User)) {
       return false;
     }
   }
@@ -464,7 +457,7 @@ bool LICM::isLoopInvariantInst(Instruction &I) {
 /// position, and may either delete it or move it to outside of the loop.
 ///
 void LICM::sink(Instruction &I) {
-  DOUT << "LICM sinking instruction: " << I;
+  DEBUG(dbgs() << "LICM sinking instruction: " << I);
 
   SmallVector<BasicBlock*, 8> ExitBlocks;
   CurLoop->getExitBlocks(ExitBlocks);
@@ -481,21 +474,26 @@ void LICM::sink(Instruction &I) {
     if (!isExitBlockDominatedByBlockInLoop(ExitBlocks[0], I.getParent())) {
       // Instruction is not used, just delete it.
       CurAST->deleteValue(&I);
-      if (!I.use_empty())  // If I has users in unreachable blocks, eliminate.
+      // If I has users in unreachable blocks, eliminate.
+      // If I is not void type then replaceAllUsesWith undef.
+      // This allows ValueHandlers and custom metadata to adjust itself.
+      if (!I.getType()->isVoidTy())
         I.replaceAllUsesWith(UndefValue::get(I.getType()));
       I.eraseFromParent();
     } else {
       // Move the instruction to the start of the exit block, after any PHI
       // nodes in it.
       I.removeFromParent();
-
       BasicBlock::iterator InsertPt = ExitBlocks[0]->getFirstNonPHI();
       ExitBlocks[0]->getInstList().insert(InsertPt, &I);
     }
   } else if (ExitBlocks.empty()) {
     // The instruction is actually dead if there ARE NO exit blocks.
     CurAST->deleteValue(&I);
-    if (!I.use_empty())  // If I has users in unreachable blocks, eliminate.
+    // If I has users in unreachable blocks, eliminate.
+    // If I is not void type then replaceAllUsesWith undef.
+    // This allows ValueHandlers and custom metadata to adjust itself.
+    if (!I.getType()->isVoidTy())
       I.replaceAllUsesWith(UndefValue::get(I.getType()));
     I.eraseFromParent();
   } else {
@@ -506,7 +504,7 @@ void LICM::sink(Instruction &I) {
     // Firstly, we create a stack object to hold the value...
     AllocaInst *AI = 0;
 
-    if (I.getType() != Type::VoidTy) {
+    if (!I.getType()->isVoidTy()) {
       AI = new AllocaInst(I.getType(), 0, I.getName(),
                           I.getParent()->getParent()->getEntryBlock().begin());
       CurAST->add(AI);
@@ -601,7 +599,8 @@ void LICM::sink(Instruction &I) {
 /// that is safe to hoist, this instruction is called to do the dirty work.
 ///
 void LICM::hoist(Instruction &I) {
-  DOUT << "LICM hoisting to " << Preheader->getName() << ": " << I;
+  DEBUG(dbgs() << "LICM hoisting to " << Preheader->getName() << ": "
+        << I << "\n");
 
   // Remove the instruction from its current basic block... but don't delete the
   // instruction.
@@ -622,7 +621,8 @@ void LICM::hoist(Instruction &I) {
 ///
 bool LICM::isSafeToExecuteUnconditionally(Instruction &Inst) {
   // If it is not a trapping instruction, it is always safe to hoist.
-  if (!Inst.isTrapping()) return true;
+  if (Inst.isSafeToSpeculativelyExecute())
+    return true;
 
   // Otherwise we have to check to make sure that the instruction dominates all
   // of the exit blocks.  If it doesn't, then there is a path out of the loop
@@ -633,12 +633,6 @@ bool LICM::isSafeToExecuteUnconditionally(Instruction &Inst) {
   // is a common case, and can save some work, check it now.
   if (Inst.getParent() == CurLoop->getHeader())
     return true;
-
-  // It's always safe to load from a global or alloca.
-  if (isa<LoadInst>(Inst))
-    if (isa<AllocationInst>(Inst.getOperand(0)) ||
-        isa<GlobalVariable>(Inst.getOperand(0)))
-      return true;
 
   // Get the exit blocks for the current loop.
   SmallVector<BasicBlock*, 8> ExitBlocks;
@@ -684,21 +678,23 @@ void LICM::PromoteValuesInLoop() {
     // If we are promoting a pointer value, update alias information for the
     // inserted load.
     Value *LoadValue = 0;
-    if (isa<PointerType>(cast<PointerType>(Ptr->getType())->getElementType())) {
+    if (cast<PointerType>(Ptr->getType())->getElementType()->isPointerTy()) {
       // Locate a load or store through the pointer, and assign the same value
       // to LI as we are loading or storing.  Since we know that the value is
       // stored in this loop, this will always succeed.
       for (Value::use_iterator UI = Ptr->use_begin(), E = Ptr->use_end();
-           UI != E; ++UI)
-        if (LoadInst *LI = dyn_cast<LoadInst>(*UI)) {
+           UI != E; ++UI) {
+        User *U = *UI;
+        if (LoadInst *LI = dyn_cast<LoadInst>(U)) {
           LoadValue = LI;
           break;
-        } else if (StoreInst *SI = dyn_cast<StoreInst>(*UI)) {
+        } else if (StoreInst *SI = dyn_cast<StoreInst>(U)) {
           if (SI->getOperand(1) == Ptr) {
             LoadValue = SI->getOperand(0);
             break;
           }
         }
+      }
       assert(LoadValue && "No store through the pointer found!");
       PointerValueNumbers.push_back(LoadValue);  // Remember this for later.
     }
@@ -757,7 +753,7 @@ void LICM::PromoteValuesInLoop() {
       LoadInst *LI = new LoadInst(PromotedValues[i].first, "", InsertPos);
 
       // If this is a pointer type, update alias info appropriately.
-      if (isa<PointerType>(LI->getType()))
+      if (LI->getType()->isPointerTy())
         CurAST->copyValue(PointerValueNumbers[PVN++], LI);
 
       // Store into the memory we promoted.
@@ -833,7 +829,7 @@ void LICM::FindPromotableValuesInLoop(
          UI != UE; ++UI) {
       // Ignore instructions not in this loop.
       Instruction *Use = dyn_cast<Instruction>(*UI);
-      if (!Use || !CurLoop->contains(Use->getParent()))
+      if (!Use || !CurLoop->contains(Use))
         continue;
 
       if (!isa<LoadInst>(Use) && !isa<StoreInst>(Use)) {
@@ -861,7 +857,7 @@ void LICM::FindPromotableValuesInLoop(
     for (AliasSet::iterator I = AS.begin(), E = AS.end(); I != E; ++I)
       ValueToAllocaMap.insert(std::make_pair(I->getValue(), AI));
 
-    DOUT << "LICM: Promoting value: " << *V << "\n";
+    DEBUG(dbgs() << "LICM: Promoting value: " << *V << "\n");
   }
 }
 

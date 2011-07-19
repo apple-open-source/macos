@@ -51,7 +51,7 @@ DSSemaphore::DSSemaphore( const char *inName )
 	int error = pthread_mutex_init( &mMutex, &attr );
 	if ( error != 0 )
 	{
-		syslog( LOG_CRIT, "Error %d - Setting mutex thread type to PTHREAD_MUTEX_ERRORCHECK - Thread %x - aborting", error, pthread_self() );
+		syslog( LOG_CRIT, "Error %d - Setting mutex thread type to PTHREAD_MUTEX_ERRORCHECK - Thread %p - aborting", error, pthread_self() );
 		abort(); // we can't recover from this
 	}
 	

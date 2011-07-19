@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,20 +36,20 @@ namespace CodeSigning {
 
 //
 // Builder can construct CodeDirectories from pieces:
-//	Builder builder;
+//	Builder builder(...);
 //	builder.variousSetters(withSuitableData);
 //  CodeDirectory *result = builder.build();
 // Builder is not reusable.
 //
 class CodeDirectory::Builder {
 public:
-	Builder();
+	Builder(HashAlgorithm digestAlgorithm);
 	~Builder();
 	
 	void executable(string path, size_t pagesize, size_t offset, size_t length);
 	void reopen(string path, size_t offset, size_t length);
 
-	void special(size_t slot, CFDataRef data);
+	void specialSlot(SpecialSlot slot, CFDataRef data);
 	void identifier(const std::string &code) { mIdentifier = code; }
 	void flags(uint32_t f) { mFlags = f; }
 	
@@ -58,14 +58,24 @@ public:
 	
 	size_t size();								// calculate size
 	CodeDirectory *build();						// build CodeDirectory and return it
+
+private:
+	DynamicHash *getHash() const { return CodeDirectory::hashFor(this->mHashType); }
+	
+	Hashing::Byte *specialSlot(SpecialSlot slot)
+		{ assert(slot > 0 && slot <= cdSlotMax); return mSpecial + (slot - 1) * mDigestLength; }
+	Hashing::Byte *specialSlot(SpecialSlot slot) const
+		{ assert(slot > 0 && slot <= cdSlotMax); return mSpecial + (slot - 1) * mDigestLength; }
 	
 private:
-	Hash::SDigest mSpecial[cdSlotCount];		// special slot hashes
+	Hashing::Byte *mSpecial;					// array of special slot hashes
 	UnixPlusPlus::AutoFileDesc mExec;			// main executable file
 	size_t mExecOffset;							// starting offset in mExec
 	size_t mExecLength;							// total bytes of file to sign
 	size_t mPageSize;							// page size of executable (bytes)
 	uint32_t mFlags;							// CodeDirectory flags
+	uint32_t mHashType;							// digest algorithm code
+	uint32_t mDigestLength;						// number of bytes in a single glue digest
 	std::string mIdentifier;					// canonical identifier
 	
 	size_t mSpecialSlots;						// highest special slot set

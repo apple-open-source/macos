@@ -2579,7 +2579,7 @@ proc_setgid(obj, id)
 }
 
 
-static size_t maxgroups = 32;
+static size_t maxgroups = NGROUPS_MAX;
 
 
 /*
@@ -2602,11 +2602,17 @@ proc_getgroups(VALUE obj)
     rb_gid_t *groups;
     int i;
 
-    groups = ALLOCA_N(rb_gid_t, maxgroups);
-
-    ngroups = getgroups(maxgroups, groups);
+    ngroups = getgroups(0, NULL);
     if (ngroups == -1)
 	rb_sys_fail(0);
+
+    groups = ALLOCA_N(rb_gid_t, ngroups);
+    ngroups = getgroups(ngroups, groups);
+    if (ngroups == -1)
+	rb_sys_fail(0);
+
+    if (ngroups > maxgroups)
+	ngroups = maxgroups;
 
     ary = rb_ary_new();
     for (i = 0; i < ngroups; i++)

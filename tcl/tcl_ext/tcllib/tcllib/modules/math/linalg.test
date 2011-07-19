@@ -34,12 +34,12 @@ if {$regular==1} then {
 } else {
     package require tcltest
     tcltest::configure -verbose {start body error pass}
-    #tcltest::configure -match solvetriangular-*
+    #tcltest::configure -match largesteigen-*
     namespace import tcltest::test
     namespace import tcltest::customMatch
     set basedir [file normalize [file dirname [info script]]]
     set ::auto_path [linsert $::auto_path 0 $basedir]
-    package require math::linearalgebra 1.0.4
+    package require -exact math::linearalgebra 1.1.3
 }
 # -------------------------------------------------------------------------
 
@@ -48,6 +48,47 @@ namespace import -force ::math::linearalgebra::*
 set old_precision $::tcl_precision
 set ::tcl_precision 17
 
+#
+# Returns 1 if the expected value is close to the actual value,
+# that is their relative difference is small with respect to the
+# given epsilon.
+# If the expected value is zero, use an absolute error instead.
+#
+proc areClose {expected actual epsilon} {
+    if {$actual=="" && $expected!=""} then {
+        return 0
+    }
+    if {$actual!="" && $expected==""} then {
+        return 0
+    }
+    set match 1
+    if { [llength [lindex $expected 0]] > 1 } {
+        foreach a $actual e $expected {
+            set match [matchNumbers $e $a]
+            if { $match == 0 } {
+                break
+            }
+        }
+    } else {
+
+        foreach a $actual e $expected {
+            if {[string is double $a]==0  || [string is double $e]==0} then {
+                return 0
+            }
+            if {$e!=0.0} then {
+              set shift [expr {abs($a-$e)/abs($e)}]
+            } else {
+              set shift [expr {abs($a-$e)}]
+            }
+            #puts "a=$a, e=$e, shift = $shift"
+            if {$shift > $epsilon} {
+                set match 0
+                break
+            }
+        }
+    }
+    return $match
+}
 #
 # Matching procedure - flatten the lists
 #
@@ -97,7 +138,7 @@ test dimshape-1.2 "dimension of matrix" -body {
 
 test dimshape-2.0 "shape of scalar" -body {
     shape 1
-} -result {}
+} -result {1}
 
 test dimshape-2.1 "shape of vector" -body {
     shape {1 2 3}
@@ -697,6 +738,89 @@ test mkTriangular-1 "make triangular matrix" -match numbers -body {
 test mkTriangular-2 "make triangular matrix" -match numbers -body {
     mkTriangular 3 "L" 2.
 } -result {{2. 0. 0.} {2. 2. 0.} {2. 2. 2.}}
+
+test mkBorder "make border matrix" -match numbers -body {
+    mkBorder 5
+} -result {
+{1.0 0.0 0.0 0.0 1.0}
+{0.0 1.0 0.0 0.0 0.5}
+{0.0 0.0 1.0 0.0 0.25}
+{0.0 0.0 0.0 1.0 0.125}
+{1.0 0.5 0.25 0.125 1.0}}
+
+test mkWilkinsonW- "make Wilkinson W- matrix" -match numbers -body {
+    mkWilkinsonW- 5
+} -result {
+{2.0 1.0 0.0 0.0 0.0}
+{1.0 1.0 1.0 0.0 0.0}
+{0.0 1.0 0.0 1.0 0.0}
+{0.0 0.0 1.0 -1.0 1.0}
+{0.0 0.0 0.0 1.0 -2.0}}
+
+test mkWilkinsonW+ "make Wilkinson W+ matrix" -match numbers -body {
+    mkWilkinsonW+ 7
+} -result {
+{3.0 1.0 0.0 0.0 0.0 0.0 0.0}
+{1.0 2.0 1.0 0.0 0.0 0.0 0.0}
+{0.0 1.0 1.0 1.0 0.0 0.0 0.0}
+{0.0 0.0 1.0 0.0 1.0 0.0 0.0}
+{0.0 0.0 0.0 1.0 1.0 1.0 0.0}
+{0.0 0.0 0.0 0.0 1.0 2.0 1.0}
+{0.0 0.0 0.0 0.0 0.0 1.0 3.0}}
+
+test det-1 "determinant" -match numbers -body {
+    set a [mkBorder 5]
+    set det [det $a]
+} -result {-0.328125}
+
+test det-2 "determinant" -match numbers -body {
+    set a [mkWilkinsonW+ 5]
+    set det [det $a]
+} -result {-4.0}
+test det-3 "determinant" -match numbers -body {
+    set a [mkWilkinsonW- 5]
+    set det [det $a]
+} -result {0.0}
+test det-4 "determinant with pre-computed decomposition" -match numbers -body {
+    set a [mkWilkinsonW- 5]
+    set ipiv [dgetrf a]
+    set det [det $a $ipiv]
+} -result {0.0}
+
+#set ::tcl_precision 17
+test largesteigen-1 "power method" -body {
+    set a {{-261 209 -49}
+      {-530 422 -98}
+      {-800 631 -144}}
+    set pm [largesteigen $a 1.e-8 200]
+    set eigval [lindex $pm 0]
+    set eigvec [lindex $pm 1]
+    set res {}
+    set expected {-0.2672612419124256177838 -0.5345224838248414656050 -0.8017837257372776305075}
+    lappend res -eigvec [areClose $expected $eigvec 1.e-8]
+    lappend res -eigval [areClose 10.0 $eigval 1.e-8]
+} -result {-eigvec 1 -eigval 1}
+test largesteigen-2 "power method" -body {
+    set a {{-261 209 -49}
+      {-530 422 -98}
+      {-800 631 -144}}
+    set pm [largesteigen $a]
+    set eigval [lindex $pm 0]
+    set eigvec [lindex $pm 1]
+    set res {}
+    set expected {-0.2672612419124256177838 -0.5345224838248414656050 -0.8017837257372776305075}
+    lappend res -eigvec [areClose $expected $eigvec 1.e-5]
+    lappend res -eigval [areClose 10.0 $eigval 1.e-5]
+} -result {-eigvec 1 -eigval 1}
+test largesteigen-3 "power method" -body {
+    set a {{0.0 0.0 0.0}
+      {0.0 0.0 0.0}
+      {0.0 0.0 0.0}}
+      catch {
+        set pm [largesteigen $a]
+      } errmsg
+    set errmsg
+} -result {Cannot continue power method : matrix is singular}
 
 # Additional tests: procedures by Federico Ferri
 #source ferri/ferri.test

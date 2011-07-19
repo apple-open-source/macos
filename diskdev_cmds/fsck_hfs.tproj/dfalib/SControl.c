@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -58,7 +58,7 @@
 extern char __diskdev_cmds_version[]; 
 
 int gGUIControl;
-
+extern char lflag;
 
 
 // Static function prototypes
@@ -204,6 +204,7 @@ External
 
 ------------------------------------------------------------------------------*/
 
+static jmp_buf				envBuf;
 int
 CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel, 
 	  int repairLevel, fsck_ctx_t fsckContext, int lostAndFoundMode, 
@@ -219,7 +220,6 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 	Boolean 			autoRepair;
 	Boolean				exitEarly = 0;
 	__block int *msgCounts = NULL;
-	jmp_buf				envBuf;
 	Boolean				majorErrors = 0;
 
 	if (checkLevel == kMajorCheck) {
@@ -241,7 +241,9 @@ CheckHFS( const char *rdevnode, int fsReadRef, int fsWriteRef, int checkLevel,
 			return -1;
 		}
 	}
-	if (__diskdev_cmds_version) {
+
+	/*  Get the diskdev_cmds version that is being built */
+	if (1) {
 		char *vstr, *tmp = __diskdev_cmds_version;
 
 		while (*tmp && *tmp != '@')
@@ -628,23 +630,26 @@ void ScavCtrl( SGlobPtr GPtr, UInt32 ScavOp, short *ScavRes )
 				fsckPrint(GPtr->context, hfsVerifyVolWithWrite);
 			}
 
-			/* In the first pass, if the volume is journaled and 
-			 * fsck_hfs has write access to the volume and 
-			 * the volume is not mounted currently, replay the 
-			 * journal before starting the checks.
+			/*
+			 * In the first pass, if fsck_hfs is verifying a
+			 * journaled volume, and it's not a live verification,
+			 * check to see if the journal is empty.  If it is not,
+			 * flag it as a journal error, and print a message.
+			 * (A live verify will almost certainly have a non-empty
+			 * journal, but that should be safe in this case due
+			 * to the freeze command flushing everything.)
 			 */
 			if ((GPtr->scanCount == 0) &&
 			    (CheckIfJournaled(GPtr, true) == 1) &&
-			    (GPtr->canWrite == 1) && (GPtr->writeRef != -1)) {
-				result = journal_replay(GPtr);
-				if (fsckGetVerbosity(GPtr->context) >= kDebugLog) {
-					if (result) {
-						plog ("\tJournal replay returned error = %d\n", result);
-					} else {
-						plog ("\tJournal replayed successfully or journal was empty\n");
-					}
+			    (GPtr->canWrite == 0 || GPtr->writeRef == -1) &&
+			    (lflag == 0)) {
+				if (IsJournalEmpty(GPtr) == 0) {
+					fsckPrint(GPtr->context, E_DirtyJournal);
+					GPtr->JStat |= S_DirtyJournal;
+				} else {
+					if (debug)
+						plog("Journal is empty\n");
 				}
-				/* Continue verify/repair even if replay fails */
 			}
 
 			result = IVChk( GPtr );

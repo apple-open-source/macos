@@ -1,0 +1,15 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc extend {s e} {
+    line dashed from [$e end] to [$s between [$e start] [$e end]]
+}
+
+proc dot {p anchor text} {
+    circle radius 10 at $p color red
+    text with w at [last circle e] text $text anchor $anchor textcolor blue
+}
+
+set A [arrow from [ 0    0] to [by 100 -20]] ; extend 3 $A
+set B [arrow from [-50 200] to [by 100  30]] ; extend 3 $B
+
+dot [intersect $A $B] w {The treasure is here}

@@ -1,8 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
 [manpage_begin docidx_lang_intro n 1.0]
-[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[copyright {2007-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {docidx language introduction}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -49,7 +50,7 @@ The most simple document which can be written in docidx is
 [para]
 
 Not very useful, but valid. This also shows us that all docidx
-documents consist of only one part where we will list alll keys and
+documents consist of only one part where we will list all keys and
 their references.
 
 [para]
@@ -100,7 +101,7 @@ keywords. Here is a made-up index for all the manpages in the module
 
 [para]
 
-In the above example the command [cmd manpage] is used inserts
+In the above example the command [cmd manpage] is used to insert
 references to documents, using symbolic file names, with each command
 belonging to the last [cmd key] command coming before it.
 

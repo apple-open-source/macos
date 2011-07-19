@@ -3,7 +3,6 @@
 new_filename_prefix = 'osx_'
 ruby_h = File.join(@config['ruby-header-dir'], 'ruby.h')
 intern_h = File.join(@config['ruby-header-dir'], 'intern.h')
-build_universal = (@config['build-universal'] == 'yes')
 [ ruby_h, intern_h ].each do |src_path|
   dst_fname = new_filename_prefix + File.basename(src_path)
   dst_fname = "src/objc/" + dst_fname
@@ -23,7 +22,10 @@ if @config['gen-bridge-support'] != 'no'
   # generate bridge support metadata files
   out_dir = File.join(Dir.pwd, 'bridge-support')
   sdkroot = @config['sdkroot']
-  cflags = build_universal ? "-arch ppc -arch i386 -isysroot #{sdkroot}" : ''
+  archs = @config['target-archs']
+  cflags = ''
+  cflags << archs.gsub(/\A|\s+/, ' -arch ') if archs.size > 0
+  cflags << " -isysroot #{sdkroot}" if sdkroot.size > 0
   Dir.chdir('../misc/bridgesupport') do
     command("BSROOT=\"#{out_dir}\" CFLAGS=\"#{cflags}\" #{@config['ruby-prog']} build.rb")
   end

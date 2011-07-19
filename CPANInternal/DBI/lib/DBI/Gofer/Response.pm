@@ -1,6 +1,6 @@
 package DBI::Gofer::Response;
 
-#   $Id: Response.pm 10087 2007-10-16 12:42:37Z timbo $
+#   $Id: Response.pm 11565 2008-07-22 20:17:33Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -14,7 +14,7 @@ use DBI qw(neat neat_list);
 
 use base qw(DBI::Util::_accessor Exporter);
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10087 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 11565 $ =~ /(\d+)/o);
 
 use constant GOf_RESPONSE_EXECUTED => 0x0001;
 
@@ -46,6 +46,10 @@ sub new {
 }   
 
 
+sub err_errstr_state {
+    my $self = shift;
+    return @{$self}{qw(err errstr state)};
+}
 
 sub executed_flag_set {
     my $flags = shift->flags
@@ -150,6 +154,42 @@ sub summary_as_text {
         push @s, join(", ", map { "$_=>".$context->{$_} } @keys);
     }       
     return join("\n\t", @s). "\n";
+}
+
+
+sub outline_as_text { # one-line version of summary_as_text
+    my $self = shift;
+    my ($context) = @_;
+
+    my ($rv, $err, $errstr, $state) = ($self->{rv}, $self->{err}, $self->{errstr}, $self->{state});
+
+    my $s = sprintf("rv=%s", (ref $rv) ? "[".neat_list($rv)."]" : neat($rv));
+    $s .= sprintf(", err=%s %s", $err, neat($errstr))
+        if defined $err;
+    $s .= sprintf(", flags=0x%x", $self->{flags})
+        if $self->{flags};
+
+    if (my $sth_resultsets = $self->sth_resultsets) {
+        $s .= sprintf(", %d resultsets ", scalar @$sth_resultsets);
+
+        my @rs;
+        for my $rs (@{$self->sth_resultsets || []}) {
+            my $summary = "";
+            my ($rowset, $err, $errstr)
+                = @{$rs}{qw(rowset err errstr)};
+            my $NUM_OF_FIELDS = $rs->{NUM_OF_FIELDS} || 0;
+            my $rows = $rowset ? @$rowset : 0;
+            if ($rowset || $NUM_OF_FIELDS > 0) {
+                $summary .= sprintf "%dr x %dc", $rows, $NUM_OF_FIELDS;
+            }
+            $summary .= sprintf "%serr %s %s", ($summary?", ":""), $err, neat($errstr)
+                if defined $err;
+            push @rs, $summary;
+        }
+        $s .= join "; ", map { "[$_]" } @rs;
+    }
+
+    return $s;
 }
 
 

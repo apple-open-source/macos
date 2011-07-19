@@ -33,6 +33,8 @@
 #include <stdlib.h>
 #include <mach/mach_time.h>
 #include <syslog.h>
+#include <asl.h>
+#include <msgtracer_keys.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 
@@ -53,6 +55,12 @@
 #ifndef kIOFBDependentIndexKey
 #define kIOFBDependentIndexKey  "IOFBDependentIndex"
 #endif
+
+#define FILTER_MAXDEPTH                 32
+#ifndef kIOFBModePIKey
+#define kIOFBModePIKey                  "PI"
+#endif
+
 
 #define arrayCnt(var) (sizeof(var) / sizeof(var[0]))
 
@@ -386,15 +394,19 @@ IOFBGetFramebufferInformationForAperture( io_connect_t connect,
             IOPixelAperture               aperture,
             IOFramebufferInformation    * info )
 {
+    IOFBConnectRef      connectRef = IOFBConnectToRef( connect );
     IOPixelInformation  pixelInfo;
     IODisplayModeID     mode;
     IOIndex             depth;
     kern_return_t       err;
 
-    err = IOFBGetCurrentDisplayModeAndDepth( connect, &mode, &depth );
+    if (!connectRef)
+        return (kIOReturnBadArgument);
+
+    err = _IOFBGetCurrentDisplayModeAndDepth(connectRef, &mode, &depth);
     if( err)
         return( err);
-    err = IOFBGetPixelInformation( connect, mode, depth, aperture, &pixelInfo );
+    err = _IOFBGetPixelInformation(connectRef, mode, depth, aperture, &pixelInfo);
     if( err)
         return( err);
 
@@ -438,11 +450,26 @@ IOFBGetFramebufferOffsetForAperture( mach_port_t connect,
 
 extern kern_return_t
 IOFBSetBounds( io_connect_t connect,
-            IOGBounds   * rect )
+              IOGBounds   * rect )
 {
+    IOGBounds   rects[2];
+    rects[0] = rects[1] = *rect;
     return IOConnectCallMethod(connect, 9,              // Index
-                NULL,    0, rect, sizeof(*rect),        // Input
-                NULL, NULL, NULL, NULL);                // Output
+                               NULL,    0, rects, sizeof(rects),       // Input
+                               NULL, NULL, NULL, NULL);                // Output
+}
+
+extern kern_return_t
+IOFBSetVirtualBounds(io_connect_t connect,
+                     IOGBounds   * screenBounds,
+                     IOGBounds   * desktopBounds )
+{
+    IOGBounds   rects[2];
+    rects[0] = *screenBounds;
+    rects[1] = *desktopBounds;
+    return IOConnectCallMethod(connect, 9,              // Index
+                               NULL,    0, rects, sizeof(rects),       // Input
+                               NULL, NULL, NULL, NULL);                // Output
 }
 
 static kern_return_t
@@ -2333,10 +2360,12 @@ IOFBRebuild( IOFBConnectRef connectRef, Boolean forConnectChange )
     TIMEEND("IOFBLookDefaultDisplayMode");
 
     CFMutableDictionaryRef prefs;
+    CFMutableDictionaryRef displayPrefs = NULL;
     CFTypeRef displayKey;
     displayKey = CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayPrefKeyKey));
     prefs = (CFMutableDictionaryRef) CFDictionaryGetValue(connectRef->iographicsProperties, CFSTR("prefs"));
-    connectRef->firstBoot = (displayKey && (!prefs || (NULL == CFDictionaryGetValue(prefs, displayKey))));
+    connectRef->firstBoot = (displayKey && (!prefs 
+    			|| (NULL == (displayPrefs = (CFMutableDictionaryRef) CFDictionaryGetValue(prefs, displayKey)))));
     DEBG(connectRef, "firstBoot == %d\n", connectRef->firstBoot);
 
     connectRef->make4By3         = false
@@ -2344,6 +2373,61 @@ IOFBRebuild( IOFBConnectRef connectRef, Boolean forConnectChange )
                                 && (connectRef->defaultNot4By3)
                                 && (0 == connectRef->dependentIndex)
                                 && (0 != (kIOMirrorHint & connectRef->mirrorDefaultFlags));
+
+    bool logDisplay = false;
+    if (kIOFBConnectStateOnline & connectRef->state)
+    {
+	logDisplay = connectRef->firstBoot;
+	if (!logDisplay && displayPrefs)
+	{
+	    int32_t version = 0;
+            CFNumberRef
+	    num = CFDictionaryGetValue(displayPrefs, CFSTR(kIOGraphicsPrefsVersionKey));
+	    if (num && (CFGetTypeID(num) == CFNumberGetTypeID()))
+	    {
+		CFNumberGetValue(num, kCFNumberSInt32Type, &version);
+	    }
+	    logDisplay = (version < 2);
+    	}
+    }
+
+    if (logDisplay)
+    {
+	aslmsg (msg) = asl_new(ASL_TYPE_MSG);
+	if (msg)
+	{
+	    char                sbuf[256];
+	    CFDataRef           edidData;
+	    io_registry_entry_t regEntry;
+
+	    snprintf(sbuf, sizeof(sbuf), "0x%x,0x%x(%dx%d)", 
+			    (int)connectRef->displayVendor, (int)connectRef->displayProduct,
+			    (int)connectRef->defaultWidth, (int)connectRef->defaultHeight);
+
+	    asl_set(msg, kMsgTracerKeyDomain,    "com.apple.iokit.graphics.displaytype" );
+	    asl_set(msg, kMsgTracerKeySignature, sbuf);
+
+	    if ((edidData = CFDictionaryGetValue(connectRef->overrides, CFSTR(kIODisplayEDIDKey)))
+	      && IODisplayEDIDName((EDID *) CFDataGetBytePtr(edidData), sbuf))
+	    {
+		asl_set(msg, kMsgTracerKeySignature2, sbuf);
+	    }
+	    regEntry = IORegistryEntryFromPath(kIOMasterPortDefault, 
+                                               kIOServicePlane ":/");
+	    if (regEntry)
+	    {
+	    	if (kIOReturnSuccess == IORegistryEntryGetName(regEntry, sbuf))
+		{
+		    asl_set(msg, kMsgTracerKeySignature3, sbuf);
+		}
+	    	IOObjectRelease(regEntry);
+	    }
+	    asl_set(msg, kMsgTracerKeyResult,	 "noop");
+	    asl_log(NULL, msg, ASL_LEVEL_NOTICE, "displayonline");
+	    asl_free(msg);
+	}
+    }
+
 
     return( kIOReturnSuccess );
 }
@@ -3654,17 +3738,19 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
         IODisplayModeID         displayMode,
         IODisplayModeInformation * out )
 {
-    kern_return_t         kr = kIOReturnSuccess;
-    IOFBConnectRef        connectRef;
-    CFDataRef             data;
-    CFDictionaryRef       dict;
+    kern_return_t              kr = kIOReturnSuccess;
+    IOFBConnectRef             connectRef;
+    CFDataRef                  data;
+    CFMutableDataRef           piData;
+    CFMutableDictionaryRef     dict;
     IODisplayModeInformation * info;
 
     connectRef = IOFBConnectToRef( connect);
     if( !connectRef)
         return( kIOReturnBadArgument );
 
-    dict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) displayMode );
+    dict = (CFMutableDictionaryRef) CFDictionaryGetValue( connectRef->modes,
+                                (const void *) (uintptr_t) (UInt32) displayMode );
     if( dict && (data = CFDictionaryGetValue( dict, CFSTR(kIOFBModeDMKey) )))
         info = (IODisplayModeInformation *) CFDataGetBytePtr(data);
     else
@@ -3705,27 +3791,33 @@ IOFBGetDisplayModeInformation( io_connect_t connect,
             out->nominalWidth = out->nominalHeight;
             out->nominalHeight = width;
         }
-#define FILTER_MAXDEPTH     32
-#if FILTER_MAXDEPTH
+
+        piData = (CFMutableDataRef) CFDictionaryGetValue(dict, CFSTR(kIOFBModePIKey));
+        if (!piData && (piData = CFDataCreateMutable(kCFAllocatorDefault, 0)))
         {
             IOReturn           err;
             IOPixelInformation pixelInfo;
             IOIndex            depth;
 
-            for (depth = out->maxDepthIndex + 1; depth--; )
+            for (depth = 0; depth <= out->maxDepthIndex; depth++)
             {
                 err = _IOFBGetPixelInformation(connectRef, displayMode, depth,
                                                kIOFBSystemAperture, &pixelInfo);
                 if (kIOReturnSuccess != err)
-                    continue;
+                    break;
                 if (pixelInfo.bitsPerPixel > FILTER_MAXDEPTH)
-                    continue;
-                if (depth != out->maxDepthIndex)
-                    out->maxDepthIndex = depth;
-                break;
+                    break;
+                CFDataAppendBytes(piData, (UInt8 *) &pixelInfo, sizeof(IOPixelInformation));
             }
+            CFDictionarySetValue(dict, CFSTR(kIOFBModePIKey), piData);
+            CFRelease(piData);
         }
-#endif
+        if (piData)
+        {
+            out->maxDepthIndex = CFDataGetLength(piData) / sizeof(IOPixelInformation);
+            if (out->maxDepthIndex)
+                out->maxDepthIndex--;
+        }
     }
 
     return( kr );
@@ -4043,16 +4135,33 @@ IOFBGetPixelInformation( io_connect_t connect,
         IOPixelAperture         aperture,
         IOPixelInformation *    pixelInfo )
 {
-    kern_return_t  kr;
-    IOFBConnectRef connectRef;
+    IOFBConnectRef  connectRef;
+    CFDictionaryRef dict;
+    CFDataRef       data;
+    size_t          offset;
 
     connectRef = IOFBConnectToRef(connect);
-    if( !connectRef)
+    if (!connectRef)
         return( kIOReturnBadArgument );
 
-    kr = _IOFBGetPixelInformation(connectRef, displayMode, depth, aperture, pixelInfo);
+    dict = CFDictionaryGetValue( connectRef->modes, (const void *) (uintptr_t) (UInt32) displayMode );
+    if (!dict || !(data = CFDictionaryGetValue(dict, CFSTR(kIOFBModePIKey))))
+    {
+        return (_IOFBGetPixelInformation(connectRef, displayMode, depth,
+                                               aperture, pixelInfo));
+    }
 
-    return( kr );
+    if (kIOFBSystemAperture != aperture)
+        return (kIOReturnBadArgument);
+
+    offset = depth * sizeof(IOPixelInformation);
+    if ((offset + sizeof(IOPixelInformation)) > (size_t) CFDataGetLength(data))
+        return (kIOReturnBadArgument);
+
+    CFDataGetBytes(data, CFRangeMake(offset, sizeof(IOPixelInformation)), 
+                        (UInt8 *) pixelInfo);
+
+    return (kIOReturnSuccess);
 }
 
 kern_return_t

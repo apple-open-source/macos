@@ -2,14 +2,14 @@
 package Module::Install::Makefile;
 
 use strict 'vars';
-use Module::Install::Base;
-use ExtUtils::MakeMaker ();
+use ExtUtils::MakeMaker   ();
+use Module::Install::Base ();
 
-use vars qw{$VERSION $ISCORE @ISA};
+use vars qw{$VERSION @ISA $ISCORE};
 BEGIN {
-	$VERSION = '0.68';
+	$VERSION = '0.93';
+	@ISA     = 'Module::Install::Base';
 	$ISCORE  = 1;
-	@ISA     = qw{Module::Install::Base};
 }
 
 sub Makefile { $_[0] }
@@ -34,17 +34,28 @@ sub prompt {
 	}
 }
 
+# Store a cleaned up version of the MakeMaker version,
+# since we need to behave differently in a variety of
+# ways based on the MM version.
+my $makemaker = eval $ExtUtils::MakeMaker::VERSION;
+
+# If we are passed a param, do a "newer than" comparison.
+# Otherwise, just return the MakeMaker version.
+sub makemaker {
+	( @_ < 2 or $makemaker >= eval($_[1]) ) ? $makemaker : 0
+}
+
 sub makemaker_args {
 	my $self = shift;
-	my $args = ($self->{makemaker_args} ||= {});
-	%$args = ( %$args, @_ ) if @_;
-	$args;
+	my $args = ( $self->{makemaker_args} ||= {} );
+	%$args = ( %$args, @_ );
+	return $args;
 }
 
 # For mm args that take multiple space-seperated args,
 # append an argument to the current list.
 sub makemaker_append {
-	my $self = sShift;
+	my $self = shift;
 	my $name = shift;
 	my $args = $self->makemaker_args;
 	$args->{name} = defined $args->{$name}
@@ -63,18 +74,18 @@ sub build_subdirs {
 sub clean_files {
 	my $self  = shift;
 	my $clean = $self->makemaker_args->{clean} ||= {};
-	%$clean = (
-		%$clean, 
-		FILES => join(' ', grep length, $clean->{FILES}, @_),
+	  %$clean = (
+		%$clean,
+		FILES => join ' ', grep { length $_ } ($clean->{FILES} || (), @_),
 	);
 }
 
 sub realclean_files {
-	my $self  = shift;
+	my $self      = shift;
 	my $realclean = $self->makemaker_args->{realclean} ||= {};
-	%$realclean = (
-		%$realclean, 
-		FILES => join(' ', grep length, $realclean->{FILES}, @_),
+	  %$realclean = (
+		%$realclean,
+		FILES => join ' ', grep { length $_ } ($realclean->{FILES} || (), @_),
 	);
 }
 
@@ -104,9 +115,12 @@ sub tests_recursive {
 	unless ( -d $dir ) {
 		die "tests_recursive dir '$dir' does not exist";
 	}
-	require File::Find;
 	%test_dir = ();
+	require File::Find;
 	File::Find::find( \&_wanted_t, $dir );
+	if ( -d 'xt' and ($ENV{RELEASE_TESTING} or $self->author) ) {
+		File::Find::find( \&_wanted_t, 'xt' );
+	}
 	$self->tests( join ' ', map { "$_/*.t" } sort keys %test_dir );
 }
 
@@ -114,51 +128,107 @@ sub write {
 	my $self = shift;
 	die "&Makefile->write() takes no arguments\n" if @_;
 
+	# Check the current Perl version
+	my $perl_version = $self->perl_version;
+	if ( $perl_version ) {
+		eval "use $perl_version; 1"
+			or die "ERROR: perl: Version $] is installed, "
+			. "but we need version >= $perl_version";
+	}
+
+	# Make sure we have a new enough MakeMaker
+	require ExtUtils::MakeMaker;
+
+	if ( $perl_version and $self->_cmp($perl_version, '5.006') >= 0 ) {
+		# MakeMaker can complain about module versions that include
+		# an underscore, even though its own version may contain one!
+		# Hence the funny regexp to get rid of it.  See RT #35800
+		# for details.
+		my $v = $ExtUtils::MakeMaker::VERSION =~ /^(\d+\.\d+)/;
+		$self->build_requires(     'ExtUtils::MakeMaker' => $v );
+		$self->configure_requires( 'ExtUtils::MakeMaker' => $v );
+	} else {
+		# Allow legacy-compatibility with 5.005 by depending on the
+		# most recent EU:MM that supported 5.005.
+		$self->build_requires(     'ExtUtils::MakeMaker' => 6.42 );
+		$self->configure_requires( 'ExtUtils::MakeMaker' => 6.42 );
+	}
+
+	# Generate the MakeMaker params
 	my $args = $self->makemaker_args;
 	$args->{DISTNAME} = $self->name;
-	$args->{NAME}     = $self->module_name || $self->name || $self->determine_NAME($args);
-	$args->{VERSION}  = $self->version || $self->determine_VERSION($args);
+	$args->{NAME}     = $self->module_name || $self->name;
+	$args->{VERSION}  = $self->version;
 	$args->{NAME}     =~ s/-/::/g;
+	$DB::single = 1;
 	if ( $self->tests ) {
 		$args->{test} = { TESTS => $self->tests };
+	} elsif ( -d 'xt' and ($self->author or $ENV{RELEASE_TESTING}) ) {
+		$args->{test} = {
+			TESTS => join( ' ', map { "$_/*.t" } grep { -d $_ } qw{ t xt } ),
+		};
 	}
-	if ($] >= 5.005) {
+	if ( $] >= 5.005 ) {
 		$args->{ABSTRACT} = $self->abstract;
 		$args->{AUTHOR}   = $self->author;
 	}
-	if ( eval($ExtUtils::MakeMaker::VERSION) >= 6.10 ) {
-		$args->{NO_META} = 1;
+	if ( $self->makemaker(6.10) ) {
+		$args->{NO_META}   = 1;
+		#$args->{NO_MYMETA} = 1;
 	}
-	if ( eval($ExtUtils::MakeMaker::VERSION) > 6.17 and $self->sign ) {
+	if ( $self->makemaker(6.17) and $self->sign ) {
 		$args->{SIGN} = 1;
 	}
 	unless ( $self->is_admin ) {
 		delete $args->{SIGN};
 	}
 
-	# merge both kinds of requires into prereq_pm
 	my $prereq = ($args->{PREREQ_PM} ||= {});
 	%$prereq = ( %$prereq,
-		map { @$_ }
+		map { @$_ } # flatten [module => version]
 		map { @$_ }
 		grep $_,
-		($self->build_requires, $self->requires)
+		($self->requires)
 	);
 
-	# merge both kinds of requires into prereq_pm
+	# Remove any reference to perl, PREREQ_PM doesn't support it
+	delete $args->{PREREQ_PM}->{perl};
+
+	# Merge both kinds of requires into BUILD_REQUIRES
+	my $build_prereq = ($args->{BUILD_REQUIRES} ||= {});
+	%$build_prereq = ( %$build_prereq,
+		map { @$_ } # flatten [module => version]
+		map { @$_ }
+		grep $_,
+		($self->configure_requires, $self->build_requires)
+	);
+
+	# Remove any reference to perl, BUILD_REQUIRES doesn't support it
+	delete $args->{BUILD_REQUIRES}->{perl};
+
+	# Delete bundled dists from prereq_pm
 	my $subdirs = ($args->{DIR} ||= []);
 	if ($self->bundles) {
 		foreach my $bundle (@{ $self->bundles }) {
 			my ($file, $dir) = @$bundle;
 			push @$subdirs, $dir if -d $dir;
-			delete $prereq->{$file};
+			delete $build_prereq->{$file}; #Delete from build prereqs only
 		}
+	}
+
+	unless ( $self->makemaker('6.55_03') ) {
+		%$prereq = (%$prereq,%$build_prereq);
+		delete $args->{BUILD_REQUIRES};
 	}
 
 	if ( my $perl_version = $self->perl_version ) {
 		eval "use $perl_version; 1"
 			or die "ERROR: perl: Version $] is installed, "
 			. "but we need version >= $perl_version";
+
+		if ( $self->makemaker(6.48) ) {
+			$args->{MIN_PERL_VERSION} = $perl_version;
+		}
 	}
 
 	$args->{INSTALLDIRS} = $self->installdirs;
@@ -167,7 +237,9 @@ sub write {
 
 	my $user_preop = delete $args{dist}->{PREOP};
 	if (my $preop = $self->admin->preop($user_preop)) {
-		$args{dist} = $preop;
+		foreach my $key ( keys %$preop ) {
+			$args{dist}->{$key} = $preop->{$key};
+		}
 	}
 
 	my $mm = ExtUtils::MakeMaker::WriteMakefile(%args);
@@ -180,7 +252,7 @@ sub fix_up_makefile {
 	my $top_class     = ref($self->_top) || '';
 	my $top_version   = $self->_top->VERSION || '';
 
-	my $preamble = $self->preamble 
+	my $preamble = $self->preamble
 		? "# Preamble by $top_class $top_version\n"
 			. $self->preamble
 		: '';
@@ -205,7 +277,7 @@ sub fix_up_makefile {
 	#$makefile =~ s/^PERL_ARCHLIB = .+/PERL_ARCHLIB =/m;
 
 	# Perl 5.005 mentions PERL_LIB explicitly, so we have to remove that as well.
-	$makefile =~ s/("?)-I\$\(PERL_LIB\)\1//g;
+	$makefile =~ s/(\"?)-I\$\(PERL_LIB\)\1//g;
 
 	# XXX - This is currently unused; not sure if it breaks other MM-users
 	# $makefile =~ s/^pm_to_blib\s+:\s+/pm_to_blib :: /mg;
@@ -234,4 +306,4 @@ sub postamble {
 
 __END__
 
-#line 363
+#line 435

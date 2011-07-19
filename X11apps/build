@@ -1,11 +1,17 @@
 #!/usr/bin/perl
 
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{CC}="gcc" if ($ENV{CC} eq '');
+$ENV{CC_BASE}=$ENV{CC};
+
 $target=shift @ARGV;
 
 sub build_app {
+    build("xterm");
+    build("mesa-demos");
+    build("xscope");
     build("xbitmaps");
     build("x11perf");
-    build("xterm");
     build("xload");
     build("appres");
     build("bdftopcf");
@@ -24,12 +30,15 @@ sub build_app {
     build("rgb");
     build("sessreg");
     build("showfont");
+    build("smproxy");
     build("twm");
     build("viewres");
     build("xauth");
+    build("xbacklight");
     build("xcalc");
     build("xclipboard");
     build("xclock");
+    build("xcmsdb");
     build("xconsole");
     build("xcursorgen");
     build("xditview");
@@ -42,6 +51,7 @@ sub build_app {
     build("xfontsel");
     build("xfs");
     build("xfsinfo");
+    build("xgamma");
     build("xgc");
     build("xhost");
     build("xinput");
@@ -67,22 +77,25 @@ sub build_app {
     build("xsetroot");
     build("xsm");
     build("xstdcmap");
-    build("xtrap");
     build("xvinfo");
     build("xwd");
     build("xwininfo");
     build("xwud");
     build("setxkbmap");
     build("xkbcomp");
-#    build("xkeyboard-config");
+    build("xkeyboard-config");
     build("xkbevd");
     build("xkbprint");
     build("xkbutils");
+
+    # Include old, crufty, deprecated foo
+    if($ENV{MACOSFORGE_SL} ne "YES") {
+        build("xtrap");
+    }
 }
 
 if($target eq 'installsrc') {
-    sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
-    sys_print("ditto . $ENV{SRCROOT}");
+    sys_print("tar -cp --exclude .git --exclude .svn --exclude CVS . | tar -pox -C $ENV{SRCROOT}");
     chdir($ENV{SRCROOT});
     foreach $module (glob('*')) {
 	next if $module =~ /build/;
@@ -100,11 +113,17 @@ if($target eq 'installsrc') {
 if($target eq 'clean') {
     print "Cleaning out directory $ENV{SRCROOT}\n";
     chdir($ENV{SRCROOT});
-    sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
     sys_print("find . -name \"*.gz\" | xargs rm");
     sys_print("find . -name \"*.bz2\" | xargs rm");
     sys_print("find . -name patches | xargs rm -rf");
+
+    # Bison/yacc-foo that triggers the GPL2/3 warning, just remake them
+    sys_print("rm -f xkbcomp/xkbcomp-*/xkbparse.c");
+    sys_print("rm -f xkbevd/xkbevd-*/cfgparse.c");
+    sys_print("rm -f {twm/twm-*/src,xgc/xgc-*}/gram.[hc]");
+    sys_print("rm -f twm/twm-*/src/lex.c");
+
     exit();
 }
 
@@ -114,8 +133,8 @@ if($target eq 'install') {
 #    $ENV{DESTDIR}=$ENV{DSTROOT};
 
     print "Install phase: \n";
-    $prefix="/usr/X11";
-    
+    $prefix=$ENV{X11_PREFIX};
+
     ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
     print "Building on $osx_version\n";
     
@@ -124,12 +143,12 @@ if($target eq 'install') {
     system "mkdir -p $ACLOCAL_LOCALDIR";
     
 # The following is required to make aclocal find our .m4 macros
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal -I/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
     
 # The following is required to make pkg-config find our .pc metadata files
-    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
-    
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/share/pkgconfig:$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/share/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";    
+
 # Set the library path so that locally built libs will be found by apps
     $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$prefix/lib:$ENV{LD_LIBRARY_PATH}";
     
@@ -137,7 +156,7 @@ if($target eq 'install') {
     
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
         $arch_flags_lib .= "-arch $arch ";
-        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_LEO} eq "YES") {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
         } else {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
@@ -155,6 +174,8 @@ if($target eq 'install') {
 #    sys_print("rm $ENV{DSTROOT}/usr/X11/share/X11/xkb/xkbcomp");
 #    sys_print("ln -s ../../../bin/xkbcomp $ENV{DSTROOT}/usr/X11/share/X11/xkb/xkbcomp");
     make_dsyms();
+
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}/$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
 }
 
 sub get_workdir {
@@ -180,30 +201,43 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
-    sys_print("autoreconf -fvi") unless($module eq 'xterm');
-#    sys_print("glibtoolize --force --copy") if($module eq 'xterm');
+    if($module eq "mesa-demos") {
+        sys_print("$ENV{CC} $ENV{CPPFLAGS} $ENV{CFLAGS} -c src/xdemos/glxinfo.c");
+        sys_print("$ENV{CC} $ENV{CPPFLAGS} $ENV{CFLAGS} -c src/xdemos/glxgears.c");
+        sys_print("install -d $ENV{DSTROOT}/$prefix/bin");
+        sys_print("$ENV{CC} $ENV{LDFLAGS} glxinfo.o -lGL -lX11 -o $ENV{DSTROOT}/$prefix/bin/glxinfo");
+        sys_print("$ENV{CC} $ENV{LDFLAGS} glxgears.o -lGL -lX11 -o $ENV{DSTROOT}/$prefix/bin/glxgears");
+    } else {
+        sys_print("rm -f m4/libtool.m4 m4/lt*.m4") if(-f "m4/libtool.m4");
+        sys_print("autoreconf -fvi") unless($module eq 'xterm');
+        #sys_print("glibtoolize --force --copy") if($module eq 'xterm');
 
-    if($module eq 'xkeyboard-config') {
-        sys_print("sed -e 's/_description/description/g' -e 's/_shortDescription/shortDescription/g' rules/base.xml.in > rules/base.xml")
+        if($module eq 'xkeyboard-config') {
+            sys_print("sed -e 's/_description/description/g' -e 's/_shortDescription/shortDescription/g' rules/base.xml.in > rules/base.xml")
+        }
+
+        print "Configuring...\n";
+        $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls --cache-file=$ENV{OBJROOT}/configure.cache ";
+
+        $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
+        $post_config_path=$ENV{OBJROOT}."/$module/post-config";
+
+        if($ENV{MACOSFORGE_SL} eq "YES") {
+            $conf_flags="$conf_flags --without-xprint --without-fontcache --without-xf86misc --without-dga "
+        }
+
+        if(-e $conf_flags_path) {
+	    $conf_flags .= `cat $conf_flags_path`;
+            chomp $conf_flags;
+        }
+
+        sys_print("./configure $conf_flags");
+        if(-e $post_config_path) {
+            sys_print("cd .. && $post_config_path");
+        }
+        sys_print("make -j".`sysctl -n hw.activecpu`);
+        sys_print("make install DESTDIR='$ENV{DSTROOT}'");
     }
-
-    print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
-
-    $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
-    $post_config_path=$ENV{OBJROOT}."/$module/post-config";
-
-    if(-e $conf_flags_path) {
-	$conf_flags .= `cat $conf_flags_path`;
-	chomp $conf_flags;
-    }
-
-    sys_print("./configure $conf_flags");
-    if(-e $post_config_path) {
-	sys_print("cd .. && $post_config_path");
-    }
-    sys_print("make -j".`sysctl -n hw.activecpu`);
-    sys_print("make install DESTDIR='$ENV{DSTROOT}'");
     chdir('../..');
 }
 
@@ -212,23 +246,30 @@ sub make_dsyms {
     while(<FIND>) {
 	if(/(.*): .*Mach-O/) {
 	    $basename=$1;
-	    $fullpath=$1;
+	    $fullname=$1;
 	    $basename =~ s/\/.*\///;
-	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullpath");
-	    sys_print_nodie("strip -S $fullpath");
+	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullname");
+	    sys_print_nodie("cp $fullname $ENV{SYMROOT}");
+	    sys_print_nodie("strip -S $fullname");
 	}
     }
     close FIND;
 }
 
 sub set_arch_exec {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D__DARWIN__ -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include -I$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_exec -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec -L$ENV{DSTROOT}$prefix/lib -L$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub set_arch_lib {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D__DARWIN__ -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include -I$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_lib -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib -L$ENV{DSTROOT}$prefix/lib -L$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub sys_print {

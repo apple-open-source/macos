@@ -4,13 +4,13 @@ use strict;
 use warnings;
 use Test::More;
 
-my $aspell_path = eval q{
+my $ispell_path = eval q{
     use Test::Spelling; 
     use File::Which;
-    which('aspell') || die 'no aspell'
+    which('ispell') || die 'no ispell'
 };
-plan skip_all => 'Optional Test::Spelling, File::Which and aspell program required to spellcheck POD' if $@;
-set_spell_cmd("$aspell_path list");
+plan skip_all => 'Optional Test::Spelling, File::Which and ispell program required to spellcheck POD' if $@;
+set_spell_cmd("$ispell_path -l");
 add_stopwords( <DATA> );
 all_pod_files_spelling_ok();
 
@@ -35,3 +35,15 @@ McCann
 Jos
 Jost
 qa
+Adrian
+Cantrell
+Janek
+Jore
+ben
+Khemir
+Nadim
+Pagaltzis
+Dolan
+RT
+Ricardo
+Signes

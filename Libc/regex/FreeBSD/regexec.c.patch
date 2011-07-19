@@ -1,26 +1,20 @@
---- regexec.c.orig	2004-11-25 11:38:33.000000000 -0800
-+++ regexec.c	2005-02-24 14:20:50.000000000 -0800
-@@ -43,6 +43,8 @@
+--- regexec.c.bsdnew	2009-11-11 11:29:04.000000000 -0800
++++ regexec.c	2009-11-11 12:21:46.000000000 -0800
+@@ -39,6 +39,8 @@ static char sccsid[] = "@(#)regexec.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.6 2004/07/12 07:35:59 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/regex/regexec.c,v 1.8 2007/06/11 03:05:54 delphij Exp $");
  
 +#include "xlocale_private.h"
 +
  /*
   * the outer shell of regexec()
   *
-@@ -66,17 +68,18 @@
+@@ -62,12 +64,12 @@ __FBSDID("$FreeBSD: src/lib/libc/regex/r
  static int nope __unused = 0;	/* for use in asserts; shuts lint up */
  
  static __inline size_t
--xmbrtowc(wi, s, n, mbs, dummy)
-+xmbrtowc(wi, s, n, mbs, dummy, loc)
- wint_t *wi;
- const char *s;
- size_t n;
- mbstate_t *mbs;
- wint_t dummy;
-+locale_t loc;
+-xmbrtowc(wint_t *wi, const char *s, size_t n, mbstate_t *mbs, wint_t dummy)
++xmbrtowc(wint_t *wi, const char *s, size_t n, mbstate_t *mbs, wint_t dummy, locale_t loc)
  {
  	size_t nr;
  	wchar_t wc;
@@ -30,22 +24,17 @@
  	if (wi != NULL)
  		*wi = wc;
  	if (nr == 0)
-@@ -91,12 +94,13 @@
- }
- 
- static __inline size_t
--xmbrtowc_dummy(wi, s, n, mbs, dummy)
-+xmbrtowc_dummy(wi, s, n, mbs, dummy, loc)
- wint_t *wi;
- const char *s;
- size_t n __unused;
- mbstate_t *mbs __unused;
- wint_t dummy __unused;
-+locale_t loc;
+@@ -86,7 +88,8 @@ xmbrtowc_dummy(wint_t *wi,
+ 		const char *s,
+ 		size_t n __unused,
+ 		mbstate_t *mbs __unused,
+-		wint_t dummy __unused)
++		wint_t dummy __unused,
++		locale_t loc __unused)
  {
  
  	if (wi != NULL)
-@@ -186,6 +190,8 @@
+@@ -176,6 +179,8 @@ xmbrtowc_dummy(wint_t *wi,
  /* function names */
  #define	LNAMES			/* flag */
  
@@ -54,7 +43,7 @@
  #include "engine.c"
  
  /* multibyte character & large states version */
-@@ -235,7 +241,8 @@
+@@ -224,7 +229,8 @@ regexec(const regex_t * __restrict preg,
  		return(REG_BADPAT);
  	eflags = GOODFLAGS(eflags);
  

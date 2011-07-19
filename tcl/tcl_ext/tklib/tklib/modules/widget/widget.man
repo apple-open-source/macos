@@ -4,7 +4,7 @@
 [titledesc {Megawidget package}]
 [require Tcl 8.4]
 [require Tk 8.4]
-[require widget [opt 3.0]]
+[require widget [opt 3.0]] [require snit]
 [description]
 
 This package provides megawidgets based on the snit oo system (snidgets).
@@ -22,6 +22,15 @@ commands:
 [section WIDGETS]
 
 [list_begin definitions]
+
+[call [cmd widget::calendar] [arg pathname] [opt options]]
+options:
+
+
+[call [cmd widget::dateentry] [arg pathname] [opt options]]
+options:
+
+
 
 [call [cmd widget::dialog] [arg pathname] [opt options]]
 options:

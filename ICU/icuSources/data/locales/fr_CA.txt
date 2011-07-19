@@ -1,33 +1,24 @@
 ﻿// ***************************************************************************
 // *
-// * Copyright (C) 2008 International Business Machines
+// * Copyright (C) 2010 International Business Machines
 // * Corporation and others.  All Rights Reserved.
 // * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
 // * Source File:<path>/common/main/fr_CA.xml
 // *
 // ***************************************************************************
 fr_CA{
-    Currencies{
-        CAD{
-            "$",
-            "dollar canadien",
+    NumberElements{
+        latn{
+            patterns{
+                currencyFormat{"#,##0.00 ¤;(#,##0.00 ¤)"}
+            }
         }
-        USD{
-            "$ US",
-            "dollar des États-Unis",
-        }
-    }
-    NumberPatterns{
-        "#,##0.###",
-        "#,##0.00 ¤;(#,##0.00 ¤)",
-        "#,##0 %",
-        "#E0",
     }
     PaperSize:intvector{
         279,
         216,
     }
-    Version{"1.57"}
+    Version{"2.0.45.82"}
     calendar{
         gregorian{
             DateTimeElements:intvector{
@@ -35,14 +26,18 @@ fr_CA{
                 4,
             }
             DateTimePatterns{
-                "HH 'h' mm 'min' ss 's' v",
+                "HH 'h' mm 'min' ss 's' zzzz",
                 "HH:mm:ss z",
                 "HH:mm:ss",
                 "HH:mm",
-                "EEEE d MMMM yyyy",
-                "d MMMM yyyy",
+                "EEEE d MMMM y",
+                "d MMMM y",
                 "yyyy-MM-dd",
                 "yy-MM-dd",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
+                "{1} {0}",
                 "{1} {0}",
             }
             availableFormats{
@@ -55,6 +50,20 @@ fr_CA{
                 yyMM{"yy-MM"}
             }
             intervalFormats{
+                H{
+                    H{"HH–HH"}
+                }
+                Hm{
+                    H{"HH:mm–HH:mm"}
+                    m{"HH:mm–HH:mm"}
+                }
+                Hmv{
+                    H{"HH:mm–HH:mm v"}
+                    m{"HH:mm–HH:mm v"}
+                }
+                Hv{
+                    H{"HH–HH v"}
+                }
                 MEd{
                     M{"E MM-dd – E MM-dd"}
                     d{"E MM-dd – E MM-dd"}
@@ -70,18 +79,18 @@ fr_CA{
                     d{"d–d"}
                 }
                 h{
-                    h{"HH–HH"}
+                    h{"h–h a"}
                 }
                 hm{
-                    h{"HH:mm–HH:mm"}
-                    m{"HH:mm–HH:mm"}
+                    h{"h:mm–h:mm a"}
+                    m{"h:mm–h:mm a"}
                 }
                 hmv{
-                    h{"HH:mm–HH:mm v"}
-                    m{"HH:mm–HH:mm v"}
+                    h{"h:mm–h:mm a v"}
+                    m{"h:mm–h:mm a v"}
                 }
                 hv{
-                    h{"HH–HH v"}
+                    h{"h–h a v"}
                 }
                 y{
                     y{"y–y"}
@@ -96,19 +105,19 @@ fr_CA{
                     y{"'du' E yy-MM-dd 'au' E yy-MM-dd"}
                 }
                 yMMM{
-                    y{"'de' MMM yyyy 'à' MMM yyyy"}
+                    y{"'de' MMM y 'à' MMM y"}
                 }
                 yMMMEd{
-                    M{"'du' E d MMM 'au' E d MMM yyyy"}
-                    d{"'du' E d 'au' E d MMM yyyy"}
-                    y{"'du' E d MMM yyyy 'au' E d MMM yyyy"}
+                    M{"'du' E d MMM 'au' E d MMM y"}
+                    d{"'du' E d 'au' E d MMM y"}
+                    y{"'du' E d MMM y 'au' E d MMM y"}
                 }
                 yMMMM{
-                    M{"MMMM  – MMMM yyyy"}
+                    M{"MMMM – MMMM y"}
                 }
                 yMMMd{
-                    M{"'du' d MMM 'au' d MMM yyyy"}
-                    y{"'du' d MMM yyyy 'au' d MMM yyyy"}
+                    M{"'du' d MMM 'au' d MMM y"}
+                    y{"'du' d MMM y 'au' d MMM y"}
                 }
                 yMd{
                     M{"yy-MM-dd – yy-MM-dd"}
@@ -116,35 +125,6 @@ fr_CA{
                     y{"yy-MM-dd – yy-MM-dd"}
                 }
             }
-        }
-    }
-    zoneStrings{
-        "meta:Alaska"{
-            cu:int{1}
-        }
-        "meta:America_Central"{
-            cu:int{1}
-        }
-        "meta:America_Eastern"{
-            cu:int{1}
-        }
-        "meta:America_Mountain"{
-            cu:int{1}
-        }
-        "meta:America_Pacific"{
-            cu:int{1}
-        }
-        "meta:Atlantic"{
-            cu:int{1}
-        }
-        "meta:Europe_Central"{
-            cu:int{0}
-        }
-        "meta:Europe_Eastern"{
-            cu:int{0}
-        }
-        "meta:Newfoundland"{
-            cu:int{1}
         }
     }
 }

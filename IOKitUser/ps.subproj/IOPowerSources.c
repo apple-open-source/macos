@@ -63,7 +63,7 @@ IOPSLowBatteryWarningLevel IOPSGetBatteryWarningLevel(void)
     key = SCDynamicStoreKeyCreate(
                             kCFAllocatorDefault, 
                             CFSTR("%@%@"),
-                            kSCDynamicStoreDomainState, 
+                            _io_kSCDynamicStoreDomainState, 
                             CFSTR(kIOPSDynamicStoreLowBattPathKey));
     if (!key)
         goto SAD_EXIT;
@@ -84,6 +84,44 @@ SAD_EXIT:
 }
 
 
+// powerd uses these same constants to define the bitfields in the
+// kIOPSTimeRemainingNotificationKey key
+#define     _kPSTimeRemainingNotifyExternalBit       (1 << 16)
+#define     _kPSTimeRemainingNotifyChargingBit       (1 << 17)
+#define     _kPSTimeRemainingNotifyUnknownBit        (1 << 18)
+#define     _kPSTimeRemainingNotifyValidBit          (1 << 19)
+#define     _kSecondsPerMinute                       ((CFTimeInterval)60.0)
+CFTimeInterval IOPSGetTimeRemainingEstimate(void)
+{
+    int                 myNotifyToken = 0;
+    uint64_t            packedBatteryData = 0;
+    int                 myNotifyStatus = 0;
+
+    myNotifyStatus = notify_register_check(kIOPSTimeRemainingNotificationKey, &myNotifyToken);
+
+    if (NOTIFY_STATUS_OK != myNotifyStatus) {
+        // FAILURE: We return an optimistic unlimited time remaining estimate 
+        // if we don't know the truth.
+        return kIOPSTimeRemainingUnlimited;
+    }
+
+    notify_get_state(myNotifyToken, &packedBatteryData);
+
+    notify_cancel(myNotifyToken);
+
+    if (!(packedBatteryData & _kPSTimeRemainingNotifyValidBit)
+        || (packedBatteryData & _kPSTimeRemainingNotifyExternalBit)) {
+        return kIOPSTimeRemainingUnlimited;
+    }
+
+    if (packedBatteryData & _kPSTimeRemainingNotifyUnknownBit) {
+        return kIOPSTimeRemainingUnknown;
+    }
+    
+    return (_kSecondsPerMinute * (CFTimeInterval)(packedBatteryData & 0xFFFF));
+}
+
+
 CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
 {
     SCDynamicStoreRef   store = NULL;
@@ -98,7 +136,7 @@ CFDictionaryRef IOPSCopyExternalPowerAdapterDetails(void)
     key = SCDynamicStoreKeyCreate(
                             kCFAllocatorDefault, 
                             CFSTR("%@%@"),
-                            kSCDynamicStoreDomainState, 
+                            _io_kSCDynamicStoreDomainState, 
                             CFSTR(kIOPSDynamicStorePowerAdapterKey));
     if (!key)
         goto SAD_EXIT;
@@ -131,7 +169,7 @@ CFTypeRef IOPSCopyPowerSourcesInfo(void) {
      }
     // Create regular expression to match all Power Sources
     ps_match = SCDynamicStoreKeyCreate(kCFAllocatorDefault, CFSTR("%@%@/%@"),
-                kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePathKey), kSCCompAnyRegex);
+                _io_kSCDynamicStoreDomainState, CFSTR(kIOPSDynamicStorePathKey), _io_kSCCompAnyRegex);
     if(!ps_match) {
         goto exit;
     }
@@ -286,9 +324,9 @@ CFRunLoopSourceRef IOPSNotificationCreateRunLoopSource(IOPowerSourceCallbackType
     ps_match = SCDynamicStoreKeyCreate(
                     kCFAllocatorDefault, 
                     CFSTR("%@%@/%@"), 
-                    kSCDynamicStoreDomainState, 
+                    _io_kSCDynamicStoreDomainState, 
                     CFSTR(kIOPSDynamicStorePath), 
-                    kSCCompAnyRegex);
+                    _io_kSCCompAnyRegex);
     if(!ps_match) return NULL;
     ps_arr = CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
     if(!ps_arr) return NULL;

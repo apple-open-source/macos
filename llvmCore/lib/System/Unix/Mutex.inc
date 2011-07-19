@@ -20,28 +20,22 @@ namespace llvm
 {
 using namespace sys;
 
-Mutex::Mutex( bool recursive)
+MutexImpl::MutexImpl( bool recursive)
 {
 }
 
-Mutex::~Mutex()
+MutexImpl::~MutexImpl()
 {
 }
 
 bool 
-Mutex::acquire()
+MutexImpl::release()
 {
   return true;
 }
 
 bool 
-Mutex::release()
-{
-  return true;
-}
-
-bool 
-Mutex::tryacquire( void )
+MutexImpl::tryacquire( void )
 {
   return true;
 }

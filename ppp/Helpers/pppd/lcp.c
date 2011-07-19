@@ -100,6 +100,10 @@ int	lcp_echo_fails = 0;	/* Tolerance to unanswered echo-requests */
 bool	lax_recv = 0;		/* accept control chars in asyncmap */
 bool	noendpoint = 0;		/* don't send/accept endpoint discriminator */
 
+int lcp_echo_interval_slow = 0;
+int lcp_echo_fails_slow = 0;
+int lcp_echos_hastened = 0;
+
 static int noopt __P((char **));
 
 #ifdef HAVE_MULTILINK
@@ -2353,6 +2357,11 @@ lcp_received_echo_reply (f, id, inp, len)
 
     /* Reset the number of outstanding echo frames */
     lcp_echos_pending = 0;
+
+#if __APPLE__
+    ppp_variable_echo_stop();
+    ppp_auxiliary_probe_stop();
+#endif
 }
 
 /*
@@ -2369,14 +2378,24 @@ LcpSendEchoRequest (f)
 
     /* 
         Don't sent echo request if activity is detected on the link
-        during the echo interval
+        during the echo interval. idle detection is bypassed if 
+	we're waiting for the underlying interface.
     */
+#if __APPLE__
+    if (ppp_variable_echo_is_off()) {
+#endif /* __APPLE__ */
     if (get_idle_time(0, &idle)) {
         if (idle.recv_idle < lcp_echo_interval) {
             lcp_echos_pending = 0;
+#if __APPLE__
+            ppp_auxiliary_probe_stop();
+#endif
             return;
         }
     }
+#if __APPLE__
+    } /* PPP_VARIABLE_LCP_ECHO_OFF */
+#endif /* __APPLE__ */
 
     /*
      * Detect the failure of the peer at this point.
@@ -2384,8 +2403,13 @@ LcpSendEchoRequest (f)
     if (lcp_echo_fails != 0) {
         if (lcp_echos_pending >= lcp_echo_fails) {
             LcpLinkFailure(f);
-	    lcp_echos_pending = 0;
-	}
+            lcp_echos_pending = 0;
+        }
+#if __APPLE__
+        ppp_auxiliary_probe_check(lcp_echos_pending,
+                                   LcpLinkFailure,
+                                   f);
+#endif
     }
 
     /*
@@ -2414,6 +2438,9 @@ lcp_echo_lowerup (unit)
     lcp_echos_pending      = 0;
     lcp_echo_number        = 0;
     lcp_echo_timer_running = 0;
+#if __APPLE__
+    ppp_auxiliary_probe_init();
+#endif
   
     /* If a timeout interval is specified then start the timer */
     if (lcp_echo_interval != 0)
@@ -2471,5 +2498,23 @@ lcp_received_timeremaining (f, id, inp, len)
     info.textlen = len - 8;
     notify_with_ptr(lcp_timeremaining_notify, (uintptr_t)&info);
 
+}
+
+void
+lcp_echo_restart (unit)
+	int unit;
+{
+    fsm *f = &lcp_fsm[unit]; // NUM_PPP is 1 for now
+
+    /* Clear the parameters for generating echo frames */
+    lcp_echos_pending      = 0;
+    if (lcp_echo_timer_running != 0) {
+        UNTIMEOUT (LcpEchoTimeout, f);
+        lcp_echo_timer_running = 0;
+    }
+
+    /* If a timeout interval is specified then start the timer */
+    if (lcp_echo_interval != 0)
+        LcpEchoCheck (f);
 }
 #endif

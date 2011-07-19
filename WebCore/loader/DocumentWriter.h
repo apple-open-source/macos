@@ -39,19 +39,22 @@ class Frame;
 class SecurityOrigin;
 class TextResourceDecoder;
 
-class DocumentWriter : public Noncopyable {
+class DocumentWriter {
+    WTF_MAKE_NONCOPYABLE(DocumentWriter);
 public:
     DocumentWriter(Frame*);
 
+    // This is only called by ScriptController::executeIfJavaScriptURL
+    // and always contains the result of evaluating a javascript: url.
     void replaceDocument(const String&);
 
     void begin();
     void begin(const KURL&, bool dispatchWindowObjectAvailable = true, SecurityOrigin* forcedSecurityOrigin = 0);
     void addData(const char* string, int length = -1, bool flush = false);
-    void addData(const String&);
     void end();
     void endIfNotLoadingMainResource();
-    void clear();
+    
+    void setFrame(Frame* frame) { m_frame = frame; }
 
     String encoding() const;
     void setEncoding(const String& encoding, bool userChosen);
@@ -66,8 +69,15 @@ public:
 
     void setDecoder(TextResourceDecoder*);
 
+    // Exposed for DoucmentParser::appendBytes
+    TextResourceDecoder* createDecoderIfNeeded();
+    void reportDataReceived();
+
+    void setDocumentWasLoadedAsPartOfNavigation();
+
 private:
-    PassRefPtr<Document> createDocument();
+    PassRefPtr<Document> createDocument(const KURL&);
+    void clear();
 
     Frame* m_frame;
 

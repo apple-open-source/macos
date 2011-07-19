@@ -15,6 +15,7 @@ MAN3 +=	acl.3				\
 	acl_clear_flags_np.3		\
 	acl_clear_perms.3		\
 	acl_copy_entry.3		\
+	acl_copy_ext.3			\
 	acl_create_entry.3		\
 	acl_delete_entry.3		\
 	acl_delete_flag_np.3		\
@@ -26,6 +27,7 @@ MAN3 +=	acl.3				\
 	acl_get_entry.3			\
 	acl_get_flagset_np.3		\
 	acl_get_permset.3		\
+	acl_get_permset_mask_np.3	\
 	acl_get_perm_np.3		\
 	acl_get_qualifier.3		\
 	acl_get_tag_type.3		\
@@ -38,6 +40,13 @@ MAN3 +=	acl.3				\
 	acl_to_text.3			\
 	acl_valid.3
 
+MLINKS+= acl.3 posix1e.3
+
+MLINKS+= acl_copy_ext.3 acl_copy_ext_native.3 \
+         acl_copy_ext.3 acl_copy_int.3 \
+         acl_copy_ext.3 acl_copy_int_native.3 \
+         acl_copy_ext.3 acl_size.3
+
 MLINKS+= acl_create_entry.3 acl_create_entry_np.3
 
 #MLINKS+= acl_delete.3 acl_delete_fd_np.3		\
@@ -48,6 +57,9 @@ MLINKS+= acl_get.3 acl_get_fd.3				\
          acl_get.3 acl_get_fd_np.3			\
          acl_get.3 acl_get_file.3			\
          acl_get.3 acl_get_link_np.3
+
+MLINKS+= acl_get_permset_mask_np.3 acl_set_permset_mask_np.3 \
+         acl_get_permset_mask_np.3 acl_maximal_permset_mask_np.3
 
 MLINKS+= acl_set.3 acl_set_fd.3				\
          acl_set.3 acl_set_fd_np.3			\

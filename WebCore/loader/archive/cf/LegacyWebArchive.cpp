@@ -29,11 +29,12 @@
 #include "config.h"
 #include "LegacyWebArchive.h"
 
-#include "Cache.h"
+#include "MemoryCache.h"
 #include "Document.h"
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoader.h"
+#include "FrameSelection.h"
 #include "FrameTree.h"
 #include "HTMLFrameOwnerElement.h"
 #include "HTMLNames.h"
@@ -44,9 +45,9 @@
 #include "markup.h"
 #include "Node.h"
 #include "Range.h"
-#include "SelectionController.h"
 #include "SharedBuffer.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 #include <wtf/ListHashSet.h>
 #include <wtf/RetainPtr.h>
 
@@ -198,7 +199,7 @@ PassRefPtr<ArchiveResource> LegacyWebArchive::createResource(CFDictionaryRef dic
     }
     
     CFStringRef mimeType = static_cast<CFStringRef>(CFDictionaryGetValue(dictionary, LegacyWebArchiveResourceMIMETypeKey));
-    if (mimeType && CFGetTypeID(mimeType) != CFStringGetTypeID()) {
+    if (!mimeType || CFGetTypeID(mimeType) != CFStringGetTypeID()) {
         LOG(Archives, "LegacyWebArchive - MIME type is not of type CFString, cannot create invalid resource");
         return 0;
     }
@@ -233,7 +234,7 @@ PassRefPtr<ArchiveResource> LegacyWebArchive::createResource(CFDictionaryRef dic
         response = createResourceResponseFromPropertyListData(resourceResponseData, resourceResponseVersion);
     }
     
-    return ArchiveResource::create(SharedBuffer::create(CFDataGetBytePtr(resourceData), CFDataGetLength(resourceData)), KURL(ParsedURLString, url), mimeType, textEncoding, frameName, response);
+    return ArchiveResource::create(SharedBuffer::wrapCFData(resourceData), KURL(KURL(), url), mimeType, textEncoding, frameName, response);
 }
 
 PassRefPtr<LegacyWebArchive> LegacyWebArchive::create()
@@ -491,7 +492,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
     if (responseURL.isNull())
         responseURL = KURL(ParsedURLString, "");
         
-    PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(utf8Buffer(markupString), responseURL, response.mimeType(), "UTF-8", frame->tree()->name());
+    PassRefPtr<ArchiveResource> mainResource = ArchiveResource::create(utf8Buffer(markupString), responseURL, response.mimeType(), "UTF-8", frame->tree()->uniqueName());
 
     Vector<PassRefPtr<LegacyWebArchive> > subframeArchives;
     Vector<PassRefPtr<ArchiveResource> > subresources;
@@ -508,7 +509,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
             if (subframeArchive)
                 subframeArchives.append(subframeArchive);
             else
-                LOG_ERROR("Unabled to archive subframe %s", childFrame->tree()->name().string().utf8().data());
+                LOG_ERROR("Unabled to archive subframe %s", childFrame->tree()->uniqueName().string().utf8().data());
         } else {
             ListHashSet<KURL> subresourceURLs;
             node->getSubresourceURLs(subresourceURLs);
@@ -528,7 +529,7 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
                     continue;
                 }
 
-                CachedResource *cachedResource = cache()->resourceForURL(subresourceURL);
+                CachedResource* cachedResource = memoryCache()->resourceForURL(subresourceURL);
                 if (cachedResource) {
                     resource = ArchiveResource::create(cachedResource->data(), subresourceURL, cachedResource->response());
                     if (resource) {
@@ -544,10 +545,10 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::create(const String& markupString
     }
 
     // Add favicon if one exists for this page, if we are archiving the entire page.
-    if (nodesSize && nodes[0]->isDocumentNode() && iconDatabase() && iconDatabase()->isEnabled()) {
-        const String& iconURL = iconDatabase()->iconURLForPageURL(responseURL);
-        if (!iconURL.isEmpty() && iconDatabase()->iconDataKnownForIconURL(iconURL)) {
-            if (Image* iconImage = iconDatabase()->iconForPageURL(responseURL, IntSize(16, 16))) {
+    if (nodesSize && nodes[0]->isDocumentNode() && iconDatabase().isEnabled()) {
+        const String& iconURL = iconDatabase().synchronousIconURLForPageURL(responseURL);
+        if (!iconURL.isEmpty() && iconDatabase().synchronousIconDataKnownForIconURL(iconURL)) {
+            if (Image* iconImage = iconDatabase().synchronousIconForPageURL(responseURL, IntSize(16, 16))) {
                 if (RefPtr<ArchiveResource> resource = ArchiveResource::create(iconImage->data(), KURL(ParsedURLString, iconURL), "image/x-icon", "", ""))
                     subresources.append(resource.release());
             }
@@ -573,8 +574,8 @@ PassRefPtr<LegacyWebArchive> LegacyWebArchive::createFromSelection(Frame* frame)
         
     // Wrap the frameset document in an iframe so it can be pasted into
     // another document (which will have a body or frameset of its own). 
-    String iframeMarkup = String::format("<iframe frameborder=\"no\" marginwidth=\"0\" marginheight=\"0\" width=\"98%%\" height=\"98%%\" src=\"%s\"></iframe>", 
-                                         frame->loader()->documentLoader()->response().url().string().utf8().data());
+    String iframeMarkup = "<iframe frameborder=\"no\" marginwidth=\"0\" marginheight=\"0\" width=\"98%%\" height=\"98%%\" src=\"" +
+                          frame->loader()->documentLoader()->response().url().string() + "\"></iframe>";
     RefPtr<ArchiveResource> iframeResource = ArchiveResource::create(utf8Buffer(iframeMarkup), blankURL(), "text/html", "UTF-8", String());
 
     Vector<PassRefPtr<ArchiveResource> > subresources;

@@ -143,5 +143,5 @@ EAPPacketGetLength(const EAPPacketRef pkt)
     return (ntohs(*((u_short *)pkt->length)));
 }
 
-#endif _EAP8021X_EAP_H
+#endif /* _EAP8021X_EAP_H */
 

@@ -5,6 +5,8 @@
 #include <sasl/sasl.h>
 #include <sasl/saslutil.h>
 #include <arpa/inet.h>
+/* temporary work around to <rdar://problem/8196059> */
+#include <ldap.h>
 
 #include "../sasl_switch_hit.h"
 //TODO: CLEANUP XXX
@@ -163,11 +165,16 @@ sasl_conn_t *SASLClientNewContext( sasl_callback_t *callbacks, saslContext *cont
     sasl_security_properties_t secprops = { kSASLMinSecurityFactor, kSASLMaxSecurityFactor,
                                             kSASLMaxBufferSize, kSASLSecurityFlags,
                                             kSASLPropertyNames, kSASLPropertyValues };
+    /* temporary work around to <rdar://problem/8196059> */
+    LDAP *ldap_con = NULL; 
+    ldap_initialize(&ldap_con, "ldap://127.0.0.1");
 
     result = sasl_client_init( NULL );
     if (logging) printf( "sasl_client_init = %d\n", result );
-    if ( result != SASL_OK )
+    if ( result != SASL_OK ) {
+        ldap_unbind(ldap_con);
         return NULL;
+    }
 
     // callbacks we support
     callbacks[0].id = SASL_CB_GETREALM;
@@ -192,15 +199,20 @@ sasl_conn_t *SASLClientNewContext( sasl_callback_t *callbacks, saslContext *cont
 
     result = sasl_client_new( "http", "simost1.apple.com", NULL, NULL, callbacks, 0, &sasl_conn );
     if (logging) printf( "sasl_client_new = %d\n", result );
-    if ( result != SASL_OK )
+    if ( result != SASL_OK ) {
+        ldap_unbind(ldap_con);
         return NULL;
+    }
 
     result = sasl_setprop( sasl_conn, SASL_SEC_PROPS, &secprops );
     if (logging) printf( "sasl_setprop = %d\n", result );
     if ( result != SASL_OK ) {
         sasl_dispose( &sasl_conn );
+        ldap_unbind(ldap_con);
         return NULL;
     }
+
+    ldap_unbind(ldap_con);
 
     return sasl_conn;
 }
@@ -229,6 +241,10 @@ char *GetDigestMD5ChallengeFromSASL(char *userName, char *realm, sasl_conn_t **c
                         kSASLMaxBufferSize, kSASLSecurityFlags,
                         kSASLPropertyNames, kSASLPropertyValues };
 
+    /* temporary work around to <rdar://problem/8196059> */  
+    LDAP *ldap_con = NULL; 
+    ldap_initialize(&ldap_con, "ldap://127.0.0.1");
+	
     // Get a challenge from SASL
     //result = sasl_server_init( NULL, "AppName" );
     result = sasl_server_init_alt( NULL, "AppName" );
@@ -265,6 +281,7 @@ char *GetDigestMD5ChallengeFromSASL(char *userName, char *realm, sasl_conn_t **c
 
         *conn = sasl_server_conn;
 done:
+    ldap_unbind(ldap_con);
     return serverOut;
 }
 
@@ -369,7 +386,6 @@ int main( int argc, const char * argv[] )
     }
 
     sasl_done();
-
     return result;
 }
 
@@ -390,6 +406,10 @@ auth_test(char *realm, char *inUsername, char *password)
 
     char *serverChal = 0;
     char *serverResp = 0;
+
+    /* temporary work around to <rdar://problem/8196059> */
+    LDAP *ldap_con = NULL; 
+    ldap_initialize(&ldap_con, "ldap://127.0.0.1");
 
     sasl_context.user = inUsername;
     sasl_context.pass = password;
@@ -451,6 +471,8 @@ done:
 
     if ( sasl_server_conn != NULL )
         sasl_dispose( &sasl_server_conn );
+
+    ldap_unbind(ldap_con);
 
     return retval;
 }

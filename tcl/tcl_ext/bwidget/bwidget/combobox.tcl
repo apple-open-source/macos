@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  combobox.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: combobox.tcl,v 1.35 2006/11/10 21:55:32 dev_null42a Exp $
+#  $Id: combobox.tcl,v 1.46 2009/09/10 19:23:15 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - ComboBox::create
@@ -10,11 +10,13 @@
 #     - ComboBox::setvalue
 #     - ComboBox::getvalue
 #     - ComboBox::clearvalue
+#     - ComboBox::hottrackMotion
 #     - ComboBox::_create_popup
 #     - ComboBox::_mapliste
 #     - ComboBox::_unmapliste
 #     - ComboBox::_select
 #     - ComboBox::_modify_value
+#     - ComboBox::_themechanged
 # ----------------------------------------------------------------------------
 
 # ComboBox uses the 8.3 -listvariable listbox option
@@ -25,13 +27,14 @@ namespace eval ComboBox {
 
     Widget::tkinclude ComboBox frame :cmd \
 	include {-relief -borderwidth -bd -background} \
-	initialize {-relief sunken -borderwidth 2} \
+	initialize {-relief sunken -borderwidth 2}
 
     Widget::bwinclude ComboBox Entry .e \
 	remove {-relief -bd -borderwidth -bg} \
 	rename {-background -entrybg}
 
     Widget::declare ComboBox {
+        {-background   Color      "SystemWindow"  0}
 	{-height       TkResource 0    0 listbox}
 	{-values       String	  ""   0}
 	{-images       String	  ""   0}
@@ -53,13 +56,28 @@ namespace eval ComboBox {
     Widget::syncoptions ComboBox Entry .e {-text {}}
 
     ::bind BwComboBox <FocusIn> [list after idle {BWidget::refocus %W %W.e}]
-    ::bind BwComboBox <Destroy> [list Widget::destroy %W]
+    ::bind BwComboBox <Destroy> [list ComboBox::_destroy %W]
 
-    ::bind ListBoxHotTrack <Motion> {
-        %W selection clear 0 end
-        %W activate @%x,%y
-        %W selection set @%x,%y
+    ::bind ListBoxHotTrack <Motion> \
+             [list after idle {ComboBox::hottrackMotion %W %x %y}]
+
+    if {[lsearch [bindtags .] ComboBoxThemeChanged] < 0} {
+        bindtags . [linsert [bindtags .] 1 ComboBoxThemeChanged]
     }
+
+    variable _index
+}
+
+
+# johann: -bug fixed-
+# after idle should fix the problem with very long listbox text items
+# which causes under certain circumstances the hole desktop to crash
+# happens under AIX5.3 and CDE, running under tcl/Tk 8.4.7,
+
+proc ComboBox::hottrackMotion { w x y } {
+    $w selection clear 0 end
+    $w activate @$x,$y
+    $w selection set @$x,$y
 }
 
 
@@ -79,13 +97,13 @@ proc ComboBox::create { path args } {
     array set maps [Widget::parseArgs ComboBox $args]
 
     eval [list frame $path] $maps(:cmd) \
-	[list -highlightthickness 0 -takefocus 0 -class ComboBox]
+	 [list -highlightthickness 0 -takefocus 0 -class ComboBox]
     Widget::initFromODB ComboBox $path $maps(ComboBox)
 
     bindtags $path [list $path BwComboBox [winfo toplevel $path] all]
 
     set entry [eval [list Entry::create $path.e] $maps(.e) \
-		   [list -relief flat -borderwidth 0 -takefocus 1]]
+		    [list -relief flat -borderwidth 0 -takefocus 1]]
 
     ::bind $path.e <FocusOut>      [list $path _focus_out]
     ::bind $path   <<TraverseIn>>  [list $path _traverse_in]
@@ -101,7 +119,7 @@ proc ComboBox::create { path args } {
         ::bind $entry <Key-Down>  [list ComboBox::_mapliste $path]
     }
 
-    if {[string equal $::tcl_platform(platform) "unix"]} {
+    if {[string equal [tk windowingsystem] "x11"]} {
 	set ipadx 0
 	set width 11
     } else {
@@ -136,6 +154,9 @@ proc ComboBox::create { path args } {
     ::bind $entry <Control-Prior> [list ComboBox::_modify_value $path first]
     ::bind $entry <Control-Next>  [list ComboBox::_modify_value $path last]
 
+    ::bind ComboBoxThemeChanged <<ThemeChanged>> \
+	       "+ [namespace current]::_themechanged $path"
+
     if {$editable} {
 	set expand [Widget::cget $path -expand]
 	if {[string equal "tab" $expand]} {
@@ -154,6 +175,8 @@ proc ComboBox::create { path args } {
     } else {
         Widget::configure $path [list -bwlistbox $bw]
     }
+
+    set ComboBox::_index($path) -1
 
     return [Widget::create ComboBox $path]
 }
@@ -180,6 +203,9 @@ proc ComboBox::configure { path args } {
     set res [Widget::configure $path $args]
     set entry $path.e
 
+    if { [Widget::hasChanged $path -background bg] } {
+        $path:cmd configure -background $bg
+    }
 
     set list [list -images -values -bwlistbox -hottrack -autocomplete -autopost]
     foreach {ci cv cb ch cac cap} [eval [linsert $list 0 Widget::hasChangedX $path]] { break }
@@ -268,6 +294,13 @@ proc ComboBox::configure { path args } {
 	}
     }
 
+    # if state changed to normal and -editable false, the edit must take focus
+    if {    [Widget::hasChangedX $path -state] \
+        && ![string equal [Widget::cget $path -state] "disabled"] \
+        && ![Widget::cget $path -editable] } {
+        Entry::configure $entry -takefocus 1
+    }
+
     # if the dropdown listbox is shown, simply force the actual entry
     #  colors into it. If it is not shown, the next time the dropdown
     #  is shown it'll get the actual colors anyway
@@ -295,6 +328,8 @@ proc ComboBox::cget { path option } {
 #  Command ComboBox::setvalue
 # ----------------------------------------------------------------------------
 proc ComboBox::setvalue { path index } {
+    variable _index
+
     set values [Widget::getMegawidgetOption $path -values]
     set value  [Entry::cget $path.e -text]
     switch -- $index {
@@ -331,6 +366,7 @@ proc ComboBox::setvalue { path index } {
     }
     if { $idx >= 0 && $idx < [llength $values] } {
         set newval [lindex $values $idx]
+        set _index($path) $idx
 	Entry::configure $path.e -text $newval
         return 1
     }
@@ -352,8 +388,17 @@ proc ComboBox::get { path } {
 #  Command ComboBox::getvalue
 # ----------------------------------------------------------------------------
 proc ComboBox::getvalue { path } {
+    variable _index
     set values [Widget::getMegawidgetOption $path -values]
     set value  [Entry::cget $path.e -text]
+    # Check if an index was saved by the last setvalue operation
+    # If this index still matches it is returned
+    # This is necessary for the case when values is not unique
+    if { $_index($path) >= 0 \
+        && $_index($path) < [llength $values] \
+        && $value eq [lindex $values $_index($path)]} {
+        return $_index($path)
+    }
 
     return [lsearch -exact $values $value]
 }
@@ -435,7 +480,7 @@ proc ComboBox::_create_popup { path } {
 	}
     }
 
-    if { $::tcl_platform(platform) == "unix" } {
+    if {[string equal [tk windowingsystem] "x11"]} {
 	set sbwidth 11
     } else {
 	set sbwidth 15
@@ -443,12 +488,15 @@ proc ComboBox::_create_popup { path } {
 
     toplevel            $shell -relief solid -bd 1
     wm withdraw         $shell
-    update idle
     wm overrideredirect $shell 1
-    wm transient        $shell [winfo toplevel $path]
-    catch { wm attributes $shell -topmost 1 }
+    # these commands cause the combobox to behave strangely on OS X
+    if {! $Widget::_aqua } {
+        update idle
+        wm transient    $shell [winfo toplevel $path]
+        catch { wm attributes $shell -topmost 1 }
+    }
 
-    set sw [ScrolledWindow $shell.sw -managed 0 -size $sbwidth -ipad 0]
+    set sw [ScrolledWindow $shell.sw -managed 1 -size $sbwidth -ipad 0]
 
     if {$bw} {
         set listb  [ListBox $shell.listb \
@@ -491,7 +539,7 @@ proc ComboBox::_create_popup { path } {
     pack $sw -fill both -expand yes
     $sw setwidget $listb
 
-    ::bind $listb <Return> "ComboBox::_select [list $path] \[%W curselection\]"
+    ::bind $listb <Return> "ComboBox::_select [list $path] \[$listb curselection\]"
     ::bind $listb <Escape>   [list ComboBox::_unmapliste $path]
     ::bind $listb <FocusOut> [list ComboBox::_focus_out $path]
 }
@@ -517,7 +565,7 @@ proc ComboBox::_recreate_popup { path } {
 	}
     }
 
-    if { $::tcl_platform(platform) == "unix" } {
+    if { [string equal [tk windowingsystem] "x11"] } {
 	set sbwidth 11
     } else {
 	set sbwidth 15
@@ -536,7 +584,7 @@ proc ComboBox::_recreate_popup { path } {
 
     set listb $shell.listb
     destroy $shell.sw
-    set sw [ScrolledWindow $shell.sw -managed 0 -size $sbwidth -ipad 0]
+    set sw [ScrolledWindow $shell.sw -managed 1 -size $sbwidth -ipad 0]
     $listb configure \
             -height $h \
             -font   [Widget::cget $path -font] \
@@ -607,7 +655,9 @@ proc ComboBox::_mapliste { path } {
     wm deiconify $path.shell
     raise $path.shell
     BWidget::focus set $listb
-    BWidget::grab global $path
+    if {! $Widget::_aqua } {
+        BWidget::grab global $path
+    }
 }
 
 
@@ -615,15 +665,19 @@ proc ComboBox::_mapliste { path } {
 #  Command ComboBox::_unmapliste
 # ----------------------------------------------------------------------------
 proc ComboBox::_unmapliste { path {refocus 1} } {
+    # On aqua, state is zoomed, otherwise normal
     if {[winfo exists $path.shell] && \
-	    [string equal [wm state $path.shell] "normal"]} {
-        BWidget::grab release $path
-        BWidget::focus release $path.shell.listb $refocus
-	# Update now because otherwise [focus -force...] makes the app hang!
-	if {$refocus} {
-	    update
-	    focus -force $path.e
-	}
+      ( [string equal [wm state $path.shell] "normal"] ||
+	[string equal [wm state $path.shell] "zoomed"] ) } {
+        if {! $Widget::_aqua } {
+            BWidget::grab release $path
+            BWidget::focus release $path.shell.listb $refocus
+            # Update now because otherwise [focus -force...] makes the app hang!
+            if {$refocus} {
+                update
+                focus -force $path.e
+            }
+        }
         wm withdraw $path.shell
         ArrowButton::configure $path.a -relief raised
     }
@@ -645,7 +699,9 @@ proc ComboBox::_select { path index } {
         }
     }
     $path.e selection clear
-    $path.e selection range 0 end
+    if {[$path.e cget -exportselection]} {
+        $path.e selection range 0 end
+    }
 }
 
 
@@ -840,4 +896,22 @@ proc ComboBox::_auto_post { path key } {
         $path.shell.listb selection set $x
         $path.shell.listb see $x
     }
+}
+# ------------------------------------------------------------------------------
+#  Command ComboBox::_destroy
+# ------------------------------------------------------------------------------
+proc ComboBox::_destroy { path } {
+    variable _index
+    Widget::destroy $path
+    unset _index($path)
+}
+
+
+# ----------------------------------------------------------------------------
+#  Command ComboBox::_themechanged
+# ----------------------------------------------------------------------------
+proc ComboBox::_themechanged { path } {
+    if { ![winfo exists $path] } { return }
+    BWidget::set_themedefaults
+    $path configure -background $BWidget::colors(SystemWindow)
 }

@@ -18,12 +18,15 @@
     Boston, MA 02111-1307, USA.
 */
 
+#if ENABLE(Condition1) || ENABLE(Condition2)
+
 #ifndef V8TestInterface_h
 #define V8TestInterface_h
 
-#include "StringHash.h"
 #include "TestInterface.h"
+#include "V8DOMWrapper.h"
 #include "WrapperTypeInfo.h"
+#include <wtf/text/StringHash.h>
 #include <v8.h>
 #include <wtf/HashMap.h>
 
@@ -35,16 +38,40 @@ public:
     static bool HasInstance(v8::Handle<v8::Value> value);
     static v8::Persistent<v8::FunctionTemplate> GetRawTemplate();
     static v8::Persistent<v8::FunctionTemplate> GetTemplate();
-    static TestInterface* toNative(v8::Handle<v8::Object>);
-    static v8::Handle<v8::Object> wrap(TestInterface*);
+    static TestInterface* toNative(v8::Handle<v8::Object> object)
+    {
+        return reinterpret_cast<TestInterface*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
+    }
+    inline static v8::Handle<v8::Object> wrap(TestInterface*);
     static void derefObject(void*);
     static WrapperTypeInfo info;
     static v8::Handle<v8::Value> constructorCallback(const v8::Arguments& args);
     static const int internalFieldCount = v8DefaultWrapperInternalFieldCount + 0;
+private:
+    static v8::Handle<v8::Object> wrapSlow(TestInterface*);
 };
 
-v8::Handle<v8::Value> toV8(TestInterface*);
-v8::Handle<v8::Value> toV8(PassRefPtr<TestInterface >);
+
+v8::Handle<v8::Object> V8TestInterface::wrap(TestInterface* impl)
+{
+        v8::Handle<v8::Object> wrapper = getDOMObjectMap().get(impl);
+        if (!wrapper.IsEmpty())
+            return wrapper;
+    return V8TestInterface::wrapSlow(impl);
+}
+
+inline v8::Handle<v8::Value> toV8(TestInterface* impl)
+{
+    if (!impl)
+        return v8::Null();
+    return V8TestInterface::wrap(impl);
+}
+inline v8::Handle<v8::Value> toV8(PassRefPtr< TestInterface > impl)
+{
+    return toV8(impl.get());
+}
 }
 
 #endif // V8TestInterface_h
+#endif // ENABLE(Condition1) || ENABLE(Condition2)
+

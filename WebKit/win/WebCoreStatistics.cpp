@@ -33,6 +33,7 @@
 #include <WebCore/GlyphPageTreeNode.h>
 #include <WebCore/IconDatabase.h>
 #include <WebCore/JSDOMWindow.h>
+#include <WebCore/SharedBuffer.h>
 
 using namespace JSC;
 using namespace WebCore;
@@ -139,8 +140,8 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::javaScriptProtectedObjectTypeCounts
     /* [retval][out] */ IPropertyBag2** typeNamesAndCounts)
 {
     JSLock lock(SilenceAssertionsOnly);
-    OwnPtr<HashCountedSet<const char*> > jsObjectTypeNames(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
-    typedef HashCountedSet<const char*>::const_iterator Iterator;
+    OwnPtr<TypeCountSet> jsObjectTypeNames(JSDOMWindow::commonJSGlobalData()->heap.protectedObjectTypeCounts());
+    typedef TypeCountSet::const_iterator Iterator;
     Iterator end = jsObjectTypeNames->end();
     HashMap<String, int> typeCountMap;
     for (Iterator current = jsObjectTypeNames->begin(); current != end; ++current)
@@ -156,7 +157,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::iconPageURLMappingCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) iconDatabase()->pageURLMappingCount();
+    *count = (UINT) iconDatabase().pageURLMappingCount();
     return S_OK;
 }
 
@@ -165,7 +166,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::iconRetainedPageURLCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) iconDatabase()->retainedPageURLCount();
+    *count = (UINT) iconDatabase().retainedPageURLCount();
     return S_OK;
 }
 
@@ -174,7 +175,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::iconRecordCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) iconDatabase()->iconRecordCount();
+    *count = (UINT) iconDatabase().iconRecordCount();
     return S_OK;
 }
 
@@ -183,7 +184,7 @@ HRESULT STDMETHODCALLTYPE WebCoreStatistics::iconsWithDataCount(
 {
     if (!count)
         return E_POINTER;
-    *count = (UINT) iconDatabase()->iconRecordCountWithData();
+    *count = (UINT) iconDatabase().iconRecordCountWithData();
     return S_OK;
 }
 

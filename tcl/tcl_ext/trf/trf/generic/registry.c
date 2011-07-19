@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: registry.c,v 1.56 2007/10/12 22:49:55 andreas_kupries Exp $
+ * CVS: $Id: registry.c,v 1.58 2009/05/07 05:30:35 andreas_kupries Exp $
  */
 
 #include "transformInt.h"
@@ -391,7 +391,7 @@ DownGOpt _ANSI_ARGS_ ((Tcl_Interp* interp,
  */
 
 #define NEW_TRANSFORM \
-(TrfTransformationInstance*) Tcl_Alloc (sizeof (TrfTransformationInstance));
+(TrfTransformationInstance*) ckalloc (sizeof (TrfTransformationInstance));
 
 /* Procedures to handle the internal timer.
  */
@@ -488,8 +488,8 @@ Tcl_Interp* interp;
   registry = TrfPeekForRegistry (interp);
 
   if (registry == (Trf_Registry*) NULL) {
-    registry           = (Trf_Registry*)  Tcl_Alloc (sizeof (Trf_Registry));
-    registry->registry = (Tcl_HashTable*) Tcl_Alloc (sizeof (Tcl_HashTable));
+    registry           = (Trf_Registry*)  ckalloc (sizeof (Trf_Registry));
+    registry->registry = (Tcl_HashTable*) ckalloc (sizeof (Tcl_HashTable));
 
     Tcl_InitHashTable (registry->registry, TCL_STRING_KEYS);
 
@@ -617,7 +617,7 @@ CONST Trf_TypeDefinition* type;
    * filters.
    */
 
-  entry          = (Trf_RegistryEntry*) Tcl_Alloc (sizeof (Trf_RegistryEntry));
+  entry          = (Trf_RegistryEntry*) ckalloc (sizeof (Trf_RegistryEntry));
   entry->registry   = registry;
 
   entry->trfType    = (Trf_TypeDefinition*) type;
@@ -675,8 +675,8 @@ Trf_RegistryEntry* entry;
   hPtr      = Tcl_FindHashEntry (registry->registry,
 				 (char*) entry->trfType->name);
 
-  Tcl_Free ((char*) entry->transType);
-  Tcl_Free ((char*) entry);
+  ckfree ((char*) entry->transType);
+  ckfree ((char*) entry);
 
   Tcl_DeleteHashEntry (hPtr);
 
@@ -718,7 +718,7 @@ Tcl_Interp* interp;
    */
 
   Tcl_DeleteHashTable (registry->registry);
-  Tcl_Free ((char*) registry);
+  ckfree ((char*) registry);
 
   DONE (TrfDeleteRegistry);
 }
@@ -1399,6 +1399,12 @@ Tcl_Interp* interp;
   }
 
   ResultClear (&trans->result);
+
+  /*
+   * Complement to NEW_TRANSFORM in AttachChannel.
+   * [Bug 2788106].
+   */
+  ckfree(trans);
 
   DONE (TrfClose);
   return TCL_OK;
@@ -2516,14 +2522,14 @@ Trf_Options        optInfo;
       /* play it safe, use a copy, avoid clobbering the input. */
       unsigned char* tmp;
 
-      tmp = (unsigned char*) Tcl_Alloc (length);
+      tmp = (unsigned char*) ckalloc (length);
       memcpy (tmp, buf, length);
 
       PRINT ("___.convertbufproc\n"); FL;
 
       res = v->convertBufProc (control, tmp, length, interp,
 			       entry->trfType->clientData);
-      Tcl_Free ((char*) tmp);
+      ckfree ((char*) tmp);
     } else {
       unsigned int i, c;
       
@@ -2551,7 +2557,7 @@ Trf_Options        optInfo;
     unsigned char* buf;
     int            actuallyRead;
 
-    buf = (unsigned char*) Tcl_Alloc (READ_CHUNK_SIZE);
+    buf = (unsigned char*) ckalloc (READ_CHUNK_SIZE);
 
     while (1) {
       if (Tcl_Eof (source))
@@ -2586,7 +2592,7 @@ Trf_Options        optInfo;
 	break;
     }
 
-    Tcl_Free ((char*) buf);
+    ckfree ((char*) buf);
 
     if (res == TCL_OK)
       res = v->flushProc (control, interp, entry->trfType->clientData);
@@ -2719,7 +2725,7 @@ Tcl_Interp*        interp;
 							 trans->clientData);
   
     if (trans->out.control == (Trf_ControlBlock) NULL) {
-      Tcl_Free ((char*) trans);
+      ckfree ((char*) trans);
       DONE (AttachTransform);
       return TCL_ERROR;
     }
@@ -2734,7 +2740,7 @@ Tcl_Interp*        interp;
 							 trans->clientData);
 
     if (trans->in.control == (Trf_ControlBlock) NULL) {
-      Tcl_Free ((char*) trans);
+      ckfree ((char*) trans);
       DONE (AttachTransform);
       return TCL_ERROR;
     }
@@ -2779,7 +2785,7 @@ Tcl_Interp*        interp;
 #endif
 
   if (trans->self == (Tcl_Channel) NULL) {
-    Tcl_Free ((char*) trans);
+    ckfree ((char*) trans);
     Tcl_AppendResult (interp, "internal error in Tcl_StackChannel",
 		      (char*) NULL);
     DONE (AttachTransform);
@@ -3521,7 +3527,7 @@ ResultClear (r)
   r->used = 0;
 
   if (r->allocated) {
-    Tcl_Free ((char*) r->buf);
+    ckfree ((char*) r->buf);
     r->buf       = (unsigned char*) NULL;
     r->allocated = 0;
   }
@@ -3753,10 +3759,10 @@ ResultAdd (r, buf, toWrite)
 
     if (r->allocated == 0) {
       r->allocated = toWrite + INCREMENT;
-      r->buf       = (unsigned char*) Tcl_Alloc (r->allocated);
+      r->buf       = (unsigned char*) ckalloc (r->allocated);
     } else {
       r->allocated += toWrite + INCREMENT;
-      r->buf        = (unsigned char*) Tcl_Realloc((char*) r->buf,
+      r->buf        = (unsigned char*) ckrealloc((char*) r->buf,
 						   r->allocated);
     }
   }
@@ -4341,13 +4347,13 @@ PrintString (fmt,len,bytes)
      int   len;
      char* bytes;
 {
-  char* tmp = (char*) Tcl_Alloc (len+1);
+  char* tmp = (char*) ckalloc (len+1);
   memcpy (tmp, bytes, len);
   tmp [len] = '\0';
 
   PRINT (fmt, len, tmp);
 
-  Tcl_Free (tmp);
+  ckfree (tmp);
 }
 
 /*
@@ -4501,7 +4507,7 @@ AllocChannelType (sizePtr)
 {
   /*
    * Allocation of a new channeltype structure is not easy, because of
-   * the various verson of the core and subsequent changes to the
+   * the various version of the core and subsequent changes to the
    * structure. The main challenge is to allocate enough memory for
    * modern versions even if this extension is compiled against one
    * of the older variants!
@@ -4540,7 +4546,7 @@ AllocChannelType (sizePtr)
   if (sizePtr != (int*) NULL) {
     *sizePtr = size;
   }
-  return (Tcl_ChannelType*) Tcl_Alloc (size);
+  return (Tcl_ChannelType*) ckalloc (size);
 }
 
 /*
@@ -4570,7 +4576,7 @@ InitializeChannelType (name, patchVariant)
 
   /*
    * Initialization of a new channeltype structure is not easy,
-   * because of the various verson of the core and subsequent changes
+   * because of the various version of the core and subsequent changes
    * to the structure. The main problem is if compiled against an
    * older version how to access the elements of the structure not
    * known in that version. It is made a bit easier because the

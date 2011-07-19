@@ -37,7 +37,6 @@
 
 #if ENABLE(INSPECTOR)
 #include "JSInjectedScriptHost.h"
-#include "JSInspectorBackend.h"
 #include "JSInspectorFrontendHost.h"
 #endif
 
@@ -46,7 +45,7 @@ using namespace JSC;
 namespace WebCore {
 
 ScriptObject::ScriptObject(ScriptState* scriptState, JSObject* object)
-    : ScriptValue(object)
+    : ScriptValue(scriptState->globalData(), object)
     , m_scriptState(scriptState)
 {
 }
@@ -60,117 +59,19 @@ static bool handleException(ScriptState* scriptState)
     return false;
 }
 
-bool ScriptObject::set(const String& name, const String& value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, stringToUString(name)), jsString(m_scriptState, stringToUString(value)), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, const ScriptObject& value)
-{
-    if (value.scriptState() != m_scriptState) {
-        ASSERT_NOT_REACHED();
-        return false;
-    }
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), value.jsObject(), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, const String& value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsString(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, double value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, long value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, long long value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, int value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, unsigned value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, unsigned long value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsNumber(m_scriptState, value), slot);
-    return handleException(m_scriptState);
-}
-
-bool ScriptObject::set(const char* name, bool value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    PutPropertySlot slot;
-    jsObject()->put(m_scriptState, Identifier(m_scriptState, name), jsBoolean(value), slot);
-    return handleException(m_scriptState);
-}
-
-ScriptObject ScriptObject::createNew(ScriptState* scriptState)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    return ScriptObject(scriptState, constructEmptyObject(scriptState));
-}
-
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, const ScriptObject& value)
 {
     JSLock lock(SilenceAssertionsOnly);
-    scriptState->lexicalGlobalObject()->putDirect(Identifier(scriptState, name), value.jsObject());
+    scriptState->lexicalGlobalObject()->putDirect(scriptState->globalData(), Identifier(scriptState, name), value.jsObject());
     return handleException(scriptState);
 }
 
 #if ENABLE(INSPECTOR)
-bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorBackend* value)
-{
-    JSLock lock(SilenceAssertionsOnly);
-    JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
-    globalObject->putDirect(Identifier(scriptState, name), toJS(scriptState, globalObject, value));
-    return handleException(scriptState);
-}
-
 bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, InspectorFrontendHost* value)
 {
     JSLock lock(SilenceAssertionsOnly);
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
-    globalObject->putDirect(Identifier(scriptState, name), toJS(scriptState, globalObject, value));
+    globalObject->putDirect(scriptState->globalData(), Identifier(scriptState, name), toJS(scriptState, globalObject, value));
     return handleException(scriptState);
 }
 
@@ -178,7 +79,7 @@ bool ScriptGlobalObject::set(ScriptState* scriptState, const char* name, Injecte
 {
     JSLock lock(SilenceAssertionsOnly);
     JSDOMGlobalObject* globalObject = static_cast<JSDOMGlobalObject*>(scriptState->lexicalGlobalObject());
-    globalObject->putDirect(Identifier(scriptState, name), toJS(scriptState, globalObject, value));
+    globalObject->putDirect(scriptState->globalData(), Identifier(scriptState, name), toJS(scriptState, globalObject, value));
     return handleException(scriptState);
 }
 #endif // ENABLE(INSPECTOR)

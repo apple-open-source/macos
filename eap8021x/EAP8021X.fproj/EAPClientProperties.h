@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -48,6 +47,7 @@
 #define kEAPClientPropUserPasswordKeychainItemID CFSTR("UserPasswordKeychainItemID")
 #define kEAPClientPropOneTimeUserPassword CFSTR("OneTimeUserPassword") /* boolean (false) */
 #define kEAPClientPropAcceptEAPTypes		CFSTR("AcceptEAPTypes") /* array[integer] */
+#define kEAPClientPropInnerAcceptEAPTypes	CFSTR("InnerAcceptEAPTypes") /* array[integer] */
 
 /**
  ** Properties for TLS-based authentication (EAP/TLS, EAP/TTLS, PEAP, EAP-FAST)
@@ -66,6 +66,13 @@
  */
 #define kEAPClientPropTLSTrustedServerNames \
 	CFSTR("TLSTrustedServerNames") 		/* array[string] */
+
+/*
+ * kEAPClientPropProfileID
+ * - the profile identifier of the configuration, if the configuration came
+ *   from an EAPOLClientProfileRef
+ */
+#define kEAPClientPropProfileID 	CFSTR("ProfileID")	/* string */
 
 #if TARGET_OS_EMBEDDED
 /*
@@ -136,6 +143,17 @@
 #define kEAPClientPropTLSUserTrustProceedCertificateChain \
 	CFSTR("TLSUserTrustProceedCertificateChain")	/* array[data] */
 
+/*
+ * kEAPClientPropSystemModeCredentialsSource
+ * - tells the EAP client to use an alternate source for credentials when
+ *   running in System mode
+ * - when set to kEAPClientCredentialsSourceActiveDirectory, the EAP client
+ *   will attempt to use the machine name/password used by Active Directory;
+ *   if those credentials are missing, the authentication will fail
+ */ 
+#define kEAPClientPropSystemModeCredentialsSource	CFSTR("SystemModeCredentialsSource")
+#define kEAPClientCredentialsSourceActiveDirectory	CFSTR("ActiveDirectory")
+
 /**
  ** Properties for TTLS
  **/
@@ -193,4 +211,4 @@
 	CFSTR("TLSTrustedRootCertificates") 		/* array[data] */
 #define kEAPClientPropTLSAllowAnyRoot \
 	CFSTR("TLSAllowAnyRoot") 			/* boolean (false) */
-#endif _EAP8021X_EAPCLIENTPROPERTIES_H
+#endif /* _EAP8021X_EAPCLIENTPROPERTIES_H */

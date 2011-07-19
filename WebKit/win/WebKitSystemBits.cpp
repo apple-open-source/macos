@@ -29,12 +29,9 @@
 #include "config.h"
 #include "WebKitSystemBits.h"
 
-#pragma warning(push, 0)
-#include <WebCore/PlatformString.h>
-#pragma warning(pop)
-
-#include <windows.h>
 #include <CoreFoundation/CoreFoundation.h>
+#include <WebCore/PlatformString.h>
+#include <windows.h>
 
 unsigned long long WebMemorySize()
 {
@@ -46,7 +43,7 @@ unsigned long long WebMemorySize()
 
 unsigned long long WebVolumeFreeSize(CFStringRef cfstringPath)
 {
-    WebCore::String path(cfstringPath);
+    WTF::String path(cfstringPath);
     ULARGE_INTEGER freeBytesToCaller;
     BOOL result = GetDiskFreeSpaceExW((LPCWSTR)path.charactersWithNullTermination(), &freeBytesToCaller, 0, 0);
     if (!result)

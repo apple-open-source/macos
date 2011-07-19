@@ -1,0 +1,14 @@
+require "vnd.dovecot.testsuite";
+
+require "comparator-i;ascii-numeric";
+require "relational";
+
+test "Depricated imapflags extension used with imap4flags" {
+	if test_script_compile "errors/imapflags.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "2" {
+		test_fail "wrong number of errors reported";
+	}
+}

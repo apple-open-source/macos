@@ -193,13 +193,13 @@
 #define PACKAGE_NAME "file"
 
 /* Define to the full name and version of this package. */
-#define PACKAGE_STRING "file 5.03"
+#define PACKAGE_STRING "file 5.04"
 
 /* Define to the one symbol short name of this package. */
 #define PACKAGE_TARNAME "file"
 
 /* Define to the version of this package. */
-#define PACKAGE_VERSION "5.03"
+#define PACKAGE_VERSION "5.04"
 
 /* The size of `long long', as computed by sizeof. */
 #define SIZEOF_LONG_LONG 8
@@ -211,7 +211,7 @@
 /* #undef TM_IN_SYS_TIME */
 
 /* Version number of package */
-#define VERSION "5.03"
+#define VERSION "5.04"
 
 /* Number of bits in a file offset, on hosts where this is settable. */
 /* #undef _FILE_OFFSET_BITS */
@@ -238,3 +238,32 @@
 
 /* Define to `unsigned int' if <sys/types.h> does not define. */
 /* #undef size_t */
+
+
+#ifndef HAVE_UINT8_T
+typedef unsigned char uint8_t;
+#endif
+#ifndef HAVE_UINT16_T
+typedef unsigned short uint16_t;
+#endif
+#ifndef HAVE_UINT32_T
+typedef unsigned int uint32_t;
+#endif
+#ifndef HAVE_INT32_T
+typedef int int32_t;
+#endif
+#ifndef HAVE_UINT64_T
+#if SIZEOF_LONG_LONG == 8
+typedef unsigned long long uint64_t;
+#else
+typedef unsigned long uint64_t;
+#endif
+#endif
+#ifndef HAVE_INT64_T
+#if SIZEOF_LONG_LONG == 8
+typedef long long int64_t;
+#else
+typedef long int64_t;
+#endif
+#endif
+

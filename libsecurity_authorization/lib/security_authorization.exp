@@ -23,6 +23,7 @@
 _AuthorizationCopyInfo
 _AuthorizationCopyPrivilegedReference
 _AuthorizationCopyRights
+_AuthorizationCopyRightsAsync
 _AuthorizationCreate
 _AuthorizationCreateFromExternalForm
 _AuthorizationExecuteWithPrivileges

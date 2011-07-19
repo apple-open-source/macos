@@ -30,8 +30,6 @@ import "IWebFrame.idl";
 #endif
 
 interface IWebFrame;
-interface IWebIconFetcher;
-interface IWebIconFetcherDelegate;
 interface IWebScriptWorld;
 
 typedef enum {
@@ -45,7 +43,6 @@ typedef enum {
     WebFrameLoadTypeRedirectWithLockedBackForwardList,
     WebFrameLoadTypeReplace,
     WebFrameLoadTypeReloadFromOrigin,
-    WebFrameLoadTypeBackWMLDeckNotAccessible
 } WebFrameLoadType;
 
 [
@@ -57,7 +54,7 @@ typedef enum {
 
 interface IWebFramePrivate : IUnknown
 {
-    HRESULT renderTreeAsExternalRepresentation([out, retval] BSTR* result);
+    HRESULT unused1([out, retval] BSTR*);
     HRESULT scrollOffset([out, retval] SIZE* offset);
 
     // FIXME: This shouldn't be needed once IWebDocumentView is implemented.
@@ -81,7 +78,7 @@ interface IWebFramePrivate : IUnknown
 
     HRESULT pendingFrameUnloadEventCount([out, retval] UINT* result);
 
-    HRESULT fetchApplicationIcon([in] IWebIconFetcherDelegate* delegate, [out, retval] IWebIconFetcher** result);
+    HRESULT unused2();
 
     HRESULT paintDocumentRectToContext([in] RECT rect, [in] OLE_HANDLE deviceContext);
 
@@ -111,5 +108,16 @@ interface IWebFramePrivate : IUnknown
 
     HRESULT layerTreeAsText([out, retval] BSTR* result);
 
-    HRESULT paintDocumentRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE deviceContext);
+    HRESULT paintScrollViewRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE deviceContext);
+
+    HRESULT renderTreeAsExternalRepresentation([in] BOOL forPrinting, [out, retval] BSTR* result);
+
+    HRESULT suspendAnimations();
+    HRESULT resumeAnimations();
+
+    HRESULT loadPlainTextString([in] BSTR string, [in] BSTR url);
+
+    HRESULT hasSpellingMarker([in] UINT from, [in] UINT length, [out, retval] BOOL* result);
+    
+    HRESULT clearOpener();
 }

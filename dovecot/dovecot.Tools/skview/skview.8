@@ -1,0 +1,30 @@
+.\"Modified from man(1) of FreeBSD, the NetBSD mdoc.template, and mdoc.samples.
+.\"See Also:
+.\"man mdoc.samples for a complete listing of options
+.\"man mdoc for the short list of editing options
+.\"/usr/share/misc/mdoc.template
+.Dd 3/29/10               \" DATE 
+.Dt skview 8      \" Program name and manual section number 
+.Os Darwin
+.Sh NAME                 \" Section Header - required - don't modify 
+.Nm skview
+.Nd View Dovecot SearchKit full-text-search indexes
+.Sh SYNOPSIS             \" Section Header - required - don't modify
+.Nm
+.Op Fl t
+[skindex-path ...]                 \" Arguments
+.Sh DESCRIPTION          \" Section Header - required - don't modify
+.Nm
+reads each named
+.Ar dovecot.skindex
+or
+.Ar dovecot.skindex-\fIn\fR
+file, or each such file in the named directory arguments,
+and prints information about the SearchKit index contained within.
+The
+.Fl t
+option prints the list of terms for each document.
+.Pp                      \" Inserts a space
+This program is for use with the
+.Ar fts_sk
+plugin to dovecot.

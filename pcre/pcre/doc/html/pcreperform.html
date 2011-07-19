@@ -21,14 +21,15 @@ time. The way you express your pattern as a regular expression can affect both
 of them.
 </P>
 <br><b>
-MEMORY USAGE
+COMPILED PATTERN MEMORY USAGE
 </b><br>
 <P>
 Patterns are compiled by PCRE into a reasonably efficient byte code, so that
 most simple patterns do not use much memory. However, there is one case where
-memory usage can be unexpectedly large. When a parenthesized subpattern has a
-quantifier with a minimum greater than 1 and/or a limited maximum, the whole
-subpattern is repeated in the compiled code. For example, the pattern
+the memory usage of a compiled pattern can be unexpectedly large. If a
+parenthesized subpattern has a quantifier with a minimum greater than 1 and/or
+a limited maximum, the whole subpattern is repeated in the compiled code. For
+example, the pattern
 <pre>
   (abc|def){2,4}
 </pre>
@@ -71,6 +72,18 @@ Furthermore, there is a noticeable loss of speed when executing the modified
 pattern. Nevertheless, if the atomic grouping is not a problem and the loss of
 speed is acceptable, this kind of rewriting will allow you to process patterns
 that PCRE cannot otherwise handle.
+</P>
+<br><b>
+STACK USAGE AT RUN TIME
+</b><br>
+<P>
+When <b>pcre_exec()</b> is used for matching, certain kinds of pattern can cause
+it to use large amounts of the process stack. In some environments the default
+process stack is quite small, and if it runs out the result is often SIGSEGV.
+This issue is probably the most frequently raised problem with PCRE. Rewriting
+your pattern can often help. The
+<a href="pcrestack.html"><b>pcrestack</b></a>
+documentation discusses this issue in detail.
 </P>
 <br><b>
 PROCESSING TIME
@@ -164,9 +177,9 @@ Cambridge CB2 3QH, England.
 REVISION
 </b><br>
 <P>
-Last updated: 06 March 2007
+Last updated: 07 March 2010
 <br>
-Copyright &copy; 1997-2007 University of Cambridge.
+Copyright &copy; 1997-2010 University of Cambridge.
 <br>
 <p>
 Return to the <a href="index.html">PCRE index page</a>.

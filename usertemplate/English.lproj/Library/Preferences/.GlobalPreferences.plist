@@ -1,30 +1,33 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist SYSTEM "file://localhost/System/Library/DTDs/PropertyList.dtd">
-<plist version="0.9">
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
 <dict>
 	<key>AppleAntiAliasingThreshold</key>
 	<integer>4</integer>
-        <key>AppleLanguages</key>
-        <array>
-                <string>en</string>
-                <string>ja</string>
-                <string>fr</string>
-                <string>de</string>
-                <string>es</string>
-                <string>it</string>
-                <string>pt</string>
-                <string>pt_PT</string>
-                <string>nl</string>
-                <string>sv</string>
-                <string>nb</string>
-                <string>da</string>
-                <string>fi</string>
-                <string>ru</string>
-                <string>pl</string>
-                <string>zh-Hans</string>
-                <string>zh-Hant</string>
-                <string>ko</string>
-        </array>
+	<key>AppleLanguages</key>
+	<array>
+		<string>en</string>
+		<string>ja</string>
+		<string>fr</string>
+		<string>de</string>
+		<string>es</string>
+		<string>it</string>
+		<string>pt</string>
+		<string>pt_PT</string>
+		<string>nl</string>
+		<string>sv</string>
+		<string>nb</string>
+		<string>da</string>
+		<string>fi</string>
+		<string>ru</string>
+		<string>pl</string>
+		<string>zh-Hans</string>
+		<string>zh-Hant</string>
+		<string>ko</string>
+		<string>ar</string>
+		<string>cs</string>
+		<string>hu</string>
+		<string>tr</string>
+	</array>
 </dict>
 </plist>
-

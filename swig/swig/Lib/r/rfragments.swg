@@ -1,24 +1,24 @@
-#define SWIG_Error(code, msg) warning(msg); return Rf_ScalarLogical(NA_LOGICAL)
+#define SWIG_Error(code, msg) Rf_warning(msg); return Rf_ScalarLogical(NA_LOGICAL)
 
 #define SWIG_fail return Rf_ScalarLogical(NA_LOGICAL)
 
 /* for raw pointers */
-#define SWIG_ConvertPtr(oc, ptr, ty, flags)  SWIG_R_ConvertPtr(oc, ptr, ty, flags)
-#define SWIG_ConvertFunctionPtr(oc, ptr, ty)  SWIG_R_ConvertPtr(oc, ptr, ty, 0)
-#define SWIG_NewPointerObj(ptr, ty, flags) SWIG_R_NewPointerObj(ptr, ty, flags)
-#define SWIG_NewFunctionPtrObj(ptr, ty)  SWIG_R_NewPointerObj(ptr, ty, 0)
+#define SWIG_ConvertPtr(oc, ptr, ty, flags)             SWIG_R_ConvertPtr(oc, ptr, ty, flags)
+#define SWIG_ConvertFunctionPtr(oc, ptr, ty)            SWIG_R_ConvertPtr(oc, ptr, ty, 0)
+#define SWIG_NewPointerObj(ptr, ty, flags)              SWIG_R_NewPointerObj(ptr, ty, flags)
+#define SWIG_NewFunctionPtrObj(ptr, ty)                 SWIG_R_NewPointerObj(ptr, ty, 0)
 
 /* for raw packed data */
 #define SWIG_ConvertPacked(obj, ptr, sz, ty)            SWIG_R_ConvertPacked(obj, ptr, sz, ty)
-#define SWIG_NewPackedObj(ptr, sz, ty)                SWIG_R_NewPackedObj(ptr, sz, ty)
+#define SWIG_NewPackedObj(ptr, sz, ty)                  SWIG_R_NewPackedObj(ptr, sz, ty)
 
 /* for class or struct pointers */
-#define SWIG_ConvertInstance(obj, pptr, ty, flags)    SWIG_ConvertPtr(obj, pptr, ty, flags)
-#define SWIG_NewInstanceObj(ptr, ty, flags)           SWIG_NewPointerObj(ptr, ty, flags)
+#define SWIG_ConvertInstance(obj, pptr, ty, flags)      SWIG_ConvertPtr(obj, pptr, ty, flags)
+#define SWIG_NewInstanceObj(ptr, ty, flags)             SWIG_NewPointerObj(ptr, ty, flags)
 
 /* for C++ member pointers, ie, member methods */
 #define SWIG_ConvertMember(obj, ptr, sz, ty)            SWIG_R_ConvertPacked(obj, ptr, sz, ty)
-#define SWIG_NewMemberObj(ptr, sz, ty)                SWIG_R_NewPackedObj(ptr, sz, ty)
+#define SWIG_NewMemberObj(ptr, sz, ty)                  SWIG_R_NewPackedObj(ptr, sz, ty)
 
 
 /* Runtime API */
@@ -121,29 +121,37 @@ SWIG_AsVal_dec(double)(SEXP obj, double *val)
 SWIGINTERN int
 SWIG_AsCharPtrAndSize(SEXP obj, char** cptr, size_t* psize, int *alloc)
 {
-   if (!cptr) return SWIG_TypeError;
-   if (!Rf_isString(obj)) return SWIG_TypeError;
-    char *cstr; int len;
-    cstr = CHAR(STRING_ELT(obj, 0));
-    len = strlen(cstr);
+  if (cptr && Rf_isString(obj)) {
+    const char *cstr = CHAR(STRING_ELT(obj, 0));
+    int len = strlen(cstr);
 
-    if (cptr)  {
-      if (alloc) {
-	if (*alloc == SWIG_NEWOBJ) 
-	  {
-	    *cptr = %new_copy_array(cstr, len + 1, char);
-	    *alloc = SWIG_NEWOBJ;
-	  }
-	else {
-	  *cptr = cstr;
-	  *alloc = SWIG_OLDOBJ;
-	}
+    if (alloc) {
+      if (*alloc == SWIG_NEWOBJ) {
+        *cptr = %new_copy_array(cstr, len + 1, char);
+        *alloc = SWIG_NEWOBJ;
       } else {
-	*cptr = strdup(cstr);
+        *cptr = %reinterpret_cast(malloc(len + 1), char *);
+        *cptr = strcpy(*cptr, cstr);
+        *alloc = SWIG_OLDOBJ;
       }
+    } else {
+      *cptr = %reinterpret_cast(malloc(len + 1), char *);
+      *cptr = strcpy(*cptr, cstr);
     }
     if (psize) *psize = len + 1;
     return SWIG_OK;
+  }
+  return SWIG_TypeError;
+}
+}
+
+%fragment("SWIG_strdup","header") 
+{
+SWIGINTERN char *
+SWIG_strdup(const char *str)
+{
+  char *newstr = %reinterpret_cast(malloc(strlen(str) + 1), char *);
+  return strcpy(newstr, str);
 }
 }
 
@@ -156,12 +164,11 @@ SWIG_FromCharPtrAndSize(const char* carray, size_t size)
 {
   SEXP t, c;
   if (!carray) return R_NilValue;
-  PROTECT(t = allocVector(STRSXP, 1));
-  c = allocString(size);
-  strncpy(CHAR(c), carray, size);
+  Rf_protect(t = Rf_allocVector(STRSXP, 1));
+  c = Rf_allocVector(CHARSXP, size);
+  strncpy((char *)CHAR(c), carray, size);
   SET_STRING_ELT(t, 0, c);
-  UNPROTECT(1);
+  Rf_unprotect(1);
   return t;
 }
 }
-

@@ -47,7 +47,7 @@
  * last found at ftp://ftp.uu.net/pub/archiving/zip/zlib/zlib-0.99.tar.gz.
  */
 
-#include <zlibtcl.h>
+#include "zlibtcl.h"
 #include <assert.h>
 
 
@@ -80,12 +80,11 @@ typedef	struct {
 #define	DecoderState(tif)	ZState(tif)
 #define	EncoderState(tif)	ZState(tif)
 
-static int ZIPSetupDecode _ANSI_ARGS_((TIFF* tif));
+static int ZIPSetupDecode(TIFF* tif);
 
-static int
-ZIPSetupDecode(tif)
-    TIFF* tif;
-{
+static int ZIPSetupDecode(
+    TIFF* tif
+) {
     ZIPState* sp = DecoderState(tif);
     static char module[] = "ZIPSetupDecode";
 
@@ -103,11 +102,10 @@ ZIPSetupDecode(tif)
  * Setup state for decoding a strip.
  */
 
-static int
-ZIPPreDecode (
+static int ZIPPreDecode(
     TIFF* tif,
-    tsample_t s)
-{
+    tsample_t s
+) {
     ZIPState* sp = DecoderState(tif);
 
     (void) s;
@@ -117,13 +115,12 @@ ZIPPreDecode (
     return (inflateReset(&sp->stream) == Z_OK);
 }
 
-static int
-ZIPDecode (
+static int ZIPDecode(
     TIFF* tif,
     tidata_t op,
     tsize_t occ,
-    tsample_t s)
-{
+    tsample_t s
+) {
     ZIPState* sp = DecoderState(tif);
     static char module[] = "ZIPDecode";
 
@@ -158,10 +155,9 @@ ZIPDecode (
     return (1);
 }
 
-static int
-ZIPSetupEncode (
-    TIFF* tif)
-{
+static int ZIPSetupEncode (
+    TIFF* tif
+) {
     ZIPState* sp = EncoderState(tif);
     static char module[] = "ZIPSetupEncode";
 
@@ -179,11 +175,10 @@ ZIPSetupEncode (
  * Reset encoding state at the start of a strip.
  */
 
-static int
-ZIPPreEncode (
+static int ZIPPreEncode(
     TIFF* tif,
-    tsample_t s)
-{
+    tsample_t s
+) {
     ZIPState *sp = EncoderState(tif);
 
     (void) s;
@@ -197,12 +192,12 @@ ZIPPreEncode (
  * Encode a chunk of pixels.
  */
 
-static int
-ZIPEncode (TIFF* tif,
+static int ZIPEncode(
+    TIFF* tif,
     tidata_t bp,
     tsize_t cc,
-    tsample_t s)
-{
+    tsample_t s
+) {
     ZIPState *sp = EncoderState(tif);
     static char module[] = "ZIPEncode";
 
@@ -230,12 +225,9 @@ ZIPEncode (TIFF* tif,
  * string and tacking on an End Of Information code.
  */
 
-static int ZIPPostEncode _ANSI_ARGS_((TIFF* tif));
-
-static int
-ZIPPostEncode(tif)
-    TIFF* tif;
-{
+static int ZIPPostEncode(
+    TIFF* tif
+) {
     ZIPState *sp = EncoderState(tif);
     static char module[] = "ZIPPostEncode";
     int state;
@@ -263,12 +255,9 @@ ZIPPostEncode(tif)
     return (1);
 }
 
-static void ZIPCleanup _ANSI_ARGS_((TIFF* tif));
-
-static void
-ZIPCleanup(tif)
-    TIFF* tif;
-{
+static void ZIPCleanup(
+    TIFF* tif
+) {
     ZIPState* sp = ZState(tif);
     if (sp) {
         if (tif->tif_mode == O_RDONLY) {
@@ -281,14 +270,11 @@ ZIPCleanup(tif)
     }
 }
 
-static int ZIPVSetField _ANSI_ARGS_((TIFF* tif, ttag_t tag, va_list ap));
-
-static int
-ZIPVSetField(tif, tag, ap)
-    TIFF* tif;
-    ttag_t tag;
-    va_list ap;
-{
+static int ZIPVSetField(
+    TIFF* tif,
+    ttag_t tag,
+    va_list ap
+) {
     ZIPState* sp = ZState(tif);
     static char module[] = "ZIPVSetField";
 
@@ -310,14 +296,12 @@ ZIPVSetField(tif, tag, ap)
     /*NOTREACHED*/
 }
 
-static int ZIPVGetField _ANSI_ARGS_((TIFF* tif, ttag_t tag, va_list ap));
-
 static int
-ZIPVGetField(tif, tag, ap)
-    TIFF* tif;
-    ttag_t tag;
-    va_list ap;
-{
+ZIPVGetField(
+    TIFF* tif,
+    ttag_t tag,
+    va_list ap
+) {
     ZIPState* sp = ZState(tif);
 
     switch (tag) {
@@ -336,28 +320,25 @@ static const TIFFFieldInfo zipFieldInfo[] = {
 };
 #define	N(a)	(sizeof (a) / sizeof (a[0]))
 
-static voidpf
-ZipAlloc(opaque, items, size)
-    voidpf opaque;
-    uInt items;
-    uInt size;
-{
+static voidpf ZipAlloc(
+    voidpf opaque,
+    uInt items,
+    uInt size
+) {
     return (voidpf) TkimgTIFFmalloc((tsize_t)(items * size));
 }
 
-static void
-ZipFree(opaque, address)
-    voidpf opaque;
-    voidpf address;
-{
+static void ZipFree(
+    voidpf opaque,
+    voidpf address
+) {
     TkimgTIFFfree((tdata_t) address);
 }
 
-int
-TkimgTIFFInitZip(handle, scheme)
-    TIFF * handle;
-    int scheme;
-{
+int TkimgTIFFInitZip(
+    TIFF * handle,
+    int scheme
+) {
     TIFF* tif = (TIFF *) handle;
     ZIPState* sp;
 	assert( (scheme == COMPRESSION_DEFLATE)
@@ -389,7 +370,7 @@ TkimgTIFFInitZip(handle, scheme)
      * override parent get/set field methods.
      */
 
-    _TIFFMergeFieldInfo(tif, (const VOID *) zipFieldInfo, N(zipFieldInfo));
+    _TIFFMergeFieldInfo(tif, (const void *) zipFieldInfo, N(zipFieldInfo));
     sp->vgetparent     = tif->tif_tagmethods.vgetfield;
     tif->tif_tagmethods.vgetfield = ZIPVGetField;	/* hook for codec tags */
     sp->vsetparent     = tif->tif_tagmethods.vsetfield;

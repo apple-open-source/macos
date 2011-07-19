@@ -1,0 +1,75 @@
+###
+### Configure perlcritic display behavior.
+###
+
+# Change the default message to show the policy name so we can shut it up if necessary
+verbose         = %m [%p] at %f line %l, near '%r'\n
+
+# Force perlcritic to use color, even when run through a pager.
+color           = 1
+
+# Use a pager.
+pager           = $PAGER
+
+
+###
+### Turn off policies.
+###
+
+# Nuthin wrong with the expression form of map and grep.
+[-BuiltinFunctions::RequireBlockMap]
+[-BuiltinFunctions::RequireBlockGrep]
+
+# Can't use Carp
+[-ErrorHandling::RequireCarping]
+
+# We realize that localizing a variable does not retain it's original value,
+# thanks.
+[-Variables::RequireInitializationForLocalVars]
+
+# I'd rather use a few unnecessary "" then forget to interpolate.
+[-ValuesAndExpressions::ProhibitInterpolationOfLiterals]
+
+# Inline POD is more worthwhile than the dubious optimization of putting it
+# after the __END__ block
+[-Documentation::RequirePodAtEnd]
+
+# No, we're not going to use English.
+[-Variables::ProhibitPunctuationVars]
+
+# That's just rediculous
+[-ControlStructures::ProhibitPostfixControls]
+[-ValuesAndExpressions::ProhibitEmptyQuotes]
+[-ValuesAndExpressions::ProhibitNoisyQuotes]
+
+# Test::Builder makes heavy use of local()
+[-Variables::ProhibitLocalVars]
+
+# Nuthin wrong with @$foo
+[-References::ProhibitDoubleSigils]
+
+
+###
+### Configure policies
+###
+
+# Extend the ability to play with @_ to 3 line subroutines.
+[Subroutines::RequireArgUnpacking]
+short_subroutine_statements = 3
+
+# No tabs ever
+[CodeLayout::ProhibitHardTabs]
+allow_leading_tabs = 0
+
+
+###
+### New policies and options which are not released yet.
+###
+
+# "no warnings" is fine as long as it's restricted to one or more categories
+[TestingAndDebugging::ProhibitNoWarnings]
+allow_with_category_restriction = 1
+
+# Don't need /x on small regexes.
+[RegularExpressions::RequireExtendedFormatting]
+minimum_regex_length_to_complain_about = 12

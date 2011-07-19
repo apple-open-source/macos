@@ -13,6 +13,7 @@
 MACHINE		= IX86
 
 PROJECT	= Tktable
+VERSION = 2.10
 TBL_COMMAND = table
 TBL_RUNTIME = tkTable.tcl
 
@@ -102,10 +103,10 @@ TBL_LIB_DIR	= $(ROOT)\library
 TCLSH		= $(DEST_DIR)\bin\tclsh$(TCL_VER)
 WISH		= $(DEST_DIR)\bin\wish$(TCL_VER)
 WIN_LIBS	= gdi32.lib user32.lib
-LIBS		= $(DEST_DIR)\lib\tclstub$(TCL_VER).lib \
-		  $(DEST_DIR)\lib\tkstub$(TCL_VER).lib $(WIN_LIBS)
-LIBS		= C:\build\tcl84-64\tclstub$(TCL_VER).lib \
-		  C:\build\tk84-64\tkstub$(TCL_VER).lib $(WIN_LIBS)
+#LIBS		= C:\build\tcl84\tclstub$(TCL_VER).lib \
+#		  C:\build\tk84\tkstub$(TCL_VER).lib $(WIN_LIBS)
+LIBS		= "$(DEST_DIR)\lib\tclstub$(TCL_VER).lib" \
+		  "$(DEST_DIR)\lib\tkstub$(TCL_VER).lib" $(WIN_LIBS)
 INCLUDES	= -I"$(DEST_DIR)\include" -I. $(include32)
 
 DEFINES = -DDLL_BUILD -DBUILD_Tktable $(TBL_CFLAGS) \

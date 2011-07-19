@@ -47,11 +47,79 @@ bool Font::canReturnFallbackFontsForComplexText()
     return true;
 }
 
-static void showGlyphsWithAdvances(const FontPlatformData& font, CGContextRef context, const CGGlyph* glyphs, const CGSize* advances, size_t count)
+bool Font::canExpandAroundIdeographsInComplexText()
 {
-    if (!font.isColorBitmapFont())
-        CGContextShowGlyphsWithAdvances(context, glyphs, advances, count);
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    return true;
+}
+
+// CTFontGetVerticalTranslationsForGlyphs is different on Snow Leopard.  It returns values for a font-size of 1
+// without unitsPerEm applied.  We have to apply a transform that scales up to the point size and that also 
+// divides by unitsPerEm.
+static bool hasBrokenCTFontGetVerticalTranslationsForGlyphs()
+{
+// Chromium runs the same binary on both Leopard and Snow Leopard, so the check has to happen at runtime.
+#if PLATFORM(CHROMIUM)
+    static bool isCached = false;
+    static bool result;
+    
+    if (!isCached) {
+        SInt32 majorVersion = 0;
+        SInt32 minorVersion = 0;
+        Gestalt(gestaltSystemVersionMajor, &majorVersion);
+        Gestalt(gestaltSystemVersionMinor, &minorVersion);
+        result = majorVersion == 10 && minorVersion == 6;
+        isCached = true;
+    }
+    return result;
+#elif defined(BUILDING_ON_SNOW_LEOPARD)
+    return true;
+#else
+    return false;
+#endif
+}
+
+static void showGlyphsWithAdvances(const FloatPoint& point, const SimpleFontData* font, CGContextRef context, const CGGlyph* glyphs, const CGSize* advances, size_t count)
+{
+    CGContextSetTextPosition(context, point.x(), point.y());
+
+    const FontPlatformData& platformData = font->platformData();
+    if (!platformData.isColorBitmapFont()) {
+        CGAffineTransform savedMatrix;
+        bool isVertical = font->platformData().orientation() == Vertical;
+        if (isVertical) {
+            CGAffineTransform rotateLeftTransform = CGAffineTransformMake(0, -1, 1, 0, 0, 0);
+            savedMatrix = CGContextGetTextMatrix(context);
+            CGAffineTransform runMatrix = CGAffineTransformConcat(savedMatrix, rotateLeftTransform);
+            CGContextSetTextMatrix(context, runMatrix);
+            
+            CGAffineTransform translationsTransform;
+            if (hasBrokenCTFontGetVerticalTranslationsForGlyphs()) {
+                translationsTransform = CGAffineTransformMake(platformData.m_size, 0, 0, platformData.m_size, 0, 0);
+                translationsTransform = CGAffineTransformConcat(translationsTransform, rotateLeftTransform);
+                CGFloat unitsPerEm = CGFontGetUnitsPerEm(platformData.cgFont());
+                translationsTransform = CGAffineTransformConcat(translationsTransform, CGAffineTransformMakeScale(1 / unitsPerEm, 1 / unitsPerEm));
+            } else {
+                translationsTransform = rotateLeftTransform;
+            }
+            Vector<CGSize, 256> translations(count);
+            CTFontGetVerticalTranslationsForGlyphs(platformData.ctFont(), glyphs, translations.data(), count);
+            
+            CGAffineTransform transform = CGAffineTransformInvert(CGContextGetTextMatrix(context));
+
+            CGPoint position = FloatPoint(point.x(), point.y() + font->fontMetrics().floatAscent(IdeographicBaseline) - font->fontMetrics().floatAscent());
+            Vector<CGPoint, 256> positions(count);
+            for (size_t i = 0; i < count; ++i) {
+                CGSize translation = CGSizeApplyAffineTransform(translations[i], translationsTransform);
+                positions[i] = CGPointApplyAffineTransform(CGPointMake(position.x - translation.width, position.y + translation.height), transform);
+                position.x += advances[i].width;
+                position.y += advances[i].height;
+            }
+            CGContextShowGlyphsAtPositions(context, glyphs, positions.data(), count);
+            CGContextSetTextMatrix(context, savedMatrix);
+        } else
+            CGContextShowGlyphsWithAdvances(context, glyphs, advances, count);
+    }
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
     else {
         if (!count)
             return;
@@ -64,7 +132,7 @@ static void showGlyphsWithAdvances(const FontPlatformData& font, CGContextRef co
             positions[i].x = positions[i - 1].x + advance.width;
             positions[i].y = positions[i - 1].y + advance.height;
         }
-        CTFontDrawGlyphs(toCTFontRef(font.font()), glyphs, positions.data(), count, context);
+        CTFontDrawGlyphs(platformData.ctFont(), glyphs, positions.data(), count, context);
     }
 #endif
 }
@@ -72,22 +140,27 @@ static void showGlyphsWithAdvances(const FontPlatformData& font, CGContextRef co
 void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, const GlyphBuffer& glyphBuffer, int from, int numGlyphs, const FloatPoint& point) const
 {
     CGContextRef cgContext = context->platformContext();
-    bool newShouldUseFontSmoothing = shouldUseSmoothing();
 
+    bool shouldSmoothFonts = true;
+    bool changeFontSmoothing = false;
+    
     switch(fontDescription().fontSmoothing()) {
     case Antialiased: {
         context->setShouldAntialias(true);
-        newShouldUseFontSmoothing = false;
+        shouldSmoothFonts = false;
+        changeFontSmoothing = true;
         break;
     }
     case SubpixelAntialiased: {
         context->setShouldAntialias(true);
-        newShouldUseFontSmoothing = true;
+        shouldSmoothFonts = true;
+        changeFontSmoothing = true;
         break;
     }
     case NoSmoothing: {
         context->setShouldAntialias(false);
-        newShouldUseFontSmoothing = false;
+        shouldSmoothFonts = false;
+        changeFontSmoothing = true;
         break;
     }
     case AutoSmoothing: {
@@ -97,11 +170,18 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
     default: 
         ASSERT_NOT_REACHED();
     }
-
-    bool originalShouldUseFontSmoothing = wkCGContextGetShouldSmoothFonts(cgContext);
-    if (originalShouldUseFontSmoothing != newShouldUseFontSmoothing)
-        CGContextSetShouldSmoothFonts(cgContext, newShouldUseFontSmoothing);
     
+    if (!shouldUseSmoothing()) {
+        shouldSmoothFonts = false;
+        changeFontSmoothing = true;
+    }
+
+    bool originalShouldUseFontSmoothing = false;
+    if (changeFontSmoothing) {
+        originalShouldUseFontSmoothing = wkCGContextGetShouldSmoothFonts(cgContext);
+        CGContextSetShouldSmoothFonts(cgContext, shouldSmoothFonts);
+    }
+
     const FontPlatformData& platformData = font->platformData();
     NSFont* drawFont;
     if (!isPrinterFont()) {
@@ -135,39 +215,37 @@ void Font::drawGlyphs(GraphicsContext* context, const SimpleFontData* font, cons
         CGContextSetFontSize(cgContext, platformData.m_size);
 
 
-    IntSize shadowSize;
-    int shadowBlur;
+    FloatSize shadowOffset;
+    float shadowBlur;
     Color shadowColor;
+    ColorSpace shadowColorSpace;
     ColorSpace fillColorSpace = context->fillColorSpace();
-    context->getShadow(shadowSize, shadowBlur, shadowColor);
+    context->getShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
 
-    bool hasSimpleShadow = context->textDrawingMode() == cTextFill && shadowColor.isValid() && !shadowBlur && !platformData.isColorBitmapFont();
+    bool hasSimpleShadow = context->textDrawingMode() == TextModeFill && shadowColor.isValid() && !shadowBlur && !platformData.isColorBitmapFont() && (!context->shadowsIgnoreTransforms() || context->getCTM().isIdentityOrTranslationOrFlipped());
     if (hasSimpleShadow) {
         // Paint simple shadows ourselves instead of relying on CG shadows, to avoid losing subpixel antialiasing.
         context->clearShadow();
         Color fillColor = context->fillColor();
         Color shadowFillColor(shadowColor.red(), shadowColor.green(), shadowColor.blue(), shadowColor.alpha() * fillColor.alpha() / 255);
-        context->setFillColor(shadowFillColor, fillColorSpace);
-        CGContextSetTextPosition(cgContext, point.x() + shadowSize.width(), point.y() + shadowSize.height());
-        showGlyphsWithAdvances(platformData, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-        if (font->syntheticBoldOffset()) {
-            CGContextSetTextPosition(cgContext, point.x() + shadowSize.width() + font->syntheticBoldOffset(), point.y() + shadowSize.height());
-            showGlyphsWithAdvances(platformData, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-        }
+        context->setFillColor(shadowFillColor, shadowColorSpace);
+        float shadowTextX = point.x() + shadowOffset.width();
+        // If shadows are ignoring transforms, then we haven't applied the Y coordinate flip yet, so down is negative.
+        float shadowTextY = point.y() + shadowOffset.height() * (context->shadowsIgnoreTransforms() ? -1 : 1);
+        showGlyphsWithAdvances(FloatPoint(shadowTextX, shadowTextY), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+        if (font->syntheticBoldOffset())
+            showGlyphsWithAdvances(FloatPoint(shadowTextX + font->syntheticBoldOffset(), shadowTextY), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
         context->setFillColor(fillColor, fillColorSpace);
     }
 
-    CGContextSetTextPosition(cgContext, point.x(), point.y());
-    showGlyphsWithAdvances(platformData, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-    if (font->syntheticBoldOffset()) {
-        CGContextSetTextPosition(cgContext, point.x() + font->syntheticBoldOffset(), point.y());
-        showGlyphsWithAdvances(platformData, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
-    }
+    showGlyphsWithAdvances(point, font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
+    if (font->syntheticBoldOffset())
+        showGlyphsWithAdvances(FloatPoint(point.x() + font->syntheticBoldOffset(), point.y()), font, cgContext, glyphBuffer.glyphs(from), glyphBuffer.advances(from), numGlyphs);
 
     if (hasSimpleShadow)
-        context->setShadow(shadowSize, shadowBlur, shadowColor, fillColorSpace);
+        context->setShadow(shadowOffset, shadowBlur, shadowColor, shadowColorSpace);
 
-    if (originalShouldUseFontSmoothing != newShouldUseFontSmoothing)
+    if (changeFontSmoothing)
         CGContextSetShouldSmoothFonts(cgContext, originalShouldUseFontSmoothing);
 }
 

@@ -1026,12 +1026,14 @@ open_line(dir, flags, old_indent)
 		    int		c = 0;
 		    int		off = 0;
 
-		    for (p = lead_flags; *p && *p != ':'; ++p)
+		    for (p = lead_flags; *p != NUL && *p != ':'; )
 		    {
 			if (*p == COM_RIGHT || *p == COM_LEFT)
-			    c = *p;
+			    c = *p++;
 			else if (VIM_ISDIGIT(*p) || *p == '-')
 			    off = getdigits(&p);
+			else
+			    ++p;
 		    }
 		    if (c == COM_RIGHT)    /* right adjusted leader */
 		    {
@@ -1119,7 +1121,7 @@ open_line(dir, flags, old_indent)
 			    if (i != lead_repl_len)
 			    {
 				mch_memmove(p + lead_repl_len, p + i,
-				       (size_t)(lead_len - i - (leader - p)));
+				       (size_t)(lead_len - i - (p - leader)));
 				lead_len += lead_repl_len - i;
 			    }
 			}
@@ -1740,7 +1742,7 @@ plines_win_nofold(wp, lnum)
 	col += 1;
 
     /*
-     * Add column offset for 'number' and 'foldcolumn'.
+     * Add column offset for 'number', 'relativenumber' and 'foldcolumn'.
      */
     width = W_WIDTH(wp) - win_col_off(wp);
     if (width <= 0)
@@ -1801,7 +1803,7 @@ plines_win_col(wp, lnum, column)
 	col += win_lbr_chartabsize(wp, s, (colnr_T)col, NULL) - 1;
 
     /*
-     * Add column offset for 'number', 'foldcolumn', etc.
+     * Add column offset for 'number', 'relativenumber', 'foldcolumn', etc.
      */
     width = W_WIDTH(wp) - win_col_off(wp);
     if (width <= 0)
@@ -2188,12 +2190,11 @@ del_chars(count, fixpos)
  *
  * return FAIL for failure, OK otherwise
  */
-/*ARGSUSED*/
     int
 del_bytes(count, fixpos_arg, use_delcombine)
     long	count;
     int		fixpos_arg;
-    int		use_delcombine;	    /* 'delcombine' option applies */
+    int		use_delcombine UNUSED;	    /* 'delcombine' option applies */
 {
     char_u	*oldp, *newp;
     colnr_T	oldlen;
@@ -2273,10 +2274,10 @@ del_bytes(count, fixpos_arg, use_delcombine)
      * existing line. Otherwise a new line has to be allocated
      * Can't do this when using Netbeans, because we would need to invoke
      * netbeans_removed(), which deallocates the line.  Let ml_replace() take
-     * care of notifiying Netbeans.
+     * care of notifying Netbeans.
      */
 #ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
+    if (netbeans_active())
 	was_alloced = FALSE;
     else
 #endif
@@ -2346,12 +2347,13 @@ del_lines(nlines, undo)
     int		undo;		/* if TRUE, prepare for undo */
 {
     long	n;
+    linenr_T	first = curwin->w_cursor.lnum;
 
     if (nlines <= 0)
 	return;
 
     /* save the deleted lines for undo */
-    if (undo && u_savedel(curwin->w_cursor.lnum, nlines) == FAIL)
+    if (undo && u_savedel(first, nlines) == FAIL)
 	return;
 
     for (n = 0; n < nlines; )
@@ -2359,18 +2361,21 @@ del_lines(nlines, undo)
 	if (curbuf->b_ml.ml_flags & ML_EMPTY)	    /* nothing to delete */
 	    break;
 
-	ml_delete(curwin->w_cursor.lnum, TRUE);
+	ml_delete(first, TRUE);
 	++n;
 
 	/* If we delete the last line in the file, stop */
-	if (curwin->w_cursor.lnum > curbuf->b_ml.ml_line_count)
+	if (first > curbuf->b_ml.ml_line_count)
 	    break;
     }
-    /* adjust marks, mark the buffer as changed and prepare for displaying */
-    deleted_lines_mark(curwin->w_cursor.lnum, n);
 
+    /* Correct the cursor position before calling deleted_lines_mark(), it may
+     * trigger a callback to display the cursor. */
     curwin->w_cursor.col = 0;
     check_cursor_lnum();
+
+    /* adjust marks, mark the buffer as changed and prepare for displaying */
+    deleted_lines_mark(first, n);
 }
 
     int
@@ -2408,24 +2413,6 @@ pchar_cursor(c)
 						  + curwin->w_cursor.col) = c;
 }
 
-#if 0 /* not used */
-/*
- * Put *pos at end of current buffer
- */
-    void
-goto_endofbuf(pos)
-    pos_T    *pos;
-{
-    char_u  *p;
-
-    pos->lnum = curbuf->b_ml.ml_line_count;
-    pos->col = 0;
-    p = ml_get(pos->lnum);
-    while (*p++)
-	++pos->col;
-}
-#endif
-
 /*
  * When extra == 0: Return TRUE if the cursor is before or on the first
  *		    non-blank in the line.
@@ -2462,10 +2449,12 @@ skip_to_option_part(p)
 }
 
 /*
- * changed() is called when something in the current buffer is changed.
+ * Call this function when something in the current buffer is changed.
  *
  * Most often called through changed_bytes() and changed_lines(), which also
  * mark the area of the display to be redrawn.
+ *
+ * Careful: may trigger autocommands that reload the buffer.
  */
     void
 changed()
@@ -2509,17 +2498,26 @@ changed()
 		msg_scroll = save_msg_scroll;
 	    }
 	}
-	curbuf->b_changed = TRUE;
-	ml_setflags(curbuf);
-#ifdef FEAT_WINDOWS
-	check_status(curbuf);
-	redraw_tabline = TRUE;
-#endif
-#ifdef FEAT_TITLE
-	need_maketitle = TRUE;	    /* set window title later */
-#endif
+	changed_int();
     }
     ++curbuf->b_changedtick;
+}
+
+/*
+ * Internal part of changed(), no user interaction.
+ */
+    void
+changed_int()
+{
+    curbuf->b_changed = TRUE;
+    ml_setflags(curbuf);
+#ifdef FEAT_WINDOWS
+    check_status(curbuf);
+    redraw_tabline = TRUE;
+#endif
+#ifdef FEAT_TITLE
+    need_maketitle = TRUE;	    /* set window title later */
+#endif
 }
 
 static void changedOneline __ARGS((buf_T *buf, linenr_T lnum));
@@ -2531,6 +2529,7 @@ static void changed_common __ARGS((linenr_T lnum, colnr_T col, linenr_T lnume, l
  * - marks the windows on this buffer to be redisplayed
  * - marks the buffer changed by calling changed()
  * - invalidates cached values
+ * Careful: may trigger autocommands that reload the buffer.
  */
     void
 changed_bytes(lnum, col)
@@ -2622,6 +2621,8 @@ deleted_lines(lnum, count)
 
 /*
  * Like deleted_lines(), but adjust marks first.
+ * Make sure the cursor is on a valid line before calling, a GUI callback may
+ * be triggered to display the cursor.
  */
     void
 deleted_lines_mark(lnum, count)
@@ -2642,6 +2643,7 @@ deleted_lines_mark(lnum, count)
  * below the changed lines (BEFORE the change).
  * When only inserting lines, "lnum" and "lnume" are equal.
  * Takes care of calling changed() and updating b_mod_*.
+ * Careful: may trigger autocommands that reload the buffer.
  */
     void
 changed_lines(lnum, col, lnume, xtra)
@@ -2709,6 +2711,11 @@ changed_lines_buf(buf, lnum, lnume, xtra)
     }
 }
 
+/*
+ * Common code for when a change is was made.
+ * See changed_lines() for the arguments.
+ * Careful: may trigger autocommands that reload the buffer.
+ */
     static void
 changed_common(lnum, col, lnume, xtra)
     linenr_T	lnum;
@@ -2717,6 +2724,9 @@ changed_common(lnum, col, lnume, xtra)
     long	xtra;
 {
     win_T	*wp;
+#ifdef FEAT_WINDOWS
+    tabpage_T	*tp;
+#endif
     int		i;
 #ifdef FEAT_JUMPLIST
     int		cols;
@@ -2769,7 +2779,7 @@ changed_common(lnum, col, lnume, xtra)
 		    curbuf->b_changelistlen = JUMPLISTSIZE - 1;
 		    mch_memmove(curbuf->b_changelist, curbuf->b_changelist + 1,
 					  sizeof(pos_T) * (JUMPLISTSIZE - 1));
-		    FOR_ALL_WINDOWS(wp)
+		    FOR_ALL_TAB_WINDOWS(tp, wp)
 		    {
 			/* Correct position in changelist for other windows on
 			 * this buffer. */
@@ -2777,7 +2787,7 @@ changed_common(lnum, col, lnume, xtra)
 			    --wp->w_changelistidx;
 		    }
 		}
-		FOR_ALL_WINDOWS(wp)
+		FOR_ALL_TAB_WINDOWS(tp, wp)
 		{
 		    /* For other windows, if the position in the changelist is
 		     * at the end it stays at the end. */
@@ -2796,7 +2806,7 @@ changed_common(lnum, col, lnume, xtra)
 #endif
     }
 
-    FOR_ALL_WINDOWS(wp)
+    FOR_ALL_TAB_WINDOWS(tp, wp)
     {
 	if (wp->w_buffer == curbuf)
 	{
@@ -2878,6 +2888,13 @@ changed_common(lnum, col, lnume, xtra)
 		    }
 #endif
 		}
+
+#ifdef FEAT_FOLDING
+	    /* Take care of side effects for setting w_topline when folds have
+	     * changed.  Esp. when the buffer was changed in another window. */
+	    if (hasAnyFolding(wp))
+		set_topline(wp, wp->w_topline);
+#endif
 	}
     }
 
@@ -2949,12 +2966,15 @@ check_status(buf)
  * Don't use emsg(), because it flushes the macro buffer.
  * If we have undone all changes b_changed will be FALSE, but "b_did_warn"
  * will be TRUE.
+ * Careful: may trigger autocommands that reload the buffer.
  */
     void
 change_warning(col)
     int	    col;		/* column for message; non-zero when in insert
 				   mode and 'showmode' is on */
 {
+    static char *w_readonly = N_("W10: Warning: Changing a readonly file");
+
     if (curbuf->b_did_warn == FALSE
 	    && curbufIsChanged() == 0
 #ifdef FEAT_AUTOCMD
@@ -2977,8 +2997,10 @@ change_warning(col)
 	if (msg_row == Rows - 1)
 	    msg_col = col;
 	msg_source(hl_attr(HLF_W));
-	MSG_PUTS_ATTR(_("W10: Warning: Changing a readonly file"),
-						   hl_attr(HLF_W) | MSG_HIST);
+	MSG_PUTS_ATTR(_(w_readonly), hl_attr(HLF_W) | MSG_HIST);
+#ifdef FEAT_EVAL
+	set_vim_var_string(VV_WARNINGMSG, (char_u *)_(w_readonly), -1);
+#endif
 	msg_clr_eos();
 	(void)msg_end();
 	if (msg_silent == 0 && !silent_mode)
@@ -3118,6 +3140,8 @@ get_keystroke()
 		    || n == K_RIGHTRELEASE
 		    || n == K_MOUSEDOWN
 		    || n == K_MOUSEUP
+		    || n == K_MOUSELEFT
+		    || n == K_MOUSERIGHT
 		    || n == K_X1MOUSE
 		    || n == K_X1DRAG
 		    || n == K_X1RELEASE
@@ -3264,6 +3288,7 @@ prompt_for_number(mouse_used)
 	cmdline_row = msg_row - 1;
 	need_wait_return = FALSE;
 	msg_didany = FALSE;
+	msg_didout = FALSE;
     }
     else
 	cmdline_row = save_cmdline_row;
@@ -3448,7 +3473,9 @@ init_homedir()
 
 	homedrive = mch_getenv((char_u *)"HOMEDRIVE");
 	homepath = mch_getenv((char_u *)"HOMEPATH");
-	if (homedrive != NULL && homepath != NULL
+	if (homepath == NULL || *homepath == NUL)
+	    homepath = "\\";
+	if (homedrive != NULL
 			   && STRLEN(homedrive) + STRLEN(homepath) < MAXPATHL)
 	{
 	    sprintf((char *)NameBuff, "%s%s", homedrive, homepath);
@@ -4141,10 +4168,9 @@ vim_setenv(name, val)
 /*
  * Function given to ExpandGeneric() to obtain an environment variable name.
  */
-/*ARGSUSED*/
     char_u *
 get_env_name(xp, idx)
-    expand_T	*xp;
+    expand_T	*xp UNUSED;
     int		idx;
 {
 # if defined(AMIGA) || defined(__MRC__) || defined(__SC__)
@@ -4385,6 +4411,7 @@ fullpathcmp(s1, s2, checkname)
 
 /*
  * Get the tail of a path: the file name.
+ * When the path ends in a path separator the tail is the NUL after it.
  * Fail safe: never returns NULL.
  */
     char_u *
@@ -4403,6 +4430,46 @@ gettail(fname)
     }
     return p1;
 }
+
+#if defined(FEAT_SEARCHPATH)
+static char_u *gettail_dir __ARGS((char_u *fname));
+
+/*
+ * Return the end of the directory name, on the first path
+ * separator:
+ * "/path/file", "/path/dir/", "/path//dir", "/file"
+ *	 ^	       ^	     ^	      ^
+ */
+    static char_u *
+gettail_dir(fname)
+    char_u *fname;
+{
+    char_u	*dir_end = fname;
+    char_u	*next_dir_end = fname;
+    int		look_for_sep = TRUE;
+    char_u	*p;
+
+    for (p = fname; *p != NUL; )
+    {
+	if (vim_ispathsep(*p))
+	{
+	    if (look_for_sep)
+	    {
+		next_dir_end = p;
+		look_for_sep = FALSE;
+	    }
+	}
+	else
+	{
+	    if (!look_for_sep)
+		dir_end = next_dir_end;
+	    look_for_sep = TRUE;
+	}
+	mb_ptr_adv(p);
+    }
+    return dir_end;
+}
+#endif
 
 /*
  * Get pointer to tail of "fname", including path separators.  Putting a NUL
@@ -4645,7 +4712,6 @@ concat_fnames(fname1, fname2, sep)
     return dest;
 }
 
-#if defined(FEAT_EVAL) || defined(FEAT_GETTEXT) || defined(PROTO)
 /*
  * Concatenate two strings and return the result in allocated memory.
  * Returns NULL when out of memory.
@@ -4666,7 +4732,6 @@ concat_str(str1, str2)
     }
     return dest;
 }
-#endif
 
 /*
  * Add a path separator to a file name, unless it already ends in a path
@@ -4736,9 +4801,9 @@ find_start_comment(ind_maxcomment)	    /* XXX */
 	 * If it is then restrict the search to below this line and try again.
 	 */
 	line = ml_get(pos->lnum);
-	for (p = line; *p && (unsigned)(p - line) < pos->col; ++p)
+	for (p = line; *p && (colnr_T)(p - line) < pos->col; ++p)
 	    p = skip_string(p);
-	if ((unsigned)(p - line) <= pos->col)
+	if ((colnr_T)(p - line) <= pos->col)
 	    break;
 	cur_maxcomment = curwin->w_cursor.lnum - pos->lnum - 1;
 	if (cur_maxcomment <= 0)
@@ -5010,7 +5075,7 @@ cin_islabel(ind_maxcomment)		/* XXX */
 	    curwin->w_cursor = cursor_save;
 	    if (cin_isterminated(line, TRUE, FALSE)
 		    || cin_isscopedecl(line)
-		    || cin_iscase(line)
+		    || cin_iscase(line, TRUE)
 		    || (cin_islabel_skip(&line) && cin_nocode(line)))
 		return TRUE;
 	    return FALSE;
@@ -5049,8 +5114,9 @@ cin_isinit(void)
  * Recognize a switch label: "case .*:" or "default:".
  */
      int
-cin_iscase(s)
+cin_iscase(s, strict)
     char_u *s;
+    int strict; /* Allow relaxed check of case statement for JS */
 {
     s = cin_skipcomment(s);
     if (STRNCMP(s, "case", 4) == 0 && !vim_isIDc(s[4]))
@@ -5066,11 +5132,17 @@ cin_iscase(s)
 		    return TRUE;
 	    }
 	    if (*s == '\'' && s[1] && s[2] == '\'')
-		s += 2;			/* skip over '.' */
+		s += 2;			/* skip over ':' */
 	    else if (*s == '/' && (s[1] == '*' || s[1] == '/'))
 		return FALSE;		/* stop at comment */
 	    else if (*s == '"')
-		return FALSE;		/* stop at string */
+	    {
+		/* JS etc. */
+		if (strict)
+		    return FALSE;		/* stop at string */
+		else
+		    return TRUE;
+	    }
 	}
 	return FALSE;
     }
@@ -5093,7 +5165,7 @@ cin_isdefault(s)
 }
 
 /*
- * Recognize a "public/private/proctected" scope declaration label.
+ * Recognize a "public/private/protected" scope declaration label.
  */
     int
 cin_isscopedecl(s)
@@ -5129,7 +5201,7 @@ after_label(l)
 	{
 	    if (l[1] == ':')	    /* skip over "::" for C++ */
 		++l;
-	    else if (!cin_iscase(l + 1))
+	    else if (!cin_iscase(l + 1, FALSE))
 		break;
 	}
 	else if (*l == '\'' && l[1] && l[2] == '\'')
@@ -5187,7 +5259,8 @@ skip_label(lnum, pp, ind_maxcomment)
     curwin->w_cursor.lnum = lnum;
     l = ml_get_curline();
 				    /* XXX */
-    if (cin_iscase(l) || cin_isscopedecl(l) || cin_islabel(ind_maxcomment))
+    if (cin_iscase(l, FALSE) || cin_isscopedecl(l)
+					       || cin_islabel(ind_maxcomment))
     {
 	amount = get_indent_nolabel(lnum);
 	l = after_label(ml_get_curline());
@@ -5984,7 +6057,7 @@ get_c_indent()
     int ind_open_imag = 0;
 
     /*
-     * spaces from the prevailing indent for a line that is not precededof by
+     * spaces from the prevailing indent for a line that is not preceded by
      * an opening brace.
      */
     int ind_no_brace = 0;
@@ -6012,6 +6085,12 @@ get_c_indent()
      * column is imagined to be
      */
     int ind_open_left_imag = 0;
+
+    /*
+     * Spaces jump labels should be shifted to the left if N is non-negative,
+     * otherwise the jump label will be put to column 1.
+     */
+    int ind_jump_label = -1;
 
     /*
      * spaces from the switch() indent a "case xx" label should be located
@@ -6134,6 +6213,11 @@ get_c_indent()
     int	ind_java = 0;
 
     /*
+     * not to confuse JS object properties with labels
+     */
+    int ind_js = 0;
+
+    /*
      * handle blocked cases correctly
      */
     int ind_keep_case_label = 0;
@@ -6179,6 +6263,7 @@ get_c_indent()
     int		iscase;
     int		lookfor_break;
     int		cont_amount = 0;    /* amount for continuation line */
+    int		original_line_islabel;
 
     for (options = curbuf->b_p_cino; *options; )
     {
@@ -6224,6 +6309,7 @@ get_c_indent()
 	    case '{': ind_open_extra = n; break;
 	    case '}': ind_close_extra = n; break;
 	    case '^': ind_open_left_imag = n; break;
+	    case 'L': ind_jump_label = n; break;
 	    case ':': ind_case = n; break;
 	    case '=': ind_case_code = n; break;
 	    case 'b': ind_case_break = n; break;
@@ -6246,13 +6332,20 @@ get_c_indent()
 	    case 'g': ind_scopedecl = n; break;
 	    case 'h': ind_scopedecl_code = n; break;
 	    case 'j': ind_java = n; break;
+	    case 'J': ind_js = n; break;
 	    case 'l': ind_keep_case_label = n; break;
 	    case '#': ind_hash_comment = n; break;
 	}
+	if (*options == ',')
+	    ++options;
     }
 
     /* remember where the cursor was when we started */
     cur_curpos = curwin->w_cursor;
+
+    /* if we are at line 1 0 is fine, right? */
+    if (cur_curpos.lnum == 1)
+	return 0;
 
     /* Get a copy of the current contents of the line.
      * This is required, because only the most recent line obtained with
@@ -6269,7 +6362,7 @@ get_c_indent()
      * check for that.
      */
     if ((State & INSERT)
-	    && curwin->w_cursor.col < STRLEN(linecopy)
+	    && curwin->w_cursor.col < (colnr_T)STRLEN(linecopy)
 	    && linecopy[curwin->w_cursor.col] == ')')
 	linecopy[curwin->w_cursor.col] = NUL;
 
@@ -6278,6 +6371,8 @@ get_c_indent()
     /* move the cursor to the start of the line */
 
     curwin->w_cursor.col = 0;
+
+    original_line_islabel = cin_islabel(ind_maxcomment);  /* XXX */
 
     /*
      * #defines and so on always go at the left when included in 'cinkeys'.
@@ -6288,9 +6383,11 @@ get_c_indent()
     }
 
     /*
-     * Is it a non-case label?	Then that goes at the left margin too.
+     * Is it a non-case label?	Then that goes at the left margin too unless:
+     *  - JS flag is set.
+     *  - 'L' item has a positive value.
      */
-    else if (cin_islabel(ind_maxcomment))	    /* XXX */
+    else if (original_line_islabel && !ind_js && ind_jump_label < 0)
     {
 	amount = 0;
     }
@@ -6741,7 +6838,8 @@ get_c_indent()
 	     *			ldfd) {
 	     *		    }
 	     */
-	    if (ind_keep_case_label && cin_iscase(skipwhite(ml_get_curline())))
+	    if ((ind_keep_case_label
+			   && cin_iscase(skipwhite(ml_get_curline()), FALSE)))
 		amount = get_indent();
 	    else
 		amount = skip_label(lnum, &l, ind_maxcomment);
@@ -6819,7 +6917,7 @@ get_c_indent()
 
 	    lookfor_break = FALSE;
 
-	    if (cin_iscase(theline))	/* it's a switch() label */
+	    if (cin_iscase(theline, FALSE))	/* it's a switch() label */
 	    {
 		lookfor = LOOKFOR_CASE;	/* find a previous switch() label */
 		amount += ind_case;
@@ -6880,7 +6978,7 @@ get_c_indent()
 			     * initialization) */
 			    if (cont_amount > 0)
 				amount = cont_amount;
-			    else
+			    else if (!ind_js)
 				amount += ind_continuation;
 			    break;
 			}
@@ -7004,7 +7102,7 @@ get_c_indent()
 		 * If this is a switch() label, may line up relative to that.
 		 * If this is a C++ scope declaration, do the same.
 		 */
-		iscase = cin_iscase(l);
+		iscase = cin_iscase(l, FALSE);
 		if (iscase || cin_isscopedecl(l))
 		{
 		    /* we are only looking for cpp base class
@@ -7128,7 +7226,7 @@ get_c_indent()
 		/*
 		 * Ignore jump labels with nothing after them.
 		 */
-		if (cin_islabel(ind_maxcomment))
+		if (!ind_js && cin_islabel(ind_maxcomment))
 		{
 		    l = after_label(ml_get_curline());
 		    if (l == NULL || cin_nocode(l))
@@ -7239,7 +7337,7 @@ get_c_indent()
 			 */
 			curwin->w_cursor = *trypos;
 			l = ml_get_curline();
-			if (cin_iscase(l) || cin_isscopedecl(l))
+			if (cin_iscase(l, FALSE) || cin_isscopedecl(l))
 			{
 			    ++curwin->w_cursor.lnum;
 			    curwin->w_cursor.col = 0;
@@ -7270,9 +7368,11 @@ get_c_indent()
 		     * Get indent and pointer to text for current line,
 		     * ignoring any jump label.	    XXX
 		     */
-		    cur_amount = skip_label(curwin->w_cursor.lnum,
+		    if (!ind_js)
+			cur_amount = skip_label(curwin->w_cursor.lnum,
 							  &l, ind_maxcomment);
-
+		    else
+			cur_amount = get_indent();
 		    /*
 		     * If this is just above the line we are indenting, and it
 		     * starts with a '{', line it up with this line.
@@ -7598,7 +7698,7 @@ term_again:
 			     */
 			    curwin->w_cursor = *trypos;
 			    l = ml_get_curline();
-			    if (cin_iscase(l) || cin_isscopedecl(l))
+			    if (cin_iscase(l, FALSE) || cin_isscopedecl(l))
 			    {
 				++curwin->w_cursor.lnum;
 				curwin->w_cursor.col = 0;
@@ -7615,7 +7715,7 @@ term_again:
 			 *	stat;
 			 * }
 			 */
-			iscase = (ind_keep_case_label && cin_iscase(l));
+			iscase = (ind_keep_case_label && cin_iscase(l, FALSE));
 
 			/*
 			 * Get indent and pointer to text for current line,
@@ -7680,6 +7780,10 @@ term_again:
       /* add extra indent for a comment */
       if (cin_iscomment(theline))
 	  amount += ind_comment;
+
+      /* subtract extra left-shift for jump labels */
+      if (ind_jump_label > 0 && original_line_islabel)
+	  amount -= ind_jump_label;
     }
 
     /*
@@ -7706,11 +7810,14 @@ term_again:
 	/*
 	 * If the NEXT line is a function declaration, the current
 	 * line needs to be indented as a function type spec.
-	 * Don't do this if the current line looks like a comment
-	 * or if the current line is terminated, ie. ends in ';'.
+	 * Don't do this if the current line looks like a comment or if the
+	 * current line is terminated, ie. ends in ';', or if the current line
+	 * contains { or }: "void f() {\n if (1)"
 	 */
 	else if (cur_curpos.lnum < curbuf->b_ml.ml_line_count
 		&& !cin_nocode(theline)
+		&& vim_strchr(theline, '{') == NULL
+		&& vim_strchr(theline, '}') == NULL
 		&& !cin_ends_in(theline, (char_u *)":", NULL)
 		&& !cin_ends_in(theline, (char_u *)",", NULL)
 		&& cin_isfuncdecl(NULL, cur_curpos.lnum + 1)
@@ -8426,9 +8533,49 @@ fast_breakcheck()
 }
 
 /*
+ * Invoke expand_wildcards() for one pattern.
+ * Expand items like "%:h" before the expansion.
+ * Returns OK or FAIL.
+ */
+    int
+expand_wildcards_eval(pat, num_file, file, flags)
+    char_u	 **pat;		/* pointer to input pattern */
+    int		  *num_file;	/* resulting number of files */
+    char_u	***file;	/* array of resulting files */
+    int		   flags;	/* EW_DIR, etc. */
+{
+    int		ret = FAIL;
+    char_u	*eval_pat = NULL;
+    char_u	*exp_pat = *pat;
+    char_u      *ignored_msg;
+    int		usedlen;
+
+    if (*exp_pat == '%' || *exp_pat == '#' || *exp_pat == '<')
+    {
+	++emsg_off;
+	eval_pat = eval_vars(exp_pat, exp_pat, &usedlen,
+						    NULL, &ignored_msg, NULL);
+	--emsg_off;
+	if (eval_pat != NULL)
+	    exp_pat = concat_str(eval_pat, exp_pat + usedlen);
+    }
+
+    if (exp_pat != NULL)
+	ret = expand_wildcards(1, &exp_pat, num_file, file, flags);
+
+    if (eval_pat != NULL)
+    {
+	vim_free(exp_pat);
+	vim_free(eval_pat);
+    }
+
+    return ret;
+}
+
+/*
  * Expand wildcards.  Calls gen_expand_wildcards() and removes files matching
  * 'wildignore'.
- * Returns OK or FAIL.
+ * Returns OK or FAIL.  When FAIL then "num_file" won't be set.
  */
     int
 expand_wildcards(num_pat, pat, num_file, file, flags)
@@ -8446,7 +8593,7 @@ expand_wildcards(num_pat, pat, num_file, file, flags)
     retval = gen_expand_wildcards(num_pat, pat, num_file, file, flags);
 
     /* When keeping all matches, return here */
-    if (flags & EW_KEEPALL)
+    if ((flags & EW_KEEPALL) || retval == FAIL)
 	return retval;
 
 #ifdef FEAT_WILDIGN
@@ -8522,11 +8669,25 @@ match_suffix(fname)
     for (setsuf = p_su; *setsuf; )
     {
 	setsuflen = copy_option_part(&setsuf, suf_buf, MAXSUFLEN, ".,");
-	if (fnamelen >= setsuflen
-		&& fnamencmp(suf_buf, fname + fnamelen - setsuflen,
-					      (size_t)setsuflen) == 0)
-	    break;
-	setsuflen = 0;
+	if (setsuflen == 0)
+	{
+	    char_u *tail = gettail(fname);
+
+	    /* empty entry: match name without a '.' */
+	    if (vim_strchr(tail, '.') == NULL)
+	    {
+		setsuflen = 1;
+		break;
+	    }
+	}
+	else
+	{
+	    if (fnamelen >= setsuflen
+		    && fnamencmp(suf_buf, fname + fnamelen - setsuflen,
+						  (size_t)setsuflen) == 0)
+		break;
+	    setsuflen = 0;
+	}
     }
     return (setsuflen != 0);
 }
@@ -9097,6 +9258,446 @@ unix_expandpath(gap, path, wildoff, flags, didstar)
 }
 #endif
 
+#if defined(FEAT_SEARCHPATH)
+static int find_previous_pathsep __ARGS((char_u *path, char_u **psep));
+static int is_unique __ARGS((char_u *maybe_unique, garray_T *gap, int i));
+static void expand_path_option __ARGS((char_u *curdir, garray_T	*gap));
+static char_u *get_path_cutoff __ARGS((char_u *fname, garray_T *gap));
+static void uniquefy_paths __ARGS((garray_T *gap, char_u *pattern));
+static int expand_in_path __ARGS((garray_T *gap, char_u	*pattern, int flags));
+
+/*
+ * Moves "*psep" back to the previous path separator in "path".
+ * Returns FAIL is "*psep" ends up at the beginning of "path".
+ */
+    static int
+find_previous_pathsep(path, psep)
+    char_u *path;
+    char_u **psep;
+{
+    /* skip the current separator */
+    if (*psep > path && vim_ispathsep(**psep))
+	--*psep;
+
+    /* find the previous separator */
+    while (*psep > path)
+    {
+	if (vim_ispathsep(**psep))
+	    return OK;
+	mb_ptr_back(path, *psep);
+    }
+
+    return FAIL;
+}
+
+/*
+ * Returns TRUE if "maybe_unique" is unique wrt other_paths in "gap".
+ * "maybe_unique" is the end portion of "((char_u **)gap->ga_data)[i]".
+ */
+    static int
+is_unique(maybe_unique, gap, i)
+    char_u	*maybe_unique;
+    garray_T	*gap;
+    int		i;
+{
+    int	    j;
+    int	    candidate_len;
+    int	    other_path_len;
+    char_u  **other_paths = (char_u **)gap->ga_data;
+    char_u  *rival;
+
+    for (j = 0; j < gap->ga_len; j++)
+    {
+	if (j == i)
+	    continue;  /* don't compare it with itself */
+
+	candidate_len = (int)STRLEN(maybe_unique);
+	other_path_len = (int)STRLEN(other_paths[j]);
+	if (other_path_len < candidate_len)
+	    continue;  /* it's different when it's shorter */
+
+	rival = other_paths[j] + other_path_len - candidate_len;
+	if (fnamecmp(maybe_unique, rival) == 0)
+	    return FALSE;  /* match */
+    }
+
+    return TRUE;  /* no match found */
+}
+
+/*
+ * Split the 'path' option into an array of strings in garray_T.  Relative
+ * paths are expanded to their equivalent fullpath.  This includes the "."
+ * (relative to current buffer directory) and empty path (relative to current
+ * directory) notations.
+ *
+ * TODO: handle upward search (;) and path limiter (**N) notations by
+ * expanding each into their equivalent path(s).
+ */
+    static void
+expand_path_option(curdir, gap)
+    char_u	*curdir;
+    garray_T	*gap;
+{
+    char_u	*path_option = *curbuf->b_p_path == NUL
+						  ? p_path : curbuf->b_p_path;
+    char_u	*buf;
+    char_u	*p;
+    int		len;
+
+    if ((buf = alloc((int)MAXPATHL)) == NULL)
+	return;
+
+    while (*path_option != NUL)
+    {
+	copy_option_part(&path_option, buf, MAXPATHL, " ,");
+
+	if (buf[0] == '.' && (buf[1] == NUL || vim_ispathsep(buf[1])))
+	{
+	    /* Relative to current buffer:
+	     * "/path/file" + "." -> "/path/"
+	     * "/path/file"  + "./subdir" -> "/path/subdir" */
+	    if (curbuf->b_ffname == NULL)
+		continue;
+	    p = gettail(curbuf->b_ffname);
+	    len = (int)(p - curbuf->b_ffname);
+	    if (len + (int)STRLEN(buf) >= MAXPATHL)
+		continue;
+	    if (buf[1] == NUL)
+		buf[len] = NUL;
+	    else
+		STRMOVE(buf + len, buf + 2);
+	    mch_memmove(buf, curbuf->b_ffname, len);
+	    simplify_filename(buf);
+	}
+	else if (buf[0] == NUL)
+	    /* relative to current directory */
+	    STRCPY(buf, curdir);
+	else if (path_with_url(buf))
+	    /* URL can't be used here */
+	    continue;
+	else if (!mch_isFullName(buf))
+	{
+	    /* Expand relative path to their full path equivalent */
+	    len = (int)STRLEN(curdir);
+	    if (len + (int)STRLEN(buf) + 3 > MAXPATHL)
+		continue;
+	    STRMOVE(buf + len + 1, buf);
+	    STRCPY(buf, curdir);
+	    buf[len] = PATHSEP;
+	    simplify_filename(buf);
+	}
+
+	if (ga_grow(gap, 1) == FAIL)
+	    break;
+	p = vim_strsave(buf);
+	if (p == NULL)
+	    break;
+	((char_u **)gap->ga_data)[gap->ga_len++] = p;
+    }
+
+    vim_free(buf);
+}
+
+/*
+ * Returns a pointer to the file or directory name in "fname" that matches the
+ * longest path in "ga"p, or NULL if there is no match. For example:
+ *
+ *    path: /foo/bar/baz
+ *   fname: /foo/bar/baz/quux.txt
+ * returns:		 ^this
+ */
+    static char_u *
+get_path_cutoff(fname, gap)
+    char_u *fname;
+    garray_T *gap;
+{
+    int	    i;
+    int	    maxlen = 0;
+    char_u  **path_part = (char_u **)gap->ga_data;
+    char_u  *cutoff = NULL;
+
+    for (i = 0; i < gap->ga_len; i++)
+    {
+	int j = 0;
+
+	while ((fname[j] == path_part[i][j]
+# if defined(MSWIN) || defined(MSDOS)
+		|| (vim_ispathsep(fname[j]) && vim_ispathsep(path_part[i][j]))
+#endif
+			     ) && fname[j] != NUL && path_part[i][j] != NUL)
+	    j++;
+	if (j > maxlen)
+	{
+	    maxlen = j;
+	    cutoff = &fname[j];
+	}
+    }
+
+    /* skip to the file or directory name */
+    if (cutoff != NULL)
+	while (vim_ispathsep(*cutoff))
+	    mb_ptr_adv(cutoff);
+
+    return cutoff;
+}
+
+/*
+ * Sorts, removes duplicates and modifies all the fullpath names in "gap" so
+ * that they are unique with respect to each other while conserving the part
+ * that matches the pattern. Beware, this is at least O(n^2) wrt "gap->ga_len".
+ */
+    static void
+uniquefy_paths(gap, pattern)
+    garray_T	*gap;
+    char_u	*pattern;
+{
+    int		i;
+    int		len;
+    char_u	**fnames = (char_u **)gap->ga_data;
+    int		sort_again = FALSE;
+    char_u	*pat;
+    char_u      *file_pattern;
+    char_u	*curdir;
+    regmatch_T	regmatch;
+    garray_T	path_ga;
+    char_u	**in_curdir = NULL;
+    char_u	*short_name;
+
+    remove_duplicates(gap);
+    ga_init2(&path_ga, (int)sizeof(char_u *), 1);
+
+    /*
+     * We need to prepend a '*' at the beginning of file_pattern so that the
+     * regex matches anywhere in the path. FIXME: is this valid for all
+     * possible patterns?
+     */
+    len = (int)STRLEN(pattern);
+    file_pattern = alloc(len + 2);
+    if (file_pattern == NULL)
+	return;
+    file_pattern[0] = '*';
+    file_pattern[1] = NUL;
+    STRCAT(file_pattern, pattern);
+    pat = file_pat_to_reg_pat(file_pattern, NULL, NULL, TRUE);
+    vim_free(file_pattern);
+    if (pat == NULL)
+	return;
+
+    regmatch.rm_ic = TRUE;		/* always ignore case */
+    regmatch.regprog = vim_regcomp(pat, RE_MAGIC + RE_STRING);
+    vim_free(pat);
+    if (regmatch.regprog == NULL)
+	return;
+
+    if ((curdir = alloc((int)(MAXPATHL))) == NULL)
+	goto theend;
+    mch_dirname(curdir, MAXPATHL);
+    expand_path_option(curdir, &path_ga);
+
+    in_curdir = (char_u **)alloc_clear(gap->ga_len * sizeof(char_u *));
+    if (in_curdir == NULL)
+	goto theend;
+
+    for (i = 0; i < gap->ga_len && !got_int; i++)
+    {
+	char_u	    *path = fnames[i];
+	int	    is_in_curdir;
+	char_u	    *dir_end = gettail_dir(path);
+	char_u	    *pathsep_p;
+	char_u	    *path_cutoff;
+
+	len = (int)STRLEN(path);
+	is_in_curdir = fnamencmp(curdir, path, dir_end - path) == 0
+					     && curdir[dir_end - path] == NUL;
+	if (is_in_curdir)
+	    in_curdir[i] = vim_strsave(path);
+
+	/* Shorten the filename while maintaining its uniqueness */
+	path_cutoff = get_path_cutoff(path, &path_ga);
+
+	/* we start at the end of the path */
+	pathsep_p = path + len - 1;
+
+	while (find_previous_pathsep(path, &pathsep_p))
+	    if (vim_regexec(&regmatch, pathsep_p + 1, (colnr_T)0)
+		    && is_unique(pathsep_p + 1, gap, i)
+		    && path_cutoff != NULL && pathsep_p + 1 >= path_cutoff)
+	    {
+		sort_again = TRUE;
+		mch_memmove(path, pathsep_p + 1, STRLEN(pathsep_p));
+		break;
+	    }
+
+	if (mch_isFullName(path))
+	{
+	    /*
+	     * Last resort: shorten relative to curdir if possible.
+	     * 'possible' means:
+	     * 1. It is under the current directory.
+	     * 2. The result is actually shorter than the original.
+	     *
+	     *	    Before		  curdir	After
+	     *	    /foo/bar/file.txt	  /foo/bar	./file.txt
+	     *	    c:\foo\bar\file.txt   c:\foo\bar	.\file.txt
+	     *	    /file.txt		  /		/file.txt
+	     *	    c:\file.txt		  c:\		.\file.txt
+	     */
+	    short_name = shorten_fname(path, curdir);
+	    if (short_name != NULL && short_name > path + 1
+#if defined(MSWIN) || defined(MSDOS)
+		    /* On windows,
+		     *	    shorten_fname("c:\a\a.txt", "c:\a\b")
+		     * returns "\a\a.txt", which is not really the short
+		     * name, hence: */
+		    && !vim_ispathsep(*short_name)
+#endif
+		)
+	    {
+		STRCPY(path, ".");
+		add_pathsep(path);
+		STRMOVE(path + STRLEN(path), short_name);
+	    }
+	}
+	ui_breakcheck();
+    }
+
+    /* Shorten filenames in /in/current/directory/{filename} */
+    for (i = 0; i < gap->ga_len && !got_int; i++)
+    {
+	char_u *rel_path;
+	char_u *path = in_curdir[i];
+
+	if (path == NULL)
+	    continue;
+
+	/* If the {filename} is not unique, change it to ./{filename}.
+	 * Else reduce it to {filename} */
+	short_name = shorten_fname(path, curdir);
+	if (short_name == NULL)
+	    short_name = path;
+	if (is_unique(short_name, gap, i))
+	{
+	    STRCPY(fnames[i], short_name);
+	    continue;
+	}
+
+	rel_path = alloc((int)(STRLEN(short_name) + STRLEN(PATHSEPSTR) + 2));
+	if (rel_path == NULL)
+	    goto theend;
+	STRCPY(rel_path, ".");
+	add_pathsep(rel_path);
+	STRCAT(rel_path, short_name);
+
+	vim_free(fnames[i]);
+	fnames[i] = rel_path;
+	sort_again = TRUE;
+	ui_breakcheck();
+    }
+
+theend:
+    vim_free(curdir);
+    if (in_curdir != NULL)
+    {
+	for (i = 0; i < gap->ga_len; i++)
+	    vim_free(in_curdir[i]);
+	vim_free(in_curdir);
+    }
+    ga_clear_strings(&path_ga);
+    vim_free(regmatch.regprog);
+
+    if (sort_again)
+	remove_duplicates(gap);
+}
+
+/*
+ * Calls globpath() with 'path' values for the given pattern and stores the
+ * result in "gap".
+ * Returns the total number of matches.
+ */
+    static int
+expand_in_path(gap, pattern, flags)
+    garray_T	*gap;
+    char_u	*pattern;
+    int		flags;		/* EW_* flags */
+{
+    char_u	*curdir;
+    garray_T	path_ga;
+    char_u	*files = NULL;
+    char_u	*s;	/* start */
+    char_u	*e;	/* end */
+    char_u	*paths = NULL;
+
+    if ((curdir = alloc((unsigned)MAXPATHL)) == NULL)
+	return 0;
+    mch_dirname(curdir, MAXPATHL);
+
+    ga_init2(&path_ga, (int)sizeof(char_u *), 1);
+    expand_path_option(curdir, &path_ga);
+    vim_free(curdir);
+    if (path_ga.ga_len == 0)
+	return 0;
+
+    paths = ga_concat_strings(&path_ga);
+    ga_clear_strings(&path_ga);
+    if (paths == NULL)
+	return 0;
+
+    files = globpath(paths, pattern, 0);
+    vim_free(paths);
+    if (files == NULL)
+	return 0;
+
+    /* Copy each path in files into gap */
+    s = e = files;
+    while (*s != NUL)
+    {
+	while (*e != '\n' && *e != NUL)
+	    e++;
+	if (*e == NUL)
+	{
+	    addfile(gap, s, flags);
+	    break;
+	}
+	else
+	{
+	    /* *e is '\n' */
+	    *e = NUL;
+	    addfile(gap, s, flags);
+	    e++;
+	    s = e;
+	}
+    }
+    vim_free(files);
+
+    return gap->ga_len;
+}
+#endif
+
+#if defined(FEAT_SEARCHPATH) || defined(FEAT_CMDL_COMPL) || defined(PROTO)
+/*
+ * Sort "gap" and remove duplicate entries.  "gap" is expected to contain a
+ * list of file names in allocated memory.
+ */
+    void
+remove_duplicates(gap)
+    garray_T	*gap;
+{
+    int	    i;
+    int	    j;
+    char_u  **fnames = (char_u **)gap->ga_data;
+
+    sort_strings(fnames, gap->ga_len);
+    for (i = gap->ga_len - 1; i > 0; --i)
+	if (fnamecmp(fnames[i - 1], fnames[i]) == 0)
+	{
+	    vim_free(fnames[i]);
+	    for (j = i + 1; j < gap->ga_len; ++j)
+		fnames[j - 1] = fnames[j];
+	    --gap->ga_len;
+	}
+}
+#endif
+
 /*
  * Generic wildcard expansion code.
  *
@@ -9121,6 +9722,9 @@ gen_expand_wildcards(num_pat, pat, num_file, file, flags)
     char_u		*p;
     static int		recursive = FALSE;
     int			add_pat;
+#if defined(FEAT_SEARCHPATH)
+    int			did_expand_in_path = FALSE;
+#endif
 
     /*
      * expand_env() is called to expand things like "~user".  If this fails,
@@ -9174,7 +9778,7 @@ gen_expand_wildcards(num_pat, pat, num_file, file, flags)
 	    /*
 	     * First expand environment variables, "~/" and "~user/".
 	     */
-	    if (vim_strpbrk(p, (char_u *)"$~") != NULL)
+	    if (vim_strchr(p, '$') != NULL || *p == '~')
 	    {
 		p = expand_env_save_opt(p, TRUE);
 		if (p == NULL)
@@ -9185,10 +9789,10 @@ gen_expand_wildcards(num_pat, pat, num_file, file, flags)
 		 * variable, use the shell to do that.  Discard previously
 		 * found file names and start all over again.
 		 */
-		else if (vim_strpbrk(p, (char_u *)"$~") != NULL)
+		else if (vim_strchr(p, '$') != NULL || *p == '~')
 		{
 		    vim_free(p);
-		    ga_clear(&ga);
+		    ga_clear_strings(&ga);
 		    i = mch_expand_wildcards(num_pat, pat, num_file, file,
 								       flags);
 		    recursive = FALSE;
@@ -9205,7 +9809,26 @@ gen_expand_wildcards(num_pat, pat, num_file, file, flags)
 	     * when EW_NOTFOUND is given.
 	     */
 	    if (mch_has_exp_wildcard(p))
-		add_pat = mch_expandpath(&ga, p, flags);
+	    {
+#if defined(FEAT_SEARCHPATH)
+		if ((flags & EW_PATH)
+			&& !mch_isFullName(p)
+			&& !(p[0] == '.'
+			    && (vim_ispathsep(p[1])
+				|| (p[1] == '.' && vim_ispathsep(p[2]))))
+		   )
+		{
+		    /* :find completion where 'path' is used.
+		     * Recursiveness is OK here. */
+		    recursive = FALSE;
+		    add_pat = expand_in_path(&ga, p, flags);
+		    recursive = TRUE;
+		    did_expand_in_path = TRUE;
+		}
+		else
+#endif
+		    add_pat = mch_expandpath(&ga, p, flags);
+	    }
 	}
 
 	if (add_pat == -1 || (add_pat == 0 && (flags & EW_NOTFOUND)))
@@ -9224,6 +9847,10 @@ gen_expand_wildcards(num_pat, pat, num_file, file, flags)
 	    vim_free(t);
 	}
 
+#if defined(FEAT_SEARCHPATH)
+	if (did_expand_in_path && ga.ga_len > 0 && (flags & EW_PATH))
+	    uniquefy_paths(&ga, p);
+#endif
 	if (p != pat[i])
 	    vim_free(p);
     }
@@ -9453,7 +10080,7 @@ get_cmd_output(cmd, infile, flags)
 	buffer = NULL;
     }
     else
-	buffer[len] = '\0';	/* make sure the buffer is terminated */
+	buffer[len] = NUL;	/* make sure the buffer is terminated */
 
 done:
     vim_free(tempname);
@@ -9486,7 +10113,7 @@ FreeWild(count, files)
 }
 
 /*
- * return TRUE when need to go to Insert mode because of 'insertmode'.
+ * Return TRUE when need to go to Insert mode because of 'insertmode'.
  * Don't do this when still processing a command or a mapping.
  * Don't do this when inside a ":normal" command.
  */

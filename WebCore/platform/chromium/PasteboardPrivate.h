@@ -33,10 +33,10 @@
 
 namespace WebCore {
 
-    class PasteboardPrivate
-    {
+    class PasteboardPrivate {
     public:
         enum ClipboardFormat {
+            PlainTextFormat,
             HTMLFormat,
             BookmarkFormat,
             WebSmartPasteFormat,
@@ -44,6 +44,7 @@ namespace WebCore {
         enum ClipboardBuffer {
             StandardBuffer,
             SelectionBuffer,
+            DragBuffer,
         };
     };
 

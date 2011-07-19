@@ -1,7 +1,13 @@
 package DateTime::Duration;
 
 use strict;
+use warnings;
 
+our $VERSION = '0.53';
+
+use Carp ();
+use DateTime;
+use DateTime::Helpers;
 use Params::Validate qw( validate SCALAR );
 
 use overload ( fallback => 1,
@@ -272,7 +278,7 @@ sub _add_overload
 
     ($d1, $d2) = ($d2, $d1) if $rev;
 
-    if ( UNIVERSAL::isa( $d2, 'DateTime' ) )
+    if ( DateTime::Helpers::isa( $d2, 'DateTime' ) )
     {
         $d2->add_duration($d1);
         return;
@@ -288,8 +294,8 @@ sub _subtract_overload
 
     ($d1, $d2) = ($d2, $d1) if $rev;
 
-    die "Cannot subtract a DateTime object from a DateTime::Duration object"
-        if UNIVERSAL::isa( $d2, 'DateTime' );
+    Carp::croak( "Cannot subtract a DateTime object from a DateTime::Duration object" )
+        if DateTime::Helpers::isa( $d2, 'DateTime' );
 
     return $d1->clone->subtract_duration($d2);
 }
@@ -305,7 +311,8 @@ sub _multiply_overload
 
 sub _compare_overload
 {
-    die "DateTime::Duration does not overload comparison.  See the documentation on the compare() method for details.";
+    Carp::croak( 'DateTime::Duration does not overload comparison.'
+                 . '  See the documentation on the compare() method for details.' );
 }
 
 
@@ -456,7 +463,7 @@ conversions possible are:
 
 =over 8
 
-=item * year <=> months
+=item * years <=> months
 
 =item * weeks <=> days
 
@@ -508,8 +515,8 @@ Returns one of "wrap", "limit", or "preserve".
 
 =item * calendar_duration
 
-Returns a new object with the same I<calendar> delta (months only) and
-end of month mode as the current object.
+Returns a new object with the same I<calendar> delta (months and days
+only) and end of month mode as the current object.
 
 =item * clock_duration
 
@@ -543,7 +550,7 @@ This is a class method that can be used to compare or sort durations.
 Comparison is done by adding each duration to the specified
 C<DateTime.pm> object and comparing the resulting datetimes.  This is
 necessary because without a base, many durations are not comparable.
-For example, 1 month may otr may not be longer than 29 days, depending
+For example, 1 month may or may not be longer than 29 days, depending
 on what datetime it is added to.
 
 If no base datetime is given, then the result of C<< DateTime->now >>
@@ -552,8 +559,9 @@ if used to compare two duration objects containing different units.
 It will also give non-repeatable results if the durations contain
 multiple types of units, such as months and days.
 
-However, if you know that both objects only contain the same units,
-and just a single I<type>, then the results of the comparison will be
+However, if you know that both objects only consist of one type of
+unit (months I<or> days I<or> hours, etc.), and each duration contains
+the same type of unit, then the results of the comparison will be
 repeatable.
 
 =item * years, months, weeks, days, hours, minutes, seconds, nanoseconds
@@ -565,14 +573,14 @@ is returned.  These numbers are always positive.
 
 Here's what each method returns:
 
- $dur->year()    == abs( $dur->in_units('years') )
- $dur->months()  == ( abs( $dur->in_units( 'months', 'years' ) ) )[0]
- $dur->weeks()   == abs( $dur->in_units( 'weeks' ) )
- $dur->days()    == ( abs( $dur->in_units( 'days', 'weeks' ) ) )[0]
- $dur->hours()   == abs( $dur->in_units( 'hours' ) )
- $dur->minutes   == ( abs( $dur->in_units( 'minutes', 'hours' ) ) )[0]
- $dur->seconds   == abs( $dur->in_units( 'seconds' ) )
- $dur->nanoseconds() == abs( $dur->in_units( 'nanoseconds', 'seconds' ) )
+ $dur->years()       == abs( $dur->in_units('years') )
+ $dur->months()      == abs( ( $dur->in_units( 'months', 'years' ) )[0] )
+ $dur->weeks()       == abs( $dur->in_units( 'weeks' ) )
+ $dur->days()        == abs( ( $dur->in_units( 'days', 'weeks' ) )[0] )
+ $dur->hours()       == abs( $dur->in_units( 'hours' ) )
+ $dur->minutes       == abs( ( $dur->in_units( 'minutes', 'hours' ) )[0] )
+ $dur->seconds       == abs( $dur->in_units( 'seconds' ) )
+ $dur->nanoseconds() == abs( ( $dur->in_units( 'nanoseconds', 'seconds' ) )[0] )
 
 If this seems confusing, remember that you can always use the
 C<in_units()> method to specify exactly what you want.
@@ -604,7 +612,7 @@ stole all the code from.
 
 =head1 COPYRIGHT
 
-Copyright (c) 2003-2005 David Rolsky.  All rights reserved.  This
+Copyright (c) 2003-2009 David Rolsky.  All rights reserved.  This
 program is free software; you can redistribute it and/or modify it
 under the same terms as Perl itself.
 

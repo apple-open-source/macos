@@ -26,7 +26,8 @@
 /*	qmgr_deliver() executes when a delivery process announces its
 /*	availability for the named transport. It arranges for delivery
 /*	of a suitable queue entry.  The \fIfp\fR argument specifies a
-/*	stream that is connected to the delivery process. Upon completion
+/*	stream that is connected to the delivery process, or a null
+/*	pointer if the transport accepts no connection. Upon completion
 /*	of delivery (successful or not), the stream is closed, so that the
 /*	delivery process is released.
 /* DIAGNOSTICS
@@ -145,7 +146,7 @@ static int qmgr_deliver_send_request(QMGR_ENTRY *entry, VSTREAM *stream)
     } else {
 	sender_buf = vstring_alloc(100);
 	verp_sender(sender_buf, message->verp_delims,
-		    message->sender, list.info->address);
+		    message->sender, list.info);
 	sender = vstring_str(sender_buf);
     }
 
@@ -176,6 +177,7 @@ static int qmgr_deliver_send_request(QMGR_ENTRY *entry, VSTREAM *stream)
 	     ATTR_TYPE_STR, MAIL_ATTR_SASL_USERNAME, message->sasl_username,
 	       ATTR_TYPE_STR, MAIL_ATTR_SASL_SENDER, message->sasl_sender,
     /* XXX Ditto if we want to pass TLS certificate info. */
+	       ATTR_TYPE_STR, MAIL_ATTR_LOG_IDENT, message->log_ident,
 	     ATTR_TYPE_STR, MAIL_ATTR_RWR_CONTEXT, message->rewrite_context,
 	       ATTR_TYPE_INT, MAIL_ATTR_RCPT_COUNT, list.len,
 	       ATTR_TYPE_END);

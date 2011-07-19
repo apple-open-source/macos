@@ -1,3 +1,79 @@
+2010-06-16  Andreas Kupries  <akupries@shaw.ca>
+
+	* fileutil.tcl (::fileutil::fileType): Fumbled the extension of
+	* fileutil.man: the doctools/toc/idx detector in the last change.
+	* pkgIndex.tcl: Fixed the bogosity, merging the separate checks.
+	  Bumped to version 1.14.4.
+
+2010-06-09  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.tcl (::fileutil::fileType): Extended to recognize tklib
+	* fileutil.man: diagram files, and extended the doctools/toc/idx
+	* pkgIndex.tcl: detector to accept markers in the same style as
+	  for tklib diagrams. Bumped to version 1.14.3.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-24  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.tcl: Extended the doctools/toc/idx detector with
+	* fileutil.man: checks for inclusion and exclusion markers
+	* pkgIndex.tcl: allowing the user to force acceptance or rejection
+	of files for complex situations (like an include file looking like
+	a doctools main file but not bein so, and the converse, a main
+	file lacking the regular marker, which is hidden in an included
+	file). Bumped to version 1.14.2.
+
+2009-10-27  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.tcl (::fileutil::stripPath): [Bug 2872536]. Fixed both
+	* fileutil.man: issues. Compare the canonical list representations
+	* pkgIndex.tcl: for the \\bar problem, and separate $prefix from
+	* strip.test: '*' by a space to prevent matching on a partial path
+	  segment. Thanks to Ashok P. Nadkarni
+	  <apnadkarni@users.sourceforge.net> for the report. Bumped the
+	  version to 1.14.1. Extended the testsuite.
+
+	* pathops.test: Cleaned up some win vs unix issues in the tests.
+
+2009-10-06  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.test: Added fixes to test cleanups, to prevents errors
+	* inplace.test: when the testsuite is only run partially.
+	* test.test: 
+
+2009-09-14  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.tcl: Renamed the internal command 'LexNormalize' to
+	* fileutil.man: 'lexnormalize' and documented it, making it
+	* pkgIndex.tcl: public. Bumped version to 1.14. This closes and
+	  accepts the feature request [SF Tcllib Bug 2855302]. Tests are
+	  currently only indirect, through testing of commands 'jail' and
+	  'relativeUrl'.
+
+2009-04-01  Andreas Kupries  <andreask@activestate.com>
+
+	* multiop.tcl (Copy): Fix special case with copying directories
+	* multiop.man: where the source is one level to deep, or copy fails.
+	* pkgIndex.tcl: Bumped version to 0.5.3.
+
+2009-02-10  Andreas Kupries  <andreask@activestate.com>
+
+	* traverse.man: Fixed bug in the requirements, this package
+	* traverse.tcl: needs fileutil (-> fullnormalize). Bumped
+	* pkgIndex.tcl: version to 0.4.1.
+
+2009-02-05  Andreas Kupries  <andreask@activestate.com>
+
+	* fileutil.tcl (::fileutil::stripPath): Fixed handling
+	* fileutil.man: of letter-case on windows, comparisons
+	* strip.test: have to be case-insensitive. Bumped version
+	* pkgIndex.tcl: to 1.13.6. See [SF Tcllib Bug 2499641].
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

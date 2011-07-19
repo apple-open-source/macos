@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::TypedObject;
 
-use base qw/DBIx::Class::Core/;
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('typed_object');
 __PACKAGE__->add_columns(

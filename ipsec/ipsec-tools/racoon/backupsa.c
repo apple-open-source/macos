@@ -319,7 +319,6 @@ do { \
 			continue;
 		}
 		l_addtime -= current - created;
-#ifdef __APPLE__
 		if (pfkey_send_add(
 				lcconf->sock_pfkey,
 				satype,
@@ -336,24 +335,6 @@ do { \
 				"restore SA filed line#%d in %s: %s\n",
 				line, lcconf->pathinfo[LC_PATHTYPE_BACKUPSA], ipsec_strerror());
 		}
-#else
-		if (pfkey_send_add(
-				lcconf->sock_pfkey,
-				satype,
-				mode,
-				src,
-				dst,
-				spi,
-				reqid,
-				wsize,
-				keymat,
-				e_type, e_keylen, a_type, a_keylen, flags,
-				0, l_bytes, l_addtime, 0, seq) < 0) {
-			plog(LLV_ERROR, LOCATION, NULL,
-				"restore SA filed line#%d in %s: %s\n",
-				line, lcconf->pathinfo[LC_PATHTYPE_BACKUPSA], ipsec_strerror());
-		}
-#endif
 		racoon_free(src);
 		racoon_free(dst);
 		racoon_free(keymat);

@@ -1,0 +1,182 @@
+#! /usr/bin/python
+#
+# Copyright (C) 1998,1999,2000,2001,2002 by the Free Software Foundation, Inc.
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.
+
+"""Create plist for all mailing lists.
+
+Usage: %(program)s -o outputfile
+
+    Create a property list file with list and member data
+
+    --outputfile filename
+    -o filename
+        Destinatin file for property list.
+
+    -h / --help
+        Print this text and exit.
+
+"""
+
+import sys
+import getopt
+import paths
+
+from Mailman import mm_cfg
+from Mailman import MailList
+from Mailman import Utils
+from Mailman import Errors
+from Mailman import MemberAdaptor
+from Mailman.i18n import _
+
+program = sys.argv[0]
+
+def usage(code, msg=''):
+    if code:
+        fd = sys.stderr
+    else:
+        fd = sys.stdout
+    print >> fd, _(__doc__)
+    if msg:
+        print >> fd, msg
+    sys.exit(code)
+
+
+
+def main():
+    try:
+        opts, args = getopt.getopt(sys.argv[1:], 'o:h', ['outputfile=', 'help'])
+    except getopt.error, msg:
+        usage(1, msg)
+
+    # defaults
+    outfile = None
+    for opt, arg in opts:
+        if opt in ('-h', '--help'):
+            usage(0)
+        elif opt in ('-o', '--outputfile'):
+            outfile = arg
+
+    if outfile is None:
+        usage(1, _('Error: Output file required\n'))
+
+    f = open(outfile, "w")   # Open file for writing
+
+    names = Utils.list_names()
+    names.sort()
+
+    print >>f,"<?xml version=\"1.0\" encoding=\"UTF-8\"?>"
+    print >>f,"<!DOCTYPE plist PUBLIC \"-//Apple Computer//DTD PLIST 1.0//EN\" \"http://www.apple.com/DTDs/PropertyList-1.0.dtd\">"
+    print >>f,"<plist version=\"1.0\">"
+    print >>f,"<dict>"
+    print >>f,"	<key>lists</key>"
+    print >>f,"	<array>"
+
+    mlists = []
+    rmembers = []
+    dmembers = []
+    for n in names:
+        mlist = MailList.MailList(n, lock=0)
+        print >>f,"		<dict>"
+        print >>f,"			<key>_id_</key>"
+        print >>f,"			<string>%s</string>" % (mlist.real_name.lower())
+        print >>f,"			<key>list_name</key>"
+        print >>f,"			<string>%s</string>" % (mlist.real_name)
+        alist = mlist
+        rmembers = alist.getRegularMemberKeys()
+        dmembers = alist.getDigestMemberKeys()
+        print >>f,"			<key>members</key>"
+        print >>f,"			<array>"
+        listowner = None
+        for member in rmembers:
+            print >>f,"				<dict>"
+            print >>f,"					<key>_id_</key>"
+            print >>f,"					<string>%s</string>" % (member)
+            print >>f,"					<key>owner</key>"
+            if member not in (alist.owner):
+                print >>f,"					<false/>"
+            else:
+                print >>f,"					<true/>"
+                if listowner is None:
+                    listowner = member
+            print >>f,"					<key>group</key>"
+            print >>f,"					<false/>"
+            print >>f,"					<key>post</key>"
+            if alist.getMemberOption(member, mm_cfg.Moderate):
+                print >>f,"					<false/>"
+            else:
+                print >>f,"					<true/>"
+            print >>f,"					<key>subscribe</key>"
+            status = alist.getDeliveryStatus(member)
+            if status <> MemberAdaptor.ENABLED:
+                print >>f,"					<false/>"
+            else:
+                print >>f,"					<true/>"
+            print >>f,"				</dict>"
+        for member in dmembers:
+            print >>f,"				<dict>"
+            print >>f,"					<key>_id_</key>"
+            print >>f,"					<string>%s</string>" % (member)
+            print >>f,"					<key>owner</key>"
+            if member not in (alist.owner):
+                print >>f,"					<false/>"
+            else:
+                print >>f,"					<true/>"
+                if listowner is None:
+                    listowner = member
+            print >>f,"					<key>post</key>"
+            if member not in (alist.reject_these_nonmembers):
+                print >>f,"					<true/>"
+            else:
+                print >>f,"					<false/>"
+            print >>f,"					<key>subscribe</key>"
+            status = alist.getDeliveryStatus(member)
+            if status <> MemberAdaptor.ENABLED:
+                print >>f,"					<false/>"
+            else:
+                print >>f,"					<true/>"
+            print >>f,"				</dict>"
+        print >>f,"			</array>"
+        print >>f,"			<key>subscribe_policy</key>"
+        if alist.subscribe_policy == 1:
+            print >>f,"			<string>confirm</string>"
+        elif alist.subscribe_policy == 2:
+            print >>f,"			<string>approve</string>"
+        else:
+            print >>f,"			<string>confirm+approve</string>"
+        if listowner is not None:
+            print >>f,"			<key>list_admin</key>"
+            print >>f,"				<string>%s</string>" % (listowner)
+        print >>f,"			<key>preferred_language</key>"
+        print >>f,"				<string>%s</string>" % (alist.preferred_language)
+        print >>f,"			<key>available_languages</key>"
+        print >>f,"				<string>%s</string>" % (alist.available_languages)
+        print >>f,"			<key>max_message_size</key>"
+        print >>f,"				<integer>%d</integer>" % (alist.max_message_size)
+        print >>f,"		</dict>"
+        mlists.append(mlist)
+
+    print >>f,"	</array>"
+    print >>f,"</dict>"
+    print >>f,"</plist>"
+    f.close()
+
+    print len(mlists), _('mailing lists found.')
+
+
+
+if __name__ == '__main__':
+    main()

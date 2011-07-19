@@ -94,7 +94,7 @@ OSMetaClassDefineReservedUnused(IOHIDElement, 30);
 OSMetaClassDefineReservedUnused(IOHIDElement, 31);
 	
 #define super IOHIDElement
-OSDefineMetaClassAndStructors( IOHIDElementPrivate, super )
+OSDefineMetaClassAndStructors( IOHIDElementPrivate, IOHIDElement )
 
 //---------------------------------------------------------------------------
 // 

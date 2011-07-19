@@ -18,11 +18,6 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 #include "config.h"
-#if HAVE_SECURITY
-#include <Security/Authorization.h>
-#include <Security/AuthorizationTags.h>
-#include <Security/AuthSession.h>
-#endif
 #include <sys/types.h>
 #include <sys/select.h>
 #include <sys/event.h>
@@ -41,11 +36,12 @@
 #include <signal.h>
 #include <netdb.h>
 
-#include "launch.h"
-
-#if __GNUC__ >= 4 && HAVE_SECURITY
-OSStatus SessionCreate(SessionCreationFlags flags, SessionAttributeBits attributes) __attribute__((weak));
+#if !TARGET_OS_EMBEDDED
+#include <bsm/audit.h>
+#include <bsm/audit_session.h>
 #endif
+
+#include "launch.h"
 
 static int kq = 0;
 
@@ -181,7 +177,7 @@ int main(int argc __attribute__((unused)), char *argv[])
 			switch (fork()) {
 			case -1:
 				syslog(LOG_WARNING, "fork(): %m");
-				if( errno != ENOMEM ) {
+				if (errno != ENOMEM) {
 					continue;
 				}
 				goto out;
@@ -194,14 +190,20 @@ int main(int argc __attribute__((unused)), char *argv[])
 
 			setpgid(0, 0);
 
-#if HAVE_SECURITY
+#if !TARGET_OS_EMBEDDED
 			if ((tmp = launch_data_dict_lookup(resp, LAUNCH_JOBKEY_SESSIONCREATE)) && launch_data_get_bool(tmp)) {
-				if (SessionCreate) {
-					OSStatus scr = SessionCreate(0, 0);
-					if (scr != noErr)
-						syslog(LOG_NOTICE, "%s: SessionCreate() failed: %d", prog, scr);
+				auditinfo_addr_t auinfo = {
+					.ai_termid = { .at_type = AU_IPv4 },
+					.ai_asid = AU_ASSIGN_ASID,
+					.ai_auid = getuid(),
+					.ai_flags = 0,
+				};
+				if (setaudit_addr(&auinfo, sizeof(auinfo)) == 0) {
+					char session[16]; 
+					snprintf(session, sizeof(session), "%x", auinfo.ai_asid);
+					setenv("SECURITYSESSIONID", session, 1);
 				} else {
-					syslog(LOG_NOTICE, "%s: SessionCreate == NULL!", prog);
+					syslog(LOG_NOTICE, "%s: Setting Audit Session ID failed: %d", prog, errno);
 				}
 			}
 #endif

@@ -82,7 +82,7 @@ MDSRCS += ldbl64.s
 
 CFLAGS_CANCELABLE= -DVARIANT_CANCELABLE
 CFLAGS_DARWINEXTSN= -DVARIANT_DARWINEXTSN
-CFLAGS_DYLD= -DVARIANT_DYLD
+CFLAGS_DYLD= -DVARIANT_DYLD -DVARIANT_CANCELABLE -DVARIANT_DARWINEXTSN -U__DARWIN_NON_CANCELABLE -D__DARWIN_NON_CANCELABLE=0
 CFLAGS_INODE32= -U__DARWIN_64_BIT_INO_T -D__DARWIN_64_BIT_INO_T=0 -DVARIANT_INODE32
 CFLAGS_LDBL= -mlong-double-64 -DLDBL_COMPAT
 CFLAGS_LEGACY= -U__DARWIN_UNIX03 -D__DARWIN_UNIX03=0 -U__DARWIN_64_BIT_INO_T -D__DARWIN_64_BIT_INO_T=0 -DVARIANT_LEGACY
@@ -111,22 +111,22 @@ ${_v:H:S,/,,}_BUILDING_VARIANT = -DBUILDING_VARIANT
 ${_v:H:S,/,,}:
 .ifdef ${_v:H:S,/,,}SRCS
 	${MKDIR} ${MAKEOBJDIR}/${_v:H:S,/,,}; \
-	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}
+	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" VARIANTINC="-I${MAKEOBJDIR}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}
 .endif
 ${_v:H:S,/,,}_D:
 .ifdef ${_v:H:S,/,,}SRCS
 	${MKDIR} ${MAKEOBJDIR}/${_v:H:S,/,,}; \
-	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_D
+	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" VARIANTINC="-I${MAKEOBJDIR}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_D
 .endif
 ${_v:H:S,/,,}_P:
 .ifdef ${_v:H:S,/,,}SRCS
 	${MKDIR} ${MAKEOBJDIR}/${_v:H:S,/,,}; \
-	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_P
+	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="-DBUILDING_VARIANT ${_v:T:S/@/ /g}" VARIANTINC="-I${MAKEOBJDIR}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_P
 .endif
 ${_v:H:S,/,,}_S:
 .ifdef ${_v:H:S,/,,}SRCS
 	${MKDIR} ${MAKEOBJDIR}/${_v:H:S,/,,}; \
-	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="${${_v:H:S,/,,}_BUILDING_VARIANT} ${_v:T:S/@/ /g}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_S
+	MAKEOBJDIR="${MAKEOBJDIR}/${_v:H:S,/,,}" VARIANTCFLAGS="${${_v:H:S,/,,}_BUILDING_VARIANT} ${_v:T:S/@/ /g}" VARIANTINC="-I${MAKEOBJDIR}" ${MYBSDMAKE} -C "${.CURDIR}" build_${_v:H:S,/,,}_S
 .endif
 .endfor
 
@@ -321,22 +321,25 @@ UUIDFLAGS= -include uuid-config.h
 	${MYCC} -static -x assembler-with-cpp \
 	    ${PRECFLAGS:M-[BIDFU]*} ${PRECFLAGS-${.IMPSRC:T}:M-[BIDFU]*} \
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
-	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+	    ${VARIANTCFLAGS:M-[BIDFU]*} -Os ${OPTIMIZE-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
 .s.po .S.po:
 	${MYCC} -pg -x assembler-with-cpp -DPROFILE \
 	    ${PRECFLAGS:M-[BIDFU]*} ${PRECFLAGS-${.IMPSRC:T}:M-[BIDFU]*} \
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
-	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+	    ${VARIANTCFLAGS:M-[BIDFU]*} -Os ${OPTIMIZE-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
 .s.So .S.So:
 	${MYCC} -x assembler-with-cpp \
 	    ${PRECFLAGS:M-[BIDFU]*} ${PRECFLAGS-${.IMPSRC:T}:M-[BIDFU]*} \
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
-	    -Os ${OPTIMIZE-${.IMPSRC:T}} -c ${.IMPSRC} -o ${.TARGET}
+	    ${VARIANTCFLAGS:M-[BIDFU]*} -Os ${OPTIMIZE-${.IMPSRC:T}} \
+	    -c ${.IMPSRC} -o ${.TARGET}
 .s.do .S.do:
 	${MYCC} -x assembler-with-cpp -DDEBUG \
 	    ${PRECFLAGS:M-[BIDFU]*} ${PRECFLAGS-${.IMPSRC:T}:M-[BIDFU]*} \
 	    ${CFLAGS:M-[BIDFU]*} ${CFLAGS-${.IMPSRC:T}:M-[BIDFU]*} ${AINC} \
-	    -c ${.IMPSRC} -o ${.TARGET}
+	    ${VARIANTCFLAGS:M-[BIDFU]*} -c ${.IMPSRC} -o ${.TARGET}
 
 #### mig Rules ########################################################
 .defs.h .defsUser.c .defsServer.c:
@@ -345,33 +348,46 @@ UUIDFLAGS= -include uuid-config.h
 gen_mig_defs: ${SRVMIGHDRS} ${MIGHDRS}
 gen_md_mig_defs: ${MD_MIGHDRS}
 
+#### CrashReporterClient Rules ########################################
+.ifdef FEATURE_NO_LIBCRASHREPORTERCLIENT
+CRASHREPORTERCLIENTOBJ =
+.else # !FEATURE_NO_LIBCRASHREPORTERCLIENT
+CRASHREPORTERCLIENT = CrashReporterClient
+CRASHREPORTERCLIENTOBJ = ${CRASHREPORTERCLIENT}.${OBJSUFFIX}
+LIBCRASHREPORTERCLIENT = lib${CRASHREPORTERCLIENT}.a
+${CRASHREPORTERCLIENTOBJ}: ${SDKROOT}/usr/local/lib/${LIBCRASHREPORTERCLIENT}
+	ditto -arch ${MACHINE_ARCH} $> ${LIBCRASHREPORTERCLIENT}
+	ar x ${LIBCRASHREPORTERCLIENT}
+	mv ${CRASHREPORTERCLIENT}.o $@
+.endif # !FEATURE_NO_LIBCRASHREPORTERCLIENT
+
 #### Library Rules ####################################################
 ${VARIANTCOMBOS:N*DYLD*} ${OBJS} ${STATICOBJS}: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h
-lib${LIB}_static.a:: ${VARIANTCOMBOS:N*DYLD*} ${OBJS} ${STATICOBJS}
+lib${LIB}_static.a:: ${BUILDFIRST} ${VARIANTCOMBOS:N*DYLD*} ${OBJS} ${STATICOBJS} ${CRASHREPORTERCLIENTOBJ}
 	@${ECHO} building static ${LIB} library
 	@${RM} lib${LIB}_static.a
-	@${AR} cq lib${LIB}_static.a `${LORDER} ${OBJS} ${STATICOBJS} ${VARIANTOBJS} | ${TSORT} -q`
+	@${AR} cq lib${LIB}_static.a `${LORDER} ${OBJS} ${STATICOBJS} ${VARIANTOBJS} ${CRASHREPORTERCLIENTOBJ} | ${TSORT} -q`
 	${RANLIB} lib${LIB}_static.a
 
 ${VARIANTCOMBOS:N*DYLD*:S/$/_P/g} ${POBJS}: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h
-lib${LIB}_profile.a:: ${VARIANTCOMBOS:N*DYLD*:S/$/_P/g} ${POBJS}
+lib${LIB}_profile.a:: ${BUILDFIRST} ${VARIANTCOMBOS:N*DYLD*:S/$/_P/g} ${POBJS} ${CRASHREPORTERCLIENTOBJ}
 	@${ECHO} building profiled ${LIB} library
 	@${RM} lib${LIB}_profile.a
-	@${AR} cq lib${LIB}_profile.a `${LORDER} ${POBJS} ${VARIANTPOBJS} | ${TSORT} -q`
+	@${AR} cq lib${LIB}_profile.a `${LORDER} ${POBJS} ${VARIANTPOBJS} ${CRASHREPORTERCLIENTOBJ} | ${TSORT} -q`
 	${RANLIB} lib${LIB}_profile.a
 
 ${VARIANTCOMBOS:N*DYLD*:S/$/_D/g} ${DOBJS}: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h
-lib${LIB}_debug.a:: ${VARIANTCOMBOS:N*DYLD*:S/$/_D/g} ${DOBJS}
+lib${LIB}_debug.a:: ${BUILDFIRST} ${VARIANTCOMBOS:N*DYLD*:S/$/_D/g} ${DOBJS} ${CRASHREPORTERCLIENTOBJ}
 	@${ECHO} building debug ${LIB} library
 	@${RM} lib${LIB}_debug.a
-	@${AR} cq lib${LIB}_debug.a `${LORDER} ${DOBJS} ${VARIANTDOBJS} | ${TSORT} -q`
+	@${AR} cq lib${LIB}_debug.a `${LORDER} ${DOBJS} ${VARIANTDOBJS} ${CRASHREPORTERCLIENTOBJ} | ${TSORT} -q`
 	${RANLIB} lib${LIB}_debug.a
 
 ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS}: ${SYMROOTINC}/${MACHINE_ARCH}/libc-features.h
-lib${LIB}.a:: ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS}
+lib${LIB}.a:: ${BUILDFIRST} ${VARIANTCOMBOS:S/$/_S/g} ${SOBJS} ${CRASHREPORTERCLIENTOBJ}
 	@${ECHO} building standard ${LIB} library
 	@${RM} lib${LIB}.a
-	@${AR} cq lib${LIB}.a `${LORDER} ${SOBJS} ${VARIANTSOBJS} | ${TSORT} -q`
+	@${AR} cq lib${LIB}.a `${LORDER} ${SOBJS} ${VARIANTSOBJS} ${CRASHREPORTERCLIENTOBJ} | ${TSORT} -q`
 	${RANLIB} lib${LIB}.a
 	@${ECHO} building custom ${LIB} library for dyld
 	@${RM} lib${LIB}-dyld.a

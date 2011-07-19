@@ -1,24 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
-<dict>
-	<key>OpenSourceProject</key>
-	<string>hunspell</string>
-	<key>OpenSourceVersion</key>
-	<string>1.2.8</string>
-	<key>OpenSourceWebsiteURL</key>
-	<string>http://hunspell.sourceforge.net/</string>
-	<key>OpenSourceURL</key>
-	<string>http://downloads.sourceforge.net/hunspell/hunspell-1.2.8.tar.gz</string>
-	<key>OpenSourceSHA1</key>
-	<string>eaa76f82fcf08678e49f7a30afdaa268bcc75235</string>
-	<key>OpenSourceImportDate</key>
-	<string>2008-11-20</string>
-	<key>OpenSourceModifications</key>
-	<array>
-		<string>Minor patches to configure script to conform to B&I restrictions.</string>
-	</array>
-	<key>OpenSourceLicense</key>
-	<string>MPL</string>
-	<key>OpenSourceLicenseFile</key>
-	<string>hunspell.txt</string>
-</dict>
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>hunspell</string>
+		<key>OpenSourceVersion</key>
+		<string>1.2.8</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://hunspell.sourceforge.net/</string>
+		<key>OpenSourceURL</key>
+		<string>http://downloads.sourceforge.net/hunspell/hunspell-1.2.8.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>eaa76f82fcf08678e49f7a30afdaa268bcc75235</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-11-20</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Minor patches to configure script to conform to B&amp;I restrictions.</string>
+		</array>
+		<key>OpenSourceLicense</key>
+		<string>MPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>hunspell.txt</string>
+	</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>sjp.pl</string>
+		<key>OpenSourceVersion</key>
+		<string>20080831</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.sjp.pl/slownik/en/</string>
+		<key>OpenSourceURL</key>
+		<string>http://sjp.pl/slownik/ort/sjp-myspell-pl-20080831.zip</string>
+		<key>OpenSourceSHA1</key>
+		<string>f08fb10fb30c53079379b2e957386cdef1663480</string>
+		<key>OpenSourceImportDate</key>
+		<string>2008-12-18</string>
+		<key>OpenSourceLicense</key>
+		<string>MPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>sjp.pl.txt</string>
+	</dict>
+</array>
 </plist>

@@ -140,12 +140,12 @@ static struct ps_prochandle* createProcAndSymbolicator(pid_t pid, task_t task, i
 				dt_dprintf("pid %d: kCSNotificationPing (value: %d)\n", CSSymbolicatorGetPid(data.symbolicator), data.u.ping.value);
 				// We're faking a "POSTINIT" breakpoint here.
 				if (should_queue_proc_activity_notices)
-					Pcreate_async_proc_activity(proc, RD_POSTINIT);
+					Pcreate_sync_proc_activity(proc, RD_POSTINIT);
 				break;
 				
 			case kCSNotificationInitialized:
 				dt_dprintf("pid %d: kCSNotificationInitialized\n", CSSymbolicatorGetPid(data.symbolicator));
-				// We're faking a "PREINIT" breakpoint here.
+				// We're faking a "PREINIT" breakpoint here. NOTE! The target is not actually suspended at this point. Racey!
 				if (should_queue_proc_activity_notices)
 					Pcreate_async_proc_activity(proc, RD_PREINIT);
 				break;
@@ -552,19 +552,26 @@ Pxlookup_by_addr(
 	// if (![symbol isFunction]) symbol = nil;
 	
 	if (!CSIsNull(symbol)) {
-		if (_dtrace_mangled) {
-			const char *mangledName = CSSymbolGetMangledName(symbol);
-			if (strlen(mangledName) >= 3 &&
-			    mangledName[0] == '_' &&
-			    mangledName[1] == '_' &&
-			    mangledName[2] == 'Z') {
-				// mangled name - use it
-				strncpy(sym_name_buffer, mangledName, bufsize);
-			} else {
+		if (CSSymbolIsUnnamed(symbol)) {
+			if (CSArchitectureIs64Bit(CSSymbolOwnerGetArchitecture(CSSymbolGetSymbolOwner(symbol))))
+				snprintf(sym_name_buffer, bufsize, "0x%016llx", CSSymbolGetRange(symbol).location);
+			else
+				snprintf(sym_name_buffer, bufsize, "0x%08llx", CSSymbolGetRange(symbol).location);
+		} else {
+			if (_dtrace_mangled) {
+				const char *mangledName = CSSymbolGetMangledName(symbol);
+				if (strlen(mangledName) >= 3 &&
+				    mangledName[0] == '_' &&
+				    mangledName[1] == '_' &&
+				    mangledName[2] == 'Z') {
+					// mangled name - use it
+					strncpy(sym_name_buffer, mangledName, bufsize);
+				} else {
+					strncpy(sym_name_buffer, CSSymbolGetName(symbol), bufsize);
+				}
+			} else
 				strncpy(sym_name_buffer, CSSymbolGetName(symbol), bufsize);
-			}
-		} else
-			strncpy(sym_name_buffer, CSSymbolGetName(symbol), bufsize);
+		}
 		err = 0;
 		
 		if (symbolp) {
@@ -871,6 +878,9 @@ int Psymbol_iter_by_addr(struct ps_prochandle *P, const char *object_name, int w
 					return; // Bail out on error.
 				
 				if (CSSymbolIsDyldStub(symbol)) // We never instrument dyld stubs
+					return;
+				
+				if (CSSymbolIsUnnamed(symbol)) // Do not use symbols with NULL names
 					return;
 				
 				if ((mask & TYPE_FUNC) && !CSSymbolIsFunction(symbol))

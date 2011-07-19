@@ -46,6 +46,8 @@ and
 calls to complete the HMAC operation.  In addition there is a one shot function,
 .Fn CCHmac
 that performs a complete HMAC on a single piece of data.
+.Sh HISTORY
+These functions are available in OS X 10.5 and later.
 .Sh SEE ALSO
 .Xr CC_MD5 3cc ,
 .Xr CC_SHA 3cc ,

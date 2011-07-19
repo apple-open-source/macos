@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,7 +51,7 @@ CFDataRef SingleDiskRep::identification()
 {
 	SHA1 hash;
 	this->fd().seek(0);
-	hashFileData(this->fd(), hash);
+	hashFileData(this->fd(), &hash);
 	SHA1::Digest digest;
 	hash.finish(digest);
 	return makeCFData(digest, sizeof(digest));
@@ -69,20 +69,6 @@ CFURLRef SingleDiskRep::canonicalPath()
 string SingleDiskRep::mainExecutablePath()
 {
 	return mPath;
-}
-
-
-//
-// The recommended identifier of a SingleDiskRep is, absent any better clue,
-// the basename of its path.
-//
-string SingleDiskRep::recommendedIdentifier()
-{	
-	string::size_type p = mPath.rfind('/');
-	if (p == string::npos)
-		return mPath;
-	else
-		return mPath.substr(p+1);
 }
 
 
@@ -113,6 +99,16 @@ FileDesc &SingleDiskRep::fd()
 void SingleDiskRep::flush()
 {
 	mFd.close();
+}
+
+
+//
+// The recommended identifier of a SingleDiskRep is, absent any better clue,
+// the basename of its path.
+//
+string SingleDiskRep::recommendedIdentifier(const SigningContext &)
+{
+	return canonicalIdentifier(mPath);
 }
 
 

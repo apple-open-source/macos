@@ -1,3 +1,313 @@
+# ------------------------------------------------------------------------------
+#  ChangeLog
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: ChangeLog,v 1.218 2010/05/31 14:56:44 oehhar Exp $
+# ------------------------------------------------------------------------------
+
+2010-05-31 Harald Oehlmann < oehhar@users.sourceforge.net>
+
+	* listbox.html Reflected patch 2010-05-12 in documentation.
+	The selection may not be disabled any more by binding button 1.
+
+2010-05-12 Harald Oehlmann < oehhar@users.sourceforge.net>
+
+	* listbox.tcl(ListBox::bindText and ListBox::bindImage)
+	Method bindText and bindImage overwrote internal selection
+	bindings [Bug 3000293] reported by Robert Karen.
+
+2010-05-11 Harald Oehlmann < oehhar@users.sourceforge.net>
+
+	* listbox.tcl(ListBox::see) Method see shifts image out of
+	view. Showed up, by a selection click on a long item with icon
+	[Bug 2999764] reported by Robert Karen.
+
+2010-05-05 Harald Oehlmann < oehhar@users.sourceforge.net>
+
+	* listbox.tcl(ListBox::_configureSelectmode) Drag modifies
+	multiple selection [Bug 2995969] reported by Robert Karen.
+	Bound events on ButtonRelease-1 instead Button-1 for multiple
+	selections to avoid bug.
+	* listbox.tcl(ListBox::_drag_and_drop) The default drag and drop
+	routine only handled single drag and drop.
+	It was extended to handle also drag and drop of multiple entries.
+
+2009-09-11 Johann Oberdorfer  <oberdorfer@users.sourceforge.net>
+
+        * button.tcl, "BWSlim.Toolbutton" style related change to ensure that
+	  a button created with "-style BWSlim.Toolbutton" keeps it's layout	  
+
+2009-09-10 Johann Oberdorfer  <oberdorfer@users.sourceforge.net>
+
+        * combobox hottrack motion bug fixed:
+          "after idle" should fix the problem with very long listbox text items
+          which caused under certain circumstances a complete crash (CDE freeze)
+          this happened under AIX5.3 and CDE, running under tcl/Tk 8.4.7,
+
+2009-09-05 Johann Oberdorfer  <oberdorfer@users.sourceforge.net>
+
+	*** BWidget revitalization to make usage of ttk ***
+        * pkgIndex.tcl,   updated to 1.9.1, themeutils.tcl added, requ.
+	                  initialization sequence
+	* themeutils.tcl, theme support file added
+	* widget.tcl,     various changes related to ttk added
+	* init,tcl,       BWidget::set_themedefaults "initialize" added
+	* --
+	  arrow.tcl, button.tcl, buttonbox.tcl, color.tcl, dialog.tcl,
+	  entry.tcl, font.tcl, label.tcl, labelframe.tcl, 
+	  listbox.tcl, mainframe.tcl, messagedlg.tcl, pagesmgr.tcl,
+	  panedw.tcl, panelframe.tcl, passwddlg.tcl, progressbar.tcl,
+	  scrollframe.tcl, scrollview.tcl, scrollw.tcl, separator.tcl,
+	  spinbox.tcl, statusbar.tcl, titleframe.tcl, combobox.tcl,
+	  notebook.tcl
+  	  -- theme related mod's done
+	* utils.tcl, BWidget::bindMiddleMouseMovement added,
+	* tree.tcl,  BWidget::bindMiddleMouseMovement added),
+		    
+          -- open issues:
+	       Tk*Font as default font (like in dynhelp.tcl),
+	       tree.tcl _themechanged proc' not perfect for existing
+	       tree item colorization (expanding a branch after changing
+	       the style still shows the previous fill color !)
+
+          -- note: --
+	  **** package ready for testing ***
+
+2009-09-03 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* util.tcl(BWidget::place), BWidget.html Widget placed incorrectly,
+	when bigger than current screen [Bug 2850031] by Thomas Grausgruber
+	Possible incompatibility: BWidget::place w h -> w,h are reduced to
+	screen width.
+	* dynhelp.tcl Added part of last patch, for pre 8.5 tcl from BWidget
+    branch [Patch 2835180].
+
+2009-08-12 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* dynhelp.tcl Use balloon help font TkTooltipFont
+	[Patch 2835180] for Kevin Walzer
+	* dynhelp.tcl(DynamicHelp::_show_help)Replaced aqua conditional code
+	check by $Widget::_aqua
+
+2009-08-04 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* notebook.tcl (NoteBook::delete) Method delete destroyframe=1 and
+	reinsertion -> raise failed - state variables were deleted.
+	[Bug 2831785] by kjnash
+	* tree.tcl (Tree::_keynav) Fire virtual event <<TreeSelect>> also on
+	keyboard navigation [Patch 2828086] by Kevin Walzer
+	* combobox.tcl Replaced aqua conditional code check by $Widget::_aqua
+
+2009-07-24 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	**** BWidget 1.9.0 tagged ****
+
+	* pkgIndex.tcl, README.txt: updated to BWidget 1.9
+
+2009-07-23 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* tree.tcl (Tree::_set_help), Tree.html DynamicHelp -helpcmd added to
+	tree node help
+	* tree.tcl (Tree::_draw_subnodes) a vertical line to a virtual root node
+	above the widget is only drawn when there are multiple child nodes.
+	This reverts the modification dated 2004-04-21 for this case.
+	[Patch 2825354] by Koen Danckaert
+
+2009-07-17 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* scrollframe.tcl (ScrollableFrame::create et al) ScrollableFrame.html
+	Background color of canvas takes the color of the scrolled frame.
+	If themed, canvas takes the themed color of the scrolled themed frame.
+	If themed, parameters -background and -bg are not available(doc + code).
+	[Patch 2822970] by Koen Danckaert
+
+2009-07-15 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* dynhelp.tcl (DynamicHelp) Typo from yesterday corrected
+	[Patch 2820851] by Koen Danckaert
+
+2009-07-14 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* dynhelp.tcl (DynamicHelp::_leave_info et al) issues:
+	- menu help sometimes not cleared when clicking off-window (unix)
+	- "-helpcmd" available also when dynamichelp is included in another
+	  widget.
+	- given "-helpcmd" always called at global scope.
+	- Protect against multiple calls of <Leave> event.
+	[Patch 2820851] by Koen Danckaert
+
+2009-07-07 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* combobox.tcl (ComboBox::_select) Do not export selection if
+	-exportselection 0 [Patch 981545] by Jeffrey Hobbs
+
+2009-07-02 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* widget.tcl (Widget::configure) Bug: ProgressDlg option -geometry
+	not setable. The former patch was improved.
+	Koen Danckaert and myself argued, that we modify symptoms without
+	basic understandings. Anyway, better now than before.
+
+2009-07-01 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* mainframe.tcl, MainFrame.html (MainFrame::getmenustate)
+	Added method getmenustate to return menu tag state
+	[Bug 948063] reported by Rolf Ade
+
+	* combobox.tcl (ComboBox::configure) Bug fixed: Widget did not take
+	focus, when -editable false and "configure -state normal" called.
+	[Bug 756334] reported by Rolf Ade
+	
+	* widget.tcl (Widget::configure) Bug: ProgressDlg option -bg not
+	setable. The special handling of subwidgets with special class or
+	path ":cmd" was improved. [Bug 611477]
+	
+	* notebook.tcl (NoteBook::_itemconfigure) Not honored option:
+	itemconfigure ... -helptext [Patch 2814050] by Koen Danckaert
+	
+2009-06-30 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* buttonbox.tcl (ButtonBox::_redraw) Bug corrected:
+	-uniform gridding option is used if tcl version >= 8.4 (not 8.3).
+	[Patch 2807147] by Koen Danckaert
+
+	* tree.tcl (Tree::_drop_cmd) If there is no node, drop didn't work.
+	[Bug 1042613] reported by Rolf Ade
+	
+	* Tree.html Bind commands: removed promise that %W would work in future.
+	The underlying widgets should only be manipulated using the node id.
+	[Bug 1224203] by Jasper Taylor, remarks by J. Tang 
+
+	* Tree.html Bind commands: with -selectfill, the given command is
+	overwritten for the background box. [Bug 1003962] by Torsten Berg
+	
+	* dropsite.tcl (DropSite::register) Bug fixed: fails on multiple drop
+	targets [Bug 1213123] by T.Neil
+
+	* combobox.tcl (ComboBox::_create_popup) Bug fixed: Return key in drop
+	down list when -bwlistbox true [Bug 1205536] patch by Steve Landers
+	
+	* combobox.tcl (ComboBox::_create_popup, ComboBox::_unmapliste)
+	Mac aqua and x11 fixes, multi screen issue still open.
+	[Bug 1451784] report by Jasper Taylor, fix by Kevin Walzer
+
+	* listbox.tcl (ListBox::_multiple_select) Selected item not deselected
+	on control-click [Bug 1029144] reported by Konrad Rosenbaum
+	
+
+2009-06-29 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* ScrolledWindow.html ScrolledWindow documentation changed:
+	Documented options: -ipad, -sides, -size, -managed
+	[Patch 2807160] Text by Koen Danckaert
+	Removed (read only) remark of option -scrollbar.
+	
+	* scrollframe.tcl (ScrollableFrame::create) changed bindings
+	[Patch 2807227] by Koen Danckaert (comment)
+	
+	* scrollw.tcl (ScrolledWindow::_set_hscroll, ScrolledWindow::_set_vscroll)
+	Bug corrected: enless loop when both scrollbars where automatically
+	mapped and the window size was changed by this action (on linux).
+	Scrollbar unmapping and mapping secured by a locked update [Bug 2783019]
+
+	* widget.tcl (Widget::tkinclude) : option data base entry name keeps the
+	original name and not the renamed name.
+	The only resulting modification is to rename the option key for
+	"MessageDlg -text" from "*MessageDlg.frame.msg.message" to
+	"*MessageDlg.frame.msg.text". [Bug 1266792]
+	
+	* widget.tcl (Widget::init) : fixed a memory leak on wrong option value.
+	[Bug 1230737] 
+	
+2009-06-26 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* listbox.tcl (ListBox::create et al) new feature: listbox option
+	-listbox now read/write [Bug 1501874] reported by Stephen Huntley
+	
+	* dynhelp.tcl (DynamicHelp::_show_help) fixed issue (as far as possible):
+	Dynamic help baloon was on the main screen, if it touched the border on
+	a windows multi screen configuration.
+	The fix assumes, that all screens have same dimensions and no gaps in-
+	between. This is necessary, because multi-screen configuration paramters
+	may not be interrogated by tk (despite of coordinates out of the screen)
+	[Bug 1499135] reported by Gregor
+
+	* notebook.tcl (NoteBook::delete) Deleted also state variables
+	[Bug 1445219] reported by Eric Kemp-Benedict
+
+2009-06-25 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* combobox.tcl (ComboBox::getvalue et al) fixed bug: getvalue returned
+	first apearence of current data instead of clicked index, which may not
+	be the same if values is not unique. Additional variable _index(path)
+	added to hold click index [Bug 1610965] reported by Martin Lemburg
+
+2009-06-24 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* scrollframe.tcl (ScrollableFrame::create, ScrollableFrame::_resize,
+	ScrollableFrame::_frameConfigure) fixed two issues:
+	- Scrollbar activated even if not necessary
+	  Fix: update scrolling reagion on configure event of the frame
+	- Disfunction if the frame got to small to be on the current view
+	  Fix: update scrolling reagion on map or unmap events
+	[Patch 2807227] by Koen Danckaert
+	
+	* buttonbox.tcl (ButtonBox::_redraw) Bug: homogeneous button width
+	not honored if button size changes after creation.
+	-uniform gridding option is used if tcl version >= 8.3.
+	[Patch 2807147] by Koen Danckaert
+	
+2009-06-16 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* combobox.tcl (ComboBox::_create_popup) In dropdown list,
+	a vertical scrollbar was always shown if horizantal is used.
+	ScrolledWindow is now called with "-managed 1".
+	[Patch 2807160] by Koen Danckaert
+
+2009-06-11 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* combobox.tcl removed \ before empty line (potential
+	trap) [Bug 2804961] Andreas Kupries
+	
+	* dialog.html Documented -geometry option.
+	[Bug 1634416] Erik Leunissen
+
+2009-06-10 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* no.rc added norwegian translation file
+	[Feature Request 2797153] provided by Lars Martin Hambro
+	
+	* passwddlg.tcl (PasswdDlg::_verifonpasswd) check for
+	disabled password field and confirm directly.
+	[Bug 1642050] (Calvin Bascom) Enter key did not confirm
+	dialog when -passwdstate disabled.
+	
+	* combobox.tcl (ComboBox::_select) included [Patch 981545],
+	but commented out - it works for me without it.
+
+2009-06-10 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* dialog.html Added documentation for option -buttonwidth
+	of Dialog
+	[Bug 1668587] (Eric Leunissen)
+
+2009-06-10 Harald Oehlmann  <oehhar@users.sourceforge.net>
+
+	* arrow.tcl initialised set _grab(oldstate) to "normal" to avoid
+	error when there is a ArrowButton::_leave without corresponding
+	ArrowButton::_enter [Bug 2762361]
+	
+	* entry.tcl (Entry::_path_command) Add "invoke" to the list of
+	internally handled commands
+	[Bug 2340320] (patch by relaxmike@users.sourceforge.net)
+	
+	* uitils.tcl (BWidget::place) BWidget::place used screen width
+	instead window width.
+	[Bug 1842346] (patch by Niels Gollesch ngoelles@users.sourceforge.net)
+	
+	* listbox.tcl (ListBox::_redraw_selection) Added check if redrawn
+	item is on the to-delete list and thus does not exist any more as
+	BWidget. [Bug 1752755] (legolas_a20@users.sourceforge.net]
+
 2008-10-30  Jeff Hobbs  <jeffh@ActiveState.com>
 
 	* tree.tcl (Tree::_node_name_rev): Return node names as they are

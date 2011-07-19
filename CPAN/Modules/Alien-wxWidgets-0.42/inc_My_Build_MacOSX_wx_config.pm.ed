@@ -1,6 +1,0 @@
-/^use strict;/a
-use Config;
-.
-/-UWX_PRECOMP/s/'/"/g
-s/";/$Config{archflags} &/
-w

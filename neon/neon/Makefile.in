@@ -1,4 +1,4 @@
-# Copyright (C) 2001-2008 Joe Orton <joe@manyfish.co.uk>
+# Copyright (C) 2001-2009 Joe Orton <joe@manyfish.co.uk>
 # Copyright (C) 1994, 1995-8, 1999, 2000 Free Software Foundation, Inc.
 # This Makefile.in is free software; the Free Software Foundation
 # gives unlimited permission to copy and/or distribute it,
@@ -62,7 +62,8 @@ LINGUAS = @ALL_LINGUAS@
 DIST_HEADERS = ne_request.h ne_session.h ne_utils.h ne_uri.h ne_socket.h  \
 	ne_basic.h ne_207.h ne_props.h ne_xml.h ne_dates.h ne_string.h	  \
 	ne_defs.h ne_locks.h ne_alloc.h ne_md5.h ne_i18n.h ne_redirect.h  \
-	ne_auth.h ne_compress.h ne_acl.h ne_ssl.h ne_xmlreq.h ne_pkcs11.h
+	ne_auth.h ne_compress.h ne_acl.h ne_ssl.h ne_xmlreq.h ne_pkcs11.h \
+	ne_acl3744.h
 
 all: subdirs
 
@@ -202,6 +203,11 @@ compile-gmo:
 	 echo "> Compiling \"$$f\" catalog:"; \
 	 $(MSGFMT) --statistics -c -o po/$$f.gmo $(top_srcdir)/po/$$f.po; \
 	done
+
+update-copyright: Makefile
+	sed -n '/^Copyright/q;p' < README > README.orig
+	(cat README.orig; grep -h Copyright src/*.[ch] po/*.po macros/*.m4 \
+		| sed -r 's/\(C\) [12].+[0-9],? /(C) /;s/^\#//;s/^dnl//;s/[ ]*//;s/ *$$//;/Orton/d' | sort -u) > README
 
 doc-status:
 	@echo -n "Missing docs for:"

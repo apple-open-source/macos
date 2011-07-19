@@ -1,5 +1,5 @@
 #$Id: testx.xotcl,v 1.36 2007/10/12 19:53:32 neumann Exp $
-package require XOTcl
+package require XOTcl 1
 namespace import -force xotcl::*
 
 proc ::errorCheck {got expected msg} {
@@ -1171,10 +1171,9 @@ filterInfo proc run {{n 20}} {
 	    my instvar a b cc
 	    return $r--${a}--[set cc]
 	}
-
 	set safedObjFilters [Object info filter]
 	Object instfilter "" 
-	C1 c1
+      	C1 c1
 	Object instfilter $safedObjFilters
 
       if {$i == 0} {
@@ -1189,7 +1188,7 @@ filterInfo proc run {{n 20}} {
 
 	set FInfo ""
 	set result [c1 m1]
-	
+
 	::errorCheck $FInfo \
 	    "{callingclass {} filterreg {::C0 instfilter infoFilter} callingobject ::filterInfo callingproc run calledproc m1} {callingclass ::C0 filterreg {::C0 instfilter infoFilter} callingobject ::c1 callingproc m1 calledproc instvar} {self ::c1 proc infoFilter class ::C0 infoclass ::C1 r {}} {callingclass ::C1 filterreg {::C0 instfilter infoFilter} callingobject ::c1 callingproc m1 calledproc instvar} {self ::c1 proc infoFilter class ::C0 infoclass ::C1 r {}} {self ::c1 proc infoFilter class ::C0 infoclass ::C1 r 1--1--1}" \
 	    "Wrong filtering of c1 m1"
@@ -1199,8 +1198,8 @@ filterInfo proc run {{n 20}} {
 	::errorCheck $result \
 	  "1--1--1" "Wrong return result of Filter Example 2 'c1 m1' "
 
-	
-	Class T0
+
+      Class T0
       FI addFilter T0
       T0 instproc m {} {
 	set e -0=showStack-1=showCall-2=m-3=m-4=m-5=run-6=run
@@ -1226,7 +1225,6 @@ filterInfo proc run {{n 20}} {
 	set r2 [next]
 	set r after-[self]-[self proc]-[self class]-[my info class]-${r1}-$r2
       }
-      
       T1 t
       
       set FInfo ""
@@ -1698,7 +1696,7 @@ TestX mixinTest -proc run {{n 10}} {
 	"Mixin: Info failed"
     
 	
-    ::errorCheck "[i2 ismixin  MovementTest]-[i4 ismixin MovementTest]-[a ismixin MovementTest]-[i3 ismixin MovementTest]-[i4 ismixin MovementTest]-[i4 ismixin MovementLog]-[i3 ismixin YXZ]-[i3 ismixin InteractiveAgent]" \
+    ::errorCheck "[i2 ismixin MovementTest]-[i4 ismixin MovementTest]-[a ismixin MovementTest]-[i3 ismixin MovementTest]-[i4 ismixin MovementTest]-[i4 ismixin MovementLog]-[i3 ismixin YXZ]-[i3 ismixin InteractiveAgent]" \
 	"1-1-0-1-1-1-0-0" \
 	"'ismixin test' failed" 
 
@@ -2980,8 +2978,10 @@ smallScripts proc run {{n 20}} {
     Object o
     o proc x args {puts r}
     ::errorCheck [o info body x] "puts r" "Info Body"
-    ::errorCheck [info body o::x] "puts r" "Info Body"
 
+  if {$::tcl_version < "8.6"} {
+    ::errorCheck [info body o::x] "puts r" "Info Body"
+  }
     Object o
     o proc a {} {
       my lappend table(i) xxx
@@ -3326,9 +3326,9 @@ TestX objectReferences -proc run {{n 20}} {
   ::errorCheck [Object ismetaclass M] 0 "is metaclass 0"
   ::errorCheck [M isclass] 0 "is isclass 0"
   ::errorCheck [Class info instances M] "" "is not an instance of Class"
-  ::errorCheck [m1 info class] ::xotcl::Object "m1 is now an instance of Object"
+  ::errorCheck [m1 info class] ::xotcl::Class "m1 is now an instance of Class"
   ::errorCheck [m1 isclass] 1 "m1 is isclass 1"
-  ::errorCheck [m1 info class] ::xotcl::Object "m1 is of class ::xotcl::Object"
+  ::errorCheck [m1 info class] ::xotcl::Class "m1 is of class ::xotcl::Class"
   M destroy
   
   # to be completed XXX

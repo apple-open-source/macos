@@ -3,6 +3,7 @@
 [copyright {2004 Reinhard Max <max@tclers.tk>}]
 [titledesc {Ident protocol client}]
 [moddesc   {Identification protocol client}]
+[category  Networking]
 [require Tcl 8.3]
 [require ident [opt 0.42]]
 [description]

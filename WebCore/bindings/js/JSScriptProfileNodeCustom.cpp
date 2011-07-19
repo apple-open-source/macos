@@ -40,9 +40,9 @@ namespace WebCore {
 
 #if ENABLE(JAVASCRIPT_DEBUGGER)
 
-JSValue JSScriptProfileNode::callUID(ExecState* exec) const
+JSValue JSScriptProfileNode::callUID(ExecState*) const
 {
-    JSValue result = jsNumber(exec, impl()->callIdentifier().hash());
+    JSValue result = jsNumber(impl()->callIdentifier().hash());
     return result;
 }
 
@@ -55,9 +55,9 @@ JSValue JSScriptProfileNode::children(ExecState* exec) const
 
     ProfileNodesList::const_iterator end = children.end();
     for (ProfileNodesList::const_iterator iter = children.begin(); iter != end; ++iter)
-        list.append(toJS(exec, iter->get()));
+        list.append(toJS(exec, globalObject(), iter->get()));
 
-    return constructArray(exec, list);
+    return constructArray(exec, globalObject(), list);
 }
 
 #endif

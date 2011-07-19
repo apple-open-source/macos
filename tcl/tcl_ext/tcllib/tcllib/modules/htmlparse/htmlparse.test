@@ -7,7 +7,7 @@
 # Copyright (c) 2001-2005 by ActiveState Tool Corp.
 # All rights reserved.
 #
-# RCS: @(#) $Id: htmlparse.test,v 1.25 2008/07/28 22:21:51 andreas_kupries Exp $
+# RCS: @(#) $Id: htmlparse.test,v 1.26 2009/02/10 20:37:22 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -163,7 +163,7 @@ test htmlparse-3.0 {incremental parsing} {
     htmlparse::parse -cmd cb -vroot foo -queue q -split 1 $html1
 
     list $tags [q size] [q peek [q size]]
-} {{} 12 {{{cb} \win\ {foo} {} {} {}} {{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}} {{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}} {{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}} {{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}} {{cb} \win\ {p} {} {} {burble}} {{cb} \win\ {body} {/} {} {}} {{cb} \win\ {html} {/} {} {}}}}
+} {{} 12 {{{cb} @win@ {foo} {} {} {}} {{cb} @win@ {html} {} {} {}} {{cb} @win@ {head} {} {} {}} {{cb} @win@ {title} {} {} {foo}} {{cb} @win@ {title} {/} {} {}} {{cb} @win@ {meta} {} {name="..."} {}} {{cb} @win@ {head} {/} {} {}} {{cb} @win@ {body} {} {} {}} {{cb} @win@ {h2} {} {} {Header}} {{cb} @win@ {p} {} {} {burble}} {{cb} @win@ {body} {/} {} {}} {{cb} @win@ {html} {/} {} {}}}}
 
 test htmlparse-3.1 {incremental parsing} {
     set tags [list]
@@ -172,13 +172,13 @@ test htmlparse-3.1 {incremental parsing} {
     htmlparse::parse -cmd cb -vroot foo -queue q -split 2 $html1
 
     list $tags [q size] [q peek [q size]]
-} {{} 6 {{{cb} \win\ {foo} {} {} {}
-{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}
-{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}
-{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}
-{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}
-{cb} \win\ {p} {} {} {burble}} {{cb} \win\ {body} {/} {} {}
-{cb} \win\ {html} {/} {} {}}}}
+} {{} 6 {{{cb} @win@ {foo} {} {} {}
+{cb} @win@ {html} {} {} {}} {{cb} @win@ {head} {} {} {}
+{cb} @win@ {title} {} {} {foo}} {{cb} @win@ {title} {/} {} {}
+{cb} @win@ {meta} {} {name="..."} {}} {{cb} @win@ {head} {/} {} {}
+{cb} @win@ {body} {} {} {}} {{cb} @win@ {h2} {} {} {Header}
+{cb} @win@ {p} {} {} {burble}} {{cb} @win@ {body} {/} {} {}
+{cb} @win@ {html} {/} {} {}}}}
 
 test htmlparse-3.2 {incremental parsing} {
     set tags [list]
@@ -188,7 +188,7 @@ test htmlparse-3.2 {incremental parsing} {
 
     htmlparse::parse -cmd cb -incvar incomplete -vroot foo -queue q -split 1 $html2
     list $tags [q size] [q peek [q size]] $incomplete
-} {{} 10 {{{cb} \win\ {foo} {} {} {}} {{cb} \win\ {html} {} {} {}} {{cb} \win\ {head} {} {} {}} {{cb} \win\ {title} {} {} {foo}} {{cb} \win\ {title} {/} {} {}} {{cb} \win\ {meta} {} {name="..."} {}} {{cb} \win\ {head} {/} {} {}} {{cb} \win\ {body} {} {} {}} {{cb} \win\ {h2} {} {} {Header}} {{cb} \win\ {p} {} {} {burble}}} </b}
+} {{} 10 {{{cb} @win@ {foo} {} {} {}} {{cb} @win@ {html} {} {} {}} {{cb} @win@ {head} {} {} {}} {{cb} @win@ {title} {} {} {foo}} {{cb} @win@ {title} {/} {} {}} {{cb} @win@ {meta} {} {name="..."} {}} {{cb} @win@ {head} {/} {} {}} {{cb} @win@ {body} {} {} {}} {{cb} @win@ {h2} {} {} {Header}} {{cb} @win@ {p} {} {} {burble}}} </b}
 
 test htmlparse-3.3 {incremental parsing} {
     set tags [list]
@@ -198,7 +198,7 @@ test htmlparse-3.3 {incremental parsing} {
 
     htmlparse::parse -cmd {cb @} -incvar incomplete -vroot foo -queue q -split 1 $html2
     list $tags [q size] [q peek [q size]] $incomplete
-} {{} 10 {{{cb} {@} \win\ {foo} {} {} {}} {{cb} {@} \win\ {html} {} {} {}} {{cb} {@} \win\ {head} {} {} {}} {{cb} {@} \win\ {title} {} {} {foo}} {{cb} {@} \win\ {title} {/} {} {}} {{cb} {@} \win\ {meta} {} {name="..."} {}} {{cb} {@} \win\ {head} {/} {} {}} {{cb} {@} \win\ {body} {} {} {}} {{cb} {@} \win\ {h2} {} {} {Header}} {{cb} {@} \win\ {p} {} {} {burble}}} </b}
+} {{} 10 {{{cb} {@} @win@ {foo} {} {} {}} {{cb} {@} @win@ {html} {} {} {}} {{cb} {@} @win@ {head} {} {} {}} {{cb} {@} @win@ {title} {} {} {foo}} {{cb} {@} @win@ {title} {/} {} {}} {{cb} {@} @win@ {meta} {} {name="..."} {}} {{cb} {@} @win@ {head} {/} {} {}} {{cb} {@} @win@ {body} {} {} {}} {{cb} {@} @win@ {h2} {} {} {Header}} {{cb} {@} @win@ {p} {} {} {burble}}} </b}
 
 
 proc cb_foo {args} {

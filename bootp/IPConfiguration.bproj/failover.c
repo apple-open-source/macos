@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 - 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -71,13 +71,14 @@ typedef struct {
 } Service_failover_t;
 
 static void
-failover_start(Service_t * service_p, IFEventID_t evid, void * event_data);
+failover_start(ServiceRef service_p, IFEventID_t evid, void * event_data);
 
 static void
-failover_cancel_pending_events(Service_t * service_p)
+failover_cancel_pending_events(ServiceRef service_p)
 {
-    Service_failover_t *	failover = (Service_failover_t *)service_p->private;
+    Service_failover_t * failover;
 
+    failover = (Service_failover_t *)ServiceGetPrivate(service_p);
     if (failover == NULL)
 	return;
     if (failover->timer) {
@@ -90,41 +91,33 @@ failover_cancel_pending_events(Service_t * service_p)
 }
 
 static void
-failover_inactive(Service_t * service_p)
+failover_inactive(ServiceRef service_p)
 {
     failover_cancel_pending_events(service_p);
     service_remove_address(service_p);
-    service_publish_failure(service_p, ipconfig_status_media_inactive_e,
-			    NULL);
+    service_publish_failure(service_p, ipconfig_status_media_inactive_e);
     return;
 }
 
 static void
-failover_timed_out(Service_t * service_p)
+failover_timed_out(ServiceRef service_p)
 {
     my_log(LOG_DEBUG, "FAILOVER %s: address timer fired", 
 	   if_name(service_interface(service_p)));
     failover_cancel_pending_events(service_p);
     service_remove_address(service_p);
-    service_publish_failure(service_p, ipconfig_status_address_timed_out_e,
-			    NULL);
+    service_publish_failure(service_p, ipconfig_status_address_timed_out_e);
     return;
 }
 
 static void
-failover_link_timer(void * arg0, void * arg1, void * arg2)
+failover_start(ServiceRef service_p, IFEventID_t evid, void * event_data)
 {
-    failover_inactive((Service_t *) arg0);
-    return;
-}
-
-static void
-failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
-{
-    Service_failover_t * failover = (Service_failover_t *)service_p->private;
+    Service_failover_t * failover;
     interface_t *	if_p = service_interface(service_p);
     struct timeval	tv;
 
+    failover = (Service_failover_t *)ServiceGetPrivate(service_p);
     switch (evid) {
       case IFEventID_start_e: {
 	  failover->address_is_verified = FALSE;
@@ -144,6 +137,7 @@ failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  break;
       }
       case IFEventID_arp_e: {
+	  link_status_t		link_status;
 	  arp_result_t *	result = (arp_result_t *)event_data;
 
 	  if (result->error) {
@@ -153,18 +147,19 @@ failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  }
 	  else {
 	      if (result->in_use) {
-		  char	msg[128];
+		  char			msg[128];
+		  struct in_addr	requested_ip;
 
+		  requested_ip = service_requested_ip_addr(service_p);
 		  snprintf(msg, sizeof(msg), 
 			   IP_FORMAT " in use by " EA_FORMAT,
-			   IP_LIST(service_requested_ip_addr_ptr(service_p)),
+			   IP_LIST(&requested_ip),
 			   EA_LIST(result->addr.target_hardware));
 		  my_log(LOG_NOTICE, "FAILOVER %s: %s", 
 			 if_name(if_p), msg);
 		  service_remove_address(service_p);
 		  service_publish_failure(service_p, 
-					  ipconfig_status_address_in_use_e,
-					  msg);
+					  ipconfig_status_address_in_use_e);
 		  tv.tv_sec = 10;
 		  tv.tv_usec = 0;
 		  timer_set_relative(failover->timer, tv, 
@@ -173,8 +168,9 @@ failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 		  break;
 	      }
 	  }
-	  if (service_link_status(service_p)->valid == TRUE 
-	      && service_link_status(service_p)->active == FALSE) {
+	  link_status = service_link_status(service_p);
+	  if (link_status.valid == TRUE 
+	      && link_status.active == FALSE) {
 	      failover_inactive(service_p);
 	      break;
 	  }
@@ -184,7 +180,7 @@ failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 				    service_requested_ip_addr(service_p),
 				    service_requested_ip_mask(service_p),
 				    G_ip_zeroes);
-	  service_publish_success(service_p, NULL, 0);
+	  ServicePublishSuccessIPv4(service_p, NULL);
 	  failover->address_is_verified = TRUE;
 	  if (failover->address_timeout_secs != 0) {
 	      tv.tv_sec = failover->address_timeout_secs;
@@ -203,18 +199,19 @@ failover_start(Service_t * service_p, IFEventID_t evid, void * event_data)
 }
 
 ipconfig_status_t
-failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
+failover_thread(ServiceRef service_p, IFEventID_t evid, void * event_data)
 {
     interface_t *	if_p = service_interface(service_p);
-    Service_failover_t *	failover = (Service_failover_t *)service_p->private;
+    Service_failover_t *failover;
     ipconfig_status_t	status = ipconfig_status_success_e;
 
+    failover = (Service_failover_t *)ServiceGetPrivate(service_p);
     switch (evid) {
       case IFEventID_start_e: {
-	  start_event_data_t *    evdata = ((start_event_data_t *)event_data);
-	  ipconfig_method_data_t *ipcfg = evdata->config.data;
+	  ipconfig_method_data_t * method_data;
 
-	  if (failover) {
+	  method_data = (ipconfig_method_data_t *)event_data;
+	  if (failover != NULL) {
 	      my_log(LOG_DEBUG, "FAILOVER %s: re-entering start state", 
 		     if_name(if_p));
 	      return (ipconfig_status_internal_error_e);
@@ -222,11 +219,6 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (if_flags(if_p) & IFF_LOOPBACK) {
 	      return (ipconfig_status_invalid_parameter_e);
 	  }
-	  status = validate_method_data_addresses(&evdata->config,
-						  ipconfig_method_failover_e,
-						  if_name(if_p));
-	  if (status != ipconfig_status_success_e)
-	      break;
 	  failover = malloc(sizeof(*failover));
 	  if (failover == NULL) {
 	      my_log(LOG_ERR, "FAILOVER %s: malloc failed", 
@@ -234,10 +226,10 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      status = ipconfig_status_allocation_failed_e;
 	      break;
 	  }
-	  service_p->private = failover;
+	  ServiceSetPrivate(service_p, failover);
 	  bzero(failover, sizeof(*failover));
-	  service_set_requested_ip_addr(service_p, ipcfg->ip[0].addr);
-	  service_set_requested_ip_mask(service_p, ipcfg->ip[0].mask);
+	  service_set_requested_ip_addr(service_p, method_data->manual.addr);
+	  service_set_requested_ip_mask(service_p, method_data->manual.mask);
 	  failover->timer = timer_callout_init();
 	  if (failover->timer == NULL) {
 	      my_log(LOG_ERR, "FAILOVER %s: timer_callout_init failed", 
@@ -251,7 +243,7 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 		     if_name(if_p));
 	      goto stop;
 	  }
-	  failover->address_timeout_secs = ipcfg->u.failover_timeout;
+	  failover->address_timeout_secs = method_data->manual.failover_timeout;
 	  my_log(LOG_DEBUG, "FAILOVER %s: starting", 
 		 if_name(if_p));
 	  failover_start(service_p, IFEventID_start_e, NULL);
@@ -278,12 +270,12 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	  if (failover) {
 	      free(failover);
 	  }
-	  service_p->private = NULL;
+	  ServiceSetPrivate(service_p, NULL);
 	  break;
       }
       case IFEventID_change_e: {
-	  change_event_data_t *   evdata = ((change_event_data_t *)event_data);
-	  ipconfig_method_data_t *ipcfg = evdata->config.data;
+	  change_event_data_t *   	change_event;
+	  ipconfig_method_data_t * 	method_data;
 
 	  if (failover == NULL) {
 	      my_log(LOG_DEBUG, "FAILOVER %s: private data is NULL", 
@@ -291,20 +283,18 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 	      status = ipconfig_status_internal_error_e;
 	      break;
 	  }
-	  status = validate_method_data_addresses(&evdata->config,
-						  ipconfig_method_failover_e,
-						  if_name(if_p));
-	  if (status != ipconfig_status_success_e)
-	      break;
-	  evdata->needs_stop = FALSE;
-	  if ((ipcfg->ip[0].addr.s_addr
+	  change_event = ((change_event_data_t *)event_data);
+	  method_data = change_event->method_data;
+	  change_event->needs_stop = FALSE;
+	  if ((method_data->manual.addr.s_addr
 	       != service_requested_ip_addr(service_p).s_addr)
-	      || (ipcfg->ip[0].mask.s_addr
+	      || (method_data->manual.mask.s_addr
 		  != service_requested_ip_mask(service_p).s_addr)) {
-	      evdata->needs_stop = TRUE;
+	      change_event->needs_stop = TRUE;
 	  }
 	  else {
-	      failover->address_timeout_secs = ipcfg->u.failover_timeout;
+	      failover->address_timeout_secs
+		  = method_data->manual.failover_timeout;
 	      if (service_is_address_set(service_p)
 		  && failover->address_is_verified) {
 		  if (failover->address_timeout_secs != 0) {
@@ -347,34 +337,31 @@ failover_thread(Service_t * service_p, IFEventID_t evid, void * event_data)
 		 if_name(if_p), msg);
 	  service_remove_address(service_p);
 	  service_publish_failure(service_p, 
-				  ipconfig_status_address_in_use_e,
-				  msg);
+				  ipconfig_status_address_in_use_e);
 	  failover_start(service_p, IFEventID_start_e, NULL);
 	  break;
       }
-      case IFEventID_media_e: {
-	  if (failover == NULL)
+      case IFEventID_link_status_changed_e: {
+	  link_status_t		link_status;
+
+	  if (failover == NULL) {
 	      return (ipconfig_status_internal_error_e);
-	  if (service_link_status(service_p)->valid == TRUE) {
-	      if (service_link_status(service_p)->active == TRUE) {
+	  }
+	  link_status = service_link_status(service_p);
+	  if (link_status.valid == TRUE) {
+	      if (link_status.active == TRUE) {
 		  failover_start(service_p, IFEventID_start_e, NULL);
 	      }
 	      else {
-		  struct timeval tv;
-
 		  failover->address_is_verified = FALSE;
-
-		  /* if link goes down and stays down long enough, unpublish */
 		  failover_cancel_pending_events(service_p);
-		  tv.tv_sec = G_link_inactive_secs;
-		  tv.tv_usec = 0;
-		  timer_set_relative(failover->timer, tv, 
-				     (timer_func_t *)failover_link_timer,
-				     service_p, NULL, NULL);
 	      }
 	  }
 	  break;
       }
+      case IFEventID_link_timer_expired_e:
+	  failover_inactive(service_p);
+	  break;
       default:
 	  break;
     } /* switch */

@@ -33,42 +33,35 @@
 
 #if ENABLE(DATABASE) && ENABLE(INSPECTOR)
 #include "Database.h"
-#include "Document.h"
-#include "Frame.h"
 #include "InspectorFrontend.h"
-#include "ScriptObject.h"
+#include "InspectorValues.h"
 
 namespace WebCore {
 
-int InspectorDatabaseResource::s_nextUnusedId = 1;
+static int nextUnusedId = 1;
 
-InspectorDatabaseResource::InspectorDatabaseResource(Database* database, const String& domain, const String& name, const String& version)
+PassRefPtr<InspectorDatabaseResource> InspectorDatabaseResource::create(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
+{
+    return adoptRef(new InspectorDatabaseResource(database, domain, name, version));
+}
+
+InspectorDatabaseResource::InspectorDatabaseResource(PassRefPtr<Database> database, const String& domain, const String& name, const String& version)
     : m_database(database)
-    , m_id(s_nextUnusedId++)
+    , m_id(nextUnusedId++)
     , m_domain(domain)
     , m_name(name)
     , m_version(version)
-    , m_scriptObjectCreated(false)
 {
 }
 
-void InspectorDatabaseResource::bind(InspectorFrontend* frontend)
+void InspectorDatabaseResource::bind(InspectorFrontend::Database* frontend)
 {
-    if (m_scriptObjectCreated)
-        return;
-
-    ScriptObject jsonObject = frontend->newScriptObject();
-    jsonObject.set("id", m_id);
-    jsonObject.set("domain", m_domain);
-    jsonObject.set("name", m_name);
-    jsonObject.set("version", m_version);
-    if (frontend->addDatabase(jsonObject))
-        m_scriptObjectCreated = true;
-}
-
-void InspectorDatabaseResource::unbind()
-{
-    m_scriptObjectCreated = false;
+    RefPtr<InspectorObject> jsonObject = InspectorObject::create();
+    jsonObject->setNumber("id", m_id);
+    jsonObject->setString("domain", m_domain);
+    jsonObject->setString("name", m_name);
+    jsonObject->setString("version", m_version);
+    frontend->addDatabase(jsonObject);
 }
 
 } // namespace WebCore

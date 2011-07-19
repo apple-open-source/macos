@@ -2,15 +2,15 @@
         <key>OpenSourceProject</key>
         <string>numpy</string>
         <key>OpenSourceVersion</key>
-        <string>1.5.0b2</string>
+        <string>1.5.1</string>
         <key>OpenSourceWebsiteURL</key>
         <string>http://numpy.scipy.org/</string>
         <key>OpenSourceURL</key>
-        <string>http://downloads.sourceforge.net/project/numpy/NumPy/1.5.0b2/numpy-1.5.0b2.tar.gz?r=http%3A%2F%2Fsourceforge.net%2Fprojects%2Fnumpy%2Ffiles%2F&ts=1282501867&mirror=superb-sea2</string>
+        <string>http://iweb.dl.sourceforge.net/project/numpy/NumPy/1.5.1/numpy-1.5.1.tar.gz</string>
         <key>OpenSourceImportDate</key>
-        <string>2010-08-22</string>
+        <string>2010-11-28</string>
         <key>OpenSourceLicense</key>
-        <string>NumPy Developers License</string>
+        <string>BSD</string>
         <key>OpenSourceLicenseFile</key>
         <string>python_modules.txt</string>
 </dict>

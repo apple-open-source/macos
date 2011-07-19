@@ -3,7 +3,7 @@
   file.c -
 
   $Author: shyouhei $
-  $Date: 2009-06-03 21:17:29 +0900 (Wed, 03 Jun 2009) $
+  $Date: 2009-07-15 11:50:57 +0900 (Wed, 15 Jul 2009) $
   created at: Mon Nov 15 12:24:34 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -3124,8 +3124,8 @@ rb_file_join(ary, sep)
 	  case T_STRING:
 	    break;
 	  case T_ARRAY:
-	    if (rb_inspecting_p(tmp)) {
-		tmp = rb_str_new2("[...]");
+	    if (tmp == ary || rb_inspecting_p(tmp)) {
+		rb_raise(rb_eArgError, "recursive array");
 	    }
 	    else {
 		VALUE args[2];

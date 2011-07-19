@@ -28,6 +28,7 @@
 #include "config.h"
 #include "StillImageQt.h"
 
+#include "ContextShadow.h"
 #include "GraphicsContext.h"
 #include "IntSize.h"
 
@@ -36,65 +37,55 @@
 namespace WebCore {
 
 StillImage::StillImage(const QPixmap& pixmap)
-    : m_pixmap(pixmap)
+    : m_pixmap(new QPixmap(pixmap))
+    , m_ownsPixmap(true)
 {}
+
+StillImage::StillImage(const QPixmap* pixmap)
+    : m_pixmap(pixmap)
+    , m_ownsPixmap(false)
+{}
+
+StillImage::~StillImage()
+{
+    if (m_ownsPixmap)
+        delete m_pixmap;
+}
 
 IntSize StillImage::size() const
 {
-    return IntSize(m_pixmap.width(), m_pixmap.height());
+    return IntSize(m_pixmap->width(), m_pixmap->height());
 }
 
 NativeImagePtr StillImage::nativeImageForCurrentFrame()
 {
-    return const_cast<NativeImagePtr>(&m_pixmap);
+    return const_cast<NativeImagePtr>(m_pixmap);
 }
 
 void StillImage::draw(GraphicsContext* ctxt, const FloatRect& dst,
                       const FloatRect& src, ColorSpace, CompositeOperator op)
 {
-    if (m_pixmap.isNull())
+    if (m_pixmap->isNull())
         return;
 
-    ctxt->save();
+    FloatRect normalizedSrc = src.normalized();
+    FloatRect normalizedDst = dst.normalized();
+
+    CompositeOperator previousOperator = ctxt->compositeOperation();
     ctxt->setCompositeOperation(op);
 
-    // To support width or height is negative
-    float sx = src.x();
-    float sy = src.y();
-    float sw = src.width();
-    float sh = src.height();
-
-    if (sw < 0) {
-        sx = sx + sw;
-        sw = -sw;
+    ContextShadow* shadow = ctxt->contextShadow();
+    if (shadow->m_type != ContextShadow::NoShadow) {
+        QPainter* shadowPainter = shadow->beginShadowLayer(ctxt, normalizedDst);
+        if (shadowPainter) {
+            shadowPainter->setOpacity(static_cast<qreal>(shadow->m_color.alpha()) / 255);
+            shadowPainter->drawPixmap(normalizedDst, *m_pixmap, normalizedSrc);
+            shadow->endShadowLayer(ctxt);
+        }
     }
 
-    if (sh < 0) {
-        sy = sy + sh;
-        sh = -sh;
-    }
-
-    float dx = dst.x();
-    float dy = dst.y();
-    float dw = dst.width();
-    float dh = dst.height();
-
-    if (dw < 0) {
-        dx = dx + dw;
-        dw = -dw;
-    }
-
-    if (dh < 0) {
-        dy = dy + dh;
-        dh = -dh;
-    }
-
-    FloatRect srcM(sx, sy, sw, sh);
-    FloatRect dstM(dx, dy, dw, dh);
-    QPainter* painter(ctxt->platformContext());
-
-    painter->drawPixmap(dstM, m_pixmap, srcM);
-    ctxt->restore();
+    ctxt->platformContext()->drawPixmap(normalizedDst, *m_pixmap, normalizedSrc);
+    ctxt->setCompositeOperation(previousOperator);
 }
 
 }

@@ -27,6 +27,7 @@
 #include "macho++.h"
 #include <security_utilities/memutils.h>
 #include <security_utilities/endian.h>
+#include <mach-o/dyld.h>
 
 namespace Security {
 
@@ -39,20 +40,28 @@ Architecture::Architecture(const fat_arch &arch)
 {
 }
 
+Architecture::Architecture(const char *name)
+{
+	if (const NXArchInfo *nxa = NXGetArchInfoFromName(name)) {
+		this->first = nxa->cputype;
+		this->second = nxa->cpusubtype;
+	} else {
+		this->first = this->second = none;
+	}
+}
+
 
 //
-// The local architecture (on demand; cached)
+// The local architecture.
 //
-struct LocalArch {
-	const NXArchInfo *arch;
-	LocalArch() { arch = NXGetLocalArchInfo(); }
-};
-static ModuleNexus<LocalArch> localArch;
-
+// We take this from ourselves - the architecture of our main program Mach-O binary.
+// There's the NXGetLocalArchInfo API, but it insists on saying "i386" on modern
+// x86_64-centric systems, and lies to ppc (Rosetta) programs claiming they're native ppc.
+// So let's not use that.
+//
 Architecture Architecture::local()
 {
-	const NXArchInfo &local = *localArch().arch;
-	return Architecture(local.cputype, local.cpusubtype);
+	return MainMachOImage().architecture();
 }
 
 
@@ -69,27 +78,28 @@ const char *Architecture::name() const
 
 std::string Architecture::displayName() const
 {
-       if (const char *s = this->name())
-               return s;
-       char buf[20];
-       snprintf(buf, sizeof(buf), "(%d:%d)", cpuType(), cpuSubtype());
-	   return buf;
+	if (const char *s = this->name())
+		return s;
+	char buf[20];
+	snprintf(buf, sizeof(buf), "(%d:%d)", cpuType(), cpuSubtype());
+	return buf;
 }
 
 
 //
-// Create a MachO object from an open file and a starting offset.
-// We load (only) the header and load commands into memory at that time.
-// Note that the offset must be relative to the start of the containing file
-// (not relative to some intermediate container).
+// MachOBase contains knowledge of the Mach-O object file format,
+// but abstracts from any particular sourcing. It must be subclassed,
+// and the subclass must provide the file header and commands area
+// during its construction. Memory is owned by the subclass.
 //
-MachO::MachO(FileDesc fd, size_t offset, size_t length)
-	: FileDesc(fd), mOffset(offset), mLength(length ? length : (fd.fileSize() - offset))
+MachOBase::~MachOBase()
+{ /* virtual */ }
+
+// provide the Mach-O file header, somehow
+void MachOBase::initHeader(const mach_header *header)
 {
-	size_t size = fd.read(&mHeader, sizeof(mHeader), mOffset);
-	if (size != sizeof(mHeader))
-		UnixError::throwMe(ENOEXEC);
-	switch (mHeader.magic) {
+	mHeader = header;
+	switch (mHeader->magic) {
 	case MH_MAGIC:
 		mFlip = false;
 		m64 = false;
@@ -109,55 +119,104 @@ MachO::MachO(FileDesc fd, size_t offset, size_t length)
 	default:
 		UnixError::throwMe(ENOEXEC);
 	}
-	
-	size_t cmdSize = flip(mHeader.sizeofcmds);
-	size_t cmdStart = m64 ? sizeof(mach_header_64) : sizeof(mach_header);
-	mCommands = (load_command *)malloc(cmdSize);
-	if (!mCommands)
-		UnixError::throwMe();
-	if (fd.read(mCommands, cmdSize, cmdStart + mOffset) != cmdSize)
-		UnixError::throwMe(ENOEXEC);
-	mEndCommands = LowLevelMemoryUtilities::increment<load_command>(mCommands, cmdSize);
-	secdebug("macho", "%p created fd=%d offset=0x%zx size=0x%zx%s%s %d command(s)",
-		this, this->fd(), mOffset, mLength, mFlip ? " flipped" : "", m64 ? " 64-bit" : "",
-		flip(mHeader.ncmds));
+}
+
+// provide the Mach-O commands section, somehow
+void MachOBase::initCommands(const load_command *commands)
+{
+	mCommands = commands;
+	mEndCommands = LowLevelMemoryUtilities::increment<load_command>(commands, flip(mHeader->sizeofcmds));
+}
+
+
+size_t MachOBase::headerSize() const
+{
+	return m64 ? sizeof(mach_header_64) : sizeof(mach_header);
+}
+
+size_t MachOBase::commandSize() const
+{
+	return flip(mHeader->sizeofcmds);
 }
 
 
 //
-// Destroy a MachO.
-// Note that we don't close the file descriptor.
+// Create a MachO object from an open file and a starting offset.
+// We load (only) the header and load commands into memory at that time.
+// Note that the offset must be relative to the start of the containing file
+// (not relative to some intermediate container).
 //
+MachO::MachO(FileDesc fd, size_t offset, size_t length)
+	: FileDesc(fd), mOffset(offset), mLength(length ? length : (fd.fileSize() - offset))
+{
+	size_t size = fd.read(&mHeaderBuffer, sizeof(mHeaderBuffer), mOffset);
+	if (size != sizeof(mHeaderBuffer))
+		UnixError::throwMe(ENOEXEC);
+	this->initHeader(&mHeaderBuffer);
+	size_t cmdSize = this->commandSize();
+	mCommandBuffer = (load_command *)malloc(cmdSize);
+	if (!mCommandBuffer)
+		UnixError::throwMe();
+	if (fd.read(mCommandBuffer, cmdSize, this->headerSize() + mOffset) != cmdSize)
+		UnixError::throwMe(ENOEXEC);
+	this->initCommands(mCommandBuffer);
+}
+
 MachO::~MachO()
 {
-	secdebug("macho", "%p destroyed", this);
-	::free(mCommands);
+	::free(mCommandBuffer);
+}
+
+
+//
+// Create a MachO object that is (entirely) mapped into memory.
+// The caller must ensire that the underlying mapping persists
+// at least as long as our object.
+//
+MachOImage::MachOImage(const void *address)
+{
+	this->initHeader((const mach_header *)address);
+	this->initCommands(LowLevelMemoryUtilities::increment<const load_command>(address, this->headerSize()));
+}
+
+
+//
+// Locate the Mach-O image of the main program
+//
+MainMachOImage::MainMachOImage()
+	: MachOImage(mainImageAddress())
+{
+}
+
+const void *MainMachOImage::mainImageAddress()
+{
+	return _dyld_get_image_header(0);
 }
 
 
 //
 // Return various header fields
 //
-Architecture MachO::architecture() const
+Architecture MachOBase::architecture() const
 {
-	return Architecture(flip(mHeader.cputype), flip(mHeader.cpusubtype));
+	return Architecture(flip(mHeader->cputype), flip(mHeader->cpusubtype));
 }
 
-uint32_t MachO::type() const
+uint32_t MachOBase::type() const
 {
-	return flip(mHeader.filetype);
+	return flip(mHeader->filetype);
 }
 
-uint32_t MachO::flags() const
+uint32_t MachOBase::flags() const
 {
-	return flip(mHeader.flags);
+	return flip(mHeader->flags);
 }
 
 
 //
 // Iterate through load commands
 //
-const load_command *MachO::nextCommand(const load_command *command) const
+const load_command *MachOBase::nextCommand(const load_command *command) const
 {
 	using LowLevelMemoryUtilities::increment;
 	command = increment<const load_command>(command, flip(command->cmdsize));
@@ -169,7 +228,7 @@ const load_command *MachO::nextCommand(const load_command *command) const
 // Find a specific load command, by command number.
 // If there are multiples, returns the first one found.
 //
-const load_command *MachO::findCommand(uint32_t cmd) const
+const load_command *MachOBase::findCommand(uint32_t cmd) const
 {
 	for (const load_command *command = loadCommands(); command; command = nextCommand(command))
 		if (flip(command->cmd) == cmd)
@@ -181,7 +240,7 @@ const load_command *MachO::findCommand(uint32_t cmd) const
 //
 // Locate a segment command, by name
 //	
-const segment_command *MachO::findSegment(const char *segname) const
+const segment_command *MachOBase::findSegment(const char *segname) const
 {
 	for (const load_command *command = loadCommands(); command; command = nextCommand(command)) {
 		switch (flip(command->cmd)) {
@@ -200,7 +259,7 @@ const segment_command *MachO::findSegment(const char *segname) const
 	return NULL;
 }
 
-const section *MachO::findSection(const char *segname, const char *sectname) const
+const section *MachOBase::findSection(const char *segname, const char *sectname) const
 {
 	using LowLevelMemoryUtilities::increment;
 	if (const segment_command *seg = findSegment(segname)) {
@@ -227,7 +286,7 @@ const section *MachO::findSection(const char *segname, const char *sectname) con
 // Translate a union lc_str into the string it denotes.
 // Returns NULL (no exceptions) if the entry is corrupt.
 //
-const char *MachO::string(const load_command *cmd, const lc_str &str) const
+const char *MachOBase::string(const load_command *cmd, const lc_str &str) const
 {
 	size_t offset = flip(str.offset);
 	const char *sp = LowLevelMemoryUtilities::increment<const char>(cmd, offset);
@@ -245,14 +304,14 @@ const char *MachO::string(const load_command *cmd, const lc_str &str) const
 // Note that the offset returned is relative to the start of the Mach-O image.
 // Returns zero if not found (usually indicating that the binary was not signed).
 //
-const linkedit_data_command *MachO::findCodeSignature() const
+const linkedit_data_command *MachOBase::findCodeSignature() const
 {
 	if (const load_command *cmd = findCommand(LC_CODE_SIGNATURE))
 		return reinterpret_cast<const linkedit_data_command *>(cmd);
 	return NULL;		// not found
 }
 
-size_t MachO::signingOffset() const
+size_t MachOBase::signingOffset() const
 {
 	if (const linkedit_data_command *lec = findCodeSignature())
 		return flip(lec->dataoff);
@@ -260,7 +319,7 @@ size_t MachO::signingOffset() const
 		return 0;
 }
 
-size_t MachO::signingLength() const
+size_t MachOBase::signingLength() const
 {
 	if (const linkedit_data_command *lec = findCodeSignature())
 		return flip(lec->datasize);

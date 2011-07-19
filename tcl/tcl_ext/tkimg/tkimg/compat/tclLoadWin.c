@@ -9,9 +9,9 @@
 
 #include "imgInt.h"
 #ifdef USE_TCL_STUBS
-#include "tclWinInt.h"
+#   include "tclWinInt.h"
 #else
-#include <windows.h>
+#   include <windows.h>
 #endif
 #include "compat/dlfcn.h"
 
@@ -26,7 +26,7 @@ static LibraryList *libraryList = NULL;	/* List of currently loaded DLL's.  */
  * Declarations for functions that are only used in this file.
  */
 
-static void 		UnloadLibraries _ANSI_ARGS_((ClientData clientData));
+static void UnloadLibraries(ClientData clientData);
 
 
 /*
@@ -50,11 +50,11 @@ static void 		UnloadLibraries _ANSI_ARGS_((ClientData clientData));
  *----------------------------------------------------------------------
  */
 
-VOID *dlopen(path, mode)
-    const char *path;
-    int mode;
-{
-    VOID *handle;
+void *dlopen(
+    const char *path,
+    int mode
+) {
+    void *handle;
     LibraryList *ptr;
     static int initialized = 0;
 
@@ -63,7 +63,7 @@ VOID *dlopen(path, mode)
 	Tcl_CreateExitHandler((Tcl_ExitProc *) UnloadLibraries,
 	    (ClientData) &libraryList);
     }
-    handle = (VOID *) LoadLibrary(path);
+    handle = (void *) LoadLibrary(path);
     if (handle != NULL) {
 	    ptr = (LibraryList*) ckalloc(sizeof(LibraryList));
 	    ptr->handle = (HINSTANCE) handle;
@@ -94,9 +94,9 @@ VOID *dlopen(path, mode)
  */
 
 int
-dlclose(handle)
-    VOID *handle;
-{
+dlclose(
+    void *handle
+) {
     LibraryList *ptr, *prevPtr;
 
     ptr = libraryList; prevPtr = NULL;
@@ -135,11 +135,11 @@ dlclose(handle)
  *----------------------------------------------------------------------
  */
 
-VOID *dlsym(handle, symbol)
-    VOID *handle;
-    const char *symbol;
-{
-    return (VOID *) GetProcAddress((HINSTANCE) handle, symbol);
+void *dlsym(
+    void *handle,
+    const char *symbol
+) {
+    return (void *) GetProcAddress((HINSTANCE) handle, symbol);
 }
 
 
@@ -161,10 +161,10 @@ VOID *dlsym(handle, symbol)
  */
 
 char *
-dlerror()
-{
+dlerror(
+) {
     TclWinConvertError(GetLastError());
-    return Tcl_ErrnoMsg(Tcl_GetErrno());
+    return (char *) Tcl_ErrnoMsg(Tcl_GetErrno());
 }
 
 /*
@@ -184,9 +184,9 @@ dlerror()
  */
 
 static void
-UnloadLibraries(clientData)
-    ClientData clientData;
-{
+UnloadLibraries(
+    ClientData clientData
+) {
     LibraryList *ptr;
     LibraryList *list = *((LibraryList **) clientData);
 

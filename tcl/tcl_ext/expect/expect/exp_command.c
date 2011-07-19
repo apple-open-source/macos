@@ -728,7 +728,7 @@ Exp_SpawnObjCmd(
 		}
 		sig = exp_string_to_signal(interp,Tcl_GetString (objv[i]));
 		if (sig == -1) {
-		    exp_error(interp,"usage: -ignore %s: unknown signal name",objv[i]);
+		    exp_error(interp,"usage: -ignore %s: unknown signal name",Tcl_GetString (objv[i]));
 		    return TCL_ERROR;
 		}
 		ignore[sig] = TRUE;
@@ -1095,7 +1095,7 @@ Exp_SpawnObjCmd(
 		/* hand set errno */
 		errno = child_errno;
 		exp_error(interp, "couldn't execute \"%s\": %s",
-			objv[0],Tcl_PosixError(interp));
+			command,Tcl_PosixError(interp));
 		goto parent_error;
 	}
 	close(status_pipe[0]);
@@ -2237,7 +2237,7 @@ Exp_LogFileObjCmd(
     
     if (i == (objc - 1)) {
 	filename = Tcl_GetString (objv[i]);
-    } else if (objc > 1) {
+    } else if (objc > i) {
 	/* too many arguments */
 	goto usage_error;
     } 

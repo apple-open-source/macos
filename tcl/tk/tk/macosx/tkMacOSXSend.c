@@ -80,7 +80,7 @@ typedef struct NameRegistry {
 				 * XFree; zero means use ckfree. */
 } NameRegistry;
 
-static int initialized = false; /* A flag to denote if we have initialized
+static int initialized = 0; /* A flag to denote if we have initialized
 				 * yet. */
 
 static RegisteredInterp *interpListPtr = NULL;

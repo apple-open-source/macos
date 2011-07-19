@@ -1,4 +1,4 @@
-.TH "ZSHCONTRIB" "1" "October 30, 2008" "zsh 4\&.3\&.9"
+.TH "ZSHCONTRIB" "1" "December 20, 2010" "zsh 4\&.3\&.11"
 .SH "NAME"
 zshcontrib \- user contributions to zsh
 .\" Yodl file: Zsh/contrib.yo
@@ -44,7 +44,7 @@ distribution in your home directory, you would use the commands:
 \fBmkdir ~/zsh_help
 cd ~/zsh_help
 man zshall | colcrt \- | \e 
-perl ~/zsh\-4\&.3\&.9/Util/helpfiles\fP
+perl ~/zsh\-4\&.3\&.11/Util/helpfiles\fP
 .fi
 .RE
 .PP
@@ -179,7 +179,7 @@ Run \fBzkbd\fP either as an autoloaded function, or as a shell script:
 .PP
 .RS
 .nf
-\fBzsh \-f ~/zsh\-4\&.3\&.9/Functions/Misc/zkbd\fP
+\fBzsh \-f ~/zsh\-4\&.3\&.11/Functions/Misc/zkbd\fP
 .fi
 .RE
 .PP
@@ -235,7 +235,7 @@ command and redirect the output into a file:
 .PP
 .RS
 .nf
-\fB\&. ~/zsh\-4\&.3\&.9/Util/reporter > zsh\&.report\fP
+\fB\&. ~/zsh\-4\&.3\&.11/Util/reporter > zsh\&.report\fP
 .fi
 .RE
 .PP
@@ -330,7 +330,7 @@ removing functions from the array\&.
 the special functions in question\&.
 .PP
 \fIfunctions\fP is name of an ordinary shell function\&.  If no options
-are given this will be added to the array of functions to be executed\&.
+are given this will be added to the array of functions to be executed
 in the given context\&.
 .PP
 If the option \fB\-d\fP is given, the \fIfunction\fP is removed from
@@ -342,12 +342,310 @@ functions to be executed\&.
 .RE
 .RE
 .PP
+.SH "REMEMBERING RECENT DIRECTORIES"
+.PP
+The function \fBcdr\fP allows you to change the working directory to a
+previous working directory from a list maintained automatically\&.  It is
+similar in concept to the directory stack controlled by the \fBpushd\fP,
+\fBpopd\fP and \fBdirs\fP builtins, but is more configurable, and as it stores
+all entries in files it is maintained across sessions and (by default)
+between terminal emulators in the current session\&.  (The \fBpushd\fP
+directory stack is not actually modified or used by \fBcdr\fP unless you
+configure it to do so as described in the configuration section below\&.)
+.PP
+.SS "Installation"
+.PP
+The system works by means of a hook function that is called every time the
+directory changes\&.  To install the system, autoload the required functions
+and use the \fBadd\-zsh\-hook\fP function described above:
+.PP
+.RS
+.nf
+\fBautoload \-Uz chpwd_recent_dirs cdr add\-zsh\-hook
+add\-zsh\-hook chpwd chpwd_recent_dirs\fP
+.fi
+.RE
+.PP
+Now every time you change directly interactively, no matter which
+command you use, the directory to which you change will be remembered
+in most\-recent\-first order\&.
+.PP
+.SS "Use"
+.PP
+All direct user interaction is via the \fBcdr\fP function\&.
+.PP
+The argument to cdr is a number \fIN\fP corresponding to the \fIN\fPth most
+recently changed\-to directory\&.  1 is the immediately preceeding directory;
+the current directory is remembered but is not offered as a destination\&.
+Note that if you have multiple windows open 1 may refer to a directory
+changed to in another window; you can avoid this by having per\-terminal
+files for storing directory as described for the
+\fBrecent\-dirs\-file\fP style below\&.
+.PP
+If you set the \fBrecent\-dirs\-default\fP style described below \fBcdr\fP
+will behave the same as \fBcd\fP if given a non\-numeric argument, or more
+than one argument\&.  The recent directory list is updated just the same
+however you change directory\&.
+.PP
+If the argument is omitted, 1 is assumed\&.  This is similar to \fBpushd\fP\&'s
+behaviour of swapping the two most recent directories on the stack\&.
+.PP
+Completion for the argument to \fBcdr\fP is available if compinit has been
+run; menu selection is recommended, using:
+.PP
+.RS
+.nf
+\fBzstyle \&':completion:*:*:cdr:*:*' menu selection\fP
+.fi
+.RE
+.PP
+to allow you to cycle through recent directories; the order is preserved,
+so the first choice is the most recent directory before the current one\&.
+The verbose style is also recommended to ensure the directory is shown; this
+style is on by default so no action is required unless you have changed it\&.
+.PP
+.SS "Options"
+.PP
+The behaviour of \fBcdr\fP may be modified by the following options\&.
+.PP
+.PD 0
+.TP
+.PD
+\fB\-l\fP
+lists the numbers and the corresponding directories in
+abbreviated form (i\&.e\&. with \fB~\fP substitution reapplied), one per line\&.
+The directories here are not quoted (this would only be an issue if a
+directory name contained a newline)\&.  This is used by the completion
+system\&.
+.TP
+\fB\-r\fP
+sets the variable \fBreply\fP to the current set of directories\&.  Nothing
+is printed and the directory is not changed\&.
+.TP
+\fB\-e\fP
+allows you to edit the list of directories, one per line\&.  The
+list can be edited to any extent you like; no sanity checking is
+performed\&.  Completion is available\&.  No quoting is necessary (except for
+newlines, where I have in any case no sympathy); directories are in
+unabbreviated from and contain an absolute path, i\&.e\&. they start with \fB/\fP\&.
+Usually the first entry should be left as the current directory\&.
+.PP
+.SS "Configuration"
+.PP
+Configuration is by means of the styles mechanism that should be familiar
+from completion; if not, see the description of the \fBzstyle\fP command in
+see \fIzshmodules\fP(1)\&.  The context for setting styles
+should be \fB\&':chpwd:*'\fP in case the meaning of the context is extended in
+future, for example:
+.PP
+.RS
+.nf
+\fBzstyle \&':chpwd:*' recent\-dirs\-max 0\fP
+.fi
+.RE
+.PP
+sets the value of the \fBrecent\-dirs\-max\fP style to 0\&.  In practice the
+style name is specific enough that a context of \&'*' should be fine\&.
+.PP
+An exception is \fBrecent\-dirs\-insert\fP, which is used exclusively by the
+completion system and so has the usual completion system context
+(\fB\&':completion:*'\fP if nothing more specific is needed), though again
+\fB\&'*'\fP should be fine in practice\&.
+.PP
+.PD 0
+.TP
+.PD
+\fBrecent\-dirs\-default\fP
+If true, and the command is expecting a recent directory index, and
+either there is more than one argument or the argument is not an
+integer, then fall through to "cd"\&.  This allows the lazy to use only
+one command for directory changing\&.  Completion recognises this, too;
+see recent\-dirs\-insert for how to control completion when this option
+is in use\&.
+.TP
+\fBrecent\-dirs\-file\fP
+The file where the list of directories is saved\&.  The default
+is \fB${ZDOTDIR:\-$HOME}/\&.chpwd\-recent\-dirs\fP, i\&.e\&. this is in your
+home directory unless you have set the variable \fBZDOTDIR\fP to point
+somewhere else\&.  Directory names are saved in \fB$\&'\fP\fI\&.\&.\&.\fP\fB'\fP quoted
+form, so each line in the file can be supplied directly to the shell as an
+argument\&.
+.RS
+.PP
+The value of this style may be an array\&.  In this case, the first
+file in the list will always be used for saving directories while any
+other files are left untouched\&.  When reading the recent directory
+list, if there are fewer than the maximum number of entries in the
+first file, the contents of later files in the array will be appended
+with duplicates removed from the list shown\&.  The contents of the two
+files are not sorted together, i\&.e\&. all the entries in the first file
+are shown first\&.  The special value \fB+\fP can appear in the list to
+indicate the default file should be read at that point\&.  This allows
+effects like the following:
+.PP
+.RS
+.nf
+\fBzstyle \&':chpwd:*' recent\-dirs\-file \e 
+~/\&.chpwd\-recent\-dirs\-${TTY##*/} +\fP
+.fi
+.RE
+.PP
+Recent directories are read from a file numbered according to
+the terminal\&.  If there are insufficient entries the list
+is supplemented from the default file\&.
+.PP
+It is possible to use \fBzstyle \-e\fP to make the directory configurable
+at run time:
+.PP
+.RS
+.nf
+\fBzstyle \-e \&':chpwd:*' recent\-dirs\-file pick\-recent\-dirs\-file
+pick\-recent\-dirs\-file() {
+  if [[ $PWD = ~/text/writing(|/*) ]]; then
+    reply=(~/\&.chpwd\-recent\-dirs\-writing)
+  else
+    reply=(+)
+  fi
+}\fP
+.fi
+.RE
+.PP
+In this example, if the current directory is \fB~/text/writing\fP or a
+directory under it, then use a special file for saving recent
+directories, else use the default\&.
+.RE
+.TP
+\fBrecent\-dirs\-insert\fP
+Used by completion\&.  If \fBrecent\-dirs\-default\fP is true, then setting
+this to \fBtrue\fP causes the actual directory, rather than its index, to
+be inserted on the command line; this has the same effect as using
+the corresponding index, but makes the history clearer and the line
+easier to edit\&.  With this setting, if part of an argument was
+already typed, normal directory completion rather than recent
+directory completion is done; this is because recent directory
+completion is expected to be done by cycling through entries menu
+fashion\&.
+.RS
+.PP
+If the value of the style is \fBalways\fP, then only recent directories will
+be completed; in that case, use the \fBcd\fP command when you want to
+complete other directories\&.
+.PP
+If the value is \fBfallback\fP, recent directories will be tried first, then
+normal directory completion is performed if recent directory completion
+failed to find a match\&.
+.PP
+Finally, if the value is \fBboth\fP then both sets of completions are
+presented; the usual tag mechanism can be used to distinguish results, with
+recent directories tagged as \fBrecent\-dirs\fP\&.  Note that the recent
+directories inserted are abbreviated with directory names where appropriate\&.
+.RE
+.TP
+\fBrecent\-dirs\-max\fP
+The maximum number of directories to save to the file\&.  If
+this is zero or negative there is no maximum\&.  The default is 20\&.
+Note this includes the current directory, which isn\&'t offered,
+so the highest number of directories you will be offered
+is one less than the maximum\&.
+.TP
+\fBrecent\-dirs\-prune\fP
+This style is an array determining what directories should (or should
+not) be added to the recent list\&.  Elements of the array can include:
+.RS
+.PP
+.PD 0
+.TP
+.PD
+\fBparent\fP
+Prune parents (more accurately, ancestors) from the recent list\&.
+If present, changing directly down by any number of directories
+causes the current directory to be overwritten\&.  For example,
+changing from ~pws to ~pws/some/other/dir causes ~pws not to be
+left on the recent directory stack\&.  This only applies to direct
+changes to descendant directories; earlier directories on the
+list are not pruned\&.  For example, changing from ~pws/yet/another
+to ~pws/some/other/dir does not cause ~pws to be pruned\&.
+.TP
+\fBpattern:\fIpattern\fP\fP
+Gives a zsh pattern for directories that should not be
+added to the recent list (if not already there)\&.  This element
+can be repeated to add different patterns\&.  For example,
+\fB\&'pattern:/tmp(|/*)'\fP stops \fB/tmp\fP or its descendants
+from being added\&.  The \fBEXTENDED_GLOB\fP option is always turned on
+for these patterns\&.
+.RE
+.TP
+\fBrecent\-dirs\-pushd\fP
+If set to true, \fBcdr\fP will use \fBpushd\fP instead of \fBcd\fP to change the
+directory, so the directory is saved on the directory stack\&.  As the
+directory stack is completely separate from the list of files saved
+by the mechanism used in this file there is no obvious reason to do
+this\&.
+.PP
+.SS "Use with dynamic directory naming"
+.PP
+It is possible to refer to recent directories using the dynamic directory
+name syntax that appeared in zsh version 4\&.3\&.7\&.  If you create and
+autoload a function \fBzsh_directory_name\fP containing the following code,
+\fB~[1]\fP will refer to the most recent directory other than $PWD, and so on\&.
+This also includes completion\&.
+.PP
+.RS
+.nf
+\fBif [[ $1 = n ]]; then
+  if [[ $2 = <\-> ]]; then
+    # Recent directory
+    typeset \-ga reply
+    autoload \-Uz cdr
+    cdr \-r
+    if [[ \-n ${reply[$2]} ]]; then
+      reply=(${reply[$2]})
+      return 0
+    else
+      reply=()
+      return 1
+    fi
+  fi
+elif [[ $1 = c ]]; then
+  if [[ $PREFIX = <\-> || \-z $PREFIX ]]; then
+    typeset \-a keys values
+    values=(${${(f)"$(cdr \-l)"}/ ##/:})
+    keys=(${values%%:*})
+    _describe \-t dir\-index \&'recent directory index' values keys \-V unsorted \-S']'
+    return
+  fi
+fi
+return 1\fP
+.fi
+.RE
+.PP
+.SS "Details of directory handling"
+.PP
+This section is for the curious or confused; most users will not
+need to know this information\&.
+.PP
+Recent directories are saved to a file immediately and hence are
+preserved across sessions\&.  Note currently no file locking is applied:
+the list is updated immediately on interactive commands and nowhere else
+(unlike history), and it is assumed you are only going to change
+directory in one window at once\&.  This is not safe on shared accounts,
+but in any case the system has limited utility when someone else is
+changing to a different set of directories behind your back\&.
+.PP
+To make this a little safer, only directory changes instituted from the
+command line, either directly or indirectly through shell function calls
+(but not through subshells, evals, traps, completion functions and the
+like) are saved\&.  Shell functions should use \fBcd \-q\fP or \fBpushd \-q\fP to
+avoid side effects if the change to the directory is to be invisible at the
+command line\&.  See the contents of the function \fBchpwd_recent_dirs\fP for
+more details\&.
+.PP
 .SH "GATHERING INFORMATION FROM VERSION CONTROL SYSTEMS"
 .PP
 In a lot of cases, it is nice to automatically retrieve information from
 version control systems (VCSs), such as subversion, CVS or git, to be able
 to provide it to the user; possibly in the user\&'s prompt\&. So that you can
-instantly tell on which branch you are currently on,  for example\&.
+instantly tell which branch you are currently on, for example\&.
 .PP
 In order to do that, you may use the \fBvcs_info\fP function\&.
 .PP
@@ -364,17 +662,17 @@ http://codeville\&.org/
 Concurrent Versioning System (\fBcvs\fP)
 http://www\&.nongnu\&.org/cvs/
 .TP
-\fBdarcs\fP
+Darcs (\fBdarcs\fP)
 http://darcs\&.net/
 .TP
-\fBgit\fP
-http://git\&.or\&.cz/
+Git (\fBgit\fP)
+http://git\-scm\&.com/
 .TP
 GNU arch (\fBtla\fP)
 http://www\&.gnu\&.org/software/gnu\-arch/
 .TP
 Mercurial (\fBhg\fP)
-http://selenic\&.com/mercurial/
+http://mercurial\&.selenic\&.com/
 .TP
 Monotone (\fBmtn\fP)
 http://monotone\&.ca/
@@ -388,6 +686,10 @@ http://subversion\&.tigris\&.org/
 SVK (\fBsvk\fP)
 http://svk\&.bestpractical\&.com/
 .PD
+.PP
+There is also support for the patch management system \fBquilt\fP
+(http://savannah\&.nongnu\&.org/projects/quilt)\&. See \fBQuilt Support\fP
+below for details\&.
 .PP
 To load \fIvcs_info\fP:
 .PP
@@ -407,19 +709,20 @@ following (assuming, you loaded \fIvcs_info\fP properly \- see above):
 .PP
 .RS
 .nf
-\fBzstyle \&':vcs_info:*' actionformats \e 
-    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
-zstyle \&':vcs_info:*' formats       \e 
-    \&'%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{5}]%f '
+\fBzstyle \&':vcs_info:*' actionformats '%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{3}|%F{1}%a%F{5}]%f '
+zstyle \&':vcs_info:*' formats       '%F{5}(%f%s%F{5})%F{3}\-%F{5}[%F{2}%b%F{5}]%f '
 zstyle \&':vcs_info:(sv[nk]|bzr):*' branchformat '%b%F{1}:%F{3}%r'
 precmd () { vcs_info }
-PS1=\&'%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}'"%f%# '\fP
+PS1=\&'%F{5}[%F{2}%n%F{5}] %F{3}%3~ ${vcs_info_msg_0_}%f%# '\fP
 .fi
 .RE
 .PP
-Obviously, the last two lines are there for demonstration: You need to
+Obviously, the last two lines are there for demonstration\&. You need to
 call \fIvcs_info\fP from your \fIprecmd\fP function\&. Once that is done you need
 a \fBsingle quoted\fP \fI\&'${vcs_info_msg_0_}'\fP in your prompt\&.
+.PP
+To be able to use \fI\&'${vcs_info_msg_0_}'\fP directly in your prompt like
+this, you will need to have the \fBPROMPT_SUBST\fP option enabled\&.
 .PP
 Now call the \fBvcs_info_printsys\fP utility from the command line:
 .PP
@@ -441,9 +744,12 @@ svn
 tla
 ## flavours (cannot be used in the enable or disable styles; they
 ## are enabled and disabled with their master [git\-svn \-> git])
-## they *can* be used contexts: \&':vcs_info:git\-svn:*'\&.
+## they *can* be used in contexts: \&':vcs_info:git\-svn:*'\&.
 git\-p4
-git\-svn\fP
+git\-svn
+hg\-git
+hg\-hgsubversion
+hg\-hgsvn\fP
 .fi
 .RE
 .PP
@@ -486,8 +792,9 @@ First, the context in which we are working:
 .TP
 .PD
 \fB<vcs\-string>\fP
-is one of: git, git\-svn, git\-p4, hg, darcs, bzr,
-cdv, mtn, svn, cvs, svk, tla or p4\&.
+is one of: git, git\-svn, git\-p4, hg, hg\-git, hg\-hgsubversion, hg\-hgsvn,
+darcs, bzr, cdv, mtn, svn, cvs, svk, tla or p4\&. When hooks are active the
+hooks name is added after a `+\&'\&. (See \fBHooks in vcs_info\fP below\&.)
 .TP
 \fB<user\-context>\fP
 is a freely configurable string, assignable by
@@ -497,11 +804,11 @@ below)\&.
 \fB<repo\-root\-name>\fP
 is the name of a repository in which you want a
 style to match\&. So, if you want a setting specific to \fI/usr/src/zsh\fP,
-with that being a cvs checkout, you can set \fB<repo\-root\-name>\fP to
+with that being a CVS checkout, you can set \fB<repo\-root\-name>\fP to
 \fIzsh\fP to make it so\&.
 .PP
 There are three special values for \fB<vcs\-string>\fP: The first is named
-\fI\-init\-\fP, that is in effect as long as there was no decision what vcs
+\fI\-init\-\fP, that is in effect as long as there was no decision what VCS
 backend to use\&. The second is \fI\-preinit\-\fP; it is used \fBbefore\fP
 \fIvcs_info\fP is run, when initializing the data exporting variables\&. The
 third special value is \fIformats\fP and is used by the \fBvcs_info_lastmsg\fP
@@ -510,7 +817,7 @@ for looking up its styles\&.
 The initial value of \fB<repo\-root\-name>\fP is \fI\-all\-\fP and it is replaced
 with the actual name, as soon as it is known\&. Only use this part of the
 context for defining the \fIformats\fP, \fIactionformats\fP or
-\fIbranchformat\fP styles\&. As it is guaranteed that \fB<repo\-root\-name>\fP is
+\fIbranchformat\fP styles, as it is guaranteed that \fB<repo\-root\-name>\fP is
 set up correctly for these only\&. For all other styles, just use \fB\&'*'\fP
 instead\&.
 .PP
@@ -537,39 +844,119 @@ A list of formats, used when actionformats is not used
 (which is most of the time)\&.
 .TP
 \fBactionformats\fP
-A list of formats, used if a there is a special
-action going on in your current repository; (like an interactive rebase or
-a merge conflict)\&.
+A list of formats, used if there is a special
+action going on in your current repository; like an interactive rebase or
+a merge conflict\&.
 .TP
 \fBbranchformat\fP
 Some backends replace \fI%b\fP in the formats and
 actionformats styles above, not only by a branch name but also by a
-revision number\&. This style let\&'s you modify how that string should look
-like\&.
+revision number\&. This style lets you modify how that string should look\&.
 .TP
 \fBnvcsformats\fP
-These "formats" are exported, when we didn\&'t detect
-a version control system for the current directory\&. This is useful, if you
+These "formats" are exported when we didn\&'t detect
+a version control system for the current directory\&. This is useful if you
 want \fIvcs_info\fP to completely take over the generation of your prompt\&.
 You would do something like \fBPS1=\&'${vcs_info_msg_0_}'\fP to accomplish
 that\&.
 .TP
+\fBhgrevformat\fP
+\fBhg\fP uses both a hash and a revision number to reference a specific
+changeset in a repository\&. With this style you can format the revision
+string (see \fIbranchformat\fP) to include either or both\&. It\&'s only
+useful when \fIget\-revision\fP is true\&.
+.TP
 \fBmax\-exports\fP
-Defines the maximum number if
+Defines the maximum number of
 \fIvcs_info_msg_*_\fP variables \fIvcs_info\fP will export\&.
 .TP
 \fBenable\fP
-A list of backends you want to use\&. Checked in the
-\fI\-init\-\fP context\&. If this list contains an item called \fBNONE\fP no
-backend is used at all and \fIvcs_info\fP will do nothing\&. If this list
-contains \fBALL\fP \fIvcs_info\fP will use all backends known to it\&. Only with
-\fBALL\fP in \fBenable\fP, the \fBdisable\fP style has any effect\&. \fBALL\fP and
-\fBNONE\fP are actually tested case insensitively\&.
+A list of backends you want to use\&. Checked in the \fI\-init\-\fP context\&. If
+this list contains an item called \fBNONE\fP no backend is used at all and
+\fIvcs_info\fP will do nothing\&. If this list contains \fBALL\fP \fIvcs_info\fP
+will use all known backends\&. Only with \fBALL\fP in \fBenable\fP will the
+\fBdisable\fP style have any effect\&. \fBALL\fP and \fBNONE\fP are case insensitive\&.
 .TP
 \fBdisable\fP
-A list of VCSs, you don\&'t want \fIvcs_info\fP to test for
+A list of VCSs you don\&'t want \fIvcs_info\fP to test for
 repositories (checked in the \fI\-init\-\fP context, too)\&. Only used if
 \fBenable\fP contains \fBALL\fP\&.
+.TP
+\fBdisable\-patterns\fP
+A list of patterns that are checked against \fB$PWD\fP\&. If a pattern
+matches, \fIvcs_info\fP will be disabled\&. This style is checked in the
+\fI:vcs_info:\-init\-:*:\-all\-\fP context\&.
+.RS
+.PP
+Say, \fB~/\&.zsh\fP is a directory under version control, in which you do
+not want \fIvcs_info\fP to be active, do:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*' disable\-patterns "$HOME/\&.zsh(|/*)"\fP
+.fi
+.RE
+.RE
+.TP
+\fBuse\-quilt\fP
+If enabled, the \fBquilt\fP support code is active in `addon\&' mode\&.
+See \fBQuilt Support\fP for details\&.
+.TP
+\fBquilt\-standalone\fP
+If enabled, `standalone\&' mode detection is attempted if no VCS is active
+in a given directory\&. See \fBQuilt Support\fP for details\&.
+.TP
+\fBquilt\-patch\-dir\fP
+Overwrite the value of the \fI$QUILT_PATCHES\fP environment variable\&. See
+\fBQuilt Support\fP for details\&.
+.TP
+\fBquiltcommand\fP
+When \fBquilt\fP itself is called in quilt support the value of this style
+is used as the command name\&.
+.TP
+\fBcheck\-for\-changes\fP
+If enabled, this style causes the \fB%c\fP and \fB%u\fP format escapes to show
+when the working directory has uncommitted changes\&. The strings displayed by
+these escapes can be controlled via the \fIstagedstr\fP and \fIunstagedstr\fP
+styles\&. The only backends that currently support this option are \fBgit\fP and
+\fBhg\fP (\fBhg\fP only supports unstaged)\&.
+.RS
+.PP
+Note, the actions taken if this style is enabled are potentially expensive
+(read: they may be slow, depending on how big the current repository is)\&.
+Therefore, it is disabled by default\&.
+.RE
+.TP
+\fBstagedstr\fP
+This string will be used in the \fB%c\fP escape if there are staged changes in
+the repository\&.
+.TP
+\fBunstagedstr\fP
+This string will be used in the \fB%u\fP escape if there are unstaged changes
+in the repository\&.
+.TP
+\fBcommand\fP
+This style causes \fIvcs_info\fP to use the supplied string as the command
+to use as the VCS\&'s binary\&. Note, that setting this in ':vcs_info:*' is
+not a good idea\&.
+.RS
+.PP
+If the value of this style is empty (which is the default), the used binary
+name is the name of the backend in use (e\&.g\&. \fIsvn\fP is used in an \fIsvn\fP
+repository)\&.
+.PP
+The \fIrepo\-root\-name\fP part in the context is always the default \fB\-all\-\fP
+when this style is looked up\&.
+.PP
+For example, this style can be used to use binaries from non\-default
+installation directories\&. Assume, \fIgit\fP is installed in /usr/bin but
+your sysadmin installed a newer version in /usr/bin/local\&. Instead of
+changing the order of your \fB$PATH\fP parameter, you can do this:
+.RS
+.nf
+\fBzstyle \&':vcs_info:git:*:\-all\-' command /usr/local/bin/git\fP
+.fi
+.RE
+.RE
 .TP
 \fBuse\-server\fP
 This is used by the Perforce backend (\fBp4\fP) to decide if it should
@@ -577,8 +964,8 @@ contact the Perforce server to find out if a directory is managed
 by Perforce\&.  This is the only reliable way of doing this, but runs
 the risk of a delay if the server name cannot be found\&.  If the
 server (more specifically, the \fIhost\fP\fB:\fP\fIport\fP pair describing the
-server) cannot be contacted its name is put into the associative array
-\fBvcs_info_p4_dead_servers\fP and not contacted again during the session
+server) cannot be contacted, its name is put into the associative array
+\fBvcs_info_p4_dead_servers\fP and is not contacted again during the session
 until it is removed by hand\&.  If you do not set this style, the \fBp4\fP
 backend is only usable if you have set the environment variable
 \fBP4CONFIG\fP to a file name and have corresponding files in the root
@@ -589,29 +976,58 @@ directories of each Perforce client\&.  See comments in the function
 If there are two different ways of gathering
 information, you can select the simpler one by setting this style to true;
 the default is to use the not\-that\-simple code, which is potentially a lot
-slower but might be more accurate in all possible cases\&. This style is only
-used by the \fBbzr\fP backend\&.
+slower but might be more accurate in all possible cases\&. This style is
+used by the \fBbzr\fP and \fBhg\fP backends\&. In the case of \fBhg\fP it will invoke
+the external hexdump program to parse the binary dirstate cache file; this
+method will not return the local revision number\&.
+.TP
+\fBget\-revision\fP
+If set to true, vcs_info goes the extra mile to figure out the revision of
+a repository\&'s work tree (currently for the \fBgit\fP and \fBhg\fP backends,
+where this kind of information is not always vital)\&. For \fBgit\fP, the
+hash value of the currently checked out commit is available via the \fB%i\fP
+expansion\&. With \fBhg\fP, the local revision number and the corresponding
+global hash are available via \fB%i\fP\&.
+.TP
+\fBget\-mq\fP
+If set to true, the \fBhg\fP backend will look for a Mercurial Queue (\fBmq\fP)
+patch directory\&. Information will be available via the `\fB%m\fP\&' replacement\&.
+.TP
+\fBget\-bookmarks\fP
+If set to true, the \fBhg\fP backend will try to get a list of current
+bookmarks\&. They will be available via the `\fB%m\fP\&' replacement\&.
 .TP
 \fBuse\-prompt\-escapes\fP
 Determines if we assume that the assembled
 string from \fIvcs_info\fP includes prompt escapes\&. (Used by
 \fBvcs_info_lastmsg\fP\&.)
+.TP
+\fBdebug\fP
+Enable debugging output to track possible problems\&. Currently this style
+is only used by \fIvcs_info\fP\&'s hooks system\&.
+.TP
+\fBhooks\fP
+A list style that defines hook\-function names\&. See \fBHooks in vcs_info\fP
+below for details\&.
 .PP
 The default values for these styles in all contexts are:
 .PP
 .PD 0
 .TP
 \fBformats\fP
-" (%s)\-[%b|%a]\-"
+" (%s)\-[%b]%u%c\-"
 .TP
 \fBactionformats\fP
-" (%s)\-[%b]\-"
+" (%s)\-[%b|%a]%u%c\-"
 .TP
 \fBbranchformat\fP
-"%b:%r" (for bzr, svn and svk)
+"%b:%r" (for bzr, svn, svk and hg)
 .TP
 \fBnvcsformats\fP
 ""
+.TP
+\fBhgrevformat\fP
+"%r:%h"
 .TP
 \fBmax\-exports\fP
 2
@@ -622,38 +1038,101 @@ ALL
 \fBdisable\fP
 (empty list)
 .TP
+\fBdisable\-patterns\fP
+(empty list)
+.TP
+\fBcheck\-for\-changes\fP
+false
+.TP
+\fBstagedstr\fP
+(string: "S")
+.TP
+\fBunstagedstr\fP
+(string: "U")
+.TP
+\fBcommand\fP
+(empty string)
+.TP
+\fBuse\-server\fP
+false
+.TP
 \fBuse\-simple\fP
+false
+.TP
+\fBget\-revision\fP
+false
+.TP
+\fBget\-mq\fP
+true
+.TP
+\fBget\-bookmarks\fP
 false
 .TP
 \fBuse\-prompt\-escapes\fP
 true
+.TP
+\fBdebug\fP
+false
+.TP
+\fBhooks\fP
+(empty list)
+.TP
+\fBuse\-quilt\fP
+false
+.TP
+\fBquilt\-standalone\fP
+false
+.TP
+\fBquilt\-patch\-dir\fP
+empty \- use \fI$QUILT_PATCHES\fP
+.TP
+\fBquiltcommand\fP
+quilt
 .PD
 .PP
-In normal \fBformats\fP and \fBactionformats\fP, the following replacements are
+In normal \fBformats\fP and \fBactionformats\fP the following replacements are
 done:
 .PP
 .PD 0
 .TP
 \fB%s\fP
-The vcs in use (git, hg, svn etc\&.)
+The VCS in use (git, hg, svn, etc\&.)\&.
 .TP
 \fB%b\fP
 Information about the current branch\&.
 .TP
 \fB%a\fP
-An identifier, that describes the action\&. Only makes sense in
-actionformats\&.
+An identifier that describes the action\&. Only makes sense in
+\fIactionformats\fP\&.
+.TP
+\fB%i\fP
+The current revision number or identifier\&. For \fBhg\fP
+the \fIhgrevformat\fP style may be used to customize the output\&.
+.TP
+\fB%c\fP
+The string from the \fIstagedstr\fP style if there are staged
+changes in the repository\&.
+.TP
+\fB%u\fP
+The string from the \fIunstagedstr\fP style if there are
+unstaged changes in the repository\&.
 .TP
 \fB%R\fP
-base directory of the repository\&.
+The base directory of the repository\&.
 .TP
 \fB%r\fP
-repository name\&. If \fB%R\fP is \fI/foo/bar/repoXY\fP, \fB%r\fP is
-\fIrepoXY\fP\&.
+The repository name\&. If \fB%R\fP is \fI/foo/bar/repoXY\fP, \fB%r\fP
+is \fIrepoXY\fP\&.
 .TP
 \fB%S\fP
-subdirectory within a repository\&. If \fB$PWD\fP is
-\fI/foo/bar/reposXY/beer/tasty\fP, \fB%S\fP is \fIbeer/tasty\fP\&.
+A subdirectory within a repository\&. If \fB$PWD\fP is
+\fI/foo/bar/repoXY/beer/tasty\fP, \fB%S\fP is \fIbeer/tasty\fP\&.
+.TP
+\fB%m\fP
+A "misc" replacement\&. It is at the discretion of the backend to
+decide what this replacement expands to\&. It is currently used by the \fBhg\fP
+and \fBgit\fP backends to display patch information from the \fBmq\fP and
+\fBstgit\fP extensions\&.
 .PD
 .PP
 In \fBbranchformat\fP these replacements are done:
@@ -661,41 +1140,164 @@ In \fBbranchformat\fP these replacements are done:
 .PD 0
 .TP
 \fB%b\fP
-the branch name
+The branch name\&.
 .TP
 \fB%r\fP
-the current revision number
+The current revision number or the \fIhgrevformat\fP style for
+\fBhg\fP\&.
 .PD
 .PP
-Not all vcs backends have to support all replacements\&. For \fBnvcsformats\fP
-no replacements are performed at all\&. It is just a string\&.
+In \fBhgrevformat\fP these replacements are done:
+.PP
+.PD 0
+.TP
+\fB%r\fP
+The current local revision number\&.
+.TP
+\fB%h\fP
+The current 40\-character changeset ID hash identifier\&.
+.PD
+.PP
+In \fBpatch\-format\fP and \fBnopatch\-format\fP these replacements are done:
+.PP
+.PD 0
+.TP
+\fB%p\fP
+The name of the top\-most applied patch\&.
+.TP
+\fB%u\fP
+The number of unapplied patches\&.
+.TP
+\fB%n\fP
+The number of applied patches\&.
+.TP
+\fB%c\fP
+The number of unapplied patches\&.
+.TP
+\fB%g\fP
+The names of active \fBmq\fP guards (\fBhg\fP backend)\&.
+.TP
+\fB%G\fP
+The number of active \fBmq\fP guards (\fBhg\fP backend)\&.
+.PD
+.PP
+Not all VCS backends have to support all replacements\&. For \fBnvcsformats\fP
+no replacements are performed at all, it is just a string\&.
 .PP
 .SS "Oddities"
 .PP
 If you want to use the \fB%b\fP (bold off) prompt expansion in \fIformats\fP,
 which expands \fB%b\fP itself, use \fB%%b\fP\&. That will cause the \fIvcs_info\fP
-expansion to replace \fB%%b\fP with \fB%b\fP\&. So zsh\&'s prompt expansion
+expansion to replace \fB%%b\fP with \fB%b\fP, so that zsh\&'s prompt expansion
 mechanism can handle it\&. Similarly, to hand down \fB%b\fP from
 \fIbranchformat\fP, use \fB%%%%b\fP\&. Sorry for this inconvenience, but it
 cannot be easily avoided\&. Luckily we do not clash with a lot of prompt
 expansions and this only needs to be done for those\&.
 .PP
-.SS "Function descriptions (public API)"
+.SS "Quilt Support"
+.PP
+\fBQuilt\fP is not a version control system, therefore this is not implemented
+as a backend\&. It can help keeping track of a series of patches\&. People use it
+to keep a set of changes they want to use on top of software packages (which
+is tightly integrated into the package build process \- the Debian project
+does this for a large number of packages)\&. Quilt can also help individual
+developers keep track of their own patches on top of real version control
+systems\&.
+.PP
+The \fIvcs_info\fP integration tries to support both ways of using quilt by
+having two slightly different modes of operation: `addon\&' mode and
+`standalone\&' mode)\&.
+.PP
+For `addon\&' mode to become active \fIvcs_info\fP must have already detected a
+real version control system controlling the directory\&. If that is the case,
+a directory that holds quilt\&'s patches needs to be found\&. That directory is
+configurable via the \fI`QUILT_PATCHES\&'\fP environment variable\&. If that
+variable exists its value is used, otherwise the value \fB`patches\&'\fP is
+assumed\&. The value from \fI$QUILT_PATCHES\fP can be overwritten using the
+\fB`quilt\-patches\&'\fP style\&. (Note: you can use \fIvcs_info\fP to keep the value
+of \fI$QUILT_PATCHES\fP correct all the time via the \fBpost\-quilt\fP hook)\&.
+.PP
+When the directory in question is found, quilt is assumed to be active\&. To
+gather more information, \fIvcs_info\fP looks for a directory called `\&.pc\&';
+Quilt uses that directory to track its current state\&. If this directory does
+not exist we know that quilt has not done anything to the working directory
+(read: no patches have been applied yet)\&.
+.PP
+If patches are applied, \fIvcs_info\fP will try to find out which\&. If you want
+to know which patches of a series are not yet applied, you need to activate
+the \fBget\-unapplied\fP style in the appropriate context\&.
+.PP
+\fIvcs_info\fP allows for very detailed control over how the gathered
+information is presented (see the below sections, \fBStyles\fP and \fBHooks in
+vcs_info\fP), all of which are documented below\&. Note there are a number of
+other patch tracking systems that work on top of a certain version control
+system (like \fBstgit\fP for \fBgit\fP, or \fBmq\fP for \fBhg\fP); the configuration
+for systems like that are generally configured the same way as the \fBquilt\fP
+support\&.
+.PP
+If the \fBquilt\fP support is working in `addon\&' mode, the produced string is
+available as a simple format replacement (\fI%Q\fP to be precise), which can
+be used in \fBformats\fP and \fBactionformats\fP; see below for details)\&.
+.PP
+If, on the other hand, the support code is working in `standalone\&' mode,
+\fIvcs_info\fP will pretend as if \fBquilt\fP were an actual version control
+system\&. That means that the version control system identifier (which
+otherwise would be something like `svn\&' or `cvs') will be set to
+`\fB\-quilt\-\fP\&'\&. This has implications on the used style context where this
+identifier is the second element\&. \fIvcs_info\fP will have filled in a proper
+value for the "repository\&'s" root directory and the string containing the
+information about quilt\&'s state will be available as the `misc' replacement
+(and \fI%Q\fP for compatibility with `addon\&' mode\&.
+.PP
+What is left to discuss is how `standalone\&' mode is detected\&. The detection
+itself is a series of searches for directories\&. You can have this detection
+enabled all the time in every directory that is not otherwise under version
+control\&. If you know there is only a limited set of trees where you would
+like \fIvcs_info\fP to try and look for Quilt in `standalone\&' mode to minimise
+the amount of searching on every call to \fIvcs_info\fP, there are a number of
+ways to do that:
+.PP
+Essentially, `standalone\&' mode detection is controlled by a style called
+`\fBquilt\-standalone\fP\&'\&. It is a string style and its value can have different
+effects\&. The simplest values are: `\fBalways\fP\&' to run detection every time
+\fIvcs_info\fP is run, and `\fBnever\fP\&' to turn the detection off entirely\&.
+.PP
+If the value of \fBquilt\-standalone\fP is something else, it is interpreted
+differently\&. If the value is the name of a scalar variable the value of that
+variable is checked and that value is used in the same `always\&'/`never' way
+as described above\&.
+.PP
+If the value of \fBquilt\-standalone\fP is an array, the elements of that array
+are used as directory names under which you want the detection to be active\&.
+.PP
+If \fBquilt\-standalone\fP is an associative array, the keys are taken as
+directory names under which you want the detection to be active, but only if
+the corresponding value is the string `\fBtrue\fP\&'\&.
+.PP
+Last, but not least, if the value of \fBquilt\-standalone\fP is the name of a
+function, the function is called without arguments and the return value
+decides whether detection should be active\&. A `0\&' return value is true; a
+non\-zero return value is interpreted as false\&.
+.PP
+Note, if there is both a function and a variable by the name of
+\fBquilt\-standalone\fP, the function will take precedence\&.
+.PP
+.SS "Function Descriptions (Public API)"
 .PP
 .PD 0
 .TP
 .PD
 \fBvcs_info\fP [\fIuser\-context\fP]
-The main function, that runs all
-backends and assembles all data into \fI${vcs_info_msg_*_}\fP\&. This is the
-function you want to call from \fBprecmd\fP if you want to include up\-to\-date
-information in your prompt (see Variable description below)\&. If an argument
-is given, that string will be used instead of \fBdefault\fP in the
-user\-context field of the style context\&.
+The main function, that runs all backends and assembles all data into
+\fI${vcs_info_msg_*_}\fP\&. This is the function you want to call from
+\fBprecmd\fP if you want to include up\-to\-date information in your prompt (see
+\fBVariable description\fP below)\&. If an argument is given, that string will be
+used instead of \fBdefault\fP in the \fBuser\-context\fP field of the style
+context\&.
 .TP
 \fBvcs_info_lastmsg\fP
 Outputs the last \fI${vcs_info_msg_*_}\fP value\&.
-Takes into account the value of the use\-prompt\-escapes style in
+Takes into account the value of the \fBuse\-prompt\-escapes\fP style in
 \fI\&':vcs_info:formats:command:\-all\-'\fP\&. It also only prints \fBmax\-exports\fP
 values\&.
 .TP
@@ -711,15 +1313,15 @@ without restarting the shell\&.
 .PP
 All functions named VCS_INFO_* are for internal use only\&.
 .PP
-.SS "Variable description"
+.SS "Variable Description"
 .PP
 .PD 0
 .TP
 .PD
 \fB${vcs_info_msg_N_}\fP (Note the trailing underscore)
-Where \fIN\fP is an integer, eg: \fIvcs_info_msg_0_\fP These variables
+Where \fIN\fP is an integer, e\&.g\&., \fIvcs_info_msg_0_\fP\&. These variables
 are the storage for the informational message the last \fIvcs_info\fP call
-has assembled\&. These are strongly connected to the formats,
+has assembled\&. These are strongly connected to the \fBformats\fP,
 \fBactionformats\fP and \fBnvcsformats\fP styles described above\&. Those styles
 are lists\&. The first member of that list gets expanded into
 \fI${vcs_info_msg_0_}\fP, the second into \fI${vcs_info_msg_1_}\fP
@@ -728,9 +1330,227 @@ exported into the environment\&. (See the \fBmax\-exports\fP style above\&.)
 .PP
 All variables named VCS_INFO_* are for internal use only\&.
 .PP
+.SS "Hooks in vcs_info"
+.PP
+Hooks are places in \fIvcs_info\fP where you can run your own code\&. That
+code can communicate with the code that called it and through that,
+change the system\&'s behaviour\&.
+.PP
+For configuration, hooks change the style context:
+.RS
+.nf
+\fB:vcs_info:<vcs\-string>+<hook\-name>:<user\-context>:<repo\-root\-name>\fP
+.fi
+.RE
+.PP
+To register functions to a hook, you need to list them in the \fBhooks\fP
+style in the appropriate context\&.
+.PP
+Example:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*+foo:*' hooks bar baz\fP
+.fi
+.RE
+.PP
+This registers functions to the hook `foo\&' for all backends\&. In order to
+avoid namespace problems, all registered function names are prepended by
+a `+vi\-\&', so the actual functions called for the `foo' hook are
+`\fB+vi\-bar\fP\&' and `\fB+vi\-baz\fP'\&.
+.PP
+If something seems weird, you can enable the `debug\&' boolean style in
+the proper context and the hook\-calling code will print what it tried
+to execute and whether the function in question existed\&.
+.PP
+When you register more than one function to a hook, all functions are
+executed one after another until one function returns non\-zero or until
+all functions have been called\&.
+.PP
+You may pass data between functions via an associative array, \fBuser_data\fP\&.
+For example:
+.RS
+.nf
+\fB
++vi\-git\-myfirsthook(){
+    user_data[myval]=$myval
+}
++vi\-git\-mysecondhook(){
+    # do something with ${user_data[myval]}
+}\fP
+.fi
+.RE
+.PP
+There are a number of variables that are special in hook contexts:
+.PP
+.PD 0
+.TP
+.PD
+\fBret\fP
+The return value that the hooks system will return to the caller\&. The
+default is an integer `zero\&'\&. If and how a changed \fBret\fP value changes
+the execution of the caller depends on the specific hook\&. See the hook
+documentation below for details\&.
+.TP
+\fBhook_com\fP
+An associated array which is used for bidirectional communication from
+the caller to hook functions\&. The used keys depend on the specific hook\&.
+.TP
+\fBcontext\fP
+The active context of the hook\&. Functions that wish to change this
+variable should make it local scope first\&.
+.TP
+\fBvcs\fP
+The current VCS after it was detected\&. The same values as in the
+enable/disable style are used\&. Available in all hooks except \fBstart\-up\fP\&.
+.PP
+Finally, the full list of currently available hooks:
+.PP
+.PD 0
+.TP
+.PD
+\fBstart\-up\fP
+Called after starting \fIvcs_info\fP but before the VCS in this directory is
+determined\&. It can be used to deactivate \fIvcs_info\fP temporarily if
+necessary\&. When \fBret\fP is set to \fI1\fP, \fIvcs_info\fP aborts and does
+nothing; when set to \fI2\fP, \fIvcs_info\fP sets up everything as if no
+version control were active and exits\&.
+.TP
+\fBpre\-get\-data\fP
+Same as \fBstart\-up\fP but after the VCS was detected\&.
+.TP
+\fBgen\-hg\-bookmark\-string\fP
+Called in the Mercurial backend when a bookmark string is generated; the
+\fBget\-revision\fP and \fBget\-bookmarks\fP styles must be true\&.
+.RS
+.PP
+This hook gets the names of the Mercurial bookmarks that
+\fIvcs_info\fP collected from `hg\&'\&.
+.PP
+When setting \fBret\fP to non\-zero, the string in
+\fB${hook_com[hg\-bookmark\-string]}\fP will be used in the \fI%m\fP escape in
+\fBformats\fP and \fBactionformats\fP and will be availabe in the global
+\fIbackend_misc\fP array as \fB${backend_misc[bookmarks]}\fP\&.
+.RE
+.TP
+\fBgen\-applied\-string\fP
+Called in the \fBgit\fP (with \fBstgit\fP), and \fBhg\fP (with \fBmq\fP) backends
+and in \fBquilt\fP support when the \fIapplied\-string\fP is generated; the
+\fBuse\-quilt\fP zstyle must be true for \fBquilt\fP (the \fBmq\fP and \fBstgit\fP
+backends are active by default)\&.
+.RS
+.PP
+This hook gets the names of all applied patches which \fIvcs_info\fP collected
+so far in the opposite order, which means that the first argument is the
+top\-most patch and so forth\&.
+.PP
+When setting \fBret\fP to non\-zero, the string in
+\fB${hook_com[applied\-string]}\fP will be used in the \fI%m\fP escape in
+\fBformats\fP and \fBactionformats\fP; it will be available in the global
+\fIbackend_misc\fP array as \fB$backend_misc[patches]}\fP; and it will be
+available as \fI%p\fP in the \fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+.RE
+.TP
+\fBgen\-unapplied\-string\fP
+Called in the \fBgit\fP (with \fBstgit\fP), and \fBhg\fP (with \fBmq\fP) backend
+and in \fBquilt\fP support when the \fIunapplied\-string\fP is generated; the
+\fBget\-unapplied\fP style must be true\&.
+.RS
+.PP
+This hook gets the names of all unapplied patches which \fIvcs_info\fP
+collected so far in the opposite order, which mean that the first argument is
+the patch next\-in\-line to be applied and so forth\&.
+.PP
+When setting \fBret\fP to non\-zero, the string in
+\fB${hook_com[unapplied\-string]}\fP will be available as \fI%u\fP in the
+\fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+.RE
+.TP
+\fBgen\-mqguards\-string\fP
+Called in the \fBhg\fP backend when \fBguards\-string\fP is generated; the
+\fBget\-mq\fP style must be true (default)\&.
+.RS
+.PP
+This hook gets the names of any active \fBmq\fP guards\&.
+.PP
+When setting \fBret\fP to non\-zero, the string in
+\fB${hook_com[guards\-string]}\fP will be used in the \fI%g\fP escape in the
+\fBpatch\-format\fP and \fBnopatch\-format\fP styles\&.
+.RE
+.TP
+\fBpost\-quilt\fP
+Called after the \fBquilt\fP support is done\&. The following information
+is passed as arguments to the hook: 1\&. the quilt\-support mode (`addon\&' or
+`standalone\&'); 2\&. the directory that contains the patch series; 3\&. the
+directory that holds quilt\&'s status information (the `\&.pc' directory) or
+the string \fB"\-nopc\-"\fP if that directory wasn\&'t found\&.
+.RS
+.PP
+The `hook_com\&' parameter is not used\&.
+.RE
+.TP
+\fBset\-branch\-format\fP
+Called before `\fBbranchformat\fP\&' is set\&. The only argument to the
+hook is the format that is configured at this point\&.
+.RS
+.PP
+The `\fBhook_com\fP\&' keys considered are `\fBbranch\fP' and `\fBrevision\fP'\&.
+They are set to the values figured out so far by \fIvcs_info\fP and any
+change will be used directly when the actual replacement is done\&.
+.PP
+If \fBret\fP is set to to non\-zero, the string in
+\fB${hook_com[branch\-replace]}\fP will be used unchanged as the
+`\fB%b\fP\&' replacement in the variables set by \fIvcs_info\fP\&.
+.RE
+.TP
+\fBset\-hgrev\-format\fP
+Called before a `\fBhgrevformat\fP\&' is set\&. The only argument to the
+hook is the format that is configured at this point\&.
+.RS
+.PP
+The `\fBhook_com\fP\&' keys considered are `\fBhash\fP' and `\fBlocalrev\fP'\&.
+They are set to the values figured out so far by \fIvcs_info\fP and any
+change will be used directly when the actual replacement is done\&.
+.PP
+If \fBret\fP is set to to non\-zero, the string in
+\fB${hook_com[rev\-replace]}\fP will be used unchanged as the
+`\fB%i\fP\&' replacement in the variables set by \fIvcs_info\fP\&.
+.RE
+.TP
+\fBset\-message\fP
+Called each time before a `\fBvcs_info_msg_N_\fP\&' message is set\&.
+It takes two arguments; the first being the `N\&' in the message
+variable name, the second is the currently configured \fBformats\fP or
+\fBactionformats\fP\&.
+.RS
+.PP
+There are a number of `\fBhook_com\fP\&' keys, that are used here:
+`\fBaction\fP\&', `\fBbranch\fP', `\fBbase\fP', `\fBbase\-name\fP', `\fBsubdir\fP',
+`\fBstaged\fP\&', `\fBunstaged\fP', `\fBrevision\fP', `\fBmisc\fP', `\fBvcs\fP'
+and one `\fBmiscN\fP\&' entry for each backend\-specific data field (\fBN\fP
+starting at zero)\&. They are set to the values figured out so far by
+\fIvcs_info\fP and any change will be used directly when the actual
+replacement is done\&.
+.PP
+Since this hook is triggered multiple times (once for each configured
+\fBformats\fP or \fBactionformats\fP), each of the `\fBhook_com\fP\&' keys mentioned
+above (except for the \fBmiscN\fP entries) has an `\fB_orig\fP\&' counterpart,
+so even if you changed a value to your liking you can still get the
+original value in the next run\&. Changing the `\fB_orig\fP\&' values is
+probably not a good idea\&.
+.PP
+If \fBret\fP is set to to non\-zero, the string in
+\fB${hook_com[message]}\fP will be used unchanged as the message by
+\fIvcs_info\fP\&.
+.RE
+.RE
+.PP
+If all of this sounds rather confusing, take a look at the \fBExamples\fP
+section below and also in the Misc/vcs_info\-examples file in the Zsh source\&.
+They contain some explanatory code\&.
+.PP
 .SS "Examples"
 .PP
-Don\&'t use \fBvcs_info\fP at all (even though it's in your prompt):
+Don\&'t use \fIvcs_info\fP at all (even though it's in your prompt):
 .RS
 .nf
 \fBzstyle \&':vcs_info:*' enable NONE\fP
@@ -759,6 +1579,16 @@ zstyle \&':vcs_info:git:*' actionformats ' GIT ACTION! [%b|%a]'\fP
 .fi
 .RE
 .PP
+All \fB%x\fP expansion in all sorts of formats ("formats", "actionformats",
+branchformat, you name it) are done using the `\fBzformat\fP\&' builtin from
+the `\fBzsh/zutil\fP\&' module\&. That means you can do everything with these
+\fB%x\fP items what zformat supports\&. In particular, if you want something
+that is really long to have a fixed width, like a hash in a mercurial
+branchformat, you can do this: \fB%12\&.12i\fP\&. That\&'ll shrink the 40 character
+hash to its 12 leading characters\&. The form is actually
+`\fB%\fP\fImin\fP\fB\&.\fP\fImax\fP\fBx\fP\&'\&. More is possible\&.
+See the section `The zsh/zutil Module\&' in \fIzshmodules\fP(1) for details\&.
+.PP
 Use the quicker \fBbzr\fP backend
 .RS
 .nf
@@ -775,10 +1605,10 @@ Display the revision number in yellow for \fBbzr\fP and \fBsvn\fP:
 .fi
 .RE
 .PP
-If you want colors, make sure you enclose the color codes in \fB%{\&.\&.\&.%}\fP,
-if you want to use the string provided by \fBvcs_info\fP in prompts\&.
+If you want colors, make sure you enclose the color codes in \fB%{\&.\&.\&.%}\fP
+if you want to use the string provided by \fIvcs_info\fP in prompts\&.
 .PP
-Here is how to print the vcs information as a command (not in a prompt):
+Here is how to print the VCS information as a command (not in a prompt):
 .RS
 .nf
 \fBalias vcsi=\&'vcs_info command; vcs_info_lastmsg'\fP
@@ -786,7 +1616,121 @@ Here is how to print the vcs information as a command (not in a prompt):
 .RE
 .PP
 This way, you can even define different formats for output via
-\fBvcs_info_lastmsg\fP in the \&':vcs_info:formats:command:*' namespace\&.
+\fBvcs_info_lastmsg\fP in the \&':vcs_info:*:command:*' namespace\&.
+.PP
+Now as promised, some code that uses hooks:
+say, you\&'d like to replace the string `svn' by `subversion' in
+\fIvcs_info\fP\&'s \fB%s\fP \fBformats\fP replacement\&.
+.PP
+First, we will tell \fIvcs_info\fP to call a function when populating
+the message variables with the gathered information:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*+set\-message:*' hooks svn2subversion\fP
+.fi
+.RE
+.PP
+Nothing happens\&. Which is reasonable, since we didn\&'t define the actual
+function yet\&. To see what the hooks subsystem is trying to do, enable the
+`\fBdebug\fP\&' style:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*+*:*' debug true\fP
+.fi
+.RE
+.PP
+That should give you an idea what is going on\&. Specifically, the function
+that we are looking for is `\fB+vi\-svn2subversion\fP\&'\&. Note, the `\fB+vi\-\fP'
+prefix\&. So, everything is in order, just as documented\&. When you are done
+checking out the debugging output, disable it again:
+.RS
+.nf
+\fBzstyle \&':vcs_info:*+*:*' debug false\fP
+.fi
+.RE
+.PP
+Now, let\&'s define the function:
+.RS
+.nf
+\fB
+function +vi\-svn2subversion() {
+    [[ ${hook_com[vcs_orig]} == svn ]] && hook_com[vcs]=subversion
+}\fP
+.fi
+.RE
+.PP
+Simple enough\&. And it could have even been simpler, if only we had
+registered our function in a less generic context\&. If we do it only in
+the `\fBsvn\fP\&' backend's context, we don't need to test which the active
+backend is:
+.RS
+.nf
+\fBzstyle \&':vcs_info:svn+set\-message:*' hooks svn2subversion\fP
+.fi
+.RE
+.RS
+.nf
+\fB
+function +vi\-svn2subversion() {
+    hook_com[vcs]=subversion
+}\fP
+.fi
+.RE
+.PP
+And finally a little more elaborate example, that uses a hook to create
+a customised bookmark string for the \fBhg\fP backend\&.
+.PP
+Again, we start off by registering a function:
+.RS
+.nf
+\fBzstyle \&':vcs_info:hg+gen\-hg\-bookmark\-string:*' hooks hgbookmarks\fP
+.fi
+.RE
+.PP
+And then we define the `\fB+vi\-hgbookmarks\fP function:
+.RS
+.nf
+\fB
+function +vi\-hgbookmarks() {
+    # The default is to connect all bookmark names by
+    # commas\&. This mixes things up a little\&.
+    # Imagine, there\&'s one type of bookmarks that is
+    # special to you\&. Say, because it\&'s *your* work\&.
+    # Those bookmarks look always like this: "sh/*"
+    # (because your initials are sh, for example)\&.
+    # This makes the bookmarks string use only those
+    # bookmarks\&. If there\&'s more than one, it
+    # concatenates them using commas\&.
+    local s i
+    # The bookmarks returned by `hg\&' are available in
+    # the functions positional parameters\&.
+    (( $# == 0 )) && return 0
+    for i in "$@"; do
+        if [[ $i == sh/* ]]; then
+            [[ \-n $s ]] && s=$s,
+            s=${s}$i
+        fi
+    done
+    # Now, the communication with the code that calls
+    # the hook functions is done via the hook_com[]
+    # hash\&. The key, at which the `gen\-hg\-bookmark\-string\&'
+    # hook looks at is `hg\-bookmark\-string\&'\&. So:
+    hook_com[hg\-bookmark\-string]=$s
+    # And to signal, that we want to use the sting we
+    # just generated, set the special variable `ret\&' to
+    # something other than the default zero:
+    ret=1
+    return 0
+}
+\fP
+.fi
+.RE
+.PP
+Some longer examples and code snippets which might be useful are available in
+the examples file located at Misc/vcs_info\-examples in the Zsh source
+directory\&.
+.PP
+This concludes our guided tour through zsh\&'s \fIvcs_info\fP\&.
 .PP
 .SH "PROMPT THEMES"
 .PP
@@ -1355,7 +2299,7 @@ The set of accented characters is reasonably complete up to Unicode
 character U+0180, the set of special characters less so\&.  However, it it
 is very sporadic from that point\&.  Adding new characters is easy,
 however; see the function \fBdefine\-composed\-chars\fP\&.  Please send any
-additions to \fBzsh\-workers@sunsite\&.dk\fP\&.
+additions to \fBzsh\-workers@zsh\&.org\fP\&.
 .PP
 The codes for the second character when used to accent the first are as
 follows\&.  Note that not every character can take every accent\&.
@@ -1459,7 +2403,7 @@ Characters found in various variants of the Latin alphabet:
 .PD 0
 .TP
 \fBss\fP
-Eszett (scafes S)
+Eszett (scharfes S)
 .TP
 \fBD\-\fP, \fBd\-\fP
 Eth
@@ -1879,7 +2823,7 @@ similar functions while reading a value\&.
 .TP
 .PD
 \fBreplace\-string\-again\fP, \fBreplace\-pattern\-again\fP
-The function \fBreplace\-string\fP implements two widgets\&.
+The function \fBreplace\-string\fP implements three widgets\&.
 If defined under the same name as the function, it prompts for two
 strings; the first (source) string will be replaced by the second
 everywhere it occurs in the line editing buffer\&.
@@ -1887,7 +2831,7 @@ everywhere it occurs in the line editing buffer\&.
 .PP
 If the widget name contains the word `\fBpattern\fP\&', for example by
 defining the widget using the command `\fBzle \-N replace\-pattern
-replace\-string\fP\&', then the replacement is done by pattern matching\&.  All
+replace\-string\fP\&', then the matching is performed using zsh patterns\&.  All
 zsh extended globbing patterns can be used in the source string; note
 that unlike filename generation the pattern does not need to match an
 entire word, nor do glob qualifiers have any effect\&.  In addition, the
@@ -1898,6 +2842,12 @@ replaced by the \fIN\fPth parenthesised expression matched\&.  The form
 `\fB\e{\fP\fIN\fP\fB}\fP\&' may be used to protect the digit from following
 digits\&.
 .PP
+If the widget instead contains the word `\fBregex\fP\&' (or `\fBregexp\fP'),
+then the matching is performed using regular expressions, respecting
+the setting of the option \fBRE_MATCH_PCRE\fP (see the description of the
+function \fBregexp\-replace\fP below)\&.  The special replacement facilities
+described above for pattern matching are available\&.
+.PP
 By default the previous source or replacement string will not be offered
 for editing\&.  However, this feature can be activated by setting the style
 \fBedit\-previous\fP in the context \fB:zle:\fP\fIwidget\fP (for example,
@@ -1905,12 +2855,12 @@ for editing\&.  However, this feature can be activated by setting the style
 numeric argument forces the previous values to be offered, a negative or
 zero argument forces them not to be\&.
 .PP
-The function \fBreplace\-string\-again\fP can be used to repeat the
-previous replacement; no prompting is done\&.  As with \fBreplace\-string\fP, if
-the name of the widget contains the word `\fBpattern\fP\&', pattern matching
-is performed, else a literal string replacement\&.  Note that the
-previous source and replacement text are the same whether pattern or string
-matching is used\&.
+The function \fBreplace\-string\-again\fP can be used to repeat the previous
+replacement; no prompting is done\&.  As with \fBreplace\-string\fP, if the name
+of the widget contains the word `\fBpattern\fP\&' or `\fBregex\fP', pattern or
+regular expression matching is performed, else a literal string
+replacement\&.  Note that the previous source and replacement text are the
+same whether pattern, regular expression or string matching is used\&.
 .PP
 For example, starting from the line:
 .PP
@@ -1970,6 +2920,24 @@ If no interesting word is found and the \fBauto\-previous\fP style is set to
 a true value, the search continues upward through the history\&.  When
 \fBauto\-previous\fP is unset or false (the default), the widget must be
 invoked repeatedly in order to search earlier history lines\&.
+.RE
+.TP
+\fBtranspose\-lines\fP
+Only useful with a multi\-line editing buffer; the lines here are
+lines within the current on\-screen buffer, not history lines\&.
+The effect is similar to the function of the same name in Emacs\&.
+.RS
+.PP
+Transpose the current line with the previous line and move the cursor
+to the start of the next line\&.  Repeating this (which can be done by
+providing a positive numeric prefix argument) has the effect of moving
+the line above the cursor down by a number of lines\&.
+.PP
+With a negative numeric prefix argument, requires two lines above the
+cursor\&.  These two lines are transposed and the cursor moved to the
+start of the previous line\&.  Using a numeric prefix less than \-1
+has the effect of moving the line above the cursor up by minus that
+number of lines\&.
 .RE
 .TP
 \fBwhich\-command\fP
@@ -2350,7 +3318,7 @@ command to an appropriate viewer\&.
 \fBzsh\-mime\-setup\fP [ \fB\-fv\fP ] [ \fB\-l\fP [ \fIsuffix \&.\&.\&.\fP ] ]
 .TP
 .PD
-\fBzsh\-mime\-handler\fP
+\fBzsh\-mime\-handler [\-l] \fIcommand arguments \&.\&.\&.\fP\fP
 These two functions use the files \fB~/\&.mime\&.types\fP and \fB/etc/mime\&.types\fP,
 which associate types and extensions, as well as \fB~/\&.mailcap\fP and
 \fB/etc/mailcap\fP files, which associate types and the programs that
@@ -2366,6 +3334,10 @@ user\&.
 .PP
 The system works by setting up suffix aliases with `\fBalias \-s\fP\&'\&.
 Suffix aliases already installed by the user will not be overwritten\&.
+.PP
+For suffixes defined in lower case, upper case variants will also
+automatically be handled (e\&.g\&. \fBPDF\fP is automatically handled if
+handling for the suffix \fBpdf\fP is defined), but not vice versa\&.
 .PP
 Repeated calls to \fBzsh\-mime\-setup\fP do not override the existing
 mapping between suffixes and executable files unless the option \fB\-f\fP
@@ -2566,6 +3538,12 @@ An example of a suitable \fBmailcap\fP entry for such a program is:
 \fBtext/html; /usr/bin/lynx \&'%s'; needsterminal\fP
 .fi
 .RE
+.PP
+Running `\fBzsh\-mime\-handler \-l\fP \fIcommand line\fP\&' prints the command
+line that would be executed, simplified to remove the effect of any
+flags, and quoted so that the output can be run as a complete zsh
+command line\&.  This is used by the completion system to decide how to
+complete after a file handled by \fBzsh\-mime\-setup\fP\&.
 .RE
 .TP
 \fBpick\-web\-browser\fP
@@ -2780,7 +3758,7 @@ Note that setting an output base suppresses floating point output; use
 See the comments in the function for a few extra tips\&.
 .RE
 .TP
-\fBzmathfuncdef\fP \fImathfunc\fP [ \fIbody\fP ]
+\fBzmathfuncdef\fP [ \fImathfunc\fP [ \fIbody\fP ] ]
 A convenient front end to \fBfunctions \-M\fP\&.
 .RS
 .PP
@@ -2793,10 +3771,15 @@ to refer to optional parameters\&.  Note that the forms must be
 strictly adhered to for the function to calculate the correct number
 of arguments\&.  The implementation is held in a shell function named
 \fBzsh_math_func_\fP\fImathfunc\fP; usually the user will not need
-to refer to the shell function directly\&.
+to refer to the shell function directly\&.  Any existing function
+of the same name is silently replaced\&.
 .PP
 With one argument, remove the mathematical function \fImathfunc\fP
 as well as the shell function implementation\&.
+.PP
+With no arguments, list all \fImathfunc\fP functions in a form
+suitable for restoring the definition\&.
+The functions have not necessarily been defined by \fBzmathfuncdef\fP\&.
 .RE
 .RE
 .PP
@@ -2967,13 +3950,35 @@ the context prefix `\fB:completion:nslookup\fP\&'\&.
 See also the \fBpager\fP, \fBprompt\fP and \fBrprompt\fP styles below\&.
 .RE
 .TP
+\fBregexp\-replace\fP \fIvar\fP \fIregexp\fP \fIreplace\fP
+Use regular expressions to perform a global search and replace operation
+on a variable\&.  If the option \fBRE_MATCH_PCRE\fP is not set, POSIX
+extended regular expressions are used, else Perl\-compatible regular
+expressions (this requires the shell to be linked against the \fBpcre\fP
+library)\&.
+.RS
+.PP
+\fIvar\fP is the name of the variable containing the string to be matched\&.
+The variable will be modified directly by the function\&.  The
+variables \fBMATCH\fP, \fBMBEGIN\fP, \fBMEND\fP, \fBmatch\fP, \fBmbegin\fP, \fBmend\fP
+should be avoided as these are used by the regular expression code\&.
+.PP
+\fIregexp\fP is the regular expression to match against the string\&.
+.PP
+\fIreplace\fP is the replacement text\&.  This can contain parameter, command
+and arithmetic expressions which will be replaced:  in particular, a
+reference to \fB$MATCH\fP will be replaced by the text matched by the pattern\&.
+.PP
+The return status is 0 if at least one match was performed, else 1\&.
+.RE
+.TP
 \fBrun\-help\fP \fIcmd\fP
 This function is designed to be invoked by the \fBrun\-help\fP ZLE widget,
 in place of the default alias\&.  See `Accessing On\-Line Help\&'
 above for setup instructions\&.
 .RS
 .PP
-In the discussion which follows, if \fIcmd\fP is a filesystem path, it is
+In the discussion which follows, if \fIcmd\fP is a file system path, it is
 first reduced to its rightmost component (the file name)\&.
 .PP
 Help is first sought by looking for a file named \fIcmd\fP in the directory
@@ -3309,4 +4314,4 @@ The \fBnslookup\fP function looks up this style in the context
 `\fB:nslookup\fP\&' to set the prompt and the right\-side prompt, respectively\&.
 The usual expansions for the \fBPS1\fP and \fBRPS1\fP parameters may be used
 (see
-\fIzshmisc\fP(1))\&.
+EXPANSION OF PROMPT SEQUENCES in \fIzshmisc\fP(1))\&.

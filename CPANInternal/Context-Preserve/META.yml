@@ -1,0 +1,22 @@
+--- 
+abstract: run code after a subroutine call, preserving the context the subroutine would have seen if it were the last statement in the caller
+author: 
+  - AND COPYRIGHT
+build_requires: 
+  Test::Exception: 0
+  Test::More: 0
+  ok: 0
+distribution_type: module
+generated_by: Module::Install version 0.68
+license: unknown
+meta-spec: 
+  url: http://module-build.sourceforge.net/META-spec-v1.3.html
+  version: 1.3
+name: Context-Preserve
+no_index: 
+  directory: 
+    - inc
+    - t
+requires: 
+  Exporter: 0
+version: 0.01

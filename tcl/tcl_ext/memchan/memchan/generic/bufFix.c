@@ -3,14 +3,15 @@
  *
  *	Implementations of a fixed size buffer.
  *
- * Copyright (c) 2000 by Andreas Kupries <a.kupries@westend.com>
+ * Copyright (c) 2000-2009 by Andreas Kupries <a.kupries@westend.com>
  *
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: bufFix.c,v 1.2 2002/04/25 06:29:48 andreas_kupries Exp $
+ * RCS: @(#) $Id: bufFix.c,v 1.3 2009/03/16 18:51:00 andreas_kupries Exp $
  */
 
+#include "memchanInt.h"
 #include "buf.h"
 
 /*

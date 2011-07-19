@@ -1,3 +1,26 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-10-27  Andreas Kupries  <andreask@activestate.com>
+
+	* fa.man: Noted that the implementation could be simplified by
+	* fa.tcl: using snit's hierarchical methods. The changed methods
+	* pkgIndex.tcl: are 'start', 'final', 'symbol', and 'state'.
+	* tests/fa_final.test: Updated the testsuite, the error messages
+	* tests/fa_state.test:  changed across branches of Tcl. Bumped
+	* tests/fa_symbol.test: version to 0.4 (Due to us bumping the
+	  required snit to 1.3+).
+
+2009-02-13  Andreas Kupries  <andreask@activestate.com>
+
+	* fa.tcl: Fixed [SF Tcllib Bug 2595296], renaming of states
+	* fa.man: having loop transitions. Bumped version to 0.3.1.
+	* pkgIndex.tcl: Extended testsuite.
+	* tests/fa_state.test:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

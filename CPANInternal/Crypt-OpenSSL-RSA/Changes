@@ -1,5 +1,50 @@
 Revision history for Perl extension Crypt::OpenSSL::RSA.
 
+0.25  Sun May 20 2007 12:56:11
+        - Add a LICENSE file.
+        - Fix a bug (reported by many) in rsa.t - we were incorrectly counting
+          the number of tests in situations where use_sha512_hash was
+          not available.
+
+0.24  Mon Nov 13 2006 08:21:14
+        - Fix a bug reported by Mark Martinec <Mark.Martinec@ijs.si>
+          where encrypt could segfault if called with insufficient
+          data; it now informatively croaks instead.
+        - Fix a bug reported by Mark Martinec where check_key would
+          segfault instead of croaking when called on a public key.
+        - Fix decrypt and private_encrypt to croak instead of segfault when
+          called on a public key.
+        - Add an is_private method.
+        - Silence a few compiler warnings about ignoring return values
+          from certain BIO_* methods.
+
+0.23  Wed Apr 12 2006 00:06:10
+        - Provide 32 bytes of seeding in tests, up from 19.
+        - Stop relying on implicit includes, which disappeared in the 0.98
+          release of OpenSSL.
+        - Apply patch from Jim Radford <radford@blackbean.org> to add support
+          for SHA{224,256,384,512}
+
+0.22  Mon Nov 15 2005 21:13:20
+        - Add public_decrypt, private_encrypt methods, contributed
+          by Paul G. Weiss <paul@weiss.name>
+        - Some changes to help builds on Redhat9
+        - Remove deprecated methods:
+          * the no-arg new constructor - use new_from_public_key,
+            new_from_private_key or Crypt::OpenSSL::RSA->generate_key instead
+          * load_public_key - use new_from_public_key
+          * load_private_key - use new_from_private_key
+          * generate_key as an instance method - use it as a class constructor
+            method instead.
+          * set_padding_mode - use use_no_padding, use_pkcs1_padding,
+            use_pkcs1_oaep_padding, or use_sslv23_padding instead.
+          * get_padding_mode
+        - Eliminate all(most all) memory leaks.
+        - fix email address
+        - Stop returning true from methods just to indicate success.
+        - Change default public exponent from 65535 to 65537
+
+
 0.21  Sun Feb 15 2004 21:13:45
         - Include t/format.t in the MANIFEST file, so that it is
           actually included in the distribution.

@@ -33,9 +33,7 @@
 
 #include "config.h"
 
-#ifdef __APPLE__
 #define COMMON_DIGEST_FOR_OPENSSL 1
-#endif
 
 #include <sys/types.h>
 #include <sys/param.h>
@@ -45,13 +43,13 @@
 #include <limits.h>
 #include <string.h>
 
+#ifdef HAVE_OPENSSL
 /* get openssl/ssleay version number */
 #include <openssl/opensslv.h>
 
 #if !defined(OPENSSL_VERSION_NUMBER) || (OPENSSL_VERSION_NUMBER < 0x0090602fL)
 #error OpenSSL version 0.9.6 or later required.
 #endif
-
 #include <openssl/pem.h>
 #include <openssl/evp.h>
 #include <openssl/x509.h>
@@ -59,15 +57,6 @@
 #include <openssl/x509_vfy.h>
 #include <openssl/bn.h>
 #include <openssl/dh.h>
-#ifdef __APPLE__
-#include <CommonCrypto/CommonDigest.h>
-#include <CommonCrypto/CommonHMAC.h>
-#include <CommonCrypto/CommonCryptor.h>
-#else
-#include <openssl/md5.h>
-#include <openssl/sha.h>
-#include <openssl/hmac.h>
-#endif
 #include <openssl/des.h>
 #include <openssl/crypto.h>
 #ifdef HAVE_OPENSSL_ENGINE_H
@@ -86,17 +75,17 @@
 #include <openssl/aes.h>
 #elif defined(HAVE_OPENSSL_RIJNDAEL_H)
 #include <openssl/rijndael.h>
-#else
-#include "crypto/rijndael/rijndael-api-fst.h"
 #endif
-#ifdef WITH_SHA2
-#ifndef __APPLE__
-#ifdef HAVE_OPENSSL_SHA2_H
-#include <openssl/sha2.h>
-#endif
-#endif
-#endif
+#else /* HAVE_OPENSSL */
+#include <Security/SecDH.h>
+#include <Security/SecRandom.h>
+#endif /* HAVE_OPENSSL */
 
+#include <CommonCrypto/CommonDigest.h>
+#include <CommonCrypto/CommonHMAC.h>
+#include <CommonCrypto/CommonCryptor.h>
+
+#ifdef HAVE_OPENSSL
 /* 0.9.7 stuff? */
 #if OPENSSL_VERSION_NUMBER < 0x0090700fL
 typedef STACK_OF(GENERAL_NAME) GENERAL_NAMES;
@@ -105,12 +94,13 @@ typedef STACK_OF(GENERAL_NAME) GENERAL_NAMES;
 #endif
 
 #define OpenSSL_BUG()	do { plog(LLV_ERROR, LOCATION, NULL, "OpenSSL function failed\n"); } while(0)
+#endif
 
+#include "crypto_openssl.h"
 #include "var.h"
 #include "misc.h"
 #include "vmbuf.h"
 #include "plog.h"
-#include "crypto_openssl.h"
 #include "debug.h"
 #include "gcmalloc.h"
 
@@ -120,16 +110,15 @@ typedef STACK_OF(GENERAL_NAME) GENERAL_NAMES;
  * necessary for SSLeay/OpenSSL portability.  It sucks.
  */
 
+#ifdef HAVE_OPENSSL
 static int cb_check_cert_local __P((int, X509_STORE_CTX *));
 static int cb_check_cert_remote __P((int, X509_STORE_CTX *));
 static X509 *mem2x509 __P((vchar_t *));
-
-#ifdef __APPLE__
-static caddr_t eay_hmac_init __P((vchar_t *, CCHmacAlgorithm));
-#else
-static caddr_t eay_hmac_init __P((vchar_t *, const EVP_MD *));
 #endif
+static caddr_t eay_hmac_init __P((vchar_t *, CCHmacAlgorithm));
 
+
+#ifdef HAVE_OPENSSL
 /* X509 Certificate */
 /*
  * convert the string of the subject name into DER
@@ -643,8 +632,6 @@ error:
 	return NULL;
 }
 
-#ifdef __APPLE__
-
 /*
  * Get the common name from a cert
  */
@@ -775,115 +762,6 @@ eay_get_x509subjectaltname(cert, altname, type, pos, len)
 
 	return error;
 }
-
-#else /* __APPLE__ */
-
-/*
- * get the subjectAltName from X509 certificate.
- * the name must be terminated by '\0'.
- */
-int
-eay_get_x509subjectaltname(cert, altname, type, pos)
-	vchar_t *cert;
-	char **altname;
-	int *type;
-	int pos;
-{
-	X509 *x509 = NULL;
-	GENERAL_NAMES *gens = NULL;
-	GENERAL_NAME *gen;
-	int len;
-	int error = -1;
-
-	*altname = NULL;
-	*type = GENT_OTHERNAME;
-
-	x509 = mem2x509(cert);
-	if (x509 == NULL)
-		goto end;
-
-	gens = X509_get_ext_d2i(x509, NID_subject_alt_name, NULL, NULL);
-	if (gens == NULL)
-		goto end;
-
-	/* there is no data at "pos" */
-	if (pos > sk_GENERAL_NAME_num(gens))
-		goto end;
-
-	gen = sk_GENERAL_NAME_value(gens, pos - 1);
-
-	/* read DNSName / Email */
-	if (gen->type == GEN_DNS	||
-		gen->type == GEN_EMAIL	||
-		gen->type == GEN_URI )
-	{
-		/* make sure if the data is terminated by '\0'. */
-		if (gen->d.ia5->data[gen->d.ia5->length] != '\0')
-		{
-			plog(LLV_ERROR, LOCATION, NULL,
-				 "data is not terminated by NUL.");
-			hexdump(gen->d.ia5->data, gen->d.ia5->length + 1);
-			goto end;
-		}
-		
-		len = gen->d.ia5->length + 1;
-		*altname = racoon_malloc(len);
-		if (!*altname)
-			goto end;
-		
-		strlcpy(*altname, (char *) gen->d.ia5->data, len);
-		*type = gen->type;
-		error = 0;
-	}
-	/* read IP address */
-	else if (gen->type == GEN_IPADD)
-	{
-		unsigned char p[5], *ip;
-		const int maxaltnamelen = 20;
-		ip = p;
-		
-		/* only support IPv4 */
-		if (gen->d.ip->length != 4)
-			goto end;
-		
-		/* convert Octet String to String
-		 * XXX ???????
-		 */
-		/*i2d_ASN1_OCTET_STRING(gen->d.ip,&ip);*/
-		ip = gen->d.ip->data;
-
-		/* XXX Magic, enough for an IPv4 address
-		 */
-		*altname = racoon_malloc(maxaltnamelen);
-		if (!*altname)
-			goto end;
-		
-		snprintf(*altname, maxaltnamelen, "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
-		*type = gen->type;
-		error = 0;
-	}
-	/* XXX other possible types ?
-	 * For now, error will be -1 if unsupported type
-	 */
-
-end:
-	if (error) {
-		if (*altname) {
-			racoon_free(*altname);
-			*altname = NULL;
-		}
-		plog(LLV_ERROR, LOCATION, NULL, "%s\n", eay_strerror());
-	}
-	if (x509)
-		X509_free(x509);
-	if (gens)
-		/* free the whole stack. */
-		sk_GENERAL_NAME_pop_free(gens, GENERAL_NAME_free);
-
-	return error;
-}
-
-#endif
 
 /*
  * decode a X509 certificate and make a readable text terminated '\n'.
@@ -1397,6 +1275,7 @@ evp_keylen(int len, const EVP_CIPHER *e)
 	
 	return EVP_CIPHER_key_length(e) << 3;
 }
+#endif /* HAVE_OPENSSL */
 
 vchar_t *
 eay_CCCrypt(CCOperation  oper,
@@ -1444,32 +1323,28 @@ vchar_t *
 eay_des_encrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
-#ifdef __APPLE__
     return(eay_CCCrypt(kCCEncrypt, kCCAlgorithmDES, 0 /* CBC */, data, key, iv));
-#else
-	return evp_crypt(data, key, iv, EVP_des_cbc(), 1);
-#endif /* __APPLE__ */
 }
 
 vchar_t *
 eay_des_decrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
-#ifdef __APPLE__
     return(eay_CCCrypt(kCCDecrypt, kCCAlgorithmDES, 0 /* CBC */, data, key, iv));
-#else
-	return evp_crypt(data, key, iv, EVP_des_cbc(), 0);
-#endif /* __APPLE__ */
 }
 
 int
 eay_des_weakkey(key)
 	vchar_t *key;
 {
+#ifdef HAVE_OPENSSL
 #ifdef USE_NEW_DES_API
 	return DES_is_weak_key((void *)key->v);
 #else
 	return des_is_weak_key((void *)key->v);
+#endif
+#else
+	return 0;
 #endif
 }
 
@@ -1477,7 +1352,6 @@ int
 eay_des_keylen(len)
 	int len;
 {
-#ifdef __APPLE__
     /* CommonCrypto return lengths in bytes, ipsec-tools
      * uses lengths in bits, therefore conversion is required.
      */
@@ -1485,9 +1359,6 @@ eay_des_keylen(len)
         return -1;
 
     return kCCKeySizeDES << 3;      
-#else
-	return evp_keylen(len, EVP_des_cbc());
-#endif /* __APPLE__ */
 }
 
 #ifdef HAVE_OPENSSL_IDEA_H
@@ -1552,6 +1423,7 @@ eay_idea_keylen(len)
 }
 #endif
 
+#ifdef HAVE_OPENSSL
 /*
  * BLOWFISH-CBC
  */
@@ -1586,6 +1458,7 @@ eay_bf_keylen(len)
 		return -1;
 	return len;
 }
+#endif
 
 #ifdef HAVE_OPENSSL_RC5_H
 /*
@@ -1660,28 +1533,21 @@ vchar_t *
 eay_3des_encrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
-#ifdef __APPLE__
     return(eay_CCCrypt(kCCEncrypt, kCCAlgorithm3DES, 0 /* CBC */, data, key, iv));
-#else
-	return evp_crypt(data, key, iv, EVP_des_ede3_cbc(), 1);
-#endif /* __APPLE__ */
 }
 
 vchar_t *
 eay_3des_decrypt(data, key, iv)
 	vchar_t *data, *key, *iv;
 {
-#ifdef __APPLE__
     return(eay_CCCrypt(kCCDecrypt, kCCAlgorithm3DES, 0 /* CBC */, data, key, iv));
-#else
-	return evp_crypt(data, key, iv, EVP_des_ede3_cbc(), 0);
-#endif /* __APPLE__ */
 }
 
 int
 eay_3des_weakkey(key)
 	vchar_t *key;
 {
+#ifdef HAVE_OPENSSL
 #ifdef USE_NEW_DES_API
 	return (DES_is_weak_key((void *)key->v) ||
 	    DES_is_weak_key((void *)(key->v + 8)) ||
@@ -1694,13 +1560,16 @@ eay_3des_weakkey(key)
 	    des_is_weak_key((void *)(key->v + 8)) ||
 	    des_is_weak_key((void *)(key->v + 16)));
 #endif
+#else /* HAVE_OPENSSL */
+	return 0;
+#endif
+
 }
 
 int
 eay_3des_keylen(len)
 	int len;
 {
-#ifdef __APPLE__
     /* CommonCrypto return lengths in bytes, ipsec-tools
      * uses lengths in bits, therefore conversion is required.
      */
@@ -1708,13 +1577,9 @@ eay_3des_keylen(len)
         return -1;
 
     return kCCKeySize3DES << 3;
-#else
-	if (len != 0 && len != 192)
-		return -1;
-	return 192;
-#endif /* __APPLE__ */
 }
 
+#ifdef HAVE_OPENSSL
 /*
  * CAST-CBC
  */
@@ -1749,11 +1614,11 @@ eay_cast_keylen(len)
 		return -1;
 	return len;
 }
+#endif
 
 /*
  * AES(RIJNDAEL)-CBC
  */
-#ifdef __APPLE__
 vchar_t *
 eay_aes_encrypt(data, key, iv)
 vchar_t *data, *key, *iv;
@@ -1786,113 +1651,6 @@ int len;
     return len;
 }
 
-#else
-
-#ifndef HAVE_OPENSSL_AES_H
-vchar_t *
-eay_aes_encrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	keyInstance k;
-	cipherInstance c;
-
-	memset(&k, 0, sizeof(k));
-	if (rijndael_makeKey(&k, DIR_ENCRYPT, key->l << 3, key->v) < 0)
-		return NULL;
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* encryption data */
-	memset(&c, 0, sizeof(c));
-	if (rijndael_cipherInit(&c, MODE_CBC, iv->v) < 0){
-		vfree(res);
-		return NULL;
-	}
-	if (rijndael_blockEncrypt(&c, &k, data->v, data->l << 3, res->v) < 0){
-		vfree(res);
-		return NULL;
-	}
-
-	return res;
-}
-
-vchar_t *
-eay_aes_decrypt(data, key, iv)
-	vchar_t *data, *key, *iv;
-{
-	vchar_t *res;
-	keyInstance k;
-	cipherInstance c;
-
-	memset(&k, 0, sizeof(k));
-	if (rijndael_makeKey(&k, DIR_DECRYPT, key->l << 3, key->v) < 0)
-		return NULL;
-
-	/* allocate buffer for result */
-	if ((res = vmalloc(data->l)) == NULL)
-		return NULL;
-
-	/* decryption data */
-	memset(&c, 0, sizeof(c));
-	if (rijndael_cipherInit(&c, MODE_CBC, iv->v) < 0){
-		vfree(res);
-		return NULL;
-	}
-	if (rijndael_blockDecrypt(&c, &k, data->v, data->l << 3, res->v) < 0){
-		vfree(res);
-		return NULL;
-	}
-
-	return res;
-}
-#else
-static inline const EVP_CIPHER *
-aes_evp_by_keylen(int keylen)
-{
-	switch(keylen) {
-		case 16:
-		case 128:
-			return EVP_aes_128_cbc();
-		case 24:
-		case 192:
-			return EVP_aes_192_cbc();
-		case 32:
-		case 256:
-			return EVP_aes_256_cbc();
-		default:
-			return NULL;
-	}
-}
-
-vchar_t *
-eay_aes_encrypt(data, key, iv)
-       vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, aes_evp_by_keylen(key->l), 1);
-}
-
-vchar_t *
-eay_aes_decrypt(data, key, iv)
-       vchar_t *data, *key, *iv;
-{
-	return evp_crypt(data, key, iv, aes_evp_by_keylen(key->l), 0);
-}
-#endif /* HAVE_OPENSSL_AES_H */
-
-int
-eay_aes_keylen(len)
-	int len;
-{
-	if (len == 0)
-		return 128;
-	if (len != 128 && len != 192 && len != 256)
-		return -1;
-	return len;
-}
-#endif /* __APPLE__ */
 
 int
 eay_aes_weakkey(key)
@@ -1908,6 +1666,7 @@ eay_null_hashlen()
 	return 0;
 }
 
+#ifdef HAVE_OPENSSL
 int
 eay_kpdk_hashlen()
 {
@@ -1922,6 +1681,7 @@ eay_twofish_keylen(len)
 		return -1;
 	return len;
 }
+#endif
 
 int
 eay_null_keylen(len)
@@ -1933,8 +1693,6 @@ eay_null_keylen(len)
 /*
  * HMAC functions
  */
- 
-#ifdef __APPLE__
 static caddr_t
 eay_hmac_init(key, algorithm)
 	vchar_t *key;
@@ -1946,19 +1704,6 @@ eay_hmac_init(key, algorithm)
 
 	return (caddr_t)c;
 }
-#else
-static caddr_t
-eay_hmac_init(key, md)
-	vchar_t *key;
-	const EVP_MD *md;
-{
-	HMAC_CTX *c = racoon_malloc(sizeof(*c));
-
-	HMAC_Init(c, key->v, key->l, md);
-
-	return (caddr_t)c;
-}
-#endif /* __APPLE__ */
 
 #ifdef WITH_SHA2
 /*
@@ -1982,11 +1727,7 @@ caddr_t
 eay_hmacsha2_512_init(key)
 	vchar_t *key;
 {
-#ifdef __APPLE__
 	return eay_hmac_init(key, kCCHmacAlgSHA512);
-#else
-	return eay_hmac_init(key, EVP_sha2_512());
-#endif
 }
 
 void
@@ -1994,14 +1735,9 @@ eay_hmacsha2_512_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-#ifdef __APPLE__
 	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
-#else
-	HMAC_Update((HMAC_CTX *)c, (unsigned char *) data->v, data->l);
-#endif
 }
 
-#ifdef __APPLE__
 vchar_t *
 eay_hmacsha2_512_final(c)
 	caddr_t c;
@@ -2017,33 +1753,6 @@ eay_hmacsha2_512_final(c)
 	(void)racoon_free(c);
 	return(res);
 }
-#else
-vchar_t *
-eay_hmacsha2_512_final(c)
-	caddr_t c;
-{
-	vchar_t *res;
-	unsigned int l;
-
-	if ((res = vmalloc(SHA512_DIGEST_LENGTH)) == 0)
-		return NULL;
-
-	HMAC_Final((HMAC_CTX *)c, (unsigned char *) res->v, &l);
-	res->l = l;
-	HMAC_cleanup((HMAC_CTX *)c);
-		
-	(void)racoon_free(c);
-
-	if (SHA512_DIGEST_LENGTH != res->l) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"hmac sha2_512 length mismatch %zd.\n", res->l);
-		vfree(res);
-		return NULL;
-	}
-
-	return(res);
-}
-#endif /* __APPLE__ */
 
 /*
  * HMAC SHA2-384
@@ -2066,11 +1775,7 @@ caddr_t
 eay_hmacsha2_384_init(key)
 	vchar_t *key;
 {
-#ifdef __APPLE__
 	return eay_hmac_init(key, kCCHmacAlgSHA384);
-#else
-	return eay_hmac_init(key, EVP_sha2_384());
-#endif
 }
 
 void
@@ -2078,14 +1783,9 @@ eay_hmacsha2_384_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-#ifdef __APPLE__
 	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
-#else
-	HMAC_Update((HMAC_CTX *)c, (unsigned char *) data->v, data->l);
-#endif
 }
 
-#ifdef __APPLE__
 vchar_t *
 eay_hmacsha2_384_final(c)
 	caddr_t c;
@@ -2101,33 +1801,6 @@ eay_hmacsha2_384_final(c)
 	(void)racoon_free(c);
 	return(res);
 }
-#else
-vchar_t *
-eay_hmacsha2_384_final(c)
-	caddr_t c;
-{
-	vchar_t *res;
-	unsigned int l;
-
-	if ((res = vmalloc(SHA384_DIGEST_LENGTH)) == 0)
-		return NULL;
-
-	HMAC_Final((HMAC_CTX *)c, (unsigned char *) res->v, &l);
-	res->l = l;
-	HMAC_cleanup((HMAC_CTX *)c);
-
-	(void)racoon_free(c);
-
-	if (SHA384_DIGEST_LENGTH != res->l) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"hmac sha2_384 length mismatch %zd.\n", res->l);
-		vfree(res);
-		return NULL;
-	}
-
-	return(res);
-}
-#endif /* __APPLE__ */
 
 /*
  * HMAC SHA2-256
@@ -2150,11 +1823,7 @@ caddr_t
 eay_hmacsha2_256_init(key)
 	vchar_t *key;
 {
-#ifdef __APPLE__
 	return eay_hmac_init(key, kCCHmacAlgSHA256);
-#else
-	return eay_hmac_init(key, EVP_sha2_256());
-#endif
 }
 
 void
@@ -2162,14 +1831,9 @@ eay_hmacsha2_256_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-#ifdef __APPLE__
 	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
-#else
-	HMAC_Update((HMAC_CTX *)c, (unsigned char *) data->v, data->l);
-#endif
 }
 
-#ifdef __APPLE__
 vchar_t *
 eay_hmacsha2_256_final(c)
 	caddr_t c;
@@ -2185,33 +1849,6 @@ eay_hmacsha2_256_final(c)
 	(void)racoon_free(c);
 	return(res);
 }
-#else
-vchar_t *
-eay_hmacsha2_256_final(c)
-	caddr_t c;
-{
-	vchar_t *res;
-	unsigned int l;
-
-	if ((res = vmalloc(SHA256_DIGEST_LENGTH)) == 0)
-		return NULL;
-
-	HMAC_Final((HMAC_CTX *)c, (unsigned char *) res->v, &l);
-	res->l = l;
-	HMAC_cleanup((HMAC_CTX *)c);
-
-	(void)racoon_free(c);
-
-	if (SHA256_DIGEST_LENGTH != res->l) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"hmac sha2_256 length mismatch %zd.\n", res->l);
-		vfree(res);
-		return NULL;
-	}
-
-	return(res);
-}
-#endif /* __APPLE__ */
 #endif	/* WITH_SHA2 */
 
 /*
@@ -2235,11 +1872,7 @@ caddr_t
 eay_hmacsha1_init(key)
 	vchar_t *key;
 {
-#ifdef __APPLE__
 	return eay_hmac_init(key, kCCHmacAlgSHA1);
-#else
-	return eay_hmac_init(key, EVP_sha1());
-#endif
 }
 
 void
@@ -2247,14 +1880,9 @@ eay_hmacsha1_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-#ifdef __APPLE__
 	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
-#else
-	HMAC_Update((HMAC_CTX *)c, (unsigned char *) data->v, data->l);
-#endif
 }
 
-#ifdef __APPLE__
 vchar_t *
 eay_hmacsha1_final(c)
 	caddr_t c;
@@ -2270,33 +1898,6 @@ eay_hmacsha1_final(c)
 	(void)racoon_free(c);
 	return(res);
 }
-#else
-vchar_t *
-eay_hmacsha1_final(c)
-	caddr_t c;
-{
-	vchar_t *res;
-	unsigned int l;
-
-	if ((res = vmalloc(SHA_DIGEST_LENGTH)) == 0)
-		return NULL;
-
-	HMAC_Final((HMAC_CTX *)c, (unsigned char *) res->v, &l);
-	res->l = l;
-	HMAC_cleanup((HMAC_CTX *)c);
-
-	(void)racoon_free(c);
-
-	if (SHA_DIGEST_LENGTH != res->l) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"hmac sha1 length mismatch %zd.\n", res->l);
-		vfree(res);
-		return NULL;
-	}
-
-	return(res);
-}
-#endif /* __APPLE__ */
 
 /*
  * HMAC MD5
@@ -2319,11 +1920,7 @@ caddr_t
 eay_hmacmd5_init(key)
 	vchar_t *key;
 {
-#ifdef __APPLE__
 	return eay_hmac_init(key, kCCHmacAlgMD5);
-#else
-	return eay_hmac_init(key, EVP_md5());
-#endif
 }
 
 void
@@ -2331,14 +1928,9 @@ eay_hmacmd5_update(c, data)
 	caddr_t c;
 	vchar_t *data;
 {
-#ifdef __APPLE__
 	CCHmacUpdate((CCHmacContext *)c, data->v, data->l);
-#else
-	HMAC_Update((HMAC_CTX *)c, (unsigned char *) data->v, data->l);
-#endif
 }
 
-#ifdef __APPLE__
 vchar_t *
 eay_hmacmd5_final(c)
 	caddr_t c;
@@ -2354,33 +1946,7 @@ eay_hmacmd5_final(c)
 
 	return(res);
 }
-#else
-vchar_t *
-eay_hmacmd5_final(c)
-	caddr_t c;
-{
-	vchar_t *res;
-	unsigned int l;
 
-	if ((res = vmalloc(MD5_DIGEST_LENGTH)) == 0)
-		return NULL;
-
-	HMAC_Final((HMAC_CTX *)c, (unsigned char *) res->v, &l);
-	res->l = l;
-	HMAC_cleanup((HMAC_CTX *)c);
-	
-	(void)racoon_free(c);
-
-	if (MD5_DIGEST_LENGTH != res->l) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			"hmac md5 length mismatch %zd.\n", res->l);
-		vfree(res);
-		return NULL;
-	}
-
-	return(res);
-}
-#endif /* __APPLE__ */
 
 #ifdef WITH_SHA2
 /*
@@ -2447,9 +2013,7 @@ eay_sha2_512_hashlen()
  * SHA2-384 functions
  */
  
-#ifdef __APPLE__
 typedef SHA512_CTX SHA384_CTX;
-#endif
 
 caddr_t
 eay_sha2_384_init()
@@ -2683,6 +2247,8 @@ eay_md5_hashlen()
 	return MD5_DIGEST_LENGTH << 3;
 }
 
+
+#ifdef HAVE_OPENSSL
 /*
  * eay_set_random
  *   size: number of bytes.
@@ -2704,7 +2270,25 @@ end:
 		BN_free(r);
 	return(res);
 }
+#else
+vchar_t *
+eay_set_random(u_int32_t size)
+{
+	vchar_t *res = vmalloc(size);
+	
+	if (res == NULL)
+		return NULL;
+		
+	if (SecRandomCopyBytes(kSecRandomDefault, size, res->v)) {
+		vfree(res);
+		return NULL;
+	}
+	
+	return res;
+}
+#endif
 
+#ifdef HAVE_OPENSSL
 /* DH */
 int
 eay_dh_generate(prime, g, publen, pub, priv)
@@ -3012,6 +2596,7 @@ out:
 
 	return rsa_pub;
 }
+#endif /* HAVE_OPENSSL */
 
 u_int32_t
 eay_random()
@@ -3026,8 +2611,10 @@ eay_random()
 	return result;
 }
 
+#ifdef HAVE_OPENSSL
 const char *
 eay_version()
 {
 	return SSLeay_version(SSLEAY_VERSION);
 }
+#endif

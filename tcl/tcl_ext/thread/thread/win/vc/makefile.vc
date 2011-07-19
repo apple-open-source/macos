@@ -18,7 +18,7 @@
 # Copyright (c) 2003-2006 Pat Thoyts
 #
 #-------------------------------------------------------------------------
-# RCS: @(#)$Id: makefile.vc,v 1.32 2007/05/09 11:50:42 patthoyts Exp $
+# RCS: @(#)$Id: makefile.vc,v 1.33 2009/05/04 22:46:17 patthoyts Exp $
 #-------------------------------------------------------------------------
 
 # Check to see we are configured to build with MSVC (MSDEVDIR or MSVCDIR)
@@ -159,7 +159,11 @@ Please `cd` to its location first.
 #-------------------------------------------------------------------------
 
 PROJECT = thread
+
+# Uncomment the following line if this is a Tk extension.
+#PROJECT_REQUIRES_TK=1
 !include "rules.vc"
+
 !include "pkg.vc"
 
 DOTVERSION      = $(PACKAGE_VERSION:"=) #"
@@ -207,7 +211,7 @@ INCLUDE_INSTALL_DIR	= $(_TCLDIR)\include
 ### The following paths CANNOT have spaces in them.
 GENERICDIR	= $(ROOT)\generic
 WINDIR		= $(ROOT)\win
-LIBDIR          = $(ROOT)\library
+LIBDIR          = $(ROOT)\lib
 DOCDIR		= $(ROOT)\doc
 TOOLSDIR	= $(ROOT)\tools
 COMPATDIR	= $(ROOT)\compat
@@ -223,23 +227,16 @@ cdebug	= $(OPTIMIZATIONS)
 !else
 cdebug	=
 !endif
-!else if "$(MACHINE)" == "IA64"
+!else if "$(MACHINE)" == "IA64" #|| "$(MACHINE)" == "AMD64"
 ### Warnings are too many, can't support warnings into errors.
 cdebug	= -Zi -Od $(DEBUGFLAGS)
 !else
-cdebug	= -Zi -WX $(DEBUGFLAGS)
+cdebug	= -Zi -W3 $(DEBUGFLAGS)
 !endif
 
 ### Declarations common to all compiler options
-cwarn = -D _CRT_SECURE_NO_DEPRECATE -D _CRT_NONSTDC_NO_DEPRECATE
+cwarn = $(WARNINGS) -D _CRT_SECURE_NO_DEPRECATE -D _CRT_NONSTDC_NO_DEPRECATE
 cflags = -nologo -c $(COMPILERFLAGS) $(cwarn) -Fp$(TMP_DIR)^\
-
-# Warning level
-!if $(FULLWARNINGS)
-cflags = $(cflags) -W4
-!else
-cflags = $(cflags) -W3
-!endif
 
 !if $(MSVCRT)
 !if $(DEBUG) && !$(UNCHECKED)
@@ -257,9 +254,9 @@ crt = -MT
 
 !if !$(STATIC_BUILD)
 cflags = $(cflags) -DUSE_TCL_STUBS
-#!if defined(TKSTUBLIB)
-#cflags = $(cflags) -DUSE_TK_STUBS
-#!endif
+!if defined(TKSTUBLIB)
+cflags = $(cflags) -DUSE_TK_STUBS
+!endif
 !endif
 
 INCLUDES	= $(TCL_INCLUDES) -I"$(WINDIR)" -I"$(GENERICDIR)"
@@ -286,10 +283,6 @@ ldebug	= -release -opt:ref -opt:icf,3
 ### Declarations common to all linker options
 lflags	= -nologo -machine:$(MACHINE) $(LINKERFLAGS) $(ldebug)
 
-!if $(FULLWARNINGS)
-lflags = $(lflags) -warn:3
-!endif
-
 !if $(PROFILE)
 lflags	= $(lflags) -profile
 !endif
@@ -311,15 +304,17 @@ conlflags = $(lflags) -subsystem:console
 guilflags = $(lflags) -subsystem:windows
 !if !$(STATIC_BUILD)
 baselibs  = $(TCLSTUBLIB)
-#!if defined(TKSTUBLIB)
-#baselibs  = $(baselibs) $(TKSTUBLIB)
-#!endif
+!if defined(TKSTUBLIB)
+baselibs  = $(baselibs) $(TKSTUBLIB)
+!endif
 !endif
 
 # Avoid 'unresolved external symbol __security_cookie' errors.
 # c.f. http://support.microsoft.com/?id=894573
 !if "$(MACHINE)" == "IA64" || "$(MACHINE)" == "AMD64"
+!if $(VCVERSION) >= 1400 && $(VCVERSION) < 1500
 baselibs   = $(baselibs) bufferoverflowU.lib
+!endif
 !endif
 
 #---------------------------------------------------------------------
@@ -335,37 +330,51 @@ TESTFLAGS = $(TESTFLAGS) -file $(TESTPAT)
 #---------------------------------------------------------------------
 
 all:	    setup $(PROJECT)
-$(PROJECT): setup $(PRJLIB)
+$(PROJECT): setup pkgIndex $(PRJLIB)
 install:    install-binaries install-libraries install-docs
+pkgIndex:   $(OUT_DIR)\pkgIndex.tcl
 
-# Tests need to ensure we load the right dll file we
-# have to handle the output differently on Win9x.
-#
-!if "$(OS)" == "Windows_NT"  || "$(MSVCDIR)" == "IDE"
 test: setup $(PROJECT)
-	$(TCLSH) "$(ROOT)\tests\all.tcl" $(TESTFLAGS) -loadfile <<
-load [file normalize [file join [pwd] $(PRJLIB:\=/)]]
-<<
+	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
+	@set TCLLIBPATH=$(OUT_DIR_PATH:\=/)
+	@$(CPY) $(LIBDIR)\*.tcl $(OUT_DIR)
+!if $(TCLINSTALL)
+	@set PATH=$(_TCLDIR)\bin;$(PATH)
 !else
-test: setup $(PROJECT)
-        echo Please wait while the test results are collected
-	$(TCLSH) "$(ROOT)\tests\all.tcl" $(TESTFLAGS) -loadfile << >tests.log
-load [file normalize [file join [pwd] $(PRJLIB:\=/)]]
-<<
-        type tests.log | more
+	@set PATH=$(_TCLDIR)\win\$(BUILDDIRTOP);$(PATH)
 !endif
+!if "$(OS)" == "Windows_NT"  || "$(MSVCDIR)" == "IDE"
+	$(DEBUGGER) $(TCLSH) "$(ROOT)/tests/all.tcl" $(TESTFLAGS)
+!else
+        @echo Please wait while the tests are collected...
+        $(DEBUGGER) $(TCLSH) "$(ROOT)/tests/all.tcl" $(TESTFLAGS) > tests.log
+	type tests.log | more
+!endif
+
+shell: setup $(PROJECT)
+	@set VLERQ_LIBRARY=$(LIBDIR:\=/)
+	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
+	@set TCLLIBPATH=$(OUT_DIR:\=/)
+	@$(CPY) $(LIBDIR)\*.tcl $(OUT_DIR)
+!if $(TCLINSTALL)
+	@set PATH=$(_TCLDIR)\bin;$(PATH)
+!else
+	@set PATH=$(_TCLDIR)\win\$(BUILDDIRTOP);$(PATH)
+!endif
+	$(DEBUGGER) $(TCLSH) $(SCRIPT)
 
 setup:
 	@if not exist $(OUT_DIR)\nul mkdir $(OUT_DIR)
 	@if not exist $(TMP_DIR)\nul mkdir $(TMP_DIR)
 
+# See <tcl>/win/coffbase.txt for extension base addresses.
 $(PRJLIB): $(DLLOBJS)
 !if $(STATIC_BUILD)
 	$(lib32) -nologo -out:$@ @<<
 $**
 <<
 !else
-	$(link32) $(dlllflags) -out:$@ $(baselibs) @<<
+	$(link32) $(dlllflags) -base:0x10C80000 -out:$@ $(baselibs) @<<
 $**
 <<
 	$(_VC_MANIFEST_EMBED_DLL)
@@ -419,7 +428,7 @@ $<
 .SUFFIXES:.c .rc
 
 #-------------------------------------------------------------------------
-# Dependency rules
+# Explicit dependency rules
 #
 #-------------------------------------------------------------------------
 
@@ -430,6 +439,15 @@ $(GENERICDIR)\threadSvCmd.c : $(GENERICDIR)\tclThread.h
 $(GENERICDIR)\threadPoolCmd.c : $(GENERICDIR)\tclThread.h
 $(GENERICDIR)\threadSvListCmd.c : $(GENERICDIR)\tclThread.h
 $(GENERICDIR)\threadSvKeylistCmd.c : $(GENERICDIR)\tclThread.h
+
+.PHONY: $(OUT_DIR)\pkgIndex.tcl
+
+$(OUT_DIR)\pkgIndex.tcl: $(ROOT)\pkgIndex.tcl.in
+	@nmakehlp -s << $** > $@
+@PACKAGE_NAME@       thread
+@PACKAGE_VERSION@    $(DOTVERSION)
+@PKG_LIB_FILE@       $(PRJLIBNAME)
+<<
 
 #---------------------------------------------------------------------
 # Installation. (EDIT)
@@ -444,16 +462,10 @@ install-binaries:
 	@if not exist "$(SCRIPT_INSTALL_DIR)" mkdir "$(SCRIPT_INSTALL_DIR)"
 	@$(CPY) $(PRJLIB) "$(SCRIPT_INSTALL_DIR)" >NUL
 
-
 install-libraries:
-        @echo Installing libraries to '$(SCRIPT_INSTALL_DIR)'
-        @if exist $(LIBDIR) $(CPY) $(LIBDIR)\*.tcl "$(SCRIPT_INSTALL_DIR)"
-        @echo Installing package index in '$(SCRIPT_INSTALL_DIR)'
-	nmakehlp -s << $(ROOT)\pkgIndex.tcl.in > "$(SCRIPT_INSTALL_DIR)\pkgIndex.tcl"
-@PACKAGE_NAME@     $(PROJECT)
-@PACKAGE_VERSION@  $(DOTVERSION)
-@PKG_LIB_FILE@     $(PRJLIBNAME)
-<<
+	@echo Installing library files to '$(SCRIPT_INSTALL_DIR)'
+	@if exist $(LIBDIR) $(CPY) $(LIBDIR)\*.tcl "$(SCRIPT_INSTALL_DIR)"
+	@$(CPY) $(OUT_DIR)\pkgIndex.tcl "$(SCRIPT_INSTALL_DIR)"
 
 install-docs:
 	@echo Installing documentation files to '$(DOC_INSTALL_DIR)'

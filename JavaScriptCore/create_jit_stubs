@@ -22,19 +22,16 @@ use strict;
 use File::Basename;
 use Getopt::Long;
 
-my $usage = basename($0) . " --prefix prefix [--offset offset] file";
+my $usage = basename($0) . " --prefix prefix file";
 
 my $rtype_template = quotemeta("#rtype#");
-my $offset_template = quotemeta("#offset#");
 my $op_template = quotemeta("#op#");
 
 my $prefix;
-my $offset = 32;
 my $file;
 
 my $getOptionsResult = GetOptions(
-    'prefix=s' => \$prefix,
-    'offset=i' => \$offset
+    'prefix=s' => \$prefix
 );
 
 $file = $ARGV[0];
@@ -42,6 +39,7 @@ $file = $ARGV[0];
 die "$usage\n" unless ($prefix and $file);
 
 my $stub_template = "";
+my $output_end = "";
 my $stub = "";
 
 my $rtype = "";
@@ -51,19 +49,27 @@ print STDERR "Creating JIT stubs for $file \n";
 open(IN, $file) or die "No such file $file";
 
 while ( $_ = <IN> ) {
+    if ( /^$prefix\_BEGIN\((.*)\)/ ) {
+        $stub = $1;
+        print $stub . "\n";
+    }
     if ( /^$prefix\((.*)\)/ ) {
         $stub_template .= $1 . "\n";
+    }
+    if ( /^$prefix\_END\((.*)\)/ ) {
+        $output_end .= $1 . "\n";
     }
     if ( /^DEFINE_STUB_FUNCTION\((.*), (.*)\)/ ) {
         $stub = $stub_template;
         $rtype = quotemeta($1);
         $op = quotemeta($2);
-        $stub =~ s/$offset_template/$offset/g;
         $stub =~ s/$rtype_template/$rtype/g;
         $stub =~ s/$op_template/$op/g;
         $stub =~ s/\\\*/\*/g;
         print $stub;
     }
 }
+
+print $output_end;
 
 close(IN);

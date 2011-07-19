@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001 - 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -20,7 +20,13 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+#ifndef __COMMON_H__
+#define __COMMON_H__
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+	
 #define iprintf(ident,args...)	do { printf("%-" # ident "s", ""); \
 				printf(args);}while(0)
 
@@ -29,6 +35,17 @@ extern int verbose;
 int  cmd_lookup(int argc, char *argv[]);
 int  cmd_status(int argc, char *argv[]);
 int  cmd_view(int argc, char *argv[]);
+int  cmd_dfs(int argc, char *argv[]);
+int  cmd_identity(int argc, char *argv[]);
 void lookup_usage(void);
 void status_usage(void);
 void view_usage(void);
+void dfs_usage(void);
+void identity_usage(void);
+void ntstatus_to_err(NTSTATUS status);
+	
+#ifdef __cplusplus
+} // extern "C"
+#endif
+
+#endif // __COMMON_H__

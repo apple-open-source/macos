@@ -1,0 +1,19 @@
+1.200 Feb 13 2010
+  - make sure Devel::Dwarn::Dwarn and Devel::Dwarn::DwarnS work
+
+1.100 Dec 10 2009
+  - add Data::Dumper::Concise::Sugar containing Dwarn and DwarnS
+    helper functions
+  - add Devel::Dwarn as a more concise alias for ::Sugar
+
+1.002 Nov 22 2009
+  - open up non-ref and multiple arguments since I've not seen any other
+    viable use for the additional syntax
+
+1.001 Oct 5 2009
+  - more explanation of purpose, limitations and alternatives in the POD
+
+1.000 Oct 3 2009
+  - Dumper() returns concise Data::Dumper object
+  - Dumper($ref) returns concisely dumped ref
+  - anything else die()s

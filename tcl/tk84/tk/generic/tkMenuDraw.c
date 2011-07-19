@@ -1009,11 +1009,12 @@ TkPostSubmenu(interp, menuPtr, mePtr)
 	name = Tcl_GetStringFromObj(mePtr->namePtr, NULL);
 	Tk_GetRootCoords(menuPtr->tkwin, &x, &y);
 	AdjustMenuCoords(menuPtr, mePtr, &x, &y, string);
+	menuPtr->postedCascade = mePtr;
 	result = Tcl_VarEval(interp, "{", name, "} post ", string, (char *) NULL);
 	if (result != TCL_OK) {
+	    menuPtr->postedCascade = NULL;
 	    return result;
 	}
-	menuPtr->postedCascade = mePtr;
 	TkEventuallyRedrawMenu(menuPtr, mePtr);
     }
     return TCL_OK;

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006, 2007 Samuel Weinig <sam@webkit.org>
  *
  * This library is free software; you can redistribute it and/or
@@ -23,13 +23,12 @@ module core {
     interface [
         CustomToJS,
         GenerateNativeConverter,
-        CustomMarkFunction,
         InlineGetOwnPropertySlot
     ] Document : Node {
 
         // DOM Level 1 Core
         readonly attribute DocumentType doctype;
-        readonly attribute [V8Custom] DOMImplementation implementation;
+        readonly attribute DOMImplementation implementation;
         readonly attribute Element documentElement;
 
         [ReturnsNew] Element createElement(in [ConvertNullToNullString] DOMString tagName)
@@ -219,23 +218,28 @@ module core {
                                                   
 #endif
 
+#if !defined(LANGUAGE_CPP) || !LANGUAGE_CPP
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
         [V8Custom] DOMObject getCSSCanvasContext(in DOMString contextId, in DOMString name, in long width, in long height);
+#endif
 #endif
 
         // HTML 5
         NodeList getElementsByClassName(in DOMString tagname);
 
+        readonly attribute DOMString compatMode;
+
         // NodeSelector - Selector API
-        Element querySelector(in DOMString selectors)
+        [RequiresAllArguments=Raise] Element querySelector(in DOMString selectors)
             raises(DOMException);
-        NodeList querySelectorAll(in DOMString selectors)
+        [RequiresAllArguments=Raise] NodeList querySelectorAll(in DOMString selectors)
             raises(DOMException);
 
-#if defined(ENABLE_WML) && ENABLE_WML
-        // Only used from within WML layout tests, WML doesn't have JS support at all.
-        [DontEnum] void resetWMLPageState();
-        [DontEnum] void initializeWMLPageState();
+#if defined(ENABLE_FULLSCREEN_API) && ENABLE_FULLSCREEN_API
+        readonly attribute boolean webkitIsFullScreen;
+        readonly attribute boolean webkitFullScreenKeyboardInputAllowed;
+        readonly attribute Element webkitCurrentFullScreenElement;
+        void webkitCancelFullScreen();
 #endif
 
 #if !defined(LANGUAGE_OBJECTIVE_C) || !LANGUAGE_OBJECTIVE_C
@@ -267,6 +271,7 @@ module core {
         attribute [DontEnum] EventListener onmouseover;
         attribute [DontEnum] EventListener onmouseup;
         attribute [DontEnum] EventListener onmousewheel;
+        attribute [DontEnum] EventListener onreadystatechange;
         attribute [DontEnum] EventListener onscroll;
         attribute [DontEnum] EventListener onselect;
         attribute [DontEnum] EventListener onsubmit;
@@ -276,8 +281,6 @@ module core {
         // attribute [DontEnum] EventListener ondurationchange;
         // attribute [DontEnum] EventListener onemptied;
         // attribute [DontEnum] EventListener onended;
-        // attribute [DontEnum] EventListener onformchange;
-        // attribute [DontEnum] EventListener onforminput;
         // attribute [DontEnum] EventListener onloadeddata;
         // attribute [DontEnum] EventListener onloadedmetadata;
         // attribute [DontEnum] EventListener onloadstart;
@@ -286,7 +289,6 @@ module core {
         // attribute [DontEnum] EventListener onplaying;
         // attribute [DontEnum] EventListener onprogress;
         // attribute [DontEnum] EventListener onratechange;
-        // attribute [DontEnum] EventListener onreadystatechange;
         // attribute [DontEnum] EventListener onseeked;
         // attribute [DontEnum] EventListener onseeking;
         // attribute [DontEnum] EventListener onshow;
@@ -306,11 +308,39 @@ module core {
         attribute [DontEnum] EventListener onreset;
         attribute [DontEnum] EventListener onsearch;
         attribute [DontEnum] EventListener onselectstart;
+        attribute [DontEnum] EventListener onselectionchange;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchstart;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchmove;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchend;
         attribute [DontEnum,Conditional=TOUCH_EVENTS,EnabledAtRuntime] EventListener ontouchcancel;
+        attribute [DontEnum, Conditional=FULLSCREEN_API] EventListener onwebkitfullscreenchange;
 #endif
+
+#if defined(ENABLE_TOUCH_EVENTS) && ENABLE_TOUCH_EVENTS
+        [ReturnsNew, EnabledAtRuntime] Touch createTouch(in DOMWindow window,
+                                                         in EventTarget target,
+                                                         in long identifier,
+                                                         in long pageX,
+                                                         in long pageY,
+                                                         in long screenX,
+                                                         in long screenY,
+                                                         in long webkitRadiusX,
+                                                         in long webkitRadiusY,
+                                                         in float webkitRotationAngle)
+            raises (DOMException);
+        [ReturnsNew, EnabledAtRuntime, Custom] TouchList createTouchList()
+            raises (DOMException);
+#endif
+
+#if defined(LANGUAGE_CPP) && LANGUAGE_CPP
+        // Extra WebCore methods exposed to allow compile-time casting in C++
+        boolean isHTMLDocument();
+#endif
+
+        // Page visibility API.
+        readonly attribute [Conditional=PAGE_VISIBILITY_API] DOMString webkitVisibilityState;
+        readonly attribute [Conditional=PAGE_VISIBILITY_API] boolean webkitIsVisible;
+
     };
 
 }

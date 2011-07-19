@@ -97,7 +97,7 @@ int main(int argc, char * const * argv)
         goto finish;
     }
 
-    result = unloadKextsByURL(&toolArgs, &fatal);
+    scratchResult = unloadKextsByURL(&toolArgs, &fatal);
     if (result == EX_OK && scratchResult != EX_OK) {
         result = scratchResult;
     }
@@ -129,6 +129,7 @@ finish:
 ExitStatus readArgs(int argc, char * const * argv, KextunloadArgs * toolArgs)
 {
     ExitStatus   result          = EX_USAGE;
+    ExitStatus   scratchResult   = EX_USAGE;
     int          optchar         = 0;
     int          longindex       = -1;
     CFStringRef  scratchString   = NULL;  // must release
@@ -195,8 +196,12 @@ ExitStatus readArgs(int argc, char * const * argv, KextunloadArgs * toolArgs)
                 break;
 
             case kOptVerbose:
-                result = setLogFilterForOpt(argc, argv,
+                scratchResult = setLogFilterForOpt(argc, argv,
                     /* forceOnFlags */ kOSKextLogKextOrGlobalMask);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
+                    goto finish;
+                }
                 break;
 
             default:
@@ -290,17 +295,26 @@ createKextsIfNecessary(KextunloadArgs * toolArgs)
     count = CFArrayGetCount(toolArgs->kextURLs);
     for (i = 0; i < count; i++) {
         CFURLRef kextURL = CFArrayGetValueAtIndex(toolArgs->kextURLs, i);
+        char     kextPath[PATH_MAX] = "(unknown)";
+
+        CFURLGetFileSystemRepresentation(kextURL,
+            /* resolveToBase */ false,
+            (UInt8 *)kextPath,
+            sizeof(kextPath));
 
         SAFE_RELEASE_NULL(aKext);
         aKext = OSKextCreate(kCFAllocatorDefault, kextURL);
         if (!aKext) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                "Can't create %s.", kextPath);
             result = kKextunloadExitNotFound;
             continue; // not fatal!
         }
         
         addToArrayIfAbsent(toolArgs->kexts, aKext);
     }
-    
+
 finish:
     SAFE_RELEASE(aKext);
     return result;

@@ -1,0 +1,20 @@
+--- src/cmds.c.orig	2007-08-06 00:33:23.000000000 -0400
++++ src/cmds.c	2010-02-23 15:05:48.000000000 -0500
+@@ -186,7 +186,7 @@
+ 	while (1) {
+ 		fprintf(ttyout, "%s %s [anpqy?]? ", promptleft, promptright);
+ 		(void)fflush(ttyout);
+-		if (getline(stdin, line, sizeof(line), &errormsg) < 0) {
++		if (get_line(stdin, line, sizeof(line), &errormsg) < 0) {
+ 			mflag = 0;
+ 			fprintf(ttyout, "%s; %s aborted\n", errormsg, cmd);
+ 			return (0);
+@@ -781,7 +781,7 @@
+ 	argv[0] = "get";
+ 	mode = restart_point ? "r+" : "w";
+ 
+-	while (getline(fp, buf, sizeof(buf), NULL) >= 0) {
++	while (get_line(fp, buf, sizeof(buf), NULL) >= 0) {
+ 		if (buf[0] == '\0')
+ 			continue;
+ 		argv[1] = buf;

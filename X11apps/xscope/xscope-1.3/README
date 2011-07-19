@@ -1,0 +1,112 @@
+
+	XSCOPE -- a program to monitor X11/Client conversations
+
+XSCOPE is a program to monitor the connections between the X11 window
+server and a client program.  xscope runs as a separate process.  By
+adjusting the host and/or display number that a X11 client attaches
+to, the client is attached to xscope instead of X11.  xscope attaches
+to X11 as if it were the client.  All bytes from the client are sent
+to xscope which passes them on to X11; All bytes from X11 are sent to
+xscope which sends them on to the client.  xscope is transparent to
+the client and X11.
+
+In addition to passing characters back and forth, xscope will print
+information about this traffic on stdout, giving performance and
+debugging information for an X11 client and server.
+
+
+  --------------               --------------             --------------
+  |            |               |            |             |            |
+  |            | ------------> |            | ----------> |            |
+  |   client   |               |  xscope    |             |   server   |
+  |            |               |            |             |            |
+  |            | <-----------  |            | <---------- |            |
+  |            |               |            |             |            |
+  --------------               --------------             --------------
+                                     |
+				     |
+				     v
+			    trace output to stdout
+
+
+When running with xscope, three processes are involved, potentially all
+on different machines:
+
+X11 -- the X11 window server will be running on machine "A" for Display "B".
+	("A" is a machine name; "B" is a display number).
+
+xscope -- xscope must be told where the X11 window server is 
+	(what machine and what display).  The options for xscope are 
+	-h<X11-host> and -d<display-number>.  In our example, -hA and -dB. 
+	Typically the display-number is not given. xscope will not try to 
+	connect to X11 until the client connects to xscope.
+
+client -- the client should connect to xscope rather than X11.  To avoid 
+	changing the code for the client, xscope listens on the same port 
+	as X11. If X11 and xscope are on different machines, this works 
+	well.  However, if X11 and xscope are on the same machine, this 
+	creates a port conflict.  To resolve this conflict, xscope can 
+	be given a different input or output port number, as necessary 
+	to avoid the port that X11 is listening to.  The client must connect 
+	to this offset port number.  The input port for xscope is set by 
+	-i<port-number>; the output port is set by -o<port-number>. The 
+	default input port is 1; the default output port is 0. These ports
+	are offset by the X11 base (6000) and the display number. The client 
+	attaches to xscope by changing its display number by the port offset.
+
+For example, with X11 running on "bagel", display 0 (the default), and
+xscope and the client running on "cleo", we would start xscope as
+"xscope -hbagel -i0".  The client program could then connect to "X11" on
+"cleo:0", and would be attached to xscope, which would then attach to
+X11 on "bagel:0".
+
+If, however, all three processes were running on "cleo", we would
+start xscope by "xscope -i1".  This would cause it to listen on
+port 6001 (which is display 1 for X11).  The client would attach to
+X11 on "cleo:1", and xscope would connect through to X11 on "cleo:0".
+
+
+LIMITATIONS:
+
+xscope was originally written & used on a Sun3. Additional code may be needed
+for byteswapping on different architectures.
+
+The command line arguments for specifying the real X server should probably
+	be changed to be more consistent with X11R3 applications.
+
+The builtin atoms have been wired in directly; they should probably be
+picked up from a header file.
+
+Each extension needs to have decoding routines manually written; they
+should probably be generated from the XCB xml protocol descriptions.
+
+There is some code to interpret typed commands from the keyboard.
+   It would be possible to extend the a command language to create
+   artificial characters to be sent to X11 or the client as if they were 
+   generated  by the other, or to dynamically alter requests or replies.
+
+    ------------------------------------------------------------
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xscope
+
+        http://cgit.freedesktop.org/xorg/app/xscope
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

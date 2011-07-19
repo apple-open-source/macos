@@ -30,20 +30,23 @@
 
 namespace JSC {
 
-DebuggerActivation::DebuggerActivation(JSObject* activation)
-    : JSObject(DebuggerActivation::createStructure(jsNull()))
+DebuggerActivation::DebuggerActivation(JSGlobalData& globalData, JSObject* activation)
+    : JSNonFinalObject(globalData, globalData.debuggerActivationStructure.get())
 {
     ASSERT(activation);
     ASSERT(activation->isActivationObject());
-    m_activation = static_cast<JSActivation*>(activation);
+    m_activation.set(globalData, this, static_cast<JSActivation*>(activation));
 }
 
-void DebuggerActivation::markChildren(MarkStack& markStack)
+void DebuggerActivation::visitChildren(SlotVisitor& visitor)
 {
-    JSObject::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    JSObject::visitChildren(visitor);
 
     if (m_activation)
-        markStack.append(m_activation);
+        visitor.append(&m_activation);
 }
 
 UString DebuggerActivation::className() const

@@ -2,7 +2,7 @@
 #ifndef _S_IN_CKSUM_H
 #define _S_IN_CKSUM_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

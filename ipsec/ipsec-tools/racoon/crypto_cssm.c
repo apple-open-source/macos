@@ -63,90 +63,255 @@
 
 #include "crypto_cssm.h"
 
+#if TARGET_OS_EMBEDDED
+static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef);
+#else
+static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef);
+#endif
 
-static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef);
-static const char *GetSecurityErrorString(OSStatus err);
 #if !TARGET_OS_EMBEDDED
 static OSStatus FindPolicy(const CSSM_OID *policyOID, SecPolicyRef *policyRef);
 static OSStatus CopySystemKeychain(SecKeychainRef *keychainRef);
 #endif
 
-/*
- * Verify cert using security framework
- */
-int crypto_cssm_check_x509cert(vchar_t *cert, CFStringRef hostname, cert_status_t certStatus)
+static SecPolicyRef
+crypto_cssm_x509cert_get_SecPolicyRef (CFStringRef hostname)
+{
+	OSStatus			status;
+	SecPolicyRef		policyRef = NULL;
+#if !TARGET_OS_EMBEDDED
+	CSSM_OID			ourPolicyOID = CSSMOID_APPLE_TP_IP_SEC; 
+
+	// get our policy object
+	status = FindPolicy(&ourPolicyOID, &policyRef);
+	if (status != noErr && status != -1) {
+		plog(LLV_ERROR, LOCATION, NULL, 
+			 "error %d %s.\n", status, GetSecurityErrorString(status));
+	}
+#else
+	if (hostname) {
+		policyRef = SecPolicyCreateIPSec(FALSE, hostname);
+		if (policyRef == NULL) {
+			plog(LLV_ERROR, LOCATION, NULL, 
+				 "unable to create a SSL policyRef.\n");
+		}
+	}	
+#endif	
+	return policyRef;
+}
+
+SecCertificateRef
+crypto_cssm_x509cert_get_SecCertificateRef (vchar_t *cert)
 {
 	OSStatus			status;
 	SecCertificateRef	certRef = NULL;
-	SecPolicyRef		policyRef = NULL;
-
 #if !TARGET_OS_EMBEDDED
 	CSSM_DATA			certData;
-	CSSM_OID			ourPolicyOID = CSSMOID_APPLE_TP_IP_SEC; 
 
 	// create cert ref
 	certData.Length = cert->l;
 	certData.Data = (uint8 *)cert->v;
 	status = SecCertificateCreateFromData(&certData, CSSM_CERT_X_509v3, CSSM_CERT_ENCODING_DER,
-		&certRef);
-	if (status != noErr)
-		goto end;
-	
-	// get our policy object
-	status = FindPolicy(&ourPolicyOID, &policyRef);
-	if (status != noErr)
-		goto end;
-	// no options used at present - verification of subjectAltName fields, etc.
-	// are done elsewhere in racoon in oakley_check_certid()
-		
+										  &certRef);
+	if (status != noErr && status != -1) {
+		plog(LLV_ERROR, LOCATION, NULL, 
+			 "error %d %s.\n", status, GetSecurityErrorString(status));
+	}
 #else
 	CFDataRef cert_data = CFDataCreateWithBytesNoCopy(NULL, cert->v, cert->l, kCFAllocatorNull);
     if (cert_data) {
         certRef = SecCertificateCreateWithData(NULL, cert_data);
         CFRelease(cert_data);
     }
-
+#endif
 	if (certRef == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL, 
-			"unable to create a certRef.\n");
-		status = -1;
-		goto end;
+			 "unable to create a certRef.\n");
+	}
+	return certRef;
+}
+
+static cert_status_t
+crypto_cssm_check_x509cert_dates (SecCertificateRef certificateRef)
+{
+	cert_status_t       certStatus = CERT_STATUS_OK;
+#if TARGET_OS_EMBEDDED
+	CFAbsoluteTime		timeNow = 0;
+	CFAbsoluteTime		notvalidbeforedate = 0;
+	CFAbsoluteTime		notvalidafterdate = 0;
+	CFDateRef			nowcfdatedata = NULL;
+	CFDateRef			notvalidbeforedatedata = NULL;
+	CFDateRef			notvalidafterdatedata = NULL;
+	CFArrayRef			certProparray = NULL;
+	CFDictionaryRef		propDict = NULL;
+	const void			*datevalue = NULL;
+	const void			*labelvalue = NULL;
+	CFGregorianDate		gregoriandate;
+	CFIndex				count;
+	CFIndex				i;
+	
+	if ((certProparray = SecCertificateCopyProperties(certificateRef))){
+		if ((count = CFArrayGetCount( certProparray ))){
+			for( i = 0; i < count; i++) {  
+				if ((propDict = CFArrayGetValueAtIndex(certProparray, i))) {
+					if ( CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyValue, (const void**)&datevalue)){
+						/* get kSecPropertyKeyLabel */
+						if ( (datevalue) && (CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyLabel, (const void**)&labelvalue))){
+							if ( (labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid Before"), 0) == kCFCompareEqualTo)){
+								if ( notvalidbeforedate = CFDateGetAbsoluteTime(datevalue)) {
+									if (notvalidbeforedatedata) {
+										CFRelease(notvalidbeforedatedata);
+									}
+									notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
+								}
+							}else if ((labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid After"), 0 ) == kCFCompareEqualTo)){
+								if ( notvalidafterdate = CFDateGetAbsoluteTime(datevalue)) {
+									if (notvalidafterdatedata) {
+										CFRelease(notvalidafterdatedata);
+									}
+									notvalidafterdatedata = CFDateCreate(NULL, notvalidafterdate);
+								}
+							}
+						}
+					}
+				}
+			}	
+		}
 	}
 
-	if (hostname) {
-		policyRef = SecPolicyCreateIPSec(FALSE, hostname);
-		if (policyRef == NULL) {
-			plog(LLV_ERROR, LOCATION, NULL, 
-				"unable to create a SSL policyRef.\n");
-			status = -1;
-			goto end;
+	if ( (timeNow = CFAbsoluteTimeGetCurrent()) && (nowcfdatedata = CFDateCreate( NULL, timeNow))){
+		if ( notvalidbeforedatedata ){
+			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidbeforedate, NULL);
+			plog(LLV_DEBUG, LOCATION, NULL, 
+				 "cert not valid before yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+			gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidafterdate, NULL);
+			plog(LLV_DEBUG, LOCATION, NULL, 
+				 "cert not valid after yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
+			if ( CFDateCompare( nowcfdatedata, notvalidbeforedatedata, NULL ) == kCFCompareLessThan){
+				plog(LLV_ERROR, LOCATION, NULL, 
+					 "current time before valid time\n");
+				certStatus = CERT_STATUS_PREMATURE;
+			} else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
+				plog(LLV_ERROR, LOCATION, NULL, 
+					 "current time after valid time\n");
+				certStatus = CERT_STATUS_EXPIRED;
+			}else {
+				plog(LLV_INFO, LOCATION, NULL, "certificate expiration date OK\n");
+				certStatus = CERT_STATUS_OK;
+			}
+		}
+	}
+
+	if (notvalidbeforedatedata)
+		CFRelease(notvalidbeforedatedata);
+	if (notvalidafterdatedata)
+		CFRelease(notvalidafterdatedata);
+	if (certProparray)
+		CFRelease(certProparray);
+	if (nowcfdatedata)
+		CFRelease(nowcfdatedata);
+#endif
+	return certStatus;
+}
+
+/*
+ * Verify cert using security framework
+ */
+#if TARGET_OS_EMBEDDED
+int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname, SecKeyRef *publicKeyRef)
+#else
+int crypto_cssm_check_x509cert (cert_t *hostcert, cert_t *certchain, CFStringRef hostname)
+#endif
+{
+	cert_t             *p;
+	cert_status_t       certStatus = 0;
+	OSStatus			status;
+	CFIndex             certArrayRefNumValues = 0;
+	CFIndex             n = 0;
+	int                 certArraySiz;
+	SecCertificateRef  *certArrayRef = NULL;
+	SecPolicyRef		policyRef = crypto_cssm_x509cert_get_SecPolicyRef(hostname);
+	
+	if (!hostcert || !certchain) {
+		return -1;
+	}
+	
+	// find the total number of certs
+	for (p = certchain; p; p = p->chain, n++);
+	if (n> 1) {
+		plog(LLV_DEBUG2, LOCATION, NULL,
+			 "%s: checking chain of %d certificates.\n", __FUNCTION__, n);
+	}
+	
+	certArraySiz = n * sizeof(CFTypeRef);
+	certArrayRef = CFAllocatorAllocate(NULL, certArraySiz, 0);
+	if (!certArrayRef) {
+		return -1;
+	}
+	bzero(certArrayRef, certArraySiz);
+	if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_get_SecCertificateRef(&hostcert->cert))) {
+		/* don't overwrite any pending status */
+		if (!hostcert->status) {
+			hostcert->status = crypto_cssm_check_x509cert_dates(certArrayRef[certArrayRefNumValues]);
+			if (hostcert->status) {
+				plog(LLV_ERROR, LOCATION, NULL,
+					 "host certificate failed date verification: %d.\n", hostcert->status);
+				certStatus = hostcert->status;
+			}
+		}
+		certArrayRefNumValues++;
+	}
+	for (p = certchain; p && certArrayRefNumValues < n; p = p->chain) {
+		if (p != hostcert) {
+			if ((certArrayRef[certArrayRefNumValues] = crypto_cssm_x509cert_get_SecCertificateRef(&p->cert))) {
+				/* don't overwrite any pending status */
+				if (!p->status) {
+					p->status = crypto_cssm_check_x509cert_dates(certArrayRef[certArrayRefNumValues]);
+					if (p->status) {
+						plog(LLV_ERROR, LOCATION, NULL,
+							 "other certificate in chain failed date verification: %d.\n", p->status);
+						if (!certStatus) {
+							certStatus = p->status;
+						}
+					}
+				}
+				certArrayRefNumValues++;
+			}
 		}
 	}
 	
+	// evaluate cert
+#if TARGET_OS_EMBEDDED
+	status = EvaluateCert(certArrayRef, certArrayRefNumValues, policyRef, publicKeyRef);
+#else
+	status = EvaluateCert(certArrayRef, certArrayRefNumValues, policyRef);
 #endif
 	
-	// evaluate cert
-	status = EvaluateCert(certRef, policyRef);
+	while (certArrayRefNumValues) {
+		CFRelease(certArrayRef[--certArrayRefNumValues]);
+	}
+	CFAllocatorDeallocate(NULL, certArrayRef);
 	
-end:
-
-	if (certRef)
-		CFRelease(certRef);
 	if (policyRef)
 		CFRelease(policyRef);
 	
 	if (status != noErr && status != -1) {
 		plog(LLV_ERROR, LOCATION, NULL, 
-			"error %d %s.\n", status, GetSecurityErrorString(status));
+			 "error %d %s.\n", status, GetSecurityErrorString(status));
 		status = -1;
-	} else if (certStatus) {
-		plog(LLV_ERROR, LOCATION, NULL,
-			 "certificate failed date verification: %d.\n", certStatus);
+	} else if (certStatus == CERT_STATUS_PREMATURE || certStatus == CERT_STATUS_EXPIRED) {
 		status = -1;
 	}
 	return status;
-
+	
 }
+
+#if TARGET_OS_EMBEDDED
+int crypto_cssm_verify_x509sign(SecKeyRef publicKeyRef, vchar_t *hash, vchar_t *signature)
+{
+	return SecKeyRawVerify(publicKeyRef, kSecPaddingPKCS1, hash->v, hash->l, signature->v, signature->l);	
+}
+#endif
 
 /*
  * Encrypt a hash via CSSM using the private key in the keychain
@@ -155,13 +320,13 @@ end:
 vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 {
 
-	OSStatus						status;
+	OSStatus						status = -1;
 	SecIdentityRef 					identityRef = NULL;
 	SecKeyRef						privateKeyRef = NULL;
 	vchar_t							*sig = NULL;
 
 #if !TARGET_OS_EMBEDDED
-	u_int32_t						bytesEncrypted = 0;
+	CSSM_SIZE						bytesEncrypted = 0;
 	SecCertificateRef				certificateRef = NULL;
 	SecIdentitySearchRef			idSearchRef = NULL;
 	SecKeychainRef 					keychainRef = NULL;
@@ -169,7 +334,6 @@ vchar_t* crypto_cssm_getsign(CFDataRef persistentCertRef, vchar_t* hash)
 	CSSM_CSP_HANDLE 				cspHandle = nil;
 	CSSM_CC_HANDLE					cssmContextHandle = nil;
 	const CSSM_ACCESS_CREDENTIALS	*credentials = NULL;
-	//CSSM_SIZE						bytesEncrypted = 0;	//%%%%HWR fix this - need new headers on Leopard
 	CSSM_DATA						clearData;
 	CSSM_DATA						cipherData;
 	CSSM_DATA						remData;
@@ -353,7 +517,7 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
                                   cert_status_t *certStatus)
 {
 
-	OSStatus				status;
+	OSStatus				status = -1;
 	vchar_t					*cert = NULL;
 	SecIdentityRef 			identityRef = NULL;
 	SecCertificateRef		certificateRef = NULL;
@@ -419,25 +583,10 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 	const void			*values_persist[] = { kCFBooleanTrue, persistentCertRef };
 	size_t				dataLen;
 	CFDataRef			certData = NULL;
-	CFAbsoluteTime		timeNow = 0;
-	CFAbsoluteTime		notvalidbeforedate = 0;
-	CFAbsoluteTime		notvalidafterdate = 0;
-	CFDateRef			nowcfdatedata = NULL;
-	CFDateRef			notvalidbeforedatedata = NULL;
-	CFDateRef			notvalidafterdatedata = NULL;
-	CFArrayRef			certProparray = NULL;
-	CFRange				range;
-	CFDictionaryRef		*values = NULL;
-	CFDictionaryRef		propDict = NULL;
-	const void			*datevalue = NULL;
-	const void			*labelvalue = NULL;
-	CFGregorianDate		gregoriandate;
-	int					count;
-	int					i;
 	
 	/* find identity by persistent ref */
 	persistFind = CFDictionaryCreate(NULL, keys_persist, values_persist,
-		(sizeof(keys_persist) / sizeof(*keys_persist)), NULL, NULL);
+		(sizeof(keys_persist) / sizeof(*keys_persist)), &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 	if (persistFind == NULL)
 		goto end;
 	
@@ -465,64 +614,7 @@ vchar_t* crypto_cssm_get_x509cert(CFDataRef persistentCertRef,
 				
 	// verify expiry or missing fields
 	if (certStatus) {
-		
-		*certStatus = CERT_STATUS_OK;
-		
-		if ((certProparray = SecCertificateCopyProperties(certificateRef))){
-			if ((count = CFArrayGetCount( certProparray ))){
-				range.location = 0;
-				range.length = count;
-				if ( (values = CFAllocatorAllocate(NULL, count * sizeof(CFDictionaryRef), 0))){
-					CFArrayGetValues(certProparray, range, (const void **)values);
-					for( i = 0; i < count; i++)
-					{  
-						if ((propDict = values[i])){
-							if ( CFDictionaryContainsValue(propDict, kSecPropertyTypeDate) ){
-								if ( CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyValue, (const void**)&datevalue)){
-									/* get kSecPropertyKeyLabel */
-									if ( (datevalue) && (CFDictionaryGetValueIfPresent(propDict, kSecPropertyKeyLabel, (const void**)&labelvalue))){
-										if ( (labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid Before"), 0) == kCFCompareEqualTo)){
-											if ( notvalidbeforedate = CFDateGetAbsoluteTime(datevalue))
-												notvalidbeforedatedata = CFDateCreate(NULL, notvalidbeforedate);
-										}else if ((labelvalue) && (CFStringCompare( (CFStringRef)labelvalue, CFSTR("Not Valid After"), 0 ) == kCFCompareEqualTo)){
-											if ( notvalidafterdate = CFDateGetAbsoluteTime(datevalue))
-												notvalidafterdatedata = CFDateCreate(NULL, notvalidafterdate);
-										}
-									}
-								}
-							}
-						}
-						
-					}	
-				}
-			}
-		}
-		
-		if ( (timeNow = CFAbsoluteTimeGetCurrent()) && (nowcfdatedata = CFDateCreate( NULL, timeNow))){
-			if ( notvalidbeforedatedata ){
-				gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidbeforedate, NULL);
-				plog(LLV_DEBUG, LOCATION, NULL, 
-					 "cert not valid before yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
-				gregoriandate = CFAbsoluteTimeGetGregorianDate(notvalidafterdate, NULL);
-				plog(LLV_DEBUG, LOCATION, NULL, 
-					 "cert not valid after yr %d, mon %d, days %d, hours %d, min %d\n", gregoriandate.year, gregoriandate.month, gregoriandate.day, gregoriandate.hour, gregoriandate.minute);
-				if ( CFDateCompare( nowcfdatedata, notvalidbeforedatedata, NULL ) == kCFCompareLessThan){
-					plog(LLV_ERROR, LOCATION, NULL, 
-						 "current time before valid time\n");
-					*certStatus = CERT_STATUS_PREMATURE;
-				}
-				else if (notvalidafterdatedata && (CFDateCompare( nowcfdatedata, notvalidafterdatedata, NULL ) == kCFCompareGreaterThan)){
-					plog(LLV_ERROR, LOCATION, NULL, 
-						 "current time after valid time\n");
-					*certStatus = CERT_STATUS_EXPIRED;
-				}else {
-					plog(LLV_INFO, LOCATION, NULL, "certificate expiration date OK\n");
-					*certStatus = CERT_STATUS_OK;
-				}
-
-			}
-
-		}
+		*certStatus = crypto_cssm_check_x509cert_dates(certificateRef);
 	}
 
 #endif
@@ -538,16 +630,6 @@ end:
 	if (keychainRef)
 		CFRelease(keychainRef);
 #else
-	if (notvalidbeforedatedata)
-		CFRelease(notvalidbeforedatedata);
-	if (notvalidafterdatedata)
-		CFRelease(notvalidafterdatedata);
-	if (certProparray)
-		CFRelease(certProparray);
-	if (values)
-		CFAllocatorDeallocate(NULL, values);
-	if (nowcfdatedata)
-		CFRelease(nowcfdatedata);
 	if (persistFind)
 		CFRelease(persistFind);
 	if (certData)
@@ -595,7 +677,12 @@ end:
 /*
  * Evaluate the trust of a cert using the policy provided
  */
-static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
+#if TARGET_OS_EMBEDDED
+static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef, SecKeyRef *publicKeyRef)
+#else
+static OSStatus EvaluateCert(SecCertificateRef evalCertArray[], CFIndex evalCertArrayNumValues, CFTypeRef policyRef)
+
+#endif
 {
 	OSStatus					status;
 	SecTrustRef					trustRef = 0;
@@ -608,9 +695,7 @@ static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
 	CFArrayRef					certChain;
 #endif
 	
-	SecCertificateRef			evalCertArray[1] = { cert };
-	
-	CFArrayRef	cfCertRef = CFArrayCreate((CFAllocatorRef) NULL, (void*)evalCertArray, 1,
+	CFArrayRef	cfCertRef = CFArrayCreate((CFAllocatorRef) NULL, (void*)evalCertArray, evalCertArrayNumValues,
 								&kCFTypeArrayCallBacks);
 										
 	if (!cfCertRef) {
@@ -706,8 +791,14 @@ static OSStatus EvaluateCert(SecCertificateRef cert, CFTypeRef policyRef)
 #endif
 		
 		status = -1;
+		goto end;
 	}
 			
+	
+#if TARGET_OS_EMBEDDED
+	/* get and return the public key */
+	*publicKeyRef = SecTrustCopyPublicKey(trustRef);
+#endif
 	
 end:
 	if (cfCertRef)

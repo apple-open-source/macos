@@ -82,6 +82,12 @@ static const char rcsid[] = "$Id: res_send.c,v 1.1 2006/03/01 19:01:38 majka Exp
 #include "fd_setsize.h"
 #endif
 
+/*
+ * internal_recvfrom uses RFC 2292 API (IPV6_PKTINFO)
+ * __APPLE_USE_RFC_2292 selects the appropriate API in <netinet6/in6.h>
+ */
+#define __APPLE_USE_RFC_2292
+
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/time.h>

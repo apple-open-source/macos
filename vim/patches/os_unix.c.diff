@@ -1,0 +1,48 @@
+Index: src/os_unix.c
+===================================================================
+--- src/os_unix.c	(revision 57762)
++++ src/os_unix.c	(working copy)
+@@ -584,6 +584,32 @@
+ }
+ #endif
+ 
++/*
++ *  mch_am_i_owner(name): do I own the file (or am I root)
++ *  (used to check whether .exrc should be used or not)
++ */
++
++    int
++mch_am_i_owner(name)
++    char_u	*name;
++{
++    struct stat statb;
++    uid_t current_uid=getuid();
++
++    if (current_uid == 0)	/* Root always looks like owner */
++	return OK;
++    /* Keep the #ifdef outside of stat(), it may be a macro. */
++#ifdef VMS
++    if (stat((char *)vms_fixfilename(name), &statb))
++#else
++    if (stat((char *)name, &statb))
++#endif
++	return -1;
++    if (getuid() == statb.st_uid)
++	return OK;
++    return 0;
++}
++
+     void
+ mch_delay(msec, ignoreinput)
+     long	msec;
+@@ -3608,6 +3634,10 @@
+     if (columns <= 0 || rows <= 0)
+ 	return FAIL;
+ 
++    if (Unix2003_compat) {
++	/* Use the -w value specified on command line */
++	if (p_window_unix2003) rows = p_window_unix2003;
++    }
+     Rows = rows;
+     Columns = columns;
+     return OK;

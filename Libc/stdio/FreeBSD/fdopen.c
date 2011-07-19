@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)fdopen.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fdopen.c,v 1.7 2002/03/22 21:53:04 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fdopen.c,v 1.11 2008/05/10 18:39:20 antoine Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -46,6 +42,7 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/fdopen.c,v 1.7 2002/03/22 21:53:04 obrien
 #include <unistd.h>
 #include <stdio.h>
 #include <errno.h>
+#include <limits.h>
 #include "un-namespace.h"
 #include "local.h"
 
@@ -55,11 +52,19 @@ fdopen(fd, mode)
 	const char *mode;
 {
 	FILE *fp;
-	static int nofile;
 	int flags, oflags, fdflags, tmp;
 
-	if (nofile == 0)
-		nofile = getdtablesize();
+	/*
+	 * File descriptors are a full int, but _file is only a short.
+	 * If we get a valid file descriptor that is greater than
+	 * SHRT_MAX, then the fd will get sign-extended into an
+	 * invalid file descriptor.  Handle this case by failing the
+	 * open.
+	 */
+	if (fd > SHRT_MAX) {
+		errno = EMFILE;
+		return (NULL);
+	}
 
 	if ((flags = __sflags(mode, &oflags)) == 0)
 		return (NULL);

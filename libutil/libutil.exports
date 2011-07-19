@@ -15,6 +15,7 @@ _property_find
 _realhostname
 _realhostname_sa
 _reexec_to_match_kernel
+_reexec_to_match_lp64ness
 _trimdomain
 _uu_lock
 _uu_lock_txfr

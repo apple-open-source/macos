@@ -1,22 +1,23 @@
---- /tmp/jabberd-2.1.24.1/sm/mod_deliver.c	2008-04-27 02:57:18.000000000 -0700
-+++ ./jabberd2/sm/mod_deliver.c	2008-11-24 14:21:54.000000000 -0800
-@@ -38,7 +38,15 @@ static mod_ret_t _deliver_in_sess(mod_in
-             if(pkt->from != NULL)
-                 jid_free(pkt->from);
+--- /tmp/jabberd-2.2.13/sm/mod_deliver.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/sm/mod_deliver.c	2011-02-24 16:25:21.000000000 -0800
+@@ -33,8 +33,15 @@ static mod_ret_t _deliver_in_sess(mod_in
+     if(pkt->from == NULL || jid_compare_user(pkt->from, sess->jid) != 0) {
+         if(pkt->from != NULL)
+             jid_free(pkt->from);
+-
++        /* Apple: Use sender masquerading if defined */
++        if ((mi->mod->mm->sm->masq_sender_replacement != NULL) &&
++            (aci_check(mi->mod->mm->sm->acls, "masquerade_sender", sess->jid))) {
++            pkt->from = jid_new(mi->mod->mm->sm->masq_sender_replacement, -1);
++            log_debug(ZONE, "Masquerading message \"from\" attribute, swapping \"%s\" with \"%s\"", 
++                jid_user(sess->jid), mi->mod->mm->sm->masq_sender_replacement);
++        } else {
+         pkt->from = jid_dup(sess->jid);
++		}
+         nad_set_attr(pkt->nad, 1, -1, "from", jid_full(pkt->from), 0);
+     }
  
-+            /* Apple: Use sender masquerading if defined */
-+            if ((mi->mod->mm->sm->masq_sender_replacement != NULL) &&
-+                (aci_check(mi->mod->mm->sm->acls, "masquerade_sender", sess->jid))) {
-+                pkt->from = jid_new(mi->mod->mm->sm->pc, mi->mod->mm->sm->masq_sender_replacement, -1);
-+                log_debug(ZONE, "Masquerading message \"from\" attribute, swapping \"%s\" with \"%s\"", 
-+                    jid_user(sess->jid), mi->mod->mm->sm->masq_sender_replacement);
-+            } else {
-             pkt->from = jid_dup(sess->jid);
-+            }
-             nad_set_attr(pkt->nad, 1, -1, "from", jid_full(pkt->from), 0);
-         }
- 
-@@ -83,6 +91,20 @@ static mod_ret_t _deliver_pkt_user(mod_i
+@@ -90,6 +97,21 @@ static mod_ret_t _deliver_pkt_user(mod_i
          /* unmatched messages will fall through (XMPP-IM r20 s11 rule 2) */
      }
  
@@ -34,6 +35,7 @@
 +        pkt_free(pkt);
 +        return mod_HANDLED;
 +    }
++
      return mod_PASS;
  }
  

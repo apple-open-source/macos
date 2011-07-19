@@ -66,53 +66,51 @@ public:
     virtual void systemFont(int propId, FontDescription&) const;
     virtual Color systemColor(int cssValueId) const;
 
-    virtual bool paintCheckbox(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+    virtual bool paintCheckbox(RenderObject* o, const PaintInfo& i, const IntRect& r)
     { return paintButton(o, i, r); }
     virtual void setCheckboxSize(RenderStyle*) const;
 
-    virtual bool paintRadio(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+    virtual bool paintRadio(RenderObject* o, const PaintInfo& i, const IntRect& r)
     { return paintButton(o, i, r); }
     virtual void setRadioSize(RenderStyle* style) const
     { return setCheckboxSize(style); }
 
-    virtual bool paintButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual bool paintTextField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual void adjustInnerSpinButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
+    virtual bool paintInnerSpinButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual bool paintTextArea(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r)
+    virtual bool paintTextField(RenderObject*, const PaintInfo&, const IntRect&);
+
+    virtual bool paintTextArea(RenderObject* o, const PaintInfo& i, const IntRect& r)
     { return paintTextField(o, i, r); }
 
     virtual void adjustMenuListStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const;
-    virtual bool paintMenuList(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMenuList(RenderObject*, const PaintInfo&, const IntRect&);
     virtual void adjustMenuListButtonStyle(CSSStyleSelector* selector, RenderStyle* style, Element* e) const;
 
-    virtual bool paintMenuListButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintMenuListButton(RenderObject*, const PaintInfo&, const IntRect&);
 
-    virtual bool paintSliderTrack(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
-    virtual bool paintSliderThumb(RenderObject* o, const RenderObject::PaintInfo& i, const IntRect& r);
+    virtual bool paintSliderTrack(RenderObject* o, const PaintInfo& i, const IntRect& r);
+    virtual bool paintSliderThumb(RenderObject* o, const PaintInfo& i, const IntRect& r);
     virtual void adjustSliderThumbSize(RenderObject*) const;
 
     virtual bool popupOptionSupportsTextIndent() const { return true; }
 
-    virtual int buttonInternalPaddingLeft() const;
-    virtual int buttonInternalPaddingRight() const;
-    virtual int buttonInternalPaddingTop() const;
-    virtual int buttonInternalPaddingBottom() const;
-
     virtual void adjustSearchFieldStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchField(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchField(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldCancelButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldCancelButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldCancelButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&) { return false; }
+    virtual bool paintSearchFieldDecoration(RenderObject*, const PaintInfo&, const IntRect&) { return false; }
 
     virtual void adjustSearchFieldResultsDecorationStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsDecoration(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void adjustSearchFieldResultsButtonStyle(CSSStyleSelector*, RenderStyle*, Element*) const;
-    virtual bool paintSearchFieldResultsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual bool paintSearchFieldResultsButton(RenderObject*, const PaintInfo&, const IntRect&);
 
     virtual void themeChanged();
 
@@ -125,18 +123,31 @@ public:
     virtual bool supportsFocusRing(const RenderStyle*) const;
 
 #if ENABLE(VIDEO)
-    virtual bool shouldRenderMediaControlPart(ControlPart, Element*);
-    virtual bool paintMediaFullscreenButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaPlayButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaMuteButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekBackButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSeekForwardButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderTrack(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaSliderThumb(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
-    virtual bool paintMediaToggleClosedCaptionsButton(RenderObject*, const RenderObject::PaintInfo&, const IntRect&);
+    virtual String extraMediaControlsStyleSheet();
+    virtual bool supportsClosedCaptioning() const;
+    virtual bool paintMediaControlsBackground(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaFullscreenButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaMuteButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaPlayButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaRewindButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekBackButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSeekForwardButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaToggleClosedCaptionsButton(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderContainer(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderTrack(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual bool paintMediaVolumeSliderThumb(RenderObject*, const PaintInfo&, const IntRect&);
+    virtual IntPoint volumeSliderOffsetFromMuteButton(RenderBox*, const IntSize&) const;
 #endif
 
 private:
+    enum ControlSubPart {
+        None,
+        SpinButtonDown,
+        SpinButtonUp,
+    };
+
     RenderThemeWin();
     ~RenderThemeWin();
 
@@ -144,24 +155,27 @@ private:
     void close();
 
     unsigned determineState(RenderObject*);
-    unsigned determineClassicState(RenderObject*);
+    unsigned determineClassicState(RenderObject*, ControlSubPart = None);
     unsigned determineSliderThumbState(RenderObject*);
     unsigned determineButtonState(RenderObject*);
+    unsigned determineSpinButtonState(RenderObject*, ControlSubPart = None);
 
     bool supportsFocus(ControlPart) const;
 
-    ThemeData getThemeData(RenderObject*);
-    ThemeData getClassicThemeData(RenderObject* o);
+    ThemeData getThemeData(RenderObject*, ControlSubPart = None);
+    ThemeData getClassicThemeData(RenderObject* o, ControlSubPart = None);
 
     HANDLE buttonTheme() const;
     HANDLE textFieldTheme() const;
     HANDLE menuListTheme() const;
     HANDLE sliderTheme() const;
+    HANDLE spinButtonTheme() const;
 
     mutable HANDLE m_buttonTheme;
     mutable HANDLE m_textFieldTheme;
     mutable HANDLE m_menuListTheme;
     mutable HANDLE m_sliderTheme;
+    mutable HANDLE m_spinButtonTheme;
 };
 
 };

@@ -1,0 +1,185 @@
+#!/usr/bin/make -f
+# Made with the aid of dh_make, by Craig Small
+# Sample debian/rules that uses debhelper. GNU copyright 1997 by Joey Hess.
+# Some lines taken from debmake, by Cristoph Lameter.
+
+# Uncomment this to turn on verbose mode.
+#export DH_VERBOSE=1
+
+# These are used for cross-compiling and for saving the configure script
+# from having to guess our platform (since we know it already)
+DEB_HOST_GNU_TYPE   ?= $(shell dpkg-architecture -qDEB_HOST_GNU_TYPE)
+DEB_BUILD_GNU_TYPE  ?= $(shell dpkg-architecture -qDEB_BUILD_GNU_TYPE)
+
+DESKTOP_VENDOR  = dickey
+
+PKG_SUFFIX	= -dev
+
+PACKAGE		:= $(shell dpkg-parsechangelog| \
+			sed -n 's/^Source: \(.*\)$$/\1/p')
+
+PKG_APPDEFAULTS	:= /etc/X11/app-defaults
+PKG_DESKTOP	:= /usr/share/applications
+
+DSTDIR		:= $(CURDIR)/debian/$(PACKAGE)
+MY_DESKTOP	:= $(DSTDIR)/usr/share/applications
+
+CFLAGS =
+
+ifneq (,$(findstring debug,$(DEB_BUILD_OPTIONS)))
+DEBOP=--enable-debug
+else
+DEBOP=
+endif
+
+ifneq (,$(findstring noopt,$(DEB_BUILD_OPTIONS)))
+        CFLAGS += -O0
+else
+        CFLAGS += -O2
+endif
+ifeq (,$(findstring nostrip,$(DEB_BUILD_OPTIONS)))
+        INSTALL_PROGRAM += -s
+endif
+
+configure: configure-stamp
+configure-stamp:
+	dh_testdir
+
+	./configure \
+		--host=$(DEB_HOST_GNU_TYPE) \
+		--build=$(DEB_BUILD_GNU_TYPE) \
+		--program-suffix=$(PKG_SUFFIX) \
+		--prefix=/usr \
+		--libexecdir=\$${prefix}/lib \
+		--mandir=\$${prefix}/share/man \
+		--sysconfdir=/etc/$(PACKAGE) \
+		--localstatedir=/var \
+		--libdir=/etc/$(PACKAGE) \
+		--without-xterm-symlink \
+		--enable-256-color \
+		--enable-88-color \
+		--enable-dabbrev \
+		--enable-dec-locator \
+		--enable-exec-xterm \
+		--enable-hp-fkeys \
+		--enable-load-vt-fonts \
+		--enable-logfile-exec \
+		--enable-logging \
+		--enable-mini-luit \
+		--enable-paste64 \
+		--enable-rectangles \
+		--enable-sco-fkeys \
+		--enable-tcap-fkeys \
+		--enable-tcap-query \
+		--enable-toolbar \
+		--enable-wide-chars \
+		--enable-xmc-glitch \
+		--with-app-defaults=$(PKG_APPDEFAULTS) \
+		--with-icondir=\$${prefix}/share/pixmaps \
+		--with-own-terminfo=\$${prefix}/share/terminfo \
+		--with-terminal-type=xterm-new \
+		--with-utempter \
+		${DEBOP}
+
+	touch configure-stamp
+
+build: build-stamp
+build-stamp: configure-stamp
+	dh_testdir
+
+	$(MAKE)
+
+	touch build-stamp
+
+clean:
+	dh_testdir
+	dh_testroot
+
+	[ ! -f Makefile ] || $(MAKE) distclean
+
+	dh_clean
+
+install: install-stamp
+install-stamp: build-stamp
+	dh_testdir
+	dh_testroot
+	dh_clean -k
+	dh_installdirs
+
+	$(MAKE) install \
+		DESTDIR=$(CURDIR)/debian/$(PACKAGE)
+
+	touch install-stamp
+
+install: install-indep install-arch
+install-indep:
+
+install-arch:
+	dh_testdir
+	dh_testroot
+	dh_prep -s 
+	dh_installdirs -s
+
+	$(MAKE) install-bin \
+		DESTDIR=$(DSTDIR)
+
+# Build architecture-independent files here.
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+
+	# This overwrites the Debian package's copy of app-defaults and icons.
+	# But the resources are not the same; they are patched.
+	sed -i -f package/debian/color.sed XTerm-col.ad
+	sed -i -f package/debian/xterm-xres.sed XTerm.ad
+
+	$(MAKE) install-app \
+		install-icon \
+		install-man \
+		DESTDIR=$(DSTDIR)
+
+	# Follow-up with a check against the installed resource files.
+	( cd $(DSTDIR)$(PKG_APPDEFAULTS) && $(SHELL) -c 'for p in *;do diff -u $$p $(PKG_APPDEFAULTS)/; done' ; exit 0 )
+
+	# The Debian package does not install desktop files.
+	# http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=486317
+	$(SHELL) -c 'for p in *.desktop;do \
+		sed -i \
+			-e "s/Categories=System;/Categories=Application;Utility;/" \
+			-e "s/^\\(Name=.*\\)/\\1$(PKG_SUFFIX)/" \
+			-e "s/^\\(Exec=.*\\)/\\1$(PKG_SUFFIX)/" \
+		$$p; done'
+
+	$(MAKE) install-desktop \
+		DESKTOP_FLAGS="--vendor='$(DESKTOP_VENDOR)' --dir $(MY_DESKTOP)"
+
+	( cd $(DSTDIR)$(PKG_DESKTOP) \
+	  && $(SHELL) -c 'for p in *;do \
+	  	test -n "$(PKG_SUFFIX)" && mv $$p `basename $$p .desktop`$(PKG_SUFFIX).desktop; \
+	  	diff -u $$p $(PKG_DESKTOP)/; \
+		done' ; \
+	  exit 0 )
+
+# Build architecture-dependent files here.
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installdebconf
+	dh_installdocs
+	dh_installmenu
+	dh_installmime
+	dh_installexamples tektests vttests
+	dh_installchangelogs
+	dh_install
+	dh_link
+	dh_strip
+	dh_compress
+	dh_fixperms
+	dh_installdeb
+	dh_shlibdeps
+	dh_gencontrol
+	dh_md5sums
+	dh_builddeb
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install install-stamp

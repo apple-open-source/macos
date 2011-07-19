@@ -1,6 +1,6 @@
---- atof.3.orig	2007-04-08 18:49:34.000000000 -0700
-+++ atof.3	2007-04-08 19:18:24.000000000 -0700
-@@ -40,7 +40,8 @@
+--- atof.3.orig	2010-02-08 16:26:10.000000000 -0800
++++ atof.3	2010-02-13 20:58:26.000000000 -0800
+@@ -36,7 +36,8 @@
  .Dt ATOF 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert
  .Tn ASCII
  string to double
-@@ -49,24 +50,35 @@
+@@ -45,33 +46,50 @@ string to double
  .Sh SYNOPSIS
  .In stdlib.h
  .Ft double
@@ -49,7 +49,24 @@
  .Sh IMPLEMENTATION NOTES
  The
  .Fn atof
-@@ -88,7 +100,8 @@
+-function is not thread-safe and also not async-cancel-safe.
++and
++.Fn atof_l
++functions are thread-safe and async-cancel-safe.
+ .Pp
+ The
+ .Fn atof
+-function has been deprecated by
++and
++.Fn atof_l
++functions have been deprecated by
+ .Fn strtod
++and
++.Fn strtod_l
+ and should not be used in new code.
+ .Sh ERRORS
+ The function
+@@ -84,7 +102,8 @@ on an error.
  .Xr atol 3 ,
  .Xr strtod 3 ,
  .Xr strtol 3 ,

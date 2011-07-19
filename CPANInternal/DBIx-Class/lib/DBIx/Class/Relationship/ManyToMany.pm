@@ -4,6 +4,14 @@ package # hide from PAUSE
 use strict;
 use warnings;
 
+use Carp::Clan qw/^DBIx::Class/;
+use Sub::Name ();
+
+our %_pod_inherit_config = 
+  (
+   class_map => { 'DBIx::Class::Relationship::ManyToMany' => 'DBIx::Class::Relationship' }
+  );
+
 sub many_to_many {
   my ($class, $meth, $rel, $f_rel, $rel_attrs) = @_;
 
@@ -25,31 +33,49 @@ sub many_to_many {
     my $rs_meth = "${meth}_rs";
 
     for ($add_meth, $remove_meth, $set_meth, $rs_meth) {
-      warn "***************************************************************************\n".
-           "The many-to-many relationship $meth is trying to create a utility method called $_. This will overwrite the existing method on $class. You almost certainly want to rename your method or the many-to-many relationship, as your method will not be callable (it will use the one from the relationship instead.) YOU HAVE BEEN WARNED\n".
-           "***************************************************************************\n"
-        if $class->can($_);
+      if ( $class->can ($_) ) {
+        carp (<<"EOW") unless $ENV{DBIC_OVERWRITE_HELPER_METHODS_OK};
+
+***************************************************************************
+The many-to-many relationship '$meth' is trying to create a utility method
+called $_.
+This will completely overwrite one such already existing method on class
+$class.
+
+You almost certainly want to rename your method or the many-to-many
+relationship, as the functionality of the original method will not be
+accessible anymore.
+
+To disable this warning set to a true value the environment variable
+DBIC_OVERWRITE_HELPER_METHODS_OK
+
+***************************************************************************
+EOW
+      }
     }
 
     $rel_attrs->{alias} ||= $f_rel;
 
-    *{"${class}::${meth}_rs"} = sub {
+    my $rs_meth_name = join '::', $class, $rs_meth;
+    *$rs_meth_name = Sub::Name::subname $rs_meth_name, sub {
       my $self = shift;
       my $attrs = @_ > 1 && ref $_[$#_] eq 'HASH' ? pop(@_) : {};
       my @args = ($f_rel, @_ > 0 ? @_ : undef, { %{$rel_attrs||{}}, %$attrs });
       my $rs = $self->search_related($rel)->search_related(
         $f_rel, @_ > 0 ? @_ : undef, { %{$rel_attrs||{}}, %$attrs }
       );
-	  return $rs;
+      return $rs;
     };
 
-	*{"${class}::${meth}"} = sub {
-		my $self = shift;
-		my $rs = $self->$rs_meth( @_ );
-  		return (wantarray ? $rs->all : $rs);
-	};
+    my $meth_name = join '::', $class, $meth;
+    *$meth_name = Sub::Name::subname $meth_name, sub {
+      my $self = shift;
+      my $rs = $self->$rs_meth( @_ );
+      return (wantarray ? $rs->all : $rs);
+    };
 
-    *{"${class}::${add_meth}"} = sub {
+    my $add_meth_name = join '::', $class, $add_meth;
+    *$add_meth_name = Sub::Name::subname $add_meth_name, sub {
       my $self = shift;
       @_ > 0 or $self->throw_exception(
         "${add_meth} needs an object or hashref"
@@ -64,39 +90,48 @@ sub many_to_many {
       my $obj;
       if (ref $_[0]) {
         if (ref $_[0] eq 'HASH') {
-          $obj = $f_rel_rs->create($_[0]);
+          $obj = $f_rel_rs->find_or_create($_[0]);
         } else {
           $obj = $_[0];
         }
       } else {
-        $obj = $f_rel_rs->create({@_});
+        $obj = $f_rel_rs->find_or_create({@_});
       }
 
       my $link_vals = @_ > 1 && ref $_[$#_] eq 'HASH' ? pop(@_) : {};
       my $link = $self->search_related($rel)->new_result($link_vals);
       $link->set_from_related($f_rel, $obj);
       $link->insert();
-	  return $obj;
+      return $obj;
     };
 
-    *{"${class}::${set_meth}"} = sub {
+    my $set_meth_name = join '::', $class, $set_meth;
+    *$set_meth_name = Sub::Name::subname $set_meth_name, sub {
       my $self = shift;
       @_ > 0 or $self->throw_exception(
         "{$set_meth} needs a list of objects or hashrefs"
       );
       my @to_set = (ref($_[0]) eq 'ARRAY' ? @{ $_[0] } : @_);
-      $self->search_related($rel, {})->delete;
-      $self->$add_meth($_) for (@to_set);
+      # if there is a where clause in the attributes, ensure we only delete
+      # rows that are within the where restriction
+      if ($rel_attrs && $rel_attrs->{where}) {
+        $self->search_related( $rel, $rel_attrs->{where},{join => $f_rel})->delete;
+      } else {
+        $self->search_related( $rel, {} )->delete;
+      }
+      # add in the set rel objects
+      $self->$add_meth($_, ref($_[1]) ? $_[1] : {}) for (@to_set);
     };
 
-    *{"${class}::${remove_meth}"} = sub {
+    my $remove_meth_name = join '::', $class, $remove_meth;
+    *$remove_meth_name = Sub::Name::subname $remove_meth_name, sub {
       my $self = shift;
       @_ > 0 && ref $_[0] ne 'HASH'
         or $self->throw_exception("${remove_meth} needs an object");
       my $obj = shift;
       my $rel_source = $self->search_related($rel)->result_source;
       my $cond = $rel_source->relationship_info($f_rel)->{cond};
-      my $link_cond = $rel_source->resolve_condition(
+      my $link_cond = $rel_source->_resolve_condition(
         $cond, $obj, $f_rel
       );
       $self->search_related($rel, $link_cond)->delete;

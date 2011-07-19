@@ -1,4 +1,4 @@
-# -*- tcl -*-
+#
 # rb.test:  test samples for the yaml library.
 # http://yaml4r.sourceforge.net/cookbook/
 #
@@ -9,16 +9,9 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     lappend auto_path [pwd]
     package require tcltest
     namespace import ::tcltest::*
-    puts [package require yaml]
+    puts [source huddle.tcl]
+    puts [source yaml.tcl]
 
-    proc dictsort {dict} {
-        array set a $dict
-        set out [list]
-        foreach key [lsort [array names a]] {
-            lappend out $key $a($key)
-        }
-        return $out
-    }
 } else {
     # all.tcl
     source [file join \
@@ -29,16 +22,25 @@ if {[lsearch [namespace children] ::tcltest] == -1} {
     testsNeedTcltest 1.0
 
     if {$::tcl_version < 8.5} {
-	if {[catch {package require dict}]} {
-	    puts "    Aborting the tests found in \"[file tail [info script]]\""
-	    puts "    Requiring dict package, not found."
-	    return
-	}
+        if {[catch {package require dict}]} {
+            puts "    Aborting the tests found in \"[file tail [info script]]\""
+            puts "    Requiring dict package, not found."
+            return
+        }
     }
 
     testing {
         useLocal yaml.tcl yaml
     }
+}
+
+proc dictsort {dict} {
+    array set a $dict
+    set out [list]
+    foreach key [lsort [array names a]] {
+        lappend out $key $a($key)
+    }
+    return $out
 }
 
 proc dictsort2 {dict {pattern d}} {

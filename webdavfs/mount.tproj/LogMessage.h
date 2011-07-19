@@ -27,6 +27,11 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
+	
+#include "webdavd.h"
+	
+extern void logDebugCFString(const char *msg, CFStringRef str);
+extern void logDebugCFURL(const char *msg, CFURLRef url);
 
 #define LOGMESSAGEON 1
 

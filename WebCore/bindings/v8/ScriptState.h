@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Google Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2011 Google Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -41,8 +41,10 @@ class DOMWrapperWorld;
 class Frame;
 class Node;
 class Page;
+class WorkerContext;
 
-class ScriptState : public Noncopyable {
+class ScriptState {
+    WTF_MAKE_NONCOPYABLE(ScriptState);
 public:
     bool hadException() { return !m_exception.IsEmpty(); }
     void setException(v8::Local<v8::Value> exception)
@@ -79,7 +81,8 @@ public:
     ~EmptyScriptState() { }
 };
 
-class ScriptStateProtectedPtr : public Noncopyable {
+class ScriptStateProtectedPtr {
+    WTF_MAKE_NONCOPYABLE(ScriptStateProtectedPtr);
 public:
     ScriptStateProtectedPtr() : m_scriptState(0) { }
     ScriptStateProtectedPtr(ScriptState* scriptState) : m_scriptState(scriptState)
@@ -95,7 +98,7 @@ public:
             m_context.Clear();
         }
     }
-    ScriptState* get() { return m_scriptState; }
+    ScriptState* get() const { return m_scriptState; }
 private:
     ScriptState* m_scriptState;
     v8::Persistent<v8::Context> m_context;
@@ -105,6 +108,10 @@ ScriptState* mainWorldScriptState(Frame*);
 
 ScriptState* scriptStateFromNode(DOMWrapperWorld*, Node*);
 ScriptState* scriptStateFromPage(DOMWrapperWorld*, Page*);
+
+#if ENABLE(WORKERS)
+ScriptState* scriptStateFromWorkerContext(WorkerContext*);
+#endif
 
 inline DOMWrapperWorld* debuggerWorld() { return mainThreadNormalWorld(); }
 inline DOMWrapperWorld* pluginWorld() { return mainThreadNormalWorld(); }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -400,9 +400,9 @@ void DADiskDisappearedCallback( DADiskRef disk )
     __DAQueueCallbacks( _kDADiskDisappearedCallback, disk, NULL );
 }
 
-void DADiskEject( DADiskRef disk, DACallbackRef callback )
+void DADiskEject( DADiskRef disk, DADiskEjectOptions options, DACallbackRef callback )
 {
-    __DAQueueRequest( _kDADiskEject, disk, 0, NULL, NULL, callback );
+    __DAQueueRequest( _kDADiskEject, disk, options, NULL, NULL, callback );
 }
 
 void DADiskEjectApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext )
@@ -414,9 +414,9 @@ void DADiskEjectApprovalCallback( DADiskRef disk, DAResponseCallback response, v
     __DAResponseComplete( disk );
 }
 
-void DADiskMount( DADiskRef disk, CFURLRef mountpoint, CFStringRef arguments, DACallbackRef callback )
+void DADiskMount( DADiskRef disk, CFURLRef mountpoint, DADiskMountOptions options, DACallbackRef callback )
 {
-    __DAQueueRequest( _kDADiskMount, disk, 0, mountpoint, arguments, callback );
+    DADiskMountWithArguments( disk, mountpoint, options, callback, NULL );
 }
 
 void DADiskMountApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext )
@@ -426,6 +426,11 @@ void DADiskMountApprovalCallback( DADiskRef disk, DAResponseCallback response, v
     __DAQueueCallbacks( _kDADiskMountApprovalCallback, disk, NULL );
 
     __DAResponseComplete( disk );
+}
+
+void DADiskMountWithArguments( DADiskRef disk, CFURLRef mountpoint, DADiskMountOptions options, DACallbackRef callback, CFStringRef arguments )
+{
+    __DAQueueRequest( _kDADiskMount, disk, options, mountpoint, arguments, callback );
 }
 
 void DADiskPeekCallback( DADiskRef disk, DACallbackRef callback, DAResponseCallback response, void * responseContext )
@@ -442,9 +447,9 @@ void DADiskRefresh( DADiskRef disk, DACallbackRef callback )
     __DAQueueRequest( _kDADiskRefresh, disk, 0, NULL, NULL, callback );
 }
 
-void DADiskUnmount( DADiskRef disk, DACallbackRef callback )
+void DADiskUnmount( DADiskRef disk, DADiskUnmountOptions options, DACallbackRef callback )
 {
-    __DAQueueRequest( _kDADiskUnmount, disk, 0, NULL, NULL, callback );
+    __DAQueueRequest( _kDADiskUnmount, disk, options, NULL, NULL, callback );
 }
 
 void DADiskUnmountApprovalCallback( DADiskRef disk, DAResponseCallback response, void * responseContext )

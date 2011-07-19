@@ -29,6 +29,7 @@
 
 #include "Touch.h"
 
+#include "Frame.h"
 #include "FrameView.h"
 
 namespace WebCore {
@@ -53,8 +54,7 @@ static int contentsY(Frame* frame)
     return frameView->scrollY() / frame->pageZoomFactor();
 }
 
-Touch::Touch(Frame* frame, EventTarget* target, unsigned identifier, 
-        int screenX, int screenY, int pageX, int pageY)
+Touch::Touch(Frame* frame, EventTarget* target, unsigned identifier, int screenX, int screenY, int pageX, int pageY, int radiusX, int radiusY, float rotationAngle)
     : m_target(target)
     , m_identifier(identifier)
     , m_clientX(pageX - contentsX(frame))
@@ -63,10 +63,12 @@ Touch::Touch(Frame* frame, EventTarget* target, unsigned identifier,
     , m_screenY(screenY)
     , m_pageX(pageX)
     , m_pageY(pageY)
+    , m_radiusX(radiusX)
+    , m_radiusY(radiusY)
+    , m_rotationAngle(rotationAngle)
 {
 }
 
 } // namespace WebCore
 
 #endif
-

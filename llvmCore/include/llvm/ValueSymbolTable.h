@@ -16,15 +16,17 @@
 
 #include "llvm/Value.h"
 #include "llvm/ADT/StringMap.h"
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 
 namespace llvm {
   template<typename ValueSubClass, typename ItemParentClass>
         class SymbolTableListTraits;
   class BasicBlock;
   class Function;
+  class NamedMDNode;
   class Module;
-  
+  class StringRef;
+
 /// This class provides a symbol table of name/value pairs. It is essentially
 /// a std::map<std::string,Value*> but has a controlled interface provided by
 /// LLVM as well as ensuring uniqueness of names.
@@ -62,12 +64,11 @@ public:
 /// @{
 public:
 
-  /// This method finds the value with the given \p name in the
+  /// This method finds the value with the given \p Name in the
   /// the symbol table. 
-  /// @returns the value associated with the \p name
+  /// @returns the value associated with the \p Name
   /// @brief Lookup a named Value.
-  Value *lookup(const std::string &name) const;
-  Value *lookup(const char *NameBegin, const char *NameEnd) const;
+  Value *lookup(StringRef Name) const { return vmap.lookup(Name); }
 
   /// @returns true iff the symbol table is empty
   /// @brief Determine if the symbol table is empty
@@ -110,7 +111,7 @@ private:
   /// createValueName - This method attempts to create a value name and insert
   /// it into the symbol table with the specified name.  If it conflicts, it
   /// auto-renames the name and returns that instead.
-  ValueName *createValueName(const char *NameStart, unsigned NameLen, Value *V);
+  ValueName *createValueName(StringRef Name, Value *V);
   
   /// This method removes a value from the symbol table.  It leaves the
   /// ValueName attached to the value, but it is no longer inserted in the
@@ -124,6 +125,94 @@ private:
   ValueMap vmap;                    ///< The map that holds the symbol table.
   mutable uint32_t LastUnique; ///< Counter for tracking unique names
 
+/// @}
+};
+
+/// This class provides a symbol table of name/NamedMDNode pairs. It is 
+/// essentially a StringMap wrapper.
+
+class MDSymbolTable {
+  friend class SymbolTableListTraits<NamedMDNode, Module>;
+/// @name Types
+/// @{
+private:
+  /// @brief A mapping of names to metadata
+  typedef StringMap<NamedMDNode*> MDMap;
+
+public:
+  /// @brief An iterator over a ValueMap.
+  typedef MDMap::iterator iterator;
+
+  /// @brief A const_iterator over a ValueMap.
+  typedef MDMap::const_iterator const_iterator;
+
+/// @}
+/// @name Constructors
+/// @{
+public:
+
+  MDSymbolTable(const MDNode &);             // DO NOT IMPLEMENT
+  void operator=(const MDSymbolTable &);     // DO NOT IMPLEMENT
+  MDSymbolTable() : mmap(0) {}
+  ~MDSymbolTable();
+
+/// @}
+/// @name Accessors
+/// @{
+public:
+
+  /// This method finds the value with the given \p Name in the
+  /// the symbol table. 
+  /// @returns the NamedMDNode associated with the \p Name
+  /// @brief Lookup a named Value.
+  NamedMDNode *lookup(StringRef Name) const { return mmap.lookup(Name); }
+
+  /// @returns true iff the symbol table is empty
+  /// @brief Determine if the symbol table is empty
+  inline bool empty() const { return mmap.empty(); }
+
+  /// @brief The number of name/type pairs is returned.
+  inline unsigned size() const { return unsigned(mmap.size()); }
+
+/// @}
+/// @name Iteration
+/// @{
+public:
+  /// @brief Get an iterator that from the beginning of the symbol table.
+  inline iterator begin() { return mmap.begin(); }
+
+  /// @brief Get a const_iterator that from the beginning of the symbol table.
+  inline const_iterator begin() const { return mmap.begin(); }
+
+  /// @brief Get an iterator to the end of the symbol table.
+  inline iterator end() { return mmap.end(); }
+
+  /// @brief Get a const_iterator to the end of the symbol table.
+  inline const_iterator end() const { return mmap.end(); }
+  
+/// @}
+/// @name Mutators
+/// @{
+public:
+  /// insert - The method inserts a new entry into the stringmap. This will
+  /// replace existing entry, if any.
+  void insert(StringRef Name,  NamedMDNode *Node) {
+    StringMapEntry<NamedMDNode *> &Entry = 
+      mmap.GetOrCreateValue(Name, Node);
+    if (Entry.getValue() != Node) {
+      mmap.remove(&Entry);
+      (void) mmap.GetOrCreateValue(Name, Node);
+    }
+  }
+  
+  /// This method removes a NamedMDNode from the symbol table.  
+  void remove(StringRef Name) { mmap.erase(Name); }
+
+/// @}
+/// @name Internal Data
+/// @{
+private:
+  MDMap mmap;                  ///< The map that holds the symbol table.
 /// @}
 };
 

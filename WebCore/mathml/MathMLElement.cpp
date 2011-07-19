@@ -1,5 +1,7 @@
 /*
  * Copyright (C) 2009 Alex Milowski (alex@milowski.com). All rights reserved.
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 François Sausset (sausset@gmail.com). All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -37,20 +39,53 @@ namespace WebCore {
 using namespace MathMLNames;
     
 MathMLElement::MathMLElement(const QualifiedName& tagName, Document* document)
-    : StyledElement(tagName, document, CreateStyledElementZeroRefCount)
+    : StyledElement(tagName, document, CreateStyledElement)
 {
 }
     
 PassRefPtr<MathMLElement> MathMLElement::create(const QualifiedName& tagName, Document* document)
 {
-    return new MathMLElement(tagName, document);
+    return adoptRef(new MathMLElement(tagName, document));
 }
 
-RenderObject* MathMLElement::createRenderer(RenderArena*, RenderStyle* style)
+bool MathMLElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
 {
-    return RenderObject::createObject(this, style);
+    if (attrName == mathcolorAttr || attrName == mathbackgroundAttr
+        || attrName == colorAttr || attrName == backgroundAttr
+        || attrName == fontsizeAttr || attrName == fontstyleAttr
+        || attrName == fontweightAttr || attrName == fontfamilyAttr) {
+        result = eMathML;
+        return false;
+    }
+    return StyledElement::mapToEntry(attrName, result);
 }
-    
+
+void MathMLElement::parseMappedAttribute(Attribute* attr)
+{
+    if (attr->name() == mathbackgroundAttr)
+        addCSSProperty(attr, CSSPropertyBackgroundColor, attr->value());
+    else if (attr->name() == mathsizeAttr) {
+        // The following three values of mathsize are handled in WebCore/css/mathml.css
+        if (attr->value() != "normal" && attr->value() != "small" && attr->value() != "big")
+            addCSSProperty(attr, CSSPropertyFontSize, attr->value());
+    } else if (attr->name() == mathcolorAttr)
+        addCSSProperty(attr, CSSPropertyColor, attr->value());
+    // FIXME: deprecated attributes that should loose in a conflict with a non deprecated attribute
+    else if (attr->name() == fontsizeAttr)
+        addCSSProperty(attr, CSSPropertyFontSize, attr->value());
+    else if (attr->name() == backgroundAttr)
+        addCSSProperty(attr, CSSPropertyBackgroundColor, attr->value());
+    else if (attr->name() == colorAttr)
+        addCSSProperty(attr, CSSPropertyColor, attr->value());
+    else if (attr->name() == fontstyleAttr)
+        addCSSProperty(attr, CSSPropertyFontStyle, attr->value());
+    else if (attr->name() == fontweightAttr)
+        addCSSProperty(attr, CSSPropertyFontWeight, attr->value());
+    else if (attr->name() == fontfamilyAttr)
+        addCSSProperty(attr, CSSPropertyFontFamily, attr->value());
+    else
+        StyledElement::parseMappedAttribute(attr);
+}
     
 }
 

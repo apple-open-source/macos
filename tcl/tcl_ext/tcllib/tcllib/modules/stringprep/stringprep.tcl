@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: stringprep.tcl,v 1.1 2008/01/29 02:18:10 patthoyts Exp $
+# RCS: @(#) $Id: stringprep.tcl,v 1.2 2009/11/02 00:26:44 patthoyts Exp $
 
 package require stringprep::data 1.0
 package require unicode 1.0
@@ -25,7 +25,7 @@ proc ::stringprep::register {profile args} {
 
     array set props [list -mapping "" \
 			  -normalization "" \
-			  -prohibited "" \
+			  -prohibited 0 \
 			  -prohibitedList {} \
 			  -prohibitedCommand "" \
 			  -prohibitedBidi 0]
@@ -253,6 +253,8 @@ proc ::stringprep::prohibited_bidi {profile uclist} {
 	return 0
     }
 
+    set info [data::GetUniCharInfo [lindex $uclist 0]]
+    set first_ral [expr {$info & $data::D1Mask}]
     set last_ral 0
     set have_ral 0
     set have_l 0
@@ -260,7 +262,7 @@ proc ::stringprep::prohibited_bidi {profile uclist} {
 	set info [data::GetUniCharInfo $uc]
 	set last_ral [expr {$info & $data::D1Mask}]
 	set have_ral [expr {$have_ral || $last_ral}]
-	set have_l   [expr {$info & $data::D2Mask}]
+	set have_l   [expr {$have_l || ($info & $data::D2Mask)}]
     }
     if {$have_ral && (!$first_ral || !$last_ral || $have_l)} {
 	return 1
@@ -271,6 +273,6 @@ proc ::stringprep::prohibited_bidi {profile uclist} {
 
 ########################################################################
 
-package provide stringprep 1.0.0
+package provide stringprep 1.0.1
 
 ########################################################################

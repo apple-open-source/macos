@@ -23,11 +23,11 @@
 // Define all methods as no-ops if threading is explicitly disabled
 namespace llvm {
 using namespace sys;
-Mutex::Mutex( bool recursive) { }
-Mutex::~Mutex() { }
-bool Mutex::acquire() { return true; }
-bool Mutex::release() { return true; }
-bool Mutex::tryacquire() { return true; }
+MutexImpl::MutexImpl( bool recursive) { }
+MutexImpl::~MutexImpl() { }
+bool MutexImpl::acquire() { return true; }
+bool MutexImpl::release() { return true; }
+bool MutexImpl::tryacquire() { return true; }
 }
 #else
 
@@ -55,7 +55,7 @@ using namespace sys;
 static const bool pthread_enabled = true;
 
 // Construct a Mutex using pthread calls
-Mutex::Mutex( bool recursive)
+MutexImpl::MutexImpl( bool recursive)
   : data_(0)
 {
   if (pthread_enabled)
@@ -94,7 +94,7 @@ Mutex::Mutex( bool recursive)
 }
 
 // Destruct a Mutex
-Mutex::~Mutex()
+MutexImpl::~MutexImpl()
 {
   if (pthread_enabled)
   {
@@ -106,7 +106,7 @@ Mutex::~Mutex()
 }
 
 bool
-Mutex::acquire()
+MutexImpl::acquire()
 {
   if (pthread_enabled)
   {
@@ -115,12 +115,11 @@ Mutex::acquire()
 
     int errorcode = pthread_mutex_lock(mutex);
     return errorcode == 0;
-  }
-  return false;
+  } else return false;
 }
 
 bool
-Mutex::release()
+MutexImpl::release()
 {
   if (pthread_enabled)
   {
@@ -129,12 +128,11 @@ Mutex::release()
 
     int errorcode = pthread_mutex_unlock(mutex);
     return errorcode == 0;
-  }
-  return false;
+  } else return false;
 }
 
 bool
-Mutex::tryacquire()
+MutexImpl::tryacquire()
 {
   if (pthread_enabled)
   {
@@ -143,8 +141,7 @@ Mutex::tryacquire()
 
     int errorcode = pthread_mutex_trylock(mutex);
     return errorcode == 0;
-  }
-  return false;
+  } else return false;
 }
 
 }

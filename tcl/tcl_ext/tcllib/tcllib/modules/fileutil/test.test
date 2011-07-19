@@ -9,7 +9,7 @@
 # Copyright (c) 2005-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: test.test,v 1.1 2007/08/03 23:07:25 andreas_kupries Exp $
+# RCS: @(#) $Id: test.test,v 1.2 2009/10/06 20:07:18 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -656,10 +656,10 @@ test test-6.1.4 {test !exec, no label} {unixOnly} {
 rename makewritable   {}
 rename makereadable   {}
 rename makeexecutable {}
-unset xpath
-unset path
-unset res
-unset x
+catch {unset xpath}
+catch {unset path}
+catch {unset res}
+catch {unset x}
 
 testsuiteCleanup
 return

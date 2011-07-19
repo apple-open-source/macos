@@ -14,7 +14,6 @@
 
 #include "Alpha.h"
 #include "AlphaTargetMachine.h"
-#include "AlphaISelLowering.h"
 #include "llvm/CodeGen/MachineInstrBuilder.h"
 #include "llvm/CodeGen/MachineFrameInfo.h"
 #include "llvm/CodeGen/MachineFunction.h"
@@ -26,9 +25,12 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/GlobalValue.h"
 #include "llvm/Intrinsics.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
 #include "llvm/Support/MathExtras.h"
+#include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -61,7 +63,7 @@ namespace {
     /// that the bits 1-7 of LHS are already zero.  If LHS is non-null, we are
     /// in checking mode.  If LHS is null, we assume that the mask has already
     /// been validated before.
-    uint64_t get_zapImm(SDValue LHS, uint64_t Constant) {
+    uint64_t get_zapImm(SDValue LHS, uint64_t Constant) const {
       uint64_t BitsToCheck = 0;
       unsigned Result = 0;
       for (unsigned i = 0; i != 8; ++i) {
@@ -114,7 +116,7 @@ namespace {
       uint64_t complow = 1 << (63 - at);
       uint64_t comphigh = 1 << (64 - at);
       //cerr << x << ":" << complow << ":" << comphigh << "\n";
-      if (abs(complow - x) <= abs(comphigh - x))
+      if (abs64(complow - x) <= abs64(comphigh - x))
         return complow;
       else
         return comphigh;
@@ -154,11 +156,7 @@ namespace {
 
     // Select - Convert the specified operand from a target-independent to a
     // target-specific node if it hasn't already been changed.
-    SDNode *Select(SDValue Op);
-    
-    /// InstructionSelect - This callback is invoked by
-    /// SelectionDAGISel when it has created a SelectionDAG for us to codegen.
-    virtual void InstructionSelect();
+    SDNode *Select(SDNode *N);
     
     virtual const char *getPassName() const {
       return "Alpha DAG->DAG Pattern Instruction Selection";
@@ -185,9 +183,21 @@ namespace {
 #include "AlphaGenDAGISel.inc"
     
 private:
-    SDValue getGlobalBaseReg();
-    SDValue getGlobalRetAddr();
-    void SelectCALL(SDValue Op);
+    /// getTargetMachine - Return a reference to the TargetMachine, casted
+    /// to the target-specific type.
+    const AlphaTargetMachine &getTargetMachine() {
+      return static_cast<const AlphaTargetMachine &>(TM);
+    }
+
+    /// getInstrInfo - Return a reference to the TargetInstrInfo, casted
+    /// to the target-specific type.
+    const AlphaInstrInfo *getInstrInfo() {
+      return getTargetMachine().getInstrInfo();
+    }
+
+    SDNode *getGlobalBaseReg();
+    SDNode *getGlobalRetAddr();
+    void SelectCALL(SDNode *Op);
 
   };
 }
@@ -195,59 +205,29 @@ private:
 /// getGlobalBaseReg - Output the instructions required to put the
 /// GOT address into a register.
 ///
-SDValue AlphaDAGToDAGISel::getGlobalBaseReg() {
-  unsigned GP = 0;
-  for(MachineRegisterInfo::livein_iterator ii = RegInfo->livein_begin(), 
-        ee = RegInfo->livein_end(); ii != ee; ++ii)
-    if (ii->first == Alpha::R29) {
-      GP = ii->second;
-      break;
-    }
-  assert(GP && "GOT PTR not in liveins");
-  // FIXME is there anywhere sensible to get a DebugLoc here?
-  return CurDAG->getCopyFromReg(CurDAG->getEntryNode(), 
-                                DebugLoc::getUnknownLoc(), GP, MVT::i64);
+SDNode *AlphaDAGToDAGISel::getGlobalBaseReg() {
+  unsigned GlobalBaseReg = getInstrInfo()->getGlobalBaseReg(MF);
+  return CurDAG->getRegister(GlobalBaseReg, TLI.getPointerTy()).getNode();
 }
 
-/// getRASaveReg - Grab the return address
+/// getGlobalRetAddr - Grab the return address.
 ///
-SDValue AlphaDAGToDAGISel::getGlobalRetAddr() {
-  unsigned RA = 0;
-  for(MachineRegisterInfo::livein_iterator ii = RegInfo->livein_begin(), 
-        ee = RegInfo->livein_end(); ii != ee; ++ii)
-    if (ii->first == Alpha::R26) {
-      RA = ii->second;
-      break;
-    }
-  assert(RA && "RA PTR not in liveins");
-  // FIXME is there anywhere sensible to get a DebugLoc here?
-  return CurDAG->getCopyFromReg(CurDAG->getEntryNode(),
-                               DebugLoc::getUnknownLoc(), RA, MVT::i64);
-}
-
-/// InstructionSelect - This callback is invoked by
-/// SelectionDAGISel when it has created a SelectionDAG for us to codegen.
-void AlphaDAGToDAGISel::InstructionSelect() {
-  DEBUG(BB->dump());
-  
-  // Select target instructions for the DAG.
-  SelectRoot(*CurDAG);
-  CurDAG->RemoveDeadNodes();
+SDNode *AlphaDAGToDAGISel::getGlobalRetAddr() {
+  unsigned GlobalRetAddr = getInstrInfo()->getGlobalRetAddr(MF);
+  return CurDAG->getRegister(GlobalRetAddr, TLI.getPointerTy()).getNode();
 }
 
 // Select - Convert the specified operand from a target-independent to a
 // target-specific node if it hasn't already been changed.
-SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
-  SDNode *N = Op.getNode();
-  if (N->isMachineOpcode()) {
+SDNode *AlphaDAGToDAGISel::Select(SDNode *N) {
+  if (N->isMachineOpcode())
     return NULL;   // Already selected.
-  }
   DebugLoc dl = N->getDebugLoc();
 
   switch (N->getOpcode()) {
   default: break;
   case AlphaISD::CALL:
-    SelectCALL(Op);
+    SelectCALL(N);
     return NULL;
 
   case ISD::FrameIndex: {
@@ -256,22 +236,16 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
                                 CurDAG->getTargetFrameIndex(FI, MVT::i32),
                                 getI64Imm(0));
   }
-  case ISD::GLOBAL_OFFSET_TABLE: {
-    SDValue Result = getGlobalBaseReg();
-    ReplaceUses(Op, Result);
-    return NULL;
-  }
-  case AlphaISD::GlobalRetAddr: {
-    SDValue Result = getGlobalRetAddr();
-    ReplaceUses(Op, Result);
-    return NULL;
-  }
+  case ISD::GLOBAL_OFFSET_TABLE:
+    return getGlobalBaseReg();
+  case AlphaISD::GlobalRetAddr:
+    return getGlobalRetAddr();
   
   case AlphaISD::DivCall: {
     SDValue Chain = CurDAG->getEntryNode();
-    SDValue N0 = Op.getOperand(0);
-    SDValue N1 = Op.getOperand(1);
-    SDValue N2 = Op.getOperand(2);
+    SDValue N0 = N->getOperand(0);
+    SDValue N1 = N->getOperand(1);
+    SDValue N2 = N->getOperand(2);
     Chain = CurDAG->getCopyToReg(Chain, dl, Alpha::R24, N1, 
                                  SDValue(0,0));
     Chain = CurDAG->getCopyToReg(Chain, dl, Alpha::R25, N2, 
@@ -279,8 +253,8 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
     Chain = CurDAG->getCopyToReg(Chain, dl, Alpha::R27, N0, 
                                  Chain.getValue(1));
     SDNode *CNode =
-      CurDAG->getTargetNode(Alpha::JSRs, dl, MVT::Other, MVT::Flag, 
-                            Chain, Chain.getValue(1));
+      CurDAG->getMachineNode(Alpha::JSRs, dl, MVT::Other, MVT::Flag, 
+                             Chain, Chain.getValue(1));
     Chain = CurDAG->getCopyFromReg(Chain, dl, Alpha::R27, MVT::i64, 
                                    SDValue(CNode, 1));
     return CurDAG->SelectNodeTo(N, Alpha::BISr, MVT::i64, Chain, Chain);
@@ -288,8 +262,8 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
 
   case ISD::READCYCLECOUNTER: {
     SDValue Chain = N->getOperand(0);
-    return CurDAG->getTargetNode(Alpha::RPCC, dl, MVT::i64, MVT::Other,
-                                 Chain);
+    return CurDAG->getMachineNode(Alpha::RPCC, dl, MVT::i64, MVT::Other,
+                                  Chain);
   }
 
   case ISD::Constant: {
@@ -298,7 +272,7 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
     if (uval == 0) {
       SDValue Result = CurDAG->getCopyFromReg(CurDAG->getEntryNode(), dl,
                                                 Alpha::R31, MVT::i64);
-      ReplaceUses(Op, Result);
+      ReplaceUses(SDValue(N, 0), Result);
       return NULL;
     }
 
@@ -312,10 +286,11 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
       // val32 >= IMM_LOW  + IMM_LOW  * IMM_MULT) //always true
       break; //(zext (LDAH (LDA)))
     //Else use the constant pool
-    ConstantInt *C = ConstantInt::get(Type::Int64Ty, uval);
+    ConstantInt *C = ConstantInt::get(
+                                Type::getInt64Ty(*CurDAG->getContext()), uval);
     SDValue CPI = CurDAG->getTargetConstantPool(C, MVT::i64);
-    SDNode *Tmp = CurDAG->getTargetNode(Alpha::LDAHr, dl, MVT::i64, CPI,
-                                        getGlobalBaseReg());
+    SDNode *Tmp = CurDAG->getMachineNode(Alpha::LDAHr, dl, MVT::i64, CPI,
+                                         SDValue(getGlobalBaseReg(), 0));
     return CurDAG->SelectNodeTo(N, Alpha::LDQr, MVT::i64, MVT::Other, 
                                 CPI, SDValue(Tmp, 0), CurDAG->getEntryNode());
   }
@@ -323,7 +298,7 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
   case ISD::ConstantFP: {
     ConstantFPSDNode *CN = cast<ConstantFPSDNode>(N);
     bool isDouble = N->getValueType(0) == MVT::f64;
-    MVT T = isDouble ? MVT::f64 : MVT::f32;
+    EVT T = isDouble ? MVT::f64 : MVT::f32;
     if (CN->getValueAPF().isPosZero()) {
       return CurDAG->SelectNodeTo(N, isDouble ? Alpha::CPYST : Alpha::CPYSS,
                                   T, CurDAG->getRegister(Alpha::F31, T),
@@ -333,7 +308,7 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
                                   T, CurDAG->getRegister(Alpha::F31, T),
                                   CurDAG->getRegister(Alpha::F31, T));
     } else {
-      abort();
+      report_fatal_error("Unhandled FP constant type");
     }
     break;
   }
@@ -346,7 +321,7 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
       bool rev = false;
       bool inv = false;
       switch(CC) {
-      default: DEBUG(N->dump(CurDAG)); assert(0 && "Unknown FP comparison!");
+      default: DEBUG(N->dump(CurDAG)); llvm_unreachable("Unknown FP comparison!");
       case ISD::SETEQ: case ISD::SETOEQ: case ISD::SETUEQ:
         Opc = Alpha::CMPTEQ; break;
       case ISD::SETLT: case ISD::SETOLT: case ISD::SETULT: 
@@ -366,48 +341,29 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
       };
       SDValue tmp1 = N->getOperand(rev?1:0);
       SDValue tmp2 = N->getOperand(rev?0:1);
-      SDNode *cmp = CurDAG->getTargetNode(Opc, dl, MVT::f64, tmp1, tmp2);
+      SDNode *cmp = CurDAG->getMachineNode(Opc, dl, MVT::f64, tmp1, tmp2);
       if (inv) 
-        cmp = CurDAG->getTargetNode(Alpha::CMPTEQ, dl, 
-                                    MVT::f64, SDValue(cmp, 0), 
-                                    CurDAG->getRegister(Alpha::F31, MVT::f64));
+        cmp = CurDAG->getMachineNode(Alpha::CMPTEQ, dl, 
+                                     MVT::f64, SDValue(cmp, 0), 
+                                     CurDAG->getRegister(Alpha::F31, MVT::f64));
       switch(CC) {
       case ISD::SETUEQ: case ISD::SETULT: case ISD::SETULE:
       case ISD::SETUNE: case ISD::SETUGT: case ISD::SETUGE:
        {
-         SDNode* cmp2 = CurDAG->getTargetNode(Alpha::CMPTUN, dl, MVT::f64,
-                                              tmp1, tmp2);
-         cmp = CurDAG->getTargetNode(Alpha::ADDT, dl, MVT::f64, 
-                                     SDValue(cmp2, 0), SDValue(cmp, 0));
+         SDNode* cmp2 = CurDAG->getMachineNode(Alpha::CMPTUN, dl, MVT::f64,
+                                               tmp1, tmp2);
+         cmp = CurDAG->getMachineNode(Alpha::ADDT, dl, MVT::f64, 
+                                      SDValue(cmp2, 0), SDValue(cmp, 0));
          break;
        }
       default: break;
       }
 
-      SDNode* LD = CurDAG->getTargetNode(Alpha::FTOIT, dl,
-                                         MVT::i64, SDValue(cmp, 0));
-      return CurDAG->getTargetNode(Alpha::CMPULT, dl, MVT::i64, 
-                                   CurDAG->getRegister(Alpha::R31, MVT::i64),
-                                   SDValue(LD,0));
-    }
-    break;
-
-  case ISD::SELECT:
-    if (N->getValueType(0).isFloatingPoint() &&
-        (N->getOperand(0).getOpcode() != ISD::SETCC ||
-         !N->getOperand(0).getOperand(1).getValueType().isFloatingPoint())) {
-      //This should be the condition not covered by the Patterns
-      //FIXME: Don't have SelectCode die, but rather return something testable
-      // so that things like this can be caught in fall though code
-      //move int to fp
-      bool isDouble = N->getValueType(0) == MVT::f64;
-      SDValue cond = N->getOperand(0);
-      SDValue TV = N->getOperand(1);
-      SDValue FV = N->getOperand(2);
-      
-      SDNode* LD = CurDAG->getTargetNode(Alpha::ITOFT, dl, MVT::f64, cond);
-      return CurDAG->getTargetNode(isDouble?Alpha::FCMOVNET:Alpha::FCMOVNES,
-                                   dl, MVT::f64, FV, TV, SDValue(LD,0));
+      SDNode* LD = CurDAG->getMachineNode(Alpha::FTOIT, dl,
+                                          MVT::i64, SDValue(cmp, 0));
+      return CurDAG->getMachineNode(Alpha::CMPULT, dl, MVT::i64, 
+                                    CurDAG->getRegister(Alpha::R31, MVT::i64),
+                                    SDValue(LD,0));
     }
     break;
 
@@ -432,11 +388,11 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
       
       if (get_zapImm(mask)) {
         SDValue Z = 
-          SDValue(CurDAG->getTargetNode(Alpha::ZAPNOTi, dl, MVT::i64,
-                                          N->getOperand(0).getOperand(0),
-                                          getI64Imm(get_zapImm(mask))), 0);
-        return CurDAG->getTargetNode(Alpha::SRLr, dl, MVT::i64, Z, 
-                                     getI64Imm(sval));
+          SDValue(CurDAG->getMachineNode(Alpha::ZAPNOTi, dl, MVT::i64,
+                                         N->getOperand(0).getOperand(0),
+                                         getI64Imm(get_zapImm(mask))), 0);
+        return CurDAG->getMachineNode(Alpha::SRLr, dl, MVT::i64, Z, 
+                                      getI64Imm(sval));
       }
     }
     break;
@@ -444,104 +400,34 @@ SDNode *AlphaDAGToDAGISel::Select(SDValue Op) {
 
   }
 
-  return SelectCode(Op);
+  return SelectCode(N);
 }
 
-void AlphaDAGToDAGISel::SelectCALL(SDValue Op) {
+void AlphaDAGToDAGISel::SelectCALL(SDNode *N) {
   //TODO: add flag stuff to prevent nondeturministic breakage!
 
-  SDNode *N = Op.getNode();
   SDValue Chain = N->getOperand(0);
   SDValue Addr = N->getOperand(1);
-  SDValue InFlag(0,0);  // Null incoming flag value.
+  SDValue InFlag = N->getOperand(N->getNumOperands() - 1);
   DebugLoc dl = N->getDebugLoc();
 
-   std::vector<SDValue> CallOperands;
-   std::vector<MVT> TypeOperands;
-  
-   //grab the arguments
-   for(int i = 2, e = N->getNumOperands(); i < e; ++i) {
-     TypeOperands.push_back(N->getOperand(i).getValueType());
-     CallOperands.push_back(N->getOperand(i));
-   }
-   int count = N->getNumOperands() - 2;
-
-   static const unsigned args_int[] = {Alpha::R16, Alpha::R17, Alpha::R18,
-                                       Alpha::R19, Alpha::R20, Alpha::R21};
-   static const unsigned args_float[] = {Alpha::F16, Alpha::F17, Alpha::F18,
-                                         Alpha::F19, Alpha::F20, Alpha::F21};
-   
-   for (int i = 6; i < count; ++i) {
-     unsigned Opc = Alpha::WTF;
-     if (TypeOperands[i].isInteger()) {
-       Opc = Alpha::STQ;
-     } else if (TypeOperands[i] == MVT::f32) {
-       Opc = Alpha::STS;
-     } else if (TypeOperands[i] == MVT::f64) {
-       Opc = Alpha::STT;
-     } else
-       assert(0 && "Unknown operand"); 
-
-     SDValue Ops[] = { CallOperands[i],  getI64Imm((i - 6) * 8), 
-                       CurDAG->getCopyFromReg(Chain, dl, Alpha::R30, MVT::i64),
-                       Chain };
-     Chain = SDValue(CurDAG->getTargetNode(Opc, dl, MVT::Other, Ops, 4), 0);
-   }
-   for (int i = 0; i < std::min(6, count); ++i) {
-     if (TypeOperands[i].isInteger()) {
-       Chain = CurDAG->getCopyToReg(Chain, dl, args_int[i], 
-                                    CallOperands[i], InFlag);
-       InFlag = Chain.getValue(1);
-     } else if (TypeOperands[i] == MVT::f32 || TypeOperands[i] == MVT::f64) {
-       Chain = CurDAG->getCopyToReg(Chain, dl, args_float[i], 
-                                    CallOperands[i], InFlag);
-       InFlag = Chain.getValue(1);
-     } else
-       assert(0 && "Unknown operand"); 
-   }
-
-   // Finally, once everything is in registers to pass to the call, emit the
-   // call itself.
    if (Addr.getOpcode() == AlphaISD::GPRelLo) {
-     SDValue GOT = getGlobalBaseReg();
+     SDValue GOT = SDValue(getGlobalBaseReg(), 0);
      Chain = CurDAG->getCopyToReg(Chain, dl, Alpha::R29, GOT, InFlag);
      InFlag = Chain.getValue(1);
-     Chain = SDValue(CurDAG->getTargetNode(Alpha::BSR, dl, MVT::Other, 
-                                           MVT::Flag, Addr.getOperand(0), 
-                                           Chain, InFlag), 0);
+     Chain = SDValue(CurDAG->getMachineNode(Alpha::BSR, dl, MVT::Other, 
+                                            MVT::Flag, Addr.getOperand(0),
+                                            Chain, InFlag), 0);
    } else {
      Chain = CurDAG->getCopyToReg(Chain, dl, Alpha::R27, Addr, InFlag);
      InFlag = Chain.getValue(1);
-     Chain = SDValue(CurDAG->getTargetNode(Alpha::JSR, dl, MVT::Other,
-                                             MVT::Flag, Chain, InFlag), 0);
+     Chain = SDValue(CurDAG->getMachineNode(Alpha::JSR, dl, MVT::Other,
+                                            MVT::Flag, Chain, InFlag), 0);
    }
    InFlag = Chain.getValue(1);
 
-   std::vector<SDValue> CallResults;
-  
-   switch (N->getValueType(0).getSimpleVT()) {
-   default: assert(0 && "Unexpected ret value!");
-     case MVT::Other: break;
-   case MVT::i64:
-     Chain = CurDAG->getCopyFromReg(Chain, dl, 
-                                    Alpha::R0, MVT::i64, InFlag).getValue(1);
-     CallResults.push_back(Chain.getValue(0));
-     break;
-   case MVT::f32:
-     Chain = CurDAG->getCopyFromReg(Chain, dl, 
-                                    Alpha::F0, MVT::f32, InFlag).getValue(1);
-     CallResults.push_back(Chain.getValue(0));
-     break;
-   case MVT::f64:
-     Chain = CurDAG->getCopyFromReg(Chain, dl,
-                                    Alpha::F0, MVT::f64, InFlag).getValue(1);
-     CallResults.push_back(Chain.getValue(0));
-     break;
-   }
-
-   CallResults.push_back(Chain);
-   for (unsigned i = 0, e = CallResults.size(); i != e; ++i)
-     ReplaceUses(Op.getValue(i), CallResults[i]);
+  ReplaceUses(SDValue(N, 0), Chain);
+  ReplaceUses(SDValue(N, 1), InFlag);
 }
 
 

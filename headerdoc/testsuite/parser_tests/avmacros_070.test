@@ -1,0 +1,959 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$172|#define CF_DEPRECATED(_macIntro, _macDep, _iosIntro, _iosDep) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_##_macIntro, __MAC_##_macDep, __IPHONE_##_iosIntro, __IPHONE_##_iosDep)
+
+$80|/*! Verifies that availability macro definitions
+    don't choke the parser. */
+$0|$20591|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/avmacros_070.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/avmacros_070.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{cppMacroHasArgs} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{ignoreAvailabilityMacros} => 1
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 3
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define CF_DEPRECATED( _macIntro, _macDep, _iosIntro, _iosDep) __OSX_AVAILABLE_BUT_DEPRECATED( __MAC_##_macIntro, __MAC_##_macDep, __IPHONE_##_iosIntro,__IPHONE_##_iosDep)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
+$parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => CF_DEPRECATED
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: CF_DEPRECATED
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => _macIntro
+Parsed Param 1 => _macDep
+Parsed Param 2 => _iosIntro
+Parsed Param 3 => _iosDep
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---CF_DEPRECATED
+|   +---(
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---_iosDep
+|   +---)
+|   +--- 
+|   +---__OSX_AVAILABLE_BUT_DEPRECATED
+|   +---(
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosDep
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{CF_DEPRECATED} => __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_##_macIntro, __MAC_##_macDep, __IPHONE_##_iosIntro, __IPHONE_##_iosDep)
+$CPP_ARG_HASH{CF_DEPRECATED} => _macIntro, _macDep, _iosIntro, _iosDep
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: avmacros 070
+APIUID: //test_ref/doc/header/avmacros_070.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: CF_DEPRECATED
+    APIUID: //test_ref/c/macro/CF_DEPRECATED
+    ABSTRACT: ""
+    DISCUSSION: "<p>Verifies that availability macro definitions
+don't choke the parser. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _macIntro
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _macDep
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _iosIntro
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _iosDep
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: CF_DEPRECATED (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---CF_DEPRECATED
+|   +---(
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---_iosDep
+|   +---)
+|   +--- 
+|   +---__OSX_AVAILABLE_BUT_DEPRECATED
+|   +---(
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosDep
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: CF_DEPRECATED (HeaderDoc::PDefine)
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CF_DEPRECATED //test_ref/c/tdef/CF_DEPRECATED //test_ref/c/tag/CF_DEPRECATED //test_ref/c/struct/CF_DEPRECATED //test_ref/c/intf/CF_DEPRECATED //test_ref/c/econst/CF_DEPRECATED //test_ref/c/data/CF_DEPRECATED //test_ref/c/clconst/CF_DEPRECATED //test_ref/c/instm/CF_DEPRECATED //test_ref/c/clm/CF_DEPRECATED //test_ref/c/intfcm/CF_DEPRECATED //test_ref/c/intfm/CF_DEPRECATED //test_ref/c/func/CF_DEPRECATED //test_ref/c/ftmplt/CF_DEPRECATED //test_ref/c/defn/CF_DEPRECATED //test_ref/c/macro/CF_DEPRECATED //test_ref/doc/com/intfm/CF_DEPRECATED //test_ref/doc/anysymbol/CF_DEPRECATED" machineGenerated="true" --><span class="preprocessor">CF_DEPRECATED</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/_macIntro //test_ref/c/tdef/_macIntro //test_ref/c/tag/_macIntro //test_ref/c/struct/_macIntro //test_ref/c/intf/_macIntro //test_ref/c/econst/_macIntro //test_ref/c/data/_macIntro //test_ref/c/clconst/_macIntro //test_ref/c/instm/_macIntro //test_ref/c/clm/_macIntro //test_ref/c/intfcm/_macIntro //test_ref/c/intfm/_macIntro //test_ref/c/func/_macIntro //test_ref/c/ftmplt/_macIntro //test_ref/c/defn/_macIntro //test_ref/c/macro/_macIntro //test_ref/doc/com/intfm/_macIntro //test_ref/doc/anysymbol/_macIntro" machineGenerated="true" --><span class="preprocessor">_macIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_macDep //test_ref/c/tdef/_macDep //test_ref/c/tag/_macDep //test_ref/c/struct/_macDep //test_ref/c/intf/_macDep //test_ref/c/econst/_macDep //test_ref/c/data/_macDep //test_ref/c/clconst/_macDep //test_ref/c/instm/_macDep //test_ref/c/clm/_macDep //test_ref/c/intfcm/_macDep //test_ref/c/intfm/_macDep //test_ref/c/func/_macDep //test_ref/c/ftmplt/_macDep //test_ref/c/defn/_macDep //test_ref/c/macro/_macDep //test_ref/doc/com/intfm/_macDep //test_ref/doc/anysymbol/_macDep" machineGenerated="true" --><span class="preprocessor">_macDep</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_iosIntro //test_ref/c/tdef/_iosIntro //test_ref/c/tag/_iosIntro //test_ref/c/struct/_iosIntro //test_ref/c/intf/_iosIntro //test_ref/c/econst/_iosIntro //test_ref/c/data/_iosIntro //test_ref/c/clconst/_iosIntro //test_ref/c/instm/_iosIntro //test_ref/c/clm/_iosIntro //test_ref/c/intfcm/_iosIntro //test_ref/c/intfm/_iosIntro //test_ref/c/func/_iosIntro //test_ref/c/ftmplt/_iosIntro //test_ref/c/defn/_iosIntro //test_ref/c/macro/_iosIntro //test_ref/doc/com/intfm/_iosIntro //test_ref/doc/anysymbol/_iosIntro" machineGenerated="true" --><span class="preprocessor">_iosIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_iosDep //test_ref/c/tdef/_iosDep //test_ref/c/tag/_iosDep //test_ref/c/struct/_iosDep //test_ref/c/intf/_iosDep //test_ref/c/econst/_iosDep //test_ref/c/data/_iosDep //test_ref/c/clconst/_iosDep //test_ref/c/instm/_iosDep //test_ref/c/clm/_iosDep //test_ref/c/intfcm/_iosDep //test_ref/c/intfm/_iosDep //test_ref/c/func/_iosDep //test_ref/c/ftmplt/_iosDep //test_ref/c/defn/_iosDep //test_ref/c/macro/_iosDep //test_ref/doc/com/intfm/_iosDep //test_ref/doc/anysymbol/_iosDep" machineGenerated="true" --><span class="preprocessor">_iosDep</span><!-- /a --><span class="preprocessor">)</span> <!-- a logicalPath="//test_ref/c/cl/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/tdef/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/tag/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/struct/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intf/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/econst/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/data/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/clconst/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/instm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/clm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intfcm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intfm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/func/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/ftmplt/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/defn/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/macro/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/doc/com/intfm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/doc/anysymbol/__OSX_AVAILABLE_BUT_DEPRECATED" machineGenerated="true" --><span class="preprocessor">__OSX_AVAILABLE_BUT_DEPRECATED</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__MAC_ //test_ref/c/tdef/__MAC_ //test_ref/c/tag/__MAC_ //test_ref/c/struct/__MAC_ //test_ref/c/intf/__MAC_ //test_ref/c/econst/__MAC_ //test_ref/c/data/__MAC_ //test_ref/c/clconst/__MAC_ //test_ref/c/instm/__MAC_ //test_ref/c/clm/__MAC_ //test_ref/c/intfcm/__MAC_ //test_ref/c/intfm/__MAC_ //test_ref/c/func/__MAC_ //test_ref/c/ftmplt/__MAC_ //test_ref/c/defn/__MAC_ //test_ref/c/macro/__MAC_ //test_ref/doc/com/intfm/__MAC_ //test_ref/doc/anysymbol/__MAC_" machineGenerated="true" --><span class="preprocessor">__MAC_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_macIntro //test_ref/c/tdef/_macIntro //test_ref/c/tag/_macIntro //test_ref/c/struct/_macIntro //test_ref/c/intf/_macIntro //test_ref/c/econst/_macIntro //test_ref/c/data/_macIntro //test_ref/c/clconst/_macIntro //test_ref/c/instm/_macIntro //test_ref/c/clm/_macIntro //test_ref/c/intfcm/_macIntro //test_ref/c/intfm/_macIntro //test_ref/c/func/_macIntro //test_ref/c/ftmplt/_macIntro //test_ref/c/defn/_macIntro //test_ref/c/macro/_macIntro //test_ref/doc/com/intfm/_macIntro //test_ref/doc/anysymbol/_macIntro" machineGenerated="true" --><span class="preprocessor">_macIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__MAC_ //test_ref/c/tdef/__MAC_ //test_ref/c/tag/__MAC_ //test_ref/c/struct/__MAC_ //test_ref/c/intf/__MAC_ //test_ref/c/econst/__MAC_ //test_ref/c/data/__MAC_ //test_ref/c/clconst/__MAC_ //test_ref/c/instm/__MAC_ //test_ref/c/clm/__MAC_ //test_ref/c/intfcm/__MAC_ //test_ref/c/intfm/__MAC_ //test_ref/c/func/__MAC_ //test_ref/c/ftmplt/__MAC_ //test_ref/c/defn/__MAC_ //test_ref/c/macro/__MAC_ //test_ref/doc/com/intfm/__MAC_ //test_ref/doc/anysymbol/__MAC_" machineGenerated="true" --><span class="preprocessor">__MAC_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_macDep //test_ref/c/tdef/_macDep //test_ref/c/tag/_macDep //test_ref/c/struct/_macDep //test_ref/c/intf/_macDep //test_ref/c/econst/_macDep //test_ref/c/data/_macDep //test_ref/c/clconst/_macDep //test_ref/c/instm/_macDep //test_ref/c/clm/_macDep //test_ref/c/intfcm/_macDep //test_ref/c/intfm/_macDep //test_ref/c/func/_macDep //test_ref/c/ftmplt/_macDep //test_ref/c/defn/_macDep //test_ref/c/macro/_macDep //test_ref/doc/com/intfm/_macDep //test_ref/doc/anysymbol/_macDep" machineGenerated="true" --><span class="preprocessor">_macDep</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__IPHONE_ //test_ref/c/tdef/__IPHONE_ //test_ref/c/tag/__IPHONE_ //test_ref/c/struct/__IPHONE_ //test_ref/c/intf/__IPHONE_ //test_ref/c/econst/__IPHONE_ //test_ref/c/data/__IPHONE_ //test_ref/c/clconst/__IPHONE_ //test_ref/c/instm/__IPHONE_ //test_ref/c/clm/__IPHONE_ //test_ref/c/intfcm/__IPHONE_ //test_ref/c/intfm/__IPHONE_ //test_ref/c/func/__IPHONE_ //test_ref/c/ftmplt/__IPHONE_ //test_ref/c/defn/__IPHONE_ //test_ref/c/macro/__IPHONE_ //test_ref/doc/com/intfm/__IPHONE_ //test_ref/doc/anysymbol/__IPHONE_" machineGenerated="true" --><span class="preprocessor">__IPHONE_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_iosIntro //test_ref/c/tdef/_iosIntro //test_ref/c/tag/_iosIntro //test_ref/c/struct/_iosIntro //test_ref/c/intf/_iosIntro //test_ref/c/econst/_iosIntro //test_ref/c/data/_iosIntro //test_ref/c/clconst/_iosIntro //test_ref/c/instm/_iosIntro //test_ref/c/clm/_iosIntro //test_ref/c/intfcm/_iosIntro //test_ref/c/intfm/_iosIntro //test_ref/c/func/_iosIntro //test_ref/c/ftmplt/_iosIntro //test_ref/c/defn/_iosIntro //test_ref/c/macro/_iosIntro //test_ref/doc/com/intfm/_iosIntro //test_ref/doc/anysymbol/_iosIntro" machineGenerated="true" --><span class="preprocessor">_iosIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__IPHONE_ //test_ref/c/tdef/__IPHONE_ //test_ref/c/tag/__IPHONE_ //test_ref/c/struct/__IPHONE_ //test_ref/c/intf/__IPHONE_ //test_ref/c/econst/__IPHONE_ //test_ref/c/data/__IPHONE_ //test_ref/c/clconst/__IPHONE_ //test_ref/c/instm/__IPHONE_ //test_ref/c/clm/__IPHONE_ //test_ref/c/intfcm/__IPHONE_ //test_ref/c/intfm/__IPHONE_ //test_ref/c/func/__IPHONE_ //test_ref/c/ftmplt/__IPHONE_ //test_ref/c/defn/__IPHONE_ //test_ref/c/macro/__IPHONE_ //test_ref/doc/com/intfm/__IPHONE_ //test_ref/doc/anysymbol/__IPHONE_" machineGenerated="true" --><span class="preprocessor">__IPHONE_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_iosDep //test_ref/c/tdef/_iosDep //test_ref/c/tag/_iosDep //test_ref/c/struct/_iosDep //test_ref/c/intf/_iosDep //test_ref/c/econst/_iosDep //test_ref/c/data/_iosDep //test_ref/c/clconst/_iosDep //test_ref/c/instm/_iosDep //test_ref/c/clm/_iosDep //test_ref/c/intfcm/_iosDep //test_ref/c/intfm/_iosDep //test_ref/c/func/_iosDep //test_ref/c/ftmplt/_iosDep //test_ref/c/defn/_iosDep //test_ref/c/macro/_iosDep //test_ref/doc/com/intfm/_iosDep //test_ref/doc/anysymbol/_iosDep" machineGenerated="true" --><span class="preprocessor">_iosDep</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+$20591|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/avmacros_070.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/avmacros_070.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{cppMacroHasArgs} => 1
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{ignoreAvailabilityMacros} => 1
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 3
+$parserState->{inMacroLine} => 0
+$parserState->{inMacroTail} => 1
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => )
+$parserState->{macroNoTrunc} => 2
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 3
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  #define CF_DEPRECATED( _macIntro, _macDep, _iosIntro, _iosDep) __OSX_AVAILABLE_BUT_DEPRECATED( __MAC_##_macIntro, __MAC_##_macDep, __IPHONE_##_iosIntro,__IPHONE_##_iosDep)
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroName} => 1
+$parserState->{seenMacroPart} => 1
+$parserState->{seenMacroStart} => 1
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => 
+$parserState->{sodname} => CF_DEPRECATED
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: #define
+namelist: CF_DEPRECATED
+posstypes: function method
+value: 
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+Parsed Param 0 => _macIntro
+Parsed Param 1 => _macDep
+Parsed Param 2 => _iosIntro
+Parsed Param 3 => _iosDep
+-=: DUMP OF PARSE TREE :=-
++---#define
+|   +--- 
+|   +---CF_DEPRECATED
+|   +---(
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---_iosDep
+|   +---)
+|   +--- 
+|   +---__OSX_AVAILABLE_BUT_DEPRECATED
+|   +---(
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosDep
+|   +---)
+|   +---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+$CPP_HASH{CF_DEPRECATED} => __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_##_macIntro, __MAC_##_macDep, __IPHONE_##_iosIntro, __IPHONE_##_iosDep)
+$CPP_ARG_HASH{CF_DEPRECATED} => _macIntro, _macDep, _iosIntro, _iosDep
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: avmacros 070
+APIUID: //test_ref/doc/header/avmacros_070.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    IS AVAILABILITY MACRO: 
+    PARSE ONLY: 
+    OBJECT TYPE: HeaderDoc::PDefine
+    NAME: CF_DEPRECATED
+    APIUID: //test_ref/c/macro/CF_DEPRECATED
+    ABSTRACT: ""
+    DISCUSSION: "<p>Verifies that availability macro definitions
+don't choke the parser. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::PDefine"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+    PARSED PARAMETERS:
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _macIntro
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _macDep
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _iosIntro
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 0
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::MinorAPIElement
+        NAME: _iosDep
+        TYPE: 
+        APIUID: 
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: ""
+        LINENUM: ""
+        CLASS: "HeaderDoc::MinorAPIElement"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: ""
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: CF_DEPRECATED (HeaderDoc::PDefine)
++---#define
+|   +--- 
+|   +---CF_DEPRECATED
+|   +---(
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---_iosDep
+|   +---)
+|   +--- 
+|   +---__OSX_AVAILABLE_BUT_DEPRECATED
+|   +---(
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macIntro
+|   +---,
+|   +--- 
+|   +---__MAC_
+|   +---#
+|   +---#
+|   +---_macDep
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosIntro
+|   +---,
+|   +--- 
+|   +---__IPHONE_
+|   +---#
+|   +---#
+|   +---_iosDep
+|   +---)
+|   +---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: CF_DEPRECATED (HeaderDoc::PDefine)
+	<span class="preprocessor">#define</span> <!-- a logicalPath="//test_ref/c/cl/CF_DEPRECATED //test_ref/c/tdef/CF_DEPRECATED //test_ref/c/tag/CF_DEPRECATED //test_ref/c/struct/CF_DEPRECATED //test_ref/c/intf/CF_DEPRECATED //test_ref/c/econst/CF_DEPRECATED //test_ref/c/data/CF_DEPRECATED //test_ref/c/clconst/CF_DEPRECATED //test_ref/c/instm/CF_DEPRECATED //test_ref/c/clm/CF_DEPRECATED //test_ref/c/intfcm/CF_DEPRECATED //test_ref/c/intfm/CF_DEPRECATED //test_ref/c/func/CF_DEPRECATED //test_ref/c/ftmplt/CF_DEPRECATED //test_ref/c/defn/CF_DEPRECATED //test_ref/c/macro/CF_DEPRECATED //test_ref/doc/com/intfm/CF_DEPRECATED //test_ref/doc/anysymbol/CF_DEPRECATED" machineGenerated="true" --><span class="preprocessor">CF_DEPRECATED</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/_macIntro //test_ref/c/tdef/_macIntro //test_ref/c/tag/_macIntro //test_ref/c/struct/_macIntro //test_ref/c/intf/_macIntro //test_ref/c/econst/_macIntro //test_ref/c/data/_macIntro //test_ref/c/clconst/_macIntro //test_ref/c/instm/_macIntro //test_ref/c/clm/_macIntro //test_ref/c/intfcm/_macIntro //test_ref/c/intfm/_macIntro //test_ref/c/func/_macIntro //test_ref/c/ftmplt/_macIntro //test_ref/c/defn/_macIntro //test_ref/c/macro/_macIntro //test_ref/doc/com/intfm/_macIntro //test_ref/doc/anysymbol/_macIntro" machineGenerated="true" --><span class="preprocessor">_macIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_macDep //test_ref/c/tdef/_macDep //test_ref/c/tag/_macDep //test_ref/c/struct/_macDep //test_ref/c/intf/_macDep //test_ref/c/econst/_macDep //test_ref/c/data/_macDep //test_ref/c/clconst/_macDep //test_ref/c/instm/_macDep //test_ref/c/clm/_macDep //test_ref/c/intfcm/_macDep //test_ref/c/intfm/_macDep //test_ref/c/func/_macDep //test_ref/c/ftmplt/_macDep //test_ref/c/defn/_macDep //test_ref/c/macro/_macDep //test_ref/doc/com/intfm/_macDep //test_ref/doc/anysymbol/_macDep" machineGenerated="true" --><span class="preprocessor">_macDep</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_iosIntro //test_ref/c/tdef/_iosIntro //test_ref/c/tag/_iosIntro //test_ref/c/struct/_iosIntro //test_ref/c/intf/_iosIntro //test_ref/c/econst/_iosIntro //test_ref/c/data/_iosIntro //test_ref/c/clconst/_iosIntro //test_ref/c/instm/_iosIntro //test_ref/c/clm/_iosIntro //test_ref/c/intfcm/_iosIntro //test_ref/c/intfm/_iosIntro //test_ref/c/func/_iosIntro //test_ref/c/ftmplt/_iosIntro //test_ref/c/defn/_iosIntro //test_ref/c/macro/_iosIntro //test_ref/doc/com/intfm/_iosIntro //test_ref/doc/anysymbol/_iosIntro" machineGenerated="true" --><span class="preprocessor">_iosIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/_iosDep //test_ref/c/tdef/_iosDep //test_ref/c/tag/_iosDep //test_ref/c/struct/_iosDep //test_ref/c/intf/_iosDep //test_ref/c/econst/_iosDep //test_ref/c/data/_iosDep //test_ref/c/clconst/_iosDep //test_ref/c/instm/_iosDep //test_ref/c/clm/_iosDep //test_ref/c/intfcm/_iosDep //test_ref/c/intfm/_iosDep //test_ref/c/func/_iosDep //test_ref/c/ftmplt/_iosDep //test_ref/c/defn/_iosDep //test_ref/c/macro/_iosDep //test_ref/doc/com/intfm/_iosDep //test_ref/doc/anysymbol/_iosDep" machineGenerated="true" --><span class="preprocessor">_iosDep</span><!-- /a --><span class="preprocessor">)</span> <!-- a logicalPath="//test_ref/c/cl/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/tdef/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/tag/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/struct/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intf/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/econst/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/data/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/clconst/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/instm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/clm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intfcm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/intfm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/func/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/ftmplt/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/defn/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/c/macro/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/doc/com/intfm/__OSX_AVAILABLE_BUT_DEPRECATED //test_ref/doc/anysymbol/__OSX_AVAILABLE_BUT_DEPRECATED" machineGenerated="true" --><span class="preprocessor">__OSX_AVAILABLE_BUT_DEPRECATED</span><!-- /a --><span class="preprocessor">(</span><!-- a logicalPath="//test_ref/c/cl/__MAC_ //test_ref/c/tdef/__MAC_ //test_ref/c/tag/__MAC_ //test_ref/c/struct/__MAC_ //test_ref/c/intf/__MAC_ //test_ref/c/econst/__MAC_ //test_ref/c/data/__MAC_ //test_ref/c/clconst/__MAC_ //test_ref/c/instm/__MAC_ //test_ref/c/clm/__MAC_ //test_ref/c/intfcm/__MAC_ //test_ref/c/intfm/__MAC_ //test_ref/c/func/__MAC_ //test_ref/c/ftmplt/__MAC_ //test_ref/c/defn/__MAC_ //test_ref/c/macro/__MAC_ //test_ref/doc/com/intfm/__MAC_ //test_ref/doc/anysymbol/__MAC_" machineGenerated="true" --><span class="preprocessor">__MAC_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_macIntro //test_ref/c/tdef/_macIntro //test_ref/c/tag/_macIntro //test_ref/c/struct/_macIntro //test_ref/c/intf/_macIntro //test_ref/c/econst/_macIntro //test_ref/c/data/_macIntro //test_ref/c/clconst/_macIntro //test_ref/c/instm/_macIntro //test_ref/c/clm/_macIntro //test_ref/c/intfcm/_macIntro //test_ref/c/intfm/_macIntro //test_ref/c/func/_macIntro //test_ref/c/ftmplt/_macIntro //test_ref/c/defn/_macIntro //test_ref/c/macro/_macIntro //test_ref/doc/com/intfm/_macIntro //test_ref/doc/anysymbol/_macIntro" machineGenerated="true" --><span class="preprocessor">_macIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__MAC_ //test_ref/c/tdef/__MAC_ //test_ref/c/tag/__MAC_ //test_ref/c/struct/__MAC_ //test_ref/c/intf/__MAC_ //test_ref/c/econst/__MAC_ //test_ref/c/data/__MAC_ //test_ref/c/clconst/__MAC_ //test_ref/c/instm/__MAC_ //test_ref/c/clm/__MAC_ //test_ref/c/intfcm/__MAC_ //test_ref/c/intfm/__MAC_ //test_ref/c/func/__MAC_ //test_ref/c/ftmplt/__MAC_ //test_ref/c/defn/__MAC_ //test_ref/c/macro/__MAC_ //test_ref/doc/com/intfm/__MAC_ //test_ref/doc/anysymbol/__MAC_" machineGenerated="true" --><span class="preprocessor">__MAC_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_macDep //test_ref/c/tdef/_macDep //test_ref/c/tag/_macDep //test_ref/c/struct/_macDep //test_ref/c/intf/_macDep //test_ref/c/econst/_macDep //test_ref/c/data/_macDep //test_ref/c/clconst/_macDep //test_ref/c/instm/_macDep //test_ref/c/clm/_macDep //test_ref/c/intfcm/_macDep //test_ref/c/intfm/_macDep //test_ref/c/func/_macDep //test_ref/c/ftmplt/_macDep //test_ref/c/defn/_macDep //test_ref/c/macro/_macDep //test_ref/doc/com/intfm/_macDep //test_ref/doc/anysymbol/_macDep" machineGenerated="true" --><span class="preprocessor">_macDep</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__IPHONE_ //test_ref/c/tdef/__IPHONE_ //test_ref/c/tag/__IPHONE_ //test_ref/c/struct/__IPHONE_ //test_ref/c/intf/__IPHONE_ //test_ref/c/econst/__IPHONE_ //test_ref/c/data/__IPHONE_ //test_ref/c/clconst/__IPHONE_ //test_ref/c/instm/__IPHONE_ //test_ref/c/clm/__IPHONE_ //test_ref/c/intfcm/__IPHONE_ //test_ref/c/intfm/__IPHONE_ //test_ref/c/func/__IPHONE_ //test_ref/c/ftmplt/__IPHONE_ //test_ref/c/defn/__IPHONE_ //test_ref/c/macro/__IPHONE_ //test_ref/doc/com/intfm/__IPHONE_ //test_ref/doc/anysymbol/__IPHONE_" machineGenerated="true" --><span class="preprocessor">__IPHONE_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_iosIntro //test_ref/c/tdef/_iosIntro //test_ref/c/tag/_iosIntro //test_ref/c/struct/_iosIntro //test_ref/c/intf/_iosIntro //test_ref/c/econst/_iosIntro //test_ref/c/data/_iosIntro //test_ref/c/clconst/_iosIntro //test_ref/c/instm/_iosIntro //test_ref/c/clm/_iosIntro //test_ref/c/intfcm/_iosIntro //test_ref/c/intfm/_iosIntro //test_ref/c/func/_iosIntro //test_ref/c/ftmplt/_iosIntro //test_ref/c/defn/_iosIntro //test_ref/c/macro/_iosIntro //test_ref/doc/com/intfm/_iosIntro //test_ref/doc/anysymbol/_iosIntro" machineGenerated="true" --><span class="preprocessor">_iosIntro</span><!-- /a --><span class="preprocessor">,</span> <!-- a logicalPath="//test_ref/c/cl/__IPHONE_ //test_ref/c/tdef/__IPHONE_ //test_ref/c/tag/__IPHONE_ //test_ref/c/struct/__IPHONE_ //test_ref/c/intf/__IPHONE_ //test_ref/c/econst/__IPHONE_ //test_ref/c/data/__IPHONE_ //test_ref/c/clconst/__IPHONE_ //test_ref/c/instm/__IPHONE_ //test_ref/c/clm/__IPHONE_ //test_ref/c/intfcm/__IPHONE_ //test_ref/c/intfm/__IPHONE_ //test_ref/c/func/__IPHONE_ //test_ref/c/ftmplt/__IPHONE_ //test_ref/c/defn/__IPHONE_ //test_ref/c/macro/__IPHONE_ //test_ref/doc/com/intfm/__IPHONE_ //test_ref/doc/anysymbol/__IPHONE_" machineGenerated="true" --><span class="preprocessor">__IPHONE_</span><!-- /a --><span class="preprocessor">#</span><span class="preprocessor">#</span><!-- a logicalPath="//test_ref/c/cl/_iosDep //test_ref/c/tdef/_iosDep //test_ref/c/tag/_iosDep //test_ref/c/struct/_iosDep //test_ref/c/intf/_iosDep //test_ref/c/econst/_iosDep //test_ref/c/data/_iosDep //test_ref/c/clconst/_iosDep //test_ref/c/instm/_iosDep //test_ref/c/clm/_iosDep //test_ref/c/intfcm/_iosDep //test_ref/c/intfm/_iosDep //test_ref/c/func/_iosDep //test_ref/c/ftmplt/_iosDep //test_ref/c/defn/_iosDep //test_ref/c/macro/_iosDep //test_ref/doc/com/intfm/_iosDep //test_ref/doc/anysymbol/_iosDep" machineGenerated="true" --><span class="preprocessor">_iosDep</span><!-- /a --><span class="preprocessor">)</span> 
+END OF OBJECT
+
+
+
+_$17|avmacros_070.test$1|C$12|avmacros 070$1|C$6|parser

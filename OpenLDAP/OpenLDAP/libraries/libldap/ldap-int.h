@@ -1,8 +1,8 @@
 /*  ldap-int.h - defines & prototypes internal to the LDAP library */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.168.2.7 2008/02/11 23:26:41 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/ldap-int.h,v 1.168.2.18 2010/04/19 16:53:01 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,6 +25,7 @@
 #endif
 
 #include "../liblber/lber-int.h"
+#include "lutil.h"
 #include "rb.h"
 
 #ifdef LDAP_R_COMPILE
@@ -76,6 +77,9 @@
 
 #ifdef LDAP_DEBUG
 
+#define DebugTest( level ) \
+	( ldap_debug & level )
+
 #define Debug( level, fmt, arg1, arg2, arg3 ) \
 	do { if ( ldap_debug & level ) \
 	ldap_log_printf( NULL, (level), (fmt), (arg1), (arg2), (arg3) ); \
@@ -86,6 +90,7 @@
 
 #else
 
+#define DebugTest( level )                                    (0 == 1)
 #define Debug( level, fmt, arg1, arg2, arg3 )                 ((void)0)
 #define LDAP_Debug( subsystem, level, fmt, arg1, arg2, arg3 ) ((void)0)
 
@@ -123,6 +128,10 @@ LDAP_BEGIN_DECL
 #define LDAP_BOOL_RESTART		1
 #define LDAP_BOOL_TLS			3
 #define	LDAP_BOOL_CONNECT_ASYNC		4
+#define	LDAP_BOOL_SASL_NOCANON		5
+#ifdef __APPLE__
+#define LDAP_BOOL_ASYNC_RESULTS		6
+#endif
 
 #define LDAP_BOOLEANS	unsigned long
 #define LDAP_BOOL(n)	((LDAP_BOOLEANS)1 << (n))
@@ -145,7 +154,7 @@ struct ldapmsg {
 	struct ldapmsg	*lm_chain;	/* for search - next msg in the resp */
 	struct ldapmsg	*lm_chain_tail;
 #ifdef LDAP_RESPONSE_RB_TREE
-    struct rb_node  lm_link;    /* node in the resp red-black tree */
+	struct rb_node	lm_link;    /* node in the resp red-black tree */
 #else
 	struct ldapmsg	*lm_next;	/* next response */
 #endif
@@ -162,11 +171,19 @@ struct ldaptls {
 	char		*lt_ciphersuite;
 	char		*lt_passphrase;
 	char		**lt_passphrase_tool;	
-#ifdef HAVE_GNUTLS
 	char		*lt_crlfile;
+	char		*lt_randfile;	/* OpenSSL only */
+	int		lt_protocol_min;
+#ifdef __APPLE__
+	void		*lt_cert_ref;
 #endif
 };
 #endif
+
+typedef struct ldaplist {
+	struct ldaplist *ll_next;
+	void *ll_data;
+} ldaplist;
 
 /*
  * structure representing get/set'able options
@@ -207,12 +224,18 @@ struct ldapoptions {
 #define ldo_tls_cacertfile	ldo_tls_info.lt_cacertfile
 #define ldo_tls_cacertdir	ldo_tls_info.lt_cacertdir
 #define ldo_tls_ciphersuite	ldo_tls_info.lt_ciphersuite
+#define ldo_tls_protocol_min	ldo_tls_info.lt_protocol_min
 #define ldo_tls_crlfile	ldo_tls_info.lt_crlfile
+#define ldo_tls_randfile	ldo_tls_info.lt_randfile	
 #define ldo_tls_passphrase	ldo_tls_info.lt_passphrase
 #define ldo_tls_passphrase_tool	ldo_tls_info.lt_passphrase_tool
+#ifdef __APPLE__
+#define ldo_tls_cert_ref	ldo_tls_info.lt_cert_ref
+#endif
 	
    	int			ldo_tls_mode;
    	int			ldo_tls_require_cert;
+	int			ldo_tls_impl;
 #ifdef HAVE_OPENSSL_CRL
    	int			ldo_tls_crlcheck;
 #endif
@@ -233,6 +256,23 @@ struct ldapoptions {
 	struct sasl_security_properties	ldo_sasl_secprops;
 #endif
 
+#ifdef HAVE_GSSAPI
+	unsigned gssapi_flags;
+
+	unsigned ldo_gssapi_flags;
+#define LDAP_GSSAPI_OPT_DO_NOT_FREE_GSS_CONTEXT	0x0001
+#define LDAP_GSSAPI_OPT_ALLOW_REMOTE_PRINCIPAL	0x0002
+	unsigned ldo_gssapi_options;
+#endif
+
+	/*
+	 * Per connection tcp-keepalive settings (Linux only,
+	 * ignored where unsupported)
+	 */
+	ber_int_t ldo_keepalive_idle;
+	ber_int_t ldo_keepalive_probes;
+	ber_int_t ldo_keepalive_interval;
+
 	int		ldo_refhoplimit;	/* limit on referral nesting */
 
 	/* LDAPv3 server and client controls */
@@ -247,13 +287,13 @@ struct ldapoptions {
 	LDAP_URLLIST_PROC *ldo_urllist_proc;
 	void *ldo_urllist_params;
 
+	/* LDAP connection callback stack */
+	ldaplist *ldo_conn_cbs;
+
 	LDAP_BOOLEANS ldo_booleans;	/* boolean options */
 
 	/* apple specific extension */
 	short ldo_noaddr_option;
-	short ldo_noreverse_option;
-	LDAP_NOTIFYDESC_PROC *ldo_notifydesc_proc;
-	void *ldo_notifydesc_params;
 	char *ldo_sasl_fqdn;
 };
 
@@ -266,6 +306,9 @@ typedef struct ldap_conn {
 #ifdef HAVE_CYRUS_SASL
 	void		*lconn_sasl_authctx;	/* context for bind */
 	void		*lconn_sasl_sockctx;	/* for security layer */
+#endif
+#ifdef HAVE_GSSAPI
+	void		*lconn_gss_ctx;		/* gss_ctx_id_t */
 #endif
 	int			lconn_refcnt;
 	time_t		lconn_created;	/* time */
@@ -383,7 +426,7 @@ struct ldap {
 	/* do not mess with these */
 	LDAPRequest	*ld_requests;	/* list of outstanding requests */
 #ifdef LDAP_RESPONSE_RB_TREE
-    struct rb_tree *ld_rbt_responses; /* rb tree of outstanding responses */
+	struct rb_tree  *ld_rbt_responses; /* rb tree of outstanding responses */
 #else
 	LDAPMessage	*ld_responses;	/* list of outstanding responses */
 #endif
@@ -404,6 +447,10 @@ struct ldap {
 	LDAPConn	*ld_defconn;	/* default connection */
 	LDAPConn	*ld_conns;	/* list of server connections */
 	void		*ld_selectinfo;	/* platform specifics for select */
+
+#ifdef __APPLE__
+	void *ld_res_cb_info; /* async results callback info */
+#endif
 };
 #define LDAP_VALID(ld)		( (ld)->ld_valid == LDAP_VALID_SESSION )
 #define LDAP_TRASHED(ld)	( (ld)->ld_valid == LDAP_TRASHED_SESSION )
@@ -414,6 +461,9 @@ LDAP_V ( ldap_pvt_thread_mutex_t ) ldap_int_resolv_mutex;
 
 #ifdef HAVE_CYRUS_SASL
 LDAP_V( ldap_pvt_thread_mutex_t ) ldap_int_sasl_mutex;
+#endif
+#ifdef HAVE_GSSAPI
+LDAP_V( ldap_pvt_thread_mutex_t ) ldap_int_gssapi_mutex;
 #endif
 #endif
 
@@ -446,6 +496,15 @@ LDAP_V ( struct ldapoptions ) ldap_int_global_options;
 LDAP_F ( void ) ldap_int_initialize LDAP_P((struct ldapoptions *, int *));
 LDAP_F ( void ) ldap_int_initialize_global_options LDAP_P((
 	struct ldapoptions *, int *));
+
+#if defined(__APPLE__) && defined(LDAP_R_COMPILE)
+/* These two are used in pthread_once() calls to ensure the
+ * global options get initialized in a thread-safe manner.
+ * Called by ldap_create() & ldap_get_option()
+ */
+LDAP_V ( pthread_once_t) ldap_global_opts_initialized ;
+LDAP_F ( void ) ldap_int_init_global_opts LDAP_P((void));
+#endif
 
 /* memory.c */
 	/* simple macros to realloc for now */
@@ -525,7 +584,7 @@ LDAP_F (void) ldap_int_ip_init( void );
 LDAP_F (int) ldap_int_timeval_dup( struct timeval **dest,
 	const struct timeval *tm );
 LDAP_F (int) ldap_connect_to_host( LDAP *ld, Sockbuf *sb,
-	int proto, const char *host, int port, int async );
+	int proto, LDAPURLDesc *srv, int async );
 LDAP_F (int) ldap_int_poll( LDAP *ld, ber_socket_t s,
 	struct timeval *tvp );
 
@@ -544,12 +603,15 @@ LDAP_F (void) ldap_mark_select_clear( LDAP *ld, Sockbuf *sb );
 LDAP_F (int) ldap_is_read_ready( LDAP *ld, Sockbuf *sb );
 LDAP_F (int) ldap_is_write_ready( LDAP *ld, Sockbuf *sb );
 
+LDAP_F (int) ldap_int_connect_cbs( LDAP *ld, Sockbuf *sb,
+	ber_socket_t *s, LDAPURLDesc *srv, struct sockaddr *addr );
+
 /*
  * in os-local.c
  */
 #ifdef LDAP_PF_LOCAL
 LDAP_F (int) ldap_connect_to_path( LDAP *ld, Sockbuf *sb,
-	const char *path, int async );
+	LDAPURLDesc *srv, int async );
 #endif /* LDAP_PF_LOCAL */
 
 /*
@@ -594,6 +656,7 @@ LDAP_F (BerElement *) ldap_build_search_req LDAP_P((
 	LDAPControl **cctrls,
 	ber_int_t timelimit,
 	ber_int_t sizelimit,
+	ber_int_t deref,
 	ber_int_t *msgidp));
 
 
@@ -684,6 +747,16 @@ LDAP_F (void) ldap_int_tls_destroy LDAP_P(( struct ldapoptions *lo ));
  */
 LDAP_F (char **) ldap_value_dup LDAP_P((
 	char *const *vals ));
+
+/*
+ *	in gssapi.c
+ */
+#ifdef HAVE_GSSAPI
+LDAP_F(int) ldap_int_gssapi_get_option LDAP_P(( LDAP *ld, int option, void *arg ));
+LDAP_F(int) ldap_int_gssapi_set_option LDAP_P(( LDAP *ld, int option, void *arg ));
+LDAP_F(int) ldap_int_gssapi_config LDAP_P(( struct ldapoptions *lo, int option, const char *arg ));
+LDAP_F(void) ldap_int_gssapi_close LDAP_P(( LDAP *ld, LDAPConn *lc ));
+#endif 
 
 LDAP_END_DECL
 

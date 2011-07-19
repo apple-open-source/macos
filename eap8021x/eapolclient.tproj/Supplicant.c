@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,9 +45,17 @@
 #include <EAP8021X/EAPClientModule.h>
 #include <EAP8021X/EAPClientProperties.h>
 #include <EAP8021X/EAPOLControlTypes.h>
+#include <EAP8021X/EAPOLControlTypesPrivate.h>
 #include <EAP8021X/EAPOLControl.h>
 #include <EAP8021X/SupplicantTypes.h>
 #include <EAP8021X/EAPKeychainUtil.h>
+#include <TargetConditionals.h>
+#if ! TARGET_OS_EMBEDDED
+#include <EAP8021X/EAPOLClientConfiguration.h>
+#include <EAP8021X/EAPOLClientConfigurationPrivate.h>
+#include <notify.h>
+#endif /* ! TARGET_OS_EMBEDDED */
+#include <EAP8021X/EAPCertificateUtil.h>
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFDictionary.h>
 #include <CoreFoundation/CFArray.h>
@@ -57,13 +64,13 @@
 #include <SystemConfiguration/SCValidation.h>
 #include <SystemConfiguration/SCPrivate.h>
 
-#include <TargetConditionals.h>
 #if ! TARGET_OS_EMBEDDED
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
 #include "Dialogue.h"
+#include <opendirectory/adsupport.h>
 #endif /* ! TARGET_OS_EMBEDDED */
-
+#include <Security/SecureTransport.h>
 #include "Supplicant.h"
 #include "Timer.h"
 #include "EAPOLSocket.h"
@@ -101,7 +108,7 @@ typedef struct {
     int	*		types;
     int			count;
     int			index;
-    bool		use_identity;
+    bool		use_outer_identity;
 } EAPAcceptTypes, * EAPAcceptTypesRef;
 
 struct Supplicant_s {
@@ -117,23 +124,37 @@ struct Supplicant_s {
     CFStringRef			config_id;
 
     int				previous_identifier;
-    char *			identity;
-    int				identity_length;
+    char *			outer_identity;
+    int				outer_identity_length;
     char *			username;
     int				username_length;
     char *			password;
     int				password_length;
+    bool			username_derived;
     bool			one_time_password;
     bool			ignore_password;
+    bool			ignore_username;
+    bool			ignore_sec_identity;
+    bool			remember_information;
+
+    SecIdentityRef		sec_identity;
 
     EAPAcceptTypes		eap_accept;
 
     CFArrayRef			identity_attributes;
 
 #if ! TARGET_OS_EMBEDDED
-    UserPasswordDialogueRef	pw_prompt;
-
+    EAPOLClientItemIDRef	itemID;
+    EAPOLClientConfigurationRef	eapolcfg;
+    AlertDialogueRef		alert_prompt;
+    CredentialsDialogueRef	cred_prompt;
     TrustDialogueRef		trust_prompt;
+    long			credentials_access_time;
+    CFStringRef			manager_name;
+    struct {
+	CFMachPortRef		mp;
+	int			token;
+    } config_change;
 #endif /* ! TARGET_OS_EMBEDDED */
 
     int				start_count;
@@ -161,11 +182,10 @@ typedef enum {
     kSupplicantEventMoreDataAvailable,
 } SupplicantEvent;
 
-static CFDictionaryRef
-eapolclient_default_dict(void);
+#define INDEX_NONE		(-1)
 
 static bool
-S_set_user_password(SupplicantRef supp);
+S_set_credentials(SupplicantRef supp);
 
 static void
 Supplicant_acquired(SupplicantRef supp, SupplicantEvent event, 
@@ -200,6 +220,63 @@ respond_to_notification(SupplicantRef supp, int identifier);
  **/
 static void
 eapolclient_log_config_dict(uint32_t flags, CFDictionaryRef d);
+
+/**
+ ** Utility routines
+ **/
+static bool
+S_array_contains_int(CFArrayRef array, int val)
+{
+    int		count;
+    int		i;
+
+    if (array == NULL) {
+	goto done;
+    }
+
+    count = CFArrayGetCount(array);
+    for (i = 0; i < count; i++) {
+	CFNumberRef	num = CFArrayGetValueAtIndex(array, i);
+	int		num_val;
+
+	if (isA_CFNumber(num) == NULL) {
+	    continue;
+	}
+	if (CFNumberGetValue(num, kCFNumberIntType, &num_val)
+	    && num_val == val) {
+	    return (TRUE);
+	}
+    }
+
+ done:
+    return (FALSE);
+}
+
+static char *
+S_identity_copy_name(SecIdentityRef sec_identity)
+{
+    SecCertificateRef		cert;
+    char *			name = NULL;
+    OSStatus			status;
+
+    status = SecIdentityCopyCertificate(sec_identity, &cert);
+    if (status != noErr) {
+	my_log(LOG_NOTICE,
+	       "EAPSecIdentityHandleCreateSecIdentity failed, %d",
+	       status);
+    }
+    else {
+	CFStringRef		name_cf;
+
+	name_cf = EAPSecCertificateCopyUserNameString(cert);
+	CFRelease(cert);
+	if (name_cf != NULL) {
+	    name = my_CFStringToCString(name_cf, kCFStringEncodingUTF8);
+	    CFRelease(name_cf);
+	}
+    }
+    return (name);
+}
 
 /**
  ** EAP client module access convenience routines
@@ -238,10 +315,7 @@ eap_client_set_properties(SupplicantRef supp)
 	CFStringRef		ident;
 	CFStringRef		if_name_cf = NULL;
 
-	ident = NULL;
-	if (EAPOLSocketIsWireless(supp->sock)) {
-	    ident = EAPOLSocketGetSSID(supp->sock);
-	}
+	ident = EAPOLSocketGetSSID(supp->sock);
 	if (ident != NULL) {
 	    domain = kEAPTLSTrustExceptionsDomainWirelessSSID;
 	}
@@ -346,6 +420,7 @@ eap_client_init(SupplicantRef supp, EAPType type)
     S_set_uint32(&supp->eap.plugin_data.password_length, 
 		 supp->password_length);
     eap_client_set_properties(supp);
+    supp->eap.plugin_data.sec_identity = supp->sec_identity;
     *((bool *)&supp->eap.plugin_data.log_enabled) = supp->debug;
     *((bool *)&supp->eap.plugin_data.system_mode) 
 	= (EAPOLSocketGetMode(supp->sock) == kEAPOLControlModeSystem);
@@ -460,9 +535,8 @@ EAPAcceptTypesFree(EAPAcceptTypesRef accept)
 }
 
 static void
-EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
+EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFArrayRef accept_types)
 {
-    CFArrayRef		accept_types = NULL;
     int			i;
     int			count;
     int			tunneled_count;
@@ -472,11 +546,6 @@ EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
     int			types_count;
 
     EAPAcceptTypesFree(accept);
-    
-    if (config_dict != NULL) {
-	accept_types = CFDictionaryGetValue(config_dict,
-					    kEAPClientPropAcceptEAPTypes);
-    }
     if (accept_types == NULL) {
 	return;
     }
@@ -487,6 +556,8 @@ EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
     types = (int *)malloc(count * sizeof(*types));
     tunneled_count = types_count = 0;
     for (i = 0; i < count; i++) {
+	int		j;
+
 	type_cf = CFArrayGetValueAtIndex(accept_types, i);
 	if (isA_CFNumber(type_cf) == NULL) {
 	    my_log(LOG_NOTICE, 
@@ -504,6 +575,14 @@ EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
 		   i, type_i);
 	    continue;
 	}
+	for (j = 0; j < types_count; j++) {
+	    if (types[j] == type_i) {
+		my_log(LOG_NOTICE,
+		       "AcceptEAPTypes[%d] %s (%d) already specified at [%d], "
+		       "ignoring", i, EAPTypeStr(type_i), type_i, j);
+		continue;
+	    }
+	}
 	types[types_count++] = type_i;
 	if (type_i == kEAPTypePEAP
 	    || type_i == kEAPTypeTTLS
@@ -518,7 +597,7 @@ EAPAcceptTypesInit(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
 	accept->types = types;
 	accept->count = types_count;
 	if (tunneled_count == types_count) {
-	    accept->use_identity = TRUE;
+	    accept->use_outer_identity = TRUE;
 	}
     }
     return;
@@ -541,31 +620,88 @@ EAPAcceptTypesReset(EAPAcceptTypesRef accept)
     return;
 }
 
-static bool
-EAPAcceptTypesIsSupportedType(EAPAcceptTypesRef accept, EAPType type)
+static int
+EAPAcceptTypesIndexOfType(EAPAcceptTypesRef accept, EAPType type)
 {
     int			i;
 
     if (accept->types == NULL) {
-	return (FALSE);
+	return (INDEX_NONE);
     }
     for (i = 0; i < accept->count; i++) {
 	if (accept->types[i] == type) {
-	    return (TRUE);
+	    return (i);
 	}
     }
-    return (FALSE);
+    return (INDEX_NONE);
 }
 
 static bool
-EAPAcceptTypesUseIdentity(EAPAcceptTypesRef accept)
+EAPAcceptTypesIsSupportedType(EAPAcceptTypesRef accept, EAPType type)
 {
-    return (accept->use_identity);
+    return (EAPAcceptTypesIndexOfType(accept, type) != INDEX_NONE);
 }
+
+static bool
+EAPAcceptTypesUseOuterIdentity(EAPAcceptTypesRef accept)
+{
+    return (accept->use_outer_identity);
+}
+
+static void
+EAPAcceptTypesRemoveTypeAtIndex(EAPAcceptTypesRef accept, int type_index)
+{
+    int		i;
+
+    if (type_index >= accept->count || type_index < 0) {
+	/* invalid arg */
+	return;
+    }
+    for (i = type_index; i < (accept->count - 1); i++) {
+	accept->types[i] = accept->types[i + 1];
+    }
+    accept->count--;
+    return;
+}
+
 
 /**
  ** Supplicant routines
  **/
+
+#if ! TARGET_OS_EMBEDDED
+
+#define CREDENTIALS_ACCESS_DELAY_SECS		2
+
+static void
+S_set_credentials_access_time(SupplicantRef supp)
+{
+    supp->credentials_access_time = Timer_current_secs();
+    return;
+}
+
+static void
+S_check_for_updated_credentials(SupplicantRef supp)
+{
+    long	current_time;
+    long	delta;
+    
+    if (EAPOLSocketGetMode(supp->sock) != kEAPOLControlModeSystem) {
+	/* don't bother unless it's System mode */
+	return;
+    }
+    current_time = Timer_current_secs();
+    delta = current_time - supp->credentials_access_time;
+    if (delta < 0
+	|| delta >= CREDENTIALS_ACCESS_DELAY_SECS) {
+	eapolclient_log(kLogFlagBasic,
+			"Re-reading credentials\n");
+	(void)S_set_credentials(supp);
+    }
+    return;
+}
+
+#endif /* ! TARGET_OS_EMBEDDED */
 
 static void
 clear_password(SupplicantRef supp)
@@ -573,9 +709,33 @@ clear_password(SupplicantRef supp)
     supp->ignore_password = TRUE;
 
     /* clear the password */
-    free(supp->password);
-    supp->password = NULL;
+    if (supp->password != NULL) {
+	free(supp->password);
+	supp->password = NULL;
+    }
     supp->password_length = 0;
+    return;
+}
+
+static void
+clear_username(SupplicantRef supp)
+{
+    supp->ignore_username = TRUE;
+
+    if (supp->username != NULL) {
+	free(supp->username);
+	supp->username = NULL;
+    }
+    supp->username_length = 0;
+    supp->username_derived = FALSE;
+    return;
+}
+
+static void
+clear_sec_identity(SupplicantRef supp)
+{
+    supp->ignore_sec_identity = TRUE;
+    my_CFRelease(&supp->sec_identity);
     return;
 }
 
@@ -834,7 +994,61 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 	supp->state = kSupplicantStateAuthenticated;
 	free_last_packet(supp);
 #if ! TARGET_OS_EMBEDDED
-	UserPasswordDialogue_free(&supp->pw_prompt);
+	AlertDialogue_free(&supp->alert_prompt);
+	CredentialsDialogue_free(&supp->cred_prompt);
+	TrustDialogue_free(&supp->trust_prompt);
+	if (supp->remember_information && supp->itemID != NULL) {
+	    CFDataRef	name_data = NULL;
+	    CFDataRef	password_data = NULL;
+
+	    if (supp->username != NULL && supp->username_derived == FALSE) {
+		name_data
+		    = CFDataCreate(NULL, (const UInt8 *)supp->username,
+				   supp->username_length);
+	    }
+	    if (supp->eap.last_type == kEAPTypeTLS
+		&& supp->sec_identity != NULL) {
+		if (EAPOLClientItemIDSetIdentity(supp->itemID,
+						 kEAPOLClientDomainUser,
+						 supp->sec_identity)
+		    == FALSE) {
+		    my_log(LOG_NOTICE, "Failed to save identity selection");
+		    eapolclient_log(kLogFlagBasic,
+				    "Failed to save identity selection\n");
+		}
+		else {
+		    OSStatus		status;
+
+		    eapolclient_log(kLogFlagBasic,
+				    "Identity selection saved\n");
+		    status = EAPOLClientSetACLForIdentity(supp->sec_identity);
+		    if (status != noErr) {
+			fprintf(stderr, "Failed to set ACL for identity, %d\n",
+				(int)status);
+		    }
+		}
+	    }
+	    else if (supp->password != NULL) {
+		password_data 
+		    = CFDataCreate(NULL, (const UInt8 *)supp->password,
+				   supp->password_length);
+	    }
+	    if (name_data != NULL || password_data != NULL) {
+		if (EAPOLClientItemIDSetPasswordItem(supp->itemID,
+						     kEAPOLClientDomainUser,
+						     name_data, password_data)
+		    == FALSE) {
+		    my_log(LOG_NOTICE, "Failed to save password");
+		    eapolclient_log(kLogFlagBasic, "Failed to save password\n");
+		}
+		else {
+		    eapolclient_log(kLogFlagBasic, "Password saved\n");
+		}
+	    }
+	    my_CFRelease(&name_data);
+	    my_CFRelease(&password_data);
+	}
+	supp->remember_information = FALSE;
 #endif /* ! TARGET_OS_EMBEDDED */
 	if (supp->one_time_password) {
 	    clear_password(supp);
@@ -859,7 +1073,8 @@ Supplicant_authenticated(SupplicantRef supp, SupplicantEvent event,
 		case kEAPTypeNotification:
 		    /* need to display information to the user XXX */
 		    my_log(LOG_NOTICE, "Authenticated: Notification '%.*s'",
-			   EAPPacketGetLength((EAPPacketRef)req_p) - sizeof(*req_p),
+			   (EAPPacketGetLength((EAPPacketRef)req_p) 
+			    - sizeof(*req_p)),
 			   req_p->type_data);
 		    respond_to_notification(supp, req_p->identifier);
 		    break;
@@ -1051,6 +1266,7 @@ S_retrieve_identity(SupplicantRef supp)
     }
     supp->username = identity;
     supp->username_length = strlen(identity);
+    supp->username_derived = TRUE;
 
  use_default:
     return (supp->username != NULL);
@@ -1068,9 +1284,9 @@ respond_with_identity(SupplicantRef supp, int identifier)
     if (S_retrieve_identity(supp) == FALSE) {
 	return (FALSE);
     }
-    if (supp->identity != NULL) {
-	identity = supp->identity;
-	length = supp->identity_length;
+    if (supp->outer_identity != NULL) {
+	identity = supp->outer_identity;
+	length = supp->outer_identity_length;
     }
     else {
 	identity = supp->username;
@@ -1134,6 +1350,9 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 	    eapolclient_log(kLogFlagBasic,
 			    "EAP Request Identity\n");
 	    supp->previous_identifier = req_p->identifier;
+#if ! TARGET_OS_EMBEDDED	    
+	    S_check_for_updated_credentials(supp);
+#endif /* ! TARGET_OS_EMBEDDED */
 
 	    if (respond_with_identity(supp, req_p->identifier)) {
 		supp->last_status = kEAPClientStatusOK;
@@ -1151,8 +1370,7 @@ Supplicant_acquired(SupplicantRef supp, SupplicantEvent event,
 				"Acquired: cannot prompt for "
 				"missing user name\n");
 		my_log(LOG_NOTICE, 
-		       "No user name provided and user interaction not allowed,"
-		       " authentication held.");
+		       "No user name provided, user interaction not allowed");
 		supp->last_status = kEAPClientStatusUserInputNotPossible;
 		Supplicant_held(supp, kSupplicantEventStart, NULL);
 	    }
@@ -1410,7 +1628,9 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
 	break;
     case kEAPClientStateSuccess:
 	/* authentication method succeeded */
-	my_log(LOG_NOTICE, "%s: successfully authenticated",
+	my_log(LOG_NOTICE,
+	       "%s %s: successfully authenticated",
+	       EAPOLSocketIfName(supp->sock, NULL),
 	       supp->eap.last_type_name);
 	/* try to set the session key, if it is available */
 	if (EAPOLSocketIsWireless(supp->sock)) {
@@ -1421,7 +1641,9 @@ process_packet(SupplicantRef supp, EAPOLSocketReceiveDataRef rx)
     case kEAPClientStateFailure:
 	/* authentication method failed */
 	eap_client_log_failure(supp);
-	my_log(LOG_NOTICE, "%s: authentication failed with status %d",
+	my_log(LOG_NOTICE,
+	       "%s %s: authentication failed with status %d",
+	       EAPOLSocketIfName(supp->sock, NULL),
 	       supp->eap.last_type_name, supp->last_status);
 	Supplicant_held(supp, kSupplicantEventStart, NULL);
 	break;
@@ -1718,7 +1940,7 @@ trust_callback(const void * arg1, const void * arg2,
     if (response->proceed == FALSE) {
 	my_log(LOG_NOTICE, "%s: user cancelled", 
 	       EAPOLSocketIfName(supp->sock, NULL));
-	EAPOLControlStop(EAPOLSocketIfName(supp->sock, NULL));
+	EAPOLSocketStopClient(supp->sock);
 	goto done;
     }
     if (supp->last_status != kEAPClientStatusUserInputRequired
@@ -1743,7 +1965,7 @@ trust_callback(const void * arg1, const void * arg2,
 	}
     }
     config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
-    Supplicant_update_configuration(supp, config_dict);
+    Supplicant_update_configuration(supp, config_dict, NULL);
     my_CFRelease(&config_dict);
     user_supplied_data(supp);
 
@@ -1753,17 +1975,17 @@ trust_callback(const void * arg1, const void * arg2,
 }
 
 static void
-password_callback(const void * arg1, const void * arg2, 
-		  UserPasswordDialogueResponseRef response)
+credentials_callback(const void * arg1, const void * arg2, 
+		     CredentialsDialogueResponseRef response)
 {
     CFDictionaryRef		config_dict = NULL;
     SupplicantRef		supp = (SupplicantRef)arg1;
 
-    UserPasswordDialogue_free(&supp->pw_prompt);
+    CredentialsDialogue_free(&supp->cred_prompt);
     if (response->user_cancelled) {
 	my_log(LOG_NOTICE, "%s: user cancelled", 
 	       EAPOLSocketIfName(supp->sock, NULL));
-	EAPOLControlStop(EAPOLSocketIfName(supp->sock, NULL));
+	EAPOLSocketStopClient(supp->sock);
 	return;
     }
     if (supp->last_status != kEAPClientStatusUserInputRequired) {
@@ -1773,6 +1995,7 @@ password_callback(const void * arg1, const void * arg2,
     if (response->username != NULL) {
 	CFDictionarySetValue(supp->ui_config_dict, kEAPClientPropUserName,
 			     response->username);
+	supp->ignore_username = FALSE;
     }
     if (response->password != NULL) {
 	CFDictionarySetValue(supp->ui_config_dict, 
@@ -1780,10 +2003,78 @@ password_callback(const void * arg1, const void * arg2,
 			     response->password);
 	supp->ignore_password = FALSE;
     }
+    if (response->chosen_identity != NULL) {
+	EAPSecIdentityHandleRef	id_handle;
+
+	id_handle = EAPSecIdentityHandleCreate(response->chosen_identity);
+	CFDictionarySetValue(supp->ui_config_dict,
+			     kEAPClientPropTLSIdentityHandle,
+			     id_handle);
+	CFRelease(id_handle);
+	supp->ignore_sec_identity = FALSE;
+    }
+    supp->remember_information = response->remember_information;
+
     config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
-    Supplicant_update_configuration(supp, config_dict);
+    Supplicant_update_configuration(supp, config_dict, NULL);
     my_CFRelease(&config_dict);
     user_supplied_data(supp);
+    return;
+}
+
+static void
+alert_callback(const void * arg1, const void * arg2)
+{
+    SupplicantRef 	supp = (SupplicantRef)arg1;
+
+    AlertDialogue_free(&supp->alert_prompt);
+    EAPOLSocketStopClient(supp->sock);
+    return;
+}
+
+
+static void
+present_alert_dialogue(SupplicantRef supp)
+{
+    CFStringRef		message = NULL;
+
+    if (supp->no_ui) {
+	return;
+    }
+    if (supp->alert_prompt != NULL) {
+	AlertDialogue_free(&supp->alert_prompt);
+    }
+    switch (supp->last_status) {
+    case kEAPClientStatusOK:
+	break;
+    case kEAPClientStatusFailed:
+	/* assume it's a password error */
+	break;
+    case kEAPClientStatusSecurityError:
+	switch (supp->last_error) {
+	case errSSLCrypto:
+	    break;
+	default:
+	    message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_DEFAULT");
+	    break;
+	}
+	break;
+    case kEAPClientStatusProtocolNotSupported:
+    case kEAPClientStatusInnerProtocolNotSupported:
+	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_DEFAULT");
+	break;
+    case kEAPClientStatusServerCertificateNotTrusted:
+	/* trust settings not correct */
+	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_SERVER_NOT_TRUSTED");
+	break;
+    default:
+	message = CFSTR("EAPOLCLIENT_FAILURE_MESSAGE_DEFAULT");
+	break;
+    }
+    if (message != NULL) {
+	supp->alert_prompt 
+	    = AlertDialogue_create(alert_callback, supp, NULL, message);
+    }
     return;
 }
 
@@ -1797,69 +2088,117 @@ my_CFArrayContainsValue(CFArrayRef list, CFStringRef value)
 				 value));
 }
 
-#define EAPOLCONTROLLER_PATH	"/System/Library/SystemConfiguration/EAPOLController.bundle"
-
-static CFBundleRef
-get_bundle(void)
+static void
+dictInsertAuthenticatorMACAddress(CFMutableDictionaryRef dict,
+				  EAPOLSocketRef sock)
 {
-    static CFBundleRef		bundle = NULL;
-    CFURLRef 			url;
+    const struct ether_addr *	authenticator_mac;
+    CFDataRef			data;
 
-    if (bundle != NULL) {
-	return (bundle);
+    authenticator_mac = EAPOLSocketGetAuthenticatorMACAddress(sock);
+    if (authenticator_mac == NULL) {
+	return;
     }
-    url = CFURLCreateWithFileSystemPath(NULL,
-					CFSTR(EAPOLCONTROLLER_PATH),
-					kCFURLPOSIXPathStyle, 1);
-    if (url == NULL) {
-	my_log(LOG_NOTICE, "can't find EAPOLController bundle");
-	goto failed;
-    }
-    bundle = CFBundleCreate(NULL, url);
-    CFRelease(url);
-    if (bundle == NULL) {
-	my_log(LOG_NOTICE,
-	       "EAPOLController bundle create failed - using main bundle");
-	goto failed;
-    }
-    return (bundle);
-
- failed:
-    return (CFBundleGetMainBundle());
+    data = CFDataCreate(NULL, (const UInt8 *)authenticator_mac, 
+			sizeof(*authenticator_mac));
+    CFDictionarySetValue(dict, kEAPOLControlAuthenticatorMACAddress, data);
+    CFRelease(data);
+    return;
 }
 
-#define kAirPort8021XTitleFormat  "Authenticating to network \"%@\""
-#define kEthernet8021XTitle	  "Authenticating to 802.1X network"
-
-static CFStringRef
-copy_localized_title(SupplicantRef supp)
+static void
+S_config_changed(CFMachPortRef port, void * msg, CFIndex size, void * info)
 {
-    CFStringRef		title = NULL;
-    CFStringRef		ssid = EAPOLSocketGetSSID(supp->sock);
+    EAPOLClientConfigurationRef	cfg;
+    CFStringRef			profileID;
+    SupplicantRef		supp = (SupplicantRef)info;
 
-    if (ssid != NULL) {
-	CFStringRef	format;
+    if (supp->itemID == NULL) {
+	return;
+    }
+    profileID = EAPOLClientItemIDGetProfileID(supp->itemID);
+    if (profileID == NULL) {
+	return;
+    }
+    cfg = EAPOLClientConfigurationCreate(NULL);
+    if (cfg == NULL) {
+	my_log(LOG_ERR, "Supplicant: EAPOLClientConfiguration() failed");
+	return;
+    }
+    if (EAPOLClientConfigurationGetProfileWithID(cfg, profileID) == NULL) {
+	my_log(LOG_NOTICE, "%s: profile no longer exists, stopping",
+	       EAPOLSocketIfName(supp->sock, NULL));
+	eapolclient_log(kLogFlagBasic, "profile no longer exists, stopping\n");
+	EAPOLControlStop(EAPOLSocketIfName(supp->sock, NULL));
+    }
+    CFRelease(cfg);
+    return;
+}
 
-	format 
-	    = CFBundleCopyLocalizedString(get_bundle(),
-					  CFSTR(kAirPort8021XTitleFormat),
-					  CFSTR(kAirPort8021XTitleFormat),
-					  NULL);
-	if (format != NULL) {
-	    title = CFStringCreateWithFormat(NULL, NULL, format, ssid);
-	    CFRelease(format);
-	}
+static void
+S_add_config_notification(SupplicantRef supp)
+{
+    CFMachPortContext		context = {0, NULL, NULL, NULL, NULL};
+    CFMachPortRef		notify_port_cf;
+    mach_port_t			notify_port;
+    int				notify_token;
+    CFRunLoopSourceRef		rls;
+    uint32_t			status;
+
+    if (supp->config_change.mp != NULL) {
+	/* already registered, nothing to do */
+	return;
     }
-    else {
-	title = CFBundleCopyLocalizedString(get_bundle(),
-					    CFSTR(kEthernet8021XTitle),
-					    CFSTR(kEthernet8021XTitle),
-					    NULL);
+    notify_port = MACH_PORT_NULL;
+    status 
+	= notify_register_mach_port(kEAPOLClientConfigurationChangedNotifyKey,
+				    &notify_port, 0, &notify_token);
+    if (status != NOTIFY_STATUS_OK) {
+	my_log(LOG_ERR, "Supplicant: notify_register_mach_port() failed");
+	return;
     }
-    if (title == NULL) {
-	title = CFRetain(CFSTR(kEthernet8021XTitle));
+    context.info = supp;
+    notify_port_cf = CFMachPortCreateWithPort(NULL, notify_port,
+					      S_config_changed, 
+					      &context,
+					      NULL);
+    if (notify_port_cf == NULL) {
+	my_log(LOG_ERR, "Supplicant: CFMachPortCreateWithPort() failed");
+	(void)notify_cancel(notify_token);
+	return;
     }
-    return (title);
+    rls = CFMachPortCreateRunLoopSource(NULL, notify_port_cf, 0);
+    if (rls == NULL) {
+	my_log(LOG_ERR, "Supplicant: CFMachPortCreateRunLoopSource() failed");
+	CFRelease(notify_port_cf);
+	(void)notify_cancel(notify_token);
+	return;
+    }
+    CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+    CFRelease(rls);
+    supp->config_change.mp = notify_port_cf;
+    supp->config_change.token = notify_token;
+    return;
+}
+
+static bool
+S_system_mode_use_ad(CFDictionaryRef dict)
+{
+    CFStringRef	cred_source;
+    bool	use_ad = FALSE;
+
+    if (dict == NULL) {
+	goto done;
+    }
+    cred_source
+	= CFDictionaryGetValue(dict, kEAPClientPropSystemModeCredentialsSource);
+    if (isA_CFString(cred_source) == NULL) {
+	goto done;
+    }
+    use_ad = CFEqual(cred_source, kEAPClientCredentialsSourceActiveDirectory);
+
+ done:
+    return (use_ad);
 }
 
 #endif /* ! TARGET_OS_EMBEDDED */
@@ -1868,6 +2207,7 @@ static void
 Supplicant_report_status(SupplicantRef supp)
 {
     CFMutableDictionaryRef	dict;
+    EAPOLControlMode		mode;
 #if ! TARGET_OS_EMBEDDED
     Boolean			need_username = FALSE;
     Boolean			need_password = FALSE;
@@ -1878,12 +2218,23 @@ Supplicant_report_status(SupplicantRef supp)
     dict = CFDictionaryCreateMutable(NULL, 0,
 				     &kCFTypeDictionaryKeyCallBacks,
 				     &kCFTypeDictionaryValueCallBacks);
-    dictInsertMode(dict, EAPOLSocketGetMode(supp->sock));
+    mode = EAPOLSocketGetMode(supp->sock);
+    dictInsertMode(dict, mode);
     if (supp->config_id != NULL) {
 	CFDictionarySetValue(dict, kEAPOLControlUniqueIdentifier,
 			     supp->config_id);
     }
     dictInsertSupplicantState(dict, supp->state);
+#if ! TARGET_OS_EMBEDDED
+    dictInsertAuthenticatorMACAddress(dict, supp->sock);
+    if (mode == kEAPOLControlModeUser) {
+	dictInsertNumber(dict, kEAPOLControlUID, getuid());
+    }
+    if (supp->manager_name != NULL) {
+	CFDictionarySetValue(dict, kEAPOLControlManagerName,
+			     supp->manager_name);
+    }
+#endif /* ! TARGET_OS_EMBEDDED */
     if (supp->no_authenticator) {
 	/* don't report EAP type information if no auth was present */
 	dictInsertClientStatus(dict, kEAPClientStatusOK, 0);
@@ -1934,38 +2285,86 @@ Supplicant_report_status(SupplicantRef supp)
 	goto no_ui;
     }
     if (need_username || need_password) {
-	if (supp->pw_prompt == NULL) {
-	    CFStringRef password;
-	    CFStringRef	title;
-	    CFStringRef	username;
+	if (supp->cred_prompt == NULL) {
+	    bool			ask_for_cert = FALSE;
+	    bool			ask_for_password = TRUE;
+	    CFMutableDictionaryRef	details;
+	    CFArrayRef			identities = NULL;
+	    CFStringRef			password;
+	    CFStringRef			username;
+	    CFStringRef			ssid;
 
-	    title = copy_localized_title(supp);
+	    ssid = EAPOLSocketGetSSID(supp->sock);
+	    if (need_password == FALSE) {
+		ask_for_cert = EAPAcceptTypesIsSupportedType(&supp->eap_accept,
+							     kEAPTypeTLS);
+		if (ask_for_cert) {
+		    (void)EAPSecIdentityListCreate(&identities);
+		    if (supp->eap_accept.count == 1) {
+			/* only TLS is enabled */
+			if (identities == NULL) {
+			    /* XXX tell the user there aren't any identities */
+			    my_log(LOG_NOTICE,
+				   "Only EAP-TLS is enabled but no identity");
+			    return;
+			}
+			ask_for_password = FALSE;
+		    }
+		}
+	    }
+	    details
+		= CFDictionaryCreateMutable(NULL, 0,
+					    &kCFTypeDictionaryKeyCallBacks,
+					    &kCFTypeDictionaryValueCallBacks);
+	    if (ssid != NULL) {
+		CFDictionarySetValue(details, kCredentialsDialogueSSID, ssid);
+	    }
+	    if (supp->itemID != NULL && supp->one_time_password == FALSE) {
+		CFDictionarySetValue(details, 
+				     kCredentialsDialogueRememberInformation,
+				     kCFBooleanTrue);
+	    }
 	    username = CFDictionaryGetValue(supp->config_dict,
 					    kEAPClientPropUserName);
-	    if (supp->one_time_password) {
+	    if (username != NULL) {
+		CFDictionarySetValue(details,
+				     kCredentialsDialogueAccountName,
+				     username);
+	    }
+	    if (ask_for_password == FALSE) {
+		password = (void *)kCFNull;
+	    }
+	    else if (supp->one_time_password) {
 		password = NULL;
 	    }
 	    else {
 		password = CFDictionaryGetValue(supp->config_dict,
 						kEAPClientPropUserPassword);
 	    }
-	    supp->pw_prompt 
-		= UserPasswordDialogue_create(password_callback, supp, NULL,
-					      NULL, title, NULL, 
-					      username, password);
-	    my_CFRelease(&title);
+	    if (password != NULL) {
+		CFDictionarySetValue(details,
+				     kCredentialsDialoguePassword,
+				     password);
+	    }
+	    if (identities != NULL) {
+		CFDictionarySetValue(details,
+				     kCredentialsDialogueCertificates,
+				     identities);
+		CFRelease(identities);
+	    }
+	    supp->remember_information = FALSE;
+	    supp->cred_prompt 
+		= CredentialsDialogue_create(credentials_callback, supp, NULL,
+					     details);
+	    my_CFRelease(&details);
 	}
     }
     if (need_trust) {
 	if (supp->trust_prompt == NULL) {
-	    CFStringRef	title;
-
-	    title = copy_localized_title(supp);
 	    supp->trust_prompt 
 		= TrustDialogue_create(trust_callback, supp, NULL,
 				       supp->eap.published_props,
-				       NULL, title);
-	    my_CFRelease(&title);
+				       EAPOLSocketGetSSID(supp->sock));
 	}
     }
  no_ui:
@@ -1992,19 +2391,24 @@ Supplicant_held(SupplicantRef supp, SupplicantEvent event,
 	Supplicant_report_status(supp);
 	supp->previous_identifier = BAD_IDENTIFIER;
 	EAPAcceptTypesReset(&supp->eap_accept);
+#if ! TARGET_OS_EMBEDDED
+	present_alert_dialogue(supp);
+	CredentialsDialogue_free(&supp->cred_prompt);
+	TrustDialogue_free(&supp->trust_prompt);
+#endif /* ! TARGET_OS_EMBEDDED */
 	if (supp->eap.module != NULL 
 	    && supp->no_ui == FALSE
-	    && supp->last_status == kEAPClientStatusFailed) {
+	    && (supp->last_status == kEAPClientStatusFailed
+		|| (supp->last_status == kEAPClientStatusSecurityError
+		    && supp->last_error == errSSLCrypto))) {
+	    clear_sec_identity(supp);
+	    clear_username(supp);
 	    clear_password(supp);
 	}
 	supp->last_status = kEAPClientStatusOK;
 	supp->last_error = 0;
 	free_last_packet(supp);
 	eap_client_free(supp);
-#if ! TARGET_OS_EMBEDDED
-	UserPasswordDialogue_free(&supp->pw_prompt);
-	TrustDialogue_free(&supp->trust_prompt);
-#endif /* ! TARGET_OS_EMBEDDED */
 	EAPOLSocketEnableReceive(supp->sock, 
 				 (void *)Supplicant_held,
 				 (void *)supp,
@@ -2090,6 +2494,9 @@ Supplicant_logoff(SupplicantRef supp, SupplicantEvent event, void * evdata)
     switch (event) {
     case kSupplicantEventStart:
 	Supplicant_cancel_pending_events(supp);
+	if (EAPOLSocketIsWireless(supp->sock)) {
+	    EAPOLSocketClearPMKCache(supp->sock);
+	}
 	if (supp->state != kSupplicantStateAuthenticated) {
 	    break;
 	}
@@ -2107,7 +2514,7 @@ Supplicant_logoff(SupplicantRef supp, SupplicantEvent event, void * evdata)
     return;
 }
 
-static bool
+static int
 my_strcmp(char * s1, char * s2)
 {
     if (s1 == NULL || s2 == NULL) {
@@ -2147,31 +2554,27 @@ eap_method_user_name(EAPAcceptTypesRef accept, CFDictionaryRef config_dict)
     return (NULL);
 }
 
-#if ! TARGET_OS_EMBEDDED
-static OSStatus
-mySecKeychainCopySystemKeychain(SecKeychainRef * ret_keychain)
+/*
+ * Function: S_string_copy_from_data
+ * Purpose:
+ *   Take the bytes from the specified CFDataRef and allocate a C-string
+ *   large enough to hold the bytes plus the terminating nul char.
+ *
+ *   The assumption here is that the data represents a string but in data
+ *   form.
+ */
+static char *
+S_string_from_data(CFDataRef data)
 {
-    SecKeychainRef	keychain = NULL;
-    OSStatus		status;
-    
-    status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
-    if (status != noErr) {
-	my_log(LOG_NOTICE, "SecKeychainSetPreferenceDomain() failed, %ld",
-	       status);
-	goto done;
-    }
-    status = SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
-					  &keychain);
-    if (status != noErr) {
-	my_log(LOG_NOTICE, "SecKeychainCopyDomainDefault() failed, %ld",
-	       status);
-    }
+    int		data_length;
+    char *	str;
 
- done:
-    *ret_keychain = keychain;
-    return (status);
+    data_length = CFDataGetLength(data);
+    str = malloc(data_length + 1);
+    bcopy(CFDataGetBytePtr(data), str, data_length);
+    str[data_length] = '\0';
+    return (str);
 }
-#endif /* ! TARGET_OS_EMBEDDED */
 
 static char *
 S_copy_password_from_keychain(bool use_system_keychain,
@@ -2180,12 +2583,12 @@ S_copy_password_from_keychain(bool use_system_keychain,
     SecKeychainRef 	keychain = NULL;
     char *		password = NULL;
     CFDataRef		password_data = NULL;
-    int			password_length;
     OSStatus		status;
 
 #if ! TARGET_OS_EMBEDDED
     if (use_system_keychain) {
-	status = mySecKeychainCopySystemKeychain(&keychain);
+	status =  SecKeychainCopyDomainDefault(kSecPreferencesDomainSystem,
+					       &keychain);
 	if (status != noErr) {
 	    goto done;
 	}
@@ -2199,10 +2602,7 @@ S_copy_password_from_keychain(bool use_system_keychain,
 	       status);
 	goto done;
     }
-    password_length = CFDataGetLength(password_data);
-    password = malloc(password_length + 1);
-    bcopy(CFDataGetBytePtr(password_data), password, password_length);
-    password[password_length] = '\0';
+    password = S_string_from_data(password_data);
 
  done:
     my_CFRelease(&password_data);
@@ -2212,7 +2612,7 @@ S_copy_password_from_keychain(bool use_system_keychain,
 
 static Boolean
 myCFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
-			       Boolean def_value)
+			      Boolean def_value)
 {
     bool		ret = def_value;
 
@@ -2226,30 +2626,252 @@ myCFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
     }
     return (ret);
 }
-static bool
-S_set_user_password(SupplicantRef supp)
-{
-    bool		change = FALSE;
-    CFStringRef		identity_cf = NULL;
-    char *		identity = NULL;
-    CFStringRef		name_cf = NULL;
-    char *		name = NULL;
-    CFStringRef		password_cf = NULL;
-    char *		password = NULL;
 
-    if (supp->config_dict == NULL) {
+/*
+ * Function: S_filter_eap_accept_types
+ * Purpose:
+ *   Filter out protocols we accept depending on which credential type(s)
+ *   are specified.
+ *
+ *   If there's just a single protocol specified, no filtering is required.
+ *   If both password and identity are specifed, or both password and identity
+ *   are not specified, no filtering is possible.
+ *   Otherwise, either make EAP-TLS the only choice if an identity is 
+ *   specified, or exclude EAP-TLS if a password is specified.
+ */
+static void
+S_filter_eap_accept_types(SupplicantRef supp, CFArrayRef accept_types,
+			  bool password_specified, bool identity_specified)
+{
+    EAPAcceptTypesRef		accept_p = &supp->eap_accept;
+    int				tls_index = -1;
+
+    if (accept_p->count < 2 || (password_specified == identity_specified)) {
+	return;
+    }
+    tls_index = EAPAcceptTypesIndexOfType(accept_p, kEAPTypeTLS);
+    if (identity_specified) {
+	if (tls_index == INDEX_NONE) {
+	    /* this should not happen */
+	    my_log(LOG_NOTICE,
+		   "%s: identity specified but EAP-TLS isn't enabled",
+		   EAPOLSocketIfName(supp->sock, NULL));
+	}
+	else {
+	    /* only accept EAP-TLS */
+	    accept_p->count = 1;
+	    accept_p->types[0] = kEAPTypeTLS;
+	    eapolclient_log(kLogFlagBasic,
+			    "identity is specified, enabling EAP-TLS only\n");
+	}
+    }
+    else if (tls_index != INDEX_NONE) {
+	/* exclude EAP-TLS */
+	eapolclient_log(kLogFlagBasic,
+			"password is specified, disabling EAP-TLS\n");
+	EAPAcceptTypesRemoveTypeAtIndex(accept_p, tls_index);
+    }
+    return;
+}
+
+
+static bool
+S_set_credentials(SupplicantRef supp)
+{
+    CFArrayRef			accept_types = NULL;
+    bool			change = FALSE;
+#if ! TARGET_OS_EMBEDDED
+    EAPOLClientDomain		domain;
+#endif /* ! TARGET_OS_EMBEDDED */
+    EAPSecIdentityHandleRef	id_handle = NULL;
+    CFArrayRef			inner_accept_types;
+    char *			name = NULL;
+    CFStringRef			outer_identity_cf = NULL;
+    char *			outer_identity = NULL;
+    char *			password = NULL;
+    SecIdentityRef		sec_identity = NULL;
+    OSStatus			status;
+    bool			system_mode = FALSE;
+    bool			tls_enabled = FALSE;
+    bool			username_derived = FALSE;
+
+    if (supp->config_dict != NULL) {
+	accept_types 
+	    = CFDictionaryGetValue(supp->config_dict,
+				   kEAPClientPropAcceptEAPTypes);
+    }
+    if (isA_CFArray(accept_types) == NULL) {
+	EAPAcceptTypesFree(&supp->eap_accept);
 	return (TRUE);
     }
-    /* extract the username */
-    name_cf = CFDictionaryGetValue(supp->config_dict, kEAPClientPropUserName);
-    name_cf = isA_CFString(name_cf);
-    if (name_cf != NULL) {
-	name = my_CFStringToCString(name_cf, kCFStringEncodingUTF8);
+    EAPAcceptTypesInit(&supp->eap_accept, accept_types);
+
+    inner_accept_types
+	= CFDictionaryGetValue(supp->config_dict,
+			       kEAPClientPropInnerAcceptEAPTypes);
+    inner_accept_types = isA_CFArray(inner_accept_types);
+
+    switch (EAPOLSocketGetMode(supp->sock)) {
+    case kEAPOLControlModeSystem:
+	system_mode = TRUE;
+#if ! TARGET_OS_EMBEDDED
+	S_set_credentials_access_time(supp);
+	domain = kEAPOLClientDomainSystem;
+#endif /* ! TARGET_OS_EMBEDDED */
+	break;
+    case kEAPOLControlModeUser:
+	/* check whether one-time use password */
+	supp->one_time_password 
+	    = myCFDictionaryGetBooleanValue(supp->config_dict,
+					    kEAPClientPropOneTimeUserPassword,
+					    FALSE);
+#if ! TARGET_OS_EMBEDDED
+	domain = kEAPOLClientDomainUser;
+#endif /* ! TARGET_OS_EMBEDDED */
+	break;
+    default:
+#if ! TARGET_OS_EMBEDDED
+	domain = 0;
+#endif /* ! TARGET_OS_EMBEDDED */
+	break;
     }
-    if (name == NULL) {
+
+#if ! TARGET_OS_EMBEDDED
+    /* in system mode, check for AD password if so configured */
+    if (system_mode && S_system_mode_use_ad(supp->config_dict)) {
+	CFStringRef	username_cf = NULL;
+	CFStringRef	password_cf = NULL;
+	
+	if (ODActiveDirectoryTrustInfoCopy(NULL, &username_cf, &password_cf)
+	    && username_cf != NULL && password_cf != NULL) {
+	    name = my_CFStringToCString(username_cf, kCFStringEncodingUTF8);
+	    password = my_CFStringToCString(password_cf, kCFStringEncodingUTF8);
+	    if (name != NULL) {
+		eapolclient_log(kLogFlagBasic,
+				"System Mode Using AD Account '%s'\n", name);
+		my_log(LOG_NOTICE,
+		       "System Mode Using AD Account '%s'", name);
+	    }
+	}
+	my_CFRelease(&username_cf);
+	my_CFRelease(&password_cf);
+	if (name == NULL || password == NULL) {
+	    eapolclient_log(kLogFlagBasic,
+			    "System Mode can't find AD account information\n");
+	    my_log(LOG_ERR,
+		   "System Mode can't find AD account information\n");
+	}
+	goto filter_eap_types;
+    }
+#endif /* ! TARGET_OS_EMBEDDED */
+
+    /* extract the username */
+    if (supp->ignore_username == FALSE) {
+	CFStringRef		name_cf;
+
+	name_cf = CFDictionaryGetValue(supp->config_dict, 
+				       kEAPClientPropUserName);
+	name_cf = isA_CFString(name_cf);
+	if (name_cf != NULL) {
+	    name = my_CFStringToCString(name_cf, kCFStringEncodingUTF8);
+	}
+    }
+
+    /* extract the password */
+    if (supp->ignore_password == FALSE) {
+	CFStringRef	item_cf;
+	CFStringRef	password_cf;
+
+	password_cf = CFDictionaryGetValue(supp->config_dict, 
+					   kEAPClientPropUserPassword);
+	item_cf
+	    = CFDictionaryGetValue(supp->config_dict, 
+				   kEAPClientPropUserPasswordKeychainItemID);
+	if (isA_CFString(password_cf) != NULL) {
+	    password = my_CFStringToCString(password_cf, 
+					    kCFStringEncodingMacRoman);
+	}
+	else if (isA_CFString(item_cf) != NULL) {
+	    password = S_copy_password_from_keychain(system_mode,
+						     item_cf);
+	    if (password == NULL) {
+		my_log(LOG_NOTICE, 
+		       "%s: failed to retrieve password from keychain",
+		       EAPOLSocketIfName(supp->sock, NULL));
+	    }
+	}
+#if ! TARGET_OS_EMBEDDED
+	else if (name == NULL && supp->itemID != NULL) {
+	    CFDataRef		name_data = NULL;
+	    CFDataRef		password_data = NULL;
+
+	    if (EAPOLClientItemIDCopyPasswordItem(supp->itemID, 
+						  domain,
+						  &name_data,
+						  &password_data)) {
+		if (password_data != NULL) {
+		    password = S_string_from_data(password_data);
+		}
+		if (name_data != NULL) {
+		    name = S_string_from_data(name_data);
+		}
+		my_CFRelease(&name_data);
+		my_CFRelease(&password_data);
+	    }
+	}
+#endif /* ! TARGET_OS_EMBEDDED */
+    }
+
+    /* check for a SecIdentity */
+    if (supp->ignore_sec_identity == FALSE
+	&& (S_array_contains_int(accept_types, kEAPTypeTLS)
+	    || S_array_contains_int(inner_accept_types, kEAPTypeTLS))) {
+	tls_enabled = TRUE;
+
+	id_handle = CFDictionaryGetValue(supp->config_dict,
+					 kEAPClientPropTLSIdentityHandle);
+	if (id_handle != NULL) {
+	    status = EAPSecIdentityHandleCreateSecIdentity(id_handle,
+							   &sec_identity);
+	    if (status != noErr) {
+		my_log(LOG_NOTICE,
+		       "EAPSecIdentityHandleCreateSecIdentity failed, %d",
+		       status);
+	    }
+	}
+
+#if ! TARGET_OS_EMBEDDED
+	/* grab itemID-based identity */
+	if (sec_identity == NULL && supp->itemID != NULL) {
+	    sec_identity = EAPOLClientItemIDCopyIdentity(supp->itemID, domain);
+	}
+#endif /* ! TARGET_OS_EMBEDDED */
+	my_CFRelease(&supp->sec_identity);
+	supp->sec_identity = sec_identity;
+
+	if (name == NULL && sec_identity != NULL) {
+	    name = S_identity_copy_name(sec_identity);
+	    if (name != NULL) {
+		username_derived = TRUE;
+	    }
+	}
+    }
+
+#if ! TARGET_OS_EMBEDDED
+ filter_eap_types:
+#endif /* ! TARGET_OS_EMBEDDED */
+
+    /* update the list of protocols we accept */
+    S_filter_eap_accept_types(supp, accept_types, (password != NULL),
+			      (sec_identity != NULL));
+
+    /* name */
+    if (tls_enabled == FALSE && name == NULL) {
 	/* no username specified, ask EAP types if they can come up with one */
-	name = eap_method_user_name(&supp->eap_accept,
-				    supp->config_dict);
+	name = eap_method_user_name(&supp->eap_accept, supp->config_dict);
+	if (name != NULL) {
+	    username_derived = TRUE;
+	}
     }
     if (my_strcmp(supp->username, name) != 0) {
 	change = TRUE;
@@ -2264,43 +2886,9 @@ S_set_user_password(SupplicantRef supp)
     else {
 	supp->username_length = 0;
     }
+    supp->username_derived = username_derived;
 
-    /* check whether one-time use password */
-    supp->one_time_password = 
-	myCFDictionaryGetBooleanValue(supp->config_dict,
-				      kEAPClientPropOneTimeUserPassword,
-				      supp->one_time_password);
-    /* extract the password */
-    if (supp->ignore_password == FALSE) {
-	password_cf = CFDictionaryGetValue(supp->config_dict, 
-					   kEAPClientPropUserPassword);
-	password_cf = isA_CFString(password_cf);
-	if (password_cf != NULL) {
-	    password = my_CFStringToCString(password_cf, 
-					    kCFStringEncodingMacRoman);
-	}
-	else {
-	    CFStringRef	item_cf;
-	    
-	    item_cf 
-		= CFDictionaryGetValue(supp->config_dict, 
-				       kEAPClientPropUserPasswordKeychainItemID);
-	    item_cf = isA_CFString(item_cf);
-	    if (item_cf != NULL) {
-		bool	system_mode;
-
-		system_mode = (EAPOLSocketGetMode(supp->sock)
-			       == kEAPOLControlModeSystem);
-		password = S_copy_password_from_keychain(system_mode, 
-							 item_cf);
-		if (password == NULL) {
-		    my_log(LOG_NOTICE, 
-			   "%s: failed to retrieve password from keychain",
-			   EAPOLSocketIfName(supp->sock, NULL));
-		}
-	    }
-	}
-    }
+    /* password */
     if (supp->password != NULL) {
 	free(supp->password);
     }
@@ -2311,30 +2899,30 @@ S_set_user_password(SupplicantRef supp)
     else {
 	supp->password_length = 0;
     }
-
-    /* extract the identity */
-    if (EAPAcceptTypesUseIdentity(&supp->eap_accept) == TRUE) {
-	identity_cf = CFDictionaryGetValue(supp->config_dict, 
-					   kEAPClientPropOuterIdentity);
-	identity_cf = isA_CFString(identity_cf);
-	if (identity_cf != NULL) {
-	    identity = my_CFStringToCString(identity_cf, kCFStringEncodingUTF8);
+    
+    /* extract the outer identity */
+    if (EAPAcceptTypesUseOuterIdentity(&supp->eap_accept) == TRUE) {
+	outer_identity_cf = CFDictionaryGetValue(supp->config_dict, 
+						 kEAPClientPropOuterIdentity);
+	outer_identity_cf = isA_CFString(outer_identity_cf);
+	if (outer_identity_cf != NULL) {
+	    outer_identity = my_CFStringToCString(outer_identity_cf,
+						  kCFStringEncodingUTF8);
 	}
     }
-    if (my_strcmp(supp->identity, identity) != 0) {
+    if (my_strcmp(supp->outer_identity, outer_identity) != 0) {
 	change = TRUE;
     }
-    if (supp->identity != NULL) {
-	free(supp->identity);
+    if (supp->outer_identity != NULL) {
+	free(supp->outer_identity);
     }
-    supp->identity = identity;
-    if (identity != NULL) {
-	supp->identity_length = strlen(identity);
+    supp->outer_identity = outer_identity;
+    if (outer_identity != NULL) {
+	supp->outer_identity_length = strlen(outer_identity);
     }
     else {
-	supp->identity_length = 0;
+	supp->outer_identity_length = 0;
     }
-
     return (change);
 }
 
@@ -2381,55 +2969,127 @@ debug_properties_present(CFDictionaryRef dict)
 }
 
 bool
-Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict)
+Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict,
+				bool * should_stop)
 {
+#if ! TARGET_OS_EMBEDDED
+    EAPOLClientConfigurationRef	cfg = NULL;
+    EAPOLClientItemIDRef	itemID = NULL;
+    CFDictionaryRef		item_dict;
+    CFStringRef			manager_name;
+    EAPOLClientProfileRef	profile = NULL;
+    CFDictionaryRef		password_info = NULL;
+#endif /* ! TARGET_OS_EMBEDDED */
     bool			change = FALSE;
-    CFStringRef			config_id;
-    bool			debug_on = FALSE;
-    CFDictionaryRef		default_dict;
-    CFDictionaryRef		default_eap_config = NULL;
+    CFStringRef			config_id = NULL;
     CFDictionaryRef		eap_config;
     bool			empty_password = FALSE;
     bool			empty_user = FALSE;
+
+    if (should_stop != NULL) {
+	*should_stop = FALSE;
+    }
+
 #if ! TARGET_OS_EMBEDDED
-    CFBooleanRef		enable_ui;
+    /* check for a manager name */
+    my_CFRelease(&supp->manager_name);
+    manager_name = CFDictionaryGetValue(config_dict,
+					kEAPOLControlManagerName);
+    if (isA_CFString(manager_name) != NULL) {
+	supp->manager_name = CFRetain(manager_name);
+    }
+
+    /* check whether there is an itemID */
+    item_dict = CFDictionaryGetValue(config_dict, kEAPOLControlClientItemID);
+    if (item_dict != NULL) {
+	if (isA_CFDictionary(item_dict) == NULL) {
+	    my_log(LOG_NOTICE,
+		   "Supplicant_update_configuration: invalid item dict\n");
+	    if (should_stop != NULL) {
+		*should_stop = TRUE;
+	    }
+	    goto done;
+	}
+	my_CFRelease(&supp->itemID);
+	my_CFRelease(&supp->eapolcfg);
+	cfg = EAPOLClientConfigurationCreate(NULL);
+	itemID = EAPOLClientItemIDCreateWithDictionary(cfg, item_dict);
+	supp->itemID = itemID;
+	supp->eapolcfg = cfg;
+	if (itemID == NULL) {
+	    my_log(LOG_NOTICE, "Supplicant_update_configuration:"
+		   " couldn't instantiate item\n");
+	    if (should_stop != NULL) {
+		*should_stop = TRUE;
+	    }
+	    goto done;
+	}
+	profile = EAPOLClientItemIDGetProfile(itemID);
+	if (profile == NULL) {
+	    eap_config = 
+		EAPOLClientConfigurationGetDefaultAuthenticationProperties(cfg);
+	}
+	else {
+	    eap_config = EAPOLClientProfileGetAuthenticationProperties(profile);
+	    if (eap_config == NULL) {
+		my_log(LOG_NOTICE, "Supplicant_update_configuration:"
+		       " profile has no authentication properties");
+		if (should_stop != NULL) {
+		    *should_stop = TRUE;
+		}
+		goto done;
+	    }
+	    config_id = EAPOLClientProfileGetID(profile);
+	    /* we're using a profile, monitor whether it gets removed */
+	    S_add_config_notification(supp);
+	}
+
+	/* name/password may be passed on the side in this dictionary */
+	password_info
+	    = CFDictionaryGetValue(config_dict,
+				   kEAPOLControlEAPClientConfiguration);
+	password_info = isA_CFDictionary(password_info);
+    }
+    else {
+	my_CFRelease(&supp->itemID);
+	my_CFRelease(&supp->eapolcfg);
+#endif /* ! TARGET_OS_EMBEDDED */
+
+	/* get the new configuration */
+	eap_config = CFDictionaryGetValue(config_dict,
+					  kEAPOLControlEAPClientConfiguration);
+	if (isA_CFDictionary(eap_config) == NULL) {
+	    eap_config = config_dict;
+	}
+	config_id = CFDictionaryGetValue(config_dict,
+					 kEAPOLControlUniqueIdentifier);
+
+#if ! TARGET_OS_EMBEDDED
+    }
 #endif /* ! TARGET_OS_EMBEDDED */
 
     /* keep a copy of the original around */
     my_CFRelease(&supp->orig_config_dict);
     supp->orig_config_dict = CFDictionaryCreateCopy(NULL, config_dict);
 
-    /* get the new configuration */
-    eap_config = CFDictionaryGetValue(config_dict,
-				      kEAPOLControlEAPClientConfiguration);
-    if (isA_CFDictionary(eap_config) == NULL) {
-	eap_config = config_dict;
-    }
     empty_user 
 	= cfstring_is_empty(CFDictionaryGetValue(eap_config,
 						 kEAPClientPropUserName));
     empty_password 
 	= cfstring_is_empty(CFDictionaryGetValue(eap_config,
 						 kEAPClientPropUserPassword));
-    default_dict = eapolclient_default_dict();
-    if (default_dict != NULL) {
-	if (debug_properties_present(default_dict)) {
-	    debug_on = TRUE;
-	}
-	default_eap_config
-	    = CFDictionaryGetValue(default_dict,
-				   kEAPOLControlEAPClientConfiguration);
-	if (default_eap_config == NULL) {
-	    default_eap_config = default_dict;
-	}
-    }
 
     my_CFRelease(&supp->config_dict);
 
-    /* clean up empty username/password, add UI properties and default */
-    if (empty_user || empty_password 
+    /* clean up empty username/password, add UI properties */
+    if (empty_user || empty_password
 	|| supp->ui_config_dict != NULL
-	|| default_eap_config != NULL) {
+#if ! TARGET_OS_EMBEDDED
+	|| password_info != NULL
+	|| profile != NULL
+#endif /* ! TARGET_OS_EMBEDDED */
+	|| CFDictionaryContainsKey(eap_config,
+				   kEAPClientPropProfileID)) {
 	CFMutableDictionaryRef		new_eap_config = NULL;
 
 	new_eap_config = CFDictionaryCreateMutableCopy(NULL, 0, eap_config);
@@ -2443,39 +3103,47 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict)
 	    CFDictionaryApplyFunction(supp->ui_config_dict, dict_add_key_value, 
 				      new_eap_config);
 	}
-	if (default_eap_config != NULL) {
-	    CFDictionaryApplyFunction(default_eap_config, dict_add_key_value, 
+	CFDictionaryRemoveValue(new_eap_config,
+				kEAPClientPropProfileID);
+#if ! TARGET_OS_EMBEDDED
+	if (password_info != NULL) {
+	    CFDictionaryApplyFunction(password_info, dict_add_key_value, 
 				      new_eap_config);
 	}
+	if (profile != NULL) {
+	    CFDictionarySetValue(new_eap_config,
+				 kEAPClientPropProfileID,
+				 EAPOLClientProfileGetID(profile));
+	}
+#endif /* TARGET_OS_EMBEDDED */
 	supp->config_dict = new_eap_config;
     }
     else {
 	supp->config_dict = CFRetain(eap_config);
     }
 
+    /* enable debugging */
+    if (debug_properties_present(config_dict)
+	|| debug_properties_present(supp->config_dict)) {
+	Supplicant_set_debug(supp, TRUE);
+    }
+    else {
+	Supplicant_set_debug(supp, FALSE);
+    }
+    eapolclient_log(kLogFlagBasic, "update_configuration\n");
+    eapolclient_log_config_dict(kLogFlagConfig, supp->config_dict);
+
     /* bump the configuration generation */
     supp->generation++;
 
     /* get the configuration identifier */
     my_CFRelease(&supp->config_id);
-    config_id = CFDictionaryGetValue(config_dict,
-				     kEAPOLControlUniqueIdentifier);
-    if (isA_CFString(config_id) != NULL) {
+    if (config_id != NULL && isA_CFString(config_id) != NULL) {
 	supp->config_id = CFRetain(config_id);
     }
 
-#if ! TARGET_OS_EMBEDDED
-    /* check whether we should allow UI or not */
-    enable_ui = CFDictionaryGetValue(config_dict,
-				     kEAPOLControlEnableUserInterface);
-    if (isA_CFBoolean(enable_ui) != NULL) {
-	supp->no_ui = !CFBooleanGetValue(enable_ui);
-    }
-#endif /* ! TARGET_OS_EMBEDDED */
-
-    /* update the list of EAP types we accept */
-    EAPAcceptTypesInit(&supp->eap_accept, supp->config_dict);
-    if (S_set_user_password(supp)) {
+    /* update the name/password, identity, and list of EAP types we accept */
+    if (S_set_credentials(supp)) {
 	change = TRUE;
     }
     if (EAPAcceptTypesIsSupportedType(&supp->eap_accept,
@@ -2485,17 +3153,9 @@ Supplicant_update_configuration(SupplicantRef supp, CFDictionaryRef config_dict)
 	change = TRUE;
     }
 
-    /* enable debugging */
-    if (debug_on
-	|| debug_properties_present(config_dict)
-	|| debug_properties_present(supp->config_dict)) {
-	Supplicant_set_debug(supp, TRUE);
-    }
-    else {
-	Supplicant_set_debug(supp, FALSE);
-    }
-    eapolclient_log(kLogFlagBasic, "update_configuration\n");
-    eapolclient_log_config_dict(kLogFlagConfig, supp->config_dict);
+#if ! TARGET_OS_EMBEDDED
+ done:
+#endif /* ! TARGET_OS_EMBEDDED */
     return (change);
 }
 
@@ -2525,7 +3185,7 @@ Supplicant_control(SupplicantRef supp,
 				      supp->ui_config_dict);
 	}
 	config_dict = CFDictionaryCreateCopy(NULL, supp->orig_config_dict);
-	Supplicant_update_configuration(supp, config_dict);
+	Supplicant_update_configuration(supp, config_dict, NULL);
 	my_CFRelease(&config_dict);
 	user_supplied_data(supp);
 	break;
@@ -2536,7 +3196,11 @@ Supplicant_control(SupplicantRef supp,
 	    should_stop = TRUE;
 	    break;
 	}
-	change = Supplicant_update_configuration(supp, config_dict);
+	change = Supplicant_update_configuration(supp, config_dict,
+						 &should_stop);
+	if (should_stop) {
+	    break;
+	}
 	if (EAPOLSocketIsLinkActive(supp->sock) == FALSE) {
 	    /* no point in doing anything if the link is down */
 	    break;
@@ -2623,48 +3287,6 @@ Supplicant_link_status_changed(SupplicantRef supp, bool active)
     return;
 }
 
-static CFDictionaryRef
-eapolclient_default_dict(void)
-{
-    static CFDictionaryRef	default_dict = NULL;
-    static bool			done = FALSE;
-    CFBundleRef			bundle;
-    uint8_t			config_file[MAXPATHLEN];
-    Boolean			ok;
-    CFURLRef			url;
-
-    if (done) {
-	return (default_dict);
-    }
-    done = TRUE;
-    bundle = CFBundleGetMainBundle();
-    if (bundle == NULL) {
-	goto done;
-    }
-    url = CFBundleCopyResourceURL(bundle, CFSTR("eapolclient_default"), 
-				  CFSTR("plist"), NULL);
-    if (url == NULL) {
-	goto done;
-    }
-    ok = CFURLGetFileSystemRepresentation(url, TRUE, config_file, 
-					  sizeof(config_file));
-    CFRelease(url);
-    if (ok == FALSE) {
-	goto done;
-    }
-    default_dict = my_CFPropertyListCreateFromFile((char *)config_file);
-    if (default_dict != NULL) {
-	if (isA_CFDictionary(default_dict) == NULL 
-	    || CFDictionaryGetCount(default_dict) == 0) {
-	    my_CFRelease(&default_dict);
-	}
-    }
- done:
-    return (default_dict);
-
-}
-
-
 SupplicantRef
 Supplicant_create(EAPOLSocketRef sock)
 {
@@ -2706,14 +3328,24 @@ Supplicant_create_with_supplicant(EAPOLSocketRef sock, SupplicantRef main_supp)
 	return (NULL);
     }
     supp->generation = main_supp->generation;
+#if ! TARGET_OS_EMBEDDED
+    if (main_supp->itemID != NULL) {
+	CFRetain(main_supp->itemID);
+	supp->itemID = main_supp->itemID;
+    }
+#endif /* ! TARGET_OS_EMBEDDED */
+    if (main_supp->sec_identity != NULL) {
+	CFRetain(main_supp->sec_identity);
+	supp->sec_identity = main_supp->sec_identity;
+    }
     supp->config_dict = CFRetain(main_supp->config_dict);
     if (main_supp->ui_config_dict) {
 	supp->ui_config_dict 
 	    = CFDictionaryCreateMutableCopy(NULL, 0, main_supp->ui_config_dict);
     }
-    if (main_supp->identity != NULL) {
-	supp->identity = strdup(main_supp->identity);
-	supp->identity_length = main_supp->identity_length;
+    if (main_supp->outer_identity != NULL) {
+	supp->outer_identity = strdup(main_supp->outer_identity);
+	supp->outer_identity_length = main_supp->outer_identity_length;
     }
     if (main_supp->username != NULL) {
 	supp->username = strdup(main_supp->username);
@@ -2741,7 +3373,8 @@ Supplicant_free(SupplicantRef * supp_p)
     supp = *supp_p;
     if (supp != NULL) {
 #if ! TARGET_OS_EMBEDDED
-	UserPasswordDialogue_free(&supp->pw_prompt);
+	AlertDialogue_free(&supp->alert_prompt);
+	CredentialsDialogue_free(&supp->cred_prompt);
 	TrustDialogue_free(&supp->trust_prompt);
 #endif /* ! TARGET_OS_EMBEDDED */
 	Timer_free(&supp->timer);
@@ -2750,8 +3383,19 @@ Supplicant_free(SupplicantRef * supp_p)
 	my_CFRelease(&supp->ui_config_dict);
 	my_CFRelease(&supp->config_id);
 	my_CFRelease(&supp->identity_attributes);
-	if (supp->identity != NULL) {
-	    free(supp->identity);
+#if ! TARGET_OS_EMBEDDED
+	my_CFRelease(&supp->eapolcfg);
+	my_CFRelease(&supp->itemID);
+	my_CFRelease(&supp->manager_name);
+	if (supp->config_change.mp != NULL) {
+	    CFMachPortInvalidate(supp->config_change.mp);
+	    my_CFRelease(&supp->config_change.mp);
+	    (void)notify_cancel(supp->config_change.token);
+	}
+#endif /* ! TARGET_OS_EMBEDDED */
+	my_CFRelease(&supp->sec_identity);
+	if (supp->outer_identity != NULL) {
+	    free(supp->outer_identity);
 	}
 	if (supp->username != NULL) {
 	    free(supp->username);

@@ -11,7 +11,7 @@ SUBDIRS = \
 #
 
 ifndef EnvironmentDefined
-include $(APR_WORK)\build\NWGNUhead.inc
+include $(APR_WORK)/build/NWGNUhead.inc
 endif
 
 #include $(APR)\build\NWGNUcustom.inc
@@ -38,8 +38,8 @@ SQLITE3_NLM = lsqlite3
 XINCDIRS	+= \
 			$(APR)/include/arch/netware \
 			$(APR)/include \
-			$(APRUTIL)/include \
-			$(APRUTIL)/include/private \
+			$(APU)/include \
+			$(APU)/include/private \
 			$(APR) \
 			$(SQLITE3_INC) \
 			$(EOLIST)
@@ -150,12 +150,12 @@ NLM_STACK_SIZE	= 8192
 #
 # If this is specified it will be used by the link '-entry' directive
 #
-NLM_ENTRY_SYM	= _LibCPrelude
+NLM_ENTRY_SYM	=
 
 #
 # If this is specified it will be used by the link '-exit' directive
 #
-NLM_EXIT_SYM	= _LibCPostlude
+NLM_EXIT_SYM	=
 
 #
 # If this is specified it will be used by the link '-check' directive
@@ -165,7 +165,7 @@ NLM_CHECK_SYM	=
 #
 # If these are specified it will be used by the link '-flags' directive
 #
-NLM_FLAGS	= AUTOUNLOAD, PSEUDOPREEMPTION
+NLM_FLAGS	=
 
 #
 # If this is specified it will be linked in with the XDCData option in the def
@@ -200,7 +200,7 @@ FILES_nlm_objs = \
 # These will be added as a library command in the link.opt file.
 #
 FILES_nlm_libs = \
-	libcpre.o \
+	$(PRELUDE) \
 	$(EOLIST)
 
 ifeq ($(LINK_STATIC),1)
@@ -292,7 +292,7 @@ install :: nlms FORCE
 # in this makefile
 #
 
-include $(APR_WORK)\build\NWGNUtail.inc
+include $(APRBUILD)/NWGNUtail.inc
 
 
 

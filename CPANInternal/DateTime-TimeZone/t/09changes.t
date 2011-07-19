@@ -1,6 +1,5 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
 use File::Spec;
 use Test::More;
@@ -87,7 +86,7 @@ plan tests => 101;
 # do same tests with future dates so more data is generated
 {
     # Can't start at 1:59 or we get the _2nd_ 1:59 of that day (post-DST change)
-    my $dt = DateTime->new( year => 2040, month => 3, day => 25,
+    my $dt = DateTime->new( year => 2040, month => 4, day => 1,
                             hour => 1, minute => 59,
                             time_zone => 'Australia/Sydney' );
 
@@ -101,7 +100,7 @@ plan tests => 101;
 }
 
 {
-    my $dt = DateTime->new( year => 2040, month => 10, day => 28,
+    my $dt = DateTime->new( year => 2040, month => 10, day => 7,
                             hour => 1, minute => 59,
                             time_zone => 'Australia/Sydney' );
 

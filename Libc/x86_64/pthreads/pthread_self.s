@@ -27,5 +27,5 @@
 .align 2, 0x90
 .globl _pthread_self
 _pthread_self:
-	movq	%gs:_PTHREAD_TSD_OFFSET,%rax
+	movq	%gs:0,%rax
 	ret

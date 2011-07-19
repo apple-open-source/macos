@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2003-2006, International Business Machines
+*   Copyright (C) 2003-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -61,19 +61,17 @@ testAllCodepoints(TestIDNA& test);
 static TestIDNA* pTestIDNA =NULL;
 
 static const char* fileNames[] = {
-                                    "NamePrepProfile.txt"
+                                    "rfc3491.txt"
                                  };
-static       UStringPrepProfile *profile = NULL;
 static const UTrie *idnTrie              = NULL;
 static const int32_t *indexes            = NULL;
 static const uint16_t *mappingData       = NULL;
 /* -------------------------------------------------------------------------- */
 
 /* file definitions */
-#define DATA_NAME "uidna"
 #define DATA_TYPE "icu"
 
-#define MISC_DIR "misc"
+#define SPREP_DIR "sprep"
 
 extern int
 testData(TestIDNA& test) {
@@ -81,9 +79,9 @@ testData(TestIDNA& test) {
     UErrorCode errorCode=U_ZERO_ERROR;
     char *saveBasename =NULL;
 
-    profile = usprep_open(NULL, DATA_NAME, &errorCode);
+    LocalUStringPrepProfilePointer profile(usprep_openByType(USPREP_RFC3491_NAMEPREP, &errorCode));
     if(U_FAILURE(errorCode)){
-        test.errln("Failed to load IDNA data file. " + UnicodeString(u_errorName(errorCode)));
+        test.errcheckln(errorCode, "Failed to load IDNA data file. " + UnicodeString(u_errorName(errorCode)));
         return errorCode;
     }
     
@@ -119,8 +117,8 @@ testData(TestIDNA& test) {
     
     /* first copy misc directory */
     saveBasename = basename;
-    uprv_strcpy(basename,MISC_DIR);
-    basename = basename + uprv_strlen(MISC_DIR);
+    uprv_strcpy(basename,SPREP_DIR);
+    basename = basename + uprv_strlen(SPREP_DIR);
     *basename++=U_FILE_SEP_CHAR;
     
     /* process unassigned */
@@ -133,7 +131,6 @@ testData(TestIDNA& test) {
 
     testAllCodepoints(test);
 
-    usprep_close(profile);
     pTestIDNA = NULL;
     free(filename);
     return errorCode;
@@ -151,7 +148,14 @@ strprepProfileLineFn(void * /*context*/,
    /*UBool* mapWithNorm = (UBool*) context;*/
     const char* typeName;
     uint32_t rangeStart=0,rangeEnd =0;
-    
+    const char *s;
+
+    s = u_skipWhitespace(fields[0][0]);
+    if (*s == '@') {
+        /* a special directive introduced in 4.2 */
+        return;
+    }
+
     if(fieldCount != 3){
         *pErrorCode = U_INVALID_FORMAT_ERROR;
         return;
@@ -162,21 +166,21 @@ strprepProfileLineFn(void * /*context*/,
    
     if(uprv_strstr(typeName, usprepTypeNames[USPREP_UNASSIGNED])!=NULL){
 
-        u_parseCodePointRange(fields[0][0], &rangeStart,&rangeEnd, pErrorCode);
+        u_parseCodePointRange(s, &rangeStart,&rangeEnd, pErrorCode);
 
         /* store the range */
         compareFlagsForRange(rangeStart,rangeEnd,USPREP_UNASSIGNED);
 
     }else if(uprv_strstr(typeName, usprepTypeNames[USPREP_PROHIBITED])!=NULL){
 
-        u_parseCodePointRange(fields[0][0], &rangeStart,&rangeEnd, pErrorCode);
+        u_parseCodePointRange(s, &rangeStart,&rangeEnd, pErrorCode);
 
         /* store the range */
         compareFlagsForRange(rangeStart,rangeEnd,USPREP_PROHIBITED);
 
     }else if(uprv_strstr(typeName, usprepTypeNames[USPREP_MAP])!=NULL){
         /* get the character code, field 0 */
-        code=(uint32_t)uprv_strtoul(fields[0][0], &end, 16);
+        code=(uint32_t)uprv_strtoul(s, &end, 16);
 
         /* parse the mapping string */
         length=u_parseCodePoints(map, mapping, sizeof(mapping)/4, pErrorCode);

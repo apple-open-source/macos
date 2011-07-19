@@ -1,5 +1,5 @@
---- btowc.3	2003-05-20 15:21:44.000000000 -0700
-+++ btowc.3.edit	2006-07-12 11:14:18.000000000 -0700
+--- btowc.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ btowc.3	2009-11-09 15:05:25.000000000 -0800
 @@ -29,16 +29,35 @@
  .Os
  .Sh NAME
@@ -39,7 +39,7 @@
  .Sh DESCRIPTION
  The
  .Fn btowc
-@@ -59,10 +78,29 @@
+@@ -59,10 +78,29 @@ or not able to be represented as a singl
  .Fn wctob
  returns
  .Dv WEOF .

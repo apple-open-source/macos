@@ -14,7 +14,6 @@
 
 #include "llvm/Linker.h"
 #include "llvm/Module.h"
-#include "llvm/ModuleProvider.h"
 #include "llvm/ADT/SetOperations.h"
 #include "llvm/Bitcode/Archive.h"
 #include "llvm/Config/config.h"
@@ -96,10 +95,10 @@ bool
 Linker::LinkInArchive(const sys::Path &Filename, bool &is_native) {
   // Make sure this is an archive file we're dealing with
   if (!Filename.isArchive())
-    return error("File '" + Filename.toString() + "' is not an archive.");
+    return error("File '" + Filename.str() + "' is not an archive.");
 
   // Open the archive file
-  verbose("Linking archive file '" + Filename.toString() + "'");
+  verbose("Linking archive file '" + Filename.str() + "'");
 
   // Find all of the symbols currently undefined in the bitcode program.
   // If all the symbols are defined, the program is complete, and there is
@@ -108,19 +107,18 @@ Linker::LinkInArchive(const sys::Path &Filename, bool &is_native) {
   GetAllUndefinedSymbols(Composite, UndefinedSymbols);
 
   if (UndefinedSymbols.empty()) {
-    verbose("No symbols undefined, skipping library '" +
-            Filename.toString() + "'");
+    verbose("No symbols undefined, skipping library '" + Filename.str() + "'");
     return false;  // No need to link anything in!
   }
 
   std::string ErrMsg;
   std::auto_ptr<Archive> AutoArch (
-    Archive::OpenAndLoadSymbols(Filename,&ErrMsg));
+    Archive::OpenAndLoadSymbols(Filename, Context, &ErrMsg));
 
   Archive* arch = AutoArch.get();
 
   if (!arch)
-    return error("Cannot read archive '" + Filename.toString() +
+    return error("Cannot read archive '" + Filename.str() +
                  "': " + ErrMsg);
   if (!arch->isBitcodeArchive()) {
     is_native = true;
@@ -140,10 +138,12 @@ Linker::LinkInArchive(const sys::Path &Filename, bool &is_native) {
   do {
     CurrentlyUndefinedSymbols = UndefinedSymbols;
 
-    // Find the modules we need to link into the target module
-    std::set<ModuleProvider*> Modules;
+    // Find the modules we need to link into the target module.  Note that arch
+    // keeps ownership of these modules and may return the same Module* from a
+    // subsequent call.
+    std::set<Module*> Modules;
     if (!arch->findModulesDefiningSymbols(UndefinedSymbols, Modules, &ErrMsg))
-      return error("Cannot find symbols in '" + Filename.toString() + 
+      return error("Cannot find symbols in '" + Filename.str() + 
                    "': " + ErrMsg);
 
     // If we didn't find any more modules to link this time, we are done
@@ -157,26 +157,23 @@ Linker::LinkInArchive(const sys::Path &Filename, bool &is_native) {
     NotDefinedByArchive.insert(UndefinedSymbols.begin(),
         UndefinedSymbols.end());
 
-    // Loop over all the ModuleProviders that we got back from the archive
-    for (std::set<ModuleProvider*>::iterator I=Modules.begin(), E=Modules.end();
+    // Loop over all the Modules that we got back from the archive
+    for (std::set<Module*>::iterator I=Modules.begin(), E=Modules.end();
          I != E; ++I) {
 
       // Get the module we must link in.
       std::string moduleErrorMsg;
-      std::auto_ptr<Module> AutoModule((*I)->releaseModule( &moduleErrorMsg ));
-      if (!moduleErrorMsg.empty())
-        return error("Could not load a module: " + moduleErrorMsg);
-
-      Module* aModule = AutoModule.get();
-
+      Module* aModule = *I;
       if (aModule != NULL) {
+        if (aModule->MaterializeAll(&moduleErrorMsg))
+          return error("Could not load a module: " + moduleErrorMsg);
+
         verbose("  Linking in module: " + aModule->getModuleIdentifier());
 
         // Link it in
-        if (LinkInModule(aModule, &moduleErrorMsg)) {
+        if (LinkInModule(aModule, &moduleErrorMsg))
           return error("Cannot link in module '" +
                        aModule->getModuleIdentifier() + "': " + moduleErrorMsg);
-        }
       } 
     }
     

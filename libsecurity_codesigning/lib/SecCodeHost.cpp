@@ -57,7 +57,7 @@ OSStatus SecHostCreateGuest(SecGuestRef host,
 	BEGIN_CSAPI
 	
 	checkFlags(flags, kSecCSDedicatedHost | kSecCSGenerateGuestHash);
-	Required(newGuest) = SecurityServer::ClientSession().createGuest(host,
+	CodeSigning::Required(newGuest) = SecurityServer::ClientSession().createGuest(host,
 		status, cfString(path).c_str(), CssmData(), DictData(attributes), flags);
 	
 	END_CSAPI
@@ -89,7 +89,7 @@ OSStatus SecHostSelectedGuest(SecCSFlags flags, SecGuestRef *guestRef)
 	BEGIN_CSAPI
 	
 	checkFlags(flags);
-	Required(guestRef) = SecurityServer::ClientSession().selectedGuest();
+	CodeSigning::Required(guestRef) = SecurityServer::ClientSession().selectedGuest();
 	
 	END_CSAPI
 }

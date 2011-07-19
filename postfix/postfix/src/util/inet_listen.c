@@ -6,6 +6,8 @@
 /* SYNOPSIS
 /*	#include <listen.h>
 /*
+/*	int	inet_windowsize;
+/*
 /*	int	inet_listen(addr, backlog, block_mode)
 /*	const char *addr;
 /*	int	backlog;
@@ -19,6 +21,9 @@
 /*	the resulting file descriptor.
 /*
 /*	inet_accept() accepts a connection and sanitizes error results.
+/*
+/*	Specify an inet_windowsize value > 0 to override the TCP
+/*	window size that the server advertises to the client.
 /*
 /*	Arguments:
 /* .IP addr
@@ -152,6 +157,8 @@ int     inet_listen(const char *addr, int backlog, int block_mode)
     }
     freeaddrinfo(res0);
     non_blocking(sock, block_mode);
+    if (inet_windowsize > 0)
+	set_inet_windowsize(sock, inet_windowsize);
     if (listen(sock, backlog) < 0)
 	msg_fatal("listen: %m");
     return (sock);

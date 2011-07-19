@@ -4,6 +4,10 @@
 
 Project               = python
 Extra_Configure_Flags = --enable-ipv6 --with-threads --enable-framework=/System/Library/Frameworks --enable-toolbox-glue --enable-dtrace --with-system-ffi --with-gcc=$(WITH_GCC) CC=$(WITH_GCC) CXX=$(WITH_GXX)
+# Define the environment variable DEBUG to YES, to build without optimization
+ifeq ($(DEBUG),YES)
+Extra_Configure_Flags += --with-pydebug
+endif
 
 ##---------------------------------------------------------------------
 # Extra_CC_Flags and Extra_LD_Flags are needed because CFLAGS gets overridden
@@ -42,9 +46,7 @@ $(ConfigStamp2): $(ConfigStamp)
 # Fixup a lot of problems after the install
 ##---------------------------------------------------------------------
 APPS = /Applications
-DEVAPPS = /Developer/Applications/Utilities
 USRBIN = /usr/bin
-BUILDAPPLETNAME = Build Applet.app
 PYTHONAPPNAME = Python.app
 PYTHONLAUNCHERNAME = Python Launcher.app
 FRAMEWORKS = /System/Library/Frameworks
@@ -56,12 +58,8 @@ PYTHONAPP = $(RESOURCESVERS)/$(PYTHONAPPNAME)
 PACONTENTS = $(PYTHONAPP)/Contents
 PAMACOS = $(PACONTENTS)/MacOS
 MACPYTHON = $(APPS)/MacPython $(VERS)
-DEVMACPYTHON = $(DEVAPPS)/MacPython $(VERS)
 PYTHONLAUNCHER = $(RESOURCESVERS)/$(PYTHONLAUNCHERNAME)
 PLCONTENTS = $(PYTHONLAUNCHER)/Contents
-BUILDAPPLET = $(DEVMACPYTHON)/$(BUILDAPPLETNAME)
-BACONTENTS = $(BUILDAPPLET)/Contents
-BAMACOS = $(BACONTENTS)/MacOS
 RUNPYTHON = DYLD_FRAMEWORK_PATH='$(OBJROOT)' '$(OBJROOT)/python.exe'
 BYTE2UTF16 = $(RUNPYTHON) $(FIX)/byte2utf16.py
 UTF162BYTE = $(RUNPYTHON) $(FIX)/utf162byte.py
@@ -70,7 +68,6 @@ fixup-after-install: delete-stuff \
 		     move-things-around \
 		     strip-64-bit \
 		     strip-installed-files \
-		     fix-BAInfo \
 		     fix-PAInfo \
 		     fix-PyInfo \
 		     fix-CFBundleShortVersionString \
@@ -84,9 +81,11 @@ fixup-after-install: delete-stuff \
 delete-stuff:
 	rm -rf '$(DSTROOT)/usr/local'
 
+# We leave "Build Applet.app" in $(APPS) to be deleted, because it uses
+# Carbon, and doesn't work in 64-bit.  Even though python 2.5 is 32-bit only,
+# no one should be using 2.5 for new developement anyways, so we remove it
+# to be consistent with the other python versions.
 move-things-around:
-	install -d '$(DSTROOT)$(DEVMACPYTHON)'
-	mv -f '$(DSTROOT)$(MACPYTHON)/$(BUILDAPPLETNAME)' '$(DSTROOT)$(BUILDAPPLET)'
 	mv -f '$(DSTROOT)$(MACPYTHON)/$(PYTHONLAUNCHERNAME)' '$(DSTROOT)$(RESOURCESVERS)'
 	rm -rf '$(DSTROOT)$(APPS)'
 
@@ -115,11 +114,11 @@ strip-installed-files:
 	strip -x '$(DSTROOT)$(VERSIONSVERS)/Python'
 	strip -x '$(Python_Launcher)'
 	ditto '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so '$(SYMROOT)/lib-dynload/'
+	cd '$(SYMROOT)/lib-dynload' && \
+	for so in *.so; do \
+	    $(DSYMUTIL) $$so || exit 1; \
+	done
 	strip -x '$(DSTROOT)$(LIBPYTHONVERS)'/lib-dynload/*.so
-
-fix-BAInfo:
-	sed 's/==VERSION==/$(PYTHON_CURRENT_VERSION)/' $(FIX)/bainfo.ed \
-	    | ed - '$(DSTROOT)$(BACONTENTS)/Info.plist'
 
 fix-PAInfo:
 	sed 's/==VERSION==/$(PYTHON_CURRENT_VERSION)/' $(FIX)/painfo.ed \

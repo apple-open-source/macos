@@ -1162,12 +1162,13 @@ TkMacOSXInvalClipRgns(
 void
 TkMacOSXWinBounds(
     TkWindow *winPtr,
-    Rect *bounds)
+    void *bounds)
 {
-    bounds->left = winPtr->privatePtr->xOff;
-    bounds->top = winPtr->privatePtr->yOff;
-    bounds->right = bounds->left + winPtr->changes.width;
-    bounds->bottom = bounds->top + winPtr->changes.height;
+    Rect *b = (Rect *)bounds;
+    b->left = winPtr->privatePtr->xOff;
+    b->top = winPtr->privatePtr->yOff;
+    b->right = b->left + winPtr->changes.width;
+    b->bottom = b->top + winPtr->changes.height;
 }
 
 /*

@@ -20,7 +20,7 @@ them to the right list. The contents of the right list are put in the [arg varia
 The command returns a boolean indicating if the user pressed OK or not. If -geometry is not specified, the
 dialog is centered in its parent toplevel unless its parent is . in which case the dialog is centered in the screen.
 
-[nl]
+[para]
 
 Options:
 
@@ -35,7 +35,7 @@ Options:
     database.
 }]
 
-[list_begin opt]
+[list_begin options]
 
 [opt_def -embed] if this flag is supplied, the procedure will create a swaplist widget named [arg pathName], with the [arg variable] set as the
 listvariable for the right side listbox. This flag will also cause the -title and -geometry flags to be ignored.

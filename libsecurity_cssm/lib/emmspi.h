@@ -56,7 +56,7 @@ typedef struct cssm_state_funcs {
         (const CSSM_GUID *GUID);
     CSSM_RETURN (CSSMAPI *cssm_DeliverModuleManagerEvent)
         (const CSSM_MANAGER_EVENT_NOTIFICATION *EventDescription);
-} CSSM_STATE_FUNCS, *CSSM_STATE_FUNCS_PTR;
+} CSSM_STATE_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_STATE_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef struct cssm_manager_registration_info {
     /* loading, unloading, dispatch table, and event notification */
@@ -72,7 +72,7 @@ typedef struct cssm_manager_registration_info {
     CSSM_RETURN (CSSMAPI *RefreshFunctionTable)
         (CSSM_FUNC_NAME_ADDR_PTR FuncNameAddrPtr,
          uint32 NumOfFuncNameAddr);
-} CSSM_MANAGER_REGISTRATION_INFO, *CSSM_MANAGER_REGISTRATION_INFO_PTR;
+} CSSM_MANAGER_REGISTRATION_INFO DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_MANAGER_REGISTRATION_INFO_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 enum {
 	CSSM_HINT_NONE =			0,
@@ -84,7 +84,8 @@ CSSM_RETURN CSSMAPI
 ModuleManagerAuthenticate (CSSM_KEY_HIERARCHY KeyHierarchy,
                            const CSSM_GUID *CssmGuid,
                            const CSSM_GUID *AppGuid,
-                           CSSM_MANAGER_REGISTRATION_INFO_PTR FunctionTable);
+                           CSSM_MANAGER_REGISTRATION_INFO_PTR FunctionTable)
+						DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #ifdef __cplusplus
 }

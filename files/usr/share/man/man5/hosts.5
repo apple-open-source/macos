@@ -65,18 +65,15 @@ IP version 6 addresses are specified using the colon-separated notation describe
 Host names may contain any printable
 character other than a field delimiter, newline,
 or comment character.
-.Sh INTERACTION WITH DIRECTORY SERVICES
-Processes generally find host-related information using the routines described in
-.Xr gethostent 3 ,
-.Xr getipnodebyname 3 ,
-.Xr getaddrinfo 3 , 
-and
-.Xr getnameinfo 3 .
-On Mac OS X, these functions interact with the
-.Xr DirectoryService 8
-daemon,
-which reads the /etc/hosts file as well as searching other directory information services,
-most notably the Domain Name System (DNS).
+.Pp
+The
+.Nm hosts
+file is read by
+.Xr mDNSResponder 8
+and used to supply results for calls to
+.Xr getaddrinfo 3 ,
+.Xr getnameinfo 3 ,
+etc. in addition to results obtained from multicast and unicast DNS.
 .Sh FILES
 .Bl -tag -width /etc/hosts -compact
 .It Pa /etc/hosts
@@ -85,8 +82,7 @@ most notably the Domain Name System (DNS).
 .Xr gethostent 3 ,
 .Xr getipnodebyname 3 ,
 .Xr getaddrinfo 3 ,
-.Xr getnameinfo 3 ,
-.Xr DirectoryService 8
+.Xr getnameinfo 3
 .Rs
 .%T "RFC1924: A Compact Representation of IPv6 Addresses"
 .Re

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,6 +43,7 @@
 #include <CoreFoundation/CFPropertyList.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFBase.h>
+#include <CoreFoundation/CFUUID.h>
 #include <CoreFoundation/CFNumber.h>
 #include <SystemConfiguration/SCValidation.h>
 #include "myCFUtil.h"
@@ -200,7 +201,7 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
     return (ret);
 }
 
-__private_extern__ CFPropertyListRef
+CFPropertyListRef
 my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
 {
     CFPropertyListRef	plist;
@@ -219,7 +220,7 @@ my_CFPropertyListCreateWithBytePtrAndLength(const void * data, int data_len)
     return (plist);
 }
 
-__private_extern__ Boolean
+Boolean
 my_CFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
 			       Boolean def_value)
 {
@@ -234,4 +235,59 @@ my_CFDictionaryGetBooleanValue(CFDictionaryRef properties, CFStringRef propname,
 	}
     }
     return (ret);
+}
+
+CFStringRef
+my_CFUUIDStringCreate(CFAllocatorRef alloc)
+{
+    CFUUIDRef 	uuid;
+    CFStringRef	uuid_str;
+
+    uuid = CFUUIDCreate(alloc);
+    uuid_str = CFUUIDCreateString(alloc, uuid);
+    CFRelease(uuid);
+    return (uuid_str);
+}
+
+static const CFStringEncoding	S_encodings[] = {
+    kCFStringEncodingUTF8,
+    kCFStringEncodingMacRoman
+};
+static const int		S_encodings_count = (sizeof(S_encodings)
+						     / sizeof(S_encodings[0]));
+
+CFStringRef
+my_CFStringCreateWithData(CFDataRef data)
+{
+    CFAllocatorRef 	allocator = CFGetAllocator(data);
+    int			i;
+    CFStringRef		str;
+
+    for (i = 0; i < S_encodings_count; i++) {
+	str = CFStringCreateWithBytes(allocator,
+				      CFDataGetBytePtr(data),
+				      CFDataGetLength(data),
+				      S_encodings[i],
+				      FALSE);
+	if (str != NULL) {
+	    return (str);
+	}
+    }
+    return (NULL);
+}
+
+CFDataRef
+my_CFDataCreateWithString(CFStringRef str)
+{
+    CFDataRef		data;
+    int			i;
+
+    for (i = 0; i < S_encodings_count; i++) {
+	data = CFStringCreateExternalRepresentation(NULL, str, 
+						    S_encodings[i], 0);
+	if (data != NULL) {
+	    return (data);
+	}
+    }
+    return (NULL);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008, 2010-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -62,6 +62,7 @@ enum fsck_msgnum {
     fsckInformation                     = 118,  /* Using %s (version %s) for checking volume %s of type %s. */
     fsckProgress                        = 119,  /* %d */
     fsckTrimming                        = 120,  /* Trimming unused blocks */
+    fsckVolumeName                      = 121,	/* The volume name is %s */
 };
 
 #endif

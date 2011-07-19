@@ -1,53 +1,60 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGEllipseElement.h"
 
+#include "Attribute.h"
 #include "FloatPoint.h"
-#include "MappedAttribute.h"
-#include "RenderPath.h"
+#include "RenderSVGPath.h"
+#include "RenderSVGResource.h"
 #include "SVGLength.h"
 #include "SVGNames.h"
 
 namespace WebCore {
 
-SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::cxAttr, Cx, cx)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::cyAttr, Cy, cy)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::rxAttr, Rx, rx)
+DEFINE_ANIMATED_LENGTH(SVGEllipseElement, SVGNames::ryAttr, Ry, ry)
+DEFINE_ANIMATED_BOOLEAN(SVGEllipseElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+inline SVGEllipseElement::SVGEllipseElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_cx(LengthModeWidth)
     , m_cy(LengthModeHeight)
     , m_rx(LengthModeWidth)
     , m_ry(LengthModeHeight)
 {
+    ASSERT(hasTagName(SVGNames::ellipseTag));
 }    
 
-SVGEllipseElement::~SVGEllipseElement()
+PassRefPtr<SVGEllipseElement> SVGEllipseElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGEllipseElement(tagName, document));
 }
 
-void SVGEllipseElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGEllipseElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::cxAttr)
         setCxBaseValue(SVGLength(LengthModeWidth, attr->value()));
@@ -76,29 +83,30 @@ void SVGEllipseElement::svgAttributeChanged(const QualifiedName& attrName)
 {
     SVGStyledTransformableElement::svgAttributeChanged(attrName);
 
-    RenderPath* renderer = static_cast<RenderPath*>(this->renderer());
+    bool isLengthAttribute = attrName == SVGNames::cxAttr
+                          || attrName == SVGNames::cyAttr
+                          || attrName == SVGNames::rxAttr
+                          || attrName == SVGNames::ryAttr;
+
+    if (isLengthAttribute)
+        updateRelativeLengthsInformation();
+ 
+    if (SVGTests::handleAttributeChange(this, attrName))
+        return;
+
+    RenderSVGPath* renderer = static_cast<RenderSVGPath*>(this->renderer());
     if (!renderer)
         return;
 
-    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
-        renderer->setNeedsTransformUpdate();
-        renderer->setNeedsLayout(true);
-        return;
-    }
-
-    if (attrName == SVGNames::cxAttr
-        || attrName == SVGNames::cyAttr
-        || attrName == SVGNames::rxAttr
-        || attrName == SVGNames::ryAttr) {
+    if (isLengthAttribute) {
         renderer->setNeedsPathUpdate();
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
         return;
     }
 
-    if (SVGTests::isKnownAttribute(attrName)
-        || SVGLangSpace::isKnownAttribute(attrName)
+    if (SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
 void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
@@ -111,6 +119,7 @@ void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeRx();
         synchronizeRy();
         synchronizeExternalResourcesRequired();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -124,18 +133,48 @@ void SVGEllipseElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeRy();
     else if (SVGExternalResourcesRequired::isKnownAttribute(attrName))
         synchronizeExternalResourcesRequired();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
-Path SVGEllipseElement::toPathData() const
+AttributeToPropertyTypeMap& SVGEllipseElement::attributeToPropertyTypeMap()
 {
-    return Path::createEllipse(FloatPoint(cx().value(this), cy().value(this)),
-                                          rx().value(this), ry().value(this));
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGEllipseElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);    
+    attributeToPropertyTypeMap.set(SVGNames::cxAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::cyAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::rxAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::ryAttr, AnimatedLength);
+}
+
+void SVGEllipseElement::toPathData(Path& path) const
+{
+    ASSERT(path.isEmpty());
+
+    float radiusX = rx().value(this);
+    if (radiusX <= 0)
+        return;
+
+    float radiusY = ry().value(this);
+    if (radiusY <= 0)
+        return;
+
+    path.addEllipse(FloatRect(cx().value(this) - radiusX, cy().value(this) - radiusY, radiusX * 2, radiusY * 2));
 }
  
-bool SVGEllipseElement::hasRelativeValues() const
+bool SVGEllipseElement::selfHasRelativeLengths() const
 {
-    return (cx().isRelative() || cy().isRelative() ||
-            rx().isRelative() || ry().isRelative());
+    return cx().isRelative()
+        || cy().isRelative()
+        || rx().isRelative()
+        || ry().isRelative();
 }
 
 }

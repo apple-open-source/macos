@@ -1,0 +1,6 @@
+[vset PACKAGE wiki]
+[vset NAME    wiki]
+[vset REQUIRE text]
+[vset CONFIG  wiki]
+[vset VERSION 0.1]
+[include include/export/plugin.inc]

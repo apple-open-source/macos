@@ -1,6 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -28,17 +29,13 @@ namespace WebCore {
 
 class HTMLParagraphElement : public HTMLElement {
 public:
+    static PassRefPtr<HTMLParagraphElement> create(const QualifiedName&, Document*);
+
+private:
     HTMLParagraphElement(const QualifiedName&, Document*);
 
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 3; }
-    virtual bool checkDTD(const Node* newChild);
-
     virtual bool mapToEntry(const QualifiedName&, MappedAttributeEntry&) const;
-    virtual void parseMappedAttribute(MappedAttribute*);
-
-    String align() const;
-    void setAlign(const String&);
+    virtual void parseMappedAttribute(Attribute*);
 };
 
 } // namespace WebCore

@@ -4,130 +4,67 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-08-25</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>MesaLib</string>
-		<key>OpenSourceSHA1</key>
-		<string>7e2ecbe89d245510d2681d04e959aee6adc205c5</string>
-		<key>OpenSourceURL</key>
-		<string>http://downloads.sourceforge.net/mesa3d/MesaLib-7.0.4.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>7.0.4</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2008-08-25</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>MesaLib</string>
-		<key>OpenSourceSHA1</key>
-		<string>264f3098392797d52b6119783e34d43156c0b6dd</string>
-		<key>OpenSourceURL</key>
-		<string>http://www.mesa3d.org/beta/MesaLib-7.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>7.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2008-08-25</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>MesaDemos</string>
-		<key>OpenSourceSHA1</key>
-		<string>00d2131f441dd59db63eb8e4fc7d3750a82d36cb</string>
-		<key>OpenSourceURL</key>
-		<string>http://www.mesa3d.org/beta/MesaDemos-7.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>7.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2008-08-25</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>MesaGLUT</string>
-		<key>OpenSourceSHA1</key>
-		<string>4bc9e7cd89f5f8167ed8fc17ed34ac1a0e62311f</string>
-		<key>OpenSourceURL</key>
-		<string>http://www.mesa3d.org/beta/MesaGLUT-7.2.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>7.2</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2010-01-12</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>AppleSGLX</string>
-		<key>OpenSourceSHA1</key>
-		<string>4b206c0012d390af3130cca4e6ddfe7006fcdbf1</string>
-		<key>OpenSourceURL</key>
-		<string>http://static.macosforge.org/xquartz/downloads/src/AppleSGLX-60.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>60</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.mesa3d.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2010-06-10</string>
+		<string>2010-03-18</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>9f4a7f8c8c351d6d5316066dc806c58989deadbb</string>
+		<string>232959ebd5ce60811fb67d4e35058b0982f6d0b4</string>
 		<key>OpenSourceURL</key>
-		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.4.2-apple56.tar.bz2</string>
+		<string>http://xquartz.macosforge.org/downloads/src/xorg-server-1.6.5-apple3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.4.2-apple56</string>
+		<string>1.6.5-apple3</string>
 		<key>OpenSourceWebsiteURL</key>
-		<string>http://xquartz.macosforge.org</string>
+		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2009-02-25</string>
+		<string>2011-05-28</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xorg-server</string>
 		<key>OpenSourceSHA1</key>
-		<string>9baf703a0dac91cb84c02caea18268d6afa78662</string>
+		<string>fd831b3c6297d1a68830c602d767752d87b9ca54</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/xserver/xorg-server-1.6.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/xserver/xorg-server-1.10.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.6.0</string>
+		<string>1.10.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://xquartz.macosforge.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2010-03-15</string>
+		<string>2010-10-30</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>xinit</string>
 		<key>OpenSourceSHA1</key>
-		<string>baf36374aa1632054816a8281e55e1539459664b</string>
+		<string>6437292214bbca6efad8889c68e72a1ca584928b</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.2.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/app/xinit-1.3.0.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.2.1</string>
+		<string>1.3.0</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2010-07-29</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT|BSD</string>
+		<key>OpenSourceProject</key>
+		<string>Sparkle</string>
+		<key>OpenSourceSHA1</key>
+		<string>2768e60ce1fe19f2b263cce0ed62147863a1a3d2</string>
+		<key>OpenSourceURL</key>
+		<string>git://github.com/andymatuschak/Sparkle.git</string>
+		<key>OpenSourceVersion</key>
+		<string>2768e60ce1fe19f2b263cce0ed62147863a1a3d2</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://sparkle.andymatuschak.org</string>
+	</dict>
+</array>
 </plist>

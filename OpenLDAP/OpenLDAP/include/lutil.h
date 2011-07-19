@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.63.2.5 2008/02/11 23:26:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/lutil.h,v 1.63.2.10 2010/04/19 16:53:01 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -177,10 +177,6 @@ LDAP_LUTIL_F( int )
 lutil_tm2time LDAP_P((
 	struct lutil_tm *, struct lutil_timet * ));
 
-/* Get current time as a structured time */
-LDAP_LUTIL_F( void )
-lutil_gettime LDAP_P(( struct lutil_tm * ));
-
 #ifdef _WIN32
 LDAP_LUTIL_F( void )
 lutil_slashpath LDAP_P(( char* path ));
@@ -194,6 +190,11 @@ lutil_strcopy LDAP_P(( char *dst, const char *src ));
 
 LDAP_LUTIL_F( char* )
 lutil_strncopy LDAP_P(( char *dst, const char *src, size_t n ));
+
+LDAP_LUTIL_F( char* )
+lutil_memcopy LDAP_P(( char *dst, const char *src, size_t n ));
+
+#define lutil_strbvcopy(a, bv) lutil_memcopy((a),(bv)->bv_val,(bv)->bv_len)
 
 struct tm;
 
@@ -225,12 +226,6 @@ lutil_uuidstr_from_normalized(
 	size_t		uuidlen,
 	char		*buf,
 	size_t		buflen );
-
-/* csn.c */
-/* use this macro to allocate buffer for lutil_csnstr */
-#define LDAP_LUTIL_CSNSTR_BUFSIZE	64
-LDAP_LUTIL_F( size_t )
-lutil_csnstr( char *buf, size_t len, unsigned int replica, unsigned int mod );
 
 /*
  * Sometimes not all declarations in a header file are needed.

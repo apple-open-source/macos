@@ -4,13 +4,14 @@
  * Concept due to Harry Hochheiser.  Implementation by ESR.  Cleanup and
  * strict RFC821 compliance by Cameron MacPherson.
  *
- * Copyright 1997 Eric S. Raymond
+ * Copyright 1997 Eric S. Raymond, 2009 Matthias Andree
  * For license terms, see the file COPYING in this directory.
  */
 
 #include "config.h"
 #include "fetchmail.h"
 
+#include <ctype.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <string.h>
@@ -80,10 +81,9 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 			report(stdout, GT_("ESMTP CRAM-MD5 Authentication...\n"));
 		SockPrintf(sock, "AUTH CRAM-MD5\r\n");
 		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
-		strncpy(tmp, smtp_response, sizeof(tmp));
-		tmp[sizeof(tmp)-1] = '\0';
+		strlcpy(tmp, smtp_response, sizeof(tmp));
 
-		if (strncmp(tmp, "334 ", 4)) { /* Server rejects AUTH */
+		if (strncmp(tmp, "334", 3)) { /* Server rejects AUTH */
 			SMTP_auth_error(sock, GT_("Server rejected the AUTH command.\n"));
 			return;
 		}
@@ -97,8 +97,8 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 		}
 		if (outlevel >= O_DEBUG)
 			report(stdout, GT_("Challenge decoded: %s\n"), b64buf);
-		hmac_md5(password, strlen(password),
-			 b64buf, strlen(b64buf), digest, sizeof(digest));
+		hmac_md5((unsigned char *)password, strlen(password),
+			 (unsigned char *)b64buf, strlen(b64buf), digest, sizeof(digest));
 		snprintf(tmp, sizeof(tmp),
 		"%s %02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
 		username,  digest[0], digest[1], digest[2], digest[3],
@@ -131,10 +131,9 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 			report(stdout, GT_("ESMTP LOGIN Authentication...\n"));
 		SockPrintf(sock, "AUTH LOGIN\r\n");
 		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
-		strncpy(tmp, smtp_response, sizeof(tmp));
-		tmp[sizeof(tmp)-1] = '\0';
+		strlcpy(tmp, smtp_response, sizeof(tmp));
 
-		if (strncmp(tmp, "334 ", 4)) { /* Server rejects AUTH */
+		if (strncmp(tmp, "334", 3)) { /* Server rejects AUTH */
 			SMTP_auth_error(sock, GT_("Server rejected the AUTH command.\n"));
 			return;
 		}
@@ -148,8 +147,7 @@ static void SMTP_auth(int sock, char smtp_mode, char *username, char *password, 
 		to64frombits(b64buf, username, strlen(username));
 		SockPrintf(sock, "%s\r\n", b64buf);
 		SockRead(sock, smtp_response, sizeof(smtp_response) - 1);
-		strncpy(tmp, smtp_response, sizeof(tmp));
-		tmp[sizeof(tmp)-1] = '\0';
+		strlcpy(tmp, smtp_response, sizeof(tmp));
 		p = strchr(tmp, ' ');
 		if (!p) {
 			SMTP_auth_error(sock, GT_("Bad base64 reply from server.\n"));
@@ -308,32 +306,44 @@ int SMTP_eom(int sock, char smtp_mode)
 time_t last_smtp_ok = 0;
 
 int SMTP_ok(int sock, char smtp_mode, int mintimeout)
-/* returns status of SMTP connection */
+/**< returns status of SMTP connection and saves the message in
+ * smtp_response, without trailing [CR]LF, but with normalized CRLF
+ * between multiple lines of multi-line replies */
 {
     SIGHANDLERTYPE alrmsave;
+    char reply[MSGBUFSIZE], *i;
 
     /* set an alarm for smtp ok */
     alrmsave = set_signal_handler(SIGALRM, null_signal_handler);
     set_timeout(mytimeout >= mintimeout ? mytimeout : mintimeout);
 
-    while ((SockRead(sock, smtp_response, sizeof(smtp_response)-1)) != -1)
+    smtp_response[0] = '\0';
+
+    while ((SockRead(sock, reply, sizeof(reply)-1)) != -1)
     {
-	int n;
+	size_t n;
 
 	/* restore alarm */
 	set_timeout(0);
 	set_signal_handler(SIGALRM, alrmsave);
 
-	n = strlen(smtp_response);
-	if (n > 0 && smtp_response[n-1] == '\n')
+	n = strlen(reply);
+	if (n > 0 && reply[n-1] == '\n')
 	    n--;
-	if (n > 0 && smtp_response[n-1] == '\r')
+	if (n > 0 && reply[n-1] == '\r')
 	    n--;
-	smtp_response[n] = '\0';
+	reply[n] = '\0';
+
+	/* stomp over control characters */
+	for (i = reply; *i; i++)
+	    if (iscntrl((unsigned char)*i))
+		*i = '?';
+
 	if (outlevel >= O_MONITOR)
-	    report(stdout, "%cMTP< %s\n", smtp_mode, smtp_response);
-	if (n < 4 ||
-	    (smtp_response[3] != ' ' && smtp_response[3] != '-'))
+	    report(stdout, "%cMTP< %s\n", smtp_mode, reply);
+	/* note that \0 is part of the strchr search string and the
+	 * blank after the reply code is optional (RFC 5321 4.2.1) */
+	if (n < 3 || !strchr(" -", reply[3]))
 	{
 	    if (outlevel >= O_MONITOR)
 		report(stderr, GT_("smtp listener protocol error\n"));
@@ -342,16 +352,21 @@ int SMTP_ok(int sock, char smtp_mode, int mintimeout)
 
 	last_smtp_ok = time((time_t *) NULL);
 
-	if ((smtp_response[0] == '1' || smtp_response[0] == '2' || smtp_response[0] == '3') &&
-	    smtp_response[3] == ' ')
+	strlcat(smtp_response, reply,  sizeof(smtp_response));
+
+	if (strchr("123", reply[0])
+		&& isdigit((unsigned char)reply[1])
+		&& isdigit((unsigned char)reply[2])
+		&& strchr(" ", reply[3])) /* matches space and \0 */ {
 	    return SM_OK;
-	else if (smtp_response[3] != '-')
+	} else if (reply[3] != '-')
 	    return SM_ERROR;
+
+	strlcat(smtp_response, "\r\n", sizeof(smtp_response));
 
 	/* set an alarm for smtp ok */
 	set_signal_handler(SIGALRM, null_signal_handler);
 	set_timeout(mytimeout);
-
     }
 
     /* restore alarm */

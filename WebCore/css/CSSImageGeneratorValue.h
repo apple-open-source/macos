@@ -35,8 +35,8 @@
 namespace WebCore {
 
 class Image;
-class StyleGeneratedImage;
 class RenderObject;
+class StyleGeneratedImage;
 
 class CSSImageGeneratorValue : public CSSValue {
 public:
@@ -44,7 +44,7 @@ public:
 
     void addClient(RenderObject*, const IntSize&);
     void removeClient(RenderObject*);
-    virtual Image* image(RenderObject*, const IntSize&) = 0;
+    virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) = 0;
 
     StyleGeneratedImage* generatedImage();
     

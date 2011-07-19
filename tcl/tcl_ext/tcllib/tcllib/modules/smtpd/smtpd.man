@@ -3,6 +3,7 @@
 [copyright {Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [moddesc   {Tcl SMTP Server Package}]
 [titledesc {Tcl SMTP server implementation}]
+[category  Networking]
 [require Tcl 8.3]
 [require smtpd [opt 1.4]]
 [description]

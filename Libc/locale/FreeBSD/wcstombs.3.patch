@@ -1,6 +1,6 @@
---- _SB/Libc/locale/FreeBSD/wcstombs.3	2004-11-25 11:38:20.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/wcstombs.3.edit	2006-06-28 16:55:51.000000000 -0700
-@@ -41,7 +41,8 @@
+--- wcstombs.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcstombs.3	2009-11-09 15:05:26.000000000 -0800
+@@ -37,7 +37,8 @@
  .Dt WCSTOMBS 3
  .Os
  .Sh NAME
@@ -10,7 +10,7 @@
  .Nd convert a wide-character string to a character string
  .Sh LIBRARY
  .Lb libc
-@@ -49,28 +50,47 @@
+@@ -45,28 +46,47 @@
  .In stdlib.h
  .Ft size_t
  .Fo wcstombs
@@ -66,7 +66,7 @@
  .Po Vt size_t Pc Ns \-1 .
  .Sh ERRORS
  The
-@@ -86,7 +106,8 @@
+@@ -82,7 +102,8 @@ The conversion state is invalid.
  .Xr mbstowcs 3 ,
  .Xr multibyte 3 ,
  .Xr wcsrtombs 3 ,

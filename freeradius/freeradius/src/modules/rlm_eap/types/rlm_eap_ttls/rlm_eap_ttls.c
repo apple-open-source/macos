@@ -48,6 +48,17 @@ typedef struct rlm_eap_ttls_t {
 	int	copy_request_to_tunnel;
 
 	/*
+	 *	RFC 5281 (TTLS) says that the length field MUST NOT be
+	 *	in fragments after the first one.  However, we've done
+	 *	it that way for years, and no one has complained.
+	 *
+	 *	In the interests of allowing the server to follow the
+	 *	RFC, we add the option here.  If set to "no", it sends
+	 *	the length field in ONLY the first fragment.
+	 */
+	int	include_length;
+
+	/*
 	 *	Virtual server for inner tunnel session.
 	 */
 	char	*virtual_server;
@@ -66,6 +77,9 @@ static CONF_PARSER module_config[] = {
 
 	{ "virtual_server", PW_TYPE_STRING_PTR,
 	  offsetof(rlm_eap_ttls_t, virtual_server), NULL, NULL },
+
+	{ "include_length", PW_TYPE_BOOLEAN,
+	  offsetof(rlm_eap_ttls_t, include_length), NULL, "yes" },
 
  	{ NULL, -1, 0, NULL, NULL }           /* end the list */
 };
@@ -138,7 +152,7 @@ static void ttls_free(void *p)
 
 	pairfree(&t->username);
 	pairfree(&t->state);
-	pairfree(&t->reply);
+	pairfree(&t->accept_vps);
 	free(t);
 }
 
@@ -175,6 +189,8 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 
 	RDEBUG2("Authenticate");
 
+	tls_session->length_flag = inst->include_length;
+
 	/*
 	 *	Process TLS layer until done.
 	 */
@@ -195,11 +211,11 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 		}
 
 		if (t && t->authenticated) {
-			if (t->reply) {
-				pairmove(&handler->request->reply->vps,
-					 &t->reply);
-				pairfree(&t->reply);
-			}
+			RDEBUG2("Using saved attributes from the original Access-Accept");
+			debug_pair_list(t->accept_vps);
+			pairadd(&handler->request->reply->vps,
+				t->accept_vps);
+			t->accept_vps = NULL;
 		do_keys:
 			/*
 			 *	Success: Automatically return MPPE keys.
@@ -276,7 +292,9 @@ static int eapttls_authenticate(void *arg, EAP_HANDLER *handler)
 		 *	will proxy it, rather than returning an EAP packet.
 		 */
 	case PW_STATUS_CLIENT:
+#ifdef WITH_PROXY
 		rad_assert(handler->request->proxy != NULL);
+#endif
 		return 1;
 		break;
 

@@ -22,11 +22,19 @@ contain any of the special options listed in section
 
 [section {TIFF OPTIONS}]
 
-The handler provides two options to influence the writing of a TIFF
-image. There are [emph no] options to influence the reader.
+The handler provides three options, one for reading from a TIFF image,
+the other two influencing the writing of such. 
 
 
 [list_begin definitions]
+
+[lst_item "[option -index] [arg n]"]
+
+This option is for reading from TIFF files containing more than one
+image ([term {multi-page TIFF}]. When specified it
+will read the [arg n]'th image in the data. The first image is at
+index [const 0] and will be read by default, i.e. when the option is
+not specified.
 
 [lst_item "[option -compression] [arg type]"]
 

@@ -1,3 +1,9 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
 2008-06-20  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* chatwidget.tcl: Fixed a number of minor bugs. 

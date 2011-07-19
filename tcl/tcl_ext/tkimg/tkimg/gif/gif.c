@@ -34,7 +34,7 @@
  * |   provided "as is" without express or implied warranty.           |
  * +-------------------------------------------------------------------+
  *
- * $Id: gif.c 154 2008-10-22 11:44:55Z nijtmans $
+ * $Id: gif.c 233 2010-04-01 09:28:00Z nijtmans $
  *
  */
 
@@ -74,14 +74,14 @@ typedef struct {
  * The format record for the GIF file format:
  */
 
-static int      CommonRead  _ANSI_ARGS_((Tcl_Interp *interp,
-		    GIFImageConfig *gifConfPtr, const char *fileName, Tcl_Obj *format,
-		    Tk_PhotoHandle imageHandle, int destX, int destY,
-		    int width, int height, int srcX, int srcY));
+static int CommonRead(Tcl_Interp *interp,
+	GIFImageConfig *gifConfPtr, const char *fileName, Tcl_Obj *format,
+	Tk_PhotoHandle imageHandle, int destX, int destY,
+	int width, int height, int srcX, int srcY);
 
-static int	CommonWrite _ANSI_ARGS_((Tcl_Interp *interp,
-		    tkimg_MFile *handle, Tcl_Obj *format,
-		    Tk_PhotoImageBlock *blockPtr));
+static int CommonWrite(Tcl_Interp *interp,
+	tkimg_MFile *handle, Tcl_Obj *format,
+	Tk_PhotoImageBlock *blockPtr);
 
 #define INTERLACE		0x40
 #define LOCALCOLORMAP		0x80
@@ -99,27 +99,27 @@ static int	CommonWrite _ANSI_ARGS_((Tcl_Interp *interp,
  * Prototypes for local procedures defined in this file:
  */
 
-static int		DoExtension _ANSI_ARGS_((GIFImageConfig *gifConfPtr, int label,
-			    int *transparent));
+static int DoExtension(GIFImageConfig *gifConfPtr, int label,
+	int *transparent);
 
-static int		GetCode _ANSI_ARGS_((GIFImageConfig *gifConfPtr, int code_size,
-			    int flag));
+static int GetCode(GIFImageConfig *gifConfPtr, int code_size,
+	int flag);
 
-static int		GetDataBlock _ANSI_ARGS_((GIFImageConfig *gifConfPtr,
-			    unsigned char *buf));
+static int GetDataBlock(GIFImageConfig *gifConfPtr,
+	unsigned char *buf);
 
-static int		ReadColorMap _ANSI_ARGS_((GIFImageConfig *gifConfPtr, int number,
-			    unsigned char buffer[MAXCOLORMAPSIZE][4]));
+static int ReadColorMap(GIFImageConfig *gifConfPtr, int number,
+	unsigned char buffer[MAXCOLORMAPSIZE][4]);
 
-static int		ReadGIFHeader _ANSI_ARGS_((GIFImageConfig *gifConfPtr,
-			    int *widthPtr, int *heightPtr));
+static int ReadGIFHeader(GIFImageConfig *gifConfPtr,
+	int *widthPtr, int *heightPtr);
 
-static int		ReadImage _ANSI_ARGS_((Tcl_Interp *interp,
-			    char *imagePtr, GIFImageConfig *gifConfPtr, int len, int rows,
-			    unsigned char cmap[MAXCOLORMAPSIZE][4],
-			    int width, int height, int srcX, int srcY,
-			    int interlace, int transparent));
-
+static int ReadImage(Tcl_Interp *interp,
+	char *imagePtr, GIFImageConfig *gifConfPtr, int len, int rows,
+	unsigned char cmap[MAXCOLORMAPSIZE][4],
+	int width, int height, int srcX, int srcY,
+	int interlace, int transparent);
+
 /*
  *----------------------------------------------------------------------
  *
@@ -139,20 +139,18 @@ static int		ReadImage _ANSI_ARGS_((Tcl_Interp *interp,
  */
 
 static int
-ChnMatch(interp, chan, fileName, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;		/* interpreter */
-    Tcl_Channel chan;		/* The image channel, open for reading. */
-    const char *fileName;	/* The name of the image file. */
-    Tcl_Obj *format;		/* User-specified format object, or NULL. */
-    int *widthPtr, *heightPtr;	/* The dimensions of the image are
-				 * returned here if the file is a valid
+ChnMatch(
+    Tcl_Channel chan,		/* The image channel, open for reading. */
+    const char *fileName,	/* The name of the image file. */
+    Tcl_Obj *format,		/* User-specified format object, or NULL. */
+    int *widthPtr,	        /* The dimensions of the image are */
+	int *heightPtr,			/* returned here if the file is a valid
 				 * raw GIF file. */
-{
+    Tcl_Interp *interp		/* interpreter */
+) {
     GIFImageConfig gifConf;
 
     memset(&gifConf, 0, sizeof(GIFImageConfig));
-
-    tkimg_FixChanMatchProc(&interp, &chan, &fileName, &format, &widthPtr, &heightPtr);
 
     gifConf.handle.data = (char *) chan;
     gifConf.handle.state = IMG_CHAN;
@@ -226,14 +224,6 @@ ChnRead(interp, chan, fileName, format, imageHandle, destX, destY,
  *----------------------------------------------------------------------
  */
 
-typedef struct {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], if not included already
-		  in Tk_PhotoImageBlock */
-} myblock;
-
-#define block bl.ck
-
 static int
 CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	width, height, srcX, srcY)
@@ -249,10 +239,10 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
     int srcX, srcY;		/* Coordinates of top-left pixel to be used
 				 * in image being read. */
 {
-    int fileWidth, fileHeight;
+    int fileWidth, fileHeight, imageWidth, imageHeight;
     int nBytes, index = 0, objc = 0;
     Tcl_Obj **objv = NULL;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     unsigned char buf[100];
     char *trashBuffer = NULL;
     unsigned char *pixBuf = NULL;
@@ -274,8 +264,6 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 		    tkimg_GetStringFromObj(format, NULL), "\"", (char *) NULL);
 	    return TCL_ERROR;
 	}
-    }
-    if (objc > 1) {
 	if (Tcl_GetIntFromObj(interp, objv[objc-1], &index) != TCL_OK) {
 	    return TCL_ERROR;
 	}
@@ -320,7 +308,9 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	return TCL_OK;
     }
 
-    Tk_PhotoExpand(imageHandle, destX + width, destY + height);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + width, destY + height) == TCL_ERROR) {
+	return TCL_ERROR;;
+    }
 
     block.pixelSize = 4;
     block.offset[0] = 0;
@@ -382,8 +372,8 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	    goto error;
 	}
 
-	fileWidth = LM_to_uint(buf[4],buf[5]);
-	fileHeight = LM_to_uint(buf[6],buf[7]);
+	imageWidth = LM_to_uint(buf[4],buf[5]);
+	imageHeight = LM_to_uint(buf[6],buf[7]);
 
 	bitPixel = 2<<(buf[8]&0x07);
 
@@ -418,8 +408,8 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	     * marginally improve the speed of the less frequent case, I chose
 	     * to maintain high performance for the common case.
 	     */
-	    if (ReadImage(interp, trashBuffer, gifConfPtr, fileWidth,
-			  fileHeight, colorMap, 0, 0, 0, 0, 0, -1) != TCL_OK) {
+	    if (ReadImage(interp, trashBuffer, gifConfPtr, imageWidth,
+			  imageHeight, colorMap, 0, 0, 0, 0, 0, -1) != TCL_OK) {
 	      goto error;
 	    }
 	    continue;
@@ -445,8 +435,8 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	    srcX = 0;
 	}
 
-	if (width > fileWidth) {
-	    width = fileWidth;
+	if (width > imageWidth) {
+	    width = imageWidth;
 	}
 
 	index = LM_to_uint(buf[2],buf[3]);
@@ -455,8 +445,8 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	    destY -= srcY; height += srcY;
 	    srcY = 0;
 	}
-	if (height > fileHeight) {
-	    height = fileHeight;
+	if (height > imageHeight) {
+	    height = imageHeight;
 	}
 
 	if ((width <= 0) || (height <= 0)) {
@@ -467,12 +457,12 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
 	block.width = width;
 	block.height = height;
 	block.pixelSize = (transparent>=0)?4:3;
-	block.pitch = block.pixelSize * fileWidth;
-	nBytes = block.pitch * fileHeight;
+	block.pitch = block.pixelSize * imageWidth;
+	nBytes = block.pitch * imageHeight;
 	pixBuf = (unsigned char *) ckalloc((unsigned) nBytes);
 	block.pixelPtr = pixBuf;
 
-	if (ReadImage(interp, (char *) block.pixelPtr, gifConfPtr, fileWidth, fileHeight,
+	if (ReadImage(interp, (char *) block.pixelPtr, gifConfPtr, imageWidth, imageHeight,
 		colorMap, fileWidth, fileHeight, srcX, srcY,
 		BitSet(buf[8], INTERLACE), transparent) != TCL_OK) {
 	    goto error;
@@ -481,8 +471,10 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
     }
 
     block.pixelPtr = pixBuf + srcY * block.pitch + srcX * block.pixelSize;
-    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY, width, height,
-	    (transparent == -1)? TK_PHOTO_COMPOSITE_SET: TK_PHOTO_COMPOSITE_OVERLAY);
+    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, destY, width, height,
+	    (transparent == -1)? TK_PHOTO_COMPOSITE_SET: TK_PHOTO_COMPOSITE_OVERLAY) == TCL_ERROR) {
+	goto error;
+    }
 
     noerror:
     if (pixBuf) {
@@ -517,18 +509,16 @@ CommonRead(interp, gifConfPtr, fileName, format, imageHandle, destX, destY,
  */
 
 static int
-ObjMatch(interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;		/* interpreter */
-    Tcl_Obj *data;		/* the object containing the image data */
-    Tcl_Obj *format;		/* the image format object */
-    int *widthPtr;		/* where to put the image width */
-    int *heightPtr;		/* where to put the image height */
-{
+ObjMatch(
+    Tcl_Obj *data,		/* the object containing the image data */
+    Tcl_Obj *format,		/* the image format object */
+    int *widthPtr,		/* where to put the image width */
+    int *heightPtr,		/* where to put the image height */
+    Tcl_Interp *interp		/* interpreter */
+) {
     GIFImageConfig gifConf;
 
     memset(&gifConf, 0, sizeof(GIFImageConfig));
-
-    tkimg_FixObjMatchProc(&interp, &data, &format, &widthPtr, &heightPtr);
 
     if (!tkimg_ReadInit(data, 'G', &gifConf.handle)) {
 	return 0;
@@ -930,7 +920,7 @@ ReadImage(interp, imagePtr, gifConfPtr, len, rows, cmap,
 	/* If interlacing, the next ypos is not just +1 */
 	if (interlace) {
 	    ypos += interlaceStep[pass];
-	    while (ypos >= height) {
+	    while (ypos >= rows) {
 		pass++;
 		if (pass > 3) {
 		    return TCL_OK;
@@ -1093,24 +1083,24 @@ typedef struct {
     unsigned char mapa[MAXCOLORMAPSIZE][3];
 } GifWriterState;
 
-typedef int (* ifunptr) _ANSI_ARGS_((GifWriterState *statePtr));
+typedef int (* ifunptr) (GifWriterState *statePtr);
 
 /*
  *	Definition of new functions to write GIFs
  */
 
-static int color _ANSI_ARGS_((GifWriterState *statePtr, int red, int green, int blue));
+static int color(GifWriterState *statePtr, int red, int green, int blue);
 
-static void compress _ANSI_ARGS_((GifWriterState *statePtr, int init_bits, tkimg_MFile *handle,
-		ifunptr readValue));
+static void compress(GifWriterState *statePtr, int init_bits, tkimg_MFile *handle,
+	ifunptr readValue);
 
-static int nuevo _ANSI_ARGS_((GifWriterState *statePtr, int red, int green ,int blue));
+static int nuevo(GifWriterState *statePtr, int red, int green ,int blue);
 
-static int savemap _ANSI_ARGS_((GifWriterState *statePtr, Tk_PhotoImageBlock *blockPtr));
+static int savemap(GifWriterState *statePtr, Tk_PhotoImageBlock *blockPtr);
 
-static int ReadValue _ANSI_ARGS_((GifWriterState *statePtr));
+static int ReadValue(GifWriterState *statePtr);
 
-static int no_bits _ANSI_ARGS_((int colors));
+static int no_bits(int colors);
 
 static int
 ChnWrite (interp, filename, format, blockPtr)
@@ -1138,27 +1128,26 @@ ChnWrite (interp, filename, format, blockPtr)
     return result;
 }
 
-static int
-StringWrite(interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     int result;
     tkimg_MFile handle;
     Tcl_DString data;
 
-    tkimg_FixStringWriteProc(&data, &interp, &dataPtr, &format, &blockPtr);
-
-    Tcl_DStringSetLength(dataPtr, 1024);
-    tkimg_WriteInit(dataPtr, &handle);
+    Tcl_DStringInit(&data);
+    Tcl_DStringSetLength(&data, 1024);
+    tkimg_WriteInit(&data, &handle);
 
     result = CommonWrite(interp, &handle, format, blockPtr);
     tkimg_Putc(IMG_DONE, &handle);
 
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult(interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }
@@ -1487,12 +1476,12 @@ typedef struct {
     unsigned char accum[256];
 } GIFState_t;
 
-static void output _ANSI_ARGS_((GIFState_t *statePtr, long code));
-static void cl_block _ANSI_ARGS_((GIFState_t *statePtr));
-static void cl_hash _ANSI_ARGS_((GIFState_t *statePtr, int hsize));
-static void char_init _ANSI_ARGS_((GIFState_t *statePtr));
-static void char_out _ANSI_ARGS_((GIFState_t *statePtr, int c));
-static void flush_char _ANSI_ARGS_((GIFState_t *statePtr));
+static void output(GIFState_t *statePtr, long code);
+static void cl_block(GIFState_t *statePtr);
+static void cl_hash(GIFState_t *statePtr, int hsize);
+static void char_init(GIFState_t *statePtr);
+static void char_out(GIFState_t *statePtr, int c);
+static void flush_char(GIFState_t *statePtr);
 
 static void compress(statePtr, init_bits, handle, readValue)
     GifWriterState *statePtr;

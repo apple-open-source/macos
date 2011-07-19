@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/modrdn.c,v 1.39.2.5 2008/02/11 23:26:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/modrdn.c,v 1.39.2.8 2010/04/13 20:23:43 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * All rights reserved.
@@ -455,7 +455,7 @@ backsql_modrdn( Operation *op, SlapReply *rs )
 
 		e_id = bsi.bsi_base_id;
 
-		rs->sr_err = entry_schema_check( op, &r, NULL, 0, 0,
+		rs->sr_err = entry_schema_check( op, &r, NULL, 0, 0, NULL,
 			&rs->sr_text, textbuf, sizeof( textbuf ) );
 		if ( rs->sr_err != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_TRACE, "   backsql_modrdn(\"%s\"): "

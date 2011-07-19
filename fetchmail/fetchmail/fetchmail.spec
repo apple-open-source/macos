@@ -4,7 +4,7 @@
 %define have_python 1
 
 Name:		fetchmail
-Version:	6.3.11
+Version:	6.3.18
 Release:	1
 Vendor:		The Community Fetchmail Project
 Packager:	Fetchmail Developers <fetchmail-devel@lists.berlios.de>
@@ -32,7 +32,7 @@ Summary(pt):	Busca mensagens de um servidor usando POP ou IMAP
 Summary(tr):	POP2, POP3, APOP, IMAP protokolleri ile uzaktan mektup alma yazılımı
 Summary(vi):	trình nền lấy thư POP/IMAP có tính năng đầy đủ
 BuildRoot: %{_tmppath}/%{name}-root
-#Keywords: mail, client, POP, POP2, POP3, APOP, RPOP, KPOP, IMAP, ETRN, ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL
+#Keywords: mail, client, POP3, APOP, KPOP, IMAP, ETRN, ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL
 #Destinations:	fetchmail-users@lists.berlios.de, fetchmail-announce@lists.berlios.de
 
 %description
@@ -162,7 +162,7 @@ configuration de fetchmail écrite en python.
 %setup -q 
 
 %build
-%configure --without-included-gettext --without-kerberos --with-ssl
+%configure --without-kerberos --with-ssl
 make
 
 %install
@@ -205,5 +205,5 @@ rm -rf $RPM_BUILD_ROOT %{_builddir}/%name-%version
 %endif
 
 %changelog
-* Thu Aug 06 2009 <fetchmail-devel@lists.berlios.de> 6.3.11
+* Sun Oct 10 2010 <fetchmail-devel@lists.berlios.de> 6.3.18
 - See the project NEWS file for recent changes.

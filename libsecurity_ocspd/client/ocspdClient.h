@@ -112,8 +112,8 @@ CSSM_RETURN ocspdCRLStatus(
 	const CSSM_DATA		*crlIssuer,		// optional if URL is supplied
 	const CSSM_DATA		*crlURL);		// optional if issuer is supplied
 
-/*
- * Refresh the CRL cache.
+/* 
+ * Refresh the CRL cache. 
  */
 CSSM_RETURN ocspdCRLRefresh(
 	unsigned			staleDays,
@@ -121,9 +121,9 @@ CSSM_RETURN ocspdCRLRefresh(
 	bool				purgeAll,
 	bool				fullCryptoVerify);
 
-/*
- * Flush all CRLs obtained from specified URL from cache. Called by client when
- * *it* detects a bad CRL.
+/* 
+ * Flush all CRLs obtained from specified URL from cache. Called by client when 
+ * *it* detects a bad CRL. 
  */
 CSSM_RETURN ocspdCRLFlush(
 	const CSSM_DATA		&crlURL);

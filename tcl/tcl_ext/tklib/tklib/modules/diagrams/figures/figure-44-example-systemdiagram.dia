@@ -1,0 +1,28 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+set movelength [3 cm]
+
+arrow "source" "code"
+
+set LA [box "lexical" "analyzer"]
+arrow "tokens" above
+
+set P [box "parser"]
+arrow "intermediate" "code"
+
+set Sem [box "semantic" "checker"]
+arrow
+arrow <-> up from [$LA top]
+
+set LC [box "lexical" "corrector"]
+arrow <-> up from [$P top]
+
+set Syn [box "syntactic" "corrector"]
+arrow up
+
+set DMP [box "diagnostic" "message" "printer"]
+arrow <-> right from [$DMP right]
+
+set ST [box "symbol" "table"]
+arrow     from [$LC ne] to [$DMP sw]
+arrow     from [$Sem nw] to [$DMP se]
+arrow <-> from [$Sem top] to [$ST bot]

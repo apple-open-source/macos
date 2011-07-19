@@ -27,6 +27,7 @@
 #include <stddef.h>
 #include <mach/mach_types.h>
 #include <sys/cdefs.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
 /*********	Type definitions	************/
@@ -52,11 +53,14 @@ typedef struct _malloc_zone_t {
     struct malloc_introspection_t	*introspect;
     unsigned	version;
     
-    /* aligned memory allocation. The callback may be NULL. */
-	void *(*memalign)(struct _malloc_zone_t *zone, size_t alignment, size_t size);
+    /* aligned memory allocation. The callback may be NULL. Present in version >= 5. */
+    void *(*memalign)(struct _malloc_zone_t *zone, size_t alignment, size_t size);
     
-    /* free a pointer known to be in zone and known to have the given size. The callback may be NULL. */
+    /* free a pointer known to be in zone and known to have the given size. The callback may be NULL. Present in version >= 6.*/
     void (*free_definite_size)(struct _malloc_zone_t *zone, void *ptr, size_t size);
+
+    /* Empty out caches in the face of memory pressure. The callback may be NULL. Present in version >= 8. */
+    size_t 	(*pressure_relief)(struct _malloc_zone_t *zone, size_t goal);
 } malloc_zone_t;
 
 /*********	Creation and destruction	************/
@@ -97,12 +101,12 @@ extern size_t malloc_size(const void *ptr);
 extern size_t malloc_good_size(size_t size);
     /* Returns number of bytes greater than or equal to size that can be allocated without padding */
 
-extern void *malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size);
+extern void *malloc_zone_memalign(malloc_zone_t *zone, size_t alignment, size_t size) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
     /* 
      * Allocates a new pointer of size size whose address is an exact multiple of alignment.
-	 * alignment must be a power of two and at least as large as sizeof(void *).
-	 * zone must be non-NULL.
-	 */
+     * alignment must be a power of two and at least as large as sizeof(void *).
+     * zone must be non-NULL.
+     */
 
 /*********	Batch methods	************/
 
@@ -114,13 +118,13 @@ extern void malloc_zone_batch_free(malloc_zone_t *zone, void **to_be_freed, unsi
 
 /*********	Functions for libcache	************/
 
-extern malloc_zone_t *malloc_default_purgeable_zone(void);
+extern malloc_zone_t *malloc_default_purgeable_zone(void) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
     /* Returns a pointer to the default purgeable_zone. */
 
-extern void malloc_make_purgeable(void *ptr);
+extern void malloc_make_purgeable(void *ptr) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
     /* Make an allocation from the purgeable zone purgeable if possible.  */
 
-extern int malloc_make_nonpurgeable(void *ptr);
+extern int malloc_make_nonpurgeable(void *ptr) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_0);
     /* Makes an allocation from the purgeable zone nonpurgeable.
      * Returns zero if the contents were not purged since the last
      * call to malloc_make_purgeable, else returns non-zero. */
@@ -142,6 +146,14 @@ extern void malloc_set_zone_name(malloc_zone_t *zone, const char *name);
 
 extern const char *malloc_get_zone_name(malloc_zone_t *zone);
     /* Returns the name of a zone */
+
+size_t malloc_zone_pressure_relief(malloc_zone_t *zone, size_t goal) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+    /* malloc_zone_pressure_relief() advises the malloc subsystem that the process is under memory pressure and 
+     * that the subsystem should make its best effort towards releasing (i.e. munmap()-ing) "goal" bytes from "zone". 
+     * If "goal" is passed as zero, the malloc subsystem will attempt to achieve maximal pressure relief in "zone". 
+     * If "zone" is passed as NULL, all zones are examined for pressure relief opportunities. 
+     * malloc_zone_pressure_relief() returns the number of bytes released. 
+     */
 
 typedef struct {
     vm_address_t	address;
@@ -176,7 +188,17 @@ typedef struct malloc_introspection_t {
     void	(*force_lock)(malloc_zone_t *zone); /* Forces locking zone */
     void	(*force_unlock)(malloc_zone_t *zone); /* Forces unlocking zone */
     void	(*statistics)(malloc_zone_t *zone, malloc_statistics_t *stats); /* Fills statistics */
-    boolean_t (*zone_locked)(malloc_zone_t *zone); /* Are any zone locks held */
+    boolean_t   (*zone_locked)(malloc_zone_t *zone); /* Are any zone locks held */
+
+    /* Discharge checking. Present in version >= 7. */
+    boolean_t	(*enable_discharge_checking)(malloc_zone_t *zone);
+    void	(*disable_discharge_checking)(malloc_zone_t *zone);
+    void	(*discharge)(malloc_zone_t *zone, void *memory);
+#ifdef __BLOCKS__
+    void        (*enumerate_discharged_pointers)(malloc_zone_t *zone, void (^report_discharged)(void *memory, void *info));
+#else
+    void	*enumerate_unavailable_without_blocks;   
+#endif /* __BLOCKS__ */
 } malloc_introspection_t;
 
 extern void malloc_printf(const char *format, ...);
@@ -220,6 +242,26 @@ struct mstats {
 };
 
 extern struct mstats mstats(void);
+
+extern boolean_t malloc_zone_enable_discharge_checking(malloc_zone_t *zone) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+/* Increment the discharge checking enabled counter for a zone. Returns true if the zone supports checking, false if it does not. */
+
+extern void malloc_zone_disable_discharge_checking(malloc_zone_t *zone) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+/* Decrement the discharge checking enabled counter for a zone. */
+
+extern void malloc_zone_discharge(malloc_zone_t *zone, void *memory) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+/* Register memory that the programmer expects to be freed soon. 
+   zone may be NULL in which case the zone is determined using malloc_zone_from_ptr(). 
+   If discharge checking is off for the zone this function is a no-op. */
+ 
+#ifdef __BLOCKS__
+extern void malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void (^report_discharged)(void *memory, void *info)) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+/* Calls report_discharged for each block that was registered using malloc_zone_discharge() but has not yet been freed. 
+   info is used to provide zone defined information about the memory block. 
+   If zone is NULL then the enumeration covers all zones. */
+#else
+extern void malloc_zone_enumerate_discharged_pointers(malloc_zone_t *zone, void *) __OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_4_3);
+#endif /* __BLOCKS__ */
 
 __END_DECLS
 

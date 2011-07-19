@@ -1,3 +1,16 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2008-12-01  Jeff Hobbs  <jeffh@ActiveState.com>
+
+	* tooltip.man, pkgIndex.tcl: Increment to 1.4.4
+	* tooltip.tcl (::tooltip::register): Added support for multiple
+	items in -item (now -items) for listbox and canvas items, to
+	allow canvas tagOrIds that return multiple items.
+
 2008-11-04  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* tooltip.tcl:  Added support for listbox items.

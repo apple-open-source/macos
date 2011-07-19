@@ -1,24 +1,20 @@
-# A template for Makefile.PL used by Arena Networks.
-# - Set the $PACKAGE variable to the name of your module.
-# - Set $LAST_API_CHANGE to reflect the last version you changed the API 
-#   of your module.
-# - Fill in your dependencies in PREREQ_PM
-# Alternatively, you can say the hell with this and use h2xs.
+#!/usr/bin/perl -w
 
-use 5.004;
+use 5.006;
 
 use Config;
 use ExtUtils::MakeMaker;
 
-$PACKAGE = 'Test::Simple';
+my $PACKAGE = 'Test::Simple';
 ($PACKAGE_FILE = $PACKAGE) =~ s|::|/|g;
-$LAST_API_CHANGE    = 0.48;
-$LAST_THREAD_CHANGE = 0.48;
+my $LAST_API_CHANGE    = 0.48;
+my $LAST_THREAD_CHANGE = 0.48;
 
 eval "require $PACKAGE";
+my $PACKAGE_VERSION = ${$PACKAGE.'::VERSION'};
 
 unless ($@) { # Make sure we did find the module.
-    if( ${$PACKAGE.'::VERSION'} < $LAST_API_CHANGE ) {
+    if( $PACKAGE_VERSION < $LAST_API_CHANGE ) {
         printf <<"CHANGE_WARN", $LAST_API_CHANGE;
 
 NOTE: There have been API changes between this version and any older
@@ -29,7 +25,7 @@ CHANGE_WARN
         sleep 5;
     }
     if( $] >= 5.008001 && $Config{useithreads} &&
-        ${$PACKAGE.'::VERSION'} < $LAST_THREAD_CHANGE 
+        $PACKAGE_VERSION < $LAST_THREAD_CHANGE 
       ) 
     {
         printf <<"THREAD_WARN", $LAST_THREAD_CHANGE;
@@ -45,64 +41,95 @@ THREAD_WARN
 
 }
 
+my $mm_ver = $ExtUtils::MakeMaker::VERSION;
+if ($mm_ver =~ /_/) { # dev version
+    $mm_ver = eval $mm_ver;
+    die $@ if $@;
+}
+
+
+# Windows does not expand *.t and MakeMaker only started working around
+# that for TESTS in 6.27.  This does not introduce a circular dep
+# because MakeMaker ships with its own Test::More.
+my %Prereqs;
+$Prereqs{'ExtUtils::MakeMaker'} = 6.27 if $^O eq 'MSWin32';
+
+
 WriteMakefile(
     NAME            => $PACKAGE,
-    VERSION_FROM    => "lib/$PACKAGE_FILE.pm", # finds $VERSION
+
+    VERSION_FROM    => "lib/$PACKAGE_FILE.pm",
+    ABSTRACT_FROM   => "lib/$PACKAGE_FILE.pm",
+    AUTHOR          => 'Michael G Schwern <schwern@pobox.com>',
+
+    ($mm_ver >= 6.31 ? (LICENSE => 'perl') : ()),
+
     PREREQ_PM       => { 
-                        Test::Harness   => 2.03,
-                       },
-    # Added to the core somewhere around 5.7.2.
-    INSTALLDIRS     => $] >= 5.00702 ? 'perl' : 'site',
-    ($ExtUtils::MakeMaker::VERSION <= 6.31 ? (LICENSE         => 'perl') : ()),
+        Test::Harness   => 2.03,
+        %Prereqs
+    },
+
+    # Added to the core in 5.7.3 and also 5.6.2.
+    INSTALLDIRS     => $] >= 5.006002 ? 'perl' : 'site',
+
+    test        => {
+        TESTS           => 't/*.t t/*/*.t',
+    },
+
+    ($mm_ver < 6.48 ? () : (MIN_PERL_VERSION => 5.006)),
+
+    ($mm_ver < 6.46 ? () : (META_MERGE => {
+        resources => {
+            license     =>      'http://dev.perl.org/licenses/',
+            homepage    =>      'http://test-more.googlecode.com',
+            bugtracker  =>      'http://code.google.com/p/test-more/issues',
+            repository  =>      'http://github.com/schwern/test-more/tree/master',
+            MailingList =>      'http://groups.google.com/group/test-more-users',
+        },
+    }))
 );
 
 
 {
     package MY;
 
-    use File::Basename;
-    sub test_via_harness {
-        my($self, $orig_perl, $tests) = @_;
 
-        my @perls = ();
-        if( $ENV{PERL_TEST_ALL} ) {
-            require File::Spec;
-            my $tlib = File::Spec->rel2abs('t/lib/');
-            push @perls, 
-              map "PERL5LIB=$tlib $_",
-                qw(
-                   perl5.4.0
-                   perl5.4.5
-                   perl5.5.3
-                   perl5.6.0
-                   perl5.6.1
-                  );
+    sub postamble {
+        return <<'MAKE';
 
-            push @perls,
-              qw(
-                 perl
-                 perl5.8.0
-                 perl5.8.0-ithreads
-                 bleadperl
-                );
-        }
-        else {
-            push @perls, $orig_perl;
-        }
+perltidy:
+	find . -name '*.pm' | xargs perltidy -b
+	find . -name '*.pm.bak' | xargs rm
 
-        my $out;
-        foreach my $perl (@perls) {
-            $out .= $self->SUPER::test_via_harness($perl, $tests) . "\n";
-        }
-        $out =~ s{-I\$\(PERL_\w*LIB\)}{}g;
-
-        return $out;
+MAKE
     }
-}
 
 
-# Older versions of Test::Simple were very naughty about being required and
-# exitted with 255.  This overrides that behavior so it builds from CPAN.
-END {
-    exit(0);
+    # Test with multiple versions of perl before releasing
+    sub dist_test {
+        my $self = shift;
+
+        my $make = $self->SUPER::dist_test(@_);
+        return $make unless $ENV{AUTHOR_TESTING} and $ENV{AUTHOR_TESTING} eq 'MSCHWERN';
+
+        # Strip off all the whitespace at the end, we'll put our own in.
+        $make =~ s{\s+\z}{\n};
+
+        my @perls = qw(
+            perl5.8.9
+            perl5.8.8
+            perl5.6.2
+            perl5.6.1
+        );
+
+        for my $perl (@perls) {
+            $make .= sprintf <<'END', $perl;
+	cd $(DISTVNAME) && $(MAKE) clean && %s Makefile.PL && $(MAKE) test $(PASTHRU)
+END
+        }
+
+        $make .= "\n";
+
+        return $make;
+    }
 }

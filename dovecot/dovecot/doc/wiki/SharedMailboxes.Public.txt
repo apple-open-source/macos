@@ -1,0 +1,215 @@
+Contents
+
+
+ 1. Public Mailboxes
+
+     1. Maildir: Per-user \Seen flag
+
+         1. Maildir: Keyword sharing
+
+     2. Other mailbox formats: Per-user flags
+
+     3. Subscriptions
+
+     4. Read-only mailboxes
+
+         1. Read-only mboxes
+
+         2. Read-only Maildirs
+
+     5. Example: Public mailboxes with ACLs
+
+Public Mailboxes
+================
+
+Public mailboxes are typically mailboxes that are visible to all users or to
+large user groups. They are created by defining a public namespace, under which
+all the shared mailboxes are. See <SharedMailboxes.Permissions.txt> for issues
+related to filesystem permissions. See <Namespaces.txt> for details of how
+namespaces are configured.
+
+For example to create a public Maildir mailboxes, use:
+
+---%<-------------------------------------------------------------------------
+# User's private mail location
+mail_location = maildir:~/Maildir
+
+# When creating any namespaces, you must also have a private namespace:
+namespace {
+  type = private
+  separator = /
+  prefix =
+  #location defaults to mail_location.
+  inbox = yes
+}
+
+namespace {
+  type = public
+  separator = /
+  prefix = Public/
+  location = maildir:/var/mail/public
+  subscriptions = no
+}
+---%<-------------------------------------------------------------------------
+
+In the above example, you would then create Maildir mailboxes under the
+'/var/mail/public/' directory. For example:
+
+---%<-------------------------------------------------------------------------
+# ls -la /var/mail/public/
+drwxr-s--- 1 root mail 0 2007-03-19 03:12 .
+drwxrws--- 1 root mail 0 2007-03-19 03:12 .lkml
+drwxrws--- 1 root mail 0 2007-03-19 03:12 .bugtraq
+-rw-rw---- 1 root mail 0 2007-03-19 03:12 dovecot-shared
+---%<-------------------------------------------------------------------------
+
+Note that there are no 'cur/', 'new/' or 'tmp/' directories directly under the
+'/var/mail/public/', because the Public/ namespace isn't a mailbox itself. (If
+you create them manually, it does become a selectable mailbox.)
+
+The 'dovecot-shared' file isn't directly used for either lkml or bugtraq
+mailboxes, but if you create a new public mailbox via Dovecot it's
+automatically copied there.
+
+Maildir: Per-user \Seen flag
+----------------------------
+
+With Maildir a 'dovecot-shared' file controls if the \Seen flags are shared or
+private. The file must be created separately inside each Maildir, although if
+the file already exists in the Maildir root it's automatically copied for newly
+created mailboxes. If 'dovecot-shared' file doesn't exist in Maildir, the \Seen
+flags are shared. If it exists, the \Seen flag state is stored only in the
+user's index files. By making each user have their own private index files, you
+can make the \Seen flag private for the users. For example:
+
+---%<-------------------------------------------------------------------------
+namespace {
+  type = public
+  separator = /
+  prefix = Public/
+  location = maildir:/var/mail/public:INDEX=~/Maildir/public
+  subscriptions = no
+}
+---%<-------------------------------------------------------------------------
+
+Now when accessing e.g. "Public/lkml" mailbox, Dovecot keeps its index files in
+'~/Maildir/public/lkml/' directory. If it ever gets deleted, the \Seen flags
+are lost.
+
+If you want to change what flags are shared when 'dovecot-shared' file exists,
+currently you'll have to modify the source
+code:'src/lib-storage/index/maildir/maildir-storage.c' maildir_open() has
+'mbox->ibox.box.private_flags_mask = MAIL_SEEN;' Change the 'MAIL_SEEN' to any
+flag combination you want. See 'src/lib-mail/mail-types.h' for list of valid
+flags.
+
+Maildir: Keyword sharing
+------------------------
+
+Make sure you don't try to use per-user CONTROL directory. Otherwise
+'dovecot-keywords' file doesn't get shared and keyword mapping breaks.
+
+Other mailbox formats: Per-user flags
+-------------------------------------
+
+Currently you can't have any per-user flags with other mailbox formats than
+Maildir.
+
+Subscriptions
+-------------
+
+Typically you want each user to have control over their own subscriptions for
+mailboxes in public namespaces. This is why you should set 'subscriptions=no'
+to the namespace. Dovecot will then use the parent namespace's subscriptions
+file. Note that this practically means you must have a namespace with empty
+prefix, otherwise there is no "parent namespace".
+
+Read-only mailboxes
+-------------------
+
+Read-only mboxes
+----------------
+
+If you have a read-only directory structure containing mbox files, you'll need
+to store index files elsewhere:
+
+---%<-------------------------------------------------------------------------
+namespace {
+  type = public
+  prefix = Public/
+  location = mbox:/var/mail/public/:INDEX=/var/indexes/public
+  subscriptions = no
+}
+---%<-------------------------------------------------------------------------
+
+In the above example all the users would still be sharing the index files, so
+you might have problems with filesystem permissions. Alternatively you could
+place the index files under user's home directory.
+
+Read-only Maildirs
+------------------
+
+If your Maildir is read-only, the control and index files still need to be
+created somewhere. You can specify the path for these by appending
+':CONTROL=<path>:INDEX=<path>' to mail location. The path may point to a
+directory that is shared among all users, or to a per-user path. Note that if
+the Maildir has any keywords, the per-user control directory breaks the
+keywords since there is no 'dovecot-keywords' file.
+
+When configuring multiple namespaces, the CONTROL/INDEX path must be different
+for each namespace. Otherwise if namespaces have identically named mailboxes
+their control/index directories will conflict and cause all kinds of problems.
+
+If you put the control files to a per-user directory, you must also put the
+index files to a per-user directory, otherwise you'll get errors. It is however
+possible to use shared control files but per-user index files, assuming you've
+set up permissions properly.
+
+---%<-------------------------------------------------------------------------
+namespace {
+  type = public
+  separator = /
+  prefix = Public/
+  location =
+maildir:/var/mail/public:CONTROL=~/Maildir/public:INDEX=~/Maildir/public
+  subscriptions = no
+}
+namespace {
+  type = public
+  separator = /
+  prefix = Team/
+  location = maildir:/var/mail/team:CONTROL=~/Maildir/team:INDEX=~/Maildir/team
+  subscriptions = no
+}
+---%<-------------------------------------------------------------------------
+
+Example: Public mailboxes with ACLs
+-----------------------------------
+
+See <ACL.txt> for more information about ACLs.
+
+---%<-------------------------------------------------------------------------
+namespace {
+  type = public
+  separator = .
+  prefix = public.
+  location = maildir:/var/mail/public
+  subscriptions = no
+  list = children
+}
+
+plugin {
+  acl = vfile
+}
+---%<-------------------------------------------------------------------------
+
+It's important that the namespace type is "public" regardless of whether you
+set the namespace prefix to "shared." or something else.
+
+After this you have to place 'dovecot-acl' files in every mailbox/folder below
+'/var/mail/public' with rights for that folder (e.g. 'user=someone lr').
+
+'acl_shared_dict' setting is not relevant for public mailboxes (only for
+shared).
+
+(This file was created from the wiki on 2011-05-11 04:42)

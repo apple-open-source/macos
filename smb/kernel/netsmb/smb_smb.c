@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001 Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -56,16 +56,22 @@
 #include <netsmb/smb_conn.h>
 #include <netsmb/smb_tran.h>
 #include <netsmb/smb_gss.h>
-#include <fs/smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr.h>
 #include <netinet/in.h>
 #include <sys/kauth.h>
-#include <fs/smbfs/smbfs.h>
+#include <smbfs/smbfs.h>
 #include <netsmb/smb_converter.h>
+#include <netsmb/smb_dev.h>
+#include <smbclient/ntstatus.h>
 
 struct smb_dialect {
 	int				d_id;
 	const char *	d_name;
 };
+
+/* use sysctl -w net.smb.fs.kern_deprecatePreXPServers=1 to set smbfs_deprecatePreXPServers */
+int smbfs_deprecatePreXPServers = 1;
+
 
 /*
  * We no long support older  dialects, but leaving this
@@ -127,13 +133,28 @@ static struct smb_dialect smb_dialects[] = {
  * the SMB_CAP_LARGE_READX and SMB_CAP_LARGE_WRITEX, they say they are UNIX and they have a transfer buffer size 
  * greater than 60K then use the 126K buffer size.
  */
-#define MAX_LARGEX_READ_CAP_SIZE	126*1024
-#define MAX_LARGEX_WRITE_CAP_SIZE	126*1024
+#define MIN_MAXTRANSBUFFER				1024
+#define SMB1_MAXTRANSBUFFER				0xffff
+#define MAX_LARGEX_READ_CAP_SIZE		128*1024
+#define MAX_LARGEX_WRITE_CAP_SIZE		128*1024
+#define SNOW_LARGEX_READ_CAP_SIZE		126*1024
+#define SNOW_LARGEX_WRITE_CAP_SIZE		126*1024
 #define WINDOWS_LARGEX_READ_CAP_SIZE	60*1024
 #define WINDOWS_LARGEX_WRITE_CAP_SIZE	60*1024
 
-static u_int32_t smb_vc_maxread(const struct smb_vc *vcp)
+static 
+uint32_t smb_vc_maxread(struct smb_vc *vcp)
 {
+	uint32_t socksize = vcp->vc_sopt.sv_maxtx;
+	uint32_t maxmsgsize = vcp->vc_sopt.sv_maxtx;
+	uint32_t hdrsize = SMB_HDRLEN;
+	
+	hdrsize += (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES) ? SMB_READANDX_HDRLEN : SMB_READ_COM_HDRLEN;
+
+	/* Make sure we never use a size bigger than the socket can support */
+	SMB_TRAN_GETPARAM(vcp, SMBTP_RCVSZ, &socksize);
+	maxmsgsize = MIN(maxmsgsize, socksize);
+	maxmsgsize -= hdrsize;
 	/*
 	 * SNIA Specs say up to 64k data bytes, but it is wrong. Windows traffic
 	 * uses 60k... no doubt for some good reason.
@@ -143,24 +164,49 @@ static u_int32_t smb_vc_maxread(const struct smb_vc *vcp)
 	 * each other. Remember we want IO request to not only be a multiple of our 
 	 * max buffer size but they must land on a PAGE_SIZE boundry. See smbfs_vfs_getattr
 	 * more on this issue.
+	 *
+	 * NOTE: For NetBIOS-less connections the NetBIOS Header supports 24 bits for
+	 * the length field. 
 	 */
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_READX) {
-		if (UNIX_SERVER(vcp) && (vcp->vc_sopt.sv_maxtx > WINDOWS_LARGEX_READ_CAP_SIZE))
-			return (MAX_LARGEX_READ_CAP_SIZE); 	
-		else 
-			return (WINDOWS_LARGEX_READ_CAP_SIZE);
+	if (VC_CAPS(vcp) & SMB_CAP_LARGE_READX) {
+		/* Leave the UNIX SERVER check for now, but in the futre we should drop it */
+		if (UNIX_SERVER(vcp) && (vcp->vc_saddr->sa_family != AF_NETBIOS)  && 
+			(maxmsgsize >= MAX_LARGEX_READ_CAP_SIZE)) {
+			/*
+			 * Once we do <rdar://problem/8753536> we should change the 
+			 * maxmsgsize to be the following:
+			 *		maxmsgsize = (maxmsgsize / PAGE_SIZE) * PAGE_SIZE;
+			 * For now limit max size 128K.
+			 */
+			maxmsgsize = MAX_LARGEX_READ_CAP_SIZE;
+		} else if (UNIX_SERVER(vcp) && (maxmsgsize > WINDOWS_LARGEX_READ_CAP_SIZE)) {
+			maxmsgsize = SNOW_LARGEX_READ_CAP_SIZE; 	
+		} else {
+			socksize -= hdrsize;
+			maxmsgsize = MIN(WINDOWS_LARGEX_READ_CAP_SIZE, socksize);			
+		}
 	}
-	else if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES)
-		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_READANDX_HDRLEN);
-	else
-		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_READ_COM_HDRLEN);
+	SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", vcp->vc_srvname, 
+			   maxmsgsize, socksize, vcp->vc_sopt.sv_maxtx);
+	return maxmsgsize;
 }
 
 /*
  * Figure out the largest write we can do to the server.
  */
-static u_int32_t smb_vc_maxwrite(const struct smb_vc *vcp)
+static uint32_t 
+smb_vc_maxwrite(struct smb_vc *vcp)
 {
+	uint32_t socksize = vcp->vc_sopt.sv_maxtx;
+	uint32_t maxmsgsize = vcp->vc_sopt.sv_maxtx;
+	uint32_t hdrsize = SMB_HDRLEN;
+	
+	hdrsize += (VC_CAPS(vcp) & SMB_CAP_LARGE_FILES) ? SMB_WRITEANDX_HDRLEN : SMB_WRITE_COM_HDRLEN;
+	
+	/* Make sure we never use a size bigger than the socket can support */
+	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &socksize);
+	maxmsgsize = MIN(maxmsgsize, socksize);
+	maxmsgsize -= hdrsize;
 	/*
 	 * SNIA Specs say up to 64k data bytes, but it is wrong. Windows traffic
 	 * uses 60k... no doubt for some good reason.
@@ -177,20 +223,34 @@ static u_int32_t smb_vc_maxwrite(const struct smb_vc *vcp)
 	 *
 	 * NOTE: Windows XP/2000/2003 support 126K writes, but not reads so for now we use 60K buffers
 	 *		 in both cases.
+	 *
+	 * NOTE: For NetBIOS-less connections the NetBIOS Header supports 24 bits for
+	 * the length field. 
 	 */
-	if ((vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) && (! UNIX_SERVER(vcp)))
-		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITEANDX_HDRLEN);
-	else  if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX) {
-		if (UNIX_SERVER(vcp) && (vcp->vc_sopt.sv_maxtx > WINDOWS_LARGEX_WRITE_CAP_SIZE))
-			return (MAX_LARGEX_WRITE_CAP_SIZE);
-		else 
-			return (WINDOWS_LARGEX_WRITE_CAP_SIZE);
+	if ((vcp->vc_hflags2 & SMB_FLAGS2_SECURITY_SIGNATURE) && (! UNIX_SERVER(vcp))) {
+		SMB_LOG_IO("%s %d - SIGNING ON\n", vcp->vc_srvname, maxmsgsize);
+		return maxmsgsize;
+	} else  if (VC_CAPS(vcp) & SMB_CAP_LARGE_WRITEX) {
+		/* Leave the UNIX SERVER check for now, but in the futre we should drop it */
+		if (UNIX_SERVER(vcp) && (vcp->vc_saddr->sa_family != AF_NETBIOS) && 
+			(maxmsgsize >= MAX_LARGEX_WRITE_CAP_SIZE)) {
+			/*
+			 * Once we do <rdar://problem/8753536> we should change the 
+			 * maxmsgsize to be the following:
+			 *		maxmsgsize = (maxmsgsize / PAGE_SIZE) * PAGE_SIZE;
+			 * For now limit max size 128K.
+			 */
+			maxmsgsize = MAX_LARGEX_WRITE_CAP_SIZE;
+		} else if (UNIX_SERVER(vcp) && (maxmsgsize > WINDOWS_LARGEX_WRITE_CAP_SIZE)) {
+			maxmsgsize = SNOW_LARGEX_WRITE_CAP_SIZE;
+		} else {
+			socksize -= hdrsize;
+			maxmsgsize = MIN(WINDOWS_LARGEX_WRITE_CAP_SIZE, socksize);			
+		}
 	}
-	else if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES)
-		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITEANDX_HDRLEN);
-	else
-		return (vcp->vc_sopt.sv_maxtx - SMB_HDRLEN - SMB_WRITE_COM_HDRLEN);
-		
+	SMB_LOG_IO("%s max = %d sock = %d sv_maxtx = %d\n", vcp->vc_srvname, 
+			   maxmsgsize, socksize, vcp->vc_sopt.sv_maxtx);
+	return maxmsgsize;
 }
 
 static int
@@ -202,21 +262,22 @@ smb_smb_nomux(struct smb_vc *vcp, vfs_context_t context, const char *name)
 	return EINVAL;
 }
 
-int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context, 
-		vfs_context_t user_context, int inReconnect)
+int 
+smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context, 
+				  vfs_context_t user_context, int inReconnect)
 {
 	struct smb_dialect *dp;
 	struct smb_sopt *sp = NULL;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	u_int8_t wc = 0, stime[8], sblen;
-	u_int16_t dindex, bc;
+	uint8_t wc = 0, stime[8], sblen;
+	uint16_t dindex, bc;
 	int error;
-	u_int32_t maxqsz;
-	u_int16_t toklen;
+	uint32_t maxqsz;
+	uint16_t toklen;
 	u_char security_mode;
-	u_int32_t	original_caps;
+	uint32_t	original_caps;
 
 	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0)
 		return EINVAL;
@@ -225,7 +286,7 @@ int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	vcp->vc_hflags2 |= SMB_FLAGS2_ERR_STATUS;
 	sp = &vcp->vc_sopt;
 	original_caps = sp->sv_caps;
-	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_NEGOTIATE, context, &rqp);
+	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_NEGOTIATE, 0, context, &rqp);
 	if (error)
 		return error;
 	smb_rq_getrequest(rqp, &mbp);
@@ -279,6 +340,12 @@ int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	md_get_uint8(mdp, &security_mode);	/* Ge the server security modes */
 	vcp->vc_flags |= (security_mode & SMBV_SECURITY_MODE_MASK);
 	md_get_uint16le(mdp, &sp->sv_maxmux);
+	if (sp->sv_maxmux == 0) {
+		SMBERROR(" Maximum multiplexer is zero, not supported\n");
+		error = ENOTSUP;
+		goto bad;
+	}
+
 	md_get_uint16le(mdp, &sp->sv_maxvcs);
 	md_get_uint32le(mdp, &sp->sv_maxtx);
 	/* Was sv_maxraw, we never do raw reads or writes so just ignore */
@@ -286,7 +353,8 @@ int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	md_get_uint32le(mdp, &sp->sv_skey);
 	md_get_uint32le(mdp, &sp->sv_caps);
 	md_get_mem(mdp, (caddr_t)stime, 8, MB_MSYSTEM);
-	md_get_uint16le(mdp, (u_int16_t*)&sp->sv_tz);
+	/* Servers time zone no longer needed */
+	md_get_uint16le(mdp, NULL);
 	md_get_uint8(mdp, &sblen);
 	error = md_get_uint16le(mdp, &bc);
 	if (error)
@@ -294,6 +362,12 @@ int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	if (vcp->vc_flags & SMBV_SIGNING_REQUIRED)
 		vcp->vc_hflags2 |= SMB_FLAGS2_SECURITY_SIGNATURE;
 
+	if (smbfs_deprecatePreXPServers &&  
+		(!(sp->sv_caps & SMB_CAP_NT_SMBS) || !(sp->sv_caps & SMB_CAP_UNICODE)))  {
+		SMBERROR("Support for the server %s has been deprecated (PreXP), disconnecting\n", vcp->vc_srvname);
+		error = SMB_ENETFSNOPROTOVERSSUPP;
+		goto bad;
+	}
 	/*
 	 * Is this a NT4 server, there is a very simple way to tell if it is a NT4 system. NT4 
 	 * support SMB_CAP_LARGE_READX, but not SMB_CAP_LARGE_WRITEX. I suppose some other system could do 
@@ -354,44 +428,59 @@ int smb_smb_negotiate(struct smb_vc *vcp, vfs_context_t context,
 	}
 	/* The server does extend security, find out what mech type they support. */
 	if (vcp->vc_hflags2 & SMB_FLAGS2_EXT_SEC) {
-		void *outtok = (toklen) ? malloc(toklen, M_SMBTEMP, M_WAITOK) : NULL;
+		SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
 		
-		if (outtok) {
-			error = md_get_mem(mdp, outtok, toklen, MB_MSYSTEM);
+		/* 
+		 * We don't currently use the GUID, now if no guid isn't that a 
+		 * protocol error. For now lets just ignore, but really think this
+		 * should be an error
+		 */
+		(void)md_get_mem(mdp, NULL, SMB_GUIDLEN, MB_MSYSTEM);
+		toklen = (toklen >= SMB_GUIDLEN) ? toklen - SMB_GUIDLEN : 0;
+		
+		vcp->negotiate_token = (toklen) ? malloc(toklen, M_SMBTEMP, M_WAITOK) : NULL;
+		if (vcp->negotiate_token) {
+			vcp->negotiate_tokenlen = toklen;
+			error = md_get_mem(mdp, (void *)vcp->negotiate_token, vcp->negotiate_tokenlen, MB_MSYSTEM);
 			/* If we get an error pretend we have no blob and force NTLMSSP */
 			if (error) {
-				free(outtok, M_SMBTEMP);
-				outtok = NULL;
+				SMB_FREE(vcp->negotiate_token, M_SMBTEMP);
 			}
 		}
 		/* If no token then say we have no length */
-		if (outtok == NULL)
-			toklen = 0;
-		error = smb_gss_negotiate(vcp, user_context, outtok, toklen);
-		if (outtok)
-			free(outtok, M_SMBTEMP);
+		if (vcp->negotiate_token == NULL) {
+			vcp->negotiate_tokenlen = 0;
+		}
+		error = smb_gss_negotiate(vcp, user_context);
 		if (error)
 			goto bad;
 	}
 
-	vcp->vc_maxvcs = sp->sv_maxvcs;
-	if (vcp->vc_maxvcs == 0)
-		vcp->vc_maxvcs = 1;
+	if (sp->sv_maxtx < MIN_MAXTRANSBUFFER) {
+		error = EBADRPC;
+		goto bad;
+	}
 
-	if (sp->sv_maxtx <= 0)
-		sp->sv_maxtx = 1024;
-
-	sp->sv_maxtx = MIN(sp->sv_maxtx, 63*1024 + SMB_HDRLEN + 16);
+	vcp->vc_rxmax = smb_vc_maxread(vcp);
+	vcp->vc_wxmax = smb_vc_maxwrite(vcp);
+	/* Make sure the  socket buffer supports this size */
 	SMB_TRAN_GETPARAM(vcp, SMBTP_RCVSZ, &maxqsz);
-	vcp->vc_rxmax = MIN(smb_vc_maxread(vcp), maxqsz - 1024);
-	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &maxqsz);
-	vcp->vc_wxmax = MIN(smb_vc_maxwrite(vcp), maxqsz - 1024);
 	vcp->vc_txmax = MIN(sp->sv_maxtx, maxqsz);
-	SMBSDEBUG("TZ = %d\n", sp->sv_tz);
+	SMB_TRAN_GETPARAM(vcp, SMBTP_SNDSZ, &maxqsz);
+	vcp->vc_txmax = MIN(vcp->vc_txmax, maxqsz);
+	/*
+	 * SMB currently returns this buffer size in the SetupAndX message as a uint16_t
+	 * value even though the server can pass us a uint32_t value. Make sure it
+	 * fits in a uint16_t field.
+	 */
+	vcp->vc_txmax = MIN(vcp->vc_txmax, SMB1_MAXTRANSBUFFER);
 	SMBSDEBUG("CAPS = %x\n", sp->sv_caps);
 	SMBSDEBUG("MAXMUX = %d\n", sp->sv_maxmux);
 	SMBSDEBUG("MAXVCS = %d\n", sp->sv_maxvcs);
 	SMBSDEBUG("MAXTX = %d\n", sp->sv_maxtx);
+	SMBSDEBUG("TXMAX = %d\n", vcp->vc_txmax);
+	SMBSDEBUG("MAXWR = %d\n", vcp->vc_wxmax);
+	SMBSDEBUG("MAXRD = %d\n", vcp->vc_rxmax);
 	
 
 	/* When doing a reconnect we never allow them to change the encode */
@@ -419,27 +508,28 @@ bad:
  * Given a virtual circut, determine our capabilities to send to the server
  * as part of "ssandx" message.
  */
-uint32_t smb_vc_caps(struct smb_vc *vcp)
+uint32_t 
+smb_vc_caps(struct smb_vc *vcp)
 {
 	uint32_t caps =  SMB_CAP_LARGE_FILES;
 	
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_UNICODE)
+	if (VC_CAPS(vcp) & SMB_CAP_UNICODE)
 		caps |= SMB_CAP_UNICODE;
 	
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_NT_SMBS)
+	if (VC_CAPS(vcp) & SMB_CAP_NT_SMBS)
 		caps |= SMB_CAP_NT_SMBS;
 	
 	if (vcp->vc_hflags2 & SMB_FLAGS2_ERR_STATUS)
 		caps |= SMB_CAP_STATUS32;
 	
 	/* If they support it then we support it. */
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_READX)
+	if (VC_CAPS(vcp) & SMB_CAP_LARGE_READX)
 		caps |= SMB_CAP_LARGE_READX;
 	
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX)
+	if (VC_CAPS(vcp) & SMB_CAP_LARGE_WRITEX)
 		caps |= SMB_CAP_LARGE_WRITEX;
 	
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_UNIX)
+	if (VC_CAPS(vcp) & SMB_CAP_UNIX)
 		caps |= SMB_CAP_UNIX;
 	
 	return (caps);
@@ -447,45 +537,18 @@ uint32_t smb_vc_caps(struct smb_vc *vcp)
 }
 
 /*
- * smb_check_for_win2k:
- *
- * We need to determine whether the server is win2k or not. This is used in
- * deciding whether we need to zero fill "gaps" in the file so that subsequent
- * reads will return zeros. Later than win2k can be made to handle that.
- * At the end of session setup and X messages the os name from the server is
- * usually returned and if it matches the win2k uc name then set the flag.
- */
-static void
-smb_check_for_win2k(struct smb_vc *vcp, void *osname, int namelen)
-{
-	static  uint8_t WIN2K_XP_UC_NAME[] = {
-		'W', 0, 'i', 0, 'n', 0, 'd', 0, 'o', 0, 'w', 0, 's', 0,
-		' ', 0, '5', 0, '.', 0
-	};
-#define WIN2K_UC_NAME_LEN sizeof(WIN2K_XP_UC_NAME) 
-	
-	vcp->vc_flags &= ~SMBV_WIN2K_XP;
-	/*
-	 * Now see if the OS name says they are Windows 2000. Windows 2000 has an OS
-	 * name of "Windows 5.0" and XP has a OS name of "Windows 5.1".  Windows
-	 * 2003 returns a totally different OS name.
-	 */
-	if ((namelen >= (int)WIN2K_UC_NAME_LEN) && (bcmp(WIN2K_XP_UC_NAME, osname, WIN2K_UC_NAME_LEN) == 0)) {
-			vcp->vc_flags |= SMBV_WIN2K_XP; /* It's a Windows 2000 or XP server */
-	}
-	return;
-}
-
-
-/*
  * Retreive the OS and Lan Man Strings. The calling routines 
  */
-void parse_server_os_lanman_strings(struct smb_vc *vcp, void *refptr, uint16_t bc)
+void 
+parse_server_os_lanman_strings(struct smb_vc *vcp, void *refptr, uint16_t bc)
 {
 	struct mdchain *mdp = (struct mdchain *)refptr;
 	uint8_t *tmpbuf= NULL;
-	size_t oslen = 0, lanmanlen = 0, lanmanoffset = 0, domainoffset = 0;
+	size_t oslen = 0, lanmanlen = 0, lanmanoffset = 0;
 	int error;
+#ifdef SMB_DEBUG
+	size_t domainoffset = 0;
+#endif // SMB_DEBUG
 	
 	/*
 	 * Make sure we  have a byte count and the byte cound needs to be less that the
@@ -506,61 +569,80 @@ void parse_server_os_lanman_strings(struct smb_vc *vcp, void *refptr, uint16_t b
 	smb_hexdump(__FUNCTION__, "BLOB = ", tmpbuf, bc);
 #endif // SMB_DEBUG
 	
-	/* 
-	 * Since both Window 2000 and XP support UNICODE, only do this check if the 
-	 * server is doing UNICODE
-	 */
-	if (vcp->vc_hflags2 & SMB_FLAGS2_UNICODE)
-		smb_check_for_win2k(vcp, tmpbuf, bc);
-	
-	if (vcp->vc_hflags2 & SMB_FLAGS2_UNICODE) {
+	if (SMB_UNICODE_STRINGS(vcp)) {
 		/* Find the end of the OS String */
-		lanmanoffset = oslen = smb_utf16_strnlen((const uint16_t *)tmpbuf, bc);
-		if (lanmanoffset != bc)
-			lanmanoffset += 2;	/* Add the null bytes */
-		bc -= lanmanoffset;
-		/* Find the end of the Lanman String */
-		domainoffset = lanmanlen = smb_utf16_strnlen((const uint16_t *)&tmpbuf[lanmanoffset], bc);
-		if (lanmanoffset != bc)
-			domainoffset += 2;	/* Add the null bytes */
-		bc -= domainoffset;
+		lanmanoffset = oslen = smb_utf16_strnsize((const uint16_t *)tmpbuf, bc);
+		lanmanoffset += 2;	/* Skip the null bytes */
+		if (lanmanoffset < bc) {
+			bc -= lanmanoffset;
+			/* Find the end of the Lanman String */
+			lanmanlen = smb_utf16_strnsize((const uint16_t *)&tmpbuf[lanmanoffset], bc);
+#ifdef SMB_DEBUG
+			domainoffset = lanmanlen;
+			domainoffset += 2;	/* Skip the null bytes */
+#endif // SMB_DEBUG
+		}
 	} else {
 		/* Find the end of the OS String */
 		lanmanoffset = oslen = strnlen((const char *)tmpbuf, bc);
-		if (lanmanoffset != bc)
-			lanmanoffset += 1;	/* Add the null bytes */
-		bc -= lanmanoffset;
-		/* Find the end of the Lanman String */
-		domainoffset = lanmanlen = strnlen((const char *)&tmpbuf[lanmanoffset], bc);
-		if (lanmanoffset != bc)
-			domainoffset += 1;	/* Add the null bytes */
-		bc -= domainoffset;
+		lanmanoffset += 1;	/* Skip the null bytes */
+		if (lanmanoffset < bc) {
+			bc -= lanmanoffset;
+			/* Find the end of the Lanman String */
+			lanmanlen = strnlen((const char *)&tmpbuf[lanmanoffset], bc);
+#ifdef SMB_DEBUG
+			domainoffset = lanmanlen;
+			domainoffset += 1;	/* Skip the null bytes */
+#endif // SMB_DEBUG
+		}
 	}
 	
 #ifdef SMB_DEBUG
+	if (domainoffset && (domainoffset < bc)) {
+		bc -= domainoffset;
+	} else {
+		bc = 0;
+	}
 	smb_hexdump(__FUNCTION__, "OS = ", tmpbuf, oslen);
 	smb_hexdump(__FUNCTION__, "LANMAN = ", &tmpbuf[lanmanoffset], lanmanlen);
 	smb_hexdump(__FUNCTION__, "DOMAIN = ", &tmpbuf[domainoffset+lanmanoffset], bc);
 #endif // SMB_DEBUG
 	
+	vcp->vc_flags &= ~(SMBV_WIN2K_XP | SMBV_DARWIN);
 	if (oslen) {
-		vcp->NativeOS = smbfs_ntwrkname_tolocal(vcp, (const char *)tmpbuf, &oslen);
-		if (vcp->NativeOS)
-			vcp->NativeOS[oslen] = 0;
+		vcp->NativeOS = smbfs_ntwrkname_tolocal((const char *)tmpbuf, &oslen, 
+												SMB_UNICODE_STRINGS(vcp));
+		if (vcp->NativeOS) {
+			/*
+			 * Windows 2000 and Windows XP don't handle zero fill correctly. See
+			 * if this is a Windows 2000 or Windows XP by checking the OS name 
+			 * string. Windows 2000 has an OS name of "Windows 5.0" and XP has a 
+			 * OS name of "Windows 5.1".  Windows 2003 returns a totally different 
+			 * OS name.
+			 */
+			if ((oslen >= strlen(WIN2K_XP_UTF8_NAME)) && 
+				(strncasecmp(vcp->NativeOS, WIN2K_XP_UTF8_NAME, 
+							 strlen(WIN2K_XP_UTF8_NAME)) == 0)) {
+				vcp->vc_flags |= SMBV_WIN2K_XP;
+			}
+			/* Now see this is a Darwin smbx server */
+			if ((oslen >= strlen(DARWIN_UTF8_NAME)) && 
+				(strncasecmp(vcp->NativeOS, DARWIN_UTF8_NAME, 
+							 strlen(DARWIN_UTF8_NAME)) == 0)) {
+				vcp->vc_flags |= SMBV_DARWIN;
+			}
+		}
 	}
 	if (lanmanlen) {
-		vcp->NativeLANManager= smbfs_ntwrkname_tolocal(vcp, (const char *)&tmpbuf[lanmanoffset], &lanmanlen);
-		if (vcp->NativeLANManager)
-			vcp->NativeLANManager[lanmanlen] = 0;
+		vcp->NativeLANManager= smbfs_ntwrkname_tolocal((const char *)&tmpbuf[lanmanoffset], &lanmanlen, SMB_UNICODE_STRINGS(vcp));
 	}
-	
-	SMBDEBUG("NativeOS = %s NativeLANManager = %s\n", 
-			 (vcp->NativeOS) ? vcp->NativeOS : "NULL",
-			 (vcp->NativeLANManager) ? vcp->NativeLANManager : "NULL");
+	SMB_LOG_AUTH("NativeOS = %s NativeLANManager = %s server type 0x%x\n", 
+			   (vcp->NativeOS) ? vcp->NativeOS : "NULL",
+			   (vcp->NativeLANManager) ? vcp->NativeLANManager : "NULL", 
+			   (vcp->vc_flags & SMBV_SERVER_MODE_MASK));
 	
 done:
-	if (tmpbuf)
-		free(tmpbuf, M_SMBTEMP);
+	SMB_FREE(tmpbuf, M_SMBTEMP);
 }
 
 /*
@@ -577,27 +659,29 @@ done:
  * plain-text with the ASCII password
  *
  */
-int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
+int 
+smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	u_int8_t wc;
+	uint8_t wc;
 	char *tmpbuf = NULL;	/* An allocated buffer that needs to be freed */
 	void *unipp = NULL;		/* An allocated buffer that holds the information used in the case sesitive password field */
 	const char *pp = NULL;		/* Holds the information used in the case insesitive password field */
 	size_t plen = 0, uniplen = 0;
 	int error = 0;
-	u_int32_t caps;
-	u_int16_t action;
-	u_int16_t bc;  
-
+	uint32_t caps;
+	uint16_t action;
+	uint16_t bc;  
+	uint16_t maxtx = vcp->vc_txmax;
+	
 	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0) {
 		error = EINVAL;
 		goto ssn_exit;
 	}
 
-	if (vcp->vc_sopt.sv_caps & SMB_CAP_EXT_SECURITY) {		
+	if (VC_CAPS(vcp) & SMB_CAP_EXT_SECURITY) {		
 		error = smb_gss_ssnsetup(vcp, context);
 		goto ssn_exit;		
 	}
@@ -605,13 +689,6 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	caps = smb_vc_caps(vcp);
 	
 	vcp->vc_smbuid = SMB_UID_UNKNOWN;
-
-	/* If we're going to try NTLM, fail if the minimum authentication level is not NTLMv2. */
-	if ((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) && (vcp->vc_flags & SMBV_MINAUTH_NTLMV2)) {
-		SMBERROR("NTLMv2 security required!\n");
-		error = EAUTH;
-		goto ssn_exit;
-	}
 
 	/*
 	 * Domain name must be upper-case, as that's what's used
@@ -660,22 +737,10 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	} else {
 		plen = 24;
 		tmpbuf = malloc(plen, M_SMBTEMP, M_WAITOK);
-		if (vcp->vc_flags & SMBV_MINAUTH_NTLM) {
-			/* Don't put the LM response on the wire - it's too easy to crack. */
-			bzero(tmpbuf, plen);
-		} else {
-			/*
-			 * Compute the LM response, derived from the challenge and the ASCII
-			 * password.
-			 */
-			smb_lmresponse((u_char *)smb_vc_getpass(vcp), vcp->vc_ch, (u_char *)tmpbuf);
-		}
+		/* Don't put the LM response on the wire - it's too easy to crack. */
+		bzero(tmpbuf, plen);
 		pp = tmpbuf;	/* Need to free this when we are done */
-
-		/*
-		 * Compute the NTLM response, derived from
-		 * the challenge and the password.
-		 */
+		/* Compute the NTLM response, derived from the challenge and the password. */
 		uniplen = 24;
 		unipp = malloc(uniplen, M_SMBTEMP, M_WAITOK);
 		if (unipp) {
@@ -683,7 +748,7 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 			smb_calcmackey(vcp, unipp, uniplen);			
 		}
 	}
-	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, context, &rqp);
+	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_SESSION_SETUP_ANDX, 0, context, &rqp);
 	if (error)
 		goto ssn_exit;
 	
@@ -699,7 +764,7 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	mb_put_uint8(mbp, 0xff);
 	mb_put_uint8(mbp, 0);
 	mb_put_uint16le(mbp, 0);
-	mb_put_uint16le(mbp, vcp->vc_sopt.sv_maxtx);
+	mb_put_uint16le(mbp, maxtx);
 	mb_put_uint16le(mbp, vcp->vc_sopt.sv_maxmux);
 	mb_put_uint16le(mbp, vcp->vc_number);
 	mb_put_uint32le(mbp, vcp->vc_sopt.sv_skey);
@@ -713,24 +778,26 @@ int smb_smb_ssnsetup(struct smb_vc *vcp, vfs_context_t context)
 	mb_put_mem(mbp, pp, plen, MB_MSYSTEM); /* password */
 	if (uniplen)
 		mb_put_mem(mbp, (caddr_t)unipp, uniplen, MB_MSYSTEM);
-	smb_put_dstring(mbp, vcp, vcp->vc_username, SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
-	smb_put_dstring(mbp, vcp, vcp->vc_domain, SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_username, SMB_MAXUSERNAMELEN + 1, NO_SFM_CONVERSIONS); /* user */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), vcp->vc_domain, SMB_MAXNetBIOSNAMELEN + 1, NO_SFM_CONVERSIONS); /* domain */
 
-	smb_put_dstring(mbp, vcp, SMBFS_NATIVEOS, sizeof(SMBFS_NATIVEOS), NO_SFM_CONVERSIONS);	/* Native OS */
-	smb_put_dstring(mbp, vcp, SMBFS_LANMAN, sizeof(SMBFS_LANMAN), NO_SFM_CONVERSIONS);	/* LAN Mgr */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_NATIVEOS, sizeof(SMBFS_NATIVEOS), NO_SFM_CONVERSIONS);	/* Native OS */
+	smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), SMBFS_LANMAN, sizeof(SMBFS_LANMAN), NO_SFM_CONVERSIONS);	/* LAN Mgr */
 
 	smb_rq_bend(rqp);
 	error = smb_rq_simple_timed(rqp, SMBSSNSETUPTIMO);
 	if (error) {
-		SMBDEBUG("error = %d, rpflags2 = 0x%x, sr_error = 0x%x\n", error, 
-				 rqp->sr_rpflags2, rqp->sr_error);
+		SMBDEBUG("error = %d, rpflags2 = 0x%x, sr_ntstatus = 0x%x\n", error, 
+				 rqp->sr_rpflags2, rqp->sr_ntstatus);
 	}
 
 	if (error) {
-		if (rqp->sr_errclass == ERRDOS && rqp->sr_serror == ERRnoaccess)
+		if (error == EACCES) {
 			error = EAUTH;
-		if (!(rqp->sr_errclass == ERRDOS && rqp->sr_serror == ERRmoredata))
+		}
+		if (rqp->sr_ntstatus != STATUS_MORE_PROCESSING_REQUIRED) {
 			goto bad;
+		}
 	}
 	vcp->vc_smbuid = rqp->sr_rpuid;
 	smb_rq_getreply(rqp, &mdp);
@@ -770,18 +837,15 @@ bad:
 	 * and return an error.
 	 */
 	if ((error == 0) && (vcp->vc_flags & SMBV_USER_SECURITY) && 
-		((vcp->vc_flags & SMBV_GUEST_ACCESS) != SMBV_GUEST_ACCESS) && (action & SMB_ACT_GUEST)) {
+		!SMBV_HAS_GUEST_ACCESS(vcp) && (action & SMB_ACT_GUEST)) {
 		/* 
 		 * Wanted to only login the users as guest if they ask to be login ask guest. Window system will
 		 * login any bad user name as guest if guest is turn on. The problem here is with XPHome. XPHome
 		 * doesn't care if the user is real or made up, it always logs them is as guest.
 		 */
 		SMBWARNING("Got guess access, but wanted real access.\n");
-#ifdef GUEST_ACCESS_LOG_OFF
-		(void)smb_smb_ssnclose(vcp, scred);
+		(void)smb_smb_ssnclose(vcp, context);
 		error = EAUTH;
-#endif // GUEST_ACCESS_LOG_OFF
-		vcp->vc_flags |= SMBV_GUEST_ACCESS;
 	}
 	
 	smb_rq_done(rqp);
@@ -797,7 +861,7 @@ ssn_exit:
 	}
 	
 	if (((vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) != SMBV_ENCRYPT_PASSWORD) &&
-		(UNIX_CAPS(vcp) & SMB_CAP_UNICODE)) {
+		(VC_CAPS(vcp) & SMB_CAP_UNICODE)) {
 		/* We turned off UNICODE for Clear Text Password turn it back on */
 		vcp->vc_hflags2 |= SMB_FLAGS2_UNICODE;
 	}
@@ -822,7 +886,7 @@ smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
 	if (smb_smb_nomux(vcp, context, __FUNCTION__) != 0)
 		return EINVAL;
 
-	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_LOGOFF_ANDX, context, &rqp);
+	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_LOGOFF_ANDX, 0, context, &rqp);
 	if (error)
 		return error;
 	mbp = &rqp->sr_rq;
@@ -839,60 +903,133 @@ smb_smb_ssnclose(struct smb_vc *vcp, vfs_context_t context)
 	return error;
 }
 
+/*
+ * Get the type of file system this share is exporting, we treat all unknown
+ * file system types as FAT. This should hurt since this is only used for
+ * Dfs failover currently. If we ever expand its use we should rethink name
+ * pipes.
+ */
+static void
+smb_get_share_fstype(struct smb_vc *vcp, struct smb_share *share, 
+					 struct mdchain *mdp)
+{
+	char *tmpbuf = NULL;
+	char *fsname = NULL;
+	uint16_t bc;
+	size_t fs_nmlen, fs_offset;
+	int error;
+	
+	/* We always default to saying its a fat file system type */
+	share->ss_fstype = SMB_FS_FAT;
+	/* Get the remaining number of bytes */
+	md_get_uint16le(mdp, &bc);
+	SMBDEBUG("tree bc = %d\n", bc);
+	if ((bc == 0) || (bc >= vcp->vc_txmax)) {
+		/* Nothing here just get out we are done */
+		return;
+	}
+	
+	MALLOC(tmpbuf, char *, bc+1, M_SMBFSDATA, M_NOWAIT | M_ZERO);
+	if (! tmpbuf) {
+		/* Couldn't allocate the buffer just get out */
+		return;
+	}
+	error = md_get_mem(mdp, (void *)tmpbuf, bc, MB_MSYSTEM);
+	if (error) {
+		SMB_FREE(tmpbuf, M_SMBFSDATA);
+		return;
+	}
+	/*
+	 * Skip over the service type:
+	 * Service (variable): The type of the shared resource to which the 
+	 * TID is connected. The Service field MUST be encoded as a 
+	 * null-terminated array of OEM characters, even if the client and 
+	 * server have negotiated to use Unicode strings.
+	 *
+	 * Note we allocated the buffer 1 byte bigger so tmpbuf is always
+	 * null terminated
+	 */
+	SMBDEBUG("Service type = %s\n", tmpbuf);
+	/* Get the offset to the file system name, skip the null byte */
+	fs_offset = strnlen(tmpbuf, bc) + 1;
+	if (fs_offset >= bc) {
+		SMB_FREE(tmpbuf, M_SMBFSDATA);
+		return;
+	}
+	/*
+	 * Pad(variable): Padding bytes. If Unicode support has been enabled and 
+	 * SMB_FLAGS2_UNICODE is set in SMB_Header.Flags2, this field MUST contain 
+	 * zero or one null padding byte as needed to ensure that the 
+	 * NativeFileSystem string is aligned on a 16-bit boundary.
+	 *
+	 * We always start on an odd boundry, because of word count. So if fs_offset
+	 * is even then we need to pad.
+	 */
+	if (!(fs_offset & 1) && (SMB_UNICODE_STRINGS(vcp))) {
+			fs_offset += 1;
+	}
+	/*
+	 * NativeFileSystem (variable): The name of the file system on the local 
+	 * resource to which the returned TID is connected. If SMB_FLAGS2_UNICODE 
+	 * is set in the Flags2 field of the SMB Header of the response, this value 
+	 * MUST be a null-terminated string of Unicode characters. Otherwise, this 
+	 * field MUST be a null-terminated string of OEM characters. For resources 
+	 * that are not backed by a file system, such as the IPC$ share used for 
+	 * named pipes, this field MUST be set to the empty string.
+	 * 
+	 * The smbfs_ntwrkname_tolocal routine doesn't expect null terminated 
+	 * unicode strings, so figure out how long the string is without the
+	 * null bytes.
+	 */
+	if (SMB_UNICODE_STRINGS(vcp)) {
+		fs_nmlen = smb_utf16_strnsize((const uint16_t *)&tmpbuf[fs_offset], 
+									  bc - fs_offset);
+	} else {
+		fs_nmlen = bc - fs_offset;
+	}
+	SMBDEBUG("fs_offset = %d fs_nmlen = %d\n", (int)fs_offset, (int)fs_nmlen);
+	fsname = smbfs_ntwrkname_tolocal(&tmpbuf[fs_offset], &fs_nmlen, SMB_UNICODE_STRINGS(vcp));
+	/*
+	 * Since we default to FAT the following can be ignored:
+	 *		"FAT", "FAT12", "FAT16", "FAT32"
+	 */
+	if (strncmp(fsname, "CDFS", fs_nmlen) == 0) {
+		share->ss_fstype = SMB_FS_CDFS;
+	} else if (strncmp(fsname, "UDF", fs_nmlen) == 0) {
+		share->ss_fstype = SMB_FS_UDF;
+	} else if (strncmp(fsname, "NTFS", fs_nmlen) == 0) {
+		share->ss_fstype = SMB_FS_NTFS;
+	}
+	SMBDEBUG("fsname = %s fs_nmlen = %d ss_fstype = %d\n", fsname, 
+			 (int)fs_nmlen, share->ss_fstype);
+
+	SMB_FREE(tmpbuf, M_SMBFSDATA);
+	SMB_FREE(fsname, M_SMBFSDATA);
+	return;
+}
+
 #define SMB_ANY_SHARE_NAME		"?????"
 #define SMB_DISK_SHARE_NAME		"A:"
 #define SMB_PRINTER_SHARE_NAME	SMB_ANY_SHARE_NAME
 #define SMB_PIPE_SHARE_NAME		"IPC"
 #define SMB_COMM_SHARE_NAME		"COMM"
 
-static const char * smb_share_typename(int stype, size_t *sharenamelen)
+static int 
+smb_treeconnect_internal(struct smb_vc *vcp, struct smb_share *share,  
+						 const char *serverName, size_t serverNameLen, 
+						 vfs_context_t context)
 {
-	const char *pp;
-
-	switch (stype) {
-		case SMB_ST_DISK:
-			pp = SMB_DISK_SHARE_NAME;
-			*sharenamelen = sizeof(SMB_DISK_SHARE_NAME);	
-			break;
-	    case SMB_ST_PRINTER:
-			pp = SMB_PRINTER_SHARE_NAME;	/* can't use LPT: here... */
-			*sharenamelen = sizeof(SMB_PRINTER_SHARE_NAME);	
-			break;
-	    case SMB_ST_PIPE:
-			pp = SMB_PIPE_SHARE_NAME;
-			*sharenamelen = sizeof(SMB_PIPE_SHARE_NAME);	
-			break;
-	    case SMB_ST_COMM:
-			pp = SMB_COMM_SHARE_NAME;
-			*sharenamelen = sizeof(SMB_COMM_SHARE_NAME);	
-			break;
-	    case SMB_ST_ANY:
-	    default:
-			pp = SMB_ANY_SHARE_NAME;
-			*sharenamelen = sizeof(SMB_ANY_SHARE_NAME);	
-			break;
-	}
-	return pp;
-}
-
-int
-smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
-{
-	struct smb_vc *vcp;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
+	struct mdchain *mdp;
+	uint8_t wc = 0;
 	const char *pp;
 	char *pbuf, *encpass;
 	int error;
-	u_int16_t plen;
-	size_t sharenamelen = 0;
-	struct sockaddr_in *sockaddr_ptr;
+	uint16_t plen;
 
-	vcp = SSTOVC(ssp);
-	sockaddr_ptr = (struct sockaddr_in*)(&vcp->vc_saddr->sa_data[2]);
- 
-	ssp->ss_tid = SMB_TID_UNKNOWN;
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_TREE_CONNECT_ANDX, context, &rqp);
+	share->ss_tid = SMB_TID_UNKNOWN;
+	error = smb_rq_alloc(SSTOCP(share), SMB_COM_TREE_CONNECT_ANDX, 0, context, &rqp);
 	if (error)
 		goto treeconnect_exit;
 	if (vcp->vc_flags & SMBV_USER_SECURITY) {
@@ -903,7 +1040,7 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 	} else {
 		pbuf = malloc(SMB_MAXPASSWORDLEN + 1, M_SMBTEMP, M_WAITOK);
 		encpass = malloc(24, M_SMBTEMP, M_WAITOK);
-		strlcpy(pbuf, smb_share_getpass(ssp), SMB_MAXPASSWORDLEN+1);
+		strlcpy(pbuf, smb_share_getpass(share), SMB_MAXPASSWORDLEN+1);
 		pbuf[SMB_MAXPASSWORDLEN] = '\0';
 
 		if (vcp->vc_flags & SMBV_ENCRYPT_PASSWORD) {
@@ -911,7 +1048,7 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 			smb_lmresponse((u_char *)pbuf, vcp->vc_ch, (u_char *)encpass);
 			pp = encpass;
 		} else {
-			plen = (u_int16_t)strnlen(pbuf, SMB_MAXPASSWORDLEN + 1) + 1;
+			plen = (uint16_t)strnlen(pbuf, SMB_MAXPASSWORDLEN + 1) + 1;
 			pp = pbuf;
 		}
 	}
@@ -920,7 +1057,7 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 	mb_put_uint8(mbp, 0xff);
 	mb_put_uint8(mbp, 0);
 	mb_put_uint16le(mbp, 0);
-	mb_put_uint16le(mbp, 0);		/* Flags */
+	mb_put_uint16le(mbp, TREE_CONNECT_ANDX_EXTENDED_RESPONSE);
 	mb_put_uint16le(mbp, plen);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
@@ -929,7 +1066,7 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 		SMBERROR("error %d from mb_put_mem for pp\n", error);
 		goto bad;
 	}
-	smb_put_dmem(mbp, vcp, "\\\\", 2, NO_SFM_CONVERSIONS, NULL);
+	smb_put_dmem(mbp, "\\\\", 2, NO_SFM_CONVERSIONS, SMB_UNICODE_STRINGS(vcp), NULL);
 	/*
 	 * User land code now passes down the server name in the proper format that 
 	 * can be used in a tree connection. This is two complicated of an issue to
@@ -937,45 +1074,33 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 	 *
 	 * The server's NetBIOS name will always work, but we can't always get it because
 	 * of firewalls. Window cluster system require the name to be a NetBIOS
-	 * name.
+	 * name or the cluster's fully qualified dns domain name.
 	 *
 	 * Windows XP will not allow DNS names to be used and in fact requires a
 	 * name that must fit in a NetBIOS name. So if we don't have the NetBIOS
 	 * name we can send the IPv4 address in presentation form (xxx.xxx.xxx.xxx).
 	 *
-	 * If we are doing IPv6 then it looks like we can skip sending the server 
-	 * name and only send to share name. Really need to test this theory out, but
-	 * since we don't support IPv6 currently this isn't an issue. Note we must 
-	 * send the server name when doing IPv4.
+	 * If we are doing IPv6 then it looks like we can just send the server name
+	 * provided by the user. The same goes for Bonjour names. 
 	 *
-	 * Now what should we do about Bonjour names? We could send the IPv4 address 
-	 * in presentation form, we could send the Bonjour name, or could we just
-	 * skip the name completely? For now we send the IPv4 address in presentation
-	 * form just to be safe.
+	 * We now always use the name passed in and let the calling routine decide.
 	 */
-	if (sockaddr_ptr->sin_family == AF_INET) {
-		size_t srvnamelen = strnlen(vcp->vc_srvname, SMB_MAX_DNS_SRVNAMELEN+1); 
-		error = smb_put_dmem(mbp, vcp, vcp->vc_srvname, srvnamelen, NO_SFM_CONVERSIONS, NULL);
-		if (error) {
-			SMBERROR("error %d from smb_put_dmem for srvname\n", error);
-			goto bad;
-		}		
-		smb_put_dmem(mbp, vcp, "\\", 1, NO_SFM_CONVERSIONS, NULL);
-	} else {
-		/* XXX When we add IPv6 support we will need to test this out */
-		smb_put_dmem(mbp, vcp, "\\", 1, NO_SFM_CONVERSIONS, NULL);
-	}	
-	error = smb_put_dstring(mbp, vcp, ssp->ss_name, SMB_MAXSHARENAMELEN+1, NO_SFM_CONVERSIONS);
+	error = smb_put_dmem(mbp, serverName, serverNameLen, NO_SFM_CONVERSIONS,SMB_UNICODE_STRINGS(vcp),  NULL);
+	if (error) {
+		SMBERROR("error %d from smb_put_dmem for srvname\n", error);
+		goto bad;
+	}		
+	smb_put_dmem(mbp, "\\", 1, NO_SFM_CONVERSIONS, SMB_UNICODE_STRINGS(vcp), NULL);
+
+	error = smb_put_dstring(mbp, SMB_UNICODE_STRINGS(vcp), share->ss_name, SMB_MAXSHARENAMELEN+1, NO_SFM_CONVERSIONS);
 	if (error) {
 		SMBERROR("error %d from smb_put_dstring for ss_name\n", error);
 		goto bad;
 	}
 	/* The type name is always ASCII */
-	pp = smb_share_typename(ssp->ss_type, &sharenamelen);
-	/* See smb_share_typename to find out why this strlen is ok */
-	error = mb_put_mem(mbp, pp, sharenamelen, MB_MSYSTEM);
+	error = mb_put_mem(mbp, SMB_ANY_SHARE_NAME, sizeof(SMB_ANY_SHARE_NAME), MB_MSYSTEM);
 	if (error) {
-		SMBERROR("error %d from mb_put_mem for ss_type\n", error);
+		SMBERROR("error %d from mb_put_mem for share type\n", error);
 		goto bad;
 	}
 	smb_rq_bend(rqp);
@@ -983,10 +1108,41 @@ smb_smb_treeconnect(struct smb_share *ssp, vfs_context_t context)
 	SMBSDEBUG("%d\n", error);
 	if (error)
 		goto bad;
-	ssp->ss_tid = rqp->sr_rptid;
-	lck_mtx_lock(&ssp->ss_stlock);
-	ssp->ss_flags |= SMBS_CONNECTED;
-	lck_mtx_unlock(&ssp->ss_stlock);
+		
+	smb_rq_getreply(rqp, &mdp);
+	md_get_uint8(mdp, &wc);
+	if ((wc != TREE_CONNECT_NORMAL_WDCNT) && (wc != TREE_CONNECT_EXTENDED_WDCNT)) {
+		SMBERROR("Malformed tree connect with a bad word count! wc= %d \n", wc);
+		error = EBADRPC;
+		goto bad;
+	}
+	md_get_uint8(mdp, NULL);	/* AndXCommand */
+	md_get_uint8(mdp, NULL);	/* AndXReserved */
+	md_get_uint16le(mdp, NULL);	/* AndXOffset */
+	md_get_uint16le(mdp, &share->optionalSupport);	/* OptionalSupport */
+	/* 
+	 * If extended response the we need to get the maximal access of the share.
+	 */
+	if (wc == TREE_CONNECT_EXTENDED_WDCNT) {
+		if (md_get_uint32le(mdp, &share->maxAccessRights)) {
+			share->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+		} else {
+			SMB_LOG_ACCESS("maxAccessRights = 0x%x \n", share->maxAccessRights);
+		}
+
+		if (md_get_uint32le(mdp, &share->maxGuestAccessRights)) {
+			share->maxGuestAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+		}
+	} else {
+		share->maxAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+		share->maxGuestAccessRights = SA_RIGHT_FILE_ALL_ACCESS | STD_RIGHT_ALL_ACCESS;
+	}
+	smb_get_share_fstype(vcp, share, mdp);
+
+	share->ss_tid = rqp->sr_rptid;
+	lck_mtx_lock(&share->ss_stlock);
+	share->ss_flags |= SMBS_CONNECTED;
+	lck_mtx_unlock(&share->ss_stlock);
 bad:
 	if (encpass)
 		free(encpass, M_SMBTEMP);
@@ -997,18 +1153,56 @@ treeconnect_exit:
 	return error;
 }
 
-int smb_smb_treedisconnect(struct smb_share *ssp, vfs_context_t context)
+/*
+ * XP requires the tree connect server name to either contain the NetBIOS
+ * name or IPv4 in the dot presentation format. Windows Cluster wants the
+ * cluster NetBIOS name or the cluster dns name. So if we resolved using
+ * NetBIOS then we always use the NetBIOS name, otherwise we use the name
+ * that we use to resolve the address. Now if the treeconnect fails then
+ * attempt to use the IPv4 dot presentation name.
+ */
+int 
+smb_smb_treeconnect(struct smb_share *share, vfs_context_t context)
+{
+	struct smb_vc *vcp = SSTOVC(share);
+	int error;
+	size_t srvnamelen;
+	char *serverName;
+	
+	/* No IPv4 dot name so use the real server name in the tree connect */
+	if (vcp->ipv4DotName[0] == 0) {
+		serverName = vcp->vc_srvname;
+		srvnamelen = strnlen(serverName, SMB_MAX_DNS_SRVNAMELEN+1); 
+		error = smb_treeconnect_internal(vcp, share, serverName, srvnamelen, context);
+		/* See if we can get the IPv4 presentation format */
+		if (error && (vcp->vc_saddr->sa_family == AF_INET)) {
+			struct sockaddr_in *in = (struct sockaddr_in *)vcp->vc_saddr;
+			(void)inet_ntop(AF_INET, &in->sin_addr.s_addr, vcp->ipv4DotName, SMB_MAXNetBIOSNAMELEN+1);
+			SMBWARNING("treeconnect failed using server name %s with error %d\n", serverName, error);
+		}
+	}
+	/* Use the IPv4 dot name in the tree connect */
+	if (vcp->ipv4DotName[0] != 0) {
+		serverName = vcp->ipv4DotName;
+		srvnamelen = strnlen(serverName, SMB_MAXNetBIOSNAMELEN+1); 
+		error = smb_treeconnect_internal(vcp, share, serverName, srvnamelen, context);
+		if (error)
+			vcp->ipv4DotName[0] = 0;	/* We failed don't use it again */		
+	}
+	return error;
+}
+
+int 
+smb_smb_treedisconnect(struct smb_share *share, vfs_context_t context)
 {
 	struct smb_rq *rqp;
-	struct mbchain *mbp;
 	int error;
 
-	if (ssp->ss_tid == SMB_TID_UNKNOWN)
+	if (share->ss_tid == SMB_TID_UNKNOWN)
 		return 0;
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_TREE_DISCONNECT, context, &rqp);
+	error = smb_rq_alloc(SSTOCP(share), SMB_COM_TREE_DISCONNECT, 0, context, &rqp);
 	if (error)
 		return error;
-	mbp = &rqp->sr_rq;
 	smb_rq_wstart(rqp);
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
@@ -1016,23 +1210,26 @@ int smb_smb_treedisconnect(struct smb_share *ssp, vfs_context_t context)
 	error = smb_rq_simple(rqp);
 	SMBSDEBUG("%d\n", error);
 	smb_rq_done(rqp);
-	ssp->ss_tid = SMB_TID_UNKNOWN;
+	share->ss_tid = SMB_TID_UNKNOWN;
 	return error;
 }
 
+/*
+ * The calling routine must hold a reference on the share
+ */
 static __inline int
-smb_smb_readx(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len, 
-	user_ssize_t *rresid, uio_t uio, vfs_context_t context)
+smb_smb_readx(struct smb_share *share, uint16_t fid, user_ssize_t *len, 
+	user_ssize_t *rresid, uint16_t *available, uio_t uio, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
-	u_int8_t wc;
+	uint8_t wc;
 	int error;
-	u_int16_t residhi, residlo, off, doff;
-	u_int32_t resid;
+	uint16_t residhi, residlo, off, doff;
+	uint32_t resid;
 
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_READ_ANDX, context, &rqp);
+	error = smb_rq_alloc(SSTOCP(share), SMB_COM_READ_ANDX, 0, context, &rqp);
 	if (error)
 		return error;
 	smb_rq_getrequest(rqp, &mbp);
@@ -1041,14 +1238,14 @@ smb_smb_readx(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 	mb_put_uint8(mbp, 0);		/* MBZ */
 	mb_put_uint16le(mbp, 0);	/* offset to secondary */
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
-	*len = MIN(SSTOVC(ssp)->vc_rxmax, *len);
+	mb_put_uint32le(mbp, (uint32_t)uio_offset(uio));
+	*len = MIN(SSTOVC(share)->vc_rxmax, *len);
 
-	mb_put_uint16le(mbp, (u_int16_t)*len);	/* MaxCount */
-	mb_put_uint16le(mbp, (u_int16_t)*len);	/* MinCount (only indicates blocking) */
-	mb_put_uint32le(mbp, (u_int32_t)((user_size_t)*len >> 16));	/* MaxCountHigh */
-	mb_put_uint16le(mbp, (u_int16_t)*len);	/* Remaining ("obsolete") */
-	mb_put_uint32le(mbp, (u_int32_t)(uio_offset(uio) >> 32));
+	mb_put_uint16le(mbp, (uint16_t)*len);	/* MaxCount */
+	mb_put_uint16le(mbp, (uint16_t)*len);	/* MinCount (only indicates blocking) */
+	mb_put_uint32le(mbp, (uint32_t)((user_size_t)*len >> 16));	/* MaxCountHigh */
+	mb_put_uint16le(mbp, (uint16_t)*len);	/* Remaining ("obsolete") */
+	mb_put_uint32le(mbp, (uint32_t)(uio_offset(uio) >> 32));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	smb_rq_bend(rqp);
@@ -1070,7 +1267,14 @@ smb_smb_readx(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 		off++;
 		md_get_uint16le(mdp, NULL);
 		off += 2;
-		md_get_uint16le(mdp, NULL);
+		/*
+		 * Available (2 bytes): This field is valid when reading from named pipes 
+		 * or I/O devices. This field indicates the number of bytes remaining to 
+		 * be read after the requested read was completed. If the client reads 
+		 * from a disk file, this field MUST be set to -1 (0xFFFF). <62>
+		 */
+		*available = 0;
+		md_get_uint16le(mdp, available);
 		off += 2;
 		md_get_uint16le(mdp, NULL);	/* data compaction mode */
 		off += 2;
@@ -1102,232 +1306,250 @@ smb_smb_readx(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len,
 	return (error);
 }
 
+/*
+ * The calling routine must hold a reference on the share
+ */
 static __inline int
-smb_smb_writex(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len, 
-	user_ssize_t *rresid, uio_t uio, vfs_context_t context, int timo)
+smb_writex(struct smb_share *share, uint16_t fid, user_ssize_t *len, 
+		   user_ssize_t *rresid, uio_t uio, uint16_t writeMode, vfs_context_t context)
 {
-	struct smb_vc *vcp = SSTOVC(ssp);
+	int supportsLargeWrites = (VC_CAPS(SSTOVC(share)) & SMB_CAP_LARGE_WRITEX) ? TRUE : FALSE;
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	struct mdchain *mdp;
 	int error;
-	u_int8_t wc;
-	u_int16_t resid;
-
+	uint8_t wc;
+	uint16_t resid;
+	uint16_t *dataOffsetPtr;
+	
 	/* vc_wxmax now holds the max buffer size the server supports for writes */
-	*len = MIN(*len, vcp->vc_wxmax);
-
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_WRITE_ANDX, context, &rqp);
+	*len = MIN(*len, SSTOVC(share)->vc_wxmax);
+	
+	error = smb_rq_alloc(SSTOCP(share), SMB_COM_WRITE_ANDX, 0, context, &rqp);
 	if (error)
 		return (error);
 	smb_rq_getrequest(rqp, &mbp);
 	smb_rq_wstart(rqp);
-	mb_put_uint8(mbp, 0xff);	/* no secondary command */
-	mb_put_uint8(mbp, 0);		/* MBZ */
-	mb_put_uint16le(mbp, 0);	/* offset to secondary */
+	mb_put_uint8(mbp, 0xff);	/* AndXCommand */
+	mb_put_uint8(mbp, 0);		/* Reserved */
+	mb_put_uint16le(mbp, 0);	/* AndXOffset */
+	/* 
+	 * [MS-CIFS]
+	 * FID (2 bytes): This field MUST be a valid FID indicating the file to 
+	 * which the data SHOULD be written.
+	 *
+	 * NOTE: Currently the fid always stays in the wire format.
+	 */
 	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
-	mb_put_uint32le(mbp, 0);	/* MBZ (timeout) */
-	mb_put_uint16le(mbp, 0);	/* !write-thru */
+	/* 
+	 * [MS-CIFS]
+	 * Offset (4 bytes): If WordCount is 0x0C, this field represents a 32-bit 
+	 * offset, measured in bytes, of where the write SHOULD start relative to the 
+	 * beginning of the file. If WordCount is 0xE, this field represents the 
+	 * lower 32 bits of a 64-bit offset.
+	 */
+	mb_put_uint32le(mbp, (uint32_t)uio_offset(uio));
+	/* 
+	 * [MS-CIFS]
+	 * Timeout (4 bytes): This field represents the amount of time, in milliseconds, 
+	 * that a server MUST wait before sending a response. It is used only when 
+	 * writing to a named pipe or I/O device and does not apply when writing to 
+	 * a disk file. Support for this field is optional. Two values have special 
+	 * meaning in this field:
+	 * If the Timeout value is -1 (0xFFFFFFFF, "wait forever"), the server MUST 
+	 * wait until all bytes of data are written to the device before returning a 
+	 * response to the client.
+	 * If the Timeout value is -2 (0xFFFFFFFE, "default"), the server MUST wait 
+	 * for the default time-out associated with the named pipe or I/O device.
+	 *
+	 * NOTE: We have always set it to zero and so does Windows Clients.
+	 */
+	mb_put_uint32le(mbp, 0);	/* Timeout  */
+	/*
+	 * [MS-CIFS]	 
+	 * WriteMode (2 bytes): A 16-bit field containing flags defined as follows:
+	 * WritethroughMode 0x0001
+	 *		If set the server MUST NOT respond to the client before the data is 
+	 *		written to disk (write-through).
+	 * ReadBytesAvailable 0x0002
+	 *		If set the server SHOULD set the Response.SMB_Parameters.Available 
+	 *		field correctly for writes to named pipes or I/O devices.
+	 * RAW_MODE 0x0004
+	 *		Applicable to named pipes only. If set, the named pipe MUST be written 
+	 *		to in raw mode (no translation).
+	 * MSG_START 0x0008
+	 *		Applicable to named pipes only. If set, this data is the start of a message. 
+	 */
+	mb_put_uint16le(mbp, writeMode);
+	/* 
+	 * [MS-CIFS]	 
+	 * Remaining (2 bytes): This field is an advisory field telling the server 
+	 * approximately how many bytes are to be written to this file before the next 
+	 * non-write operation. It SHOULD include the number of bytes to be written 
+	 * by this request. The server MAY either ignore this field or use it to 
+	 * perform optimizations.
+	 */
 	mb_put_uint16le(mbp, 0);
-	mb_put_uint16le(mbp, (u_int16_t)((user_size_t)*len >> 16));
-	mb_put_uint16le(mbp, (u_int16_t)*len);
-	mb_put_uint16le(mbp, 64);	/* data offset from header start */
-	mb_put_uint32le(mbp, (u_int32_t)(uio_offset(uio) >> 32));
+	/*
+	 * [MS-CIFS]	 	 
+	 * Reserved (2 bytes): This field MUST be 0x0000.
+	 *
+	 * Wrong only zero if the server doesn't support SMB_CAP_LARGE_WRITEX otherwise
+	 * contains the DataLengthHigh. If the server doesn't support SMB_CAP_LARGE_WRITEX 
+	 * then the upper part of length will zero.
+	 */
+	mb_put_uint16le(mbp, (uint16_t)((user_size_t)*len >> 16));
+	/*
+	 * [MS-CIFS]	 	 
+	 * DataLength (2 bytes): This field is the number of bytes included in the 
+	 * SMB_Data that are to be written to the file.
+	 */
+	mb_put_uint16le(mbp, (uint16_t)*len);
+	/*
+	 * [MS-CIFS]	 	 
+	 * DataOffset (2 bytes): The offset in bytes from the start of the SMB header 
+	 * to the start of the data that is to be written to the file. Specifying this 
+	 * offset allows a client to efficiently align the data buffer.
+	 */
+	dataOffsetPtr = (uint16_t *)mb_reserve(mbp, sizeof(uint16_t));
+	/*
+	 * [MS-CIFS]	 	 
+	 * OffsetHigh (4 bytes): This field is optional. If WordCount is 0x0C, this 
+	 * field is not included in the request. If WordCount is 0x0E, this field 
+	 * represents the upper 32 bits of a 64-bit offset, measured in bytes, of 
+	 * where the write SHOULD start relative to the beginning of the file.
+	 */
+	if (!supportsLargeWrites && ((uint32_t)(uio_offset(uio) >> 32))) {
+		error = ENOTSUP;
+		goto done;
+	}
+	mb_put_uint32le(mbp, (uint32_t)(uio_offset(uio) >> 32));
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	do {
-		mb_put_uint8(mbp, 0xee);	/* mimic xp pad byte! */
+		
+		/*
+		 * [MS-CIFS]	 	 
+		 * Pad (1 byte): Padding byte that MUST be ignored.
+		 */
+		mb_put_uint8(mbp, 0);
+		
+		*dataOffsetPtr = htoles(mb_fixhdr(mbp));	
 		error = mb_put_uio(mbp, uio, (int)*len);
 		if (error)
 			break;
 		smb_rq_bend(rqp);
-		error = timo ? smb_rq_simple_timed(rqp, timo)
-			     : smb_rq_simple(rqp);
+		error = smb_rq_simple_timed(rqp, SMBWRTTIMO);
 		if (error)
 			break;
 		smb_rq_getreply(rqp, &mdp);
+		/*
+		 * [MS-CIFS]	 	 
+		 * WordCount (1 byte): This field MUST be 0x06. The length in two-byte 
+		 * words of the remaining SMB_Parameters.
+		 */
 		md_get_uint8(mdp, &wc);
 		if (wc != 6) {
 			error = EBADRPC;
 			break;
 		}
-		md_get_uint8(mdp, NULL);
-		md_get_uint8(mdp, NULL);
-		md_get_uint16le(mdp, NULL);
-		md_get_uint16le(mdp, &resid); /* actually is # written */
+		md_get_uint8(mdp, NULL);	/* AndXCommand */
+		md_get_uint8(mdp, NULL);	/* AndXReserved */
+		md_get_uint16le(mdp, NULL);	/* AndXOffset */
+		/*
+		 * [MS-CIFS]	 	 
+		 * Count (2 bytes): The number of bytes written to the file.
+		 */
+		md_get_uint16le(mdp, &resid);
 		*rresid = resid;
 		/*
-		 * if LARGE_WRITEX then there's one more bit of # written
+		 * [MS-CIFS]	 	 
+		 * Available (2 bytes): This field is valid when writing to named pipes 
+		 * or I/O devices. This field indicates the number of bytes remaining to 
+		 * be read after the requested write was completed. If the client wrote 
+		 * to a disk file, this field MUST be set to -1 (0xFFFF).
 		 */
-		if ((SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_WRITEX)) {
-			md_get_uint16le(mdp, NULL);
-			md_get_uint16le(mdp, &resid);
-			*rresid |= (int)(resid & 1) << 16;
-		}
+		md_get_uint16le(mdp, NULL);
+		/*
+		 * [MS-CIFS]	 	 
+		 * Reserved (4 bytes): This field MUST be 0x00000000.
+		 *
+		 * NOTE: Wrong the first two bytes are the high count field and the
+		 * last two bytes should be zero.
+		 */
+		md_get_uint16le(mdp, &resid);
+		*rresid |= resid << 16;
+		md_get_uint16le(mdp, NULL);
 	} while(0);
-
+	
+done:
 	smb_rq_done(rqp);
 	return (error);
 }
 
-static __inline int
-smb_smb_read(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len, 
-	user_ssize_t *rresid, uio_t uio, vfs_context_t context)
-{
-	struct smb_rq *rqp;
-	struct mbchain *mbp;
-	struct mdchain *mdp;
-	u_int16_t resid, bc;
-	u_int8_t wc;
-	int error;
-	u_int16_t rlen;
-
-	if (SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_FILES ||
-	    SSTOVC(ssp)->vc_sopt.sv_caps & SMB_CAP_LARGE_READX)
-		return (smb_smb_readx(ssp, fid, len, rresid, uio, context));
-
-	/* Someday we need to drop this call, since even Win98 supports SMB_CAP_LARGE_READX */
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_READ, context, &rqp);
-	if (error)
-		return error;
-
-	*len = MIN(SSTOVC(ssp)->vc_rxmax, *len);
-	rlen = (u_int16_t)*len;
-	smb_rq_getrequest(rqp, &mbp);
-	smb_rq_wstart(rqp);
-	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint16le(mbp, (u_int16_t)rlen);
-	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
-	mb_put_uint16le(mbp, (u_int16_t)MIN(uio_resid(uio), 0xffff));
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
-	smb_rq_bend(rqp);
-	do {
-		error = smb_rq_simple(rqp);
-		if (error)
-			break;
-		smb_rq_getreply(rqp, &mdp);
-		md_get_uint8(mdp, &wc);
-		if (wc != 5) {
-			error = EBADRPC;
-			break;
-		}
-		md_get_uint16le(mdp, &resid);
-		md_get_mem(mdp, NULL, 4 * 2, MB_MSYSTEM);
-		md_get_uint16le(mdp, &bc);
-		md_get_uint8(mdp, NULL);		/* ignore buffer type */
-		md_get_uint16le(mdp, &resid);
-		if (resid == 0) {
-			*rresid = resid;
-			break;
-		}
-		error = md_get_uio(mdp, uio, resid);
-		if (error)
-			break;
-		*rresid = resid;
-	} while(0);
-	smb_rq_done(rqp);
-	return error;
-}
-
-int smb_read(struct smb_share *ssp, u_int16_t fid, uio_t uio, 
+/*
+ * The calling routine must hold a reference on the share
+ */
+int smb_read(struct smb_share *share, uint16_t fid, uio_t uio, 
 			 vfs_context_t context)
 {
 	user_ssize_t tsize, len, resid = 0;
 	int error = 0;
+	uint16_t available;
 
 	tsize = uio_resid(uio);
 	while (tsize > 0) {
 		len = tsize;
-		error = smb_smb_read(ssp, fid, &len, &resid, uio, context);
+		error = smb_smb_readx(share, fid, &len, &resid, &available, uio, context);
 		if (error)
 			break;
 		tsize -= resid;
-		if (resid < len)
+		/* Nothing else to read we are done */
+		if (!resid) {
+			SMB_LOG_IO("Server zero bytes read\n");
 			break;
+		}
+		/*
+		 * Available (2 bytes): This field is valid when reading from named pipes 
+		 * or I/O devices. This field indicates the number of bytes remaining to 
+		 * be read after the requested read was completed. If the client reads 
+		 * from a disk file, this field MUST be set to -1 (0xFFFF). <62>
+		 */
+		if (resid < len) {
+			if (available == 0xffff) {
+				/* They didn't read all the data, log it and keep trying */
+				SMB_LOG_IO("Disk IO: Server returns %lld we request %lld\n", resid, len);
+			} else if (available) {
+				/* They didn't read all the data, log it and keep trying */
+				SMB_LOG_IO("PIPE IO: Server returns %lld we request %lld available = %d\n", 
+						   resid, len, available);
+			} else {
+				/* Nothing left to read, we are done */
+				break;
+			}
+
+		}
 	}
 	return error;
 }
 
-
-static __inline int
-smb_smb_write(struct smb_share *ssp, u_int16_t fid, user_ssize_t *len, 
-	user_ssize_t *rresid, uio_t uio, vfs_context_t context, int timo)
-{
-	struct smb_rq *rqp;
-	struct mbchain *mbp;
-	struct mdchain *mdp;
-	u_int16_t resid;
-	u_int8_t wc;
-	int error;
-
-	/*
-	 * Remember that a zero length write will truncate the file if done with the old
-	 * write call. So if we get a zero length write let it fall through to the old
-	 * write call.   
-	 */ 
-	if ((*len) && (SSTOVC(ssp)->vc_sopt.sv_caps & (SMB_CAP_LARGE_FILES | SMB_CAP_LARGE_WRITEX)))
-		return (smb_smb_writex(ssp, fid, len, rresid, uio, context, timo));
-
-	if ((uio_offset(uio) + *len) > UINT32_MAX)
-		return (EFBIG);
-
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_WRITE, context, &rqp);
-	if (error)
-		return error;
-
-	/* vc_wxmax now holds the max buffer size the server supports for writes */
-	resid = MIN(*len, SSTOVC(ssp)->vc_wxmax);
-	*len = resid;
-
-	smb_rq_getrequest(rqp, &mbp);
-	smb_rq_wstart(rqp);
-	mb_put_mem(mbp, (caddr_t)&fid, sizeof(fid), MB_MSYSTEM);
-	mb_put_uint16le(mbp, resid);
-	mb_put_uint32le(mbp, (u_int32_t)uio_offset(uio));
-	mb_put_uint16le(mbp, (u_int16_t)MIN(uio_resid(uio), 0xffff));
-	smb_rq_wend(rqp);
-	smb_rq_bstart(rqp);
-	mb_put_uint8(mbp, SMB_DT_DATA);
-	mb_put_uint16le(mbp, resid);
-	do {
-		error = mb_put_uio(mbp, uio, resid);
-		if (error)
-			break;
-		smb_rq_bend(rqp);
-		error = timo ? smb_rq_simple_timed(rqp, timo)
-			     : smb_rq_simple(rqp);
-		if (error)
-			break;
-		smb_rq_getreply(rqp, &mdp);
-		md_get_uint8(mdp, &wc);
-		if (wc != 1) {
-			error = EBADRPC;
-			break;
-		}
-		md_get_uint16le(mdp, &resid);
-		*rresid = resid;
-	} while(0);
-	smb_rq_done(rqp);
-	return error;
-}
-
-int
-smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio, 
-		  vfs_context_t context, int timo)
+/*
+ * The calling routine must hold a reference on the share
+ */
+int smb_write(struct smb_share *share, uint16_t fid, uio_t uio, int ioflag, 
+			  vfs_context_t context)
 {
 	int error = 0;
 	user_ssize_t  old_resid, len, tsize, resid = 0;
 	off_t  old_offset;
-
+	uint16_t writeMode = (ioflag & IO_SYNC) ? WritethroughMode : 0;
+		
 	tsize = old_resid = uio_resid(uio);
 	old_offset = uio_offset(uio);
-
+	
 	while (tsize > 0) {
 		len = tsize;
-		error = smb_smb_write(ssp, fid, &len, &resid, uio, context, timo);
-		timo = 0; /* only first write is special */
+		error  = smb_writex(share, fid, &len, &resid, uio, writeMode, context);
 		if (error)
 			break;
 		if (resid < len) {
@@ -1350,15 +1572,18 @@ smb_write(struct smb_share *ssp, u_int16_t fid, uio_t uio,
 	return error;
 }
 
-static u_int32_t	smbechoes = 0;
+/*
+ * This call is done on the vc not the share. Really should be an async call
+ * if we ever get the request queue to work async.
+ */
 int
-smb_smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo)
+smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo, uint32_t EchoCount)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	int error;
 
-	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_ECHO, context, &rqp);
+	error = smb_rq_alloc(VCTOCP(vcp), SMB_COM_ECHO, 0, context, &rqp);
 	if (error)
 		return error;
 	mbp = &rqp->sr_rq;
@@ -1366,23 +1591,24 @@ smb_smb_echo(struct smb_vc *vcp, vfs_context_t context, int timo)
 	mb_put_uint16le(mbp, 1); /* echo count */
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
-	smbechoes++;
-	mb_put_uint32le(mbp, smbechoes);
+	mb_put_uint32le(mbp, EchoCount);
 	smb_rq_bend(rqp);
 	error = smb_rq_simple_timed(rqp, timo);
-	SMBSDEBUG("%d\n", error);
 	smb_rq_done(rqp);
 	return error;
 }
 
-int smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, const char *name,  
+/*
+ * The calling routine must hold a reference on the share
+ */
+int smb_checkdir(struct smb_share *share, struct smbnode *dnp, const char *name,  
 					 size_t nmlen, vfs_context_t context)
 {
 	struct smb_rq *rqp;
 	struct mbchain *mbp;
 	int error;
 
-	error = smb_rq_alloc(SSTOCP(ssp), SMB_COM_CHECK_DIRECTORY, context, &rqp);
+	error = smb_rq_alloc(SSTOCP(share), SMB_COM_CHECK_DIRECTORY, 0, context, &rqp);
 	if (error)
 		return error;
 	smb_rq_getrequest(rqp, &mbp);
@@ -1390,10 +1616,10 @@ int smb_smb_checkdir(struct smb_share *ssp, struct smbnode *dnp, const char *nam
 	smb_rq_wend(rqp);
 	smb_rq_bstart(rqp);
 	mb_put_uint8(mbp, SMB_DT_ASCII);
-	smbfs_fullpath(mbp, SSTOVC(ssp), dnp, name, &nmlen, UTF_SFM_CONVERSIONS, '\\');
+	smbfs_fullpath(mbp, dnp, name, &nmlen, UTF_SFM_CONVERSIONS, 
+				   SMB_UNICODE_STRINGS(SSTOVC(share)), '\\');
 	smb_rq_bend(rqp);
 	error = smb_rq_simple(rqp);
-	SMBSDEBUG("%d\n", error);
 	smb_rq_done(rqp);
 	return error;
 }

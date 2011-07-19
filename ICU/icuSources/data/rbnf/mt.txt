@@ -1,193 +1,429 @@
 ﻿// ***************************************************************************
 // *
-// *   Copyright (C) 2004, International Business Machines
-// *   Corporation and others.  All Rights Reserved.
+// * Copyright (C) 2010 International Business Machines
+// * Corporation and others.  All Rights Reserved.
+// * Tool: com.ibm.icu.dev.tool.cldr.LDML2ICUConverter.java
+// * Source File:<path>/common/rbnf/mt.xml
 // *
 // ***************************************************************************
-// 
-
-mt {
-// Spellout rules.  Experimental.
-
-    SpelloutRules {
-        // This rule set shows the normal simple formatting rules for English
-        "%simplified:\n"
-                // negative number rule.  This rule is used to format negative
-                // numbers.  The result of formatting the number's absolute
-                // value is placed where the >> is.
-            "-x: minus >>;\n"
-                // faction rule.  This rule is used for formatting numbers
-                // with fractional parts.  The result of formatting the
-                // number's integral part is substituted for the <<, and
-                // the result of formatting the number's fractional part
-                // (one digit at a time, e.g., 0.123 is "zero punt one two
-                // three") replaces the >>.
-            "x.x: << punt >>;\n"
-                // the rules for the values from 0 to 19 are simply the
-                // words for those numbers
-            "żero; wieħed; tnejn; tlieta; erbgħa; ħamsa; sitta; sebgħa; tmienja; disgħa;\n"
-            "għaxra; ħdax; tnax; tlettax; erbatax; ħmistax; sittax;\n"
-            "    sbatax; tmintax; dsatax;\n"
-                // beginning at 20, we use the >> to mark the position where
-                // the result of formatting the number's ones digit.  Thus,
-                // we only need a new rule at every multiple of 10.  Text in
-                // backets is omitted if the value being formatted is an
-                // even multiple of 10.
-            "20: [>> u ]għoxrin;\n"
-            "30: [>> u ]tletin;\n"
-            "40: [>> u ]erbgħin;\n"
-            "50: [>> u ]ħamsin;\n"
-            "60: [>> u ]sittin;\n"
-            "70: [>> u ]sebgħin;\n"
-            "80: [>> u ]tmenin;\n"
-            "90: [>> u ]disgħin;\n"
-                // beginning at 100, we can use << to mark the position where
-                // the result of formatting the multiple of 100 is to be
-                // inserted.  Notice also that the meaning of >> has shifted:
-                // here, it refers to both the ones place and the tens place.
-                // The meanings of the << and >> tokens depend on the base value
-                // of the rule.  A rule's divisor is (usually) the highest
-                // power of 10 that is less than or equal to the rule's base
-                // value.  The value being formatted is divided by the rule's
-                // divisor, and the integral quotient is used to get the text
-                // for <<, while the remainder is used to produce the text
-                // for >>.  Again, text in brackets is omitted if the value
-                // being formatted is an even multiple of the rule's divisor
-                // (in this case, an even multiple of 100)
-            "100: mija[ u >>];\n"
-            "200: mitejn[ u >>];\n"
-                // The rules for the higher numbers work the same way as the
-                // rule for 100: Again, the << and >> tokens depend on the
-                // rule's divisor, which for all these rules is also the rule's
-                // base value.  To group by thousand, we simply don't have any
-                // rules between 1,000 and 1,000,000.
-            "1000: << elf[ u >>];\n"
-            "2000: << elfejn[ u >>];\n"
-            "3000: tliet elef [ u >>];\n"
-            "1,000,000: << miljun[ u >>];\n"
-            "1,000,000,000: << biljun[ >>];\n"
-            "1,000,000,000,000: << triljun[ >>];\n"
-                // overflow rule.  This rule specifies that values of a
-                // quadrillion or more are shown in numerals rather than words.
-                // The == token means to format (with new rules) the value
-                // being formatted by this rule and place the result where
-                // the == is.  The #,##0 inside the == signs is a
-                // DecimalFormat pattern.  It specifies that the value should
-                // be formatted with a DecimalFormat object, and that it
-                // should be formatted with no decimal places, at least one
-                // digit, and a thousands separator.
-            "1,000,000,000,000,000: =#,##0=;\n"
-
-        // %default is a more elaborate form of %simplified;  It is basically
-        // the same, except that it introduces "and" before the ones digit
-        // when appropriate (basically, between the tens and ones digits) and
-        // separates the thousands groups with commas in values over 100,000.
-        "%default:\n"
-                // negative-number and fraction rules.  These are the same
-                // as those for %simplified, but have to be stated here too
-                // because this is an entry point
-            "-x: minus >>;\n"
-            "x.x: << punt >>;\n"
-                // just use %simplified for values below 100
-            "=%simplified=;\n"
-                // for values from 100 to 9,999 use %%and to decide whether or
-                // not to interpose the "and"
-            "100: mija[ >%%and>];\n"
-            "200: mitejn[ >%%and>];\n"
-            "300: tlett mija[ >%%and>];\n"
-            "400: erbgħa mija[ >%%and>];\n"
-            "500: ħames mija[ >%%and>];\n"
-            "600: sitt mija[ >%%and>];\n"
-            "700: sebgħa mija[ >%%and>];\n"
-            "800: tmin mija[ >%%and>];\n"
-            "900: disgħa mija[ >%%and>];\n"
-            "1000: << elf[ >%%and>];\n"
-                // for values of 100,000 and up, use %%commas to interpose the
-                // commas in the right places (and also to interpose the "and")
-            "100,000>>: << thousand[>%%commas>];\n"
-            "1,000,000: << million[>%%commas>];\n"
-            "1,000,000,000: << billion[>%%commas>];\n"
-            "1,000,000,000,000: << trillion[>%%commas>];\n"
-            "1,000,000,000,000,000: =#,##0=;\n"
-        // if the value passed to this rule set is greater than 100, don't
-        // add the "and"; if it's less than 100, add "and" before the last
-        // digits
-        "%%and:\n"
-            "u =%default=;\n"
-            "100: =%default=;\n"
-        // this rule set is used to place the commas
-        "%%commas:\n"
-                // for values below 100, add "and" (the apostrophe at the
-                // beginning is ignored, but causes the space that follows it
-                // to be significant: this is necessary because the rules
-                // calling %%commas don't put a space before it)
-            "' and =%default=;\n"
-                // put a comma after the thousands (or whatever preceded the
-                // hundreds)
-            "100: , =%default=;\n"
-                // put a comma after the millions (or whatever precedes the
-                // thousands)
-            "1000: , <%default< thousand, >%default>;\n"
-                // and so on...
-            "1,000,000: , =%default=;"
-        // %%lenient-parse isn't really a set of number formatting rules;
-        // it's a set of collation rules.  Lenient-parse mode uses a Collator
-        // object to compare fragments of the text being parsed to the text
-        // in the rules, allowing more leeway in the matching text.  This set
-        // of rules tells the formatter to ignore commas when parsing (it
-        // already ignores spaces, which is why we refer to the space; it also
-        // ignores hyphens, making "twenty one" and "twenty-one" parse
-        // identically)
-        "%%lenient-parse:\n"
-        //                "& ' ' , ',' ;\n"
-            "&\u0000 << ' ' << ',' << '-'; \n"
+/**
+ *  ICU <specials> source: <path>/xml/rbnf/mt.xml
+ */
+mt{
+    RBNFRules{
+        DurationRules{
+            "%with-words:",
+            "0: 0 sekondi; 1 sekonda; =0= sekondi;",
+            "60/60: <%%min<[, >>];",
+            "3600/60: <%%hr<[, >>>];",
+            "%%min:",
+            "0: 0 minuti; 1 minuta; =0= minuti;",
+            "%%hr:",
+            "0: 0 sieg\u0127at; 1 sieg\u0127a; =0= sieg\u0127at;",
+            "%in-numerals:",
+            "0: =0= sek.;",
+            "60: =%%min-sec=;",
+            "3600: =%%hr-min-sec=;",
+            "%%min-sec:",
+            "0: :=00=;",
+            "60/60: <0<>>;",
+            "%%hr-min-sec:",
+            "0: :=00=;",
+            "60/60: <00<>>;",
+            "3600/60: <#,##0<:>>>;",
+            "%duration:",
+            "0: =%in-numerals=;",
+            "%%lenient-parse:",
+            "& ':' = '.' = ' ' = '-';",
+        }
+        SpelloutRules{
+            "%spellout-numbering-year:",
+            "x.x: =#,###0.#=;",
+            "0: =%spellout-numbering=;",
+            "%spellout-numbering:",
+            "0: =%%spellout-cardinal-typeB-masculine=;",
+            "%%spellout-cardinal-typeB-masculine:",
+            "-x: minus >>;",
+            "x.x: << punt >>;",
+            "0: \u017Cero;",
+            "1: wie\u0127ed;",
+            "2: tnejn;",
+            "3: tlieta;",
+            "4: erbg\u0127a;",
+            "5: \u0127amsa;",
+            "6: sitta;",
+            "7: sebg\u0127a;",
+            "8: tmienja;",
+            "9: disg\u0127a;",
+            "10: g\u0127axra;",
+            "11: \u0127dax;",
+            "12: tnax;",
+            "13: tlettax;",
+            "14: erbatax;",
+            "15: \u0127mistax;",
+            "16: sittax;",
+            "17: sbatax;",
+            "18: tmintax;",
+            "19: dsatax;",
+            "20: [>> u ]g\u0127oxrin;",
+            "30: [>> u ]tletin;",
+            "40: [>> u ]erbg\u0127in;",
+            "50: [>> u ]\u0127amsin;",
+            "60: [>> u ]sittin;",
+            "70: [>> u ]sebg\u0127in;",
+            "80: [>> u ]tmenin;",
+            "90: [>> u ]disg\u0127in;",
+            "100: mija[ u >>];",
+            "200: mitejn[ u >>];",
+            "300: <%%spellout-cardinal-masculine< mija[ u >>];",
+            "1000: elf[>%%and-typeB-masculine>];",
+            "2000: elfejn[>%%and-typeB-masculine>];",
+            "3000: <%%thousands< elef[>%%and-typeB-masculine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeB-masculine>];",
+            "1000000: miljun[>%%and-typeB-masculine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeB-masculine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeB-masculine>];",
+            "1000000000: biljun[>%%and-typeB-masculine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeB-masculine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeB-masculine>];",
+            "1000000000000: triljun[>%%and-typeB-masculine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeB-masculine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeB-masculine>];",
+            "1000000000000000: kvadriljun[>%%and-typeB-masculine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeB-masculine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeB-masculine>];",
+            "1000000000000000000: =#,##0=;",
+            "%%and-typeB-masculine:",
+            "0: ;",
+            "1: ' u =%%spellout-cardinal-typeB-masculine=;",
+            "%%spellout-cardinal-typeB-feminine:",
+            "-x: minus >>;",
+            "x.x: << punt >>;",
+            "0: \u017Cero;",
+            "1: wa\u0127da;",
+            "2: tnejn;",
+            "3: tlieta;",
+            "4: erbg\u0127a;",
+            "5: \u0127amsa;",
+            "6: sitta;",
+            "7: sebg\u0127a;",
+            "8: tmienja;",
+            "9: disg\u0127a;",
+            "10: g\u0127axra;",
+            "11: \u0127dax;",
+            "12: tnax;",
+            "13: tlettax;",
+            "14: erbatax;",
+            "15: \u0127mistax;",
+            "16: sittax;",
+            "17: sbatax;",
+            "18: tmintax;",
+            "19: dsatax;",
+            "20: [>> u ]g\u0127oxrin;",
+            "30: [>> u ]tletin;",
+            "40: [>> u ]erbg\u0127in;",
+            "50: [>> u ]\u0127amsin;",
+            "60: [>> u ]sittin;",
+            "70: [>> u ]sebg\u0127in;",
+            "80: [>> u ]tmenin;",
+            "90: [>> u ]disg\u0127in;",
+            "100: mija[ u >>];",
+            "200: mitejn[ u >>];",
+            "300: <%%spellout-cardinal-masculine< mija[ u >>];",
+            "1000: elf[>%%and-typeB-feminine>];",
+            "2000: elfejn[>%%and-typeB-feminine>];",
+            "3000: <%%thousands< elef[>%%and-typeB-feminine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeB-feminine>];",
+            "1000000: miljun[>%%and-typeB-feminine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeB-feminine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeB-feminine>];",
+            "1000000000: biljun[>%%and-typeB-feminine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeB-feminine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeB-feminine>];",
+            "1000000000000: triljun[>%%and-typeB-feminine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeB-feminine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeB-feminine>];",
+            "1000000000000000: kvadriljun[>%%and-typeB-feminine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeB-feminine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeB-feminine>];",
+            "1000000000000000000: =#,##0=;",
+            "%%and-typeB-feminine:",
+            "0: ;",
+            "1: ' u =%%spellout-cardinal-typeB-feminine=;",
+            "%%spellout-cardinal-masculine:",
+            "0: \u017Cero;",
+            "1: wie\u0127ed;",
+            "2: \u017Cew\u0121;",
+            "3: tliet;",
+            "4: erba\u02BC;",
+            "5: \u0127ames;",
+            "6: sitt;",
+            "7: seba\u02BC;",
+            "8: tmien;",
+            "9: disa\u02BC;",
+            "10: g\u0127axar;",
+            "11: \u0127dax-il;",
+            "12: tnax-il;",
+            "13: tlettax-il;",
+            "14: erbatax-il;",
+            "15: \u0127mistax-il;",
+            "16: sittax-il;",
+            "17: sbatax-il;",
+            "18: tmintax-il;",
+            "19: dsatax-il;",
+            "20: [>%%spellout-cardinal-masculine> u ]g\u0127oxrin;",
+            "30: [>%%spellout-cardinal-masculine> u ]tletin;",
+            "40: [>%%spellout-cardinal-masculine> u ]erbg\u0127in;",
+            "50: [>%%spellout-cardinal-masculine> u ]\u0127amsin;",
+            "60: [>%%spellout-cardinal-masculine> u ]sittin;",
+            "70: [>%%spellout-cardinal-masculine> u ]sebg\u0127in;",
+            "80: [>%%spellout-cardinal-masculine> u ]tmenin;",
+            "90: [>%%spellout-cardinal-masculine> u ]disg\u0127in;",
+            "100: mitt;",
+            "101: mija u >%%spellout-cardinal-masculine>;",
+            "200: mitejn[ u >%%spellout-cardinal-masculine>];",
+            "300: <%%spellout-cardinal-masculine< mija[>%%and-typeA-masculine>];",
+            "1000: elf[>%%and-typeA-masculine>];",
+            "2000: elfejn[>%%and-typeA-masculine>];",
+            "3000: <%%thousands< elef[>%%and-typeA-masculine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeA-masculine>];",
+            "1000000: miljun[>%%and-typeA-masculine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeA-masculine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeA-masculine>];",
+            "1000000000: biljun[>%%and-typeA-masculine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeA-masculine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeA-masculine>];",
+            "1000000000000: triljun[>%%and-typeA-masculine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeA-masculine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeA-masculine>];",
+            "1000000000000000: kvadriljun[>%%and-typeA-masculine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeA-masculine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeA-masculine>];",
+            "1000000000000000000: =#,##0=;",
+            "%spellout-cardinal-masculine-prefixpart:",
+            "-x: minus >>;",
+            "x.x: <%%spellout-cardinal-masculine< punt >%%zz-fraction-masculine> ;",
+            "0: \u017Cero ;",
+            "1: ;",
+            "2: =%%spellout-cardinal-masculine-prefx= ;",
+            "%%lenient-parse:",
+            "&[last primary ignorable ] << ' ' << ',' << '-' << '\u00AD';",
+            "%spellout-cardinal-masculine-postfixpart:",
+            "-x: >>;",
+            "x.x: ;",
+            "0: ;",
+            "1: ' =%%spellout-cardinal-masculine-postfx=;",
+            "2: ;",
+            "%%spellout-cardinal-masculine-postfx:",
+            "0: ;",
+            "1: wie\u0127ed;",
+            "2: ;",
+            "%%spellout-cardinal-masculine-prefx:",
+            "0: \u017Cero;",
+            "1: ;",
+            "2: \u017Cew\u0121;",
+            "3: tliet;",
+            "4: erba\u02BC;",
+            "5: \u0127ames;",
+            "6: sitt;",
+            "7: seba\u02BC;",
+            "8: tmien;",
+            "9: disa\u02BC;",
+            "10: g\u0127axar;",
+            "11: \u0127dax-il;",
+            "12: tnax-il;",
+            "13: tlettax-il;",
+            "14: erbatax-il;",
+            "15: \u0127mistax-il;",
+            "16: sittax-il;",
+            "17: sbatax-il;",
+            "18: tmintax-il;",
+            "19: dsatax-il;",
+            "20: [>%%spellout-cardinal-masculine> u ]g\u0127oxrin;",
+            "30: [>%%spellout-cardinal-masculine> u ]tletin;",
+            "40: [>%%spellout-cardinal-masculine> u ]erbg\u0127in;",
+            "50: [>%%spellout-cardinal-masculine> u ]\u0127amsin;",
+            "60: [>%%spellout-cardinal-masculine> u ]sittin;",
+            "70: [>%%spellout-cardinal-masculine> u ]sebg\u0127in;",
+            "80: [>%%spellout-cardinal-masculine> u ]tmenin;",
+            "90: [>%%spellout-cardinal-masculine> u ]disg\u0127in;",
+            "100: mitt;",
+            "101: mija u >%%spellout-cardinal-masculine>;",
+            "200: mitejn[ u >%%spellout-cardinal-masculine>];",
+            "300: <%%spellout-cardinal-masculine< mija[>%%and-typeA-masculine>];",
+            "1000: elf[>%%and-typeA-masculine>];",
+            "2000: elfejn[>%%and-typeA-masculine>];",
+            "3000: <%%thousands< elef[>%%and-typeA-masculine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeA-masculine>];",
+            "1000000: miljun[>%%and-typeA-masculine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeA-masculine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeA-masculine>];",
+            "1000000000: biljun[>%%and-typeA-masculine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeA-masculine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeA-masculine>];",
+            "1000000000000: triljun[>%%and-typeA-masculine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeA-masculine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeA-masculine>];",
+            "1000000000000000: kvadriljun[>%%and-typeA-masculine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeA-masculine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeA-masculine>];",
+            "1000000000000000000: =#,##0=;",
+            "%%and-typeA-masculine:",
+            "0: ;",
+            "1: ' u =%%spellout-cardinal-masculine=;",
+            "%%spellout-cardinal-feminine:",
+            "0: \u017Cero;",
+            "1: wa\u0127da;",
+            "2: \u017Cew\u0121;",
+            "3: tliet;",
+            "4: erba\u02BC;",
+            "5: \u0127ames;",
+            "6: sitt;",
+            "7: seba\u02BC;",
+            "8: tmien;",
+            "9: disa\u02BC;",
+            "10: g\u0127axar;",
+            "11: \u0127dax-il;",
+            "12: tnax-il;",
+            "13: tlettax-il;",
+            "14: erbatax-il;",
+            "15: \u0127mistax-il;",
+            "16: sittax-il;",
+            "17: sbatax-il;",
+            "18: tmintax-il;",
+            "19: dsatax-il;",
+            "20: [>%%spellout-cardinal-feminine> u ]g\u0127oxrin;",
+            "30: [>%%spellout-cardinal-feminine> u ]tletin;",
+            "40: [>%%spellout-cardinal-feminine> u ]erbg\u0127in;",
+            "50: [>%%spellout-cardinal-feminine> u ]\u0127amsin;",
+            "60: [>%%spellout-cardinal-feminine> u ]sittin;",
+            "70: [>%%spellout-cardinal-feminine> u ]sebg\u0127in;",
+            "80: [>%%spellout-cardinal-feminine> u ]tmenin;",
+            "90: [>%%spellout-cardinal-feminine> u ]disg\u0127in;",
+            "100: mitt;",
+            "101: mija u >%%spellout-cardinal-feminine>;",
+            "200: mitejn[ u >%%spellout-cardinal-feminine>];",
+            "300: <%%spellout-cardinal-masculine< mija[>%%and-typeA-feminine>];",
+            "1000: elf[>%%and-typeA-feminine>];",
+            "2000: elfejn[>%%and-typeA-feminine>];",
+            "3000: <%%thousands< elef[>%%and-typeA-feminine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeA-feminine>];",
+            "1000000: miljun[>%%and-typeA-feminine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeA-feminine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeA-feminine>];",
+            "1000000000: biljun[>%%and-typeA-feminine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeA-feminine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeA-feminine>];",
+            "1000000000000: triljun[>%%and-typeA-feminine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeA-feminine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeA-feminine>];",
+            "1000000000000000: kvadriljun[>%%and-typeA-feminine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeA-feminine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeA-feminine>];",
+            "1000000000000000000: =#,##0=;",
+            "%spellout-cardinal-feminine-prefixpart:",
+            "-x: minus >>;",
+            "x.x: <%%spellout-cardinal-feminine< punt >%%zz-fraction-feminine> ;",
+            "0: \u017Cero ;",
+            "1: ;",
+            "2: =%%spellout-cardinal-feminine-prefx= ;",
+            "%spellout-cardinal-feminine-postfixpart:",
+            "-x: >>;",
+            "x.x: ;",
+            "0: ;",
+            "1: ' =%%spellout-cardinal-feminine-postfx=;",
+            "2: ;",
+            "%%spellout-cardinal-feminine-postfx:",
+            "0: ;",
+            "1: wa\u0127da;",
+            "2: ;",
+            "%%spellout-cardinal-feminine-prefx:",
+            "0: \u017Cero;",
+            "1: ;",
+            "2: \u017Cew\u0121;",
+            "3: tliet;",
+            "4: erba\u02BC;",
+            "5: \u0127ames;",
+            "6: sitt;",
+            "7: seba\u02BC;",
+            "8: tmien;",
+            "9: disa\u02BC;",
+            "10: g\u0127axar;",
+            "11: \u0127dax-il;",
+            "12: tnax-il;",
+            "13: tlettax-il;",
+            "14: erbatax-il;",
+            "15: \u0127mistax-il;",
+            "16: sittax-il;",
+            "17: sbatax-il;",
+            "18: tmintax-il;",
+            "19: dsatax-il;",
+            "20: [>%%spellout-cardinal-feminine> u ]g\u0127oxrin;",
+            "30: [>%%spellout-cardinal-feminine> u ]tletin;",
+            "40: [>%%spellout-cardinal-feminine> u ]erbg\u0127in;",
+            "50: [>%%spellout-cardinal-feminine> u ]\u0127amsin;",
+            "60: [>%%spellout-cardinal-feminine> u ]sittin;",
+            "70: [>%%spellout-cardinal-feminine> u ]sebg\u0127in;",
+            "80: [>%%spellout-cardinal-feminine> u ]tmenin;",
+            "90: [>%%spellout-cardinal-feminine> u ]disg\u0127in;",
+            "100: mitt;",
+            "101: mija u >%%spellout-cardinal-feminine>;",
+            "200: mitejn[ u >%%spellout-cardinal-feminine>];",
+            "300: <%%spellout-cardinal-masculine< mija[>%%and-typeA-feminine>];",
+            "1000: elf[>%%and-typeA-feminine>];",
+            "2000: elfejn[>%%and-typeA-feminine>];",
+            "3000: <%%thousands< elef[>%%and-typeA-feminine>];",
+            "11000/1000: <%%spellout-cardinal-masculine< elf[>%%and-typeA-feminine>];",
+            "1000000: miljun[>%%and-typeA-feminine>];",
+            "2000000: <%%spellout-cardinal-masculine< miljuni[>%%and-typeA-feminine>];",
+            "11000000/1,000: <%%spellout-cardinal-masculine< miljun[>%%and-typeA-feminine>];",
+            "1000000000: biljun[>%%and-typeA-feminine>];",
+            "2000000000: <%%spellout-cardinal-masculine< biljuni[>%%and-typeA-feminine>];",
+            "11000000000/1,000: <%%spellout-cardinal-masculine< biljun[>%%and-typeA-feminine>];",
+            "1000000000000: triljun[>%%and-typeA-feminine>];",
+            "2000000000000: <%%spellout-cardinal-masculine< triljuni[>%%and-typeA-feminine>];",
+            "11000000000000/1,000: <%%spellout-cardinal-masculine< triljun[>%%and-typeA-feminine>];",
+            "1000000000000000: kvadriljun[>%%and-typeA-feminine>];",
+            "2000000000000000: <%%spellout-cardinal-masculine< kvadriljuni[>%%and-typeA-feminine>];",
+            "11000000000000000/1,000: <%%spellout-cardinal-masculine< kvadriljun[>%%and-typeA-feminine>];",
+            "1000000000000000000: =#,##0=;",
+            "%%and-typeA-feminine:",
+            "0: ;",
+            "1: ' u =%%spellout-cardinal-feminine=;",
+            "%%thousands:",
+            "0: ERROR-=0=;",
+            "3: tlitt;",
+            "4: erbat;",
+            "5: \u0127amest;",
+            "6: sitt;",
+            "7: sebat;",
+            "8: tmint;",
+            "9: disat;",
+            "10: g\u0127axart;",
+            "11: ERROR-=0=;",
+            "%%zz-fraction-feminine:",
+            "10: <%%spellout-cardinal-feminine<<;",
+            "100: <%%spellout-cardinal-feminine<<;",
+            "1000: <%%spellout-cardinal-feminine<<;",
+            "10000: <%%spellout-cardinal-feminine<<;",
+            "100000: <%%spellout-cardinal-feminine<<;",
+            "1000000: <%%spellout-cardinal-feminine<<;",
+            "10000000: <%%spellout-cardinal-feminine<<;",
+            "100000000: <%%spellout-cardinal-feminine<<;",
+            "1000000000: <%%spellout-cardinal-feminine<<;",
+            "10000000000: <#,##0<<;",
+            "%%zz-fraction-masculine:",
+            "10: <%%spellout-cardinal-masculine<<;",
+            "100: <%%spellout-cardinal-masculine<<;",
+            "1000: <%%spellout-cardinal-masculine<<;",
+            "10000: <%%spellout-cardinal-masculine<<;",
+            "100000: <%%spellout-cardinal-masculine<<;",
+            "1000000: <%%spellout-cardinal-masculine<<;",
+            "10000000: <%%spellout-cardinal-masculine<<;",
+            "100000000: <%%spellout-cardinal-masculine<<;",
+            "1000000000: <%%spellout-cardinal-masculine<<;",
+            "10000000000: <#,##0<<;",
+        }
     }
-
-
-    DurationRules {
-        // main rule set for formatting with words
-        "%with-words:\n"
-                // take care of singular and plural forms of "second"
-            "0 sekondi; 1 sekonda; =0= sekondi;\n"
-                // use %%min to format values greater than 60 seconds
-            "60/60: <%%min<[, >>];\n"
-                // use %%hr to format values greater than 3,600 seconds
-                // (the ">>>" below causes us to see the number of minutes
-                // when when there are zero minutes)
-            "3600/60: <%%hr<[, >>>];\n"
-        // this rule set takes care of the singular and plural forms
-        // of "minute"
-        "%%min:\n"
-            "0 minuti; 1 minuta; =0= minuti;\n"
-        // this rule set takes care of the singular and plural forms
-        // of "hour"
-        "%%hr:\n"
-            "0 siegħat; 1 siegħa; =0= siegħat;\n"
-
-        // main rule set for formatting in numerals
-        "%in-numerals:\n"
-                // values below 60 seconds are shown with "sec."
-            "=0= sek.;\n"
-                // higher values are shown with colons: %%min-sec is used for
-                // values below 3,600 seconds...
-            "60: =%%min-sec=;\n"
-                // ...and %%hr-min-sec is used for values of 3,600 seconds
-                // and above
-            "3600: =%%hr-min-sec=;\n"
-        // this rule causes values of less than 10 minutes to show without
-        // a leading zero
-        "%%min-sec:\n"
-            "0: :=00=;\n"
-            "60/60: <0<>>;\n"
-        // this rule set is used for values of 3,600 or more.  Minutes are always
-        // shown, and always shown with two digits
-        "%%hr-min-sec:\n"
-            "0: :=00=;\n"
-            "60/60: <00<>>;\n"
-            "3600/60: <#,##0<:>>>;\n"
-        // the lenient-parse rules allow several different characters to be used
-        // as delimiters between hours, minutes, and seconds
-        "%%lenient-parse:\n"
-            "& ':' = '.' = ' ' = '-';\n" 
-    }
+    Version{"2.0.41.38"}
 }

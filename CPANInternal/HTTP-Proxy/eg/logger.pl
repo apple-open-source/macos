@@ -9,12 +9,18 @@ use CGI::Util qw( unescape );
 my %args = (
    peek    => [],
    header  => [],
+   mime    => 'text/*',
 );
 {
     my $args = '(' . join( '|', keys %args ) . ')';
     for ( my $i = 0 ; $i < @ARGV ; $i += 2 ) {
         if ( $ARGV[$i] =~ /$args/o ) {
-            push @{ $args{$1} }, $ARGV[ $i + 1 ];
+            if ( ref $args{$1} ) {
+                push @{ $args{$1} }, $ARGV[ $i + 1 ];
+            }
+            else {
+                $args{$1} = $ARGV[ $i + 1 ];
+            }
             splice( @ARGV, $i, 2 );
             redo if $i < @ARGV;
         }
@@ -31,10 +37,17 @@ my @clt_hdr =
 
 # NOTE: Body request filters always receive the request body in one pass
 my $post_filter = HTTP::Proxy::BodyFilter::simple->new(
-    sub {
+    begin  => sub { $_[0]->{binary} = 0; },
+    filter => sub {
         my ( $self, $dataref, $message, $protocol, $buffer ) = @_;
         print STDOUT "\n", $message->method, " ", $message->uri, "\n";
         print_headers( $message, @clt_hdr );
+
+        if ( $self->{binary} || $$dataref =~ /\0/ ) {
+            $self->{binary} = 1;
+            print STDOUT "    (not printing binary data)\n";
+            return;
+        }
 
         # this is from CGI.pm, method parse_params()
         my (@pairs) = split( /[&;]/, $$dataref );
@@ -83,7 +96,7 @@ if (@{$args{peek}}) {
         $proxy->push_filter(
             host     => $_,
             response => $get_filter,
-            mime     => 'text/*'
+            mime     => $args{mime},
         );
     }
 }
@@ -93,7 +106,7 @@ else {
         method  => 'POST',
         request => $post_filter
     );
-    $proxy->push_filter( response => $get_filter, mime => 'text/*' );
+    $proxy->push_filter( response => $get_filter, mime => $args{mime} );
 }
 
 $proxy->start;

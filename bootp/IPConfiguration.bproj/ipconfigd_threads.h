@@ -1,8 +1,5 @@
-
-#ifndef _S_IPCONFIGD_THREADS_H
-#define _S_IPCONFIGD_THREADS_H
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +25,10 @@
  * ipconfigd_threads.h
  * - definitions required by the configuration threads
  */
+
+#ifndef _S_IPCONFIGD_THREADS_H
+#define _S_IPCONFIGD_THREADS_H
+
 /* 
  * Modification History
  *
@@ -43,13 +44,19 @@
 #include "arp_session.h"
 #include "timer.h"
 #include "interfaces.h"
-#include <TargetConditionals.h>
+#include "ipconfigd.h"
+#include "dhcp_thread.h"
+#include "DHCPv6Options.h"
+#include "ifutil.h"
+
+#define kNetworkSignature	CFSTR("NetworkSignature")
 
 typedef enum {
     IFEventID_start_e = 0,		/* start the configuration method */
     IFEventID_stop_e, 			/* stop/clean-up */
     IFEventID_timeout_e,
-    IFEventID_media_e,			/* e.g. link status change */
+    IFEventID_link_status_changed_e,	/* link status changed */
+    IFEventID_link_timer_expired_e,	/* link inactive for timeout period */
     IFEventID_data_e,			/* server data to process */
     IFEventID_arp_e,			/* ARP check results */
     IFEventID_change_e,			/* ask config method to change */
@@ -58,6 +65,10 @@ typedef enum {
     IFEventID_sleep_e,			/* system will sleep */
     IFEventID_wake_e,			/* system has awoken */
     IFEventID_power_off_e,		/* system is powering off */
+    IFEventID_get_dhcp_info_e,		/* event_data is (dhcp_info_t *) */
+    IFEventID_get_dhcpv6_info_e,	/* event_data is (dhcpv6_info_t *) */
+    IFEventID_ipv6_address_changed_e,	/* IPv6 address changed on interface */
+    IFEventID_bssid_changed_e, 		/* BSSID has changed */
     IFEventID_last_e,
 } IFEventID_t;
 
@@ -68,7 +79,8 @@ IFEventID_names(IFEventID_t evid)
 	"START",
 	"STOP",
 	"TIMEOUT",
-	"MEDIA",
+	"LINK STATUS CHANGED",
+	"LINK TIMER EXPIRED",
 	"DATA",
 	"ARP",
 	"CHANGE",
@@ -77,93 +89,26 @@ IFEventID_names(IFEventID_t evid)
 	"SLEEP",
 	"WAKE",
 	"POWER OFF",
+	"GET DHCP INFO",
+	"GET DHCPv6 INFO",
+	"IPv6 INTERFACE ADDRESS CHANGED",
+	"BSSID CHANGED",
     };
-    if (evid < IFEventID_start_e || evid >= IFEventID_last_e)
+    if (evid < IFEventID_start_e || evid >= IFEventID_last_e) {
 	return ("<unknown event>");
+    }
     return (names[evid]);
 }
 
-typedef struct ServiceState Service_t;
-typedef struct IFState IFState_t;
-typedef ipconfig_status_t (ipconfig_func_t)(Service_t * service_p, 
-					    IFEventID_t evid, void * evdata);
-struct completion_results {
-    ipconfig_status_t		status;
-    void *			pkt;
-    int				pkt_size;
-    dhcpol_t			options;
-    boolean_t			ready;
-    char *			msg;
-};
+typedef struct ServiceInfo * ServiceRef;
+typedef ipconfig_status_t (IPConfigFunc)
+(ServiceRef service_p, 
+ IFEventID_t evid, void * evdata);
+
+typedef IPConfigFunc * IPConfigFuncRef;
 
 typedef struct {
-    boolean_t			valid;
-    boolean_t			active;
-} link_status_t;
-
-#define RIFLAGS_IADDR_VALID	(uint32_t)0x1
-#define RIFLAGS_HWADDR_VALID	(uint32_t)0x2
-#define RIFLAGS_ARP_VERIFIED	(uint32_t)0x4
-#define RIFLAGS_ALL_VALID	(RIFLAGS_IADDR_VALID | RIFLAGS_HWADDR_VALID | RIFLAGS_ARP_VERIFIED)
-
-typedef struct {
-    uint32_t			flags;
-    struct in_addr		iaddr;
-    uint8_t			hwaddr[MAX_LINK_ADDR_LEN];
-} router_info_t;
-
-struct ServiceState {
-    IFState_t *			ifstate;
-    ipconfig_method_t		method;
-    ip_addr_mask_t		requested_ip;
-    void *			serviceID;
-    void *			parent_serviceID;
-    void *			child_serviceID;
-#if ! TARGET_OS_EMBEDDED
-    void *			user_notification;
-    void *			user_rls;
-#endif /* ! TARGET_OS_EMBEDDED */
-    struct completion_results	published;
-    inet_addrinfo_t		info;
-    router_info_t		router;
-    boolean_t			free_in_progress;
-    boolean_t			is_dynamic;
-    void * 			private;
-};
-
-struct IFState {
-    interface_t *		if_p;
-    CFStringRef			ifname;
-    link_status_t		link;
-    dynarray_t			services;
-    Service_t *			linklocal_service_p;
-    boolean_t			startup_ready;
-    boolean_t			free_in_progress;
-    boolean_t			netboot;
-    CFStringRef			ssid;
-};
-
-struct saved_pkt {
-    dhcpol_t			options;
-    uint8_t			pkt[1500];
-    int				pkt_size;
-    unsigned 			rating;
-    boolean_t			is_dhcp;
-    struct in_addr		our_ip;
-    struct in_addr		server_ip;
-};
-
-typedef struct {
-    ipconfig_method_data_t *	data;
-    unsigned int		data_len;
-} config_data_t;
-
-typedef struct {
-    config_data_t		config;
-} start_event_data_t;
-
-typedef struct {
-    config_data_t		config;
+    ipconfig_method_data_t *	method_data;
     boolean_t			needs_stop;
 } change_event_data_t;
 
@@ -172,6 +117,17 @@ typedef struct {
     void *			hwaddr;
     int				hwlen;
 } arp_collision_data_t;
+
+typedef enum {
+    /* Bit fields */
+    kWakeFlagsFromHibernation 	= 0x1,
+    kWakeFlagsSSIDChanged	= 0x2,
+    kWakeFlagsBSSIDChanged	= 0x4,
+} WakeFlags;
+
+typedef struct {
+    WakeFlags			flags;
+} wake_data_t;
 
 /*
  * Function: ip_valid
@@ -188,391 +144,33 @@ ip_valid(struct in_addr ip)
     return (TRUE);
 }
 
-extern ipconfig_status_t
-validate_method_data_addresses(config_data_t * cfg, ipconfig_method_t method,
-			       const char * ifname);
-
-extern unsigned	
-count_params(dhcpol_t * options, const uint8_t * tags, int size);
-
 extern void *
 find_option_with_length(dhcpol_t * options, dhcptag_t tag, int min_length);
 
 extern char *	computer_name();
 
-static __inline__ IFState_t *
-service_ifstate(Service_t * service_p)
-{
-    return (service_p->ifstate);
-}
-
-static __inline__ void
-service_set_requested_ip_addr(Service_t * service_p, struct in_addr ip)
-{
-    service_p->requested_ip.addr = ip;
-    return;
-}
-
-static __inline__ struct in_addr
-service_requested_ip_addr(Service_t * service_p)
-{
-    return (service_p->requested_ip.addr);
-}
-
-static __inline__ struct in_addr *
-service_requested_ip_addr_ptr(Service_t * service_p)
-{
-    return (&service_p->requested_ip.addr);
-}
-
-static __inline__ void
-service_set_requested_ip_mask(Service_t * service_p, struct in_addr mask)
-{
-    service_p->requested_ip.mask = mask;
-    return;
-}
-
-static __inline__ struct in_addr
-service_requested_ip_mask(Service_t * service_p)
-{
-    return (service_p->requested_ip.mask);
-}
-
-
-int
-service_enable_autoaddr(Service_t * service_p);
-
-int
-service_disable_autoaddr(Service_t * service_p);
-
-int
-service_set_address(Service_t * service_p, struct in_addr ip, 
-		    struct in_addr mask, struct in_addr  broadcast);
-
-int
-service_remove_address(Service_t * service_p);
-
 void
-service_publish_success(Service_t * service_p, void * pkt, int pkt_size);
-
-void
-service_publish_success2(Service_t * service_p, void * pkt, int pkt_size,
-			 absolute_time_t start);
-
-void
-service_publish_failure(Service_t * service_p, 
-			ipconfig_status_t status, char * msg);
-
-void
-service_publish_failure_sync(Service_t * service_p, ipconfig_status_t status,
-			     char * msg, boolean_t sync);
-
-#if TARGET_OS_EMBEDDED
-static __inline__ void
-service_report_conflict(Service_t * service_p, struct in_addr * ip,
-			const void * hwaddr, struct in_addr * server)
-{
-    /* nothing to do */
-}
-
-static __inline__ void
-service_remove_conflict(Service_t * service_p)
-{
-    /* nothing to do */
-}
-
-#else /* TARGET_OS_EMBEDDED */
-void
-service_report_conflict(Service_t * service_p, struct in_addr * ip,
-			const void * hwaddr, struct in_addr * server);
-
-void
-service_remove_conflict(Service_t * service_p);
-
-#endif /* TARGET_OS_EMBDEDDED */
-
-static __inline__ interface_t *
-service_interface(Service_t * service_p)
-{
-    return (service_p->ifstate->if_p);
-}
-
-static __inline__ link_status_t *
-service_link_status(Service_t * service_p)
-{
-    return (&service_p->ifstate->link);
-}
-
-static __inline__ bool
-service_is_address_set(Service_t * service_p)
-{
-    return (service_p->info.addr.s_addr
-	    == service_requested_ip_addr_ptr(service_p)->s_addr);
-}
-
-Service_t *
-service_parent_service(Service_t * service_p);
-
-boolean_t
-service_should_do_router_arp(Service_t * service_p);
-
-void
-linklocal_service_change(Service_t * parent_service_p, boolean_t no_allocate);
+linklocal_service_change(ServiceRef parent_service_p, boolean_t allocate);
 
 void
 linklocal_set_needs_attention(void);
 
-/**
- ** router_arp routines
- **/
-static __inline__ boolean_t
-service_router_is_hwaddr_valid(Service_t * service_p)
-{
-    return ((service_p->router.flags & RIFLAGS_HWADDR_VALID) != 0);
-}
-
-static __inline__ void
-service_router_set_hwaddr_valid(Service_t * service_p)
-{
-    service_p->router.flags |= RIFLAGS_HWADDR_VALID;
-    return;
-}
-
-static __inline__ void
-service_router_clear_hwaddr_valid(Service_t * service_p)
-{
-    service_p->router.flags &= ~RIFLAGS_HWADDR_VALID;
-    return;
-}
-
-static __inline__ boolean_t
-service_router_is_iaddr_valid(Service_t * service_p)
-{
-    return ((service_p->router.flags & RIFLAGS_IADDR_VALID) != 0);
-}
-
-static __inline__ void
-service_router_set_iaddr_valid(Service_t * service_p)
-{
-    service_p->router.flags |= RIFLAGS_IADDR_VALID;
-    return;
-}
-
-static __inline__ void
-service_router_clear_iaddr_valid(Service_t * service_p)
-{
-    service_p->router.flags &= ~RIFLAGS_IADDR_VALID;
-    return;
-}
-
-static __inline__ boolean_t
-service_router_is_arp_verified(Service_t * service_p)
-{
-    return ((service_p->router.flags & RIFLAGS_ARP_VERIFIED) != 0);
-}
-
-static __inline__ void
-service_router_set_arp_verified(Service_t * service_p)
-{
-    service_p->router.flags |= RIFLAGS_ARP_VERIFIED;
-    return;
-}
-
-static __inline__ void
-service_router_clear_arp_verified(Service_t * service_p)
-{
-    service_p->router.flags &= ~RIFLAGS_ARP_VERIFIED;
-    return;
-}
-
-static __inline__ void
-service_router_clear(Service_t * service_p)
-{
-    service_p->router.flags = 0;
-    return;
-}
-
-static __inline__ u_char *
-service_router_hwaddr(Service_t * service_p)
-{
-    return (service_p->router.hwaddr);
-}
-
-static __inline__ int
-service_router_hwaddr_size(Service_t * service_p)
-{
-    return (sizeof(service_p->router.hwaddr));
-}
-
-static __inline__ struct in_addr
-service_router_iaddr(Service_t * service_p)
-{
-    return (service_p->router.iaddr);
-}
-
-static __inline__ void
-service_router_set_iaddr(Service_t * service_p, struct in_addr iaddr)
-{
-    service_p->router.iaddr = iaddr;
-    return;
-}
-
-static __inline__ boolean_t
-service_router_all_valid(Service_t * service_p)
-{
-    return ((service_p->router.flags & RIFLAGS_ALL_VALID) == RIFLAGS_ALL_VALID);
-}
-
-static __inline__ void
-service_router_set_all_valid(Service_t * service_p)
-{
-    service_p->router.flags = RIFLAGS_ALL_VALID;
-    return;
-}
-
-
-typedef enum {
-    router_arp_status_success_e = 0,
-    router_arp_status_no_response_e = 1,
-    router_arp_status_failed_e = 99,
-} router_arp_status_t;
-
-typedef void (service_resolve_router_callback_t)(Service_t * service_p,
-						 router_arp_status_t status);
-
-boolean_t
-service_resolve_router(Service_t * service_p, arp_client_t * arp,
-		       service_resolve_router_callback_t * callback_func,
-		       struct in_addr our_ip);
-boolean_t
-service_update_router_address(Service_t * service_p, 
-			      struct saved_pkt * saved_p);
-
-struct in_addr *
-get_router_from_options(dhcpol_t * options_p, struct in_addr our_ip);
+void
+netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);
 
 /* 
  * interface configuration "threads" 
  */
-ipconfig_status_t
-bootp_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-ipconfig_status_t
-dhcp_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-ipconfig_status_t
-manual_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-ipconfig_status_t
-inform_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-ipconfig_status_t
-linklocal_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-ipconfig_status_t
-failover_thread(Service_t * service_p, IFEventID_t evid, void * evdata);
-
-void
-netboot_addresses(struct in_addr * ip, struct in_addr * server_ip);
-
-boolean_t
-woke_from_hibernation(void);
-
-/**
- ** DHCPLease, DHCPLeaseList
- **/
-typedef struct {
-    bool			tentative;
-    bool			nak;
-    struct in_addr		our_ip;
-    absolute_time_t		lease_start;
-    dhcp_lease_time_t		lease_length;
-    struct in_addr		router_ip;
-    uint8_t			router_hwaddr[MAX_LINK_ADDR_LEN];
-    int				router_hwaddr_length;
-    int				pkt_length;
-    uint8_t			pkt[1];
-} DHCPLease, * DHCPLeaseRef;
-
-typedef dynarray_t DHCPLeaseList, * DHCPLeaseListRef;
-
-void
-DHCPLeaseSetNAK(DHCPLeaseRef lease_p, int nak);
-
-
-void
-DHCPLeaseListInit(DHCPLeaseListRef list_p);
-
-void
-DHCPLeaseListFree(DHCPLeaseListRef list_p);
-
-void
-DHCPLeaseListClear(DHCPLeaseListRef list_p,
-		   const char * ifname,
-		   uint8_t cid_type, const void * cid, int cid_length);
-void
-DHCPLeaseListRemoveLease(DHCPLeaseListRef list_p,
-			 struct in_addr our_ip,
-			 struct in_addr router_ip,
-			 const uint8_t * router_hwaddr,
-			 int router_hwaddr_length);
-void
-DHCPLeaseListUpdateLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
-			 struct in_addr router_ip,
-			 const uint8_t * router_hwaddr,
-			 int router_hwaddr_length,
-			 absolute_time_t lease_start,
-			 dhcp_lease_time_t lease_length,
-			 const uint8_t * pkt, int pkt_length);
-arp_address_info_t *
-DHCPLeaseListCopyARPAddressInfo(DHCPLeaseListRef list_p, bool tentative_ok,
-				int * ret_count);
-
-
-void
-DHCPLeaseListWrite(DHCPLeaseListRef list_p,
-		   const char * ifname,
-		   uint8_t cid_type, const void * cid, int cid_length);
-void
-DHCPLeaseListRead(DHCPLeaseListRef list_p,
-		  const char * ifname,
-		  uint8_t cid_type, const void * cid, int cid_length);
-
-int
-DHCPLeaseListFindLease(DHCPLeaseListRef list_p, struct in_addr our_ip,
-		       struct in_addr router_ip,
-		       const uint8_t * router_hwaddr, int router_hwaddr_length);
-
-static __inline__ int
-DHCPLeaseListCount(DHCPLeaseListRef list_p)
-{
-    return (dynarray_count(list_p));
-}
-
-static __inline__ DHCPLeaseRef
-DHCPLeaseListElement(DHCPLeaseListRef list_p, int i)
-{
-    return (dynarray_element(list_p, i));
-}
-
-void
-DHCPLeaseListRemoveAllButLastLease(DHCPLeaseListRef list_p);
-
-/*
- * in dhcp.c
- */
-void
-dhcp_set_default_parameters(uint8_t * params, int n_params);
-
-void
-dhcp_set_additional_parameters(uint8_t * params, int n_params);
-
-void
-dhcp_get_lease_from_options(dhcpol_t * options, dhcp_lease_time_t * lease, 
-			    dhcp_lease_time_t * t1, dhcp_lease_time_t * t2);
-
-bool
-dhcp_parameter_is_ok(uint8_t param);
+IPConfigFunc bootp_thread;
+IPConfigFunc dhcp_thread;
+IPConfigFunc manual_thread;
+IPConfigFunc inform_thread;
+IPConfigFunc linklocal_thread;
+IPConfigFunc failover_thread;
+IPConfigFunc rtadv_thread;
+IPConfigFunc stf_thread;
+IPConfigFunc manual_v6_thread;
+IPConfigFunc linklocal_v6_thread;
 
 /*
  * more globals
@@ -581,4 +179,210 @@ extern bootp_session_t *	G_bootp_session;
 extern arp_session_t *		G_arp_session;
 
 
-#endif _S_IPCONFIGD_THREADS_H
+/**
+ ** ServiceRef accessor functions
+ **/
+
+const char *
+ServiceGetMethodString(ServiceRef service_p);
+
+boolean_t
+ServiceIsIPv4(ServiceRef service_p);
+
+boolean_t
+ServiceIsIPv6(ServiceRef service_p);
+
+boolean_t
+ServiceIsNetBoot(ServiceRef service_p);
+
+void *
+ServiceGetPrivate(ServiceRef service_p);
+
+void
+ServiceSetPrivate(ServiceRef service_p, void * private);
+
+void
+ServiceSetStatus(ServiceRef service_p, ipconfig_status_t status);
+
+struct in_addr
+ServiceGetActiveIPAddress(ServiceRef service_p);
+
+struct in_addr
+ServiceGetActiveSubnetMask(ServiceRef service_p);
+
+void
+service_set_requested_ip_addr(ServiceRef service_p, struct in_addr ip);
+
+struct in_addr
+service_requested_ip_addr(ServiceRef service_p);
+
+void
+service_set_requested_ip_mask(ServiceRef service_p, struct in_addr mask);
+
+struct in_addr
+service_requested_ip_mask(ServiceRef service_p);
+
+interface_t *
+service_interface(ServiceRef service_p);
+
+link_status_t
+service_link_status(ServiceRef service_p);
+
+bool
+service_is_address_set(ServiceRef service_p);
+
+ServiceRef
+service_parent_service(ServiceRef service_p);
+
+boolean_t
+service_should_do_router_arp(ServiceRef service_p);
+
+int
+service_enable_autoaddr(ServiceRef service_p);
+
+int
+service_disable_autoaddr(ServiceRef service_p);
+
+int
+service_set_address(ServiceRef service_p, struct in_addr ip, 
+		    struct in_addr mask, struct in_addr  broadcast);
+
+int
+service_remove_address(ServiceRef service_p);
+
+void
+ServicePublishSuccessIPv4(ServiceRef service_p, dhcp_info_t * dhcp_info_p);
+
+void
+ServicePublishSuccessIPv6(ServiceRef service_p,
+			  inet6_addrinfo_t * addr, int addr_count,
+			  struct in6_addr * router, int router_count,
+			  dhcpv6_info_t * dhcp_info_p,
+			  CFStringRef signature);
+void
+ServiceSetRequestedIPv6Address(ServiceRef service_p,
+			       const struct in6_addr * addr_p,
+			       int prefix_length);
+void
+ServiceGetRequestedIPv6Address(ServiceRef service_p, 
+			       struct in6_addr * addr_p,
+			       int * prefix_length);
+int
+ServiceSetIPv6Address(ServiceRef service_p, const struct in6_addr * addr_p,
+		      int prefix_length, u_int32_t valid_lifetime,
+		      u_int32_t preferred_lifetime);
+
+void
+ServiceRemoveIPv6Address(ServiceRef service_p,
+			 const struct in6_addr * addr_p, int prefix_length);
+
+
+#if TARGET_OS_EMBEDDED
+static __inline__ void
+ServiceReportIPv6AddressConflict(ServiceRef service_p,
+				 const struct in6_addr * addr_p)
+{
+    /* nothing to do */
+}
+#else  /* TARGET_OS_EMBEDDED */
+void
+ServiceReportIPv6AddressConflict(ServiceRef service_p,
+				 const struct in6_addr * addr_p);
+#endif /* TARGET_OS_EMBEDDED */
+
+void
+service_publish_failure(ServiceRef service_p, ipconfig_status_t status);
+
+void
+service_publish_failure_sync(ServiceRef service_p, ipconfig_status_t status,
+			     boolean_t sync);
+
+#if TARGET_OS_EMBEDDED
+static __inline__ void
+ServiceReportIPv4AddressConflict(ServiceRef service_p, struct in_addr ip)
+{
+    /* nothing to do */
+}
+
+static __inline__ void
+ServiceRemoveAddressConflict(ServiceRef service_p)
+{
+    /* nothing to do */
+}
+
+#else /* TARGET_OS_EMBEDDED */
+void
+ServiceReportIPv4AddressConflict(ServiceRef service_p, struct in_addr ip);
+
+void
+ServiceRemoveAddressConflict(ServiceRef service_p);
+
+#endif /* TARGET_OS_EMBDEDDED */
+
+/**
+ ** router_arp routines
+ **/
+#if 0
+void
+ServiceIPv4RouterSetHWAddr(ServiceRef service_p,
+			   uint8_t * hwaddr, int hwaddr_len);
+const uint8_t *
+ServiceIPv4RouterGetHWAddr(ServiceRef service_p, int * hwaddr_len);
+
+void
+ServiceIPv4RouterClearHWAddr(ServiceRef service_p);
+#endif 0
+
+/* Router IP Address */
+boolean_t	service_router_is_hwaddr_valid(ServiceRef service_p);
+void		service_router_set_hwaddr_valid(ServiceRef service_p);
+void		service_router_clear_hwaddr_valid(ServiceRef service_p);
+uint8_t *	service_router_hwaddr(ServiceRef service_p);
+int		service_router_hwaddr_size(ServiceRef service_p);
+
+/* Router HW Address */
+boolean_t	service_router_is_iaddr_valid(ServiceRef service_p);
+void		service_router_set_iaddr_valid(ServiceRef service_p);
+void		service_router_clear_iaddr_valid(ServiceRef service_p);
+struct in_addr	service_router_iaddr(ServiceRef service_p);
+void		service_router_set_iaddr(ServiceRef service_p,
+					 struct in_addr iaddr);
+
+/* Router ARP verified */
+boolean_t	service_router_is_arp_verified(ServiceRef service_p);
+void		service_router_set_arp_verified(ServiceRef service_p);
+void		service_router_clear_arp_verified(ServiceRef service_p);
+
+/* Router all (IP, HWAddr, ARP verified) */
+void		service_router_clear(ServiceRef service_p);
+boolean_t	service_router_all_valid(ServiceRef service_p);
+void		service_router_set_all_valid(ServiceRef service_p);
+
+typedef enum {
+    router_arp_status_success_e = 0,
+    router_arp_status_no_response_e = 1,
+    router_arp_status_failed_e = 99,
+} router_arp_status_t;
+
+typedef void (service_resolve_router_callback_t)(ServiceRef service_p,
+						 router_arp_status_t status);
+
+boolean_t
+service_resolve_router(ServiceRef service_p, arp_client_t * arp,
+		       service_resolve_router_callback_t * callback_func,
+		       struct in_addr our_ip);
+boolean_t
+service_update_router_address(ServiceRef service_p,
+			      dhcpol_t * options_p, struct in_addr our_ip);
+
+boolean_t
+service_populate_router_arpinfo(ServiceRef service_p,
+				arp_address_info_t * info_p);
+
+boolean_t
+service_is_using_ip(ServiceRef exclude_service_p, struct in_addr iaddr);
+
+interface_list_t *
+get_interface_list(void);
+
+#endif /* _S_IPCONFIGD_THREADS_H */

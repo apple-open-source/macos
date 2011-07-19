@@ -1,6 +1,6 @@
 package DBI::Gofer::Transport::pipeone;
 
-#   $Id: pipeone.pm 10087 2007-10-16 12:42:37Z timbo $
+#   $Id: pipeone.pm 12536 2009-02-24 22:37:09Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -14,7 +14,7 @@ use DBI::Gofer::Execute;
 
 use base qw(DBI::Gofer::Transport::Base Exporter);
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10087 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 12536 $ =~ /(\d+)/o);
 
 our @EXPORT = qw(run_one_stdio);
 
@@ -31,6 +31,8 @@ sub run_one_stdio {
     my $frozen_response = $transport->freeze_response($response);
 
     print $frozen_response;
+
+    # no point calling $executor->update_stats(...) for pipeONE
 }
 
 1;

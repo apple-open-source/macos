@@ -4,6 +4,13 @@
 
 Project = nfsd
 
+pathsearch = $(firstword $(wildcard $(addsuffix /$(1),$(subst :, ,$(PATH)))))
+TCONF := $(call pathsearch,tconf)
+
+ifneq "$(TCONF)" ""
+Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
+endif
+
 inplace:
 	@$(MAKE) all SRCROOT=. OBJROOT=. SYMROOT=. DSTROOT=/
 
@@ -16,10 +23,13 @@ WARNING_FLAGS = -Wall -Wextra -Wformat=2 -Wpointer-arith -Wcast-align \
 		-Wwrite-strings -Wno-unknown-pragmas \
 		-Wno-missing-field-initializers -Wno-shadow
 Extra_CC_Flags = $(WARNING_FLAGS) -D_FORTIFY_SOURCE=2 \
-		 -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT) \
-		 -isysroot $(SDKROOT) -fPIE
-Extra_LD_Flags = -Wl,-pie -lutil -framework DiskArbitration \
+		 -F$(SDKROOT)/System/Library/PrivateFrameworks -I $(SRCROOT) -I $(LOCKDROOT) -I $(OBJROOT) -fPIE
+Extra_LD_Flags = -Wl,-pie -lutil -framework oncrpc -framework DiskArbitration \
 		  -framework ServiceManagement -framework CoreFoundation
+
+ifeq "$(Embedded)" "YES"
+Extra_CC_Flags += -isysroot $(SDKROOT)
+endif
 
 DST_DIR = $(DSTROOT)/sbin
 LAUNCHD_DIR = $(DSTROOT)/System/Library/LaunchDaemons

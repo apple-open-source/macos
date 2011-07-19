@@ -1,11 +1,13 @@
---- ext/rubycocoa/extconf.rb.in.old    2006-07-26 18:39:16.000000000 -0700
-+++ ext/rubycocoa/extconf.rb.in    2006-07-26 18:38:52.000000000 -0700
-@@ -15,7 +15,7 @@
- $CFLAGS = '-F../../framework/%%%build_dir%%%'
- $LDFLAGS  = '-F../../framework/%%%build_dir%%% -framework %%%framework_name%%%'
+Index: ext/rubycocoa/extconf.rb.in
+===================================================================
+--- ext/rubycocoa/extconf.rb.in	(revision 2293)
++++ ext/rubycocoa/extconf.rb.in	(working copy)
+@@ -12,7 +12,7 @@
+   $stderr.puts "execute '#{cmd}' done"
+ end
  
--$CFLAGS << ' %%%other_cflags%%%'
-+$CFLAGS << " %%%other_cflags%%% #{ENV['RC_CFLAGS']}"
- $LDFLAGS << ' %%%other_ldflags%%%'
+-$CFLAGS = '-F../../framework/%%%build_dir%%%'
++$CFLAGS = "-F../../framework/%%%build_dir%%% #{ENV['RC_CFLAGS']}"
+ $LDFLAGS  = '-F../../framework/%%%build_dir%%% -framework RubyCocoa'
  
- create_makefile('rubycocoa')
+ $CFLAGS << ' %%%other_cflags%%% %%%arch_flags%%%'

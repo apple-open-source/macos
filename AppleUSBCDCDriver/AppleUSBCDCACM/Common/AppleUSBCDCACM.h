@@ -50,12 +50,15 @@
 
 #if LDEBUG
     #if USE_ELG
-		#define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x " DEBUG_NAME ": " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf());}
+		#define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x " DEBUG_NAME ": " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B));}
+		#define XTRACEP(ID,A,B,STRING) {Log("%8p %8p %8p " DEBUG_NAME ": " STRING "\n",(void *)(ID),(void *)(A),(void *)(B));}
     #else /* not USE_ELG */
         #if USE_IOL
-			#define XTRACE(ID,A,B,STRING) {Log("%8x %8x %8x %8x " DEBUG_NAME ": " STRING "\n",(unsigned int)(ID),(unsigned int)(A),(unsigned int)(B), (unsigned int)IOThreadSelf()); IOSleep(Sleep_Time);}
+			#define XTRACE(ID,A,B,STRING) {Log("%8p %8x %8x " DEBUG_NAME ": " STRING "\n",(void *)(ID),(unsigned int)(A),(unsigned int)(B)); IOSleep(Sleep_Time);}
+			#define XTRACEP(ID,A,B,STRING) {Log("%8p %8p %8p " DEBUG_NAME ": " STRING "\n",(void *)(ID),(void *)(A),(void *)(B)); IOSleep(Sleep_Time);}
         #else
             #define XTRACE(id, x, y, msg)
+			#define XTRACEP(id, x, y, msg)
         #endif /* USE_IOL */
     #endif /* USE_ELG */
     #if LOG_DATA
@@ -74,6 +77,7 @@
     #endif /* LOG_DATA */
 #else /* not LDEBUG */
     #define XTRACE(id, x, y, msg)
+	#define XTRACEP(id, x, y, msg)
     #define LogData(D, C, b)
     #define meLogData(D, C, b)
 	#define DumpData(D, C, b)

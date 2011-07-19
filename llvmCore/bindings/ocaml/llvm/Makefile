@@ -1,4 +1,4 @@
-##===- bindings/ocaml/bitwriter/Makefile -------------------*- Makefile -*-===##
+##===- bindings/ocaml/llvm/Makefile ------------------------*- Makefile -*-===##
 # 
 #                     The LLVM Compiler Infrastructure
 #
@@ -13,7 +13,6 @@
 
 LEVEL := ../../..
 LIBRARYNAME := llvm
-DONT_BUILD_RELINKED := 1
 UsedComponents := core
 UsedOcamLibs := llvm
 

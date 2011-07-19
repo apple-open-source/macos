@@ -77,7 +77,7 @@
  */
 
 #ifndef _DNS_SD_H
-#define _DNS_SD_H 2582100
+#define _DNS_SD_H 3200500
 
 #ifdef  __cplusplus
     extern "C" {
@@ -350,12 +350,27 @@ enum
 	 * if this host has no routable IPv4 address, the call will not try to look up IPv4 addresses for
 	 * "hostname".
 	 */
+
+    kDNSServiceFlagsTimeout            = 0x10000,
+	/*
+	 * When kDNServiceFlagsTimeout is passed to DNSServiceQueryRecord or DNSServiceGetAddrInfo, the query is
+	 * stopped after a certain number of seconds have elapsed. The time at which the query will be stopped
+	 * is determined by the system and cannot be configured by the user. The query will be stopped irrespective
+	 * of whether a response was given earlier or not. When the query is stopped, the callback will be called
+	 * with an error code of kDNSServiceErr_Timeout and a NULL sockaddr will be returned for DNSServiceGetAddrInfo
+	 * and zero length rdata will be returned for DNSServiceQueryRecord.
+	 */
+
+    kDNSServiceFlagsIncludeP2P          = 0x20000,
+	/*
+	 * Include P2P interfaces when kDNSServiceInterfaceIndexAny is specified.
+	 * By default, specifying kDNSServiceInterfaceIndexAny does not include P2P interfaces.
+	 */
 	kDNSServiceFlagsWakeOnResolve      = 0x40000
 	/*
 	 * This flag is meaningful only in DNSServiceResolve. When set, it tries to send a magic packet
 	 * to wake up the client.
 	 */
-
     };
 
 /* Possible protocols for DNSServiceNATPortMappingCreate(). */
@@ -493,7 +508,8 @@ enum
     kDNSServiceErr_NATPortMappingUnsupported = -65564,  /* NAT doesn't support NAT-PMP or UPnP */
     kDNSServiceErr_NATPortMappingDisabled    = -65565,  /* NAT supports NAT-PMP or UPnP but it's disabled by the administrator */
     kDNSServiceErr_NoRouter                  = -65566,  /* No router currently configured (probably no network connectivity) */
-    kDNSServiceErr_PollingMode               = -65567
+    kDNSServiceErr_PollingMode               = -65567,
+    kDNSServiceErr_Timeout                   = -65568
 
     /* mDNS Error codes are in the range
      * FFFE FF00 (-65792) to FFFE FFFF (-65537) */
@@ -604,10 +620,10 @@ enum
  *   interface via which the service can be accessed.
  *
  * If applications pass kDNSServiceInterfaceIndexAny to DNSServiceBrowse
- * or DNSServiceQueryRecord, the operation will also include P2P. In this
- * case, if a service instance or the record being queried is found over P2P,
- * the resulting ADD event will indicate kDNSServiceInterfaceIndexP2P as the
- * interface index.
+ * or DNSServiceQueryRecord, they must set the kDNSServiceFlagsIncludeP2P flag
+ * to include P2P. In this case, if a service instance or the record being queried 
+ * is found over P2P, the resulting ADD event will indicate kDNSServiceInterfaceIndexP2P 
+ * as the interface index.
  */
 
 #define kDNSServiceInterfaceIndexAny 0

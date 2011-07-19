@@ -151,8 +151,7 @@ class_new(
 }
 
 PyTypeObject PyObjCUnicode_Type = {
-	PyObject_HEAD_INIT(&PyType_Type)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(&PyType_Type, 0)
 	"objc.pyobjc_unicode",			/* tp_name */
 	sizeof(PyObjCUnicodeObject),		/* tp_basicsize */
 	0,			 		/* tp_itemsize */
@@ -228,7 +227,7 @@ PyObjCUnicode_New(NSString* value)
 	 *  		NSArray.alloc().init()
 	 */
 	PyObjCUnicodeObject* result;
-// XXX - I don't know how to get gcc to let me use sizeof(unichar)
+
 #ifdef PyObjC_UNICODE_FAST_PATH
 	Py_ssize_t length = [value length];
 
@@ -237,8 +236,10 @@ PyObjCUnicode_New(NSString* value)
 		return NULL;
 	}
 	result = PyObject_New(PyObjCUnicodeObject, &PyObjCUnicode_Type);
-	Py_UNICODE* tptr = PyMem_NEW(Py_UNICODE, length);
-	PyUnicode_AS_UNICODE(result) = tptr;
+	Py_UNICODE* tptr = PyObject_MALLOC(sizeof(Py_UNICODE) * (length+1));
+	tptr[0] = tptr[length] = 0;
+	result->base.str = tptr;
+	/*PyUnicode_AS_UNICODE(result) = tptr;*/
 	tptr = NULL;
 
 	if (PyUnicode_AS_UNICODE(result) == NULL) {
@@ -247,7 +248,8 @@ PyObjCUnicode_New(NSString* value)
 		return NULL;
 	}
 	[value getCharacters:(unichar *)PyUnicode_AS_UNICODE(result)];
-	PyUnicode_GET_SIZE(result) = length;
+	/*PyUnicode_GET_SIZE(result) = length;*/
+	result->base.length = length;
 #else
 	int i, length;
 	unichar* volatile characters = NULL;
@@ -275,7 +277,7 @@ PyObjCUnicode_New(NSString* value)
 	PyObjC_ENDHANDLER
 
 	result = PyObject_New(PyObjCUnicodeObject, &PyObjCUnicode_Type);
-	PyUnicode_AS_UNICODE(result) = PyMem_NEW(Py_UNICODE, length);
+	PyUnicode_AS_UNICODE(result) = PyObject_MALLOC(sizeof(Py_UNICODE) * (length+1));
 	if (PyUnicode_AS_UNICODE(result) == NULL) {
 		Py_DECREF((PyObject*)result);
 		PyMem_Free(characters); characters = NULL;
@@ -289,9 +291,12 @@ PyObjCUnicode_New(NSString* value)
 	PyMem_Free(characters); characters = NULL;
 #endif
 
-	result->base.defenc = NULL;
 
 	result->base.hash = -1;
+#if PY_MAJOR_VERSION == 3
+	result->base.state = 0;
+#endif
+	result->base.defenc = NULL;
 
 	if (PyUnicode_GET_SIZE(result) == 0) {
 		result->base.hash = 0;

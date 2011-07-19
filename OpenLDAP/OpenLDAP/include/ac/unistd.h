@@ -1,8 +1,8 @@
 /* Generic unistd.h */
-/* $OpenLDAP: pkg/ldap/include/ac/unistd.h,v 1.37.2.3 2008/02/11 23:26:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ac/unistd.h,v 1.37.2.6 2010/04/13 20:22:52 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -34,12 +34,7 @@
 #if defined(HAVE_GETPASSPHRASE)
 LDAP_LIBC_F(char*)(getpassphrase)();
 
-#elif defined(HAVE_GETPASS)
-#define getpassphrase(p) getpass(p)
-LDAP_LIBC_F(char*)(getpass)();
-
 #else
-#define NEED_GETPASSPHRASE 1
 #define getpassphrase(p) lutil_getpass(p)
 LDAP_LUTIL_F(char*)(lutil_getpass) LDAP_P((const char *getpass));
 #endif

@@ -18,10 +18,11 @@
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Pass.h"
 #include "llvm/ADT/STLExtras.h"
-#include "llvm/Support/Debug.h"
 #include "llvm/Support/Compiler.h"
+#include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 #include <algorithm>
 using namespace llvm;
@@ -30,7 +31,7 @@ namespace {
   /// LowerSwitch Pass - Replace all SwitchInst instructions with chained branch
   /// instructions.  Note that this cannot be a BasicBlock pass because it
   /// modifies the CFG!
-  class VISIBILITY_HIDDEN LowerSwitch : public FunctionPass {
+  class LowerSwitch : public FunctionPass {
   public:
     static char ID; // Pass identification, replacement for typeid
     LowerSwitch() : FunctionPass(&ID) {} 
@@ -42,7 +43,6 @@ namespace {
       AU.addPreserved<UnifyFunctionExitNodes>();
       AU.addPreservedID(PromoteMemoryToRegisterID);
       AU.addPreservedID(LowerInvokePassID);
-      AU.addPreservedID(LowerAllocationsID);
     }
 
     struct CaseRange {
@@ -108,8 +108,10 @@ bool LowerSwitch::runOnFunction(Function &F) {
 
 // operator<< - Used for debugging purposes.
 //
-static std::ostream& operator<<(std::ostream &O,
-                                const LowerSwitch::CaseVector &C) {
+static raw_ostream& operator<<(raw_ostream &O,
+                               const LowerSwitch::CaseVector &C) ATTRIBUTE_USED;
+static raw_ostream& operator<<(raw_ostream &O,
+                               const LowerSwitch::CaseVector &C) {
   O << "[";
 
   for (LowerSwitch::CaseVector::const_iterator B = C.begin(),
@@ -119,11 +121,6 @@ static std::ostream& operator<<(std::ostream &O,
   }
 
   return O << "]";
-}
-
-static OStream& operator<<(OStream &O, const LowerSwitch::CaseVector &C) {
-  if (O.stream()) *O.stream() << C;
-  return O;
 }
 
 // switchConvert - Convert the switch statement into a binary lookup of
@@ -140,12 +137,12 @@ BasicBlock* LowerSwitch::switchConvert(CaseItr Begin, CaseItr End,
 
   unsigned Mid = Size / 2;
   std::vector<CaseRange> LHS(Begin, Begin + Mid);
-  DOUT << "LHS: " << LHS << "\n";
+  DEBUG(dbgs() << "LHS: " << LHS << "\n");
   std::vector<CaseRange> RHS(Begin + Mid, End);
-  DOUT << "RHS: " << RHS << "\n";
+  DEBUG(dbgs() << "RHS: " << RHS << "\n");
 
   CaseRange& Pivot = *(Begin + Mid);
-  DEBUG(errs() << "Pivot ==> " 
+  DEBUG(dbgs() << "Pivot ==> " 
                << cast<ConstantInt>(Pivot.Low)->getValue() << " -"
                << cast<ConstantInt>(Pivot.High)->getValue() << "\n");
 
@@ -157,11 +154,12 @@ BasicBlock* LowerSwitch::switchConvert(CaseItr Begin, CaseItr End,
   // Create a new node that checks if the value is < pivot. Go to the
   // left branch if it is and right branch if not.
   Function* F = OrigBlock->getParent();
-  BasicBlock* NewNode = BasicBlock::Create("NodeBlock");
+  BasicBlock* NewNode = BasicBlock::Create(Val->getContext(), "NodeBlock");
   Function::iterator FI = OrigBlock;
   F->getBasicBlockList().insert(++FI, NewNode);
 
-  ICmpInst* Comp = new ICmpInst(ICmpInst::ICMP_SLT, Val, Pivot.Low, "Pivot");
+  ICmpInst* Comp = new ICmpInst(ICmpInst::ICMP_SLT,
+                                Val, Pivot.Low, "Pivot");
   NewNode->getInstList().push_back(Comp);
   BranchInst::Create(LBranch, RBranch, Comp, NewNode);
   return NewNode;
@@ -178,7 +176,7 @@ BasicBlock* LowerSwitch::newLeafBlock(CaseRange& Leaf, Value* Val,
                                       BasicBlock* Default)
 {
   Function* F = OrigBlock->getParent();
-  BasicBlock* NewLeaf = BasicBlock::Create("LeafBlock");
+  BasicBlock* NewLeaf = BasicBlock::Create(Val->getContext(), "LeafBlock");
   Function::iterator FI = OrigBlock;
   F->getBasicBlockList().insert(++FI, NewLeaf);
 
@@ -186,18 +184,18 @@ BasicBlock* LowerSwitch::newLeafBlock(CaseRange& Leaf, Value* Val,
   ICmpInst* Comp = NULL;
   if (Leaf.Low == Leaf.High) {
     // Make the seteq instruction...
-    Comp = new ICmpInst(ICmpInst::ICMP_EQ, Val, Leaf.Low,
-                        "SwitchLeaf", NewLeaf);
+    Comp = new ICmpInst(*NewLeaf, ICmpInst::ICMP_EQ, Val,
+                        Leaf.Low, "SwitchLeaf");
   } else {
     // Make range comparison
     if (cast<ConstantInt>(Leaf.Low)->isMinValue(true /*isSigned*/)) {
       // Val >= Min && Val <= Hi --> Val <= Hi
-      Comp = new ICmpInst(ICmpInst::ICMP_SLE, Val, Leaf.High,
-                          "SwitchLeaf", NewLeaf);
+      Comp = new ICmpInst(*NewLeaf, ICmpInst::ICMP_SLE, Val, Leaf.High,
+                          "SwitchLeaf");
     } else if (cast<ConstantInt>(Leaf.Low)->isZero()) {
       // Val >= 0 && Val <= Hi --> Val <=u Hi
-      Comp = new ICmpInst(ICmpInst::ICMP_ULE, Val, Leaf.High,
-                          "SwitchLeaf", NewLeaf);      
+      Comp = new ICmpInst(*NewLeaf, ICmpInst::ICMP_ULE, Val, Leaf.High,
+                          "SwitchLeaf");      
     } else {
       // Emit V-Lo <=u Hi-Lo
       Constant* NegLo = ConstantExpr::getNeg(Leaf.Low);
@@ -205,8 +203,8 @@ BasicBlock* LowerSwitch::newLeafBlock(CaseRange& Leaf, Value* Val,
                                                    Val->getName()+".off",
                                                    NewLeaf);
       Constant *UpperBound = ConstantExpr::getAdd(NegLo, Leaf.High);
-      Comp = new ICmpInst(ICmpInst::ICMP_ULE, Add, UpperBound,
-                          "SwitchLeaf", NewLeaf);
+      Comp = new ICmpInst(*NewLeaf, ICmpInst::ICMP_ULE, Add, UpperBound,
+                          "SwitchLeaf");
     }
   }
 
@@ -246,7 +244,7 @@ unsigned LowerSwitch::Clusterify(CaseVector& Cases, SwitchInst *SI) {
 
   // Merge case into clusters
   if (Cases.size()>=2)
-    for (CaseItr I=Cases.begin(), J=next(Cases.begin()); J!=Cases.end(); ) {
+    for (CaseItr I=Cases.begin(), J=llvm::next(Cases.begin()); J!=Cases.end(); ) {
       int64_t nextValue = cast<ConstantInt>(J->Low)->getSExtValue();
       int64_t currentValue = cast<ConstantInt>(I->High)->getSExtValue();
       BasicBlock* nextBB = J->BB;
@@ -290,7 +288,7 @@ void LowerSwitch::processSwitchInst(SwitchInst *SI) {
 
   // Create a new, empty default block so that the new hierarchy of
   // if-then statements go to this and the PHI nodes are happy.
-  BasicBlock* NewDefault = BasicBlock::Create("NewDefault");
+  BasicBlock* NewDefault = BasicBlock::Create(SI->getContext(), "NewDefault");
   F->getBasicBlockList().insert(Default, NewDefault);
 
   BranchInst::Create(Default, NewDefault);
@@ -308,9 +306,10 @@ void LowerSwitch::processSwitchInst(SwitchInst *SI) {
   CaseVector Cases;
   unsigned numCmps = Clusterify(Cases, SI);
 
-  DOUT << "Clusterify finished. Total clusters: " << Cases.size()
-       << ". Total compares: " << numCmps << "\n";
-  DOUT << "Cases: " << Cases << "\n";
+  DEBUG(dbgs() << "Clusterify finished. Total clusters: " << Cases.size()
+               << ". Total compares: " << numCmps << "\n");
+  DEBUG(dbgs() << "Cases: " << Cases << "\n");
+  (void)numCmps;
   
   BasicBlock* SwitchBlock = switchConvert(Cases.begin(), Cases.end(), Val,
                                           OrigBlock, NewDefault);

@@ -1,0 +1,8 @@
+/PyInt_Check/+1a
+		else if (PyLong_Check(v))
+			alist[i-1] = PyLong_AsLong(v);
+.
+/sizeof(int) != sizeof(long)/a
+.
+.,/}$/d
+w

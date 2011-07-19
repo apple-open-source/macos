@@ -1,4 +1,5 @@
 # SOAP.tcl - Copyright (C) 2001 Pat Thoyts <patthoyts@users.sourceforge.net>
+#            Copyright (C) 2008 Andreas Kupries <andreask@activestate.com>
 #
 # Provide Tcl access to SOAP 1.1 methods.
 #
@@ -21,25 +22,13 @@ package require rpcvar;                 # TclSOAP
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {variable domVersion}
-if {[catch {package require SOAP::dom 1.0} ::SOAP::domVersion]} {
-    if { [catch {package require dom 2.0} ::SOAP::domVersion]} {
-        if { [catch {package require dom 1.6} ::SOAP::domVersion]} {
-            error "require dom package greater than 1.6"
-        }
-        package require SOAP::xpath;    # TclSOAP
-    }
-    proc ::SOAP::createDocument {name} {
-        set doc [dom::DOMImplementation create]
-        return [dom::document createElement $doc $name]
-    }
-}
 
 # -------------------------------------------------------------------------
 
 namespace eval ::SOAP {
-    variable version 1.6.7
+    variable version 1.6.8.1
     variable logLevel warning
-    variable rcs_version { $Id: SOAP.tcl,v 1.49 2008/02/28 22:05:55 andreas_kupries Exp $ }
+    variable rcs_version { $Id: SOAP.tcl,v 1.51 2008/07/09 16:14:23 andreas_kupries Exp $ }
 
     namespace export create cget dump configure proxyconfig export
     catch {namespace import -force Utils::*} ;# catch to allow pkg_mkIndex.
@@ -236,7 +225,7 @@ proc ::SOAP::configure { procName args } {
     set options { uri proxy params name transport action \
                   wrapProc replyProc parseProc postProc \
                   command errorCommand schemas version \
-                  encoding }
+                  encoding}
 
     if { $procName == "-transport" } {
         set scheme [lindex $args 0]
@@ -293,6 +282,7 @@ proc ::SOAP::configure { procName args } {
 
     foreach {opt value} $args {
         switch -glob -- $opt {
+            -rpcprot*  { set procvar(rpcprotocol) $value }
             -uri       { set procvar(uri) $value }
             -proxy     { set procvar(proxy) $value }
             -param*    { set procvar(params) $value }
@@ -302,6 +292,7 @@ proc ::SOAP::configure { procName args } {
             -schema*   { set procvar(schemas) $value }
             -ver*      { set procvar(version) $value }
             -enc*      { set procvar(encoding) $value }
+            -namedpar* { set procvar(namedparams) $value }
             -wrap*     { set procvar(wrapProc) [qualifyNamespace $value] }
             -rep*      { set procvar(replyProc) [qualifyNamespace $value] }
             -parse*    { set procvar(parseProc) [qualifyNamespace $value] }
@@ -345,17 +336,20 @@ proc ::SOAP::configure { procName args } {
         }
     } 
     
-    # The default version is SOAP 1.1
-    if { $procvar(version) == {} } {
-        set procvar(version) SOAP1.1
-    }
-    # Canonicalize the SOAP version URI
-    switch -glob -- $procvar(version) {
-        SOAP1.1 - 1.1 {
-            set procvar(version) "http://schemas.xmlsoap.org/soap/envelope/" 
+        
+    if {$procvar(rpcprotocol) eq "SOAP"} {
+        # The default version is SOAP 1.1
+        if { $procvar(version) == {} } {
+            set procvar(version) SOAP1.1
         }
-        SOAP1.2 - 1.2 {
-            set procvar(version) "http://www.w3.org/2001/06/soap-envelope" 
+        # Canonicalize the SOAP version URI
+        switch -glob -- $procvar(version) {
+            SOAP1.1 - 1.1 {
+                set procvar(version) "http://schemas.xmlsoap.org/soap/envelope/" 
+            }
+            SOAP1.2 - 1.2 {
+                set procvar(version) "http://www.w3.org/2001/06/soap-envelope" 
+            }
         }
     }
 
@@ -409,6 +403,7 @@ proc ::SOAP::create { args } {
     regsub -all {::+} $ns {_} varName
     set varName [namespace current]::$varName
     array set $varName {}
+    array set $varName {rpcprotocol SOAP} ;# SOAP, XMLRPC or JSONRPC
     array set $varName {uri       {}} ;# the XML namespace URI for this method 
     array set $varName {proxy     {}} ;# URL for the location of a provider
     array set $varName {params    {}} ;# name/type pairs for the parameters
@@ -425,6 +420,7 @@ proc ::SOAP::create { args } {
     array set $varName {schemas   {}} ;# List of SOAP Schemas in force
     array set $varName {version   {}} ;# SOAP Version in force (URI)
     array set $varName {encoding  {}} ;# SOAP Encoding (URI)
+    array set $varName {namedparams false}; # Use named or positional params ?
 
     set scheme [eval getTransportFromArgs $varName $args]
     if {$scheme != {}} {
@@ -458,6 +454,7 @@ proc getTransportFromArgs {procVarName args} {
         incr n
         set uri [lindex $args $n]
     }
+
     if {$uri != {}} {
         array set URL [uri::split $uri]
         if {$URL(scheme) == "urn"} {
@@ -698,28 +695,28 @@ proc ::SOAP::proxyconfig {} {
 #   returns the XML text of the SOAP Fault packet.
 # 
 proc ::SOAP::fault {faultcode faultstring {detail {}}} {
-    set doc [dom::DOMImplementation create]
+    set doc [newDocument]
     set bod [reply_envelope $doc]
-    set flt [dom::document createElement $bod "SOAP-ENV:Fault"]
-    set fcd [dom::document createElement $flt "faultcode"]
-    dom::document createTextNode $fcd $faultcode
-    set fst [dom::document createElement $flt "faultstring"]
-    dom::document createTextNode $fst $faultstring
+    set flt [addNode $bod "SOAP-ENV:Fault"]
+    set fcd [addNode $flt "faultcode"]
+    addTextNode $fcd $faultcode
+    set fst [addNode $flt "faultstring"]
+    addTextNode $fst $faultstring
 
     if { $detail != {} } {
-        set dtl0 [dom::document createElement $flt "detail"]
-        set dtl  [dom::document createElement $dtl0 "e:errorInfo"]
-        dom::element setAttribute $dtl "xmlns:e" "urn:TclSOAP-ErrorInfo"
+        set dtl0 [addNode $flt "detail"]
+        set dtl  [addNode $dtl0 "e:errorInfo"]
+        setElementAttribute $dtl "xmlns:e" "urn:TclSOAP-ErrorInfo"
         
         foreach {detailName detailInfo} $detail {
-            set err [dom::document createElement $dtl $detailName]
-            dom::document createTextNode $err $detailInfo
+            set err [addNode $dtl $detailName]
+            addTextNode $err $detailInfo
         }
     }
     
     # serialize the DOM document and return the XML text
-    regsub "<!DOCTYPE\[^>\]*>\n" [dom::DOMImplementation serialize $doc] {} r
-    dom::DOMImplementation destroy $doc
+    set r [generateXML $doc]
+    deleteDocument $doc
     return $r
 }
 
@@ -733,16 +730,16 @@ proc ::SOAP::fault {faultcode faultstring {detail {}}} {
 #   returns the body node
 #
 proc ::SOAP::reply_envelope { doc } {
-    set env [dom::document createElement $doc "SOAP-ENV:Envelope"]
-    dom::element setAttribute $env \
+    set env [addNode $doc "SOAP-ENV:Envelope"]
+    setElementAttribute $env \
             "xmlns:SOAP-ENV" "http://schemas.xmlsoap.org/soap/envelope/"
-    dom::element setAttribute $env \
+    setElementAttribute $env \
             "xmlns:xsi"      "http://www.w3.org/1999/XMLSchema-instance"
-    dom::element setAttribute $env \
+    setElementAttribute $env \
             "xmlns:xsd"      "http://www.w3.org/1999/XMLSchema"
-    dom::element setAttribute $env \
+    setElementAttribute $env \
             "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
-    set bod [dom::document createElement $env "SOAP-ENV:Body"]
+    set bod [addNode $env "SOAP-ENV:Body"]
     return $bod
 }
 
@@ -761,9 +758,9 @@ proc ::SOAP::reply_envelope { doc } {
 #
 proc ::SOAP::reply { doc uri methodName result } {
     set bod [reply_envelope $doc]
-    set cmd [dom::document createElement $bod "ns:$methodName"]
-    dom::element setAttribute $cmd "xmlns:ns" $uri
-    dom::element setAttribute $cmd \
+    set cmd [addNode $bod "ns:$methodName"]
+    setElementAttribute $cmd "xmlns:ns" $uri
+    setElementAttribute $cmd \
             "SOAP-ENV:encodingStyle" \
             "http://schemas.xmlsoap.org/soap/encoding/"
 
@@ -772,11 +769,11 @@ proc ::SOAP::reply { doc uri methodName result } {
         # Some methods may return a parameter list of name - value pairs.
         if {[rpctype $result] == "PARAMLIST"} {
             foreach {resultName resultValue} [rpcvalue $result] {
-                set retnode [dom::document createElement $cmd $resultName]
+                set retnode [addNode $cmd $resultName]
                 SOAP::insert_value $retnode $resultValue
             }
         } else {
-            set retnode [dom::document createElement $cmd "return"]
+            set retnode [addNode $cmd "return"]
             SOAP::insert_value $retnode $result
         }
     }
@@ -851,12 +848,12 @@ proc ::SOAP::soap_request {procVarName args} {
         return -code error $msg
     }
 
-    set doc [dom::DOMImplementation create]
-    set envx [dom::document createElement $doc "SOAP-ENV:Envelope"]
+    set doc [newDocument]
+    set envx [addNode $doc "SOAP-ENV:Envelope"]
 
-    dom::element setAttribute $envx "xmlns:SOAP-ENV" $soapenv
-    dom::element setAttribute $envx "xmlns:SOAP-ENC" $soapenc
-    dom::element setAttribute $envx "SOAP-ENV:encodingStyle" $soapenc
+    setElementAttribute $envx "xmlns:SOAP-ENV" $soapenv
+    setElementAttribute $envx "xmlns:SOAP-ENC" $soapenc
+    setElementAttribute $envx "SOAP-ENV:encodingStyle" $soapenc
 
     # The set of namespaces depends upon the SOAP encoding as specified by
     # the encoding option and the user specified set of relevant schemas.
@@ -866,32 +863,32 @@ proc ::SOAP::soap_request {procVarName args} {
         if {! [string match "xmlns:*" $nsname]} {
             set nsname "xmlns:$nsname"
         }
-        dom::element setAttribute $envx $nsname $url
+        setElementAttribute $envx $nsname $url
     }
 
     # Insert the Header elements (if any)
     if {$opts(-headers) != {}} {
-        set headelt [dom::document createElement $envx "SOAP-ENV:Header"]
+        set headelt [addNode $envx "SOAP-ENV:Header"]
         foreach {hname hvalue} $opts(-headers) {
-            set hnode [dom::document createElement $headelt $hname]
+            set hnode [addNode $headelt $hname]
             insert_value $hnode $hvalue
         }
     }
 
     # Insert the body element and atributes.
-    set bod [dom::document createElement $envx "SOAP-ENV:Body"]
+    set bod [addNode $envx "SOAP-ENV:Body"]
     if {$uri == ""} {
         # don't use a namespace prefix if we don't have a namespace.
-        set cmd [dom::document createElement $bod "$name" ]
+        set cmd [addNode $bod "$name" ]
     } else {
-        set cmd [dom::document createElement $bod "ns:$name" ]
-        dom::element setAttribute $cmd "xmlns:ns" $uri
+        set cmd [addNode $bod "ns:$name" ]
+        setElementAttribute $cmd "xmlns:ns" $uri
     }
 
     # Insert any method attributes
     if {$opts(-attributes) != {}} {
         foreach {atname atvalue} $opts(-attributes) {
-            dom::element setAttribute $cmd $atname $atvalue
+            setElementAttribute $cmd $atname $atvalue
         }
     }
 
@@ -899,17 +896,15 @@ proc ::SOAP::soap_request {procVarName args} {
     set param_no 0
     foreach {key type} $params {
         set val [lindex $args $param_no]
-        set d_param [dom::document createElement $cmd $key]
+        set d_param [addNode $cmd $key]
         insert_value $d_param [rpcvar $type $val]
         incr param_no
     }
 
     # We have to strip out the DOCTYPE element though. It would be better to
     # remove the DOM node for this, but that didn't work.
-    set prereq [dom::DOMImplementation serialize $doc]
-    set req {}
-    dom::DOMImplementation destroy $doc              ;# clean up
-    regsub "<!DOCTYPE\[^>\]*>\r?\n?" $prereq {} req  ;# hack
+    set req [generateXML $doc]
+    deleteDocument $doc              ;# clean up
 
     set req [encoding convertto utf-8 $req]          ;# make it UTF-8
     return $req                                      ;# return the XML data
@@ -941,29 +936,27 @@ proc ::SOAP::xmlrpc_request {procVarName args} {
         return -code error $msg
     }
     
-    set doc [dom::DOMImplementation create]
-    set d_root [dom::document createElement $doc "methodCall"]
-    set d_meth [dom::document createElement $d_root "methodName"]
-    dom::document createTextNode $d_meth $name
+    set doc [newDocument]
+    set d_root [addNode $doc "methodCall"]
+    set d_meth [addNode $d_root "methodName"]
+    addTextNode $d_meth $name
     
     if { [llength $params] != 0 } {
-        set d_params [dom::document createElement $d_root "params"]
+        set d_params [addNode $d_root "params"]
     }
     
     set param_no 0
     foreach {key type} $params {
         set val [lindex $args $param_no]
-        set d_param [dom::document createElement $d_params "param"]
+        set d_param [addNode $d_params "param"]
         XMLRPC::insert_value $d_param [rpcvar $type $val]
         incr param_no
     }
 
     # We have to strip out the DOCTYPE element though. It would be better to
     # remove the DOM element, but that didn't work.
-    set prereq [dom::DOMImplementation serialize $doc]
-    set req {}
-    dom::DOMImplementation destroy $doc          ;# clean up
-    regsub "<!DOCTYPE\[^>\]*>\n" $prereq {} req  ;# hack
+    set req [generateXML $doc]
+    deleteDocument $doc          ;# clean up
 
     return $req                                  ;# return the XML data
 }
@@ -994,23 +987,23 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         # HTTP should always return though (I think).
         return {}
     } else {
-        if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+        if {[catch {set doc [parseXML $xml]}]} {
             return -code error -errorcode Server \
                 "Server response is not well-formed XML.\nresponse was $xml"
         }
     }
 
-    set faultNode [selectNode $doc "/Envelope/Body/Fault"]
+    set faultNode [selectNode $doc "/SENV:Envelope/SENV:Body/SENV:Fault"]
     if {$faultNode != {}} {
         array set fault [decomposeSoap $faultNode]
-        dom::DOMImplementation destroy $doc
+        deleteDocument $doc
         if {![info exists fault(detail)]} { set fault(detail) {}}
         return -code error -errorinfo $fault(detail) \
             [list $fault(faultcode) $fault(faultstring)]
     }
 
     # If there is a header element then make it available via SOAP::getHeader
-    set headerNode [selectNode $doc "/Envelope/Header"]
+    set headerNode [selectNode $doc "/SENV:Envelope/SENV:Header"]
     if {$headerNode != {} \
             && [string match \
                     "http://schemas.xmlsoap.org/soap/envelope/" \
@@ -1027,9 +1020,9 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
     } else {
         set responseName "*"
     }
-    set responseNode [selectNode $doc "/Envelope/Body/$responseName"]
+    set responseNode [selectNode $doc "/SENV:Envelope/SENV:Body/$responseName"]
     if {$responseNode == {}} {
-        set responseNode [lindex [selectNode $doc "/Envelope/Body/*"] 0]
+        set responseNode [lindex [selectNode $doc "/SENV:Envelope/SENV:Body/*"] 0]
     }
 
     set nodes [getElements $responseNode]
@@ -1038,7 +1031,7 @@ proc ::SOAP::parse_soap_response { procVarName xml } {
         if {$result == {}} { set result $r } else { lappend result $r }
     }
 
-    dom::DOMImplementation destroy $doc
+    deleteDocument $doc
     return $result
 }
 
@@ -1065,7 +1058,7 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         # HTTP should always return though (I think).
         return {}
     } else {
-        if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+        if {[catch {set doc [parseXML $xml]}]} {
             return -code error -errorcode Server \
                 "Server response is not well-formed XML.\n\
                   response was $xml"
@@ -1076,7 +1069,7 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
     if {$faultNode != {}} {
         array set err [lindex [decomposeXMLRPC \
                 [selectNode $doc /methodResponse]] 0]
-        dom::DOMImplementation destroy $doc
+        deleteDocument $doc
         return -code error \
             -errorcode $err(faultCode) \
             -errorinfo $err(faultString) \
@@ -1090,7 +1083,7 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
         lappend result [xmlrpc_value_from_node $valueNode]
         incr n_params
     }
-    dom::DOMImplementation destroy $doc
+    deleteDocument $doc
 
     # If (as is usual) there is only one param, simplify things for the user
     # ie: sort {one two three} should return a 3 element list, not a single
@@ -1114,7 +1107,7 @@ proc ::SOAP::parse_xmlrpc_response { procVarName xml } {
 #
 proc ::SOAP::parse_xmlrpc_request { xml } {
     set result {}
-    if {[catch {set doc [dom::DOMImplementation parse $xml]}]} {
+    if {[catch {set doc [parseXML $xml]}]} {
         return -code error -errorinfo Server \
             "Client request is not well-formed XML.\n\
             call was $xml"
@@ -1138,7 +1131,7 @@ proc ::SOAP::parse_xmlrpc_request { xml } {
         set paramValues [lindex $paramValues 0]
     }
 
-    catch {dom::DOMImplementation destroy $doc}
+    catch {deleteDocument $doc}
 
     return [list $methodName $paramValues]
 }
@@ -1165,7 +1158,7 @@ proc ::SOAP::xmlrpc_value_from_node {valueNode} {
         return [getElementValue $valueNode]
     }
     set typeElement [lindex $elts 0]
-    set type [dom::node cget $typeElement -nodeName]
+    set type [getElementName $typeElement]
 
     if {$type == "array"} {
         set dataElement [lindex [getElements $typeElement] 0]
@@ -1177,7 +1170,7 @@ proc ::SOAP::xmlrpc_value_from_node {valueNode} {
         foreach memberElement [getElements $typeElement] {
             set params [getElements $memberElement]
             foreach param $params {
-                set nodeName [dom::node cget $param -nodeName]
+                set nodeName [getElementName $param]
                 if { $nodeName == "name"} {
                     set pname [getElementValue $param]
                 } elseif { $nodeName == "value" } {
@@ -1195,14 +1188,14 @@ proc ::SOAP::xmlrpc_value_from_node {valueNode} {
 # -------------------------------------------------------------------------
 
 proc ::SOAP::insert_headers {node headers} {
-    set doc [SOAP::Utils::getDocumentElement $node]
-    if {[set h [selectNode $doc /Envelope/Header]] == {}} {
-        set e [dom::document cget $doc -documentElement]
-        set h [dom::document createElement $e "SOAP-ENV:Header"]
+    set doc [getDocumentElement $node]
+    if {[set h [selectNode $doc /SENV:Envelope/SENV:Header]] == {}} {
+        set e [documentElement $doc]
+        set h [addNode $e "SOAP-ENV:Header"]
     }
     foreach {name value} $headers {
         if {$name != {}} {
-            set elt [dom::document createElement $h $name]
+            set elt [addNode $h $name]
             insert_value $elt $value
         }
     }
@@ -1228,7 +1221,7 @@ proc ::SOAP::insert_value {node value} {
     # If the rpcvar namespace is a URI then assign it a tag and ensure we
     # have our colon only when required.
     if {$typexmlns != {} && [regexp : $typexmlns]} {
-        dom::element setAttribute $node "xmlns:t" $typexmlns
+        setElementAttribute $node "xmlns:t" $typexmlns
         set typexmlns t
     }
     if {$typexmlns != {}} { append typexmlns : }
@@ -1236,7 +1229,7 @@ proc ::SOAP::insert_value {node value} {
     # If there are any attributes assigned, apply them.
     if {$attrs != {}} {
         foreach {aname avalue} $attrs {
-            dom::element setAttribute $node $aname $avalue
+            setElementAttribute $node $aname $avalue
         }
     }
 
@@ -1260,17 +1253,17 @@ proc ::SOAP::insert_value {node value} {
         # Look up the typedef info of the item type
         set itemxmlns [typedef -namespace $itemtype]
         if {$itemxmlns != {} && [regexp : $itemxmlns]} {
-            dom::element setAttribute $node "xmlns:i" $itemxmlns
+            setElementAttribute $node "xmlns:i" $itemxmlns
             set itemxmlns i
         }
         
         # Currently we do not support non-0 offsets into the array.
         # This is because I don;t know how I should present this to the
         # user. It's got to be a dynamic attribute on the value.
-        dom::element setAttribute $node \
+        setElementAttribute $node \
                 "xmlns:SOAP-ENC" "http://schemas.xmlsoap.org/soap/encoding/"
-        dom::element setAttribute $node "xsi:type" "SOAP-ENC:Array"
-        dom::element setAttribute $node "SOAP-ENC:offset" "\[0\]"
+        setElementAttribute $node "xsi:type" "SOAP-ENC:Array"
+        setElementAttribute $node "SOAP-ENC:offset" "\[0\]"
 
         # we need to break a multi-dim array into r0c0,r0c1,r1c0,r1c1
         # so list0 followed by list1 etc.
@@ -1278,10 +1271,10 @@ proc ::SOAP::insert_value {node value} {
         set arrayType "$itemxmlns:$itemtype"
         #for {set cn 0} {$cn < $dimensions} {incr cn}
         append arrayType "\[[llength $value]\]"
-        dom::element setAttribute $node "SOAP-ENC:arrayType" $arrayType
+        setElementAttribute $node "SOAP-ENC:arrayType" $arrayType
 
         foreach elt $value {
-            set d_elt [dom::document createElement $node "item"]
+            set d_elt [addNode $node "item"]
             if {[string match "ur-type" $itemtype]} {
                 insert_value $d_elt $elt
             } else {
@@ -1291,7 +1284,7 @@ proc ::SOAP::insert_value {node value} {
     } elseif {[llength $typeinfo] > 1} {
         # a typedef'd struct.
         if {$typexmlns != {}} {
-            dom::element setAttribute $node "xsi:type" "${typexmlns}${type}"
+            setElementAttribute $node "xsi:type" "${typexmlns}${type}"
         }
         array set ti $typeinfo
         # Bounds checking - <simon@e-ppraisal.com>
@@ -1300,7 +1293,7 @@ proc ::SOAP::insert_value {node value} {
                 type $type contains \"$typeinfo\""
         }
         foreach {eltname eltvalue} $value {
-            set d_elt [dom::document createElement $node $eltname]
+            set d_elt [addNode $node $eltname]
             if {![info exists ti($eltname)]} {
                 return -code error "invalid member name:\
                     \"$eltname\" is not a member of the $type type."
@@ -1310,15 +1303,15 @@ proc ::SOAP::insert_value {node value} {
     } elseif {$type == "struct"} {
         # an unspecified struct
         foreach {eltname eltvalue} $value {
-            set d_elt [dom::document createElement $node $eltname]
+            set d_elt [addNode $node $eltname]
             insert_value $d_elt $eltvalue
         }
     } else {
         # simple type or typedef'd enumeration
         if {$typexmlns != {}} {
-            dom::element setAttribute $node "xsi:type" "${typexmlns}${type}"
+            setElementAttribute $node "xsi:type" "${typexmlns}${type}"
         }
-        dom::document createTextNode $node $value
+        addTextNode $node $value
     }
 }
 

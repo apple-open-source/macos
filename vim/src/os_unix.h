@@ -124,7 +124,7 @@
 #  define SIGDUMMYARG	0, 0, (struct sigcontext *)0
 # else
 #  define SIGPROTOARG	(int)
-#  define SIGDEFARG(s)	(s) int s;
+#  define SIGDEFARG(s)	(s) int s UNUSED;
 #  define SIGDUMMYARG	0
 # endif
 #else
@@ -481,11 +481,6 @@ typedef struct dsc$descriptor   DESC;
 #  define mch_rename(src, dst) rename(src, dst)
 # else
 int mch_rename __ARGS((const char *src, const char *dest));
-# endif
-# ifdef VMS
-#  define mch_chdir(s) chdir(vms_fixfilename(s))
-# else
-#  define mch_chdir(s) chdir(s)
 # endif
 # ifndef VMS
 #  ifdef __MVS__

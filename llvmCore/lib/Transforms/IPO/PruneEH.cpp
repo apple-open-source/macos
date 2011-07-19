@@ -19,6 +19,7 @@
 #include "llvm/CallGraphSCCPass.h"
 #include "llvm/Constants.h"
 #include "llvm/Function.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
 #include "llvm/Analysis/CallGraph.h"
@@ -26,7 +27,6 @@
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Support/Compiler.h"
 #include <set>
 #include <algorithm>
 using namespace llvm;
@@ -35,12 +35,12 @@ STATISTIC(NumRemoved, "Number of invokes removed");
 STATISTIC(NumUnreach, "Number of noreturn calls optimized");
 
 namespace {
-  struct VISIBILITY_HIDDEN PruneEH : public CallGraphSCCPass {
+  struct PruneEH : public CallGraphSCCPass {
     static char ID; // Pass identification, replacement for typeid
     PruneEH() : CallGraphSCCPass(&ID) {}
 
     // runOnSCC - Analyze the SCC, performing the transformation if possible.
-    bool runOnSCC(const std::vector<CallGraphNode *> &SCC);
+    bool runOnSCC(CallGraphSCC &SCC);
 
     bool SimplifyFunction(Function *F);
     void DeleteBasicBlock(BasicBlock *BB);
@@ -54,20 +54,20 @@ X("prune-eh", "Remove unused exception handling info");
 Pass *llvm::createPruneEHPass() { return new PruneEH(); }
 
 
-bool PruneEH::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
+bool PruneEH::runOnSCC(CallGraphSCC &SCC) {
   SmallPtrSet<CallGraphNode *, 8> SCCNodes;
   CallGraph &CG = getAnalysis<CallGraph>();
   bool MadeChange = false;
 
   // Fill SCCNodes with the elements of the SCC.  Used for quickly
   // looking up whether a given CallGraphNode is in this SCC.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i)
-    SCCNodes.insert(SCC[i]);
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I)
+    SCCNodes.insert(*I);
 
   // First pass, scan all of the functions in the SCC, simplifying them
   // according to what we know.
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i)
-    if (Function *F = SCC[i]->getFunction())
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I)
+    if (Function *F = (*I)->getFunction())
       MadeChange |= SimplifyFunction(F);
 
   // Next, check to see if any callees might throw or if there are any external
@@ -78,9 +78,9 @@ bool PruneEH::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
   // obviously the SCC might throw.
   //
   bool SCCMightUnwind = false, SCCMightReturn = false;
-  for (unsigned i = 0, e = SCC.size();
-       (!SCCMightUnwind || !SCCMightReturn) && i != e; ++i) {
-    Function *F = SCC[i]->getFunction();
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); 
+       (!SCCMightUnwind || !SCCMightReturn) && I != E; ++I) {
+    Function *F = (*I)->getFunction();
     if (F == 0) {
       SCCMightUnwind = true;
       SCCMightReturn = true;
@@ -132,7 +132,7 @@ bool PruneEH::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
 
   // If the SCC doesn't unwind or doesn't throw, note this fact.
   if (!SCCMightUnwind || !SCCMightReturn)
-    for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+    for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
       Attributes NewAttributes = Attribute::None;
 
       if (!SCCMightUnwind)
@@ -140,19 +140,20 @@ bool PruneEH::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
       if (!SCCMightReturn)
         NewAttributes |= Attribute::NoReturn;
 
-      const AttrListPtr &PAL = SCC[i]->getFunction()->getAttributes();
+      Function *F = (*I)->getFunction();
+      const AttrListPtr &PAL = F->getAttributes();
       const AttrListPtr &NPAL = PAL.addAttr(~0, NewAttributes);
       if (PAL != NPAL) {
         MadeChange = true;
-        SCC[i]->getFunction()->setAttributes(NPAL);
+        F->setAttributes(NPAL);
       }
     }
 
-  for (unsigned i = 0, e = SCC.size(); i != e; ++i) {
+  for (CallGraphSCC::iterator I = SCC.begin(), E = SCC.end(); I != E; ++I) {
     // Convert any invoke instructions to non-throwing functions in this node
     // into call instructions with a branch.  This makes the exception blocks
     // dead.
-    if (Function *F = SCC[i]->getFunction())
+    if (Function *F = (*I)->getFunction())
       MadeChange |= SimplifyFunction(F);
   }
 
@@ -164,14 +165,11 @@ bool PruneEH::runOnSCC(const std::vector<CallGraphNode *> &SCC) {
 // function if we have invokes to non-unwinding functions or code after calls to
 // no-return functions.
 bool PruneEH::SimplifyFunction(Function *F) {
-  CallGraph &CG = getAnalysis<CallGraph>();
-  CallGraphNode *CGN = CG[F];
-
   bool MadeChange = false;
   for (Function::iterator BB = F->begin(), E = F->end(); BB != E; ++BB) {
     if (InvokeInst *II = dyn_cast<InvokeInst>(BB->getTerminator()))
       if (II->doesNotThrow()) {
-        SmallVector<Value*, 8> Args(II->op_begin()+3, II->op_end());
+        SmallVector<Value*, 8> Args(II->op_begin(), II->op_end() - 3);
         // Insert a call instruction before the invoke.
         CallInst *Call = CallInst::Create(II->getCalledValue(),
                                           Args.begin(), Args.end(), "", II);
@@ -180,13 +178,12 @@ bool PruneEH::SimplifyFunction(Function *F) {
         Call->setAttributes(II->getAttributes());
 
         // Anything that used the value produced by the invoke instruction
-        // now uses the value produced by the call instruction.
+        // now uses the value produced by the call instruction.  Note that we
+        // do this even for void functions and calls with no uses so that the
+        // callgraph edge is updated.
         II->replaceAllUsesWith(Call);
         BasicBlock *UnwindBlock = II->getUnwindDest();
         UnwindBlock->removePredecessor(II->getParent());
-
-        // Fix up the call graph.
-        CGN->replaceCallSite(II, Call);
 
         // Insert a branch to the normal destination right before the
         // invoke.
@@ -214,7 +211,7 @@ bool PruneEH::SimplifyFunction(Function *F) {
 
           // Remove the uncond branch and add an unreachable.
           BB->getInstList().pop_back();
-          new UnreachableInst(BB);
+          new UnreachableInst(BB->getContext(), BB);
 
           DeleteBasicBlock(New);  // Delete the new BB.
           MadeChange = true;

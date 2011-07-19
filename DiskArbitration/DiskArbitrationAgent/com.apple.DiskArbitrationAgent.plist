@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Label</key>
+	<string>com.apple.DiskArbitrationAgent</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.apple.DiskArbitration.DiskArbitrationAgent</key>
+		<true/>
+	</dict>
+	<key>Program</key>
+	<string>/System/Library/Frameworks/DiskArbitration.framework/Versions/A/Support/DiskArbitrationAgent</string>
+</dict>
+</plist>

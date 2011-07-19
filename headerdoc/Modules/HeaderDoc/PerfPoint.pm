@@ -3,7 +3,7 @@
 # Class name: PerfPoint
 # Synopsis: Test Point Object for Performance Testing Engine
 #
-# Last Updated: $Date: 2009/03/30 19:38:51 $
+# Last Updated: $Date: 2011/02/18 19:02:59 $
 #
 # Copyright (c) 2005 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,9 +28,44 @@
 #
 ######################################################################
 
+# /*! @header
+#     @abstract
+#         <code>PerfPoint</code> class package file.
+#     @discussion
+#         This file contains the <code>PerfPoint</code> class, a class for
+#         storing performance data.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         Performance testing data structure.
+#     @discussion
+#         The <code>PerfPoint</code> class stores performance data for a single
+#         checkpoint, for use by the
+#         {@link //apple_ref/perl/cl/HeaderDoc::PerfEngine PerfEngine}
+#         class.
+#     @var BACKTRACE
+#         The backtrace for the start of this test point.  Used to match
+#         it upon seeing an end call.
+#     @var SECS
+#         The number of seconds this execution took.
+#     @var USECS
+#         The number of microseconds this execution took (minus the seconds).
+#     @var STARTSEC
+#         The time of day (in seconds) when this point was started.
+#     @var STARTUSEC
+#         The microsecond part of the time of day when this point was started.
+#     @var FINISHSEC
+#         The time of day (in seconds) when this point ended.
+#     @var FINISHUSEC
+#         The microsecond part of the time of day when this point ended.
+#  */
 package HeaderDoc::PerfPoint;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize unregister_force_uid_clear);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash unregisterUID registerUID sanitize unregister_force_uid_clear);
 use File::Basename;
 use strict;
 use vars qw($VERSION @ISA);
@@ -39,10 +74,25 @@ use Time::HiRes qw( usleep ualarm gettimeofday tv_interval );
 
 use Carp;
 
-$HeaderDoc::PerfPoint::VERSION = '$Revision: 1.3 $';
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::PerfPoint::VERSION = '$Revision: 1298084579 $';
 
 my $perfDebug = 1;
 
+# /*!
+#     @abstract
+#         Creates a new <code>PerfPoint</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::PerfPoint->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my($param) = shift;
     my($class) = ref($param) || $param;
@@ -53,12 +103,17 @@ sub new {
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;
     foreach my $key (keys(%attributeHash)) {
-        my $ucKey = uc($key);
-        $self->{$ucKey} = $attributeHash{$key};
+        $self->{$key} = $attributeHash{$key};
     }
     return ($self);
 }
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>PerfPoint</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     $self->{BACKTRACE} = undef;
@@ -69,6 +124,13 @@ sub _initialize {
     $self->{USECS} = undef;
 }
 
+# /*!
+#     @abstract
+#         Marks this checkpoint finished and records the
+#         elapsed time.
+#     @param self
+#         The <code>PerfPoint</code> object.
+#  */
 sub finished {
     my $self = shift;
     my $localDebug = 0;

@@ -1,0 +1,34 @@
+--- roundcubemail-0.5.1/index.php	2011-02-09 02:51:50.000000000 -0800
++++ roundcubemail/index.php	2011-03-19 15:44:13.000000000 -0700
+@@ -135,11 +135,26 @@
+ 
+ // end session (after optional referer check)
+ else if ($RCMAIL->task == 'logout' && isset($_SESSION['user_id']) && (!$RCMAIL->config->get('referer_check') || rcube_check_referer())) {
+-  $userdata = array('user' => $_SESSION['username'], 'host' => $_SESSION['imap_host'], 'lang' => $RCMAIL->user->language);
+-  $OUTPUT->show_message('loggedout');
+-  $RCMAIL->logout_actions();
+-  $RCMAIL->kill_session();
+-  $RCMAIL->plugins->exec_hook('logout_after', $userdata);
++  // CSRF prevention
++  // check client X-header to verify request origin
++  if ($OUTPUT->ajax_call) {
++    if (rc_request_header('X-Roundcube-Request') != $RCMAIL->get_request_token()) {
++      header('HTTP/1.1 404 Not Found');
++      die("Invalid Request");
++    }
++  }
++  // check request token in POST form submissions
++  else if (!empty($_POST) && !$RCMAIL->check_request()) {
++    $OUTPUT->show_message('invalidrequest', 'error');
++    $OUTPUT->send($RCMAIL->task);
++  }
++  else {
++    $userdata = array('user' => $_SESSION['username'], 'host' => $_SESSION['imap_host'], 'lang' => $RCMAIL->user->language);
++    $OUTPUT->show_message('loggedout');
++    $RCMAIL->logout_actions();
++    $RCMAIL->kill_session();
++    $RCMAIL->plugins->exec_hook('logout_after', $userdata);
++  }
+ }
+ 
+ // check session and auth cookie

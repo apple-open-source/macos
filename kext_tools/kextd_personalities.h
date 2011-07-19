@@ -36,6 +36,6 @@
  * but if it can't use them all, it sends the personalities from
  * all kexts opened.
  */
-OSReturn sendPersonalitiesToKernel(void);
+OSReturn sendSystemKextPersonalitiesToKernel(CFArrayRef kexts, Boolean resetFlag);
 
-#endif /* __KEXTD_PERSONALITIES__ */
+#endif

@@ -1245,8 +1245,6 @@ TclExecuteByteCode(interp, codePtr)
     bcFrame.data.tebc.pc       = NULL;
     bcFrame.cmd.str.cmd        = NULL;
     bcFrame.cmd.str.len        = 0;
-
-    TclArgumentBCEnter((Tcl_Interp*) iPtr,codePtr,&bcFrame);
 #endif
 
 #ifdef TCL_COMPILE_DEBUG
@@ -1582,14 +1580,20 @@ TclExecuteByteCode(interp, codePtr)
 	     */
 
 #ifdef TCL_TIP280
-	    bcFrame.data.tebc.pc = pc;
+	    bcFrame.data.tebc.pc = (char*) pc;
 	    iPtr->cmdFramePtr = &bcFrame;
+	    TclArgumentBCEnter((Tcl_Interp*) iPtr, objv, objc,
+			       codePtr, &bcFrame,
+			       pc - codePtr->codeStart);
 #endif
 	    DECACHE_STACK_INFO();
 	    Tcl_ResetResult(interp);
 	    result = TclEvalObjvInternal(interp, objc, objv, bytes, length, 0);
 	    CACHE_STACK_INFO();
 #ifdef TCL_TIP280
+	    TclArgumentBCRelease((Tcl_Interp*) iPtr,  objv, objc,
+				 codePtr,
+				 pc - codePtr->codeStart);
 	    iPtr->cmdFramePtr = iPtr->cmdFramePtr->nextPtr;
 #endif
 
@@ -1876,14 +1880,14 @@ TclExecuteByteCode(interp, codePtr)
 	valuePtr = stackPtr[stackTop]; /* value to append */
 	part2 = NULL;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreStk;
 
     case INST_LAPPEND_ARRAY_STK:
 	valuePtr = stackPtr[stackTop]; /* value to append */
 	part2 = TclGetString(stackPtr[stackTop - 1]);
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreStk;
 
     case INST_APPEND_STK:
@@ -1939,14 +1943,14 @@ TclExecuteByteCode(interp, codePtr)
 	opnd = TclGetUInt4AtPtr(pc+1);
 	pcAdjustment = 5;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreArray;
 
     case INST_LAPPEND_ARRAY1:
 	opnd = TclGetUInt1AtPtr(pc+1);
 	pcAdjustment = 2;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreArray;
 
     case INST_APPEND_ARRAY4:
@@ -1996,14 +2000,14 @@ TclExecuteByteCode(interp, codePtr)
 	opnd = TclGetUInt4AtPtr(pc+1);
 	pcAdjustment = 5;
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreScalar;
 
     case INST_LAPPEND_SCALAR1:
 	opnd = TclGetUInt1AtPtr(pc+1);
 	pcAdjustment = 2;	    
 	storeFlags = (TCL_LEAVE_ERR_MSG | TCL_APPEND_VALUE 
-		      | TCL_LIST_ELEMENT | TCL_TRACE_READS);
+		      | TCL_LIST_ELEMENT);
 	goto doStoreScalar;
 
     case INST_APPEND_SCALAR4:
@@ -4523,10 +4527,6 @@ TclExecuteByteCode(interp, codePtr)
     }
     eePtr->stackTop = initStackTop;
 
-#ifdef TCL_TIP280
-    TclArgumentBCRelease((Tcl_Interp*) iPtr,codePtr);
-#endif
-
     return result;
 #undef STATIC_CATCH_STACK_SIZE
 }
@@ -4835,7 +4835,7 @@ TclGetSrcInfoForPc (cfPtr)
     ByteCode* codePtr = (ByteCode*) cfPtr->data.tebc.codePtr;
 
     if (cfPtr->cmd.str.cmd == NULL) {
-        cfPtr->cmd.str.cmd = GetSrcInfoForPc((char*) cfPtr->data.tebc.pc,
+        cfPtr->cmd.str.cmd = GetSrcInfoForPc((unsigned char*) cfPtr->data.tebc.pc,
 					     codePtr,
 					     &cfPtr->cmd.str.len);
     }
@@ -5374,6 +5374,16 @@ ExprAbsFunc(interp, eePtr, clientData)
 	d = valuePtr->internalRep.doubleValue;
 	if (d < 0.0) {
 	    dResult = -d;
+        } else if (d == -0.0) {
+            /* We need to distinguish here between positive 0.0 and
+             * negative -0.0, see Bug ID #2954959.
+             */
+            static const double poszero = 0.0;
+            if (memcmp(&d, &poszero, sizeof(double))) {
+                dResult = -d;
+            } else {
+                dResult = d;
+            }
 	} else {
 	    dResult = d;
 	}

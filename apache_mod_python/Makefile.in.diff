@@ -1,0 +1,11 @@
+--- src/Makefile.in-orig	2006-08-24 07:42:59.000000000 -0500
++++ src/Makefile.in	2008-12-09 14:35:10.000000000 -0600
+@@ -46,7 +46,7 @@
+ 	@echo
+ 	@echo 'Compiling for DSO.'
+ 	@echo
+-	$(APXS) $(INCLUDES) -c $(SRCS) $(LDFLAGS) $(LIBS) @SOLARIS_HACKS@
++	$(APXS) `echo " $(RC_CFLAGS) " | sed 's/ \([^ ]\)/ -Wc,\1/g'` $(INCLUDES) -c $(SRCS) $(LDFLAGS) $(LIBS) @SOLARIS_HACKS@
+ 	@rm -f mod_python.so
+ 	@ln -s .libs/mod_python.so mod_python.so
+ clean:

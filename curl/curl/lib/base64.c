@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: base64.c,v 1.53 2009-06-04 23:55:56 yangtse Exp $
  ***************************************************************************/
 
 /* Base64 encoding/decoding
@@ -42,6 +41,7 @@
 
 #include "urldata.h" /* for the SessionHandle definition */
 #include "easyif.h"  /* for Curl_convert_... prototypes */
+#include "warnless.h"
 #include "curl_base64.h"
 #include "curl_memory.h"
 
@@ -54,22 +54,27 @@ static const char table64[]=
 
 static void decodeQuantum(unsigned char *dest, const char *src)
 {
-  unsigned int x = 0;
-  int i;
-  char *found;
+  const char *s, *p;
+  unsigned long i, v, x = 0;
 
-  for(i = 0; i < 4; i++) {
-    if((found = strchr(table64, src[i])) != NULL)
-      x = (x << 6) + (unsigned int)(found - table64);
-    else if(src[i] == '=')
+  for(i = 0, s = src; i < 4; i++, s++) {
+    v = 0;
+    p = table64;
+    while(*p && (*p != *s)) {
+      v++;
+      p++;
+    }
+    if(*p == *s)
+      x = (x << 6) + v;
+    else if(*s == '=')
       x = (x << 6);
   }
 
-  dest[2] = (unsigned char)(x & 255);
+  dest[2] = curlx_ultouc(x);
   x >>= 8;
-  dest[1] = (unsigned char)(x & 255);
+  dest[1] = curlx_ultouc(x);
   x >>= 8;
-  dest[0] = (unsigned char)(x & 255);
+  dest[0] = curlx_ultouc(x);
 }
 
 /*
@@ -80,12 +85,12 @@ static void decodeQuantum(unsigned char *dest, const char *src)
  */
 size_t Curl_base64_decode(const char *src, unsigned char **outptr)
 {
-  int length = 0;
-  int equalsTerm = 0;
-  int i;
-  int numQuantums;
+  size_t length = 0;
+  size_t equalsTerm = 0;
+  size_t i;
+  size_t numQuantums;
   unsigned char lastQuantum[3];
-  size_t rawlen=0;
+  size_t rawlen = 0;
   unsigned char *newstr;
 
   *outptr = NULL;
@@ -101,7 +106,7 @@ size_t Curl_base64_decode(const char *src, unsigned char **outptr)
   numQuantums = (length + equalsTerm) / 4;
 
   /* Don't allocate a buffer if the decoded length is 0 */
-  if(numQuantums <= 0)
+  if(numQuantums == 0)
     return 0;
 
   rawlen = (numQuantums * 3) - equalsTerm;
@@ -128,7 +133,7 @@ size_t Curl_base64_decode(const char *src, unsigned char **outptr)
   for(i = 0; i < 3 - equalsTerm; i++)
     newstr[i] = lastQuantum[i];
 
-  newstr[i] = 0; /* zero terminate */
+  newstr[i] = '\0'; /* zero terminate */
   return rawlen;
 }
 
@@ -193,7 +198,7 @@ size_t Curl_base64_encode(struct SessionHandle *data,
     for (i = inputparts = 0; i < 3; i++) {
       if(insize > 0) {
         inputparts++;
-        ibuf[i] = *indata;
+        ibuf[i] = (unsigned char) *indata;
         indata++;
         insize--;
       }

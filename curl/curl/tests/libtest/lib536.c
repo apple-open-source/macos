@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib536.c,v 1.14 2008-09-20 04:26:57 yangtse Exp $
  */
 
 #include "test.h"
@@ -22,7 +21,7 @@
 
 static CURLMcode perform(CURLM * multi)
 {
-  int handles, maxfd;
+  int handles;
   CURLMcode code;
   fd_set fdread, fdwrite, fdexcep;
   struct timeval mp_start;
@@ -32,8 +31,11 @@ static CURLMcode perform(CURLM * multi)
   mp_start = tutil_tvnow();
 
   for (;;) {
+    static struct timeval timeout = /* 100 ms */ { 0, 100000L };
+    int maxfd = -1;
+
     code = curl_multi_perform(multi, &handles);
-    if (tutil_tvdiff(tutil_tvnow(), mp_start) > 
+    if (tutil_tvdiff(tutil_tvnow(), mp_start) >
         MULTI_PERFORM_HANG_TIMEOUT) {
       mp_timedout = TRUE;
       break;
@@ -54,9 +56,14 @@ static CURLMcode perform(CURLM * multi)
     FD_ZERO(&fdwrite);
     FD_ZERO(&fdexcep);
     curl_multi_fdset(multi, &fdread, &fdwrite, &fdexcep, &maxfd);
-    if (maxfd < 0)
-      return (CURLMcode) ~CURLM_OK;
-    if (select(maxfd + 1, &fdread, &fdwrite, &fdexcep, 0) == -1)
+
+    /* In a real-world program you OF COURSE check the return code of the
+       function calls.  On success, the value of maxfd is guaranteed to be
+       greater or equal than -1.  We call select(maxfd + 1, ...), specially in
+       case of (maxfd == -1), we call select(0, ...), which is basically equal
+       to sleep. */
+
+    if (select(maxfd + 1, &fdread, &fdwrite, &fdexcep, &timeout) == -1)
       return (CURLMcode) ~CURLM_OK;
   }
 
@@ -93,9 +100,9 @@ int test(char *URL)
 
   curl_multi_setopt(multi, CURLMOPT_PIPELINING, 1L);
 
-  curl_easy_setopt(easy, CURLOPT_WRITEFUNCTION, fwrite);
-  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
-  curl_easy_setopt(easy, CURLOPT_URL, URL);
+  test_setopt(easy, CURLOPT_WRITEFUNCTION, fwrite);
+  test_setopt(easy, CURLOPT_FAILONERROR, 1L);
+  test_setopt(easy, CURLOPT_URL, URL);
 
   if (curl_multi_add_handle(multi, easy) != CURLM_OK) {
     printf("curl_multi_add_handle() failed\n");
@@ -108,8 +115,8 @@ int test(char *URL)
   }
   curl_easy_reset(easy);
 
-  curl_easy_setopt(easy, CURLOPT_FAILONERROR, 1L);
-  curl_easy_setopt(easy, CURLOPT_URL, libtest_arg2);
+  test_setopt(easy, CURLOPT_FAILONERROR, 1L);
+  test_setopt(easy, CURLOPT_URL, libtest_arg2);
 
   if (curl_multi_add_handle(multi, easy) != CURLM_OK) {
     printf("curl_multi_add_handle() 2 failed\n");
@@ -120,6 +127,9 @@ int test(char *URL)
 
     curl_multi_remove_handle(multi, easy);
   }
+
+test_cleanup:
+
   curl_easy_cleanup(easy);
   curl_multi_cleanup(multi);
   curl_global_cleanup();

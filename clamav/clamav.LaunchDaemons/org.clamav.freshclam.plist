@@ -14,11 +14,11 @@
 	<array>
 		<string>freshclam</string>
 		<string>-d</string>
-		<string>-c</string>
-		<string>4</string>
 	</array>
 	<key>ServiceIPC</key>
 	<false/>
+	<key>ThrottleInterval</key>
+	<integer>60</integer>
 	<key>UserName</key>
 	<string>_clamav</string>
 </dict>

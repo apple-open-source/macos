@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -28,7 +28,7 @@
 
 #include "IntPoint.h"
 #include "PlatformString.h"
-#include "SerializedScriptValue.h"
+#include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassOwnPtr.h>
 
@@ -56,6 +56,7 @@ class HistoryItem;
 class Image;
 class KURL;
 class ResourceRequest;
+class SerializedScriptValue;
 
 typedef Vector<RefPtr<HistoryItem> > HistoryItemVector;
 
@@ -85,9 +86,15 @@ public:
     }
     
     ~HistoryItem();
-    
+
     PassRefPtr<HistoryItem> copy() const;
+
+    // Resets the HistoryItem to its initial state, as returned by create().
+    void reset();
     
+    void encodeBackForwardTree(Encoder&) const;
+    static PassRefPtr<HistoryItem> decodeBackForwardTree(const String& urlString, const String& title, const String& originalURLString, Decoder&);
+
     const String& originalURLString() const;
     const String& urlString() const;
     const String& title() const;
@@ -98,8 +105,6 @@ public:
     
     void setAlternateTitle(const String& alternateTitle);
     const String& alternateTitle() const;
-    
-    Image* icon() const;
     
     const String& parent() const;
     KURL url() const;
@@ -120,6 +125,10 @@ public:
     const IntPoint& scrollPoint() const;
     void setScrollPoint(const IntPoint&);
     void clearScrollPoint();
+    
+    float pageScaleFactor() const;
+    void setPageScaleFactor(float);
+    
     const Vector<String>& documentState() const;
     void setDocumentState(const Vector<String>&);
     void clearDocumentState();
@@ -136,9 +145,12 @@ public:
     void setStateObject(PassRefPtr<SerializedScriptValue> object);
     SerializedScriptValue* stateObject() const { return m_stateObject.get(); }
 
+    void setItemSequenceNumber(long long number) { m_itemSequenceNumber = number; }
+    long long itemSequenceNumber() const { return m_itemSequenceNumber; }
+
     void setDocumentSequenceNumber(long long number) { m_documentSequenceNumber = number; }
     long long documentSequenceNumber() const { return m_documentSequenceNumber; }
-    
+
     void setFormInfoFromRequest(const ResourceRequest&);
     void setFormData(PassRefPtr<FormData>);
     void setFormContentType(const String&);
@@ -152,10 +164,14 @@ public:
     void addChildItem(PassRefPtr<HistoryItem>);
     void setChildItem(PassRefPtr<HistoryItem>);
     HistoryItem* childItemWithTarget(const String&) const;
+    HistoryItem* childItemWithDocumentSequenceNumber(long long number) const;
     HistoryItem* targetItem();
     const HistoryItemVector& children() const;
     bool hasChildren() const;
     void clearChildren();
+    
+    bool shouldDoSameDocumentNavigationTo(HistoryItem* otherItem) const;
+    bool hasSameFrames(HistoryItem* otherItem) const;
 
     // This should not be called directly for HistoryItems that are already included
     // in GlobalHistory. The WebKit api for this is to use -[WebHistory setLastVisitedTimeInterval:forItem:] instead.
@@ -211,8 +227,12 @@ private:
     void padDailyCountsForNewVisit(double time);
     void collapseDailyVisitsToWeekly();
     void recordVisitAtTime(double, VisitCountBehavior = IncreaseVisitCount);
+    
+    bool hasSameDocumentTree(HistoryItem* otherItem) const;
 
     HistoryItem* findTargetItem();
+
+    void encodeBackForwardTreeNode(Encoder&) const;
 
     /* When adding new member variables to this class, please notify the Qt team.
      * qt/HistoryItemQt.cpp contains code to serialize history items.
@@ -230,6 +250,7 @@ private:
     bool m_lastVisitWasHTTPNonGet;
 
     IntPoint m_scrollPoint;
+    float m_pageScaleFactor;
     Vector<String> m_documentState;
     
     HistoryItemVector m_children;
@@ -242,9 +263,19 @@ private:
 
     OwnPtr<Vector<String> > m_redirectURLs;
 
+    // If two HistoryItems have the same item sequence number, then they are
+    // clones of one another.  Traversing history from one such HistoryItem to
+    // another is a no-op.  HistoryItem clones are created for parent and
+    // sibling frames when only a subframe navigates.
+    int64_t m_itemSequenceNumber;
+
+    // If two HistoryItems have the same document sequence number, then they
+    // refer to the same instance of a document.  Traversing history from one
+    // such HistoryItem to another preserves the document.
+    int64_t m_documentSequenceNumber;
+
     // Support for HTML5 History
     RefPtr<SerializedScriptValue> m_stateObject;
-    long long m_documentSequenceNumber;
     
     // info used to repost form data
     RefPtr<FormData> m_formData;

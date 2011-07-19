@@ -2,6 +2,7 @@
 [manpage_begin ftp n 2.4.9]
 [moddesc   {ftp client}]
 [titledesc {Client-side tcl implementation of the ftp protocol}]
+[category  Networking]
 [require Tcl 8.2]
 [require ftp [opt 2.4.9]]
 [description]

@@ -21,10 +21,11 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#ifndef DISABLE_LOCAL_PLUGIN
+
 #include <string.h>
 #include "buffer_unpackers.h"
 #include "CDSAuthDefs.h"
-#include "CDSLocalPlugin.h"
 #include "CDSLocalAuthHelper.h"
 #include "CDSLocalAuthParams.h"
 #include "PrivateTypes.h"
@@ -259,3 +260,4 @@ CDSLocalAuthParams::PolicyStateChanged( void )
 	return ( memcmp(&initialState, &state, sizeof(initialState)) != 0 );
 }
 
+#endif // DISABLE_LOCAL_PLUGIN

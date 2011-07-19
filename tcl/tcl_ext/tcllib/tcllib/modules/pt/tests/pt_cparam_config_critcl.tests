@@ -1,0 +1,48 @@
+# -*- tcl -*-
+# General set of error cases regarding the number of arguments.
+
+test pt-cparam-config-critcl-1.0 {convert, wrong#args} -body {
+    pt::cparam::configuration::critcl def
+} -returnCodes error -result {wrong # args: should be "pt::cparam::configuration::critcl def class pkg cmd"}
+
+test pt-cparam-config-critcl-1.1 {convert, wrong#args} -body {
+    pt::cparam::configuration::critcl def C
+} -returnCodes error -result {wrong # args: should be "pt::cparam::configuration::critcl def class pkg cmd"}
+
+test pt-cparam-config-critcl-1.1 {convert, wrong#args} -body {
+    pt::cparam::configuration::critcl def C P
+} -returnCodes error -result {wrong # args: should be "pt::cparam::configuration::critcl def class pkg cmd"}
+
+test pt-cparam-config-critcl-2.0 {reset, wrong#args} -body {
+    pt::cparam::configuration::critcl def C P C XXX
+} -returnCodes error -result {wrong # args: should be "pt::cparam::configuration::critcl def class pkg cmd"}
+
+# -------------------------------------------------------------------------
+
+# TODO :: Tests missing for: configure/cget, reset
+
+# -------------------------------------------------------------------------
+
+# Testing the generation of tcl/param output configured for critcl.
+
+TestFilesProcess $mytestdir ok peg_serial-canonical peg_cparam-critcl -> n label input data expected {
+    test pt-cparam-config-critcl-3.$n "pt::cparam::configuration::critcl, $label, ok" -setup {
+
+	pt::peg::to::cparam reset
+	pt::peg::to::cparam configure -name     TEMPLATE
+	pt::peg::to::cparam configure -file     TEST
+
+	pt::cparam::configuration::critcl def \
+	    PARSER PACKAGE \
+	    {pt::peg::to::cparam configure}
+
+    } -body {
+	pt::peg::to::cparam convert $data
+    } -cleanup {
+	pt::peg::to::cparam reset
+    } -result $expected
+}
+
+
+#----------------------------------------------------------------------
+unset n label input data expected

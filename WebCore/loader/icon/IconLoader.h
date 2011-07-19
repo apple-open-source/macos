@@ -37,7 +37,8 @@ class Frame;
 class KURL;
 class SharedBuffer;
 
-class IconLoader : private SubresourceLoaderClient, public Noncopyable {
+class IconLoader : private SubresourceLoaderClient {
+    WTF_MAKE_NONCOPYABLE(IconLoader); WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<IconLoader> create(Frame*);
     ~IconLoader();
@@ -50,7 +51,7 @@ private:
 
     virtual void didReceiveResponse(SubresourceLoader*, const ResourceResponse&);
     virtual void didReceiveData(SubresourceLoader*, const char*, int);
-    virtual void didFinishLoading(SubresourceLoader*);
+    virtual void didFinishLoading(SubresourceLoader*, double);
     virtual void didFail(SubresourceLoader*, const ResourceError&);
 
     virtual void didReceiveAuthenticationChallenge(SubresourceLoader*, const AuthenticationChallenge&);

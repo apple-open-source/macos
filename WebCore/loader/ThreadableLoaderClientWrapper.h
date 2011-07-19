@@ -38,79 +38,85 @@
 
 namespace WebCore {
 
-    class ThreadableLoaderClientWrapper : public ThreadSafeShared<ThreadableLoaderClientWrapper> {
-    public:
-        static PassRefPtr<ThreadableLoaderClientWrapper> create(ThreadableLoaderClient* client)
-        {
-            return adoptRef(new ThreadableLoaderClientWrapper(client));
-        }
+class ThreadableLoaderClientWrapper : public ThreadSafeRefCounted<ThreadableLoaderClientWrapper> {
+public:
+    static PassRefPtr<ThreadableLoaderClientWrapper> create(ThreadableLoaderClient* client)
+    {
+        return adoptRef(new ThreadableLoaderClientWrapper(client));
+    }
 
-        void clearClient()
-        {
-            m_done = true;
-            m_client = 0;
-        }
+    void clearClient()
+    {
+        m_done = true;
+        m_client = 0;
+    }
 
-        bool done() const
-        {
-            return m_done;
-        }
+    bool done() const
+    {
+        return m_done;
+    }
 
-        void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
-        {
-            if (m_client)
-                m_client->didSendData(bytesSent, totalBytesToBeSent);
-        }
+    void didSendData(unsigned long long bytesSent, unsigned long long totalBytesToBeSent)
+    {
+        if (m_client)
+            m_client->didSendData(bytesSent, totalBytesToBeSent);
+    }
 
-        void didReceiveResponse(const ResourceResponse& response)
-        {
-            if (m_client)
-                m_client->didReceiveResponse(response);
-        }
+    void didReceiveResponse(const ResourceResponse& response)
+    {
+        if (m_client)
+            m_client->didReceiveResponse(response);
+    }
 
-        void didReceiveData(const char* data, int lengthReceived)
-        {
-            if (m_client)
-                m_client->didReceiveData(data, lengthReceived);
-        }
+    void didReceiveData(const char* data, int dataLength)
+    {
+        if (m_client)
+            m_client->didReceiveData(data, dataLength);
+    }
 
-        void didFinishLoading(unsigned long identifier)
-        {
-            m_done = true;
-            if (m_client)
-                m_client->didFinishLoading(identifier);
-        }
+    void didReceiveCachedMetadata(const char* data, int dataLength)
+    {
+        if (m_client)
+            m_client->didReceiveCachedMetadata(data, dataLength);
+    }
 
-        void didFail(const ResourceError& error)
-        {
-            m_done = true;
-            if (m_client)
-                m_client->didFail(error);
-        }
+    void didFinishLoading(unsigned long identifier, double finishTime)
+    {
+        m_done = true;
+        if (m_client)
+            m_client->didFinishLoading(identifier, finishTime);
+    }
 
-        void didFailRedirectCheck()
-        {
-            m_done = true;
-            if (m_client)
-                m_client->didFailRedirectCheck();
-        }
+    void didFail(const ResourceError& error)
+    {
+        m_done = true;
+        if (m_client)
+            m_client->didFail(error);
+    }
 
-        void didReceiveAuthenticationCancellation(const ResourceResponse& response)
-        {
-            if (m_client)
-                m_client->didReceiveResponse(response);
-        }
+    void didFailRedirectCheck()
+    {
+        m_done = true;
+        if (m_client)
+            m_client->didFailRedirectCheck();
+    }
 
-    protected:
-        ThreadableLoaderClientWrapper(ThreadableLoaderClient* client)
-            : m_client(client)
-            , m_done(false)
-        {
-        }
+    void didReceiveAuthenticationCancellation(const ResourceResponse& response)
+    {
+        if (m_client)
+            m_client->didReceiveResponse(response);
+    }
 
-        ThreadableLoaderClient* m_client;
-        bool m_done;
-    };
+protected:
+    ThreadableLoaderClientWrapper(ThreadableLoaderClient* client)
+        : m_client(client)
+        , m_done(false)
+    {
+    }
+
+    ThreadableLoaderClient* m_client;
+    bool m_done;
+};
 
 } // namespace WebCore
 

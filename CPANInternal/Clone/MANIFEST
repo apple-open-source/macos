@@ -1,0 +1,17 @@
+# $Id: MANIFEST,v 0.19 2006/10/08 03:37:20 ray Exp $
+Changes
+Clone.pm
+Clone.xs
+Makefile.PL
+MANIFEST
+t/01array.t
+t/02hash.t
+t/03scalar.t
+t/04tie.t
+t/05dtype.t
+t/06refcnt.t
+t/07magic.t
+t/dclone.t
+t/dump.pl
+t/tied.pl
+META.yml                                 Module meta-data (added by MakeMaker)

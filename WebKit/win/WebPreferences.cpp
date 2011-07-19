@@ -28,26 +28,25 @@
 #include "WebKitDLL.h"
 #include "WebPreferences.h"
 
-#include "COMPtr.h"
 #include "WebNotificationCenter.h"
 #include "WebPreferenceKeysPrivate.h"
 
+#include <CoreFoundation/CoreFoundation.h>
+#include <WebCore/CACFLayerTreeHost.h>
+#include <WebCore/COMPtr.h>
 #include <WebCore/FileSystem.h>
 #include <WebCore/Font.h>
-#include <WebCore/PlatformString.h>
-#include <WebCore/StringHash.h>
-#include <WebCore/WKCACFLayerRenderer.h>
-#include "WebLocalizableStrings.h"
-
-#include <CoreFoundation/CoreFoundation.h>
+#include <WebCore/LocalizedStrings.h>
 #include <limits>
 #include <shlobj.h>
-#include <tchar.h>
+#include <wchar.h>
 #include <wtf/HashMap.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CoreGraphics.h>
 #include <WebKitSystemInterface/WebKitSystemInterface.h>
 #endif
@@ -102,7 +101,7 @@ static bool booleanValueForPreferencesValue(CFPropertyListRef value)
 
 static CFDictionaryRef defaultSettings;
 
-static HashMap<WebCore::String, COMPtr<WebPreferences> > webPreferencesInstances;
+static HashMap<WTF::String, COMPtr<WebPreferences> > webPreferencesInstances;
 
 WebPreferences* WebPreferences::sharedStandardPreferences()
 {
@@ -154,7 +153,7 @@ WebPreferences* WebPreferences::getInstanceForIdentifier(BSTR identifier)
     if (!identifier)
         return sharedStandardPreferences();
 
-    WebCore::String identifierString(identifier, SysStringLen(identifier));
+    WTF::String identifierString(identifier, SysStringLen(identifier));
     return webPreferencesInstances.get(identifierString).get();
 }
 
@@ -162,7 +161,7 @@ void WebPreferences::setInstance(WebPreferences* instance, BSTR identifier)
 {
     if (!identifier || !instance)
         return;
-    WebCore::String identifierString(identifier, SysStringLen(identifier));
+    WTF::String identifierString(identifier, SysStringLen(identifier));
     webPreferencesInstances.add(identifierString, instance);
 }
 
@@ -171,7 +170,7 @@ void WebPreferences::removeReferenceForIdentifier(BSTR identifier)
     if (!identifier || webPreferencesInstances.isEmpty())
         return;
 
-    WebCore::String identifierString(identifier, SysStringLen(identifier));
+    WTF::String identifierString(identifier, SysStringLen(identifier));
     WebPreferences* webPreference = webPreferencesInstances.get(identifierString).get();
     if (webPreference && webPreference->m_refCount == 1)
         webPreferencesInstances.remove(identifierString);
@@ -190,11 +189,12 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitSansSerifFontPreferenceKey), CFSTR("Arial"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitCursiveFontPreferenceKey), CFSTR("Comic Sans MS"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitFantasyFontPreferenceKey), CFSTR("Comic Sans MS"));
-    CFDictionaryAddValue(defaults, CFSTR(WebKitMinimumFontSizePreferenceKey), CFSTR("1"));
+    CFDictionaryAddValue(defaults, CFSTR(WebKitMinimumFontSizePreferenceKey), CFSTR("0"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitMinimumLogicalFontSizePreferenceKey), CFSTR("9"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFontSizePreferenceKey), CFSTR("16"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultFixedFontSizePreferenceKey), CFSTR("13"));
-    WebCore::String defaultDefaultEncoding(LPCTSTR_UI_STRING("ISO-8859-1", "The default, default character encoding"));
+
+    String defaultDefaultEncoding(WEB_UI_STRING("ISO-8859-1", "The default, default character encoding"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitDefaultTextEncodingNamePreferenceKey), defaultDefaultEncoding.createCFString());
 
     CFDictionaryAddValue(defaults, CFSTR(WebKitUserStyleSheetEnabledPreferenceKey), kCFBooleanFalse);
@@ -218,6 +218,7 @@ void WebPreferences::initializeDefaultSettings()
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImagesPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitAllowAnimatedImageLoopingPreferenceKey), kCFBooleanTrue);
     CFDictionaryAddValue(defaults, CFSTR(WebKitDisplayImagesKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitLoadSiteIconsKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitBackForwardCacheExpirationIntervalKey), CFSTR("1800"));
     CFDictionaryAddValue(defaults, CFSTR(WebKitTabToLinksPreferenceKey), kCFBooleanFalse);
     CFDictionaryAddValue(defaults, CFSTR(WebKitPrivateBrowsingEnabledPreferenceKey), kCFBooleanFalse);
@@ -261,7 +262,10 @@ void WebPreferences::initializeDefaultSettings()
     
     CFDictionaryAddValue(defaults, CFSTR(WebKitShowDebugBordersPreferenceKey), kCFBooleanFalse);
 
-    CFDictionaryAddValue(defaults, CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey), kCFBooleanTrue);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey), kCFBooleanFalse);
+
+    CFDictionaryAddValue(defaults, CFSTR(WebKitMemoryInfoEnabledPreferenceKey), kCFBooleanFalse);
+    CFDictionaryAddValue(defaults, CFSTR(WebKitHyperlinkAuditingEnabledPreferenceKey), kCFBooleanTrue);
 
     defaultSettings = defaults;
 }
@@ -338,12 +342,12 @@ LONGLONG WebPreferences::longlongValueForKey(CFStringRef key)
 void WebPreferences::setStringValue(CFStringRef key, LPCTSTR value)
 {
     BSTR val = stringValueForKey(key);
-    if (val && !_tcscmp(val, value))
+    if (val && !wcscmp(val, value))
         return;
     SysFreeString(val);
     
     RetainPtr<CFStringRef> valueRef(AdoptCF,
-        CFStringCreateWithCharactersNoCopy(0, (UniChar*)_wcsdup(value), (CFIndex)_tcslen(value), kCFAllocatorMalloc));
+        CFStringCreateWithCharactersNoCopy(0, (UniChar*)_wcsdup(value), (CFIndex)wcslen(value), kCFAllocatorMalloc));
     setValueForKey(key, valueRef.get());
 
     postPreferencesChangesNotification();
@@ -461,8 +465,8 @@ void WebPreferences::copyWebKitPreferencesToCFPreferences(CFDictionaryRef dict)
     CFStringRef didRemoveDefaultsKey = CFSTR(WebKitDidMigrateDefaultSettingsFromSafari3BetaPreferenceKey);
     bool omitDefaults = !booleanValueForPreferencesValue(CFDictionaryGetValue(dict, didRemoveDefaultsKey));
 
-    OwnArrayPtr<CFTypeRef> keys(new CFTypeRef[count]);
-    OwnArrayPtr<CFTypeRef> values(new CFTypeRef[count]);
+    OwnArrayPtr<CFTypeRef> keys = adoptArrayPtr(new CFTypeRef[count]);
+    OwnArrayPtr<CFTypeRef> values = adoptArrayPtr(new CFTypeRef[count]);
     CFDictionaryGetKeysAndValues(dict, keys.get(), values.get());
 
     for (int i = 0; i < count; ++i) {
@@ -924,6 +928,20 @@ HRESULT STDMETHODCALLTYPE WebPreferences::loadsImagesAutomatically(
     return S_OK;
 }
 
+HRESULT STDMETHODCALLTYPE WebPreferences::setLoadsSiteIconsIgnoringImageLoadingPreference(
+    /* [in] */ BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitLoadSiteIconsKey), enabled);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::loadsSiteIconsIgnoringImageLoadingPreference(
+    /* [retval][out] */ BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitLoadSiteIconsKey));
+    return S_OK;
+}
+
 HRESULT STDMETHODCALLTYPE WebPreferences::setAutosaves( 
     /* [in] */ BOOL enabled)
 {
@@ -1083,7 +1101,7 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothing(
     setIntegerValue(CFSTR(WebKitFontSmoothingTypePreferenceKey), smoothingType);
     if (smoothingType == FontSmoothingTypeWindows)
         smoothingType = FontSmoothingTypeMedium;
-#if PLATFORM(CG)
+#if USE(CG)
     wkSetFontSmoothingLevel((int)smoothingType);
 #endif
     return S_OK;
@@ -1100,7 +1118,7 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setFontSmoothingContrast(
     /* [in] */ float contrast)
 {
     setFloatValue(CFSTR(WebKitFontSmoothingContrastPreferenceKey), contrast);
-#if PLATFORM(CG)
+#if USE(CG)
     wkSetFontSmoothingContrast(contrast);
 #endif
     return S_OK;
@@ -1129,6 +1147,34 @@ HRESULT STDMETHODCALLTYPE WebPreferences::setEditableLinkBehavior(
     /* [in] */ WebKitEditableLinkBehavior behavior)
 {
     setIntegerValue(CFSTR(WebKitEditableLinkBehaviorPreferenceKey), behavior);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::editingBehavior(
+    /* [out, retval] */ WebKitEditingBehavior* editingBehavior)
+{
+    *editingBehavior = (WebKitEditingBehavior) integerValueForKey(CFSTR(WebKitEditingBehaviorPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setEditingBehavior(
+    /* [in] */ WebKitEditingBehavior behavior)
+{
+    setIntegerValue(CFSTR(WebKitEditingBehaviorPreferenceKey), behavior);
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::hyperlinkAuditingEnabled(
+    /* [in] */ BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitHyperlinkAuditingEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebPreferences::setHyperlinkAuditingEnabled(
+    /* [retval][out] */ BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitHyperlinkAuditingEnabledPreferenceKey), enabled);
     return S_OK;
 }
 
@@ -1415,7 +1461,7 @@ HRESULT WebPreferences::setAcceleratedCompositingEnabled(BOOL enabled)
 HRESULT WebPreferences::acceleratedCompositingEnabled(BOOL* enabled)
 {
 #if USE(ACCELERATED_COMPOSITING)
-    *enabled = WKCACFLayerRenderer::acceleratedCompositingAvailable() && boolValueForKey(CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey));
+    *enabled = CACFLayerTreeHost::acceleratedCompositingAvailable() && boolValueForKey(CFSTR(WebKitAcceleratedCompositingEnabledPreferenceKey));
 #else
     *enabled = FALSE;
 #endif
@@ -1468,6 +1514,41 @@ HRESULT WebPreferences::isDNSPrefetchingEnabled(BOOL* enabled)
 {
     *enabled = boolValueForKey(CFSTR(WebKitDNSPrefetchingEnabledPreferenceKey));
     return S_OK;
+}
+
+HRESULT WebPreferences::memoryInfoEnabled(BOOL* enabled)
+{
+    *enabled = boolValueForKey(CFSTR(WebKitMemoryInfoEnabledPreferenceKey));
+    return S_OK;
+}
+
+HRESULT WebPreferences::setMemoryInfoEnabled(BOOL enabled)
+{
+    setBoolValue(CFSTR(WebKitMemoryInfoEnabledPreferenceKey), enabled);
+    return S_OK;
+}
+
+HRESULT WebPreferences::isFullScreenEnabled(BOOL* enabled)
+{
+#if ENABLE(FULLSCREEN_API)
+    if (!enabled)
+        return E_POINTER;
+
+    *enabled = boolValueForKey(CFSTR(WebKitFullScreenEnabledPreferenceKey));
+    return S_OK;
+#else
+    return E_NOTIMPL;
+#endif
+}
+
+HRESULT WebPreferences::setFullScreenEnabled(BOOL enabled)
+{
+#if ENABLE(FULLSCREEN_API)
+    setBoolValue(CFSTR(WebKitFullScreenEnabledPreferenceKey), enabled);
+    return S_OK;
+#else
+    return E_NOTIMPL;
+#endif
 }
 
 void WebPreferences::willAddToWebView()

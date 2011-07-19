@@ -29,4 +29,4 @@ source [file join $::snit::library main2.tcl]
 # Load the library of Snit validation types.
 source [file join $::snit::library validate.tcl]
 
-package provide snit 2.2.1
+package provide snit 2.3.2

@@ -1,0 +1,279 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$130|ruby_variable_d = <<BLOCK
+
+This is a multi-line ruby quoted string
+BLOCK
+bogus_variable_d = %/\nThis is a double quoted string\n/
+$14|    string d.
+$0|$6501|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/Ruby_variable_4.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/Ruby_variable_4.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{followingrubyrbrace} => 0
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 0
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inRuby} => 0
+$parserState->{inRubyBlock} => BLOCK
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 4
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => ruby
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => 
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => ruby_variable_d
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} => ruby_variable_d = 
+<<BLOCK  This is a multi-line ruby quoted string BLOCK
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => ruby_variable_d
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 0
+$parserState->{sublang} => ruby
+$parserState->{value} =>  <<BLOCK  This is a multi-line ruby quoted string BLOCK 
+$parserState->{valuepending} => 2
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 4
+typelist: variable
+namelist: ruby_variable_d
+posstypes: constant
+value: <<BLOCK  This is a multi-line ruby quoted string BLOCK
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---ruby_variable_d
++--- 
++---=
++--- 
++---<<
+|   +---BLOCK
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---This
+|   +--- 
+|   +---is
+|   +--- 
+|   +---a
+|   +--- 
+|   +---multi
+|   +----
+|   +---line
+|   +--- 
+|   +---ruby
+|   +--- 
+|   +---quoted
+|   +--- 
+|   +---string
+|   +---[ NEWLINE ]
+|   +---BLOCK
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: Ruby variable 4
+APIUID: //test_ref/doc/header/Ruby_variable_4.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: ruby_variable_d
+    APIUID: //test_ref/ruby/data/ruby_variable_d
+    ABSTRACT: ""
+    DISCUSSION: "<p>string d.
+"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "<<BLOCK  This is a multi-line ruby quoted string BLOCK"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: ruby_variable_d (HeaderDoc::Var)
++---ruby_variable_d
++--- 
++---=
++--- 
++---<<
+|   +---BLOCK
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---This
+|   +--- 
+|   +---is
+|   +--- 
+|   +---a
+|   +--- 
+|   +---multi
+|   +----
+|   +---line
+|   +--- 
+|   +---ruby
+|   +--- 
+|   +---quoted
+|   +--- 
+|   +---string
+|   +---[ NEWLINE ]
+|   +---BLOCK
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: ruby_variable_d (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/ruby/econst/ruby_variable_d //test_ref/ruby/data/ruby_variable_d //test_ref/ruby/clconst/ruby_variable_d " machineGenerated="true" --><span class="var">ruby_variable_d</span><!-- /a --> = &lt;&lt;<span class="string">BLOCK</span>
+	
+	<span class="string">This</span> <span class="string">is</span> <span class="string">a</span> <span class="string">multi</span>-<span class="string">line</span> <span class="string">ruby</span> <span class="string">quoted</span> <span class="string">string</span>
+	<span class="string">BLOCK</span> 
+END OF OBJECT
+
+
+
+__$97|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/Ruby_variable_4.test$4|ruby$15|Ruby variable 4$4|ruby$6|parser

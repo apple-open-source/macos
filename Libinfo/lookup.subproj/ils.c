@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2009 Apple Inc.  All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -203,7 +203,7 @@ LI_ils_create(char *fmt, ...)
 
 			case '*':
 			{
-				/* NULL-terminated list of strings */
+				// NULL-terminated list of strings
 				if (largest < sizeof(char *)) largest = sizeof(char *);
 
 				csize = sizeof(char *) + padsize(hsize, sizeof(char *), align);
@@ -215,9 +215,10 @@ LI_ils_create(char *fmt, ...)
 						slen += sizeof(char *);
 						slen += (strlen(list[i]) + 1);
 					}
-
-					slen += sizeof(char *);
 				}
+
+				// reserve space for the terminator
+				slen += sizeof(char *);
 
 				break;
 			}
@@ -499,30 +500,23 @@ LI_ils_create(char *fmt, ...)
 
 				list = va_arg(ap, char **);
 
-				if (list == NULL)
+				memcpy(hp, &dp, sizeof(char *));
+
+				for (i = 0; list && list[i] != NULL; i++);
+
+				lp = dp;
+				dp += ((i + 1) * sizeof(char *));
+
+				for (i = 0; list && list[i] != NULL; i++)
 				{
-					memset(hp, 0, sizeof(char *));
+					memcpy(lp, &dp, sizeof(char *));
+					lp += sizeof(char *);
+					slen = strlen(list[i]) + 1;
+					memcpy(dp, list[i], slen);
+					dp += slen;
 				}
-				else
-				{
-					memcpy(hp, &dp, sizeof(char *));
 
-					for (i = 0; list[i] != NULL; i++);
-
-					lp = dp;
-					dp += ((i + 1) * sizeof(char *));
-
-					for (i = 0; list[i] != NULL; i++)
-					{
-						memcpy(lp, &dp, sizeof(char *));
-						lp += sizeof(char *);
-						slen = strlen(list[i]) + 1;
-						memcpy(dp, list[i], slen);
-						dp += slen;
-					}
-
-					memset(lp, 0, sizeof(char *));
-				}
+				memset(lp, 0, sizeof(char *));
 
 				hp += sizeof(char *);
 				hsize += sizeof(char *);

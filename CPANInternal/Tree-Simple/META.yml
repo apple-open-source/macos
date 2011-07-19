@@ -1,6 +1,6 @@
 ---
 name: Tree-Simple
-version: 1.17
+version: 1.18
 author:
   - 'Stevan Little, E<lt>stevan@iinteractive.comE<gt>'
   - 'Rob Kinyon, E<lt>rob@iinteractive.comE<gt>'
@@ -17,7 +17,7 @@ build_requires:
 provides:
   Tree::Simple:
     file: lib/Tree/Simple.pm
-    version: 1.17
+    version: 1.18
   Tree::Simple::Visitor:
     file: lib/Tree/Simple/Visitor.pm
     version: 1.11

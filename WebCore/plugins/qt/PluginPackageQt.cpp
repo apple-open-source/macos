@@ -60,9 +60,19 @@ bool PluginPackage::fetchInfo()
     m_description = buf;
     determineModuleVersionFromDescription();
 
-    String s = gm();
+    String mimeDescription = gm();
+    setMIMEDescription(mimeDescription);
+    m_infoIsFromCache = false;
+
+    return true;
+}
+
+void PluginPackage::setMIMEDescription(const String& mimeDescription)
+{
+    m_fullMIMEDescription = mimeDescription.lower();
+
     Vector<String> types;
-    s.split(UChar(';'), false, types);
+    mimeDescription.lower().split(UChar(';'), false, types);
     for (unsigned i = 0; i < types.size(); ++i) {
         Vector<String> mime;
         types[i].split(UChar(':'), true, mime);
@@ -76,8 +86,6 @@ bool PluginPackage::fetchInfo()
                 m_mimeToDescriptions.add(mime[0], mime[2]);
         }
     }
-
-    return true;
 }
 
 static NPError staticPluginQuirkRequiresGtkToolKit_NPN_GetValue(NPP instance, NPNVariable variable, void* value)
@@ -88,6 +96,39 @@ static NPError staticPluginQuirkRequiresGtkToolKit_NPN_GetValue(NPP instance, NP
     }
 
     return NPN_GetValue(instance, variable, value);
+}
+
+static void initializeGtk(QLibrary* module = 0)
+{
+    // Ensures missing Gtk initialization in some versions of Adobe's flash player
+    // plugin do not cause crashes. See BR# 40567, 44324, and 44405 for details.  
+    if (module) {
+        typedef void *(*gtk_init_ptr)(int*, char***);
+        gtk_init_ptr gtkInit = (gtk_init_ptr)module->resolve("gtk_init");
+        if (gtkInit) {
+            // Prevent gtk_init() from replacing the X error handlers, since the Gtk
+            // handlers abort when they receive an X error, thus killing the viewer.
+#ifdef Q_WS_X11
+            int (*old_error_handler)(Display*, XErrorEvent*) = XSetErrorHandler(0);
+            int (*old_io_error_handler)(Display*) = XSetIOErrorHandler(0);
+#endif
+            gtkInit(0, 0);
+#ifdef Q_WS_X11
+            XSetErrorHandler(old_error_handler);
+            XSetIOErrorHandler(old_io_error_handler);
+#endif
+            return;
+        }
+    }
+
+    QLibrary library(QLatin1String("libgtk-x11-2.0.so.0"));
+    if (library.load()) {
+        typedef void *(*gtk_init_check_ptr)(int*, char***);
+        gtk_init_check_ptr gtkInitCheck = (gtk_init_check_ptr)library.resolve("gtk_init_check");
+        // NOTE: We're using gtk_init_check() since gtk_init() calls exit() on failure.
+        if (gtkInitCheck)
+            (void) gtkInitCheck(0, 0);
+    }
 }
 
 bool PluginPackage::load()
@@ -125,6 +166,13 @@ bool PluginPackage::load()
         // nspluginwrapper relies on the toolkit value to know if glib is available
         // It does so in NP_Initialize with a null instance, therefore it is done this way:
         m_browserFuncs.getvalue = staticPluginQuirkRequiresGtkToolKit_NPN_GetValue;
+        // Workaround Adobe's failure to properly initialize Gtk in some versions
+        // of their flash player plugin.
+        initializeGtk();
+    } else if (m_path.contains("flashplayer")) {
+        // Workaround Adobe's failure to properly initialize Gtk in some versions
+        // of their flash player plugin.
+        initializeGtk(m_module);
     }
 
 #if defined(XP_UNIX)
@@ -147,4 +195,5 @@ uint16_t PluginPackage::NPVersion() const
 {
     return NP_VERSION_MINOR;
 }
+
 }

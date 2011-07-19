@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -125,6 +125,8 @@ int	locking, lockrest, debugonly;
 struct	rt_metrics rt_metrics;
 u_long  rtm_inits;
 unsigned int ifscope;
+
+static const char *route_strerror(int);
 const char	*routename(), *netname();
 void	flushroutes(), newroute(), monitor(), sockaddr(), sodump(), bprintf();
 void	print_getmsg(), print_rtmsg(), pmsg_common(), pmsg_addrs(), mask_addr();
@@ -185,7 +187,7 @@ main(argc, argv)
 	argv += optind;
 
 	pid = getpid();
-	uid = getuid();
+	uid = geteuid();
 	if (tflag)
 		s = open(_PATH_DEVNULL, O_WRONLY, 0);
 	else
@@ -326,13 +328,13 @@ routename(sa)
 		if (gethostname(domain, MAXHOSTNAMELEN) == 0 &&
 		    (cp = index(domain, '.'))) {
 			domain[MAXHOSTNAMELEN] = '\0';
-			(void) strcpy(domain, cp + 1);
+			(void) strlcpy(domain, cp + 1, sizeof(domain));
 		} else
 			domain[0] = 0;
 	}
 
 	if (sa->sa_len == 0)
-		strcpy(line, "default");
+		strlcpy(line, "default", sizeof(line));
 	else switch (sa->sa_family) {
 
 	case AF_INET:
@@ -359,7 +361,7 @@ routename(sa)
 			/* XXX - why not inet_ntoa()? */
 #define C(x)	(unsigned)((x) & 0xff)
 			in.s_addr = ntohl(in.s_addr);
-			(void) sprintf(line, "%u.%u.%u.%u", C(in.s_addr >> 24),
+			(void) snprintf(line, sizeof(line), "%u.%u.%u.%u", C(in.s_addr >> 24),
 			   C(in.s_addr >> 16), C(in.s_addr >> 8), C(in.s_addr));
 		}
 		break;
@@ -381,6 +383,7 @@ routename(sa)
 #ifdef __KAME__
 		if (sa->sa_len == sizeof(struct sockaddr_in6) &&
 		    (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr) ||
+		     IN6_IS_ADDR_MC_NODELOCAL(&sin6.sin6_addr) ||
 		     IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr)) &&
 		    sin6.sin6_scope_id == 0) {
 			sin6.sin6_scope_id =
@@ -405,7 +408,7 @@ routename(sa)
 	default:
 	    {	u_short *s = (u_short *)sa;
 		u_short *slim = s + ((sa->sa_len + 1) >> 1);
-		char *cp = line + sprintf(line, "(%d)", sa->sa_family);
+		char *cp = line + snprintf(line, sizeof(line), "(%d)", sa->sa_family);
 		char *cpe = line + sizeof(line);
 
 		while (++s < slim && cp < cpe) /* start with sa->sa_data */
@@ -469,15 +472,15 @@ netname(sa)
 		if (cp)
 			strncpy(line, cp, sizeof(line));
 		else if ((in.s_addr & 0xffffff) == 0)
-			(void) sprintf(line, "%u", C(in.s_addr >> 24));
+			(void) snprintf(line, sizeof(line), "%u", C(in.s_addr >> 24));
 		else if ((in.s_addr & 0xffff) == 0)
-			(void) sprintf(line, "%u.%u", C(in.s_addr >> 24),
+			(void) snprintf(line, sizeof(line), "%u.%u", C(in.s_addr >> 24),
 			    C(in.s_addr >> 16));
 		else if ((in.s_addr & 0xff) == 0)
-			(void) sprintf(line, "%u.%u.%u", C(in.s_addr >> 24),
+			(void) snprintf(line, sizeof(line), "%u.%u.%u", C(in.s_addr >> 24),
 			    C(in.s_addr >> 16), C(in.s_addr >> 8));
 		else
-			(void) sprintf(line, "%u.%u.%u.%u", C(in.s_addr >> 24),
+			(void) snprintf(line, sizeof(line), "%u.%u.%u.%u", C(in.s_addr >> 24),
 			    C(in.s_addr >> 16), C(in.s_addr >> 8),
 			    C(in.s_addr));
 		break;
@@ -499,6 +502,7 @@ netname(sa)
 #ifdef __KAME__
 		if (sa->sa_len == sizeof(struct sockaddr_in6) &&
 		    (IN6_IS_ADDR_LINKLOCAL(&sin6.sin6_addr) ||
+		     IN6_IS_ADDR_MC_NODELOCAL(&sin6.sin6_addr) ||
 		     IN6_IS_ADDR_MC_LINKLOCAL(&sin6.sin6_addr)) &&
 		    sin6.sin6_scope_id == 0) {
 			sin6.sin6_scope_id =
@@ -524,7 +528,7 @@ netname(sa)
 	default:
 	    {	u_short *s = (u_short *)sa->sa_data;
 		u_short *slim = s + ((sa->sa_len + 1)>>1);
-		char *cp = line + sprintf(line, "af %d:", sa->sa_family);
+		char *cp = line + snprintf(line, sizeof(line), "af %d:", sa->sa_family);
 		char *cpe = line + sizeof(line);
 
 		while (s < slim && cp < cpe)
@@ -533,6 +537,22 @@ netname(sa)
 	    }
 	}
 	return (line);
+}
+
+static const char *
+route_strerror(int error)
+{
+
+	switch (error) {
+	case ESRCH:
+		return "not in table";
+	case EBUSY:
+		return "entry in use";
+	case ENOBUFS:
+		return "routing table overflow";
+	default:
+		return (strerror(error));
+	}
 }
 
 void
@@ -567,7 +587,7 @@ newroute(argc, argv)
 	int argc;
 	register char **argv;
 {
-	char *cmd, *dest = "", *gateway = "", *err;
+	char *cmd, *dest = "", *gateway = "";
 	int ishost = 0, ret, attempts, oerrno, flags = RTF_STATIC;
 	int key;
 	struct hostent *hp = 0;
@@ -770,21 +790,7 @@ newroute(argc, argv)
 	if (ret == 0)
 		(void) printf("\n");
 	else {
-		switch (oerrno) {
-		case ESRCH:
-			err = "not in table";
-			break;
-		case EBUSY:
-			err = "entry in use";
-			break;
-		case ENOBUFS:
-			err = "routing table overflow";
-			break;
-		default:
-			err = strerror(oerrno);
-			break;
-		}
-		(void) printf(": %s\n", err);
+		(void)printf(": %s\n", route_strerror(oerrno));
 	}
 }
 
@@ -832,6 +838,36 @@ inet_makenetandmask(net, sin, bits)
 		;
 	sin->sin_len = 1 + cp - (char *)sin;
 }
+
+#ifdef INET6
+/*
+ * XXX the function may need more improvement...
+ */
+static int
+inet6_makenetandmask(struct sockaddr_in6 *sin6, const char *plen)
+{
+	struct in6_addr in6;
+
+	if (plen == NULL) {
+		if (IN6_IS_ADDR_UNSPECIFIED(&sin6->sin6_addr) &&
+		    sin6->sin6_scope_id == 0) {
+			plen = "0";
+		} else if ((sin6->sin6_addr.s6_addr[0] & 0xe0) == 0x20) {
+			/* aggregatable global unicast - RFC2374 */
+			memset(&in6, 0, sizeof(in6));
+			if (!memcmp(&sin6->sin6_addr.s6_addr[8],
+				    &in6.s6_addr[8], 8))
+				plen = "64";
+		}
+	}
+
+	if (plen == NULL || strcmp(plen, "128") == 0)
+		return (1);
+	rtm_addrs |= RTA_NETMASK;
+	prefixlen(plen);
+	return (0);
+}
+#endif
 
 /*
  * Interpret an argument as a network address of some kind,
@@ -925,6 +961,7 @@ getaddr(which, s, hpp)
 		case RTA_NETMASK:
 		case RTA_GENMASK:
 			/* bzero(su, sizeof(*su)); *//* for readability */
+			su->sa.sa_len = 0;
 			break;
 		}
 		return (0);
@@ -934,21 +971,27 @@ getaddr(which, s, hpp)
 	case AF_INET6:
 	{
 		struct addrinfo hints, *res;
+		int ecode;
 
+		q = NULL;
+		if (which == RTA_DST && (q = strchr(s, '/')) != NULL)
+			*q = '\0';
 		memset(&hints, 0, sizeof(hints));
 		hints.ai_family = afamily;	/*AF_INET6*/
 		hints.ai_flags = AI_NUMERICHOST;
 		hints.ai_socktype = SOCK_DGRAM;		/*dummy*/
-		if (getaddrinfo(s, "0", &hints, &res) != 0 ||
-		    res->ai_family != AF_INET6 ||
+		ecode = getaddrinfo(s, NULL, &hints, &res);
+		if (ecode != 0 || res->ai_family != AF_INET6 ||
 		    res->ai_addrlen != sizeof(su->sin6)) {
-			(void) fprintf(stderr, "%s: bad value\n", s);
+			(void) fprintf(stderr, "%s: %s\n", s,
+			    gai_strerror(ecode));
 			exit(1);
 		}
 		memcpy(&su->sin6, res->ai_addr, sizeof(su->sin6));
 #ifdef __KAME__
 		if ((IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr) ||
-		     IN6_IS_ADDR_LINKLOCAL(&su->sin6.sin6_addr)) &&
+		     IN6_IS_ADDR_MC_NODELOCAL(&su->sin6.sin6_addr) ||
+		     IN6_IS_ADDR_MC_LINKLOCAL(&su->sin6.sin6_addr)) &&
 		    su->sin6.sin6_scope_id) {
 			*(u_int16_t *)&su->sin6.sin6_addr.s6_addr[2] =
 				htons(su->sin6.sin6_scope_id);
@@ -956,7 +999,15 @@ getaddr(which, s, hpp)
 		}
 #endif
 		freeaddrinfo(res);
-		return (0);
+		if (hints.ai_flags == AI_NUMERICHOST) {
+			if (q != NULL)
+				*q++ = '/';
+			if (which == RTA_DST)
+				return (inet6_makenetandmask(&su->sin6, q));
+			return (0);
+		} else {
+			return (1);
+		}
 	}
 #endif /* INET6 */
 
@@ -1170,7 +1221,7 @@ rtmsg(cmd, flags)
 	if (debugonly)
 		return (0);
 	if ((rlen = write(s, (char *)&m_rtmsg, l)) < 0) {
-		warn("writing to routing socket");
+		warnx("writing to routing socket: %s", route_strerror(errno));
 		return (-1);
 	}
 	if (cmd == RTM_GET) {
@@ -1300,10 +1351,10 @@ print_rtmsg(rtm, msglen)
 		if (rtm->rtm_flags & RTF_IFSCOPE)
 			(void) printf("ifscope %d, ", rtm->rtm_index);
 #ifdef RTF_IFREF
-		if (rtm->rtm_flags & RTF_IFREF)
+			if (rtm->rtm_flags & RTF_IFREF)
 			(void) printf("ifref, ");
 #endif /* RTF_IFREF */
-		(void) printf("flags:");
+			(void) printf("flags:");
 		bprintf(stdout, rtm->rtm_flags, routeflags);
 		pmsg_common(rtm);
 	}

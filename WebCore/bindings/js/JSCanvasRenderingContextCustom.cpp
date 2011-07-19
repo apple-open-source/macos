@@ -27,8 +27,10 @@
 #include "JSCanvasRenderingContext.h"
 
 #include "CanvasRenderingContext2D.h"
+#include "HTMLCanvasElement.h"
 #include "JSCanvasRenderingContext2D.h"
-#if ENABLE(3D_CANVAS)
+#include "JSNode.h"
+#if ENABLE(WEBGL)
 #include "WebGLRenderingContext.h"
 #include "JSWebGLRenderingContext.h"
 #endif
@@ -37,17 +39,27 @@ using namespace JSC;
 
 namespace WebCore {
 
+void JSCanvasRenderingContext::visitChildren(SlotVisitor& visitor)
+{
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
+
+    visitor.addOpaqueRoot(root(impl()->canvas()));
+}
+
 JSC::JSValue toJS(JSC::ExecState* exec, JSDOMGlobalObject* globalObject, CanvasRenderingContext* object)
 {
     if (!object)
         return jsUndefined();
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
     if (object->is3d())
-        return getDOMObjectWrapper<JSWebGLRenderingContext>(exec, globalObject, static_cast<WebGLRenderingContext*>(object));
+        return wrap<JSWebGLRenderingContext>(exec, globalObject, static_cast<WebGLRenderingContext*>(object));
 #endif
     ASSERT(object->is2d());
-    return getDOMObjectWrapper<JSCanvasRenderingContext2D>(exec, globalObject, static_cast<CanvasRenderingContext2D*>(object));
+    return wrap<JSCanvasRenderingContext2D>(exec, globalObject, static_cast<CanvasRenderingContext2D*>(object));
 }
 
 } // namespace WebCore

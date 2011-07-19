@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2007, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -255,7 +255,7 @@ EH_frame1:
 LSCIE1:
 	.long	0	; CIE Identifier Tag
 	.byte	0x3	; CIE Version
-	.ascii "zR\0"	; CIE Augmentation
+	.ascii "zRS\0"	; CIE Augmentation
 	;;  Both these alignment values are unused.
 	.byte	0x1	; uleb128 0x1; CIE Code Alignment Factor
 	.byte	0x7c	; sleb128 -4; CIE Data Alignment Factor

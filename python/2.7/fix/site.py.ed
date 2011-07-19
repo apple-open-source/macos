@@ -1,0 +1,5 @@
+/elif os.sep == '\/':/i
+        elif sys.platform == 'darwin' and prefix == sys.prefix:
+            sitepackages.append(os.path.join(prefix, "Extras", "lib", "python"))
+.
+w

@@ -35,6 +35,7 @@
 #include "Document.h"
 #include "Editor.h"
 #include "Frame.h"
+#include "FrameSelection.h"
 #include "htmlediting.h"
 #include "HTMLDivElement.h"
 #include "HTMLNames.h"
@@ -43,7 +44,6 @@
 #include "Range.h"
 #include "RemoveNodeCommand.h"
 #include "RenderBox.h"
-#include "SelectionController.h"
 
 namespace WebCore {
 
@@ -63,7 +63,7 @@ DeleteButtonController::DeleteButtonController(Frame* frame)
 
 static bool isDeletableElement(const Node* node)
 {
-    if (!node || !node->isHTMLElement() || !node->inDocument() || !node->isContentEditable())
+    if (!node || !node->isHTMLElement() || !node->inDocument() || !node->rendererIsEditable())
         return false;
 
     // In general we want to only draw the UI around object of a certain area, but we still keep the min width/height to
@@ -112,8 +112,12 @@ static bool isDeletableElement(const Node* node)
             return false;
 
         // Allow blocks that have background images
-        if (style->hasBackgroundImage() && style->backgroundImage()->canRender(1.0f))
-            return true;
+        if (style->hasBackgroundImage()) {
+            for (const FillLayer* background = style->backgroundLayers(); background; background = background->next()) {
+                if (background->image() && background->image()->canRender(1))
+                    return true;
+            }
+        }
 
         // Allow blocks with a minimum number of non-transparent borders
         unsigned visibleBorders = style->borderTop().isVisible() + style->borderBottom().isVisible() + style->borderLeft().isVisible() + style->borderRight().isVisible();
@@ -121,7 +125,7 @@ static bool isDeletableElement(const Node* node)
             return true;
 
         // Allow blocks that have a different background from it's parent
-        Node* parentNode = node->parentNode();
+        ContainerNode* parentNode = node->parentNode();
         if (!parentNode)
             return false;
 
@@ -156,15 +160,11 @@ static HTMLElement* enclosingDeletableElement(const VisibleSelection& selection)
 
     // The enclosingNodeOfType function only works on nodes that are editable
     // (which is strange, given its name).
-    if (!container->isContentEditable())
+    if (!container->rendererIsEditable())
         return 0;
 
-    Node* element = enclosingNodeOfType(Position(container, 0), &isDeletableElement);
-    if (!element)
-        return 0;
-
-    ASSERT(element->isHTMLElement());
-    return static_cast<HTMLElement*>(element);
+    Node* element = enclosingNodeOfType(firstPositionInNode(container), &isDeletableElement);
+    return element && element->isHTMLElement() ? toHTMLElement(element) : 0;
 }
 
 void DeleteButtonController::respondToChangedSelection(const VisibleSelection& oldSelection)
@@ -186,13 +186,13 @@ void DeleteButtonController::respondToChangedSelection(const VisibleSelection& o
 
 void DeleteButtonController::createDeletionUI()
 {
-    RefPtr<HTMLDivElement> container = new HTMLDivElement(divTag, m_target->document());
-    container->setAttribute(container->idAttributeName(), containerElementIdentifier);
+    RefPtr<HTMLDivElement> container = HTMLDivElement::create(m_target->document());
+    container->setIdAttribute(containerElementIdentifier);
 
     CSSMutableStyleDeclaration* style = container->getInlineStyleDecl();
     style->setProperty(CSSPropertyWebkitUserDrag, CSSValueNone);
     style->setProperty(CSSPropertyWebkitUserSelect, CSSValueNone);
-    style->setProperty(CSSPropertyWebkitUserModify, CSSValueNone);
+    style->setProperty(CSSPropertyWebkitUserModify, CSSValueReadOnly);
     style->setProperty(CSSPropertyVisibility, CSSValueHidden);
     style->setProperty(CSSPropertyPosition, CSSValueAbsolute);
     style->setProperty(CSSPropertyCursor, CSSValueDefault);
@@ -201,8 +201,8 @@ void DeleteButtonController::createDeletionUI()
     style->setProperty(CSSPropertyBottom, "0");
     style->setProperty(CSSPropertyLeft, "0");
 
-    RefPtr<HTMLDivElement> outline = new HTMLDivElement(divTag, m_target->document());
-    outline->setAttribute(outline->idAttributeName(), outlineElementIdentifier);
+    RefPtr<HTMLDivElement> outline = HTMLDivElement::create(m_target->document());
+    outline->setIdAttribute(outlineElementIdentifier);
 
     const int borderWidth = 4;
     const int borderRadius = 6;
@@ -224,8 +224,8 @@ void DeleteButtonController::createDeletionUI()
     if (ec)
         return;
 
-    RefPtr<DeleteButton> button = new DeleteButton(m_target->document());
-    button->setAttribute(button->idAttributeName(), buttonElementIdentifier);
+    RefPtr<DeleteButton> button = DeleteButton::create(m_target->document());
+    button->setIdAttribute(buttonElementIdentifier);
 
     const int buttonWidth = 30;
     const int buttonHeight = 30;
@@ -263,7 +263,7 @@ void DeleteButtonController::show(HTMLElement* element)
     if (!enabled() || !element || !element->inDocument() || !isDeletableElement(element))
         return;
 
-    if (!m_frame->editor()->shouldShowDeleteInterface(static_cast<HTMLElement*>(element)))
+    if (!m_frame->editor()->shouldShowDeleteInterface(toHTMLElement(element)))
         return;
 
     // we rely on the renderer having current information, so we should update the layout if needed

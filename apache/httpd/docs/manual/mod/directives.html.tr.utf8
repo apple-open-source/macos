@@ -24,7 +24,8 @@
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
-<a href="../tr/mod/directives.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
+<a href="../tr/mod/directives.html" title="Türkçe">&nbsp;tr&nbsp;</a> |
+<a href="../zh-cn/mod/directives.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div>
 
     <p>Standart Apache dağıtımında bulunan yönergelerin tamamı burada
@@ -207,7 +208,8 @@
 <li><a href="mod_negotiation.html#forcelanguagepriority">ForceLanguagePriority</a></li>
 <li><a href="core.html#forcetype">ForceType</a></li>
 <li><a href="mod_log_forensic.html#forensiclog">ForensicLog</a></li>
-<li><a href="mpm_common.html#gracefulshutdowntimeout" id="G" name="G">GracefulShutdownTimeout</a></li>
+<li><a href="core.html#gprofdir" id="G" name="G">GprofDir</a></li>
+<li><a href="mpm_common.html#gracefulshutdowntimeout">GracefulShutdownTimeout</a></li>
 <li><a href="mpm_common.html#group">Group</a></li>
 <li><a href="mod_headers.html#header" id="H" name="H">Header</a></li>
 <li><a href="mod_autoindex.html#headername">HeaderName</a></li>
@@ -294,6 +296,7 @@
 <li><a href="mod_authz_host.html#order">Order</a></li>
 <li><a href="mod_env.html#passenv" id="P" name="P">PassEnv</a></li>
 <li><a href="mpm_common.html#pidfile">PidFile</a></li>
+<li><a href="core.html#protocol">Protocol</a></li>
 <li><a href="mod_echo.html#protocolecho">ProtocolEcho</a></li>
 <li><a href="mod_proxy.html#proxy">&lt;Proxy&gt;</a></li>
 <li><a href="mod_proxy.html#proxybadheader">ProxyBadHeader</a></li>
@@ -429,6 +432,7 @@
 <li><a href="mpm_common.html#startservers">StartServers</a></li>
 <li><a href="mpm_common.html#startthreads">StartThreads</a></li>
 <li><a href="mod_substitute.html#substitute">Substitute</a></li>
+<li><a href="core.html#suexec">Suexec</a></li>
 <li><a href="mod_suexec.html#suexecusergroup">SuexecUserGroup</a></li>
 <li><a href="mpm_common.html#threadlimit" id="T" name="T">ThreadLimit</a></li>
 <li><a href="mpm_common.html#threadsperchild">ThreadsPerChild</a></li>
@@ -457,8 +461,9 @@
 <a href="../ja/mod/directives.html" hreflang="ja" rel="alternate" title="Japanese">&nbsp;ja&nbsp;</a> |
 <a href="../ko/mod/directives.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../ru/mod/directives.html" hreflang="ru" rel="alternate" title="Russian">&nbsp;ru&nbsp;</a> |
-<a href="../tr/mod/directives.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
+<a href="../tr/mod/directives.html" title="Türkçe">&nbsp;tr&nbsp;</a> |
+<a href="../zh-cn/mod/directives.html" hreflang="zh-cn" rel="alternate" title="Simplified Chinese">&nbsp;zh-cn&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
 </body></html>

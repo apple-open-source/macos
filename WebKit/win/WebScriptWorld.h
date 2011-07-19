@@ -25,13 +25,15 @@
 #ifndef WebScriptWorld_h
 #define WebScriptWorld_h
 
+#include "WebKit.h"
 #include <WebCore/COMPtr.h>
 
 namespace WebCore {
     class DOMWrapperWorld;
 }
 
-class WebScriptWorld : public Noncopyable, public IWebScriptWorld {
+class WebScriptWorld : public IWebScriptWorld {
+    WTF_MAKE_NONCOPYABLE(WebScriptWorld);
 public:
     static WebScriptWorld* standardWorld();
     static COMPtr<WebScriptWorld> createInstance();

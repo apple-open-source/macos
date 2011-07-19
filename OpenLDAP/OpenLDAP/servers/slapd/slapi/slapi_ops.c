@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_ops.c,v 1.111.2.4 2008/03/21 01:01:07 hyc Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_ops.c,v 1.111.2.8 2010/04/13 20:23:50 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2008 The OpenLDAP Foundation.
+ * Copyright 2002-2010 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -33,7 +33,7 @@
 
 #ifdef LDAP_SLAPI
 
-static struct slap_listener slapi_listener = {
+static struct Listener slapi_listener = {
 	BER_BVC("slapi://"),
 	BER_BVC("slapi://")
 };
@@ -224,8 +224,10 @@ slapi_int_connection_init_pb( Slapi_PBlock *pb, ber_tag_t tag )
 
 	/* should check status of thread calls */
 	ldap_pvt_thread_mutex_init( &conn->c_mutex );
-	ldap_pvt_thread_mutex_init( &conn->c_write_mutex );
-	ldap_pvt_thread_cond_init( &conn->c_write_cv );
+	ldap_pvt_thread_mutex_init( &conn->c_write1_mutex );
+	ldap_pvt_thread_mutex_init( &conn->c_write2_mutex );
+	ldap_pvt_thread_cond_init( &conn->c_write1_cv );
+	ldap_pvt_thread_cond_init( &conn->c_write2_cv );
 
 	ldap_pvt_thread_mutex_lock( &conn->c_mutex );
 

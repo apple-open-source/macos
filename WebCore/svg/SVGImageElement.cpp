@@ -1,59 +1,66 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2007, 2008, 2009 Rob Buis <buis@kde.org>
-                  2006 Alexander Kellett <lypanov@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2007, 2008, 2009 Rob Buis <buis@kde.org>
+ * Copyright (C) 2006 Alexander Kellett <lypanov@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
 #if ENABLE(SVG)
 #include "SVGImageElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
-#include "MappedAttribute.h"
+#include "RenderImageResource.h"
 #include "RenderSVGImage.h"
-#include "SVGDocument.h"
-#include "SVGLength.h"
-#include "SVGPreserveAspectRatio.h"
+#include "RenderSVGResource.h"
+#include "SVGNames.h"
 #include "SVGSVGElement.h"
 #include "XLinkNames.h"
 
 namespace WebCore {
 
-SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* doc)
-    : SVGStyledTransformableElement(tagName, doc)
-    , SVGTests()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
-    , SVGURIReference()
+// Animated property definitions
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::xAttr, X, x)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::yAttr, Y, y)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::widthAttr, Width, width)
+DEFINE_ANIMATED_LENGTH(SVGImageElement, SVGNames::heightAttr, Height, height)
+DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGImageElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
+DEFINE_ANIMATED_STRING(SVGImageElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGImageElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+inline SVGImageElement::SVGImageElement(const QualifiedName& tagName, Document* document)
+    : SVGStyledTransformableElement(tagName, document)
     , m_x(LengthModeWidth)
     , m_y(LengthModeHeight)
     , m_width(LengthModeWidth)
     , m_height(LengthModeHeight)
     , m_imageLoader(this)
 {
+    ASSERT(hasTagName(SVGNames::imageTag));
 }
 
-SVGImageElement::~SVGImageElement()
+PassRefPtr<SVGImageElement> SVGImageElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGImageElement(tagName, document));
 }
 
-void SVGImageElement::parseMappedAttribute(MappedAttribute *attr)
+void SVGImageElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == SVGNames::xAttr)
         setXBaseValue(SVGLength(LengthModeWidth, attr->value()));
@@ -91,25 +98,31 @@ void SVGImageElement::svgAttributeChanged(const QualifiedName& attrName)
     if (SVGURIReference::isKnownAttribute(attrName))
         m_imageLoader.updateFromElementIgnoringPreviousError();
 
+    bool isLengthAttribute = attrName == SVGNames::xAttr
+                          || attrName == SVGNames::yAttr
+                          || attrName == SVGNames::widthAttr
+                          || attrName == SVGNames::heightAttr;
+
+    if (isLengthAttribute)
+        updateRelativeLengthsInformation();
+
+    if (SVGTests::handleAttributeChange(this, attrName))
+        return;
+
     RenderObject* renderer = this->renderer();
     if (!renderer)
         return;
 
-    if (SVGStyledTransformableElement::isKnownAttribute(attrName)) {
-        renderer->setNeedsTransformUpdate();
-        renderer->setNeedsLayout(true);
+    if (isLengthAttribute) {
+        renderer->updateFromElement();
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer, false);
         return;
     }
 
-    if (attrName == SVGNames::xAttr
-        || attrName == SVGNames::yAttr
-        || attrName == SVGNames::widthAttr
-        || attrName == SVGNames::heightAttr
-        || attrName == SVGNames::preserveAspectRatioAttr
-        || SVGTests::isKnownAttribute(attrName)
+    if (attrName == SVGNames::preserveAspectRatioAttr
         || SVGLangSpace::isKnownAttribute(attrName)
         || SVGExternalResourcesRequired::isKnownAttribute(attrName))
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
 }
 
 void SVGImageElement::synchronizeProperty(const QualifiedName& attrName)
@@ -124,6 +137,7 @@ void SVGImageElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizePreserveAspectRatio();
         synchronizeExternalResourcesRequired();
         synchronizeHref();
+        SVGTests::synchronizeProperties(this, attrName);
         return;
     }
 
@@ -141,12 +155,35 @@ void SVGImageElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
     else if (SVGURIReference::isKnownAttribute(attrName))
         synchronizeHref();
+    else if (SVGTests::isKnownAttribute(attrName))
+        SVGTests::synchronizeProperties(this, attrName);
 }
 
-bool SVGImageElement::hasRelativeValues() const
+AttributeToPropertyTypeMap& SVGImageElement::attributeToPropertyTypeMap()
 {
-    return (x().isRelative() || width().isRelative() ||
-            y().isRelative() || height().isRelative());
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
+
+void SVGImageElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGStyledTransformableElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::xAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::yAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::widthAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::heightAttr, AnimatedLength);
+    attributeToPropertyTypeMap.set(SVGNames::preserveAspectRatioAttr, AnimatedPreserveAspectRatio);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+}
+
+bool SVGImageElement::selfHasRelativeLengths() const
+{
+    return x().isRelative()
+        || y().isRelative()
+        || width().isRelative()
+        || height().isRelative();
 }
 
 RenderObject* SVGImageElement::createRenderer(RenderArena* arena, RenderStyle*)
@@ -163,11 +200,11 @@ void SVGImageElement::attach()
 {
     SVGStyledTransformableElement::attach();
 
-    if (RenderImage* imageObj = toRenderImage(renderer())) {
-        if (imageObj->hasImage())
+    if (RenderSVGImage* imageObj = toRenderSVGImage(renderer())) {
+        if (imageObj->imageResource()->hasImage())
             return;
 
-        imageObj->setCachedImage(m_imageLoader.image());
+        imageObj->imageResource()->setCachedImage(m_imageLoader.image());
     }
 }
 

@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib508.c,v 1.9 2009-05-08 02:14:50 yangtse Exp $
  */
 
 #include "test.h"
@@ -58,33 +57,35 @@ int test(char *URL)
   }
 
   /* First set the URL that is about to receive our POST. */
-  curl_easy_setopt(curl, CURLOPT_URL, URL);
+  test_setopt(curl, CURLOPT_URL, URL);
 
   /* Now specify we want to POST data */
-  curl_easy_setopt(curl, CURLOPT_POST, 1L);
+  test_setopt(curl, CURLOPT_POST, 1L);
 
 #ifdef CURL_DOES_CONVERSIONS
   /* Convert the POST data to ASCII */
-  curl_easy_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
+  test_setopt(curl, CURLOPT_TRANSFERTEXT, 1L);
 #endif
 
   /* Set the expected POST size */
-  curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)pooh.sizeleft);
+  test_setopt(curl, CURLOPT_POSTFIELDSIZE, (long)pooh.sizeleft);
 
   /* we want to use our own read function */
-  curl_easy_setopt(curl, CURLOPT_READFUNCTION, read_callback);
+  test_setopt(curl, CURLOPT_READFUNCTION, read_callback);
 
   /* pointer to pass to our read function */
-  curl_easy_setopt(curl, CURLOPT_INFILE, &pooh);
+  test_setopt(curl, CURLOPT_INFILE, &pooh);
 
   /* get verbose debug output please */
-  curl_easy_setopt(curl, CURLOPT_VERBOSE, 1L);
+  test_setopt(curl, CURLOPT_VERBOSE, 1L);
 
   /* include headers in the output */
-  curl_easy_setopt(curl, CURLOPT_HEADER, 1L);
+  test_setopt(curl, CURLOPT_HEADER, 1L);
 
   /* Perform the request, res will get the return code */
   res = curl_easy_perform(curl);
+
+test_cleanup:
 
   /* always cleanup */
   curl_easy_cleanup(curl);

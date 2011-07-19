@@ -2,6 +2,7 @@
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Apple Computer, Inc.  All rights reserved.
  * Copyright (C) 2007 Ryan Leavengood <leavengood@gmail.com> All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  *
  * Redistribution and use in source and binary forms, with or without
@@ -33,8 +34,12 @@
 #include "FrameView.h"
 #include "HitTestResult.h"
 #include "Icon.h"
+#include "NavigationAction.h"
 #include "NotImplemented.h"
 #include "PlatformString.h"
+#include "SecurityOrigin.h"
+#include "PopupMenuHaiku.h"
+#include "SearchPopupMenuHaiku.h"
 
 #include <Alert.h>
 #include <String.h>
@@ -103,7 +108,11 @@ void ChromeClientHaiku::focusedNodeChanged(Node*)
 {
 }
 
-Page* ChromeClientHaiku::createWindow(Frame*, const FrameLoadRequest&, const WebCore::WindowFeatures&)
+void ChromeClientHaiku::focusedFrameChanged(Frame*)
+{
+}
+
+Page* ChromeClientHaiku::createWindow(Frame*, const FrameLoadRequest&, const WebCore::WindowFeatures&, const WebCore::NavigationAction&)
 {
     notImplemented();
     return 0;
@@ -244,9 +253,9 @@ bool ChromeClientHaiku::shouldInterruptJavaScript()
     return false;
 }
 
-bool ChromeClientHaiku::tabsToLinks() const
+KeyboardUIMode ChromeClientHaiku::keyboardUIMode()
 {
-    return false;
+    return KeyboardAccessDefault;
 }
 
 IntRect ChromeClientHaiku::windowResizerRect() const
@@ -345,6 +354,11 @@ void ChromeClientWx::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     notImplemented();
 }
+
+void ChromeClientWx::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+{
+    notImplemented();
+}
 #endif
 
 void ChromeClientHaiku::requestGeolocationPermissionForFrame(Frame*, Geolocation*)
@@ -362,10 +376,9 @@ void ChromeClientHaiku::chooseIconForFiles(const Vector<String>& filenames, File
     chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
-bool ChromeClientHaiku::setCursor(PlatformCursorHandle)
+void ChromeClientHaiku::setCursor(const Cursor&)
 {
     notImplemented();
-    return false;
 }
 
 // Notification that the given form element has changed. This function
@@ -375,10 +388,24 @@ void ChromeClientHaiku::formStateDidChange(const Node*)
     notImplemented();
 }
 
-PassOwnPtr<HTMLParserQuirks> ChromeClientHaiku::createHTMLParserQuirks()
+bool ChromeClientHaiku::selectItemWritingDirectionIsNatural()
 {
-    notImplemented();
-    return 0;
+    return false;
+}
+
+bool ChromeClientHaiku::selectItemAlignmentFollowsMenuWritingDirection()
+{
+    return false;
+}
+
+PassRefPtr<PopupMenu> ChromeClientHaiku::createPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new PopupMenuHaiku(client));
+}
+
+PassRefPtr<SearchPopupMenu> ChromeClientHaiku::createSearchPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new SearchPopupMenuHaiku(client));
 }
 
 } // namespace WebCore

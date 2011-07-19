@@ -391,7 +391,7 @@ Cell *jump(Node **a, int n)	/* break, continue, next, nextfile, return */
 	return 0;	/* not reached */
 }
 
-Cell *getline(Node **a, int n)	/* get next line from specific input */
+Cell *awk_getline(Node **a, int n)	/* get next line from specific input */
 {		/* a[0] is variable, a[1] is operator, a[2] is filename */
 	Cell *r, *x;
 	extern Cell **fldtab;
@@ -1513,14 +1513,14 @@ Cell *bltin(Node **a, int n)	/* builtin functions. a[0] is type, a[1] is arg lis
 		break;
 	case FRAND:
 		/* in principle, rand() returns something in 0..RAND_MAX */
-		u = (Awkfloat) (rand() % RAND_MAX) / RAND_MAX;
+		u = (Awkfloat) (random() % RAND_MAX) / RAND_MAX;
 		break;
 	case FSRAND:
 		if (isrec(x))	/* no argument provided */
 			u = time((time_t *)0);
 		else
 			u = getfval(x);
-		srand((unsigned int) u);
+		srandom((unsigned int) u);
 		tmp_srand = u;
 		u = prev_srand;		/* return the previous value	*/
 		prev_srand = tmp_srand;	/* remember for next time	*/

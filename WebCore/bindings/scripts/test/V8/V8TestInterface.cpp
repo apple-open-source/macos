@@ -21,16 +21,19 @@
 #include "config.h"
 #include "V8TestInterface.h"
 
+#if ENABLE(Condition1) || ENABLE(Condition2)
+
 #include "RuntimeEnabledFeatures.h"
 #include "V8Binding.h"
 #include "V8BindingState.h"
 #include "V8DOMWrapper.h"
 #include "V8IsolatedContext.h"
 #include "V8Proxy.h"
+#include <wtf/UnusedParam.h>
 
 namespace WebCore {
 
-WrapperTypeInfo V8TestInterface::info = { V8TestInterface::GetTemplate, V8TestInterface::derefObject, 0 };
+WrapperTypeInfo V8TestInterface::info = { V8TestInterface::GetTemplate, V8TestInterface::derefObject, 0, 0 };
 
 namespace TestInterfaceInternal {
 
@@ -48,6 +51,7 @@ static v8::Persistent<v8::FunctionTemplate> ConfigureV8TestInterfaceTemplate(v8:
     v8::Local<v8::Signature> defaultSignature = configureTemplate(desc, "TestInterface", v8::Persistent<v8::FunctionTemplate>(), V8TestInterface::internalFieldCount,
         0, 0,
         0, 0);
+    UNUSED_PARAM(defaultSignature); // In some cases, it will not be used.
         desc->SetCallHandler(V8TestInterface::constructorCallback);
     
 
@@ -68,43 +72,24 @@ v8::Persistent<v8::FunctionTemplate> V8TestInterface::GetTemplate()
     return V8TestInterfaceCache;
 }
 
-TestInterface* V8TestInterface::toNative(v8::Handle<v8::Object> object)
-{
-    return reinterpret_cast<TestInterface*>(object->GetPointerFromInternalField(v8DOMWrapperObjectIndex));
-}
-
 bool V8TestInterface::HasInstance(v8::Handle<v8::Value> value)
 {
     return GetRawTemplate()->HasInstance(value);
 }
 
 
-v8::Handle<v8::Object> V8TestInterface::wrap(TestInterface* impl)
+v8::Handle<v8::Object> V8TestInterface::wrapSlow(TestInterface* impl)
 {
     v8::Handle<v8::Object> wrapper;
     V8Proxy* proxy = 0;
-        wrapper = getDOMObjectMap().get(impl);
-        if (!wrapper.IsEmpty())
-            return wrapper;
     wrapper = V8DOMWrapper::instantiateV8Object(proxy, &info, impl);
     if (wrapper.IsEmpty())
         return wrapper;
 
     impl->ref();
-    getDOMObjectMap().set(impl, v8::Persistent<v8::Object>::New(wrapper));
+    v8::Persistent<v8::Object> wrapperHandle = v8::Persistent<v8::Object>::New(wrapper);
+    getDOMObjectMap().set(impl, wrapperHandle);
     return wrapper;
-}
-
-v8::Handle<v8::Value> toV8(PassRefPtr<TestInterface > impl)
-{
-    return toV8(impl.get());
-}
-
-v8::Handle<v8::Value> toV8(TestInterface* impl)
-{
-    if (!impl)
-        return v8::Null();
-    return V8TestInterface::wrap(impl);
 }
 
 void V8TestInterface::derefObject(void* object)
@@ -113,3 +98,5 @@ void V8TestInterface::derefObject(void* object)
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(Condition1) || ENABLE(Condition2)

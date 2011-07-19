@@ -1,0 +1,6 @@
+[vset PACKAGE doctoc]
+[vset NAME    doctoc]
+[vset REQUIRE null]
+[vset CONFIG  doctoc]
+[vset VERSION 0.1]
+[include include/export/plugin.inc]

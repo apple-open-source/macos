@@ -71,25 +71,29 @@ c_pass 2 fmt_manpage_begin {title section version} {
     set description [c_get_title]
     set copyright   [c_get_copyright]
 
-    set     hdr ""
-    append  hdr [tag html] [tag head] \n
-    append  hdr [tag_ title "$title - $shortdesc"] \n
+    set hdr ""
 
-    if {![Extend hdr ByParameter meta]} {
-	# Insert standard CSS definitions.
-	append hdr [tag_ style \
-			"[markup <]!--${defaultstyle}--[markup >]" \
-			type text/css] \n
-    }
+    if {![Get raw]} {
+	append  hdr [tag html] [tag head] \n
+	append  hdr [tag_ title "$title - $shortdesc"] \n
 
-    append  hdr [tag/ head] \n
-    append  hdr [ht_comment [c_provenance]]\n
-    if {$copyright != {}} {
-	append  hdr [ht_comment $copyright]\n
+	if {![Extend hdr ByParameter meta]} {
+	    # Insert standard CSS definitions.
+	    append hdr [tag_ style \
+			    "[markup <]!--${defaultstyle}--[markup >]" \
+			    type text/css] \n
+	}
+
+	append  hdr [tag/ head] \n
+	append  hdr [ht_comment [c_provenance]]\n
+	if {$copyright != {}} {
+	    append  hdr [ht_comment $copyright]\n
+	}
+	append  hdr [ht_comment "CVS: \$Id\$ $title.$section"]
+	append  hdr \n\n
+	append  hdr [tag body]
     }
-    append  hdr [ht_comment "CVS: \$Id\$ $title.$section"]
-    append  hdr \n\n
-    append  hdr [tag body] [tag* div class doctools] \n
+    append  hdr [tag* div class doctools] \n
 
     Extend hdr ByParameter header
 
@@ -141,7 +145,10 @@ c_pass 2 fmt_manpage_end {} {
 
     Extend res ByParameter footer
 
-    append res [tag/ div] [tag/ body] [tag/ html]
+    append res [tag/ div]
+    if {![Get raw]} {
+	append res [tag/ body] [tag/ html]
+    }
     return $res
 }
 
@@ -381,8 +388,38 @@ proc fmt_uri     {text {label {}}} {
     if {$label == {}} {set label $text}
     return [link $label $text]
 }
+
+proc fmt_image {text {label {}}} {
+    # text = symbolic name of the image.
+
+    set img [dt_imgdst $text {png gif jpg}]
+
+    if {$label eq {}} {
+	set label $text
+    }
+
+    if {$img ne {}} {
+	return [imagelink $label [LinkTo $img [LinkHere]]]
+    }
+
+    if {[regexp -- {^http://} $text] ||
+	[regexp -- {^ftp://}  $text]} {
+	return [imagelink $label $text]
+    }
+
+    #puts_stderr here:\t[LinkHere]
+    #puts_stderr dest:\t$img
+    #puts_stderr rela:\t[LinkTo $img [LinkHere]]
+    #puts_stderr
+
+    return [strong "Image: $label"]
+}
+
 proc fmt_term    {text} {italic [XrefMatch $text kw sa] term}
 proc fmt_const   {text} {bold $text const}
+
+proc fmt_mdash {} { return "[markup &]mdash;" }
+proc fmt_ndash {} { return "[markup &]ndash;" }
 
 ################################################################
 
@@ -472,6 +509,7 @@ array set __var {
     header {}
     footer {}
     xref   {}
+    raw    0
 }
 proc Get               {varname}      {global __var ; return $__var($varname)}
 proc fmt_listvariables {}             {global __var ; return [array names __var]}
@@ -635,14 +673,18 @@ proc XrefList {list {ext {}}} {
     return $res
 }
 
-proc XrefLink {dest label} {
+proc LinkHere {} {
+    return [dt_fmap [dt_mainfile]]
+}
+
+proc LinkTo {dest here} {
     # Ensure that the link is properly done relative to this file!
 
     set save $dest
 
     #puts_stderr "XrefLink $dest $label"
 
-    set here [file split [dt_fmap [dt_file]]]
+    set here [file split $here]
     set dest [file split $dest]
 
     #puts_stderr "XrefLink < $here"
@@ -667,7 +709,16 @@ proc XrefLink {dest label} {
     }
 
     #puts_stderr "XrefLink --> $dest"
-    if {[string equal $dest [lindex [file split [dt_fmap [dt_file]]] end]]} {
+    return $dest
+}
+
+proc XrefLink {dest label} {
+    # Ensure that the link is properly done relative to this file!
+
+    set here [LinkHere]
+    set dest [LinkTo $dest $here]
+
+    if {[string equal $dest [lindex [file split $here] end]]} {
 	# Suppress self-referential links, i.e. links made from the
 	# current file to itself. Note that links to specific parts of
 	# the current file are not suppressed, only exact links.

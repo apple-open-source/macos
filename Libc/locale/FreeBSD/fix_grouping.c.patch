@@ -1,6 +1,6 @@
---- fix_grouping.c.orig	2004-11-25 11:38:16.000000000 -0800
-+++ fix_grouping.c	2004-12-07 18:11:15.000000000 -0800
-@@ -31,7 +31,8 @@
+--- fix_grouping.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ fix_grouping.c	2009-11-09 15:05:25.000000000 -0800
+@@ -31,7 +31,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include <limits.h>
  #include <stddef.h>
  
@@ -10,7 +10,7 @@
  
  /*
   * Internal helper used to convert grouping sequences from string
-@@ -84,3 +85,14 @@
+@@ -84,3 +85,14 @@ __fix_locale_grouping_str(const char *st
  	*dst = '\0';
  	return str;
  }

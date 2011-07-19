@@ -25,7 +25,9 @@ PRE {
 }
 
 PRE.command {
+  border: dotted thin #7f7f7f;
   margin-left: 36pt;
+  padding: 10px;
 }
 
 P.compact {
@@ -341,9 +343,9 @@ div.contents ul.subcontents li {
 <!--
   "$Id$"
 
-  PPD API header for the Common UNIX Printing System (CUPS).
+  PPD API header for CUPS.
 
-  Copyright 2008-2009 by Apple Inc.
+  Copyright 2008-2011 by Apple Inc.
 
   These coded instructions, statements, and computer programs are the
   property of Apple Inc. and are protected by Federal copyright
@@ -475,7 +477,6 @@ conflicts.">ppdMarkOption</a></li>
 </ul></li>
 <li><a href="#ENUMERATIONS">Constants</a><ul class="code">
 	<li><a href="#ppd_conform_e" title="Conformance Levels ">ppd_conform_e</a></li>
-	<li><a href="#ppd_cptype_e" title="Custom Parameter Type ">ppd_cptype_e</a></li>
 	<li><a href="#ppd_cs_e" title="Colorspaces">ppd_cs_e</a></li>
 	<li><a href="#ppd_section_e" title="Order dependency sections">ppd_section_e</a></li>
 	<li><a href="#ppd_status_e" title="Status Codes ">ppd_status_e</a></li>
@@ -485,9 +486,9 @@ conflicts.">ppdMarkOption</a></li>
 <!--
   "$Id$"
 
-  PPD API introduction for the Common UNIX Printing System (CUPS).
+  PPD API introduction for CUPS.
 
-  Copyright 2007-2008 by Apple Inc.
+  Copyright 2007-2011 by Apple Inc.
   Copyright 1997-2006 by Easy Software Products, all rights reserved.
 
   These coded instructions, statements, and computer programs are the
@@ -754,8 +755,9 @@ int cupsMarkOptions (<br>
 <p class="description">1 if conflicts exist, 0 otherwise</p>
 <h4 class="discussion">Discussion</h4>
 <p class="discussion">This function maps the IPP &quot;finishings&quot;, &quot;media&quot;, &quot;mirror&quot;,
-&quot;multiple-document-handling&quot;, &quot;output-bin&quot;, &quot;printer-resolution&quot;, and
-&quot;sides&quot; attributes to their corresponding PPD options and choices.</p>
+&quot;multiple-document-handling&quot;, &quot;output-bin&quot;, &quot;print-color-mode&quot;,
+&quot;print-quality&quot;, &quot;printer-resolution&quot;, and &quot;sides&quot; attributes to their
+corresponding PPD options and choices.</p>
 <h3 class="function"><span class="info">&nbsp;CUPS 1.4/Mac OS X 10.6&nbsp;</span><a name="cupsResolveConflicts">cupsResolveConflicts</a></h3>
 <p class="description">Resolve conflicts in a marked PPD.</p>
 <p class="code">
@@ -1588,7 +1590,7 @@ typedef union <a href="#ppd_cplimit_u">ppd_cplimit_u</a> ppd_cplimit_t;
 <h3 class="typedef"><span class="info">&nbsp;CUPS 1.2/Mac OS X 10.5&nbsp;</span><a name="ppd_cptype_t">ppd_cptype_t</a></h3>
 <p class="description">Custom Parameter Type </p>
 <p class="code">
-typedef enum <a href="#ppd_cptype_e">ppd_cptype_e</a> ppd_cptype_t;
+typedef enum ppd_cptype_e ppd_cptype_t;
 </p>
 <h3 class="typedef"><span class="info">&nbsp;CUPS 1.2/Mac OS X 10.5&nbsp;</span><a name="ppd_cpvalue_t">ppd_cpvalue_t</a></h3>
 <p class="description">Custom Parameter Value </p>
@@ -1806,7 +1808,6 @@ typedef enum <a href="#ppd_ui_e">ppd_ui_e</a> ppd_ui_t;
 &nbsp;&nbsp;&nbsp;&nbsp;char *product;<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#ppd_profile_t">ppd_profile_t</a> *profiles;<br>
 &nbsp;&nbsp;&nbsp;&nbsp;char *protocols;<br>
-&nbsp;&nbsp;&nbsp;&nbsp;void *pwg;<br>
 &nbsp;&nbsp;&nbsp;&nbsp;char *shortnickname;<br>
 &nbsp;&nbsp;&nbsp;&nbsp;<a href="#ppd_size_t">ppd_size_t</a> *sizes;<br>
 &nbsp;&nbsp;&nbsp;&nbsp;int throughput;<br>
@@ -1889,8 +1890,6 @@ typedef enum <a href="#ppd_ui_e">ppd_ui_e</a> ppd_ui_t;
 <dd class="description">sRGB color profiles </dd>
 <dt>protocols <span class="info">&nbsp;CUPS 1.1.19/Mac OS X 10.3&nbsp;</span></dt>
 <dd class="description">Protocols (BCP, TBCP) string </dd>
-<dt>pwg </dt>
-<dd class="description">PWG to/from PPD mappings</dd>
 <dt>shortnickname </dt>
 <dd class="description">Short version of nickname</dd>
 <dt>sizes </dt>
@@ -2087,27 +2086,6 @@ typedef enum <a href="#ppd_ui_e">ppd_ui_e</a> ppd_ui_t;
 <dt>PPD_CONFORM_STRICT </dt>
 <dd class="description">Require strict conformance</dd>
 </dl>
-<h3 class="enumeration"><span class="info">&nbsp;CUPS 1.2/Mac OS X 10.5&nbsp;</span><a name="ppd_cptype_e">ppd_cptype_e</a></h3>
-<p class="description">Custom Parameter Type </p>
-<h4 class="constants">Constants</h4>
-<dl>
-<dt>PPD_CUSTOM_CURVE </dt>
-<dd class="description">Curve value for f(x) = x^value</dd>
-<dt>PPD_CUSTOM_INT </dt>
-<dd class="description">Integer number value</dd>
-<dt>PPD_CUSTOM_INVCURVE </dt>
-<dd class="description">Curve value for f(x) = x^(1/value)</dd>
-<dt>PPD_CUSTOM_PASSCODE </dt>
-<dd class="description">String of (hidden) numbers</dd>
-<dt>PPD_CUSTOM_PASSWORD </dt>
-<dd class="description">String of (hidden) characters</dd>
-<dt>PPD_CUSTOM_POINTS </dt>
-<dd class="description">Measurement value in points</dd>
-<dt>PPD_CUSTOM_REAL </dt>
-<dd class="description">Real number value</dd>
-<dt>PPD_CUSTOM_STRING </dt>
-<dd class="description">String of characters</dd>
-</dl>
 <h3 class="enumeration"><a name="ppd_cs_e">ppd_cs_e</a></h3>
 <p class="description">Colorspaces</p>
 <h4 class="constants">Constants</h4>
@@ -2178,6 +2156,8 @@ typedef enum <a href="#ppd_ui_e">ppd_ui_e</a> ppd_ui_t;
 <dd class="description">Line longer than 255 chars</dd>
 <dt>PPD_MISSING_ASTERISK </dt>
 <dd class="description">Missing asterisk in column 0</dd>
+<dt>PPD_MISSING_CLOSE_GROUP </dt>
+<dd class="description">Missing CloseGroup</dd>
 <dt>PPD_MISSING_OPTION_KEYWORD </dt>
 <dd class="description">Missing option keyword</dd>
 <dt>PPD_MISSING_PPDADOBE4 </dt>

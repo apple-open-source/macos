@@ -1,9 +1,9 @@
 /*
- * "$Id: pstext.c 1020 2008-10-16 18:24:18Z msweet $"
+ * "$Id: pstext.c 3017 2011-02-25 01:46:33Z msweet $"
  *
- *   Common PostScript text code for the Common UNIX Printing System (CUPS).
+ *   Common PostScript text code for CUPS.
  *
- *   Copyright 2008 by Apple Inc.
+ *   Copyright 2008-2010 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -27,7 +27,7 @@
  */
 
 #include "pstext.h"
-#include <cups/i18n.h>
+#include <cups/language-private.h>
 
 
 /*
@@ -85,8 +85,10 @@ psTextEmbedFonts(ps_text_t *fonts)	/* I - Font data */
       fclose(fp);
     }
     else
-      fprintf(stderr, "DEBUG: Unable to open font file \"%s\" - %s\n",
-              filename, strerror(errno));
+    {
+      _cupsLangPrintError("ERROR", _("Unable to open print file"));
+      fprintf(stderr, "DEBUG: Unable to open \"%s\".\n", filename);
+    }
 
     puts("\n%%EndResource");
   }
@@ -244,8 +246,8 @@ psTextInitialize(void)
   }
   else
   {
-    _cupsLangPrintf(stderr, _("ERROR: Unable to open \"%s\" - %s\n"), filename,
-                    strerror(errno));
+    _cupsLangPrintError("ERROR", _("Unable to open print file"));
+    fprintf(stderr, "DEBUG: Unable to open \"%s\".\n", filename);
     exit(1);
   }
 
@@ -261,8 +263,8 @@ psTextInitialize(void)
     * Can't open charset file!
     */
 
-    _cupsLangPrintf(stderr, _("ERROR: Unable to open %s: %s\n"), filename,
-		    strerror(errno));
+    _cupsLangPrintError("ERROR", _("Unable to open print file"));
+    fprintf(stderr, "DEBUG: Unable to open \"%s\".\n", filename);
     exit(1);
   }
 
@@ -273,7 +275,8 @@ psTextInitialize(void)
     */
 
     fclose(fp);
-    _cupsLangPrintf(stderr, _("ERROR: Bad charset file %s\n"), filename);
+    _cupsLangPrintFilter(stderr, "ERROR", _("Bad charset file \"%s\"."),
+                         filename);
     exit(1);
   }
 
@@ -317,8 +320,8 @@ psTextInitialize(void)
       * Can't have a font without all required values...
       */
 
-      _cupsLangPrintf(stderr, _("ERROR: Bad font description line: %s\n"),
-                      valptr);
+      _cupsLangPrintFilter(stderr, "ERROR",
+                           _("Bad font description line \"%s\"."), valptr);
       fclose(fp);
       exit(1);
     }
@@ -331,7 +334,8 @@ psTextInitialize(void)
       fonts->directions[fonts->num_fonts] = -1;
     else
     {
-      _cupsLangPrintf(stderr, _("ERROR: Bad text direction %s\n"), valptr);
+      _cupsLangPrintFilter(stderr, "ERROR", _("Bad text direction \"%s\"."),
+                           valptr);
       fclose(fp);
       exit(1);
     }
@@ -354,8 +358,8 @@ psTextInitialize(void)
       * Can't have a font without all required values...
       */
 
-      _cupsLangPrintf(stderr, _("ERROR: Bad font description line: %s\n"),
-                      valptr);
+      _cupsLangPrintFilter(stderr, "ERROR",
+                           _("Bad font description line \"%s\"."), valptr);
       fclose(fp);
       exit(1);
     }
@@ -368,7 +372,8 @@ psTextInitialize(void)
       fonts->widths[fonts->num_fonts] = 2;
     else 
     {
-      _cupsLangPrintf(stderr, _("ERROR: Bad text width %s\n"), valptr);
+      _cupsLangPrintFilter(stderr, "ERROR", _("Bad text width \"%s\"."),
+                           valptr);
       fclose(fp);
       exit(1);
     }
@@ -430,7 +435,7 @@ psTextInitialize(void)
 
   if (cupsArrayCount(fonts->unique) == 0)
   {
-    _cupsLangPrintf(stderr, _("ERROR: No fonts in charset file %s\n"), filename);
+    _cupsLangPrintFilter(stderr, "ERROR", _("No fonts in charset file."));
     exit(1);
   }
 
@@ -502,5 +507,5 @@ psTextUTF32(ps_text_t          *fonts,	/* I - Font data */
 
 
 /*
- * End of "$Id: pstext.c 1020 2008-10-16 18:24:18Z msweet $".
+ * End of "$Id: pstext.c 3017 2011-02-25 01:46:33Z msweet $".
  */

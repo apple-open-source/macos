@@ -1,3 +1,7 @@
+* TclSOAP 1.6.8
+
+** Add client side support for JSON-RPC.
+
 * TclSOAP 1.6.7 /AS
 -------------------
 

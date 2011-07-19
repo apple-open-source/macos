@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: net.h,v 1.48 2008/06/23 23:47:11 tbox Exp $ */
+/* $Id: net.h,v 1.50 2008-12-01 04:14:54 marka Exp $ */
 
 #ifndef ISC_NET_H
 #define ISC_NET_H 1
@@ -354,11 +354,10 @@ isc_net_pton(int af, const char *src, void *dst);
 #define inet_pton isc_net_pton
 #endif
 
-#ifdef ISC_PLATFORM_NEEDATON
 int
 isc_net_aton(const char *cp, struct in_addr *addr);
+#undef inet_aton
 #define inet_aton isc_net_aton
-#endif
 
 ISC_LANG_ENDDECLS
 

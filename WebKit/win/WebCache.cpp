@@ -28,12 +28,9 @@
 #include "WebCache.h"
 
 #include "CFDictionaryPropertyBag.h"
-
-#pragma warning(push, 0)
 #include <WebCore/ApplicationCacheStorage.h>
-#include <WebCore/Cache.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/CrossOriginPreflightResultCache.h>
-#pragma warning(pop)
 
 // WebCache ---------------------------------------------------------------------------
 
@@ -100,7 +97,7 @@ HRESULT STDMETHODCALLTYPE WebCache::statistics(
     if (!s)
         return S_OK;
 
-    WebCore::Cache::Statistics stat = WebCore::cache()->getStatistics();
+    WebCore::MemoryCache::Statistics stat = WebCore::memoryCache()->getStatistics();
 
     static CFStringRef imagesKey = CFSTR("images");
     static CFStringRef stylesheetsKey = CFSTR("style sheets");
@@ -204,10 +201,10 @@ HRESULT STDMETHODCALLTYPE WebCache::statistics(
 
 HRESULT STDMETHODCALLTYPE WebCache::empty( void)
 {
-    if (WebCore::cache()->disabled())
+    if (WebCore::memoryCache()->disabled())
         return S_OK;
-    WebCore::cache()->setDisabled(true);
-    WebCore::cache()->setDisabled(false);
+    WebCore::memoryCache()->setDisabled(true);
+    WebCore::memoryCache()->setDisabled(false);
 
     // Empty the application cache.
     WebCore::cacheStorage().empty();
@@ -221,7 +218,7 @@ HRESULT STDMETHODCALLTYPE WebCache::empty( void)
 HRESULT STDMETHODCALLTYPE WebCache::setDisabled( 
     /* [in] */ BOOL disabled)
 {
-    WebCore::cache()->setDisabled(!!disabled);
+    WebCore::memoryCache()->setDisabled(!!disabled);
     return S_OK;
 }
 
@@ -230,6 +227,6 @@ HRESULT STDMETHODCALLTYPE WebCache::disabled(
 {
     if (!disabled)
         return E_POINTER;
-    *disabled = WebCore::cache()->disabled();
+    *disabled = WebCore::memoryCache()->disabled();
     return S_OK;
 }

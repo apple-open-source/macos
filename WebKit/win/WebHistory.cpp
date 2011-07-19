@@ -36,13 +36,11 @@
 #include "WebNotificationCenter.h"
 #include "WebPreferences.h"
 #include <CoreFoundation/CoreFoundation.h>
-#pragma warning( push, 0 )
 #include <WebCore/HistoryItem.h>
 #include <WebCore/HistoryPropertyList.h>
 #include <WebCore/KURL.h>
 #include <WebCore/PageGroup.h>
 #include <WebCore/SharedBuffer.h>
-#pragma warning( pop )
 #include <functional>
 #include <wtf/StdLibExtras.h>
 #include <wtf/Vector.h>
@@ -476,7 +474,7 @@ HRESULT STDMETHODCALLTYPE WebHistory::orderedLastVisitedDays(
 
     *count = dateCount;
     if (!m_orderedLastVisitedDays) {
-        m_orderedLastVisitedDays.set(new DATE[dateCount]);
+        m_orderedLastVisitedDays = adoptArrayPtr(new DATE[dateCount]);
         DateToEntriesMap::const_iterator::Keys end = m_entriesByDate.end().keys();
         int i = 0;
         for (DateToEntriesMap::const_iterator::Keys it = m_entriesByDate.begin().keys(); it != end; ++it, ++i)
@@ -740,7 +738,7 @@ void WebHistory::visitedURL(const KURL& url, const String& title, const String& 
         entryPrivate->setLastVisitWasHTTPNonGet(!equalIgnoringCase(httpMethod, "GET") && url.protocolInHTTPFamily());
 
     COMPtr<WebHistoryItem> item(Query, entry);
-    item->historyItem()->setRedirectURLs(0);
+    item->historyItem()->setRedirectURLs(nullptr);
 
     COMPtr<CFDictionaryPropertyBag> userInfo = createUserInfoFromHistoryItem(
         getNotificationString(kWebHistoryItemsAddedNotification), entry);

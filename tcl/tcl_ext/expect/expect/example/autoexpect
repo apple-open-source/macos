@@ -1,4 +1,10 @@
-#!../expect --
+#!/bin/sh
+# -*- tcl -*-
+# The next line is executed by /bin/sh, but not tcl \
+exec tclsh "$0" ${1+"$@"}
+
+package require Expect
+
 # Name: autoexpect - generate an Expect script from watching a session
 #
 # Description:
@@ -24,7 +30,7 @@ proc check_for_following {type} {
 		puts "autoexpect: [uplevel set flag] requires following $type"
 		exit 1
 	}
-}	
+}
 
 while {[llength $argv]>0} {
 	set flag [lindex $argv 0]
@@ -95,7 +101,7 @@ proc input_null {} {
 		if {$echoing} {
 			expcmd "$procbuf"
 			sendcmd "$lastkey"
-		}			
+		}
 	}
 	cmd "send -null"
 	set userbuf ""

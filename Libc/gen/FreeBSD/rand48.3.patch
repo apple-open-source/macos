@@ -1,5 +1,5 @@
---- _SB/Libc/gen/FreeBSD/rand48.3	2004-11-25 11:38:01.000000000 -0800
-+++ _SB/Libc/gen/FreeBSD/rand48.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- rand48.3.orig	2010-02-08 16:26:16.000000000 -0800
++++ rand48.3	2010-02-13 19:48:39.000000000 -0800
 @@ -18,51 +18,68 @@
  .Sh NAME
  .Nm drand48 ,
@@ -79,7 +79,7 @@
 -for the multiplicand a = 0xfdeece66d = 25214903917 and
 -the addend c = 0xb = 11.
 +r(n+1) = (a * r(n) + c) mod m.
-+The default value for the multiplicand `a' is 0xfdeece66d (25214903917).
++The default value for the multiplicand `a' is 0x5deece66d (25214903917).
 +The default value for the the addend `c' is 0xb (11).
  The modulo is always fixed at m = 2 ** 48.
  r(n) is called the seed of the random number generator.
@@ -89,7 +89,7 @@
  computational step is to perform a single iteration of the algorithm.
  .Pp
  The
-@@ -124,7 +141,7 @@
+@@ -124,7 +141,7 @@ is used to initialize the internal buffe
  .Fn drand48 ,
  .Fn lrand48 ,
  and
@@ -98,7 +98,7 @@
  such that the 32 bits of the seed value are copied into the upper 32 bits
  of r(n), with the lower 16 bits of r(n) arbitrarily being set to 0x330e.
  Additionally, the constant multiplicand and addend of the algorithm are
-@@ -147,7 +164,7 @@
+@@ -147,7 +164,7 @@ The
  .Fn seed48
  function
  returns a pointer to an array of 3 shorts which contains the old seed.

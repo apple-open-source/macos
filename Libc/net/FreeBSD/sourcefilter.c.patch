@@ -1,0 +1,23 @@
+--- sourcefilter.c.orig	2010-06-29 16:12:54.000000000 -0700
++++ sourcefilter.c	2010-06-29 17:55:54.000000000 -0700
+@@ -27,6 +27,9 @@
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/net/sourcefilter.c,v 1.5 2009/04/29 09:58:31 bms Exp $");
+ 
++/* 8120237: enable INET6 */
++#define __APPLE_USE_RFC_3542
++
+ #include "namespace.h"
+ 
+ #include <sys/types.h>
+@@ -56,6 +59,10 @@ __FBSDID("$FreeBSD: src/lib/libc/net/sou
+ #ifndef INET
+ #define INET
+ #endif
++/* 8120237: enable INET6 */
++#ifndef INET6
++#define INET6
++#endif
+ 
+ union sockunion {
+ 	struct sockaddr_storage	ss;

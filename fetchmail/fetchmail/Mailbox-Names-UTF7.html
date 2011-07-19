@@ -1,0 +1,722 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN"
+    "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en">
+<head>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8" />
+<meta name="generator" content="AsciiDoc 8.4.5" />
+<title>IMAP4r1 Mailbox Names vs. Unicode</title>
+<style type="text/css">
+/* Debug borders */
+p, li, dt, dd, div, pre, h1, h2, h3, h4, h5, h6 {
+/*
+  border: 1px solid red;
+*/
+}
+
+body {
+  margin: 1em 5% 1em 5%;
+}
+
+a {
+  color: blue;
+  text-decoration: underline;
+}
+a:visited {
+  color: fuchsia;
+}
+
+em {
+  font-style: italic;
+  color: navy;
+}
+
+strong {
+  font-weight: bold;
+  color: #083194;
+}
+
+tt {
+  color: navy;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  color: #527bbd;
+  font-family: sans-serif;
+  margin-top: 1.2em;
+  margin-bottom: 0.5em;
+  line-height: 1.3;
+}
+
+h1, h2, h3 {
+  border-bottom: 2px solid silver;
+}
+h2 {
+  padding-top: 0.5em;
+}
+h3 {
+  float: left;
+}
+h3 + * {
+  clear: left;
+}
+
+div.sectionbody {
+  font-family: serif;
+  margin-left: 0;
+}
+
+hr {
+  border: 1px solid silver;
+}
+
+p {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+}
+
+ul, ol, li > p {
+  margin-top: 0;
+}
+
+pre {
+  padding: 0;
+  margin: 0;
+}
+
+span#author {
+  color: #527bbd;
+  font-family: sans-serif;
+  font-weight: bold;
+  font-size: 1.1em;
+}
+span#email {
+}
+span#revnumber, span#revdate, span#revremark {
+  font-family: sans-serif;
+}
+
+div#footer {
+  font-family: sans-serif;
+  font-size: small;
+  border-top: 2px solid silver;
+  padding-top: 0.5em;
+  margin-top: 4.0em;
+}
+div#footer-text {
+  float: left;
+  padding-bottom: 0.5em;
+}
+div#footer-badges {
+  float: right;
+  padding-bottom: 0.5em;
+}
+
+div#preamble {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+div.tableblock, div.imageblock, div.exampleblock, div.verseblock,
+div.quoteblock, div.literalblock, div.listingblock, div.sidebarblock,
+div.admonitionblock {
+  margin-top: 1.5em;
+  margin-bottom: 1.5em;
+}
+div.admonitionblock {
+  margin-top: 2.5em;
+  margin-bottom: 2.5em;
+}
+
+div.content { /* Block element content. */
+  padding: 0;
+}
+
+/* Block element titles. */
+div.title, caption.title {
+  color: #527bbd;
+  font-family: sans-serif;
+  font-weight: bold;
+  text-align: left;
+  margin-top: 1.0em;
+  margin-bottom: 0.5em;
+}
+div.title + * {
+  margin-top: 0;
+}
+
+td div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content div.title:first-child {
+  margin-top: 0.0em;
+}
+div.content + div.title {
+  margin-top: 0.0em;
+}
+
+div.sidebarblock > div.content {
+  background: #ffffee;
+  border: 1px solid silver;
+  padding: 0.5em;
+}
+
+div.listingblock > div.content {
+  border: 1px solid silver;
+  background: #f4f4f4;
+  padding: 0.5em;
+}
+
+div.quoteblock {
+  padding-left: 2.0em;
+  margin-right: 10%;
+}
+div.quoteblock > div.attribution {
+  padding-top: 0.5em;
+  text-align: right;
+}
+
+div.verseblock {
+  padding-left: 2.0em;
+  margin-right: 10%;
+}
+div.verseblock > div.content {
+  white-space: pre;
+}
+div.verseblock > div.attribution {
+  padding-top: 0.75em;
+  text-align: left;
+}
+/* DEPRECATED: Pre version 8.2.7 verse style literal block. */
+div.verseblock + div.attribution {
+  text-align: left;
+}
+
+div.admonitionblock .icon {
+  vertical-align: top;
+  font-size: 1.1em;
+  font-weight: bold;
+  text-decoration: underline;
+  color: #527bbd;
+  padding-right: 0.5em;
+}
+div.admonitionblock td.content {
+  padding-left: 0.5em;
+  border-left: 2px solid silver;
+}
+
+div.exampleblock > div.content {
+  border-left: 2px solid silver;
+  padding: 0.5em;
+}
+
+div.imageblock div.content { padding-left: 0; }
+span.image img { border-style: none; }
+a.image:visited { color: white; }
+
+dl {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+dt {
+  margin-top: 0.5em;
+  margin-bottom: 0;
+  font-style: normal;
+  color: navy;
+}
+dd > *:first-child {
+  margin-top: 0.1em;
+}
+
+ul, ol {
+    list-style-position: outside;
+}
+ol.arabic {
+  list-style-type: decimal;
+}
+ol.loweralpha {
+  list-style-type: lower-alpha;
+}
+ol.upperalpha {
+  list-style-type: upper-alpha;
+}
+ol.lowerroman {
+  list-style-type: lower-roman;
+}
+ol.upperroman {
+  list-style-type: upper-roman;
+}
+
+div.compact ul, div.compact ol,
+div.compact p, div.compact p,
+div.compact div, div.compact div {
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+
+div.tableblock > table {
+  border: 3px solid #527bbd;
+}
+thead {
+  font-family: sans-serif;
+  font-weight: bold;
+}
+tfoot {
+  font-weight: bold;
+}
+td > div.verse {
+  white-space: pre;
+}
+p.table {
+  margin-top: 0;
+}
+/* Because the table frame attribute is overriden by CSS in most browsers. */
+div.tableblock > table[frame="void"] {
+  border-style: none;
+}
+div.tableblock > table[frame="hsides"] {
+  border-left-style: none;
+  border-right-style: none;
+}
+div.tableblock > table[frame="vsides"] {
+  border-top-style: none;
+  border-bottom-style: none;
+}
+
+
+div.hdlist {
+  margin-top: 0.8em;
+  margin-bottom: 0.8em;
+}
+div.hdlist tr {
+  padding-bottom: 15px;
+}
+dt.hdlist1.strong, td.hdlist1.strong {
+  font-weight: bold;
+}
+td.hdlist1 {
+  vertical-align: top;
+  font-style: normal;
+  padding-right: 0.8em;
+  color: navy;
+}
+td.hdlist2 {
+  vertical-align: top;
+}
+div.hdlist.compact tr {
+  margin: 0;
+  padding-bottom: 0;
+}
+
+.comment {
+  background: yellow;
+}
+
+@media print {
+  div#footer-badges { display: none; }
+}
+
+div#toctitle {
+  color: #527bbd;
+  font-family: sans-serif;
+  font-size: 1.1em;
+  font-weight: bold;
+  margin-top: 1.0em;
+  margin-bottom: 0.1em;
+}
+
+div.toclevel1, div.toclevel2, div.toclevel3, div.toclevel4 {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+div.toclevel2 {
+  margin-left: 2em;
+  font-size: 0.9em;
+}
+div.toclevel3 {
+  margin-left: 4em;
+  font-size: 0.9em;
+}
+div.toclevel4 {
+  margin-left: 6em;
+  font-size: 0.9em;
+}
+/* Workarounds for IE6's broken and incomplete CSS2. */
+
+div.sidebar-content {
+  background: #ffffee;
+  border: 1px solid silver;
+  padding: 0.5em;
+}
+div.sidebar-title, div.image-title {
+  color: #527bbd;
+  font-family: sans-serif;
+  font-weight: bold;
+  margin-top: 0.0em;
+  margin-bottom: 0.5em;
+}
+
+div.listingblock div.content {
+  border: 1px solid silver;
+  background: #f4f4f4;
+  padding: 0.5em;
+}
+
+div.quoteblock-attribution {
+  padding-top: 0.5em;
+  text-align: right;
+}
+
+div.verseblock-content {
+  white-space: pre;
+}
+div.verseblock-attribution {
+  padding-top: 0.75em;
+  text-align: left;
+}
+
+div.exampleblock-content {
+  border-left: 2px solid silver;
+  padding-left: 0.5em;
+}
+
+/* IE6 sets dynamically generated links as visited. */
+div#toc a:visited { color: blue; }
+</style>
+<script type="text/javascript">
+/*<![CDATA[*/
+window.onload = function(){generateToc(2)}
+/* Author: Mihai Bazon, September 2002
+ * http://students.infoiasi.ro/~mishoo
+ *
+ * Table Of Content generator
+ * Version: 0.4
+ *
+ * Feel free to use this script under the terms of the GNU General Public
+ * License, as long as you do not remove or alter this notice.
+ */
+
+ /* modified by Troy D. Hanson, September 2006. License: GPL */
+ /* modified by Stuart Rackham, October 2006. License: GPL */
+
+function getText(el) {
+  var text = "";
+  for (var i = el.firstChild; i != null; i = i.nextSibling) {
+    if (i.nodeType == 3 /* Node.TEXT_NODE */) // IE doesn't speak constants.
+      text += i.data;
+    else if (i.firstChild != null)
+      text += getText(i);
+  }
+  return text;
+}
+
+function TocEntry(el, text, toclevel) {
+  this.element = el;
+  this.text = text;
+  this.toclevel = toclevel;
+}
+
+function tocEntries(el, toclevels) {
+  var result = new Array;
+  var re = new RegExp('[hH]([2-'+(toclevels+1)+'])');
+  // Function that scans the DOM tree for header elements (the DOM2
+  // nodeIterator API would be a better technique but not supported by all
+  // browsers).
+  var iterate = function (el) {
+    for (var i = el.firstChild; i != null; i = i.nextSibling) {
+      if (i.nodeType == 1 /* Node.ELEMENT_NODE */) {
+        var mo = re.exec(i.tagName)
+        if (mo)
+          result[result.length] = new TocEntry(i, getText(i), mo[1]-1);
+        iterate(i);
+      }
+    }
+  }
+  iterate(el);
+  return result;
+}
+
+// This function does the work. toclevels = 1..4.
+function generateToc(toclevels) {
+  var toc = document.getElementById("toc");
+  var entries = tocEntries(document.getElementsByTagName("body")[0], toclevels);
+  for (var i = 0; i < entries.length; ++i) {
+    var entry = entries[i];
+    if (entry.element.id == "")
+      entry.element.id = "toc" + i;
+    var a = document.createElement("a");
+    a.href = "#" + entry.element.id;
+    a.appendChild(document.createTextNode(entry.text));
+    var div = document.createElement("div");
+    div.appendChild(a);
+    div.className = "toclevel" + entry.toclevel;
+    toc.appendChild(div);
+  }
+  if (entries.length == 0)
+    document.getElementById("header").removeChild(toc);
+}
+/*]]>*/
+</script>
+</head>
+<body>
+<div id="header">
+<h1>IMAP4r1 Mailbox Names vs. Unicode</h1>
+<span id="author">Matthias Andree (ed.) and Mark Crispin</span><br />
+<span id="email"><tt>&lt;<a href="mailto:matthias.andree@gmx.de">matthias.andree@gmx.de</a>&gt;</tt></span><br />
+<span id="revnumber">version 1.001,</span>
+<span id="revdate">2010-05-28</span>
+<div id="toc">
+  <div id="toctitle">Table of Contents</div>
+  <noscript><p><b>JavaScript must be enabled in your browser to display the table of contents.</b></p></noscript>
+</div>
+</div>
+<div id="preamble">
+<div class="sectionbody">
+<hr />
+<div class="sidebarblock">
+<div class="sidebar-content">
+<div class="sidebar-title">Acknowledgment</div>
+<div class="paragraph"><p>This article would not have been possible without the
+substantial contributions from Mark Crispin.
+&mdash; Matthias Andree, editor</p></div>
+</div></div>
+<div class="sidebarblock">
+<div class="sidebar-content">
+<div class="sidebar-title">Abstract</div>
+<div class="paragraph"><p>IMAP4rev1 is a widely used Internet Standards Track Protocol for remote
+email access. Its adoption to international environments posed
+interpretation problems as the construction and interpretation of
+mailbox names, it particularly raised the question if there was
+contractictory information within IMAP4rev1.</p></div>
+<div class="paragraph"><p>This article describes the problem, and shows that IMAP4rev1 is
+consistent with respect to mailbox names. We document how the evolution
+of Unicode character sets and transformation formats made the
+interpretation of the IMAP4rev1 standard difficult, and how it is to
+interpret properly.</p></div>
+<div class="paragraph"><p>Finally, we show that UTF-7, which is used in IMAP4rev1 to encode
+mailbox names, does not impose artificial restrictions on the Unicode
+character set.</p></div>
+</div></div>
+</div>
+</div>
+<h2 id="_imap_mailbox_names_in_rfc_3501">1. IMAP Mailbox Names in RFC-3501</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>In May 2010, some confusion arose on the getmail mailing list around a bug
+report to Debian that complained getmail4 wouldn&#8217;t allow non-ASCII characters
+in an IMAP folder name <a href="http://bugs.debian.org/513116">Debian Bug#513116</a>, and
+the interpretation of support of international mailbox names
+vs. <a href="http://tools.ietf.org/html/rfc3501">RFC-3501</a>. It seemed at first
+glance that IMAP4rev1 were limited to the Basic Multilingual Plane of
+Unicode.</p></div>
+<h3 id="_problem_statement">1.1. Problem statement</h3><div style="clear:left"></div>
+<div class="paragraph"><p>Notably, RFC-3501 mandates that mailbox names are 7-bit, however clients are
+supposed to accept 8-bit data and interpret it as UTF-8.  This is apparently
+contradictory or extraneous, because 7-bit ASCII data need not be encoded.</p></div>
+<div class="paragraph"><p>Let us look at the IMAP4rev1 standard:</p></div>
+<div class="quoteblock">
+<div class="quoteblock-content">
+<div class="paragraph"><p>5.1.    Mailbox Naming</p></div>
+<div class="paragraph"><p>Mailbox names are 7-bit.  Client implementations MUST NOT attempt to
+create 8-bit mailbox names, and SHOULD interpret any 8-bit mailbox names
+returned by LIST or LSUB as UTF-8.  Server implementations SHOULD
+prohibit the creation of 8-bit mailbox names, and SHOULD NOT return
+8-bit mailbox names in LIST or LSUB.  See section 5.1.3 for more
+information on how to represent non-ASCII mailbox names. [&#8230;]</p></div>
+</div>
+<div class="quoteblock-attribution">
+<em>RFC3501</em><br />
+&#8212; Mark Crispin
+</div></div>
+<div class="quoteblock">
+<div class="quoteblock-content">
+<div class="paragraph"><p>5.1.3.  Mailbox International Naming Convention</p></div>
+<div class="paragraph"><p>By convention, international mailbox names in IMAP4rev1 are specified
+using a modified version of the UTF-7 encoding described in [UTF-7].
+Modified UTF-7 may also be usable in servers that implement an earlier
+version of this protocol. [&#8230;]</p></div>
+</div>
+<div class="quoteblock-attribution">
+<em>RFC3501</em><br />
+&#8212; Mark Crispin
+</div></div>
+<div class="paragraph"><p>This appears to be contradictory, because UTF-7 is not UTF-8. However, a UTF-7
+mailbox name is not an 8-bit mailbox name, hence the clause "interpret any
+8-bit mailbox names &#8230; as UTF-8" does not apply. Mark writes:</p></div>
+<h3 id="_clarification">1.2. Clarification</h3><div style="clear:left"></div>
+<div class="paragraph"><p><em>by Mark Crispin</em></p></div>
+<div class="paragraph"><p>8-bit octets are prohibited in mailbox names.  Clients MUST use 7-bit
+names, and servers MUST reject CREATE commands that contain 8-bit
+octets.</p></div>
+<div class="paragraph"><p>However, clients MUST also interpret any 8-bit names in a list of
+mailbox names (from LIST or LSUB) as UTF-8.</p></div>
+<div class="paragraph"><p>To understand the history here, we must go back to the 1990s where
+people (in spite of being told not to do so) were writing IMAP2 clients
+and servers which used ISO-8859-1 and Shift-JIS mailbox names.  At that
+time, it was by no means certain that UTF-8 would become the standard
+Internet character set; I played an important role in making that
+happen, but that was still a few years in the future.</p></div>
+<div class="paragraph"><p>The adoption of UTF-8 offered a chance to exterminate non-UTF-8 8-bit
+mailbox names, and in 1996 the current rules were adopted.  The
+transition to IMAP4 (which required substantial changes to any IMAP2
+servers) provided an opportunity to exterminate these non-interoperable
+names once and for all.</p></div>
+<div class="paragraph"><p>The modified UTF-7 was a temporary expedient to allow non-ASCII mailbox
+names while remaining with the 7-bit framework.  Had punycode existed at
+the time, it would have been a much better choice than UTF-7.  But
+punycode did not exist for several years later with IDN.  In fact,
+punycode was created because people learned the problems of UTF-7 from
+IMAP.</p></div>
+<div class="paragraph"><p>The intent was always to move to a UTF-8 only environment and leave
+behind UTF-7.  When that happens, clients will start encountering UTF-8
+names.  It is therefore necessary to tell clients that, even though they
+are not permitted to send them, they need to be written to handle them
+so they work properly when the restriction is relaxed in the future.</p></div>
+<h3 id="_recommendations">1.3. Recommendations</h3><div style="clear:left"></div>
+<div class="paragraph"><p><em>by Mark Crispin</em></p></div>
+<div class="paragraph"><p><strong>Options for server implementors</strong></p></div>
+<div class="paragraph"><p>From the perspective of a server implementor, you have one of two choices
+of how to implement MUTF-7:
+<br />[editor&#8217;s note: Modified UTF-7 as specified by the ensemble of RFC-2152 and RFC-3501]<br /></p></div>
+<div class="hdlist"><table>
+<tr>
+<td class="hdlist1">
+[S1]
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+Ignore it; just forbid 8-bit octets in the CREATE command.
+</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+[S2]
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+Convert mailbox names in commands from MUTF-7 to UTF-8.  When doing a
+LIST or LSUB, convert mailbox names from UTF-8 to MUTF-7 before sending
+them to the client.
+</p>
+</td>
+</tr>
+</table></div>
+<div class="paragraph"><p>Servers of type [S1] were far more common in the 1990s.  [S2] is more
+common today.  However, a client neither knows, nor cares, which type of
+server it is because the rules make both servers interoperate the same.</p></div>
+<div class="paragraph"><p><strong>Options for client implementors</strong></p></div>
+<div class="hdlist"><table>
+<tr>
+<td class="hdlist1">
+[C1]
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+Ignore it; you&#8217;re an ASCII client.
+</p>
+</td>
+</tr>
+<tr>
+<td class="hdlist1">
+[C2]
+<br />
+</td>
+<td class="hdlist2">
+<p style="margin-top: 0;">
+Convert mailbox names from UTF-8 to MUTF-7 when sending a command.
+When receiving a listing of mailboxes, convert MUTF-7 to UTF-8.
+</p>
+</td>
+</tr>
+</table></div>
+<div class="paragraph"><p>This all works, and works well.  The routines to do the conversions are
+quite straightforward.  The only thing that you can&#8217;t do well are mixed
+wildcards with strings with non-ASCII names; and that is primarily a
+curiousity since no clients do that with ASCII names.</p></div>
+</div>
+<h2 id="_unicode_ucs_2_utf_16_and_utf_7">2. Unicode, UCS-2, UTF-16, and UTF-7</h2>
+<div class="sectionbody">
+<div class="admonitionblock">
+<table><tr>
+<td class="icon">
+<img alt="Warning" src="data:image/png;base64,
+" />
+</td>
+<td class="content">
+<div class="title">Incomplete specification:</div>This section and its subsections are not normative references,
+         and are insufficient to implement UCS-2, UTF-16 or UTF-7 based
+         software.</td>
+</tr></table>
+</div>
+<h3 id="_ucs_2_and_utf_16">2.1. UCS-2 and UTF-16</h3><div style="clear:left"></div>
+<div class="paragraph"><p><em>by Mark Crispin</em></p></div>
+<div class="paragraph"><p>RFC-3501 uses <a href="http://tools.ietf.org/html/rfc2152">RFC-2152</a> by reference.
+Some of the confusion on the getmail list arose from the fact that
+RFC-2152 talks about UCS-2 representation, which is limited to the Basic
+Multilingual Plane (BMP) range U+0000 to U+FFFF.</p></div>
+<div class="paragraph"><p>However, RFC-2152 also (page 5) refers to the handling of surrogate
+pairs, which are defined in UTF-16 but not UCS-2.</p></div>
+<div class="paragraph"><p>The correct interpretation is that the wording in RFC-2152 was written
+at a time when "UCS-2" was interpreted as a synonym for "16-bit value"
+as opposed to "BMP-only codepoints".  This happens frequently in older
+standards.  Since UTF-7 is deprecated, nobody has done the work to
+update RFC-2152 to clarify this point.</p></div>
+<div class="paragraph"><p>Using surrogate pairs extends the capability of 16-bit words beyond the
+BMP range.</p></div>
+<div class="paragraph"><p>The 0x0000 to 0xFFFF range comprises so-called surrogates, two character
+ranges (0xD800 to 0xDBFF and 0xDC00 to 0xDFFF) of 1024 characters (2<sup>10</sup>)
+each. These ranges are technically removed from the BMP (thus there is
+no such thing as U+D800); and hence the BMP only contains 64,512
+possible codepoints.</p></div>
+<div class="paragraph"><p>Both UTF-7 and UTF-16 transformation leverages these ranges to map
+Unicode code points in the range from U+010000 to U+10FFFF (which is the
+highest Unicode code point) to a pair of UCS-2 characters in the
+surrogates ranges.</p></div>
+<div class="paragraph"><p>This happens by first subtracting 0x10000, which maps the input into the
+range 0x0 to 0xFFFFF, representable in 20 bits. The most significant
+10-bit portion is mapped into the range 0xD800…0xDBFF, the least
+significant 10-bit portion into the range 0xDC00…0xDFFF, and these two
+16-bit values are used in this order.  UTF-7 does a further step of
+encoding in modified BASE64.</p></div>
+<div class="paragraph"><p>Thus, UTF-7 and UTF-16 both deal with &#8220;16-bit values&#8221; and use the same
+surrogate pair mechanism to access non-BMP codepoints.  Although not
+strictly accurate (the two are technically independent encodings of
+Unicode), it may be helpful to think of UTF-7 as a further encoding of
+UTF-16.</p></div>
+<h3 id="_utf_7">2.2. UTF-7</h3><div style="clear:left"></div>
+<div class="paragraph"><p>UTF-7 is a 7-bit representation of Unicode that makes use of character set
+shifting. A character that is directly representable represents itself. Other
+characters are subjected to a modified BASE64-encoding (that omits the padding
+"=" characters at the end of a group) which is preceded by a "+" character
+and trailed by a "-" character, which is discarded, or any other character
+not in the modified BASE64 set, which remains in the stream.</p></div>
+<div class="paragraph"><p>As a special case, the sequence "+-" is a shorthand to represent
+the "+" character itself.</p></div>
+<div class="paragraph"><p>The modified BASE64 character set uses the characters A-Z, a-z, digits 0-9,
+and the characters "+" and "/", omitting "=" to avoid collisions with
+RFC-2047 encoding.</p></div>
+<h3 id="_modified_utf_7">2.3. Modified UTF-7</h3><div style="clear:left"></div>
+<div class="paragraph"><p>This works similar to UTF-7, but mandates that printable ASCII characters
+0x20&#8230;0x7E except 0x26 (the ampersand "&amp;") represent themselves, and uses yet
+another BASE64 alphabet consisting of the upper- and lowercase letters, the
+digits, and the characters "+" and ",", with some further rules specified in
+RFC-3501. The leading shift character is replaced by the ampersand "&amp;",
+the trailing remains "-", and the "&amp;" can be encoded as "&amp;-".</p></div>
+</div>
+<h2 id="_conclusions">3. Conclusions</h2>
+<div class="sectionbody">
+<div class="paragraph"><p>IMAP Clients that want to support international mailbox names should send UTF-7,
+and be prepared to handle UTF-7 (if no 8-bit data is found) and UTF-8 (if
+8-bit data is found).</p></div>
+<div class="paragraph"><p>Modified UTF-7 as per the IMAP RFC #3501 is not limited to the Unicode Basic
+Multilingual Plane, but maps the entire Unicode range.</p></div>
+</div>
+<div id="footer">
+<div id="footer-text">
+Version 1.001<br />
+Last updated 2010-08-21 12:38:59 CEST
+</div>
+</div>
+</body>
+</html>

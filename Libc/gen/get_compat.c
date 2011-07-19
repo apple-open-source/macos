@@ -31,7 +31,6 @@
 #include <string.h>
 #include <pthread.h>
 
-static bool def_unix03 = false;
 /* Catastrophic errors only, including "out of memory" */
 static bool parse_error = false;
 static bool bootstrapping = false;

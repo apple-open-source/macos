@@ -1,6 +1,6 @@
---- ispunct.3	2004-11-25 11:38:17.000000000 -0800
-+++ ispunct.3.edit	2006-08-09 13:24:42.000000000 -0700
-@@ -51,7 +51,7 @@
+--- ispunct.3.bsdnew	2009-11-10 13:13:10.000000000 -0800
++++ ispunct.3	2009-11-10 13:17:02.000000000 -0800
+@@ -47,7 +47,7 @@
  .Sh DESCRIPTION
  The
  .Fn ispunct
@@ -9,28 +9,20 @@
  .Pq Ql "\ "
  or a
  character for which
-@@ -60,14 +60,14 @@
- For single C
- .Va char Ns s
- locales (see
--.Xr multibyte 3 )
-+.Xr multibyte 3 ) ,
- the value of the argument is
- representable as an
- .Li unsigned char
- or the value of
+@@ -59,7 +59,7 @@ or the value of
  .Dv EOF .
+ .Pp
  In the ASCII character set, this includes the following characters
 -(with their numeric values shown in octal):
 +(preceded by their numeric values, in octal):
  .Pp
  .Bl -column \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__ \&000_``0''__
  .It "\&041\ ``!'' \t042\ ``""'' \t043\ ``#'' \t044\ ``$'' \t045\ ``%''"
-@@ -95,6 +95,7 @@
+@@ -87,6 +87,7 @@ The
  function should be used instead.
  .Sh SEE ALSO
  .Xr ctype 3 ,
 +.Xr isalnum_l 3 ,
  .Xr iswpunct 3 ,
- .Xr multibyte 3 ,
  .Xr ascii 7
+ .Sh STANDARDS

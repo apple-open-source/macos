@@ -11,7 +11,7 @@ License               = license.txt
 
 # Fetch info
 Release               = 2.10
-TEApotVersion         = 0.0.0.2008.11.14.18.16.40
+TEApotVersion         = 0.0.0.2010.08.18.09.02.05
 TEApotProject         = Tktable
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)

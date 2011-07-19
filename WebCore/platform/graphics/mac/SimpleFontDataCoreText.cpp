@@ -30,8 +30,6 @@
 #import "config.h"
 #import "SimpleFontData.h"
 
-#if USE(CORE_TEXT)
-
 #import "Font.h"
 #import "FontCache.h"
 #import "FontDescription.h"
@@ -41,24 +39,17 @@ using namespace std;
 
 namespace WebCore {
 
-CTFontRef SimpleFontData::getCTFont() const
-{
-    if (getNSFont())
-        return toCTFontRef(getNSFont());
-    if (!m_CTFont)
-        m_CTFont.adoptCF(CTFontCreateWithGraphicsFont(m_platformData.cgFont(), m_platformData.size(), 0, 0));
-    return m_CTFont.get();
-}
-
-CFDictionaryRef SimpleFontData::getCFStringAttributes(TypesettingFeatures typesettingFeatures) const
+CFDictionaryRef SimpleFontData::getCFStringAttributes(TypesettingFeatures typesettingFeatures, FontOrientation orientation) const
 {
     unsigned key = typesettingFeatures + 1;
     pair<HashMap<unsigned, RetainPtr<CFDictionaryRef> >::iterator, bool> addResult = m_CFStringAttributes.add(key, RetainPtr<CFDictionaryRef>());
     RetainPtr<CFDictionaryRef>& attributesDictionary = addResult.first->second;
     if (!addResult.second)
         return attributesDictionary.get();
+    
+    bool treatLineAsVertical = orientation == Vertical;
 
-    bool allowLigatures = platformData().allowsLigatures() || (typesettingFeatures & Ligatures);
+    bool allowLigatures = (!treatLineAsVertical && platformData().allowsLigatures()) || (typesettingFeatures & Ligatures);
 
     static const int ligaturesNotAllowedValue = 0;
     static CFNumberRef ligaturesNotAllowed = CFNumberCreate(kCFAllocatorDefault, kCFNumberIntType, &ligaturesNotAllowedValue);
@@ -69,24 +60,20 @@ CFDictionaryRef SimpleFontData::getCFStringAttributes(TypesettingFeatures typese
     if (!(typesettingFeatures & Kerning)) {
         static const float kerningAdjustmentValue = 0;
         static CFNumberRef kerningAdjustment = CFNumberCreate(kCFAllocatorDefault, kCFNumberFloatType, &kerningAdjustmentValue);
-        static const void* keysWithKerningDisabled[] = { kCTFontAttributeName, kCTKernAttributeName, kCTLigatureAttributeName };
-        const void* valuesWithKerningDisabled[] = { getCTFont(), kerningAdjustment, allowLigatures
-            ? ligaturesAllowed : ligaturesNotAllowed };
+        static const void* keysWithKerningDisabled[] = { kCTFontAttributeName, kCTKernAttributeName, kCTLigatureAttributeName, kCTVerticalFormsAttributeName };
+        const void* valuesWithKerningDisabled[] = { platformData().ctFont(), kerningAdjustment, allowLigatures
+            ? ligaturesAllowed : ligaturesNotAllowed, treatLineAsVertical ? kCFBooleanTrue : kCFBooleanFalse };
         attributesDictionary.adoptCF(CFDictionaryCreate(0, keysWithKerningDisabled, valuesWithKerningDisabled,
-            sizeof(keysWithKerningDisabled) / sizeof(*keysWithKerningDisabled),
-            &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+            WTF_ARRAY_LENGTH(keysWithKerningDisabled), &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     } else {
         // By omitting the kCTKernAttributeName attribute, we get Core Text's standard kerning.
-        static const void* keysWithKerningEnabled[] = { kCTFontAttributeName, kCTLigatureAttributeName };
-        const void* valuesWithKerningEnabled[] = { getCTFont(), allowLigatures ? ligaturesAllowed : ligaturesNotAllowed };
+        static const void* keysWithKerningEnabled[] = { kCTFontAttributeName, kCTLigatureAttributeName, kCTVerticalFormsAttributeName };
+        const void* valuesWithKerningEnabled[] = { platformData().ctFont(), allowLigatures ? ligaturesAllowed : ligaturesNotAllowed, treatLineAsVertical ? kCFBooleanTrue : kCFBooleanFalse };
         attributesDictionary.adoptCF(CFDictionaryCreate(0, keysWithKerningEnabled, valuesWithKerningEnabled,
-            sizeof(keysWithKerningEnabled) / sizeof(*keysWithKerningEnabled),
-            &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
+            WTF_ARRAY_LENGTH(keysWithKerningEnabled), &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks));
     }
 
     return attributesDictionary.get();
 }
 
 } // namespace WebCore
-
-#endif

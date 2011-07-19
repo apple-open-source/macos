@@ -108,13 +108,13 @@
 
 
 int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef setup, 
-        u_int32_t otype, void *pdata, u_int32_t *plen);
+        u_int32_t otype, void *pdata, u_int32_t pdatasiz, u_int32_t *plen);
 u_long get_addr_option (struct service *serv, CFStringRef entity, CFStringRef property, 
         CFDictionaryRef optsdict, CFDictionaryRef setupdict, u_int32_t *opt, u_int32_t defaultval);
 u_long get_int_option (struct service *serv, CFStringRef entity, CFStringRef property,
         CFDictionaryRef optsdict, CFDictionaryRef setupdict, u_int32_t *opt, u_int32_t defaultval);
 int get_str_option (struct service *serv, CFStringRef entity, CFStringRef property,
-        CFDictionaryRef optsdict, CFDictionaryRef setupdict, u_char *opt, u_int32_t *outlen, u_char *defaultval);
+        CFDictionaryRef optsdict, CFDictionaryRef setupdict, u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval);
 CFTypeRef get_cf_option (CFStringRef entity, CFStringRef property, CFTypeID type, 
         CFDictionaryRef options, CFDictionaryRef setup, CFTypeRef defaultval);
 

@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,6 +38,7 @@
  */
 
 #include <Security/SecCertificate.h>
+#include <Security/SecIdentity.h>
 #include <CoreFoundation/CFBase.h>
 #include <CoreFoundation/CFData.h>
 #include <CoreFoundation/CFArray.h>
@@ -81,6 +81,21 @@ EAPSecIdentityHandleCreateSecIdentityTrustChain(EAPSecIdentityHandleRef handle,
 						CFArrayRef * ret_array);
 
 /*
+ * Function: EAPSecIdentityCreateTrustChain
+ *
+ * Purpose:
+ *   Turns an SecIdentityRef into the array required by
+ *   SSLSetCertificates().  See the <Security/SecureTransport.h> for more
+ *   information.
+ *
+ * Returns:
+ *   noErr and *ret_array != NULL on success, non-noErr otherwise.
+ */
+OSStatus
+EAPSecIdentityCreateTrustChain(SecIdentityRef identity,
+			       CFArrayRef * ret_array);
+
+/*
  * Function: EAPSecIdentityHandleCreateSecIdentity
  * Purpose:
  *   Retrieve a SecIdentityRef corresponding to the given id_handle.
@@ -121,18 +136,6 @@ EAPCFDataArrayCreateSecCertificateArray(CFArrayRef certs);
 
 CFTypeRef
 isA_SecCertificate(CFTypeRef obj);
-
-Boolean
-EAPSecCertificateEqual(SecCertificateRef cert1, SecCertificateRef cert2);
-
-/*
- * Function: EAPSecCertificateListEqual
- * Purpose:
- *   Compare two CFArray[SecCertificateRef]'s, and return TRUE if they are
- *   equal, and FALSE otherwise.
- */
-Boolean
-EAPSecCertificateListEqual(CFArrayRef list1, CFArrayRef list2);
 
 /*
  * EAPSecCertificateAttribute dictionary keys:
@@ -180,4 +183,4 @@ EAPSecCertificateCopySHA1DigestString(SecCertificateRef cert);
 
 #endif /* TARGET_OS_EMBEDDED */
 
-#endif _EAP8021X_EAPCERTIFICATE_UTIL_H
+#endif /* _EAP8021X_EAPCERTIFICATE_UTIL_H */

@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>ServiceName</key>
+	<string>postgresql</string>
+	<key>BackupBinaryPath</key>
+	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<key>BackupLog</key>
+	<string>/private/var/log/server_backup/postgresql_backup.log</string>
+	<key>BackupActions</key>
+	<dict>
+		<key>Default</key>
+		<string>all</string>
+		<key>Backup</key>
+		<string>backup</string>
+		<key>Help</key>
+		<string>help</string>
+		<key>Version</key>
+		<string>version</string>
+	</dict>
+	<key>PreBackupServiceCommands</key>
+	<array/>
+	<key>PostBackupServiceCommands</key>
+	<array/>
+	<key>RestoreBinaryPath</key>
+	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<key>RestoreLog</key>
+	<string>/private/var/log/server_backup/postgresql_restore.log</string>
+	<key>RestoreActions</key>
+	<dict>
+		<key>Default</key>
+		<string>all</string>
+		<key>Browse</key>
+		<string>browse</string>
+	</dict>
+	<key>PreRestoreServiceCommands</key>
+	<array/>
+	<key>PostRestoreServiceCommands</key>
+	<array/>
+	<key>VerifyBinaryPath</key>
+	<string>/usr/libexec/server_backup/postgresql_backup.rb</string>
+	<key>VerifyLog</key>
+	<string>/private/var/log/server_backup/postgresql_verify.log</string>
+	<key>VerifyActions</key>
+	<dict>
+		<key>Default</key>
+		<string>all</string>
+	</dict>
+	<key>ConfigurationFiles</key>
+	<array/>
+	<key>DataFiles</key>
+	<array/>
+	<key>ExclusionPaths</key>
+	<array/>
+	<key>Version</key>
+	<string>10.7</string>
+</dict>
+</plist>

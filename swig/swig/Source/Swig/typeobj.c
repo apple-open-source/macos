@@ -10,10 +10,9 @@
  * like typedef, namespaces, etc.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_typeobj_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/typeobj.c,v 1.22 2006/11/01 23:54:54 wsfulton Exp $";
+char cvsroot_typeobj_c[] = "$Id: typeobj.c 11080 2009-01-24 13:15:51Z bhy $";
 
 #include "swig.h"
-#include "swigkeys.h"
 #include <ctype.h>
 
 /* -----------------------------------------------------------------------------
@@ -111,7 +110,7 @@ char cvsroot_typeobj_c[] = "$Header: /cvsroot/swig/SWIG/Source/Swig/typeobj.c,v 
  * ----------------------------------------------------------------------------- */
 
 #ifdef NEW
-SwigType *NewSwigType(const String_or_char *initial) {
+SwigType *NewSwigType(const_String_or_char_ptr initial) {
   return NewString(initial);
 }
 
@@ -124,7 +123,7 @@ SwigType *NewSwigType(const String_or_char *initial) {
  * static element_size()
  *
  * This utility function finds the size of a single type element in a type string.
- * Type elements are always delimeted by periods, but may be nested with 
+ * Type elements are always delimited by periods, but may be nested with
  * parentheses.  A nested element is always handled as a single item.
  *
  * Returns the integer size of the element (which can be used to extract a 
@@ -232,7 +231,7 @@ String *SwigType_parm(SwigType *t) {
  * ----------------------------------------------------------------------------- */
 
 List *SwigType_split(const SwigType *t) {
-  DOH *item;
+  String *item;
   List *list;
   char *c;
   int len;
@@ -254,25 +253,40 @@ List *SwigType_split(const SwigType *t) {
 /* -----------------------------------------------------------------------------
  * SwigType_parmlist()
  *
- * Splits a comma separated list of type components into strings.
+ * Splits a comma separated list of parameters into its component parts
+ * The input is expected to contain the parameter list within () brackets
+ * Returns 0 if no argument list in the input, ie there are no round brackets ()
+ * Returns an empty List if there are no parameters in the () brackets
+ * For example:
+ *
+ *     Foo(std::string,p.f().Bar<(int,double)>)
+ *
+ * returns 2 elements in the list:
+ *    std::string
+ *    p.f().Bar<(int,double)>
  * ----------------------------------------------------------------------------- */
-
+ 
 List *SwigType_parmlist(const String *p) {
-  DOH *item;
+  String *item = 0;
   List *list;
-  char *c, *itemstart;
+  char *c;
+  char *itemstart;
+  int size;
 
+  assert(p);
   c = Char(p);
   while (*c && (*c != '(') && (*c != '.'))
     c++;
-  if (!*c || (*c == '.'))
+  if (!*c)
     return 0;
+  assert(*c != '.'); /* p is expected to contain sub elements of a type */
   c++;
   list = NewList();
   itemstart = c;
   while (*c) {
     if (*c == ',') {
-      item = NewStringWithSize(itemstart, (int) (c - itemstart));
+      size = (int) (c - itemstart);
+      item = NewStringWithSize(itemstart, size);
       Append(list, item);
       Delete(item);
       itemstart = c + 1;
@@ -295,8 +309,11 @@ List *SwigType_parmlist(const String *p) {
     if (*c)
       c++;
   }
-  item = NewStringWithSize(itemstart, (int) (c - itemstart));
-  Append(list, item);
+  size = (int) (c - itemstart);
+  if (size > 0) {
+    item = NewStringWithSize(itemstart, size);
+    Append(list, item);
+  }
   Delete(item);
   return list;
 }
@@ -402,7 +419,7 @@ int SwigType_isreference(SwigType *t) {
  * stored in exactly the same way as "q(const volatile)".
  * ----------------------------------------------------------------------------- */
 
-SwigType *SwigType_add_qualifier(SwigType *t, const String_or_char *qual) {
+SwigType *SwigType_add_qualifier(SwigType *t, const_String_or_char_ptr qual) {
   char temp[256], newq[256];
   int sz, added = 0;
   char *q, *cqual;
@@ -479,6 +496,38 @@ int SwigType_isqualifier(SwigType *t) {
 }
 
 /* -----------------------------------------------------------------------------
+ *                                Function Pointers
+ * ----------------------------------------------------------------------------- */
+
+int SwigType_isfunctionpointer(SwigType *t) {
+  char *c;
+  if (!t)
+    return 0;
+  c = Char(t);
+  if (strncmp(c, "p.f(", 4) == 0) {
+    return 1;
+  }
+  return 0;
+}
+
+/* -----------------------------------------------------------------------------
+ * SwigType_functionpointer_decompose
+ *
+ * Decompose the function pointer into the parameter list and the return type
+ * t - input and on completion contains the return type
+ * returns the function's parameters
+ * ----------------------------------------------------------------------------- */
+
+SwigType *SwigType_functionpointer_decompose(SwigType *t) {
+  String *p;
+  assert(SwigType_isfunctionpointer(t));
+  p = SwigType_pop(t);
+  Delete(p);
+  p = SwigType_pop(t);
+  return p;
+}
+
+/* -----------------------------------------------------------------------------
  *                                Member Pointers
  *
  * SwigType_add_memberpointer()
@@ -488,7 +537,7 @@ int SwigType_isqualifier(SwigType *t) {
  * Add, remove, and test for C++ pointer to members.
  * ----------------------------------------------------------------------------- */
 
-SwigType *SwigType_add_memberpointer(SwigType *t, const String_or_char *name) {
+SwigType *SwigType_add_memberpointer(SwigType *t, const_String_or_char_ptr name) {
   String *temp = NewStringf("m(%s).", name);
   Insert(t, 0, temp);
   Delete(temp);
@@ -530,7 +579,7 @@ int SwigType_ismemberpointer(SwigType *t) {
  * SwigType_pop_arrays()        - Remove all arrays
  * ----------------------------------------------------------------------------- */
 
-SwigType *SwigType_add_array(SwigType *t, const String_or_char *size) {
+SwigType *SwigType_add_array(SwigType *t, const_String_or_char_ptr size) {
   char temp[512];
   strcpy(temp, "a(");
   strcat(temp, Char(size));
@@ -557,6 +606,23 @@ int SwigType_isarray(SwigType *t) {
   }
   return 0;
 }
+/*
+ * SwigType_prefix_is_simple_1D_array
+ *
+ * Determine if the type is a 1D array type that is treated as a pointer within SWIG
+ * eg Foo[], Foo[3] return true, but Foo[3][3], Foo*[], Foo*[3], Foo**[] return false
+ */
+int SwigType_prefix_is_simple_1D_array(SwigType *t) {
+  char *c = Char(t);
+
+  if (c && (strncmp(c, "a(", 2) == 0)) {
+    c = strchr(c, '.');
+    c++;
+    return (*c == 0);
+  }
+  return 0;
+}
+
 
 /* Remove all arrays */
 SwigType *SwigType_pop_arrays(SwigType *t) {
@@ -607,7 +673,7 @@ String *SwigType_array_getdim(SwigType *t, int n) {
 }
 
 /* Replace nth array dimension */
-void SwigType_array_setdim(SwigType *t, int n, const String_or_char *rep) {
+void SwigType_array_setdim(SwigType *t, int n, const_String_or_char_ptr rep) {
   String *result = 0;
   char temp;
   char *start;
@@ -669,7 +735,7 @@ SwigType *SwigType_add_function(SwigType *t, ParmList *parms) {
   for (p = parms; p; p = nextSibling(p)) {
     if (p != parms)
       Putc(',', pstr);
-    Append(pstr, Getattr(p, k_type));
+    Append(pstr, Getattr(p, "type"));
   }
   Insert(t, 0, pstr);
   Delete(pstr);
@@ -764,15 +830,15 @@ SwigType *SwigType_add_template(SwigType *t, ParmList *parms) {
   p = parms;
   for (p = parms; p; p = nextSibling(p)) {
     String *v;
-    if (Getattr(p, k_default))
+    if (Getattr(p, "default"))
       continue;
     if (p != parms)
       Append(t, ",");
-    v = Getattr(p, k_value);
+    v = Getattr(p, "value");
     if (v) {
       Append(t, v);
     } else {
-      Append(t, Getattr(p, k_type));
+      Append(t, Getattr(p, "type"));
     }
   }
   Append(t, ")>");
@@ -788,7 +854,7 @@ SwigType *SwigType_add_template(SwigType *t, ParmList *parms) {
  *
  *     Foo<(p.int)>::bar
  *
- * Results in "Foo"
+ * returns "Foo"
  * ----------------------------------------------------------------------------- */
 
 String *SwigType_templateprefix(const SwigType *t) {
@@ -832,7 +898,12 @@ String *SwigType_templatesuffix(const SwigType *t) {
 /* -----------------------------------------------------------------------------
  * SwigType_templateargs()
  *
- * Returns the template part
+ * Returns the template arguments
+ * For example:
+ *
+ *     Foo<(p.int)>::bar
+ *
+ * returns "<(p.int)>"
  * ----------------------------------------------------------------------------- */
 
 String *SwigType_templateargs(const SwigType *t) {
@@ -866,7 +937,8 @@ String *SwigType_templateargs(const SwigType *t) {
 
 int SwigType_istemplate(const SwigType *t) {
   char *ct = Char(t);
-  if ((ct = strstr(ct, "<(")) && (strstr(ct + 2, ")>")))
+  ct = strstr(ct, "<(");
+  if (ct && (strstr(ct + 2, ")>")))
     return 1;
   return 0;
 }

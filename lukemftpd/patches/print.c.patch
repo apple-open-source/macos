@@ -1,6 +1,6 @@
-diff -up -r /SourceCache/lukemftpd/lukemftpd-38/tnftpd/ls/print.c ./ls/print.c
---- /SourceCache/lukemftpd/lukemftpd-38/tnftpd/ls/print.c	2007-07-23 04:42:17.000000000 -0700
-+++ ./ls/print.c	2008-10-03 11:44:17.000000000 -0700
+diff -up -r tnftpd-20091122/ls/print.c tnftpd/ls/print.c
+--- tnftpd-20091122/ls/print.c	2007-07-23 04:42:17.000000000 -0700
++++ tnftpd/ls/print.c	2008-10-03 11:44:17.000000000 -0700
 @@ -177,9 +177,11 @@ printcol(DISPLAY *dp)
  	if (dp->entries > lastentries) {
  		lastentries = dp->entries;
@@ -14,4 +14,3 @@ diff -up -r /SourceCache/lukemftpd/lukemftpd-38/tnftpd/ls/print.c ./ls/print.c
  		}
  	}
  	for (p = dp->list, num = 0; p; p = p->fts_link)
-Only in ./ls: print.c~

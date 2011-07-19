@@ -37,12 +37,10 @@ class wstring;
   if (!$1_pstr) return $null;
   jsize $1_len = jenv->GetStringLength($input);
   if ($1_len) {
-    wchar_t *conv_buf = new wchar_t[$1_len];
+    $1.reserve($1_len);
     for (jsize i = 0; i < $1_len; ++i) {
-      conv_buf[i] = $1_pstr[i];
+      $1.push_back((wchar_t)$1_pstr[i]);
     }
-    $1 = std::wstring(conv_buf, $1_len);
-    delete [] conv_buf;
   }
   jenv->ReleaseStringChars($input, $1_pstr);
  %}
@@ -56,12 +54,10 @@ class wstring;
   if (!$1_pstr) return $null;
   jsize $1_len = jenv->GetStringLength($input);
   if ($1_len) {
-    wchar_t *conv_buf = new wchar_t[$1_len];
+    $result.reserve($1_len);
     for (jsize i = 0; i < $1_len; ++i) {
-      conv_buf[i] = $1_pstr[i];
+      $result.push_back((wchar_t)$1_pstr[i]);
     }
-    $result = std::wstring(conv_buf, $1_len);
-    delete [] conv_buf;
   }
   jenv->ReleaseStringChars($input, $1_pstr);
  %}
@@ -91,6 +87,13 @@ class wstring;
     return $jnicall;
   }
 
+//%typemap(typecheck) wstring = wchar_t *;
+
+%typemap(throws) wstring
+%{ std::string message($1.begin(), $1.end());
+   SWIG_JavaThrowException(jenv, SWIG_JavaRuntimeException, message.c_str());
+   return $null; %}
+
 // const wstring &
 %typemap(jni) const wstring & "jstring"
 %typemap(jtype) const wstring & "String"
@@ -108,18 +111,16 @@ class wstring;
   jsize $1_len = jenv->GetStringLength($input);
   std::wstring $1_str;
   if ($1_len) {
-    wchar_t *conv_buf = new wchar_t[$1_len];
+    $1_str.reserve($1_len);
     for (jsize i = 0; i < $1_len; ++i) {
-      conv_buf[i] = $1_pstr[i];
+      $1_str.push_back((wchar_t)$1_pstr[i]);
     }
-    $1_str = std::wstring(conv_buf, $1_len);
-    delete [] conv_buf;
   }
   $1 = &$1_str;
   jenv->ReleaseStringChars($input, $1_pstr);
  %}
 
-%typemap(directorout) const wstring & 
+%typemap(directorout,warning=SWIGWARN_TYPEMAP_THREAD_UNSAFE_MSG) const wstring & 
 %{if(!$input) {
     SWIG_JavaThrowException(jenv, SWIG_JavaNullPointerException, "null std::wstring");
     return $null;
@@ -127,14 +128,13 @@ class wstring;
   const jchar *$1_pstr = jenv->GetStringChars($input, 0);
   if (!$1_pstr) return $null;
   jsize $1_len = jenv->GetStringLength($input);
-  std::wstring $1_str;
+  /* possible thread/reentrant code problem */
+  static std::wstring $1_str;
   if ($1_len) {
-    wchar_t *conv_buf = new wchar_t[$1_len];
+    $1_str.reserve($1_len);
     for (jsize i = 0; i < $1_len; ++i) {
-      conv_buf[i] = $1_pstr[i];
+      $1_str.push_back((wchar_t)$1_pstr[i]);
     }
-    $1_str = std::wstring(conv_buf, $1_len);
-    delete [] conv_buf;
   }
   $result = &$1_str;
   jenv->ReleaseStringChars($input, $1_pstr); %}
@@ -163,6 +163,13 @@ class wstring;
 %typemap(javaout) const wstring & {
     return $jnicall;
   }
+
+//%typemap(typecheck) const wstring & = wchar_t *;
+
+%typemap(throws) const wstring &
+%{ std::string message($1.begin(), $1.end());
+   SWIG_JavaThrowException(jenv, SWIG_JavaRuntimeException, message.c_str());
+   return $null; %}
 
 }
 

@@ -1,6 +1,8 @@
 /*
  * Copyright (C) 2009 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Brent Fulgham
+ * Copyright (C) 2007-2009 Torch Mobile, Inc. All Rights Reserved.
+ * Copyright (C) 2010 Patrick Gansterer <paroga@paroga.com>
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,15 +29,34 @@
 #ifndef BitmapInfo_h
 #define BitmapInfo_h
 
-#include <windows.h>
 #include "IntSize.h"
+#include <windows.h>
 
 namespace WebCore {
 
 struct BitmapInfo : public BITMAPINFO {
-    BitmapInfo ();
-    static BitmapInfo create(const IntSize&);
-    static BitmapInfo createBottomUp(const IntSize&);
+    enum BitCount {
+        BitCount1 = 1,
+        BitCount4 = 4,
+        BitCount8 = 8,
+        BitCount16 = 16,
+        BitCount24 = 24,
+        BitCount32 = 32
+    };
+
+    BitmapInfo();
+    static BitmapInfo create(const IntSize&, BitCount bitCount = BitCount32);
+    static BitmapInfo createBottomUp(const IntSize&, BitCount bitCount = BitCount32);
+
+    bool is16bit() const { return bmiHeader.biBitCount == 16; }
+    bool is32bit() const { return bmiHeader.biBitCount == 32; }
+    unsigned width() const { return abs(bmiHeader.biWidth); }
+    unsigned height() const { return abs(bmiHeader.biHeight); }
+    IntSize size() const { return IntSize(width(), height()); }
+    unsigned bytesPerLine() const { return (width() * bmiHeader.biBitCount + 7) / 8; }
+    unsigned paddedBytesPerLine() const { return (bytesPerLine() + 3) & ~0x3; }
+    unsigned paddedWidth() const { return paddedBytesPerLine() * 8 / bmiHeader.biBitCount; }
+    unsigned numPixels() const { return paddedWidth() * height(); }
 };
 
 } // namespace WebCore

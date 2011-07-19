@@ -32,6 +32,7 @@
 <!ENTITY section.features SYSTEM "feat.xml">
 <!ENTITY section.using SYSTEM "using.xml">
 <!ENTITY section.xml SYSTEM "xml.xml">
+<!ENTITY section.security SYSTEM "security.xml">
 <!ENTITY section.ssl SYSTEM "ssl.xml">
 
 <!ENTITY biblio SYSTEM "biblio.xml">
@@ -129,6 +130,8 @@ ignoring the WebDAV support if desired.</para>
 
     &section.using;
     
+    &section.security;
+
   </chapter>
  
   <chapter id="api">

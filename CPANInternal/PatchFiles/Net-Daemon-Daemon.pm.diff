@@ -1,0 +1,31 @@
+*** Net-Daemon/lib/Net/Daemon.pm	2007-06-17 11:39:46.000000000 -0700
+--- Net-Daemon/lib/Net/Daemon.pm.patched	2009-08-04 16:04:35.000000000 -0700
+***************
+*** 258,263 ****
+--- 258,269 ----
+  	    $self->{'mode'} = 'ithreads';
+  	} elsif (eval { require Thread }) {
+  	    $self->{'mode'} = 'threads';
++         # this really is to allow legacy code to co-exist
++         if (eval { require threads::shared; }) {
++             if (defined(threads::shared->can("share"))) {
++                 threads::shared::share(\$Net::Daemon::RegExpLock);
++             }
++         }
+  	} else {
+  	    my $fork = 0;
+  	    if ($^O ne "MSWin32") {
+***************
+*** 280,285 ****
+--- 286,296 ----
+  	require threads;
+      } elsif ($self->{'mode'} eq 'threads') {
+  	require Thread;
++     if (eval { require threads::shared; }) {
++         if (defined(threads::shared->can("share"))) {
++             threads::shared::share(\$Net::Daemon::RegExpLock);
++         }
++     }
+      } elsif ($self->{'mode'} eq 'fork') {
+  	# Initialize forking mode ...
+      } elsif ($self->{'mode'} eq 'single') {

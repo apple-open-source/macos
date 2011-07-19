@@ -1,6 +1,6 @@
---- wscanf.3.orig	2007-04-08 18:49:37.000000000 -0700
-+++ wscanf.3	2007-04-08 20:05:10.000000000 -0700
-@@ -41,12 +41,12 @@
+--- wscanf.3.bsdnew	2009-11-11 13:33:22.000000000 -0800
++++ wscanf.3	2009-11-11 13:33:22.000000000 -0800
+@@ -37,12 +37,12 @@
  .Dt WSCANF 3
  .Os
  .Sh NAME
@@ -16,7 +16,7 @@
  .Nd wide character input format conversion
  .Sh LIBRARY
  .Lb libc
-@@ -54,22 +54,46 @@
+@@ -50,22 +50,46 @@
  .In stdio.h
  .In wchar.h
  .Ft int
@@ -70,7 +70,7 @@
  .Fa format
  as described below.
  This format may contain
-@@ -89,7 +113,8 @@
+@@ -85,7 +109,8 @@ reads input from the stream pointer
  and
  .Fn swscanf
  reads its input from the wide character string pointed to by
@@ -80,7 +80,7 @@
  The
  .Fn vfwscanf
  function
-@@ -121,6 +146,7 @@
+@@ -117,6 +142,7 @@ conversion below).
  All conversions are introduced by the
  .Cm %
  (percent sign) character.
@@ -88,7 +88,7 @@
  The
  .Fa format
  string
-@@ -134,10 +160,16 @@
+@@ -130,10 +156,16 @@ Scanning stops
  when an input character does not match such a format character.
  Scanning also stops
  when an input conversion cannot be made (see below).
@@ -106,7 +106,7 @@
  there may be a number of
  .Em flag
  characters, as follows:
-@@ -433,15 +465,12 @@
+@@ -429,15 +461,12 @@ of
  causes an immediate return of
  .Dv EOF .
  .Sh RETURN VALUES
@@ -127,7 +127,7 @@
  such as an alphabetic character for a
  .Ql %d
  conversion.
-@@ -459,14 +488,15 @@
+@@ -455,14 +484,15 @@ the number of conversions which were suc
  .Xr wcstod 3 ,
  .Xr wcstol 3 ,
  .Xr wcstoul 3 ,

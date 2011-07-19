@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 David Smith <catfish.man@gmail.com>
  *
  * This library is free software; you can redistribute it and/or
@@ -22,16 +22,20 @@
 #ifndef ElementRareData_h
 #define ElementRareData_h
 
+#include "ClassList.h"
+#include "DatasetDOMStringMap.h"
 #include "Element.h"
 #include "NodeRareData.h"
+#include <wtf/OwnPtr.h>
 
 namespace WebCore {
 
-using namespace HTMLNames;
+class ShadowRoot;
 
 class ElementRareData : public NodeRareData {
 public:
     ElementRareData();
+    virtual ~ElementRareData();
 
     void resetComputedStyle();
 
@@ -40,7 +44,14 @@ public:
 
     IntSize m_minimumSizeForResizing;
     RefPtr<RenderStyle> m_computedStyle;
-    QualifiedName m_idAttributeName;
+    ShadowRoot* m_shadowRoot;
+
+    OwnPtr<DatasetDOMStringMap> m_datasetDOMStringMap;
+    OwnPtr<ClassList> m_classList;
+
+#if ENABLE(FULLSCREEN_API)
+    bool m_containsFullScreenElement;
+#endif
 };
 
 inline IntSize defaultMinimumSizeForResizing()
@@ -50,8 +61,16 @@ inline IntSize defaultMinimumSizeForResizing()
 
 inline ElementRareData::ElementRareData()
     : m_minimumSizeForResizing(defaultMinimumSizeForResizing())
-    , m_idAttributeName(idAttr)
+    , m_shadowRoot(0)
+#if ENABLE(FULLSCREEN_API)
+    , m_containsFullScreenElement(false)
+#endif
 {
+}
+
+inline ElementRareData::~ElementRareData()
+{
+    ASSERT(!m_shadowRoot);
 }
 
 inline void ElementRareData::resetComputedStyle()

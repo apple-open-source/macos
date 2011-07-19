@@ -24,12 +24,14 @@
 #include "config.h"
 #include "ScheduledAction.h"
 
+#include "ContentSecurityPolicy.h"
 #include "DOMWindow.h"
 #include "Document.h"
 #include "Frame.h"
 #include "FrameLoader.h"
 #include "JSDOMBinding.h"
 #include "JSDOMWindow.h"
+#include "JSMainThreadExecState.h"
 #include "ScriptController.h"
 #include "ScriptExecutionContext.h"
 #include "ScriptSourceCode.h"
@@ -46,28 +48,30 @@ using namespace JSC;
 
 namespace WebCore {
 
-PassOwnPtr<ScheduledAction> ScheduledAction::create(ExecState* exec, const ArgList& args, DOMWrapperWorld* isolatedWorld)
+PassOwnPtr<ScheduledAction> ScheduledAction::create(ExecState* exec, DOMWrapperWorld* isolatedWorld, ContentSecurityPolicy* policy)
 {
-    JSValue v = args.at(0);
+    JSValue v = exec->argument(0);
     CallData callData;
-    if (v.getCallData(callData) == CallTypeNone) {
+    if (getCallData(v, callData) == CallTypeNone) {
+        if (policy && !policy->allowEval())
+            return nullptr;
         UString string = v.toString(exec);
         if (exec->hadException())
-            return 0;
-        return new ScheduledAction(ustringToString(string), isolatedWorld);
+            return nullptr;
+        return adoptPtr(new ScheduledAction(ustringToString(string), isolatedWorld));
     }
-    ArgList argsTail;
-    args.getSlice(2, argsTail);
-    return new ScheduledAction(v, argsTail, isolatedWorld);
+
+    return adoptPtr(new ScheduledAction(exec, v, isolatedWorld));
 }
 
-ScheduledAction::ScheduledAction(JSValue function, const ArgList& args, DOMWrapperWorld* isolatedWorld)
-    : m_function(function)
+ScheduledAction::ScheduledAction(ExecState* exec, JSValue function, DOMWrapperWorld* isolatedWorld)
+    : m_function(exec->globalData(), function)
     , m_isolatedWorld(isolatedWorld)
 {
-    ArgList::const_iterator end = args.end();
-    for (ArgList::const_iterator it = args.begin(); it != end; ++it)
-        m_args.append(*it);
+    // setTimeout(function, interval, arg0, arg1...).
+    // Start at 2 to skip function and interval.
+    for (size_t i = 2; i < exec->argumentCount(); ++i)
+        m_args.append(Strong<JSC::Unknown>(exec->globalData(), exec->argument(i)));
 }
 
 void ScheduledAction::execute(ScriptExecutionContext* context)
@@ -84,13 +88,13 @@ void ScheduledAction::execute(ScriptExecutionContext* context)
 #endif
 }
 
-void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSValue thisValue)
+void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSValue thisValue, ScriptExecutionContext* context)
 {
     ASSERT(m_function);
     JSLock lock(SilenceAssertionsOnly);
 
     CallData callData;
-    CallType callType = m_function.get().getCallData(callData);
+    CallType callType = getCallData(m_function.get(), callData);
     if (callType == CallTypeNone)
         return;
 
@@ -99,11 +103,14 @@ void ScheduledAction::executeFunctionInContext(JSGlobalObject* globalObject, JSV
     MarkedArgumentBuffer args;
     size_t size = m_args.size();
     for (size_t i = 0; i < size; ++i)
-        args.append(m_args[i]);
+        args.append(m_args[i].get());
 
-    globalObject->globalData()->timeoutChecker.start();
-    JSC::call(exec, m_function, callType, callData, thisValue, args);
-    globalObject->globalData()->timeoutChecker.stop();
+    globalObject->globalData().timeoutChecker.start();
+    if (context->isDocument())
+        JSMainThreadExecState::call(exec, m_function.get(), callType, callData, thisValue, args);
+    else
+        JSC::call(exec, m_function.get(), callType, callData, thisValue, args);
+    globalObject->globalData().timeoutChecker.stop();
 
     if (exec->hadException())
         reportCurrentException(exec);
@@ -122,7 +129,7 @@ void ScheduledAction::execute(Document* document)
     frame->script()->setProcessingTimerCallback(true);
 
     if (m_function) {
-        executeFunctionInContext(window, window->shell());
+        executeFunctionInContext(window, window->shell(), document);
         Document::updateStyleForAllDocuments();
     } else
         frame->script()->executeScriptInWorld(m_isolatedWorld.get(), m_code);
@@ -140,7 +147,7 @@ void ScheduledAction::execute(WorkerContext* workerContext)
 
     if (m_function) {
         JSWorkerContext* contextWrapper = scriptController->workerContextWrapper();
-        executeFunctionInContext(contextWrapper, contextWrapper);
+        executeFunctionInContext(contextWrapper, contextWrapper, workerContext);
     } else {
         ScriptSourceCode code(m_code, workerContext->url());
         scriptController->evaluate(code);

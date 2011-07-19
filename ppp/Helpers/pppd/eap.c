@@ -1231,7 +1231,7 @@ EAPServerAction(cstate)
                     cstate->serverstate = EAPSS_OPEN;
                     if (old_state == EAPSS_INITIAL_CHAL) {
                         EAPServerGetAttributes(cstate);
-                        auth_peer_success(cstate->unit, PPP_EAP, 0, name, strlen(name));
+                        auth_peer_success(cstate->unit, PPP_EAP, 0, (u_char*)name, strlen(name));
                     }
                     if (cstate->req_interval != 0)
                         TIMEOUT(EapRechallenge, cstate, cstate->req_interval);
@@ -1318,7 +1318,7 @@ EapPrintPkt(p, plen, printer, arg)
             default :
                 eap = EapSupportedType(req);
                 if (eap && eap->print_packet) {
-                    eap->print_packet(printer, arg, code, p, len);
+                    eap->print_packet(printer, arg, code, (char*)p, len);
                 }
                 else {
                     printer(arg, "<");

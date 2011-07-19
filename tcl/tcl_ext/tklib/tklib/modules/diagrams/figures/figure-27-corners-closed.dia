@@ -1,0 +1,25 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+proc showcorners {e corners} {
+    foreach {c anchor text} $corners {
+	circle radius 2 at [$e $c] color red text $text anchor $anchor
+    }
+}
+
+proc compass {e} {
+    showcorners $e {
+	n  s  n 
+	ne sw ne
+	e  w  e 
+	se nw se
+	s  n  s 
+	sw ne sw
+	w  e  w 
+	nw se nw
+	c  sw c 
+    }
+}
+
+compass [box]    ; move
+compass [circle] ; move
+compass [ellipse width [3 cm]]

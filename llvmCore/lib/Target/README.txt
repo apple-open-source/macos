@@ -2,6 +2,29 @@ Target Independent Opportunities:
 
 //===---------------------------------------------------------------------===//
 
+Dead argument elimination should be enhanced to handle cases when an argument is
+dead to an externally visible function.  Though the argument can't be removed
+from the externally visible function, the caller doesn't need to pass it in.
+For example in this testcase:
+
+  void foo(int X) __attribute__((noinline));
+  void foo(int X) { sideeffect(); }
+  void bar(int A) { foo(A+1); }
+
+We compile bar to:
+
+define void @bar(i32 %A) nounwind ssp {
+  %0 = add nsw i32 %A, 1                          ; <i32> [#uses=1]
+  tail call void @foo(i32 %0) nounwind noinline ssp
+  ret void
+}
+
+The add is dead, we could pass in 'i32 undef' instead.  This occurs for C++
+templates etc, which usually have linkonce_odr/weak_odr linkage, not internal
+linkage.
+
+//===---------------------------------------------------------------------===//
+
 With the recent changes to make the implicit def/use set explicit in
 machineinstrs, we should change the target descriptions for 'call' instructions
 so that the .td files don't list all the call-clobbered registers as implicit
@@ -83,7 +106,17 @@ Shrink: (setlt (loadi32 P), 0) -> (setlt (loadi8 Phi), 0)
 
 //===---------------------------------------------------------------------===//
 
-Reassociate should turn: X*X*X*X -> t=(X*X) (t*t) to eliminate a multiply.
+Reassociate should turn things like:
+
+int factorial(int X) {
+ return X*X*X*X*X*X*X*X;
+}
+
+into llvm.powi calls, allowing the code generator to produce balanced
+multiplication trees.
+
+First, the intrinsic needs to be extended to support integers, and second the
+code generator needs to be enhanced to lower these to multiplication trees.
 
 //===---------------------------------------------------------------------===//
 
@@ -96,7 +129,71 @@ int foo(int z, int n) {
   return bar(z, n) + bar(2*z, 2*n);
 }
 
-Reassociate should handle the example in GCC PR16157.
+This is blocked on not handling X*X*X -> powi(X, 3) (see note above).  The issue
+is that we end up getting t = 2*X  s = t*t   and don't turn this into 4*X*X,
+which is the same number of multiplies and is canonical, because the 2*X has
+multiple uses.  Here's a simple example:
+
+define i32 @test15(i32 %X1) {
+  %B = mul i32 %X1, 47   ; X1*47
+  %C = mul i32 %B, %B
+  ret i32 %C
+}
+
+
+//===---------------------------------------------------------------------===//
+
+Reassociate should handle the example in GCC PR16157:
+
+extern int a0, a1, a2, a3, a4; extern int b0, b1, b2, b3, b4; 
+void f () {  /* this can be optimized to four additions... */ 
+        b4 = a4 + a3 + a2 + a1 + a0; 
+        b3 = a3 + a2 + a1 + a0; 
+        b2 = a2 + a1 + a0; 
+        b1 = a1 + a0; 
+} 
+
+This requires reassociating to forms of expressions that are already available,
+something that reassoc doesn't think about yet.
+
+
+//===---------------------------------------------------------------------===//
+
+This function: (derived from GCC PR19988)
+double foo(double x, double y) {
+  return ((x + 0.1234 * y) * (x + -0.1234 * y));
+}
+
+compiles to:
+_foo:
+	movapd	%xmm1, %xmm2
+	mulsd	LCPI1_1(%rip), %xmm1
+	mulsd	LCPI1_0(%rip), %xmm2
+	addsd	%xmm0, %xmm1
+	addsd	%xmm0, %xmm2
+	movapd	%xmm1, %xmm0
+	mulsd	%xmm2, %xmm0
+	ret
+
+Reassociate should be able to turn it into:
+
+double foo(double x, double y) {
+  return ((x + 0.1234 * y) * (x - 0.1234 * y));
+}
+
+Which allows the multiply by constant to be CSE'd, producing:
+
+_foo:
+	mulsd	LCPI1_0(%rip), %xmm1
+	movapd	%xmm1, %xmm2
+	addsd	%xmm0, %xmm2
+	subsd	%xmm1, %xmm0
+	mulsd	%xmm2, %xmm0
+	ret
+
+This doesn't need -ffast-math support at all.  This is particularly bad because
+the llvm-gcc frontend is canonicalizing the later into the former, but clang
+doesn't have this problem.
 
 //===---------------------------------------------------------------------===//
 
@@ -125,8 +222,7 @@ specific vector types are target dependent.
 
 //===---------------------------------------------------------------------===//
 
-We should add 'unaligned load/store' nodes, and produce them from code like
-this:
+We should produce an unaligned load from code like this:
 
 v4sf example(float *P) {
   return (v4sf){P[0], P[1], P[2], P[3] };
@@ -167,82 +263,6 @@ if anyone cared enough about sincos.
 
 //===---------------------------------------------------------------------===//
 
-Scalar Repl cannot currently promote this testcase to 'ret long cst':
-
-        %struct.X = type { i32, i32 }
-        %struct.Y = type { %struct.X }
-
-define i64 @bar() {
-        %retval = alloca %struct.Y, align 8
-        %tmp12 = getelementptr %struct.Y* %retval, i32 0, i32 0, i32 0
-        store i32 0, i32* %tmp12
-        %tmp15 = getelementptr %struct.Y* %retval, i32 0, i32 0, i32 1
-        store i32 1, i32* %tmp15
-        %retval.upgrd.1 = bitcast %struct.Y* %retval to i64*
-        %retval.upgrd.2 = load i64* %retval.upgrd.1
-        ret i64 %retval.upgrd.2
-}
-
-it should be extended to do so.
-
-//===---------------------------------------------------------------------===//
-
--scalarrepl should promote this to be a vector scalar.
-
-        %struct..0anon = type { <4 x float> }
-
-define void @test1(<4 x float> %V, float* %P) {
-        %u = alloca %struct..0anon, align 16
-        %tmp = getelementptr %struct..0anon* %u, i32 0, i32 0
-        store <4 x float> %V, <4 x float>* %tmp
-        %tmp1 = bitcast %struct..0anon* %u to [4 x float]*
-        %tmp.upgrd.1 = getelementptr [4 x float]* %tmp1, i32 0, i32 1
-        %tmp.upgrd.2 = load float* %tmp.upgrd.1
-        %tmp3 = mul float %tmp.upgrd.2, 2.000000e+00
-        store float %tmp3, float* %P
-        ret void
-}
-
-//===---------------------------------------------------------------------===//
-
-Turn this into a single byte store with no load (the other 3 bytes are
-unmodified):
-
-void %test(uint* %P) {
-	%tmp = load uint* %P
-        %tmp14 = or uint %tmp, 3305111552
-        %tmp15 = and uint %tmp14, 3321888767
-        store uint %tmp15, uint* %P
-        ret void
-}
-
-//===---------------------------------------------------------------------===//
-
-dag/inst combine "clz(x)>>5 -> x==0" for 32-bit x.
-
-Compile:
-
-int bar(int x)
-{
-  int t = __builtin_clz(x);
-  return -(t>>5);
-}
-
-to:
-
-_bar:   addic r3,r3,-1
-        subfe r3,r3,r3
-        blr
-
-//===---------------------------------------------------------------------===//
-
-Legalize should lower ctlz like this:
-  ctlz(x) = popcnt((x-1) & ~x)
-
-on targets that have popcnt but not ctlz.  itanium, what else?
-
-//===---------------------------------------------------------------------===//
-
 quantum_sigma_x in 462.libquantum contains the following loop:
 
       for(i=0; i<reg->size; i++)
@@ -266,7 +286,7 @@ so cool to turn it into something like:
 ... which would only do one 32-bit XOR per loop iteration instead of two.
 
 It would also be nice to recognize the reg->size doesn't alias reg->node[i], but
-alas...
+this requires TBAA.
 
 //===---------------------------------------------------------------------===//
 
@@ -281,6 +301,8 @@ unsigned long reverse(unsigned v) {
 }
 
 //===---------------------------------------------------------------------===//
+
+[LOOP RECOGNITION]
 
 These idioms should be recognized as popcount (see PR1488):
 
@@ -313,6 +335,9 @@ unsigned int popcount(unsigned int input) {
   return count;
 }
 
+This is a form of idiom recognition for loops, the same thing that could be
+useful for recognizing memset/memcpy.
+
 //===---------------------------------------------------------------------===//
 
 These should turn into single 16-bit (unaligned?) loads on little/big endian
@@ -341,9 +366,33 @@ this construct.
 
 //===---------------------------------------------------------------------===//
 
+[LOOP RECOGNITION]
+
 viterbi speeds up *significantly* if the various "history" related copy loops
 are turned into memcpy calls at the source level.  We need a "loops to memcpy"
 pass.
+
+//===---------------------------------------------------------------------===//
+
+[LOOP OPTIMIZATION]
+
+SingleSource/Benchmarks/Misc/dt.c shows several interesting optimization
+opportunities in its double_array_divs_variable function: it needs loop
+interchange, memory promotion (which LICM already does), vectorization and
+variable trip count loop unrolling (since it has a constant trip count). ICC
+apparently produces this very nice code with -ffast-math:
+
+..B1.70:                        # Preds ..B1.70 ..B1.69
+       mulpd     %xmm0, %xmm1                                  #108.2
+       mulpd     %xmm0, %xmm1                                  #108.2
+       mulpd     %xmm0, %xmm1                                  #108.2
+       mulpd     %xmm0, %xmm1                                  #108.2
+       addl      $8, %edx                                      #
+       cmpl      $131072, %edx                                 #108.2
+       jb        ..B1.70       # Prob 99%                      #108.2
+
+It would be better to count down to zero, but this is a lot better than what we
+do.
 
 //===---------------------------------------------------------------------===//
 
@@ -372,14 +421,11 @@ we don't have whole-function selection dags.  On x86, this means we use one
 extra register for the function when effective_addr2 is declared as U64 than
 when it is declared U32.
 
-//===---------------------------------------------------------------------===//
-
-Promote for i32 bswap can use i64 bswap + shr.  Useful on targets with 64-bit
-regs and bswap, like itanium.
+PHI Slicing could be extended to do this.
 
 //===---------------------------------------------------------------------===//
 
-LSR should know what GPR types a target has.  This code:
+LSR should know what GPR types a target has from TargetData.  This code:
 
 volatile short X, Y; // globals
 
@@ -388,25 +434,22 @@ void foo(int N) {
   for (i = 0; i < N; i++) { X = i; Y = i*4; }
 }
 
-produces two identical IV's (after promotion) on PPC/ARM:
+produces two near identical IV's (after promotion) on PPC/ARM:
 
-LBB1_1: @bb.preheader
-        mov r3, #0
-        mov r2, r3
-        mov r1, r3
-LBB1_2: @bb
-        ldr r12, LCPI1_0
-        ldr r12, [r12]
-        strh r2, [r12]
-        ldr r12, LCPI1_1
-        ldr r12, [r12]
-        strh r3, [r12]
-        add r1, r1, #1    <- [0,+,1]
-        add r3, r3, #4
-        add r2, r2, #1    <- [0,+,1]
-        cmp r1, r0
-        bne LBB1_2      @bb
+LBB1_2:
+	ldr r3, LCPI1_0
+	ldr r3, [r3]
+	strh r2, [r3]
+	ldr r3, LCPI1_1
+	ldr r3, [r3]
+	strh r1, [r3]
+	add r1, r1, #4
+	add r2, r2, #1   <- [0,+,1]
+	sub r0, r0, #1   <- [0,-,1]
+	cmp r0, #0
+	bne LBB1_2
 
+LSR should reuse the "+" IV for the exit test.
 
 //===---------------------------------------------------------------------===//
 
@@ -446,22 +489,6 @@ return:		; preds = %then.1, %else.0, %then.0
 
 //===---------------------------------------------------------------------===//
 
-Tail recursion elimination is not transforming this function, because it is
-returning n, which fails the isDynamicConstant check in the accumulator 
-recursion checks.
-
-long long fib(const long long n) {
-  switch(n) {
-    case 0:
-    case 1:
-      return n;
-    default:
-      return fib(n-1) + fib(n-2);
-  }
-}
-
-//===---------------------------------------------------------------------===//
-
 Tail recursion elimination should handle:
 
 int pow2m1(int n) {
@@ -492,25 +519,6 @@ entry:
 	%tmp3 = call i32 @foo( i32* %x )		; <i32> [#uses=1]
 	ret i32 %tmp3
 }
-
-//===---------------------------------------------------------------------===//
-
-"basicaa" should know how to look through "or" instructions that act like add
-instructions.  For example in this code, the x*4+1 is turned into x*4 | 1, and
-basicaa can't analyze the array subscript, leading to duplicated loads in the
-generated code:
-
-void test(int X, int Y, int a[]) {
-int i;
-  for (i=2; i<1000; i+=4) {
-  a[i+0] = a[i-1+0]*a[i-2+0];
-  a[i+1] = a[i-1+1]*a[i-2+1];
-  a[i+2] = a[i-1+2]*a[i-2+2];
-  a[i+3] = a[i-1+3]*a[i-2+3];
-  }
-}
-
-BasicAA also doesn't do this for add.  It needs to know that &A[i+1] != &A[i].
 
 //===---------------------------------------------------------------------===//
 
@@ -634,53 +642,8 @@ once.
 
 //===---------------------------------------------------------------------===//
 
-We should extend parameter attributes to capture more information about
-pointer parameters for alias analysis.  Some ideas:
-
-1. Add a "nocapture" attribute, which indicates that the callee does not store
-   the address of the parameter into a global or any other memory location
-   visible to the callee.  This can be used to make basicaa and other analyses
-   more powerful.  It is true for things like memcpy, strcat, and many other
-   things, including structs passed by value, most C++ references, etc.
-2. Generalize readonly to be set on parameters.  This is important mod/ref 
-   info for the function, which is important for basicaa and others.  It can
-   also be used by the inliner to avoid inserting a memcpy for byval 
-   arguments when the function is inlined.
-
-These functions can be inferred by various analysis passes such as the 
-globalsmodrefaa pass.  Note that getting #2 right is actually really tricky.
-Consider this code:
-
-struct S;  S G;
-void caller(S byvalarg) { G.field = 1; ... }
-void callee() { caller(G); }
-
-The fact that the caller does not modify byval arg is not enough, we need
-to know that it doesn't modify G either.  This is very tricky.
-
-//===---------------------------------------------------------------------===//
-
 We should add an FRINT node to the DAG to model targets that have legal
 implementations of ceil/floor/rint.
-
-//===---------------------------------------------------------------------===//
-
-This GCC bug: http://gcc.gnu.org/bugzilla/show_bug.cgi?id=34043
-contains a testcase that compiles down to:
-
-	%struct.XMM128 = type { <4 x float> }
-..
-	%src = alloca %struct.XMM128
-..
-	%tmp6263 = bitcast %struct.XMM128* %src to <2 x i64>*
-	%tmp65 = getelementptr %struct.XMM128* %src, i32 0, i32 0
-	store <2 x i64> %tmp5899, <2 x i64>* %tmp6263, align 16
-	%tmp66 = load <4 x float>* %tmp65, align 16		
-	%tmp71 = add <4 x float> %tmp66, %tmp66		
-
-If the mid-level optimizer turned the bitcast of pointer + store of tmp5899
-into a bitcast of the vector value and a store to the pointer, then the 
-store->load could be easily removed.
 
 //===---------------------------------------------------------------------===//
 
@@ -814,57 +777,6 @@ be done safely if "b" isn't modified between the strlen and memcpy of course.
 
 //===---------------------------------------------------------------------===//
 
-We should be able to evaluate this loop:
-
-int test(int x_offs) {
-  while (x_offs > 4)
-     x_offs -= 4;
-  return x_offs;
-}
-
-//===---------------------------------------------------------------------===//
-
-Reassociate should turn things like:
-
-int factorial(int X) {
- return X*X*X*X*X*X*X*X;
-}
-
-into llvm.powi calls, allowing the code generator to produce balanced
-multiplication trees.
-
-//===---------------------------------------------------------------------===//
-
-We generate a horrible  libcall for llvm.powi.  For example, we compile:
-
-#include <cmath>
-double f(double a) { return std::pow(a, 4); }
-
-into:
-
-__Z1fd:
-	subl	$12, %esp
-	movsd	16(%esp), %xmm0
-	movsd	%xmm0, (%esp)
-	movl	$4, 8(%esp)
-	call	L___powidf2$stub
-	addl	$12, %esp
-	ret
-
-GCC produces:
-
-__Z1fd:
-	subl	$12, %esp
-	movsd	16(%esp), %xmm0
-	mulsd	%xmm0, %xmm0
-	mulsd	%xmm0, %xmm0
-	movsd	%xmm0, (%esp)
-	fldl	(%esp)
-	addl	$12, %esp
-	ret
-
-//===---------------------------------------------------------------------===//
-
 We compile this program: (from GCC PR11680)
 http://gcc.gnu.org/bugzilla/attachment.cgi?id=4487
 
@@ -904,25 +816,21 @@ void bar(unsigned n) {
     true();
 }
 
-I think this basically amounts to a dag combine to simplify comparisons against
-multiply hi's into a comparison against the mullo.
-
-//===---------------------------------------------------------------------===//
-
-SROA is not promoting the union on the stack in this example, we should end
-up with no allocas.
-
-union vec2d {
-    double e[2];
-    double v __attribute__((vector_size(16)));
-};
-typedef union vec2d vec2d;
-
-static vec2d a={{1,2}}, b={{3,4}};
-    
-vec2d foo () {
-    return (vec2d){ .v = a.v + b.v * (vec2d){{5,5}}.v };
+This is equivalent to the following, where 2863311531 is the multiplicative
+inverse of 3, and 1431655766 is ((2^32)-1)/3+1:
+void bar(unsigned n) {
+  if (n * 2863311531U < 1431655766U)
+    true();
 }
+
+The same transformation can work with an even modulo with the addition of a
+rotate: rotate the result of the multiply to the right by the number of bits
+which need to be zero for the condition to be true, and shrink the compare RHS
+by the same amount.  Unless the target supports rotates, though, that
+transformation probably isn't worthwhile.
+
+The transformation can also easily be made to work with non-zero equality
+comparisons: just transform, for example, "n % 3 == 1" to "(n-1) % 3 == 0".
 
 //===---------------------------------------------------------------------===//
 
@@ -939,20 +847,6 @@ int main() {
     test t;
     std::scanf("%d", &t.val);
     std::printf("%d\n", t.val);
-}
-
-//===---------------------------------------------------------------------===//
-
-Instcombine will merge comparisons like (x >= 10) && (x < 20) by producing (x -
-10) u< 10, but only when the comparisons have matching sign.
-
-This could be converted with a similiar technique. (PR1941)
-
-define i1 @test(i8 %x) {
-  %A = icmp uge i8 %x, 5
-  %B = icmp slt i8 %x, 20
-  %C = and i1 %A, %B
-  ret i1 %C
 }
 
 //===---------------------------------------------------------------------===//
@@ -1004,18 +898,6 @@ The expression should optimize to something like
 
 //===---------------------------------------------------------------------===//
 
-From GCC Bug 15241:
-unsigned int
-foo (unsigned int a, unsigned int b)
-{
- if (a <= 7 && b <= 7)
-   baz ();
-}
-Should combine to "(a|b) <= 7".  Currently not optimized with "clang
--emit-llvm-bc | opt -std-compile-opts".
-
-//===---------------------------------------------------------------------===//
-
 From GCC Bug 3756:
 int
 pn (int n)
@@ -1023,19 +905,6 @@ pn (int n)
  return (n >= 0 ? 1 : -1);
 }
 Should combine to (n >> 31) | 1.  Currently not optimized with "clang
--emit-llvm-bc | opt -std-compile-opts | llc".
-
-//===---------------------------------------------------------------------===//
-
-From GCC Bug 28685:
-int test(int a, int b)
-{
- int lt = a < b;
- int eq = a == b;
-
- return (lt || eq);
-}
-Should combine to "a <= b".  Currently not optimized with "clang
 -emit-llvm-bc | opt -std-compile-opts | llc".
 
 //===---------------------------------------------------------------------===//
@@ -1113,12 +982,6 @@ Should combine to 0.  Currently not optimized with "clang
 
 //===---------------------------------------------------------------------===//
 
-int a(unsigned char* b) {return *b > 99;}
-There's an unnecessary zext in the generated code with "clang
--emit-llvm-bc | opt -std-compile-opts".
-
-//===---------------------------------------------------------------------===//
-
 int a(unsigned b) {return ((b << 31) | (b << 30)) >> 31;}
 Should be combined to  "((b >> 1) | b) & 1".  Currently not optimized
 with "clang -emit-llvm-bc | opt -std-compile-opts".
@@ -1127,12 +990,6 @@ with "clang -emit-llvm-bc | opt -std-compile-opts".
 
 unsigned a(unsigned x, unsigned y) { return x | (y & 1) | (y & 2);}
 Should combine to "x | (y & 3)".  Currently not optimized with "clang
--emit-llvm-bc | opt -std-compile-opts".
-
-//===---------------------------------------------------------------------===//
-
-unsigned a(unsigned a) {return ((a | 1) & 3) | (a & -4);}
-Should combine to "a | 1".  Currently not optimized with "clang
 -emit-llvm-bc | opt -std-compile-opts".
 
 //===---------------------------------------------------------------------===//
@@ -1215,16 +1072,6 @@ optimized with "clang -emit-llvm-bc | opt -std-compile-opts".
 
 //===---------------------------------------------------------------------===//
 
-We would like to do the following transform in the instcombiner:
-
-  -X/C -> X/-C
-
-However, this isn't valid if (-X) overflows. We can implement this when we
-have the concept of a "C signed subtraction" operator that which is undefined
-on overflow.
-
-//===---------------------------------------------------------------------===//
-
 This was noticed in the entryblock for grokdeclarator in 403.gcc:
 
         %tmp = icmp eq i32 %decl_context, 4          
@@ -1245,6 +1092,8 @@ the function, e.g. by:
 later.
 
 //===---------------------------------------------------------------------===//
+
+[STORE SINKING]
 
 Store sinking: This code:
 
@@ -1301,6 +1150,8 @@ This is GCC PR38204.
 
 //===---------------------------------------------------------------------===//
 
+[STORE SINKING]
+
 GCC PR37810 is an interesting case where we should sink load/store reload
 into the if block and outside the loop, so we don't reload/store it on the
 non-call path.
@@ -1328,7 +1179,7 @@ we don't sink the store.  We need partially dead store sinking.
 
 //===---------------------------------------------------------------------===//
 
-[PHI TRANSLATE GEPs]
+[LOAD PRE CRIT EDGE SPLITTING]
 
 GCC PR37166: Sinking of loads prevents SROA'ing the "g" struct on the stack
 leading to excess stack traffic. This could be handled by GVN with some crazy
@@ -1345,88 +1196,71 @@ bb3:		; preds = %bb1, %bb2, %bb
 	%10 = getelementptr %struct.f* %c_addr.0, i32 0, i32 0
 	%11 = load i32* %10, align 4
 
-%11 is fully redundant, an in BB2 it should have the value %8.
+%11 is partially redundant, an in BB2 it should have the value %8.
 
-GCC PR33344 is a similar case.
+GCC PR33344 and PR35287 are similar cases.
+
 
 //===---------------------------------------------------------------------===//
 
+[LOAD PRE]
+
 There are many load PRE testcases in testsuite/gcc.dg/tree-ssa/loadpre* in the
-GCC testsuite.  There are many pre testcases as ssa-pre-*.c
+GCC testsuite, ones we don't get yet are (checked through loadpre25):
+
+[CRIT EDGE BREAKING]
+loadpre3.c predcom-4.c
+
+[PRE OF READONLY CALL]
+loadpre5.c
+
+[TURN SELECT INTO BRANCH]
+loadpre14.c loadpre15.c 
+
+actually a conditional increment: loadpre18.c loadpre19.c
+
+
+//===---------------------------------------------------------------------===//
+
+[SCALAR PRE]
+There are many PRE testcases in testsuite/gcc.dg/tree-ssa/ssa-pre-*.c in the
+GCC testsuite.
 
 //===---------------------------------------------------------------------===//
 
 There are some interesting cases in testsuite/gcc.dg/tree-ssa/pred-comm* in the
-GCC testsuite.  For example, predcom-1.c is:
+GCC testsuite.  For example, we get the first example in predcom-1.c, but 
+miss the second one:
 
- for (i = 2; i < 1000; i++)
-    fib[i] = (fib[i-1] + fib[i - 2]) & 0xffff;
+unsigned fib[1000];
+unsigned avg[1000];
 
-which compiles into:
+__attribute__ ((noinline))
+void count_averages(int n) {
+  int i;
+  for (i = 1; i < n; i++)
+    avg[i] = (((unsigned long) fib[i - 1] + fib[i] + fib[i + 1]) / 3) & 0xffff;
+}
 
-bb1:		; preds = %bb1, %bb1.thread
-	%indvar = phi i32 [ 0, %bb1.thread ], [ %0, %bb1 ]	
-	%i.0.reg2mem.0 = add i32 %indvar, 2		
-	%0 = add i32 %indvar, 1		; <i32> [#uses=3]
-	%1 = getelementptr [1000 x i32]* @fib, i32 0, i32 %0		
-	%2 = load i32* %1, align 4		; <i32> [#uses=1]
-	%3 = getelementptr [1000 x i32]* @fib, i32 0, i32 %indvar	
-	%4 = load i32* %3, align 4		; <i32> [#uses=1]
-	%5 = add i32 %4, %2		; <i32> [#uses=1]
-	%6 = and i32 %5, 65535		; <i32> [#uses=1]
-	%7 = getelementptr [1000 x i32]* @fib, i32 0, i32 %i.0.reg2mem.0
-	store i32 %6, i32* %7, align 4
-	%exitcond = icmp eq i32 %0, 998		; <i1> [#uses=1]
-	br i1 %exitcond, label %return, label %bb1
+which compiles into two loads instead of one in the loop.
 
-This is basically:
-  LOAD fib[i+1]
-  LOAD fib[i]
-  STORE fib[i+2]
+predcom-2.c is the same as predcom-1.c
 
-instead of handling this as a loop or other xform, all we'd need to do is teach
-load PRE to phi translate the %0 add (i+1) into the predecessor as (i'+1+1) =
-(i'+2) (where i' is the previous iteration of i).  This would find the store
-which feeds it.
-
-predcom-2.c is apparently the same as predcom-1.c
 predcom-3.c is very similar but needs loads feeding each other instead of
 store->load.
-predcom-4.c seems the same as the rest.
 
 
 //===---------------------------------------------------------------------===//
 
-Other simple load PRE cases:
-http://gcc.gnu.org/bugzilla/show_bug.cgi?id=35287 [LPRE crit edge splitting]
-
-http://gcc.gnu.org/bugzilla/show_bug.cgi?id=34677 (licm does this, LPRE crit edge)
-  llvm-gcc t2.c -S -o - -O0 -emit-llvm | llvm-as | opt -mem2reg -simplifycfg -gvn | llvm-dis
-
-//===---------------------------------------------------------------------===//
+[ALIAS ANALYSIS]
 
 Type based alias analysis:
 http://gcc.gnu.org/bugzilla/show_bug.cgi?id=14705
 
-//===---------------------------------------------------------------------===//
-
-When GVN/PRE finds a store of float* to a must aliases pointer when expecting
-an int*, it should turn it into a bitcast.  This is a nice generalization of
-the SROA hack that would apply to other cases, e.g.:
-
-int foo(int C, int *P, float X) {
-  if (C) {
-    bar();
-    *P = 42;
-  } else
-    *(float*)P = X;
-
-   return *P;
-}
-
-
-One example (that requires crazy phi translation) is:
-http://gcc.gnu.org/bugzilla/show_bug.cgi?id=16799 [BITCAST PHI TRANS]
+We should do better analysis of posix_memalign.  At the least it should
+no-capture its pointer argument, at best, we should know that the out-value
+result doesn't point to anything (like malloc).  One example of this is in
+SingleSource/Benchmarks/Misc/dt.c
 
 //===---------------------------------------------------------------------===//
 
@@ -1434,13 +1268,27 @@ A/B get pinned to the stack because we turn an if/then into a select instead
 of PRE'ing the load/store.  This may be fixable in instcombine:
 http://gcc.gnu.org/bugzilla/show_bug.cgi?id=37892
 
+struct X { int i; };
+int foo (int x) {
+  struct X a;
+  struct X b;
+  struct X *p;
+  a.i = 1;
+  b.i = 2;
+  if (x)
+    p = &a;
+  else
+    p = &b;
+  return p->i;
+}
 
+//===---------------------------------------------------------------------===//
 
 Interesting missed case because of control flow flattening (should be 2 loads):
 http://gcc.gnu.org/bugzilla/show_bug.cgi?id=26629
 With: llvm-gcc t2.c -S -o - -O0 -emit-llvm | llvm-as | 
              opt -mem2reg -gvn -instcombine | llvm-dis
-we miss it because we need 1) GEP PHI TRAN, 2) CRIT EDGE 3) MULTIPLE DIFFERENT
+we miss it because we need 1) CRIT EDGE 2) MULTIPLE DIFFERENT
 VALS PRODUCED BY ONE BLOCK OVER DIFFERENT PATHS
 
 //===---------------------------------------------------------------------===//
@@ -1707,21 +1555,296 @@ foo:
 
 //===---------------------------------------------------------------------===//
 
-Instcombine should replace the load with a constant in:
-
-  static const char x[4] = {'a', 'b', 'c', 'd'};
-  
-  unsigned int y(void) {
-    return *(unsigned int *)x;
-  }
-
-It currently only does this transformation when the size of the constant 
-is the same as the size of the integer (so, try x[5]) and the last byte 
-is a null (making it a C string). There's no need for these restrictions.
+The arg promotion pass should make use of nocapture to make its alias analysis
+stuff much more precise.
 
 //===---------------------------------------------------------------------===//
 
-The arg promotion pass should make use of nocapture to make its alias analysis
-stuff much more precise.
+The following functions should be optimized to use a select instead of a
+branch (from gcc PR40072):
+
+char char_int(int m) {if(m>7) return 0; return m;}
+int int_char(char m) {if(m>7) return 0; return m;}
+
+//===---------------------------------------------------------------------===//
+
+int func(int a, int b) { if (a & 0x80) b |= 0x80; else b &= ~0x80; return b; }
+
+Generates this:
+
+define i32 @func(i32 %a, i32 %b) nounwind readnone ssp {
+entry:
+  %0 = and i32 %a, 128                            ; <i32> [#uses=1]
+  %1 = icmp eq i32 %0, 0                          ; <i1> [#uses=1]
+  %2 = or i32 %b, 128                             ; <i32> [#uses=1]
+  %3 = and i32 %b, -129                           ; <i32> [#uses=1]
+  %b_addr.0 = select i1 %1, i32 %3, i32 %2        ; <i32> [#uses=1]
+  ret i32 %b_addr.0
+}
+
+However, it's functionally equivalent to:
+
+         b = (b & ~0x80) | (a & 0x80);
+
+Which generates this:
+
+define i32 @func(i32 %a, i32 %b) nounwind readnone ssp {
+entry:
+  %0 = and i32 %b, -129                           ; <i32> [#uses=1]
+  %1 = and i32 %a, 128                            ; <i32> [#uses=1]
+  %2 = or i32 %0, %1                              ; <i32> [#uses=1]
+  ret i32 %2
+}
+
+This can be generalized for other forms:
+
+     b = (b & ~0x80) | (a & 0x40) << 1;
+
+//===---------------------------------------------------------------------===//
+
+These two functions produce different code. They shouldn't:
+
+#include <stdint.h>
+ 
+uint8_t p1(uint8_t b, uint8_t a) {
+  b = (b & ~0xc0) | (a & 0xc0);
+  return (b);
+}
+ 
+uint8_t p2(uint8_t b, uint8_t a) {
+  b = (b & ~0x40) | (a & 0x40);
+  b = (b & ~0x80) | (a & 0x80);
+  return (b);
+}
+
+define zeroext i8 @p1(i8 zeroext %b, i8 zeroext %a) nounwind readnone ssp {
+entry:
+  %0 = and i8 %b, 63                              ; <i8> [#uses=1]
+  %1 = and i8 %a, -64                             ; <i8> [#uses=1]
+  %2 = or i8 %1, %0                               ; <i8> [#uses=1]
+  ret i8 %2
+}
+
+define zeroext i8 @p2(i8 zeroext %b, i8 zeroext %a) nounwind readnone ssp {
+entry:
+  %0 = and i8 %b, 63                              ; <i8> [#uses=1]
+  %.masked = and i8 %a, 64                        ; <i8> [#uses=1]
+  %1 = and i8 %a, -128                            ; <i8> [#uses=1]
+  %2 = or i8 %1, %0                               ; <i8> [#uses=1]
+  %3 = or i8 %2, %.masked                         ; <i8> [#uses=1]
+  ret i8 %3
+}
+
+//===---------------------------------------------------------------------===//
+
+IPSCCP does not currently propagate argument dependent constants through
+functions where it does not not all of the callers.  This includes functions
+with normal external linkage as well as templates, C99 inline functions etc.
+Specifically, it does nothing to:
+
+define i32 @test(i32 %x, i32 %y, i32 %z) nounwind {
+entry:
+  %0 = add nsw i32 %y, %z                         
+  %1 = mul i32 %0, %x                             
+  %2 = mul i32 %y, %z                             
+  %3 = add nsw i32 %1, %2                         
+  ret i32 %3
+}
+
+define i32 @test2() nounwind {
+entry:
+  %0 = call i32 @test(i32 1, i32 2, i32 4) nounwind
+  ret i32 %0
+}
+
+It would be interesting extend IPSCCP to be able to handle simple cases like
+this, where all of the arguments to a call are constant.  Because IPSCCP runs
+before inlining, trivial templates and inline functions are not yet inlined.
+The results for a function + set of constant arguments should be memoized in a
+map.
+
+//===---------------------------------------------------------------------===//
+
+The libcall constant folding stuff should be moved out of SimplifyLibcalls into
+libanalysis' constantfolding logic.  This would allow IPSCCP to be able to
+handle simple things like this:
+
+static int foo(const char *X) { return strlen(X); }
+int bar() { return foo("abcd"); }
+
+//===---------------------------------------------------------------------===//
+
+InstCombine should use SimplifyDemandedBits to remove the or instruction:
+
+define i1 @test(i8 %x, i8 %y) {
+  %A = or i8 %x, 1
+  %B = icmp ugt i8 %A, 3
+  ret i1 %B
+}
+
+Currently instcombine calls SimplifyDemandedBits with either all bits or just
+the sign bit, if the comparison is obviously a sign test. In this case, we only
+need all but the bottom two bits from %A, and if we gave that mask to SDB it
+would delete the or instruction for us.
+
+//===---------------------------------------------------------------------===//
+
+functionattrs doesn't know much about memcpy/memset.  This function should be
+marked readnone rather than readonly, since it only twiddles local memory, but
+functionattrs doesn't handle memset/memcpy/memmove aggressively:
+
+struct X { int *p; int *q; };
+int foo() {
+ int i = 0, j = 1;
+ struct X x, y;
+ int **p;
+ y.p = &i;
+ x.q = &j;
+ p = __builtin_memcpy (&x, &y, sizeof (int *));
+ return **p;
+}
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine transformation:
+define i1 @a(i32 %x) nounwind readnone {
+entry:
+  %cmp = icmp eq i32 %x, 30
+  %sub = add i32 %x, -30
+  %cmp2 = icmp ugt i32 %sub, 9
+  %or = or i1 %cmp, %cmp2
+  ret i1 %or
+}
+This should be optimized to a single compare.  Testcase derived from gcc.
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine transformation:
+void b();
+void a(int x) { if (((1<<x)&8)==0) b(); }
+
+The shift should be optimized out.  Testcase derived from gcc.
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine or reassociate transformation:
+int a(int a, int b) { return (a==12)&(b>47)&(b<58); }
+
+The sgt and slt should be combined into a single comparison. Testcase derived
+from gcc.
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine transformation:
+define i32 @a(i32 %x) nounwind readnone {
+entry:
+  %rem = srem i32 %x, 32
+  %shl = shl i32 1, %rem
+  ret i32 %shl
+}
+
+The srem can be transformed to an and because if x is negative, the shift is
+undefined. Testcase derived from gcc.
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine/dagcombine transformation:
+define i32 @a(i32 %x, i32 %y) nounwind readnone {
+entry:
+  %mul = mul i32 %y, -8
+  %sub = sub i32 %x, %mul
+  ret i32 %sub
+}
+
+Should compile to something like x+y*8, but currently compiles to an
+inefficient result.  Testcase derived from gcc.
+
+//===---------------------------------------------------------------------===//
+
+Missed instcombine/dagcombine transformation:
+define void @lshift_lt(i8 zeroext %a) nounwind {
+entry:
+  %conv = zext i8 %a to i32
+  %shl = shl i32 %conv, 3
+  %cmp = icmp ult i32 %shl, 33
+  br i1 %cmp, label %if.then, label %if.end
+
+if.then:
+  tail call void @bar() nounwind
+  ret void
+
+if.end:
+  ret void
+}
+declare void @bar() nounwind
+
+The shift should be eliminated.  Testcase derived from gcc.
+
+//===---------------------------------------------------------------------===//
+
+These compile into different code, one gets recognized as a switch and the
+other doesn't due to phase ordering issues (PR6212):
+
+int test1(int mainType, int subType) {
+  if (mainType == 7)
+    subType = 4;
+  else if (mainType == 9)
+    subType = 6;
+  else if (mainType == 11)
+    subType = 9;
+  return subType;
+}
+
+int test2(int mainType, int subType) {
+  if (mainType == 7)
+    subType = 4;
+  if (mainType == 9)
+    subType = 6;
+  if (mainType == 11)
+    subType = 9;
+  return subType;
+}
+
+//===---------------------------------------------------------------------===//
+
+The following test case (from PR6576):
+
+define i32 @mul(i32 %a, i32 %b) nounwind readnone {
+entry:
+ %cond1 = icmp eq i32 %b, 0                      ; <i1> [#uses=1]
+ br i1 %cond1, label %exit, label %bb.nph
+bb.nph:                                           ; preds = %entry
+ %tmp = mul i32 %b, %a                           ; <i32> [#uses=1]
+ ret i32 %tmp
+exit:                                             ; preds = %entry
+ ret i32 0
+}
+
+could be reduced to:
+
+define i32 @mul(i32 %a, i32 %b) nounwind readnone {
+entry:
+ %tmp = mul i32 %b, %a
+ ret i32 %tmp
+}
+
+//===---------------------------------------------------------------------===//
+
+We should use DSE + llvm.lifetime.end to delete dead vtable pointer updates.
+See GCC PR34949
+
+//===---------------------------------------------------------------------===//
+
+In this code:
+
+long foo(long x) {
+  return x > 1 ? x : 1;
+}
+
+LLVM emits a comparison with 1 instead of 0. 0 would be equivalent
+and cheaper on most targets.
+
+LLVM prefers comparisons with zero over non-zero in general, but in this
+case it choses instead to keep the max operation obvious.
 
 //===---------------------------------------------------------------------===//

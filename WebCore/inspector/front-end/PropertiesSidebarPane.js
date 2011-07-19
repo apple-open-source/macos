@@ -42,23 +42,47 @@ WebInspector.PropertiesSidebarPane.prototype = {
             return;
         }
 
-        var self = this;
-        var callback = function(prototypes) {
-            var body = self.bodyElement;
-            body.removeChildren();
-            self.sections = [];
+        WebInspector.RemoteObject.resolveNode(node, nodeResolved.bind(this));
 
-            var path = [];
+        function nodeResolved(object)
+        {
+            if (!object)
+                return;
+            object.evaluate("var proto = this; result = {}; var counter = 1; while (proto) { result[counter++] = proto; proto = proto.__proto__ }; return result;", nodePrototypesReady.bind(this));
+            object.release();
+        }
+
+        function nodePrototypesReady(error, objectPayload, wasThrown)
+        {
+            if (error || wasThrown)
+                return;
+            var object = WebInspector.RemoteObject.fromPayload(objectPayload);
+            object.getOwnProperties(fillSection.bind(this));
+        }
+
+        function fillSection(prototypes)
+        {
+            if (!prototypes)
+                return;
+
+            var body = this.bodyElement;
+            body.removeChildren();
+            this.sections = [];
+
             // Get array of prototype user-friendly names.
             for (var i = 0; i < prototypes.length; ++i) {
-                var prototype = new WebInspector.ObjectProxy(node.injectedScriptId, node.id, path.slice());
-                var section = new WebInspector.ObjectPropertiesSection(prototype, prototypes[i], WebInspector.UIString("Prototype"));
-                self.sections.push(section);
+                if (!parseInt(prototypes[i].name))
+                    continue;
+
+                var prototype = prototypes[i].value;
+                var title = prototype.description;
+                if (title.match(/Prototype$/))
+                    title = title.replace(/Prototype$/, "");
+                var section = new WebInspector.ObjectPropertiesSection(prototype, title);
+                this.sections.push(section);
                 body.appendChild(section.element);
-                path.push("__proto__");
             }
-        };
-        InjectedScriptAccess.get(node.injectedScriptId).getPrototypes(node.id, callback);
+        }
     }
 }
 

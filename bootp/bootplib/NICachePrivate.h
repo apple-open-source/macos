@@ -1,7 +1,5 @@
-#ifndef _S_NICACHE_PRIVATE_H
-#define _S_NICACHE_PRIVATE_H
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,9 +20,14 @@
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
+
 /*
  * NICachePrivate.h
  */
+
+#ifndef _S_NICACHE_PRIVATE_H
+#define _S_NICACHE_PRIVATE_H
+
 #include <stdint.h>
 
 PLCacheEntry_t *PLCacheEntry_create(ni_proplist pl);
@@ -55,4 +58,4 @@ PLCacheEntry_t *PLCache_lookup_ip(PLCache_t * PLCache, struct in_addr iaddr);
 void		PLCache_make_head(PLCache_t * cache, PLCacheEntry_t * entry);
 void		PLCache_print(PLCache_t * cache);
 
-#endif _S_NICACHE_PRIVATE_H
+#endif /* _S_NICACHE_PRIVATE_H */

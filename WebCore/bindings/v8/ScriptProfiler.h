@@ -32,17 +32,32 @@
 #define ScriptProfiler_h
 
 #include "PlatformString.h"
+#include "ScriptHeapSnapshot.h"
 #include "ScriptProfile.h"
 #include "ScriptState.h"
 
-#include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
-class ScriptProfiler : public Noncopyable {
+class InspectorObject;
+
+class ScriptProfiler {
+    WTF_MAKE_NONCOPYABLE(ScriptProfiler);
 public:
+    class HeapSnapshotProgress {
+    public:
+        virtual ~HeapSnapshotProgress() { }
+        virtual void Start(int totalWork) = 0;
+        virtual void Worked(int workDone) = 0;
+        virtual void Done() = 0;
+        virtual bool isCanceled() = 0;
+    };
+
+    static void collectGarbage();
     static void start(ScriptState* state, const String& title);
     static PassRefPtr<ScriptProfile> stop(ScriptState* state, const String& title);
+    static PassRefPtr<ScriptHeapSnapshot> takeHeapSnapshot(const String& title, HeapSnapshotProgress*);
+    static void initialize();
 };
 
 } // namespace WebCore

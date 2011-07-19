@@ -1,0 +1,157 @@
+Kerberos
+========
+
+Dovecot supports Kerberos 5 using GSSAPI. The Kerberos authentication mechanism
+doesn't require having a <passdb> [PasswordDatabase.txt], but you do need a
+<userdb> [UserDatabase.txt] so Dovecot can lookup user-specific information,
+such as where their mailboxes are stored.
+
+*Note:* If you only wish to authenticate clients using their Kerberos
+/passphrase/ (as opposed to ticket authentication), you will probably want to
+use <PAM> [PasswordDatabase.PAM.txt] authentication with 'pam_krb5.so' instead.
+
+Pre-requisites
+--------------
+
+This document assumes that you already have a Kerberos Realm up and functioning
+correctly at your site, and that each host in your realm also has a host
+/keytab/ installed in the appropriate location.
+
+For Dovecot, you will need to install the appropriate /service/ keys on your
+server.  By default, Dovecot will look for these in the host's keytab file,
+typically '/etc/krb5.keytab', but you can specify an alternate path using the
+'auth_krb5_keytab' configuration entry in dovecot.conf.  If you wish to provide
+an IMAP service, you will need to install a service ticket of the form
+'imap/hostname@REALM'.  For POP3, you will need a service ticket of the form
+'pop/hostname@REALM'.  When using Dovecot's <SASL> [Sasl.txt] with MTA, you
+will need to install service ticket of the form 'smtp/hostname@REALM'.
+
+Example dovecot.conf configurations
+-----------------------------------
+
+If you only want to use Kerberos ticket-based authentication:
+
+---%<-------------------------------------------------------------------------
+auth_mechanisms = gssapi
+userdb {
+  driver = static
+  args = uid=vmail gid=vmail home=/var/vmail/%u
+}
+---%<-------------------------------------------------------------------------
+
+(In this virtual-hosting example, all mail is stored in /var/vmail/$username
+with uid and gid set to 'vmail')
+
+If you also want to support plaintext authentication in addition to
+ticket-based authentication, you will need something like:
+
+---%<-------------------------------------------------------------------------
+auth_mechanisms = plain gssapi
+passdb {
+  driver = pam
+}
+userdb {
+  driver = passwd
+}
+---%<-------------------------------------------------------------------------
+
+(Note that in this example, you will also need to configure PAM to use
+whichever authentication backends are appropriate for your site.)
+
+Enable plaintext authentication to use Kerberos
+-----------------------------------------------
+
+This is needed when some of your clients don't support GSSAPI and you still
+want them to authenticate against Kerberos.
+
+Install pam_krb5 module for PAM, and create '/etc/pam.d/dovecot':
+
+---%<-------------------------------------------------------------------------
+auth sufficient pam_krb5.so
+account sufficient pam_krb5.so
+---%<-------------------------------------------------------------------------
+
+Then enable PAM passdb:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = pam
+}
+---%<-------------------------------------------------------------------------
+
+Check '/var/log/auth.log' if you have any problems logging in. The problem
+could be that PAM is still trying to use pam_unix.so rather than pam_krb5.so.
+Make sure pam_krb5.so is the first module for account or just change
+pam_unix.so to sufficient.
+
+Client support
+--------------
+
+Mail clients that support Kerberos GSSAPI authentication include:
+
+ * Evolution
+ * Mozilla Thunderbird
+ * SeaMonkey
+ * Mutt
+ * UW Pine
+ * Apple Mail
+
+Testing
+-------
+
+*FIXME*: This section requires cleanup.
+
+Test that the server can access the keytab
+------------------------------------------
+
+This test demonstrates that the server can acquire its private credentials.
+First telnet directly to the server
+
+---%<-------------------------------------------------------------------------
+$ telnet localhost 143
+* OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+or, if you are using IMAPS then use openssl instead of telnet to connect:
+
+---%<-------------------------------------------------------------------------
+$ openssl s_client -connect localhost:993
+CONNECTED(00000003)
+...
+* OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+Check that GSSAPI appears in the authentication capabilities:
+
+---%<-------------------------------------------------------------------------
+a capability
+* CAPABILITY ... AUTH=GSSAPI
+---%<-------------------------------------------------------------------------
+
+Attempt the first round of GSS communication. The '+' indicates that the server
+is ready
+
+---%<-------------------------------------------------------------------------
+a authenticate GSSAPI
++
+---%<-------------------------------------------------------------------------
+
+Abort the telnet session by typing control-] and then 'close'
+
+---%<-------------------------------------------------------------------------
+^]
+telnet> close
+---%<-------------------------------------------------------------------------
+
+The test:
+
+ * Setup mutt in /etc/Muttrc to use kerberos using gssapi and imap
+   configuration
+    * this is done with 'set imap_authenticators="gssapi"'
+ * run kinit (type in password for kerb)
+ * run command mutt
+ * If you get error No Authentication Method
+    * run command klist (list all kerberos keys) should show imap/HOSTNAME
+ * /etc/hosts has to be set properly so that kerberos can find server.
+
+(This file was created from the wiki on 2011-05-11 04:42)

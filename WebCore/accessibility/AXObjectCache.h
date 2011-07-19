@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -27,27 +27,23 @@
 #define AXObjectCache_h
 
 #include "AccessibilityObject.h"
-#include "EventHandler.h"
 #include "Timer.h"
 #include <limits.h>
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/RefPtr.h>
 
-#ifdef __OBJC__
-@class WebCoreTextMarker;
-#else
-class WebCoreTextMarker;
-#endif
-
 namespace WebCore {
 
+class Document;
 class HTMLAreaElement;
 class Node;
 class Page;
 class RenderObject;
-class String;
+class ScrollView;
 class VisiblePosition;
+class Widget;
 
 struct TextMarkerData {
     AXID axID;
@@ -58,16 +54,23 @@ struct TextMarkerData {
 
 enum PostType { PostSynchronously, PostAsynchronously };
 
-class AXObjectCache : public Noncopyable {
+class AXObjectCache {
+    WTF_MAKE_NONCOPYABLE(AXObjectCache); WTF_MAKE_FAST_ALLOCATED;
 public:
-    AXObjectCache();
+    AXObjectCache(const Document*);
     ~AXObjectCache();
 
     static AccessibilityObject* focusedUIElementForPage(const Page*);
 
-    // to be used with render objects
-    AccessibilityObject* getOrCreate(RenderObject*);
+    // Returns the root object for the entire document.
+    AccessibilityObject* rootObject();
+    // Returns the root object for a specific frame.
+    AccessibilityObject* rootObjectForFrame(Frame*);
     
+    // For AX objects with elements that back them.
+    AccessibilityObject* getOrCreate(RenderObject*);
+    AccessibilityObject* getOrCreate(Widget*);
+
     // used for objects without backing elements
     AccessibilityObject* getOrCreate(AccessibilityRole);
     
@@ -75,6 +78,7 @@ public:
     AccessibilityObject* get(RenderObject*);
     
     void remove(RenderObject*);
+    void remove(Widget*);
     void remove(AXID);
 
     void detachWrapper(AccessibilityObject*);
@@ -88,9 +92,12 @@ public:
     void handleAriaRoleChanged(RenderObject*);
     void handleFocusedUIElementChanged(RenderObject* oldFocusedRenderer, RenderObject* newFocusedRenderer);
     void handleScrolledToAnchor(const Node* anchorNode);
-
+    void handleAriaExpandedChange(RenderObject*);
+    void handleScrollbarUpdate(ScrollView*);
+    
     static void enableAccessibility() { gAccessibilityEnabled = true; }
-    static void enableEnhancedUserInterfaceAccessibility() { gAccessibilityEnhancedUserInterfaceEnabled = true; }
+    // Enhanced user interface accessibility can be toggled by the assistive technology.
+    static void setEnhancedUserInterfaceAccessibility(bool flag) { gAccessibilityEnhancedUserInterfaceEnabled = flag; }
     
     static bool accessibilityEnabled() { return gAccessibilityEnabled; }
     static bool accessibilityEnhancedUserInterfaceEnabled() { return gAccessibilityEnhancedUserInterfaceEnabled; }
@@ -111,7 +118,9 @@ public:
 
     enum AXNotification {
         AXActiveDescendantChanged,
+        AXAutocorrectionOccured,
         AXCheckedStateChanged,
+        AXChildrenChanged,
         AXFocusedUIElementChanged,
         AXLayoutComplete,
         AXLoadComplete,
@@ -121,19 +130,33 @@ public:
         AXScrolledToAnchor,
         AXLiveRegionChanged,
         AXMenuListValueChanged,
+        AXRowCountChanged,
+        AXRowCollapsed,
+        AXRowExpanded,
+        AXInvalidStatusChanged,
     };
 
     void postNotification(RenderObject*, AXNotification, bool postToElement, PostType = PostAsynchronously);
     void postNotification(AccessibilityObject*, Document*, AXNotification, bool postToElement, PostType = PostAsynchronously);
 
+    enum AXTextChange {
+        AXTextInserted,
+        AXTextDeleted,
+    };
+
+    void nodeTextChangeNotification(RenderObject*, AXTextChange, unsigned offset, unsigned count);
+
     bool nodeHasRole(Node*, const AtomicString& role);
 
 protected:
     void postPlatformNotification(AccessibilityObject*, AXNotification);
+    void nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned offset, unsigned count);
 
 private:
+    Document* m_document;
     HashMap<AXID, RefPtr<AccessibilityObject> > m_objects;
     HashMap<RenderObject*, AXID> m_renderObjectMapping;
+    HashMap<Widget*, AXID> m_widgetObjectMapping;
     HashSet<Node*> m_textMarkerNodes;
     static bool gAccessibilityEnabled;
     static bool gAccessibilityEnhancedUserInterfaceEnabled;
@@ -147,7 +170,10 @@ private:
     static AccessibilityObject* focusedImageMapUIElement(HTMLAreaElement*);
     
     AXID getAXID(AccessibilityObject*);
+    AccessibilityObject* get(Widget*);
 };
+
+bool nodeHasRole(Node*, const String& role);
 
 #if !HAVE(ACCESSIBILITY)
 inline void AXObjectCache::handleActiveDescendantChanged(RenderObject*) { }
@@ -156,10 +182,15 @@ inline void AXObjectCache::detachWrapper(AccessibilityObject*) { }
 inline void AXObjectCache::attachWrapper(AccessibilityObject*) { }
 inline void AXObjectCache::selectedChildrenChanged(RenderObject*) { }
 inline void AXObjectCache::postNotification(RenderObject*, AXNotification, bool postToElement, PostType) { }
+inline void AXObjectCache::postNotification(AccessibilityObject*, Document*, AXNotification, bool postToElement, PostType) { }
 inline void AXObjectCache::postPlatformNotification(AccessibilityObject*, AXNotification) { }
+inline void AXObjectCache::nodeTextChangeNotification(RenderObject*, AXTextChange, unsigned, unsigned) { }
+inline void AXObjectCache::nodeTextChangePlatformNotification(AccessibilityObject*, AXTextChange, unsigned, unsigned) { }
 inline void AXObjectCache::handleFocusedUIElementChanged(RenderObject*, RenderObject*) { }
 inline void AXObjectCache::handleScrolledToAnchor(const Node*) { }
 inline void AXObjectCache::contentChanged(RenderObject*) { }
+inline void AXObjectCache::handleAriaExpandedChange(RenderObject*) { }
+inline void AXObjectCache::handleScrollbarUpdate(ScrollView*) { }
 #endif
 
 }

@@ -130,6 +130,12 @@ enum {
 #define kIOGraphicsPrefsParametersKey   "IOGraphicsPrefsParameters"
 #define kIOGraphicsIgnoreParametersKey  "IOGraphicsIgnoreParameters"
 
+#define kIOGraphicsPrefsVersionKey      "version"
+enum 
+{
+    kIOGraphicsPrefsCurrentVersion 	= 2
+};
+
 #define kIODisplayFastBootEDIDKey       "nv-edid"
 
 #define kIOFBBuiltInKey                 "built-in"
@@ -231,6 +237,13 @@ enum
 //  kIOMirrorHint          = 0x00010000,
 };
 
+// values for displayOnline options
+
+enum
+{
+	kIODisplayOptionBacklight  = 0x00000001,
+	kIODisplayOptionDimDisable = 0x00000002
+};
 
 #endif /* ! _IOKIT_IOGRAPHICSTYPESPRIVATE_H */
 

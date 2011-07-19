@@ -1,6 +1,6 @@
---- stdio.3	2004-11-25 11:38:35.000000000 -0800
-+++ stdio.3.edit	2006-09-06 16:18:21.000000000 -0700
-@@ -45,6 +45,20 @@
+--- stdio.3.bsdnew	2009-11-11 13:33:16.000000000 -0800
++++ stdio.3	2009-11-11 15:14:22.000000000 -0800
+@@ -41,6 +41,20 @@
  .Vt FILE *stdin ;
  .Vt FILE *stdout ;
  .Vt FILE *stderr ;
@@ -21,7 +21,7 @@
  .Sh DESCRIPTION
  The standard
  .Tn I/O
-@@ -232,11 +246,21 @@
+@@ -228,11 +242,21 @@ and
  .Dv putchar_unlocked
  exist and will be used if the macro
  definitions are explicitly removed.
@@ -41,27 +41,29 @@
 -.Xr write 2
 +.Xr write 2 ,
 +.Xr compat 5
- .Sh BUGS
- The standard buffered functions do not interact well with certain other
- library and system functions, especially
-@@ -250,7 +274,9 @@
+ .Sh STANDARDS
+ The
+ .Nm
+@@ -242,8 +266,9 @@ library conforms to
  .Bl -column "Description"
  .It Sy "Function	Description"
  .It "asprintf	formatted output conversion"
 +.It ""
  .It "clearerr	check and reset stream status"
+-.It "dprintf	formatted output conversion"
 +.It ""
  .It "fclose	close a stream"
  .It "fdopen	stream open functions"
  .It "feof	check and reset stream status"
-@@ -282,15 +308,18 @@
+@@ -275,6 +300,7 @@ library conforms to
  .It "fwopen	open a stream"
  .It "fwprintf	formatted wide character output conversion"
  .It "fwrite	binary stream input/output"
 +.It ""
  .It "getc	get next character or word from input stream"
  .It "getchar	get next character or word from input stream"
- .It "gets	get a line from a stream"
+ .It "getdelim	get a line from a stream"
+@@ -283,9 +309,11 @@ library conforms to
  .It "getw	get next character or word from input stream"
  .It "getwc	get next wide character from input stream"
  .It "getwchar	get next wide character from input stream"
@@ -73,7 +75,7 @@
  .It "perror	system error messages"
  .It "printf	formatted output conversion"
  .It "putc	output a character or word to a stream"
-@@ -299,8 +328,10 @@
+@@ -294,8 +322,10 @@ library conforms to
  .It "putw	output a character or word to a stream"
  .It "putwc	output a wide character to a stream"
  .It "putwchar	output a wide character to a stream"
@@ -84,7 +86,7 @@
  .It "scanf	input format conversion"
  .It "setbuf	stream buffering operations"
  .It "setbuffer	stream buffering operations"
-@@ -313,11 +344,14 @@
+@@ -308,13 +338,15 @@ library conforms to
  .It "swprintf	formatted wide character output conversion"
  .It "sys_errlist	system error messages"
  .It "sys_nerr	system error messages"
@@ -97,12 +99,15 @@
  .It "ungetwc	un-get wide character from input stream"
 +.It ""
  .It "vasprintf	formatted output conversion"
+-.It "vdprintf	formatted output conversion"
  .It "vfprintf	formatted output conversion"
  .It "vfscanf	input format conversion"
-@@ -329,5 +363,6 @@
+ .It "vfwprintf	formatted wide character output conversion"
+@@ -325,6 +357,7 @@ library conforms to
  .It "vsscanf	input format conversion"
  .It "vswprintf	formatted wide character output conversion"
  .It "vwprintf	formatted wide character output conversion"
 +.It ""
  .It "wprintf	formatted wide character output conversion"
  .El
+ .Sh BUGS

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2001-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2001-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,6 +36,7 @@
 #include <CoreFoundation/CFString.h>
 #include <EAP8021X/EAP.h>
 #include <EAP8021X/EAPClientTypes.h>
+#include <Security/SecIdentity.h>
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
@@ -102,7 +103,9 @@ typedef struct EAPClientPluginData_s {
 
     const bool			system_mode;
 
-    const uint32_t		reserved[7];	/* reserved, don't use */
+    SecIdentityRef		sec_identity;	/* may be NULL */
+
+    const void *		reserved[6];	/* reserved, don't use */
 } EAPClientPluginData, *EAPClientPluginDataRef;
 
 /*
@@ -387,4 +390,4 @@ typedef CFStringRef
 typedef CFStringRef
 (EAPClientPluginFuncCopyIdentity)(EAPClientPluginDataRef plugin);
 
-#endif _EAP8021X_EAPCLIENTPLUGIN_H
+#endif /* _EAP8021X_EAPCLIENTPLUGIN_H */

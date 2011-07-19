@@ -52,7 +52,7 @@ extern uint64_t webdavCacheMaximumSize;
 static time_t statfs_cache_time;
 static struct statfs statfs_cache_buffer;
 
-static int vfc_typenum;
+int g_vfc_typenum;
 
 static pthread_mutex_t webdav_cachefile_lock;	/* this mutex protects webdav_cachefile */
 static int webdav_cachefile;	/* file descriptor for an empty, unlinked cache file or -1 */
@@ -192,7 +192,7 @@ static int associate_cachefile(int ref, int fd)
 	
 	/* setup mib for the request */
 	mib[0] = CTL_VFS;
-	mib[1] = vfc_typenum;
+	mib[1] = g_vfc_typenum;
 	mib[2] = WEBDAV_ASSOCIATECACHEFILE_SYSCTL;
 	mib[3] = ref;
 	mib[4] = fd;
@@ -211,7 +211,7 @@ int filesystem_init(int typenum)
 	pthread_mutexattr_t mutexattr;
 	int error;
 	
-	vfc_typenum = typenum;
+	g_vfc_typenum = typenum;
 	
 	/* Set up the statfs timeout & buffer */
 	bzero(&statfs_cache_buffer, sizeof(statfs_cache_buffer));
@@ -445,7 +445,7 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 	int error;
 	struct node_entry *node;
 	struct node_entry *parent_node;
-	struct stat statbuf;
+	struct webdav_stat_attr statbuf;
 	int lookup;
 	CFStringRef name_string;
 	
@@ -493,11 +493,11 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 		{
 			/* create a new node */
 			error = nodecache_get_node(parent_node, request_lookup->name_length, request_lookup->name, TRUE, FALSE,
-				S_ISREG(statbuf.st_mode) ? WEBDAV_FILE_TYPE : WEBDAV_DIR_TYPE, &node);
+				S_ISREG(statbuf.attr_stat.st_mode) ? WEBDAV_FILE_TYPE : WEBDAV_DIR_TYPE, &node);
 			if ( !error )
 			{
 				/* network_lookup gets all of the struct stat fields except for st_ino so fill it in here with the fileid of the new node */
-				statbuf.st_ino = node->fileid;
+				statbuf.attr_stat.st_ino = node->fileid;
 				/* cache the attributes */
 				error = nodecache_add_attributes(node, request_lookup->pcr.pcr_uid, &statbuf, NULL);
 			}
@@ -523,16 +523,19 @@ int filesystem_lookup(struct webdav_request_lookup *request_lookup, struct webda
 		reply_lookup->obj_fileid = node->fileid;
 		reply_lookup->obj_type = node->node_type;
 		
-		reply_lookup->obj_atime.tv_sec = node->attr_stat.st_atimespec.tv_sec;
-		reply_lookup->obj_atime.tv_nsec = node->attr_stat.st_atimespec.tv_nsec;
+		reply_lookup->obj_atime.tv_sec = node->attr_stat_info.attr_stat.st_atimespec.tv_sec;
+		reply_lookup->obj_atime.tv_nsec = node->attr_stat_info.attr_stat.st_atimespec.tv_nsec;
 		
-		reply_lookup->obj_mtime.tv_sec = node->attr_stat.st_mtimespec.tv_sec;
-		reply_lookup->obj_mtime.tv_nsec = node->attr_stat.st_mtimespec.tv_nsec;
+		reply_lookup->obj_mtime.tv_sec = node->attr_stat_info.attr_stat.st_mtimespec.tv_sec;
+		reply_lookup->obj_mtime.tv_nsec = node->attr_stat_info.attr_stat.st_mtimespec.tv_nsec;
 		
-		reply_lookup->obj_ctime.tv_sec = node->attr_stat.st_ctimespec.tv_sec;
-		reply_lookup->obj_ctime.tv_nsec = node->attr_stat.st_ctimespec.tv_nsec;
+		reply_lookup->obj_ctime.tv_sec = node->attr_stat_info.attr_stat.st_ctimespec.tv_sec;
+		reply_lookup->obj_ctime.tv_nsec = node->attr_stat_info.attr_stat.st_ctimespec.tv_nsec;
 		
-		reply_lookup->obj_filesize = node->attr_stat.st_size;
+		reply_lookup->obj_createtime.tv_sec = node->attr_stat_info.attr_create_time.tv_sec;
+		reply_lookup->obj_createtime.tv_nsec = node->attr_stat_info.attr_create_time.tv_nsec;
+		
+		reply_lookup->obj_filesize = node->attr_stat_info.attr_stat.st_size;
 	}
 
 bad_obj_id:
@@ -546,7 +549,7 @@ int filesystem_getattr(struct webdav_request_getattr *request_getattr, struct we
 {
 	int error;
 	struct node_entry *node;
-	struct stat statbuf;
+	struct webdav_stat_attr statbuf;
 	struct webdav_stat *wstat;
 	
 	error = RetrieveDataFromOpaqueID(request_getattr->obj_id, (void **)&node);
@@ -575,28 +578,31 @@ int filesystem_getattr(struct webdav_request_getattr *request_getattr, struct we
 		/* we have the attributes cached */
 		wstat = &reply_getattr->obj_attr;
 		
-		wstat->st_dev = node->attr_stat.st_dev;
-		wstat->st_ino = (webdav_ino_t) node->attr_stat.st_ino;
-		wstat->st_mode = node->attr_stat.st_mode;
-		wstat->st_nlink = node->attr_stat.st_nlink;
-		wstat->st_uid = node->attr_stat.st_uid;
-		wstat->st_gid = node->attr_stat.st_gid;
-		wstat->st_rdev = node->attr_stat.st_rdev;
+		wstat->st_dev = node->attr_stat_info.attr_stat.st_dev;
+		wstat->st_ino = (webdav_ino_t) node->attr_stat_info.attr_stat.st_ino;
+		wstat->st_mode = node->attr_stat_info.attr_stat.st_mode;
+		wstat->st_nlink = node->attr_stat_info.attr_stat.st_nlink;
+		wstat->st_uid = node->attr_stat_info.attr_stat.st_uid;
+		wstat->st_gid = node->attr_stat_info.attr_stat.st_gid;
+		wstat->st_rdev = node->attr_stat_info.attr_stat.st_rdev;
 		
-		wstat->st_atimespec.tv_sec = node->attr_stat.st_atimespec.tv_sec;
-		wstat->st_atimespec.tv_nsec = node->attr_stat.st_atimespec.tv_nsec;
+		wstat->st_atimespec.tv_sec = node->attr_stat_info.attr_stat.st_atimespec.tv_sec;
+		wstat->st_atimespec.tv_nsec = node->attr_stat_info.attr_stat.st_atimespec.tv_nsec;
 		
-		wstat->st_mtimespec.tv_sec = node->attr_stat.st_mtimespec.tv_sec;
-		wstat->st_mtimespec.tv_nsec = node->attr_stat.st_mtimespec.tv_nsec;
+		wstat->st_mtimespec.tv_sec = node->attr_stat_info.attr_stat.st_mtimespec.tv_sec;
+		wstat->st_mtimespec.tv_nsec = node->attr_stat_info.attr_stat.st_mtimespec.tv_nsec;
 		
-		wstat->st_ctimespec.tv_sec = node->attr_stat.st_ctimespec.tv_sec;
-		wstat->st_ctimespec.tv_nsec = node->attr_stat.st_ctimespec.tv_nsec;
+		wstat->st_ctimespec.tv_sec = node->attr_stat_info.attr_stat.st_ctimespec.tv_sec;
+		wstat->st_ctimespec.tv_nsec = node->attr_stat_info.attr_stat.st_ctimespec.tv_nsec;
 		
-		wstat->st_size = node->attr_stat.st_size;
-		wstat->st_blocks = node->attr_stat.st_blocks;
-		wstat->st_blksize = node->attr_stat.st_blksize;
-		wstat->st_flags = node->attr_stat.st_flags;
-		wstat->st_gen = node->attr_stat.st_gen;
+		wstat->st_createtimespec.tv_sec = node->attr_stat_info.attr_create_time.tv_sec;
+		wstat->st_createtimespec.tv_nsec = node->attr_stat_info.attr_create_time.tv_nsec;		
+		
+		wstat->st_size = node->attr_stat_info.attr_stat.st_size;
+		wstat->st_blocks = node->attr_stat_info.attr_stat.st_blocks;
+		wstat->st_blksize = node->attr_stat_info.attr_stat.st_blksize;
+		wstat->st_flags = node->attr_stat_info.attr_stat.st_flags;
+		wstat->st_gen = node->attr_stat_info.attr_stat.st_gen;
 	}
 	
 deleted_node:
@@ -715,12 +721,13 @@ int filesystem_create(struct webdav_request_create *request_create, struct webda
 		 * we just changed the parent_node so update or remove its attributes
 		 */
 		if ( (creation_date != -1) &&	/* if we know when the creation occurred */
-			 (parent_node->attr_stat.st_mtimespec.tv_sec <= creation_date) &&	/* and that time is later than what's cached */
+			 (parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= creation_date) &&	/* and that time is later than what's cached */
 			 node_attributes_valid(parent_node, request_create->pcr.pcr_uid) )	/* and the cache is valid */
 		{
 			/* update the times of the cached attributes */
-			parent_node->attr_stat.st_mtimespec.tv_sec = creation_date;
-			parent_node->attr_stat.st_atimespec = parent_node->attr_stat.st_ctimespec = parent_node->attr_stat.st_mtimespec;
+			parent_node->attr_stat_info.attr_create_time.tv_sec = creation_date;
+			parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec = creation_date;
+			parent_node->attr_stat_info.attr_stat.st_atimespec = parent_node->attr_stat_info.attr_stat.st_ctimespec = parent_node->attr_stat_info.attr_stat.st_mtimespec;
 			parent_node->attr_time = time(NULL);
 		}
 		else
@@ -736,30 +743,31 @@ int filesystem_create(struct webdav_request_create *request_create, struct webda
 			/* if we have the creation date, we can fill in the attributes because everything else is synthesized and the size is 0 */
 			if ( creation_date != -1 )
 			{
-				struct stat statbuf;
+				struct webdav_stat_attr statbuf;
 				
-				bzero((void *)&statbuf, sizeof(struct stat));
+				bzero((void *)&statbuf, sizeof(struct webdav_stat_attr));
 				
-				statbuf.st_dev = 0;
-				statbuf.st_ino = node->fileid;
-				statbuf.st_mode = S_IFREG | S_IRWXU;
+				statbuf.attr_stat.st_dev = 0;
+				statbuf.attr_stat.st_ino = node->fileid;
+				statbuf.attr_stat.st_mode = S_IFREG | S_IRWXU;
 				/* Why 1 for st_nlink?
 				 * Getting the real link count for directories is expensive.
 				 * Setting it to 1 lets FTS(3) (and other utilities that assume
 				 * 1 means a file system doesn't support link counts) work.
 				 */
-				statbuf.st_nlink = 1;
-				statbuf.st_uid = UNKNOWNUID;
-				statbuf.st_gid = UNKNOWNUID;
-				statbuf.st_rdev = 0;
+				statbuf.attr_stat.st_nlink = 1;
+				statbuf.attr_stat.st_uid = UNKNOWNUID;
+				statbuf.attr_stat.st_gid = UNKNOWNUID;
+				statbuf.attr_stat.st_rdev = 0;
+				statbuf.attr_create_time.tv_sec = creation_date;
+				statbuf.attr_stat.st_mtimespec.tv_sec = creation_date;
 				/* set all times to the last modified time since we cannot get the other times */
-				statbuf.st_mtimespec.tv_sec = creation_date;
-				statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
-				statbuf.st_size = 0;	/* we just created it */
-				statbuf.st_blocks = 0;	/* we just created it */
-				statbuf.st_blksize = WEBDAV_IOSIZE;
-				statbuf.st_flags = 0;
-				statbuf.st_gen = 0;
+				statbuf.attr_stat.st_atimespec = statbuf.attr_stat.st_ctimespec = statbuf.attr_stat.st_mtimespec;
+				statbuf.attr_stat.st_size = 0;	/* we just created it */
+				statbuf.attr_stat.st_blocks = 0;	/* we just created it */
+				statbuf.attr_stat.st_blksize = WEBDAV_IOSIZE;
+				statbuf.attr_stat.st_flags = 0;
+				statbuf.attr_stat.st_gen = 0;
 				
 				/* cache the attributes */
 				error = nodecache_add_attributes(node, request_create->pcr.pcr_uid, &statbuf, NULL);
@@ -814,12 +822,13 @@ int filesystem_mkdir(struct webdav_request_mkdir *request_mkdir, struct webdav_r
 		 * we just changed the parent_node so update or remove its attributes
 		 */
 		if ( (creation_date != -1) &&	/* if we know when the creation occurred */
-			 (parent_node->attr_stat.st_mtimespec.tv_sec <= creation_date) &&	/* and that time is later than what's cached */
+			 (parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= creation_date) &&	/* and that time is later than what's cached */
 			 node_attributes_valid(parent_node, request_mkdir->pcr.pcr_uid) )	/* and the cache is valid */
 		{
 			/* update the times of the cached attributes */
-			parent_node->attr_stat.st_mtimespec.tv_sec = creation_date;
-			parent_node->attr_stat.st_atimespec = parent_node->attr_stat.st_ctimespec = parent_node->attr_stat.st_mtimespec;
+			parent_node->attr_stat_info.attr_create_time.tv_sec = creation_date;
+			parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec = creation_date;
+			parent_node->attr_stat_info.attr_stat.st_atimespec = parent_node->attr_stat_info.attr_stat.st_ctimespec = parent_node->attr_stat_info.attr_stat.st_mtimespec;
 			parent_node->attr_time = time(NULL);
 		}
 		else
@@ -835,30 +844,31 @@ int filesystem_mkdir(struct webdav_request_mkdir *request_mkdir, struct webdav_r
 			/* if we have the creation date, we can fill in the attributes because everything else is synthesized */
 			if ( creation_date != -1 )
 			{
-				struct stat statbuf;
+				struct webdav_stat_attr statbuf;
 				
-				bzero((void *)&statbuf, sizeof(struct stat));
+				bzero((void *)&statbuf, sizeof(struct webdav_stat_attr));
 				
-				statbuf.st_dev = 0;
-				statbuf.st_ino = node->fileid;
-				statbuf.st_mode = S_IFDIR | S_IRWXU;
+				statbuf.attr_stat.st_dev = 0;
+				statbuf.attr_stat.st_ino = node->fileid;
+				statbuf.attr_stat.st_mode = S_IFDIR | S_IRWXU;
 				/* Why 1 for st_nlink?
 				 * Getting the real link count for directories is expensive.
 				 * Setting it to 1 lets FTS(3) (and other utilities that assume
 				 * 1 means a file system doesn't support link counts) work.
 				 */
-				statbuf.st_nlink = 1;
-				statbuf.st_uid = UNKNOWNUID;
-				statbuf.st_gid = UNKNOWNUID;
-				statbuf.st_rdev = 0;
-				/* set all times to the last modified time since we cannot get the other times */
-				statbuf.st_mtimespec.tv_sec = creation_date;
-				statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
-				statbuf.st_size = WEBDAV_DIR_SIZE;	/* fake up the directory size */
-				statbuf.st_blocks = ((statbuf.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
-				statbuf.st_blksize = WEBDAV_IOSIZE;
-				statbuf.st_flags = 0;
-				statbuf.st_gen = 0;
+				statbuf.attr_stat.st_nlink = 1;
+				statbuf.attr_stat.st_uid = UNKNOWNUID;
+				statbuf.attr_stat.st_gid = UNKNOWNUID;
+				statbuf.attr_stat.st_rdev = 0;
+				statbuf.attr_create_time.tv_sec = creation_date;
+				statbuf.attr_stat.st_mtimespec.tv_sec = creation_date;
+				/* set all other times to the last modified time since we cannot get the other times */
+				statbuf.attr_stat.st_atimespec = statbuf.attr_stat.st_ctimespec = statbuf.attr_stat.st_mtimespec;
+				statbuf.attr_stat.st_size = WEBDAV_DIR_SIZE;	/* fake up the directory size */
+				statbuf.attr_stat.st_blocks = ((statbuf.attr_stat.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
+				statbuf.attr_stat.st_blksize = WEBDAV_IOSIZE;
+				statbuf.attr_stat.st_flags = 0;
+				statbuf.attr_stat.st_gen = 0;
 				
 				/* cache the attributes */
 				error = nodecache_add_attributes(node, request_mkdir->pcr.pcr_uid, &statbuf, NULL);
@@ -952,12 +962,12 @@ int filesystem_rename(struct webdav_request_rename *request_rename)
 			 * we just changed the parent node(s) so update or remove their attributes
 			 */
 			if ( (rename_date != -1) &&	/* if we know when the creation occurred */
-				 (f_node->parent->attr_stat.st_mtimespec.tv_sec <= rename_date) &&		/* and that time is later than what's cached */
+				 (f_node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= rename_date) &&		/* and that time is later than what's cached */
 				 node_attributes_valid(f_node->parent, request_rename->pcr.pcr_uid) )	/* and the cache is valid */
 			{
 				/* update the times of the cached attributes */
-				f_node->parent->attr_stat.st_mtimespec.tv_sec = rename_date;
-				f_node->parent->attr_stat.st_atimespec = f_node->parent->attr_stat.st_ctimespec = f_node->parent->attr_stat.st_mtimespec;
+				f_node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec = rename_date;
+				f_node->parent->attr_stat_info.attr_stat.st_atimespec = f_node->parent->attr_stat_info.attr_stat.st_ctimespec = f_node->parent->attr_stat_info.attr_stat.st_mtimespec;
 				f_node->parent->attr_time = time(NULL);
 			}
 			else
@@ -968,12 +978,12 @@ int filesystem_rename(struct webdav_request_rename *request_rename)
 			if ( f_node->parent != parent_node )
 			{
 				if ( (rename_date != -1) &&	/* if we know when the creation occurred */
-					 (parent_node->attr_stat.st_mtimespec.tv_sec <= rename_date) &&	/* and that time is later than what's cached */
+					 (parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= rename_date) &&	/* and that time is later than what's cached */
 					 node_attributes_valid(parent_node, request_rename->pcr.pcr_uid) )	/* and the cache is valid */
 				{
 					/* update the times of the cached attributes */
-					parent_node->attr_stat.st_mtimespec.tv_sec = rename_date;
-					parent_node->attr_stat.st_atimespec = parent_node->attr_stat.st_ctimespec = parent_node->attr_stat.st_mtimespec;
+					parent_node->attr_stat_info.attr_stat.st_mtimespec.tv_sec = rename_date;
+					parent_node->attr_stat_info.attr_stat.st_atimespec = parent_node->attr_stat_info.attr_stat.st_ctimespec = parent_node->attr_stat_info.attr_stat.st_mtimespec;
 					parent_node->attr_time = time(NULL);
 				}
 				else
@@ -1036,12 +1046,12 @@ int filesystem_remove(struct webdav_request_remove *request_remove)
 		 * we just changed the parent_node so update or remove its attributes
 		 */
 		if ( (remove_date != -1) &&	/* if we know when the creation occurred */
-			 (node->parent->attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
+			 (node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
 			 node_attributes_valid(node->parent, request_remove->pcr.pcr_uid) )	/* and the cache is valid */
 		{
 			/* update the times of the cached attributes */
-			node->parent->attr_stat.st_mtimespec.tv_sec = remove_date;
-			node->parent->attr_stat.st_atimespec = node->parent->attr_stat.st_ctimespec = node->parent->attr_stat.st_mtimespec;
+			node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec = remove_date;
+			node->parent->attr_stat_info.attr_stat.st_atimespec = node->parent->attr_stat_info.attr_stat.st_ctimespec = node->parent->attr_stat_info.attr_stat.st_mtimespec;
 			node->parent->attr_time = time(NULL);
 		}
 		else
@@ -1089,12 +1099,12 @@ int filesystem_rmdir(struct webdav_request_rmdir *request_rmdir)
 		 * we just changed the parent_node so update or remove its attributes
 		 */
 		if ( (remove_date != -1) &&	/* if we know when the creation occurred */
-			 (node->parent->attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
+			 (node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec <= remove_date) &&	/* and that time is later than what's cached */
 			 node_attributes_valid(node->parent, request_rmdir->pcr.pcr_uid) )	/* and the cache is valid */
 		{
 			/* update the times of the cached attributes */
-			node->parent->attr_stat.st_mtimespec.tv_sec = remove_date;
-			node->parent->attr_stat.st_atimespec = node->parent->attr_stat.st_ctimespec = node->parent->attr_stat.st_mtimespec;
+			node->parent->attr_stat_info.attr_stat.st_mtimespec.tv_sec = remove_date;
+			node->parent->attr_stat_info.attr_stat.st_atimespec = node->parent->attr_stat_info.attr_stat.st_ctimespec = node->parent->attr_stat_info.attr_stat.st_mtimespec;
 			node->parent->attr_time = time(NULL);
 		}
 		else
@@ -1148,30 +1158,30 @@ int filesystem_fsync(struct webdav_request_fsync *request_fsync)
 	else
 	{
 		/* otherwise, update its attributes */
-		struct stat statbuf;
+		struct webdav_stat_attr statbuf;
 
-		bzero((void *)&statbuf, sizeof(struct stat));
+		bzero((void *)&statbuf, sizeof(struct webdav_stat_attr));
 
-		statbuf.st_dev = 0;
-		statbuf.st_ino = node->fileid;
-		statbuf.st_mode = S_IFREG | S_IRWXU;
+		statbuf.attr_stat.st_dev = 0;
+		statbuf.attr_stat.st_ino = node->fileid;
+		statbuf.attr_stat.st_mode = S_IFREG | S_IRWXU;
 		/* Why 1 for st_nlink?
 		* Getting the real link count for directories is expensive.
 		* Setting it to 1 lets FTS(3) (and other utilities that assume
 		* 1 means a file system doesn't support link counts) work.
 		*/
-		statbuf.st_nlink = 1;
-		statbuf.st_uid = UNKNOWNUID;
-		statbuf.st_gid = UNKNOWNUID;
-		statbuf.st_rdev = 0;
-		/* set all times to the last modified time since we cannot get the other times */
-		statbuf.st_mtimespec.tv_sec = file_last_modified;
-		statbuf.st_atimespec = statbuf.st_ctimespec = statbuf.st_mtimespec;
-		statbuf.st_size = file_length;
-		statbuf.st_blocks = ((statbuf.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
-		statbuf.st_blksize = WEBDAV_IOSIZE;
-		statbuf.st_flags = 0;
-		statbuf.st_gen = 0;
+		statbuf.attr_stat.st_nlink = 1;
+		statbuf.attr_stat.st_uid = UNKNOWNUID;
+		statbuf.attr_stat.st_gid = UNKNOWNUID;
+		statbuf.attr_stat.st_rdev = 0;
+		/* set all times (except create time) to the last modified time since we cannot get the other times. */
+		statbuf.attr_stat.st_mtimespec.tv_sec = file_last_modified;
+		statbuf.attr_stat.st_atimespec = statbuf.attr_stat.st_ctimespec = statbuf.attr_stat.st_mtimespec;
+		statbuf.attr_stat.st_size = file_length;
+		statbuf.attr_stat.st_blocks = ((statbuf.attr_stat.st_size + S_BLKSIZE - 1) / S_BLKSIZE);
+		statbuf.attr_stat.st_blksize = WEBDAV_IOSIZE;
+		statbuf.attr_stat.st_flags = 0;
+		statbuf.attr_stat.st_gen = 0;
 
 		/* cache the attributes */
 		error = nodecache_add_attributes(node, request_fsync->pcr.pcr_uid, &statbuf, NULL);

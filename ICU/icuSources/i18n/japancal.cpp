@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2003-2008, International Business Machines Corporation and    *
+* Copyright (C) 2003-2009, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -278,7 +278,10 @@ static const struct {
 
 #define kEraCount (sizeof(kEraInfo)/sizeof(kEraInfo[0]))
 
-static const uint32_t kCurrentEra = (kEraCount-1);
+/**
+ * The current era, for reference. 
+ */
+static const int32_t kCurrentEra = (kEraCount-1);  // int32_t to match the calendar field type
 
 static const int32_t kGregorianEpoch = 1970;    // used as the default value of EXTENDED_YEAR
 
@@ -318,19 +321,16 @@ const char *JapaneseCalendar::getType() const
     return "japanese";
 }
 
-int32_t JapaneseCalendar::getDefaultMonthInYear() 
+int32_t JapaneseCalendar::getDefaultMonthInYear(int32_t eyear) 
 {
-    UErrorCode status  = U_ZERO_ERROR;
     int32_t era = internalGetEra();
-    computeFields(status); // slow
-    int32_t year = getGregorianYear();
     // TODO do we assume we can trust 'era'?  What if it is denormalized?
 
-    int32_t month = GregorianCalendar::getDefaultMonthInYear();
+    int32_t month = 0;
 
     // Find out if we are at the edge of an era
 
-    if(year == kEraInfo[era].year) {
+    if(eyear == kEraInfo[era].year) {
         // Yes, we're in the first year of this era.
         return kEraInfo[era].month-1;
     }
@@ -338,15 +338,12 @@ int32_t JapaneseCalendar::getDefaultMonthInYear()
     return month;
 }
 
-int32_t JapaneseCalendar::getDefaultDayInMonth(int32_t month) 
+int32_t JapaneseCalendar::getDefaultDayInMonth(int32_t eyear, int32_t month) 
 {
-    UErrorCode status  = U_ZERO_ERROR;
     int32_t era = internalGetEra();
-    computeFields(status); // slow
-    int32_t year = getGregorianYear();
-    int32_t day = GregorianCalendar::getDefaultDayInMonth(month);
+    int32_t day = 1;
 
-    if(year == kEraInfo[era].year) {
+    if(eyear == kEraInfo[era].year) {
         if(month == (kEraInfo[era].month-1)) {
             return kEraInfo[era].day;
         }
@@ -495,6 +492,8 @@ int32_t JapaneseCalendar::handleGetLimit(UCalendarDateFields field, ELimitType l
             case  UCAL_LIMIT_COUNT: //added to avoid warning
             case UCAL_LIMIT_MAXIMUM:
                 return GregorianCalendar::handleGetLimit(UCAL_YEAR, UCAL_LIMIT_MAXIMUM) - kEraInfo[kCurrentEra].year;
+            default:
+                return 1;    // Error condition, invalid limitType
             }
         }
     default:

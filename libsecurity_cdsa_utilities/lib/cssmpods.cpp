@@ -71,6 +71,19 @@ void Guid::parseGuid(const char *string)
 	// "doubtful" variations? Given that GUIDs are essentially magic
 	// cookies, everybody's better off if we just cut-and-paste them
 	// around the universe...
+	
+	// do sanity checking, don't assume that what's passed in makes sense
+	if (string == NULL)
+	{
+        CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
+	}
+	
+	// what follows had better be big enough
+	if (strlen(string) < 37) // needed because the code hard codes the length
+	{
+        CssmError::throwMe(CSSM_ERRCODE_INVALID_GUID);
+	}
+	
     int d1;
     uint16 d2, d3;
     if (sscanf(string, "{%8x-%4hx-%4hx-", &d1, &d2, &d3) != 3)

@@ -1,13 +1,12 @@
 Project = passwd
 Install_Dir = /usr/bin
 
-HFILES = stringops.h
-CFILES = passwd.c file_passwd.c stringops.c
+CFILES = passwd.c file_passwd.c
 MANPAGES = passwd.1
 
 Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-Extra_CC_Flags = -Wall -Werror -mdynamic-no-pic
+Extra_CC_Flags = -Wall -Werror
 Extra_LD_Flags = -dead_strip
 
 ifeq ($(Embedded),NO)
@@ -17,7 +16,7 @@ endif
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
 
-Install_Program_Mode = 04555
+Install_Program_Mode = 0555
 
 after_install:
 	$(INSTALL_DIRECTORY) "$(DSTROOT)"/private/etc/pam.d

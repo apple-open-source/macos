@@ -79,8 +79,8 @@ EXTERN char *tclExecutableName;
  * Kernel calls that appear to be missing from the system .h files:
  */
 
-extern char * brk _ANSI_ARGS_((char *));
-extern char * sbrk _ANSI_ARGS_((size_t));
+extern char *brk(char *);
+extern char *sbrk(size_t);
 
 /*
  * The static variable SymbolTableFile contains the file name where the
@@ -94,9 +94,9 @@ static char * SymbolTableFile = NULL;
  * Prototypes for procedures referenced only in this file:
  */
 
-static int FindLibraries _ANSI_ARGS_((const char *fileName, Tcl_DString *buf));
-static void UnlinkSymbolTable _ANSI_ARGS_((void));
-static void Seterror _ANSI_ARGS_((char *message));
+static int FindLibraries(const char *fileName, Tcl_DString *buf);
+static void UnlinkSymbolTable(void);
+static void Seterror(char *message);
 static char *errorMessage = NULL;
 
 
@@ -137,7 +137,7 @@ static char *errorMessage = NULL;
  *----------------------------------------------------------------------
  */
 
-VOID *
+void *
 dlopen(path, flags)
     const char *path;
     int flags;
@@ -270,8 +270,8 @@ dlopen(path, flags)
   startAddress = (char *) (((unsigned long) sbrk (0)
 			    + TCL_LOADSHIM + TCL_LOADALIGN - 1)
 			   & (- TCL_LOADALIGN));
-  p = strstr (linkCommand, "-T") + 3;
-  sprintf (p, "%08lx", (long) startAddress);
+  p = strstr(linkCommand, "-T") + 3;
+  sprintf(p, "%08lx", (long) startAddress);
   p [8] = ' ';
 
   /* Run the linker */
@@ -286,11 +286,11 @@ dlopen(path, flags)
 
   /* Open the linker's result file and read the header */
 
-  relocatedFd = open (relocatedFileName, O_RDONLY);
+  relocatedFd = open(relocatedFileName, O_RDONLY);
   if (relocatedFd < 0) {
     goto ioError;
   }
-  status= read (relocatedFd, (char *) & relocatedHead, sizeof relocatedHead);
+  status= read(relocatedFd, (char *) & relocatedHead, sizeof relocatedHead);
   if (status < sizeof relocatedHead) {
     goto ioError;
   }
@@ -366,7 +366,7 @@ dlopen(path, flags)
   } else {
     (void) unlink (relocatedFileName);
   }
-  return (VOID *) startAddress;
+  return (void *) startAddress;
 
 error:
   if (relocatedFd>=0) {
@@ -396,14 +396,14 @@ error:
  *----------------------------------------------------------------------
  */
 
-VOID *dlsym(handle, symbol)
-    VOID *handle;
+void *dlsym(handle, symbol)
+    void *handle;
     const char *symbol;
 {
     if ((handle != NULL) && (symbol != NULL)) {
-	return ((VOID * (*) _ANSI_ARGS_((const char *))) handle) (symbol);
+	return ((void * (*) (const char *)) handle) (symbol);
     } else {
-	return (VOID *) NULL;
+	return (void *) NULL;
     }
 }
 
@@ -428,7 +428,8 @@ VOID *dlsym(handle, symbol)
 char *
 dlerror()
 {
-    char *err, *msg;
+    const char *err;
+    char *msg;
 
     if (errorMessage && errno) {
 	err = Tcl_ErrnoMsg(errno);
@@ -461,7 +462,7 @@ dlerror()
 
 int
 dlclose(handle)
-    VOID *handle;
+    void *handle;
 {
     return 0;
 }

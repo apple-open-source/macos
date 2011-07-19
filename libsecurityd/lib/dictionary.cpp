@@ -89,7 +89,7 @@ void NameValuePair::Export (CssmData &data) const
 {
 	// export the data in the format name length data
 	uint32 outSize = 2 * sizeof (uint32) + mValue.length ();
-	unsigned char* d = new unsigned char [outSize];
+	unsigned char* d = (unsigned char*) malloc(outSize);
 	unsigned char* finger = d;
 	
 	// export the name

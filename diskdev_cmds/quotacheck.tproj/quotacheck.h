@@ -84,5 +84,4 @@ extern struct fileusage *
 		addid(uid_t, int);
 extern int	update(char *, char *, int);
 
-extern int	chkquota_ufs(char *, char *, struct quotaname *);
 extern int	chkquota_hfs(char *, char *, struct quotaname *);

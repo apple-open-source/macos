@@ -85,7 +85,7 @@ if [ $# = 0 ] ; then
 	exit 1
 fi
 
-TMP=/tmp/mkdep$$
+TMP=_mkdep$$
 
 trap 'rm -f $TMP ; exit 1' 1 2 3 13 15
 

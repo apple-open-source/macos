@@ -2,12 +2,12 @@
 #
 #	Directory traversal.
 #
-# Copyright (c) 2006-2008 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2006-2009 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: traverse.tcl,v 1.6 2008/02/28 07:11:34 andreas_kupries Exp $
+# RCS: @(#) $Id: traverse.tcl,v 1.7 2009/02/10 18:11:07 andreas_kupries Exp $
 
 package require Tcl 8.3
 
@@ -21,6 +21,7 @@ if {[package vsatisfies [package present Tcl] 8.5]} {
     package require snit 1.3
 }
 package require control  ; # Helpers for control structures
+package require fileutil ; # -> fullnormalize
 
 snit::type ::fileutil::traverse {
 
@@ -414,4 +415,4 @@ if {[package vsatisfies [package present Tcl] 8.4]} {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide fileutil::traverse 0.4
+package provide fileutil::traverse 0.4.1

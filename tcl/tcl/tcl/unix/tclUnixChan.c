@@ -10,7 +10,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclUnixChan.c,v 1.93.2.2 2009/04/10 20:46:21 das Exp $
+ * RCS: @(#) $Id: tclUnixChan.c,v 1.93.2.5 2010/03/01 15:25:27 ferrieux Exp $
  */
 
 #include "tclInt.h"	/* Internal definitions for Tcl. */
@@ -2132,15 +2132,24 @@ TcpGetOptionProc(
 	    ((len > 1) && (optionName[1] == 's') &&
 	    (strncmp(optionName, "-sockname", len) == 0))) {
 	if (getsockname(statePtr->fd, (struct sockaddr *) &sockname,
-		&size) >= 0) {
+                        &size) >= 0) {
 	    if (len == 0) {
 		Tcl_DStringAppendElement(dsPtr, "-sockname");
 		Tcl_DStringStartSublist(dsPtr);
 	    }
 	    Tcl_DStringAppendElement(dsPtr, inet_ntoa(sockname.sin_addr));
-	    hostEntPtr = TclpGetHostByAddr(			/* INTL: Native. */
-		    (char *) &sockname.sin_addr,
-		    sizeof(sockname.sin_addr), AF_INET);
+            if (sockname.sin_addr.s_addr == INADDR_ANY) {
+		/*
+		 * We don't want to resolve INADDR_ANY; it can sometimes cause
+		 * problems (and never has a name).
+		 */
+                
+                hostEntPtr = NULL;
+            } else {
+                hostEntPtr = TclpGetHostByAddr(		/* INTL: Native. */
+                                               (char *) &sockname.sin_addr,
+                                               sizeof(sockname.sin_addr), AF_INET);
+            }
 	    if (hostEntPtr != NULL) {
 		Tcl_DString ds;
 
@@ -2279,14 +2288,13 @@ CreateSocket(
 				 * attempt to do an async connect. Otherwise
 				 * do a synchronous connect or bind. */
 {
-    int status, sock, asyncConnect, curState, origState;
+    int status, sock, asyncConnect, curState;
     struct sockaddr_in sockaddr;	/* socket address */
     struct sockaddr_in mysockaddr;	/* Socket address for client */
     TcpState *statePtr;
     const char *errorMsg = NULL;
 
     sock = -1;
-    origState = 0;
     if (!CreateSocketAddress(&sockaddr, host, port, 0, &errorMsg)) {
 	goto addressError;
     }
@@ -3193,5 +3201,7 @@ FileTruncateProc(
  * mode: c
  * c-basic-offset: 4
  * fill-column: 78
+ * tab-width: 8
+ * indent-tabs-mode: nil
  * End:
  */

@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -41,10 +41,10 @@
  */
 struct nbns_rr {
 	u_char *	rr_name;	/* compressed NETBIOS name */
-	u_int16_t	rr_type;
-	u_int16_t	rr_class;
-	u_int32_t	rr_ttl;
-	u_int16_t	rr_rdlength;
+	uint16_t	rr_type;
+	uint16_t	rr_class;
+	uint32_t	rr_ttl;
+	uint16_t	rr_rdlength;
 	u_char *	rr_data;
 };
 
@@ -53,42 +53,13 @@ struct nbns_rr {
  */
 struct nbns_nr {
 	char		nr_name[NB_NAMELEN];
-	u_int16_t	nr_beflags; /* Big endian, from network */
+	uint16_t	nr_beflags; /* Big endian, from network */
 };
 
 #define NBRQF_BROADCAST		0x0001
 
 #define NBNS_GROUPFLG 0x8000
 
-/*
- * nbns request
- */
-struct nbns_rq {
-	int		nr_opcode;
-	int		nr_nmflags;
-	int		nr_rcode;
-	int		nr_qdcount;
-	int		nr_ancount;
-	int		nr_nscount;
-	int		nr_arcount;
-	struct nb_name*	nr_qdname;
-	u_int16_t	nr_qdtype;
-	u_int16_t	nr_qdclass;
-	struct sockaddr_in nr_dest;	/* receiver of query */
-	struct sockaddr_in nr_sender;	/* sender of response */
-	int		nr_rpnmflags;
-	int		nr_rprcode;
-	u_int16_t	nr_rpancount;
-	u_int16_t	nr_rpnscount;
-	u_int16_t	nr_rparcount;
-	u_int16_t	nr_trnid;
-	struct nb_ctx *	nr_nbd;
-	struct mbdata	nr_rq;
-	struct mbdata	nr_rp;
-	struct nb_ifdesc *nr_if;
-	int		nr_flags; /* endian-ness depends on host */
-	int		nr_fd;
-};
 
 struct nb_ifdesc {
 	int		id_flags;
@@ -102,28 +73,29 @@ struct sockaddr;
 
 __BEGIN_DECLS
 
-int nb_name_len(struct nb_name *);
 /* new flag UCflag. 1=uppercase,0=don't */
-int nb_name_encode(struct nb_name *, u_char *, u_int8_t UCflag);
+void nb_name_encode(struct nb_name *, u_char *);
 int nb_encname_len(const char *);
 
-int  nb_snballoc(int namelen, struct sockaddr_nb **);
-int  nb_sockaddr(struct sockaddr *, struct nb_name *, struct sockaddr_nb **);
+int nb_sockaddr(struct sockaddr *peer, const char *name, unsigned type, 
+				struct sockaddr **dst);
+void convertToNetBIOSaddr(struct sockaddr_storage *storage, const char *name);
 
-int  nb_resolvehost_in(const char *, struct sockaddr **, u_int16_t, int);
-int  nbns_resolvename(const char *, struct nb_ctx *, struct sockaddr **, int allow_local_conn, u_int16_t port);
-int  nbns_getnodestatus(struct sockaddr *targethost, struct nb_ctx *ctx, char *nbt_server, char *workgroup);
-int isLocalNetworkAddress(u_int32_t addr);
-int  nb_getlocalname(char *name, size_t);
-int  nb_enum_if(struct nb_ifdesc **, int);
+int resolvehost(const char *name, CFMutableArrayRef *outAddressArray, char *netbios_name, 
+				uint16_t port,  int allowLocalConn, int tryBothPorts);
+int findReachableAddress(CFMutableArrayRef addressArray, uint16_t *cancel, struct connectAddress **dest);
+int nbns_resolvename(struct nb_ctx *ctx, struct smb_prefs *prefs, const char *name, 
+					 uint8_t nodeType, CFMutableArrayRef *outAddressArray, uint16_t port, 
+					 int allowLocalConn, int tryBothPorts, uint16_t *cancel);
+int nbns_getnodestatus(struct sockaddr *targethost, struct nb_ctx *ctx,
+					   struct smb_prefs *prefs, uint16_t *cancel, char *nbt_server, 
+					   char *workgroup, CFMutableArrayRef nbrrArray);
+int isLocalIPAddress(struct sockaddr *, uint16_t port, int allowLocalConn);
+int isIPv6NumericName(const char *name);
+int nb_enum_if(struct nb_ifdesc **, int);
 int nb_error_to_errno(int error);
 
-void nb_ctx_done(struct nb_ctx *);
-int  nb_ctx_set_wins_name(struct nb_ctx *, const char *);
-int  nb_ctx_setscope(struct nb_ctx *, const char *);
-int  nb_ctx_resolve(struct nb_ctx *);
-int  nb_ctx_readrcsection(struct rcfile *, struct nb_ctx *, const char *, int);
-void nb_ctx_readcodepage(struct rcfile *rcfile, const char *sname);
+int nb_ctx_resolve(struct nb_ctx *ctx, CFArrayRef WINSAddresses);
 __END_DECLS
 
 #endif /* !_NETSMB_NB_LIB_H_ */

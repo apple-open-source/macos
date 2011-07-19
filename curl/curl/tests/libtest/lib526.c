@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib526.c,v 1.15 2008-09-20 04:26:57 yangtse Exp $
  */
 
 /*
@@ -47,7 +46,7 @@ int test(char *URL)
   CURL *curl[NUM_HANDLES];
   int running;
   char done=FALSE;
-  CURLM *m;
+  CURLM *m = NULL;
   int current=0;
   int i, j;
   struct timeval ml_start;
@@ -72,10 +71,28 @@ int test(char *URL)
       curl_global_cleanup();
       return TEST_ERR_MAJOR_BAD + i;
     }
-    curl_easy_setopt(curl[i], CURLOPT_URL, URL);
+    res = curl_easy_setopt(curl[i], CURLOPT_URL, URL);
+    if(res) {
+      fprintf(stderr, "curl_easy_setopt() failed "
+              "on handle #%d\n", i);
+      for (j=i; j >= 0; j--) {
+        curl_easy_cleanup(curl[j]);
+      }
+      curl_global_cleanup();
+      return TEST_ERR_MAJOR_BAD + i;
+    }
 
     /* go verbose */
-    curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1L);
+    res = curl_easy_setopt(curl[i], CURLOPT_VERBOSE, 1L);
+    if(res) {
+      fprintf(stderr, "curl_easy_setopt() failed "
+              "on handle #%d\n", i);
+      for (j=i; j >= 0; j--) {
+        curl_easy_cleanup(curl[j]);
+      }
+      curl_global_cleanup();
+      return TEST_ERR_MAJOR_BAD + i;
+    }
   }
 
   if ((m = curl_multi_init()) == NULL) {
@@ -111,7 +128,7 @@ int test(char *URL)
     interval.tv_sec = 1;
     interval.tv_usec = 0;
 
-    if (tutil_tvdiff(tutil_tvnow(), ml_start) > 
+    if (tutil_tvdiff(tutil_tvnow(), ml_start) >
         MAIN_LOOP_HANG_TIMEOUT) {
       ml_timedout = TRUE;
       break;
@@ -121,7 +138,7 @@ int test(char *URL)
 
     while (res == CURLM_CALL_MULTI_PERFORM) {
       res = (int)curl_multi_perform(m, &running);
-      if (tutil_tvdiff(tutil_tvnow(), mp_start) > 
+      if (tutil_tvdiff(tutil_tvnow(), mp_start) >
           MULTI_PERFORM_HANG_TIMEOUT) {
         mp_timedout = TRUE;
         break;
@@ -142,8 +159,8 @@ int test(char *URL)
           /* make us re-use the same handle all the time, and try resetting
              the handle first too */
           curl_easy_reset(curl[0]);
-          curl_easy_setopt(curl[0], CURLOPT_URL, URL);
-          curl_easy_setopt(curl[0], CURLOPT_VERBOSE, 1L);
+          test_setopt(curl[0], CURLOPT_URL, URL);
+          test_setopt(curl[0], CURLOPT_VERBOSE, 1L);
 
           /* re-add it */
           res = (int)curl_multi_add_handle(m, curl[0]);
@@ -197,16 +214,22 @@ int test(char *URL)
     res = TEST_ERR_RUNS_FOREVER;
   }
 
+#ifdef LIB532
+test_cleanup:
+#endif
+
 #ifndef LIB527
   /* get NUM_HANDLES easy handles */
   for(i=0; i < NUM_HANDLES; i++) {
 #ifdef LIB526
-    curl_multi_remove_handle(m, curl[i]);
+    if(m)
+      curl_multi_remove_handle(m, curl[i]);
 #endif
     curl_easy_cleanup(curl[i]);
   }
 #endif
-  curl_multi_cleanup(m);
+  if(m)
+    curl_multi_cleanup(m);
 
   curl_global_cleanup();
   return res;

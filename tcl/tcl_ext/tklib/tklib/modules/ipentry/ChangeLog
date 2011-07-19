@@ -1,8 +1,35 @@
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2008-11-29 Aaron Faupell <afaupell@users.sourceforge.net>
+	* ipentry.tcl: use -takefocus instead of tab bindings.
+	this works in reverse circulation too. also a fix when
+	unsetting the textvariable
+
+2008-11-29 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ipentry.tcl: add ipentry6 widget for IPv6 addresses
+	* ipentry.man: document ipentry6
+
+2008-11-28 Aaron Faupell <afaupell@users.sourceforge.net>
+
+	* ipentry.tcl: fix textvariable. should work like a normal
+	  widget now
+
+2008-11-27  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* ipentry.tcl:  Use the ttk::entry border if ttk available
+	* ipentry.man:  Document -themed 0 to disable themed look
+	* pkgIndex.tcl: Incremented version to 0.3
+
 2006-07-14 Aaron Faupell <afaupell@users.sourceforge.net>
 
 	* ipentry.tcl: added -textvariable option, and bumped version
 	* ipentry.man: added docs for -textvariable option
-	* thanks to Chris Maj for the patch
+	thanks to Chris Maj for the patch
 
 2005-11-10  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 

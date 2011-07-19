@@ -1,10 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[comment {$Id: logger.man,v 1.21 2007/03/25 01:29:25 andreas_kupries Exp $}]
+[comment {$Id: logger.man,v 1.24 2009/05/19 18:05:42 eee Exp $}]
 [manpage_begin logger n 0.8]
 [moddesc {Object Oriented logging facility}]
 [titledesc {System to control logging of events.}]
+[category  {Programming tools}]
 [require Tcl 8.2]
-[require logger [opt 0.8]]
+[require logger [opt 0.9]]
 [description]
 
 [para]
@@ -39,14 +40,14 @@ happen:
 [call [cmd logger::init] [arg service]]
 
 Initializes the service [arg service] for logging.  The service names
-are actually Tcl namespace names, so they are seperated with '::'.
+are actually Tcl namespace names, so they are separated with '::'.
 
 When a logger service is initialized, it "inherits" properties from its
 parents.  For instance, if there were a service [term foo], and
 we did a [cmd logger::init] [arg foo::bar] (to create a [term bar]
 service underneath [term foo]), [term bar] would copy the current
 configuration of the [term foo] service, although it would of
-course, also be possible to then seperately configure [term bar].
+course, also be possible to then separately configure [term bar].
 
 If a logger service is initialized and the parent does not yet exist, the
 parent is also created. 

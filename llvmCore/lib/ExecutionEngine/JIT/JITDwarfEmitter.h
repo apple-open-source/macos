@@ -18,7 +18,7 @@
 namespace llvm {
 
 class Function;
-class MachineCodeEmitter;
+class JITCodeEmitter;
 class MachineFunction;
 class MachineModuleInfo;
 class MachineMove;
@@ -28,11 +28,10 @@ class TargetRegisterInfo;
 
 class JITDwarfEmitter {
   const TargetData* TD;
-  MachineCodeEmitter* MCE;
+  JITCodeEmitter* JCE;
   const TargetRegisterInfo* RI;
   MachineModuleInfo* MMI;
   JIT& Jit;
-  bool needsIndirectEncoding;
   bool stackGrowthDirection;
   
   unsigned char* EmitExceptionTable(MachineFunction* MF,
@@ -66,13 +65,14 @@ public:
   JITDwarfEmitter(JIT& jit);
   
   unsigned char* EmitDwarfTable(MachineFunction& F, 
-                                MachineCodeEmitter& MCE,
+                                JITCodeEmitter& JCE,
                                 unsigned char* StartFunction,
-                                unsigned char* EndFunction);
+                                unsigned char* EndFunction,
+                                unsigned char* &EHFramePtr);
   
   
   unsigned GetDwarfTableSizeInBytes(MachineFunction& F, 
-                                    MachineCodeEmitter& MCE,
+                                    JITCodeEmitter& JCE,
                                     unsigned char* StartFunction,
                                     unsigned char* EndFunction);
 

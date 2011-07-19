@@ -20,13 +20,14 @@
 #ifndef FrameTree_h
 #define FrameTree_h
 
-#include "AtomicString.h"
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
     class Frame;
 
-    class FrameTree : public Noncopyable {
+    class FrameTree {
+        WTF_MAKE_NONCOPYABLE(FrameTree);
     public:
         FrameTree(Frame* thisFrame, Frame* parentFrame) 
             : m_thisFrame(thisFrame)
@@ -39,6 +40,7 @@ namespace WebCore {
         ~FrameTree();
 
         const AtomicString& name() const { return m_name; }
+        const AtomicString& uniqueName() const { return m_uniqueName; }
         void setName(const AtomicString&);
         void clearName();
         Frame* parent(bool checkForDisconnectedFrame = false) const;
@@ -56,6 +58,7 @@ namespace WebCore {
         Frame* traversePreviousWithWrap(bool) const;
         
         void appendChild(PassRefPtr<Frame>);
+        bool transferChild(PassRefPtr<Frame>);
         void detachFromParent() { m_parent = 0; }
         void removeChild(Frame*);
 
@@ -69,11 +72,13 @@ namespace WebCore {
 
     private:
         Frame* deepLastChild() const;
+        void actuallyAppendChild(PassRefPtr<Frame>);
 
         Frame* m_thisFrame;
 
         Frame* m_parent;
-        AtomicString m_name;
+        AtomicString m_name; // The actual frame name (may be empty).
+        AtomicString m_uniqueName;
 
         // FIXME: use ListRefPtr?
         RefPtr<Frame> m_nextSibling;

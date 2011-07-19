@@ -107,8 +107,8 @@ snit::type map::slippy {
 	#       left corner of the tile. To get the geo location of
 	#       the center simply add 0.5 to the row/col values.
 	set tiles [tiles $zoom]
-	set lat   [expr {$radtodeg * (atan(sinh($pi * (1 - 2 * $row / $tiles))))}]
-	set lon   [expr {$col / $tiles * 360.0 - 180.0}]
+	set lat   [expr {$radtodeg * (atan(sinh($pi * (1 - 2 * $row / double($tiles)))))}]
+	set lon   [expr {$col / double($tiles) * 360.0 - 180.0}]
 	return [list $zoom $lat $lon]
     }
 
@@ -160,4 +160,4 @@ snit::type map::slippy {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide map::slippy 0.2
+package provide map::slippy 0.3

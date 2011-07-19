@@ -1,4 +1,5 @@
 /*
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  * Copyright (C) 2006 Apple Computer, Inc.
  *
  * This library is free software; you can redistribute it and/or
@@ -40,17 +41,19 @@ FrameTree::~FrameTree()
 
 void FrameTree::setName(const AtomicString& name) 
 {
+    m_name = name;
     if (!parent()) {
-        m_name = name;
+        m_uniqueName = name;
         return;
     }
-    m_name = AtomicString(); // Remove our old frame name so it's not considered in uniqueChildName.
-    m_name = parent()->tree()->uniqueChildName(name);
+    m_uniqueName = AtomicString(); // Remove our old frame name so it's not considered in uniqueChildName.
+    m_uniqueName = parent()->tree()->uniqueChildName(name);
 }
 
 void FrameTree::clearName()
 {
     m_name = AtomicString();
+    m_uniqueName = AtomicString();
 }
 
 Frame* FrameTree::parent(bool checkForDisconnectedFrame) const 
@@ -60,11 +63,35 @@ Frame* FrameTree::parent(bool checkForDisconnectedFrame) const
     return m_parent;
 }
 
+bool FrameTree::transferChild(PassRefPtr<Frame> child)
+{
+    Frame* oldParent = child->tree()->parent();
+    if (oldParent == m_thisFrame)
+        return false; // |child| is already a child of m_thisFrame.
+
+    if (oldParent)
+        oldParent->tree()->removeChild(child.get());
+
+    ASSERT(child->page() == m_thisFrame->page());
+    child->tree()->m_parent = m_thisFrame;
+
+    // We need to ensure that the child still has a unique frame name with respect to its new parent.
+    child->tree()->setName(child->tree()->m_name);
+
+    actuallyAppendChild(child); // Note, on return |child| is null.
+    return true;
+}
+
 void FrameTree::appendChild(PassRefPtr<Frame> child)
 {
     ASSERT(child->page() == m_thisFrame->page());
     child->tree()->m_parent = m_thisFrame;
+    actuallyAppendChild(child); // Note, on return |child| is null.
+}
 
+void FrameTree::actuallyAppendChild(PassRefPtr<Frame> child)
+{
+    ASSERT(child->tree()->m_parent == m_thisFrame);
     Frame* oldLast = m_lastChild;
     m_lastChild = child.get();
 
@@ -119,24 +146,24 @@ AtomicString FrameTree::uniqueChildName(const AtomicString& requestedName) const
     Vector<Frame*, 16> chain;
     Frame* frame;
     for (frame = m_thisFrame; frame; frame = frame->tree()->parent()) {
-        if (frame->tree()->name().startsWith(framePathPrefix))
+        if (frame->tree()->uniqueName().startsWith(framePathPrefix))
             break;
         chain.append(frame);
     }
     String name;
     name += framePathPrefix;
     if (frame)
-        name += frame->tree()->name().string().substring(framePathPrefixLength,
-            frame->tree()->name().length() - framePathPrefixLength - framePathSuffixLength);
+        name += frame->tree()->uniqueName().string().substring(framePathPrefixLength,
+            frame->tree()->uniqueName().length() - framePathPrefixLength - framePathSuffixLength);
     for (int i = chain.size() - 1; i >= 0; --i) {
         frame = chain[i];
         name += "/";
-        name += frame->tree()->name();
+        name += frame->tree()->uniqueName();
     }
 
     // Suffix buffer has more than enough space for:
     //     10 characters before the number
-    //     a number (3 digits for the highest this gets in practice, 20 digits for the largest 64-bit integer)
+    //     a number (20 digits for the largest 64-bit integer)
     //     6 characters after the number
     //     trailing null byte
     // But we still use snprintf just to be extra-safe.
@@ -159,7 +186,7 @@ Frame* FrameTree::child(unsigned index) const
 Frame* FrameTree::child(const AtomicString& name) const
 {
     for (Frame* child = firstChild(); child; child = child->tree()->nextSibling())
-        if (child->tree()->name() == name)
+        if (child->tree()->uniqueName() == name)
             return child;
     return 0;
 }
@@ -181,7 +208,7 @@ Frame* FrameTree::find(const AtomicString& name) const
 
     // Search subtree starting with this frame first.
     for (Frame* frame = m_thisFrame; frame; frame = frame->tree()->traverseNext(m_thisFrame))
-        if (frame->tree()->name() == name)
+        if (frame->tree()->uniqueName() == name)
             return frame;
 
     // Search the entire tree for this page next.
@@ -192,7 +219,7 @@ Frame* FrameTree::find(const AtomicString& name) const
         return 0;
 
     for (Frame* frame = page->mainFrame(); frame; frame = frame->tree()->traverseNext())
-        if (frame->tree()->name() == name)
+        if (frame->tree()->uniqueName() == name)
             return frame;
 
     // Search the entire tree of each of the other pages in this namespace.
@@ -203,7 +230,7 @@ Frame* FrameTree::find(const AtomicString& name) const
         Page* otherPage = *it;
         if (otherPage != page) {
             for (Frame* frame = otherPage->mainFrame(); frame; frame = frame->tree()->traverseNext()) {
-                if (frame->tree()->name() == name)
+                if (frame->tree()->uniqueName() == name)
                     return frame;
             }
         }

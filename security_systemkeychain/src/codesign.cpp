@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -63,14 +63,31 @@ const char *uniqueIdentifier = NULL; // unique ident hash
 const char *identifierPrefix = NULL; // prefix for un-dotted default identifiers
 const char *modifiedFiles = NULL;	// file to receive list of modified files
 const char *extractCerts = NULL;	// location for extracting signing chain certificates
-SecCSFlags verifyOptions = kSecCSDefaultFlags; // option flags to static verifications
+const char *sdkRoot = NULL;			// alternate root for looking up sub-components
+const char *featureCheck = NULL;	// feature support check
+SecCSFlags staticVerifyOptions = kSecCSCheckAllArchitectures; // option flags to static verifications
+SecCSFlags dynamicVerifyOptions = kSecCSDefaultFlags; // option flags to static verifications
+uint32_t digestAlgorithm = 0;		// digest algorithm to be used when signing
 CFDateRef signingTime;				// explicit signing time option
 size_t signatureSize = 0;			// override CMS blob estimate
 uint32_t cdFlags = 0;				// CodeDirectory flags requested
 const char *procAction = NULL;		// action-on-process(es) requested
+Architecture architecture;			// specific binary architecture to process (from a universal file)
+const char *bundleVersion;			// specific version string requested (from a versioned bundle)
 bool noMachO = false;				// force non-MachO operation
 bool dryrun = false;				// do not actually change anything
 bool preserveMetadata = false;		// keep metadata from previous signature (if any)
+bool allArchitectures = false;		// process all architectures in a universal (aka fat) code file
+
+
+//
+// Feature set
+//
+static const char *features[] = {
+	"hash-identities",				// supports -s hash-of-certificate
+	"identity-preferences",			// supports -s identity-preference-name
+	NULL							// sentinel
+};
 
 
 //
@@ -78,18 +95,25 @@ bool preserveMetadata = false;		// keep metadata from previous signature (if any
 //
 static void usage();
 static OSStatus keychain_open(const char *name, SecKeychainRef &keychain);
+static bool chooseArchitecture(const char *arg);
+static void checkFeatures(const char *arg);
 
 
 //
 // Command-line options
 //
 enum {
-	optCheckExpiration = 1,
+	optNone = 0,	// null (no, absent) option
+	optAllArchitectures,
+	optBundleVersion,
+	optCheckExpiration,
 	optContinue,
 	optDetachedDatabase,
+	optDigestAlgorithm,
 	optDryRun,
 	optExtractCerts,
 	optEntitlements,
+	optFeatures,
 	optFileList,
 	optIdentifierPrefix,
 	optIgnoreResources,
@@ -100,11 +124,13 @@ enum {
 	optProcAction,
 	optRemoveSignature,
 	optResourceRules,
+	optSDKRoot,
 	optSigningTime,
 	optSignatureSize,
 };
 
 const struct option options[] = {
+	{ "architecture", required_argument,	NULL, 'a' },
 	{ "dump",		no_argument,			NULL, 'd' },
 	{ "display",	no_argument,			NULL, 'd' },
 	{ "detached",	required_argument,		NULL, 'D' },
@@ -120,13 +146,17 @@ const struct option options[] = {
 	{ "verbose",	optional_argument,		NULL, 'v' },
 	{ "verify",		no_argument,			NULL, 'v' },
 
+	{ "all-architectures", no_argument,		NULL, optAllArchitectures },
+	{ "bundle-version", required_argument,	NULL, optBundleVersion },
 	{ "check-expiration", no_argument,		NULL, optCheckExpiration },
 	{ "continue",	no_argument,			NULL, optContinue },
 	{ "detached-database", optional_argument, NULL, optDetachedDatabase },
+	{ "digest-algorithm", required_argument, NULL, optDigestAlgorithm },
 	{ "dryrun",		no_argument,			NULL, optDryRun },
 	{ "entitlements", required_argument,	NULL, optEntitlements },
 	{ "expired",	no_argument,			NULL, optCheckExpiration },
 	{ "extract-certificates", optional_argument, NULL, optExtractCerts },
+	{ "features",	optional_argument,		NULL, optFeatures },
 	{ "file-list",	required_argument,		NULL, optFileList },
 	{ "ignore-resources", no_argument,		NULL, optIgnoreResources },
 	{ "keychain",	required_argument,		NULL, optKeychain },
@@ -137,6 +167,7 @@ const struct option options[] = {
 	{ "procinfo",	no_argument,			NULL, optProcInfo },
 	{ "remove-signature", no_argument,		NULL, optRemoveSignature },
 	{ "resource-rules", required_argument,	NULL, optResourceRules },
+	{ "sdkroot", required_argument,			NULL, optSDKRoot },
 	{ "signature-size", required_argument,	NULL, optSignatureSize },
 	{ "signing-time", required_argument,	NULL, optSigningTime },
 	{ }
@@ -152,8 +183,14 @@ int main(int argc, char *argv[])
 		const char *signerName = NULL;
 		int arg, argslot;
 		while (argslot = -1,
-				(arg = getopt_long(argc, argv, "dD:fhi:o:P:r:R:s:v", options, &argslot)) != -1)
+				(arg = getopt_long(argc, argv, "a:dD:fhi:o:P:r:R:s:v", options, &argslot)) != -1)
 			switch (arg) {
+			case 'a':
+				if (chooseArchitecture(optarg))
+					staticVerifyOptions &= ~kSecCSCheckAllArchitectures;
+				else
+					usage();
+				break;
 			case 'd':
 				operation = doDump;
 				break;
@@ -202,8 +239,16 @@ int main(int argc, char *argv[])
 					verbose++;									// --verbose
 				break;
 			
+			case optAllArchitectures:
+				allArchitectures = true;
+				staticVerifyOptions |= kSecCSCheckAllArchitectures;
+				break;
+			case optBundleVersion:
+				bundleVersion = optarg;
+				break;
 			case optCheckExpiration:
-				verifyOptions |= kSecCSConsiderExpiration;
+				staticVerifyOptions |= kSecCSConsiderExpiration;
+				dynamicVerifyOptions |= kSecCSConsiderExpiration;
 				break;
 			case optContinue:
 				continueOnError = true;
@@ -213,6 +258,9 @@ int main(int argc, char *argv[])
 					detachedDb = optarg;
 				else
 					detachedDb = "system";
+				break;
+			case optDigestAlgorithm:
+				digestAlgorithm = findHashType(optarg)->code;
 				break;
 			case optDryRun:
 				dryrun = true;
@@ -226,6 +274,15 @@ int main(int argc, char *argv[])
 				else
 					extractCerts = "./codesign";
 				break;
+			case optFeatures:
+				if (optarg)
+					featureCheck = optarg;
+				else {
+					for (const char **p = features; *p; p++)
+						printf("%s\n", *p);
+					exit(0);
+				}
+				break;
 			case optFileList:
 				modifiedFiles = optarg;
 				break;
@@ -233,7 +290,7 @@ int main(int argc, char *argv[])
 				identifierPrefix = optarg;
 				break;
 			case optIgnoreResources:
-				verifyOptions |= kSecCSDoNotValidateResources;
+				staticVerifyOptions |= kSecCSDoNotValidateResources;
 				break;
 			case optKeychain:
 				MacOSError::check(keychain_open(optarg, keychain));
@@ -258,6 +315,9 @@ int main(int argc, char *argv[])
 			case optResourceRules:
 				resourceRules = optarg;
 				break;
+			case optSDKRoot:
+				sdkRoot = optarg;
+				break;
 			case optSignatureSize:
 				signatureSize = atol(optarg);
 				break;
@@ -280,7 +340,12 @@ int main(int argc, char *argv[])
 		operation = doVerify;
 		verbose--;
 	}
-	if (optind == argc || operation == doNothing)
+	if (featureCheck) {
+		checkFeatures(featureCheck);
+		if (operation == doNothing)
+			exit(0);
+	}
+	if (operation == doNothing || optind == argc)
 		usage();
 	
 	// masticate the more interesting arguments
@@ -348,7 +413,6 @@ keychain_open(const char *name, SecKeychainRef &keychain)
 {
 	OSStatus result;
 
-//	check_obsolete_keychain(name);
 	if (name && name[0] != '/')
 	{
 		CFArrayRef dynamic = NULL;
@@ -386,3 +450,45 @@ keychain_open(const char *name, SecKeychainRef &keychain)
 }
 
 
+bool chooseArchitecture(const char *arg)
+{
+	int arch, subarch;
+	switch (sscanf(arg, "%d,%d", &arch, &subarch)) {
+	case 0:		// not a number
+		if (!(architecture = Architecture(arg)))
+			fail("%s: unknown architecture name", arg);
+		break;
+	case 1:
+		architecture = Architecture(arch);
+		break;
+	case 2:
+		architecture = Architecture(arch, subarch);
+		break;
+	}
+}
+
+
+//
+// Exit unless each of the comma-separated feature names is supported
+// by this version of codesign(1).
+//
+void checkFeatures(const char *arg)
+{
+	while (true) {
+		const char *comma = strchr(arg, ',');
+		string feature = comma ? string(arg, comma-arg) : arg;
+		if (feature.empty())
+			fail("Invalid feature name");
+		const char **p;
+		for (p = features; *p && feature != *p; p++) ;
+		if (!*p)
+			fail("%s: not supported in this version", feature.c_str());
+		if (comma) {
+			arg = comma + 1;
+			if (!*arg)	// tolerate trailing comma
+				break;
+		} else {
+			break;
+		}
+	}
+}

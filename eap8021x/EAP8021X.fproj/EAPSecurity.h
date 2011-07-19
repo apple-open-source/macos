@@ -39,4 +39,4 @@
 const char *
 EAPSecurityErrorString(OSStatus err);
 
-#endif _EAP8021X_EAPSECURITY_H
+#endif /* _EAP8021X_EAPSECURITY_H */

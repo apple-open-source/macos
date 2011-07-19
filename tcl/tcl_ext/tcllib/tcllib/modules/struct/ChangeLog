@@ -1,3 +1,422 @@
+2010-05-25  Andreas Kupries  <andreask@activestate.com>
+
+	* queue.testsuite: Fixed bug in C implementation of 'unget'.
+	* queue/m.c: Used bogus variable in assert, hit only when trying
+	* ../tcllibc.tcl: to reuse a list Tcl_Obj for the unget
+	  buffer. Tcllibc version bumped to 0.3.9. Testsuite extended.
+
+2010-03-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph/arcshimmer.c: Squash a number of warnings in the C
+	* graph/methods.c: implementations of graph, sets, and trees,
+	* graph/nodeshimmer.c: using casts, and including missing
+	* sets/s.c: headers.
+	* tree/m.c:
+	* tree/shimmer.c:
+	* tree/walk.c:
+
+	* stack_oo.tcl: Remove superfluous 'package require'. Handled by
+	  stack.tcl.
+
+2010-03-23  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* stack_oo.tcl: Tcl implementation of struct::stack based
+	* stack.tcl: on TclOO. Available in 8.5+TclOO, and 8.6+.
+	* stack.bench: Fixed missing dependency in benchmarks.
+	* stack.test: Updated tests (different error messages).
+	* stack.testsuite: Bumped version to 1.5.1.
+	* stack.man:
+	* pkgIndex.tcl:
+
+	* queue_oo.tcl: Tcl implementation of struct::queue based
+	* queue.tcl: on TclOO. Available in 8.5+TclOO, and 8.6+.
+	* queue.bench: Updated and fixed benchmarks, and tests
+	* queue.test: (different error messages). Bumped version
+	* queue.testsuite: to 1.4.2.
+	* queue.man:
+	* pkgIndex.tcl:
+
+	* sets.bench: Updated to allow switching of implementations.
+
+2010-03-16  Andreas Kupries  <andreask@activestate.com>
+
+	* pkgIndex.tcl: Fix version mismatch for struct::stack.
+
+2009-03-15  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* stack.man: struct::stack bumped to version 1.5. API extensions:
+	* stack.tcl: New methods getr, peekr, trim*. The first two return
+	* stack.test: their results in reversed order. For use in places
+	* stack.testsuite: which need the reverted order. As the regular
+	* stack/m.c: order requires an internal [lreverse], to be undone
+	* stack/m.h: by the caller it is better to simply avoid both
+	* stack/ms.c: [lreverse]s. Similarly, trim* does the trim, without
+	* stack/s.c: returning the trimmed items, for use where they are
+	* stack/s.h: thrown away anyway. ... Further, inlined the peek/pop
+	* stack_tcl.tcl: calls internal to get and trim, allowing
+	* pkgIndex.tcl: simplification of the resulting code, like
+	  avoidance of additional argument checks. ... At last, now using
+	  8.5 features when detecting Tcl 8.5+ as our runtime ... I.e.
+	  ensembles for the method dispatch instead of doing everything on
+	  our own, with eval and uplevel. Result: The speed of the Tcl
+	  implementation roughly doubles.
+
+	* stack.bench: Updated to use the ability to switch between the
+	  various implementations.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-25  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph_tcl.tcl: Fixed mismatches due to the 2009-11-03 change.
+	* graph/tests/command.test:
+
+	* pkgIndex.tcl: Extended struct::stack with convenience methods
+	* stack.man: 'get' and 'trim', to get whole stack, and alternate
+	* stack.tcl: argument specification of 'pop'. Bumped version to
+	* stack_tcl.tcl: 1.4. Bumped the tcllibc umbrella package to
+	* stack.testsuite: version 0.3.7.
+	* stack/m.c: version
+	* stack/m.h:
+	* stack/ms.c:
+	* stack/ms.h:
+	* stack/s.c:
+	* stack/s.h:
+
+2009-11-03  Andreas Kupries  <andreask@activestate.com>
+
+	* graph/tests/XOpsSetup: [Bug 2811747]: Removed the import of
+	* graph/tests/Xsetup: command struct::graph into the global
+	* graph/tests/Xsupport: namespace in the testsuite, and updated
+	* graph/tests/arcs.test: all users. This prevents the masking
+	* graph/tests/command.test: of scope errors in the graph::op
+	* graph1.test: package when its testsuite is run.
+
+2009-09-24  Andreas Kupries  <andreask@activestate.com>
+
+	* list.test: [Bug 2557046]: Updated the testsuite to for changes
+	  to lassign and lrepeat in 8.6 (do nothing gracefully, and
+	  changes to error messages). Affected tests are either skipped or
+	  get conditional results.
+
+	* tree.testsuite (tree-*-1.8): Pattern match the name, do not
+	  expect a particular id number (Depends on which previous tests
+	  have run, especially in graphops).
+
+2009-09-24  Andreas Kupries  <andreask@activestate.com>
+
+	* The integration of Michal Antoniewski's (<antoniewsli@gmail.com>)
+	  work on graph operations for GSoC 2009 is now complete, with all
+	  testsuites integrated and fixed up to handle both Tcl and C
+	  implementations of struct::graph, tree, set, etc., and some bugs
+	  uncovered by this work fixed as well.
+	
+	* graphops.tcl (::struct::graph::op::WeightedKCenter): Fixed
+	* graphops.man: object leak. Added the missing release of the
+	* pkgIndex.tcl: Gi(SQ) in error case (no solution). Bumped
+	* graphops.test: version to 0.11.3. Tweaked comment in testsuite
+	  regarding repetition.
+
+	* graph/tests/XOpsControl: Added testsuite for weighted k-center.
+	* graph/tests/ops/weightedkcenter.test: Testsuite for weighted k-center.
+	  Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Several tests demonstrates how the result is influenced by
+	    node/arc ordering. Extended to accept the variations.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+	* graph/tests/ops/kcenter.test: Moved the custom matcher/verifier for
+	* graph/tests/XOpsSupport: max-independent-set to shared file.
+	* graph/tests/XOpsSetup: Simplified some setup procedures a bit.
+
+	* graphops.tcl (::struct::graph::op::MaximumFlowByDinic): Fixed
+	* graphops.man: object leak. Added the missing release of the
+	* pkgIndex.tcl: residual graph generated in each iteration. Bumped
+	  version to 0.11.2.
+
+	* graph/tests/XOpsControl: Added testsuite for Dinic Maximum Flow.
+	* graph/tests/ops/dinicmaximumflow.test: Testsuite for Dinic Maximum
+	  Flow. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Added dictsort to force a canonical ordering on the
+	    results.
+	  - Results updated to be in the canonical ordering.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+	* graphops.man: [Bug 2800387]: Updated descriptions of Kruskal and
+	  Prim with time complexity information, tweaked terminology a bit
+	  (minimum _weight_ spanning tree), and noted the exceptional
+	  handling of 1-vertex components (they are not shown in the
+	  results).
+
+	* graph.man: Added method 'arc nodes' to the Tcl and C
+	* graph.tcl: implementations. Extended testsuite and
+	* graph_tcl.tcl: documentation. Bumped package to
+	* graph/methods.c: version 2.4. Bumped the tcllibc
+	* graph/objcmd.c: umbrella package to version 0.3.6.
+	* graph/tests/arc/nodes.test:
+	* graph/tests/command.test:
+	* graph/tests/Xcontrol:
+	* pkgIndex.tcl:
+	* ../tcllibc.tcl:
+
+2009-09-23  Andreas Kupries  <andreask@activestate.com>
+
+	* graphops.tcl (::struct::graph::op::MinimumDegreeSpanningTree):
+	  Stop search+insertion loop after it has added the candidate
+	  arc. (::struct::graph::op::MinimumDiameterSpanningTree): Fix two
+	  object leaks.
+
+	* graph/tests/XOpsControl: Added testsuite for Min D Spanning Trees.
+	* graph/tests/ops/mdst.test: Testsuite for MDST.
+	  Blocking Flow. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Added undirected to force a canonical ordering on the
+	    results.
+	  - Results updated to be in the canonical ordering.
+	  - Several tests demonstrates how the result is influenced by
+	    node ordering. Extended to accept the variations.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+	* graphops.tcl (::struct::graph::op::BlockingFlowByMKM): Fixed
+	* graphops.man: object leak. Added the missing release of the
+	* pkgIndex.tcl: LevelGraph on exceptional return (No path between
+	  nodes s and t). Bumped version to 0.11.1.
+
+	* graph/tests/XOpsControl: Added testsuite for MKM Blocking Flow.
+	* graph/tests/ops/mkmblockingflow.test: Testsuite for MKM
+	  Blocking Flow. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Added dictsort to force a canonical ordering on the
+	    results.
+	  - Results updated to be in the canonical ordering.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+2009-09-22  Andreas Kupries  <andreask@activestate.com>
+
+	* graph/tests/XOpsControl: Added testsuite for Dinic Blocking Flow.
+	* graph/tests/ops/dinicblockingflow.test: Testsuite for Dinic
+	  Blocking Flow. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Added dictsort to force a canonical ordering on the
+	    results.
+	  - Results updated to be in the canonical ordering.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+	* graph/tests/XOpsControl: Added testsuite for k-center.
+	* graph/tests/ops/kcenter.test: Testsuite for k-center.
+	  Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Several tests demonstrates how the result is influenced by
+	    node ordering. Extended to accept the variations.
+	  - Custom matcher/verifier for max-independent-set.
+	  Note: SETUP_KCENTER_1 is not creating a complete graph,
+	  violating the pre-conditions of the algorithm. This affects test
+	  cases 1.3 - 1.6, it is not clear if their results are correct in
+	  general.	
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+	* graph/tests/XOpsSetup: Re-indented, some notes added, loop
+	  conditions tweaked.
+
+	* graph/tests/XOpsControl: Added testsuite for vertex cover.
+	* graph/tests/ops/verticescover.test: Testsuite for vertex cover.
+	  Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Several tests demonstrates how the result is influenced by
+	    node ordering. Extended to accept the variations.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+2009-09-21  Andreas Kupries  <andreask@activestate.com>
+
+	* graph/tests/XOpsControl: Added the testsuites for metrictsp,
+	  christofides and tspheuristics.
+	* graph/tests/ops/metrictsp.test: Testsuite for metrictsp.
+	* graph/tests/ops/christofides.test: Testsuite for christofides.
+	* graph/tests/ops/tspheuristics.test: Testsuite for tspheuristics.
+	  Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - Conversion to v2 syntax, and cleanup of resource handling.
+	  - Updated results for different implementations, sorting.
+
+	* graph/tests/XOpsSetup (SETUP_TSPHEURISTIC_1): Fixed growing
+	  cycle list throwing of repeated execution of the same test.
+
+	* graph/tests/Xsupport: Added helper commands for the test cases
+	  of the various metric tsp commands (canonical tours, ...).
+
+	* graph/tests/Xsetup (tmSE): Added result selection based on
+	  implementation of struct::set.
+
+	* graphops.tcl (::struct::graph::op::MetricTravellingSalesman):
+	  Fixed problem in algorithm for asymmetric TSP, selecting the
+	  tour in the wrong (higher-weight) direction. The Fleury
+	  underneath does not care about arc direction.
+	  (::struct::graph::op::Christofides): Dropped superfluous
+	  variable and fixed M+T operation. The matching does not care
+	  about arc direction, and we have insert anti-parallel arcs to
+	  avoid any existing.
+	  (::struct::graph::op::isEulerian?): Extended API to return
+	  tour start. Computable from the arcs, but not easy. Better to get
+	  it from the algorithm which knows by definition.
+	  (::struct::graph::op::findHamiltonCycle): Get tour start from
+	  isEulerian, and drop bogus computation from the tour arcs.
+	  (::struct::graph::op::createTGraph): Moved graph creation after
+	  error check to avoid a leak when the check fails.
+	* graphops.man: Bumped version to 0.11
+	* pkgIndex.tcl: (isEulerian API extension, plus bugfixes).
+
+2009-09-17  Andreas Kupries  <andreask@activestate.com>
+
+	* queue/m.c (qum_PEEK): Convert C99/C++ comment to C89
+	  comment. Some unix compilers, like AIX are strict C89 and fail
+	  on this.
+
+2009-09-16  Andreas Kupries  <andreask@activestate.com>
+
+	* graph/tests/XOpsControl: Added testsuite for maxcut.
+	* graph/tests/ops/maxcut.test: Testsuite for maxcut.
+	  Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Indentation, line-endings
+	  - test 1.4 demonstrates not only how the heuristic can run into
+	    local optimum, but also how the result is influenced by node
+	    ordering, critcl implementation gives optimal solution
+	    instead, now accepted.
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+	* graphops.tcl: Fixed indentation, and removed trailing
+	  whitespace.
+
+	* graph/tests/XOpsControl: Added testsuite for BFS.
+	* graph/tests/ops/bfs.test: Testsuite for breadth-first
+	  search. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Added dictsort and lsort to force a canonical ordering on
+	    results. Where sorting was not possible we provide the two
+	    valid results for Tcl and Critcl implementations.
+	  - Results updated to be in the canonical ordering.
+	  - Indentation, line-endings
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+2009-09-15  Andreas Kupries  <andreask@activestate.com>
+
+	* graph/tests/XOpsControl: Added new testsuites.
+
+	* graph/tests/ops/busackergowen.test: Changes like for
+	  edmondskarp.test, i.e. equivalent data leakage bugs (1.4-1.6).
+
+	* graph/tests/ops/edmondskarp.test: Ditto, plus conversion of a
+	  few tests to tcltest v2 form, to make the setup and cleanup of
+	  resources more explicit, fixing data leakage between tests
+	  (FF-1.5-1.9), and fixing test results of these. First actual bug
+	  fixes.
+
+	* graph/tests/ops/adjlist.test: Ditto, except this one is using a
+	  custom sorting command.	
+
+	* graph/tests/ops/floydwarshall.test: Ditto.
+	* graph/tests/ops/johnsons.test: Ditto.
+
+	* graph/tests/ops/bellmanford.test: New testsuite for bellman-ford
+	  algorithm. Changes compared to GSoC result:
+	  - Test names extended with 'treeimpl'.
+	  - Added dictsort to force a canonical ordering on the
+	    results.
+	  - Results updated to be in the canonical ordering.
+	  - Indentation, line-endings
+	  This passes the testsuite for both tcl and critcl
+	  implementations of struct::graph.
+
+	* graphops.tcl: Starting on the integration of Michal
+	* graphops.man: Antoniewski's (<antoniewsli@gmail.com>) work on
+	* graphops.test: graph operations for GSoC 2009. Added all
+	* graphops.man: operations, and their documentation. Version
+	* graphops.tcl: bumped to 0.10. The graphops package now requires
+	* graphops.test: Tcl 8.5. The testsuite requires tcltest v2.
+	* pkgIndex.tcl: Extended setup commands for upcoming new tests.
+	* graph/tests/XOpsSetup: The package and tests now require
+	* graph/tests/ops/adjmatrix.test: struct::tree, another package
+	* graph/tests/ops/bipartite.test: with acceleration via critcl.
+	* graph/tests/ops/bridge.test: Testsuite updated to switch its
+	* graph/tests/ops/componentof.test: implementations well. The
+	* graph/tests/ops/components.test: testsuites for the new
+	* graph/tests/ops/connected.test: commands will be added
+	* graph/tests/ops/cutvertex.test: incrementally over the next
+	* graph/tests/ops/diameter.test: days.
+	* graph/tests/ops/dijkstra.test:
+	* graph/tests/ops/distance.test:
+	* graph/tests/ops/eccentricity.test:
+	* graph/tests/ops/eulerpath.test:
+	* graph/tests/ops/eulertour.test:
+	* graph/tests/ops/kruskal.test:
+	* graph/tests/ops/maxmatching.test:
+	* graph/tests/ops/prim.test:
+	* graph/tests/ops/radius.test:
+	* graph/tests/ops/tarjan.test:
+
+2009-09-14  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* graph/filter.c: Fixed bug in 'arcs -adj' implementation. Wrong
+	* graph/tests/arcs.test: range check. Extended testsuite. Bumped
+	* ../tcllibc.tcl: version of tcllibc containing this fix to 0.3.5.
+
+	* graphops.tcl: Destroy internal temporary object on internal
+	* graphops.man: error. Bumped version to 0.9.2.
+	* pkgIndex.tcl:
+
+	* graph/tests/ops/eulerpath.test: Converted to tcltest v2 form.
+
+	* graph/tests/XOpsControl: Added sourcing of the support code
+	  needed when the graphops testsuite is run standalone.
+
+2009-07-10  Andreas Kupries  <andreask@activestate.com>
+
+	* graphops.tcl (::struct::graph::op::TarjanSub):
+	* graphops.tcl (::struct::graph::op::isCutVertex?):
+	* graphops.tcl (::struct::graph::op::Fleury):
+	* pkgIndex.tcl: Fixed [Bug 2815302]. Replaced a number of uses of
+	* graphops.man: struct::set subtract' with the proper 'struct::set
+	  exclude', as these places remove a single element, not a
+	  set. Use of the wrong method then breaks the code if elements
+	  (node/arc names) with whitespace in them is used. Bumped version
+	  to 0.9.1.
+
+2009-06-22  Andreas Kupries  <andreask@activestate.com>
+
+	* tree_tcl.tcl (::struct::tree::_swap): Removed code which flipped
+	  the attributes around. This is wrong. They stay with their
+	  nodes, per the node name. Thanks to Tom Krehbiel for the report.
+
+	* tree.testsuite : Extended with a test for method swap which
+	  checks that the attributes of the nodes are handled correctly.
+
+	* pkgIndex.tcl: Bumped to version 2.1.2.
+	* tree.tcl:
+
+2009-04-13  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	* struct_tree.man: Fixed typo.
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

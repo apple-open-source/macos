@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2000-2007, International Business Machines
+*   Copyright (C) 2000-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -30,10 +30,19 @@
 
 U_CAPI const char * U_EXPORT2
 u_skipWhitespace(const char *s) {
-    while(*s==' ' || *s=='\t') {
+    while(U_IS_INV_WHITESPACE(*s)) {
         ++s;
     }
     return s;
+}
+
+U_CAPI char * U_EXPORT2
+u_rtrim(char *s) {
+    char *end=uprv_strchr(s, 0);
+    while(s<end && U_IS_INV_WHITESPACE(*(end-1))) {
+        *--end = 0;
+    }
+    return end;
 }
 
 /*
@@ -69,7 +78,7 @@ u_parseDelimitedFile(const char *filename, char delimiter,
     char *start, *limit;
     int32_t i, length;
 
-    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+    if(U_FAILURE(*pErrorCode)) {
         return;
     }
 
@@ -90,12 +99,8 @@ u_parseDelimitedFile(const char *filename, char delimiter,
     }
 
     while(T_FileStream_readLine(file, line, sizeof(line))!=NULL) {
-        length=(int32_t)uprv_strlen(line);
-
         /* remove trailing newline characters */
-        while(length>0 && (line[length-1]=='\r' || line[length-1]=='\n')) {
-            line[--length]=0;
-        }
+        length=(int32_t)(u_rtrim(line)-line);
 
         /*
          * detect a line with # @missing:
@@ -118,7 +123,7 @@ u_parseDelimitedFile(const char *filename, char delimiter,
         limit=uprv_strchr(start, '#');
         if(limit!=NULL) {
             /* get white space before the pound sign */
-            while(limit>start && (*(limit-1)==' ' || *(limit-1)=='\t')) {
+            while(limit>start && U_IS_INV_WHITESPACE(*(limit-1))) {
                 --limit;
             }
 
@@ -185,7 +190,7 @@ u_parseCodePoints(const char *s,
     uint32_t value;
     int32_t count;
 
-    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+    if(U_FAILURE(*pErrorCode)) {
         return 0;
     }
     if(s==NULL || destCapacity<0 || (destCapacity>0 && dest==NULL)) {
@@ -202,7 +207,7 @@ u_parseCodePoints(const char *s,
 
         /* read one code point */
         value=(uint32_t)uprv_strtoul(s, &end, 16);
-        if(end<=s || (*end!=' ' && *end!='\t' && *end!=';' && *end!=0) || value>=0x110000) {
+        if(end<=s || (!U_IS_INV_WHITESPACE(*end) && *end!=';' && *end!=0) || value>=0x110000) {
             *pErrorCode=U_PARSE_ERROR;
             return 0;
         }
@@ -234,7 +239,7 @@ u_parseString(const char *s,
     uint32_t value;
     int32_t destLength;
 
-    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+    if(U_FAILURE(*pErrorCode)) {
         return 0;
     }
     if(s==NULL || destCapacity<0 || (destCapacity>0 && dest==NULL)) {
@@ -261,21 +266,22 @@ u_parseString(const char *s,
 
         /* read one code point */
         value=(uint32_t)uprv_strtoul(s, &end, 16);
-        if(end<=s || (*end!=' ' && *end!='\t' && *end!=';' && *end!=0) || value>=0x110000) {
+        if(end<=s || (!U_IS_INV_WHITESPACE(*end) && *end!=';' && *end!=0) || value>=0x110000) {
             *pErrorCode=U_PARSE_ERROR;
             return 0;
         }
 
         /* store the first code point */
-        if(destLength==0 && pFirst!=NULL) {
+        if(pFirst!=NULL) {
             *pFirst=value;
+            pFirst=NULL;
         }
 
         /* append it to the destination array */
-        if((destLength+UTF_CHAR_LENGTH(value))<=destCapacity) {
-            UTF_APPEND_CHAR_UNSAFE(dest, destLength, value);
+        if((destLength+U16_LENGTH(value))<=destCapacity) {
+            U16_APPEND_UNSAFE(dest, destLength, value);
         } else {
-            destLength+=UTF_CHAR_LENGTH(value);
+            destLength+=U16_LENGTH(value);
         }
 
         /* go to the following characters */
@@ -285,13 +291,14 @@ u_parseString(const char *s,
 
 /* read a range like start or start..end */
 U_CAPI int32_t U_EXPORT2
-u_parseCodePointRange(const char *s,
-                      uint32_t *pStart, uint32_t *pEnd,
-                      UErrorCode *pErrorCode) {
+u_parseCodePointRangeAnyTerminator(const char *s,
+                                   uint32_t *pStart, uint32_t *pEnd,
+                                   const char **terminator,
+                                   UErrorCode *pErrorCode) {
     char *end;
     uint32_t value;
 
-    if(pErrorCode==NULL || U_FAILURE(*pErrorCode)) {
+    if(U_FAILURE(*pErrorCode)) {
         return 0;
     }
     if(s==NULL || pStart==NULL || pEnd==NULL) {
@@ -299,15 +306,10 @@ u_parseCodePointRange(const char *s,
         return 0;
     }
 
-    s=u_skipWhitespace(s);
-    if(*s==';' || *s==0) {
-        *pErrorCode=U_PARSE_ERROR;
-        return 0;
-    }
-
     /* read the start code point */
+    s=u_skipWhitespace(s);
     value=(uint32_t)uprv_strtoul(s, &end, 16);
-    if(end<=s || (*end!=' ' && *end!='\t' && *end!='.' && *end!=';') || value>=0x110000) {
+    if(end<=s || value>=0x110000) {
         *pErrorCode=U_PARSE_ERROR;
         return 0;
     }
@@ -315,19 +317,15 @@ u_parseCodePointRange(const char *s,
 
     /* is there a "..end"? */
     s=u_skipWhitespace(end);
-    if(*s==';' || *s==0) {
+    if(*s!='.' || s[1]!='.') {
+        *terminator=end;
         return 1;
     }
-
-    if(*s!='.' || s[1]!='.') {
-        *pErrorCode=U_PARSE_ERROR;
-        return 0;
-    }
-    s+=2;
+    s=u_skipWhitespace(s+2);
 
     /* read the end code point */
     value=(uint32_t)uprv_strtoul(s, &end, 16);
-    if(end<=s || (*end!=' ' && *end!='\t' && *end!=';') || value>=0x110000) {
+    if(end<=s || value>=0x110000) {
         *pErrorCode=U_PARSE_ERROR;
         return 0;
     }
@@ -339,14 +337,25 @@ u_parseCodePointRange(const char *s,
         return 0;
     }
 
-    /* no garbage after that? */
-    s=u_skipWhitespace(end);
-    if(*s==';' || *s==0) {
-        return value-*pStart+1;
-    } else {
-        *pErrorCode=U_PARSE_ERROR;
-        return 0;
+    *terminator=end;
+    return value-*pStart+1;
+}
+
+U_CAPI int32_t U_EXPORT2
+u_parseCodePointRange(const char *s,
+                      uint32_t *pStart, uint32_t *pEnd,
+                      UErrorCode *pErrorCode) {
+    const char *terminator;
+    int32_t rangeLength=
+        u_parseCodePointRangeAnyTerminator(s, pStart, pEnd, &terminator, pErrorCode);
+    if(U_SUCCESS(*pErrorCode)) {
+        terminator=u_skipWhitespace(terminator);
+        if(*terminator!=';' && *terminator!=0) {
+            *pErrorCode=U_PARSE_ERROR;
+            return 0;
+        }
     }
+    return rangeLength;
 }
 
 U_CAPI int32_t U_EXPORT2

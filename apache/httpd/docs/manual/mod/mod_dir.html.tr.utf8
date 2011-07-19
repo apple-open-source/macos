@@ -135,7 +135,9 @@
     </ul>
 
     <p>Siz yine de bu etkiyi istemezseniz ve yukarıdaki sebepler de size uygun
-      değilse yönlendirmeyi şöyle kapatabilirsiniz:</p>
+      değilse yönlendirmeyi aşağıdaki gibi kapatabilirsiniz. Ancak, bunu yapmanın
+      olası bir güvenlik açığını da beraberinde getireceği dikkate
+      alınmalıdır.</p>
 
     <div class="example"><p><code>
         # Aşağıdaki güvenlik uyarısına bakınız!<br />
@@ -170,16 +172,41 @@
 <tr><th><a href="directive-dict.html#Override">Geçersizleştirme:</a></th><td>Indexes</td></tr>
 <tr><th><a href="directive-dict.html#Status">Durum:</a></th><td>Temel</td></tr>
 <tr><th><a href="directive-dict.html#Module">Modül:</a></th><td>mod_dir</td></tr>
+<tr><th><a href="directive-dict.html#Compatibility">Uyumluluk:</a></th><td>Apache HTTP Server 2.2.16 ve sonrası</td></tr>
 </table>
     <p>Dosya sisteminizdeki hiçbir şey ile eşleşmeyen URL'ler için bir
       eylemci atamak isterseniz bunı kullanın. Kullanmadığınız takdirde
       httpd bir HTTP 404 (Bulunamadı) döndürecektir. Örneğin</p>
     <div class="example"><p><code>
-        <code>FallbackResource default.php</code>
+        <code>FallbackResource /not-404.php</code>
     </code></p></div>
     <p>yönergesi ile varolmayan dosyalarla ilgili isteklere
-      <code>default.php</code> sayfası gönderilirken varolanlar ile
+      <code>/not-404.php</code> sayfası gönderilirken varolanlar ile
       ilgili istekler bundan etkilenmeyecektir.</p>
+    <p>Çoğunlukla, belli bir dizindeki mevcut dosya ve betiklere yapılan istekler
+      dışındaki tüm isteklere tek bir dosyanın veya belli bir kaynağın yanıt
+      vermesi istenir. Buna 'öndenetleyici' adı verilir.</p>
+    <p>httpd'nin eski sürümlerinde bunu sağlamak için
+      <code class="module"><a href="../mod/mod_rewrite.html">mod_rewrite</a></code> ve istenen dosya veya dizinin var olup
+      olmadığını sınamak için <code>-f</code> ve <code>-d</code> kullanımı
+      gerekirdi. Bu artık tek bir yapılandırma satırı ile
+      halledilebilmektedir.</p>
+    <div class="example"><p><code>
+        <code>FallbackResource /index.php</code>
+    </code></p></div>
+    <p>Resimler, css dosyaları gibi mevcut dosyalar normal olarak sunulmaya
+      devam edecektir.</p>
+    <p><em>http://example.com/blog/</em> gibi bir alt-URI isteğinde bu alt-URI
+      bir <var>yerel-url</var> olarak sunulabilir:</p>
+    <div class="example"><p><code>
+         <code>
+             &lt;Directory /web/example.com/htdocs/blog&gt;<br />
+            <span class="indent">
+                  FallbackResource /blog/index.php<br />
+             </span>
+             &lt;/Directory&gt;
+         </code>
+    </code></p></div>
 
 </div>
 </div>
@@ -189,6 +216,6 @@
 <a href="../ko/mod/mod_dir.html" hreflang="ko" rel="alternate" title="Korean">&nbsp;ko&nbsp;</a> |
 <a href="../tr/mod/mod_dir.html" title="Türkçe">&nbsp;tr&nbsp;</a></p>
 </div><div id="footer">
-<p class="apache">Copyright 2009 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
+<p class="apache">Copyright 2011 The Apache Software Foundation.<br /><a href="http://www.apache.org/licenses/LICENSE-2.0">Apache License, Version 2.0</a> altında lisanslıdır.</p>
 <p class="menu"><a href="../mod/">Modüller</a> | <a href="../mod/directives.html">Yönergeler</a> | <a href="../faq/">SSS</a> | <a href="../glossary.html">Terimler</a> | <a href="../sitemap.html">Site Haritası</a></p></div>
 </body></html>

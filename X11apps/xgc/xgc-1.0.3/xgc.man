@@ -1,0 +1,158 @@
+.\" Copyright (c) 1991  X Consortium
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation the rights to use, copy, modify, merge, publish,
+.\" distribute, sublicense, and/or sell copies of the Software, and to
+.\" permit persons to whom the Software is furnished to do so, subject to
+.\" the following conditions:
+.\"
+.\" The above copyright notice and this permission notice shall be included
+.\" in all copies or substantial portions of the Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS
+.\" OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.
+.\" IN NO EVENT SHALL THE X CONSORTIUM BE LIABLE FOR ANY CLAIM, DAMAGES OR
+.\" OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
+.\" ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+.\" OTHER DEALINGS IN THE SOFTWARE.
+.\"
+.\" Except as contained in this notice, the name of the X Consortium shall
+.\" not be used in advertising or otherwise to promote the sale, use or
+.\" other dealings in this Software without prior written authorization
+.\" from the X Consortium.
+.\"
+.\" Copyright (c) 2009, Oracle and/or its affiliates. All rights reserved.
+.\"
+.\" Permission is hereby granted, free of charge, to any person obtaining a
+.\" copy of this software and associated documentation files (the "Software"),
+.\" to deal in the Software without restriction, including without limitation
+.\" the rights to use, copy, modify, merge, publish, distribute, sublicense,
+.\" and/or sell copies of the Software, and to permit persons to whom the
+.\" Software is furnished to do so, subject to the following conditions:
+.\"
+.\" The above copyright notice and this permission notice (including the next
+.\" paragraph) shall be included in all copies or substantial portions of the
+.\" Software.
+.\"
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+.\" IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+.\" FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL
+.\" THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+.\" LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+.\" FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
+.\" DEALINGS IN THE SOFTWARE.
+.\"
+.TH XGC 1 __xorgversion__
+.SH NAME
+xgc - X graphics demo
+.SH SYNOPSIS
+.ta 8n
+\fBxgc\fP [-\fItoolkitoption\fP ...]
+.SH DESCRIPTION
+The
+.I xgc
+program demonstrates various features of the X graphics primitives.
+In X, most of the details about the graphics to be generated are
+stored in a resource called a graphics context (GC).  The
+.B xgc
+program provides a user interface for setting various GC components.
+Pressing the "Run" button causes these results to be displayed in
+the large drawing window on the right.  Timing information is
+displayed in the window immediately below.
+.PP
+The items in the upper left hand window work as follows:
+.PP
+.I Function
+\- specify the logical function with which primitives
+will drawn.  The most usual setting is "set", i.e. simply to render
+pixels without regard to what has been drawn before.
+.PP
+.I LineStyle
+\- specify whether lines should be drawn solid in foreground,
+dashed in foreground or alternating foreground and background.
+.PP
+.I CapStyle
+\- specify the appearance of the ends of a line.
+.PP
+.I JoinStyle
+\- specify the appearance of joints between consecutive
+lines drawn within a single graphics primitive.
+.PP
+.I FillStyle
+\- specify whether lines, text and fill requests are
+solid, tiled with a pixmap or stippled.
+.PP
+.I FillRule
+\- specifies the rule used to fill polygons.  The EvenOdd
+rule means that if areas overlap an odd number of times, they are not
+drawn.  Winding rule means that overlapping areas are always filled,
+regardless of how many times they overlap.
+.PP
+.I ArcMode
+\- specifies the rule for filling of arcs.  The boundary
+of the arc is either a Chord or two radii.
+.PP
+.I planemask
+\- specifies which planes of the drawing window are
+modified.  By default, all planes are modified.
+.PP
+.I dashlist
+\- specifies a pattern to be used when drawing dashed lines.
+.PP
+.I Line Width
+\- specifies the width in pixels of lines to be drawn.
+Zero means to draw using the server's fastest algorithm with a line width of
+one pixel.
+.PP
+.I Font
+\- specifies the font to be used for text primitives.
+.PP
+.I Foreground
+and
+.I Background
+\- specify the pixel values to be
+applied when drawing primitives.
+The Foreground value is used as the
+pixel value for set bits in the source in all primitives.
+The Background value is used as the
+pixel value for unset bits in the source when using Copy Plane, drawing
+lines with LineStyle of DoubleDash and filling with FillStyle of
+OpaqueStippled.
+.PP
+.I Percentage of Test
+\- scrollbar permits specifying only
+a percentage of the test to be run.  The number at the left indicates
+the current setting, which defaults to 100%.
+.sp
+The window labeled "Test" permits choice of one a number of graphics
+primitive tests, including Points, Segments, Lines, Arcs and Filled Arcs,
+8-bit Text and Image Text, Rectangles and Filled Rectangles, Image draws,
+as well as Copy Plane and Copy Area.
+.PP
+The window to the right of this has buttons which permit record/playback
+of the primitives rendered.
+.SH OPTIONS
+.I Xgc
+accepts all of the standard X Toolkit command line options.
+.SH X DEFAULTS
+This program accepts the usual defaults for toolkit applications.
+.SH ENVIRONMENT
+.PP
+.TP 8
+.B DISPLAY
+to get the default host and display number.
+.TP 8
+.B XENVIRONMENT
+to get the name of a resource file that overrides the global resources
+stored in the RESOURCE_MANAGER property.
+.SH "SEE ALSO"
+X(__miscmansuffix__)
+.SH BUGS
+This program isn't really finished yet, but it probably never will be,
+since it only demonstrates the original X11 core protocol rendering
+operations, which few modern programs use anymore.
+.SH AUTHORS
+Dan Schmidt, MIT

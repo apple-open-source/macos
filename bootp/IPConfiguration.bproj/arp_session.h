@@ -1,9 +1,5 @@
-
-#ifndef _S_ARP_SESSION_H
-#define _S_ARP_SESSION_H
-
 /*
- * Copyright (c) 2000 - 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -36,19 +32,25 @@
  * - created
  */
 
+
+#ifndef _S_ARP_SESSION_H
+#define _S_ARP_SESSION_H
+
 #include "FDSet.h"
 #include "interfaces.h"
 
 #define ARP_PROBE_COUNT				3
-#define ARP_GRATUITOUS_COUNT			1
+#define ARP_GRATUITOUS_COUNT			2
 #define ARP_RETRY_SECS				0
-#define ARP_RETRY_USECS				400000
+#define ARP_RETRY_USECS				320000
 #define ARP_DETECT_COUNT			3
 #define ARP_DETECT_RETRY_SECS			0
 #define ARP_DETECT_RETRY_USECS			15000
 #define ARP_CONFLICT_RETRY_COUNT		2
 #define ARP_CONFLICT_RETRY_DELAY_SECS		0
 #define ARP_CONFLICT_RETRY_DELAY_USECS		750000
+#define ARP_RESOLVE_RETRY_SECS			0
+#define ARP_RESOLVE_RETRY_USECS			320000
 
 typedef struct arp_session_values {
     int * 		probe_count;
@@ -58,6 +60,7 @@ typedef struct arp_session_values {
     struct timeval * 	detect_interval;
     int *		conflict_retry_count;
     struct timeval *	conflict_delay_interval;
+    struct timeval * 	resolve_interval;
 } arp_session_values_t;
 
 typedef struct arp_client arp_client_t;
@@ -100,8 +103,7 @@ typedef boolean_t (arp_our_address_func_t)(interface_t * if_p,
 typedef struct arp_session arp_session_t;
 
 arp_session_t *
-arp_session_init(FDSet_t * readers,
-		 arp_our_address_func_t * func,
+arp_session_init(arp_our_address_func_t * func,
 		 arp_session_values_t * values);
 void
 arp_session_free(arp_session_t * * session_p);
@@ -148,7 +150,8 @@ arp_client_resolve(arp_client_t * client,
 void
 arp_client_detect(arp_client_t * client,
 		  arp_result_func_t * func, void * arg1, void * arg2,
-		  const arp_address_info_t * list, int list_count);
+		  const arp_address_info_t * list, int list_count,
+		  boolean_t resolve);
 void
 arp_client_cancel(arp_client_t * client);
 
@@ -158,4 +161,10 @@ arp_client_defend(arp_client_t * client, struct in_addr our_ip);
 boolean_t
 arp_client_is_active(arp_client_t * client);
 
-#endif _S_ARP_SESSION_H
+void
+arp_client_announce(arp_client_t * client,
+                    arp_result_func_t * func, void * arg1, void * arg2,
+                    struct in_addr sender_ip, struct in_addr target_ip,
+                    boolean_t skip);
+
+#endif /* _S_ARP_SESSION_H */

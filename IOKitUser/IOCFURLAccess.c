@@ -476,6 +476,9 @@ static CFMutableArrayRef _IOContentsOfDirectory(CFAllocatorRef alloc, char path[
 #define CF_OPENFLGS (0)
 #define thread_set_errno(V) do {errno = (V);} while (0)
 
+/* Note: _IOReadBytesFromFile is called from PowerManagament project daemon powerd
+ *   e.g. it has references outside of this file.
+ */
 Boolean _IOReadBytesFromFile(CFAllocatorRef alloc, const char *path, void **bytes, CFIndex *length, CFIndex maxLength) {
     // alloc must be a valid allocator.
     // maxLength is the number of bytes desired, or 0 if the whole file is desired regardless of length.

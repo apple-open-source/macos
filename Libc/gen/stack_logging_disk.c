@@ -187,9 +187,10 @@ static const char *stack_log_file_base_name = "stack-logs.";
 static const char *stack_log_file_suffix = ".index";
 static const char *stack_log_link_suffix = ".link";
 
-static char stack_log_location[PATH_MAX];
-static char stack_log_reference_file[PATH_MAX];
-static char index_file_path[PATH_MAX];
+static void *stack_log_path_buffers = NULL;
+static char *stack_log_location = NULL;
+static char *stack_log_reference_file = NULL;
+char *__stack_log_file_path__ = NULL;
 static int index_file_descriptor = -1;
 
 // for accessing remote log files
@@ -387,7 +388,42 @@ append_int(char * filename, pid_t pid, size_t maxLength)
 	}
 }
 
-// If successful, returns path to log file that was created.  Otherwise returns NULL.
+/*
+ * Check various temporary directory options starting with _PATH_TMP and use confstr.
+ * Allocating and releasing target buffer is the caller's responsibility.
+ */
+static bool
+get_writeable_temp_dir(char* target)
+{
+	if (!target) return false;
+	if (-1 != access(_PATH_TMP, W_OK)) {
+		strlcpy(target, _PATH_TMP, (size_t)PATH_MAX);
+		return true;
+	}
+	size_t n = confstr(_CS_DARWIN_USER_TEMP_DIR, target, (size_t) PATH_MAX);
+	if ((n > 0) && (n < PATH_MAX)) return true;
+	n = confstr(_CS_DARWIN_USER_CACHE_DIR, target, (size_t) PATH_MAX);
+	if ((n > 0) && (n < PATH_MAX)) return true;
+	/* No writeable tmp directory found. Maybe shd try /private/var/tmp for device here ... */
+	*target = '\0';
+	return false;
+}
+
+/*
+ * If successful, returns path to log file that was created, otherwise NULL.
+ *
+ * The log could be in one of 3 places (in decreasing order of preference)
+ *
+ * 1)  value of environment variable MallocStackLoggingDirectory
+ * 2)  the temp directory /tmp for desktop apps and internal apps on devices, or
+ * 3)  the sandbox location + tmp/ in case of 3rd party apps on the device.
+ *
+ * For 1 and 3, we create a .link file with the path of the file. We prefer to
+ * create this file in /tmp, but if we are unable to (device 3rd party case),
+ * we create it in the same location as the .index file and issue a message
+ * in syslog asking for it to be copied to /tmp to enable tools.
+ *
+ */
 static char *
 create_log_file(void)
 {
@@ -395,69 +431,110 @@ create_log_file(void)
 	const char *progname = getprogname();
 	char *created_log_location = NULL;
 
+	if (stack_log_path_buffers == NULL) {
+		/*
+		 * on first use, allocate buffers directly from the OS without
+		 * using malloc
+		 */
+
+		stack_log_path_buffers = allocate_pages((uint64_t)round_page(3*PATH_MAX));
+		if (stack_log_path_buffers == NULL) {
+			_malloc_printf(ASL_LEVEL_INFO, "unable to allocate memory for path buffers\n");
+			return NULL;
+		}
+		
+		stack_log_location = &((char *)stack_log_path_buffers)[0*PATH_MAX];
+		stack_log_reference_file = &((char *)stack_log_path_buffers)[1*PATH_MAX];
+		__stack_log_file_path__ = &((char *)stack_log_path_buffers)[2*PATH_MAX];
+	}
+	
 	// WARNING! use of snprintf can induce malloc() calls 
 	bool use_alternate_location = false;
 	char *evn_log_directory = getenv("MallocStackLoggingDirectory");
+	size_t stack_log_len;
 	if (evn_log_directory && *evn_log_directory) {
 		use_alternate_location = true;
 		strlcpy(stack_log_location, evn_log_directory, (size_t)PATH_MAX);
-		size_t evn_log_len = strlen(stack_log_location);
-		// add the '/' only if it's not already there.
-		if (evn_log_directory[evn_log_len-1] != '/') {
-			strlcat(stack_log_location, "/", (size_t)PATH_MAX);
+	}
+	if (!use_alternate_location || (access(stack_log_location, W_OK) == -1)) {
+		if (!get_writeable_temp_dir(stack_log_location)) {
+			_malloc_printf(ASL_LEVEL_INFO, "No writeable tmp dir\n");
+			return NULL;
 		}
-	} else {
-		strlcpy(stack_log_location, _PATH_TMP, (size_t)PATH_MAX);	
+		if (0 != strcmp(stack_log_location, _PATH_TMP))
+			use_alternate_location = true;
+	}
+	stack_log_len = strlen(stack_log_location);
+	// add the '/' only if it's not already there.
+	if (stack_log_location[stack_log_len-1] != '/') {
+		strlcat(stack_log_location, "/", (size_t)PATH_MAX);
+		++stack_log_len;
 	}
 	
-	strlcat(stack_log_location, stack_log_file_base_name, (size_t)PATH_MAX);
-	append_int(stack_log_location, pid, (size_t)PATH_MAX);
+	strlcpy(__stack_log_file_path__, stack_log_location, (size_t)PATH_MAX);
+	
+	strlcat(__stack_log_file_path__, stack_log_file_base_name, (size_t)PATH_MAX);
+	append_int(__stack_log_file_path__, pid, (size_t)PATH_MAX);
 	if (progname && progname[0] != '\0') {
-		strlcat(stack_log_location, ".", (size_t)PATH_MAX);
-		strlcat(stack_log_location, progname, (size_t)PATH_MAX);
+		strlcat(__stack_log_file_path__, ".", (size_t)PATH_MAX);
+		strlcat(__stack_log_file_path__, progname, (size_t)PATH_MAX);
 	}
-	if (!use_alternate_location) strlcat(stack_log_location, ".XXXXXX", (size_t)PATH_MAX);
-	strlcat(stack_log_location, stack_log_file_suffix, (size_t)PATH_MAX);
+	if (!use_alternate_location) strlcat(__stack_log_file_path__, ".XXXXXX", (size_t)PATH_MAX);
+	strlcat(__stack_log_file_path__, stack_log_file_suffix, (size_t)PATH_MAX);
+	
+	// Securely create the log file.
+	if ((index_file_descriptor = mkstemps(__stack_log_file_path__, (int)strlen(stack_log_file_suffix))) != -1) {
+		_malloc_printf(ASL_LEVEL_INFO, "stack logs being written into %s\n", __stack_log_file_path__);
+		created_log_location = __stack_log_file_path__;
+	} else {
+		_malloc_printf(ASL_LEVEL_INFO, "unable to create stack logs at %s\n", stack_log_location);
+		if (use_alternate_location) delete_logging_file(stack_log_reference_file);
+		stack_log_reference_file[0] = '\0';
+		stack_log_location[0] = '\0';
+		__stack_log_file_path__[0] = '\0';
+		created_log_location = NULL;
+		return created_log_location;
+	}
 	
 	// in the case where the user has specified an alternate location, drop a reference file
 	// in /tmp with the suffix 'stack_log_link_suffix' (".link") and save the path of the
 	// stack logging file there.
+	bool use_alternate_link_location = false;
 	if (use_alternate_location) {
 		strlcpy(stack_log_reference_file, _PATH_TMP, (size_t)PATH_MAX);
+		if (access(stack_log_reference_file, W_OK) == -1) {
+			strlcpy(stack_log_reference_file, stack_log_location, (size_t)PATH_MAX);
+			use_alternate_link_location = true;
+		}
 		strlcat(stack_log_reference_file, stack_log_file_base_name, (size_t)PATH_MAX);
 		append_int(stack_log_reference_file, pid, (size_t)PATH_MAX);
 		if (progname && progname[0] != '\0') {
 			strlcat(stack_log_reference_file, ".", (size_t)PATH_MAX);
 			strlcat(stack_log_reference_file, progname, (size_t)PATH_MAX);
 		}
+		if (!use_alternate_link_location)
+		strlcat(stack_log_reference_file, ".XXXXXX", (size_t)PATH_MAX);
 		strlcat(stack_log_reference_file, ".XXXXXX", (size_t)PATH_MAX);
 		strlcat(stack_log_reference_file, stack_log_link_suffix, (size_t)PATH_MAX);
 		
 		int link_file_descriptor = mkstemps(stack_log_reference_file, (int)strlen(stack_log_link_suffix));
 		if (link_file_descriptor == -1) {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to create stack reference file at %s\n", stack_log_location);
-			return NULL;
+			_malloc_printf(ASL_LEVEL_INFO, "unable to create stack reference file %s at %s\n",
+				stack_log_reference_file, stack_log_location);
+		} else {
+			ssize_t written = write(link_file_descriptor, __stack_log_file_path__, strlen(__stack_log_file_path__));
+			if (written < (ssize_t)strlen(__stack_log_file_path__)) {
+				_malloc_printf(ASL_LEVEL_INFO, "unable to write to stack reference file %s at %s\n",
+					stack_log_reference_file, stack_log_location);
+			} else {
+				const char *description_string = "\n(This is a reference file to the stack logs at the path above.)\n";
+				write(link_file_descriptor, description_string, strlen(description_string));
 		}
-		ssize_t written = write(link_file_descriptor, stack_log_location, strlen(stack_log_location));
-		if (written < (ssize_t)strlen(stack_log_location)) {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to write to stack reference file at %s\n", stack_log_location);
-			return NULL;
 		}
-		const char *description_string = "\n(This is a reference file to the stack logs at the path above.)\n";
-		write(link_file_descriptor, description_string, strlen(description_string));
 		close(link_file_descriptor);
 	}
-	
-	// Securely create the log file.
-	if ((index_file_descriptor = mkstemps(stack_log_location, (int)strlen(stack_log_file_suffix))) != -1) {
-		_malloc_printf(ASL_LEVEL_INFO, "stack logs being written into %s\n", stack_log_location);
-		created_log_location = stack_log_location;
-	} else {
-		_malloc_printf(ASL_LEVEL_INFO, "unable to create stack logs at %s\n", stack_log_location);
-		if (use_alternate_location) delete_logging_file(stack_log_reference_file);
-		stack_log_reference_file[0] = '\0';
-		stack_log_location[0] = '\0';
-		created_log_location = NULL;
+	if (use_alternate_link_location) {
+		_malloc_printf(ASL_LEVEL_INFO, "Please issue: cp %s %s\n", stack_log_reference_file, _PATH_TMP);
 	}
 	return created_log_location;
 }
@@ -520,12 +597,12 @@ delete_logging_file(char *log_location)
 static void
 delete_log_files(void)
 {
-	if (stack_log_location && stack_log_location[0]) {
-		if (delete_logging_file(stack_log_location) == 0) {
-			_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", stack_log_location);
-			index_file_path[0] = '\0';
+	if (__stack_log_file_path__ && __stack_log_file_path__[0]) {
+		if (delete_logging_file(__stack_log_file_path__) == 0) {
+			_malloc_printf(ASL_LEVEL_INFO, "stack logs deleted from %s\n", __stack_log_file_path__);
+			__stack_log_file_path__[0] = '\0';
 		} else {
-			_malloc_printf(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", stack_log_location);
+			_malloc_printf(ASL_LEVEL_INFO, "unable to delete stack logs from %s\n", __stack_log_file_path__);
 		}
 	}
 	if (stack_log_reference_file && stack_log_reference_file[0]) {
@@ -632,7 +709,7 @@ robust_write(int fd, const void *buf, size_t nbyte) {
 
 		// descriptor was closed on us. We need to reopen it
 		if (fd == index_file_descriptor) {
-			file_to_reopen = index_file_path;
+			file_to_reopen = __stack_log_file_path__;
 			fd_to_reset = &index_file_descriptor;
 		} else {
 			// We don't know about this file. Return (and abort()).
@@ -687,7 +764,8 @@ flush_data(void)
 	while (remaining > 0) {
 		written = robust_write(index_file_descriptor, p, remaining);
 		if (written == -1) {
-			_malloc_printf(ASL_LEVEL_INFO, "Unable to write to stack logging file %s (%s)\n", index_file_path, strerror(errno));
+			_malloc_printf(ASL_LEVEL_INFO, "Unable to write to stack logging file %s (%s)\n",
+				__stack_log_file_path__, strerror(errno));
 			disable_stack_logging();
 			return;
 		}
@@ -726,7 +804,7 @@ prepare_to_log_stacks(void)
 		pre_write_buffers = (stack_buffer_shared_memory*)mmap(0, full_shared_mem_size, PROT_READ | PROT_WRITE, MAP_SHARED, shmid, (off_t)0);
 		close(shmid);
 		
-		if (!pre_write_buffers) {
+		if (MAP_FAILED == pre_write_buffers) {
 			_malloc_printf(ASL_LEVEL_INFO, "error mapping in shared memory for disk-based stack logging output buffers\n");
 			disable_stack_logging();
 			return;
@@ -1045,7 +1123,7 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 			close(shmid);
 		}
 		
-		if (shmid < 0 || cache->shmem == NULL) {
+		if (shmid < 0 || cache->shmem == MAP_FAILED) {
 			// failed to connect to the shared memory region; warn and continue.
 			_malloc_printf(ASL_LEVEL_INFO, "warning: unable to connect to remote process' shared memory; allocation histories may not be up-to-date.\n");
 		}
@@ -1087,7 +1165,7 @@ update_cache_for_file_streams(remote_task_file_streams *descriptors)
 	}
 	
 	// if a snapshot is necessary, memcpy from remote frozen process' memory 
-	// note: there were two ways to do this ‚Äì spin lock or suspend. suspend allows us to
+	// note: there were two ways to do this - spin lock or suspend. suspend allows us to
 	// analyze processes even if they were artificially suspended. with a lock, there'd be
 	// worry that the target was suspended with the lock taken.
 	if (update_snapshot) {
@@ -1206,8 +1284,10 @@ destroy_cache_for_file_streams(remote_task_file_streams *descriptors)
 // In the stack log analysis process, find the stack logging files for target process <pid>
 // by scanning the temporary directory for directory entries with names of the form "stack-logs.<pid>."
 // If we find such a directory then open the stack logging files in there.
+// We might also have been passed the file path if the client first read it from __stack_log_file_path__
+// global variable in the target task, as will be needed if the .link cannot be put in /tmp.
 static void
-open_log_files(pid_t pid, remote_task_file_streams *this_task_streams)
+open_log_files(pid_t pid, char* file_path, remote_task_file_streams *this_task_streams)
 {
 	DIR *dp;
 	struct dirent *entry;
@@ -1215,6 +1295,11 @@ open_log_files(pid_t pid, remote_task_file_streams *this_task_streams)
 	char pathname[PATH_MAX];
 
 	reap_orphaned_log_files(false);		// reap any left-over log files (for non-existant processes, but not for this analysis process)
+
+	if (file_path != NULL) {
+		this_task_streams->index_file_stream = fopen(file_path, "r");
+		return;
+	}
 
 	if ((dp = opendir(_PATH_TMP)) == NULL) {
 		return;
@@ -1242,7 +1327,7 @@ open_log_files(pid_t pid, remote_task_file_streams *this_task_streams)
 }	
 
 static remote_task_file_streams*
-retain_file_streams_for_task(task_t task)
+retain_file_streams_for_task(task_t task, char* file_path)
 {
 	if (task == MACH_PORT_NULL) return NULL;
 	
@@ -1283,7 +1368,7 @@ retain_file_streams_for_task(task_t task)
 	
 	remote_task_file_streams *this_task_streams = &remote_fds[next_remote_task_fd];
 	
-	open_log_files(pid, this_task_streams);
+	open_log_files(pid, file_path, this_task_streams);
 
 	// check if opens failed
 	if (this_task_streams->index_file_stream == NULL) {
@@ -1333,10 +1418,25 @@ release_file_streams_for_task(task_t task)
 
 #pragma mark - extern
 
+//
+// The following is used by client tools like malloc_history and Instruments to pass along the path
+// of the index file as read from the target task's __stack_log_file_path__ variable (set in this file)
+// Eventually, at a suitable point, this additional argument should just be added to the other APIs below.
+//
+kern_return_t
+__mach_stack_logging_set_file_path(task_t task, char* file_path)
+{
+	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, file_path);
+	if (remote_fd == NULL) {
+		return KERN_FAILURE;
+	}
+	return KERN_SUCCESS;
+}
+
 kern_return_t
 __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count)
 {
-	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task);
+	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, NULL);
 	if (remote_fd == NULL) {
 		return KERN_FAILURE;
 	}
@@ -1416,7 +1516,7 @@ __mach_stack_logging_get_frames(task_t task, mach_vm_address_t address, mach_vm_
 kern_return_t
 __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, void enumerator(mach_stack_logging_record_t, void *), void *context)
 {
-	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task);
+	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, NULL);
 	if (remote_fd == NULL) {
 		return KERN_FAILURE;
 	}
@@ -1499,7 +1599,7 @@ __mach_stack_logging_enumerate_records(task_t task, mach_vm_address_t address, v
 kern_return_t
 __mach_stack_logging_frames_for_uniqued_stack(task_t task, uint64_t stack_identifier, mach_vm_address_t *stack_frames_buffer, uint32_t max_stack_frames, uint32_t *count)
 {
-	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task);
+	remote_task_file_streams *remote_fd = retain_file_streams_for_task(task, NULL);
 	if (remote_fd == NULL) return KERN_FAILURE;
 
 	__unwind_stack_from_table_index(&remote_fd->cache->uniquing_table, stack_identifier, stack_frames_buffer, count, max_stack_frames);	
@@ -1531,9 +1631,9 @@ main()
   fprintf(stderr, "sizeof stack_log_file_base_name: %lu\n", sizeof(stack_log_file_base_name)); total_globals += sizeof(stack_log_file_base_name);
   fprintf(stderr, "sizeof stack_log_file_suffix: %lu\n", sizeof(stack_log_file_suffix)); total_globals += sizeof(stack_log_file_suffix);
   fprintf(stderr, "sizeof stack_log_link_suffix: %lu\n", sizeof(stack_log_link_suffix)); total_globals += sizeof(stack_log_link_suffix);
-  fprintf(stderr, "sizeof stack_log_location: %lu\n", sizeof(stack_log_location)); total_globals += sizeof(stack_log_location);
-  fprintf(stderr, "sizeof stack_log_reference_file: %lu\n", sizeof(stack_log_reference_file)); total_globals += sizeof(stack_log_reference_file);
-  fprintf(stderr, "sizeof index_file_path: %lu\n", sizeof(index_file_path)); total_globals += sizeof(index_file_path);
+  fprintf(stderr, "sizeof stack_log_location: %lu\n", (size_t)PATH_MAX); total_globals += (size_t)PATH_MAX;
+  fprintf(stderr, "sizeof stack_log_reference_file: %lu\n", (size_t)PATH_MAX); total_globals += (size_t)PATH_MAX;
+  fprintf(stderr, "sizeof __stack_log_file_path__ (index_file_path): %lu\n", (size_t)PATH_MAX); total_globals += (size_t)PATH_MAX;
   fprintf(stderr, "sizeof index_file_descriptor: %lu\n", sizeof(index_file_descriptor)); total_globals += sizeof(index_file_descriptor);
   fprintf(stderr, "sizeof remote_fds: %lu\n", sizeof(remote_fds)); total_globals += sizeof(remote_fds);
   fprintf(stderr, "sizeof next_remote_task_fd: %lu\n", sizeof(next_remote_task_fd)); total_globals += sizeof(next_remote_task_fd);

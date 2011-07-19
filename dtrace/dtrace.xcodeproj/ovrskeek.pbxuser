@@ -1,0 +1,245 @@
+// !$*UTF8*$!
+{
+	08FB7793FE84155DC02AAC07 /* Project object */ = {
+		activeBuildConfigurationName = Debug;
+		activeExecutable = 184F0E0E12A9AB72005AAC9C /* dtrace */;
+		activeTarget = D21C2E0B0A2E8FF8002F65B9 /* All (Aggregate) */;
+		codeSenseManager = 184F0E1E12A9AB7E005AAC9C /* Code sense */;
+		executables = (
+			184F0E0E12A9AB72005AAC9C /* dtrace */,
+			184F0E0F12A9AB72005AAC9C /* ctfconvert */,
+			184F0E1012A9AB72005AAC9C /* ctfdump */,
+			184F0E1112A9AB72005AAC9C /* ctfmerge */,
+			184F0E1212A9AB72005AAC9C /* plockstat */,
+		);
+		perUserDictionary = {
+			PBXConfiguration.PBXFileTableDataSource3.PBXFileTableDataSource = {
+				PBXFileTableDataSourceColumnSortingDirectionKey = "-1";
+				PBXFileTableDataSourceColumnSortingKey = PBXFileDataSource_Filename_ColumnID;
+				PBXFileTableDataSourceColumnWidthsKey = (
+					20,
+					1450,
+					20,
+					48.16259765625,
+					43,
+					43,
+					20,
+				);
+				PBXFileTableDataSourceColumnsKey = (
+					PBXFileDataSource_FiletypeID,
+					PBXFileDataSource_Filename_ColumnID,
+					PBXFileDataSource_Built_ColumnID,
+					PBXFileDataSource_ObjectSize_ColumnID,
+					PBXFileDataSource_Errors_ColumnID,
+					PBXFileDataSource_Warnings_ColumnID,
+					PBXFileDataSource_Target_ColumnID,
+				);
+			};
+			PBXPerProjectTemplateStateSaveDate = 313109363;
+			PBXWorkspaceStateSaveDate = 313109363;
+		};
+		sourceControlManager = 184F0E1D12A9AB7E005AAC9C /* Source Control */;
+		userBuildSettings = {
+		};
+	};
+	183C01C70F80B95C0061FD4F /* dtrace_dyld */ = {
+		activeExec = 0;
+	};
+	184F0E0E12A9AB72005AAC9C /* dtrace */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		dataTipCustomDataFormattersEnabled = 1;
+		dataTipShowTypeColumn = 1;
+		dataTipSortType = 0;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = dtrace;
+		showTypeColumn = 0;
+		sourceDirectories = (
+		);
+	};
+	184F0E0F12A9AB72005AAC9C /* ctfconvert */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		dataTipCustomDataFormattersEnabled = 1;
+		dataTipShowTypeColumn = 1;
+		dataTipSortType = 0;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = ctfconvert;
+		showTypeColumn = 0;
+		sourceDirectories = (
+		);
+	};
+	184F0E1012A9AB72005AAC9C /* ctfdump */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		dataTipCustomDataFormattersEnabled = 1;
+		dataTipShowTypeColumn = 1;
+		dataTipSortType = 0;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = ctfdump;
+		showTypeColumn = 0;
+		sourceDirectories = (
+		);
+	};
+	184F0E1112A9AB72005AAC9C /* ctfmerge */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		dataTipCustomDataFormattersEnabled = 1;
+		dataTipShowTypeColumn = 1;
+		dataTipSortType = 0;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = ctfmerge;
+		showTypeColumn = 0;
+		sourceDirectories = (
+		);
+	};
+	184F0E1212A9AB72005AAC9C /* plockstat */ = {
+		isa = PBXExecutable;
+		activeArgIndices = (
+		);
+		argumentStrings = (
+		);
+		autoAttachOnCrash = 1;
+		breakpointsEnabled = 0;
+		configStateDict = {
+		};
+		customDataFormattersEnabled = 1;
+		dataTipCustomDataFormattersEnabled = 1;
+		dataTipShowTypeColumn = 1;
+		dataTipSortType = 0;
+		debuggerPlugin = GDBDebugging;
+		disassemblyDisplayState = 0;
+		enableDebugStr = 1;
+		environmentEntries = (
+		);
+		executableSystemSymbolLevel = 0;
+		executableUserSymbolLevel = 0;
+		libgmallocEnabled = 0;
+		name = plockstat;
+		showTypeColumn = 0;
+		sourceDirectories = (
+		);
+	};
+	184F0E1D12A9AB7E005AAC9C /* Source Control */ = {
+		isa = PBXSourceControlManager;
+		fallbackIsa = XCSourceControlManager;
+		isSCMEnabled = 0;
+		scmConfiguration = {
+			repositoryNamesForRoots = {
+				"" = "";
+			};
+		};
+	};
+	184F0E1E12A9AB7E005AAC9C /* Code sense */ = {
+		isa = PBXCodeSenseManager;
+		indexTemplatePath = "";
+	};
+	6EBC975F099BFB2C0001019C /* libctf.a */ = {
+		activeExec = 0;
+	};
+	6EBC977D099BFB670001019C /* libelf.a */ = {
+		activeExec = 0;
+	};
+	6EBC97ED099BFB9E0001019C /* libdtrace.so */ = {
+		activeExec = 0;
+	};
+	7EE82FAD0BB094BF0037B667 /* plockstat */ = {
+		activeExec = 0;
+		executables = (
+			184F0E1212A9AB72005AAC9C /* plockstat */,
+		);
+	};
+	8DD76FA90486AB0100D96B5E /* dtrace */ = {
+		activeExec = 0;
+		executables = (
+			184F0E0E12A9AB72005AAC9C /* dtrace */,
+		);
+	};
+	D21C2E0B0A2E8FF8002F65B9 /* All (Aggregate) */ = {
+		activeExec = 0;
+	};
+	D23490E60B617D3200CAA3F1 /* DTTk */ = {
+		activeExec = 0;
+	};
+	D24889310A2CC091000B141C /* ctfmerge */ = {
+		activeExec = 0;
+		executables = (
+			184F0E1112A9AB72005AAC9C /* ctfmerge */,
+		);
+	};
+	D258E51C0A2CAA7A00B50A45 /* ctfdump */ = {
+		activeExec = 0;
+		executables = (
+			184F0E1012A9AB72005AAC9C /* ctfdump */,
+		);
+	};
+	D2DF085C0A683FE100384A72 /* libdwarf.a */ = {
+		activeExec = 0;
+	};
+	D2E5F03209D0DB2B0035AE2D /* ctfconvert */ = {
+		activeExec = 0;
+		executables = (
+			184F0E0F12A9AB72005AAC9C /* ctfconvert */,
+		);
+	};
+}

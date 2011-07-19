@@ -1,4 +1,31 @@
 /*
+ * Copyright (c) 2009 Apple Inc. All rights reserved.
+ *
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
+ * 
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. The rights granted to you under the License
+ * may not be used to create, or enable the creation or redistribution of,
+ * unlawful or unlicensed copies of an Apple operating system, or to
+ * circumvent, violate, or enable the circumvention or violation of, any
+ * terms of an Apple operating system software license agreement.
+ * 
+ * Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ */
+/*
  * @OSF_COPYRIGHT@
  */
 /* 
@@ -50,52 +77,68 @@
 #define streql(a, b)		(strcmp((a), (b)) == 0)
 #define strneql(a, b, n)	(strncmp((a), (b), (n)) == 0)
 
-static void printzone();
-static void colprintzone();
-static void colprintzoneheader();
-static void printk();
-static int strnlen();
-static boolean_t substr();
+static void usage(void);
+static void printzone(mach_zone_name_t *, task_zone_info_t *);
+static void colprintzone(mach_zone_name_t *, task_zone_info_t *);
+static int  find_deltas(mach_zone_name_t *, task_zone_info_t *, task_zone_info_t *, char *, int, int);
+static void colprintzoneheader(void);
+static void printk(const char *, int);
+static boolean_t substr(const char *a, int alen, const char *b, int blen);
 
 static char *program;
 
+static pid_t pid = 0;
+static task_t task = TASK_NULL;
+static boolean_t ShowPid = FALSE;
+
+static boolean_t ShowDeltas = FALSE;
 static boolean_t ShowWasted = FALSE;
+static boolean_t ShowTotal = FALSE;
 static boolean_t SortZones = FALSE;
 static boolean_t ColFormat = TRUE;
 static boolean_t PrintHeader = TRUE;
 
-static unsigned int totalsize = 0;
-static unsigned int totalused = 0;
+static unsigned long long totalsize = 0;
+static unsigned long long totalused = 0;
+static unsigned long long totalsum = 0;
+static unsigned long long pidsum = 0;
+
+static int last_time = 0;
+
+static	char	*zname = NULL;
+static	int	znamelen = 0;
 
 static void
-usage()
+sigintr(__unused int signum)
 {
-	fprintf(stderr, "usage: %s [-w] [-s] [-c] [-h] [name]\n", program);
+	last_time = 1;
+}
+
+static void
+usage(void)
+{
+	fprintf(stderr, "usage: %s [-w] [-s] [-c] [-h] [-t] [-d] [-p <pid>] [name]\n", program);
 	exit(1);
 }
 
 int
-main(argc, argv)
-	int	argc;
-	char	*argv[];
+main(int argc, char **argv)
 {
-	zone_name_t name_buf[1024];
-	zone_name_t *name = name_buf;
-	unsigned int nameCnt = sizeof name_buf/sizeof name_buf[0];
-	zone_info_t info_buf[1024];
-	zone_info_t *info = info_buf;
-	unsigned int infoCnt = sizeof info_buf/sizeof info_buf[0];
+	mach_zone_name_t *name = NULL;
+	unsigned int nameCnt = 0;
+	task_zone_info_t *info = NULL;
+	unsigned int infoCnt = 0;
 
-	char		*zname = NULL;
-	int		znamelen = 0;
+	task_zone_info_t *max_info = NULL;
+	char		*deltas = NULL;
 
 	kern_return_t	kr;
 	int		i, j;
+	int		first_time = 1;
+	int             must_print = 1;
+	int		interval = 1;
 
-	if (0 != reexec_to_match_kernel()) {
-		fprintf(stderr, "Could not re-execute: %d\n", errno);
-		exit(1);
-	}
+	signal(SIGINT, sigintr);
 
 	program = strrchr(argv[0], '/');
 	if (program == NULL)
@@ -104,7 +147,13 @@ main(argc, argv)
 		program++;
 
 	for (i = 1; i < argc; i++) {
-		if (streql(argv[i], "-w"))
+		if (streql(argv[i], "-d"))
+			ShowDeltas = TRUE;
+		else if (streql(argv[i], "-t"))
+			ShowTotal = TRUE;
+		else if (streql(argv[i], "-T"))
+			ShowTotal = FALSE;
+		else if (streql(argv[i], "-w"))
 			ShowWasted = TRUE;
 		else if (streql(argv[i], "-W"))
 			ShowWasted = FALSE;
@@ -118,7 +167,14 @@ main(argc, argv)
 			ColFormat = FALSE;
 		else if (streql(argv[i], "-H"))
 			PrintHeader = FALSE;
-		else if (streql(argv[i], "--")) {
+		else if (streql(argv[i], "-p")) {
+			ShowPid = TRUE;
+			if (i < argc - 1) {
+				pid = atoi(argv[i+1]);
+				i++;
+			} else
+				usage();
+		} else if (streql(argv[i], "--")) {
 			i++;
 			break;
 		} else if (argv[i][0] == '-')
@@ -142,17 +198,70 @@ main(argc, argv)
 		usage();
 	}
 
-	kr = host_zone_info(mach_host_self(),
-			    &name, &nameCnt, &info, &infoCnt);
-	if (kr != KERN_SUCCESS) {
-		fprintf(stderr, "%s: host_zone_info: %s\n",
-		     program, mach_error_string(kr));
-		exit(1);
+	if (ShowDeltas) {
+		SortZones = FALSE;
+		ColFormat = TRUE;
+		PrintHeader = TRUE;
 	}
-	else if (nameCnt != infoCnt) {
-		fprintf(stderr, "%s: host_zone_info: counts not equal?\n",
+
+	if (ShowPid) {
+		kr = task_for_pid(mach_task_self(), pid, &task);
+		if (kr != KERN_SUCCESS) {
+			fprintf(stderr, "%s: task_for_pid(%d) failed: %s (try running as root)\n", 
+				program, pid, mach_error_string(kr));
+			exit(1);
+		}
+	}
+
+    for (;;) {
+        if (ShowPid) {
+	    kr = task_zone_info(task, &name, &nameCnt, &info, &infoCnt);
+	    if (kr != KERN_SUCCESS) {
+		fprintf(stderr, "%s: task_zone_info: %s\n",
+			program, mach_error_string(kr));
+		exit(1);
+	    }
+	} else {
+	    mach_zone_info_t *zinfo = NULL;
+
+	    kr = mach_zone_info(mach_host_self(),
+				&name, &nameCnt, &zinfo, &infoCnt);
+	    if (kr != KERN_SUCCESS) {
+	        fprintf(stderr, "%s: mach_zone_info: %s\n",
+			program, mach_error_string(kr));
+		exit(1);
+	    }
+	    kr = vm_allocate(mach_task_self(), (vm_address_t *)&info,
+			     infoCnt * sizeof *info, VM_FLAGS_ANYWHERE);
+	    if (kr != KERN_SUCCESS) {
+		    fprintf(stderr, "%s vm_allocate: %s\n",
+			    program, mach_error_string(kr));
+		    exit(1);
+	    }
+	    for (i = 0; i < infoCnt; i++) {
+		    *(mach_zone_info_t *)(info + i) = zinfo[i];
+		    info[i].tzi_caller_acct = 0;
+		    info[i].tzi_task_alloc = 0;
+		    info[i].tzi_task_free = 0;
+	    }
+	    kr = vm_deallocate(mach_task_self(), (vm_address_t) zinfo,
+			       (vm_size_t) (infoCnt * sizeof *zinfo));
+	    if (kr != KERN_SUCCESS) {
+		    fprintf(stderr, "%s: vm_deallocate: %s\n",
+			    program, mach_error_string(kr));
+		    exit(1);
+	    }
+	}
+
+	if (nameCnt != infoCnt) {
+		fprintf(stderr, "%s: mach/task_zone_info: counts not equal?\n",
 			program);
 		exit(1);
+	}
+
+	if (first_time) {
+		deltas = (char *)malloc(infoCnt);
+		max_info = (task_zone_info_t *)malloc((infoCnt * sizeof *info));
 	}
 
 	if (SortZones) {
@@ -160,16 +269,16 @@ main(argc, argv)
 			for (j = i+1; j < nameCnt; j++) {
 				int wastei, wastej;
 
-				wastei = (info[i].zi_cur_size -
-					  (info[i].zi_elem_size *
-					   info[i].zi_count));
-				wastej = (info[j].zi_cur_size -
-					  (info[j].zi_elem_size *
-					   info[j].zi_count));
+				wastei = (info[i].tzi_cur_size -
+					  (info[i].tzi_elem_size *
+					   info[i].tzi_count));
+				wastej = (info[j].tzi_cur_size -
+					  (info[j].tzi_elem_size *
+					   info[j].tzi_count));
 
 				if (wastej > wastei) {
-					zone_info_t tinfo;
-					zone_name_t tname;
+					task_zone_info_t tinfo;
+					mach_zone_name_t tname;
 
 					tinfo = info[i];
 					info[i] = info[j];
@@ -182,18 +291,26 @@ main(argc, argv)
 			}
 	}
 
-	if (ColFormat) {
-		colprintzoneheader();
+	must_print = find_deltas(name, info, max_info, deltas, infoCnt, first_time);
+	if (must_print) {
+		if (ColFormat) {
+			if (!first_time)
+				printf("\n");
+			colprintzoneheader();
+		}
+		for (i = 0; i < nameCnt; i++) {
+			if (deltas[i]) {
+				if (ColFormat)
+					colprintzone(&name[i], &info[i]);
+				else
+					printzone(&name[i], &info[i]);
+			}
+		}
 	}
-	for (i = 0; i < nameCnt; i++)
-		if (substr(zname, znamelen, name[i].zn_name,
-			   strnlen(name[i].zn_name, sizeof name[i].zn_name)))
-		    	if (ColFormat)
-				colprintzone(&name[i], &info[i]);
-			else
-				printzone(&name[i], &info[i]);
 
-	if ((name != name_buf) && (nameCnt != 0)) {
+	first_time = 0;
+
+	if ((name != NULL) && (nameCnt != 0)) {
 		kr = vm_deallocate(mach_task_self(), (vm_address_t) name,
 				   (vm_size_t) (nameCnt * sizeof *name));
 		if (kr != KERN_SUCCESS) {
@@ -203,7 +320,7 @@ main(argc, argv)
 		}
 	}
 
-	if ((info != info_buf) && (infoCnt != 0)) {
+	if ((info != NULL) && (infoCnt != 0)) {
 		kr = vm_deallocate(mach_task_self(), (vm_address_t) info,
 				   (vm_size_t) (infoCnt * sizeof *info));
 		if (kr != KERN_SUCCESS) {
@@ -213,34 +330,25 @@ main(argc, argv)
 		}
 	}
 
-	if (ShowWasted && PrintHeader) {
-		printf("TOTAL SIZE   = %u\n", totalsize);
-		printf("TOTAL USED   = %u\n", totalused);
-		printf("TOTAL WASTED = %d\n", totalsize - totalused);
+	if ((ShowWasted||ShowTotal) && PrintHeader && !ShowDeltas) {
+		printf("TOTAL SIZE   = %llu\n", totalsize);
+		printf("TOTAL USED   = %llu\n", totalused);
+		if (ShowWasted)
+			printf("TOTAL WASTED = %llu\n", totalsize - totalused);
+		if (ShowTotal)
+			printf("TOTAL ALLOCS = %llu\n", totalsum);
 	}
 
-	exit(0);
-}
+	if (ShowDeltas == FALSE || last_time)
+	        break;
 
-static int
-strnlen(s, n)
-	char *s;
-	int n;
-{
-	int len = 0;
-
-	while ((len < n) && (*s++ != '\0'))
-		len++;
-
-	return len;
+	sleep(interval);
+    }
+    exit(0);
 }
 
 static boolean_t
-substr(a, alen, b, blen)
-	char *a;
-	int alen;
-	char *b;
-	int blen;
+substr(const char *a, int alen, const char *b, int blen)
 {
 	int i;
 
@@ -252,58 +360,69 @@ substr(a, alen, b, blen)
 }
 
 static void
-printzone(name, info)
-	zone_name_t *name;
-	zone_info_t *info;
+printzone(mach_zone_name_t *name, task_zone_info_t *info)
 {
-	unsigned int used, size;
+	unsigned long long used, size;
 
-	printf("%.*s zone:\n", (int)sizeof name->zn_name, name->zn_name);
-	printf("\tcur_size:    %dK bytes (%d elements)\n",
-	       info->zi_cur_size/1024,
-	       info->zi_cur_size/info->zi_elem_size);
-	printf("\tmax_size:    %dK bytes (%d elements)\n",
-	       info->zi_max_size/1024,
-	       info->zi_max_size/info->zi_elem_size);
-	printf("\telem_size:   %d bytes\n",
-	       info->zi_elem_size);
-	printf("\t# of elems:  %d\n",
-	       info->zi_count);
-	printf("\talloc_size:  %dK bytes (%d elements)\n",
-	       info->zi_alloc_size/1024,
-	       info->zi_alloc_size/info->zi_elem_size);
-	if (info->zi_pageable)
-		printf("\tPAGEABLE\n");
-	if (info->zi_collectable)
+	printf("%.*s zone:\n", (int)sizeof name->mzn_name, name->mzn_name);
+	printf("\tcur_size:    %lluK bytes (%llu elements)\n",
+	       info->tzi_cur_size/1024,
+	       (info->tzi_elem_size == 0) ? 0 :
+	       info->tzi_cur_size/info->tzi_elem_size);
+	printf("\tmax_size:    %lluK bytes (%llu elements)\n",
+	       info->tzi_max_size/1024,
+	       (info->tzi_elem_size == 0) ? 0 :
+	       info->tzi_max_size/info->tzi_elem_size);
+	printf("\telem_size:   %llu bytes\n",
+	       info->tzi_elem_size);
+	printf("\t# of elems:  %llu\n",
+	       info->tzi_count);
+	printf("\talloc_size:  %lluK bytes (%llu elements)\n",
+	       info->tzi_alloc_size/1024,
+	       (info->tzi_elem_size == 0) ? 0 :
+	       info->tzi_alloc_size/info->tzi_elem_size);
+	if (info->tzi_exhaustible)
+		printf("\tEXHAUSTIBLE\n");
+	if (info->tzi_collectable)
 		printf("\tCOLLECTABLE\n");
-
+	if (ShowPid && info->tzi_caller_acct)
+		printf("\tCALLER ACCOUNTED\n");
+	if (ShowPid) {
+		pidsum += info->tzi_task_alloc - info->tzi_task_free;
+		printf("\tproc_alloc_size: %8dK bytes (%llu elements)\n",
+		       (int)((info->tzi_task_alloc - info->tzi_task_free)/1024),
+		       (info->tzi_elem_size == 0) ? 0 :
+		       (info->tzi_task_alloc - info->tzi_task_free)/info->tzi_elem_size);
+	}
 	if (ShowWasted) {
-		totalused += used = info->zi_elem_size * info->zi_count;
-		totalsize += size = info->zi_cur_size;
-		printf("\t\t\t\t\tWASTED: %d\n", size - used);
+		totalused += used = info->tzi_elem_size * info->tzi_count;
+		totalsize += size = info->tzi_cur_size;
+		printf("\t\t\t\t\tWASTED: %llu\n", size - used);
+	}
+	if (ShowTotal) {
+		totalsum += info->tzi_sum_size;
+		printf("\t\t\t\t\tTOTAL: %llu\n", totalsum);
+		if (ShowPid)
+			printf("\t\t\t\t\tPID TOTAL: %llu\n", pidsum);
 	}
 }
 
 static void
-printk(fmt, i)
-	char *fmt;
-	int i;
+printk(const char *fmt, int i)
 {
 	printf(fmt, i / 1024);
 	putchar('K');
 }
 
 static void
-colprintzone(zone_name, info)
-	zone_name_t *zone_name;
-	zone_info_t *info;
+colprintzone(mach_zone_name_t *zone_name, task_zone_info_t *info)
 {
-	char *name = zone_name->zn_name;
+	char *name = zone_name->mzn_name;
 	int j, namewidth;
-	unsigned int used, size;
+	unsigned long long used, size;
 
 	namewidth = 25;
-	if (ShowWasted) {
+	if (ShowWasted || ShowTotal) {
 		namewidth -= 7;
 	}
 	for (j = 0; j < namewidth - 1 && name[j]; j++) {
@@ -324,51 +443,96 @@ colprintzone(zone_name, info)
 			putchar(' ');
 		}
 	}
-	printf("%5d", info->zi_elem_size);
-	printk("%6d", info->zi_cur_size);
-	if (info->zi_max_size >= 99999 * 1024) {
-		printf("   ----");
+	printf("%5llu", info->tzi_elem_size);
+	printk("%8llu", info->tzi_cur_size);
+	if (info->tzi_max_size / 1024 > 9999999) {
+		printf("   ------");
 	} else {
-		printk("%6d", info->zi_max_size);
+		printk("%8llu", info->tzi_max_size);
 	}
-	printf("%7d", info->zi_cur_size / info->zi_elem_size);
-	if (info->zi_max_size >= 99999 * 1024) {
-		printf("   ----");
+	printf("%10llu", info->tzi_cur_size / info->tzi_elem_size);
+	if (info->tzi_max_size / 1024 >= 999999999) {
+		printf(" ---------");
 	} else {
-		printf("%7d", info->zi_max_size / info->zi_elem_size);
+		printf("%10llu", info->tzi_max_size / info->tzi_elem_size);
 	}
-	printf("%6d", info->zi_count);
-	printk("%5d", info->zi_alloc_size);
-	printf("%6d", info->zi_alloc_size / info->zi_elem_size);
+	printf("%10llu", info->tzi_count);
+	printk("%5llu", info->tzi_alloc_size);
+	printf("%6llu", info->tzi_alloc_size / info->tzi_elem_size);
 
-	totalused += used = info->zi_elem_size * info->zi_count;
-	totalsize += size = info->zi_cur_size;
+	totalused += used = info->tzi_elem_size * info->tzi_count;
+	totalsize += size = info->tzi_cur_size;
+	totalsum += info->tzi_sum_size;
+
+	printf(" %c%c%c",
+	       (info->tzi_exhaustible ? 'X' : ' '),
+	       (info->tzi_caller_acct ? 'A' : ' '),
+	       (info->tzi_collectable ? 'C' : ' '));
 	if (ShowWasted) {
-		printf("%7d", size - used);
+		printk("%8llu", size - used);
 	}
-
-	printf("%c%c\n",
-	       (info->zi_pageable ? 'P' : ' '),
-	       (info->zi_collectable ? 'C' : ' '));
+	if (ShowPid) {
+		printf("%8dK", (int)((info->tzi_task_alloc - info->tzi_task_free)/1024));
+	}
+	if (ShowTotal) {
+		if (info->tzi_sum_size < 1024)
+			printf("%16lluB", info->tzi_sum_size);
+		else
+			printf("%16lluK", info->tzi_sum_size/1024);
+	}
+	printf("\n");
 }
 
 static void
-colprintzoneheader()
+colprintzoneheader(void)
 {
 	if (! PrintHeader) {
 		return;
 	}
-	if (ShowWasted) {
-		printf("                   elem    cur    max    cur    max%s",
-		       "   cur alloc alloc\n");
-		printf("zone name          size   size   size  #elts  #elts%s",
-		       " inuse  size count wasted\n");
-	} else {
-		printf("                          elem    cur    max    cur%s",
-		       "    max   cur alloc alloc\n");
-		printf("zone name                 size   size   size  #elts%s",
-		       "  #elts inuse  size count\n");
-	}
-	printf("-----------------------------------------------%s",
-	       "--------------------------------\n");
+	printf("%s                   elem      cur      max       cur       max"
+	       "       cur alloc alloc          %s\n", 
+	       (ShowWasted||ShowTotal)? "" : "       ", (ShowPid) ? "PID" : "" );
+	printf("zone name%s          size     size     size     #elts     #elts"
+	       "     inuse  size count   ", (ShowWasted||ShowTotal)? "" : "       " );
+	if (ShowWasted)
+		printf("   wasted");
+	if (ShowPid)
+		printf("    Allocs");
+	if (ShowTotal)
+		printf("     Total Allocs");
+	printf("\n%s------------------------------------------"
+	       "--------------------------------------------",
+	       (ShowWasted||ShowTotal)? "" : "-------");
+	if (ShowWasted)
+		printf("---------");
+	if (ShowPid)
+		printf("----------");
+	if (ShowTotal)
+		printf("-----------------");
+	printf("\n");
+}
+
+int
+find_deltas(mach_zone_name_t *name, task_zone_info_t *info, task_zone_info_t *max_info,
+	    char *deltas, int cnt, int first_time)
+{
+       int i;
+       int  found_one = 0;
+
+       for (i = 0; i < cnt; i++) {
+	       deltas[i] = 0;
+	       if (substr(zname, znamelen, name[i].mzn_name,
+			  strnlen(name[i].mzn_name, sizeof name[i].mzn_name))) {
+		       if (first_time || info->tzi_cur_size > max_info->tzi_cur_size ||
+			   (ShowTotal && ((info->tzi_sum_size >> 1) > max_info->tzi_sum_size))) {
+			       max_info->tzi_cur_size = info->tzi_cur_size;
+			       max_info->tzi_sum_size = info->tzi_sum_size;
+			       deltas[i] = 1;
+			       found_one = 1;
+		       }
+	       }
+	       info++;
+	       max_info++;
+       }
+       return(found_one);
 }

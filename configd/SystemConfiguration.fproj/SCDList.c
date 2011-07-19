@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2005, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2005, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -42,13 +42,13 @@
 CFArrayRef
 SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 {
-	SCDynamicStorePrivateRef	storePrivate = (SCDynamicStorePrivateRef)store;
+	SCDynamicStorePrivateRef	storePrivate	= (SCDynamicStorePrivateRef)store;
 	kern_return_t			status;
-	CFDataRef			utfPattern;	/* serialized pattern */
+	CFDataRef			utfPattern;		/* serialized pattern */
 	xmlData_t			myPatternRef;
 	CFIndex				myPatternLen;
-	xmlDataOut_t			xmlDataRef;	/* serialized data */
-	mach_msg_type_number_t		xmlDataLen;
+	xmlDataOut_t			xmlDataRef	= NULL;		/* serialized data */
+	mach_msg_type_number_t		xmlDataLen	= 0;
 	int				sc_status;
 	CFArrayRef			allKeys;
 
@@ -69,6 +69,8 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 		return NULL;
 	}
 
+    retry :
+
 	/* send the pattern & fetch the associated data from the server */
 	status = configlist(storePrivate->server,
 			    myPatternRef,
@@ -78,11 +80,8 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 			    &xmlDataLen,
 			    (int *)&sc_status);
 
-	/* clean up */
-	CFRelease(utfPattern);
-
 	if (status != KERN_SUCCESS) {
-		if (status == MACH_SEND_INVALID_DEST) {
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
 			/* the server's gone and our session port's dead, remove the dead name right */
 			(void) mach_port_deallocate(mach_task_self(), storePrivate->server);
 		} else {
@@ -90,12 +89,21 @@ SCDynamicStoreCopyKeyList(SCDynamicStoreRef store, CFStringRef pattern)
 			SCLog(TRUE, LOG_ERR, CFSTR("SCDynamicStoreCopyKeyList configlist(): %s"), mach_error_string(status));
 		}
 		storePrivate->server = MACH_PORT_NULL;
-		_SCErrorSet(status);
-		return NULL;
+		if ((status == MACH_SEND_INVALID_DEST) || (status == MIG_SERVER_DIED)) {
+			if (__SCDynamicStoreReconnect(store)) {
+				goto retry;
+			}
+		}
+		sc_status = status;
 	}
 
+	/* clean up */
+	CFRelease(utfPattern);
+
 	if (sc_status != kSCStatusOK) {
-		(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+		if (xmlDataRef != NULL) {
+			(void) vm_deallocate(mach_task_self(), (vm_address_t)xmlDataRef, xmlDataLen);
+		}
 		_SCErrorSet(sc_status);
 		return NULL;
 	}

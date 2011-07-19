@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -66,6 +66,7 @@ struct config_rule
 	int type;
 	struct sockaddr *addr;
 	char **facility;
+	uint32_t *fac_prefix_len;
 	int *pri;
 	uint32_t last_hash;
 	uint32_t last_count;
@@ -302,7 +303,7 @@ _clean_facility_name(char *s)
 static int
 _parse_line(char *s)
 {
-	char **semi, **comma;
+	char **semi, **comma, *star;
 	int i, j, n, lasts, lastc, pri;
 	struct config_rule *out;
 
@@ -349,19 +350,26 @@ _parse_line(char *s)
 			if (out->count == 0)
 			{
 				out->facility = (char **)calloc(1, sizeof(char *));
+				out->fac_prefix_len = (uint32_t *)calloc(1, sizeof(uint32_t));
 				out->pri = (int *)calloc(1, sizeof(int));
 			}
 			else
 			{
 				out->facility = (char **)reallocf(out->facility, (out->count + 1) * sizeof(char *));
+				out->fac_prefix_len = (uint32_t *)reallocf(out->fac_prefix_len, (out->count + 1) * sizeof(uint32_t));
 				out->pri = (int *)reallocf(out->pri, (out->count + 1) * sizeof(int));
 			}
 
 			if (out->facility == NULL) return -1;
+			if (out->fac_prefix_len == NULL) return -1;
 			if (out->pri == NULL) return -1;
 
 			out->facility[out->count] = _clean_facility_name(comma[j]);
 			if (out->facility[out->count] == NULL) return -1;
+
+			out->fac_prefix_len[out->count] = 0;
+			star = strchr(out->facility[out->count], '*');
+			if (star != NULL) out->fac_prefix_len[out->count] = (uint32_t)(star - out->facility[out->count]);
 
 			out->pri[out->count] = pri;
 			out->count++;
@@ -377,64 +385,6 @@ _parse_line(char *s)
 	return 0;
 }
 
-static char *
-bsd_log_string(const char *msg)
-{
-	uint32_t i, len, outlen;
-	char *out, *q;
-	uint8_t c;
-
-	if (msg == NULL) return NULL;
-
-	len = strlen(msg);
-	while ((len > 0) && (msg[len - 1] == '\n')) len--;
-
-	if (len == 0) return NULL;
-
-	outlen = len + 1;
-	for (i = 0; i < len; i++)
-	{
-		c = msg[i];
-		if (isascii(c) && iscntrl(c) && (c != '\t')) outlen++;
-	}
-
-	out = malloc(outlen);
-	if (out == NULL) return NULL;
-
-	q = out;
-
-	for (i = 0; i < len; i++)
-	{
-		c = msg[i];
-
-		if (isascii(c) && iscntrl(c))
-		{
-			if (c == '\n')
-			{
-				*q++ = '\\';
-				*q++ = 'n';
-			}
-			else if (c == '\t')
-			{
-				*q++ = c;
-			}
-			else
-			{
-				*q++ = '^';
-				*q++ = c ^ 0100;
-			}
-		}
-		else
-		{
-			*q++ = c;
-		}
-	}
-
-	*q = '\0';
-
-	return out;
-}
-
 static int
 _syslog_send_repeat_msg(struct config_rule *r)
 {
@@ -447,7 +397,6 @@ _syslog_send_repeat_msg(struct config_rule *r)
 	if (r->last_count == 0) return 0;
 
 	tick = time(NULL);
-
 	memset(vt, 0, sizeof(vt));
 	ctime_r(&tick, vt);
 	vt[19] = '\0';
@@ -486,19 +435,19 @@ _syslog_send_repeat_msg(struct config_rule *r)
 }
 
 static int
-_syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time_t now)
+_syslog_send(aslmsg msg, struct config_rule *r, char **out, char **fwd, time_t now)
 {
-	char vt[16], tstr[32], *so, *sf, *outmsg;
-	const char *vtime, *vhost, *vident, *vpid, *vmsg, *vlevel, *vfacility, *vrefproc, *vrefpid;
-	size_t outlen, n;
-	time_t tick;
+	char *sf, *outmsg;
+	const char *vlevel, *vfacility;
+	size_t outlen;
 	int pf, fc, status, is_dup, do_write;
-	FILE *pw;
-	uint32_t msg_hash;
+	uint32_t msg_hash, n;
 
 	if (out == NULL) return -1;
 	if (fwd == NULL) return -1;
 	if (r == NULL) return -1;
+
+	_syslog_dst_open(r);
 
 	if (r->type == DST_TYPE_NOTE)
 	{
@@ -512,123 +461,8 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 	/* Build output string if it hasn't been built by a previous rule-match */
 	if (*out == NULL)
 	{
-		tick = now;
-		vtime = asl_get(msg, ASL_KEY_TIME);
-		if (vtime != NULL)
-		{
-			/* aslmsg_verify converts time to seconds, but use current time if something went sour */
-			tick = atol(vtime);
-			if (tick == 0) tick = now;
-		}
-
-		memset(tstr, 0, sizeof(tstr));
-		ctime_r(&tick, tstr);
-		memcpy(vt, tstr+4, 15);
-		vt[15] = '\0';
-
-		vhost = asl_get(msg, ASL_KEY_HOST);
-		if (vhost == NULL) vhost = "localhost";
-
-		vident = asl_get(msg, ASL_KEY_SENDER);
-		if ((vident != NULL) && (!strcmp(vident, "Unknown"))) vident = NULL;
-
-		vpid = asl_get(msg, ASL_KEY_PID);
-		if ((vpid != NULL) && (!strcmp(vpid, "-1"))) vpid = NULL;
-
-		if ((vpid != NULL) && (vident == NULL)) vident = "Unknown";
-
-		vrefproc = asl_get(msg, ASL_KEY_REF_PROC);
-		vrefpid = asl_get(msg, ASL_KEY_REF_PID);
-
-		vmsg = asl_get(msg, ASL_KEY_MSG);
-		if (vmsg != NULL) outmsg = bsd_log_string(vmsg);
-
-		n = 0;
-		/* Time + " " */
-		n += (strlen(vt) + 1);
-
-		/* Host + " " */
-		if (vhost != NULL) n += (strlen(vhost) + 1);
-
-		/* Sender */
-		if (vident != NULL) n += strlen(vident);
-
-		/* "[" PID "]" */
-		if (vpid != NULL) n += (strlen(vpid) + 2);
-
-		/* " (" */
-		if ((vrefproc != NULL) || (vrefpid != NULL)) n += 2;
-
-		/* RefProc */
-		if (vrefproc != NULL) n += strlen(vrefproc);
-
-		/* "[" RefPID "]" */
-		if (vrefpid != NULL) n += (strlen(vrefpid) + 2);
-
-		/* ")" */
-		if ((vrefproc != NULL) || (vrefpid != NULL)) n += 1;
-
-		/* ": " */
-		n += 2;
-
-		/* Message */
-		if (outmsg != NULL) n += strlen(outmsg);
-
-		if (n == 0) return -1;
-
-		/* "\n" + nul */
-		n += 2;
-
-		so = calloc(1, n);
-		if (so == NULL) return -1;
-
-		strcat(so, vt);
-		strcat(so, " ");
-
-		if (vhost != NULL)
-		{
-			strcat(so, vhost);
-			strcat(so, " ");
-		}
-
-		if (vident != NULL)
-		{
-			strcat(so, vident);
-			if (vpid != NULL)
-			{
-				strcat(so, "[");
-				strcat(so, vpid);
-				strcat(so, "]");
-			}
-		}
-
-		if ((vrefproc != NULL) || (vrefpid != NULL))
-		{
-			strcat(so, " (");
-
-			if (vrefproc != NULL) strcat(so, vrefproc);
-
-			if (vrefpid != NULL)
-			{
-				strcat(so, "[");
-				strcat(so, vrefpid);
-				strcat(so, "]");
-			}
-
-			strcat(so, ")");
-		}
-
-		strcat(so, ": ");
-
-		if (outmsg != NULL)
-		{
-			strcat(so, outmsg);
-			free(outmsg);
-		}
-
-		strcat(so, "\n");
-
-		*out = so;
+		*out = asl_format_message((asl_msg_t *)msg, ASL_MSG_FMT_BSD, ASL_TIME_FMT_LCL, ASL_ENCODE_SAFE, &n);
+		if (*out == NULL) return -1;
 	}
 
 	/* check if message is a duplicate of the last message, and inside the dup time window */
@@ -661,8 +495,6 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 	outlen = 0;
 	if (r->type == DST_TYPE_SOCK) outlen = strlen(*fwd);
 	else outlen = strlen(*out);
-
-	_syslog_dst_open(r);
 
 	if ((r->type == DST_TYPE_FILE) || (r->type == DST_TYPE_CONS))
 	{
@@ -714,7 +546,8 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 	}
 	else if (r->type == DST_TYPE_WALL)
 	{
-		pw = popen(_PATH_WALL, "w");
+#ifndef CONFIG_IPHONE
+		FILE *pw = popen(_PATH_WALL, "w");
 		if (pw < 0)
 		{
 			asldebug("%s: error sending wall message: %s\n", MY_ID, strerror(errno));
@@ -723,6 +556,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 
 		fprintf(pw, "%s", *out);
 		pclose(pw);
+#endif
 	}
 
 	if (is_dup == 1)
@@ -731,7 +565,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 	}
 	else
 	{
-		if (r->last_msg != NULL) free(r->last_msg);
+		free(r->last_msg);
 		r->last_msg = NULL;
 
 		if (*out != NULL) r->last_msg = strdup(*out + 16);
@@ -745,7 +579,7 @@ _syslog_send(asl_msg_t *msg, struct config_rule *r, char **out, char **fwd, time
 }
 
 static int
-_syslog_rule_match(asl_msg_t *msg, struct config_rule *r)
+_syslog_rule_match(aslmsg msg, struct config_rule *r)
 {
 	uint32_t i, test, f, pri;
 	const char *val;
@@ -764,11 +598,19 @@ _syslog_rule_match(asl_msg_t *msg, struct config_rule *r)
 		if ((test == 0) && (r->pri[i] == -2)) continue;
 
 		f = 0;
-		if (strcmp(r->facility[i], "*") == 0) f = 1;
-		else
+		val = asl_get(msg, ASL_KEY_FACILITY);
+
+		if (strcmp(r->facility[i], "*") == 0)
 		{
-			val = asl_get(msg, ASL_KEY_FACILITY);
-			if ((val != NULL) && (strcasecmp(r->facility[i], val) == 0)) f = 1;
+			f = 1;
+		}
+		else if ((r->fac_prefix_len[i] > 0) && (strncasecmp(r->facility[i], val, r->fac_prefix_len[i]) == 0))
+		{
+			f = 1;
+		}
+		else if ((val != NULL) && (strcasecmp(r->facility[i], val) == 0))
+		{
+			f = 1;
 		}
 
 		if (f == 0) continue;
@@ -793,7 +635,7 @@ _syslog_rule_match(asl_msg_t *msg, struct config_rule *r)
 }
 
 int
-bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
+bsd_out_sendmsg(aslmsg msg, const char *outid)
 {
 	struct config_rule *r;
 	char *out, *fwd;
@@ -825,8 +667,8 @@ bsd_out_sendmsg(asl_msg_t *msg, const char *outid)
 		}
 	}
 
-	if (out != NULL) free(out);
-	if (fwd != NULL) free(fwd);
+	free(out);
+	free(fwd);
 
 	return 0;
 }
@@ -912,7 +754,7 @@ bsd_out_init(void)
 
 	TAILQ_INIT(&bsd_out_rule);
 
-	query = asl_new(ASL_TYPE_QUERY);
+	query = asl_msg_new(ASL_TYPE_QUERY);
 	aslevent_addmatch(query, MY_ID);
 	aslevent_addoutput(bsd_out_sendmsg, MY_ID);
 
@@ -938,19 +780,21 @@ bsd_out_close(void)
 	{
 		n = r->entries.tqe_next;
 
-		if (r->dst != NULL) free(r->dst);
-		if (r->fd > 0) close(r->fd);
-		if (r->addr != NULL) free(r->addr);
-		if (r->last_msg != NULL) free(r->last_msg);
+        free(r->dst);
+		free(r->addr);
+		free(r->last_msg);
+		free(r->fac_prefix_len);
+		free(r->pri);
+
+		if (r->fd >= 0) close(r->fd);
+
 		if (r->facility != NULL)
 		{
 			for (i = 0; i < r->count; i++) 
-			{
-				if (r->facility[i] != NULL) free(r->facility[i]);
-			}
+                free(r->facility[i]);
+
 			free(r->facility);
 		}
-		if (r->pri != NULL) free(r->pri);
 
 		TAILQ_REMOVE(&bsd_out_rule, r, entries);
 		free(r);
@@ -970,6 +814,11 @@ bsd_out_network_reset(void)
 		{
 			close(r->fd);
 			r->fd = -1;
+			if (r->addr != NULL)
+			{
+				free(r->addr);
+				r->addr = NULL;
+			}
 		}
 	}
 

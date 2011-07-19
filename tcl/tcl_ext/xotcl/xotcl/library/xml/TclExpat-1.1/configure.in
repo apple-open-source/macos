@@ -29,7 +29,7 @@ AC_INIT([xotclexpat], [0.9])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_CONFIG_AUX_DIR(../../../config)
 
@@ -42,6 +42,39 @@ AC_ARG_WITH(xotcl,
             absolute path to xotclConfig.sh, 
            --without-xotcl disables, but this is pointless],
         [with_xotcl=$withval], [AC_MSG_ERROR([--with-xotcl is required])])
+AC_ARG_WITH(expat,
+        [  --with-expat=sys assumes a system-wide expat installation, 
+           --with-expat=<INC_DIR,LIB_DIR> point to a custom expat installation,
+           --without-expat falls back to the bundled expat installation],
+        [with_expat=$withval],[with_expat=bundle])
+
+case $with_expat in
+    bundle) ;;
+    sys)
+        AC_MSG_RESULT([search for expat in ${prefix} /usr/local /usr])
+        for f in $prefix /usr/local /usr; do
+            if test -f "$f/include/expat.h" ; then
+		expat_dir=$f
+                EXPAT_INC_SPEC="-I`(cd $inc_dir; pwd)`"
+                break
+            fi
+        done
+        ;;
+    *)
+	inc_dir="`echo $with_expat |cut -f1 -d,`"
+        lib_dir="`echo $with_expat |cut -f2 -d, -s`"
+        if test -f "$inc_dir/expat.h"; then
+            EXPAT_INC_SPEC="-I`(cd $inc_dir; pwd)`"
+        else
+            AC_MSG_ERROR([${inc_dir} directory does not contain expat.h])
+        fi
+	expat_dir="`(cd $inc_dir/..; pwd)`"
+	if test -z "${lib_dir}"; then
+            EXPAT_LIB_SPEC=""
+	else
+            EXPAT_LIB_SPEC="-L`(cd $lib_dir; pwd)`"
+	fi
+esac
 
 #--------------------------------------------------------------------
 # Load the tclConfig.sh file
@@ -89,12 +122,31 @@ source ${with_xotcl}/xotclConfig.sh
 # This defines PKG(_STUB)_SOURCES, PKG(_STUB)_OBJECTS, PKG_HEADERS
 # and PKG_TCL_SOURCES.
 #-----------------------------------------------------------------------
-
 if test "${TEA_PLATFORM}" = "windows" ; then
-    TEA_ADD_SOURCES([xmltok.c win32filemap.c xmlrole.c xmlwf.c codepage.c xmlparse.c hashtable.c tclexpat.c])
+    filemap="win32filemap.c"
 else
-    TEA_ADD_SOURCES([xmltok.c unixfilemap.c xmlrole.c xmlwf.c codepage.c xmlparse.c hashtable.c tclexpat.c])
+    filemap="unixfilemap.c"
 fi
+
+#
+# general fallback to the bundled expat
+#
+if test "${expat_dir}" = ""; then
+    with_expat="bundle"
+fi
+
+if test "${with_expat}" = bundle ; then
+    # 1) the bundled case
+    AC_MSG_RESULT([using bundled expat distribution])
+    TEA_ADD_SOURCES([xmltok.c ${filemap} xmlrole.c xmlwf.c codepage.c xmlparse.c hashtable.c tclexpat.c])
+else
+    # 2) the shared case
+    AC_MSG_RESULT([using shared expat found in ${expat_dir}])
+    TEA_ADD_SOURCES([tclexpat.c])
+    TEA_ADD_INCLUDES([${EXPAT_INC_SPEC}])
+    TEA_ADD_LIBS([${EXPAT_LIB_SPEC} -lexpat])
+fi
+
 
 TEA_ADD_HEADERS([])
 TEA_ADD_INCLUDES([-I${with_xotcl}/generic ${XOTCL_BUILD_INCLUDE_SPEC}])
@@ -209,6 +261,14 @@ TEA_PROG_TCLSH
 #--------------------------------------------------------------------
 
 AC_OUTPUT([Makefile])
+
+
+
+
+
+
+
+
 
 
 

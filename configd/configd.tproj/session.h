@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000, 2001, 2005-2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000, 2001, 2005-2007, 2009, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,12 +39,12 @@
 #include <TargetConditionals.h>
 
 
-#if	TARGET_OS_IPHONE
+#if	TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 #define	kSCWriteEntitlementName	CFSTR("com.apple.SystemConfiguration.SCDynamicStore-write-access")
-#endif	// TARGET_OS_IPHONE
+#endif  // TARGET_OS_IPHONE || (__MAC_OS_X_VERSION_MIN_REQUIRED >= 1070)
 
 
-typedef	enum { UNKNOWN, NO, YES } lazyBoolean;
+typedef	enum { NO = 0, YES, UNKNOWN } lazyBoolean;
 
 
 /* Per client server state */
@@ -90,6 +90,9 @@ void			listSessions	(FILE		*f);
 Boolean			hasRootAccess	(serverSessionRef	session);
 
 Boolean			hasWriteAccess	(serverSessionRef	session);
+
+Boolean			hasPathAccess	(serverSessionRef	session,
+					 const char		*path);
 
 __END_DECLS
 

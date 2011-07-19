@@ -16,15 +16,19 @@
 #define EXEC 272
 #define SETENV 273
 #define NOSETENV 274
-#define ALL 275
-#define COMMENT 276
-#define HOSTALIAS 277
-#define CMNDALIAS 278
-#define USERALIAS 279
-#define RUNASALIAS 280
-#define ERROR 281
-#define TYPE 282
-#define ROLE 283
+#define LOG_INPUT 275
+#define NOLOG_INPUT 276
+#define LOG_OUTPUT 277
+#define NOLOG_OUTPUT 278
+#define ALL 279
+#define COMMENT 280
+#define HOSTALIAS 281
+#define CMNDALIAS 282
+#define USERALIAS 283
+#define RUNASALIAS 284
+#define ERROR 285
+#define TYPE 286
+#define ROLE 287
 #ifndef YYSTYPE_DEFINED
 #define YYSTYPE_DEFINED
 typedef union {

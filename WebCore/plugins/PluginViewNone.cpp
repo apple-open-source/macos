@@ -26,6 +26,12 @@
 #include "config.h"
 #include "PluginView.h"
 
+#if USE(JSC)
+#include "BridgeJSC.h"
+#include <runtime/JSObject.h>
+#include <runtime/ScopeChain.h>
+#endif
+
 using namespace WTF;
 
 namespace WebCore {
@@ -62,12 +68,12 @@ void PluginView::setNPWindowRect(const IntRect&)
 {
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 NPError PluginView::handlePostReadFile(Vector<char>&, uint32_t, const char*)
 {
     return 0;
 }
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
 bool PluginView::platformGetValue(NPNVariable, void*, NPError*)
 {
     return false;
@@ -77,19 +83,21 @@ bool PluginView::platformGetValueStatic(NPNVariable, void*, NPError*)
 {
     return false;
 }
-#endif
 
 void PluginView::invalidateRect(NPRect*)
 {
 }
+#endif
 
 void PluginView::invalidateRect(const IntRect&)
 {
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::invalidateRegion(NPRegion)
 {
 }
+#endif
 
 void PluginView::forceRedraw()
 {
@@ -120,28 +128,40 @@ void PluginView::restart()
 {
 }
 
-#if ENABLE(NETSCAPE_PLUGIN_API)
-void PluginView::keepAlive(NPP)
-{
-}
-#endif
-
-#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL)
-void PluginView::privateBrowsingStateChanged(bool)
-{
-}
-
-void PluginView::setJavaScriptPaused(bool)
-{
-}
-#endif
-
 #if defined(XP_UNIX) && ENABLE(NETSCAPE_PLUGIN_API)
 void PluginView::handleFocusInEvent()
 {
 }
 
 void PluginView::handleFocusOutEvent()
+{
+}
+#endif
+
+// The functions below are for platforms that do not use PluginView for plugins
+// due to architectural differences. The plan is to eventually have all
+// ports using PluginView, but until then, if new functions like this are 
+// added, please make sure they have the proper platform #ifs so that changes
+// do not break ports who compile both this file and PluginView.cpp.   
+#if PLATFORM(MAC) || PLATFORM(CHROMIUM) || PLATFORM(EFL) || (OS(WINCE) && !PLATFORM(QT)) || (PLATFORM(QT) && !OS(WINCE)) || PLATFORM(BREWMP)
+#if ENABLE(NETSCAPE_PLUGIN_API)
+void PluginView::keepAlive(NPP)
+{
+}
+#endif
+
+#if USE(JSC)
+PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
+{
+    return 0;
+}
+#endif
+
+void PluginView::privateBrowsingStateChanged(bool)
+{
+}
+
+void PluginView::setJavaScriptPaused(bool)
 {
 }
 #endif

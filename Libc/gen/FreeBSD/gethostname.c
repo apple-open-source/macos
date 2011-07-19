@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,12 +31,13 @@
 static char sccsid[] = "@(#)gethostname.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.5 2003/08/19 23:01:46 wollman Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/gethostname.c,v 1.8 2007/01/09 00:27:54 imp Exp $");
 
 #include <sys/param.h>
 #include <sys/sysctl.h>
 
 #include <errno.h>
+#include <unistd.h>
 
 int
 gethostname(name, namelen)
@@ -48,9 +45,6 @@ gethostname(name, namelen)
 	size_t namelen;
 {
 	int mib[2];
-
-	/* Kluge to avoid ABI breakage. */
-	namelen = (int)namelen;
 
 	mib[0] = CTL_KERN;
 	mib[1] = KERN_HOSTNAME;

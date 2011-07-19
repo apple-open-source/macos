@@ -242,8 +242,9 @@ static bool removeEntryAndSetPrefs(
 {
     CFArrayRef                  arr = 0;
     CFMutableArrayRef           mut_arr = 0;
-    CFIndex                     i;
+    CFIndex                     i, count;
     CFDictionaryRef             cancelee = 0;
+    CFComparisonResult          eq;
     bool                        ret = false;
 
     // Grab the specific array from which we want to remove the entry... 
@@ -255,20 +256,19 @@ static bool removeEntryAndSetPrefs(
         ret = true;
         goto exit;
     }
-
-    i = CFArrayBSearchValues(arr, CFRangeMake(0, CFArrayGetCount(arr)), package,
-                            (CFComparatorFunction)compare_dates, 0);
-    
-    // did it return an index within the array?                        
-    if( (0 <= i) && (i < CFArrayGetCount(arr)) )
+    count = CFArrayGetCount(arr);
+    for (i = 0; i < count; i++)
     {
         cancelee = CFArrayGetValueAtIndex(arr, i);
-        // is the date at that index equal to the date to cancel?
-        if(kCFCompareEqualTo == compare_dates(package, cancelee, 0))
+        eq = compare_dates(package, cancelee, 0);
+        if(kCFCompareLessThan == eq)
+        {
+            // fail, date to cancel < date at index
+            break;
+        }
+        else if(kCFCompareEqualTo == eq)
         {
             // We have confirmation on the dates and types being equal. Check id.
-            // BUG: May have trouble if multiple apps have scheduled a 
-            // wakeup at the same time.
             if( CFEqual(
                 CFDictionaryGetValue(package, CFSTR(kIOPMPowerEventAppNameKey)), 
                 CFDictionaryGetValue(cancelee, CFSTR(kIOPMPowerEventAppNameKey))
@@ -279,12 +279,12 @@ static bool removeEntryAndSetPrefs(
                 CFArrayRemoveValueAtIndex(mut_arr, i);
                 if(!SCPreferencesSetValue(prefs, type, mut_arr)) 
                 { 
-                    ret = false;
-                    goto exit;
+                    // fail
+                    break;
                 }
-
                 // success!
                 ret = true;
+                break;
             }
         }
     }
@@ -649,12 +649,9 @@ IOReturn IOPMSchedulePowerEvent(
     }
 
     ret = kIOReturnSuccess;
+    notify_post(kIOPMSchedulePowerEventNotification);
 
 exit:
-    if (ret == kIOReturnSuccess)
-    {
-        notify_post(kIOPMSchedulePowerEventNotification);
-    }
     
     if(package) CFRelease(package);
     if(prefs) SCPreferencesUnlock(prefs);

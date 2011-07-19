@@ -23,7 +23,19 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		5D0A592812A78665000D5BF7 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA7DBA180E40EB7E0016DB7F /* Foundation.framework */; };
+		5D2B93EA134442DB00252B40 /* odckit.h in Headers */ = {isa = PBXBuildFile; fileRef = 847C5E600F58DB870032AD27 /* odckit.h */; };
+		5D3BA58112A72D2500963DC7 /* odckit.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3BA58012A72D2500963DC7 /* odckit.m */; };
+		5D3E6A551288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3E6A541288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m */; };
+		5D3E6AC31288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3E6AC21288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m */; };
+		5D3E6B051289E13D00318E3A /* JABMakeGroupBuddiesByGuidAction.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3E6A541288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m */; };
+		5D3E6B061289E15D00318E3A /* JABRemoveGroupBuddiesByGuidAction.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3E6AC21288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m */; };
+		5D3E6BF9128A0B7C00318E3A /* JABDirectory.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D3E6BF8128A0B7C00318E3A /* JABDirectory.m */; };
+		5D5633801357A009009211CC /* odkit.m in Sources */ = {isa = PBXBuildFile; fileRef = 5D56337F13579FE5009211CC /* odkit.m */; };
+		5DEB2BD012D67EA100B37414 /* auth_event.c in Sources */ = {isa = PBXBuildFile; fileRef = 5DEB2BCE12D67EA100B37414 /* auth_event.c */; };
+		5DEB2BD112D67EA100B37414 /* auth_event.h in Headers */ = {isa = PBXBuildFile; fileRef = 5DEB2BCF12D67EA100B37414 /* auth_event.h */; };
 		841CA3540F60862200FB3FF7 /* sasl_switch_hit.c in Sources */ = {isa = PBXBuildFile; fileRef = 841CA3530F60862200FB3FF7 /* sasl_switch_hit.c */; };
+		841CC6EA12A7319E0079B938 /* ServerFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 841CC6E912A7319E0079B938 /* ServerFoundation.framework */; };
 		8429BAA50F65DA4A00E82AD2 /* cyrus-sasl-digestmd5-parse.h in Headers */ = {isa = PBXBuildFile; fileRef = 8429BAA30F65DA4A00E82AD2 /* cyrus-sasl-digestmd5-parse.h */; };
 		8429BAA60F65DA4A00E82AD2 /* sasl_switch_hit.h in Headers */ = {isa = PBXBuildFile; fileRef = 8429BAA40F65DA4A00E82AD2 /* sasl_switch_hit.h */; };
 		8435C7470F391DD9003FE23F /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA7DBA180E40EB7E0016DB7F /* Foundation.framework */; };
@@ -42,14 +54,11 @@
 		8467F18E0F40E0FD00BB75EC /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C85B0F3923E4003FE23F /* Security.framework */; };
 		848564920F4264AC0072E9FD /* jabber_od_auth_plain_test.m in Sources */ = {isa = PBXBuildFile; fileRef = 848564910F4264AC0072E9FD /* jabber_od_auth_plain_test.m */; };
 		849F5EF90F6733110054B58C /* apple_membership.c in Sources */ = {isa = PBXBuildFile; fileRef = 849F5EF80F6733110054B58C /* apple_membership.c */; };
+		84AC42EA127A3D0E00EA24CA /* LDAP.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84AC42E9127A3D0E00EA24CA /* LDAP.framework */; };
 		84B216E80F5C908300F2A516 /* libxmppodauth.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B8C3960F58EB6100824D09 /* libxmppodauth.a */; };
 		84B216EA0F5C90A000F2A516 /* libxmppodauth.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B8C3960F58EB6100824D09 /* libxmppodauth.a */; };
 		84B216ED0F5C90CC00F2A516 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B216EC0F5C90CC00F2A516 /* SystemConfiguration.framework */; };
-		84B8C15C0F58DE5000824D09 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 847C5E130F58DA950032AD27 /* PasswordServer.framework */; };
-		84B8C3990F58EB7C00824D09 /* odckit.c in Sources */ = {isa = PBXBuildFile; fileRef = 847C5E5F0F58DB870032AD27 /* odckit.c */; };
-		84B8C39A0F58EB7C00824D09 /* odkit.c in Sources */ = {isa = PBXBuildFile; fileRef = 84B8C1210F58DDC000824D09 /* odkit.c */; };
 		84B8C3B60F58EB9400824D09 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B8C1BA0F58E63200824D09 /* CoreSymbolication.framework */; };
-		84B8C3B70F58EB9A00824D09 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 847C5E130F58DA950032AD27 /* PasswordServer.framework */; };
 		84B8C3C70F58EBF700824D09 /* apple_authenticate.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D4F9BE40A5B184100AAC80D /* apple_authenticate.c */; };
 		84B8C3C80F58EBF700824D09 /* apple_authorize.c in Sources */ = {isa = PBXBuildFile; fileRef = 5D4F9BE60A5B184100AAC80D /* apple_authorize.c */; };
 		84C6C1C10F5C8E570077C190 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C8230F391FB1003FE23F /* CoreFoundation.framework */; };
@@ -59,10 +68,10 @@
 		84C6C1C50F5C8E570077C190 /* CoreServices in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C8200F391F7D003FE23F /* CoreServices */; };
 		84C6C1C60F5C8E570077C190 /* Security.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C85B0F3923E4003FE23F /* Security.framework */; };
 		84C6C1C70F5C8E570077C190 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 84C890F90F4A652D00602F00 /* libsasl2.dylib */; };
-		84C6C1C80F5C8E570077C190 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 847C5E130F58DA950032AD27 /* PasswordServer.framework */; };
 		84C6C1D00F5C8E680077C190 /* sasl_test.c in Sources */ = {isa = PBXBuildFile; fileRef = 84C6C1B90F5C8E360077C190 /* sasl_test.c */; };
 		84C6C1EA0F5C8E730077C190 /* CoreSymbolication.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B8C1BA0F58E63200824D09 /* CoreSymbolication.framework */; };
 		84C890FA0F4A652D00602F00 /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 84C890F90F4A652D00602F00 /* libsasl2.dylib */; };
+		84DE47FD128A0EEB00BB6F26 /* OpenDirectory.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C82F0F392011003FE23F /* OpenDirectory.framework */; };
 		84FB42750F60BECA006D95C3 /* cyrus-sasl-digestmd5-parse.c in Sources */ = {isa = PBXBuildFile; fileRef = 84FB42740F60BECA006D95C3 /* cyrus-sasl-digestmd5-parse.c */; };
 		AA2815820E807BD300F09C36 /* JABMoveDomainAction.m in Sources */ = {isa = PBXBuildFile; fileRef = AA2815810E807BD300F09C36 /* JABMoveDomainAction.m */; };
 		AA3336530E4BD28100E7E2AD /* JABDatabaseQuery.m in Sources */ = {isa = PBXBuildFile; fileRef = AA3336520E4BD28100E7E2AD /* JABDatabaseQuery.m */; };
@@ -89,7 +98,6 @@
 		C7F035720F72C35700999B5D /* odkerb.h in Headers */ = {isa = PBXBuildFile; fileRef = C7F035700F72C35700999B5D /* odkerb.h */; };
 		C7F0357E0F72C40A00999B5D /* odkerb_test.c in Sources */ = {isa = PBXBuildFile; fileRef = C7F035730F72C3C900999B5D /* odkerb_test.c */; };
 		C7F036B20F72C42200999B5D /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 84B216EC0F5C90CC00F2A516 /* SystemConfiguration.framework */; };
-		C7F036B30F72C42200999B5D /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 847C5E130F58DA950032AD27 /* PasswordServer.framework */; };
 		C7F036B40F72C42200999B5D /* libsasl2.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 84C890F90F4A652D00602F00 /* libsasl2.dylib */; };
 		C7F036B50F72C42200999B5D /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C8230F391FB1003FE23F /* CoreFoundation.framework */; };
 		C7F036B60F72C42200999B5D /* DirectoryService.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 8435C8290F391FE2003FE23F /* DirectoryService.framework */; };
@@ -183,13 +191,28 @@
 		5D1C46A40A55E5DF007B3713 /* iChatServer_verify */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.perl; name = iChatServer_verify; path = backup_restore/iChatServer_verify; sourceTree = SOURCE_ROOT; };
 		5D37F0580ADD987D009CC04A /* config.cache */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.cache; path = config_cache/glib/i386/config.cache; sourceTree = SOURCE_ROOT; };
 		5D37F05A0ADD987E009CC04A /* config.cache */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = config.cache; path = config_cache/glib/ppc/config.cache; sourceTree = SOURCE_ROOT; };
+		5D3BA58012A72D2500963DC7 /* odckit.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = odckit.m; path = jabber_od_auth/odckit.m; sourceTree = SOURCE_ROOT; };
+		5D3E6A541288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JABMakeGroupBuddiesByGuidAction.m; sourceTree = "<group>"; };
+		5D3E6A591288DC7900318E3A /* JABMakeGroupBuddiesByGuidAction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JABMakeGroupBuddiesByGuidAction.h; sourceTree = "<group>"; };
+		5D3E6AC21288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = JABRemoveGroupBuddiesByGuidAction.m; sourceTree = "<group>"; };
+		5D3E6AC71288F29300318E3A /* JABRemoveGroupBuddiesByGuidAction.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = JABRemoveGroupBuddiesByGuidAction.h; sourceTree = "<group>"; };
+		5D3E6BF8128A0B7C00318E3A /* JABDirectory.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = JABDirectory.m; path = jabber_autobuddy/JABDirectory.m; sourceTree = SOURCE_ROOT; };
+		5D3E6BFA128A0B9900318E3A /* JABDirectory.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = JABDirectory.h; path = jabber_autobuddy/JABDirectory.h; sourceTree = SOURCE_ROOT; };
 		5D4F9BE40A5B184100AAC80D /* apple_authenticate.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = apple_authenticate.c; path = jabber_od_auth/apple_authenticate.c; sourceTree = SOURCE_ROOT; };
 		5D4F9BE50A5B184100AAC80D /* apple_authenticate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = apple_authenticate.h; path = jabber_od_auth/apple_authenticate.h; sourceTree = SOURCE_ROOT; };
 		5D4F9BE60A5B184100AAC80D /* apple_authorize.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = apple_authorize.c; path = jabber_od_auth/apple_authorize.c; sourceTree = SOURCE_ROOT; };
 		5D4F9BE70A5B184100AAC80D /* apple_authorize.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = apple_authorize.h; path = jabber_od_auth/apple_authorize.h; sourceTree = SOURCE_ROOT; };
+		5D52DBE810A2190200984EAE /* c2s.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = c2s.xml.dist; sourceTree = "<group>"; };
+		5D52DBE910A2190200984EAE /* jabberd.cfg.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = jabberd.cfg.dist; sourceTree = "<group>"; };
+		5D52DBEA10A2190200984EAE /* muc-jcr.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "muc-jcr.xml.dist"; sourceTree = "<group>"; };
+		5D52DBEB10A2190200984EAE /* router-filter.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "router-filter.xml.dist"; sourceTree = "<group>"; };
+		5D52DBEC10A2190200984EAE /* router-users.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "router-users.xml.dist"; sourceTree = "<group>"; };
+		5D52DBED10A2190200984EAE /* router.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = router.xml.dist; sourceTree = "<group>"; };
+		5D52DBEE10A2190200984EAE /* s2s.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = s2s.xml.dist; sourceTree = "<group>"; };
+		5D52DBEF10A2190200984EAE /* sm.xml.dist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = sm.xml.dist; sourceTree = "<group>"; };
+		5D56337F13579FE5009211CC /* odkit.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = odkit.m; sourceTree = "<group>"; };
 		5D5D91BC0A52FD8C005089F1 /* c2s.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = c2s.xml; path = "cfg-apple/c2s.xml"; sourceTree = SOURCE_ROOT; };
 		5D5D91BD0A52FD8C005089F1 /* jabberd.cfg */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; name = jabberd.cfg; path = "cfg-apple/jabberd.cfg"; sourceTree = SOURCE_ROOT; };
-		5D5D91BE0A52FD8C005089F1 /* resolver.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = resolver.xml; path = "cfg-apple/resolver.xml"; sourceTree = SOURCE_ROOT; };
 		5D5D91BF0A52FD8C005089F1 /* router-users.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "router-users.xml"; path = "cfg-apple/router-users.xml"; sourceTree = SOURCE_ROOT; };
 		5D5D91C00A52FD8C005089F1 /* router.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = router.xml; path = "cfg-apple/router.xml"; sourceTree = SOURCE_ROOT; };
 		5D5D91C10A52FD8C005089F1 /* s2s.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = s2s.xml; path = "cfg-apple/s2s.xml"; sourceTree = SOURCE_ROOT; };
@@ -206,7 +229,10 @@
 		5DCB1DAB0ACC8947002AC9A7 /* socks5.pyc */ = {isa = PBXFileReference; lastKnownFileType = file; name = socks5.pyc; path = modules/filetransfer/proxy65/proxy65/socks5.pyc; sourceTree = SOURCE_ROOT; };
 		5DCB1DAC0ACC8947002AC9A7 /* setup.py */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.script.python; name = setup.py; path = modules/filetransfer/proxy65/setup.py; sourceTree = SOURCE_ROOT; };
 		5DE0D2730AE955F30061E05F /* muc-jcr.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = "muc-jcr.xml"; path = "cfg-apple/muc-jcr.xml"; sourceTree = SOURCE_ROOT; };
+		5DEB2BCE12D67EA100B37414 /* auth_event.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = auth_event.c; sourceTree = "<group>"; };
+		5DEB2BCF12D67EA100B37414 /* auth_event.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = auth_event.h; sourceTree = "<group>"; };
 		841CA3530F60862200FB3FF7 /* sasl_switch_hit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = sasl_switch_hit.c; sourceTree = "<group>"; };
+		841CC6E912A7319E0079B938 /* ServerFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = ServerFoundation.framework; path = /System/Library/PrivateFrameworks/ServerFoundation.framework; sourceTree = "<absolute>"; };
 		8429BAA30F65DA4A00E82AD2 /* cyrus-sasl-digestmd5-parse.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = "cyrus-sasl-digestmd5-parse.h"; sourceTree = "<group>"; };
 		8429BAA40F65DA4A00E82AD2 /* sasl_switch_hit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = sasl_switch_hit.h; sourceTree = "<group>"; };
 		8435C8200F391F7D003FE23F /* CoreServices */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = CoreServices; path = /System/Library/Frameworks/CoreServices.framework/CoreServices; sourceTree = "<absolute>"; };
@@ -216,19 +242,18 @@
 		8435C8350F392036003FE23F /* libcrypto.0.9.8.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libcrypto.0.9.8.dylib; path = /usr/lib/libcrypto.0.9.8.dylib; sourceTree = "<absolute>"; };
 		8435C85B0F3923E4003FE23F /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		8467F0860F40E00100BB75EC /* jabber_od_auth_digest_md5_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = jabber_od_auth_digest_md5_test.m; path = jabber_od_auth/jabber_od_auth_test/jabber_od_auth_digest_md5_test.m; sourceTree = "<group>"; };
-		847C5E130F58DA950032AD27 /* PasswordServer.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = PasswordServer.framework; path = /System/Library/PrivateFrameworks/PasswordServer.framework; sourceTree = "<absolute>"; };
 		847C5E420F58DA9B0032AD27 /* CoreSymbolication */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = CoreSymbolication; path = /System/Library/PrivateFrameworks/CoreSymbolication.framework/CoreSymbolication; sourceTree = "<absolute>"; };
-		847C5E5F0F58DB870032AD27 /* odckit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = odckit.c; sourceTree = "<group>"; };
 		847C5E600F58DB870032AD27 /* odckit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = odckit.h; sourceTree = "<group>"; };
 		847C5E610F58DB870032AD27 /* odkit.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = odkit.h; sourceTree = "<group>"; };
 		847C5F090F58DBCB0032AD27 /* Security.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Security.framework; path = /System/Library/Frameworks/Security.framework; sourceTree = "<absolute>"; };
 		848564910F4264AC0072E9FD /* jabber_od_auth_plain_test.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = jabber_od_auth_plain_test.m; path = jabber_od_auth/jabber_od_auth_test/jabber_od_auth_plain_test.m; sourceTree = "<group>"; };
+		8496F87912D7DB5B00016609 /* CoreDaemon.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreDaemon.framework; path = /System/Library/PrivateFrameworks/CoreDaemon.framework; sourceTree = "<absolute>"; };
 		849F5ED90F6732F70054B58C /* jabber_od_auth_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = jabber_od_auth_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		849F5EDB0F6732F70054B58C /* jabber_od_auth_digest_md5_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = jabber_od_auth_digest_md5_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		849F5EDD0F6732F70054B58C /* sasl_test */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = sasl_test; sourceTree = BUILT_PRODUCTS_DIR; };
 		849F5EF80F6733110054B58C /* apple_membership.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = apple_membership.c; sourceTree = "<group>"; };
+		84AC42E9127A3D0E00EA24CA /* LDAP.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = LDAP.framework; path = /System/Library/Frameworks/LDAP.framework; sourceTree = "<absolute>"; };
 		84B216EC0F5C90CC00F2A516 /* SystemConfiguration.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SystemConfiguration.framework; path = /System/Library/Frameworks/SystemConfiguration.framework; sourceTree = "<absolute>"; };
-		84B8C1210F58DDC000824D09 /* odkit.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = odkit.c; sourceTree = "<group>"; };
 		84B8C1BA0F58E63200824D09 /* CoreSymbolication.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreSymbolication.framework; path = /System/Library/PrivateFrameworks/CoreSymbolication.framework; sourceTree = "<absolute>"; };
 		84B8C3960F58EB6100824D09 /* libxmppodauth.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libxmppodauth.a; sourceTree = BUILT_PRODUCTS_DIR; };
 		84C6C1B90F5C8E360077C190 /* sasl_test.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; name = sasl_test.c; path = jabber_od_auth/jabber_od_auth_test/sasl_test.c; sourceTree = "<group>"; };
@@ -314,10 +339,8 @@
 		AAB294580E2D1766003B13B8 /* gettext-0.16.1.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "gettext-0.16.1.tgz"; path = "opensource_pkgs/gettext-0.16.1.tgz"; sourceTree = SOURCE_ROOT; };
 		AAB294590E2D1766003B13B8 /* gettext.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = gettext.plist; path = opensource_pkgs/gettext.plist; sourceTree = SOURCE_ROOT; };
 		AAB2945A0E2D1766003B13B8 /* gettext.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = gettext.txt; path = opensource_pkgs/gettext.txt; sourceTree = SOURCE_ROOT; };
-		AAB2945B0E2D1766003B13B8 /* glib-2.15.4.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "glib-2.15.4.tgz"; path = "opensource_pkgs/glib-2.15.4.tgz"; sourceTree = SOURCE_ROOT; };
 		AAB2945C0E2D1766003B13B8 /* glib.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = glib.plist; path = opensource_pkgs/glib.plist; sourceTree = SOURCE_ROOT; };
 		AAB2945D0E2D1766003B13B8 /* glib.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = glib.txt; path = opensource_pkgs/glib.txt; sourceTree = SOURCE_ROOT; };
-		AAB2945E0E2D1766003B13B8 /* jabberd-2.1.23.tar.bz2 */ = {isa = PBXFileReference; lastKnownFileType = file; name = "jabberd-2.1.23.tar.bz2"; path = "opensource_pkgs/jabberd-2.1.23.tar.bz2"; sourceTree = SOURCE_ROOT; };
 		AAB2945F0E2D1767003B13B8 /* jabberd2.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = jabberd2.plist; path = opensource_pkgs/jabberd2.plist; sourceTree = SOURCE_ROOT; };
 		AAB294600E2D1767003B13B8 /* jabberd2.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = jabberd2.txt; path = opensource_pkgs/jabberd2.txt; sourceTree = SOURCE_ROOT; };
 		AAB294610E2D1767003B13B8 /* libidn-0.6.14.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "libidn-0.6.14.tgz"; path = "opensource_pkgs/libidn-0.6.14.tgz"; sourceTree = SOURCE_ROOT; };
@@ -326,7 +349,6 @@
 		AAB294640E2D1767003B13B8 /* mu-conference.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "mu-conference.8"; path = "opensource_pkgs/mu-conference.8"; sourceTree = SOURCE_ROOT; };
 		AAB294650E2D1767003B13B8 /* mu-conference.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = "mu-conference.plist"; path = "opensource_pkgs/mu-conference.plist"; sourceTree = SOURCE_ROOT; };
 		AAB294660E2D1767003B13B8 /* mu-conference.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "mu-conference.txt"; path = "opensource_pkgs/mu-conference.txt"; sourceTree = SOURCE_ROOT; };
-		AAB294670E2D1767003B13B8 /* mu-conference_0.7.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "mu-conference_0.7.tgz"; path = "opensource_pkgs/mu-conference_0.7.tgz"; sourceTree = SOURCE_ROOT; };
 		AAB294680E2D1767003B13B8 /* pkg-config-0.23.tgz */ = {isa = PBXFileReference; lastKnownFileType = file; name = "pkg-config-0.23.tgz"; path = "opensource_pkgs/pkg-config-0.23.tgz"; sourceTree = SOURCE_ROOT; };
 		AAB294690E2D1767003B13B8 /* pkg-config.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist; name = "pkg-config.plist"; path = "opensource_pkgs/pkg-config.plist"; sourceTree = SOURCE_ROOT; };
 		AAB2946A0E2D1767003B13B8 /* pkg-config.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; name = "pkg-config.txt"; path = "opensource_pkgs/pkg-config.txt"; sourceTree = SOURCE_ROOT; };
@@ -373,7 +395,6 @@
 				8467F18D0F40E0FD00BB75EC /* CoreServices in Frameworks */,
 				8467F18E0F40E0FD00BB75EC /* Security.framework in Frameworks */,
 				84C890FA0F4A652D00602F00 /* libsasl2.dylib in Frameworks */,
-				84B8C15C0F58DE5000824D09 /* PasswordServer.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -381,8 +402,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				84B8C3B70F58EB9A00824D09 /* PasswordServer.framework in Frameworks */,
 				84B8C3B60F58EB9400824D09 /* CoreSymbolication.framework in Frameworks */,
+				841CC6EA12A7319E0079B938 /* ServerFoundation.framework in Frameworks */,
+				5D0A592812A78665000D5BF7 /* Foundation.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -397,10 +419,10 @@
 				84C6C1C50F5C8E570077C190 /* CoreServices in Frameworks */,
 				84C6C1C60F5C8E570077C190 /* Security.framework in Frameworks */,
 				84C6C1C70F5C8E570077C190 /* libsasl2.dylib in Frameworks */,
-				84C6C1C80F5C8E570077C190 /* PasswordServer.framework in Frameworks */,
 				84C6C1EA0F5C8E730077C190 /* CoreSymbolication.framework in Frameworks */,
 				84B216EA0F5C90A000F2A516 /* libxmppodauth.a in Frameworks */,
 				84B216ED0F5C90CC00F2A516 /* SystemConfiguration.framework in Frameworks */,
+				84AC42EA127A3D0E00EA24CA /* LDAP.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -410,6 +432,7 @@
 			files = (
 				AA7DBA190E40EB7E0016DB7F /* Foundation.framework in Frameworks */,
 				AA7DBA1E0E40EB990016DB7F /* libsqlite3.dylib in Frameworks */,
+				84DE47FD128A0EEB00BB6F26 /* OpenDirectory.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -421,7 +444,6 @@
 				C7F0378B0F72C42B00999B5D /* Foundation.framework in Frameworks */,
 				C7F0378C0F72C42B00999B5D /* Security.framework in Frameworks */,
 				C7F036B20F72C42200999B5D /* SystemConfiguration.framework in Frameworks */,
-				C7F036B30F72C42200999B5D /* PasswordServer.framework in Frameworks */,
 				C7F036B40F72C42200999B5D /* libsasl2.dylib in Frameworks */,
 				C7F036B50F72C42200999B5D /* CoreFoundation.framework in Frameworks */,
 				C7F036B60F72C42200999B5D /* DirectoryService.framework in Frameworks */,
@@ -445,6 +467,9 @@
 				AA7DBA180E40EB7E0016DB7F /* Foundation.framework */,
 				847C5F090F58DBCB0032AD27 /* Security.framework */,
 				AA7DBA1D0E40EB990016DB7F /* libsqlite3.dylib */,
+				84AC42E9127A3D0E00EA24CA /* LDAP.framework */,
+				841CC6E912A7319E0079B938 /* ServerFoundation.framework */,
+				8496F87912D7DB5B00016609 /* CoreDaemon.framework */,
 			);
 			name = ChatServer2;
 			sourceTree = "<group>";
@@ -504,8 +529,8 @@
 				C7F0356F0F72C35700999B5D /* odkerb.c */,
 				C7F035700F72C35700999B5D /* odkerb.h */,
 				847C5E600F58DB870032AD27 /* odckit.h */,
-				847C5E5F0F58DB870032AD27 /* odckit.c */,
-				84B8C1210F58DDC000824D09 /* odkit.c */,
+				5D3BA58012A72D2500963DC7 /* odckit.m */,
+				5D56337F13579FE5009211CC /* odkit.m */,
 				847C5E610F58DB870032AD27 /* odkit.h */,
 				84FB42740F60BECA006D95C3 /* cyrus-sasl-digestmd5-parse.c */,
 				8429BAA30F65DA4A00E82AD2 /* cyrus-sasl-digestmd5-parse.h */,
@@ -516,6 +541,8 @@
 				5D4F9BE60A5B184100AAC80D /* apple_authorize.c */,
 				5D4F9BE70A5B184100AAC80D /* apple_authorize.h */,
 				849F5EF80F6733110054B58C /* apple_membership.c */,
+				5DEB2BCE12D67EA100B37414 /* auth_event.c */,
+				5DEB2BCF12D67EA100B37414 /* auth_event.h */,
 				840D7CC70F390C1F007165C8 /* jabber_od_auth_test */,
 				847C5E420F58DA9B0032AD27 /* CoreSymbolication */,
 				84B8C1BA0F58E63200824D09 /* CoreSymbolication.framework */,
@@ -526,11 +553,18 @@
 		5D5D91BB0A52FD8C005089F1 /* cfg-apple */ = {
 			isa = PBXGroup;
 			children = (
+				5D52DBE810A2190200984EAE /* c2s.xml.dist */,
+				5D52DBE910A2190200984EAE /* jabberd.cfg.dist */,
+				5D52DBEA10A2190200984EAE /* muc-jcr.xml.dist */,
+				5D52DBEB10A2190200984EAE /* router-filter.xml.dist */,
+				5D52DBEC10A2190200984EAE /* router-users.xml.dist */,
+				5D52DBED10A2190200984EAE /* router.xml.dist */,
+				5D52DBEE10A2190200984EAE /* s2s.xml.dist */,
+				5D52DBEF10A2190200984EAE /* sm.xml.dist */,
 				5DBEB6130EA049B900052914 /* router-filter.apple.xml */,
 				5D5D91BC0A52FD8C005089F1 /* c2s.xml */,
 				5D5D91BD0A52FD8C005089F1 /* jabberd.cfg */,
 				5DE0D2730AE955F30061E05F /* muc-jcr.xml */,
-				5D5D91BE0A52FD8C005089F1 /* resolver.xml */,
 				5D5D91BF0A52FD8C005089F1 /* router-users.xml */,
 				5D5D91C00A52FD8C005089F1 /* router.xml */,
 				5D5D91C10A52FD8C005089F1 /* s2s.xml */,
@@ -610,7 +644,6 @@
 			isa = PBXGroup;
 			children = (
 				84B216EC0F5C90CC00F2A516 /* SystemConfiguration.framework */,
-				847C5E130F58DA950032AD27 /* PasswordServer.framework */,
 				84C890F90F4A652D00602F00 /* libsasl2.dylib */,
 				8435C8230F391FB1003FE23F /* CoreFoundation.framework */,
 				8435C8290F391FE2003FE23F /* DirectoryService.framework */,
@@ -650,11 +683,14 @@
 				AA7DB9F00E40E7CB0016DB7F /* JABInitUserAction.m */,
 				AA7DB9F40E40E7CB0016DB7F /* JABMakeAllBuddiesAction.m */,
 				AA7DB9F60E40E7CB0016DB7F /* JABMakeGroupBuddiesAction.m */,
+				5D3E6A541288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m */,
 				AA93384C0E8D89610021EF33 /* JABRemoveGroupBuddiesAction.m */,
+				5D3E6AC21288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m */,
 				AA2815810E807BD300F09C36 /* JABMoveDomainAction.m */,
 				AA3336C30E4CEEBC00E7E2AD /* JABDatabase.m */,
 				AA3336520E4BD28100E7E2AD /* JABDatabaseQuery.m */,
 				AA7DB9F20E40E7CB0016DB7F /* JABLogger.m */,
+				5D3E6BF8128A0B7C00318E3A /* JABDirectory.m */,
 			);
 			name = sources;
 			sourceTree = "<group>";
@@ -673,11 +709,14 @@
 				AA7DB9EF0E40E7CB0016DB7F /* JABInitUserAction.h */,
 				AA7DB9F30E40E7CB0016DB7F /* JABMakeAllBuddiesAction.h */,
 				AA7DB9F50E40E7CB0016DB7F /* JABMakeGroupBuddiesAction.h */,
+				5D3E6A591288DC7900318E3A /* JABMakeGroupBuddiesByGuidAction.h */,
 				AA93384B0E8D89610021EF33 /* JABRemoveGroupBuddiesAction.h */,
+				5D3E6AC71288F29300318E3A /* JABRemoveGroupBuddiesByGuidAction.h */,
 				AA2815800E807BD300F09C36 /* JABMoveDomainAction.h */,
 				AA3336C20E4CEEBC00E7E2AD /* JABDatabase.h */,
 				AA3336510E4BD28100E7E2AD /* JABDatabaseQuery.h */,
 				AA7DB9F10E40E7CB0016DB7F /* JABLogger.h */,
+				5D3E6BFA128A0B9900318E3A /* JABDirectory.h */,
 			);
 			name = headers;
 			sourceTree = "<group>";
@@ -1009,10 +1048,8 @@
 				AAB294580E2D1766003B13B8 /* gettext-0.16.1.tgz */,
 				AAB294590E2D1766003B13B8 /* gettext.plist */,
 				AAB2945A0E2D1766003B13B8 /* gettext.txt */,
-				AAB2945B0E2D1766003B13B8 /* glib-2.15.4.tgz */,
 				AAB2945C0E2D1766003B13B8 /* glib.plist */,
 				AAB2945D0E2D1766003B13B8 /* glib.txt */,
-				AAB2945E0E2D1766003B13B8 /* jabberd-2.1.23.tar.bz2 */,
 				AAB2945F0E2D1767003B13B8 /* jabberd2.plist */,
 				AAB294600E2D1767003B13B8 /* jabberd2.txt */,
 				AAB294610E2D1767003B13B8 /* libidn-0.6.14.tgz */,
@@ -1021,7 +1058,6 @@
 				AAB294640E2D1767003B13B8 /* mu-conference.8 */,
 				AAB294650E2D1767003B13B8 /* mu-conference.plist */,
 				AAB294660E2D1767003B13B8 /* mu-conference.txt */,
-				AAB294670E2D1767003B13B8 /* mu-conference_0.7.tgz */,
 				AAB294680E2D1767003B13B8 /* pkg-config-0.23.tgz */,
 				AAB294690E2D1767003B13B8 /* pkg-config.plist */,
 				AAB2946A0E2D1767003B13B8 /* pkg-config.txt */,
@@ -1050,9 +1086,11 @@
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				5D2B93EA134442DB00252B40 /* odckit.h in Headers */,
 				8429BAA50F65DA4A00E82AD2 /* cyrus-sasl-digestmd5-parse.h in Headers */,
 				8429BAA60F65DA4A00E82AD2 /* sasl_switch_hit.h in Headers */,
 				C7F035720F72C35700999B5D /* odkerb.h in Headers */,
+				5DEB2BD112D67EA100B37414 /* auth_event.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1189,7 +1227,14 @@
 			};
 			buildConfigurationList = 1DEB919308733D9F0010E9CD /* Build configuration list for PBXProject "ChatServer2" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* ChatServer2 */;
 			productRefGroup = AA7DB9CA0E40E6EE0016DB7F /* Products */;
 			projectDirPath = "";
@@ -1230,13 +1275,14 @@
 			files = (
 				84B8C3C70F58EBF700824D09 /* apple_authenticate.c in Sources */,
 				84B8C3C80F58EBF700824D09 /* apple_authorize.c in Sources */,
-				84B8C3990F58EB7C00824D09 /* odckit.c in Sources */,
-				84B8C39A0F58EB7C00824D09 /* odkit.c in Sources */,
 				841CA3540F60862200FB3FF7 /* sasl_switch_hit.c in Sources */,
 				84FB42750F60BECA006D95C3 /* cyrus-sasl-digestmd5-parse.c in Sources */,
 				849F5EF90F6733110054B58C /* apple_membership.c in Sources */,
 				C7F035710F72C35700999B5D /* odkerb.c in Sources */,
 				C768EEC40F7C0FB200D40FA5 /* fasterauth.c in Sources */,
+				5D5633801357A009009211CC /* odkit.m in Sources */,
+				5D3BA58112A72D2500963DC7 /* odckit.m in Sources */,
+				5DEB2BD012D67EA100B37414 /* auth_event.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1245,6 +1291,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				84C6C1D00F5C8E680077C190 /* sasl_test.c in Sources */,
+				5D3E6A551288DC4B00318E3A /* JABMakeGroupBuddiesByGuidAction.m in Sources */,
+				5D3E6AC31288F27100318E3A /* JABRemoveGroupBuddiesByGuidAction.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1264,11 +1312,14 @@
 				AA7DBA000E40E7CB0016DB7F /* JABInitUserAction.m in Sources */,
 				AA7DBA020E40E7CB0016DB7F /* JABMakeAllBuddiesAction.m in Sources */,
 				AA7DBA030E40E7CB0016DB7F /* JABMakeGroupBuddiesAction.m in Sources */,
+				5D3E6B051289E13D00318E3A /* JABMakeGroupBuddiesByGuidAction.m in Sources */,
 				AA93384D0E8D89610021EF33 /* JABRemoveGroupBuddiesAction.m in Sources */,
+				5D3E6B061289E15D00318E3A /* JABRemoveGroupBuddiesByGuidAction.m in Sources */,
 				AA2815820E807BD300F09C36 /* JABMoveDomainAction.m in Sources */,
 				AA3336C40E4CEEBC00E7E2AD /* JABDatabase.m in Sources */,
 				AA3336530E4BD28100E7E2AD /* JABDatabaseQuery.m in Sources */,
 				AA7DBA010E40E7CB0016DB7F /* JABLogger.m in Sources */,
+				5D3E6BF9128A0B7C00318E3A /* JABDirectory.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1351,12 +1402,12 @@
 					x86_64,
 					i386,
 				);
-				CFLAGS = "-O2";
+				CFLAGS = "-Os";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				OPTIMIZATION_LEVEL = 2;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
-				OPTIMIZATION_LEVEL = 2;
 				PRODUCT_NAME = ChatServer2;
 				ZERO_LINK = NO;
 			};
@@ -1518,8 +1569,12 @@
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
 				GCC_MODEL_TUNING = G5;
@@ -1543,13 +1598,17 @@
 					i386,
 					x86_64,
 				);
-				COPY_PHASE_STRIP = YES;
+				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
 					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2)",
+					"$(FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3)",
 				);
 				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_2 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
+				FRAMEWORK_SEARCH_PATHS_QUOTED_FOR_TARGET_3 = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_MODEL_TUNING = G5;
 				INSTALL_PATH = "";
@@ -1585,6 +1644,7 @@
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 				);
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework\"";
+				OTHER_CFLAGS = "-lldap";
 				OTHER_LDFLAGS = (
 					"-framework",
 					Foundation,
@@ -1619,6 +1679,7 @@
 					"$(LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1)",
 				);
 				LIBRARY_SEARCH_PATHS_QUOTED_FOR_TARGET_1 = "\"$(SYSTEM_LIBRARY_DIR)/Frameworks/CoreServices.framework\"";
+				OTHER_CFLAGS = "-lldap";
 				OTHER_LDFLAGS = (
 					"-framework",
 					Foundation,

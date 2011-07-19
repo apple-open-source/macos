@@ -22,8 +22,8 @@
 #ifndef CounterNode_h
 #define CounterNode_h
 
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
-#include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 
 // This implements a counter tree that is used for finding parents in counters() lookup,
@@ -37,18 +37,23 @@
 
 namespace WebCore {
 
-class AtomicString;
 class RenderObject;
+class RenderCounter;
 
 class CounterNode : public RefCounted<CounterNode> {
 public:
     static PassRefPtr<CounterNode> create(RenderObject*, bool isReset, int value);
-
+    ~CounterNode();
     bool actsAsReset() const { return m_hasResetType || !m_parent; }
     bool hasResetType() const { return m_hasResetType; }
     int value() const { return m_value; }
     int countInParent() const { return m_countInParent; }
-    RenderObject* renderer() const { return m_renderer; }
+    RenderObject* owner() const { return m_owner; }
+    void addRenderer(RenderCounter*);
+    void removeRenderer(RenderCounter*);
+
+    // Invalidates the text in the renderers of this counter, if any.
+    void resetRenderers();
 
     CounterNode* parent() const { return m_parent; }
     CounterNode* previousSibling() const { return m_previousSibling; }
@@ -63,26 +68,21 @@ public:
     void insertAfter(CounterNode* newChild, CounterNode* beforeChild, const AtomicString& identifier);
 
     // identifier must match the identifier of this counter.
-    void removeChild(CounterNode*, const AtomicString& identifier);
+    void removeChild(CounterNode*);
 
 private:
     CounterNode(RenderObject*, bool isReset, int value);
     int computeCountInParent() const;
-    void recount(const AtomicString& identifier);
-
-    // Invalidates the text in the renderer of this counter, if any.
-    // identifier must match the identifier of this counter.
-    void resetRenderer(const AtomicString& identifier) const;
-
     // Invalidates the text in the renderer of this counter, if any,
     // and in the renderers of all descendants of this counter, if any.
-    // identifier must match the identifier of this counter.
-    void resetRenderers(const AtomicString& identifier) const;
+    void resetThisAndDescendantsRenderers();
+    void recount();
 
     bool m_hasResetType;
     int m_value;
     int m_countInParent;
-    RenderObject* m_renderer;
+    RenderObject* m_owner;
+    RenderCounter* m_rootRenderer;
 
     CounterNode* m_parent;
     CounterNode* m_previousSibling;
@@ -95,7 +95,7 @@ private:
 
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
-void showTree(const WebCore::CounterNode*);
+void showCounterTree(const WebCore::CounterNode*);
 #endif
 
 #endif // CounterNode_h

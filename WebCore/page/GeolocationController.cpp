@@ -25,14 +25,15 @@
 
 #include "config.h"
 #include "GeolocationController.h"
+#include "GeolocationPosition.h"
 
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 
-#include "GeolocationControllerClient.h"
+#include "GeolocationClient.h"
 
 namespace WebCore {
 
-GeolocationController::GeolocationController(Page* page, GeolocationControllerClient* client)
+GeolocationController::GeolocationController(Page* page, GeolocationClient* client)
     : m_page(page)
     , m_client(client)
 {
@@ -40,18 +41,27 @@ GeolocationController::GeolocationController(Page* page, GeolocationControllerCl
 
 GeolocationController::~GeolocationController()
 {
+    ASSERT(m_observers.isEmpty());
+
     if (m_client)
         m_client->geolocationDestroyed();
 }
 
-void GeolocationController::addObserver(Geolocation* observer)
+void GeolocationController::addObserver(Geolocation* observer, bool enableHighAccuracy)
 {
-    ASSERT(!m_observers.contains(observer));
-
+    // This may be called multiple times with the same observer, though removeObserver()
+    // is called only once with each.
     bool wasEmpty = m_observers.isEmpty();
     m_observers.add(observer);
-    if (wasEmpty && m_client)
-        m_client->startUpdating();
+    if (enableHighAccuracy)
+        m_highAccuracyObservers.add(observer);
+
+    if (m_client) {        
+        if (enableHighAccuracy)
+            m_client->setEnableHighAccuracy(true);
+        if (wasEmpty)
+            m_client->startUpdating();
+    }
 }
 
 void GeolocationController::removeObserver(Geolocation* observer)
@@ -60,16 +70,35 @@ void GeolocationController::removeObserver(Geolocation* observer)
         return;
 
     m_observers.remove(observer);
-    if (m_observers.isEmpty() && m_client)
-        m_client->stopUpdating();
+    m_highAccuracyObservers.remove(observer);
+
+    if (m_client) {
+        if (m_observers.isEmpty())
+            m_client->stopUpdating();
+        else if (m_highAccuracyObservers.isEmpty())
+            m_client->setEnableHighAccuracy(false);
+    }
+}
+
+void GeolocationController::requestPermission(Geolocation* geolocation)
+{
+    if (m_client)
+        m_client->requestPermission(geolocation);
+}
+
+void GeolocationController::cancelPermissionRequest(Geolocation* geolocation)
+{
+    if (m_client)
+        m_client->cancelPermissionRequest(geolocation);
 }
 
 void GeolocationController::positionChanged(GeolocationPosition* position)
 {
+    m_lastPosition = position;
     Vector<RefPtr<Geolocation> > observersVector;
     copyToVector(m_observers, observersVector);
     for (size_t i = 0; i < observersVector.size(); ++i)
-        observersVector[i]->setPosition(position);
+        observersVector[i]->positionChanged();
 }
 
 void GeolocationController::errorOccurred(GeolocationError* error)
@@ -82,6 +111,9 @@ void GeolocationController::errorOccurred(GeolocationError* error)
 
 GeolocationPosition* GeolocationController::lastPosition()
 {
+    if (m_lastPosition.get())
+        return m_lastPosition.get();
+
     if (!m_client)
         return 0;
 

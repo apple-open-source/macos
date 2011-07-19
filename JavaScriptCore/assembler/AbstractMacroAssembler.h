@@ -26,8 +26,8 @@
 #ifndef AbstractMacroAssembler_h
 #define AbstractMacroAssembler_h
 
-#include <MacroAssemblerCodeRef.h>
-#include <CodeLocation.h>
+#include "CodeLocation.h"
+#include "MacroAssemblerCodeRef.h"
 #include <wtf/Noncopyable.h>
 #include <wtf/UnusedParam.h>
 
@@ -49,10 +49,6 @@ public:
     class Jump;
 
     typedef typename AssemblerType::RegisterID RegisterID;
-    typedef typename AssemblerType::FPRegisterID FPRegisterID;
-    typedef typename AssemblerType::JmpSrc JmpSrc;
-    typedef typename AssemblerType::JmpDst JmpDst;
-
 
     // Section 1: MacroAssembler operand types
     //
@@ -146,21 +142,21 @@ public:
     // Describes an memory operand given by a pointer.  For regular load & store
     // operations an unwrapped void* will be used, rather than using this.
     struct AbsoluteAddress {
-        explicit AbsoluteAddress(void* ptr)
+        explicit AbsoluteAddress(const void* ptr)
             : m_ptr(ptr)
         {
         }
 
-        void* m_ptr;
+        const void* m_ptr;
     };
 
-    // ImmPtr:
+    // TrustedImmPtr:
     //
     // A pointer sized immediate operand to an instruction - this is wrapped
     // in a class requiring explicit construction in order to differentiate
     // from pointers used as absolute addresses to memory operations
-    struct ImmPtr {
-        explicit ImmPtr(const void* value)
+    struct TrustedImmPtr {
+        explicit TrustedImmPtr(const void* value)
             : m_value(value)
         {
         }
@@ -173,14 +169,21 @@ public:
         const void* m_value;
     };
 
-    // Imm32:
+    struct ImmPtr : public TrustedImmPtr {
+        explicit ImmPtr(const void* value)
+            : TrustedImmPtr(value)
+        {
+        }
+    };
+
+    // TrustedImm32:
     //
     // A 32bit immediate operand to an instruction - this is wrapped in a
     // class requiring explicit construction in order to prevent RegisterIDs
     // (which are implemented as an enum) from accidentally being passed as
     // immediate values.
-    struct Imm32 {
-        explicit Imm32(int32_t value)
+    struct TrustedImm32 {
+        explicit TrustedImm32(int32_t value)
             : m_value(value)
 #if CPU(ARM) || CPU(MIPS)
             , m_isPointer(false)
@@ -189,7 +192,7 @@ public:
         }
 
 #if !CPU(X86_64)
-        explicit Imm32(ImmPtr ptr)
+        explicit TrustedImm32(TrustedImmPtr ptr)
             : m_value(ptr.asIntptr())
 #if CPU(ARM) || CPU(MIPS)
             , m_isPointer(true)
@@ -212,6 +215,19 @@ public:
     };
 
 
+    struct Imm32 : public TrustedImm32 {
+        explicit Imm32(int32_t value)
+            : TrustedImm32(value)
+        {
+        }
+#if !CPU(X86_64)
+        explicit Imm32(TrustedImmPtr ptr)
+            : TrustedImm32(ptr)
+        {
+        }
+#endif
+    };
+    
     // Section 2: MacroAssembler code buffer handles
     //
     // The following types are used to reference items in the code buffer
@@ -241,10 +257,9 @@ public:
         {
         }
         
-        bool isUsed() const { return m_label.isUsed(); }
-        void used() { m_label.used(); }
+        bool isSet() const { return m_label.isSet(); }
     private:
-        JmpDst m_label;
+        AssemblerLabel m_label;
     };
 
     // DataLabelPtr:
@@ -265,8 +280,10 @@ public:
         {
         }
         
+        bool isSet() const { return m_label.isSet(); }
+        
     private:
-        JmpDst m_label;
+        AssemblerLabel m_label;
     };
 
     // DataLabel32:
@@ -288,7 +305,7 @@ public:
         }
 
     private:
-        JmpDst m_label;
+        AssemblerLabel m_label;
     };
 
     // Call:
@@ -314,7 +331,7 @@ public:
         {
         }
         
-        Call(JmpSrc jmp, Flags flags)
+        Call(AssemblerLabel jmp, Flags flags)
             : m_jmp(jmp)
             , m_flags(flags)
         {
@@ -330,7 +347,7 @@ public:
             return Call(jump.m_jmp, Linkable);
         }
 
-        JmpSrc m_jmp;
+        AssemblerLabel m_jmp;
     private:
         Flags m_flags;
     };
@@ -351,23 +368,47 @@ public:
         {
         }
         
-        Jump(JmpSrc jmp)    
+#if CPU(ARM_THUMB2)
+        // Fixme: this information should be stored in the instruction stream, not in the Jump object.
+        Jump(AssemblerLabel jmp, ARMv7Assembler::JumpType type, ARMv7Assembler::Condition condition = ARMv7Assembler::ConditionInvalid)
+            : m_jmp(jmp)
+            , m_type(type)
+            , m_condition(condition)
+        {
+        }
+#else
+        Jump(AssemblerLabel jmp)    
             : m_jmp(jmp)
         {
         }
-        
-        void link(AbstractMacroAssembler<AssemblerType>* masm)
+#endif
+
+        void link(AbstractMacroAssembler<AssemblerType>* masm) const
         {
+#if CPU(ARM_THUMB2)
+            masm->m_assembler.linkJump(m_jmp, masm->m_assembler.label(), m_type, m_condition);
+#else
             masm->m_assembler.linkJump(m_jmp, masm->m_assembler.label());
+#endif
         }
         
-        void linkTo(Label label, AbstractMacroAssembler<AssemblerType>* masm)
+        void linkTo(Label label, AbstractMacroAssembler<AssemblerType>* masm) const
         {
+#if CPU(ARM_THUMB2)
+            masm->m_assembler.linkJump(m_jmp, label.m_label, m_type, m_condition);
+#else
             masm->m_assembler.linkJump(m_jmp, label.m_label);
+#endif
         }
 
+        bool isSet() const { return m_jmp.isSet(); }
+
     private:
-        JmpSrc m_jmp;
+        AssemblerLabel m_jmp;
+#if CPU(ARM_THUMB2)
+        ARMv7Assembler::JumpType m_type;
+        ARMv7Assembler::Condition m_condition;
+#endif
     };
 
     // JumpList:
@@ -411,6 +452,11 @@ public:
             return !m_jumps.size();
         }
         
+        void clear()
+        {
+            m_jumps.clear();
+        }
+        
         const JumpVector& jumps() { return m_jumps; }
 
     private:
@@ -419,17 +465,6 @@ public:
 
 
     // Section 3: Misc admin methods
-
-    static CodePtr trampolineAt(CodeRef ref, Label label)
-    {
-        return CodePtr(AssemblerType::getRelocatedAddress(ref.m_code.dataLocation(), label.m_label));
-    }
-
-    size_t size()
-    {
-        return m_assembler.size();
-    }
-
     Label label()
     {
         return Label(this);
@@ -481,6 +516,18 @@ public:
         return AssemblerType::getDifferenceBetweenLabels(from.m_label, to.m_jmp);
     }
 
+    // Temporary interface; likely to be removed, since may be hard to port to all architectures.
+#if CPU(X86) || CPU(X86_64)
+    void rewindToLabel(Label rewindTo) { m_assembler.rewindToLabel(rewindTo.m_label); }
+#endif
+
+    void beginUninterruptedSequence() { }
+    void endUninterruptedSequence() { }
+
+#ifndef NDEBUG
+    unsigned debugOffset() { return m_assembler.debugOffset(); }
+#endif
+
 protected:
     AssemblerType m_assembler;
 
@@ -492,17 +539,12 @@ protected:
         AssemblerType::linkJump(code, jump.m_jmp, target.dataLocation());
     }
 
-    static void linkPointer(void* code, typename AssemblerType::JmpDst label, void* value)
+    static void linkPointer(void* code, AssemblerLabel label, void* value)
     {
         AssemblerType::linkPointer(code, label, value);
     }
 
-    static void* getLinkerAddress(void* code, typename AssemblerType::JmpSrc label)
-    {
-        return AssemblerType::getRelocatedAddress(code, label);
-    }
-
-    static void* getLinkerAddress(void* code, typename AssemblerType::JmpDst label)
+    static void* getLinkerAddress(void* code, AssemblerLabel label)
     {
         return AssemblerType::getRelocatedAddress(code, label);
     }
@@ -530,11 +572,6 @@ protected:
     static void repatchPointer(CodeLocationDataLabelPtr dataLabelPtr, void* value)
     {
         AssemblerType::repatchPointer(dataLabelPtr.dataLocation(), value);
-    }
-
-    static void repatchLoadPtrToLEA(CodeLocationInstruction instruction)
-    {
-        AssemblerType::repatchLoadPtrToLEA(instruction.dataLocation());
     }
 };
 

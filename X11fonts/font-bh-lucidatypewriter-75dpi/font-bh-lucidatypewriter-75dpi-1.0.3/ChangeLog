@@ -1,0 +1,232 @@
+commit b7ff302599eb5152f8af226bee49049f5c9b3bae
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Mon Nov 15 21:13:28 2010 +0100
+
+    font-bh-lucidatypewriter-75dpi 1.0.3
+
+commit 2c7cabb2bdfb4261ab7ae7348a4cb9a588f54d40
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:55 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a26570f8e95bbae7cb3d2c777f254a5f200d2100
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Mon Oct 4 23:40:55 2010 -0700
+
+    font-bh-lucidatypewriter-75dpi 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b2481d1cf3d8b9db4b3c4b85c53b2a500a1b567d
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:51 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit e9d3ec746118f26f3d8e2fa9e37fdf9c5f0e1435
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit 7cf0c0b7bb6592d0bb1fb6a409a65ba5da4e94a5
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 51a9fd6321b703e13e7bbefe776831221ace2c3b
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit fc58f072f8969c92bf4264227473af04662b81d3
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:58:03 2009 -0700
+
+    font-bh-lucidatypewriter-75dpi 1.0.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 29982e7bf8d36cdf6fdc48d73eea3ace4c78ca5c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 14:35:38 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit c20e64ebbd18ecb1cc1e792e4c0a4c91cd38bac7
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:26 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 760c57310972c28298b2c7e94654ab32e639fa30
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 19:11:07 2009 -0200
+
+    Janitor: Correct make distcheck and configure.ac simplification
+
+commit e430a26db90448c982e72663999a9fcd152b9628
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit b2eeddad6aaba0db4a3a26eb26514fba89235cf6
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:47 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit ec8d6de368cffccf1df76c9d2ec234c1c273f4db
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:01 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit ba15a5be78e3c238fcc477bead66a376a3ca6d8f
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:20 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit a27d12038b2a239ea99465f1ea83882449ae44f8
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:23 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 85d2604cae52953aeda19de16c389612cf83ec95
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:51 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit 7ca22936fd1f4fbe82879fa3b43e4a83bfc2282a
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:38 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 26311598e52761353ee2dd8575f77203a08d0445
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Thu Nov 24 05:21:14 2005 +0000
+
+    Bug #5122: Use $< instead of $^ to be portable to FreeBSD's make.
+
+commit 5ba2ffb1f52dbf9a9ad17a731ce45f02dfe4f06c
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:19 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit 91dda3dd04b5f01bd4846bd5e0dfe05294afb12b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:26:47 2005 +0000
+
+    Add configure options to change the installed font dir and disable
+        ISO8859-* fonts.
+
+commit efe8a00d80ca36609182222e7fa7c04b51fe16dc
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:07 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 7400979af6bb4d99d7b392f14608a0f906268ff1
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Oct 2 18:19:54 2005 +0000
+
+    Add explicit all-local targets so Solaris make can build, since it won't
+        recursively follow the implicit targets (.bdf -> -ISO-8859-1.bdf ->
+        pcf.gz)
+    Fix a couple of remaining GNU-make-isms
+
+commit 5eb97c0effea7ea3a55068ae80e7a55750e7d8d9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:47 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 7cbcc21779cad9820e15f72611f5fccf9ff98002
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 22 04:13:44 2005 +0000
+
+    Fix distcheck for fonts with multiple encodings
+
+commit ba295e2c7dec0aad6408238f07043d29056d6225
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Jul 19 02:40:05 2005 +0000
+
+    Convert $(foreach...) to more portable suffix substitution rules
+
+commit 442b2ea29b77bb4aa9fa11ca023f76f4ec7f947c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jun 30 22:28:06 2005 +0000
+
+    Initial build system files for font module
+
+commit 0111838d310b5706de2b4a2bbda6ee21ed48a943
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:27:44 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit fa6a53c9b4366fde91c451bd5045a00fd68027da
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:37 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 7276ca8d9ad9210e6843816192c89751327a8138
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:34 2003 +0000
+
+    R6.6 is the Xorg base-line

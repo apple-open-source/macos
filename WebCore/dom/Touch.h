@@ -23,26 +23,28 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef TOUCH_H_
-#define TOUCH_H_
+#ifndef Touch_h
+#define Touch_h
 
 #if ENABLE(TOUCH_EVENTS)
 
 #include "EventTarget.h"
-#include "Frame.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+class Frame;
+
 class Touch : public RefCounted<Touch> {
 public:
     static PassRefPtr<Touch> create(Frame* frame, EventTarget* target,
-            unsigned identifier, int screenX, int screenY, int pageX, int pageY)
+            unsigned identifier, int screenX, int screenY, int pageX, int pageY,
+            int radiusX, int radiusY, float rotationAngle)
     {
         return adoptRef(new Touch(frame, target, identifier, screenX, 
-                screenY, pageX, pageY));
+                screenY, pageX, pageY, radiusX, radiusY, rotationAngle));
     }
 
     EventTarget* target() const { return m_target.get(); }
@@ -53,10 +55,14 @@ public:
     int screenY() const { return m_screenY; }
     int pageX() const { return m_pageX; }
     int pageY() const { return m_pageY; }
+    int webkitRadiusX() const { return m_radiusX; }
+    int webkitRadiusY() const { return m_radiusY; }
+    float webkitRotationAngle() const { return m_rotationAngle; }
 
 private:
     Touch(Frame* frame, EventTarget* target, unsigned identifier,
-            int screenX, int screenY, int pageX, int pageY);
+            int screenX, int screenY, int pageX, int pageY,
+            int radiusX, int radiusY, float rotationAngle);
 
     RefPtr<EventTarget> m_target;
     unsigned m_identifier;
@@ -66,10 +72,13 @@ private:
     int m_screenY;
     int m_pageX;
     int m_pageY;
+    int m_radiusX;
+    int m_radiusY;
+    float m_rotationAngle;
 };
 
 } // namespace WebCore
 
 #endif // ENABLE(TOUCH_EVENTS)
 
-#endif /* TOUCH_H_ */
+#endif /* Touch_h */

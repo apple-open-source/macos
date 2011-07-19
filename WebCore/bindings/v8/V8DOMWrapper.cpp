@@ -36,19 +36,23 @@
 #include "DocumentLoader.h"
 #include "FrameLoaderClient.h"
 #include "Notification.h"
-#include "ScriptController.h"
 #include "V8AbstractEventListener.h"
 #include "V8Binding.h"
 #include "V8Collection.h"
-#include "V8CustomEventListener.h"
 #include "V8DedicatedWorkerContext.h"
 #include "V8DOMApplicationCache.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
+#include "V8EventListener.h"
 #include "V8EventListenerList.h"
 #include "V8EventSource.h"
+#include "V8FileReader.h"
+#include "V8FileWriter.h"
 #include "V8HTMLCollection.h"
 #include "V8HTMLDocument.h"
+#include "V8IDBDatabase.h"
+#include "V8IDBRequest.h"
+#include "V8IDBTransaction.h"
 #include "V8IsolatedContext.h"
 #include "V8Location.h"
 #include "V8MessageChannel.h"
@@ -66,7 +70,7 @@
 #include "V8WorkerContext.h"
 #include "V8WorkerContextEventListener.h"
 #include "V8XMLHttpRequest.h"
-#include "WebGLArray.h"
+#include "ArrayBufferView.h"
 #include "WebGLContextAttributes.h"
 #include "WebGLUniformLocation.h"
 #include "WorkerContextExecutionProxy.h"
@@ -78,9 +82,13 @@
 #include "V8SVGElementInstance.h"
 #endif
 
+#if ENABLE(WEB_AUDIO)
+#include "V8AudioContext.h"
+#include "V8JavaScriptAudioNode.h"
+#endif
+
 #include <algorithm>
 #include <utility>
-#include <v8.h>
 #include <v8-debug.h>
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
@@ -220,11 +228,7 @@ PassRefPtr<NodeFilter> V8DOMWrapper::wrapNativeNodeFilter(v8::Handle<v8::Value> 
     // to NodeFilter. NodeFilter has a ref counted pointer to NodeFilterCondition.
     // In NodeFilterCondition, filter object is persisted in its constructor,
     // and disposed in its destructor.
-    if (!filter->IsFunction())
-        return 0;
-
-    NodeFilterCondition* condition = new V8NodeFilterCondition(filter);
-    return NodeFilter::create(condition);
+    return NodeFilter::create(V8NodeFilterCondition::create(filter));
 }
 
 static bool globalObjectPrototypeIsDOMWindow(v8::Handle<v8::Object> objectPrototype)
@@ -284,6 +288,8 @@ v8::Local<v8::Object> V8DOMWrapper::instantiateV8Object(V8Proxy* proxy, WrapperT
     if (!instance.IsEmpty()) {
         // Avoid setting the DOM wrapper for failed allocations.
         setDOMWrapper(instance, type, impl);
+        if (type == &V8HTMLDocument::info)
+            instance = V8HTMLDocument::WrapInShadowObject(instance, static_cast<Node*>(impl));
     }
     return instance;
 }
@@ -329,9 +335,8 @@ bool V8DOMWrapper::isWrapperOfType(v8::Handle<v8::Value> value, WrapperTypeInfo*
     return typeInfo == type;
 }
 
-v8::Handle<v8::Object> V8DOMWrapper::getWrapper(Node* node)
+v8::Handle<v8::Object> V8DOMWrapper::getWrapperSlow(Node* node)
 {
-    ASSERT(WTF::isMainThread());
     V8IsolatedContext* context = V8IsolatedContext::getEntered();
     if (LIKELY(!context)) {
         v8::Persistent<v8::Object>* wrapper = node->wrapper();
@@ -339,7 +344,6 @@ v8::Handle<v8::Object> V8DOMWrapper::getWrapper(Node* node)
             return v8::Handle<v8::Object>();
         return *wrapper;
     }
-
     DOMNodeMapping& domNodeMap = context->world()->domDataStore()->domNodeMap();
     return domNodeMap.get(node);
 }
@@ -375,6 +379,15 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
 #if ENABLE(NOTIFICATIONS)
     if (Notification* notification = target->toNotification())
         return toV8(notification);
+#endif
+
+#if ENABLE(INDEXED_DATABASE)
+    if (IDBDatabase* idbDatabase = target->toIDBDatabase())
+        return toV8(idbDatabase);
+    if (IDBRequest* idbRequest = target->toIDBRequest())
+        return toV8(idbRequest);
+    if (IDBTransaction* idbTransaction = target->toIDBTransaction())
+        return toV8(idbTransaction);
 #endif
 
 #if ENABLE(WEB_SOCKETS)
@@ -418,6 +431,23 @@ v8::Handle<v8::Value> V8DOMWrapper::convertEventTargetToV8Object(EventTarget* ta
         return toV8(eventSource);
 #endif
 
+#if ENABLE(BLOB)
+    if (FileReader* fileReader = target->toFileReader())
+        return toV8(fileReader);
+#endif
+
+#if ENABLE(FILE_SYSTEM)
+    if (FileWriter* fileWriter = target->toFileWriter())
+        return toV8(fileWriter);
+#endif
+
+#if ENABLE(WEB_AUDIO)
+    if (JavaScriptAudioNode* jsAudioNode = target->toJavaScriptAudioNode())
+        return toV8(jsAudioNode);
+    if (AudioContext* audioContext = target->toAudioContext())
+        return toV8(audioContext);
+#endif    
+
     ASSERT(0);
     return notHandledByInterceptor();
 }
@@ -438,5 +468,18 @@ PassRefPtr<EventListener> V8DOMWrapper::getEventListener(v8::Local<v8::Value> va
     return 0;
 #endif
 }
+
+#if ENABLE(XPATH)
+// XPath-related utilities
+RefPtr<XPathNSResolver> V8DOMWrapper::getXPathNSResolver(v8::Handle<v8::Value> value, V8Proxy* proxy)
+{
+    RefPtr<XPathNSResolver> resolver;
+    if (V8XPathNSResolver::HasInstance(value))
+        resolver = V8XPathNSResolver::toNative(v8::Handle<v8::Object>::Cast(value));
+    else if (value->IsObject())
+        resolver = V8CustomXPathNSResolver::create(value->ToObject());
+    return resolver;
+}
+#endif
 
 }  // namespace WebCore

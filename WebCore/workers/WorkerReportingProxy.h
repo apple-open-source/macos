@@ -33,11 +33,10 @@
 
 #if ENABLE(WORKERS)
 
-#include "Console.h"
+#include "ConsoleTypes.h"
+#include <wtf/Forward.h>
 
 namespace WebCore {
-
-    class String;
 
     // APIs used by workers to report console activity.
     class WorkerReportingProxy {
@@ -54,6 +53,7 @@ namespace WebCore {
         // Invoked when the thread has stopped.
         virtual void workerContextDestroyed() = 0;
     };
+
 } // namespace WebCore
 
 #endif // ENABLE(WORKERS)

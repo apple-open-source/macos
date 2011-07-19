@@ -90,6 +90,9 @@
 #endif
 #include "vpn_control.h"
 #include "vpn_control_var.h"
+#ifndef HAVE_OPENSSL
+#include <Security/SecDH.h>
+#endif
 
 /* %%%
  * begin Identity Protection Mode as initiator.
@@ -372,6 +375,14 @@ base_i2recv(iph1, msg)
 					 "remote supports DPD\n");
 			}
 #endif
+#ifdef ENABLE_FRAG
+			if ((vid_numeric == VENDORID_FRAG) &&
+				(vendorid_frag_cap(pa->ptr) & VENDORID_FRAG_BASE)) {
+				plog(LLV_DEBUG, LOCATION, NULL,
+					 "remote supports FRAGMENTATION\n");
+				iph1->frag = 1;
+			}
+#endif	
 			break;
 		default:
 			/* don't send information, see ident_r1recv() */
@@ -465,8 +476,13 @@ base_i2send(iph1, msg)
 		sizeof(cookie_t));
 
 	/* generate DH public value */
+#ifdef HAVE_OPENSSL
 	if (oakley_dh_generate(iph1->approval->dhgrp,
-				&iph1->dhpub, &iph1->dhpriv) < 0)
+						   &iph1->dhpub, &iph1->dhpriv) < 0)
+#else
+	if (oakley_dh_generate(iph1->approval->dhgrp,
+				&iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0)
+#endif
 		goto end;
 
 	/* generate SKEYID to compute hash if not signature mode */
@@ -571,13 +587,11 @@ base_i2send(iph1, msg)
 			goto end;
 		}
 
-#ifdef __APPLE__
 		/* old Apple version sends natd payloads in the wrong order */
 		if (iph1->natt_options->version == VENDORID_NATT_APPLE) {
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);
 			plist = isakmp_plist_append(plist, natd[0], iph1->natt_options->payload_nat_d);
 		} else
-#endif
 		{
 			plist = isakmp_plist_append(plist, natd[0], iph1->natt_options->payload_nat_d);
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);
@@ -598,7 +612,7 @@ base_i2send(iph1, msg)
 
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1)) == -1) {
+                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -634,6 +648,7 @@ base_i3recv(iph1, msg)
 	vchar_t	*natd_received;
 	int natd_seq = 0, natd_verified;
 #endif
+	int received_cert = 0;
 
 	/* validity check */
 	if (iph1->status != PHASE1ST_MSG2SENT) {
@@ -662,6 +677,7 @@ base_i3recv(iph1, msg)
 		case ISAKMP_NPTYPE_CERT:
 			if (oakley_savecert(iph1, pa->ptr) < 0)
 				goto end;
+			received_cert = 1;
 			break;
 		case ISAKMP_NPTYPE_SIG:
 			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0)
@@ -674,9 +690,7 @@ base_i3recv(iph1, msg)
 #ifdef ENABLE_NATT
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_RFC:
-#ifdef __APPLE__
 		case ISAKMP_NPTYPE_NATD_BADDRAFT:
-#endif
 			if (NATT_AVAILABLE(iph1) && iph1->natt_options &&
 			    pa->type == iph1->natt_options->payload_nat_d) {
 				natd_received = NULL;
@@ -727,6 +741,10 @@ base_i3recv(iph1, msg)
 	}
 #endif
 
+	if (received_cert) {
+		oakley_verify_certid(iph1);
+	}
+	
 	/* payload existency check */
 	/* validate authentication value */
 	ptype = oakley_validate_auth(iph1);
@@ -742,8 +760,12 @@ base_i3recv(iph1, msg)
 	}
 
 	/* compute sharing secret of DH */
+#ifdef HAVE_OPENSSL
 	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
-				iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+#else
+	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, iph1->dhC) < 0)
+#endif
 		goto end;
 
 	/* generate SKEYID to compute hash if signature mode */
@@ -887,11 +909,6 @@ base_r1recv(iph1, msg)
 			if (iph1->rmconf->nat_traversal && natt_vendorid(vid_numeric))
 				natt_handle_vendorid(iph1, vid_numeric);
 #endif
-#ifdef ENABLE_FRAG
-			if ((vid_numeric == VENDORID_FRAG) &&
-			    (vendorid_frag_cap(pa->ptr) & VENDORID_FRAG_BASE))
-				iph1->frag = 1;
-#endif
 #ifdef ENABLE_HYBRID
 			switch (vid_numeric) {
 			case VENDORID_XAUTH:
@@ -915,6 +932,14 @@ base_r1recv(iph1, msg)
 					 "remote supports DPD\n");
 			}
 #endif 
+#ifdef ENABLE_FRAG
+			if ((vid_numeric == VENDORID_FRAG) &&
+				(vendorid_frag_cap(pa->ptr) & VENDORID_FRAG_BASE)) {
+				plog(LLV_DEBUG, LOCATION, NULL,
+					 "remote supports FRAGMENTATION\n");
+				iph1->frag = 1;
+			}
+#endif
 			break;
 		default:
 			/* don't send information, see ident_r1recv() */
@@ -1102,7 +1127,7 @@ base_r1send(iph1, msg)
 
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1)) == -1) {
+                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;
@@ -1161,6 +1186,7 @@ base_r2recv(iph1, msg)
 #ifdef ENABLE_NATT
 	int natd_seq = 0;
 #endif
+	int received_cert = 0;
 
 	/* validity check */
 	if (iph1->status != PHASE1ST_MSG1SENT) {
@@ -1191,6 +1217,7 @@ base_r2recv(iph1, msg)
 		case ISAKMP_NPTYPE_CERT:
 			if (oakley_savecert(iph1, pa->ptr) < 0)
 				goto end;
+			received_cert = 1;
 			break;
 		case ISAKMP_NPTYPE_SIG:
 			if (isakmp_p2ph(&iph1->sig_p, pa->ptr) < 0)
@@ -1203,9 +1230,7 @@ base_r2recv(iph1, msg)
 #ifdef ENABLE_NATT
 		case ISAKMP_NPTYPE_NATD_DRAFT:
 		case ISAKMP_NPTYPE_NATD_RFC:
-#ifdef __APPLE__
 		case ISAKMP_NPTYPE_NATD_BADDRAFT:
-#endif
 			if (pa->type == iph1->natt_options->payload_nat_d)
 			{
 				vchar_t *natd_received = NULL;
@@ -1242,14 +1267,27 @@ base_r2recv(iph1, msg)
 		}
 	}
 
+	if (received_cert) {
+		oakley_verify_certid(iph1);
+	}
+	
 	/* generate DH public value */
+#ifdef HAVE_OPENSSL
 	if (oakley_dh_generate(iph1->approval->dhgrp,
-				&iph1->dhpub, &iph1->dhpriv) < 0)
+						   &iph1->dhpub, &iph1->dhpriv) < 0)
+#else
+	if (oakley_dh_generate(iph1->approval->dhgrp,
+				&iph1->dhpub, &iph1->publicKeySize, &iph1->dhC) < 0)
+#endif
 		goto end;
 
 	/* compute sharing secret of DH */
+#ifdef HAVE_OPENSSL
 	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub,
-				iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+						  iph1->dhpriv, iph1->dhpub_p, &iph1->dhgxy) < 0)
+#else
+	if (oakley_dh_compute(iph1->approval->dhgrp, iph1->dhpub_p, iph1->publicKeySize, &iph1->dhgxy, iph1->dhC) < 0)
+#endif
 		goto end;
 
 	/* generate SKEYID */
@@ -1437,13 +1475,11 @@ base_r2send(iph1, msg)
 			goto end;
 		}
 
-#ifdef __APPLE__
 		/* old Apple version sends natd payloads in the wrong order */
 		if (iph1->natt_options->version == VENDORID_NATT_APPLE) {
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);
 			plist = isakmp_plist_append(plist, natd[0], iph1->natt_options->payload_nat_d);
 		} else
-#endif
 		{
 			plist = isakmp_plist_append(plist, natd[0], iph1->natt_options->payload_nat_d);
 			plist = isakmp_plist_append(plist, natd[1], iph1->natt_options->payload_nat_d);
@@ -1463,7 +1499,7 @@ base_r2send(iph1, msg)
 
 	/* the sending message is added to the received-list. */
 	if (add_recvdpkt(iph1->remote, iph1->local, iph1->sendbuf, msg,
-                     PH1_NON_ESP_EXTRA_LEN(iph1)) == -1) {
+                     PH1_NON_ESP_EXTRA_LEN(iph1), PH1_FRAG_FLAGS(iph1)) == -1) {
 		plog(LLV_ERROR , LOCATION, NULL,
 			"failed to add a response packet to the tree.\n");
 		goto end;

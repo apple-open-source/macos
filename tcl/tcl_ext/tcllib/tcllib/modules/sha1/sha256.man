@@ -1,9 +1,10 @@
-[manpage_begin sha256 n 1.0.2]
+[manpage_begin sha256 n 1.0.3]
 [moddesc   {SHA-x Message-Digest Algorithm}]
 [copyright {2008, Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [titledesc {SHA256 Message-Digest Algorithm}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
-[require sha256 [opt 1.0.2]]
+[require sha256 [opt 1.0.3]]
 [description]
 [para]
 

@@ -35,6 +35,8 @@
 #include <paths.h>
 #include <sys/stat.h>
 
+#include "OSKext.h"
+
 /* If you aren't IOKitUser or kext_tools, you shouldn't be using this
  * file. Its contents will change without warning.
  */
@@ -110,7 +112,7 @@ typedef enum {
 } _OSKextCacheFormat;
 
 Boolean _OSKextReadCache(
-    CFURLRef                  folderURL,
+    CFTypeRef                 folderURLsOrURL,  // CFArray or CFURLRef
     CFStringRef               cacheName,
     const NXArchInfo        * arch,
     _OSKextCacheFormat        format,
@@ -118,11 +120,11 @@ Boolean _OSKextReadCache(
     CFPropertyListRef       * cacheContentsOut);
 Boolean _OSKextCreateFolderForCacheURL(CFURLRef cacheURL);
 Boolean _OSKextWriteCache(
-    CFPropertyListRef         plist,
-    CFURLRef                  folderURL,
+    CFTypeRef                 folderURLsOrURL,  // CFArray or CFURLRef
     CFStringRef               cacheName,
     const NXArchInfo        * arch,
-    _OSKextCacheFormat        format);
+    _OSKextCacheFormat        format,
+    CFPropertyListRef         plist);
 Boolean _OSKextReadFromIdentifierCacheForFolder(
     CFURLRef            anURL,
     CFMutableArrayRef * kextsOut);
@@ -130,11 +132,31 @@ Boolean _OSKextWriteIdentifierCacheForKextsInDirectory(
     CFArrayRef kextArray,
     CFURLRef   directoryURL,
     Boolean    forceFlag);
-CFArrayRef _OSKextGetKernelRequests(void);
+CFArrayRef _OSKextCopyKernelRequests(void);
 OSReturn _OSKextSendResource(
     CFDictionaryRef request,
     OSReturn        requestResult,
     CFDataRef       resource);
+
+#if PRAGMA_MARK
+/********************************************************************/
+#pragma mark URL Utilities
+/********************************************************************/
+#endif
+
+CFStringRef _CFURLCopyAbsolutePath(CFURLRef anURL);
+
+#if PRAGMA_MARK
+/********************************************************************/
+#pragma mark Misc Functions
+/********************************************************************/
+#endif
+
+/* Used by embedded so they can better control which kexts they get.
+ * This must be called when no kexts are opened.
+ */
+void _OSKextSetStrictRecordingByLastOpened(Boolean flag);
+
 
 #if PRAGMA_MARK
 /********************************************************************/
@@ -147,11 +169,11 @@ OSReturn _OSKextSendResource(
 #define OSKextLogMemError()   \
     OSKextLog(NULL, \
         kOSKextLogErrorLevel | kOSKextLogGeneralFlag, \
-        "Memory allocation failure, %s, line %d.", __FILE__, __LINE__)
+        "Error - memory allocation failure, %s, line %d.", __FILE__, __LINE__)
 #define OSKextLogStringError(kext)   \
     OSKextLog((kext), \
         kOSKextLogErrorLevel | kOSKextLogGeneralFlag, \
-        "String/URL conversion failure, %s, line %d.", __FILE__, __LINE__)
+        "Error - string/URL conversion failure, %s, line %d.", __FILE__, __LINE__)
 
 #else /* DEBUG */
 

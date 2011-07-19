@@ -1,0 +1,85 @@
+Import('*')
+
+env = env.Clone()
+
+env.Tool('llvm')
+if not env.has_key('LLVM_VERSION'):
+    print 'warning: LLVM not found: not building llvmpipe'
+    Return()
+
+env.Tool('udis86')
+
+env.Append(CPPPATH = ['.'])
+
+env.CodeGenerate(
+	target = 'lp_tile_soa.c',
+	script = 'lp_tile_soa.py',
+	source = ['#src/gallium/auxiliary/util/u_format.csv'],
+	command = 'python $SCRIPT $SOURCE > $TARGET'
+)
+
+# XXX: Our dependency scanner only finds depended modules in relative dirs.
+env.Depends('lp_tile_soa.c', [
+    '#src/gallium/auxiliary/util/u_format_parse.py', 
+    '#src/gallium/auxiliary/util/u_format_pack.py', 
+    '#src/gallium/auxiliary/util/u_format_access.py',
+])
+
+llvmpipe = env.ConvenienceLibrary(
+	target = 'llvmpipe',
+	source = [
+		'lp_buffer.c',
+		'lp_clear.c',
+		'lp_context.c',
+		'lp_draw_arrays.c',
+		'lp_fence.c',
+		'lp_flush.c',
+		'lp_jit.c',
+		'lp_perf.c',
+		'lp_query.c',
+		'lp_rast.c',
+		'lp_rast_tri.c',
+		'lp_scene.c',
+		'lp_scene_queue.c',
+		'lp_screen.c',
+		'lp_setup.c',
+		'lp_setup_line.c',
+		'lp_setup_point.c',
+		'lp_setup_tri.c',
+		'lp_setup_vbuf.c',
+		'lp_state_blend.c',
+		'lp_state_clip.c',
+		'lp_state_derived.c',
+		'lp_state_fs.c',
+		'lp_state_rasterizer.c',
+		'lp_state_sampler.c',
+		'lp_state_surface.c',
+		'lp_state_vertex.c',
+		'lp_state_vs.c',
+		'lp_surface.c',
+		'lp_tex_sample_llvm.c',
+		'lp_texture.c',
+		'lp_tile_image.c',
+		'lp_tile_soa.c',
+	])
+
+
+if env['platform'] != 'embedded':
+    env = env.Clone()
+
+    env.Prepend(LIBS = [llvmpipe] + gallium)
+
+    tests = [
+        'format',
+        'blend',
+        'conv',
+    ]
+
+    for test in tests:
+        target = env.Program(
+            target = 'lp_test_' + test,
+            source = ['lp_test_' + test + '.c', 'lp_test_main.c'],
+        )
+        env.InstallProgram(target)
+
+    Export('llvmpipe')

@@ -1,35 +1,87 @@
---- /tmp/jabberd-2.1.24.1/c2s/c2s.c	2008-04-27 02:57:20.000000000 -0700
-+++ ./jabberd2/c2s/c2s.c	2009-05-26 11:50:12.000000000 -0700
-@@ -449,6 +449,28 @@ static int _c2s_client_sx_callback(sx_t 
-             /* they sasl auth'd, so we only want the new-style session start */
-             else {
-                 log_write(sess->c2s->log, LOG_NOTICE, "[%d] SASL authentication succeeded: mechanism=%s; authzid=%s%s", sess->s->tag, &sess->s->auth_method[5], sess->s->auth_id, sess->s->ssf ? ", TLS negotiated" : "");
-+
-+                /* Apple SACL check */
-+#ifdef APPLE_ENABLE_OD_AUTH
-+                jid_t jid;
-+                jid = jid_new(sess->c2s->pc, sess->s->auth_id, -1);
-+                if (NULL == jid) {
-+                    log_debug(ZONE, "jid_new returned NULL for userid %s", sess->s->auth_id);
-+                    sx_error(s, stream_err_INTERNAL_SERVER_ERROR, "failure during authorization");
-+                    sx_close(s);
-+                    jid_free(jid);
-+                    break;
-+                }
-+                int iErr = od_auth_check_service_membership(jid->node, APPLE_CHAT_SACL_NAME);
-+                log_debug(ZONE, "_ar_od_check_password(): od_auth_check_service_membership returned %d for %s", iErr, jid->node);
-+                if (iErr != 1) {
-+                    sx_error(s, stream_err_NOT_AUTHORIZED, "Authorization failed");
-+                    sx_close(s);
-+                    jid_free(jid);
-+                    break;
-+                }
-+                jid_free(jid);
-+#endif
-                 sess->sasl_authd = 1;
+--- /tmp/jabberd-2.2.13/c2s/c2s.c	2011-02-23 08:24:34.000000000 -0800
++++ ./jabberd2/c2s/c2s.c	2011-02-24 16:25:21.000000000 -0800
+@@ -29,6 +29,7 @@ static int _c2s_client_sx_callback(sx_t 
+     nad_t nad;
+     char root[9];
+     bres_t bres, ires;
++    stream_redirect_t redirect;
+ 
+     switch(e) {
+         case event_WANT_READ:
+@@ -178,6 +179,20 @@ static int _c2s_client_sx_callback(sx_t 
+                 return 0;
              }
  
-@@ -768,7 +790,7 @@ int c2s_router_sx_callback(sx_t s, sx_ev
++            /* send a see-other-host error if we're configured to do so */
++            redirect = (stream_redirect_t) xhash_get(sess->c2s->stream_redirects, s->req_to);
++            if (redirect != NULL) {
++                log_debug(ZONE, "redirecting client's stream using see-other-host for domain: '%s'", s->req_to);
++                len = strlen(redirect->to_address) + strlen(redirect->to_port) + 1;
++                char *other_host = (char *) malloc(len+1);
++                snprintf(other_host, len+1, "%s:%s", redirect->to_address, redirect->to_port);
++                sx_error_extended(s, stream_err_SEE_OTHER_HOST, other_host);
++                free(other_host);
++                sx_close(s);
++                
++                return 0;
++            }
++
+             /* setup the host */
+             sess->host = xhash_get(sess->c2s->hosts, s->req_to);
+ 
+@@ -472,6 +487,35 @@ static int _c2s_client_sx_callback(sx_t 
+ 
+             /* they sasl auth'd, so we only want the new-style session start */
+             else {
++                /* Apple SACL check */
++#ifdef APPLE_ENABLE_OD_AUTH
++                int iResult = 0;
++		        if (NULL != sess->c2s->ar_authorization_sacl_name) {
++                    jid_t jid;
++                    jid = jid_new(sess->s->auth_id, -1);
++                    if (NULL == jid) {
++                        log_debug(ZONE, "jid_new returned NULL for userid %s", sess->s->auth_id);
++                        sx_error(s, stream_err_INTERNAL_SERVER_ERROR, "failure during authorization");
++                        sx_close(s);
++                        jid_free(jid);
++                        iResult = -1;
++                        goto authz_done;
++                    }
++                    int iErr = od_auth_check_service_membership(jid->node, sess->c2s->ar_authorization_sacl_name);
++                    log_debug(ZONE, "_ar_od_check_password(): od_auth_check_service_membership returned %d for %s", iErr, jid->node);
++                    if (iErr != 1) {
++                        sx_error(s, stream_err_NOT_AUTHORIZED, "Authorization failed");
++                        sx_close(s);
++                        jid_free(jid);
++                        iResult = -1;
++                        goto authz_done;
++                    }
++                    jid_free(jid);
++                }
++authz_done:
++                if (0 != iResult)
++                    break;
++#endif
+                 log_write(sess->c2s->log, LOG_NOTICE, "[%d] SASL authentication succeeded: mechanism=%s; authzid=%s%s%s", sess->s->tag, &sess->s->auth_method[5], sess->s->auth_id, sess->s->ssf ? ", TLS negotiated" : "", sess->s->compressed ? ", ZLIB compression enabled" : "");
+                 sess->sasl_authd = 1;
+             }
+@@ -480,6 +524,7 @@ static int _c2s_client_sx_callback(sx_t 
+ 
+         case event_CLOSED:
+             mio_close(sess->c2s->mio, sess->fd);
++            sess->fd = NULL;
+             return -1;
+     }
+ 
+@@ -595,6 +640,7 @@ static int _c2s_client_mio_callback(mio_
+ 
+             /* give IP to SX */
+             sess->s->ip = sess->ip;
++            sess->s->port = sess->port;
+ 
+             /* find out which port this is */
+             getsockname(fd->fd, (struct sockaddr *) &sa, &namelen);
+@@ -798,7 +844,7 @@ int c2s_router_sx_callback(sx_t s, sx_ev
                      if(ns >= 0) {
                          elem = nad_find_elem(nad, 0, ns, "starttls", 1);
                          if(elem >= 0) {
@@ -38,3 +90,11 @@
                                  nad_free(nad);
                                  return 0;
                              }
+@@ -1299,6 +1345,7 @@ int c2s_router_sx_callback(sx_t s, sx_ev
+ 
+         case event_CLOSED:
+             mio_close(c2s->mio, c2s->fd);
++            c2s->fd = NULL;
+             return -1;
+     }
+ 

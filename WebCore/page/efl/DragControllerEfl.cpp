@@ -43,14 +43,14 @@ const int DragController::DragIconBottomInset = 3;
 
 const float DragController::DragImageAlpha = 0.75f;
 
-bool DragController::isCopyKeyDown()
+bool DragController::isCopyKeyDown(DragData*)
 {
     return false;
 }
 
 DragOperation DragController::dragOperation(DragData* dragData)
 {
-    if (dragData->containsURL())
+    if (dragData->containsURL(0))
         return DragOperationCopy;
 
     return DragOperationNone;

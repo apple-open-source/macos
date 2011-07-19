@@ -87,7 +87,6 @@ u_int pfkey_set_softrate __P((u_int, u_int));
 u_int pfkey_get_softrate __P((u_int));
 int pfkey_send_getspi __P((int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int32_t, u_int32_t));
-#ifdef __APPLE__
 int pfkey_send_update __P((int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
@@ -96,26 +95,6 @@ int pfkey_send_add __P((int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int,
 	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
 	u_int64_t, u_int64_t, u_int32_t, u_int16_t));
-#else
-int pfkey_send_update __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
-	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t));
-int pfkey_send_update_nat __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
-	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t,
-	u_int8_t, u_int16_t, u_int16_t, struct sockaddr *, u_int16_t));
-int pfkey_send_add __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
-	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t));
-int pfkey_send_add_nat __P((int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int,
-	caddr_t, u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int64_t,
-	u_int64_t, u_int64_t, u_int32_t,
-	u_int8_t, u_int16_t, u_int16_t, struct sockaddr *, u_int16_t));
-#endif /*__APPLE__ */
 
 int pfkey_send_delete __P((int, u_int, u_int,
 	struct sockaddr *, struct sockaddr *, u_int32_t));
@@ -171,19 +150,7 @@ int pfkey_send_getsastats __P((int, u_int32_t, u_int64_t [], u_int32_t, u_int8_t
 static __inline u_int8_t
 sysdep_sa_len (const struct sockaddr *sa)
 {
-#ifdef __linux__
-  switch (sa->sa_family)
-    {
-    case AF_INET:
-      return sizeof (struct sockaddr_in);
-    case AF_INET6:
-      return sizeof (struct sockaddr_in6);
-    }
-  // log_print ("sysdep_sa_len: unknown sa family %d", sa->sa_family);
-  return sizeof (struct sockaddr_in);
-#else
   return sa->sa_len;
-#endif
 }
 #endif
 

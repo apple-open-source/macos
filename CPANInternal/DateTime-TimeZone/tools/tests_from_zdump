@@ -85,8 +85,12 @@ foreach my $tz_name (@names)
     die qq|Nothing returning from calling "$command".  Did you specify a valid zdump binary?\n|
         unless @lines;
 
+    my $last_short_name = '';
     foreach my $line (@lines)
     {
+        # This seems to happen on 64-bit systems.
+        next if $line =~ /= NULL$/;
+
         my ( $utc_mon_name, $utc_day, $utc_hour, $utc_min, $utc_sec, $utc_year,
              $loc_mon_name, $loc_day, $loc_hour, $loc_min, $loc_sec, $loc_year,
              $short_name, $is_dst, $offset_from_utc ) =
@@ -131,8 +135,19 @@ foreach my $tz_name (@names)
             next;
         }
 
-        next if $utc_year == 1901 || $loc_year == 1901;
-        next if $utc_year == 2038 || $loc_year == 2038;
+        # On a 32-bit system, I suspect that this will generate bogus
+        # changes at the edges (1901 & 2038), but on my 64-bit system
+        # it works for those years.
+
+        # There seems to be a bug (on my system, at least) where the
+        # last change zdump generates has the local zone as UTC. For
+        # example, see Africa/Cairo, which in 2408 supposedly goes
+        # from EEST to UTC.
+        if ( $last_short_name && $short_name eq 'UTC' && $last_short_name ne 'UTC' )
+        {
+            print "  skipping $last_short_name -> $short_name change in $loc_year\n" if $opts{verbose};
+            next;
+        }
 
         my $utc_month = $months{$utc_mon_name};
         my $loc_month = $months{$loc_mon_name};
@@ -156,7 +171,9 @@ foreach my $tz_name (@names)
                        short_name => $short_name,
                        is_dst     => 1 * $is_dst,
                        offset     => 1 * $offset_from_utc,
-                     }
+                     };
+
+        $last_short_name = $short_name;
     }
 
     unless (@tests)
@@ -199,7 +216,7 @@ EOF
         print T <<"EOF";
 {
     my \$dt = DateTime->new( $utc_new,
-                             time_zone => 'UTC',
+                            time_zone => 'UTC',
                            );
     \$dt->set_time_zone( '$t->{time_zone}' );
 
@@ -216,12 +233,7 @@ EOF
 
     is( \$dt->is_dst, $t->{is_dst}, 'is_dst should be $t->{is_dst} ($local_datetime)' );
     is( \$dt->offset, $t->{offset}, 'offset should be $t->{offset} ($local_datetime)' );
-
-  TODO:
-    {
-        local \$TODO = 'zdump gives bogus short names for many zones';
-        is( \$dt->time_zone_short_name, '$t->{short_name}', 'short name should be $t->{short_name} ($local_datetime)' );
-    }
+    is( \$dt->time_zone_short_name, '$t->{short_name}', 'short name should be $t->{short_name} ($local_datetime)' );
 }
 
 EOF

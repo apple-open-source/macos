@@ -8,18 +8,29 @@
 ##===----------------------------------------------------------------------===##
 
 LEVEL := ../../..
-include $(LEVEL)/Makefile.config
-NO_MISSING_FIELD_INITIALIZERS := $(shell $(CXX) -Wno-missing-field-initializers -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-missing-field-initializers)
-NO_VARIADIC_MACROS := $(shell $(CXX) -Wno-variadic-macros -fsyntax-only -xc /dev/null 2>/dev/null && echo -Wno-variadic-macros)
 
+include $(LEVEL)/Makefile.config
 
 LIBRARYNAME = GoogleTest
 BUILD_ARCHIVE = 1
-CPP.Flags += -I$(LLVM_SRC_ROOT)/utils/unittest/googletest/include/
-CPP.Flags += $(NO_MISSING_FIELD_INITIALIZERS) $(NO_VARIADIC_MACROS)
+REQUIRES_RTTI = 1
 
-ifeq ($(OS),MingW)
+# Note that these flags are duplicated when building individual tests in
+# unittests/Makefile.unittest and ../UnitTestMain/Makefile; ensure that any
+# changes are made to both.
+CPP.Flags += -I$(LLVM_SRC_ROOT)/utils/unittest/googletest/include
+CPP.Flags += $(NO_MISSING_FIELD_INITIALIZERS) $(NO_VARIADIC_MACROS)
+CPP.Flags += -DGTEST_HAS_RTTI=0
+# libstdc++'s TR1 <tuple> header depends on RTTI and uses C++'0x features not
+# supported by Clang, so force googletest to use its own tuple implementation.
+# When we import googletest >=1.4.0, we can drop this line.
+CPP.Flags += -DGTEST_HAS_TR1_TUPLE=0
+
+
+ifeq ($(HOST_OS),MingW)
   CPP.Flags += -DGTEST_OS_WINDOWS=1
 endif
+
+NO_INSTALL = 1
 
 include $(LEVEL)/Makefile.common

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2008, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,13 +31,20 @@
 #include "IconDatabase.h"
 #include "PageCache.h"
 #include "ResourceRequest.h"
+#include "SerializedScriptValue.h"
+#include "SharedBuffer.h"
 #include <stdio.h>
-#include <wtf/text/CString.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/Decoder.h>
+#include <wtf/Encoder.h>
+#include <wtf/MathExtras.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
-static long long generateDocumentSequenceNumber()
+const uint32_t backForwardTreeEncodingVersion = 2;
+
+static long long generateSequenceNumber()
 {
     // Initialize to the current time to reduce the likelihood of generating
     // identifiers that overlap with those from past/future browser sessions.
@@ -54,10 +61,14 @@ void (*notifyHistoryItemChanged)(HistoryItem*) = defaultNotifyHistoryItemChanged
 HistoryItem::HistoryItem()
     : m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
+    , m_pageScaleFactor(1)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
-    , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_itemSequenceNumber(generateSequenceNumber())
+    , m_documentSequenceNumber(generateSequenceNumber())
+    , m_next(0)
+    , m_prev(0)
 {
 }
 
@@ -67,12 +78,16 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, double ti
     , m_title(title)
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
+    , m_pageScaleFactor(1)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
-    , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_itemSequenceNumber(generateSequenceNumber())
+    , m_documentSequenceNumber(generateSequenceNumber())
+    , m_next(0)
+    , m_prev(0)
 {    
-    iconDatabase()->retainIconForPageURL(m_urlString);
+    iconDatabase().retainIconForPageURL(m_urlString);
 }
 
 HistoryItem::HistoryItem(const String& urlString, const String& title, const String& alternateTitle, double time)
@@ -82,12 +97,16 @@ HistoryItem::HistoryItem(const String& urlString, const String& title, const Str
     , m_displayTitle(alternateTitle)
     , m_lastVisitedTime(time)
     , m_lastVisitWasHTTPNonGet(false)
+    , m_pageScaleFactor(1)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
-    , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_itemSequenceNumber(generateSequenceNumber())
+    , m_documentSequenceNumber(generateSequenceNumber())
+    , m_next(0)
+    , m_prev(0)
 {
-    iconDatabase()->retainIconForPageURL(m_urlString);
+    iconDatabase().retainIconForPageURL(m_urlString);
 }
 
 HistoryItem::HistoryItem(const KURL& url, const String& target, const String& parent, const String& title)
@@ -98,18 +117,22 @@ HistoryItem::HistoryItem(const KURL& url, const String& target, const String& pa
     , m_title(title)
     , m_lastVisitedTime(0)
     , m_lastVisitWasHTTPNonGet(false)
+    , m_pageScaleFactor(1)
     , m_lastVisitWasFailure(false)
     , m_isTargetItem(false)
     , m_visitCount(0)
-    , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_itemSequenceNumber(generateSequenceNumber())
+    , m_documentSequenceNumber(generateSequenceNumber())
+    , m_next(0)
+    , m_prev(0)
 {    
-    iconDatabase()->retainIconForPageURL(m_urlString);
+    iconDatabase().retainIconForPageURL(m_urlString);
 }
 
 HistoryItem::~HistoryItem()
 {
     ASSERT(!m_cachedPage);
-    iconDatabase()->releaseIconForPageURL(m_urlString);
+    iconDatabase().releaseIconForPageURL(m_urlString);
 #if PLATFORM(ANDROID)
     if (m_bridge)
         m_bridge->detachHistoryItem();
@@ -128,12 +151,14 @@ inline HistoryItem::HistoryItem(const HistoryItem& item)
     , m_lastVisitedTime(item.m_lastVisitedTime)
     , m_lastVisitWasHTTPNonGet(item.m_lastVisitWasHTTPNonGet)
     , m_scrollPoint(item.m_scrollPoint)
+    , m_pageScaleFactor(item.m_pageScaleFactor)
     , m_lastVisitWasFailure(item.m_lastVisitWasFailure)
     , m_isTargetItem(item.m_isTargetItem)
     , m_visitCount(item.m_visitCount)
     , m_dailyVisitCounts(item.m_dailyVisitCounts)
     , m_weeklyVisitCounts(item.m_weeklyVisitCounts)
-    , m_documentSequenceNumber(generateDocumentSequenceNumber())
+    , m_itemSequenceNumber(item.m_itemSequenceNumber)
+    , m_documentSequenceNumber(item.m_documentSequenceNumber)
     , m_formContentType(item.m_formContentType)
 {
     if (item.m_formData)
@@ -145,12 +170,46 @@ inline HistoryItem::HistoryItem(const HistoryItem& item)
         m_children.uncheckedAppend(item.m_children[i]->copy());
 
     if (item.m_redirectURLs)
-        m_redirectURLs.set(new Vector<String>(*item.m_redirectURLs));
+        m_redirectURLs = adoptPtr(new Vector<String>(*item.m_redirectURLs));
 }
 
 PassRefPtr<HistoryItem> HistoryItem::copy() const
 {
     return adoptRef(new HistoryItem(*this));
+}
+
+void HistoryItem::reset()
+{
+    iconDatabase().releaseIconForPageURL(m_urlString);
+
+    m_urlString = String();
+    m_originalURLString = String();
+    m_referrer = String();
+    m_target = String();
+    m_parent = String();
+    m_title = String();
+    m_displayTitle = String();
+
+    m_lastVisitedTime = 0;
+    m_lastVisitWasHTTPNonGet = false;
+
+    m_lastVisitWasFailure = false;
+    m_isTargetItem = false;
+    m_visitCount = 0;
+    m_dailyVisitCounts.clear();
+    m_weeklyVisitCounts.clear();
+
+    m_redirectURLs.clear();
+
+    m_itemSequenceNumber = generateSequenceNumber();
+
+    m_stateObject = 0;
+    m_documentSequenceNumber = generateSequenceNumber();
+
+    m_formData = 0;
+    m_formContentType = String();
+
+    clearChildren();
 }
 
 const String& HistoryItem::urlString() const
@@ -173,12 +232,6 @@ const String& HistoryItem::title() const
 const String& HistoryItem::alternateTitle() const
 {
     return m_displayTitle;
-}
-
-Image* HistoryItem::icon() const
-{
-    Image* result = iconDatabase()->iconForPageURL(m_urlString, IntSize(16, 16));
-    return result ? result : iconDatabase()->defaultIcon(IntSize(16, 16));
 }
 
 double HistoryItem::lastVisitedTime() const
@@ -220,9 +273,9 @@ void HistoryItem::setAlternateTitle(const String& alternateTitle)
 void HistoryItem::setURLString(const String& urlString)
 {
     if (m_urlString != urlString) {
-        iconDatabase()->releaseIconForPageURL(m_urlString);
+        iconDatabase().releaseIconForPageURL(m_urlString);
         m_urlString = urlString;
-        iconDatabase()->retainIconForPageURL(m_urlString);
+        iconDatabase().retainIconForPageURL(m_urlString);
     }
     
     notifyHistoryItemChanged(this);
@@ -369,6 +422,16 @@ void HistoryItem::clearScrollPoint()
     m_scrollPoint.setY(0);
 }
 
+float HistoryItem::pageScaleFactor() const
+{
+    return m_pageScaleFactor;
+}
+
+void HistoryItem::setPageScaleFactor(float scaleFactor)
+{
+    m_pageScaleFactor = scaleFactor;
+}
+
 void HistoryItem::setDocumentState(const Vector<String>& state)
 {
     m_documentState = state;
@@ -441,6 +504,16 @@ HistoryItem* HistoryItem::childItemWithTarget(const String& target) const
     return 0;
 }
 
+HistoryItem* HistoryItem::childItemWithDocumentSequenceNumber(long long number) const
+{
+    unsigned size = m_children.size();
+    for (unsigned i = 0; i < size; ++i) {
+        if (m_children[i]->documentSequenceNumber() == number)
+            return m_children[i].get();
+    }
+    return 0;
+}
+
 // <rdar://problem/4895849> HistoryItem::findTargetItem() should be replaced with a non-recursive method.
 HistoryItem* HistoryItem::findTargetItem()
 {
@@ -473,6 +546,61 @@ bool HistoryItem::hasChildren() const
 void HistoryItem::clearChildren()
 {
     m_children.clear();
+}
+
+// We do same-document navigation if going to a different item and if either of the following is true:
+// - The other item corresponds to the same document (for history entries created via pushState or fragment changes).
+// - The other item corresponds to the same set of documents, including frames (for history entries created via regular navigation)
+bool HistoryItem::shouldDoSameDocumentNavigationTo(HistoryItem* otherItem) const
+{
+    if (this == otherItem)
+        return false;
+
+    if (stateObject() || otherItem->stateObject())
+        return documentSequenceNumber() == otherItem->documentSequenceNumber();
+    
+    if ((url().hasFragmentIdentifier() || otherItem->url().hasFragmentIdentifier()) && equalIgnoringFragmentIdentifier(url(), otherItem->url()))
+        return documentSequenceNumber() == otherItem->documentSequenceNumber();        
+    
+    return hasSameDocumentTree(otherItem);
+}
+
+// Does a recursive check that this item and its descendants have the same
+// document sequence numbers as the other item.
+bool HistoryItem::hasSameDocumentTree(HistoryItem* otherItem) const
+{
+    if (documentSequenceNumber() != otherItem->documentSequenceNumber())
+        return false;
+        
+    if (children().size() != otherItem->children().size())
+        return false;
+
+    for (size_t i = 0; i < children().size(); i++) {
+        HistoryItem* child = children()[i].get();
+        HistoryItem* otherChild = otherItem->childItemWithDocumentSequenceNumber(child->documentSequenceNumber());
+        if (!otherChild || !child->hasSameDocumentTree(otherChild))
+            return false;
+    }
+
+    return true;
+}
+
+// Does a non-recursive check that this item and its immediate children have the
+// same frames as the other item.
+bool HistoryItem::hasSameFrames(HistoryItem* otherItem) const
+{
+    if (target() != otherItem->target())
+        return false;
+        
+    if (children().size() != otherItem->children().size())
+        return false;
+
+    for (size_t i = 0; i < children().size(); i++) {
+        if (!otherItem->childItemWithTarget(children()[i]->target()))
+            return false;
+    }
+
+    return true;
 }
 
 String HistoryItem::formContentType() const
@@ -532,7 +660,7 @@ void HistoryItem::mergeAutoCompleteHints(HistoryItem* otherItem)
 void HistoryItem::addRedirectURL(const String& url)
 {
     if (!m_redirectURLs)
-        m_redirectURLs.set(new Vector<String>);
+        m_redirectURLs = adoptPtr(new Vector<String>);
 
     // Our API allows us to store all the URLs in the redirect chain, but for
     // now we only have a use for the final URL.
@@ -548,6 +676,192 @@ Vector<String>* HistoryItem::redirectURLs() const
 void HistoryItem::setRedirectURLs(PassOwnPtr<Vector<String> > redirectURLs)
 {
     m_redirectURLs = redirectURLs;
+}
+
+void HistoryItem::encodeBackForwardTree(Encoder& encoder) const
+{
+    encoder.encodeUInt32(backForwardTreeEncodingVersion);
+
+    encodeBackForwardTreeNode(encoder);
+}
+
+void HistoryItem::encodeBackForwardTreeNode(Encoder& encoder) const
+{
+    size_t size = m_children.size();
+    encoder.encodeUInt64(size);
+    for (size_t i = 0; i < size; ++i) {
+        const HistoryItem& child = *m_children[i];
+
+        encoder.encodeString(child.m_originalURLString);
+
+        encoder.encodeString(child.m_urlString);
+
+        child.encodeBackForwardTreeNode(encoder);
+    }
+
+    encoder.encodeInt64(m_documentSequenceNumber);
+
+    size = m_documentState.size();
+    encoder.encodeUInt64(size);
+    for (size_t i = 0; i < size; ++i)
+        encoder.encodeString(m_documentState[i]);
+
+    encoder.encodeString(m_formContentType);
+
+    encoder.encodeBool(m_formData);
+    if (m_formData)
+        m_formData->encodeForBackForward(encoder);
+
+    encoder.encodeInt64(m_itemSequenceNumber);
+
+    encoder.encodeString(m_referrer);
+
+    encoder.encodeInt32(m_scrollPoint.x());
+    encoder.encodeInt32(m_scrollPoint.y());
+    
+    encoder.encodeFloat(m_pageScaleFactor);
+
+    encoder.encodeBool(m_stateObject);
+    if (m_stateObject) {
+#if !USE(V8)
+        encoder.encodeBytes(m_stateObject->data().data(), m_stateObject->data().size());
+#else
+        encoder.encodeString(m_stateObject->toWireString());
+#endif
+    }
+
+    encoder.encodeString(m_target);
+}
+
+struct DecodeRecursionStackElement {
+    RefPtr<HistoryItem> node;
+    size_t i;
+    uint64_t size;
+
+    DecodeRecursionStackElement(PassRefPtr<HistoryItem> node, size_t i, uint64_t size)
+        : node(node)
+        , i(i)
+        , size(size)
+    {
+    }
+};
+
+PassRefPtr<HistoryItem> HistoryItem::decodeBackForwardTree(const String& topURLString, const String& topTitle, const String& topOriginalURLString, Decoder& decoder)
+{
+    // Since the data stream is not trusted, the decode has to be non-recursive.
+    // We don't want bad data to cause a stack overflow.
+
+    uint32_t version;
+    if (!decoder.decodeUInt32(version))
+        return 0;
+    if (version != backForwardTreeEncodingVersion)
+        return 0;
+
+    String urlString = topURLString;
+    String title = topTitle;
+    String originalURLString = topOriginalURLString;
+
+    Vector<DecodeRecursionStackElement, 16> recursionStack;
+
+recurse:
+    RefPtr<HistoryItem> node = create(urlString, title, 0);
+
+    node->setOriginalURLString(originalURLString);
+
+    title = String();
+
+    uint64_t size;
+    if (!decoder.decodeUInt64(size))
+        return 0;
+    size_t i;
+    RefPtr<HistoryItem> child;
+    for (i = 0; i < size; ++i) {
+        if (!decoder.decodeString(originalURLString))
+            return 0;
+
+        if (!decoder.decodeString(urlString))
+            return 0;
+
+        recursionStack.append(DecodeRecursionStackElement(node.release(), i, size));
+        goto recurse;
+
+resume:
+        node->m_children.append(child.release());
+    }
+
+    if (!decoder.decodeInt64(node->m_documentSequenceNumber))
+        return 0;
+
+    if (!decoder.decodeUInt64(size))
+        return 0;
+    for (i = 0; i < size; ++i) {
+        String state;
+        if (!decoder.decodeString(state))
+            return 0;
+        node->m_documentState.append(state);
+    }
+
+    if (!decoder.decodeString(node->m_formContentType))
+        return 0;
+
+    bool hasFormData;
+    if (!decoder.decodeBool(hasFormData))
+        return 0;
+    if (hasFormData) {
+        node->m_formData = FormData::decodeForBackForward(decoder);
+        if (!node->m_formData)
+            return 0;
+    }
+
+    if (!decoder.decodeInt64(node->m_itemSequenceNumber))
+        return 0;
+
+    if (!decoder.decodeString(node->m_referrer))
+        return 0;
+
+    int32_t x;
+    if (!decoder.decodeInt32(x))
+        return 0;
+    int32_t y;
+    if (!decoder.decodeInt32(y))
+        return 0;
+    node->m_scrollPoint = IntPoint(x, y);
+    
+    if (!decoder.decodeFloat(node->m_pageScaleFactor))
+        return 0;
+
+    bool hasStateObject;
+    if (!decoder.decodeBool(hasStateObject))
+        return 0;
+    if (hasStateObject) {
+#if !USE(V8)
+        Vector<uint8_t> bytes;
+        if (!decoder.decodeBytes(bytes))
+            return 0;
+        node->m_stateObject = SerializedScriptValue::adopt(bytes);
+#else
+        String string;
+        if (!decoder.decodeString(string))
+            return 0;
+        node->m_stateObject = SerializedScriptValue::createFromWire(string);
+#endif
+    }
+
+    if (!decoder.decodeString(node->m_target))
+        return 0;
+
+    // Simulate recursion with our own stack.
+    if (!recursionStack.isEmpty()) {
+        DecodeRecursionStackElement& element = recursionStack.last();
+        child = node.release();
+        node = element.node.release();
+        i = element.i;
+        size = element.size;
+        recursionStack.removeLast();
+        goto resume;
+    }
+
+    return node.release();
 }
 
 #ifndef NDEBUG

@@ -13,4 +13,7 @@ UserDir Sites
 # Users might not be in /Users/*/Sites, so use user-specific config files.
 #
 Include @rel_sysconfdir@/users/*.conf
+<IfModule bonjour_module>
+       RegisterUserSite customized-users
+</IfModule>
 

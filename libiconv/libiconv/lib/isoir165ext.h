@@ -757,7 +757,7 @@ isoir165ext_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;
-    if (wc >= 0x0000 && wc < 0x0200)
+    if (/* wc >= 0x0000 && */ wc < 0x0200)
       summary = &isoir165ext_uni2indx_page00[(wc>>4)];
     else if (wc >= 0x0300 && wc < 0x03c0)
       summary = &isoir165ext_uni2indx_page03[(wc>>4)-0x030];

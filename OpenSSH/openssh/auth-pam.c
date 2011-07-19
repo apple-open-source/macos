@@ -471,7 +471,7 @@ sshpam_thread(void *ctxtp)
 
 	if (compat20) {
 		if (!do_pam_account()) {
-			sshpam_err = PAM_ACCT_EXPIRED;
+			sshpam_err = PAM_PERM_DENIED;
 			goto auth_fail;
 		}
 		if (sshpam_authctxt->force_pwchange) {
@@ -602,15 +602,15 @@ sshpam_cleanup(void)
 		return;
 	debug("PAM: cleanup");
 	pam_set_item(sshpam_handle, PAM_CONV, (const void *)&null_conv);
-	if (sshpam_cred_established) {
-		debug("PAM: deleting credentials");
-		pam_setcred(sshpam_handle, PAM_DELETE_CRED);
-		sshpam_cred_established = 0;
-	}
 	if (sshpam_session_open) {
 		debug("PAM: closing session");
 		pam_close_session(sshpam_handle, PAM_SILENT);
 		sshpam_session_open = 0;
+	}
+	if (sshpam_cred_established) {
+		debug("PAM: deleting credentials");
+		pam_setcred(sshpam_handle, PAM_DELETE_CRED);
+		sshpam_cred_established = 0;
 	}
 	sshpam_authenticated = 0;
 	pam_end(sshpam_handle, sshpam_err);

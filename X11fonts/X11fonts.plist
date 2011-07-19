@@ -4,615 +4,601 @@
 <array>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-10-30</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>encodings</string>
 		<key>OpenSourceSHA1</key>
-		<string>02fb48ea1d48675db07c3b13acc5f8124cbd8818</string>
+		<string>24ace2470403f85a0d393769204029bd8247992a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/encodings-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/encodings-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-adobe-100dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>2329a1de4d0994590df147af287fab27c92d365b</string>
+		<string>53311cbd604f18bd9570727105a4222473d363e3</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-adobe-100dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-adobe-100dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-adobe-75dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>4af33c64e9c67f845d46ba3a7398c553887ab687</string>
+		<string>6a2ec569336b5646682a14eee3c7790274beffd1</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-adobe-75dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-adobe-75dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-adobe-utopia-100dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>2d4d739132ce1e8af47641f663fb28a1766f95c4</string>
+		<string>9e80cf5bbd5522a5cfad2a9f8f8fce86de0f0226</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-adobe-utopia-100dpi-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-adobe-utopia-100dpi-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-adobe-utopia-75dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>9761f51875796a1f2ce9b3167f90a042a6a216c9</string>
+		<string>50e837322a09f1a7c40fb78fc6aad1a157284507</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-adobe-utopia-75dpi-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-adobe-utopia-75dpi-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-adobe-utopia-type1</string>
 		<key>OpenSourceSHA1</key>
-		<string>b6e50368daaea074964cf4e1f35ec854483bdb50</string>
+		<string>3113cfafb91c2c53df6a1fae57dca6c50fb8ce20</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-adobe-utopia-type1-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-adobe-utopia-type1-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-alias</string>
 		<key>OpenSourceSHA1</key>
-		<string>ddb3da5930396a4698f1d5eeb77763fb002f9a42</string>
+		<string>1c60d7ba96e45e928e7e75689eabe5b23237fd5f</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-alias-X11R7.0-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-alias-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-arabic-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>cfdeb22e312d952071b40102ccda6b41ae30a8a7</string>
+		<string>322ae41e74deea8de11fa077fd0e0191927a667c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-arabic-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-arabic-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-100dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>93795a38dc17caba7195c6aa64bbda1843190e14</string>
+		<string>47d5e50be9e78695017650a088da52bfcf1eeb40</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-100dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-100dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-75dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>e54788c3640f3cd381ed7cf140494b1a15d86a4d</string>
+		<string>7290567d42a0f5adb6a3ad170524bb7ed59871d7</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-75dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-75dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-lucidatypewriter-100dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>c026a313c8f2dc25fc9fbaf28cd18e8b197de237</string>
+		<string>bc4f804e49db8c6add04f52ffb1c0cd63e714b2c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-lucidatypewriter-100dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-lucidatypewriter-100dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-lucidatypewriter-75dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>917b3ea7a0b6c9326580701ee8812a1a9899868a</string>
+		<string>3c6678e6bbb2bd352baaf610a8f6aac9c5140c85</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-lucidatypewriter-75dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-lucidatypewriter-75dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-13</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-ttf</string>
 		<key>OpenSourceSHA1</key>
-		<string>ed6ad45506bcffeaad44d01771500d6a52266a6a</string>
+		<string>f42ebd527096011040a312e0f9cdf78d64177419</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-ttf-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-ttf-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bh-type1</string>
 		<key>OpenSourceSHA1</key>
-		<string>b2f0e156b6ba3e728f968bc1cb8897023ed7ea0b</string>
+		<string>69ff038d38015cd305a4cd4d1a921fe3bd08bbde</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bh-type1-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bh-type1-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bitstream-100dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>b93bc253211f3ba9d7882f3d4f1a7c15aea8f313</string>
+		<string>138376f8683c09b9068c7c124842a7af9f0fcc2e</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bitstream-100dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bitstream-100dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bitstream-75dpi</string>
 		<key>OpenSourceSHA1</key>
-		<string>5ca125b6809c0ddcdf92be4159d5e71cdc55e558</string>
+		<string>975e9f7872483394ebd87610f8bbc924d99bea34</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bitstream-75dpi-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bitstream-75dpi-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bitstream-speedo</string>
 		<key>OpenSourceSHA1</key>
-		<string>83c41fd11700f7f634dcdfcf6122c2a17ba9e587</string>
+		<string>e299d2bd2a84c98be5202435c8355e73e0282970</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bitstream-speedo-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bitstream-speedo-1.0.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-bitstream-type1</string>
 		<key>OpenSourceSHA1</key>
-		<string>599a268b2b23453e51c7581c829ad7bc3028f06a</string>
+		<string>7633551be3525c501278e81259b22ad9a893de4d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-bitstream-type1-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-bitstream-type1-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-cronyx-cyrillic</string>
 		<key>OpenSourceSHA1</key>
-		<string>68203b370816197ba027f84da88a512905866c20</string>
+		<string>e5af8c2e8fb23955808a08bd38728ab3ad284d61</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-cronyx-cyrillic-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-cronyx-cyrillic-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-cursor-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>1c56039b359d802525c118bc042f4f93f1b60bcc</string>
+		<string>1649271129bbeff3aeee70a9da87a8e5e59162c1</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-cursor-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-cursor-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-daewoo-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>f05f55a944cd4a0d10332ebf280bf342dede1a03</string>
+		<string>0c7b24e08e6d42eb006d79ae7ab4bbf446d59f7a</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-daewoo-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-daewoo-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-dec-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>e946f033d6d432db3555ee58995c7bbbe758522c</string>
+		<string>a748d35b8b0241abd3e1d85f80da318b529a74d0</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-dec-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-dec-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-ibm-type1</string>
 		<key>OpenSourceSHA1</key>
-		<string>aaf02fc64441dd44b942a5b9f8d25ffc0ee8a8f5</string>
+		<string>bfc7d0a3aa0f96bf61ea26d6b3f5afbbdd0f35f6</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-ibm-type1-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-ibm-type1-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-isas-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>ecb35c59bb4e396f8c4f9b98c78fd759b8dfc860</string>
+		<string>cbd9bf441b25362123c817b1aa7a7be1ee4a9321</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-isas-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-isas-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
-		<string></string>
+		<string>font-jis-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>f1aa789f9caa746bd7b0fbe0476463f81324f89c</string>
+		<string>8c08c5fe01d4605f2886822cb3655548a6535e58</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-jis-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-jis-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-micro-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>07d9c802836f58f191586594de1aa7b2a90f0ed7</string>
+		<string>db3e912d41bda20f60b520c19e65bd7134ee1224</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-micro-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-micro-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-misc-cyrillic</string>
 		<key>OpenSourceSHA1</key>
-		<string>246c9c9e424dc4bf28fea1cb3fa72e2c59a1deb4</string>
+		<string>9c0e283ae59e7b05c0798fe0645cc822d22dcb0c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-misc-cyrillic-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-misc-cyrillic-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-misc-ethiopic</string>
 		<key>OpenSourceSHA1</key>
-		<string>721bc2192d8fd9c0886e7390931ec2670cc0011d</string>
+		<string>3f6af53047cb1206d737e8e8fbbbbb315c5419bb</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-misc-ethiopic-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-misc-ethiopic-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-misc-meltho</string>
 		<key>OpenSourceSHA1</key>
-		<string>cc1d11dbe0c9f81df01d935cf705c7fff5be9cd9</string>
+		<string>f0693ea8fbc1d43177014155a0ecd2516348b51b</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-misc-meltho-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-misc-meltho-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-misc-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>6447f235f7ebf23fcb6878b9befefd16facca05f</string>
+		<string>c6d28c56880807963175cbbd682fb6f75a35f77d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-misc-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-misc-misc-1.1.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.1.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-mutt-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>3663a10a07160481c1ef6ab902e3c468feef09a6</string>
+		<string>245d3041d9138b7e4a00858228adad2de304043b</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-mutt-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-mutt-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-schumacher-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>f00bda5a23280d1b4797ba6861ca72adc3a772cf</string>
+		<string>fbe3629e9dcc03d12300d4ebab64fd038ea98952</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-schumacher-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-schumacher-misc-1.1.2.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.1.2</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-screen-cyrillic</string>
 		<key>OpenSourceSHA1</key>
-		<string>c827aa216dd8829a1c5c8e22898edec5e7222c62</string>
+		<string>de1f0226f74d7e4d3ee9ab0b9c87478ab2a7db30</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-screen-cyrillic-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-screen-cyrillic-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-sony-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>3d604d39f714b0973a0db61741583d12c96eba72</string>
+		<string>8d0dd87148283c8ac8c5ac37906b12fab5ddb1d8</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-sony-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-sony-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-sun-misc</string>
 		<key>OpenSourceSHA1</key>
-		<string>3f7aa3fc7ca9000c13d7d35151781babaf2df025</string>
+		<string>6a72602557bb5dfe46c1ee3b56658aeed1e04f9d</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-sun-misc-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-sun-misc-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
-		<key>OpenSourceLicense</key>
-		<string>MIT</string>
-		<key>OpenSourceProject</key>
-		<string>font-util</string>
-		<key>OpenSourceSHA1</key>
-		<string>b0e920fbc3dfe0e67ff00ac3edd770c3acc37742</string>
-		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.1/src/update/fonts/font-util-X11R7.1-1.0.1.tar.bz2</string>
-		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
-		<key>OpenSourceWebsiteURL</key>
-		<string>http://www.x.org</string>
-	</dict>
-	<dict>
-		<key>OpenSourceImportDate</key>
-		<string>2006-12-01</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-winitzki-cyrillic</string>
 		<key>OpenSourceSHA1</key>
-		<string>18daaa5433fede2e34ef940d2bf3483cd2b74635</string>
+		<string>29249b49eac7e3f32d7a1a93808fcfd9d399011c</string>
 		<key>OpenSourceURL</key>
-		<string>ftp://ftp.x.org/pub/X11R7.0/src/update/fonts/font-winitzki-cyrillic-X11R7.0-1.0.0.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-winitzki-cyrillic-1.0.3.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.0</string>
+		<string>1.0.3</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
-		<string>2008-03-10</string>
+		<string>2010-11-21</string>
 		<key>OpenSourceLicense</key>
 		<string>MIT</string>
 		<key>OpenSourceProject</key>
 		<string>font-xfree86-type1</string>
 		<key>OpenSourceSHA1</key>
-		<string>01696c48294126ca37095f1ba48bba23262d1771</string>
+		<string>1381f274a178cbd08627560e17a4a8f6653be3f7</string>
 		<key>OpenSourceURL</key>
-		<string>http://xorg.freedesktop.org/archive/individual/font/font-xfree86-type1-1.0.1.tar.bz2</string>
+		<string>http://xorg.freedesktop.org/archive/individual/font/font-xfree86-type1-1.0.4.tar.bz2</string>
 		<key>OpenSourceVersion</key>
-		<string>1.0.1</string>
+		<string>1.0.4</string>
 		<key>OpenSourceWebsiteURL</key>
 		<string>http://www.x.org</string>
 	</dict>
 	<dict>
 		<key>OpenSourceImportDate</key>
 		<string>2007-04-12</string>
+		<key>OpenSourceLicense</key>
+		<string>other</string>
 		<key>OpenSourceLicenseFile</key>
 		<string>bitstreamvera.txt</string>
 		<key>OpenSourceProject</key>

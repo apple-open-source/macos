@@ -23,10 +23,6 @@
 
 #include <compat.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: sigaction.c,v 1.7 2005/02/12 22:56:06 millert Exp $";
-#endif /* lint */
-
 int
 sigaction(signo, sa, osa)
     int signo;

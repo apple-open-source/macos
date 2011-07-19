@@ -1,0 +1,662 @@
+<!--
+   HeaderDoc DTD version 1.2
+
+   This can be included by the following identifiers:
+
+   Copyright (c) 2004 Apple,
+   All Rights Reserved.
+
+   PUBLIC "-//Apple Computer//DTD HEADERDOC 1.2//EN"
+   SYSTEM "http://www.apple.com/DTDs/HeaderDoc-1.2.dtd"
+
+   $Revision: 1305752965 $
+   $Date: 2011/05/18 14:09:25 $
+
+-->
+
+
+
+<!-- HTML character encodings -->
+
+<!-- ENTITY % HTMLlat1 PUBLIC "-//W3C//ENTITIES Latin 1 for XHTML//EN"
+   "xhtml-lat1.ent">
+%HTMLlat1;
+
+<!ENTITY % HTMLsymbol PUBLIC "-//W3C//ENTITIES Symbols for XHTML//EN"
+   "xhtml-symbol.ent">
+%HTMLsymbol;
+
+<!ENTITY % HTMLspecial PUBLIC "-//W3C//ENTITIES Special for XHTML//EN"
+   "xhtml-special.ent">
+%HTMLspecial;
+-->
+
+
+<!-- Allowable HTML entities -->
+
+<!-- These are the most commonly used HTML elements, IMHO.  I'm
+     intentionally leaving out head, body, html, since
+     they absolutely do not belong in a HeaderDoc discussion block. -->
+<!ENTITY % htmlData "( #PCDATA|div|a|p|br|table|caption|td|tr|th|
+	h1|h2|h3|h4|h5|h6|
+	span|col|colgroup|thead|tbody|tfoot|dfn|dl|dd|dt|ol|ul|li|
+	font|code|pre|tt|em|i|b|u|hr|center|link|meta|blockquote|
+	img|hd_value|hd_ihd|hd_link|hd_warning|hd_important )*" >
+
+
+<!-- <?pxp:dtd optional-attribute-declarations elements="div a p br table caption td tr th span col colgroup thead tbody tfoot dl dd dt ol ul li font code pre tt em i b u hr center link meta img hd_value hd_ihd hd_link"?>
+-->
+
+<?dtd optional-attribute-declarations elements="div a p br table caption td tr th span col colgroup thead tbody tfoot dl dd dt ol ul li font code pre tt em i b hr center link meta img hd_value hd_ihd hd_link"?>
+
+<!ELEMENT div %htmlData; >
+<!ELEMENT a %htmlData; >
+<!ATTLIST a
+  charset     CDATA          #IMPLIED
+  type        CDATA          #IMPLIED
+  name        CDATA          #IMPLIED
+  href        CDATA          #IMPLIED
+  hreflang    CDATA          #IMPLIED
+  rel         CDATA          #IMPLIED
+  rev         CDATA          #IMPLIED
+  accesskey   CDATA          #IMPLIED
+  shape       CDATA          #IMPLIED
+  coords      CDATA          #IMPLIED
+  tabindex    CDATA          #IMPLIED
+  oncofus     CDATA          #IMPLIED
+  onblur      CDATA          #IMPLIED
+  target      CDATA          #IMPLIED
+>
+
+<!ELEMENT p %htmlData; >
+<!ATTLIST p
+  align       CDATA          #IMPLIED >
+
+<!ELEMENT br %htmlData; >
+<!ATTLIST br
+  clear       CDATA          #IMPLIED
+>
+
+<!-- ELEMENT table (caption?, (col*|colgroup*), thead?, tfoot?, (tbody+|tr+)) -->
+<!ELEMENT table %htmlData; >
+<!ATTLIST table
+  summary     CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  border      CDATA       #IMPLIED
+  frame       CDATA       #IMPLIED
+  rules       CDATA       #IMPLIED
+  cellspacing CDATA       #IMPLIED
+  cellpadding CDATA       #IMPLIED
+  align       CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+
+<!ELEMENT caption %htmlData; >
+<!ATTLIST caption
+  align       CDATA       #IMPLIED >
+
+<!ELEMENT col %htmlData; >
+<!ELEMENT colgroup %htmlData; >
+<!ELEMENT thead %htmlData; >
+<!ATTLIST thead
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+<!ELEMENT tbody %htmlData; >
+<!ATTLIST tbody
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+<!ELEMENT tfoot %htmlData; >
+<!ATTLIST tfoot
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+<!ELEMENT tr %htmlData; >
+<!ATTLIST tr
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  rowspan     CDATA       #IMPLIED
+  colspan     CDATA       #IMPLIED
+  nowrap      CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+<!ELEMENT td %htmlData; >
+<!ATTLIST td
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  rowspan     CDATA       #IMPLIED
+  colspan     CDATA       #IMPLIED
+  nowrap      CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA       #IMPLIED
+>
+<!ELEMENT th %htmlData; >
+<!ATTLIST th
+  align       CDATA       #IMPLIED
+  valign      CDATA       #IMPLIED
+  background  CDATA       #IMPLIED
+  bgcolor     CDATA       #IMPLIED
+  rowspan     CDATA       #IMPLIED
+  colspan     CDATA       #IMPLIED
+  nowrap      CDATA       #IMPLIED
+>
+<!ELEMENT blockquote %htmlData; >
+<!ATTLIST blockquote
+  cite        CDATA       #IMPLIED
+>
+<!ELEMENT dl %htmlData; >
+<!ATTLIST dl
+  compact     CDATA       #IMPLIED
+>
+<!ELEMENT dd %htmlData; >
+<!ELEMENT dt %htmlData; >
+<!ELEMENT ol %htmlData; >
+<!ATTLIST ol
+  type        CDATA       #IMPLIED
+  compact     CDATA       #IMPLIED
+  start       CDATA       #IMPLIED
+>
+<!ELEMENT ul %htmlData; >
+<!ATTLIST ul
+  type        CDATA       #IMPLIED
+  compact     CDATA       #IMPLIED
+>
+<!ELEMENT li %htmlData; >
+<!ATTLIST li
+  compact     CDATA       #IMPLIED
+>
+
+<!ELEMENT font %htmlData; >
+<!ATTLIST font
+  size        CDATA       #IMPLIED
+  color       CDATA       #IMPLIED
+  face        CDATA       #IMPLIED
+>
+
+<!ELEMENT code %htmlData; >
+<!ELEMENT pre %htmlData; >
+<!ATTLIST pre
+  width       CDATA       #IMPLIED
+>
+<!ELEMENT tt %htmlData; >
+<!ELEMENT em %htmlData; >
+<!ELEMENT i %htmlData; >
+<!ELEMENT dfn %htmlData; >
+<!ELEMENT b %htmlData; >
+<!ELEMENT hr %htmlData; >
+<!ATTLIST hr
+  align       CDATA       #IMPLIED
+  noshade     CDATA       #IMPLIED
+  size        CDATA       #IMPLIED
+  width       CDATA       #IMPLIED
+>
+<!ELEMENT center %htmlData; >
+<!ELEMENT link %htmlData; >
+<!ATTLIST link
+  charset     CDATA       #IMPLIED
+  href        CDATA       #IMPLIED
+  hreflang    CDATA       #IMPLIED
+  type        CDATA       #IMPLIED
+  rel         CDATA       #IMPLIED
+  rev         CDATA       #IMPLIED
+  media       CDATA       #IMPLIED
+  target      CDATA       #IMPLIED
+>
+<!ELEMENT meta %htmlData; >
+<!ATTLIST meta
+  http-equiv  CDATA       #IMPLIED
+  name        CDATA       #IMPLIED
+  content     CDATA       #IMPLIED
+  scheme      CDATA       #IMPLIED
+>
+
+<!ELEMENT img %htmlData; >
+<!ATTLIST img
+  src         CDATA      #IMPLIED
+  alt         CDATA      #IMPLIED
+  name        CDATA      #IMPLIED
+  longdesc    CDATA      #IMPLIED
+  length      CDATA       #IMPLIED
+  height      CDATA      #IMPLIED
+  width       CDATA      #IMPLIED
+  usemap      CDATA      #IMPLIED
+  ismap       CDATA      #IMPLIED
+  align       CDATA      #IMPLIED
+  border      CDATA      #IMPLIED
+  hspace      CDATA      #IMPLIED
+  vspace      CDATA      #IMPLIED
+>
+
+
+
+<!-- Broad categories of element types -->
+
+<!ENTITY % apiOwner "( name, abstract?, availability?, updated?,
+	group?, value?, throws?, constantlist?,
+	(fieldlist | parameterlist | template_fields)*,
+	parsedparameterlist?, attributes?, attributelists?,
+	includes?, returntype?, result?, declaration?, desc?,
+	groups?, functions?, methods?, properties?,
+	(membervars | globals)?, constants?, typedefs?,
+	structs_and_unions?, enums?, defines?, classes?,
+	copyrightinfo?, timestamp?, autorelated? )" >
+
+
+<!ENTITY % headerObject "( name, abstract?, availability?, updated?,
+	group?, value?, throwlist?, constantlist?,
+	(fieldlist | parameterlist | template_fields)*,
+	parsedparameterlist?, attributes?,
+ 	attributelists?, includeddefines?,
+	returntype?, result?, declaration?, desc?, autorelated? )" >
+
+
+
+<!-- main element types -->
+
+<!-- class -->
+<!ELEMENT class %apiOwner; >
+<!ATTLIST class id CDATA #REQUIRED >
+<!ATTLIST class lang CDATA #REQUIRED >
+
+
+<!-- header -->
+<!ELEMENT header %apiOwner; >
+<!ATTLIST header id CDATA "">
+<!ATTLIST header lang CDATA "">
+<!ATTLIST header filename CDATA "">
+<!ATTLIST header headerpath CDATA "">
+<!ATTLIST header headerclass CDATA "">
+
+
+<!-- framework -->
+<!ELEMENT framework %apiOwner; >
+<!ATTLIST framework id CDATA "">
+<!ATTLIST framework lang CDATA "">
+<!ATTLIST framework filename CDATA "">
+<!ATTLIST framework headerpath CDATA "">
+<!ATTLIST framework headerclass CDATA "">
+
+
+<!-- com_interface -->
+<!ELEMENT com_interface %apiOwner; >
+<!ATTLIST com_interface id CDATA #REQUIRED >
+<!ATTLIST com_interface lang CDATA #REQUIRED >
+
+
+<!-- enum -->
+<!ELEMENT enum %headerObject; >
+<!ATTLIST enum id CDATA #REQUIRED >
+<!ATTLIST enum lang CDATA #REQUIRED >
+
+
+<!-- function -->
+<!ELEMENT function %headerObject; >
+<!ATTLIST function id CDATA #REQUIRED >
+<!ATTLIST function lang CDATA #REQUIRED >
+
+
+<!-- method -->
+<!ELEMENT method %headerObject; >
+<!ATTLIST method id CDATA #REQUIRED >
+<!ATTLIST method lang CDATA #REQUIRED >
+
+
+<!-- category -->
+<!ELEMENT category %apiOwner; >
+<!ATTLIST category id CDATA #REQUIRED >
+<!ATTLIST category lang CDATA #REQUIRED >
+
+
+<!-- protocol -->
+<!ELEMENT protocol %apiOwner; >
+<!ATTLIST protocol id CDATA #REQUIRED >
+<!ATTLIST protocol lang CDATA #REQUIRED >
+
+
+<!-- pdefine -->
+<!ELEMENT pdefine %headerObject; >
+<!ATTLIST pdefine id CDATA #REQUIRED >
+<!ATTLIST pdefine lang CDATA #REQUIRED >
+<!ATTLIST pdefine definetype CDATA #IMPLIED >
+
+
+<!-- union -->
+<!ELEMENT union %headerObject; >
+<!ATTLIST union id CDATA #REQUIRED >
+<!ATTLIST union lang CDATA #REQUIRED >
+
+
+<!-- struct -->
+<!ELEMENT struct %headerObject; >
+<!ATTLIST struct id CDATA #REQUIRED >
+<!ATTLIST struct lang CDATA #REQUIRED >
+
+
+<!-- typedef -->
+<!ELEMENT typedef %headerObject; >
+<!ATTLIST typedef id CDATA #REQUIRED >
+<!ATTLIST typedef lang CDATA #REQUIRED >
+<!ATTLIST typedef type CDATA "simple">
+
+
+<!-- property -->
+<!ELEMENT property %headerObject; >
+<!ATTLIST property id CDATA #REQUIRED >
+<!ATTLIST property lang CDATA #REQUIRED >
+
+
+<!-- variable -->
+<!ELEMENT variable %headerObject; >
+<!ATTLIST variable id CDATA #REQUIRED >
+<!ATTLIST variable lang CDATA #REQUIRED >
+
+
+<!-- constant -->
+<!-- NOTE: this can be either top level or as part of another element,
+     hence there are two different forms.  I'd love to make the attributes
+     optional for only one of them, but alas.... -->
+<!ELEMENT constant ( %headerObject;, callback_parameters?) >
+<!ATTLIST constant id CDATA "" >
+<!ATTLIST constant lang CDATA "" >
+
+
+<!-- autorelated -->
+<!ELEMENT autorelated (relateduid+) >
+
+
+<!-- relateduid -->
+<!ELEMENT relateduid (#PCDATA) >
+
+
+<!-- groups (list) -->
+<!ELEMENT groups (groupinfo+) >
+
+
+<!-- groupinfo -->
+<!ELEMENT groupinfo (name, abstract?, desc?) >
+
+
+<!-- Lists included in API Owners -->
+
+<!-- functions (list) -->
+<!ELEMENT functions (function+) >
+
+
+<!-- methods (list) -->
+<!ELEMENT methods ( method+ ) >
+
+
+<!-- properties (list of ObjC class properties) -->
+<!ELEMENT properties ( property+ ) >
+
+
+<!-- membervars (list of class variables) -->
+<!ELEMENT membervars ( variable+ ) >
+
+
+<!-- globals (list of global variables) -->
+<!ELEMENT globals ( ( variable | constant )+ ) >
+
+
+<!-- constants (list) -->
+<!ELEMENT constants (constant+) >
+
+
+<!-- typedefs (list) -->
+<!ELEMENT typedefs (typedef+) >
+
+
+<!-- structs_and_unions (list) -->
+<!ELEMENT structs_and_unions ((struct | union)+) >
+
+
+<!-- enums (list) -->
+<!ELEMENT enums (enum+) >
+
+
+<!-- defines (list) -->
+<!ELEMENT defines (pdefine+) >
+
+
+<!-- classes (list) -->
+<!ELEMENT classes ((class|category|protocol|com_interface)+) >
+
+
+
+<!-- Lists included in header objects (and supporting elements) -->
+
+<!-- fieldlist -->
+<!ELEMENT fieldlist ( field+ ) >
+
+
+<!-- constantlist -->
+<!ELEMENT constantlist ( constant+ ) >
+
+
+<!-- parameterlist -->
+<!ELEMENT parameterlist ( (parameter | constant)+ ) >
+
+
+<!-- template_fields (list) -->
+<!ELEMENT template_fields ( field+ ) >
+
+
+<!-- field -->
+<!ELEMENT field ( name, desc, callback_parameters? ) >
+
+
+<!-- callback_parameters (list) -->
+<!ELEMENT callback_parameters ( parameter+ ) >
+
+
+<!-- parameter (specified) -->
+<!ELEMENT parameter ( name, desc ) >
+
+
+<!-- parsedparameter (parsed) -->
+<!ELEMENT parsedparameter ( type, name ) >
+
+
+<!-- parsedparameterlist -->
+<!ELEMENT parsedparameterlist (parsedparameter+) >
+
+
+<!-- attributes -->
+<!ELEMENT attributes ((attribute | longattribute)+) >
+
+
+<!-- attributelists -->
+<!ELEMENT attributelists (listattribute+) >
+
+
+<!-- includes -->
+<!ELEMENT includes (include*) >
+
+
+<!-- include -->
+<!ELEMENT include (#PCDATA|hd_link)* >
+
+
+<!-- h1 -->
+<!ELEMENT h1 (#PCDATA|hd_link)* >
+
+
+<!-- h2 -->
+<!ELEMENT h2 (#PCDATA|hd_link)* >
+
+
+<!-- h3 -->
+<!ELEMENT h3 (#PCDATA|hd_link)* >
+
+
+<!-- h4 -->
+<!ELEMENT h4 (#PCDATA|hd_link)* >
+
+
+<!-- h5 -->
+<!ELEMENT h5 (#PCDATA|hd_link)* >
+
+
+<!-- h6 -->
+<!ELEMENT h6 (#PCDATA|hd_link)* >
+
+
+<!-- includeddefines -->
+<!ELEMENT includeddefines (includeddefine+) >
+
+
+<!-- includeddefine -->
+<!ELEMENT includeddefine (#PCDATA) >
+
+
+<!-- returntype (from code) -->
+<!ELEMENT returntype (#PCDATA) >
+
+
+<!-- attribute -->
+<!ELEMENT attribute (name, value) >
+
+
+<!-- longattribute -->
+<!ELEMENT longattribute (name, value) >
+
+
+<!-- listattribute -->
+<!ELEMENT listattribute (name, list) >
+
+
+<!-- list -->
+<!ELEMENT list (item+) >
+
+
+<!-- item -->
+<!ELEMENT item (name, value) >
+
+
+
+<!-- Minor elements included from header objects -->
+
+<!-- result -->
+<!ELEMENT result %htmlData; >
+
+
+<!-- desc -->
+<!ELEMENT desc %htmlData; >
+
+
+<!-- type (from code) -->
+<!ELEMENT type (#PCDATA) >
+
+
+<!-- name (from code or comments) -->
+<!ELEMENT name %htmlData; >
+
+
+<!-- abstract -->
+<!ELEMENT abstract %htmlData; >
+
+
+<!-- availability -->
+<!ELEMENT availability %htmlData; >
+
+
+<!-- updated -->
+<!ELEMENT updated %htmlData; >
+
+
+<!-- group -->
+<!ELEMENT group %htmlData; >
+
+
+<!-- value -->
+<!ELEMENT value %htmlData; >
+
+
+<!-- These are really placeholder elements -->
+<!-- hd_value -->
+<!ELEMENT hd_value (#PCDATA) >
+<!-- hd_ihd -->
+<!ELEMENT hd_ihd (#PCDATA) >
+
+
+<!-- hd_link -->
+<!ELEMENT hd_link (#PCDATA|i|b|code|u)* >
+<!ATTLIST hd_link logicalPath CDATA #REQUIRED >
+<!ATTLIST hd_link isseealso CDATA #IMPLIED >
+
+
+<!-- hd_warning -->
+<!ELEMENT hd_warning  %htmlData; >
+
+
+<!-- hd_important -->
+<!ELEMENT hd_important  %htmlData; >
+
+
+<!-- copyrightinfo -->
+<!ELEMENT copyrightinfo (#PCDATA) >
+
+
+<!-- timestamp -->
+<!ELEMENT timestamp (#PCDATA) >
+
+
+<!-- throws -->
+<!ELEMENT throwlist (throw+) >
+
+
+<!-- throws -->
+<!ELEMENT throw %htmlData; >
+
+
+
+<!-- declaration and declaration subelements -->
+
+<!ENTITY % declarationElements "( #PCDATA | declaration_comment | declaration_string | 
+	declaration_char | declaration_preprocessor | declaration_number | 
+	declaration_keyword | declaration_function | declaration_var | 
+	declaration_template | declaration_type | declaration_param |
+	declaration_availabilitymacro  )*" >
+
+<!-- declaration -->
+<!ELEMENT declaration %declarationElements; >
+
+<!ELEMENT declaration_comment %declarationElements; >
+<!ELEMENT declaration_string ( #PCDATA ) >
+<!ELEMENT declaration_char ( #PCDATA ) >
+<!ELEMENT declaration_preprocessor ( #PCDATA ) >
+<!ELEMENT declaration_number ( #PCDATA ) >
+<!ELEMENT declaration_keyword ( #PCDATA ) >
+<!ELEMENT declaration_function ( #PCDATA ) >
+<!ELEMENT declaration_var ( #PCDATA ) >
+<!ELEMENT declaration_template ( #PCDATA ) >
+<!ELEMENT declaration_type ( #PCDATA ) >
+<!ELEMENT declaration_param ( #PCDATA ) >
+<!ELEMENT declaration_availabilitymacro %declarationElements; >
+

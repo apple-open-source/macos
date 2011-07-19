@@ -21,6 +21,8 @@
 #include <assert.h>
 #include <string.h>
 
+#include "fm_strl.h"
+
 #ifndef HAVE_STRLCAT
 /*
  * Appends src to string dst of size siz (unlike strncat, siz is the

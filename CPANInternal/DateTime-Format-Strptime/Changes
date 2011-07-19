@@ -1,0 +1,216 @@
+1.4000 2010-06-28
+    - Actually update $VERSION in module file. Reported by David Wheeler.
+
+1.3000 2010-06-26
+    - Specifiers which allowed for leading space before a number (like %e)
+      would cause DateTime.pm to throw an error if the date being parsed
+      actually contained leading space. Patch by Alex Vandiver. RT #58459.
+
+    - Licnse is now Artistic 2.0
+
+1.2000 2010-03-19
+    - Updated to use non-deprecated DateTime::Locale API
+
+1.1000 2009-07-13 -- Regex Pattern
+    - If the pattern you pass in is a regular expression, that will be honored.
+    - Changed the locale tests to use require the latest version of Locale until the target stops moving.
+
+1.0901 2009-05-16 -- Official release of 1.0900_01
+
+1.0900_01 2009-04-18 -- DEVELOPER RELEASE ONLY
+    - Makefile.PL changes for Windows users as per issue #16
+
+1.0900 2009-02-22
+    - Another pile-o-bugs
+        - It seems that I also wasn't seeing notifications from RT
+          (please don't use it, use the Gooogle project) so all the
+          following are fixed:
+            36672   Started failing mid May
+            23313   Bug handling time zones like America/New_York
+            25555   Module dies even when on_error is 'undef'
+            23768   Olson timezone handling incorrect
+            22450   locale test failing with bleadperl
+            20487   nmake test_more fail (with patch); incorrect
+                    META.yml
+            12071   format_datetime uses datetime locale rather than
+                    format locale
+            11863   bug in DateTime::Format::Strptime 1.0601 when using %s
+
+        - And a couple from Google:
+            #8      Add DateTime::Locale to documentation
+            #10     Parsing bug -- can't detect word boundry after month abbr
+
+1.0800 2008-08-07
+    - Pile-o-bugs
+        - It seems that I wasn't getting notifications from Google
+          when people had reported bugs, so there's a pile of fixes
+          in this release. Hopefully that fixes everyone's issues.
+
+1.0702 2007-09-19
+    - YAML and POD
+        - Updated the META.yml file to have the correct 'resources'
+          and match the latest spec
+        - Updated the docus with a 'resources' section that has the
+          same information in it for readers of POD.
+        - This version ONLY changes the documentation and so it not a
+          required update.
+
+1.0701 2007-09-18
+    - The revised locale tests releasese
+        - Many people pointed out that while this module hadn't broken
+          the tests for the French locale had. This is due to a new
+          source for the data in DateTime::Locale.
+        - This version ONLY changes the tests and so it not a required
+          update.
+
+1.0700 Sat,  5 Nov 2005 09:44:10 +1100
+    - The 'Twighlight Zone' release
+        - Mike Schilli pointed out that strings without time zones
+          or constructors without a time zone should be returning
+          a DateTime in the floating time zone rather than UTC.
+        - Jason Bodnar requested greater allowance for time zones in
+          strings .. so I've now added the ability to use an Olson
+          time zone identifier with %O. Note that this is a token
+          specifically added to Strptime and it WILL NOT WORK with
+          DateTime's strftime method.
+
+1.0601 Wed,  1 Sep 2004 07:52:44 +1000
+    - The 'February 30th' test
+        - Dave Faraldo and Jonathan Lefter pointed out that one of
+          the new Locale tests in t/006... will fail on the 30th
+          and 31st of the month as not all months have those days.
+          Patch supplied by Jonathan has been applied.
+    - This is just a test fix and doesn't alter the way the module
+      runs in any way. If you already got 1.06 to run then you don't
+      need this.
+
+1.0600 Sat, 28 Aug 2004 15:02:47 +1000
+    - the 'RedHat' release
+        - Fixed bug from RT (#7502) from dfaraldo@redhat.com
+          that made validation fall over by assuming midnight
+          always exists. The patch now assumes Midday exists
+          (both he and I assume that DST will never start at
+          midday anywhere anytime!)
+    - This is a major change and you should install this release if
+      you ever use any time_zone other than floating or UTC. And if
+      you don't use them today, you may tomorrow - so upgrade OK?
+
+1.0500 Wed, 18 Aug 2004 17:24:32 +1000
+    - the 'Jean Forget' release
+        - Adapted and applied patches from Jean Forget to allow
+          day names and month names to have \W characters and to
+          allow am/pm values from other locales
+        - Jean's patch also included some doc patches
+        - Patched the synopsis a Jean suggestion to demonstrate
+          how to use the non-default error behaviors
+        - Added tests for these bugs
+        - Added t/more/* and the make test_more target so I can
+          test every locale if I want to.
+    - It's over a year since I deprecated the language parameter so
+      I've now removed it. You've had a year of warnings!
+    - This is a major change and you should install this release if
+      you use any locale other than en.
+
+1.0400 Sun, 10 Aug 2003 00:22:00 +1000
+    - the 'locale' release
+        - Applied patches from Joshua Hoblitt to move the the brand
+          new DateTime::Locale rather than the old ::Language modules
+        - Implemented %x, %X and %c for locale formats
+        - Fixed a bug on the two digit year determinator
+        - Added a test for locales known as 004locale.t
+    - This is a major change and you should install this release if
+      you are using DateTime >= 0.14 (the first release with Locale)
+
+1.0302 Sat, 28 Jun 2003 09:15:21 +1000
+    - the 'Broken Windows' release
+        - Test 004 was failing on Windows due to the path delimiter
+          being a backslash rather than a slash. This release should
+          also fix Strptime for Mac users, although I've had no
+          complaints from such users. (Myself being one of the only
+          ones currently using Strptime AFAIK!) Thanks Ron Hill for
+          the bug report.
+
+1.0301 Wed, 25 Jun 2003 22:40:12 +1000
+    - the 'Day of Year' release
+        - Updated to handle the post 0.12 DateTime that now
+          validates dates. Still handles old DateTime.
+
+1.0300 Sat, 07 Jun 2003 10:40:23 +1000
+    - the 'Better way to die' release
+        - The above has changed by request of Dave Rolsky and Iain
+          Truskett (Thanks!). We now allow each object to have its
+          own behavior.
+        - The default behavior has been changed to returning undef.
+          This was requested by someone (tell me if it was you!) and
+          made a lot of sense to me.
+    - Never released to CPAN
+
+1.0200 Wed, 28 May 2003 21:02:03 +1000
+    - the 'Proclavity to croak' release
+        - The docs for Time::Local talk about the 'proclavity to croak'
+          which basically means the module croaks easily. So did this
+          one until now.
+
+          Until now, if you allowed a user to specify a pattern and they
+          entered one that was non parsable, this module would croak
+          causing your script to croak. This is a Bad Thing (tm).
+
+          The behaviour now remains the same, however if you set
+          $DateTime::Format::StrpTime::CROAK to false, methods will
+          return undef rather than croaking.
+          $DateTime::Format::StrpTime::errmsg will tell you what went
+          wrong.
+
+          The default is to continue to croak. This means you have to
+          delibrately turn it off. Hopefully you'll change you script
+          to do this at the same time you change it to check the
+          return values of the methods :)
+
+1.0103 Wed, 28 May 2003 20:10:57 +1000
+    - the 'What's up Docs' release
+        - Applied doc patches from Iain Truskett (Thanks!)
+        - Clarified parameter discrepancy between synopsis and docs
+          (Thanks Chris Winters)
+
+1.0102 Fri, 16 May 2003 07:28:18 + 1000
+    - the 'wonky test' release
+        - Fixed the same test as above. Think I actually succeeded
+          this time!
+
+1.0101 Tue, 13 May 2003 07:58:23 + 1000
+    - the 'oldtimers' release
+        - Fixed a test that was broken if DateTime::TimeZone was not
+          version 0.13 or above.
+
+1.0100 Sun, 11 May 2003 13:54:36 + 1000
+    - the 'nanozone' release
+        - If we have the latest DateTime we run the test mentioned above
+        - Fixed my version format as advised by Iain Truskett
+          if it still doesn't work it's because of me, not him
+        - Added the ability to handle nanoseconds as requested by
+          Michael Goltze.
+        - Got Time Zones working, including mapping non-ambiguous TLAs
+          offsets and Olsen names (the latter uses the %q token)
+
+1.00.02 Tue, 29 Apr 2003 07:03:19 + 1000
+    - the 'please the testers' release
+        - Fixed a test that only worked in DateTime was from CVS
+        - Fixed two issues noted by Iain Truskett:
+        - Removed a diag() in test 1 that was just there for
+          testing the test
+        - Added a linebreak to the end of the MANIFEST
+
+1.00.01 Mon, 28 Apr 2003 07:12:01 +1000
+    - the 'what the hell is that' release
+        - removed alien life-forms (characters that didn't ASCIIfy)
+    * No API change, just made it so it will install now!
+
+1.00.00 Sun, 27 Apr 2003 17:56:27 +1000
+    - first release version
+        - first CPAN release
+        - added tests
+        - should be 100% compatible with DateTime's strftime function
+
+
+0.01 Fri, 25 Apr 2003 21:30:21 +1000
+    - original version - posted to DateTime mailing list

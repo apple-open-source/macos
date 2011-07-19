@@ -1,0 +1,334 @@
+Dovecot SSL configuration
+=========================
+
+The most important SSL settings are:
+
+---%<-------------------------------------------------------------------------
+ssl = yes
+# Preferred permissions: root:root 0444
+ssl_cert = </etc/ssl/certs/dovecot.pem
+# Preferred permissions: root:root 0400
+ssl_key = </etc/ssl/private/dovecot.pem
+---%<-------------------------------------------------------------------------
+
+The certificate file can be world-readable, since it doesn't contain anything
+sensitive (in fact it's sent to each connecting SSL client). The key file's
+permissions should be restricted to only root (and possibly ssl-certs group or
+similar if your OS uses such). Dovecot opens both of these files while still
+running as root, so you don't need to give Dovecot any special permissions to
+read them (in fact:*do not give dovecot user any permissions to the key file*).
+
+It's possible to keep the certificate and the key both in the same file:
+
+---%<-------------------------------------------------------------------------
+# Preferred permissions: root:root 0400
+ssl_cert = </etc/ssl/dovecot.pem
+ssl_key = </etc/ssl/dovecot.pem
+---%<-------------------------------------------------------------------------
+
+It's also possible to use different certificates for IMAP and POP3. However its
+important to note that "ssl = yes" must be set globally if you require SSL for
+any protocol (or dovecot will not listen on the SSL ports), which in turn
+requires that a certificate and key are specified globally even if you intent
+to specify certificates per protocol. The per protocol certificate settings
+override the global setting.:
+
+---%<-------------------------------------------------------------------------
+protocol imap {
+  ssl_cert = </etc/ssl/certs/imap.pem
+  ssl_key = </etc/ssl/private/imap.pem
+}
+protocol pop3 {
+  ssl_cert = </etc/ssl/certs/pop3.pem
+  ssl_key = </etc/ssl/private/pop3.pem
+}
+---%<-------------------------------------------------------------------------
+
+There are a couple of different ways to specify when SSL/TLS is required:
+
+ * 'disable_plaintext_auth=yes' allows <plaintext authentication>
+   [Authentication.Mechanisms.txt] only when SSL/TLS is used first.
+ * 'ssl = required' requires SSL/TLS also for <non-plaintext authentication>
+   [Authentication.Mechanisms.txt].
+ * If you have only plaintext mechanisms enabled ('auth { mechanisms = plain
+   login }'), you can use either (or both) of the above settings. They behave
+   exactly the same way then.
+
+Multiple SSL certificates
+-------------------------
+
+TLS SNI (Server Name Indication) support required
+-------------------------------------------------
+
+/It is important to note that having multiple SSL certificates per IP will not
+be compatible with all clients, especially mobile ones. It is a TLS SNI
+limitation./
+
+---%<-------------------------------------------------------------------------
+local_name imap.example.org {
+  ssl_cert = </etc/ssl/certs/imap.example.org.crt
+  ssl_key = </etc/ssl/private/imap.example.org.key
+}
+local_name imap.example2.org {
+  ssl_cert = </etc/ssl/certs/imap.example2.org.crt
+  ssl_key = </etc/ssl/private/imap.example2.org.key
+}
+# ..etc..
+---%<-------------------------------------------------------------------------
+
+Note that you will still need a top-level "default" 'ssl_key' and 'ssl_cert' as
+well, or you will receive errors.
+
+---%<-------------------------------------------------------------------------
+# doveconf -n
+doveconf: Error: ssl enabled, but ssl_cert not set
+---%<-------------------------------------------------------------------------
+
+Different certificates per IP and protocol
+------------------------------------------
+
+---%<-------------------------------------------------------------------------
+local 192.0.2.10 {
+  protocol imap {
+    ssl_cert = </etc/ssl/dovecot/imap-01.example.com.cert.pem
+    ssl_key  = </etc/ssl/dovecot/imap-01.example.com.key.pem
+  }
+
+  protocol pop3 {
+    ssl_cert = </etc/ssl/dovecot/pop-01.example.com.cert.pem
+    ssl_key  = </etc/ssl/dovecot/pop-01.example.com.key.pem
+  }
+}
+
+local 192.0.2.20 {
+  protocol imap {
+    ssl_cert = </etc/ssl/dovecot/imap-02.example.com.cert.pem
+    ssl_key  = </etc/ssl/dovecot/imap-02.example.com.key.pem
+  }
+
+  protocol pop3 {
+    ssl_cert = </etc/ssl/dovecot/pop-02.example.com.cert.pem
+    ssl_key  = </etc/ssl/dovecot/pop-02.example.com.key.pem
+  }
+}
+---%<-------------------------------------------------------------------------
+
+Password protected key files
+----------------------------
+
+SSL key files may be password protected. There are two ways to provide Dovecot
+with the password:
+
+ 1. Starting Dovecot with 'dovecot -p' asks the password. It's not stored
+    anywhere, so this method prevents Dovecot from starting automatically at
+    startup.
+ 2. 'ssl_key_password' setting. Note that 'dovecot.conf' is by default
+    world-readable, so you probably shouldn't place it there directly. Instead
+    you could store it in a different file, such as '/etc/dovecot-private.conf'
+    containing:
+
+    ---%<---------------------------------------------------------------------
+     ssl_key_password = secret
+    ---%<---------------------------------------------------------------------
+
+    and then use '!include_try /etc/dovecot-private.conf' in the main
+    'dovecot.conf'.
+
+Chained SSL certificates
+------------------------
+
+Put all the certificates in the 'ssl_cert' file. For example when using a
+certificate signed by TDC the correct order is:
+
+ 1. Dovecot's public certificate
+ 2. TDC SSL Server CA
+ 3. TDC Internet Root CA
+ 4. Globalsign Partners CA
+
+SSL security settings
+---------------------
+
+When Dovecot starts up for the first time, it generates new 512bit and 1024bit
+Diffie Hellman parameters and saves them into
+'<prefix>/var/lib/dovecot/ssl-parameters.ssl'. After the initial creation
+they're by default regenerated every week. With newer computers the generation
+shouldn't take more than a few seconds, but with older computers it can take as
+long as half an hour. The extra security gained by the regeneration is quite
+small, so with slower computers you might want to disable it:
+
+---%<-------------------------------------------------------------------------
+ssl_parameters_regenerate = 0
+---%<-------------------------------------------------------------------------
+
+By default Dovecot's allowed ciphers list contains:
+
+---%<-------------------------------------------------------------------------
+ssl_cipher_list = ALL:!LOW:!SSLv2:!EXP:!aNULL
+---%<-------------------------------------------------------------------------
+
+Disallowing more won't really gain any security for those using better ciphers,
+but it does prevent people from accidentally using insecure ciphers. See
+http://www.openssl.org/docs/apps/ciphers.html for a list of the ciphers.
+
+SSL verbosity
+-------------
+
+---%<-------------------------------------------------------------------------
+verbose_ssl = yes
+---%<-------------------------------------------------------------------------
+
+This will make Dovecot log all the problems it sees with SSL connections. Some
+errors might be caused by dropped connections, so it could be quite noisy.
+
+Client certificate verification/authentication
+----------------------------------------------
+
+If you want to require clients to present a valid SSL certificate, you'll need
+these settings:
+
+---%<-------------------------------------------------------------------------
+ssl_ca = </etc/ssl/ca.pem
+ssl_verify_client_cert = yes
+
+ssl_require_client_cert = yes
+#ssl_username_from_cert = yes
+---%<-------------------------------------------------------------------------
+
+The CA file should contain the certificate(s) followed by the matching CRL(s).
+Note that the CRLs are required to exist. For a multi-level CA place the
+certificates in this order:
+
+ 1. Issuing CA cert
+ 2. Issuing CA CRL
+ 3. Intermediate CA cert
+ 4. Intermediate CA CRL
+ 5. Root CA cert
+ 6. Root CA CRL
+
+The certificates and the CRLs have to be in PEM format. To convert a DER format
+CRL (e.g.http://crl.cacert.org/class3-revoke.crl) into PEM format, use:
+
+---%<-------------------------------------------------------------------------
+openssl crl -in class3-revoke.crl -inform DER -outform PEM > class3-revoke.pem
+---%<-------------------------------------------------------------------------
+
+With the above settings if a client connects which doesn't present a
+certificate signed by one of the CAs in the 'ssl_ca' file, Dovecot won't let
+the user log in.
+
+You may also force the username to be taken from the certificate by setting
+'ssl_username_from_cert = yes'.
+
+ * The text is looked up from subject DN's specified field using OpenSSL's
+   'X509_NAME_get_text_by_NID()' function.
+ * By default the 'CommonName' field is used.
+ * You can change the field with 'ssl_cert_username_field = name' setting
+   (parsed using OpenSSL's 'OBJ_txt2nid()' function). 'x500UniqueIdentifier' is
+   a common choice.
+
+You may also want to disable the password checking completely. Doing this
+currently circumvents Dovecot's security model so it's not recommended to use
+it, but it is possible by making the <passdb> [PasswordDatabase.txt] allow
+logins using any password (typically requiring <"nopassword" extra field>
+[PasswordDatabase.ExtraFields.txt] to be returned).
+
+Testing
+-------
+
+Try out your new setup:
+
+---%<-------------------------------------------------------------------------
+openssl s_client -connect mail.sample.com:pop3s
+---%<-------------------------------------------------------------------------
+
+You should see something like this:
+
+---%<-------------------------------------------------------------------------
+CONNECTED(00000003)
+depth=2 /O=Root CA/OU=http://www.cacert.org/CN=CA Cert Signing
+Authority/emailAddress=support@cacert.org
+verify error:num=19:self signed certificate in certificate chain
+verify return:0
+---
+Certificate chain
+ 0 s:/CN=mail.example.com
+   i:/O=CAcert Inc./OU=http://www.CAcert.org/CN=CAcert Class 3 Root
+ 1 s:/O=CAcert Inc./OU=http://www.CAcert.org/CN=CAcert Class 3 Root
+   i:/O=Root CA/OU=http://www.cacert.org/CN=CA Cert Signing
+Authority/emailAddress=support@cacert.org
+ 2 s:/O=Root CA/OU=http://www.cacert.org/CN=CA Cert Signing
+Authority/emailAddress=support@cacert.org
+   i:/O=Root CA/OU=http://www.cacert.org/CN=CA Cert Signing
+Authority/emailAddress=support@cacert.org
+---
+Server certificate
+-----BEGIN CERTIFICATE-----
+MIIE1DCCArygAwIBAgIDAMBPMA0GCSqGSIb3DQEBBAUAMFQxFDASBgNVBAoTC0NB
+Y2VydCBJbmMuMR4wHAYDVQQLExVodHRwOi8vd3d3LkNBY2VydC5vcmcxHDAaBgNV
+BAMTE0NBY2VydCBDbGFzcyAzIFJvb3QwHhcNMTAxMjIwMTM1NDQ1WhcNMTIxMjE5
+MTM1NDQ1WjAmMSQwIgYDjksadnjkasndjksandjksandjksandj5YXJlYS5vcmcw
+ggEiMA0GCSqGSIb3DQEBAQUAA4IBDwAwggEKAoIBAQC3jOX3FC8wVqnb2r65Sfvk
+cYUpJhlbhCfqPdN41c3WS0y1Jwwum1q4oMAJvdRnD5TMff1+fqTFy3lS1sYxIXiD
+kBRo478eNqzXHMpBOqbvKjYp/UZgWUNA9ebI1nQtwd7rnjmm/GrtyItjahCsgzDS
+qPAie+mXYzuT49ZoG+Glg7/R/jDcLMcJY0d5eJ7kufB1RLhvRitZD4FEbJVehqhY
+aevf5bLk1BNFhzRBfLXmv6u/kfvWf2HjGAf0aFhaQyiAldDgnZrvaZOFjkToJk27
+p9MguvwGmbciao0DmMjcJhQ0smclFwy8Kj98Tz+nTkfAlU8jJdb1J/tIatJdpSRh
+AgMBAAGjgdwwgdkwDAYDVR0TAQH/BAIwADA0BgNVHSUELTArBggrBgEFBQcDAgYI
+KwYBBQUHAwEGCWCGSAGG+EIEAQYKKwYBBAGCNwoDAzALBgNVHQ8EBAMCBaAwMwYI
+KwYBBQUHAQEEJzAlMCMGCCsGAQUFBzABhadodHRwOi8vb2NzcC5jYWNlcnQub3Jn
+LzBRBgNVknsadkjasnjdksandjksandjsnNlY3VyaXR5YXJlYS5vcmegKQYIKwYB
+BQUHCAWgHQwbbWFpbC5qb2ludC5zZWN1cml0eWFyZWEub3JnMA0GCSqGSIb3DQEB
+BQUAA4ICAQAX8ceObvUZNKYTlNQ/cv0BiA1XweRsVNca1ILACNLdVPR9mvf+aXCh
+ODkHaZAmGngj1DfD4fJsTbaydGWSPeVH91Qi9F+Pi6szhsxylI83NKbuXihcenuG
+twnte8aIb5FelVHttLQPSKRR62E8YmDWk3KYivuFAuZqDaGnWc5yeneTBpsGter/
+4awqsgymBK2YEg1HIWMPaRBvwzCVN/yUyWhFH9Nj11f/xgZE87VXrjLHWT/73i2Z
+S4uIZ2KHQUYuxMGldgpXm+QxFM8DGA6z1T1oPCVfW85cezlfr8QVvX6SXZrAUNL0
+3D5YPzQuevW+5CrqnGA+F5ff4mBMl8R8Sg0+0LoLqt5PbpGyTt9vS1INZCdfvtIA
+/d7Ae7Xp9W8FVRqd7tvNMIy3ZA0/wNMDUczkhC/YtvHfMELpjtMJAGF15OtO7Vik
+V+FZnBP1Yd7760dtEmd6bF8vjcXCvDdxwGtcAehAUpIgAWvkHHOt8+H56tkFENAP
+/ZpJ+Wr+K3lxkkG+BN1bucxMuAdVyTpFyZfKDHRXIO/5e0hpPOaTO+obD3kifzdh
+yy7KmdKvDclHTiPuonJBzEXeM3JQBjcDHbMSyA6+38yBcso27h9VqCQJB2cZmSlW
+ArS/9wt2X21KgeuGHlTZ/8z9gXAjQKXhDYECWWd6LkWl98ZDBihslQ==
+-----END CERTIFICATE-----
+subject=/CN=mail.example.com
+issuer=/O=CAcert Inc./OU=http://www.CAcert.org/CN=CAcert Class 3 Root
+---
+No client certificate CA names sent
+---
+SSL handshake has read 5497 bytes and written 293 bytes
+---
+New, TLSv1/SSLv3, Cipher is DHE-RSA-AES256-SHA
+Server public key is 2048 bit
+Secure Renegotiation IS supported
+Compression: zlib compression
+Expansion: zlib compression
+SSL-Session:
+    Protocol  : TLSv1
+    Cipher    : DHE-RSA-AES256-SHA
+    Session-ID:
+114A22BE4625B33F6893124ACF640AE0628B48B5039E90B3B9A20ADF7FA691F3
+    Session-ID-ctx:
+    Master-Key:
+B8A55EC91A060575CFB29503FBF7160C2DC8BCBFE02D20A7F704882F72D8D00272D8D002CE5CCC4B94A492F43ED8F
+    Key-Arg   : None
+    TLS session ticket:
+    0000 - 86 c7 46 63 a5 b6 48 74-16 d8 e0 a7 e2 64 e8 89   ..Fc..Ht.....d..
+    0010 - 97 90 59 4b 57 f3 e2 b3-e2 d2 88 90 a8 aa b4 44   ..YKW..........D
+    0020 - ea 24 08 5e b4 14 7f e1-2a 1a 1c 40 ca 85 e7 41   .$.^....*..@...A
+    0030 - 9d 0d a8 4c f7 e3 db 1e-ef da 53 9c fe 43 cc 62   ...L......S..C.b
+    0040 - 79 b6 ad ea 9d cf ca b2-37 41 b7 0f ea 7d 59 e8   y.......7A...}Y.
+    0050 - 10 01 a0 eb dc c2 63 66-56 54 6a e8 3a 4b 93 49   ......cfVTj.:K.I
+    0060 - 77 da e4 4b 21 e8 30 7e-bf 10 91 3a 2c f9 59 80   w..K!.0~...:,.Y.
+    0070 - 01 1f 36 0b 92 85 67 55-c8 86 1d 44 b1 6f 0d ae   ..6...gU...D.o..
+    0080 - 15 36 b6 49 3a ef 94 9a-ef 6d 27 f0 80 20 43 09   .6.I:....m'.. C.
+    0090 - be 70 c5 30 15 3b 93 c6-c1 4c e9 7f 5c 34 98 dd   .p.0.;...L..\4..
+
+    Compression: 1 (zlib compression)
+    Start Time: 1292857721
+    Timeout   : 300 (sec)
+    Verify return code: 19 (self signed certificate in certificate chain)
+---
++OK Dovecot ready.
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

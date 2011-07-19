@@ -1,0 +1,15 @@
+require "vnd.dovecot.testsuite";
+require "enotify";
+
+test "Execute" {
+	/* Test to catch runtime segfaults */
+	if valid_notify_method 
+		"mailto:stephan@example.com" {
+
+		/* Test to catch runtime segfaults */
+		notify 
+			:message "This is probably very important"
+			:importance "1" 
+			"mailto:stephan@example.com%2cstephan@example.org?subject=Important%20message%20received";
+	}
+}

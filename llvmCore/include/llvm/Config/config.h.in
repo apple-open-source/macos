@@ -1,15 +1,19 @@
 /* include/llvm/Config/config.h.in.  Generated from autoconf/configure.ac by autoheader.  */
 
-/* Define if dlopen(0) will open the symbols of the program */
-#undef CAN_DLOPEN_SELF
+/* 32 bit multilib directory. */
+#undef CXX_INCLUDE_32BIT_DIR
 
-/* Define to one of `_getb67', `GETB67', `getb67' for Cray-2 and Cray-YMP
-   systems. This function is required for `alloca.c' support on those systems.
-   */
-#undef CRAY_STACKSEG_END
+/* 64 bit multilib directory. */
+#undef CXX_INCLUDE_64BIT_DIR
 
-/* Define to 1 if using `alloca.c'. */
-#undef C_ALLOCA
+/* Arch the libstdc++ headers. */
+#undef CXX_INCLUDE_ARCH
+
+/* Directory with the libstdc++ headers. */
+#undef CXX_INCLUDE_ROOT
+
+/* Directories clang will search for headers */
+#undef C_INCLUDE_DIRS
 
 /* Define if CBE is enabled for printf %a output */
 #undef ENABLE_CBE_PRINTF_A
@@ -20,12 +24,8 @@
 /* Define if threads enabled */
 #undef ENABLE_THREADS
 
-/* Define to 1 if you have `alloca', as a function or macro. */
-#undef HAVE_ALLOCA
-
-/* Define to 1 if you have <alloca.h> and it should be used (not on Ultrix).
-   */
-#undef HAVE_ALLOCA_H
+/* Define if timestamp information (e.g., __DATE___) is allowed */
+#undef ENABLE_TIMESTAMPS
 
 /* Define to 1 if you have the `argz_append' function. */
 #undef HAVE_ARGZ_APPEND
@@ -54,11 +54,11 @@
 /* Define to 1 if you have the `bcopy' function. */
 #undef HAVE_BCOPY
 
-/* Does not have bi-directional iterator */
-#undef HAVE_BI_ITERATOR
-
 /* Define to 1 if you have the `ceilf' function. */
 #undef HAVE_CEILF
+
+/* Define if the neat program is available */
+#undef HAVE_CIRCO
 
 /* Define to 1 if you have the `closedir' function. */
 #undef HAVE_CLOSEDIR
@@ -109,6 +109,9 @@
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
 
+/* Define if the neat program is available */
+#undef HAVE_FDP
+
 /* Define if libffi is available on this platform. */
 #undef HAVE_FFI_CALL
 
@@ -126,9 +129,6 @@
 
 /* Define to 1 if you have the `fmodf' function. */
 #undef HAVE_FMODF
-
-/* Does not have forward iterator */
-#undef HAVE_FWD_ITERATOR
 
 /* Define to 1 if you have the `getcwd' function. */
 #undef HAVE_GETCWD
@@ -177,9 +177,6 @@
 
 /* Define if you have the libdl library or equivalent. */
 #undef HAVE_LIBDL
-
-/* Define to 1 if you have the `elf' library (-lelf). */
-#undef HAVE_LIBELF
 
 /* Define to 1 if you have the `imagehlp' library (-limagehlp). */
 #undef HAVE_LIBIMAGEHLP
@@ -258,17 +255,20 @@
 /* Define if mmap() can map files into memory */
 #undef HAVE_MMAP_FILE
 
-/* define if the compiler implements namespaces */
-#undef HAVE_NAMESPACES
-
 /* Define to 1 if you have the <ndir.h> header file, and it defines `DIR'. */
 #undef HAVE_NDIR_H
 
 /* Define to 1 if you have the `nearbyintf' function. */
 #undef HAVE_NEARBYINTF
 
+/* Define if the neat program is available */
+#undef HAVE_NEATO
+
 /* Define to 1 if you have the `opendir' function. */
 #undef HAVE_OPENDIR
+
+/* Define to 1 if you have the `posix_spawn' function. */
+#undef HAVE_POSIX_SPAWN
 
 /* Define to 1 if you have the `powf' function. */
 #undef HAVE_POWF
@@ -279,11 +279,17 @@
 /* Define to have the %a format string */
 #undef HAVE_PRINTF_A
 
+/* Have pthread_getspecific */
+#undef HAVE_PTHREAD_GETSPECIFIC
+
 /* Define to 1 if you have the <pthread.h> header file. */
 #undef HAVE_PTHREAD_H
 
 /* Have pthread_mutex_lock */
 #undef HAVE_PTHREAD_MUTEX_LOCK
+
+/* Have pthread_rwlock_init */
+#undef HAVE_PTHREAD_RWLOCK_INIT
 
 /* Define to 1 if srand48/lrand48/drand48 exist in <stdlib.h> */
 #undef HAVE_RAND48
@@ -308,6 +314,9 @@
 
 /* Define to 1 if you have the `sbrk' function. */
 #undef HAVE_SBRK
+
+/* Define to 1 if you have the `setenv' function. */
+#undef HAVE_SETENV
 
 /* Define to 1 if you have the `setjmp' function. */
 #undef HAVE_SETJMP
@@ -345,9 +354,6 @@
 /* Set to 1 if the std::isnan function is found in <cmath> */
 #undef HAVE_STD_ISNAN_IN_CMATH
 
-/* Does not have std namespace iterator */
-#undef HAVE_STD_ITERATOR
-
 /* Define to 1 if you have the `strchr' function. */
 #undef HAVE_STRCHR
 
@@ -362,6 +368,9 @@
 
 /* Define to 1 if you have the `strerror_r' function. */
 #undef HAVE_STRERROR_R
+
+/* Define to 1 if you have the `strerror_s' function. */
+#undef HAVE_STRERROR_S
 
 /* Define to 1 if you have the <strings.h> header file. */
 #undef HAVE_STRINGS_H
@@ -391,6 +400,9 @@
 /* Define to 1 if you have the <sys/dl.h> header file. */
 #undef HAVE_SYS_DL_H
 
+/* Define to 1 if you have the <sys/ioctl.h> header file. */
+#undef HAVE_SYS_IOCTL_H
+
 /* Define to 1 if you have the <sys/mman.h> header file. */
 #undef HAVE_SYS_MMAN_H
 
@@ -416,6 +428,12 @@
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
 
+/* Define to 1 if you have the <termios.h> header file. */
+#undef HAVE_TERMIOS_H
+
+/* Define if the neat program is available */
+#undef HAVE_TWOPI
+
 /* Define to 1 if the system has the type `uint64_t'. */
 #undef HAVE_UINT64_T
 
@@ -427,6 +445,9 @@
 
 /* Define to 1 if the system has the type `u_int64_t'. */
 #undef HAVE_U_INT64_T
+
+/* Define to 1 if you have the <valgrind/valgrind.h> header file. */
+#undef HAVE_VALGRIND_VALGRIND_H
 
 /* Define to 1 if you have the <windows.h> header file. */
 #undef HAVE_WINDOWS_H
@@ -464,11 +485,20 @@
 /* Installation directory for man pages */
 #undef LLVM_MANDIR
 
+/* Build multithreading support into LLVM */
+#undef LLVM_MULTITHREADED
+
+/* LLVM architecture name for the native architecture, if available */
+#undef LLVM_NATIVE_ARCH
+
 /* Define if this is Unixish platform */
 #undef LLVM_ON_UNIX
 
 /* Define if this is Win32ish platform */
 #undef LLVM_ON_WIN32
+
+/* Define to path to circo program if found or 'echo circo' otherwise */
+#undef LLVM_PATH_CIRCO
 
 /* Define to path to dot program if found or 'echo dot' otherwise */
 #undef LLVM_PATH_DOT
@@ -476,11 +506,20 @@
 /* Define to path to dotty program if found or 'echo dotty' otherwise */
 #undef LLVM_PATH_DOTTY
 
+/* Define to path to fdp program if found or 'echo fdp' otherwise */
+#undef LLVM_PATH_FDP
+
 /* Define to path to Graphviz program if found or 'echo Graphviz' otherwise */
 #undef LLVM_PATH_GRAPHVIZ
 
 /* Define to path to gv program if found or 'echo gv' otherwise */
 #undef LLVM_PATH_GV
+
+/* Define to path to neato program if found or 'echo neato' otherwise */
+#undef LLVM_PATH_NEATO
+
+/* Define to path to twopi program if found or 'echo twopi' otherwise */
+#undef LLVM_PATH_TWOPI
 
 /* Installation prefix directory */
 #undef LLVM_PREFIX
@@ -527,14 +566,6 @@
 /* Define as the return type of signal handlers (`int' or `void'). */
 #undef RETSIGTYPE
 
-/* If using the C implementation of alloca, define if you know the
-   direction of stack growth for your system; otherwise it will be
-   automatically deduced at runtime.
-	STACK_DIRECTION > 0 => grows toward higher addresses
-	STACK_DIRECTION < 0 => grows toward lower addresses
-	STACK_DIRECTION = 0 => direction of growth unknown */
-#undef STACK_DIRECTION
-
 /* Define to 1 if the `S_IS*' macros in <sys/stat.h> do not work properly. */
 #undef STAT_MACROS_BROKEN
 
@@ -546,6 +577,9 @@
 
 /* Define to 1 if your <sys/time.h> declares `struct tm'. */
 #undef TM_IN_SYS_TIME
+
+/* Define if we have the oprofile JIT-support library */
+#undef USE_OPROFILE
 
 /* Define if use udis86 library */
 #undef USE_UDIS86

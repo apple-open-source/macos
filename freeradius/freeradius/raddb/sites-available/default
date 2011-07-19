@@ -67,8 +67,6 @@ authorize {
 	#
 	#  It takes care of processing the 'raddb/hints' and the
 	#  'raddb/huntgroups' files.
-	#
-	#  It also adds the %{Client-IP-Address} attribute to the request.
 	preprocess
 
 	#
@@ -94,7 +92,16 @@ authorize {
 	#  If you have a Cisco SIP server authenticating against
 	#  FreeRADIUS, uncomment the following line, and the 'digest'
 	#  line in the 'authenticate' section.
-#	digest
+	digest
+
+	#
+	#  The WiMAX specification says that the Calling-Station-Id
+	#  is 6 octets of the MAC.  This definition conflicts with
+	#  RFC 3580, and all common RADIUS practices.  Un-commenting
+	#  the "wimax" module here means that it will fix the
+	#  Calling-Station-Id attribute to the normal format as
+	#  specified in RFC 3580 Section 3.21
+#	wimax
 
 	#
 	#  Look for IPASS style 'realm/', and if not found, look for
@@ -138,15 +145,15 @@ authorize {
 	#  to read /etc/passwd or /etc/shadow directly, see the
 	#  passwd module in radiusd.conf.
 	#
-	unix
+#	unix
 
 	#
 	#  Read the 'users' file
 	files
 
-    #
-    # Mac OS X OpenDirectory
-    opendirectory
+	#
+	# Mac OS X OpenDirectory
+	opendirectory
 
 	#
 	#  Look in an SQL database.  The schema of the database
@@ -256,14 +263,14 @@ authenticate {
 	#  If you have a Cisco SIP server authenticating against
 	#  FreeRADIUS, uncomment the following line, and the 'digest'
 	#  line in the 'authorize' section.
-#	digest
+	digest
 
 
-    #
-    # Mac OS X OpenDirectory
-    Auth-Type opendirectory {
-        opendirectory
-    }
+	#
+	# Mac OS X OpenDirectory
+	Auth-Type opendirectory {
+		opendirectory
+	}
 
 	#
 	#  Pluggable Authentication Modules.
@@ -274,7 +281,12 @@ authenticate {
 	#  module checks the users password.  Note that packets
 	#  containing CHAP-Password attributes CANNOT be authenticated
 	#  against /etc/passwd!  See the FAQ for details.
-	#  
+	#
+	#  For normal "crypt" authentication, the "pap" module should
+	#  be used instead of the "unix" module.  The "unix" module should
+	#  be used for authentication ONLY for compatibility with legacy
+	#  FreeRADIUS configurations.
+	#
 	unix
 
 	# Uncomment it if you want to use ldap for authentication
@@ -289,6 +301,22 @@ authenticate {
 	#
 	#  Allow EAP authentication.
 	eap
+
+	#
+	#  The older configurations sent a number of attributes in
+	#  Access-Challenge packets, which wasn't strictly correct.
+	#  If you want to filter out these attributes, uncomment
+	#  the following lines.
+	#
+#	Auth-Type eap {
+#		eap {
+#			handled = 1  
+#		}
+#		if (handled && (Response-Packet-Type == Access-Challenge)) {
+#			attr_filter.access_challenge.post-auth
+#			handled  # override the "updated" code from attr_filter
+#		}
+#	}
 }
 
 
@@ -297,6 +325,24 @@ authenticate {
 #
 preacct {
 	preprocess
+
+	#
+	#  Session start times are *implied* in RADIUS.
+	#  The NAS never sends a "start time".  Instead, it sends
+	#  a start packet, *possibly* with an Acct-Delay-Time.
+	#  The server is supposed to conclude that the start time
+	#  was "Acct-Delay-Time" seconds in the past.
+	#
+	#  The code below creates an explicit start time, which can
+	#  then be used in other modules.
+	#
+	#  The start time is: NOW - delay - session_length
+	#
+
+#	  update request {
+#	  	FreeRADIUS-Acct-Session-Start-Time = "%{expr: %l - %{%{Acct-Session-Time}:-0} - %{%{Acct-Delay-Time}:-0}}"
+#	}
+
 
 	#
 	#  Ensure that we have a semi-unique identifier for every
@@ -353,6 +399,20 @@ accounting {
 #	sql
 
 	#
+	#  If you receive stop packets with zero session length,
+	#  they will NOT be logged in the database.  The SQL module
+	#  will print a message (only in debugging mode), and will
+	#  return "noop".
+	#
+	#  You can ignore these packets by uncommenting the following
+	#  three lines.  Otherwise, the server will not respond to the
+	#  accounting request, and the NAS will retransmit.
+	#
+#	if (noop) {
+#		ok
+#	}
+
+	#
 	#  Instead of sending the query to the SQL server,
 	#  write it into a log file.
 	#
@@ -360,6 +420,9 @@ accounting {
 
 	#  Cisco VoIP specific bulk accounting
 #	pgsql-voip
+
+	# For Exec-Program and Exec-Program-Wait
+	exec
 
 	#  Filter attributes from the accounting response.
 	attr_filter.accounting_response
@@ -417,7 +480,69 @@ post-auth {
 	#
 #	ldap
 
+	# For Exec-Program and Exec-Program-Wait
 	exec
+
+	#
+	#  Calculate the various WiMAX keys.  In order for this to work,
+	#  you will need to define the WiMAX NAI, usually via
+	#
+	#	update request {
+	#	       WiMAX-MN-NAI = "%{User-Name}"
+	#	}
+	#
+	#  If you want various keys to be calculated, you will need to
+	#  update the reply with "template" values.  The module will see
+	#  this, and replace the template values with the correct ones
+	#  taken from the cryptographic calculations.  e.g.
+	#
+	# 	update reply {
+	#		WiMAX-FA-RK-Key = 0x00
+	#		WiMAX-MSK = "%{EAP-MSK}"
+	#	}
+	#
+	#  You may want to delete the MS-MPPE-*-Keys from the reply,
+	#  as some WiMAX clients behave badly when those attributes
+	#  are included.  See "raddb/modules/wimax", configuration
+	#  entry "delete_mppe_keys" for more information.
+	#
+#	wimax
+
+	#  If there is a client certificate (EAP-TLS, sometimes PEAP
+	#  and TTLS), then some attributes are filled out after the
+	#  certificate verification has been performed.  These fields
+	#  MAY be available during the authentication, or they may be
+	#  available only in the "post-auth" section.
+	#
+	#  The first set of attributes contains information about the
+	#  issuing certificate which is being used.  The second
+	#  contains information about the client certificate (if
+	#  available).
+#
+#	update reply {
+#	       Reply-Message += "%{TLS-Cert-Serial}"
+#	       Reply-Message += "%{TLS-Cert-Expiration}"
+#	       Reply-Message += "%{TLS-Cert-Subject}"
+#	       Reply-Message += "%{TLS-Cert-Issuer}"
+#	       Reply-Message += "%{TLS-Cert-Common-Name}"
+#
+#	       Reply-Message += "%{TLS-Client-Cert-Serial}"
+#	       Reply-Message += "%{TLS-Client-Cert-Expiration}"
+#	       Reply-Message += "%{TLS-Client-Cert-Subject}"
+#	       Reply-Message += "%{TLS-Client-Cert-Issuer}"
+#	       Reply-Message += "%{TLS-Client-Cert-Common-Name}"
+#	}
+
+
+	#  If the WiMAX module did it's work, you may want to do more
+	#  things here, like delete the MS-MPPE-*-Key attributes.
+	#
+	#	if (updated) {
+	#		update reply {
+	#			MS-MPPE-Recv-Key !* 0x00
+	#			MS-MPPE-Send-Key !* 0x00
+	#		}
+	#	}
 
 	#
 	#  Access-Reject packets are sent through the REJECT sub-section of the
@@ -427,6 +552,17 @@ post-auth {
 	#  'edir_account_policy_check = yes' in the ldap module configuration
 	#
 	Post-Auth-Type REJECT {
+		# Access-Reject packets SHOULD include the
+		# EAP-Message field.
+		if ("%{EAP-Message}") {
+			update reply {
+				EAP-Message = "0x04040004"
+				Message-Authenticator = "%{Message-Authenticator}"
+			}
+		}
+
+		# log failed authentications in SQL, too.
+#		sql
 		attr_filter.access_reject
 	}
 }
@@ -508,6 +644,5 @@ post-proxy {
 #	Post-Proxy-Type Fail {
 #			detail
 #	}
-
 }
 

@@ -73,13 +73,14 @@ void fm_lock_dispose(void)
 
 int fm_lock_state(void)
 {
-    int		pid, st;
+    long	pid;
+    int		st;
     FILE	*lockfp;
     int		bkgd = FALSE;
 
     if ((lockfp = fopen(lockfile, "r")) != NULL)
     {
-	int args = fscanf(lockfp, "%d %d", &pid, &st);
+	int args = fscanf(lockfp, "%ld %d", &pid, &st);
 	bkgd = (args == 2);
 
 	if (ferror(lockfp)) {

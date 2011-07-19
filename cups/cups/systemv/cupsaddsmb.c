@@ -1,9 +1,9 @@
 /*
- * "$Id: cupsaddsmb.c 7033 2007-10-19 02:11:28Z mike $"
+ * "$Id: cupsaddsmb.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   "cupsaddsmb" command for the Common UNIX Printing System (CUPS).
+ *   "cupsaddsmb" command for CUPS.
  *
- *   Copyright 2007 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 2001-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,13 +23,8 @@
  * Include necessary headers...
  */
 
-#include <stdio.h>
-#include <stdlib.h>
-#include <cups/string.h>
+#include <cups/cups-private.h>
 #include <cups/adminutil.h>
-#include <cups/i18n.h>
-#include <cups/debug.h>
-#include <errno.h>
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/wait.h>
@@ -88,7 +83,7 @@ main(int  argc,				/* I - Number of command-line arguments */
       cupsSetEncryption(HTTP_ENCRYPT_REQUIRED);
 #else
       _cupsLangPrintf(stderr,
-	              _("%s: Sorry, no encryption support compiled in!\n"),
+	              _("%s: Sorry, no encryption support."),
 	              argv[0]);
 #endif /* HAVE_SSL */
     }
@@ -146,7 +141,8 @@ main(int  argc,				/* I - Number of command-line arguments */
 	if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
                                        cupsEncryption())) == NULL)
 	{
-	  _cupsLangPrintf(stderr, _("%s: Unable to connect to server\n"), argv[0]);
+	  _cupsLangPrintf(stderr, _("%s: Unable to connect to server."),
+	                  argv[0]);
 	  exit(1);
 	}
       }
@@ -172,7 +168,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   if ((http = httpConnectEncrypt(cupsServer(), ippPort(),
                                  cupsEncryption())) == NULL)
   {
-    _cupsLangPrintf(stderr, _("%s: Unable to connect to server\n"), argv[0]);
+    _cupsLangPrintf(stderr, _("%s: Unable to connect to server."), argv[0]);
     exit(1);
   }
 
@@ -234,8 +230,7 @@ export_dest(http_t     *http,		/* I - Connection to server */
   if (!cupsAdminCreateWindowsPPD(http, dest, ppdfile, sizeof(ppdfile)))
   {
     _cupsLangPrintf(stderr,
-                    _("cupsaddsmb: No PPD file for printer \"%s\" - "
-		      "%s\n"),
+                    _("cupsaddsmb: No PPD file for printer \"%s\" - %s"),
         	    dest, cupsLastErrorString());
     return (1);
   }
@@ -283,21 +278,26 @@ export_dest(http_t     *http,		/* I - Connection to server */
 void
 usage(void)
 {
-  _cupsLangPuts(stdout,
-                _("Usage: cupsaddsmb [options] printer1 ... printerN\n"
-		  "       cupsaddsmb [options] -a\n"
-		  "\n"
-		  "Options:\n"
-		  "  -E               Encrypt the connection to the server\n"
-		  "  -H samba-server  Use the named SAMBA server\n"
-		  "  -U samba-user    Authenticate using the named SAMBA user\n"
-		  "  -a               Export all printers\n"
-		  "  -h cups-server   Use the named CUPS server\n"
-		  "  -v               Be verbose (show commands)\n"));
+  _cupsLangPuts(stdout, _("Usage: cupsaddsmb [options] printer1 ... printerN"));
+  _cupsLangPuts(stdout, _("       cupsaddsmb [options] -a"));
+  _cupsLangPuts(stdout, "");
+  _cupsLangPuts(stdout, _("Options:"));
+  _cupsLangPuts(stdout, _("  -E                      Encrypt the connection to "
+                          "the server."));
+  _cupsLangPuts(stdout, _("  -H samba-server         Use the named SAMBA "
+                          "server."));
+  _cupsLangPuts(stdout, _("  -U samba-user           Authenticate using the "
+                          "named SAMBA user."));
+  _cupsLangPuts(stdout, _("  -a                      Export all printers."));
+  _cupsLangPuts(stdout, _("  -h cups-server          Use the named CUPS "
+                          "server."));
+  _cupsLangPuts(stdout, _("  -v                      Be verbose (show "
+                          "commands)."));
+
   exit(1);
 }
 
 
 /*
- * End of "$Id: cupsaddsmb.c 7033 2007-10-19 02:11:28Z mike $".
+ * End of "$Id: cupsaddsmb.c 9042 2010-03-24 00:45:34Z mike $".
  */

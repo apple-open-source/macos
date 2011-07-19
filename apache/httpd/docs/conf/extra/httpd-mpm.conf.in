@@ -33,11 +33,16 @@ LockFile "@rel_logfiledir@/accept.lock"
 # MaxSpareServers: maximum number of server processes which are kept spare
 # MaxClients: maximum number of server processes allowed to start
 # MaxRequestsPerChild: maximum number of requests a server process serves
+# ServerLimit and MaxClients support n% syntax which sets them to a
+# fraction of the current RLIMIT_NPROC limit.  On error the values
+# are unchanged, so set a numeric value first just in case.
 <IfModule mpm_prefork_module>
     StartServers          1
     MinSpareServers       1
     MaxSpareServers      10
+    ServerLimit          50%
     MaxClients          150
+    MaxClients           50%
     MaxRequestsPerChild   0
 </IfModule>
 

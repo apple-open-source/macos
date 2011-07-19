@@ -1,0 +1,18 @@
+IMAP COMPRESS plugin
+====================
+
+The goal of the extension is to reduce the bandwidth usage of IMAP.
+
+The <zlib> [Plugins.Zlib.txt] has to be enabled for imap_zlib to work
+
+Configuration:
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins zlib
+
+protocol imap {
+  mail_plugins = $mail_plugins imap_zlib
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

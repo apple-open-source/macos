@@ -1,10 +1,10 @@
 # -*- tcl -*-
 # graph.testsuite:  tests for the graph operations.
 #
-# Copyright (c) 2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2008-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: XOpsControl,v 1.10 2008/11/20 07:26:43 andreas_kupries Exp $
+# RCS: @(#) $Id: XOpsControl,v 1.22 2009/09/24 19:30:11 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -13,6 +13,7 @@ set SELF [file dirname [info script]]
 # -------------------------------------------------------------------------
 
 source ${SELF}/Xsetup
+source ${SELF}/Xsupport
 source ${SELF}/XOpsSetup
 
 source ${SELF}/ops/adjmatrix.test    ; # Adjacency matrix
@@ -34,5 +35,26 @@ source ${SELF}/ops/distance.test     ; # Node distances
 source ${SELF}/ops/eccentricity.test ; # Node eccentricity
 source ${SELF}/ops/radius.test       ; # Graph radius
 source ${SELF}/ops/diameter.test     ; # Graph diameter
+
+source ${SELF}/ops/adjlist.test      ; # Adjacency lists
+source ${SELF}/ops/bellmanford.test  ; # Distances by Bellman-Ford
+source ${SELF}/ops/bfs.test          ; # Breadth-First Searching.
+source ${SELF}/ops/busackergowen.test; # Minimum-Cost Maximum-Flow by Busacker-Gowen
+source ${SELF}/ops/christofides.test ; # mTSP by Christofides, 3/2-approximation algorithm
+source ${SELF}/ops/dinicblockingflow.test ; # Blocking-Flow by Dinic
+source ${SELF}/ops/dinicmaximumflow.test  ; # Maximum-Flow by Dinic
+source ${SELF}/ops/edmondskarp.test  ; # Maximum-Flow by Edmonds-Karp
+source ${SELF}/ops/floydwarshall.test; # Distances by Floyd-Warshall
+source ${SELF}/ops/johnsons.test     ; # Distances by Johnsons
+source ${SELF}/ops/kcenter.test      ; # Metric K-Center, 2-approximation algorithm
+source ${SELF}/ops/maxcut.test       ; # Maximum Cut, 2-approximation algorithm
+source ${SELF}/ops/mdst.test         ; # Minimum Diameter/Degree Spanning Trees
+source ${SELF}/ops/metrictsp.test    ; # Metric Travelling Salesman Problem (mTSP)
+#                                      # 2-approximation algorithm.
+source ${SELF}/ops/mkmblockingflow.test ; # Blocking Flow by Malhotra, Kumar and Maheshwari
+source ${SELF}/ops/tspheuristics.test; # Heuristics of local searching for TSP
+#                                      # 2- and 3-approximation algorithms
+source ${SELF}/ops/verticescover.test; # Vertex Cover, 2-approximation algorithm
+source ${SELF}/ops/weightedkcenter.test   ; # Weighted Metric K-Center, 3-approximation algorithm
 
 # -------------------------------------------------------------------------

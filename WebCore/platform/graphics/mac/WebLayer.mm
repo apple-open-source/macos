@@ -30,7 +30,9 @@
 #import "WebLayer.h"
 
 #import "GraphicsContext.h"
-#import "GraphicsLayer.h"
+#import "GraphicsLayerCA.h"
+#import "PlatformCALayer.h"
+#import <objc/objc-runtime.h>
 #import <QuartzCore/QuartzCore.h>
 #import <wtf/UnusedParam.h>
 
@@ -38,53 +40,52 @@ using namespace WebCore;
 
 @implementation WebLayer
 
-+ (void)drawContents:(WebCore::GraphicsLayer*)layerContents ofLayer:(CALayer*)layer intoContext:(CGContextRef)context
+void drawLayerContents(CGContextRef context, CALayer *layer, WebCore::PlatformCALayer* platformLayer)
 {
+    WebCore::PlatformCALayerClient* layerContents = platformLayer->owner();
     if (!layerContents)
         return;
 
     CGContextSaveGState(context);
 
     CGRect layerBounds = [layer bounds];
-    if (layerContents->contentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp) {
+    if (layerContents->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp) {
         CGContextScaleCTM(context, 1, -1);
         CGContextTranslateCTM(context, 0, -layerBounds.size.height);
     }
 
-    if (layerContents->client()) {
-        [NSGraphicsContext saveGraphicsState];
+    [NSGraphicsContext saveGraphicsState];
 
-        // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
-        // the current NSGraphicsContext (e.g. NSCell drawing) get the right one.
-        NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:YES];
-        [NSGraphicsContext setCurrentContext:layerContext];
+    // Set up an NSGraphicsContext for the context, so that parts of AppKit that rely on
+    // the current NSGraphicsContext (e.g. NSCell drawing) get the right one.
+    NSGraphicsContext* layerContext = [NSGraphicsContext graphicsContextWithGraphicsPort:context flipped:YES];
+    [NSGraphicsContext setCurrentContext:layerContext];
 
-        GraphicsContext graphicsContext(context);
+    GraphicsContext graphicsContext(context);
+    graphicsContext.setIsCALayerContext(true);
+    graphicsContext.setIsAcceleratedContext(platformLayer->acceleratesDrawing());
 
-        // It's important to get the clip from the context, because it may be significantly
-        // smaller than the layer bounds (e.g. tiled layers)
-        CGRect clipBounds = CGContextGetClipBoundingBox(context);
-        IntRect clip(enclosingIntRect(clipBounds));
-        layerContents->paintGraphicsLayerContents(graphicsContext, clip);
-
-        [NSGraphicsContext restoreGraphicsState];
+    if (!layerContents->platformCALayerContentsOpaque()) {
+        // Turn off font smoothing to improve the appearance of text rendered onto a transparent background.
+        graphicsContext.setShouldSmoothFonts(false);
     }
-#ifndef NDEBUG
-    else {
-        ASSERT_NOT_REACHED();
+    
+    // It's important to get the clip from the context, because it may be significantly
+    // smaller than the layer bounds (e.g. tiled layers)
+    CGRect clipBounds = CGContextGetClipBoundingBox(context);
+    IntRect clip(enclosingIntRect(clipBounds));
+    layerContents->platformCALayerPaintContents(graphicsContext, clip);
 
-        // FIXME: ideally we'd avoid calling -setNeedsDisplay on a layer that is a plain color,
-        // so CA never makes backing store for it (which is what -setNeedsDisplay will do above).
-        CGContextSetRGBFillColor(context, 0.0f, 1.0f, 0.0f, 1.0f);
-        CGContextFillRect(context, layerBounds);
-    }
-#endif
+    [NSGraphicsContext restoreGraphicsState];
 
-    if (layerContents->showRepaintCounter()) {
+    // Re-fetch the layer owner, since <rdar://problem/9125151> indicates that it might have been destroyed during painting.
+    layerContents = platformLayer->owner();
+    ASSERT(layerContents);
+    if (layerContents && layerContents->platformCALayerShowRepaintCounter()) {
         bool isTiledLayer = [layer isKindOfClass:[CATiledLayer class]];
 
         char text[16]; // that's a lot of repaints
-        snprintf(text, sizeof(text), "%d", layerContents->incrementRepaintCount());
+        snprintf(text, sizeof(text), "%d", layerContents->platformCALayerIncrementRepaintCount());
 
         CGContextSaveGState(context);
         if (isTiledLayer)
@@ -110,6 +111,34 @@ using namespace WebCore;
     CGContextRestoreGState(context);
 }
 
+void setLayerNeedsDisplayInRect(CALayer *layer, WebCore::PlatformCALayerClient* layerContents, CGRect rect)
+{
+    if (layerContents && layerContents->platformCALayerDrawsContent()) {
+        struct objc_super layerSuper = { layer, class_getSuperclass(object_getClass(layer)) };
+#if defined(BUILDING_ON_LEOPARD)
+        rect = CGRectApplyAffineTransform(rect, [layer contentsTransform]);
+#else
+        if (layerContents->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp)
+            rect.origin.y = [layer bounds].size.height - rect.origin.y - rect.size.height;
+#endif
+        objc_msgSendSuper(&layerSuper, @selector(setNeedsDisplayInRect:), rect);
+
+#ifndef NDEBUG
+        if (layerContents->platformCALayerShowRepaintCounter()) {
+            CGRect bounds = [layer bounds];
+            CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 46, 25);
+#if defined(BUILDING_ON_LEOPARD)
+            indicatorRect = CGRectApplyAffineTransform(indicatorRect, [layer contentsTransform]);
+#else
+            if (layerContents->platformCALayerContentsOrientation() == WebCore::GraphicsLayer::CompositingCoordinatesBottomUp)
+                indicatorRect.origin.y = [layer bounds].size.height - indicatorRect.origin.y - indicatorRect.size.height;
+#endif
+            objc_msgSendSuper(&layerSuper, @selector(setNeedsDisplayInRect:), indicatorRect);
+        }
+#endif
+    }
+}
+
 // Disable default animations
 - (id<CAAction>)actionForKey:(NSString *)key
 {
@@ -117,73 +146,38 @@ using namespace WebCore;
     return nil;
 }
 
-// Implement this so presentationLayer can get our custom attributes
-- (id)initWithLayer:(id)layer
-{
-    if ((self = [super initWithLayer:layer]))
-        m_layerOwner = [(WebLayer*)layer layerOwner];
-
-    return self;
-}
-
 - (void)setNeedsDisplay
 {
-    if (m_layerOwner && m_layerOwner->client() && m_layerOwner->drawsContent())
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer && layer->owner() && layer->owner()->platformCALayerDrawsContent())
         [super setNeedsDisplay];
 }
 
 - (void)setNeedsDisplayInRect:(CGRect)dirtyRect
 {
-    if (m_layerOwner && m_layerOwner->client() && m_layerOwner->drawsContent()) {
-#if defined(BUILDING_ON_LEOPARD)
-        dirtyRect = CGRectApplyAffineTransform(dirtyRect, [self contentsTransform]);
-#endif
-        [super setNeedsDisplayInRect:dirtyRect];
-
-#ifndef NDEBUG
-        if (m_layerOwner->showRepaintCounter()) {
-            CGRect bounds = [self bounds];
-            CGRect indicatorRect = CGRectMake(bounds.origin.x, bounds.origin.y, 46, 25);
-#if defined(BUILDING_ON_LEOPARD)
-            indicatorRect = CGRectApplyAffineTransform(indicatorRect, [self contentsTransform]);
-#endif
-            [super setNeedsDisplayInRect:indicatorRect];
-        }
-#endif
-    }
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer)
+        setLayerNeedsDisplayInRect(self, layer->owner(), dirtyRect);
 }
 
 - (void)display
 {
     [super display];
-    if (m_layerOwner)
-        m_layerOwner->didDisplay(self);
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer && layer->owner())
+        layer->owner()->platformCALayerLayerDidDisplay(self);
 }
 
 - (void)drawInContext:(CGContextRef)context
 {
-    [WebLayer drawContents:m_layerOwner ofLayer:self intoContext:context];
+    PlatformCALayer* layer = PlatformCALayer::platformCALayer(self);
+    if (layer)
+        drawLayerContents(context, self, layer);
 }
 
 @end // implementation WebLayer
 
-#pragma mark -
-
-@implementation WebLayer(WebLayerAdditions)
-
-- (void)setLayerOwner:(GraphicsLayer*)aLayer
-{
-    m_layerOwner = aLayer;
-}
-
-- (GraphicsLayer*)layerOwner
-{
-    return m_layerOwner;
-}
-
-@end
-
-#pragma mark -
+// MARK: -
 
 #ifndef NDEBUG
 
@@ -193,7 +187,6 @@ using namespace WebCore;
 {
     CGRect aBounds = [self bounds];
     CGPoint aPos = [self position];
-    CATransform3D t = [self transform];
 
     NSString* selfString = [NSString stringWithFormat:@"%@<%@ 0x%08x> \"%@\" bounds(%.1f, %.1f, %.1f, %.1f) pos(%.1f, %.1f), sublayers=%d masking=%d",
             inPrefix,

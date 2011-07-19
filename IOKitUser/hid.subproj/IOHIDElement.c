@@ -83,6 +83,7 @@ static const CFRuntimeClass __IOHIDElementClass = {
     __IOHIDElementHash,     // hash
     NULL,                   // copyFormattingDesc
     NULL,
+    NULL,
     NULL
 };
 
@@ -97,6 +98,8 @@ static CFStringRef __KIOHIDElementSpecialKeys[] = {
     CFSTR(kIOHIDElementCalibrationMaxKey),
     NULL
 };
+
+
 
 //------------------------------------------------------------------------------
 // __IOHIDElementCreate

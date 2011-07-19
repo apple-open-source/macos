@@ -10,12 +10,12 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# $Id: crc32.tcl,v 1.21 2005/10/25 01:26:40 andreas_kupries Exp $
+# $Id: crc32.tcl,v 1.22 2009/05/06 22:41:08 patthoyts Exp $
 
 package require Tcl 8.2
 
 namespace eval ::crc {
-    variable crc32_version 1.3
+    variable crc32_version 1.3.1
     variable accel
     array set accel {critcl 0 trf 0}
 
@@ -120,10 +120,8 @@ proc ::crc::Crc32Init {{seed 0xFFFFFFFF}} {
         if {$s != {}} {
             fconfigure $s -translation binary -buffering none
             ::crc-zlib -attach $s -mode write \
-                -read-type variable \
-                -read-destination [subst $token](trfread) \
                 -write-type variable \
-                -write-destination [subst $token](trfwrite)
+                -write-destination ${token}(trfwrite)
             array set state [list trfread 0 trfwrite 0 trf $s]
         }
     }
@@ -214,8 +212,9 @@ if {[package provide critcl] != {}} {
                 return TCL_ERROR;
             }
             
-            if (objc == 3)
+            if (objc == 3) {
                 r = Tcl_GetLongFromObj(interp, objv[2], (long *)&t);
+            }
 
             if (r == TCL_OK) {
                 int cn, size, ndx;
@@ -225,22 +224,27 @@ if {[package provide critcl] != {}} {
 
                 tblPtr = Tcl_GetVar2Ex(interp, "::crc::crc32_tbl", NULL,
                                        TCL_LEAVE_ERR_MSG );
-                if (tblPtr == NULL)
+                if (tblPtr == NULL) {
                     r = TCL_ERROR;
-                if (r == TCL_OK)
+                }
+                if (r == TCL_OK) {
                     data = Tcl_GetByteArrayFromObj(objv[1], &size);
+                }
                 for (cn = 0; r == TCL_OK && cn < size; cn++) {
                     ndx = (t ^ data[cn]) & 0xFF;
                     r = Tcl_ListObjIndex(interp, tblPtr, ndx, &lkpPtr);
-                    if (r == TCL_OK)
+                    if (r == TCL_OK) {
                         r = Tcl_GetLongFromObj(interp, lkpPtr, &lkp);
-                    if (r == TCL_OK)
+                    }
+                    if (r == TCL_OK) {
                         t = lkp ^ (t >> 8);
+                    }
                 }
             }
 
-            if (r == TCL_OK)
-                Tcl_SetLongObj(Tcl_GetObjResult(interp), t ^ 0xFFFFFFFF);
+            if (r == TCL_OK) {
+                Tcl_SetObjResult(interp, Tcl_NewLongObj(t ^ 0xFFFFFFFF));
+            }
             return r;
         }
     }

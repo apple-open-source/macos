@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)autod_nfs.c	1.126	05/06/08 SMI"
@@ -94,7 +94,8 @@ struct cache_entry {
 static struct cache_entry *cache_head = NULL;
 pthread_rwlock_t cache_lock;	/* protect the cache chain */
 
-static int nfsmount(struct mapfs *, char *, char *, boolean_t, mach_port_t);
+static int nfsmount(struct mapfs *, char *, char *, boolean_t, fsid_t ,
+    mach_port_t, fsid_t *, uint32_t *);
 #ifdef HAVE_LOFS
 static int is_nfs_port(char *);
 #endif
@@ -108,8 +109,8 @@ void free_mfs(struct mapfs *);
 static void dump_mfs(struct mapfs *, char *, int);
 static char *dump_distance(struct mapfs *);
 static void cache_free(struct cache_entry *);
-static int cache_check(char *, rpcvers_t *, char *);
-static void cache_enter(char *, rpcvers_t, rpcvers_t, char *, int);
+static int cache_check(const char *, rpcvers_t *, const char *);
+static void cache_enter(const char *, rpcvers_t, rpcvers_t, const char *, int);
 
 #ifdef CACHE_DEBUG
 static void trace_host_cache();
@@ -141,7 +142,8 @@ static rpcvers_t vers_min_default = NFS_VER2;
 
 int
 mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
-    mach_port_t gssd_port)
+    fsid_t mntpnt_fsid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t *retflags)
 {
 #ifdef HAVE_LOFS
 	struct mapfs *mfs, *mp;
@@ -175,7 +177,7 @@ mount_nfs(struct mapent *me, char *mntpnt, char *prevhost, boolean_t isdirect,
 #endif
 	if (err) {
 		err = nfsmount(mfs, mntpnt, me->map_mntopts, isdirect,
-		    gssd_port);
+		    mntpnt_fsid, gssd_port, fsidp, retflags);
 		if (err && trace > 1) {
 			trace_prt(1, "	Couldn't mount %s:%s, err=%d\n",
 				mfs->mfs_host, mfs->mfs_dir, err);
@@ -565,7 +567,8 @@ static const struct mntopt mopts_nfs[] = {
 
 static int
 nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
-    mach_port_t gssd_port)
+    fsid_t mntpnt_fsid, mach_port_t gssd_port, fsid_t *fsidp,
+    uint32_t *retflags)
 {
 	mntoptparse_t mp;
 	int flags, altflags;
@@ -575,8 +578,6 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	rpcvers_t nfsvers;	/* version in map options, 0 if not there */
 	long optval;
 
-	/* used to negotiate nfs version using webnfs */
-	rpcvers_t pubversmin, pubversmax;
 	int i;
 	char *nfs_proto = NULL;
 	long nfs_port = 0;
@@ -665,9 +666,10 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	} else
 		nfs_port = 0;	/* "unspecified" */
 
-	if (altflags & NFS_MNT_VERS) {
-		optval = getmntoptnum(mp, "vers");
-		if (optval < 1 || optval > (long)UINT_MAX) {
+	if (altflags & (NFS_MNT_VERS|NFS_MNT_NFSVERS)) {
+		optval = get_nfs_vers(mp, altflags);
+		if (optval == 0) {
+			/* Error. */
 			syslog(LOG_ERR, "%s: invalid NFS version number", mntpnt);
 			freemntopts(mp);
 			last_error = ENOENT;
@@ -684,13 +686,6 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 		goto ret;
 	}
 	freemntopts(mp);
-
-	if (nfsvers != 0) {
-		pubversmax = pubversmin = nfsvers;
-	} else {
-		pubversmax = vers;
-		pubversmin = versmin;
-	}
 
 	entries = 0;
 	for (mfs = mfs_in; mfs; mfs = mfs->mfs_next) {
@@ -731,7 +726,7 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 				    (uint_t)nfs_port != mfs->mfs_port) {
 
 					syslog(LOG_ERR, "nfsmount: port (%u) in nfs URL"
-						" not the same as port (%d) in port "
+						" not the same as port (%ld) in port "
 						"option\n", mfs->mfs_port, nfs_port);
 					last_error = EIO;
 					goto out;
@@ -797,8 +792,8 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			entries++;
 
 			switch (vers) {
-#ifdef NFS_V4
-			case NFS_V4: v4cnt++; break;
+#ifdef NFS_V4_DEFAULT
+			case NFS_VER4: v4cnt++; break;
 #endif
 			case NFS_VER3: v3cnt++; break;
 			case NFS_VER2: v2cnt++; break;
@@ -813,8 +808,8 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			if (mfs->mfs_distance &&
 			    mfs->mfs_distance <= DIST_MYSUB) {
 				switch (vers) {
-#ifdef NFS_V4
-				case NFS_V4: v4near++; break;
+#ifdef NFS_V4_DEFAULT
+				case NFS_VER4: v4near++; break;
 #endif
 				case NFS_VER3: v3near++; break;
 				case NFS_VER2: v2near++; break;
@@ -840,9 +835,9 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 			 * version downgrade in service if we can use a local
 			 * network interface and avoid a router.
 			 */
-#ifdef NFS_V4
+#ifdef NFS_V4_DEFAULT
 			if (v4cnt && v4cnt >= v3cnt && (v4near || !v3near))
-				nfsvers = NFS_V4;
+				nfsvers = NFS_VER4;
 			else
 #endif
 			if (v3cnt && v3cnt >= v2cnt && (v3near || !v2near))
@@ -855,24 +850,6 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 				v4cnt, v4near,
 				v3cnt, v3near,
 				v2cnt, v2near, nfsvers);
-		}
-
-		/*
-		 * Since we don't support different NFS versions in replicated
-		 * mounts, take the opportunity to set
-		 * the mount protocol version as appropriate.
-		 */
-		switch (nfsvers) {
-#ifdef NFS_V4
-		case NFS_V4:
-			break;
-#endif
-		case NFS_VER3:
-			versmin = MOUNTVERS3;
-			break;
-		case NFS_VER2:
-			versmin = MOUNTVERS;
-			break;
 		}
 	}
 
@@ -905,8 +882,10 @@ nfsmount(struct mapfs *mfs_in, char *mntpnt, char *opts, boolean_t isdirect,
 	strcpy(mount_resource, mfs->mfs_host);
 	strcat(mount_resource, ":");
 	strcat(mount_resource, mfs->mfs_dir);
-	last_error = mount_generic(mount_resource, "nfs", opts, mntpnt,
-	    isdirect, 0, gssd_port);
+	last_error = mount_generic(mount_resource, "nfs", opts, nfsvers,
+	    mntpnt, isdirect, FALSE, mntpnt_fsid, 0, gssd_port, fsidp,
+	    retflags);
+
 	free(mount_resource);
 
 out:
@@ -931,6 +910,239 @@ ret:
 	return (last_error);
 }
 
+int
+get_nfs_vers(mntoptparse_t mp, int altflags)
+{
+	const char *optstrval;
+
+	/*
+	 * "vers=" takes precedence over "nfsvers="; arguably,
+	 * we should let the last one specified in the option
+	 * string win, but getmntopts() doesn't support that.
+	 */
+	if (altflags & NFS_MNT_VERS)
+		optstrval = getmntoptstr(mp, "vers");
+	else if (altflags & NFS_MNT_NFSVERS)
+		optstrval = getmntoptstr(mp, "nfsvers");
+	else {
+		/*
+		 * We shouldn't be called if neither of them are set.
+		 */
+		return 0;		/* neither vers= nor nfsvers= specified */
+	}
+
+	if (optstrval == NULL)
+		return 0;		/* no version specified */
+	if (strcmp(optstrval, "2") == 0)
+		return NFS_VER2;	/* NFSv2 */
+	else if (strcmp(optstrval, "3") == 0)
+		return NFS_VER3;	/* NFSv3 */
+	else if (strncmp(optstrval, "4", 1) == 0)
+		return NFS_VER4;	/* "4*" means NFSv4 */
+	else
+		return 0;		/* invalid version */
+}
+
+/*
+ * This routine has the same definition as clnt_create_vers(),
+ * except it takes an additional timeout parameter - a pointer to
+ * a timeval structure.  A NULL value for the pointer indicates
+ * that the default timeout value should be used.
+ */
+static CLIENT *
+clnt_create_vers_timed(const char *hostname, const rpcprog_t prog,
+    rpcvers_t *vers_out, const rpcvers_t vers_low, const rpcvers_t vers_high,
+    const char *proto, const struct timeval *tp)
+{
+	CLIENT *clnt;
+	struct timeval to;
+	enum clnt_stat rpc_stat;
+	struct rpc_err rpcerr;
+	rpcvers_t v_low, v_high;
+
+#if 0
+	/* Once we get clnt_create_timed() */
+	clnt = clnt_create_timed(hostname, prog, vers_high, proto, tp);
+#else
+	clnt = clnt_create((char *)hostname, prog, vers_high, (char *)proto);
+#endif
+	if (clnt == NULL)
+		return (NULL);
+	if (tp == NULL) {
+		to.tv_sec = 10;
+		to.tv_usec = 0;
+	} else
+		to = *tp;
+
+	rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
+			NULL, (xdrproc_t)xdr_void, NULL, to);
+	if (rpc_stat == RPC_SUCCESS) {
+		*vers_out = vers_high;
+		return (clnt);
+	}
+	v_low = vers_low;
+	v_high = vers_high;
+	while (rpc_stat == RPC_PROGVERSMISMATCH && v_high > v_low) {
+		unsigned int minvers, maxvers;
+
+		clnt_geterr(clnt, &rpcerr);
+		minvers = rpcerr.re_vers.low;
+		maxvers = rpcerr.re_vers.high;
+		if (maxvers < v_high)
+			v_high = maxvers;
+		else
+			v_high--;
+		if (minvers > v_low)
+			v_low = minvers;
+		if (v_low > v_high) {
+			goto error;
+		}
+		clnt_destroy(clnt);
+#if 0
+		/* Once we get clnt_create_timed() */
+		clnt = clnt_create_timed(hostname, prog, v_high, proto, tp);
+#else
+		clnt = clnt_create((char *)hostname, prog, v_high, (char *)proto);
+#endif
+		if (clnt == NULL)
+			return (NULL);
+		rpc_stat = clnt_call(clnt, NULLPROC, (xdrproc_t)xdr_void,
+				NULL, (xdrproc_t)xdr_void,
+				NULL, to);
+		if (rpc_stat == RPC_SUCCESS) {
+			*vers_out = v_high;
+			return (clnt);
+		}
+	}
+	clnt_geterr(clnt, &rpcerr);
+
+error:
+	rpc_createerr.cf_stat = rpc_stat;
+	rpc_createerr.cf_error = rpcerr;
+	clnt_destroy(clnt);
+	return (NULL);
+}
+
+/*
+ * Create a client handle for a well known service or a specific port on
+ * host. This routine bypasses rpcbind and can be use to construct a client
+ * handle to services that are not registered with rpcbind or where the remote
+ * rpcbind is not available, e.g., the remote rpcbind port is blocked by a
+ * firewall. We construct a client handle and then ping the service's NULL
+ * proc to see that the service is really available. If the caller supplies
+ * a non zero port number, the service name is ignored and the port will be
+ * used. A non-zero port number limits the protocol family to inet or inet6.
+ */
+
+static CLIENT *
+clnt_create_service_timed(const char *host, const char *service,
+			const rpcprog_t prog, const rpcvers_t vers,
+			const ushort_t port, const char *proto,
+			const struct timeval *tmout)
+{
+	CLIENT *clnt = NULL;
+	struct timeval to;
+	struct hostent *h;
+	struct servent *se;
+	struct protoent *p;
+	struct sockaddr_in sin;
+	int sock;
+
+	if (tmout == NULL) {
+		to.tv_sec = 10;
+		to.tv_usec = 0;
+	} else
+		to = *tmout;
+
+	if (host == NULL) {
+		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
+		rpc_createerr.cf_error.re_errno = EINVAL;
+		return (NULL);
+	}
+
+	rpc_createerr.cf_stat = RPC_SUCCESS;
+	h = gethostbyname(host);
+	if (h == NULL) {
+		rpc_createerr.cf_stat = RPC_UNKNOWNHOST;
+		return (NULL);
+	}
+
+	if (h->h_addrtype != AF_INET) {
+		/*
+		 * Only support INET for now.
+		 * XXX - need IPv6 as well.
+		 */
+		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
+		rpc_createerr.cf_error.re_errno = EAFNOSUPPORT;
+		return (NULL);
+	}
+
+	bzero((char *)&sin, sizeof sin);
+	sin.sin_family = h->h_addrtype;
+	if (port == 0) {
+		/*
+		 * We were not given an explicit port number;
+		 * attempt to get the port number for the
+		 * service.
+		 */
+		if (service == NULL) {
+			rpc_createerr.cf_stat = RPC_SYSTEMERROR;
+			rpc_createerr.cf_error.re_errno = EINVAL;
+			return (NULL);
+		}
+		se = getservbyname(service, proto);
+		if (se == NULL) {
+			rpc_createerr.cf_stat = RPC_PROGNOTREGISTERED;
+			return (NULL);
+		}
+		sin.sin_port = se->s_port;
+	} else
+		sin.sin_port = port;
+	bcopy(h->h_addr, (char*)&sin.sin_addr, h->h_length);
+	p = getprotobyname(proto);
+	if (p == NULL) {
+		rpc_createerr.cf_stat = RPC_UNKNOWNPROTO;
+		rpc_createerr.cf_error.re_errno = EPFNOSUPPORT;
+		return (NULL);
+	}
+	sock = RPC_ANYSOCK;
+	switch (p->p_proto) {
+	case IPPROTO_UDP:
+		clnt = clntudp_create(&sin, prog, vers, to, &sock);
+		if (clnt == NULL)
+			return (NULL);
+		break;
+	case IPPROTO_TCP:
+		clnt = clnttcp_create(&sin, prog, vers, &sock, 0, 0);
+		if (clnt == NULL)
+			return (NULL);
+		break;
+	default:
+		rpc_createerr.cf_stat = RPC_SYSTEMERROR;
+		rpc_createerr.cf_error.re_errno = EPFNOSUPPORT;
+		return (NULL);
+	}
+
+	/*
+	 * Check if we can reach the server with this clnt handle
+	 * Other clnt_create calls do a ping by contacting the
+	 * remote rpcbind, here will just try to execute the service's
+	 * NULL proc.
+	 */
+
+	rpc_createerr.cf_stat = clnt_call(clnt, NULLPROC,
+					(xdrproc_t)xdr_void, 0,
+					(xdrproc_t)xdr_void, 0, to);
+
+	if (rpc_createerr.cf_stat != RPC_SUCCESS) {
+		clnt_geterr(clnt, &rpc_createerr.cf_error);
+		clnt_destroy(clnt);
+		return (NULL);
+	}
+
+	return (clnt);
+}
+
 /*
  * Sends a null call to the remote host's (NFS program, versp). versp
  * may be "NULL" in which case the default maximum version is used.
@@ -938,51 +1150,53 @@ ret:
  */
 enum clnt_stat
 pingnfs(
-	char *hostpart,
+	const char *hostpart,
 	rpcvers_t *versp,
 	rpcvers_t versmin,
 	ushort_t port,			/* may be zeor */
-	char *path,
-	char *proto)
+	const char *path,
+	const char *proto)
 {
 	CLIENT *cl = NULL;
 	enum clnt_stat clnt_stat;
 	rpcvers_t versmax;	/* maximum version to try against server */
 	rpcvers_t outvers;	/* version supported by host on last call */
 	rpcvers_t vers_to_try;	/* to try different versions against host */
-	char *hostname = hostpart;
+	const char *hostname = hostpart;
+	char *hostcopy = NULL;
+	char *pathcopy;
 
 	if (path != NULL && strcmp(hostname, "nfs") == 0 &&
 	    strncmp(path, "//", 2) == 0) {
 		char *sport;
 
-		hostname = strdup(path+2);
+		hostcopy = strdup(path+2);
 
-		if (hostname == NULL) {
+		if (hostcopy == NULL) {
 			syslog(LOG_ERR, "pingnfs: memory allocation failed");
 			return (RPC_SYSTEMERROR);
 		}
 
-		path = strchr(hostname, '/');
+		pathcopy = strchr(hostcopy, '/');
 
 		/*
 		 * This cannot happen. If it does, give up
 		 * on the ping as this is obviously a corrupt
 		 * entry.
 		 */
-		if (path == NULL) {
-			free(hostname);
+		if (pathcopy == NULL) {
+			free(hostcopy);
 			return (RPC_SUCCESS);
 		}
 
 		/*
 		 * Probable end point of host string.
 		 */
-		*path = '\0';
+		*pathcopy = '\0';
 
 		sport = strchr(hostname, ':');
 
-		if (sport != NULL && sport < path) {
+		if (sport != NULL && sport < pathcopy) {
 
 			/*
 			 * Actual end point of host string.
@@ -990,6 +1204,8 @@ pingnfs(
 			*sport = '\0';
 			port = htons((ushort_t)atoi(sport+1));
 		}
+		hostname = hostcopy;
+		path = pathcopy;
 	}
 
 	/* Pick up the default versions and then set them appropriately */
@@ -1000,21 +1216,38 @@ pingnfs(
 		set_versrange(0, &versmax, &versmin);
 	}
 
+	if (proto &&
+	    strcasecmp(proto, "udp") == 0 &&
+	    versmax == NFS_VER4) {
+		/*
+		 * No V4-over-UDP for you.
+		 */
+		if (versmin == NFS_VER4) {
+			if (versp) {
+				*versp = versmax - 1;
+				return (RPC_SUCCESS);
+			}
+			return (RPC_PROGUNAVAIL);
+		} else {
+			versmax--;
+		}
+	}
+
 	if (versp)
 		*versp = versmax;
 
 	switch (cache_check(hostname, versp, proto)) {
 	case GOODHOST:
-		if (hostname != hostpart)
-			free(hostname);
+		if (hostcopy != NULL)
+			free(hostcopy);
 		return (RPC_SUCCESS);
 	case DEADHOST:
-		if (hostname != hostpart)
-			free(hostname);
+		if (hostcopy != NULL)
+			free(hostcopy);
 		return (RPC_TIMEDOUT);
 	case NXHOST:
-		if (hostname != hostpart)
-			free(hostname);
+		if (hostcopy != NULL)
+			free(hostcopy);
 		return (RPC_UNKNOWNHOST);
 	case NOHOST:
 	default:
@@ -1032,36 +1265,23 @@ pingnfs(
 
 	do {
 		outvers = vers_to_try;
-#ifdef HAVE_V4
 		/*
 		 * If NFSv4, we give the port number explicitly so that we
-		 * avoid talking to the portmapper.  (XXX - necessary?)
+		 * avoid talking to the portmapper.
 		 */
-		if (vers_to_try == NFS_V4) {
+		if (vers_to_try == NFS_VER4) {
 			if (trace > 4) {
 				trace_prt(1, "  pingnfs: Trying ping via TCP\n");
 			}
 
-			hp = gethostbyname(hostname);
-			if (h == NULL) {
-				rpc_createerr.cf_stat = RPC_UNKNOWNHOST;
-				cl = NULL;
-			} else if (h->h_addrtype != AF_INET) {
-				/*
-				 * Only support INET for now
-				 */
-				rpc_createerr.cf_stat = RPC_SYSTEMERROR;
-				rpc_createerr.cf_error.re_errno = EAFNOSUPPORT;
-			} else {
-				bzero((char *)&sin, sizeof sin);
-				sin.sin_family = h->h_addrtype;
-				sin.sin_port = port;
-				bcopy(h->h_addr, (char*)&sin.sin_addr, h->h_length);
-				sock = RPC_ANYSOCK;
-				cl = clnttcp_create(&sin, NFS_PROG, vers_to_try,
-				    &sock, 0, 0);
-				if (cl != NULL)
-					break;
+			if ((cl = clnt_create_service_timed(hostname, "nfs",
+							    NFS_PROG,
+							    vers_to_try,
+							    port, "tcp",
+							    NULL))
+			    != NULL) {
+				outvers = vers_to_try;
+				break;
 			}
 			if (trace > 4) {
 				trace_prt(1, "  pingnfs: Can't ping via TCP"
@@ -1069,11 +1289,10 @@ pingnfs(
 					hostname, rpc_createerr.cf_stat);
 			}
 
-		} else
-#endif
-		{
-			if ((cl = clnt_create(hostname, NFS_PROG,
-				vers_to_try, "udp"))
+		} else {
+			if ((cl = clnt_create_vers_timed(hostname, NFS_PROG,
+				&outvers, versmin, vers_to_try,
+				"udp", NULL))
 				!= NULL)
 				break;
 			if (trace > 4) {
@@ -1089,8 +1308,10 @@ pingnfs(
 					trace_prt(1, "  pingnfs: Trying ping "
 						"via TCP\n");
 				}
-				if ((cl = clnt_create(hostname,
-					NFS_PROG, vers_to_try, "tcp")) != NULL)
+				if ((cl = clnt_create_vers_timed(hostname,
+					NFS_PROG, &outvers,
+					versmin, vers_to_try,
+					"tcp", NULL)) != NULL)
 					break;
 				if (trace > 4) {
 					trace_prt(1, "  pingnfs: Can't ping "
@@ -1121,16 +1342,16 @@ pingnfs(
 			}
 			switch (cache_check(hostname, versp, proto)) {
 			case GOODHOST:
-				if (hostname != hostpart)
-					free(hostname);
+				if (hostcopy != NULL)
+					free(hostcopy);
 				return (RPC_SUCCESS);
 			case DEADHOST:
-				if (hostname != hostpart)
-					free(hostname);
+				if (hostcopy != NULL)
+					free(hostcopy);
 				return (RPC_TIMEDOUT);
 			case NXHOST:
-				if (hostname != hostpart)
-					free(hostname);
+				if (hostcopy != NULL)
+					free(hostcopy);
 				return (RPC_UNKNOWNHOST);
 			case NOHOST:
 			default:
@@ -1176,8 +1397,8 @@ pingnfs(
 		break;
 	}
 
-	if (hostpart != hostname)
-		free(hostname);
+	if (hostcopy != NULL)
+		free(hostcopy);
 
 	return (clnt_stat);
 }
@@ -1250,10 +1471,10 @@ loopbackmount(fsname, dir, mntopts)
  */
 static void
 cache_enter(host, reqvers, outvers, proto, state)
-	char *host;
+	const char *host;
 	rpcvers_t reqvers;
 	rpcvers_t outvers;
-	char *proto;
+	const char *proto;
 	int state;
 {
 	struct cache_entry *entry;
@@ -1286,9 +1507,9 @@ cache_enter(host, reqvers, outvers, proto, state)
 
 static int
 cache_check(host, versp, proto)
-	char *host;
+	const char *host;
 	rpcvers_t *versp;
-	char *proto;
+	const char *proto;
 {
 	int state = NOHOST;
 	struct cache_entry *ce, *prev;
@@ -1497,12 +1718,10 @@ set_versrange(rpcvers_t nfsvers, rpcvers_t *vers, rpcvers_t *versmin)
 		*vers = vers_max_default;
 		*versmin = vers_min_default;
 		break;
-#ifdef NFS_V4
-	case NFS_V4:
-		*vers = NFS_V4;
-		*versmin = NFS_V4;
+	case NFS_VER4:
+		*vers = NFS_VER4;
+		*versmin = NFS_VER4;
 		break;
-#endif
 	case NFS_VER3:
 		*vers = NFS_VER3;
 		*versmin = NFS_VER3;

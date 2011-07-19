@@ -15,6 +15,11 @@ BEGIN {
   }
 }
 
+BEGIN {
+  local $SIG{__WARN__} = sub {};
+  require DBIx::Class::ResultSetManager;
+}
+
 use DBICTest::ResultSetManager; # uses Class::Inspector
 
 my $schema = DBICTest::ResultSetManager->compose_namespace('DB');

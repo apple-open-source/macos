@@ -1,0 +1,76 @@
+require "vnd.dovecot.testsuite";
+require "date";
+require "variables";
+
+/* Extract local timezone first */
+test "Local-Zone" {
+	if not currentdate :matches "zone" "*" {
+		test_fail "matches '*' failed for zone part.";
+	}
+	set "local_zone" "${0}";	
+}
+
+/* FIXME: using variables somehow fails here */
+if string "${local_zone}" "+0200" {
+test_set "message" text:
+From: stephan@example.org
+To: sirius@friep.example.com
+Subject: Frop!
+Date: Mon, 20 Jul 2009 21:44:43 +0300
+Delivery-Date: Mon, 23 Jul 2009 05:30:14 +0800
+
+Wanna date?
+.
+;
+} else {
+test_set "message" text:
+From: stephan@example.org
+To: sirius@friep.example.com
+Subject: Frop!
+Date: Mon, 20 Jul 2009 21:44:43 +0300
+Delivery-Date: Mon, 22 Jul 2009 23:30:14 +0200
+
+Wanna date?
+.
+;
+}
+
+test "Specified Zone" {
+	if not date :zone "+0200" "date" "zone" "+0200" {
+		if date :matches :zone "+0200" "date" "zone" "*" {}
+		test_fail "zone is incorrect: ${0}";	
+	}
+
+	if not date :zone "+0200" "date" "time" "20:44:43" {
+		test_fail "zone is not applied";	
+	}
+}
+
+test "Original Zone" {
+	if not date :originalzone "date" "zone" "+0300" {
+		if date :matches :originalzone "date" "zone" "*" {}
+		test_fail "zone is incorrect: ${0}";	
+	}
+
+	if not date :originalzone "date" "time" "21:44:43" {
+		test_fail "time should be left untouched";	
+	}
+}
+
+test "Local Zone Shift" {
+	if anyof ( 
+			allof ( 
+				string "${local_zone}" "+0200",
+				date "delivery-date" "iso8601" "2009-07-23T05:30:14+08:00"),
+			allof ( 
+				not string "${local_zone}" "+0200",
+				date "delivery-date" "iso8601" "2009-07-22T23:30:14+02:00")) {
+	
+		if date :matches "delivery-date" "iso8601" "*" 
+			{ set "a" "${0}"; }
+		if date :originalzone :matches "delivery-date" "iso8601" "*" 
+			{ set "b" "${0}"; }
+
+		test_fail "time not shifted to local zone: ${b} => ${a}";
+	}
+}

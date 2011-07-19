@@ -1,4 +1,4 @@
-FrT;@1|>>0|$15|HeaderDoc::Test%26|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$6|RESULT$14|RESULT_ALLDECS$7|SUBLANG$4|TYPE$88|int funcptr_test_func_982374982(int (*funcptr_a)(float, char, char), char *char_b)
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$88|int funcptr_test_func_982374982(int (*funcptr_a)(float, char, char), char *char_b)
 {
 
 }
@@ -10,7 +10,7 @@ $226|/*! Function name: funcptr_test_func_982374982.
         @param char_b
                 A char *.
  */ 
-$0|$11731|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$0|$11893|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -49,6 +49,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => **
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => funcptr_test_func_982374982
@@ -104,7 +105,7 @@ $parserState->{sodname} => funcptr_test_func_982374982
 $parserState->{sodtype} =>  int
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
-$parserState->{typestring} => int
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -203,8 +204,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -240,15 +241,15 @@ Returns: int
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -290,8 +291,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -332,8 +333,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -341,7 +342,7 @@ Returns: int
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: funcptr_a
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/funcptr_test_func_982374982/funcptr_a
         ABSTRACT: ""
         DISCUSSION: "<p>A funcptr."
         UPDATED: ""
@@ -375,15 +376,15 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: char_b
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/funcptr_test_func_982374982/char_b
         ABSTRACT: ""
         DISCUSSION: "<p>A char *."
         UPDATED: ""
@@ -417,8 +418,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
 +---int
@@ -454,17 +455,17 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982 //test_ref/doc/anysymbol/funcptr_test_func_982374982" machineGenerated="true" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
 	        <span class="param">float</span>,
 	        <span class="param">char</span>,
 	        <span class="param">char</span>),
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
 END OF OBJECT
 
 
 
-$11731|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+$11893|-=: TOP LEVEL COMMENT PARSE VALUES :=-
 inHeader: 0
 inClass: 0
 inInterface: 0
@@ -503,6 +504,7 @@ $parserState->{callbackName} =>
 $parserState->{callbackNamePending} => -1
 $parserState->{categoryClass} => 
 $parserState->{classtype} => 
+$parserState->{curvarstars} => **
 $parserState->{freezeStack} => ARRAY(OBJID)
 $parserState->{freezereturn} => 1
 $parserState->{frozensodname} => funcptr_test_func_982374982
@@ -558,7 +560,7 @@ $parserState->{sodname} => funcptr_test_func_982374982
 $parserState->{sodtype} =>  int
 $parserState->{stackFrozen} => 1
 $parserState->{startOfDec} => 0
-$parserState->{typestring} => int
+$parserState->{sublang} => C
 $parserState->{value} => 
 $parserState->{valuepending} => 0
 -=: BLOCKPARSE RETURN VALUES :=-
@@ -657,8 +659,8 @@ HIDESINGLETONS: ""
 HIDECONTENTS: ""
 MAINOBJECT: ""
 LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
     TREE COUNT: 1
     INDEX GROUP: 
     IS BLOCK: 
@@ -694,15 +696,15 @@ Returns: int
     APIREFSETUPDONE: "1"
     TPCDONE: ""
     NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
+    SUPPRESSCHILDREN: "0"
     NAMELINE_DISCUSSION: ""
     HIDEDOC: ""
     HIDESINGLETONS: ""
     HIDECONTENTS: ""
     MAINOBJECT: ""
     LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
     PARSED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -744,8 +746,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
@@ -786,8 +788,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
     TAGGED PARAMETERS:
         TREE COUNT: 0
         INDEX GROUP: 
@@ -795,7 +797,7 @@ Returns: int
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: funcptr_a
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/funcptr_test_func_982374982/funcptr_a
         ABSTRACT: ""
         DISCUSSION: "<p>A funcptr."
         UPDATED: ""
@@ -829,15 +831,15 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
         TREE COUNT: 0
         INDEX GROUP: 
         IS BLOCK: 
         OBJECT TYPE: HeaderDoc::MinorAPIElement
         NAME: char_b
         TYPE: 
-        APIUID: 
+        APIUID: //test_ref/doc/functionparam/funcptr_test_func_982374982/char_b
         ABSTRACT: ""
         DISCUSSION: "<p>A char *."
         UPDATED: ""
@@ -871,8 +873,8 @@ Returns: int
         HIDECONTENTS: ""
         MAINOBJECT: ""
         LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
 -=: NAMED OBJECT PARSE TREES :=-
 OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
 +---int
@@ -908,922 +910,14 @@ END OF OBJECT
 
 -=: HTML OUTPUT OF PARSE TREES :=-
 OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
+	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982 //test_ref/doc/anysymbol/funcptr_test_func_982374982" machineGenerated="true" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/struct/int //test_ref/c/intf/int //test_ref/doc/anysymbol/int" machineGenerated="true" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
 	        <span class="param">float</span>,
 	        <span class="param">char</span>,
 	        <span class="param">char</span>),
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
+	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/struct/char //test_ref/c/intf/char //test_ref/doc/anysymbol/char" machineGenerated="true" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
 END OF OBJECT
 
 
 
-_$38|testsuite/parser_tests/callback_2.test$1|C$10|callback 2$11731|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/callback_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/callback_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => funcptr_test_func_982374982
-$parserState->{functionContents} => {
-
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => int
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => funcptr_test_func_982374982
-$parserState->{sodtype} =>  int
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{typestring} => int
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: function
-namelist: funcptr_test_func_982374982
-posstypes: function method
-value: 
-returntype:  int
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int (*funcptr_a)(float, char, char)
-Parsed Param 1 => char *char_b
--=: DUMP OF PARSE TREE :=-
-+---int
-+--- 
-+---funcptr_test_func_982374982
-+---(
-|   +---int
-|   +--- 
-|   +---(
-|   |   +---*
-|   |   +---funcptr_a
-|   |   +---)
-|   +---(
-|   |   +---float
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---)
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +---char_b
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: callback 2
-APIUID: //test_ref/doc/header/callback_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: funcptr_test_func_982374982
-    APIUID: //test_ref/c/func/funcptr_test_func_982374982
-    ABSTRACT: ""
-    DISCUSSION: "<p>Function name: funcptr_test_func_982374982.
-Args: function pointer called funcptr_a, char *char_b
-Returns: int
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " int"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: funcptr_a
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: char_b
-        TYPE: char *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: funcptr_a
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>A funcptr."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: char_b
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>A char *."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-+---int
-+--- 
-+---funcptr_test_func_982374982
-+---(
-|   +---int
-|   +--- 
-|   +---(
-|   |   +---*
-|   |   +---funcptr_a
-|   |   +---)
-|   +---(
-|   |   +---float
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---)
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +---char_b
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
-	        <span class="param">float</span>,
-	        <span class="param">char</span>,
-	        <span class="param">char</span>),
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
-END OF OBJECT
-
-
-
-$11731|-=: TOP LEVEL COMMENT PARSE VALUES :=-
-inHeader: 0
-inClass: 0
-inInterface: 0
-inCPPHeader: 0
-inOCCHeader: 0
-inPerlScript: 0
-inShellScript: 0
-inPHPScript: 0
-inJavaSource: 0
-inFunctionGroup: 0
-inGroup: 0
-inFunction: 0
-inPDefine: 0
-inTypedef: 0
-inUnion: 0
-inStruct: 0
-inConstant: 0
-inVar: 0
-inEnum: 0
-inMethod: 0
-inAvailabilityMacro: 0
-inUnknown: 1
-classType: unknown
-inputCounter: 0
-blockOffset: 0
-fullpath: /test_suite_bogus_path/callback_2.test
--=: BLOCKPARSE PARSER STATE KEYS :=-
-$parserState->{FULLPATH} => /test_suite_bogus_path/callback_2.test
-$parserState->{NEXTTOKENNOCPP} => 0
-$parserState->{availability} => 
-$parserState->{backslashcount} => 0
-$parserState->{basetype} => 
-$parserState->{bracePending} => 0
-$parserState->{callbackIsTypedef} => 0
-$parserState->{callbackName} => 
-$parserState->{callbackNamePending} => -1
-$parserState->{categoryClass} => 
-$parserState->{classtype} => 
-$parserState->{freezeStack} => ARRAY(OBJID)
-$parserState->{freezereturn} => 1
-$parserState->{frozensodname} => funcptr_test_func_982374982
-$parserState->{functionContents} => {
-
-}
-
-$parserState->{functionReturnsCallback} => 0
-$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{inBrackets} => 0
-$parserState->{inChar} => 0
-$parserState->{inClass} => 0
-$parserState->{inComment} => 0
-$parserState->{inInlineComment} => 0
-$parserState->{inMacro} => 0
-$parserState->{inMacroLine} => 0
-$parserState->{inOperator} => 0
-$parserState->{inPrivateParamTypes} => 0
-$parserState->{inString} => 0
-$parserState->{inTemplate} => 0
-$parserState->{initbsCount} => 0
-$parserState->{inputCounter} => 4
-$parserState->{kr_c_function} => 0
-$parserState->{kr_c_name} => 
-$parserState->{lang} => C
-$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
-$parserState->{lastsymbol} => 
-$parserState->{macroNoTrunc} => 1
-$parserState->{name} => 
-$parserState->{namePending} => 0
-$parserState->{noInsert} => 0
-$parserState->{occmethod} => 0
-$parserState->{occmethodname} => 
-$parserState->{occparmlabelfound} => 2
-$parserState->{onlyComments} => 0
-$parserState->{parsedParamList} => ARRAY(OBJID)
-$parserState->{parsedParamParse} => 0
-$parserState->{posstypes} => 
-$parserState->{posstypesPending} => 0
-$parserState->{pplStack} => ARRAY(OBJID)
-$parserState->{preEqualsSymbol} => 
-$parserState->{preTemplateSymbol} => 
-$parserState->{prekeywordsodname} => 
-$parserState->{prekeywordsodtype} => 
-$parserState->{returntype} => int
-$parserState->{seenBraces} => 1
-$parserState->{seenMacroPart} => 0
-$parserState->{seenTilde} => 0
-$parserState->{simpleTDcontents} => 
-$parserState->{simpleTypedef} => 0
-$parserState->{sodclass} => function
-$parserState->{sodname} => funcptr_test_func_982374982
-$parserState->{sodtype} =>  int
-$parserState->{stackFrozen} => 1
-$parserState->{startOfDec} => 0
-$parserState->{typestring} => int
-$parserState->{value} => 
-$parserState->{valuepending} => 0
--=: BLOCKPARSE RETURN VALUES :=-
-newcount: 4
-typelist: function
-namelist: funcptr_test_func_982374982
-posstypes: function method
-value: 
-returntype:  int
-pridec: 
-simpleTDcontents: 
-bpavail: 
-blockOffset: 0
-conformsToList: 
-functionContents: {
-
-}
-
-extendsClass: 
-implementsClass: 
--=: LIST OF PARSED PARAMETERS :=-
-Parsed Param 0 => int (*funcptr_a)(float, char, char)
-Parsed Param 1 => char *char_b
--=: DUMP OF PARSE TREE :=-
-+---int
-+--- 
-+---funcptr_test_func_982374982
-+---(
-|   +---int
-|   +--- 
-|   +---(
-|   |   +---*
-|   |   +---funcptr_a
-|   |   +---)
-|   +---(
-|   |   +---float
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---)
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +---char_b
-|   +---)
-+---[ NEWLINE ]
--=: COMPUTED VALUE :=-
-SUCCESS: 0
-VALUE: 0
--=: CPP CHANGES :=-
-NO CPP CHANGES
--=: FOUND MATCH :=-
-1
--=: NAMED OBJECTS :=-
-TREE COUNT: 0
-INDEX GROUP: 
-IS BLOCK: 
-OBJECT TYPE: HeaderDoc::Header
-NAME: callback 2
-APIUID: //test_ref/doc/header/callback_2.test
-ABSTRACT: ""
-DISCUSSION: "<p></p>"
-UPDATED: ""
-COPYRIGHT: ""
-HTMLMETA: ""
-PRIVATEDECLARATION: ""
-GROUP: ""
-INDEXGROUP: ""
-THROWS: ""
-XMLTHROWS: ""
-UPDATED: ""
-LINKAGESTATE: ""
-ACCESSCONTROL: ""
-AVAILABILITY: ""
-LINKUID: ""
-ORIGCLASS: ""
-ISDEFINE: ""
-ISTEMPLATE: ""
-VALUE: "UNKNOWN"
-RETURNTYPE: ""
-LINENUM: ""
-CLASS: "HeaderDoc::Header"
-MASTERENUM: ""
-APIREFSETUPDONE: "1"
-TPCDONE: ""
-NOREGISTERUID: ""
-SUPPRESSCHILDREN: ""
-NAMELINE_DISCUSSION: ""
-HIDEDOC: ""
-HIDESINGLETONS: ""
-HIDECONTENTS: ""
-MAINOBJECT: ""
-LIST ATTRIBUTES: 
-SHORT ATTRIBUTES: <p></p>
-LONG ATTRIBUTES: <p></p>
-    TREE COUNT: 1
-    INDEX GROUP: 
-    IS BLOCK: 
-    OBJECT TYPE: HeaderDoc::Function
-    NAME: funcptr_test_func_982374982
-    APIUID: //test_ref/c/func/funcptr_test_func_982374982
-    ABSTRACT: ""
-    DISCUSSION: "<p>Function name: funcptr_test_func_982374982.
-Args: function pointer called funcptr_a, char *char_b
-Returns: int
-"
-    UPDATED: ""
-    COPYRIGHT: ""
-    HTMLMETA: ""
-    PRIVATEDECLARATION: ""
-    GROUP: "default_function_group"
-    INDEXGROUP: ""
-    THROWS: ""
-    XMLTHROWS: ""
-    UPDATED: ""
-    LINKAGESTATE: ""
-    ACCESSCONTROL: ""
-    AVAILABILITY: ""
-    LINKUID: ""
-    ORIGCLASS: ""
-    ISDEFINE: ""
-    ISTEMPLATE: ""
-    VALUE: "UNKNOWN"
-    RETURNTYPE: " int"
-    LINENUM: ""
-    CLASS: "HeaderDoc::Function"
-    MASTERENUM: ""
-    APIREFSETUPDONE: "1"
-    TPCDONE: ""
-    NOREGISTERUID: ""
-    SUPPRESSCHILDREN: "1"
-    NAMELINE_DISCUSSION: ""
-    HIDEDOC: ""
-    HIDESINGLETONS: ""
-    HIDECONTENTS: ""
-    MAINOBJECT: ""
-    LIST ATTRIBUTES: 
-    SHORT ATTRIBUTES: <p></p>
-    LONG ATTRIBUTES: <p></p>
-    PARSED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: funcptr_a
-        TYPE: int
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: char_b
-        TYPE: char *
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p></p>"
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-    TAGGED PARAMETERS:
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: funcptr_a
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>A funcptr."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
-        TREE COUNT: 0
-        INDEX GROUP: 
-        IS BLOCK: 
-        OBJECT TYPE: HeaderDoc::MinorAPIElement
-        NAME: char_b
-        TYPE: 
-        APIUID: 
-        ABSTRACT: ""
-        DISCUSSION: "<p>A char *."
-        UPDATED: ""
-        COPYRIGHT: ""
-        HTMLMETA: ""
-        PRIVATEDECLARATION: ""
-        GROUP: ""
-        INDEXGROUP: ""
-        THROWS: ""
-        XMLTHROWS: ""
-        UPDATED: ""
-        LINKAGESTATE: ""
-        ACCESSCONTROL: ""
-        AVAILABILITY: ""
-        LINKUID: ""
-        ORIGCLASS: ""
-        ISDEFINE: ""
-        ISTEMPLATE: ""
-        VALUE: "UNKNOWN"
-        RETURNTYPE: ""
-        LINENUM: ""
-        CLASS: "HeaderDoc::MinorAPIElement"
-        MASTERENUM: ""
-        APIREFSETUPDONE: "1"
-        TPCDONE: ""
-        NOREGISTERUID: ""
-        SUPPRESSCHILDREN: ""
-        NAMELINE_DISCUSSION: ""
-        HIDEDOC: ""
-        HIDESINGLETONS: ""
-        HIDECONTENTS: ""
-        MAINOBJECT: ""
-        LIST ATTRIBUTES: 
-        SHORT ATTRIBUTES: <p></p>
-        LONG ATTRIBUTES: <p></p>
--=: NAMED OBJECT PARSE TREES :=-
-OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-+---int
-+--- 
-+---funcptr_test_func_982374982
-+---(
-|   +---int
-|   +--- 
-|   +---(
-|   |   +---*
-|   |   +---funcptr_a
-|   |   +---)
-|   +---(
-|   |   +---float
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---,
-|   |   +--- 
-|   |   +---char
-|   |   +---)
-|   +---,
-|   +--- 
-|   +---char
-|   +--- 
-|   +---*
-|   +---char_b
-|   +---)
-+---[ NEWLINE ]
-END OF OBJECT
-
-
-
--=: HTML OUTPUT OF PARSE TREES :=-
-OBJECT: funcptr_test_func_982374982 (HeaderDoc::Function)
-	<!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> <!-- a logicalPath="//test_ref/c/instm/funcptr_test_func_982374982 //test_ref/c/clm/funcptr_test_func_982374982 //test_ref/c/intfcm/funcptr_test_func_982374982 //test_ref/c/intfm/funcptr_test_func_982374982 //test_ref/c/func/funcptr_test_func_982374982 //test_ref/c/ftmplt/funcptr_test_func_982374982 //test_ref/c/defn/funcptr_test_func_982374982 //test_ref/c/macro/funcptr_test_func_982374982" --><span class="function">funcptr_test_func_982374982</span><!-- /a -->(
-	    <!-- a logicalPath="//test_ref/c/cl/int //test_ref/c/tdef/int //test_ref/c/tag/int //test_ref/c/econst/int //test_ref/c/struct/int //test_ref/c/clconst/int //test_ref/c/intf/int" --><span class="type">int</span><!-- /a --> (<span class="type">*</span><span class="param">funcptr_a</span>)(
-	        <span class="param">float</span>,
-	        <span class="param">char</span>,
-	        <span class="param">char</span>),
-	    <!-- a logicalPath="//test_ref/c/cl/char //test_ref/c/tdef/char //test_ref/c/tag/char //test_ref/c/econst/char //test_ref/c/struct/char //test_ref/c/clconst/char //test_ref/c/intf/char" --><span class="type">char</span><!-- /a --> <span class="type">*</span><span class="param">char_b</span>) 
-END OF OBJECT
-
-
-
-$1|C$6|parser
+_$92|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/callback_2.test$1|C$10|callback 2$1|C$6|parser

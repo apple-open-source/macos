@@ -5,10 +5,10 @@
 # built-in commands.  Sourcing this file into Tcl runs the tests and
 # generates output for errors.  No output means no errors were found.
 #
-# Copyright (c) 2003 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
+# Copyright (c) 2003-2009 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: doctoc.test,v 1.13 2006/10/25 16:24:10 andreas_kupries Exp $
+# RCS: @(#) $Id: doctoc.test,v 1.14 2009/02/12 05:42:47 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -279,7 +279,7 @@ test doctoc-8.3 {format} {
 } {Table of Contents '''foo''' '''bar''' {[[snafu]]:} at -- gnarf {}}
 
 
-# doctoc manpage syntax .......................................................
+# doctoc syntax .......................................................
 
 test doctoc-9.0 {doctoc syntax} {
     new mydoctoc -format null
@@ -290,6 +290,26 @@ test doctoc-9.0 {doctoc syntax} {
 [plain_text foo]
 --> (FmtError) TOC error (toc/plaintext), "plain_text foo" : Plain text beyond whitespace is not allowed..}
 
+test docidx-9.1 {doctoc syntax v1.1, empty toc, ok} {
+    new mydocidx -format null
+    set result [mydocidx format {[toc_begin TOC Test][toc_end]}]
+    mydocidx destroy
+    set result
+} {}
+
+test docidx-9.2 {doctoc syntax v1.1, mixing items and divisions, ok} {
+    new mydocidx -format null
+    set result [mydocidx format {[toc_begin TOC Test][item I1f i1 i1d][division_start D Df][item I2f i2 i2d][division_end][toc_end]}]
+    mydocidx destroy
+    set result
+} {}
+
+test docidx-9.3 {doctoc syntax v1.1, empty division, ok} {
+    new mydocidx -format null
+    set result [mydocidx format {[toc_begin TOC Test][division_start D Df][division_end][toc_end]}]
+    mydocidx destroy
+    set result
+} {}
 
 namespace forget ::doctools::toc::new
 

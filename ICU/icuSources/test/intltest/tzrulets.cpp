@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2008, International Business Machines Corporation and    *
+* Copyright (C) 2007-2010, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 */
@@ -18,12 +18,19 @@
 #include "unicode/gregocal.h"
 #include "unicode/ucal.h"
 #include "unicode/unistr.h"
+#include "unicode/ustring.h"
 #include "unicode/tztrans.h"
 #include "unicode/vtzone.h"
 #include "tzrulets.h"
+#include "zrule.h"
+#include "ztrans.h"
+#include "vzone.h"
+#include "cmemory.h"
 
 #define CASE(id,test) case id: name = #test; if (exec) { logln(#test "---"); logln((UnicodeString)""); test(); } break
 #define HOUR (60*60*1000)
+
+static const UVersionInfo ICU_453 = {4,5,3,0};
 
 static const char *const TESTZIDS[] = {
         "AGT",
@@ -40,6 +47,11 @@ static const char *const TESTZIDS[] = {
         "Australia/Sydney",
         "Etc/GMT+8"
 };
+
+static UBool hasEquivalentTransitions(/*const*/ BasicTimeZone& tz1, /*const*/BasicTimeZone& tz2,
+                                        UDate start, UDate end,
+                                        UBool ignoreDstAmount, int32_t maxTransitionTimeDelta,
+                                        UErrorCode& status);
 
 class TestZIDEnumeration : public StringEnumeration {
 public:
@@ -126,6 +138,8 @@ void TimeZoneRuleTest::runIndexedTest( int32_t index, UBool exec, const char* &n
         CASE(12, TestVTimeZoneCoverage);
         CASE(13, TestVTimeZoneParse);
         CASE(14, TestT6216);
+        CASE(15, TestT6669);
+        CASE(16, TestVTimeZoneWrapper);
         default: name = ""; break;
     }
 }
@@ -263,7 +277,12 @@ TimeZoneRuleTest::TestSimpleRuleBasedTimeZone(void) {
 
     GregorianCalendar *cal = new GregorianCalendar(status);
     if (U_FAILURE(status)) {
-        errln("FAIL: Could not create a Gregorian calendar instance.");
+        dataerrln("FAIL: Could not create a Gregorian calendar instance.: %s", u_errorName(status));
+        delete rbtz1;
+        delete rbtz2;
+        delete rbtz3;
+        delete rbtz1c;
+        return;
     }
     cal->setTimeZone(*rbtz1);
     cal->clear();
@@ -497,7 +516,7 @@ TimeZoneRuleTest::TestHistoricalRuleBasedTimeZone(void) {
     UDate jan1_2010 = getUTCMillis(2010, UCAL_JANUARY, 1);        
 
     if (!ny->hasEquivalentTransitions(*rbtz, jan1_1967, jan1_2010, TRUE, status)) {
-        errln("FAIL: The RBTZ must be equivalent to America/New_York between 1967 and 2010");
+        dataerrln("FAIL: The RBTZ must be equivalent to America/New_York between 1967 and 2010");
     }
     if (U_FAILURE(status)) {
         errln("FAIL: error returned from hasEquivalentTransitions for ny/rbtz 1967-2010");
@@ -511,7 +530,7 @@ TimeZoneRuleTest::TestHistoricalRuleBasedTimeZone(void) {
 
     // Same with above, but calling RBTZ#hasEquivalentTransitions against OlsonTimeZone
     if (!rbtz->hasEquivalentTransitions(*ny, jan1_1967, jan1_2010, TRUE, status)) {
-        errln("FAIL: The RBTZ must be equivalent to America/New_York between 1967 and 2010");
+        dataerrln("FAIL: The RBTZ must be equivalent to America/New_York between 1967 and 2010 ");
     }
     if (U_FAILURE(status)) {
         errln("FAIL: error returned from hasEquivalentTransitions for rbtz/ny 1967-2010");
@@ -558,12 +577,12 @@ TimeZoneRuleTest::TestHistoricalRuleBasedTimeZone(void) {
             errln("FAIL: ny->getOffset failed");
         }
         if (offset1 != offset2 || dst1 != dst2) {
-            errln("FAIL: Incompatible time zone offset/dstSavings for ny and rbtz");
+            dataerrln("FAIL: Incompatible time zone offset/dstSavings for ny and rbtz");
         }
 
         // Check inDaylightTime
         if (rbtz->inDaylightTime(times[i], status) != ny->inDaylightTime(times[i], status)) {
-            errln("FAIL: Incompatible daylight saving time for ny and rbtz");
+            dataerrln("FAIL: Incompatible daylight saving time for ny and rbtz");
         }
         if (U_FAILURE(status)) {
             errln("FAIL: inDaylightTime failed");
@@ -695,7 +714,7 @@ TimeZoneRuleTest::TestHasEquivalentTransitions(void) {
     UDate jan1_2011 = getUTCMillis(2010, UCAL_JANUARY, 1);
 
     if (newyork->hasEquivalentTransitions(*indianapolis, jan1_2005, jan1_2011, TRUE, status)) {
-        errln("FAIL: New_York is not equivalent to Indianapolis between 2005 and 2010");
+        dataerrln("FAIL: New_York is not equivalent to Indianapolis between 2005 and 2010");
     }
     if (U_FAILURE(status)) {
         errln("FAIL: error status is returned from hasEquivalentTransition");
@@ -714,7 +733,7 @@ TimeZoneRuleTest::TestHasEquivalentTransitions(void) {
         errln("FAIL: error status is returned from hasEquivalentTransition");
     }
     if (indianapolis->hasEquivalentTransitions(*gmt_5, jan1_1971, jan1_2007, TRUE, status)) {
-        errln("FAIL: Indianapolis is not equivalent to GMT+5 between 1971 and 2006");
+        dataerrln("FAIL: Indianapolis is not equivalent to GMT+5 between 1971 and 2006");
     }
     if (U_FAILURE(status)) {
         errln("FAIL: error status is returned from hasEquivalentTransition");
@@ -739,7 +758,7 @@ TimeZoneRuleTest::TestHasEquivalentTransitions(void) {
     // raw offsets are different
     BasicTimeZone *losangeles = (BasicTimeZone*)TimeZone::createTimeZone("America/Los_Angeles");
     if (newyork->hasEquivalentTransitions(*losangeles, jan1_2006, jan1_2011, TRUE, status)) {
-        errln("FAIL: New_York is not equivalent to Los Angeles, but returned true");
+        dataerrln("FAIL: New_York is not equivalent to Los Angeles, but returned true");
     }
     if (U_FAILURE(status)) {
         errln("FAIL: error status is returned from hasEquivalentTransition for newyork/losangeles");
@@ -821,8 +840,15 @@ TimeZoneRuleTest::TestVTimeZoneRoundTrip(void) {
                     if (avail) {
                         if (!vtz_new->hasEquivalentTransitions(*tz, trans.getTime(),
                                 endTime, TRUE, status)) {
-                            errln("FAIL: VTimeZone for " + *tzid +
-                                " is not equivalent to its OlsonTimeZone corresponding.");
+                            int32_t maxDelta = 1000;
+                            if (!hasEquivalentTransitions(*vtz_new, *tz, trans.getTime() + maxDelta,
+                                endTime, TRUE, maxDelta, status)) {
+                                errln("FAIL: VTimeZone for " + *tzid +
+                                    " is not equivalent to its OlsonTimeZone corresponding.");
+                            } else {
+                                logln("VTimeZone for " + *tzid +
+                                    "  differs from its OlsonTimeZone corresponding with maximum transition time delta - " + maxDelta);
+                            }
                         }
                         if (U_FAILURE(status)) {
                             errln("FAIL: error status is returned from hasEquivalentTransition");
@@ -904,8 +930,16 @@ TimeZoneRuleTest::TestVTimeZoneRoundTripPartial(void) {
                         if (avail) {
                             if (!vtz_new->hasEquivalentTransitions(*tz, trans.getTime(),
                                     endTime, TRUE, status)) {
-                                errln("FAIL: VTimeZone for " + *tzid +
-                                    " is not equivalent to its OlsonTimeZone corresponding.");
+                                int32_t maxDelta = 1000;
+                                if (!hasEquivalentTransitions(*vtz_new, *tz, trans.getTime() + maxDelta,
+                                    endTime, TRUE, maxDelta, status)) {
+                                    errln("FAIL: VTimeZone for " + *tzid +
+                                        " is not equivalent to its OlsonTimeZone corresponding.");
+                                } else {
+                                    logln("VTimeZone for " + *tzid +
+                                        "  differs from its OlsonTimeZone corresponding with maximum transition time delta - " + maxDelta);
+                                }
+
                             }
                             if (U_FAILURE(status)) {
                                 errln("FAIL: error status is returned from hasEquivalentTransition");
@@ -1104,7 +1138,7 @@ TimeZoneRuleTest::TestGetSimpleRules(void) {
             if (initial == NULL) {
                 errln("FAIL: initial rule must not be NULL");
                 break;
-            } else if (!(std == NULL && dst == NULL || std != NULL && dst != NULL)) {
+            } else if (!((std == NULL && dst == NULL) || (std != NULL && dst != NULL))) {
                 errln("FAIL: invalid std/dst pair.");
                 break;
             }
@@ -1295,12 +1329,12 @@ TimeZoneRuleTest::TestTimeZoneRuleCoverage(void) {
     }
     b1 = a3->getNextStart(time2, -3*HOUR, 0, FALSE, d1);
     if (b1) {
-        errln("FAIL: getNextStart must return FALSE when no start time is available after the base time");
+        dataerrln("FAIL: getNextStart must return FALSE when no start time is available after the base time");
     }
     b1 = a3->getFinalStart(-3*HOUR, 0, d1);
     b2 = a3->getPreviousStart(time2, -3*HOUR, 0, FALSE, d2);
     if (!b1 || !b2 || d1 != d2) {
-        errln("FAIL: getPreviousStart does not match with getFinalStart after the end year");
+        dataerrln("FAIL: getPreviousStart does not match with getFinalStart after the end year");
     }
 
     // AnnualTimeZone::isEquavalentTo
@@ -1427,11 +1461,11 @@ TimeZoneRuleTest::TestTimeZoneRuleCoverage(void) {
     // TimeArrayTimeZoneRule::getNextStart/getPreviousStart
     b1 = t3->getNextStart(time1, -3*HOUR, 1*HOUR, FALSE, d1);
     if (b1) {
-        errln("FAIL: getNextStart returned TRUE after the final transition for t3");
+        dataerrln("FAIL: getNextStart returned TRUE after the final transition for t3");
     }
     b1 = t3->getPreviousStart(time1, -3*HOUR, 1*HOUR, FALSE, d1);
     if (!b1 || d1 != trtimes2[1]) {
-        errln("FAIL: Bad start time returned by getPreviousStart for t3");
+        dataerrln("FAIL: Bad start time returned by getPreviousStart for t3");
     } else {
         b2 = t3->getPreviousStart(d1, -3*HOUR, 1*HOUR, FALSE, d2);
         if (!b2 || d2 != trtimes2[0]) {
@@ -1642,11 +1676,11 @@ TimeZoneRuleTest::TestVTimeZoneCoverage(void) {
     UBool inDst1, inDst2;
     inDst1 = otz->inDaylightTime(t, status);
     if (U_FAILURE(status)) {
-        errln("FAIL: inDaylightTime failed for otz");
+        dataerrln("FAIL: inDaylightTime failed for otz: %s", u_errorName(status));
     }
     inDst2 = vtz->inDaylightTime(t, status);
     if (U_FAILURE(status)) {
-        errln("FAIL: inDaylightTime failed for vtz");
+        dataerrln("FAIL: inDaylightTime failed for vtz: %s", u_errorName(status));
     }
     if (inDst1 != inDst2) {
         errln("FAIL: inDaylightTime returned different results in VTimeZone and OlsonTimeZone");
@@ -1696,12 +1730,12 @@ TimeZoneRuleTest::TestVTimeZoneCoverage(void) {
     UBool btr1 = otz->getNextTransition(base, TRUE, tzt1);
     UBool btr2 = vtz->getNextTransition(base, TRUE, tzt2);
     if (!btr1 || !btr2 || tzt1 != tzt2) {
-        errln("FAIL: getNextTransition returned different results in VTimeZone and OlsonTimeZone");
+        dataerrln("FAIL: getNextTransition returned different results in VTimeZone and OlsonTimeZone");
     }
     btr1 = otz->getPreviousTransition(base, FALSE, tzt1);
     btr2 = vtz->getPreviousTransition(base, FALSE, tzt2);
     if (!btr1 || !btr2 || tzt1 != tzt2) {
-        errln("FAIL: getPreviousTransition returned different results in VTimeZone and OlsonTimeZone");
+        dataerrln("FAIL: getPreviousTransition returned different results in VTimeZone and OlsonTimeZone");
     }
 
     // TimeZoneTransition constructor/clone
@@ -1720,10 +1754,10 @@ TimeZoneRuleTest::TestVTimeZoneCoverage(void) {
     UDate time2 = getUTCMillis(2020, UCAL_JANUARY, 1);
     UBool equiv = vtz->hasEquivalentTransitions(*otz, time1, time2, FALSE, status);
     if (U_FAILURE(status)) {
-        errln("FAIL: hasEquivalentTransitions failed for vtz/otz");
+        dataerrln("FAIL: hasEquivalentTransitions failed for vtz/otz: %s", u_errorName(status));
     }
     if (!equiv) {
-        errln("FAIL: hasEquivalentTransitons returned false for the same time zone");
+        dataerrln("FAIL: hasEquivalentTransitons returned false for the same time zone");
     }
 
     // operator=/operator==/operator!=
@@ -1735,6 +1769,52 @@ TimeZoneRuleTest::TestVTimeZoneCoverage(void) {
     if (*vtz1 != *vtz || !(*vtz1 == *vtz)) {
         errln("FAIL: VTimeZone vtz1 is equal to vtz, but got wrong result");
     }
+
+    // Creation from BasicTimeZone
+    //
+    status = U_ZERO_ERROR;
+    VTimeZone *vtzFromBasic = NULL;
+    SimpleTimeZone *simpleTZ = new SimpleTimeZone(28800000, "Asia/Singapore");
+    simpleTZ->setStartYear(1970);
+    simpleTZ->setStartRule(0,  // month
+                          1,  // day of week
+                          0,  // time
+                          status);
+    simpleTZ->setEndRule(1, 1, 0, status);
+    if (U_FAILURE(status)) {
+        errln("File %s, line %d, failed with status = %s", __FILE__, __LINE__, u_errorName(status));
+        goto end_basic_tz_test;
+    }
+    vtzFromBasic = VTimeZone::createVTimeZoneFromBasicTimeZone(*simpleTZ, status);
+    if (U_FAILURE(status) || vtzFromBasic == NULL) {
+        dataerrln("File %s, line %d, failed with status = %s", __FILE__, __LINE__, u_errorName(status));
+        goto end_basic_tz_test;
+    }
+
+    // delete the source time zone, to make sure there are no dependencies on it.
+    delete simpleTZ;
+
+    // Create another simple time zone w the same rules, and check that it is the
+    // same as the test VTimeZone created above.
+    {
+        SimpleTimeZone simpleTZ2(28800000, "Asia/Singapore");
+        simpleTZ2.setStartYear(1970);
+        simpleTZ2.setStartRule(0,  // month
+                              1,  // day of week
+                              0,  // time
+                              status);
+        simpleTZ2.setEndRule(1, 1, 0, status);
+        if (U_FAILURE(status)) {
+            errln("File %s, line %d, failed with status = %s", __FILE__, __LINE__, u_errorName(status));
+            goto end_basic_tz_test;
+        }
+        if (vtzFromBasic->hasSameRules(simpleTZ2) == FALSE) {
+            errln("File %s, line %d, failed hasSameRules() ", __FILE__, __LINE__);
+            goto end_basic_tz_test;
+        }
+    }
+end_basic_tz_test:
+    delete vtzFromBasic;
 
     delete otz;
     delete vtz;
@@ -2008,7 +2088,7 @@ TimeZoneRuleTest::TestT6216(void) {
         {0, 0, 0}
     };
 
-    static const UnicodeString TestZones[] = {
+    /*static*/ const UnicodeString TestZones[] = {
         UnicodeString(tokyoTZ),
         UnicodeString(finalOverlap),
         UnicodeString(finalNonOverlap),
@@ -2032,7 +2112,7 @@ TimeZoneRuleTest::TestT6216(void) {
     TimeZone *utc = TimeZone::createTimeZone("Etc/GMT");
     GregorianCalendar cal(utc, status);
     if (U_FAILURE(status)) {
-        errln("FAIL: Failed to creat a GregorianCalendar");
+        dataerrln("FAIL: Failed to creat a GregorianCalendar: %s", u_errorName(status));
         return;
     }
     for (i = 0; TestDates[i][2] != 0; i++) {
@@ -2069,6 +2149,155 @@ TimeZoneRuleTest::TestT6216(void) {
     }
 }
 
+void
+TimeZoneRuleTest::TestT6669(void) {
+    UErrorCode status = U_ZERO_ERROR;
+    SimpleTimeZone stz(0, "CustomID", UCAL_JANUARY, 1, UCAL_SUNDAY, 0, UCAL_JULY, 1, UCAL_SUNDAY, 0, status);
+    if (U_FAILURE(status)) {
+        errln("FAIL: Failed to creat a SimpleTimeZone");
+        return;
+    }
+
+    UDate t = 1230681600000.0; //2008-12-31T00:00:00
+    UDate expectedNext = 1231027200000.0; //2009-01-04T00:00:00
+    UDate expectedPrev = 1215298800000.0; //2008-07-06T00:00:00
+
+    TimeZoneTransition tzt;
+    UBool avail = stz.getNextTransition(t, FALSE, tzt);
+    if (!avail) {
+        errln("FAIL: No transition returned by getNextTransition.");
+    } else if (tzt.getTime() != expectedNext) {
+        errln((UnicodeString)"FAIL: Wrong transition time returned by getNextTransition - "
+            + tzt.getTime() + " Expected: " + expectedNext);
+    }
+
+    avail = stz.getPreviousTransition(t, TRUE, tzt);
+    if (!avail) {
+        errln("FAIL: No transition returned by getPreviousTransition.");
+    } else if (tzt.getTime() != expectedPrev) {
+        errln((UnicodeString)"FAIL: Wrong transition time returned by getPreviousTransition - "
+            + tzt.getTime() + " Expected: " + expectedPrev);
+    }
+}
+
+void
+TimeZoneRuleTest::TestVTimeZoneWrapper(void) {
+#if 0
+    // local variables
+    UBool b;
+    UChar * data = NULL;
+    int32_t length = 0;
+    int32_t i;
+    UDate result;
+    UDate base = 1231027200000.0; //2009-01-04T00:00:00
+    UErrorCode status;
+
+    const char *name = "Test Initial";
+    UChar uname[20];
+
+    UClassID cid1;
+    UClassID cid2;
+
+    ZRule * r;
+    IZRule* ir1;
+    IZRule* ir2;
+    ZTrans* zt1;
+    ZTrans* zt2;
+    VZone*  v1;
+    VZone*  v2;
+
+    uprv_memset(uname, 0, sizeof(uname));
+    u_uastrcpy(uname, name);
+
+    // create rules
+    ir1 = izrule_open(uname, 13, 2*HOUR, 0);
+    ir2 = izrule_clone(ir1);
+
+    // test equality
+    b = izrule_equals(ir1, ir2);
+    b = izrule_isEquivalentTo(ir1, ir2);
+
+    // test accessors
+    izrule_getName(ir1, data, length);
+    i = izrule_getRawOffset(ir1);
+    i = izrule_getDSTSavings(ir1);
+
+    b = izrule_getFirstStart(ir1, 2*HOUR, 0, result);
+    b = izrule_getFinalStart(ir1, 2*HOUR, 0, result);
+    b = izrule_getNextStart(ir1, base , 2*HOUR, 0, true, result);
+    b = izrule_getPreviousStart(ir1, base, 2*HOUR, 0, true, result);
+
+    // test class ids
+    cid1 = izrule_getStaticClassID(ir1);
+    cid2 = izrule_getDynamicClassID(ir1);
+
+    // test transitions
+    zt1 = ztrans_open(base, ir1, ir2);
+    zt2 = ztrans_clone(zt1);
+    zt2 = ztrans_openEmpty();
+
+    // test equality
+    b = ztrans_equals(zt1, zt2);
+
+    // test accessors
+    result = ztrans_getTime(zt1);
+    ztrans_setTime(zt1, result);
+
+    r = (ZRule*)ztrans_getFrom(zt1);
+    ztrans_setFrom(zt1, (void*)ir1);
+    ztrans_adoptFrom(zt1, (void*)ir1);
+
+    r = (ZRule*)ztrans_getTo(zt1);
+    ztrans_setTo(zt1, (void*)ir2);
+    ztrans_adoptTo(zt1, (void*)ir2);
+
+    // test class ids
+    cid1 = ztrans_getStaticClassID(zt1);
+    cid2 = ztrans_getDynamicClassID(zt2);
+
+    // test vzone
+    v1 = vzone_openID((UChar*)"America/Chicago", sizeof("America/Chicago"));
+    v2 = vzone_clone(v1);
+    //v2 = vzone_openData(const UChar* vtzdata, int32_t vtzdataLength, UErrorCode& status);
+
+    // test equality
+    b = vzone_equals(v1, v2);
+    b = vzone_hasSameRules(v1, v2);
+
+    // test accessors
+    b = vzone_getTZURL(v1, data, length);
+    vzone_setTZURL(v1, data, length);
+    
+    b = vzone_getLastModified(v1, result);
+    vzone_setLastModified(v1, result);
+    
+    // test writers
+    vzone_write(v1, data, length, status);
+    vzone_writeFromStart(v1, result, data, length, status);
+    vzone_writeSimple(v1, result, data, length, status);
+
+    // test more accessors
+    i = vzone_getRawOffset(v1);
+    vzone_setRawOffset(v1, i);
+
+    b = vzone_useDaylightTime(v1);
+    b = vzone_inDaylightTime(v1, result, status);
+
+    b = vzone_getNextTransition(v1, result, false, zt1);
+    b = vzone_getPreviousTransition(v1, result, false, zt1);
+    i = vzone_countTransitionRules(v1, status);
+
+    cid1 = vzone_getStaticClassID(v1);
+    cid2 = vzone_getDynamicClassID(v1);
+
+    // cleanup
+    vzone_close(v1);
+    vzone_close(v2);
+    ztrans_close(zt1);
+    ztrans_close(zt2);
+#endif
+}
+
 //----------- private test helpers -------------------------------------------------
 
 UDate
@@ -2079,7 +2308,7 @@ TimeZoneRuleTest::getUTCMillis(int32_t y, int32_t m, int32_t d,
     Calendar *cal = Calendar::createInstance(*tz, status);
     if (U_FAILURE(status)) {
         delete cal;
-        errln("FAIL: Calendar::createInstance failed");
+        dataerrln("FAIL: Calendar::createInstance failed: %s", u_errorName(status));
         return 0.0;
     }
     cal->set(y, m, d, hr, min, sec);
@@ -2288,6 +2517,105 @@ TimeZoneRuleTest::compareTransitionsDescending(BasicTimeZone& z1, BasicTimeZone&
         }
     }
 }
+
+// Slightly modified version of BasicTimeZone::hasEquivalentTransitions.
+// This version returns TRUE if transition time delta is within the given
+// delta range.
+static UBool hasEquivalentTransitions(/*const*/ BasicTimeZone& tz1, /*const*/BasicTimeZone& tz2,
+                                        UDate start, UDate end,
+                                        UBool ignoreDstAmount, int32_t maxTransitionTimeDelta,
+                                        UErrorCode& status) {
+    if (U_FAILURE(status)) {
+        return FALSE;
+    }
+    if (tz1.hasSameRules(tz2)) {
+        return TRUE;
+    }
+    // Check the offsets at the start time
+    int32_t raw1, raw2, dst1, dst2;
+    tz1.getOffset(start, FALSE, raw1, dst1, status);
+    if (U_FAILURE(status)) {
+        return FALSE;
+    }
+    tz2.getOffset(start, FALSE, raw2, dst2, status);
+    if (U_FAILURE(status)) {
+        return FALSE;
+    }
+    if (ignoreDstAmount) {
+        if ((raw1 + dst1 != raw2 + dst2)
+            || (dst1 != 0 && dst2 == 0)
+            || (dst1 == 0 && dst2 != 0)) {
+            return FALSE;
+        }
+    } else {
+        if (raw1 != raw2 || dst1 != dst2) {
+            return FALSE;
+        }            
+    }
+    // Check transitions in the range
+    UDate time = start;
+    TimeZoneTransition tr1, tr2;
+    while (TRUE) {
+        UBool avail1 = tz1.getNextTransition(time, FALSE, tr1);
+        UBool avail2 = tz2.getNextTransition(time, FALSE, tr2);
+
+        if (ignoreDstAmount) {
+            // Skip a transition which only differ the amount of DST savings
+            while (TRUE) {
+                if (avail1
+                        && tr1.getTime() <= end
+                        && (tr1.getFrom()->getRawOffset() + tr1.getFrom()->getDSTSavings()
+                                == tr1.getTo()->getRawOffset() + tr1.getTo()->getDSTSavings())
+                        && (tr1.getFrom()->getDSTSavings() != 0 && tr1.getTo()->getDSTSavings() != 0)) {
+                    tz1.getNextTransition(tr1.getTime(), FALSE, tr1);
+                } else {
+                    break;
+                }
+            }
+            while (TRUE) {
+                if (avail2
+                        && tr2.getTime() <= end
+                        && (tr2.getFrom()->getRawOffset() + tr2.getFrom()->getDSTSavings()
+                                == tr2.getTo()->getRawOffset() + tr2.getTo()->getDSTSavings())
+                        && (tr2.getFrom()->getDSTSavings() != 0 && tr2.getTo()->getDSTSavings() != 0)) {
+                    tz2.getNextTransition(tr2.getTime(), FALSE, tr2);
+                } else {
+                    break;
+                }
+            }
+        }
+
+        UBool inRange1 = (avail1 && tr1.getTime() <= end);
+        UBool inRange2 = (avail2 && tr2.getTime() <= end);
+        if (!inRange1 && !inRange2) {
+            // No more transition in the range
+            break;
+        }
+        if (!inRange1 || !inRange2) {
+            return FALSE;
+        }
+        double delta = tr1.getTime() >= tr2.getTime() ? tr1.getTime() - tr2.getTime() : tr2.getTime() - tr1.getTime();
+        if (delta > (double)maxTransitionTimeDelta) {
+            return FALSE;
+        }
+        if (ignoreDstAmount) {
+            if (tr1.getTo()->getRawOffset() + tr1.getTo()->getDSTSavings()
+                        != tr2.getTo()->getRawOffset() + tr2.getTo()->getDSTSavings()
+                    || (tr1.getTo()->getDSTSavings() != 0 &&  tr2.getTo()->getDSTSavings() == 0)
+                    || (tr1.getTo()->getDSTSavings() == 0 &&  tr2.getTo()->getDSTSavings() != 0)) {
+                return FALSE;
+            }
+        } else {
+            if (tr1.getTo()->getRawOffset() != tr2.getTo()->getRawOffset() ||
+                tr1.getTo()->getDSTSavings() != tr2.getTo()->getDSTSavings()) {
+                return FALSE;
+            }
+        }
+        time = tr1.getTime() > tr2.getTime() ? tr1.getTime() : tr2.getTime();
+    }
+    return TRUE;
+}
+
 
 #endif /* #if !UCONFIG_NO_FORMATTING */
 

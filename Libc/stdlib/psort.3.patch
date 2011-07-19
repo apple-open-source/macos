@@ -1,8 +1,8 @@
---- psort.3.orig	2009-05-20 15:59:00.000000000 -0700
-+++ psort.3	2009-05-20 16:08:34.000000000 -0700
-@@ -36,60 +36,20 @@
+--- psort.3.orig	2010-10-07 21:34:52.000000000 -0700
++++ psort.3	2010-10-07 21:45:11.000000000 -0700
+@@ -32,60 +32,20 @@
  .\"     @(#)qsort.3	8.1 (Berkeley) 6/4/93
- .\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.15 2004/07/02 23:52:12 ru Exp $
+ .\" $FreeBSD: src/lib/libc/stdlib/qsort.3,v 1.17 2007/01/09 00:28:10 imp Exp $
  .\"
 -.Dd September 30, 2003
 -.Dt QSORT 3
@@ -69,7 +69,7 @@
  .Fa "void *base"
  .Fa "size_t nel"
  .Fa "size_t width"
-@@ -97,7 +57,7 @@
+@@ -93,7 +53,7 @@
  .Fc
  #ifdef UNIFDEF_BLOCKS
  .Ft void
@@ -78,7 +78,7 @@
  .Fa "void *base"
  .Fa "size_t nel"
  .Fa "size_t width"
-@@ -105,7 +65,7 @@
+@@ -101,7 +61,7 @@
  .Fc
  #endif
  .Ft void
@@ -87,7 +87,7 @@
  .Fa "void *base"
  .Fa "size_t nel"
  .Fa "size_t width"
-@@ -114,255 +74,60 @@
+@@ -110,210 +70,63 @@
  .Fc
  .Sh DESCRIPTION
  The
@@ -209,12 +209,12 @@
 -Normally,
 -.Fn qsort
 -is faster than
--.Fn mergesort ,
+-.Fn mergesort
 -which is faster than
 -.Fn heapsort .
 -Memory availability and pre-existing order in the data can make this
 -untrue.
--#ifdef UNIFDEF_BLOCKS
+ #ifdef UNIFDEF_BLOCKS
 -.Pp
 -The
 -.Fn heapsort_b ,
@@ -225,29 +225,12 @@
 -that the
 -.Fa compar
 -callback is a block pointer instead of a function pointer.
--#endif
--.Sh RETURN VALUES
--The
- #ifdef UNIFDEF_BLOCKS
--.Fn qsort ,
--.Fn qsort_b
 +.Fn psort ,
 +.Fn psort_b ,
- #else
--.Fn qsort
++#else
 +.Fn psort
  #endif
- and
--.Fn qsort_r
--functions
--return no value.
--.Pp
--#ifdef UNIFDEF_BLOCKS
--.ds HEAPSORT_B heapsort_b
--.ds MERGESORT_B mergesort_b
--#endif
--.Rv -std heapsort \*[HEAPSORT_B] mergesort \*[MERGESORT_B]
--.Sh ERRORS
++and
 +.Fn psort_r
 +functions are parallel sort routines that are drop-in compatible with the
 +corresponding
@@ -284,17 +267,43 @@
 +Like
 +.Xr qsort 3 ,
 +the sort is not stable.
-+.Sh RETURN VALUES
+ .Sh RETURN VALUES
  The
  #ifdef UNIFDEF_BLOCKS
--.Fn heapsort ,
--.Fn heapsort_b ,
--.Fn mergesort
--and
--.Fn mergesort_b
+-.Fn qsort ,
+-.Fn qsort_b
 +.Fn psort ,
 +.Fn psort_b
  #else
+-.Fn qsort
++.Fn psort
+ #endif
+ and
+-.Fn qsort_r
++.Fn psort_r
+ functions
+ return no value.
+-.Pp
+-#ifdef UNIFDEF_BLOCKS
+-.ds HEAPSORT_B heapsort_b
+-.ds MERGESORT_B mergesort_b
+-#endif
+-.Rv -std heapsort \*[HEAPSORT_B] mergesort \*[MERGESORT_B]
+-.Sh COMPATIBILITY
+-Previous versions of
+-.Fn qsort
+-did not permit the comparison routine itself to call
+-.Fn qsort 3 .
+-This is no longer true.
+-.Sh ERRORS
+-The
+-#ifdef UNIFDEF_BLOCKS
+-.Fn heapsort ,
+-.Fn heapsort_b ,
+-.Fn mergesort ,
+-and
+-.Fn mergesort_b
+-#else
 -.Fn heapsort
 -and
 -.Fn mergesort
@@ -312,8 +321,7 @@
 -#ifdef UNIFDEF_BLOCKS
 -or
 -.Fn mergesort_b
-+.Fn psort
- #endif
+-#endif
 -is less than
 -.Dq "sizeof(void *) / 2" .
 -.It Bq Er ENOMEM
@@ -321,71 +329,19 @@
 -#ifdef UNIFDEF_BLOCKS
 -.Fn heapsort ,
 -.Fn heapsort_b ,
--.Fn mergesort
--and
+-.Fn mergesort ,
+-or
 -.Fn mergesort_b
 -#else
 -.Fn heapsort
- and
+-or
 -.Fn mergesort
 -#endif
-+.Fn psort_r
- functions
+-functions
 -were unable to allocate memory.
 -.El
--.Sh COMPATIBILITY
--Previous versions of
--.Fn qsort
--did not permit the comparison routine itself to call
--.Fn qsort 3 .
--This is no longer true.
-+return no value.
- .Sh SEE ALSO
--.Xr sort 1 ,
--.Xr radixsort 3
--.Rs
--.%A Hoare, C.A.R.
--.%D 1962
--.%T "Quicksort"
--.%J "The Computer Journal"
--.%V 5:1
--.%P pp. 10-15
--.Re
--.Rs
--.%A Williams, J.W.J
--.%D 1964
--.%T "Heapsort"
--.%J "Communications of the ACM"
--.%V 7:1
--.%P pp. 347-348
--.Re
--.Rs
--.%A Knuth, D.E.
--.%D 1968
--.%B "The Art of Computer Programming"
--.%V Vol. 3
--.%T "Sorting and Searching"
--.%P pp. 114-123, 145-149
--.Re
--.Rs
--.%A McIlroy, P.M.
--.%T "Optimistic Sorting and Information Theoretic Complexity"
--.%J "Fourth Annual ACM-SIAM Symposium on Discrete Algorithms"
--.%V January 1992
--.Re
--.Rs
--.%A Bentley, J.L.
--.%A McIlroy, M.D.
--.%T "Engineering a Sort Function"
--.%J "Software--Practice and Experience"
--.%V Vol. 23(11)
--.%P pp. 1249-1265
--.%D November\ 1993
--.Re
--.Sh STANDARDS
--The
--.Fn qsort
--function
--conforms to
--.St -isoC .
++.Sh SEE ALSO
 +.Xr qsort 3
+ .Sh SEE ALSO
+ .Xr sort 1 ,
+ .Xr radixsort 3

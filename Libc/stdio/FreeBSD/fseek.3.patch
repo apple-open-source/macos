@@ -1,6 +1,6 @@
---- fseek.3	2004-11-25 11:38:34.000000000 -0800
-+++ fseek.3.edit	2006-07-12 11:18:41.000000000 -0700
-@@ -53,20 +53,39 @@
+--- fseek.3.bsdnew	2009-11-11 13:33:09.000000000 -0800
++++ fseek.3	2009-11-11 13:33:09.000000000 -0800
+@@ -49,20 +49,39 @@
  .Sh SYNOPSIS
  .In stdio.h
  .Ft int
@@ -50,7 +50,7 @@
  .Sh DESCRIPTION
  The
  .Fn fseek
-@@ -246,12 +265,29 @@
+@@ -243,12 +262,29 @@ for any of the errors specified for the 
  .Xr lseek 2 ,
  and
  .Xr malloc 3 .

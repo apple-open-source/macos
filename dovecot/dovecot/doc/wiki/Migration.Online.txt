@@ -1,0 +1,86 @@
+Online Mailbox Format Conversion
+--------------------------------
+
+This page aims to help with the tasks around planned mailbox migrations to e.g.
+mdbox. To perform this exercise with minimum service interruption a Postfix
+check can be implemented to put mail for the accounts to be migrated on HOLD:
+
+Postfix main.cf
+---------------
+
+---%<-------------------------------------------------------------------------
+smtpd_recipient_restrictions =
+ [...]
+ check_recipient_access hash:/etc/postfix/recipient_maintenance,
+ permit_mynetworks,
+ reject_unauth_destination
+---%<-------------------------------------------------------------------------
+
+/etc/postfix/recipient_maintenance
+----------------------------------
+
+---%<-------------------------------------------------------------------------
+user@domain.tld HOLD Planned maintenance
+user1@domain.tld HOLD Planned maintenance
+user2@domain.tld HOLD Planned maintenance
+[...]
+---%<-------------------------------------------------------------------------
+
+Virtual Domain Aliases in Postfix can be easily used to populate the *List of
+Recipients* to be converted (and to be queued on HOLD). The following basic
+script helps populating the database and needs to be adapted to the actual
+alias location:
+
+---%<-------------------------------------------------------------------------
+#!/bin/bash
+set -e
+ALIASES="/etc/postfix/virtual"
+MAINTALIASES="/etc/postfix/recipient_maintenance"
+
+doveadm user $1 || { echo 'user query failed.'; exit 1; }
+
+sed -e "s/\(.*\)$1/\1/;s/[ \t]*$//; s/$/ HOLD Planned maintenance: account=$1/"
+$ALIASES >>$MAINTALIASES
+grep $1 $MAINTALIASES
+postmap $MAINTALIASES
+echo '[ Complete ]'
+---%<-------------------------------------------------------------------------
+
+Usage:
+
+---%<-------------------------------------------------------------------------
+$ maintalias.sh user@domain.tld
+---%<-------------------------------------------------------------------------
+
+Finally running *postmap recipient_maintenance* will create the database (in
+case this part is not scripted).
+
+Actual Migration
+----------------
+
+Disable new logins for the users by adding 'allow_nets=' to their userdb
+records, effectively disallowing ALL nets. Close open sessions if any:
+
+---%<-------------------------------------------------------------------------
+$ doveadm who <user>
+$ doveadm kick <user>
+---%<-------------------------------------------------------------------------
+
+Convert the mailbox using the backup option:
+
+---%<-------------------------------------------------------------------------
+$ dsync -u user@domain.tld backup mdbox:~/mdbox
+---%<-------------------------------------------------------------------------
+
+Adjust userdb entries (if required) to reflect new 'mail_location'. Clear the
+'recipient_maintenance' DB and undo 'allow_nets=' entries for the migrated
+users.
+
+Finally release and requeue all mail previously held:
+
+---%<-------------------------------------------------------------------------
+$ postsuper -r [ALL]
+$ postqueue -f
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -37,14 +37,13 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Precondici&oacute;n err&oacute;nea!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="Fall&oacute; en la pre-condici&oacute;on!" -->
+<!--#include virtual="include/top.html" -->
 
-	La precondici&oacute;n para que exista una 
-	conexi&oacute;n a la direcci&oacute;n solicitada es falsa.
+   La pre-condici&oacute;n de la solicitud para el
+   URL no se evalu&oacute; positivamente.
 
 <!--#include virtual="include/bottom.html" -->
 ----------es--
@@ -56,7 +55,7 @@ Body:----------fr--
 --><!--#set var="TITLE" value="Pr&eacute;condition n&eacute;gative!"
 --><!--#include virtual="include/top.html" -->
 
-    La pr&eacute;condition pour l'URL requise a &eacute;t&eacute;
+    La pr&eacute;condition pour l'URL demand&eacute; a &eacute;t&eacute;
     &eacute;valu&eacute;e n&eacute;gativement.
 
 <!--#include virtual="include/bottom.html" -->
@@ -150,6 +149,18 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Pr&eacute;-condi&ccedil;&atilde;o falhou!"
+--><!--#include virtual="include/top.html" -->
+
+	A condi&ccedil;&atilde;o necess&aacute;ria ao pedido do URL
+	foi avaliada com resultado negativo.
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

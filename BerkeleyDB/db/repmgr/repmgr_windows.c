@@ -1,15 +1,18 @@
 /*-
  * See the file LICENSE for redistribution information.
  *
- * Copyright (c) 2005,2007 Oracle.  All rights reserved.
+ * Copyright (c) 2005,2008 Oracle.  All rights reserved.
  *
- * $Id: repmgr_windows.c,v 1.22 2007/06/11 18:29:34 alanb Exp $
+ * $Id: repmgr_windows.c,v 1.32 2008/03/13 17:31:28 mbrey Exp $
  */
 
 #include "db_config.h"
 
 #define	__INCLUDE_NETWORKING	1
 #include "db_int.h"
+
+/* Convert time-out from microseconds to milliseconds, rounding up. */
+#define	DB_TIMEOUT_TO_WINDOWS_TIMEOUT(t) (((t) + (US_PER_MS - 1)) / US_PER_MS)
 
 typedef struct __ack_waiter {
 	HANDLE event;
@@ -36,15 +39,15 @@ struct __ack_waiters_table {
 	struct __ack_waiter *first_free;
 };
 
-static int allocate_wait_slot __P((DB_ENV *, ACK_WAITER **));
-static void free_wait_slot __P((DB_ENV *, ACK_WAITER *));
-static int handle_completion __P((DB_ENV *, REPMGR_CONNECTION *));
-static int finish_connecting __P((DB_ENV *, REPMGR_CONNECTION *,
+static int allocate_wait_slot __P((ENV *, ACK_WAITER **));
+static void free_wait_slot __P((ENV *, ACK_WAITER *));
+static int handle_completion __P((ENV *, REPMGR_CONNECTION *));
+static int finish_connecting __P((ENV *, REPMGR_CONNECTION *,
 				     LPWSANETWORKEVENTS));
 
 int
-__repmgr_thread_start(dbenv, runnable)
-	DB_ENV *dbenv;
+__repmgr_thread_start(env, runnable)
+	ENV *env;
 	REPMGR_RUNNABLE *runnable;
 {
 	HANDLE thread_id;
@@ -52,7 +55,7 @@ __repmgr_thread_start(dbenv, runnable)
 	runnable->finished = FALSE;
 
 	thread_id = CreateThread(NULL, 0,
-	    (LPTHREAD_START_ROUTINE)runnable->run, dbenv, 0, NULL);
+	    (LPTHREAD_START_ROUTINE)runnable->run, env, 0, NULL);
 	if (thread_id == NULL)
 		return (GetLastError());
 	runnable->thread_id = thread_id;
@@ -89,20 +92,20 @@ __repmgr_set_nonblocking(s)
  * properly.
  */
 int
-__repmgr_wake_waiting_senders(dbenv)
-	DB_ENV *dbenv;
+__repmgr_wake_waiting_senders(env)
+	ENV *env;
 {
-	DB_REP *db_rep;
 	ACK_WAITER *slot;
+	DB_REP *db_rep;
 	int i, ret;
 
 	ret = 0;
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 	for (i=0; i<db_rep->waiters->next_avail; i++) {
 		 slot = &db_rep->waiters->array[i];
 		 if (!WAITER_SLOT_IN_USE(slot))
 			 continue;
-		 if (__repmgr_is_permanent(dbenv, slot->lsnp))
+		 if (__repmgr_is_permanent(env, slot->lsnp))
 			 if (!SetEvent(slot->event) && ret == 0)
 				 ret = GetLastError();
 	}
@@ -114,23 +117,21 @@ __repmgr_wake_waiting_senders(dbenv)
  * Caller must hold mutex.
  */
 int
-__repmgr_await_ack(dbenv, lsnp)
-	DB_ENV *dbenv;
+__repmgr_await_ack(env, lsnp)
+	ENV *env;
 	const DB_LSN *lsnp;
 {
-	DB_REP *db_rep;
 	ACK_WAITER *me;
-	DWORD ret;
-	DWORD timeout;
+	DB_REP *db_rep;
+	DWORD ret, timeout;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 
-	if ((ret = allocate_wait_slot(dbenv, &me)) != 0)
+	if ((ret = allocate_wait_slot(env, &me)) != 0)
 		goto err;
 
-	/* convert time-out from microseconds to milliseconds, rounding up */
 	timeout = db_rep->ack_timeout > 0 ?
-	    ((db_rep->ack_timeout + (US_PER_MS - 1)) / US_PER_MS) : INFINITE;
+	    DB_TIMEOUT_TO_WINDOWS_TIMEOUT(db_rep->ack_timeout) : INFINITE;
 	me->lsnp = lsnp;
 	if ((ret = SignalObjectAndWait(db_rep->mutex, me->event, timeout,
 	    FALSE)) == WAIT_FAILED) {
@@ -138,10 +139,10 @@ __repmgr_await_ack(dbenv, lsnp)
 	} else if (ret == WAIT_TIMEOUT)
 		ret = DB_REP_UNAVAIL;
 	else
-		DB_ASSERT(dbenv, ret == WAIT_OBJECT_0);
+		DB_ASSERT(env, ret == WAIT_OBJECT_0);
 
 	LOCK_MUTEX(db_rep->mutex);
-	free_wait_slot(dbenv, me);
+	free_wait_slot(env, me);
 
 err:
 	return (ret);
@@ -152,16 +153,16 @@ err:
  * Caller must hold the mutex.
  */
 static int
-allocate_wait_slot(dbenv, resultp)
-	DB_ENV *dbenv;
+allocate_wait_slot(env, resultp)
+	ENV *env;
 	ACK_WAITER **resultp;
 {
-	DB_REP *db_rep;
-	ACK_WAITERS_TABLE *table;
 	ACK_WAITER *w;
+	ACK_WAITERS_TABLE *table;
+	DB_REP *db_rep;
 	int ret;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 	table = db_rep->waiters;
 	if (table->first_free == NULL) {
 		if (table->next_avail >= table->size) {
@@ -170,7 +171,7 @@ allocate_wait_slot(dbenv, resultp)
 			 */
 			table->size *= 2;
 			w = table->array;
-			if ((ret = __os_realloc(dbenv, table->size * sizeof(*w),
+			if ((ret = __os_realloc(env, table->size * sizeof(*w),
 			     &w)) != 0)
 				return (ret);
 			table->array = w;
@@ -198,17 +199,95 @@ allocate_wait_slot(dbenv, resultp)
 }
 
 static void
-free_wait_slot(dbenv, slot)
-	DB_ENV *dbenv;
+free_wait_slot(env, slot)
+	ENV *env;
 	ACK_WAITER *slot;
 {
 	DB_REP *db_rep;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 
 	slot->lsnp = NULL;	/* show it's not in use */
 	slot->next_free = db_rep->waiters->first_free;
 	db_rep->waiters->first_free = slot;
+}
+
+/* (See requirements described in repmgr_posix.c.) */
+int
+__repmgr_await_drain(env, conn, timeout)
+	ENV *env;
+	REPMGR_CONNECTION *conn;
+	db_timeout_t timeout;
+{
+	DB_REP *db_rep;
+	db_timespec deadline, delta, now;
+	db_timeout_t t;
+	DWORD duration, ret;
+	int round_up;
+
+	db_rep = env->rep_handle;
+
+	__os_gettime(env, &deadline, 1);
+	TIMESPEC_ADD_DB_TIMEOUT(&deadline, timeout);
+
+	while (conn->out_queue_length >= OUT_QUEUE_LIMIT) {
+		if (!ResetEvent(conn->drained))
+			return (GetLastError());
+
+		/* How long until the deadline? */
+		__os_gettime(env, &now, 1);
+		if (timespeccmp(&now, &deadline, >=)) {
+			conn->state = CONN_CONGESTED;
+			return (0);
+		}
+		delta = deadline;
+		timespecsub(&delta, &now);
+		round_up = TRUE;
+		DB_TIMESPEC_TO_TIMEOUT(t, &delta, round_up);
+		duration = DB_TIMEOUT_TO_WINDOWS_TIMEOUT(t);
+
+		ret = SignalObjectAndWait(db_rep->mutex,
+		    conn->drained, duration, FALSE);
+		LOCK_MUTEX(db_rep->mutex);
+		if (ret == WAIT_FAILED)
+			return (GetLastError());
+		else if (ret == WAIT_TIMEOUT) {
+			conn->state = CONN_CONGESTED;
+			return (0);
+		} else
+			DB_ASSERT(env, ret == WAIT_OBJECT_0);
+
+		if (db_rep->finished)
+			return (0);
+		if (conn->state == CONN_DEFUNCT)
+			return (DB_REP_UNAVAIL);
+	}
+	return (0);
+}
+
+/*
+ * Creates a manual reset event, which is usually our best choice when we may
+ * have multiple threads waiting on a single event.
+ */
+int
+__repmgr_alloc_cond(c)
+	cond_var_t *c;
+{
+	HANDLE event;
+
+	if ((event = CreateEvent(NULL, TRUE, FALSE, NULL)) == NULL)
+		return (GetLastError());
+	*c = event;
+	return (0);
+}
+
+int
+__repmgr_free_cond(c)
+	cond_var_t *c;
+{
+	if (CloseHandle(*c))
+		return (0);
+	return (GetLastError());
 }
 
 /*
@@ -217,8 +296,8 @@ free_wait_slot(dbenv, slot)
  * resources have been created.
  */
 int
-__repmgr_init_sync(dbenv, db_rep)
-     DB_ENV *dbenv;
+__repmgr_init_sync(env, db_rep)
+     ENV *env;
      DB_REP *db_rep;
 {
 #define	INITIAL_ALLOCATION 5		/* arbitrary size */
@@ -246,11 +325,11 @@ __repmgr_init_sync(dbenv, db_rep)
 	if ((db_rep->mutex = CreateMutex(NULL, FALSE, NULL)) == NULL)
 		goto geterr;
 
-	if ((ret = __os_calloc(dbenv, 1, sizeof(ACK_WAITERS_TABLE), &table))
+	if ((ret = __os_calloc(env, 1, sizeof(ACK_WAITERS_TABLE), &table))
 	    != 0)
 		goto err;
 
-	if ((ret = __os_calloc(dbenv, INITIAL_ALLOCATION, sizeof(ACK_WAITER),
+	if ((ret = __os_calloc(env, INITIAL_ALLOCATION, sizeof(ACK_WAITER),
 	    &table->array)) != 0)
 		goto err;
 
@@ -274,19 +353,19 @@ err:
 	if (db_rep->mutex != NULL)
 		CloseHandle(db_rep->mutex);
 	if (table != NULL)
-		__os_free(dbenv, table);
+		__os_free(env, table);
 	db_rep->waiters = NULL;
 	return (ret);
 }
 
 int
-__repmgr_close_sync(dbenv)
-     DB_ENV *dbenv;
+__repmgr_close_sync(env)
+     ENV *env;
 {
 	DB_REP *db_rep;
 	int i, ret;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 	if (!(REPMGR_SYNC_INITED(db_rep)))
 		return (0);
 
@@ -295,8 +374,8 @@ __repmgr_close_sync(dbenv)
 		if (!CloseHandle(db_rep->waiters->array[i].event) && ret == 0)
 			ret = GetLastError();
 	}
-	__os_free(dbenv, db_rep->waiters->array);
-	__os_free(dbenv, db_rep->waiters);
+	__os_free(env, db_rep->waiters->array);
+	__os_free(env, db_rep->waiters);
 
 	if (!CloseHandle(db_rep->check_election) && ret == 0)
 		ret = GetLastError();
@@ -322,22 +401,22 @@ __repmgr_close_sync(dbenv)
  * called).
  */
 int
-__repmgr_net_init(dbenv, db_rep)
-	DB_ENV *dbenv;
+__repmgr_net_init(env, db_rep)
+	ENV *env;
 	DB_REP *db_rep;
 {
 	int ret;
 
 	/* Initialize the Windows sockets DLL. */
-	if (!db_rep->wsa_inited && (ret = __repmgr_wsa_init(dbenv)) != 0)
+	if (!db_rep->wsa_inited && (ret = __repmgr_wsa_init(env)) != 0)
 		goto err;
 
-	if ((ret = __repmgr_listen(dbenv)) == 0)
+	if ((ret = __repmgr_listen(env)) == 0)
 		return (0);
 
 	if (WSACleanup() == SOCKET_ERROR) {
 		ret = net_errno;
-		__db_err(dbenv, ret, "WSACleanup");
+		__db_err(env, ret, "WSACleanup");
 	}
 
 err:	db_rep->listen_fd = INVALID_SOCKET;
@@ -348,20 +427,20 @@ err:	db_rep->listen_fd = INVALID_SOCKET;
  * __repmgr_wsa_init --
  *	Initialize the Windows sockets DLL.
  *
- * PUBLIC: int __repmgr_wsa_init __P((DB_ENV *));
+ * PUBLIC: int __repmgr_wsa_init __P((ENV *));
  */
 int
-__repmgr_wsa_init(dbenv)
-	DB_ENV *dbenv;
+__repmgr_wsa_init(env)
+	ENV *env;
 {
 	DB_REP *db_rep;
 	WSADATA wsaData;
 	int ret;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 
 	if ((ret = WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
-		__db_err(dbenv, ret, "unable to initialize Windows networking");
+		__db_err(env, ret, "unable to initialize Windows networking");
 		return (ret);
 	}
 	db_rep->wsa_inited = TRUE;
@@ -395,10 +474,10 @@ __repmgr_signal(v)
 }
 
 int
-__repmgr_wake_main_thread(dbenv)
-	DB_ENV *dbenv;
+__repmgr_wake_main_thread(env)
+	ENV *env;
 {
-	if (!SetEvent(dbenv->rep_handle->signaler))
+	if (!SetEvent(env->rep_handle->signaler))
 		return (GetLastError());
 	return (0);
 }
@@ -439,37 +518,36 @@ __repmgr_readv(fd, iovec, buf_count, xfr_count_p)
 }
 
 int
-__repmgr_select_loop(dbenv)
-	DB_ENV *dbenv;
+__repmgr_select_loop(env)
+	ENV *env;
 {
-	DWORD select_timeout;
 	DB_REP *db_rep;
-	REPMGR_CONNECTION *conn, *next;
-	REPMGR_RETRY *retry;
-	WSAEVENT events[WSA_MAXIMUM_WAIT_EVENTS];
-	REPMGR_CONNECTION *connections[WSA_MAXIMUM_WAIT_EVENTS];
 	DWORD nevents, ret;
+	DWORD select_timeout;
+	REPMGR_CONNECTION *conn, *next;
+	REPMGR_CONNECTION *connections[WSA_MAXIMUM_WAIT_EVENTS];
+	WSAEVENT events[WSA_MAXIMUM_WAIT_EVENTS];
 	db_timespec timeout;
 	WSAEVENT listen_event;
 	WSANETWORKEVENTS net_events;
 	int flow_control, i;
 
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 
 	if ((listen_event = WSACreateEvent()) == WSA_INVALID_EVENT) {
 		__db_err(
-		    dbenv, net_errno, "can't create event for listen socket");
+		    env, net_errno, "can't create event for listen socket");
 		return (net_errno);
 	}
 	if (WSAEventSelect(db_rep->listen_fd, listen_event, FD_ACCEPT) ==
 	    SOCKET_ERROR) {
 		ret = net_errno;
-		__db_err(dbenv, ret, "can't enable event for listener");
+		__db_err(env, ret, "can't enable event for listener");
 		goto out;
 	}
 
 	LOCK_MUTEX(db_rep->mutex);
-	if ((ret = __repmgr_first_try_connections(dbenv)) != 0)
+	if ((ret = __repmgr_first_try_connections(env)) != 0)
 		goto unlock;
 	flow_control = FALSE;
 	for (;;) {
@@ -481,14 +559,31 @@ __repmgr_select_loop(dbenv)
 		/*
 		 * Add an event for each surviving socket that we're interested
 		 * in.  (For now [until we implement flow control], that's all
-		 * of them, in one form or another.)
-		 *     Note that even if we're suffering flow control, we
-		 * nevertheless still read if we haven't even yet gotten a
-		 * handshake.   Why?  (1) Handshakes are important; and (2) they
-		 * don't hurt anything flow-control-wise.
+		 * of them, in one form or another.)  Clean up defunct
+		 * connections; note that this is the only place where elements
+		 * get deleted from this list.
+		 *     Loop just like TAILQ_FOREACH, except that we need to be
+		 * able to unlink a list entry.
 		 */
-		TAILQ_FOREACH(conn, &db_rep->connections, entries) {
-			if (F_ISSET(conn, CONN_CONNECTING) ||
+		for (conn = TAILQ_FIRST(&db_rep->connections);
+		     conn != NULL;
+		     conn = next) {
+			next = TAILQ_NEXT(conn, entries);
+
+			if (conn->state == CONN_DEFUNCT) {
+				if ((ret = __repmgr_cleanup_connection(env,
+				    conn)) != 0)
+					goto unlock;
+				continue;
+			}
+
+			/*
+			 * Note that even if we're suffering flow control, we
+			 * nevertheless still read if we haven't even yet gotten
+			 * a handshake.  Why?  (1) Handshakes are important; and
+			 * (2) they don't hurt anything flow-control-wise.
+			 */
+			if (conn->state == CONN_CONNECTING ||
 			    !STAILQ_EMPTY(&conn->outbound_queue) ||
 			    (!flow_control || !IS_VALID_EID(conn->eid))) {
 				events[nevents] = conn->event_object;
@@ -496,21 +591,13 @@ __repmgr_select_loop(dbenv)
 			}
 		}
 
-		/*
-		 * Decide how long to wait based on when it will next be time to
-		 * retry an idle connection.  (List items are in order, so we
-		 * only have to examine the first one.)
-		 */
-		if (TAILQ_EMPTY(&db_rep->retries))
-			select_timeout = WSA_INFINITE;
-		else {
-			retry = TAILQ_FIRST(&db_rep->retries);
-
-			__repmgr_timespec_diff_now(
-			    dbenv, &retry->time, &timeout);
+		if (__repmgr_compute_timeout(env, &timeout))
 			select_timeout =
 			    (DWORD)(timeout.tv_sec * MS_PER_SEC +
 			    timeout.tv_nsec / NS_PER_MS);
+		else {
+			/* No time-based events to wake us up. */
+			select_timeout = WSA_INFINITE;
 		}
 
 		UNLOCK_MUTEX(db_rep->mutex);
@@ -521,22 +608,6 @@ __repmgr_select_loop(dbenv)
 			goto out;
 		}
 		LOCK_MUTEX(db_rep->mutex);
-
-		/*
-		 * The first priority thing we must do is to clean up any
-		 * pending defunct connections.  Otherwise, if they have any
-		 * lingering pending input, we get very confused if we try to
-		 * process it.
-		 *     Loop just like TAILQ_FOREACH, except that we need to be
-		 * able to unlink a list entry.
-		 */
-		for (conn = TAILQ_FIRST(&db_rep->connections);
-		     conn != NULL;
-		     conn = next) {
-			next = TAILQ_NEXT(conn, entries);
-			if (F_ISSET(conn, CONN_DEFUNCT))
-				__repmgr_cleanup_connection(dbenv, conn);
-		}
 
 		/*
 		 * !!!
@@ -556,22 +627,23 @@ __repmgr_select_loop(dbenv)
 					ret = net_errno;
 					goto unlock;
 				}
-				DB_ASSERT(dbenv,
+				DB_ASSERT(env,
 				    net_events.lNetworkEvents & FD_ACCEPT);
 				if ((ret = net_events.iErrorCode[FD_ACCEPT_BIT])
 				    != 0)
 					goto unlock;
-				if ((ret = __repmgr_accept(dbenv)) != 0)
+				if ((ret = __repmgr_accept(env)) != 0)
 					goto unlock;
 				break;
 			default:
-				if ((ret = handle_completion(dbenv,
-					 connections[i])) != 0)
+				if (connections[i]->state != CONN_DEFUNCT &&
+				    (ret = handle_completion(env,
+				    connections[i])) != 0)
 					goto unlock;
 				break;
 			}
 		} else if (ret == WSA_WAIT_TIMEOUT) {
-			if ((ret = __repmgr_retry_connections(dbenv)) != 0)
+			if ((ret = __repmgr_check_timeouts(env)) != 0)
 				goto unlock;
 		} else if (ret == WSA_WAIT_FAILED) {
 			ret = net_errno;
@@ -587,14 +659,9 @@ out:
 	return (ret);
 }
 
-/*
- * !!!
- * Only ever called on the select() thread, since we may call
- * __repmgr_bust_connection(..., TRUE).
- */
 static int
-handle_completion(dbenv, conn)
-	DB_ENV *dbenv;
+handle_completion(env, conn)
+	ENV *env;
 	REPMGR_CONNECTION *conn;
 {
 	int ret;
@@ -602,21 +669,21 @@ handle_completion(dbenv, conn)
 
 	if ((ret = WSAEnumNetworkEvents(conn->fd, conn->event_object, &events))
 	    == SOCKET_ERROR) {
-		__db_err(dbenv, net_errno, "EnumNetworkEvents");
-		STAT(dbenv->rep_handle->region->mstat.st_connection_drop++);
+		__db_err(env, net_errno, "EnumNetworkEvents");
+		STAT(env->rep_handle->region->mstat.st_connection_drop++);
 		ret = DB_REP_UNAVAIL;
 		goto err;
 	}
 
-	if (F_ISSET(conn, CONN_CONNECTING)) {
-		if ((ret = finish_connecting(dbenv, conn, &events)) != 0)
+	if (conn->state == CONN_CONNECTING) {
+		if ((ret = finish_connecting(env, conn, &events)) != 0)
 			goto err;
 	} else {		/* Check both writing and reading. */
 		if (events.lNetworkEvents & FD_CLOSE) {
-			__db_err(dbenv,
+			__db_err(env,
 			    events.iErrorCode[FD_CLOSE_BIT],
 			    "connection closed");
-			STAT(dbenv->rep_handle->
+			STAT(env->rep_handle->
 			    region->mstat.st_connection_drop++);
 			ret = DB_REP_UNAVAIL;
 			goto err;
@@ -624,43 +691,42 @@ handle_completion(dbenv, conn)
 
 		if (events.lNetworkEvents & FD_WRITE) {
 			if (events.iErrorCode[FD_WRITE_BIT] != 0) {
-				__db_err(dbenv,
+				__db_err(env,
 				    events.iErrorCode[FD_WRITE_BIT],
 				    "error writing");
-				STAT(dbenv->rep_handle->
+				STAT(env->rep_handle->
 				    region->mstat.st_connection_drop++);
 				ret = DB_REP_UNAVAIL;
 				goto err;
 			} else if ((ret =
-			    __repmgr_write_some(dbenv, conn)) != 0)
+			    __repmgr_write_some(env, conn)) != 0)
 				goto err;
 		}
 
 		if (events.lNetworkEvents & FD_READ) {
 			if (events.iErrorCode[FD_READ_BIT] != 0) {
-				__db_err(dbenv,
+				__db_err(env,
 				    events.iErrorCode[FD_READ_BIT],
 				    "error reading");
-				STAT(dbenv->rep_handle->
+				STAT(env->rep_handle->
 				    region->mstat.st_connection_drop++);
 				ret = DB_REP_UNAVAIL;
 				goto err;
 			} else if ((ret =
-			    __repmgr_read_from_site(dbenv, conn)) != 0)
+			    __repmgr_read_from_site(env, conn)) != 0)
 				goto err;
 		}
 	}
 
-	return (0);
-
-err:	if (ret == DB_REP_UNAVAIL)
-		return (__repmgr_bust_connection(dbenv, conn, TRUE));
+err:
+	if (ret == DB_REP_UNAVAIL)
+		ret = __repmgr_bust_connection(env, conn);
 	return (ret);
 }
 
 static int
-finish_connecting(dbenv, conn, events)
-	DB_ENV *dbenv;
+finish_connecting(env, conn, events)
+	ENV *env;
 	REPMGR_CONNECTION *conn;
 	LPWSANETWORKEVENTS events;
 {
@@ -673,7 +739,7 @@ finish_connecting(dbenv, conn, events)
 	if (!(events->lNetworkEvents & FD_CONNECT))
 		return (0);
 
-	F_CLR(conn, CONN_CONNECTING);
+	conn->state = CONN_CONNECTED;
 
 	if ((ret = events->iErrorCode[FD_CONNECT_BIT]) != 0) {
 /*		t_ret = FormatMessage( */
@@ -681,35 +747,39 @@ finish_connecting(dbenv, conn, events)
 /*		    FORMAT_MESSAGE_FROM_SYSTEM | */
 /*		    FORMAT_MESSAGE_ARGUMENT_ARRAY, */
 /*		    NULL, ret, 0, (LPTSTR)reason, sizeof(reason), values); */
-/*		__db_err(dbenv/\*, ret*\/, "connecting: %s", */
+/*		__db_err(env/\*, ret*\/, "connecting: %s", */
 /*		    reason); */
 /*		LocalFree(reason); */
-		__db_err(dbenv, ret, "connecting");
+		__db_err(env, ret, "connecting");
 		goto err;
 	}
 
 	if (WSAEventSelect(conn->fd, conn->event_object, FD_READ | FD_CLOSE) ==
 	    SOCKET_ERROR) {
 		ret = net_errno;
-		__db_err(dbenv, ret, "setting event bits for reading");
+		__db_err(env, ret, "setting event bits for reading");
 		return (ret);
 	}
 
-	return (__repmgr_send_handshake(dbenv, conn));
+	return (__repmgr_propose_version(env, conn));
 
 err:
-	db_rep = dbenv->rep_handle;
+	db_rep = env->rep_handle;
 	eid = conn->eid;
-	DB_ASSERT(dbenv, IS_VALID_EID(eid));
+	DB_ASSERT(env, IS_VALID_EID(eid));
 
 	if (ADDR_LIST_NEXT(&SITE_FROM_EID(eid)->net_addr) == NULL) {
 		STAT(db_rep->region->mstat.st_connect_fail++);
 		return (DB_REP_UNAVAIL);
 	}
 
-	DB_ASSERT(dbenv, !TAILQ_EMPTY(&db_rep->connections));
-	__repmgr_cleanup_connection(dbenv, conn);
-	ret = __repmgr_connect_site(dbenv, eid);
-	DB_ASSERT(dbenv, ret != DB_REP_UNAVAIL);
+	/*
+	 * Since we're immediately trying the next address in the list, simply
+	 * disable the failed connection, without the usual recovery.
+	 */
+	DISABLE_CONNECTION(conn);
+
+	ret = __repmgr_connect_site(env, eid);
+	DB_ASSERT(env, ret != DB_REP_UNAVAIL);
 	return (ret);
 }

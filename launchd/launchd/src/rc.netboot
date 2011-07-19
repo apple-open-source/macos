@@ -122,8 +122,8 @@ network_mount()
     case "${mount_from}" in
 	afp:*)
 		fstype=afp
-		kextutil -v 0 /System/Library/Filesystems/AppleShare/asp_tcp.kext
-		kextutil -v 0 /System/Library/Filesystems/AppleShare/afpfs.kext
+		kextload -v 0 /System/Library/Filesystems/AppleShare/asp_tcp.kext
+		kextload -v 0 /System/Library/Filesystems/AppleShare/afpfs.kext
 		;;
  	nfs:*) fstype=nfs;;
 	*) echo "unknown network filesystem mount from ${mount_from}"

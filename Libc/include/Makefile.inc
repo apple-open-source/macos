@@ -31,7 +31,6 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		err.h \
 		errno.h \
 		fcntl.h \
-		float.h \
 		fmtmsg.h \
 		fnmatch.h \
 		fsproperties.h \
@@ -70,10 +69,10 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		spawn.h \
 		stab.h \
 		standards.h \
-		stdarg.h \
 		stdbool.h \
 		stddef.h \
 		stdio.h \
+		stdint.h \
 		stdlib.h \
 		strhash.h \
 		string.h \
@@ -93,7 +92,6 @@ INC_INSTHDRS += NSSystemDirectories.h \
 		util.h \
 		utime.h \
 		utmpx.h \
-		varargs.h \
 		vis.h \
 		wchar.h \
 		wctype.h \
@@ -121,3 +119,8 @@ LOCALHDRS += ${.CURDIR}/include/spawn_private.h
 .include "Makefile.nbsd_begin"
 NBSDHDRS = utmpx.h
 .include "Makefile.nbsd_end"
+
+.include "Makefile.fbsd_begin"
+FBSDHDRS= nl_types.h
+.include "Makefile.fbsd_end"
+

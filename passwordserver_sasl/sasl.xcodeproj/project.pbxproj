@@ -45,7 +45,6 @@
 				B062B5900D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B5920D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B5940D9C55E200C883E4 /* PBXTargetDependency */,
-				B062B5960D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B5980D9C55E200C883E4 /* PBXTargetDependency */,
 				B062B59A0D9C55E200C883E4 /* PBXTargetDependency */,
 			);
@@ -200,12 +199,6 @@
 		B062B4CE0D9C55E200C883E4 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
 		B062B4CF0D9C55E200C883E4 /* login_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 7733E7150238197D05DD284B /* login_init.c */; };
 		B062B4D30D9C55E200C883E4 /* liblogin.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7733E72902381A7F05DD284B /* liblogin.la */; };
-		B062B4DB0D9C55E200C883E4 /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
-		B062B4DD0D9C55E200C883E4 /* plugin_common.c in Sources */ = {isa = PBXBuildFile; fileRef = 777E7BCB0236DDED05DD284B /* plugin_common.c */; };
-		B062B4DE0D9C55E200C883E4 /* sql_init.c in Sources */ = {isa = PBXBuildFile; fileRef = AAEEF080085A050B0092A3E1 /* sql_init.c */; };
-		B062B4DF0D9C55E200C883E4 /* sql.c in Sources */ = {isa = PBXBuildFile; fileRef = AAEEF081085A050B0092A3E1 /* sql.c */; };
-		B062B4E10D9C55E200C883E4 /* libmysqlclient.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 84DECA4205484A1500C45D20 /* libmysqlclient.a */; };
-		B062B4E40D9C55E200C883E4 /* libsql.la in CopyFiles */ = {isa = PBXBuildFile; fileRef = AA55533906A30BBB00E276FD /* libsql.la */; };
 		B062B4EC0D9C55E200C883E4 /* plugin_common.h in Headers */ = {isa = PBXBuildFile; fileRef = 777E7BCC0236DDED05DD284B /* plugin_common.h */; };
 		B062B4EE0D9C55E200C883E4 /* ntlm_init.c in Sources */ = {isa = PBXBuildFile; fileRef = 84DECA08054847E400C45D20 /* ntlm_init.c */; };
 		B062B4EF0D9C55E200C883E4 /* ntlm.c in Sources */ = {isa = PBXBuildFile; fileRef = 84DECA09054847E400C45D20 /* ntlm.c */; };
@@ -351,13 +344,6 @@
 			proxyType = 1;
 			remoteGlobalIDString = B062B4C80D9C55E200C883E4;
 			remoteInfo = "plugin_login (Upgraded)";
-		};
-		B062B5950D9C55E200C883E4 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 77F5D69C0236D69405DD284B /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = B062B4D90D9C55E200C883E4;
-			remoteInfo = "plugin_mysql (Upgraded)";
 		};
 		B062B5970D9C55E200C883E4 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
@@ -560,16 +546,6 @@
 			dstSubfolderSpec = 0;
 			files = (
 				B062B4D30D9C55E200C883E4 /* liblogin.la in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 1;
-		};
-		B062B4E30D9C55E200C883E4 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 8;
-			dstPath = /usr/lib/sasl2/disabled;
-			dstSubfolderSpec = 0;
-			files = (
-				B062B4E40D9C55E200C883E4 /* libsql.la in CopyFiles */,
 			);
 			runOnlyForDeploymentPostprocessing = 1;
 		};
@@ -845,7 +821,6 @@
 		B062B4A60D9C55E200C883E4 /* libdigestmd5.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libdigestmd5.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		B062B4B70D9C55E200C883E4 /* libgssapiv2.2.0.18.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libgssapiv2.2.0.18.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		B062B4D80D9C55E200C883E4 /* login.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = login.so; sourceTree = BUILT_PRODUCTS_DIR; };
-		B062B4E90D9C55E200C883E4 /* libsql.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libsql.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		B062B4F90D9C55E200C883E4 /* libntlm.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libntlm.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		B062B50B0D9C55E200C883E4 /* libotp.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libotp.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
 		B062B51C0D9C55E200C883E4 /* libplain.2.so */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libplain.2.so; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -900,14 +875,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		B062B4E00D9C55E200C883E4 /* Frameworks */ = {
-			isa = PBXFrameworksBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B062B4E10D9C55E200C883E4 /* libmysqlclient.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1110,7 +1077,6 @@
 				B062B4A60D9C55E200C883E4 /* libdigestmd5.2.so */,
 				B062B4B70D9C55E200C883E4 /* libgssapiv2.2.0.18.so */,
 				B062B4D80D9C55E200C883E4 /* login.so */,
-				B062B4E90D9C55E200C883E4 /* libsql.so */,
 				B062B4F90D9C55E200C883E4 /* libntlm.so */,
 				B062B50B0D9C55E200C883E4 /* libotp.2.so */,
 				B062B51C0D9C55E200C883E4 /* libplain.2.so */,
@@ -1344,14 +1310,6 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
-		B062B4DA0D9C55E200C883E4 /* Headers */ = {
-			isa = PBXHeadersBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B062B4DB0D9C55E200C883E4 /* plugin_common.h in Headers */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		B062B4EB0D9C55E200C883E4 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -1519,26 +1477,6 @@
 			productInstallPath = /usr/lib/sasl2;
 			productName = plugin_login;
 			productReference = B062B4D80D9C55E200C883E4 /* login.so */;
-			productType = "com.apple.product-type.library.dynamic";
-		};
-		B062B4D90D9C55E200C883E4 /* plugin_mysql */ = {
-			isa = PBXNativeTarget;
-			buildConfigurationList = B062B4E50D9C55E200C883E4 /* Build configuration list for PBXNativeTarget "plugin_mysql" */;
-			buildPhases = (
-				B062B4DA0D9C55E200C883E4 /* Headers */,
-				B062B4DC0D9C55E200C883E4 /* Sources */,
-				B062B4E00D9C55E200C883E4 /* Frameworks */,
-				B062B4E20D9C55E200C883E4 /* Rez */,
-				B062B4E30D9C55E200C883E4 /* CopyFiles */,
-			);
-			buildRules = (
-			);
-			dependencies = (
-			);
-			name = plugin_mysql;
-			productInstallPath = /usr/lib/sasl2/disabled;
-			productName = plugin_mysql;
-			productReference = B062B4E90D9C55E200C883E4 /* libsql.so */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		B062B4EA0D9C55E200C883E4 /* plugin_ntlm */ = {
@@ -1717,7 +1655,6 @@
 				B062B4960D9C55E200C883E4 /* plugin_digest */,
 				B062B4A70D9C55E200C883E4 /* plugin_gssapi */,
 				B062B4C80D9C55E200C883E4 /* plugin_login */,
-				B062B4D90D9C55E200C883E4 /* plugin_mysql */,
 				B062B4EA0D9C55E200C883E4 /* plugin_ntlm */,
 				B062B4FA0D9C55E200C883E4 /* plugin_otp */,
 				B062B50C0D9C55E200C883E4 /* plugin_plain */,
@@ -1760,13 +1697,6 @@
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 		B062B4D10D9C55E200C883E4 /* Rez */ = {
-			isa = PBXRezBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		B062B4E20D9C55E200C883E4 /* Rez */ = {
 			isa = PBXRezBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -1905,16 +1835,6 @@
 				B062B4CD0D9C55E200C883E4 /* login.c in Sources */,
 				B062B4CE0D9C55E200C883E4 /* plugin_common.c in Sources */,
 				B062B4CF0D9C55E200C883E4 /* login_init.c in Sources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		B062B4DC0D9C55E200C883E4 /* Sources */ = {
-			isa = PBXSourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				B062B4DD0D9C55E200C883E4 /* plugin_common.c in Sources */,
-				B062B4DE0D9C55E200C883E4 /* sql_init.c in Sources */,
-				B062B4DF0D9C55E200C883E4 /* sql.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -2072,11 +1992,6 @@
 			isa = PBXTargetDependency;
 			target = B062B4C80D9C55E200C883E4 /* plugin_login */;
 			targetProxy = B062B5930D9C55E200C883E4 /* PBXContainerItemProxy */;
-		};
-		B062B5960D9C55E200C883E4 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = B062B4D90D9C55E200C883E4 /* plugin_mysql */;
-			targetProxy = B062B5950D9C55E200C883E4 /* PBXContainerItemProxy */;
 		};
 		B062B5980D9C55E200C883E4 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
@@ -2909,93 +2824,6 @@
 			};
 			name = Default;
 		};
-		B062B4E60D9C55E200C883E4 /* Development */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				DYLIB_COMPATIBILITY_VERSION = "";
-				DYLIB_CURRENT_VERSION = "";
-				EXECUTABLE_EXTENSION = so;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INSTALL_PATH = /usr/lib/sasl2/disabled;
-				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
-				LIBRARY_STYLE = BUNDLE;
-				MACH_O_TYPE = mh_bundle;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lz";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = libsql;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Development;
-		};
-		B062B4E70D9C55E200C883E4 /* Deployment */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				COPY_PHASE_STRIP = YES;
-				DYLIB_COMPATIBILITY_VERSION = "";
-				DYLIB_CURRENT_VERSION = "";
-				EXECUTABLE_EXTENSION = so;
-				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INSTALL_PATH = /usr/lib/sasl2/disabled;
-				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
-				LIBRARY_STYLE = BUNDLE;
-				MACH_O_TYPE = mh_bundle;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lz";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = libsql;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = NO;
-			};
-			name = Deployment;
-		};
-		B062B4E80D9C55E200C883E4 /* Default */ = {
-			isa = XCBuildConfiguration;
-			buildSettings = {
-				DYLIB_COMPATIBILITY_VERSION = "";
-				DYLIB_CURRENT_VERSION = "";
-				EXECUTABLE_EXTENSION = so;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				INSTALL_PATH = /usr/lib/sasl2/disabled;
-				LIBRARY_SEARCH_PATHS = /usr/lib/mysql;
-				LIBRARY_STYLE = BUNDLE;
-				MACH_O_TYPE = mh_bundle;
-				OTHER_CFLAGS = "";
-				OTHER_LDFLAGS = "-lz";
-				OTHER_LIBTOOL_FLAGS = "";
-				OTHER_REZFLAGS = "";
-				PRODUCT_NAME = libsql;
-				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-			};
-			name = Default;
-		};
 		B062B4F60D9C55E200C883E4 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -3494,7 +3322,6 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INSTALL_PATH = /usr/sbin/;
@@ -3558,7 +3385,6 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INSTALL_PATH = /usr/sbin/;
@@ -3612,7 +3438,7 @@
 				ARCHS = "$(NATIVE_ARCH)";
 				COPY_PHASE_STRIP = YES;
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_MODEL_TUNING = G5;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				INSTALL_PATH = /usr/sbin/;
@@ -3769,16 +3595,6 @@
 				B062B4D50D9C55E200C883E4 /* Development */,
 				B062B4D60D9C55E200C883E4 /* Deployment */,
 				B062B4D70D9C55E200C883E4 /* Default */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Deployment;
-		};
-		B062B4E50D9C55E200C883E4 /* Build configuration list for PBXNativeTarget "plugin_mysql" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				B062B4E60D9C55E200C883E4 /* Development */,
-				B062B4E70D9C55E200C883E4 /* Deployment */,
-				B062B4E80D9C55E200C883E4 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Deployment;

@@ -15,6 +15,8 @@ sub filter {
     $$dataref = "";
 }
 
+sub will_modify { 0 }
+
 1;
 
 __END__
@@ -37,6 +39,7 @@ HTTP::Proxy::BodyFilter::complete - A filter that passes on a complete body or n
         response => HTTP::Proxy::BodyFilter::complete->new,
         response => HTTP::Proxy::BodyFilter::simple->new(
             sub {
+                my ( $self, $dataref, $message, $protocol, $buffer ) = @_;
                 # some complex processing that needs
                 # the whole response body
             }
@@ -48,7 +51,7 @@ HTTP::Proxy::BodyFilter::complete - A filter that passes on a complete body or n
 =head1 DESCRIPTION
 
 The HTTP::Proxy::BodyFilter::complete filter will ensure that the next
-filter in the filter chain will only receive complete messages body
+filter in the filter chain will only receive complete message bodies
 (either request or response).
 
 It will store the chunks of data as they arrive, only to pass the B<entire>
@@ -64,16 +67,28 @@ This consumes memory and time.
 Use with caution, otherwise your client will timeout, or your proxy will
 run out of memory.
 
+Also note that all filters after C<complete> are still called when the
+proxy receives data: they just receive empty data. They will receive
+the complete data when the filter chain is called for the very last time
+(the C<$buffer> parameter is C<undef>). (See the documentation of
+L<HTTP::Proxy::BodyFilter> for details about the C<$buffer> parameter.)
+
 =head1 METHOD
 
-This filter has only one method, called automatically:
+This filter defines two methods, called automatically:
 
 =over 4
 
 =item filter()
 
-Stores the incoming data in memory until the last moment. The data
-is then released to the subsequent filters in the chain.
+Stores the incoming data in memory until the last moment and passes
+empty data to the subsequent filters in the chain. They will receive
+the full body during the last round of filter calls.
+
+=item will_modify()
+
+This method returns a I<false> value, thus indicating to the system
+that it will not modify data passing through.
 
 =back
 
@@ -88,7 +103,7 @@ the same time. C<;-)>
 
 =head1 COPYRIGHT
 
-Copyright 2004-2005, Philippe Bruhat.
+Copyright 2004-2008, Philippe Bruhat.
 
 =head1 LICENSE
 

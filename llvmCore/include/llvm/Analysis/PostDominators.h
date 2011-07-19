@@ -36,40 +36,76 @@ struct PostDominatorTree : public FunctionPass {
   virtual void getAnalysisUsage(AnalysisUsage &AU) const {
     AU.setPreservesAll();
   }
-  
+
   inline const std::vector<BasicBlock*> &getRoots() const {
     return DT->getRoots();
   }
-  
+
   inline DomTreeNode *getRootNode() const {
     return DT->getRootNode();
   }
-  
+
   inline DomTreeNode *operator[](BasicBlock *BB) const {
     return DT->getNode(BB);
   }
-  
+
+  inline DomTreeNode *getNode(BasicBlock *BB) const {
+    return DT->getNode(BB);
+  }
+
+  inline bool dominates(DomTreeNode* A, DomTreeNode* B) const {
+    return DT->dominates(A, B);
+  }
+
+  inline bool dominates(const BasicBlock* A, const BasicBlock* B) const {
+    return DT->dominates(A, B);
+  }
+
   inline bool properlyDominates(const DomTreeNode* A, DomTreeNode* B) const {
     return DT->properlyDominates(A, B);
   }
-  
+
   inline bool properlyDominates(BasicBlock* A, BasicBlock* B) const {
     return DT->properlyDominates(A, B);
   }
 
-  virtual void print(std::ostream &OS, const Module* M= 0) const {
-    DT->print(OS, M);
+  inline BasicBlock *findNearestCommonDominator(BasicBlock *A, BasicBlock *B) {
+    return DT->findNearestCommonDominator(A, B);
   }
+
+  virtual void releaseMemory() {
+    DT->releaseMemory();
+  }
+
+  virtual void print(raw_ostream &OS, const Module*) const;
 };
 
 FunctionPass* createPostDomTree();
+
+template <> struct GraphTraits<PostDominatorTree*>
+  : public GraphTraits<DomTreeNode*> {
+  static NodeType *getEntryNode(PostDominatorTree *DT) {
+    return DT->getRootNode();
+  }
+
+  static nodes_iterator nodes_begin(PostDominatorTree *N) {
+    if (getEntryNode(N))
+      return df_begin(getEntryNode(N));
+    else
+      return df_end(getEntryNode(N));
+  }
+
+  static nodes_iterator nodes_end(PostDominatorTree *N) {
+    return df_end(getEntryNode(N));
+  }
+};
 
 /// PostDominanceFrontier Class - Concrete subclass of DominanceFrontier that is
 /// used to compute the a post-dominance frontier.
 ///
 struct PostDominanceFrontier : public DominanceFrontierBase {
   static char ID;
-  PostDominanceFrontier() 
+  PostDominanceFrontier()
     : DominanceFrontierBase(&ID, true) {}
 
   virtual bool runOnFunction(Function &) {

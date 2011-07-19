@@ -68,7 +68,7 @@ public:
   typedef typename ValInfo::data_type_ref   data_type_ref;
   typedef ImutAVLTree<ValInfo>              TreeTy;
 
-private:
+protected:
   TreeTy* Root;
 
 public:
@@ -80,35 +80,35 @@ public:
 
   class Factory {
     typename TreeTy::Factory F;
+    const bool Canonicalize;
 
   public:
-    Factory() {}
-
-    Factory(BumpPtrAllocator& Alloc)
-      : F(Alloc) {}
+    Factory(bool canonicalize = true)
+      : Canonicalize(canonicalize) {}
+    
+    Factory(BumpPtrAllocator& Alloc, bool canonicalize = true)
+      : F(Alloc), Canonicalize(canonicalize) {}
 
     ImmutableMap GetEmptyMap() { return ImmutableMap(F.GetEmptyTree()); }
 
     ImmutableMap Add(ImmutableMap Old, key_type_ref K, data_type_ref D) {
-      return ImmutableMap(F.Add(Old.Root,
-                                std::make_pair<key_type,data_type>(K,D)));
+      TreeTy *T = F.Add(Old.Root, std::make_pair<key_type,data_type>(K,D));
+      return ImmutableMap(Canonicalize ? F.GetCanonicalTree(T): T);
     }
 
     ImmutableMap Remove(ImmutableMap Old, key_type_ref K) {
-      return ImmutableMap(F.Remove(Old.Root,K));
+      TreeTy *T = F.Remove(Old.Root,K);
+      return ImmutableMap(Canonicalize ? F.GetCanonicalTree(T): T);
     }
 
   private:
-    Factory(const Factory& RHS) {};
-    void operator=(const Factory& RHS) {};
+    Factory(const Factory& RHS); // DO NOT IMPLEMENT
+    void operator=(const Factory& RHS); // DO NOT IMPLEMENT
   };
-
-  friend class Factory;
 
   bool contains(key_type_ref K) const {
     return Root ? Root->contains(K) : false;
   }
-
 
   bool operator==(ImmutableMap RHS) const {
     return Root && RHS.Root ? Root->isEqual(*RHS.Root) : Root == RHS.Root;
@@ -214,7 +214,7 @@ public:
   // Utility methods.
   //===--------------------------------------------------===//
 
-  inline unsigned getHeight() const { return Root ? Root->getHeight() : 0; }
+  unsigned getHeight() const { return Root ? Root->getHeight() : 0; }
 
   static inline void Profile(FoldingSetNodeID& ID, const ImmutableMap& M) {
     ID.AddPointer(M.Root);

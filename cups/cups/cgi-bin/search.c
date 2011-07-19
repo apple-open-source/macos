@@ -1,9 +1,9 @@
 /*
  * "$Id: search.c 7720 2008-07-11 22:46:21Z mike $"
  *
- *   Search routines for the Common UNIX Printing System (CUPS).
+ *   Search routines for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -145,7 +145,7 @@ cgiCompileSearch(const char *query)	/* I - Query string */
     * Look for logic words: AND, OR
     */
 
-    if (wlen == 3 && !strncasecmp(qptr, "AND", 3))
+    if (wlen == 3 && !_cups_strncasecmp(qptr, "AND", 3))
     {
      /*
       * Logical AND with the following text...
@@ -156,7 +156,7 @@ cgiCompileSearch(const char *query)	/* I - Query string */
 
       qptr = qend;
     }
-    else if (wlen == 2 && !strncasecmp(qptr, "OR", 2))
+    else if (wlen == 2 && !_cups_strncasecmp(qptr, "OR", 2))
     {
      /*
       * Logical OR with the following text...

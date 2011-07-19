@@ -11,35 +11,3 @@ diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfi
      /** for_each callback to call free on data item */
      void  netsnmp_container_simple_free(void *data, void *context);
  
-diff -I '\$Id: ' -u -r -b -w -p -d --new-file --exclude-from=/Users/rstory/.rcfiles/diff-ignore SVN/snmplib/container.c APPLE/snmplib/container.c
---- SVN/snmplib/container.c
-+++ APPLE/snmplib/container.c
-@@ -68,10 +68,14 @@ netsnmp_container_init_list(void)
-                                netsnmp_container_get_factory("sorted_singly_linked_list"));
- 
-     netsnmp_container_register_with_compare
-+        ("cstring", netsnmp_container_get_factory("binary_array"),
-+         netsnmp_compare_direct_cstring);
-+
-+    netsnmp_container_register_with_compare
-         ("string", netsnmp_container_get_factory("binary_array"),
-          netsnmp_compare_cstring);
-     netsnmp_container_register_with_compare
--        ("string:binary_array", netsnmp_container_get_factory("binary_array"),
-+        ("string_binary_array", netsnmp_container_get_factory("binary_array"),
-          netsnmp_compare_cstring);
- 
- }
-@@ -473,6 +477,12 @@ netsnmp_ncompare_cstring(const void * lh
-                    strlen(((const container_type*)rhs)->name));
- }
- 
-+int
-+netsnmp_compare_direct_cstring(const void * lhs, const void * rhs)
-+{
-+    return strcmp((const char*)lhs, (const char*)rhs);
-+}
-+
- /*
-  * compare two memory buffers
-  *

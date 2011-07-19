@@ -39,6 +39,7 @@
 #include <stdint.h>
 
 #define EAPOL_802_1_X_ETHERTYPE		0x888e
+#define IEEE80211_PREAUTH_ETHERTYPE	0x88c7
 #define EAPOL_802_1_X_PROTOCOL_VERSION	1
 #define EAPOL_802_1_X_GROUP_ADDRESS	{ 0x01, 0x80, 0xc2, 0x00, 0x00, 0x03 }
 
@@ -152,5 +153,5 @@ EAPOLIEEE80211KeyDescriptorGetKeyDataLength(const EAPOLIEEE80211KeyDescriptorRef
     return (ntohs(*((unsigned short *)pkt->key_data_length)));
 }
 
-#endif _EAP8021X_EAPOL_H
+#endif /* _EAP8021X_EAPOL_H */
 

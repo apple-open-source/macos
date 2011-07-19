@@ -2,6 +2,7 @@
 [manpage_begin fileutil::magic::cfront n 1.0]
 [moddesc   {file utilities}]
 [titledesc {Generator core for compiler of magic(5) files}]
+[category  {Programming tools}]
 [require Tcl 8.4]
 [require fileutil::magic::cfront [opt 1.0]]
 [require fileutil::magic::cgen [opt 1.0]]

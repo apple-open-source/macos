@@ -1,0 +1,17 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+proc caption {script text args} {
+    block {
+	block $script
+	down
+	text text $text
+    } {*}$args
+}
+
+caption {
+    box width 30 height 30 ; box width 75 height 75
+} "box width 30 height 30\nbox width 75 height 75"
+
+caption {
+    box width 30 height 30 ; box width 75 height 75 with sw at [last box se]
+} "box width 30 height 30\nbox width 75 height 75 with sw at \[last box se\]" \
+    with nw at [[last block ne] by 30 e]

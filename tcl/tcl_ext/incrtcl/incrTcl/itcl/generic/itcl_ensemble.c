@@ -23,7 +23,7 @@
  *           mmclennan@lucent.com
  *           http://www.tcltk.com/itcl
  *
- *     RCS:  $Id: itcl_ensemble.c,v 1.12 2007/05/24 22:12:55 hobbs Exp $
+ *     RCS:  $Id: itcl_ensemble.c,v 1.13 2008/12/15 20:02:58 andreas_kupries Exp $
  * ========================================================================
  *           Copyright (c) 1993-1998  Lucent Technologies, Inc.
  * ------------------------------------------------------------------------
@@ -1707,7 +1707,7 @@ Itcl_EnsembleCmd(clientData, interp, objc, objv)
         if (objc == 3) {
             char msg[128];
             sprintf(msg, "\n    (\"ensemble\" body line %d)",
-                ensInfo->parser->errorLine);
+		    ERRORLINE(ensInfo->parser));
             Tcl_AddObjErrorInfo(interp, msg, -1);
         }
     }

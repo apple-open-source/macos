@@ -1,6 +1,6 @@
---- regfree.c.orig	2004-11-25 11:38:33.000000000 -0800
-+++ regfree.c	2005-04-04 15:16:04.000000000 -0700
-@@ -81,6 +81,7 @@
+--- regfree.c.bsdnew	2009-11-11 11:29:04.000000000 -0800
++++ regfree.c	2009-11-11 11:29:04.000000000 -0800
+@@ -76,6 +76,7 @@ regfree(regex_t *preg)
  			free(g->sets[i].ranges);
  			free(g->sets[i].wides);
  			free(g->sets[i].types);

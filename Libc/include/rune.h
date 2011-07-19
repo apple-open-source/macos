@@ -41,7 +41,7 @@
 
 #include <runetype.h>
 #include <stdio.h>
-#include <AvailabilityMacros.h>
+#include <Availability.h>
 
 /*--------------------------- DEPRECIATED -------------------------------
  * This interface is depreciated and will eventually be removed.  The ISO C99
@@ -60,14 +60,14 @@
 #define sputrune(c, s, n, r)    (*__sputrune)((c), (s), (n), (r))
 
 __BEGIN_DECLS
-char	*mbrune(const char *, rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-char	*mbrrune(const char *, rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-char	*mbmb(const char *, char *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-long	 fgetrune(FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-int	 fputrune(rune_t, FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-int	 fungetrune(rune_t, FILE *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-int	 setrunelocale(char *) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
-void	 setinvalidrune(rune_t) AVAILABLE_MAC_OS_X_VERSION_10_0_AND_LATER_BUT_DEPRECATED_IN_MAC_OS_X_VERSION_10_4;
+char	*mbrune(const char *, rune_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+char	*mbrrune(const char *, rune_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+char	*mbmb(const char *, char *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+long	 fgetrune(FILE *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+int	 fputrune(rune_t, FILE *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+int	 fungetrune(rune_t, FILE *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+int	 setrunelocale(char *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
+void	 setinvalidrune(rune_t) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_0, __MAC_10_4, __IPHONE_NA, __IPHONE_NA);
 __END_DECLS
 
 #endif	/*! _RUNE_H_ */

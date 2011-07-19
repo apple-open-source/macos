@@ -11,6 +11,8 @@
 #	clean:
 #
 
+
+
 include $(MAKEFILEPATH)/pb_makefiles/platform.make 
 ############################################
 # Variables
@@ -33,31 +35,44 @@ install:
 	chmod -R 755 $(DESTINATION) # Start with 755 
 	chmod 700 $(DESTINATION) # We need to set /Sytem/Library/User Template to 700
 
-	chmod 700 $(DESTINATION)"/English.lproj/Library" $(DESTINATION)"/English.lproj/Documents" $(DESTINATION)"/English.lproj/Library/Favorites" $(DESTINATION)"/English.lproj/Movies" $(DESTINATION)"/English.lproj/Music" $(DESTINATION)"/English.lproj/Pictures" $(DESTINATION)"/Non_localized/Library" $(DESTINATION)"/Non_localized/Library/Preferences" $(DESTINATION)"/English.lproj/Desktop" $(DESTINATION)"/Non_localized/Library/Preferences" $(DESTINATION)"/English.lproj/Downloads" $(DESTINATION)"/Non_localized/Library/Logs"
+	chmod 700 $(DESTINATION)"/English.lproj/Library" $(DESTINATION)"/Non_localized/Documents" $(DESTINATION)"/English.lproj/Library/Favorites" $(DESTINATION)"/English.lproj/Movies" $(DESTINATION)"/English.lproj/Music" $(DESTINATION)"/English.lproj/Pictures" $(DESTINATION)"/Non_localized/Library" $(DESTINATION)"/Non_localized/Library/Preferences" $(DESTINATION)"/English.lproj/Desktop" $(DESTINATION)"/Non_localized/Library/PreferencePanes" $(DESTINATION)"/Non_localized/Downloads" $(DESTINATION)"/Non_localized/Library/Logs" $(DESTINATION)"/Non_localized/Library/Caches"  $(DESTINATION)"/Non_localized/Library/Spelling" $(DESTINATION)"/Non_localized/Library/Colors"
 
 	chmod -R 700 $(DESTINATION)"/English.lproj/Library/Preferences" $(DESTINATION)"/English.lproj/Library/Compositions" $(DESTINATION)"/English.lproj/Library/Keyboard Layouts" $(DESTINATION)"/English.lproj/Library/Input Methods" # Set Preferences to 700
+	
 	chmod 733 $(DESTINATION)"/English.lproj/Public/Drop Box" # Drop Box gets 733
 
-	chmod 600 $(DESTINATION)"/Non_localized/Library/Preferences/com.apple.scheduler.plist" $(DESTINATION)"/Non_localized/Library/Preferences/.GlobalPreferences.plist" $(DESTINATION)"/English.lproj/Library/Preferences/.GlobalPreferences.plist" $(DESTINATION)"/English.lproj/Library/Preferences/com.apple.symbolichotkeys.plist" $(DESTINATION)"/English.lproj/Library/Favorites/.localized"
+	chmod 600 $(DESTINATION)"/Non_localized/Library/Preferences/com.apple.scheduler.plist" $(DESTINATION)"/Non_localized/Library/Preferences/com.apple.universalaccess.plist" $(DESTINATION)"/Non_localized/Library/Preferences/.GlobalPreferences.plist" $(DESTINATION)"/English.lproj/Library/Preferences/.GlobalPreferences.plist" $(DESTINATION)"/English.lproj/Library/Preferences/com.apple.symbolichotkeys.plist" $(DESTINATION)"/English.lproj/Library/Favorites/.localized"
 
-	chmod 644 $(DESTINATION)"/English.lproj/Library/FontCollections/Fixed Width.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Traditional.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Fun.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Modern.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/PDF.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Web.collection" $(DESTINATION)"/English.lproj/.CFUserTextEncoding" $(DESTINATION)"/English.lproj/Public/.localized" $(DESTINATION)"/English.lproj/Sites/.localized" $(DESTINATION)"/English.lproj/Public/Drop Box/.localized" $(DESTINATION)"/English.lproj/Library/.localized" $(DESTINATION)"/English.lproj/Desktop/.localized" $(DESTINATION)"/English.lproj/Documents/.localized" $(DESTINATION)"/English.lproj/Movies/.localized" $(DESTINATION)"/English.lproj/Downloads/.localized" $(DESTINATION)"/English.lproj/Music/.localized" $(DESTINATION)"/English.lproj/Pictures/.localized" $(DESTINATION)"/English.lproj/Library/Compositions/.localized" $(DESTINATION)"/English.lproj/Library/Input Methods/.localized"
+	chmod 644 $(DESTINATION)"/English.lproj/Library/FontCollections/Fixed Width.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Traditional.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Fun.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Modern.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/PDF.collection" $(DESTINATION)"/English.lproj/Library/FontCollections/Web.collection" $(DESTINATION)"/English.lproj/.CFUserTextEncoding" $(DESTINATION)"/English.lproj/Public/.localized" $(DESTINATION)"/English.lproj/Public/Drop Box/.localized" $(DESTINATION)"/English.lproj/Library/.localized" $(DESTINATION)"/English.lproj/Desktop/.localized" $(DESTINATION)"/English.lproj/Movies/.localized" $(DESTINATION)"/English.lproj/Music/.localized" $(DESTINATION)"/English.lproj/Pictures/.localized" $(DESTINATION)"/English.lproj/Library/Compositions/.localized" $(DESTINATION)"/English.lproj/Library/Input Methods/.localized" $(DESTINATION)"/Non_localized/Documents/.localized" $(DESTINATION)"/Non_localized/Downloads/.localized"
+#$(DESTINATION)"/English.lproj/Documents/.localized" $(DESTINATION)"/English.lproj/Downloads/.localized" $(DESTINATION)"/English.lproj/Sites/.localized" 
 
-	chmod 666 $(DESTINATION)"/English.lproj/Sites/images/gradient.jpg"
-	chmod 666 $(DESTINATION)"/English.lproj/Sites/index.html" $(DESTINATION)"/Non_localized/Sites/images/gradient.jpg"
+	#chmod 666 $(DESTINATION)"/English.lproj/Sites/images/gradient.jpg" 
+	#--03/10/11 Commented out due to <rdar://problem/9078413> remove Sites folder from default user template
+
+	#chmod 666 $(DESTINATION)"/English.lproj/Sites/index.html" $(DESTINATION)"/Non_localized/Sites/images/gradient.jpg"
+	#--03/10/11 Commented out due to <rdar://problem/9078413> remove Sites folder from default user template
 	
-	# Make sure that the About Stacks.pdf and About Downloads.pdf are not executable
-	chmod 600 $(DESTINATION)"/English.lproj/Documents/About Stacks.pdf" $(DESTINATION)"/English.lproj/Downloads/About Downloads.pdf"
 	
-	# Set the "hide extension" attribute bit of the About Stacks.pdf and About Downloads.pdf files
-	/Developer/Tools/SetFile -a E $(DESTINATION)"/English.lproj/Documents/About Stacks.pdf" $(DESTINATION)"/English.lproj/Downloads/About Downloads.pdf"
+	# Make sure that the Stacks.pdf and About Downloads.pdf are not executable
+	#chmod 600 $(DESTINATION)"/English.lproj/Documents/About Stacks.pdf" $(DESTINATION)"/English.lproj/Downloads/About Downloads.pdf"
+	chmod 600 $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf/Contents/Info.plist" $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf/Contents/Resources/English.lproj/About Stacks.pdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Info.plist" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf/Contents/Resources/English.lproj/About Downloads.pdf" 
+	
+	# remove the "everyone deny delete ACL: rdar://problem/7907271
+	# need to remove the "everyone deny delete ACL from the package: rdar://problem/9389888
+	chmod -R -N $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
 
-	chmod 700 $(DESTINATION) # We need to set /Sytem/Library/User Template to 700
+	chmod 700 $(DESTINATION) # We need to set /System/Library/User Template to 700
 	chown root:admin $(DESTINATION) # Set the Owner
 	echo "##################################"
 	ls -ald $(DESTINATION)
 	echo "##################################"
 
-	
+	# Set the "hide extension" attribute bit of the About Stacks.pdf and About Downloads.pdf files
+	/Developer/Tools/SetFile -a "E" $(DESTINATION)"/Non_localized/Documents/About Stacks.lpdf" $(DESTINATION)"/Non_localized/Downloads/About Downloads.lpdf"
+
+	# Make the ~/Library folder hidden in Finder (<rdar://problem/7889093> ~/Library should be hidden in the Finder)
+	/Developer/Tools/SetFile -a "V" $(DESTINATION)"/Non_localized/Library"
+
 # Set Symbolic Links
 	ln -s "/Library/Application Support/Apple/iChat Icons/" $(DESTINATION)"/English.lproj/Pictures/iChat Icons"
       #	ln -s ../.. $(DESTINATION)"/English.lproj/Library/Favorites/Home"

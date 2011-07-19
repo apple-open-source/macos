@@ -1,0 +1,46 @@
+Pigeonhole Sieve support
+========================
+
+Introduction
+------------
+
+The <Pigeonhole project> [Pigeonhole.txt] provides mail filtering facilities at
+time of final message delivery using the Sieve (RFC 5228
+[http://www.ietf.org/rfc/rfc5228.txt]) language. By writing Sieve scripts,
+users can customize how messages are delivered, e.g. whether they are forwarded
+or stored in special folders. The Sieve language is meant to be simple,
+extensible and system independent. And, unlike most other mail filtering script
+languages, it does not allow users to execute arbitrary programs. This is
+particularly useful to prevent virtual users from having full access to the
+mail store. The intention of the language is to make it impossible for users to
+do anything more complex (and dangerous) than write simple mail filters. See
+Sieve wiki [http://sieve.info/] for more comprehensive information about the
+Sieve language itself.
+
+Installation
+------------
+
+Refer to the <installation page> [Pigeonhole.Installation.txt].
+
+Configuration and Use
+---------------------
+
+The Pigeonhole package provides the following items:
+
+ * The <Sieve interpreter plugin> [Pigeonhole.Sieve.txt] for Dovecot's <Local
+   Delivery Agent (LDA)> [LDA.txt] or its <LMTP.txt> server: This facilitates
+   the actual Sieve filtering upon delivery.
+ * The <ManageSieve Service> [Pigeonhole.ManageSieve.txt]: This implements the
+   ManageSieve protocol through which users can remotely manage Sieve scripts
+   on the server.
+
+Contact Info
+------------
+
+ * Author: Stephan Bosch, stephan@rename-it.nl
+ * IRC: Freenode [http://freenode.net/], #dovecot, S[r]us
+ * Please use the Dovecot mailing list
+   [http://www.dovecot.org/mailinglists.html] for questions about the
+   Pigeonhole. You don't have to subscribe to it.
+
+(This file was created from the wiki on 2011-05-11 04:42)

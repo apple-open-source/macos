@@ -1,0 +1,326 @@
+diff -Nur dovecot-1.1.7+patches9-10/COPYING dovecot-patch/COPYING
+--- dovecot-1.1.7+patches9-10/COPYING	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/COPYING	2009-01-06 16:28:35.000000000 -0600
+@@ -81,6 +81,7 @@
+ src/auth/passdb-od.c
+ src/auth/userdb-od.c
+ src/mail-common/*
++src/lib/dtrace-dovecot.d
+ 
+  Copyright (c) 2008 Apple Inc. All rights reserved.
+  
+diff -Nur dovecot-1.1.7+patches9-10/configure.in dovecot-patch/configure.in
+--- dovecot-1.1.7+patches9-10/configure.in	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/configure.in	2009-01-06 16:28:51.000000000 -0600
+@@ -30,6 +30,7 @@
+ 	AC_DEFINE(MAC_OS_X,, APPLE)
+ 	AC_DEFINE(APPLE_OS_X_SERVER,, APPLE)
+ fi
++AM_CONDITIONAL(APPLE_OS_X_SERVER, test "$enable_apple" = "yes")
+ 
+ AC_ARG_ENABLE(ipv6,
+ [  --enable-ipv6           Enable IPv6 support (auto)],
+diff -Nur dovecot-1.1.7+patches9-10/src/auth/db-od.c dovecot-patch/src/auth/db-od.c
+--- dovecot-1.1.7+patches9-10/src/auth/db-od.c	2009-01-06 16:26:31.000000000 -0600
++++ dovecot-patch/src/auth/db-od.c	2009-01-06 16:29:12.000000000 -0600
+@@ -42,6 +42,10 @@
+ #include "str.h"
+ #include "var-expand.h"
+ 
++#ifdef APPLE_OS_X_SERVER
++#include "dtrace-dovecot.h"
++#endif
++
+ #include <stdlib.h>
+ #include <unistd.h>
+ #include <fcntl.h>
+@@ -600,6 +604,11 @@
+ 	out_user_rec->refcount = 1;
+ 	out_user_rec->create_time = time(NULL);
+ 
++#ifdef APPLE_OS_X_SERVER
++	if (DOVECOT_OD_LOOKUP_START_ENABLED())
++		DOVECOT_OD_LOOKUP_START(in_od_info, (char *) in_user_name);
++#endif
++
+ 	cf_query_ref = ODQueryCreateWithNode( NULL, in_od_info->od_node_ref, CFSTR(kDSStdRecordTypeUsers), CFSTR(kDSNAttrRecordName),
+ 											kODMatchInsensitiveEqualTo, cf_str_ref, cf_arry_ref, 100, &cf_err_ref );
+ 	if ( cf_query_ref )
+@@ -644,6 +653,11 @@
+ 		/* print the error and bail */
+ 		print_cf_error( cf_err_ref, "Unable to lookup user record" );
+ 
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_OD_LOOKUP_FINISH_ENABLED())
++			DOVECOT_OD_LOOKUP_FINISH(in_od_info, (char *) in_user_name, NULL);
++#endif
++
+ 		p_free(in_od_info->mem_pool, out_user_rec);
+ 
+ 		return( NULL );
+@@ -708,6 +722,11 @@
+ 
+ 	CFRelease(od_rec_ref);
+ 
++#ifdef APPLE_OS_X_SERVER
++	if (DOVECOT_OD_LOOKUP_FINISH_ENABLED())
++		DOVECOT_OD_LOOKUP_FINISH(in_od_info, (char *) in_user_name, out_user_rec);
++#endif
++
+ 	if (od_debug)
+ 		i_info("od-debug: (%s:%s): user %s refcount=%d", __FILE__, __FUNCTION__, out_user_rec->record_name, out_user_rec->refcount);
+ 	return( out_user_rec );
+@@ -733,6 +752,11 @@
+ 		sacl_check_delta = time( NULL ) + 30;
+ 	}
+ 
++#ifdef APPLE_OS_X_SERVER
++	if (DOVECOT_OD_SACL_START_ENABLED())
++		DOVECOT_OD_SACL_START(in_od_user, (char *) in_group);
++#endif
++
+ 	/* we should already have this from previous user lookup */
+ 	if ( in_od_user->user_uuid != NULL )
+ 	{
+@@ -752,6 +776,11 @@
+ 
+ 		i_error( "od: no user record name or user uuid for SACL checks" );
+ 
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_OD_SACL_FINISH_ENABLED())
++			DOVECOT_OD_SACL_FINISH(in_od_user, (char *) in_group, -1);
++#endif
++
+ 		return;
+ 	}
+ 
+@@ -766,6 +795,11 @@
+ 
+ 		i_error( "od: mbr_user_name_to_uuid failed for user: %s (%s)", in_od_user->record_name, strerror( err ) );
+ 
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_OD_SACL_FINISH_ENABLED())
++			DOVECOT_OD_SACL_FINISH(in_od_user, (char *) in_group, -2);
++#endif
++
+ 		return;
+ 	}
+ 
+@@ -797,6 +831,11 @@
+ 			in_od_user->acct_state |= account_enabled;
+ 			in_od_user->acct_state |= imap_enabled;
+ 			in_od_user->acct_state |= pop_enabled;
++
++#ifdef APPLE_OS_X_SERVER
++			if (DOVECOT_OD_SACL_FINISH_ENABLED())
++				DOVECOT_OD_SACL_FINISH(in_od_user, (char *) in_group, 1);
++#endif
+ 		}
+ 		else
+ 		{
+@@ -805,6 +844,11 @@
+ 			in_od_user->acct_state &= ~account_enabled;
+ 			in_od_user->acct_state &= ~imap_enabled;
+ 			in_od_user->acct_state &= ~pop_enabled;
++
++#ifdef APPLE_OS_X_SERVER
++			if (DOVECOT_OD_SACL_FINISH_ENABLED())
++				DOVECOT_OD_SACL_FINISH(in_od_user, (char *) in_group, 0);
++#endif
+ 		}
+ 	}
+ 	else
+@@ -818,6 +862,11 @@
+ 		{
+ 			i_info( "od-debug: (%s:%s): Mail SACL is not enabled (%d)", __FILE__, __FUNCTION__, err );
+ 		}
++
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_OD_SACL_FINISH_ENABLED())
++			DOVECOT_OD_SACL_FINISH(in_od_user, (char *) in_group, -3);
++#endif
+ 	}
+ } /* db_od_sacl_check */
+ 
+@@ -851,6 +900,11 @@
+ 				i_info("od-debug: (%s:%s): user %s refcount %d -> %d", __FILE__, __FUNCTION__, out_user->record_name, out_user->refcount, out_user->refcount + 1);
+ 			++out_user->refcount;
+ 
++#ifdef APPLE_OS_X_SERVER
++			if (DOVECOT_OD_LOOKUP_CACHED_ENABLED())
++				DOVECOT_OD_LOOKUP_CACHED(in_od_info, (char *) in_user_name, out_user);
++#endif
++
+ 			/* check for SACL changes */
+ 			db_od_sacl_check( out_user, "mail" );
+ 
+diff -Nur dovecot-1.1.7+patches9-10/src/imap/client.c dovecot-patch/src/imap/client.c
+--- dovecot-1.1.7+patches9-10/src/imap/client.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/imap/client.c	2009-01-06 16:29:26.000000000 -0600
+@@ -12,6 +12,9 @@
+ #include "mail-namespace.h"
+ #include "master.h"		/* APPLE */
+ #include "ioloop.h"		/* APPLE */
++#ifdef APPLE_OS_X_SERVER
++#include "dtrace-dovecot.h"
++#endif
+ 
+ #include <stdlib.h>
+ #include <unistd.h>
+@@ -532,6 +535,11 @@
+ 
+ 	*_cmd = NULL;
+ 
++#ifdef APPLE_OS_X_SERVER
++	if (DOVECOT_IMAP_COMMAND_FINISH_ENABLED() && cmd->func)
++		DOVECOT_IMAP_COMMAND_FINISH(cmd);
++#endif
++
+ 	/* reset input idle time because command output might have taken a
+ 	   long time and we don't want to disconnect client immediately then */
+ 	client->last_input = ioloop_time;
+@@ -722,6 +730,11 @@
+ 	} else {
+ 		i_assert(!client->disconnected);
+ 
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_IMAP_COMMAND_START_ENABLED())
++			DOVECOT_IMAP_COMMAND_START(cmd);
++#endif
++
+ 		return client_command_input(cmd);
+ 	}
+ }
+diff -Nur dovecot-1.1.7+patches9-10/src/lib/Makefile.am dovecot-patch/src/lib/Makefile.am
+--- dovecot-1.1.7+patches9-10/src/lib/Makefile.am	2009-01-06 16:26:07.000000000 -0600
++++ dovecot-patch/src/lib/Makefile.am	2009-01-06 16:29:44.000000000 -0600
+@@ -8,6 +8,13 @@
+ 	test -f UnicodeData.txt || wget http://www.unicode.org/Public/UNIDATA/UnicodeData.txt
+ 	perl $(srcdir)/unicodemap.pl < UnicodeData.txt > $@
+ 
++if APPLE_OS_X_SERVER
++DTRACE_SOURCE = dtrace-dovecot.d
++DTRACE_HEADER = dtrace-dovecot.h
++$(DTRACE_HEADER): $(DTRACE_SOURCE)
++	dtrace -h -s $(DTRACE_SOURCE)
++endif
++
+ liblib_a_SOURCES = \
+ 	array.c \
+ 	aqueue.c \
+@@ -19,6 +26,7 @@
+ 	compat.c \
+ 	crc32.c \
+ 	data-stack.c \
++	$(DTRACE_SOURCE) \
+ 	env-util.c \
+ 	failures.c \
+ 	fd-close-on-exec.c \
+@@ -118,6 +126,7 @@
+ 	compat.h \
+ 	crc32.h \
+ 	data-stack.h \
++	$(DTRACE_HEADER) \
+ 	env-util.h \
+ 	failures.h \
+ 	fd-close-on-exec.h \
+diff -Nur dovecot-1.1.7+patches9-10/src/lib/dtrace-dovecot.d dovecot-patch/src/lib/dtrace-dovecot.d
+--- dovecot-1.1.7+patches9-10/src/lib/dtrace-dovecot.d	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-patch/src/lib/dtrace-dovecot.d	2009-01-06 16:33:59.000000000 -0600
+@@ -0,0 +1,61 @@
++/* Dtrace providers for IMAP and POP3 */
++
++/*
++ * Copyright (c) 2008 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++/*
++ * Dtrace sort of but not really understands struct types.  To avoid
++ * warnings the arguments use only simple C types.  The actual types
++ * are:
++ *	struct db_od *od_info
++ *	struct od_user *user_rec
++ *	struct client_command_context *cmd
++ *	struct client *client
++ * Dtrace doesn't understand const either.  Phooey.
++ */
++
++provider dovecot {
++	probe od__lookup__cached(void *od_info, char *user_name,
++				 void *user_rec);
++	probe od__lookup__start(void *od_info, char *user_name);
++	probe od__lookup__finish(void *od_info, char *user_name,
++				 void *user_rec);
++
++	probe od__sacl__start(void *user_rec, char *group);
++	probe od__sacl__finish(void *user_rec, char *group, int ret);
++
++	probe imap__command__start(void *cmd);
++	probe imap__command__finish(void *cmd);
++
++	probe pop3__command__start(void *client, char *line, char *args);
++	probe pop3__command__finish(void *client, char *line, char *args,
++				    int ret);
++};
+diff -Nur dovecot-1.1.7+patches9-10/src/pop3/client.c dovecot-patch/src/pop3/client.c
+--- dovecot-1.1.7+patches9-10/src/pop3/client.c	2009-01-06 16:26:35.000000000 -0600
++++ dovecot-patch/src/pop3/client.c	2009-01-06 16:30:17.000000000 -0600
+@@ -14,6 +14,9 @@
+ #include "mail-namespace.h"
+ #include "master.h"		/* APPLE */
+ #include "ioloop.h"		/* APPLE */
++#ifdef APPLE_OS_X_SERVER
++#include "dtrace-dovecot.h"
++#endif
+ 
+ #include <stdlib.h>
+ #include <unistd.h>
+@@ -487,10 +490,21 @@
+ 		if (args != NULL)
+ 			*args++ = '\0';
+ 
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_POP3_COMMAND_START_ENABLED())
++			DOVECOT_POP3_COMMAND_START(client, line, args);
++#endif
++
+ 		T_BEGIN {
+ 			ret = client_command_execute(client, line,
+ 						     args != NULL ? args : "");
+ 		} T_END;
++
++#ifdef APPLE_OS_X_SERVER
++		if (DOVECOT_POP3_COMMAND_FINISH_ENABLED())
++			DOVECOT_POP3_COMMAND_FINISH(client, line, args, ret);
++#endif
++
+ 		if (ret >= 0) {
+ 			client->bad_counter = 0;
+ 			if (client->cmd != NULL) {

@@ -1,75 +1,92 @@
-.\" -*- nroff -*-
-.TH AMAVISD 8 Ammavisd-new
-.\" 
-.\" Copyright (c) 1998-2000 Carnegie Mellon University.  All rights reserved.
+.\"	from: @(#)amavisd.8
 .\"
-.\" This is amavisd-new.
-.\" It is a high-performance interface between message transfer agent (MTA)
-.\" and virus scanners and/or spam scanners.
-.\"
-.\" It is a performance-enhanced and feature-enriched version of amavisd
-.\" (which in turn is a daemonized version of AMaViS), initially based
-.\" on amavisd-snapshot-20020300).
-.\"
-.\" All work since amavisd-snapshot-20020300:
-.\"   Copyright (C) 2002  Mark Martinec,  All Rights Reserved.
-.\" with contributions from the amavis-* mailing lists and individuals,
-.\" as acknowledged in the release notes.
-.\"
-.\"    This program is free software; you can redistribute it and/or modify
-.\"    it under the terms of the GNU General Public License as published by
-.\"    the Free Software Foundation; either version 2 of the License, or
-.\"    (at your option) any later version.
-.\"
-.\"    This program is distributed in the hope that it will be useful,
-.\"    but WITHOUT ANY WARRANTY; without even the implied warranty of
-.\"    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-.\"    GNU General Public License for more details.
-.\"
-.\"    You should have received a copy of the GNU General Public License
-.\"    along with this program; if not, write to the Free Software
-.\"    Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
-.\"
-.\" Author: Mark Martinec <mark.martinec@ijs.si>
-.\" Patches and problem reports are welcome.
-.\"
-.\" The latest version of this program is available at:
-.\"   http://www.ijs.si/software/amavisd/
-.\"------------------------------------------------------------------------------
-.\"
-.\" Here is a boilerplate from the amavisd(-snapshot) version,
-.\" which is the version that served as a base code for the initial
-.\" version of amavisd-new. License terms were the same:
-.\"
-.\"   Author:  Chris Mason <cmason@unixzone.com>
-.\"   Current maintainer: Lars Hecking <lhecking@users.sourceforge.net>
-.\"   Based on work by:
-.\"         Mogens Kjaer, Carlsberg Laboratory, <mk@crc.dk>
-.\"         Juergen Quade, Softing GmbH, <quade@softing.com>
-.\"         Christian Bricart <shiva@aachalon.de>
-.\"   This script is part of the AMaViS package.  For more information see:
-.\"     http://amavis.org/
-.\"   Copyright (C) 2000 - 2002 the people mentioned above
-.\"   This software is licensed under the GNU General Public License (GPL)
-.\"   See:  http://www.gnu.org/copyleft/gpl.html
-.\"------------------------------------------------------------------------------
-.\" 
-.\" $Id: amavisd.8,v 1.1 2006/03/15 20:26:48 dasenbro Exp $
-.SH NAME
-amavisd \- Amavisd-new daemon
-.SH SYNOPSIS
-.B amavisd
-.SH DESCRIPTION
-.I Amavisd
-is set up to act as a mini-SMTP server.
-.PP
-.SH OPTIONS
-.TP
-.BI " Debug"
-Debug option.
-.SH FILES
-.TP
-.B N/A
-.SH SEE ALSO
-.PP
-\fB\fR
+.Dd February 25, 2010
+.Dt AMAVISD 8
+.Os
+.Sh NAME
+.Nm amavisd
+.Nd Interface between Mail Transfer Agent (MTA) and virus scanner & content filters
+.Sh SYNOPSIS
+.Nm
+.Op Fl hV
+.Op Fl u Ar user-id
+.Op Fl g Ar group-id
+.Op Fl c Ar config-file
+.Op Fl i Ar instance-name
+.Op Fl m Ar max-servers
+.br
+.Op Fl p Ar listen-port-or-socket
+.Op Fl L Ar lock-file
+.Op Fl P Ar pid-file
+.Op Fl H Ar home-dir
+.Op Fl D Ar db-home-dir
+.Op Fl Q Ar quarantine-dir
+.Op Fl R Ar chroot-dir
+.Op Fl S Ar helpers-home-dir
+.Op Fl T Ar tempbase-dir
+.Op start | stop | reload | debug | debug-sa | foreground | showkeys {domains} | testkeys {domains} | genrsa file-name [nbits] convert-keysfile file-name
+.Sh DESCRIPTION
+.Nm
+is a high-performance interface between Mail Transfer Agent (MTA) and virus scanners and/or junk-mail scanners.
+.Pp
+This is the amavisd-new incarnation of amavisd. It is a performance-enhanced and feature-enriched version of the original amavisd program.
+.Pp
+Amavisd works as a SMTP proxy. Email is fed to it through SMTP, processed, and then fed back to the MTA through a new SMTP connection. There is no buffering to disk by amavis, it will report that the transfer was sucessfull only after the forwarding MTA has accepted the message.
+.Sh OPTIONS
+The following options can be used with
+.Nm :
+.Bl -tag -width indent
+.It Fl u Ar user-id
+Run using this user id.
+.It Fl g Ar group-id
+Run using this group id.
+.It Fl c Ar config-file
+Use the specified configuration file instead of the default
+.Pa /etc/amavisd.conf
+.It Fl i Ar instance-name
+.It Fl m Ar max-servers
+Maximum number of pre-forked children
+.It Fl p Ar listen-port-or-socket
+Listen on specified local TCP port(s) instead of the default
+.Pa 10024,10026
+.It Fl L Ar lock-file
+Use the specified lock file instead of the default
+.Pa /var/amavis/amavisd.lock
+.It Fl P Ar pid-file
+Use the specified PID file instead of the default
+.Pa /var/amavis/amavisd.pid
+.It Fl H Ar home-dir
+Use the specified home directory instead of the default
+.Pa /var/amavis
+.It Fl D Ar db-home-dir
+Use the specified directory for for bdb, nanny, cache, snmp and databases instead of the default
+.Pa /var/amavis/db
+.It Fl Q Ar quarantine-dir
+Use the specified quarantine directory instead of the default
+.Pa /var/virusmails
+.It Fl R Ar chroot-dir
+Use the specified chroot directory instead of the default
+.Pa /var/amavis
+.It Fl S Ar helpers-home-dir
+Use the specified chroot directory instead of the default
+.Pa /var/amavis
+.It Fl T Ar tempbase-dir
+Use the specified temporary directory instead of the default
+.Pa /var/amavis/tmp
+.El
+.Sh FILES
+.Bl -tag -width /etc/amavisd.conf -compact
+.It Pa /etc/amavisd.conf
+.It Pa /var/db
+.It Pa /var/tmp
+.It Pa /var/amavis
+.It Pa /var/amavis/amavisd.lock
+.It Pa /var/amavis/amavisd.pid
+.It Pa /var/virusmails
+.Nm
+configuration file
+.El
+.Sh "SEE ALSO"
+.Xr postfix 1
+.Xr spamassassin 1
+.Xr clamd 8

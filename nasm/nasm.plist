@@ -9,6 +9,8 @@
 	<string>0.98.40</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://sourceforge.net/projects/nasm/</string>
+	<key>OpenSourceSCM</key>
+	<string>http://repo.or.cz/w/nasm.git</string>
 	<key>OpenSourceModifications</key>
 	<array/>
 	<key>OpenSourceLicense</key>

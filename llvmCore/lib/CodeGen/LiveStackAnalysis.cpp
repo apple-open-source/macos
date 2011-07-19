@@ -15,10 +15,13 @@
 
 #define DEBUG_TYPE "livestacks"
 #include "llvm/CodeGen/LiveStackAnalysis.h"
+#include "llvm/CodeGen/LiveIntervalAnalysis.h"
 #include "llvm/CodeGen/Passes.h"
 #include "llvm/Target/TargetRegisterInfo.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/Statistic.h"
+#include <limits>
 using namespace llvm;
 
 char LiveStacks::ID = 0;
@@ -26,12 +29,14 @@ static RegisterPass<LiveStacks> X("livestacks", "Live Stack Slot Analysis");
 
 void LiveStacks::getAnalysisUsage(AnalysisUsage &AU) const {
   AU.setPreservesAll();
+  AU.addPreserved<SlotIndexes>();
+  AU.addRequiredTransitive<SlotIndexes>();
   MachineFunctionPass::getAnalysisUsage(AU);
 }
 
 void LiveStacks::releaseMemory() {
   // Release VNInfo memroy regions after all VNInfo objects are dtor'd.
-  VNInfoAllocator.Reset();
+  VNInfoAllocator.DestroyAll();
   S2IMap.clear();
   S2RCMap.clear();
 }
@@ -43,15 +48,16 @@ bool LiveStacks::runOnMachineFunction(MachineFunction &) {
 }
 
 /// print - Implement the dump method.
-void LiveStacks::print(std::ostream &O, const Module*) const {
-  O << "********** INTERVALS **********\n";
+void LiveStacks::print(raw_ostream &OS, const Module*) const {
+
+  OS << "********** INTERVALS **********\n";
   for (const_iterator I = begin(), E = end(); I != E; ++I) {
-    I->second.print(O);
+    I->second.print(OS);
     int Slot = I->first;
     const TargetRegisterClass *RC = getIntervalRegClass(Slot);
     if (RC)
-      O << " [" << RC->getName() << "]\n";
+      OS << " [" << RC->getName() << "]\n";
     else
-      O << " [Unknown]\n";
+      OS << " [Unknown]\n";
   }
 }

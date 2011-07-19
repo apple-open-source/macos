@@ -42,18 +42,15 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Servicio no disponible!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="Servicio no disponible!" -->
+<!--#include virtual="include/top.html" -->
 
-	El servidor no puede atender su solicitud por
-	el momento debido a problemas de mantenimiento
-	o de capacidad.
-
-	Le solicitamos que por favor repita la operaci&oacute;n
-	m&aacute;s tarde.
+   Por el momento el servidor no puede atender su solicitud
+   debido a que est&aacute; en mantenimiento o a que tiene
+   problemas de capacidad. Por favor intente nuevamente
+   m&aacute;s tarde.
 
 <!--#include virtual="include/bottom.html" -->
 ----------es--
@@ -172,6 +169,20 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Servi&ccedil;o indispon&iacute;vel!"
+--><!--#include virtual="include/top.html" -->
+
+	O servidor est&aacute; tempor&aacute;riamente incapaz de servir
+	o seu pedido devido a uma interrup&ccedil;&atilde;o para
+	manuten&ccedil;&atilde;o ou problemas de capacidade. Por favor
+	tente de novo mais tarde.
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

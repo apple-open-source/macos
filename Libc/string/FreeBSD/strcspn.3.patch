@@ -1,6 +1,6 @@
---- _SB/Libc/string/FreeBSD/strcspn.3	2003-05-20 15:23:54.000000000 -0700
-+++ _SB/Libc/string/FreeBSD/strcspn.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -47,27 +47,29 @@
+--- strcspn.3.orig	2009-11-30 13:52:23.000000000 -0800
++++ strcspn.3	2009-11-30 14:57:01.000000000 -0800
+@@ -43,28 +43,31 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft size_t
@@ -28,12 +28,15 @@
  of
 -.Fa charset ) .
 +.Fa s2 ) .
+ In other words, it computes the string array index in
+-.Fa s
++.Fa s1
+ of the first character of
+-.Fa s
++.Fa s1
+ which is also in
+-.Fa charset ,
++.Fa s2 ,
+ else the index of the first null character.
  .Sh RETURN VALUES
  The
- .Fn strcspn
--function
--returns the number of characters spanned.
-+function returns the number of characters spanned.
- .Sh SEE ALSO
- .Xr memchr 3 ,
- .Xr strchr 3 ,

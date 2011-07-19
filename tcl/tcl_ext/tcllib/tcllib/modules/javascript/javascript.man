@@ -2,6 +2,7 @@
 [manpage_begin javascript n 1.0.2]
 [moddesc   {HTML and Java Script Generation}]
 [titledesc {Procedures to generate HTML and Java Script structures.}]
+[category  {CGI programming}]
 [require Tcl 8]
 [require javascript [opt 1.0.2]]
 [description]

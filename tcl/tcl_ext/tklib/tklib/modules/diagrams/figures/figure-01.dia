@@ -1,0 +1,11 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+ellipse "document"
+arrow
+box "gpic(1)"
+arrow
+box "gtbl (1) or geqn (1)" "(optional)" dashed width [4 cm]
+arrow
+box "gtroff(1)"
+arrow
+ellipse "PostScript"

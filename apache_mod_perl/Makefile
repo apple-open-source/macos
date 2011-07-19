@@ -1,6 +1,5 @@
 Project        = mod_perl
-ProjectVersion = $(Project)-2.0.4
-Patches        = CVE-2009-0796.diff
+ProjectVersion = $(Project)-2.0.5
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 
@@ -22,13 +21,6 @@ PERLEXTRASARCHLIB := $(subst Perl,Perl/Extras,$(PERLARCHLIB))
 install::
 	@echo "--> Extracting..."
 	$(TAR) -C $(OBJROOT) -zxf $(SRCROOT)/$(ProjectVersion).tar.gz
-
-	@echo "--> Applying patches..."
-	@set -x && \
-	cd $(OBJROOT)/$(ProjectVersion) && \
-	for patch in $(Patches); do \
-		patch -p0 -F0 -i $(SRCROOT)/files/$${patch}; \
-	done
 
 	@echo "--> Building/installing..."
 	@set -x && \

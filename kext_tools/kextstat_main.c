@@ -39,14 +39,16 @@
 // not a utility.[ch] customer yet
 static const char * progname = "(unknown)";
 
+void printPList_new(FILE * stream, CFTypeRef aPlist);
 /*******************************************************************************
 *
 *******************************************************************************/
 ExitStatus main(int argc, char * const * argv)
 {
-    ExitStatus   result = EX_OK;
-    KextstatArgs toolArgs;
-    CFIndex      count, i;
+    ExitStatus          result        = EX_OK;
+    KextstatArgs        toolArgs;
+    CFDictionaryRef   * kextInfoList  = NULL;  // must free
+    CFIndex             count, i;
 
     if (argv[0]) {
         progname = argv[0];
@@ -70,7 +72,8 @@ ExitStatus main(int argc, char * const * argv)
         goto finish;
     }
 
-    toolArgs.loadedKextInfo = OSKextCreateLoadedKextInfo(toolArgs.bundleIDs);
+    toolArgs.loadedKextInfo = OSKextCopyLoadedKextInfo(toolArgs.bundleIDs,
+        NULL /* all info */);
 
     if (!toolArgs.loadedKextInfo) {
         OSKextLog(/* kext */ NULL,
@@ -89,16 +92,29 @@ ExitStatus main(int argc, char * const * argv)
             "Name (Version) <Linked Against>\n");
     }
 
-    count = CFArrayGetCount(toolArgs.loadedKextInfo);
+    count = CFDictionaryGetCount(toolArgs.loadedKextInfo);
+    if (!count) {
+        goto finish;
+    }
+
+    kextInfoList = (CFDictionaryRef *)malloc(count * sizeof(CFDictionaryRef));
+    if (!kextInfoList) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        goto finish;
+    }
+
+    CFDictionaryGetKeysAndValues(toolArgs.loadedKextInfo, /* keys */ NULL,
+        (const void **)kextInfoList);
+    qsort(kextInfoList, count, sizeof(CFDictionaryRef), &compareKextInfo);
     for (i = 0; i < count; i++) {
-        CFDictionaryRef kextInfo = (CFDictionaryRef)CFArrayGetValueAtIndex(
-            toolArgs.loadedKextInfo, i);
-            
-        printKextInfo(kextInfo, &toolArgs);
+        printKextInfo(kextInfoList[i], &toolArgs);
     }
 
 finish:
     exit(result);
+
+    SAFE_FREE(kextInfoList);
 
     return result;
 }
@@ -246,6 +262,13 @@ void printKextInfo(CFDictionaryRef kextInfo, KextstatArgs * toolArgs)
     if (!getNumValue(loadTag, kCFNumberSInt32Type, &loadTagValue)) {
         loadTagValue = kOSKextInvalidLoadTag;
     }
+
+   /* Never print the info for the kernel (loadTag 0, id __kernel__).
+    */
+    if (loadTagValue == 0) {
+        goto finish;
+    }
+
     if (!getNumValue(retainCount, kCFNumberSInt32Type, &retainCountValue)) {
         retainCountValue = (uint32_t)-1;
     }
@@ -355,10 +378,41 @@ finish:
 *******************************************************************************/
 Boolean getNumValue(CFNumberRef aNumber, CFNumberType type, void * valueOut)
 {
-    if (aNumber) {
+    if (aNumber && (CFNumberGetTypeID() == CFGetTypeID(aNumber))) {
         return CFNumberGetValue(aNumber, type, valueOut);
     }
     return false;
+}
+
+/*******************************************************************************
+*******************************************************************************/
+int compareKextInfo(const void * vKextInfo1, const void * vKextInfo2)
+{
+    int             result = 0;
+    CFDictionaryRef kextInfo1 = *(CFDictionaryRef *)vKextInfo1;
+    CFDictionaryRef kextInfo2 = *(CFDictionaryRef *)vKextInfo2;
+    CFNumberRef     loadTag1 = CFDictionaryGetValue(kextInfo1, CFSTR(kOSBundleLoadTagKey));
+    CFNumberRef     loadTag2 = CFDictionaryGetValue(kextInfo2, CFSTR(kOSBundleLoadTagKey));
+    OSKextLoadTag   tag1Value = kOSKextInvalidLoadTag;
+    OSKextLoadTag   tag2Value = kOSKextInvalidLoadTag;
+    
+    getNumValue(loadTag1, kCFNumberSInt32Type, &tag1Value);
+    getNumValue(loadTag2, kCFNumberSInt32Type, &tag2Value);
+
+    if (tag1Value == tag2Value) {
+       /* Whether invalid or valid, same is same. */
+        result = 0;
+    } else if (tag1Value == kOSKextInvalidLoadTag) {
+        result = -1;
+    } else if (tag2Value == kOSKextInvalidLoadTag) {
+        result = 1;
+    } else if (tag1Value < tag2Value) {  
+        result = -1;
+    } else if (tag2Value < tag1Value) {  
+        result = 1;
+    }
+    
+    return result;
 }
 
 /*******************************************************************************

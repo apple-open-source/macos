@@ -26,9 +26,11 @@
 #include "stdio.h"
 #include <signal.h>
 #include <sys/wait.h>
+#include <sys/file.h>
 #include "stuff/errors.h"
 #include "stuff/allocate.h"
 #include "stuff/execute.h"
+#include "mach-o/dyld.h"
 
 /*
  * execute() does an execvp using the argv passed to it.  If the parameter
@@ -121,6 +123,50 @@ char *str)
 	}
 	runlist.strings[runlist.next++] = str;
 	runlist.strings[runlist.next] = (char *)0;
+}
+
+/*
+ * This routine is passed a string to be added to the list of strings for 
+ * command line arguments and is then prefixed with the path of the executable.
+ */
+__private_extern__
+void
+add_execute_list_with_prefix(
+char *str)
+{
+	add_execute_list(cmd_with_prefix(str));
+}
+
+/*
+ * This routine is passed a string of a command name and a string is returned
+ * prefixed with the path of the executable and that command name.
+ */
+__private_extern__
+char *
+cmd_with_prefix(
+char *str)
+{
+	int i;
+	char *p;
+	char *prefix, buf[MAXPATHLEN], resolved_name[PATH_MAX];
+	unsigned long bufsize;
+
+	/*
+	 * Construct the prefix to the program running.
+	 */
+	bufsize = MAXPATHLEN;
+	p = buf;
+	i = _NSGetExecutablePath(p, &bufsize);
+	if(i == -1){
+	    p = allocate(bufsize);
+	    _NSGetExecutablePath(p, &bufsize);
+	}
+	prefix = realpath(p, resolved_name);
+	p = rindex(prefix, '/');
+	if(p != NULL)
+	    p[1] = '\0';
+
+	return(makestr(prefix, str, NULL));
 }
 
 /*

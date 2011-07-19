@@ -1,79 +1,11 @@
---- mktemp.c.orig	Tue Mar 30 22:56:07 2004
-+++ mktemp.c	Tue Mar 30 23:39:22 2004
-@@ -40,6 +40,7 @@
- #include "namespace.h"
- #include <sys/types.h>
- #include <sys/stat.h>
-+#include <sys/syslimits.h>
- #include <fcntl.h>
- #include <errno.h>
- #include <stdio.h>
-@@ -106,13 +107,14 @@
- 	int domkdir;
- 	int slen;
- {
--	char *start, *trv, *suffp;
-+	char *start, *trv, *suffp, *carryp;
- 	char *pad;
- 	struct stat sbuf;
- 	int rval;
- 	uint32_t rand;
-+	char carrybuf[NAME_MAX];
+--- mktemp.c.orig	2010-04-08 10:37:06.000000000 -0700
++++ mktemp.c	2010-04-08 10:40:05.000000000 -0700
+@@ -130,7 +130,7 @@ _gettemp(path, doopen, domkdir, slen)
  
--	if (doopen != NULL && domkdir) {
-+	if ((doopen != NULL && domkdir) || slen < 0) {
- 		errno = EINVAL;
- 		return (0);
- 	}
-@@ -122,7 +124,7 @@
- 	trv -= slen;
- 	suffp = trv;
- 	--trv;
--	if (trv < path) {
-+	if (trv < path || NULL != strchr(suffp, '/')) {
- 		errno = EINVAL;
- 		return (0);
- 	}
-@@ -134,6 +136,9 @@
+ 	/* Fill space with random characters */
+ 	while (trv >= path && *trv == 'X') {
+-		rand = arc4random_uniform(sizeof(padchar) - 1);
++		rand = arc4random() % (sizeof(padchar) - 1);
+ 		*trv-- = padchar[rand];
  	}
  	start = trv + 1;
- 
-+	/* save first combination of random characters */
-+	memcpy(carrybuf, start, suffp - start);
-+
- 	/*
- 	 * check the target directory.
- 	 */
-@@ -170,14 +175,25 @@
- 			return (errno == ENOENT);
- 
- 		/* If we have a collision, cycle through the space of filenames */
--		for (trv = start;;) {
--			if (*trv == '\0' || trv == suffp)
--				return (0);
-+		for (trv = start, carryp = carrybuf;;) {
-+			/* have we tried all possible permutations? */
-+			if (trv == suffp)
-+				return (0); /* yes - exit with EEXIST */
- 			pad = strchr(padchar, *trv);
--			if (pad == NULL || *++pad == '\0')
--				*trv++ = padchar[0];
--			else {
--				*trv++ = *pad;
-+			if (pad == NULL) {
-+				/* this should never happen */
-+				errno = EIO;
-+				return (0);
-+			}
-+			/* increment character */
-+			*trv = (*++pad == '\0') ? padchar[0] : *pad;
-+			/* carry to next position? */
-+			if (*trv == *carryp) {
-+				/* increment position and loop */
-+				++trv;
-+				++carryp;
-+			} else {
-+				/* try with new name */
- 				break;
- 			}
- 		}

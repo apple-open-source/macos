@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -267,7 +267,9 @@ get_my_host_names(void)
 	struct ifaddrs *ifaddrs, *ifaddr;
 	struct sockaddr *addr;
 	struct sockaddr_in *addr_in;
+#if 0
 	struct sockaddr_in6 *addr_in6;
+#endif
 	int error_num;
 	struct hostent **hostinfop;
 	struct hostent *hostinfo;
@@ -339,12 +341,14 @@ get_my_host_names(void)
 			    &error_num);
 			break;
 
+#if 0	// until IPv6 reverse-DNS lookups are fixed - 8650817
 		case AF_INET6:
 			addr_in6 = (struct sockaddr_in6 *)addr;
 			hostinfo = getipnodebyaddr(&addr_in6->sin6_addr,
 			    sizeof addr_in6->sin6_addr, addr->sa_family,
 			    &error_num);
 			break;
+#endif
 
 		default:
 			hostinfo = NULL;

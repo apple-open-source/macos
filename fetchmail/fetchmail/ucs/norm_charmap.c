@@ -25,6 +25,7 @@
  */
 
 #include "config.h" /* import AC_C_CONST effects */
+#include "norm_charmap.h"
 
 #include <string.h>
 
@@ -40,7 +41,7 @@ static char buf[16];
 
 const char *norm_charmap(const char *name)
 {
-  char *p;
+  const char *p;
   
   if (!name)
     return name;
@@ -84,7 +85,7 @@ const char *norm_charmap(const char *name)
     p += 5;
     if (digit(*p)) {
       buf[9] = *p++;
-      if (digit(*p)) buf[10] = *p++;
+      if (digit(*p)) buf[10] = *p;
       return buf;
     }
   }
@@ -95,7 +96,7 @@ const char *norm_charmap(const char *name)
     p += 4;
     if (digit(*p)) {
       buf[10] = *p++;
-      if (digit(*p)) buf[11] = *p++;
+      if (digit(*p)) buf[11] = *p;
       return buf;
     }
   }

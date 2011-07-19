@@ -10,10 +10,7 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by John Birrell.
- * 4. Neither the name of the author nor the names of any co-contributors
+ * 3. Neither the name of the author nor the names of any co-contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
  *
@@ -38,7 +35,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/_flock_stub.c,v 1.14 2004/03/09 04:51:58 jb Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/_flock_stub.c,v 1.16 2008/04/17 22:17:53 jhb Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -58,31 +55,21 @@ __weak_reference(_flockfile_debug_stub, _flockfile_debug);
 __weak_reference(_ftrylockfile, ftrylockfile);
 __weak_reference(_funlockfile, funlockfile);
 
-/*
- * We need to retain binary compatibility for a while.  So pretend
- * that _lock is part of FILE * even though it is dereferenced off
- * _extra now.  When we stop encoding the size of FILE into binaries
- * this can be changed in stdio.h.  This will reduce the amount of
- * code that has to change in the future (just remove this comment
- * and #define).
- */
-#define _lock _extra
-
 void
 _flockfile(FILE *fp)
 {
 	pthread_t curthread = _pthread_self();
 
-	if (fp->_lock->fl_owner == curthread)
-		fp->_lock->fl_count++;
+	if (fp->_fl_owner == curthread)
+		fp->_fl_count++;
 	else {
 		/*
 		 * Make sure this mutex is treated as a private
 		 * internal mutex:
 		 */
-		_pthread_mutex_lock(&fp->_lock->fl_mutex);
-		fp->_lock->fl_owner = curthread;
-		fp->_lock->fl_count = 1;
+		_pthread_mutex_lock(&fp->_fl_mutex);
+		fp->_fl_owner = curthread;
+		fp->_fl_count = 1;
 	}
 }
 
@@ -101,15 +88,15 @@ _ftrylockfile(FILE *fp)
 	pthread_t curthread = _pthread_self();
 	int	ret = 0;
 
-	if (fp->_lock->fl_owner == curthread)
-		fp->_lock->fl_count++;
+	if (fp->_fl_owner == curthread)
+		fp->_fl_count++;
 	/*
 	 * Make sure this mutex is treated as a private
 	 * internal mutex:
 	 */
-	else if (_pthread_mutex_trylock(&fp->_lock->fl_mutex) == 0) {
-		fp->_lock->fl_owner = curthread;
-		fp->_lock->fl_count = 1;
+	else if (_pthread_mutex_trylock(&fp->_fl_mutex) == 0) {
+		fp->_fl_owner = curthread;
+		fp->_fl_count = 1;
 	}
 	else
 		ret = -1;
@@ -124,26 +111,26 @@ _funlockfile(FILE *fp)
 	/*
 	 * Check if this file is owned by the current thread:
 	 */
-	if (fp->_lock->fl_owner == curthread) {
+	if (fp->_fl_owner == curthread) {
 		/*
 		 * Check if this thread has locked the FILE
 		 * more than once:
 		 */
-		if (fp->_lock->fl_count > 1)
+		if (fp->_fl_count > 1)
 			/*
 			 * Decrement the count of the number of
 			 * times the running thread has locked this
 			 * file:
 			 */
-			fp->_lock->fl_count--;
+			fp->_fl_count--;
 		else {
 			/*
 			 * The running thread will release the
 			 * lock now:
 			 */
-			fp->_lock->fl_count = 0;
-			fp->_lock->fl_owner = NULL;
-			_pthread_mutex_unlock(&fp->_lock->fl_mutex);
+			fp->_fl_count = 0;
+			fp->_fl_owner = NULL;
+			_pthread_mutex_unlock(&fp->_fl_mutex);
 		}
 	}
 }

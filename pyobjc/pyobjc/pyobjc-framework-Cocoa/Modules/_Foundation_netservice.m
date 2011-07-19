@@ -3,14 +3,10 @@
  *
  * -addresses				[call]
  */
-#include <Python.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <sys/un.h>
 #include <netdb.h>
-
-#include <Foundation/Foundation.h>
-#include "pyobjc-api.h"
 
 
 static PyObject *
@@ -28,7 +24,7 @@ makeipaddr(struct sockaddr *addr, int addrlen)
 		Py_DECREF(v);
 		return NULL;
 	}
-	return PyString_FromString(buf);
+	return PyBytes_FromString(buf);
 }
 
 static PyObject *
@@ -58,7 +54,7 @@ makesockaddr(struct sockaddr *addr, int addrlen)
 	case AF_UNIX:
 	{
 		struct sockaddr_un *a = (struct sockaddr_un *) addr;
-		return PyString_FromString(a->sun_path);
+		return PyBytes_FromString(a->sun_path);
 	}
 
 	case AF_INET6:
@@ -110,7 +106,7 @@ static PyObject* call_NSNetService_addresses(
 			PyObjCObject_GetObject(self));
 
 			
-		res = objc_msgSendSuper(&super, @selector(addresses));
+		res = ((id(*)(struct objc_super*, SEL))objc_msgSendSuper)(&super, @selector(addresses));
 	PyObjC_HANDLER
 		PyObjCErr_FromObjC(localException);
 		res = nil;
@@ -149,22 +145,11 @@ static PyObject* call_NSNetService_addresses(
 }
 
 
-static PyMethodDef _methods[] = {
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void
-init_netservice(void)
+static int setup_nsnetservice(PyObject* m __attribute__((__unused__)))
 {
-	PyObject* m = Py_InitModule4("_netservice", _methods, "", NULL, 
-			PYTHON_API_VERSION);
-	if (m == NULL) return;
-	if (PyObjC_ImportAPI(m) < 0) return;
-
-
 	Class classNSNetService = objc_lookUpClass("NSNetService");
 	if (classNSNetService == NULL) {
-		return;
+		return 0;
 	}
 
 	if (PyObjC_RegisterMethodMapping(
@@ -173,8 +158,8 @@ init_netservice(void)
 		call_NSNetService_addresses,
 		PyObjCUnsupportedMethod_IMP) < 0) {
 
-		return;
+		return -1;
 	}
 
-	return;
+	return 0;
 }

@@ -18,6 +18,7 @@
 #include <IOKit/kext/OSKext.h>
 
 #include "kext_tools_util.h"
+#include "kernelcache.h"
 
 #pragma mark Basic Types & Constants
 /*******************************************************************************
@@ -76,7 +77,8 @@ enum {
 /* Embedded prelinked-kernel-generation flags.
  */
 #define kOptNameAllPersonalities        "all-personalities"
-#define kOptNameOmitLinkState           "omit-link-state"
+#define kOptNameNoLinkFailures          "no-link-failures"
+#define kOptNameStripSymbols            "strip-symbols"
 
 /* Misc. cache update flags.
  */
@@ -86,6 +88,8 @@ enum {
  */
 #define kOptNameUpdate                  "update-volume"
 #define kOptNameForce                   "force"
+#define kOptNameInstaller               "Installer"
+#define kOptNameCachesOnly              "caches-only"
 
 /* Misc flags.
  */
@@ -98,7 +102,9 @@ enum {
 // 'b' in kext_tools_util.h
 #define kOptPrelinkedKernel       'c'
 #define kOptSystemMkext           'e'
+#if !NO_BOOT_ROOT
 #define kOptForce                 'f'
+#endif
 
 // xxx - do we want a longopt for this?
 #define kOptLowPriorityFork       'F'
@@ -116,8 +122,10 @@ enum {
 #define kOptSafeBoot              's'
 #define kOptSafeBootAll           'S'
 #define kOptTests                 't'
+#if !NO_BOOT_ROOT
 #define kOptUpdate                'u'
 #define kOptCheckUpdate           'U'
+#endif
 // 'v' in kext_tools_util.h
 #define kOptNoAuthentication      'z'
 
@@ -136,9 +144,16 @@ enum {
 #define kLongOptSystemPrelinkedKernel     (-9)
 #define kLongOptVolumeRoot               (-10)
 #define kLongOptAllPersonalities         (-11)
-#define kLongOptOmitLinkState            (-12)
+#define kLongOptNoLinkFailures           (-12)
+#define kLongOptStripSymbols             (-13)
+#define kLongOptInstaller                (-14)
+#define kLongOptCachesOnly               (-15)
 
+#if !NO_BOOT_ROOT
 #define kOptChars                ":a:b:c:efFhkK:lLm:nNqrsStu:U:vz"
+#else
+#define kOptChars                ":a:b:c:eFhkK:lLm:nNqrsStvz"
+#endif
 /* Some options are now obsolete:
  *     -F (fork)
  *     -k (update plist cache)
@@ -181,29 +196,31 @@ struct option sOptInfo[] = {
     { kOptNameSymbols,               required_argument,  &longopt, kLongOptSymbols },
 
     { kOptNameAllPersonalities,      no_argument,        &longopt, kLongOptAllPersonalities },
-    { kOptNameOmitLinkState,         no_argument,        &longopt, kLongOptOmitLinkState },
+    { kOptNameNoLinkFailures,        no_argument,        &longopt, kLongOptNoLinkFailures },
+    { kOptNameStripSymbols,          no_argument,        &longopt, kLongOptStripSymbols },
 
+#if !NO_BOOT_ROOT
     { kOptNameUpdate,                required_argument,  NULL,     kOptUpdate },
     { kOptNameForce,                 no_argument,        NULL,     kOptForce },
+    { kOptNameInstaller,             no_argument,        &longopt, kLongOptInstaller },
+    { kOptNameCachesOnly,            no_argument,        &longopt, kLongOptCachesOnly },
+#endif
 
     { kOptNameNoAuthentication,      no_argument,        NULL,     kOptNoAuthentication },
     { kOptNameTests,                 no_argument,        NULL,     kOptTests },
 
+#if !NO_BOOT_ROOT
     { NULL,                          required_argument,  NULL,     kOptCheckUpdate },
+#endif
     { NULL,                          no_argument,        NULL,     kOptLowPriorityFork },
 
     { NULL, 0, NULL, 0 }  // sentinel to terminate list
 };
 
-
-#define kMaxNumArches  (64)
-#define kDefaultKernelFile  "/mach_kernel"
-
 typedef struct {
     OSKextRequiredFlags requiredFlagsRepositoriesOnly;  // -l/-n/-s
     OSKextRequiredFlags requiredFlagsAll;              // -L/-N/-S
 
-    Boolean   updateSystemMkext;    // -e
     Boolean   updateSystemCaches;   // -system-caches
     Boolean   lowPriorityFlag;      // -F
     Boolean   printTestResults;     // -t
@@ -211,70 +228,52 @@ typedef struct {
 
     CFURLRef  volumeRootURL;        // for mkext/prelinked kernel
 
-    CFURLRef  mkextURL;             // mkext option arg
-    int       mkextVersion;         // -mkext1/-mkext2  0 (no mkext, 1 (old format),
+    char    * mkextPath;         // mkext option arg
+    int       mkextVersion;      // -mkext1/-mkext2  0 (no mkext, 1 (old format),
                                     // or 2 (new format)
 
-    CFURLRef  prelinkedKernelURL;              // -c option; if 
-    Boolean   needDefaultPrelinkedKernelInfo;  // -c option w/o arg; 
-                                               // prelinkedKernelURL is parent
-                                               // directory of final kernelcache
-                                               // until we create the cache
+    char    * prelinkedKernelPath;            // -c option
+    Boolean   needDefaultPrelinkedKernelInfo; // -c option w/o arg; 
+                                              // prelinkedKernelURL is parent
+                                              // directory of final kernelcache
+                                              // until we create the cache
+
     Boolean   needLoadedKextInfo;           // -r option
-    Boolean   prelinkedKernelErrorRequired;
     Boolean   generatePrelinkedSymbols;     // -symbols option
-    Boolean   includeAllPersonalities;      // --all-personalities option
-    Boolean   omitLinkState;                // --omit-link-state option
+    Boolean   includeAllPersonalities;      // -all-personalities option
+    Boolean   noLinkFailures;               // -no-link-failures option
+    Boolean   stripSymbols;                 // -strip-symbols option
     CFURLRef  compressedPrelinkedKernelURL; // -uncompress option
 
     CFURLRef  updateVolumeURL;  // -u/-U options
     Boolean   expectUpToDate;   // -U
     Boolean   forceUpdateFlag;  // -f
+    Boolean   installerCalled;  // -Installer
+    Boolean   cachesOnly;   // -caches-only
 
-    CFURLRef  kernelURL;        // overriden by -k option
-    CFDataRef kernelFile;       // contents of kernelURL
-    CFURLRef  symbolDirURL;     // -s option;
-
-    const NXArchInfo * archInfo[kMaxNumArches]; // -a/-arch
-    uint32_t           numArches;
-    Boolean            explicitArch;  // user-provided instead of inferred host arches
+    char    * kernelPath;    // overriden by -k option
+    CFDataRef kernelFile;    // contents of kernelURL
+    CFURLRef  symbolDirURL;  // -s option;
 
     CFMutableSetRef    kextIDs;          // -b; must release
     CFMutableArrayRef  argURLs;          // directories & kexts in order
     CFMutableArrayRef  repositoryURLs;   // just non-kext directories
     CFMutableArrayRef  namedKextURLs;
+    CFMutableArrayRef  targetArchs;
+    Boolean            explicitArch;  // user-provided instead of inferred host arches
 
     CFArrayRef         allKexts;         // directories + named
     CFArrayRef         repositoryKexts;  // all from directories (may include named)
     CFArrayRef         namedKexts;
+    CFArrayRef         loadedKexts;
     
     struct stat kernelStatBuffer;
     struct stat firstFolderStatBuffer;
     Boolean     haveFolderMtime;
+    Boolean     haveKernelMtime;
     Boolean     compress;
     Boolean     uncompress;
 } KextcacheArgs;
-
-#define PLATFORM_NAME_LEN 64
-#define ROOT_PATH_LEN 256
-
-typedef struct prelinked_kernel_header {
-    uint32_t  signature;
-    uint32_t  compressType;
-    uint32_t  adler32;
-    uint32_t  uncompressedSize;
-    uint32_t  compressedSize;
-    uint32_t  reserved[11];
-    char      platformName[PLATFORM_NAME_LEN];
-    char      rootPath[ROOT_PATH_LEN];
-    char      data[0];
-} PrelinkedKernelHeader;
-
-typedef struct platform_info {
-    char platformName[PLATFORM_NAME_LEN];
-    char rootPath[ROOT_PATH_LEN];
-} PlatformInfo;
-
 
 #pragma mark Function Prototypes
 /*******************************************************************************
@@ -284,6 +283,7 @@ ExitStatus readArgs(
     int            * argc,
     char * const  ** argv,
     KextcacheArgs  * toolArgs);
+void setDefaultArchesIfNeeded(KextcacheArgs * toolArgs);
 const NXArchInfo * addArchForName(
     KextcacheArgs * toolArgs,
     const char    * archname);
@@ -295,22 +295,24 @@ ExitStatus readPrelinkedKernelArgs(
 ExitStatus setPrelinkedKernelArgs(
     KextcacheArgs * toolArgs,
     char          * filename);
-void setNeededLoadedKextInfo(KextcacheArgs * toolArgs);
+Boolean setDefaultKernel(KextcacheArgs * toolArgs);
+Boolean setDefaultPrelinkedKernel(KextcacheArgs * toolArgs);
+void setSystemExtensionsFolders(KextcacheArgs * toolArgs);
 
 void checkKextdSpawnedFilter(Boolean kernelFlag);
 ExitStatus checkArgs(KextcacheArgs * toolArgs);
 ExitStatus statURL(CFURLRef anURL, struct stat * statBuffer);
+ExitStatus statPath(const char *path, struct stat *statBuffer);
 
-ExitStatus updateSystemDirectoryCaches(
-    KextcacheArgs * toolArgs);
+ExitStatus getLoadedKextInfo(KextcacheArgs *toolArgs);
+ExitStatus updateSystemPlistCaches(KextcacheArgs * toolArgs);
 ExitStatus updateDirectoryCaches(
     KextcacheArgs * toolArgs,
     CFURLRef folderURL);
-
 ExitStatus createMkext(
     KextcacheArgs * toolArgs,
     Boolean       * fatalOut);
-ExitStatus filterKextsForMkext(
+ExitStatus filterKextsForCache(
     KextcacheArgs     * toolArgs,
     CFMutableArrayRef   kextArray,
     const NXArchInfo  * arch,
@@ -321,46 +323,54 @@ Boolean checkKextForArchive(
     const char        * archiveTypeName,
     const NXArchInfo  * archInfo,
     OSKextRequiredFlags requiredFlags);
-ExitStatus writeToFile(
-    int           fileDescriptor,
-    const UInt8 * data,
-    CFIndex       length);
-
-int getFileOffsetAndSizeForArch(
-    int                 fileDescriptor,
-    const NXArchInfo  * archInfo,
-    off_t             * sliceOffsetOut,
-    size_t            * sliceSizeOut);
-int readFileAtOffset(
-    int             fileDescriptor,
-    off_t           fileOffset,
-    size_t          fileSize,
-    u_char        * buf);
-int verifyMachOIsArch(
-    u_char            * fileBuf,
-    size_t              size,
-    const NXArchInfo * archInfo);
-void getPlatformInfo(
-    KextcacheArgs * toolArgs,
-    PlatformInfo  * platformInfo);
-CFDataRef readMachOFileWithURL(
-    CFURLRef kernelURL, 
-    const NXArchInfo * archInfo);
-CFDataRef uncompressPrelinkedKernel(
-    CFDataRef prelinkImage);
-CFDataRef compressPrelinkedKernel(
-    CFDataRef prelinkImage,
-    PlatformInfo *platformInfo);
+Boolean kextMatchesFilter(
+    KextcacheArgs             * toolArgs,
+    OSKextRef                   theKext,
+    OSKextRequiredFlags         requiredFlags);
+ExitStatus getFilePathTimes(
+    const char        * filePath,
+    struct timeval      cacheFileTimes[2]);
+ExitStatus getFileURLModTimePlusOne(
+    CFURLRef            fileURL,
+    struct stat       * origStatBuffer,
+    struct timeval      cacheFileTimes[2]);
+ExitStatus getFilePathModTimePlusOne(
+    const char        * filePath,
+    struct stat       * origStatBuffer,
+    struct timeval      cacheFileTimes[2]);
+ExitStatus getModTimePlusOne(
+    const char        * path,
+    struct stat       * origStatBuffer,
+    struct stat       * newStatBuffer,
+    struct timeval      cacheFileTimes[2]);
+Boolean kextMatchesLoadedKextInfo(
+    KextcacheArgs     * toolArgs,
+    OSKextRef           theKext);
+ExitStatus createPrelinkedKernelArchs(
+    KextcacheArgs     * toolArgs,
+    CFMutableArrayRef * prelinkArchsOut);
+ExitStatus createExistingPrelinkedSlices(
+    KextcacheArgs     * toolArgs,
+    CFMutableArrayRef * prelinkedSlicesOut,
+    CFMutableArrayRef * prelinkedArchsOut);
 ExitStatus createPrelinkedKernel(
+    KextcacheArgs     * toolArgs);
+CFArrayRef mergeArchs(
+    CFArrayRef  archSet1,
+    CFArrayRef  archSet2);
+ExitStatus createPrelinkedKernelForArch(
     KextcacheArgs       * toolArgs,
     CFDataRef           * prelinkedKernelOut,
-    CFDictionaryRef      * prelinkedSymbolsOut,
-    const NXArchInfo    * archInfo,
-    PlatformInfo        * platformInfo);
-ExitStatus savePrelinkedKernel(
-    KextcacheArgs       * toolArgs,
-    CFDataRef             prelinkedKernel,
-    CFDictionaryRef       prelinkedSymbols);
+    CFDictionaryRef     * prelinkedSymbolsOut,
+    const NXArchInfo    * archInfo);
+ExitStatus getExpectedPrelinkedKernelModTime(
+    KextcacheArgs  * toolArgs,
+    struct timeval   cacheFileTimes[2],
+    Boolean        * updateModTimeOut);
+ExitStatus compressPrelinkedKernel(
+    const char        * prelinkedKernelPath,
+    Boolean             compress);
+
 void usage(UsageLevel usageLevel);
 
-#endif /* _KEXTCACHE_MAIN_H */
+#endif

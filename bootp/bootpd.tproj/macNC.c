@@ -101,11 +101,11 @@ S_timestamp_syslog(const char * msg)
 	struct timeval result;
       
 	timeval_subtract(tv, tvp, &result);
-	syslog(LOG_INFO, "%d.%06d (%d.%06d): %s", 
+	syslog(LOG_INFO, "%ld.%06d (%ld.%06d): %s", 
 	       tv.tv_sec, tv.tv_usec, result.tv_sec, result.tv_usec, msg);
     }
     else 
-	syslog(LOG_INFO, "%d.%06d (%d.%06d): %s", 
+	syslog(LOG_INFO, "%ld.%06d (%d.%06d): %s", 
 	       tv.tv_sec, tv.tv_usec, 0, 0, msg);
     tvp = tv;
 }

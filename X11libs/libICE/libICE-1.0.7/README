@@ -1,0 +1,30 @@
+libICE - Inter-Client Exchange Library
+
+Documentation for this API can be found in the doc directory of the source
+code, or online at:
+
+	http://xorg.freedesktop.org/releases/X11R7.0/doc/PDF/ICElib.pdf	
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/lib/libICE
+
+        http://cgit.freedesktop.org/xorg/lib/libICE
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

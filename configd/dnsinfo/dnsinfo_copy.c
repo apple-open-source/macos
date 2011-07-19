@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004, 2006, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004, 2006, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -80,6 +80,9 @@ add_list(void **padding, uint32_t *n_padding, int32_t count, int32_t size, void 
 }
 
 
+#define	DNS_CONFIG_BUF_MAX	1024*1024
+
+
 static _dns_config_buf_t *
 copy_dns_info()
 {
@@ -102,7 +105,7 @@ copy_dns_info()
 			}
 
 			// our [cached] server port is not valid
-			if (status != MACH_SEND_INVALID_DEST) {
+			if ((status != MACH_SEND_INVALID_DEST) && (status != MIG_SERVER_DIED)) {
 				// if we got an unexpected error, don't retry
 				fprintf(stderr,
 					"dns_configuration_copy shared_dns_infoGet(): %s\n",
@@ -133,15 +136,18 @@ copy_dns_info()
 	}
 
 	if (dataRef != NULL) {
-		if (dataLen >= sizeof(_dns_config_buf_t)) {
+		if ((dataLen >= sizeof(_dns_config_buf_t)) && (dataLen <= DNS_CONFIG_BUF_MAX)) {
 			_dns_config_buf_t	*config		= (_dns_config_buf_t *)dataRef;
-			uint32_t		len;
 			uint32_t		n_padding       = ntohl(config->n_padding);
 
-			len = dataLen + n_padding;
-			buf = malloc(len);
-			bcopy((void *)dataRef, buf, dataLen);
-			bzero(&buf[dataLen], n_padding);
+			if (n_padding <= (DNS_CONFIG_BUF_MAX - dataLen)) {
+				uint32_t	len;
+
+				len = dataLen + n_padding;
+				buf = malloc(len);
+				bcopy((void *)dataRef, buf, dataLen);
+				bzero(&buf[dataLen], n_padding);
+			}
 		}
 
 		status = vm_deallocate(mach_task_self(), (vm_address_t)dataRef, dataLen);
@@ -223,6 +229,14 @@ expand_resolver(_dns_resolver_buf_t *buf, uint32_t n_buf, void **padding, uint32
 
 	resolver->search_order = ntohl(resolver->search_order);
 
+	// initialize if_index
+
+	resolver->if_index = ntohl(resolver->if_index);
+
+	// initialize flags
+
+	resolver->flags = ntohl(resolver->flags);
+
 	// process resolver buffer "attribute" data
 
 	n_attribute = n_buf - sizeof(_dns_resolver_buf_t);
@@ -281,10 +295,11 @@ static dns_config_t *
 expand_config(_dns_config_buf_t *buf)
 {
 	dns_attribute_t		*attribute;
-	dns_config_t		*config		= (dns_config_t *)buf;
+	dns_config_t		*config			= (dns_config_t *)buf;
 	uint32_t		n_attribute;
 	uint32_t		n_padding;
-	int32_t			n_resolver      = 0;
+	int32_t			n_resolver		= 0;
+	int32_t			n_scoped_resolver	= 0;
 	void			*padding;
 
 	// establish padding
@@ -292,7 +307,7 @@ expand_config(_dns_config_buf_t *buf)
 	padding   = &buf->attribute[ntohl(buf->n_attribute)];
 	n_padding = ntohl(buf->n_padding);
 
-	// initialize resolver list
+	// initialize resolver lists
 
 	config->n_resolver = ntohl(config->n_resolver);
 	if (!add_list(&padding,
@@ -303,16 +318,27 @@ expand_config(_dns_config_buf_t *buf)
 		goto error;
 	}
 
+	config->n_scoped_resolver = ntohl(config->n_scoped_resolver);
+	if (!add_list(&padding,
+		      &n_padding,
+		      config->n_scoped_resolver,
+		      sizeof(DNS_PTR(dns_resolver_t *, x)),
+		      (void **)&config->scoped_resolver)) {
+		goto error;
+	}
+
 	// process configuration buffer "attribute" data
 
 	n_attribute = ntohl(buf->n_attribute);
 	attribute   = (dns_attribute_t *)&buf->attribute[0];
 
 	while (n_attribute >= sizeof(dns_attribute_t)) {
-		int32_t	attribute_length	= ntohl(attribute->length);
+		uint32_t	attribute_length	= ntohl(attribute->length);
+		uint32_t	attribute_type		= ntohl(attribute->type);
 
-		switch (ntohl(attribute->type)) {
-			case CONFIG_ATTRIBUTE_RESOLVER : {
+		switch (attribute_type) {
+			case CONFIG_ATTRIBUTE_RESOLVER :
+			case CONFIG_ATTRIBUTE_SCOPED_RESOLVER   : {
 				dns_resolver_t	*resolver;
 
 				// expand resolver buffer
@@ -327,7 +353,11 @@ expand_config(_dns_config_buf_t *buf)
 
 				// add resolver to config list
 
-				config->resolver[n_resolver++] = resolver;
+				if (attribute_type == CONFIG_ATTRIBUTE_RESOLVER) {
+					config->resolver[n_resolver++] = resolver;
+				} else {
+					config->scoped_resolver[n_scoped_resolver++] = resolver;
+				}
 
 				break;
 			}
@@ -344,6 +374,10 @@ expand_config(_dns_config_buf_t *buf)
 		goto error;
 	}
 
+	if (n_scoped_resolver != config->n_scoped_resolver) {
+		goto error;
+	}
+
 	return config;
 
     error :
@@ -355,7 +389,13 @@ expand_config(_dns_config_buf_t *buf)
 const char *
 dns_configuration_notify_key()
 {
-	return _dns_configuration_notify_key();
+	const char	*key;
+
+	// initialize runtime
+	pthread_once(&_dns_initialized, __dns_initialize);
+
+	key = _dns_configuration_notify_key();
+	return key;
 }
 
 
@@ -390,3 +430,20 @@ dns_configuration_free(dns_config_t *config)
 	free((void *)config);
 	return;
 }
+
+#ifdef MAIN
+
+int
+main(int argc, char **argv)
+{
+	dns_config_t	*config;
+
+	config = dns_configuration_copy();
+	if (config != NULL) {
+		dns_configuration_free(&config);
+	}
+
+	exit(0);
+}
+
+#endif

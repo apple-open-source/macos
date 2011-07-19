@@ -72,9 +72,8 @@
 #include "CHandlers.h"
 
 #include "DirServicesTypes.h"
-#include "CDSLocalPlugin.h"
 #include "COSUtils.h"
-#include "buildnumber.h"
+#include "od_passthru.h"
 
 #define kDSPIDFile			"/var/run/DirectoryService.pid"
 #define kDSRunningFile		"/Library/Preferences/DirectoryService/.DSIsRunning"
@@ -111,12 +110,18 @@ DSEventSemaphore	gPluginRunLoopEvent;
 mach_port_t			gLibinfoMachPort	= MACH_PORT_NULL;
 mach_port_t			gAPIMachPort		= MACH_PORT_NULL;
 mach_port_t			gMembershipMachPort	= MACH_PORT_NULL;
+mach_port_t			gLegacyMachPort		= MACH_PORT_NULL;
 
-extern CDSLocalPlugin	*gLocalNode;
+extern const double DirectoryServiceVersionNumber;
 
-#warning VERIFY the version string before each software release
-const char* gStrDaemonAppleVersion = "6.5"; //match this with x.y in 10.x.y
-const char* gStrDaemonBuildVersion = "unlabeled/engineering";
+extern "C" void _si_disable_opendirectory(void);
+
+#ifndef DISABLE_LOCAL_PLUGIN
+	extern CDSLocalPlugin	*gLocalNode;
+#endif
+
+const char *gStrDaemonBuildVersion = PROJECT_SOURCE_VERSION;
+const char *gStrDaemonAppleVersion = "7.0"; // TODO: remove this once all plugins have migrated
 
 // ---------------------------------------------------------------------------
 //	* _Usage ()
@@ -141,10 +146,7 @@ static void _Usage ( FILE *fp, const char *argv0 )
 
 static void _Version ( FILE *fp )
 {
-	static const char * const	_szpUsage =
-		"Version %s (build %s)\n";
-	::fprintf( fp, _szpUsage, gStrDaemonAppleVersion, gStrDaemonBuildVersion );
-
+	fprintf(fp, "%s\n", gStrDaemonBuildVersion);
 } // _Version
 
 
@@ -155,29 +157,10 @@ static void _Version ( FILE *fp )
 
 static void _AppleVersion ( FILE *fp )
 {
-	static const char * const	_szpUsage =
-		"DirectoryService-%s\n";
-	::fprintf( fp, _szpUsage, gStrDaemonBuildVersion );
+	fprintf(fp, "dspluginhelperd-%s\n", gStrDaemonBuildVersion);
 
 } // _AppleVersion
 
-
-// ---------------------------------------------------------------------------
-//	* _AppleOptions ()
-//
-// ---------------------------------------------------------------------------
-
-static void _AppleOptions ( FILE *fp, const char *argv0 )
-{
-	static const char * const	_szpUsage =
-		"Usage:\t%s [-applexxxxx OR -v]\n"
-		"	-appledebug     	Run the daemon in debug mode as standalone.\n"
-		"	-appleoptions   	List these options.\n"
-		"	-appleversion   	Display the Apple build version.\n"
-		"	-v              	Display the release version.\n"
-		"	-localonly			Separate daemon runs with only the local node accessible.\n";
-	::fprintf( fp, _szpUsage, argv0 );
-} // _AppleOptions
 
 // ---------------------------------------------------------------------------
 //	* NetworkChangeCallBack ()
@@ -296,17 +279,14 @@ int main ( int argc, char * const *argv )
 	pid_t				ourUID			= ::getuid();
 	static CFBundleRef	coreServerBundle	= NULL;
 
-	if ( sizeof(BUILDNUMBER) > sizeof("") )
-		gStrDaemonBuildVersion = BUILDNUMBER;
+	if (gStrDaemonBuildVersion == NULL || gStrDaemonBuildVersion[0] == '\0') {
+		gStrDaemonBuildVersion = "engineering";
+	}
 
-//	struct rlimit rlp;
-
-//	rlp.rlim_cur = RLIM_INFINITY;       /* current (soft) limit */
-//	rlp.rlim_max = RLIM_INFINITY;       /* hard limit */
-//	(void)setrlimit(RLIMIT_CORE, &rlp);
-    
+	_si_disable_opendirectory();
+	
     // this changes the logging format to show the PID and to cause syslog to launch
-    openlog( "DirectoryService", LOG_PID | LOG_NOWAIT, LOG_DAEMON );
+    openlog( "dspluginhelperd", LOG_PID | LOG_NOWAIT, LOG_DAEMON );
 
 	if ( argc > 1 )
 	{
@@ -314,36 +294,9 @@ int main ( int argc, char * const *argv )
 
 		if ( p != NULL )
 		{
-			if ( strstr( p, "appledebug" ) && ourUID == 0 )
-			{
-				// Turn debugging on
-				bFound			= true;
-				debugOpts		= kLogEverything;
-				gDebugLogging	= true;
-				gDSDebugMode	= true;
-			}
-			
-			if ( strstr( p, "localonly" ) && ourUID == 0 )
-			{
-				bFound				= true;
-				gDSLocalOnlyMode	= true;
-			}
-
-			if ( strstr( p, "installdaemon" ) && ourUID == 0 )
-			{
-				bFound				= true;
-				gDSInstallDaemonMode= true;
-			}
-
 			if ( strstr( p, "appleversion" ) )
 			{
 				_AppleVersion( stdout );
-				::exit( 1 );
-			}
-
-			if ( strstr( p, "appleoptions" ) )
-			{
-				_AppleOptions( stdout, argv[0] );
 				::exit( 1 );
 			}
 
@@ -374,7 +327,7 @@ int main ( int argc, char * const *argv )
 		
 	if ( ourUID != 0 )
 	{
-		syslog(LOG_ALERT, "DirectoryService needs to be launched as root.\n");
+		syslog(LOG_ALERT, "dspluginhelperd needs to be launched as root.\n");
 		exit( 1 );
 	}
 	
@@ -382,7 +335,7 @@ int main ( int argc, char * const *argv )
 		lstat("/etc/rc.cdrom", &statResult) == 0 && lstat("/System/Installation", &statResult) == 0 )
 	{
 		gDSInstallDaemonMode = true;
-		syslog( LOG_NOTICE, "Launched version %s (v%s) - installer mode", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
+		syslog( LOG_NOTICE, "Launched build %s - installer mode", gStrDaemonBuildVersion );
 	}
 	else if ( gDSDebugMode == true )
 	{
@@ -390,7 +343,7 @@ int main ( int argc, char * const *argv )
 	}
 	else
 	{
-		syslog( LOG_INFO, "Launched version %s (v%s)", gStrDaemonAppleVersion, gStrDaemonBuildVersion );
+		syslog( LOG_INFO, "Launched build %s", gStrDaemonBuildVersion );
 	}
 	
 	mach_port_t			priv_bootstrap_port	= MACH_PORT_NULL;
@@ -398,6 +351,7 @@ int main ( int argc, char * const *argv )
 
 	if (!gDSDebugMode)
 	{
+#ifndef DISABLE_SEARCH_PLUGIN
 		char* usedPortName = (char *) (gDSLocalOnlyMode == true ? kDSStdMachLocalPortName : kDSStdMachPortName);
 
         /*
@@ -405,18 +359,26 @@ int main ( int argc, char * const *argv )
          */
 		status = bootstrap_check_in( bootstrap_port, usedPortName, &gAPIMachPort );
 		if ( status == BOOTSTRAP_SERVICE_ACTIVE ) {
-			syslog(LOG_ALERT, "DirectoryService %s instance is already running - exiting this instance", usedPortName );
+			syslog(LOG_ALERT, "dspluginhelperd %s instance is already running - exiting this instance", usedPortName );
 			exit( 0 );
 		}
 
 		assert( status == BOOTSTRAP_SUCCESS );
+#endif
 
 		if ( gDSLocalOnlyMode == false ) {
 			// checkin for our libinfo and membership name
+#ifndef DISABLE_CACHE_PLUGIN
 			status = bootstrap_check_in(bootstrap_port, (char *)kDSStdMachDSLookupPortName, &gLibinfoMachPort);
 			assert( status == BOOTSTRAP_SUCCESS );
+#endif
 			
+#ifndef DISABLE_MEMBERSHIP_CACHE
 			status = bootstrap_check_in( bootstrap_port, (char *)kDSStdMachMembershipPortName, &gMembershipMachPort );
+			assert( status == BOOTSTRAP_SUCCESS );
+#endif
+			
+			status = bootstrap_check_in(bootstrap_port, (char *)"com.apple.system.DirectoryService.legacy", &gLegacyMachPort);
 			assert( status == BOOTSTRAP_SUCCESS );
 		}
 	}
@@ -426,57 +388,10 @@ int main ( int argc, char * const *argv )
          * See if our service name is already registered and if we have privilege to check in.
 		 * This should never work for debug mode. - expect to get BOOTSTRAP_UNKNOWN_SERVICE
          */
-		status = bootstrap_check_in(bootstrap_port, kDSStdMachPortName"Debug", &gAPIMachPort);
-		if (status == BOOTSTRAP_SUCCESS)
-		{
-			bootstrap_check_in( bootstrap_port, kDSStdMachDSLookupPortName"Debug", &gLibinfoMachPort );
-			
-			bootstrap_check_in( bootstrap_port, kDSStdMachMembershipPortName"Debug", &gMembershipMachPort );
-		}
-		
-		if (status == BOOTSTRAP_SERVICE_ACTIVE)
-		{
-			syslog(LOG_ALERT, "DirectoryService debug instance is already running - exiting this instance" );
+		status = bootstrap_check_in( bootstrap_port, "com.apple.system.DirectoryService.legacyDebug", &gLegacyMachPort );
+		if (status == BOOTSTRAP_SERVICE_ACTIVE) {
+			syslog(LOG_ALERT, "dspluginhelperd debug instance is already running - exiting this instance" );
 			exit(0);
-		}
-		else if (status == BOOTSTRAP_UNKNOWN_SERVICE)
-		{
-			syslog(LOG_ALERT, "bootstrap_check_in() for mach_init debug port returned BOOTSTRAP_UNKNOWN_SERVICE so we will create our own portset" );
-			
-			//immediate and not on demand launch
-			status = bootstrap_create_server(bootstrap_port, (char *)"/usr/sbin/DirectoryService", 0, false, &priv_bootstrap_port);
-			if (status == KERN_SUCCESS)
-			{
-				mach_port_t (^registerDebugService)(const char *) = ^(const char *service) {
-					char		debugPortName[256];
-					mach_port_t tempPort	= MACH_PORT_NULL;
-					mach_port_t	send_port	= MACH_PORT_NULL;
-					
-					snprintf( debugPortName, sizeof(debugPortName), "%sDebug", service );
-					kern_return_t kr = bootstrap_check_in( priv_bootstrap_port, debugPortName, &tempPort );
-					if ( kr != KERN_SUCCESS ) {
-						kr = bootstrap_create_service( priv_bootstrap_port, debugPortName, &send_port );
-						if ( kr == KERN_SUCCESS )
-						{
-							kr = bootstrap_check_in( priv_bootstrap_port, debugPortName, &tempPort );
-							if (kr != KERN_SUCCESS)
-							{
-								syslog(LOG_ALERT, "unable to create our own debug portset - exiting" );
-								exit(0);
-							}
-						}
-					}
-					
-					return tempPort;
-				};
-				
-				gAPIMachPort = registerDebugService( kDSStdMachDebugPortName );
-				if ( gAPIMachPort != MACH_PORT_NULL ) {
-					gLibinfoMachPort = registerDebugService( kDSStdMachDSLookupPortName );
-					gMembershipMachPort = registerDebugService( kDSStdMachDSLookupPortName );
-					
-				}
-			}
 		}
 	}
 
@@ -522,31 +437,16 @@ int main ( int argc, char * const *argv )
 				dsTouch( kDSRunningFile );
 		}
 		
-		if ( gDebugLogging == false && lstat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce", &statResult ) == 0 )
-		{
-			dsRemove( "/Library/Preferences/DirectoryService/.DSLogDebugAtStartOnce" );
-			gDebugLogging = true;
-			debugOpts = kLogEverything;
-		}
-		
-		if ( gDebugLogging == false && lstat( "/Library/Preferences/DirectoryService/.DSLogDebugAtStart", &statResult ) == 0 )
-		{
-			gDebugLogging = true;
-			debugOpts = kLogEverything;
-		}
-		
 		if (gDSDebugMode)
 		{
 			debugOpts |= kLogDebugHeader;
 		}
 		
 		// Open the log files
-		CLog::Initialize( kLogEverything, kLogEverything, debugOpts, profileOpts, gDebugLogging, bProfiling, gDSLocalOnlyMode );
+		CLog::Initialize(kLogNone, kLogNone, debugOpts, profileOpts, gDebugLogging, bProfiling, gDSLocalOnlyMode, od_passthru_log_message);
 
 		SrvrLog( kLogApplication, "\n\n" );
-		SrvrLog( kLogApplication,	"DirectoryService %s (v%s) starting up...",
-                                    gStrDaemonAppleVersion,
-                                    gStrDaemonBuildVersion );
+		SrvrLog(kLogApplication, "dspluginhelperd (build %s) starting up...", gStrDaemonBuildVersion);
 		
 		if ( gProperShutdown == false ) {
 			DbgLog( kLogCritical, "Improper shutdown detected" );
@@ -574,40 +474,36 @@ int main ( int argc, char * const *argv )
 		dispatch_source_t source;
 		
 		// TERM
-		source = dispatch_source_signal_create( SIGTERM, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { 
-			DbgLog( kLogInfo, "dsdispatch - SIGTERM - attempting to stop main runloop" );
-			CFRunLoopStop( CFRunLoopGetMain() ); 
-		} );
+		source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGTERM, 0, dispatch_get_main_queue());
+		assert(source != NULL);
+		dispatch_source_set_event_handler(source, 
+										  ^(void) {
+											  DbgLog( kLogInfo, "dsdispatch - SIGTERM - attempting to stop main runloop" );
+											  CFRunLoopStop( CFRunLoopGetMain() ); 
+										  });
 		assert( source != NULL );
-		
-		signal( SIGTERM, SIG_IGN );
-		
-		// USR1
-		source = dispatch_source_signal_create( SIGUSR1, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds){ ServerControl::ResetDebugging(); } );
-		assert( source != NULL );
-		
-		signal( SIGUSR1, SIG_IGN );
-		
-		// USR2
-		source = dispatch_source_signal_create( SIGUSR2, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { ServerControl::ToggleAPILogging(true); } );
-		assert( source != NULL );
-		
-		signal( SIGUSR2, SIG_IGN );
+		dispatch_resume(source);
+		signal(SIGTERM, SIG_IGN);
 
 		// HUP
-		source = dispatch_source_signal_create( SIGHUP, NULL, dispatch_get_concurrent_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT), ^(dispatch_source_t ds) { 
-			ServerControl::HandleNetworkTransition();
-			DbgLog( kLogInfo, "dsdispatch - SIGHUP - simulating network transition" );
-		} );
+		source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL, SIGHUP, 0, dispatch_get_main_queue());
+		assert(source != NULL);
+		dispatch_source_set_event_handler(source, 
+										  ^(void) {
+											  ServerControl::HandleNetworkTransition();
+											  DbgLog( kLogInfo, "dsdispatch - SIGHUP - simulating network transition" );
+										  });
 		assert( source != NULL );
-		
+		dispatch_resume(source);
 		signal( SIGHUP, SIG_IGN );
 
 		if ( gDSDebugMode == false ) {
 			signal( SIGINT, SIG_IGN );
 		}
 		signal( SIGPIPE, SIG_IGN );
-		
+		signal(SIGUSR1, SIG_IGN); // no longer control debug logging via signal
+		signal(SIGUSR2, SIG_IGN); // no longer control API logging via signal
+
 		// first thing we do is setup our plugin runloop for handling requests from plugins
 		CPluginRunLoopThread *pluginRunLoopThread = new CPluginRunLoopThread();
 
@@ -629,9 +525,9 @@ int main ( int argc, char * const *argv )
 
 		// we stat instead of using CFBundlePreflightExecutable() to prevent a deadlock with CF text encoding issues
 		struct stat statBlock;
-		if ( stat("/System/Library/PrivateFrameworks/CoreServer.framework", &statBlock) == 0 ) {
+		if ( stat("/System/Library/PrivateFrameworks/CoreDaemon.framework", &statBlock) == 0 ) {
 			
-			CFURLRef coreServerURL = CFURLCreateWithFileSystemPath( NULL, CFSTR("/System/Library/PrivateFrameworks/CoreServer.framework"), 
+			CFURLRef coreServerURL = CFURLCreateWithFileSystemPath( NULL, CFSTR("/System/Library/PrivateFrameworks/CoreDaemon.framework"), 
 																    kCFURLPOSIXPathStyle, false );
 			if ( coreServerURL != NULL ) {
 				
@@ -647,9 +543,9 @@ int main ( int argc, char * const *argv )
 						_xsEventPortCreate = (_XSEventPortCreate *) CFBundleGetFunctionPointerForName( coreServerBundle, CFSTR("XSEventPortCreate") );
 						
 						if ( _xsEventPortPostEvent != NULL && _xsEventPortCreate != NULL )
-							SrvrLog( kLogApplication, "CoreServer.framework found using for events" );
+							SrvrLog( kLogApplication, "CoreDaemon.framework found using for events" );
 						else
-							DbgLog( kLogError, "CoreServer.framework found but unable to map functions" );
+							DbgLog( kLogError, "CoreDaemon.framework found but unable to map functions" );
 					}
 				}
 				
@@ -673,6 +569,7 @@ int main ( int argc, char * const *argv )
 		sbsz = sizeof( gNumberOfCores );
 		sysctlbyname( "hw.logicalcpu_max", &gNumberOfCores, &sbsz, NULL, 0 );
 		SrvrLog( kLogApplication, "Detected %d logical CPUs", gNumberOfCores );
+		if ( gNumberOfCores > 4 ) gNumberOfCores = 4;
 		
 		SInt32 startSrvr;
 		startSrvr = gSrvrCntl->StartUpServer();
@@ -683,11 +580,13 @@ int main ( int argc, char * const *argv )
 		// stop our plugin runloop
 		CFRunLoopStop( gPluginRunLoop );
 		
+#ifndef DISABLE_LOCAL_PLUGIN
 		gLocalNode->CloseDatabases();
+#endif
 		
 		if ( gSrvrCntl != NULL )
 		{
-			SrvrLog( kLogApplication, "Shutting down DirectoryService..." );
+			SrvrLog( kLogApplication, "Shutting down dspluginhelperd..." );
 			gSrvrCntl->ShutDownServer();
 		}
 		
@@ -719,3 +618,9 @@ int main ( int argc, char * const *argv )
 	exit( 0 );
 
 } // main
+
+CFArrayRef
+dsCopyKerberosServiceList( void )
+{
+	return CFArrayCreateMutable(kCFAllocatorDefault, 0, &kCFTypeArrayCallBacks);
+}

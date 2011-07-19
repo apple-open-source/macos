@@ -1,5 +1,5 @@
---- nl_langinfo.c.orig	2008-01-15 11:30:57.000000000 -0800
-+++ nl_langinfo.c	2008-01-17 23:58:24.000000000 -0800
+--- nl_langinfo.c.orig	2009-11-09 18:47:29.000000000 -0800
++++ nl_langinfo.c	2009-11-09 18:47:34.000000000 -0800
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/nl_langinfo.c,v 1.17 2003/06/26 10:46:16 phantom Exp $");
@@ -9,7 +9,7 @@
  #include <langinfo.h>
  #include <limits.h>
  #include <locale.h>
-@@ -36,62 +38,66 @@
+@@ -36,62 +38,66 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include "lnumeric.h"
  #include "lmessages.h"
  #include "lmonetary.h"
@@ -90,7 +90,7 @@
  		break;
  	case ERA:
  		/* XXX: need to be implemented  */
-@@ -114,16 +120,16 @@
+@@ -114,16 +120,16 @@ nl_langinfo(nl_item item)
  		ret = "";
  		break;
  	case RADIXCHAR:
@@ -111,7 +111,7 @@
  		break;
  	/*
  	 * YESSTR and NOSTR items marked with LEGACY are available, but not
-@@ -131,25 +137,25 @@
+@@ -131,25 +137,25 @@ nl_langinfo(nl_item item)
  	 * they're subject to remove in future specification editions.
  	 */
  	case YESSTR:            /* LEGACY  */
@@ -143,7 +143,7 @@
  						psn = '.';
  				} else
  					psn = pos ? '-' : '+';
-@@ -166,10 +172,19 @@
+@@ -166,10 +172,19 @@ nl_langinfo(nl_item item)
  		}
  		break;
  	case D_MD_ORDER:        /* FreeBSD local extension */

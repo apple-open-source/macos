@@ -1,9 +1,9 @@
 /*
  * "$Id$"
  *
- *   Online help CGI for the Common UNIX Printing System (CUPS).
+ *   Online help CGI for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -342,12 +342,12 @@ main(int  argc,				/* I - Number of command-line arguments */
       {
         if (inbody)
 	{
-	  if (!strncasecmp(line, "</BODY>", 7))
+	  if (!_cups_strncasecmp(line, "</BODY>", 7))
 	    break;
 
 	  printf("%s\n", line);
         }
-	else if (!strncasecmp(line, "<BODY", 5))
+	else if (!_cups_strncasecmp(line, "<BODY", 5))
 	  inbody = 1;
       }
 

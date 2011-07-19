@@ -7,7 +7,7 @@
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # All rights reserved.
 #
-# RCS: @(#) $Id: base64.test,v 1.15 2008/05/28 17:34:31 andreas_kupries Exp $
+# RCS: @(#) $Id: base64.test,v 1.16 2010/07/06 19:15:40 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -149,6 +149,11 @@ test base64-3.2 {base64 identity test} {
     string compare $x $y
 } 0
 
+test base64-4.0 {base64 -- sf bug 2976290} {
+    list [catch {
+	::base64::decode s=GQMRAk5WXhsABh0NEx4RXBocBVgBHQMXHRgEFltMQENQXEFOExJVQ0RAQERUQ0dAEhYEExVIRRVVFENWKxMKABsPGBI6LRoYLhsEFhsXGFkXEwZXGQMIHg==
+    } msg] $msg
+} {1 {Not enough data to process padding}}
 
 testsuiteCleanup
 return

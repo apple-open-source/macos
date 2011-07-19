@@ -48,7 +48,11 @@ void *ne_calloc(size_t size) ne_attribute_malloc;
 void *ne_realloc(void *ptr, size_t s);
 char *ne_strdup(const char *s) ne_attribute_malloc;
 char *ne_strndup(const char *s, size_t n) ne_attribute_malloc;
+#ifdef WIN32
+void ne_free(void *ptr);
+#else
 #define ne_free free
+#endif
 #endif
 
 NE_END_DECLS

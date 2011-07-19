@@ -2,6 +2,7 @@
 [manpage_begin html n 1.4]
 [moddesc   {HTML Generation}]
 [titledesc {Procedures to generate HTML structures}]
+[category  {CGI programming}]
 [require Tcl 8.2]
 [require html [opt 1.4]]
 [description]

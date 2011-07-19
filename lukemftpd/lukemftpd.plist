@@ -1,36 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <array>
-<dict>
-        <key>OpenSourceProject</key>
-        <string>tnftpd</string>
-        <key>OpenSourceVersion</key>
-        <string>20080929</string>
-        <key>OpenSourceWebsiteURL</key>
-        <string>http://www.NetBSD.org/</string>
-        <key>OpenSourceURL</key>
-        <string>ftp://ftp.NetBSD.org/pub/NetBSD/misc/tnftp/tnftpd-20080929.tar.gz</string>
-        <key>OpenSourceSHA1</key>
-	<string>5243f1bfa5c25a6805486703b3ca71f2ed8f25b0</string>
-        <key>OpenSourceImportDate</key>
-        <string>2008-10-02</string>
-        <key>OpenSourceLicense</key>
-        <string>BSD</string>
-        <key>OpenSourceLicenseFile</key>
-        <string>lukemftpd.txt</string>
-	<key>OpenSourceModifications</key>
-	<array>
-                <string>PR-3285536.pamify.patch</string>
-                <string>PR-3795936.long-username.patch</string>
-                <string>PR-3886477.Makefile.in.patch</string>
-                <string>PR-3886477.ftpd.c.patch</string>
-                <string>PR-3186515.ftpd.conf.5.patch</string>
-		<string>PR-3186515.ftpusers.5.patch</string>
-                <string>PR-4570983.ftpd.conf.5.patch</string>
-		<string>PR-4608716.ls.c.patch</string>
-		<string>PR-4581099.ftpd.c.patch</string>
-		<string>PR-4616924.ftpd.c.patch</string>
-		<string>print.c.patch - return after realloc failure</string>
-	</array>
-</dict>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>tnftpd</string>
+		<key>OpenSourceVersion</key>
+		<string>20100324</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.NetBSD.org/</string>
+		<key>OpenSourceURL</key>
+		<string>ftp://ftp.NetBSD.org/pub/NetBSD/misc/tnftp/tnftpd-20100324.tar.gz</string>
+		<key>OpenSourceSHA1</key>
+		<string>f42c52fab3963f7fdef9c1dfd0e48ecd491ac9d9</string>
+		<key>OpenSourceImportDate</key>
+		<string>2010-05-11</string>
+		<key>OpenSourceLicense</key>
+		<string>BSD</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>lukemftpd.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>PR-3285536+5920710.pamify.patch - PAM support</string>
+			<string>PR-3795936.long-username.patch</string>
+			<string>PR-3886477.ftpd.c.patch</string>
+			<string>PR-4608716.ls.c.patch</string>
+			<string>PR-4581099.ftpd.c.patch</string>
+			<string>PR-4616924.ftpd.c.patch</string>
+			<string>print.c.patch - return after realloc failure</string>
+			<string>manpages.patch - fix man pages for 3186515 and 4570983</string>
+			<string>sacl.patch - add support for SACL membership</string>
+			<string>gss.patch - add support for RFC 2228 (GSSAPI / Kerberos)</string>
+		</array>
+	</dict>
 </array>
 </plist>

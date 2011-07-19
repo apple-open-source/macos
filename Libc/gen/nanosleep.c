@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999, 2003, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 1999, 2003, 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -26,15 +26,39 @@
 #include <mach/mach_error.h>
 #include <mach/mach_time.h>
 #include <stdio.h>
+#include <string.h>
 
 
 #if __DARWIN_UNIX03
 #include "pthread_internals.h"
 #include <mach/clock.h>
 
-extern int __unix_conforming;
-extern mach_port_t clock_port;
+#ifndef BUILDING_VARIANT
+semaphore_t	clock_sem = MACH_PORT_NULL;
+mach_port_t	clock_port = MACH_PORT_NULL;
+
+void _init_clock_port() {
+	kern_return_t kr;
+	mach_port_t host = mach_host_self();
+	
+	/* Get the clock service port for nanosleep */
+	kr = host_get_clock_service(host, SYSTEM_CLOCK, &clock_port);
+	if (kr != KERN_SUCCESS) {
+		abort();
+	}
+	
+	kr = semaphore_create(mach_task_self_, &clock_sem, SYNC_POLICY_FIFO, 0);
+	if (kr != KERN_SUCCESS) {
+		abort();
+	}
+	mach_port_deallocate(mach_task_self(), host);
+}
+#else
 extern semaphore_t clock_sem;
+extern mach_port_t clock_port;
+#endif /* !BUILDING_VARIANT */
+
+extern int __unix_conforming;
 #ifdef VARIANT_CANCELABLE
 extern void _pthread_testcancel(pthread_t thread, int isconforming);
 extern int __semwait_signal(int cond_sem, int mutex_sem, int timeout, int relative, __int64_t tv_sec, __int32_t tv_nsec);
@@ -48,8 +72,8 @@ int
 nanosleep(const struct timespec *requested_time, struct timespec *remaining_time) {
     kern_return_t kret;
     int ret;
-    mach_timespec_t remain;
     mach_timespec_t current;
+    mach_timespec_t completion;
    
 	if (__unix_conforming == 0)
 		__unix_conforming = 1;
@@ -65,9 +89,11 @@ nanosleep(const struct timespec *requested_time, struct timespec *remaining_time
 
 
     if (remaining_time != NULL) {
-        kret = clock_get_time(clock_port, &current);
+	/* once we add requested_time, this will be the completion time */
+        kret = clock_get_time(clock_port, &completion);
         if (kret != KERN_SUCCESS) {
             fprintf(stderr, "clock_get_time() failed: %s\n", mach_error_string(kret));
+            errno = EINVAL;
             return -1;
         }
     }
@@ -77,16 +103,21 @@ nanosleep(const struct timespec *requested_time, struct timespec *remaining_time
 		return 0;
         } else if (errno == EINTR) {
             if (remaining_time != NULL) {
-                ret = clock_get_time(clock_port, &remain);
+                ret = clock_get_time(clock_port, &current);
                 if (ret != KERN_SUCCESS) {
                     fprintf(stderr, "clock_get_time() failed: %s\n", mach_error_string(ret));
                     return -1;
                 }
                 /* This depends on the layout of a mach_timespec_t and timespec_t being equivalent */
-                ADD_MACH_TIMESPEC(&current, requested_time);
-                SUB_MACH_TIMESPEC(&current, &remain);
-                remaining_time->tv_sec = current.tv_sec;
-                remaining_time->tv_nsec = current.tv_nsec;
+                ADD_MACH_TIMESPEC(&completion, requested_time);
+		/* We have to compare first, since mach_timespect_t contains unsigned integers */
+		if(CMP_MACH_TIMESPEC(&completion, &current) > 0) {
+		    SUB_MACH_TIMESPEC(&completion, &current);
+		    remaining_time->tv_sec = completion.tv_sec;
+		    remaining_time->tv_nsec = completion.tv_nsec;
+		} else {
+		    bzero(remaining_time, sizeof(*remaining_time));
+		}
             }
         } else {
             errno = EINVAL;

@@ -1,4 +1,4 @@
-/* $OpenBSD: monitor_wrap.h,v 1.21 2008/11/04 08:22:13 djm Exp $ */
+/* $OpenBSD: monitor_wrap.h,v 1.22 2009/03/05 07:18:19 djm Exp $ */
 
 /*
  * Copyright 2002 Niels Provos <provos@citi.umich.edu>
@@ -57,9 +57,10 @@ BIGNUM *mm_auth_rsa_generate_challenge(Key *);
 OM_uint32 mm_ssh_gssapi_server_ctx(Gssctxt **, gss_OID);
 OM_uint32 mm_ssh_gssapi_accept_ctx(Gssctxt *,
    gss_buffer_desc *, gss_buffer_desc *, OM_uint32 *);
-int mm_ssh_gssapi_userok(char *user);
+int mm_ssh_gssapi_userok(char *user, struct passwd *);
 OM_uint32 mm_ssh_gssapi_checkmic(Gssctxt *, gss_buffer_t, gss_buffer_t);
 OM_uint32 mm_ssh_gssapi_sign(Gssctxt *, gss_buffer_t, gss_buffer_t);
+int mm_ssh_gssapi_update_creds(ssh_gssapi_ccache *);
 #endif
 
 #ifdef USE_PAM
@@ -103,17 +104,17 @@ int mm_skey_query(void *, char **, char **, u_int *, char ***, u_int **);
 int mm_skey_respond(void *, u_int, char **);
 
 /* jpake */
-struct jpake_group;
+struct modp_group;
 void mm_auth2_jpake_get_pwdata(struct Authctxt *, BIGNUM **, char **, char **);
-void mm_jpake_step1(struct jpake_group *, u_char **, u_int *,
+void mm_jpake_step1(struct modp_group *, u_char **, u_int *,
     BIGNUM **, BIGNUM **, BIGNUM **, BIGNUM **,
     u_char **, u_int *, u_char **, u_int *);
-void mm_jpake_step2(struct jpake_group *, BIGNUM *,
+void mm_jpake_step2(struct modp_group *, BIGNUM *,
     BIGNUM *, BIGNUM *, BIGNUM *, BIGNUM *,
     const u_char *, u_int, const u_char *, u_int,
     const u_char *, u_int, const u_char *, u_int,
     BIGNUM **, u_char **, u_int *);
-void mm_jpake_key_confirm(struct jpake_group *, BIGNUM *, BIGNUM *,
+void mm_jpake_key_confirm(struct modp_group *, BIGNUM *, BIGNUM *,
     BIGNUM *, BIGNUM *, BIGNUM *, BIGNUM *, BIGNUM *,
     const u_char *, u_int, const u_char *, u_int,
     const u_char *, u_int, const u_char *, u_int,

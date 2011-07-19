@@ -1,6 +1,6 @@
 /*
 ********************************************************************************
-*   Copyright (C) 2005-2006, International Business Machines
+*   Copyright (C) 2005-2009, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ********************************************************************************
 *
@@ -246,7 +246,7 @@ static void testLocale(const char *localeID, int32_t lcid, NumberFormat *wnf, UB
             UnicodeString locale(localeID);
 
             log->errln("Double format error for locale " + locale +
-                        ": got " + udBuffer + " expected " + wdBuffer);
+                                    ": got " + udBuffer + " expected " + wdBuffer);
         }
 
         wnf->format(i32, u3Buffer);
@@ -254,7 +254,7 @@ static void testLocale(const char *localeID, int32_t lcid, NumberFormat *wnf, UB
             UnicodeString locale(localeID);
 
             log->errln("int32_t format error for locale " + locale +
-                        ": got " + u3Buffer + " expected " + w3Buffer);
+                                    ": got " + u3Buffer + " expected " + w3Buffer);
         }
 
         wnf->format(i64, u6Buffer);
@@ -262,7 +262,7 @@ static void testLocale(const char *localeID, int32_t lcid, NumberFormat *wnf, UB
             UnicodeString locale(localeID);
 
             log->errln("int64_t format error for locale " + locale +
-                        ": got " + u6Buffer + " expected " + w6Buffer);
+                                    ": got " + u6Buffer + " expected " + w6Buffer);
         }
     }
 }
@@ -276,10 +276,10 @@ void Win32NumberTest::testLocales(TestLog *log)
         UErrorCode status = U_ZERO_ERROR;
         char localeID[128];
 
-		// NULL localeID means ICU didn't recognize the lcid
-		if (lcidRecords[i].localeID == NULL) {
-			continue;
-		}
+        // NULL localeID means ICU didn't recognize the lcid
+        if (lcidRecords[i].localeID == NULL) {
+            continue;
+        }
 
         strcpy(localeID, lcidRecords[i].localeID);
 

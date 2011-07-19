@@ -1,10 +1,9 @@
 /*
- * "$Id: rastertohp.c 7834 2008-08-04 21:02:09Z mike $"
+ * "$Id: rastertohp.c 9042 2010-03-24 00:45:34Z mike $"
  *
- *   Hewlett-Packard Page Control Language filter for the Common UNIX
- *   Printing System (CUPS).
+ *   Hewlett-Packard Page Control Language filter for CUPS.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -32,14 +31,13 @@
  */
 
 #include <cups/cups.h>
-#include <cups/string.h>
-#include <cups/i18n.h>
+#include <cups/ppd.h>
+#include <cups/string-private.h>
+#include <cups/language-private.h>
 #include <cups/raster.h>
-#include <stdlib.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <signal.h>
-#include <errno.h>
 
 
 /*
@@ -369,7 +367,7 @@ StartPage(ppd_file_t         *ppd,	/* I - PPD file */
 
   if ((Planes[0] = malloc(header->cupsBytesPerLine)) == NULL)
   {
-    fputs("ERROR: Unable to allocate memory!\n", stderr);
+    fputs("ERROR: Unable to allocate memory\n", stderr);
     exit(1);
   }
 
@@ -709,9 +707,9 @@ main(int  argc,				/* I - Number of command-line arguments */
     * and return.
     */
 
-    _cupsLangPrintf(stderr,
-                    _("Usage: %s job-id user title copies options [file]\n"),
-                    "rastertohp");
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("%s job-id user title copies options [file]"),
+			 "rastertohp");
     return (1);
   }
 
@@ -723,8 +721,7 @@ main(int  argc,				/* I - Number of command-line arguments */
   {
     if ((fd = open(argv[6], O_RDONLY)) == -1)
     {
-      _cupsLangPrintf(stderr, _("ERROR: Unable to open raster file - %s\n"),
-                      strerror(errno));
+      _cupsLangPrintError("ERROR", _("Unable to open raster file"));
       sleep(1);
       return (1);
     }
@@ -758,6 +755,20 @@ main(int  argc,				/* I - Number of command-line arguments */
   */
 
   ppd = ppdOpenFile(getenv("PPD"));
+  if (!ppd)
+  {
+    ppd_status_t	status;		/* PPD error */
+    int			linenum;	/* Line number */
+
+    _cupsLangPrintFilter(stderr, "ERROR",
+                         _("The PPD file could not be opened."));
+
+    status = ppdLastError(&linenum);
+
+    fprintf(stderr, "DEBUG: %s on line %d.\n", ppdErrorString(status), linenum);
+
+    return (1);
+  }
 
   Setup();
 
@@ -779,6 +790,7 @@ main(int  argc,				/* I - Number of command-line arguments */
     Page ++;
 
     fprintf(stderr, "PAGE: %d %d\n", Page, header.NumCopies);
+    _cupsLangPrintFilter(stderr, "INFO", _("Starting page %d."), Page);
 
    /*
     * Start the page...
@@ -800,8 +812,13 @@ main(int  argc,				/* I - Number of command-line arguments */
 	break;
 
       if ((y & 127) == 0)
-        _cupsLangPrintf(stderr, _("INFO: Printing page %d, %d%% complete...\n"),
-                        Page, 100 * y / header.cupsHeight);
+      {
+        _cupsLangPrintFilter(stderr, "INFO",
+	                     _("Printing page %d, %d%% complete."),
+			     Page, 100 * y / header.cupsHeight);
+        fprintf(stderr, "ATTR: job-media-progress=%d\n",
+		100 * y / header.cupsHeight);
+      }
 
      /*
       * Read a line of graphics...
@@ -824,6 +841,8 @@ main(int  argc,				/* I - Number of command-line arguments */
    /*
     * Eject the page...
     */
+
+    _cupsLangPrintFilter(stderr, "INFO", _("Finished page %d."), Page);
 
     EndPage();
 
@@ -854,17 +873,17 @@ main(int  argc,				/* I - Number of command-line arguments */
 
   if (Page == 0)
   {
-    _cupsLangPuts(stderr, _("ERROR: No pages found!\n"));
+    _cupsLangPrintFilter(stderr, "ERROR", _("No pages were found."));
     return (1);
   }
   else
   {
-    _cupsLangPuts(stderr, _("INFO: Ready to print.\n"));
+    _cupsLangPrintFilter(stderr, "INFO", _("Ready to print."));
     return (0);
   }
 }
 
 
 /*
- * End of "$Id: rastertohp.c 7834 2008-08-04 21:02:09Z mike $".
+ * End of "$Id: rastertohp.c 9042 2010-03-24 00:45:34Z mike $".
  */

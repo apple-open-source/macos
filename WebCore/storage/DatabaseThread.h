@@ -48,14 +48,14 @@ class Document;
 class SQLTransactionClient;
 class SQLTransactionCoordinator;
 
-class DatabaseThread : public ThreadSafeShared<DatabaseThread> {
+class DatabaseThread : public ThreadSafeRefCounted<DatabaseThread> {
 public:
     static PassRefPtr<DatabaseThread> create() { return adoptRef(new DatabaseThread); }
     ~DatabaseThread();
 
     bool start();
     void requestTermination(DatabaseTaskSynchronizer* cleanupSync);
-    bool terminationRequested() const;
+    bool terminationRequested(DatabaseTaskSynchronizer* taskSynchronizer = 0) const;
 
     void scheduleTask(PassOwnPtr<DatabaseTask>);
     void scheduleImmediateTask(PassOwnPtr<DatabaseTask>); // This just adds the task to the front of the queue - the caller needs to be extremely careful not to create deadlocks when waiting for completion.

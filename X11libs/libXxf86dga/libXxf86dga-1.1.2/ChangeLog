@@ -1,0 +1,538 @@
+commit 3eb0d49a8d673c79ba9714d027f1ee056cf4b0b9
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 18:00:17 2010 -0700
+
+    libXxf86dga 1.1.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 967c47b8e431e1b4a25b3436ba4e130cc7eee5b5
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 17:58:37 2010 -0700
+
+    Sun's copyrights now belong to Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a9cad8418292ee2291004d2c9ada7547120b53fd
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Tue Sep 28 13:30:04 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a8a764e1c41a8f261f768e9ac2ef24e23ba6eedd
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Aug 17 14:37:23 2010 -0400
+
+    man: store shadow man pages in git rather than generating them
+    
+    Simplify the build process and the makefile.
+    
+    Local fix in CVS for bug 5628 is not required
+    as the problem has been fixed in
+    util-macros d9062e4077ebfd0985baf8418f3d0f111b9ddbba
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 7395fb5197549ce048b9e759eb27cd7f4f284c66
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 8 15:28:39 2010 -0700
+
+    Use make rules instead of shell for loops to generate shadow man pages
+    
+    Allows parallel make and simpler build logs/error reporting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 30a8e2d18fe6dc9fac599e2570360ebb27207811
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 8 15:26:35 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    The existing statement can now be removed from the configuration file.
+    
+    Use automake provided $(AM_V_GEN) and XORG_DEFAULT_OPTIONS provided $(SED)
+    Enables silent rule and use platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 86ece63cf0d038eb36e80cc4836eb387c407b773
+Author: Fernando Carrijo <fcarrijo@yahoo.com.br>
+Date:   Thu Jul 1 07:08:11 2010 -0300
+
+    Purge macros NEED_EVENTS and NEED_REPLIES
+    
+    Signed-off-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+    Acked-by: Tiago Vignatti <tiago.vignatti@nokia.com>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 5c9d042d4450d28c50258895885836253fbf5e61
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 16:50:34 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit e8483875af8417918ce99fac61982167f96acf17
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 14:53:49 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 1ad4c147bbaf1523adba2e9f4b289c0fb4360097
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Feb 16 10:37:21 2010 -0500
+
+    config: move CWARNFLAGS from configure.ac to Makefile.am
+    
+    Compiler warning flags should be explicitly set in the makefile
+    rather than being merged with other packages compiler flags.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 253089a20d1496ef4102d06d603f1755e5e6e746
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Jan 14 10:37:36 2010 -0500
+
+    COPYING: fix copyright notice format
+    
+    Newlines and spaces.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 639c859ee3b74088a50bc0402f99261bd5c0f3e9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 20:56:48 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit cc8610353912c7002da001365cb9a27e1e02091a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 27 20:56:04 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 6631f7b26574e665dfec6003ecc8d0bf77151ab4
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:10 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 7c8e098dece92f8ac824c8e2eb3e737cacee57e7
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:26 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 8255d46aafed7f7527360b7b1dbf2333ad41444a
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:43 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit efd0fb6f31ee88887e16e98dca89473ff2bb56a1
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:19 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 990b19154368d9a1733636367d6a99d863d558ee
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Oct 6 16:14:45 2009 +1000
+
+    libXxf86dga 1.1.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3cfcfc6246fb213bb0edf529b4f2b40907e5161c
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Oct 6 15:38:27 2009 +1000
+
+    Include Xxf86dga.h, not xf86dga.
+    
+    f78f3ed3571ab0bd75753a7ab388120a383d894a removed xf86dga.h and instead
+    provided Xxf86dga.h. Let's use it!
+    
+    Also, remove two superfluous includes, including it once per file is enough.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 0bd51760a0d92181faedbd52e7d7249c8179f95d
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Tue Oct 6 15:34:22 2009 +1000
+
+    Actually use XORG_DEFAULT_OPTIONS
+    
+    For some reason, this part didn't make it into
+    8eab9123467b047f2b4ddec7df48a679c9254ca1.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 5bf5c3c78963cec3cd22e445c62cc7cfd2a37df2
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 22:34:39 2009 +1000
+
+    libXxf86dga 1.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8eab9123467b047f2b4ddec7df48a679c9254ca1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Oct 1 22:33:10 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 9be294d7455ce5799b09bc6bb06c18bea80287be
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Mon Sep 21 10:16:25 2009 +1000
+
+    Bump to 1.0.99.2
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f78f3ed3571ab0bd75753a7ab388120a383d894a
+Author: Carl Worth <cworth@cworth.org>
+Date:   Wed Sep 16 17:08:17 2009 -0700
+
+    Rename xf86dga.h to Xxf86dga.h
+    
+    The xf86dgaproto package (as of 2.0.99.2) now provides an include file
+    named xf86dga.h for compatibility. We now depend on that version.
+
+commit fd90936abab52caf163c83d114a22980adcc3ee0
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 10:56:55 2009 +1000
+
+    Bump to 1.0.99.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit e28cffbe48279a622b19cab1c83ab0a97e60ccef
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 16:41:04 2009 +1000
+
+    Move Xlib headers from xf86dgaproto to here.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 66abdd3e52ef3071c7d89313cc95935a4ee7ba52
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Feb 2 20:34:37 2009 -0800
+
+    Add README with pointers to mailing list, bugzilla & git repos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 11ff34f811737514ded5231b73407d63a1baf68d
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Mon Feb 2 14:22:44 2009 -0200
+
+    Janitor: make distcheck and .gitignore.
+
+commit d5bcd25affa9df2d937f57fac914de4b6f740ae6
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Mar 9 08:47:58 2008 +0100
+
+    nuke RCS Ids
+
+commit 7acb8e34e19ca4ac3347cd42c31adf877397f23b
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:43 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 5968e0f1e992db63b003f2389657cd527a806efd
+Author: Eric Anholt <eric@anholt.net>
+Date:   Wed Sep 5 10:17:57 2007 -0700
+
+    Bump to 1.0.2 and require updated xf86dgaproto for the prototype update.
+
+commit 625a9c61265cdd1de3da425843a1a8de80d67c78
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:50 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit b3d86af10895f30ffb2999c28c5864b2be8681f6
+Author: Wang Zhenyu <zhenyu.z.wang@intel.com>
+Date:   Wed Apr 18 09:35:56 2007 +0800
+
+    Fix sign extension bug on x86_64 system.
+    
+    In XF86DGAGetVideoLL(), we pass offset param as 'int' type, but
+    later we cast it to 'unsigned long' in calling MapPhysAddress().
+    This causes page table error on x86_64 system like below:
+    
+    dga: Corrupted page table at address 2b9712b1b000
+    PGD 702a4067 PUD 6f830067 PMD 6f864067 PTE ffffffff80040027
+    Bad pagetable: 000f [1] SMP
+    CPU 0
+    Modules linked in: i915 drm dm_mirror dm_mod video button battery asus_acpi ac parport_pc parport nvram uhci_hcd ehci_hcd snd_hda_intel snd_hda_codec snd_seq_dummy snd_seq_oss snd_seq_midi_event snd_seq snd_seq_device snd_pcm_oss snd_mixer_oss pcspkr snd_pcm i2c_i801 i2c_core e1000 snd_timer snd soundcore snd_page_alloc
+    Pid: 2509, comm: dga Not tainted 2.6.21-rc6 #2
+    RIP: 0033:[<0000003d119754a0>]  [<0000003d119754a0>]
+    RSP: 002b:00007fff98f0d4c8  EFLAGS: 00010202
+    RAX: 0000000000008000 RBX: 0000000000000001 RCX: 00002b9712b1b000
+    RDX: 0000000000200000 RSI: 0000000000000071 RDI: 00002b9712b1b000
+    RBP: 0000000000000000 R08: 7171717171717171 R09: 0000000000000000
+    R10: 0000000000000000 R11: 0000003d119753e0 R12: 0000000000000000
+    R13: 00007fff98f0d730 R14: 0000000000503010 R15: 0000000000000000
+    FS:  00002b9712b19f60(0000) GS:ffffffff8060d000(0000) knlGS:0000000000000000
+    CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
+    CR2: 00002b9712b1b000 CR3: 000000006ffdb000 CR4: 00000000000006e0
+    Process dga (pid: 2509, threadinfo ffff8100718de000, task ffff81006ffd67a0)
+    
+    RIP  [<0000003d119754a0>]
+     RSP <00007fff98f0d4c8>
+    
+    This patch requires latest xf86dgaproto to build.
+
+commit 316e02ab0bd590851c80e3028150f2a6a5a36708
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:59:12 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit b5be6bc7a5b5527f86dfd224e89a7c1561845131
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:25:08 2006 +0000
+
+    Bump to 1.0.1
+
+commit 9ec9ba4c4539b27d819553fa4be73745b4fdfbf7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Feb 12 18:19:23 2006 +0000
+
+    Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628> Shadow pages
+        not created correctly when MANDIR & MANSUFFIX don't match.
+
+commit 5ab70ae500ec62fc89c7fa783f60db87d8b934a7
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:35 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit a31ecfdc3fde5b217f06cf3351bb12b37f5f7882
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:45 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit a3121e6147f16eb72c9df262c7735191c98626bd
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:45 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 47a9625fe9e29c4ead2b7209c0d064aeff415eaf
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:51 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit dbd43adfb46efddc1380895e192d96982470cb4d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:03:06 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 81f335d928ea693c6dff24c2a170010959b1cc1d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:43 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit a346dd66fdfe04d2cb41bd2f7869f1c6b90e5941
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:19:13 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit 70330a9bf76526353725e50233faafa14efcde16
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:25 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit 01d7b50a520e92449afaabaed5d331db9c49084e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:12 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit b0171fe11db042bccc7eaf2c0a88c3640eba6974
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:00:09 2005 +0000
+
+    Use @LIB_MAN_SUFFIX@ instead of $(LIB_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 32bf677cabd0641aa6bdcfbf58ec782133cc97ff
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 21:13:22 2005 +0000
+
+    Rename .shadows.DONE to shadows.DONE to avoid some make's thinking it's a
+        suffix rule (reported by Matthieu Herrb)
+
+commit 04020960fd2baa35a0e3546a536fe196f9e0d13d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 13 04:25:46 2005 +0000
+
+    Add generated man pages to .cvsignores
+
+commit 03c9007c310c8ca72d4c01a64f20c92bc581d688
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Wed Oct 12 01:18:25 2005 +0000
+
+    Use sed to put version number in man page Add shadow man pages for man
+        pages that document multiple functions.
+
+commit 4ce6461553712f7e966e874607225e57cd35e7eb
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:53 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit b56facdddd0b07195082ca94f6745b890151ad7b
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 21:05:22 2005 +0000
+
+    Add .cvsignore files Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+commit 2343f1171cb1a36e47622395965d072a0ce78db7
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jul 1 16:16:15 2005 +0000
+
+    spell freedesktop.org correctly
+
+commit 139215564ee6e63101858b9481f3413361a6d4a7
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jun 10 22:38:47 2005 +0000
+
+    Apply patch from Jeff Smith (whydoubt@yahoo.com):
+    - Add file linking for Xxf86misc, Xxf86dga, and Xxf86vm.
+    - Check in build system for Xxf86misc, Xxf86dga, and Xxf86vm.
+
+commit 177b9f5cb3c9108d9547731721efb8cd6064b753
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu May 6 17:31:17 2004 +0000
+
+    BugZilla #601: Fixing makedepend choking on floating point exception
+        because CHAR_BIT is defined to __CHAR_BIT__ which is a compiler
+        intrinsic define. BugZilla #605: Fixing build on IA64 which is broken
+        due to the inclusion of the kernel header asm/page.h. Kernel headers
+        however don't work with
+    -ansi. The inclusion of asm/page.h can however savely be removed as it
+        there are plenty of other ways to determine the page size.
+
+commit a18b2a60c586926bf51e40aae0adf65c0b232184
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 18:43:55 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 5ac2ec8cdbfc35957cca371e11c7dad06d410f73
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:32:27 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 1abdebb927820b966ea5c4af7437666fef02ba77
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:11:33 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 2fdd9aa86fb54d85563b7a9cb5b232b3a47705c0
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:34 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit a102c89670006328f7ef0190385d72a5b1d52e5c
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:22:48 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 7c35b3f77af60ea304442f55ca5c665c0862da0a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:02:57 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit dad8187051796d5dd318a4c324336344f80debab
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:02:57 2003 +0000
+
+    Initial revision
+
+commit 55019a1748a69f278dcc728e0db7ee79d426e695
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:16 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 2b92812979340a133c14336d4a87ea95a942b676
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit ca572cb2f331b374c246b4435f5aeb036392e16f
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    Initial revision

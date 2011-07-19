@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEAddress.c"
  *                                    created: 8/29/99 {5:02:24 PM} 
- *                                last update: 11/28/06 {8:22:31 AM} 
+ *                                last update: 7/25/10 {10:10:51 PM}
  *  Author: Pete Keleher
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
@@ -13,7 +13,7 @@
  *     www: http://www.his.com/jguyer/
  *  
  * ========================================================================
- *               Copyright (c) 1999-2004 Jonathan Guyer
+ *               Copyright (c) 1999-2009 Jonathan Guyer
  *               Copyright (c) 1990-1998 Pete Keleher
  *                      All rights reserved
  * ========================================================================
@@ -192,13 +192,18 @@ Tcl_Obj *	TclaeNewAEAddressObjFromCFURL(Tcl_Interp * interp, CFURLRef theURL);
 #endif
 
 static int	pStrcmp(ConstStringPtr s1, ConstStringPtr s2);
-static void 	PStringToUtfAndAppendToObj(Tcl_Obj *objPtr, ConstStringPtr pString);
+void 	PStringToUtfAndAppendToObj(Tcl_Obj *objPtr, ConstStringPtr pString);
 static Tcl_Obj * PStringToUtfObj(ConstStringPtr pString);
-static void	PStringToUtfAndAppendToDString(Tcl_DString *dsP, ConstStringPtr pString);
 static void	UtfObjToPString(Tcl_Obj *objPtr, StringPtr pString, int len);
+static Tcl_Obj * UnsignedLongToTclObj(unsigned int inLong);
 
+static Tcl_Obj *	UtfPathObjFromRef(Tcl_Interp * interp, FSRef *fsrefPtr);
+#if !__LP64__
 static Tcl_Obj *	UtfPathObjFromSpec(Tcl_Interp * interp, FSSpec *spec);
+#endif // !__LP64__
+#if !TARGET_API_MAC_CARBON
 static int		SpecFromUtfPathObj(Tcl_Interp * interp, Tcl_Obj * pathObj, FSSpec* spec);
+#endif 
 
 
 /* ×××× Public package routines ×××× */
@@ -348,8 +353,23 @@ TclaeLaunch(Tcl_Interp * interp, Tcl_Obj * appObj, Boolean foreGround, Boolean n
 		    CFRelease(processURL);
 		}
 		if (running) {
-		    // launched app is already running, so return its PSN
-		    return TCL_OK;
+		    // Launched app is already running, so return its PSN. If the
+		    // -foreground option is specified, bring the process to front
+		    // (see Bug 2372 in Alpha-Bugzilla).
+			OSErr	theErr = noErr;
+			if (foreGround) {
+				theErr = SetFrontProcess(thePSNp);
+			} 
+			if (theErr == noErr) {
+				return TCL_OK;
+			} else {
+				Tcl_ResetResult(interp);
+				Tcl_AppendResult(interp, "Unable to foreground ",
+                                     Tcl_GetString(appObj), ": ",
+                                     Tcl_MacOSError(interp, theErr),
+                                     (char *) NULL);
+				return TCL_ERROR;
+			} 
 		}
 	    }
 	}
@@ -550,10 +570,18 @@ Tclae_ProcessesCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
     while (GetNextProcess(&PSN) != procNotFound)  {
 	ProcessInfoRec 	procInfoRec;
 	Str255		str;
+#if __LP64__
+        FSRef		theAppRef;
+#else
 	FSSpec		theAppSpec;
+#endif // __LP64__
 	
 	procInfoRec.processName = str;
+#if __LP64__
+        procInfoRec.processAppRef = &theAppRef;
+#else
 	procInfoRec.processAppSpec = &theAppSpec;
+#endif // __LP64__
 	procInfoRec.processInfoLength = sizeof(procInfoRec);
 	
 	if (GetProcessInformation(&PSN, &procInfoRec) == noErr) {
@@ -581,7 +609,8 @@ Tclae_ProcessesCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 	    }
 	    
 	    // Launch date
-	    elementObj = Tcl_NewLongObj(procInfoRec.processLaunchDate);
+// 	    elementObj = Tcl_NewLongObj(procInfoRec.processLaunchDate);
+	    elementObj = UnsignedLongToTclObj(procInfoRec.processLaunchDate);
 	    result = Tcl_ListObjAppendElement(interp, processInfoObj, elementObj);
 	    if (result != TCL_OK) {
 		break; 
@@ -599,11 +628,15 @@ Tclae_ProcessesCmd(ClientData clientData, Tcl_Interp *interp, int objc, Tcl_Obj 
 	    }
 
 	    // Path
+#if __LP64__
+            elementObj = UtfPathObjFromRef(interp, procInfoRec.processAppRef);
+#else
 	    elementObj = UtfPathObjFromSpec(interp, procInfoRec.processAppSpec);
-	    if (elementObj == NULL) {
-		result = TCL_ERROR;
-		break;
-	    }
+#endif // __LP64__
+            if (elementObj == NULL) {
+                result = TCL_ERROR;
+                break;
+            }
 	    result = Tcl_ListObjAppendElement(interp, processInfoObj, elementObj);
 	    if (result != TCL_OK) {
 		break; 
@@ -1243,14 +1276,14 @@ parseTypeCreatorFilters(Tcl_Interp *interp, Tcl_Obj *listPtr)
 
 // lifted from oldEndre.c
 static Tcl_Obj *
-UtfPathObjFromSpec(Tcl_Interp * interp, FSSpec *spec)
+UtfPathObjFromRef(Tcl_Interp * interp, FSRef *fsrefPtr)
 {
     Tcl_Obj *	pathObj = NULL;
     OSErr	err;
     Handle	pathString = NULL;
     int		size;
     
-    err = FSpPathFromLocation(spec, &size, &pathString);
+    err = FSpPathFromLocation(fsrefPtr, &size, &pathString);
     if (err == noErr) {
 	Tcl_DString	ds;
 	
@@ -1266,6 +1299,24 @@ UtfPathObjFromSpec(Tcl_Interp * interp, FSSpec *spec)
     return pathObj;
 }
 
+#if !__LP64__
+static Tcl_Obj *
+UtfPathObjFromSpec(Tcl_Interp * interp, FSSpec *spec)
+{
+    Tcl_Obj *	pathObj = NULL;
+    FSRef	fsref;
+    OSErr	err;
+
+    err = FSpMakeFSRef(spec, &fsref);
+    if (err == noErr) {
+        pathObj = UtfPathObjFromRef(interp, &fsref);
+    }
+    
+    return pathObj;
+}
+#endif // !__LP64__
+
+#if !TARGET_API_MAC_CARBON
 // lifted from io.c
 static int 
 SpecFromUtfPathObj(Tcl_Interp * interp, Tcl_Obj * pathObj, FSSpec* spec) {
@@ -1290,7 +1341,7 @@ SpecFromUtfPathObj(Tcl_Interp * interp, Tcl_Obj * pathObj, FSSpec* spec) {
 	return TCL_OK;
     }
 }
-
+#endif // #if !TARGET_API_MAC_CARBON
 
 
 /*=========================== Pascal Strings ============================*/
@@ -1310,7 +1361,7 @@ static int pStrcmp(ConstStringPtr s1, ConstStringPtr s2)
     return((int)(s1[0] - s2[0]));
 }
 
-static void 
+void 
 PStringToUtfAndAppendToObj(Tcl_Obj *objPtr, ConstStringPtr pString)
 {
     Tcl_DString		tempDS;
@@ -1329,43 +1380,44 @@ PStringToUtfAndAppendToObj(Tcl_Obj *objPtr, ConstStringPtr pString)
 static Tcl_Obj * 
 PStringToUtfObj(ConstStringPtr pString)
 {
-    Tcl_Obj *	obj = Tcl_NewObj();
-    PStringToUtfAndAppendToObj(obj, pString);
+    Tcl_Obj *		obj = Tcl_NewObj();
+	char *			utfStr;
+    Tcl_DString		tempDS;
+    
+    Tcl_DStringInit(&tempDS);
+	
+	utfStr = Tcl_ExternalToUtfDString(tclAE_macRoman_encoding, 
+					     (char *) &pString[1], 
+					     pString[0], 
+					     &tempDS);
+	
+    Tcl_AppendToObj(obj, utfStr, Tcl_DStringLength(&tempDS));
+    
+    Tcl_DStringFree(&tempDS);
     
     return obj;
 }
 
-static void PStringToUtfAndAppendToDString(Tcl_DString *dsP, ConstStringPtr pString)
-{
-    Tcl_DString		tempDS;
-    
-    Tcl_DStringInit(&tempDS);
-    Tcl_DStringAppend(dsP, 
-		      Tcl_ExternalToUtfDString(tclAE_macRoman_encoding, 
-					       (char *) &pString[1], 
-					       pString[0], 
-					       &tempDS), 
-		      Tcl_DStringLength(&tempDS));
-    
-    Tcl_DStringFree(&tempDS);
-}
-
 static void UtfObjToPString(Tcl_Obj *objPtr, StringPtr pString, int len)
 {
-    Tcl_DString		tempDS;
+    CFStringRef		theString;
     
-    Tcl_UtfToExternalDString(tclAE_macRoman_encoding, 
-			     Tcl_GetString(objPtr), -1, 
-			     &tempDS);
-    
-    if (len >= 0 && len < Tcl_DStringLength(&tempDS)) {
-        Tcl_DStringSetLength(&tempDS, len);
-    }
-    c2pstrcpy(pString, Tcl_DStringValue(&tempDS));
-    
-    Tcl_DStringFree(&tempDS);
+    theString = TclObjToCFString(objPtr);
+    CFStringGetPascalString(theString, pString, len+1, kCFStringEncodingMacRoman);
 }
 
+static Tcl_Obj * 
+UnsignedLongToTclObj(unsigned int inLong)
+{
+    Tcl_Obj *		obj = Tcl_NewObj();
+	char			str[64];
+	
+	sprintf(str, "%u%c", inLong, 0);
+	Tcl_AppendToObj(obj, str, strlen(str));
+
+    return obj;
+}
+
 /*======================== Tcl AEAddress Object =========================*/
 
 /*
@@ -1559,33 +1611,6 @@ setTargetApplicationCreator(Tcl_Interp * interp, Tcl_Obj *creatorObj, TargetID *
     targetPtr->name.u.port.portType = 'ep01';	
 }
 #endif // TCLAE_NO_EPPC
-
-static int
-getApplicationURLAddress(Tcl_Interp *interp, Tcl_Obj *addressObj, AEAddressDesc *addressDesc)
-{
-    Tcl_DString	ds;
-    int		result = TCL_OK;
-    OSStatus	err;
-    
-    Tcl_UtfToExternalDString(tclAE_macRoman_encoding, 
-			     Tcl_GetString(addressObj), -1, &ds);
-    
-    err = AECreateDesc(typeApplicationURL, 
-		       Tcl_DStringValue(&ds), Tcl_DStringLength(&ds), 
-		       addressDesc);
-    
-    Tcl_DStringFree(&ds);
-    
-    if (err != noErr) {
-	Tcl_ResetResult(interp);
-	Tcl_AppendResult(interp, "Can't create ApplicationURL from '", 
-			 Tcl_GetString(addressObj), "': ", Tcl_MacOSError(interp, err),
-			 (char *) NULL);
-	result = TCL_ERROR;
-    }
-    
-    return TCL_OK;
-}
 
 #if !TARGET_API_MAC_CARBON && !defined(TCLAE_NO_EPPC)
 static void
@@ -1698,7 +1723,11 @@ getPSNAddress(Tcl_Interp *interp, Tcl_Obj *addressObj, AEAddressDesc *addressDes
     thePSN.lowLongOfPSN = kNoProcess;
     
     procInfoRec.processName = processNameStorage;
+#if __LP64__
+    procInfoRec.processAppRef = 0L;
+#else
     procInfoRec.processAppSpec = 0L;
+#endif // __LP64__
     procInfoRec.processInfoLength = sizeof(procInfoRec);
     
     if (Tcl_RegExpExecObj(interp, applRE, addressObj, 0, -1, 0) == 1) {

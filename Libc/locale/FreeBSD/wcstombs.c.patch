@@ -1,8 +1,8 @@
---- wcstombs.c.orig	Thu Nov 25 11:38:20 2004
-+++ wcstombs.c	Fri Feb 18 17:17:37 2005
-@@ -27,17 +27,27 @@
+--- wcstombs.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ wcstombs.c	2009-11-09 17:49:26.000000000 -0800
+@@ -27,19 +27,29 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/wcstombs.c,v 1.10 2004/07/21 10:54:57 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstombs.c,v 1.11 2009/01/15 18:53:52 rdivacky Exp $");
  
 +#include "xlocale_private.h"
 +
@@ -18,11 +18,13 @@
  {
  	static const mbstate_t initial;
  	mbstate_t mbs;
+ 	const wchar_t *pwcsp;
  
 +	NORMALIZE_LOCALE(loc);
  	mbs = initial;
--	return (__wcsnrtombs(s, &pwcs, SIZE_T_MAX, n, &mbs));
-+	return (loc->__lc_ctype->__wcsnrtombs(s, &pwcs, SIZE_T_MAX, n, &mbs, loc));
+ 	pwcsp = pwcs;
+-	return (__wcsnrtombs(s, &pwcsp, SIZE_T_MAX, n, &mbs));
++	return (loc->__lc_ctype->__wcsnrtombs(s, &pwcsp, SIZE_T_MAX, n, &mbs, loc));
 +}
 +
 +size_t

@@ -37,24 +37,24 @@ namespace WebCore {
 class ScriptExecutionContext;
 }
 
-using namespace WebCore;
-
 namespace WebKit {
 
-class WebEventListener;
+class WebDOMEventListener;
 
-class EventListenerWrapper : public EventListener {
+// FIXME: Remove the DeprecatedEventListenerWrapper class below once Chromium
+// switched to using WebDOMEvent.
+class EventListenerWrapper : public WebCore::EventListener {
 public:
-    EventListenerWrapper(WebEventListener*);
+    EventListenerWrapper(WebDOMEventListener*);
     ~EventListenerWrapper();
 
-    virtual bool operator==(const EventListener&);
-    virtual void handleEvent(ScriptExecutionContext*, Event*);
+    virtual bool operator==(const WebCore::EventListener&);
+    virtual void handleEvent(WebCore::ScriptExecutionContext*, WebCore::Event*);
 
-    void webEventListenerDeleted();
+    void webDOMEventListenerDeleted();
 
 private:
-    WebEventListener* m_webEventListener;
+    WebDOMEventListener* m_webDOMEventListener;
 };
 
 } // namespace WebKit

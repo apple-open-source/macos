@@ -15,13 +15,13 @@
 #ifndef LLVM_CODEGEN_MACHINEDOMINATORS_H
 #define LLVM_CODEGEN_MACHINEDOMINATORS_H
 
+#include "llvm/CodeGen/MachineBasicBlock.h"
+#include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/DominatorInternals.h"
 
 namespace llvm {
-
-inline void WriteAsOperand(std::ostream &, const MachineBasicBlock*, bool t) {  }
 
 template<>
 inline void DominatorTreeBase<MachineBasicBlock>::addRoot(MachineBasicBlock* MBB) {
@@ -156,13 +156,16 @@ public:
   inline void splitBlock(MachineBasicBlock* NewBB) {
     DT->splitBlock(NewBB);
   }
-  
-  
+
+  /// isReachableFromEntry - Return true if A is dominated by the entry
+  /// block of the function containing it.
+  bool isReachableFromEntry(MachineBasicBlock *A) {
+    return DT->isReachableFromEntry(A);
+  }
+
   virtual void releaseMemory();
   
-  virtual void print(std::ostream &OS, const Module* M= 0) const {
-    DT->print(OS, M);
-  }
+  virtual void print(raw_ostream &OS, const Module*) const;
 };
 
 //===-------------------------------------

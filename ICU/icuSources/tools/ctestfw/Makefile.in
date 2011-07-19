@@ -1,6 +1,6 @@
 #******************************************************************************
 #
-#   Copyright (C) 1999-2007, International Business Machines
+#   Copyright (C) 1999-2010, International Business Machines
 #   Corporation and others.  All Rights Reserved.
 #
 #******************************************************************************
@@ -46,12 +46,12 @@ CXXFLAGS += $(LIBCXXFLAGS)
 ifneq ($(top_builddir),$(top_srcdir))
 CPPFLAGS += -I$(top_builddir)/common
 endif
-CPPFLAGS += -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil -I$(srcdir) $(LIBCPPFLAGS)
+CPPFLAGS += -I$(top_srcdir)/common -I$(top_srcdir)/i18n -I$(srcdir)/../toolutil -I$(srcdir) $(LIBCPPFLAGS) $(CPPFLAGSCTESTFW)
 DEFS += -DT_CTEST_IMPLEMENTATION
 LDFLAGS += $(LDFLAGSCTESTFW)
 LIBS = $(LIBICUTOOLUTIL) $(LIBICUI18N) $(LIBICUUC) $(DEFAULT_LIBS)
 
-OBJECTS = ctest.o tstdtmod.o testdata.o datamap.o uperf.o dbgutil.o udbgutil.o
+OBJECTS = ctest.o tstdtmod.o testdata.o datamap.o uperf.o ucln_ct.o
 
 STATIC_OBJECTS = $(OBJECTS:.o=.$(STATIC_O))
 
@@ -79,6 +79,28 @@ all-local: $(ALL_TARGETS)
 install-local: install-library
 
 install-library: all-local
+	$(MKINSTALLDIRS) $(DESTDIR)$(libdir)
+ifneq ($(ENABLE_STATIC),)
+	$(INSTALL-L) $(TARGET) $(DESTDIR)$(libdir)
+endif
+ifneq ($(ENABLE_SHARED),)
+	$(INSTALL-L) $(FINAL_SO_TARGET) $(DESTDIR)$(libdir)
+ifneq ($(FINAL_SO_TARGET),$(SO_TARGET))
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(SO_TARGET)) && ln -s $(notdir $(FINAL_SO_TARGET)) $(notdir $(SO_TARGET))
+ifneq ($(FINAL_SO_TARGET),$(MIDDLE_SO_TARGET))
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_SO_TARGET)) && ln -s $(notdir $(FINAL_SO_TARGET)) $(notdir $(MIDDLE_SO_TARGET))
+endif
+endif
+ifneq ($(IMPORT_LIB_EXT),)
+	$(INSTALL-L) $(FINAL_IMPORT_LIB) $(DESTDIR)$(libdir)
+ifneq ($(IMPORT_LIB),$(FINAL_IMPORT_LIB))
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(IMPORT_LIB)) && ln -s $(notdir $(FINAL_IMPORT_LIB)) $(notdir $(IMPORT_LIB))
+endif
+ifneq ($(MIDDLE_IMPORT_LIB),$(FINAL_IMPORT_LIB))
+	cd $(DESTDIR)$(libdir) && $(RM) $(notdir $(MIDDLE_IMPORT_LIB)) && ln -s $(notdir $(FINAL_IMPORT_LIB)) $(notdir $(MIDDLE_IMPORT_LIB))
+endif
+endif
+endif
 
 dist-local:
 

@@ -32,7 +32,7 @@
 #include "MIMETypeRegistry.h"
 #include "PlatformString.h"
 
-#if PLATFORM(CF) && !PLATFORM(QT)
+#if USE(CF) && !PLATFORM(QT)
 #include "LegacyWebArchive.h"
 #endif
 
@@ -60,7 +60,7 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
     if (initialized)
         return mimeTypes;
 
-#if PLATFORM(CF) && !PLATFORM(QT)
+#if USE(CF)
     mimeTypes.set("application/x-webarchive", archiveFactoryCreate<LegacyWebArchive>);
 #endif
 
@@ -70,13 +70,13 @@ static ArchiveMIMETypesMap& archiveMIMETypes()
 
 bool ArchiveFactory::isArchiveMimeType(const String& mimeType)
 {
-    return archiveMIMETypes().contains(mimeType);
+    return !mimeType.isEmpty() && archiveMIMETypes().contains(mimeType);
 }
 
 PassRefPtr<Archive> ArchiveFactory::create(SharedBuffer* data, const String& mimeType)
 {
-    RawDataCreationFunction* function = archiveMIMETypes().get(mimeType);
-    return function ? function(data) : 0;
+    RawDataCreationFunction* function = mimeType.isEmpty() ? 0 : archiveMIMETypes().get(mimeType);
+    return function ? function(data) : PassRefPtr<Archive>(0);
 }
 
 void ArchiveFactory::registerKnownArchiveMIMETypes()

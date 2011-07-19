@@ -127,6 +127,10 @@ struct mathfunc {
 
 #define DEFAULT_IFS	" \t\n\203 "
 
+/* As specified in the standard (POSIX 2008) */
+
+#define DEFAULT_IFS_SH	" \t\n"
+
 /*
  * Character tokens.
  * These should match the characters in ztokens, defined in lex.c
@@ -147,28 +151,29 @@ struct mathfunc {
 #define Tick		((char) 0x91)
 #define Inang		((char) 0x92)
 #define Outang		((char) 0x93)
-#define Quest		((char) 0x94)
-#define Tilde		((char) 0x95)
-#define Qtick		((char) 0x96)
-#define Comma		((char) 0x97)
+#define OutangProc	((char) 0x94)
+#define Quest		((char) 0x95)
+#define Tilde		((char) 0x96)
+#define Qtick		((char) 0x97)
+#define Comma		((char) 0x98)
 /*
  * Null arguments: placeholders for single and double quotes
  * and backslashes.
  */
-#define Snull		((char) 0x98)
-#define Dnull		((char) 0x99)
-#define Bnull		((char) 0x9a)
+#define Snull		((char) 0x99)
+#define Dnull		((char) 0x9a)
+#define Bnull		((char) 0x9b)
 /*
  * Backslash which will be returned to "\" instead of being stripped
  * when we turn the string into a printable format.
  */
-#define Bnullkeep       ((char) 0x9b)
+#define Bnullkeep       ((char) 0x9c)
 /*
  * Null argument that does not correspond to any character.
  * This should be last as it does not appear in ztokens and
  * is used to initialise the IMETA type in inittyptab().
  */
-#define Nularg		((char) 0x9c)
+#define Nularg		((char) 0x9d)
 
 /*
  * Take care to update the use of IMETA appropriately when adding
@@ -209,7 +214,18 @@ enum {
      * in those cases where we need to represent a complete set.
      */
     QT_BACKTICK,
+    /*
+     * Single quotes, but the default is not to quote unless necessary.
+     * This is only useful as an argument to quotestring().
+     */
+    QT_SINGLE_OPTIONAL,
+    /*
+     * As QT_BACKSLASH, but a NULL string is shown as ''.
+     */
+    QT_BACKSLASH_SHOWNULL
 };
+
+#define QT_IS_SINGLE(x)	((x) == QT_SINGLE || (x) == QT_SINGLE_OPTIONAL)
 
 /*
  * Lexical tokens: unlike the character tokens above, these never
@@ -342,6 +358,15 @@ enum {
  * Entry used by output from the XTRACE option.
  */
 #define FDT_XTRACE		3
+/*
+ * Entry used for file locking.
+ */
+#define FDT_FLOCK		4
+/*
+ * As above, but the fd is not marked for closing on exec,
+ * so the shell can still exec the last process.
+ */
+#define FDT_FLOCK_EXEC		5
 #ifdef PATH_DEV_FD
 /*
  * Entry used by a process substition.
@@ -349,7 +374,7 @@ enum {
  * decremented on exit; we don't close entries greater than
  * FDT_PROC_SUBST except when closing everything.
  */
-#define FDT_PROC_SUBST		4
+#define FDT_PROC_SUBST		6
 #endif
 
 /* Flags for input stack */
@@ -381,6 +406,7 @@ typedef struct builtin   *Builtin;
 typedef struct cmdnam    *Cmdnam;
 typedef struct complist  *Complist;
 typedef struct conddef   *Conddef;
+typedef struct dirsav    *Dirsav;
 typedef struct features  *Features;
 typedef struct feature_enables  *Feature_enables;
 typedef struct funcstack *Funcstack;
@@ -571,6 +597,8 @@ struct redir {
     int fd1, fd2;
     char *name;
     char *varid;
+    char *here_terminator;
+    char *munged_here_terminator;
 };
 
 /* The number of fds space is allocated for  *
@@ -761,7 +789,9 @@ struct eccstr {
 #define WC_REDIR_FROM_HEREDOC(C) ((int)(wc_data(C) & REDIR_FROM_HEREDOC_MASK))
 #define WCB_REDIR(T)        wc_bld(WC_REDIR, (T))
 /* Size of redir is 4 words if REDIR_VARID_MASK is set, else 3 */
-#define WC_REDIR_WORDS(C)   (WC_REDIR_VARID(C) ? 4 : 3)
+#define WC_REDIR_WORDS(C)			\
+    ((WC_REDIR_VARID(C) ? 4 : 3) +		\
+     (WC_REDIR_FROM_HEREDOC(C) ? 2 : 0))
 
 #define WC_ASSIGN_TYPE(C)   (wc_data(C) & ((wordcode) 1))
 #define WC_ASSIGN_TYPE2(C)  ((wc_data(C) & ((wordcode) 2)) >> 1)
@@ -921,6 +951,7 @@ struct execstack {
     int badcshglob;
     pid_t cmdoutpid;
     int cmdoutval;
+    int use_cmdoutval;
     int trap_return;
     int trap_state;
     int trapisfunc;
@@ -1066,6 +1097,7 @@ struct shfunc {
     char *filename;             /* Name of file located in */
     zlong lineno;		/* line number in above file */
     Eprog funcdef;		/* function definition    */
+    int emulation;		/* sticky emulation for function */
 };
 
 /* Shell function context types. */
@@ -1114,6 +1146,15 @@ struct funcwrap {
 
 #define WRAPDEF(func) \
     { NULL, 0, func, NULL }
+
+/*
+ * User-defined hook arrays
+ */
+
+/* Name appended to function name to get hook array */
+#define HOOK_SUFFIX	"_functions"
+/* Length of that including NUL byte */
+#define HOOK_SUFFIX_LEN	11
 
 /* node in builtin command hash table (builtintab) */
 
@@ -1706,6 +1747,28 @@ struct nameddir {
 #define PRINT_WHENCE_FUNCDEF	(1<<9)
 #define PRINT_WHENCE_WORD	(1<<10)
 
+/* Return values from loop() */
+
+enum loop_return {
+    /* Loop executed OK */
+    LOOP_OK,
+    /* Loop executed no code */
+    LOOP_EMPTY,
+    /* Loop encountered an error */
+    LOOP_ERROR
+};
+
+/* Return values from source() */
+
+enum source_return {
+    /* Source ran OK */
+    SOURCE_OK = 0,
+    /* File not found */
+    SOURCE_NOT_FOUND = 1,
+    /* Internal error sourcing file */
+    SOURCE_ERROR = 2
+};
+
 /***********************************/
 /* Definitions for history control */
 /***********************************/
@@ -1760,6 +1823,40 @@ struct histent {
 #define HFILE_NO_REWRITE	0x0020
 #define HFILE_USE_OPTIONS	0x8000
 
+/*
+ * Flags argument to bufferwords() used
+ * also by lexflags variable.
+ */
+/*
+ * Kick the lexer into special string-analysis
+ * mode without parsing.  Any bit set in
+ * the flags has this effect, but this
+ * has otherwise all the default effects.
+ */
+#define LEXFLAGS_ACTIVE		0x0001
+/*
+ * Being used from zle.  This is slightly more intrusive
+ * (=> grotesquely non-modular) than use from within
+ * the main shell, so it's a separate flag.
+ */
+#define LEXFLAGS_ZLE		0x0002
+/*
+ * Parse comments and treat each comment as a single string
+ */
+#define LEXFLAGS_COMMENTS_KEEP	0x0004
+/*
+ * Parse comments and strip them.
+ */
+#define LEXFLAGS_COMMENTS_STRIP	0x0008
+/*
+ * Either of the above
+ */
+#define LEXFLAGS_COMMENTS (LEXFLAGS_COMMENTS_KEEP|LEXFLAGS_COMMENTS_STRIP)
+/*
+ * Treat newlines as whitespace
+ */
+#define LEXFLAGS_NEWLINE	0x0010
+
 /******************************************/
 /* Definitions for programable completion */
 /******************************************/
@@ -1788,6 +1885,20 @@ struct histent {
 #define EMULATE_KSH  (1<<2) /* Korn shell */
 #define EMULATE_SH   (1<<3) /* Bourne shell */
 #define EMULATE_ZSH  (1<<4) /* `native' mode */
+
+/* Test for a shell emulation.  Use this rather than emulation directly. */
+#define EMULATION(X)	(emulation & (X))
+
+/* Return only base shell emulation field. */
+#define SHELL_EMULATION()	(emulation & ((1<<5)-1))
+
+/* Additional flags */
+
+#define EMULATE_FULLY (1<<5) /* "emulate -R" in effect */
+/*
+ * Higher bits are used in options.c, record lowest unused bit...
+ */
+#define EMULATE_UNUSED (1<<6)
 
 /* option indices */
 
@@ -1865,6 +1976,7 @@ enum {
     HISTIGNOREALLDUPS,
     HISTIGNOREDUPS,
     HISTIGNORESPACE,
+    HISTLEXWORDS,
     HISTNOFUNCTIONS,
     HISTNOSTORE,
     HISTREDUCEBLANKS,
@@ -1908,8 +2020,14 @@ enum {
     OCTALZEROES,
     OVERSTRIKE,
     PATHDIRS,
+    PATHSCRIPT,
+    POSIXALIASES,
     POSIXBUILTINS,
+    POSIXCD,
     POSIXIDENTIFIERS,
+    POSIXJOBS,
+    POSIXSTRINGS,
+    POSIXTRAPS,
     PRINTEIGHTBIT,
     PRINTEXITVALUE,
     PRIVILEGED,
@@ -1940,6 +2058,7 @@ enum {
     SHWORDSPLIT,
     SINGLECOMMAND,
     SINGLELINEZLE,
+    SOURCETRACE,
     SUNKEYBOARDHACK,
     TRANSIENTRPROMPT,
     TRAPSASYNC,

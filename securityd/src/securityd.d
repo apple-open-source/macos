@@ -47,6 +47,8 @@ provider securityd {
 	probe client__connection__release(DTHandle id);
 	
 	probe client__change_session(DTHandle id, DTHandle session);
+	probe client__reset__amnesia(DTHandle id);
+	probe client__reset__full(DTHandle id);
 	
 	probe request__entry(const char *name, DTHandle connection, DTHandle process);
 	probe request__return(uint32_t osstatus);
@@ -54,9 +56,11 @@ provider securityd {
 	/*
 	 * Session management
 	 */
-	probe session__create(DTHandle id, uint32_t attributes, DTPort port);
-	probe session__setattr(DTHandle id, uint32_t attributes);
-	probe session__destroy(DTHandle id);
+	probe session__create(DTHandle id, uint32_t sessionId, const void *auditInfo, uint32_t auditInfoLength);
+	probe session__kill(DTHandle id, uint32_t sessionId);
+	probe session__destroy(DTHandle id, uint32_t sessionId);
+	
+	probe session__notify(uint64_t id, uint32_t flags, int uid);
 	
 	/*
 	 * Port-related events (internal interest only)

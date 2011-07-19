@@ -1,0 +1,20 @@
+[libdefaults]
+	default_realm = MIT-DB.H5L.ORG
+
+[realms]
+	MIT-DB.H5L.ORG = {
+		kdc = localhost
+	}
+
+# @srcdir@ /Volumes/data/Users/lha/src/cos/Heimdal/tests/db
+
+[kdc]
+	database = {
+		dbname = mit-db:/Volumes/data/Users/lha/src/cos/Heimdal/tests/db/principal.MIT-DB.H5L.ORG
+		realm = MIT-DB.H5L.ORG
+		mkey_file = /Volumes/data/Users/lha/src/cos/Heimdal/tests/db/mkey-MIT-DB.H5L.ORG
+#		log_file = @objdir@/log.mit-db.log
+	}
+
+[logging]
+#	default = 0-/FILE:@objdir@/messages.log

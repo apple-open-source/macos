@@ -59,7 +59,7 @@ JSClassRef JSClassCreate(const JSClassDefinition* definition)
         ? OpaqueJSClass::createNoAutomaticPrototype(definition)
         : OpaqueJSClass::create(definition);
     
-    return jsClass.release().releaseRef();
+    return jsClass.release().leakRef();
 }
 
 JSClassRef JSClassRetain(JSClassRef jsClass)
@@ -79,11 +79,11 @@ JSObjectRef JSObjectMake(JSContextRef ctx, JSClassRef jsClass, void* data)
     APIEntryShim entryShim(exec);
 
     if (!jsClass)
-        return toRef(new (exec) JSObject(exec->lexicalGlobalObject()->emptyObjectStructure())); // slightly more efficient
+        return toRef(constructEmptyObject(exec));
 
-    JSCallbackObject<JSObject>* object = new (exec) JSCallbackObject<JSObject>(exec, exec->lexicalGlobalObject()->callbackObjectStructure(), jsClass, data);
+    JSCallbackObject<JSObjectWithGlobalObject>* object = new (exec) JSCallbackObject<JSObjectWithGlobalObject>(exec, exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->callbackObjectStructure(), jsClass, data);
     if (JSObject* prototype = jsClass->prototype(exec))
-        object->setPrototype(prototype);
+        object->setPrototype(exec->globalData(), prototype);
 
     return toRef(object);
 }
@@ -95,7 +95,7 @@ JSObjectRef JSObjectMakeFunctionWithCallback(JSContextRef ctx, JSStringRef name,
 
     Identifier nameID = name ? name->identifier(&exec->globalData()) : Identifier(exec, "anonymous");
     
-    return toRef(new (exec) JSCallbackFunction(exec, callAsFunction, nameID));
+    return toRef(new (exec) JSCallbackFunction(exec, exec->lexicalGlobalObject(), callAsFunction, nameID));
 }
 
 JSObjectRef JSObjectMakeConstructor(JSContextRef ctx, JSClassRef jsClass, JSObjectCallAsConstructorCallback callAsConstructor)
@@ -107,8 +107,8 @@ JSObjectRef JSObjectMakeConstructor(JSContextRef ctx, JSClassRef jsClass, JSObje
     if (!jsPrototype)
         jsPrototype = exec->lexicalGlobalObject()->objectPrototype();
 
-    JSCallbackConstructor* constructor = new (exec) JSCallbackConstructor(exec->lexicalGlobalObject()->callbackConstructorStructure(), jsClass, callAsConstructor);
-    constructor->putDirect(exec->propertyNames().prototype, jsPrototype, DontEnum | DontDelete | ReadOnly);
+    JSCallbackConstructor* constructor = new (exec) JSCallbackConstructor(exec->lexicalGlobalObject(), exec->lexicalGlobalObject()->callbackConstructorStructure(), jsClass, callAsConstructor);
+    constructor->putDirect(exec->globalData(), exec->propertyNames().prototype, jsPrototype, DontEnum | DontDelete | ReadOnly);
     return toRef(constructor);
 }
 
@@ -124,7 +124,7 @@ JSObjectRef JSObjectMakeFunction(JSContextRef ctx, JSStringRef name, unsigned pa
         args.append(jsString(exec, parameterNames[i]->ustring()));
     args.append(jsString(exec, body->ustring()));
 
-    JSObject* result = constructFunction(exec, args, nameID, sourceURL->ustring(), startingLineNumber);
+    JSObject* result = constructFunction(exec, exec->lexicalGlobalObject(), args, nameID, sourceURL->ustring(), startingLineNumber);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -168,7 +168,7 @@ JSObjectRef JSObjectMakeDate(JSContextRef ctx, size_t argumentCount, const JSVal
     for (size_t i = 0; i < argumentCount; ++i)
         argList.append(toJS(exec, arguments[i]));
 
-    JSObject* result = constructDate(exec, argList);
+    JSObject* result = constructDate(exec, exec->lexicalGlobalObject(), argList);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -184,11 +184,10 @@ JSObjectRef JSObjectMakeError(JSContextRef ctx, size_t argumentCount, const JSVa
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
 
-    MarkedArgumentBuffer argList;
-    for (size_t i = 0; i < argumentCount; ++i)
-        argList.append(toJS(exec, arguments[i]));
+    JSValue message = argumentCount ? toJS(exec, arguments[0]) : jsUndefined();
+    Structure* errorStructure = exec->lexicalGlobalObject()->errorStructure();
+    JSObject* result = ErrorInstance::create(exec, errorStructure, message);
 
-    JSObject* result = constructError(exec, argList);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -208,7 +207,7 @@ JSObjectRef JSObjectMakeRegExp(JSContextRef ctx, size_t argumentCount, const JSV
     for (size_t i = 0; i < argumentCount; ++i)
         argList.append(toJS(exec, arguments[i]));
 
-    JSObject* result = constructRegExp(exec, argList);
+    JSObject* result = constructRegExp(exec, exec->lexicalGlobalObject(),  argList);
     if (exec->hadException()) {
         if (exception)
             *exception = toRef(exec, exec->exception());
@@ -236,7 +235,7 @@ void JSObjectSetPrototype(JSContextRef ctx, JSObjectRef object, JSValueRef value
     JSObject* jsObject = toJS(object);
     JSValue jsValue = toJS(exec, value);
 
-    jsObject->setPrototype(jsValue.isObject() ? jsValue : jsNull());
+    jsObject->setPrototypeWithCycleCheck(exec->globalData(), jsValue.isObject() ? jsValue : jsNull());
 }
 
 bool JSObjectHasProperty(JSContextRef ctx, JSObjectRef object, JSStringRef propertyName)
@@ -341,10 +340,10 @@ void* JSObjectGetPrivate(JSObjectRef object)
 {
     JSObject* jsObject = toJS(object);
     
-    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info))
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info))
         return static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivate();
-    else if (jsObject->inherits(&JSCallbackObject<JSObject>::info))
-        return static_cast<JSCallbackObject<JSObject>*>(jsObject)->getPrivate();
+    if (jsObject->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info))
+        return static_cast<JSCallbackObject<JSObjectWithGlobalObject>*>(jsObject)->getPrivate();
     
     return 0;
 }
@@ -353,11 +352,12 @@ bool JSObjectSetPrivate(JSObjectRef object, void* data)
 {
     JSObject* jsObject = toJS(object);
     
-    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info)) {
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
         static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivate(data);
         return true;
-    } else if (jsObject->inherits(&JSCallbackObject<JSObject>::info)) {
-        static_cast<JSCallbackObject<JSObject>*>(jsObject)->setPrivate(data);
+    }
+    if (jsObject->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info)) {
+        static_cast<JSCallbackObject<JSObjectWithGlobalObject>*>(jsObject)->setPrivate(data);
         return true;
     }
         
@@ -371,10 +371,10 @@ JSValueRef JSObjectGetPrivateProperty(JSContextRef ctx, JSObjectRef object, JSSt
     JSObject* jsObject = toJS(object);
     JSValue result;
     Identifier name(propertyName->identifier(&exec->globalData()));
-    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info))
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info))
         result = static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->getPrivateProperty(name);
-    else if (jsObject->inherits(&JSCallbackObject<JSObject>::info))
-        result = static_cast<JSCallbackObject<JSObject>*>(jsObject)->getPrivateProperty(name);
+    else if (jsObject->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info))
+        result = static_cast<JSCallbackObject<JSObjectWithGlobalObject>*>(jsObject)->getPrivateProperty(name);
     return toRef(exec, result);
 }
 
@@ -383,14 +383,14 @@ bool JSObjectSetPrivateProperty(JSContextRef ctx, JSObjectRef object, JSStringRe
     ExecState* exec = toJS(ctx);
     APIEntryShim entryShim(exec);
     JSObject* jsObject = toJS(object);
-    JSValue jsValue = toJS(exec, value);
+    JSValue jsValue = value ? toJS(exec, value) : JSValue();
     Identifier name(propertyName->identifier(&exec->globalData()));
-    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info)) {
-        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivateProperty(name, jsValue);
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
+        static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
         return true;
     }
-    if (jsObject->inherits(&JSCallbackObject<JSObject>::info)) {
-        static_cast<JSCallbackObject<JSObject>*>(jsObject)->setPrivateProperty(name, jsValue);
+    if (jsObject->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info)) {
+        static_cast<JSCallbackObject<JSObjectWithGlobalObject>*>(jsObject)->setPrivateProperty(exec->globalData(), name, jsValue);
         return true;
     }
     return false;
@@ -402,12 +402,12 @@ bool JSObjectDeletePrivateProperty(JSContextRef ctx, JSObjectRef object, JSStrin
     APIEntryShim entryShim(exec);
     JSObject* jsObject = toJS(object);
     Identifier name(propertyName->identifier(&exec->globalData()));
-    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::info)) {
+    if (jsObject->inherits(&JSCallbackObject<JSGlobalObject>::s_info)) {
         static_cast<JSCallbackObject<JSGlobalObject>*>(jsObject)->deletePrivateProperty(name);
         return true;
     }
-    if (jsObject->inherits(&JSCallbackObject<JSObject>::info)) {
-        static_cast<JSCallbackObject<JSObject>*>(jsObject)->deletePrivateProperty(name);
+    if (jsObject->inherits(&JSCallbackObject<JSObjectWithGlobalObject>::s_info)) {
+        static_cast<JSCallbackObject<JSObjectWithGlobalObject>*>(jsObject)->deletePrivateProperty(name);
         return true;
     }
     return false;
@@ -481,7 +481,9 @@ JSObjectRef JSObjectCallAsConstructor(JSContextRef ctx, JSObjectRef object, size
     return result;
 }
 
-struct OpaqueJSPropertyNameArray : FastAllocBase {
+struct OpaqueJSPropertyNameArray {
+    WTF_MAKE_FAST_ALLOCATED;
+public:
     OpaqueJSPropertyNameArray(JSGlobalData* globalData)
         : refCount(0)
         , globalData(globalData)
@@ -508,7 +510,7 @@ JSPropertyNameArrayRef JSObjectCopyPropertyNames(JSContextRef ctx, JSObjectRef o
     size_t size = array.size();
     propertyNames->array.reserveInitialCapacity(size);
     for (size_t i = 0; i < size; ++i)
-        propertyNames->array.append(JSRetainPtr<JSStringRef>(Adopt, OpaqueJSString::create(array[i].ustring()).releaseRef()));
+        propertyNames->array.append(JSRetainPtr<JSStringRef>(Adopt, OpaqueJSString::create(array[i].ustring()).leakRef()));
     
     return JSPropertyNameArrayRetain(propertyNames);
 }

@@ -65,7 +65,8 @@ public:
   }
 
   PointerTy getPointer() const {
-    return reinterpret_cast<PointerTy>(Value & PointerBitMask);
+    return PtrTraits::getFromVoidPointer(
+                         reinterpret_cast<void*>(Value & PointerBitMask));
   }
 
   IntType getInt() const {
@@ -73,7 +74,8 @@ public:
   }
 
   void setPointer(PointerTy Ptr) {
-    intptr_t PtrVal = reinterpret_cast<intptr_t>(Ptr);
+    intptr_t PtrVal
+      = reinterpret_cast<intptr_t>(PtrTraits::getAsVoidPointer(Ptr));
     assert((PtrVal & ((1 << PtrTraits::NumLowBitsAvailable)-1)) == 0 &&
            "Pointer is not sufficiently aligned");
     // Preserve all low bits, just update the pointer.
@@ -104,6 +106,12 @@ public:
   bool operator>=(const PointerIntPair &RHS) const {return Value >= RHS.Value;}
 };
 
+template <typename T> struct isPodLike;
+template<typename PointerTy, unsigned IntBits, typename IntType>
+struct isPodLike<PointerIntPair<PointerTy, IntBits, IntType> > {
+   static const bool value = true;
+};
+  
 // Provide specialization of DenseMapInfo for PointerIntPair.
 template<typename PointerTy, unsigned IntBits, typename IntType>
 struct DenseMapInfo<PointerIntPair<PointerTy, IntBits, IntType> > {
@@ -123,7 +131,6 @@ struct DenseMapInfo<PointerIntPair<PointerTy, IntBits, IntType> > {
     return unsigned(IV) ^ unsigned(IV >> 9);
   }
   static bool isEqual(const Ty &LHS, const Ty &RHS) { return LHS == RHS; }
-  static bool isPod() { return true; }
 };
 
 // Teach SmallPtrSet that PointerIntPair is "basically a pointer".
@@ -141,8 +148,7 @@ public:
     return PointerIntPair<PointerTy, IntBits, IntType>::getFromOpaqueValue(P);
   }
   enum {
-    NumLowBitsAvailable = 
-           PointerLikeTypeTraits<PointerTy>::NumLowBitsAvailable - IntBits
+    NumLowBitsAvailable = PtrTraits::NumLowBitsAvailable - IntBits
   };
 };
 

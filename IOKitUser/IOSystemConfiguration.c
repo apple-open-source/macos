@@ -26,66 +26,80 @@
 #include <dlfcn.h>
 #include  "IOSystemConfiguration.h"
 
-__private_extern__ CFStringRef kSCCompAnyRegex = CFSTR("[^/]+");
-__private_extern__ CFStringRef kSCDynamicStoreDomainState = CFSTR("State:");
-
 
 #define SYSTEM_FRAMEWORK_DIR "/System/Library/Frameworks"
 #define SYSTEM_CONFIGURATION "SystemConfiguration.framework/SystemConfiguration"
 #define SC_FRAMEWORK	     SYSTEM_FRAMEWORK_DIR "/" SYSTEM_CONFIGURATION
 
+/* IOKIT_SC_SYMBOL 
+ *
+ * - Tells the linker to pretend that _SYMBOL doesn't exist in OS X 10.7 and later. 
+ * - Exports _SYMBOL as extern for OS X
+ * - Hides the _SYMBOL as __private_extern__ for iOS builds
+ *
+ */
+#if TARGET_OS_EMBEDDED
+#define IOKIT_SC_SYMBOL(_RETURN, _SYMBOL)   __private_extern__ _RETURN _io_##_SYMBOL
+#else
+#define IOKIT_SC_SYMBOL(_RETURN, _SYMBOL)   extern const char _SYMBOL##_tmp7 __asm("$ld$hide$os10.7$_" #_SYMBOL ); \
+                                            __attribute__ ((visibility("default"))) const char _SYMBOL##_tmp7 = 0; \
+                                            _RETURN _SYMBOL
+#endif
+
+const CFStringRef _io_kSCCompAnyRegex = CFSTR("[^/]+");
+const CFStringRef _io_kSCDynamicStoreDomainState = CFSTR("State:");
+
 static void * symAddrInSC(const char *name)
 {
-    static void* handle = NULL;
+    static void * handle = NULL;
     
     if (!handle) {
-	void *locHandle;
-	const char  *framework = SC_FRAMEWORK;
-	struct stat  statbuf;
-	const char  *suffix   = getenv("DYLD_IMAGE_SUFFIX");
-	char	     path[MAXPATHLEN];
+        void            *locHandle;
+        const char      *framework = SC_FRAMEWORK;
+        struct stat     statbuf;
+        const char      *suffix = getenv("DYLD_IMAGE_SUFFIX");
+        char            path[MAXPATHLEN];
 
-	strlcpy(path, framework, sizeof(path));
-	if (suffix)
-	    strlcat(path, suffix, sizeof(path));
-	if (0 <= stat(path, &statbuf))
-	    locHandle = dlopen(path,      RTLD_LAZY);
-	else
-	    locHandle = dlopen(framework, RTLD_LAZY);
+        strlcpy(path, framework, sizeof(path));
+        
+        if (suffix) {
+            strlcat(path, suffix, sizeof(path));
+        }
 
-	if (locHandle) {
-	    const CFStringRef *refP;
-	    refP = dlsym(locHandle, "kSCCompAnyRegex");
-	    kSCCompAnyRegex = *refP;
-	    refP = dlsym(locHandle, "kSCDynamicStoreDomainState");
-	    kSCDynamicStoreDomainState = *refP;
-	    handle = locHandle;
-	}
+        if (0 <= stat(path, &statbuf)) {
+            locHandle = dlopen(path,      RTLD_LAZY);
+        } else {
+            locHandle = dlopen(framework, RTLD_LAZY);
+        }
+            
+        if (locHandle) {
+            handle = locHandle;
+        }
     }
 
     if (handle)
-	return dlsym(handle, name);
+        return dlsym(handle, name);
     else
-	return NULL;
+        return NULL;
 }
 
-__private_extern__ Boolean
-SCDynamicStoreAddWatchedKey	(SCDynamicStoreRef		store,
-				 CFStringRef			key,
-				 Boolean			isRegex)
+IOKIT_SC_SYMBOL(Boolean, SCDynamicStoreAddWatchedKey)(
+        SCDynamicStoreRef		store,
+	 CFStringRef			key,
+	 Boolean				isRegex)
 {
     static typeof (SCDynamicStoreAddWatchedKey) *dyfunc;
     if (!dyfunc) 
-	dyfunc = symAddrInSC("SCDynamicStoreAddWatchedKey");
+        dyfunc = symAddrInSC("SCDynamicStoreAddWatchedKey");
 
     if (dyfunc)
-	return (*dyfunc)(store, key, isRegex);
+        return (*dyfunc)(store, key, isRegex);
     else
-	return false;
+        return false;
 }
 
-__private_extern__ int
-SCError()
+
+IOKIT_SC_SYMBOL(int, SCError)()
 {
     static typeof (SCError) *dyfunc;
     if (!dyfunc) 
@@ -96,12 +110,13 @@ SCError()
 	return kSCStatusFailed;
 }
 
-__private_extern__ CFDictionaryRef
-SCDynamicStoreCopyMultiple	(
-				    SCDynamicStoreRef		store,
-				    CFArrayRef			keys,
-				    CFArrayRef			patterns
-				)
+
+
+IOKIT_SC_SYMBOL(CFDictionaryRef, SCDynamicStoreCopyMultiple)(
+	SCDynamicStoreRef		store,
+    CFArrayRef			keys,
+    CFArrayRef			patterns
+)
 {
     static typeof (SCDynamicStoreCopyMultiple) *dyfunc;
     if (!dyfunc) 
@@ -112,11 +127,11 @@ SCDynamicStoreCopyMultiple	(
 	return NULL;
 }
 
-__private_extern__ CFPropertyListRef
-SCDynamicStoreCopyValue		(
-				    SCDynamicStoreRef		store,
-				    CFStringRef			key
-				)
+
+IOKIT_SC_SYMBOL(CFTypeRef, SCDynamicStoreCopyValue)(
+	SCDynamicStoreRef		store,
+	CFStringRef			key
+)
 {
     static typeof (SCDynamicStoreCopyValue) *dyfunc;
     if (!dyfunc) 
@@ -127,13 +142,13 @@ SCDynamicStoreCopyValue		(
 	return NULL;
 }
 
-__private_extern__ SCDynamicStoreRef
-SCDynamicStoreCreate		(
-				    CFAllocatorRef		allocator,
-				    CFStringRef			name,
-				    SCDynamicStoreCallBack	callout,
-				    SCDynamicStoreContext	*context
-				)
+
+IOKIT_SC_SYMBOL(SCDynamicStoreRef, SCDynamicStoreCreate)(
+	CFAllocatorRef		allocator,
+	CFStringRef			name,
+	SCDynamicStoreCallBack	callout,
+	SCDynamicStoreContext	*context
+)
 {
     static typeof (SCDynamicStoreCreate) *dyfunc;
     if (!dyfunc) 
@@ -144,12 +159,12 @@ SCDynamicStoreCreate		(
 	return NULL;
 }
 
-__private_extern__ CFRunLoopSourceRef
-SCDynamicStoreCreateRunLoopSource(
-				    CFAllocatorRef		allocator,
-				    SCDynamicStoreRef		store,
-				    CFIndex			order
-				)
+
+IOKIT_SC_SYMBOL(CFRunLoopSourceRef, SCDynamicStoreCreateRunLoopSource)(
+    CFAllocatorRef		allocator,
+	SCDynamicStoreRef		store,
+	CFIndex			order
+)
 {
     static typeof (SCDynamicStoreCreateRunLoopSource) *dyfunc;
     if (!dyfunc) 
@@ -160,12 +175,12 @@ SCDynamicStoreCreateRunLoopSource(
 	return NULL;
 }
 
-__private_extern__ CFStringRef
-SCDynamicStoreKeyCreate		(
-				    CFAllocatorRef		allocator,
-				    CFStringRef			fmt,
-				    ...
-				)
+
+IOKIT_SC_SYMBOL(CFStringRef, SCDynamicStoreKeyCreate)(
+    CFAllocatorRef		allocator,
+	CFStringRef			fmt,
+	...
+)
 {
     // Local implementation of a SCDynamicStore wrapper function
     va_list val;
@@ -178,12 +193,12 @@ SCDynamicStoreKeyCreate		(
     return key;
 }
 
-__private_extern__ CFStringRef
-SCDynamicStoreKeyCreatePreferences(
-				    CFAllocatorRef		allocator,
-				    CFStringRef			prefsID,
-				    SCPreferencesKeyType	keyType
-				)
+
+IOKIT_SC_SYMBOL(CFStringRef, SCDynamicStoreKeyCreatePreferences)(
+	CFAllocatorRef		allocator,
+	CFStringRef			prefsID,
+	SCPreferencesKeyType	keyType
+)
 {
     static typeof (SCDynamicStoreKeyCreatePreferences) *dyfunc;
     if (!dyfunc) 
@@ -194,12 +209,12 @@ SCDynamicStoreKeyCreatePreferences(
 	return NULL;
 }
 
-__private_extern__ Boolean
-SCDynamicStoreSetNotificationKeys(
-				    SCDynamicStoreRef		store,
-				    CFArrayRef			keys,
-				    CFArrayRef			patterns
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCDynamicStoreSetNotificationKeys)(
+	SCDynamicStoreRef		store,
+	CFArrayRef			keys,
+	CFArrayRef			patterns
+)
 {
     static typeof (SCDynamicStoreSetNotificationKeys) *dyfunc;
     if (!dyfunc) 
@@ -210,27 +225,11 @@ SCDynamicStoreSetNotificationKeys(
 	return false;
 }
 
-__private_extern__ Boolean
-SCDynamicStoreSetValue		(
-				    SCDynamicStoreRef		store,
-				    CFStringRef			key,
-				    CFPropertyListRef		value
-				)
-{
-    static typeof (SCDynamicStoreSetValue) *dyfunc;
-    if (!dyfunc) 
-	dyfunc = symAddrInSC("SCDynamicStoreSetValue");
-    if (dyfunc)
-	return (*dyfunc)(store, key, value);
-    else
-	return false;
-}
 
-__private_extern__ Boolean
-SCDynamicStoreNotifyValue		(
-					SCDynamicStoreRef		store,
-					CFStringRef			key
-					)
+IOKIT_SC_SYMBOL(Boolean, SCDynamicStoreNotifyValue)(
+	SCDynamicStoreRef		store,
+	CFStringRef			key
+)
 {
     static typeof (SCDynamicStoreNotifyValue) *dyfunc;
     if (!dyfunc) 
@@ -241,10 +240,25 @@ SCDynamicStoreNotifyValue		(
 	return false;
 }
 
-__private_extern__ Boolean
-SCPreferencesApplyChanges	(
-				    SCPreferencesRef		prefs
-				)
+IOKIT_SC_SYMBOL(Boolean, SCDynamicStoreSetValue)(
+    SCDynamicStoreRef		store,
+	CFStringRef			key,
+	CFPropertyListRef		value
+)
+{
+    static typeof (SCDynamicStoreSetValue) *dyfunc;
+    if (!dyfunc) 
+	dyfunc = symAddrInSC("SCDynamicStoreSetValue");
+    if (dyfunc)
+	return (*dyfunc)(store, key, value);
+    else
+	return false;
+}
+
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesApplyChanges)(
+	SCPreferencesRef		prefs
+)
 {
     static typeof (SCPreferencesApplyChanges) *dyfunc;
     if (!dyfunc) 
@@ -255,10 +269,10 @@ SCPreferencesApplyChanges	(
 	return false;
 }
 
-__private_extern__ Boolean
-SCPreferencesCommitChanges	(
-				    SCPreferencesRef		prefs
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesCommitChanges)(
+	SCPreferencesRef		prefs
+)
 {
     static typeof (SCPreferencesCommitChanges) *dyfunc;
     if (!dyfunc) 
@@ -269,12 +283,12 @@ SCPreferencesCommitChanges	(
 	return false;
 }
 
-__private_extern__ SCPreferencesRef
-SCPreferencesCreate		(
-				    CFAllocatorRef		allocator,
-				    CFStringRef			name,
-				    CFStringRef			prefsID
-				)
+
+IOKIT_SC_SYMBOL(SCPreferencesRef, SCPreferencesCreate)(
+	CFAllocatorRef		allocator,
+	CFStringRef			name,
+	CFStringRef			prefsID
+)
 {
     static typeof (SCPreferencesCreate) *dyfunc;
     if (!dyfunc) 
@@ -285,14 +299,13 @@ SCPreferencesCreate		(
 	return NULL;
 }
 
-#if TARGET_OS_EMBEDDED
-__private_extern__ SCPreferencesRef
-SCPreferencesCreateWithAuthorization	(
-					CFAllocatorRef		allocator,
-					CFStringRef		name,
-					CFStringRef		prefsID,
-					AuthorizationRef	authorization
-					)
+
+IOKIT_SC_SYMBOL(SCPreferencesRef, SCPreferencesCreateWithAuthorization)(
+	CFAllocatorRef		allocator,
+	CFStringRef		name,
+	CFStringRef		prefsID,
+	AuthorizationRef	authorization
+)
 {
     static typeof (SCPreferencesCreateWithAuthorization) *dyfunc;
     if (!dyfunc) 
@@ -302,13 +315,12 @@ SCPreferencesCreateWithAuthorization	(
     else
 	return NULL;
 }
-#endif /* TARGET_OS_EMBEDDED */
 
-__private_extern__ CFPropertyListRef
-SCPreferencesGetValue		(
-				    SCPreferencesRef		prefs,
-				    CFStringRef			key
-				)
+
+IOKIT_SC_SYMBOL(CFPropertyListRef, SCPreferencesGetValue)(
+	SCPreferencesRef		prefs,
+	CFStringRef			key
+)
 {
     static typeof (SCPreferencesGetValue) *dyfunc;
     if (!dyfunc) 
@@ -319,11 +331,11 @@ SCPreferencesGetValue		(
 	return NULL;
 }
 
-__private_extern__ Boolean
-SCPreferencesLock		(
-				    SCPreferencesRef		prefs,
-				    Boolean			wait
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesLock)(
+	SCPreferencesRef		prefs,
+	Boolean			wait
+)
 {
     static typeof (SCPreferencesLock) *dyfunc;
     if (!dyfunc) 
@@ -334,11 +346,11 @@ SCPreferencesLock		(
 	return false;
 }
 
-__private_extern__ Boolean
-SCPreferencesRemoveValue	(
-				    SCPreferencesRef		prefs,
-				    CFStringRef			key
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesRemoveValue)(
+	SCPreferencesRef		prefs,
+	CFStringRef			key
+)
 {
     static typeof (SCPreferencesRemoveValue) *dyfunc;
     if (!dyfunc) 
@@ -349,26 +361,26 @@ SCPreferencesRemoveValue	(
 	return false;
 }
 
-__private_extern__ Boolean
-SCPreferencesSetValue		(
-				    SCPreferencesRef		prefs,
-				    CFStringRef			key,
-				    CFPropertyListRef		value
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesSetValue)(
+	SCPreferencesRef		prefs,
+	CFStringRef				key,
+	CFPropertyListRef		value
+)
 {
     static typeof (SCPreferencesSetValue) *dyfunc;
     if (!dyfunc) 
-	dyfunc = symAddrInSC("SCPreferencesSetValue");
+		dyfunc = symAddrInSC("SCPreferencesSetValue");
     if (dyfunc)
-	return (*dyfunc)(prefs, key, value);
+		return (*dyfunc)(prefs, key, value);
     else
-	return false;
+		return false;
 }
 
-__private_extern__ Boolean
-SCPreferencesUnlock		(
-				    SCPreferencesRef		prefs
-				)
+
+IOKIT_SC_SYMBOL(Boolean, SCPreferencesUnlock)(
+	SCPreferencesRef		prefs
+) 
 {
     static typeof (SCPreferencesUnlock) *dyfunc;
     if (!dyfunc) 

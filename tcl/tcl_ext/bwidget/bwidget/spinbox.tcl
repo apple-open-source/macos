@@ -6,7 +6,7 @@
 # Copyright (c) 2000 by Ajuba Solutions
 # All rights reserved.
 # 
-# RCS: @(#) $Id: spinbox.tcl,v 1.12 2003/10/20 21:23:52 damonc Exp $
+# RCS: @(#) $Id: spinbox.tcl,v 1.14 2009/10/25 20:55:36 oberdorfer Exp $
 # -----------------------------------------------------------------------------
 #  Index of commands:
 #     - SpinBox::create
@@ -35,7 +35,7 @@ namespace eval SpinBox {
         {-modifycmd      String ""  0}
         {-repeatdelay    Int    400 0 {%d >= 0}}
         {-repeatinterval Int    100 0 {%d >= 0}}
-	{-foreground     TkResource black 0 {button}}
+        {-foreground     Color  "SystemWindowText" 0}
     }
 
     Widget::addmap SpinBox "" :cmd {-background {}}
@@ -68,7 +68,12 @@ proc SpinBox::create { path args } {
     set entry [eval [list Entry::create $path.e] $maps(.e) -relief flat -bd 0]
     bindtags $path.e [linsert [bindtags $path.e] 1 SpinBoxEntry]
 
-    set farr   [frame $path.farr -relief flat -bd 0 -highlightthickness 0]
+    if { [BWidget::using ttk] } {
+         set farr [ttk::frame $path.farr -relief flat]
+    } else {
+         set farr [frame $path.farr -relief flat -bd 0 -highlightthickness 0]
+    }
+
     set height [expr {[winfo reqheight $path.e]/2-2}]
     set width  11
     set arrup  [eval [list ArrowButton::create $path.arrup -dir top] \

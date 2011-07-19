@@ -37,6 +37,7 @@
 #include "ExceptionCode.h"
 #include "ScheduledAction.h"
 #include "V8Binding.h"
+#include "V8BindingMacros.h"
 #include "V8Proxy.h"
 #include "V8Utilities.h"
 #include "V8WorkerContextEventListener.h"
@@ -64,8 +65,8 @@ v8::Handle<v8::Value> SetTimeoutOrInterval(const v8::Arguments& args, bool singl
 
     v8::Handle<v8::Context> v8Context = proxy->context();
     if (function->IsString()) {
-        WebCore::String stringFunction = toWebCoreString(function);
-        timerId = DOMTimer::install(workerContext, new ScheduledAction(v8Context, stringFunction, workerContext->url()), timeout, singleShot);
+        WTF::String stringFunction = toWebCoreString(function);
+        timerId = DOMTimer::install(workerContext, adoptPtr(new ScheduledAction(v8Context, stringFunction, workerContext->url())), timeout, singleShot);
     } else if (function->IsFunction()) {
         size_t paramCount = argumentCount >= 2 ? argumentCount - 2 : 0;
         v8::Local<v8::Value>* params = 0;
@@ -75,9 +76,10 @@ v8::Handle<v8::Value> SetTimeoutOrInterval(const v8::Arguments& args, bool singl
                 params[i] = args[i+2];
         }
         // ScheduledAction takes ownership of actual params and releases them in its destructor.
-        ScheduledAction* action = new ScheduledAction(v8Context, v8::Handle<v8::Function>::Cast(function), paramCount, params);
+        OwnPtr<ScheduledAction> action = adoptPtr(new ScheduledAction(v8Context, v8::Handle<v8::Function>::Cast(function), paramCount, params));
+        // FIXME: We should use a OwnArrayPtr for params.
         delete [] params;
-        timerId = DOMTimer::install(workerContext, action, timeout, singleShot);
+        timerId = DOMTimer::install(workerContext, action.release(), timeout, singleShot);
     } else
         return v8::Undefined();
 

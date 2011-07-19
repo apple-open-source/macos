@@ -78,6 +78,8 @@
 #include <sys/un.h>
 #include <sys/ucred.h>
 #include <sys/socket.h>
+#include <sys/stat.h>
+#include <libgen.h>
 #else
 #include <dlfcn.h>
 #endif
@@ -113,43 +115,43 @@ int	dflag = 0;		/* Tell libpcap we want debugging */
 int	debug = 0;		/* Debug flag */
 int	kdebugflag = 0;		/* Tell kernel to print debug messages */
 int	default_device = 1;	/* Using /dev/tty or equivalent */
-char	devnam[MAXPATHLEN];	/* Device name */
+char	devnam[MAXPATHLEN] = { 0 };	/* Device name */
 bool	nodetach = 0;		/* Don't detach from controlling tty */
 bool	updetach = 0;		/* Detach once link is up */
 int	maxconnect = 0;		/* Maximum connect time */
-char	user[MAXNAMELEN];	/* Username for PAP */
+char	user[MAXNAMELEN] = { 0 };	/* Username for PAP */
 #ifdef __APPLE__
 bool	controlled = 0;		/* Is pppd controlled by the PPPController ?  */
 FILE 	*controlfile = NULL;	/* file descriptor for options and control */
 int 	controlfd = -1;		/* file descriptor for options and control */
 int 	statusfd = -1;		/* file descriptor status update */
-char	username[MAXNAMELEN];	/* copy original user */
-char	new_passwd[MAXSECRETLEN];	/* new password for protocol supporting changing password */
+char	username[MAXNAMELEN] = { 0 };	/* copy original user */
+char	new_passwd[MAXSECRETLEN] = { 0 };	/* new password for protocol supporting changing password */
 int		passwdfrom = PASSWDFROM_UNKNOWN;
-char	passwdkey[MAXSECRETLEN];	/* keychain key where the password is located, when itcomes from the keychain  */
+char	passwdkey[MAXSECRETLEN] = { 0 };	/* keychain key where the password is located, when itcomes from the keychain  */
 #endif
-char	passwd[MAXSECRETLEN];	/* Password for PAP */
+char	passwd[MAXSECRETLEN] = { 0 };	/* Password for PAP */
 bool	persist = 0;		/* Reopen link after it goes down */
-char	our_name[MAXNAMELEN];	/* Our name for authentication purposes */
+char	our_name[MAXNAMELEN] = { 0 };	/* Our name for authentication purposes */
 bool	demand = 0;		/* do dial-on-demand */
 char	*ipparam = NULL;	/* Extra parameter for ip up/down scripts */
 int	idle_time_limit = 0;	/* Disconnect if idle for this many seconds */
 bool   	noidlerecv = 0;         /* Disconnect if idle only for outgoing traffic */
 bool   	noidlesend = 0;         /* Disconnect if idle only for incoming traffic */
 int	holdoff = 30;		/* # seconds to pause before reconnecting */
-bool	holdoff_specified;	/* true if a holdoff value has been given */
+bool	holdoff_specified = FALSE;	/* true if a holdoff value has been given */
 int	log_to_fd = 1;		/* send log messages to this fd too */
 bool	log_default = 1;	/* log_to_fd is default (stdout) */
 int	maxfail = 10;		/* max # of unsuccessful connection attempts */
-char	linkname[MAXPATHLEN];	/* logical name for link */
-bool	tune_kernel;		/* may alter kernel settings */
+char	linkname[MAXPATHLEN] = { 0 };	/* logical name for link */
+bool	tune_kernel = FALSE;		/* may alter kernel settings */
 int	connect_delay = 1000;	/* wait this many ms after connect script */
 int	req_unit = -1;		/* requested interface unit */
 bool	multilink = 0;		/* Enable multilink operation */
 char	*bundle_name = NULL;	/* bundle name for multilink */
-bool	dump_options;		/* print out option values */
-bool	dryrun;			/* print out option values and exit */
-char	*domain;		/* domain name set by domain option */
+bool	dump_options = FALSE;		/* print out option values */
+bool	dryrun = FALSE;			/* print out option values and exit */
+char	*domain = NULL;		/* domain name set by domain option */
 
 #ifdef MAXOCTETS
 unsigned int  maxoctets = 0;    /* default - no limit */
@@ -181,11 +183,11 @@ struct	bpf_program active_filter; /* Filter program for link-active pkts */
 pcap_t  pc;			/* Fake struct pcap so we can compile expr */
 #endif
 
-char *current_option;		/* the name of the option being parsed */
-int  privileged_option;		/* set iff the current option came from root */
-char *option_source;		/* string saying where the option came from */
+char *current_option = NULL;		/* the name of the option being parsed */
+int  privileged_option = 0;		/* set iff the current option came from root */
+char *option_source = NULL;		/* string saying where the option came from */
 int  option_priority = OPRIO_CFGFILE; /* priority of the current options */
-bool devnam_fixed;		/* can no longer change device name */
+bool devnam_fixed = FALSE;		/* can no longer change device name */
 
 static int logfile_fd = -1;	/* fd opened for log file */
 static char logfile_name[MAXPATHLEN];	/* name of log file */
@@ -400,6 +402,8 @@ option_t general_options[] = {
       "Cancel error code that for connectors"},
     { "extraconnecttime", o_int, &extraconnecttime,
       "Allows extra conneciton time to the connection sequence"},
+    { "retrylinkcheck", o_int, &retry_pre_start_link_check,
+		"Maximum number of retries for the pre-connection reachability check"},
 #endif
 
     { NULL }
@@ -1018,7 +1022,8 @@ print_option(opt, mainopt, printer, arg)
 	switch (opt->type) {
 	case o_bool:
 		v = opt->flags & OPT_VALUE;
-		if (*(bool *)opt->addr != v)
+		if (*(bool *)opt->addr != v &&
+			!(opt->addr2 && (opt->flags & OPT_A2OR) && (*(bool *)opt->addr2 & v)))
 			/* this can happen legitimately, e.g. lock
 			   option turned off for default device */
 			break;
@@ -1649,6 +1654,56 @@ setdomain(argv)
     return (1);
 }
 
+/* -----------------------------------------------------------------------------
+ Create directories and intermediate directories as required.
+ ----------------------------------------------------------------------------- */
+#ifdef __APPLE__
+static int makepath( char *path)
+{
+	char	*c;
+	char	*thepath;
+	int		slen=0;
+	int		done = 0;
+	mode_t	oldmask, newmask;
+	struct stat sb;
+	int		error=0;
+	
+	oldmask = umask(0);
+	newmask = S_IRWXU | S_IRGRP | S_IROTH | S_IXGRP | S_IXOTH; 
+	
+	slen = strlen(path);
+	if  ( !(thepath =  malloc( slen+1) ))
+		return -1;
+	strlcpy( thepath, path, slen+1);
+	c = thepath;
+	if ( *c == '/' )
+		c++;		
+	for(  ; !done; c++){
+		if ( (*c == '/') || ( *c == '\0' )){
+			if ( *c == '\0' )
+				done = 1;
+			else 
+				*c = '\0';
+			if ( mkdir( thepath, newmask) ){
+				if ( errno == EEXIST || errno == EISDIR){
+					if ( stat(thepath, &sb) < 0){
+						error = -1;
+						break;
+					}
+				} else {
+					error = -1;
+					break;
+				}
+			}
+			*c = '/';
+		}
+	}
+	free(thepath);
+	umask(oldmask);
+	return error;
+}
+#endif
+
 static int
 setlogfile(argv)
     char **argv;
@@ -1658,14 +1713,32 @@ setlogfile(argv)
     if (!privileged_option)
 	seteuid(getuid());
     fd = open(*argv, O_WRONLY | O_APPEND | O_CREAT | O_EXCL, 0644);
-    if (fd < 0 && errno == EEXIST)
-	fd = open(*argv, O_WRONLY | O_APPEND);
-    err = errno;
-    if (!privileged_option)
+	
+    if (fd < 0) 
+	{
+		if(errno == EEXIST)
+			fd = open(*argv, O_WRONLY | O_APPEND);
+#ifdef __APPLE__
+		else {
+			if(privileged_option) {
+				char *dirPath = dirname(*argv);
+				syslog(LOG_WARNING, "Warning: Creating directory for log file = %s\n", *argv);
+				makepath(dirPath);
+				fd = open(*argv, O_WRONLY | O_APPEND | O_CREAT | O_EXCL, 0644);	
+			}
+		}
+#endif
+	}
+	
+	err = errno;
+    
+	if (!privileged_option)
 	seteuid(0);
-    if (fd < 0) {
-	errno = err;
-	option_error("Can't open log file %s: %m", *argv);
+		
+	if(fd < 0)
+	{
+		errno = err;
+		option_error("Can't open log file %s: %m", *argv);
 #ifdef __APPLE__
 	// ignore the error
 	return 1;
@@ -1777,6 +1850,8 @@ options_from_controller()
 			 cmd);
 	    goto err;
 	}
+	bzero(argv, sizeof(argv));
+	bzero(args, sizeof(args));
 	n = n_arguments(opt);
 	for (i = 0; i < n; ++i) {
 	    if (!getword(controlfile, args[i], &newline, "controller")) {

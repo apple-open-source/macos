@@ -1,23 +1,20 @@
---- strcpy.3.orig	2008-02-29 10:45:51.000000000 -0800
-+++ strcpy.3	2008-02-29 12:08:34.000000000 -0800
-@@ -40,18 +40,30 @@
- .Dt STRCPY 3
- .Os
- .Sh NAME
--.Nm strcpy , strncpy
-+.Nm stpcpy ,
-+.Nm strcpy ,
-+.Nm strncpy
- .Nd copy strings
- .Sh LIBRARY
- .Lb libc
+--- strcpy.3.orig	2010-04-28 23:38:50.000000000 -0700
++++ strcpy.3	2010-04-29 09:37:17.000000000 -0700
+@@ -43,13 +43,27 @@
  .Sh SYNOPSIS
  .In string.h
  .Ft char *
--.Fn stpcpy "char *dst" "const char *src"
+-.Fn stpcpy "char * restrict dst" "const char * restrict src"
 +.Fo stpcpy
 +.Fa "char *s1"
 +.Fa "const char *s2"
++.Fc
+ .Ft char *
+-.Fn stpncpy "char * restrict dst" "const char * restrict src" "size_t len"
++.Fo stpncpy
++.Fa "char *restrict s1"
++.Fa "const char *restrict s2"
++.Fa "size_t n"
 +.Fc
  .Ft char *
 -.Fn strcpy "char * restrict dst" "const char * restrict src"
@@ -35,7 +32,7 @@
  .Sh DESCRIPTION
  The
  .Fn stpcpy
-@@ -59,36 +71,39 @@
+@@ -57,38 +71,41 @@ and
  .Fn strcpy
  functions
  copy the string
@@ -50,8 +47,10 @@
 +character).
  .Pp
  The
+ .Fn stpncpy
+ and
  .Fn strncpy
- function copies at most
+ functions copy at most
 -.Fa len
 +.Fa n
  characters from
@@ -85,7 +84,7 @@
  .Sh RETURN VALUES
  The
  .Fn strcpy
-@@ -96,13 +111,13 @@
+@@ -96,7 +113,7 @@ and
  .Fn strncpy
  functions
  return
@@ -93,15 +92,27 @@
 +.Fa s1 .
  The
  .Fn stpcpy
- function returns a pointer to the terminating
+ and
+@@ -104,15 +121,15 @@ and
+ functions return a pointer to the terminating
  .Ql \e0
  character of
 -.Fa dst .
 +.Fa s1 .
+ If
+ .Fn stpncpy
+ does not terminate
+-.Fa dst
++.Fa s1
+ with a
+ .Dv NUL
+ character, it instead returns a pointer to
+-.Li dst[n]
++.Li s1[n]
+ (which does not necessarily refer to a valid memory location.)
  .Sh EXAMPLES
  The following sets
- .Va chararray
-@@ -128,7 +143,7 @@
+@@ -139,7 +156,7 @@ Note that it does
  .Em not
  .Tn NUL
  terminate
@@ -110,24 +121,37 @@
  because the length of the source string is greater than or equal
  to the length argument.
  .Pp
-@@ -159,7 +174,7 @@
+@@ -169,21 +186,26 @@ This could be better achieved using
+ as shown in the following example:
  .Pp
  .Dl "(void)strlcpy(buf, input, sizeof(buf));"
- .Pp
+-.Pp
 -Note that because
-+Note that, because
- .Xr strlcpy 3
- is not defined in any standards, it should
- only be used when portability is not a concern.
-@@ -179,11 +194,6 @@
- .Xr memcpy 3 ,
- .Xr memmove 3 ,
- .Xr strlcpy 3
--.Rs
--.%T "The FreeBSD Security Architecture"
--.Re
--(See
--.Pa "/usr/share/doc/{to be decided}" . )
- .Sh STANDARDS
+-.Xr strlcpy 3
+-is not defined in any standards, it should
+-only be used when portability is not a concern.
+ .Sh SECURITY CONSIDERATIONS
  The
- .Fn strcpy
+-.Fn strcpy
+-function is easily misused in a manner which enables malicious users
++.Fn strcpy ,
++.Fn strncpy ,
++.Fn stpcpy ,
++and
++.Fn stpncpy
++functions are easily misused in a manner which enables malicious users
+ to arbitrarily change a running program's functionality through a
+ buffer overflow attack.
+ (See
+ the FSA
+ and
+ .Sx EXAMPLES . )
++.Pp
++It is recommended that
++.Xr strlcpy 3
++be used instead as a way to avoid such problems.
++.Xr strlcpy 3
++is not defined in any standards, but it has been adopted by most major libc implementations.
+ .Sh SEE ALSO
+ .Xr bcopy 3 ,
+ .Xr memccpy 3 ,

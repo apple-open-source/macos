@@ -9,6 +9,9 @@
 //
 //  This header file implements the operating system DynamicLibrary concept.
 //
+// FIXME: This file leaks the ExplicitSymbols and OpenedHandles vector, and is
+// not thread safe!
+//
 //===----------------------------------------------------------------------===//
 
 #include "llvm/System/DynamicLibrary.h"
@@ -16,23 +19,30 @@
 #include <cstdio>
 #include <cstring>
 #include <map>
+#include <vector>
 
 // Collection of symbol name/value pairs to be searched prior to any libraries.
-std::map<std::string, void *> &g_symbols() {
-  static std::map<std::string, void *> symbols;
-  return symbols;
+static std::map<std::string, void*> *ExplicitSymbols = 0;
+
+namespace {
+
+struct ExplicitSymbolsDeleter {
+  ~ExplicitSymbolsDeleter() {
+    if (ExplicitSymbols)
+      delete ExplicitSymbols;
+  }
+};
+
 }
+
+static ExplicitSymbolsDeleter Dummy;
 
 void llvm::sys::DynamicLibrary::AddSymbol(const char* symbolName,
                                           void *symbolValue) {
-  g_symbols()[symbolName] = symbolValue;
+  if (ExplicitSymbols == 0)
+    ExplicitSymbols = new std::map<std::string, void*>();
+  (*ExplicitSymbols)[symbolName] = symbolValue;
 }
-
-// It is not possible to use ltdl.c on VC++ builds as the terms of its LGPL
-// license and special exception would cause all of LLVM to be placed under
-// the LGPL.  This is because the exception applies only when libtool is
-// used, and obviously libtool is not used with Visual Studio.  An entirely
-// separate implementation is provided in win32/DynamicLibrary.cpp.
 
 #ifdef LLVM_ON_WIN32
 
@@ -40,9 +50,8 @@ void llvm::sys::DynamicLibrary::AddSymbol(const char* symbolName,
 
 #else
 
-//#include "ltdl.h"
+#if HAVE_DLFCN_H
 #include <dlfcn.h>
-#include <cassert>
 using namespace llvm;
 using namespace llvm::sys;
 
@@ -51,83 +60,64 @@ using namespace llvm::sys;
 //===          independent code.
 //===----------------------------------------------------------------------===//
 
-//static std::vector<lt_dlhandle> OpenedHandles;
-static std::vector<void *> OpenedHandles;
+static std::vector<void *> *OpenedHandles = 0;
 
-DynamicLibrary::DynamicLibrary() {}
-
-DynamicLibrary::~DynamicLibrary() {
-  while(!OpenedHandles.empty()) {
-    void *H = OpenedHandles.back();   OpenedHandles.pop_back(); 
-    dlclose(H);
-  }
-}
 
 bool DynamicLibrary::LoadLibraryPermanently(const char *Filename,
                                             std::string *ErrMsg) {
   void *H = dlopen(Filename, RTLD_LAZY|RTLD_GLOBAL);
   if (H == 0) {
-    if (ErrMsg)
-      *ErrMsg = dlerror();
+    if (ErrMsg) *ErrMsg = dlerror();
     return true;
   }
-  OpenedHandles.push_back(H);
+  if (OpenedHandles == 0)
+    OpenedHandles = new std::vector<void *>();
+  OpenedHandles->push_back(H);
   return false;
+}
+#else
+
+using namespace llvm;
+using namespace llvm::sys;
+
+bool DynamicLibrary::LoadLibraryPermanently(const char *Filename,
+                                            std::string *ErrMsg) {
+  if (ErrMsg) *ErrMsg = "dlopen() not supported on this platform";
+  return true;
+}
+#endif
+
+namespace llvm {
+void *SearchForAddressOfSpecialSymbol(const char* symbolName);
 }
 
 void* DynamicLibrary::SearchForAddressOfSymbol(const char* symbolName) {
-  //  check_ltdl_initialization();
-
   // First check symbols added via AddSymbol().
-  std::map<std::string, void *>::iterator I = g_symbols().find(symbolName);
-  if (I != g_symbols().end())
-    return I->second;
+  if (ExplicitSymbols) {
+    std::map<std::string, void *>::iterator I =
+      ExplicitSymbols->find(symbolName);
+    std::map<std::string, void *>::iterator E = ExplicitSymbols->end();
+  
+    if (I != E)
+      return I->second;
+  }
 
+#if HAVE_DLFCN_H
   // Now search the libraries.
-  for (std::vector<void *>::iterator I = OpenedHandles.begin(),
-       E = OpenedHandles.end(); I != E; ++I) {
-    //lt_ptr ptr = lt_dlsym(*I, symbolName);
-    void *ptr = dlsym(*I, symbolName);
-    if (ptr)
-      return ptr;
-  }
-
-#define EXPLICIT_SYMBOL(SYM) \
-   extern void *SYM; if (!strcmp(symbolName, #SYM)) return &SYM
-
-  // If this is darwin, it has some funky issues, try to solve them here.  Some
-  // important symbols are marked 'private external' which doesn't allow
-  // SearchForAddressOfSymbol to find them.  As such, we special case them here,
-  // there is only a small handful of them.
-
-#ifdef __APPLE__
-  {
-    EXPLICIT_SYMBOL(__ashldi3);
-    EXPLICIT_SYMBOL(__ashrdi3);
-    EXPLICIT_SYMBOL(__cmpdi2);
-    EXPLICIT_SYMBOL(__divdi3);
-    EXPLICIT_SYMBOL(__eprintf);
-    EXPLICIT_SYMBOL(__fixdfdi);
-    EXPLICIT_SYMBOL(__fixsfdi);
-    EXPLICIT_SYMBOL(__fixunsdfdi);
-    EXPLICIT_SYMBOL(__fixunssfdi);
-    EXPLICIT_SYMBOL(__floatdidf);
-    EXPLICIT_SYMBOL(__floatdisf);
-    EXPLICIT_SYMBOL(__lshrdi3);
-    EXPLICIT_SYMBOL(__moddi3);
-    EXPLICIT_SYMBOL(__udivdi3);
-    EXPLICIT_SYMBOL(__umoddi3);
+  if (OpenedHandles) {
+    for (std::vector<void *>::iterator I = OpenedHandles->begin(),
+         E = OpenedHandles->end(); I != E; ++I) {
+      //lt_ptr ptr = lt_dlsym(*I, symbolName);
+      void *ptr = dlsym(*I, symbolName);
+      if (ptr) {
+        return ptr;
+      }
+    }
   }
 #endif
 
-#ifdef __CYGWIN__
-  {
-    EXPLICIT_SYMBOL(_alloca);
-    EXPLICIT_SYMBOL(__main);
-  }
-#endif
-
-#undef EXPLICIT_SYMBOL
+  if (void *Result = llvm::SearchForAddressOfSpecialSymbol(symbolName))
+    return Result;
 
 // This macro returns the address of a well-known, explicit symbol
 #define EXPLICIT_SYMBOL(SYM) \

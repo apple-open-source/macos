@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  * 
@@ -107,7 +107,7 @@ mroutepr(void)
 
 	len = CONFIG_MAXVIFS * sizeof(struct vif);
 	if (sysctlbyname("net.inet.ip.viftable", viftable, &len, 0, 0) == -1) {
-		printf("No IPv4 multicast routing compiled into this system.\n");
+		//printf("No IPv4 multicast routing compiled into this system.\n");
 		return;
 	}
 
@@ -137,14 +137,14 @@ mroutepr(void)
 		printf("\nVirtual Interface Table is empty\n");
 
 	if (sysctlbyname("net.inet.ip.mfctable", 0, &len, 0, 0) == -1) {
-		printf("No IPv4 multicast routing compiled into this system.\n");
+		//printf("No IPv4 multicast routing compiled into this system.\n");
 		return;
 	}
 	mfctable = malloc(len);
 	if (mfctable == 0)
 		return;
 	if (sysctlbyname("net.inet.ip.mfctable", mfctable, &len, 0, 0) == -1) {
-		printf("No IPv4 multicast routing compiled into this system.\n");
+		//printf("No IPv4 multicast routing compiled into this system.\n");
 		return;
 	}
 	banner_printed = 0;
@@ -188,7 +188,7 @@ mrt_stats()
 	size_t len = sizeof(struct mrtstat);
 
 	if(sysctlbyname("net.inet.ip.mrtstat", &mrtstat, &len, 0, 0) == -1) {
-		printf("No IPv4 multicast routing compiled into this system.\n");
+		//printf("No IPv4 multicast routing compiled into this system.\n");
 		return;
 	}
 

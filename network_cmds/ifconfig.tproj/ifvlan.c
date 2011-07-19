@@ -181,12 +181,14 @@ static struct cmd vlan_cmds[] = {
 	DEF_CLONE_CMD_ARG("vlandev",			setvlandev),
 	/* XXX For compatibility.  Should become DEF_CMD() some day. */
 	DEF_CMD_OPTARG("-vlandev",			unsetvlandev),
-#ifdef notdef
+#ifdef IFCAP_VLAN_MTU
 	DEF_CMD("vlanmtu",	IFCAP_VLAN_MTU,		setifcap),
 	DEF_CMD("-vlanmtu",	-IFCAP_VLAN_MTU,	setifcap),
+#endif /* IFCAP_VLAN_MTU */
+#ifdef IFCAP_VLAN_HWTAGGING
 	DEF_CMD("vlanhwtag",	IFCAP_VLAN_HWTAGGING,	setifcap),
 	DEF_CMD("-vlanhwtag",	-IFCAP_VLAN_HWTAGGING,	setifcap),
-#endif
+#endif /* IFCAP_VLAN_HWTAGGING */
 };
 static struct afswtch af_vlan = {
 	.af_name	= "af_vlan",

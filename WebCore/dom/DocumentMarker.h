@@ -24,24 +24,67 @@
 #define DocumentMarker_h
 
 #include "PlatformString.h"
+#include <wtf/Forward.h>
+
 
 namespace WebCore {
-    class String;
 
 // A range of a node within a document that is "marked", such as the range of a misspelled word.
 // It optionally includes a description that could be displayed in the user interface.
 // It also optionally includes a flag specifying whether the match is active, which is ignored
 // for all types other than type TextMatch.
 struct DocumentMarker {
-
     enum MarkerType {
-        AllMarkers  = -1,
-        Spelling,
-        Grammar,
-        TextMatch,
-        Replacement
+        Spelling = 1 << 0,
+        Grammar = 1 << 1,
+        TextMatch = 1 << 2,
+        // Text has been modified by spell correction, reversion of spell correction or other type of substitution. 
+        // On some platforms, this prevents the text from being autocorrected again. On post Snow Leopard Mac OS X, 
+        // if a Replacement marker contains non-empty description, a reversion UI will be shown.
+        Replacement = 1 << 3,
+        // Renderer needs to add underline indicating that the text has been modified by spell
+        // correction. Text with Replacement marker doesn't necessarily has CorrectionIndicator
+        // marker. For instance, after some text has been corrected, it will have both Replacement
+        // and CorrectionIndicator. However, if user further modifies such text, we would remove
+        // CorrectionIndicator marker, but retain Replacement marker.
+        CorrectionIndicator = 1 << 4,
+        // Correction suggestion has been offered, but got rejected by user.
+        RejectedCorrection = 1 << 5,
+        // Text has been modified by autocorrection. The description of this marker is the original text before autocorrection.
+        Autocorrected = 1 << 6,
+        // On some platforms, this prevents the text from being spellchecked again.
+        SpellCheckingExemption = 1 << 7,
+        // This marker indicates user has deleted an autocorrection starting at the end of the
+        // range that bears this marker. In some platforms, if the user later inserts the same original
+        // word again at this position, it will not be autocorrected again. The description of this
+        // marker is the original word before autocorrection was applied.
+        DeletedAutocorrection = 1 << 8
     };
 
+    class MarkerTypes {
+    public:
+        // The constructor is intentionally implicit to allow conversion from the bit-wise sum of above types
+        MarkerTypes(unsigned mask) : m_mask(mask) { }
+
+        bool contains(MarkerType type) const { return m_mask & type; }
+        bool intersects(const MarkerTypes& types) const { return (m_mask & types.m_mask); }
+        bool operator==(const MarkerTypes& other) const { return m_mask == other.m_mask; }
+
+        void add(const MarkerTypes& types) { m_mask |= types.m_mask; }
+        void remove(const MarkerTypes& types) { m_mask &= ~types.m_mask; }
+
+    private:
+        unsigned m_mask;
+    };
+
+    class AllMarkers : public MarkerTypes {
+    public:
+        AllMarkers()
+            : MarkerTypes(Spelling | Grammar | TextMatch | Replacement | CorrectionIndicator | RejectedCorrection | Autocorrected | SpellCheckingExemption | DeletedAutocorrection)
+        {
+        }
+    };
+    
     MarkerType type;
     unsigned startOffset;
     unsigned endOffset;

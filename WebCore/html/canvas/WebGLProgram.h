@@ -26,37 +26,64 @@
 #ifndef WebGLProgram_h
 #define WebGLProgram_h
 
-#include "CanvasObject.h"
+#include "WebGLObject.h"
+
+#include "WebGLShader.h"
 
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
 
 namespace WebCore {
-    
-    class WebGLProgram : public CanvasObject {
-    public:
-        virtual ~WebGLProgram() { deleteObject(); }
-        
-        static PassRefPtr<WebGLProgram> create(WebGLRenderingContext*);
 
-        // cacheActiveAttribLocation() is only called once after linkProgram()
-        // succeeds.
-        bool cacheActiveAttribLocations();
-        int numActiveAttribLocations();
-        int getActiveAttribLocation(int index);
+class WebGLProgram : public WebGLObject {
+public:
+    virtual ~WebGLProgram() { deleteObject(); }
 
-    protected:
-        WebGLProgram(WebGLRenderingContext*);
-        
-        virtual void _deleteObject(Platform3DObject);
+    static PassRefPtr<WebGLProgram> create(WebGLRenderingContext*);
 
-    private:
-        virtual bool isProgram() const { return true; }
+    // cacheActiveAttribLocation() is only called once after linkProgram()
+    // succeeds.
+    bool cacheActiveAttribLocations();
+    unsigned numActiveAttribLocations() const;
+    GC3Dint getActiveAttribLocation(GC3Duint index) const;
 
-        Vector<int> m_activeAttribLocations;
-    };
-    
+    bool isUsingVertexAttrib0() const;
+
+    bool getLinkStatus() const { return m_linkStatus; }
+    void setLinkStatus(bool status) { m_linkStatus = status; }
+
+    unsigned getLinkCount() const { return m_linkCount; }
+
+    // This is to be called everytime after the program is successfully linked.
+    // We don't deal with integer overflow here, assuming in reality a program
+    // will never be linked so many times.
+    void increaseLinkCount() { ++m_linkCount; }
+
+    WebGLShader* getAttachedShader(GC3Denum);
+    bool attachShader(WebGLShader*);
+    bool detachShader(WebGLShader*);
+
+protected:
+    WebGLProgram(WebGLRenderingContext*);
+
+    virtual void deleteObjectImpl(Platform3DObject);
+
+private:
+    virtual bool isProgram() const { return true; }
+
+    Vector<GC3Dint> m_activeAttribLocations;
+
+    GC3Dint m_linkStatus;
+
+    // This is used to track whether a WebGLUniformLocation belongs to this
+    // program or not.
+    unsigned m_linkCount;
+
+    RefPtr<WebGLShader> m_vertexShader;
+    RefPtr<WebGLShader> m_fragmentShader;
+};
+
 } // namespace WebCore
 
 #endif // WebGLProgram_h

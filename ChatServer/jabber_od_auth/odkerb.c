@@ -19,6 +19,7 @@
 #include <DirectoryService/DirectoryService.h>
 #include "odkerb.h"
 #include "dserr.h"
+#include <membership.h>
 
 static ODNodeRef gSearchNode = NULL;
 
@@ -260,7 +261,7 @@ odkerb_configure_search_node(void)
         gSearchNode = ODNodeCreateWithNodeType(kCFAllocatorDefault, kODSessionDefault,
                                                kODNodeTypeAuthentication, &cfError);
         if (gSearchNode == NULL || cfError != NULL) {
-            ODKERB_LOG_CFERROR(LOG_ERR, "Unable to get a reference to the search node", cfError);
+            ODKERB_LOG_CFERROR(LOG_INFO, "Unable to get a reference to the search node", cfError);
             goto failure;
         }
     }
@@ -294,6 +295,10 @@ odkerb_copy_user_record_with_alt_security_identity(CFStringRef principalID, ODRe
     CFErrorRef cfError = NULL;
     ODQueryRef cfQueryRef = NULL;
     CFArrayRef cfUserRecords = NULL;
+    int mbrErr = 0;
+    uuid_t user_uuid = { 0 };
+    uuid_string_t uuidStr;
+    char principal[1024];
 
     ODKERB_PARAM_ASSERT(principalID != NULL);
     ODKERB_PARAM_ASSERT(out != 0);
@@ -303,18 +308,24 @@ odkerb_copy_user_record_with_alt_security_identity(CFStringRef principalID, ODRe
     if (odkerb_configure_search_node() != 0)
         goto failure;
 
-    cfAltSecurityIdentity = odkerb_create_alleged_alt_security_identity(principalID);
-    if (cfAltSecurityIdentity == NULL)
-        goto failure;
+    CFStringGetCString(principalID, principal, sizeof(principal), kCFStringEncodingUTF8);
+    mbrErr = mbr_identifier_to_uuid(ID_TYPE_KERBEROS, principal, strlen(principal), user_uuid);
 
+    if (mbrErr != 0) {
+        ODKERB_LOG_CFSTRING(LOG_DEBUG, "No UUID found for principal by mbr_identifier_to_uuid ID_TYPE_KERBEROS", principalID);
+        goto failure;
+    }
+    uuid_unparse_upper(user_uuid, uuidStr);
+    CFStringRef cfUserUUID = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%s"), uuidStr);
     cfQueryRef = ODQueryCreateWithNode(kCFAllocatorDefault,
                                        gSearchNode,
                                        kODRecordTypeUsers,
-                                       kODAttributeTypeAltSecurityIdentities,
-                                       kODMatchInsensitiveEqualTo,
-                                       cfAltSecurityIdentity,
+                                       kODAttributeTypeGUID,
+                                       kODMatchEqualTo,
+                                       cfUserUUID,
                                        kODAttributeTypeRecordName,
-                                       2, &cfError);
+                                       1, &cfError);
+
     if (cfQueryRef == NULL || cfError != NULL) {
         ODKERB_LOG_CFERROR(LOG_ERR, "Unable to query the search node", cfError);
         goto failure;
@@ -326,11 +337,8 @@ odkerb_copy_user_record_with_alt_security_identity(CFStringRef principalID, ODRe
         goto failure;
     }
     else if (CFArrayGetCount(cfUserRecords) == 0) {
-        ODKERB_LOG_CFSTRING(LOG_INFO, "Unable to find user record", cfAltSecurityIdentity);
+        ODKERB_LOG_CFSTRING(LOG_INFO, "Unable to find user record", cfUserUUID);
         goto failure;
-    }
-    else if (CFArrayGetCount(cfUserRecords) > 1) {
-        ODKERB_LOG_CFSTRING(LOG_DEBUG, "Too many user records, using the first one", cfAltSecurityIdentity);
     }
 
     ODRecordRef cfUserRecord = (ODRecordRef)CFArrayGetValueAtIndex(cfUserRecords, 0);

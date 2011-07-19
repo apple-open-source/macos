@@ -5,7 +5,7 @@
 </head>
 <! -- Generated from file '' by tcllib/doctools with format 'html'
    -->
-<! -- CVS: $Id: tpool.html,v 1.15 2006/10/07 09:19:39 vasiljevic Exp $ tpool.n
+<! -- CVS: $Id: tpool.html,v 1.16 2009/05/04 21:56:51 ferrieux Exp $ tpool.n
    -->
 
 <body>
@@ -68,8 +68,8 @@ Following options are supported:
 <br><br>
 <dl>
 
-<dt>-minthreads number<dd>
-Minimum number of threads needed for this threadpool instance.
+<dt>-minworkers number<dd>
+Minimum number of worker threads needed for this threadpool instance.
 During threadpool creation, the implementation will create somany
 worker threads upfront and will keep at least number of them alive
 during the lifetime of the threadpool instance.
@@ -79,8 +79,8 @@ will be started on demand by callers running <b class='cmd'>tpool::post</b> comm
 and posting jobs to the job queue.
 
 <br><br>
-<dt>-maxthreads number<dd>
-Maximum number of threads allowed for this threadpool instance.
+<dt>-maxworkers number<dd>
+Maximum number of worker threads allowed for this threadpool instance.
 If a new job is pending and there are no idle worker threads available,
 the implementation will try to create new worker thread. If the number
 of available worker threads is lower than the given number,

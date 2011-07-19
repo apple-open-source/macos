@@ -1,4 +1,4 @@
-Copyright (c) 2002-2005, International Business Machines Corporation and others. All Rights Reserved.
+Copyright (c) 2002-2010, International Business Machines Corporation and others. All Rights Reserved.
 icudate: a sample program which displays the current date
 
 This sample demonstrates
@@ -26,8 +26,8 @@ To Run on Windows
         (Use the path to where ever ICU is on your system.)
     3.  cd into the icudate directory, e.g.
             cd c:\icu\source\samples\date\debug
-    4.  Run it
-            date
+    4.  Run it (Warning: Be careful, 'date' is also a system command on many systems)
+            .\date
 
 To Build on Unixes
     1.  Build ICU.  icudate is built automatically by default unless samples are turned off.

@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2008, 2011 Apple Inc. All rights reserved.
  *
  *  This library is free software; you can redistribute it and/or
  *  modify it under the terms of the GNU Lesser General Public
@@ -25,18 +25,31 @@
 
 namespace JSC {
 
-    class ObjectPrototype : public JSObject {
+    class ObjectPrototype : public JSNonFinalObject {
     public:
-        ObjectPrototype(ExecState*, NonNullPassRefPtr<Structure>, Structure* prototypeFunctionStructure);
+        ObjectPrototype(ExecState*, JSGlobalObject*, Structure*);
+
+        static const ClassInfo s_info;
+
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+    protected:
+        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSNonFinalObject::StructureFlags;
+        static const unsigned AnonymousSlotCount = JSNonFinalObject::AnonymousSlotCount + 1;
 
     private:
         virtual void put(ExecState*, const Identifier&, JSValue, PutPropertySlot&);
+        virtual bool getOwnPropertySlot(ExecState*, const Identifier&, PropertySlot&);
         virtual bool getOwnPropertySlot(ExecState*, unsigned propertyName, PropertySlot&);
+        virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
 
         bool m_hasNoPropertiesWithUInt32Names;
     };
 
-    JSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*, JSObject*, JSValue, const ArgList&);
+    EncodedJSValue JSC_HOST_CALL objectProtoFuncToString(ExecState*);
 
 } // namespace JSC
 

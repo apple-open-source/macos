@@ -1,27 +1,356 @@
-# Commands covered:  the 'zip' vfs.
+# vfsZip.test                                                   -*- tcl -*-
+#
+#	Commands covered:  the 'zip' vfs.
 #
 # This file contains a collection of tests for one or more of the Tcl
 # built-in commands.  Sourcing this file into Tcl runs the tests and
 # generates output for errors.  No output means no errors were found.
 #
 # Copyright (c) 2001-2002 by Vince Darley.
+# Copyright (c) 2009 by Pat Thoyts <patthoyts@users.sourceforge.net>
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
 
 if {[lsearch [namespace children] ::tcltest] == -1} {
-    package require tcltest
+    package require tcltest 2
     namespace import ::tcltest::*
 }
 
-package require vfs::zip
+testConstraint zipfs [expr {![catch {package require vfs::zip}]}]
 
-test vfsZip-1.1 {mount with error} {
-    set f [file join [temporaryDirectory] vfszip.zip]
-    close [open $f w]
-    set res [catch {vfs::zip::Mount $f localmount} err]
-    #lappend res $err
-    lappend res [catch {file delete $f}]
-    set res
-} {1 0}
+# To test this properly we require a zip file. If a zip
+# executable can be found then we will create one.
+#
+testConstraint zipexe [expr {[auto_execok zip] ne ""}]
+if {[testConstraint zipfs] && [testConstraint zipexe]} {
+    file mkdir zipfs.test
+    makeFile {File one} zipfs.test/One.txt
+    makeFile {File two} zipfs.test/Two.txt
+    file mkdir zipfs.test/Aleph
+    makeFile {File aleph one} zipfs.test/Aleph/One.txt
+    makeFile {File aleph two} zipfs.test/Aleph/Two.txt
+    eval exec [auto_execok zip] [list -r zipfs.zip zipfs.test]
+    eval exec [auto_execok zip] [list zipnest.zip zipfs.zip]
+
+    file mkdir zipglob.test
+    makeFile {Glob one} "zipglob.test/one\[1\].txt"
+    makeFile {Glob two} "zipglob.test/two \[2\].txt"
+    file mkdir zipglob.test/a\[0\]
+    makeFile {Glob three} "zipglob.test/a\[0\]/three.txt"
+    eval exec [auto_execok zip] [list -r zipglob.zip zipglob.test]
+
+    testConstraint zipcat [expr {![catch {
+        makeFile {} zipcat.zip
+        set f [open zipcat.zip w] ; fconfigure $f -translation binary
+        set fin [open zipfs.zip r] ; fconfigure $fin -translation binary
+        puts -nonewline $f "[string repeat # 4095]\xff"
+        fcopy $fin $f
+        close $fin ; close $f
+        eval exec [auto_execok zip] [list -A zipcat.zip]
+    }]}]
+}
+
+test vfsZip-1.1 "mount non-existent zip file" -constraints {zipfs} -setup {
+    set file [makeFile {} vfszip.zip]
+} -body {
+    set mnt [vfs::zip::Mount $file localmount]
+} -cleanup {
+    removeFile $file
+} -returnCodes {error} -result {no header found}
+
+test vfsZip-1.2 "mount invalid zip file"  -constraints {zipfs} -setup {
+    set file [makeFile {random text} vfszip.zip]
+} -body {
+    set mnt [vfs::zip::Mount $file localmount]
+} -cleanup {
+    removeFile $file
+} -returnCodes {error} -result {no header found}
+
+test vfsZip-1.3 "mount zipfile" -constraints {zipfs zipexe} -body {
+    vfs::zip::Mount zipfs.zip local
+    vfs::unmount local
+} -result {}
+
+test vfsZip-1.4 "glob" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    glob -directory local *
+} -cleanup {
+    vfs::unmount local
+} -result {local/zipfs.test}
+
+test vfsZip-1.5 "glob files" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    lsort [glob -directory local/zipfs.test -tails *]
+} -cleanup {
+    vfs::unmount local
+} -result {Aleph One.txt Two.txt}
+
+test vfsZip-1.6 "glob non-present files" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    lsort [glob -directory local/zipfs.test -tails ridikulus.txt]
+} -cleanup {
+    vfs::unmount local
+} -returnCodes {error} -result {no files matched glob pattern "ridikulus.txt"}
+
+test vfsZip-1.7 "glob non-present directory" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    lsort [glob -directory local/zipfs.test/ridikulus -tails *]
+} -cleanup {
+    vfs::unmount local
+} -returnCodes {error} -result {no files matched glob pattern "*"}
+
+test vfsZip-1.8 "read file" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    set f [open local/zipfs.test/One.txt r]
+    set data [string trim [read $f]]
+    close $f
+    set data
+} -cleanup {
+    vfs::unmount local
+} -result {File one}
+
+test vfsZip-1.9 "stat file" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+    unset -nocomplain stat
+    set result ""
+} -body {
+    file stat local/zipfs.test/One.txt stat
+    lappend result type $stat(type) size [expr {$stat(size) > 8}]
+} -cleanup {
+    unset -nocomplain stat
+    vfs::unmount local
+} -result {type file size 1}
+
+test vfsZip-1.10 "stat directory" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+    unset -nocomplain stat
+    set result ""
+} -body {
+    file stat local/zipfs.test/Aleph stat
+    lappend result type $stat(type) size $stat(size)
+} -cleanup {
+    unset -nocomplain stat
+    vfs::unmount local
+} -result {type directory size 0}
+
+test vfsZip-1.11 "cd directory" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+    set cwd [pwd]
+} -body {
+    cd local/zipfs.test/Aleph
+    lsort [glob *]
+} -cleanup {
+    cd $cwd
+    vfs::unmount local
+} -result {One.txt Two.txt}
+
+test vfsZip-1.12 "globby filenames" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipglob.zip local
+} -body {
+    glob -type f -tail -directory local/zipglob.test *
+} -cleanup {
+    vfs::unmount local
+} -result [list "one\[1\].txt" "two \[2\].txt"]
+
+test vfsZip-1.13 "globby filenames" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipglob.zip local
+} -body {
+    set result {}
+    foreach file [glob -type f -directory local/zipglob.test *] {
+        set f [open $file r]
+        lappend result [string trim [read $f]]
+    }
+    set result
+} -cleanup {
+    vfs::unmount local
+} -result [list "Glob one" "Glob two"]
+
+test vfsZip-1.14 "globby subdir" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipglob.zip local
+} -body {
+    glob -type d -tail -directory local/zipglob.test *
+} -cleanup {
+    vfs::unmount local
+} -result [list "a\[0\]"]
+
+test vfsZip-1.15 "globby subdir" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipglob.zip local
+} -body {
+    set result {}
+    foreach dir [glob -type d -directory local/zipglob.test *] {
+        lappend result [glob -nocomplain -tail -directory $dir *]
+    }
+    set result
+} -cleanup {
+    vfs::unmount local
+} -returnCodes {ok error} -result {three.txt}
+
+test vfsZip-2.0 "nested stat file" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip local
+    unset -nocomplain stat
+    set result ""
+} -body {
+    file stat local/zipfs.zip stat
+    lappend result type $stat(type) size [expr {$stat(size) != 0}]
+} -cleanup {
+    unset -nocomplain stat
+    vfs::unmount local
+} -result {type file size 1}
+
+test vfsZip-2.1 "nested mount" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip local
+} -body {
+    vfs::zip::Mount local/zipfs.zip nested
+    vfs::unmount nested
+} -cleanup {
+    vfs::unmount local
+} -result {}
+
+test vfsZip-2.2 "stat mountpoint" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip local
+    vfs::zip::Mount local/zipfs.zip nested
+    unset -nocomplain stat
+    set result ""
+} -body {
+    file stat nested stat
+    lappend result type $stat(type) size $stat(size)
+} -cleanup {
+    unset -nocomplain stat
+    vfs::unmount nested
+    vfs::unmount local
+} -result {type directory size 0}
+
+test vfsZip-2.3 "stat nested file" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip local
+    vfs::zip::Mount local/zipfs.zip nested
+    unset -nocomplain stat
+    set result ""
+} -body {
+    file stat nested/zipfs.test/One.txt stat
+    lappend result type $stat(type) size [expr {$stat(size) > 0}]
+} -cleanup {
+    unset -nocomplain stat
+    vfs::unmount nested
+    vfs::unmount local
+} -result {type file size 1}
+
+test vfsZip-2.4 "nested self-mount" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip local
+} -body {
+    vfs::zip::Mount local/zipfs.zip local/zipfs.zip
+    set r [file isdirectory local/zipfs.zip]
+    vfs::unmount local/zipfs.zip
+    set r
+} -cleanup {
+    vfs::unmount local
+} -result {1}
+
+test vfsZip-2.5 "nested cwd" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip vfszip25
+    vfs::zip::Mount vfszip25/zipfs.zip vfszip25/zipfs.zip
+    set cwd [pwd]
+} -body {
+    cd vfszip25/zipfs.zip/zipfs.test/Aleph
+    lsort [glob *]
+} -cleanup {
+    cd $cwd
+    vfs::unmount vfszip25/zipfs.zip
+    vfs::unmount vfszip25
+} -result {One.txt Two.txt}
+
+# NOTE: this test issues an error, it should probably be a nicer error though if
+#       someone unmounts while using the vfs. At the moment the message is garbage.
+#
+test vfsZip-2.6 "nested cwd, umount in use" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipnest.zip vfszip26
+    set cwd [pwd]
+} -body {
+    vfs::zip::Mount vfszip26/zipfs.zip vfszip26/zipfs.zip
+    cd vfszip26/zipfs.zip/zipfs.test/Aleph
+    vfs::unmount vfszip26/zipfs.zip
+    pwd
+} -cleanup {
+    cd $cwd
+    vfs::unmount vfszip26/zipfs.zip
+    vfs::unmount vfszip26
+} -returnCodes {error} -match glob -result {*}
+
+
+test vfsZip-2.7 "nested mount mis-ordered unmounts" -constraints {zipfs zipexe} -setup {
+} -body {
+    vfs::zip::Mount zipnest.zip vfszip27
+    vfs::zip::Mount vfszip27/zipfs.zip vfszip27/zipfs.zip
+    set r [file isdirectory vfszip27/zipfs.zip]
+    vfs::unmount vfszip27
+    vfs::unmount vfszip27/zipfs.zip
+    set r
+} -cleanup {
+} -result {1}
+
+testConstraint bug1533748 [file exists [file join [testsDirectory] bug1533748.zip]]
+
+test vfsZip-3.0 "bug #: ./ prefixed filenames" -constraints {zipfs zipexe bug1533748} -setup {
+    vfs::zip::Mount [file join [testsDirectory] bug1533748.zip] vfszip30
+} -body {
+    list [glob -nocomplain -directory vfszip30 -tails *] \
+        [glob -nocomplain -directory vfszip30/articles -tails *] \
+} -cleanup {
+    vfs::unmount vfszip30
+} -result {articles c_5498.xml}
+
+test vfsZip-3.1 "bug #: ./ prefixed filenames" -constraints {zipfs zipexe bug1533748} -setup {
+    vfs::zip::Mount [file join [testsDirectory] bug1533748.zip] vfszip31
+} -body {
+    set f [open vfszip31/articles/c_5498.xml r]
+    fconfigure $f -translation binary
+    set data [read $f]
+    close $f
+    expr {[string length $data] == [file size vfszip31/articles/c_5498.xml]}
+} -cleanup {
+    vfs::unmount vfszip31
+} -result {1}
+
+test vfsZip-4.0 "zip with preface code" -constraints {zipfs zipcat} -body {
+    vfs::zip::Mount zipcat.zip local
+    set r [glob -nocomplain -directory local -tails *]
+    vfs::unmount local
+    set r
+} -result {zipfs.test}
+
+test vfsZip-4.1 "zip with preface code" -constraints {zipfs zipcat} -setup {
+    vfs::zip::Mount zipcat.zip local
+} -body {
+    set f [open local/zipfs.test/Aleph/One.txt r]
+    set r [string trim [read $f]]
+    close $f
+    set r
+} -cleanup {
+    vfs::unmount local
+} -result {File aleph one}
+
+test vfsZip-9.0 "attempt to delete mounted file" -constraints {zipfs zipexe} -setup {
+    vfs::zip::Mount zipfs.zip local
+} -body {
+    file delete zipfs.zip
+} -cleanup {
+    vfs::unmount local
+} -returnCodes {error} -result {error deleting "zipfs.zip": permission denied}
+
+
+# cleanup
+if {[testConstraint zipfs] && [testConstraint zipexe]} {
+    file delete -force zipfs.test
+    file delete -force zipglob.test
+    file delete zipfs.zip
+    file delete zipnest.zip
+    file delete zipglob.zip
+}
+tcltest::cleanupTests
+return

@@ -1,11 +1,8 @@
---- asctime.c.orig	2008-12-15 11:41:07.000000000 -0800
-+++ asctime.c	2009-01-21 17:09:27.000000000 -0800
-@@ -22,10 +22,10 @@ __FBSDID("$FreeBSD: src/lib/libc/stdtime
- ** A la ISO/IEC 9945-1, ANSI/IEEE Std 1003.1, Second Edition, 1996-07-12.
+--- asctime.c.bsdnew	2009-11-14 13:55:43.000000000 -0800
++++ asctime.c	2009-11-14 14:04:38.000000000 -0800
+@@ -79,9 +79,7 @@ static char	buf_asctime[MAX_ASCTIME_BUF_
  */
  
-+#define	EXPECTEDLEN	26
-+
  char *
 -asctime_r(timeptr, buf)
 -const struct tm *	timeptr;
@@ -14,55 +11,3 @@
  {
  	static const char	wday_name[][3] = {
  		"Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"
-@@ -36,6 +36,8 @@ char *			buf;
- 	};
- 	const char *	wn;
- 	const char *	mn;
-+	int		len;
-+	char		tmp[EXPECTEDLEN];
- 
- 	if (timeptr->tm_wday < 0 || timeptr->tm_wday >= DAYSPERWEEK)
- 		wn = "???";
-@@ -48,31 +50,28 @@ char *			buf;
- 	**	"%.3s %.3s%3d %02.2d:%02.2d:%02.2d %d\n"
- 	** Since the .2 in 02.2d is ignored, we drop it.
- 	*/
--	(void) sprintf(buf, "%.3s %.3s%3d %02d:%02d:%02d %d\n",
-+	/*
-+	** Because various values in the tm structure may cause the
-+	** resulting string to be longer than the 26-bytes that is
-+	** specified in the spec, we should return NULL rather than
-+	** possibly overwrite beyond the string.
-+	*/
-+	len = snprintf(tmp, EXPECTEDLEN, "%.3s %.3s%3d %02d:%02d:%02d %d\n",
- 		wn, mn,
- 		timeptr->tm_mday, timeptr->tm_hour,
- 		timeptr->tm_min, timeptr->tm_sec,
- 		TM_YEAR_BASE + timeptr->tm_year);
-+	if (len >= EXPECTEDLEN)
-+		return NULL;
-+	strcpy(buf, tmp);
- 	return buf;
- }
- 
--/*
--** A la X3J11, with core dump avoidance.
--*/
--
- char *
- asctime(timeptr)
- const struct tm *	timeptr;
- {
--	/*
--	** Big enough for something such as
--	** ??? ???-2147483648 -2147483648:-2147483648:-2147483648 -2147483648\n
--	** (two three-character abbreviations, five strings denoting integers,
--	** three explicit spaces, two explicit colons, a newline,
--	** and a trailing ASCII nul).
--	*/
--	static char		result[3 * 2 + 5 * INT_STRLEN_MAXIMUM(int) +
--					3 + 2 + 1 + 1];
-+	static char		result[EXPECTEDLEN];
- 
- 	return asctime_r(timeptr, result);
- }

@@ -222,6 +222,10 @@ item(tt(repeat) var(word) tt(do) var(list) tt(done))(
 var(word) is expanded and treated as an arithmetic expression,
 which must evaluate to a number var(n).
 var(list) is then executed var(n) times.
+
+The tt(repeat) syntax is disabled by default when the
+shell starts in a mode emulating another shell.  It can be enabled
+with the command `tt(enable -r repeat)'
 )
 findex(case)
 cindex(case selection)
@@ -366,10 +370,10 @@ texinode(Alternate Forms For Complex Commands)(Reserved Words)(Complex Commands)
 sect(Alternate Forms For Complex Commands)
 cindex(alternate forms for complex commands)
 cindex(commands, alternate forms for complex)
-Many of zsh's complex commands have alternate forms.  These particular
-versions of complex commands should be considered deprecated and may be
-removed in the future.  The versions in the previous section should be
-preferred instead.
+Many of zsh's complex commands have alternate forms.  These are
+non-standard and are likely not to be obvious even to seasoned shell
+programmers; they should not be used anywhere that portability of shell
+code is a concern.
 
 The short versions below only work if var(sublist) is of the form `tt({)
 var(list) tt(})' or if the tt(SHORT_LOOPS) option is set.  For the tt(if),
@@ -473,12 +477,16 @@ cindex(aliases, global)
 An alias is defined using the tt(alias) builtin; global aliases
 may be defined using the tt(-g) option to that builtin.
 
-Alias expansion is done on the shell input before any
-other expansion except history expansion.  Therefore,
-if an alias is defined for the word tt(foo), alias expansion
-may be avoided by quoting part of the word, e.g. tt(\foo).
-But there is nothing to prevent an alias being defined
-for tt(\foo) as well.
+Alias expansion is done on the shell input before any other expansion
+except history expansion.  Therefore, if an alias is defined for the
+word tt(foo), alias expansion may be avoided by quoting part of the
+word, e.g. tt(\foo).  Any form of quoting works, although there is
+nothing to prevent an alias being defined for the quoted form such as
+tt(\foo) as well.  For use with completion, which would remove an
+initial backslash followed by a character that isn't special, it may be
+more convenient to quote the word by starting with a single quote,
+i.e. tt('foo); completion will automatically add the trailing single
+quote.
 
 There is a commonly encountered problem with aliases
 illustrated by the following code:
@@ -492,6 +500,27 @@ is too late to expand the newly defined alias.  This is often
 a problem in shell scripts, functions, and code executed with `tt(source)'
 or `tt(.)'.  Consequently, use of functions rather than aliases is
 recommended in non-interactive code.
+
+Note also the unhelpful interaction of aliases and function definitions:
+
+example(alias func='noglob func'
+func+LPAR()RPAR() {
+    echo Do something with $*
+})
+
+Because aliases are expanded in function defintions, this causes the
+following command to be executed:
+
+example(noglob func+LPAR()RPAR() {
+    echo Do something with $*
+})
+
+which defines tt(noglob) as well as tt(func) as functions with the
+body given.  To avoid this, either quote the name tt(func) or use the
+alternative function definition form `tt(function func)'.  Ensuring the
+alias is defined after the function works but is problematic if the
+code fragment might be re-executed.
+
 texinode(Quoting)()(Aliasing)(Shell Grammar)
 sect(Quoting)
 cindex(quoting)

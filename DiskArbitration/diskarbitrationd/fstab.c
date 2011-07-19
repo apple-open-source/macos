@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -133,7 +133,7 @@ fstabscan()
 				_fs_fstab.fs_passno = atoi(cp);
 		}
 		_fs_fstab.fs_type = "??";
-		strcpy(subline, _fs_fstab.fs_mntops);
+		strlcpy(subline, _fs_fstab.fs_mntops, sizeof(subline));
 		p = subline;
 		for (typexx = 0, cp = strsep(&p, ","); cp;
 		     cp = strsep(&p, ",")) {
@@ -236,7 +236,7 @@ error(err)
 	(void)write(STDERR_FILENO, "fstab: ", 7);
 	(void)write(STDERR_FILENO, _PATH_FSTAB, sizeof(_PATH_FSTAB) - 1);
 	(void)write(STDERR_FILENO, ":", 1);
-	sprintf(num, "%d: ", LineNo);
+	snprintf(num, sizeof(num), "%d: ", LineNo);
 	(void)write(STDERR_FILENO, num, strlen(num));
 	p = strerror(err);
 	(void)write(STDERR_FILENO, p, strlen(p));

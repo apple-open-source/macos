@@ -16,8 +16,8 @@
  * it does, start postfix.  When last entry goes away, stop postfix.
  */
 
-#define POSTFIX_DROP	"/var/spool/postfix/maildrop"
-#define POSTFIX_FIFO	"/var/spool/postfix/public/pickup"
+#define POSTFIX_DROP	"/Library/Server/Mail/Data/spool/maildrop"	/* APPLE */
+#define POSTFIX_FIFO	"/Library/Server/Mail/Data/spool/public/pickup"	/* APPLE */
 
 static int postfix_on = FALSE;
 

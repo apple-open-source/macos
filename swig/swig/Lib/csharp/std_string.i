@@ -26,6 +26,7 @@ class string;
 %typemap(ctype) string "char *"
 %typemap(imtype) string "string"
 %typemap(cstype) string "string"
+
 %typemap(csdirectorin) string "$iminput"
 %typemap(csdirectorout) string "$cscall"
 
@@ -34,7 +35,7 @@ class string;
     SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
     return $null;
    }
-   $1 = std::string($input); %}
+   $1.assign($input); %}
 %typemap(out) string %{ $result = SWIG_csharp_string_callback($1.c_str()); %}
 
 %typemap(directorout, canthrow=1) string 
@@ -42,7 +43,7 @@ class string;
     SWIG_CSharpSetPendingExceptionArgument(SWIG_CSharpArgumentNullException, "null string", 0);
     return $null;
    }
-   $result = std::string($input); %}
+   $result.assign($input); %}
 
 %typemap(directorin) string %{ $input = SWIG_csharp_string_callback($1.c_str()); %}
 
@@ -51,16 +52,6 @@ class string;
     string ret = $imcall;$excode
     return ret;
   }
-
-%typemap(csvarin, excode=SWIGEXCODE2) string %{
-    set {
-      $imcall;$excode
-    } %}
-%typemap(csvarout, excode=SWIGEXCODE2) string %{
-    get {
-      string ret = $imcall;$excode
-      return ret;
-    } %}
 
 %typemap(typecheck) string = char *;
 
@@ -72,6 +63,7 @@ class string;
 %typemap(ctype) const string & "char *"
 %typemap(imtype) const string & "string"
 %typemap(cstype) const string & "string"
+
 %typemap(csdirectorin) const string & "$iminput"
 %typemap(csdirectorout) const string & "$cscall"
 

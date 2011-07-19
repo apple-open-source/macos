@@ -70,10 +70,10 @@ public:
         PassRefPtr<WebCore::SerializedScriptValue>,
         PassOwnPtr<WebCore::MessagePortChannelArray>);
     virtual void postExceptionToWorkerObject(
-        const WebCore::String&, int, const WebCore::String&);
+        const WTF::String&, int, const WTF::String&);
     virtual void postConsoleMessageToWorkerObject(
         WebCore::MessageSource, WebCore::MessageType,
-        WebCore::MessageLevel, const WebCore::String&, int, const WebCore::String&);
+        WebCore::MessageLevel, const WTF::String&, int, const WTF::String&);
     virtual void confirmMessageFromWorkerObject(bool);
     virtual void reportPendingActivity(bool);
     virtual void workerContextClosed();
@@ -82,11 +82,20 @@ public:
     // WebCore::WorkerLoaderProxy methods:
     virtual void postTaskToLoader(PassOwnPtr<WebCore::ScriptExecutionContext::Task>);
     virtual void postTaskForModeToWorkerContext(
-        PassOwnPtr<WebCore::ScriptExecutionContext::Task>, const WebCore::String& mode);
+        PassOwnPtr<WebCore::ScriptExecutionContext::Task>, const WTF::String& mode);
 
     // WebFrameClient methods to support resource loading thru the 'shadow page'.
     virtual void didCreateDataSource(WebFrame*, WebDataSource*);
     virtual WebApplicationCacheHost* createApplicationCacheHost(WebFrame*, WebApplicationCacheHostClient*);
+
+    // Controls whether access to Web Databases is allowed for this worker.
+    bool allowDatabase(WebFrame*, const WebString& name, const WebString& displayName, unsigned long estimatedSize);
+
+#if ENABLE(FILE_SYSTEM)
+    // Controls whether access to File System is allowed for this worker.
+    bool allowFileSystem();
+    void openFileSystemForWorker(WebFileSystem::Type, long long size, bool create, WebFileSystemCallbacks*, bool synchronous);
+#endif
 
     // Executes the given task on the main thread.
     static void dispatchTaskToMainThread(PassOwnPtr<WebCore::ScriptExecutionContext::Task>);
@@ -112,23 +121,23 @@ private:
     static void postMessageTask(
         WebCore::ScriptExecutionContext* context,
         WebWorkerBase* thisPtr,
-        WebCore::String message,
+        WTF::String message,
         PassOwnPtr<WebCore::MessagePortChannelArray> channels);
     static void postExceptionTask(
         WebCore::ScriptExecutionContext* context,
         WebWorkerBase* thisPtr,
-        const WebCore::String& message,
+        const WTF::String& message,
         int lineNumber,
-        const WebCore::String& sourceURL);
+        const WTF::String& sourceURL);
     static void postConsoleMessageTask(
         WebCore::ScriptExecutionContext* context,
         WebWorkerBase* thisPtr,
         int source,
         int type,
         int level,
-        const WebCore::String& message,
+        const WTF::String& message,
         int lineNumber,
-        const WebCore::String& sourceURL);
+        const WTF::String& sourceURL);
     static void confirmMessageTask(
         WebCore::ScriptExecutionContext* context,
         WebWorkerBase* thisPtr,

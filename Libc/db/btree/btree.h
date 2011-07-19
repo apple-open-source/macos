@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -34,7 +30,7 @@
  * SUCH DAMAGE.
  *
  *	@(#)btree.h	8.11 (Berkeley) 8/17/94
- * $FreeBSD: src/lib/libc/db/btree/btree.h,v 1.3 2002/03/22 23:41:40 obrien Exp $
+ * $FreeBSD: src/lib/libc/db/btree/btree.h,v 1.5 2009/03/04 00:58:04 delphij Exp $
  */
 
 /* Macros to set/clear/test flags. */
@@ -313,8 +309,8 @@ typedef struct _btree {
 	CURSOR	  bt_cursor;		/* cursor */
 
 #define	BT_PUSH(t, p, i) {						\
-	t->bt_sp->pgno = p; 						\
-	t->bt_sp->index = i; 						\
+	t->bt_sp->pgno = p;						\
+	t->bt_sp->index = i;						\
 	++t->bt_sp;							\
 }
 #define	BT_POP(t)	(t->bt_sp == t->bt_stack ? NULL : --t->bt_sp)

@@ -4,6 +4,7 @@
  * Copyright (C) 2007 Holger Hans Peter Freyther
  * Copyright (C) 2008 Christian Dywan <christian@imendio.com>
  * Copyright (C) 2008 Nuanti Ltd.
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -65,6 +66,11 @@ String resetButtonDefaultLabel()
     return String::fromUTF8(_("Reset"));
 }
 
+String defaultDetailsSummaryText()
+{
+    return String::fromUTF8(_("Details"));
+}
+
 String searchableIndexIntroduction()
 {
     return String::fromUTF8(_("This is a searchable index. Enter search keywords: "));
@@ -108,6 +114,61 @@ String contextMenuItemTagDownloadImageToDisk()
 String contextMenuItemTagCopyImageToClipboard()
 {
     return String::fromUTF8(_("Cop_y Image"));
+}
+
+String contextMenuItemTagCopyImageUrlToClipboard()
+{
+    return String::fromUTF8(_("Copy Image _Address"));
+}
+
+String contextMenuItemTagOpenVideoInNewWindow()
+{
+    return String::fromUTF8(_("Open _Video in New Window"));
+}
+
+String contextMenuItemTagOpenAudioInNewWindow()
+{
+    return String::fromUTF8(_("Open _Audio in New Window"));
+}
+
+String contextMenuItemTagCopyVideoLinkToClipboard()
+{
+    return String::fromUTF8(_("Cop_y Video Link Location"));
+}
+
+String contextMenuItemTagCopyAudioLinkToClipboard()
+{
+    return String::fromUTF8(_("Cop_y Audio Link Location"));
+}
+
+String contextMenuItemTagToggleMediaControls()
+{
+    return String::fromUTF8(_("_Toggle Media Controls"));
+}
+
+String contextMenuItemTagToggleMediaLoop()
+{
+    return String::fromUTF8(_("Toggle Media _Loop Playback"));
+}
+
+String contextMenuItemTagEnterVideoFullscreen()
+{
+    return String::fromUTF8(_("Switch Video to _Fullscreen"));
+}
+
+String contextMenuItemTagMediaPlay()
+{
+    return String::fromUTF8(_("_Play"));
+}
+
+String contextMenuItemTagMediaPause()
+{
+    return String::fromUTF8(_("_Pause"));
+}
+
+String contextMenuItemTagMediaMute()
+{
+    return String::fromUTF8(_("_Mute"));
 }
 
 String contextMenuItemTagOpenFrameInNewWindow()
@@ -198,7 +259,7 @@ String contextMenuItemTagSearchWeb()
     return String::fromUTF8(_("_Search the Web"));
 }
 
-String contextMenuItemTagLookUpInDictionary()
+String contextMenuItemTagLookUpInDictionary(const String&)
 {
     return String::fromUTF8(_("_Look Up in Dictionary"));
 }
@@ -502,10 +563,58 @@ String validationMessageValueMissingText()
     return String::fromUTF8(_("value missing"));
 }
 
+String validationMessageValueMissingForCheckboxText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForMultipleFileText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForRadioText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
+String validationMessageValueMissingForSelectText()
+{
+    notImplemented();
+    return validationMessageValueMissingText();
+}
+
 String validationMessageTypeMismatchText()
 {
     notImplemented();
     return String::fromUTF8(_("type mismatch"));
+}
+
+String validationMessageTypeMismatchForEmailText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+String validationMessageTypeMismatchForMultipleEmailText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
+}
+
+String validationMessageTypeMismatchForURLText()
+{
+    notImplemented();
+    return validationMessageTypeMismatchText();
 }
 
 String validationMessagePatternMismatchText()
@@ -513,24 +622,29 @@ String validationMessagePatternMismatchText()
     return String::fromUTF8(_("pattern mismatch"));
 }
 
-String validationMessageTooLongText()
+String validationMessageTooLongText(int, int)
 {
     return String::fromUTF8(_("too long"));
 }
 
-String validationMessageRangeUnderflowText()
+String validationMessageRangeUnderflowText(const String&)
 {
     return String::fromUTF8(_("range underflow"));
 }
 
-String validationMessageRangeOverflowText()
+String validationMessageRangeOverflowText(const String&)
 {
     return String::fromUTF8(_("range overflow"));
 }
 
-String validationMessageStepMismatchText()
+String validationMessageStepMismatchText(const String&, const String&)
 {
     return String::fromUTF8(_("step mismatch"));
+}
+
+String localizedString(const char* key)
+{
+    return String::fromUTF8(key, strlen(key));
 }
 
 }

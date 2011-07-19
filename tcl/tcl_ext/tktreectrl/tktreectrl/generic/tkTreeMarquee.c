@@ -3,9 +3,9 @@
  *
  *	This module implements the selection rectangle for treectrl widgets.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeMarquee.c,v 1.16 2008/01/22 01:03:02 treectrl Exp $
+ * RCS: @(#) $Id: tkTreeMarquee.c,v 1.20 2010/02/27 21:11:04 treectrl Exp $
  */
 
 #include "tkTreeCtrl.h"
@@ -26,6 +26,7 @@ struct TreeMarquee_
     int sx, sy;				/* Offset of canvas from top-left
 					 * corner of the window when we
 					 * were drawn. */
+    int sw, sh;				/* Width & height when drawn. */
 };
 
 #define MARQ_CONF_VISIBLE		0x0001
@@ -104,6 +105,56 @@ TreeMarquee_Free(
 /*
  *----------------------------------------------------------------------
  *
+ * TreeMarquee_IsXOR --
+ *
+ *	Return true if the marquee is being drawn with XOR.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int TreeMarquee_IsXOR(TreeMarquee marquee)
+{
+#if defined(WIN32)
+    return FALSE; /* TRUE on XP, FALSE on Win7 (lots of flickering) */
+#elif defined(MAC_TK_CARBON)
+    return TRUE;
+#elif defined(MAC_TK_COCOA)
+    return FALSE;
+#else
+    return TRUE; /* X11 */
+#endif
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TreeMarquee_IsVisible --
+ *
+ *	Return true if the marquee is being drawn.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	None.
+ *
+ *----------------------------------------------------------------------
+ */
+
+int TreeMarquee_IsVisible(TreeMarquee marquee)
+{
+    return marquee->visible;
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
  * TreeMarquee_Display --
  *
  *	Draw the selection rectangle if it is not already displayed and if
@@ -126,9 +177,20 @@ TreeMarquee_Display(
     TreeCtrl *tree = marquee->tree;
 
     if (!marquee->onScreen && marquee->visible) {
-	marquee->sx = 0 - tree->xOrigin;
-	marquee->sy = 0 - tree->yOrigin;
-	TreeMarquee_Draw(marquee, Tk_WindowId(tree->tkwin), marquee->sx, marquee->sy);
+	if (TreeMarquee_IsXOR(marquee)) {
+	    marquee->sx = 0 - tree->xOrigin;
+	    marquee->sy = 0 - tree->yOrigin;
+	    TreeMarquee_DrawXOR(marquee, Tk_WindowId(tree->tkwin),
+		marquee->sx, marquee->sy);
+	} else {
+	    marquee->sx = MIN(marquee->x1, marquee->x2) - tree->xOrigin;
+	    marquee->sy = MIN(marquee->y1, marquee->y2) - tree->yOrigin;
+	    marquee->sw = abs(marquee->x2 - marquee->x1) + 1;
+	    marquee->sh = abs(marquee->y2 - marquee->y1) + 1;
+/*	    Tree_InvalidateItemArea(tree, marquee->sx, marquee->sy,
+		marquee->sx + marquee->sw, marquee->sy + marquee->sh);*/
+	    Tree_EventuallyRedraw(tree);
+	}
 	marquee->onScreen = TRUE;
     }
 }
@@ -157,7 +219,13 @@ TreeMarquee_Undisplay(
     TreeCtrl *tree = marquee->tree;
 
     if (marquee->onScreen) {
-	TreeMarquee_Draw(marquee, Tk_WindowId(tree->tkwin), marquee->sx, marquee->sy);
+	if (TreeMarquee_IsXOR(marquee)) {
+	    TreeMarquee_DrawXOR(marquee, Tk_WindowId(tree->tkwin), marquee->sx, marquee->sy);
+	} else {
+/*	    Tree_InvalidateItemArea(tree, marquee->sx, marquee->sy,
+		marquee->sx + marquee->sw, marquee->sy + marquee->sh);*/
+	    Tree_EventuallyRedraw(tree);
+	}
 	marquee->onScreen = FALSE;
     }
 }
@@ -165,7 +233,7 @@ TreeMarquee_Undisplay(
 /*
  *----------------------------------------------------------------------
  *
- * TreeMarquee_Draw --
+ * TreeMarquee_DrawXOR --
  *
  *	Draw (or erase) the selection rectangle.
  *
@@ -179,7 +247,7 @@ TreeMarquee_Undisplay(
  */
 
 void
-TreeMarquee_Draw(
+TreeMarquee_DrawXOR(
     TreeMarquee marquee,	/* Marquee token. */
     Drawable drawable,		/* Where to draw. */
     int x1, int y1		/* Offset of canvas from top-left corner
@@ -198,6 +266,94 @@ TreeMarquee_Draw(
     TreeDotRect_Setup(tree, drawable, &dotState);
     TreeDotRect_Draw(&dotState, x1 + x, y1 + y, w, h);
     TreeDotRect_Restore(&dotState);
+}
+
+/*
+ *----------------------------------------------------------------------
+ *
+ * TreeMarquee_Draw --
+ *
+ *	Draw the selection rectangle if it is visible.
+ *
+ * Results:
+ *	None.
+ *
+ * Side effects:
+ *	Stuff is drawn.
+ *
+ *----------------------------------------------------------------------
+ */
+
+void
+TreeMarquee_Draw(
+    TreeMarquee marquee,	/* Marquee token. */
+    TreeDrawable td)		/* Where to draw. */
+{
+#if 1 /* Use XOR dotted rectangles where possible. */
+    TreeCtrl *tree = marquee->tree;
+
+    if (!marquee->visible)
+	return;
+
+    /* Yes this is XOR drawing but we aren't erasing the previous
+     * marquee as when TreeMarquee_IsXOR() returns TRUE. */
+    TreeMarquee_DrawXOR(marquee, td.drawable,
+	0 - tree->xOrigin, 0 - tree->yOrigin);
+#else /* */
+    TreeCtrl *tree = marquee->tree;
+    int x, y, w, h;
+    GC gc;
+    XGCValues gcValues;
+    unsigned long mask;
+#ifdef WIN32
+    XPoint points[5];
+    XRectangle rect;
+#endif
+#if 0
+    XColor *colorPtr;
+#endif
+
+    if (!marquee->visible)
+	return;
+
+    x = MIN(marquee->x1, marquee->x2);
+    w = abs(marquee->x1 - marquee->x2) + 1;
+    y = MIN(marquee->y1, marquee->y2);
+    h = abs(marquee->y1 - marquee->y2) + 1;
+
+#if 0
+    colorPtr = Tk_GetColor(tree->interp, tree->tkwin, "gray50");
+    gc = Tk_GCForColor(colorPtr, Tk_WindowId(tree->tkwin));
+
+    XFillRectangle(tree->display, td.drawable, gc,
+	x - tree->drawableXOrigin, y - tree->drawableYOrigin,
+	w - 1, h - 1);
+#else /* Stippled rectangles: BUG not clipped to contentbox. */
+    gcValues.stipple = Tk_GetBitmap(tree->interp, tree->tkwin, "gray50");
+    gcValues.fill_style = FillStippled;
+    mask = GCStipple|GCFillStyle;
+    gc = Tk_GetGC(tree->tkwin, mask, &gcValues);
+
+#ifdef WIN32
+    /* XDrawRectangle ignores the stipple pattern. */
+    rect.x = x - tree->drawableXOrigin;
+    rect.y = y - tree->drawableYOrigin;
+    rect.width = w;
+    rect.height = h;
+    points[0].x = rect.x, points[0].y = rect.y;
+    points[1].x = rect.x + rect.width - 1, points[1].y = rect.y;
+    points[2].x = rect.x + rect.width - 1, points[2].y = rect.y + rect.height - 1;
+    points[3].x = rect.x, points[3].y = rect.y + rect.height - 1;
+    points[4] = points[0];
+    XDrawLines(tree->display, td.drawable, gc, points, 5, CoordModeOrigin);
+#else
+    XDrawRectangle(tree->display, td.drawable, gc,
+	x - tree->drawableXOrigin, y - tree->drawableYOrigin,
+	w - 1, h - 1);
+#endif
+    Tk_FreeGC(tree->display, gc);
+#endif
+#endif /* */
 }
 
 /*

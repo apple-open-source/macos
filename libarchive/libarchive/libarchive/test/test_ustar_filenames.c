@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_ustar_filenames.c,v 1.2 2008/08/11 01:19:36 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_ustar_filenames.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 /*
  * Exercise various lengths of filenames in ustar archives.
@@ -43,7 +43,7 @@ test_filename(const char *prefix, int dlen, int flen)
 
 	if (prefix != NULL) {
 		strcpy(filename, prefix);
-		i = strlen(prefix);
+		i = (int)strlen(prefix);
 	}
 	if (dlen > 0) {
 		for (; i < dlen; i++)
@@ -53,7 +53,7 @@ test_filename(const char *prefix, int dlen, int flen)
 	}
 	for (; i < dlen + flen + separator; i++)
 		filename[i] = 'b';
-	filename[i++] = '\0';
+	filename[i] = '\0';
 
 	strcpy(dirname, filename);
 

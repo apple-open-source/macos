@@ -3,7 +3,7 @@
 # Class name: Test
 # Synopsis: Test Harness
 #
-# Last Updated: $Date: 2009/03/30 19:38:52 $
+# Last Updated: $Date: 2011/05/19 13:01:25 $
 #
 # Copyright (c) 2008 Apple Computer, Inc.  All rights reserved.
 #
@@ -28,9 +28,117 @@
 #
 ######################################################################
 
+# /*! @header
+#     @abstract
+#         <code>Test</code> class package file.
+#     @discussion
+#         This file contains the <code>Test</code> class, a class used for
+#         testing the HeaderDoc parser and related routines.
+#
+#         For details, see the class documentation below.
+#     @indexgroup HeaderDoc Miscellaneous Helpers
+#  */
+
+# /*!
+#     @abstract
+#         Test framework for parser and C preprocessor tests.
+#     @discussion
+#         The <code>Test</code> class is a test framework for
+#         testing the HeaderDoc parser and related routines.
+#         Each test file is a freeze-dried instance of this
+#         class that is loaded by
+#  {@link //apple_ref/doc/header/headerDoc2HTML.pl headerDoc2HTML.pl}.
+#
+#     @var FILENAME
+#         Filename for this test.  Derived from <code>NAME</code>.
+#     @var NAME
+#         Name of this test.
+#     @var TYPE
+#         The type of test.  Currently either <code>parser</code>
+#         or <code>cpp</code>.
+#     @var LANG
+#         The programming language for the test.
+#     @var SUBLANG
+#         The programming language variant for the test.  Usually
+#         same as the language, but may differ for languages built
+#         on other languages, e.g. <code>javascript</code> or
+#         <code>MIG</code>.  C language derivatives, in particular,
+#         are <b>not</b> specified more precisely; the parser changes
+#         languages as it enters a class block.
+#     @var COMMENT
+#         The HeaderDoc comment block associated with this test.
+#         Used only for parser tests.  Empty for C preprocessor
+#         tests.
+#     @var CPPCODE
+#         The C preprocessor macros to parse; used to modify
+#         the declaration in <code>CODE</code>.  Used only
+#         in C preprocessor tests.  Empty for parser tests.
+#     @var CODE
+#         The actual code to parse.
+#     @var RESULT
+#         The actual test results.  Filled in automatically
+#         by {@link runtest_sub}.  Because this should always
+#         match the expected results, this field should never be
+#         serialized to disk.
+#     @var EXPECTED_RESULT
+#         The expected test results.  During test creation, this is
+#         filled in by running the test once, ignoring the test
+#         failure, and copying the obtained results into this field
+#         from <code>RESULT</code>.
+#     @var RESULT_ALLDECS
+#         The actual test results for "all declarations" mode (equivalent to
+#         passing the <code>-E</code> flag).  Filled in automatically
+#         by {@link runtest_sub}.  Because this should always
+#         match the expected results, this field should never be
+#         serialized to disk.
+#     @var EXPECTED_RESULT_ALLDECS
+#         The expected test results.  During test creation, this is
+#         filled in by running the test once, ignoring the test
+#         failure, and copying the obtained results into this field
+#         from <code>RESULT_ALLDECS</code>.
+#     @var FILTERED_RESULT
+#         A filtered copy of the actual result after applying
+#         a series of regular expressions to ignore parts of the
+#         results.  Used for simplifying comparison when a
+#         particular type of change is expected.  This is
+#         temporary data that should never be serialized to disk.
+#     @var EXPECTED_FILTERED_RESULT
+#         A filtered copy of the expected result after applying
+#         a series of regular expressions to ignore parts of the
+#         results.  Used for simplifying comparison when a
+#         particular type of change is expected.  This is
+#         temporary data that should never be serialized to disk.
+#     @var FILTERED_RESULT_ALLDECS
+#         A filtered copy of the actual "all declarations" result after applying
+#         a series of regular expressions to ignore parts of the
+#         results.  Used for simplifying comparison when a
+#         particular type of change is expected.  This is
+#         temporary data that should never be serialized to disk.
+#     @var EXPECTED_FILTERED_RESULT_ALLDECS
+#         A filtered copy of the expected "all declarations" result after applying
+#         a series of regular expressions to ignore parts of the
+#         results.  Used for simplifying comparison when a
+#         particular type of change is expected.  This is
+#         temporary data that should never be serialized to disk.
+#     @var FAILMSG
+#         A message to display if the test fails.  This can be used
+#         to provide additional information about what functionality
+#         the test covers.
+#  */
 package HeaderDoc::Test;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash unregisterUID registerUID quote html2xhtml sanitize parseTokens unregister_force_uid_clear dereferenceUIDObject filterHeaderDocTagContents validTag stringToFields processHeaderComment getLineArrays getAbsPath allow_everything getAvailabilityMacros);
+
+# /*!
+#     @abstract
+#         Set to 1 if HeaderDoc is currently running a test, else 0.
+#     @discussion
+#         Disables lots of warnings caused by imperfect test data
+#         while the tests are running.
+#  */
+$HeaderDoc::running_test = 0;
+
+
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash unregisterUID registerUID sanitize parseTokens unregister_force_uid_clear dereferenceUIDObject filterHeaderDocTagContents validTag stringToFields processHeaderComment getLineArrays getAbsPath allow_everything getAvailabilityMacros stripLeading );
 use File::Basename;
 use strict;
 use vars qw($VERSION @ISA);
@@ -46,8 +154,44 @@ if ($HeaderDoc::FreezeThaw_available) {
 	eval "use FreezeThaw qw(freeze thaw)";
 }
 
-$HeaderDoc::Test::VERSION = '$Revision: 1.34 $';
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::Test::VERSION = '$Revision: 1305835285 $';
 
+# /*!
+#     @abstract
+#         Enables "all decs" support in the test module.
+#
+#     @discussion
+#         For now, this should be zero.  In addition to some
+#         languages being ostensibly "supported" by alldecs but
+#         not being perfectly supported in that mode (Perl,
+#         Pascal), there's also the problem of a bunch of tests
+#         whose results change radically that I just don't have
+#         time to hand-verify.  (TODO: DAG: FIXME)
+#
+#         Also, there are tests that probably will have to be
+#         significantly modified because declarations that are
+#         not currently being parsed will suddenly get parsed,
+#         resulting in lots of apple_ref conflicts and other
+#         such madness.  In short, it's a major effort that will
+#         have to wait a bit.
+# */
+$HeaderDoc::test_alldecs = 0;   # Here, there be dragons.
+
+# /*!
+#     @abstract
+#         Creates a new <code>Test</code> object.
+#     @param param
+#         A reference to the relevant package object (e.g.
+#         <code>HeaderDoc::Test->new()</code> to allocate
+#         a new instance of this class).
+#  */
 sub new {
     my $param = shift;
     my $class = ref($param) || $param;
@@ -58,8 +202,7 @@ sub new {
     # Now grab any key => value pairs passed in
     my (%attributeHash) = @_;
     foreach my $key (sort keys(%attributeHash)) {
-	my $ucKey = uc($key);
-	$self->{$ucKey} = $attributeHash{$key};
+	$self->{$key} = $attributeHash{$key};
     }
     $self->{FILENAME} = $self->{NAME};
     $self->{FILENAME} =~ s/[^a-zA-Z0-9_.,-]/_/sg;
@@ -69,6 +212,12 @@ sub new {
     return $self;
 }
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>Test</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my $self = shift;
 
@@ -87,17 +236,68 @@ sub _initialize {
     $self->{EXPECTED_RESULT_ALLDECS} = undef;
 }
 
+# /*!
+#     @abstract
+#         Runs this test.
+#     @param self
+#         The test instance.
+#     @result
+#         Returns 0 on success, 1 if the test fails.
+#  */
 sub runTest {
     my $self = shift;
+    my $filterref = shift;
 
+    $HeaderDoc::running_test = 1;
     my $coretestfail = $self->runtest_sub(0);
     if ($self->supportsAllDecs()) {
 	my $coretestfail_b = $self->runtest_sub(1);
 	$coretestfail = $coretestfail || $coretestfail_b;
     }
+    $HeaderDoc::running_test = 0;
+
+    $self->{EXPECTED_FILTERED_RESULT} = filterResults($self->{EXPECTED_RESULT}, $filterref);
+    $self->{EXPECTED_FILTERED_RESULT_ALLDECS} = filterResults($self->{EXPECTED_RESULT_ALLDECS}, $filterref);
+    $self->{FILTERED_RESULT} = filterResults($self->{RESULT}, $filterref);
+    $self->{FILTERED_RESULT_ALLDECS} = filterResults($self->{RESULT_ALLDECS}, $filterref);
+
     return $coretestfail;
 }
 
+# /*!
+#     @abstract
+#         Filters out bits of the test results for comparison purposes.
+#  */
+sub filterResults
+{
+    my $data = shift;
+    my $filterref = shift;
+
+    if (!$filterref) {
+	return $data;
+    }
+    my @filters = @{$filterref};
+
+    foreach my $filter (@filters) {
+	print STDERR "FILTERING WITH s/$filter//sg\n";
+	$data =~ s/$filter//sg;
+    }
+    return $data;
+}
+
+# /*!
+#     @abstract
+#         Runs this test in the specified mode.
+#     @param self
+#         The test instance.
+#     @param alldecs
+#         Pass 0 to run the test normally.
+#
+#         Pass 1 to run the test with the equivalent of
+#         the <code>-E</code> command-line flag.
+#     @result
+#         Returns 0 on success, 1 if the test fails.
+#  */
 sub runtest_sub {
     my $self = shift;
     my $alldecs = shift;
@@ -106,10 +306,14 @@ sub runtest_sub {
 
     my $testDebug = 0;
 
+# print "AD: $alldecs\n";
+
+    my $hashtreecur = undef;
+    my $hashtreeroot = undef;
+
     my $prevignore = $HeaderDoc::ignore_apiuid_errors;
     $HeaderDoc::ignore_apiuid_errors = 1;
-    $HeaderDoc::test_mode = 1;
-    $HeaderDoc::curParserState = undef;
+    # $HeaderDoc::curParserState = undef;
     use strict;
 
     $HeaderDoc::globalGroup = "";
@@ -123,7 +327,6 @@ sub runtest_sub {
     $HeaderDoc::ignore_apiowner_names = 0;
     $HeaderDoc::add_link_requests = 1;
     $HeaderDoc::truncate_inline = 0;
-    $HeaderDoc::sort_entries = 1;
     $HeaderDoc::enableParanoidWarnings = 0;
     $HeaderDoc::outerNamesOnly = 0;
     $HeaderDoc::AccessControlState = "";
@@ -151,7 +354,7 @@ sub runtest_sub {
     $fullpath="/test_suite_bogus_path/".$basefilename;
 
     my @temp = ();
-    $HeaderDoc::perHeaderRanges{$self->{FILENAME}} = \@temp;
+    $HeaderDoc::perHeaderRanges{$fullpath} = \@temp;
 
     my ($cpp_hash_ref, $cpp_arg_hash_ref) = getAndClearCPPHash();
 
@@ -159,13 +362,13 @@ sub runtest_sub {
     map(s/$/\n/gm, @commentLines);
 
     # Set up some stuff for the line array code to filter the comment.
-    $HeaderDoc::nodec = 0;
+    # $HeaderDoc::nodec = 0;
 
     HeaderDoc::APIOwner->apiUIDPrefix("test_ref");
 
     $HeaderDoc::lang = $self->{LANG};
     $HeaderDoc::sublang = $self->{SUBLANG};
-    my $apiOwner = HeaderDoc::Header->new();
+    my $apiOwner = HeaderDoc::Header->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     $apiOwner->apiOwner($apiOwner);
     my $headerObject = $apiOwner;
     $HeaderDoc::headerObject = $headerObject;
@@ -190,24 +393,38 @@ sub runtest_sub {
     foreach my $arr (@commentLineArray) {
 	foreach my $item (@$arr) {
 	    my $localDebug = 0;
-	    if (($self->{LANG} ne "pascal" && (
-                             ($self->{LANG} ne "perl" && $self->{LANG} ne "shell" && $item =~ /^\s*\/\*\!/o) ||
-                             (($self->{LANG} eq "perl" || $self->{LANG} eq "shell") && ($item =~ /^\s*\#\s*\/\*\!/o)) ||
+	    if (($self->{LANG} ne "pascal" && $self->{LANG} ne "ruby" && $self->{LANG} ne "python" && (
+                             ($self->{LANG} ne "perl" && $self->{LANG} ne "tcl" && $self->{LANG} ne "shell" && $item =~ /^\s*\/\*\!/o) ||
+                             (($self->{LANG} eq "perl" ||  $self->{LANG} eq "tcl" || $self->{LANG} eq "shell") && ($item =~ /^\s*\#\s*\/\*\!/o)) ||
                              (($self->{LANG} eq "java" || $HeaderDoc::parse_javadoc) && ($item =~ /^\s*\/\*\*[^\*]/o)))) ||
-                            (($self->{LANG} eq "pascal") && ($item =~ s/^\s*\{!/\/\*!/so))) {
-		if (($self->{LANG} ne "pascal" && ($item =~ /\s*\*\//o)) ||
+                            (($self->{LANG} eq "applescript") && ($item =~ s/^\s*\(\*!/\/\*!/so)) ||
+                            (($self->{LANG} eq "pascal") && ($item =~ s/^\s*\{!/\/\*!/so)) ||
+			    ($self->{LANG} eq "ruby") || ($self->{LANG} eq "python")) {
+
+		if (($self->{LANG} ne "pascal" && $self->{LANG} ne "applescript" && ($item =~ /\s*\*\//o)) ||
+                                    ($self->{LANG} eq "applescript" && ($item =~ s/\s*\*\)/\*\//so)) ||
                                     ($self->{LANG} eq "pascal" && ($item =~ s/\s*\}/\*\//so))) { # closing comment marker on same line
                                        print STDERR "PASCAL\n" if ($localDebug);
-			if ($self->{LANG} eq "perl" || $self->{LANG} eq "shell") {
-                                                $item =~ s/^\s*\#//s;
-                                                $item =~ s/\n( |\t)*\#/\n/sg;
+			if ($self->{LANG} eq "perl" || $self->{LANG} eq "shell" || $self->{LANG} eq "tcl" ) {
+						$item = stripLeading($item, "#");
+						# $item =~ s/^#//s; # Strip off the '#' added by getLineArrays() here.
+
+						# No longer needed.
+                                                # $item =~ s/^\s*\#//s; 
+                                                # $item =~ s/\n( |\t)*\#/\n/sg; # Handled for us in getLineArrays() now.
                                                 # print STDERR "NEWLINE: $item\n";
 			}
 		} else {
 			$item =~ s/^ \*//o;
-			if ($self->{LANG} eq "perl" || $self->{LANG} eq "shell") {
+			if ($self->{LANG} eq "perl" || $self->{LANG} eq "shell" || $self->{LANG} eq "tcl") {
 						    print STDERR "SHELL OR PERL\n" if ($localDebug);
-                                                    $item =~ s/^\s*\#//o;
+
+						    $item = stripLeading($item, "#");
+
+						    # $item =~ s/^#//s; # Strip off the '#' added by getLineArrays() here.
+
+						    # No longer needed.
+                                                    # $item =~ s/^\s*\#//o;
 print STDERR "ITEM NOW $item\n" if ($localDebug);
                         }
 		}
@@ -216,6 +433,11 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 	}
     }
 
+    if (($self->{LANG} eq "ruby") || ($self->{LANG} eq "python")) {
+	# Ruby and Python blocks in tests need to just be the bare contents of the
+	# comment block because it isn't worth duplicating the parsing machinery here.
+	$comment = "/*! ".$comment;
+    }
 
 # print("COMMENT: $comment\n");
 
@@ -275,7 +497,8 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 	print STDERR "Processing group info.\n" if ($testDebug);
 
 	my $debugging = 0;
-	my $fieldref = stringToFields($comment, $fullpath, $inputCounter);
+	my $xml_mode = 0;
+	my $fieldref = stringToFields($comment, $fullpath, $inputCounter, $xml_mode, $self->{LANG}, $self->{SUBLANG});
 	my @fields = @{$fieldref};
 	my $line = $comment;
 
@@ -292,17 +515,27 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 		}
 		$type = $1;
 	}
-	$rawname =~ s/\s*\*\/.*//o;
-	my ($name, $desc, $is_nameline_disc) = getAPINameAndDisc($rawname);
-	$name =~ s/^\s+//smgo;
-	$name =~ s/\s+$//smgo;
+	# $rawname =~ s/\s*\*\/.*//o;
+	# my ($name, $desc, $is_nameline_disc) = getAPINameAndDisc($rawname, $self->lang());
+	# $name =~ s/^\s+//smgo;
+	# $name =~ s/\s+$//smgo;
 
-	if ($is_nameline_disc) { $name .= " ".$desc; $desc = ""; }
+	# if ($is_nameline_disc) { $name .= " ".$desc; $desc = ""; }
 
-	print STDERR "group name is $name\n" if ($debugging);
-	my $group = $apiOwner->addGroup($name); #(, $desc);
-	$group->processComment(\@fields);
-	$HeaderDoc::globalGroup = $name;
+
+	my $group = HeaderDoc::Group->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
+	$group->apiOwner($apiOwner);
+	$group = $group->processComment(\@fields);
+
+	print STDERR "group name is ".$group->name()."\n" if ($debugging);
+
+	$apiOwner->addGroup($group); #(, $desc);
+	# $group->processComment(\@fields);
+
+	if (!$inGroup) {
+		$HeaderDoc::globalGroup = $group->name();
+	}
+
 	# $inputCounter--;
 	# print STDERR "DECREMENTED INPUTCOUNTER [M6]\n" if ($HeaderDoc::inputCounterDebug);
 
@@ -358,7 +591,7 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 
 		$results .= "-=: CPP MACROS PARSED :=-\n";
 		while ($inputCounter <= $#cppInputLines) {
-			my ($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $parserState, $nameObjectsRef) = &blockParse($fullpath, $blockOffset, \@cppInputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+			my ($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $parserState, $nameObjectsRef) = &blockParse($fullpath, $blockOffset, \@cppInputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $self->{LANG}, $self->{SUBLANG});
 			if ($declaration !~ /\S/) { last; }
 			$results .= "PARSED: $namelist\n";
 			$inputCounter = $newcount;
@@ -370,12 +603,12 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 
 	my $blockOffset = $inputCounter;
 	$inputCounter = 0;
-	my ($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $parserState, $nameObjectsRef, $extendsClass, $implementsClass) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive);
+	my ($newcount, $declaration, $typelist, $namelist, $posstypes, $value, $pplref, $returntype, $pridec, $parseTree, $simpleTDcontents, $bpavail, $blockOffset, $conformsToList, $functionContents, $parserState, $nameObjectsRef, $extendsClass, $implementsClass) = &blockParse($fullpath, $blockOffset, \@inputLines, $inputCounter, 0, \%HeaderDoc::ignorePrefixes, \%HeaderDoc::perHeaderIgnorePrefixes, \%HeaderDoc::perHeaderIgnoreFuncMacros, $keywordhashref, $case_sensitive, $self->{LANG}, $self->{SUBLANG});
 
 	$results .= "-=: BLOCKPARSE PARSER STATE KEYS :=-\n";
 	my @pskeys = sort keys %{$parserState};
 	foreach my $key (@pskeys) {
-		if ($key !~ /(pplStack|hollow|lastTreeNode|freezeStack|parsedParamList)/) {
+		if ($key !~ /(pplStack|hollow|lastTreeNode|freezeStack|parsedParamList|braceStack|treeStack|endOfTripleQuoteToken|rollbackState|availabilityNodesArray)/) {
 			$results .= "\$parserState->{$key} => ".$parserState->{$key}."\n";
 		} else {
 			my $temp = $parserState->{$key};
@@ -428,12 +661,16 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 
 # print STDERR "RESULTS: $results\n";
 
+	my $lang = $self->{LANG};
+	my $sublang = $self->{SUBLANG};
+
 	if ($self->{TYPE} eq "parser") {
 		# Only do this for parser tests.
 
 		print STDERR "Running stringToFields.\n" if ($testDebug);
 
-		my $fieldref = stringToFields($comment, $fullpath, $inputCounter);
+		my $xml_mode = 0;
+		my $fieldref = stringToFields($comment, $fullpath, $inputCounter, $xml_mode, $lang, $sublang);
 		@fields = @{$fieldref};
 
 		if ($inHeader) {
@@ -443,7 +680,7 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 
 			print STDERR "Running processHeaderComment.\n" if ($testDebug);
 
-			processHeaderComment($apiOwner, $rootOutputDir, \@fields, $self->{LANG}, $debugging, $reprocess_input);
+			($lang, $sublang) = processHeaderComment($apiOwner, $rootOutputDir, \@fields, $debugging, \$reprocess_input, $lang, $sublang);
 		}
 
 		print STDERR "Running blockParseOutside.\n" if ($testDebug);
@@ -451,7 +688,9 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 		# Reset any language changes that may have occurred.
 		$HeaderDoc::sublang = $self->{SUBLANG};
 
-		print STDERR "my (\$newInputCounter, \$cppAccessControlState, \$classType, \$classref, \$catref, \$blockOffset, \$numcurlybraces, \$foundMatch) =
+		my $nodec = 0; # $HeaderDoc::nodec
+
+		print STDERR "my (\$newInputCounter, \$cppAccessControlState, \$classType, \$classref, \$catref, \$blockOffset, \$numcurlybraces, \$foundMatch, \$newlang, \$newsublang, \$hashtreecur, \$hashtreeroot) =
 		    blockParseOutside($apiOwner, $inFunction, $inUnknown,
 		    $inTypedef, $inStruct, $inEnum, $inUnion,
 		    $inConstant, $inVar, $inMethod, $inPDefine,
@@ -461,12 +700,14 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 		    $headerObject, $inputCounter, \@inputLines,
 		    $self->{LANG}, $#inputLines, $preAtPart, $xml_output, $localDebug,
 		    $hangDebug, $parmDebug, $blockDebug, $subparse,
-		    $subparseTree, $HeaderDoc::nodec, $allow_multi);\n" if ($testDebug);
+		    $subparseTree, $nodec, $allow_multi, undef, $self->{SUBLANG},
+		    $hashtreecur, $hashtreeroot);\n" if ($testDebug);
 		print STDERR "FIELDS:\n" if ($testDebug);
 		print "FIRSTLINE: ".$inputLines[$inputCounter]."\n" if ($testDebug);
 		printArray(@fields) if ($testDebug);
 
-		my ($newInputCounter, $cppAccessControlState, $classType, $classref, $catref, $blockOffset, $numcurlybraces, $foundMatch) =
+		# print STDERR "IN TEST APIO: $apiOwner\n";
+		my ($newInputCounter, $cppAccessControlState, $classType, $classref, $catref, $blockOffset, $numcurlybraces, $foundMatch, $newlang, $newsublang, $hashtreecur, $hashtreeroot) =
 		    blockParseOutside($apiOwner, $inFunction, $inUnknown,
 		    $inTypedef, $inStruct, $inEnum, $inUnion,
 		    $inConstant, $inVar, $inMethod, $inPDefine,
@@ -476,7 +717,44 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 		    $headerObject, $inputCounter, \@inputLines,
 		    $self->{LANG}, $#inputLines, $preAtPart, $xml_output, $localDebug,
 		    $hangDebug, $parmDebug, $blockDebug, $subparse,
-		    $subparseTree, $HeaderDoc::nodec, $allow_multi);
+		    $subparseTree, $nodec, $allow_multi, undef, $self->{SUBLANG},
+		    $hashtreecur, $hashtreeroot);
+
+
+		# print STDERR "NUM CLASSES: ".scalar($apiOwner->classes())."\n";
+
+		if ($alldecs && ($HeaderDoc::test_alldecs || $self->{LANG} eq "tcl")) {
+		    my $adLoopDebug = 0;
+		    print STDERR "alldecs test in TCL\n" if ($localDebug || $adLoopDebug);
+		    print STDERR "$newInputCounter < $#inputLines\n" if ($localDebug || $adLoopDebug);
+		    my $loopIC = $newInputCounter;
+		    ### $loopIC++; # Why is this needed!?! @@@
+		    $loopIC++;
+		    while ($loopIC <= $#inputLines) {
+			my $junk1; my $junk2; my $junk3; my $junk4; my $junk5; my $junk6; my $junk7; my $junk8;
+
+			print STDERR "pre-BPO.  LOOPIC: $loopIC\n" if ($localDebug || $adLoopDebug);
+			print STDERR "NEXT LINE: ".$inputLines[$loopIC]."\n" if ($localDebug || $adLoopDebug);
+			# print STDERR "NEWSUBLANG WAS $newsublang\n";
+			($loopIC, $junk1, $junk2, $junk3, $junk4, $junk5, $junk6, $junk7, $newlang, $newsublang, $hashtreecur, $hashtreeroot) =
+			    blockParseOutside($apiOwner, $inFunction, $inUnknown,
+			    $inTypedef, $inStruct, $inEnum, $inUnion,
+			    $inConstant, $inVar, $inMethod, $inPDefine,
+			    $inClass, $inInterface, $blockOffset, \@perHeaderCategoryObjects,
+			    \@perHeaderClassObjects, $classType, $cppAccessControlState,
+			    \@fields, $fullpath, $functionGroup,
+			    $headerObject, $loopIC, \@inputLines,
+			    $newlang, $#inputLines, $preAtPart, $xml_output, $localDebug,
+			    $hangDebug, $parmDebug, $blockDebug, $subparse,
+			    $subparseTree, $nodec, $allow_multi, undef, $newsublang,
+			    $hashtreecur, $hashtreeroot);
+			# print STDERR "NEWSUBLANG NOW $newsublang\n";
+			print STDERR "Got next declaration : $namelist\n" if ($localDebug || $adLoopDebug);
+			print STDERR "NEW LOOP COUNTER IS $loopIC\n" if ($localDebug || $adLoopDebug);
+
+			$loopIC++;
+		    }
+		}
 
 		$results .= "-=: FOUND MATCH :=-\n";
 		$results .= $foundMatch."\n";
@@ -490,6 +768,13 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 		foreach my $tree (@parseTrees) {
 			# print STDERR "DUMPING PARSE TREE $tree\n";
 			my $owner = $tree->apiOwner();
+			# if ($owner->{FAILHARD}) {
+				# print STDERR "\nTREE: ".$tree."\n";
+				# print STDERR "OBJ: ".$owner."\n";
+				# print STDERR "OWNER: ".$owner->apiOwner()."\n";
+				# printHash(%{$owner->apiOwner()});
+				# die();
+			# }
 			my $name = $owner->name();
 			if ($owner->can("rawname")) {
 				if (!$owner->{DISCUSSION} || !$owner->{NAMELINE_DISCUSSION}) {
@@ -536,7 +821,6 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
 
 	# print STDERR "TEST RESULTS: $results\n";
 
-    $HeaderDoc::test_mode = 0;
     $HeaderDoc::ignore_apiuid_errors = $prevignore;
 
     if ($alldecs) {
@@ -549,6 +833,14 @@ print STDERR "ITEM NOW $item\n" if ($localDebug);
     return $coretestfail;
 }
 
+# /*!
+#     @abstract
+#         Loads this instance from a test file.
+#     @param self
+#         A newly-created <code>Test</code> class instance.
+#     @param filename
+#         The filename to read.
+#  */
 sub readFromFile {
     my $self = shift;
     my $filename = shift;
@@ -579,9 +871,26 @@ sub readFromFile {
     if ($self->{SUBLANG} eq "") { $self->{SUBLANG} = $self->{LANG}; }
 }
 
+# /*!
+#     @abstract
+#         Writes a freeze-dried copy of  this instance to
+#         a test file.
+#     @param self
+#         A filled-out <code>Test</code> class instance.
+#     @param filename
+#         The filename to write.
+#  */
 sub writeToFile {
     my $self = shift;
     my $filename = shift;
+
+    # Filter out junk that need not be written out to disk.
+    delete $self->{EXPECTED_FILTERED_RESULT};
+    delete $self->{EXPECTED_FILTERED_RESULT_ALLDECS};
+    delete $self->{FILTERED_RESULT};
+    delete $self->{FILTERED_RESULT_ALLDECS};
+    delete $self->{RESULT};
+    delete $self->{RESULT_ALLDECS};
 
     my $string = freeze($self);
     open(WRITEFILE, ">$filename") or die("Could not write file \"$filename\"\n");
@@ -590,33 +899,42 @@ sub writeToFile {
     close(WRITEFILE);
 }
 
-sub isFramework
-{
-    return 0;
-}
+# sub dbprint_expanded
+# {
+    # print STDERR "NOT IMPLEMENTED.\n";
+# }
 
-sub dbprint_expanded
-{
-    print STDERR "NOT IMPLEMENTED.\n";
-}
-
+# /*!
+#     @abstract
+#         Prints a <code>Test</code> object for debugging purposes.
+#     @param self
+#         This <code>Test</code> object.
+#  */
 sub dbprint
 {
     my $self = shift;
-    my $expanded = shift;
+    # my $expanded = shift;
     my @keys = sort keys %{$self};
 
     print STDERR "Dumping object $self...\n";
     foreach my $key (@keys) {
-        if ($expanded) {
-                print STDERR "$key => ".dbprint_expanded($self->{$key})."\n";
-        } else {
+        # if ($expanded) {
+                # print STDERR "$key => ".dbprint_expanded($self->{$key})."\n";
+        # } else {
                 print STDERR "$key => ".$self->{$key}."\n";
-        }
+        # }
     }
     print STDERR "End dump of object $self.\n";
 }
 
+# /*!
+#     @abstract
+#         Prints an explanatory message in a box of asterisks.
+#     @param self
+#         This <code>Test</code> object.
+#     @param string
+#         The string to print.
+#  */
 sub starbox
 {
     my $self = shift;
@@ -647,7 +965,14 @@ sub starbox
     print "    ".$starline."\n\n\n";
 }
 
-# Used to compare actual results with expected.
+# /*!
+#     @abstract
+#         Compares actual results with expected.
+#     @param self
+#         This <code>Test</code> object.
+#     @param expanded
+#         See {@link showresults_sub} for details.
+#  */
 sub showresults
 {
     my $self = shift;
@@ -660,6 +985,24 @@ sub showresults
 
 }
 
+# /*!
+#     @abstract
+#         Compares actual results with expected in a given mode.
+#     @param self
+#         This <code>Test</code> object.
+#     @param expanded
+#         Supported values are:
+#
+#         <ul>
+#             <li>-1 &mdash; Reduced output; uses diff to show
+#                 a minimal set of differences.</li>
+#             <li>0 &mdash; Standard output mode.</li>
+#             <li>1 &mdash; Expanded output; more raw output.</li>
+#         </ul>
+#     @param alldecs
+#         Specifies whether to do the result comparison for the
+#         alldecs (<code>-E</code>) results or not (0/1).
+#  */
 sub showresults_sub
 {
     my $self = shift;
@@ -690,7 +1033,11 @@ sub showresults_sub
 		print STDERR "\t$key does not match\n";
 		if ($key eq "LIST OF PARSED PARAMETERS" ||
 		    $key eq "TOP LEVEL COMMENT PARSE VALUES") {
-			print STDERR $self->singlePrint($expected_parts{$key}, $got_parts{$key}, 0);
+			if ($expanded == 1) {
+				print STDERR $self->multiPrint($expected_parts{$key}, $got_parts{$key});
+			} else {
+				print STDERR $self->singlePrint($expected_parts{$key}, $got_parts{$key}, 0);
+			}
 		} elsif ($key eq "BLOCKPARSE PARSER STATE KEYS" && $expanded != 1) {
 			print STDERR $self->objCmp($expected_parts{$key}, $got_parts{$key}, $expanded);
 		} elsif ($key eq "NAMED OBJECTS" && (!$expanded)) {
@@ -718,7 +1065,7 @@ sub showresults_sub
 			} else {
 				print STDERR $self->multiPrint($expected_parts{$key}, $got_parts{$key});
 			}
-		} elsif (($key eq "NAMED OBJECTS" || $key eq "NAMED OBJECT PARSE TREES" || $key eq "DUMP OF PARSE TREE" || $key eq "CPP CHANGES" || $key eq "BLOCKPARSE RETURN VALUES") && $expanded == -1) {
+		} elsif (($key eq "NAMED OBJECTS" || $key eq "NAMED OBJECT PARSE TREES" || $key eq "DUMP OF PARSE TREE" || $key eq "CPP CHANGES" || $key eq "BLOCKPARSE RETURN VALUES" || $key eq "HTML OUTPUT OF PARSE TREES") && $expanded == -1) {
 				open(WRITEFILE, ">/tmp/headerdoc-diff-expected") or die("Could not write file \"/tmp/headerdoc-diff-expected\"\n");
 				print WRITEFILE $expected_parts{$key};
 				close(WRITEFILE);
@@ -747,6 +1094,17 @@ sub showresults_sub
 
 }
 
+# /*!
+#     @abstract
+#         Prints both the expected and actual values
+#         as-is.
+#     @param self
+#         This <code>Test</code> object.
+#     @param string1
+#         The expected values.
+#     @param string2
+#         The actual values.
+#  */
 sub multiPrint
 {
     my $self = shift;
@@ -767,6 +1125,24 @@ sub multiPrint
 
 }
 
+# /*!
+#     @abstract
+#         Compares two object dumps.
+#     @discussion
+#         Takes the output of an object (key-value pairs)
+#         and displays the keys that are different,
+#         missing, or added in the actual results.
+#              
+#     @param self
+#         This <code>Test</code> object.
+#     @param string1
+#         The expected values.
+#     @param string2
+#         The actual values.
+#     @param all
+#         Set to 0 normally.  Set to 1 if you want to see
+#         all keys whether they are different or not.
+#  */
 sub objCmp
 {
     my $self = shift;
@@ -853,12 +1229,22 @@ sub objCmp
     return $retstring;
 }
 
+# /*!
+#     @abstract
+#         Shows the individual lines in two arrays that difer.
+#     @param self
+#         This <code>Test</code> object.
+#     @param string1
+#         The expected results.
+#     @param string2
+#         The actual results.
+#  */
 sub singlePrint
 {
     my $self = shift;
     my $string1 = shift;
     my $string2 = shift;
-    my $sort = shift;
+    # my $sort = shift;
 
     my @parts1 = split(/\n/, $string1);
     my @parts2 = split(/\n/, $string2);
@@ -883,6 +1269,15 @@ sub singlePrint
 
 }
 
+# /*!
+#     @abstract
+#         Converts an array alternating between keys and values
+#         (one per line) to a hash.
+#     @param self
+#         This <code>Test</code> object.
+#     @param arrayRef
+#         A reference to the source array.
+#  */
 sub convertToHash
 {
     my $self = shift;
@@ -911,6 +1306,16 @@ sub convertToHash
     return \%retarr;
 }
 
+# /*!
+#     @abstract
+#         Grabs the C preprocessor info from the block parser
+#         and stores the results in the <code>Test</code> class.
+#     @param self
+#         This <code>Test</code> object.
+#     @discussion
+#         If any CPP hash changes occur as a result of parsing
+#         this declaration, they are captured by this code.
+#  */
 sub cppTests
 {
     my $self = shift;
@@ -934,6 +1339,20 @@ sub cppTests
     return $retstring;
 }
 
+# /*!
+#     @abstract
+#         Grabs the HeaderDoc object names resulting from
+#         parsing this declaration and stores the results
+#         in the <code>Test</code> class.
+#     @param self
+#         This <code>Test</code> object.
+#     @param obj
+#         The object tree to dump.
+#     @discussion
+#         This includes the important keys from the HeaderDoc
+#         API objects.  It does not attempt to include every
+#         possible key.
+#  */
 sub dumpObjNames
 {
     my $self = shift;
@@ -942,6 +1361,8 @@ sub dumpObjNames
     if (@_) {
 	$nest = shift;
     }
+
+    my $localDebug = 0;
 
     my @parseTrees = ();
 
@@ -962,6 +1383,9 @@ sub dumpObjNames
     if ($parseTree_ref) {
 	$mainTree = ${$parseTree_ref};
 	bless($mainTree, "HeaderDoc::ParseTree");
+
+	print STDERR "ADDED MAIN TREE $mainTree at object $obj\n" if ($localDebug);
+
 	push(@parseTrees, $mainTree);
 	$treecount++;
     }
@@ -973,6 +1397,7 @@ sub dumpObjNames
 		my $extratree = ${$tree_ref};
 		bless($extratree,  "HeaderDoc::ParseTree");
 		if ($extratree != $mainTree) {
+			print STDERR "ADDED EXTRA TREE $extratree at object $obj\n" if ($localDebug);;
 			push(@parseTrees, $extratree);
 			$treecount++;
 		}
@@ -1226,11 +1651,29 @@ sub dumpObjNames
 			}
 		}
 	}
+	my @objects = $obj->variables();
+	if (@objects) {
+		$retstring .= $indent."LOCAL VARIABLES:\n";
+		foreach my $obj (@objects) {
+			my ($newret, @newtrees) = $self->dumpObjNames($obj, $nest + 1);
+			$retstring .= $newret;
+			foreach my $copyobj (@newtrees) {
+				push(@parseTrees, $copyobj);
+			}
+		}
+	}
     }
 
     return ($retstring, @parseTrees);
 }
 
+# /*!
+#     @abstract
+#         Returns whether this <code>Test</code> object supports the
+#         "all declarations" (<code>-E</code>) mode.
+#     @param self
+#         This <code>Test</code> object.
+#  */
 sub supportsAllDecs
 {
     my $self = shift;

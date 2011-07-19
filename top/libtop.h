@@ -250,6 +250,16 @@ struct libtop_psamp_s {
 	libtop_i64_values_t syscalls_bsd;
 	libtop_i64_values_t csw;
 
+	uint64_t	palloc;
+	uint64_t	pfree;
+	uint64_t	salloc;
+	uint64_t	sfree;
+
+	uint64_t	p_palloc;
+	uint64_t	p_pfree;
+	uint64_t	p_salloc;
+	uint64_t	p_sfree;
+
 	/* malloc()ed '\0'-terminated string. */
 	char			*command;
 

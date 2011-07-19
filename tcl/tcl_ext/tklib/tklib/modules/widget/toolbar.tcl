@@ -3,7 +3,7 @@
 # toolbar - /snit::widget
 #	Manage items in a toolbar.
 #
-# RCS: @(#) $Id: toolbar.tcl,v 1.11 2007/06/21 01:59:28 hobbs Exp $
+# RCS: @(#) $Id: toolbar.tcl,v 1.12 2010/06/01 18:06:52 hobbs Exp $
 #
 
 #  ## Padding can be a list of {padx pady}
@@ -39,7 +39,6 @@ if 0 {
 }
 
 package require widget
-package require tile
 #package require tooltip
 
 snit::widget widget::toolbar {
@@ -294,4 +293,4 @@ snit::widget widget::toolbar {
 
 }
 
-package provide widget::toolbar 1.2
+package provide widget::toolbar 1.2.1

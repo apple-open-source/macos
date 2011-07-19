@@ -4,6 +4,11 @@ package # hide from PAUSE
 use strict;
 use warnings;
 
+our %_pod_inherit_config = 
+  (
+   class_map => { 'DBIx::Class::Relationship::CascadeActions' => 'DBIx::Class::Relationship' }
+  );
+
 sub delete {
   my ($self, @rest) = @_;
   return $self->next::method(@rest) unless ref $self;
@@ -34,8 +39,11 @@ sub update {
   my @cascade = grep { $rels{$_}{attrs}{cascade_update} } keys %rels;
   foreach my $rel (@cascade) {
     next if (
+      $rels{$rel}{attrs}{accessor}
+        &&
       $rels{$rel}{attrs}{accessor} eq 'single'
-      && !exists($self->{_relationship_data}{$rel})
+        &&
+      !exists($self->{_relationship_data}{$rel})
     );
     $_->update for grep defined, $self->$rel;
   }

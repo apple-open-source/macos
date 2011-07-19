@@ -28,7 +28,7 @@
 #include <fcntl.h>
 #include "stuff/errors.h"
 #include "stuff/breakout.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 #include "stuff/allocate.h"
 
 /* used by error routines as the name of the program */
@@ -171,7 +171,7 @@ char **envp)
 		i++;
 	    }
 	    else if(strcmp(argv[i], "-change") == 0){
-		if(i + 2 == argc){
+		if(i + 2 >= argc){
 		    error("missing argument(s) to: %s option", argv[i]);
 		    usage();
 		}
@@ -183,7 +183,7 @@ char **envp)
 		i += 2;
 	    }
 	    else if(strcmp(argv[i], "-rpath") == 0){
-		if(i + 2 == argc){
+		if(i + 2 >= argc){
 		    error("missing argument(s) to: %s option", argv[i]);
 		    usage();
 		}
@@ -351,7 +351,7 @@ void
 usage(
 void)
 {
-	fprintf(stderr, "Usage: %s [-change old new] ... [-rpaths old new] ... "
+	fprintf(stderr, "Usage: %s [-change old new] ... [-rpath old new] ... "
 			"[-add_rpath new] ... [-delete_rpath old] ... "
 			"[-id name] input"
 #ifdef OUTPUT_OPTION
@@ -561,6 +561,16 @@ struct object *object)
 		object->output_sym_info_size +=
 		    object->split_info_cmd->datasize;
 	    }
+	    if(object->func_starts_info_cmd != NULL){
+		object->output_func_start_info_data = 
+		(object->object_addr + object->func_starts_info_cmd->dataoff);
+		object->output_func_start_info_data_size = 
+		    object->func_starts_info_cmd->datasize;
+		object->input_sym_info_size +=
+		    object->func_starts_info_cmd->datasize;
+		object->output_sym_info_size +=
+		    object->func_starts_info_cmd->datasize;
+	    }
 	    if(object->hints_cmd != NULL){
 		object->output_hints = (struct twolevel_hint *)
 		    (object->object_addr +
@@ -578,11 +588,11 @@ struct object *object)
 		object->output_code_sig_data_size = 
 		    object->code_sig_cmd->datasize;
 		object->input_sym_info_size =
-		    round(object->input_sym_info_size, 16);
+		    rnd(object->input_sym_info_size, 16);
 		object->input_sym_info_size +=
 		    object->code_sig_cmd->datasize;
 		object->output_sym_info_size =
-		    round(object->output_sym_info_size, 16);
+		    rnd(object->output_sym_info_size, 16);
 		object->output_sym_info_size +=
 		    object->code_sig_cmd->datasize;
 	    }
@@ -592,8 +602,8 @@ struct object *object)
 
 /*
  * update_load_commands() changes the install names the LC_LOAD_DYLIB,
- * LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB and LC_PREBOUND_DYLIB commands for
- * the specified arch.
+ * LC_LOAD_WEAK_DYLIB, LC_REEXPORT_DYLIB, LC_LOAD_UPWARD_DYLIB and
+ * LC_PREBOUND_DYLIB commands for the specified arch.
  */
 static
 void
@@ -650,7 +660,7 @@ uint32_t *header_size)
 		dylib_name1 = (char *)dl_id1 + dl_id1->dylib.name.offset;
 		if(id != NULL){
 		    new_size = sizeof(struct dylib_command) +
-			       round(strlen(id) + 1, cmd_round);
+			       rnd(strlen(id) + 1, cmd_round);
 		    new_sizeofcmds += (new_size - dl_id1->cmdsize);
 		}
 		break;
@@ -658,13 +668,14 @@ uint32_t *header_size)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LOAD_UPWARD_DYLIB:
 	    case LC_LAZY_LOAD_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
 		for(j = 0; j < nchanges; j++){
 		    if(strcmp(changes[j].old, dylib_name1) == 0){
 			new_size = sizeof(struct dylib_command) +
-				   round(strlen(changes[j].new) + 1,
+				   rnd(strlen(changes[j].new) + 1,
 					 cmd_round);
 			new_sizeofcmds += (new_size - dl_load1->cmdsize);
 			break;
@@ -679,9 +690,9 @@ uint32_t *header_size)
 		    if(strcmp(changes[j].old, dylib_name1) == 0){
 			linked_modules_size = pbdylib1->cmdsize - (
 				sizeof(struct prebound_dylib_command) +
-				round(strlen(dylib_name1) + 1, cmd_round));
+				rnd(strlen(dylib_name1) + 1, cmd_round));
 			new_size = sizeof(struct prebound_dylib_command) +
-				   round(strlen(changes[j].new) + 1,
+				   rnd(strlen(changes[j].new) + 1,
 					 cmd_round) +
 				   linked_modules_size;
 			new_sizeofcmds += (new_size - pbdylib1->cmdsize);
@@ -698,6 +709,8 @@ uint32_t *header_size)
 		    for(j = 0; j < sg->nsects; j++){
 			if(s->size != 0 &&
 			   (s->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s->flags & S_THREAD_LOCAL_ZEROFILL) !=
+				       S_THREAD_LOCAL_ZEROFILL &&
 			   s->offset < low_fileoff)
 			    low_fileoff = s->offset;
 			s++;
@@ -717,6 +730,8 @@ uint32_t *header_size)
 		    for(j = 0; j < sg64->nsects; j++){
 			if(s64->size != 0 &&
 			   (s64->flags & S_ZEROFILL) != S_ZEROFILL &&
+			   (s64->flags & S_THREAD_LOCAL_ZEROFILL) !=
+					 S_THREAD_LOCAL_ZEROFILL &&
 			   s64->offset < low_fileoff)
 			    low_fileoff = s64->offset;
 			s64++;
@@ -742,7 +757,7 @@ uint32_t *header_size)
 		for(j = 0; j < nrpaths; j++){
 		    if(strcmp(rpaths[j].old, path1) == 0){
 			rpaths[j].found = TRUE;
-			new_size = round(sizeof(struct rpath_command) +
+			new_size = rnd(sizeof(struct rpath_command) +
 				         strlen(rpaths[j].new) + 1,
 					 cmd_round);
 			new_sizeofcmds += (new_size - rpath1->cmdsize);
@@ -779,7 +794,7 @@ uint32_t *header_size)
 	}
 
 	for(i = 0; i < nadd_rpaths; i++){
-	    new_size = round(sizeof(struct rpath_command) +
+	    new_size = rnd(sizeof(struct rpath_command) +
 			     strlen(add_rpaths[i].new) + 1, cmd_round);
 	    new_sizeofcmds += new_size;
 	}
@@ -815,7 +830,7 @@ uint32_t *header_size)
 		    memcpy(lc2, lc1, sizeof(struct dylib_command));
 		    dl_id2 = (struct dylib_command *)lc2;
 		    dl_id2->cmdsize = sizeof(struct dylib_command) +
-				     round(strlen(id) + 1, cmd_round);
+				     rnd(strlen(id) + 1, cmd_round);
 		    dl_id2->dylib.name.offset = sizeof(struct dylib_command);
 		    dylib_name2 = (char *)dl_id2 + dl_id2->dylib.name.offset;
 		    strcpy(dylib_name2, id);
@@ -828,6 +843,7 @@ uint32_t *header_size)
 	    case LC_LOAD_DYLIB:
 	    case LC_LOAD_WEAK_DYLIB:
 	    case LC_REEXPORT_DYLIB:
+	    case LC_LOAD_UPWARD_DYLIB:
 	    case LC_LAZY_LOAD_DYLIB:
 		dl_load1 = (struct dylib_command *)lc1;
 		dylib_name1 = (char *)dl_load1 + dl_load1->dylib.name.offset;
@@ -836,7 +852,7 @@ uint32_t *header_size)
 			memcpy(lc2, lc1, sizeof(struct dylib_command));
 			dl_load2 = (struct dylib_command *)lc2;
 			dl_load2->cmdsize = sizeof(struct dylib_command) +
-					    round(strlen(changes[j].new) + 1,
+					    rnd(strlen(changes[j].new) + 1,
 						  cmd_round);
 			dl_load2->dylib.name.offset =
 			    sizeof(struct dylib_command);
@@ -860,10 +876,10 @@ uint32_t *header_size)
 			pbdylib2 = (struct prebound_dylib_command *)lc2;
 			linked_modules_size = pbdylib1->cmdsize - (
 			    sizeof(struct prebound_dylib_command) +
-			    round(strlen(dylib_name1) + 1, cmd_round));
+			    rnd(strlen(dylib_name1) + 1, cmd_round));
 			pbdylib2->cmdsize =
 			    sizeof(struct prebound_dylib_command) +
-			    round(strlen(changes[j].new) + 1, cmd_round) +
+			    rnd(strlen(changes[j].new) + 1, cmd_round) +
 			    linked_modules_size;
 
 			pbdylib2->name.offset =
@@ -874,7 +890,7 @@ uint32_t *header_size)
 			
 			pbdylib2->linked_modules.offset = 
 			    sizeof(struct prebound_dylib_command) +
-			    round(strlen(changes[j].new) + 1, cmd_round);
+			    rnd(strlen(changes[j].new) + 1, cmd_round);
 			linked_modules1 = (char *)pbdylib1 +
 					  pbdylib1->linked_modules.offset;
 			linked_modules2 = (char *)pbdylib2 +
@@ -904,7 +920,7 @@ uint32_t *header_size)
 		    if(strcmp(rpaths[j].old, path1) == 0){
 			memcpy(lc2, lc1, sizeof(struct rpath_command));
 			rpath2 = (struct rpath_command *)lc2;
-			rpath2->cmdsize = round(sizeof(struct rpath_command) +
+			rpath2->cmdsize = rnd(sizeof(struct rpath_command) +
 					        strlen(rpaths[j].new) + 1,
 						cmd_round);
 			rpath2->path.offset = sizeof(struct rpath_command);
@@ -932,7 +948,7 @@ uint32_t *header_size)
 	for(i = 0; i < nadd_rpaths; i++){
 	    rpath2 = (struct rpath_command *)lc2;
 	    rpath2->cmd = LC_RPATH;
-	    rpath2->cmdsize = round(sizeof(struct rpath_command) +
+	    rpath2->cmdsize = rnd(sizeof(struct rpath_command) +
 				    strlen(add_rpaths[i].new) + 1,
 				    cmd_round);
 	    rpath2->path.offset = sizeof(struct rpath_command);
@@ -1007,6 +1023,10 @@ uint32_t *header_size)
 		break;
 	    case LC_SEGMENT_SPLIT_INFO:
 		arch->object->split_info_cmd =
+		    (struct linkedit_data_command *)lc1;
+		break;
+	    case LC_FUNCTION_STARTS:
+		arch->object->func_starts_info_cmd =
 		    (struct linkedit_data_command *)lc1;
 		break;
 	    }

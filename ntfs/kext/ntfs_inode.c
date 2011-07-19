@@ -1,8 +1,8 @@
 /*
  * ntfs_inode.c - NTFS kernel inode operations.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -54,6 +54,7 @@
 
 #include <kern/debug.h>
 #include <kern/locks.h>
+#include <kern/sched_prim.h>
 
 #include <mach/machine/vm_param.h>
 
@@ -175,7 +176,11 @@ static inline void __ntfs_inode_init(ntfs_volume *vol, ntfs_inode *ni)
 	lck_mtx_init(&ni->extent_lock, ntfs_lock_grp, ntfs_lock_attr);
 	ni->nr_extents = 0;
 	ni->extent_alloc = 0;
+	lck_mtx_init(&ni->attr_nis_lock, ntfs_lock_grp, ntfs_lock_attr);
+	ni->nr_attr_nis = 0;
+	ni->attr_nis_alloc = 0;
 	ni->base_ni = NULL;
+	ni->base_attr_nis_lock = NULL;
 }
 
 /**
@@ -2360,7 +2365,6 @@ static errno_t ntfs_attr_inode_read_or_create(ntfs_inode *base_ni,
 	MFT_RECORD *m;
 	ntfs_attr_search_ctx *ctx;
 	ATTR_RECORD *a;
-	vnode_t vn;
 	errno_t err;
 
 	ntfs_debug("Entering for mft_no 0x%llx, attribute type 0x%x, "
@@ -2713,20 +2717,44 @@ put_done:
 	ntfs_mft_record_unmap(base_ni);
 done:
 	/*
-	 * Make sure the base inode and vnode do not go away and attach the
-	 * base inode to the attribute inode.
+	 * Attach the base inode to the attribute inode and vice versa.  Note
+	 * we do not need to lock the new inode as we still have exclusive
+	 * access to it.
 	 */
-	vn = base_ni->vn;
-	if (!vn)
-		panic("%s(): No vnode attached to base inode 0x%llx.",
-				__FUNCTION__,
-				(unsigned long long)base_ni->mft_no);
-	err = vnode_ref(vn);
-	if (err)
-		ntfs_error(vol->mp, "vnode_ref() failed!");
-	OSIncrementAtomic(&base_ni->nr_refs);
-	ni->base_ni = base_ni;
+	lck_mtx_lock(&base_ni->attr_nis_lock);
+	if (NInoDeleted(base_ni)) {
+		lck_mtx_unlock(&base_ni->attr_nis_lock);
+		return EDEADLK;
+	}
+	if ((base_ni->nr_attr_nis + 1) * sizeof(ntfs_inode *) >
+			base_ni->attr_nis_alloc) {
+		ntfs_inode **tmp;
+		int new_size;
+
+		new_size = base_ni->attr_nis_alloc + 4 * sizeof(ntfs_inode *);
+		tmp = OSMalloc(new_size, ntfs_malloc_tag);
+		if (!tmp) {
+			ntfs_error(vol->mp, "Failed to allocated internal "
+					"buffer.");
+			lck_mtx_unlock(&base_ni->attr_nis_lock);
+			return ENOMEM;
+		}
+		if (base_ni->attr_nis_alloc) {
+			if (base_ni->nr_attr_nis > 0)
+				memcpy(tmp, base_ni->attr_nis,
+						base_ni->nr_attr_nis *
+						sizeof(ntfs_inode *));
+			OSFree(base_ni->attr_nis, base_ni->attr_nis_alloc,
+					ntfs_malloc_tag);
+		}
+		base_ni->attr_nis_alloc = new_size;
+		base_ni->attr_nis = tmp;
+	}
+	base_ni->attr_nis[base_ni->nr_attr_nis++] = ni;
 	ni->nr_extents = -1;
+	ni->base_ni = base_ni;
+	ni->base_attr_nis_lock = &base_ni->attr_nis_lock;
+	lck_mtx_unlock(&base_ni->attr_nis_lock);
 	ntfs_debug("Done.");
 	return 0;
 err:
@@ -2782,7 +2810,6 @@ static errno_t ntfs_index_inode_read(ntfs_inode *base_ni, ntfs_inode *ni)
 	INDEX_ROOT *ir;
 	u8 *ir_end, *index_end;
 	ntfs_inode *bni;
-	vnode_t vn;
 	errno_t err;
 	BOOL is_dir_index = (S_ISDIR(base_ni->mode) && ni->name == I30);
 	
@@ -3040,20 +3067,44 @@ static errno_t ntfs_index_inode_read(ntfs_inode *base_ni, ntfs_inode *ni)
 		(void)vnode_put(bni->vn);
 	}
 	/*
-	 * Make sure the base inode and vnode do not go away and attach the
-	 * base inode to the index inode.
+	 * Attach the base inode to the attribute inode and vice versa.  Note
+	 * we do not need to lock the new inode as we still have exclusive
+	 * access to it.
 	 */
-	vn = base_ni->vn;
-	if (!vn)
-		panic("%s(): No vnode attached to base inode 0x%llx.",
-				__FUNCTION__,
-				(unsigned long long)base_ni->mft_no);
-	err = vnode_ref(vn);
-	if (err)
-		ntfs_error(vol->mp, "vnode_ref() failed!");
-	OSIncrementAtomic(&base_ni->nr_refs);
-	ni->base_ni = base_ni;
+	lck_mtx_lock(&base_ni->attr_nis_lock);
+	if (NInoDeleted(base_ni)) {
+		lck_mtx_unlock(&base_ni->attr_nis_lock);
+		return EDEADLK;
+	}
+	if ((base_ni->nr_attr_nis + 1) * sizeof(ntfs_inode *) >
+			base_ni->attr_nis_alloc) {
+		ntfs_inode **tmp;
+		int new_size;
+
+		new_size = base_ni->attr_nis_alloc + 4 * sizeof(ntfs_inode *);
+		tmp = OSMalloc(new_size, ntfs_malloc_tag);
+		if (!tmp) {
+			ntfs_error(vol->mp, "Failed to allocated internal "
+					"buffer.");
+			lck_mtx_unlock(&base_ni->attr_nis_lock);
+			return ENOMEM;
+		}
+		if (base_ni->attr_nis_alloc) {
+			if (base_ni->nr_attr_nis > 0)
+				memcpy(tmp, base_ni->attr_nis,
+						base_ni->nr_attr_nis *
+						sizeof(ntfs_inode *));
+			OSFree(base_ni->attr_nis, base_ni->attr_nis_alloc,
+					ntfs_malloc_tag);
+		}
+		base_ni->attr_nis_alloc = new_size;
+		base_ni->attr_nis = tmp;
+	}
+	base_ni->attr_nis[base_ni->nr_attr_nis++] = ni;
 	ni->nr_extents = -1;
+	ni->base_ni = base_ni;
+	ni->base_attr_nis_lock = &base_ni->attr_nis_lock;
+	lck_mtx_unlock(&base_ni->attr_nis_lock);
 	ntfs_debug("Done.");
 	return 0;
 err:
@@ -3090,13 +3141,37 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
 		OSFree(ni->extent_nis, ni->extent_alloc, ntfs_malloc_tag);
 	}
 	/*
-	 * If this is an attribute or index inode, release the reference to the
-	 * vnode of the base inode if it is attached.
+	 * If this is an attribute or index inode, detach it from the base
+	 * inode if it is attached.
 	 */
 	if (NInoAttr(ni) && ni->nr_extents == -1) {
-		ntfs_inode *base_ni = ni->base_ni;
-		OSDecrementAtomic(&base_ni->nr_refs);
-		vnode_rele(base_ni->vn);
+		ntfs_inode *base_ni, **attr_nis;
+		int i;
+
+		/* Lock the base inode. */
+		lck_mtx_lock(ni->base_attr_nis_lock);
+		base_ni = ni->base_ni;
+		/* Find the current inode in the base inode array. */
+		attr_nis = base_ni->attr_nis;
+		for (i = 0; i < base_ni->nr_attr_nis; i++) {
+			if (attr_nis[i] != ni)
+				continue;
+			/*
+			 * Delete the inode from the array and move any
+			 * following entries forward over the current entry.
+			 */
+			if (i + 1 < base_ni->nr_attr_nis)
+				memmove(attr_nis + i, attr_nis + i + 1,
+						(base_ni->nr_attr_nis -
+						(i + 1)) *
+						sizeof(ntfs_inode *));
+			base_ni->nr_attr_nis--;
+			break;
+		}
+		ni->nr_extents = 0;
+		ni->base_ni = NULL;
+		lck_mtx_unlock(ni->base_attr_nis_lock);
+		ni->base_attr_nis_lock = NULL;
 	}
 	if (ni->rl.alloc)
 		OSFree(ni->rl.rl, ni->rl.alloc, ntfs_malloc_tag);
@@ -3127,8 +3202,8 @@ static inline void ntfs_inode_free(ntfs_inode *ni)
  * Destroy the ntfs inode @ni freeing all its resources in the process.  We are
  * assured that no-one can get the inode because to do that they would have to
  * take a reference on the corresponding vnode and that is not possible because
- * the vnode is flagged for termination thus the vnode_get*() functions will
- * return an error.
+ * the vnode is flagged for termination thus the vnode_get() will return an
+ * error.
  *
  * Note: When called from reclaim, the vnode of the ntfs inode has a zero
  *	 v_iocount and v_usecount and vnode_isrecycled() is true.
@@ -3139,8 +3214,54 @@ errno_t ntfs_inode_reclaim(ntfs_inode *ni)
 {
 	vnode_t vn;
 
+	/* If @ni is NULL, do not do anything. */
+	if (!ni)
+		return 0;
 	ntfs_debug("Entering for mft_no 0x%llx.",
 			(unsigned long long)ni->mft_no);
+	/*
+	 * If this is a base inode and there are attribute/index inodes loaded,
+	 * then recycle them now.
+	 *
+	 * FIXME: For a forced unmount where something is genuinely kept busy
+	 * this will cause the system to hang but this is the only way to avoid
+	 * a crash in NTFS...
+	 */
+	if (!NInoAttr(ni)) {
+		int count = 0;
+
+		lck_mtx_lock(&ni->attr_nis_lock);
+		while (ni->nr_attr_nis > 0) {
+			ntfs_inode *attr_ni;
+			int err;
+
+			attr_ni = ni->attr_nis[ni->nr_attr_nis - 1];
+			err = 1;
+			if (!NInoDeleted(attr_ni))
+				err = vnode_get(attr_ni->vn);
+			lck_mtx_unlock(&ni->attr_nis_lock);
+			if (!err) {
+				vnode_recycle(attr_ni->vn);
+				vnode_put(attr_ni->vn);
+			}
+			/* Give it a chance to go away... */
+			(void)thread_block(THREAD_CONTINUE_NULL);
+			if (count < 1000)
+				count++;
+			else if (count == 1000) {
+				ntfs_warning(ni->vol->mp, "Failed to reclaim "
+						"inode 0x%llx because it has "
+						"a busy attribute/index "
+						"inode.  Going to keep "
+						"trying for ever...",
+						(unsigned long long)
+						ni->mft_no);
+				count = 1001;
+			}
+			lck_mtx_lock(&ni->attr_nis_lock);
+		}
+		lck_mtx_unlock(&ni->attr_nis_lock);
+	}
 	lck_mtx_lock(&ntfs_inode_hash_lock);
 	NInoSetReclaim(ni);
 	/*
@@ -3167,6 +3288,10 @@ errno_t ntfs_inode_reclaim(ntfs_inode *ni)
 	 * We now have exclusive access to the ntfs inode and as it is unhashed
 	 * no-one else can ever find it thus we can finally destroy it.
 	 */
+	if (ni->nr_refs > 0)
+		ntfs_debug("Called for mft_no 0x%llx, attribute type 0x%x, "
+				"nr_refs %d.", (unsigned long long)ni->mft_no,
+				(unsigned)le32_to_cpu(ni->type), ni->nr_refs);
 	ntfs_inode_free(ni);
 	ntfs_debug("Done.");
 	return 0;
@@ -3680,6 +3805,7 @@ do_skip_name:
 				ntfs_debug("Skipping name as it and its "
 						"parent directory were "
 						"unlinked under our feet.");
+				dir_ni = NULL;
 				goto skip_name;
 			}
 			/*
@@ -3929,7 +4055,8 @@ errno_t ntfs_inode_sync(ntfs_inode *ni, const int ioflags,
 	base_ni = ni;
 	if (NInoAttr(ni)) {
 		base_ni = ni->base_ni;
-		lck_rw_lock_shared(&base_ni->lock);
+		if (ni != base_ni)
+			lck_rw_lock_shared(&base_ni->lock);
 	}
 	/* Do not allow messing with the inode once it has been deleted. */
 	lck_rw_lock_shared(&ni->lock);

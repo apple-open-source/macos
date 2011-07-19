@@ -18,7 +18,7 @@ AC_INIT([itk], [3.4])
 # as well as PKG_LIB_FILE and PKG_STUB_LIB_FILE.
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 
 AC_PROG_LN_S
 CONFIG_CLEAN_FILES=
@@ -97,28 +97,15 @@ TEA_ADD_TCL_SOURCES([library/Archetype.itk
 # __CHANGE__
 # A few miscellaneous platform-specific items:
 #
-# Define a special symbol for Windows (BUILD_itk in this case) so
-# that we create the export library with the dll.  See sha1.h on how
-# to use this.
-#
 # Windows creates a few extra files that need to be cleaned up.
 # You can add more files to clean if your extension creates any extra
-# files.
-#
-# Define any extra compiler flags in the PACKAGE_CFLAGS variable.
-# These will be appended to the current set of compiler flags for
-# your system.
+# files by extending CLEANFILES.
 #--------------------------------------------------------------------
 
 if test "${TEA_PLATFORM}" = "windows" ; then
-    AC_DEFINE(BUILD_itk)
-    CLEANFILES="*.lib *.dll *.exp *.ilk *.pdb vc*.pch"
     TEA_ADD_SOURCES([dllEntryPoint.c])
-else
-    CLEANFILES=
 fi
-
-AC_SUBST(CLEANFILES)
+#CLEANFILES="$CLEANFILES *.ext"
 
 #--------------------------------------------------------------------
 # __CHANGE__
@@ -200,17 +187,6 @@ fi
 #--------------------------------------------------------------------
 
 TEA_MAKE_LIB
-
-#--------------------------------------------------------------------
-# __CHANGE__
-# Add platform libs to LIBS or SHLIB_LD_LIBS as necessary.
-#--------------------------------------------------------------------
-
-if test "${TEA_PLATFORM}" = "windows" -a "$GCC" != "yes" ; then
-    SHLIB_LD_LIBS="${SHLIB_LD_LIBS} \"`${CYGPATH} ${itcl_STUB_LIB_PATH}`\""
-else
-    SHLIB_LD_LIBS="${SHLIB_LD_LIBS} ${itcl_STUB_LIB_SPEC}"
-fi
 
 #--------------------------------------------------------------------
 # __CHANGE__

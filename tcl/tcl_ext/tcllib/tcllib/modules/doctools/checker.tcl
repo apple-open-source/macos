@@ -4,7 +4,7 @@
 # Code used inside of a checker interpreter to ensure correct usage of
 # doctools formatting commands.
 #
-# Copyright (c) 2003-2008 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Copyright (c) 2003-2010 Andreas Kupries <andreas_kupries@sourceforge.net>
 
 # L10N
 
@@ -115,7 +115,7 @@ proc Warn {code args} {
     set msg [::msgcat::mc $code]
     foreach {off line col} [dt_where] break
     set msg [eval [linsert $args 0 format $msg]]
-    set msg "In macro at line $line, column $col:\n$msg"
+    set msg "In macro at line $line, column $col of file [dt_file]:\n$msg"
     set msg [split $msg \n]
     set prefix "DocTools Warning ($code): "
     dt_warning "$prefix[join $msg "\n$prefix"]"
@@ -126,7 +126,7 @@ proc WarnX {code args} {
     set msg [::msgcat::mc $code]
     foreach {off line col} [dt_where] break
     set msg [eval [linsert $args 0 format $msg]]
-    set msg "In macro at line $line, column $col:\n$msg"
+    set msg "In macro at line $line, column $col of file [dt_file]:\n$msg"
     set msg [split $msg \n]
     set prefix "DocTools Warning ($code): "
     dt_warning "$prefix[join $msg "\n$prefix"]"
@@ -520,7 +520,7 @@ proc category {text} {
     if {[Is done]} {Error nodonecmd}
     # if {[IsNot body]} {Error bodycmd}
     # if {[LOpen]}      {Error nolistcmd}
-    eval [linsert $args 0 fmt_category]
+    fmt_category $text
 }
 # nl - Deprecated
 proc nl {} {
@@ -683,6 +683,27 @@ proc uri {text {label {}}} {
 	fmt_uri $text $label
     }
 }
+proc image {text {label {}}} {
+    if {[Is done]} {Error nodonecmd}
+    # The label argument is left out when undefined so that we can
+    # control old formatters as well, if the input is not using uri
+    # labels.
+
+    if {$label == {}} {
+	fmt_image $text
+    } else {
+	fmt_image $text $label
+    }
+}
+proc manpage {text} {
+    if {[Is done]} {Error nodonecmd}
+    # The label argument is left out when undefined so that we can
+    # control old formatters as well, if the input is not using uri
+    # labels.
+
+    fmt_term $text
+    #fmt_manpage $text
+}
 proc usage {args} {
     if {[Is done]} {Error nodonecmd}
     eval fmt_usage $args
@@ -694,6 +715,15 @@ proc const {text} {
 proc term {text} {
     if {[Is done]} {Error nodonecmd}
     fmt_term $text
+}
+
+proc mdash {} {
+    if {[Is done]} {Error nodonecmd}
+    fmt_mdash $text
+}
+proc ndash {} {
+    if {[Is done]} {Error nodonecmd}
+    fmt_ndash $text
 }
 
 # -------------------------------------------------------------

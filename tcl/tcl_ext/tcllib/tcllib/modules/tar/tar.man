@@ -1,9 +1,10 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin tar n 0.4]
+[manpage_begin tar n 0.6]
 [moddesc   {Tar file handling}]
 [titledesc {Tar file creation, extraction & manipulation}]
+[category  {File formats}]
 [require Tcl 8.4]
-[require tar [opt 0.4]]
+[require tar [opt 0.6]]
 [description]
 
 
@@ -102,6 +103,16 @@ as a single argument which is a proper list of filenames.
 Normally [cmd add] will store links as an actual link pointing at a file that may
 or may not exist in the archive. Specifying this option will cause the actual file point to
  by the link to be stored instead.
+[opt_def -prefix string]
+Normally [cmd add] will store files under exactly the name specified as 
+argument. Specifying a [opt -prefix] causes the [arg string] to be 
+prepended to every name.
+[opt_def -quick]
+The only sure way to find the position in the [arg tarball] where new 
+files can be added is to read it from start, but if [arg tarball] was 
+written with a "blocksize" of 1 (as this package does) then one can 
+alternatively find this position by seeking from the end. The 
+[opt -quick] option tells [cmd add] to do the latter.
 [list_end]
 [para]
 

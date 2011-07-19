@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,7 +46,7 @@ _copy_interfaces()
 	CFMutableArrayRef	interfaces;
 	CFArrayRef		real_interfaces;
 
-	real_interfaces = SCNetworkInterfaceCopyAll();
+	real_interfaces = _SCNetworkInterfaceCopyAllWithPreferences(prefs);
 	if (real_interfaces == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("%s\n"), SCErrorString(SCError()));
 		return NULL;
@@ -61,6 +61,7 @@ _copy_interfaces()
 	CFRelease(real_interfaces);
 
 	// include pseudo interfaces
+	CFArrayAppendValue(interfaces, kSCNetworkInterfaceLoopback);
 	CFArrayAppendValue(interfaces, kSCNetworkInterfaceIPv4);
 
 	// include interfaces that we have created
@@ -116,8 +117,9 @@ _find_interface(int argc, char **argv, int *nArgs)
 		}
 
 		goto done;
-#if	!TARGET_OS_IPHONE
-	} else if (strcasecmp(argv[0], "$bond") == 0) {
+	}
+
+	else if (strcasecmp(argv[0], "$bond") == 0) {
 		CFStringRef	interfaceType;
 
 		if (net_interface == NULL) {
@@ -145,7 +147,39 @@ _find_interface(int argc, char **argv, int *nArgs)
 			goto done;
 		}
 		allowIndex = FALSE;
-	} else if (strcasecmp(argv[0], "$vlan") == 0) {
+	}
+
+	else if (strcasecmp(argv[0], "$bridge") == 0) {
+		CFStringRef	interfaceType;
+
+		if (net_interface == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("interface not selected\n"));
+			goto done;
+		}
+
+		interfaceType = SCNetworkInterfaceGetInterfaceType(net_interface);
+		if (!CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
+			SCPrint(TRUE, stdout, CFSTR("interface not Bridge\n"));
+			goto done;
+		}
+
+		if (argc < 2) {
+			SCPrint(TRUE, stdout, CFSTR("no member interface specified\n"));
+			return NULL;
+		}
+		argv++;
+		argc--;
+		if (nArgs != NULL) *nArgs += 1;
+
+		myInterfaces = SCBridgeInterfaceGetMemberInterfaces(net_interface);
+		if (myInterfaces == NULL) {
+			SCPrint(TRUE, stdout, CFSTR("no member interfaces\n"));
+			goto done;
+		}
+		allowIndex = FALSE;
+	}
+
+	else if (strcasecmp(argv[0], "$vlan") == 0) {
 		CFStringRef	interfaceType;
 
 		if (net_interface == NULL) {
@@ -165,7 +199,6 @@ _find_interface(int argc, char **argv, int *nArgs)
 		}
 
 		goto done;
-#endif	// !TARGET_OS_IPHONE
 	}
 
 	if ((myInterfaces == NULL) && (interfaces == NULL)) {
@@ -323,16 +356,18 @@ create_interface(int argc, char **argv)
 	argv++;
 	argc--;
 
-#if	!TARGET_OS_IPHONE
 	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
 		SCPrint(TRUE, stdout, CFSTR("bond creation not yet supported\n"));
+		goto done;
+	}
+	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
+		SCPrint(TRUE, stdout, CFSTR("bridge creation not yet supported\n"));
 		goto done;
 	}
 	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
 		SCPrint(TRUE, stdout, CFSTR("vlan creation not yet supported\n"));
 		goto done;
 	}
-#endif	// !TARGET_OS_IPHONE
 
 	if (argc < 1) {
 		if (net_interface == NULL) {
@@ -451,9 +486,55 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 	if (if_bsd_name != NULL) {
 		CFArrayRef	available;
 		CFDictionaryRef	active;
+		CFDictionaryRef	cap_current;
 		int		mtu_cur;
 		int		mtu_min;
 		int		mtu_max;
+
+		cap_current = SCNetworkInterfaceCopyCapability(interface, NULL);
+		if (cap_current != NULL) {
+			CFIndex			i;
+			CFArrayRef		cap_names;
+			CFMutableArrayRef	cap_sorted;
+			const void		**keys;
+			CFIndex			n;
+
+			n = CFDictionaryGetCount(cap_current);
+			keys = CFAllocatorAllocate(NULL, n * sizeof(CFStringRef), 0);
+			CFDictionaryGetKeysAndValues(cap_current, keys, NULL);
+			cap_names = CFArrayCreate(NULL, keys, n, &kCFTypeArrayCallBacks);
+			CFAllocatorDeallocate(NULL, keys);
+
+			cap_sorted = CFArrayCreateMutableCopy(NULL, 0, cap_names);
+			CFRelease(cap_names);
+
+			CFArraySortValues(cap_sorted, CFRangeMake(0, n), (CFComparatorFunction)CFStringCompare, NULL);
+
+			SCPrint(TRUE, stdout, CFSTR("%@  capabilities         = "), prefix);
+			for (i = 0; i < n; i++) {
+				CFStringRef	cap_name;
+				int		cap_val;
+				CFNumberRef	val	= NULL;
+
+				cap_name = CFArrayGetValueAtIndex(cap_sorted, i);
+				if (configuration != NULL) {
+					val = CFDictionaryGetValue(configuration, cap_name);
+				}
+				if (!isA_CFNumber(val)) {
+					val = CFDictionaryGetValue(cap_current, cap_name);
+				}
+
+				SCPrint(TRUE, stdout, CFSTR("%s%@%c"),
+					(i == 0) ? "" : ",",
+					cap_name,
+					(CFNumberGetValue(val, kCFNumberIntType, &cap_val) &&
+					 (cap_val != 0)) ? '+' : '-');
+			}
+			SCPrint(TRUE, stdout, CFSTR("\n"));
+
+			CFRelease(cap_sorted);
+			CFRelease(cap_current);
+		}
 
 		if (SCNetworkInterfaceCopyMTU(interface, &mtu_cur, &mtu_min, &mtu_max)) {
 			char	isCurrent	= '*';
@@ -587,7 +668,7 @@ _show_interface(SCNetworkInterfaceRef interface, CFStringRef prefix, Boolean sho
 
 						SCPrint(TRUE, stdout, CFSTR("\n"));
 					}
-					CFRelease(subtype_options);
+					if (subtype_options != NULL) CFRelease(subtype_options);
 				}
 				if (subtypes != NULL) CFRelease(subtypes);
 			}
@@ -840,21 +921,47 @@ show_interfaces(int argc, char **argv)
 }
 
 
+/* -------------------- */
+
+
+static void
+_replaceOne(const void *key, const void *value, void *context)
+{
+	CFMutableDictionaryRef	newConfiguration	= (CFMutableDictionaryRef)context;
+
+	CFDictionarySetValue(newConfiguration, key, value);
+	return;
+}
+
+
+static void
+updateInterfaceConfiguration(CFMutableDictionaryRef newConfiguration)
+{
+	CFDictionaryRef	configuration;
+
+	CFDictionaryRemoveAllValues(newConfiguration);
+
+	configuration = SCNetworkInterfaceGetConfiguration(net_interface);
+	if (configuration != NULL) {
+		CFDictionaryApplyFunction(configuration, _replaceOne, (void *)newConfiguration);
+	}
+
+	return;
+}
+
+
 #pragma mark -
 #pragma mark Bond options
 
 
-#if	!TARGET_OS_IPHONE
-
-
 static options bondOptions[] = {
 	{ "mtu"       , NULL, isNumber     , &kSCPropNetEthernetMTU         , NULL, NULL },
-// xxx  { "+device"   , ... },
-// xxx  { "-device"   , ... },
+	// xxx  { "+device"   , ... },
+	// xxx  { "-device"   , ... },
 
 	{ "?"         , NULL , isHelp     , NULL                            , NULL,
-	    "\nBond configuration commands\n\n"
-	    " set interface [mtu n] [media type] [mediaopts opts]\n"
+		"\nBond configuration commands\n\n"
+		" set interface [mtu n] [media type] [mediaopts opts]\n"
 	}
 };
 #define	N_BOND_OPTIONS	(sizeof(bondOptions) / sizeof(bondOptions[0]))
@@ -884,7 +991,45 @@ set_interface_bond(int argc, char **argv, CFMutableDictionaryRef newConfiguratio
 }
 
 
-#endif	// !TARGET_OS_IPHONE
+#pragma mark -
+#pragma mark Bridge options
+
+
+static options bridgeOptions[] = {
+	{ "mtu"       , NULL, isNumber     , &kSCPropNetEthernetMTU         , NULL, NULL },
+// xxx  { "+device"   , ... },
+// xxx  { "-device"   , ... },
+
+	{ "?"         , NULL , isHelp     , NULL                            , NULL,
+	    "\nBridge configuration commands\n\n"
+	    " set interface [mtu n] [media type] [mediaopts opts]\n"
+	}
+};
+#define	N_BRIDGE_OPTIONS	(sizeof(bridgeOptions) / sizeof(bridgeOptions[0]))
+
+
+static Boolean
+set_interface_bridge(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	CFStringRef	interfaceName;
+	Boolean		ok;
+
+	interfaceName = SCNetworkInterfaceGetBSDName(net_interface);
+	if (interfaceName == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("no BSD interface\n"));
+		return FALSE;
+	}
+
+	ok = _process_options(bridgeOptions, N_BRIDGE_OPTIONS, argc, argv, newConfiguration);
+	if (ok) {
+		// validate configuration
+		if (!validateMediaOptions(net_interface, newConfiguration)) {
+			return FALSE;
+		}
+	}
+
+	return ok;
+}
 
 
 #pragma mark -
@@ -932,10 +1077,59 @@ set_interface_airport(int argc, char **argv, CFMutableDictionaryRef newConfigura
 #pragma mark Ethernet options
 
 
+static int
+__doCapability(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok	= FALSE;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout,
+			CFSTR("%s not specified\n"),
+			description != NULL ? description : "enable/disable");
+		return -1;
+	}
+
+	if (strlen(argv[0]) == 0) {
+		ok = SCNetworkInterfaceSetCapability(net_interface, key, NULL);
+	} else if ((strcasecmp(argv[0], "disable") == 0) ||
+		   (strcasecmp(argv[0], "no"     ) == 0) ||
+		   (strcasecmp(argv[0], "off"    ) == 0) ||
+		   (strcasecmp(argv[0], "0"      ) == 0)) {
+		ok = SCNetworkInterfaceSetCapability(net_interface, key, CFNumberRef_0);
+	} else if ((strcasecmp(argv[0], "enable") == 0) ||
+		   (strcasecmp(argv[0], "yes"   ) == 0) ||
+		   (strcasecmp(argv[0], "on"    ) == 0) ||
+		   (strcasecmp(argv[0], "1"     ) == 0)) {
+		ok = SCNetworkInterfaceSetCapability(net_interface, key, CFNumberRef_1);
+	} else {
+		SCPrint(TRUE, stdout, CFSTR("invalid value\n"));
+		return -1;
+	}
+
+	if (ok) {
+		updateInterfaceConfiguration(newConfiguration);
+	} else {
+		SCPrint(TRUE, stdout,
+			CFSTR("%@ not updated: %s\n"),
+			key,
+			SCErrorString(SCError()));
+		return -1;
+	}
+
+	return 1;
+}
+
+
 static options ethernetOptions[] = {
 	{ "mtu"       , NULL, isNumber     , &kSCPropNetEthernetMTU         , NULL, NULL },
 	{ "media"     , NULL, isString     , &kSCPropNetEthernetMediaSubType, NULL, NULL },
 	{ "mediaopt"  , NULL, isStringArray, &kSCPropNetEthernetMediaOptions, NULL, NULL },
+
+	{ "av"        , NULL, isOther      , &kSCPropNetEthernetCapabilityAV    , __doCapability, NULL },
+	{ "lro"       , NULL, isOther      , &kSCPropNetEthernetCapabilityLRO   , __doCapability, NULL },
+	{ "rxcsum"    , NULL, isOther      , &kSCPropNetEthernetCapabilityRXCSUM, __doCapability, NULL },
+	{ "tso"       , NULL, isOther      , &kSCPropNetEthernetCapabilityTSO   , __doCapability, NULL },
+	{ "txcsum"    , NULL, isOther      , &kSCPropNetEthernetCapabilityTXCSUM, __doCapability, NULL },
 
 	{ "?"         , NULL , isHelp     , NULL                            , NULL,
 	    "\nEthernet configuration commands\n\n"
@@ -973,44 +1167,18 @@ set_interface_ethernet(int argc, char **argv, CFMutableDictionaryRef newConfigur
 #pragma mark IPSec options
 
 
-static void
-replaceOne(const void *key, const void *value, void *context)
-{
-	CFMutableDictionaryRef	newConfiguration	= (CFMutableDictionaryRef)context;
-
-	CFDictionarySetValue(newConfiguration, key, value);
-	return;
-}
-
-
-static void
-updateInterfaceConfiguration(CFMutableDictionaryRef newConfiguration)
-{
-	CFDictionaryRef	configuration;
-
-	CFDictionaryRemoveAllValues(newConfiguration);
-
-	configuration = SCNetworkInterfaceGetConfiguration(net_interface);
-	if (configuration != NULL) {
-		CFDictionaryApplyFunction(configuration, replaceOne, (void *)newConfiguration);
-	}
-
-	return;
-}
-
-
 static int
 __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+	CFStringRef	encryptionType;
+
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("IPSec shared secret not specified\n"));
 		return -1;
 	}
 
+	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecSharedSecretEncryption);
 	if (strlen(argv[0]) > 0) {
-		CFStringRef	encryptionType;
-
-		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecSharedSecretEncryption);
 		if (encryptionType == NULL) {
 			CFIndex			n;
 			CFMutableDataRef	pw;
@@ -1050,7 +1218,20 @@ __doIPSecSharedSecret(CFStringRef key, const char *description, void *info, int 
 			return -1;
 		}
 	} else {
-		CFDictionaryRemoveValue(newConfiguration, key);
+		if (encryptionType == NULL) {
+			CFDictionaryRemoveValue(newConfiguration, key);
+		} else if (CFEqual(encryptionType, kSCValNetIPSecSharedSecretEncryptionKeychain)) {
+			Boolean		ok;
+			ok = SCNetworkInterfaceRemovePassword(net_interface, kSCNetworkInterfacePasswordTypeIPSecSharedSecret);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("IPSec shared secret type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
 	}
 
 	return 1;
@@ -1086,15 +1267,15 @@ __doIPSecSharedSecretType(CFStringRef key, const char *description, void *info, 
 static int
 __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+	CFStringRef	encryptionType;
+
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("IPSec XAuth password not specified\n"));
 		return -1;
 	}
 
+	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecXAuthPasswordEncryption);
 	if (strlen(argv[0]) > 0) {
-		CFStringRef	encryptionType;
-
-		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetIPSecXAuthPasswordEncryption);
 		if (encryptionType == NULL) {
 			CFIndex			n;
 			CFMutableDataRef	pw;
@@ -1134,7 +1315,21 @@ __doIPSecXAuthPassword(CFStringRef key, const char *description, void *info, int
 			return -1;
 		}
 	} else {
-		CFDictionaryRemoveValue(newConfiguration, key);
+		if (encryptionType == NULL) {
+			CFDictionaryRemoveValue(newConfiguration, key);
+		} else if (CFEqual(encryptionType, kSCValNetIPSecXAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+
+			ok = SCNetworkInterfaceRemovePassword(net_interface, kSCNetworkInterfacePasswordTypeIPSecXAuth);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("IPSec XAuthPassword type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
 	}
 
 	return 1;
@@ -1437,15 +1632,15 @@ set_interface_modem(int argc, char **argv, CFMutableDictionaryRef newConfigurati
 static int
 __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
+	CFStringRef	encryptionType;
+
 	if (argc < 1) {
 		SCPrint(TRUE, stdout, CFSTR("PPP password not specified\n"));
 		return -1;
 	}
 
+	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetPPPAuthPasswordEncryption);
 	if (strlen(argv[0]) > 0) {
-		CFStringRef	encryptionType;
-
-		encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetPPPAuthPasswordEncryption);
 		if (encryptionType == NULL) {
 			CFIndex			n;
 			CFMutableDataRef	pw;
@@ -1462,12 +1657,44 @@ __doPPPAuthPW(CFStringRef key, const char *description, void *info, int argc, ch
 
 			CFDictionarySetValue(newConfiguration, key, pw);
 			CFRelease(pw);
+		} else if (CFEqual(encryptionType, kSCValNetPPPAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+			CFDataRef	pw;
+			CFStringRef	str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			pw = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+			ok = SCNetworkInterfaceSetPassword(net_interface,
+							   kSCNetworkInterfacePasswordTypePPP,
+							   pw,
+							   NULL);
+			CFRelease(pw);
+			CFRelease(str);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
 		} else {
 			SCPrint(TRUE, stdout, CFSTR("PPP password type \"%@\" not supported\n"), encryptionType);
 			return -1;
 		}
 	} else {
-		CFDictionaryRemoveValue(newConfiguration, key);
+		if (encryptionType == NULL) {
+			CFDictionaryRemoveValue(newConfiguration, key);
+		} else if (CFEqual(encryptionType, kSCValNetPPPAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+
+			ok = SCNetworkInterfaceRemovePassword(net_interface, kSCNetworkInterfacePasswordTypePPP);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("PPP password type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
 	}
 
 	return 1;
@@ -1739,9 +1966,6 @@ set_interface_ppp(int argc, char **argv, CFMutableDictionaryRef newConfiguration
 #pragma mark VLAN options
 
 
-#if	!TARGET_OS_IPHONE
-
-
 static Boolean
 set_interface_vlan(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
 {
@@ -1751,7 +1975,161 @@ SCPrint(TRUE, stdout, CFSTR("vlan interface management not yet supported\n"));
 }
 
 
-#endif	// !TARGET_OS_IPHONE
+#pragma mark -
+#pragma mark VPN options
+
+
+static int
+__doVPNAuthPW(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	CFStringRef	encryptionType;
+
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("VPN password not specified\n"));
+		return -1;
+	}
+
+	encryptionType = CFDictionaryGetValue(newConfiguration, kSCPropNetVPNAuthPasswordEncryption);
+	if (strlen(argv[0]) > 0) {
+		if (encryptionType == NULL) {
+#ifdef	USE_INLINE_CFDATA
+			CFIndex			n;
+			CFMutableDataRef	pw;
+			CFStringRef		str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			n = CFStringGetLength(str);
+			pw = CFDataCreateMutable(NULL, n * sizeof(UniChar));
+			CFDataSetLength(pw, n * sizeof(UniChar));
+			CFStringGetCharacters(str,
+					      CFRangeMake(0, n),
+					      (UniChar *)CFDataGetMutableBytePtr(pw));
+			CFRelease(str);
+#else	// USE_INLINE_CFDATA
+			CFStringRef		pw;
+
+			pw = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+#endif	// USE_INLINE_CFDATA
+
+			CFDictionarySetValue(newConfiguration, key, pw);
+			CFRelease(pw);
+		} else if (CFEqual(encryptionType, kSCValNetVPNAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+			CFDataRef	pw;
+			CFStringRef	str;
+
+			str = CFStringCreateWithCString(NULL, argv[0], kCFStringEncodingUTF8);
+			pw = CFStringCreateExternalRepresentation(NULL, str, kCFStringEncodingUTF8, 0);
+			ok = SCNetworkInterfaceSetPassword(net_interface,
+							   kSCNetworkInterfacePasswordTypeVPN,
+							   pw,
+							   NULL);
+			CFRelease(pw);
+			CFRelease(str);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("VPN password type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
+	} else {
+		if (encryptionType == NULL) {
+			CFDictionaryRemoveValue(newConfiguration, key);
+		} else if (CFEqual(encryptionType, kSCValNetVPNAuthPasswordEncryptionKeychain)) {
+			Boolean		ok;
+
+			ok = SCNetworkInterfaceRemovePassword(net_interface, kSCNetworkInterfacePasswordTypeVPN);
+			if (ok) {
+				updateInterfaceConfiguration(newConfiguration);
+			} else {
+				return -1;
+			}
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("PPP password type \"%@\" not supported\n"), encryptionType);
+			return -1;
+		}
+	}
+
+	return 1;
+}
+
+
+static int
+__doVPNAuthPWType(CFStringRef key, const char *description, void *info, int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	if (argc < 1) {
+		SCPrint(TRUE, stdout, CFSTR("VPN password type mode not specified\n"));
+		return -1;
+	}
+
+	if (strlen(argv[0]) > 0) {
+		if (strcasecmp(argv[0], "keychain") == 0) {
+			CFDictionarySetValue(newConfiguration, key, kSCValNetVPNAuthPasswordEncryptionKeychain);
+		} else if (strcasecmp(argv[0], "prompt") == 0) {
+			CFDictionarySetValue(newConfiguration, key, kSCValNetVPNAuthPasswordEncryptionPrompt);
+		} else {
+			SCPrint(TRUE, stdout, CFSTR("invalid password type\n"));
+			return -1;
+		}
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, key);
+	}
+
+	// encryption type changed, reset password
+	CFDictionaryRemoveValue(newConfiguration, kSCPropNetVPNAuthPassword);
+
+	return 1;
+}
+
+
+static selections vpnAuthenticationMethodSelections[] = {
+	{ CFSTR("Password")    , &kSCValNetVPNAuthenticationMethodPassword    , 0 },
+	{ CFSTR("Certificate") , &kSCValNetVPNAuthenticationMethodCertificate , 0 },
+	{ NULL                 , NULL                                         , 0 }
+};
+
+
+static options vpnOptions[] = {
+	{ "AuthName"                  , "account"     , isString     , &kSCPropNetVPNAuthName                  , NULL                , NULL                                      },
+	{   "Account"                 , "account"     , isString     , &kSCPropNetVPNAuthName                  , NULL                , NULL                                      },
+	{ "AuthPassword"              , "password"    , isOther      , &kSCPropNetVPNAuthPassword              , __doVPNAuthPW       , NULL                                      },
+	{   "Password"                , "password"    , isOther      , &kSCPropNetVPNAuthPassword              , __doVPNAuthPW       , NULL                                      },
+	{ "AuthPasswordEncryption"    , "type"        , isOther      , &kSCPropNetVPNAuthPasswordEncryption    , __doVPNAuthPWType   , NULL                                      },
+	{ "AuthenticationMethod"      , NULL          , isChooseOne  , &kSCPropNetVPNAuthenticationMethod      , NULL                , (void *)vpnAuthenticationMethodSelections },
+	{ "ConnectTime"               , "?time"       , isNumber     , &kSCPropNetVPNConnectTime               , NULL                , NULL                                      },
+	{ "DisconnectOnFastUserSwitch", NULL          , isBoolean    , &kSCPropNetVPNDisconnectOnFastUserSwitch, NULL                , NULL                                      },
+	{ "DisconnectOnIdle"          , NULL          , isBoolean    , &kSCPropNetVPNDisconnectOnIdle          , NULL                , NULL                                      },
+	{ "DisconnectOnIdleTimer"     , "timeout"     , isNumber     , &kSCPropNetVPNDisconnectOnIdleTimer     , NULL                , NULL                                      },
+	{ "DisconnectOnLogout"        , NULL          , isBoolean    , &kSCPropNetVPNDisconnectOnLogout        , NULL                , NULL                                      },
+	{ "DisconnectOnSleep"         , NULL          , isBoolean    , &kSCPropNetVPNDisconnectOnSleep         , NULL                , NULL                                      },
+	{ "Logfile"                   , "path"        , isString     , &kSCPropNetVPNLogfile                   , NULL                , NULL                                      },
+	{ "MTU"                       , NULL          , isNumber     , &kSCPropNetVPNMTU                       , NULL                , NULL                                      },
+	{ "RemoteAddress"             , "server"      , isString     , &kSCPropNetVPNRemoteAddress             , NULL                , NULL                                      },
+	{   "Server"                  , "server"      , isString     , &kSCPropNetVPNRemoteAddress             , NULL                , NULL                                      },
+	{ "VerboseLogging"            , NULL          , isBoolean    , &kSCPropNetVPNVerboseLogging            , NULL                , NULL                                      },
+
+	// --- Help ---
+	{ "?"                         , NULL          , isHelp       , NULL                                    , NULL                ,
+	    "\nVPN configuration commands\n\n"
+	    " set interface [Server server]\n"
+	    " set interface [Account account]\n"
+	    " set interface [Password password]\n"
+	}
+};
+#define	N_VPN_OPTIONS	(sizeof(vpnOptions) / sizeof(vpnOptions[0]))
+
+
+static Boolean
+set_interface_vpn(int argc, char **argv, CFMutableDictionaryRef newConfiguration)
+{
+	Boolean	ok;
+
+	ok = _process_options(vpnOptions, N_VPN_OPTIONS, argc, argv, newConfiguration);
+	return ok;
+}
 
 
 #pragma mark -
@@ -1803,12 +2181,14 @@ set_interface(int argc, char **argv)
 		ok = set_interface_airport(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
 		ok = set_interface_ppp(argc, argv, newConfiguration);
-#if	!TARGET_OS_IPHONE
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBond)) {
 		ok = set_interface_bond(argc, argv, newConfiguration);
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeBridge)) {
+		ok = set_interface_bridge(argc, argv, newConfiguration);
 	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVLAN)) {
 		ok = set_interface_vlan(argc, argv, newConfiguration);
-#endif	// !TARGET_OS_IPHONE
+	} else if (CFEqual(interfaceType, kSCNetworkInterfaceTypeVPN)) {
+		ok = set_interface_vpn(argc, argv, newConfiguration);
 	} else {
 		SCPrint(TRUE, stdout, CFSTR("this interfaces configuration cannot be changed\n"));
 	}

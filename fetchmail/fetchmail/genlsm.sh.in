@@ -18,15 +18,16 @@ Description:	Fetchmail is a free, full-featured, robust, and well-documented
 		then be be read by normal mail user agents such as mutt, elm,
 		pine, (x)emacs/gnus, or mailx.  Comes with an interactive GUI
 		configurator (in Python/Tk) suitable for end-users.
-Keywords:	mail, client, POP, POP2, POP3, APOP, RPOP, KPOP, IMAP, ETRN, ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL
-Author:		esr@thyrsus.com (Eric S. Raymond)
-		matthias.andree@gmx.de (Matthias Andree)
+Keywords:	mail, client, POP3, APOP, KPOP, IMAP, ETRN, ODMR, SMTP, ESMTP, GSSAPI, RPA, NTLM, CRAM-MD5, SASL
+Author:		matthias.andree@gmx.de (Matthias Andree)
 		shetye@bombay.retortsoft.com (Sunil Shetye)
 		rfunk@funknet.net (Rob Funk)
 Maintained-by:	fetchmail-devel@lists.berlios.de
 Primary-site:	http://developer.berlios.de/projects/fetchmail
 		`ls -sk @PACKAGE@-@VERSION@.tar.bz2 | \
-		 @AWK@ '{ printf "%dkB", $1 }'` @PACKAGE@-@VERSION@.tar.bz2
+		 @AWK@ '{ printf "%4dkB", $1 }'` @PACKAGE@-@VERSION@.tar.bz2
+		   1kB @PACKAGE@-@VERSION@.tar.bz2.asc
 Platforms:	All
 Copying-policy: GPL
 End
+EOF

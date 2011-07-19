@@ -1,5 +1,5 @@
---- /tmp/jabberd-2.1.24.1/router/router.c	2008-04-27 02:57:33.000000000 -0700
-+++ ./jabberd2/router/router.c	2009-09-30 16:38:49.000000000 -0700
+--- /tmp/jabberd-2.2.13/router/router.c	2011-02-23 08:24:35.000000000 -0800
++++ ./jabberd2/router/router.c	2011-02-24 16:25:21.000000000 -0800
 @@ -20,6 +20,11 @@
  
  #include "router.h"
@@ -12,9 +12,9 @@
  /** info for broadcasts */
  typedef struct broadcast_st {
      router_t      r;
-@@ -424,6 +429,42 @@ static void _router_process_route(compon
+@@ -557,6 +562,42 @@ static void _router_process_route(compon
          /* push it out */
-         log_debug(ZONE, "writing route for '%s' to %s, port %d", to->domain, target->ip, target->port);
+         log_debug(ZONE, "writing route for '%s'*%u to %s, port %d", to->domain, dest+1, target->ip, target->port);
  
 +        /* if logging enabled, log messages that match our criteria */
 +        if (comp->r->message_logging_enabled) {
@@ -33,12 +33,12 @@
 +                (strncmp(NAD_AVAL(nad, attr_route_from), comp->r->filter_muc_messages_from, strlen(comp->r->filter_muc_messages_from)) != 0) &&
 +                ((attr_route_to = nad_find_attr(nad, 0, -1, "to", NULL)) >= 0) &&					
 +                ((strncmp(NAD_AVAL(nad, attr_route_to), "c2s", 3)) != 0) &&							// ignore messages to "c2s" or we'd have dups
-+                ((jid_route_from = jid_new(comp->r->pc, NAD_AVAL(nad, attr_route_from), NAD_AVAL_L(nad, attr_route_from))) != NULL) &&	// has valid JID source in route
-+                ((jid_route_to = jid_new(comp->r->pc, NAD_AVAL(nad, attr_route_to), NAD_AVAL_L(nad, attr_route_to))) != NULL) &&		// has valid JID destination in route
++                ((jid_route_from = jid_new(NAD_AVAL(nad, attr_route_from), NAD_AVAL_L(nad, attr_route_from))) != NULL) &&	// has valid JID source in route
++                ((jid_route_to = jid_new(NAD_AVAL(nad, attr_route_to), NAD_AVAL_L(nad, attr_route_to))) != NULL) &&		// has valid JID destination in route
 +                ((attr_msg_from = nad_find_attr(nad, 1, -1, "from", NULL)) >= 0) &&
 +                ((attr_msg_to = nad_find_attr(nad, 1, -1, "to", NULL)) >= 0) &&
-+                ((jid_msg_from = jid_new(comp->r->pc, NAD_AVAL(nad, attr_msg_from), NAD_AVAL_L(nad, attr_msg_from))) != NULL) &&	// has valid JID source in message 
-+                ((jid_msg_to = jid_new(comp->r->pc, NAD_AVAL(nad, attr_msg_to), NAD_AVAL_L(nad, attr_msg_to))) != NULL))			// has valid JID dest in message
++                ((jid_msg_from = jid_new(NAD_AVAL(nad, attr_msg_from), NAD_AVAL_L(nad, attr_msg_from))) != NULL) &&	// has valid JID source in message 
++                ((jid_msg_to = jid_new(NAD_AVAL(nad, attr_msg_to), NAD_AVAL_L(nad, attr_msg_to))) != NULL))			// has valid JID dest in message
 +            {  
 +                message_log(nad, comp->r, jid_full(jid_msg_from), jid_full(jid_msg_to));
 +            }
@@ -55,10 +55,12 @@
          _router_comp_write(target, nad);
  
          return;
-@@ -948,3 +989,192 @@ int router_mio_callback(mio_t m, mio_act
+@@ -1086,3 +1127,191 @@ int router_mio_callback(mio_t m, mio_act
+ 
      return 0;
  }
- 
++
++
 +int message_log(nad_t nad, router_t r, char *msg_from, char *msg_to) 
 +{
 +	time_t t;
@@ -159,12 +161,9 @@
 +	char logfile_uncompressed_path[243] = {0};	// path and filename of uncompressed (previously active) log
 +	char logfile_compressed_path_new[255] = {0};	// path and filename + room for .xxxx.gz
 +	char logfile_uncompressed_path_new[255] = {0};	// path and filename + room for .xxxx.gz
-+	char gzip_command[640] = {0};
 +	struct stat64 filestat;
 +	struct stat64 compressed_stat;
-+	short int bool_time_to_roll = 0;	
 +	long curr_time = time(NULL);
-+	int oldest_log_file;
 +	int num_old_files;
 +	pid_t pid;
 +	int i;
@@ -248,3 +247,4 @@
 +	}
 +	return 0;
 +}
+\ No newline at end of file

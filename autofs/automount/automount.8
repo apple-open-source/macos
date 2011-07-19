@@ -1,4 +1,4 @@
-.Dd May 14, 2007
+.Dd July 17, 2010
 .Os Darwin
 .Dt AUTOMOUNT 8
 .Sh NAME
@@ -8,6 +8,7 @@
 .Nm automount
 .Op Fl v
 .Op Fl c
+.Op Fl u
 .Op Fl t Ar timeout
 .Sh DESCRIPTION
 .Nm
@@ -26,6 +27,9 @@ Print more detailed information about actions taken by
 Tell
 .Xr automountd 8
 to flush any cached information it has.
+.It Fl u
+Unmount all non-busy automounted mounts.
+Top-level triggers are preserved.
 .It Fl t Ar timeout
 Set to
 .Ar timeout

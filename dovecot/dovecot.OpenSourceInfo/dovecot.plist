@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-05-11</string>
+		<key>OpenSourceLicense</key>
+		<string>MIT &amp; LGPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>dovecot.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+			<string>Apple Open Directory authentication plugin</string>
+			<string>Apple scalability enhancements</string>
+			<string>Apple SearchKit plugin</string>
+			<string>RFC 4467 - IMAP URLAUTH Extension</string>
+			<string>RFC 4468 - Submission BURL</string>
+			<string>RFC 4469 - IMAP CATENATE Extension</string>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>dovecot</string>
+		<key>OpenSourceSHA1</key>
+		<string></string>
+		<key>OpenSourceURL</key>
+		<string>http://dovecot.org/releases/2.0/dovecot-2.0.13.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>Released v2.0.13</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://www.dovecot.org</string>
+	</dict>
+	<dict>
+		<key>OpenSourceImportDate</key>
+		<string>2011-04-14</string>
+		<key>OpenSourceLicense</key>
+		<string>LGPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>dovecot.txt</string>
+		<key>OpenSourceModifications</key>
+		<array>
+		</array>
+		<key>OpenSourceProject</key>
+		<string>dovecot-pigeonhole</string>
+		<key>OpenSourceSHA1</key>
+		<string></string>
+		<key>OpenSourceURL</key>
+		<string>http://www.rename-it.nl/dovecot/2.0/dovecot-2.0-pigeonhole-0.2.3.tar.gz</string>
+		<key>OpenSourceVersion</key>
+		<string>Released v0.2.3</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://pigeonhole.dovecot.org/</string>
+	</dict>
+</array>
+</plist>

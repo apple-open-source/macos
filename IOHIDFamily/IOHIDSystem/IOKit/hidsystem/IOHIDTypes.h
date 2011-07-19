@@ -27,6 +27,7 @@
 	mpaque 11Oct91
 	
 	Copyright 1991 NeXT Computer, Inc.
+	Copyright 1997-2011 Apple, Inc.
 	
 	Modified:
 	
@@ -36,8 +37,12 @@
 #define _DEV_EV_TYPES_H
 
 #include <mach/boolean.h>
-#include <IOKit/IOSharedLock.h>
+#include <libkern/OSAtomic.h>
 #include <IOKit/graphics/IOGraphicsTypes.h>
+
+// This should be removed, but is being used by others
+// <rdar://problem/8917741> IOHIDFamily-355 causes projects to fail to build with 'ev_lock_data_t' does not name a type
+#include <IOKit/IOSharedLock.h>
 
 /* Shared memory versions */
 #define EVENT_SYSTEM_VERSION   2
@@ -63,6 +68,12 @@ typedef enum {
     NX_LeftButton,
     NX_RightButton
 } NXMouseButton;
+
+// IOFixedPoint32 is a 24.8 format
+typedef struct __IOFixedPoint32 {
+    int32_t     x;
+    int32_t     y;
+} IOFixedPoint32;
 
 /*
  * NXEventSystemInfo() information structures.  These are designed to

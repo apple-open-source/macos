@@ -31,6 +31,7 @@
 #import "WebFrameInternal.h"
 #import "WebFrameView.h"
 #import "WebViewPrivate.h"
+#import <WebCore/Frame.h>
 #import <WebCore/FrameView.h>
 
 // WebClipView's entire reason for existing is to set the clip used by focus ring redrawing.
@@ -50,6 +51,13 @@ using namespace WebCore;
 @interface NSClipView (WebNSClipViewDetails)
 - (void)_immediateScrollToPoint:(NSPoint)newOrigin;
 @end
+
+#ifndef BUILDING_ON_LEOPARD
+@interface NSWindow (WebNSWindowDetails)
+- (void)_disableDelayedWindowDisplay;
+- (void)_enableDelayedWindowDisplay;
+@end
+#endif
 
 @implementation WebClipView
 
@@ -96,7 +104,17 @@ using namespace WebCore;
 - (void)_immediateScrollToPoint:(NSPoint)newOrigin
 {
     _isScrolling = YES;
+
+#ifndef BUILDING_ON_LEOPARD
+    [[self window] _disableDelayedWindowDisplay];
+#endif
+
     [super _immediateScrollToPoint:newOrigin];
+
+#ifndef BUILDING_ON_LEOPARD
+    [[self window] _enableDelayedWindowDisplay];
+#endif
+
     _isScrolling = NO;
 }
 #endif

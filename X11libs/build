@@ -1,10 +1,16 @@
 #!/usr/bin/perl
 
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{CC}="gcc" if ($ENV{CC} eq '');
+$ENV{CC_BASE}=$ENV{CC};
+
 $target=shift @ARGV;
 $ENV{DESTDIR}=$ENV{DSTROOT};
 
+$python_version=`/usr/bin/python -c 'import sys ; print("%s.%s" % sys.version_info[:2]) ;'`;
+
 if($ENV{MACOSFORGE_RELEASE} eq "YES") {
-    $ENV{PYTHONPATH}="/usr/X11/lib/python2.5:/usr/X11/lib/python2.5/site-packages:$ENV{PYTHONPATH}";
+    $ENV{PYTHONPATH}="$ENV{X11_PREFIX}/lib/python".$python_version.":$ENV{X11_PREFIX}/lib/python".$python_version."/site-packages:$ENV{PYTHONPATH}";
 }
 
 sub sys_print {
@@ -24,8 +30,7 @@ sub sys_print_nodie {
 }
 
 if($target eq 'installsrc') {
-    sys_print("mkdir $ENV{SRCROOT}") unless -e $ENV{SRCROOT};
-    sys_print("ditto . $ENV{SRCROOT}");
+    sys_print("tar -cp --exclude .git --exclude .svn --exclude CVS . | tar -pox -C $ENV{SRCROOT}");
     chdir($ENV{SRCROOT});
     foreach $module (glob('*')) {
         next if $module =~ /build/;
@@ -34,7 +39,7 @@ if($target eq 'installsrc') {
         next if $module =~ /\./;
         print "installing source for $module\n";
         chdir($module);
-        sys_print("../uvn extract; ../uvn patch");
+        sys_print("../uvn extract && ../uvn patch");
         chdir('..');
     }
     exit();
@@ -43,11 +48,22 @@ if($target eq 'installsrc') {
 if($target eq 'clean') {
     print "Cleaning out directory $ENV{SRCROOT}\n";
     chdir($ENV{SRCROOT});
-    sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
     sys_print("find . -name \"*.gz\" | xargs rm");
     sys_print("find . -name \"*.bz2\" | xargs rm");
     sys_print("find . -name patches | xargs rm -rf");
+
+    # Prune GPL bits we don't use
+    sys_print("rm -rf mesa/Mesa-*/progs/ggi/asc-view.c");
+    sys_print("rm -rf cairo/cairo-*/util/cairo-trace/COPYING*");
+    sys_print("rm -rf cairo/cairo-*/util/cairo-trace/*.[hc]");
+
+    # Bison/yacc-foo that triggers the GPL3 warning, just remake them
+    sys_print("rm -rf mesa/Mesa-*/src/mesa/shader/program_parse.tab.[hc]");
+
+    # Leopard's flex isn't recent enough to rebuild this right...
+    #sys_print("rm -rf mesa/Mesa-*/src/mesa/shader/lex.yy.c");
+
     exit();
 }
 
@@ -57,7 +73,7 @@ if($target eq 'install') {
     sys_print("mkdir $ENV{OBJROOT}") unless -e $ENV{OBJROOT};
     $ENV{DESTDIR}=$ENV{DSTROOT};
     
-    $prefix="/usr/X11";
+    $prefix=$ENV{X11_PREFIX};
 
     ($osx_version)=(`sw_vers -productVersion` =~ /(10\.\d)/);
 
@@ -66,11 +82,11 @@ if($target eq 'install') {
     system "mkdir -p $ACLOCAL_LOCALDIR";
     
 # The following is required to make aclocal find our .m4 macros
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal -I/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
     
 # The following is required to make pkg-config find our .pc metadata files
-    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
+    $ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/share/pkgconfig:$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/share/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
     
 # Set the library path so that locally built libs will be found by apps
     $ENV{LD_LIBRARY_PATH}="$ENV{DSTROOT}$prefix/lib:$prefix/lib/:$ENV{LD_LIBRARY_PATH}";
@@ -83,14 +99,16 @@ if($target eq 'install') {
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
 	$arch_flags .= " -arch $arch ";
     }
-    $ENV{CC}="gcc -I$ENV{DSTROOT}$prefix/include -I$ENV{DSTROOT}$prefix/include/pixman-1 ";
-    $ENV{CFLAGS}="-I$prefix/include -D__DEBUG__ -ggdb3 -pipe $arch_flags -Os -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-L$ENV{DSTROOT}$prefix/lib -L$prefix/lib -pipe $arch_flags";
+
+    $ENV{CC}="$ENV{CC} -I$ENV{DSTROOT}$prefix/include/pixman-1 -I$ENV{DSTROOT}$prefix/include/libpng15 -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib -L$ENV{DSTROOT}$prefix/lib";
     $ENV{MACOSX_DEPLOYMENT_TARGET}=$osx_version;
-     
+
     build_lib();
-    
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+
+    if($ENV{MACOSFORGE_LEO} eq "YES") {
         fix_la_reverse();
     } else {
         nuke_la();
@@ -101,6 +119,9 @@ if($target eq 'install') {
     lipoexec("$ENV{DSTROOT}$prefix/bin/sxpm");
     lipoexec("$ENV{DSTROOT}$prefix/bin/makestrs");
     make_dsyms();
+
+    sys_print("chown -R root:wheel $ENV{DSTROOT}/$prefix/share/doc/");
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}/$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
 }
 
 sub get_workdir {
@@ -124,34 +145,63 @@ sub build {
     sys_print("mkdir -p $ENV{OBJROOT}/$full_path");
     sys_print("ditto $ENV{SRCROOT}/$full_path $ENV{OBJROOT}/$full_path");
 
-    chdir("$ENV{OBJROOT}/$full_path");
-    sys_print("autoreconf -fvi") unless($module eq 'cairo');
+    if($module eq 'mesa') {
+        chdir("$ENV{OBJROOT}/$full_path/src/mesa/shader");
+        sys_print("make");
 
-    print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
+        chdir("$ENV{OBJROOT}/$full_path");
+        sys_print("make darwin CC='$ENV{CC}' EXTRA_CFLAGS='-I$ENV{DSTROOT}$prefix/lib' EXTRA_LDFLAGS='-L$ENV{DSTROOT}$prefix/lib' INSTALL_DIR='$prefix' -j".`sysctl -n hw.activecpu`);
 
-    $conf_flags_path=$ENV{SRCROOT}."/$dir/$module/conf_flags";
-    $post_config_path=$ENV{SRCROOT}."/$dir/$module/post_config";
+        sys_print("make install DESTDIR=$ENV{DSTROOT} INSTALL_DIR='$prefix'");
 
-    if(-e $conf_flags_path) {
-	$conf_flags .= `cat $conf_flags_path`;
-	chomp $conf_flags;
-    }
-
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
-        sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+        # This is needed for the 1.5 server to build with GLX support
+        sys_print("mkdir -p $ENV{DSTROOT}$prefix/include/GL/internal");
+        sys_print("cp include/GL/internal/dri_interface.h $ENV{DSTROOT}$prefix/include/GL/internal");
+        sys_print("chown -R root:wheel $ENV{DSTROOT}$prefix/include/GL/internal");
+        sys_print("chmod 644 $ENV{DSTROOT}$prefix/include/GL/internal/*.h");
     } else {
-        sys_print(q{sed -i.bak 's|from distutils import sysconfig; print sysconfig.get_python_lib(.*,.*,prefix=.*)|import sys, os;print os.path.join(sys.prefix, \\\\"Extras/X11\\\\")|' configure});
-    }
+        chdir("$ENV{OBJROOT}/$full_path");
+        sys_print("rm -f m4/libtool.m4 m4/lt*.m4") if(-f "m4/libtool.m4");
+        # libpng >= 1.4.4 requires glibtool2, but for some reason we still fail with glibtool-2.2.4
+        sys_print("autoreconf -fvi") unless($module eq 'cairo' || $module eq 'libXft' || $module eq 'libpng' || $module eq 'libpng14');
 
-    sys_print("./configure $conf_flags");
-    sys_print("make -j".`sysctl -n hw.activecpu`);
+        print "Configuring...\n";
+        
+        $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls ";
 
-    if($module eq 'libXaw8') {
-        # This is for backwards compatability only.  Newer versions of libXaw don't provide this dylib
-        sys_print("make install-exec");
-    } else {
-        sys_print("make install");
+        $conf_flags=$conf_flags."--cache-file=$ENV{OBJROOT}/configure.cache " unless($module eq 'pixman');
+
+        $conf_flags_path=$ENV{SRCROOT}."/$dir/$module/conf_flags";
+        $post_config_path=$ENV{SRCROOT}."/$dir/$module/post_config";
+
+        if(-e $conf_flags_path) {
+            $conf_flags .= `cat $conf_flags_path`;
+            chomp $conf_flags;
+        }
+
+        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+            if($ENV{MACOSFORGE_BUILD_DOCS} ne "YES") {
+                $conf_flags .= " --disable-specs --disable-devel-docs --disable-docs ";
+            }
+            sys_print("sed -i.bak 's/sysconfig.get_python_lib(\\([^,]\\),0/sysconfig.get_python_lib(\\1,1/g' configure");
+        } else {
+            $conf_flags .= " --disable-specs --disable-devel-docs ";
+            sys_print(q{sed -i.bak 's|from distutils import sysconfig; print sysconfig.get_python_lib(.*,.*,prefix=.*)|import sys, os;print os.path.join(sys.prefix, \\\\"Extras/X11\\\\")|' configure});
+        }
+
+        # libtool.m4 checks stderr from the linker to determine these, so they get incorrectly set to "no"
+        $ENV{lt_cv_ld_force_load}="yes";
+        $ENV{lt_cv_apple_cc_single_mod}="yes";
+
+        sys_print("./configure $conf_flags");
+        sys_print("make -j".`sysctl -n hw.activecpu`);
+
+        if($module eq 'libXaw8' || $module eq 'libpng12' || $module eq 'libpng14') {
+            # This is for backwards compatability only.  Provide older dylibs for ABI compatability.
+            sys_print("make install-exec");
+        } else {
+            sys_print("make install");
+        }
     }
 
     fix_la();
@@ -174,6 +224,15 @@ sub build {
 # Xfixes before Xcomposite
 # Xp before XprintUtil before XprintAppUtil
 sub build_lib {
+    build("libpng12");
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        build("libpng14");
+    }
+    sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/bin/libpng*-config");
+    sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/lib/libpng*.la");
+    sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/lib/libpng1?.dylib");
+    sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/lib/libpng12.0.*.dylib");
+    sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/lib/libpng.3.*.0.dylib");
     build("libpng");
     build("pixman");
     build("xtrans");
@@ -189,41 +248,45 @@ sub build_lib {
     build("libfontenc");
     build("libFS");
     build("libICE");
-    build("liblbxutil");
-    build("liboldX");
     build("libSM");
     build("libXt");
     build("libXmu");
     build("libXpm");
-    build("libXp");
-    build("libXaw8");
+    # Include old, crufty, deprecated libs for binary compatability
+    if($ENV{MACOSFORGE_SL} ne "YES") {
+        build("libXp");
+        build("libXaw8");
+    }
     build("libXaw");
     build("libXfixes");
     build("libXcomposite");
     build("libXrender");
     build("libXdamage");
     build("libXcursor");
-    build("libXevie");
     build("libXfont");
-    build("libXfontcache");
-    build("libXxf86misc");
     build("libXxf86vm");
     build("libXft");
     build("libXi");
     build("libXinerama");
     build("libxkbfile");
-    build("libxkbui");
-    build("libXprintUtil");
-    build("libXprintAppUtil");
     build("libXrandr");
     build("libXres");
     build("libXScrnSaver");
-    build("libXTrap");
     build("libXtst");
     build("libXv");
     build("libXvMC");
+    build("mesa");
     build("cairo");
     build("xpyb");
+
+    # Include old, crufty, deprecated libs for binary compatability
+    if($ENV{MACOSFORGE_SL} ne "YES") {
+        build("libXevie");
+        build("libXfontcache");
+        build("libxkbui");
+        build("libXTrap");
+        build("libXxf86misc");
+    }
 }
 
 sub make_dsyms {
@@ -234,6 +297,7 @@ sub make_dsyms {
 	    $fullname=$1;
 	    $basename =~ s/\/.*\///;
 	    sys_print_nodie("dsymutil --out=$ENV{SYMROOT}/$basename.dSYM $fullname");
+	    sys_print_nodie("cp $fullname $ENV{SYMROOT}");
 	    sys_print_nodie("strip -S $fullname");
 	}
     }
@@ -255,7 +319,7 @@ sub fix_la_reverse {
 
 sub lipoexec {
     $fname=shift;
-    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+    if($ENV{MACOSFORGE_RELEASE} eq "LEO") {
         sys_print_nodie("lipo $fname -verify_arch x86_64 && lipo -remove x86_64 -output $fname $fname");
         sys_print_nodie("lipo $fname -verify_arch ppc64 && lipo -remove ppc64 -output $fname $fname");
     } else {
@@ -265,6 +329,10 @@ sub lipoexec {
 
 sub nuke_la {
     sys_print("rm $ENV{DSTROOT}$prefix/lib/*.la");
-    sys_print("rm $ENV{DSTROOT}/" . `python -c 'import sys, os;print os.path.join(sys.prefix, "Extras/X11/xcb/xcb.la")'`);
+    if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        sys_print("rm $ENV{DSTROOT}$ENV{X11_PREFIX}/lib/python*/xcb/*.la");
+    } else {
+        sys_print("rm $ENV{DSTROOT}/" . `python -c 'import sys, os;print os.path.join(sys.prefix, "Extras/X11/xcb/*.la")'`);
+    }
 }
 

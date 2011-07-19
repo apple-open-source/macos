@@ -77,6 +77,7 @@ NULL,                   // equal
 NULL,                   // hash
 NULL,                   // copyFormattingDesc
 __IOUSBDeviceDescriptionSerializeDebug,
+NULL,
 NULL
 };
 
@@ -96,6 +97,7 @@ static const CFRuntimeClass __IOUSBDeviceControllerClass = {
     NULL,                   // equal
     NULL,                   // hash
     NULL,                   // copyFormattingDesc
+    NULL,
     NULL,
 	NULL
 };

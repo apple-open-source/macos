@@ -41,7 +41,9 @@ sub add_columns {
   }
 }
 
-*add_column = \&add_columns;
+sub add_column {
+  shift->add_columns(@_);
+}
 
 sub has_column {
   shift->result_source_instance->has_column(@_);
@@ -71,6 +73,10 @@ sub set_primary_key {
 
 sub primary_columns {
   shift->result_source_instance->primary_columns(@_);
+}
+
+sub _pri_cols {
+  shift->result_source_instance->_pri_cols(@_);
 }
 
 sub add_unique_constraint {

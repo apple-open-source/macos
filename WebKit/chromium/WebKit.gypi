@@ -33,14 +33,7 @@
         # List of DevTools source files, ordered by dependencies. It is used both
         # for copying them to resource dir, and for generating 'devtools.html' file.
         'devtools_js_files': [
-            'src/js/InspectorControllerImpl.js',
-            'src/js/DebuggerAgent.js',
-            'src/js/DebuggerScript.js',
-            'src/js/ProfilerAgent.js',
-            'src/js/ProfilerProcessor.js',
-            'src/js/HeapProfilerPanel.js',
             'src/js/DevTools.js',
-            'src/js/DevToolsHostStub.js',
             'src/js/Tests.js',
         ],
         'devtools_css_files': [
@@ -57,6 +50,46 @@
             'src/js/Images/statusbarButtonsChromium.png',
             'src/js/Images/statusbarMenuButtonChromium.png',
             'src/js/Images/statusbarMenuButtonSelectedChromium.png',
+        ],
+        'webkit_unittest_files': [
+            'tests/ArenaTestHelpers.h',
+            'tests/CCThreadTaskTest.cpp',
+            'tests/CCThreadTest.cpp',
+            'tests/IDBBindingUtilitiesTest.cpp',
+            'tests/IDBKeyPathTest.cpp',
+            'tests/IDBLevelDBCodingTest.cpp',
+            'tests/KeyboardTest.cpp',
+            'tests/KURLTest.cpp',
+            'tests/PODArenaTest.cpp',
+            'tests/PODIntervalTreeTest.cpp',
+            'tests/PODRedBlackTreeTest.cpp',
+            'tests/TilingDataTest.cpp',
+            'tests/TreeSynchronizerTest.cpp',
+            'tests/TreeTestHelpers.cpp',
+            'tests/TreeTestHelpers.h',
+            'tests/WebFrameTest.cpp',
+        ],
+
+        'conditions': [
+            ['OS=="win"', {
+                'webkit_unittest_files': [
+                    # FIXME: Port DragImageTest to Mac.
+                    'tests/DragImageTest.cpp',
+                    # FIXME: Port PopupMenuTest to Linux and Mac.
+                    'tests/PopupMenuTest.cpp',
+                    'tests/TransparencyWinTest.cpp',
+                    'tests/UniscribeHelperTest.cpp',
+                    'tests/WebPageNewSerializerTest.cpp',
+                    'tests/WebPageSerializerTest.cpp',
+                ],
+            }],
+            ['OS=="linux" or OS=="freebsd"', {
+                'webkit_unittest_files': [
+                    # FIXME: Port DragImageTest to Mac.
+                    'tests/DragImageTest.cpp',
+                    'tests/WebInputEventFactoryTestGtk.cpp',
+                ],
+            }],
         ],
     },
 }

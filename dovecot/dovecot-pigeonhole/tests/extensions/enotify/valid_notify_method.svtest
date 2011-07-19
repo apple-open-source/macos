@@ -1,0 +1,31 @@
+require "vnd.dovecot.testsuite";
+
+require "enotify";
+
+test "Mailto: invalid header name" {
+	if valid_notify_method 
+		"mailto:stephan@example.org?header:=frop" {
+		test_fail "invalid uri accepted";
+	}
+}
+
+test "Mailto: invalid recipient" {
+	if valid_notify_method 
+		"mailto:stephan%23example.org" {
+		test_fail "invalid uri accepted";
+	}
+}
+
+test "Mailto: invalid to header recipient" {
+	if valid_notify_method
+		"mailto:stephan@example.org?to=nico%23frop.example.org" {
+		test_fail "invalid uri accepted";
+	}
+}
+
+test "Mailto: valid URI" {
+	if not valid_notify_method
+		"mailto:stephan@example.org" {
+		test_fail "valid uri denied";
+	}
+}

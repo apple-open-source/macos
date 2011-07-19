@@ -11,7 +11,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: Makefile.in,v 1.13 2008/02/28 22:05:55 andreas_kupries Exp $
+# RCS: @(#) $Id: Makefile.in,v 1.14 2008/07/04 18:10:41 apnadkarni Exp $
 
 FILES= \
 	SOAP.tcl		\
@@ -19,6 +19,7 @@ FILES= \
 	SOAP-domain.tcl         \
 	SOAP-service.tcl        \
 	XMLRPC.tcl		\
+	jsonrpc.tcl		\
 	rpcvar.tcl		\
 	utils.tcl		\
 	xpath.tcl		\

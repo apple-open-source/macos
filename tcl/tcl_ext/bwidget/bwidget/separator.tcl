@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 #  separator.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: separator.tcl,v 1.41 2009/09/06 21:40:52 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - Separator::create
@@ -12,7 +13,7 @@ namespace eval Separator {
     Widget::define Separator separator
 
     Widget::declare Separator {
-        {-background TkResource ""         0 frame}
+        {-background Color      "SystemWindowFrame"       0}
         {-cursor     TkResource ""         0 frame}
         {-relief     Enum       groove     0 {ridge groove}}
         {-orient     Enum       horizontal 1 {horizontal vertical}}

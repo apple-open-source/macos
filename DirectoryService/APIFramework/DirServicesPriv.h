@@ -30,9 +30,9 @@
 
 #include <DirectoryService/DirServicesTypes.h>
 #include <DirectoryServiceCore/PrivateTypes.h>
-#include <DirectoryService/CDSRefTable.h>
 #include <DirectoryServiceCore/CBuff.h>
 #include <AvailabilityMacros.h>
+#include "CDSRefTable.h"
 
 /*!
  * @defined kDSStdNotifyxxxxx

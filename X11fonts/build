@@ -1,16 +1,20 @@
 #!/usr/bin/perl
-$prefix="/usr/X11";
+
+$ENV{X11_PREFIX}="/usr/X11" if ($ENV{X11_PREFIX} eq '');
+$ENV{CC}="gcc" if ($ENV{CC} eq '');
+$ENV{CC_BASE}=$ENV{CC};
+
+$prefix=$ENV{X11_PREFIX};
 $target=shift @ARGV;
 
 $ENV{DESTDIR}=$ENV{DSTROOT};
 $ENV{LD_LIBRARY_PATH}="$prefix/lib:$ENV{LD_LIBRARY_PATH}" unless $ENV{LD_LIBRARY_PATH} =~ /$prefix/;
 $ENV{PATH}="$ENV{DSTROOT}$prefix/bin:$prefix/bin:$ENV{PATH}" unless $ENV{PATH} =~ /$prefix/;
 $ENV{FREETYPE_LIBS}="-L$prefix/lib -lfreetype -lz -Xlinker -framework -Xlinker CoreServices -Xlinker -framework -Xlinker ApplicationServices";
-$ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
-$ENV{FONTCONFIG_FILE}="$ENV{OBJROOT}/build-fonts.conf";
+$ENV{PKG_CONFIG_PATH}="$ENV{DSTROOT}$prefix/share/pkgconfig:$ENV{DSTROOT}$prefix/lib/pkgconfig:$prefix/share/pkgconfig:$prefix/lib/pkgconfig:$ENV{PKG_CONFIG_PATH}";
 
 if($target eq 'installsrc') {
-    sys_print("ditto . $ENV{SRCROOT}");
+    sys_print("tar -cp --exclude .git --exclude .svn --exclude CVS . | tar -pox -C $ENV{SRCROOT}");
     chdir($ENV{SRCROOT});
     foreach $module (glob('*')) {
         next if $module =~ /build/;
@@ -28,7 +32,6 @@ if($target eq 'installsrc') {
 if($target eq 'clean') {
     print "Cleaning out directory $ENV{SRCROOT}\n";
     chdir($ENV{SRCROOT});
-    sys_print("find . -name .svn | xargs rm -rf");
     sys_print("find . -name .uvn | xargs rm -rf");
     sys_print("find . -name \"*.gz\" | xargs rm");
     sys_print("find . -name \"*.bz2\" | xargs rm");
@@ -42,7 +45,7 @@ if($target eq 'install') {
     system "mkdir -p $ACLOCAL_LOCALDIR";
         
 # The following is required to make aclocal find our .m4 macros
-    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal";
+    $ENV{ACLOCAL}="aclocal -I $ACLOCAL_LOCALDIR -I $prefix/share/aclocal -I/usr/local/share/aclocal";
     $ENV{LIBTOOLIZE}="/usr/bin/glibtoolize";
         
     print "Install phase: \n";
@@ -82,7 +85,7 @@ if($target eq 'install') {
 
     foreach $arch (split(/ /,$ENV{RC_ARCHS})) {
         $arch_flags_lib .= "-arch $arch ";
-        if($ENV{MACOSFORGE_RELEASE} eq "YES") {
+        if($ENV{MACOSFORGE_LEO} eq "YES") {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /64/;
         } else {
             $arch_flags_exec .= " -arch $arch " unless $arch =~ /ppc/;
@@ -91,15 +94,37 @@ if($target eq 'install') {
 
     set_arch_exec();
 
-    build("font-util");
+    # Backwards compatible symlink for Leopard/SnowLeopard which had them in /opt/X11/lib/X11/fonts
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/lib/X11");
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/share/fonts");
+    sys_print("ln -s ../../share/fonts $ENV{DSTROOT}/$prefix/lib/X11/fonts");
+
+    # Where font_cache stores its .pid file
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/var/run");
+
     build("encodings");
-    sys_print("sed -i.bak 's_^prefix=.*_prefix=$ENV{DSTROOT}$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
     foreach (@font_packages) {
 	build($_);
     }
-    sys_print("sed -i.bak 's_^prefix=.*_prefix=$prefix"."_' $ENV{DSTROOT}$prefix/lib/pkgconfig/*.pc");
-    sys_print("rm $ENV{DSTROOT}$prefix/lib/pkgconfig/*.bak");
     build("font-alias");
+
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/share/fonts/TTF");
+    sys_print("ditto $ENV{SRCROOT}/TTF $ENV{DSTROOT}/$prefix/share/fonts/TTF");
+    sys_print("chown -R root:wheel $ENV{DSTROOT}/$prefix/share/fonts/TTF");
+
+    # This isn't needed with fonts released in 2009
+    # sys_print("rm -rf $ENV{DSTROOT}/$prefix/var/cache/fontconfig");
+
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/lib/X11/fontconfig/conf.avail");
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/lib/X11/fontconfig/conf.d");
+    sys_print("install -c $ENV{SRCROOT}/fontconfig.osx-fonts.conf $ENV{DSTROOT}/$prefix/lib/X11/fontconfig/conf.avail/05-osx-fonts.conf");
+    sys_print("ln -s ../conf.avail/05-osx-fonts.conf $ENV{DSTROOT}/$prefix/lib/X11/fontconfig/conf.d/05-osx-fonts.conf");
+
+    sys_print("mkdir -p $ENV{DSTROOT}/$prefix/bin");
+    sys_print("sed 's:__PREFIX__:$prefix:' $ENV{SRCROOT}/font_cache.sh > $ENV{OBJROOT}/font_cache");
+    sys_print("install -c -m 755 $ENV{OBJROOT}/font_cache $ENV{DSTROOT}/$prefix/bin/font_cache");
+    sys_print("/Developer/Makefiles/bin/compress-man-pages.pl -d $ENV{DSTROOT}/$prefix/share/man/ man1 man2 man3 man4 man5 man6 man7 man8 man9");
+
     make_dsyms();
 }
 
@@ -118,10 +143,11 @@ sub build {
     sys_print("find . -depth 1 -type f -print | xargs -I foo cp -pv foo $ENV{OBJROOT}/$module");
 
     chdir("$ENV{OBJROOT}/$full_path");
+    sys_print("rm -f m4/libtool.m4 m4/lt*.m4") if(-f "m4/libtool.m4");
     sys_print("autoreconf -fvi");
 
     print "Configuring...\n";
-    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls  --mandir=$prefix/share/man ";
+    $conf_flags=" --prefix=$prefix --disable-static --disable-dependency-tracking --disable-nls  --mandir=$prefix/share/man --cache-file=$ENV{OBJROOT}/configure.cache ";
 
     $conf_flags_path=$ENV{OBJROOT}."/$module/conf_flags";
     $post_config_path=$ENV{OBJROOT}."/$module/post-config";
@@ -152,13 +178,19 @@ sub get_workdir {
 }
 
 sub set_arch_exec {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_exec -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_exec";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_exec -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_exec -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub set_arch_lib {
-    $ENV{CFLAGS}="-I$ENV{DSTROOT}$prefix/include -D__DEBUG__ -ggdb3 -Os -pipe $arch_flags_lib -D_FORTIFY_SOURCE=2 -Wall -Wformat-security";
-    $ENV{LDFLAGS}="-pipe $arch_flags_lib";
+    $ENV{CC}="$ENV{CC_BASE} -I$ENV{DSTROOT}$prefix/include";
+    $ENV{CPPFLAGS}="-D__DEBUG__ -D_FORTIFY_SOURCE=2";
+    $ENV{CFLAGS}="-ggdb3 -Os -pipe $arch_flags_lib -Wall -Wformat=2";
+    $ENV{LDFLAGS}="-pipe $arch_flags_lib -L$ENV{DSTROOT}$prefix/lib";
+    sys_print_nodie("rm $ENV{OBJROOT}/configure.cache");
 }
 
 sub sys_print {

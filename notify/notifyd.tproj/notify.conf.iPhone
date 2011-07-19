@@ -1,0 +1,6 @@
+#
+# Notification Center configuration file
+#
+
+reserve com.apple.system. 0 0 rwr-r-
+monitor com.apple.system.timezone /var/db/timezone/localtime

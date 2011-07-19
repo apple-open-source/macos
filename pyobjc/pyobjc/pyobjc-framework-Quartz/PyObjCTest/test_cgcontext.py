@@ -1,87 +1,167 @@
 from __future__ import with_statement
 
 from PyObjCTools.TestSupport import *
-from Quartz.CoreGraphics import *
+from Quartz import *
+import Quartz
 import os
+import sys
+
+if sys.version_info[0] != 2:
+    def buffer(value):
+        if isinstance(value, bytes):
+            return value
+        return value.encode('latin1')
 
 
 class TestCGContext (TestCase):
     def testTypes(self):
-        self.failUnlessIsCFType(CGContextRef)
+        self.assertIsCFType(CGContextRef)
 
     def testConstants(self):
-        self.failUnlessEqual(kCGLineJoinMiter, 0)
-        self.failUnlessEqual(kCGLineJoinRound, 1)
-        self.failUnlessEqual(kCGLineJoinBevel, 2)
+        self.assertEqual(kCGLineJoinMiter, 0)
+        self.assertEqual(kCGLineJoinRound, 1)
+        self.assertEqual(kCGLineJoinBevel, 2)
 
-        self.failUnlessEqual(kCGLineCapButt, 0)
-        self.failUnlessEqual(kCGLineCapRound, 1)
-        self.failUnlessEqual(kCGLineCapSquare, 2)
+        self.assertEqual(kCGLineCapButt, 0)
+        self.assertEqual(kCGLineCapRound, 1)
+        self.assertEqual(kCGLineCapSquare, 2)
 
-        self.failUnlessEqual(kCGPathFill, 0)
-        self.failUnlessEqual(kCGPathEOFill, 1)
-        self.failUnlessEqual(kCGPathStroke, 2)
-        self.failUnlessEqual(kCGPathFillStroke, 3)
-        self.failUnlessEqual(kCGPathEOFillStroke, 4)
+        self.assertEqual(kCGPathFill, 0)
+        self.assertEqual(kCGPathEOFill, 1)
+        self.assertEqual(kCGPathStroke, 2)
+        self.assertEqual(kCGPathFillStroke, 3)
+        self.assertEqual(kCGPathEOFillStroke, 4)
 
-        self.failUnlessEqual(kCGTextFill, 0)
-        self.failUnlessEqual(kCGTextStroke, 1)
-        self.failUnlessEqual(kCGTextFillStroke, 2)
-        self.failUnlessEqual(kCGTextInvisible, 3)
-        self.failUnlessEqual(kCGTextFillClip, 4)
-        self.failUnlessEqual(kCGTextStrokeClip, 5)
-        self.failUnlessEqual(kCGTextFillStrokeClip, 6)
-        self.failUnlessEqual(kCGTextClip, 7)
+        self.assertEqual(kCGTextFill, 0)
+        self.assertEqual(kCGTextStroke, 1)
+        self.assertEqual(kCGTextFillStroke, 2)
+        self.assertEqual(kCGTextInvisible, 3)
+        self.assertEqual(kCGTextFillClip, 4)
+        self.assertEqual(kCGTextStrokeClip, 5)
+        self.assertEqual(kCGTextFillStrokeClip, 6)
+        self.assertEqual(kCGTextClip, 7)
 
-        self.failUnlessEqual(kCGEncodingFontSpecific, 0)
-        self.failUnlessEqual(kCGEncodingMacRoman, 1)
+        self.assertEqual(kCGEncodingFontSpecific, 0)
+        self.assertEqual(kCGEncodingMacRoman, 1)
 
-        self.failUnlessEqual(kCGInterpolationDefault, 0)
-        self.failUnlessEqual(kCGInterpolationNone, 1)
-        self.failUnlessEqual(kCGInterpolationLow, 2)
-        self.failUnlessEqual(kCGInterpolationHigh, 3)
+        self.assertEqual(kCGInterpolationDefault, 0)
+        self.assertEqual(kCGInterpolationNone, 1)
+        self.assertEqual(kCGInterpolationLow, 2)
+        self.assertEqual(kCGInterpolationHigh, 3)
 
-        self.failUnlessEqual(kCGBlendModeNormal, 0)
-        self.failUnlessEqual(kCGBlendModeMultiply, 1)
-        self.failUnlessEqual(kCGBlendModeScreen, 2)
-        self.failUnlessEqual(kCGBlendModeOverlay, 3)
-        self.failUnlessEqual(kCGBlendModeDarken, 4)
-        self.failUnlessEqual(kCGBlendModeLighten, 5)
-        self.failUnlessEqual(kCGBlendModeColorDodge, 6)
-        self.failUnlessEqual(kCGBlendModeColorBurn, 7)
-        self.failUnlessEqual(kCGBlendModeSoftLight, 8)
-        self.failUnlessEqual(kCGBlendModeHardLight, 9)
-        self.failUnlessEqual(kCGBlendModeDifference, 10)
-        self.failUnlessEqual(kCGBlendModeExclusion, 11)
-        self.failUnlessEqual(kCGBlendModeHue, 12)
-        self.failUnlessEqual(kCGBlendModeSaturation, 13)
-        self.failUnlessEqual(kCGBlendModeColor, 14)
-        self.failUnlessEqual(kCGBlendModeLuminosity, 15)
-        self.failUnlessEqual(kCGBlendModeClear, 16)
-        self.failUnlessEqual(kCGBlendModeCopy, 17)
-        self.failUnlessEqual(kCGBlendModeSourceIn, 18)
-        self.failUnlessEqual(kCGBlendModeSourceOut, 19)
-        self.failUnlessEqual(kCGBlendModeSourceAtop, 20)
-        self.failUnlessEqual(kCGBlendModeDestinationOver, 21)
-        self.failUnlessEqual(kCGBlendModeDestinationIn, 22)
-        self.failUnlessEqual(kCGBlendModeDestinationOut, 23)
-        self.failUnlessEqual(kCGBlendModeDestinationAtop, 24)
-        self.failUnlessEqual(kCGBlendModeXOR, 25)
-        self.failUnlessEqual(kCGBlendModePlusDarker, 26)
-        self.failUnlessEqual(kCGBlendModePlusLighter, 27)
+        self.assertEqual(kCGBlendModeNormal, 0)
+        self.assertEqual(kCGBlendModeMultiply, 1)
+        self.assertEqual(kCGBlendModeScreen, 2)
+        self.assertEqual(kCGBlendModeOverlay, 3)
+        self.assertEqual(kCGBlendModeDarken, 4)
+        self.assertEqual(kCGBlendModeLighten, 5)
+        self.assertEqual(kCGBlendModeColorDodge, 6)
+        self.assertEqual(kCGBlendModeColorBurn, 7)
+        self.assertEqual(kCGBlendModeSoftLight, 8)
+        self.assertEqual(kCGBlendModeHardLight, 9)
+        self.assertEqual(kCGBlendModeDifference, 10)
+        self.assertEqual(kCGBlendModeExclusion, 11)
+        self.assertEqual(kCGBlendModeHue, 12)
+        self.assertEqual(kCGBlendModeSaturation, 13)
+        self.assertEqual(kCGBlendModeColor, 14)
+        self.assertEqual(kCGBlendModeLuminosity, 15)
+        self.assertEqual(kCGBlendModeClear, 16)
+        self.assertEqual(kCGBlendModeCopy, 17)
+        self.assertEqual(kCGBlendModeSourceIn, 18)
+        self.assertEqual(kCGBlendModeSourceOut, 19)
+        self.assertEqual(kCGBlendModeSourceAtop, 20)
+        self.assertEqual(kCGBlendModeDestinationOver, 21)
+        self.assertEqual(kCGBlendModeDestinationIn, 22)
+        self.assertEqual(kCGBlendModeDestinationOut, 23)
+        self.assertEqual(kCGBlendModeDestinationAtop, 24)
+        self.assertEqual(kCGBlendModeXOR, 25)
+        self.assertEqual(kCGBlendModePlusDarker, 26)
+        self.assertEqual(kCGBlendModePlusLighter, 27)
 
-    def testFunctions(self):
-        self.failUnlessIsInstance(CGContextGetTypeID(), (int, long))
+    @min_os_level('10.5')
+    def testFunctions10_5(self):
 
         url = CFURLCreateWithFileSystemPath(None,
                 "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
-        self.failUnlessIsInstance(url, CFURLRef)
+        self.assertIsInstance(url, CFURLRef)
         context = CGPDFContextCreateWithURL(url,
                 ((0, 0), (1000, 1000)), None)
-        self.failUnlessIsInstance(context, CGContextRef)
+        self.assertIsInstance(context, CGContextRef)
+        CGContextBeginPage(context, objc.NULL)
+        try:
+            fn = '/System/Library/CoreServices/DefaultDesktop.jpg'
+            if not os.path.exists(fn):
+                fn = '/System/Library/Automator/Apply ColorSync Profile to Images.action/Contents/Resources/A-1075-normal.jpg'
+
+            provider = CGDataProviderCreateWithCFData(buffer(open(fn, 'rb').read()))
+            image = CGImageCreateWithJPEGDataProvider(provider, None, True, kCGRenderingIntentDefault)
+            self.assertIsInstance(image, CGImageRef)
+
+            CGContextDrawTiledImage(context, ((0, 0), (10, 10)), image)
+
+            font =  CGFontCreateWithFontName("Helvetica")
+            self.assertIsInstance(font, CGFontRef)
+            CGContextSetFont(context, font)
+
+            CGContextBeginTransparencyLayerWithRect(context,
+                    ((10, 10), (500, 100)), None)
+            CGContextEndTransparencyLayer(context)
+
+            color = CGColorCreateGenericRGB(1.0, 0.5, 0.5, 1.0)
+            self.assertIsInstance(color, CGColorRef)
+            CGContextSetFillColorWithColor(context, color)
+            CGContextSetStrokeColorWithColor(context, color)
+
+            gradient = CGGradientCreateWithColorComponents(
+                CGColorSpaceCreateDeviceGray(),
+                (0.25, 0.8), (0.95, 0.99), 2)
+            self.assertIsInstance(gradient, CGGradientRef)
+
+            CGContextDrawRadialGradient(context, gradient, (10, 15),
+                    30, (50, 70), 99.5, kCGGradientDrawsAfterEndLocation)
+
+            def evaluate(info, input, output):
+                return input * 4
+
+            func = CGFunctionCreate(None, 1, (0, 1), 2, (0, 1, 0, 1), evaluate)
+            self.assertIsInstance(func, CGFunctionRef)
+            shading = CGShadingCreateAxial(
+                    CGColorSpaceCreateDeviceGray(),
+                    (0, 0), (30,90), func, False, False)
+            self.assertIsInstance(shading, CGShadingRef)
+
+            self.assertArgHasType(CGContextSetShouldSubpixelPositionFonts, 1, objc._C_BOOL)
+            self.assertArgHasType(CGContextSetAllowsFontSubpixelPositioning, 1, objc._C_BOOL)
+            self.assertArgHasType(CGContextSetShouldSubpixelQuantizeFonts, 1, objc._C_BOOL)
+
+            gradient = CGGradientCreateWithColorComponents(
+                    CGColorSpaceCreateDeviceGray(),
+                    (0.25, 0.8), (0.95, 0.99), 2)
+            self.assertIsInstance(gradient, CGGradientRef)
+
+            CGContextDrawLinearGradient(context, gradient, (0, 10), (50, 60),
+                    kCGGradientDrawsAfterEndLocation)
+
+        finally:
+            CGContextEndPage(context)
+            if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
+            if os.path.exists("/tmp/pyobjc.test.pdf"):
+                os.unlink("/tmp/pyobjc.test.pdf")
+
+
+
+    def testFunctions(self):
+        self.assertIsInstance(CGContextGetTypeID(), (int, long))
+
+        url = CFURLCreateWithFileSystemPath(None,
+                "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
+        self.assertIsInstance(url, CFURLRef)
+        context = CGPDFContextCreateWithURL(url,
+                ((0, 0), (1000, 1000)), None)
+        self.assertIsInstance(context, CGContextRef)
         CGContextBeginPage(context, objc.NULL)
 
-        self.failUnless(CGContextIsPathEmpty(context) is True)
+        self.assertTrue(CGContextIsPathEmpty(context) is True)
         try:
             CGContextBeginPath(context)
             CGContextAddEllipseInRect(context, ((0, 10), (50, 30)))
@@ -96,7 +176,7 @@ class TestCGContext (TestCase):
             CGContextConcatCTM(context, CGAffineTransformIdentity)
 
             tf = CGContextGetCTM(context)
-            self.failUnlessIsInstance(tf, CGAffineTransform)
+            self.assertIsInstance(tf, CGAffineTransform)
 
             CGContextSetLineWidth(context, 2.5)
             CGContextSetLineCap(context, kCGLineCapRound)
@@ -147,20 +227,20 @@ class TestCGContext (TestCase):
 
             path = CGPathCreateMutable()
             CGPathAddEllipseInRect(path, None, ((10, 50), (33, 33)))
-            self.failUnlessIsInstance(path, CGPathRef)
+            self.assertIsInstance(path, CGPathRef)
             CGContextAddPath(context, path)
 
-            self.failUnlessResultHasType(CGContextIsPathEmpty, objc._C_BOOL)
-            self.failUnless(CGContextIsPathEmpty(context) is False)
+            self.assertResultHasType(CGContextIsPathEmpty, objc._C_BOOL)
+            self.assertTrue(CGContextIsPathEmpty(context) is False)
 
             pt = CGContextGetPathCurrentPoint(context)
-            self.failUnlessIsInstance(pt, CGPoint)
+            self.assertIsInstance(pt, CGPoint)
 
             box = CGContextGetPathBoundingBox(context)
-            self.failUnlessIsInstance(box, CGRect)
+            self.assertIsInstance(box, CGRect)
 
-            self.failUnlessResultHasType(CGContextPathContainsPoint, objc._C_BOOL)
-            self.failUnlessIsInstance(CGContextPathContainsPoint(context, pt, kCGPathStroke), bool)
+            self.assertResultHasType(CGContextPathContainsPoint, objc._C_BOOL)
+            self.assertIsInstance(CGContextPathContainsPoint(context, pt, kCGPathStroke), bool)
 
             CGContextFillPath(context)
             CGContextEOFillPath(context)
@@ -195,7 +275,7 @@ class TestCGContext (TestCase):
             CGContextEOClip(context)
 
             box = CGContextGetClipBoundingBox(context)
-            self.failUnlessIsInstance(box, CGRect)
+            self.assertIsInstance(box, CGRect)
 
             CGContextClipToRect(context, ((0, 0), (40, 50)))
             CGContextClipToRects(context,
@@ -203,10 +283,6 @@ class TestCGContext (TestCase):
             self.assertRaises(ValueError, CGContextClipToRects, context,
                     [ ((0, 0), (40, 50)), ((60, 50), (90, 100))], 3)
 
-            color = CGColorCreateGenericRGB(1.0, 0.5, 0.5, 1.0)
-            self.failUnlessIsInstance(color, CGColorRef)
-            CGContextSetFillColorWithColor(context, color)
-            CGContextSetStrokeColorWithColor(context, color)
 
             CGContextSetFillColorSpace(context, CGColorSpaceCreateDeviceGray())
             CGContextSetStrokeColorSpace(context, CGColorSpaceCreateDeviceGray())
@@ -228,90 +304,79 @@ class TestCGContext (TestCase):
             CGContextSetRenderingIntent(context, kCGRenderingIntentPerceptual)
 
             v = CGContextGetInterpolationQuality(context)
-            self.failUnlessIsInstance(v, (int, long))
+            self.assertIsInstance(v, (int, long))
 
             CGContextSetInterpolationQuality(context, kCGInterpolationHigh)
+
+            color = CGColorCreate(CGColorSpaceCreateDeviceRGB(), (1,1,1,1))
 
             CGContextSetShadowWithColor(context, (2, 3), 0.5, color)
             CGContextSetShadow(context, (5, 6), 0.6)
 
-            gradient = CGGradientCreateWithColorComponents(
-                    CGColorSpaceCreateDeviceGray(),
-                    (0.25, 0.8), (0.95, 0.99), 2)
-            self.failUnlessIsInstance(gradient, CGGradientRef)
-
-            CGContextDrawLinearGradient(context, gradient, (0, 10), (50, 60),
-                    kCGGradientDrawsAfterEndLocation)
 
             CGContextSetCharacterSpacing(context, 0.1)
             CGContextSetTextPosition(context, 10, 50)
             p = CGContextGetTextPosition(context)
-            self.failUnlessIsInstance(pt, CGPoint)
+            self.assertIsInstance(pt, CGPoint)
 
             CGContextSetTextMatrix(context, CGAffineTransformIdentity)
 
             tr = CGContextGetTextMatrix(context)
-            self.failUnlessIsInstance(tr, CGAffineTransform)
+            self.assertIsInstance(tr, CGAffineTransform)
 
             CGContextSetTextDrawingMode(context, kCGTextStroke)
 
-            font =  CGFontCreateWithFontName("Helvetica")
-            self.failUnlessIsInstance(font, CGFontRef)
-            CGContextSetFont(context, font)
 
             CGContextSetFontSize(context, 11.5)
 
-            CGContextSelectFont(context, "Helvetica", 10.5, kCGEncodingMacRoman)
+            CGContextSelectFont(context, b"Helvetica", 10.5, kCGEncodingMacRoman)
 
-            CGContextShowText(context, "value", 5)
-            CGContextShowTextAtPoint(context, 50, 60, "value", 5)
+            CGContextShowText(context, b"value", 5)
+            CGContextShowTextAtPoint(context, 50, 60, b"value", 5)
 
 
             v = CGContextRetain(context)
-            self.failUnless(v is context)
+            self.assertTrue(v is context)
             CGContextRelease(context)
 
             CGContextFlush(context)
             CGContextSynchronize(context)
 
-            self.failUnlessArgHasType(CGContextSetShouldAntialias, 1, objc._C_BOOL)
+            self.assertArgHasType(CGContextSetShouldAntialias, 1, objc._C_BOOL)
             CGContextSetShouldAntialias(context, True)
 
-            self.failUnlessArgHasType(CGContextSetAllowsAntialiasing, 1, objc._C_BOOL)
+            self.assertArgHasType(CGContextSetAllowsAntialiasing, 1, objc._C_BOOL)
             CGContextSetAllowsAntialiasing(context, True)
 
-            self.failUnlessArgHasType(CGContextSetShouldSmoothFonts, 1, objc._C_BOOL)
+            self.assertArgHasType(CGContextSetShouldSmoothFonts, 1, objc._C_BOOL)
             CGContextSetShouldSmoothFonts(context, True)
 
 
             CGContextBeginTransparencyLayer(context, None)
             CGContextEndTransparencyLayer(context)
 
-            CGContextBeginTransparencyLayerWithRect(context,
-                    ((10, 10), (500, 100)), None)
-            CGContextEndTransparencyLayer(context)
 
             tf = CGContextGetUserSpaceToDeviceSpaceTransform(context)
-            self.failUnlessIsInstance(tf, CGAffineTransform)
+            self.assertIsInstance(tf, CGAffineTransform)
 
             pt = CGContextConvertPointToDeviceSpace(context, (10.5, 11.9))
-            self.failUnlessIsInstance(pt, CGPoint)
+            self.assertIsInstance(pt, CGPoint)
 
             pt = CGContextConvertPointToUserSpace(context, (10.5, 11.9))
-            self.failUnlessIsInstance(pt, CGPoint)
+            self.assertIsInstance(pt, CGPoint)
 
             sz = CGContextConvertSizeToDeviceSpace(context, (10.5, 11.9))
-            self.failUnlessIsInstance(sz, CGSize)
+            self.assertIsInstance(sz, CGSize)
 
             sz = CGContextConvertSizeToUserSpace(context, (10.5, 11.9))
-            self.failUnlessIsInstance(sz, CGSize)
+            self.assertIsInstance(sz, CGSize)
 
             box = CGContextConvertRectToDeviceSpace(context, 
                     ((10.5, 11.9), (55.6, 39.3)))
-            self.failUnlessIsInstance(box, CGRect)
+            self.assertIsInstance(box, CGRect)
             box = CGContextConvertRectToUserSpace(context, 
                     ((10.5, 11.9), (55.6, 39.3)))
-            self.failUnlessIsInstance(box, CGRect)
+            self.assertIsInstance(box, CGRect)
 
             myInfo = object()
             def drawPattern(info, context):
@@ -319,41 +384,87 @@ class TestCGContext (TestCase):
 
             pattern = CGPatternCreate(myInfo, CGRectMake(0, 0, 10, 10), CGAffineTransformIdentity, 10.0, 10.0,
                             kCGPatternTilingConstantSpacing, True, drawPattern)
-            self.failUnlessIsInstance(pattern, CGPatternRef)
+            self.assertIsInstance(pattern, CGPatternRef)
 
             CGContextSetFillColorSpace(context, CGColorSpaceCreatePattern(None))
             CGContextSetStrokeColorSpace(context, CGColorSpaceCreatePattern(None))
             CGContextSetFillPattern(context, pattern, (1.0,1.0,1.0,1.0))
             CGContextSetStrokePattern(context, pattern, (1.0,1.0,1.0,1.0))
 
-            provider = CGDataProviderCreateWithCFData(buffer(
-                            open('/System/Library/CoreServices/DefaultDesktop.jpg', 'rb').read()))
+            fn = '/System/Library/CoreServices/DefaultDesktop.jpg'
+            if not os.path.exists(fn):
+                fn = '/System/Library/Automator/Apply ColorSync Profile to Images.action/Contents/Resources/A-1075-normal.jpg'
+
+            provider = CGDataProviderCreateWithCFData(buffer(open(fn, 'rb').read()))
             image = CGImageCreateWithJPEGDataProvider(provider, None, True, kCGRenderingIntentDefault)
-            self.failUnlessIsInstance(image, CGImageRef)
+            self.assertIsInstance(image, CGImageRef)
 
             CGContextDrawImage(context, ((0, 0), (70, 50)), image)
-            CGContextDrawTiledImage(context, ((0, 0), (10, 10)), image)
 
             provider = CGDataProviderCreateWithCFData(buffer("1" * 4 * 20 * 10))
             mask = CGImageMaskCreate(20, 10, 8, 32, 80, provider, None, True)
-            self.failUnlessIsInstance(mask, CGImageRef)
+            self.assertIsInstance(mask, CGImageRef)
 
             CGContextClipToMask(context, CGRectMake(0, 0, 50, 90), mask)
 
         finally:
             CGContextEndPage(context)
-            CGPDFContextClose(context)
+            if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
             if os.path.exists("/tmp/pyobjc.test.pdf"):
                 os.unlink("/tmp/pyobjc.test.pdf")
 
-    def testMissing(self):
-        self.fail("CGContextShowGlyphsAtPositions")
-        self.fail("CGContextShowGlyphs")
-        self.fail("CGContextShowGlyphsAtPoint")
-        self.fail("CGContextShowGlyphsWithAdvances")
-        self.fail("CGContextDrawPDFPage")
-        self.fail("CGContextDrawPDFDocument")
+    def testGlyphFunctions(self):
+        self.assertArgHasType(CGContextShowGlyphsAtPositions, 1, 'n^S')
+        self.assertArgSizeInArg(CGContextShowGlyphsAtPositions, 1, 3)
+        self.assertArgHasType(CGContextShowGlyphsAtPositions, 2, 'n^' + CGPoint.__typestr__)
+        self.assertArgSizeInArg(CGContextShowGlyphsAtPositions, 2, 3)
 
+        self.assertArgHasType(CGContextShowGlyphs, 1, 'n^S')
+        self.assertArgSizeInArg(CGContextShowGlyphs, 1, 2)
+
+        self.assertArgHasType(CGContextShowGlyphsAtPoint, 1, objc._C_CGFloat)
+        self.assertArgHasType(CGContextShowGlyphsAtPoint, 2, objc._C_CGFloat)
+        self.assertArgHasType(CGContextShowGlyphsAtPoint, 3, 'n^S')
+        self.assertArgSizeInArg(CGContextShowGlyphsAtPoint, 3, 4)
+
+        self.assertArgHasType(CGContextShowGlyphsWithAdvances, 1, 'n^S')
+        self.assertArgSizeInArg(CGContextShowGlyphsWithAdvances, 1, 3)
+        self.assertArgHasType(CGContextShowGlyphsWithAdvances, 2, 'n^' + CGSize.__typestr__)
+        self.assertArgSizeInArg(CGContextShowGlyphsWithAdvances, 2, 3)
+
+        self.assertArgHasType(CGContextDrawPDFPage, 0, '^{CGContext=}')
+        self.assertArgHasType(CGContextDrawPDFPage, 1, '^{CGPDFPage=}')
+
+        self.assertArgHasType(CGContextDrawPDFDocument, 0, '^{CGContext=}')
+        self.assertArgHasType(CGContextDrawPDFDocument, 1, CGRect.__typestr__)
+        self.assertArgHasType(CGContextDrawPDFDocument, 2, '^{CGPDFDocument=}')
+        self.assertArgHasType(CGContextDrawPDFDocument, 3, objc._C_INT)
+
+
+    @min_os_level('10.5')
+    def testContextManager10_5(self):
+        url = CFURLCreateWithFileSystemPath(None,
+                "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
+        self.assertIsInstance(url, CFURLRef)
+        context = CGPDFContextCreateWithURL(url,
+                ((0, 0), (1000, 1000)), None)
+        self.assertIsInstance(context, CGContextRef)
+        try:
+            CGContextBeginPage(context, objc.NULL)
+
+            # XXX: This need actual tests, this at least tests that
+            # the contextmanagers can be used
+            with CGTransparencyLayer(context, None):
+                pass
+
+            with CGTransparencyLayer(context, None, ((10, 10), (200, 200))):
+                pass
+
+        finally:
+            CGContextEndPage(context)
+            if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
+            if os.path.exists("/tmp/pyobjc.test.pdf"):
+                os.unlink("/tmp/pyobjc.test.pdf")
 
     def testContextManager(self):
         """
@@ -361,10 +472,10 @@ class TestCGContext (TestCase):
         """
         url = CFURLCreateWithFileSystemPath(None,
                 "/tmp/pyobjc.test.pdf", kCFURLPOSIXPathStyle, False)
-        self.failUnlessIsInstance(url, CFURLRef)
+        self.assertIsInstance(url, CFURLRef)
         context = CGPDFContextCreateWithURL(url,
                 ((0, 0), (1000, 1000)), None)
-        self.failUnlessIsInstance(context, CGContextRef)
+        self.assertIsInstance(context, CGContextRef)
         try:
             CGContextBeginPage(context, objc.NULL)
             transform = CGContextGetCTM(context)
@@ -373,20 +484,13 @@ class TestCGContext (TestCase):
             with CGSavedGState(context):
                 CGContextConcatCTM(context, newTransform)
                 tf = CGContextGetCTM(context)
-                self.failIfEqual(tf, transform)
+                self.assertNotEqual(tf, transform)
 
 
             tf = CGContextGetCTM(context)
-            self.failUnlessEqual(tf, transform)
+            self.assertEqual(tf, transform)
 
            
-            # XXX: This need actual tests, this at least tests that
-            # the contextmanagers can be used
-            with CGTransparencyLayer(context, None):
-                pass
-
-            with CGTransparencyLayer(context, None, ((10, 10), (200, 200))):
-                pass
 
 
             CGContextEndPage(context)
@@ -402,7 +506,7 @@ class TestCGContext (TestCase):
 
         finally:
             CGContextEndPage(context)
-            CGPDFContextClose(context)
+            if hasattr(Quartz, 'CGPDFContextClose'): CGPDFContextClose(context)
             if os.path.exists("/tmp/pyobjc.test.pdf"):
                 os.unlink("/tmp/pyobjc.test.pdf")
 

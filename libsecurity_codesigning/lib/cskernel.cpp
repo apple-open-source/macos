@@ -157,7 +157,7 @@ void KernelCode::changeGuestStatus(SecCode *iguest, SecCodeStatusOperation opera
 			csops(guest, CS_OPS_MARKKILL);
 			break;
 		default:
-			MacOSError::throwMe(errSecCSInvalidOperation);
+			MacOSError::throwMe(errSecCSUnimplemented);
 		}
 	else
 		MacOSError::throwMe(errSecCSNoSuchCode);

@@ -3,30 +3,30 @@
 .\"man mdoc.samples for a complete listing of options
 .\"man mdoc for the short list of editing options
 .\"/usr/share/misc/mdoc.template
-.Dd May 07 2004               \" DATE 
+.Dd April 24 2010               \" DATE 
 .Dt dsconfigldap 1      \" Program name and manual section number 
 .Os Mac OS X
 .Sh NAME                 \" Section Header - required - don't modify 
 .Nm dsconfigldap
-.Nd LDAP server config/binding add/remove tool.
+.Nd LDAP server configuration/binding add/remove tool.
 .Sh SYNOPSIS             \" Section Header - required - don't modify
 .Nm
-.Op -fvixsgme
-.Ar -a servername
-.Op -n configname
-.Op -c computerid
-.Op -u username
-.Op -p password
-.Op -l username
-.Op -q password
+.Op Fl fvixsgmeS
+.Fl a Ar servername
+.Op Fl n Ar configname
+.Op Fl c Ar computerid
+.Op Fl u Ar username
+.Op Fl p Ar password
+.Op Fl l Ar username
+.Op Fl q Ar password
 .Pp
 .Nm
-.Op -fvi
-.Ar -r servername
-.Op -u username
-.Op -p password
-.Op -l username
-.Op -q password
+.Op Fl fviS
+.Fl r Ar servername
+.Op Fl u Ar username
+.Op Fl p Ar password
+.Op Fl l Ar username
+.Op Fl q Ar password
 .Pp
 options:
 .Bl -tag -width "1234567890123" -compact -offset indent
@@ -46,12 +46,10 @@ enforce packet signing security policy
 enforce man-in-middle security policy
 .It Fl e
 enforce encryption security policy
+.It Fl S
+do not update search policies
 .It Fl h
 display usage statement
-.El
-.Pp
-parameters:
-.Bl -tag -width "1234567890123" -compact -offset indent
 .It Fl a Ar servername
 add config of servername
 .It Fl r Ar servername
@@ -72,7 +70,7 @@ local admin password
 .Pp
 .Sh DESCRIPTION          \" Section Header - required - don't modify
 .Nm
-allows addition or removal of LDAP server configurations in Directory Services. Presented below is a discussion of possible parameters. Usage has three intents: add server config, remove server config, or display help.
+allows addition or removal of LDAP server configurations. Presented below is a discussion of possible parameters. Usage has three intents: add server config, remove server config, or display help.
 .Pp                      \" Inserts a space
 Options list and their descriptions:
 .Bl -tag -width -indent  \" Differs from above in tag removed 
@@ -92,12 +90,10 @@ This ensures that man-in-the-middle capabilities will be enforced via Kerberos, 
 This ensures that packet signing capabilities will be enforced via Kerberos, if the server supports the capability.
 .It Fl x
 Connection to the LDAP server will only be made over SSL.
+.It Fl S
+Will skip updating the search policies.
 .It Fl h
 Display usage statement.
-.El                      \" Ends the list
-.Pp                      \" Inserts a space
-Parameters list and their descriptions:
-.Bl -tag -width -indent  \" Differs from above in tag removed 
 .It Fl a Ar servername
 This is either the fully qualified domain name or correct IP address of the LDAP server to be added to the DirectoryService LDAPv3 configuration.
 .It Fl r Ar servername
@@ -117,14 +113,17 @@ Password for the local administrator.  This is a less secure method of providing
 .El                      \" Ends the list
 .Pp                      \" Inserts a space
 .Sh EXAMPLES
+.Nm
+-a ldap.company.com
 .Pp
-.Bl -tag -width -indent  \" Differs from above in tag removed 
-.It Fl "add a LDAP server config"
-dsconfigldap -v -a myldap.company.com
 The LDAP server config for the LDAP server myldap.company.com will be added. If authenticated directory binding is required by the LDAP server, then this call will fail. Otherwise, the following parameters configname, computerid, and local admin name will respectively pick up these defaults: ip address of the LDAP servername, substring up to first period of fully qualified hostname, and username of the user in the shell this tool was invoked.
-.It Fl "remove a LDAP server config"
-dsconfigldap -v -r myldap.company.com
-The LDAP server config for the LDAP server myldap.company.com will be removed but not unbound since no network user credentials were supplied.  The local admin name will be the username of the user in the shell this tool was invoked.
-.El                      \" Ends the list
 .Pp
+.Nm
+-r ldap.company.com
+.Pp
+The LDAP server config for the LDAP server myldap.company.com will be removed but not unbound since no network user credentials were supplied.  The local admin name will be the username of the user in the shell this tool was invoked.
+.Pp
+.Sh SEE ALSO
+.Pp
+opendirectoryd(8), odutil(1)
 .Pp

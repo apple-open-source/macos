@@ -1,0 +1,9 @@
+2009-01-10	Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* No longer Panic when an out-of-memory error occurs,
+	  when compiled with Tcl/Tk 8.5 or later and running with
+	  Tcl/Tk 8.5 and later (Tk bug #2477446)
+
+2008-11-04  Paul Obermeier  <obermeier@users.sourceforge.net>
+
+	* First version

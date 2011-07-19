@@ -1,0 +1,204 @@
+commit f484bd456e5a269ad2147b49aee5439ce8769757
+Author: Rémi Cardona <remi@gentoo.org>
+Date:   Mon Nov 15 22:30:42 2010 +0100
+
+    font-ibm-type1 1.0.3
+
+commit 186c498eb7d18c3ae8fa3f945c92db3973a4f638
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Oct 15 20:09:56 2010 -0400
+
+    config: Use the shorthand --disable-all-encodings option in font-util v1.2
+    
+    This option is useful to disable all possible font encodings at once,
+    without fine-graining the calling ebuilds for a list of encodings
+    supported by each font package.
+    
+    The option is parsed before all other encoding options, so it basically
+    sets defaults for all of them. Afterwards, any encoding can be
+    re-enabled back using '--enable-<encoding>' (much like
+    '--disable-all-encodings --enable-iso8859-2').
+    
+    Reviewed-by: Rémi Cardona <remi@gentoo.org>
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 9bc38f63582a50aa691599a38d8fe15168bcb2b2
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Oct 5 00:04:49 2010 -0700
+
+    font-ibm-type1 1.0.2
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 18efbd841fbe7ee356f9b55caf63d20277cfe981
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 14:23:51 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 3170042f5b8ee8210c5715817f9cfad12cf48669
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:49:07 2009 -0400
+
+    Makefile.am: add INSTALL target and clean ChangeLog DIST targets
+    
+    Add INSTALL target to generate file with INSTALL_CMD #24206
+    ChangeLog is not required in EXTRA_DIST  #24432
+    ChangeLog is not required in MAINTAINERCLEANFILES #24432
+
+commit 4f93872adb56f1590f35df5221347e85feafcad2
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Oct 18 20:34:34 2009 -0400
+
+    INSTALL, NEWS, README COPYING or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    COPYING may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 52073ae7794e06b8679c480179ab126915b77828
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Nov 23 13:38:51 2009 -0500
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 7f4e15697a6fc599a0371e831c6e90604c479e36
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Oct 10 17:39:28 2009 -0700
+
+    font-ibm-type1 1.0.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 1795b4003b73675883b419d21fcd2274d97de5db
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Oct 7 16:48:49 2009 -0700
+
+    Migrate to xorg macros 1.3 & font-util 1.1 macros
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 1696da07a125a5044e6b8a28f526b2e452824694
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Oct 6 19:14:28 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 28cef37b7914e1a1da6b41ab5c53c28eb14e3300
+Author: Ryan Hill <dirtyepic@gentoo.org>
+Date:   Sun Aug 16 14:51:55 2009 -0600
+
+    ibm-type1: Skip fc-cache with DESTDIR.
+    
+    Fontconfig-2.7.0 runs chmod on the cachedir, causing access violations
+    when installing into a sandboxed environment.
+    
+    Signed-off-by: Ryan Hill <dirtyepic@gentoo.org>
+    Signed-off-by: Rémi Cardona <remi@gentoo.org>
+
+commit 687b87d63da9eb81d7d56f1382dfd970d0358610
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 27 19:11:08 2009 -0200
+
+    Janitor: Correct make distcheck and configure.ac simplification
+
+commit 22fe783acc053eee246c419a573b85932e3aefd8
+Author: Andres Salomon <dilinger@debian.org>
+Date:   Sat Oct 25 20:50:21 2008 +0200
+
+    Bug#5176: cause configure to bail if mkfontscale or mkfontdir are not found
+    
+    Signed-off-by: Julien Cristau <jcristau@debian.org>
+
+commit 056fb025cabdf3bfe1aa22a44176e15ca3f58e00
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:56 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit ceb5a2a644035fd628962f11ae1dad15cadb0bb5
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:10 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 55b9beece254e04e5fe7801138818efb04d7beca
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Aug 23 19:26:33 2007 -0400
+
+    Rename .cvsignore to .gitignore
+
+commit 350c17bb5a550aa0f1a8018a594f31da4fe33aae
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:24 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit e9a4782c09ce8c0428a2bfbdf57c912f54e90c73
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 17:08:52 2005 +0000
+
+    Add m4 magic to allow AS_HELP_STRING to work with older versions of
+        autoconf 2.57.
+
+commit 5c4fada6f0f5554bd00d3244e9f717e3196364c3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:39 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 58dc95d24807612180f761305d7ca4a1ac7c986e
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Tue Nov 22 02:00:20 2005 +0000
+
+    Add .cvsignores for fonts.
+
+commit 750d912bc950dd7fa75754bfdd977bbd81e6ff28
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Nov 15 08:29:18 2005 +0000
+
+    Add configure option to change the installed font dir.
+
+commit 9947edb3bd659eff87d99a9371a31c97079a3012
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:48 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 3e97e5129f43becfe214d40bf06efbeb14383466
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jun 30 22:28:07 2005 +0000
+
+    Initial build system files for font module
+
+commit b8ace6dda82a9aa12e935122c8ec0df89b3d14c3
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:42 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 9cb0333f00580ec6bc0e098b4346d7a5737928c6
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:35 2003 +0000
+
+    R6.6 is the Xorg base-line

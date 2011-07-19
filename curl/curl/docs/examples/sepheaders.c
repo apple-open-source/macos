@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: sepheaders.c,v 1.10 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -22,7 +21,7 @@ static size_t write_data(void *ptr, size_t size, size_t nmemb, void *stream)
   return written;
 }
 
-int main(int argc, char **argv)
+int main(void)
 {
   CURL *curl_handle;
   static const char *headerfilename = "head.out";
@@ -36,7 +35,7 @@ int main(int argc, char **argv)
   curl_handle = curl_easy_init();
 
   /* set URL to get */
-  curl_easy_setopt(curl_handle, CURLOPT_URL, "http://curl.haxx.se");
+  curl_easy_setopt(curl_handle, CURLOPT_URL, "http://example.com");
 
   /* no progress meter please */
   curl_easy_setopt(curl_handle, CURLOPT_NOPROGRESS, 1L);

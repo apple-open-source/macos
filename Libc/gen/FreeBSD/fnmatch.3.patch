@@ -1,10 +1,21 @@
---- _SB/Libc/gen/FreeBSD/fnmatch.3	2004-11-25 11:38:00.000000000 -0800
-+++ _SB/Libc/gen/FreeBSD/fnmatch.3.edit	2006-06-28 16:55:50.000000000 -0700
-@@ -126,7 +126,7 @@
+--- fnmatch.3.orig	2011-02-17 17:09:58.000000000 -0800
++++ fnmatch.3	2011-02-18 12:10:47.000000000 -0800
+@@ -122,7 +122,18 @@
  function returns zero if
  .Fa string
  matches the pattern specified by
 -.Fa pattern ,
++.Fa pattern .
++It returns the value
++.Dv FNM_NOMATCH
++if no match is found.
++Otherwise, another non-zero value is returned on error.
++.Sh LEGACY RETURN VALUES
++The
++.Fn fnmatch
++function returns zero if
++.Fa string
++matches the pattern specified by
 +.Fa pattern ;
  otherwise, it returns the value
  .Dv FNM_NOMATCH .

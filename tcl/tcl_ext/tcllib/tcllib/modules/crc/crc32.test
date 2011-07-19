@@ -6,7 +6,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# RCS: @(#) $Id: crc32.test,v 1.11 2006/10/09 21:41:40 andreas_kupries Exp $
+# RCS: @(#) $Id: crc32.test,v 1.12 2009/03/04 01:01:42 patthoyts Exp $
 
 # -------------------------------------------------------------------------
 
@@ -177,6 +177,35 @@ foreach impl [implementations] {
     foreach {n seed msg expected} $tests {
         test crc32-$impl-5.$n "crc32 initial seed option ($impl)" {
             list [catch {::crc::crc32 -seed $seed $msg} err] $err
+        } [list 0 $expected]
+    }
+    reset_implementation
+}
+
+# -------------------------------------------------------------------------
+
+set tests {
+    1    "a" "bc"
+    "891568578"
+    2    "message" " digest"
+    "538287487"
+    3    "abcdefghijkl" "mnopqrstuvwxyz"
+    "1277644989"
+    4    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz012345678" "9"
+    "532866770"
+    5    "1234567890" 
+    "1234567890123456789012345678901234567890123456789012345678901234567890"
+    "2091469426"
+    6    "\uFFFE\u0000" "\u0001\u0002"
+    "2968055525"
+}
+foreach impl [implementations] {
+    select_implementation $impl
+    foreach {n msgA msgB expected} $tests {
+        test crc32-$impl-6.$n "crc32 using -seed ($impl)" {
+            list [catch {
+                ::crc::crc32 -seed [expr {[::crc::crc32 $msgA] ^ 0xffffffff}] $msgB
+            } err] $err
         } [list 0 $expected]
     }
     reset_implementation

@@ -1,0 +1,18 @@
+g/-Wl,-search_paths_first/d
+g/ -lSystemStubs -arch_only [^"]*/s///
+g/-current_version $(VERSION)/s//-current_version $(PYTHON_CURRENT_VERSION)/
+g/-O3/s//-Os/g
+/^OTHER_LIBTOOL_OPT$/i
+EXTRA_CFLAGS
+LIBTOOL
+.
+/LIBTOOL_CRUFT=""/i
+            LIBTOOL='$(CC) -dynamiclib -all_load $(CFLAGS)'
+.
+/LIBFFI_INCLUDEDIR="`/s,".*","/usr/include/ffi",
+/^# check for endianness/i
+# Enable dtrace
+EXTRA_CFLAGS="$EXTRA_CFLAGS -DENABLE_DTRACE"
+
+.
+w

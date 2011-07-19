@@ -16,6 +16,7 @@
 #define LTO_CODE_GENERATOR_H
 
 #include "llvm/Linker.h"
+#include "llvm/LLVMContext.h"
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/SmallVector.h"
 
@@ -26,23 +27,23 @@
 // C++ class which implements the opaque lto_code_gen_t
 //
 
-class LTOCodeGenerator {
-public:
+struct LTOCodeGenerator {
     static const char*        getVersionString();
     
                             LTOCodeGenerator();
                             ~LTOCodeGenerator();
                             
-    bool                addModule(class LTOModule*, std::string& errMsg);
+    bool                addModule(struct LTOModule*, std::string& errMsg);
     bool                setDebugInfo(lto_debug_model, std::string& errMsg);
     bool                setCodePICModel(lto_codegen_model, std::string& errMsg);
+    void                setAssemblerPath(const char* path);
     void                addMustPreserveSymbol(const char* sym);
     bool                writeMergedModules(const char* path, 
                                                            std::string& errMsg);
     const void*         compile(size_t* length, std::string& errMsg);
     void                setCodeGenDebugOptions(const char *opts); 
 private:
-    bool                generateAssemblyCode(llvm::raw_ostream& out, 
+    bool                generateAssemblyCode(llvm::formatted_raw_ostream& out, 
                                              std::string& errMsg);
     bool                assemble(const std::string& asmPath, 
                             const std::string& objPath, std::string& errMsg);
@@ -51,6 +52,7 @@ private:
     
     typedef llvm::StringMap<uint8_t> StringSet;
 
+    llvm::LLVMContext&          _context;
     llvm::Linker                _linker;
     llvm::TargetMachine*        _target;
     bool                        _emitDwarfDebugInfo;
@@ -59,6 +61,7 @@ private:
     StringSet                   _mustPreserveSymbols;
     llvm::MemoryBuffer*         _nativeObjectFile;
     std::vector<const char*>    _codegenOptions;
+    llvm::sys::Path*            _assemblerPath;
 };
 
 #endif // LTO_CODE_GENERATOR_H

@@ -1,5 +1,5 @@
---- _SB/Libc/gen/FreeBSD/pselect.3	2003-05-20 15:21:02.000000000 -0700
-+++ _SB/Libc/gen/FreeBSD/pselect.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- pselect.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ pselect.3	2009-11-07 14:51:39.000000000 -0800
 @@ -37,15 +37,15 @@
  .Sh LIBRARY
  .Lb libc
@@ -22,7 +22,7 @@
  .Fc
  .Sh DESCRIPTION
  The
-@@ -57,7 +57,7 @@
+@@ -57,7 +57,7 @@ as a slightly stronger version of
  The
  .Fa nfds , readfds , writefds ,
  and
@@ -31,7 +31,7 @@
  arguments are all identical to the analogous arguments of
  .Fn select .
  The
-@@ -65,7 +65,7 @@
+@@ -65,7 +65,7 @@ The
  argument in
  .Fn pselect
  points to a
@@ -40,7 +40,7 @@
  rather than the (modifiable)
  .Vt "struct timeval"
  used by
-@@ -76,7 +76,7 @@
+@@ -76,7 +76,7 @@ a null pointer may be passed to indicate
  .Fn pselect
  should wait indefinitely.
  Finally,

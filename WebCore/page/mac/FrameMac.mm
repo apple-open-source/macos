@@ -32,8 +32,6 @@
 #import "ColorMac.h"
 #import "Cursor.h"
 #import "DOMInternal.h"
-#import "DocumentLoader.h"
-#import "EditorClient.h"
 #import "Event.h"
 #import "FrameLoaderClient.h"
 #import "FrameView.h"
@@ -54,14 +52,9 @@
 #import "SimpleFontData.h"
 #import "WebCoreViewFactory.h"
 #import "visible_units.h"
-
 #import <Carbon/Carbon.h>
 #import <wtf/StdLibExtras.h>
 
-#if ENABLE(DASHBOARD_SUPPORT)
-#import "WebDashboardRegion.h"
-#endif
- 
 @interface NSView (WebCoreHTMLDocumentView)
 - (void)drawSingleRect:(NSRect)rect;
 @end
@@ -143,43 +136,6 @@ static RegularExpression* regExpForLabels(NSArray* labels)
     return result;
 }
 
-NSString* Frame::searchForNSLabelsAboveCell(RegularExpression* regExp, HTMLTableCellElement* cell, size_t* resultDistanceFromStartOfCell)
-{
-    RenderObject* cellRenderer = cell->renderer();
-
-    if (cellRenderer && cellRenderer->isTableCell()) {
-        RenderTableCell* tableCellRenderer = toRenderTableCell(cellRenderer);
-        RenderTableCell* cellAboveRenderer = tableCellRenderer->table()->cellAbove(tableCellRenderer);
-
-        if (cellAboveRenderer) {
-            HTMLTableCellElement* aboveCell =
-                static_cast<HTMLTableCellElement*>(cellAboveRenderer->node());
-
-            if (aboveCell) {
-                // search within the above cell we found for a match
-                size_t lengthSearched = 0;    
-                for (Node* n = aboveCell->firstChild(); n; n = n->traverseNextNode(aboveCell)) {
-                    if (n->isTextNode() && n->renderer() && n->renderer()->style()->visibility() == VISIBLE) {
-                        // For each text chunk, run the regexp
-                        String nodeString = n->nodeValue();
-                        int pos = regExp->searchRev(nodeString);
-                        if (pos >= 0) {
-                            if (resultDistanceFromStartOfCell)
-                                *resultDistanceFromStartOfCell = lengthSearched;
-                            return nodeString.substring(pos, regExp->matchedLength());
-                        }
-                        lengthSearched += nodeString.length();
-                    }
-                }
-            }
-        }
-    }
-    // Any reason in practice to search all cells in that are above cell?
-    if (resultDistanceFromStartOfCell)
-        *resultDistanceFromStartOfCell = notFound;
-    return nil;
-}
-
 NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element, size_t* resultDistance, bool* resultIsInCellAbove)
 {
     RegularExpression* regExp = regExpForLabels(labels);
@@ -198,7 +154,7 @@ NSString* Frame::searchForLabelsBeforeElement(NSArray* labels, Element* element,
         *resultIsInCellAbove = false;
 
     // walk backwards in the node tree, until another element, or form, or end of tree
-    int unsigned lengthSearched = 0;
+    unsigned lengthSearched = 0;
     Node* n;
     for (n = element->traversePreviousNode();
          n && lengthSearched < charsSearchedThreshold;
@@ -299,50 +255,33 @@ NSString* Frame::matchLabelsAgainstElement(NSArray* labels, Element* element)
 
 NSImage* Frame::imageFromRect(NSRect rect) const
 {
-    NSView* view = m_view->documentView();
-    if (!view)
-        return nil;
-    if (![view respondsToSelector:@selector(drawSingleRect:)])
-        return nil;
+    PaintBehavior oldBehavior = m_view->paintBehavior();
+    m_view->setPaintBehavior(oldBehavior | PaintBehaviorFlattenCompositingLayers);
     
-    PaintBehavior oldPaintBehavior = m_view->paintBehavior();
-    m_view->setPaintBehavior(oldPaintBehavior | PaintBehaviorFlattenCompositingLayers);
-
     BEGIN_BLOCK_OBJC_EXCEPTIONS;
     
-    NSRect bounds = [view bounds];
-    
-    // Round image rect size in window coordinate space to avoid pixel cracks at HiDPI (4622794)
-    rect = [view convertRect:rect toView:nil];
-    rect.size.height = roundf(rect.size.height);
-    rect.size.width = roundf(rect.size.width);
-    rect = [view convertRect:rect fromView:nil];
-    
     NSImage* resultImage = [[[NSImage alloc] initWithSize:rect.size] autorelease];
-
+    
     if (rect.size.width != 0 && rect.size.height != 0) {
         [resultImage setFlipped:YES];
         [resultImage lockFocus];
-        CGContextRef context = (CGContextRef)[[NSGraphicsContext currentContext] graphicsPort];
-        CGContextSaveGState(context);
-        CGContextTranslateCTM(context, bounds.origin.x - rect.origin.x, bounds.origin.y - rect.origin.y);
 
-        // Note: Must not call drawRect: here, because drawRect: assumes that it's called from AppKit's
-        // display machinery. It calls getRectsBeingDrawn:count:, which can only be called inside
-        // when a real AppKit display is underway.
-        [view drawSingleRect:rect];
+        GraphicsContext graphicsContext((CGContextRef)[[NSGraphicsContext currentContext] graphicsPort]);        
+        graphicsContext.save();
+        graphicsContext.translate(-rect.origin.x, -rect.origin.y);
+        m_view->paintContents(&graphicsContext, IntRect(rect));
+        graphicsContext.restore();
 
-        CGContextRestoreGState(context);
         [resultImage unlockFocus];
         [resultImage setFlipped:NO];
     }
-
-    m_view->setPaintBehavior(oldPaintBehavior);
+    
+    m_view->setPaintBehavior(oldBehavior);
     return resultImage;
-
+    
     END_BLOCK_OBJC_EXCEPTIONS;
     
-    m_view->setPaintBehavior(oldPaintBehavior);
+    m_view->setPaintBehavior(oldBehavior);
     return nil;
 }
 
@@ -350,7 +289,7 @@ NSImage* Frame::selectionImage(bool forceBlackText) const
 {
     m_view->setPaintBehavior(PaintBehaviorSelectionOnly | (forceBlackText ? PaintBehaviorForceBlackText : 0));
     m_doc->updateLayout();
-    NSImage* result = imageFromRect(selectionBounds());
+    NSImage* result = imageFromRect(selection()->bounds());
     m_view->setPaintBehavior(PaintBehaviorNormal);
     return result;
 }
@@ -380,7 +319,7 @@ NSImage* Frame::snapshotDragImage(Node* node, NSRect* imageRect, NSRect* element
     return result;
 }
 
-NSImage* Frame::nodeImage(Node* node) const
+DragImageRef Frame::nodeImage(Node* node)
 {
     RenderObject* renderer = node->renderer();
     if (!renderer)
@@ -398,144 +337,7 @@ NSImage* Frame::nodeImage(Node* node) const
     return result;
 }
 
-NSDictionary* Frame::fontAttributesForSelectionStart() const
-{
-    Node* nodeToRemove;
-    RenderStyle* style = styleForSelectionStart(nodeToRemove);
-    if (!style)
-        return nil;
-
-    NSMutableDictionary* result = [NSMutableDictionary dictionary];
-
-    if (style->visitedDependentColor(CSSPropertyBackgroundColor).isValid() && style->visitedDependentColor(CSSPropertyBackgroundColor).alpha() != 0)
-        [result setObject:nsColor(style->visitedDependentColor(CSSPropertyBackgroundColor)) forKey:NSBackgroundColorAttributeName];
-
-    if (style->font().primaryFont()->getNSFont())
-        [result setObject:style->font().primaryFont()->getNSFont() forKey:NSFontAttributeName];
-
-    if (style->visitedDependentColor(CSSPropertyColor).isValid() && style->visitedDependentColor(CSSPropertyColor) != Color::black)
-        [result setObject:nsColor(style->visitedDependentColor(CSSPropertyColor)) forKey:NSForegroundColorAttributeName];
-
-    const ShadowData* shadow = style->textShadow();
-    if (shadow) {
-        NSShadow* s = [[NSShadow alloc] init];
-        [s setShadowOffset:NSMakeSize(shadow->x(), shadow->y())];
-        [s setShadowBlurRadius:shadow->blur()];
-        [s setShadowColor:nsColor(shadow->color())];
-        [result setObject:s forKey:NSShadowAttributeName];
-    }
-
-    int decoration = style->textDecorationsInEffect();
-    if (decoration & LINE_THROUGH)
-        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSStrikethroughStyleAttributeName];
-
-    int superscriptInt = 0;
-    switch (style->verticalAlign()) {
-        case BASELINE:
-        case BOTTOM:
-        case BASELINE_MIDDLE:
-        case LENGTH:
-        case MIDDLE:
-        case TEXT_BOTTOM:
-        case TEXT_TOP:
-        case TOP:
-            break;
-        case SUB:
-            superscriptInt = -1;
-            break;
-        case SUPER:
-            superscriptInt = 1;
-            break;
-    }
-    if (superscriptInt)
-        [result setObject:[NSNumber numberWithInt:superscriptInt] forKey:NSSuperscriptAttributeName];
-
-    if (decoration & UNDERLINE)
-        [result setObject:[NSNumber numberWithInt:NSUnderlineStyleSingle] forKey:NSUnderlineStyleAttributeName];
-
-    if (nodeToRemove) {
-        ExceptionCode ec = 0;
-        nodeToRemove->remove(ec);
-        ASSERT(ec == 0);
-    }
-
-    return result;
-}
-
-NSWritingDirection Frame::baseWritingDirectionForSelectionStart() const
-{
-    NSWritingDirection result = NSWritingDirectionLeftToRight;
-
-    Position pos = selection()->selection().visibleStart().deepEquivalent();
-    Node* node = pos.node();
-    if (!node)
-        return result;
-
-    RenderObject* renderer = node->renderer();
-    if (!renderer)
-        return result;
-
-    if (!renderer->isBlockFlow()) {
-        renderer = renderer->containingBlock();
-        if (!renderer)
-            return result;
-    }
-
-    RenderStyle* style = renderer->style();
-    if (!style)
-        return result;
-        
-    switch (style->direction()) {
-        case LTR:
-            result = NSWritingDirectionLeftToRight;
-            break;
-        case RTL:
-            result = NSWritingDirectionRightToLeft;
-            break;
-    }
-
-    return result;
-}
-
-#if ENABLE(DASHBOARD_SUPPORT)
-NSMutableDictionary* Frame::dashboardRegionsDictionary()
-{
-    Document* doc = document();
-
-    const Vector<DashboardRegionValue>& regions = doc->dashboardRegions();
-    size_t n = regions.size();
-
-    // Convert the Vector<DashboardRegionValue> into a NSDictionary of WebDashboardRegions
-    NSMutableDictionary* webRegions = [NSMutableDictionary dictionaryWithCapacity:n];
-    for (size_t i = 0; i < n; i++) {
-        const DashboardRegionValue& region = regions[i];
-
-        if (region.type == StyleDashboardRegion::None)
-            continue;
-        
-        NSString *label = region.label;
-        WebDashboardRegionType type = WebDashboardRegionTypeNone;
-        if (region.type == StyleDashboardRegion::Circle)
-            type = WebDashboardRegionTypeCircle;
-        else if (region.type == StyleDashboardRegion::Rectangle)
-            type = WebDashboardRegionTypeRectangle;
-        NSMutableArray *regionValues = [webRegions objectForKey:label];
-        if (!regionValues) {
-            regionValues = [[NSMutableArray alloc] initWithCapacity:1];
-            [webRegions setObject:regionValues forKey:label];
-            [regionValues release];
-        }
-        
-        WebDashboardRegion *webRegion = [[WebDashboardRegion alloc] initWithRect:region.bounds clip:region.clip type:type];
-        [regionValues addObject:webRegion];
-        [webRegion release];
-    }
-    
-    return webRegions;
-}
-#endif
-
-DragImageRef Frame::dragImageForSelection() 
+DragImageRef Frame::dragImageForSelection()
 {
     if (!selection()->isRange())
         return nil;

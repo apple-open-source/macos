@@ -1,6 +1,6 @@
---- ls/ls.c.orig	2006-10-25 13:25:54.000000000 -0700
-+++ ls/ls.c	2006-10-25 16:35:22.000000000 -0700
-@@ -350,15 +350,17 @@
+--- tnftpd-20091122/ls/ls.c	2009-03-01 14:58:20.000000000 -0800
++++ tnftpd/ls/ls.c	2010-01-28 14:51:45.000000000 -0800
+@@ -353,15 +353,17 @@
  {
  	FTS *ftsp;
  	FTSENT *p, *chp;
@@ -21,7 +21,7 @@
  
  	/*
  	 * If not recursing down this tree and don't need stat info, just get
-@@ -400,6 +402,12 @@
+@@ -403,6 +405,12 @@
  				(void)fts_set(ftsp, p, FTS_SKIP);
  			break;
  		}

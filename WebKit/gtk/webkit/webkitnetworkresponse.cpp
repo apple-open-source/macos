@@ -24,9 +24,9 @@
 
 #include "GRefPtr.h"
 #include "ResourceResponse.h"
-#include "webkitprivate.h"
-
+#include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitnetworkresponse
@@ -120,7 +120,7 @@ static void webkit_network_response_class_init(WebKitNetworkResponseClass* respo
     objectClass->get_property = webkit_network_response_get_property;
     objectClass->set_property = webkit_network_response_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitNetworkResponse:uri:
@@ -156,16 +156,6 @@ static void webkit_network_response_class_init(WebKitNetworkResponseClass* respo
 static void webkit_network_response_init(WebKitNetworkResponse* response)
 {
     response->priv = WEBKIT_NETWORK_RESPONSE_GET_PRIVATE(response);
-}
-
-// for internal use only
-WebKitNetworkResponse* webkit_network_response_new_with_core_response(const WebCore::ResourceResponse& resourceResponse)
-{
-    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceResponse.toSoupMessage()));
-    if (soupMessage)
-        return WEBKIT_NETWORK_RESPONSE(g_object_new(WEBKIT_TYPE_NETWORK_RESPONSE, "message", soupMessage.get(), NULL));
-
-    return WEBKIT_NETWORK_RESPONSE(g_object_new(WEBKIT_TYPE_NETWORK_RESPONSE, "uri", resourceResponse.url().string().utf8().data(), NULL));
 }
 
 /**
@@ -241,14 +231,14 @@ G_CONST_RETURN gchar* webkit_network_response_get_uri(WebKitNetworkResponse* res
 }
 
 /**
- * webkit_network_response_get_soup_message:
+ * webkit_network_response_get_message:
  * @response: a #WebKitNetworkResponse
  *
  * Obtains the #SoupMessage that represents the given response. Notice
  * that only the response side of the HTTP conversation is
  * represented.
  *
- * Returns: the #SoupMessage
+ * Returns: (transfer none): the #SoupMessage
  * Since: 1.1.14
  */
 SoupMessage* webkit_network_response_get_message(WebKitNetworkResponse* response)
@@ -258,4 +248,26 @@ SoupMessage* webkit_network_response_get_message(WebKitNetworkResponse* response
     WebKitNetworkResponsePrivate* priv = response->priv;
 
     return priv->message;
+}
+
+namespace WebKit {
+
+WebCore::ResourceResponse core(WebKitNetworkResponse* response)
+{
+    SoupMessage* soupMessage = webkit_network_response_get_message(response);
+    if (soupMessage)
+        return WebCore::ResourceResponse(soupMessage);
+
+    return WebCore::ResourceResponse();
+}
+
+WebKitNetworkResponse* kitNew(const WebCore::ResourceResponse& resourceResponse)
+{
+    GRefPtr<SoupMessage> soupMessage(adoptGRef(resourceResponse.toSoupMessage()));
+    if (soupMessage)
+        return WEBKIT_NETWORK_RESPONSE(g_object_new(WEBKIT_TYPE_NETWORK_RESPONSE, "message", soupMessage.get(), NULL));
+
+    return WEBKIT_NETWORK_RESPONSE(g_object_new(WEBKIT_TYPE_NETWORK_RESPONSE, "uri", resourceResponse.url().string().utf8().data(), NULL));
+}
+
 }

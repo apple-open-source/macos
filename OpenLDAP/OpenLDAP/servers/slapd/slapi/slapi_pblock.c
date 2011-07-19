@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_pblock.c,v 1.63.2.7 2008/02/11 23:26:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapi/slapi_pblock.c,v 1.63.2.11 2010/04/13 20:23:51 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2002-2008 The OpenLDAP Foundation.
+ * Copyright 2002-2010 The OpenLDAP Foundation.
  * Portions Copyright 1997,2002-2003 IBM Corporation.
  * All rights reserved.
  *
@@ -396,7 +396,7 @@ static int
 pblock_set_default( Slapi_PBlock *pb, int param, void *value ) 
 {
 	slapi_pblock_class_t pbClass;
-	size_t i;
+	int i;
 
 	pbClass = pblock_get_param_class( param );
 	if ( pbClass == PBLOCK_CLASS_INVALID ) {
@@ -1152,7 +1152,7 @@ pblock_set( Slapi_PBlock *pb, int param, void *value )
 			for ( i = 0; attrs[i] != NULL; i++ ) {
 				an[j].an_desc = NULL;
 				an[j].an_oc = NULL;
-				an[j].an_oc_exclude = 0;
+				an[j].an_flags = 0;
 				an[j].an_name.bv_val = attrs[i];
 				an[j].an_name.bv_len = strlen( attrs[i] );
 				if ( slap_bv2ad( &an[j].an_name, &an[j].an_desc, &pb->pb_rs->sr_text ) == LDAP_SUCCESS ) {

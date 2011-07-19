@@ -13,10 +13,10 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: tclInt.decls,v 1.121.2.1 2009/04/10 18:02:42 das Exp $
+# RCS: @(#) $Id: tclInt.decls,v 1.121.2.4 2010/02/07 22:16:54 nijtmans Exp $
 
 library tcl
-
+
 # Define the unsupported generic interfaces.
 
 interface tclInt
@@ -43,7 +43,7 @@ declare 3 generic {
 #  declare 4 generic {
 #      int TclChdir(Tcl_Interp *interp, char *dirName)
 #  }
-declare 5 {unix win} {
+declare 5 generic {
     int TclCleanupChildren(Tcl_Interp *interp, int numPids, Tcl_Pid *pidPtr,
 	    Tcl_Channel errorChan)
 }
@@ -60,7 +60,7 @@ declare 8 generic {
 
 # TclCreatePipeline unofficially exported for use by BLT.
 
-declare 9 {unix win} {
+declare 9 generic {
     int TclCreatePipeline(Tcl_Interp *interp, int argc, CONST char **argv,
 	    Tcl_Pid **pidArrayPtr, TclFile *inPipePtr, TclFile *outPipePtr,
 	    TclFile *errFilePtr)
@@ -420,7 +420,7 @@ declare 103 generic {
     int TclSockGetPort(Tcl_Interp *interp, CONST char *str, CONST char *proto,
 	    int *portPtr)
 }
-declare 104 {unix win} {
+declare 104 generic {
     int TclSockMinimumBuffers(int sock, int size)
 }
 # Replaced by Tcl_FSStat in 8.4:
@@ -644,7 +644,7 @@ declare 162 generic {
     void TclChannelEventScriptInvoker(ClientData clientData, int flags)
 }
 
-# ALERT: The result of 'TclGetInstructionTable' is actually an
+# ALERT: The result of 'TclGetInstructionTable' is actually a
 # "InstructionDesc*" but we do not want to describe this structure in
 # "tclInt.h". It is described in "tclCompile.h". Use a cast to the
 # correct type when calling this procedure.
@@ -801,7 +801,7 @@ declare 183 generic {
 #
 #declare 197 generic {
 #    int TclCompEvalObj(Tcl_Interp *interp, Tcl_Obj *objPtr,
-#		        CONST CmdFrame* invoker, int word)
+#		        CONST CmdFrame *invoker, int word)
 #}
 declare 198 generic {
     int TclObjGetFrame(Tcl_Interp *interp, Tcl_Obj *objPtr,
@@ -845,32 +845,32 @@ declare 208 generic {
 }
 # Made public by TIP 258
 #declare 209 generic {
-#    Tcl_Obj * TclGetEncodingSearchPath(void)
+#    Tcl_Obj *TclGetEncodingSearchPath(void)
 #}
 #declare 210 generic {
 #    int TclSetEncodingSearchPath(Tcl_Obj *searchPath)
 #}
 #declare 211 generic {
-#    CONST char * TclpGetEncodingNameFromEnvironment(Tcl_DString *bufPtr)
+#    CONST char *TclpGetEncodingNameFromEnvironment(Tcl_DString *bufPtr)
 #}
 declare 212 generic {
     void TclpFindExecutable(CONST char *argv0)
 }
 declare 213 generic {
-    Tcl_Obj * TclGetObjNameOfExecutable(void)
+    Tcl_Obj *TclGetObjNameOfExecutable(void)
 }
 declare 214 generic {
     void TclSetObjNameOfExecutable(Tcl_Obj *name, Tcl_Encoding encoding)
 }
 declare 215 generic {
-    void * TclStackAlloc(Tcl_Interp *interp, int numBytes)
+    void *TclStackAlloc(Tcl_Interp *interp, int numBytes)
 }
 declare 216 generic {
     void TclStackFree(Tcl_Interp *interp, void *freePtr)
 }
 declare 217 generic {
     int TclPushStackFrame(Tcl_Interp *interp, Tcl_CallFrame **framePtrPtr,
-            Tcl_Namespace *namespacePtr, int isProcCallFrame )
+            Tcl_Namespace *namespacePtr, int isProcCallFrame)
 }
 declare 218 generic {
     void TclPopStackFrame(Tcl_Interp *interp)
@@ -914,7 +914,7 @@ declare 231 generic {
 # Bits and pieces of TIP#280's guts
 declare 232 generic {
     int TclEvalObjEx(Tcl_Interp *interp, Tcl_Obj *objPtr, int flags,
-	    const CmdFrame *invoker, int word)
+	    CONST CmdFrame *invoker, int word)
 }
 declare 233 generic {
     void TclGetSrcInfoForPc(CmdFrame *contextPtr)
@@ -922,7 +922,7 @@ declare 233 generic {
 
 # Exports for VarReform compat: Itcl, XOTcl like to peek into our varTables :(
 declare 234 generic {
-    Var *TclVarHashCreateVar(TclVarHashTable *tablePtr, const char *key,
+    Var *TclVarHashCreateVar(TclVarHashTable *tablePtr, CONST char *key,
              int *newPtr)
 }
 declare 235 generic {
@@ -930,10 +930,17 @@ declare 235 generic {
 }
 
 
+# TIP 337 made this one public
 declare 236 generic {
     void TclBackgroundException(Tcl_Interp *interp, int code)
 }
 
+# Tcl_Obj leak detection support.
+declare 243 generic {
+    void TclDbDumpActiveObjects(FILE *outFile)
+}
+
+
 ##############################################################################
 
 # Define the platform specific internal Tcl interface. These functions are
@@ -945,10 +952,10 @@ interface tclIntPlat
 # Windows specific functions
 
 declare 0 win {
-    void TclWinConvertError(DWORD errCode)
+    void TclWinConvertError(unsigned long errCode)
 }
 declare 1 win {
-    void TclWinConvertWSAError(DWORD errCode)
+    void TclWinConvertWSAError(unsigned long errCode)
 }
 declare 2 win {
     struct servent *TclWinGetServByName(CONST char *nm,
@@ -1017,7 +1024,7 @@ declare 19 win {
     TclFile TclpOpenFile(CONST char *fname, int mode)
 }
 declare 20 win {
-    void TclWinAddProcess(HANDLE hProcess, DWORD id)
+    void TclWinAddProcess(void *hProcess, unsigned long id)
 }
 
 # removed permanently for 8.4
@@ -1055,7 +1062,7 @@ declare 28 win {
     void TclWinResetInterfaces(void)
 }
 declare 29 win {
-    int TclWinCPUID( unsigned int index, unsigned int *regs )
+    int TclWinCPUID(unsigned int index, unsigned int *regs)
 }
 
 ################################
@@ -1148,3 +1155,8 @@ declare 18 macosx {
 declare 19 macosx {
     void TclMacOSXNotifierAddRunLoopMode(CONST void *runLoopMode)
 }
+
+
+# Local Variables:
+# mode: tcl
+# End:

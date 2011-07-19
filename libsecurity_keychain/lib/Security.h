@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -51,8 +51,10 @@
 #include <Security/SecAccess.h>
 #include <Security/SecACL.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecCertificateOIDs.h>
 #include <Security/SecIdentity.h>
 #include <Security/SecIdentitySearch.h>
+#include <Security/SecItem.h>
 #include <Security/SecKey.h>
 #include <Security/SecKeychain.h>
 #include <Security/SecKeychainItem.h>
@@ -63,10 +65,26 @@
 #include <Security/SecTrustedApplication.h>
 #include <Security/SecTrustSettings.h>
 #include <Security/SecImportExport.h>
+#include <Security/SecStaticCode.h>
 
 #include <Security/Authorization.h>
 #include <Security/AuthorizationTags.h>
 #include <Security/AuthorizationDB.h>
 
+#include <Security/CMSDecoder.h>
+#include <Security/CMSEncoder.h>
+
 #include <Security/CipherSuite.h>
 #include <Security/SecureTransport.h>
+
+#ifdef __BLOCKS__
+#include <Security/SecTransform.h>
+#include <Security/SecCustomTransform.h>
+#include <Security/SecDecodeTransform.h>
+#include <Security/SecDigestTransform.h>
+#include <Security/SecEncodeTransform.h>
+#include <Security/SecEncryptTransform.h>
+#include <Security/SecSignVerifyTransform.h>
+#include <Security/SecReadTransform.h>
+#endif
+

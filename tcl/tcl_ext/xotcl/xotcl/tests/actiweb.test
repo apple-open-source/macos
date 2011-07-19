@@ -4,10 +4,10 @@
 #if {[set ::tcl_platform(platform)] == "windows"} {
 #  lappend auto_path .
 #}
-package require XOTcl; namespace import -force ::xotcl::*
+package require XOTcl 1; namespace import -force ::xotcl::*
 set pkgDir [file dirname [info script]]/..
 lappend auto_path $pkgDir
-package require xotcl::test
+package require xotcl::test 1
 #package require xotcl::package; package verbose 1
 package require xotcl::comm::httpAccess
 #package require xotcl::trace

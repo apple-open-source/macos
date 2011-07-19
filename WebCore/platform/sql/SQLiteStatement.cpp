@@ -26,10 +26,13 @@
 #include "config.h"
 #include "SQLiteStatement.h"
 
+#if ENABLE(DATABASE)
+
 #include "Logging.h"
 #include "SQLValue.h"
 #include <sqlite3.h>
 #include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 
 namespace WebCore {
 
@@ -61,6 +64,11 @@ SQLiteStatement::~SQLiteStatement()
 int SQLiteStatement::prepare()
 {
     ASSERT(!m_isPrepared);
+
+    MutexLocker databaseLock(m_database.databaseMutex());
+    if (m_database.isInterrupted())
+        return SQLITE_INTERRUPT;
+
     const void* tail = 0;
     LOG(SQLDatabase, "SQL - prepare - %s", m_query.ascii().data());
     String strippedQuery = m_query.stripWhiteSpace();
@@ -88,6 +96,11 @@ int SQLiteStatement::prepare()
 int SQLiteStatement::step()
 {
     ASSERT(m_isPrepared);
+
+    MutexLocker databaseLock(m_database.databaseMutex());
+    if (m_database.isInterrupted())
+        return SQLITE_INTERRUPT;
+
     if (!m_statement)
         return SQLITE_OK;
     LOG(SQLDatabase, "SQL - step - %s", m_query.ascii().data());
@@ -163,6 +176,20 @@ int SQLiteStatement::bindBlob(int index, const void* blob, int size)
     return sqlite3_bind_blob(m_statement, index, blob, size, SQLITE_TRANSIENT);
 }
 
+int SQLiteStatement::bindBlob(int index, const String& text)
+{
+    // String::characters() returns 0 for the empty string, which SQLite
+    // treats as a null, so we supply a non-null pointer for that case.
+    UChar anyCharacter = 0;
+    const UChar* characters;
+    if (text.isEmpty() && !text.isNull())
+        characters = &anyCharacter;
+    else
+        characters = text.characters();
+
+    return bindBlob(index, characters, text.length() * sizeof(UChar));
+}
+
 int SQLiteStatement::bindText(int index, const String& text)
 {
     ASSERT(m_isPrepared);
@@ -181,6 +208,14 @@ int SQLiteStatement::bindText(int index, const String& text)
     return sqlite3_bind_text16(m_statement, index, characters, sizeof(UChar) * text.length(), SQLITE_TRANSIENT);
 }
 
+int SQLiteStatement::bindInt(int index, int integer)
+{
+    ASSERT(m_isPrepared);
+    ASSERT(index > 0);
+    ASSERT(static_cast<unsigned>(index) <= bindParameterCount());
+
+    return sqlite3_bind_int(m_statement, index, integer);
+}
 
 int SQLiteStatement::bindInt64(int index, int64_t integer)
 {
@@ -238,6 +273,18 @@ int SQLiteStatement::columnCount()
     if (!m_statement)
         return 0;
     return sqlite3_data_count(m_statement);
+}
+
+bool SQLiteStatement::isColumnNull(int col)
+{
+    ASSERT(col >= 0);
+    if (!m_statement)
+        if (prepareAndStep() != SQLITE_ROW)
+            return false;
+    if (columnCount() <= col)
+        return false;
+
+    return sqlite3_column_type(m_statement, col) == SQLITE_NULL;
 }
 
 String SQLiteStatement::getColumnName(int col)
@@ -322,7 +369,29 @@ int64_t SQLiteStatement::getColumnInt64(int col)
         return 0;
     return sqlite3_column_int64(m_statement, col);
 }
-    
+
+String SQLiteStatement::getColumnBlobAsString(int col)
+{
+    ASSERT(col >= 0);
+
+    if (!m_statement && prepareAndStep() != SQLITE_ROW)
+        return String();
+
+    if (columnCount() <= col)
+        return String();
+
+    const void* blob = sqlite3_column_blob(m_statement, col);
+    if (!blob)
+        return String();
+
+    int size = sqlite3_column_bytes(m_statement, col);
+    if (size < 0)
+        return String();
+
+    ASSERT(!(size % sizeof(UChar)));
+    return String(static_cast<const UChar*>(blob), size / sizeof(UChar));
+}
+
 void SQLiteStatement::getColumnBlobAsVector(int col, Vector<char>& result)
 {
     ASSERT(col >= 0);
@@ -346,7 +415,7 @@ void SQLiteStatement::getColumnBlobAsVector(int col, Vector<char>& result)
     int size = sqlite3_column_bytes(m_statement, col);
     result.resize((size_t)size);
     for (int i = 0; i < size; ++i)
-        result[i] = ((const unsigned char*)blob)[i];
+        result[i] = (static_cast<const unsigned char*>(blob))[i];
 }
 
 const void* SQLiteStatement::getColumnBlob(int col, int& size)
@@ -465,3 +534,5 @@ bool SQLiteStatement::isExpired()
 }
 
 } // namespace WebCore
+
+#endif // ENABLE(DATABASE)

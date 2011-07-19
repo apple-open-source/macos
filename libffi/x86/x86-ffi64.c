@@ -440,7 +440,29 @@ ffi_call(
 		else
 		{	/* The argument is passed entirely in registers.  */
 			char *a = (char *) avalue[i];
+			SINT64 signExtendedValue = 0;
 			int j;
+
+			/* Sign-extend small signed values to fill the entire register. */
+			switch (arg_types[i]->type) {
+				case FFI_TYPE_SINT8:
+					signExtendedValue = (SINT64) *((SINT8 *) avalue[i]);
+					a = (char *) &signExtendedValue;
+					size = 8;
+					break;
+				case FFI_TYPE_SINT16:
+					signExtendedValue = (SINT64) *((SINT16*) avalue[i]);
+					a = (char *) &signExtendedValue;
+					size = 8;
+					break;
+				case FFI_TYPE_SINT32:
+					signExtendedValue = (SINT64) *((SINT32*) avalue[i]);
+					a = (char *) &signExtendedValue;
+					size = 8;
+					break;
+				default:
+					break;
+			}
 
 			for (j = 0; j < n; j++, a += 8, size -= 8)
 			{
@@ -496,7 +518,7 @@ ffi_prep_closure(
 	/*	Set the carry bit if the function uses any sse registers.
 		This is clc or stc, together with the first byte of the jmp.  */
 	tramp[10] = cif->flags & (1 << 11) ? 0x49f9 : 0x49f8;
-	tramp[11] = 0xe3ff;			/* jmp *%r11    */
+	tramp[11] = 0xe3ff;			/* jmp *%r11 */
 
 	closure->cif = cif;
 	closure->fun = fun;
@@ -524,7 +546,7 @@ ffi_closure_unix64_inner(
 	ret = cif->rtype->type;
 
 	if (ret != FFI_TYPE_VOID)
-    {
+	{
 		enum x86_64_reg_class classes[MAX_CLASSES];
 		int n = examine_argument (cif->rtype, classes, 1, &ngpr, &nsse);
 

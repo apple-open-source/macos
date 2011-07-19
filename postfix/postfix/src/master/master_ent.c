@@ -90,6 +90,7 @@
 
 /* Global library. */
 
+#include <match_service.h>
 #include <mail_proto.h>
 #include <mail_params.h>
 #include <own_inet_addr.h>
@@ -104,6 +105,7 @@
 static char *master_path;		/* config file name */
 static VSTREAM *master_fp;		/* config file pointer */
 static int master_line;			/* config file line number */
+static ARGV *master_disable;		/* disabled service patterns */
 
 static char master_blanks[] = " \t\r\n";/* field delimiters */
 
@@ -132,6 +134,9 @@ void    set_master_ent()
     if ((master_fp = vstream_fopen(master_path, O_RDONLY, 0)) == 0)
 	msg_fatal("open %s: %m", master_path);
     master_line = 0;
+    if (master_disable != 0)
+	msg_panic("%s: service disable list still exists", myname);
+    master_disable = match_service_init(var_master_disable);
 }
 
 /* end_master_ent - close configuration file */
@@ -145,6 +150,10 @@ void    end_master_ent()
     if (vstream_fclose(master_fp) != 0)
 	msg_fatal("%s: close configuration file: %m", myname);
     master_fp = 0;
+    if (master_disable == 0)
+	msg_panic("%s: no service disable list", myname);
+    match_service_free(master_disable);
+    master_disable = 0;
 }
 
 /* fatal_with_context - print fatal error with file/line context */
@@ -242,6 +251,8 @@ MASTER_SERV *get_master_ent()
 
     if (master_fp == 0)
 	msg_panic("get_master_ent: config file not open");
+    if (master_disable == 0)
+	msg_panic("get_master_ent: no service disable list");
 
     /*
      * XXX We cannot change the inet_interfaces setting for a running master
@@ -268,7 +279,12 @@ MASTER_SERV *get_master_ent()
 	    return (0);
 	}
 	bufp = vstring_str(buf);
-    } while ((cp = mystrtok(&bufp, master_blanks)) == 0);
+	if ((cp = mystrtok(&bufp, master_blanks)) == 0)
+	    continue;
+	name = cp;
+	transport = get_str_ent(&bufp, "transport type", (char *) 0);
+	vstring_sprintf(junk, "%s.%s", name, transport);
+    } while (match_service_match(master_disable, vstring_str(junk)) != 0);
 
     /*
      * Parse one logical line from the configuration file. Initialize service
@@ -290,15 +306,13 @@ MASTER_SERV *get_master_ent()
     /*
      * Service name. Syntax is transport-specific.
      */
-    serv->ext_name = mystrdup(cp);
-    name = cp;
+    serv->ext_name = mystrdup(name);
 
     /*
      * Transport type: inet (wild-card listen or virtual) or unix.
      */
 #define STR_SAME	!strcmp
 
-    transport = get_str_ent(&bufp, "transport type", (char *) 0);
     if (STR_SAME(transport, MASTER_XPORT_NAME_INET)) {
 	if (!STR_SAME(saved_interfaces, var_inet_interfaces)) {
 	    msg_warn("service %s: ignoring %s change",
@@ -512,7 +526,7 @@ MASTER_SERV *get_master_ent()
 	argv_add(serv->args, "-u", (char *) 0);
     if (chroot)
 	argv_add(serv->args, "-c", (char *) 0);
-    if ((serv->flags & MASTER_FLAG_LOCAL_ONLY) == 0) {
+    if ((serv->flags & MASTER_FLAG_LOCAL_ONLY) == 0 && serv->max_proc > 1) {
 	argv_add(serv->args, "-o", "stress=" CONFIG_BOOL_YES, (char *) 0);
 	serv->stress_param_val =
 	    serv->args->argv[serv->args->argc - 1] + sizeof("stress=") - 1;

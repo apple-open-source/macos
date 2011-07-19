@@ -26,7 +26,7 @@
 		<corcoran@linuxnet.com>
 	Purpose: This handles power management routines. 
 
-$Id: powermgt_generic.h,v 1.2 2003/02/13 20:06:28 ghoo Exp $
+$Id: powermgt_generic.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 
 ********************************************************************/
 

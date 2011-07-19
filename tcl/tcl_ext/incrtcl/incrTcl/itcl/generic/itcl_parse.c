@@ -37,7 +37,7 @@
  *           mmclennan@lucent.com
  *           http://www.tcltk.com/itcl
  *
- *     RCS:  $Id: itcl_parse.c,v 1.12 2007/08/07 20:05:30 msofer Exp $
+ *     RCS:  $Id: itcl_parse.c,v 1.13 2008/12/15 20:02:58 andreas_kupries Exp $
  * ========================================================================
  *           Copyright (c) 1993-1998  Lucent Technologies, Inc.
  * ------------------------------------------------------------------------
@@ -267,7 +267,7 @@ Itcl_ClassCmd(clientData, interp, objc, objv)
     if (result != TCL_OK) {
         char msg[256];
         sprintf(msg, "\n    (class \"%.200s\" body line %d)",
-            className, interp->errorLine);
+            className, ERRORLINE(interp));
         Tcl_AddErrorInfo(interp, msg);
 
         Tcl_DeleteNamespace(cdefnPtr->namesp);
@@ -593,7 +593,7 @@ Itcl_ClassProtectionCmd(clientData, interp, objc, objv)
     else if (result != TCL_OK) {
         char mesg[256], *token;
         token = Tcl_GetStringFromObj(objv[0], (int*)NULL);
-        sprintf(mesg, "\n    (%.100s body line %d)", token, interp->errorLine);
+        sprintf(mesg, "\n    (%.100s body line %d)", token, ERRORLINE(interp));
         Tcl_AddErrorInfo(interp, mesg);
     }
 

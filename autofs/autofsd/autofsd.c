@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -22,6 +22,7 @@
  */
 
 #include <stdio.h>
+#include <sys/time.h>
 #include <sys/wait.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -32,37 +33,29 @@
 #include <syslog.h>
 #include <err.h>
 
+#include <dispatch/dispatch.h>
+
 #include <notify.h>
 
 #include <CoreFoundation/CoreFoundation.h>
-#include <SystemConfiguration/SystemConfiguration.h>
-/* The following constant was stolen from <DirectoryService/DirServicesPriv.h> */
-#ifndef kDSStdNotifySearchPolicyChanged
-#define	kDSStdNotifySearchPolicyChanged		"com.apple.DirectoryService.NotifyTypeStandard:SearchPolicyChanged"
-#endif
+#include <OpenDirectory/OpenDirectory.h>
+#include <OpenDirectory/OpenDirectoryPriv.h>
 
 static char automount_path[] = "/usr/sbin/automount";
 
-static void sc_callback(SCDynamicStoreRef, CFArrayRef, void *);
-static void debounce_callback(CFRunLoopTimerRef, void *);
-static void volume_unmounted_callback(CFMachPortRef, void *, CFIndex, void *);
-static void cancel_debounce_timer(void);
-static void setup_mounts(void);
+static int logging_debug = 0;	// 1 if logging debugging messages, 0 if not
 
-static CFRunLoopTimerRef debounce_timer;
+static void run_automount(char *);
 
 int
 main(__unused int argc, __unused char **argv)
 {
-	CFRunLoopSourceRef rls;
-	SCDynamicStoreRef store;
-	CFMutableArrayRef keys, patterns;
-	CFStringRef key, pattern;
+#define NUM_RECORD_TYPE_NAMES	3
+	CFTypeRef record_type_names[NUM_RECORD_TYPE_NAMES];
+	CFArrayRef record_types;
 	uint32_t status;
 	int volume_unmount_token;
-	mach_port_t port;
-	CFMachPortRef mach_port_ref;
-	CFMachPortContext context = { 0, NULL, NULL, NULL, NULL };
+	dispatch_source_t usr1_source;
 
 	/* 
 	 * If launchd is redirecting these two files they'll be block-
@@ -77,100 +70,50 @@ main(__unused int argc, __unused char **argv)
 	(void) umask(0);
 
 	/*
-	 * Register for notifications from the System Configuration framework.
-	 * We want to re-evaluate the autofs mounts to be done whenever
-	 * we get a network change or Directory Service search policy change
-	 * notification, as those might indicate that the automounter maps
-	 * and fstab entries we would get have changed.
+	 * Listen for changes to the OD search nodes; that will tell us
+	 * if a search node was removed (which means any auto_master map
+	 * entries or mount records we got from it earlier aren't valid),
+	 * a search node (server) went offline (which we view as similar
+	 * to that search node being removed), or a search node (server)
+	 * came online (which means we might have new map entries or mount
+	 * records to pick up from it).  We don't worry about search nodes
+	 * being added; they're not interesting until they're online, as
+	 * until then we won't get anything new from them, and a
+	 * notification will be delivered if they do come online.
 	 */
-	store = SCDynamicStoreCreate(NULL, CFSTR("autofsd"), sc_callback, NULL);
-	if (!store) {
-		syslog(LOG_ERR, "Couldn't open session with configd: %s",
-		    SCErrorString(SCError()));
+	ODTriggerCreateForSearch(kCFAllocatorDefault,
+	    kODTriggerSearchDelete|kODTriggerSearchOffline|kODTriggerSearchOnline,
+	    NULL, dispatch_get_main_queue(),
+	    ^(__unused ODTriggerRef trigger, __unused CFStringRef node)
+		{
+			if (logging_debug)
+				syslog(LOG_ERR, "Got an OD search node change notification");
+			run_automount("-c");
+		});
+
+	/*
+	 * Listen for changes to automounter map entries, auto_master
+	 * map entries, and mount records.
+	 */
+	record_type_names[0] = kODRecordTypeAutomount;
+	record_type_names[1] = kODRecordTypeAutomountMap;
+	record_type_names[2] = kODRecordTypeMounts;
+	record_types = CFArrayCreate(kCFAllocatorDefault, record_type_names,
+	    NUM_RECORD_TYPE_NAMES, &kCFTypeArrayCallBacks);
+	if (record_types == NULL) {
+		syslog(LOG_ERR, "Couldn't create array of OD record types");
 		exit(EXIT_FAILURE);
 	}
-
-	keys     = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	patterns = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-
-	/*
-	 * Establish dynamic store keys and patterns for notifications from
-	 * network change events.
-	 *
-	 * We do this because a host might have a hardwired binding to
-	 * a particular set of NIS/LDAP/Active Directory/etc. directory
-	 * servers, and might move between "able to get information from
-	 * those servers" and "unable to get information from those
-	 * servers" when it moves from one network to another, rather
-	 * than, for example, getting its directory server bindings from
-	 * DHCP, in which case we won't get a Directory Service search policy
-	 * change notification when we change networks, even though that
-	 * will change what automounter maps and/or fstab entries we'll
-	 * get, but we will, at least, get a network change event.
-	 */
-
-	/*
-	 * Look for changes to any IPv4 information...
-	 */
-	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-		kSCDynamicStoreDomainState, kSCEntNetIPv4);
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
-
-	/*
-	 * ...on any interface.
-	 */
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
-		kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv4);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	/*
-	 * Look for changes to any IPv6 information...
-	 */
-	key = SCDynamicStoreKeyCreateNetworkGlobalEntity(NULL,
-		kSCDynamicStoreDomainState, kSCEntNetIPv6);
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
-
-	/*
-	 * ...on any interface.
-	 */
-	pattern = SCDynamicStoreKeyCreateNetworkInterfaceEntity(NULL,
-		kSCDynamicStoreDomainState, kSCCompAnyRegex, kSCEntNetIPv6);
-	CFArrayAppendValue(patterns, pattern);
-	CFRelease(pattern);
-
-	/*
-	 * Establish and register dynamic store key to watch directory
-	 * services search policy changes.
-	 */
-	key = SCDynamicStoreKeyCreate(NULL,
-	    CFSTR(kDSStdNotifySearchPolicyChanged));
-	CFArrayAppendValue(keys, key);
-	CFRelease(key);
-
-	if (!SCDynamicStoreSetNotificationKeys(store, keys, patterns)) {
-		syslog(LOG_ERR, "Couldn't register notification keys: %s",
-		    SCErrorString(SCError()));
-		CFRelease(store);
-		CFRelease(keys);
-		CFRelease(patterns);
-		exit(EXIT_FAILURE);
-	}
-	CFRelease(keys);
-	CFRelease(patterns);
-
-	/* add a callback */
-	rls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-	if (rls == NULL) {
-		syslog(LOG_ERR, "Couldn't create run loop source: %s",
-		    SCErrorString(SCError()));
-		CFRelease(store);
-		exit(EXIT_FAILURE);
-	}
-
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	ODTriggerCreateForRecords(kCFAllocatorDefault,
+	    kODTriggerRecordEventAdd|kODTriggerRecordEventDelete|kODTriggerRecordEventModify,
+	    NULL, record_types, NULL, dispatch_get_main_queue(),
+	    ^(__unused ODTriggerRef trigger, __unused CFStringRef node,
+	      __unused CFStringRef type, __unused CFStringRef name)
+		{
+			if (logging_debug)
+				syslog(LOG_ERR, "Got an OD record change notification");
+			run_automount("-c");
+		});
 
 	/*
 	 * Also watch for volume unmounts.  If, for example, you
@@ -183,112 +126,79 @@ main(__unused int argc, __unused char **argv)
 	 * gets a "server not responding" dialog and asks to disconnect
 	 * from the server, the mount will be forcibly unmounted,
 	 * which might allow us to unmount the autofs mount.
+	 *
+	 * In this case, we don't have any reason to believe that
+	 * any cached information in automountd is out of date -
+	 * nothing in OD or networking changed - so don't flush
+	 * automounter caches.
 	 */
-	status = notify_register_mach_port("com.apple.system.kernel.unmount",
-	    &port, 0, &volume_unmount_token);
+	status = notify_register_dispatch("com.apple.system.kernel.unmount",
+	    &volume_unmount_token, dispatch_get_main_queue(),
+	    ^(__unused int t)
+		{
+			if (logging_debug)
+				syslog(LOG_ERR, "Got an unmount notification");
+			run_automount(NULL);
+		});
 	if (status != NOTIFY_STATUS_OK) {
-		syslog(LOG_ERR, "Couldn't get Mach port for volume unmount notifications: %u",
+		syslog(LOG_ERR, "Couldn't add volume unmount notifications to the main dispatch queue: %u",
 		    status);
 		exit(EXIT_FAILURE);
 	}
-	
-	mach_port_ref = CFMachPortCreateWithPort(NULL, port,
-	    volume_unmounted_callback, &context, NULL);
-	if (mach_port_ref == NULL) {
-		syslog(LOG_ERR, "Couldn't create CFMachPort for volume unmount notifications");
+
+	/*
+	 * Register for SIGUSR1 notifications and, when we get one,
+	 * toggle the state of debug logging.
+	 *
+	 * (Yes, you have to ignore the signal.  See the
+	 * dispatch_source_create() man page.  Making it a dispatch
+	 * source doesn't mean it doesn't get delivered to us as
+	 * a regular signal, and ignoring it doesn't mean it won't
+	 * get delivered to us as a regular signal.  EVFILT_SIGNAL
+	 * kevents are your friend....)
+	 */
+	signal(SIGUSR1, SIG_IGN);
+	usr1_source = dispatch_source_create(DISPATCH_SOURCE_TYPE_SIGNAL,
+	    SIGUSR1, 0, dispatch_get_main_queue());
+	if (usr1_source == NULL) {
+		syslog(LOG_ERR, "Couldn't create a dispatch source for SIGUSR1");
 		exit(EXIT_FAILURE);
 	}
-
-	rls = CFMachPortCreateRunLoopSource(NULL, mach_port_ref, 0);
-	if (rls == NULL) {
-		syslog(LOG_ERR, "Couldn't create CFRunLoopSource for volume unmount notifications");
-		exit(EXIT_FAILURE);
-	}
-
-	CFRunLoopAddSource(CFRunLoopGetCurrent(), rls, kCFRunLoopDefaultMode);
+	dispatch_source_set_event_handler(usr1_source,
+	    ^(void) { logging_debug = !logging_debug; });
+	dispatch_resume(usr1_source);
 
 	/*
 	 * Set up the initial set of mounts.
 	 */
-	setup_mounts();
+	run_automount("-c");
 
 	/*
 	 * Now wait to be told to update the mounts.
 	 */
-	CFRunLoopRun();
+	dispatch_main();
 
 	syslog(LOG_ERR, "Run loop exited");
 
 	return 0;
 }
 
-#define STABLE_DELAY	5.0	// sec to delay after receiving notification
-
 /*
- * Network notifications, in particular, can come thick and fast.
- * To avoid doing a mount check on each one, we wait STABLE_DELAY
- * seconds for a stable network status.
- * Each network notification restarts the debounce timer.
- * It calls its callback function only if it has been running
- * uninterrupted for STABLE_DELAY seconds.
+ * Run the automount command with a given flag.
+ * Either:
  *
- * XXX - do we want to debounce DS policy change notifications, or do we
- * want to respond to those immediately, canceling any running debounce
- * timer?
+ *	"-c" to re-evaluate what triggers are to be mounted, try to mount
+ *	new triggers and unmount triggers no longer desired, and to
+ *	flush automounter caches;
+ *
+ *	"-u" to unmount automounted filesystems;
+ *
+ *	NULL to just re-evaluate what triggers are to be mounted and try
+ *	to mount new triggers and unmount triggers no longer desired
+ *	without flushing automounter caches.
  */
 static void
-sc_callback(__unused SCDynamicStoreRef store, __unused CFArrayRef changedKeys,
-    __unused void *info)
-{
-	if (debounce_timer) {
-		/* Already running - cancel the timer */
-		cancel_debounce_timer();
-	}
-
-	debounce_timer = CFRunLoopTimerCreate(NULL,
-		CFAbsoluteTimeGetCurrent() + STABLE_DELAY,
-		0.0, 0, 0, debounce_callback, NULL);
-	CFRunLoopAddTimer(CFRunLoopGetCurrent(), debounce_timer,
-		kCFRunLoopDefaultMode);
-}
-
-static void
-debounce_callback(__unused CFRunLoopTimerRef timer, __unused void *info)
-{
-	cancel_debounce_timer();
-
-	setup_mounts();
-}
-
-static void
-volume_unmounted_callback(__unused CFMachPortRef port, __unused void *msg,
-    __unused CFIndex size, __unused void *info)
-{
-	if (debounce_timer) {
-		/*
-		 * The debounce timer is running; wait for it to fire
-		 * before running automount.
-		 */
-		return;
-	}
-
-	/*
-	 * Run automount now, to try to get rid of any out-of-date triggers
-	 * ASAP.
-	 */
-	setup_mounts();
-}
-
-static void
-cancel_debounce_timer(void)
-{
-	CFRunLoopTimerInvalidate(debounce_timer);
-	CFRelease(debounce_timer);
-	debounce_timer = NULL;
-}
-
-static void
-setup_mounts(void)
+run_automount(char *flag)
 {
 	int error;
 	char *args[3];
@@ -297,10 +207,25 @@ setup_mounts(void)
 	pid_t pid;
 	int status;
 	extern char **environ;
+	static struct timeval last_run_automount;	// last run_automount time
+	struct timeval now;
+
+	if (flag != NULL && strcmp(flag, "-u") == 0) {
+		/*
+		 * Network change events usually come in a flurry.
+		 * Don't unmount automounts more than once in
+		 * 5 seconds.
+		 */
+		(void) gettimeofday(&now, NULL);
+		if (now.tv_sec < last_run_automount.tv_sec + 5)
+			return;
+	}
+	last_run_automount = now;
 
 	i = 0;
 	args[i++] = automount_path;
-	args[i++] = "-c";	/* tell automountd to clear its caches */
+	if (flag != NULL)
+		args[i++] = flag;
 	args[i] = NULL;
 	error = posix_spawn(&child, automount_path, NULL, NULL, args,
 	    environ);

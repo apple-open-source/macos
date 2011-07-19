@@ -15,7 +15,7 @@
 #ifndef LLVM_SUPPORT_POINTERLIKETYPETRAITS_H
 #define LLVM_SUPPORT_POINTERLIKETYPETRAITS_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 
 namespace llvm {
   
@@ -38,24 +38,28 @@ public:
     return static_cast<T*>(P);
   }
   
-  /// Note, we assume here that malloc returns objects at least 8-byte aligned.
+  /// Note, we assume here that malloc returns objects at least 4-byte aligned.
   /// However, this may be wrong, or pointers may be from something other than
   /// malloc.  In this case, you should specialize this template to reduce this.
   ///
   /// All clients should use assertions to do a run-time check to ensure that
   /// this is actually true.
-  enum { NumLowBitsAvailable = 3 };
+  enum { NumLowBitsAvailable = 2 };
 };
   
 // Provide PointerLikeTypeTraits for const pointers.
 template<typename T>
 class PointerLikeTypeTraits<const T*> {
+  typedef PointerLikeTypeTraits<T*> NonConst;
+
 public:
-  static inline const void *getAsVoidPointer(const T* P) { return P; }
-  static inline const T *getFromVoidPointer(const void *P) {
-    return static_cast<const T*>(P);
+  static inline const void *getAsVoidPointer(const T* P) {
+    return NonConst::getAsVoidPointer(const_cast<T*>(P));
   }
-  enum { NumLowBitsAvailable = 3 };
+  static inline const T *getFromVoidPointer(const void *P) {
+    return NonConst::getFromVoidPointer(const_cast<void*>(P));
+  }
+  enum { NumLowBitsAvailable = NonConst::NumLowBitsAvailable };
 };
 
 // Provide PointerLikeTypeTraits for uintptr_t.

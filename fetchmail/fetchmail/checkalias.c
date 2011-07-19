@@ -129,7 +129,7 @@ int is_host_alias(const char *name, struct query *ctl, struct addrinfo **res)
     namelen = strlen(name);
     for (idl = lead_server->akalist; idl; idl = idl->next)
     {
-	char	*ep;
+	const char	*ep;
 
 	/*
 	 * Test is >= here because str_in_list() should have caught the
@@ -138,7 +138,7 @@ int is_host_alias(const char *name, struct query *ctl, struct addrinfo **res)
 	 */
 	if (strlen(idl->id) >= namelen)
 	    continue;
-	ep = (char *)name + (namelen - strlen(idl->id));
+	ep = name + (namelen - strlen(idl->id));
 	/* a suffix led by . must match */
 	if (ep[-1] == '.' && !strcasecmp(ep, idl->id))
 	    return(TRUE);

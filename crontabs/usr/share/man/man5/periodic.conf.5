@@ -138,35 +138,6 @@ manual page for how script return codes are interpreted.
 The following variables are used by the standard scripts that reside in
 .Pa /etc/periodic/daily :
 .Bl -tag -offset 4n -width 2n
-.It Va daily_clean_logs_enable
-.Pq Vt bool
-Set to
-.Dq Li YES
-if you want to clear log directories daily.
-.It Va daily_clean_logs_dirs
-.Pq Vt str
-Set to the list of directories to clear if
-.Va daily_clean_logs_enable
-is set to
-.Dq Li YES .
-.It Va daily_clean_logs_days
-.Pq Vt num
-When
-.Va daily_clean_logs_enable
-is set, this must also be set to the number of days old that a file's access
-and modification times must be before it's deleted.
-.It Va daily_clean_logs_ignore
-.Pq Vt str
-Set to the list of files that should not be deleted when
-.Va daily_clean_logs_enable
-is set to
-.Dq Li YES .
-Wild card characters are permitted.
-.It Va daily_clean_logs_verbose
-.Pq Vt bool
-Set to
-.Dq Li YES
-if you want the removed files to be reported in your daily output.
 .It Va daily_clean_tmps_enable
 .Pq Vt bool
 Set to

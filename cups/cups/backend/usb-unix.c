@@ -1,11 +1,11 @@
 /*
  * "$Id: usb-unix.c 7810 2008-07-29 01:11:15Z mike $"
  *
- *   USB port backend for the Common UNIX Printing System (CUPS).
+ *   USB port backend for CUPS.
  *
  *   This file is included from "usb.c" when compiled on UNIX/Linux.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products, all rights reserved.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -56,7 +56,7 @@ print_device(const char *uri,		/* I - Device URI */
 {
   int		use_bc;			/* Use backchannel path? */
   int		device_fd;		/* USB device */
-  size_t	tbytes;			/* Total number of bytes written */
+  ssize_t	tbytes;			/* Total number of bytes written */
   struct termios opts;			/* Parallel port options */
 
 
@@ -96,10 +96,10 @@ print_device(const char *uri,		/* I - Device URI */
     * a read request...
     */
 
-    use_bc = strcasecmp(hostname, "Brother") &&
-             strcasecmp(hostname, "Canon") &&
-             strncasecmp(hostname, "Konica", 6) &&
-             strncasecmp(hostname, "Minolta", 7);
+    use_bc = _cups_strcasecmp(hostname, "Brother") &&
+             _cups_strcasecmp(hostname, "Canon") &&
+             _cups_strncasecmp(hostname, "Konica", 6) &&
+             _cups_strncasecmp(hostname, "Minolta", 7);
 #endif /* __FreeBSD__ || __NetBSD__ || __OpenBSD__ || __DragonFly__ */
 
     if ((device_fd = open_device(uri, &use_bc)) == -1)
@@ -113,9 +113,9 @@ print_device(const char *uri,		/* I - Device URI */
 	* available printer in the class.
 	*/
 
-        _cupsLangPuts(stderr,
-	              _("INFO: Unable to contact printer, queuing on next "
-			"printer in class...\n"));
+        _cupsLangPrintFilter(stderr, "INFO",
+			     _("Unable to contact printer, queuing on next "
+			       "printer in class."));
 
        /*
         * Sleep 5 seconds to keep the job from requeuing too rapidly...
@@ -128,23 +128,21 @@ print_device(const char *uri,		/* I - Device URI */
 
       if (errno == EBUSY)
       {
-        _cupsLangPuts(stderr,
-	              _("INFO: Printer busy; will retry in 10 seconds...\n"));
+        _cupsLangPrintFilter(stderr, "INFO",
+			     _("Printer busy, will retry in 10 seconds."));
 	sleep(10);
       }
       else if (errno == ENXIO || errno == EIO || errno == ENOENT ||
                errno == ENODEV)
       {
-        _cupsLangPuts(stderr,
-	              _("INFO: Printer not connected; will retry in 30 "
-		        "seconds...\n"));
+        _cupsLangPrintFilter(stderr, "INFO",
+			     _("Printer not connected, will retry in 30 "
+			       "seconds."));
 	sleep(30);
       }
       else
       {
-	_cupsLangPrintf(stderr,
-	                _("ERROR: Unable to open device file \"%s\": %s\n"),
-			resource, strerror(errno));
+	_cupsLangPrintError("ERROR", _("Unable to open device file"));
 	return (CUPS_BACKEND_FAILED);
       }
     }
@@ -194,13 +192,7 @@ print_device(const char *uri,		/* I - Device URI */
 #endif /* __sun */
 
     if (print_fd != 0 && tbytes >= 0)
-      _cupsLangPrintf(stderr,
-#ifdef HAVE_LONG_LONG
-		      _("INFO: Sent print file, %lld bytes...\n"),
-#else
-		      _("INFO: Sent print file, %ld bytes...\n"),
-#endif /* HAVE_LONG_LONG */
-		      CUPS_LLCAST tbytes);
+      _cupsLangPrintFilter(stderr, "INFO", _("Print file sent."));
   }
 
  /*
@@ -209,7 +201,7 @@ print_device(const char *uri,		/* I - Device URI */
 
   close(device_fd);
 
-  return (tbytes < 0 ? CUPS_BACKEND_FAILED : CUPS_BACKEND_OK);
+  return (CUPS_BACKEND_OK);
 }
 
 
@@ -433,8 +425,8 @@ open_device(const char *uri,		/* I - Device URI */
       */
 
       if (busy)
-	_cupsLangPuts(stderr,
-	              _("INFO: Printer busy; will retry in 5 seconds...\n"));
+	_cupsLangPrintFilter(stderr, "INFO",
+			     _("Printer is busy, will retry in 5 seconds."));
 
       sleep(5);
     }
@@ -517,8 +509,8 @@ open_device(const char *uri,		/* I - Device URI */
 
       if (busy)
       {
-	_cupsLangPuts(stderr,
-	              _("INFO: Printer is busy; will retry in 5 seconds...\n"));
+	_cupsLangPrintFilter(stderr, "INFO",
+			     _("Printer is busy, will retry in 5 seconds."));
 	sleep(5);
       }
     }

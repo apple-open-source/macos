@@ -1,11 +1,11 @@
 # $Id $
 #if {[set ::tcl_platform(platform)] == "windows"} {lappend auto_path .}
 
-package require XOTcl; namespace import -force xotcl::*
+package require XOTcl 1; namespace import -force xotcl::*
 set pkgdir  [file dir [info script]]/..
 lappend auto_path $pkgdir
 
-package require xotcl::test
+package require xotcl::test 1
 
 set tclsh [info nameofexecutable]
 set dir [file dir [info script]]

@@ -218,7 +218,11 @@ int  fegetenv(fenv_t *envp)
     envp->__mxcsr = mxcsr;
 	((int*) envp->__reserved)[0] = 0;
 	((int*) envp->__reserved)[1] = 0;
-
+	   
+	// fnstenv masks floating-point exceptions.  We restore the state here
+	// in case any exceptions were originally unmasked.
+	asm volatile ("fldenv %0" : : "m" (currfpu));
+	
 	return 0;
 }
 
@@ -358,6 +362,7 @@ int  fesetexceptflag(const fexcept_t *flagp, int excepts )
 	return _fesetexceptflag( flagp, excepts );
 }
 
+int __fegetfltrounds( void );
 int __fegetfltrounds( void ) 
 {
     switch ( fegetround() )

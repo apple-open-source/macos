@@ -1,0 +1,23 @@
+xterm-dev (269) unstable; urgency=low
+
+  * amend translations for fullscreen toggle.
+
+ -- Thomas E. Dickey <dickey@invisible-island.net>  Sun, 13 Feb 2011 19:20:48 -0500
+
+xterm-dev (268) unstable; urgency=low
+
+  * build-fixes, etc.
+
+ -- Thomas E. Dickey <dickey@invisible-island.net>  Wed, 24 Nov 2010 06:17:16 -0500
+
+xterm-dev (267) unstable; urgency=low
+
+  * build-fixes, etc.
+
+ -- Thomas E. Dickey <dickey@invisible-island.net>  Wed, 10 Nov 2010 18:46:41 -0500
+
+xterm-dev (266) unstable; urgency=low
+
+  * add build-script for testing, adapted from Debian xterm package.
+
+ -- Thomas E. Dickey <dickey@invisible-island.net>  Fri, 22 Oct 2010 17:15:59 -0400

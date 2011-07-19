@@ -1,8 +1,8 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2001 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2003 Apple Computer, Inc.
+ * Copyright (C) 2003, 2010 Apple Inc. All rights reserved.
  *           (C) 2007 Rob Buis (buis@kde.org)
  *
  * This library is free software; you can redistribute it and/or
@@ -24,18 +24,20 @@
 #include "config.h"
 #include "HTMLStyleElement.h"
 
+#include "Attribute.h"
 #include "Document.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
+#include "ScriptEventListener.h"
+#include "ScriptableDocumentParser.h"
+
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLStyleElement::HTMLStyleElement(const QualifiedName& tagName, Document* doc, bool createdByParser)
-    : HTMLElement(tagName, doc)
-    , m_loading(false)
-    , m_createdByParser(createdByParser)
+inline HTMLStyleElement::HTMLStyleElement(const QualifiedName& tagName, Document* document, bool createdByParser)
+    : HTMLElement(tagName, document)
+    , StyleElement(document, createdByParser)
 {
     ASSERT(hasTagName(styleTag));
 }
@@ -46,73 +48,43 @@ HTMLStyleElement::~HTMLStyleElement()
         m_sheet->clearOwnerNode();
 }
 
-// other stuff...
-void HTMLStyleElement::parseMappedAttribute(MappedAttribute *attr)
+PassRefPtr<HTMLStyleElement> HTMLStyleElement::create(const QualifiedName& tagName, Document* document, bool createdByParser)
 {
-    if (attr->name() == mediaAttr)
-        m_media = attr->value().string().lower();
-    else if (attr->name() == titleAttr && m_sheet)
+    return adoptRef(new HTMLStyleElement(tagName, document, createdByParser));
+}
+
+void HTMLStyleElement::parseMappedAttribute(Attribute* attr)
+{
+    if (attr->name() == titleAttr && m_sheet)
         m_sheet->setTitle(attr->value());
-     else
+    else if (attr->name() == onbeforeprocessAttr)
+        setAttributeEventListener(eventNames().beforeprocessEvent, createAttributeEventListener(this, attr));
+    else
         HTMLElement::parseMappedAttribute(attr);
 }
 
 void HTMLStyleElement::finishParsingChildren()
 {
-    StyleElement::process(this);
-    m_createdByParser = false;
+    StyleElement::finishParsingChildren(this);
     HTMLElement::finishParsingChildren();
 }
 
 void HTMLStyleElement::insertedIntoDocument()
 {
     HTMLElement::insertedIntoDocument();
-
-    document()->addStyleSheetCandidateNode(this, m_createdByParser);
-    if (!m_createdByParser)
-        StyleElement::insertedIntoDocument(document(), this);
+    StyleElement::insertedIntoDocument(document(), this);
 }
 
 void HTMLStyleElement::removedFromDocument()
 {
     HTMLElement::removedFromDocument();
-    document()->removeStyleSheetCandidateNode(this);
-    StyleElement::removedFromDocument(document());
+    StyleElement::removedFromDocument(document(), this);
 }
 
 void HTMLStyleElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
 {
-    if (!changedByParser)
-        StyleElement::process(this);
+    StyleElement::childrenChanged(this);
     HTMLElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
-}
-
-bool HTMLStyleElement::isLoading() const
-{
-    if (m_loading)
-        return true;
-    if (!m_sheet)
-        return false;
-    return static_cast<CSSStyleSheet *>(m_sheet.get())->isLoading();
-}
-
-bool HTMLStyleElement::sheetLoaded()
-{
-    if (!isLoading()) {
-        document()->removePendingSheet();
-        return true;
-    }
-    return false;
-}
-
-bool HTMLStyleElement::disabled() const
-{
-    return !getAttribute(disabledAttr).isNull();
-}
-
-void HTMLStyleElement::setDisabled(bool disabled)
-{
-    setAttribute(disabledAttr, disabled ? "" : 0);
 }
 
 const AtomicString& HTMLStyleElement::media() const
@@ -120,19 +92,9 @@ const AtomicString& HTMLStyleElement::media() const
     return getAttribute(mediaAttr);
 }
 
-void HTMLStyleElement::setMedia(const AtomicString &value)
-{
-    setAttribute(mediaAttr, value);
-}
-
 const AtomicString& HTMLStyleElement::type() const
 {
     return getAttribute(typeAttr);
-}
-
-void HTMLStyleElement::setType(const AtomicString &value)
-{
-    setAttribute(typeAttr, value);
 }
 
 void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const
@@ -141,6 +103,21 @@ void HTMLStyleElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) cons
 
     if (StyleSheet* styleSheet = const_cast<HTMLStyleElement*>(this)->sheet())
         styleSheet->addSubresourceStyleURLs(urls);
+}
+
+bool HTMLStyleElement::disabled() const
+{
+    StyleSheet* styleSheet = sheet();
+    if (!styleSheet)
+        return false;
+
+    return styleSheet->disabled();
+}
+
+void HTMLStyleElement::setDisabled(bool setDisabled)
+{
+    if (StyleSheet* styleSheet = sheet())
+        styleSheet->setDisabled(setDisabled);
 }
 
 }

@@ -37,6 +37,7 @@
 #include "FrameLoader.h"
 #include "FrameLoaderClient.h"
 #include "HTMLFormElement.h"
+#include "SecurityOrigin.h"
 
 namespace WebCore {
 
@@ -92,16 +93,19 @@ void PolicyChecker::checkNavigationPolicy(const ResourceRequest& request, Docume
 void PolicyChecker::checkNewWindowPolicy(const NavigationAction& action, NewWindowPolicyDecisionFunction function,
     const ResourceRequest& request, PassRefPtr<FormState> formState, const String& frameName, void* argument)
 {
-    m_callback.set(request, formState, frameName, function, argument);
+    if (m_frame->document() && m_frame->document()->securityOrigin()->isSandboxed(SandboxNavigation))
+        return continueAfterNavigationPolicy(PolicyIgnore);
+
+    m_callback.set(request, formState, frameName, action, function, argument);
     m_frame->loader()->client()->dispatchDecidePolicyForNewWindowAction(&PolicyChecker::continueAfterNewWindowPolicy,
         action, request, formState, frameName);
 }
 
-void PolicyChecker::checkContentPolicy(const String& MIMEType, ContentPolicyDecisionFunction function, void* argument)
+void PolicyChecker::checkContentPolicy(const ResourceResponse& response, ContentPolicyDecisionFunction function, void* argument)
 {
     m_callback.set(function, argument);
-    m_frame->loader()->client()->dispatchDecidePolicyForMIMEType(&PolicyChecker::continueAfterContentPolicy,
-        MIMEType, m_frame->loader()->activeDocumentLoader()->request());
+    m_frame->loader()->client()->dispatchDecidePolicyForResponse(&PolicyChecker::continueAfterContentPolicy,
+        response, m_frame->loader()->activeDocumentLoader()->request());
 }
 
 void PolicyChecker::cancelCheck()

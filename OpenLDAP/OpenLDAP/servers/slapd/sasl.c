@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/sasl.c,v 1.239.2.12 2008/02/12 00:54:34 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/sasl.c,v 1.239.2.23 2010/04/15 18:41:32 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -59,18 +59,20 @@ typedef struct sasl_ctx {
 
 #endif
 
+#include <Heimdal/krb5.h>
 #include <pac.h>
 #include <membershipPriv.h>
+#define __COREFOUNDATION_CFFILESECURITY__
 #include <CoreFoundation/CoreFoundation.h>
 //to extact krb5 auth data info from sasl
 #define SASL_KRB5_AUTH_DATA_SIG 0xFFD5AA96
-typedef struct krb5_authdata {
+typedef struct sasl_krb5_authdata {
 	uint32_t structID;			// always 0xFFD5AA96
 	uint32_t version;			// 1
 	uint32_t length;
 	void *data;
 	unsigned char *realm;
-} krb5_authdata;
+} sasl_krb5_authdata;
 int sasl_krb5_authdata_pac( Operation *op);
 
 #include <lutil.h>
@@ -78,7 +80,28 @@ int sasl_krb5_authdata_pac( Operation *op);
 static struct berval ext_bv = BER_BVC( "EXTERNAL" );
 static struct berval gssapi_bv = BER_BVC( "GSSAPI" );
 
+char *slap_sasl_auxprops;
+
 #ifdef HAVE_CYRUS_SASL
+
+/* Just use our internal auxprop by default */
+static int
+slap_sasl_getopt(
+	void *context,
+	const char *plugin_name,
+	const char *option,
+	const char **result,
+	unsigned *len)
+{
+	if ( strcmp( option, "auxprop_plugin" )) {
+		return SASL_FAIL;
+	}
+	if ( slap_sasl_auxprops )
+		*result = slap_sasl_auxprops;
+	else
+		*result = "slapd";
+	return SASL_OK;
+}
 
 int
 slap_sasl_log(
@@ -132,7 +155,7 @@ slap_sasl_log(
 	}
 
 	Debug( level, "SASL [conn=%ld] %s: %s\n",
-		conn ? conn->c_connid: -1,
+		conn ? (long) conn->c_connid: -1L,
 		label, message );
 
 
@@ -157,6 +180,9 @@ typedef struct lookup_info {
 	int flags;
 	const struct propval *list;
 	sasl_server_params_t *sparams;
+#ifdef __APPLE__
+	uuid_string_t uuidstr;
+#endif
 } lookup_info;
 
 static slap_response sasl_ap_lookup;
@@ -252,7 +278,11 @@ sasl_ap_lookup( Operation *op, SlapReply *rs )
 	return LDAP_SUCCESS;
 }
 
+#if SASL_VERSION_FULL >= 0x020118
+static int
+#else
 static void
+#endif
 slap_auxprop_lookup(
 	void *glob_context,
 	sasl_server_params_t *sparams,
@@ -260,10 +290,12 @@ slap_auxprop_lookup(
 	const char *user,
 	unsigned ulen)
 {
-	Operation op = {0};
+	OperationBuffer opbuf = {{ NULL }};
+	Operation *op = (Operation *)&opbuf;
 	int i, doit = 0;
 	Connection *conn = NULL;
 	lookup_info sl;
+	int rc = LDAP_SUCCESS;
 
 	sl.list = sparams->utils->prop_get( sparams->propctx );
 	sl.sparams = sparams;
@@ -280,22 +312,22 @@ slap_auxprop_lookup(
 			if ( flags & SASL_AUXPROP_AUTHZID ) {
 				if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHZLEN] )) {
 					if ( sl.list[i].values && sl.list[i].values[0] )
-						AC_MEMCPY( &op.o_req_ndn.bv_len, sl.list[i].values[0],
-							sizeof( op.o_req_ndn.bv_len ) );
+						AC_MEMCPY( &op->o_req_ndn.bv_len, sl.list[i].values[0],
+							sizeof( op->o_req_ndn.bv_len ) );
 				} else if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHZ] )) {
 					if ( sl.list[i].values )
-						op.o_req_ndn.bv_val = (char *)sl.list[i].values[0];
+						op->o_req_ndn.bv_val = (char *)sl.list[i].values[0];
 					break;
 				}
 			}
 
 			if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHCLEN] )) {
 				if ( sl.list[i].values && sl.list[i].values[0] )
-					AC_MEMCPY( &op.o_req_ndn.bv_len, sl.list[i].values[0],
-						sizeof( op.o_req_ndn.bv_len ) );
+					AC_MEMCPY( &op->o_req_ndn.bv_len, sl.list[i].values[0],
+						sizeof( op->o_req_ndn.bv_len ) );
 			} else if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHC] ) ) {
 				if ( sl.list[i].values ) {
-					op.o_req_ndn.bv_val = (char *)sl.list[i].values[0];
+					op->o_req_ndn.bv_val = (char *)sl.list[i].values[0];
 					if ( !(flags & SASL_AUXPROP_AUTHZID) )
 						break;
 				}
@@ -330,30 +362,30 @@ slap_auxprop_lookup(
 
 		cb.sc_private = &sl;
 
-		op.o_bd = select_backend( &op.o_req_ndn, 1 );
+		op->o_bd = select_backend( &op->o_req_ndn, 1 );
 
-		if ( op.o_bd ) {
+		if ( op->o_bd ) {
 			/* For rootdn, see if we can use the rootpw */
-			if ( be_isroot_dn( op.o_bd, &op.o_req_ndn ) &&
-				!BER_BVISEMPTY( &op.o_bd->be_rootpw )) {
+			if ( be_isroot_dn( op->o_bd, &op->o_req_ndn ) &&
+				!BER_BVISEMPTY( &op->o_bd->be_rootpw )) {
 				struct berval cbv = BER_BVNULL;
 
 				/* If there's a recognized scheme, see if it's CLEARTEXT */
-				if ( lutil_passwd_scheme( op.o_bd->be_rootpw.bv_val )) {
-					if ( !strncasecmp( op.o_bd->be_rootpw.bv_val,
+				if ( lutil_passwd_scheme( op->o_bd->be_rootpw.bv_val )) {
+					if ( !strncasecmp( op->o_bd->be_rootpw.bv_val,
 						sc_cleartext.bv_val, sc_cleartext.bv_len )) {
 
 						/* If it's CLEARTEXT, skip past scheme spec */
-						cbv.bv_len = op.o_bd->be_rootpw.bv_len -
+						cbv.bv_len = op->o_bd->be_rootpw.bv_len -
 							sc_cleartext.bv_len;
 						if ( cbv.bv_len ) {
-							cbv.bv_val = op.o_bd->be_rootpw.bv_val +
+							cbv.bv_val = op->o_bd->be_rootpw.bv_val +
 								sc_cleartext.bv_len;
 						}
 					}
 				/* No scheme, use the whole value */
 				} else {
-					cbv = op.o_bd->be_rootpw;
+					cbv = op->o_bd->be_rootpw;
 				}
 				if ( !BER_BVISEMPTY( &cbv )) {
 					for( i = 0; sl.list[i].name; i++ ) {
@@ -374,30 +406,35 @@ slap_auxprop_lookup(
 				}
 			}
 
-			if ( op.o_bd->be_search ) {
+			if ( op->o_bd->be_search ) {
 				SlapReply rs = {REP_RESULT};
-				op.o_hdr = conn->c_sasl_bindop->o_hdr;
-				op.o_tag = LDAP_REQ_SEARCH;
-				op.o_dn = conn->c_ndn;
-				op.o_ndn = conn->c_ndn;
-				op.o_callback = &cb;
-				slap_op_time( &op.o_time, &op.o_tincr );
-				op.o_do_not_cache = 1;
-				op.o_is_auth_check = 1;
-				op.o_req_dn = op.o_req_ndn;
-				op.ors_scope = LDAP_SCOPE_BASE;
-				op.ors_deref = LDAP_DEREF_NEVER;
-				op.ors_tlimit = SLAP_NO_LIMIT;
-				op.ors_slimit = 1;
-				op.ors_filter = &generic_filter;
-				op.ors_filterstr = generic_filterstr;
+				op->o_hdr = conn->c_sasl_bindop->o_hdr;
+				op->o_controls = opbuf.ob_controls;
+				op->o_tag = LDAP_REQ_SEARCH;
+				op->o_dn = conn->c_ndn;
+				op->o_ndn = conn->c_ndn;
+				op->o_callback = &cb;
+				slap_op_time( &op->o_time, &op->o_tincr );
+				op->o_do_not_cache = 1;
+				op->o_is_auth_check = 1;
+				op->o_req_dn = op->o_req_ndn;
+				op->ors_scope = LDAP_SCOPE_BASE;
+				op->ors_deref = LDAP_DEREF_NEVER;
+				op->ors_tlimit = SLAP_NO_LIMIT;
+				op->ors_slimit = 1;
+				op->ors_filter = &generic_filter;
+				op->ors_filterstr = generic_filterstr;
+				op->o_authz = conn->c_authz;
 				/* FIXME: we want all attributes, right? */
-				op.ors_attrs = NULL;
+				op->ors_attrs = NULL;
 
-				op.o_bd->be_search( &op, &rs );
+				rc = op->o_bd->be_search( op, &rs );
 			}
 		}
 	}
+#if SASL_VERSION_FULL >= 0x020118
+	return rc != LDAP_SUCCESS ? SASL_FAIL : SASL_OK;
+#endif
 }
 
 #if SASL_VERSION_FULL >= 0x020110
@@ -412,7 +449,8 @@ slap_auxprop_store(
 	Operation op = {0};
 	Opheader oph;
 	SlapReply rs = {REP_RESULT};
-	int rc, i, j;
+	int rc, i;
+	unsigned j;
 	Connection *conn = NULL;
 	const struct propval *pr;
 	Modifications *modlist = NULL, **modtail = &modlist, *mod;
@@ -540,6 +578,259 @@ slap_auxprop_init(
 	return SASL_OK;
 }
 
+#ifdef __APPLE__
+extern void pwsf_DESAutoDecode(void *data);
+static int
+sasl_authdata_lookup( Operation *op, SlapReply *rs )
+{
+	BerVarray bv;
+	AttributeDescription *ad = NULL;
+	Attribute *a = NULL;
+	const char *text = NULL;
+	int rc;
+	int i;
+
+	Debug( LDAP_DEBUG_TRACE, "%s: entered\n", __PRETTY_FUNCTION__, 0, 0 );
+	if (rs->sr_type != REP_SEARCH) return 0;
+
+	lookup_info *sl = (lookup_info*)op->o_callback->sc_private;
+	if( !sl ) {
+		Debug(LDAP_DEBUG_ANY, "%s: private data is missing!\n", __PRETTY_FUNCTION__, 0, 0);
+		return 0;
+	}
+	for ( i = 0; sl->list[i].name; i++ ) {
+		bool desdecode = 0;
+		if ( !strncmp( sl->list[i].name, "*cmusasl", 8) ) {
+			ad = NULL;
+			text = NULL;
+			rc = slap_str2ad(sl->list[i].name+1, &ad, &text);
+			if (rc != LDAP_SUCCESS) {
+				Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed\n", __PRETTY_FUNCTION__, 0, 0);
+				return 0;
+			}
+
+			a = attr_find(rs->sr_entry->e_attrs, ad);
+			if ( !a ) return 0;
+			for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+				sl->sparams->utils->prop_set(sl->sparams->propctx, sl->list[i].name, bv->bv_val, bv->bv_len);
+				break;
+			}
+		}
+	}
+
+	return LDAP_SUCCESS;
+}
+
+static int
+sasl_pws_lookup( Operation *op, SlapReply *rs )
+{
+	BerVarray bv;
+	AttributeDescription *ad = NULL;
+	Attribute *a = NULL;
+	Connection *conn = NULL;
+	const char *text = NULL;
+	char slotid[35];
+	int rc;
+	int i;
+
+	Debug( LDAP_DEBUG_TRACE, "%s: entered\n", __PRETTY_FUNCTION__, 0, 0 );
+	if (rs->sr_type != REP_SEARCH) return 0;
+
+	lookup_info *sl = (lookup_info*)op->o_callback->sc_private;
+	for ( i = 0; sl->list[i].name; i++ ) {
+		if ( !strcmp( sl->list[i].name, slap_propnames[SLAP_SASL_PROP_CONN] ) ) {
+			if ( sl->list[i].values && sl->list[i].values[0] )
+				AC_MEMCPY( &conn, sl->list[i].values[0], sizeof( conn ) );
+			continue;
+		}
+	}
+
+	rc = slap_str2ad("authAuthority", &ad, &text);
+	if (rc != LDAP_SUCCESS) {
+		Debug(LDAP_DEBUG_ANY, "%s: slap_str2ad failed\n", __PRETTY_FUNCTION__, 0, 0);
+		return 0;
+	}
+
+	a = attr_find(rs->sr_entry->e_attrs, ad);
+	if ( !a ) return 0;
+
+	slotid[0] = '\0';
+	for ( bv = a->a_vals; bv->bv_val; bv++ ) {
+		if ( strncmp(bv->bv_val, ";ApplePasswordServer;", 21) != 0 ) continue;
+
+		// ;ApplePasswordServer; + slotid
+		if ( bv->bv_len < 55 ) continue;
+
+		memcpy(slotid, bv->bv_val+21, 34);
+		slotid[34] = '\0';
+	}
+
+	if ( slotid[0] != '0' ) {
+		Debug(LDAP_DEBUG_TRACE, "%s: user slot ID not found in PWS AA\n", __PRETTY_FUNCTION__, 0, 0);
+		return 0;
+	}
+
+	// Convert slotid to UUID string
+	strncpy(sl->uuidstr, slotid+2, 8);
+	sl->uuidstr[8] = '-';
+	strncpy(sl->uuidstr+9, slotid+10, 4);
+	sl->uuidstr[13] = '-';
+	strncpy(sl->uuidstr+14, slotid+14, 4);
+	sl->uuidstr[18] = '-';
+	strncpy(sl->uuidstr+19, slotid+18, 4);
+	sl->uuidstr[23] = '-';
+	strncpy(sl->uuidstr+24, slotid+22, 12);
+	sl->uuidstr[36] = '\0';
+
+	return LDAP_SUCCESS;
+}
+
+static void
+pws_auxprop_lookup(
+	void *glob_context __attribute__((unused)),
+	sasl_server_params_t *sparams,
+	unsigned flags,
+	const char *user,
+	unsigned ulen)
+{
+	Operation op = {0};
+	Connection *conn = NULL;
+	lookup_info sl;
+	int i;
+
+	Debug( LDAP_DEBUG_TRACE, "%s: entered", __PRETTY_FUNCTION__, 0, 0 );
+
+	sl.list = sparams->utils->prop_get(sparams->propctx);
+	sl.sparams = sparams;
+	sl.flags = flags;
+
+	/* Find our DN and conn first */
+	for( i = 0; sl.list[i].name; i++ ) {
+		if ( sl.list[i].name[0] == '*' ) {
+			if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_CONN] ) ) {
+				if ( sl.list[i].values && sl.list[i].values[0] )
+					AC_MEMCPY( &conn, sl.list[i].values[0], sizeof( conn ) );
+				continue;
+			}
+			if ( flags & SASL_AUXPROP_AUTHZID ) {
+				if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHZLEN] )) {
+					if ( sl.list[i].values && sl.list[i].values[0] )
+						AC_MEMCPY( &op.o_req_ndn.bv_len, sl.list[i].values[0],
+							sizeof( op.o_req_ndn.bv_len ) );
+				} else if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHZ] )) {
+					if ( sl.list[i].values )
+						op.o_req_ndn.bv_val = (char *)sl.list[i].values[0];
+					break;
+				}
+			}
+
+			if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHCLEN] )) {
+				if ( sl.list[i].values && sl.list[i].values[0] )
+					AC_MEMCPY( &op.o_req_ndn.bv_len, sl.list[i].values[0],
+						sizeof( op.o_req_ndn.bv_len ) );
+			} else if ( !strcmp( sl.list[i].name, slap_propnames[SLAP_SASL_PROP_AUTHC] ) ) {
+				if ( sl.list[i].values ) {
+					op.o_req_ndn.bv_val = (char *)sl.list[i].values[0];
+					if ( !(flags & SASL_AUXPROP_AUTHZID) )
+						break;
+				}
+			}
+		}
+	}
+
+	slap_callback cb = { NULL, sasl_pws_lookup, NULL, NULL };
+
+	cb.sc_private = &sl;
+
+	op.o_bd = select_backend( &op.o_req_ndn, 1 );
+
+	if ( op.o_bd ) {
+		if ( op.o_bd->be_search ) {
+			SlapReply rs = {REP_RESULT};
+			op.o_hdr = conn->c_sasl_bindop->o_hdr;
+			op.o_tag = LDAP_REQ_SEARCH;
+			op.o_dn = conn->c_ndn;
+			op.o_ndn = conn->c_ndn;
+			op.o_callback = &cb;
+			slap_op_time( &op.o_time, &op.o_tincr );
+			op.o_do_not_cache = 1;
+			op.o_is_auth_check = 1;
+			op.o_req_dn = op.o_req_ndn;
+			op.ors_scope = LDAP_SCOPE_BASE;
+			op.ors_deref = LDAP_DEREF_NEVER;
+			op.ors_tlimit = SLAP_NO_LIMIT;
+			op.ors_slimit = 1;
+			op.ors_filter = &generic_filter;
+			op.ors_filterstr = generic_filterstr;
+			/* FIXME: we want all attributes, right? */
+			op.ors_attrs = NULL;
+
+			op.o_bd->be_search( &op, &rs );
+		}
+	}
+
+	slap_callback cb2 = { NULL, sasl_authdata_lookup, NULL, NULL };
+	char *save_ndn_bv_val = op.o_req_ndn.bv_val;
+	ber_len_t save_ndn_bv_len = op.o_req_ndn.bv_len;
+	asprintf(&(op.o_req_ndn.bv_val), "authGUID=%s,cn=users,cn=authdata", sl.uuidstr);
+	op.o_req_ndn.bv_len = strlen(op.o_req_ndn.bv_val);
+	cb2.sc_private = &sl;
+	op.o_callback = &cb2;
+
+	char *save_bv_val = op.o_conn->c_listener->sl_url.bv_val;
+	ber_len_t save_bv_len = op.o_conn->c_listener->sl_url.bv_len;
+	op.o_conn->c_listener->sl_url.bv_val = strdup("ldapi://%2Fvar%2Frun%2Fldapi");
+	op.o_conn->c_listener->sl_url.bv_len = strlen("ldapi://%2Fvar%2Frun%2Fldapi");
+	op.o_hdr = conn->c_sasl_bindop->o_hdr;
+	op.o_tag = LDAP_REQ_SEARCH;
+
+	op.o_bd = select_backend( &op.o_req_ndn, 1 );
+	if ( op.o_bd ) {
+		if ( op.o_bd->be_search ) {
+			SlapReply rs = {REP_RESULT};
+			slap_op_time( &op.o_time, &op.o_tincr );
+			op.o_callback->sc_next = NULL;
+			op.o_bd->be_search( &op, &rs );
+		}
+	}
+	free(op.o_req_ndn.bv_val);
+	op.o_req_ndn.bv_val = save_ndn_bv_val;
+	op.o_req_ndn.bv_len = save_ndn_bv_len;
+	free(op.o_conn->c_listener->sl_url.bv_val);
+	op.o_conn->c_listener->sl_url.bv_val = save_bv_val;
+	op.o_conn->c_listener->sl_url.bv_len = save_bv_len;
+}
+
+static sasl_auxprop_plug_t pws_auxprop_plugin = {
+	0,
+	0,
+	NULL,
+	NULL,
+	pws_auxprop_lookup,
+	"appleldap",
+	NULL
+};
+
+static int
+pws_auxprop_init(
+	const sasl_utils_t *utils,
+	int max_version,
+	int *out_version,
+	sasl_auxprop_plug_t **plug,
+	const char *plugname)
+{
+	Debug( LDAP_DEBUG_TRACE, "%s: entered", __PRETTY_FUNCTION__, 0, 0 );
+	if ( !out_version || !plug ) return SASL_BADPARAM;
+
+	if ( max_version < SASL_AUXPROP_PLUG_VERSION ) return SASL_BADVERS;
+
+	*out_version = SASL_AUXPROP_PLUG_VERSION;
+	*plug = &pws_auxprop_plugin;
+	return SASL_OK;
+}
+#endif
+
+
 /* Convert a SASL authcid or authzid into a DN. Store the DN in an
  * auxiliary property, so that we can refer to it in sasl_authorize
  * without interfering with anything else. Also, the SASL username
@@ -569,12 +860,12 @@ slap_sasl_canonicalize(
 	*out_len = 0;
 
 	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: %s=\"%s\"\n",
-		conn ? conn->c_connid : -1,
+		conn ? (long) conn->c_connid : -1L,
 		(flags & SASL_CU_AUTHID) ? "authcid" : "authzid",
 		in ? in : "<empty>");
 
 	if (user_realm == NULL) {
-		krb5_authdata *pdata = NULL;
+		sasl_krb5_authdata *pdata = NULL;
 		int prop_rc = sasl_getprop(sconn, SASL_KRB5_AUTHDATA, (SASL_CONST void **)&pdata);
 		if (pdata && pdata->structID == SASL_KRB5_AUTH_DATA_SIG && pdata->realm) {
 			user_realm = pdata->realm;
@@ -659,7 +950,7 @@ slap_sasl_canonicalize(
 	prop_set( props, names[0], dn.bv_val, dn.bv_len );
 
 	Debug( LDAP_DEBUG_ARGS, "SASL Canonicalize [conn=%ld]: %s=\"%s\"\n",
-		conn ? conn->c_connid : -1, names[0]+1,
+		conn ? (long) conn->c_connid : -1L, names[0]+1,
 		dn.bv_val ? dn.bv_val : "<EMPTY>" );
 
 	/* Not needed any more, SASL has copied it */
@@ -702,7 +993,7 @@ slap_sasl_authorize(
 
 	Debug( LDAP_DEBUG_ARGS, "SASL proxy authorize [conn=%ld]: "
 		"authcid=\"%s\" authzid=\"%s\"\n",
-		conn ? conn->c_connid : -1, auth_identity, requested_user );
+		conn ? (long) conn->c_connid : -1L, auth_identity, requested_user );
 	if ( conn->c_sasl_dn.bv_val ) {
 		BER_BVZERO( &conn->c_sasl_dn );
 	}
@@ -732,7 +1023,7 @@ slap_sasl_authorize(
 	if ( rc != LDAP_SUCCESS ) {
 		Debug( LDAP_DEBUG_TRACE, "SASL Proxy Authorize [conn=%ld]: "
 			"proxy authorization disallowed (%d)\n",
-			(long) (conn ? conn->c_connid : -1), rc, 0 );
+			conn ? (long) conn->c_connid : -1L, rc, 0 );
 
 		sasl_seterror( sconn, 0, "not authorized" );
 		return SASL_NOAUTHZ;
@@ -752,7 +1043,7 @@ ok:
 
 	Debug( LDAP_DEBUG_TRACE, "SASL Authorize [conn=%ld]: "
 		" proxy authorization allowed authzDN=\"%s\"\n",
-		(long) (conn ? conn->c_connid : -1), 
+		conn ? (long) conn->c_connid : -1L, 
 		authzDN.bv_val ? authzDN.bv_val : "", 0 );
 	return SASL_OK;
 } 
@@ -1067,7 +1358,7 @@ slapd_rw_apply( void *private, const char *filter, struct berval *val )
 		}
 		rc = REWRITE_ERR;
 	}
-	filter_free_x( op, op->ors_filter );
+	filter_free_x( op, op->ors_filter, 1 );
 	op->o_tmpfree( op->ors_filterstr.bv_val, op->o_tmpmemctx );
 	return rc;
 }
@@ -1100,6 +1391,7 @@ int slap_sasl_init( void )
 	int rc;
 	static sasl_callback_t server_callbacks[] = {
 		{ SASL_CB_LOG, &slap_sasl_log, NULL },
+		{ SASL_CB_GETOPT, &slap_sasl_getopt, NULL },
 		{ SASL_CB_LIST_END, NULL, NULL }
 	};
 #endif
@@ -1146,6 +1438,13 @@ int slap_sasl_init( void )
 	}
 
 #ifdef __APPLE__
+	rc = sasl_auxprop_add_plugin( "appleldap", pws_auxprop_init );
+	if( rc != SASL_OK ) {
+		Debug( LDAP_DEBUG_ANY, "slap_sasl_init: auxprop add plugin failed\n",
+			0, 0, 0 );
+		return -1;
+	}
+
     setenv( "SASL_PATH", "/usr/lib/sasl2/openldap/", 0 );
 #endif
 	/* should provide callbacks for logging */
@@ -1554,7 +1853,7 @@ int slap_sasl_bind( Operation *op, SlapReply *rs )
 		}
 
 		/* Must send response using old security layer */
-		if (response.bv_len) rs->sr_sasldata = &response;
+		rs->sr_sasldata = (response.bv_len ? &response : NULL);
 		send_ldap_sasl( op, rs );
 		
 		/* Now dispose of the old security layer.
@@ -1895,7 +2194,7 @@ int sasl_krb5_authdata_pac( Operation *op)
 {
 	int result = -1;
 	sasl_conn_t *ctx = op->o_conn->c_sasl_authctx;
-	krb5_authdata *pvalue = NULL;
+	sasl_krb5_authdata *pvalue = NULL;
 	char *realm = NULL;
 	PACTYPE pbufs = {0};
 	KERB_VALIDATION_INFO krbinfo = {0};
@@ -1908,7 +2207,12 @@ int sasl_krb5_authdata_pac( Operation *op)
 	char clientname[256] = {0};
 	int prop_rc = -1;
 	
+	krb5_error_code ret;
+	krb5_context context = 0;
+	krb5_pac pac;
 
+	krb5_data data;
+	
 	if (!BER_BVISNULL(&op->orb_edn) &&
 		strstr (op->orb_edn.bv_val, "proxyuser") == NULL)	 {
 		Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac - NOT A PROXY USER\n",0, 0, 0);
@@ -1923,36 +2227,69 @@ int sasl_krb5_authdata_pac( Operation *op)
 				op->o_conn->c_authz.c_sai_krb5_auth_data.bv_len = pvalue->length;
 				op->o_conn->c_authz.c_sai_krb5_auth_data.bv_val = pvalue->data;
 				Debug(LDAP_DEBUG_TRACE, "sasl_getprop(110) op->o_conn->c_authz.c_sai_krb5_auth_data.bv_len = [%d]\n", (int)op->o_conn->c_authz.c_sai_krb5_auth_data.bv_len, 0, 0);
-				if (parse_pac_from_buffer(pvalue->length, pvalue->data, &pbufs, 0) == 0) {
-					if (get_kerbvalidationinfo(&pbufs, &krbinfo) == 0) {  // Active Directory
-						Debug(LDAP_DEBUG_TRACE, " Active Directory - get_kerbvalidationinfo\n", 0, 0, 0);
-								if (mbr_sid_to_string(&krbinfo.domain_sid, domainsid_str) == 0) { // get DOMAIN SID
-									snprintf(sid_str, sizeof(sid_str), "%s-%u", domainsid_str, krbinfo.UserId); // create user SID  (DOMAIN SID + USER RID)
-									ber_str2bv( sid_str, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_id );
-									op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned = 1;
-									result = 0;
-								} else {
-									Debug(LDAP_DEBUG_TRACE, " Active Directory - get_kerbvalidationinfo - INVALID DOMAIN SID\n", 0, 0, 0);
-								}
-					} else if (get_kerbvalidationinfoguid(&pbufs, &krbinfoguid) == 0) { // Open Directory
-						Debug(LDAP_DEBUG_TRACE, " Open Directory - get_kerbvalidationinfoguid\n", 0, 0, 0);
-						uuid_unparse(krbinfoguid.userguid, uuid_str);
-						Debug(LDAP_DEBUG_TRACE, " Open Directory - get_kerbvalidationinfoguid uuid(%s)\n", uuid_str, 0, 0);
-						ber_str2bv( uuid_str, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_id );
-						op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned = 1;
-						result = 0;
-					}
-
-					if (get_pac_client_info(&pbufs, &clientinfo) == 0) {
-						Debug(LDAP_DEBUG_TRACE, " get_pac_client_info\n", 0, 0, 0);	
-						cfstr = CFStringCreateWithCharacters(NULL, (const UniChar *)clientinfo.Name, clientinfo.NameLength);
-						if (CFStringGetCString( cfstr, clientname, sizeof(clientname), kCFStringEncodingUTF8 )) {
-							Debug(LDAP_DEBUG_TRACE, "clientInfo.Name = %s\n",clientname, 0, 0);	
-							ber_str2bv( clientname, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_name );
-						}
-					}
+				
+				ret = krb5_init_context(&context);
+				if (ret) {
+					Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac [%d]krb5_init_context\n", ret, 0, 0);
 				}
+				
+				ret = krb5_pac_parse(context, pvalue->data, pvalue->length, &pac);
+				if (ret) {
+					Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac [%d]krb5_pac_parse\n", ret, 0, 0);
+				} else {
+					memset(&data, 0, sizeof(data));
+					ret = krb5_pac_get_buffer(context, pac, PAC_CLIENT_INFO_TYPE, &data);
+					if (ret) {
+						Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac [%d]krb5_pac_get_buffer PAC_CLIENT_INFO_TYPE\n", ret, 0, 0);
+					} else {
+						if (get_pac_client_info(data.data, data.length, &clientinfo) == 0) {
+							Debug(LDAP_DEBUG_TRACE, " get_pac_client_info\n", 0, 0, 0);	
+							cfstr = CFStringCreateWithCharacters(NULL, (const UniChar *)clientinfo.Name, clientinfo.NameLength);
+							if (CFStringGetCString( cfstr, clientname, sizeof(clientname), kCFStringEncodingUTF8 )) {
+								Debug(LDAP_DEBUG_TRACE, "clientInfo.Name = %s\n",clientname, 0, 0);	
+								ber_str2bv( clientname, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_name );
+							}
+						}
+						krb5_data_free(&data);
+					}
 
+					memset(&data, 0, sizeof(data));
+					ret = krb5_pac_get_buffer(context, pac, PAC_LOGON_INFO_TYPE, &data);
+					if (ret) {
+						Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac [%d]krb5_pac_get_buffer PAC_LOGON_INFO_TYPE\n", ret, 0, 0);
+					} else {
+						if (get_kerbvalidationinfo(data.data, data.length, &krbinfo) == 0) {  // Active Directory
+							Debug(LDAP_DEBUG_TRACE, " Active Directory - get_kerbvalidationinfo\n", 0, 0, 0);
+							if (mbr_sid_to_string(&krbinfo.domain_sid, domainsid_str) == 0) { // get DOMAIN SID
+								snprintf(sid_str, sizeof(sid_str), "%s-%u", domainsid_str, krbinfo.UserId); // create user SID  (DOMAIN SID + USER RID)
+								ber_str2bv( sid_str, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_id );
+								op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned = 1;
+								result = 0;
+							} else {
+								Debug(LDAP_DEBUG_TRACE, " Active Directory - get_kerbvalidationinfo - INVALID DOMAIN SID\n", 0, 0, 0);
+							}
+						}
+						krb5_data_free(&data);
+					}
+					
+					memset(&data, 0, sizeof(data));
+					ret = krb5_pac_get_buffer(context, pac, PAC_LOGON_INFO_GUID_TYPE, &data);
+					if (ret) {
+						Debug(LDAP_DEBUG_TRACE, "sasl_krb5_authdata_pac [%d]krb5_pac_get_buffer PAC_LOGON_INFO_GUID_TYPE\n", ret, 0, 0);
+					} else {
+						if (get_kerbvalidationinfoguid(data.data, data.length, &krbinfoguid) == 0) { // Open Directory
+							Debug(LDAP_DEBUG_TRACE, " Open Directory - get_kerbvalidationinfoguid\n", 0, 0, 0);
+							uuid_unparse(krbinfoguid.userguid, uuid_str);
+							Debug(LDAP_DEBUG_TRACE, " Open Directory - get_kerbvalidationinfoguid uuid(%s)\n", uuid_str, 0, 0);
+							ber_str2bv( uuid_str, 0, 1, &op->o_conn->c_authz.c_sai_krb5_pac_id );
+							op->o_conn->c_authz.c_sai_krb5_auth_data_provisioned = 1;
+							result = 0;
+						}
+						krb5_data_free(&data);
+					}
+					
+					krb5_pac_free(context, pac);
+				}
 			}
 			if (pvalue->realm) {
 				ber_str2bv( realm, 0, 1, &op->o_conn->c_authz.c_sai_krb5_realm );
@@ -1968,5 +2305,7 @@ int sasl_krb5_authdata_pac( Operation *op)
 		free(clientinfo.Name);
 	if (cfstr)
 		CFRelease(cfstr);
+	if (context)
+		krb5_free_context(context);
 	return result;
 }

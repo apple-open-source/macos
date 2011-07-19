@@ -69,9 +69,6 @@ __attribute__((format(printf, 1, 2)));
 
 OSDefineMetaClassAndStructors(AppleUSBEHCI, IOUSBControllerV3)
 
-// this is a static variable (system wide global)
-AppleEHCIExtraPower		AppleUSBEHCI::_extraPower;						// this is static as currently it is share by all machines
-
 bool 
 AppleUSBEHCI::init(OSDictionary * propTable)
 {
@@ -1684,56 +1681,6 @@ AppleUSBEHCI::message( UInt32 type, IOService * provider,  void * argument )
 	
 	return returnValue;
 }
-
-
-UInt32
-AppleUSBEHCI::AllocateExtraRootHubPortPower(UInt32 extraPowerRequested)
-{
-	if (_extraPower.version != kAppleEHCIExtraPowerVersion)
-	{
-		USBLog(2, "AppleUSBEHCI[%p]::AllocateExtraRootHubPortPower - extra power not available on this controller", this);
-		return 0;
-	}
-	
-	// 0 - that seems silly
-	if (!extraPowerRequested)
-	{
-		USBLog(7, "AppleUSBEHCI[%p]::AllocateExtraRootHubPortPower(kIOUSBMessageRequestExtraPower) - no extra power requested - fine with me", this);
-		return 0;
-	}
-	
-	// requesting new power
-	
-	// check to make sure there is enough aggregate
-	if ((UInt32)extraPowerRequested > _extraPower.aggregate)
-	{
-		USBLog(2, "AppleUSBEHCI[%p]::AllocateExtraRootHubPortPower - no extra power available", this);
-		return 0;
-	}
-	
-	// now check to make sure there is enough on each port
-	if ((UInt32)extraPowerRequested > _extraPower.perPort)
-	{
-		USBLog(2, "AppleUSBEHCI[%p]::AllocateExtraRootHubPortPower - no per port power available", this);
-		return 0;
-	}
-	
-	_extraPower.aggregate = _extraPower.aggregate - extraPowerRequested;
-	USBLog(2, "AppleUSBEHCI[%p]::AllocateExtraRootHubPortPower - requested(%d) - aggregate now at (%d)", this, (int)extraPowerRequested, (int)_extraPower.aggregate);
-	return extraPowerRequested;
-}
-
-
-
-void
-AppleUSBEHCI::ReturnExtraRootHubPortPower(UInt32 extraPowerReturned)
-{
-	// someone is giving the extra power back
-	_extraPower.aggregate = _extraPower.aggregate + extraPowerReturned;
-	USBLog(2, "AppleUSBEHCI[%p]::ReturnExtraRootHubPortPower - returned(%d) - aggregate now at (%d)", this, (int)extraPowerReturned, (int)_extraPower.aggregate);
-	return;
-}
-
 
 
 IOUSBControllerIsochEndpoint*			

@@ -28,6 +28,7 @@
 
 #include "APIShims.h"
 #include "APICast.h"
+#include <runtime/Error.h>
 #include <runtime/JSGlobalObject.h>
 #include <runtime/JSLock.h>
 #include <runtime/ObjectPrototype.h>
@@ -35,13 +36,14 @@
 
 namespace JSC {
 
-const ClassInfo JSCallbackConstructor::info = { "CallbackConstructor", 0, 0, 0 };
+const ClassInfo JSCallbackConstructor::s_info = { "CallbackConstructor", &JSObjectWithGlobalObject::s_info, 0, 0 };
 
-JSCallbackConstructor::JSCallbackConstructor(NonNullPassRefPtr<Structure> structure, JSClassRef jsClass, JSObjectCallAsConstructorCallback callback)
-    : JSObject(structure)
+JSCallbackConstructor::JSCallbackConstructor(JSGlobalObject* globalObject, Structure* structure, JSClassRef jsClass, JSObjectCallAsConstructorCallback callback)
+    : JSObjectWithGlobalObject(globalObject, structure)
     , m_class(jsClass)
     , m_callback(callback)
 {
+    ASSERT(inherits(&s_info));
     if (m_class)
         JSClassRetain(jsClass);
 }
@@ -52,17 +54,18 @@ JSCallbackConstructor::~JSCallbackConstructor()
         JSClassRelease(m_class);
 }
 
-static JSObject* constructJSCallback(ExecState* exec, JSObject* constructor, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructJSCallback(ExecState* exec)
 {
+    JSObject* constructor = exec->callee();
     JSContextRef ctx = toRef(exec);
     JSObjectRef constructorRef = toRef(constructor);
 
     JSObjectCallAsConstructorCallback callback = static_cast<JSCallbackConstructor*>(constructor)->callback();
     if (callback) {
-        int argumentCount = static_cast<int>(args.size());
+        int argumentCount = static_cast<int>(exec->argumentCount());
         Vector<JSValueRef, 16> arguments(argumentCount);
         for (int i = 0; i < argumentCount; i++)
-            arguments[i] = toRef(exec, args.at(i));
+            arguments[i] = toRef(exec, exec->argument(i));
 
         JSValueRef exception = 0;
         JSObjectRef result;
@@ -71,11 +74,11 @@ static JSObject* constructJSCallback(ExecState* exec, JSObject* constructor, con
             result = callback(ctx, constructorRef, argumentCount, arguments.data(), &exception);
         }
         if (exception)
-            exec->setException(toJS(exec, exception));
-        return toJS(result);
+            throwError(exec, toJS(exec, exception));
+        return JSValue::encode(toJS(result));
     }
     
-    return toJS(JSObjectMake(ctx, static_cast<JSCallbackConstructor*>(constructor)->classRef(), 0));
+    return JSValue::encode(toJS(JSObjectMake(ctx, static_cast<JSCallbackConstructor*>(constructor)->classRef(), 0)));
 }
 
 ConstructType JSCallbackConstructor::getConstructData(ConstructData& constructData)

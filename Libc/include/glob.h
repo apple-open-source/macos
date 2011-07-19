@@ -41,6 +41,8 @@
 #define	_GLOB_H_
 
 #include <_types.h>
+#include <sys/cdefs.h>
+#include <Availability.h>
 
 #ifndef _SIZE_T
 #define _SIZE_T
@@ -135,7 +137,7 @@ int	glob(const char * __restrict, int, int (*)(const char *, int),
 #ifndef LIBC_ALIAS_GLOB_B
 //End-Libc
 int	glob_b(const char * __restrict, int, int (^)(const char *, int), 
-	     glob_t * __restrict) __DARWIN_INODE64(glob_b);
+	     glob_t * __restrict) __DARWIN_INODE64(glob_b) __OSX_AVAILABLE_STARTING(__MAC_10_6, __IPHONE_3_2);
 //Begin-Libc
 #else /* LIBC_ALIAS_GLOB_B */
 int	glob_b(const char * __restrict, int, int (^)(const char *, int), 

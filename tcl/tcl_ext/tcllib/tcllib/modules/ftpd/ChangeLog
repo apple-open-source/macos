@@ -1,3 +1,21 @@
+2010-01-20  Andreas Kupries  <andreask@activestate.com>
+
+	* ftpd.tcl (::ftpd::command::RNTO): [Bug 2928355]: Fixed the
+	  missing import of the server's state array, reported by Martin
+	  <martinao@users.sourceforge.net>.
+
+	* ftpd.tcl (::ftpd::config): [Bug 2935339] [Patch 2935347]:
+	* ftpd.man: Applied the patch by Keith Vetter
+	* pkgIndex.tcl: <keithv@users.sourceforge.net>, fixing the
+	  non-idempotency of the config command. Bumped the package
+	  version to 1.2.5.
+
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

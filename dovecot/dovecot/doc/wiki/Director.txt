@@ -1,0 +1,162 @@
+Director
+========
+
+Director can be used by <Dovecot's IMAP/POP3/LMTP proxy>
+[PasswordDatabase.ExtraFields.Proxy.txt] to keep a temporary user -> mail
+server mapping. As long as user has simultaneous connections, the user is
+always redirected to the same server. Each proxy server is running its own
+director process, and the directors are communicating the state to each others.
+Directors are mainly useful for setups where all of the mail storage is seen by
+all servers, such as with NFS or a cluster filesystem.
+
+First test non-director proxying
+--------------------------------
+
+The director is simply a small add-on for Dovecot proxy. Before configuring
+director, you should test that a simple proxying setup with static destination
+server works. See the <Proxy> [PasswordDatabase.ExtraFields.Proxy.txt] page for
+more information about how to configure it. If you have a simple setup, you can
+test this easily using a static passdb:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = static
+  args = proxy=y host=10.2.0.20 nopassword=y
+}
+---%<-------------------------------------------------------------------------
+
+Once finished testing, remember to remove the "host" field.
+
+Servers
+-------
+
+You need one or more servers assigned for Dovecot proxies. The same servers
+could also act as backends handling the mails, but you need to run <two
+separate Dovecot configurations> [RunningDovecot.txt] in different ports. This
+may get a bit confusing, so it's not recommended.
+
+The directors are going to connect to each others in a ring. For example if you
+have servers called A, B and C, director will create connections A->B, B->C and
+C->A.
+
+Director configuration
+----------------------
+
+In example configuration you can configure director from
+'conf.d/10-director.conf'.
+
+Listeners
+---------
+
+Configure the listeners that director requires:
+
+---%<-------------------------------------------------------------------------
+service director {
+  unix_listener login/director {
+    mode = 0666
+  }
+  fifo_listener login/proxy-notify {
+    mode = 0666
+  }
+  unix_listener director-userdb {
+    mode = 0600
+  }
+  inet_listener {
+    port = 9090
+  }
+}
+---%<-------------------------------------------------------------------------
+
+The port 9090 will be used for listening and connecting to other directors.
+You're free to use any port number you want.
+
+Configuring list of director servers
+------------------------------------
+
+List all of your directors in 'director_servers' setting separated by spaces.
+You can use:
+
+ * IP addresses
+ * hostnames
+ * hostnames that expand to multiple IPs (e.g. you could have a "directors-all"
+   DNS entry that expands to all directors' IPs)
+
+You can also add :port after the IP/host. The default port is the same as what
+director service's inet_listener is using (the port 9090 above).
+
+For example if you have 3 directors, you could set:
+
+---%<-------------------------------------------------------------------------
+director_servers = 10.1.0.2 10.1.0.3 10.1.0.4
+---%<-------------------------------------------------------------------------
+
+Configuring list of mail servers
+--------------------------------
+
+List all of your backend mail servers in 'director_mail_servers' setting
+separated by spaces. You can use:
+
+ * IP addresses
+ * IP ranges (e.g. 10.2.0.10-10.2.0.30)
+ * hostnames
+ * hostnames that expand to multiple IPs
+
+For example if you had 20 mail servers with consecutive IPs:
+
+---%<-------------------------------------------------------------------------
+director_mail_servers = 10.2.0.11-10.2.0.30
+---%<-------------------------------------------------------------------------
+
+Enabling director
+-----------------
+
+Enable director for the wanted login services by telling them to connect to
+director socket instead of the default login socket:
+
+---%<-------------------------------------------------------------------------
+service imap-login {
+  executable = imap-login director
+}
+service pop3-login {
+  executable = pop3-login director
+}
+---%<-------------------------------------------------------------------------
+
+If you want to enable director for LMTP, also set:
+
+---%<-------------------------------------------------------------------------
+lmtp_proxy = yes
+
+protocol lmtp {
+  auth_socket_path = director-userdb
+}
+---%<-------------------------------------------------------------------------
+
+Passdb configuration
+--------------------
+
+Your passdb must return "proxy" <extra field>
+[PasswordDatabase.ExtraFields.txt], otherwise director doesn't do anything.
+
+Director works by adding a "host" extra field to the auth reply, which contains
+the temporary destination mail server. This "host" field isn't added if the
+passdb lookup already returns "host". This allows configuring some users to be
+always proxied to a specific server.
+
+If the backend servers verify password, you can use static passdb for director:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = static
+  args = proxy=y nopassword=y
+}
+---%<-------------------------------------------------------------------------
+
+Health monitoring of backend servers
+------------------------------------
+
+Brad Davidson has written a small daemon for monitoring backend servers, and
+disable/enable them on demand.
+Ref:http://www.dovecot.org/list/dovecot/2010-August/051946.html
+
+(This file was created from the wiki on 2011-05-11 04:42)

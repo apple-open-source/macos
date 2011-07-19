@@ -122,12 +122,13 @@ Like
 but excludes session leaders.
 .It Fl E
 Display the environment as well.
+This does not reflect changes in the environment after process launch.
 .It Fl e
 Identical to
 .Fl A .
 .It Fl f
 Display the uid, pid, parent pid, recent CPU usage, process start time, 
-controling tty, elapsed CPU usage, and the associated command.
+controlling tty, elapsed CPU usage, and the associated command.
 If the
 .Fl u
 option is also used, display the user name rather then the numeric uid.
@@ -572,6 +573,8 @@ total number of workqueue threads
 number of blocked workqueue threads
 .It Cm wqr
 number of running workqueue threads
+.It Cm wql
+workqueue limit status (C = constrained thread limit, T = total thread limit)
 .It Cm xstat
 exit or stop status (valid only for stopped or zombie process)
 .El

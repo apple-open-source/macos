@@ -129,8 +129,8 @@ test vfs-3.2 {vfs helpers: crc} {
     # What this means is that tclvfs can't find some other
     # extension/code it requires -- you may need to install
     # the Trf extension for example.
-    ::vfs::crc abcd
-} {Kc*}
+    format %08x [::vfs::crc abcd]
+} {ed82cd11}
 
 test vfs-3.3 {vfs helpers: zip} {
     # If this test fails, probably many other tests will fail too (at
@@ -156,7 +156,6 @@ test vfs-4.1 {vfs glob with .. [Bug 2378350]} -setup {
     package require vfs::ns 0.5.1
 } -body {
     namespace eval ::test {}
-    namespace eval ::test {}
     namespace eval ::test::bar {}
     namespace eval ::test::baz {}
     proc ::test::waz {args} { blah blah}
@@ -176,6 +175,36 @@ test vfs-4.1 {vfs glob with .. [Bug 2378350]} -setup {
 	       0 {nstest/test/bar/../baz/noz} \
 	       ]
 
+test vfs-4.2 {Test MatchInDirectory fix} -setup {
+    package require vfs::ns 0.5.1
+} -body {
+    namespace eval ::test {}
+    namespace eval ::test::quux {}
+    proc ::test::waz {args} { blah blah}
+    vfs::ns::Mount :: nstest
+    set res [list]
+    lappend res \
+	    [catch {lsort [glob nstest/test/*]} msg] $msg \
+	    [catch {lsort [glob nstest/test/quux/*]} msg] $msg \
+	    [catch {lsort [glob -nocomplain nstest/test/quux/*]} msg] $msg \
+	    [catch {lsort [glob nstest/test/quux/nothingthere/*]} msg] $msg \
+	    [catch {lsort [glob -nocomplain nstest/test/quux/nothingthere/*]} msg] $msg \
+} -cleanup {
+    catch {vfs::unmount nstest}
+    catch {namespace delete ::test}
+} -result [list \
+	       0 {nstest/test/quux nstest/test/waz} \
+               1 {no files matched glob pattern "nstest/test/quux/*"} \
+               0 {} \
+               1 {no files matched glob pattern "nstest/test/quux/nothingthere/*"} \
+               0 {} \
+	       ]
+
+
 # cleanup
 ::tcltest::cleanupTests
 return
+
+# Local variables:
+# mode: tcl
+# End:

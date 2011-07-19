@@ -1,0 +1,46 @@
+Date: Sun, 19 Oct 2008 12:31:58 +0200
+From: Stephan Bosch <stephan@rename-it.nl>
+To: ietf-mta-filters@imc.org
+Subject: Questions regarding RFC 5228
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Hello,
+
+I am finishing up a first release of my Sieve implementation, and one of 
+the TODO items that yet remains is getting some answers to questions 
+that arose during development. I've collected these into a file an now I 
+submit them to this list to get some clarification. Any help is greatly 
+appreciated.
+
+* RFC 5228 (Sieve) : 5.1.  Test address:
+"Implementations MUST restrict the address test to headers that contain 
+addresses, but MUST include at least From, To, Cc, Bcc, Sender, 
+Resent-From, and Resent-To, and it SHOULD include any other header that 
+utilizes an "address-list" structured header body."
+   
+  -> Will this cause a compile error, or are the disallowed headers 
+simply ignored? My implementation currently considers this to be a 
+compile error.
+  -> Given the variables extension, sometimes the specified header names 
+aren't known until runtime. If the previous answer was to cause a 
+compile error, should this abort the script at runtime?
+    
+* RFC 5228 (Sieve) : 5.4.  Test envelope:
+"The "envelope" test is true if the specified part of the [SMTP] (or 
+equivalent) envelope matches the specified key.  This specification 
+defines the interpretation of the (case insensitive) "from" and "to" 
+envelope-parts.  Additional envelope-parts may be defined by other 
+extensions; implementations SHOULD consider unknown envelope parts an 
+error."
+   
+  -> Given the variables extension, sometimes the specified envelope 
+parts aren't known until runtime. Should invalid ones abort the script 
+or is ignoring them a better practice?
+
+Regards,
+
+--
+Stephan Bosch
+stephan@rename-it.nl
+

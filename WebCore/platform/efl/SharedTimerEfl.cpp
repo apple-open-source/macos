@@ -30,43 +30,50 @@
 #include "SharedTimer.h"
 
 #include <Ecore.h>
-#include <stdio.h>
 #include <wtf/Assertions.h>
 #include <wtf/CurrentTime.h>
+#include <wtf/MainThread.h>
 
 namespace WebCore {
 
-static Ecore_Timer *g_sharedTimer = 0;
+static Ecore_Timer *_sharedTimer = 0;
 
-static void (*g_timerFunction)();
+static void (*_timerFunction)();
 
 void setSharedTimerFiredFunction(void (*func)())
 {
-    g_timerFunction = func;
+    _timerFunction = func;
 }
 
-static int timerEvent(void*)
+static Eina_Bool timerEvent(void*)
 {
-    if (g_timerFunction)
-        g_timerFunction();
+    if (_timerFunction)
+        _timerFunction();
+
+    _sharedTimer = 0;
 
     return ECORE_CALLBACK_CANCEL;
 }
 
 void stopSharedTimer()
 {
-    if (g_sharedTimer) {
-        ecore_timer_del(g_sharedTimer);
-        g_sharedTimer = 0;
+    if (_sharedTimer) {
+        ecore_timer_del(_sharedTimer);
+        _sharedTimer = 0;
     }
+}
+
+void addNewTimer(double fireTime)
+{
+    double interval = fireTime - currentTime();
+    stopSharedTimer();
+
+    _sharedTimer = ecore_timer_loop_add(interval, timerEvent, 0);
 }
 
 void setSharedTimerFireTime(double fireTime)
 {
-    double interval = fireTime - currentTime();
-
-    stopSharedTimer();
-    g_sharedTimer = ecore_timer_add(interval, timerEvent, 0);
+    addNewTimer(fireTime);
 }
 
 }

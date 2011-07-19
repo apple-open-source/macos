@@ -1,0 +1,5 @@
+[vset PACKAGE docidx]
+[vset NAME    docidx]
+[vset REQUIRE docidx]
+[vset CONFIG  docidx]
+[include include/import/plugin.inc]

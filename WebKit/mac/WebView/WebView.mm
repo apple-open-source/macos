@@ -1,6 +1,7 @@
 /*
- * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
+ * Copyright (C) 2005, 2006, 2007, 2008, 2009, 2010, 2011 Apple Inc. All rights reserved.
  * Copyright (C) 2006 David Smith (catfish.man@gmail.com)
+ * Copyright (C) 2010 Igalia S.L
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,6 +34,7 @@
 #import "DOMCSSStyleDeclarationInternal.h"
 #import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
+#import "WebApplicationCache.h"
 #import "WebBackForwardListInternal.h"
 #import "WebBaseNetscapePluginView.h"
 #import "WebCache.h"
@@ -45,6 +47,8 @@
 #import "WebDefaultPolicyDelegate.h"
 #import "WebDefaultUIDelegate.h"
 #import "WebDelegateImplementationCaching.h"
+#import "WebDeviceOrientationClient.h"
+#import "WebDeviceOrientationProvider.h"
 #import "WebDocument.h"
 #import "WebDocumentInternal.h"
 #import "WebDownload.h"
@@ -56,7 +60,8 @@
 #import "WebFormDelegatePrivate.h"
 #import "WebFrameInternal.h"
 #import "WebFrameViewInternal.h"
-#import "WebGeolocationControllerClient.h"
+#import "WebFullScreenController.h"
+#import "WebGeolocationClient.h"
 #import "WebGeolocationPositionInternal.h"
 #import "WebHTMLRepresentation.h"
 #import "WebHTMLViewInternal.h"
@@ -80,12 +85,11 @@
 #import "WebNSPrintOperationExtras.h"
 #import "WebNSURLExtras.h"
 #import "WebNSURLRequestExtras.h"
-#import "WebNSUserDefaultsExtras.h"
 #import "WebNSViewExtras.h"
 #import "WebNodeHighlight.h"
 #import "WebPDFView.h"
 #import "WebPanelAuthenticationHandler.h"
-#import "WebPasteboardHelper.h"
+#import "WebPlatformStrategies.h"
 #import "WebPluginDatabase.h"
 #import "WebPluginHalterClient.h"
 #import "WebPolicyDelegate.h"
@@ -93,6 +97,7 @@
 #import "WebPreferencesPrivate.h"
 #import "WebScriptDebugDelegate.h"
 #import "WebScriptWorldInternal.h"
+#import "WebStorageManagerInternal.h"
 #import "WebSystemInterface.h"
 #import "WebTextCompletionController.h"
 #import "WebTextIterator.h"
@@ -103,13 +108,13 @@
 #import <Foundation/NSURLConnection.h>
 #import <JavaScriptCore/APICast.h>
 #import <JavaScriptCore/JSValueRef.h>
+#import <WebCore/AbstractDatabase.h>
 #import <WebCore/ApplicationCacheStorage.h>
-#import <WebCore/BackForwardList.h>
-#import <WebCore/Cache.h>
+#import <WebCore/BackForwardListImpl.h>
+#import <WebCore/MemoryCache.h>
 #import <WebCore/ColorMac.h>
 #import <WebCore/CSSComputedStyleDeclaration.h>
 #import <WebCore/Cursor.h>
-#import <WebCore/Database.h>
 #import <WebCore/Document.h>
 #import <WebCore/DocumentLoader.h>
 #import <WebCore/DragController.h>
@@ -120,6 +125,7 @@
 #import <WebCore/FocusController.h>
 #import <WebCore/Frame.h>
 #import <WebCore/FrameLoader.h>
+#import <WebCore/FrameSelection.h>
 #import <WebCore/FrameTree.h>
 #import <WebCore/FrameView.h>
 #import <WebCore/GCController.h>
@@ -128,21 +134,28 @@
 #import <WebCore/HistoryItem.h>
 #import <WebCore/IconDatabase.h>
 #import <WebCore/JSCSSStyleDeclaration.h>
+#import <WebCore/JSDocument.h>
 #import <WebCore/JSElement.h>
+#import <WebCore/JSNodeList.h>
 #import <WebCore/Logging.h>
+#import <WebCore/MemoryPressureHandler.h>
 #import <WebCore/MIMETypeRegistry.h>
+#import <WebCore/NodeList.h>
 #import <WebCore/Page.h>
 #import <WebCore/PageCache.h>
 #import <WebCore/PageGroup.h>
 #import <WebCore/PlatformMouseEvent.h>
 #import <WebCore/ProgressTracker.h>
+#import <WebCore/RenderView.h>
 #import <WebCore/RenderWidget.h>
 #import <WebCore/ResourceHandle.h>
+#import <WebCore/ResourceLoadScheduler.h>
+#import <WebCore/ResourceRequest.h>
 #import <WebCore/RuntimeApplicationChecks.h>
+#import <WebCore/SchemeRegistry.h>
 #import <WebCore/ScriptController.h>
 #import <WebCore/ScriptValue.h>
 #import <WebCore/SecurityOrigin.h>
-#import <WebCore/SelectionController.h>
 #import <WebCore/Settings.h>
 #import <WebCore/TextResourceDecoder.h>
 #import <WebCore/ThreadCheck.h>
@@ -175,6 +188,10 @@
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
 #import <WebCore/GeolocationController.h>
 #import <WebCore/GeolocationError.h>
+#endif
+
+#if ENABLE(GLIB_SUPPORT)
+#import <glib.h>
 #endif
 
 @interface NSSpellChecker (WebNSSpellCheckerDetails)
@@ -368,6 +385,9 @@ static const char webViewIsOpen[] = "At least one WebView is still open.";
 #if USE(ACCELERATED_COMPOSITING)
 - (void)_clearLayerSyncLoopObserver;
 #endif
+#if ENABLE(GLIB_SUPPORT)
+- (void)_clearGlibLoopObserver;
+#endif
 @end
 
 static void patchMailRemoveAttributesMethod();
@@ -383,6 +403,7 @@ NSString *WebElementLinkLabelKey =          @"WebElementLinkLabel";
 NSString *WebElementLinkTargetFrameKey =    @"WebElementTargetFrame";
 NSString *WebElementLinkTitleKey =          @"WebElementLinkTitle";
 NSString *WebElementLinkURLKey =            @"WebElementLinkURL";
+NSString *WebElementMediaURLKey =           @"WebElementMediaURL";
 NSString *WebElementSpellingToolTipKey =    @"WebElementSpellingToolTip";
 NSString *WebElementTitleKey =              @"WebElementTitle";
 NSString *WebElementLinkIsLiveKey =         @"WebElementLinkIsLive";
@@ -428,10 +449,8 @@ NSString *_WebViewDidStartAcceleratedCompositingNotification = @"_WebViewDidStar
 @end
 
 static BOOL continuousSpellCheckingEnabled;
-#ifndef BUILDING_ON_TIGER
 static BOOL grammarCheckingEnabled;
-#endif
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
 static BOOL automaticQuoteSubstitutionEnabled;
 static BOOL automaticLinkDetectionEnabled;
 static BOOL automaticDashSubstitutionEnabled;
@@ -525,10 +544,9 @@ static NSString *createUserVisibleWebKitVersionString()
         osVersion = createMacOSXVersionString();
     if (!webKitVersion)
         webKitVersion = createUserVisibleWebKitVersionString();
-    NSString *language = [NSUserDefaults _webkit_preferredLanguageCode];
     if ([applicationName length])
-        return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko) %@", osVersion, language, webKitVersion, applicationName];
-    return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; U; " PROCESSOR " Mac OS X %@; %@) AppleWebKit/%@ (KHTML, like Gecko)", osVersion, language, webKitVersion];
+        return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; " PROCESSOR " Mac OS X %@) AppleWebKit/%@ (KHTML, like Gecko) %@", osVersion, webKitVersion, applicationName];
+    return [NSString stringWithFormat:@"Mozilla/5.0 (Macintosh; " PROCESSOR " Mac OS X %@) AppleWebKit/%@ (KHTML, like Gecko)", osVersion, webKitVersion];
 }
 
 + (void)_reportException:(JSValueRef)exception inContext:(JSContextRef)context
@@ -576,9 +594,6 @@ static bool runningLeopardMail()
 
 static bool runningTigerMail()
 {
-#ifdef BUILDING_ON_TIGER
-    return applicationIsAppleMail();
-#endif
     return NO;    
 }
 
@@ -599,7 +614,7 @@ static bool shouldEnableLoadDeferring()
 
 - (void)_dispatchPendingLoadRequests
 {
-    cache()->loader()->servePendingRequests();
+    resourceLoadScheduler()->servePendingRequests();
 }
 
 - (void)_registerDraggedTypes
@@ -615,6 +630,62 @@ static bool shouldEnableLoadDeferring()
 - (BOOL)_usesDocumentViews
 {
     return _private->usesDocumentViews;
+}
+
+static NSString *leakMailQuirksUserScriptContents()
+{
+    NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"MailQuirksUserScript" ofType:@"js"];
+    NSStringEncoding encoding;
+    return [[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0];
+}
+
+- (void)_injectMailQuirksScript
+{
+    static NSString *mailQuirksScriptContents = leakMailQuirksUserScriptContents();
+    core(self)->group().addUserScriptToWorld(core([WebScriptWorld world]),
+        mailQuirksScriptContents, KURL(), nullptr, nullptr, InjectAtDocumentEnd, InjectInAllFrames);
+}
+
+static bool needsOutlookQuirksScript()
+{
+    static bool isOutlookNeedingQuirksScript = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
+        && applicationIsMicrosoftOutlook();
+    return isOutlookNeedingQuirksScript;
+}
+
+static NSString *leakOutlookQuirksUserScriptContents()
+{
+    NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"OutlookQuirksUserScript" ofType:@"js"];
+    NSStringEncoding encoding;
+    return [[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0];
+}
+
+-(void)_injectOutlookQuirksScript
+{
+    static NSString *outlookQuirksScriptContents = leakOutlookQuirksUserScriptContents();
+    core(self)->group().addUserScriptToWorld(core([WebScriptWorld world]),
+        outlookQuirksScriptContents, KURL(), nullptr, nullptr, InjectAtDocumentEnd, InjectInAllFrames);
+}
+
+static bool needsSolarWalkQuirksScript()
+{
+    static bool isSolarWalkNeedingQuirksScript = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
+    && applicationIsSolarWalk();
+    return isSolarWalkNeedingQuirksScript;
+}
+
+static NSString *leakSolarWalkQuirksUserScriptContents()
+{
+    NSString *scriptPath = [[NSBundle bundleForClass:[WebView class]] pathForResource:@"SolarWalkQuirksUserScript" ofType:@"js"];
+    NSStringEncoding encoding;
+    return [[NSString alloc] initWithContentsOfFile:scriptPath usedEncoding:&encoding error:0];
+}
+
+-(void)_injectSolarWalkQuirksScript
+{
+    static NSString *solarWalkQuirksScriptContents = leakSolarWalkQuirksUserScriptContents();
+    core(self)->group().addUserScriptToWorld(core([WebScriptWorld world]),
+        solarWalkQuirksScriptContents, KURL(), nullptr, nullptr, InjectAtDocumentEnd, InjectInAllFrames);
 }
 
 - (void)_commonInitializationWithFrameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews
@@ -653,28 +724,51 @@ static bool shouldEnableLoadDeferring()
 #if ENABLE(DATABASE)
         WebKitInitializeDatabasesIfNecessary();
 #endif
+
+#if ENABLE(DOM_STORAGE)
+        WebKitInitializeStorageIfNecessary();
+#endif
         WebKitInitializeApplicationCachePathIfNecessary();
         patchMailRemoveAttributesMethod();
+        
+        // Initialize our platform strategies.
+        WebPlatformStrategies::initialize();
+        Settings::setDefaultMinDOMTimerInterval(0.004);
+
         didOneTimeInitialization = true;
     }
 
+    Page::PageClients pageClients;
+    pageClients.chromeClient = new WebChromeClient(self);
+    pageClients.contextMenuClient = new WebContextMenuClient(self);
+    pageClients.editorClient = new WebEditorClient(self);
+    pageClients.dragClient = new WebDragClient(self);
+    pageClients.inspectorClient = new WebInspectorClient(self);
+    pageClients.pluginHalterClient = adoptPtr(new WebPluginHalterClient(self));
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
-    WebGeolocationControllerClient* geolocationControllerClient = new WebGeolocationControllerClient(self);
-#else
-    WebGeolocationControllerClient* geolocationControllerClient = 0;
+    pageClients.geolocationClient = new WebGeolocationClient(self);
 #endif
-    _private->page = new Page(new WebChromeClient(self), new WebContextMenuClient(self), new WebEditorClient(self), new WebDragClient(self), new WebInspectorClient(self), new WebPluginHalterClient(self), geolocationControllerClient);
+#if ENABLE(DEVICE_ORIENTATION)
+    pageClients.deviceOrientationClient = new WebDeviceOrientationClient(self);
+#endif
+    _private->page = new Page(pageClients);
 
     _private->page->setCanStartMedia([self window]);
     _private->page->settings()->setLocalStorageDatabasePath([[self preferences] _localStorageDatabasePath]);
 
+    if (needsOutlookQuirksScript()) {
+        _private->page->settings()->setShouldInjectUserScriptsInInitialEmptyDocument(true);
+        [self _injectOutlookQuirksScript];
+    }
+
+    if (needsSolarWalkQuirksScript()) {
+        _private->page->settings()->setShouldInjectUserScriptsInInitialEmptyDocument(true);
+        [self _injectSolarWalkQuirksScript];
+    }
+
     [WebFrame _createMainFrameWithPage:_private->page frameName:frameName frameView:frameView];
 
-#ifndef BUILDING_ON_TIGER
     NSRunLoop *runLoop = [NSRunLoop mainRunLoop];
-#else
-    NSRunLoop *runLoop = [NSRunLoop currentRunLoop];
-#endif
 
     if (WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOADING_DURING_COMMON_RUNLOOP_MODES))
         [self scheduleInRunLoop:runLoop forMode:(NSString *)kCFRunLoopCommonModes];
@@ -700,10 +794,12 @@ static bool shouldEnableLoadDeferring()
 
     WebPreferences *prefs = [self preferences];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:)
-                                                 name:WebPreferencesChangedNotification object:prefs];
+                                                 name:WebPreferencesChangedInternalNotification object:prefs];
 
-    // Post a notification so the WebCore settings update.
-    [[self preferences] _postPreferencesChangesNotification];
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
+
+    memoryPressureHandler().install();
 
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_LOCAL_RESOURCE_SECURITY_RESTRICTION)) {
         // Originally, we allowed all local loads.
@@ -716,6 +812,13 @@ static bool shouldEnableLoadDeferring()
 
     if (!WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITHOUT_CONTENT_SNIFFING_FOR_FILE_URLS))
         ResourceHandle::forceContentSniffing();
+
+#if ENABLE(GLIB_SUPPORT)
+    [self _scheduleGlibContextIterations];
+#endif
+
+    if (runningTigerMail() || runningLeopardMail())
+        [self _injectMailQuirksScript];
 }
 
 - (id)_initWithFrame:(NSRect)f frameName:(NSString *)frameName groupName:(NSString *)groupName usesDocumentViews:(BOOL)usesDocumentViews
@@ -811,18 +914,12 @@ static bool shouldEnableLoadDeferring()
     [super setFrameSize:size];
 }
 
-#if USE(ACCELERATED_COMPOSITING) || !defined(BUILDING_ON_TIGER)
-
 - (void)_viewWillDrawInternal
 {
     Frame* frame = [self _mainCoreFrame];
     if (frame && frame->view())
-        frame->view()->layoutIfNeededRecursive();
+        frame->view()->updateLayoutAndStyleIfNeededRecursive();
 }
-
-#endif
-
-#ifndef BUILDING_ON_TIGER
 
 - (void)viewWillDraw
 {
@@ -831,7 +928,6 @@ static bool shouldEnableLoadDeferring()
     [super viewWillDraw];
 }
 
-#endif
 
 
 - (void)drawRect:(NSRect)rect
@@ -1113,6 +1209,10 @@ static bool fastDocumentTeardownEnabled()
     [self _clearLayerSyncLoopObserver];
 #endif
     
+#if ENABLE(GLIB_SUPPORT)
+    [self _clearGlibLoopObserver];
+#endif
+
     [[NSDistributedNotificationCenter defaultCenter] removeObserver:self];
     [[NSNotificationCenter defaultCenter] removeObserver:self];
 
@@ -1209,10 +1309,16 @@ static bool fastDocumentTeardownEnabled()
 - (NSMenu *)_menuForElement:(NSDictionary *)element defaultItems:(NSArray *)items
 {
     NSArray *defaultMenuItems = [[WebDefaultUIDelegate sharedUIDelegate] webView:self contextMenuItemsForElement:element defaultMenuItems:items];
+    NSArray *menuItems = defaultMenuItems;
 
-    NSArray *menuItems = CallUIDelegate(self, @selector(webView:contextMenuItemsForElement:defaultMenuItems:), element, defaultMenuItems);
-    if (!menuItems)
-        return nil;
+    // CallUIDelegate returns nil if UIDelegate is nil or doesn't respond to the selector. So we need to check that here
+    // to distinguish between using defaultMenuItems or the delegate really returning nil to say "no context menu".
+    SEL selector = @selector(webView:contextMenuItemsForElement:defaultMenuItems:);
+    if (_private->UIDelegate && [_private->UIDelegate respondsToSelector:selector]) {
+        menuItems = CallUIDelegate(self, selector, element, defaultMenuItems);
+        if (!menuItems)
+            return nil;
+    }
 
     unsigned count = [menuItems count];
     if (!count)
@@ -1319,11 +1425,51 @@ static bool fastDocumentTeardownEnabled()
     return needsQuirk;
 }
 
+static bool needsSelfRetainWhileLoadingQuirk()
+{
+    static bool needsQuirk = applicationIsAperture();
+    return needsQuirk;
+}
+
+- (BOOL)_needsPreHTML5ParserQuirks
+{    
+    // AOL Instant Messenger and Microsoft My Day contain markup incompatible
+    // with the new HTML5 parser. If these applications were linked against a
+    // version of WebKit prior to the introduction of the HTML5 parser, enable
+    // parser quirks to maintain compatibility. For details, see 
+    // <https://bugs.webkit.org/show_bug.cgi?id=46134> and
+    // <https://bugs.webkit.org/show_bug.cgi?id=46334>.
+    static bool isApplicationNeedingParserQuirks = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_HTML5_PARSER)
+        && (applicationIsAOLInstantMessenger() || applicationIsMicrosoftMyDay());
+    
+    // Mail.app must continue to display HTML email that contains quirky markup.
+    static bool isAppleMail = applicationIsAppleMail();
+
+    return isApplicationNeedingParserQuirks
+        || isAppleMail
+#if ENABLE(DASHBOARD_SUPPORT)
+        // Pre-HTML5 parser quirks are required to remain compatible with many
+        // Dashboard widgets. See <rdar://problem/8175982>.
+        || (_private->page && _private->page->settings()->usesDashboardBackwardCompatibilityMode())
+#endif
+        || [[self preferences] usePreHTML5ParserQuirks];
+}
+
+- (BOOL)_needsUnrestrictedGetMatchedCSSRules
+{
+    static bool needsUnrestrictedGetMatchedCSSRules = !WebKitLinkedOnOrAfter(WEBKIT_FIRST_VERSION_WITH_GET_MATCHED_CSS_RULES_RESTRICTIONS) && applicationIsSafari();
+    return needsUnrestrictedGetMatchedCSSRules;
+}
+
 - (void)_preferencesChangedNotification:(NSNotification *)notification
 {
     WebPreferences *preferences = (WebPreferences *)[notification object];
+    [self _preferencesChanged:preferences];
+}
+
+- (void)_preferencesChanged:(WebPreferences *)preferences
+{    
     ASSERT(preferences == [self preferences]);
-    
     if (!_private->userAgentOverridden)
         _private->userAgent = String();
 
@@ -1356,7 +1502,7 @@ static bool fastDocumentTeardownEnabled()
     settings->setMinimumLogicalFontSize([preferences minimumLogicalFontSize]);
     settings->setPluginsEnabled([preferences arePlugInsEnabled]);
 #if ENABLE(DATABASE)
-    Database::setIsAvailable([preferences databasesEnabled]);
+    AbstractDatabase::setIsAvailable([preferences databasesEnabled]);
 #endif
     settings->setLocalStorageEnabled([preferences localStorageEnabled]);
     settings->setExperimentalNotificationsEnabled([preferences experimentalNotificationsEnabled]);
@@ -1365,10 +1511,12 @@ static bool fastDocumentTeardownEnabled()
     settings->setSerifFontFamily([preferences serifFontFamily]);
     settings->setStandardFontFamily([preferences standardFontFamily]);
     settings->setLoadsImagesAutomatically([preferences loadsImagesAutomatically]);
+    settings->setLoadsSiteIconsIgnoringImageLoadingSetting([preferences loadsSiteIconsIgnoringImageLoadingPreference]);
     settings->setShouldPrintBackgrounds([preferences shouldPrintBackgrounds]);
     settings->setTextAreasAreResizable([preferences textAreasAreResizable]);
     settings->setShrinksStandaloneImagesToFit([preferences shrinksStandaloneImagesToFit]);
     settings->setEditableLinkBehavior(core([preferences editableLinkBehavior]));
+    settings->setEditingBehaviorType(core([preferences editingBehavior]));
     settings->setTextDirectionSubmenuInclusionBehavior(core([preferences textDirectionSubmenuInclusionBehavior]));
     settings->setDOMPasteAllowed([preferences isDOMPasteAllowed]);
     settings->setUsesPageCache([self usesPageCache]);
@@ -1392,21 +1540,54 @@ static bool fastDocumentTeardownEnabled()
     settings->setWebArchiveDebugModeEnabled([preferences webArchiveDebugModeEnabled]);
     settings->setLocalFileContentSniffingEnabled([preferences localFileContentSniffingEnabled]);
     settings->setOfflineWebApplicationCacheEnabled([preferences offlineWebApplicationCacheEnabled]);
-    settings->setZoomMode([preferences zoomsTextOnly] ? ZoomTextOnly : ZoomPage);
     settings->setJavaScriptCanAccessClipboard([preferences javaScriptCanAccessClipboard]);
     settings->setXSSAuditorEnabled([preferences isXSSAuditorEnabled]);
-    settings->setEnforceCSSMIMETypeInStrictMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
+    settings->setEnforceCSSMIMETypeInNoQuirksMode(!WKAppVersionCheckLessThan(@"com.apple.iWeb", -1, 2.1));
     settings->setDNSPrefetchingEnabled([preferences isDNSPrefetchingEnabled]);
     
     // FIXME: Enabling accelerated compositing when WebGL is enabled causes tests to fail on Leopard which expect HW compositing to be disabled.
     // Until we fix that, I will comment out the test (CFM)
-    settings->setAcceleratedCompositingEnabled((coreVideoHas7228836Fix() || [preferences webGLEnabled]) && [preferences acceleratedCompositingEnabled]);
+    settings->setAcceleratedCompositingEnabled((coreVideoHas7228836Fix() || [preferences webGLEnabled] || 
+        [preferences accelerated2dCanvasEnabled]) && [preferences acceleratedCompositingEnabled]);
+    settings->setAcceleratedDrawingEnabled([preferences acceleratedDrawingEnabled]);
+    settings->setCanvasUsesAcceleratedDrawing([preferences canvasUsesAcceleratedDrawing]);    
     settings->setShowDebugBorders([preferences showDebugBorders]);
     settings->setShowRepaintCounter([preferences showRepaintCounter]);
     settings->setPluginAllowedRunTime([preferences pluginAllowedRunTime]);
+    settings->setWebAudioEnabled([preferences webAudioEnabled]);
     settings->setWebGLEnabled([preferences webGLEnabled]);
+    settings->setAccelerated2dCanvasEnabled([preferences accelerated2dCanvasEnabled]);
     settings->setLoadDeferringEnabled(shouldEnableLoadDeferring());
     settings->setFrameFlatteningEnabled([preferences isFrameFlatteningEnabled]);
+    settings->setSpatialNavigationEnabled([preferences isSpatialNavigationEnabled]);
+    settings->setPaginateDuringLayoutEnabled([preferences paginateDuringLayoutEnabled]);
+#if ENABLE(FULLSCREEN_API)
+    settings->setFullScreenEnabled([preferences fullScreenEnabled]);
+#endif
+#ifndef BUILDING_ON_LEOPARD
+    // Asynchronous spell checking API is available for 10.6 or later.
+    settings->setAsynchronousSpellCheckingEnabled([preferences asynchronousSpellCheckingEnabled]);
+#endif
+    settings->setMemoryInfoEnabled([preferences memoryInfoEnabled]);
+    settings->setHyperlinkAuditingEnabled([preferences hyperlinkAuditingEnabled]);
+    settings->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
+    settings->setCrossOriginCheckInGetMatchedCSSRulesDisabled([self _needsUnrestrictedGetMatchedCSSRules]);
+    settings->setInteractiveFormValidationEnabled([self interactiveFormValidationEnabled]);
+    settings->setValidationMessageTimerMagnification([self validationMessageTimerMagnification]);
+#if USE(AVFOUNDATION)
+#if ENABLE(FULLSCREEN_API)
+    settings->setAVFoundationEnabled([preferences isAVFoundationEnabled] && [preferences fullScreenEnabled]);
+#else
+    settings->setAVFoundationEnabled(false);
+#endif
+#endif
+
+    // Application Cache Preferences are stored on the global cache storage manager, not in Settings.
+    [WebApplicationCache setDefaultOriginQuota:[preferences applicationCacheDefaultOriginQuota]];
+
+    BOOL zoomsTextOnly = [preferences zoomsTextOnly];
+    if (_private->zoomsTextOnly != zoomsTextOnly)
+        [self _setZoomMultiplier:_private->zoomMultiplier isTextOnly:zoomsTextOnly];
 }
 
 static inline IMP getMethod(id o, SEL s)
@@ -1439,6 +1620,7 @@ static inline IMP getMethod(id o, SEL s)
     cache->willCacheResponseFunc = getMethod(delegate, @selector(webView:resource:willCacheResponse:fromDataSource:));
     cache->willSendRequestFunc = getMethod(delegate, @selector(webView:resource:willSendRequest:redirectResponse:fromDataSource:));
     cache->shouldUseCredentialStorageFunc = getMethod(delegate, @selector(webView:resource:shouldUseCredentialStorageForDataSource:));
+    cache->shouldPaintBrokenImageForURLFunc = getMethod(delegate, @selector(webView:shouldPaintBrokenImageForURL:));
 }
 
 - (void)_cacheFrameLoadDelegateImplementations
@@ -1700,6 +1882,9 @@ static inline IMP getMethod(id o, SEL s)
 
 - (void)_didStartProvisionalLoadForFrame:(WebFrame *)frame
 {
+    if (needsSelfRetainWhileLoadingQuirk())
+        [self retain];
+
     [self _willChangeBackForwardKeys];
     if (frame == [self mainFrame]){
         // Force an observer update by sending a will/did.
@@ -1721,6 +1906,9 @@ static inline IMP getMethod(id o, SEL s)
 
 - (void)_didFinishLoadForFrame:(WebFrame *)frame
 {
+    if (needsSelfRetainWhileLoadingQuirk())
+        [self performSelector:@selector(release) withObject:nil afterDelay:0];
+        
     [self _didChangeBackForwardKeys];
     if (frame == [self mainFrame]){
         // Force an observer update by sending a will/did.
@@ -1732,6 +1920,9 @@ static inline IMP getMethod(id o, SEL s)
 
 - (void)_didFailLoadWithError:(NSError *)error forFrame:(WebFrame *)frame
 {
+    if (needsSelfRetainWhileLoadingQuirk())
+        [self performSelector:@selector(release) withObject:nil afterDelay:0];
+
     [self _didChangeBackForwardKeys];
     if (frame == [self mainFrame]){
         // Force an observer update by sending a will/did.
@@ -1743,6 +1934,9 @@ static inline IMP getMethod(id o, SEL s)
 
 - (void)_didFailProvisionalLoadWithError:(NSError *)error forFrame:(WebFrame *)frame
 {
+    if (needsSelfRetainWhileLoadingQuirk())
+        [self performSelector:@selector(release) withObject:nil afterDelay:0];
+
     [self _didChangeBackForwardKeys];
     if (frame == [self mainFrame]){
         // Force an observer update by sending a will/did.
@@ -1758,7 +1952,13 @@ static inline IMP getMethod(id o, SEL s)
 {
     NSMutableURLRequest *request = [[NSMutableURLRequest alloc] initWithURL:URL];
     [request _web_setHTTPUserAgent:[self userAgentForURL:URL]];
-    NSCachedURLResponse *cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
+    NSCachedURLResponse *cachedResponse;
+#if USE(CFURLSTORAGESESSIONS)
+    if (CFURLStorageSessionRef storageSession = ResourceHandle::privateBrowsingStorageSession())
+        cachedResponse = WKCachedResponseForRequest(storageSession, request);
+    else
+#endif
+        cachedResponse = [[NSURLCache sharedURLCache] cachedResponseForRequest:request];
     [request release];
     return cachedResponse;
 }
@@ -1874,9 +2074,38 @@ static inline IMP getMethod(id o, SEL s)
     Frame* mainFrame = [self _mainCoreFrame];
     if (!mainFrame)
         return nil;
-    NSMutableDictionary *regions = mainFrame->dashboardRegionsDictionary();
-    [self _addScrollerDashboardRegions:regions];
-    return regions;
+
+    const Vector<DashboardRegionValue>& regions = mainFrame->document()->dashboardRegions();
+    size_t size = regions.size();
+
+    NSMutableDictionary *webRegions = [NSMutableDictionary dictionaryWithCapacity:size];
+    for (size_t i = 0; i < size; i++) {
+        const DashboardRegionValue& region = regions[i];
+
+        if (region.type == StyleDashboardRegion::None)
+            continue;
+
+        NSString *label = region.label;
+        WebDashboardRegionType type = WebDashboardRegionTypeNone;
+        if (region.type == StyleDashboardRegion::Circle)
+            type = WebDashboardRegionTypeCircle;
+        else if (region.type == StyleDashboardRegion::Rectangle)
+            type = WebDashboardRegionTypeRectangle;
+        NSMutableArray *regionValues = [webRegions objectForKey:label];
+        if (!regionValues) {
+            regionValues = [[NSMutableArray alloc] initWithCapacity:1];
+            [webRegions setObject:regionValues forKey:label];
+            [regionValues release];
+        }
+
+        WebDashboardRegion *webRegion = [[WebDashboardRegion alloc] initWithRect:region.bounds clip:region.clip type:type];
+        [regionValues addObject:webRegion];
+        [webRegion release];
+    }
+
+    [self _addScrollerDashboardRegions:webRegions];
+
+    return webRegions;
 }
 
 - (void)_setDashboardBehavior:(WebDashboardBehavior)behavior to:(BOOL)flag
@@ -1909,6 +2138,11 @@ static inline IMP getMethod(id o, SEL s)
             break;
         }
     }
+
+    // Pre-HTML5 parser quirks should be enabled if Dashboard is in backward
+    // compatibility mode. See <rdar://problem/8175982>.
+    if (_private->page)
+        _private->page->settings()->setUsePreHTML5ParserQuirks([self _needsPreHTML5ParserQuirks]);
 }
 
 - (BOOL)_dashboardBehavior:(WebDashboardBehavior)behavior
@@ -2099,15 +2333,22 @@ static inline IMP getMethod(id o, SEL s)
 {
     _private->usesPageCache = usesPageCache;
 
-    // Post a notification so the WebCore settings update.
-    [[self preferences] _postPreferencesChangesNotification];
+    // Update our own settings and post the public notification only
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
 }
 
 - (WebHistoryItem *)_globalHistoryItem
 {
-    if (!_private->page)
+    if (!_private)
         return nil;
-    return kit(_private->page->globalHistoryItem());
+
+    return kit(_private->_globalHistoryItem.get());
+}
+
+- (void)_setGlobalHistoryItem:(HistoryItem*)historyItem
+{
+    _private->_globalHistoryItem = historyItem;
 }
 
 - (WebTextIterator *)textIteratorForRect:(NSRect)rect
@@ -2203,7 +2444,7 @@ static inline IMP getMethod(id o, SEL s)
 
 + (NSCursor *)_pointingHandCursor
 {
-    return handCursor().impl();
+    return handCursor().platformCursor();
 }
 
 - (BOOL)_postsAcceleratedCompositingNotifications
@@ -2237,6 +2478,26 @@ static inline IMP getMethod(id o, SEL s)
     return NO;
 }
 
+- (BOOL)interactiveFormValidationEnabled
+{
+    return _private->interactiveFormValidationEnabled;
+}
+
+- (void)setInteractiveFormValidationEnabled:(BOOL)enabled
+{
+    _private->interactiveFormValidationEnabled = enabled;
+}
+
+- (int)validationMessageTimerMagnification
+{
+    return _private->validationMessageTimerMagnification;
+}
+
+- (void)setValidationMessageTimerMagnification:(int)newValue
+{
+    _private->validationMessageTimerMagnification = newValue;
+}
+
 - (BOOL)_isSoftwareRenderable
 {
 #if USE(ACCELERATED_COMPOSITING)
@@ -2263,6 +2524,7 @@ static inline IMP getMethod(id o, SEL s)
     return _private->includesFlattenedCompositingLayersWhenDrawingToBitmap;
 }
 
+#if ENABLE(NETSCAPE_PLUGIN_API)
 static WebBaseNetscapePluginView *_pluginViewForNode(DOMNode *node)
 {
     if (!node)
@@ -2286,22 +2548,33 @@ static WebBaseNetscapePluginView *_pluginViewForNode(DOMNode *node)
     
     return (WebBaseNetscapePluginView *)view;
 }
+#endif // ENABLE(NETSCAPE_PLUGIN_API)
 
 + (BOOL)_isNodeHaltedPlugin:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     return [_pluginViewForNode(node) isHalted];
+#else
+    return YES;
+#endif
 }
 
 + (BOOL)_hasPluginForNodeBeenHalted:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     return [_pluginViewForNode(node) hasBeenHalted];
+#else
+    return YES;
+#endif
 }
 + (void)_restartHaltedPluginForNode:(DOMNode *)node
 {
+#if ENABLE(NETSCAPE_PLUGIN_API)
     if (!node)
         return;
     
     [_pluginViewForNode(node) resumeFromHalt];
+#endif
 }
 
 - (NSPasteboard *)_insertionPasteboard
@@ -2335,18 +2608,27 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     // Convert the patterns into Vectors.
     NSUInteger count = [patterns count];
     if (count == 0)
-        return 0;
-    Vector<String>* patternsVector = new Vector<String>;
+        return nullptr;
+    OwnPtr<Vector<String> > patternsVector = adoptPtr(new Vector<String>);
     for (NSUInteger i = 0; i < count; ++i) {
         id entry = [patterns objectAtIndex:i];
         if ([entry isKindOfClass:[NSString class]])
             patternsVector->append(String((NSString*)entry));
     }
-    return patternsVector;
+    return patternsVector.release();
 }
 
 + (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url
-                    whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist injectionTime:(WebUserScriptInjectionTime)injectionTime
+                    whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist
+                injectionTime:(WebUserScriptInjectionTime)injectionTime
+{
+    [WebView _addUserScriptToGroup:groupName world:world source:source url:url whitelist:whitelist blacklist:blacklist injectionTime:injectionTime injectedFrames:WebInjectInAllFrames];
+}
+
++ (void)_addUserScriptToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url
+                    whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist
+                injectionTime:(WebUserScriptInjectionTime)injectionTime
+               injectedFrames:(WebUserContentInjectedFrames)injectedFrames
 {
     String group(groupName);
     if (group.isEmpty())
@@ -2357,11 +2639,19 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
         return;
     
     pageGroup->addUserScriptToWorld(core(world), source, url, toStringVector(whitelist), toStringVector(blacklist), 
-                                    injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd);
+                                    injectionTime == WebInjectAtDocumentStart ? InjectAtDocumentStart : InjectAtDocumentEnd,
+                                    injectedFrames == WebInjectInAllFrames ? InjectInAllFrames : InjectInTopFrameOnly);
 }
 
 + (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url
                         whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist
+{
+    [WebView _addUserStyleSheetToGroup:groupName world:world source:source url:url whitelist:whitelist blacklist:blacklist injectedFrames:WebInjectInAllFrames];
+}
+
++ (void)_addUserStyleSheetToGroup:(NSString *)groupName world:(WebScriptWorld *)world source:(NSString *)source url:(NSURL *)url
+                        whitelist:(NSArray *)whitelist blacklist:(NSArray *)blacklist
+                   injectedFrames:(WebUserContentInjectedFrames)injectedFrames
 {
     String group(groupName);
     if (group.isEmpty())
@@ -2371,7 +2661,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     if (!pageGroup)
         return;
 
-    pageGroup->addUserStyleSheetToWorld(core(world), source, url, toStringVector(whitelist), toStringVector(blacklist));
+    pageGroup->addUserStyleSheetToWorld(core(world), source, url, toStringVector(whitelist), toStringVector(blacklist), injectedFrames == WebInjectInAllFrames ? InjectInAllFrames : InjectInTopFrameOnly);
 }
 
 + (void)_removeUserScriptFromGroup:(NSString *)groupName world:(WebScriptWorld *)world url:(NSURL *)url
@@ -2453,9 +2743,9 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     
     Frame* frame = core([self mainFrame]);
     if (suspended)
-        frame->animation()->suspendAnimations(frame->document());
+        frame->animation()->suspendAnimations();
     else
-        frame->animation()->resumeAnimations(frame->document());
+        frame->animation()->resumeAnimations();
 }
 
 + (void)_setDomainRelaxationForbidden:(BOOL)forbidden forURLScheme:(NSString *)scheme
@@ -2465,7 +2755,121 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 
 + (void)_registerURLSchemeAsSecure:(NSString *)scheme
 {
-    SecurityOrigin::registerURLSchemeAsSecure(scheme);
+    SchemeRegistry::registerURLSchemeAsSecure(scheme);
+}
+
+- (void)_scaleWebView:(float)scale atOrigin:(NSPoint)origin
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return;
+
+    coreFrame->scalePage(scale, IntPoint(origin));
+}
+
+- (float)_viewScaleFactor
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return 1;
+
+    return coreFrame->pageScaleFactor();
+}
+
+- (void)_setUseFixedLayout:(BOOL)fixed
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return;
+
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return;
+
+    view->setUseFixedLayout(fixed);
+    if (!fixed)
+        view->setFixedLayoutSize(IntSize());
+}
+
+- (void)_setFixedLayoutSize:(NSSize)size
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return;
+    
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return;
+    
+    view->setFixedLayoutSize(IntSize(size));
+    view->forceLayout();
+}
+
+- (BOOL)_useFixedLayout
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return NO;
+    
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return NO;
+    
+    return view->useFixedLayout();
+}
+
+- (NSSize)_fixedLayoutSize
+{
+    Frame* coreFrame = [self _mainCoreFrame];
+    if (!coreFrame)
+        return IntSize();
+    
+    FrameView* view = coreFrame->view();
+    if (!view)
+        return IntSize();
+
+    return view->fixedLayoutSize();
+}
+
+- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit
+{
+    return [self countMatchesForText:string options:(caseFlag ? 0 : WebFindOptionsCaseInsensitive) highlight:highlight limit:limit markMatches:YES];
+}
+
+- (NSUInteger)countMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+{
+    return [self countMatchesForText:string options:(caseFlag ? 0 : WebFindOptionsCaseInsensitive) highlight:highlight limit:limit markMatches:markMatches];
+}
+
+- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
+{
+    return [self findString:string options:((forward ? 0 : WebFindOptionsBackwards) | (caseFlag ? 0 : WebFindOptionsCaseInsensitive) | (wrapFlag ? WebFindOptionsWrapAround : 0) | (startInSelection ? WebFindOptionsStartInSelection : 0))];
+}
+
++ (void)_setLoadResourcesSerially:(BOOL)serialize 
+{
+    resourceLoadScheduler()->setSerialLoadingEnabled(serialize);
+}
+
++ (double)_defaultMinimumTimerInterval
+{
+    return Settings::defaultMinDOMTimerInterval();
+}
+
+- (void)_setMinimumTimerInterval:(double)intervalInSeconds
+{
+    if (_private->page)
+        _private->page->settings()->setMinDOMTimerInterval(intervalInSeconds);
+}
+
++ (BOOL)_HTTPPipeliningEnabled
+{
+    return ResourceRequest::httpPipeliningEnabled();
+}
+
++ (void)_setHTTPPipeliningEnabled:(BOOL)enabled
+{
+    ResourceRequest::setHTTPPipeliningEnabled(enabled);
 }
 
 @end
@@ -2526,20 +2930,25 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     WTF::initializeMainThreadToProcessMainThread();
 
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_applicationWillTerminate) name:NSApplicationWillTerminateNotification object:NSApp];
-    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:) name:WebPreferencesChangedNotification object:nil];
+    [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:) name:WebPreferencesChangedInternalNotification object:nil];
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesRemovedNotification:) name:WebPreferencesRemovedNotification object:nil];    
 
     continuousSpellCheckingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebContinuousSpellCheckingEnabled];
-#ifndef BUILDING_ON_TIGER
     grammarCheckingEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebGrammarCheckingEnabled];
-#endif
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     automaticQuoteSubstitutionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticQuoteSubstitutionEnabled];
     automaticLinkDetectionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticLinkDetectionEnabled];
     automaticDashSubstitutionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticDashSubstitutionEnabled];
     automaticTextReplacementEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticTextReplacementEnabled];
     automaticSpellingCorrectionEnabled = [[NSUserDefaults standardUserDefaults] boolForKey:WebAutomaticSpellingCorrectionEnabled];
+#endif
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticTextReplacementEnabled])
+        automaticTextReplacementEnabled = [NSSpellChecker isAutomaticTextReplacementEnabled];
+    if (![[NSUserDefaults standardUserDefaults] objectForKey:WebAutomaticSpellingCorrectionEnabled])
+        automaticSpellingCorrectionEnabled = [NSSpellChecker isAutomaticSpellingCorrectionEnabled];
 #endif
 }
 
@@ -2585,6 +2994,20 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
     
     return nil;
 }
+
+#if ENABLE(PLUGIN_PROXY_FOR_VIDEO)
+- (WebBasePluginPackage *)_videoProxyPluginForMIMEType:(NSString *)MIMEType
+{
+    WebBasePluginPackage *pluginPackage = [[WebPluginDatabase sharedDatabase] pluginForMIMEType:MIMEType];
+    if (pluginPackage)
+        return pluginPackage;
+
+    if (_private->pluginDatabase)
+        return [_private->pluginDatabase pluginForMIMEType:MIMEType];
+
+    return nil;
+}
+#endif
 
 - (WebBasePluginPackage *)_pluginForExtension:(NSString *)extension
 {
@@ -2685,7 +3108,7 @@ static PassOwnPtr<Vector<String> > toStringVector(NSArray* patterns)
 
 + (void)registerURLSchemeAsLocal:(NSString *)protocol
 {
-    SecurityOrigin::registerURLSchemeAsLocal(protocol);
+    SchemeRegistry::registerURLSchemeAsLocal(protocol);
 }
 
 - (id)_initWithArguments:(NSDictionary *) arguments
@@ -2728,7 +3151,7 @@ static bool clientNeedsWebViewInitThreadWorkaround()
     if ([bundleIdentifier _webkit_hasCaseInsensitivePrefix:@"com.apple.Automator."])
         return true;
 
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     // Mail.
     if ([bundleIdentifier _webkit_isCaseInsensitiveEqualToString:@"com.apple.Mail"])
         return true;
@@ -2809,7 +3232,7 @@ static bool needsWebViewInitThreadWorkaround()
 
         LOG(Encoding, "FrameName = %@, GroupName = %@, useBackForwardList = %d\n", frameName, groupName, (int)useBackForwardList);
         [result _commonInitializationWithFrameName:frameName groupName:groupName usesDocumentViews:YES];
-        [result page]->backForwardList()->setEnabled(useBackForwardList);
+        static_cast<BackForwardListImpl*>([result page]->backForwardList())->setEnabled(useBackForwardList);
         result->_private->allowsUndo = allowsUndo;
         if (preferences)
             [result setPreferences:preferences];
@@ -2833,7 +3256,7 @@ static bool needsWebViewInitThreadWorkaround()
     // Restore the subviews we set aside.
     _subviews = originalSubviews;
 
-    BOOL useBackForwardList = _private->page && _private->page->backForwardList()->enabled();
+    BOOL useBackForwardList = _private->page && static_cast<BackForwardListImpl*>(_private->page->backForwardList())->enabled();
     if ([encoder allowsKeyedCoding]) {
         [encoder encodeObject:[[self mainFrame] name] forKey:@"FrameName"];
         [encoder encodeObject:[self groupName] forKey:@"GroupName"];
@@ -3010,15 +3433,16 @@ static bool needsWebViewInitThreadWorkaround()
 
     WebPreferences *oldPrefs = _private->preferences;
 
-    [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedNotification object:[self preferences]];
+    [[NSNotificationCenter defaultCenter] removeObserver:self name:WebPreferencesChangedInternalNotification object:[self preferences]];
     [WebPreferences _removeReferenceForIdentifier:[oldPrefs identifier]];
 
     _private->preferences = [prefs retain];
 
     // After registering for the notification, post it so the WebCore settings update.
     [[NSNotificationCenter defaultCenter] addObserver:self selector:@selector(_preferencesChangedNotification:)
-        name:WebPreferencesChangedNotification object:[self preferences]];
-    [[self preferences] _postPreferencesChangesNotification];
+        name:WebPreferencesChangedInternalNotification object:[self preferences]];
+    [self _preferencesChanged:[self preferences]];
+    [[self preferences] _postPreferencesChangedAPINotification];
 
     [oldPrefs didRemoveFromWebView];
     [oldPrefs release];
@@ -3051,7 +3475,7 @@ static bool needsWebViewInitThreadWorkaround()
     _private->UIDelegateForwarder = nil;
 }
 
-- UIDelegate
+- (id)UIDelegate
 {
     return _private->UIDelegate;
 }
@@ -3062,7 +3486,7 @@ static bool needsWebViewInitThreadWorkaround()
     [self _cacheResourceLoadDelegateImplementations];
 }
 
-- resourceLoadDelegate
+- (id)resourceLoadDelegate
 {
     return _private->resourceProgressDelegate;
 }
@@ -3073,7 +3497,7 @@ static bool needsWebViewInitThreadWorkaround()
 }
 
 
-- downloadDelegate
+- (id)downloadDelegate
 {
     return _private->downloadDelegate;
 }
@@ -3085,7 +3509,7 @@ static bool needsWebViewInitThreadWorkaround()
     _private->policyDelegateForwarder = nil;
 }
 
-- policyDelegate
+- (id)policyDelegate
 {
     return _private->policyDelegate;
 }
@@ -3111,7 +3535,7 @@ static bool needsWebViewInitThreadWorkaround()
 #endif
 }
 
-- frameLoadDelegate
+- (id)frameLoadDelegate
 {
     return _private->frameLoadDelegate;
 }
@@ -3144,16 +3568,17 @@ static bool needsWebViewInitThreadWorkaround()
 {
     if (!_private->page)
         return nil;
-    if (!_private->page->backForwardList()->enabled())
+    BackForwardListImpl* list = static_cast<BackForwardListImpl*>(_private->page->backForwardList());
+    if (!list->enabled())
         return nil;
-    return kit(_private->page->backForwardList());
+    return kit(list);
 }
 
 - (void)setMaintainsBackForwardList:(BOOL)flag
 {
     if (!_private->page)
         return;
-    _private->page->backForwardList()->setEnabled(flag);
+    static_cast<BackForwardListImpl*>(_private->page->backForwardList())->setEnabled(flag);
 }
 
 - (BOOL)goBack
@@ -3191,19 +3616,21 @@ static bool needsWebViewInitThreadWorkaround()
     return [self _realZoomMultiplierIsTextOnly] ? _private->zoomMultiplier : 1.0f;
 }
 
-- (void)_setZoomMultiplier:(float)m isTextOnly:(BOOL)isTextOnly
+- (void)_setZoomMultiplier:(float)multiplier isTextOnly:(BOOL)isTextOnly
 {
     // NOTE: This has no visible effect when viewing a PDF (see <rdar://problem/4737380>)
-    _private->zoomMultiplier = m;
-    ASSERT(_private->page);
-    if (_private->page)
-        _private->page->settings()->setZoomMode(isTextOnly ? ZoomTextOnly : ZoomPage);
-    
-    // FIXME: it would be nice to rework this code so that _private->zoomMultiplier doesn't exist and callers
-    // all access _private->page->settings().
+    _private->zoomMultiplier = multiplier;
+    _private->zoomsTextOnly = isTextOnly;
+
+    // FIXME: It might be nice to rework this code so that _private->zoomMultiplier doesn't exist
+    // and instead the zoom factors stored in Frame are used.
     Frame* coreFrame = [self _mainCoreFrame];
-    if (coreFrame)
-        coreFrame->setZoomFactor(m, isTextOnly ? ZoomTextOnly : ZoomPage);
+    if (coreFrame) {
+        if (_private->zoomsTextOnly)
+            coreFrame->setPageAndTextZoomFactors(1, multiplier);
+        else
+            coreFrame->setPageAndTextZoomFactors(multiplier, 1);
+    }
 }
 
 - (float)_zoomMultiplier:(BOOL)isTextOnly
@@ -3223,7 +3650,7 @@ static bool needsWebViewInitThreadWorkaround()
     if (!_private->page)
         return NO;
     
-    return _private->page->settings()->zoomMode() == ZoomTextOnly;
+    return _private->zoomsTextOnly;
 }
 
 #define MinimumZoomMultiplier       0.5f
@@ -3481,13 +3908,25 @@ static bool needsWebViewInitThreadWorkaround()
     return [documentView _shouldAutoscrollForDraggingInfo:draggingInfo];
 }
 
+- (DragApplicationFlags)applicationFlags:(id <NSDraggingInfo>)draggingInfo
+{
+    uint32_t flags = 0;
+    if ([NSApp modalWindow])
+        flags = DragApplicationIsModal;
+    if ([[self window] attachedSheet])
+        flags |= DragApplicationHasAttachedSheet;
+    if ([draggingInfo draggingSource] == self)
+        flags |= DragApplicationIsSource;
+    if ([[NSApp currentEvent] modifierFlags] & NSAlternateKeyMask)
+        flags |= DragApplicationIsCopyKeyDown;
+    return static_cast<DragApplicationFlags>(flags);
+}
+
 - (NSDragOperation)draggingEntered:(id <NSDraggingInfo>)draggingInfo
 {
-    NSView <WebDocumentView>* view = [self documentViewAtWindowPoint:[draggingInfo draggingLocation]];
-    WebPasteboardHelper helper([view isKindOfClass:[WebHTMLView class]] ? (WebHTMLView*)view : nil);
     IntPoint client([draggingInfo draggingLocation]);
     IntPoint global(globalPoint([draggingInfo draggingLocation], [self window]));
-    DragData dragData(draggingInfo, client, global, (DragOperation)[draggingInfo draggingSourceOperationMask], &helper);
+    DragData dragData(draggingInfo, client, global, static_cast<DragOperation>([draggingInfo draggingSourceOperationMask]), [self applicationFlags:draggingInfo]);
     return core(self)->dragController()->dragEntered(&dragData);
 }
 
@@ -3497,11 +3936,9 @@ static bool needsWebViewInitThreadWorkaround()
     if (!page)
         return NSDragOperationNone;
 
-    NSView <WebDocumentView>* view = [self documentViewAtWindowPoint:[draggingInfo draggingLocation]];
-    WebPasteboardHelper helper([view isKindOfClass:[WebHTMLView class]] ? (WebHTMLView*)view : nil);
     IntPoint client([draggingInfo draggingLocation]);
     IntPoint global(globalPoint([draggingInfo draggingLocation], [self window]));
-    DragData dragData(draggingInfo, client, global, (DragOperation)[draggingInfo draggingSourceOperationMask], &helper);
+    DragData dragData(draggingInfo, client, global, static_cast<DragOperation>([draggingInfo draggingSourceOperationMask]), [self applicationFlags:draggingInfo]);
     return page->dragController()->dragUpdated(&dragData);
 }
 
@@ -3511,11 +3948,9 @@ static bool needsWebViewInitThreadWorkaround()
     if (!page)
         return;
 
-    NSView <WebDocumentView>* view = [self documentViewAtWindowPoint:[draggingInfo draggingLocation]];
-    WebPasteboardHelper helper([view isKindOfClass:[WebHTMLView class]] ? (WebHTMLView*)view : nil);
     IntPoint client([draggingInfo draggingLocation]);
     IntPoint global(globalPoint([draggingInfo draggingLocation], [self window]));
-    DragData dragData(draggingInfo, client, global, (DragOperation)[draggingInfo draggingSourceOperationMask], &helper);
+    DragData dragData(draggingInfo, client, global, static_cast<DragOperation>([draggingInfo draggingSourceOperationMask]), [self applicationFlags:draggingInfo]);
     page->dragController()->dragExited(&dragData);
 }
 
@@ -3526,11 +3961,9 @@ static bool needsWebViewInitThreadWorkaround()
 
 - (BOOL)performDragOperation:(id <NSDraggingInfo>)draggingInfo
 {
-    NSView <WebDocumentView>* view = [self documentViewAtWindowPoint:[draggingInfo draggingLocation]];
-    WebPasteboardHelper helper([view isKindOfClass:[WebHTMLView class]]? (WebHTMLView*)view : nil);
     IntPoint client([draggingInfo draggingLocation]);
     IntPoint global(globalPoint([draggingInfo draggingLocation], [self window]));
-    DragData dragData(draggingInfo, client, global, (DragOperation)[draggingInfo draggingSourceOperationMask], &helper);
+    DragData dragData(draggingInfo, client, global, static_cast<DragOperation>([draggingInfo draggingSourceOperationMask]), [self applicationFlags:draggingInfo]);
     return core(self)->dragController()->performDrag(&dragData);
 }
 
@@ -3623,12 +4056,12 @@ static bool needsWebViewInitThreadWorkaround()
     [super setNextKeyView:view];
 }
 
-static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
+static WebFrame *incrementFrame(WebFrame *frame, WebFindOptions options = 0)
 {
     Frame* coreFrame = core(frame);
-    return kit(forward
-        ? coreFrame->tree()->traverseNextWithWrap(wrapFlag)
-        : coreFrame->tree()->traversePreviousWithWrap(wrapFlag));
+    return kit((options & WebFindOptionsBackwards)
+        ? coreFrame->tree()->traversePreviousWithWrap(options & WebFindOptionsWrapAround)
+        : coreFrame->tree()->traverseNextWithWrap(options & WebFindOptionsWrapAround));
 }
 
 - (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag
@@ -3846,7 +4279,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
 
 - (BOOL)canGoBack
 {
-    if (!_private->page)
+    if (!_private->page || _private->page->defersLoading())
         return NO;
 
     return !!_private->page->backForwardList()->backItem();
@@ -3854,7 +4287,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
 
 - (BOOL)canGoForward
 {
-    if (!_private->page)
+    if (!_private->page || _private->page->defersLoading())
         return NO;
 
     return !!_private->page->backForwardList()->forwardItem();
@@ -3980,7 +4413,6 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
             [menuItem setState:checkMark ? NSOnState : NSOffState];
         }
         return YES;
-#ifndef BUILDING_ON_TIGER
     } else if (action == @selector(toggleGrammarChecking:)) {
         BOOL checkMark = [self isGrammarCheckingEnabled];
         if ([(NSObject *)item isKindOfClass:[NSMenuItem class]]) {
@@ -3988,8 +4420,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
             [menuItem setState:checkMark ? NSOnState : NSOffState];
         }
         return YES;
-#endif
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     } else if (action == @selector(toggleAutomaticQuoteSubstitution:)) {
         BOOL checkMark = [self isAutomaticQuoteSubstitutionEnabled];
         if ([(NSObject *)item isKindOfClass:[NSMenuItem class]]) {
@@ -4044,17 +4475,36 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
 
 - (void)scheduleInRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
+#if USE(CFNETWORK)
+    CFRunLoopRef schedulePairRunLoop = [runLoop getCFRunLoop];
+#else
+    NSRunLoop *schedulePairRunLoop = runLoop;
+#endif
     if (runLoop && mode)
-        core(self)->addSchedulePair(SchedulePair::create(runLoop, (CFStringRef)mode));
+        core(self)->addSchedulePair(SchedulePair::create(schedulePairRunLoop, (CFStringRef)mode));
 }
 
 - (void)unscheduleFromRunLoop:(NSRunLoop *)runLoop forMode:(NSString *)mode
 {
+#if USE(CFNETWORK)
+    CFRunLoopRef schedulePairRunLoop = [runLoop getCFRunLoop];
+#else
+    NSRunLoop *schedulePairRunLoop = runLoop;
+#endif
     if (runLoop && mode)
-        core(self)->removeSchedulePair(SchedulePair::create(runLoop, (CFStringRef)mode));
+        core(self)->removeSchedulePair(SchedulePair::create(schedulePairRunLoop, (CFStringRef)mode));
 }
 
-- (BOOL)searchFor:(NSString *)string direction:(BOOL)forward caseSensitive:(BOOL)caseFlag wrap:(BOOL)wrapFlag startInSelection:(BOOL)startInSelection
+static BOOL findString(NSView <WebDocumentSearching> *searchView, NSString *string, WebFindOptions options)
+{
+    if ([searchView conformsToProtocol:@protocol(WebDocumentOptionsSearching)])
+        return [(NSView <WebDocumentOptionsSearching> *)searchView _findString:string options:options];
+    if ([searchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
+        return [(NSView <WebDocumentIncrementalSearching> *)searchView searchFor:string direction:!(options & WebFindOptionsBackwards) caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:!!(options & WebFindOptionsWrapAround) startInSelection:!!(options & WebFindOptionsStartInSelection)];
+    return [searchView searchFor:string direction:!(options & WebFindOptionsBackwards) caseSensitive:!(options & WebFindOptionsCaseInsensitive) wrap:!!(options & WebFindOptionsWrapAround)];
+}
+
+- (BOOL)findString:(NSString *)string options:(WebFindOptions)options
 {
     if (_private->closed)
         return NO;
@@ -4066,7 +4516,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
     NSView <WebDocumentSearching> *startSearchView = nil;
     WebFrame *frame = startFrame;
     do {
-        WebFrame *nextFrame = incrementFrame(frame, forward, wrapFlag);
+        WebFrame *nextFrame = incrementFrame(frame, options);
         
         BOOL onlyOneFrame = (frame == nextFrame);
         ASSERT(!onlyOneFrame || frame == startFrame);
@@ -4078,18 +4528,13 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
             if (frame == startFrame)
                 startSearchView = searchView;
             
-            BOOL foundString;
             // In some cases we have to search some content twice; see comment later in this method.
-            // We can avoid ever doing this in the common one-frame case by passing YES for wrapFlag 
+            // We can avoid ever doing this in the common one-frame case by passing the wrap option through 
             // here, and then bailing out before we get to the code that would search again in the
             // same content.
-            BOOL wrapOnThisPass = wrapFlag && onlyOneFrame;
-            if ([searchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
-                foundString = [(NSView <WebDocumentIncrementalSearching> *)searchView searchFor:string direction:forward caseSensitive:caseFlag wrap:wrapOnThisPass startInSelection:startInSelection];
-            else
-                foundString = [searchView searchFor:string direction:forward caseSensitive:caseFlag wrap:wrapOnThisPass];
-            
-            if (foundString) {
+            WebFindOptions optionsForThisPass = onlyOneFrame ? options : (options & ~WebFindOptionsWrapAround);
+
+            if (findString(searchView, string, optionsForThisPass)) {
                 if (frame != startFrame)
                     [startFrame _clearSelection];
                 [[self window] makeFirstResponder:searchView];
@@ -4102,18 +4547,13 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
         frame = nextFrame;
     } while (frame && frame != startFrame);
     
-    // If there are multiple frames and wrapFlag is true and we've visited each one without finding a result, we still need to search in the 
+    // If there are multiple frames and WebFindOptionsWrapAround is set and we've visited each one without finding a result, we still need to search in the 
     // first-searched frame up to the selection. However, the API doesn't provide a way to search only up to a particular point. The only 
-    // way to make sure the entire frame is searched is to pass YES for the wrapFlag. When there are no matches, this will search again
+    // way to make sure the entire frame is searched is to pass WebFindOptionsWrapAround. When there are no matches, this will search
     // some content that we already searched on the first pass. In the worst case, we could search the entire contents of this frame twice.
     // To fix this, we'd need to add a mechanism to specify a range in which to search.
-    if (wrapFlag && startSearchView) {
-        BOOL foundString;
-        if ([startSearchView conformsToProtocol:@protocol(WebDocumentIncrementalSearching)])
-            foundString = [(NSView <WebDocumentIncrementalSearching> *)startSearchView searchFor:string direction:forward caseSensitive:caseFlag wrap:YES startInSelection:startInSelection];
-        else
-            foundString = [startSearchView searchFor:string direction:forward caseSensitive:caseFlag wrap:YES];
-        if (foundString) {
+    if ((options & WebFindOptionsWrapAround) && startSearchView) {
+        if (findString(startSearchView, string, options)) {
             [[self window] makeFirstResponder:startSearchView];
             return YES;
         }
@@ -4213,7 +4653,7 @@ static WebFrame *incrementFrame(WebFrame *frame, BOOL forward, BOOL wrapFlag)
     Frame* coreFrame = [self _mainCoreFrame];
     if (!coreFrame)
         return YES;
-    return coreFrame->shouldClose();
+    return coreFrame->loader()->shouldClose();
 }
 
 static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValue)
@@ -4232,7 +4672,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
     }
     if (jsValue.isObject()) {
         JSObject* object = jsValue.getObject();
-        if (object->inherits(&DateInstance::info)) {
+        if (object->inherits(&DateInstance::s_info)) {
             DateInstance* date = static_cast<DateInstance*>(object);
             double ms = date->internalNumber();
             if (!isnan(ms)) {
@@ -4242,7 +4682,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
                     return [NSAppleEventDescriptor descriptorWithDescriptorType:typeLongDateTime bytes:&ldt length:sizeof(ldt)];
             }
         }
-        else if (object->inherits(&JSArray::info)) {
+        else if (object->inherits(&JSArray::s_info)) {
             DEFINE_STATIC_LOCAL(HashSet<JSObject*>, visitedElems, ());
             if (!visitedElems.contains(object)) {
                 visitedElems.add(object);
@@ -4286,36 +4726,48 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)canMarkAllTextMatches
 {
+    if (_private->closed)
+        return NO;
+
     WebFrame *frame = [self mainFrame];
     do {
         id <WebDocumentView> view = [[frame frameView] documentView];
         if (view && ![view conformsToProtocol:@protocol(WebMultipleTextMatches)])
             return NO;
         
-        frame = incrementFrame(frame, YES, NO);
+        frame = incrementFrame(frame);
     } while (frame);
     
     return YES;
 }
 
-- (NSUInteger)markAllMatchesForText:(NSString *)string caseSensitive:(BOOL)caseFlag highlight:(BOOL)highlight limit:(NSUInteger)limit
+- (NSUInteger)countMatchesForText:(NSString *)string options:(WebFindOptions)options highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
 {
+    return [self countMatchesForText:string inDOMRange:nil options:options highlight:highlight limit:limit markMatches:markMatches];
+}
+
+- (NSUInteger)countMatchesForText:(NSString *)string inDOMRange:(DOMRange *)range options:(WebFindOptions)options highlight:(BOOL)highlight limit:(NSUInteger)limit markMatches:(BOOL)markMatches
+{
+    if (_private->closed)
+        return 0;
+
     WebFrame *frame = [self mainFrame];
     unsigned matchCount = 0;
     do {
         id <WebDocumentView> view = [[frame frameView] documentView];
         if ([view conformsToProtocol:@protocol(WebMultipleTextMatches)]) {
-            [(NSView <WebMultipleTextMatches>*)view  setMarkedTextMatchesAreHighlighted:highlight];
+            if (markMatches)
+                [(NSView <WebMultipleTextMatches>*)view setMarkedTextMatchesAreHighlighted:highlight];
         
             ASSERT(limit == 0 || matchCount < limit);
-            matchCount += [(NSView <WebMultipleTextMatches>*)view markAllMatchesForText:string caseSensitive:caseFlag limit:limit == 0 ? 0 : limit - matchCount];
+            matchCount += [(NSView <WebMultipleTextMatches>*)view countMatchesForText:string inDOMRange:range options:options limit:(limit == 0 ? 0 : limit - matchCount) markMatches:markMatches];
 
             // Stop looking if we've reached the limit. A limit of 0 means no limit.
             if (limit > 0 && matchCount >= limit)
                 break;
         }
         
-        frame = incrementFrame(frame, YES, NO);
+        frame = incrementFrame(frame);
     } while (frame);
     
     return matchCount;
@@ -4323,18 +4775,24 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (void)unmarkAllTextMatches
 {
+    if (_private->closed)
+        return;
+
     WebFrame *frame = [self mainFrame];
     do {
         id <WebDocumentView> view = [[frame frameView] documentView];
         if ([view conformsToProtocol:@protocol(WebMultipleTextMatches)])
             [(NSView <WebMultipleTextMatches>*)view unmarkAllTextMatches];
         
-        frame = incrementFrame(frame, YES, NO);
+        frame = incrementFrame(frame);
     } while (frame);
 }
 
 - (NSArray *)rectsForTextMatches
 {
+    if (_private->closed)
+        return [NSArray array];
+
     NSMutableArray *result = [NSMutableArray array];
     WebFrame *frame = [self mainFrame];
     do {
@@ -4364,7 +4822,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
             [pool drain];
         }
         
-        frame = incrementFrame(frame, YES, NO);
+        frame = incrementFrame(frame);
     } while (frame);
     
     return result;
@@ -4661,26 +5119,25 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (void)setEditable:(BOOL)flag
 {
-    if (_private->editable != flag) {
-        _private->editable = flag;
-        if (!_private->tabKeyCyclesThroughElementsChanged && _private->page)
+    if ([self isEditable] != flag && _private->page) {
+        _private->page->setEditable(flag);
+        if (!_private->tabKeyCyclesThroughElementsChanged)
             _private->page->setTabKeyCyclesThroughElements(!flag);
         Frame* mainFrame = [self _mainCoreFrame];
         if (mainFrame) {
             if (flag) {
-                mainFrame->applyEditingStyleToBodyElement();
+                mainFrame->editor()->applyEditingStyleToBodyElement();
                 // If the WebView is made editable and the selection is empty, set it to something.
                 if (![self selectedDOMRange])
-                    mainFrame->setSelectionFromNone();
-            } else
-                mainFrame->removeEditingStyleFromBodyElement();
+                    mainFrame->selection()->setSelectionFromNone();
+            }
         }
     }
 }
 
 - (BOOL)isEditable
 {
-    return _private->editable;
+    return _private->page && _private->page->isEditable();
 }
 
 - (void)setTypingStyle:(DOMCSSStyleDeclaration *)style
@@ -4803,14 +5260,9 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 // FIXME: This method should be merged into WebViewEditing when we're not in API freeze
 - (BOOL)isGrammarCheckingEnabled
 {
-#ifdef BUILDING_ON_TIGER
-    return NO;
-#else
     return grammarCheckingEnabled;
-#endif
 }
 
-#ifndef BUILDING_ON_TIGER
 // FIXME: This method should be merged into WebViewEditing when we're not in API freeze
 - (void)setGrammarCheckingEnabled:(BOOL)flag
 {
@@ -4840,7 +5292,6 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 {
     [self setGrammarCheckingEnabled:![self isGrammarCheckingEnabled]];
 }
-#endif
 
 @end
 
@@ -4848,7 +5299,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isAutomaticQuoteSubstitutionEnabled
 {
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     return NO;
 #else
     return automaticQuoteSubstitutionEnabled;
@@ -4857,7 +5308,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isAutomaticLinkDetectionEnabled
 {
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     return NO;
 #else
     return automaticLinkDetectionEnabled;
@@ -4866,7 +5317,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isAutomaticDashSubstitutionEnabled
 {
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     return NO;
 #else
     return automaticDashSubstitutionEnabled;
@@ -4875,7 +5326,7 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isAutomaticTextReplacementEnabled
 {
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     return NO;
 #else
     return automaticTextReplacementEnabled;
@@ -4884,14 +5335,14 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
 
 - (BOOL)isAutomaticSpellingCorrectionEnabled
 {
-#if defined(BUILDING_ON_TIGER) || defined(BUILDING_ON_LEOPARD)
+#ifdef BUILDING_ON_LEOPARD
     return NO;
 #else
     return automaticSpellingCorrectionEnabled;
 #endif
 }
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
 
 - (void)setAutomaticQuoteSubstitutionEnabled:(BOOL)flag
 {
@@ -4963,6 +5414,16 @@ static NSAppleEventDescriptor* aeDescFromJSValue(ExecState* exec, JSValue jsValu
     [self setAutomaticSpellingCorrectionEnabled:![self isAutomaticSpellingCorrectionEnabled]];
 }
 
+#endif
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+- (void)handleCorrectionPanelResult:(NSString*)result
+{
+    WebFrame *webFrame = [self _selectedOrMainFrame];
+    Frame* coreFrame = core(webFrame);
+    if (coreFrame)
+        coreFrame->editor()->handleCorrectionPanelResult(result);
+}
 #endif
 
 @end
@@ -5074,7 +5535,7 @@ FOR_EACH_RESPONDER_SELECTOR(FORWARD)
     Frame* coreFrame = core([self _selectedOrMainFrame]);
     if (!coreFrame)
         return NO;
-    return coreFrame->selection()->isAll(MayLeaveEditableContent);
+    return coreFrame->selection()->isAll(CanCrossEditingBoundary);
 }
 
 @end
@@ -5088,6 +5549,11 @@ static WebFrameView *containingFrameView(NSView *view)
 
 @implementation WebView (WebFileInternal)
 
+static inline uint64_t roundUpToPowerOf2(uint64_t num)
+{
+    return powf(2.0, ceilf(log2f(num)));
+}
+
 + (void)_setCacheModel:(WebCacheModel)cacheModel
 {
     if (s_didSetCacheModel && cacheModel == s_cacheModel)
@@ -5097,9 +5563,7 @@ static WebFrameView *containingFrameView(NSView *view)
     if (!nsurlCacheDirectory)
         nsurlCacheDirectory = NSHomeDirectory();
 
-    // As a fudge factor, use 1000 instead of 1024, in case the reported byte 
-    // count doesn't align exactly to a megabyte boundary.
-    uint64_t memSize = WebMemorySize() / 1024 / 1000;
+    static uint64_t memSize = roundUpToPowerOf2(WebMemorySize() / 1024 / 1024);
     unsigned long long diskFreeSize = WebVolumeFreeSize(nsurlCacheDirectory) / 1024 / 1000;
     NSURLCache *nsurlCache = [NSURLCache sharedURLCache];
 
@@ -5119,10 +5583,10 @@ static WebFrameView *containingFrameView(NSView *view)
         pageCacheCapacity = 0;
 
         // Object cache capacities (in bytes)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 128 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 96 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
         else if (memSize >= 512)
@@ -5151,10 +5615,10 @@ static WebFrameView *containingFrameView(NSView *view)
             pageCacheCapacity = 0;
 
         // Object cache capacities (in bytes)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 128 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 96 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 32 * 1024 * 1024;
         else if (memSize >= 512)
@@ -5203,10 +5667,10 @@ static WebFrameView *containingFrameView(NSView *view)
         // (Testing indicates that value / MB depends heavily on content and
         // browsing pattern. Even growth above 128MB can have substantial 
         // value / MB for some content / browsing patterns.)
-        if (memSize >= 2048)
+        if (memSize >= 4096)
+            cacheTotalCapacity = 192 * 1024 * 1024;
+        else if (memSize >= 2048)
             cacheTotalCapacity = 128 * 1024 * 1024;
-        else if (memSize >= 1536)
-            cacheTotalCapacity = 96 * 1024 * 1024;
         else if (memSize >= 1024)
             cacheTotalCapacity = 64 * 1024 * 1024;
         else if (memSize >= 512)
@@ -5252,17 +5716,12 @@ static WebFrameView *containingFrameView(NSView *view)
         ASSERT_NOT_REACHED();
     };
 
-#ifdef BUILDING_ON_TIGER
-    // Don't use a big Foundation disk cache on Tiger because, according to the 
-    // PLT, the Foundation disk cache on Tiger is slower than the network. 
-    nsurlCacheDiskCapacity = [nsurlCache diskCapacity];
-#endif
 
     // Don't shrink a big disk cache, since that would cause churn.
     nsurlCacheDiskCapacity = max(nsurlCacheDiskCapacity, [nsurlCache diskCapacity]);
 
-    cache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
-    cache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
+    memoryCache()->setCapacities(cacheMinDeadCapacity, cacheMaxDeadCapacity, cacheTotalCapacity);
+    memoryCache()->setDeadDecodedDataDeletionInterval(deadDecodedDataDeletionInterval);
     pageCache()->setCapacity(pageCacheCapacity);
     [nsurlCache setMemoryCapacity:nsurlCacheMemoryCapacity];
     [nsurlCache setDiskCapacity:nsurlCacheDiskCapacity];
@@ -5394,7 +5853,7 @@ static WebFrameView *containingFrameView(NSView *view)
     NSDictionary *element = [sender representedObject];
     ASSERT([element isKindOfClass:[NSDictionary class]]);
 
-    WebDataSource *dataSource = [[element objectForKey:WebElementFrameKey] dataSource];
+    WebDataSource *dataSource = [(WebFrame *)[element objectForKey:WebElementFrameKey] dataSource];
     NSURLRequest *request = [[dataSource request] copy];
     ASSERT(request);
     
@@ -5437,7 +5896,7 @@ static WebFrameView *containingFrameView(NSView *view)
     if (![selectedString length])
         return;
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#ifndef BUILDING_ON_LEOPARD
     [[NSWorkspace sharedWorkspace] showSearchResultsForQueryString:selectedString];
 #else
     (void)HISearchWindowShow((CFStringRef)selectedString, kNilOptions);
@@ -5453,6 +5912,18 @@ static WebFrameView *containingFrameView(NSView *view)
     CFRunLoopObserverInvalidate(_private->layerSyncRunLoopObserver);
     CFRelease(_private->layerSyncRunLoopObserver);
     _private->layerSyncRunLoopObserver = 0;
+}
+#endif
+
+#if ENABLE(GLIB_SUPPORT)
+- (void)_clearGlibLoopObserver
+{
+    if (!_private->glibRunLoopObserver)
+        return;
+
+    CFRunLoopObserverInvalidate(_private->glibRunLoopObserver);
+    CFRelease(_private->glibRunLoopObserver);
+    _private->glibRunLoopObserver = 0;
 }
 #endif
 @end
@@ -5503,7 +5974,7 @@ static WebFrameView *containingFrameView(NSView *view)
 
     WebFrameLoadDelegateImplementationCache* cache = &_private->frameLoadDelegateImplementations;
     if (cache->didReceiveIconForFrameFunc) {
-        Image* image = iconDatabase()->iconForPageURL(core(webFrame)->loader()->url().string(), IntSize(16, 16));
+        Image* image = iconDatabase().synchronousIconForPageURL(core(webFrame)->document()->url().string(), IntSize(16, 16));
         if (NSImage *icon = webGetNSImage(image, NSMakeSize(16, 16)))
             CallFrameLoadDelegate(cache->didReceiveIconForFrameFunc, self, @selector(webView:didReceiveIcon:forFrame:), icon, webFrame);
     }
@@ -5551,10 +6022,6 @@ static WebFrameView *containingFrameView(NSView *view)
     // The keyboard access mode is reported by two bits:
     // Bit 0 is set if feature is on
     // Bit 1 is set if full keyboard access works for any control, not just text boxes and lists
-    // We require both bits to be on.
-    // I do not know that we would ever get one bit on and the other off since
-    // checking the checkbox in system preferences which is marked as "Turn on full keyboard access"
-    // turns on both bits.
     _private->_keyboardUIMode = (mode & 0x2) ? KeyboardAccessFull : KeyboardAccessDefault;
     
     // check for tabbing to links
@@ -5575,7 +6042,7 @@ static WebFrameView *containingFrameView(NSView *view)
 
         [[NSNotificationCenter defaultCenter] 
             addObserver:self selector:@selector(_retrieveKeyboardUIModeFromPreferences:) 
-            name:WebPreferencesChangedNotification object:nil];
+            name:WebPreferencesChangedInternalNotification object:nil];
     }
     return _private->_keyboardUIMode;
 }
@@ -5626,7 +6093,7 @@ static WebFrameView *containingFrameView(NSView *view)
 {
     Frame* frame = [self _mainCoreFrame];
     if (frame && frame->view())
-        return frame->view()->syncCompositingStateRecursive();
+        return frame->view()->syncCompositingStateIncludingSubframes();
 
     return YES;
 }
@@ -5701,6 +6168,11 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 
 - (void)_scheduleCompositingLayerSync
 {
+    CFRunLoopRef currentRunLoop = CFRunLoopGetCurrent();
+
+    // Make sure we wake up the loop or the observer could be delayed until some other source fires.
+    CFRunLoopWakeUp(currentRunLoop);
+
     if (_private->layerSyncRunLoopObserver)
         return;
 
@@ -5716,7 +6188,7 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
         kCFRunLoopBeforeWaiting | kCFRunLoopExit, true /* repeats */,
         runLoopOrder, layerSyncRunLoopObserverCallBack, &context);
 
-    CFRunLoopAddObserver(CFRunLoopGetCurrent(), _private->layerSyncRunLoopObserver, kCFRunLoopCommonModes);
+    CFRunLoopAddObserver(currentRunLoop, _private->layerSyncRunLoopObserver, kCFRunLoopCommonModes);
 }
 
 #endif
@@ -5762,6 +6234,89 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 
 #endif
 
+#if ENABLE(FULLSCREEN_API)
+- (BOOL)_supportsFullScreenForElement:(const WebCore::Element*)element withKeyboard:(BOOL)withKeyboard
+{
+    if (withKeyboard)
+        return NO;
+
+    if (![[WebPreferences standardPreferences] fullScreenEnabled])
+        return NO;
+
+    // FIXME: If the element is in an IFrame, we should ensure it has 
+    // an AllowsFullScreen=YES attribute before allowing fullscreen access.
+    return YES;
+}
+
+- (void)_enterFullScreenForElement:(WebCore::Element*)element
+{
+    if (!_private->newFullscreenController)
+        _private->newFullscreenController = [[WebFullScreenController alloc] init];
+
+    [_private->newFullscreenController setElement:element];
+    [_private->newFullscreenController setWebView:self];
+    [_private->newFullscreenController enterFullscreen:[[self window] screen]];        
+}
+
+- (void)_exitFullScreenForElement:(WebCore::Element*)element
+{
+    if (!_private->newFullscreenController)
+        return;
+    [_private->newFullscreenController exitFullscreen];
+}
+
+- (void)_fullScreenRendererChanged:(WebCore::RenderBox*)renderer
+{
+    if (!_private->newFullscreenController)
+        _private->newFullscreenController = [[WebFullScreenController alloc] init];
+    [_private->newFullscreenController setRenderer:renderer];
+}
+#endif
+
+#if ENABLE(GLIB_SUPPORT)
+
+static void glibContextIterationCallback(CFRunLoopObserverRef, CFRunLoopActivity, void*)
+{
+    g_main_context_iteration(0, FALSE);
+}
+
+- (void)_scheduleGlibContextIterations
+{
+    if (_private->glibRunLoopObserver)
+        return;
+
+    NSRunLoop* myRunLoop = [NSRunLoop currentRunLoop];
+
+    // Create a run loop observer and attach it to the run loop.
+    CFRunLoopObserverContext context = {0, self, 0, 0, 0};
+    _private->glibRunLoopObserver = CFRunLoopObserverCreate(kCFAllocatorDefault, kCFRunLoopBeforeWaiting, YES, 0, &glibContextIterationCallback, &context);
+
+    if (_private->glibRunLoopObserver) {
+        CFRunLoopRef cfLoop = [myRunLoop getCFRunLoop];
+        CFRunLoopAddObserver(cfLoop, _private->glibRunLoopObserver, kCFRunLoopDefaultMode);
+    }
+
+}
+#endif
+
+
+@end
+
+@implementation WebView (WebViewDeviceOrientation)
+
+- (void)_setDeviceOrientationProvider:(id<WebDeviceOrientationProvider>)deviceOrientationProvider
+{
+    if (_private)
+        _private->m_deviceOrientationProvider = deviceOrientationProvider;
+}
+
+- (id<WebDeviceOrientationProvider>)_deviceOrientationProvider
+{
+    if (_private)
+        return _private->m_deviceOrientationProvider;
+    return nil;
+}
+
 @end
 
 @implementation WebView (WebViewGeolocation)
@@ -5779,7 +6334,7 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
     return nil;
 }
 
-- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position;
+- (void)_geolocationDidChangePosition:(WebGeolocationPosition *)position
 {
 #if ENABLE(CLIENT_BASED_GEOLOCATION)
     if (_private && _private->page)
@@ -5817,6 +6372,30 @@ static void layerSyncRunLoopObserverCallBack(CFRunLoopObserverRef, CFRunLoopActi
 }
 
 @end
+
+@implementation WebView (WebViewPrivateNodesFromRect)
+
+- (JSValueRef)_nodesFromRect:(JSContextRef)context forDocument:(JSValueRef)value x:(int)x  y:(int)y top:(unsigned)top right:(unsigned)right bottom:(unsigned)bottom left:(unsigned)left ignoreClipping:(BOOL)ignoreClipping
+{
+    JSLock lock(SilenceAssertionsOnly);
+    ExecState* exec = toJS(context);
+    if (!value)
+        return JSValueMakeUndefined(context);
+    JSValue jsValue = toJS(exec, value);
+    if (!jsValue.inherits(&JSDocument::s_info))
+        return JSValueMakeUndefined(context);
+    JSDocument* jsDocument = static_cast<JSDocument*>(asObject(jsValue));
+    Document* document = jsDocument->impl();
+    RefPtr<NodeList> nodes = document->nodesFromRect(x, y, top, right, bottom, left, ignoreClipping);
+    return toRef(exec, toJS(exec, jsDocument->globalObject(), nodes.get()));
+}
+
+@end
+
+void WebInstallMemoryPressureHandler(void)
+{
+    memoryPressureHandler().install();
+}
 
 #ifdef BUILDING_ON_LEOPARD
 

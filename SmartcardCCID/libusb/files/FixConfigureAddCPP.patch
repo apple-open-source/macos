@@ -1,0 +1,12 @@
+Index: configure.in
+===================================================================
+--- configure.in	(revision 659)
++++ configure.in	(working copy)
+@@ -151,6 +151,7 @@
+ # Checks for programs.
+ AC_LANG_CPLUSPLUS
+ AC_PROG_CC
++AC_PROG_CXX
+ AM_PROG_CC_C_O
+ AC_PROG_INSTALL
+ 

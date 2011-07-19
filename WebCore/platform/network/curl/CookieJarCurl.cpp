@@ -21,9 +21,8 @@
 #include "Document.h"
 #include "KURL.h"
 #include "PlatformString.h"
-#include "StringHash.h"
-
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -58,6 +57,28 @@ bool getRawCookies(const Document*, const KURL&, Vector<Cookie>& rawCookies)
 }
 
 void deleteCookie(const Document*, const KURL&, const String&)
+{
+    // FIXME: Not yet implemented
+}
+
+#if !PLATFORM(EFL)
+void setCookieStoragePrivateBrowsingEnabled(bool enabled)
+{
+    // FIXME: Not yet implemented
+}
+#endif
+
+void getHostnamesWithCookies(HashSet<String>& hostnames)
+{
+    // FIXME: Not yet implemented
+}
+
+void deleteCookiesForHostname(const String& hostname)
+{
+    // FIXME: Not yet implemented
+}
+
+void deleteAllCookies()
 {
     // FIXME: Not yet implemented
 }

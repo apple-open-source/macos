@@ -118,9 +118,7 @@ proc ui_init {title {winPos "+0+0"} } {
     if { $ui_enable_tk } {
 	set ui_top .testWindow
 	ui_initToolhelp .testToolhelp
-        if { [catch {toplevel $ui_top -visual truecolor}] } {
-	    toplevel $ui_top
-        }
+        toplevel $ui_top
 	wm title $ui_top $title
 	wm geometry $ui_top $winPos
         frame $ui_top.imgfr -bg lightgrey

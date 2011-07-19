@@ -202,12 +202,12 @@ void IOFireWireAVCUserClient::free()
 		IOLockFree(avcCmdLock);
     }
 #endif	
-    
-	IOService::free();
 
 	// Release our retain on the IOFireWireAVCUnit!
 	if (fUnit)
 		fUnit->release();
+
+	IOService::free();
 }
 
 //////////////////////////////////////////////////////

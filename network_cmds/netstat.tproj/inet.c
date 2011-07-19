@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_OSREFERENCE_LICENSE_HEADER_START@
  *
@@ -22,8 +22,7 @@
  * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
  * Please see the License for the specific language governing rights and
  * limitations under the License.
- *
- * @APPLE_OSREFERENCE_LICENSE_HEADER_END@
+ ** @APPLE_OSREFERENCE_LICENSE_HEADER_END@
  */
 /*
  * Copyright (c) 1983, 1988, 1993, 1995
@@ -103,6 +102,10 @@ static const char rcsid[] =
 #include <string.h>
 #include <unistd.h>
 #include "netstat.h"
+
+#define ROUNDUP64(a) \
+	((a) > 0 ? (1 + (((a) - 1) | (sizeof(uint64_t) - 1))) : sizeof(uint64_t))
+#define ADVANCE64(x, n) (((char *)x) += ROUNDUP64(n))
 
 char	*inetname (struct in_addr *);
 void	inetprint (struct in_addr *, int, char *, int);
@@ -188,6 +191,337 @@ _serv_cache_getservbyport(int port, char *proto)
  * Listening processes (aflag) are suppressed unless the
  * -a (all) flag is specified.
  */
+#if !TARGET_OS_EMBEDDED
+
+struct xgen_n {
+	u_int32_t	xgn_len;			/* length of this structure */
+	u_int32_t	xgn_kind;		/* number of PCBs at this time */
+};
+
+#define ALL_XGN_KIND_INP (XSO_SOCKET | XSO_RCVBUF | XSO_SNDBUF | XSO_STATS | XSO_INPCB)
+#define ALL_XGN_KIND_TCP (ALL_XGN_KIND_INP | XSO_TCPCB)
+
+void
+protopr(uint32_t proto,		/* for sysctl version we pass proto # */
+		char *name, int af)
+{
+	int istcp;
+	static int first = 1;
+	char *buf, *next;
+	const char *mibvar;
+	struct xinpgen *xig, *oxig;
+	struct xgen_n *xgn;
+	size_t len;
+	struct xtcpcb_n *tp = NULL;
+	struct xinpcb_n *inp = NULL;
+	struct xsocket_n *so = NULL;
+	struct xsockbuf_n *so_rcv = NULL;
+	struct xsockbuf_n *so_snd = NULL;
+	struct xsockstat_n *so_stat = NULL;
+	int which = 0;
+	
+	istcp = 0;
+	switch (proto) {
+		case IPPROTO_TCP:
+#ifdef INET6
+			if (tcp_done != 0)
+				return;
+			else
+				tcp_done = 1;
+#endif
+			istcp = 1;
+			mibvar = "net.inet.tcp.pcblist_n";
+			break;
+		case IPPROTO_UDP:
+#ifdef INET6
+			if (udp_done != 0)
+				return;
+			else
+				udp_done = 1;
+#endif
+			mibvar = "net.inet.udp.pcblist_n";
+			break;
+		case IPPROTO_DIVERT:
+			mibvar = "net.inet.divert.pcblist_n";
+			break;
+		default:
+			mibvar = "net.inet.raw.pcblist_n";
+			break;
+	}
+	len = 0;
+	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
+		if (errno != ENOENT)
+			warn("sysctl: %s", mibvar);
+		return;
+	}        
+	if ((buf = malloc(len)) == 0) {
+		warn("malloc %lu bytes", (u_long)len);
+		return;
+	}
+	if (sysctlbyname(mibvar, buf, &len, 0, 0) < 0) {
+		warn("sysctl: %s", mibvar);
+		free(buf);
+		return;
+	}
+	
+	/*
+	 * Bail-out to avoid logic error in the loop below when
+	 * there is in fact no more control block to process
+	 */
+	if (len <= sizeof(struct xinpgen)) {
+		free(buf);
+		return;
+	}
+	
+	oxig = xig = (struct xinpgen *)buf;
+	for (next = buf + ROUNDUP64(xig->xig_len); next < buf + len; next += ROUNDUP64(xgn->xgn_len)) {
+		
+		xgn = (struct xgen_n*)next;
+		if (xgn->xgn_len <= sizeof(struct xinpgen))
+			break;
+		
+		if ((which & xgn->xgn_kind) == 0) {
+			which |= xgn->xgn_kind;
+			switch (xgn->xgn_kind) {
+				case XSO_SOCKET:
+					so = (struct xsocket_n *)xgn;
+					break;
+				case XSO_RCVBUF:
+					so_rcv = (struct xsockbuf_n *)xgn;
+					break;
+				case XSO_SNDBUF:
+					so_snd = (struct xsockbuf_n *)xgn;
+					break;
+				case XSO_STATS:
+					so_stat = (struct xsockstat_n *)xgn;
+					break;
+				case XSO_INPCB:
+					inp = (struct xinpcb_n *)xgn;
+					break;
+				case XSO_TCPCB:
+					tp = (struct xtcpcb_n *)xgn;
+					break;
+				default:
+					printf("unexpected kind %d\n", xgn->xgn_kind);
+					break;
+			} 		
+		} else {
+			printf("got %d twice\n", xgn->xgn_kind);
+		}
+		
+		if ((istcp && which != ALL_XGN_KIND_TCP) || (!istcp && which != ALL_XGN_KIND_INP))
+			continue;
+		which = 0;
+		
+		/* Ignore sockets for protocols other than the desired one. */
+		if (so->xso_protocol != (int)proto)
+			continue;
+		
+		/* Ignore PCBs which were freed during copyout. */
+		if (inp->inp_gencnt > oxig->xig_gen)
+			continue;
+		
+		if ((af == AF_INET && (inp->inp_vflag & INP_IPV4) == 0)
+#ifdef INET6
+		    || (af == AF_INET6 && (inp->inp_vflag & INP_IPV6) == 0)
+#endif /* INET6 */
+		    || (af == AF_UNSPEC && ((inp->inp_vflag & INP_IPV4) == 0
+#ifdef INET6
+									&& (inp->inp_vflag &
+										INP_IPV6) == 0
+#endif /* INET6 */
+									))
+		    )
+			continue;
+		
+		/*
+		 * Local address is not an indication of listening socket or
+		 * server sockey but just rather the socket has been bound.
+		 * That why many UDP sockets were not displayed in the original code.
+		 */
+		if (!aflag && istcp && tp->t_state <= TCPS_LISTEN)
+			continue;
+		
+		if (Lflag && !so->so_qlimit)
+			continue;
+		
+		if (first) {
+			if (!Lflag) {
+				printf("Active Internet connections");
+				if (aflag)
+					printf(" (including servers)");
+			} else
+				printf(
+					   "Current listen queue sizes (qlen/incqlen/maxqlen)");
+			putchar('\n');
+			if (Aflag)
+#if !TARGET_OS_EMBEDDED
+				printf("%-16.16s ", "Socket");
+#else
+			printf("%-8.8s ", "Socket");
+#endif
+			if (Lflag)
+				printf("%-14.14s %-22.22s\n",
+					   "Listen", "Local Address");
+			else {
+				printf((Aflag && !Wflag) ?
+					   "%-5.5s %-6.6s %-6.6s  %-18.18s %-18.18s %-11.11s" :
+					   "%-5.5s %-6.6s %-6.6s  %-22.22s %-22.22s %-11.11s",
+					   "Proto", "Recv-Q", "Send-Q",
+					   "Local Address", "Foreign Address",
+					   "(state)");
+				if (bflag > 0)
+					printf(" %10.10s %10.10s", "rxbytes", "txbytes");
+				if (prioflag >= 0)
+					printf(" %7.7s[%1d] %7.7s[%1d]", "rxbytes", prioflag, "txbytes", prioflag);
+				printf("\n");
+			}
+			first = 0;
+		}
+		if (Aflag) {
+			if (istcp)
+#if !TARGET_OS_EMBEDDED
+				printf("%16lx ", (u_long)inp->inp_ppcb);
+#else
+			printf("%8lx ", (u_long)inp->inp_ppcb);
+			
+#endif
+			else
+#if !TARGET_OS_EMBEDDED
+				printf("%16lx ", (u_long)so->so_pcb);
+#else
+			printf("%8lx ", (u_long)so->so_pcb);
+#endif
+		}
+		if (Lflag) {
+			char buf[15];
+			
+			snprintf(buf, 15, "%d/%d/%d", so->so_qlen,
+					 so->so_incqlen, so->so_qlimit);
+			printf("%-14.14s ", buf);
+		}
+		else {
+			const char *vchar;
+			
+#ifdef INET6
+			if ((inp->inp_vflag & INP_IPV6) != 0)
+				vchar = ((inp->inp_vflag & INP_IPV4) != 0)
+				? "46" : "6 ";
+			else
+#endif
+				vchar = ((inp->inp_vflag & INP_IPV4) != 0)
+				? "4 " : "  ";
+			
+			printf("%-3.3s%-2.2s %6u %6u  ", name, vchar,
+			       so_rcv->sb_cc,
+			       so_snd->sb_cc);
+		}
+		if (nflag) {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+						  name, 1);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+							  (int)inp->inp_fport, name, 1);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+						   (int)inp->inp_lport, name, 1);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+							   (int)inp->inp_fport, name, 1);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		} else if (inp->inp_flags & INP_ANONPORT) {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+						  name, 1);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+							  (int)inp->inp_fport, name, 0);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+						   (int)inp->inp_lport, name, 1);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+							   (int)inp->inp_fport, name, 0);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		} else {
+			if (inp->inp_vflag & INP_IPV4) {
+				inetprint(&inp->inp_laddr, (int)inp->inp_lport,
+						  name, 0);
+				if (!Lflag)
+					inetprint(&inp->inp_faddr,
+							  (int)inp->inp_fport, name,
+							  inp->inp_lport !=
+							  inp->inp_fport);
+			}
+#ifdef INET6
+			else if (inp->inp_vflag & INP_IPV6) {
+				inet6print(&inp->in6p_laddr,
+						   (int)inp->inp_lport, name, 0);
+				if (!Lflag)
+					inet6print(&inp->in6p_faddr,
+							   (int)inp->inp_fport, name,
+							   inp->inp_lport !=
+							   inp->inp_fport);
+			} /* else nothing printed now */
+#endif /* INET6 */
+		}
+		if (istcp && !Lflag) {
+			if (tp->t_state < 0 || tp->t_state >= TCP_NSTATES)
+				printf("%-11d", tp->t_state);
+			else {
+				printf("%-11s", tcpstates[tp->t_state]);
+#if defined(TF_NEEDSYN) && defined(TF_NEEDFIN)
+				/* Show T/TCP `hidden state' */
+				if (tp->t_flags & (TF_NEEDSYN|TF_NEEDFIN))
+					putchar('*');
+#endif /* defined(TF_NEEDSYN) && defined(TF_NEEDFIN) */
+			}
+		}
+		if (!istcp)
+			printf("%-11s", "           ");
+		if (bflag > 0) {
+			int i;
+			u_int64_t rxbytes = 0;
+			u_int64_t txbytes = 0;
+			
+			for (i = 0; i < SO_TC_MAX; i++) {
+				rxbytes += so_stat->xst_tc_stats[i].rxbytes;
+				txbytes += so_stat->xst_tc_stats[i].txbytes;
+			}
+			
+			printf(" %10llu %10llu", rxbytes, txbytes);
+		}
+		if (prioflag >= 0) {
+			printf(" %10llu %10llu", 
+				   prioflag < SO_TC_MAX ? so_stat->xst_tc_stats[prioflag].rxbytes : 0, 
+				   prioflag < SO_TC_MAX ? so_stat->xst_tc_stats[prioflag].txbytes : 0);
+		}
+		putchar('\n');
+	}
+	if (xig != oxig && xig->xig_gen != oxig->xig_gen) {
+		if (oxig->xig_count > xig->xig_count) {
+			printf("Some %s sockets may have been deleted.\n",
+			       name);
+		} else if (oxig->xig_count < xig->xig_count) {
+			printf("Some %s sockets may have been created.\n",
+			       name);
+		} else {
+			printf("Some %s sockets may have been created or deleted",
+			       name);
+		}
+	}
+	free(buf);
+}
+
+#else /* TARGET_OS_EMBEDDED */
+
 void
 protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	char *name, int af)
@@ -197,15 +531,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	char *buf;
 	const char *mibvar;
 	struct xinpgen *xig, *oxig;
-#if !TARGET_OS_EMBEDDED
-	struct xtcpcb64 *tp = NULL;
-	struct xinpcb64 *inp;
-	struct xsocket64 *so;
-#else
 	struct tcpcb *tp = NULL;
 	struct inpcb *inp;
 	struct xsocket *so;
-#endif
 	size_t len;
 
 	istcp = 0;
@@ -218,12 +546,8 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 			tcp_done = 1;
 #endif
 		istcp = 1;
-#if !TARGET_OS_EMBEDDED
-		mibvar = "net.inet.tcp.pcblist64";
-#else
 		mibvar = "net.inet.tcp.pcblist";
-#endif
-		break;
+			break;
 	case IPPROTO_UDP:
 #ifdef INET6
 		if (udp_done != 0)
@@ -231,26 +555,14 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		else
 			udp_done = 1;
 #endif
-#if !TARGET_OS_EMBEDDED
-		mibvar = "net.inet.udp.pcblist64";
-#else
 		mibvar = "net.inet.udp.pcblist";
-#endif
-		break;
+			break;
 	case IPPROTO_DIVERT:
-#if !TARGET_OS_EMBEDDED
-		mibvar = "net.inet.divert.pcblist64";
-#else
 		mibvar = "net.inet.divert.pcblist";
-#endif
-		break;
+			break;
 	default:
-#if !TARGET_OS_EMBEDDED
-		mibvar = "net.inet.raw.pcblist64";
-#else
 		mibvar = "net.inet.raw.pcblist";
-#endif
-		break;
+			break;
 	}
 	len = 0;
 	if (sysctlbyname(mibvar, 0, &len, 0, 0) < 0) {
@@ -268,37 +580,26 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		return;
 	}
         
-        /*
-         * Bail-out to avoid logic error in the loop below when
-         * there is in fact no more control block to process
-         */
-        if (len <= sizeof(struct xinpgen)) {
-            free(buf);
-            return;
-        }
-            
+	/*
+	 * Bail-out to avoid logic error in the loop below when
+	 * there is in fact no more control block to process
+	 */
+	if (len <= sizeof(struct xinpgen)) {
+		free(buf);
+		return;
+	}
+		
 	oxig = xig = (struct xinpgen *)buf;
 	for (xig = (struct xinpgen *)((char *)xig + xig->xig_len);
 	     xig->xig_len > sizeof(struct xinpgen);
 	     xig = (struct xinpgen *)((char *)xig + xig->xig_len)) {
 		if (istcp) {
-#if !TARGET_OS_EMBEDDED
-			tp = (struct xtcpcb64 *)xig;
-			inp = &tp->xt_inpcb;
-			so = &inp->xi_socket;
-#else
 			tp = &((struct xtcpcb *)xig)->xt_tp;
 			inp = &((struct xtcpcb *)xig)->xt_inp;
 			so = &((struct xtcpcb *)xig)->xt_socket;
-#endif
 		} else {
-#if !TARGET_OS_EMBEDDED
-			inp = (struct xinpcb64 *)xig;
-			so = &inp->xi_socket;
-#else
 			inp = &((struct xinpcb *)xig)->xi_inp;
 			so = &((struct xinpcb *)xig)->xi_socket;
-#endif
 		}
 
 		/* Ignore sockets for protocols other than the desired one. */
@@ -343,11 +644,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	"Current listen queue sizes (qlen/incqlen/maxqlen)");
 			putchar('\n');
 			if (Aflag)
-#if !TARGET_OS_EMBEDDED
-				printf("%-16.16s ", "Socket");
-#else
 				printf("%-8.8s ", "Socket");
-#endif
 			if (Lflag)
 				printf("%-14.14s %-22.22s\n",
 					"Listen", "Local Address");
@@ -362,18 +659,9 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 		}
                 if (Aflag) {
                         if (istcp)
-#if !TARGET_OS_EMBEDDED
-                                printf("%16lx ", (u_long)inp->inp_ppcb);
-#else
                                 printf("%8lx ", (u_long)inp->inp_ppcb);
-
-#endif
                         else
-#if !TARGET_OS_EMBEDDED
-                                printf("%16lx ", (u_long)so->so_pcb);
-#else
                                 printf("%8lx ", (u_long)so->so_pcb);
-#endif
                 }
 		if (Lflag) {
 				char buf[15];
@@ -482,6 +770,7 @@ protopr(uint32_t proto,		/* for sysctl version we pass proto # */
 	}
 	free(buf);
 }
+#endif /* TARGET_OS_EMBEDDED */
 
 /*
  * Dump TCP statistics structure.
@@ -570,6 +859,7 @@ tcp_stats(uint32_t off , char *name, int af )
 		"\t%u segment%s updated rtt (of %u attempt%s)\n");
 	p(tcps_rexmttimeo, "\t%u retransmit timeout%s\n");
 	p(tcps_timeoutdrop, "\t\t%u connection%s dropped by rexmit timeout\n");
+	p(tcps_rxtfindrop, "\t\t%u connection%s dropped after retransmitting FIN\n");
 	p(tcps_persisttimeo, "\t%u persist timeout%s\n");
 	p(tcps_persistdrop, "\t\t%u connection%s dropped by persist timeout\n");
 	p(tcps_keeptimeo, "\t%u keepalive timeout%s\n");
@@ -715,6 +1005,7 @@ ip_stats(uint32_t off , char *name, int af )
 	p(ips_cantfrag, "\t%u datagram%s that can't be fragmented\n");
 	p(ips_nogif, "\t%u tunneling packet%s that can't find gif\n");
 	p(ips_badaddr, "\t%u datagram%s with bad address in header\n");
+	p(ips_pktdropcntrl, "\t%u packet%s dropped due to no bufs for control data\n");
 
 	if (interval > 0)
 		bcopy(&ipstat, &pipstat, len);
@@ -825,38 +1116,58 @@ icmp_stats(uint32_t off , char *name, int af )
 void
 igmp_stats(uint32_t off , char *name, int af )
 {
-	static struct igmpstat pigmpstat;
-	struct igmpstat igmpstat;
+	static struct igmpstat_v3 pigmpstat;
+	struct igmpstat_v3 igmpstat;
 	size_t len = sizeof igmpstat;
 
-	if (sysctlbyname("net.inet.igmp.stats", &igmpstat, &len, 0, 0) < 0) {
-		warn("sysctl: net.inet.igmp.stats");
+	if (sysctlbyname("net.inet.igmp.v3stats", &igmpstat, &len, 0, 0) < 0) {
+		warn("sysctl: net.inet.igmp.v3stats");
 		return;
+	}
+
+	if (igmpstat.igps_version != IGPS_VERSION_3) {
+		warnx("%s: version mismatch (%d != %d)", __func__,
+		    igmpstat.igps_version, IGPS_VERSION_3);
+	}
+	if (igmpstat.igps_len != IGPS_VERSION3_LEN) {
+		warnx("%s: size mismatch (%d != %d)", __func__,
+		    igmpstat.igps_len, IGPS_VERSION3_LEN);
 	}
 
 	printf("%s:\n", name);
 
-#define	IGMPDIFF(f) (igmpstat.f - pigmpstat.f)
-#define	p(f, m) if (IGMPDIFF(f) || sflag <= 1) \
+#define	IGMPDIFF(f) ((uintmax_t)(igmpstat.f - pigmpstat.f))
+#define	p64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
     printf(m, IGMPDIFF(f), plural(IGMPDIFF(f)))
-#define	py(f, m) if (IGMPDIFF(f) || sflag <= 1) \
+#define	py64(f, m) if (IGMPDIFF(f) || sflag <= 1) \
     printf(m, IGMPDIFF(f), IGMPDIFF(f) != 1 ? "ies" : "y")
-	p(igps_rcv_total, "\t%u message%s received\n");
-        p(igps_rcv_tooshort, "\t%u message%s received with too few bytes\n");
-        p(igps_rcv_badsum, "\t%u message%s received with bad checksum\n");
-        py(igps_rcv_queries, "\t%u membership quer%s received\n");
-        py(igps_rcv_badqueries, "\t%u membership quer%s received with invalid field(s)\n");
-        p(igps_rcv_reports, "\t%u membership report%s received\n");
-        p(igps_rcv_badreports, "\t%u membership report%s received with invalid field(s)\n");
-        p(igps_rcv_ourreports, "\t%u membership report%s received for groups to which we belong\n");
-        p(igps_snd_reports, "\t%u membership report%s sent\n");
+
+	p64(igps_rcv_total, "\t%ju message%s received\n");
+	p64(igps_rcv_tooshort, "\t%ju message%s received with too few bytes\n");
+	p64(igps_rcv_badttl, "\t%ju message%s received with wrong TTL\n");
+	p64(igps_rcv_badsum, "\t%ju message%s received with bad checksum\n");
+	py64(igps_rcv_v1v2_queries, "\t%ju V1/V2 membership quer%s received\n");
+	py64(igps_rcv_v3_queries, "\t%ju V3 membership quer%s received\n");
+	py64(igps_rcv_badqueries,
+	    "\t%ju membership quer%s received with invalid field(s)\n");
+	py64(igps_rcv_gen_queries, "\t%ju general quer%s received\n");
+	py64(igps_rcv_group_queries, "\t%ju group quer%s received\n");
+	py64(igps_rcv_gsr_queries, "\t%ju group-source quer%s received\n");
+	py64(igps_drop_gsr_queries, "\t%ju group-source quer%s dropped\n");
+	p64(igps_rcv_reports, "\t%ju membership report%s received\n");
+	p64(igps_rcv_badreports,
+	    "\t%ju membership report%s received with invalid field(s)\n");
+	p64(igps_rcv_ourreports,
+"\t%ju membership report%s received for groups to which we belong\n");
+        p64(igps_rcv_nora, "\t%ju V3 report%s received without Router Alert\n");
+        p64(igps_snd_reports, "\t%ju membership report%s sent\n");
 
 	if (interval > 0)
 		bcopy(&igmpstat, &pigmpstat, len);
 
 #undef IGMPDIFF
-#undef p
-#undef py
+#undef p64
+#undef py64
 }
 
 /*
@@ -870,9 +1181,9 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 	int width;
 
 	if (Wflag)
-	    sprintf(line, "%s.", inetname(in));
+	    snprintf(line, sizeof(line), "%s.", inetname(in));
 	else
-	    sprintf(line, "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
+	    snprintf(line, sizeof(line), "%.*s.", (Aflag && !numeric_port) ? 12 : 16, inetname(in));
 	cp = index(line, '\0');
 	if (!numeric_port && port)
 #ifdef _SERVICE_CACHE_
@@ -881,9 +1192,9 @@ inetprint(struct in_addr *in, int port, char *proto, int numeric_port)
 		sp = getservbyport((int)port, proto);
 #endif
 	if (sp || port == 0)
-		sprintf(cp, "%.15s ", sp ? sp->s_name : "*");
+		snprintf(cp, sizeof(line) - (cp - line), "%.15s ", sp ? sp->s_name : "*");
 	else
-		sprintf(cp, "%d ", ntohs((u_short)port));
+		snprintf(cp, sizeof(line) - (cp - line), "%d ", ntohs((u_short)port));
 	width = (Aflag && !Wflag) ? 18 : 22;
 	if (Wflag)
 	    printf("%-*s ", width, line);
@@ -923,14 +1234,14 @@ inetname(struct in_addr *inp)
 		}
 	}
 	if (inp->s_addr == INADDR_ANY)
-		strcpy(line, "*");
+		strlcpy(line, "*", sizeof(line));
 	else if (cp) {
 		strncpy(line, cp, sizeof(line) - 1);
 		line[sizeof(line) - 1] = '\0';
 	} else {
 		inp->s_addr = ntohl(inp->s_addr);
 #define C(x)	((u_int)((x) & 0xff))
-		sprintf(line, "%u.%u.%u.%u", C(inp->s_addr >> 24),
+		snprintf(line, sizeof(line), "%u.%u.%u.%u", C(inp->s_addr >> 24),
 		    C(inp->s_addr >> 16), C(inp->s_addr >> 8), C(inp->s_addr));
 	}
 	return (line);

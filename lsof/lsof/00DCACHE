@@ -714,7 +714,7 @@ Appendix B.1 Setuid-root Lsof Dialects
 These dialect versions of lsof need root permission.  For general
 use they may have to be installed setuid-root.
 
-    Apple Darwin 8.x for Power Macintosh systems
+    Apple Darwin 9 (Mac OS X 10.5)
     HP-UX 11.11 and 11.23
     Linux (no device cache support needed)
 
@@ -726,9 +726,8 @@ Lsof versions for these dialects have WILLDROPGID defined in their
 machine.h header files.
 
     AIX 5.[12] and 5.3-ML1
-    Apple Darwin 7.x for Power Macintosh systems
-    FreeBSD 4.x, 4.1x, 5.x and [67].x for x86-based systems
-    FreeBSD 5.x and [67].x for Alpha, AMD64 and Sparc64-based
+    FreeBSD 4.x, 4.1x, 5.x and [6789].x for x86-based systems
+    FreeBSD 5.x and [6789].x for Alpha, AMD64 and Sparc64-based
 	systems
     HP-UX 11.00
     NetBSD 1.[456], 2.x and 3.x for Alpha, x86, and SPARC-based
@@ -743,4 +742,4 @@ machine.h header files.
 
 
 Vic Abell <abe@purdue.edu>
-April 24, 2007
+January 18, 2010

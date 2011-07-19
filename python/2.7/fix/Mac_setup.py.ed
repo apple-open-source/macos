@@ -1,0 +1,2 @@
+g/extra_link_args=\['-framework', 'Carbon'/s//extra_compile_args=['-no64'], &, '-no64'/
+w

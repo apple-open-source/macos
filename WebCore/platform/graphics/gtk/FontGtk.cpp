@@ -33,91 +33,123 @@
 #include "config.h"
 #include "Font.h"
 
+#include "CairoUtilities.h"
+#include "ContextShadow.h"
+#include "GOwnPtr.h"
 #include "GraphicsContext.h"
+#include "NotImplemented.h"
+#include "PlatformContextCairo.h"
 #include "SimpleFontData.h"
-
+#include "TextRun.h"
 #include <cairo.h>
 #include <gdk/gdk.h>
 #include <pango/pango.h>
 #include <pango/pangocairo.h>
-#if defined(USE_FREETYPE)
+
+#if USE(FREETYPE)
 #include <pango/pangofc-fontmap.h>
 #endif
 
 namespace WebCore {
 
+#ifdef GTK_API_VERSION_2
+typedef GdkRegion* PangoRegionType;
+
+void destroyPangoRegion(PangoRegionType region)
+{
+    gdk_region_destroy(region);
+}
+
+IntRect getPangoRegionExtents(PangoRegionType region)
+{
+    GdkRectangle rectangle;
+    gdk_region_get_clipbox(region, &rectangle);
+    return IntRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+}
+#else
+typedef cairo_region_t* PangoRegionType;
+
+void destroyPangoRegion(PangoRegionType region)
+{
+    cairo_region_destroy(region);
+}
+
+IntRect getPangoRegionExtents(PangoRegionType region)
+{
+    cairo_rectangle_int_t rectangle;
+    cairo_region_get_extents(region, &rectangle);
+    return IntRect(rectangle.x, rectangle.y, rectangle.width, rectangle.height);
+}
+#endif
+
 #define IS_HIGH_SURROGATE(u)  ((UChar)(u) >= (UChar)0xd800 && (UChar)(u) <= (UChar)0xdbff)
 #define IS_LOW_SURROGATE(u)  ((UChar)(u) >= (UChar)0xdc00 && (UChar)(u) <= (UChar)0xdfff)
 
-static void utf16_to_utf8(const UChar* aText, gint aLength, char* &text, gint &length)
+static gchar* utf16ToUtf8(const UChar* aText, gint aLength, gint &length)
 {
-  gboolean need_copy = FALSE;
-  int i;
+    gboolean needCopy = FALSE;
 
-  for (i = 0; i < aLength; i++) {
-    if (!aText[i] || IS_LOW_SURROGATE(aText[i])) {
-      need_copy = TRUE;
-      break;
-    }
-    else if (IS_HIGH_SURROGATE(aText[i])) {
-      if (i < aLength - 1 && IS_LOW_SURROGATE(aText[i+1]))
-        i++;
-      else {
-        need_copy = TRUE;
-        break;
-      }
-    }
-  }
+    for (int i = 0; i < aLength; i++) {
+        if (!aText[i] || IS_LOW_SURROGATE(aText[i])) {
+            needCopy = TRUE;
+            break;
+        } 
 
-  if (need_copy) {
-
-    /* Pango doesn't correctly handle nuls.  We convert them to 0xff. */
-    /* Also "validate" UTF-16 text to make sure conversion doesn't fail. */
-
-    UChar* p = (UChar*)g_memdup(aText, aLength * sizeof(aText[0]));
-
-    /* don't need to reset i */
-    for (i = 0; i < aLength; i++) {
-      if (!p[i] || IS_LOW_SURROGATE(p[i]))
-        p[i] = 0xFFFD;
-      else if (IS_HIGH_SURROGATE(p[i])) {
-        if (i < aLength - 1 && IS_LOW_SURROGATE(aText[i+1]))
-          i++;
-        else
-          p[i] = 0xFFFD;
-      }
+        if (IS_HIGH_SURROGATE(aText[i])) {
+            if (i < aLength - 1 && IS_LOW_SURROGATE(aText[i+1]))
+                i++;
+            else {
+                needCopy = TRUE;
+                break;
+            }
+        }
     }
 
-    aText = p;
-  }
+    GOwnPtr<UChar> copiedString;
+    if (needCopy) {
+        /* Pango doesn't correctly handle nuls.  We convert them to 0xff. */
+        /* Also "validate" UTF-16 text to make sure conversion doesn't fail. */
 
-  glong items_written;
-  text = g_utf16_to_utf8(reinterpret_cast<const gunichar2*>(aText), aLength, NULL, &items_written, NULL);
-  length = items_written;
+        copiedString.set(static_cast<UChar*>(g_memdup(aText, aLength * sizeof(aText[0]))));
+        UChar* p = copiedString.get();
 
-  if (need_copy)
-    g_free((gpointer)aText);
+        /* don't need to reset i */
+        for (int i = 0; i < aLength; i++) {
+            if (!p[i] || IS_LOW_SURROGATE(p[i]))
+                p[i] = 0xFFFD;
+            else if (IS_HIGH_SURROGATE(p[i])) {
+                if (i < aLength - 1 && IS_LOW_SURROGATE(aText[i+1]))
+                    i++;
+                else
+                    p[i] = 0xFFFD;
+            }
+        }
 
+        aText = p;
+    }
+
+    gchar* utf8Text;
+    glong itemsWritten;
+    utf8Text = g_utf16_to_utf8(static_cast<const gunichar2*>(aText), aLength, 0, &itemsWritten, 0);
+    length = itemsWritten;
+
+    return utf8Text;
 }
 
 static gchar* convertUniCharToUTF8(const UChar* characters, gint length, int from, int to)
 {
-    gchar* utf8 = 0;
-    gint new_length = 0;
-    utf16_to_utf8(characters, length, utf8, new_length);
-    if (!utf8)
-        return NULL;
+    gint newLength = 0;
+    GOwnPtr<gchar> utf8Text(utf16ToUtf8(characters, length, newLength));
+    if (!utf8Text)
+        return 0;
 
+    gchar* pos = utf8Text.get();
     if (from > 0) {
         // discard the first 'from' characters
         // FIXME: we should do this before the conversion probably
-        gchar* str_left = g_utf8_offset_to_pointer(utf8, from);
-        gchar* tmp = g_strdup(str_left);
-        g_free(utf8);
-        utf8 = tmp;
+        pos = g_utf8_offset_to_pointer(utf8Text.get(), from);
     }
 
-    gchar* pos = utf8;
     gint len = strlen(pos);
     GString* ret = g_string_new_len(NULL, len);
 
@@ -137,13 +169,13 @@ static gchar* convertUniCharToUTF8(const UChar* characters, gint length, int fro
 
 static void setPangoAttributes(const Font* font, const TextRun& run, PangoLayout* layout)
 {
-#if defined(USE_FREETYPE)
+#if USE(FREETYPE)
     if (font->primaryFont()->platformData().m_pattern) {
-        PangoFontDescription* desc = pango_fc_font_description_from_pattern(font->primaryFont()->platformData().m_pattern, FALSE);
+        PangoFontDescription* desc = pango_fc_font_description_from_pattern(font->primaryFont()->platformData().m_pattern.get(), FALSE);
         pango_layout_set_font_description(layout, desc);
         pango_font_description_free(desc);
     }
-#elif defined(USE_PANGO)
+#elif USE(PANGO)
     if (font->primaryFont()->platformData().m_font) {
         PangoFontDescription* desc = pango_font_describe(font->primaryFont()->platformData().m_font);
         pango_layout_set_font_description(layout, desc);
@@ -181,12 +213,69 @@ bool Font::canReturnFallbackFontsForComplexText()
     return false;
 }
 
+bool Font::canExpandAroundIdeographsInComplexText()
+{
+    return false;
+}
+
+static void drawGlyphsShadow(GraphicsContext* graphicsContext, const FloatPoint& point, PangoLayoutLine* layoutLine, PangoRegionType renderRegion)
+{
+    ContextShadow* shadow = graphicsContext->contextShadow();
+    ASSERT(shadow);
+
+    if (!(graphicsContext->textDrawingMode() & TextModeFill) || shadow->m_type == ContextShadow::NoShadow)
+        return;
+
+    FloatPoint totalOffset(point + shadow->m_offset);
+
+    // Optimize non-blurry shadows, by just drawing text without the ContextShadow.
+    if (!shadow->mustUseContextShadow(graphicsContext)) {
+        cairo_t* context = graphicsContext->platformContext()->cr();
+        cairo_save(context);
+        cairo_translate(context, totalOffset.x(), totalOffset.y());
+
+        setSourceRGBAFromColor(context, shadow->m_color);
+        gdk_cairo_region(context, renderRegion);
+        cairo_clip(context);
+        pango_cairo_show_layout_line(context, layoutLine);
+
+        cairo_restore(context);
+        return;
+    }
+
+    FloatRect extents(getPangoRegionExtents(renderRegion));
+    extents.setLocation(FloatPoint(point.x(), point.y() - extents.height()));
+    cairo_t* shadowContext = shadow->beginShadowLayer(graphicsContext, extents);
+    if (shadowContext) {
+        cairo_translate(shadowContext, point.x(), point.y());
+        pango_cairo_show_layout_line(shadowContext, layoutLine);
+
+        // We need the clipping region to be active when we blit the blurred shadow back,
+        // because we don't want any bits and pieces of characters out of range to be
+        // drawn. Since ContextShadow expects a consistent transform, we have to undo the
+        // translation before calling endShadowLayer as well.
+        cairo_t* context = graphicsContext->platformContext()->cr();
+        cairo_save(context);
+        cairo_translate(context, totalOffset.x(), totalOffset.y());
+        gdk_cairo_region(context, renderRegion);
+        cairo_clip(context);
+        cairo_translate(context, -totalOffset.x(), -totalOffset.y());
+
+        shadow->endShadowLayer(graphicsContext);
+        cairo_restore(context);
+    }
+}
+
 void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const FloatPoint& point, int from, int to) const
 {
-    cairo_t* cr = context->platformContext();
-    cairo_save(cr);
-    cairo_translate(cr, point.x(), point.y());
+#if USE(FREETYPE)
+    if (!primaryFont()->platformData().m_pattern) {
+        drawSimpleText(context, run, point, from, to);
+        return;
+    }
+#endif
 
+    cairo_t* cr = context->platformContext()->cr();
     PangoLayout* layout = pango_cairo_create_layout(cr);
     setPangoAttributes(this, run, layout);
 
@@ -196,59 +285,29 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
     // Our layouts are single line
     PangoLayoutLine* layoutLine = pango_layout_get_line_readonly(layout, 0);
 
-    GdkRegion* partialRegion = NULL;
-    if (to - from != run.length()) {
-        // Clip the region of the run to be rendered
-        char* start = g_utf8_offset_to_pointer(utf8, from);
-        char* end = g_utf8_offset_to_pointer(start, to - from);
-        int ranges[] = {start - utf8, end - utf8};
-        partialRegion = gdk_pango_layout_line_get_clip_region(layoutLine, 0, 0, ranges, 1);
-        gdk_region_shrink(partialRegion, 0, -pixelSize());
-    }
+    // Get the region where this text will be laid out. We will use it to clip
+    // the Cairo context, for when we are only painting part of the text run and
+    // to calculate the size of the shadow buffer.
+    PangoRegionType partialRegion = 0;
+    char* start = g_utf8_offset_to_pointer(utf8, from);
+    char* end = g_utf8_offset_to_pointer(start, to - from);
+    int ranges[] = {start - utf8, end - utf8};
+    partialRegion = gdk_pango_layout_line_get_clip_region(layoutLine, 0, 0, ranges, 1);
 
-    Color fillColor = context->fillColor();
+    drawGlyphsShadow(context, point, layoutLine, partialRegion);
+
+    cairo_save(cr);
+    cairo_translate(cr, point.x(), point.y());
+
     float red, green, blue, alpha;
-
-    // Text shadow, inspired by FontMac
-    IntSize shadowSize;
-    int shadowBlur = 0;
-    Color shadowColor;
-    bool hasShadow = context->textDrawingMode() == cTextFill &&
-        context->getShadow(shadowSize, shadowBlur, shadowColor);
-
-    // TODO: Blur support
-    if (hasShadow) {
-        // Disable graphics context shadows (not yet implemented) and paint them manually
-        context->clearShadow();
-        Color shadowFillColor(shadowColor.red(), shadowColor.green(), shadowColor.blue(), shadowColor.alpha() * fillColor.alpha() / 255);
-        cairo_save(cr);
-
-        shadowFillColor.getRGBA(red, green, blue, alpha);
-        cairo_set_source_rgba(cr, red, green, blue, alpha);
-
-        cairo_translate(cr, shadowSize.width(), shadowSize.height());
-
-        if (partialRegion) {
-            gdk_cairo_region(cr, partialRegion);
-            cairo_clip(cr);
-        }
-
-        pango_cairo_show_layout_line(cr, layoutLine);
-
-        cairo_restore(cr);
-    }
-
-    fillColor.getRGBA(red, green, blue, alpha);
+    context->fillColor().getRGBA(red, green, blue, alpha);
     cairo_set_source_rgba(cr, red, green, blue, alpha);
-
-    if (partialRegion) {
-        gdk_cairo_region(cr, partialRegion);
-        cairo_clip(cr);
-    }
+    gdk_cairo_region(cr, partialRegion);
+    cairo_clip(cr);
 
     pango_cairo_show_layout_line(cr, layoutLine);
 
-    if (context->textDrawingMode() & cTextStroke) {
+    if (context->textDrawingMode() & TextModeStroke) {
         Color strokeColor = context->strokeColor();
         strokeColor.getRGBA(red, green, blue, alpha);
         cairo_set_source_rgba(cr, red, green, blue, alpha);
@@ -257,20 +316,19 @@ void Font::drawComplexText(GraphicsContext* context, const TextRun& run, const F
         cairo_stroke(cr);
     }
 
-    // Re-enable the platform shadow we disabled earlier
-    if (hasShadow)
-        context->setShadow(shadowSize, shadowBlur, shadowColor, DeviceColorSpace);
-
     // Pango sometimes leaves behind paths we don't want
     cairo_new_path(cr);
 
-    if (partialRegion)
-        gdk_region_destroy(partialRegion);
-
+    destroyPangoRegion(partialRegion);
     g_free(utf8);
     g_object_unref(layout);
 
     cairo_restore(cr);
+}
+
+void Font::drawEmphasisMarksForComplexText(GraphicsContext* /* context */, const TextRun& /* run */, const AtomicString& /* mark */, const FloatPoint& /* point */, int /* from */, int /* to */) const
+{
+    notImplemented();
 }
 
 // We should create the layout with our actual context but we can't access it from here.
@@ -288,8 +346,13 @@ static PangoLayout* getDefaultPangoLayout(const TextRun& run)
     return layout;
 }
 
-float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* /* fallbackFonts */, GlyphOverflow*) const
+float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFontData*>* fallbackFonts, GlyphOverflow* overflow) const
 {
+#if USE(FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return floatWidthForSimpleText(run, 0, fallbackFonts, overflow);
+#endif
+
     if (run.length() == 0)
         return 0.0f;
 
@@ -308,8 +371,16 @@ float Font::floatWidthForComplexText(const TextRun& run, HashSet<const SimpleFon
     return width;
 }
 
-int Font::offsetForPositionForComplexText(const TextRun& run, int x, bool includePartialGlyphs) const
+int Font::offsetForPositionForComplexText(const TextRun& run, float xFloat, bool includePartialGlyphs) const
 {
+#if USE(FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return offsetForPositionForSimpleText(run, xFloat, includePartialGlyphs);
+#endif
+    // FIXME: This truncation is not a problem for HTML, but only affects SVG, which passes floating-point numbers
+    // to Font::offsetForPosition(). Bug http://webkit.org/b/40673 tracks fixing this problem.
+    int x = static_cast<int>(xFloat);
+
     PangoLayout* layout = getDefaultPangoLayout(run);
     setPangoAttributes(this, run, layout);
 
@@ -328,8 +399,13 @@ int Font::offsetForPositionForComplexText(const TextRun& run, int x, bool includ
     return offset;
 }
 
-FloatRect Font::selectionRectForComplexText(const TextRun& run, const IntPoint& point, int h, int from, int to) const
+FloatRect Font::selectionRectForComplexText(const TextRun& run, const FloatPoint& point, int h, int from, int to) const
 {
+#if USE(FREETYPE)
+    if (!primaryFont()->platformData().m_pattern)
+        return selectionRectForSimpleText(run, point, h, from, to);
+#endif
+
     PangoLayout* layout = getDefaultPangoLayout(run);
     setPangoAttributes(this, run, layout);
 

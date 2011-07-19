@@ -1,0 +1,12 @@
+[Changes for 0.02 - 2006-10-30]
+
+* LICENSING CHANGE: This compilation and all individual files in it
+  are now under the permissive "MIT" license.  See the COPYRIGHT
+  section in README for the new terms.
+
+* Regenerate inc/ to fix ActivePerl installation bug,
+  as reported by particle++.
+
+[Changes for 0.01 - 2005-11-29]
+
+* Initial release to CPAN of this six-hours-old hack.

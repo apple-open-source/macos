@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)fwrite.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/fwrite.c,v 1.11 2002/10/12 16:13:41 mike Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/fwrite.c,v 1.13 2009/07/12 13:09:43 ed Exp $");
 
 #include "namespace.h"
 #include <stdio.h>
@@ -61,13 +57,16 @@ fwrite(buf, size, count, fp)
 	struct __suio uio;
 	struct __siov iov;
 
-	iov.iov_base = (void *)buf;
-	uio.uio_resid = iov.iov_len = n = count * size;
-
+	/*
+	 * ANSI and SUSv2 require a return value of 0 if size or count are 0.
+	 */
+	n = count * size;
 #if __DARWIN_UNIX03
-	if (n == 0)		/* POSIX */
-		return 0;
-#endif /* __DARWIN_UNIX03 */
+	if (n == 0)
+		return (0);
+#endif
+	iov.iov_base = (void *)buf;
+	uio.uio_resid = iov.iov_len = n;
 	uio.uio_iov = &iov;
 	uio.uio_iovcnt = 1;
 

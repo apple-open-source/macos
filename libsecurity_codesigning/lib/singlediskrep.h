@@ -49,10 +49,11 @@ public:
 	CFDataRef identification();								// partial file hash
 	std::string mainExecutablePath();						// base path
 	CFURLRef canonicalPath();								// base path
-	std::string recommendedIdentifier();					// basename(path)
 	size_t signingLimit();									// size of file
 	UnixPlusPlus::FileDesc &fd();							// readable fd for this file
 	void flush();											// close cached fd
+	
+	std::string recommendedIdentifier(const SigningContext &ctx); // basename(path)
 	
 public:
 	class Writer;

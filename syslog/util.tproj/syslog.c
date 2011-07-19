@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,8 +39,9 @@
 #include <netdb.h>
 #include <notify.h>
 #include <asl.h>
+#include <asl_msg.h>
 #include <asl_private.h>
-#include <asl_ipc.h>
+#include "asl_ipc.h"
 #include <asl_core.h>
 #include <asl_store.h>
 #include <asl_file.h>
@@ -92,6 +93,7 @@
 #define FORMAT_LEGACY	0x00000200
 #define FORMAT_STD		0x00000400
 #define FORMAT_XML		0x00000800
+#define COMPRESS_DUPS   0x00010000
 
 #define EXPORT			0x00000100
 
@@ -103,23 +105,42 @@
 #define ASL_FILTER_MASK_PAC      0x07
 
 #define FETCH_BATCH	1024
+#define MAX_RANDOM 8192
 
-#define DB_SELECT_STORE   0
-#define DB_SELECT_FILES   1
-#define DB_SELECT_SYSLOGD 2
-#define DB_SELECT_LEGACY  3
+#define DB_SELECT_ASL     0
+#define DB_SELECT_STORE   1
+#define DB_SELECT_FILES   2
+#define DB_SELECT_SYSLOGD 3
+#define DB_SELECT_LEGACY  4
+
+/* STD and BSD format messages start with 'DAY MMM DD HH:MM:SS ' timestamp */
+#define STD_BSD_DATE_LEN 20
+
+/* Max message size for direct watch */
+#define MAX_DIRECT_SIZE 16384
+
+/* Buffer for direct watch data */
+#define DIRECT_BUF_SIZE 1024
 
 static asl_file_list_t *db_files = NULL;
 static asl_store_t *store = NULL;
 static asl_file_t *legacy = NULL;
 static asl_file_t *export = NULL;
+static const char *sort_key = NULL;
+static const char *sort_key_2 = NULL;
+static int sort_numeric = 0;
+static char *last_printmsg_str = NULL;
+static int last_printmsg_count = 0;
 
-static uint32_t dbselect = DB_SELECT_STORE;
+#ifdef CONFIG_IPHONE
+static uint32_t dbselect = DB_SELECT_SYSLOGD;
+#else
+static uint32_t dbselect = DB_SELECT_ASL;
+#endif
 
 /* notify SPI */
 uint32_t notify_register_plain(const char *name, int *out_token);
 
-extern char *asl_msg_to_string(aslmsg msg, uint32_t *len);
 extern asl_msg_t *asl_msg_from_string(const char *buf);
 extern char *asl_list_to_string(asl_search_result_t *list, uint32_t *outlen);
 extern asl_search_result_t *asl_list_from_string(const char *buf);
@@ -155,25 +176,30 @@ usage()
 	fprintf(stderr, "   d = Debug\n");
 	fprintf(stderr, "   a minus sign preceeding a single letter means \"up to\" that level\n");
 	fprintf(stderr, "\n");
-	fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-u] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
-	fprintf(stderr, "   -f    read named file[s], rather than standard log message store.\n");
-	fprintf(stderr, "   -d    read all file in named directory path, rather than standard log message store.\n");
-	fprintf(stderr, "   -x    export to named ASL format file, rather than printing\n");
-	fprintf(stderr, "   -w    watch data store (^C to quit)\n");
-	fprintf(stderr, "         prints the last N matching lines (default 10) before waiting\n");
-	fprintf(stderr, "         \"-w 0\" prints all matching lines before waiting\n");
-	fprintf(stderr, "   -F    output format may be \"std\", \"raw\", \"bsd\", or \"xml\"\n");
-	fprintf(stderr, "         format may also be a string containing variables of the form\n");
-	fprintf(stderr, "         $Key or $(Key) - use the latter for non-whitespace delimited variables\n");
-	fprintf(stderr, "   -T    timestamp format may be \"sec\" (seconds), \"utc\" (UTC), or \"local\" (local timezone)\n");
-	fprintf(stderr, "   -E    text encoding may be \"vis\", \"safe\", or \"none\"\n");
-	fprintf(stderr, "   -u    print timestamps using UTC (equivalent to \"-T utc\")\n");
-	fprintf(stderr, "   -k    key/value match\n");
-	fprintf(stderr, "         if no operator or value is given, checks for the existance of the key\n");
-	fprintf(stderr, "         if no operator is given, default is \"%s\"\n", OP_EQ);
-	fprintf(stderr, "   -C    alias for \"-k Facility com.apple.console\"\n");
-	fprintf(stderr, "   -o    begins a new query\n");
-	fprintf(stderr, "         queries are \'OR\'ed together\n");
+	fprintf(stderr, "%s [-f file...] [-d path...] [-x file] [-w [N]] [-F format] [-nocompress] [-u] [-sort key1 [key2]] [-nsort key1 [key2]] [-k key [[op] val]]... [-o -k key [[op] val]] ...]...\n", myname);
+	fprintf(stderr, "   -f     read named file[s], rather than standard log message store.\n");
+	fprintf(stderr, "   -d     read all file in named directory path, rather than standard log message store.\n");
+	fprintf(stderr, "   -x     export to named ASL format file, rather than printing\n");
+	fprintf(stderr, "   -w     watch data store (^C to quit)\n");
+	fprintf(stderr, "          prints the last N matching lines (default 10) before waiting\n");
+	fprintf(stderr, "          \"-w all\" prints all matching lines before waiting\n");
+	fprintf(stderr, "          \"-w boot\" prints all matching lines since last system boot before waiting\n");
+	fprintf(stderr, "   -F     output format may be \"std\", \"raw\", \"bsd\", or \"xml\"\n");
+	fprintf(stderr, "          format may also be a string containing variables of the form\n");
+	fprintf(stderr, "          $Key or $(Key) - use the latter for non-whitespace delimited variables\n");
+	fprintf(stderr, "   -T     timestamp format may be \"sec\" (seconds), \"utc\" (UTC), or \"local\" (local timezone)\n");
+	fprintf(stderr, "   -E     text encoding may be \"vis\", \"safe\", or \"none\"\n");
+	fprintf(stderr, "   -nodc  no duplicate message compression\n");
+	fprintf(stderr, "   -u     print timestamps using UTC (equivalent to \"-T utc\")\n");
+	fprintf(stderr, "   -sort  sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
+	fprintf(stderr, "   -nsort numeric sort messages using value for specified key1 (secondary sort by key2 if provided)\n");
+	fprintf(stderr, "   -k     key/value match\n");
+	fprintf(stderr, "          if no operator or value is given, checks for the existance of the key\n");
+	fprintf(stderr, "          if no operator is given, default is \"%s\"\n", OP_EQ);
+	fprintf(stderr, "   -B     only process log messages since last system boot\n");
+	fprintf(stderr, "   -C     alias for \"-k Facility com.apple.console\"\n");
+	fprintf(stderr, "   -o     begins a new query\n");
+	fprintf(stderr, "          queries are \'OR\'ed together\n");
 	fprintf(stderr, "operators are zero or more modifiers followed by a comparison\n");
 	fprintf(stderr, "   %s   equal\n", OP_EQ);
 	fprintf(stderr, "   %s   not equal\n", OP_NE);
@@ -534,17 +560,19 @@ int
 rcontrol_set(pid_t pid, uid_t uid, int filter)
 {
 	int status;
-	const char *name;
+	const char *name, *rcname;
+
+	rcname = rcontrol_name(pid, uid);
 
 	if (pid < 0)
 	{
 		name = "Master";
 		if (pid == RC_SYSLOGD) name = "ASL Data Store";
-		status = rcontrol_set_string(rcontrol_name(pid, uid), filter);
+		status = rcontrol_set_string(rcname, filter);
 
 		if (status == NOTIFY_STATUS_OK)
 		{
-			printf("Set %s syslog filter mask: %s\n", name, asl_filter_string(filter));
+			if (pid == RC_MASTER) status = notify_post(NOTIFY_SYSTEM_MASTER);
 			return 0;
 		}
 
@@ -552,11 +580,10 @@ rcontrol_set(pid_t pid, uid_t uid, int filter)
 		return -1;
 	}
 
-	status = rcontrol_set_string(rcontrol_name(pid, uid), filter);
+	status = rcontrol_set_string(rcname, filter);
 	if (status == NOTIFY_STATUS_OK)
 	{
-		if (pid == RC_SYSLOGD) status = notify_post(NOTIFY_SYSTEM_ASL_FILTER);
-		printf("Set process %d syslog filter mask set: %s\n", pid, asl_filter_string(filter));
+		status = notify_post(rcname);
 		return 0;
 	}
 
@@ -572,7 +599,6 @@ rsend(aslmsg msg, char *rhost)
 	char *timestr;
 	const char *val;
 	time_t tick;
-	struct tm gtime;
 	int s;
 	struct sockaddr_in dst;
 	struct hostent *h;
@@ -597,15 +623,10 @@ rsend(aslmsg msg, char *rhost)
 	val = asl_get(msg, ASL_KEY_LEVEL);
 	if (val != NULL) level = atoi(val);
 
-	memset(&gtime, 0, sizeof(struct tm));
-	timestr = NULL;
 
 	tick = time(NULL);
-	gmtime_r(&tick, &gtime);
-
-	/* Canonical form: YYYY.MM.DD hh:mm:ss UTC */
-	asprintf(&timestr, "%d.%02d.%02d %02d:%02d:%02d UTC", gtime.tm_year + 1900, gtime.tm_mon + 1, gtime.tm_mday, gtime.tm_hour, gtime.tm_min, gtime.tm_sec);
-
+	timestr = NULL;
+	asprintf(&timestr, "%lu", tick);
 	if (timestr != NULL)
 	{
 		asl_set(msg, ASL_KEY_TIME, timestr);
@@ -615,7 +636,7 @@ rsend(aslmsg msg, char *rhost)
 	if (gethostname(myname, MAXHOSTNAMELEN) == 0) asl_set(msg, ASL_KEY_HOST, myname);
 
 	len = 0;
-	str = asl_msg_to_string(msg, &len);
+	str = asl_msg_to_string((asl_msg_t *)msg, &len);
 	if (str == NULL) return -1;
 
 	asprintf(&out, "%10u %s\n", len+1, str);
@@ -938,7 +959,7 @@ print_xml_trailer(FILE *f)
 }
 
 static void
-printmsg(FILE *f, asl_msg_t *msg, char *fmt, int pflags)
+printmsg(FILE *f, aslmsg msg, char *fmt, int pflags)
 {
 	char *str;
 	const char *mf, *tf;
@@ -975,8 +996,41 @@ printmsg(FILE *f, asl_msg_t *msg, char *fmt, int pflags)
 	if (pflags & TIME_LCL) tf = ASL_TIME_FMT_LCL;
 
 	len = 0;
-	str = asl_format_message(msg, mf, tf, encode, &len);
-	if (str != NULL)
+	str = asl_format_message((asl_msg_t *)msg, mf, tf, encode, &len);
+	if (str == NULL) return;
+
+	if (pflags & COMPRESS_DUPS)
+	{
+		if (last_printmsg_str != NULL) 
+		{
+			if (!strcmp(str + STD_BSD_DATE_LEN, last_printmsg_str + STD_BSD_DATE_LEN))
+			{
+				last_printmsg_count++;
+				free(str);
+			}
+			else
+			{
+				if (last_printmsg_count > 0)
+				{
+					fprintf(f, "--- last message repeated %d time%s ---\n", last_printmsg_count, (last_printmsg_count == 1) ? "" : "s");
+				}
+
+				free(last_printmsg_str);
+				last_printmsg_str = str;
+				last_printmsg_count = 0;
+
+				fprintf(f, "%s", str);
+			}
+		}
+		else
+		{
+			last_printmsg_str = str;
+			last_printmsg_count = 0;
+
+			fprintf(f, "%s", str);
+		}
+	}
+	else
 	{
 		fprintf(f, "%s", str);
 		free(str);
@@ -1079,6 +1133,192 @@ syslogd_query(asl_search_result_t *q, uint64_t start, int count, int dir, uint64
 }
 
 void
+filter_and_print(aslmsg msg, asl_search_result_t *ql, FILE *f, char *pfmt, int pflags)
+{
+	int i, do_match, did_match;
+
+	if (msg == NULL) return;
+
+	do_match = 1;
+	if (ql == NULL) do_match = 0;
+	else if (ql->count == 0) do_match = 0;
+
+	did_match = 1;
+
+	if (do_match != 0)
+	{
+		did_match = 0;
+
+		for (i = 0; (i < ql->count) && (did_match == 0); i++)
+		{
+			did_match = asl_msg_cmp(ql->msg[i], (asl_msg_t *)msg);
+		}
+	}
+
+	if (did_match != 0) printmsg(f, msg, pfmt, pflags);
+}
+
+void
+syslogd_direct_watch(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql)
+{
+	struct sockaddr_in address;
+	int i, bytes, n, inlen, sock, stream, status;
+	uint16_t port;
+	socklen_t addresslength;
+	char *str, buf[DIRECT_BUF_SIZE];
+	aslmsg msg;
+
+	if (asl_server_port == MACH_PORT_NULL)
+	{
+		status = bootstrap_look_up(bootstrap_port, ASL_SERVICE_NAME, &asl_server_port);
+		if (status != KERN_SUCCESS)
+		{
+			fprintf(stderr, "query failed: can't contact syslogd\n");
+			exit(1);
+		}
+	}
+
+reset:
+
+	addresslength = sizeof(address);
+	sock = socket(AF_INET, SOCK_STREAM, 0);
+	port = (arc4random() % (IPPORT_HILASTAUTO - IPPORT_HIFIRSTAUTO)) + IPPORT_HIFIRSTAUTO;
+
+	address.sin_addr.s_addr = 0;
+	address.sin_family = AF_INET;
+	address.sin_port = htons(port);
+
+	status = bind(sock, (struct sockaddr *)&address, sizeof(address));
+
+	for (i = 0; (i < MAX_RANDOM) && (status < 0); i++)
+	{
+		port = (arc4random() % (IPPORT_HILASTAUTO - IPPORT_HIFIRSTAUTO)) + IPPORT_HIFIRSTAUTO;
+		address.sin_port = htons(port);
+
+		status = bind(sock, (struct sockaddr *)&address, sizeof(address));
+	}
+
+	if (status < 0)
+	{
+		fprintf(stderr, "query failed: can't find a port to connect to syslogd\n");
+		exit(1);
+	}
+
+	bytes = 0;
+
+	if (listen(sock, 1) == -1)
+	{
+		perror("listen");
+		exit(1);
+	}
+
+	i = htons(port);
+	_asl_server_register_direct_watch(asl_server_port, i);
+
+	stream = accept(sock, (struct sockaddr*)&address, &addresslength);
+	if (stream == -1)
+	{
+		perror("accept");
+		exit(1);
+	}
+
+	forever
+	{
+		inlen = 0;
+		bytes = recvfrom(stream, &n, sizeof(n), 0, NULL, NULL);
+		if (bytes == 0) break;
+		else inlen = ntohl(n);
+
+		if (inlen == 0) continue;
+		if (inlen > MAX_DIRECT_SIZE)
+		{
+			fprintf(f, "\n*** received invalid message data [%d] from syslogd - resetting connection ***\n\n", inlen);
+			close(stream);
+			close(sock);
+			goto reset;
+		}
+
+		str = NULL;
+		if (inlen <= DIRECT_BUF_SIZE)
+		{
+			str = buf;
+		}
+		else
+		{
+			str = calloc(1, inlen + 1);
+			if (str == NULL)
+			{
+				fprintf(stderr, "\ncan't allocate memory - exiting\n");
+				close(stream);
+				close(sock);
+				exit(1);
+			}
+		}
+
+		n = 0;
+		while (n < inlen)
+		{
+			bytes = recvfrom(stream, str + n, inlen - n, 0, NULL, NULL);
+			if (bytes == 0) break;
+			else n += bytes;
+		}
+
+		msg = (aslmsg)asl_msg_from_string(str);
+		if (str != buf) free(str);
+		filter_and_print(msg, ql, f, pfmt, pflags);
+		asl_free(msg);
+	}
+
+	close(stream);
+	close(sock);
+
+	address.sin_addr.s_addr = 0;
+}
+
+int
+sort_compare_key(const void *a, const void *b, const char *key)
+{
+	aslmsg *ma, *mb;
+	const char *va, *vb;
+	uint64_t na, nb;
+
+	if (key == NULL) return 0;
+
+	ma = (aslmsg *)a;
+	mb = (aslmsg *)b;
+
+	va = asl_get(*ma, key);
+	vb = asl_get(*mb, key);
+
+	if (va == NULL) return -1;
+	if (vb == NULL) return 1;
+
+	if (sort_numeric == 1)
+	{
+		na = atoll(va);
+		nb = atoll(vb);
+		if (na < nb) return -1;
+		if (na > nb) return 1;
+		return 0;
+	}
+
+	return strcmp(va, vb);
+}
+
+int
+sort_compare(const void *a, const void *b)
+{
+	int cmp;
+
+	if (sort_key == NULL) return 0;
+
+	cmp = sort_compare_key(a, b, sort_key);
+	if ((cmp == 0) && (sort_key_2 != NULL)) cmp = sort_compare_key(a, b, sort_key_2);
+
+	return cmp;
+}
+
+void
 search_once(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql, uint64_t qmin, uint64_t *cmax, uint32_t count, uint32_t batch, int dir, uint32_t tail)
 {
 	asl_search_result_t *res;
@@ -1092,13 +1332,15 @@ search_once(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql, uint64_t q
 
 	while (more == 1)
 	{
-		if (dbselect == DB_SELECT_STORE) res = store_query(ql, qmin, batch, dir, cmax);
+		if (batch == 0) more = 0;
+
+		if ((dbselect == DB_SELECT_ASL) || (dbselect == DB_SELECT_STORE)) res = store_query(ql, qmin, batch, dir, cmax);
 		else if (dbselect == DB_SELECT_FILES) res = file_query(ql, qmin, batch, dir, cmax);
 		else if (dbselect == DB_SELECT_SYSLOGD) res = syslogd_query(ql, qmin, batch, dir, cmax);
 		else if (dbselect == DB_SELECT_LEGACY) res = legacy_query(ql, qmin, batch, dir, cmax);
 
-		if ((dir >= 0) && (*cmax > qmin)) qmin = *cmax;
-		else if ((dir < 0) && (*cmax < qmin)) qmin = *cmax;
+		if ((dir >= 0) && (*cmax > qmin)) qmin = *cmax + 1;
+		else if ((dir < 0) && (*cmax < qmin)) qmin = *cmax - 1;
 
 		if (res == NULL)
 		{
@@ -1118,13 +1360,26 @@ search_once(FILE *f, char *pfmt, int pflags, asl_search_result_t *ql, uint64_t q
 				if (i < 0) i = 0;
 			}
 
+			if (sort_key != NULL)
+			{
+				qsort(res->msg, res->count, sizeof(asl_msg_t *), sort_compare);
+			}
+
 			if ((f != NULL) || (export != NULL))
 			{
-				for (; i < res->count; i++) printmsg(f, res->msg[i], pfmt, pflags);
+				for (; i < res->count; i++) printmsg(f, (aslmsg)(res->msg[i]), pfmt, pflags);
 			}
 
 			aslresponse_free((aslresponse)res);
 		}
+	}
+
+	if ((pflags & COMPRESS_DUPS) && (last_printmsg_count > 0))
+	{
+		fprintf(f, "--- last message repeated %d time%s ---\n", last_printmsg_count, (last_printmsg_count == 1) ? "" : "s");
+		free(last_printmsg_str);
+		last_printmsg_str = NULL;
+		last_printmsg_count = 0;
 	}
 
 	if (pflags & FORMAT_XML) print_xml_trailer(f);
@@ -1289,8 +1544,8 @@ add_op(asl_msg_t *q, char *key, char *op, char *val, uint32_t flags)
 	}
 
 	o |= flags;
-	if (qval != NULL) asl_set_query(q, key, qval, o);
-	else asl_set_query(q, key, val, o);
+	if (qval != NULL) asl_msg_set_key_val_op(q, key, qval, o);
+	else asl_msg_set_key_val_op(q, key, val, o);
 
 	return 0;
 }
@@ -1309,7 +1564,7 @@ add_db_file(const char *name)
 	}
 
 	/* shouldn't happen */
-	if (name == NULL) return DB_SELECT_STORE;
+	if (name == NULL) return DB_SELECT_ASL;
 
 	s = NULL;
 	status = asl_file_open_read(name, &s);
@@ -1351,6 +1606,17 @@ add_db_dir(const char *name)
 	asl_file_t *s;
 	char *path;
 
+	/* 
+	 * Try opening as a data store
+	 */
+	status = asl_store_open_read(name, &store);
+	if (status == 0)
+	{
+		if (name == NULL) return DB_SELECT_ASL;
+		if (!strcmp(name, PATH_ASL_STORE)) return DB_SELECT_ASL;
+		return DB_SELECT_STORE;
+	}
+
 	/*
 	 * Open all readable files
 	 */
@@ -1390,7 +1656,7 @@ int
 main(int argc, char *argv[])
 {
 	FILE *outfile;
-	int i, j, n, watch, status, pflags, tflags, iamroot, user_tflag;
+	int i, j, n, watch, status, pflags, tflags, iamroot, user_tflag, export_preserve_id, saw_dash_d, since_boot;
 	int notify_file, notify_token;
 	asl_search_result_t *qlist;
 	asl_msg_t *cq;
@@ -1406,11 +1672,14 @@ main(int argc, char *argv[])
 	flags = 0;
 	tail_count = 0;
 	batch = FETCH_BATCH;
-	pflags = FORMAT_STD;
+	pflags = FORMAT_STD | COMPRESS_DUPS;
 	tflags = TIME_LCL;
-	encode = ASL_ENCODE_ASL;
+	encode = ASL_ENCODE_SAFE;
 	cq = NULL;
 	exportname = NULL;
+	export_preserve_id = 0;
+	saw_dash_d = 0;
+	since_boot = 0;
 
 	i = asl_store_location();
 	if (i == ASL_STORE_LOCATION_MEMORY) dbselect = DB_SELECT_SYSLOGD;
@@ -1459,6 +1728,7 @@ main(int argc, char *argv[])
 					if (!strcmp(argv[j], "-"))
 					{
 						dbselect = DB_SELECT_SYSLOGD;
+						i++;
 						break;
 					}
 					else if (argv[j][0] == '-')
@@ -1468,23 +1738,28 @@ main(int argc, char *argv[])
 					else
 					{
 						dbselect = add_db_file(argv[j]);
+						i++;
 					}
 				}
 			}
 		}
-		if (!strcmp(argv[i], "-d"))
+		else if (!strcmp(argv[i], "-d"))
 		{
-			if ((i + 1) < argc)
+			saw_dash_d = i + 1;
+
+			if (saw_dash_d < argc)
 			{
-				for (j = i + 1; j < argc; j++)
+				for (j = saw_dash_d; j < argc; j++)
 				{
 					if (!strcmp(argv[j], "store"))
 					{
 						dbselect = add_db_dir(PATH_ASL_STORE);
+						i++;
 					}
 					else if (!strcmp(argv[j], "archive"))
 					{
 						dbselect = add_db_dir(PATH_ASL_ARCHIVE);
+						i++;
 					}
 					else if (argv[j][0] == '-')
 					{
@@ -1493,9 +1768,23 @@ main(int argc, char *argv[])
 					else
 					{
 						dbselect = add_db_dir(argv[j]);
+						i++;
 					}
 				}
 			}
+			else
+			{
+				fprintf(stderr, "missing directory name following -d flag\n");
+				return -1;
+			}
+		}
+		else if (!strcmp(argv[i], "-b"))
+		{
+			batch = atoi(argv[++i]);
+		}
+		else if (!strcmp(argv[i], "-B"))
+		{
+			since_boot = 1;
 		}
 		else if (!strcmp(argv[i], "-w"))
 		{
@@ -1504,15 +1793,67 @@ main(int argc, char *argv[])
 			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
 			{
 				i++;
-				tail_count = atoi(argv[i]);
+				if (!strcmp(argv[i], "all"))
+				{
+					tail_count = (uint32_t)-1;
+				}
+				else if (!strcmp(argv[i], "boot"))
+				{
+					since_boot = 1;
+				}
+				else
+				{
+					tail_count = atoi(argv[i]);
+				}
 			}
+		}
+		else if (!strcmp(argv[i], "-sort"))
+		{
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+			{
+				i++;
+				sort_key = argv[i];
+
+				if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+				{
+					i++;
+					sort_key_2 = argv[i];
+				}
+			}
+			else
+			{
+				sort_key = ASL_KEY_MSG_ID;
+			}
+
+			batch = 0;
+		}
+		else if (!strcmp(argv[i], "-nsort"))
+		{
+			if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+			{
+				i++;
+				sort_key = argv[i];
+
+				if (((i + 1) < argc) && (argv[i + 1][0] != '-'))
+				{
+					i++;
+					sort_key_2 = argv[i];
+				}
+			}
+			else
+			{
+				sort_key = ASL_KEY_MSG_ID;
+			}
+
+			sort_numeric = 1;
+			batch = 0;
 		}
 		else if (!strcmp(argv[i], "-u"))
 		{
 			tflags = TIME_UTC;
 			user_tflag = 1;
 		}
-		else if (!strcmp(argv[i], "-x"))
+		else if ((!strcmp(argv[i], "-x")) || (!strcmp(argv[i], "-X")))
 		{
 			if ((i + 1) >= argc)
 			{
@@ -1520,6 +1861,8 @@ main(int argc, char *argv[])
 				usage();
 				exit(1);
 			}
+
+			if (!strcmp(argv[i], "-x")) export_preserve_id = 1;
 
 			exportname = argv[++i];
 		}
@@ -1557,11 +1900,11 @@ main(int argc, char *argv[])
 			}
 			else if (!strcmp(argv[i], "std"))
 			{
-				pflags = FORMAT_STD;
+				pflags = FORMAT_STD | COMPRESS_DUPS;
 			}
 			else if (!strcmp(argv[i], "bsd"))
 			{
-				pflags = FORMAT_LEGACY;
+				pflags = FORMAT_LEGACY | COMPRESS_DUPS;
 			}
 			else if (!strcmp(argv[i], "xml"))
 			{
@@ -1591,6 +1934,10 @@ main(int argc, char *argv[])
 			else if (!strcmp(argv[i], "lcl")) tflags = TIME_LCL;
 			else  tflags = TIME_LCL;
 		}
+		else if (!strcmp(argv[i], "-nodc"))
+		{
+			pflags = pflags & ~COMPRESS_DUPS;
+		}
 		else if (!strcmp(argv[i], "-o"))
 		{
 			flags = 0;
@@ -1606,7 +1953,7 @@ main(int argc, char *argv[])
 
 			if (qlist->msg == NULL) exit(1);
 
-			cq = asl_new(ASL_TYPE_QUERY);
+			cq = asl_msg_new(ASL_TYPE_QUERY);
 			qlist->msg[qlist->count] = cq;
 			qlist->count++;
 		}
@@ -1621,7 +1968,7 @@ main(int argc, char *argv[])
 				qlist->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
 				if (qlist->msg == NULL) exit(1);
 
-				cq = asl_new(ASL_TYPE_QUERY);
+				cq = asl_msg_new(ASL_TYPE_QUERY);
 				qlist->msg[qlist->count] = cq;
 				qlist->count++;
 			}
@@ -1665,7 +2012,7 @@ main(int argc, char *argv[])
 				qlist->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
 				if (qlist->msg == NULL) exit(1);
 
-				cq = asl_new(ASL_TYPE_QUERY);
+				cq = asl_msg_new(ASL_TYPE_QUERY);
 				qlist->msg[qlist->count] = cq;
 				qlist->count++;
 			}
@@ -1681,6 +2028,14 @@ main(int argc, char *argv[])
 				aslresponse_free(qlist);
 				exit(1);
 			}
+
+			i += (n - 1);
+		}
+		else
+		{
+			fprintf(stderr, "syslog: unknown option \"%s\"\n", argv[i]);
+			fprintf(stderr, "run \"syslog -help\" for usage\n");
+			exit(1);
 		}
 	}
 
@@ -1688,6 +2043,33 @@ main(int argc, char *argv[])
 	pflags |= encode;
 
 	outfile = stdout;
+
+	/*
+	 * Catch and report some cases where watch (-w) doesn't work
+	 */
+	if (watch == 1)
+	{
+		if (sort_key != NULL)
+		{
+			fprintf(stderr, "Warning: -w flag has no effect with -sort flag\n");
+			watch = 0;
+		}
+
+		if (dbselect == DB_SELECT_FILES)
+		{
+			if (saw_dash_d == 0)
+			{
+				fprintf(stderr, "Warning: -w flag not supported for a set of one or more files\n");
+			}
+			else
+			{
+				fprintf(stderr, "Warning: directory \"%s\" is not an ASL data store\n", argv[saw_dash_d]);
+				fprintf(stderr, "         -w flag not supported for a set of one or more files\n");
+			}
+
+			watch = 0;
+		}
+	}
 
 	if (exportname != NULL)
 	{
@@ -1709,7 +2091,8 @@ main(int argc, char *argv[])
 		 * allow the string cache to be unlimited to maximize string dup compression
 		 * preserve message IDs
 		 */
-		export->flags = ASL_FILE_FLAG_UNLIMITED_CACHE | ASL_FILE_FLAG_PRESERVE_MSG_ID;
+		export->flags = ASL_FILE_FLAG_UNLIMITED_CACHE;
+		if (export_preserve_id != 0) export->flags |= ASL_FILE_FLAG_PRESERVE_MSG_ID;
 
 		outfile = NULL;
 		pflags = EXPORT;
@@ -1720,31 +2103,77 @@ main(int argc, char *argv[])
 	notify_file = -1;
 	notify_token = -1;
 
-	if (watch == 1)
+	/* set starting point */
+	if (since_boot == 1)
 	{
-		if ((dbselect == DB_SELECT_STORE) || (dbselect == DB_SELECT_SYSLOGD))
+		/* search back for last "BOOT_TIME (ut_type == 2) record */
+		asl_search_result_t *bt;
+		aslmsg bq;
+
+		bt = (asl_search_result_t *)calloc(1, sizeof(asl_search_result_t));
+		if (bt == NULL)
 		{
-			status = notify_register_file_descriptor("com.apple.system.logger.message", &notify_file, 0, &notify_token);
-			if (status != NOTIFY_STATUS_OK) notify_token = -1;
+			fprintf(stderr, "\ncan't allocate memory - exiting\n");
+			exit(1);
 		}
+
+		bt->msg = (asl_msg_t **)calloc(1, sizeof(asl_msg_t *));
+		if (bt->msg == NULL)
+		{
+			fprintf(stderr, "\ncan't allocate memory - exiting\n");
+			exit(1);
+		}
+
+		bq = asl_new(ASL_TYPE_QUERY);
+		if (bq == NULL)
+		{
+			fprintf(stderr, "\ncan't allocate memory - exiting\n");
+			exit(1);
+		}
+
+		asl_set_query(bq, "ut_type", "2", ASL_QUERY_OP_EQUAL);
+		bt->count = 1;
+		bt->msg[0] = (asl_msg_t *)bq;
+	
+		/* XXX */
+		search_once(NULL, NULL, 0, bt, -1, &qmin, 1, 1, -1, 0);
+		asl_free(bq);
+		free(bt->msg);
+		free(bt);
+	
+		if (qmin > 0) qmin--;
+		tail_count = 0;
+	}
+	else if (watch == 1)
+	{
+		/* go back tail_count records from last record */
+		qmin = -1;
+		search_once(NULL, NULL, 0, qlist, qmin, &cmax, 1, 1, -1, 0);
+
+		if (cmax >= tail_count) qmin = cmax - tail_count;
+		else qmin = 0;
+
+		tail_count = 0;
 	}
 
-	if ((qlist->count == 0) && (watch == 1))
+	if ((watch == 1) && (dbselect == DB_SELECT_ASL))
 	{
-		qmin = -1;
-		search_once(NULL, NULL, 0, NULL, qmin, &cmax, 1, 1, -1, 0);
-		qmin = (cmax + 1) - tail_count;
-		tail_count = 0;
+		status = notify_register_file_descriptor("com.apple.system.logger.message", &notify_file, 0, &notify_token);
+		if (status != NOTIFY_STATUS_OK) notify_token = -1;
 	}
 
 	/* output should be line buffered */
 	if (outfile != NULL) setlinebuf(outfile);
 
-	search_once(outfile, pfmt, pflags, qlist, qmin, &cmax, 0, batch, 1, tail_count);
+	search_once(outfile, pfmt, pflags, qlist, qmin + 1, &cmax, 0, 0, 1, tail_count);
 
 	if (watch == 1)
 	{
-		if (notify_token == -1)
+		if (dbselect == DB_SELECT_SYSLOGD)
+		{
+			syslogd_direct_watch(outfile, pfmt, pflags, qlist);
+		}
+		else if (notify_token == -1)
 		{
 			forever
 			{

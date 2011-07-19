@@ -2,12 +2,12 @@
 #
 #	Implementation of doctools objects for Tcl.
 #
-# Copyright (c) 2003-2008 Andreas Kupries <andreas_kupries@sourceforge.net>
+# Copyright (c) 2003-2010 Andreas Kupries <andreas_kupries@sourceforge.net>
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: doctools.tcl,v 1.31 2008/12/01 23:49:01 andreas_kupries Exp $
+# RCS: @(#) $Id: doctools.tcl,v 1.42 2010/07/06 18:49:15 andreas_kupries Exp $
 
 package require Tcl 8.2
 package require textutil::expander
@@ -17,6 +17,7 @@ package require textutil::expander
 # @mdgen OWNER: mpformats/*.tcl
 # @mdgen OWNER: mpformats/*.msg
 # @mdgen OWNER: mpformats/fmt.*
+# @mdgen OWNER: mpformats/man.macros
 
 namespace eval ::doctools {
     # Data storage in the doctools module
@@ -338,8 +339,10 @@ proc ::doctools::_configure {name args} {
 	foreach {option value} $args {
 	    switch -exact -- $option {
 		-file {
-		    upvar #0 ::doctools::doctools${name}::file file
-		    set file $value
+		    upvar #0 ::doctools::doctools${name}::file     file
+		    upvar #0 ::doctools::doctools${name}::mainfile mfile
+		    set file  $value
+		    set mfile $value
 		}
 		-module {
 		    upvar #0 ::doctools::doctools${name}::module module
@@ -423,6 +426,29 @@ proc ::doctools::_destroy {name} {
 proc ::doctools::_map {name sfname afname} {
     upvar #0 ::doctools::doctools${name}::map map
     set map($sfname) $afname
+    return
+}
+
+# ::doctools::_img --
+#
+
+#	Add a mapping from symbolic to the actual image filenames to
+#	the object. Two actual paths! The path the image is found at
+#	in the input, and the path for where image is to be placed in
+#	the output.
+#
+# Arguments:
+#	name	Name of the doctools object to use
+#	sfname	Symbolic filename to map
+#	afnameo	Actual filename, origin
+#	afnamed	Actual filename, destination
+#
+# Results:
+#	None.
+
+proc ::doctools::_img {name sfname afnameo afnamed} {
+    upvar #0 ::doctools::doctools${name}::imap imap
+    set imap($sfname) [list $afnameo $afnamed]
     return
 }
 
@@ -650,6 +676,7 @@ proc ::doctools::SetupFormatter {name format} {
     $mpip invokehidden source [file join $here api.tcl]
     #$mpip eval [list source [file join $here api.tcl]]
     interp alias $mpip dt_source   {} ::doctools::Source  $mpip [file dirname $format]
+    interp alias $mpip dt_read     {} ::doctools::Read    $mpip [file dirname $format]
     interp alias $mpip dt_package  {} ::doctools::Package $mpip
     interp alias $mpip file        {} ::doctools::FileOp  $mpip
     interp alias $mpip puts_stderr {} ::puts stderr
@@ -714,6 +741,7 @@ proc ::doctools::SetupFormatter {name format} {
     # Now link engine API into it.
 
     interp alias $mpip dt_file      {} ::doctools::GetFile      $name
+    interp alias $mpip dt_mainfile  {} ::doctools::GetMainFile  $name
     interp alias $mpip dt_fileid    {} ::doctools::GetFileId    $name
     interp alias $mpip dt_module    {} ::doctools::GetModule    $name
     interp alias $mpip dt_copyright {} ::doctools::GetCopyright $name
@@ -721,6 +749,9 @@ proc ::doctools::SetupFormatter {name format} {
     interp alias $mpip dt_user      {} ::doctools::GetUser      $name
     interp alias $mpip dt_lnesting  {} ::doctools::ListLevel    $name
     interp alias $mpip dt_fmap      {} ::doctools::MapFile      $name
+    interp alias $mpip dt_imgsrc    {} ::doctools::ImgSrc       $name
+    interp alias $mpip dt_imgdst    {} ::doctools::ImgDst       $name
+    interp alias $mpip dt_imgdata   {} ::doctools::ImgData      $name
     interp alias $mpip file         {} ::doctools::FileCmd
 
     foreach cmd {cappend cget cis cname cpop cpush ctopandclear cset lb rb} {
@@ -769,6 +800,7 @@ proc ::doctools::SetupChecker {name} {
 	dt_error      FmtError
 	dt_warning    FmtWarning
 	dt_where      Where
+	dt_file       GetFile
     } {
 	interp alias $chk_ip $cmd {} ::doctools::$ckcmd $name
     }
@@ -791,7 +823,7 @@ proc ::doctools::SetupChecker {name} {
 	keywords nl arg cmd opt comment sectref syscmd method option
 	widget fun type package class var file uri usage term const
 	arg_def cmd_def opt_def tkoption_def emph strong plain_text
-	namespace subsection category
+	namespace subsection category image
     } {
 	interp alias $chk_ip fmt_$cmd $format_ip fmt_$cmd
     }
@@ -921,6 +953,7 @@ proc ::doctools::Eval {name macro} {
 
     # Handle the [include] command directly
     if {[string match include* $macro]} {
+	set macro [$chk_ip eval [list subst $macro]]
 	foreach {cmd filename} $macro break
 	return [ExpandInclude $name $filename]
     }
@@ -951,7 +984,8 @@ proc ::doctools::Eval {name macro} {
 proc ::doctools::ExpandInclude {name path} {
     upvar #0 ::doctools::doctools${name}::file file
 
-    set ipath [file join [file dirname $file] $path]
+    set ipath [file normalize [file join [file dirname $file] $path]]
+
     if {![file exists $ipath]} {
 	set ipath $path
 	if {![file exists $ipath]} {
@@ -965,7 +999,12 @@ proc ::doctools::ExpandInclude {name path} {
 
     upvar #0 ::doctools::doctools${name}::expander  expander
 
-    return [$expander expand $text]
+    set saved $file
+    set file $ipath
+    set res [$expander expand $text]
+    set file $saved
+
+    return $res
 }
 
 # ::doctools::GetUser --
@@ -1001,6 +1040,16 @@ proc ::doctools::GetFile {name} {
 
     #puts stderr "ok $file"
     return $file
+}
+
+proc ::doctools::GetMainFile {name} {
+
+    #puts stderr "GetMainFile $name"
+
+    upvar #0 ::doctools::doctools${name}::mainfile mfile
+
+    #puts stderr "ok $mfile"
+    return $mfile
 }
 
 # ::doctools::GetFileId --
@@ -1119,6 +1168,79 @@ proc ::doctools::MapFile {name fname} {
     return $fname
 }
 
+# ::doctools::Img{Src,Dst} --
+#
+#	API for formatter. Maps symbolic to actual image in a doctools
+#	item. Returns nothing if no mapping is found.
+#
+# Arguments:
+#	name		Name of the doctools object to query.
+#	iname		Symbolic name of the image file.
+#	extensions	List of acceptable file extensions.
+#
+# Results:
+#	Actual name of the file.
+
+proc ::doctools::ImgData {name iname extensions} {
+
+    # The system searches for the image relative to the current input
+    # file, and the current main file
+
+    upvar #0 ::doctools::doctools${name}::imap imap
+
+    #parray imap
+
+    foreach e $extensions {
+	if {[info exists imap($iname.$e)]} {
+	    foreach {origin dest} $imap($iname.$e) break
+
+	    set f   [open $origin r]
+	    set img [read $f]
+	    close   $f
+
+	    return $img
+	}
+    }
+    return {}
+}
+
+proc ::doctools::ImgSrc {name iname extensions} {
+
+    # The system searches for the image relative to the current input
+    # file, and the current main file
+
+    upvar #0 ::doctools::doctools${name}::imap imap
+
+    #parray imap
+
+    foreach e $extensions {
+	if {[info exists imap($iname.$e)]} {
+	    foreach {origin dest} $imap($iname.$e) break
+	    return $origin
+	}
+    }
+    return {}
+}
+
+proc ::doctools::ImgDst {name iname extensions} {
+    # The system searches for the image relative to the current input
+    # file, and the current main file
+
+    upvar #0 ::doctools::doctools${name}::imap imap
+
+    #parray imap
+
+    foreach e $extensions {
+	if {[info exists imap($iname.$e)]} {
+	    foreach {origin dest} $imap($iname.$e) break
+	    file mkdir [file dirname $dest]
+	    file copy -force $origin $dest
+	    return $dest
+	}
+    }
+    return {}
+}
+
 # ::doctools::Source --
 #
 #	API for formatter. Used by engine to ask for
@@ -1138,6 +1260,11 @@ proc ::doctools::Source {ip path file} {
     return
 }
 
+proc ::doctools::Read {ip path file} {
+    #puts stderr "$ip (read $path $file)"
+
+    return [read [set f [open [file join $path [file tail $file]]]]][close $f]
+}
 
 proc ::doctools::Locate {p} {
     # @mdgen NODEP: doctools::__undefined__
@@ -1165,7 +1292,6 @@ proc ::doctools::FileOp {ip args} {
 
     return [eval [linsert $args 0 file]]
 }
-
 
 proc ::doctools::Package {ip pkg} {
     #puts stderr "$ip package require $pkg"
@@ -1203,4 +1329,4 @@ namespace eval ::doctools {
     catch {search [file join $here                             mpformats]}
 }
 
-package provide doctools 1.4
+package provide doctools 1.4.10

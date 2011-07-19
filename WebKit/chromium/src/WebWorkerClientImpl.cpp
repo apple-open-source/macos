@@ -33,14 +33,16 @@
 
 #if ENABLE(WORKERS)
 
+#include "CrossThreadTask.h"
 #include "DedicatedWorkerThread.h"
+#include "Document.h"
 #include "ErrorEvent.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
-#include "GenericWorkerTask.h"
 #include "MessageEvent.h"
 #include "MessagePort.h"
 #include "MessagePortChannel.h"
+#include "ScriptCallStack.h"
 #include "ScriptExecutionContext.h"
 #include "Worker.h"
 #include "WorkerContext.h"
@@ -140,7 +142,7 @@ void WebWorkerClientImpl::startWorkerContext(const KURL& scriptURL,
     if (!isMainThread()) {
         WebWorkerBase::dispatchTaskToMainThread(createCallbackTask(
             &startWorkerContextTask,
-            this,
+            AllowCrossThreadAccess(this),
             scriptURL.string(),
             userAgent,
             sourceCode));
@@ -155,7 +157,8 @@ void WebWorkerClientImpl::terminateWorkerContext()
         return;
     m_askedToTerminate = true;
     if (!isMainThread()) {
-        WebWorkerBase::dispatchTaskToMainThread(createCallbackTask(&terminateWorkerContextTask, this));
+        WebWorkerBase::dispatchTaskToMainThread(
+            createCallbackTask(&terminateWorkerContextTask, AllowCrossThreadAccess(this)));
         return;
     }
     m_webWorker->terminateWorkerContext();
@@ -171,7 +174,7 @@ void WebWorkerClientImpl::postMessageToWorkerContext(
     ++m_unconfirmedMessageCount;
     if (!isMainThread()) {
         WebWorkerBase::dispatchTaskToMainThread(createCallbackTask(&postMessageToWorkerContextTask,
-                                                                   this,
+                                                                   AllowCrossThreadAccess(this),
                                                                    message->toWireString(),
                                                                    channels));
         return;
@@ -201,7 +204,7 @@ void WebWorkerClientImpl::workerObjectDestroyed()
     // Even if this is called on the main thread, there could be a queued task for
     // this object, so don't delete it right away.
     WebWorkerBase::dispatchTaskToMainThread(createCallbackTask(&workerObjectDestroyedTask,
-                                                               this));
+                                                               AllowCrossThreadAccess(this)));
 }
 
 void WebWorkerClientImpl::postMessageToWorkerObject(const WebString& message,
@@ -209,7 +212,7 @@ void WebWorkerClientImpl::postMessageToWorkerObject(const WebString& message,
 {
     OwnPtr<MessagePortChannelArray> channels2;
     if (channels.size()) {
-        channels2 = new MessagePortChannelArray(channels.size());
+        channels2 = adoptPtr(new MessagePortChannelArray(channels.size()));
         for (size_t i = 0; i < channels.size(); ++i) {
             RefPtr<PlatformMessagePortChannel> platform_channel =
                             PlatformMessagePortChannel::create(channels[i]);
@@ -220,7 +223,7 @@ void WebWorkerClientImpl::postMessageToWorkerObject(const WebString& message,
 
     if (currentThread() != m_workerThreadId) {
         m_scriptExecutionContext->postTask(createCallbackTask(&postMessageToWorkerObjectTask,
-                                                              this,
+                                                              AllowCrossThreadAccess(this),
                                                               String(message),
                                                               channels2.release()));
         return;
@@ -236,7 +239,7 @@ void WebWorkerClientImpl::postExceptionToWorkerObject(const WebString& errorMess
 {
     if (currentThread() != m_workerThreadId) {
         m_scriptExecutionContext->postTask(createCallbackTask(&postExceptionToWorkerObjectTask,
-                                                              this,
+                                                              AllowCrossThreadAccess(this),
                                                               String(errorMessage),
                                                               lineNumber,
                                                               String(sourceURL)));
@@ -247,7 +250,7 @@ void WebWorkerClientImpl::postExceptionToWorkerObject(const WebString& errorMess
                                                                 sourceURL,
                                                                 lineNumber));
     if (unhandled)
-        m_scriptExecutionContext->reportException(errorMessage, lineNumber, sourceURL);
+        m_scriptExecutionContext->reportException(errorMessage, lineNumber, sourceURL, 0);
 }
 
 void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destination,
@@ -260,7 +263,7 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destination,
 {
     if (currentThread() != m_workerThreadId) {
         m_scriptExecutionContext->postTask(createCallbackTask(&postConsoleMessageToWorkerObjectTask,
-                                                              this,
+                                                              AllowCrossThreadAccess(this),
                                                               sourceId,
                                                               messageType,
                                                               messageLevel,
@@ -274,7 +277,7 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int destination,
                                          static_cast<MessageType>(messageType),
                                          static_cast<MessageLevel>(messageLevel),
                                          String(message), lineNumber,
-                                         String(sourceURL));
+                                         String(sourceURL), 0);
 }
 
 void WebWorkerClientImpl::postConsoleMessageToWorkerObject(int sourceId,
@@ -293,14 +296,14 @@ void WebWorkerClientImpl::confirmMessageFromWorkerObject(bool hasPendingActivity
     // accessed.  Otherwise there are race conditions with v8's garbage
     // collection.
     m_scriptExecutionContext->postTask(createCallbackTask(&confirmMessageFromWorkerObjectTask,
-                                                          this));
+                                                          AllowCrossThreadAccess(this)));
 }
 
 void WebWorkerClientImpl::reportPendingActivity(bool hasPendingActivity)
 {
     // See above comment in confirmMessageFromWorkerObject.
     m_scriptExecutionContext->postTask(createCallbackTask(&reportPendingActivityTask,
-                                                          this,
+                                                          AllowCrossThreadAccess(this),
                                                           hasPendingActivity));
 }
 
@@ -360,7 +363,7 @@ void WebWorkerClientImpl::postMessageToWorkerObjectTask(
 
     if (thisPtr->m_worker) {
         OwnPtr<MessagePortArray> ports =
-            MessagePort::entanglePorts(*context, channels.release());
+            MessagePort::entanglePorts(*context, channels);
         RefPtr<SerializedScriptValue> serializedMessage =
             SerializedScriptValue::createFromWire(message);
         thisPtr->m_worker->dispatchEvent(MessageEvent::create(ports.release(),
@@ -381,9 +384,7 @@ void WebWorkerClientImpl::postExceptionToWorkerObjectTask(
                                                                       sourceURL,
                                                                       lineNumber));
     if (!handled)
-        thisPtr->m_scriptExecutionContext->reportException(errorMessage,
-                                                           lineNumber,
-                                                           sourceURL);
+        thisPtr->m_scriptExecutionContext->reportException(errorMessage, lineNumber, sourceURL, 0);
 }
 
 void WebWorkerClientImpl::postConsoleMessageToWorkerObjectTask(ScriptExecutionContext* context,
@@ -398,8 +399,7 @@ void WebWorkerClientImpl::postConsoleMessageToWorkerObjectTask(ScriptExecutionCo
     thisPtr->m_scriptExecutionContext->addMessage(static_cast<MessageSource>(sourceId),
                                                   static_cast<MessageType>(messageType),
                                                   static_cast<MessageLevel>(messageLevel),
-                                                  message, lineNumber,
-                                                  sourceURL);
+                                                  message, lineNumber, sourceURL, 0);
 }
 
 void WebWorkerClientImpl::confirmMessageFromWorkerObjectTask(ScriptExecutionContext* context,

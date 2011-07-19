@@ -1,0 +1,225 @@
+#!/bin/sh
+
+sumt_i386=0
+sumd_i386=0
+sumt_x86_64=0
+sumd_x86_64=0
+
+sum() {
+    t=$(size -arch $1 $2 | grep -v TEXT | awk '{print $1}')
+    d=$(size -arch $1 $2 | grep -v TEXT | awk '{print $5}')
+    eval sumt_$1=\$\(expr \$sumt_$1 + $t \)
+    eval sumd_$1=\$\(expr \$sumd_$1 + $d \)
+    size -arch $1 $2 | grep -v TEXT | sed 's/^/	/'
+}
+
+check() {
+
+echo "	__TEXT	__DATA	__OBJC	others	dec	hex"
+sum i386 $1
+sum x86_64 $1
+echo ""
+}
+
+p=/Network/Servers/xs1/release/Software/Barolo/Updates/Barolo11A390/Roots/Heimdal
+
+
+check $p/System/Library/PrivateFrameworks/Heimdal.framework/Heimdal 
+check $p/System/Library/Frameworks/GSS.framework/GSS
+check $p/System/Library/PrivateFrameworks/CommonAuth.framework/CommonAuth
+
+echo "i386: $sumt_i386 $sumd_i386"
+echo "x86_64: $sumt_x86_64 $sumd_x86_64"
+
+grep -A 3 -e '^MIT Kerberos - SnowLeopard GM' $0
+
+exit 0
+
+heimdal 11A271
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	487424	40960	0	98304	626688	99000
+	585728	69632	0	106496	761856	ba000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	172032	12288	0	73728	258048	3f000
+	200704	20480	0	77824	299008	49000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	36864	4096	0	16384	57344	e000
+	45056	4096	0	20480	69632	11000
+
+Heimdal 11A251
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	483328	40960	0	98304	622592	98000
+	585728	69632	0	106496	761856	ba000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	172032	12288	0	73728	258048	3f000
+	200704	16384	0	77824	294912	48000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	36864	4096	0	16384	57344	e000
+	45056	4096	0	20480	69632	11000
+
+Heimdal 11A251 - no PKINIT nor SCRAM nor NTLM
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	323584	24576	0	81920	430080	69000
+	397312	36864	0	86016	520192	7f000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	139264	8192	0	57344	204800	32000
+	163840	12288	0	61440	237568	3a000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	8192	4096	0	8192	20480	5000
+	12288	4096	0	12288	28672	7000
+
+Heimdal 11A251 - no PKINIT
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	323584	24576	0	81920	430080	69000
+	397312	36864	0	86016	520192	7f000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	163840	12288	0	69632	245760	3c000
+	192512	16384	0	73728	282624	45000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	36864	4096	0	16384	57344	e000
+	45056	4096	0	20480	69632	11000
+
+Heimdal 11A190 - gcc 4.2 - cdsa for RSA and DH
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	471040	40960	0	98304	610304	95000
+	569344	77824	0	106496	753664	b8000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	69632	258048	3f000
+	200704	20480	0	73728	294912	48000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	28672	4096	0	16384	49152	c000
+	32768	4096	0	16384	53248	d000
+
+Heimdal 11A190 - gcc 4.2 - No weak crypto
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	487424	40960	0	98304	626688	99000
+	585728	77824	0	102400	765952	bb000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	167936	12288	0	69632	249856	3d000
+	196608	20480	0	73728	290816	47000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	28672	4096	0	16384	49152	c000
+	32768	4096	0	16384	53248	d000
+
+Heimdal 11A190 - gcc 4.2 - CommonCrypto DES
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	491520	40960	0	98304	630784	9a000
+	589824	77824	0	106496	774144	bd000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	69632	258048	3f000
+	200704	20480	0	73728	294912	48000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	28672	4096	0	16384	49152	c000
+	32768	4096	0	16384	53248	d000
+
+Heimdal 11A190 - gcc 4.2 - all template encoder
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	499712	40960	0	98304	638976	9c000
+	602112	77824	0	106496	786432	c0000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	69632	258048	3f000
+	200704	20480	0	73728	294912	48000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	28672	4096	0	16384	49152	c000
+	32768	4096	0	16384	53248	d000
+
+Heimdal 11A190 - gcc 4.2
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	569344	36864	0	98304	704512	ac000
+	679936	65536	0	106496	851968	d0000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	69632	258048	3f000
+	204800	20480	0	73728	299008	49000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	28672	4096	0	16384	49152	c000
+	32768	4096	0	16384	53248	d000
+
+
+Heimdal 11A149 - gcc-4.2 (heimbase)
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	569344	36864	0	98304	704512	ac000
+	679936	65536	0	106496	851968	d0000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	65536	253952	3e000
+	204800	16384	0	69632	290816	47000
+
+Heimdal 11A141 - gcc-4.2
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	565248	36864	0	98304	700416	ab000
+	675840	65536	0	102400	843776	ce000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	65536	253952	3e000
+	204800	16384	0	69632	290816	47000
+
+Heimdal 11A132a - gcc-4.2
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	565248	36864	0	98304	700416	ab000
+	679936	65536	0	102400	847872	cf000
+
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	176128	12288	0	65536	253952	3e000
+	204800	16384	0	69632	290816	47000
+
+Heimdal 11A127 - clang
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	561152	28672	0	98304	688128	a8000
+	647168	53248	0	102400	802816	c4000
+
+Heimdal 11A104a, now with symbol files
+	Heimdal
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	552960	36864	0	94208	684032	a7000
+	663552	65536	0	102400	831488	cb000
+
+	GSS
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	167936	8192	0	61440	237568	3a000
+	196608	16384	0	65536	278528	44000
+
+heimdal - gcc4.2 snowleopard
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	626688	45056	0	196608	868352	d4000
+	765952	81920	0	208896	1056768	102000
+
+
+heimdal - llvm-gcc4.2 snowleopard
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	647168	45056	0	196608	888832	d9000
+	757760	69632	0	208896	1036288	fd000
+
+heimdal - llvm-gcc4.2 barolo11A44
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	643072	45056	0	196608	884736	d8000
+	749568	69632	0	208896	1028096	fb000
+
+MIT Kerberos - SnowLeopard GM
+	__TEXT	__DATA	__OBJC	others	dec	hex
+	626688	32768	0	90112	749568	b7000
+	720896	53248	0	98304	872448	d5000

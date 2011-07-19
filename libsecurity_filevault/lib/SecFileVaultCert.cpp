@@ -32,6 +32,8 @@
 #include <Security/SecKeychain.h>
 #include <security_utilities/errors.h>
 
+using namespace Security;
+
 #pragma mark -------------------- SecFileVaultCert public implementation --------------------
 
 SecFileVaultCert::SecFileVaultCert()

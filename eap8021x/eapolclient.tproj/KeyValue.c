@@ -218,4 +218,4 @@ main(int argc, char * argv[])
     exit(0);
     return (0);
 }
-#endif TEST_KEYVALUE
+#endif /* TEST_KEYVALUE */

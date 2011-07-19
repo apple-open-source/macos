@@ -1,0 +1,23 @@
+Lucene Full Text Search Indexing
+================================
+
+The current Lucene implementation is a bit ugly and simultaneous access may
+give some errors. Use <Solr> [Plugins.FTS.Solr.txt] instead if possible.
+
+Dovecot builds only a single Lucene index for all mailboxes. In future this
+would allow support for searching messages quickly from all mailboxes. The
+Lucene indexes are stored in 'lucene-indexes/' directory under the root index
+directory (e.g.'~/Maildir/lucene-indexes/').
+
+Configuration
+-------------
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins fts fts_lucene
+
+plugin {
+  fts = lucene
+}
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

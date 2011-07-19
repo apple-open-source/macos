@@ -12,7 +12,7 @@
 
 #
 #   modified for RubyCocoa.
-#   $Id: install.rb 2220 2008-10-28 14:35:20Z kimuraw $
+#   $Id: install.rb 2291 2009-12-05 00:42:42Z kimuraw $
 #
 
 ### begin compat.rb
@@ -984,11 +984,14 @@ class ToplevelInstaller < Installer
   def parsearg_test
     @options['use-rosetta'] = false
     @options['test-args'] = nil
+    @options['arch'] = nil
     while i = ARGV.shift do
       if i == '--use-rosetta'
         @options['use-rosetta'] = true
       elsif /\A--test-args=(.+)/ =~ i
         @options['test-args'] = $1
+      elsif /\A--arch=(.+)/ =~ i
+        @options['arch'] = $1
       else
         raise InstallError, "test: unknown option #{i}"
       end
@@ -1042,6 +1045,8 @@ class ToplevelInstaller < Installer
         '--use-rosetta', 'use Rosetta for testing', 'off'
     out.printf "  %-20s %s \n",
         '--test-args=args', 'pass args to test/unit AutoRunner'
+    out.printf "  %-20s %s \n",
+        '--arch=arch', 'pass architecture for testing'
 
     out.puts
   end
@@ -1100,6 +1105,7 @@ class ToplevelInstaller < Installer
   def test_testcase(ruby_cmd)
     cmd = %Q!"#{ruby_cmd}" -I../ext/rubycocoa -I../lib testall.rb!
     cmd = "/usr/libexec/oah/translate " + cmd if @options['use-rosetta']
+    cmd = "arch -#{@options['arch']} " + cmd if @options['arch']
     cmd += " " + @options['test-args'] if @options['test-args']
     command cmd
   end
@@ -1182,6 +1188,7 @@ end
 
 if $0 == __FILE__ then
   begin
+    raise "RubyCocoa DO NOT support Ruby-1.9" if RUBY_VERSION.to_f >= 1.9
     installer = ToplevelInstaller.new( File.dirname($0) )
     installer.execute
   rescue

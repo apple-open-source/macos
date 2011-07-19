@@ -263,18 +263,6 @@ print_labeltable(const ctf_header_t *hp, const ctf_data_t *cd)
 }
 
 #if defined(__APPLE__)
-/* Prototype taken from <libiberty/demangle.h> (which won't #include cleanly) */
-extern char *cplus_demangle(const char *, int);
-
-static char 
-*demangleSymbolCString(const char *mangled)
- {
-     if(mangled[0]!='_') return NULL;
-     if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-     if(mangled[1]!='Z') return NULL;
-     return cplus_demangle(mangled, 0);
- }
-
 static GElf_Sym *
 gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
 {
@@ -287,9 +275,6 @@ gelf_getsym_macho(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
@@ -338,9 +323,6 @@ gelf_getsym_macho_64(Elf_Data * data, int ndx, GElf_Sym * sym, const char *base)
 
 	if (0 == nsym->n_un.n_strx) // iff a null, "", name.
 		name = "null name"; // return NULL;
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention

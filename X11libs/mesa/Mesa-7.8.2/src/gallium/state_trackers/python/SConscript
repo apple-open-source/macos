@@ -1,0 +1,63 @@
+import sys
+import os.path
+
+Import('*')
+
+if 'python' in env['statetrackers']:
+
+    env = env.Clone()
+    
+    env.Tool('python')
+    
+    env.Tool('swig')
+    env.Append(SWIGPATH = ['#src/gallium/include', '#src/gallium/include/pipe'])
+    env.Append(SWIGFLAGS = ['-python', '-keyword'])
+    
+    env.Append(CPPPATH = '.')
+
+    if env['platform'] == 'windows':
+        env.Append(LIBS = [
+            'opengl32',
+            'gdi32',
+            'user32',
+            'kernel32',
+            'ws2_32',
+        ])
+    else:
+        env.Append(LIBS = [
+        	'GL',
+            'X11',
+        ])
+
+    sources = [
+        'gallium.i',
+        'st_device.c',
+        'st_sample.c',
+    ]
+
+    drivers = [
+        trace
+    ]
+
+    if 'llvmpipe' in env['drivers']:
+        env.Tool('llvm')
+        sources += ['st_llvmpipe_winsys.c']
+        drivers += [llvmpipe]
+    else:
+        sources += ['st_softpipe_winsys.c']
+        drivers += [softpipe]
+
+    pyst = env.ConvenienceLibrary(
+        target = 'pyst',
+        source = sources,
+    )
+
+    env['no_import_lib'] = 1
+
+    env.SharedLibrary(
+        target = '_gallium',
+        source = [
+            'st_hardpipe_winsys.c',
+        ],
+        LIBS = [pyst] + drivers + gallium + env['LIBS'],
+    )

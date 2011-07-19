@@ -1,4 +1,4 @@
-# $Id: parse_date.t,v 1.2 2003/05/30 14:04:49 cfaerber Exp $
+# $Id: parse_date.t 1039 2003-05-30 14:04:49Z cfaerber $
 use Test::More tests => 18;
 use DateTime 0.10;
 use DateTime::TimeZone 0.12;

@@ -30,7 +30,6 @@
 
 #include "WorkerThread.h"
 
-#include "DatabaseTask.h"
 #include "DedicatedWorkerContext.h"
 #include "KURL.h"
 #include "PlatformString.h"
@@ -40,6 +39,11 @@
 
 #include <utility>
 #include <wtf/Noncopyable.h>
+
+#if ENABLE(DATABASE)
+#include "DatabaseTask.h"
+#include "DatabaseTracker.h"
+#endif
 
 namespace WebCore {
 
@@ -57,11 +61,12 @@ unsigned WorkerThread::workerThreadCount()
     return m_threadCount;
 }
 
-struct WorkerThreadStartupData : Noncopyable {
+struct WorkerThreadStartupData {
+    WTF_MAKE_NONCOPYABLE(WorkerThreadStartupData); WTF_MAKE_FAST_ALLOCATED;
 public:
     static PassOwnPtr<WorkerThreadStartupData> create(const KURL& scriptURL, const String& userAgent, const String& sourceCode)
     {
-        return new WorkerThreadStartupData(scriptURL, userAgent, sourceCode);
+        return adoptPtr(new WorkerThreadStartupData(scriptURL, userAgent, sourceCode));
     }
 
     KURL m_scriptURL;
@@ -122,7 +127,7 @@ void* WorkerThread::workerThread()
         if (m_runLoop.terminated()) {
             // The worker was terminated before the thread had a chance to run. Since the context didn't exist yet,
             // forbidExecution() couldn't be called from stop().
-           m_workerContext->script()->forbidExecution(WorkerScriptController::TerminateRunningScript);
+           m_workerContext->script()->forbidExecution();
         }
     }
 
@@ -162,13 +167,15 @@ class WorkerThreadShutdownFinishTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerThreadShutdownFinishTask> create()
     {
-        return new WorkerThreadShutdownFinishTask();
+        return adoptPtr(new WorkerThreadShutdownFinishTask());
     }
 
     virtual void performTask(ScriptExecutionContext *context)
     {
         ASSERT(context->isWorkerContext());
         WorkerContext* workerContext = static_cast<WorkerContext*>(context);
+        // It's not safe to call clearScript until all the cleanup tasks posted by functions initiated by WorkerThreadShutdownStartTask have completed.
+        workerContext->clearScript();
         workerContext->thread()->runLoop().terminate();
     }
 
@@ -179,7 +186,7 @@ class WorkerThreadShutdownStartTask : public ScriptExecutionContext::Task {
 public:
     static PassOwnPtr<WorkerThreadShutdownStartTask> create()
     {
-        return new WorkerThreadShutdownStartTask();
+        return adoptPtr(new WorkerThreadShutdownStartTask());
     }
 
     virtual void performTask(ScriptExecutionContext *context)
@@ -188,18 +195,17 @@ public:
         WorkerContext* workerContext = static_cast<WorkerContext*>(context);
 
 #if ENABLE(DATABASE)
-        // We currently ignore any DatabasePolicy used for the document's
-        // databases; if it's actually used anywhere, this should be revisited.
         DatabaseTaskSynchronizer cleanupSync;
         workerContext->stopDatabases(&cleanupSync);
 #endif
 
         workerContext->stopActiveDOMObjects();
 
+        workerContext->notifyObserversOfStop();
+
         // Event listeners would keep DOMWrapperWorld objects alive for too long. Also, they have references to JS objects,
         // which become dangling once Heap is destroyed.
         workerContext->removeAllEventListeners();
-        workerContext->clearScript();
 
 #if ENABLE(DATABASE)
         // We wait for the database thread to clean up all its stuff so that we
@@ -222,7 +228,11 @@ void WorkerThread::stop()
 
     // Ensure that tasks are being handled by thread event loop. If script execution weren't forbidden, a while(1) loop in JS could keep the thread alive forever.
     if (m_workerContext) {
-        m_workerContext->script()->forbidExecution(WorkerScriptController::TerminateRunningScript);
+        m_workerContext->script()->scheduleExecutionTermination();
+
+#if ENABLE(DATABASE)
+        DatabaseTracker::tracker().interruptAllDatabasesForContext(m_workerContext.get());
+#endif
 
     // FIXME: Rudely killing the thread won't work when we allow nested workers, because they will try to post notifications of their destruction.
     // This can likely use the same mechanism as used for databases above.

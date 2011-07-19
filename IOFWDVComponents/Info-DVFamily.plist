@@ -7,7 +7,7 @@
 	<key>CFBundleExecutable</key>
 	<string>DVFamily</string>
 	<key>CFBundleGetInfoString</key>
-	<string>IOFWDVComponents version 1.9.9, Copyright © 2009 Apple Inc. All rights reserved.</string>
+	<string>IOFWDVComponents version 2.0.7, Copyright © 2010 Apple Inc. All rights reserved.</string>
 	<key>CFBundleIconFile</key>
 	<string></string>
 	<key>CFBundleIdentifier</key>
@@ -19,10 +19,10 @@
 	<key>CFBundlePackageType</key>
 	<string>BNDL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.9.9</string>
+	<string>2.0.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.9.9</string>
+	<string>2.0.7</string>
 </dict>
 </plist>

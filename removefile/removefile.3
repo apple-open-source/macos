@@ -89,7 +89,7 @@ will work normally, but less control will be available to the caller.
 The
 .Va flags
 parameter controls deletion options:
-.Bl -tag -width REMOVEFILE_SECURE_35_PASS
+.Bl -tag -width REMOVEFILE_SECURE_1_PASS_ZERO
 .It Dv REMOVEFILE_RECURSIVE
 If the 
 .Va path
@@ -102,11 +102,15 @@ then all of the contents of the directory at
 .Va path
 location will be deleted, but not the directory itself.
 .It Dv REMOVEFILE_SECURE_7_PASS
-Overwrite the file with 7 US DoD compliant passes (0xF6, 0x00,  0xFF,  random, 0x00, 0xFF, random)
+Overwrite the file with 7 US DoD compliant passes (0xF6, 0x00,  0xFF,  random, 0x00, 0xFF, random).
 .It Dv REMOVEFILE_SECURE_35_PASS
 Overwrite the file using 35-pass Gutmann algorithm.
+.It Dv REMOVEFILE_SECURE_3_PASS
+Overwrite the file twice with random bytes, and then with 0xAA.
 .It Dv REMOVEFILE_SECURE_1_PASS
-Overwrite with a single pass of random data
+Overwrite with a single pass of random data.
+.It Dv REMOVEFILE_SECURE_1_PASS_ZERO
+Overwrite with a single pass of zeroes.
 .El
 .Pp
 The
@@ -240,6 +244,9 @@ will proceed using the flag that specifies the highest number of overwriting pas
 .Fn removefile
 is pathname-based; this means that, when descending into a hierarchy, there are potential race conditions
 that may add risk when run with privileges.
+.Pp
+.Fn removefile
+operates on symbolic links, rather than the target of the link.
 .Sh EXAMPLES
 .Bd -literal -offset indent
 /* Initialize a state variable */

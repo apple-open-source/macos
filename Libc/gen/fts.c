@@ -134,7 +134,7 @@ __fts_open(argv, sp)
 {
 	register FTSENT *p, *root;
 	register int nitems;
-	FTSENT *parent, *tmp;
+	FTSENT *parent, *tmp = NULL;
 	int len;
 
 	/* Logical walks turn on NOCHDIR; symbolic links are too hard. */
@@ -456,8 +456,6 @@ fts_read(sp)
 	/* Move to the next node on this level. */
 next:	tmp = p;
 	if (p = p->fts_link) {
-		free(tmp);
-
 		/*
 		 * If reached the top, return to the original directory, and
 		 * load the paths for the next root.
@@ -468,6 +466,7 @@ next:	tmp = p;
 				return (NULL);
 			}
 			fts_load(sp, p);
+			free(tmp);
 			return (sp->fts_cur = p);
 		}
 
@@ -476,8 +475,10 @@ next:	tmp = p;
 		 * ignore.  If followed, get a file descriptor so we can
 		 * get back if necessary.
 		 */
-		if (p->fts_instr == FTS_SKIP)
+		if (p->fts_instr == FTS_SKIP) {
+			free(tmp);
 			goto next;
+		}
 		if (p->fts_instr == FTS_FOLLOW) {
 			p->fts_info = fts_stat(sp, p, 1);
 			if (p->fts_info == FTS_D && !ISSET(FTS_NOCHDIR))
@@ -490,6 +491,7 @@ next:	tmp = p;
 			p->fts_instr = FTS_NOINSTR;
 		}
 
+		free(tmp);
 name:		t = sp->fts_path + NAPPEND(p->fts_parent);
 		*t++ = '/';
 		memmove(t, p->fts_name, p->fts_namelen + 1);
@@ -654,7 +656,7 @@ fts_build(sp, type)
 	DIR *dirp;
 	void *adjaddr;
 	int cderrno, descend, len, level, maxlen, dostat, oflag, saved_errno;
-	char *cp;
+	char *cp = NULL;
 
 	/* Set current node pointer. */
 	cur = sp->fts_cur;

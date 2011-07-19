@@ -1,0 +1,55 @@
+require "vnd.dovecot.testsuite";
+require "imap4flags";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "mailbox";
+require "fileinto";
+
+test "Segfault Trigger 1" {
+
+	if not test_multiscript [
+		"multiscript/group-spam.sieve", 
+		"multiscript/spam.sieve", 
+		"multiscript/sent-store.sieve"]
+	{
+		test_fail "failed multiscript execution";	
+	}
+}
+
+test_set "message" text:
+From: Henry von Flockenstoffen <henry@example.com>
+To: Dieter von Ausburg <dieter@example.com>
+Subject: Test message.
+
+Test message.
+.
+;
+
+test "Internal Flags" {
+	if hasflag :comparator "i;ascii-numeric" :count "ge" "1" {
+ 		test_fail "some flags or keywords are already set";
+	}
+
+	if not test_multiscript [
+		"multiscript/setflag.sieve", 
+		"multiscript/fileinto.sieve"]
+	{
+		test_fail "failed multiscript execution";	
+	}
+	
+	test_result_reset;	
+	test_message :folder "folder" 0;
+	
+	if not hasflag "\\answered" {
+		test_fail "\\answered flag not stored for message";
+	}
+
+	if not hasflag "$label1" {
+		test_fail "$label1 keyword not stored for message";
+ 	}
+
+	if not hasflag :comparator "i;ascii-numeric" :count "eq" "2" {
+		test_fail "invalid number of flags set for message";
+	}
+}
+

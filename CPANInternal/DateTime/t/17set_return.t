@@ -8,31 +8,31 @@ use DateTime;
 use DateTime::Duration;
 
 {
-    my $dt = DateTime->now();
+    my $dt = DateTime->new( year => 2008, month => 2, day => 28 );
     my $du = DateTime::Duration->new( years => 1 );
 
     my $p;
 
     $p = $dt->set( year => 1882 );
-    is( $p => $dt => "set() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "set() returns self" );
 
     $p = $dt->set_time_zone( 'Australia/Sydney' );
-    is( $p => $dt => "set_time_zone() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "set_time_zone() returns self" );
 
     $p = $dt->add_duration( $du );
-    is( $p => $dt => "add_duration() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "add_duration() returns self" );
 
     $p = $dt->add( years => 2 );
-    is( $p => $dt => "add() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "add() returns self" );
 
 
     $p = $dt->subtract_duration( $du );
-    is( $p => $dt => "subtract_duration() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "subtract_duration() returns self" );
 
     $p = $dt->subtract( years => 3 );
-    is( $p => $dt => "subtract() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "subtract() returns self" );
 
     $p = $dt->truncate( to => 'day' );
-    is( $p => $dt => "truncate() returns self" );
+    is( DateTime->compare( $p, $dt ), 0, "truncate() returns self" );
 
 }

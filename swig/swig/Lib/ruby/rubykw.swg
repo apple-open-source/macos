@@ -2,7 +2,7 @@
 #define RUBY_RUBYKW_SWG_
 
 /* Warnings for Ruby keywords */
-#define RUBYKW(x) %keywordwarn("'" `x` "' is a ruby keyword, and it will renamed as 'C_"`x`"'",rename="C_%s",fullname=1)  `x`
+#define RUBYKW(x) %keywordwarn("'" `x` "' is a ruby keyword, renaming to 'C_" `x` "'",rename="C_%s",fullname=1)  `x`
 
 /*
 
@@ -26,6 +26,7 @@ RUBYKW(elsif);
 RUBYKW(end);
 RUBYKW(ensure);
 RUBYKW(false);
+RUBYKW(fatal);
 RUBYKW(for);
 RUBYKW(if);
 RUBYKW(in);
@@ -49,6 +50,22 @@ RUBYKW(when);
 RUBYKW(while);
 RUBYKW(yield);
 
+// RUBYKW(FalseClass);
+// RUBYKW(TrueClass);
+// RUBYKW(Numeric);
+// RUBYKW(Integer);
+// RUBYKW(Fixnum);
+// RUBYKW(Float);
+// RUBYKW(Range);
+// RUBYKW(Array);
+// RUBYKW(String);
+// RUBYKW(IO);
+// RUBYKW(File);
+// RUBYKW(FileUtils);
+// RUBYKW(Find);
+// RUBYKW(Struct);
+// RUBYKW(OpenStruct);
+// RUBYKW(Regexp);
 
 #undef RUBYKW
 

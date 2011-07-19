@@ -1,8 +1,8 @@
 /*
  * handler.c
  *
- * $Author: kojima1 $
- * $Date: 2007/03/09 23:41:58 $
+ * $Author: why $
+ * $Date: 2005-09-20 13:21:06 +0800 (二, 20  9 2005) $
  *
  * Copyright (C) 2003 why the lucky stiff
  */
@@ -154,7 +154,7 @@ syck_xprivate( char *type_id, int type_len )
 }
 
 char *
-syck_taguri( char *domain, char *type_id, int type_len )
+syck_taguri( const char *domain, const char *type_id, int type_len )
 {
     char *uri = S_ALLOC_N( char, strlen( domain ) + type_len + 14 );
     uri[0] = '\0';

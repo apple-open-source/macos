@@ -1,10 +1,14 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
 # saslclient.tcl - Copyright (C) 2005 Pat Thoyts <patthoyts@users.sf.net>
 #
 # This is a SMTP SASL test client. It connects to a SMTP server and uses 
 # the STARTTLS feature if available to switch to a secure link before 
 # negotiating authentication using SASL.
 #
-# $Id: saslclient.tcl,v 1.4 2005/10/06 14:48:02 patthoyts Exp $
+# $Id: saslclient.tcl,v 1.5 2009/01/30 04:18:14 andreas_kupries Exp $
 
 package require SASL
 package require base64

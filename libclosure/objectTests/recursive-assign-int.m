@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  recursive-assign-int.m
 //  testObjects
@@ -6,13 +12,14 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
-// CONFIG open rdar://6416474
+// TEST_CONFIG rdar://6416474
 
 // The compiler is prefetching x->forwarding before evaluting code that recomputes forwarding and so the value goes to a place that is never seen again.
 
 #include <stdio.h>
 #include <stdlib.h>
 #include <Block.h>
+#include "test.h"
 
 typedef void (^blockOfVoidReturningVoid)(void);
 
@@ -23,23 +30,22 @@ int nTHCopy(blockOfVoidReturningVoid  block) {
     return 1;
 }
 
-int main(int argc, char* argv[]) {
+int main() {
     
     __block int x = 0;
     
     x = nTHCopy(^{
-        printf("%d should reflect what nTHCopy provided\n", x);
-        if (x == 0) {
-            printf("but it wasn't updated properly!\n");
+        // x should be the value returned by nTHCopy
+        if (x != 1) {
+            fail("but it wasn't updated properly!");
         }
     });
     
     globalBlock();
     if (x == 0) {
-        printf("x here should be 1, but instead is: %d\n", x);
-        return 1;
+        fail("x here should be 1, but instead is: %d", x);
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }
 

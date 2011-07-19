@@ -1,35 +1,33 @@
 /*
- * Copyright (C) 2007 Apple Inc.  All rights reserved.
+ * Copyright (C) 2007, 2008, 2009, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
  * are met:
+ * 1. Redistributions of source code must retain the above copyright
+ *    notice, this list of conditions and the following disclaimer.
+ * 2. Redistributions in binary form must reproduce the above copyright
+ *    notice, this list of conditions and the following disclaimer in the
+ *    documentation and/or other materials provided with the distribution.
  *
- * 1.  Redistributions of source code must retain the above copyright
- *     notice, this list of conditions and the following disclaimer. 
- * 2.  Redistributions in binary form must reproduce the above copyright
- *     notice, this list of conditions and the following disclaimer in the
- *     documentation and/or other materials provided with the distribution. 
- * 3.  Neither the name of Apple Computer, Inc. ("Apple") nor the names of
- *     its contributors may be used to endorse or promote products derived
- *     from this software without specific prior written permission. 
- *
- * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND ANY
- * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
- * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
- * DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS CONTRIBUTORS BE LIABLE FOR ANY
- * DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
- * (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
- * LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
- * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
- * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
- * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+ * THIS SOFTWARE IS PROVIDED BY APPLE INC. AND ITS CONTRIBUTORS ``AS IS''
+ * AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,
+ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE INC. OR ITS CONTRIBUTORS
+ * BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR
+ * CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF
+ * SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS
+ * INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
+ * CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
+ * ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
+ * THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "UniscribeController.h"
 #include "Font.h"
 #include "SimpleFontData.h"
+#include "TextRun.h"
 #include <wtf/MathExtras.h>
 
 using namespace std;
@@ -51,24 +49,25 @@ UniscribeController::UniscribeController(const Font* font, const TextRun& run, H
     , m_end(run.length())
     , m_currentCharacter(0)
     , m_runWidthSoFar(0)
+    , m_padding(run.expansion())
     , m_computingOffsetPosition(false)
     , m_includePartialGlyphs(false)
     , m_offsetX(0)
     , m_offsetPosition(0)
 {
-    m_padding = m_run.padding();
     if (!m_padding)
         m_padPerSpace = 0;
     else {
         float numSpaces = 0;
-        for (int s = 0; s < m_run.length(); s++)
+        for (int s = 0; s < m_run.length(); s++) {
             if (Font::treatAsSpace(m_run[s]))
                 numSpaces++;
+        }
 
         if (numSpaces == 0)
             m_padPerSpace = 0;
         else
-            m_padPerSpace = ceilf(m_run.padding() / numSpaces);
+            m_padPerSpace = m_padding / numSpaces;
     }
 
     // Null out our uniscribe structs
@@ -147,7 +146,7 @@ void UniscribeController::advance(unsigned offset, GlyphBuffer* glyphBuffer)
         UChar c = *curr;
 
         bool forceSmallCaps = isSmallCaps && (U_GET_GC_MASK(c) & U_GC_M_MASK);
-        nextFontData = m_font.glyphDataForCharacter(*curr, false, forceSmallCaps).fontData;
+        nextFontData = m_font.glyphDataForCharacter(*curr, false, forceSmallCaps ? SmallCapsVariant : AutoVariant).fontData;
         if (m_font.isSmallCaps()) {
             nextIsSmallCaps = forceSmallCaps || (newC = u_toupper(c)) != c;
             if (nextIsSmallCaps)
@@ -262,42 +261,25 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
         return true;
 
     // Convert all chars that should be treated as spaces to use the space glyph.
-    // We also create a map that allows us to quickly go from space glyphs or rounding
-    // hack glyphs back to their corresponding characters.
+    // We also create a map that allows us to quickly go from space glyphs back to their corresponding characters.
     Vector<int> spaceCharacters(glyphs.size());
     spaceCharacters.fill(-1);
-    Vector<int> roundingHackCharacters(glyphs.size());
-    roundingHackCharacters.fill(-1);
-    Vector<int> roundingHackWordBoundaries(glyphs.size());
-    roundingHackWordBoundaries.fill(-1);
 
     const float cLogicalScale = fontData->platformData().useGDI() ? 1.0f : 32.0f;
     unsigned logicalSpaceWidth = fontData->spaceWidth() * cLogicalScale;
-    float roundedSpaceWidth = roundf(fontData->spaceWidth());
+    float spaceWidth = fontData->spaceWidth();
 
     for (int k = 0; k < len; k++) {
         UChar ch = *(str + k);
-        if (Font::treatAsSpace(ch)) {
+        bool treatAsSpace = Font::treatAsSpace(ch);
+        bool treatAsZeroWidthSpace = ch == zeroWidthSpace || Font::treatAsZeroWidthSpace(ch);
+        if (treatAsSpace || treatAsZeroWidthSpace) {
             // Substitute in the space glyph at the appropriate place in the glyphs
             // array.
             glyphs[clusters[k]] = fontData->spaceGlyph();
-            advances[clusters[k]] = logicalSpaceWidth;
-            spaceCharacters[clusters[k]] = m_currentCharacter + k + item.iCharPos;
-        }
-
-        if (Font::isRoundingHackCharacter(ch))
-            roundingHackCharacters[clusters[k]] = m_currentCharacter + k + item.iCharPos;
-
-        int boundary = k + m_currentCharacter + item.iCharPos;
-        if (boundary < m_run.length()) {
-            // When at the last character in the str, don't look one past the end for a rounding hack character.
-            // Instead look ahead to the first character of next item, if there is a next one. 
-            if (k + 1 == len) {
-                if (i + 2 < m_items.size() // Check for at least 2 items remaining. The last item is a terminating item containing no characters.
-                    && Font::isRoundingHackCharacter(*(cp + m_items[i + 1].iCharPos)))
-                    roundingHackWordBoundaries[clusters[k]] = boundary;
-            } else if (Font::isRoundingHackCharacter(*(str + k + 1)))
-                roundingHackWordBoundaries[clusters[k]] = boundary;
+            advances[clusters[k]] = treatAsSpace ? logicalSpaceWidth : 0;
+            if (treatAsSpace)
+                spaceCharacters[clusters[k]] = m_currentCharacter + k + item.iCharPos;
         }
     }
 
@@ -322,14 +304,6 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
 
         advance += fontData->syntheticBoldOffset();
 
-        // We special case spaces in two ways when applying word rounding.
-        // First, we round spaces to an adjusted width in all fonts.
-        // Second, in fixed-pitch fonts we ensure that all glyphs that
-        // match the width of the space glyph have the same width as the space glyph.
-        if (roundedAdvance == roundedSpaceWidth && (fontData->pitch() == FixedPitch || glyph == fontData->spaceGlyph()) &&
-            m_run.applyWordRounding())
-            advance = fontData->adjustedSpaceWidth();
-
         if (hasExtraSpacing) {
             // If we're a glyph with an advance, go ahead and add in letter-spacing.
             // That way we weed out zero width lurkers.  This behavior matches the fast text code path.
@@ -337,7 +311,9 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
                 advance += m_font.letterSpacing();
 
             // Handle justification and word-spacing.
-            if (glyph == fontData->spaceGlyph()) {
+            int characterIndex = spaceCharacters[k];
+            // characterIndex is left at the initial value of -1 for glyphs that do not map back to treated-as-space characters.
+            if (characterIndex != -1) {
                 // Account for padding. WebCore uses space padding to justify text.
                 // We distribute the specified padding over the available spaces in the run.
                 if (m_padding) {
@@ -346,35 +322,15 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
                         advance += m_padding;
                         m_padding = 0;
                     } else {
-                        advance += m_padPerSpace;
                         m_padding -= m_padPerSpace;
+                        advance += m_padPerSpace;
                     }
                 }
 
                 // Account for word-spacing.
-                int characterIndex = spaceCharacters[k];
                 if (characterIndex > 0 && !Font::treatAsSpace(*m_run.data(characterIndex - 1)) && m_font.wordSpacing())
                     advance += m_font.wordSpacing();
             }
-        }
-
-        // Deal with the float/integer impedance mismatch between CG and WebCore. "Words" (characters 
-        // followed by a character defined by isRoundingHackCharacter()) are always an integer width.
-        // We adjust the width of the last character of a "word" to ensure an integer width.
-        // Force characters that are used to determine word boundaries for the rounding hack
-        // to be integer width, so the following words will start on an integer boundary.
-        int roundingHackIndex = roundingHackCharacters[k];
-        if (m_run.applyWordRounding() && roundingHackIndex != -1)
-            advance = ceilf(advance);
-
-        // Check to see if the next character is a "rounding hack character", if so, adjust the
-        // width so that the total run width will be on an integer boundary.
-        int position = m_currentCharacter + len;
-        bool lastGlyph = (k == glyphs.size() - 1) && (m_run.rtl() ? i == 0 : i == m_items.size() - 2) && (position >= m_end);
-        if ((m_run.applyWordRounding() && roundingHackWordBoundaries[k] != -1) ||
-            (m_run.applyRunRounding() && lastGlyph)) { 
-            float totalWidth = m_runWidthSoFar + advance;
-            advance += ceilf(totalWidth) - totalWidth;
         }
 
         m_runWidthSoFar += advance;
@@ -390,9 +346,9 @@ bool UniscribeController::shapeAndPlaceItem(const UChar* cp, unsigned i, const S
         FloatRect glyphBounds = fontData->boundsForGlyph(glyph);
         glyphBounds.move(m_glyphOrigin.x(), m_glyphOrigin.y());
         m_minGlyphBoundingBoxX = min(m_minGlyphBoundingBoxX, glyphBounds.x());
-        m_maxGlyphBoundingBoxX = max(m_maxGlyphBoundingBoxX, glyphBounds.right());
+        m_maxGlyphBoundingBoxX = max(m_maxGlyphBoundingBoxX, glyphBounds.maxX());
         m_minGlyphBoundingBoxY = min(m_minGlyphBoundingBoxY, glyphBounds.y());
-        m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, glyphBounds.bottom());
+        m_maxGlyphBoundingBoxY = max(m_maxGlyphBoundingBoxY, glyphBounds.maxY());
         m_glyphOrigin.move(advance + offsetX, -offsetY);
 
         // Mutate the glyph array to contain our altered advances.

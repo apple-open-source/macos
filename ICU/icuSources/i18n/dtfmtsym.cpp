@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 1997-2008, International Business Machines Corporation and    *
+* Copyright (C) 1997-2009, International Business Machines Corporation and    *
 * others. All Rights Reserved.                                                *
 *******************************************************************************
 *
@@ -36,10 +36,12 @@
 #include "hash.h"
 #include "uresimp.h"
 #include "zstrfmt.h"
+#include "ureslocs.h"
 
 // *****************************************************************************
 // class DateFormatSymbols
 // *****************************************************************************
+
 /**
  * These are static arrays we use only in the case where we have no
  * resource data.
@@ -1256,8 +1258,8 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
     /**
      * Use the localeBundle for getting zone GMT formatting patterns
      */
-    UResourceBundle *localeBundle = ures_open(NULL, locale.getName(), &status);
-    UResourceBundle *zoneStringsArray = ures_getByKeyWithFallback(localeBundle, gZoneStringsTag, NULL, &status);
+    UResourceBundle *zoneBundle = ures_open(U_ICUDATA_ZONE, locale.getName(), &status);
+    UResourceBundle *zoneStringsArray = ures_getByKeyWithFallback(zoneBundle, gZoneStringsTag, NULL, &status);
 
     // load the first data item
     UResourceBundle *erasMain = calData.getByKey(gErasTag, status);
@@ -1397,7 +1399,7 @@ DateFormatSymbols::initializeData(const Locale& locale, const char *type, UError
             } else {
                 fGmtHourFormatsCount = GMT_HOUR_COUNT;
                 fGmtHourFormats[GMT_NEGATIVE_HM].setTo(TRUE, sep + 1, -1);
-                fGmtHourFormats[GMT_POSITIVE_HM].setTo(FALSE, resStr, sep - resStr);
+                fGmtHourFormats[GMT_POSITIVE_HM].setTo(FALSE, resStr, (int32_t)(sep - resStr));
 
                 // CLDR 1.5 does not have GMT offset pattern including second field.
                 // For now, append "ss" to the end.
@@ -1558,7 +1560,7 @@ cleanup:
     ures_close(eraNames);
     ures_close(narrowEras);
     ures_close(zoneStringsArray);
-    ures_close(localeBundle);
+    ures_close(zoneBundle);
 }
 
 Locale 

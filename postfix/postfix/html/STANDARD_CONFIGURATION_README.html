@@ -111,7 +111,7 @@ their default settings. </p>
 1 /etc/postfix/<a href="postconf.5.html">main.cf</a>:
 2     <a href="postconf.5.html#myorigin">myorigin</a> = $<a href="postconf.5.html#mydomain">mydomain</a>
 3     <a href="postconf.5.html#relayhost">relayhost</a> = $<a href="postconf.5.html#mydomain">mydomain</a>
-4     <a href="postconf.5.html#inet_interfaces">inet_interfaces</a> = 127.0.0.1
+4     <a href="postconf.5.html#inet_interfaces">inet_interfaces</a> = loopback-only
 5     <a href="postconf.5.html#local_transport">local_transport</a> = <a href="error.8.html">error</a>:local delivery is disabled
 6 
 7 /etc/postfix/<a href="master.5.html">master.cf</a>:
@@ -319,7 +319,7 @@ All the mail to these two accounts is forwarded to an inside address.
 1 /etc/postfix/<a href="postconf.5.html">main.cf</a>:
 2     <a href="postconf.5.html#virtual_alias_maps">virtual_alias_maps</a> = hash:/etc/postfix/virtual
 3 
-4 /etc/postfix/<a href="virtual.8.html">virtual</a>:
+4 /etc/postfix/virtual:
 5     postmaster      postmaster@example.com
 6     abuse           abuse@example.com
 </pre>
@@ -425,7 +425,7 @@ follows:  </p>
 1 /etc/postfix/<a href="postconf.5.html">main.cf</a>:
 2     <a href="postconf.5.html#virtual_alias_maps">virtual_alias_maps</a> = hash:/etc/postfix/virtual
 3 
-4 /etc/postfix/<a href="virtual.8.html">virtual</a>:
+4 /etc/postfix/virtual:
 5     root     root@localhost
 6     . . .
 </pre>
@@ -442,6 +442,9 @@ matches $<a href="postconf.5.html#inet_interfaces">inet_interfaces</a> or $<a hr
 
 </ul>
 
+<p> Execute the command "<b>postmap /etc/postfix/virtual</b>" after
+editing the file. </p>
+
 <h2><a name="intranet">Running Postfix behind a firewall</a></h2>
 
 <p> The simplest way to set up Postfix on a host behind a firewalled
@@ -449,8 +452,7 @@ network is to send all mail to a gateway host, and to let that mail
 host take care of internal and external forwarding. Examples of that
 are shown in the <a href="#local_network">local area network</a>
 section above. A more sophisticated approach is to send only external
-mail to the gateway host, and to send intranet mail directly.
-That's what Wietse does at work.  </p>
+mail to the gateway host, and to send intranet mail directly. </p>
 
 <p> Note: this example requires Postfix version 2.0 and later. To find
 out what Postfix version you have, execute the command "<b>postconf
@@ -782,7 +784,7 @@ discussed the first half of this document. </p>
  9 /etc/postfix/canonical:
 10     your-login-name    your-account@your-isp.com
 11 
-12 /etc/postfix/<a href="virtual.8.html">virtual</a>:
+12 /etc/postfix/virtual:
 13     your-account@your-isp.com       your-login-name
 </pre>
 </blockquote>

@@ -34,9 +34,7 @@
  */
  
 
-#if defined (__ppc__)
-#include "architecture/ppc/alignment.h"
-#elif defined (__i386__)
+#if defined (__i386__)
 #include "architecture/i386/alignment.h"
 #elif defined (__arm__)
 #include "architecture/arm/alignment.h"

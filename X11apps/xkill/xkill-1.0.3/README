@@ -1,0 +1,27 @@
+xkill is a utility for forcing the X server to close connections to
+clients.  This program is very dangerous, but is useful for aborting
+programs that have displayed undesired windows on a user's screen.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/xkill
+
+        http://cgit.freedesktop.org/xorg/app/xkill
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

@@ -33,6 +33,7 @@
 
 #include <sys/types.h>
 #include <sys/param.h>
+#include <sys/stat.h>
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -57,6 +58,84 @@
 #include "logger.h"
 #include "var.h"
 #include "gcmalloc.h"
+
+#define MAX_LOG_FILESIZE_BYTES 2097152 // 2MB
+#define MAX_LOG_FILESIZE_KBYTES (MAX_LOG_FILESIZE_BYTES/1024)
+#define MAX_LOG_FILESIZE_MBYTES (MAX_LOG_FILESIZE_BYTES/(1024 * 1024))
+#define LOG_DISCARD_BYTES (MAX_LOG_FILESIZE_BYTES/3)
+
+static int log_flush (struct log *p, int newbytes)
+{
+	struct stat st;
+	int good = 0;
+
+	if (!p || !p->fp) {
+		return -1;
+	}
+
+	if (!p->byteswritten) {
+		bzero(&st, sizeof(st));
+		if (fstat(fileno(p->fp), &st) < 0) {
+			return -1;
+		}
+		if (st.st_size < 0) {
+			return -1;
+		}
+		p->byteswritten = st.st_size;
+	}
+	if (newbytes > 0) {
+		p->byteswritten += newbytes;
+	}
+
+	if (p->byteswritten > MAX_LOG_FILESIZE_BYTES) {
+		// hack to delete the first 1/3 of the file: won't work on some devices because malloc(MAX_LOG_FILESIZE_BYTES) fails
+		char *buf = NULL;
+		size_t discard, saved = 0;
+		FILE *fp;
+
+		// calc how much to seek into the file
+		discard = p->byteswritten/3;
+		if (discard < LOG_DISCARD_BYTES) {
+			discard = LOG_DISCARD_BYTES;
+		}
+		fp = fopen(p->fname, "r");
+		// get a temp buffer to hold the last 2/3 of the file
+		buf = malloc(MAX_LOG_FILESIZE_BYTES);
+		// seek into the file (skipping the first 1/3 of the file)
+		if (fp && buf) {
+			if (fseeko(fp, discard, SEEK_SET) == 0) {
+				// try reading as much as possible.. shouldn't fill up buffer
+				saved = fread(buf, MAX_LOG_FILESIZE_BYTES, sizeof(*buf), fp);
+				// p->byteswritten may be inaccurate (e.g another stream is writing to the file)
+				if (saved == MAX_LOG_FILESIZE_BYTES) {
+					saved = 0;
+				}
+			}
+		}
+		if (fp) {
+			fclose(fp);
+		}
+		
+		p->byteswritten = 0;
+		(void)fpurge(p->fp);
+		// delete file and start appending logs again
+		p->fp = freopen(p->fname, "wa", p->fp);
+		if (p->fp == NULL)
+			return -1;
+		fprintf(p->fp, "logfile turned over due to size>%d%s\n",
+				(MAX_LOG_FILESIZE_MBYTES > 0)? MAX_LOG_FILESIZE_MBYTES:MAX_LOG_FILESIZE_KBYTES,
+				(MAX_LOG_FILESIZE_MBYTES > 0)? "MB":"KB");
+		// append some of the previous logs (if successfully we buffered 2/3 of the file)
+		if (buf && saved) {
+			(void)fwrite(buf, saved, sizeof(*buf), p->fp);
+		}
+		if (buf) {
+			free(buf);
+		}
+	}
+	(void)fflush(p->fp);
+	return 0;
+}
 
 struct log *
 log_open(siz, fname)
@@ -121,15 +200,19 @@ log_print(p, str)
 	struct log *p;
 	char *str;
 {
-	FILE *fp;
+	int bytes;
 
 	if (p->fname == NULL)
 		return -1;	/*XXX syslog?*/
-	fp = fopen(p->fname, "a");
-	if (fp == NULL)
+	if (p->fp == NULL) {
+		p->fp = fopen(p->fname, "a");
+	}
+	if (p->fp == NULL)
 		return -1;
-	fprintf(fp, "%s", str);
-	fclose(fp);
+	bytes = fprintf(p->fp, "%s", str);
+	if (log_flush(p, bytes)) {
+			return -1;
+	}
 
 	return 0;
 }
@@ -138,19 +221,21 @@ int
 log_vprint(struct log *p, const char *fmt, ...)
 {
 	va_list ap;
-
-	FILE *fp;
+	int bytes;
 
 	if (p->fname == NULL)
 		return -1;	/*XXX syslog?*/
-	fp = fopen(p->fname, "a");
-	if (fp == NULL)
+	if (p->fp == NULL) {
+		p->fp = fopen(p->fname, "a");
+	}
+	if (p->fp == NULL)
 		return -1;
 	va_start(ap, fmt);
-	vfprintf(fp, fmt, ap);
+	bytes = vfprintf(p->fp, fmt, ap);
 	va_end(ap);
-
-	fclose(fp);
+	if (log_flush(p, bytes)) {
+		return -1;
+	}
 
 	return 0;
 }
@@ -158,15 +243,19 @@ log_vprint(struct log *p, const char *fmt, ...)
 int
 log_vaprint(struct log *p, const char *fmt, va_list ap)
 {
-	FILE *fp;
+	int bytes;
 
 	if (p->fname == NULL)
 		return -1;	/*XXX syslog?*/
-	fp = fopen(p->fname, "a");
-	if (fp == NULL)
+	if (p->fp == NULL) {
+		p->fp = fopen(p->fname, "a");
+	}
+	if (p->fp == NULL)
 		return -1;
-	vfprintf(fp, fmt, ap);
-	fclose(fp);
+	bytes = vfprintf(p->fp, fmt, ap);
+	if (log_flush(p, bytes)) {
+		return -1;
+	}
 
 	return 0;
 }
@@ -178,15 +267,17 @@ int
 log_close(p)
 	struct log *p;
 {
-	FILE *fp;
 	int i, j;
 	char ts[256];
 	struct tm *tm;
+	int bytes;
 
 	if (p->fname == NULL)
 		goto nowrite;
-	fp = fopen(p->fname, "a");
-	if (fp == NULL)
+	if (p->fp == NULL) {
+		p->fp = fopen(p->fname, "a");
+	}
+	if (p->fp == NULL)
 		goto nowrite;
 
 	for (i = 0; i < p->siz; i++) {
@@ -194,12 +285,14 @@ log_close(p)
 		if (p->buf[j]) {
 			tm = localtime(&p->tbuf[j]);
 			strftime(ts, sizeof(ts), "%B %d %T", tm);
-			fprintf(fp, "%s: %s\n", ts, p->buf[j]);
-			if (*(p->buf[j] + strlen(p->buf[j]) - 1) != '\n')
-				fprintf(fp, "\n");
+			bytes = fprintf(p->fp, "%s: %s\n", ts, p->buf[j]);
+			(void)log_flush(p, bytes);
+			if (*(p->buf[j] + strlen(p->buf[j]) - 1) != '\n') {
+				bytes = fprintf(p->fp, "\n");
+				(void)log_flush(p, bytes);
+			}
 		}
 	}
-	fclose(fp);
 
 nowrite:
 	log_free(p);
@@ -218,6 +311,9 @@ log_free(p)
 	racoon_free(p->tbuf);
 	if (p->fname)
 		racoon_free(p->fname);
+	if (p->fp) {
+		fclose(p->fp);
+	}
 	racoon_free(p);
 }
 

@@ -1,0 +1,30 @@
+			Direct Rendering Infrastructure 2 Extension
+
+This extension defines a protocol to securely allow user applications to access
+the video hardware without requiring data to be passed through the X server.
+
+Extension name: DRI2
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/proto/dri2proto
+
+        http://cgit.freedesktop.org/xorg/proto/dri2proto
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

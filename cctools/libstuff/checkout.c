@@ -25,7 +25,7 @@
 #include <string.h>
 #include "stuff/ofile.h"
 #include "stuff/breakout.h"
-#include "stuff/round.h"
+#include "stuff/rnd.h"
 
 static void check_object(
     struct arch *arch,
@@ -133,6 +133,13 @@ struct object *object)
 		    fatal_arch(arch, member, "malformed file (more than one "
 			"LC_SEGMENT_SPLIT_INFO load command): ");
 		object->split_info_cmd = (struct linkedit_data_command *)lc;
+	    }
+	    else if(lc->cmd == LC_FUNCTION_STARTS){
+		if(object->func_starts_info_cmd != NULL)
+		    fatal_arch(arch, member, "malformed file (more than one "
+			"LC_FUNCTION_STARTS load command): ");
+		object->func_starts_info_cmd =
+			(struct linkedit_data_command *)lc;
 	    }
 	    else if((lc->cmd == LC_DYLD_INFO) ||(lc->cmd == LC_DYLD_INFO_ONLY)){
 		if(object->dyld_info != NULL)
@@ -275,6 +282,7 @@ struct object *object)
 		 *	string table
 		 *		strings for external symbols
 		 *		strings for local symbols
+		 *		code signature
 		 */
 		symbol_string_at_end(arch, member, object);
 	    }
@@ -357,6 +365,11 @@ struct object *object)
 		order_error(arch, member, "split info data out of place");
 	    offset += object->split_info_cmd->datasize;
 	}
+	if(object->func_starts_info_cmd != NULL){
+	    if(object->func_starts_info_cmd->dataoff != offset)
+		order_error(arch, member, "function starts data out of place");
+	    offset += object->func_starts_info_cmd->datasize;
+	}
 	if(object->st->nsyms != 0){
 	    if(object->st->symoff != offset)
 		order_error(arch, member, "symbol table out of place");
@@ -411,7 +424,7 @@ struct object *object)
  	object->input_indirectsym_pad = 0;
 	if(object->mh64 != NULL &&
 	   (object->dyst->nindirectsyms % 2) != 0){
-	    rounded_offset = round(offset, 8);
+	    rounded_offset = rnd(offset, 8);
 	}
 	else{
 	    rounded_offset = offset;
@@ -487,7 +500,7 @@ struct object *object)
 	    }
 	}
 	if(object->code_sig_cmd != NULL){
-	    rounded_offset = round(rounded_offset, 16);
+	    rounded_offset = rnd(rounded_offset, 16);
 	    if(object->code_sig_cmd->dataoff != rounded_offset)
 		order_error(arch, member, "code signature data out of place");
 	    rounded_offset += object->code_sig_cmd->datasize;
@@ -517,11 +530,31 @@ struct arch *arch,
 struct member *member,
 struct object *object)
 {
-    uint32_t end, strend, rounded_strend;
+    uint32_t end, sigend, strend, rounded_strend;
     uint32_t indirectend, rounded_indirectend;
 
 	if(object->st != NULL && object->st->nsyms != 0){
 	    end = object->object_size;
+	    if(object->code_sig_cmd != NULL){
+		sigend = object->code_sig_cmd->dataoff +
+			 object->code_sig_cmd->datasize;
+		if(sigend != end)
+		    fatal_arch(arch, member, "code signature not at the end "
+			"of the file (can't be processed) in file: ");
+		/*
+		 * The code signature starts at a 16 byte offset.  So if the
+		 * string table end rouned to 16 bytes is the offset where the 
+		 * code signature starts then just back up the current "end" to
+		 * the end of the string table.
+		 */
+		end = object->code_sig_cmd->dataoff;
+		if(object->st->strsize != 0){
+		    strend = object->st->stroff + object->st->strsize;
+		    rounded_strend = rnd(strend, 16);
+		    if(object->code_sig_cmd->dataoff == rounded_strend)
+		       end = strend;
+		}
+	    }
 	    if(object->st->strsize != 0){
 		strend = object->st->stroff + object->st->strsize;
 		/*
@@ -529,7 +562,7 @@ struct object *object)
 		 * string table may not be exactly at the end of the
 		 * object_size due to rounding.
 		 */
-		rounded_strend = round(strend, 8);
+		rounded_strend = rnd(strend, 8);
 		if(strend != end && rounded_strend != end)
 		    fatal_arch(arch, member, "string table not at the end "
 			"of the file (can't be processed) in file: ");
@@ -553,14 +586,15 @@ struct object *object)
 		    object->dyst->nindirectsyms * sizeof(uint32_t);
 
 		/*
-		 * If this is a 64-bit Mach-O file and has an odd number of indirect
-		 * symbol table entries the next offset MAYBE rounded to a multiple of
-		 * 8 or MAY NOT BE. This should done to keep all the tables aligned but
-		 * was not done for 64-bit Mach-O in Mac OS X 10.4.
+		 * If this is a 64-bit Mach-O file and has an odd number of
+		 * indirect symbol table entries the next offset MAYBE rounded
+		 * to a multiple of 8 or MAY NOT BE. This should done to keep
+		 * all the tables aligned but was not done for 64-bit Mach-O in
+		 * Mac OS X 10.4.
 		 */
 		if(object->mh64 != NULL &&
 		   (object->dyst->nindirectsyms % 2) != 0){
-		    rounded_indirectend = round(indirectend, 8);
+		    rounded_indirectend = rnd(indirectend, 8);
 		}
 		else{
 		    rounded_indirectend = indirectend;

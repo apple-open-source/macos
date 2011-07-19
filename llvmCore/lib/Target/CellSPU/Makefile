@@ -10,13 +10,12 @@
 LEVEL = ../../..
 LIBRARYNAME = LLVMCellSPUCodeGen
 TARGET = SPU
-
 BUILT_SOURCES = SPUGenInstrNames.inc SPUGenRegisterNames.inc \
 		SPUGenAsmWriter.inc SPUGenCodeEmitter.inc \
 		SPUGenRegisterInfo.h.inc SPUGenRegisterInfo.inc \
 		SPUGenInstrInfo.inc SPUGenDAGISel.inc \
 		SPUGenSubtarget.inc SPUGenCallingConv.inc
 
-DIRS = AsmPrinter
+DIRS = AsmPrinter TargetInfo
 
 include $(LEVEL)/Makefile.common

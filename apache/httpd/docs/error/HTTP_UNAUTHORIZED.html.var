@@ -61,24 +61,22 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Autentificaci&oacute;n requerida!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="Autentificaci&oacute;n requerida!" -->
+<!--#include virtual="include/top.html" -->
 
-    El servidor no puede certificar que usted este autorizado
-    para acceder al enlace "<!--#echo encoding="url" var="REDIRECT_URL" -->".
-    Usted pudo suministrar informaci&oacute;n err&oacute;nea accidentalmente
-    (ejem. una contrase&ntilde;a inv&aacute;lida) o, el navegador no sabe 
+    El servidor no puede certificar que usted est&eacute; autorizado
+    para accesar el URL "<!--#echo encoding="url" var="REDIRECT_URL" -->".
+    Pudo haber suministrado informaci&oacute;n incorrecta (ej.
+    contrase&ntilde;a inv&aacute;lida) o, el buscador no sabe
     como suministrar la informaci&oacute;n requerida.
 
   <!--#include virtual="include/spacer.html" -->
 
-    En caso de que a usted le este permitido el uso del
-    documento requerido, le solicitamos de la manera m&aacute;s atenta
-    que por favor vuelva a intentar la operaci&oacute;n suministrando
-    nuevamente su identificador y su contrase&ntilde;a.
+    En caso de que a usted le este permitido accesar el documento,
+    verifique su nombre de usuario y contrase&ntilde;a y vu&eacute;lvalo
+    a intentar.
 
 <!--#include virtual="include/bottom.html" -->
 ----------es--
@@ -100,7 +98,7 @@ Body:----------fr--
 
   <!--#include virtual="include/spacer.html" -->
 
-    Si vous &ecirc;tez autoris&eacute; &agrave; requ&eacute;rir le document,
+    Si vous &ecirc;tes autoris&eacute; &agrave; requ&eacute;rir le document,
     veuillez v&eacute;rifier votre nom d'utilisateur et votre mot de passe
     et r&eacute;essayer.
 
@@ -254,6 +252,26 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Autentica&ccedil;&atilde;o exigida!"
+--><!--#include virtual="include/top.html" -->
+
+	Este servidor n&atilde;o conseguiu validar a sua autoridade para aceder
+	ao URL "<!--#echo encoding="url" var="REDIRECT_URL" -->".
+	Ou forneceu as credenciais erradas (e.g.: senha incorrecta)
+	ou o seu <i>browser</i> n&atilde;o sabe como fornecer as credenciais
+	necess&aacute;rias.
+
+  <!--#include virtual="include/spacer.html" -->
+
+	Caso lhe seja permitido aceder ao documento, por favor verifique o
+	seu nome de utilizador e senha e tente de novo.
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

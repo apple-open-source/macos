@@ -177,7 +177,7 @@ struct apr_dbd_prepared_t {
     define_arg *out;
     apr_dbd_t *handle;
     apr_pool_t *pool;
-    int type;
+    ub2 type;
 };
 
 /* AFAICT from the docs, the OCIEnv thingey can be used async

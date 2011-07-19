@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<array>
+	<dict>
+		<key>OpenSourceProject</key>
+		<string>ccid</string>
+		<key>OpenSourceVersion</key>
+		<string>1.3.11</string>
+		<key>OpenSourceWebsiteURL</key>
+		<string>http://alioth.debian.org/frs/?group_id=30105&amp;release_id=1192</string>
+		<key>OpenSourceURL</key>
+		<string>http://alioth.debian.org/frs/download.php/3080/ccid-1.3.11.tar.bz2</string>
+		<key>OpenSourceImportDate</key>
+		<string>2010-04-13</string>
+		<key>OpenSourceLicense</key>
+		<string>GPL</string>
+		<key>OpenSourceLicenseFile</key>
+		<string>ccid.txt</string>
+	</dict>
+	<dict>
+        <key>OpenSourceProject</key>
+        <string>libusb</string>
+        <key>OpenSourceVersion</key>
+        <string>0.1.13b</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://www.ellert.se/twain-sane/</string>
+        <key>OpenSourceURL</key>
+        <string>http://www.ellert.se/PKGS/libusb-2008-02-02/src/libusb-2008-02-02-svn-macosx.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2008-07-22</string>
+        <key>OpenSourceModifications</key>
+        <array>
+        </array>
+        <key>OpenSourceLicense</key>
+        <string>LGPL</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>libusb.txt</string>
+	</dict>
+</array>
+</plist>

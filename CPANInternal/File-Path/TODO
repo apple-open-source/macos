@@ -1,0 +1,40 @@
+Things TODO for File::Path
+
+1. Write a batch file to be run as Administrator on Win32
+   that sets up files that cannot be removed with the
+   current user (and will hit code paths that are never
+   visited under Unix). Useful for code coverage improvements.
+
+2. See if http://bugs.gentoo.org/show_bug.cgi?id=75696 is
+   still relevant.
+
+3. Can rmtree initial paths be sanitised before diving into
+   _rmtree(), in a way that would reduce platform-specific
+   workarounds therein?
+
+4. Investigate rm -p functionality (a linux thing).
+
+5. Consider adding File::Remove trash() functionality.
+
+6. Inodes on Windows:
+
+Need equivalent dev+inode semantics on Win32 in order to have the
+race condition code work correctly when rmtree'ing a UNC path
+(//server/dir/subdir). (stat $file)[1] always seems to return 0
+
+cdarke @ perlmonks, CLIVE on CPAN wrote:
+
+BOOL Win_CompareInodes (const char *szName)
+{
+   BY_HANDLE_FILE_INFORMATION Info = {0};
+
+   GetFileInformationByHandle(Win32open (szName, O_RDONLY), &Info);
+
+   if (Info.dwVolumeSerialNumber == g_Inode.Info.dwVolumeSerialNumber &&
+       Info.nFileIndexHigh       == g_Inode.Info.nFileIndexHigh &&
+       Info.nFileIndexLow        == g_Inode.Info.nFileIndexLow )
+       return TRUE;
+   else
+      return FALSE;
+
+}  /* Win_CompareInodes */

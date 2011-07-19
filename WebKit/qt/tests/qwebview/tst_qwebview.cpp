@@ -28,9 +28,18 @@
 #include <qnetworkrequest.h>
 #include <qdiriterator.h>
 #include <qwebkitversion.h>
+#include <qwebelement.h>
 #include <qwebframe.h>
 
-#include <QDebug>
+#ifdef Q_OS_SYMBIAN
+#define VERIFY_INPUTMETHOD_HINTS(actual, expect) \
+    QVERIFY(actual & Qt::ImhNoAutoUppercase); \
+    QVERIFY(actual & Qt::ImhNoPredictiveText); \
+    QVERIFY(actual & expect);
+#else
+#define VERIFY_INPUTMETHOD_HINTS(actual, expect) \
+    QVERIFY(actual == expect);
+#endif
 
 class tst_QWebView : public QObject
 {
@@ -43,14 +52,20 @@ public slots:
     void cleanup();
 
 private slots:
+    void renderingAfterMaxAndBack();
     void renderHints();
     void getWebKitVersion();
 
     void reusePage_data();
     void reusePage();
     void microFocusCoordinates();
+    void focusInputTypes();
 
     void crashTests();
+#if !(defined(WTF_USE_QT_MOBILE_THEME) && WTF_USE_QT_MOBILE_THEME)
+    void setPalette_data();
+    void setPalette();
+#endif
 };
 
 // This will be called before the first test function is executed.
@@ -79,22 +94,22 @@ void tst_QWebView::renderHints()
 {
     QWebView webView;
 
-    // default is only text antialiasing
+    // default is only text antialiasing + smooth pixmap transform
     QVERIFY(!(webView.renderHints() & QPainter::Antialiasing));
     QVERIFY(webView.renderHints() & QPainter::TextAntialiasing);
-    QVERIFY(!(webView.renderHints() & QPainter::SmoothPixmapTransform));
+    QVERIFY(webView.renderHints() & QPainter::SmoothPixmapTransform);
     QVERIFY(!(webView.renderHints() & QPainter::HighQualityAntialiasing));
 
     webView.setRenderHint(QPainter::Antialiasing, true);
     QVERIFY(webView.renderHints() & QPainter::Antialiasing);
     QVERIFY(webView.renderHints() & QPainter::TextAntialiasing);
-    QVERIFY(!(webView.renderHints() & QPainter::SmoothPixmapTransform));
+    QVERIFY(webView.renderHints() & QPainter::SmoothPixmapTransform);
     QVERIFY(!(webView.renderHints() & QPainter::HighQualityAntialiasing));
 
     webView.setRenderHint(QPainter::Antialiasing, false);
     QVERIFY(!(webView.renderHints() & QPainter::Antialiasing));
     QVERIFY(webView.renderHints() & QPainter::TextAntialiasing);
-    QVERIFY(!(webView.renderHints() & QPainter::SmoothPixmapTransform));
+    QVERIFY(webView.renderHints() & QPainter::SmoothPixmapTransform);
     QVERIFY(!(webView.renderHints() & QPainter::HighQualityAntialiasing));
 
     webView.setRenderHint(QPainter::SmoothPixmapTransform, true);
@@ -142,22 +157,14 @@ void tst_QWebView::reusePage()
     }
 
     view1->show();
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     QTest::qWaitForWindowShown(view1);
-#else
-    QTest::qWait(2000); 
-#endif
     delete view1;
     QVERIFY(page != 0); // deleting view must not have deleted the page, since it's not a child of view
 
     QWebView *view2 = new QWebView;
     view2->setPage(page);
     view2->show(); // in Windowless mode, you should still be able to see the plugin here
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     QTest::qWaitForWindowShown(view2);
-#else
-    QTest::qWait(2000); 
-#endif
     delete view2;
 
     delete page; // must not crash
@@ -212,9 +219,9 @@ void tst_QWebView::microFocusCoordinates()
 
     page->mainFrame()->setHtml("<html><body>" \
         "<input type='text' id='input1' style='font--family: serif' value='' maxlength='20'/><br>" \
-        "<canvas id='canvas1' width='500' height='500'/>" \
+        "<canvas id='canvas1' width='500' height='500'></canvas>" \
         "<input type='password'/><br>" \
-        "<canvas id='canvas2' width='500' height='500'/>" \
+        "<canvas id='canvas2' width='500' height='500'></canvas>" \
         "</body></html>");
 
     page->mainFrame()->setFocus();
@@ -228,6 +235,283 @@ void tst_QWebView::microFocusCoordinates()
     QVERIFY(currentMicroFocus.isValid());
 
     QCOMPARE(initialMicroFocus.toRect().translated(QPoint(0,-50)), currentMicroFocus.toRect());
+}
+
+void tst_QWebView::focusInputTypes()
+{
+    QWebView webView;
+    webView.show();
+    QTest::qWaitForWindowShown(&webView);
+
+    QUrl url("qrc:///resources/input_types.html");
+    QWebFrame* const mainFrame = webView.page()->mainFrame();
+    mainFrame->load(url);
+    mainFrame->setFocus();
+
+    QVERIFY(waitForSignal(&webView, SIGNAL(loadFinished(bool))));
+
+    // 'text' type
+    QWebElement inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=text]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
+#else
+    QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
+#endif
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'password' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=password]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhHiddenText);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'tel' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=tel]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhDialableCharactersOnly);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'number' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=number]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhDigitsOnly);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'email' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=email]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhEmailCharactersOnly);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'url' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=url]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhUrlCharactersOnly);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'password' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=password]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhHiddenText);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'text' type
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=text]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+#if defined(Q_WS_MAEMO_5) || defined(Q_WS_MAEMO_6) || defined(Q_OS_SYMBIAN)
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
+#else
+    QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
+#endif
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'password' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("input[type=password]"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+    VERIFY_INPUTMETHOD_HINTS(webView.inputMethodHints(), Qt::ImhHiddenText);
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+
+    // 'text area' field
+    inputElement = mainFrame->documentElement().findFirst(QLatin1String("textarea"));
+    QTest::mouseClick(&webView, Qt::LeftButton, 0, inputElement.geometry().center());
+#if defined(Q_OS_SYMBIAN)
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoAutoUppercase);
+    QVERIFY(webView.inputMethodHints() & Qt::ImhNoPredictiveText);
+#else
+    QVERIFY(webView.inputMethodHints() == Qt::ImhNone);
+#endif
+    QVERIFY(webView.testAttribute(Qt::WA_InputMethodEnabled));
+}
+
+#if !(defined(WTF_USE_QT_MOBILE_THEME) && WTF_USE_QT_MOBILE_THEME)
+void tst_QWebView::setPalette_data()
+{
+    QTest::addColumn<bool>("active");
+    QTest::addColumn<bool>("background");
+    QTest::newRow("activeBG") << true << true;
+    QTest::newRow("activeFG") << true << false;
+    QTest::newRow("inactiveBG") << false << true;
+    QTest::newRow("inactiveFG") << false << false;
+}
+
+// Render a QWebView to a QImage twice, each time with a different palette set,
+// verify that images rendered are not the same, confirming WebCore usage of
+// custom palette on selections.
+void tst_QWebView::setPalette()
+{
+    QString html = "<html><head></head>"
+                   "<body>"
+                   "Some text here"
+                   "</body>"
+                   "</html>";
+
+    QFETCH(bool, active);
+    QFETCH(bool, background);
+
+    QWidget* activeView = 0;
+
+    // Use controlView to manage active/inactive state of test views by raising
+    // or lowering their position in the window stack.
+    QWebView controlView;
+    controlView.setHtml(html);
+
+    QWebView view1;
+
+    QPalette palette1;
+    QBrush brush1(Qt::red);
+    brush1.setStyle(Qt::SolidPattern);
+    if (active && background) {
+        // Rendered image must have red background on an active QWebView.
+        palette1.setBrush(QPalette::Active, QPalette::Highlight, brush1);
+    } else if (active && !background) {
+        // Rendered image must have red foreground on an active QWebView.
+        palette1.setBrush(QPalette::Active, QPalette::HighlightedText, brush1);
+    } else if (!active && background) {
+        // Rendered image must have red background on an inactive QWebView.
+        palette1.setBrush(QPalette::Inactive, QPalette::Highlight, brush1);
+    } else if (!active && !background) {
+        // Rendered image must have red foreground on an inactive QWebView.
+        palette1.setBrush(QPalette::Inactive, QPalette::HighlightedText, brush1);
+    }
+
+    view1.setPalette(palette1);
+    view1.setHtml(html);
+    view1.page()->setViewportSize(view1.page()->currentFrame()->contentsSize());
+    view1.show();
+
+    QTest::qWaitForWindowShown(&view1);
+
+    if (!active) {
+        controlView.show();
+        QTest::qWaitForWindowShown(&controlView);
+        activeView = &controlView;
+        controlView.activateWindow();
+    } else {
+        view1.activateWindow();
+        activeView = &view1;
+    }
+
+    QTRY_COMPARE(QApplication::activeWindow(), activeView);
+
+    view1.page()->triggerAction(QWebPage::SelectAll);
+
+    QImage img1(view1.page()->viewportSize(), QImage::Format_ARGB32);
+    QPainter painter1(&img1);
+    view1.page()->currentFrame()->render(&painter1);
+    painter1.end();
+    view1.close();
+    controlView.close();
+
+    QWebView view2;
+
+    QPalette palette2;
+    QBrush brush2(Qt::blue);
+    brush2.setStyle(Qt::SolidPattern);
+    if (active && background) {
+        // Rendered image must have blue background on an active QWebView.
+        palette2.setBrush(QPalette::Active, QPalette::Highlight, brush2);
+    } else if (active && !background) {
+        // Rendered image must have blue foreground on an active QWebView.
+        palette2.setBrush(QPalette::Active, QPalette::HighlightedText, brush2);
+    } else if (!active && background) {
+        // Rendered image must have blue background on an inactive QWebView.
+        palette2.setBrush(QPalette::Inactive, QPalette::Highlight, brush2);
+    } else if (!active && !background) {
+        // Rendered image must have blue foreground on an inactive QWebView.
+        palette2.setBrush(QPalette::Inactive, QPalette::HighlightedText, brush2);
+    }
+
+    view2.setPalette(palette2);
+    view2.setHtml(html);
+    view2.page()->setViewportSize(view2.page()->currentFrame()->contentsSize());
+    view2.show();
+
+    QTest::qWaitForWindowShown(&view2);
+
+    if (!active) {
+        controlView.show();
+        QTest::qWaitForWindowShown(&controlView);
+        activeView = &controlView;
+        controlView.activateWindow();
+    } else {
+        view2.activateWindow();
+        activeView = &view2;
+    }
+
+    QTRY_COMPARE(QApplication::activeWindow(), activeView);
+
+    view2.page()->triggerAction(QWebPage::SelectAll);
+
+    QImage img2(view2.page()->viewportSize(), QImage::Format_ARGB32);
+    QPainter painter2(&img2);
+    view2.page()->currentFrame()->render(&painter2);
+    painter2.end();
+
+    view2.close();
+    controlView.close();
+
+    QVERIFY(img1 != img2);
+}
+#endif
+
+void tst_QWebView::renderingAfterMaxAndBack()
+{
+    QUrl url = QUrl("data:text/html,<html><head></head>"
+                   "<body width=1024 height=768 bgcolor=red>"
+                   "</body>"
+                   "</html>");
+
+    QWebView view;
+    view.page()->mainFrame()->load(url);
+    QVERIFY(waitForSignal(&view, SIGNAL(loadFinished(bool))));
+    view.show();
+
+    view.page()->settings()->setMaximumPagesInCache(3);
+
+    QTest::qWaitForWindowShown(&view);
+
+    QPixmap reference(view.page()->viewportSize());
+    reference.fill(Qt::red);
+
+    QPixmap image(view.page()->viewportSize());
+    QPainter painter(&image);
+    view.page()->currentFrame()->render(&painter);
+
+    QCOMPARE(image, reference);
+
+    QUrl url2 = QUrl("data:text/html,<html><head></head>"
+                     "<body width=1024 height=768 bgcolor=blue>"
+                     "</body>"
+                     "</html>");
+    view.page()->mainFrame()->load(url2);
+
+    QVERIFY(waitForSignal(&view, SIGNAL(loadFinished(bool))));
+
+    view.showMaximized();
+
+    QTest::qWaitForWindowShown(&view);
+
+    QPixmap reference2(view.page()->viewportSize());
+    reference2.fill(Qt::blue);
+
+    QPixmap image2(view.page()->viewportSize());
+    QPainter painter2(&image2);
+    view.page()->currentFrame()->render(&painter2);
+
+    QCOMPARE(image2, reference2);
+
+    view.back();
+
+    QPixmap reference3(view.page()->viewportSize());
+    reference3.fill(Qt::red);
+    QPixmap image3(view.page()->viewportSize());
+    QPainter painter3(&image3);
+    view.page()->currentFrame()->render(&painter3);
+
+    QCOMPARE(image3, reference3);
 }
 
 QTEST_MAIN(tst_QWebView)

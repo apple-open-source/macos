@@ -201,6 +201,7 @@ OSStatus SecKeychainItemImport(
 	
 	bool				isPem;
 	OSStatus			ortn = noErr;
+	OSStatus			pem_ortn = noErr;
 	SecImportRep		*rep = NULL;
 	SecExternalFormat   callerInputFormat;
 	SecExternalItemType callerItemType;
@@ -226,6 +227,11 @@ OSStatus SecKeychainItemImport(
 		callerItemType = kSecItemTypeUnknown;
 	}
 	
+	CFIndex numReps = 0;
+	SecExternalFormat tempFormat = callerInputFormat;
+	SecExternalItemType tempType = callerItemType;
+	ImpPrivKeyImportState keyImportState = PIS_NoLimit;
+
 	CFMutableArrayRef importReps = CFArrayCreateMutable(NULL, 0, NULL);
 	CFMutableArrayRef createdKcItems = CFArrayCreateMutable(NULL, 0, 
 		&kCFTypeArrayCallBacks);
@@ -235,7 +241,8 @@ OSStatus SecKeychainItemImport(
 	 * importedData --> one or more SecImportReps.
 	 * Note successful PEM decode can override caller's inputFormat and/or itemType.
 	 */
-	ortn = impExpParsePemToImportRefs(importedData, importReps, &isPem);
+	pem_ortn = impExpParsePemToImportRefs(importedData, importReps, &isPem);
+	/* remember how PEM decode failed, but continue to examine other possibilities */
 	if(!isPem) {
 		/* incoming blob is one binary item, type possibly unknown */
 		rep = new SecImportRep(importedData, callerItemType, callerInputFormat,
@@ -266,11 +273,7 @@ OSStatus SecKeychainItemImport(
 	/* 
 	 * Ensure we know type and format (and, for raw keys, algorithm) of each item. 
 	 */
-	CFIndex numReps = CFArrayGetCount(importReps);
-	SecExternalFormat tempFormat = callerInputFormat;
-	SecExternalItemType tempType = callerItemType;
-	ImpPrivKeyImportState keyImportState = PIS_NoLimit;
-	
+	numReps = CFArrayGetCount(importReps);	
 	if(numReps > 1) {
 		/* 
 		 * Incoming kSecFormatPEMSequence, caller specs are useless now.
@@ -366,11 +369,44 @@ errOut:
 		CFRelease(ourFileStr);
 	}
 	if(ortn) {
+		/* error occurred importing non-PEM representation */
 		return SecKeychainErrFromOSStatus(ortn);
 	}
-	else {
-		return noErr;
+	if(pem_ortn == errSecUnsupportedFormat && numReps == 0) {
+		/* error occurred importing as PEM, and no other rep was imported */
+		return SecKeychainErrFromOSStatus(pem_ortn);
 	}
+	return noErr;
 	
 	END_IMP_EXP_SECAPI
 }
+
+OSStatus SecItemImport(
+	CFDataRef							importedData,
+	CFStringRef							fileNameOrExtension,	/* optional */
+	SecExternalFormat					*inputFormat,			/* optional, IN/OUT */
+	SecExternalItemType					*itemType,				/* optional, IN/OUT */
+	SecItemImportExportFlags			flags, 
+	const SecItemImportExportKeyParameters  *keyParams,				/* optional */
+	SecKeychainRef						importKeychain,			/* optional */
+	CFArrayRef							*outItems)
+{
+	
+	SecKeyImportExportParameters* oldStructPtr = NULL;
+	SecKeyImportExportParameters oldStruct;
+	memset(&oldStruct, 0, sizeof(oldStruct));
+	
+	
+	if (NULL != keyParams)
+	{
+		if (ConvertSecKeyImportExportParametersToSecImportExportKeyParameters(NULL,
+			keyParams, &oldStruct))
+		{
+			oldStructPtr = &oldStruct;
+		}
+	}
+	
+	return SecKeychainItemImport(importedData, fileNameOrExtension, inputFormat, 
+		itemType, flags, oldStructPtr, importKeychain, outItems);
+}
+

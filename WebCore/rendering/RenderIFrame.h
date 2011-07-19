@@ -32,21 +32,14 @@ namespace WebCore {
 
 class RenderIFrame : public RenderFrameBase {
 public:
-    RenderIFrame(Element*);
-
-#if USE(ACCELERATED_COMPOSITING)
-    bool requiresAcceleratedCompositing() const;
-#endif
+    explicit RenderIFrame(Element*);
 
 private:
-    virtual void calcHeight();
-    virtual void calcWidth();
+    virtual void computeLogicalHeight();
+    virtual void computeLogicalWidth();
 
     virtual void layout();
 
-#if USE(ACCELERATED_COMPOSITING)
-    virtual bool requiresLayer() const;
-#endif
     virtual bool isRenderIFrame() const { return true; }
 
     virtual const char* renderName() const { return "RenderPartObject"; } // Lying for now to avoid breaking tests

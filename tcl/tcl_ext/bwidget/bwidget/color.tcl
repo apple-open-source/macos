@@ -1,12 +1,21 @@
+# ---------------------------------------------------------------------------
+#  color.tcl
+#  This file is part of Unifix BWidget Toolkit
+#  $Id: color.tcl,v 1.14 2009/09/06 21:04:47 oberdorfer Exp $
+# ---------------------------------------------------------------------------
+
+
 namespace eval SelectColor {
     Widget::define SelectColor color Dialog
 
     Widget::declare SelectColor {
         {-title     String     "Select a color" 0}
         {-parent    String     ""               0}
-        {-color     TkResource ""               0 {label -background}}
+        {-color     Color      "SystemWindowFrame"  0}
 	{-type      Enum       "dialog"         1 {dialog popup}}
 	{-placement String     "center"         1}
+        {-background		Color      "SystemWindowFrame" 0}
+        {-highlightcolor 	Color      "SystemHighlight"   0}
     }
 
     variable _baseColors {
@@ -72,6 +81,7 @@ proc SelectColor::menu {path placement args} {
     variable _selection
 
     Widget::init SelectColor $path $args
+
     set top [toplevel $path]
     set parent [winfo toplevel [winfo parent $top]]
     wm withdraw  $top
@@ -89,7 +99,7 @@ proc SelectColor::menu {path placement args} {
     foreach color $colors {
         set f [frame $frame.c$count \
                    -highlightthickness 2 \
-                   -highlightcolor white \
+                   -highlightcolor [Widget::getoption $path -highlightcolor] \
                    -relief solid -borderwidth 1 \
                    -width 16 -height 16 -background $color]
         bind $f <1>     "set SelectColor::_selection $count; break"
@@ -103,7 +113,7 @@ proc SelectColor::menu {path placement args} {
     }
     set f [label $frame.c$count \
                -highlightthickness 2 \
-               -highlightcolor white \
+               -highlightcolor [Widget::getoption $path -highlightcolor] \
                -relief flat -borderwidth 0 \
                -width 16 -height 16 -image [Bitmap::get palette]]
     grid $f -column $col -row $row
@@ -170,7 +180,11 @@ proc SelectColor::dialog {path args} {
                    -separator 1 -default 0 -cancel 1 -anchor e]
     wm resizable $top 0 0
     set dlgf  [$top getframe]
-    set fg    [frame $dlgf.fg]
+
+    if { [BWidget::using ttk] } {
+             set fg [ttk::frame $dlgf.fg]
+    } else { set fg [frame $dlgf.fg] }
+
     set desc  [list \
                    base _baseColors "Base colors" \
                    user _userColors "User colors"]
@@ -211,19 +225,27 @@ proc SelectColor::dialog {path args} {
         }
         pack $titf -anchor w -pady 2
     }
+
     set fround [frame $fg.round \
-                    -highlightthickness 0 \
-                    -relief sunken -borderwidth 2]
+                      -highlightthickness 0 \
+                      -relief sunken -borderwidth 2]
     set fcolor [frame $fg.color \
-                    -width 50 \
-                    -highlightthickness 0 \
-                    -relief flat -borderwidth 0]
+                      -width 50 \
+                      -highlightthickness 0 \
+                      -relief flat -borderwidth 0]
+
     pack $fcolor -in $fround -fill y -expand yes
     pack $fround -anchor e -pady 2 -fill y -expand yes
 
-    set fd  [frame $dlgf.fd]
-    set f1  [frame $fd.f1 -relief sunken -borderwidth 2]
-    set f2  [frame $fd.f2 -relief sunken -borderwidth 2]
+    if { [BWidget::using ttk] } {
+        set fd  [ttk::frame $dlgf.fd]
+        set f1  [ttk::frame $fd.f1 -relief sunken]
+        set f2  [ttk::frame $fd.f2 -relief sunken]
+    } else {
+        set fd  [frame $dlgf.fd]
+        set f1  [frame $fd.f1 -relief sunken -borderwidth 2]
+        set f2  [frame $fd.f2 -relief sunken -borderwidth 2]
+    }    
     set c1  [canvas $f1.c -width 200 -height 200 -bd 0 -highlightthickness 0]
     set c2  [canvas $f2.c -width 15  -height 200 -bd 0 -highlightthickness 0]
 

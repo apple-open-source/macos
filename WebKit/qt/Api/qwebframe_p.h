@@ -28,15 +28,25 @@
 #include "GraphicsContext.h"
 #include "KURL.h"
 #include "PlatformString.h"
+#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+#include "qorientationsensor.h"
+#endif
 #include "qwebelement.h"
 #include "wtf/RefPtr.h"
 #include "Frame.h"
+#include "ViewportArguments.h"
+
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+#include "texmap/TextureMapper.h"
+#endif
+
 
 namespace WebCore {
     class FrameLoaderClientQt;
     class FrameView;
     class HTMLFrameOwnerElement;
     class Scrollbar;
+    class TextureMapperNode;
 }
 class QWebPage;
 
@@ -44,16 +54,16 @@ class QWebFrameData {
 public:
     QWebFrameData(WebCore::Page*, WebCore::Frame* parentFrame = 0,
                   WebCore::HTMLFrameOwnerElement* = 0,
-                  const WebCore::String& frameName = WebCore::String());
+                  const WTF::String& frameName = WTF::String());
 
     WebCore::KURL url;
-    WebCore::String name;
+    WTF::String name;
     WebCore::HTMLFrameOwnerElement* ownerElement;
     WebCore::Page* page;
     RefPtr<WebCore::Frame> frame;
     WebCore::FrameLoaderClientQt* frameLoaderClient;
 
-    WebCore::String referrer;
+    WTF::String referrer;
     bool allowsScrolling;
     int marginWidth;
     int marginHeight;
@@ -71,6 +81,9 @@ public:
         , allowsScrolling(true)
         , marginWidth(-1)
         , marginHeight(-1)
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+        , rootTextureMapperNode(0)
+#endif
         {}
     void init(QWebFrame* qframe, QWebFrameData* frameData);
     void setPage(QWebPage*);
@@ -80,13 +93,20 @@ public:
     WebCore::Scrollbar* horizontalScrollBar() const;
     WebCore::Scrollbar* verticalScrollBar() const;
 
-    static WebCore::Frame* core(QWebFrame*);
-    static QWebFrame* kit(WebCore::Frame*);
+    static WebCore::Frame* core(const QWebFrame*);
+    static QWebFrame* kit(const WebCore::Frame*);
 
-    void renderRelativeCoords(WebCore::GraphicsContext*, QWebFrame::RenderLayer, const QRegion& clip);
+    void renderRelativeCoords(WebCore::GraphicsContext*, QFlags<QWebFrame::RenderLayer>, const QRegion& clip);
 #if ENABLE(TILED_BACKING_STORE)
     void renderFromTiledBackingStore(WebCore::GraphicsContext*, const QRegion& clip);
 #endif
+
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+    void renderCompositedLayers(WebCore::GraphicsContext*, const WebCore::IntRect& clip);
+#endif
+    void renderFrameExtras(WebCore::GraphicsContext*, QFlags<QWebFrame::RenderLayer>, const QRegion& clip);
+    void emitUrlChanged();
+    void _q_orientationChanged();
 
     QWebFrame *q;
     Qt::ScrollBarPolicy horizontalScrollBarPolicy;
@@ -94,10 +114,19 @@ public:
     WebCore::FrameLoaderClientQt *frameLoaderClient;
     WebCore::Frame *frame;
     QWebPage *page;
+    WebCore::KURL url;
 
     bool allowsScrolling;
     int marginWidth;
     int marginHeight;
+#if USE(ACCELERATED_COMPOSITING) && USE(TEXTURE_MAPPER)
+    WebCore::TextureMapperNode* rootTextureMapperNode;
+    OwnPtr<WebCore::TextureMapper> textureMapper;
+#endif
+
+#if ENABLE(ORIENTATION_EVENTS) && ENABLE(DEVICE_ORIENTATION)
+    QtMobility::QOrientationSensor m_orientation;
+#endif
 };
 
 class QWebHitTestResultPrivate {

@@ -2,7 +2,7 @@
  * Copyright (c) 2000-2001, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2008 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2009 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -52,7 +52,7 @@
 #include <netsmb/smb_dev.h>
 #include <netsmb/md4.h>
 
-#include <fs/smbfs/smbfs_subr.h>
+#include <smbfs/smbfs_subr.h>
 #include <netsmb/smb_converter.h>
 
 #include <crypto/des.h>
@@ -125,16 +125,16 @@ int smb_lmresponse(const u_char *apwd, u_char *C8, u_char *RN)
  */
 static void smb_ntlmhash(const uint8_t *passwd, uint8_t *ntlmHash, size_t ntlmHash_len)
 {
-	u_int16_t *unicode_passwd = NULL;
+	uint16_t *unicode_passwd = NULL;
 	MD4_CTX md4;
 	size_t len;
 	
 	bzero(ntlmHash, ntlmHash_len);
 	len = strnlen((char *)passwd, SMB_MAXPASSWORDLEN + 1);
-	unicode_passwd = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+	unicode_passwd = malloc(len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
 	if (unicode_passwd == NULL)	/* Should never happen, but better safe than sorry */
 		return;
-	len = smb_strtouni(unicode_passwd, (char *)passwd, len,  UTF_PRECOMPOSED|UTF_NO_NULL_TERM);
+	len = smb_strtouni(unicode_passwd, (char *)passwd, len, UTF_PRECOMPOSED);
 	bzero(&md4, sizeof(md4)); 
 	MD4Init(&md4);
 	MD4Update(&md4, (uint8_t *)unicode_passwd, (unsigned int)len);
@@ -238,7 +238,7 @@ void smb_ntlmv2hash(uint8_t *ntlmv2Hash, const void * domain, const void * user,
 					const void * password)
 {
 	uint8_t ntlmHash[SMB_NTLM_LEN];
-	u_int16_t *UserDomainUTF16 = NULL;
+	uint16_t *UserDomainUTF16 = NULL;
 	char *UserDomain = NULL;
 	size_t len;
 	
@@ -256,10 +256,10 @@ void smb_ntlmv2hash(uint8_t *ntlmv2Hash, const void * domain, const void * user,
 	strncat(UserDomain, domain, SMB_MAXNetBIOSNAMELEN + 1);
 	SMBDEBUG("UserDomain = %s\n", UserDomain);
 	
-	UserDomainUTF16 = malloc(len * sizeof(u_int16_t), M_SMBTEMP, M_WAITOK);
+	UserDomainUTF16 = malloc(len * sizeof(uint16_t), M_SMBTEMP, M_WAITOK);
 	if (UserDomainUTF16 == NULL)	/* Should never happen, but better safe than sorry */
 		goto done;
-	len = smb_strtouni(UserDomainUTF16, UserDomain, len, UTF_PRECOMPOSED | UTF_NO_NULL_TERM);
+	len = smb_strtouni(UserDomainUTF16, UserDomain, len, UTF_PRECOMPOSED);
 	
 	HMACT64(ntlmHash, SMB_NTLMV2_LEN, (const u_char *)UserDomainUTF16, len, ntlmv2Hash);
 #ifdef SSNDEBUG
@@ -278,10 +278,10 @@ done:
  * Compute the LMv2 response, derived from the NTLMv2 hash, the server challenge,
  * and the client nonce.
  */
-void *smb_lmv2_response(void *ntlmv2Hash, u_int64_t server_nonce, u_int64_t client_nonce, size_t *lmv2_len)
+void *smb_lmv2_response(void *ntlmv2Hash, uint64_t server_nonce, uint64_t client_nonce, size_t *lmv2_len)
 {
 	void *lmv2;
-	u_int64_t nonce[2];
+	uint64_t nonce[2];
 	
 	nonce[0] = server_nonce;
 	nonce[1] = client_nonce;
@@ -290,7 +290,7 @@ void *smb_lmv2_response(void *ntlmv2Hash, u_int64_t server_nonce, u_int64_t clie
 	if (lmv2 == NULL)
 		return NULL;
 	HMACT64(ntlmv2Hash, SMB_NTLMV2_LEN, (const u_char *)&nonce, sizeof(nonce), lmv2);
-	bcopy(&client_nonce, (u_int8_t *)lmv2 + SMB_NTLMV2_LEN, sizeof(client_nonce));
+	bcopy(&client_nonce, (uint8_t *)lmv2 + SMB_NTLMV2_LEN, sizeof(client_nonce));
 #ifdef SSNDEBUG
 	smb_hexdump(__FUNCTION__, "lmv2 = ", lmv2, (int32_t)*lmv2_len);
 #endif // SSNDEBUG
@@ -304,7 +304,7 @@ void *smb_lmv2_response(void *ntlmv2Hash, u_int64_t server_nonce, u_int64_t clie
  * Compute the LMv2 response, derived from the NTLMv2 hash, the server challenge,
  * and the client nonce.
  */
-void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, u_int64_t server_nonce)
+void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, uint64_t server_nonce)
 {
 	uint8_t *blob = ntlmv2;
 	size_t blob_len = ntlmv2_len;
@@ -318,12 +318,12 @@ void smb_ntlmv2_response(void *ntlmv2Hash, void *ntlmv2, size_t ntlmv2_len, u_in
 /*
  * make_ntlmv2_blob
  */
-uint8_t *make_ntlmv2_blob(u_int64_t client_nonce, void *target_info, u_int16_t target_len, size_t *blob_len)
+uint8_t *make_ntlmv2_blob(uint64_t client_nonce, void *target_info, uint16_t target_len, size_t *blob_len)
 {
 	uint8_t *blob = NULL;
 	struct ntlmv2_blobhdr *blobhdr;
 	struct timespec now;
-	u_int64_t timestamp;
+	uint64_t timestamp;
 	u_char *target_offset;
 	
 	/* We always make the buffer big enough to hold the HMAC */
@@ -398,7 +398,7 @@ void smb_calcv2mackey(struct smb_vc *vcp, void *ntlmv2Hash, void *ntlmv2,
 
 	smb_reset_sig(vcp);
 	
-	vcp->vc_mackeylen = (u_int32_t)(16 + resplen);
+	vcp->vc_mackeylen = (uint32_t)(16 + resplen);
 	vcp->vc_mackey = malloc(vcp->vc_mackeylen, M_SMBTEMP, M_WAITOK);
 	/* Should never happen, but better safe than sorry */
 	if (vcp->vc_mackey == NULL) {
@@ -414,6 +414,16 @@ void smb_calcv2mackey(struct smb_vc *vcp, void *ntlmv2Hash, void *ntlmv2,
 #if SSNDEBUG
 	smb_hexdump(__FUNCTION__, "setting vc_mackey = ", vcp->vc_mackey, vcp->vc_mackeylen);
 #endif
+	/* 
+	 * Windows expects the sequence number to restart once we get a signing
+	 * key. They expect this to happen once the client creates a authorization
+	 * token blob to send to the server. This was we can validate the servers
+	 * response. When doing Kerberos and now NTLMSSP we don't get the signing
+	 * key until after the gss mech has completed. Not sure how to really 
+	 * fix this issue, but for now we just reset the sequence number as if
+	 * we had the key when the last round went out.
+	 */
+	vcp->vc_seqno = 2;
 }
 
 /*
@@ -445,7 +455,7 @@ void smb_calcmackey(struct smb_vc *vcp,  void *resp, size_t resplen)
 
 	smb_reset_sig(vcp);
 
-	vcp->vc_mackeylen = (u_int32_t)(16 + resplen);
+	vcp->vc_mackeylen = (uint32_t)(16 + resplen);
 	vcp->vc_mackey = malloc(vcp->vc_mackeylen, M_SMBTEMP, M_WAITOK);
 		/* Should never happen, but better safe than sorry */
 	if (vcp->vc_mackey == NULL) {
@@ -464,6 +474,16 @@ void smb_calcmackey(struct smb_vc *vcp,  void *resp, size_t resplen)
 #if SSNDEBUG
 	smb_hexdump(__FUNCTION__, "setting vc_mackey = ", vcp->vc_mackey, vcp->vc_mackeylen);
 #endif
+	/* 
+	 * Windows expects the sequence number to restart once we get a signing
+	 * key. They expect this to happen once the client creates a authorization
+	 * token blob to send to the server. This was we can validate the servers
+	 * response. When doing Kerberos and now NTLMSSP we don't get the signing
+	 * key until after the gss mech has completed. Not sure how to really 
+	 * fix this issue, but for now we just reset the sequence number as if
+	 * we had the key when the last round went out.
+	 */
+	vcp->vc_seqno = 2;
 	return;
 }
 
@@ -489,15 +509,11 @@ smb_rq_sign(struct smb_rq *rqp)
 	 * message and must be reset if authentication fails.
 	 */
 	if ((vcp->vc_mackey == NULL) || (rqp->sr_cmd == SMB_COM_SESSION_SETUP_ANDX)) {
-		/* The NTLMSSP code will reset these once it has a mac key */
-		rqp->sr_seqno = vcp->vc_seqno++;
-		rqp->sr_rseqno = vcp->vc_seqno++;
 		/* Should never be null, but just to be safe */ 
 		if (rqp->sr_rqsig)
 			bcopy("BSRSPLY ", rqp->sr_rqsig, 8);
 		return (0);
 	}
-	
 	/* 
 	 * This is a bit of a kludge. If the request is non-TRANSACTION,
 	 * or it is the first request of a transaction, give it the next
@@ -525,8 +541,8 @@ smb_rq_sign(struct smb_rq *rqp)
 	
 	/* Initialize sec. signature field to sequence number + zeros. */
 	if (rqp->sr_rqsig) {
-		*(u_int32_t *)rqp->sr_rqsig = htolel(rqp->sr_seqno);
-		*(u_int32_t *)(rqp->sr_rqsig + 4) = 0;		
+		*(uint32_t *)rqp->sr_rqsig = htolel(rqp->sr_seqno);
+		*(uint32_t *)(rqp->sr_rqsig + 4) = 0;		
 	}
 	
 	/* 
@@ -546,7 +562,7 @@ smb_rq_sign(struct smb_rq *rqp)
 }
 
 static int
-smb_verify(struct smb_rq *rqp, u_int32_t seqno)
+smb_verify(struct smb_rq *rqp, uint32_t seqno)
 {
 	struct smb_vc *vcp = rqp->sr_vc;
 	struct mdchain *mdp;
@@ -567,10 +583,10 @@ smb_verify(struct smb_rq *rqp, u_int32_t seqno)
 	MD5Init(&md5);
 	MD5Update(&md5, vcp->vc_mackey, vcp->vc_mackeylen);
 	MD5Update(&md5, mbuf_data(mb), SMBSIGOFF);
-	*(u_int32_t *)sigbuf = htolel(seqno);
-	*(u_int32_t *)(sigbuf + 4) = 0;
+	*(uint32_t *)sigbuf = htolel(seqno);
+	*(uint32_t *)(sigbuf + 4) = 0;
 	MD5Update(&md5, sigbuf, SMBSIGLEN);
-	MD5Update(&md5, (u_int8_t *)mbuf_data(mb) + SMBPASTSIG, 
+	MD5Update(&md5, (uint8_t *)mbuf_data(mb) + SMBPASTSIG, 
 			  (unsigned int)(mbuf_len(mb) - SMBPASTSIG));
 	for (mb = mbuf_next(mb); mb != NULL; mb = mbuf_next(mb))
 		if (mbuf_len(mb))
@@ -579,7 +595,7 @@ smb_verify(struct smb_rq *rqp, u_int32_t seqno)
 	/*
 	 * Finally, verify the signature.
 	 */
-	return (bcmp((u_int8_t *)mbuf_data(mdp->md_top) + SMBSIGOFF, digest, SMBSIGLEN));
+	return (bcmp((uint8_t *)mbuf_data(mdp->md_top) + SMBSIGOFF, digest, SMBSIGLEN));
 }
 
 /* 

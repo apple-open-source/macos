@@ -1,23 +1,24 @@
 /*
- * Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
- * "Portions Copyright (c) 2003 Apple Computer, Inc.  All Rights
- * Reserved.  This file contains Original Code and/or Modifications of
- * Original Code as defined in and that are subject to the Apple Public
- * Source License Version 1.0 (the 'License').  You may not use this file
- * except in compliance with the License.  Please obtain a copy of the
- * License at http://www.apple.com/publicsource and read it before using
- * this file.
+ * Portions Copyright (c) 2003-2010 Apple Inc.  All Rights Reserved.
+ *
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
  * 
  * The Original Code and all software distributed under the License are
  * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
  * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
  * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
- * FITNESS FOR A PARTICULAR PURPOSE OR NON-INFRINGEMENT.  Please see the
- * License for the specific language governing rights and limitations
- * under the License."
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
  * 
  * @APPLE_LICENSE_HEADER_END@
  */
@@ -250,6 +251,33 @@ uint32_t notify_check(int token, int *check);
  * @result Returns status.
  */
 uint32_t notify_cancel(int token);
+
+/*!
+ * Suspend delivery of notifications for a token. Notifications for this token will be
+ * pended and coalesced, then delivered following a matching call to notify_resume.
+ * Calls to notify_suspend may be nested.  Notifications remain suspended until
+ * an equal number of calls have been made to notify_resume.
+ *
+ * @param token
+ *     (input) notification token
+ * @result Returns status.
+ */
+uint32_t notify_suspend(int token)
+__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
+
+/*!
+ * Removes one level of suspension for a token previously suspended
+ * by a call to notify_suspend.  Notifications will resume when a matching
+ * call to notify_resume is made for each previous call to notify_suspend.
+ * Notifications posted while a token is suspended are coalesced into
+ * a single notification sent following a resumption.
+ *
+ * @param token
+ *     (input) notification token
+ * @result Returns status.
+ */
+uint32_t notify_resume(int token)
+__OSX_AVAILABLE_STARTING(__MAC_10_6,__IPHONE_4_0);
 
 /*!
  * Set or get a state value associated with a notification token.

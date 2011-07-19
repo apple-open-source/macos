@@ -11,27 +11,50 @@ MYSRC := $(SRCROOT)/Modules/$(NAMEVERSION)
 ARCHFLAGS := ARCHFLAGS='$(RC_CFLAGS)'
 export PATH := $(DSTROOT)/usr/bin:$(PATH)
 
+ifeq ($(shell [ -f $(DIR)/Build.PL ] && echo YES || echo NO),YES)
+PLFILE = Build.PL
+MAKECMD = ./Build
+INDIRECTPLARGS = PLBARGS
+INDIRECTMAKEARGS = BUILDARGS
+else
+PLFILE = Makefile.PL
+MAKECMD = make
+INDIRECTPLARGS = PLARGS
+INDIRECTMAKEARGS = MAKEARGS
+endif
+
 no_target: $(DIR)/.mark
 
-$(DIR)/.mark: $(DIR) custompatching
+$(DIR)/.mark: $(DIR) configure build
+	touch $@
+
+configure: custompatching
 	@set -x && \
 	cd $(DIR) && \
-	PERL_MM_USE_DEFAULT=1 $(ARCHFLAGS) $(ENV) perl Makefile.PL $(PROJARGS) $(PLARGS) && \
-	$(ARCHFLAGS) $(ENV) make $(MAKEARGS)
-	touch $@
+	PERL_MM_USE_DEFAULT=1 $(ARCHFLAGS) $(ENV) perl $(PLFILE) $(PROJARGS) $($(INDIRECTPLARGS))
+
+build: patchafterconfigure
+	@set -x && \
+	cd $(DIR) && \
+	$(ARCHFLAGS) $(ENV) $(MAKECMD) $($(INDIRECTMAKEARGS))
 
 $(DIR):
 	gnutar xozf $(TARBALL) -C $(OBJROOT)
+
+unpack: $(DIR)
 
 install: realinstall postinstall
 
 realinstall: $(DIR)/.mark
 	@set -x && \
 	cd $(DIR) && \
-	$(ARCHFLAGS) $(ENV) make install $(MAKEARGS)
+	$(ARCHFLAGS) $(ENV) $(MAKECMD) install $($(INDIRECTMAKEARGS))
 
-# allow custom patching before running Makefile.PL
+# allow custom patching before running Makefile.PL or Build.PL
 custompatching:
+
+# allow patching after running Makefile.PL or Build.PL
+patchafterconfigure:
 
 # allow post install customization
 postinstall:

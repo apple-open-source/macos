@@ -126,10 +126,10 @@ stress=
     an empty value ("name="), or sends a zero value ("name=0") in
     the case of a numerical attribute. </p>
 
-    <li> <p> The "recipient" attribute is available only in the
-    "RCPT TO" stage, and in the "DATA" and "END-OF-MESSAGE" stages
-    when Postfix accepted only one recipient for the current message.
-    </p>
+    <li> <p> The "recipient" attribute is available in the "RCPT
+    TO" stage. It is also available in the "DATA" and "END-OF-MESSAGE"
+    stages if Postfix accepted only one recipient for the current
+    message.  </p>
 
     <li> <p> The "recipient_count" attribute (Postfix 2.3 and later)
     is non-zero only in the "DATA" and "END-OF-MESSAGE" stages. It
@@ -149,7 +149,12 @@ stress=
     and an attribute value must not contain null or newline. </p>
 
     <li> <p> The "instance" attribute value can be used to correlate
-    different requests regarding the same message delivery. </p>
+    different requests regarding the same message delivery. These
+    requests are sent over the same policy connection (unless the
+    policy daemon terminates the connection).  Once Postfix sends
+    a query with a different instance attribute over that same
+    policy connection, the previous message delivery is either
+    completed or aborted. </p>
 
     <li> <p> The "size" attribute value specifies the message size
     that the client specified in the MAIL FROM command (zero if
@@ -168,8 +173,9 @@ stress=
     These attributes are empty in case of no certificate authentication.
     As of Postfix 2.2.11 these attribute values are encoded as
     xtext: some characters are represented by +XX, where XX is the
-    two-digit hexadecimal representation of the character value.
-    </p>
+    two-digit hexadecimal representation of the character value. With
+    Postfix 2.6 and later, the decoded string is an UTF-8 string
+    without non-printable ASCII characters.  </p>
 
     <li> <p> The "encryption_*" attributes (Postfix 2.3 and later)
     specify information about how the connection is encrypted. With
@@ -265,11 +271,12 @@ daemon, you would use something like this: </p>
 
 <li> <p> Lines 2, 11: the Postfix spawn(8) daemon by default kills
 its child process after 1000 seconds.  This is too short for a
-policy daemon that may run for as long as an SMTP client is connected
-to an SMTP server process. The default time limit is overruled in
+policy daemon that may need to run for as long as the SMTP server
+process that talks to it. The default time limit is overruled in
 main.cf with an explicit "policy_time_limit" setting.  The name of
 the parameter is the name of the master.cf entry ("policy")
-concatenated with the "_time_limit" suffix.  </p>
+concatenated with the "_time_limit" suffix. See spawn(8) for
+more information about the time limit parameter.  </p>
 
 <li> <p> Line 2: specify a "0" process limit instead of the default
 "-", to avoid "connection refused" and other problems when the smtpd
@@ -550,6 +557,13 @@ $database_name="/var/mta/greylist.db";
 $greylist_delay=60;
 
 #
+# Auto-whitelist threshold. Specify 0 to disable, or the number of
+# successful "come backs" after which a client is no longer subject
+# to greylisting.
+#
+$auto_whitelist_threshold = 10;
+
+#
 # Demo SMTPD access policy routine. The result is an action just like
 # it would be specified on the right-hand side of a Postfix access
 # table.  Request attributes are available via the %attr hash.
@@ -559,6 +573,14 @@ sub smtpd_access_policy {
 
     # Open the database on the fly.
     open_database() unless $database_obj;
+
+    # Search the auto-whitelist.
+    if ($auto_whitelist_threshold &gt; 0) {
+        $count = read_database($attr{"client_address"});
+        if ($count &gt; $auto_whitelist_threshold) {
+            return "dunno";
+        }
+    }
 
     # Lookup the time stamp for this client/sender/recipient.
     $key =
@@ -584,6 +606,10 @@ sub smtpd_access_policy {
     #
     syslog $syslog_priority, "request age %d", $now - $time_stamp if $verbose;
     if ($now - $time_stamp &gt; $greylist_delay) {
+        # Update the auto-whitelist.
+        if ($auto_whitelist_threshold &gt; 0) {
+            update_database($attr{"client_address"}, $count + 1);
+        }
         return "dunno";
     } else {
         return "defer_if_permit Service temporarily unavailable";

@@ -49,9 +49,10 @@
 #include "WebURLAuthenticationChallenge.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
-#pragma warning(push, 0)
+#include <WebCore/BackForwardController.h>
 #include <WebCore/CachedFrame.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameTree.h>
 #include <WebCore/FrameView.h>
@@ -59,6 +60,7 @@
 #include <WebCore/HTMLFrameElement.h>
 #include <WebCore/HTMLFrameOwnerElement.h>
 #include <WebCore/HTMLNames.h>
+#include <WebCore/HTMLParserIdioms.h>
 #include <WebCore/HTMLPlugInElement.h>
 #include <WebCore/HistoryItem.h>
 #include <WebCore/Page.h>
@@ -66,8 +68,7 @@
 #include <WebCore/PluginView.h>
 #include <WebCore/RenderPart.h>
 #include <WebCore/ResourceHandle.h>
-#include <WebCore/ScriptString.h>
-#pragma warning(pop)
+#include <WebCore/Settings.h>
 
 using namespace WebCore;
 using namespace HTMLNames;
@@ -364,16 +365,20 @@ void WebFrameLoaderClient::dispatchDidStartProvisionalLoad()
         frameLoadDelegate->didStartProvisionalLoadForFrame(webView, m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchDidReceiveTitle(const String& title)
+void WebFrameLoaderClient::dispatchDidReceiveTitle(const StringWithDirection& title)
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegate> frameLoadDelegate;
     if (SUCCEEDED(webView->frameLoadDelegate(&frameLoadDelegate)))
-        frameLoadDelegate->didReceiveTitle(webView, BString(title), m_webFrame);
+        // FIXME: use direction of title.
+        frameLoadDelegate->didReceiveTitle(webView, BString(title.string()), m_webFrame);
 }
 
-void WebFrameLoaderClient::dispatchDidChangeIcons()
+void WebFrameLoaderClient::dispatchDidChangeIcons(WebCore::IconType type)
 {
+    if (type != WebCore::Favicon)
+        return;
+
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebFrameLoadDelegatePrivate> frameLoadDelegatePriv;
     if (FAILED(webView->frameLoadDelegatePrivate(&frameLoadDelegatePriv)) || !frameLoadDelegatePriv)
@@ -426,7 +431,7 @@ void WebFrameLoaderClient::dispatchDidFirstVisuallyNonEmptyLayout()
         frameLoadDelegatePrivate->didFirstVisuallyNonEmptyLayoutInFrame(webView, m_webFrame);
 }
 
-Frame* WebFrameLoaderClient::dispatchCreatePage()
+Frame* WebFrameLoaderClient::dispatchCreatePage(const NavigationAction&)
 {
     WebView* webView = m_webFrame->webView();
 
@@ -491,17 +496,20 @@ void WebFrameLoaderClient::postProgressFinishedNotification()
 
 void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const char* data, int length)
 {
-    // FIXME: This should probably go through the data source.
-    const String& textEncoding = loader->response().textEncodingName();
-
     if (!m_manualLoader)
-        receivedData(data, length, textEncoding);
+        loader->commitData(data, length);
+
+    // If the document is a stand-alone media document, now is the right time to cancel the WebKit load.
+    // FIXME: This code should be shared across all ports. <http://webkit.org/b/48762>.
+    Frame* coreFrame = core(m_webFrame);
+    if (coreFrame->document()->isMediaDocument())
+        loader->cancelMainResourceLoad(pluginWillHandleLoadError(loader->response()));
 
     if (!m_manualLoader)
         return;
 
     if (!m_hasSentResponseToPlugin) {
-        m_manualLoader->didReceiveResponse(core(m_webFrame)->loader()->documentLoader()->response());
+        m_manualLoader->didReceiveResponse(loader->response());
         // didReceiveResponse sets up a new stream to the plug-in. on a full-page plug-in, a failure in
         // setting up this stream can cause the main document load to be cancelled, setting m_manualLoader
         // to null
@@ -512,31 +520,15 @@ void WebFrameLoaderClient::committedLoad(DocumentLoader* loader, const char* dat
     m_manualLoader->didReceiveData(data, length);
 }
 
-void WebFrameLoaderClient::receivedData(const char* data, int length, const String& textEncoding)
-{
-    Frame* coreFrame = core(m_webFrame);
-    if (!coreFrame)
-        return;
-
-    // Set the encoding. This only needs to be done once, but it's harmless to do it again later.
-    String encoding = coreFrame->loader()->documentLoader()->overrideEncoding();
-    bool userChosen = !encoding.isNull();
-    if (encoding.isNull())
-        encoding = textEncoding;
-    coreFrame->loader()->writer()->setEncoding(encoding, userChosen);
-
-    coreFrame->loader()->addData(data, length);
-}
-
 void WebFrameLoaderClient::finishedLoading(DocumentLoader* loader)
 {
     // Telling the frame we received some data and passing 0 as the data is our
     // way to get work done that is normally done when the first bit of data is
     // received, even for the case of a document with no data (like about:blank)
-    if (!m_manualLoader) {
-        committedLoad(loader, 0, 0);
+    committedLoad(loader, 0, 0);
+
+    if (!m_manualLoader)
         return;
-    }
 
     m_manualLoader->didFinishLoading();
     m_manualLoader = 0;
@@ -555,7 +547,7 @@ void WebFrameLoaderClient::updateGlobalHistory()
         COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(loader->originalRequestCopy()));
         
         COMPtr<IWebNavigationData> navigationData(AdoptCOM, WebNavigationData::createInstance(
-            loader->urlForHistory(), loader->title(), urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
+            loader->urlForHistory(), loader->title().string(), urlRequest.get(), urlResponse.get(), loader->substituteData().isValid(), loader->clientRedirectSourceForHistory()));
 
         historyDelegate->didNavigateWithNavigationData(webView, navigationData.get(), m_webFrame);
         return;
@@ -565,7 +557,7 @@ void WebFrameLoaderClient::updateGlobalHistory()
     if (!history)
         return;
 
-    history->visitedURL(loader->urlForHistory(), loader->title(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure(), !loader->clientRedirectSourceForHistory());
+    history->visitedURL(loader->urlForHistory(), loader->title().string(), loader->originalRequestCopy().httpMethod(), loader->urlForHistoryReflectsFailure(), !loader->clientRedirectSourceForHistory());
 }
 
 void WebFrameLoaderClient::updateGlobalHistoryRedirectLinks()
@@ -615,6 +607,11 @@ bool WebFrameLoaderClient::shouldGoToHistoryItem(HistoryItem*) const
     return true;
 }
 
+bool WebFrameLoaderClient::shouldStopLoadingForHistoryItem(HistoryItem*) const
+{
+    return true;
+}
+
 void WebFrameLoaderClient::dispatchDidAddBackForwardItem(HistoryItem*) const
 {
 }
@@ -625,6 +622,19 @@ void WebFrameLoaderClient::dispatchDidRemoveBackForwardItem(HistoryItem*) const
 
 void WebFrameLoaderClient::dispatchDidChangeBackForwardIndex() const
 {
+}
+
+void WebFrameLoaderClient::updateGlobalHistoryItemForPage()
+{
+    HistoryItem* historyItem = 0;
+    WebView* webView = m_webFrame->webView();
+
+    if (Page* page = webView->page()) {
+        if (!page->settings()->privateBrowsingEnabled())
+            historyItem = page->backForward()->currentItem();
+    }
+
+    webView->setGlobalHistoryItem(historyItem);
 }
 
 void WebFrameLoaderClient::didDisplayInsecureContent()
@@ -641,7 +651,7 @@ void WebFrameLoaderClient::didDisplayInsecureContent()
     frameLoadDelegatePriv2->didDisplayInsecureContent(webView);
 }
 
-void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin* origin)
+void WebFrameLoaderClient::didRunInsecureContent(SecurityOrigin* origin, const KURL& insecureURL)
 {
     COMPtr<IWebSecurityOrigin> webSecurityOrigin = WebSecurityOrigin::createInstance(origin);
 
@@ -667,13 +677,13 @@ PassRefPtr<DocumentLoader> WebFrameLoaderClient::createDocumentLoader(const Reso
     return loader.release();
 }
 
-void WebFrameLoaderClient::setTitle(const String& title, const KURL& url)
+void WebFrameLoaderClient::setTitle(const StringWithDirection& title, const KURL& url)
 {
     WebView* webView = m_webFrame->webView();
     COMPtr<IWebHistoryDelegate> historyDelegate;
     webView->historyDelegate(&historyDelegate);
     if (historyDelegate) {
-        BString titleBSTR(title);
+        BString titleBSTR(title.string());
         BString urlBSTR(url.string());
         historyDelegate->updateHistoryTitle(webView, titleBSTR, urlBSTR);
         return;
@@ -699,7 +709,7 @@ void WebFrameLoaderClient::setTitle(const String& title, const KURL& url)
     if (!itemPrivate)
         return;
 
-    itemPrivate->setTitle(BString(title));
+    itemPrivate->setTitle(BString(title.string()));
 }
 
 void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFrame)
@@ -711,8 +721,7 @@ void WebFrameLoaderClient::savePlatformDataToCachedFrame(CachedFrame* cachedFram
 
     ASSERT(coreFrame->loader()->documentLoader() == cachedFrame->documentLoader());
 
-    WebCachedFramePlatformData* webPlatformData = new WebCachedFramePlatformData(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader()->documentLoader())));
-    cachedFrame->setCachedFramePlatformData(webPlatformData);
+    cachedFrame->setCachedFramePlatformData(adoptPtr(new WebCachedFramePlatformData(static_cast<IWebDataSource*>(getWebDataSource(coreFrame->loader()->documentLoader())))));
 #else
     notImplemented();
 #endif
@@ -733,6 +742,18 @@ void WebFrameLoaderClient::transitionToCommittedForNewPage()
     core(m_webFrame)->createView(IntRect(rect).size(), backgroundColor, transparent, IntSize(), false);
 }
 
+void WebFrameLoaderClient::didSaveToPageCache()
+{
+}
+
+void WebFrameLoaderClient::didRestoreFromPageCache()
+{
+}
+
+void WebFrameLoaderClient::dispatchDidBecomeFrameset(bool)
+{
+}
+
 bool WebFrameLoaderClient::canCachePage() const
 {
     return true;
@@ -747,8 +768,31 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& url, const Strin
     return result.release();
 }
 
-void WebFrameLoaderClient::didTransferChildFrameToNewDocument()
+void WebFrameLoaderClient::didTransferChildFrameToNewDocument(Page*)
 {
+    Frame* coreFrame = core(m_webFrame);
+    ASSERT(coreFrame);
+    WebView* webView = kit(coreFrame->page());
+    if (m_webFrame->webView() != webView)
+        m_webFrame->setWebView(webView);
+}
+
+void WebFrameLoaderClient::transferLoadingResourceFromPage(unsigned long identifier, DocumentLoader* loader, const ResourceRequest& request, Page* oldPage)
+{
+    assignIdentifierToInitialRequest(identifier, loader, request);
+
+    WebView* oldWebView = kit(oldPage);
+    if (!oldWebView)
+        return;
+
+    COMPtr<IWebResourceLoadDelegate> oldResourceLoadDelegate;
+    if (FAILED(oldWebView->resourceLoadDelegate(&oldResourceLoadDelegate)))
+        return;
+
+    COMPtr<IWebResourceLoadDelegatePrivate2> oldResourceLoadDelegatePrivate2(Query, oldResourceLoadDelegate);
+    if (!oldResourceLoadDelegatePrivate2)
+        return;
+    oldResourceLoadDelegatePrivate2->removeIdentifierForRequest(oldWebView, identifier);
 }
 
 PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const String& name, HTMLFrameOwnerElement* ownerElement, const String& referrer)
@@ -760,8 +804,8 @@ PassRefPtr<Frame> WebFrameLoaderClient::createFrame(const KURL& URL, const Strin
 
     RefPtr<Frame> childFrame = webFrame->init(m_webFrame->webView(), coreFrame->page(), ownerElement);
 
-    coreFrame->tree()->appendChild(childFrame);
     childFrame->tree()->setName(name);
+    coreFrame->tree()->appendChild(childFrame);
     childFrame->init();
 
     coreFrame->loader()->loadURLIntoChildFrame(URL, referrer, childFrame.get());
@@ -787,7 +831,7 @@ void WebFrameLoaderClient::dispatchDidFailToStartPlugin(const PluginView* plugin
     ASSERT(frame == pluginView->parentFrame());
 
     if (!pluginView->pluginsPage().isNull()) {
-        KURL pluginPageURL = frame->document()->completeURL(deprecatedParseURL(pluginView->pluginsPage()));
+        KURL pluginPageURL = frame->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(pluginView->pluginsPage()));
         if (pluginPageURL.protocolInHTTPFamily()) {
             static CFStringRef key = MarshallingHelpers::LPCOLESTRToCFStringRef(WebKitErrorPlugInPageURLStringKey);
             RetainPtr<CFStringRef> str(AdoptCF, pluginPageURL.string().createCFString());

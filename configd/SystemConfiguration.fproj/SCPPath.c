@@ -38,13 +38,17 @@
 
 #define	MAXLINKS	8
 
-static CFArrayRef
+static CFMutableArrayRef
 normalizePath(CFStringRef path)
 {
-	CFArrayRef		tmpElements;
 	CFMutableArrayRef	elements;
-	CFIndex			nElements;
-	CFIndex			i;
+	CFIndex			n;
+	CFArrayRef		tmpElements;
+
+	if (!isA_CFString(path)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
 
 	if (!CFStringHasPrefix(path, CFSTR("/"))) {
 		/* if no root separator */
@@ -56,14 +60,13 @@ normalizePath(CFStringRef path)
 	CFRelease(tmpElements);
 
 	/* remove empty path components */
-	nElements = CFArrayGetCount(elements);
-	for (i = nElements; i > 0; i--) {
+	n = CFArrayGetCount(elements);
+	while (n-- > 0) {
 		CFStringRef	pathElement;
 
-		pathElement = CFArrayGetValueAtIndex(elements, i - 1);
+		pathElement = CFArrayGetValueAtIndex(elements, n);
 		if (CFStringGetLength(pathElement) == 0) {
-			CFArrayRemoveValueAtIndex(elements, i - 1);
-			nElements--;
+			CFArrayRemoveValueAtIndex(elements, n);
 		}
 	}
 
@@ -75,7 +78,7 @@ static Boolean
 getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 {
 	CFStringRef		element;
-	CFArrayRef		elements;
+	CFMutableArrayRef	elements;
 	CFIndex			i;
 	CFStringRef		link;
 	CFIndex			nElements;
@@ -97,7 +100,10 @@ getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 		SCPreferencesPrivateRef	prefsPrivate	= (SCPreferencesPrivateRef)prefs;
 
 		__SCPreferencesAccess(prefs);
-		value = prefsPrivate->prefs;
+
+		*entity = prefsPrivate->prefs;
+		ok = TRUE;
+		goto done;
 	}
 
 	for (i = 0; i < nElements; i++) {
@@ -125,8 +131,7 @@ getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 			 * if not the last path component and this
 			 * element is a link
 			 */
-			CFArrayRef		linkElements;
-			CFMutableArrayRef	newElements;
+			CFMutableArrayRef	linkElements;
 
 			if (++nLinks > MAXLINKS) {
 				/* if we are chasing our tail */
@@ -141,13 +146,11 @@ getPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef *entity)
 				goto done;
 			}
 
-			newElements = CFArrayCreateMutableCopy(NULL, 0, linkElements);
-			CFRelease(linkElements);
-			CFArrayAppendArray(newElements,
+			CFArrayAppendArray(linkElements,
 					   elements,
 					   CFRangeMake(i + 1, nElements-i - 1));
 			CFRelease(elements);
-			elements = newElements;
+			elements = linkElements;
 
 			goto restart;
 		}
@@ -167,7 +170,7 @@ static Boolean
 setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 {
 	CFStringRef		element;
-	CFArrayRef		elements;
+	CFMutableArrayRef	elements;
 	CFIndex			i;
 	CFStringRef		link;
 	CFIndex			nElements;
@@ -251,8 +254,7 @@ setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 			 * if not the last path component and this
 			 * element is a link
 			 */
-			CFArrayRef		linkElements;
-			CFMutableArrayRef	newElements;
+			CFMutableArrayRef	linkElements;
 
 			if (++nLinks > MAXLINKS) {
 				/* if we are chasing our tail */
@@ -267,15 +269,14 @@ setPath(SCPreferencesRef prefs, CFStringRef path, CFDictionaryRef entity)
 				goto done;
 			}
 
-			newElements = CFArrayCreateMutableCopy(NULL, 0, linkElements);
-			CFRelease(linkElements);
-			CFArrayAppendArray(newElements,
+			CFArrayAppendArray(linkElements,
 					   elements,
 					   CFRangeMake(i + 1, nElements-i - 1));
 			CFRelease(elements);
-			elements = newElements;
+			elements = linkElements;
 
 			CFRelease(nodes);
+			nodes = NULL;
 			goto restart;
 		}
 	}
@@ -524,7 +525,7 @@ Boolean
 SCPreferencesPathRemoveValue(SCPreferencesRef	prefs,
 			     CFStringRef	path)
 {
-	CFArrayRef		elements	= NULL;
+	CFMutableArrayRef	elements	= NULL;
 	Boolean			ok		= FALSE;
 	CFDictionaryRef		value;
 

@@ -29,18 +29,22 @@
 #if ENABLE(NETSCAPE_PLUGIN_API)
 #import "WebNetscapePluginPackage.h"
 
+#import "WebTypesInternal.h"
 #import "WebKitLogging.h"
 #import "WebKitNSStringExtras.h"
 #import "WebNSFileManagerExtras.h"
 #import "WebNSObjectExtras.h"
 #import "WebNetscapeDeprecatedFunctions.h"
 #import <WebCore/npruntime_impl.h>
+#import <wtf/RetainPtr.h>
 
 #if USE(PLUGIN_HOST_PROCESS)
 #import "NetscapePluginHostManager.h"
 
 using namespace WebKit;
 #endif
+
+using namespace WebCore;
 
 #ifdef SUPPORT_CFM
 typedef void (* FunctionPointer)(void);
@@ -54,7 +58,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #define MIMEListStringStringNumber              128
 
 #define RealPlayerAppIndentifier                @"com.RealNetworks.RealOne Player"
-#define RealPlayerPluginFilename                @"RealPlayer Plugin"
+#define RealPlayerPluginFilename                "RealPlayer Plugin"
 
 @interface WebNetscapePluginPackage (Internal)
 - (void)_unloadWithShutdown:(BOOL)shutdown;
@@ -95,7 +99,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #ifdef SUPPORT_CFM
     if (!isBundle) {
         FSRef fref;
-        OSErr err = FSPathMakeRef((const UInt8 *)[path fileSystemRepresentation], &fref, NULL);
+        OSErr err = FSPathMakeRef((const UInt8 *)[(NSString *)path fileSystemRepresentation], &fref, NULL);
         if (err != noErr)
             return -1;
         
@@ -103,7 +107,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     }
 #endif
 
-    return CFBundleOpenBundleResourceMap(cfBundle);
+    return CFBundleOpenBundleResourceMap(cfBundle.get());
 }
 
 - (void)closeResourceFile:(ResFileRefNum)resRef
@@ -115,7 +119,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     }
 #endif
 
-    CFBundleCloseBundleResourceMap(cfBundle, resRef);
+    CFBundleCloseBundleResourceMap(cfBundle.get(), resRef);
 }
 
 - (NSString *)stringForStringListID:(SInt16)stringListID andIndex:(SInt16)index
@@ -156,46 +160,42 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     NSArray *extensions;
     unsigned i;
     
-    NSMutableDictionary *MIMEToExtensionsDictionary = [NSMutableDictionary dictionary];
-    NSMutableDictionary *MIMEToDescriptionDictionary = [NSMutableDictionary dictionary];
-
     for (i=1; 1; i+=2) {
         MIME = [[self stringForStringListID:MIMEListStringStringNumber
                                    andIndex:i] lowercaseString];
         if (!MIME)
             break;
 
+        MimeClassInfo mimeClassInfo;
+        mimeClassInfo.type = String(MIME).lower();
+
         extensionsList = [[self stringForStringListID:MIMEListStringStringNumber andIndex:i+1] lowercaseString];
         if (extensionsList) {
             extensions = [extensionsList componentsSeparatedByString:@","];
-            [MIMEToExtensionsDictionary setObject:extensions forKey:MIME];
-        } else
-            // DRM and WMP claim MIMEs without extensions. Use a @"" extension in this case.
-            [MIMEToExtensionsDictionary setObject:[NSArray arrayWithObject:@""] forKey:MIME];
+            for (NSUInteger j = 0; j < [extensions count]; ++j)
+                mimeClassInfo.extensions.append((NSString *)[extensions objectAtIndex:j]);
+        }
         
         description = [self stringForStringListID:MIMEDescriptionStringNumber
-                                         andIndex:[MIMEToExtensionsDictionary count]];
-        if (description)
-            [MIMEToDescriptionDictionary setObject:description forKey:MIME];
-        else
-            [MIMEToDescriptionDictionary setObject:@"" forKey:MIME];
+                                         andIndex:pluginInfo.mimes.size() + 1];
+        mimeClassInfo.desc = description;
+
+        pluginInfo.mimes.append(mimeClassInfo);
     }
 
-    [self setMIMEToDescriptionDictionary:MIMEToDescriptionDictionary];
-    [self setMIMEToExtensionsDictionary:MIMEToExtensionsDictionary];
-
-    NSString *filename = [self filename];
+    NSString *filename = [(NSString *)path lastPathComponent];
+    pluginInfo.file = filename;
     
     description = [self stringForStringListID:PluginNameOrDescriptionStringNumber andIndex:1];
     if (!description)
         description = filename;
-    [self setPluginDescription:description];
+    pluginInfo.desc = description;
     
     
     NSString *theName = [self stringForStringListID:PluginNameOrDescriptionStringNumber andIndex:2];
     if (!theName)
         theName = filename;
-    [self setName:theName];
+    pluginInfo.name = theName;
     
     [self closeResourceFile:resRef];
     
@@ -208,9 +208,9 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     
     OSType type = 0;
 
-    if (bundle) {
+    if (cfBundle) {
         // Bundle
-        CFBundleGetPackageInfo(cfBundle, &type, NULL);
+        CFBundleGetPackageInfo(cfBundle.get(), &type, NULL);
 #ifdef SUPPORT_CFM
         isBundle = YES;
 #endif
@@ -230,8 +230,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         return NO;
 
     // Check if the executable is Mach-O or CFM.
-    if (bundle) {
-        NSFileHandle *executableFile = [NSFileHandle fileHandleForReadingAtPath:[bundle executablePath]];
+    if (cfBundle) {
+        RetainPtr<CFURLRef> executableURL(AdoptCF, CFBundleCopyExecutableURL(cfBundle.get()));
+        if (!executableURL)
+            return NO;
+        NSFileHandle *executableFile = [NSFileHandle fileHandleForReadingAtPath:[(NSURL *)executableURL.get() path]];
         NSData *data = [executableFile readDataOfLength:512];
         [executableFile closeFile];
         // Check the length of the data before calling memcmp. We think this fixes 3782543.
@@ -246,11 +249,11 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #endif
 
 #if USE(PLUGIN_HOST_PROCESS)
-        NSArray *archs = [bundle executableArchitectures];
+        RetainPtr<CFArrayRef> archs(AdoptCF, CFBundleCopyExecutableArchitectures(cfBundle.get()));
         
-        if ([archs containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureX86_64]])
+        if ([(NSArray *)archs.get() containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureX86_64]])
             pluginHostArchitecture = CPU_TYPE_X86_64;
-        else if ([archs containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureI386]])
+        else if ([(NSArray *)archs.get() containsObject:[NSNumber numberWithInteger:NSBundleExecutableArchitectureI386]])
             pluginHostArchitecture = CPU_TYPE_X86;
         else
             return NO;
@@ -299,7 +302,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 
 - (void)createPropertyListFile
 {
-    NetscapePluginHostManager::createPropertyListFile(self);
+    NetscapePluginHostManager::createPropertyListFile(path, pluginHostArchitecture);
 }
 
 #endif
@@ -323,7 +326,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     if (!cfBundle)
         return;
     
-    if ([(NSString *)CFBundleGetIdentifier(cfBundle) isEqualToString:@"com.lizardtech.NPDjVu"]) {
+    if ([self bundleIdentifier] == "com.lizardtech.NPDjVu") {
         // The DjVu plug-in will crash copying the vtable if it's too big so we cap it to 
         // what the plug-in expects here. 
         // size + version + 40 function pointers.
@@ -352,7 +355,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
     CFAbsoluteTime currentTime;
     CFAbsoluteTime duration;
 #endif
-    LOG(Plugins, "%f Load timing started for: %@", start, [self name]);
+    LOG(Plugins, "%f Load timing started for: %@", start, (NSString *)[self pluginInfo].name);
 
     if (isLoaded)
         return YES;
@@ -360,7 +363,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
 #ifdef SUPPORT_CFM
     if (isBundle) {
 #endif
-        if (!CFBundleLoadExecutable(cfBundle))
+        if (!CFBundleLoadExecutable(cfBundle.get()))
             return NO;
 #if !LOG_DISABLED
         currentTime = CFAbsoluteTimeGetCurrent();
@@ -371,14 +374,14 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         
 #ifdef SUPPORT_CFM
         if (isCFM) {
-            pluginMainFunc = (MainFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("main") );
+            pluginMainFunc = (MainFuncPtr)CFBundleGetFunctionPointerForName(cfBundle.get(), CFSTR("main") );
             if (!pluginMainFunc)
                 return NO;
         } else {
 #endif
-            NP_Initialize = (NP_InitializeFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_Initialize"));
-            NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_GetEntryPoints"));
-            NP_Shutdown = (NPP_ShutdownProcPtr)CFBundleGetFunctionPointerForName(cfBundle, CFSTR("NP_Shutdown"));
+            NP_Initialize = (NP_InitializeFuncPtr)CFBundleGetFunctionPointerForName(cfBundle.get(), CFSTR("NP_Initialize"));
+            NP_GetEntryPoints = (NP_GetEntryPointsFuncPtr)CFBundleGetFunctionPointerForName(cfBundle.get(), CFSTR("NP_GetEntryPoints"));
+            NP_Shutdown = (NPP_ShutdownProcPtr)CFBundleGetFunctionPointerForName(cfBundle.get(), CFSTR("NP_Shutdown"));
             if (!NP_Initialize || !NP_GetEntryPoints || !NP_Shutdown)
                 return NO;
 #ifdef SUPPORT_CFM
@@ -389,7 +392,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         FSRef fref;
         OSErr err;
         
-        err = FSPathMakeRef((UInt8 *)[path fileSystemRepresentation], &fref, NULL);
+        err = FSPathMakeRef((UInt8 *)[(NSString *)path fileSystemRepresentation], &fref, NULL);
         if (err != noErr) {
             LOG_ERROR("FSPathMakeRef failed. Error=%d", err);
             return NO;
@@ -503,7 +506,7 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         // Workaround for 3270576. The RealPlayer plug-in fails to load if its preference file is out of date.
         // Launch the RealPlayer application to refresh the file.
         if (npErr != NPERR_NO_ERROR) {
-            if (npErr == NPERR_MODULE_LOAD_FAILED_ERROR && [[self filename] isEqualToString:RealPlayerPluginFilename])
+            if (npErr == NPERR_MODULE_LOAD_FAILED_ERROR && equalIgnoringCase(pluginInfo.file, RealPlayerPluginFilename))
                 [self launchRealPlayer];
             return NO;
         }
@@ -534,9 +537,9 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         // LiveConnect support
         pluginFuncs.javaClass = (JRIGlobalRef)functionPointerForTVector((TransitionVector)pluginFuncs.javaClass);
         if (pluginFuncs.javaClass) {
-            LOG(LiveConnect, "%@:  CFM entry point for NPP_GetJavaClass = %p", [self name], pluginFuncs.javaClass);
+            LOG(LiveConnect, "%@:  CFM entry point for NPP_GetJavaClass = %p", (NSString *)[self pluginInfo].name, pluginFuncs.javaClass);
         } else {
-            LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", [self name]);
+            LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", (NSString *)[self pluginInfo].name);
         }
 
     } else {
@@ -625,9 +628,9 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         pluginVersion = pluginFuncs.version;
         
         if (pluginFuncs.javaClass)
-            LOG(LiveConnect, "%@:  mach-o entry point for NPP_GetJavaClass = %p", [self name], pluginFuncs.javaClass);
+            LOG(LiveConnect, "%@:  mach-o entry point for NPP_GetJavaClass = %p", (NSString *)[self pluginInfo].name, pluginFuncs.javaClass);
         else
-            LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", [self name]);
+            LOG(LiveConnect, "%@:  no entry point for NPP_GetJavaClass", (NSString *)[self pluginInfo].name);
 
 #ifdef SUPPORT_CFM
     }
@@ -689,6 +692,22 @@ static TransitionVector tVectorForFunctionPointer(FunctionPointer);
         [self _unloadWithShutdown:YES];
 }
 
+
+- (BOOL)supportsSnapshotting
+{
+    if ([self bundleIdentifier] != "com.macromedia.Flash Player.plugin")
+        return YES;
+    
+    // Flash has a bogus Info.plist entry for CFBundleVersionString, so use CFBundleShortVersionString.
+    NSString *versionString = (NSString *)CFDictionaryGetValue(CFBundleGetInfoDictionary(cfBundle.get()), CFSTR("CFBundleShortVersionString"));
+    
+    if (![versionString hasPrefix:@"10.1"])
+        return YES;
+    
+    // Some prerelease versions of Flash 10.1 crash when sent a drawRect event using the CA drawing model: <rdar://problem/7739922>
+    return CFStringCompare((CFStringRef)versionString, CFSTR("10.1.53.60"), kCFCompareNumerically) != kCFCompareLessThan;
+}
+
 @end
 
 #ifdef SUPPORT_CFM
@@ -736,7 +755,7 @@ TransitionVector tVectorForFunctionPointer(FunctionPointer fp)
     if (!isLoaded)
         return;
     
-    LOG(Plugins, "Unloading %@...", name);
+    LOG(Plugins, "Unloading %@...", (NSString *)pluginInfo.name);
 
     // Cannot unload a plug-in package while an instance is still using it
     if (instanceCount > 0) {

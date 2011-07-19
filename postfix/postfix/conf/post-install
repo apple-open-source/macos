@@ -9,7 +9,7 @@
 # SUMMARY
 #	Postfix post-installation script
 # SYNOPSIS
-#	post-install [name=value] command ...
+#	postfix post-install [name=value] command ...
 # DESCRIPTION
 #	The post-install script performs the finishing touch of a Postfix
 #	installation, after the executable programs and configuration
@@ -40,14 +40,14 @@
 #	Arguments
 # .IP create-missing
 #	Create missing queue directories with ownerships and permissions
-#	according to the contents of $config_directory/postfix-files, using
+#	according to the contents of $daemon_directory/postfix-files, using
 #	the mail_owner and setgid_group parameter settings from the command
 #	line, process environment or from the installed main.cf file.
 #
 #	This is required at Postfix start-up time.
 # .IP set-permissions
 #	Set all file/directory ownerships and permissions according to the
-#	contents of $config_directory/postfix-files, using the mail_owner
+#	contents of $daemon_directory/postfix-files, using the mail_owner
 #	and setgid_group parameter settings from the command line, process
 #	environment or from the installed main.cf file. Implies create-missing.
 #
@@ -56,7 +56,7 @@
 #	settings after Postfix is already installed.
 # .IP upgrade-permissions
 #	Update ownership and permission of existing files/directories as
-#	specified in $config_directory/postfix-files, using the mail_owner
+#	specified in $daemon_directory/postfix-files, using the mail_owner
 #	and setgid_group parameter settings from the command line, process
 #	environment or from the installed main.cf file. Implies create-missing.
 #
@@ -90,7 +90,7 @@
 #	copy the configuration files from the primary Postfix instance to
 #	a secondary configuration directory and execute:
 #
-#	post-install config_directory=secondary-config-directory \e
+#	postfix post-install config_directory=secondary-config-directory \e
 # .in +4
 #		queue_directory=secondary-queue-directory \e
 # .br
@@ -106,7 +106,7 @@
 #	To upgrade a secondary Postfix installation on the same machine,
 #	execute:
 #
-#	post-install config_directory=secondary-config-directory \e
+#	postfix post-install config_directory=secondary-config-directory \e
 # .in +4
 #		upgrade-permissions upgrade-configuration
 # INSTALLATION PARAMETER INPUT METHODS
@@ -173,7 +173,7 @@
 #	postfix-install(1) Postfix primary installation script.
 # FILES
 #	$config_directory/main.cf, Postfix installation parameters.
-#	$config_directory/postfix-files, installation control file.
+#	$daemon_directory/postfix-files, installation control file.
 #	$config_directory/install.cf, obsolete configuration file.
 # LICENSE
 # .ad
@@ -193,10 +193,13 @@ SHELL=/bin/sh
 IFS=" 	
 "
 BACKUP_IFS="$IFS"
+debug=:
+#debug=echo
 MOST_PARAMETERS="command_directory daemon_directory data_directory
     html_directory mail_owner mailq_path manpage_directory
     newaliases_path queue_directory readme_directory sample_directory
     sendmail_path setgid_group"
+NON_SHARED="config_directory queue_directory data_directory"
 
 USAGE="Usage: $0 [name=value] command
     create-missing          Create missing queue directories.
@@ -250,16 +253,35 @@ $POSTCONF -d mail_version >/dev/null 2>/dev/null || {
     exit 1
 }
 
+# Also used to require license etc. files only in the default instance.
+
+def_config_directory=`$POSTCONF -d -h config_directory` || exit 1
 test -n "$config_directory" ||
-    config_directory=`$POSTCONF -d -h config_directory` || exit 1
+    config_directory="$def_config_directory"
 
 test -d "$config_directory" || {
     echo $0: Error: $config_directory is not a directory. 1>&2
     exit 1
 }
 
-test -f $config_directory/postfix-files || {
-    echo $0: Error: $config_directory/postfix-files is not a file. 1>&2
+# If this is a secondary instance, don't touch shared files.
+# XXX Solaris does not have "test -e".
+
+instances=`test ! -f $def_config_directory/main.cf || 
+    $POSTCONF -c $def_config_directory -h multi_instance_directories | 
+	sed 's/,/ /'` || exit 1
+
+update_shared_files=1
+for name in $instances
+do
+    case "$name" in
+    "$def_config_directory") ;;
+    "$config_directory") update_shared_files=; break;;
+    esac
+done
+
+test -f $daemon_directory/postfix-files || {
+    echo $0: Error: $daemon_directory/postfix-files is not a file. 1>&2
     exit 1
 }
 
@@ -412,24 +434,37 @@ test -n "$override" && {
     || exit 1
 }
 
-# Use file/directory status information in $config_directory/postfix-files.
+# Use file/directory status information in $daemon_directory/postfix-files.
 
 test -n "$create" && {
-    exec <$config_directory/postfix-files || exit 1
+    exec <$daemon_directory/postfix-files || exit 1
     while IFS=: read path type owner group mode flags junk
     do
 	IFS="$BACKUP_IFS"
 	set_permission=
-	# Skip comments.
+	# Skip comments. Skip shared files, if updating a secondary instance.
 	case $path in
-	[$]*) ;;
+	[$]*) case "$update_shared_files" in
+	      1) $debug keep non-shared or shared $path;;
+	      *) non_shared=
+		 for name in $NON_SHARED
+		 do
+		     case $path in
+		     "\$$name"*) non_shared=1; break;;
+		     esac
+		 done
+		 case "$non_shared" in
+		  1) $debug keep non-shared $path;;
+		  *) $debug skip shared $path; continue;;
+		 esac;;
+	      esac;;
 	   *) continue;;
 	esac
 	# Skip hard links and symbolic links.
 	case $type in
 	[hl]) continue;;
 	[df]) ;;
-	   *) echo unknown type $type for $path in $config_directory/postfix-files1>&2; exit 1;;
+	   *) echo unknown type $type for $path in $daemon_directory/postfix-files1>&2; exit 1;;
 	esac
 	# Expand $name, and canonicalize null fields.
 	for name in path owner group flags
@@ -450,6 +485,8 @@ test -n "$create" && {
 	case $flags in *c*) create_flag=1;; *) create_flag=;; esac
 	case $flags in *r*) recursive="-R";; *) recursive=;; esac
 	case $flags in *o*) obsolete_flag=1;; *) obsolete_flag=;; esac
+	case $flags in *[1i]*) test ! -r "$path" -a "$config_directory" != \
+				"$def_config_directory" && continue;; esac
 	# Flag obsolete objects. XXX Solaris 2..9 does not have "test -e".
 	if [ -n "$obsolete_flag" ]
 	then
@@ -491,6 +528,7 @@ test -n "$create" && {
 
 test -n "$upgrade_conf" && {
 
+    # Postfix 2.0.
     # Add missing relay service to master.cf.
 
     grep '^relay' $config_directory/master.cf >/dev/null || {
@@ -500,6 +538,7 @@ relay	  unix	-	-	n	-	-	smtp
 EOF
     }
 
+    # Postfix 1.1.
     # Add missing flush service to master.cf.
 
     grep '^flush.*flush' $config_directory/master.cf >/dev/null || {
@@ -509,6 +548,7 @@ flush     unix  -       -       n       1000?   0       flush
 EOF
     }
 
+    # Postfix 2.1.
     # Add missing trace service to master.cf.
 
     grep 'trace.*bounce' $config_directory/master.cf >/dev/null || {
@@ -518,6 +558,7 @@ trace	  unix	-	-	n	-	0	bounce
 EOF
     }
 
+    # Postfix 2.1.
     # Add missing verify service to master.cf.
 
     grep '^verify.*verify' $config_directory/master.cf >/dev/null || {
@@ -527,6 +568,7 @@ verify	  unix	-	-	n	-	1	verify
 EOF
     }
 
+    # Postfix 2.1.
     # Fix verify service process limit.
 
     grep '^verify.*[ 	]0[ 	]*verify' \
@@ -541,6 +583,7 @@ q
 EOF
     }
 
+    # Postfix 1.1.
     # Change privileged pickup service into unprivileged.
 
     grep "^pickup[ 	]*fifo[ 	]*n[ 	]*n" \
@@ -555,6 +598,7 @@ q
 EOF
     }
 
+    # Postfix 1.1.
     # Change private cleanup and flush services into public.
 
     for name in cleanup flush
@@ -572,6 +616,7 @@ EOF
 	}
     done
 
+    # Postfix 2.2.
     # File systems have improved since Postfix came out, and all we
     # require now is that defer and deferred are hashed because those
     # can contain lots of files.
@@ -592,6 +637,7 @@ EOF
     # [The "unknown_local_recipient_reject_code = 450" safety net,
     # introduced with Postfix 2.0 and deleted after Postfix 2.3.]
 
+    # Postfix 2.0.
     # Add missing proxymap service to master.cf.
 
     grep '^proxymap.*proxymap' $config_directory/master.cf >/dev/null || {
@@ -601,6 +647,7 @@ proxymap  unix	-	-	n	-	-	proxymap
 EOF
     }
 
+    # Postfix 2.1.
     # Add missing anvil service to master.cf.
 
     grep '^anvil.*anvil' $config_directory/master.cf >/dev/null || {
@@ -610,6 +657,7 @@ anvil	  unix	-	-	n	-	1	anvil
 EOF
     }
 
+    # Postfix 2.2.
     # Add missing scache service to master.cf.
 
     grep '^scache.*scache' $config_directory/master.cf >/dev/null || {
@@ -619,6 +667,7 @@ scache	  unix	-	-	n	-	1	scache
 EOF
     }
 
+    # Postfix 2.2.
     # Add missing discard service to master.cf.
 
     grep '^discard.*discard' $config_directory/master.cf >/dev/null || {
@@ -628,6 +677,7 @@ discard	  unix	-	-	n	-	-	discard
 EOF
     }
 
+    # Postfix 2.2.
     # Update the tlsmgr fifo->unix service.
 
     grep "^tlsmgr[ 	]*fifo[ 	]" \
@@ -643,6 +693,7 @@ q
 EOF
     }
 
+    # Postfix 2.2.
     # Add missing tlsmgr service to master.cf.
 
     grep '^tlsmgr.*tlsmgr' $config_directory/master.cf >/dev/null || {
@@ -652,6 +703,7 @@ tlsmgr    unix  -       -       n       1000?   1       tlsmgr
 EOF
     }
 
+    # Postfix 2.2.
     # Add missing retry service to master.cf.
 
     grep '^retry.*error' $config_directory/master.cf >/dev/null || {
@@ -661,6 +713,7 @@ retry     unix  -       -       n       -       -       error
 EOF
     }
 
+    # Postfix 2.5.
     # Add missing proxywrite service to master.cf.
 
     grep '^proxywrite.*proxymap' $config_directory/master.cf >/dev/null || {
@@ -670,16 +723,57 @@ proxywrite unix -       -       n       -       1       proxymap
 EOF
     }
 
+    # Postfix 2.5.
     # Fix a typo in the default master.cf proxywrite entry.
 
     grep '^proxywrite.*-[ 	]*proxymap' $config_directory/master.cf >/dev/null && {
 	echo Editing $config_directory/master.cf, setting proxywrite process limit to 1
 	    ed $config_directory/master.cf <<EOF || exit 1
-/^proxywrite.*-[       ]*proxymap/
+/^proxywrite.*-[ 	]*proxymap/
 s/-\([ 	]*proxymap\)/1\1/
 p
 w
 q
+EOF
+    }
+
+    # Postfix 2.8.
+    # Add missing postscreen service to master.cf.
+
+    grep '^#*smtp.*postscreen' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for postscreen TCP service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+#smtp      inet  n       -       n       -       1       postscreen
+EOF
+    }
+
+    # Postfix 2.8.
+    # Add missing smtpd (unix-domain) service to master.cf.
+
+    grep '^#*smtpd.*smtpd' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for smtpd unix-domain service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+#smtpd     pass  -       -       n       -       -       smtpd
+EOF
+    }
+
+    # Postfix 2.8.
+    # Add temporary dnsblog (unix-domain) service to master.cf.
+
+    grep '^#*dnsblog.*dnsblog' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for dnsblog unix-domain service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+#dnsblog   unix  -       -       n       -       0       dnsblog
+EOF
+    }
+
+    # Postfix 2.8.
+    # Add tlsproxy (unix-domain) service to master.cf.
+
+    grep '^#*tlsproxy.*tlsproxy' $config_directory/master.cf >/dev/null || {
+	echo Editing $config_directory/master.cf, adding missing entry for tlsproxy unix-domain service
+	cat >>$config_directory/master.cf <<EOF || exit 1
+#tlsproxy  unix  -       -       n       -       0       tlsproxy
 EOF
     }
 

@@ -17,12 +17,13 @@
 #include "MipsSubtarget.h"
 #include "MipsInstrInfo.h"
 #include "MipsISelLowering.h"
+#include "MipsSelectionDAGInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetData.h"
 #include "llvm/Target/TargetFrameInfo.h"
 
 namespace llvm {
-  class raw_ostream;
+  class formatted_raw_ostream;
   
   class MipsTargetMachine : public LLVMTargetMachine {
     MipsSubtarget       Subtarget;
@@ -30,13 +31,11 @@ namespace llvm {
     MipsInstrInfo       InstrInfo;
     TargetFrameInfo     FrameInfo;
     MipsTargetLowering  TLInfo;
-  
-  protected:
-    virtual const TargetAsmInfo *createTargetAsmInfo() const;
-  
+    MipsSelectionDAGInfo TSInfo;
   public:
-    MipsTargetMachine(const Module &M, const std::string &FS, bool isLittle);
-
+    MipsTargetMachine(const Target &T, const std::string &TT,
+                      const std::string &FS, bool isLittle);
+    
     virtual const MipsInstrInfo   *getInstrInfo()     const 
     { return &InstrInfo; }
     virtual const TargetFrameInfo *getFrameInfo()     const 
@@ -50,29 +49,27 @@ namespace llvm {
       return &InstrInfo.getRegisterInfo();
     }
 
-    virtual MipsTargetLowering   *getTargetLowering() const { 
-      return const_cast<MipsTargetLowering*>(&TLInfo); 
+    virtual const MipsTargetLowering *getTargetLowering() const { 
+      return &TLInfo;
     }
 
-    static unsigned getModuleMatchQuality(const Module &M);
+    virtual const MipsSelectionDAGInfo* getSelectionDAGInfo() const {
+      return &TSInfo;
+    }
 
     // Pass Pipeline Configuration
     virtual bool addInstSelector(PassManagerBase &PM,
                                  CodeGenOpt::Level OptLevel);
     virtual bool addPreEmitPass(PassManagerBase &PM,
                                 CodeGenOpt::Level OptLevel);
-    virtual bool addAssemblyEmitter(PassManagerBase &PM,
-                                    CodeGenOpt::Level OptLevel,
-                                    bool Verbose, raw_ostream &Out);
   };
 
 /// MipselTargetMachine - Mipsel target machine.
 ///
 class MipselTargetMachine : public MipsTargetMachine {
 public:
-  MipselTargetMachine(const Module &M, const std::string &FS);
-
-  static unsigned getModuleMatchQuality(const Module &M);
+  MipselTargetMachine(const Target &T, const std::string &TT,
+                      const std::string &FS);
 };
 
 } // End llvm namespace

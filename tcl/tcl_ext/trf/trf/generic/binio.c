@@ -24,7 +24,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: binio.c,v 1.10 2000/08/09 19:13:17 aku Exp $
+ * CVS: $Id: binio.c,v 1.11 2009/05/07 04:57:27 andreas_kupries Exp $
  */
 
 
@@ -158,7 +158,7 @@ char**      argv;	/* trailing arguments */
     }
   }
 
-  bufPtr = Tcl_Alloc((unsigned) READ_CHUNK_SIZE);
+  bufPtr = ckalloc((unsigned) READ_CHUNK_SIZE);
 
   for (totalRead = 0;
        requested > 0;
@@ -172,26 +172,26 @@ char**      argv;	/* trailing arguments */
     actuallyRead = Tcl_Read(inChan, bufPtr, toReadNow);
 
     if (actuallyRead < 0) {
-      Tcl_Free (bufPtr);
+      ckfree (bufPtr);
       Tcl_AppendResult(interp, argv[0], ": ", Tcl_GetChannelName(inChan),
 		       Tcl_PosixError(interp), (char *) NULL);
       return TCL_ERROR;
     } else if (actuallyRead == 0) {
-      Tcl_Free (bufPtr);
+      ckfree (bufPtr);
       sprintf(interp->result, "%d", totalRead);
       return TCL_OK;
     }
 
     actuallyWritten = Tcl_Write(outChan, bufPtr, actuallyRead);
     if (actuallyWritten < 0) {
-      Tcl_Free (bufPtr);
+      ckfree (bufPtr);
       Tcl_AppendResult(interp, argv[0], ": ", Tcl_GetChannelName(outChan),
 		       Tcl_PosixError(interp), (char *) NULL);
       return TCL_ERROR;
     }
   }
 
-  Tcl_Free(bufPtr);
+  ckfree(bufPtr);
     
   sprintf(interp->result, "%d", totalRead);
   return TCL_OK;

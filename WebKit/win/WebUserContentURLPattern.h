@@ -25,6 +25,7 @@
 #ifndef WebUserContentURLPattern_h
 #define WebUserContentURLPattern_h
 
+#include "WebKit.h"
 #include <WebCore/COMPtr.h>
 #include <WebCore/UserContentURLPattern.h>
 
@@ -32,7 +33,8 @@ namespace WebCore {
     class UserContentURLPattern;
 }
 
-class WebUserContentURLPattern : public Noncopyable, public IWebUserContentURLPattern {
+class WebUserContentURLPattern : public IWebUserContentURLPattern {
+    WTF_MAKE_NONCOPYABLE(WebUserContentURLPattern);
 public:
     static COMPtr<WebUserContentURLPattern> createInstance();
 

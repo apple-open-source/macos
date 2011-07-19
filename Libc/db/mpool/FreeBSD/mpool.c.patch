@@ -1,6 +1,6 @@
---- mpool.c.orig	2008-09-07 11:37:54.000000000 -0700
-+++ mpool.c	2008-09-07 12:46:41.000000000 -0700
-@@ -128,7 +128,7 @@ mpool_new(mp, pgnoaddr)
+--- mpool.c.orig	2009-11-06 12:36:03.000000000 -0800
++++ mpool.c	2009-11-06 12:36:15.000000000 -0800
+@@ -119,7 +119,7 @@ mpool_new(mp, pgnoaddr)
  
  	if (mp->npages == MAX_PAGE_NUMBER) {
  		(void)fprintf(stderr, "mpool_new: page allocation overflow.\n");
@@ -9,7 +9,7 @@
  	}
  #ifdef STATISTICS
  	++mp->pagenew;
-@@ -180,7 +180,7 @@ mpool_get(mp, pgno, flags)
+@@ -170,7 +170,7 @@ mpool_get(MPOOL *mp, pgno_t pgno,
  		if (bp->flags & MPOOL_PINNED) {
  			(void)fprintf(stderr,
  			    "mpool_get: page %d already pinned\n", bp->pgno);
@@ -18,7 +18,7 @@
  		}
  #endif
  		/*
-@@ -253,7 +253,7 @@ mpool_put(mp, page, flags)
+@@ -241,7 +241,7 @@ mpool_put(MPOOL *mp, void *page, u_int f
  	if (!(bp->flags & MPOOL_PINNED)) {
  		(void)fprintf(stderr,
  		    "mpool_put: page %d not pinned\n", bp->pgno);
@@ -27,7 +27,7 @@
  	}
  #endif
  	bp->flags &= ~MPOOL_PINNED;
-@@ -294,10 +294,16 @@ mpool_sync(mp)
+@@ -280,10 +280,16 @@ mpool_sync(MPOOL *mp)
  	BKT *bp;
  
  	/* Walk the lru chain, flushing any dirty pages to disk. */

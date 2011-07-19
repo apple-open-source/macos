@@ -73,7 +73,9 @@ use Sys::Syslog qw(:DEFAULT setlogsock);
 # In case of database corruption, this script saves the database as
 # $database_name.time(), so that the mail system does not get stuck.
 #
-$database_name="/var/mta/greylist.db";
+$database_name="/Library/Server/Mail/Data/mta/greylist.db";
+$whitelist_file="/Library/Server/Mail/Data/mta/whitelist";
+$whitelist_db_name="/Library/Server/Mail/Data/mta/whitelist.db";
 $greylist_delay=60;
 
 #
@@ -93,6 +95,32 @@ $syslog_facility="mail";
 $syslog_options="pid";
 $syslog_priority="info";
 
+sub add_whitelist {
+	# check for null host name
+	my ($_host_name) = $attr{"host_name"};
+	if ($_host_name eq "") {
+		syslog $syslog_priority, "Warning: missing whitelist host name attribute";
+		return 0;
+	}
+
+	# Open the database on the fly.
+	open_whitelist_db() unless $whitelist_db_obj;
+
+	# Is host already in white list
+	$value = read_whitelist_db($attr{"host_name"});
+
+	# Add host if not in database
+	if ($value == 0) {
+		syslog $syslog_priority, "adding host: %s to whitelist", $attr{"host_name"} if $verbose;
+		update_whitelist_db($attr{"host_name"}, 1);
+
+		open WHITELIST_FILE, ">> $whitelist_file" or 
+			syslog $syslog_priority, "Error: unable to open whitelist file: %s", $whitelist_file;
+		print WHITELIST_FILE "$attr{\"host_name\"}\n";
+		close WHITELIST_FILE;
+	}
+}
+
 #
 # Demo SMTPD access policy routine. The result is an action just like
 # it would be specified on the right-hand side of a Postfix access
@@ -103,6 +131,16 @@ sub smtpd_access_policy {
 
     # Open the database on the fly.
     open_database() unless $database_obj;
+
+    # Open the whitelist database on the fly.
+    open_whitelist_db() unless $whitelist_db_obj;
+
+    # Check if host is whitelisted
+	$count = read_whitelist_db($attr{"client_name"});
+	if ($count > 0) {
+		syslog $syslog_priority, "host: %s is whitelisted", $attr{"client_name"} if $verbose;
+	    return "dunno";
+	}
 
     # Search the auto-whitelist.
     if ($auto_whitelist_threshold > 0) {
@@ -142,6 +180,8 @@ sub smtpd_access_policy {
 	}
 	return "dunno";
     } else {
+	# Apple
+	syslog $syslog_priority, "Temporary message rejection to: <$attr{\"recipient\"}> from: <$attr{\"sender\"}> sent from: [$attr{\"client_address\"}] for: $greylist_delay seconds due to greylisting";
 	return "defer_if_permit Service is unavailable";
     }
 }
@@ -180,6 +220,22 @@ sub open_database {
 }
 
 #
+# Open hash whitelist database.
+#
+sub open_whitelist_db {
+    my($whitelist_db_fd);
+
+    # Use tied database to make complex manipulations easier to express.
+    $whitelist_db_obj = tie(%db_hash, 'DB_File', $whitelist_db_name,
+			    O_CREAT|O_RDWR, 0644, $DB_BTREE) ||
+	fatal_exit "Cannot open database %s: $!", $whitelist_db_name;
+    $whitelist_db_fd = $whitelist_db_obj->fd;
+    open WHITELIST_DB_HANDLE, "+<&=$whitelist_db_fd" ||
+	fatal_exit "Cannot fdopen database %s: $!", $whitelist_db_name;
+    syslog $syslog_priority, "open %s", $whitelist_db_name if $verbose;
+}
+
+#
 # Read database. Use a shared lock to avoid reading the database
 # while it is being changed. XXX There should be a way to synchronize
 # our cache from the on-file database before looking up the key.
@@ -195,6 +251,25 @@ sub read_database {
     syslog $syslog_priority, "lookup %s: %s", $key, $value if $verbose;
     flock DATABASE_HANDLE, LOCK_UN ||
 	fatal_exit "Can't unlock %s: $!", $database_name;
+    return $value;
+}
+
+#
+# Read database. Use a shared lock to avoid reading the database
+# while it is being changed. XXX There should be a way to synchronize
+# our cache from the on-file database before looking up the key.
+#
+sub read_whitelist_db {
+    my($key) = @_;
+    my($value);
+
+    flock WHITELIST_DB_HANDLE, LOCK_SH ||
+	fatal_exit "Can't get shared lock on %s: $!", $whitelist_db_name;
+    # XXX Synchronize our cache from the on-disk copy before lookup.
+    $value = $db_hash{$key};
+    syslog $syslog_priority, "whitelist lookup %s: %s", $key, $value if $verbose;
+    flock WHITELIST_DB_HANDLE, LOCK_UN ||
+	fatal_exit "Can't unlock %s: $!", $whitelist_db_name;
     return $value;
 }
 
@@ -219,6 +294,26 @@ sub update_database {
 }
 
 #
+# Update database. Use an exclusive lock to avoid collisions with
+# other updaters, and to avoid surprises in database readers. XXX
+# There should be a way to synchronize our cache from the on-file
+# database before updating the database.
+#
+sub update_whitelist_db {
+    my($key, $value) = @_;
+
+    syslog $syslog_priority, "store whitelist host %s: %s", $key, $value if $verbose;
+    flock WHITELIST_DB_HANDLE, LOCK_EX ||
+	fatal_exit "Can't exclusively lock %s: $!", $whitelist_db_name;
+    # XXX Synchronize our cache from the on-disk copy before update.
+    $db_hash{$key} = $value;
+    $whitelist_db_obj->sync() &&
+	fatal_exit "Can't update %s: $!", $whitelist_db_name;
+    flock WHITELIST_DB_HANDLE, LOCK_UN ||
+	fatal_exit "Can't unlock %s: $!", $whitelist_db_name;
+}
+
+#
 # Signal 11 means that we have some kind of database corruption (yes
 # Berkeley DB should handle this better).  Move the corrupted database
 # out of the way, and start with a new database.
@@ -229,6 +324,12 @@ sub sigsegv_handler {
     rename $database_name, $backup || 
 	fatal_exit "Can't save %s as %s: $!", $database_name, $backup;
     fatal_exit "Caught signal 11; the corrupted database is saved as $backup";
+
+    my $wl_backup = $whitelist_db_name . "." . time();
+
+    rename $whitelist_db_name, $wl_backup || 
+	fatal_exit "Can't save %s as %s: $!", $whitelist_db_name, $wl_backup;
+    fatal_exit "Caught signal 11; the corrupted database is saved as $wl_backup";
 }
 
 $SIG{'SEGV'} = 'sigsegv_handler';
@@ -270,12 +371,16 @@ while (<STDIN>) {
 		syslog $syslog_priority, "Attribute: %s=%s", $_, $attr{$_};
 	    }
 	}
-	fatal_exit "unrecognized request type: '%s'", $attr{request}
-	    unless $attr{"request"} eq "smtpd_access_policy";
-	$action = smtpd_access_policy();
-	syslog $syslog_priority, "Action: %s", $action if $verbose;
-	print STDOUT "action=$action\n\n";
-	%attr = ();
+		if ( $attr{"request"} eq "smtpd_access_policy" ) {
+			$action = smtpd_access_policy();
+		} elsif ( $attr{"request"} eq "whitelist" ) {
+			$action = add_whitelist();
+		} else {
+			fatal_exit "unrecognized request type: '%s'", $attr{request};
+		}
+		syslog $syslog_priority, "Action: %s", $action if $verbose;
+		print STDOUT "action=$action\n\n";
+		%attr = ();
     } else {
 	chop;
 	syslog $syslog_priority, "warning: ignoring garbage: %.100s", $_;

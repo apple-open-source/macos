@@ -1,0 +1,5 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+arrow up right
+circle radius 2 at [0.33 between [last arrow start] [last arrow end]] \
+    text 0.33 anchor nw textcolor red

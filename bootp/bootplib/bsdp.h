@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -164,10 +164,11 @@ typedef enum {
     bsdptag_boot_image_list_e		= 9,
     bsdptag_netboot_1_0_firmware_e	= 10,
     bsdptag_image_attributes_filter_list_e = 11,
+    bsdptag_max_message_size_e 		= 12,
 
     /* protocol-specific bounds */
     bsdptag_first_e			= 1,
-    bsdptag_last_e			= 11,
+    bsdptag_last_e			= 12,
 
     /* image-specific */
     bsdptag_shadow_mount_path_e		= 128,	/* string (URL) */
@@ -210,6 +211,10 @@ bsdptag_type(bsdptag_t tag)
 	break;
     case bsdptag_image_attributes_filter_list_e:
 	type = dhcptype_uint16_mult_e;
+	break;
+    case bsdptag_max_message_size_e:
+	type = dhcptype_uint16_e;
+	break;
     default:
 	break;
     }
@@ -232,6 +237,7 @@ bsdptag_name(bsdptag_t tag)
 	"boot image list",		/* 9 */
 	"netboot 1.0 firmware",		/* 10 */
 	"image attributes filter list",	/* 11 */
+	"maximum message size",		/* 12 */
     };
     if (tag >= bsdptag_first_e && tag <= bsdptag_last_e) {
 	return (names[tag]);
@@ -330,4 +336,4 @@ bsdp_parse_class_id(void * buf, int buf_len, char * arch,
     return (TRUE);
 }
 
-#endif _S_BSDP_H
+#endif /* _S_BSDP_H */

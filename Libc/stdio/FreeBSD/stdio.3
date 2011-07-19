@@ -9,10 +9,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -30,9 +26,9 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     @(#)stdio.3	8.7 (Berkeley) 4/19/94
-.\" $FreeBSD: src/lib/libc/stdio/stdio.3,v 1.26 2004/07/02 23:52:12 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdio/stdio.3,v 1.30 2009/03/04 03:38:51 das Exp $
 .\"
-.Dd January 10, 2003
+.Dd March 3, 2009
 .Dt STDIO 3
 .Os
 .Sh NAME
@@ -237,10 +233,6 @@ definitions are explicitly removed.
 .Xr open 2 ,
 .Xr read 2 ,
 .Xr write 2
-.Sh BUGS
-The standard buffered functions do not interact well with certain other
-library and system functions, especially
-.Xr vfork 2 .
 .Sh STANDARDS
 The
 .Nm
@@ -251,6 +243,7 @@ library conforms to
 .It Sy "Function	Description"
 .It "asprintf	formatted output conversion"
 .It "clearerr	check and reset stream status"
+.It "dprintf	formatted output conversion"
 .It "fclose	close a stream"
 .It "fdopen	stream open functions"
 .It "feof	check and reset stream status"
@@ -284,6 +277,8 @@ library conforms to
 .It "fwrite	binary stream input/output"
 .It "getc	get next character or word from input stream"
 .It "getchar	get next character or word from input stream"
+.It "getdelim	get a line from a stream"
+.It "getline	get a line from a stream"
 .It "gets	get a line from a stream"
 .It "getw	get next character or word from input stream"
 .It "getwc	get next wide character from input stream"
@@ -319,6 +314,7 @@ library conforms to
 .It "ungetc	un-get character from input stream"
 .It "ungetwc	un-get wide character from input stream"
 .It "vasprintf	formatted output conversion"
+.It "vdprintf	formatted output conversion"
 .It "vfprintf	formatted output conversion"
 .It "vfscanf	input format conversion"
 .It "vfwprintf	formatted wide character output conversion"
@@ -331,3 +327,7 @@ library conforms to
 .It "vwprintf	formatted wide character output conversion"
 .It "wprintf	formatted wide character output conversion"
 .El
+.Sh BUGS
+The standard buffered functions do not interact well with certain other
+library and system functions, especially
+.Xr vfork 2 .

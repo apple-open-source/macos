@@ -1,0 +1,6 @@
+[vset PACKAGE text]
+[vset NAME    {plain text}]
+[vset REQUIRE text]
+[vset CONFIG  text]
+[vset VERSION 0.1]
+[include include/export/plugin.inc]

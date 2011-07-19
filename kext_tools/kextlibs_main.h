@@ -155,4 +155,4 @@ void printMultdefSymbol(const void * key, const void * value, void * context);
 
 static void usage(UsageLevel usageLevel);
 
-#endif /* _KEXTLIBS_MAIN_H */
+#endif

@@ -1,10 +1,11 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin log n 1.2.1]
-[copyright {2001-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin log n 1.3]
+[copyright {2001-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Logging facility}]
 [titledesc {Procedures to log messages of libraries and applications.}]
+[category  {Programming tools}]
 [require Tcl 8]
-[require log [opt 1.2.1]]
+[require log [opt 1.3]]
 [description]
 
 [para]
@@ -265,6 +266,12 @@ info
 [item]
 debug
 [list_end]
+
+[emph Note] that by default all messages with levels [const warning] down to
+[const debug] are suppressed. This is done intentionally, because (we believe
+that) in most situations debugging output is not wanted. Most people wish to
+have such output only when actually debugging an application.
+
 
 [section {BUGS, IDEAS, FEEDBACK}]
 

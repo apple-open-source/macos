@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (C) 2007-2008, International Business Machines Corporation and
+* Copyright (C) 2007-2010, International Business Machines Corporation and
 * others. All Rights Reserved.
 *******************************************************************************
 *
@@ -66,7 +66,9 @@ class Hashtable;
  *     need not worry about the plural cases of a language. On the flip side,
  *     the localizer does not have to specify the plural cases; he can simply
  *     use the predefined keywords. The whole plural formatting of messages can
- *     be done using localized patterns from resource bundles.
+ *     be done using localized patterns from resource bundles. For predefined plural
+ *     rules, see CLDR <i>Language Plural Rules</i> page at 
+ *    http://unicode.org/repos/cldr-tmp/trunk/diff/supplemental/language_plural_rules.html
  * </ul>
  * </p>
  * <h4>Usage of <code>PluralFormat</code></h4>
@@ -88,7 +90,8 @@ class Hashtable;
  * space characters. Each clause assigns the message <code><i>message</i></code>
  * to the plural case identified by <code><i>caseKeyword</i></code>.
  * </p><p>
- * You always have to define a message text for the default plural case
+ * There are 6 predefined casekeyword in ICU - 'zero', 'one', 'two', 'few', 'many' and
+ * 'other'. You always have to define a message text for the default plural case
  * "<code>other</code>" which is contained in every rule set. If the plural
  * rules of the <code>PluralFormat</code> object do not contain a plural case
  * identified by <code><i>caseKeyword</i></code>, U_DEFAULT_KEYWORD_MISSING
@@ -97,7 +100,7 @@ class Hashtable;
  * message text of the plural case "<code>other</code>" gets assigned to this
  * plural case. If you specify more than one message for the same plural case,
  * U_DUPLICATE_KEYWORD will be set to status.
- * <br/>
+ * <br>
  * Spaces between <code><i>caseKeyword</i></code> and
  * <code><i>message</i></code>  will be ignored; spaces within
  * <code><i>message</i></code> will be preserved.
@@ -107,9 +110,9 @@ class Hashtable;
  * can use the strings produced by <code>PluralFormat</code> with other
  * formatters. If you are using <code>PluralFormat</code> inside a
  * <code>MessageFormat</code> pattern, <code>MessageFormat</code> will
- * automatically evaluate the resulting format pattern.<br/>
+ * automatically evaluate the resulting format pattern.<br>
  * Thus, curly braces (<code>{</code>, <code>}</code>) are <i>only</i> allowed
- * in message texts to define a nested format pattern.<br/>
+ * in message texts to define a nested format pattern.<br>
  * The pound sign (<code>#</code>) will be interpreted as the number placeholder
  * in the message text, if it is not contained in curly braces (to preserve
  * <code>NumberFormat</code> patterns). <code>PluralFormat</code> will
@@ -121,6 +124,7 @@ class Hashtable;
  * </p>
  * Example
  * <pre>
+ * \code
  * UErrorCode status = U_ZERO_ERROR;
  * MessageFormat* msgFmt = new MessageFormat(UnicodeString("{0, plural,
  *   one{{0, number, C''est #,##0.0#  fichier}} other {Ce sont # fichiers}} dans la liste."),
@@ -137,24 +141,25 @@ class Hashtable;
  * result.remove();
  * msgFmt->format(args2, 1, result, ignore, status);
  * cout << result << endl;
+ * \endcode
  * </pre>
- * Produces the output:<br/>
- * <code>C'est 0,0 fichier dans la liste.</code><br/>
- * <code>Ce sont 3 fichiers dans la liste."</code>
+ * Produces the output:<br>
+ * <code>C'est 0,0 fichier dans la liste.</code><br>
+ * <code>Ce sont 3 fichiers dans la liste.</code>
  * <p>
- * <strong>Note:</strong><br/>
+ * <strong>Note:</strong><br>
  *   Currently <code>PluralFormat</code>
  *   does not make use of quotes like <code>MessageFormat</code>.
  *   If you use plural format strings with <code>MessageFormat</code> and want
- *   to use a quote sign "<code>'</code>", you have to write "<code>''</code>".
+ *   to use a quote sign <code>'</code>, you have to write <code>''</code>.
  *   <code>MessageFormat</code> unquotes this pattern and  passes the unquoted
  *   pattern to <code>PluralFormat</code>. It's a bit trickier if you use
  *   nested formats that do quoting. In the example above, we wanted to insert
- *   "<code>'</code>" in the number format pattern. Since
+ *   <code>'</code> in the number format pattern. Since
  *   <code>NumberFormat</code> supports quotes, we had to insert
- *   "<code>''</code>". But since <code>MessageFormat</code> unquotes the
+ *   <code>''</code>. But since <code>MessageFormat</code> unquotes the
  *   pattern before it gets passed to <code>PluralFormat</code>, we have to
- *   double these quotes, i.e. write "<code>''''</code>".
+ *   double these quotes, i.e. write <code>''''</code>.
  * </p>
  * <h4>Defining Custom Plural Rules</h4>
  * <p>If you need to use <code>PluralFormat</code> with custom rules, you can
@@ -168,7 +173,7 @@ class Hashtable;
  * </p>
  *
  * ported from Java
- * @draft ICU 4.0
+ * @stable ICU 4.0
  */
 
 class U_I18N_API PluralFormat : public Format {
@@ -180,7 +185,7 @@ public:
      * number formatting.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(UErrorCode& status);
 
@@ -191,7 +196,7 @@ public:
      *               standard number formatting.
      * @param status output param set to success/failure code on exit, which
      *               must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const Locale& locale, UErrorCode& status);
 
@@ -202,7 +207,7 @@ public:
      *                object.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const PluralRules& rules, UErrorCode& status);
 
@@ -215,7 +220,7 @@ public:
      *                object.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const Locale& locale, const PluralRules& rules, UErrorCode& status);
 
@@ -227,7 +232,7 @@ public:
      *                 errors are returned to status if the pattern is invalid.
      * @param status   output param set to success/failure code on exit, which
      *                 must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const UnicodeString& pattern, UErrorCode& status);
 
@@ -243,7 +248,7 @@ public:
      *                 errors are returned to status if the pattern is invalid.
      * @param status   output param set to success/failure code on exit, which
      *                 must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const Locale& locale, const UnicodeString& pattern, UErrorCode& status);
 
@@ -256,7 +261,7 @@ public:
      *                 errors are returned to status if the pattern is invalid.
      * @param status   output param set to success/failure code on exit, which
      *                 must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const PluralRules& rules,
                  const UnicodeString& pattern,
@@ -274,7 +279,7 @@ public:
      *                errors are returned to status if the pattern is invalid.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     PluralFormat(const Locale& locale,
                  const PluralRules& rules,
@@ -283,13 +288,13 @@ public:
 
     /**
       * copy constructor.
-      * @draft ICU 4.0
+      * @stable ICU 4.0
       */
     PluralFormat(const PluralFormat& other);
 
     /**
      * Destructor.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     virtual ~PluralFormat();
 
@@ -303,9 +308,12 @@ public:
      *                errors are returned to status if the pattern is invalid.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     void applyPattern(const UnicodeString& pattern, UErrorCode& status);
+
+
+    using Format::format;
 
     /**
      * Formats a plural message for a given number.
@@ -317,21 +325,21 @@ public:
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
      * @return        the string containing the formatted plural message.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
-    UnicodeString format(int32_t number, UErrorCode& status) const;   
-    
+    UnicodeString format(int32_t number, UErrorCode& status) const;
+
     /**
      * Formats a plural message for a given number.
      *
      * @param number  a number for which the plural message should be formatted
      *                for. If no pattern has been applied to this
-     *                <code>PluralFormat</code> object yet, the formatted number
+     *                PluralFormat object yet, the formatted number
      *                will be returned.
-     * @param status  output param set to success/failure code on exit, which
+     * @param status  output param set to success or failure code on exit, which
      *                must not indicate a failure before the function call.
      * @return        the string containing the formatted plural message.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     UnicodeString format(double number, UErrorCode& status) const;
 
@@ -349,19 +357,19 @@ public:
      * @param status   output param set to success/failure code on exit, which
      *                 must not indicate a failure before the function call.
      * @return         the string containing the formatted plural message.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     UnicodeString& format(int32_t number,
                           UnicodeString& appendTo,
                           FieldPosition& pos,
                           UErrorCode& status) const;
-    
+
     /**
      * Formats a plural message for a given number.
      *
      * @param number   a number for which the plural message should be formatted
      *                 for. If no pattern has been applied to this
-     *                 <code>PluralFormat</code> object yet, the formatted number
+     *                 PluralFormat object yet, the formatted number
      *                 will be returned.
      * @param appendTo output parameter to receive result.
      *                 result is appended to existing contents.
@@ -370,7 +378,7 @@ public:
      * @param status   output param set to success/failure code on exit, which
      *                 must not indicate a failure before the function call.
      * @return         the string containing the formatted plural message.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     UnicodeString& format(double number,
                           UnicodeString& appendTo,
@@ -383,11 +391,11 @@ public:
      *     i.e., a pattern that was applied previously will be removed,
      *     and the NumberFormat is set to the default number format for
      *     the locale.  The resulting format behaves the same as one
-     *     constructed from {@link #PluralFormat(locale)}.
+     *     constructed from {@link #PluralFormat(const Locale& locale, UErrorCode& status)}.
      * @param locale  the <code>locale</code> to use to configure the formatter.
      * @param status  output param set to success/failure code on exit, which
      *                must not indicate a failure before the function call.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     void setLocale(const Locale& locale, UErrorCode& status);
 
@@ -398,7 +406,7 @@ public:
       * @param format  the number format to use.
       * @param status  output param set to success/failure code on exit, which
       *                must not indicate a failure before the function call.
-      * @draft ICU 4.0
+      * @stable ICU 4.0
       */
     void setNumberFormat(const NumberFormat* format, UErrorCode& status);
 
@@ -406,7 +414,7 @@ public:
        * Assignment operator
        *
        * @param other    the PluralFormat object to copy from.
-       * @draft ICU 4.0
+       * @stable ICU 4.0
        */
     PluralFormat& operator=(const PluralFormat& other);
 
@@ -415,7 +423,7 @@ public:
       *
       * @param other    the PluralFormat object to be compared with.
       * @return         true if other is semantically equal to this.
-      * @draft ICU 4.0
+      * @stable ICU 4.0
       */
     virtual UBool operator==(const Format& other) const;
 
@@ -424,14 +432,14 @@ public:
      *
      * @param other    the PluralFormat object to be compared with.
      * @return         true if other is semantically unequal to this.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     virtual UBool operator!=(const Format& other) const;
 
     /**
      * Clones this Format object polymorphically.  The caller owns the
      * result and should delete it when done.
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
     virtual Format* clone(void) const;
 
@@ -445,7 +453,7 @@ public:
     *                  On output: the offsets of the alignment field.
     * @param status    output param filled with success/failure status.
     * @return          Reference to 'appendTo' parameter.
-    * @draft ICU 4.0
+    * @stable ICU 4.0
     */
    UnicodeString& format(const Formattable& obj,
                          UnicodeString& appendTo,
@@ -458,7 +466,7 @@ public:
     * @param  appendTo  output parameter to receive result.
      *                  Result is appended to existing contents.
     * @return the UnicodeString with inserted pattern.
-    * @draft ICU 4.0
+    * @stable ICU 4.0
     */
    UnicodeString& toPattern(UnicodeString& appendTo);
 
@@ -482,7 +490,7 @@ public:
     *                  last character successfully parsed. If the
     *                  source is not parsed successfully, this param
     *                  will remain unchanged.
-    * @draft ICU 4.0
+    * @stable ICU 4.0
     */
    virtual void parseObject(const UnicodeString& source,
                             Formattable& result,
@@ -491,7 +499,7 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for this class.
      *
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      *
      */
     static UClassID U_EXPORT2 getStaticClassID(void);
@@ -499,7 +507,7 @@ public:
     /**
      * ICU "poor man's RTTI", returns a UClassID for the actual class.
      *
-     * @draft ICU 4.0
+     * @stable ICU 4.0
      */
      virtual UClassID getDynamicClassID() const;
 

@@ -378,7 +378,7 @@ mbuf_t ppp_dequeue(struct pppqueue *pppq)
 
 void ppp_prepend(struct pppqueue *pppq, mbuf_t m)
 {
-	mbuf_setnextpkt(m, pppq->head); \
+	mbuf_setnextpkt(m, pppq->head);
 	if (pppq->tail == 0)
 		pppq->tail = m;
 	pppq->head = m;

@@ -1,5 +1,23 @@
 Revision history for ApacheDBI.
 
+1.08 February 3rd, 2010
+  - Fix bug to allow DBI in startup.pl etc again
+    Bug report from Adam Prime, patch from Lubomir Rintel
+    https://rt.cpan.org/Public/Bug/Display.html?id=36346
+
+1.07 05/09/2008
+  - http://rt.cpan.org/Public/Bug/Display.html?id=31003
+    Submitted by: diafour@gmail.com 
+    Tweaked by: Philip M. Gollucci <pgollucci@p6m7g8.com>
+
+  - http://rt.cpan.org/Public/Bug/Display.html?id=29209
+    PerlCleanupHandler doesn't get called with MP2
+    Submitted by: nick.aevum.de <nick@aevum.de> 
+
+  - http://rt.cpan.org/Public/Bug/Display.html?id=28824
+    Documentation Additions
+    Submitted by: [Perrin Harkins <perrin@elem.com>]
+
 1.06 03/23/2007
   - MP2/AuthDBI: Fixed Apache::AuthDBI::debug() to 
     actually work.

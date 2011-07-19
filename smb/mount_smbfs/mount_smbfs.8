@@ -112,7 +112,7 @@ for details.
 .El
 .Sh EXAMPLES
 This example shows the proper url to use to mount the share PUBLIC from
-the SMB server myserver:
+the SMB server myserver :
 .Bd -literal -offset indent
 mkdir /smb/public
 mount -t smbfs //username:userpass@myserver/PUBLIC /smb/public
@@ -123,8 +123,8 @@ the SMB server myserver as guest:
 .Bd -literal -offset indent
 mkdir /smb/public
 mount -t smbfs //guest:@myserver/PUBLIC /smb/public
-
 .Ed
+\fBNote:\fP You should always use the system mount command and never call mount_smbfs directly.
 .Sh SEE ALSO
 .Xr mount 2 ,
 .Xr nsmb.conf 5 ,

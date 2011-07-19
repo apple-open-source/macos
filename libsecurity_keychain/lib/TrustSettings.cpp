@@ -165,8 +165,23 @@ static bool tsCheckPolicyStr(
 			trustSettingsEvalDbg("tsCheckPolicyStr: policyStr string conversion error");
 			return false;
 		}
-		CFComparisonResult res = CFStringCompare(cfPolicyStr, certPolicyStr, 0);
+		
+		// Some trust setting strings were created with a NULL character at the
+		// end, which was included in the length. Strip those off before compare
+		
+		CFMutableStringRef certPolicyStrNoNULL = CFStringCreateMutableCopy(NULL, 0, certPolicyStr);
+		if (certPolicyStrNoNULL == NULL) {
+			/* I really don't see how this can happen either */
+			trustSettingsEvalDbg("tsCheckPolicyStr: policyStr string conversion error 2");
+			return false;
+		}
+		
+		CFStringFindAndReplace(certPolicyStrNoNULL, CFSTR("\00"), 
+			CFSTR(""), CFRangeMake(0, CFStringGetLength(certPolicyStrNoNULL)), kCFCompareBackwards);
+		
+		CFComparisonResult res = CFStringCompare(cfPolicyStr, certPolicyStrNoNULL, 0);
 		CFRelease(cfPolicyStr);
+		CFRelease(certPolicyStrNoNULL);
 		if(res != kCFCompareEqualTo) {
 			trustSettingsEvalDbg("tsCheckPolicyStr: policyStr mismatch");
 			return false;

@@ -11,7 +11,7 @@
 # for this package, and can be a relative path, such as:
 #
 #--------------------------------------------------------------------
-define(XOTclVersion, 1.6.2)
+define(XOTclVersion, 1.6.6)
 AC_INIT([xotcl], [XOTclVersion])
 
 #--------------------------------------------------------------------
@@ -19,7 +19,7 @@ AC_INIT([xotcl], [XOTclVersion])
 # This will define a ${TEA_PLATFORM} variable == "unix" or "windows".
 #--------------------------------------------------------------------
 
-TEA_INIT([3.7])
+TEA_INIT([3.9])
 AC_CONFIG_AUX_DIR(config)
 
 #--------------------------------------------------------------------
@@ -51,13 +51,14 @@ AC_ARG_WITH(all,
         [  --with-all=yes|no,
 	   --without-all disables built of all],
         [with_all=$withval], [with_all=no])
-AC_ARG_WITH(all,
-        [  --with-all=yes|no,
-	   --without-all disables built of all],
-        [with_all=$withval], [with_all=no])
 AC_ARG_WITH(tclinclude, 
         [  --with-tclinclude       directory containing the public Tcl  header files.], 
          with_tclinclude=${withval})
+AC_ARG_WITH(expat,
+        [  --with-expat=sys assumes a system-wide expat installation, 
+           --with-expat=<INC_DIR,LIB_DIR> point to a custom expat installation,
+           --without-expat falls back to the bundled expat installation],
+        [with_expat=$withval],[with_expat=bundle])
 
 subdirs=""
 
@@ -73,17 +74,18 @@ if test "$with_actiweb" = yes; then
    libdirs_actiweb="actiweb rdf registry store xml patterns"
    apps_actiweb="actiweb persistence"
    subdirs="$subdirs library/store/XOTclSdbm/"
-dnl    AC_CONFIG_SUBDIRS(library/store/XOTclSdbm/)
    if ! test "$with_gdbm" = no; then
        subdirs="$subdirs library/store/XOTclGdbm/"
-dnl       AC_CONFIG_SUBDIRS(library/store/XOTclGdbm/)
    fi
    subdirs="$subdirs library/xml/TclExpat-1.1/"
-dnl    AC_CONFIG_SUBDIRS(library/xml/TclExpat-1.1/)
 else
    test_actiweb=""
    libdirs_actiweb=""
    apps_actiweb=""
+   if ! test "${with_expat}" = bundle ; then
+      AC_MSG_RESULT([WARNING: expat configuration ${with_expat} ignored])
+      with_expat="bundle"
+   fi
 fi
 
 AC_SUBST(subdirs)
@@ -104,7 +106,7 @@ if test "$with_xowish" = yes;  then XOWISH="xowish"   ; else XOWISH=""; fi
 # do not modify the following lines manually, they are generated with changeXOTclVersion
 XOTCL_MAJOR_VERSION=1
 XOTCL_MINOR_VERSION=6
-XOTCL_RELEASE_LEVEL=.2
+XOTCL_RELEASE_LEVEL=.6
 
 XOTCL_VERSION=${XOTCL_MAJOR_VERSION}.${XOTCL_MINOR_VERSION}
 NODOT_VERSION=${XOTCL_MAJOR_VERSION}${XOTCL_MINOR_VERSION}
@@ -461,8 +463,16 @@ do
    		mkdir -p $subdir
 		confdir=${srcdir}/$subdir
 	fi
-    (cd $subdir; echo $SHELL ${confdir}/configure ${ac_configure_args} --with-xotcl=${here}; eval $SHELL ${confdir}/configure ${ac_configure_args} --with-xotcl=${here})
+    (cd $subdir; echo $SHELL ${confdir}/configure ${ac_configure_args} --prefix=${prefix} --with-xotcl=${here}; eval $SHELL ${confdir}/configure ${ac_configure_args} --prefix=${prefix} --with-xotcl=${here})
 done
+
+
+
+
+
+
+
+
 
 
 

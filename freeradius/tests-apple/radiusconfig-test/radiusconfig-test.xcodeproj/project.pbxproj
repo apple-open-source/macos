@@ -9,7 +9,6 @@
 /* Begin PBXBuildFile section */
 		8DD76F9A0486AA7600D96B5E /* radiusconfig-test.m in Sources */ = {isa = PBXBuildFile; fileRef = 08FB7796FE84155DC02AAC07 /* radiusconfig-test.m */; settings = {ATTRIBUTES = (); }; };
 		8DD76F9C0486AA7600D96B5E /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 08FB779EFE84155DC02AAC07 /* Foundation.framework */; };
-		AA5FAB1B08E1CBE900B50EF5 /* PasswordServer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AA5FAB1A08E1CBE900B50EF5 /* PasswordServer.framework */; };
 		AACA9B3108E204040032B37E /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AACA9B3008E204040032B37E /* SystemConfiguration.framework */; };
 /* End PBXBuildFile section */
 
@@ -41,7 +40,6 @@
 			buildActionMask = 2147483647;
 			files = (
 				8DD76F9C0486AA7600D96B5E /* Foundation.framework in Frameworks */,
-				AA5FAB1B08E1CBE900B50EF5 /* PasswordServer.framework in Frameworks */,
 				AACA9B3108E204040032B37E /* SystemConfiguration.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

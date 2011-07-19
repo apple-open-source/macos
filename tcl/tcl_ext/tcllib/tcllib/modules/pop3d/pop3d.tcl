@@ -2,12 +2,13 @@
 #
 #	Implementation of a pop3 server for Tcl.
 #
-# Copyright (c) 2002 by Andreas Kupries
+# Copyright (c) 2002-2009 by Andreas Kupries
+# Copyright (c) 2005      by Reinhard Max (-socket option)
 #
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: pop3d.tcl,v 1.22 2006/01/10 23:05:19 andreas_kupries Exp $
+# RCS: @(#) $Id: pop3d.tcl,v 1.23 2009/04/14 20:35:43 andreas_kupries Exp $
 
 package require md5  ; # tcllib | APOP
 package require mime ; # tcllib | storage callback
@@ -34,7 +35,7 @@ namespace eval ::pop3d {
     # sock    - listening socket
     # authCmd - authentication callback
     # storCmd - storage callback
-    # sockCmd - command prefix for openin the server socket
+    # sockCmd - command prefix for opening the server socket
     # state   - state of the server (up, down, exiting)
     # conn    - map : sock -> state array
     # counter - counter for state arrays
@@ -126,7 +127,7 @@ proc ::pop3d::new {{name ""}} {
 	variable port     110
 	variable trueport 110
 	variable sock     {}
-	variable sockCmd  socket
+	variable sockCmd  ::socket
 	variable authCmd  {}
 	variable storCmd  {}
 	variable state    down

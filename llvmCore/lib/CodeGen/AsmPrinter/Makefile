@@ -1,4 +1,4 @@
-##===- lib/CodeGen/SelectionDAG/Makefile -------------------*- Makefile -*-===##
+##===- lib/CodeGen/AsmPrinter/Makefile ---------------------*- Makefile -*-===##
 #
 #                     The LLVM Compiler Infrastructure
 #
@@ -6,10 +6,8 @@
 # License. See LICENSE.TXT for details.
 #
 ##===----------------------------------------------------------------------===##
+
 LEVEL = ../../..
 LIBRARYNAME = LLVMAsmPrinter
-PARALLEL_DIRS =
-BUILD_ARCHIVE = 1
-DONT_BUILD_RELINKED = 1
 
 include $(LEVEL)/Makefile.common

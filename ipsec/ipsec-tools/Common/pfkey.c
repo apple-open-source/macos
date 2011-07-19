@@ -36,11 +36,7 @@
 #include <sys/types.h>
 #include <sys/param.h>
 #include <sys/socket.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #include <netinet/in.h>
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
@@ -62,18 +58,10 @@
 static int findsupportedmap __P((int));
 static int setsupportedmap __P((struct sadb_supported *));
 static struct sadb_alg *findsupportedalg __P((u_int, u_int));
-#ifdef __APPLE__
 static int pfkey_send_x1 __P((int, u_int, u_int, u_int, struct sockaddr *,
 	struct sockaddr *, u_int32_t, u_int32_t, u_int, caddr_t,
 	u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int32_t,
 	u_int32_t, u_int32_t, u_int32_t, u_int16_t));
-#else
-static int pfkey_send_x1 __P((int, u_int, u_int, u_int, struct sockaddr *,
-	struct sockaddr *, u_int32_t, u_int32_t, u_int, caddr_t,
-	u_int, u_int, u_int, u_int, u_int, u_int32_t, u_int32_t,
-	u_int32_t, u_int32_t, u_int32_t,
-	u_int8_t, u_int16_t, u_int16_t, struct sockaddr *, u_int16_t));
-#endif
 static int pfkey_send_x2 __P((int, u_int, u_int, u_int,
 	struct sockaddr *, struct sockaddr *, u_int32_t));
 static int pfkey_send_x3 __P((int, u_int, u_int));
@@ -84,13 +72,8 @@ static int pfkey_send_x5 __P((int, u_int, u_int32_t));
 
 static caddr_t pfkey_setsadbmsg __P((caddr_t, caddr_t, u_int, u_int,
 	u_int, u_int32_t, pid_t));
-#ifdef __APPLE__
 static caddr_t pfkey_setsadbsa __P((caddr_t, caddr_t, u_int32_t, u_int,
 	u_int, u_int, u_int32_t, u_int16_t));
-#else
-static caddr_t pfkey_setsadbsa __P((caddr_t, caddr_t, u_int32_t, u_int,
-	u_int, u_int, u_int32_t));
-#endif
 static caddr_t pfkey_setsadbaddr __P((caddr_t, caddr_t, u_int,
 	struct sockaddr *, u_int, u_int));
 static caddr_t pfkey_setsadbkey __P((caddr_t, caddr_t, u_int, caddr_t, u_int));
@@ -501,7 +484,6 @@ pfkey_send_getspi(so, satype, mode, src, dst, min, max, reqid, seq)
 }
 
 
-#ifdef __APPLE__
 /*
  * sending SADB_UPDATE message to the kernel.
  * The length of key material is a_keylen + e_keylen.
@@ -569,141 +551,6 @@ pfkey_send_add(so, satype, mode, src, dst, spi, reqid, wsize,
 	return len;
 }
 
-
-#else /* __APPLE__ */
-
-/*
- * sending SADB_UPDATE message to the kernel.
- * The length of key material is a_keylen + e_keylen.
- * OUT:
- *	positive: success and return length sent.
- *	-1	: error occured, and set errno.
- */
-int
-pfkey_send_update(so, satype, mode, src, dst, spi, reqid, wsize,
-		keymat, e_type, e_keylen, a_type, a_keylen, flags,
-		l_alloc, l_bytes, l_addtime, l_usetime, seq)
-	int so;
-	u_int satype, mode, wsize;
-	struct sockaddr *src, *dst;
-	u_int32_t spi, reqid;
-	caddr_t keymat;
-	u_int e_type, e_keylen, a_type, a_keylen, flags;
-	u_int32_t l_alloc;
-	u_int64_t l_bytes, l_addtime, l_usetime;
-	u_int32_t seq;
-{
-	int len;
-	if ((len = pfkey_send_x1(so, SADB_UPDATE, satype, mode, src, dst, spi,
-			reqid, wsize,
-			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, (u_int)l_bytes, (u_int)l_addtime, 
-			(u_int)l_usetime, seq, 0, 0, 0, NULL, 0)) < 0)
-		return -1;
-
-	return len;
-}
-
-#ifdef SADB_X_EXT_NAT_T_TYPE
-int
-pfkey_send_update_nat(so, satype, mode, src, dst, spi, reqid, wsize,
-		      keymat, e_type, e_keylen, a_type, a_keylen, flags,
-		      l_alloc, l_bytes, l_addtime, l_usetime, seq,
-		      l_natt_type, l_natt_sport, l_natt_dport, l_natt_oa,
-		      l_natt_frag)
-	int so;
-	u_int satype, mode, wsize;
-	struct sockaddr *src, *dst;
-	u_int32_t spi, reqid;
-	caddr_t keymat;
-	u_int e_type, e_keylen, a_type, a_keylen, flags;
-	u_int32_t l_alloc;
-	u_int64_t l_bytes, l_addtime, l_usetime;
-	u_int32_t seq;
-	u_int8_t l_natt_type;
-	u_int16_t l_natt_sport, l_natt_dport;
-	struct sockaddr *l_natt_oa;
-	u_int16_t l_natt_frag;
-{
-	int len;
-	if ((len = pfkey_send_x1(so, SADB_UPDATE, satype, mode, src, dst, spi,
-			reqid, wsize,
-			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, (u_int)l_bytes, (u_int)l_addtime, 
-			(u_int)l_usetime, seq, l_natt_type, l_natt_sport, 
-			l_natt_dport, l_natt_oa, l_natt_frag)) < 0)
-		return -1;
-
-	return len;
-}
-#endif
-
-/*
- * sending SADB_ADD message to the kernel.
- * The length of key material is a_keylen + e_keylen.
- * OUT:
- *	positive: success and return length sent.
- *	-1	: error occured, and set errno.
- */
-int
-pfkey_send_add(so, satype, mode, src, dst, spi, reqid, wsize,
-		keymat, e_type, e_keylen, a_type, a_keylen, flags,
-		l_alloc, l_bytes, l_addtime, l_usetime, seq)
-	int so;
-	u_int satype, mode, wsize;
-	struct sockaddr *src, *dst;
-	u_int32_t spi, reqid;
-	caddr_t keymat;
-	u_int e_type, e_keylen, a_type, a_keylen, flags;
-	u_int32_t l_alloc;
-	u_int64_t l_bytes, l_addtime, l_usetime;
-	u_int32_t seq;
-{
-	int len;
-	if ((len = pfkey_send_x1(so, SADB_ADD, satype, mode, src, dst, spi,
-			reqid, wsize,
-			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, (u_int)l_bytes, (u_int)l_addtime, 
-			(u_int)l_usetime, seq, 0, 0, 0, NULL, 0)) < 0)
-		return -1;
-
-	return len;
-}
-
-#ifdef SADB_X_EXT_NAT_T_TYPE
-int
-pfkey_send_add_nat(so, satype, mode, src, dst, spi, reqid, wsize,
-		   keymat, e_type, e_keylen, a_type, a_keylen, flags,
-		   l_alloc, l_bytes, l_addtime, l_usetime, seq,
-		   l_natt_type, l_natt_sport, l_natt_dport, l_natt_oa,
-		   l_natt_frag)
-	int so;
-	u_int satype, mode, wsize;
-	struct sockaddr *src, *dst;
-	u_int32_t spi, reqid;
-	caddr_t keymat;
-	u_int e_type, e_keylen, a_type, a_keylen, flags;
-	u_int32_t l_alloc;
-	u_int64_t l_bytes, l_addtime, l_usetime;
-	u_int32_t seq;
-	u_int8_t l_natt_type;
-	u_int16_t l_natt_sport, l_natt_dport;
-	struct sockaddr *l_natt_oa;
-	u_int16_t l_natt_frag;
-{
-	int len;
-	if ((len = pfkey_send_x1(so, SADB_ADD, satype, mode, src, dst, spi,
-			reqid, wsize,
-			keymat, e_type, e_keylen, a_type, a_keylen, flags,
-			l_alloc, (u_int)l_bytes, (u_int)l_addtime, 
-			(u_int)l_usetime, seq, l_natt_type, l_natt_sport, 
-			l_natt_dport, l_natt_oa, l_natt_frag)) < 0)
-		return -1;
-
-	return len;
-}
-#endif
-#endif /* __APPLE__ */
 
 /*
  * sending SADB_DELETE message to the kernel.
@@ -1285,7 +1132,7 @@ pfkey_send_spddump(so)
 	return len;
 }
 
-#ifdef __APPLE__
+
 /* sending SADB_ADD or SADB_UPDATE message to the kernel */
 static int
 pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
@@ -1470,268 +1317,6 @@ pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
 	return len;
 }
 
-#else /* __APPLE__ */
-
-/* sending SADB_ADD or SADB_UPDATE message to the kernel */
-static int
-pfkey_send_x1(so, type, satype, mode, src, dst, spi, reqid, wsize,
-		keymat, e_type, e_keylen, a_type, a_keylen, flags,
-		l_alloc, l_bytes, l_addtime, l_usetime, seq,
-	        l_natt_type, l_natt_sport, l_natt_dport, l_natt_oa, 
-		l_natt_frag)
-	int so;
-	u_int type, satype, mode;
-	struct sockaddr *src, *dst, *l_natt_oa;
-	u_int32_t spi, reqid;
-	u_int wsize;
-	caddr_t keymat;
-	u_int e_type, e_keylen, a_type, a_keylen, flags;
-	u_int32_t l_alloc, l_bytes, l_addtime, l_usetime, seq;
-	u_int16_t l_natt_sport, l_natt_dport;
-	u_int8_t l_natt_type;
-	u_int16_t l_natt_frag;
-{
-	struct sadb_msg *newmsg;
-	int len;
-	caddr_t p;
-	int plen;
-	caddr_t ep;
-
-	/* validity check */
-	if (src == NULL || dst == NULL) {
-		__ipsec_errcode = EIPSEC_INVAL_ARGUMENT;
-		return -1;
-	}
-	if (src->sa_family != dst->sa_family) {
-		__ipsec_errcode = EIPSEC_FAMILY_MISMATCH;
-		return -1;
-	}
-	switch (src->sa_family) {
-	case AF_INET:
-		plen = sizeof(struct in_addr) << 3;
-		break;
-	case AF_INET6:
-		plen = sizeof(struct in6_addr) << 3;
-		break;
-	default:
-		__ipsec_errcode = EIPSEC_INVAL_FAMILY;
-		return -1;
-	}
-
-	switch (satype) {
-	case SADB_SATYPE_ESP:
-		if (e_type == SADB_EALG_NONE) {
-			__ipsec_errcode = EIPSEC_NO_ALGS;
-			return -1;
-		}
-		break;
-	case SADB_SATYPE_AH:
-		if (e_type != SADB_EALG_NONE) {
-			__ipsec_errcode = EIPSEC_INVAL_ALGS;
-			return -1;
-		}
-		if (a_type == SADB_AALG_NONE) {
-			__ipsec_errcode = EIPSEC_NO_ALGS;
-			return -1;
-		}
-		break;
-	case SADB_X_SATYPE_IPCOMP:
-		if (e_type == SADB_X_CALG_NONE) {
-			__ipsec_errcode = EIPSEC_INVAL_ALGS;
-			return -1;
-		}
-		if (a_type != SADB_AALG_NONE) {
-			__ipsec_errcode = EIPSEC_NO_ALGS;
-			return -1;
-		}
-		break;
-#ifdef SADB_X_AALG_TCP_MD5
-	case SADB_X_SATYPE_TCPSIGNATURE:
-		if (e_type != SADB_EALG_NONE) {
-			__ipsec_errcode = EIPSEC_INVAL_ALGS;
-			return -1;
-		}
-		if (a_type != SADB_X_AALG_TCP_MD5) {
-			__ipsec_errcode = EIPSEC_INVAL_ALGS;
-			return -1;
-		}
-		break;
-#endif
-	default:
-		__ipsec_errcode = EIPSEC_INVAL_SATYPE;
-		return -1;
-	}
-
-	/* create new sadb_msg to reply. */
-	len = sizeof(struct sadb_msg)
-		+ sizeof(struct sadb_sa)
-		+ sizeof(struct sadb_x_sa2)
-		+ sizeof(struct sadb_address)
-		+ PFKEY_ALIGN8(sysdep_sa_len(src))
-		+ sizeof(struct sadb_address)
-		+ PFKEY_ALIGN8(sysdep_sa_len(dst))
-		+ sizeof(struct sadb_lifetime)
-		+ sizeof(struct sadb_lifetime);
-
-	if (e_type != SADB_EALG_NONE && satype != SADB_X_SATYPE_IPCOMP)
-		len += (sizeof(struct sadb_key) + PFKEY_ALIGN8(e_keylen));
-	if (a_type != SADB_AALG_NONE)
-		len += (sizeof(struct sadb_key) + PFKEY_ALIGN8(a_keylen));
-
-#ifdef SADB_X_EXT_NAT_T_TYPE
-	/* add nat-t packets */
-	if (l_natt_type) {
-		switch(satype) {
-		case SADB_SATYPE_ESP:
-		case SADB_X_SATYPE_IPCOMP:
-			break;
-		default:
-			__ipsec_errcode = EIPSEC_NO_ALGS;
-			return -1;
-		}
-
-		len += sizeof(struct sadb_x_nat_t_type);
-		len += sizeof(struct sadb_x_nat_t_port);
-		len += sizeof(struct sadb_x_nat_t_port);
-		if (l_natt_oa)
-			len += sizeof(struct sadb_address) +
-			  PFKEY_ALIGN8(sysdep_sa_len(l_natt_oa));
-#ifdef SADB_X_EXT_NAT_T_FRAG
-		if (l_natt_frag)
-			len += sizeof(struct sadb_x_nat_t_frag);
-#endif
-	}
-#endif
-
-	if ((newmsg = CALLOC((size_t)len, struct sadb_msg *)) == NULL) {
-		__ipsec_set_strerror(strerror(errno));
-		return -1;
-	}
-	ep = ((caddr_t)(void *)newmsg) + len;
-
-	p = pfkey_setsadbmsg((void *)newmsg, ep, type, (u_int)len,
-	                     satype, seq, getpid());
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-	p = pfkey_setsadbsa(p, ep, spi, wsize, a_type, e_type, flags);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-	p = pfkey_setsadbxsa2(p, ep, mode, reqid);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_SRC, src, (u_int)plen,
-	    IPSEC_ULPROTO_ANY);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-	p = pfkey_setsadbaddr(p, ep, SADB_EXT_ADDRESS_DST, dst, (u_int)plen,
-	    IPSEC_ULPROTO_ANY);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-
-	if (e_type != SADB_EALG_NONE && satype != SADB_X_SATYPE_IPCOMP) {
-		p = pfkey_setsadbkey(p, ep, SADB_EXT_KEY_ENCRYPT,
-		                   keymat, e_keylen);
-		if (!p) {
-			free(newmsg);
-			return -1;
-		}
-	}
-	if (a_type != SADB_AALG_NONE) {
-		p = pfkey_setsadbkey(p, ep, SADB_EXT_KEY_AUTH,
-		                   keymat + e_keylen, a_keylen);
-		if (!p) {
-			free(newmsg);
-			return -1;
-		}
-	}
-
-	/* set sadb_lifetime for destination */
-	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_HARD,
-			l_alloc, l_bytes, l_addtime, l_usetime);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-	p = pfkey_setsadblifetime(p, ep, SADB_EXT_LIFETIME_SOFT,
-			l_alloc, l_bytes, l_addtime, l_usetime);
-	if (!p) {
-		free(newmsg);
-		return -1;
-	}
-
-#ifdef SADB_X_EXT_NAT_T_TYPE
-	/* Add nat-t messages */
-	if (l_natt_type) {
-		p = pfkey_set_natt_type(p, ep, SADB_X_EXT_NAT_T_TYPE, l_natt_type);
-		if (!p) {
-			free(newmsg);
-			return -1;
-		}
-
-		p = pfkey_set_natt_port(p, ep, SADB_X_EXT_NAT_T_SPORT,
-					l_natt_sport);
-		if (!p) {
-			free(newmsg);
-			return -1;
-		}
-
-		p = pfkey_set_natt_port(p, ep, SADB_X_EXT_NAT_T_DPORT,
-					l_natt_dport);
-		if (!p) {
-			free(newmsg);
-			return -1;
-		}
-
-		if (l_natt_oa) {
-			p = pfkey_setsadbaddr(p, ep, SADB_X_EXT_NAT_T_OA,
-					      l_natt_oa,
-					      (u_int)PFKEY_ALIGN8(sysdep_sa_len(l_natt_oa)),
-					      IPSEC_ULPROTO_ANY);
-			if (!p) {
-				free(newmsg);
-				return -1;
-			}
-		}
-
-		if (l_natt_frag) {
-#ifdef SADB_X_EXT_NAT_T_FRAG
-			p = pfkey_set_natt_frag(p, ep, SADB_X_EXT_NAT_T_FRAG,
-					l_natt_frag);
-			if (!p) {
-				free(newmsg);
-				return -1;
-			}
-#endif
-		}
-	}
-#endif
-
-	if (p != ep) {
-		free(newmsg);
-		return -1;
-	}
-
-	/* send message */
-	len = pfkey_send(so, newmsg, len);
-	free(newmsg);
-
-	if (len < 0)
-		return -1;
-
-	__ipsec_errcode = EIPSEC_NO_ERROR;
-	return len;
-}
-#endif /* __APPLE__ */
 
 /* sending SADB_DELETE or SADB_GET message to the kernel */
 /*ARGSUSED*/
@@ -1771,11 +1356,7 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 
 	/* create new sadb_msg to reply. */
 	len = sizeof(struct sadb_msg)
-#ifdef __APPLE__
 		+ sizeof(struct sadb_sa_2)
-#else
-		+ sizeof(struct sadb_sa)
-#endif
 		+ sizeof(struct sadb_address)
 		+ PFKEY_ALIGN8(sysdep_sa_len(src))
 		+ sizeof(struct sadb_address)
@@ -1793,11 +1374,7 @@ pfkey_send_x2(so, type, satype, mode, src, dst, spi)
 		free(newmsg);
 		return -1;
 	}
-#ifdef __APPLE__
 	p = pfkey_setsadbsa(p, ep, spi, 0, 0, 0, 0, 0);
-#else
-	p = pfkey_setsadbsa(p, ep, spi, 0, 0, 0, 0);
-#endif
 	if (!p) {
 		free(newmsg);
 		return -1;
@@ -2454,7 +2031,6 @@ pfkey_setsadbmsg(buf, lim, type, tlen, satype, seq, pid)
 	return(buf + len);
 }
 
-#ifdef __APPLE__
 /*
  * copy secasvar data into sadb_address.
  * `buf' must has been allocated sufficiently.
@@ -2489,42 +2065,6 @@ pfkey_setsadbsa(buf, lim, spi, wsize, auth, enc, flags, port)
 
 	return(buf + len);
 }
-#else
-
-/*
- * copy secasvar data into sadb_address.
- * `buf' must has been allocated sufficiently.
- */
-static caddr_t
-pfkey_setsadbsa(buf, lim, spi, wsize, auth, enc, flags)
-	caddr_t buf;
-	caddr_t lim;
-	u_int32_t spi, flags;
-	u_int wsize, auth, enc;
-{
-	struct sadb_sa *p;
-	u_int len;
-
-	p = (void *)buf;
-	len = sizeof(struct sadb_sa);
-
-	if (buf + len > lim)
-		return NULL;
-
-	memset(p, 0, len);
-	p->sadb_sa_len = PFKEY_UNIT64(len);
-	p->sadb_sa_exttype = SADB_EXT_SA;
-	p->sadb_sa_spi = spi;
-	p->sadb_sa_replay = wsize;
-	p->sadb_sa_state = SADB_SASTATE_LARVAL;
-	p->sadb_sa_auth = auth;
-	p->sadb_sa_encrypt = enc;
-	p->sadb_sa_flags = flags;
-	p->sadb_sa_natt_port = port;
-
-	return(buf + len);
-}
-#endif
 
 /*
  * set data into sadb_address.

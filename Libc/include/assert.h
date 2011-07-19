@@ -74,11 +74,19 @@ __END_DECLS
 
 __BEGIN_DECLS
 void __assert_rtn(const char *, const char *, int, const char *) __dead2;
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && ((__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0) < 1070)
 void __eprintf(const char *, const char *, unsigned, const char *) __dead2;
+#endif
 __END_DECLS
 
+#if defined(__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__) && ((__ENVIRONMENT_MAC_OS_X_VERSION_MIN_REQUIRED__-0) < 1070)
 #define __assert(e, file, line) \
     __eprintf ("%s:%u: failed assertion `%s'\n", file, line, e)
+#else
+/* 8462256: modified __assert_rtn() replaces deprecated __eprintf() */
+#define __assert(e, file, line) \
+    __assert_rtn ((const char *)-1L, file, line, e)
+#endif
 
 #if __DARWIN_UNIX03
 #define	assert(e) \

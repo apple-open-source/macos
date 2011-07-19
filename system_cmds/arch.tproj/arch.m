@@ -24,6 +24,7 @@
 #include <sys/cdefs.h>
 #include <stdio.h>
 #include <string.h>
+#include <stdbool.h>
 #include <stdlib.h>
 #include <stddef.h>
 #include <unistd.h>
@@ -65,17 +66,68 @@ typedef struct {
 } CPU;
 
 typedef struct {
-    char *str;
-    int i;
-} StrInt;
+    const char *arch;
+    int cpu;
+} CPUTypes;
 
-static StrInt initArches[] = {
+static const CPUTypes initArches[] = {
+#if defined(__i386__) || defined(__x86_64__)
     {"i386", CPU_TYPE_I386},
-    {"ppc", CPU_TYPE_POWERPC},
-    {"ppc64", CPU_TYPE_POWERPC64},
     {"x86_64", CPU_TYPE_X86_64},
-    {NULL, 0}
+#elif defined(__arm__)
+    {"arm", CPU_TYPE_ARM},
+#else
+#error "Unsupported architecture"
+#endif
+    {NULL, 0} // sentinel
 };
+
+/*
+ * ignore contains architectures supported by previous releases, but
+ * now unsupported.  The seen field will be set to true if the corresponding
+ * architecture was specified.
+ */
+
+typedef struct {
+    const char *arch;
+    bool seen;
+} Ignore;
+
+static Ignore ignore[] = {
+#if defined(__i386__) || defined(__x86_64__)
+    {"ppc", false},
+    {"ppc64", false},
+#endif
+    {NULL, false} // sentinel
+};
+
+/* The total number of architectures specified */
+static int archCount = 0;
+
+/* environment SPI */
+char **_copyenv(char **env);
+int _setenvp(const char *name, const char *value, int rewrite, char ***envp, void *state);
+int _unsetenvp(const char *name, char ***envp, void *state);
+
+/* copy of environment */
+char **envCopy = NULL;
+extern char **environ;
+
+/*
+ * The native 32 and 64-bit architectures (this is relative to the architecture
+ * the arch command is running.  NULL means unsupported.
+ */
+#if defined(__i386__) || defined(__x86_64__)
+#define NATIVE_32	"i386"
+#define NATIVE_64	"x86_64"
+#elif defined(__arm__)
+#define NATIVE_32	"arm"
+#define NATIVE_64	NULL
+#else
+#error "Unsupported architecture"
+#endif
+bool native32seen = false;
+bool native64seen = false;
 
 /*
  * arch - perform the original behavior of the arch and machine commands.
@@ -99,20 +151,43 @@ arch(int archcmd)
 }
 
 /*
- * spawnIt - run the posix_spawn command.  count is the number of CPU types
- * in the prefs array.  pflag is non-zero to call posix_spawnp; zero means to
- * call posix_spawn.  str is the name/path to pass to posix_spawn{,p}, and
- * argv and environ are the argument and environment arrays to pass.  This
- * routine never returns.
+ * spawnIt - run the posix_spawn command.  cpu is the auto-sizing CPU structure.
+ * pflag is non-zero to call posix_spawnp; zero means to call posix_spawn.
+ * str is the name/path to pass to posix_spawn{,p}, and argv are
+ * the argument arrays to pass.  This routine never returns.
  */
 static void __dead2
-spawnIt(int count, cpu_type_t *prefs, int pflag, const char *str, char **argv, char **environ)
+spawnIt(CPU *cpu, int pflag, const char *str, char **argv)
 {
-
     posix_spawnattr_t attr;
     pid_t pid;
     int ret;
     size_t copied;
+    const Ignore *ip;
+    int count = CPUCOUNT(cpu);
+    cpu_type_t *prefs = cpu->buf;
+
+    if(count == 0) {
+	if(archCount == 0) // shouldn't happen
+	    errx(1, "spawnIt called with no architectures specified");
+	for(ip = ignore; ip->arch; ip++) {
+	    if(ip->seen)
+		warnx("Unsupported architecture: %s", ip->arch);
+	}
+	if(native32seen)
+	    warnx("Unsupported native 32-bit architecture");
+	if(native64seen)
+	    warnx("Unsupported native 64-bit architecture");
+	exit(1);
+    }
+    for(ip = ignore; ip->arch; ip++) {
+	if(ip->seen)
+	    fprintf(stderr, "warning: unsupported architecture: %s\n", ip->arch);
+    }
+    if(native32seen)
+	fprintf(stderr, "warning: unsupported native 32-bit architecture\n");
+    if(native64seen)
+	fprintf(stderr, "warning: unsupported native 64-bit architecture\n");
 
     if((ret = posix_spawnattr_init(&attr)) != 0)
 	errc(1, ret, "posix_spawnattr_init");
@@ -124,9 +199,9 @@ spawnIt(int count, cpu_type_t *prefs, int pflag, const char *str, char **argv, c
     if(copied != count)
 	errx(1, "posix_spawnattr_setbinpref_np only copied %d of %d", (int)copied, count);
     if(pflag)
-	ret = posix_spawnp(&pid, str, NULL, &attr, argv, environ);
+	ret = posix_spawnp(&pid, str, NULL, &attr, argv, envCopy ? envCopy : environ);
     else
-	ret = posix_spawn(&pid, str, NULL, &attr, argv, environ);
+	ret = posix_spawn(&pid, str, NULL, &attr, argv, envCopy ? envCopy : environ);
     errc(1, ret, "posix_spawn%s: %s", (pflag ? "p" : ""), str);
 }
 
@@ -152,6 +227,11 @@ initCPU(CPU *cpu)
 static void
 addCPU(CPU *cpu, int n)
 {
+    archCount++;
+    if(n <= 0) { // ignore values
+	ignore[-n].seen = true; // negate to get real index
+	return;
+    }
     if(cpu->ptr >= cpu->end) {
 	cpu_type_t *new = realloc(cpu->buf, (cpu->end - cpu->buf + CPUDELTA) * sizeof(cpu_type_t));
 	if(!new)
@@ -235,7 +315,7 @@ useEnv(CPU *cpu, const char *name, char **execpath)
 		continue; /* no cpu list, so skip */
 	    /* if the name matches, or there is no name, process the cpus */
 	    if(!*n || strcmp(n, cp) == 0) {
-		if(CPUCOUNT(cpu) <= 0) { /* only if we don't already have cpu types */
+		if(archCount <= 0) { /* only if we haven't processed architectures */
 		    char *t;
 		    while((t = strsep(&blk, ",")) != NULL)
 			addCPUbyname(cpu, t);
@@ -244,7 +324,7 @@ useEnv(CPU *cpu, const char *name, char **execpath)
 		break;
 	    }
 	} else { /* no colons at all, so process as default */
-	    if(CPUCOUNT(cpu) <= 0) { /* only if we don't already have cpu types */
+	    if(archCount <= 0) { /* only if we haven't processed architectures */
 		blk = n;
 		while((n = strsep(&blk, ",")) != NULL)
 		    addCPUbyname(cpu, n);
@@ -255,7 +335,7 @@ useEnv(CPU *cpu, const char *name, char **execpath)
     }
     if(cpu->errs) /* errors during addCPUbyname are fatal */
 	exit(1);
-    return CPUCOUNT(cpu); /* return count of cpus */
+    return archCount; /* return count of architectures */
 }
 
 /*
@@ -268,7 +348,7 @@ useEnv(CPU *cpu, const char *name, char **execpath)
  * This routine never returns.
  */
 static void __dead2
-spawnFromPreferences(CPU *cpu, int needexecpath, char **argv, char **environ)
+spawnFromPreferences(CPU *cpu, int needexecpath, char **argv)
 {
     char *epath = NULL;
     int count;
@@ -284,10 +364,10 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv, char **environ)
     if((count = useEnv(cpu, prog, &epath)) > 0) {
 	/* if we were called as arch, use posix_spawnp */
 	if(!needexecpath)
-	    spawnIt(count, cpu->buf, 1, (epath ? epath : *argv), argv, environ);
+	    spawnIt(cpu, 1, (epath ? epath : *argv), argv);
 	/* otherwise, if we have the executable path, call posix_spawn */
 	if(epath)
-	    spawnIt(count, cpu->buf, 0, epath, argv, environ);
+	    spawnIt(cpu, 0, epath, argv);
     }
 
     /* pathArray is use to build the .plist file path for each domain */
@@ -365,7 +445,7 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv, char **environ)
 	    warnx("%s: no entries in %s", [path UTF8String], [KeyPrefOrder UTF8String]);
 	    errs++;
 	} else {
-	    /* finally but the cpu type array */
+	    /* finally build the cpu type array */
 	    for(i = 0; i < count; i++) {
 		id a = [(NSArray *)p objectAtIndex: i];
 		NSNumber *n;
@@ -385,7 +465,7 @@ spawnFromPreferences(CPU *cpu, int needexecpath, char **argv, char **environ)
 	exit(1);
 
     /* call posix_spawn */
-    spawnIt(count, cpu->buf, 0, [execpath fileSystemRepresentation], argv, environ);
+    spawnIt(cpu, 0, [execpath fileSystemRepresentation], argv);
 }
 
 static void __dead2
@@ -394,10 +474,13 @@ usage(int ret)
     fprintf(stderr,
 	"Usage: %s\n"
 	"       Display the machine's architecture type\n"
-	"Usage: %s [-h] [[-arch_name | -arch arch_name] ...] prog [arg ...]\n"
+	"Usage: %s {-arch_name | -arch arch_name} ... [-c] [-d envname] ... [-e envname=value] ... [-h] prog [arg ...]\n"
 	"       Run prog with any arguments, using the given architecture\n"
 	"       order.  If no architectures are specified, use the\n"
 	"       ARCHPREFERENCE environment variable, or a property list file.\n"
+	"       -c will clear out all environment variables before running prog.\n"
+	"       -d will delete the given environment variable before running prog.\n"
+	"       -e will add the given environment variable/value before running prog.\n"
 	"       -h will print usage message and exit.\n",
 	ARCH_PROG, ARCH_PROG);
     exit(ret);
@@ -481,23 +564,89 @@ wrapped(const char *name)
  * If no commandline cpu names are given, the environment variable
  * ARCHPREFERENCE is used.  This routine never returns.
  */
-static void __dead2
-spawnFromArgs(CPU *cpu, char **argv, char **environ)
-{
-    char *ap;
 
-    /* process cpu options */
+#define MATCHARG(a,m)	({ \
+    const char *arg = *(a); \
+    if(arg[1] == '-') arg++; \
+    strcmp(arg, (m)) == 0; \
+})
+    
+#define MATCHARGWITHVALUE(a,m,n,e)	({ \
+    const char *ret = NULL; \
+    const char *arg = *(a); \
+    if(arg[1] == '-') arg++; \
+    if(strcmp(arg, (m)) == 0) { \
+	if(*++(a) == NULL) { \
+	    warnx(e); \
+	    usage(1); \
+	} \
+	ret = *(a); \
+    } else if(strncmp(arg, (m), (n)) == 0 && arg[n] == '=') { \
+	ret = arg + (n) + 1; \
+    } \
+    ret; \
+})
+
+#define MAKEENVCOPY(e)	\
+    if(!envCopy) { \
+	envCopy = _copyenv(environ); \
+	if(envCopy == NULL) \
+	    errx(1, (e)); \
+    }
+
+static void __dead2
+spawnFromArgs(CPU *cpu, char **argv)
+{
+    const char *ap, *ret;
+
+    /* process arguments */
     for(argv++; *argv && **argv == '-'; argv++) {
-	if(strcmp(*argv, "-arch") == 0) {
-	    if(*++argv == NULL) {
-		warnx("-arch without architecture");
+	if((ret = MATCHARGWITHVALUE(argv, "-arch", 5, "-arch without architecture"))) {
+	    ap = ret;
+	} else if(MATCHARG(argv, "-32")) {
+	    ap = NATIVE_32;
+	    if(!ap) {
+		native32seen = true;
+		archCount++;
+		continue;
+	    }
+	} else if(MATCHARG(argv, "-64")) {
+	    ap = NATIVE_64;
+	    if(!ap) {
+		native64seen = true;
+		archCount++;
+		continue;
+	    }
+	} else if(MATCHARG(argv, "-c")) {
+	    free(envCopy);
+	    envCopy = _copyenv(NULL); // create empty environment
+	    if(!envCopy)
+		errx(1, "Out of memory processing -c");
+	    continue;
+	} else if((ret = MATCHARGWITHVALUE(argv, "-d", 2, "-d without envname"))) {
+	    MAKEENVCOPY("Out of memory processing -d");
+	    _unsetenvp(ret, &envCopy, NULL);
+	    continue;
+	} else if((ret = MATCHARGWITHVALUE(argv, "-e", 2, "-e without envname=value"))) {
+	    MAKEENVCOPY("Out of memory processing -e");
+	    const char *cp = strchr(ret, '=');
+	    if(!cp) {
+		warnx("-e %s: no equal sign", ret);
 		usage(1);
 	    }
-	    ap = *argv;
-	} else if(strcmp(*argv, "-h") == 0) {
+	    cp++; // skip to value
+	    /*
+	     * _setenvp() only uses the name before any equal sign found in
+	     * the first argument.
+	     */
+	    _setenvp(ret, cp, 1, &envCopy, NULL);
+	    continue;
+	} else if(MATCHARG(argv, "-h")) {
 	    usage(0);
-	} else
+	} else {
 	    ap = *argv + 1;
+	    if(*ap == '-') ap++;
+	}
 	addCPUbyname(cpu, ap);
     }
     if(cpu->errs)
@@ -513,14 +662,13 @@ spawnFromArgs(CPU *cpu, char **argv, char **environ)
      * If we don't have any architecutures, try ARCHPREFERENCE and plist
      * files.
      */
-    int count = CPUCOUNT(cpu);
-    if(count <= 0 || needexecpath)
-	spawnFromPreferences(cpu, needexecpath, argv, environ); /* doesn't return */
+    if(archCount <= 0 || needexecpath)
+	spawnFromPreferences(cpu, needexecpath, argv); /* doesn't return */
 
     /*
      * Call posix_spawnp on the program name.
      */
-    spawnIt(count, cpu->buf, 1, *argv, argv, environ);
+    spawnIt(cpu, 1, *argv, argv);
 }
 
 /*
@@ -533,14 +681,29 @@ init(CPU *cpu)
     ArchDict = [NSMutableDictionary dictionaryWithCapacity: 4];
     if(!ArchDict)
 	errx(1, "Can't create NSMutableDictionary");
-    StrInt *sp;
-    for(sp = initArches; sp->str; sp++) {
-	NSString *s = [NSString stringWithUTF8String: sp->str];
+    const CPUTypes *cp;
+    for(cp = initArches; cp->arch; cp++) {
+	NSString *s = [NSString stringWithUTF8String: cp->arch];
 	if(!s)
-	    errx(1, "Can't create NSString for %s", sp->str);
-	NSNumber *n = [NSNumber numberWithInt: sp->i];
+	    errx(1, "Can't create NSString for %s", cp->arch);
+	NSNumber *n = [NSNumber numberWithInt: cp->cpu];
 	if(!n)
-	    errx(1, "Can't create NSNumber for %s", sp->str);
+	    errx(1, "Can't create NSNumber for %s", cp->arch);
+	[ArchDict setObject: n forKey: s];
+    }
+    /*
+     * The valid architecture numbers above are one or greater.  The ignore
+     * values are the negative of the index in the ignore array.
+     */
+    const Ignore *ip;
+    int i;
+    for(ip = ignore, i = 0; ip->arch; ip++, i--) { // i is negative of index
+	NSString *s = [NSString stringWithUTF8String: ip->arch];
+	if(!s)
+	    errx(1, "Can't create NSString for %s", ip->arch);
+	NSNumber *n = [NSNumber numberWithInt: i];
+	if(!n)
+	    errx(1, "Can't create NSNumber for %s", ip->arch);
 	[ArchDict setObject: n forKey: s];
     }
     initCPU(cpu);
@@ -548,7 +711,7 @@ init(CPU *cpu)
 
 /* the main() routine */
 int
-main(int argc, char **argv, char **environ)
+main(int argc, char **argv)
 {
     const char *prog = getprogname();
     int my_name_is_arch;
@@ -568,9 +731,9 @@ main(int argc, char **argv, char **environ)
     init(&cpu); /* initialize */
 
     if(my_name_is_arch)
-	spawnFromArgs(&cpu, argv, environ);
+	spawnFromArgs(&cpu, argv);
     else
-	spawnFromPreferences(&cpu, 1, argv, environ);
+	spawnFromPreferences(&cpu, 1, argv);
     /* should never get here */
     [pool release];
     errx(1, "returned from spawn");

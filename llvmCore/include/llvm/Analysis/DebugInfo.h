@@ -8,16 +8,18 @@
 //===----------------------------------------------------------------------===//
 //
 // This file defines a bunch of datatypes that are useful for creating and
-// walking debug info in LLVM IR form.
+// walking debug info in LLVM IR form. They essentially provide wrappers around
+// the information in the global variables that's needed when constructing the
+// DWARF information.
 //
 //===----------------------------------------------------------------------===//
 
 #ifndef LLVM_ANALYSIS_DEBUGINFO_H
 #define LLVM_ANALYSIS_DEBUGINFO_H
 
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/ADT/StringMap.h"
-#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/SmallVector.h"
+#include "llvm/ADT/SmallPtrSet.h"
+#include "llvm/ADT/StringRef.h"
 #include "llvm/Support/Dwarf.h"
 
 namespace llvm {
@@ -28,20 +30,20 @@ namespace llvm {
   class Module;
   class Type;
   class Value;
-  struct DbgStopPointInst;
-  struct DbgDeclareInst;
+  class DbgDeclareInst;
   class Instruction;
+  class MDNode;
+  class LLVMContext;
+  class raw_ostream;
 
+  /// DIDescriptor - A thin wraper around MDNode to access encoded debug info.
+  /// This should not be stored in a container, because underly MDNode may
+  /// change in certain situations.
   class DIDescriptor {
-  protected:    
-    GlobalVariable *GV;
+  protected:
+    const MDNode *DbgNode;
 
-    /// DIDescriptor constructor.  If the specified GV is non-null, this checks
-    /// to make sure that the tag in the descriptor matches 'RequiredTag'.  If
-    /// not, the debug info is corrupt and we ignore it.
-    DIDescriptor(GlobalVariable *GV, unsigned RequiredTag);
-
-    const std::string &getStringField(unsigned Elt, std::string &Result) const;
+    StringRef getStringField(unsigned Elt) const;
     unsigned getUnsignedField(unsigned Elt) const {
       return (unsigned)getUInt64Field(Elt);
     }
@@ -50,18 +52,19 @@ namespace llvm {
 
     template <typename DescTy>
     DescTy getFieldAs(unsigned Elt) const {
-      return DescTy(getDescriptorField(Elt).getGV());
+      return DescTy(getDescriptorField(Elt));
     }
 
     GlobalVariable *getGlobalVariableField(unsigned Elt) const;
 
   public:
-    explicit DIDescriptor() : GV(0) {}
-    explicit DIDescriptor(GlobalVariable *gv) : GV(gv) {}
+    explicit DIDescriptor() : DbgNode(0) {}
+    explicit DIDescriptor(const MDNode *N) : DbgNode(N) {}
 
-    bool isNull() const { return GV == 0; }
+    bool Verify() const { return DbgNode != 0; }
 
-    GlobalVariable *getGV() const { return GV; }
+    operator MDNode *() const { return const_cast<MDNode*>(DbgNode); }
+    MDNode *operator ->() const { return const_cast<MDNode*>(DbgNode); }
 
     unsigned getVersion() const {
       return getUnsignedField(0) & LLVMDebugVersionMask;
@@ -71,25 +74,33 @@ namespace llvm {
       return getUnsignedField(0) & ~LLVMDebugVersionMask;
     }
 
-    /// ValidDebugInfo - Return true if V represents valid debug info value.
-    static bool ValidDebugInfo(Value *V, CodeGenOpt::Level OptLevel);
+    /// print - print descriptor.
+    void print(raw_ostream &OS) const;
 
-    /// dump - print descriptor.
+    /// dump - print descriptor to dbgs() with a newline.
     void dump() const;
-  };
 
-  /// DIAnchor - A wrapper for various anchor descriptors.
-  class DIAnchor : public DIDescriptor {
-  public:
-    explicit DIAnchor(GlobalVariable *GV = 0);
-
-    unsigned getAnchorTag() const { return getUnsignedField(1); }
+    bool isDerivedType() const;
+    bool isCompositeType() const;
+    bool isBasicType() const;
+    bool isVariable() const;
+    bool isSubprogram() const;
+    bool isGlobalVariable() const;
+    bool isScope() const;
+    bool isFile() const;
+    bool isCompileUnit() const;
+    bool isNameSpace() const;
+    bool isLexicalBlock() const;
+    bool isSubrange() const;
+    bool isEnumerator() const;
+    bool isType() const;
+    bool isGlobal() const;
   };
 
   /// DISubrange - This is used to represent ranges, for array bounds.
   class DISubrange : public DIDescriptor {
   public:
-    explicit DISubrange(GlobalVariable *GV = 0);
+    explicit DISubrange(const MDNode *N = 0) : DIDescriptor(N) {}
 
     int64_t getLo() const { return (int64_t)getUInt64Field(1); }
     int64_t getHi() const { return (int64_t)getUInt64Field(2); }
@@ -98,7 +109,8 @@ namespace llvm {
   /// DIArray - This descriptor holds an array of descriptors.
   class DIArray : public DIDescriptor {
   public:
-    explicit DIArray(GlobalVariable *GV = 0) : DIDescriptor(GV) {}
+    explicit DIArray(const MDNode *N = 0)
+      : DIDescriptor(N) {}
 
     unsigned getNumElements() const;
     DIDescriptor getElement(unsigned Idx) const {
@@ -106,43 +118,60 @@ namespace llvm {
     }
   };
 
-  /// DICompileUnit - A wrapper for a compile unit.
-  class DICompileUnit : public DIDescriptor {
+  /// DIScope - A base class for various scopes.
+  class DIScope : public DIDescriptor {
   public:
-    explicit DICompileUnit(GlobalVariable *GV = 0);
+    explicit DIScope(const MDNode *N = 0) : DIDescriptor (N) {}
+    virtual ~DIScope() {}
+
+    StringRef getFilename() const;
+    StringRef getDirectory() const;
+  };
+
+  /// DICompileUnit - A wrapper for a compile unit.
+  class DICompileUnit : public DIScope {
+  public:
+    explicit DICompileUnit(const MDNode *N = 0) : DIScope(N) {}
 
     unsigned getLanguage() const     { return getUnsignedField(2); }
-    const std::string &getFilename(std::string &F) const {
-      return getStringField(3, F);
-    }
-    const std::string &getDirectory(std::string &F) const {
-      return getStringField(4, F);
-    }
-    const std::string &getProducer(std::string &F) const {
-      return getStringField(5, F);
-    }
-    
+    StringRef getFilename() const  { return getStringField(3);   }
+    StringRef getDirectory() const { return getStringField(4);   }
+    StringRef getProducer() const  { return getStringField(5);   }
+
     /// isMain - Each input file is encoded as a separate compile unit in LLVM
     /// debugging information output. However, many target specific tool chains
-    /// prefer to encode only one compile unit in an object file. In this 
+    /// prefer to encode only one compile unit in an object file. In this
     /// situation, the LLVM code generator will include  debugging information
-    /// entities in the compile unit that is marked as main compile unit. The 
+    /// entities in the compile unit that is marked as main compile unit. The
     /// code generator accepts maximum one main compile unit per module. If a
-    /// module does not contain any main compile unit then the code generator 
+    /// module does not contain any main compile unit then the code generator
     /// will emit multiple compile units in the output object file.
 
     bool isMain() const                { return getUnsignedField(6); }
     bool isOptimized() const           { return getUnsignedField(7); }
-    const std::string &getFlags(std::string &F) const {
-      return getStringField(8, F);
-    }
+    StringRef getFlags() const       { return getStringField(8);   }
     unsigned getRunTimeVersion() const { return getUnsignedField(9); }
 
     /// Verify - Verify that a compile unit is well formed.
     bool Verify() const;
 
-    /// dump - print compile unit.
+    /// print - print compile unit.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print compile unit to dbgs() with a newline.
     void dump() const;
+  };
+
+  /// DIFile - This is a wrapper for a file.
+  class DIFile : public DIScope {
+  public:
+    explicit DIFile(const MDNode *N = 0) : DIScope(N) {
+      if (DbgNode && !isFile())
+        DbgNode = 0;
+    }
+    StringRef getFilename() const  { return getStringField(1);   }
+    StringRef getDirectory() const { return getStringField(2);   }
+    DICompileUnit getCompileUnit() const{ return getFieldAs<DICompileUnit>(3); }
   };
 
   /// DIEnumerator - A wrapper for an enumerator (e.g. X and Y in 'enum {X,Y}').
@@ -150,58 +179,51 @@ namespace llvm {
   /// type/precision or a file/line pair for location info.
   class DIEnumerator : public DIDescriptor {
   public:
-    explicit DIEnumerator(GlobalVariable *GV = 0);
+    explicit DIEnumerator(const MDNode *N = 0) : DIDescriptor(N) {}
 
-    const std::string &getName(std::string &F) const {
-      return getStringField(1, F);
-    }
-    uint64_t getEnumValue() const { return getUInt64Field(2); }
+    StringRef getName() const        { return getStringField(1); }
+    uint64_t getEnumValue() const      { return getUInt64Field(2); }
   };
 
   /// DIType - This is a wrapper for a type.
   /// FIXME: Types should be factored much better so that CV qualifiers and
   /// others do not require a huge and empty descriptor full of zeros.
-  class DIType : public DIDescriptor {
+  class DIType : public DIScope {
   public:
     enum {
-      FlagPrivate   = 1 << 0,
-      FlagProtected = 1 << 1,
-      FlagFwdDecl   = 1 << 2
+      FlagPrivate          = 1 << 0,
+      FlagProtected        = 1 << 1,
+      FlagFwdDecl          = 1 << 2,
+      FlagAppleBlock       = 1 << 3,
+      FlagBlockByrefStruct = 1 << 4,
+      FlagVirtual          = 1 << 5,
+      FlagArtificial       = 1 << 6  // To identify artificial arguments in
+                                     // a subroutine type. e.g. "this" in c++.
     };
 
   protected:
-    DIType(GlobalVariable *GV, unsigned Tag) : DIDescriptor(GV, Tag) {}
     // This ctor is used when the Tag has already been validated by a derived
     // ctor.
-    DIType(GlobalVariable *GV, bool, bool) : DIDescriptor(GV) {}
+    DIType(const MDNode *N, bool, bool) : DIScope(N) {}
 
   public:
-    /// isDerivedType - Return true if the specified tag is legal for
-    /// DIDerivedType.
-    static bool isDerivedType(unsigned TAG);
-
-    /// isCompositeType - Return true if the specified tag is legal for
-    /// DICompositeType.
-    static bool isCompositeType(unsigned TAG);
-
-    /// isBasicType - Return true if the specified tag is legal for
-    /// DIBasicType.
-    static bool isBasicType(unsigned TAG) {
-      return TAG == dwarf::DW_TAG_base_type;
-    }
 
     /// Verify - Verify that a type descriptor is well formed.
     bool Verify() const;
   public:
-    explicit DIType(GlobalVariable *GV);
+    explicit DIType(const MDNode *N);
     explicit DIType() {}
     virtual ~DIType() {}
 
-    DIDescriptor getContext() const     { return getDescriptorField(1); }
-    const std::string &getName(std::string &F) const {
-      return getStringField(2, F);
+    DIScope getContext() const          { return getFieldAs<DIScope>(1); }
+    StringRef getName() const           { return getStringField(2);     }
+    DICompileUnit getCompileUnit() const{ 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getFieldAs<DICompileUnit>(3);
+
+      DIFile F = getFieldAs<DIFile>(3);
+      return F.getCompileUnit();
     }
-    DICompileUnit getCompileUnit() const{ return getFieldAs<DICompileUnit>(3); }
     unsigned getLineNumber() const      { return getUnsignedField(4); }
     uint64_t getSizeInBits() const      { return getUInt64Field(5); }
     uint64_t getAlignInBits() const     { return getUInt64Field(6); }
@@ -209,21 +231,52 @@ namespace llvm {
     // carry this is just plain insane.
     uint64_t getOffsetInBits() const    { return getUInt64Field(7); }
     unsigned getFlags() const           { return getUnsignedField(8); }
-    bool isPrivate() const              { return (getFlags() & FlagPrivate) != 0; }
-    bool isProtected() const            { return (getFlags() & FlagProtected) != 0; }
-    bool isForwardDecl() const          { return (getFlags() & FlagFwdDecl) != 0; }
+    bool isPrivate() const {
+      return (getFlags() & FlagPrivate) != 0;
+    }
+    bool isProtected() const {
+      return (getFlags() & FlagProtected) != 0;
+    }
+    bool isForwardDecl() const {
+      return (getFlags() & FlagFwdDecl) != 0;
+    }
+    // isAppleBlock - Return true if this is the Apple Blocks extension.
+    bool isAppleBlockExtension() const {
+      return (getFlags() & FlagAppleBlock) != 0;
+    }
+    bool isBlockByrefStruct() const {
+      return (getFlags() & FlagBlockByrefStruct) != 0;
+    }
+    bool isVirtual() const {
+      return (getFlags() & FlagVirtual) != 0;
+    }
+    bool isArtificial() const {
+      return (getFlags() & FlagArtificial) != 0;
+    }
+    bool isValid() const {
+      return DbgNode && (isBasicType() || isDerivedType() || isCompositeType());
+    }
+    StringRef getFilename() const    { return getCompileUnit().getFilename();}
+    StringRef getDirectory() const   { return getCompileUnit().getDirectory();}
 
-    /// dump - print type.
+    /// print - print type.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print type to dbgs() with a newline.
     void dump() const;
   };
 
   /// DIBasicType - A basic type, like 'int' or 'float'.
   class DIBasicType : public DIType {
   public:
-    explicit DIBasicType(GlobalVariable *GV);
+    explicit DIBasicType(const MDNode *N = 0) : DIType(N) {}
+
     unsigned getEncoding() const { return getUnsignedField(9); }
 
-    /// dump - print basic type.
+    /// print - print basic type.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print basic type to dbgs() with a newline.
     void dump() const;
   };
 
@@ -231,17 +284,28 @@ namespace llvm {
   /// a typedef, a pointer or reference, etc.
   class DIDerivedType : public DIType {
   protected:
-    explicit DIDerivedType(GlobalVariable *GV, bool, bool)
-      : DIType(GV, true, true) {}
+    explicit DIDerivedType(const MDNode *N, bool, bool)
+      : DIType(N, true, true) {}
   public:
-    explicit DIDerivedType(GlobalVariable *GV);
+    explicit DIDerivedType(const MDNode *N = 0)
+      : DIType(N, true, true) {}
+
     DIType getTypeDerivedFrom() const { return getFieldAs<DIType>(9); }
 
     /// getOriginalTypeSize - If this type is derived from a base type then
     /// return base type size.
     uint64_t getOriginalTypeSize() const;
-    /// dump - print derived type.
+
+    /// print - print derived type.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print derived type to dbgs() with a newline.
     void dump() const;
+
+    /// replaceAllUsesWith - Replace all uses of debug info referenced by
+    /// this descriptor. After this completes, the current debug info value
+    /// is erased.
+    void replaceAllUsesWith(DIDescriptor &D);
   };
 
   /// DICompositeType - This descriptor holds a type that can refer to multiple
@@ -249,71 +313,97 @@ namespace llvm {
   /// FIXME: Why is this a DIDerivedType??
   class DICompositeType : public DIDerivedType {
   public:
-    explicit DICompositeType(GlobalVariable *GV);
+    explicit DICompositeType(const MDNode *N = 0)
+      : DIDerivedType(N, true, true) {
+      if (N && !isCompositeType())
+        DbgNode = 0;
+    }
+
     DIArray getTypeArray() const { return getFieldAs<DIArray>(10); }
     unsigned getRunTimeLang() const { return getUnsignedField(11); }
+    DICompositeType getContainingType() const {
+      return getFieldAs<DICompositeType>(12);
+    }
 
     /// Verify - Verify that a composite type descriptor is well formed.
     bool Verify() const;
 
-    /// dump - print composite type.
-    void dump() const;
-  };
+    /// print - print composite type.
+    void print(raw_ostream &OS) const;
 
-  /// DIGlobal - This is a common class for global variables and subprograms.
-  class DIGlobal : public DIDescriptor {
-  protected:
-    explicit DIGlobal(GlobalVariable *GV, unsigned RequiredTag)
-      : DIDescriptor(GV, RequiredTag) {}
-
-    /// isSubprogram - Return true if the specified tag is legal for
-    /// DISubprogram.
-    static bool isSubprogram(unsigned TAG) {
-      return TAG == dwarf::DW_TAG_subprogram;
-    }
-
-    /// isGlobalVariable - Return true if the specified tag is legal for
-    /// DIGlobalVariable.
-    static bool isGlobalVariable(unsigned TAG) {
-      return TAG == dwarf::DW_TAG_variable;
-    }
-
-  public:
-    virtual ~DIGlobal() {}
-
-    DIDescriptor getContext() const     { return getDescriptorField(2); }
-    const std::string &getName(std::string &F) const {
-      return getStringField(3, F);
-    }
-    const std::string &getDisplayName(std::string &F) const {
-      return getStringField(4, F);
-    }
-    const std::string &getLinkageName(std::string &F) const {
-      return getStringField(5, F);
-    }
-    DICompileUnit getCompileUnit() const{ return getFieldAs<DICompileUnit>(6); }
-    unsigned getLineNumber() const      { return getUnsignedField(7); }
-    DIType getType() const              { return getFieldAs<DIType>(8); }
-
-    /// isLocalToUnit - Return true if this subprogram is local to the current
-    /// compile unit, like 'static' in C.
-    unsigned isLocalToUnit() const      { return getUnsignedField(9); }
-    unsigned isDefinition() const       { return getUnsignedField(10); }
-
-    /// dump - print global.
+    /// dump - print composite type to dbgs() with a newline.
     void dump() const;
   };
 
   /// DISubprogram - This is a wrapper for a subprogram (e.g. a function).
-  class DISubprogram : public DIGlobal {
+  class DISubprogram : public DIScope {
   public:
-    explicit DISubprogram(GlobalVariable *GV = 0);
+    explicit DISubprogram(const MDNode *N = 0) : DIScope(N) {}
+
+    DIScope getContext() const          { return getFieldAs<DIScope>(2); }
+    StringRef getName() const         { return getStringField(3); }
+    StringRef getDisplayName() const  { return getStringField(4); }
+    StringRef getLinkageName() const  { return getStringField(5); }
+    DICompileUnit getCompileUnit() const{ 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getFieldAs<DICompileUnit>(6);
+
+      DIFile F = getFieldAs<DIFile>(6); 
+      return F.getCompileUnit();
+    }
+    unsigned getLineNumber() const      { return getUnsignedField(7); }
     DICompositeType getType() const { return getFieldAs<DICompositeType>(8); }
+
+    /// getReturnTypeName - Subprogram return types are encoded either as
+    /// DIType or as DICompositeType.
+    StringRef getReturnTypeName() const {
+      DICompositeType DCT(getFieldAs<DICompositeType>(8));
+      if (DCT.Verify()) {
+        DIArray A = DCT.getTypeArray();
+        DIType T(A.getElement(0));
+        return T.getName();
+      }
+      DIType T(getFieldAs<DIType>(8));
+      return T.getName();
+    }
+
+    /// isLocalToUnit - Return true if this subprogram is local to the current
+    /// compile unit, like 'static' in C.
+    unsigned isLocalToUnit() const     { return getUnsignedField(9); }
+    unsigned isDefinition() const      { return getUnsignedField(10); }
+
+    unsigned getVirtuality() const { return getUnsignedField(11); }
+    unsigned getVirtualIndex() const { return getUnsignedField(12); }
+
+    DICompositeType getContainingType() const {
+      return getFieldAs<DICompositeType>(13);
+    }
+    unsigned isArtificial() const    { return getUnsignedField(14); }
+    unsigned isOptimized() const;
+
+    StringRef getFilename() const    { 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getCompileUnit().getFilename();
+
+      DIFile F = getFieldAs<DIFile>(6); 
+      return F.getFilename();
+    }
+
+    StringRef getDirectory() const   { 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getCompileUnit().getFilename();
+
+      DIFile F = getFieldAs<DIFile>(6); 
+      return F.getDirectory();
+    }
 
     /// Verify - Verify that a subprogram descriptor is well formed.
     bool Verify() const;
 
-    /// dump - print subprogram.
+    /// print - print subprogram.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print subprogram to dbgs() with a newline.
     void dump() const;
 
     /// describes - Return true if this subprogram provides debugging
@@ -322,15 +412,36 @@ namespace llvm {
   };
 
   /// DIGlobalVariable - This is a wrapper for a global variable.
-  class DIGlobalVariable : public DIGlobal {
+  class DIGlobalVariable : public DIDescriptor {
   public:
-    explicit DIGlobalVariable(GlobalVariable *GV = 0);
+    explicit DIGlobalVariable(const MDNode *N = 0) : DIDescriptor(N) {}
+
+    DIScope getContext() const          { return getFieldAs<DIScope>(2); }
+    StringRef getName() const         { return getStringField(3); }
+    StringRef getDisplayName() const  { return getStringField(4); }
+    StringRef getLinkageName() const  { return getStringField(5); }
+    DICompileUnit getCompileUnit() const{ 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getFieldAs<DICompileUnit>(6);
+
+      DIFile F = getFieldAs<DIFile>(6); 
+      return F.getCompileUnit();
+    }
+
+    unsigned getLineNumber() const      { return getUnsignedField(7); }
+    DIType getType() const              { return getFieldAs<DIType>(8); }
+    unsigned isLocalToUnit() const      { return getUnsignedField(9); }
+    unsigned isDefinition() const       { return getUnsignedField(10); }
+
     GlobalVariable *getGlobal() const { return getGlobalVariableField(11); }
 
     /// Verify - Verify that a global variable descriptor is well formed.
     bool Verify() const;
 
-    /// dump - print global variable.
+    /// print - print global variable.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print global variable to dbgs() with a newline.
     void dump() const;
   };
 
@@ -338,67 +449,115 @@ namespace llvm {
   /// global etc).
   class DIVariable : public DIDescriptor {
   public:
-    explicit DIVariable(GlobalVariable *GV = 0);
+    explicit DIVariable(const MDNode *N = 0)
+      : DIDescriptor(N) {}
 
-    DIDescriptor getContext() const { return getDescriptorField(1); }
-    const std::string &getName(std::string &F) const {
-      return getStringField(2, F);
+    DIScope getContext() const          { return getFieldAs<DIScope>(1); }
+    StringRef getName() const           { return getStringField(2);     }
+    DICompileUnit getCompileUnit() const{ 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getFieldAs<DICompileUnit>(3);
+
+      DIFile F = getFieldAs<DIFile>(3); 
+      return F.getCompileUnit();
     }
-    DICompileUnit getCompileUnit() const{ return getFieldAs<DICompileUnit>(3); }
     unsigned getLineNumber() const      { return getUnsignedField(4); }
     DIType getType() const              { return getFieldAs<DIType>(5); }
 
-    /// isVariable - Return true if the specified tag is legal for DIVariable.
-    static bool isVariable(unsigned Tag);
 
     /// Verify - Verify that a variable descriptor is well formed.
     bool Verify() const;
 
-    /// dump - print variable.
+    /// HasComplexAddr - Return true if the variable has a complex address.
+    bool hasComplexAddress() const {
+      return getNumAddrElements() > 0;
+    }
+
+    unsigned getNumAddrElements() const;
+    
+    uint64_t getAddrElement(unsigned Idx) const {
+      return getUInt64Field(Idx+6);
+    }
+
+    /// isBlockByrefVariable - Return true if the variable was declared as
+    /// a "__block" variable (Apple Blocks).
+    bool isBlockByrefVariable() const {
+      return getType().isBlockByrefStruct();
+    }
+
+    /// isInlinedFnArgument - Return trule if this variable provides debugging
+    /// information for an inlined function arguments.
+    bool isInlinedFnArgument(const Function *CurFn);
+
+    /// print - print variable.
+    void print(raw_ostream &OS) const;
+
+    /// dump - print variable to dbgs() with a newline.
     void dump() const;
   };
 
-  /// DIBlock - This is a wrapper for a block (e.g. a function, scope, etc).
-  class DIBlock : public DIDescriptor {
+  /// DILexicalBlock - This is a wrapper for a lexical block.
+  class DILexicalBlock : public DIScope {
   public:
-    explicit DIBlock(GlobalVariable *GV = 0);
-    
-    DIDescriptor getContext() const { return getDescriptorField(1); }
+    explicit DILexicalBlock(const MDNode *N = 0) : DIScope(N) {}
+    DIScope getContext() const       { return getFieldAs<DIScope>(1);      }
+    StringRef getDirectory() const   { return getContext().getDirectory(); }
+    StringRef getFilename() const    { return getContext().getFilename();  }
+    unsigned getLineNumber() const   { return getUnsignedField(2);         }
+    unsigned getColumnNumber() const { return getUnsignedField(3);         }
+  };
+
+  /// DINameSpace - A wrapper for a C++ style name space.
+  class DINameSpace : public DIScope { 
+  public:
+    explicit DINameSpace(const MDNode *N = 0) : DIScope(N) {}
+    DIScope getContext() const     { return getFieldAs<DIScope>(1);      }
+    StringRef getName() const      { return getStringField(2);           }
+    StringRef getDirectory() const { return getContext().getDirectory(); }
+    StringRef getFilename() const  { return getContext().getFilename();  }
+    DICompileUnit getCompileUnit() const{ 
+      if (getVersion() == llvm::LLVMDebugVersion7)
+        return getFieldAs<DICompileUnit>(3);
+
+      DIFile F = getFieldAs<DIFile>(3); 
+      return F.getCompileUnit();
+    }
+    unsigned getLineNumber() const { return getUnsignedField(4);         }
+    bool Verify() const;
+  };
+
+  /// DILocation - This object holds location information. This object
+  /// is not associated with any DWARF tag.
+  class DILocation : public DIDescriptor {
+  public:
+    explicit DILocation(const MDNode *N) : DIDescriptor(N) { }
+
+    unsigned getLineNumber() const     { return getUnsignedField(0); }
+    unsigned getColumnNumber() const   { return getUnsignedField(1); }
+    DIScope  getScope() const          { return getFieldAs<DIScope>(2); }
+    DILocation getOrigLocation() const { return getFieldAs<DILocation>(3); }
+    StringRef getFilename() const    { return getScope().getFilename(); }
+    StringRef getDirectory() const   { return getScope().getDirectory(); }
+    bool Verify() const;
   };
 
   /// DIFactory - This object assists with the construction of the various
   /// descriptors.
   class DIFactory {
     Module &M;
-    // Cached values for uniquing and faster lookups.
-    DIAnchor CompileUnitAnchor, SubProgramAnchor, GlobalVariableAnchor;
-    const Type *EmptyStructPtr; // "{}*".
-    Function *StopPointFn;   // llvm.dbg.stoppoint
-    Function *FuncStartFn;   // llvm.dbg.func.start
-    Function *RegionStartFn; // llvm.dbg.region.start
-    Function *RegionEndFn;   // llvm.dbg.region.end
+    LLVMContext& VMContext;
+
     Function *DeclareFn;     // llvm.dbg.declare
-    StringMap<Constant*> StringCache;
-    DenseMap<Constant*, DIDescriptor> SimpleConstantCache;
+    Function *ValueFn;       // llvm.dbg.value
 
     DIFactory(const DIFactory &);     // DO NOT IMPLEMENT
     void operator=(const DIFactory&); // DO NOT IMPLEMENT
   public:
+    enum ComplexAddrKind { OpPlus=1, OpDeref };
+
     explicit DIFactory(Module &m);
 
-    /// GetOrCreateCompileUnitAnchor - Return the anchor for compile units,
-    /// creating a new one if there isn't already one in the module.
-    DIAnchor GetOrCreateCompileUnitAnchor();
-
-    /// GetOrCreateSubprogramAnchor - Return the anchor for subprograms,
-    /// creating a new one if there isn't already one in the module.
-    DIAnchor GetOrCreateSubprogramAnchor();
-
-    /// GetOrCreateGlobalVariableAnchor - Return the anchor for globals,
-    /// creating a new one if there isn't already one in the module.
-    DIAnchor GetOrCreateGlobalVariableAnchor();
-
-    /// GetOrCreateArray - Create an descriptor for an array of descriptors. 
+    /// GetOrCreateArray - Create an descriptor for an array of descriptors.
     /// This implicitly uniques the arrays created.
     DIArray GetOrCreateArray(DIDescriptor *Tys, unsigned NumTys);
 
@@ -409,120 +568,229 @@ namespace llvm {
     /// CreateCompileUnit - Create a new descriptor for the specified compile
     /// unit.
     DICompileUnit CreateCompileUnit(unsigned LangID,
-                                    const std::string &Filename,
-                                    const std::string &Directory,
-                                    const std::string &Producer,
+                                    StringRef Filename,
+                                    StringRef Directory,
+                                    StringRef Producer,
                                     bool isMain = false,
                                     bool isOptimized = false,
-                                    const char *Flags = "",
+                                    StringRef Flags = "",
                                     unsigned RunTimeVer = 0);
 
+    /// CreateFile -  Create a new descriptor for the specified file.
+    DIFile CreateFile(StringRef Filename, StringRef Directory, DICompileUnit CU);
+
     /// CreateEnumerator - Create a single enumerator value.
-    DIEnumerator CreateEnumerator(const std::string &Name, uint64_t Val);
+    DIEnumerator CreateEnumerator(StringRef Name, uint64_t Val);
 
     /// CreateBasicType - Create a basic type like int, float, etc.
-    DIBasicType CreateBasicType(DIDescriptor Context, const std::string &Name,
-                                DICompileUnit CompileUnit, unsigned LineNumber,
+    DIBasicType CreateBasicType(DIDescriptor Context, StringRef Name,
+                                DIFile F, unsigned LineNumber,
                                 uint64_t SizeInBits, uint64_t AlignInBits,
                                 uint64_t OffsetInBits, unsigned Flags,
+                                unsigned Encoding);
+
+    /// CreateBasicType - Create a basic type like int, float, etc.
+    DIBasicType CreateBasicTypeEx(DIDescriptor Context, StringRef Name,
+                                DIFile F, unsigned LineNumber,
+                                Constant *SizeInBits, Constant *AlignInBits,
+                                Constant *OffsetInBits, unsigned Flags,
                                 unsigned Encoding);
 
     /// CreateDerivedType - Create a derived type like const qualified type,
     /// pointer, typedef, etc.
     DIDerivedType CreateDerivedType(unsigned Tag, DIDescriptor Context,
-                                    const std::string &Name,
-                                    DICompileUnit CompileUnit,
+                                    StringRef Name,
+                                    DIFile F,
                                     unsigned LineNumber,
                                     uint64_t SizeInBits, uint64_t AlignInBits,
                                     uint64_t OffsetInBits, unsigned Flags,
                                     DIType DerivedFrom);
 
+    /// CreateDerivedType - Create a derived type like const qualified type,
+    /// pointer, typedef, etc.
+    DIDerivedType CreateDerivedTypeEx(unsigned Tag, DIDescriptor Context,
+                                      StringRef Name,
+                                      DIFile F,
+                                      unsigned LineNumber,
+                                      Constant *SizeInBits, 
+                                      Constant *AlignInBits,
+                                      Constant *OffsetInBits, unsigned Flags,
+                                      DIType DerivedFrom);
+
     /// CreateCompositeType - Create a composite type like array, struct, etc.
     DICompositeType CreateCompositeType(unsigned Tag, DIDescriptor Context,
-                                        const std::string &Name,
-                                        DICompileUnit CompileUnit,
+                                        StringRef Name,
+                                        DIFile F,
                                         unsigned LineNumber,
                                         uint64_t SizeInBits,
                                         uint64_t AlignInBits,
                                         uint64_t OffsetInBits, unsigned Flags,
                                         DIType DerivedFrom,
                                         DIArray Elements,
-                                        unsigned RunTimeLang = 0);
+                                        unsigned RunTimeLang = 0,
+                                        MDNode *ContainingType = 0);
+
+    /// CreateArtificialType - Create a new DIType with "artificial" flag set.
+    DIType CreateArtificialType(DIType Ty);
+
+    /// CreateCompositeType - Create a composite type like array, struct, etc.
+    DICompositeType CreateCompositeTypeEx(unsigned Tag, DIDescriptor Context,
+                                          StringRef Name,
+                                          DIFile F,
+                                          unsigned LineNumber,
+                                          Constant *SizeInBits,
+                                          Constant *AlignInBits,
+                                          Constant *OffsetInBits, 
+                                          unsigned Flags,
+                                          DIType DerivedFrom,
+                                          DIArray Elements,
+                                          unsigned RunTimeLang = 0);
 
     /// CreateSubprogram - Create a new descriptor for the specified subprogram.
     /// See comments in DISubprogram for descriptions of these fields.
-    DISubprogram CreateSubprogram(DIDescriptor Context, const std::string &Name,
-                                  const std::string &DisplayName,
-                                  const std::string &LinkageName,
-                                  DICompileUnit CompileUnit, unsigned LineNo,
-                                  DIType Type, bool isLocalToUnit,
-                                  bool isDefinition);
+    DISubprogram CreateSubprogram(DIDescriptor Context, StringRef Name,
+                                  StringRef DisplayName,
+                                  StringRef LinkageName,
+                                  DIFile F, unsigned LineNo,
+                                  DIType Ty, bool isLocalToUnit,
+                                  bool isDefinition,
+                                  unsigned VK = 0,
+                                  unsigned VIndex = 0,
+                                  DIType = DIType(),
+                                  bool isArtificial = 0,
+                                  bool isOptimized = false);
+
+    /// CreateSubprogramDefinition - Create new subprogram descriptor for the
+    /// given declaration. 
+    DISubprogram CreateSubprogramDefinition(DISubprogram &SPDeclaration);
 
     /// CreateGlobalVariable - Create a new descriptor for the specified global.
     DIGlobalVariable
-    CreateGlobalVariable(DIDescriptor Context, const std::string &Name,
-                         const std::string &DisplayName,
-                         const std::string &LinkageName, 
-                         DICompileUnit CompileUnit,
-                         unsigned LineNo, DIType Type, bool isLocalToUnit,
+    CreateGlobalVariable(DIDescriptor Context, StringRef Name,
+                         StringRef DisplayName,
+                         StringRef LinkageName,
+                         DIFile F,
+                         unsigned LineNo, DIType Ty, bool isLocalToUnit,
                          bool isDefinition, llvm::GlobalVariable *GV);
 
     /// CreateVariable - Create a new descriptor for the specified variable.
     DIVariable CreateVariable(unsigned Tag, DIDescriptor Context,
-                              const std::string &Name,
-                              DICompileUnit CompileUnit, unsigned LineNo,
-                              DIType Type);
+                              StringRef Name,
+                              DIFile F, unsigned LineNo,
+                              DIType Ty, bool OptimizedBuild = false);
 
-    /// CreateBlock - This creates a descriptor for a lexical block with the
-    /// specified parent context.
-    DIBlock CreateBlock(DIDescriptor Context);
+    /// CreateComplexVariable - Create a new descriptor for the specified
+    /// variable which has a complex address expression for its address.
+    DIVariable CreateComplexVariable(unsigned Tag, DIDescriptor Context,
+                                     const std::string &Name,
+                                     DIFile F, unsigned LineNo,
+                                     DIType Ty,
+                                     SmallVector<Value *, 9> &addr);
 
-    /// InsertStopPoint - Create a new llvm.dbg.stoppoint intrinsic invocation,
-    /// inserting it at the end of the specified basic block.
-    void InsertStopPoint(DICompileUnit CU, unsigned LineNo, unsigned ColNo,
-                         BasicBlock *BB);
+    /// CreateLexicalBlock - This creates a descriptor for a lexical block
+    /// with the specified parent context.
+    DILexicalBlock CreateLexicalBlock(DIDescriptor Context, unsigned Line = 0,
+                                      unsigned Col = 0);
 
-    /// InsertSubprogramStart - Create a new llvm.dbg.func.start intrinsic to
-    /// mark the start of the specified subprogram.
-    void InsertSubprogramStart(DISubprogram SP, BasicBlock *BB);
+    /// CreateNameSpace - This creates new descriptor for a namespace
+    /// with the specified parent context.
+    DINameSpace CreateNameSpace(DIDescriptor Context, StringRef Name,
+                                DIFile F, unsigned LineNo);
 
-    /// InsertRegionStart - Insert a new llvm.dbg.region.start intrinsic call to
-    /// mark the start of a region for the specified scoping descriptor.
-    void InsertRegionStart(DIDescriptor D, BasicBlock *BB);
+    /// CreateLocation - Creates a debug info location.
+    DILocation CreateLocation(unsigned LineNo, unsigned ColumnNo,
+                              DIScope S, DILocation OrigLoc);
 
-    /// InsertRegionEnd - Insert a new llvm.dbg.region.end intrinsic call to
-    /// mark the end of a region for the specified scoping descriptor.
-    void InsertRegionEnd(DIDescriptor D, BasicBlock *BB);
+    /// CreateLocation - Creates a debug info location.
+    DILocation CreateLocation(unsigned LineNo, unsigned ColumnNo,
+                              DIScope S, MDNode *OrigLoc = 0);
 
     /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
-    void InsertDeclare(llvm::Value *Storage, DIVariable D, BasicBlock *BB);
+    Instruction *InsertDeclare(llvm::Value *Storage, DIVariable D,
+                               BasicBlock *InsertAtEnd);
 
+    /// InsertDeclare - Insert a new llvm.dbg.declare intrinsic call.
+    Instruction *InsertDeclare(llvm::Value *Storage, DIVariable D,
+                               Instruction *InsertBefore);
+
+    /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
+    Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
+                                         DIVariable D, BasicBlock *InsertAtEnd);
+
+    /// InsertDbgValueIntrinsic - Insert a new llvm.dbg.value intrinsic call.
+    Instruction *InsertDbgValueIntrinsic(llvm::Value *V, uint64_t Offset,
+                                       DIVariable D, Instruction *InsertBefore);
   private:
     Constant *GetTagConstant(unsigned TAG);
-    Constant *GetStringConstant(const std::string &String);
-    DIAnchor GetOrCreateAnchor(unsigned TAG, const char *Name);
-
-    /// getCastToEmpty - Return the descriptor as a Constant* with type '{}*'.
-    Constant *getCastToEmpty(DIDescriptor D);
   };
 
-  /// Finds the stoppoint coressponding to this instruction, that is the
-  /// stoppoint that dominates this instruction 
-  const DbgStopPointInst *findStopPoint(const Instruction *Inst);
+  bool getLocationInfo(const Value *V, std::string &DisplayName,
+                       std::string &Type, unsigned &LineNo, std::string &File,
+                       std::string &Dir);
 
-  /// Finds the stoppoint corresponding to first real (non-debug intrinsic) 
-  /// instruction in this Basic Block, and returns the stoppoint for it.
-  const DbgStopPointInst *findBBStopPoint(const BasicBlock *BB);
+  /// getDISubprogram - Find subprogram that is enclosing this scope.
+  DISubprogram getDISubprogram(const MDNode *Scope);
 
-  /// Finds the dbg.declare intrinsic corresponding to this value if any.
-  /// It looks through pointer casts too.
-  const DbgDeclareInst *findDbgDeclare(const Value *V, bool stripCasts = true);
+  /// getDICompositeType - Find underlying composite type.
+  DICompositeType getDICompositeType(DIType T);
 
-  /// Find the debug info descriptor corresponding to this global variable.
-  Value *findDbgGlobalDeclare(GlobalVariable *V);
+  class DebugInfoFinder {
+  public:
+    /// processModule - Process entire module and collect debug info
+    /// anchors.
+    void processModule(Module &M);
 
-  bool getLocationInfo(const Value *V, std::string &DisplayName, std::string &Type, 
-                       unsigned &LineNo, std::string &File, std::string &Dir); 
+  private:
+    /// processType - Process DIType.
+    void processType(DIType DT);
+
+    /// processLexicalBlock - Process DILexicalBlock.
+    void processLexicalBlock(DILexicalBlock LB);
+
+    /// processSubprogram - Process DISubprogram.
+    void processSubprogram(DISubprogram SP);
+
+    /// processDeclare - Process DbgDeclareInst.
+    void processDeclare(DbgDeclareInst *DDI);
+
+    /// processLocation - Process DILocation.
+    void processLocation(DILocation Loc);
+
+    /// addCompileUnit - Add compile unit into CUs.
+    bool addCompileUnit(DICompileUnit CU);
+
+    /// addGlobalVariable - Add global variable into GVs.
+    bool addGlobalVariable(DIGlobalVariable DIG);
+
+    // addSubprogram - Add subprgoram into SPs.
+    bool addSubprogram(DISubprogram SP);
+
+    /// addType - Add type into Tys.
+    bool addType(DIType DT);
+
+  public:
+    typedef SmallVector<MDNode *, 8>::const_iterator iterator;
+    iterator compile_unit_begin()    const { return CUs.begin(); }
+    iterator compile_unit_end()      const { return CUs.end(); }
+    iterator subprogram_begin()      const { return SPs.begin(); }
+    iterator subprogram_end()        const { return SPs.end(); }
+    iterator global_variable_begin() const { return GVs.begin(); }
+    iterator global_variable_end()   const { return GVs.end(); }
+    iterator type_begin()            const { return TYs.begin(); }
+    iterator type_end()              const { return TYs.end(); }
+
+    unsigned compile_unit_count()    const { return CUs.size(); }
+    unsigned global_variable_count() const { return GVs.size(); }
+    unsigned subprogram_count()      const { return SPs.size(); }
+    unsigned type_count()            const { return TYs.size(); }
+
+  private:
+    SmallVector<MDNode *, 8> CUs;  // Compile Units
+    SmallVector<MDNode *, 8> SPs;  // Subprograms
+    SmallVector<MDNode *, 8> GVs;  // Global Variables;
+    SmallVector<MDNode *, 8> TYs;  // Types
+    SmallPtrSet<MDNode *, 64> NodesSeen;
+  };
 } // end namespace llvm
 
 #endif

@@ -59,7 +59,7 @@
       otherwise handled to avoid process termination when writing to a
       socket which has been shutdown by the peer.</simpara></listitem>
 
-      <listitem><simpara>OpenSSL and GnuTLSrequire global
+      <listitem><simpara>OpenSSL and GnuTLS require global
       initialization to load shared lookup
       tables.</simpara></listitem>
 
@@ -82,9 +82,19 @@
   </refsect2>
 
   <refsect2>
+    <title>Asynchronous signal safety</title>
+    
+    <para>No function in &neon; is defined to be <quote>async-signal safe</quote> -
+    that is, no function is safe to call from a signal handler.  Any
+    call into the &neon; library from a signal handler will have
+    undefined behaviour - in other words, it may crash the
+    process.</para>
+  </refsect2>
+
+  <refsect2>
     <title>Functions using global state</title>
 
-    <para>Any function call in &neon; may modify the
+    <para>Any function in &neon; may modify the
     <literal>errno</literal> global variable as a side-effect.  Except
     where explicitly documented, the value of <literal>errno</literal>
     is unspecified after any &neon; function call.</para>
@@ -174,6 +184,18 @@
         <listitem><simpara>Some of the prefixes used by the MIT GSSAPI
         library and dependencies thereof; a number of symbols lie
         outside these prefixes.</simpara></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>pakchois_</term>
+        <listitem><simpara>Namespace used by the pakchois 
+         library.</simpara></listitem>
+      </varlistentry>
+
+      <varlistentry>
+        <term>px_</term>
+        <listitem><simpara>Namespace used by the libproxy
+         library.</simpara></listitem>
       </varlistentry>
 
     </variablelist>

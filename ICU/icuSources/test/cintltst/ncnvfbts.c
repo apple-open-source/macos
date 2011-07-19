@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT: 
- * Copyright (c) 1997-2007, International Business Machines Corporation and
+ * Copyright (c) 1997-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ***************************************************************************/
 /*****************************************************************************
@@ -104,7 +104,9 @@ void addTestConverterFallBack(TestNode** root);
 
 void addTestConverterFallBack(TestNode** root)
 {
+#if !UCONFIG_NO_FILE_IO
    addTest(root, &TestConverterFallBack, "tsconv/ncnvfbts/TestConverterFallBack");
+#endif
  
 }
 
@@ -222,7 +224,7 @@ static UBool testConvertFromUnicode(const UChar *source, int sourceLen,  const u
 
     log_verbose("\nConversion done [%d uchars in -> %d chars out]. \nResult :",
         sourceLen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
         char junk[9999];
         char offset_str[9999];
@@ -385,7 +387,7 @@ static UBool testConvertToUnicode( const uint8_t *source, int sourcelen, const U
 
     log_verbose("\nConversion done. %d bytes -> %d chars.\nResult :",
         sourcelen, targ-junkout);
-    if(VERBOSITY)
+    if(getTestOption(VERBOSITY_OPTION))
     {
 
         junk[0] = 0;

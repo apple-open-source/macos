@@ -1,0 +1,16 @@
+<dict>
+        <key>OpenSourceProject</key>
+        <string>Inline-Python</string>
+        <key>OpenSourceVersion</key>
+        <string>0.38</string>
+        <key>OpenSourceWebsiteURL</key>
+        <string>http://search.cpan.org/</string>
+        <key>OpenSourceURL</key>
+        <string>http://search.cpan.org/CPAN/authors/id/N/NI/NINE/Inline-Python-0.38.tar.gz</string>
+        <key>OpenSourceImportDate</key>
+        <string>2010-12-07</string>
+        <key>OpenSourceLicense</key>
+        <string>Perl</string>
+        <key>OpenSourceLicenseFile</key>
+        <string>CPAN.txt</string>
+</dict>

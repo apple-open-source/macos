@@ -1,0 +1,28 @@
+Luit is a filter that can be run between an arbitrary application and
+a UTF-8 terminal emulator such as xterm.  It will convert application
+output from the locale's encoding into UTF-8, and convert terminal
+input from UTF-8 into the locale's encoding.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/luit
+
+        http://cgit.freedesktop.org/xorg/app/luit
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

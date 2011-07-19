@@ -1,0 +1,158 @@
+2002-07-16  Jay Rogers  <jay@rgrs.com>
+
+	* Version 3.03 released.
+
+	* Telnet.pm (getlines): Changed behavior so it works like
+	IO::Handle::getlines().  Instead of returning just the lines
+	currently available for reading, it now returns all lines until
+	end-of-file.  To get the old behavior, use "All => ''" named
+	parameter.
+
+	* Telnet.pm (put): New method put() is like print(), except that
+	it doesn't write the trailing output_record_separator ("\n").  It
+	also takes named parameters.
+
+	* Telnet.pm (last_prompt): New method last_prompt() provides the
+	last prompt matched by cmd() or login().
+
+	* Telnet.pm (rs): New method rs() is synonymous with
+	input_record_separator().
+
+	* Telnet.pm (ors): New method ors() is synonymous with
+	output_record_separator.
+
+	* Telnet.pm (ofs): New method ofs() is synonymous with
+	output_field_separator().
+
+	* Telnet.pm (input_log, output_log, option_log): Fixed so they
+	always return the filehandle of the logfile or "" if logging
+	turned-off.
+
+	* Telnet.pm (dump_log, input_log, option_log, output_log): Fixed
+	so they work with an unblessed or tied filehandle.
+
+	* Telnet.pm (cmd_remove_mode, errmode, input_record_separator)
+	(max_buffer_length, option_callback, port, prompt, timeout): These
+	attribute methods now ignore an invalid argument and print a
+	warning to stderr.  This also applies to a named parameter used to
+	override one of these attributes.
+
+	* Telnet.pm (cmd): Added named parameters to override Errmode, and
+	Input_record_separator.
+
+	* Telnet.pm (get, waitfor): Added named parameters to override
+	Binmode, Errmode, and Telnetmode.
+
+	* Telnet.pm (getline, getlines): Added named parameters to
+	override Binmode, Errmode, Input_record_separator, and Telnetmode.
+
+	* Telnet.pm (login, open): Added named parameter to override
+	Errmode.
+
+	* Telnet.pm (login): Added two 0.01 second delays to workaround
+	bug in Linux login program.
+
+	* Telnet.pm (break): Fixed to properly send TELNET break command.
+
+	* Telnet.pm (open): Fixed to properly handle an absolute timeout
+	value.
+
+	* Telnet.pm: Squelched the warning "isn't numeric" caused by
+	deficiency in ActiveState perl and MS-Windows.
+
+	* t/select.t: Fixed test #3 so it passes when running on Linux 2.4
+	or greater.
+
+2000-05-27  Jay Rogers  <jay@rgrs.com>
+
+	* Version 3.02 released.
+
+	* Telnet.pm: Squelched the warning "Ambiguous call resolved as
+	CORE::open()" introduced by perl5.005
+
+	* Telnet.pm: Fixed incorrect handling of CR LF when chars are sent
+	in separate blocks.
+
+	* Telnet.pm: Modified log routines to accept a tied filehandle.
+
+	* Telnet.pm (get): Fixed to correctly set timed_out() to indicate
+	no time-out error when data is not immediately available but
+	subsequently arrives and is read before the time-out interval
+	expires.
+
+	* Telnet.pm (get): Fixed timeout error when timeout=0, and no
+	data read, but there's still data in the buffer yet to be
+	returned.
+
+	* Telnet.pm (get): Errmode action now happens when timeout=0 and
+	time-out occurs.
+
+1997-12-27  Jay Rogers  <jay@rgrs.com>
+
+	* Version 3.01 released.
+
+	* Telnet.pm (binmode): calling binmode() without an argument no
+	longer sets binmode to 1, but rather just returns the current
+	value for binmode.
+
+	* Telnet.pm (telnetmode): calling telnetmode() without an argument
+	no longer sets telnetmode to 1, but rather just returns the
+	current value for telnetmode.
+
+	* Telnet.pm (cmd): Removes the first line of output when the
+	remote side told us it would echo or the user requests its removal
+	explicitly with cmd_remove_mode()
+
+	* Telnet.pm (cmd_remove_mode): New method that contains the mode
+	for how to deal with an echoed back command in the output returned
+	by cmd().  Default is set to "auto", which means cmd() removes the
+	first line of output when the remote side told us it would echo.
+
+	* Telnet.pm (new): By default, an offer to echo made by the remote
+	side of a TELNET connection is always accepted.
+
+	* Telnet.pm (new): Fixed default prompt to work with prompts
+	containing $
+
+	* Telnet.pm (fhopen): Changed to work with any open filehandle
+	including uni-directional pipes like STDIN.
+
+	* Telnet.pm (host): When passed a null string or undef for a
+	hostname it no longer changes it to "localhost".
+
+	* Telnet.pm (waitfor): Now performs error mode action when eof is
+	encountered before the pattern match.
+
+	* Telnet.pm (waitfor): Changed text of error messages when
+	timing-out.
+
+	* Telnet.pm (login): Changed text of error messages when
+	timing-out.
+
+	* Telnet.pm: Fixed non-portable use of \r\n to the more portable
+	\015\012.
+
+	* Telnet.pm (break): Fixed to no longer send the
+	output_record_separator.
+
+	* Telnet.pm: Stopped erroneously converting input character
+	sequences which look like TELNET escaped carriage-returns
+	(\015\000), when not in telnetmode.
+
+	* Telnet.pm (buffer): New method that returns scalar reference to
+	object's input buffer.
+
+	* Telnet.pm (buffer_empty): New method that discards all data in
+	object's input buffer.
+
+	* Telnet.pm (option_accept): New method used to indicate our
+	willingness to accept a telnet option offered by the remote side.
+
+	* Telnet.pm (option_callback): New method used to receive
+	notification of telnet option negotiation.
+
+	* Telnet.pm (option_log): New method that is used to log option
+	negotiation.
+
+	* Telnet.pm (option_state): New method that returns the current
+	state of a telnet option.

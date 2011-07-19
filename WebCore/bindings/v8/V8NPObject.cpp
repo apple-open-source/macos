@@ -45,7 +45,7 @@
 #include "npruntime_priv.h"
 #include <wtf/OwnArrayPtr.h>
 
-using namespace WebCore;
+namespace WebCore {
 
 enum InvokeFunctionType {
     InvokeMethod = 1,
@@ -101,7 +101,7 @@ static v8::Handle<v8::Value> npObjectInvokeImpl(const v8::Arguments& args, Invok
 
     // Wrap up parameters.
     int numArgs = args.Length();
-    OwnArrayPtr<NPVariant> npArgs(new NPVariant[numArgs]);
+    OwnArrayPtr<NPVariant> npArgs = adoptArrayPtr(new NPVariant[numArgs]);
 
     for (int i = 0; i < numArgs; i++)
         convertV8ObjectToNPVariant(args[i], npObject, &npArgs[i]);
@@ -131,7 +131,7 @@ static v8::Handle<v8::Value> npObjectInvokeImpl(const v8::Arguments& args, Invok
     }
 
     if (!retval)
-        throwError("Error calling method on NPObject!", V8Proxy::GeneralError);
+        throwError("Error calling method on NPObject.", V8Proxy::GeneralError);
 
     for (int i = 0; i < numArgs; i++)
         _NPN_ReleaseVariantValue(&npArgs[i]);
@@ -241,6 +241,12 @@ v8::Handle<v8::Value> npObjectGetIndexedProperty(v8::Local<v8::Object> self, uin
 {
     NPIdentifier identifier = _NPN_GetIntIdentifier(index);
     return npObjectGetProperty(self, identifier, v8::Number::New(index));
+}
+
+v8::Handle<v8::Integer> npObjectQueryProperty(v8::Local<v8::String> name, const v8::AccessorInfo& info)
+{
+    NPIdentifier identifier = getStringIdentifier(name);
+    return npObjectGetProperty(info.Holder(), identifier, name).IsEmpty() ? v8::Handle<v8::Integer>() : v8::Integer::New(v8::None);
 }
 
 static v8::Handle<v8::Value> npObjectSetProperty(v8::Local<v8::Object> self, NPIdentifier identifier, v8::Local<v8::Value> value)
@@ -373,7 +379,7 @@ v8::Local<v8::Object> createV8ObjectForNPObject(NPObject* object, NPObject* root
     if (npObjectDesc.IsEmpty()) {
         npObjectDesc = v8::Persistent<v8::FunctionTemplate>::New(v8::FunctionTemplate::New());
         npObjectDesc->InstanceTemplate()->SetInternalFieldCount(npObjectInternalFieldCount);
-        npObjectDesc->InstanceTemplate()->SetNamedPropertyHandler(npObjectNamedPropertyGetter, npObjectNamedPropertySetter, 0, 0, npObjectNamedPropertyEnumerator);
+        npObjectDesc->InstanceTemplate()->SetNamedPropertyHandler(npObjectNamedPropertyGetter, npObjectNamedPropertySetter, npObjectQueryProperty, 0, npObjectNamedPropertyEnumerator);
         npObjectDesc->InstanceTemplate()->SetIndexedPropertyHandler(npObjectIndexedPropertyGetter, npObjectIndexedPropertySetter, 0, 0, npObjectIndexedPropertyEnumerator);
         npObjectDesc->InstanceTemplate()->SetCallAsFunctionHandler(npObjectInvokeDefaultHandler);
     }
@@ -409,3 +415,5 @@ void forgetV8ObjectForNPObject(NPObject* object)
         _NPN_ReleaseObject(object);
     }
 }
+
+} // namespace WebCore

@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  goto.c
  *  testObjects
  *
@@ -7,23 +13,24 @@
  *
  */
  
-// CONFIG rdar://6289031
+// TEST_CONFIG 
+// rdar://6289031
 
 #include <stdio.h>
+#include "test.h"
 
-int main(int argc, char *argv[])
+int main()
 {
-	__block int val = 0;
+    __block int val = 0;
+    
+    ^{ val = 1; }();
+    
+    if (val == 0) {
+        goto out_bad; // error: local byref variable val is in the scope of this goto
+    }
+    
+    succeed(__FILE__);
 
-	^{ val = 1; }();
-
-	if (val == 0) {
-		goto out_bad; // error: local byref variable val is in the scope of this goto
-	}
-
-        printf("%s: Success!\n", argv[0]);
-	return 0;
-out_bad:
-        printf("%s: val not updated!\n", argv[0]);
-	return 1;
+ out_bad:
+    fail("val not updated!");
 }

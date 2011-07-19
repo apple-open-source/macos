@@ -1,0 +1,12 @@
+Finishing Basic Configuration
+=============================
+
+Unless you're going to have only virtual users and you don't care about their
+passwords,*switch back to disable_plaintext_only = yes* and <set up SSL>
+[SSL.txt].
+
+Plaintext authentication is still allowed from localhost, so you can have your
+webmail application to connect to Dovecot without using SSL or even having to
+configure it.
+
+(This file was created from the wiki on 2011-05-11 04:42)

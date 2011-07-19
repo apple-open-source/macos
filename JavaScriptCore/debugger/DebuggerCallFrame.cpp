@@ -44,10 +44,10 @@ const UString* DebuggerCallFrame::functionName() const
     if (!m_callFrame->callee())
         return 0;
 
-    JSFunction* function = asFunction(m_callFrame->callee());
-    if (!function)
+    JSObject* function = m_callFrame->callee();
+    if (!function || !function->inherits(&JSFunction::s_info))
         return 0;
-    return &function->name(m_callFrame);
+    return &asFunction(function)->name(m_callFrame);
 }
     
 UString DebuggerCallFrame::calculatedFunctionName() const
@@ -55,13 +55,11 @@ UString DebuggerCallFrame::calculatedFunctionName() const
     if (!m_callFrame->codeBlock())
         return UString();
 
-    if (!m_callFrame->callee())
+    JSObject* function = m_callFrame->callee();
+    if (!function || !function->inherits(&JSFunction::s_info))
         return UString();
 
-    JSFunction* function = asFunction(m_callFrame->callee());
-    if (!function)
-        return UString();
-    return function->calculatedDisplayName(m_callFrame);
+    return asFunction(function)->calculatedDisplayName(m_callFrame);
 }
 
 DebuggerCallFrame::Type DebuggerCallFrame::type() const
@@ -74,23 +72,36 @@ DebuggerCallFrame::Type DebuggerCallFrame::type() const
 
 JSObject* DebuggerCallFrame::thisObject() const
 {
-    if (!m_callFrame->codeBlock())
+    CodeBlock* codeBlock = m_callFrame->codeBlock();
+    if (!codeBlock)
         return 0;
 
-    return asObject(m_callFrame->thisValue());
+    JSValue thisValue = m_callFrame->uncheckedR(codeBlock->thisRegister()).jsValue();
+    if (!thisValue.isObject())
+        return 0;
+
+    return asObject(thisValue);
 }
 
 JSValue DebuggerCallFrame::evaluate(const UString& script, JSValue& exception) const
 {
     if (!m_callFrame->codeBlock())
         return JSValue();
+    
+    JSGlobalData& globalData = m_callFrame->globalData();
+    EvalExecutable* eval = EvalExecutable::create(m_callFrame, makeSource(script), m_callFrame->codeBlock()->isStrictMode());
+    if (globalData.exception) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+    }
 
-    RefPtr<EvalExecutable> eval = EvalExecutable::create(m_callFrame, makeSource(script));
-    JSObject* error = eval->compile(m_callFrame, m_callFrame->scopeChain());
-    if (error)
-        return error;
-
-    return m_callFrame->scopeChain()->globalData->interpreter->execute(eval.get(), m_callFrame, thisObject(), m_callFrame->scopeChain(), &exception);
+    JSValue result = globalData.interpreter->execute(eval, m_callFrame, thisObject(), m_callFrame->scopeChain());
+    if (globalData.exception) {
+        exception = globalData.exception;
+        globalData.exception = JSValue();
+    }
+    ASSERT(result);
+    return result;
 }
 
 } // namespace JSC

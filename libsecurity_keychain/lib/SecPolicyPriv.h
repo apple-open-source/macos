@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2003-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -40,21 +40,30 @@ extern "C" {
 /*!
 	@function SecPolicyCopy
 	@abstract Returns a copy of a policy reference based on certificate type and OID.
-    @param certificateType A certificate type.
-    @param policyOID The OID of the policy you want to find. This is a required parameter. See oidsalg.h to see a list of policy OIDs.
-    @param policy The returned policy reference. This is a required parameter.
-    @result A result code.  See "Security Error Codes" (SecBase.h).
+	@param certificateType A certificate type.
+	@param policyOID The OID of the policy you want to find. This is a required parameter. See oidsalg.h to see a list of policy OIDs.
+	@param policy The returned policy reference. This is a required parameter.
+	@result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in Mac OS X 10.7 and later;
+	to obtain a policy reference, use one of the SecPolicyCreate* functions in SecPolicy.h.
 */
-OSStatus SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy);
+OSStatus SecPolicyCopy(CSSM_CERT_TYPE certificateType, const CSSM_OID *policyOID, SecPolicyRef* policy)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 /*!
-	@function SecCopyAllPolicies
+	@function SecPolicyCopyAll
 	@abstract Returns an array of all known policies based on certificate type.
     @param certificateType A certificate type. This is a optional parameter. Pass CSSM_CERT_UNKNOWN if the certificate type is unknown.
     @param policies The returned array of policies. This is a required parameter.
     @result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in Mac OS X 10.7 and later;
+	to obtain a policy reference, use one of the SecPolicyCreate* functions in SecPolicy.h. (Note: there is normally
+	no reason to iterate over multiple disjointed policies, except to provide a way to edit trust settings for each
+	policy, as is done in certain certificate UI views. In that specific case, your code should call SecPolicyCreateWithOID
+	for each desired policy from the list of supported OID constants in SecPolicy.h.)
 */
-OSStatus SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies);
+OSStatus SecPolicyCopyAll(CSSM_CERT_TYPE certificateType, CFArrayRef* policies)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

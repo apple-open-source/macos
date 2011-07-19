@@ -1,1 +1,1 @@
---mandir=/usr/X11/share/man --enable-wide-chars --enable-luit --enable-256-color --enable-logging --enable-load-vt-fonts
+X_EXTRA_LIBS="-lXmu -lfontconfig" --mandir=$X11_PREFIX/share/man --enable-wide-chars --enable-luit --enable-256-color --enable-logging --enable-load-vt-fonts --x-include=$X11_PREFIX/include --x-lib=$X11_PREFIX/lib --with-app-defaults=$X11_PREFIX/share/X11/app-defaults

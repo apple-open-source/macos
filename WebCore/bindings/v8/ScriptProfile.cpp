@@ -29,17 +29,24 @@
  */
 
 #include "config.h"
-
 #include "ScriptProfile.h"
 
+#include "InspectorValues.h"
 #include "V8Binding.h"
-
 #include <v8-profiler.h>
+#include <wtf/PassRefPtr.h>
+#include <wtf/RefPtr.h>
 
 namespace WebCore {
 
+ScriptProfile::~ScriptProfile()
+{
+    const_cast<v8::CpuProfile*>(m_profile)->Delete();
+}
+
 String ScriptProfile::title() const
 {
+    v8::HandleScope scope;
     return toWebCoreString(m_profile->GetTitle());
 }
 
@@ -51,6 +58,34 @@ unsigned int ScriptProfile::uid() const
 PassRefPtr<ScriptProfileNode> ScriptProfile::head() const
 {
     return ScriptProfileNode::create(m_profile->GetTopDownRoot());
+}
+
+static PassRefPtr<InspectorObject> buildInspectorObjectFor(const v8::CpuProfileNode* node)
+{
+    v8::HandleScope handleScope;
+    RefPtr<InspectorObject> result = InspectorObject::create();
+    result->setString("functionName", toWebCoreString(node->GetFunctionName()));
+    result->setString("url", toWebCoreString(node->GetScriptResourceName()));
+    result->setNumber("lineNumber", node->GetLineNumber());
+    result->setNumber("totalTime", node->GetTotalTime());
+    result->setNumber("selfTime", node->GetSelfTime());
+    result->setNumber("numberOfCalls", 0);
+    result->setBoolean("visible", true);
+    result->setNumber("callUID", node->GetCallUid());
+
+    RefPtr<InspectorArray> children = InspectorArray::create();
+    const int childrenCount = node->GetChildrenCount();
+    for (int i = 0; i < childrenCount; i++) {
+        const v8::CpuProfileNode* child = node->GetChild(i);
+        children->pushObject(buildInspectorObjectFor(child));
+    }
+    result->setArray("children", children);
+    return result.release();
+}
+
+PassRefPtr<InspectorObject> ScriptProfile::buildInspectorObjectForHead() const
+{
+    return buildInspectorObjectFor(m_profile->GetTopDownRoot());
 }
 
 } // namespace WebCore

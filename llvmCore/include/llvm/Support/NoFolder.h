@@ -28,9 +28,12 @@
 
 namespace llvm {
 
+class LLVMContext;
+
 /// NoFolder - Create "constants" (actually, values) with no folding.
 class NoFolder {
 public:
+  explicit NoFolder(LLVMContext &) {}
 
   //===--------------------------------------------------------------------===//
   // Binary Operators
@@ -39,17 +42,47 @@ public:
   Value *CreateAdd(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateAdd(LHS, RHS);
   }
+  Value *CreateNSWAdd(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNSWAdd(LHS, RHS);
+  }
+  Value *CreateNUWAdd(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNUWAdd(LHS, RHS);
+  }
+  Value *CreateFAdd(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateFAdd(LHS, RHS);
+  }
   Value *CreateSub(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateSub(LHS, RHS);
   }
+  Value *CreateNSWSub(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNSWSub(LHS, RHS);
+  }
+  Value *CreateNUWSub(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNUWSub(LHS, RHS);
+  }
+  Value *CreateFSub(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateFSub(LHS, RHS);
+  }
   Value *CreateMul(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateMul(LHS, RHS);
+  }
+  Value *CreateNSWMul(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNSWMul(LHS, RHS);
+  }
+  Value *CreateNUWMul(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateNUWMul(LHS, RHS);
+  }
+  Value *CreateFMul(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateFMul(LHS, RHS);
   }
   Value *CreateUDiv(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateUDiv(LHS, RHS);
   }
   Value *CreateSDiv(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateSDiv(LHS, RHS);
+  }
+  Value *CreateExactSDiv(Constant *LHS, Constant *RHS) const {
+    return BinaryOperator::CreateExactSDiv(LHS, RHS);
   }
   Value *CreateFDiv(Constant *LHS, Constant *RHS) const {
     return BinaryOperator::CreateFDiv(LHS, RHS);
@@ -94,6 +127,12 @@ public:
   Value *CreateNeg(Constant *C) const {
     return BinaryOperator::CreateNeg(C);
   }
+  Value *CreateNSWNeg(Constant *C) const {
+    return BinaryOperator::CreateNSWNeg(C);
+  }
+  Value *CreateNUWNeg(Constant *C) const {
+    return BinaryOperator::CreateNUWNeg(C);
+  }
   Value *CreateNot(Constant *C) const {
     return BinaryOperator::CreateNot(C);
   }
@@ -109,6 +148,15 @@ public:
   Value *CreateGetElementPtr(Constant *C, Value* const *IdxList,
                              unsigned NumIdx) const {
     return GetElementPtrInst::Create(C, IdxList, IdxList+NumIdx);
+  }
+
+  Constant *CreateInBoundsGetElementPtr(Constant *C, Constant* const *IdxList,
+                                        unsigned NumIdx) const {
+    return ConstantExpr::getInBoundsGetElementPtr(C, IdxList, NumIdx);
+  }
+  Value *CreateInBoundsGetElementPtr(Constant *C, Value* const *IdxList,
+                                     unsigned NumIdx) const {
+    return GetElementPtrInst::CreateInBounds(C, IdxList, IdxList+NumIdx);
   }
 
   //===--------------------------------------------------------------------===//
@@ -134,12 +182,6 @@ public:
   Value *CreateFCmp(CmpInst::Predicate P, Constant *LHS, Constant *RHS) const {
     return new FCmpInst(P, LHS, RHS);
   }
-  Value *CreateVICmp(CmpInst::Predicate P, Constant *LHS, Constant *RHS) const {
-    return new VICmpInst(P, LHS, RHS);
-  }
-  Value *CreateVFCmp(CmpInst::Predicate P, Constant *LHS, Constant *RHS) const {
-    return new VFCmpInst(P, LHS, RHS);
-  }
 
   //===--------------------------------------------------------------------===//
   // Other Instructions
@@ -150,7 +192,7 @@ public:
   }
 
   Value *CreateExtractElement(Constant *Vec, Constant *Idx) const {
-    return new ExtractElementInst(Vec, Idx);
+    return ExtractElementInst::Create(Vec, Idx);
   }
 
   Value *CreateInsertElement(Constant *Vec, Constant *NewElt,

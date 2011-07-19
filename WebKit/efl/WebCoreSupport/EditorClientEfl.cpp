@@ -40,9 +40,14 @@ using namespace WebCore;
 
 namespace WebCore {
 
-void EditorClientEfl::setInputMethodState(bool active)
+void EditorClientEfl::willSetInputMethodState()
 {
     notImplemented();
+}
+
+void EditorClientEfl::setInputMethodState(bool active)
+{
+    ewk_view_input_method_state_set(m_view, active);
 }
 
 bool EditorClientEfl::shouldDeleteRange(Range*)
@@ -140,12 +145,6 @@ void EditorClientEfl::didSetSelectionTypesForPasteboard()
     notImplemented();
 }
 
-bool EditorClientEfl::isEditable()
-{
-    notImplemented();
-    return false;
-}
-
 void EditorClientEfl::registerCommandForUndo(WTF::PassRefPtr<EditCommand>)
 {
     notImplemented();
@@ -159,6 +158,16 @@ void EditorClientEfl::registerCommandForRedo(WTF::PassRefPtr<EditCommand>)
 void EditorClientEfl::clearUndoRedoOperations()
 {
     notImplemented();
+}
+
+bool EditorClientEfl::canCopyCut(Frame*, bool defaultValue) const
+{
+    return defaultValue;
+}
+
+bool EditorClientEfl::canPaste(Frame*, bool defaultValue) const
+{
+    return defaultValue;
 }
 
 bool EditorClientEfl::canUndo() const
@@ -287,8 +296,6 @@ static const KeyPressEntry keyPressEntries[] = {
     { '\r',   AltKey | ShiftKey,  "InsertNewline"                               },
 };
 
-#define ARRAYSIZE(array) (sizeof(array) / sizeof((array)[0]))
-
 const char* EditorClientEfl::interpretKeyEvent(const KeyboardEvent* event)
 {
     ASSERT(event->type() == eventNames().keydownEvent || event->type() == eventNames().keypressEvent);
@@ -300,10 +307,10 @@ const char* EditorClientEfl::interpretKeyEvent(const KeyboardEvent* event)
         keyDownCommandsMap = new HashMap<int, const char*>;
         keyPressCommandsMap = new HashMap<int, const char*>;
 
-        for (unsigned i = 0; i < ARRAYSIZE(keyDownEntries); i++)
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyDownEntries); ++i)
             keyDownCommandsMap->set(keyDownEntries[i].modifiers << 16 | keyDownEntries[i].virtualKey, keyDownEntries[i].name);
 
-        for (unsigned i = 0; i < ARRAYSIZE(keyPressEntries); i++)
+        for (size_t i = 0; i < WTF_ARRAY_LENGTH(keyPressEntries); ++i)
             keyPressCommandsMap->set(keyPressEntries[i].modifiers << 16 | keyPressEntries[i].charCode, keyPressEntries[i].name);
     }
 
@@ -339,26 +346,26 @@ bool EditorClientEfl::handleEditingKeyboardEvent(KeyboardEvent* event)
     if (caretBrowsing) {
         switch (keyEvent->windowsVirtualKeyCode()) {
         case VK_LEFT:
-            frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                    SelectionController::LEFT,
+            frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                    DirectionLeft,
                     keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
                     true);
             return true;
         case VK_RIGHT:
-            frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                    SelectionController::RIGHT,
+            frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                    DirectionRight,
                     keyEvent->ctrlKey() ? WordGranularity : CharacterGranularity,
                     true);
             return true;
         case VK_UP:
-            frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                    SelectionController::BACKWARD,
+            frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                    DirectionBackward,
                     keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
                     true);
             return true;
         case VK_DOWN:
-            frame->selection()->modify(keyEvent->shiftKey() ? SelectionController::EXTEND : SelectionController::MOVE,
-                    SelectionController::FORWARD,
+            frame->selection()->modify(keyEvent->shiftKey() ? FrameSelection::AlterationExtend : FrameSelection::AlterationMove,
+                    DirectionForward,
                     keyEvent->ctrlKey() ? ParagraphGranularity : LineGranularity,
                     true);
             return true;
@@ -485,7 +492,7 @@ bool EditorClientEfl::spellingUIIsShowing()
     return false;
 }
 
-void EditorClientEfl::getGuessesForWord(const String&, Vector<String>&)
+void EditorClientEfl::getGuessesForWord(const String& word, const String& context, Vector<String>& guesses)
 {
     notImplemented();
 }

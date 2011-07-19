@@ -11,10 +11,6 @@
 .\" 2. Redistributions in binary form must reproduce the above copyright
 .\"    notice, this list of conditions and the following disclaimer in the
 .\"    documentation and/or other materials provided with the distribution.
-.\" 3. All advertising materials mentioning features or use of this software
-.\"    must display the following acknowledgement:
-.\"	This product includes software developed by the University of
-.\"	California, Berkeley and its contributors.
 .\" 4. Neither the name of the University nor the names of its contributors
 .\"    may be used to endorse or promote products derived from this software
 .\"    without specific prior written permission.
@@ -32,7 +28,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"     From: @(#)ctime.3	8.1 (Berkeley) 6/4/93
-.\" $FreeBSD: src/lib/libc/stdtime/ctime.3,v 1.22 2004/07/02 23:52:12 ru Exp $
+.\" $FreeBSD: src/lib/libc/stdtime/ctime.3,v 1.24 2007/01/09 00:28:11 imp Exp $
 .\"
 .Dd January 2, 1999
 .Dt CTIME 3
@@ -118,7 +114,7 @@ element of
 .Fa tzname
 to a pointer to an
 .Tn ASCII
-string that's the time zone abbreviation to be
+string that is the time zone abbreviation to be
 used with
 .Fn localtime Ns 's
 return value.

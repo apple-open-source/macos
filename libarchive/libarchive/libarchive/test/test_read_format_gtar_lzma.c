@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD$");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_read_format_gtar_lzma.c 191183 2009-04-17 01:06:31Z kientzle $");
 
 static unsigned char archive[] = {
 0x5d, 0x0, 0x0, 0x80, 0x0, 0x0, 0x28, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0, 0x0,
@@ -46,11 +46,17 @@ DEFINE_TEST(test_read_format_gtar_lzma)
 	assert((a = archive_read_new()) != NULL);
 	assertEqualIntA(a, ARCHIVE_OK,
 	    archive_read_support_compression_all(a));
-	assertEqualIntA(a, ARCHIVE_OK,
-	    archive_read_support_compression_lzma(a));
+	r = archive_read_support_compression_lzma(a);
+	if (r == ARCHIVE_WARN) {
+		skipping("lzma reading not fully supported on this platform");
+		assertEqualInt(ARCHIVE_OK, archive_read_finish(a));
+		return;
+	}
+
+	assertEqualIntA(a, ARCHIVE_OK, r);
 	assertEqualIntA(a, ARCHIVE_OK,
 	    archive_read_support_format_all(a));
-	r = archive_read_open_memory(a, archive, sizeof(archive));
+	r = archive_read_open_memory2(a, archive, sizeof(archive), 3);
 	if (r != ARCHIVE_OK) {
 		skipping("Skipping LZMA compression check: %s",
 		    archive_error_string(a));

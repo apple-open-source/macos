@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2008 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -24,7 +24,7 @@
 #include <mach/std_types.defs>
 #include <mach/mach_types.defs>
 
-subsystem asl_ipc 1;
+subsystem asl_ipc 114;
 serverprefix _;
 
 import <sys/types.h>;
@@ -67,9 +67,33 @@ routine _asl_server_prune
 	SecToken token : security_token_t
 );
 
+routine _asl_server_create_aux_link
+(
+	server : mach_port_t;
+	message : ooline_data, dealloc;
+	out fileport : mach_port_move_send_t;
+	out url : ooline_data, dealloc;
+	out status : int;
+	ServerAuditToken token : audit_token_t
+);
+
 simpleroutine _asl_server_message
 (
 	server : mach_port_t;
 	message : ooline_data, dealloc;
+	ServerAuditToken token : audit_token_t
+);
+
+simpleroutine _asl_server_register_direct_watch
+(
+	server : mach_port_t;
+	port : int;
+	ServerAuditToken token : audit_token_t
+);
+
+simpleroutine _asl_server_cancel_direct_watch
+(
+	server : mach_port_t;
+	port : int;
 	ServerAuditToken token : audit_token_t
 );

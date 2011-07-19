@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2008 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2008,2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,8 +21,6 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#define MULTIPLE_KEYCHAINS 1
-
 #define __CONSTANT_CFSTRINGS__  1
 #include <CoreFoundation/CFString.h>
 
@@ -42,6 +40,9 @@ SEC_CONST_DECL (kSecClassKey, "keys");
 SEC_CONST_DECL (kSecClassIdentity, "idnt");
 
 /* Attribute Key Constants */
+SEC_CONST_DECL (kSecAttrAccessible, "pdmn");
+SEC_CONST_DECL (kSecAttrAccessGroup, "agrp");
+SEC_CONST_DECL (kSecAttrAccess, "acls");
 SEC_CONST_DECL (kSecAttrCreationDate, "cdat");
 SEC_CONST_DECL (kSecAttrModificationDate, "mdat");
 SEC_CONST_DECL (kSecAttrDescription, "desc");
@@ -74,11 +75,14 @@ SEC_CONST_DECL (kSecAttrCertificateEncoding, "cenc");
 SEC_CONST_DECL (kSecAttrKeyClass, "kcls");
 SEC_CONST_DECL (kSecAttrApplicationLabel, "klbl");
 SEC_CONST_DECL (kSecAttrIsPermanent, "perm");
-SEC_CONST_DECL (kSecAttrIsPrivate, "priv");
 SEC_CONST_DECL (kSecAttrIsModifiable, "modi");
+SEC_CONST_DECL (kSecAttrIsPrivate, "priv");
 SEC_CONST_DECL (kSecAttrApplicationTag, "atag");
 SEC_CONST_DECL (kSecAttrKeyCreator, "crtr");
 SEC_CONST_DECL (kSecAttrKeyType, "type");
+SEC_CONST_DECL (kSecAttrPRF, "prf");
+SEC_CONST_DECL (kSecAttrSalt, "salt");
+SEC_CONST_DECL (kSecAttrRounds, "rounds");
 SEC_CONST_DECL (kSecAttrKeySizeInBits, "bsiz");
 SEC_CONST_DECL (kSecAttrEffectiveKeySize, "esiz");
 SEC_CONST_DECL (kSecAttrStartDate, "sdat");
@@ -101,7 +105,6 @@ SEC_CONST_DECL (kSecAttrScriptCode, "scrp");
 SEC_CONST_DECL (kSecAttrHasCustomIcon, "cusi");
 SEC_CONST_DECL (kSecAttrCRLType, "crlt");
 SEC_CONST_DECL (kSecAttrCRLEncoding, "crle");
-SEC_CONST_DECL (kSecAttrAccessGroup, "agrp");
 
 /* Search Constants */
 SEC_CONST_DECL (kSecMatchPolicy, "m_Policy");
@@ -110,7 +113,12 @@ SEC_CONST_DECL (kSecMatchSearchList, "m_SearchList");
 SEC_CONST_DECL (kSecMatchIssuers, "m_Issuers");
 SEC_CONST_DECL (kSecMatchEmailAddressIfPresent, "m_EmailAddressIfPresent");
 SEC_CONST_DECL (kSecMatchSubjectContains, "m_SubjectContains");
+SEC_CONST_DECL (kSecMatchSubjectStartsWith, "m_SubjectStartsWith");
+SEC_CONST_DECL (kSecMatchSubjectEndsWith, "m_SubjectEndsWith");
+SEC_CONST_DECL (kSecMatchSubjectWholeString, "m_SubjectWholeString");
 SEC_CONST_DECL (kSecMatchCaseInsensitive, "m_CaseInsensitive");
+SEC_CONST_DECL (kSecMatchDiacriticInsensitive, "m_DiacriticInsensitive");
+SEC_CONST_DECL (kSecMatchWidthInsensitive, "m_WidthInsensitive");
 SEC_CONST_DECL (kSecMatchTrustedOnly, "m_TrustedOnly");
 SEC_CONST_DECL (kSecMatchValidOnDate, "m_ValidOnDate");
 SEC_CONST_DECL (kSecMatchLimit, "m_Limit");
@@ -131,11 +139,7 @@ SEC_CONST_DECL (kSecValuePersistentRef, "v_PersistentRef");
 
 /* Other Constants */
 SEC_CONST_DECL (kSecUseItemList, "u_ItemList");
-#if defined(MULTIPLE_KEYCHAINS)
-/* Other Constants (Private) */
 SEC_CONST_DECL (kSecUseKeychain, "u_Keychain");
-SEC_CONST_DECL (kSecUseKeychainList, "u_KeychainList");
-#endif /* !defined(MULTIPLE_KEYCHAINS) */
 
 /* kSecAttrProtocol Value Constants. */
 SEC_CONST_DECL (kSecAttrProtocolFTP, "ftp ");
@@ -180,7 +184,7 @@ SEC_CONST_DECL (kSecAttrAuthenticationTypeHTTPDigest, "httd");
 SEC_CONST_DECL (kSecAttrAuthenticationTypeHTMLForm, "form");
 SEC_CONST_DECL (kSecAttrAuthenticationTypeDefault, "dflt");
 
-/* kSecAttrKeyClass Value Constants.  Based on <Security/cssmtype.h>
+/* kSecAttrKeyClass Value Constants. Based on <Security/cssmtype.h>
  CSSM_KEYCLASS_PUBLIC_KEY =		0,
  CSSM_KEYCLASS_PRIVATE_KEY =		1,
  CSSM_KEYCLASS_SESSION_KEY =		2,
@@ -189,11 +193,28 @@ SEC_CONST_DECL (kSecAttrKeyClassPublic, "0");
 SEC_CONST_DECL (kSecAttrKeyClassPrivate, "1");
 SEC_CONST_DECL (kSecAttrKeyClassSymmetric, "2");
 
-/* kSecAttrKeyType Value Constants. */
+/* kSecAttrKeyType Value Constants. Based on CSSM_ALGORITHMS. */
+SEC_CONST_DECL (kSecAttrKeyTypeDES, "14");
+SEC_CONST_DECL (kSecAttrKeyTypeRC2, "23");
+SEC_CONST_DECL (kSecAttrKeyTypeRC4, "25");
 SEC_CONST_DECL (kSecAttrKeyTypeRSA, "42");
+SEC_CONST_DECL (kSecAttrKeyTypeDSA, "43");
+SEC_CONST_DECL (kSecAttrKeyTypeCAST, "56");
+SEC_CONST_DECL (kSecAttrKeyTypeECDSA, "73");
+SEC_CONST_DECL (kSecAttrKeyType3DES, "77");
+SEC_CONST_DECL (kSecAttrKeyTypeAES, "2147483649"); /* <Security/cssmapple.h> */
+
+SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA1, "hsha1");
+SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA224, "hsha224");
+SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA256, "hsha256");
+SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA384, "hsha384");
+SEC_CONST_DECL (kSecAttrPRFHmacAlgSHA512, "hsha512");
+
 
 /* Constants used by SecKeyGeneratePair() - in SecKey.h.  Never used in
  any SecItem apis directly. */
 SEC_CONST_DECL (kSecPrivateKeyAttrs, "private");
 SEC_CONST_DECL (kSecPublicKeyAttrs, "public");
+/* Used for SecKeyGenerateSymmetric */
+SEC_CONST_DECL (kSecSymmetricKeyAttrs, "symmetric");
 

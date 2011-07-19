@@ -55,6 +55,8 @@
 #endif
 #include <ctype.h>
 #include <err.h>
+#include <pthread.h>
+#include <unistd.h>
 
 #include "var.h"
 #include "misc.h"
@@ -76,6 +78,7 @@ int f_foreground = 0;
 int print_location = 0;
 
 static struct log *logp = NULL;
+static pthread_mutex_t logp_mtx = {0};
 static char *logfile = NULL;
 
 static char *plog_common __P((int, const char *, const char *));
@@ -96,27 +99,27 @@ static struct plogtags {
 
 static char *
 plog_common(pri, fmt, func)
-	int pri;
-	const char *fmt, *func;
+int pri;
+const char *fmt, *func;
 {
 	static char buf[800];	/* XXX shoule be allocated every time ? */
 	char *p;
 	int reslen, len;
-
+	
 	p = buf;
 	reslen = sizeof(buf);
-
+	
 	if (logfile || f_foreground) {
 		time_t t;
 		struct tm *tm;
-
+		
 		t = time(0);
 		tm = localtime(&t);
 		len = strftime(p, reslen, "%Y-%m-%d %T: ", tm);
 		p += len;
 		reslen -= len;
 	}
-
+	
 	if (pri < ARRAYLEN(ptab)) {
 		if (print_pid)
 			len = snprintf(p, reslen, "[%d] %s: ", getpid(), ptab[pri].name);
@@ -128,7 +131,7 @@ plog_common(pri, fmt, func)
 		} else
 			*p = '\0';
 	}
-
+	
 	if (print_location)
 		snprintf(p, reslen, "%s: %s", func, fmt);
 	else
@@ -137,12 +140,22 @@ plog_common(pri, fmt, func)
     while ((p = strstr(buf,"%z")) != NULL)
 		p[1] = 'l';
 #endif
-
+	
 	return buf;
 }
 
 void
-plog(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
+plogmtxinit (void)
+{
+	pthread_mutexattr_t attrs;
+	pthread_mutexattr_init(&attrs);
+	pthread_mutexattr_settype(&attrs, PTHREAD_MUTEX_RECURSIVE);
+	pthread_mutex_init(&logp_mtx, &attrs);
+	pthread_mutexattr_destroy(&attrs);
+}
+
+void
+plog_func(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
 {
 	va_list ap;
 
@@ -153,29 +166,33 @@ plog(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
 
 void
 plogv(int pri, const char *func, struct sockaddr *sa,
-	const char *fmt, va_list *ap)
+	  const char *fmt, va_list *ap)
 {
 	char *newfmt;
 	va_list ap_bak;
-
+	
 	if (pri > loglevel)
 		return;
 
-	newfmt = plog_common(pri, fmt, func);
+	pthread_mutex_lock(&logp_mtx);
 
+	newfmt = plog_common(pri, fmt, func);
+	
 	VA_COPY(ap_bak, ap);
 	
 	if (f_foreground)
 		vprintf(newfmt, *ap);
-
-	if (logfile)
+	
+	
+	if (logfile) {
 		log_vaprint(logp, newfmt, ap_bak);
-	else {
+	} else {
 		if (pri < ARRAYLEN(ptab))
 			vsyslog(ptab[pri].priority, newfmt, ap_bak);
 		else
 			vsyslog(LOG_ALERT, newfmt, ap_bak);
 	}
+	pthread_mutex_unlock(&logp_mtx);
 }
 
 void
@@ -215,7 +232,7 @@ plogdump(pri, data, len)
 		buf[i++] = '\n';
 		buf[i] = '\0';
 	}
-	plog(pri, LOCATION, NULL, "%s", buf);
+	plog_func(pri, LOCATION, NULL, "%s", buf);
 
 	racoon_free(buf);
 }
@@ -223,38 +240,50 @@ plogdump(pri, data, len)
 void
 ploginit()
 {
+	pthread_mutex_lock(&logp_mtx);
+
 	if (logfile) {
 		logp = log_open(250, logfile);
 		if (logp == NULL)
 			errx(1, "ERROR: failed to open log file %s.", logfile);
+		pthread_mutex_unlock(&logp_mtx);
 		return;
 	}
 			
 	openlog(pname, LOG_NDELAY, LOG_DAEMON);
+
+	pthread_mutex_unlock(&logp_mtx);
 }
 
 void
 plogset(file)
 	char *file;
 {
+	pthread_mutex_lock(&logp_mtx);
 	if (logfile != NULL)
 		racoon_free(logfile);
 	logfile = racoon_strdup(file);
 	STRDUP_FATAL(logfile);
+	pthread_mutex_unlock(&logp_mtx);
 }
 
 void
 plogreset(file)
 	char *file;
 {
-	
+	pthread_mutex_lock(&logp_mtx);
+
 	/* if log paths equal - do nothing */
-	if (logfile == NULL && file == NULL)
+	if (logfile == NULL && file == NULL) {
+		pthread_mutex_unlock(&logp_mtx);
 		return;
+	}
 	if (logfile != NULL && file != NULL)
-		if (!strcmp(logfile, file))
+		if (!strcmp(logfile, file)) {
+			pthread_mutex_unlock(&logp_mtx);
 			return;
-		
+		}
+	
 	if (logfile == NULL)	/* no logfile was specified  - daemon was used */
 		closelog();	/* close it */
 	else {
@@ -267,6 +296,8 @@ plogreset(file)
 	if (file)
 		plogset(file);
 	ploginit();
+
+	pthread_mutex_unlock(&logp_mtx);
 }		
 
 /*
@@ -280,7 +311,6 @@ binsanitize(binstr, n)
 	size_t n;
 {
 	int p,q;
-	char* d;
 	for (p = 0, q = 0; p < n; p++) {
                  if (isgraph((int)binstr[p])) {
 			binstr[q++] = binstr[p];

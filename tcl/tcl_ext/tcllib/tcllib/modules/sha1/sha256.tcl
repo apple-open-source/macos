@@ -27,8 +27,8 @@
 package require Tcl 8.2;                # tcl minimum version
 
 namespace eval ::sha2 {
-    variable version 1.0.2
-    variable rcsid {$Id: sha256.tcl,v 1.6 2007/05/03 21:41:10 andreas_kupries Exp $}
+    variable version 1.0.3
+    variable rcsid {$Id: sha256.tcl,v 1.7 2010/07/06 20:16:39 andreas_kupries Exp $}
 
     variable  accel
     array set accel {tcl 0 critcl 0}
@@ -475,10 +475,10 @@ set ::sha2::SHA256Transform_body {
         set t15  0
         set t16 -1
         for {set t 16} {$t < 64} {incr t} {
-            lappend W [expr {[sigma1 [lindex $W [incr t2]]] \
+            lappend W [expr {([sigma1 [lindex $W [incr t2]]] \
                                  + [lindex $W [incr t7]] \
                                  + [sigma0 [lindex $W [incr t15]]] \
-                                 + [lindex $W [incr t16]]}]
+                                 + [lindex $W [incr t16]]) & 0xffffffff}]
         }
         
         # FIPS 180-2: 6.2.2 (2) Initialise the working variables

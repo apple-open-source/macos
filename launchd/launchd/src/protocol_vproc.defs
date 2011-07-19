@@ -38,192 +38,264 @@ type mach_port_move_send_array_t = array[] of mach_port_move_send_t
 userprefix vproc_mig_;
 serverprefix job_mig_;
 
-routine create_server(
-				__bs_port			: job_t;
-				__server_cmd		: cmd_t;
-				__server_uid		: uid_t;
-				__on_demand			: boolean_t;
-out				__server_port		: mach_port_make_send_t);
+routine
+create_server(
+				j			: job_t;
+				servercmd	: cmd_t;
+				serveruid	: uid_t;
+				ondemand	: boolean_t;
+out				serverport	: mach_port_make_send_t
+);
 
-routine reboot2(
-				__bs_port			: job_t;
-				__flags				: uint64_t);
+routine
+reboot2(
+				j			: job_t;
+				flags		: uint64_t
+);
 
-routine check_in2(
-				__bs_port			: job_t;
-				__service_name		: name_t;
-out				__service_port		: mach_port_move_receive_t;
-				__flags				: uint64_t);
+routine
+check_in2(
+				j			: job_t;
+				servicename	: name_t;
+out				serviceport	: mach_port_move_receive_t;
+out				instanceid	: uuid_t;
+				flags		: uint64_t
+);
 
-routine register2(
-				__bs_port			: job_t;
-				__service_name		: name_t;
-				__service_port		: mach_port_t;
-				__flags				: uint64_t);
+routine
+register2(
+				j			: job_t;
+				servicename	: name_t;
+				serviceport	: mach_port_t;
+				flags		: uint64_t
+);
 
-routine look_up2(
-				__bs_port			: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-				__service_name		: name_t;
-out				__service_port		: mach_port_t;
-UserAuditToken	__server_cred		: audit_token_t;
-				__target_pid		: pid_t;
-				__flags				: uint64_t);
+routine
+look_up2(
+				j			: job_t;
+sreplyport		rp			: mach_port_make_send_once_t;
+				servicename	: name_t;
+out				serviceport	: mach_port_t;
+UserAuditToken	servercreds	: audit_token_t;
+				targetpid	: pid_t;
+				instanceid	: uuid_t;
+				flags		: uint64_t
+);
 
-routine send_signal(
-				__bs_port			: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-				__label				: name_t;
-				__signal			: integer_t);
+routine
+send_signal(
+				j			: job_t;
+sreplyport		rp			: mach_port_make_send_once_t;
+				label		: name_t;
+				sig			: integer_t
+);
 
-routine parent(
-				__bs_port			: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-out				__parent_port		: mach_port_make_send_t);
+routine
+parent(
+				j			: job_t;
+sreplyport		rp			: mach_port_make_send_once_t;
+out				parentport	: mach_port_make_send_t
+);
 
-routine post_fork_ping(
-				__bs_port			: job_t;
-				__task_port			: task_t;
-out				__audit_session		: mach_port_t);
+routine
+post_fork_ping(
+				j			: job_t;
+				taskport	: task_t;
+out				asport		: mach_port_t
+);
 
-routine info(
-				__bs_port			: job_t;
-out				__service_names		: name_array_t, dealloc;
-out				__service_jobs		: name_array_t, dealloc;
-out				__service_active	: bootstrap_status_array_t, dealloc;
-				__flags				: uint64_t);
+routine
+info(
+				j			: job_t;
+out				names		: name_array_t, dealloc;
+out				jobs		: name_array_t, dealloc;
+out				actives		: bootstrap_status_array_t, dealloc;
+				flags		: uint64_t
+);
 
-routine subset(
-				__bs_port			: job_t;
-				__requestor_port	: mach_port_t;
-out				__subset_port		: mach_port_make_send_t);
+routine
+subset(
+				j			: job_t;
+				reqport		: mach_port_t;
+out				subsetport	: mach_port_make_send_t
+);
 
-routine setup_shmem(
-				__bs_port			: job_t;
-out				__shmem_port		: mach_port_move_send_t);
+routine
+setup_shmem(
+				j			: job_t;
+out				shmemport	: mach_port_move_send_t
+);
 
-routine take_subset(
-				__bs_port			: job_t;
-out				__bs_reqport		: mach_port_move_send_t;
-out				__bs_rcvright		: mach_port_move_receive_t;
-out				__outdata			: pointer_t, dealloc;
-out				__service_ports		: mach_port_move_send_array_t, dealloc);
+routine
+take_subset(
+				j			: job_t;
+out				reqport		: mach_port_move_send_t;
+out				recvport	: mach_port_move_receive_t;
+out				jobs		: pointer_t, dealloc;
+out				ports		: mach_port_move_send_array_t, dealloc
+);
 
-routine getsocket(
-				__bs_port			: job_t;
-out				__sockpath			: name_t);
+routine
+getsocket(
+				j			: job_t;
+out				sockpath	: name_t
+);
 
-routine spawn(
-				__bs_port			: job_t;
-				__indata			: pointer_t;
-				__audit_session		: mach_port_t;
-out				__pid				: pid_t;
-out				__obsvr_port		: mach_port_make_send_t);
+skip; /* Formerly spawn. */
 
-routine wait(
-				__bs_port			: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-out				__waitval			: integer_t);
+skip; /* Formerly wait. */
 
-routine uncork_fork(
-				__bs_port			: job_t);
+skip; /* Formerly uncork_fork. */
 
-routine swap_integer(
-				__bs_port			: job_t;
-				__inkey				: vproc_gsk_t;
-				__outkey			: vproc_gsk_t;
-				__inval				: int64_t;
-out				__outval			: int64_t);
+routine
+swap_integer(
+				j			: job_t;
+				inkey		: vproc_gsk_t;
+				outkey		: vproc_gsk_t;
+				inval		: int64_t;
+out				outval		: int64_t
+);
 
-routine log(
-				__bs_port			: job_t;
-				__pri				: integer_t;
-				__err				: integer_t;
-				__msg				: logmsg_t);
+routine
+log(
+				j			: job_t;
+				pri			: integer_t;
+				err			: integer_t;
+				message		: logmsg_t
+);
 
-routine lookup_per_user_context(
-				__bs_port			: job_t;
-				__wu				: uid_t;
-out				__u_cont			: mach_port_t);
+routine
+lookup_per_user_context(
+				j			: job_t;
+				uid			: uid_t;
+out				userbport	: mach_port_t
+);
 
-routine move_subset(
-				__bs_port			: job_t;
-				__target_port		: mach_port_t;
-				__sessiontype		: name_t;
-				__audit_session		: mach_port_t;
-				__sessionflags		: uint64_t);
+routine
+move_subset(
+				j			: job_t;
+				targetport	: mach_port_t;
+				session		: name_t;
+				asport		: mach_port_t;
+				flags		: uint64_t
+);
 
-routine swap_complex(
-				__bs_port			: job_t;
-				__inkey				: vproc_gsk_t;
-				__outkey			: vproc_gsk_t;
-				__inval				: pointer_t;
-out				__outval			: pointer_t, dealloc);
+routine
+swap_complex(
+				j			: job_t;
+				inkey		: vproc_gsk_t;
+				outkey		: vproc_gsk_t;
+				inval		: pointer_t;
+out				outval		: pointer_t, dealloc
+);
 
-routine log_drain(
-				__bs_port			: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-out				__outval			: pointer_t, dealloc);
+routine
+log_drain(
+				j			: job_t;
+sreplyport		rp			: mach_port_make_send_once_t;
+out				outval		: pointer_t, dealloc
+);
 
-routine log_forward(
-				__bs_port			: job_t;
-				__inval				: pointer_t);
+routine
+log_forward(
+				j			: job_t;
+				inval		: pointer_t
+);
 
-routine kickstart(
-				__bs_port			: job_t;
-				__label				: name_t;
-out				__pid				: pid_t;
-out				__name_port			: mach_port_t;
-out				__obsrvr_port		: mach_port_make_send_t;
-				__flags				: natural_t);
+routine
+kickstart(
+				j			: job_t;
+				label		: name_t;
+out				pid			: pid_t;
+				flags		: natural_t
+);
 
-routine embedded_wait(
-				__bs_port			: job_t;
-				__label				: name_t;
-out				__waitval			: integer_t);
+skip;
 
-routine lookup_children(
-				__bs_port			: job_t;
-out 			__child_ports		: mach_port_move_send_array_t, dealloc;
-out				__child_names		: name_array_t, dealloc;
-out				__child_properties	: bootstrap_property_array_t, dealloc);
+routine
+lookup_children(
+				j			: job_t;
+out 			childports	: mach_port_move_send_array_t, dealloc;
+out				childnames	: name_array_t, dealloc;
+out				childprops	: bootstrap_property_array_t, dealloc
+);
 
-routine switch_to_session(
-				__bs_port			: job_t;
-				__req_port			: mach_port_t;
-				__session_name		: name_t;
-				__audit_session		: mach_port_t;
-out				__new_bs_port		: mach_port_make_send_t);
+routine
+switch_to_session(
+				j			: job_t;
+				reqport		: mach_port_t;
+				session		: name_t;
+				asport		: mach_port_t;
+out				newbsport	: mach_port_make_send_t
+);
 
-routine transaction_count_for_pid(
-				__bs_port			: job_t;
-				__pid				: pid_t;
-out				__cnt				: integer_t;
-out				__condemend			: boolean_t);
+routine
+transaction_count_for_pid(
+				j			: job_t;
+				pid			: pid_t;
+out				count		: integer_t;
+out				condemned	: boolean_t
+);
 				
-routine pid_is_managed(
-				__bs_port			: job_t;
-				__pid				: pid_t;
-out				__managed			: boolean_t);
+routine
+pid_is_managed(
+				j			: job_t;
+				pid			: pid_t;
+out				managed		: boolean_t
+);
 
-routine port_for_label(
-				__bs_port			: job_t;
-				__label				: name_t;
-out				__mp				: mach_port_make_send_t);
+routine
+port_for_label(
+				j			: job_t;
+				label		: name_t;
+out				jport		: mach_port_make_send_t
+);
 
-routine init_session(
-				__bs_port			: job_t;
-				__session_name		: name_t;
-				__audit_session		: mach_port_t);
+routine
+init_session(
+				j			: job_t;
+				session		: name_t;
+				asport		: mach_port_t
+);
 
-routine set_security_session(
-				__bs_port			: job_t;
-				__uuid				: uuid_t;
-				__session			: mach_port_t);
+routine
+set_security_session(
+				j			: job_t;
+				uuid		: uuid_t;
+				asport		: mach_port_t
+);
 
-routine wait2(
-				__bs_port			: job_t;
-				__target_port		: job_t;
-sreplyport		__rport				: mach_port_make_send_once_t;
-out				__waitval			: integer_t;
-				__legacy			: boolean_t);
+skip; /* Formerly wait2. */
+
+routine
+event_source_check_in(
+				j			: job_t;
+				stream		: name_t;
+				pingport	: mach_port_make_send_once_t;
+out				events		: pointer_t, dealloc;
+out				tokens		: event_token_array_t
+);
+
+routine
+event_set_state(
+				j			: job_t;
+				stream		: name_t;
+				token		: uint64_t;
+				state		: boolean_t
+);
+
+routine
+spawn2(
+				j			: job_t;
+sreplyport		rp			: mach_port_make_send_once_t;
+				job			: pointer_t;
+				asport		: mach_port_t;
+out				outpid		: pid_t;
+out				obsrvport	: mach_port_move_receive_t
+);
+
+routine
+get_root_bootstrap(
+				j			: job_t;
+out				rootbs		: mach_port_move_send_t
+);

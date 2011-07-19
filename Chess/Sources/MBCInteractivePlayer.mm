@@ -2,7 +2,7 @@
 	File:		MBCInteractivePlayer.mm
 	Contains:	An agent representing a local human player
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2011 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,18 @@
 	Change History (most recent first):
 
 		$Log: MBCInteractivePlayer.mm,v $
+		Revision 1.21  2011/04/11 16:42:03  neerache
+		<rdar://problem/9220767> 11A419: Speaking moves is a mix of Russian/English
+		
+		Revision 1.20  2011/03/12 23:43:53  neerache
+		<rdar://problem/9079430> 11A390: Can't understand what Japanese voice (Kyoko Premium) says when pieces move at all.
+		
+		Revision 1.19  2010/07/09 01:39:13  neerache
+		Revert inadvertent commit
+		
+		Revision 1.18  2010/07/09 01:37:54  neerache
+		<rdar://problem/6655510> Leaks in chess
+		
 		Revision 1.17  2008/10/24 23:23:08  neerache
 		Add missing static declaration
 		
@@ -108,6 +120,30 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 
 	return status;
 }
+
+NSString * LocalizedString(NSDictionary * localization, NSString * key, NSString * fallback)
+{
+	NSString * value = [localization valueForKey:key];
+
+	return value ? value : fallback;
+}
+
+BOOL OldSquares(NSString * fmtString)
+{
+	/* We used to specify squares as "%c %d", now we use "%@ %@". To avoid
+	   breakage during the transition, we allow both 
+	*/
+	NSRange r = [fmtString rangeOfString:@"%c"];
+	if (r.length)
+		return YES;
+	r = [fmtString rangeOfString:@"$c"];
+	if (r.length)
+		return YES;	
+
+	return NO;
+}
+
+#define LOC(key, fallback) LocalizedString(localization, key, fallback)
 
 @implementation MBCInteractivePlayer
 
@@ -325,17 +361,57 @@ pascal OSErr HandleSpeechDoneAppleEvent (const AppleEvent *theAEevt, AppleEvent*
 	[self updateNeedMouse:self];
 }
 
-static const char *	sPieceName[] = {
-	"", "king", "queen", "bishop", "knight", "rook", "pawn"
+static NSString *	sPieceName[] = {
+	@"", @"king", @"queen", @"bishop", @"knight", @"rook", @"pawn"
 };
+
+static NSString * 	sFileKey[] = {
+	@"file_a", @"file_b", @"file_c", @"file_d", @"file_e", @"file_f", @"file_g", @"file_h"
+};
+
+static NSString * 	sFileDefault[] = {
+	@"A", @"B", @"C", @"D", @"E", @"F", @"G", @"H"
+};
+
+#define LOC_FILE(f) LOC(sFileKey[(f)-'a'], sFileDefault[(f)-'a'])
+
+static NSString * 	sRankKey[] = {
+	@"rank_1", @"rank_2", @"rank_3", @"rank_4", @"rank_5", @"rank_6", @"rank_7", @"rank_8"
+};
+
+static NSString * 	sRankDefault[] = {
+	@"1", @"2", @"3", @"4", @"5", @"6", @"7", @"8"
+};
+
+#define LOC_RANK(r) LOC(sRankKey[(r)-1], sRankDefault[(r)-1])
+
+- (BOOL)useAlternateSynthForMove:(MBCMove *)move
+{
+	BOOL blackMove = Color(move->fPiece)==kBlackPiece;
+	BOOL altIsBlack= fSide == kNeitherSide || fSide == kBothSides || fSide == kBlackSide;
+
+	return blackMove == altIsBlack;
+}
 
 - (NSString *)stringFromMove:(MBCMove *)move
 {
+	NSDictionary * localization = [self useAlternateSynthForMove:move] 
+		? [fController alternateLocalization]
+		: [fController defaultLocalization];
+
 	switch (move->fCommand) {
-	case kCmdDrop:
-		return [NSString stringWithFormat:@"Drop %s at %c%d.",
-						 sPieceName[Piece(move->fPiece)],
-						 Col(move->fToSquare), Row(move->fToSquare)];
+	case kCmdDrop: {
+		NSString * format  	= LOC(@"drop_fmt", @"%@ %c %d.");
+		NSString * pkey 	= [NSString stringWithFormat:@"%@_d", sPieceName[Piece(move->fPiece)]];
+		NSString * pdef 	= [NSString stringWithFormat:@"drop @% at", sPieceName[Piece(move->fPiece)]];
+		NSString * ploc 	= LOC(pkey, pdef);
+		char	   col  	= Col(move->fToSquare);
+		int		   row  	= Row(move->fToSquare);
+		if (OldSquares(format)) 
+			return [NSString stringWithFormat:format, ploc, toupper(col), row];
+		else
+			return [NSString stringWithFormat:format, ploc, LOC_FILE(col), LOC_RANK(row)];
+	}
 	case kCmdPMove:
 	case kCmdMove: {
 		MBCBoard *	board = [fController board];
@@ -347,10 +423,10 @@ static const char *	sPieceName[] = {
 			[board tryCastling:move];
 		switch (move->fCastling) {
 		case kCastleQueenside:
-			return @"Castle [[emph +]]queen side.";
+			return LOC(@"qcastle_fmt", @"Castle [[emph +]]queen side.");
 		case kCastleKingside:
-			return @"Castle [[emph +]]king side.";
-		default:
+			return LOC(@"kcastle_fmt", @"Castle [[emph +]]king side.");
+		default: 
 			if (move->fPiece) { // Move already executed
 				piece 	= move->fPiece;
 				victim	= move->fVictim;
@@ -359,38 +435,58 @@ static const char *	sPieceName[] = {
 				victim	= [board oldContents:move->fToSquare];
 			}
 			promo	= move->fPromotion;
-			if (promo)
-				return [NSString stringWithFormat:@"%s %c%d %s %c%d promoting to %s.",
-								 sPieceName[Piece(piece)],
-								 Col(move->fFromSquare), Row(move->fFromSquare),
-								 (victim ? "takes" : "to"),
-								 Col(move->fToSquare), Row(move->fToSquare),
-								 sPieceName[Piece(promo)]];
-			else
-				return [NSString stringWithFormat:@"%s %c%d %s %c%d.",
-								 sPieceName[Piece(piece)],
-								 Col(move->fFromSquare), Row(move->fFromSquare),
-								 (victim ? "takes" : "to"),
-								 Col(move->fToSquare), Row(move->fToSquare)];
+			NSString * pname = LOC(sPieceName[Piece(piece)], sPieceName[Piece(piece)]);
+			char	   fcol  = Col(move->fFromSquare);
+			int		   frow  = Row(move->fFromSquare);
+			char	   tcol  = Col(move->fToSquare);
+			int		   trow  = Row(move->fToSquare);
+			if (promo) {
+				NSString * format = victim
+					? LOC(@"cpromo_fmt", @"%@ %c %d takes %c %d %@.")
+					: LOC(@"promo_fmt", @"%@ %c %d to %c %d %@.");
+				NSString * pkey  = [NSString stringWithFormat:@"%@_p", sPieceName[Piece(promo)]];
+				NSString * pdef  = [NSString stringWithFormat:@"promoting to %@", sPieceName[Piece(promo)]];
+				NSString * ploc  = LOC(pkey, pdef);
+
+				if (OldSquares(format))
+					return [NSString stringWithFormat:format, pname,
+									 toupper(fcol), frow, toupper(tcol), trow, 
+									 ploc];
+				else
+					return [NSString stringWithFormat:format, pname,
+									 LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow),
+									 ploc];
+			} else {
+				NSString * format = victim
+					? LOC(@"cmove_fmt", @"%@ %c %d takes %c %d.")
+					: LOC(@"move_fmt", @"%@ %c %d to %c %d.");
+
+				if (OldSquares(format))
+					return [NSString stringWithFormat:format, pname,
+									 toupper(fcol), frow, toupper(tcol), trow];
+				else
+					return [NSString stringWithFormat:format, pname,
+									 LOC_FILE(fcol), LOC_RANK(frow), LOC_FILE(tcol), LOC_RANK(trow)];
+			}
 		}}
 	case kCmdWhiteWins:
 		switch (fVariant) {
 		case kVarSuicide:
 		case kVarLosers:
-			return @"White wins!";
+			return LOC(@"white_win", @"White wins!");
 		default:
-			return @"[[emph +]]Check mate!";
+			return LOC(@"check_mate", @"[[emph +]]Check mate!");
 		}
 	case kCmdBlackWins:
 		switch (fVariant) {
 		case kVarSuicide:
 		case kVarLosers:
-			return @"Black wins!";
+			return LOC(@"black_win", @"Black wins!");
 		default:
-			return @"[[emph +]]Check mate!";
+			return LOC(@"check_mate", @"[[emph +]]Check mate!");
 		}
 	case kCmdDraw:
-		return @"The game is a draw!";		
+		return LOC(@"draw", @"The game is a draw!");
 	default:
 		return @"";
 	}
@@ -404,13 +500,9 @@ static const char *	sPieceName[] = {
 	//
 	while (SpeechBusy() > 0)
 		;
-	NSSpeechSynthesizer * synth;
-	BOOL blackMove = Color(move->fPiece)==kBlackPiece;
-	BOOL altIsBlack= fSide == kNeitherSide || fSide == kBothSides || fSide == kBlackSide;
-	if (blackMove == altIsBlack)
-		synth = [fController alternateSynth];
-	else
-		synth = [fController defaultSynth];
+	NSSpeechSynthesizer * synth = [self useAlternateSynthForMove:move] 
+		? [fController alternateSynth]
+		: [fController defaultSynth];
 
 	[synth startSpeakingString:text];
 }
@@ -436,12 +528,26 @@ static const char *	sPieceName[] = {
 
 - (void) announceHint:(MBCMove *) move
 {
-	[self speakMove:move withWrapper:@"I would suggest \"%@\""];
+	if (!move)
+		return;
+
+	NSDictionary * localization = [self useAlternateSynthForMove:move] 
+		? [fController alternateLocalization]
+		: [fController defaultLocalization];
+
+	[self speakMove:move withWrapper:LOC(@"suggest_fmt", @"I would suggest \"%@\"")];
 }
 
 - (void) announceLastMove:(MBCMove *) move
 {
-	[self speakMove:move withWrapper:@"The last move was \"%@\""];
+	if (!move)
+		return;
+
+	NSDictionary * localization = [self useAlternateSynthForMove:move] 
+		? [fController alternateLocalization]
+		: [fController defaultLocalization];
+
+	[self speakMove:move withWrapper:LOC(@"last_move_fmt", @"The last move was \"%@\"")];
 }
 
 - (void) opponentMoved:(NSNotification *)notification

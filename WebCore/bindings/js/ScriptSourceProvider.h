@@ -28,15 +28,14 @@
 #define ScriptSourceProvider_h
 
 #include <parser/SourceProvider.h>
+#include <wtf/Forward.h>
 
 namespace WebCore {
 
-    class String;
-
     class ScriptSourceProvider : public JSC::SourceProvider {
     public:
-        ScriptSourceProvider(const JSC::UString& url, JSC::SourceBOMPresence hasBOMs = JSC::SourceCouldHaveBOMs)
-            : SourceProvider(url, hasBOMs)
+        ScriptSourceProvider(const JSC::UString& url, JSC::SourceProviderCache* cache = 0)
+            : SourceProvider(url, cache)
         {
         }
 

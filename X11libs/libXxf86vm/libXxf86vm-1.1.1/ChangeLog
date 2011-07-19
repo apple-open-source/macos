@@ -1,0 +1,457 @@
+commit 6f22da39b65983a582d2055e9e43f5dbc0412f1f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 18:04:50 2010 -0700
+
+    libXxf86vm 1.1.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit fe0659724002e65af6a68be53f57bb8ba85324fe
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Oct 29 18:03:51 2010 -0700
+
+    Sun's copyrights now belong to Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 84c7286a799d2368ce868afb31b373f8486724c2
+Author: Jesse Adkins <jesserayadkins@gmail.com>
+Date:   Tue Sep 28 13:30:04 2010 -0700
+
+    Purge cvs tags.
+    
+    Signed-off-by: Jesse Adkins <jesserayadkins@gmail.com>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit b6d645596f284550350d8c690cfcce89d019ab60
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Aug 17 19:53:37 2010 -0400
+
+    man: store shadow man pages in git rather than generating them
+    
+    Simplify the build process and the makefile.
+    
+    Local fix in CVS for bug 5628 is not required
+    as the problem has been fixed in
+    util-macros d9062e4077ebfd0985baf8418f3d0f111b9ddbba
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 01df17daf923b7eeeb3476149d189c5dc8da3bf8
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 8 15:50:02 2010 -0700
+
+    Use make rules instead of shell for loops to generate shadow man pages
+    
+    Allows parallel make and simpler build logs/error reporting
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit a3603591f3086f7aeb92b193b2736733b4e79047
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Thu Jul 8 15:37:15 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    The existing statement can now be removed from the configuration file.
+    
+    Use automake provided $(AM_V_GEN) and XORG_DEFAULT_OPTIONS provided $(SED)
+    Enables silent rule and use platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 6be94fa76ef3e2c41c7cb8487e639f0312d3b369
+Author: Fernando Carrijo <fcarrijo@yahoo.com.br>
+Date:   Thu Jul 1 07:10:51 2010 -0300
+
+    Purge macros NEED_EVENTS and NEED_REPLIES
+    
+    Signed-off-by: Fernando Carrijo <fcarrijo@yahoo.com.br>
+    Acked-by: Tiago Vignatti <tiago.vignatti@nokia.com>
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 15319d63a389bd9af1819f53a2d021edcd6180f2
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 16:50:34 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit a3ed63ba72d767371174d1442c810144b0d2f8b7
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Mar 29 14:53:49 2010 -0400
+
+    config: remove the pkgconfig pc.in file from EXTRA_DIST
+    
+    Automake always includes it in the tarball.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 02155a7f70ad94026a7c138081c4249cffbc25a7
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Jan 14 10:15:23 2010 -0500
+
+    COPYING: fix copyright notice incorrect format
+    
+    Refer to: XF86VMode.c
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit eba6628379b65326453ea12ddd8cb33b144f3049
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jan 14 20:55:56 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 0d976427d1229b65baa489275c62e47762b2803e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Nov 27 20:56:05 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit e9fd67ec28d4402a498af78f34815cc9d22d6c73
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:10 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit d7cc1a08bfc5c780d0a4f3e0193ff91d0076713c
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:26 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 2bb8c8fcabebf00fdc12b2649459b920e816f382
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:43 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 9888ab7cf91cc4c7bf2a545ebc3b8bf0a002aa39
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:19 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit b4d998a026f03aa2fea74a909f3edea4e4aed5a1
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 09:43:30 2009 +1000
+
+    libXxf86vm 1.1.0
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 8f518e80716915cfb8234a18836ad95121a7d6db
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Fri Oct 2 08:58:19 2009 +1000
+
+    Require macros 1.3 for XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 3951e96ddfefa5f3007895002528e713618a60ab
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 11:18:38 2009 +1000
+
+    libXxf86vm 1.0.99.1
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit 7c7ab2076420a883e827509da0e8a0989a786000
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Thu Aug 27 11:17:45 2009 +1000
+
+    Include xf86vmproto instead of xf86vmstr.h
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit b49fcb355eb1469352eb25ba3dbcf2863cfe5642
+Author: Peter Hutterer <peter.hutterer@who-t.net>
+Date:   Wed Aug 26 16:09:15 2009 +1000
+
+    Move the xf86vmode.h header from the proto package to here.
+    
+    Signed-off-by: Peter Hutterer <peter.hutterer@who-t.net>
+
+commit f2a1073b3027c508e01beca9ca34bbc6c90f5e6b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Feb 2 20:34:37 2009 -0800
+
+    Add README with pointers to mailing list, bugzilla & git repos
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit e316211692ab7c882be6e89f5c6311160882375f
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Mon Feb 2 14:43:19 2009 -0200
+
+    Janitor: ansification, make distcheck, compiler warnings, .gitignore.
+
+commit 2cba02334e948e215ab32635763e739c8c4a2f56
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Wed Jul 2 15:37:20 2008 -0400
+
+    libXxf86vm 1.0.2
+
+commit 31cb01986bc3527152d0e3501b38d1b5cfad3155
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Fri Jun 13 13:07:49 2008 -0400
+
+    Don't terminate zero-length strings.
+    
+    Just leave vendor and model NULL if the response didn't include them.
+
+commit 0aa2ae83518b14e927fb5b8ced182a4f25cecc76
+Author: Adam Jackson <ajax@redhat.com>
+Date:   Mon Mar 24 15:13:14 2008 -0400
+
+    Bug #10846: Fix XF86VidModeGetMonitor when vendor or model are null.
+
+commit 230197a970aec8d5550c2697249ba2e351b2de0b
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sun Mar 9 08:50:55 2008 +0100
+
+    nuke RCS Ids
+
+commit a3bf552ea28f6275f604f114190b0c69d9bf4ef8
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:38:47 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 89dd6f2e9f0322001bcc9f5b42705e150414c37d
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Mon Sep 3 05:53:52 2007 -0400
+
+    Add *~ to .gitignore to skip patch/emacs droppings
+
+commit 52a0ff653601e603faa9c994a240814f9ddc277c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Jul 13 14:59:14 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 3e980bb302befb4c463fa861ab08034c83208622
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Thu Apr 27 00:26:53 2006 +0000
+
+    Bump to 1.0.1
+
+commit 227f7dc999517fc477b63327372fc846e5f44b7d
+Author: Jeremy C. Reed <reed@reedmedia.net>
+Date:   Thu Apr 20 23:44:33 2006 +0000
+
+    Fixed typo. Library was spell wrong.
+
+commit 789ff24df047508e04a40fd4b9605e6f40f86638
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Feb 12 18:19:23 2006 +0000
+
+    Bug #5628 <https://bugs.freedesktop.org/show_bug.cgi?id=5628> Shadow pages
+        not created correctly when MANDIR & MANSUFFIX don't match.
+
+commit 6455000546cf8fd14f165a4f13590f94fc9948dc
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:35 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 22c88452663d7c0b4f854f056968527298b412d2
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:45 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 5898da0a5deed350973064bf446c97831e42d575
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:46 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 914624d1fb3924c76e5dc358bb43b4dff800280c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 04:41:52 2005 +0000
+
+    Add check and cflags for malloc(0) returning NULL.
+
+commit 0f0572fd4b9de8747741ff81d668edfe23db0e15
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:03:07 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 3d042fdd3fb1d2d30ede743741698589e868701b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Nov 19 07:15:44 2005 +0000
+
+    Update pkgconfig files to separate library build-time dependencies from
+        application build-time dependencies, and update package deps to work
+        with separate build roots.
+
+commit eb9d4a646a4dfc30fde31deb926a954c2c41ec98
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:48:12 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit b46825c7ec5c50be0309b52759a2fba05fd2f350
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:00:09 2005 +0000
+
+    Use @LIB_MAN_SUFFIX@ instead of $(LIB_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 736aad1287fa65e82cbcb12073ba99ca8d63c0db
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 21:13:23 2005 +0000
+
+    Rename .shadows.DONE to shadows.DONE to avoid some make's thinking it's a
+        suffix rule (reported by Matthieu Herrb)
+
+commit 5735da3f59d36568cfe198eeb1579e51b105491d
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 13 04:25:46 2005 +0000
+
+    Add generated man pages to .cvsignores
+
+commit d0f4698f0cf843f6dfdba11eae687ada11e3d4f0
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Oct 13 01:20:52 2005 +0000
+
+    [lib/Xxf86vm manpage cleanup]
+    Use sed to fill in variables in man page Add shadow man pages for man pages
+        that document multiple functions.
+
+commit 72995528798d388422e6e09ee26a0edaffadb779
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Sep 26 20:55:17 2005 +0000
+
+    Simple whitespace change to change ownership of ,v file on server. Required
+        so that I can change permissions of file.
+
+commit 8f19f14ada44daf9d85f4d65f0bc130ae5b2f4bf
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:53 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 417a69a7e9ad4df9b3a7f03b09e4694ad5c2bcbc
+Author: Keith Packard <keithp@keithp.com>
+Date:   Sat Jul 9 21:10:32 2005 +0000
+
+    Add .cvsignore files Switch _la_CFLAGS for AM_CFLAGS to clean up directory
+
+commit 4b8ad01b53792d4220579a259290e6bf59eb3d8b
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jul 1 16:16:15 2005 +0000
+
+    spell freedesktop.org correctly
+
+commit a26154988a9367521a15e0876939d8ff7810cd81
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Jun 10 22:38:47 2005 +0000
+
+    Apply patch from Jeff Smith (whydoubt@yahoo.com):
+    - Add file linking for Xxf86misc, Xxf86dga, and Xxf86vm.
+    - Check in build system for Xxf86misc, Xxf86dga, and Xxf86vm.
+
+commit c421f84a2d14fbf2995cba23d2ea614b59eadfd5
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:23:08 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 045fa2a95d6eac5db1c6d8781ef48f86d00b655f
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:33:12 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit d8913570296903c3686969f8c6dbeaf70064f23e
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:12:14 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 2e3edee344aee8f8cebe139541ebecccec570d8b
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:35:46 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 44926b9d3066d939b66aef57d091b8a878591e1e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:23:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 56ddf834f4d3cca8afd7d36a63d7b825d1d7ffc0
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:03:15 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit db365c73e467868938ad5b15343c3b79b87994d5
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:28:33 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit ed50d6847a012bef0bf7274626bb0ed8018d5e23
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:54 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 252d1a944ccf5ebfc2c7e0c349254be055402c17
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:48:49 2003 +0000
+
+    Initial revision
+
+commit 83bc8003b46b0602c36a84ee5b44665887400305
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:49 2003 +0000
+
+    R6.6 is the Xorg base-line

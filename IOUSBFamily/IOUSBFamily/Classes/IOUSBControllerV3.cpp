@@ -1885,6 +1885,42 @@ IOUSBControllerV3::GetErrataBits(UInt16 vendorID, UInt16 deviceID, UInt16 revisi
 }
 
 
+//	this method fixes up some config space registers in an NEC uPD720101 controller (both EHCI and OHCI)
+//	specifically it enables or re-enables the PME generation from D3 cold register
+
+enum  
+{
+	kNECuPD720101EXT1		= 0xE0,				// 32 bit register called EXT1 in the user manual
+	kNECuPD720101EXT1ID_WE	= 0x80,				// write enable bit in the EXT1 register
+	kNECuPD720101PMC		= 0x42				// standard power manager capabilities register (16 bit)
+};
+
+
+void	
+IOUSBControllerV3::FixupNECControllerConfigRegisters(void)
+{
+	UInt32	ext1;
+	UInt16	pmc;
+	
+	
+	pmc = _device->configRead16(kNECuPD720101PMC);
+	
+	if ( !(pmc & kPCIPMCPMESupportFromD3Cold) )
+	{
+		USBLog(2, "IOUSBControllerV3[%s][%p]::FixupNECControllerConfigRegisters - D3cold not set in PMC - changing", getName(), this);
+		ext1 = _device->configRead32(kNECuPD720101EXT1);
+		
+		// first enable the write to the D3cold register
+		_device->configWrite32(kNECuPD720101EXT1, ext1 | kNECuPD720101EXT1ID_WE);
+		
+		// now turn on D3cold PME generation
+		_device->configWrite16(kNECuPD720101PMC, pmc | kPCIPMCPMESupportFromD3Cold);
+		
+		// make it read only again
+		_device->configWrite32(kNECuPD720101EXT1, ext1);
+	}
+}
+
 
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  0);
 OSMetaClassDefineReservedUsed(IOUSBControllerV3,  1);
@@ -1917,4 +1953,3 @@ OSMetaClassDefineReservedUnused(IOUSBControllerV3,  26);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  27);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  28);
 OSMetaClassDefineReservedUnused(IOUSBControllerV3,  29);
-

@@ -37,7 +37,7 @@ static inline void initializeWithUserDefault(WTFLogChannel& channel)
     if (!length)
         return;
 
-    OwnArrayPtr<char> buffer(new char[length]);
+    OwnArrayPtr<char> buffer = adoptArrayPtr(new char[length]);
 
     if (!GetEnvironmentVariableA(channel.defaultName, buffer.get(), length))
         return;
@@ -88,6 +88,7 @@ void InitializeLoggingChannelsIfNecessary()
     initializeWithUserDefault(LogHistory);
     initializeWithUserDefault(LogPageCache);
     initializeWithUserDefault(LogPlatformLeaks);
+    initializeWithUserDefault(LogResourceLoading);
     initializeWithUserDefault(LogNetwork);
     initializeWithUserDefault(LogFTP);
     initializeWithUserDefault(LogThreading);
@@ -95,6 +96,8 @@ void InitializeLoggingChannelsIfNecessary()
     initializeWithUserDefault(LogMedia);
     initializeWithUserDefault(LogPlugins);
     initializeWithUserDefault(LogArchives);
+    initializeWithUserDefault(LogProgress);
+    initializeWithUserDefault(LogFileAPI);
 }
 
 } // namespace WebCore

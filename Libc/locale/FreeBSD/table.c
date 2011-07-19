@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)table.c	8.1 (Berkeley) 6/27/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.26 2004/10/17 06:51:50 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/table.c,v 1.28 2007/01/09 00:28:00 imp Exp $");
 
 #include <ctype.h>
 #include <runetype.h>
@@ -251,13 +247,3 @@ _RuneLocale _DefaultRuneLocale = {
 
 _RuneLocale *_CurrentRuneLocale = &_DefaultRuneLocale;
 
-int __mb_cur_max = 1;
-size_t (*__mbrtowc)(wchar_t * __restrict, const char * __restrict, size_t,
-    mbstate_t * __restrict) = _none_mbrtowc;
-int (*__mbsinit)(const mbstate_t *) = _none_mbsinit;
-size_t (*__mbsnrtowcs)(wchar_t * __restrict, const char ** __restrict,
-    size_t, size_t, mbstate_t * __restrict) = _none_mbsnrtowcs;
-size_t (*__wcrtomb)(char * __restrict, wchar_t, mbstate_t * __restrict) =
-    _none_wcrtomb;
-size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
-    size_t, size_t, mbstate_t * __restrict) = _none_wcsnrtombs;

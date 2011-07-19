@@ -44,4 +44,14 @@ __private_extern__ void BatteryTimeRemainingBatteriesHaveChanged(IOPMBattery **b
 
 __private_extern__ bool BatteryHandleDeadName(mach_port_t deadName);
 
+/* switchActiveBatterySet
+ An argument of kBatteryShowFake indicates the system should respect fake, software controlled batteries only.
+ An argument of kBatteryShowReal indicates the system should use only real, physical batteries.
+ */
+enum {
+    kBatteryShowFake = 0xF,
+    kBatteryShowReal = 0xB
+};
+__private_extern__ void switchActiveBatterySet(int which);
+
 #endif _BatteryTimeRemaining_h_

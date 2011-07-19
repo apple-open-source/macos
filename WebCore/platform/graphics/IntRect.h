@@ -29,7 +29,7 @@
 #include "IntPoint.h"
 #include <wtf/Vector.h>
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 typedef struct CGRect CGRect;
 #endif
 
@@ -48,18 +48,23 @@ QT_BEGIN_NAMESPACE
 class QRect;
 QT_END_NAMESPACE
 #elif PLATFORM(GTK)
+#ifdef GTK_API_VERSION_2
 typedef struct _GdkRectangle GdkRectangle;
+#else
+typedef struct _cairo_rectangle_int cairo_rectangle_int_t;
+typedef cairo_rectangle_int_t GdkRectangle;
+#endif
 #elif PLATFORM(HAIKU)
 class BRect;
 #elif PLATFORM(EFL)
-#include <Evas.h>
+typedef struct _Eina_Rectangle Eina_Rectangle;
 #endif
 
 #if PLATFORM(WX)
 class wxRect;
 #endif
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
 struct SkRect;
 struct SkIRect;
 #endif
@@ -86,6 +91,8 @@ public:
 
     int x() const { return m_location.x(); }
     int y() const { return m_location.y(); }
+    int maxX() const { return x() + width(); }
+    int maxY() const { return y() + height(); }
     int width() const { return m_size.width(); }
     int height() const { return m_size.height(); }
 
@@ -94,36 +101,58 @@ public:
     void setWidth(int width) { m_size.setWidth(width); }
     void setHeight(int height) { m_size.setHeight(height); }
 
-    // Be careful with these functions.  The point is considered to be to the right and below.  These are not
-    // substitutes for right() and bottom().
-    IntPoint topLeft() const { return m_location; }
-    IntPoint topRight() const { return IntPoint(right() - 1, y()); }
-    IntPoint bottomLeft() const { return IntPoint(x(), bottom() - 1); }
-    IntPoint bottomRight() const { return IntPoint(right() - 1, bottom() - 1); }
-
     bool isEmpty() const { return m_size.isEmpty(); }
-
-    int right() const { return x() + width(); }
-    int bottom() const { return y() + height(); }
 
     // NOTE: The result is rounded to integer values, and thus may be not the exact
     // center point.
     IntPoint center() const { return IntPoint(x() + width() / 2, y() + height() / 2); }
 
-    void move(const IntSize& s) { m_location += s; } 
+    void move(const IntSize& size) { m_location += size; } 
     void move(int dx, int dy) { m_location.move(dx, dy); } 
 
+    void expand(const IntSize& size) { m_location += size; }
+    void expand(int dw, int dh) { m_size.expand(dw, dh); }
+
+    void shiftXEdgeTo(int edge)
+    {
+        int delta = edge - x();
+        setX(edge);
+        setWidth(std::max(0, width() - delta));
+    }
+    void shiftMaxXEdgeTo(int edge)
+    {
+        int delta = edge - maxX();
+        setWidth(std::max(0, width() + delta));
+    }
+    void shiftYEdgeTo(int edge)
+    {
+        int delta = edge - y();
+        setY(edge);
+        setHeight(std::max(0, height() - delta));
+    }
+    void shiftMaxYEdgeTo(int edge)
+    {
+        int delta = edge - maxY();
+        setHeight(std::max(0, height() + delta));
+    }
+
+    IntPoint minXMinYCorner() const { return m_location; } // typically topLeft
+    IntPoint maxXMinYCorner() const { return IntPoint(m_location.x() + m_size.width(), m_location.y()); } // typically topRight
+    IntPoint minXMaxYCorner() const { return IntPoint(m_location.x(), m_location.y() + m_size.height()); } // typically bottomLeft
+    IntPoint maxXMaxYCorner() const { return IntPoint(m_location.x() + m_size.width(), m_location.y() + m_size.height()); } // typically bottomRight
+    
     bool intersects(const IntRect&) const;
     bool contains(const IntRect&) const;
 
     // This checks to see if the rect contains x,y in the traditional sense.
     // Equivalent to checking if the rect contains a 1x1 rect below and to the right of (px,py).
     bool contains(int px, int py) const
-        { return px >= x() && px < right() && py >= y() && py < bottom(); }
+        { return px >= x() && px < maxX() && py >= y() && py < maxY(); }
     bool contains(const IntPoint& point) const { return contains(point.x(), point.y()); }
 
     void intersect(const IntRect&);
     void unite(const IntRect&);
+    void uniteIfNonZero(const IntRect&);
 
     void inflateX(int dx)
     {
@@ -137,6 +166,8 @@ public:
     }
     void inflate(int d) { inflateX(d); inflateY(d); }
     void scale(float s);
+
+    IntRect transposedRect() const { return IntRect(m_location.transposedPoint(), m_size.transposedSize()); }
 
 #if PLATFORM(WX)
     IntRect(const wxRect&);
@@ -160,11 +191,11 @@ public:
     operator Eina_Rectangle() const;
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
     operator CGRect() const;
 #endif
 
-#if PLATFORM(SKIA)
+#if USE(SKIA)
     IntRect(const SkIRect&);
     operator SkRect() const;
     operator SkIRect() const;
@@ -206,7 +237,7 @@ inline bool operator!=(const IntRect& a, const IntRect& b)
     return a.location() != b.location() || a.size() != b.size();
 }
 
-#if PLATFORM(CG)
+#if USE(CG) || USE(SKIA_ON_MAC_CHROME)
 IntRect enclosingIntRect(const CGRect&);
 #endif
 

@@ -20,7 +20,7 @@
 # The set of accented characters is reasonably complete up to U+0180, the
 # set of special characters less so.  However, it mostly gives up at that
 # point.  Adding new Unicode characters is easy, however.  Please send any
-# additions to zsh-workers@sunsite.dk .
+# additions to zsh-workers@zsh.org .
 #
 # Some of the accent codes are a little more obscure than others.
 #  !   Grave
@@ -142,7 +142,7 @@ fi
 if (( ${+zsh_accented_chars} == 0 )); then
   # Save quite a lot of memory by running and then erasing
   # the function that defines the characters.
-  autoload -U define-composed-chars
+  autoload -Uz define-composed-chars
   define-composed-chars
   unfunction define-composed-chars
 fi

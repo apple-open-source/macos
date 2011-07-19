@@ -298,7 +298,7 @@ errno_t pppoe_dlil_input(ifnet_t ifp, protocol_family_t protocol,
     // pppoe will have to look at the session id to select the appropriate socket
 
 	lck_mtx_lock(ppp_domain_mutex);
-    pppoe_rfc_lower_input(ifp, packet, header + ETHER_ADDR_LEN, ntohs(eh->ether_type));
+    pppoe_rfc_lower_input(ifp, packet, (u_char *)header + ETHER_ADDR_LEN, ntohs(eh->ether_type));
 	lck_mtx_unlock(ppp_domain_mutex);
 
     return 0;

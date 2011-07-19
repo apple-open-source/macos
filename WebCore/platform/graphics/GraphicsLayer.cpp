@@ -33,6 +33,7 @@
 #include "RotateTransformOperation.h"
 #include "TextStream.h"
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
 
 #ifndef NDEBUG
 #include <stdio.h>
@@ -72,8 +73,8 @@ GraphicsLayer::GraphicsLayer(GraphicsLayerClient* client)
     , m_usingTiledLayer(false)
     , m_masksToBounds(false)
     , m_drawsContent(false)
+    , m_acceleratesDrawing(false)
     , m_paintingPhase(GraphicsLayerPaintAll)
-    , m_geometryOrientation(CompositingCoordinatesTopDown)
     , m_contentsOrientation(CompositingCoordinatesTopDown)
     , m_parent(0)
     , m_maskLayer(0)
@@ -247,6 +248,15 @@ void GraphicsLayer::paintGraphicsLayerContents(GraphicsContext& context, const I
         m_client->paintContents(this, context, m_paintingPhase, clip);
 }
 
+String GraphicsLayer::animationNameForTransition(AnimatedPropertyID property)
+{
+    // | is not a valid identifier character in CSS, so this can never conflict with a keyframe identifier.
+    String id = "-|transition";
+    id.append(static_cast<char>(property));
+    id.append('-');
+    return id;
+}
+
 void GraphicsLayer::suspendAnimations(double)
 {
 }
@@ -411,29 +421,45 @@ void GraphicsLayer::dumpLayer(TextStream& ts, int indent, LayerTreeAsTextBehavio
 
 void GraphicsLayer::dumpProperties(TextStream& ts, int indent, LayerTreeAsTextBehavior behavior) const
 {
-    writeIndent(ts, indent + 1);
-    ts << "(position " << m_position.x() << " " << m_position.y() << ")\n";
+    if (m_position != FloatPoint()) {
+        writeIndent(ts, indent + 1);
+        ts << "(position " << m_position.x() << " " << m_position.y() << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(anchor " << m_anchorPoint.x() << " " << m_anchorPoint.y() << ")\n";
+    if (m_anchorPoint != FloatPoint3D(0.5f, 0.5f, 0)) {
+        writeIndent(ts, indent + 1);
+        ts << "(anchor " << m_anchorPoint.x() << " " << m_anchorPoint.y() << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(bounds " << m_size.width() << " " << m_size.height() << ")\n";
+    if (m_size != IntSize()) {
+        writeIndent(ts, indent + 1);
+        ts << "(bounds " << m_size.width() << " " << m_size.height() << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(opacity " << m_opacity << ")\n";
+    if (m_opacity != 1) {
+        writeIndent(ts, indent + 1);
+        ts << "(opacity " << m_opacity << ")\n";
+    }
     
-    writeIndent(ts, indent + 1);
-    ts << "(usingTiledLayer " << m_usingTiledLayer << ")\n";
+    if (m_usingTiledLayer) {
+        writeIndent(ts, indent + 1);
+        ts << "(usingTiledLayer " << m_usingTiledLayer << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(preserves3D " << m_preserves3D << ")\n";
+    if (m_preserves3D) {
+        writeIndent(ts, indent + 1);
+        ts << "(preserves3D " << m_preserves3D << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(drawsContent " << m_drawsContent << ")\n";
+    if (m_drawsContent) {
+        writeIndent(ts, indent + 1);
+        ts << "(drawsContent " << m_drawsContent << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(backfaceVisibility " << (m_backfaceVisibility ? "visible" : "hidden") << ")\n";
+    if (!m_backfaceVisibility) {
+        writeIndent(ts, indent + 1);
+        ts << "(backfaceVisibility " << (m_backfaceVisibility ? "visible" : "hidden") << ")\n";
+    }
 
     if (behavior & LayerTreeAsTextDebug) {
         writeIndent(ts, indent + 1);
@@ -445,37 +471,30 @@ void GraphicsLayer::dumpProperties(TextStream& ts, int indent, LayerTreeAsTextBe
         ts << ")\n";
     }
 
-    writeIndent(ts, indent + 1);
-    ts << "(backgroundColor ";
-    if (!m_backgroundColorSet)
-        ts << "none";
-    else
-        ts << m_backgroundColor.name();
-    ts << ")\n";
+    if (m_backgroundColorSet) {
+        writeIndent(ts, indent + 1);
+        ts << "(backgroundColor " << m_backgroundColor.nameForRenderTreeAsText() << ")\n";
+    }
 
-    writeIndent(ts, indent + 1);
-    ts << "(transform ";
-    if (m_transform.isIdentity())
-        ts << "identity";
-    else {
+    if (!m_transform.isIdentity()) {
+        writeIndent(ts, indent + 1);
+        ts << "(transform ";
         ts << "[" << m_transform.m11() << " " << m_transform.m12() << " " << m_transform.m13() << " " << m_transform.m14() << "] ";
         ts << "[" << m_transform.m21() << " " << m_transform.m22() << " " << m_transform.m23() << " " << m_transform.m24() << "] ";
         ts << "[" << m_transform.m31() << " " << m_transform.m32() << " " << m_transform.m33() << " " << m_transform.m34() << "] ";
-        ts << "[" << m_transform.m41() << " " << m_transform.m42() << " " << m_transform.m43() << " " << m_transform.m44() << "]";
+        ts << "[" << m_transform.m41() << " " << m_transform.m42() << " " << m_transform.m43() << " " << m_transform.m44() << "])\n";
     }
-    ts << ")\n";
 
-    writeIndent(ts, indent + 1);
-    ts << "(childrenTransform ";
-    if (m_childrenTransform.isIdentity())
-        ts << "identity";
-    else {
+    // Avoid dumping the sublayer transform on the root layer, because it's used for geometry flipping, whose behavior
+    // differs between platforms.
+    if (parent() && !m_childrenTransform.isIdentity()) {
+        writeIndent(ts, indent + 1);
+        ts << "(childrenTransform ";
         ts << "[" << m_childrenTransform.m11() << " " << m_childrenTransform.m12() << " " << m_childrenTransform.m13() << " " << m_childrenTransform.m14() << "] ";
         ts << "[" << m_childrenTransform.m21() << " " << m_childrenTransform.m22() << " " << m_childrenTransform.m23() << " " << m_childrenTransform.m24() << "] ";
         ts << "[" << m_childrenTransform.m31() << " " << m_childrenTransform.m32() << " " << m_childrenTransform.m33() << " " << m_childrenTransform.m34() << "] ";
-        ts << "[" << m_childrenTransform.m41() << " " << m_childrenTransform.m42() << " " << m_childrenTransform.m43() << " " << m_childrenTransform.m44() << "]";
+        ts << "[" << m_childrenTransform.m41() << " " << m_childrenTransform.m42() << " " << m_childrenTransform.m43() << " " << m_childrenTransform.m44() << "])\n";
     }
-    ts << ")\n";
 
     if (m_replicaLayer) {
         writeIndent(ts, indent + 1);
@@ -522,7 +541,7 @@ void showGraphicsLayerTree(const WebCore::GraphicsLayer* layer)
     if (!layer)
         return;
 
-    WebCore::String output = layer->layerTreeAsText(LayerTreeAsTextDebug);
+    WTF::String output = layer->layerTreeAsText(LayerTreeAsTextDebug);
     fprintf(stderr, "%s\n", output.utf8().data());
 }
 #endif

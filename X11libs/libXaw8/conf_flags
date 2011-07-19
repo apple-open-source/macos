@@ -1,1 +1,1 @@
---disable-xaw6 --disable-xaw7 LDFLAGS="-Wl,-flat_namespace $LDFLAGS"
+--disable-xaw6 --disable-xaw7

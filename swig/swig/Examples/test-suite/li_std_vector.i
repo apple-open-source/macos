@@ -75,25 +75,18 @@ const std::vector<const Struct *> & vecstructconstptr(const std::vector<const St
 %}
 
 #if defined(SWIGCSHARP)
-SWIG_STD_VECTOR_SPECIALIZE(Struct, Struct *)
-SWIG_STD_VECTOR_SPECIALIZE(Struct, const Struct *)
-SWIG_STD_VECTOR_SPECIALIZE(SWIGTYPE_p_int, int *)
-SWIG_STD_VECTOR_SPECIALIZE(SWIGTYPE_p_int, const int *)
-
-// Also test non-specialized versions
+// Also test const and non-const pointers, but not strictly necessary since std::vector was enhanced in swig-1.3.40
 %template(StructurePtrVector) std::vector<Structure *>;
 %template(StructureConstPtrVector) std::vector<const Structure *>;
 #endif
 
+#if !defined(SWIGR)
 %template(IntPtrVector) std::vector<int *>;
 %template(IntConstPtrVector) std::vector<const int *>;
+#endif
 %template(StructVector) std::vector<Struct>;
 %template(StructPtrVector) std::vector<Struct *>;
 %template(StructConstPtrVector) std::vector<const Struct *>;
-
-#if defined(SWIGCSHARP)
-SWIG_STD_VECTOR_SPECIALIZE(MyClass, MyClass *)
-#endif
 
 #if !defined(SWIGTCL)
 %inline {
@@ -112,5 +105,13 @@ SWIG_STD_VECTOR_SPECIALIZE(MyClass, MyClass *)
       return MyClassVector(n, 0);
     }
   };
+}
+#endif
+
+#if defined(SWIGRUBY)
+%template(LanguageVector) std::vector< swig::LANGUAGE_OBJ >;
+
+%inline {
+  std::vector< swig::LANGUAGE_OBJ > LanguageVector; 
 }
 #endif

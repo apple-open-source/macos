@@ -786,6 +786,8 @@ int BLValidateXMLBootOption(BLContextPtr context,
 							CFStringRef	 xmlName,
 							CFStringRef	 binaryName);
 
+kern_return_t BLSetEFIBootDevice(BLContextPtr context, char *bsdName);
+
 bool BLSupportsLegacyMode(BLContextPtr context);
 
 bool BLIsEFIRecoveryAccessibleDevice(BLContextPtr context, CFStringRef bsdName);

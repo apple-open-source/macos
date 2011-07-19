@@ -38,6 +38,7 @@
 #include "DirServicesConst.h"
 #include "DirServicesUtils.h"
 #include "DSUtils.h"
+#include "od_passthru.h"
 
 #ifdef SERVERINTERNAL
 #include "DSCThread.h"
@@ -61,10 +62,11 @@ extern pid_t gDaemonPID;
 //	* CMessaging
 //------------------------------------------------------------------------------------
 
-CMessaging::CMessaging ( CIPCVirtualClass *endPoint, int inTranslateMode ) : fLock("CMessaging::fLock")
+CMessaging::CMessaging ( CIPCVirtualClass *endPoint, int inTranslateMode, bool internal ) : fLock("CMessaging::fLock")
 {
 	fCommPort = endPoint;
 	fTranslateMode = inTranslateMode;
+	fInternal = internal;
 
 	fMsgData = (sComData *)::calloc( 1, sizeof( sComData ) + kMaxFixedMsgData );
 	if ( fMsgData != nil )
@@ -83,6 +85,7 @@ CMessaging::CMessaging ( CIPCVirtualClass *endPoint, int inTranslateMode ) : fLo
 
 CMessaging::~CMessaging ( void )
 {
+	DSDelete(fCommPort);
 	DSFree(fMsgData);
 } // ~CMessaging
 
@@ -92,11 +95,11 @@ CMessaging::~CMessaging ( void )
 
 SInt32 CMessaging::GetReplyMessage ( void )
 {
-#ifdef SERVERINTERNAL
-    return eDSNoErr; // reply already got generated during call to SendInlineMessage
-#else
-	return fCommPort->GetReplyMessage( &fMsgData );
-#endif
+	if (fInternal == true) {
+		return eDSNoErr; // reply already got generated during call to SendInlineMessage
+	} else {
+		return fCommPort->GetReplyMessage( &fMsgData );
+	}
 } // GetReplyMessage
 
 
@@ -106,56 +109,62 @@ SInt32 CMessaging::GetReplyMessage ( void )
 
 SInt32 CMessaging::SendInlineMessage ( UInt32 inMsgType )
 {
-#ifdef SERVERINTERNAL
-	sComData   *aMsgData		= nil;
-	sComData   *checkMsgData    = nil;
-
-	//don't use the GetMsgData method here because of the wrapped #ifdef's?
-	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
-	if ( internalDispatch != NULL )
-	{
-		aMsgData = internalDispatch->GetCurrentMessageBuffer();
+	if (fInternal == true) {
+		sComData   *aMsgData		= nil;
+		sComData   *checkMsgData    = nil;
+		
+		//don't use the GetMsgData method here because of the wrapped #ifdef's?
+		//look at our own thread and then get the msg data block to use for internal dispatch
+		CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+		if ( internalDispatch != NULL )
+		{
+			aMsgData = internalDispatch->GetCurrentMessageBuffer();
+		}
+		else //we are not inside a handler thread
+		{
+			aMsgData = fMsgData;
+		}
+		
+		if (aMsgData == nil) //recursion limit likely hit
+		{
+			return(eDSInvalidContext);
+		}
+		
+		checkMsgData = aMsgData; //used to check if we grew this buffer below
+		
+		CRequestHandler handler;
+		
+		aMsgData->type.msgt_name		= inMsgType;
+		aMsgData->type.msgt_translate	= 0;
+		aMsgData->fPID					= 0; // set the pid to 0 so we know it was internal dispatch
+		aMsgData->fMachPort				= 0;
+		
+		uid_t uid = od_passthru_get_uid();
+		if (uid != 0) {
+			aMsgData->fUID = uid;
+			aMsgData->fEffectiveUID = uid;
+		}
+		
+		handler.HandleRequest( &aMsgData );
+		
+		//check to see if the msg data grew within the CSrvrMessaging class
+		//if so we need to update where we keep track of it
+		if ( internalDispatch != NULL )
+		{
+			internalDispatch->SwapCurrentMessageBuffer( checkMsgData, aMsgData );
+		}
+		else //we are not inside a handler thread
+		{
+			fMsgData = aMsgData;
+		}
+		
+		return eDSNoErr;
+	} else {
+		fMsgData->type.msgt_name		= inMsgType;
+		fMsgData->type.msgt_translate	= fTranslateMode;
+		
+		return fCommPort->SendMessage( fMsgData );
 	}
-	else //we are not inside a handler thread
-	{
-		aMsgData = fMsgData;
-	}
-	
-	if (aMsgData == nil) //recursion limit likely hit
-	{
-		return(eDSInvalidContext);
-	}
-	
-	checkMsgData = aMsgData; //used to check if we grew this buffer below
-	
-    CRequestHandler handler;
-	
-	aMsgData->type.msgt_name		= inMsgType;
-	aMsgData->type.msgt_translate	= 0;
-	aMsgData->fPID					= 0; // set the pid to 0 so we know it was internal dispatch
-	aMsgData->fMachPort				= 0;
-
-    handler.HandleRequest( &aMsgData );
-	
-	//check to see if the msg data grew within the CSrvrMessaging class
-	//if so we need to update where we keep track of it
-	if ( internalDispatch != NULL )
-	{
-		internalDispatch->SwapCurrentMessageBuffer( checkMsgData, aMsgData );
-	}
-	else //we are not inside a handler thread
-	{
-		fMsgData = aMsgData;
-	}
-
-    return eDSNoErr;
-#else
-	fMsgData->type.msgt_name		= inMsgType;
-	fMsgData->type.msgt_translate	= fTranslateMode;
-	
-	return fCommPort->SendMessage( fMsgData );
-#endif
 } // SendInlineMessage
 
 
@@ -855,20 +864,21 @@ bool CMessaging::Grow ( UInt32 inOffset, UInt32 inSize )
 			// Copy the old data to the new destination
 			::memcpy( pNewPtr, aMsgData, sizeof(sComData) + aMsgData->fDataLength );
 	
-#ifdef SERVERINTERNAL
-			//look at our own thread and then get the msg data block to use for internal dispatch
-			CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
-			if ( internalDispatch != NULL )
-			{
-				internalDispatch->SwapCurrentMessageBuffer(aMsgData, (sComData *)pNewPtr);
-			}
-			else //we are not inside a handler thread
-			{
+			if (fInternal == true) {
+				//look at our own thread and then get the msg data block to use for internal dispatch
+				CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+				if ( internalDispatch != NULL )
+				{
+					internalDispatch->SwapCurrentMessageBuffer(aMsgData, (sComData *)pNewPtr);
+				}
+				else //we are not inside a handler thread
+				{
+					fMsgData = (sComData *)pNewPtr;
+				}
+			} else {
 				fMsgData = (sComData *)pNewPtr;
 			}
-#else
-			fMsgData = (sComData *)pNewPtr;
-#endif
+
 			// Dump the old data block
 			::free( aMsgData );
 			aMsgData = nil;
@@ -893,20 +903,20 @@ bool CMessaging::Grow ( UInt32 inOffset, UInt32 inSize )
 
 void CMessaging::Lock ( void )
 {
-#ifdef SERVERINTERNAL
-	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
-	if ( internalDispatch != NULL )
-	{
-		internalDispatch->PushCurrentMessageBuffer();
-	}
-	else //we are not inside a handler thread
-	{
+	if (fInternal == true) {
+		//look at our own thread and then get the msg data block to use for internal dispatch
+		CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+		if ( internalDispatch != NULL )
+		{
+			internalDispatch->PushCurrentMessageBuffer();
+		}
+		else //we are not inside a handler thread
+		{
+			fLock.WaitLock();
+		}
+	} else {
 		fLock.WaitLock();
 	}
-#else
-	fLock.WaitLock();
-#endif
 } // Lock
 
 //------------------------------------------------------------------------------------
@@ -936,22 +946,22 @@ void CMessaging::ResetMessageBlock( void )
 
 void CMessaging::Unlock ( void )
 {
-#ifdef SERVERINTERNAL
-	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
-	if (internalDispatch != NULL)
-	{
-		internalDispatch->PopCurrentMessageBuffer();
-	}
-	else //we are not inside a handler thread
-	{
+	if (fInternal == true) {
+		//look at our own thread and then get the msg data block to use for internal dispatch
+		CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+		if (internalDispatch != NULL)
+		{
+			internalDispatch->PopCurrentMessageBuffer();
+		}
+		else //we are not inside a handler thread
+		{
+			ResetMessageBlock();
+			fLock.SignalLock();
+		}
+	} else {
 		ResetMessageBlock();
 		fLock.SignalLock();
 	}
-#else
-	ResetMessageBlock();
-	fLock.SignalLock();
-#endif
 } // Unlock
 
 
@@ -1001,20 +1011,21 @@ sComData* CMessaging::GetMsgData ( void )
 {
 	sComData	   *aMsgData = nil;
 
-#ifdef SERVERINTERNAL
-	//look at our own thread and then get the msg data block to use for internal dispatch
-	CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
-	if (internalDispatch != NULL)
-	{
-		aMsgData = internalDispatch->GetCurrentMessageBuffer();
-	}
-	else //we are not inside a handler thread
-	{
+	if (fInternal == true) {
+		//look at our own thread and then get the msg data block to use for internal dispatch
+		CInternalDispatch *internalDispatch = CInternalDispatch::GetThreadInternalDispatch();
+		if (internalDispatch != NULL)
+		{
+			aMsgData = internalDispatch->GetCurrentMessageBuffer();
+		}
+		else //we are not inside a handler thread
+		{
+			aMsgData = fMsgData;
+		}
+	} else {
 		aMsgData = fMsgData;
 	}
-#else
-	aMsgData = fMsgData;
-#endif
+	
 	return(aMsgData);
 } // GetMsgData
 

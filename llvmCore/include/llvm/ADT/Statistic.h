@@ -26,16 +26,19 @@
 #ifndef LLVM_ADT_STATISTIC_H
 #define LLVM_ADT_STATISTIC_H
 
+#include "llvm/System/Atomic.h"
+
 namespace llvm {
+class raw_ostream;
 
 class Statistic {
 public:
   const char *Name;
   const char *Desc;
-  unsigned Value : 31;
-  bool Initialized : 1;
+  volatile llvm::sys::cas_flag Value;
+  bool Initialized;
 
-  unsigned getValue() const { return Value; }
+  llvm::sys::cas_flag getValue() const { return Value; }
   const char *getName() const { return Name; }
   const char *getDesc() const { return Desc; }
 
@@ -47,19 +50,60 @@ public:
 
   // Allow use of this class as the value itself.
   operator unsigned() const { return Value; }
-  const Statistic &operator=(unsigned Val) { Value = Val; return init(); }
-  const Statistic &operator++() { ++Value; return init(); }
-  unsigned operator++(int) { init(); return Value++; }
-  const Statistic &operator--() { --Value; return init(); }
-  unsigned operator--(int) { init(); return Value--; }
-  const Statistic &operator+=(const unsigned &V) { Value += V; return init(); }
-  const Statistic &operator-=(const unsigned &V) { Value -= V; return init(); }
-  const Statistic &operator*=(const unsigned &V) { Value *= V; return init(); }
-  const Statistic &operator/=(const unsigned &V) { Value /= V; return init(); }
+  const Statistic &operator=(unsigned Val) {
+    Value = Val;
+    return init();
+  }
+  
+  const Statistic &operator++() {
+    sys::AtomicIncrement(&Value);
+    return init();
+  }
+  
+  unsigned operator++(int) {
+    init();
+    unsigned OldValue = Value;
+    sys::AtomicIncrement(&Value);
+    return OldValue;
+  }
+  
+  const Statistic &operator--() {
+    sys::AtomicDecrement(&Value);
+    return init();
+  }
+  
+  unsigned operator--(int) {
+    init();
+    unsigned OldValue = Value;
+    sys::AtomicDecrement(&Value);
+    return OldValue;
+  }
+  
+  const Statistic &operator+=(const unsigned &V) {
+    sys::AtomicAdd(&Value, V);
+    return init();
+  }
+  
+  const Statistic &operator-=(const unsigned &V) {
+    sys::AtomicAdd(&Value, -V);
+    return init();
+  }
+  
+  const Statistic &operator*=(const unsigned &V) {
+    sys::AtomicMul(&Value, V);
+    return init();
+  }
+  
+  const Statistic &operator/=(const unsigned &V) {
+    sys::AtomicDiv(&Value, V);
+    return init();
+  }
 
 protected:
   Statistic &init() {
-    if (!Initialized) RegisterStatistic();
+    bool tmp = Initialized;
+    sys::MemoryFence();
+    if (!tmp) RegisterStatistic();
     return *this;
   }
   void RegisterStatistic();
@@ -69,6 +113,15 @@ protected:
 // automatically passes the DEBUG_TYPE of the file into the statistic.
 #define STATISTIC(VARNAME, DESC) \
   static llvm::Statistic VARNAME = { DEBUG_TYPE, DESC, 0, 0 }
+
+/// \brief Enable the collection and printing of statistics.
+void EnableStatistics();
+
+/// \brief Print statistics to the file returned by CreateInfoOutputFile().
+void PrintStatistics();
+
+/// \brief Print statistics to the given output stream.
+void PrintStatistics(raw_ostream &OS);
 
 } // End llvm namespace
 

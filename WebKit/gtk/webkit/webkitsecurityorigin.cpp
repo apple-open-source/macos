@@ -18,15 +18,14 @@
  */
 
 #include "config.h"
-#include "webkitwebdatabase.h"
+#include "webkitsecurityorigin.h"
 
-#include "webkitprivate.h"
-
-#include "PlatformString.h"
 #include "DatabaseTracker.h"
-#include <wtf/text/CString.h>
-
+#include "PlatformString.h"
+#include "webkitglobalsprivate.h"
+#include "webkitsecurityoriginprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitsecurityorigin
@@ -213,14 +212,14 @@ static void webkit_security_origin_class_init(WebKitSecurityOriginClass* klass)
 
 static void webkit_security_origin_init(WebKitSecurityOrigin* securityOrigin)
 {
-    WebKitSecurityOriginPrivate* priv = WEBKIT_SECURITY_ORIGIN_GET_PRIVATE(securityOrigin);
+    WebKitSecurityOriginPrivate* priv = G_TYPE_INSTANCE_GET_PRIVATE(securityOrigin, WEBKIT_TYPE_SECURITY_ORIGIN, WebKitSecurityOriginPrivate);
     priv->webDatabases = g_hash_table_new_full(g_str_hash, g_str_equal, g_free, g_object_unref);
     securityOrigin->priv = priv;
 }
 
 /**
  * webkit_security_origin_get_protocol:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns the protocol for the security origin.
  *
@@ -233,7 +232,7 @@ G_CONST_RETURN gchar* webkit_security_origin_get_protocol(WebKitSecurityOrigin* 
     g_return_val_if_fail(WEBKIT_IS_SECURITY_ORIGIN(securityOrigin), NULL);
 
     WebKitSecurityOriginPrivate* priv = securityOrigin->priv;
-    WebCore::String protocol =  priv->coreOrigin->protocol();
+    WTF::String protocol =  priv->coreOrigin->protocol();
 
     if (!priv->protocol)
         priv->protocol = g_strdup(protocol.utf8().data());
@@ -243,7 +242,7 @@ G_CONST_RETURN gchar* webkit_security_origin_get_protocol(WebKitSecurityOrigin* 
 
 /**
  * webkit_security_origin_get_host:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns the hostname for the security origin.
  *
@@ -256,7 +255,7 @@ G_CONST_RETURN gchar* webkit_security_origin_get_host(WebKitSecurityOrigin* secu
     g_return_val_if_fail(WEBKIT_IS_SECURITY_ORIGIN(securityOrigin), NULL);
 
     WebKitSecurityOriginPrivate* priv = securityOrigin->priv;
-    WebCore::String host =  priv->coreOrigin->host();
+    WTF::String host =  priv->coreOrigin->host();
 
     if (!priv->host)
         priv->host = g_strdup(host.utf8().data());
@@ -266,7 +265,7 @@ G_CONST_RETURN gchar* webkit_security_origin_get_host(WebKitSecurityOrigin* secu
 
 /**
  * webkit_security_origin_get_port:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns the port for the security origin.
  *
@@ -284,7 +283,7 @@ guint webkit_security_origin_get_port(WebKitSecurityOrigin* securityOrigin)
 
 /**
  * webkit_security_origin_get_web_database_usage:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns the cumulative size of all Web Database database's in the origin
  * in bytes.
@@ -307,7 +306,7 @@ guint64 webkit_security_origin_get_web_database_usage(WebKitSecurityOrigin* secu
 
 /**
  * webkit_security_origin_get_web_database_quota:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns the quota for Web Database storage of the security origin
  * in bytes.
@@ -330,7 +329,7 @@ guint64 webkit_security_origin_get_web_database_quota(WebKitSecurityOrigin* secu
 
 /**
  * webkit_security_origin_set_web_database_quota:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  * @quota: a new Web Database quota in bytes
  *
  * Adjust the quota for Web Database storage of the security origin
@@ -349,11 +348,12 @@ void webkit_security_origin_set_web_database_quota(WebKitSecurityOrigin* securit
 
 /**
  * webkit_security_origin_get_all_web_databases:
- * @security_origin: a #WebKitSecurityOrigin
+ * @securityOrigin: a #WebKitSecurityOrigin
  *
  * Returns a list of all Web Databases in the security origin.
  *
- * Returns: a #GList of databases in the security origin.
+ * Returns: (transfer container) (element-type WebKitWebDatabase): a
+ * #GList of databases in the security origin.
  *
  * Since: 1.1.14
  **/
@@ -364,7 +364,7 @@ GList* webkit_security_origin_get_all_web_databases(WebKitSecurityOrigin* securi
 
 #if ENABLE(DATABASE)
     WebCore::SecurityOrigin* coreOrigin = core(securityOrigin);
-    Vector<WebCore::String> databaseNames;
+    Vector<WTF::String> databaseNames;
 
     if (!WebCore::DatabaseTracker::tracker().databaseNamesForOrigin(coreOrigin, databaseNames))
         return NULL;
@@ -376,30 +376,6 @@ GList* webkit_security_origin_get_all_web_databases(WebKitSecurityOrigin* securi
 #endif
 
     return databases;
-}
-
-WebKitSecurityOrigin* WebKit::kit(WebCore::SecurityOrigin* coreOrigin)
-{
-    ASSERT(coreOrigin);
-
-    GHashTable* table = webkit_security_origins();
-    WebKitSecurityOrigin* origin = (WebKitSecurityOrigin*) g_hash_table_lookup(table, coreOrigin);
-
-    if (!origin) {
-        origin = WEBKIT_SECURITY_ORIGIN(g_object_new(WEBKIT_TYPE_SECURITY_ORIGIN, NULL));
-        origin->priv->coreOrigin = coreOrigin;
-        g_hash_table_insert(table, coreOrigin, origin);
-    }
-
-    return origin;
-}
-
-
-WebCore::SecurityOrigin* WebKit::core(WebKitSecurityOrigin* securityOrigin)
-{
-    ASSERT(securityOrigin);
-
-    return securityOrigin->priv->coreOrigin.get();
 }
 
 WebKitWebDatabase* webkit_security_origin_get_web_database(WebKitSecurityOrigin* securityOrigin, const gchar* databaseName)
@@ -421,3 +397,29 @@ WebKitWebDatabase* webkit_security_origin_get_web_database(WebKitSecurityOrigin*
     return database;
 }
 
+namespace WebKit {
+
+WebCore::SecurityOrigin* core(WebKitSecurityOrigin* securityOrigin)
+{
+    ASSERT(securityOrigin);
+
+    return securityOrigin->priv->coreOrigin.get();
+}
+
+WebKitSecurityOrigin* kit(WebCore::SecurityOrigin* coreOrigin)
+{
+    ASSERT(coreOrigin);
+
+    GHashTable* table = webkit_security_origins();
+    WebKitSecurityOrigin* origin = (WebKitSecurityOrigin*) g_hash_table_lookup(table, coreOrigin);
+
+    if (!origin) {
+        origin = WEBKIT_SECURITY_ORIGIN(g_object_new(WEBKIT_TYPE_SECURITY_ORIGIN, NULL));
+        origin->priv->coreOrigin = coreOrigin;
+        g_hash_table_insert(table, coreOrigin, origin);
+    }
+
+    return origin;
+}
+
+}

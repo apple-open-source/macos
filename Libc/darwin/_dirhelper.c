@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -38,6 +38,8 @@
 #include <string.h>
 #include <libkern/OSByteOrder.h>
 #include <TargetConditionals.h>
+#include <xpc/xpc.h>
+#include <xpc/private.h>
 
 #include "dirhelper.h"
 #include "dirhelper_priv.h"
@@ -47,14 +49,16 @@
 #define MUTEX_LOCK(x)	if(__is_threaded) pthread_mutex_lock(x)
 #define MUTEX_UNLOCK(x)	if(__is_threaded) pthread_mutex_unlock(x)
 
-#define ENCODEBITS	6
+// Use 5 bits per character, to avoid uppercase and shell magic characters
+#define ENCODEBITS	5
 #define ENCODEDSIZE	((8 * UUID_UID_SIZE + ENCODEBITS - 1) / ENCODEBITS)
+#define MASK(x)		((1 << (x)) - 1)
 #define UUID_UID_SIZE	(sizeof(uuid_t) + sizeof(uid_t))
 
 extern int __is_threaded;
 
 static const mode_t modes[] = {
-    0,		/* unused */
+    0755,	/* user */
     0700,	/* temp */
     0700,	/* cache */
 };
@@ -65,39 +69,60 @@ static const char *subdirs[] = {
     DIRHELPER_CACHE_STR,
 };
 
-static const char encode[] = "+-0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static pthread_once_t userdir_control = PTHREAD_ONCE_INIT;
+static char *userdir = NULL;
+
+// lower case letter (minus vowels), plus numbers and _, making
+// 32 characters.
+static const char encode[] = "0123456789_bcdfghjklmnpqrstvwxyz";
 
 static void
-encode_uuid_uid(uuid_t uuid, uid_t uid, char *str)
+encode_uuid_uid(const uuid_t uuid, uid_t uid, char *str)
 {
     unsigned char buf[UUID_UID_SIZE + 1];
     unsigned char *bp = buf;
-    int i = 0;
+    int i;
     unsigned int n;
 
     memcpy(bp, uuid, sizeof(uuid_t));
     uid = OSSwapHostToBigInt32(uid);
     memcpy(bp + sizeof(uuid_t), &uid, sizeof(uid_t));
     bp[UUID_UID_SIZE] = 0; // this ensures the last encoded byte will have trailing zeros
-    while(i < ENCODEDSIZE) {
-	switch(i % 4) {
+    for(i = 0; i < ENCODEDSIZE; i++) {
+	// 5 bits has 8 states
+	switch(i % 8) {
 	case 0:
 	    n = *bp++;
-	    *str++ = encode[n >> 2];
+	    *str++ = encode[n >> 3];
 	    break;
 	case 1:
-	    n = ((n & 0x3) << 8) | *bp++;
-	    *str++ = encode[n >> 4];
-	    break;
-	case 2:
-	    n = ((n & 0xf) << 8) | *bp++;
+	    n = ((n & MASK(3)) << 8) | *bp++;
 	    *str++ = encode[n >> 6];
 	    break;
+	case 2:
+	    n &= MASK(6);
+	    *str++ = encode[n >> 1];
+	    break;
 	case 3:
-	    *str++ = encode[n & 0x3f];
+	    n = ((n & MASK(1)) << 8) | *bp++;
+	    *str++ = encode[n >> 4];
+	    break;
+	case 4:
+	    n = ((n & MASK(4)) << 8) | *bp++;
+	    *str++ = encode[n >> 7];
+	    break;
+	case 5:
+	    n &= MASK(7);
+	    *str++ = encode[n >> 2];
+	    break;
+	case 6:
+	    n = ((n & MASK(2)) << 8) | *bp++;
+	    *str++ = encode[n >> 5];
+	    break;
+	case 7:
+	    *str++ = encode[n & MASK(5)];
 	    break;
 	}
-	i++;
     }
     *str = 0;
 }
@@ -119,13 +144,23 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
     }
 
 #if TARGET_OS_EMBEDDED
-    tmpdir = getenv("TMPDIR");
-    if(!tmpdir) {
+    /* We only support DIRHELPER_USER_LOCAL_TEMP on embedded.
+     * This interface really doesn't map from OSX to embedded,
+     * and clients of this interface will need to adapt when
+     * porting their applications to embedded.
+     * See: <rdar://problem/7515613> 
+     */
+    if(which == DIRHELPER_USER_LOCAL_TEMP) {
+        tmpdir = getenv("TMPDIR");
+        if(!tmpdir) {
+            errno = EINVAL;
+            return NULL;
+        }
+        res = snprintf(path, pathlen, "%s", tmpdir);
+    } else {
         errno = EINVAL;
         return NULL;
     }
-
-    res = snprintf(path, pathlen, "%s/%s", tmpdir, subdirs[which]);
 #else
     res = mbr_uid_to_uuid(uid, uuid);
     if(res != 0) {
@@ -135,14 +170,14 @@ __user_local_dirname(uid_t uid, dirhelper_which_t which, char *path, size_t path
     
     //
     // We partition the namespace so that we don't end up with too
-    // many users in a single directory.  With 4096 buckets, we
+    // many users in a single directory.  With 1024 buckets, we
     // could scale to 1,000,000 users while keeping the average
-    // number of files in a single directory below 250
+    // number of files in a single directory around 1000
     //
     encode_uuid_uid(uuid, uid, str);
     res = snprintf(path, pathlen,
 	"%s%.*s/%s/%s",
-	VAR_FOLDERS_PATH, BUCKETLEN, str, str, subdirs[which]);
+	VAR_FOLDERS_PATH, BUCKETLEN, str, str + BUCKETLEN, subdirs[which]);
 #endif
     if(res >= pathlen) {
 	errno = EINVAL;
@@ -168,12 +203,26 @@ __user_local_mkdir_p(char *path)
     return path;
 }
 
+static void userdir_allocate(void)
+{
+    userdir = calloc(PATH_MAX, sizeof(char));
+}
+
+/*
+ * 9407258: Invalidate the dirhelper cache (userdir) of the child after fork.
+ * There is a rare case when launchd will have userdir set, and child process
+ * will sometimes inherit this cached value.
+ */
+__private_extern__ void
+_dirhelper_fork_child(void)
+{
+    if(userdir) *userdir = 0;
+}
+
 __private_extern__ char *
 _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
 {
-    static char userdir[PATH_MAX];
     static pthread_mutex_t lock = PTHREAD_MUTEX_INITIALIZER;
-    int res;
     struct stat sb;
 
     if(which < 0 || which > DIRHELPER_USER_LOCAL_LAST) {
@@ -181,14 +230,26 @@ _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
 	return NULL;
     }
 
+    if (pthread_once(&userdir_control, userdir_allocate)
+        || !userdir) {
+        errno = ENOMEM;
+        return NULL;
+    }
+
     if(!*userdir) {
 	MUTEX_LOCK(&lock);
 	if (!*userdir) {
 	    
-	    if(__user_local_dirname(geteuid(), DIRHELPER_USER_LOCAL, userdir, sizeof(userdir)) == NULL) {
+	    if(__user_local_dirname(geteuid(), DIRHELPER_USER_LOCAL, userdir, PATH_MAX) == NULL) {
 		MUTEX_UNLOCK(&lock);
 		return NULL;
 	    }
+	    /*
+	     * All dirhelper directories are now at the same level, so
+	     * we need to remove the DIRHELPER_TOP_STR suffix to get the
+	     * parent directory.
+	     */
+	    userdir[strlen(userdir) - (sizeof(DIRHELPER_TOP_STR) - 1)] = 0;
 	    /*
 	     * check if userdir exists, and if not, either do the work
 	     * ourself if we are root, or call
@@ -244,13 +305,55 @@ _dirhelper(dirhelper_which_t which, char *path, size_t pathlen)
 
     /*
      * now for subdirectories, create it with the appropriate permissions
-     * if it doesn't already exist.
+     * if it doesn't already exist. On OS X, if we're under App Sandbox, we
+     * rely on xpchelper having created the subdir for us.
      */
-    if(which != DIRHELPER_USER_LOCAL) {
-	res = mkdir(path, modes[which]);
-	if(res != 0 && errno != EEXIST)
-	    return NULL;
+#if !TARGET_OS_EMBEDDED
+    if (!_xpc_runtime_is_app_sandboxed())
+#endif
+    if(mkdir(path, modes[which]) != 0 && errno != EEXIST)
+        return NULL;
+
+#if !TARGET_OS_EMBEDDED
+    if (_xpc_runtime_is_app_sandboxed()) {
+        /*
+         * if xpchelper didn't make the subdir for us, bail since we don't have
+         * permission to create it ourselves.
+         */
+        if(stat(path, &sb) < 0) {
+            errno = EPERM;
+            return NULL;
+        }
+
+        /*
+         * sandboxed applications get per-application directories named
+         * after the container
+         */
+        char *container_id = getenv(XPC_ENV_SANDBOX_CONTAINER_ID);
+        if(!container_id) {
+            errno = EINVAL;
+            return NULL;
+        }
+
+        /*
+         * container ID doesn't end in a slash, so +2 is for slash and \0
+         */
+        if (pathlen < strlen(path) + strlen(container_id) + 2) {
+            errno = EINVAL;
+            return NULL; /* buffer too small */
+        }
+
+        strcat(path, container_id);
+        strcat(path, "/");
+
+        /*
+         * create per-app subdirectory with the appropriate permissions
+         * if it doesn't already exist.
+         */
+        if(mkdir(path, modes[which]) != 0 && errno != EEXIST)
+            return NULL;
     }
+#endif
 
     return path;
 }

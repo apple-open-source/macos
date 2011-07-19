@@ -23,15 +23,13 @@
 
 
 #include <sys/systm.h>
-#include <sys/mbuf.h>
+#include <sys/kpi_mbuf.h>
 #include <sys/socket.h>
 #include <sys/socketvar.h>
 #include <sys/malloc.h>
 #include <sys/syslog.h>
 #include <sys/domain.h>
 #include <kern/locks.h>
-
-#include <machine/spl.h>
 
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
@@ -570,39 +568,35 @@ u_int16_t l2tp_rfc_command(void *data, u_int32_t cmd, void *cmddata)
 
 
 /* -----------------------------------------------------------------------------
-called by protocol family when fast timer expires
------------------------------------------------------------------------------ */
-void l2tp_rfc_fasttimer()
+ main body of function used to be l2tp_rfc_fasttimer... called by protocol family when fast timer expired:
+ now it's called when slow timer expired because of <rdar://problem/7617885> 
+ ----------------------------------------------------------------------------- */
+static void l2tp_rfc_delayed_ack(struct l2tp_rfc *rfc)
 {
     mbuf_t				m;
     struct l2tp_header 	*hdr;
-    struct l2tp_rfc 	*rfc;
-	int					i;
     
-	for (i = 0; i < L2TP_RFC_MAX_HASH; i++) {
-		TAILQ_FOREACH(rfc, &l2tp_rfc_hash[i], next)
-			if ((rfc->state & L2TP_STATE_NEW_SEQUENCE) && rfc->peer_tunnel_id) {
-
-				if (mbuf_gethdr(MBUF_DONTWAIT, MBUF_TYPE_DATA, &m) != 0)
-					return;
-				
-				mbuf_setlen(m, L2TP_CNTL_HDR_SIZE);
-				mbuf_pkthdr_setlen(m, L2TP_CNTL_HDR_SIZE);
-				hdr = mbuf_data(m);
+	if ((rfc->state & L2TP_STATE_NEW_SEQUENCE) && rfc->peer_tunnel_id) {
 			
-				bzero(hdr, L2TP_CNTL_HDR_SIZE);
-				
-				hdr->flags_vers = htons(L2TP_FLAGS_L | L2TP_FLAGS_T | L2TP_FLAGS_S | L2TP_HDR_VERSION); 
-				hdr->len = htons(L2TP_CNTL_HDR_SIZE); 
-				
-				hdr->ns = htons(rfc->our_ns);
-				hdr->nr = htons(rfc->our_nr);
-				hdr->tunnel_id = htons(rfc->peer_tunnel_id);
-				hdr->session_id = 0;
-				rfc->state &= ~L2TP_STATE_NEW_SEQUENCE;
-				
-				l2tp_udp_output(rfc->socket, rfc->thread, m, rfc->peer_address);
-			}
+		if (mbuf_gethdr(MBUF_DONTWAIT, MBUF_TYPE_DATA, &m) != 0)
+			return;
+			
+		mbuf_setlen(m, L2TP_CNTL_HDR_SIZE);
+		mbuf_pkthdr_setlen(m, L2TP_CNTL_HDR_SIZE);
+		hdr = mbuf_data(m);
+
+		bzero(hdr, L2TP_CNTL_HDR_SIZE);
+
+		hdr->flags_vers = htons(L2TP_FLAGS_L | L2TP_FLAGS_T | L2TP_FLAGS_S | L2TP_HDR_VERSION); 
+		hdr->len = htons(L2TP_CNTL_HDR_SIZE); 
+
+		hdr->ns = htons(rfc->our_ns);
+		hdr->nr = htons(rfc->our_nr);
+		hdr->tunnel_id = htons(rfc->peer_tunnel_id);
+		hdr->session_id = 0;
+		rfc->state &= ~L2TP_STATE_NEW_SEQUENCE;
+
+		l2tp_udp_output(rfc->socket, rfc->thread, m, rfc->peer_address);
 	}
 }
 
@@ -653,7 +647,10 @@ void l2tp_rfc_slowtimer()
 					}
 				}
 			}
-			
+
+			// do the delayed ack last to take advantage of any data transmits in above code
+			l2tp_rfc_delayed_ack(rfc);
+
 			rfc = TAILQ_NEXT(rfc, next);
 		}
 	}
@@ -754,7 +751,7 @@ u_int16_t l2tp_rfc_output_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockadd
 
 	rfc->our_ns++;
 	
-    elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
+    elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
     if (elem == 0) {
         mbuf_freem(m);
         return ENOMEM;
@@ -836,7 +833,7 @@ int l2tp_rfc_output_queued(struct l2tp_rfc *rfc, struct l2tp_elem *elem)
     mbuf_t				dup;
     struct l2tp_header	*hdr;
 
-    if (mbuf_copym(elem->packet, 0, M_COPYALL, MBUF_DONTWAIT, &dup) != 0)
+    if (mbuf_copym(elem->packet, 0, MBUF_COPYALL, MBUF_DONTWAIT, &dup) != 0)
         return ENOBUFS;
    
     hdr = mbuf_data(dup);
@@ -951,11 +948,11 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
 					}
 				}
 				
-                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
+                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
                 if (new_elem == 0)
                     goto dropit;
                     
-                if (mbuf_copym(m, 0, M_COPYALL, MBUF_DONTWAIT, &new_elem->packet) != 0) {
+                if (mbuf_copym(m, 0, MBUF_COPYALL, MBUF_DONTWAIT, &new_elem->packet) != 0) {
                     _FREE(new_elem, M_TEMP);
                     goto dropit;
                 }
@@ -995,7 +992,7 @@ u_int16_t l2tp_handle_control(struct l2tp_rfc *rfc, mbuf_t m, struct sockaddr *f
                         break;
                 }
                 //IOLog("L2TP queing out of order message\n");
-                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_DONTWAIT);
+                new_elem = (struct l2tp_elem *)_MALLOC(sizeof (struct l2tp_elem), M_TEMP, M_NOWAIT);
                 if (new_elem == 0)
                     goto dropit;
                 new_elem->packet = m;
@@ -1138,6 +1135,10 @@ int l2tp_rfc_lower_input(socket_t so, mbuf_t m, struct sockaddr *from)
 	pulllen = (flags & L2TP_FLAGS_T) ? L2TP_CNTL_HDR_SIZE : L2TP_DATA_HDR_SIZE;
 	if (mbuf_len(m) < pulllen && 
 		mbuf_pullup(&m, pulllen)) {
+			if (m) {
+				mbuf_freem(m);
+				m = NULL;
+			}
 			IOLog("l2tp_rfc_lower_input: cannot pullup l2tp header (len %d)\n", pulllen);
 			return 0;
 	}

@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: inter_test.c,v 1.16 2008/03/20 23:47:00 tbox Exp $ */
+/* $Id: inter_test.c,v 1.16 2008-03-20 23:47:00 tbox Exp $ */
 
 /*! \file */
 #include <config.h>

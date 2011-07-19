@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2008, International Business Machines
+*   Copyright (C) 2001-2011, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -25,13 +25,16 @@
 #include "unicode/udata.h"
 #include "unicode/uchar.h"
 #include "unicode/uniset.h"
+#include "unicode/uscript.h"
+#include "unicode/ustring.h"
+#include "normalizer2impl.h"
 #include "ucol_bld.h"
 #include "ucol_elm.h"
 #include "ucol_cnt.h"
 #include "ucln_in.h"
 #include "umutex.h"
-#include "unormimp.h"
 #include "cmemory.h"
+#include "cstring.h"
 
 static const InverseUCATableHeader* _staticInvUCA = NULL;
 static UDataMemory* invUCA_DATA_MEM = NULL;
@@ -347,10 +350,10 @@ static void ucol_inv_getGapPositions(UColTokenParser *src, UColTokListHeader *lh
         lh->gapsLo[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
         lh->gapsLo[1] = (t1 & UCOL_SECONDARYMASK) << 16 | (t2 & UCOL_SECONDARYMASK) << 8;
         lh->gapsLo[2] = (UCOL_TERTIARYORDER(t1)) << 24 | (UCOL_TERTIARYORDER(t2)) << 16;
-        uint32_t primaryCE = t1 & UCOL_PRIMARYMASK | (t2 & UCOL_PRIMARYMASK) >> 16;
+        uint32_t primaryCE = (t1 & UCOL_PRIMARYMASK) | ((t2 & UCOL_PRIMARYMASK) >> 16);
         primaryCE = uprv_uca_getImplicitFromRaw(uprv_uca_getRawFromImplicit(primaryCE)+1);
 
-        t1 = primaryCE & UCOL_PRIMARYMASK | 0x0505;
+        t1 = (primaryCE & UCOL_PRIMARYMASK) | 0x0505;
         t2 = (primaryCE << 16) & UCOL_PRIMARYMASK; // | UCOL_CONTINUATION_MARKER;
 
         lh->gapsHi[0] = (t1 & UCOL_PRIMARYMASK) | (t2 & UCOL_PRIMARYMASK) >> 16;
@@ -512,8 +515,10 @@ static uint32_t ucol_getCEGenerator(ucolCEGenerator *g, uint32_t* lows, uint32_t
         }
     }
 
-    if(low == 0) {
-        low = 0x01000000;
+    if(low < 0x02000000) {
+        // We must not use CE weight byte 02, so we set it as the minimum lower bound.
+        // See http://site.icu-project.org/design/collation/bytes
+        low = 0x02000000;
     }
 
     if(strength == UCOL_SECONDARY) { /* similar as simple */
@@ -609,6 +614,8 @@ uint32_t u_toSmallKana(const UChar *source, const uint32_t sourceLen, UChar *res
     return sourceLen;
 }
 
+U_NAMESPACE_BEGIN
+
 static
 uint8_t ucol_uprv_getCaseBits(const UCollator *UCA, const UChar *src, uint32_t len, UErrorCode *status) {
     uint32_t i = 0;
@@ -626,7 +633,7 @@ uint8_t ucol_uprv_getCaseBits(const UCollator *UCA, const UChar *src, uint32_t l
     nLen = unorm_normalize(src, len, UNORM_NFKD, 0, n, 128, status);
     if(U_SUCCESS(*status)) {
         for(i = 0; i < nLen; i++) {
-            uprv_init_collIterate(UCA, &n[i], 1, &s);
+            uprv_init_collIterate(UCA, &n[i], 1, &s, status);
             order = ucol_getNextCE(UCA, &s, status);
             if(isContinuation(order)) {
                 *status = U_INTERNAL_PROGRAM_ERROR;
@@ -637,7 +644,7 @@ uint8_t ucol_uprv_getCaseBits(const UCollator *UCA, const UChar *src, uint32_t l
             } else {
                 if(u_islower(n[i])) {
                     lCount++;
-                } else {
+                } else if(U_SUCCESS(*status)) {
                     UChar sk[1], lk[1];
                     u_toSmallKana(&n[i], 1, sk, 1, status);
                     u_toLargeKana(&n[i], 1, lk, 1, status);
@@ -761,7 +768,7 @@ U_CFUNC void ucol_initBuffers(UColTokenParser *src, UColTokListHeader *lh, UErro
         fprintf(stderr, "gapsLo[%i] [%08X %08X %08X]\n", j, lh->gapsLo[j*3], lh->gapsLo[j*3+1], lh->gapsLo[j*3+2]);
         fprintf(stderr, "gapsHi[%i] [%08X %08X %08X]\n", j, lh->gapsHi[j*3], lh->gapsHi[j*3+1], lh->gapsHi[j*3+2]);
     }
-    tok=lh->first[UCOL_TOK_POLARITY_POSITIVE];
+    tok=&lh->first[UCOL_TOK_POLARITY_POSITIVE];
 
     do {
         fprintf(stderr,"%i", tok->strength);
@@ -769,7 +776,7 @@ U_CFUNC void ucol_initBuffers(UColTokenParser *src, UColTokListHeader *lh, UErro
     } while(tok != NULL);
     fprintf(stderr, "\n");
 
-    tok=lh->first[UCOL_TOK_POLARITY_POSITIVE];
+    tok=&lh->first[UCOL_TOK_POLARITY_POSITIVE];
 
     do {
         fprintf(stderr,"%i", tok->toInsert);
@@ -837,7 +844,8 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
     UColToken *tok = lh->first;
     UColToken *expt = NULL;
     uint32_t i = 0, j = 0;
-    const uint16_t  *fcdTrieData = unorm_getFCDTrie(status);
+    UChar32 fcdHighStart;
+    const uint16_t *fcdTrieIndex = unorm_getFCDTrieIndex(fcdHighStart, status);
 
     while(tok != NULL && U_SUCCESS(*status)) {
         /* first, check if there are any expansions */
@@ -850,7 +858,7 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
             //uint32_t exp = currentSequenceLen | expOffset;
             UColToken exp;
             exp.source = currentSequenceLen | expOffset;
-            exp.rulesToParse = src->source;
+            exp.rulesToParseHdl = &(src->source);
 
             while(len > 0) {
                 currentSequenceLen = len;
@@ -877,7 +885,7 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
                     /* then pick CEs out until there is no more and stuff them into expansion */
                     collIterate s;
                     uint32_t order = 0;
-                    uprv_init_collIterate(src->UCA, expOffset + src->source, 1, &s);
+                    uprv_init_collIterate(src->UCA, expOffset + src->source, 1, &s, status);
 
                     for(;;) {
                         order = ucol_getNextCE(src->UCA, &s, status);
@@ -925,25 +933,18 @@ U_CFUNC void ucol_createElements(UColTokenParser *src, tempUCATable *t, UColTokL
             uprv_memcpy(el.uchars, (tok->source & 0x00FFFFFF) + src->source, el.cSize*sizeof(UChar));
         }
         if(src->UCA != NULL) {
-            UBool containCombinMarks = FALSE;
             for(i = 0; i<el.cSize; i++) {
                 if(UCOL_ISJAMO(el.cPoints[i])) {
                     t->image->jamoSpecial = TRUE;
                 }
-                if ( !src->buildCCTabFlag ) {
-                    // check combining class
-                    int16_t fcd = unorm_getFCD16(fcdTrieData, el.cPoints[i]);
-                    if ( (fcd && 0xff) == 0 ) {
-                        // reset flag when current char is not combining mark.
-                        containCombinMarks = FALSE;
-                    }
-                    else {
-                        containCombinMarks = TRUE;
-                    }
-                }
             }
-            if ( !src->buildCCTabFlag && containCombinMarks ) {
-                src->buildCCTabFlag = TRUE;
+            if (!src->buildCCTabFlag && el.cSize > 0) {
+                // Check the trailing canonical combining class (tccc) of the last character.
+                const UChar *s = el.cPoints + el.cSize;
+                uint16_t fcd = unorm_prevFCD16(fcdTrieIndex, fcdHighStart, el.cPoints, s);
+                if ((fcd & 0xff) != 0) {
+                    src->buildCCTabFlag = TRUE;
+                }
             }
         }
 
@@ -1051,7 +1052,7 @@ ucol_uprv_bld_copyRangeFromUCA(UColTokenParser *src, tempUCATable *t,
                 // it doesn't make any difference whether we have to go to the UCA
                 // or not.
                 {
-                    uprv_init_collIterate(src->UCA, el.uchars, el.cSize, &colIt);
+                    uprv_init_collIterate(src->UCA, el.uchars, el.cSize, &colIt, status);
                     while(CE != UCOL_NO_MORE_CES) {
                         CE = ucol_getNextCE(src->UCA, &colIt, status);
                         if(CE != UCOL_NO_MORE_CES) {
@@ -1065,7 +1066,10 @@ ucol_uprv_bld_copyRangeFromUCA(UColTokenParser *src, tempUCATable *t,
     }
 }
 
-UCATableHeader *ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
+U_NAMESPACE_END
+
+U_CFUNC UCATableHeader *
+ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *status) {
     U_NAMESPACE_USE
 
     uint32_t i = 0;
@@ -1302,7 +1306,7 @@ UCATableHeader *ucol_assembleTailoringTable(UColTokenParser *src, UErrorCode *st
     utrie_enum(&t->UCA->mapping, NULL, _processUCACompleteIgnorables, t);
 
     // add tailoring characters related canonical closures
-    uprv_uca_canonicalClosure(t, src, status);
+    uprv_uca_canonicalClosure(t, src, NULL, status);
 
     /* still need to produce compatibility closure */
 
@@ -1335,7 +1339,7 @@ ucol_initInverseUCA(UErrorCode *status)
 
     if(needsInit) {
         InverseUCATableHeader *newInvUCA = NULL;
-        UDataMemory *result = udata_openChoice(NULL, INVC_DATA_TYPE, INVC_DATA_NAME, isAcceptableInvUCA, NULL, status);
+        UDataMemory *result = udata_openChoice(U_ICUDATA_COLL, INVC_DATA_TYPE, INVC_DATA_NAME, isAcceptableInvUCA, NULL, status);
 
         if(U_FAILURE(*status)) {
             if (result) {
@@ -1358,8 +1362,8 @@ ucol_initInverseUCA(UErrorCode *status)
 
             umtx_lock(NULL);
             if(_staticInvUCA == NULL) {
-                _staticInvUCA = newInvUCA;
                 invUCA_DATA_MEM = result;
+                _staticInvUCA = newInvUCA;
                 result = NULL;
                 newInvUCA = NULL;
             }
@@ -1377,6 +1381,37 @@ ucol_initInverseUCA(UErrorCode *status)
         }
     }
     return _staticInvUCA;
+}
+
+/* This is the data that is used for non-script reordering codes. These _must_ be kept
+ * in order that they are to be applied as defaults and in synch with the UColReorderCode enum.
+ */
+static const char* ReorderingTokenNames[] = {
+    "SPACE",
+    "PUNCT",
+    "SYMBOL",
+    "CURRENCY",
+    "DIGIT",
+    NULL
+};
+
+static void toUpper(const char* src, char* dst, uint32_t length) {
+   for (uint32_t i = 0; *src != '\0' && i < length - 1; ++src, ++dst, ++i) {
+       *dst = toupper(*src);
+   }
+   *dst = '\0';
+}
+
+U_INTERNAL int32_t U_EXPORT2 
+ucol_findReorderingEntry(const char* name) {
+    char buffer[32];
+    toUpper(name, buffer, 32);
+    for (uint32_t entry = 0; ReorderingTokenNames[entry] != NULL; entry++) {
+        if (uprv_strcmp(buffer, ReorderingTokenNames[entry]) == 0) {
+            return entry + UCOL_REORDER_CODE_FIRST;
+        }
+    }
+    return USCRIPT_INVALID_CODE;
 }
 
 #endif /* #if !UCONFIG_NO_COLLATION */

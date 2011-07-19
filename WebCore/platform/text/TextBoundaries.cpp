@@ -27,14 +27,40 @@
 #include "config.h"
 #include "TextBoundaries.h"
 
-#include "StringImpl.h"
 #include "TextBreakIterator.h"
+#include <wtf/text/StringImpl.h>
 #include <wtf/unicode/Unicode.h>
 
 using namespace WTF;
 using namespace Unicode;
 
 namespace WebCore {
+
+int endOfFirstWordBoundaryContext(const UChar* characters, int length)
+{
+    for (int i = 0; i < length; ) {
+        int first = i;
+        UChar32 ch;
+        U16_NEXT(characters, i, length, ch);
+        if (!requiresContextForWordBoundary(ch))
+            return first;
+    }
+    return length;
+}
+
+int startOfLastWordBoundaryContext(const UChar* characters, int length)
+{
+    for (int i = length; i > 0; ) {
+        int last = i;
+        UChar32 ch;
+        U16_PREV(characters, 0, i, ch);
+        if (!requiresContextForWordBoundary(ch))
+            return last;
+    }
+    return 0;
+}
+
+#if !PLATFORM(BREWMP) && !PLATFORM(MAC) && !PLATFORM(QT)
 
 int findNextWordFromIndex(const UChar* chars, int len, int position, bool forward)
 {
@@ -75,5 +101,7 @@ void findWordBoundary(const UChar* chars, int len, int position, int* start, int
         *end = textBreakLast(it);
     *start = textBreakPrevious(it);
 }
+
+#endif // !PLATFORM(BREWMP) && !PLATFORM(MAC) && !PLATFORM(QT)
 
 } // namespace WebCore

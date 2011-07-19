@@ -26,22 +26,28 @@
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Type.h"
+#include "llvm/Analysis/ProfileInfo.h"
+#include "llvm/CodeGen/MachineDominators.h"
 #include "llvm/CodeGen/MachineFunctionPass.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
+#include "llvm/CodeGen/MachineLoopInfo.h"
 #include "llvm/CodeGen/MachineRegisterInfo.h"
 #include "llvm/Support/CFG.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Target/TargetInstrInfo.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 using namespace llvm;
 
 namespace {
-  class VISIBILITY_HIDDEN UnreachableBlockElim : public FunctionPass {
+  class UnreachableBlockElim : public FunctionPass {
     virtual bool runOnFunction(Function &F);
   public:
     static char ID; // Pass identification, replacement for typeid
     UnreachableBlockElim() : FunctionPass(&ID) {}
+
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.addPreserved<ProfileInfo>();
+    }
   };
 }
 char UnreachableBlockElim::ID = 0;
@@ -77,17 +83,20 @@ bool UnreachableBlockElim::runOnFunction(Function &F) {
     }
 
   // Actually remove the blocks now.
-  for (unsigned i = 0, e = DeadBlocks.size(); i != e; ++i)
+  ProfileInfo *PI = getAnalysisIfAvailable<ProfileInfo>();
+  for (unsigned i = 0, e = DeadBlocks.size(); i != e; ++i) {
+    if (PI) PI->removeBlock(DeadBlocks[i]);
     DeadBlocks[i]->eraseFromParent();
+  }
 
   return DeadBlocks.size();
 }
 
 
 namespace {
-  class VISIBILITY_HIDDEN UnreachableMachineBlockElim :
-        public MachineFunctionPass {
+  class UnreachableMachineBlockElim : public MachineFunctionPass {
     virtual bool runOnMachineFunction(MachineFunction &F);
+    virtual void getAnalysisUsage(AnalysisUsage &AU) const;
     MachineModuleInfo *MMI;
   public:
     static char ID; // Pass identification, replacement for typeid
@@ -102,10 +111,18 @@ Y("unreachable-mbb-elimination",
 
 const PassInfo *const llvm::UnreachableMachineBlockElimID = &Y;
 
+void UnreachableMachineBlockElim::getAnalysisUsage(AnalysisUsage &AU) const {
+  AU.addPreserved<MachineLoopInfo>();
+  AU.addPreserved<MachineDominatorTree>();
+  MachineFunctionPass::getAnalysisUsage(AU);
+}
+
 bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
   SmallPtrSet<MachineBasicBlock*, 8> Reachable;
 
   MMI = getAnalysisIfAvailable<MachineModuleInfo>();
+  MachineDominatorTree *MDT = getAnalysisIfAvailable<MachineDominatorTree>();
+  MachineLoopInfo *MLI = getAnalysisIfAvailable<MachineLoopInfo>();
 
   // Mark all reachable blocks.
   for (df_ext_iterator<MachineFunction*, SmallPtrSet<MachineBasicBlock*, 8> >
@@ -123,12 +140,15 @@ bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
     if (!Reachable.count(BB)) {
       DeadBlocks.push_back(BB);
 
+      // Update dominator and loop info.
+      if (MLI) MLI->removeBlock(BB);
+      if (MDT && MDT->getNode(BB)) MDT->eraseNode(BB);
+
       while (BB->succ_begin() != BB->succ_end()) {
         MachineBasicBlock* succ = *BB->succ_begin();
 
         MachineBasicBlock::iterator start = succ->begin();
-        while (start != succ->end() &&
-               start->getOpcode() == TargetInstrInfo::PHI) {
+        while (start != succ->end() && start->isPHI()) {
           for (unsigned i = start->getNumOperands() - 1; i >= 2; i-=2)
             if (start->getOperand(i).isMBB() &&
                 start->getOperand(i).getMBB() == BB) {
@@ -145,20 +165,8 @@ bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
   }
 
   // Actually remove the blocks now.
-  for (unsigned i = 0, e = DeadBlocks.size(); i != e; ++i) {
-    MachineBasicBlock *MBB = DeadBlocks[i];
-    // If there are any labels in the basic block, unregister them from
-    // MachineModuleInfo.
-    if (MMI && !MBB->empty()) {
-      for (MachineBasicBlock::iterator I = MBB->begin(),
-             E = MBB->end(); I != E; ++I) {
-        if (I->isLabel())
-          // The label ID # is always operand #0, an immediate.
-          MMI->InvalidateLabel(I->getOperand(0).getImm());
-      }
-    }
-    MBB->eraseFromParent();
-  }
+  for (unsigned i = 0, e = DeadBlocks.size(); i != e; ++i)
+    DeadBlocks[i]->eraseFromParent();
 
   // Cleanup PHI nodes.
   for (MachineFunction::iterator I = F.begin(), E = F.end(); I != E; ++I) {
@@ -167,8 +175,7 @@ bool UnreachableMachineBlockElim::runOnMachineFunction(MachineFunction &F) {
     SmallPtrSet<MachineBasicBlock*, 8> preds(BB->pred_begin(),
                                              BB->pred_end());
     MachineBasicBlock::iterator phi = BB->begin();
-    while (phi != BB->end() &&
-           phi->getOpcode() == TargetInstrInfo::PHI) {
+    while (phi != BB->end() && phi->isPHI()) {
       for (unsigned i = phi->getNumOperands() - 1; i >= 2; i-=2)
         if (!preds.count(phi->getOperand(i).getMBB())) {
           phi->RemoveOperand(i);

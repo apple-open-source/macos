@@ -1,8 +1,8 @@
 /*
  * ntfs_logfile.c - NTFS kernel journal handling.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -538,7 +538,7 @@ errno_t ntfs_logfile_check(ntfs_inode *ni, RESTART_PAGE_HEADER **rp)
 	/* An empty $LogFile must have been clean before it got emptied. */
 	if (NVolLogFileEmpty(vol))
 		goto is_empty;
-	err = vnode_getwithref(ni->vn);
+	err = vnode_get(ni->vn);
 	if (err) {
 		if (err == EINVAL)
 			err = EIO;
@@ -810,7 +810,7 @@ errno_t ntfs_logfile_empty(ntfs_inode *ni)
 		s64 data_size;
 		errno_t err;
 
-		err = vnode_getwithref(ni->vn);
+		err = vnode_get(ni->vn);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to get vnode for "
 					"$LogFile.");

@@ -29,14 +29,16 @@
  * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-#ifndef FontPlatformDataWin_h
-#define FontPlatformDataWin_h
+#ifndef FontPlatformDataChromiumWin_h
+#define FontPlatformDataChromiumWin_h
 
 #include "config.h"
 
-#include "StringImpl.h"
+#include "FontOrientation.h"
+#include <wtf/Forward.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/text/StringImpl.h> 
 
 #include <usp10.h>
 
@@ -45,7 +47,6 @@ typedef struct HFONT__ *HFONT;
 namespace WebCore {
 
 class FontDescription;
-class String;
 
 class FontPlatformData {
 public:
@@ -68,6 +69,9 @@ public:
 
     HFONT hfont() const { return m_font ? m_font->hfont() : 0; }
     float size() const { return m_size; }
+
+    FontOrientation orientation() const { return Horizontal; } // FIXME: Implement.
+    void setOrientation(FontOrientation) { } // FIXME: Implement.
 
     unsigned hash() const
     { 
@@ -102,7 +106,7 @@ private:
         HFONT hfont() const { return m_hfont; }
         unsigned hash() const
         {
-            return StringImpl::computeHash(reinterpret_cast<const UChar*>(&m_hfont), sizeof(HFONT) / sizeof(UChar));
+            return StringHasher::hashMemory<sizeof(HFONT)>(&m_hfont);
         }
 
         bool operator==(const RefCountedHFONT& other) const
@@ -131,4 +135,4 @@ private:
 
 } // WebCore
 
-#endif // FontPlatformDataWin_h
+#endif // FontPlatformDataChromiumWin_h

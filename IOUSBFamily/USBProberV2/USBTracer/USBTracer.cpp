@@ -1524,8 +1524,8 @@ CollectTraceController( kd_buf tracepoint )
 			{
 				if ( arg4 == 0 )
 				{
-				log(info, "Controller", "GatedPowerChange", parg1, "Could not create root hub device upon wakeup - error 0x%x!", arg2 );
-			}
+					log(info, "Controller", "GatedPowerChange", parg1, "Could not create root hub device upon wakeup - error 0x%x!", arg2 );
+				}
 				else if ( arg4 == 1 )
 				{
 					log(info, "Controller", "GatedPowerChange", parg1, "commandGate is NULL");
@@ -2091,9 +2091,27 @@ CollectTraceDevice ( kd_buf tracepoint )
 			break;
 		
 		case USB_DEVICE_TRACE( kTPDeviceGetDeviceDescriptor ):
-			log(info, "Device", "Get Desc", parg1, "error 0x%x getting device device descriptor bmRequestType 0x%x", arg2, arg3);
+			if ( arg4 == 0 )
+			{
+				log(info, "Device", "Get Desc", parg1, "error 0x%x getting device device descriptor bmRequestType 0x%x", arg2, arg3);
+			}
+			else if ( arg4 == 1 )
+			{
+				log(info, "Device", "Get Desc", parg1, "GetDeviceDescriptor did not return enough data:  asked for %d, got %d", arg2, arg3);
+			}
 			break;
 
+		case USB_DEVICE_TRACE( kTPDeviceGetConfigDescriptor ):
+			if ( arg4 == 0 )
+			{
+				log(info, "Device", "GetConfigDesc", parg1, "error 0x%x getting device device descriptor bmRequestType 0x%x", arg2, arg3);
+			}
+			else if ( arg4 == 1 )
+			{
+				log(info, "Device", "GetConfigDesc", parg1, "GetConfigDescriptor did not return enough data:  asked for %d, got %d", arg2, arg3);
+			}
+			break;
+			
 		case USB_DEVICE_TRACE( kTPDeviceSetConfiguration ):
 			if ( arg4 == 1 )
 			{

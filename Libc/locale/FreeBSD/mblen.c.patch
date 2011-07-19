@@ -1,5 +1,5 @@
---- mblen.c.orig	Thu Nov 25 11:38:18 2004
-+++ mblen.c	Fri Feb 18 16:55:20 2005
+--- mblen.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ mblen.c	2009-11-09 15:05:25.000000000 -0800
 @@ -27,24 +27,32 @@
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/locale/mblen.c,v 1.9 2004/07/29 06:18:40 tjr Exp $");
@@ -30,10 +30,10 @@
  	if (rval == (size_t)-1 || rval == (size_t)-2)
  		return (-1);
  	return ((int)rval);
-+}
+ }
 +
 +int
 +mblen(const char *s, size_t n)
 +{
 +	return mblen_l(s, n, __current_locale());
- }
++}

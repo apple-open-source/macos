@@ -38,33 +38,6 @@ namespace Security {
 
 
 //
-// Endian<SomeType> keeps NBO values in memory and converts
-// during loads and stores. This presumes that you are using
-// memory blocks thare are read/written/mapped as amorphous byte
-// streams, but want to be byte-order clean using them.
-//
-// The generic definition uses h2n/n2h to flip bytes. Feel free
-// to declare specializations of Endian<T> as appropriate.
-//
-// Note well that the address of an Endian<T> is not an address-of-T,
-// and there is no conversion available.
-//
-template <class Type>
-class Endian {
-public:
-    typedef Type Value;
-    Endian() : mValue(Type(0)) { }
-    Endian(Value v) : mValue(h2n(v)) { }
-    
-    operator Value () const		{ return n2h(mValue); }
-    Endian &operator = (Value v)	{ mValue = h2n(v); return *this; }
-    
-private:
-    Value mValue;
-};
-
-
-//
 // Encode/decode operations by type, overloaded.
 // You can use these functions directly, but consider using
 // the higher-level constructs below instead.
@@ -132,6 +105,33 @@ static inline void h2ni(Type &v)	{ v = h2n(v); }
 
 template <class Type>
 static inline void n2hi(Type &v)	{ v = n2h(v); }
+
+//
+// Endian<SomeType> keeps NBO values in memory and converts
+// during loads and stores. This presumes that you are using
+// memory blocks thare are read/written/mapped as amorphous byte
+// streams, but want to be byte-order clean using them.
+//
+// The generic definition uses h2n/n2h to flip bytes. Feel free
+// to declare specializations of Endian<T> as appropriate.
+//
+// Note well that the address of an Endian<T> is not an address-of-T,
+// and there is no conversion available.
+//
+template <class Type>
+class Endian {
+public:
+    typedef Type Value;
+    Endian() : mValue(Type(0)) { }
+    Endian(Value v) : mValue(h2n(v)) { }
+    
+    operator Value () const		{ return n2h(mValue); }
+    Endian &operator = (Value v)	{ mValue = h2n(v); return *this; }
+    
+private:
+    Value mValue;
+};
+
 
 }	// end namespace Security
 

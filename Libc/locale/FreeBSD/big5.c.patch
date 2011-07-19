@@ -1,28 +1,28 @@
---- big5.c.orig	Thu Nov 25 11:38:16 2004
-+++ big5.c	Fri Feb 18 15:48:14 2005
-@@ -41,6 +41,8 @@
- #include <sys/param.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.16 2004/05/17 11:16:14 tjr Exp $");
+--- big5.c.orig	2009-11-09 15:24:27.000000000 -0800
++++ big5.c	2009-11-09 18:41:35.000000000 -0800
+@@ -41,6 +41,8 @@ static char sccsid[] = "@(#)big5.c	8.1 (
+ #include <sys/cdefs.h>
+ __FBSDID("$FreeBSD: src/lib/libc/locale/big5.c,v 1.18 2007/10/13 16:28:21 ache Exp $");
  
 +#include "xlocale_private.h"
 +
+ #include <sys/types.h>
  #include <errno.h>
  #include <runetype.h>
- #include <stdlib.h>
-@@ -48,30 +50,29 @@
+@@ -49,33 +51,30 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include <wchar.h>
  #include "mblocal.h"
  
--int	_BIG5_init(_RuneLocale *);
--size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
--	    mbstate_t * __restrict);
--int	_BIG5_mbsinit(const mbstate_t *);
--size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
-+__private_extern__ int	_BIG5_init(struct __xlocale_st_runelocale *);
-+static size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-+	    mbstate_t * __restrict, locale_t);
+-extern int __mb_sb_limit;
+-
+ static size_t	_BIG5_mbrtowc(wchar_t * __restrict, const char * __restrict,
+-		    size_t, mbstate_t * __restrict);
+-static int	_BIG5_mbsinit(const mbstate_t *);
++		    size_t, mbstate_t * __restrict, locale_t);
 +static int	_BIG5_mbsinit(const mbstate_t *, locale_t);
-+static size_t	_BIG5_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+ static size_t	_BIG5_wcrtomb(char * __restrict, wchar_t,
+-		    mbstate_t * __restrict);
++		    mbstate_t * __restrict, locale_t);
  
  typedef struct {
  	wchar_t	ch;
@@ -39,40 +39,36 @@
 -	__mbsinit = _BIG5_mbsinit;
 -	_CurrentRuneLocale = rl;
 -	__mb_cur_max = 2;
+-	__mb_sb_limit = 128;
 +	xrl->__mbrtowc = _BIG5_mbrtowc;
 +	xrl->__wcrtomb = _BIG5_wcrtomb;
 +	xrl->__mbsinit = _BIG5_mbsinit;
 +	xrl->__mb_cur_max = 2;
++	xrl->__mb_sb_limit = 128;
  	return (0);
  }
  
--int
+ static int
 -_BIG5_mbsinit(const mbstate_t *ps)
-+static int
-+_BIG5_mbsinit(const mbstate_t *ps, locale_t loc)
++_BIG5_mbsinit(const mbstate_t *ps, locale_t loc __unused)
  {
  
  	return (ps == NULL || ((const _BIG5State *)ps)->ch == 0);
-@@ -85,9 +86,9 @@
- 	return ((c >= 0xa1 && c <= 0xfe) ? 2 : 1);
- }
+@@ -91,7 +90,7 @@ _big5_check(u_int c)
  
--size_t
-+static size_t
+ static size_t
  _BIG5_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 -    mbstate_t * __restrict ps)
-+    mbstate_t * __restrict ps, locale_t loc)
++    mbstate_t * __restrict ps, locale_t loc __unused)
  {
  	_BIG5State *bs;
  	wchar_t wc;
-@@ -146,8 +147,8 @@
- 	}
+@@ -151,7 +150,7 @@ _BIG5_mbrtowc(wchar_t * __restrict pwc, 
  }
  
--size_t
+ static size_t
 -_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
-+static size_t
-+_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
++_BIG5_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc __unused)
  {
  	_BIG5State *bs;
  

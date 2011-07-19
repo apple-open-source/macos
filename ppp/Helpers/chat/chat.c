@@ -37,7 +37,7 @@
  *
  * -----------------
  *	22-May-99 added environment substitutuion, enabled with -E switch.
- *	Andreas Arens <andras@cityweb.de>.
+ *	Andreas Arens <andras@cityweb.de>.                  
  *
  *	12-May-99 added a feature to read data to be sent from a file,
  *	if the send string starts with @.  Idea from gpk <gpk@onramp.net>.
@@ -181,6 +181,39 @@ extern char *sys_errlist[];
 static int _O = 0;		/* Internal state */
 /*************** Micro getopt() *********************************************/
 
+
+char switch_option(int *c, char **v[])
+{
+	if(_O & 2 && ***v) 
+		return *(**v)++;
+	else {
+		if(!*c || _O & 4)
+			return 0;
+		else {
+			if(!(_O & 1)) {
+				--*c;
+				++*v;
+				_O=4;
+			}
+				
+			if(*c && ***v == '-' && (*v)[0][1]) {
+				if(*++**v == '-' && !(*v)[0][1]) {
+					--*c;
+					++*v;
+					return 0;
+				}
+				else {
+					_O=2;
+					return *(**v)++;
+				}
+			}
+		}
+	}
+	
+	return 0;
+
+}
+
 char *program_name;
 
 #define	MAX_ABORTS		50
@@ -299,81 +332,87 @@ main(argc, argv)
 
     program_name = *argv;
     tzset();
-
-    while ((option = OPTION(argc, argv)) != 0) {
-	switch (option) {
-	case 'e':
-	    ++echo;
-	    break;
-
-	case 'E':
-	    ++use_env;
-	    break;
-
-	case 'v':
-	    ++verbose;
-	    break;
-
-	case 'V':
-	    ++Verbose;
-	    break;
-
-	case 's':
-	    ++to_stderr;
-	    break;
-
-	case 'S':
-	    to_log = 0;
-	    break;
-
-	case 'f':
-	    if ((arg = OPTARG(argc, argv)) != NULL)
-		    chat_file = copy_of(arg);
-	    else
-		usage();
-	    break;
-
-	case 't':
-	    if ((arg = OPTARG(argc, argv)) != NULL)
-		timeout = atoi(arg);
-	    else
-		usage();
-	    break;
-
-	case 'r':
-	    arg = OPTARG (argc, argv);
-	    if (arg) {
-		if (report_fp != NULL)
-		    fclose (report_fp);
-		report_file = copy_of (arg);
-		report_fp   = fopen (report_file, "a");
-		if (report_fp != NULL) {
-		    if (verbose)
-			fprintf (report_fp, "Opening \"%s\"...\n",
-				 report_file);
-		    report = 1;
+	
+    while (option = switch_option(&argc, &argv)) {
+				
+		switch (option) {
+			case 'e':
+				++echo;
+				break;
+				
+			case 'E':
+				++use_env;
+				break;
+				
+			case 'v':
+				++verbose;
+				break;
+				
+			case 'V':
+				++Verbose;
+				break;
+				
+			case 's':
+				++to_stderr;
+				break;
+				
+			case 'S':
+				to_log = 0;
+				break;
+				
+			case 'f':
+				if ((arg = OPTARG(argc, argv)) != NULL)
+					chat_file = copy_of(arg);
+				else
+					usage();
+				
+				break;
+				
+			case 't':
+				if ((arg = OPTARG(argc, argv)) != NULL)
+					timeout = atoi(arg);
+				else
+					usage();
+				
+				break;
+				
+			case 'r':
+				arg = OPTARG (argc, argv);
+				if (arg) {
+					if (report_fp != NULL)
+						fclose (report_fp);
+					report_file = copy_of (arg);
+					report_fp   = fopen (report_file, "a");
+					if (report_fp != NULL) {
+						if (verbose)
+							fprintf (report_fp, "Opening \"%s\"...\n",
+									 report_file);
+						report = 1;
+					}
+				}
+				
+				break;
+				
+			case 'T':
+				if ((arg = OPTARG(argc, argv)) != NULL)
+					phone_num = copy_of(arg);
+				else
+					usage();
+				
+				break;
+				
+			case 'U':
+				if ((arg = OPTARG(argc, argv)) != NULL)
+					phone_num2 = copy_of(arg);
+				else
+					usage();
+				
+				break;
+				
+			default:
+				usage();
+				break;
 		}
-	    }
-	    break;
-
-	case 'T':
-	    if ((arg = OPTARG(argc, argv)) != NULL)
-		phone_num = copy_of(arg);
-	    else
-		usage();
-	    break;
-
-	case 'U':
-	    if ((arg = OPTARG(argc, argv)) != NULL)
-		phone_num2 = copy_of(arg);
-	    else
-		usage();
-	    break;
-
-	default:
-	    usage();
-	    break;
-	}
     }
 /*
  * Default the report file to the stderr location
@@ -655,7 +694,7 @@ int status;
 	int c, rep_len;
 
 	rep_len = strlen(report_buffer);
-	while (rep_len + 1 <= sizeof(report_buffer)) {
+	while (rep_len + 1 < sizeof(report_buffer)) {
 	    alarm(1);
 	    c = get_char();
 	    alarm(0);
@@ -1014,11 +1053,11 @@ int c;
     c &= 0x7F;
 
     if (c < 32)
-	sprintf(string, "%s^%c", meta, (int)c + '@');
+	snprintf(string, sizeof(string), "%s^%c", meta, (int)c + '@');
     else if (c == 127)
-	sprintf(string, "%s^?", meta);
+	snprintf(string, sizeof(string), "%s^?", meta);
     else
-	sprintf(string, "%s%c", meta, c);
+	snprintf(string, sizeof(string), "%s%c", meta, c);
 
     return (string);
 }
@@ -1436,7 +1475,7 @@ register char *string;
 		    struct tm* tm_now = localtime (&time_now);
 
 		    strftime (report_buffer, 20, "%b %d %H:%M:%S ", tm_now);
-		    strcat (report_buffer, report_string[n]);
+		    strlcat (report_buffer, report_string[n], sizeof(report_buffer));
 
 		    report_string[n] = (char *) NULL;
 		    report_gathering = 1;
@@ -1482,7 +1521,7 @@ register char *string;
 		alarm(0);
 		alarmed = 0;
 		exit_code = n + 4;
-		strcpy(fail_reason = fail_buffer, abort_string[n]);
+		strlcpy(fail_reason = fail_buffer, abort_string[n], sizeof(fail_buffer));
 		return (0);
 	    }
 	}

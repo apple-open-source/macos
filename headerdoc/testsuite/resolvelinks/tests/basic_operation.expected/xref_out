@@ -1,0 +1,19 @@
+Cross-references seen (for debugging only)
+
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/c/data/name3
+headerdoc_temptestdir/anysymbols/e/e.html//apple_ref/c/data/name7
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/c/func/name1
+headerdoc_temptestdir/anysymbols/c/d_b/d_b.html//apple_ref/c/func/name7
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/c/struct/name5
+headerdoc_temptestdir/anysymbols/a_dir/a_e.html//apple_ref/cpp/cl/name7
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/cpp/data/fooclass/name4
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/cpp/instm/fooclass/name2/IOReturn/(inta,char*b)
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/cpp/struct/fooclass/name6
+headerdoc_temptestdir/seed_tests/maintest/maintestdest.html//apple_ref/doc/maintestdest
+headerdoc_temptestdir/seed_tests/seed1/seed1.html//apple_ref/doc/seed1
+headerdoc_temptestdir/seed_tests/seed1/seed1a.html//apple_ref/doc/seed1a
+headerdoc_temptestdir/seed_tests/seed2/nested/seed2.html//apple_ref/doc/seed2
+headerdoc_temptestdir/anysymbols/b.html//apple_ref/doc/title:struct/name6
+headerdoc_temptestdir/whitespace/whitespace_b.html//apple_ref/doc/whitespace_1
+headerdoc_temptestdir/whitespace/whitespace_b.html//apple_ref/doc/whitespace_2
+headerdoc_temptestdir/partial/b.html//apple_ref/java/instm/NSString/stringWithCString/NSString/(char*)

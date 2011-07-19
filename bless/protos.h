@@ -56,8 +56,10 @@ extern int setefidevice(BLContextPtr context, const char * bsdname, int bootNext
                         int bootLegacy, const char *legacyHint, const char *optionalData,
                         bool shortForm);
 extern int setefifilepath(BLContextPtr context, const char * path, int bootNext,
-                          int bootLegacy, const char *legacyHint, const char *optionalData,
-                          bool shortForm);
+                          const char *optionalData, bool shortForm);
+extern int setefilegacypath(BLContextPtr context, const char * path, int bootNext,
+                          const char *legacyHint, const char *optionalData);
 extern int setefinetworkpath(BLContextPtr context, CFStringRef booterXML,
 							 CFStringRef kernelXML, CFStringRef mkextXML,
-                             int bootNext);
+                             CFStringRef kernelcacheXML, int bootNext);
+extern int efinvramcleanup(BLContextPtr context);

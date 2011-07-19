@@ -11,7 +11,7 @@ include Make.inc
 
 .PHONY: all clean install
 
-SUBDIRS		= $(LTDL_SUBDIRS) src raddb scripts doc
+SUBDIRS		= $(LTDL_SUBDIRS) $(wildcard src raddb scripts doc)
 WHAT_TO_MAKE	= all
 
 all:
@@ -88,11 +88,13 @@ install-chown:
 endif
 endif
 
-common:
-	@for dir in $(SUBDIRS); do \
-		echo "Making $(WHAT_TO_MAKE) in $$dir..."; \
-		$(MAKE) $(MFLAGS) -C $$dir $(WHAT_TO_MAKE) || exit $$?; \
-	done
+.PHONY: common $(SUBDIRS)
+
+common: $(SUBDIRS)
+
+$(SUBDIRS):
+	@echo "Making $(WHAT_TO_MAKE) in $@..."
+	@$(MAKE) $(MFLAGS) -C $@ $(WHAT_TO_MAKE)
 
 distclean: clean
 	rm -f config.cache config.log config.status libtool \
@@ -113,6 +115,7 @@ distclean: clean
 #
 ######################################################################
 reconfig: configure src/include/autoconf.h.in
+	@$(MAKE) $(MFLAGS) -C src reconfig
 
 configure: configure.in aclocal.m4
 	$(AUTOCONF)
@@ -155,13 +158,13 @@ certs:
 #
 ######################################################################
 freeradius-server-$(RADIUSD_VERSION).tar.gz: .git
-	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ stable | gzip > $@
+	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ v2.1.x | gzip > $@
 
 freeradius-server-$(RADIUSD_VERSION).tar.gz.sig: freeradius-server-$(RADIUSD_VERSION).tar.gz
 	gpg --default-key aland@freeradius.org -b $<
 
 freeradius-server-$(RADIUSD_VERSION).tar.bz2: .git
-	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ stable | bzip2 > $@
+	git archive --format=tar --prefix=freeradius-server-$(RADIUSD_VERSION)/ v2.1.x | bzip2 > $@
 
 freeradius-server-$(RADIUSD_VERSION).tar.bz2.sig: freeradius-server-$(RADIUSD_VERSION).tar.bz2
 	gpg --default-key aland@freeradius.org -b $<
@@ -170,14 +173,18 @@ freeradius-server-$(RADIUSD_VERSION).tar.bz2.sig: freeradius-server-$(RADIUSD_VE
 .PHONY: dist-check
 dist-check: redhat/freeradius.spec suse/freeradius.spec debian/changelog
 	@if [ `grep ^Version: redhat/freeradius.spec | sed 's/.*://;s/ //'` != "$(RADIUSD_VERSION)" ]; then \
+		cat redhat/freeradius.spec | sed 's/^Version: .*/Version: $(RADIUSD_VERSION)/' > redhat/.foo; \
+		mv redhat/.foo redhat/freeradius.spec; \
 		echo redhat/freeradius.spec 'Version' needs to be updated; \
 		exit 1; \
 	fi
 	@if [ `grep ^Version: suse/freeradius.spec | sed 's/.*://;s/ //'` != "$(RADIUSD_VERSION)" ]; then \
+		cat suse/freeradius.spec | sed 's/^Version: .*/Version: $(RADIUSD_VERSION)/' > suse/.foo; \
+		mv suse/.foo suse/freeradius.spec; \
 		echo suse/freeradius.spec 'Version' needs to be updated; \
 		exit 1; \
 	fi
-	@if [ `head -n 1 debian/changelog | sed 's/.*(//;s/-0).*//;s/-1).*//;'`  != "$(RADIUSD_VERSION)" ]; then \
+	@if [ `head -n 1 debian/changelog | sed 's/.*(//;s/\+.*).*//;s/-1).*//;'`  != "$(RADIUSD_VERSION)" ]; then \
 		echo debian/changelog needs to be updated; \
 		exit 1; \
 	fi

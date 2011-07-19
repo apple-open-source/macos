@@ -28,7 +28,7 @@
 # See the files in examples/chroot-setup for setting up Postfix chroot
 # environments on different UNIX systems.
 #
-queue_directory = /var/spool/postfix
+queue_directory = /Library/Server/Mail/Data/spool
 
 # The command_directory parameter specifies the location of all
 # postXXX commands.
@@ -40,6 +40,12 @@ command_directory = /usr/sbin
 # directory must be owned by root.
 #
 daemon_directory = /usr/libexec/postfix
+
+# The data_directory parameter specifies the location of Postfix-writable
+# data files (caches, random numbers). This directory must be owned
+# by the mail_owner account (see below).
+#
+data_directory = /Library/Server/Mail/Data/mta
 
 # QUEUE AND PROCESS OWNERSHIP
 #
@@ -643,8 +649,8 @@ sample_directory =
 # readme_directory: The location of the Postfix README files.
 #
 readme_directory =
-
-# dovecot 1.1.1
+#======================================================================
+# dovecot
 dovecot_destination_recipient_limit = 1
 
 # default mailbox size limit set to no limit
@@ -657,3 +663,15 @@ smtpd_tls_exclude_ciphers = SSLv2, aNULL, ADH, eNULL
 # Protect SSL/TLS encryption keys
 tls_random_source = dev:/dev/urandom
 
+# (APPLE) Credentials for using URLAUTH with IMAP servers.
+imap_submit_cred_file = /etc/postfix/submit.cred
+
+# (APPLE) The SACL cache caches the results of Mail Service ACL lookups.
+# Tune these to make the cache more responsive to changes in the SACL.
+# The cache is only in memory, so bouncing the sacl-cache service clears it.
+use_sacl_cache = yes
+# sacl_cache_positive_expire_time = 7d
+# sacl_cache_negative_expire_time = 1d
+# sacl_cache_disabled_expire_time = 1m
+
+#======================================================================

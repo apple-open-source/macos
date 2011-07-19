@@ -1,0 +1,173 @@
+#!/bin/sh
+
+if test "X${INSTALL_ROOT}" = X ; then
+    launchctl unload /System/Library/LaunchAgents/com.apple.Kerberos.renew.plist
+    launchctl unload /System/Library/LaunchAgents/edu.mit.Kerberos.CCacheServer.plist
+    launchctl unload /System/Library/LaunchAgents/edu.mit.Kerberos.KerberosAgent.plist
+    launchctl unload /System/Library/LaunchDaemons/edu.mit.Kerberos.kadmind.plist
+    launchctl unload /System/Library/LaunchDaemons/edu.mit.Kerberos.krb5kdc.plist
+    killall CCacheServer krb5kdc kadmind
+fi
+
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/CredentialsCache.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/CredentialsCache2.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/Kerberos.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/KerberosLogin.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/com_err.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/gssapi.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/gssapi_generic.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/gssapi_krb5.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/krb5.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/locate_plugin.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/preauth_plugin.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Headers/profile.h
+#rm -f /System/Library/Frameworks/Kerberos.framework/Versions/A/Kerberos
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/KerberosDebug.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/KerberosLoginPrivate.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/authdata_plugin.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_ccache.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_credential.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_errors.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_identity.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_library.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_options.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_preferences.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_selection_hints.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_string.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_types.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/kim_ui_plugin.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/krb5-ipc.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/PrivateHeaders/pkinit_cert_store.h
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Resources/English.lproj/Localizable.strings
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Resources/English.lproj/locversion.plist
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Resources/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/Resources/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/Frameworks/Kerberos.framework/Versions/A/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/GSSRPC.framework/Versions/A/GSSRPC
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/GSSRPC.framework/Versions/A/Resources/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/GSSRPC.framework/Versions/A/Resources/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/GSSRPC.framework/Versions/A/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminClient.framework/Versions/A/KAdminClient
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminClient.framework/Versions/A/Resources/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminClient.framework/Versions/A/Resources/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminClient.framework/Versions/A/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminServer.framework/Versions/A/KAdminServer
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminServer.framework/Versions/A/Resources/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminServer.framework/Versions/A/Resources/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KAdminServer.framework/Versions/A/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KDB5.framework/Versions/A/KDB5
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KDB5.framework/Versions/A/Resources/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KDB5.framework/Versions/A/Resources/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/PrivateFrameworks/KDB5.framework/Versions/A/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/usr/include/com_err.h
+rm -f ${INSTALL_ROOT}/usr/include/gssapi/gssapi.h
+rm -f ${INSTALL_ROOT}/usr/include/gssapi/gssapi_generic.h
+rm -f ${INSTALL_ROOT}/usr/include/gssapi/gssapi_krb5.h
+rm -f ${INSTALL_ROOT}/usr/include/gssapi.h
+rm -f ${INSTALL_ROOT}/usr/include/krb5/krb5.h
+rm -f ${INSTALL_ROOT}/usr/include/krb5/locate_plugin.h
+rm -f ${INSTALL_ROOT}/usr/include/krb5/preauth_plugin.h
+rm -f ${INSTALL_ROOT}/usr/include/krb5.h
+rm -f ${INSTALL_ROOT}/usr/include/profile.h
+rm -f ${INSTALL_ROOT}/usr/local/OpenSourceLicenses/Kerberos.html
+rm -f ${INSTALL_ROOT}/usr/local/OpenSourceVersions/Kerberos.plist
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/CCacheServer.app/Contents/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/CCacheServer.app/Contents/MacOS/CCacheServer
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/CCacheServer.app/Contents/PkgInfo
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/CCacheServer.app/Contents/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/CCacheServer.app/Contents/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/MacOS/KerberosAgent
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/PkgInfo
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/Add.tiff
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/Add_Pressed.tiff
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/Authentication.nib/designable.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/Authentication.nib/keyedobjects.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/AuthenticationController.strings
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/MainMenu.nib/designable.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/MainMenu.nib/keyedobjects.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/SelectIdentity.nib/designable.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/SelectIdentity.nib/keyedobjects.nib
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/SelectIdentity.strings
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/English.lproj/locversion.plist
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/Gear.tiff
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/KerberosAgent.icns
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/KerberosFormatters.strings
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/Remove.tiff
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/Resources/Remove_Pressed.tiff
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/CoreServices/KerberosAgent.app/Contents/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle/Contents/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle/Contents/MacOS/db2
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle/Contents/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/db2.bundle/Contents/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/kldap.bundle/Contents/Info.plist
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/kldap.bundle/Contents/MacOS/kldap
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/kldap.bundle/Contents/_CodeSignature/CodeResources
+rm -f ${INSTALL_ROOT}/System/Library/KerberosPlugins/KerberosDatabasePlugins/kldap.bundle/Contents/version.plist
+rm -f ${INSTALL_ROOT}/System/Library/LaunchAgents/com.apple.Kerberos.renew.plist
+rm -f ${INSTALL_ROOT}/System/Library/LaunchAgents/edu.mit.Kerberos.CCacheServer.plist
+rm -f ${INSTALL_ROOT}/System/Library/LaunchAgents/edu.mit.Kerberos.KerberosAgent.plist
+rm -f ${INSTALL_ROOT}/System/Library/LaunchDaemons/edu.mit.Kerberos.kadmind.plist
+rm -f ${INSTALL_ROOT}/System/Library/LaunchDaemons/edu.mit.Kerberos.krb5kdc.plist
+rm -f ${INSTALL_ROOT}/private/etc/newsyslog.d/kerberos.conf
+rm -f ${INSTALL_ROOT}/usr/bin/compile_et
+rm -f ${INSTALL_ROOT}/usr/bin/kdestroy
+rm -f ${INSTALL_ROOT}/usr/bin/kinit
+rm -f ${INSTALL_ROOT}/usr/bin/klist
+rm -f ${INSTALL_ROOT}/usr/bin/kpasswd
+rm -f ${INSTALL_ROOT}/usr/bin/krb5-config
+rm -f ${INSTALL_ROOT}/usr/bin/kswitch
+rm -f ${INSTALL_ROOT}/usr/bin/kvno
+rm -f ${INSTALL_ROOT}/usr/sbin/kadmin
+rm -f ${INSTALL_ROOT}/usr/sbin/kadmin.local
+rm -f ${INSTALL_ROOT}/usr/sbin/kadmind
+rm -f ${INSTALL_ROOT}/usr/sbin/kdb5_ldap_util
+rm -f ${INSTALL_ROOT}/usr/sbin/kdb5_util
+rm -f ${INSTALL_ROOT}/usr/sbin/kprop
+rm -f ${INSTALL_ROOT}/usr/sbin/kpropd
+rm -f ${INSTALL_ROOT}/usr/sbin/kproplog
+rm -f ${INSTALL_ROOT}/usr/sbin/krb5kdc
+rm -f ${INSTALL_ROOT}/usr/sbin/ktutil
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/compile_et.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kdestroy.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kerberos.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kinit.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/klist.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kpasswd.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/krb5-config.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kswitch.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man1/kvno.1
+rm -f ${INSTALL_ROOT}/usr/share/man/man5/kdc.conf.5
+rm -f ${INSTALL_ROOT}/usr/share/man/man5/krb5.conf.5
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kadmin.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kadmin.local.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kadmind.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kdb5_ldap_util.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kdb5_util.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kprop.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kpropd.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/kproplog.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/krb5kdc.8
+rm -f ${INSTALL_ROOT}/usr/share/man/man8/ktutil.8
+rm -f ${INSTALL_ROOT}/usr/share/sandbox/kadmind.sb
+rm -f ${INSTALL_ROOT}/usr/share/sandbox/krb5kdc.sb
+rm -f ${INSTALL_ROOT}/usr/lib/libcom_err.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libdes425.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libgssapi_krb5.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libk5crypto.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libkrb4.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libkrb5.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libkrb524.dylib
+rm -f ${INSTALL_ROOT}/usr/lib/libkrb5support.dylib
+
+ditto ${INSTALL_ROOT}/usr/local/libexec/heimdal/new-world ${INSTALL_ROOT}/
+
+if test "X${INSTALL_ROOT}" = X ; then
+    launchctl load /System/Library/LaunchDaemons/com.apple.Kerberos.kcm.plist
+    killall AppleConnectAgent
+    killall CCacheServer
+fi
+
+exit 0

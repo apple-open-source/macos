@@ -1,0 +1,31 @@
+X color name database
+
+This package includes both the list mapping X color names to RGB values
+(rgb.txt) and, if configured to use a database for color lookup, the 
+rgb program to convert the text file into the binary database format.
+
+The "others" subdirectory contains some alternate color databases.
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/rgb
+
+        http://cgit.freedesktop.org/xorg/app/rgb
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

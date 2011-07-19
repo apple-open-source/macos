@@ -1,6 +1,6 @@
 ﻿# ***************************************************************************
 # *
-# *  Copyright (C) 2004-2008, International Business Machines
+# *  Copyright (C) 2004-2010, International Business Machines
 # *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
 # *
 # ***************************************************************************
@@ -8,4 +8,4 @@
 # Generated from CLDR 
 #
 $thai = [[:thai:] ก-\u0E3Aเ-๛] ;
-$thai { ' ' } $thai > '; ' ;
+$thai { ' ' } $thai → '; ' ;

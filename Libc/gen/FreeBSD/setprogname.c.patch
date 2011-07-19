@@ -1,6 +1,6 @@
---- setprogname.c.orig	2008-01-31 02:47:06.000000000 -0800
-+++ setprogname.c	2008-01-31 03:07:50.000000000 -0800
-@@ -3,6 +3,10 @@
+--- setprogname.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ setprogname.c	2009-11-07 14:51:39.000000000 -0800
+@@ -3,6 +3,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/set
  
  #include <stdlib.h>
  #include <string.h>
@@ -11,7 +11,7 @@
  
  #include "libc_private.h"
  
-@@ -10,10 +14,20 @@
+@@ -10,10 +14,20 @@ void
  setprogname(const char *progname)
  {
  	const char *p;
@@ -22,7 +22,7 @@
  	p = strrchr(progname, '/');
  	if (p != NULL)
 -		__progname = p + 1;
-+		__progname = (char *)(p + 1);
++		__progname = (char *)(p = p + 1);
  	else
 -		__progname = progname;
 +		__progname = (char *)(p = progname);

@@ -77,6 +77,7 @@ enum mach_o_part_type {
     MP_EXT_STRING_TABLE,
     MP_LOC_STRING_TABLE,
     MP_CODE_SIG,
+    MP_FUNCTION_STARTS,
     MP_EMPTY_SPACE
 };
 static char *mach_o_part_type_names[] = {
@@ -101,6 +102,7 @@ static char *mach_o_part_type_names[] = {
     "MP_EXT_STRING_TABLE",
     "MP_LOC_STRING_TABLE",
     "MP_CODE_SIG",
+    "MP_FUNCTION_STARTS",
     "MP_EMPTY_SPACE"
 };
 
@@ -119,6 +121,12 @@ char *progname = NULL;
 
 /* The ofile for the Mach-O file argument to the program */
 static struct ofile ofile;
+
+/* The -arch flag if any, and its offset and size in the file */
+static struct arch_flag *arch_flag = NULL;
+uint64_t arch_offset = 0;
+uint64_t arch_size = 0;
+enum bool arch_found = FALSE;
 
 static struct nlist *sorted_symbols = NULL;
 static struct nlist_64 *sorted_symbols64 = NULL;
@@ -168,7 +176,7 @@ static int compare64(
 /*
  * pagestuff is invoked as follows:
  *
- *	% pagestuff mach-o pagenumber [pagenumber ...]
+ *	% pagestuff mach-o [-arch name] [-p] [-a] pagenumber [pagenumber ...]
  *
  * It prints out what stuff is on the page numbers listed.
  */
@@ -180,16 +188,37 @@ char *argv[])
     int i, start;
     uint32_t j, page_number;
     char *endp;
+    struct arch_flag a;
 
 	progname = argv[0];
 	if(argc < 3){
-	    fprintf(stderr, "Usage: %s mach-o pagenumber [pagenumber ...]\n",
+	    fprintf(stderr, "Usage: %s mach-o [-arch name] [-p] [-a] "
+	            "pagenumber [pagenumber ...]\n",
 		    progname);
 	    exit(EXIT_FAILURE);
 	}
 	start = 2;
 
+	if(strcmp(argv[start], "-arch") == 0){
+	    if(start + 1 == argc){
+		error("missing argument to -arch option");
+		exit(EXIT_FAILURE);
+	    }
+	    if(get_arch_from_flag(argv[start+1], &a) == 0){
+		error("unknown architecture specification flag: "
+		      "%s %s", argv[start], argv[start+1]);
+		exit(EXIT_FAILURE);
+	    }
+	    arch_flag = &a;
+	    start += 2;
+        }
+
 	create_file_parts(argv[1]);
+	if(arch_flag != NULL && arch_found == FALSE){
+	    error("file: %s does not contain architecture: %s", argv[1],
+		  arch_flag->name);
+	    exit(EXIT_FAILURE);
+	}
 	if(strcmp(argv[start], "-p") == 0){
 	    print_file_parts();
 	    start++;
@@ -200,7 +229,12 @@ char *argv[])
 	    exit(EXIT_SUCCESS);
 
 	if(strcmp(argv[start], "-a") == 0){
-	    page_number = (ofile.file_size + vm_page_size - 1) / vm_page_size;
+	    if(arch_flag == NULL)
+		page_number = (ofile.file_size + vm_page_size - 1) /
+			      vm_page_size;
+	    else
+		page_number = (arch_size + vm_page_size - 1) /
+			      vm_page_size;
 	    for(j = 0; j < page_number; j++){
 		print_parts_for_page(j);
 	    }
@@ -227,7 +261,7 @@ char *file_name)
 {
     static struct file_part *fp;
 
-	if(ofile_map(file_name, NULL, NULL, &ofile, FALSE) == FALSE)
+	if(ofile_map(file_name, arch_flag, NULL, &ofile, FALSE) == FALSE)
 	    exit(EXIT_FAILURE);
 
 	/* first create an empty space for the whole file */
@@ -253,6 +287,14 @@ char *file_name)
 			progname);
 		}
 		else if(ofile.arch_type == OFILE_Mach_O){
+		    if(arch_flag != NULL && arch_found == FALSE &&
+		       arch_flag->cputype == ofile.mh_cputype &&
+		       (arch_flag->cpusubtype & ~CPU_SUBTYPE_MASK) ==
+			(ofile.mh_cpusubtype & ~CPU_SUBTYPE_MASK)){
+			arch_offset = ofile.fat_archs[ofile.narch].offset; 
+			arch_size = ofile.fat_archs[ofile.narch].size; 
+			arch_found = TRUE;
+		    }
 		    /* make mach-o parts for this */
 		    fp = new_file_part();
 		    fp->offset = ofile.fat_archs[ofile.narch].offset;
@@ -273,6 +315,14 @@ char *file_name)
 		progname);
 	}
 	else if(ofile.file_type == OFILE_Mach_O){
+	    if(arch_flag != NULL && arch_found == FALSE &&
+	       arch_flag->cputype == ofile.mh_cputype &&
+	       (arch_flag->cpusubtype & ~CPU_SUBTYPE_MASK) ==
+		(ofile.mh_cpusubtype & ~CPU_SUBTYPE_MASK)){
+		arch_offset = 0;
+		arch_size = ofile.file_size;
+		arch_found = TRUE;
+	    }
 	    /* make mach-o parts for this */
 	    fp = new_file_part();
 	    fp->offset = 0;
@@ -380,9 +430,11 @@ void)
 	prev = NULL;
 	offset = 0;
 	for(p = file_parts; p != NULL; p = p->next){
-	    printf("%s\n", file_part_type_names[p->type]);
-	    printf("    offset = %llu\n", p->offset);
-	    printf("    size = %llu\n", p->size);
+	    if(arch_flag == NULL){
+		printf("%s\n", file_part_type_names[p->type]);
+		printf("    offset = %llu\n", p->offset);
+		printf("    size = %llu\n", p->size);
+	    }
 	    if(prev != NULL)
 		if(prev != p->prev)
 		    printf("bad prev pointer\n");
@@ -390,8 +442,10 @@ void)
 	    if(offset != p->offset)
 		    printf("bad offset\n");
 	    offset += p->size;
-	    if(p->type == FP_MACH_O)
-		print_mach_o_parts(p->mp);
+	    if(p->type == FP_MACH_O){
+		if(arch_flag == NULL || p->offset == arch_offset)
+		    print_mach_o_parts(p->mp);
+	    }
 	}
 }
 
@@ -417,7 +471,7 @@ struct file_part *fp)
     char *strings;
     struct dylib_module *modtab;
     struct dylib_module_64 *modtab64;
-    struct linkedit_data_command *split_info, *code_sig;
+    struct linkedit_data_command *split_info, *code_sig, *func_starts;
 
 	mp = new_mach_o_part();
 	mp->offset = fp->offset;
@@ -451,6 +505,7 @@ struct file_part *fp)
 	strings = NULL;
 	split_info = NULL;
 	code_sig = NULL;
+	func_starts = NULL;
 	lc = ofile.load_commands;
 	for(i = 0; i < ncmds; i++){
 	    if(st == NULL && lc->cmd == LC_SYMTAB){
@@ -468,6 +523,9 @@ struct file_part *fp)
 	    else if(code_sig == NULL && lc->cmd == LC_CODE_SIGNATURE){
 		code_sig = (struct linkedit_data_command *)lc;
 	    }
+	    else if(func_starts == NULL && lc->cmd == LC_FUNCTION_STARTS){
+		func_starts = (struct linkedit_data_command *)lc;
+	    }
 	    else if(lc->cmd == LC_SEGMENT){
 		sg = (struct segment_command *)lc;
 		s = (struct section *)
@@ -482,7 +540,9 @@ struct file_part *fp)
 			mp->s64 = NULL;
 			insert_mach_o_part(fp, mp);
 		    }
-		    if((s->flags & SECTION_TYPE) != S_ZEROFILL && s->size != 0){
+		    if((s->flags & SECTION_TYPE) != S_ZEROFILL &&
+		       (s->flags & SECTION_TYPE) != S_THREAD_LOCAL_ZEROFILL &&
+		       s->size != 0){
 			mp = new_mach_o_part();
 			mp->offset = fp->offset + s->offset;
 			mp->size = s->size;
@@ -491,7 +551,9 @@ struct file_part *fp)
 			mp->s64 = NULL;
 			insert_mach_o_part(fp, mp);
 		    }
-		    if((s->flags & SECTION_TYPE) == S_ZEROFILL && s->size != 0){
+		    if(((s->flags & SECTION_TYPE) == S_ZEROFILL ||
+			(s->flags & SECTION_TYPE) == S_THREAD_LOCAL_ZEROFILL) &&
+		       s->size != 0){
 			if(s->addr - sg->vmaddr < sg->filesize){
 			    mp = new_mach_o_part();
 			    mp->offset = fp->offset + sg->fileoff +
@@ -524,6 +586,7 @@ struct file_part *fp)
 			insert_mach_o_part(fp, mp);
 		    }
 		    if((s64->flags & SECTION_TYPE) != S_ZEROFILL &&
+		       (s64->flags & SECTION_TYPE) != S_THREAD_LOCAL_ZEROFILL &&
 		       s64->size != 0){
 			mp = new_mach_o_part();
 			mp->offset = fp->offset + s64->offset;
@@ -533,7 +596,9 @@ struct file_part *fp)
 			mp->s = NULL;
 			insert_mach_o_part(fp, mp);
 		    }
-		    if((s64->flags & SECTION_TYPE) == S_ZEROFILL && 
+		    if(((s64->flags & SECTION_TYPE) == S_ZEROFILL ||
+			(s64->flags & SECTION_TYPE) ==
+						    S_THREAD_LOCAL_ZEROFILL) && 
 		       s64->size != 0){
 			if(s64->addr - sg64->vmaddr < sg64->filesize){
 			    mp = new_mach_o_part();
@@ -832,6 +897,13 @@ struct file_part *fp)
 	    mp->type = MP_CODE_SIG;
 	    insert_mach_o_part(fp, mp);
 	}
+	if(func_starts != NULL && func_starts->datasize != 0){
+	    mp = new_mach_o_part();
+	    mp->offset = fp->offset + func_starts->dataoff;
+	    mp->size = func_starts->datasize;
+	    mp->type = MP_FUNCTION_STARTS;
+	    insert_mach_o_part(fp, mp);
+	}
 }
 
 static
@@ -924,22 +996,27 @@ struct mach_o_part *mp)
 {
     struct mach_o_part *p, *prev;
     uint32_t offset;
+    char *indent;
 
+	if(arch_flag == NULL)
+	    indent = "    ";
+	else
+	    indent = "";
 	offset = 0;
 	prev = NULL;
 	if(mp != NULL)
 	    offset = mp->offset;
 	for(p = mp; p != NULL; p = p->next){
 	    if(p->type == MP_SECTION)
-		printf("    MP_SECTION (%.16s,%.16s)\n",
+		printf("%sMP_SECTION (%.16s,%.16s)\n", indent,
 		p->s->segname, p->s->sectname);
 	    else if(p->type == MP_SECTION_64)
-		printf("    MP_SECTION_64 (%.16s,%.16s)\n",
+		printf("%sMP_SECTION_64 (%.16s,%.16s)\n", indent,
 		p->s64->segname, p->s64->sectname);
 	    else
-		printf("    %s\n", mach_o_part_type_names[p->type]);
-	    printf("\toffset = %llu\n", p->offset);
-	    printf("\tsize = %llu\n", p->size);
+		printf("%s%s\n", indent, mach_o_part_type_names[p->type]);
+	    printf("%s    offset = %llu\n", indent, p->offset - arch_offset);
+	    printf("%s    size = %llu\n", indent, p->size);
 	    if(prev != NULL)
 		if(prev != p->prev)
 		    printf("bad prev pointer\n");
@@ -960,17 +1037,31 @@ uint32_t page_number)
     struct mach_o_part *mp;
     enum bool printed;
     enum bool sections, sections64;
+    const char *arch_name;
 
 	offset = page_number * vm_page_size;
 	size = vm_page_size;
 	low_addr = 0;
 	high_addr = 0;
 
-	if(offset > ofile.file_size){
-	    printf("File has no page %u (file has only %u pages)\n",
-		   page_number, (uint32_t)((ofile.file_size + vm_page_size -1) /
-					   vm_page_size));
-	    return;
+	if(arch_flag == NULL){
+	    if(offset > ofile.file_size){
+		printf("File has no page %u (file has only %u pages)\n",
+		       page_number, (uint32_t)((ofile.file_size +
+					        vm_page_size -1) /
+					      vm_page_size));
+	        return;
+	    }
+	}
+	else{
+	    if(offset > arch_size){
+		printf("File for architecture %s has no page %u (has only %u "
+		       "pages)\n", arch_flag->name,
+		       page_number, (uint32_t)((arch_size +
+					        vm_page_size -1) /
+					      vm_page_size));
+	        return;
+	    }
 	}
 
 	/*
@@ -979,9 +1070,9 @@ uint32_t page_number)
 	 */
 	printed = FALSE;
 	for(fp = file_parts; fp != NULL; fp = fp->next){
-	    if(offset + size <= fp->offset)
+	    if(offset + size <= fp->offset - arch_offset)
 		continue;
-	    if(offset > fp->offset + fp->size)
+	    if(offset > fp->offset - arch_offset + fp->size)
 		continue;
 	    switch(fp->type){
 	    case FP_FAT_HEADERS:
@@ -993,9 +1084,9 @@ uint32_t page_number)
 		sections = FALSE;
 		sections64 = FALSE;
 		for(mp = fp->mp; mp != NULL; mp = mp->next){
-		    if(offset + size <= mp->offset)
+		    if(offset + size <= mp->offset - arch_offset)
 			continue;
-		    if(offset > mp->offset + mp->size)
+		    if(offset > mp->offset - arch_offset + mp->size)
 			continue;
 		    switch(mp->type){
 		    case MP_MACH_HEADERS:
@@ -1010,15 +1101,16 @@ uint32_t page_number)
 			       mp->s->segname, mp->s->sectname);
 			print_arch(fp);
 			printed = TRUE;
-			if(offset < mp->offset)
+			if(offset < mp->offset - arch_offset)
 			    new_low_addr = mp->s->addr;
 			else
-			    new_low_addr = mp->s->addr + offset - mp->offset;
-			if(offset + size > mp->offset + mp->size)
+			    new_low_addr = mp->s->addr + offset - mp->offset - 
+					   arch_offset;
+			if(offset + size > mp->offset - arch_offset + mp->size)
 			    new_high_addr = mp->s->addr + mp->s->size;
 			else
 			    new_high_addr = mp->s->addr +
-				(offset + size - mp->offset);
+				(offset + size - (mp->offset - arch_offset));
 			if(sections == FALSE){
 			    low_addr = new_low_addr;
 			    high_addr = new_high_addr;
@@ -1037,15 +1129,17 @@ uint32_t page_number)
 			       mp->s64->segname, mp->s64->sectname);
 			print_arch(fp);
 			printed = TRUE;
-			if(offset < mp->offset)
+			if(offset < mp->offset - arch_offset)
 			    new_low_addr = mp->s64->addr;
 			else
-			    new_low_addr = mp->s64->addr + offset - mp->offset;
-			if(offset + size > mp->offset + mp->size)
+			    new_low_addr = mp->s64->addr + offset -
+					   (mp->offset - arch_offset);
+			if(offset + size > (mp->offset - arch_offset) +
+					   mp->size)
 			    new_high_addr = mp->s64->addr + mp->s64->size;
 			else
 			    new_high_addr = mp->s64->addr +
-				(offset + size - mp->offset);
+				(offset + size - (mp->offset - arch_offset));
 			if(sections64 == FALSE){
 			    low_addr = new_low_addr;
 			    high_addr = new_high_addr;
@@ -1163,7 +1257,13 @@ uint32_t page_number)
 			printed = TRUE;
 			break;
 		    case MP_CODE_SIG:
-			printf("File Page %u contains local of code signature",
+			printf("File Page %u contains data of code signature",
+			       page_number);
+			print_arch(fp);
+			printed = TRUE;
+			break;
+		    case MP_FUNCTION_STARTS:
+			printf("File Page %u contains data of function starts",
 			       page_number);
 			print_arch(fp);
 			printed = TRUE;
@@ -1200,14 +1300,18 @@ uint32_t page_number)
 		continue;
 	    if(fp->type == FP_MACH_O){
 		for(mp = fp->mp; mp != NULL; mp = mp->next){
-		    if(offset + size <= mp->offset)
+		    if(offset + size <= mp->offset - arch_offset)
 			continue;
-		    if(offset > mp->offset + mp->size)
+		    if(offset > (mp->offset - arch_offset) + mp->size)
 			continue;
+		    if(fp->mh != NULL)
+			arch_name = get_arch_name_from_types(fp->mh->cputype,
+						    	fp->mh->cpusubtype);
+		    else
+			arch_name = get_arch_name_from_types(fp->mh64->cputype,
+						    	fp->mh64->cpusubtype);
 		    printf("File Page %u contains empty space in the Mach-O "
-			   "file for %s between:\n", page_number,
-			   get_arch_name_from_types(fp->mh->cputype,
-						    fp->mh->cpusubtype));
+			   "file for %s between:\n", page_number, arch_name);
 		    if(mp->prev == NULL)
 			printf("    the start of the Mach-O file");
 		    else{
@@ -1270,14 +1374,20 @@ void
 print_file_part(
 struct file_part *fp)
 {
+    const char *arch_name;
+
 	switch(fp->type){
 	case FP_FAT_HEADERS:
 	    printf("fat file headers");
 	    break;
 	case FP_MACH_O:
-	    printf("Mach-O file for %s",
-		   get_arch_name_from_types(fp->mh->cputype,
-					    fp->mh->cpusubtype));
+	    if(fp->mh != NULL)
+		arch_name = get_arch_name_from_types(fp->mh->cputype,
+						fp->mh->cpusubtype);
+	    else
+		arch_name = get_arch_name_from_types(fp->mh64->cputype,
+						fp->mh64->cpusubtype);
+	    printf("Mach-O file for %s", arch_name);
 	    break;
 	case FP_EMPTY_SPACE:
 	    printf("empty space");
@@ -1356,7 +1466,10 @@ struct mach_o_part *mp)
 	    printf("string table for local symbols");
 	    break;
 	case MP_CODE_SIG:
-	    printf("local of code signature");
+	    printf("data of code signature");
+	    break;
+	case MP_FUNCTION_STARTS:
+	    printf("data of function starts");
 	    break;
 	case MP_EMPTY_SPACE:
 	    printf("empty space");

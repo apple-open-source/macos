@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<RunContext>
+   <PathRunnable FilePath="/Developer/Applications/Xcode.app"/>
+   <RunPhases>
+      <BuildRunPhase
+         isEnabled = "Yes"
+         name = "Build"
+         buildConfiguration = "Debug">
+         <BuildableOutputReferences>
+           <BuildableOutputReference
+              BuildableOutputIdentifier = "libauto.dylib">
+           </BuildableOutputReference>
+          </BuildableOutputReferences>
+      </BuildRunPhase>
+      <ActionRunPhase
+         isEnabled = "Yes"
+         name = "Pre-Launch">
+         <Actions>
+         </Actions>
+      </ActionRunPhase>
+      <LaunchRunPhase
+         isEnabled = "Yes"
+         name = "Launch">
+         <CommandLineArguments>
+         </CommandLineArguments>
+         <EnvironmentVariables>
+            <EnvironmentVariable
+               key = "DYLD_FRAMEWORK_PATH"
+               value = ""
+               isEnabled = "NO">
+            </EnvironmentVariable>
+            <EnvironmentVariable
+               key = "DYLD_LIBRARY_PATH"
+               value = "/var/tmp/auto.build:/var/tmp/objc.build"
+               isEnabled = "YES">
+            </EnvironmentVariable>
+         </EnvironmentVariables>
+      </LaunchRunPhase>
+      <ActionRunPhase
+         isEnabled = "Yes"
+         name = "Quit">
+         <Actions>
+         </Actions>
+      </ActionRunPhase>
+   </RunPhases>
+</RunContext>

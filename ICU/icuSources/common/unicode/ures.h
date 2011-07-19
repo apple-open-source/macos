@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 1997-2007, International Business Machines
+*   Copyright (C) 1997-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *
@@ -25,6 +25,7 @@
 
 #include "unicode/utypes.h"
 #include "unicode/uloc.h"
+#include "unicode/localpointer.h"
 
 /**
  * \file
@@ -81,18 +82,6 @@ typedef enum {
      * @stable ICU 2.6
      */
     URES_ALIAS=3,
-
-#ifndef U_HIDE_INTERNAL_API
-
-    /**
-     * Internal use only.
-     * Alternative resource type constant for tables of key-value pairs.
-     * Never returned by ures_getType().
-     * @internal
-     */
-    URES_TABLE32=4,
-
-#endif /* U_HIDE_INTERNAL_API */
 
     /**
      * Resource type constant for a single 28-bit integer, interpreted as
@@ -249,6 +238,25 @@ ures_countArrayItems(const UResourceBundle* resourceBundle,
  */
 U_STABLE void U_EXPORT2 
 ures_close(UResourceBundle* resourceBundle);
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUResourceBundlePointer
+ * "Smart pointer" class, closes a UResourceBundle via ures_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUResourceBundlePointer, UResourceBundle, ures_close);
+
+U_NAMESPACE_END
+
+#endif
 
 /**
  * Return the version number associated with this ResourceBundle as a string. Please
@@ -418,7 +426,7 @@ ures_getUTF8String(const UResourceBundle *resB,
  *                Always check the value of status. Don't count on returning NULL.
  *                could be a non-failing error 
  *                e.g.: <TT>U_USING_FALLBACK_WARNING</TT>,<TT>U_USING_DEFAULT_WARNING </TT>
- * @return a pointer to a chuck of unsigned bytes which live in a memory mapped/DLL file.
+ * @return a pointer to a chunk of unsigned bytes which live in a memory mapped/DLL file.
  * @see ures_getString
  * @see ures_getIntVector
  * @see ures_getInt
@@ -440,7 +448,7 @@ ures_getBinary(const UResourceBundle* resourceBundle,
  *                Always check the value of status. Don't count on returning NULL.
  *                could be a non-failing error 
  *                e.g.: <TT>U_USING_FALLBACK_WARNING</TT>,<TT>U_USING_DEFAULT_WARNING </TT>
- * @return a pointer to a chunk of unsigned bytes which live in a memory mapped/DLL file.
+ * @return a pointer to a chunk of integers which live in a memory mapped/DLL file.
  * @see ures_getBinary
  * @see ures_getString
  * @see ures_getInt
@@ -641,7 +649,7 @@ ures_getStringByIndex(const UResourceBundle *resourceBundle,
  * the output UTF-8 string is always well-formed.
  *
  * @param resB Resource bundle.
- * @param index An index to the wanted string.
+ * @param stringIndex An index to the wanted string.
  * @param dest Destination buffer. Can be NULL only if capacity=*length==0.
  * @param pLength Input: Capacity of destination buffer.
  *               Output: Actual length of the UTF-8 string, not counting the
@@ -670,7 +678,7 @@ ures_getStringByIndex(const UResourceBundle *resourceBundle,
  */
 U_STABLE const char * U_EXPORT2
 ures_getUTF8StringByIndex(const UResourceBundle *resB,
-                          int32_t index,
+                          int32_t stringIndex,
                           char *dest, int32_t *pLength,
                           UBool forceCopy,
                           UErrorCode *status);
@@ -768,7 +776,7 @@ ures_getUTF8StringByKey(const UResourceBundle *resB,
                         UBool forceCopy,
                         UErrorCode *status);
 
-#ifdef XP_CPLUSPLUS
+#if U_SHOW_CPLUSPLUS_API
 #include "unicode/unistr.h"
 
 U_NAMESPACE_BEGIN

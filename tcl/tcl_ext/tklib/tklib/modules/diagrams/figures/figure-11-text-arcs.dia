@@ -1,0 +1,7 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+arc 10 radius [1 cm]
+move right from [last arc s] ; move
+arc 20 radius [2 cm]
+move right from [last arc s] ; move
+arc 30 radius [3 cm]

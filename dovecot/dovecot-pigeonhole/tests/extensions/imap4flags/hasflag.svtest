@@ -1,0 +1,91 @@
+require "vnd.dovecot.testsuite";
+
+require "imap4flags";
+require "relational";
+require "variables";
+require "comparator-i;ascii-numeric";
+
+/*
+ * Generic tests
+ */
+
+test "Ignoring \"\"" {
+	setflag "";
+
+	if hasflag "" {
+		test_fail "hasflag fails to ignore empty string";
+	}
+}
+
+/*
+ * Variables
+ */
+
+test "Multiple variables" {
+	setflag "A" "Aflag";
+	setflag "B" "Bflag";
+	setflag "C" "Cflag";
+
+	if not hasflag ["a", "b", "c"] ["Bflag"] {
+		test_fail "hasflag failed to match multiple flags variables";
+	}
+}
+
+/*
+ * RFC examples
+ */ 
+
+test "RFC hasflag example - :is" {
+	setflag "A B";
+
+	if not hasflag ["b","A"] {
+		test_fail "list representation did not match";
+	}
+ 
+	if not hasflag :is "b A" {
+		test_fail "string representation did not match";
+	}
+}
+
+test "RFC hasflag example - :contains variable" {
+	set "MyVar" "NonJunk Junk gnus-forward $Forwarded NotJunk JunkRecorded $Junk $NotJunk";
+
+	if not hasflag :contains "MyVar" "Junk" {
+		test_fail "failed true example 1";
+	}
+
+	if not hasflag :contains "MyVar" "forward" {
+		test_fail "failed true example 2";
+	}
+      
+	if not hasflag :contains "MyVar" ["label", "forward"] {
+		test_fail "failed true example 3";
+	}
+     
+	if not hasflag :contains "MyVar" ["junk", "forward"] {
+		test_fail "failed true example 4";
+	}
+
+	if not hasflag :contains "MyVar" "junk forward" {
+		test_fail "failed true example 4 (rewrite 1)";
+	}
+
+	if not hasflag :contains "MyVar" "forward junk" {
+		test_fail "failed true example 4 (rewrite 2)";
+	}
+
+	if hasflag :contains "MyVar" "label" {
+		test_fail "failed false example 1";
+	}
+
+	if hasflag :contains "MyVar" ["label1", "label2"] {
+		test_fail "failed false example 2";
+	}
+}
+
+test "RFC hasflag example - :count variable" {
+	set "MyFlags" "A B";
+	if not hasflag :count "ge" :comparator "i;ascii-numeric" "MyFlags" "2" {
+		test_fail "failed count \"ge\" comparison";
+	}
+}

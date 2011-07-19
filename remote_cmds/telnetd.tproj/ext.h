@@ -76,7 +76,7 @@ extern char	*neturg;		/* one past last bye of urgent data */
 
 extern int	pcc, ncc;
 
-extern int	pty, net;
+extern int	mpty, spty, net;
 extern char	line[16];
 extern int	SYNCHing;		/* we are in TELNET SYNCH mode */
 
@@ -141,7 +141,7 @@ extern int
 	end_slc(unsigned char **),
 	getnpty(void),
 #ifndef convex
-	getpty(int *),
+	getpty(int *, int *),
 #endif
 	login_tty(int),
 	spcset(int, cc_t *, cc_t **),

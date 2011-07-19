@@ -1,10 +1,11 @@
 /*
  * Copyright (c) 2008, 2009, Google Inc. All rights reserved.
- * 
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
+ *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
  * met:
- * 
+ *
  *     * Redistributions of source code must retain the above copyright
  * notice, this list of conditions and the following disclaimer.
  *     * Redistributions in binary form must reproduce the above
@@ -14,7 +15,7 @@
  *     * Neither the name of Google Inc. nor the names of its
  * contributors may be used to endorse or promote products derived from
  * this software without specific prior written permission.
- * 
+ *
  * THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS
  * "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT
  * LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR
@@ -31,7 +32,6 @@
 #include "config.h"
 #include "PopupMenuChromium.h"
 
-#include "CharacterNames.h"
 #include "Chrome.h"
 #include "ChromeClientChromium.h"
 #include "Font.h"
@@ -48,13 +48,15 @@
 #include "PlatformMouseEvent.h"
 #include "PlatformScreen.h"
 #include "PlatformWheelEvent.h"
-#include "PopupMenu.h"
+#include "PopupMenuClient.h"
 #include "RenderTheme.h"
 #include "ScrollbarTheme.h"
 #include "StringTruncator.h"
 #include "SystemTime.h"
-
+#include "TextRun.h"
+#include "UserGestureIndicator.h"
 #include <wtf/CurrentTime.h>
+#include <wtf/unicode/CharacterNames.h>
 
 using namespace WTF;
 using namespace Unicode;
@@ -69,17 +71,19 @@ typedef unsigned long long TimeStamp;
 static const int kMaxVisibleRows = 20;
 static const int kMaxHeight = 500;
 static const int kBorderSize = 1;
+static const int kTextToLabelPadding = 10;
+static const int kLabelToIconPadding = 5;
+static const int kMinEndOfLinePadding = 2;
 static const TimeStamp kTypeAheadTimeoutMs = 1000;
+static const int kLinePaddingHeight = 3; // Padding height put at the top and bottom of each line.
 
 // The settings used for the drop down menu.
 // This is the delegate used if none is provided.
 static const PopupContainerSettings dropDownSettings = {
-    true,   // setTextOnIndexChange
-    true,   // acceptOnAbandon
-    false,  // loopSelectionNavigation
-    false,  // restrictWidthOfListBox
-    // display item text in its first strong directional character's directionality.
-    PopupContainerSettings::FirstStrongDirectionalCharacterDirection,
+    true, // setTextOnIndexChange
+    true, // acceptOnAbandon
+    false, // loopSelectionNavigation
+    false // restrictWidthOfListBox
 };
 
 // This class uses WebCore code to paint and handle events for a drop-down list
@@ -110,7 +114,7 @@ public:
     // Updates our internal list to match the client.
     void updateFromElement();
 
-    // Frees any allocated resources used in a particular popup session. 
+    // Frees any allocated resources used in a particular popup session.
     void clear();
 
     // Sets the index of the option that is displayed in the <select> widget in the page
@@ -191,10 +195,10 @@ private:
     void scrollToRevealRow(int index);
     void scrollToRevealSelection() { scrollToRevealRow(m_selectedIndex); }
 
-    // Invalidates the row at the given index. 
+    // Invalidates the row at the given index.
     void invalidateRow(int index);
 
-    // Get the bounds of a row. 
+    // Get the bounds of a row.
     IntRect getRowBounds(int index);
 
     // Converts a point to an index of the row the point is over
@@ -221,11 +225,11 @@ private:
     PopupContainerSettings m_settings;
 
     // This is the index of the item marked as "selected" - i.e. displayed in the widget on the
-    // page. 
+    // page.
     int m_originalIndex;
 
-    // This is the index of the item that the user is hovered over or has selected using the 
-    // keyboard in the list. They have not confirmed this selection by clicking or pressing 
+    // This is the index of the item that the user is hovered over or has selected using the
+    // keyboard in the list. They have not confirmed this selection by clicking or pressing
     // enter yet however.
     int m_selectedIndex;
 
@@ -237,7 +241,7 @@ private:
 
     // This is the number of rows visible in the popup. The maximum number visible at a time is
     // defined as being kMaxVisibleRows. For a scrolled popup, this can be thought of as the
-    // page size in data units. 
+    // page size in data units.
     int m_visibleRows;
 
     // Our suggested width, not including scrollbar.
@@ -325,49 +329,79 @@ PopupContainer::~PopupContainer()
         removeChild(m_listBox.get());
 }
 
-void PopupContainer::showPopup(FrameView* view)
+IntRect PopupContainer::layoutAndCalculateWidgetRect(int targetControlHeight, const IntPoint& popupInitialCoordinate)
 {
-    // Pre-layout, our size matches the <select> dropdown control.
-    int selectHeight = frameRect().height();
-
     // Reset the max height to its default value, it will be recomputed below
     // if necessary.
     m_listBox->setMaxHeight(kMaxHeight);
 
     // Lay everything out to figure out our preferred size, then tell the view's
     // WidgetClient about it.  It should assign us a client.
-    layout();
+    int rightOffset = layoutAndGetRightOffset();
 
-    m_frameView = view;
+    // Assume m_listBox size is already calculated.
+    IntSize targetSize(m_listBox->width() + kBorderSize * 2,
+                       m_listBox->height() + kBorderSize * 2);
+
+    IntRect widgetRect;
     ChromeClientChromium* chromeClient = chromeClientChromium();
     if (chromeClient) {
         // If the popup would extend past the bottom of the screen, open upwards
         // instead.
-        FloatRect screen = screenAvailableRect(view);
-        IntRect widgetRect = chromeClient->windowToScreen(frameRect());
+        FloatRect screen = screenAvailableRect(m_frameView.get());
+        // Use popupInitialCoordinate.x() + rightOffset because RTL position
+        // needs to be considered.
+        widgetRect = chromeClient->windowToScreen(IntRect(popupInitialCoordinate.x() + rightOffset, popupInitialCoordinate.y(), targetSize.width(), targetSize.height()));
 
-        if (widgetRect.bottom() > static_cast<int>(screen.bottom())) {
-            if (widgetRect.y() - widgetRect.height() - selectHeight > 0) {
+        // If we have multiple screens and the browser rect is in one screen, we have
+        // to clip the window width to the screen width.
+        FloatRect windowRect = chromeClient->windowRect();
+        if (windowRect.x() >= screen.x() && windowRect.maxX() <= screen.maxX()) {
+            if (m_listBox->m_popupClient->menuStyle().textDirection() == RTL && widgetRect.x() < screen.x()) {
+                widgetRect.setWidth(widgetRect.maxX() - screen.x());
+                widgetRect.setX(screen.x());
+            } else if (widgetRect.maxX() > screen.maxX())
+                widgetRect.setWidth(screen.maxX() - widgetRect.x());
+        }
+
+        // Calculate Y axis size.
+        if (widgetRect.maxY() > static_cast<int>(screen.maxY())) {
+            if (widgetRect.y() - widgetRect.height() - targetControlHeight > 0) {
                 // There is enough room to open upwards.
-                widgetRect.move(0, -(widgetRect.height() + selectHeight));
+                widgetRect.move(0, -(widgetRect.height() + targetControlHeight));
             } else {
                 // Figure whether upwards or downwards has more room and set the
                 // maximum number of items.
-                int spaceAbove = widgetRect.y() - selectHeight;
-                int spaceBelow = screen.bottom() - widgetRect.y();
+                int spaceAbove = widgetRect.y() - targetControlHeight;
+                int spaceBelow = screen.maxY() - widgetRect.y();
                 if (spaceAbove > spaceBelow)
                     m_listBox->setMaxHeight(spaceAbove);
                 else
                     m_listBox->setMaxHeight(spaceBelow);
-                layout();
-                // Our size has changed, recompute the widgetRect.
-                widgetRect = chromeClient->windowToScreen(frameRect());
+                layoutAndGetRightOffset();
+                // Our height has changed, so recompute only Y axis of widgetRect.
+                // We don't have to recompute X axis, so we only replace Y axis
+                // in widgetRect.
+                IntRect frameInScreen = chromeClient->windowToScreen(frameRect());
+                widgetRect.setY(frameInScreen.y());
+                widgetRect.setHeight(frameInScreen.height());
                 // And move upwards if necessary.
                 if (spaceAbove > spaceBelow)
-                    widgetRect.move(0, -(widgetRect.height() + selectHeight));
+                    widgetRect.move(0, -(widgetRect.height() + targetControlHeight));
             }
         }
-        chromeClient->popupOpened(this, widgetRect, false);
+    }
+    return widgetRect;
+}
+
+void PopupContainer::showPopup(FrameView* view)
+{
+    m_frameView = view;
+
+    ChromeClientChromium* chromeClient = chromeClientChromium();
+    if (chromeClient) {
+        IntRect popupRect = frameRect();
+        chromeClient->popupOpened(this, layoutAndCalculateWidgetRect(popupRect.height(), popupRect.location()), false);
         m_popupOpen = true;
     }
 
@@ -383,34 +417,6 @@ void PopupContainer::showPopup(FrameView* view)
     invalidate();
 }
 
-void PopupContainer::showExternal(const IntRect& rect, FrameView* v, int index)
-{
-    if (!listBox())
-        return;
-
-    listBox()->setBaseWidth(rect.width());
-    listBox()->updateFromElement();
-
-    if (listBox()->numItems() < 1) {
-        hidePopup();
-        return;
-    }
-
-    // Adjust the popup position to account for scrolling.
-    IntPoint location = v->contentsToWindow(rect.location());
-    IntRect popupRect(location, rect.size());
-
-    // Get the ChromeClient and pass it the popup menu's listbox data.
-    m_frameView = v;
-    chromeClientChromium()->popupOpened(this, popupRect, true);
-
-    // The popup sends its "closed" notification through its parent. Set the
-    // parent, even though external popups have no real on-screen widget but a
-    // native menu (see |PopupListBox::hidePopup()|);
-    if (!m_listBox->parent())
-        addChild(m_listBox.get());
-}
-
 void PopupContainer::hidePopup()
 {
     listBox()->hidePopup();
@@ -424,7 +430,7 @@ void PopupContainer::notifyPopupHidden()
     chromeClientChromium()->popupClosed(this);
 }
 
-void PopupContainer::layout()
+int PopupContainer::layoutAndGetRightOffset()
 {
     m_listBox->layout();
 
@@ -441,40 +447,48 @@ void PopupContainer::layout()
     // of dropdown box should be aligned with the right edge of <select> element box,
     // and the dropdown box should be expanded to left if more space needed.
     PopupMenuClient* popupClient = m_listBox->m_popupClient;
+    int rightOffset = 0;
     if (popupClient) {
         bool rightAligned = m_listBox->m_popupClient->menuStyle().textDirection() == RTL;
         if (rightAligned)
-            move(x() + popupWidth - listBoxWidth, y());
+            rightOffset = popupWidth - listBoxWidth;
     }
     invalidate();
+
+    return rightOffset;
 }
 
 bool PopupContainer::handleMouseDownEvent(const PlatformMouseEvent& event)
 {
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
     return m_listBox->handleMouseDownEvent(
         constructRelativeMouseEvent(event, this, m_listBox.get()));
 }
 
 bool PopupContainer::handleMouseMoveEvent(const PlatformMouseEvent& event)
 {
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
     return m_listBox->handleMouseMoveEvent(
         constructRelativeMouseEvent(event, this, m_listBox.get()));
 }
 
 bool PopupContainer::handleMouseReleaseEvent(const PlatformMouseEvent& event)
 {
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
     return m_listBox->handleMouseReleaseEvent(
         constructRelativeMouseEvent(event, this, m_listBox.get()));
 }
 
 bool PopupContainer::handleWheelEvent(const PlatformWheelEvent& event)
 {
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
     return m_listBox->handleWheelEvent(
         constructRelativeWheelEvent(event, this, m_listBox.get()));
 }
 
 bool PopupContainer::handleKeyEvent(const PlatformKeyboardEvent& event)
 {
+    UserGestureIndicator gestureIndicator(DefinitelyProcessingUserGesture);
     return m_listBox->handleKeyEvent(event);
 }
 
@@ -505,7 +519,7 @@ void PopupContainer::paintBorder(GraphicsContext* gc, const IntRect& rect)
     Color borderColor(127, 157, 185);
 
     gc->setStrokeStyle(NoStroke);
-    gc->setFillColor(borderColor, DeviceColorSpace);
+    gc->setFillColor(borderColor, ColorSpaceDeviceRGB);
 
     int tx = x();
     int ty = y();
@@ -527,10 +541,10 @@ ChromeClientChromium* PopupContainer::chromeClientChromium()
     return static_cast<ChromeClientChromium*>(m_frameView->frame()->page()->chrome()->client());
 }
 
-void PopupContainer::show(const IntRect& r, FrameView* v, int index)
+void PopupContainer::showInRect(const IntRect& r, FrameView* v, int index)
 {
     // The rect is the size of the select box. It's usually larger than we need.
-    // subtract border size so that usually the container will be displayed 
+    // subtract border size so that usually the container will be displayed
     // exactly the same width as the select box.
     listBox()->setBaseWidth(max(r.width() - kBorderSize * 2, 0));
 
@@ -547,15 +561,24 @@ void PopupContainer::show(const IntRect& r, FrameView* v, int index)
     // Move it below the select widget.
     location.move(0, r.height());
 
-    IntRect popupRect(location, r.size());
-    setFrameRect(popupRect);
+    setFrameRect(IntRect(location, r.size()));
     showPopup(v);
 }
 
-void PopupContainer::refresh()
+void PopupContainer::refresh(const IntRect& targetControlRect)
 {
+    IntPoint location = m_frameView->contentsToWindow(targetControlRect.location());
+    // Move it below the select widget.
+    location.move(0, targetControlRect.height());
+
     listBox()->updateFromElement();
-    layout();
+    // Store the original size to check if we need to request the location.
+    IntSize originalSize = size();
+    IntRect widgetRect = layoutAndCalculateWidgetRect(targetControlRect.height(), location);
+    if (originalSize != widgetRect.size())
+        setFrameRect(widgetRect);
+
+    invalidate();
 }
 
 int PopupContainer::selectedIndex() const
@@ -571,6 +594,11 @@ int PopupContainer::menuItemHeight() const
 int PopupContainer::menuItemFontSize() const
 {
     return m_listBox->getRowFont(0).size();
+}
+
+PopupMenuStyle PopupContainer::menuStyle() const
+{
+    return m_listBox->m_popupClient->menuStyle();
 }
 
 const WTF::Vector<PopupItem*>& PopupContainer:: popupData() const
@@ -740,8 +768,11 @@ bool PopupListBox::handleKeyEvent(const PlatformKeyboardEvent& event)
     if (event.windowsVirtualKeyCode() == VKEY_TAB) {
         // TAB is a special case as it should select the current item if any and
         // advance focus.
-        if (m_selectedIndex >= 0)
-            m_popupClient->setTextFromItem(m_selectedIndex);
+        if (m_selectedIndex >= 0) {
+            acceptIndex(m_selectedIndex); // May delete us.
+            // Return false so the TAB key event is propagated to the page.
+            return false;
+        }
         // Call abandon() so we honor m_acceptedIndexOnAbandon if set.
         abandon();
         // Return false so the TAB key event is propagated to the page.
@@ -841,7 +872,7 @@ void PopupListBox::paint(GraphicsContext* gc, const IntRect& rect)
 
     // Special case for an empty popup.
     if (numItems() == 0)
-        gc->fillRect(r, Color::white, DeviceColorSpace);
+        gc->fillRect(r, Color::white, ColorSpaceDeviceRGB);
 
     gc->restore();
 
@@ -862,35 +893,42 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
     PopupMenuStyle style = m_popupClient->itemStyle(rowIndex);
 
     // Paint background
-    Color backColor, textColor;
+    Color backColor, textColor, labelColor;
     if (rowIndex == m_selectedIndex) {
         backColor = RenderTheme::defaultTheme()->activeListBoxSelectionBackgroundColor();
         textColor = RenderTheme::defaultTheme()->activeListBoxSelectionForegroundColor();
+        labelColor = textColor;
     } else {
         backColor = style.backgroundColor();
         textColor = style.foregroundColor();
+        // FIXME: for now the label color is hard-coded. It should be added to
+        // the PopupMenuStyle.
+        labelColor = Color(115, 115, 115);
     }
 
     // If we have a transparent background, make sure it has a color to blend
     // against.
     if (backColor.hasAlpha())
-        gc->fillRect(rowRect, Color::white, DeviceColorSpace);
+        gc->fillRect(rowRect, Color::white, ColorSpaceDeviceRGB);
 
-    gc->fillRect(rowRect, backColor, DeviceColorSpace);
-    
+    gc->fillRect(rowRect, backColor, ColorSpaceDeviceRGB);
+
+    // It doesn't look good but Autofill requires special style for separator.
+    // Autofill doesn't have padding and #dcdcdc color.
     if (m_popupClient->itemIsSeparator(rowIndex)) {
+        int padding = style.menuType() == PopupMenuStyle::AutofillPopup ? 0 : separatorPadding;
         IntRect separatorRect(
-            rowRect.x() + separatorPadding,
+            rowRect.x() + padding,
             rowRect.y() + (rowRect.height() - separatorHeight) / 2,
-            rowRect.width() - 2 * separatorPadding, separatorHeight);
-        gc->fillRect(separatorRect, textColor, DeviceColorSpace);
+            rowRect.width() - 2 * padding, separatorHeight);
+        gc->fillRect(separatorRect, style.menuType() == PopupMenuStyle::AutofillPopup ? Color(0xdc, 0xdc, 0xdc) : textColor, ColorSpaceDeviceRGB);
         return;
     }
-    
+
     if (!style.isVisible())
         return;
 
-    gc->setFillColor(textColor, DeviceColorSpace);
+    gc->setFillColor(textColor, ColorSpaceDeviceRGB);
 
     Font itemFont = getRowFont(rowIndex);
     // FIXME: http://crbug.com/19872 We should get the padding of individual option
@@ -906,30 +944,76 @@ void PopupListBox::paintRow(GraphicsContext* gc, const IntRect& rect, int rowInd
     }
     // Prepare text to be drawn.
     String itemText = m_popupClient->itemText(rowIndex);
-    if (m_settings.restrictWidthOfListBox)  // truncate string to fit in.
-        itemText = StringTruncator::rightTruncate(itemText, maxWidth, itemFont);
-    unsigned length = itemText.length();
-    const UChar* str = itemText.characters();
+    String itemLabel = m_popupClient->itemLabel(rowIndex);
+    String itemIcon = m_popupClient->itemIcon(rowIndex);
+    if (m_settings.restrictWidthOfListBox) { // Truncate strings to fit in.
+        // FIXME: We should leftTruncate for the rtl case.
+        // StringTruncator::leftTruncate would have to be implemented.
+        String str = StringTruncator::rightTruncate(itemText, maxWidth, itemFont);
+        if (str != itemText) {
+            itemText = str;
+            // Don't display the label or icon, we already don't have enough room for the item text.
+            itemLabel = "";
+            itemIcon = "";
+        } else if (!itemLabel.isEmpty()) {
+            int availableWidth = maxWidth - kTextToLabelPadding -
+                StringTruncator::width(itemText, itemFont);
+            itemLabel = StringTruncator::rightTruncate(itemLabel, availableWidth, itemFont);
+        }
+    }
+
     // Prepare the directionality to draw text.
-    bool rtl = false;
-    if (m_settings.itemTextDirectionalityHint == PopupContainerSettings::DOMElementDirection)
-        rtl = style.textDirection() == RTL;
-    else if (m_settings.itemTextDirectionalityHint ==
-             PopupContainerSettings::FirstStrongDirectionalCharacterDirection)
-        rtl = itemText.defaultWritingDirection() == WTF::Unicode::RightToLeft;
-    TextRun textRun(str, length, false, 0, 0, rtl);
+    TextRun textRun(itemText.characters(), itemText.length(), false, 0, 0, TextRun::AllowTrailingExpansion, style.textDirection(), style.hasTextDirectionOverride());
     // If the text is right-to-left, make it right-aligned by adjusting its
     // beginning position.
     if (rightAligned)
         textX += maxWidth - itemFont.width(textRun);
+
     // Draw the item text.
-    int textY = rowRect.y() + itemFont.ascent() + (rowRect.height() - itemFont.height()) / 2;
+    int textY = rowRect.y() + itemFont.fontMetrics().ascent() + (rowRect.height() - itemFont.fontMetrics().height()) / 2;
     gc->drawBidiText(itemFont, textRun, IntPoint(textX, textY));
+
+    // We are using the left padding as the right padding includes room for the scroll-bar which
+    // does not show in this case.
+    int rightPadding = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
+    int remainingWidth = rowRect.width() - rightPadding;
+
+    // Draw the icon if applicable.
+    RefPtr<Image> image(Image::loadPlatformResource(itemIcon.utf8().data()));
+    if (image && !image->isNull()) {
+        IntRect imageRect = image->rect();
+        remainingWidth -= (imageRect.width() + kLabelToIconPadding);
+        imageRect.setX(rowRect.width() - rightPadding - imageRect.width());
+        imageRect.setY(rowRect.y() + (rowRect.height() - imageRect.height()) / 2);
+        gc->drawImage(image.get(), ColorSpaceDeviceRGB, imageRect);
+    }
+
+    // Draw the the label if applicable.
+    if (itemLabel.isEmpty())
+        return;
+
+    // Autofill label is 0.9 smaller than regular font size.
+    if (style.menuType() == PopupMenuStyle::AutofillPopup) {
+        itemFont = m_popupClient->itemStyle(rowIndex).font();
+        FontDescription d = itemFont.fontDescription();
+        d.setComputedSize(d.computedSize() * 0.9);
+        itemFont = Font(d, itemFont.letterSpacing(), itemFont.wordSpacing());
+        itemFont.update(0);
+    }
+
+    TextRun labelTextRun(itemLabel.characters(), itemLabel.length(), false, 0, 0, TextRun::AllowTrailingExpansion, style.textDirection(), style.hasTextDirectionOverride());
+    if (rightAligned)
+        textX = max(0, m_popupClient->clientPaddingLeft() - m_popupClient->clientInsetLeft());
+    else
+        textX = remainingWidth - itemFont.width(labelTextRun);
+
+    gc->setFillColor(labelColor, ColorSpaceDeviceRGB);
+    gc->drawBidiText(itemFont, labelTextRun, IntPoint(textX, textY));
 }
 
 Font PopupListBox::getRowFont(int rowIndex)
 {
-    Font itemFont = m_popupClient->menuStyle().font();
+    Font itemFont = m_popupClient->itemStyle(rowIndex).font();
     if (m_popupClient->itemIsLabel(rowIndex)) {
         // Bold-ify labels (ie, an <optgroup> heading).
         FontDescription d = itemFont.fontDescription();
@@ -1007,12 +1091,16 @@ void PopupListBox::selectIndex(int index)
     if (index < 0 || index >= numItems())
         return;
 
-    if (index != m_selectedIndex && isSelectableItem(index)) {
+    bool isSelectable = isSelectableItem(index);
+    if (index != m_selectedIndex && isSelectable) {
         invalidateRow(m_selectedIndex);
         m_selectedIndex = index;
         invalidateRow(m_selectedIndex);
 
         scrollToRevealSelection();
+        m_popupClient->selectionChanged(m_selectedIndex);
+    } else if (!isSelectable) {
+        clearSelection();
     }
 }
 
@@ -1026,7 +1114,21 @@ int PopupListBox::getRowHeight(int index)
     if (index < 0)
         return 0;
 
-    return getRowFont(index).height();
+    if (m_popupClient->itemStyle(index).isDisplayNone())
+        return 0;
+
+    // Separator row height is the same size as itself.
+    if (m_popupClient->itemIsSeparator(index))
+        return separatorHeight;
+
+    String icon = m_popupClient->itemIcon(index);
+    RefPtr<Image> image(Image::loadPlatformResource(icon.utf8().data()));
+
+    int fontHeight = getRowFont(index).fontMetrics().height();
+    int iconHeight = (image && !image->isNull()) ? image->rect().height() : 0;
+
+    int linePaddingHeight = m_popupClient->menuStyle().menuType() == PopupMenuStyle::AutofillPopup ? kLinePaddingHeight : 0;
+    return max(fontHeight, iconHeight) + linePaddingHeight * 2;
 }
 
 IntRect PopupListBox::getRowBounds(int index)
@@ -1053,13 +1155,13 @@ void PopupListBox::scrollToRevealRow(int index)
         return;
 
     IntRect rowRect = getRowBounds(index);
- 
+
     if (rowRect.y() < scrollY()) {
         // Row is above current scroll position, scroll up.
         ScrollView::setScrollPosition(IntPoint(0, rowRect.y()));
-    } else if (rowRect.bottom() > scrollY() + visibleHeight()) {
+    } else if (rowRect.maxY() > scrollY() + visibleHeight()) {
         // Row is below current scroll position, scroll down.
-        ScrollView::setScrollPosition(IntPoint(0, rowRect.bottom() - visibleHeight()));
+        ScrollView::setScrollPosition(IntPoint(0, rowRect.maxY() - visibleHeight()));
     }
 }
 
@@ -1074,6 +1176,7 @@ void PopupListBox::clearSelection()
     if (m_selectedIndex != -1) {
         invalidateRow(m_selectedIndex);
         m_selectedIndex = -1;
+        m_popupClient->selectionCleared();
     }
 }
 
@@ -1169,6 +1272,9 @@ void PopupListBox::updateFromElement()
             type = PopupItem::TypeOption;
         m_items.append(new PopupItem(m_popupClient->itemText(i), type));
         m_items[i]->enabled = isSelectableItem(i);
+        PopupMenuStyle style = m_popupClient->itemStyle(i);
+        m_items[i]->textDirection = style.textDirection();
+        m_items[i]->hasTextDirectionOverride = style.hasTextDirectionOverride();
     }
 
     m_selectedIndex = m_popupClient->selectedIndex();
@@ -1179,77 +1285,94 @@ void PopupListBox::updateFromElement()
 
 void PopupListBox::layout()
 {
+    bool isRightAligned = m_popupClient->menuStyle().textDirection() == RTL;
+    
     // Size our child items.
     int baseWidth = 0;
     int paddingWidth = 0;
+    int lineEndPaddingWidth = 0;
     int y = 0;
     for (int i = 0; i < numItems(); ++i) {
-        Font itemFont = getRowFont(i);
-
         // Place the item vertically.
         m_items[i]->yOffset = y;
-        y += itemFont.height();
+        if (m_popupClient->itemStyle(i).isDisplayNone())
+            continue;
+        y += getRowHeight(i);
 
         // Ensure the popup is wide enough to fit this item.
+        Font itemFont = getRowFont(i);
         String text = m_popupClient->itemText(i);
-        if (!text.isEmpty()) {
-            int width = itemFont.width(TextRun(text));
-            baseWidth = max(baseWidth, width);
+        String label = m_popupClient->itemLabel(i);
+        String icon = m_popupClient->itemIcon(i);
+        RefPtr<Image> iconImage(Image::loadPlatformResource(icon.utf8().data()));
+        int width = 0;
+        if (!text.isEmpty())
+            width = itemFont.width(TextRun(text));
+        if (!label.isEmpty()) {
+            if (width > 0)
+                width += kTextToLabelPadding;
+            width += itemFont.width(TextRun(label));
         }
+        if (iconImage && !iconImage->isNull()) {
+            if (width > 0)
+                width += kLabelToIconPadding;
+            width += iconImage->rect().width();
+        }
+
+        baseWidth = max(baseWidth, width);
         // FIXME: http://b/1210481 We should get the padding of individual option elements.
         paddingWidth = max(paddingWidth,
             m_popupClient->clientPaddingLeft() + m_popupClient->clientPaddingRight());
+        lineEndPaddingWidth = max(lineEndPaddingWidth,
+            isRightAligned ? m_popupClient->clientPaddingLeft() : m_popupClient->clientPaddingRight());
     }
 
     // Calculate scroll bar width.
     int windowHeight = 0;
-
-#if OS(DARWIN)
-    // Set the popup's window to contain all available items on Mac only, which
-    // uses native controls that manage their own scrolling. This allows hit
-    // testing to work when selecting items in popups that have more menu entries
-    // than the maximum window size.
-    m_visibleRows = numItems();
-#else
     m_visibleRows = min(numItems(), kMaxVisibleRows);
-#endif
 
     for (int i = 0; i < m_visibleRows; ++i) {
         int rowHeight = getRowHeight(i);
-#if !OS(DARWIN)
+
         // Only clip the window height for non-Mac platforms.
         if (windowHeight + rowHeight > m_maxHeight) {
             m_visibleRows = i;
             break;
         }
-#endif
 
         windowHeight += rowHeight;
     }
 
     // Set our widget and scrollable contents sizes.
     int scrollbarWidth = 0;
-    if (m_visibleRows < numItems())
+    if (m_visibleRows < numItems()) {
         scrollbarWidth = ScrollbarTheme::nativeTheme()->scrollbarThickness();
+
+        // Use kMinEndOfLinePadding when there is a scrollbar so that we use
+        // as much as (lineEndPaddingWidth - kMinEndOfLinePadding) padding
+        // space for scrollbar and allow user to use CSS padding to make the
+        // popup listbox align with the select element.
+        paddingWidth = paddingWidth - lineEndPaddingWidth + kMinEndOfLinePadding;
+    }
 
     int windowWidth;
     int contentWidth;
     if (m_settings.restrictWidthOfListBox) {
         windowWidth = m_baseWidth;
-        contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
+        contentWidth = m_baseWidth - scrollbarWidth;
     } else {
         windowWidth = baseWidth + scrollbarWidth + paddingWidth;
-        contentWidth = baseWidth;
+        contentWidth = baseWidth + paddingWidth;
 
         if (windowWidth < m_baseWidth) {
             windowWidth = m_baseWidth;
-            contentWidth = m_baseWidth - scrollbarWidth - paddingWidth;
+            contentWidth = m_baseWidth - scrollbarWidth;
         } else
             m_baseWidth = baseWidth;
     }
 
     resize(windowWidth, windowHeight);
-    setContentsSize(IntSize(contentWidth, getRowBounds(numItems() - 1).bottom()));
+    setContentsSize(IntSize(contentWidth, getRowBounds(numItems() - 1).maxY()));
 
     if (hostWindow())
         scrollToRevealSelection();
@@ -1270,55 +1393,48 @@ bool PopupListBox::isPointInBounds(const IntPoint& point)
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-// PopupMenu implementation
-// 
-// Note: you cannot add methods to this class, since it is defined above the 
+// PopupMenuChromium implementation
+//
+// Note: you cannot add methods to this class, since it is defined above the
 //       portability layer. To access methods and properties on the
-//       popup widgets, use |popupWindow| above. 
+//       popup widgets, use |popupWindow| above.
 
-PopupMenu::PopupMenu(PopupMenuClient* client) 
+PopupMenuChromium::PopupMenuChromium(PopupMenuClient* client)
     : m_popupClient(client)
 {
 }
 
-PopupMenu::~PopupMenu()
+PopupMenuChromium::~PopupMenuChromium()
 {
-    // When the PopupMenu is destroyed, the client could already have been
+    // When the PopupMenuChromium is destroyed, the client could already have been
     // deleted.
     if (p.popup)
         p.popup->listBox()->disconnectClient();
     hide();
 }
 
-// The Mac Chromium implementation relies on external control (a Cocoa control)
-// to display, handle the input tracking and menu item selection for the popup.
-// Windows and Linux Chromium let our WebKit port handle the display, while
-// another process manages the popup window and input handling.
-void PopupMenu::show(const IntRect& r, FrameView* v, int index)
+void PopupMenuChromium::show(const IntRect& r, FrameView* v, int index)
 {
     if (!p.popup)
         p.popup = PopupContainer::create(client(), PopupContainer::Select, dropDownSettings);
-#if OS(DARWIN)
-    p.popup->showExternal(r, v, index);
-#else
-    p.popup->show(r, v, index);
-#endif
+    p.popup->showInRect(r, v, index);
 }
 
-void PopupMenu::hide()
+void PopupMenuChromium::hide()
 {
     if (p.popup)
         p.popup->hide();
 }
 
-void PopupMenu::updateFromElement()
+void PopupMenuChromium::updateFromElement()
 {
     p.popup->listBox()->updateFromElement();
 }
 
-bool PopupMenu::itemWritingDirectionIsNatural() 
-{ 
-    return false; 
+
+void PopupMenuChromium::disconnectClient()
+{
+    m_popupClient = 0;
 }
 
 } // namespace WebCore

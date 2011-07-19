@@ -1,0 +1,30 @@
+		XFree86 Direct Rendering Infrastructure Extension
+
+This extension defines a protocol to allow user applications to access
+the video hardware without requiring data to be passed through the X server.
+
+Extension name: XFree86-DRI
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/proto/xf86driproto
+
+        http://cgit.freedesktop.org/xorg/proto/xf86driproto
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

@@ -9,27 +9,28 @@ class TestNSErrorHelper (NSObject):
 
 class TestNSError (TestCase):
     def testConstants(self):
-        self.failUnless( isinstance(NSCocoaErrorDomain, unicode) )
-        self.failUnless( isinstance(NSPOSIXErrorDomain, unicode) )
-        self.failUnless( isinstance(NSOSStatusErrorDomain, unicode) )
-        self.failUnless( isinstance(NSMachErrorDomain, unicode) )
-        self.failUnless( isinstance(NSUnderlyingErrorKey, unicode) )
-        self.failUnless( isinstance(NSLocalizedDescriptionKey, unicode) )
-        self.failUnless( isinstance(NSLocalizedFailureReasonErrorKey, unicode) )
-        self.failUnless( isinstance(NSLocalizedRecoverySuggestionErrorKey, unicode) )
-        self.failUnless( isinstance(NSLocalizedRecoveryOptionsErrorKey, unicode) )
-        self.failUnless( isinstance(NSRecoveryAttempterErrorKey, unicode) )
-        self.failUnless( isinstance(NSStringEncodingErrorKey, unicode) )
-        self.failUnless( isinstance(NSURLErrorKey, unicode) )
-        self.failUnless( isinstance(NSFilePathErrorKey, unicode) )
+        self.assertIsInstance(NSCocoaErrorDomain, unicode)
+        self.assertIsInstance(NSPOSIXErrorDomain, unicode)
+        self.assertIsInstance(NSOSStatusErrorDomain, unicode)
+        self.assertIsInstance(NSMachErrorDomain, unicode)
+        self.assertIsInstance(NSUnderlyingErrorKey, unicode)
+        self.assertIsInstance(NSLocalizedDescriptionKey, unicode)
+        self.assertIsInstance(NSLocalizedFailureReasonErrorKey, unicode)
+        self.assertIsInstance(NSLocalizedRecoverySuggestionErrorKey, unicode)
+        self.assertIsInstance(NSLocalizedRecoveryOptionsErrorKey, unicode)
+        self.assertIsInstance(NSRecoveryAttempterErrorKey, unicode)
+        self.assertIsInstance(NSStringEncodingErrorKey, unicode)
+        self.assertIsInstance(NSURLErrorKey, unicode)
+        self.assertIsInstance(NSFilePathErrorKey, unicode)
+        self.assertIsInstance(NSHelpAnchorErrorKey, unicode)
 
     def testAttemptRecovery(self):
-        self.failUnlessArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 1, objc._C_NSUInteger)
-        self.failUnlessArgIsSEL(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 3, 'v@:' + objc._C_NSBOOL + '^v')
-        self.failUnlessArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 4, '^v')
+        self.assertArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 1, objc._C_NSUInteger)
+        self.assertArgIsSEL(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 3, b'v@:' + objc._C_NSBOOL + b'^v')
+        self.assertArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_delegate_didRecoverSelector_contextInfo_, 4, b'^v')
 
-        self.failUnlessResultIsBOOL(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_)
-        self.failUnlessArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_, 1, objc._C_NSUInteger)
+        self.assertResultIsBOOL(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_)
+        self.assertArgHasType(TestNSErrorHelper.attemptRecoveryFromError_optionIndex_, 1, objc._C_NSUInteger)
 
 if __name__ == "__main__":
     main()

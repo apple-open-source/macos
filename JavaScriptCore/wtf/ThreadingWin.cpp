@@ -87,22 +87,26 @@
 #include "Threading.h"
 
 #include "MainThread.h"
-#if !USE(PTHREADS) && OS(WINDOWS)
-#include "ThreadSpecific.h"
-#endif
-#if !OS(WINCE)
-#include <process.h>
-#endif
-#if HAVE(ERRNO_H)
-#include <errno.h>
-#else
-#define NO_ERRNO
-#endif
+#include "ThreadFunctionInvocation.h"
 #include <windows.h>
 #include <wtf/CurrentTime.h>
 #include <wtf/HashMap.h>
 #include <wtf/MathExtras.h>
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RandomNumberSeed.h>
+
+#if !USE(PTHREADS) && OS(WINDOWS)
+#include "ThreadSpecific.h"
+#endif
+
+#if !OS(WINCE)
+#include <process.h>
+#endif
+
+#if HAVE(ERRNO_H)
+#include <errno.h>
+#endif
 
 namespace WTF {
 
@@ -187,19 +191,10 @@ static void clearThreadHandleForIdentifier(ThreadIdentifier id)
     threadMap().remove(id);
 }
 
-struct ThreadFunctionInvocation {
-    ThreadFunctionInvocation(ThreadFunction function, void* data) : function(function), data(data) {}
-
-    ThreadFunction function;
-    void* data;
-};
-
 static unsigned __stdcall wtfThreadEntryPoint(void* param)
 {
-    ThreadFunctionInvocation invocation = *static_cast<ThreadFunctionInvocation*>(param);
-    delete static_cast<ThreadFunctionInvocation*>(param);
-
-    void* result = invocation.function(invocation.data);
+    OwnPtr<ThreadFunctionInvocation> invocation = adoptPtr(static_cast<ThreadFunctionInvocation*>(param));
+    void* result = invocation->function(invocation->data);
 
 #if !USE(PTHREADS) && OS(WINDOWS)
     // Do the TLS cleanup.
@@ -213,24 +208,27 @@ ThreadIdentifier createThreadInternal(ThreadFunction entryPoint, void* data, con
 {
     unsigned threadIdentifier = 0;
     ThreadIdentifier threadID = 0;
-    ThreadFunctionInvocation* invocation = new ThreadFunctionInvocation(entryPoint, data);
+    OwnPtr<ThreadFunctionInvocation> invocation = adoptPtr(new ThreadFunctionInvocation(entryPoint, data));
 #if OS(WINCE)
     // This is safe on WINCE, since CRT is in the core and innately multithreaded.
     // On desktop Windows, need to use _beginthreadex (not available on WinCE) if using any CRT functions
-    HANDLE threadHandle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)wtfThreadEntryPoint, invocation, 0, (LPDWORD)&threadIdentifier);
+    HANDLE threadHandle = CreateThread(0, 0, (LPTHREAD_START_ROUTINE)wtfThreadEntryPoint, invocation.get(), 0, (LPDWORD)&threadIdentifier);
 #else
-    HANDLE threadHandle = reinterpret_cast<HANDLE>(_beginthreadex(0, 0, wtfThreadEntryPoint, invocation, 0, &threadIdentifier));
+    HANDLE threadHandle = reinterpret_cast<HANDLE>(_beginthreadex(0, 0, wtfThreadEntryPoint, invocation.get(), 0, &threadIdentifier));
 #endif
     if (!threadHandle) {
 #if OS(WINCE)
         LOG_ERROR("Failed to create thread at entry point %p with data %p: %ld", entryPoint, data, ::GetLastError());
-#elif defined(NO_ERRNO)
+#elif !HAVE(ERRNO_H)
         LOG_ERROR("Failed to create thread at entry point %p with data %p.", entryPoint, data);
 #else
         LOG_ERROR("Failed to create thread at entry point %p with data %p: %ld", entryPoint, data, errno);
 #endif
         return 0;
     }
+
+    // The thread will take ownership of invocation.
+    invocation.leakPtr();
 
     threadID = static_cast<ThreadIdentifier>(threadIdentifier);
     storeThreadHandleByIdentifier(threadIdentifier, threadHandle);
@@ -264,6 +262,11 @@ void detachThread(ThreadIdentifier threadID)
     if (threadHandle)
         CloseHandle(threadHandle);
     clearThreadHandleForIdentifier(threadID);
+}
+
+void yield()
+{
+    ::Sleep(1);
 }
 
 ThreadIdentifier currentThread()
@@ -329,6 +332,7 @@ bool PlatformCondition::timedWait(PlatformMutex& mutex, DWORD durationMillisecon
     res = ReleaseSemaphore(m_blockLock, 1, 0);
     ASSERT(res);
 
+    --mutex.m_recursionCount;
     LeaveCriticalSection(&mutex.m_internalMutex);
 
     // Main wait - use timeout.
@@ -362,6 +366,7 @@ bool PlatformCondition::timedWait(PlatformMutex& mutex, DWORD durationMillisecon
     }
 
     EnterCriticalSection (&mutex.m_internalMutex);
+    ++mutex.m_recursionCount;
 
     return !timedOut;
 }
@@ -455,20 +460,15 @@ void ThreadCondition::wait(Mutex& mutex)
 
 bool ThreadCondition::timedWait(Mutex& mutex, double absoluteTime)
 {
-    double currentTime = WTF::currentTime();
+    DWORD interval = absoluteTimeToWaitTimeoutInterval(absoluteTime);
 
-    // Time is in the past - return immediately.
-    if (absoluteTime < currentTime)
+    if (!interval) {
+        // Consider the wait to have timed out, even if our condition has already been signaled, to
+        // match the pthreads implementation.
         return false;
-
-    // Time is too far in the future (and would overflow unsigned long) - wait forever.
-    if (absoluteTime - currentTime > static_cast<double>(INT_MAX) / 1000.0) {
-        wait(mutex);
-        return true;
     }
 
-    double intervalMilliseconds = (absoluteTime - currentTime) * 1000.0;
-    return m_condition.timedWait(mutex.impl(), static_cast<unsigned long>(intervalMilliseconds));
+    return m_condition.timedWait(mutex.impl(), interval);
 }
 
 void ThreadCondition::signal()
@@ -479,6 +479,21 @@ void ThreadCondition::signal()
 void ThreadCondition::broadcast()
 {
     m_condition.signal(true); // Unblock all threads.
+}
+
+DWORD absoluteTimeToWaitTimeoutInterval(double absoluteTime)
+{
+    double currentTime = WTF::currentTime();
+
+    // Time is in the past - return immediately.
+    if (absoluteTime < currentTime)
+        return 0;
+
+    // Time is too far in the future (and would overflow unsigned long) - wait forever.
+    if (absoluteTime - currentTime > static_cast<double>(INT_MAX) / 1000.0)
+        return INFINITE;
+
+    return static_cast<DWORD>((absoluteTime - currentTime) * 1000.0);
 }
 
 } // namespace WTF

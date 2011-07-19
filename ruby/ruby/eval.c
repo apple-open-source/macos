@@ -3,7 +3,7 @@
   eval.c -
 
   $Author: shyouhei $
-  $Date: 2009-06-08 10:59:39 +0900 (Mon, 08 Jun 2009) $
+  $Date: 2009-12-21 17:11:42 +0900 (Mon, 21 Dec 2009) $
   created at: Thu Jun 10 14:22:17 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -237,6 +237,7 @@ static VALUE rb_f_binding _((VALUE));
 static void rb_f_END _((void));
 static VALUE rb_f_block_given_p _((void));
 static VALUE block_pass _((VALUE,NODE*));
+static void eval_check_tick _((void));
 
 VALUE rb_cMethod;
 static VALUE method_call _((int, VALUE*, VALUE));
@@ -2966,6 +2967,7 @@ rb_eval(self, n)
     goto finish; \
 } while (0)
 
+    eval_check_tick();
   again:
     if (!node) RETURN(Qnil);
 
@@ -5650,6 +5652,17 @@ stack_check()
     }
 }
 
+static void
+eval_check_tick()
+{
+    static int tick;
+    if ((++tick & 0xff) == 0) {
+	CHECK_INTS;		/* better than nothing */
+	stack_check();
+	rb_gc_finalize_deferred();
+    }
+}
+
 static int last_call_status;
 
 #define CSTAT_PRIV  1
@@ -5881,7 +5894,6 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
     NODE *b2;		/* OK */
     volatile VALUE result = Qnil;
     int itr;
-    static int tick;
     TMP_PROTECT;
     volatile int safe = -1;
 
@@ -5900,11 +5912,7 @@ rb_call0(klass, recv, id, oid, argc, argv, body, flags)
 	break;
     }
 
-    if ((++tick & 0xff) == 0) {
-	CHECK_INTS;		/* better than nothing */
-	stack_check();
-	rb_gc_finalize_deferred();
-    }
+    eval_check_tick();
     if (argc < 0) {
 	VALUE tmp;
 	VALUE *nargv;
@@ -6681,14 +6689,22 @@ eval(self, src, scope, file, line)
 	if (state == TAG_RAISE) {
 	    if (strcmp(file, "(eval)") == 0) {
 		VALUE mesg, errat, bt2;
+		ID id_mesg;
 
+		id_mesg = rb_intern("mesg");
 		errat = get_backtrace(ruby_errinfo);
-		mesg = rb_attr_get(ruby_errinfo, rb_intern("mesg"));
+		mesg = rb_attr_get(ruby_errinfo, id_mesg);
 		if (!NIL_P(errat) && TYPE(errat) == T_ARRAY &&
 		    (bt2 = backtrace(-2), RARRAY_LEN(bt2) > 0)) {
 		    if (!NIL_P(mesg) && TYPE(mesg) == T_STRING) {
-			rb_str_update(mesg, 0, 0, rb_str_new2(": "));
-			rb_str_update(mesg, 0, 0, RARRAY_PTR(errat)[0]);
+			if (OBJ_FROZEN(mesg)) {
+			    VALUE m = rb_str_cat(rb_str_dup(RARRAY_PTR(errat)[0]), ": ", 2);
+			    rb_ivar_set(ruby_errinfo, id_mesg, rb_str_append(m, mesg));
+			}
+			else {
+			    rb_str_update(mesg, 0, 0, rb_str_new2(": "));
+			    rb_str_update(mesg, 0, 0, RARRAY_PTR(errat)[0]);
+			}
 		    }
 		    RARRAY_PTR(errat)[0] = RARRAY_PTR(bt2)[0];
 		}
@@ -10720,8 +10736,9 @@ rb_thread_save_context(th)
     th->safe = ruby_safe_level;
 
     th->node = ruby_current_node;
-    if (ruby_sandbox_save != NULL) {
-	ruby_sandbox_save(th);
+    if (ruby_sandbox_save != NULL)
+    {
+      ruby_sandbox_save(th);
     }
 }
 
@@ -10769,19 +10786,20 @@ rb_thread_switch(n)
     (rb_thread_switch(ruby_setjmp(rb_thread_save_context(th), (th)->context)))
 
 NORETURN(static void rb_thread_restore_context _((rb_thread_t,int)));
-NORETURN(NOINLINE(static void rb_thread_restore_context_0(rb_thread_t,int)));
-NORETURN(NOINLINE(static void stack_extend(rb_thread_t, int)));
+NORETURN(NOINLINE(static void rb_thread_restore_context_0(rb_thread_t,int,void*)));
+NORETURN(NOINLINE(static void stack_extend(rb_thread_t, int, VALUE *)));
 
 static void
-rb_thread_restore_context_0(rb_thread_t th, int exit)
+rb_thread_restore_context_0(rb_thread_t th, int exit, void *vp)
 {
     static rb_thread_t tmp;
     static int ex;
     static VALUE tval;
 
     rb_trap_immediate = 0;	/* inhibit interrupts from here */
-    if (ruby_sandbox_restore != NULL) {
-	ruby_sandbox_restore(th);
+    if (ruby_sandbox_restore != NULL)
+    {
+      ruby_sandbox_restore(th);
     }
     ruby_frame = th->frame;
     ruby_scope = th->scope;
@@ -10829,9 +10847,9 @@ static volatile int C(f), C(g), C(h), C(i), C(j);
 static volatile int C(k), C(l), C(m), C(n), C(o);
 static volatile int C(p), C(q), C(r), C(s), C(t);
 int rb_dummy_false = 0;
-NORETURN(NOINLINE(static void register_stack_extend(rb_thread_t, int, VALUE *)));
+NORETURN(NOINLINE(static void register_stack_extend(rb_thread_t, int, void *, VALUE *)));
 static void
-register_stack_extend(rb_thread_t th, int exit, VALUE *curr_bsp)
+register_stack_extend(rb_thread_t th, int exit, void *vp, VALUE *curr_bsp)
 {
     if (rb_dummy_false) {
         /* use registers as much as possible */
@@ -10845,63 +10863,52 @@ register_stack_extend(rb_thread_t th, int exit, VALUE *curr_bsp)
         E(p) = E(q) = E(r) = E(s) = E(t) = 0;
     }
     if (curr_bsp < th->bstr_pos+th->bstr_len) {
-        register_stack_extend(th, exit, (VALUE*)rb_ia64_bsp());
+        register_stack_extend(th, exit, &exit, (VALUE*)rb_ia64_bsp());
     }
-    stack_extend(th, exit);
+    rb_thread_restore_context_0(th, exit, &exit);
 }
 #undef C
 #undef E
 #endif
 
+# if defined(_MSC_VER) && _MSC_VER >= 1300
+__declspec(noinline) static void stack_extend(rb_thread_t, int, VALUE*);
+# endif
 static void
-stack_extend(rb_thread_t th, int exit)
+stack_extend(rb_thread_t th, int exit, VALUE *addr_in_prev_frame)
 {
 #define STACK_PAD_SIZE 1024
-    volatile VALUE space[STACK_PAD_SIZE], *sp = space;
+    VALUE space[STACK_PAD_SIZE];
 
-#if !STACK_GROW_DIRECTION
-    if (space < rb_gc_stack_start) {
+#if STACK_GROW_DIRECTION < 0
+    if (addr_in_prev_frame > th->stk_pos) stack_extend(th, exit, &space[0]);
+#elif STACK_GROW_DIRECTION > 0
+    if (addr_in_prev_frame < th->stk_pos + th->stk_len) stack_extend(th, exit, &space[STACK_PAD_SIZE-1]);
+#else
+    if (addr_in_prev_frame < rb_gc_stack_start) {
         /* Stack grows downward */
-#endif
-#if STACK_GROW_DIRECTION <= 0
-	if (space > th->stk_pos) {
-# ifdef HAVE_ALLOCA
-	    sp = ALLOCA_N(VALUE, &space[0] - th->stk_pos);
-# else
-	    stack_extend(th, exit);
-# endif
-	}
-#endif
-#if !STACK_GROW_DIRECTION
+        if (addr_in_prev_frame > th->stk_pos) stack_extend(th, exit, &space[0]);
     }
     else {
         /* Stack grows upward */
-#endif
-#if STACK_GROW_DIRECTION >= 0
-	if (&space[STACK_PAD_SIZE] < th->stk_pos + th->stk_len) {
-# ifdef HAVE_ALLOCA
-	    sp = ALLOCA_N(VALUE, th->stk_pos + th->stk_len - &space[STACK_PAD_SIZE]);
-# else
-	    stack_extend(th, exit);
-# endif
-	}
-#endif
-#if !STACK_GROW_DIRECTION
+        if (addr_in_prev_frame < th->stk_pos + th->stk_len) stack_extend(th, exit, &space[STACK_PAD_SIZE-1]);
     }
 #endif
-    rb_thread_restore_context_0(th, exit);
-}
 #ifdef __ia64
-#define stack_extend(th, exit) register_stack_extend(th, exit, (VALUE*)rb_ia64_bsp())
+    register_stack_extend(th, exit, space, (VALUE*)rb_ia64_bsp());
+#else
+    rb_thread_restore_context_0(th, exit, space);
 #endif
+}
 
 static void
 rb_thread_restore_context(th, exit)
     rb_thread_t th;
     int exit;
 {
+    VALUE v;
     if (!th->stk_ptr) rb_bug("unsaved context");
-    stack_extend(th, exit);
+    stack_extend(th, exit, &v);
 }
 
 static void
@@ -12266,9 +12273,9 @@ rb_thread_group(thread)
     th->locals = 0;\
     th->thread = 0;\
     if (curr_thread == 0) {\
-	th->sandbox = Qnil;\
+      th->sandbox = Qnil;\
     } else {\
-	th->sandbox = curr_thread->sandbox;\
+      th->sandbox = curr_thread->sandbox;\
     }\
 } while (0)
 

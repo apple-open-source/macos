@@ -36,7 +36,8 @@
 #define JIT_CLASS_ALIGNMENT
 #endif
 
-#define ASSERT_JIT_OFFSET(actual, expected) ASSERT_WITH_MESSAGE(actual == expected, "JIT Offset \"%s\" should be %d, not %d.\n", #expected, static_cast<int>(actual), static_cast<int>(expected));
+#define ASSERT_JIT_OFFSET_UNUSED(variable, actual, expected) ASSERT_WITH_MESSAGE_UNUSED(variable, actual == expected, "JIT Offset \"%s\" should be %d, not %d.\n", #expected, static_cast<int>(expected), static_cast<int>(actual));
+#define ASSERT_JIT_OFFSET(actual, expected) ASSERT_WITH_MESSAGE(actual == expected, "JIT Offset \"%s\" should be %d, not %d.\n", #expected, static_cast<int>(expected), static_cast<int>(actual));
 
 #include "CodeBlock.h"
 #include "Interpreter.h"
@@ -66,16 +67,16 @@ namespace JSC {
 
     struct CallRecord {
         MacroAssembler::Call from;
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
         void* to;
 
         CallRecord()
         {
         }
 
-        CallRecord(MacroAssembler::Call from, unsigned bytecodeIndex, void* to = 0)
+        CallRecord(MacroAssembler::Call from, unsigned bytecodeOffset, void* to = 0)
             : from(from)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , to(to)
         {
         }
@@ -83,11 +84,11 @@ namespace JSC {
 
     struct JumpTable {
         MacroAssembler::Jump from;
-        unsigned toBytecodeIndex;
+        unsigned toBytecodeOffset;
 
         JumpTable(MacroAssembler::Jump f, unsigned t)
             : from(f)
-            , toBytecodeIndex(t)
+            , toBytecodeOffset(t)
         {
         }
     };
@@ -119,20 +120,20 @@ namespace JSC {
             StringJumpTable* stringJumpTable;
         } jumpTable;
 
-        unsigned bytecodeIndex;
+        unsigned bytecodeOffset;
         unsigned defaultOffset;
 
-        SwitchRecord(SimpleJumpTable* jumpTable, unsigned bytecodeIndex, unsigned defaultOffset, Type type)
+        SwitchRecord(SimpleJumpTable* jumpTable, unsigned bytecodeOffset, unsigned defaultOffset, Type type)
             : type(type)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , defaultOffset(defaultOffset)
         {
             this->jumpTable.simpleJumpTable = jumpTable;
         }
 
-        SwitchRecord(StringJumpTable* jumpTable, unsigned bytecodeIndex, unsigned defaultOffset)
+        SwitchRecord(StringJumpTable* jumpTable, unsigned bytecodeOffset, unsigned defaultOffset)
             : type(String)
-            , bytecodeIndex(bytecodeIndex)
+            , bytecodeOffset(bytecodeOffset)
             , defaultOffset(defaultOffset)
         {
             this->jumpTable.stringJumpTable = jumpTable;
@@ -178,9 +179,9 @@ namespace JSC {
         static const int patchGetByIdDefaultOffset = 256;
 
     public:
-        static JITCode compile(JSGlobalData* globalData, CodeBlock* codeBlock)
+        static JITCode compile(JSGlobalData* globalData, CodeBlock* codeBlock, CodePtr* functionEntryArityCheck = 0)
         {
-            return JIT(globalData, codeBlock).privateCompile();
+            return JIT(globalData, codeBlock).privateCompile(functionEntryArityCheck);
         }
 
         static void compileGetByIdProto(JSGlobalData* globalData, CallFrame* callFrame, CodeBlock* codeBlock, StructureStubInfo* stubInfo, Structure* structure, Structure* prototypeStructure, const Identifier& ident, const PropertySlot& slot, size_t cachedOffset, ReturnAddressPtr returnAddress)
@@ -219,13 +220,23 @@ namespace JSC {
 
         static void compileCTIMachineTrampolines(JSGlobalData* globalData, RefPtr<ExecutablePool>* executablePool, TrampolineStructure *trampolines)
         {
-            JIT jit(globalData);
+            if (!globalData->canUseJIT())
+                return;
+            JIT jit(globalData, 0);
             jit.privateCompileCTIMachineTrampolines(executablePool, globalData, trampolines);
+        }
+
+        static CodePtr compileCTINativeCall(JSGlobalData* globalData, PassRefPtr<ExecutablePool> executablePool, NativeFunction func)
+        {
+            if (!globalData->canUseJIT())
+                return CodePtr();
+            JIT jit(globalData, 0);
+            return jit.privateCompileCTINativeCall(executablePool, globalData, func);
         }
 
         static void patchGetByIdSelf(CodeBlock* codeblock, StructureStubInfo*, Structure*, size_t cachedOffset, ReturnAddressPtr returnAddress);
         static void patchPutByIdReplace(CodeBlock* codeblock, StructureStubInfo*, Structure*, size_t cachedOffset, ReturnAddressPtr returnAddress, bool direct);
-        static void patchMethodCallProto(CodeBlock* codeblock, MethodCallLinkInfo&, JSFunction*, Structure*, JSObject*, ReturnAddressPtr);
+        static void patchMethodCallProto(JSGlobalData&, CodeBlock* codeblock, MethodCallLinkInfo&, JSFunction*, Structure*, JSObject*, ReturnAddressPtr);
 
         static void compilePatchGetArrayLength(JSGlobalData* globalData, CodeBlock* codeBlock, ReturnAddressPtr returnAddress)
         {
@@ -233,8 +244,8 @@ namespace JSC {
             return jit.privateCompilePatchGetArrayLength(returnAddress);
         }
 
-        static void linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, JITCode&, CallLinkInfo*, int callerArgCount, JSGlobalData*);
-        static void unlinkCall(CallLinkInfo*);
+        static void linkCall(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, CodePtr, CallLinkInfo*, int callerArgCount, JSGlobalData*);
+        static void linkConstruct(JSFunction* callee, CodeBlock* callerCodeBlock, CodeBlock* calleeCodeBlock, CodePtr, CallLinkInfo*, int callerArgCount, JSGlobalData*);
 
     private:
         struct JSRInfo {
@@ -253,7 +264,7 @@ namespace JSC {
         void privateCompileMainPass();
         void privateCompileLinkPass();
         void privateCompileSlowCases();
-        JITCode privateCompile();
+        JITCode privateCompile(CodePtr* functionEntryArityCheck);
         void privateCompileGetByIdProto(StructureStubInfo*, Structure*, Structure* prototypeStructure, const Identifier&, const PropertySlot&, size_t cachedOffset, ReturnAddressPtr returnAddress, CallFrame* callFrame);
         void privateCompileGetByIdSelfList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, const Identifier&, const PropertySlot&, size_t cachedOffset);
         void privateCompileGetByIdProtoList(StructureStubInfo*, PolymorphicAccessStructureList*, int, Structure*, Structure* prototypeStructure, const Identifier&, const PropertySlot&, size_t cachedOffset, CallFrame* callFrame);
@@ -262,6 +273,8 @@ namespace JSC {
         void privateCompilePutByIdTransition(StructureStubInfo*, Structure*, Structure*, size_t cachedOffset, StructureChain*, ReturnAddressPtr returnAddress, bool direct);
 
         void privateCompileCTIMachineTrampolines(RefPtr<ExecutablePool>* executablePool, JSGlobalData* data, TrampolineStructure *trampolines);
+        Label privateCompileCTINativeCall(JSGlobalData*, bool isConstruct = false);
+        CodePtr privateCompileCTINativeCall(PassRefPtr<ExecutablePool> executablePool, JSGlobalData* data, NativeFunction func);
         void privateCompilePatchGetArrayLength(ReturnAddressPtr returnAddress);
 
         void addSlowCase(Jump);
@@ -272,11 +285,8 @@ namespace JSC {
         void compileOpCall(OpcodeID, Instruction* instruction, unsigned callLinkInfoIndex);
         void compileOpCallVarargs(Instruction* instruction);
         void compileOpCallInitializeCallFrame();
-        void compileOpCallSetupArgs(Instruction*);
-        void compileOpCallVarargsSetupArgs(Instruction*);
         void compileOpCallSlowCase(Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter, unsigned callLinkInfoIndex, OpcodeID opcodeID);
         void compileOpCallVarargsSlowCase(Instruction* instruction, Vector<SlowCaseEntry>::iterator& iter);
-        void compileOpConstructSetupArgs(Instruction*);
 
         enum CompileOpStrictEqType { OpStrictEq, OpNStrictEq };
         void compileOpStrictEq(Instruction* instruction, CompileOpStrictEqType type);
@@ -285,7 +295,7 @@ namespace JSC {
         void emitLoadDouble(unsigned index, FPRegisterID value);
         void emitLoadInt32ToDouble(unsigned index, FPRegisterID value);
 
-        void testPrototype(Structure*, JumpList& failureCases);
+        void testPrototype(JSValue, JumpList& failureCases);
 
 #if USE(JSVALUE32_64)
         bool getOperandConstantImmediateInt(unsigned op1, unsigned op2, unsigned& op, int32_t& constant);
@@ -300,13 +310,13 @@ namespace JSC {
         void emitStore(unsigned index, RegisterID tag, RegisterID payload, RegisterID base = callFrameRegister);
         void emitStore(unsigned index, const JSValue constant, RegisterID base = callFrameRegister);
         void emitStoreInt32(unsigned index, RegisterID payload, bool indexIsInt32 = false);
-        void emitStoreInt32(unsigned index, Imm32 payload, bool indexIsInt32 = false);
+        void emitStoreInt32(unsigned index, TrustedImm32 payload, bool indexIsInt32 = false);
         void emitStoreCell(unsigned index, RegisterID payload, bool indexIsCell = false);
-        void emitStoreBool(unsigned index, RegisterID tag, bool indexIsBool = false);
+        void emitStoreBool(unsigned index, RegisterID payload, bool indexIsBool = false);
         void emitStoreDouble(unsigned index, FPRegisterID value);
 
-        bool isLabeled(unsigned bytecodeIndex);
-        void map(unsigned bytecodeIndex, unsigned virtualRegisterIndex, RegisterID tag, RegisterID payload);
+        bool isLabeled(unsigned bytecodeOffset);
+        void map(unsigned bytecodeOffset, unsigned virtualRegisterIndex, RegisterID tag, RegisterID payload);
         void unmap(RegisterID);
         void unmap();
         bool isMapped(unsigned virtualRegisterIndex);
@@ -322,8 +332,8 @@ namespace JSC {
         void compileGetByIdSlowCase(int resultVReg, int baseVReg, Identifier* ident, Vector<SlowCaseEntry>::iterator& iter, bool isMethodCheck = false);
 #endif
         void compileGetDirectOffset(RegisterID base, RegisterID resultTag, RegisterID resultPayload, Structure* structure, size_t cachedOffset);
-        void compileGetDirectOffset(JSObject* base, RegisterID temp, RegisterID resultTag, RegisterID resultPayload, size_t cachedOffset);
-        void compileGetDirectOffset(RegisterID base, RegisterID resultTag, RegisterID resultPayload, RegisterID structure, RegisterID offset);
+        void compileGetDirectOffset(JSObject* base, RegisterID resultTag, RegisterID resultPayload, size_t cachedOffset);
+        void compileGetDirectOffset(RegisterID base, RegisterID resultTag, RegisterID resultPayload, RegisterID offset);
         void compilePutDirectOffset(RegisterID base, RegisterID valueTag, RegisterID valuePayload, Structure* structure, size_t cachedOffset);
 
         // Arithmetic opcode helpers
@@ -334,24 +344,16 @@ namespace JSC {
 #if CPU(X86)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 7;
-        static const int patchOffsetPutByIdExternalLoad = 13;
-        static const int patchLengthPutByIdExternalLoad = 3;
         static const int patchOffsetPutByIdPropertyMapOffset1 = 22;
         static const int patchOffsetPutByIdPropertyMapOffset2 = 28;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 7;
         static const int patchOffsetGetByIdBranchToSlowCase = 13;
-        static const int patchOffsetGetByIdExternalLoad = 13;
-        static const int patchLengthGetByIdExternalLoad = 3;
         static const int patchOffsetGetByIdPropertyMapOffset1 = 22;
         static const int patchOffsetGetByIdPropertyMapOffset2 = 28;
         static const int patchOffsetGetByIdPutResult = 28;
-#if ENABLE(OPCODE_SAMPLING) && USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 35;
-#elif ENABLE(OPCODE_SAMPLING)
+#if ENABLE(OPCODE_SAMPLING)
         static const int patchOffsetGetByIdSlowCaseCall = 37;
-#elif USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 25;
 #else
         static const int patchOffsetGetByIdSlowCaseCall = 27;
 #endif
@@ -363,15 +365,11 @@ namespace JSC {
 #elif CPU(ARM_TRADITIONAL)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 4;
-        static const int patchOffsetPutByIdExternalLoad = 16;
-        static const int patchLengthPutByIdExternalLoad = 4;
         static const int patchOffsetPutByIdPropertyMapOffset1 = 20;
         static const int patchOffsetPutByIdPropertyMapOffset2 = 28;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 4;
         static const int patchOffsetGetByIdBranchToSlowCase = 16;
-        static const int patchOffsetGetByIdExternalLoad = 16;
-        static const int patchLengthGetByIdExternalLoad = 4;
         static const int patchOffsetGetByIdPropertyMapOffset1 = 20;
         static const int patchOffsetGetByIdPropertyMapOffset2 = 28;
         static const int patchOffsetGetByIdPutResult = 36;
@@ -396,11 +394,128 @@ namespace JSC {
         static const int sequenceGetByIdHotPathInstructionSpace = 36;
         static const int sequenceGetByIdHotPathConstantSpace = 4;
         // sequenceGetByIdSlowCase
+        static const int sequenceGetByIdSlowCaseInstructionSpace = 56;
+        static const int sequenceGetByIdSlowCaseConstantSpace = 2;
+        // sequencePutById
+        static const int sequencePutByIdInstructionSpace = 36;
+        static const int sequencePutByIdConstantSpace = 4;
+#elif CPU(ARM_THUMB2)
+        // These architecture specific value are used to enable patching - see comment on op_put_by_id.
+        static const int patchOffsetPutByIdStructure = 10;
+        static const int patchOffsetPutByIdPropertyMapOffset1 = 36;
+        static const int patchOffsetPutByIdPropertyMapOffset2 = 48;
+        // These architecture specific value are used to enable patching - see comment on op_get_by_id.
+        static const int patchOffsetGetByIdStructure = 10;
+        static const int patchOffsetGetByIdBranchToSlowCase = 26;
+        static const int patchOffsetGetByIdPropertyMapOffset1 = 36;
+        static const int patchOffsetGetByIdPropertyMapOffset2 = 48;
+        static const int patchOffsetGetByIdPutResult = 52;
+#if ENABLE(OPCODE_SAMPLING)
+        #error "OPCODE_SAMPLING is not yet supported"
+#else
+        static const int patchOffsetGetByIdSlowCaseCall = 30;
+#endif
+        static const int patchOffsetOpCallCompareToJump = 16;
+
+        static const int patchOffsetMethodCheckProtoObj = 24;
+        static const int patchOffsetMethodCheckProtoStruct = 34;
+        static const int patchOffsetMethodCheckPutFunction = 58;
+
+        // sequenceOpCall
+        static const int sequenceOpCallInstructionSpace = 12;
+        static const int sequenceOpCallConstantSpace = 2;
+        // sequenceMethodCheck
+        static const int sequenceMethodCheckInstructionSpace = 40;
+        static const int sequenceMethodCheckConstantSpace = 6;
+        // sequenceGetByIdHotPath
+        static const int sequenceGetByIdHotPathInstructionSpace = 36;
+        static const int sequenceGetByIdHotPathConstantSpace = 4;
+        // sequenceGetByIdSlowCase
         static const int sequenceGetByIdSlowCaseInstructionSpace = 40;
         static const int sequenceGetByIdSlowCaseConstantSpace = 2;
         // sequencePutById
         static const int sequencePutByIdInstructionSpace = 36;
         static const int sequencePutByIdConstantSpace = 4;
+#elif CPU(MIPS)
+#if WTF_MIPS_ISA(1)
+        static const int patchOffsetPutByIdStructure = 16;
+        static const int patchOffsetPutByIdPropertyMapOffset1 = 56;
+        static const int patchOffsetPutByIdPropertyMapOffset2 = 72;
+        static const int patchOffsetGetByIdStructure = 16;
+        static const int patchOffsetGetByIdBranchToSlowCase = 48;
+        static const int patchOffsetGetByIdPropertyMapOffset1 = 56;
+        static const int patchOffsetGetByIdPropertyMapOffset2 = 76;
+        static const int patchOffsetGetByIdPutResult = 96;
+#if ENABLE(OPCODE_SAMPLING)
+        #error "OPCODE_SAMPLING is not yet supported"
+#else
+        static const int patchOffsetGetByIdSlowCaseCall = 44;
+#endif
+        static const int patchOffsetOpCallCompareToJump = 32;
+        static const int patchOffsetMethodCheckProtoObj = 32;
+        static const int patchOffsetMethodCheckProtoStruct = 56;
+        static const int patchOffsetMethodCheckPutFunction = 88;
+#else // WTF_MIPS_ISA(1)
+        static const int patchOffsetPutByIdStructure = 12;
+        static const int patchOffsetPutByIdPropertyMapOffset1 = 48;
+        static const int patchOffsetPutByIdPropertyMapOffset2 = 64;
+        static const int patchOffsetGetByIdStructure = 12;
+        static const int patchOffsetGetByIdBranchToSlowCase = 44;
+        static const int patchOffsetGetByIdPropertyMapOffset1 = 48;
+        static const int patchOffsetGetByIdPropertyMapOffset2 = 64;
+        static const int patchOffsetGetByIdPutResult = 80;
+#if ENABLE(OPCODE_SAMPLING)
+        #error "OPCODE_SAMPLING is not yet supported"
+#else
+        static const int patchOffsetGetByIdSlowCaseCall = 44;
+#endif
+        static const int patchOffsetOpCallCompareToJump = 32;
+        static const int patchOffsetMethodCheckProtoObj = 32;
+        static const int patchOffsetMethodCheckProtoStruct = 52;
+        static const int patchOffsetMethodCheckPutFunction = 84;
+#endif
+#elif CPU(SH4)
+       // These architecture specific value are used to enable patching - see comment on op_put_by_id.
+        static const int patchOffsetGetByIdStructure = 6;
+        static const int patchOffsetPutByIdPropertyMapOffset = 24;
+        static const int patchOffsetPutByIdStructure = 6;
+        // These architecture specific value are used to enable patching - see comment on op_get_by_id.
+        static const int patchOffsetGetByIdBranchToSlowCase = 10;
+        static const int patchOffsetGetByIdPropertyMapOffset = 24;
+        static const int patchOffsetGetByIdPutResult = 32;
+
+        // sequenceOpCall
+        static const int sequenceOpCallInstructionSpace = 12;
+        static const int sequenceOpCallConstantSpace = 2;
+        // sequenceMethodCheck
+        static const int sequenceMethodCheckInstructionSpace = 40;
+        static const int sequenceMethodCheckConstantSpace = 6;
+        // sequenceGetByIdHotPath
+        static const int sequenceGetByIdHotPathInstructionSpace = 36;
+        static const int sequenceGetByIdHotPathConstantSpace = 5;
+        // sequenceGetByIdSlowCase
+        static const int sequenceGetByIdSlowCaseInstructionSpace = 26;
+        static const int sequenceGetByIdSlowCaseConstantSpace = 2;
+        // sequencePutById
+        static const int sequencePutByIdInstructionSpace = 36;
+        static const int sequencePutByIdConstantSpace = 5;
+
+        static const int patchOffsetGetByIdPropertyMapOffset1 = 20;
+        static const int patchOffsetGetByIdPropertyMapOffset2 = 26;
+
+        static const int patchOffsetPutByIdPropertyMapOffset1 = 20;
+        static const int patchOffsetPutByIdPropertyMapOffset2 = 26;
+
+#if ENABLE(OPCODE_SAMPLING)
+        static const int patchOffsetGetByIdSlowCaseCall = 0; // FIMXE
+#else
+        static const int patchOffsetGetByIdSlowCaseCall = 22;
+#endif
+        static const int patchOffsetOpCallCompareToJump = 4;
+
+        static const int patchOffsetMethodCheckProtoObj = 12;
+        static const int patchOffsetMethodCheckProtoStruct = 20;
+        static const int patchOffsetMethodCheckPutFunction = 32;
 #else
 #error "JSVALUE32_64 not supported on this platform."
 #endif
@@ -412,9 +527,6 @@ namespace JSC {
 
         int32_t getConstantOperandImmediateInt(unsigned src);
 
-        void emitGetVariableObjectRegister(RegisterID variableObject, int index, RegisterID dst);
-        void emitPutVariableObjectRegister(RegisterID src, RegisterID variableObject, int index);
-        
         void killLastResultRegister();
 
         Jump emitJumpIfJSCell(RegisterID);
@@ -423,8 +535,7 @@ namespace JSC {
         Jump emitJumpIfNotJSCell(RegisterID);
         void emitJumpSlowCaseIfNotJSCell(RegisterID);
         void emitJumpSlowCaseIfNotJSCell(RegisterID, int VReg);
-#if USE(JSVALUE64)
-#else
+#if USE(JSVALUE32_64)
         JIT::Jump emitJumpIfImmediateNumber(RegisterID reg)
         {
             return emitJumpIfImmediateInteger(reg);
@@ -442,7 +553,7 @@ namespace JSC {
         void emitJumpSlowCaseIfNotImmediateNumber(RegisterID);
         void emitJumpSlowCaseIfNotImmediateIntegers(RegisterID, RegisterID, RegisterID);
 
-#if !USE(JSVALUE64)
+#if USE(JSVALUE32_64)
         void emitFastArithDeTagImmediate(RegisterID);
         Jump emitFastArithDeTagImmediateJumpIfZero(RegisterID);
 #endif
@@ -462,21 +573,17 @@ namespace JSC {
         void compileGetByIdSlowCase(int resultVReg, int baseVReg, Identifier* ident, Vector<SlowCaseEntry>::iterator& iter, bool isMethodCheck = false);
 #endif
         void compileGetDirectOffset(RegisterID base, RegisterID result, Structure* structure, size_t cachedOffset);
-        void compileGetDirectOffset(JSObject* base, RegisterID temp, RegisterID result, size_t cachedOffset);
-        void compileGetDirectOffset(RegisterID base, RegisterID result, RegisterID structure, RegisterID offset, RegisterID scratch);
+        void compileGetDirectOffset(JSObject* base, RegisterID result, size_t cachedOffset);
+        void compileGetDirectOffset(RegisterID base, RegisterID result, RegisterID offset, RegisterID scratch);
         void compilePutDirectOffset(RegisterID base, RegisterID value, Structure* structure, size_t cachedOffset);
 
 #if CPU(X86_64)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 10;
-        static const int patchOffsetPutByIdExternalLoad = 20;
-        static const int patchLengthPutByIdExternalLoad = 4;
         static const int patchOffsetPutByIdPropertyMapOffset = 31;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 10;
         static const int patchOffsetGetByIdBranchToSlowCase = 20;
-        static const int patchOffsetGetByIdExternalLoad = 20;
-        static const int patchLengthGetByIdExternalLoad = 4;
         static const int patchOffsetGetByIdPropertyMapOffset = 31;
         static const int patchOffsetGetByIdPutResult = 31;
 #if ENABLE(OPCODE_SAMPLING)
@@ -492,22 +599,14 @@ namespace JSC {
 #elif CPU(X86)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 7;
-        static const int patchOffsetPutByIdExternalLoad = 13;
-        static const int patchLengthPutByIdExternalLoad = 3;
         static const int patchOffsetPutByIdPropertyMapOffset = 22;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 7;
         static const int patchOffsetGetByIdBranchToSlowCase = 13;
-        static const int patchOffsetGetByIdExternalLoad = 13;
-        static const int patchLengthGetByIdExternalLoad = 3;
         static const int patchOffsetGetByIdPropertyMapOffset = 22;
         static const int patchOffsetGetByIdPutResult = 22;
-#if ENABLE(OPCODE_SAMPLING) && USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 31;
-#elif ENABLE(OPCODE_SAMPLING)
+#if ENABLE(OPCODE_SAMPLING)
         static const int patchOffsetGetByIdSlowCaseCall = 33;
-#elif USE(JIT_STUB_ARGUMENT_VA_LIST)
-        static const int patchOffsetGetByIdSlowCaseCall = 21;
 #else
         static const int patchOffsetGetByIdSlowCaseCall = 23;
 #endif
@@ -519,14 +618,10 @@ namespace JSC {
 #elif CPU(ARM_THUMB2)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 10;
-        static const int patchOffsetPutByIdExternalLoad = 26;
-        static const int patchLengthPutByIdExternalLoad = 12;
         static const int patchOffsetPutByIdPropertyMapOffset = 46;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 10;
         static const int patchOffsetGetByIdBranchToSlowCase = 26;
-        static const int patchOffsetGetByIdExternalLoad = 26;
-        static const int patchLengthGetByIdExternalLoad = 12;
         static const int patchOffsetGetByIdPropertyMapOffset = 46;
         static const int patchOffsetGetByIdPutResult = 50;
 #if ENABLE(OPCODE_SAMPLING)
@@ -542,14 +637,10 @@ namespace JSC {
 #elif CPU(ARM_TRADITIONAL)
         // These architecture specific value are used to enable patching - see comment on op_put_by_id.
         static const int patchOffsetPutByIdStructure = 4;
-        static const int patchOffsetPutByIdExternalLoad = 16;
-        static const int patchLengthPutByIdExternalLoad = 4;
         static const int patchOffsetPutByIdPropertyMapOffset = 20;
         // These architecture specific value are used to enable patching - see comment on op_get_by_id.
         static const int patchOffsetGetByIdStructure = 4;
         static const int patchOffsetGetByIdBranchToSlowCase = 16;
-        static const int patchOffsetGetByIdExternalLoad = 16;
-        static const int patchLengthGetByIdExternalLoad = 4;
         static const int patchOffsetGetByIdPropertyMapOffset = 20;
         static const int patchOffsetGetByIdPutResult = 28;
 #if ENABLE(OPCODE_SAMPLING)
@@ -581,13 +672,9 @@ namespace JSC {
 #elif CPU(MIPS)
 #if WTF_MIPS_ISA(1)
         static const int patchOffsetPutByIdStructure = 16;
-        static const int patchOffsetPutByIdExternalLoad = 48;
-        static const int patchLengthPutByIdExternalLoad = 20;
         static const int patchOffsetPutByIdPropertyMapOffset = 68;
         static const int patchOffsetGetByIdStructure = 16;
         static const int patchOffsetGetByIdBranchToSlowCase = 48;
-        static const int patchOffsetGetByIdExternalLoad = 48;
-        static const int patchLengthGetByIdExternalLoad = 20;
         static const int patchOffsetGetByIdPropertyMapOffset = 68;
         static const int patchOffsetGetByIdPutResult = 88;
 #if ENABLE(OPCODE_SAMPLING)
@@ -601,13 +688,9 @@ namespace JSC {
         static const int patchOffsetMethodCheckPutFunction = 88;
 #else // WTF_MIPS_ISA(1)
         static const int patchOffsetPutByIdStructure = 12;
-        static const int patchOffsetPutByIdExternalLoad = 44;
-        static const int patchLengthPutByIdExternalLoad = 16;
         static const int patchOffsetPutByIdPropertyMapOffset = 60;
         static const int patchOffsetGetByIdStructure = 12;
         static const int patchOffsetGetByIdBranchToSlowCase = 44;
-        static const int patchOffsetGetByIdExternalLoad = 44;
-        static const int patchLengthGetByIdExternalLoad = 16;
         static const int patchOffsetGetByIdPropertyMapOffset = 60;
         static const int patchOffsetGetByIdPutResult = 76;
 #if ENABLE(OPCODE_SAMPLING)
@@ -623,16 +706,18 @@ namespace JSC {
 #endif
 #endif // USE(JSVALUE32_64)
 
-#if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
-#define BEGIN_UNINTERRUPTED_SEQUENCE(name) beginUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace)
-#define END_UNINTERRUPTED_SEQUENCE(name) endUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace)
+#if (defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL)
+#define BEGIN_UNINTERRUPTED_SEQUENCE(name) do { beginUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace); } while (false)
+#define END_UNINTERRUPTED_SEQUENCE_FOR_PUT(name, dst) do { endUninterruptedSequence(name ## InstructionSpace, name ## ConstantSpace, dst); } while (false)
+#define END_UNINTERRUPTED_SEQUENCE(name) END_UNINTERRUPTED_SEQUENCE_FOR_PUT(name, 0)
 
         void beginUninterruptedSequence(int, int);
-        void endUninterruptedSequence(int, int);
+        void endUninterruptedSequence(int, int, int);
 
 #else
-#define BEGIN_UNINTERRUPTED_SEQUENCE(name)
-#define END_UNINTERRUPTED_SEQUENCE(name)
+#define BEGIN_UNINTERRUPTED_SEQUENCE(name)  do { beginUninterruptedSequence(); } while (false)
+#define END_UNINTERRUPTED_SEQUENCE(name)  do { endUninterruptedSequence(); } while (false)
+#define END_UNINTERRUPTED_SEQUENCE_FOR_PUT(name, dst) do { endUninterruptedSequence(); } while (false)
 #endif
 
         void emit_op_add(Instruction*);
@@ -643,25 +728,31 @@ namespace JSC {
         void emit_op_call(Instruction*);
         void emit_op_call_eval(Instruction*);
         void emit_op_call_varargs(Instruction*);
+        void emit_op_call_put_result(Instruction*);
         void emit_op_catch(Instruction*);
         void emit_op_construct(Instruction*);
-        void emit_op_construct_verify(Instruction*);
+        void emit_op_get_callee(Instruction*);
+        void emit_op_create_this(Instruction*);
         void emit_op_convert_this(Instruction*);
+        void emit_op_convert_this_strict(Instruction*);
         void emit_op_create_arguments(Instruction*);
         void emit_op_debug(Instruction*);
         void emit_op_del_by_id(Instruction*);
         void emit_op_div(Instruction*);
         void emit_op_end(Instruction*);
         void emit_op_enter(Instruction*);
-        void emit_op_enter_with_activation(Instruction*);
+        void emit_op_create_activation(Instruction*);
         void emit_op_eq(Instruction*);
         void emit_op_eq_null(Instruction*);
         void emit_op_get_by_id(Instruction*);
+        void emit_op_get_arguments_length(Instruction*);
         void emit_op_get_by_val(Instruction*);
+        void emit_op_get_argument_by_val(Instruction*);
         void emit_op_get_by_pname(Instruction*);
         void emit_op_get_global_var(Instruction*);
         void emit_op_get_scoped_var(Instruction*);
-        void emit_op_init_arguments(Instruction*);
+        void emit_op_init_lazy_reg(Instruction*);
+        void emit_op_check_has_instance(Instruction*);
         void emit_op_instanceof(Instruction*);
         void emit_op_jeq_null(Instruction*);
         void emit_op_jfalse(Instruction*);
@@ -690,7 +781,6 @@ namespace JSC {
         void emit_op_neq(Instruction*);
         void emit_op_neq_null(Instruction*);
         void emit_op_new_array(Instruction*);
-        void emit_op_new_error(Instruction*);
         void emit_op_new_func(Instruction*);
         void emit_op_new_func_exp(Instruction*);
         void emit_op_new_object(Instruction*);
@@ -717,11 +807,13 @@ namespace JSC {
         void emit_op_put_setter(Instruction*);
         void emit_op_resolve(Instruction*);
         void emit_op_resolve_base(Instruction*);
+        void emit_op_ensure_property_exists(Instruction*);
         void emit_op_resolve_global(Instruction*, bool dynamic = false);
         void emit_op_resolve_global_dynamic(Instruction*);
         void emit_op_resolve_skip(Instruction*);
         void emit_op_resolve_with_base(Instruction*);
         void emit_op_ret(Instruction*);
+        void emit_op_ret_object_or_this(Instruction*);
         void emit_op_rshift(Instruction*);
         void emit_op_sret(Instruction*);
         void emit_op_strcat(Instruction*);
@@ -733,11 +825,12 @@ namespace JSC {
         void emit_op_tear_off_activation(Instruction*);
         void emit_op_tear_off_arguments(Instruction*);
         void emit_op_throw(Instruction*);
+        void emit_op_throw_reference_error(Instruction*);
         void emit_op_to_jsnumber(Instruction*);
         void emit_op_to_primitive(Instruction*);
         void emit_op_unexpected_load(Instruction*);
         void emit_op_urshift(Instruction*);
-#if ENABLE(JIT_OPTIMIZE_MOD)
+#if ENABLE(JIT_USE_SOFT_MODULO)
         void softModulo();
 #endif
 
@@ -750,13 +843,16 @@ namespace JSC {
         void emitSlow_op_call_eval(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_call_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_construct(Instruction*, Vector<SlowCaseEntry>::iterator&);
-        void emitSlow_op_construct_verify(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_convert_this(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_convert_this_strict(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_div(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_eq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_by_id(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_get_arguments_length(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_get_argument_by_val(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_get_by_pname(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_check_has_instance(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_instanceof(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jfalse(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jnless(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -764,6 +860,7 @@ namespace JSC {
         void emitSlow_op_jlesseq(Instruction*, Vector<SlowCaseEntry>::iterator&, bool invert = false);
         void emitSlow_op_jnlesseq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_jtrue(Instruction*, Vector<SlowCaseEntry>::iterator&);
+        void emitSlow_op_load_varargs(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_loop_if_less(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_loop_if_lesseq(Instruction*, Vector<SlowCaseEntry>::iterator&);
         void emitSlow_op_loop_if_true(Instruction*, Vector<SlowCaseEntry>::iterator&);
@@ -795,21 +892,14 @@ namespace JSC {
         void emitRightShift(Instruction*, bool isUnsigned);
         void emitRightShiftSlowCase(Instruction*, Vector<SlowCaseEntry>::iterator&, bool isUnsigned);
 
-        /* These functions are deprecated: Please use JITStubCall instead. */
-        void emitPutJITStubArg(RegisterID src, unsigned argumentNumber);
-#if USE(JSVALUE32_64)
-        void emitPutJITStubArg(RegisterID tag, RegisterID payload, unsigned argumentNumber);
-        void emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch1, RegisterID scratch2);
-#else
-        void emitPutJITStubArgFromVirtualRegister(unsigned src, unsigned argumentNumber, RegisterID scratch);
-#endif
-        void emitPutJITStubArgConstant(unsigned value, unsigned argumentNumber);
-        void emitPutJITStubArgConstant(void* value, unsigned argumentNumber);
+        /* This function is deprecated. */
         void emitGetJITStubArg(unsigned argumentNumber, RegisterID dst);
 
         void emitInitRegister(unsigned dst);
 
         void emitPutToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry entry);
+        void emitPutCellToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry);
+        void emitPutIntToCallFrameHeader(RegisterID from, RegisterFile::CallFrameHeaderEntry);
         void emitPutImmediateToCallFrameHeader(void* value, RegisterFile::CallFrameHeaderEntry entry);
         void emitGetFromCallFrameHeaderPtr(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from = callFrameRegister);
         void emitGetFromCallFrameHeader32(RegisterFile::CallFrameHeaderEntry entry, RegisterID to, RegisterID from = callFrameRegister);
@@ -817,6 +907,8 @@ namespace JSC {
         JSValue getConstantOperand(unsigned src);
         bool isOperandConstantImmediateInt(unsigned src);
         bool isOperandConstantImmediateChar(unsigned src);
+
+        bool atJumpTarget();
 
         Jump getSlowCase(Vector<SlowCaseEntry>::iterator& iter)
         {
@@ -878,7 +970,7 @@ namespace JSC {
         Vector<MethodCallCompilationInfo> m_methodCallCompilationInfo;
         Vector<JumpTable> m_jmpTable;
 
-        unsigned m_bytecodeIndex;
+        unsigned m_bytecodeOffset;
         Vector<JSRInfo> m_jsrSites;
         Vector<SlowCaseEntry> m_slowCases;
         Vector<SwitchRecord> m_switches;
@@ -889,14 +981,14 @@ namespace JSC {
 
 #if USE(JSVALUE32_64)
         unsigned m_jumpTargetIndex;
-        unsigned m_mappedBytecodeIndex;
+        unsigned m_mappedBytecodeOffset;
         unsigned m_mappedVirtualRegisterIndex;
         RegisterID m_mappedTag;
         RegisterID m_mappedPayload;
 #else
         int m_lastResultBytecodeRegister;
-        unsigned m_jumpTargetsPosition;
 #endif
+        unsigned m_jumpTargetsPosition;
 
 #ifndef NDEBUG
 #if defined(ASSEMBLER_HAS_CONSTANT_POOL) && ASSEMBLER_HAS_CONSTANT_POOL
@@ -904,7 +996,7 @@ namespace JSC {
         int m_uninterruptedConstantSequenceBegin;
 #endif
 #endif
-        static PassRefPtr<NativeExecutable> stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool);
+        static CodePtr stringGetByValStubGenerator(JSGlobalData* globalData, ExecutablePool* pool);
     } JIT_CLASS_ALIGNMENT;
 
     inline void JIT::emit_op_loop(Instruction* currentInstruction)

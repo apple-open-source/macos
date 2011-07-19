@@ -3414,7 +3414,7 @@ int nsect)
 		     */
 		    if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 			as_bad("Internal error (long PC-relative operand) for "
-			       "insn 0x%04x at 0x%x", fragP->fr_opcode[0],
+			       "insn 0x%04x at 0x%llx", fragP->fr_opcode[0],
 			       fragP->fr_address);
 		    fragP->fr_opcode[1] &= ~0x3F;
 		    fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */
@@ -3439,7 +3439,7 @@ int nsect)
 		/* Symbol is still undefined.  Make it long */
 		if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 		    as_bad("Internal error (long PC-relative operand) for "
-			   "insn 0x%04x at 0x%x", fragP->fr_opcode[0],
+			   "insn 0x%04x at 0x%llx", fragP->fr_opcode[0],
 			   fragP->fr_address);
 		fragP->fr_opcode[1] &= ~0x3F;
 		fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */
@@ -3652,7 +3652,7 @@ fragS *fragP)
 	     */
 	    if((fragP->fr_opcode[1] & 0x3F) != 0x3A)
 		as_bad("Internal error (long PC-relative operand) for insn "
-		       "0x%04x at 0x%x", fragP->fr_opcode[0],
+		       "0x%04x at 0x%llx", fragP->fr_opcode[0],
 		       fragP->fr_address);
 	    fragP->fr_opcode[1] &= ~0x3F;
 	    fragP->fr_opcode[1] |= 0x39;	/* Mode 7.1 */

@@ -18,21 +18,20 @@
  */
 
 #include "config.h"
-
 #include "webkitwebresource.h"
-#include "webkitprivate.h"
 
 #include "ArchiveResource.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "SharedBuffer.h"
 #include "webkitenumtypes.h"
+#include "webkitglobalsprivate.h"
 #include "webkitmarshal.h"
-#include "wtf/Assertions.h"
-#include <wtf/text/CString.h>
-
+#include "webkitwebresourceprivate.h"
 #include <glib.h>
 #include <glib/gi18n-lib.h>
+#include <wtf/Assertions.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkitwebresource
@@ -44,7 +43,6 @@
  */
 
 using namespace WebCore;
-using namespace WebKit;
 
 enum {
     PROP_0,
@@ -217,7 +215,7 @@ static void webkit_web_resource_set_property(GObject* object, guint prop_id, con
 
 static void webkit_web_resource_init(WebKitWebResource* webResource)
 {
-    webResource->priv = WEBKIT_WEB_RESOURCE_GET_PRIVATE(webResource);
+    webResource->priv = G_TYPE_INSTANCE_GET_PRIVATE(webResource, WEBKIT_TYPE_WEB_RESOURCE, WebKitWebResourcePrivate);
 }
 
 // internal use only
@@ -285,8 +283,9 @@ WebKitWebResource* webkit_web_resource_new(const gchar* data,
  *
  * Returns the data of the @webResource.
  *
- * Return value: a #GString containing the character data of the @webResource.
- * The string is owned by WebKit and should not be freed or destroyed.
+ * Return value: (transfer none): a #GString containing the character
+ * data of the @webResource.  The string is owned by WebKit and should
+ * not be freed or destroyed.
  *
  * Since: 1.1.14
  */

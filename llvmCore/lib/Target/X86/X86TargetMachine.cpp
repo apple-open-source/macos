@@ -11,169 +11,137 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "X86TargetAsmInfo.h"
+#include "X86MCAsmInfo.h"
 #include "X86TargetMachine.h"
 #include "X86.h"
-#include "llvm/Module.h"
 #include "llvm/PassManager.h"
 #include "llvm/CodeGen/MachineFunction.h"
 #include "llvm/CodeGen/Passes.h"
-#include "llvm/Support/raw_ostream.h"
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Target/TargetOptions.h"
-#include "llvm/Target/TargetMachineRegistry.h"
+#include "llvm/Target/TargetRegistry.h"
 using namespace llvm;
 
-/// X86TargetMachineModule - Note that this is used on hosts that cannot link
-/// in a library unless there are references into the library.  In particular,
-/// it seems that it is not possible to get things to work on Win32 without
-/// this.  Though it is unused, do not remove it.
-extern "C" int X86TargetMachineModule;
-int X86TargetMachineModule = 0;
-
-// Register the target.
-static RegisterTarget<X86_32TargetMachine>
-X("x86",    "32-bit X86: Pentium-Pro and above");
-static RegisterTarget<X86_64TargetMachine>
-Y("x86-64", "64-bit X86: EM64T and AMD64");
-
-// No assembler printer by default
-X86TargetMachine::AsmPrinterCtorFn X86TargetMachine::AsmPrinterCtor = 0;
-
-const TargetAsmInfo *X86TargetMachine::createTargetAsmInfo() const {
-  if (Subtarget.isFlavorIntel())
-    return new X86WinTargetAsmInfo(*this);
-  else
-    switch (Subtarget.TargetType) {
-     case X86Subtarget::isDarwin:
-      return new X86DarwinTargetAsmInfo(*this);
-     case X86Subtarget::isELF:
-      return new X86ELFTargetAsmInfo(*this);
-     case X86Subtarget::isMingw:
-     case X86Subtarget::isCygwin:
-      return new X86COFFTargetAsmInfo(*this);
-     case X86Subtarget::isWindows:
-      return new X86WinTargetAsmInfo(*this);
-     default:
-      return new X86GenericTargetAsmInfo(*this);
-    }
+static MCAsmInfo *createMCAsmInfo(const Target &T, StringRef TT) {
+  Triple TheTriple(TT);
+  switch (TheTriple.getOS()) {
+  case Triple::Darwin:
+    return new X86MCAsmInfoDarwin(TheTriple);
+  case Triple::MinGW32:
+  case Triple::MinGW64:
+  case Triple::Cygwin:
+  case Triple::Win32:
+    return new X86MCAsmInfoCOFF(TheTriple);
+  default:
+    return new X86ELFMCAsmInfo(TheTriple);
+  }
 }
 
-unsigned X86_32TargetMachine::getJITMatchQuality() {
-#if defined(i386) || defined(__i386__) || defined(__x86__) || defined(_M_IX86)
-  return 10;
-#endif
-  return 0;
-}
+extern "C" void LLVMInitializeX86Target() { 
+  // Register the target.
+  RegisterTargetMachine<X86_32TargetMachine> X(TheX86_32Target);
+  RegisterTargetMachine<X86_64TargetMachine> Y(TheX86_64Target);
 
-unsigned X86_64TargetMachine::getJITMatchQuality() {
-#if defined(__x86_64__) || defined(_M_AMD64)
-  return 10;
-#endif
-  return 0;
-}
+  // Register the target asm info.
+  RegisterAsmInfoFn A(TheX86_32Target, createMCAsmInfo);
+  RegisterAsmInfoFn B(TheX86_64Target, createMCAsmInfo);
 
-unsigned X86_32TargetMachine::getModuleMatchQuality(const Module &M) {
-  // We strongly match "i[3-9]86-*".
-  std::string TT = M.getTargetTriple();
-  if (TT.size() >= 5 && TT[0] == 'i' && TT[2] == '8' && TT[3] == '6' &&
-      TT[4] == '-' && TT[1] - '3' < 6)
-    return 20;
-  // If the target triple is something non-X86, we don't match.
-  if (!TT.empty()) return 0;
+  // Register the code emitter.
+  TargetRegistry::RegisterCodeEmitter(TheX86_32Target,
+                                      createX86_32MCCodeEmitter);
+  TargetRegistry::RegisterCodeEmitter(TheX86_64Target,
+                                      createX86_64MCCodeEmitter);
 
-  if (M.getEndianness()  == Module::LittleEndian &&
-      M.getPointerSize() == Module::Pointer32)
-    return 10;                                   // Weak match
-  else if (M.getEndianness() != Module::AnyEndianness ||
-           M.getPointerSize() != Module::AnyPointerSize)
-    return 0;                                    // Match for some other target
-
-  return getJITMatchQuality()/2;
-}
-
-unsigned X86_64TargetMachine::getModuleMatchQuality(const Module &M) {
-  // We strongly match "x86_64-*".
-  std::string TT = M.getTargetTriple();
-  if (TT.size() >= 7 && TT[0] == 'x' && TT[1] == '8' && TT[2] == '6' &&
-      TT[3] == '_' && TT[4] == '6' && TT[5] == '4' && TT[6] == '-')
-    return 20;
-
-  // We strongly match "amd64-*".
-  if (TT.size() >= 6 && TT[0] == 'a' && TT[1] == 'm' && TT[2] == 'd' &&
-      TT[3] == '6' && TT[4] == '4' && TT[5] == '-')
-    return 20;
-  
-  // If the target triple is something non-X86-64, we don't match.
-  if (!TT.empty()) return 0;
-
-  if (M.getEndianness()  == Module::LittleEndian &&
-      M.getPointerSize() == Module::Pointer64)
-    return 10;                                   // Weak match
-  else if (M.getEndianness() != Module::AnyEndianness ||
-           M.getPointerSize() != Module::AnyPointerSize)
-    return 0;                                    // Match for some other target
-
-  return getJITMatchQuality()/2;
-}
-
-X86_32TargetMachine::X86_32TargetMachine(const Module &M, const std::string &FS) 
-  : X86TargetMachine(M, FS, false) {
+  // Register the asm backend.
+  TargetRegistry::RegisterAsmBackend(TheX86_32Target,
+                                     createX86_32AsmBackend);
+  TargetRegistry::RegisterAsmBackend(TheX86_64Target,
+                                     createX86_64AsmBackend);
 }
 
 
-X86_64TargetMachine::X86_64TargetMachine(const Module &M, const std::string &FS)
-  : X86TargetMachine(M, FS, true) {
+X86_32TargetMachine::X86_32TargetMachine(const Target &T, const std::string &TT,
+                                         const std::string &FS)
+  : X86TargetMachine(T, TT, FS, false) {
 }
 
-/// X86TargetMachine ctor - Create an ILP32 architecture model
+
+X86_64TargetMachine::X86_64TargetMachine(const Target &T, const std::string &TT,
+                                         const std::string &FS)
+  : X86TargetMachine(T, TT, FS, true) {
+}
+
+/// X86TargetMachine ctor - Create an X86 target.
 ///
-X86TargetMachine::X86TargetMachine(const Module &M, const std::string &FS,
-                                   bool is64Bit)
-  : Subtarget(M, FS, is64Bit),
+X86TargetMachine::X86TargetMachine(const Target &T, const std::string &TT, 
+                                   const std::string &FS, bool is64Bit)
+  : LLVMTargetMachine(T, TT), 
+    Subtarget(TT, FS, is64Bit),
     DataLayout(Subtarget.getDataLayout()),
     FrameInfo(TargetFrameInfo::StackGrowsDown,
-              Subtarget.getStackAlignment(), Subtarget.is64Bit() ? -8 : -4),
-    InstrInfo(*this), JITInfo(*this), TLInfo(*this) {
+              Subtarget.getStackAlignment(),
+              (Subtarget.isTargetWin64() ? -40 :
+               (Subtarget.is64Bit() ? -8 : -4))),
+    InstrInfo(*this), JITInfo(*this), TLInfo(*this), TSInfo(*this),
+    ELFWriterInfo(*this) {
   DefRelocModel = getRelocationModel();
-  // FIXME: Correctly select PIC model for Win64 stuff
+      
+  // If no relocation model was picked, default as appropriate for the target.
   if (getRelocationModel() == Reloc::Default) {
-    if (Subtarget.isTargetDarwin() ||
-        (Subtarget.isTargetCygMing() && !Subtarget.isTargetWin64()))
-      setRelocationModel(Reloc::DynamicNoPIC);
+    if (!Subtarget.isTargetDarwin())
+      setRelocationModel(Reloc::Static);
+    else if (Subtarget.is64Bit())
+      setRelocationModel(Reloc::PIC_);
     else
+      setRelocationModel(Reloc::DynamicNoPIC);
+  }
+
+  assert(getRelocationModel() != Reloc::Default &&
+         "Relocation mode not picked");
+
+  // ELF and X86-64 don't have a distinct DynamicNoPIC model.  DynamicNoPIC
+  // is defined as a model for code which may be used in static or dynamic
+  // executables but not necessarily a shared library. On X86-32 we just
+  // compile in -static mode, in x86-64 we use PIC.
+  if (getRelocationModel() == Reloc::DynamicNoPIC) {
+    if (is64Bit)
+      setRelocationModel(Reloc::PIC_);
+    else if (!Subtarget.isTargetDarwin())
       setRelocationModel(Reloc::Static);
   }
 
-  // ELF doesn't have a distinct dynamic-no-PIC model. Dynamic-no-PIC
-  // is defined as a model for code which may be used in static or
-  // dynamic executables but not necessarily a shared library. On ELF
-  // implement this by using the Static model.
-  if (Subtarget.isTargetELF() &&
-      getRelocationModel() == Reloc::DynamicNoPIC)
-    setRelocationModel(Reloc::Static);
-
-  if (Subtarget.is64Bit()) {
-    // No DynamicNoPIC support under X86-64.
-    if (getRelocationModel() == Reloc::DynamicNoPIC)
-      setRelocationModel(Reloc::PIC_);
-    // Default X86-64 code model is small.
-    if (getCodeModel() == CodeModel::Default)
-      setCodeModel(CodeModel::Small);
-  }
-
-  if (Subtarget.isTargetCygMing())
-    Subtarget.setPICStyle(PICStyles::WinPIC);
-  else if (Subtarget.isTargetDarwin()) {
+  // If we are on Darwin, disallow static relocation model in X86-64 mode, since
+  // the Mach-O file format doesn't support it.
+  if (getRelocationModel() == Reloc::Static &&
+      Subtarget.isTargetDarwin() &&
+      is64Bit)
+    setRelocationModel(Reloc::PIC_);
+      
+  // Determine the PICStyle based on the target selected.
+  if (getRelocationModel() == Reloc::Static) {
+    // Unless we're in PIC or DynamicNoPIC mode, set the PIC style to None.
+    Subtarget.setPICStyle(PICStyles::None);
+  } else if (Subtarget.isTargetCygMing()) {
+    Subtarget.setPICStyle(PICStyles::None);
+  } else if (Subtarget.isTargetDarwin()) {
     if (Subtarget.is64Bit())
       Subtarget.setPICStyle(PICStyles::RIPRel);
-    else
-      Subtarget.setPICStyle(PICStyles::Stub);
+    else if (getRelocationModel() == Reloc::PIC_)
+      Subtarget.setPICStyle(PICStyles::StubPIC);
+    else {
+      assert(getRelocationModel() == Reloc::DynamicNoPIC);
+      Subtarget.setPICStyle(PICStyles::StubDynamicNoPIC);
+    }
   } else if (Subtarget.isTargetELF()) {
     if (Subtarget.is64Bit())
       Subtarget.setPICStyle(PICStyles::RIPRel);
     else
       Subtarget.setPICStyle(PICStyles::GOT);
   }
+      
+  // Finally, if we have "none" as our PIC style, force to static mode.
+  if (Subtarget.getPICStyle() == PICStyles::None)
+    setRelocationModel(Reloc::Static);
 }
 
 //===----------------------------------------------------------------------===//
@@ -185,10 +153,6 @@ bool X86TargetMachine::addInstSelector(PassManagerBase &PM,
   // Install an instruction selector.
   PM.add(createX86ISelDag(*this, OptLevel));
 
-  // If we're using Fast-ISel, clean up the mess.
-  if (EnableFastISel)
-    PM.add(createDeadMachineInstructionElimPass());
-
   // Install a pass to insert x87 FP_REG_KILL instructions, as needed.
   PM.add(createX87FPRegKillInserterPass());
 
@@ -197,9 +161,7 @@ bool X86TargetMachine::addInstSelector(PassManagerBase &PM,
 
 bool X86TargetMachine::addPreRegAlloc(PassManagerBase &PM,
                                       CodeGenOpt::Level OptLevel) {
-  // Calculate and set max stack object alignment early, so we can decide
-  // whether we will need stack realignment (and thus FP).
-  PM.add(createX86MaxStackAlignmentCalculatorPass());
+  PM.add(createX86MaxStackAlignmentHeuristicPass());
   return false;  // -print-machineinstr shouldn't print after this.
 }
 
@@ -209,64 +171,48 @@ bool X86TargetMachine::addPostRegAlloc(PassManagerBase &PM,
   return true;  // -print-machineinstr should print after this.
 }
 
-bool X86TargetMachine::addAssemblyEmitter(PassManagerBase &PM,
-                                          CodeGenOpt::Level OptLevel,
-                                          bool Verbose,
-                                          raw_ostream &Out) {
-  assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-  if (AsmPrinterCtor)
-    PM.add(AsmPrinterCtor(Out, *this, OptLevel, Verbose));
+bool X86TargetMachine::addPreEmitPass(PassManagerBase &PM,
+                                      CodeGenOpt::Level OptLevel) {
+  if (OptLevel != CodeGenOpt::None && Subtarget.hasSSE2()) {
+    PM.add(createSSEDomainFixPass());
+    return true;
+  }
   return false;
 }
 
 bool X86TargetMachine::addCodeEmitter(PassManagerBase &PM,
                                       CodeGenOpt::Level OptLevel,
-                                      bool DumpAsm, MachineCodeEmitter &MCE) {
+                                      JITCodeEmitter &JCE) {
   // FIXME: Move this to TargetJITInfo!
   // On Darwin, do not override 64-bit setting made in X86TargetMachine().
   if (DefRelocModel == Reloc::Default && 
-        (!Subtarget.isTargetDarwin() || !Subtarget.is64Bit()))
+      (!Subtarget.isTargetDarwin() || !Subtarget.is64Bit())) {
     setRelocationModel(Reloc::Static);
+    Subtarget.setPICStyle(PICStyles::None);
+  }
   
+
+  PM.add(createX86JITCodeEmitterPass(*this, JCE));
+
+  return false;
+}
+
+void X86TargetMachine::setCodeModelForStatic() {
+
+    if (getCodeModel() != CodeModel::Default) return;
+
+    // For static codegen, if we're not already set, use Small codegen.
+    setCodeModel(CodeModel::Small);
+}
+
+
+void X86TargetMachine::setCodeModelForJIT() {
+
+  if (getCodeModel() != CodeModel::Default) return;
+
   // 64-bit JIT places everything in the same buffer except external functions.
-  // On Darwin, use small code model but hack the call instruction for 
-  // externals.  Elsewhere, do not assume globals are in the lower 4G.
-  if (Subtarget.is64Bit()) {
-    if (Subtarget.isTargetDarwin())
-      setCodeModel(CodeModel::Small);
-    else
-      setCodeModel(CodeModel::Large);
-  }
-
-  PM.add(createX86CodeEmitterPass(*this, MCE));
-  if (DumpAsm) {
-    assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-    if (AsmPrinterCtor)
-      PM.add(AsmPrinterCtor(errs(), *this, OptLevel, true));
-  }
-
-  return false;
-}
-
-bool X86TargetMachine::addSimpleCodeEmitter(PassManagerBase &PM,
-                                            CodeGenOpt::Level OptLevel,
-                                            bool DumpAsm,
-                                            MachineCodeEmitter &MCE) {
-  PM.add(createX86CodeEmitterPass(*this, MCE));
-  if (DumpAsm) {
-    assert(AsmPrinterCtor && "AsmPrinter was not linked in");
-    if (AsmPrinterCtor)
-      PM.add(AsmPrinterCtor(errs(), *this, OptLevel, true));
-  }
-
-  return false;
-}
-
-/// symbolicAddressesAreRIPRel - Return true if symbolic addresses are
-/// RIP-relative on this machine, taking into consideration the relocation
-/// model and subtarget. RIP-relative addresses cannot have a separate
-/// base or index register.
-bool X86TargetMachine::symbolicAddressesAreRIPRel() const {
-  return getRelocationModel() != Reloc::Static &&
-         Subtarget.isPICStyleRIPRel();
+  if (Subtarget.is64Bit())
+    setCodeModel(CodeModel::Large);
+  else
+    setCodeModel(CodeModel::Small);
 }

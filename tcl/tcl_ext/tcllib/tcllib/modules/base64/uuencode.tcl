@@ -6,7 +6,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # -------------------------------------------------------------------------
-# @(#)$Id: uuencode.tcl,v 1.21 2006/10/14 06:30:55 andreas_kupries Exp $
+# @(#)$Id: uuencode.tcl,v 1.22 2009/05/07 01:10:37 patthoyts Exp $
 
 package require Tcl 8.2;                # tcl minimum version
 
@@ -16,7 +16,7 @@ if {[catch {package require tcllibc}]} {
 }
 
 namespace eval ::uuencode {
-    variable version 1.1.4
+    variable version 1.1.5
 
     namespace export encode decode uuencode uudecode
 }
@@ -89,11 +89,7 @@ if {[package provide critcl] != {}} {
             }
 
             rlen = (len / 3) * 4;
-            resultPtr = Tcl_GetObjResult(interp);
-            if (Tcl_IsShared(resultPtr)) {
-                resultPtr = Tcl_DuplicateObj(resultPtr);
-                Tcl_SetObjResult(interp, resultPtr);
-            }
+            resultPtr = Tcl_NewObj();
             r = Tcl_SetByteArrayLength(resultPtr, rlen);
             memset(r, 0, rlen);
             
@@ -105,7 +101,7 @@ if {[package provide critcl] != {}} {
                 *r++ = Enc(((b << 2) & 074) | ((c >> 6) & 003));
                 *r++ = Enc(c & 077);
             }
-            
+            Tcl_SetObjResult(interp, resultPtr);
             return TCL_OK;
         }
 
@@ -132,11 +128,7 @@ if {[package provide critcl] != {}} {
 
             /* output will be 1/3 smaller than input and a multiple of 3 */
             rlen = (len / 4) * 3;
-            resultPtr = Tcl_GetObjResult(interp);
-            if (Tcl_IsShared(resultPtr)) {
-                resultPtr = Tcl_DuplicateObj(resultPtr);
-                Tcl_SetObjResult(interp, resultPtr);
-            }
+            resultPtr = Tcl_NewObj();
             r = Tcl_SetByteArrayLength(resultPtr, rlen);
             memset(r, 0, rlen);
             
@@ -147,7 +139,7 @@ if {[package provide critcl] != {}} {
                 *r++ = (((b - 0x20) & 0x3f) << 4) | (((c - 0x20) & 0x3f) >> 2);
                 *r++ = (((c - 0x20) & 0x3f) << 6) | (((d - 0x20) & 0x3f) );
             }
-            
+            Tcl_SetObjResult(interp, resultPtr);
             return TCL_OK;
         }
     }

@@ -183,18 +183,18 @@ typedef struct XOTclMemCounter {
 #  define ALLOC_ON_STACK(type,n,var) \
     int __##var##_count = (n); type __##var[n+2]; \
     type *var = __##var + 1; var[-1] = var[__##var##_count] = (type)0xdeadbeaf
-#  define FREE_ON_STACK(var) \
-    assert(var[-1] == var[__##var##_count] && (void *)var[-1] == (void*)0xdeadbeaf)
+#  define FREE_ON_STACK(type,var)                                       \
+    assert(var[-1] == var[__##var##_count] && var[-1] == (type)0xdeadbeaf)
 # else 
 #  define ALLOC_ON_STACK(type,n,var) type var[(n)]
-#  define FREE_ON_STACK(var)
+#  define FREE_ON_STACK(type,var)
 # endif
 #elif defined(USE_ALLOCA)
 #  define ALLOC_ON_STACK(type,n,var) type *var = (type *)alloca((n)*sizeof(type))
-#  define FREE_ON_STACK(var)
+#  define FREE_ON_STACK(type,var)
 #else
 #  define ALLOC_ON_STACK(type,n,var) type *var = (type *)ckalloc((n)*sizeof(type))
-#  define FREE_ON_STACK(var) ckfree((char*)var)
+#  define FREE_ON_STACK(type,var) ckfree((char*)var)
 #endif
 
 #ifdef USE_ALLOCA
@@ -238,10 +238,12 @@ typedef struct XOTclMemCounter {
 # define XOTclMutexUnlock(a) (*(a))--
 #endif
 
-#if defined(PRE84)
-# define CONST84 
-#else
-# define CONST84 CONST
+#if !defined(CONST84) 
+# if defined(PRE84)
+#  define CONST84 
+# else
+#  define CONST84 CONST
+# endif
 #endif
 
 #if defined(PRE81)
@@ -444,6 +446,8 @@ typedef struct XOTclStringIncrStruct {
 #define XOTCL_REFCOUNTED                     0x0100
 #define XOTCL_RECREATE                       0x0200
 #define XOTCL_NS_DESTROYED                   0x0400
+#define XOTCL_TCL_DELETE                     0x0200
+#define XOTCL_FREE_TRACE_VAR_CALLED          0x2000
 
 #define XOTclObjectSetClass(obj) \
 	(obj)->flags |= XOTCL_IS_CLASS
@@ -472,7 +476,7 @@ typedef struct XOTclObjectOpt {
   Tcl_HashTable metaData;
 #endif
   ClientData clientData;
-  char *volatileVarName;
+  CONST char *volatileVarName;
   short checkoptions;
 } XOTclObjectOpt;
 

@@ -1,0 +1,23 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+proc showcorners {e corners} {
+    foreach {c anchor text} $corners {
+	circle radius 2 at [$e $c] color red text $text anchor $anchor 
+    }
+}
+
+block {
+    down
+    block { spline right then down [1 cm] left then right }
+    text {The spline curve ...}
+}
+move
+block {
+    down
+    block {
+	line dashed                   right then down [1 cm] left then right 
+	spline from [last line start] right then down [1 cm] left then right 
+	showcorners [last line] { 1 ne 1  2 nw 2  3 se 3  4 sw 4 }
+    }
+    text {... with tangents displayed}
+}
+

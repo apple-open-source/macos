@@ -1,0 +1,41 @@
+Trash Plugin
+============
+
+This requires <quota plugin> [Quota.txt] to be loaded and configured to use
+non- <FS quota> [Quota.FS.txt].
+
+Normally if a message can't be saved/copied because it would bring user over
+quota, the save/copy fails with "Quota exceeded" error. The trash plugin can be
+used to avoid such situations by making Dovecot automatically expunge oldest
+messages from configured mailboxes until the message can be saved. If the new
+message is large enough that it wouldn't fit even if all messages from
+configured mailboxes were expunged, then none are and user gets the "Quota
+exceeded" error.
+
+The configuration file is a text file where each line is in format: '<priority>
+<mailbox name>'. Mails are deleted in lowest -> highest priority number order.
+
+dovecot.conf:
+
+---%<-------------------------------------------------------------------------
+mail_plugins = $mail_plugins quota trash
+
+plugin {
+  trash = /etc/dovecot/dovecot-trash.conf.ext
+}
+---%<-------------------------------------------------------------------------
+
+dovecot-trash.conf.ext:
+
+---%<-------------------------------------------------------------------------
+# Spam mailbox is emptied before Trash
+1 Spam
+# Trash mailbox is emptied before Sent
+2 Trash
+# If both Sent and "Sent Messages" mailboxes exist, the next oldest message
+# to be deleted is looked up from both of the mailboxes.
+3 Sent
+3 Sent Messages
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

@@ -225,8 +225,6 @@ value in "fout". */
         (fout) = (ftab)[gc_i] * (1.0-gc_t) + (ftab)[gc_i+1] * gc_t;     \
     }
 
-/* OPA TODO: Change from ANSI-C arguments to _ANSI_ARGS_ macro. */
-
 static Boln gtableFloat (Float gamma, Float table[])
 {
     Int i;
@@ -237,14 +235,14 @@ static Boln gtableFloat (Float gamma, Float table[])
     }
     for (i = 0; i < GTABSIZE - 1; ++i) {
         table[i] = pow ((Float) i / (Float) (GTABSIZE - 2), 1.0 / gamma);
-	#if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 	    printf ("gammatable[%d] = %f\n", i, table[i]);
-	#endif
+#endif
     }
     table[GTABSIZE - 1] = 1.0;
-    #if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 	printf ("gammatable[%d] = %f\n", GTABSIZE-1, table[GTABSIZE-1]);
-    #endif
+#endif
     return TRUE;
 }
 
@@ -271,10 +269,10 @@ static void gammaShortUByte (Int n, const Short s_in[],
 	    gcorrectFloat (ftmp, gtable, ftmp);
 	    itmp = (Int)(ftmp * 255.0 + 0.5);
 	    *ubdest = MAX (0, MIN (itmp, 255));
-	    #if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 		printf ("Gamma %d --> %f --> %d --> %d\n",
 		        *ssrc, ftmp, itmp, *ubdest);
-	    #endif
+#endif
 	    ++ubdest;
 	    ++ssrc;
 	}
@@ -284,9 +282,9 @@ static void gammaShortUByte (Int n, const Short s_in[],
 	       the displayable range [0 .. 255]. */
 	    itmp = (Int)(*ssrc * 255.0 / 65535.0  + 128);
 	    *ubdest = MAX (0, MIN (itmp, 255));
-	    #if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 		printf ("NoGamma %d --> %d --> %d\n", *ssrc, itmp, *ubdest);
-	    #endif
+#endif
 	    ++ubdest;
 	    ++ssrc;
 	}
@@ -298,11 +296,10 @@ static void gammaShortUByte (Int n, const Short s_in[],
 
 static int isIntel (void)
 {
-    char order[] = { 1, 2, 3, 4};
-    unsigned long val = (unsigned long)*((short *)order);
-    /* On Intel (little-endian) systems this value is equal to 513.
-       On big-endian systems this value equals 258. */
-    return (val == 513);
+    unsigned long val = 513;
+    /* On Intel (little-endian) systems this value is equal to "\01\02\00\00".
+       On big-endian systems this value equals "\00\00\02\01" */
+    return memcmp(&val, "\01\02", 2) == 0;
 }
 
 static void dtedClose (DTEDFILE *tf)
@@ -314,6 +311,7 @@ static void dtedClose (DTEDFILE *tf)
 
 /* Read 1 byte, representing an unsigned integer number. */
 
+#if 0 /* unused */
 static Boln readUByte (tkimg_MFile *handle, UByte *b)
 {
     char buf[1];
@@ -322,6 +320,7 @@ static Boln readUByte (tkimg_MFile *handle, UByte *b)
     *b = buf[0];
     return TRUE;
 }
+#endif  /* unused */
 
 /* Read 2 bytes, representing a signed 16 bit integer in the form
    <LowByte, HighByte>, from a file and convert them into the current
@@ -354,6 +353,7 @@ static Boln readInt (tkimg_MFile *handle, Int *i)
 
 /* Write a byte, representing an unsigned integer to a file. */
 
+#if 0 /* unused */
 static Boln writeUByte (tkimg_MFile *handle, UByte b)
 {
     UByte buf[1];
@@ -362,9 +362,11 @@ static Boln writeUByte (tkimg_MFile *handle, UByte b)
         return FALSE;
     return TRUE;
 }
+#endif /* unused */
 
 /* Write a byte, representing a signed integer to a file. */
 
+#if 0 /* unused */
 static Boln writeByte (tkimg_MFile *handle, Byte b)
 {
     Byte buf[1];
@@ -373,10 +375,12 @@ static Boln writeByte (tkimg_MFile *handle, Byte b)
         return FALSE;
     return TRUE;
 }
+#endif /* unused */
 
 /* Convert a signed 16 bit integer number into the format
    <LowByte, HighByte> (an array of 2 bytes) and write the array to a file. */
 
+#if 0 /* unused */
 static Boln writeShort (tkimg_MFile *handle, Short s)
 {
     Byte buf[2];
@@ -386,10 +390,12 @@ static Boln writeShort (tkimg_MFile *handle, Short s)
         return FALSE;
     return TRUE;
 }
+#endif /* unused */
 
 /* Convert a unsigned 16 bit integer number into the format
    <LowByte, HighByte> (an array of 2 bytes) and write the array to a file. */
 
+#if 0 /* unused */
 static Boln writeUShort (tkimg_MFile *handle, UShort s)
 {
     Byte buf[2];
@@ -399,6 +405,7 @@ static Boln writeUShort (tkimg_MFile *handle, UShort s)
         return FALSE;
     return TRUE;
 }
+#endif /* unused */
 
 #define OUT Tcl_WriteChars (outChan, str, -1)
 static void printImgInfo (DTEDHEADER *th, FMTOPT *opts,
@@ -444,11 +451,14 @@ static Boln readHeader (tkimg_MFile *handle, DTEDHEADER *th)
     return TRUE;
 }
 
+#if 0 /* unused */
 static Boln writeHeader (tkimg_MFile *handle, DTEDHEADER *th)
 {
     return TRUE;
 }
+#endif /* unused */
 
+#if 0 /* unused */
 static void initHeader (DTEDHEADER *th)
 {
     th->uhl.uhl_tag[0] = 'U';
@@ -457,6 +467,7 @@ static void initHeader (DTEDHEADER *th)
     /* OPA: More to follow for DTED writing */
     return;
 }
+#endif /* unused */
 
 static Boln readDtedColumn (tkimg_MFile *handle, Short *pixels, Int nRows,
                             Int nCols, Int curCol, char *buf, Boln hostIsIntel)
@@ -546,10 +557,10 @@ static Boln readDtedFile (tkimg_MFile *handle, Short *buf, Int width, Int height
     Short *bufPtr = buf;
     char  *colBuf;
 
-    #ifdef DEBUG_LOCAL
+#ifdef DEBUG_LOCAL
 	printf ("readDtedFile: Width=%d Height=%d nchan=%d hostIsIntel=%s\n",
                  width, height, nchan, hostIsIntel? "yes": "no");
-    #endif
+#endif
     for (c=0; c<nchan; c++) {
 	minVals[c] =  MAX_SHORT;
 	maxVals[c] =  MIN_SHORT;
@@ -623,10 +634,10 @@ static Boln remapShortValues (Short *buf, Int width, Int height, Int nchan,
 	    for (c=0; c<nchan; c++) {
 		tmpShort = (*bufPtr >= ELEV_UNDEFINED? *bufPtr: minVals[c]);
 		tmpInt = (Int)(tmpShort * m[c] + t[c] + 0.5);
-		#if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 		    printf ("Remap %d --> %d --> %d --> ",
 		             *bufPtr, tmpShort, tmpInt);
-		#endif
+#endif
 		if (tmpInt < MIN_SHORT) {
 		    *bufPtr = MIN_SHORT;
 		} else if (tmpInt > MAX_SHORT) {
@@ -634,9 +645,9 @@ static Boln remapShortValues (Short *buf, Int width, Int height, Int nchan,
 		} else {
 		    *bufPtr = tmpInt;
 		}
-		#if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 		    printf ("%d (%f %f)\n", *bufPtr, m[c], t[c]);
-		#endif
+#endif
 	        bufPtr++;
 	    }
 	}
@@ -652,18 +663,18 @@ static Boln remapShortValues (Short *buf, Int width, Int height, Int nchan,
  * Prototypes for local procedures defined in this file:
  */
 
-static int ParseFormatOpts _ANSI_ARGS_((Tcl_Interp *interp, Tcl_Obj *format,
-               FMTOPT *opts));
-static int CommonMatch _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
-               Tcl_Obj *format, int *widthPtr, int *heightPtr,
-	       DTEDHEADER *dtedHeaderPtr));
-static int CommonRead _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
-	       const char *filename, Tcl_Obj *format,
-	       Tk_PhotoHandle imageHandle, int destX, int destY,
-	       int width, int height, int srcX, int srcY));
-static int CommonWrite _ANSI_ARGS_((Tcl_Interp *interp,
-	       const char *filename, Tcl_Obj *format,
-	       tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr));
+static int ParseFormatOpts(Tcl_Interp *interp, Tcl_Obj *format,
+	FMTOPT *opts);
+static int CommonMatch(Tcl_Interp *interp, tkimg_MFile *handle,
+	Tcl_Obj *format, int *widthPtr, int *heightPtr,
+	DTEDHEADER *dtedHeaderPtr);
+static int CommonRead(Tcl_Interp *interp, tkimg_MFile *handle,
+	const char *filename, Tcl_Obj *format,
+	Tk_PhotoHandle imageHandle, int destX, int destY,
+	int width, int height, int srcX, int srcY);
+static int CommonWrite(Tcl_Interp *interp,
+	const char *filename, Tcl_Obj *format,
+	tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr);
 
 static int ParseFormatOpts (interp, format, opts)
     Tcl_Interp *interp;
@@ -763,35 +774,32 @@ static int ParseFormatOpts (interp, format, opts)
     return TCL_OK;
 }
 
-static int ChnMatch (interp, chan, filename, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *filename;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ChnMatch(
+    Tcl_Channel chan,
+    const char *filename,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixChanMatchProc (&interp, &chan, &filename, &format,
-                            &widthPtr, &heightPtr);
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
 
-    return CommonMatch (interp, &handle, format, widthPtr, heightPtr, NULL);
+    return CommonMatch(interp, &handle, format, widthPtr, heightPtr, NULL);
 }
 
-static int ObjMatch (interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ObjMatch(
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
 
-    tkimg_FixObjMatchProc (&interp, &data, &format, &widthPtr, &heightPtr);
-
-    tkimg_ReadInit (data, 'U', &handle);
+    tkimg_ReadInit(data, 'U', &handle);
     return CommonMatch (interp, &handle, format, widthPtr, heightPtr, NULL);
 }
 
@@ -864,14 +872,6 @@ static int ObjRead (interp, data, format, imageHandle,
                        destX, destY, width, height, srcX, srcY);
 }
 
-typedef struct myblock {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], in case it is not
-		  included already in Tk_PhotoImageBlock */
-} myblock;
-
-#define block bl.ck
-
 static int CommonRead (interp, handle, filename, format, imageHandle,
                        destX, destY, width, height, srcX, srcY)
     Tcl_Interp *interp;         /* Interpreter to use for reporting errors. */
@@ -886,7 +886,7 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
     int srcX, srcY;             /* Coordinates of top-left pixel to be used
 			         * in image being read. */
 {
-    myblock bl;
+	Tk_PhotoImageBlock block;
     Int y, c;
     Int fileWidth, fileHeight;
     Short minVals[MAXCHANS], maxVals[MAXCHANS];
@@ -946,7 +946,10 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
     remapShortValues (tf.rawbuf, fileWidth, fileHeight, opts.nchan,
                       minVals, maxVals);
 
-    Tk_PhotoExpand (imageHandle, destX + outWidth, destY + outHeight);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + outWidth, destY + outHeight) == TCL_ERROR) {
+        dtedClose(&tf);
+    	return TCL_ERROR;
+    }
 
     tf.pixbuf = (UByte *) ckalloc (fileWidth * opts.nchan);
 
@@ -972,12 +975,13 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 	if (y >= srcY) {
 	    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY,
                 width, 1, TK_PHOTO_COMPOSITE_OVERLAY) == TCL_ERROR) {
+                dtedClose(&tf);
                 return TCL_ERROR;
-            }
+        }
 	    outY++;
 	}
     }
-    dtedClose (&tf);
+    dtedClose(&tf);
     return TCL_OK;
 }
 
@@ -1006,24 +1010,24 @@ static int ChnWrite (interp, filename, format, blockPtr)
     return result;
 }
 
-static int StringWrite (interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     tkimg_MFile handle;
     int result;
     Tcl_DString data;
 
-    tkimg_FixStringWriteProc (&data, &interp, &dataPtr, &format, &blockPtr);
-
-    tkimg_WriteInit (dataPtr, &handle);
+    Tcl_DStringInit(&data);
+    tkimg_WriteInit (&data, &handle);
     result = CommonWrite (interp, "InlineData", format, &handle, blockPtr);
     tkimg_Putc(IMG_DONE, &handle);
 
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult (interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }

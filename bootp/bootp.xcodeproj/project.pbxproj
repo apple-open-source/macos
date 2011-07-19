@@ -126,7 +126,6 @@
 		1562E16D0AC4FD8900CF228A /* ipconfigd.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1570AC4FD8900CF228A /* ipconfigd.h */; };
 		1562E16E0AC4FD8900CF228A /* ipconfigd_globals.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1580AC4FD8900CF228A /* ipconfigd_globals.h */; };
 		1562E16F0AC4FD8900CF228A /* ipconfigd_threads.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1590AC4FD8900CF228A /* ipconfigd_threads.h */; };
-		1562E1700AC4FD8900CF228A /* IPConfiguration.xml in Resources */ = {isa = PBXBuildFile; fileRef = 1562E15A0AC4FD8900CF228A /* IPConfiguration.xml */; };
 		1562E1710AC4FD8900CF228A /* linklocal.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15B0AC4FD8900CF228A /* linklocal.c */; };
 		1562E1720AC4FD8900CF228A /* manual.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15C0AC4FD8900CF228A /* manual.c */; };
 		1562E1730AC4FD8900CF228A /* server.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562E15D0AC4FD8900CF228A /* server.c */; };
@@ -155,7 +154,7 @@
 		15D7F6A60AC5B0D90002BE78 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
 		15D7F6A70AC5B0EA0002BE78 /* DHCPServer.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F006F80AC57E9E00C5C101 /* DHCPServer.c */; };
 		15D7F6A80AC5B0EB0002BE78 /* DHCPServer.h in Headers */ = {isa = PBXBuildFile; fileRef = 15F006F90AC57E9E00C5C101 /* DHCPServer.h */; settings = {ATTRIBUTES = (Public, ); }; };
-		15D7F6A90AC5B13A0002BE78 /* libBSDPClient.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */; };
+		15D7F6A90AC5B13A0002BE78 /* libBSDPClient.A.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */; };
 		15D7F6B50AC5B2510002BE78 /* ipconfig.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 15F005650AC578BD00C5C101 /* ipconfig.8 */; };
 		15D7F6B70AC5B5EC0002BE78 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562DF9A0AC4F47B00CF228A /* libbootplib.a */; };
 		15F005660AC578BD00C5C101 /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F005640AC578BD00C5C101 /* client.c */; };
@@ -181,6 +180,23 @@
 		E0D59BC70EEDE02800916211 /* hostlist.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC10AC4F4F700CF228A /* hostlist.c */; };
 		E0D59BCD0EEDE03D00916211 /* inetroute.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFC50AC4F4F700CF228A /* inetroute.c */; };
 		F9035BD30B9F4FC30077F5DF /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
+		F913AB77104C95FB00334C02 /* stf.c in Sources */ = {isa = PBXBuildFile; fileRef = F913AB76104C95FB00334C02 /* stf.c */; };
+		F93F80210FF2D11200558FB3 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F93F801F0FF2D11200558FB3 /* ifutil.c */; };
+		F93F80220FF2D11200558FB3 /* rtutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F93F80200FF2D11200558FB3 /* rtutil.c */; };
+		F93F80230FF2D11200558FB3 /* ifutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F93F801F0FF2D11200558FB3 /* ifutil.c */; };
+		F93F80240FF2D11200558FB3 /* rtutil.c in Sources */ = {isa = PBXBuildFile; fileRef = F93F80200FF2D11200558FB3 /* rtutil.c */; };
+		F93F80270FF2D12A00558FB3 /* ifutil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93F80250FF2D12A00558FB3 /* ifutil.h */; };
+		F93F80280FF2D12A00558FB3 /* rtutil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93F80260FF2D12A00558FB3 /* rtutil.h */; };
+		F93F80290FF2D12A00558FB3 /* ifutil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93F80250FF2D12A00558FB3 /* ifutil.h */; };
+		F93F802A0FF2D12A00558FB3 /* rtutil.h in Headers */ = {isa = PBXBuildFile; fileRef = F93F80260FF2D12A00558FB3 /* rtutil.h */; };
+		F947F5C20FF525E300D18E84 /* sysconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = F947F5C10FF525E300D18E84 /* sysconfig.c */; };
+		F947F5C30FF525E300D18E84 /* sysconfig.c in Sources */ = {isa = PBXBuildFile; fileRef = F947F5C10FF525E300D18E84 /* sysconfig.c */; };
+		F947F5C50FF525FF00D18E84 /* sysconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = F947F5C40FF525FF00D18E84 /* sysconfig.h */; };
+		F947F5C60FF525FF00D18E84 /* sysconfig.h in Headers */ = {isa = PBXBuildFile; fileRef = F947F5C40FF525FF00D18E84 /* sysconfig.h */; };
+		F95CF81C0FE1906B0009CF9D /* DHCPLease.c in Sources */ = {isa = PBXBuildFile; fileRef = F95CF81B0FE1906B0009CF9D /* DHCPLease.c */; };
+		F95CF81D0FE1906B0009CF9D /* DHCPLease.c in Sources */ = {isa = PBXBuildFile; fileRef = F95CF81B0FE1906B0009CF9D /* DHCPLease.c */; };
+		F95CF81F0FE190830009CF9D /* DHCPLease.h in Headers */ = {isa = PBXBuildFile; fileRef = F95CF81E0FE190830009CF9D /* DHCPLease.h */; };
+		F95CF8200FE190830009CF9D /* DHCPLease.h in Headers */ = {isa = PBXBuildFile; fileRef = F95CF81E0FE190830009CF9D /* DHCPLease.h */; };
 		F95FB5930DDA22C100B58ECC /* ipconfig_types.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFCF0AC4F4F700CF228A /* ipconfig_types.h */; };
 		F9694B4F0D3409EF00FA3943 /* libio80211.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9694B4E0D3409EF00FA3943 /* libio80211.a */; };
 		F9694B580D340C0000FA3943 /* arp.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFA40AC4F4F600CF228A /* arp.h */; };
@@ -221,6 +237,48 @@
 		F9694B970D340C0000FA3943 /* util.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFE60AC4F4F800CF228A /* util.c */; };
 		F9694BAC0D340C9800FA3943 /* macnc_options.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFD00AC4F4F700CF228A /* macnc_options.c */; };
 		F9694BAD0D340C9900FA3943 /* macnc_options.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFD10AC4F4F700CF228A /* macnc_options.h */; };
+		F9731B3E0FE6CFFD003744DD /* mylog.c in Sources */ = {isa = PBXBuildFile; fileRef = F9731B3C0FE6CFFD003744DD /* mylog.c */; };
+		F9731B3F0FE6CFFD003744DD /* mylog.h in Headers */ = {isa = PBXBuildFile; fileRef = F9731B3D0FE6CFFD003744DD /* mylog.h */; };
+		F9731B400FE6CFFD003744DD /* mylog.c in Sources */ = {isa = PBXBuildFile; fileRef = F9731B3C0FE6CFFD003744DD /* mylog.c */; };
+		F9731B410FE6CFFD003744DD /* mylog.h in Headers */ = {isa = PBXBuildFile; fileRef = F9731B3D0FE6CFFD003744DD /* mylog.h */; };
+		F973697D11AD7B350090BD4B /* DHCPDUIDIAID.c in Sources */ = {isa = PBXBuildFile; fileRef = F973697C11AD7B350090BD4B /* DHCPDUIDIAID.c */; };
+		F973697E11AD7B350090BD4B /* DHCPDUIDIAID.c in Sources */ = {isa = PBXBuildFile; fileRef = F973697C11AD7B350090BD4B /* DHCPDUIDIAID.c */; };
+		F973698011AD7B4C0090BD4B /* DHCPDUIDIAID.h in Headers */ = {isa = PBXBuildFile; fileRef = F973697F11AD7B4C0090BD4B /* DHCPDUIDIAID.h */; };
+		F973698111AD7B4C0090BD4B /* DHCPDUIDIAID.h in Headers */ = {isa = PBXBuildFile; fileRef = F973697F11AD7B4C0090BD4B /* DHCPDUIDIAID.h */; };
+		F9772EA71076CCEB005C97AE /* DHCPv6Client.c in Sources */ = {isa = PBXBuildFile; fileRef = F9772EA21076CCEB005C97AE /* DHCPv6Client.c */; };
+		F9772EA91076CCEB005C97AE /* DHCPv6Socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F9772EA41076CCEB005C97AE /* DHCPv6Socket.c */; };
+		F9772EAC1076CCEB005C97AE /* DHCPv6Client.c in Sources */ = {isa = PBXBuildFile; fileRef = F9772EA21076CCEB005C97AE /* DHCPv6Client.c */; };
+		F9772EAE1076CCEB005C97AE /* DHCPv6Socket.c in Sources */ = {isa = PBXBuildFile; fileRef = F9772EA41076CCEB005C97AE /* DHCPv6Socket.c */; };
+		F9772EB61076CD24005C97AE /* dhcp_thread.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EAF1076CD24005C97AE /* dhcp_thread.h */; };
+		F9772EB91076CD24005C97AE /* DHCPv6Client.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB21076CD24005C97AE /* DHCPv6Client.h */; };
+		F9772EBB1076CD24005C97AE /* DHCPv6Socket.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB41076CD24005C97AE /* DHCPv6Socket.h */; };
+		F9772EBC1076CD24005C97AE /* ipconfigd_types.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB51076CD24005C97AE /* ipconfigd_types.h */; };
+		F9772EBD1076CD24005C97AE /* dhcp_thread.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EAF1076CD24005C97AE /* dhcp_thread.h */; };
+		F9772EC01076CD24005C97AE /* DHCPv6Client.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB21076CD24005C97AE /* DHCPv6Client.h */; };
+		F9772EC21076CD24005C97AE /* DHCPv6Socket.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB41076CD24005C97AE /* DHCPv6Socket.h */; };
+		F9772EC31076CD24005C97AE /* ipconfigd_types.h in Headers */ = {isa = PBXBuildFile; fileRef = F9772EB51076CD24005C97AE /* ipconfigd_types.h */; };
+		F98249B5107E402500B96585 /* DHCPDUID.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B2107E402500B96585 /* DHCPDUID.c */; };
+		F98249B6107E402500B96585 /* DHCPv6.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B3107E402500B96585 /* DHCPv6.c */; };
+		F98249B7107E402500B96585 /* DHCPv6Options.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B4107E402500B96585 /* DHCPv6Options.c */; };
+		F98249B8107E402500B96585 /* DHCPDUID.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B2107E402500B96585 /* DHCPDUID.c */; };
+		F98249B9107E402500B96585 /* DHCPv6.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B3107E402500B96585 /* DHCPv6.c */; };
+		F98249BA107E402500B96585 /* DHCPv6Options.c in Sources */ = {isa = PBXBuildFile; fileRef = F98249B4107E402500B96585 /* DHCPv6Options.c */; };
+		F98249BF107E406800B96585 /* DHCPDUID.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BB107E406800B96585 /* DHCPDUID.h */; };
+		F98249C0107E406800B96585 /* DHCPv6.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BC107E406800B96585 /* DHCPv6.h */; };
+		F98249C1107E406800B96585 /* DHCPv6Options.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BD107E406800B96585 /* DHCPv6Options.h */; };
+		F98249C2107E406800B96585 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BE107E406800B96585 /* symbol_scope.h */; };
+		F98249C3107E406800B96585 /* DHCPDUID.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BB107E406800B96585 /* DHCPDUID.h */; };
+		F98249C4107E406800B96585 /* DHCPv6.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BC107E406800B96585 /* DHCPv6.h */; };
+		F98249C5107E406800B96585 /* DHCPv6Options.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BD107E406800B96585 /* DHCPv6Options.h */; };
+		F98249C6107E406800B96585 /* symbol_scope.h in Headers */ = {isa = PBXBuildFile; fileRef = F98249BE107E406800B96585 /* symbol_scope.h */; };
+		F989735610275C200024CAA3 /* rtadv.c in Sources */ = {isa = PBXBuildFile; fileRef = F989735510275C200024CAA3 /* rtadv.c */; };
+		F989735710275C200024CAA3 /* rtadv.c in Sources */ = {isa = PBXBuildFile; fileRef = F989735510275C200024CAA3 /* rtadv.c */; };
+		F98F407F10570B2800248267 /* manual_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F98F407E10570B2800248267 /* manual_v6.c */; };
+		F98F408010570B2800248267 /* manual_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F98F407E10570B2800248267 /* manual_v6.c */; };
+		F990257C11BEA3F20066DA8F /* RTADVSocket.c in Sources */ = {isa = PBXBuildFile; fileRef = F990257B11BEA3F20066DA8F /* RTADVSocket.c */; };
+		F990257D11BEA3F20066DA8F /* RTADVSocket.c in Sources */ = {isa = PBXBuildFile; fileRef = F990257B11BEA3F20066DA8F /* RTADVSocket.c */; };
+		F990257F11BEA4070066DA8F /* RTADVSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = F990257E11BEA4070066DA8F /* RTADVSocket.h */; };
+		F990258011BEA4070066DA8F /* RTADVSocket.h in Headers */ = {isa = PBXBuildFile; fileRef = F990257E11BEA4070066DA8F /* RTADVSocket.h */; };
 		F99DF9200D340EA10045E43B /* ipconfig.defs in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFCD0AC4F4F700CF228A /* ipconfig.defs */; };
 		F99DF9210D340EA10045E43B /* client.c in Sources */ = {isa = PBXBuildFile; fileRef = 15F005640AC578BD00C5C101 /* client.c */; };
 		F99DF9230D340EA10045E43B /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E08B0AC4FBC700CF228A /* CoreFoundation.framework */; };
@@ -230,6 +288,9 @@
 		F99DF9830D340F720045E43B /* arp.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFA30AC4F4F600CF228A /* arp.c */; };
 		F99DF9840D340F780045E43B /* host_identifier.c in Sources */ = {isa = PBXBuildFile; fileRef = 1562DFBF0AC4F4F700CF228A /* host_identifier.c */; };
 		F99DF9850D340F780045E43B /* host_identifier.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562DFC00AC4F4F700CF228A /* host_identifier.h */; };
+		F99F75BB123EBC1000827A6D /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562DF9A0AC4F47B00CF228A /* libbootplib.a */; };
+		F9B04E6B107C12D0004C86A7 /* linklocal_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */; };
+		F9B04E6C107C12D0004C86A7 /* linklocal_v6.c in Sources */ = {isa = PBXBuildFile; fileRef = F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */; };
 		F9C8ECC30D3306F50047CE42 /* arp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14A0AC4FD8800CF228A /* arp_session.h */; };
 		F9C8ECC40D3306F50047CE42 /* bootp_session.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E14D0AC4FD8900CF228A /* bootp_session.h */; };
 		F9C8ECC50D3306F50047CE42 /* FDSet.h in Headers */ = {isa = PBXBuildFile; fileRef = 1562E1540AC4FD8900CF228A /* FDSet.h */; };
@@ -256,7 +317,7 @@
 		F9C8ECDF0D3306F50047CE42 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E0930AC4FBF900CF228A /* SystemConfiguration.framework */; };
 		F9C8ECE00D3306F50047CE42 /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 1562E1D30AC505F700CF228A /* IOKit.framework */; };
 		F9DCDCB50D340E3B00A504B0 /* libbootplib.a in Frameworks */ = {isa = PBXBuildFile; fileRef = F9694B9C0D340C0000FA3943 /* libbootplib.a */; };
-		F9F839280E106E4700724F62 /* IPConfiguration.xml in Resources */ = {isa = PBXBuildFile; fileRef = F9F839270E106E4700724F62 /* IPConfiguration.xml */; };
+		F9F6902510892E9500F3C2BF /* stf.c in Sources */ = {isa = PBXBuildFile; fileRef = F913AB76104C95FB00334C02 /* stf.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -518,7 +579,6 @@
 		1562E1570AC4FD8900CF228A /* ipconfigd.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipconfigd.h; path = IPConfiguration.bproj/ipconfigd.h; sourceTree = "<group>"; };
 		1562E1580AC4FD8900CF228A /* ipconfigd_globals.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipconfigd_globals.h; path = IPConfiguration.bproj/ipconfigd_globals.h; sourceTree = "<group>"; };
 		1562E1590AC4FD8900CF228A /* ipconfigd_threads.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = ipconfigd_threads.h; path = IPConfiguration.bproj/ipconfigd_threads.h; sourceTree = "<group>"; };
-		1562E15A0AC4FD8900CF228A /* IPConfiguration.xml */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.xml; name = IPConfiguration.xml; path = IPConfiguration.bproj/IPConfiguration.xml; sourceTree = "<group>"; };
 		1562E15B0AC4FD8900CF228A /* linklocal.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = linklocal.c; path = IPConfiguration.bproj/linklocal.c; sourceTree = "<group>"; };
 		1562E15C0AC4FD8900CF228A /* manual.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = manual.c; path = IPConfiguration.bproj/manual.c; sourceTree = "<group>"; };
 		1562E15D0AC4FD8900CF228A /* server.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = server.c; path = IPConfiguration.bproj/server.c; sourceTree = "<group>"; };
@@ -529,8 +589,8 @@
 		1562E1D30AC505F700CF228A /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		1596FB650AD9CC0600C3C46D /* bootplookup.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bootplookup.c; path = bootpd.tproj/bootplookup.c; sourceTree = "<group>"; };
 		1596FB660AD9CC0600C3C46D /* bootplookup.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = bootplookup.h; path = bootpd.tproj/bootplookup.h; sourceTree = "<group>"; };
-		15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libBSDPClient.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
-		15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libDHCPServer.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libBSDPClient.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = libDHCPServer.A.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
 		15D7F6EB0AC5C4730002BE78 /* Info.plist */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text.plist.xml; name = Info.plist; path = IPConfiguration.bproj/Info.plist; sourceTree = "<group>"; };
 		15F005600AC5789A00C5C101 /* ipconfig */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipconfig; sourceTree = BUILT_PRODUCTS_DIR; };
 		15F005640AC578BD00C5C101 /* client.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = client.c; path = ipconfig.tproj/client.c; sourceTree = "<group>"; };
@@ -544,12 +604,44 @@
 		15F0071E0AC5811100C5C101 /* bsdpc.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = bsdpc.c; path = bsdpc.tproj/bsdpc.c; sourceTree = "<group>"; };
 		15F018C60ACC601200F5902D /* failover.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = failover.c; path = IPConfiguration.bproj/failover.c; sourceTree = "<group>"; };
 		15FF29A00ACA138A00AD2676 /* OpenDirectory.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenDirectory.framework; path = /System/Library/PrivateFrameworks/OpenDirectory.framework; sourceTree = "<absolute>"; };
+		D646A23112FA3E830031DA83 /* IPv6Sock_Compat.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = IPv6Sock_Compat.h; sourceTree = "<group>"; };
 		E0D59B820EEDDD8E00916211 /* bootpd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = bootpd; sourceTree = BUILT_PRODUCTS_DIR; };
+		F913AB76104C95FB00334C02 /* stf.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = stf.c; path = IPConfiguration.bproj/stf.c; sourceTree = "<group>"; };
+		F93F801F0FF2D11200558FB3 /* ifutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = ifutil.c; path = IPConfiguration.bproj/ifutil.c; sourceTree = "<group>"; };
+		F93F80200FF2D11200558FB3 /* rtutil.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rtutil.c; path = IPConfiguration.bproj/rtutil.c; sourceTree = "<group>"; };
+		F93F80250FF2D12A00558FB3 /* ifutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ifutil.h; path = IPConfiguration.bproj/ifutil.h; sourceTree = "<group>"; };
+		F93F80260FF2D12A00558FB3 /* rtutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = rtutil.h; path = IPConfiguration.bproj/rtutil.h; sourceTree = "<group>"; };
+		F947F5C10FF525E300D18E84 /* sysconfig.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sysconfig.c; path = IPConfiguration.bproj/sysconfig.c; sourceTree = "<group>"; };
+		F947F5C40FF525FF00D18E84 /* sysconfig.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = sysconfig.h; path = IPConfiguration.bproj/sysconfig.h; sourceTree = "<group>"; };
+		F95CF81B0FE1906B0009CF9D /* DHCPLease.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPLease.c; path = IPConfiguration.bproj/DHCPLease.c; sourceTree = "<group>"; };
+		F95CF81E0FE190830009CF9D /* DHCPLease.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPLease.h; path = IPConfiguration.bproj/DHCPLease.h; sourceTree = "<group>"; };
 		F9694B4E0D3409EF00FA3943 /* libio80211.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; name = libio80211.a; path = /usr/local/lib/libio80211.a; sourceTree = "<absolute>"; };
 		F9694B9C0D340C0000FA3943 /* libbootplib.a */ = {isa = PBXFileReference; comments = embedded; explicitFileType = archive.ar; includeInIndex = 0; path = libbootplib.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9731B3C0FE6CFFD003744DD /* mylog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mylog.c; path = IPConfiguration.bproj/mylog.c; sourceTree = "<group>"; };
+		F9731B3D0FE6CFFD003744DD /* mylog.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mylog.h; path = IPConfiguration.bproj/mylog.h; sourceTree = "<group>"; };
+		F973697C11AD7B350090BD4B /* DHCPDUIDIAID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPDUIDIAID.c; path = IPConfiguration.bproj/DHCPDUIDIAID.c; sourceTree = "<group>"; };
+		F973697F11AD7B4C0090BD4B /* DHCPDUIDIAID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPDUIDIAID.h; path = IPConfiguration.bproj/DHCPDUIDIAID.h; sourceTree = "<group>"; };
+		F9772EA21076CCEB005C97AE /* DHCPv6Client.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6Client.c; path = IPConfiguration.bproj/DHCPv6Client.c; sourceTree = "<group>"; };
+		F9772EA41076CCEB005C97AE /* DHCPv6Socket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6Socket.c; path = IPConfiguration.bproj/DHCPv6Socket.c; sourceTree = "<group>"; };
+		F9772EAF1076CD24005C97AE /* dhcp_thread.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = dhcp_thread.h; path = IPConfiguration.bproj/dhcp_thread.h; sourceTree = "<group>"; };
+		F9772EB21076CD24005C97AE /* DHCPv6Client.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6Client.h; path = IPConfiguration.bproj/DHCPv6Client.h; sourceTree = "<group>"; };
+		F9772EB41076CD24005C97AE /* DHCPv6Socket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6Socket.h; path = IPConfiguration.bproj/DHCPv6Socket.h; sourceTree = "<group>"; };
+		F9772EB51076CD24005C97AE /* ipconfigd_types.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = ipconfigd_types.h; path = IPConfiguration.bproj/ipconfigd_types.h; sourceTree = "<group>"; };
+		F98249B2107E402500B96585 /* DHCPDUID.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPDUID.c; path = bootplib/DHCPDUID.c; sourceTree = "<group>"; };
+		F98249B3107E402500B96585 /* DHCPv6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6.c; path = bootplib/DHCPv6.c; sourceTree = "<group>"; };
+		F98249B4107E402500B96585 /* DHCPv6Options.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = DHCPv6Options.c; path = bootplib/DHCPv6Options.c; sourceTree = "<group>"; };
+		F98249BB107E406800B96585 /* DHCPDUID.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPDUID.h; path = bootplib/DHCPDUID.h; sourceTree = "<group>"; };
+		F98249BC107E406800B96585 /* DHCPv6.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6.h; path = bootplib/DHCPv6.h; sourceTree = "<group>"; };
+		F98249BD107E406800B96585 /* DHCPv6Options.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DHCPv6Options.h; path = bootplib/DHCPv6Options.h; sourceTree = "<group>"; };
+		F98249BE107E406800B96585 /* symbol_scope.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = symbol_scope.h; path = bootplib/symbol_scope.h; sourceTree = "<group>"; };
+		F989735510275C200024CAA3 /* rtadv.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = rtadv.c; path = IPConfiguration.bproj/rtadv.c; sourceTree = "<group>"; };
+		F98F407E10570B2800248267 /* manual_v6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = manual_v6.c; path = IPConfiguration.bproj/manual_v6.c; sourceTree = "<group>"; };
+		F990257B11BEA3F20066DA8F /* RTADVSocket.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = RTADVSocket.c; path = IPConfiguration.bproj/RTADVSocket.c; sourceTree = "<group>"; };
+		F990257E11BEA4070066DA8F /* RTADVSocket.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RTADVSocket.h; path = IPConfiguration.bproj/RTADVSocket.h; sourceTree = "<group>"; };
 		F99DF92C0D340EA10045E43B /* ipconfig */ = {isa = PBXFileReference; comments = embedded; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = ipconfig; sourceTree = BUILT_PRODUCTS_DIR; };
+		F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = linklocal_v6.c; path = IPConfiguration.bproj/linklocal_v6.c; sourceTree = "<group>"; };
 		F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */ = {isa = PBXFileReference; comments = "embedded\n"; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = IPConfiguration.bundle; sourceTree = BUILT_PRODUCTS_DIR; };
-		F9F839270E106E4700724F62 /* IPConfiguration.xml */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xml; name = IPConfiguration.xml; path = IPConfiguration.bproj/Embedded/IPConfiguration.xml; sourceTree = "<group>"; };
+		F9E96854107CFDA1005767E4 /* Embedded-Info.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = "Embedded-Info.plist"; path = "IPConfiguration.bproj/Embedded-Info.plist"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -600,6 +692,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15D7F6A60AC5B0D90002BE78 /* CoreFoundation.framework in Frameworks */,
+				F99F75BB123EBC1000827A6D /* libbootplib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -619,7 +712,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				15F007210AC5813C00C5C101 /* CoreFoundation.framework in Frameworks */,
-				15D7F6A90AC5B13A0002BE78 /* libBSDPClient.dylib in Frameworks */,
+				15D7F6A90AC5B13A0002BE78 /* libBSDPClient.A.dylib in Frameworks */,
 				15D7F6B70AC5B5EC0002BE78 /* libbootplib.a in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -706,6 +799,9 @@
 				1562DFAA0AC4F4F600CF228A /* bsdp.h */,
 				1562DFAC0AC4F4F600CF228A /* bsdplib.h */,
 				1562DFAE0AC4F4F600CF228A /* cfutil.h */,
+				F98249BB107E406800B96585 /* DHCPDUID.h */,
+				F98249BC107E406800B96585 /* DHCPv6.h */,
+				F98249BD107E406800B96585 /* DHCPv6Options.h */,
 				1562DFAF0AC4F4F600CF228A /* dhcp.h */,
 				1562DFB30AC4F4F600CF228A /* dhcplib.h */,
 				1562DFB10AC4F4F600CF228A /* dhcp_options.h */,
@@ -733,6 +829,7 @@
 				1562DFDE0AC4F4F800CF228A /* ptrlist.h */,
 				1562DFDF0AC4F4F800CF228A /* rfc_options.h */,
 				1562DFE10AC4F4F800CF228A /* subnets.h */,
+				F98249BE107E406800B96585 /* symbol_scope.h */,
 				1562DFE30AC4F4F800CF228A /* tftplib.h */,
 				1562DFE70AC4F4F800CF228A /* util.h */,
 			);
@@ -747,6 +844,9 @@
 				1562DFA80AC4F4F600CF228A /* bpflib.c */,
 				1562DFAB0AC4F4F600CF228A /* bsdplib.c */,
 				1562DFAD0AC4F4F600CF228A /* cfutil.c */,
+				F98249B2107E402500B96585 /* DHCPDUID.c */,
+				F98249B3107E402500B96585 /* DHCPv6.c */,
+				F98249B4107E402500B96585 /* DHCPv6Options.c */,
 				1562DFB00AC4F4F600CF228A /* dhcp_options.c */,
 				1562DFB20AC4F4F600CF228A /* dhcplib.c */,
 				1562DFB40AC4F4F600CF228A /* DNSNameList.c */,
@@ -779,8 +879,8 @@
 				1562E1480AC4FD1F00CF228A /* IPConfiguration.bundle */,
 				15F005600AC5789A00C5C101 /* ipconfig */,
 				15F007120AC580B200C5C101 /* bsdpc */,
-				15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */,
-				15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */,
+				15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */,
+				15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */,
 				F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */,
 				F9694B9C0D340C0000FA3943 /* libbootplib.a */,
 				F99DF92C0D340EA10045E43B /* ipconfig */,
@@ -892,6 +992,17 @@
 		1562E1300AC4FCA100CF228A /* Headers */ = {
 			isa = PBXGroup;
 			children = (
+				D646A23112FA3E830031DA83 /* IPv6Sock_Compat.h */,
+				F990257E11BEA4070066DA8F /* RTADVSocket.h */,
+				F973697F11AD7B4C0090BD4B /* DHCPDUIDIAID.h */,
+				F9772EAF1076CD24005C97AE /* dhcp_thread.h */,
+				F9772EB21076CD24005C97AE /* DHCPv6Client.h */,
+				F9772EB41076CD24005C97AE /* DHCPv6Socket.h */,
+				F9772EB51076CD24005C97AE /* ipconfigd_types.h */,
+				F947F5C40FF525FF00D18E84 /* sysconfig.h */,
+				F93F80250FF2D12A00558FB3 /* ifutil.h */,
+				F93F80260FF2D12A00558FB3 /* rtutil.h */,
+				F95CF81E0FE190830009CF9D /* DHCPLease.h */,
 				1562E14A0AC4FD8800CF228A /* arp_session.h */,
 				1562E14D0AC4FD8900CF228A /* bootp_session.h */,
 				1562E1540AC4FD8900CF228A /* FDSet.h */,
@@ -899,6 +1010,7 @@
 				1562E1570AC4FD8900CF228A /* ipconfigd.h */,
 				1562E1580AC4FD8900CF228A /* ipconfigd_globals.h */,
 				1562E1590AC4FD8900CF228A /* ipconfigd_threads.h */,
+				F9731B3D0FE6CFFD003744DD /* mylog.h */,
 				1562E15E0AC4FD8900CF228A /* server.h */,
 				1562E1600AC4FD8900CF228A /* timer.h */,
 			);
@@ -908,16 +1020,29 @@
 		1562E1310AC4FCAC00CF228A /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				F990257B11BEA3F20066DA8F /* RTADVSocket.c */,
+				F973697C11AD7B350090BD4B /* DHCPDUIDIAID.c */,
 				1562E1490AC4FD8800CF228A /* arp_session.c */,
 				1562E14B0AC4FD8900CF228A /* bootp.c */,
 				1562E14C0AC4FD8900CF228A /* bootp_session.c */,
 				1562E14F0AC4FD8900CF228A /* dhcp.c */,
+				F95CF81B0FE1906B0009CF9D /* DHCPLease.c */,
+				F9772EA21076CCEB005C97AE /* DHCPv6Client.c */,
+				F9772EA41076CCEB005C97AE /* DHCPv6Socket.c */,
+				15F018C60ACC601200F5902D /* failover.c */,
 				1562E1530AC4FD8900CF228A /* FDSet.c */,
+				F93F801F0FF2D11200558FB3 /* ifutil.c */,
 				1562E1560AC4FD8900CF228A /* ipconfigd.c */,
 				1562E15B0AC4FD8900CF228A /* linklocal.c */,
+				F9B04E6A107C12D0004C86A7 /* linklocal_v6.c */,
 				1562E15C0AC4FD8900CF228A /* manual.c */,
-				15F018C60ACC601200F5902D /* failover.c */,
+				F98F407E10570B2800248267 /* manual_v6.c */,
+				F9731B3C0FE6CFFD003744DD /* mylog.c */,
+				F989735510275C200024CAA3 /* rtadv.c */,
+				F93F80200FF2D11200558FB3 /* rtutil.c */,
 				1562E15D0AC4FD8900CF228A /* server.c */,
+				F913AB76104C95FB00334C02 /* stf.c */,
+				F947F5C10FF525E300D18E84 /* sysconfig.c */,
 				1562E15F0AC4FD8900CF228A /* timer.c */,
 			);
 			name = Sources;
@@ -926,9 +1051,8 @@
 		1562E1320AC4FCB500CF228A /* Supporting Files */ = {
 			isa = PBXGroup;
 			children = (
-				F9F839230E106E2200724F62 /* Embedded */,
+				F9E96854107CFDA1005767E4 /* Embedded-Info.plist */,
 				15D7F6EB0AC5C4730002BE78 /* Info.plist */,
-				1562E15A0AC4FD8900CF228A /* IPConfiguration.xml */,
 				1562E1770AC4FE1100CF228A /* Localizable.strings */,
 			);
 			name = "Supporting Files";
@@ -1042,14 +1166,6 @@
 			name = Headers;
 			sourceTree = "<group>";
 		};
-		F9F839230E106E2200724F62 /* Embedded */ = {
-			isa = PBXGroup;
-			children = (
-				F9F839270E106E4700724F62 /* IPConfiguration.xml */,
-			);
-			name = Embedded;
-			sourceTree = "<group>";
-		};
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
@@ -1095,6 +1211,10 @@
 				1562E0270AC4F4F800CF228A /* subnets.h in Headers */,
 				1562E0290AC4F4F800CF228A /* tftplib.h in Headers */,
 				1562E02D0AC4F4F800CF228A /* util.h in Headers */,
+				F98249BF107E406800B96585 /* DHCPDUID.h in Headers */,
+				F98249C0107E406800B96585 /* DHCPv6.h in Headers */,
+				F98249C1107E406800B96585 /* DHCPv6Options.h in Headers */,
+				F98249C2107E406800B96585 /* symbol_scope.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1112,6 +1232,17 @@
 				1562E1740AC4FD8900CF228A /* server.h in Headers */,
 				1562E1760AC4FD8900CF228A /* timer.h in Headers */,
 				1562E1B10AC5017800CF228A /* ipconfig_types.h in Headers */,
+				F95CF81F0FE190830009CF9D /* DHCPLease.h in Headers */,
+				F9731B3F0FE6CFFD003744DD /* mylog.h in Headers */,
+				F93F80270FF2D12A00558FB3 /* ifutil.h in Headers */,
+				F93F80280FF2D12A00558FB3 /* rtutil.h in Headers */,
+				F947F5C50FF525FF00D18E84 /* sysconfig.h in Headers */,
+				F9772EB61076CD24005C97AE /* dhcp_thread.h in Headers */,
+				F9772EB91076CD24005C97AE /* DHCPv6Client.h in Headers */,
+				F9772EBB1076CD24005C97AE /* DHCPv6Socket.h in Headers */,
+				F9772EBC1076CD24005C97AE /* ipconfigd_types.h in Headers */,
+				F973698011AD7B4C0090BD4B /* DHCPDUIDIAID.h in Headers */,
+				F990257F11BEA4070066DA8F /* RTADVSocket.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1169,6 +1300,10 @@
 				F9694B7D0D340C0000FA3943 /* util.h in Headers */,
 				F9694BAD0D340C9900FA3943 /* macnc_options.h in Headers */,
 				F99DF9850D340F780045E43B /* host_identifier.h in Headers */,
+				F98249C3107E406800B96585 /* DHCPDUID.h in Headers */,
+				F98249C4107E406800B96585 /* DHCPv6.h in Headers */,
+				F98249C5107E406800B96585 /* DHCPv6Options.h in Headers */,
+				F98249C6107E406800B96585 /* symbol_scope.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1186,6 +1321,17 @@
 				F9C8ECCA0D3306F50047CE42 /* server.h in Headers */,
 				F9C8ECCB0D3306F50047CE42 /* timer.h in Headers */,
 				F9C8ECCC0D3306F50047CE42 /* ipconfig_types.h in Headers */,
+				F95CF8200FE190830009CF9D /* DHCPLease.h in Headers */,
+				F9731B410FE6CFFD003744DD /* mylog.h in Headers */,
+				F93F80290FF2D12A00558FB3 /* ifutil.h in Headers */,
+				F93F802A0FF2D12A00558FB3 /* rtutil.h in Headers */,
+				F947F5C60FF525FF00D18E84 /* sysconfig.h in Headers */,
+				F9772EBD1076CD24005C97AE /* dhcp_thread.h in Headers */,
+				F9772EC01076CD24005C97AE /* DHCPv6Client.h in Headers */,
+				F9772EC21076CD24005C97AE /* DHCPv6Socket.h in Headers */,
+				F9772EC31076CD24005C97AE /* ipconfigd_types.h in Headers */,
+				F973698111AD7B4C0090BD4B /* DHCPDUIDIAID.h in Headers */,
+				F990258011BEA4070066DA8F /* RTADVSocket.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1265,7 +1411,7 @@
 			);
 			name = BSDPClient;
 			productName = BSDPClient;
-			productReference = 15D7F5490AC5B0390002BE78 /* libBSDPClient.dylib */;
+			productReference = 15D7F5490AC5B0390002BE78 /* libBSDPClient.A.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		15D7F54D0AC5B05A0002BE78 /* DHCPServer */ = {
@@ -1283,7 +1429,7 @@
 			);
 			name = DHCPServer;
 			productName = DHCPServer;
-			productReference = 15D7F54E0AC5B05A0002BE78 /* libDHCPServer.dylib */;
+			productReference = 15D7F54E0AC5B05A0002BE78 /* libDHCPServer.A.dylib */;
 			productType = "com.apple.product-type.library.dynamic";
 		};
 		15F0055F0AC5789A00C5C101 /* ipconfig */ = {
@@ -1391,7 +1537,7 @@
 			productInstallPath = "$(USER_LIBRARY_DIR)/Bundles";
 			productName = IPConfiguration;
 			productReference = F9C8ECE60D3306F50047CE42 /* IPConfiguration.bundle */;
-			productType = "com.apple.product-type.bundle.shallow";
+			productType = "com.apple.product-type.bundle";
 		};
 /* End PBXNativeTarget section */
 
@@ -1400,7 +1546,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 1562DF840AC4F40F00CF228A /* Build configuration list for PBXProject "bootp" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 1562DF810AC4F40F00CF228A;
 			productRefGroup = 1562DF9B0AC4F47B00CF228A /* Products */;
 			projectDirPath = "";
@@ -1428,7 +1581,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				1562E1700AC4FD8900CF228A /* IPConfiguration.xml in Resources */,
 				1562E1790AC4FE1100CF228A /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -1437,7 +1589,6 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				F9F839280E106E4700724F62 /* IPConfiguration.xml in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1548,6 +1699,9 @@
 				1562E0260AC4F4F800CF228A /* subnets.c in Sources */,
 				1562E0280AC4F4F800CF228A /* tftplib.c in Sources */,
 				1562E02C0AC4F4F800CF228A /* util.c in Sources */,
+				F98249B5107E402500B96585 /* DHCPDUID.c in Sources */,
+				F98249B6107E402500B96585 /* DHCPv6.c in Sources */,
+				F98249B7107E402500B96585 /* DHCPv6Options.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1581,6 +1735,19 @@
 				1562E1730AC4FD8900CF228A /* server.c in Sources */,
 				1562E1750AC4FD8900CF228A /* timer.c in Sources */,
 				15F018C70ACC601200F5902D /* failover.c in Sources */,
+				F95CF81C0FE1906B0009CF9D /* DHCPLease.c in Sources */,
+				F9731B3E0FE6CFFD003744DD /* mylog.c in Sources */,
+				F93F80210FF2D11200558FB3 /* ifutil.c in Sources */,
+				F93F80220FF2D11200558FB3 /* rtutil.c in Sources */,
+				F947F5C20FF525E300D18E84 /* sysconfig.c in Sources */,
+				F989735610275C200024CAA3 /* rtadv.c in Sources */,
+				F913AB77104C95FB00334C02 /* stf.c in Sources */,
+				F98F407F10570B2800248267 /* manual_v6.c in Sources */,
+				F9772EA71076CCEB005C97AE /* DHCPv6Client.c in Sources */,
+				F9772EA91076CCEB005C97AE /* DHCPv6Socket.c in Sources */,
+				F9B04E6B107C12D0004C86A7 /* linklocal_v6.c in Sources */,
+				F973697D11AD7B350090BD4B /* DHCPDUIDIAID.c in Sources */,
+				F990257C11BEA3F20066DA8F /* RTADVSocket.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1652,6 +1819,9 @@
 				E0D59BC00EEDE01500916211 /* netinfo.c in Sources */,
 				E0D59BC70EEDE02800916211 /* hostlist.c in Sources */,
 				E0D59BCD0EEDE03D00916211 /* inetroute.c in Sources */,
+				F98249B8107E402500B96585 /* DHCPDUID.c in Sources */,
+				F98249B9107E402500B96585 /* DHCPv6.c in Sources */,
+				F98249BA107E402500B96585 /* DHCPv6Options.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1680,6 +1850,19 @@
 				F9C8ECDA0D3306F50047CE42 /* server.c in Sources */,
 				F9C8ECDB0D3306F50047CE42 /* timer.c in Sources */,
 				F9C8ECDC0D3306F50047CE42 /* failover.c in Sources */,
+				F95CF81D0FE1906B0009CF9D /* DHCPLease.c in Sources */,
+				F9731B400FE6CFFD003744DD /* mylog.c in Sources */,
+				F93F80230FF2D11200558FB3 /* ifutil.c in Sources */,
+				F93F80240FF2D11200558FB3 /* rtutil.c in Sources */,
+				F947F5C30FF525E300D18E84 /* sysconfig.c in Sources */,
+				F989735710275C200024CAA3 /* rtadv.c in Sources */,
+				F98F408010570B2800248267 /* manual_v6.c in Sources */,
+				F9772EAC1076CCEB005C97AE /* DHCPv6Client.c in Sources */,
+				F9772EAE1076CCEB005C97AE /* DHCPv6Socket.c in Sources */,
+				F9B04E6C107C12D0004C86A7 /* linklocal_v6.c in Sources */,
+				F9F6902510892E9500F3C2BF /* stf.c in Sources */,
+				F973697E11AD7B350090BD4B /* DHCPDUIDIAID.c in Sources */,
+				F990257D11BEA3F20066DA8F /* RTADVSocket.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1774,6 +1957,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				DEAD_CODE_STRIPPING = YES;
+				RUN_CLANG_STATIC_ANALYZER = YES;
 				STRIPFLAGS = "-S";
 			};
 			name = Debug;
@@ -1828,6 +2012,11 @@
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = bootplib;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -1852,6 +2041,11 @@
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -1859,7 +2053,6 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
-				GCC_WARN_MISSING_PARENTHESES = NO;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
 				VERSIONING_SYSTEM = "";
@@ -1885,6 +2078,7 @@
 				);
 				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				OTHER_CFLAGS = "-D__APPLE_USE_RFC_3542";
 				PRODUCT_NAME = IPConfiguration;
 				VALID_ARCHS = "i386 x86_64 ppc";
 				WARNING_CFLAGS = (
@@ -1910,6 +2104,7 @@
 				);
 				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				OTHER_CFLAGS = "-D__APPLE_USE_RFC_3542";
 				PRODUCT_NAME = IPConfiguration;
 				VALID_ARCHS = "i386 x86_64 ppc";
 				VERSIONING_SYSTEM = "";
@@ -1928,7 +2123,12 @@
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
-				PRODUCT_NAME = BSDPClient;
+				PRODUCT_NAME = BSDPClient.A;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -1955,7 +2155,12 @@
 				COPY_PHASE_STRIP = NO;
 				EXECUTABLE_PREFIX = lib;
 				INSTALL_PATH = /usr/lib;
-				PRODUCT_NAME = DHCPServer;
+				PRODUCT_NAME = DHCPServer.A;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -1981,6 +2186,11 @@
 			buildSettings = {
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -2005,6 +2215,11 @@
 				COPY_PHASE_STRIP = NO;
 				INSTALL_PATH = /usr/local/bin;
 				PRODUCT_NAME = bsdpc;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -2031,6 +2246,11 @@
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -2040,7 +2260,6 @@
 				APPLY_RULES_IN_COPY_FILES = YES;
 				FRAMEWORK_SEARCH_PATHS = "$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks";
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
-				GCC_WARN_MISSING_PARENTHESES = NO;
 				INSTALL_PATH = /usr/libexec;
 				PRODUCT_NAME = bootpd;
 				VERSIONING_SYSTEM = "";
@@ -2059,6 +2278,11 @@
 				INSTALL_PATH = /usr/local/lib;
 				PRODUCT_NAME = bootplib;
 				SKIP_INSTALL = YES;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -2083,6 +2307,11 @@
 				GCC_PREPROCESSOR_DEFINITIONS = USE_SYSTEMCONFIGURATION_PRIVATE_HEADERS;
 				INSTALL_PATH = /usr/sbin;
 				PRODUCT_NAME = ipconfig;
+				WARNING_CFLAGS = (
+					"-Wall",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Debug;
 		};
@@ -2138,8 +2367,9 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
-				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
+				INFOPLIST_FILE = "IPConfiguration.bproj/Embedded-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				OTHER_CFLAGS = "-D__APPLE_USE_RFC_3542";
 				PRODUCT_NAME = IPConfiguration;
 				WARNING_CFLAGS = (
 					"-Wall",
@@ -2163,8 +2393,9 @@
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/IOKit.framework/PrivateHeaders",
 					"$(SYSTEM_LIBRARY_DIR)/Frameworks/System.framework/PrivateHeaders",
 				);
-				INFOPLIST_FILE = IPConfiguration.bproj/Info.plist;
+				INFOPLIST_FILE = "IPConfiguration.bproj/Embedded-Info.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/SystemConfiguration";
+				OTHER_CFLAGS = "-D__APPLE_USE_RFC_3542";
 				PRODUCT_NAME = IPConfiguration;
 				VERSIONING_SYSTEM = "";
 				WARNING_CFLAGS = (

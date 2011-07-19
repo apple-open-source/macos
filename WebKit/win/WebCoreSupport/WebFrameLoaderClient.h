@@ -29,9 +29,7 @@
 #ifndef WebFrameLoaderClient_h
 #define WebFrameLoaderClient_h
 
-#pragma warning(push, 0)
 #include <WebCore/FrameLoaderClient.h>
-#pragma warning(pop)
 
 namespace WebCore {
     class PluginManualLoader;
@@ -40,6 +38,7 @@ namespace WebCore {
 
 template <typename T> class COMPtr;
 class WebFrame;
+class WebHistory;
 
 class WebFrameLoaderClient : public WebCore::FrameLoaderClient {
 public:
@@ -54,7 +53,7 @@ public:
     virtual void dispatchDidReceiveAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidCancelAuthenticationChallenge(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::AuthenticationChallenge&);
     virtual void dispatchDidReceiveResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&);
-    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int lengthReceived);
+    virtual void dispatchDidReceiveContentLength(WebCore::DocumentLoader*, unsigned long identifier, int dataLength);
     virtual void dispatchDidFinishLoading(WebCore::DocumentLoader*, unsigned long identifier);
     virtual void dispatchDidFailLoading(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceError&);
     virtual bool shouldCacheResponse(WebCore::DocumentLoader*, unsigned long identifier, const WebCore::ResourceResponse&, const unsigned char* data, unsigned long long length);
@@ -70,15 +69,15 @@ public:
     virtual void dispatchWillClose();
     virtual void dispatchDidReceiveIcon();
     virtual void dispatchDidStartProvisionalLoad();
-    virtual void dispatchDidReceiveTitle(const WebCore::String&);
-    virtual void dispatchDidChangeIcons();
+    virtual void dispatchDidReceiveTitle(const WebCore::StringWithDirection&);
+    virtual void dispatchDidChangeIcons(WebCore::IconType);
     virtual void dispatchDidCommitLoad();
     virtual void dispatchDidFinishDocumentLoad();
     virtual void dispatchDidFinishLoad();
     virtual void dispatchDidFirstLayout();
     virtual void dispatchDidFirstVisuallyNonEmptyLayout();
 
-    virtual WebCore::Frame* dispatchCreatePage();
+    virtual WebCore::Frame* dispatchCreatePage(const WebCore::NavigationAction&);
     virtual void dispatchShow();
 
     virtual void dispatchDidLoadMainResource(WebCore::DocumentLoader*);
@@ -94,29 +93,37 @@ public:
     virtual void updateGlobalHistory();
     virtual void updateGlobalHistoryRedirectLinks();
     virtual bool shouldGoToHistoryItem(WebCore::HistoryItem*) const;
+    virtual bool shouldStopLoadingForHistoryItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidAddBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidRemoveBackForwardItem(WebCore::HistoryItem*) const;
     virtual void dispatchDidChangeBackForwardIndex() const;
+    virtual void updateGlobalHistoryItemForPage();
 
     virtual void didDisplayInsecureContent();
-    virtual void didRunInsecureContent(WebCore::SecurityOrigin*);
+    virtual void didRunInsecureContent(WebCore::SecurityOrigin*, const WebCore::KURL&);
 
     virtual PassRefPtr<WebCore::DocumentLoader> createDocumentLoader(const WebCore::ResourceRequest&, const WebCore::SubstituteData&);
-    virtual void setTitle(const WebCore::String& title, const WebCore::KURL&);
+    virtual void setTitle(const WebCore::StringWithDirection&, const WebCore::KURL&);
 
     virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
     virtual void transitionToCommittedForNewPage();
 
+    virtual void didSaveToPageCache();
+    virtual void didRestoreFromPageCache();
+
+    virtual void dispatchDidBecomeFrameset(bool);
+
     virtual bool canCachePage() const;
 
-    virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WebCore::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
-                               const WebCore::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-    virtual void didTransferChildFrameToNewDocument();
-    virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WebCore::String>&, const Vector<WebCore::String>&, const WebCore::String&, bool loadManually);
+    virtual PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL& url, const WTF::String& name, WebCore::HTMLFrameOwnerElement* ownerElement,
+                               const WTF::String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
+    virtual void didTransferChildFrameToNewDocument(WebCore::Page*);
+    virtual void transferLoadingResourceFromPage(unsigned long, WebCore::DocumentLoader*, const WebCore::ResourceRequest&, WebCore::Page*);
+    virtual PassRefPtr<WebCore::Widget> createPlugin(const WebCore::IntSize&, WebCore::HTMLPlugInElement*, const WebCore::KURL&, const Vector<WTF::String>&, const Vector<WTF::String>&, const WTF::String&, bool loadManually);
     virtual void redirectDataToPlugin(WebCore::Widget* pluginWidget);
 
-    virtual bool shouldUsePluginDocument(const WebCore::String& mimeType) const;
+    virtual bool shouldUsePluginDocument(const WTF::String& mimeType) const;
 
     virtual void dispatchDidFailToStartPlugin(const WebCore::PluginView*) const;
 
@@ -125,8 +132,7 @@ protected:
     ~WebFrameLoaderClient();
 
 private:
-    PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL&, const WebCore::String& name, WebCore::HTMLFrameOwnerElement*, const WebCore::String& referrer);
-    void receivedData(const char*, int, const WebCore::String&);
+    PassRefPtr<WebCore::Frame> createFrame(const WebCore::KURL&, const WTF::String& name, WebCore::HTMLFrameOwnerElement*, const WTF::String& referrer);
     WebHistory* webHistory() const;
 
     WebFrame* m_webFrame;

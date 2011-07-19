@@ -253,7 +253,7 @@ addTrustedApplication(SecKeychainItemRef itemRef,
     tags[4] = CSSM_ACL_AUTHORIZATION_MAC;
     tags[5] = CSSM_ACL_AUTHORIZATION_SIGN;
     
-    ret = SecACLSetAuthorizations(acl, tags, sizeof(tags)/sizeof(tags[0]));
+    ret = SecACLSetAuthorizations(acl, tags, sizeof(tags) / sizeof(tags[0]));
     if (ret)
 	errx(1, "SecACLSetAuthorizations");
     

@@ -1,6 +1,6 @@
 #!/usr/local/bin/perl -w
 
-# $Id: test.pl 9451 2007-04-25 15:57:06Z timbo $
+# $Id: test.pl 12537 2009-02-24 22:45:40Z timbo $
 #
 # Copyright (c) 1994-1998 Tim Bunce
 #
@@ -14,7 +14,7 @@
 
 BEGIN {
     print "$0 @ARGV\n";
-    print q{DBI test application $Revision: 9451 $}."\n";
+    print q{DBI test application $Revision: 12537 $}."\n";
     $| = 1;
 }
 
@@ -41,7 +41,7 @@ $::opt_t = 0;		# thread test
 $::opt_n = 0;		# counter for other options
 
 GetOptions(qw(d=i h=i l=s m=i t=i n=i))
-    or die "Usage: $0 [-d n] [-h n] [-m] [-t n] [-n n] [drivername]\n";
+    or die "Usage: $0 [-d n] [-h n] [-m n] [-t n] [-n n] [drivername]\n";
 
 my $count = 0;
 my $ps = (-d '/proc') ? "ps -lp " : "ps -l";
@@ -58,7 +58,7 @@ print "Switch: $switch->{'Attribution'}, $switch->{'Version'}\n";
 print "Available Drivers: ",join(", ",DBI->available_drivers(1)),"\n";
 
 
-my $dbh = DBI->connect("dbi:$driver:", '', '') or die;
+my $dbh = DBI->connect("dbi:$driver:", '', '', { RaiseError=>1 }) or die;
 $dbh->trace($::opt_h);
 
 if (0) {
@@ -77,11 +77,14 @@ if (0) {
 if ($::opt_m) {
     #$dbh->trace(9);
     my $level = $::opt_m;
-    my $cnt = 10000;
+    my $cnt = $::opt_n || 10000;
+
     print "Using $driver, same dbh...\n";
     for (my $i=0; $i<$cnt; ++$i) { mem_test($dbh, undef, $level, undef, undef, undef) }
+
     print "Using NullP, reconnecting each time...\n";
     for (my $i=0; $i<$cnt; ++$i) { mem_test(undef, ['dbi:NullP:'], $level, undef, undef, undef) }
+
     print "Using ExampleP, reconnecting each time...\n";
     my $r_develleak = 0;
     mem_test(undef, ['dbi:NullP:'], $level, undef, undef, \$r_develleak) while 1;
@@ -134,22 +137,26 @@ sub mem_test {	# harness to help find basic leaks
 
     # this can be used to force a 'leak' to check memory use reporting
     #$main::leak .= " " x 1000;
-    system("echo $count; $ps$$") if (($count++ % 500) == 0);
+    system("echo $count; $ps$$") if (($count++ % 2000) == 0);
 
-    my $dbh = $orig_dbh || DBI->connect(@$connect);
-    $dbh->{RaiseError} = 1;
+    my $dbh = $orig_dbh || do {
+        my ($dsn, $u, $p, $attr) = @$connect;
+        $attr->{RaiseError} = 1;
+        DBI->connect($dsn, $u, $p, $attr);
+    };
     my $cursor_a;
 
     my ($dl_count, $dl_handle);
-    if ($$r_develleak++) {
+    if ($has_devel_leak && $$r_develleak++) {
         $dbh->trace(2);
         $dl_count = Devel::Leak::NoteSV($dl_handle);
     }
 
+    my $rows;
     $cursor_a = $dbh->prepare($select)		if $level >= 2;
     $cursor_a->execute(@$params)		if $level >= 3;
     $cursor_a->fetchrow_hashref()        	if $level >= 4;
-    my $rows = $cursor_a->fetchall_arrayref({})	if $level >= 4;
+    $rows = $cursor_a->fetchall_arrayref({})	if $level >= 4;
     $cursor_a->finish if $cursor_a && $cursor_a->{Active};
     undef $cursor_a;
 

@@ -1,7 +1,7 @@
-dnl $OpenLDAP: pkg/ldap/configure.in,v 1.631.2.9 2008/02/11 23:26:37 kurt Exp $
+dnl $OpenLDAP: pkg/ldap/configure.in,v 1.631.2.29 2010/04/19 16:53:00 quanah Exp $
 dnl This work is part of OpenLDAP Software <http://www.openldap.org/>.
 dnl
-dnl Copyright 1998-2008 The OpenLDAP Foundation.
+dnl Copyright 1998-2010 The OpenLDAP Foundation.
 dnl All rights reserved.
 dnl
 dnl Redistribution and use in source and binary forms, with or without
@@ -23,9 +23,9 @@ define([AC_LIBTOOL_LANG_F77_CONFIG], [:])dnl
 define([AC_LIBTOOL_LANG_GCJ_CONFIG], [:])dnl
 dnl ================================================================
 dnl Configure.in for OpenLDAP
-AC_COPYRIGHT([[Copyright 1998-2008 The OpenLDAP Foundation. All rights reserved.
+AC_COPYRIGHT([[Copyright 1998-2010 The OpenLDAP Foundation. All rights reserved.
 Restrictions apply, see COPYRIGHT and LICENSE files.]])
-AC_REVISION([$OpenLDAP: pkg/ldap/configure.in,v 1.631.2.9 2008/02/11 23:26:37 kurt Exp $])
+AC_REVISION([$OpenLDAP: pkg/ldap/configure.in,v 1.631.2.29 2010/04/19 16:53:00 quanah Exp $])
 AC_INIT([OpenLDAP],,[http://www.openldap.org/its/])
 m4_define([AC_PACKAGE_BUGREPORT],[<http://www.openldap.org/its/>])
 AC_CONFIG_SRCDIR(build/version.sh)dnl
@@ -96,7 +96,7 @@ AH_TOP([
 /* begin of portable.h.pre */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation
+ * Copyright 1998-2010 The OpenLDAP Foundation
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -253,8 +253,8 @@ OL_ARG_WITH(mp,
 	[  --with-mp               with multiple precision statistics auto|longlong|long|bignum|gmp],
 	auto, [auto longlong long bignum gmp yes no])
 OL_ARG_WITH(odbc,
-	[  --with-odbc             with specific ODBC support iodbc|unixodbc|auto],
-	auto, [auto iodbc unixodbc] )
+	[  --with-odbc             with specific ODBC support iodbc|unixodbc|odbc32|auto],
+	auto, [auto iodbc unixodbc odbc32] )
 
 dnl ----------------------------------------------------------------
 dnl Server options
@@ -329,9 +329,11 @@ dnl ----------------------------------------------------------------
 dnl SLAPD Overlay Options
 Overlays="accesslog \
 	dynid \
+	odlocales \
 	auditlog \
 	constraint \
 	dds \
+	deref \
 	dyngroup \
 	nestedgroup \
 	dynlist \
@@ -355,11 +357,13 @@ OL_ARG_ENABLE(accesslog,[    --enable-accesslog	  In-Directory Access Logging ov
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(dynid,[    --enable-dynid	  Dynamic ID overlay],
 	no, [no yes mod], ol_enable_overlays)
-OL_ARG_ENABLE(auditlog,[    --enable-auditlog	  Audit Logging overlay],
+OL_ARG_ENABLE(odlocales,[    --enable-odlocales	  enable LDAP ping for Locales],
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(constraint,[    --enable-constraint	  Attribute Constraint overlay],
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(dds,[    --enable-dds  	  Dynamic Directory Services overlay],
+	no, [no yes mod], ol_enable_overlays)
+OL_ARG_ENABLE(deref,[    --enable-deref	  Dereference overlay],
 	no, [no yes mod], ol_enable_overlays)
 OL_ARG_ENABLE(dyngroup,[    --enable-dyngroup	  Dynamic Group overlay],
 	no, [no yes mod], ol_enable_overlays)
@@ -530,10 +534,12 @@ BUILD_SQL=no
 
 BUILD_ACCESSLOG=no
 BUILD_DYNID=no
+BUILD_ODLOCALES=no
 BUILD_AUDITLOG=no
 BUILD_CONSTRAINT=no
 BUILD_DDS=no
 BUILD_DENYOP=no
+BUILD_DEREF=no
 BUILD_DYNGROUP=no
 BUILD_DYNLIST=no
 BUILD_LASTMOD=no
@@ -677,12 +683,14 @@ if test $ol_enable_perl != no ; then
 fi
 
 AC_PROG_CPP
+OL_MSVC
 
 dnl ----------------------------------------------------------------
 dnl Checks for Windows NT
 case $host_os in
   *mingw32* ) ac_cv_mingw32=yes ;;
   *cygwin* ) ac_cv_cygwin=yes ;;
+  *interix* ) ac_cv_interix=yes ;;
 esac
 
 dnl ----------------------------------------------------------------
@@ -828,7 +836,10 @@ AC_CHECK_HEADERS(	\
 )
 
 dnl Only check Winsock on MinGW
-if test "$ac_cv_mingw32" = yes ; then
+if test "$ac_cv_mingw32" = yes \
+	-o "$ac_cv_interix" = yes \
+	-o "$ol_cv_msvc" = yes
+then
 	AC_CHECK_HEADERS( winsock.h winsock2.h )
 fi
 
@@ -860,37 +871,48 @@ if test $ac_cv_func_sigaction = no && test $ac_cv_func_sigaction = no ; then
 	AC_CHECK_LIB(V3, sigset)
 fi
 
+if test $ol_cv_msvc = yes ; then
+   ol_cv_winsock=yes
+fi
+
 dnl The following is INTENTIONALLY scripted out because shell does not
 dnl support variable names with the '@' character, which is what
 dnl autoconf would try to generate if one merely used AC_SEARCH_LIBS
 if test "$ac_cv_header_winsock_h" = yes; then
-AC_CACHE_CHECK([for winsock], [ol_cv_winsock],
-save_LIBS="$LIBS"
-for curlib in ws2_32 wsock32; do
-	LIBS="$LIBS -l$curlib"
-	AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <winsock.h>
+	AC_CACHE_CHECK([for winsock], [ol_cv_winsock],[
+	save_LIBS="$LIBS"
+	for curlib in none ws2_32 wsock32; do
+		if test $curlib != none ; then
+	    	LIBS="$save_LIBS -l$curlib"
+		fi
+		AC_LINK_IFELSE([AC_LANG_PROGRAM([[#include <winsock.h>
 			]], [[
 			socket(0,0,0);
 			select(0,NULL,NULL,NULL,NULL);
 			closesocket(0);
 			gethostname(NULL,0);
-			]])],[ol_cv_winsock=yes],[ol_cv_winsock=no])
+			]])],[ol_cv_winsock=$curlib],[ol_cv_winsock=no])
 
-	if test $ol_cv_winsock = yes; then
-		AC_DEFINE(HAVE_WINSOCK, 1, [define if you have winsock])
-		ac_cv_func_socket=yes
-		ac_cv_func_select=yes
-		ac_cv_func_closesocket=yes
-		ac_cv_func_gethostname=yes
-		if test $curlib = ws2_32; then
-			ol_cv_winsock=winsock2
-			AC_DEFINE(HAVE_WINSOCK2, 1,
-				  [define if you have winsock2])
-		fi
-		break
-	fi
+		test "$ol_cv_winsock" != no && break
+	done
 	LIBS="$save_LIBS"
-done)
+	])
+
+	if test $ol_cv_winsock != no ; then
+    	AC_DEFINE(HAVE_WINSOCK, 1, [define if you have winsock])
+    	ac_cv_func_socket=yes
+    	ac_cv_func_select=yes
+    	ac_cv_func_closesocket=yes
+    	ac_cv_func_gethostname=yes
+
+		if test $ol_cv_winsock != none -a $ol_cv_winsock != yes ; then
+        	LIBS="$LIBS -l$ol_cv_winsock"
+		fi
+
+    	if test $ol_cv_winsock = ws2_32 -o $ol_cv_winsock = yes ; then
+			AC_DEFINE(HAVE_WINSOCK2, 1, [define if you have winsock2])
+    	fi
+	fi
 fi
 
 dnl Find socket()
@@ -995,12 +1017,14 @@ dnl UUID Support
 
 have_uuid=no
 AC_CHECK_HEADERS(sys/uuid.h)
+dnl The HAVE_UUID_TO_STR code path also needs uuid_create
 if test $ac_cv_header_sys_uuid_h = yes ; then
 	save_LIBS="$LIBS"
 	AC_SEARCH_LIBS([uuid_to_str], [uuid], [have_uuid=yes], :)
+	AC_SEARCH_LIBS([uuid_create], [uuid], :, [have_uuid=no])
 	LIBS="$save_LIBS"
 
-	if test have_uuid = yes ; then
+	if test $have_uuid = yes ; then
 		AC_DEFINE(HAVE_UUID_TO_STR,1,
 			[define if you have uuid_to_str()])
 
@@ -1010,14 +1034,16 @@ if test $ac_cv_header_sys_uuid_h = yes ; then
 fi
 
 dnl Look for uuid_generate
+dnl The HAVE_UUID_GENERATE code path also needs uuid_unparse_lower
 if test $have_uuid = no ; then
 	AC_CHECK_HEADERS(uuid/uuid.h)
 	if test $ac_cv_header_uuid_uuid_h = yes ; then
 		save_LIBS="$LIBS"
 		AC_SEARCH_LIBS([uuid_generate], [uuid], [have_uuid=yes], :)
+		AC_SEARCH_LIBS([uuid_unparse_lower], [uuid], :, [have_uuid=no])
 		LIBS="$save_LIBS"
 
-		if test have_uuid = yes ; then
+		if test $have_uuid = yes ; then
 			AC_DEFINE(HAVE_UUID_GENERATE,1,
 				[define if you have uuid_generate()])
 
@@ -1943,7 +1969,7 @@ if test $ol_enable_sql != no ; then
 	LIBS="$LTHREAD_LIBS"
 
 	if test $ol_with_odbc = auto ; then
-		ol_with_odbc="iodbc unixodbc"
+		ol_with_odbc="iodbc unixodbc odbc32"
 	fi
 
 	for odbc in $ol_with_odbc ; do
@@ -1960,6 +1986,13 @@ if test $ol_enable_sql != no ; then
 				AC_CHECK_LIB(odbc, SQLDriverConnect, [have_odbc=yes], [have_odbc=no])
 				if test $have_odbc = yes ; then
 					ol_link_sql="-lodbc"
+				fi
+				;;
+
+			odbc32)
+				AC_CHECK_LIB(odbc32, SQLDriverConnect, [have_odbc32=yes], [have_odbc32=no])
+				if test $have_odbc32 = yes ; then
+					ol_link_sql="-lodbc32"
 				fi
 				;;
 
@@ -2307,9 +2340,12 @@ AC_CHECK_FUNC(_snprintf, [ac_cv_func_snprintf=yes
 	AC_DEFINE(snprintf, _snprintf, [define to snprintf routine])
 ])
 
-AC_CHECK_FUNC(_vsnprintf, [ac_cv_func_vsnprintf=yes
+AC_CHECK_FUNCS(vsnprintf _vsnprintf)
+
+if test $ac_cv_func_vsnprintf = no -a $ac_cv_func__vsnprintf = yes ; then
+	ac_cv_func_vsnprintf=yes
 	AC_DEFINE(vsnprintf, _vsnprintf, [define to vsnprintf routine])
-])
+fi
 
 AC_FUNC_VPRINTF
 
@@ -2328,9 +2364,9 @@ AC_CHECK_FUNCS(			\
 	flock			\
 	fstat			\
 	getdtablesize		\
+	geteuid			\
 	getgrgid		\
 	gethostname		\
-	getpass			\
 	getpassphrase		\
 	getpwuid		\
 	getpwnam		\
@@ -2705,6 +2741,18 @@ if test "$ol_enable_dynid" != no ; then
 	AC_DEFINE_UNQUOTED(SLAPD_OVER_DYNID,$MFLAG,[define for Dynamic ID overlay])
 fi
 
+if test "$ol_enable_odlocales" != no ; then
+	BUILD_ODLOCALES=$ol_enable_odlocales
+	if test "$ol_enable_odlocales" = mod ; then
+		MFLAG=SLAPD_MOD_DYNAMIC
+		SLAPD_DYNAMIC_OVERLAYS="$SLAPD_DYNAMIC_OVERLAYS odlocales.la"
+	else
+		MFLAG=SLAPD_MOD_STATIC
+		SLAPD_STATIC_OVERLAYS="$SLAPD_STATIC_OVERLAYS odlocales.o"
+	fi
+	AC_DEFINE_UNQUOTED(SLAPD_OVER_ODLOCALES,$MFLAG,[define for od locales overlay])
+fi
+
 if test "$ol_enable_auditlog" != no ; then
 	BUILD_AUDITLOG=$ol_enable_auditlog
 	if test "$ol_enable_auditlog" = mod ; then
@@ -2739,6 +2787,18 @@ if test "$ol_enable_dds" != no ; then
 		SLAPD_STATIC_OVERLAYS="$SLAPD_STATIC_OVERLAYS dds.o"
 	fi
 	AC_DEFINE_UNQUOTED(SLAPD_OVER_DDS,$MFLAG,[define for Dynamic Directory Services overlay])
+fi
+
+if test "$ol_enable_deref" != no ; then
+	BUILD_DEREF=$ol_enable_deref
+	if test "$ol_enable_deref" = mod ; then
+		MFLAG=SLAPD_MOD_DYNAMIC
+		SLAPD_DYNAMIC_OVERLAYS="$SLAPD_DYNAMIC_OVERLAYS deref.la"
+	else
+		MFLAG=SLAPD_MOD_STATIC
+		SLAPD_STATIC_OVERLAYS="$SLAPD_STATIC_OVERLAYS deref.o"
+	fi
+	AC_DEFINE_UNQUOTED(SLAPD_OVER_DEREF,$MFLAG,[define for Dynamic Directory Services overlay])
 fi
 
 if test "$ol_enable_dyngroup" != no ; then
@@ -2914,7 +2974,7 @@ dnl For Windows build, we don't want to include -dlopen flags.
 dnl They hurt more than they help.
 dnl
 
-if test "$ac_cv_mingw32" = yes ; then
+if test "$ac_cv_mingw32" = yes -o $ol_cv_msvc = yes ; then
 	PLAT=NT
 	SLAPD_MODULES_LDFLAGS=
 else
@@ -2951,10 +3011,12 @@ dnl backends
 dnl overlays
   AC_SUBST(BUILD_ACCESSLOG)
   AC_SUBST(BUILD_DYNID)
+  AC_SUBST(BUILD_ODLOCALES)
   AC_SUBST(BUILD_AUDITLOG)
   AC_SUBST(BUILD_CONSTRAINT)
   AC_SUBST(BUILD_DDS)
   AC_SUBST(BUILD_DENYOP)
+  AC_SUBST(BUILD_DEREF)
   AC_SUBST(BUILD_DYNGROUP)
   AC_SUBST(BUILD_DYNLIST)
   AC_SUBST(BUILD_LASTMOD)
@@ -3065,7 +3127,7 @@ rm -f $BACKENDSC
 cat > $BACKENDSC << ENDX
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -3116,7 +3178,7 @@ rm -f $OVERLAYSC
 cat > $OVERLAYSC << ENDX
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

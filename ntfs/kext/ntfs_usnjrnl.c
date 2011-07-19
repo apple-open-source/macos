@@ -1,8 +1,8 @@
 /*
  * ntfs_usnjrnl.c - NTFS kernel transaction log ($UsnJrnl) handling.
  *
- * Copyright (c) 2006-2008 Anton Altaparmakov.  All Rights Reserved.
- * Portions Copyright (c) 2006-2008 Apple Inc.  All Rights Reserved.
+ * Copyright (c) 2006-2011 Anton Altaparmakov.  All Rights Reserved.
+ * Portions Copyright (c) 2006-2011 Apple Inc.  All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are met:
@@ -72,7 +72,7 @@ errno_t ntfs_usnjrnl_stamp(ntfs_volume *vol)
 		j_size = vol->usnjrnl_j_ni->data_size;
 		lck_spin_unlock(&vol->usnjrnl_j_ni->size_lock);
 		max_ni = vol->usnjrnl_max_ni;
-		err = vnode_getwithref(max_ni->vn);
+		err = vnode_get(max_ni->vn);
 		if (err) {
 			ntfs_error(vol->mp, "Failed to get vnode for "
 					"$UsnJrnl/$DATA/$Max.");

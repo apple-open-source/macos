@@ -85,10 +85,12 @@ public:
 	void inferLabel(bool addLabel, CFStringRef *rtnString = NULL);
 	SecPointer<KeyItem> publicKey();
 	const CssmData &publicKeyHash();
+	const CssmData &subjectKeyIdentifier();
 
 	static KCCursor cursorForIssuerAndSN(const StorageManager::KeychainList &keychains, const CssmData &issuer, const CssmData &serialNumber);
 	static KCCursor cursorForSubjectKeyID(const StorageManager::KeychainList &keychains, const CssmData &subjectKeyID);
 	static KCCursor cursorForEmail(const StorageManager::KeychainList &keychains, const char *emailAddress);
+	static KCCursor cursorForIssuerAndSN_CF(const StorageManager::KeychainList &keychains, CFDataRef issuer, CFDataRef serialNumber);
 
 	SecPointer<Certificate> findInKeychain(const StorageManager::KeychainList &keychains);
 	static SecPointer<Certificate> findByIssuerAndSN(const StorageManager::KeychainList &keychains, const CssmData &issuer, const CssmData &serialNumber);
@@ -130,6 +132,8 @@ private:
 	CSSM_HANDLE mCertHandle;
 	CssmData mPublicKeyHash;
 	uint8 mPublicKeyHashBytes[20];
+	CssmData mSubjectKeyID;
+	uint8 mSubjectKeyIDBytes[20];
 	CSSM_DATA_PTR mV1SubjectPublicKeyCStructValue; // Hack to prevent algorithmID() from leaking.
     CSSM_DATA_PTR mV1SubjectNameCStructValue;
     CSSM_DATA_PTR mV1IssuerNameCStructValue;

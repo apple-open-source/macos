@@ -95,9 +95,10 @@ an undeclared parameter):</p>
 <pre>
 exception Error of string
 
-let the_module = create_module "my cool jit"
-let builder = builder ()
+let the_module = create_module (global_context ()) "my cool jit"
+let builder = builder (global_context ())
 let named_values:(string, llvalue) Hashtbl.t = Hashtbl.create 10
+let double_type = double_type context
 </pre>
 </div>
 
@@ -159,7 +160,7 @@ uses "the foo::get(..)" idiom instead of "new foo(..)" or "foo::Create(..)".</p>
 </div>
 
 <p>References to variables are also quite simple using LLVM.  In the simple
-version of Kaleidoscope, we assume that the variable has already been emited
+version of Kaleidoscope, we assume that the variable has already been emitted
 somewhere and its value is available.  In practice, the only values that can be
 in the <tt>Codegen.named_values</tt> map are function arguments.  This code
 simply checks to see that the specified name is in the map (if not, an unknown
@@ -323,7 +324,7 @@ code above.</p>
 first, we want to allow 'extern'ing a function more than once, as long as the
 prototypes for the externs match (since all arguments have the same type, we
 just have to check that the number of arguments match).  Second, we want to
-allow 'extern'ing a function and then definining a body for it.  This is useful
+allow 'extern'ing a function and then defining a body for it.  This is useful
 when defining mutually recursive functions.</p>
 
 <div class="doc_code">
@@ -389,7 +390,7 @@ that there is an LLVM Function object that is ready to go for us.</p>
 <div class="doc_code">
 <pre>
       (* Create a new basic block to start insertion into. *)
-      let bb = append_block "entry" the_function in
+      let bb = append_block context "entry" the_function in
       position_at_end bb builder;
 
       try
@@ -484,7 +485,7 @@ ready&gt; <b>4+5</b>;
 Read top-level expression:
 define double @""() {
 entry:
-        %addtmp = add double 4.000000e+00, 5.000000e+00
+        %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }
 </pre>
@@ -503,12 +504,12 @@ ready&gt; <b>def foo(a b) a*a + 2*a*b + b*b;</b>
 Read function definition:
 define double @foo(double %a, double %b) {
 entry:
-        %multmp = mul double %a, %a
-        %multmp1 = mul double 2.000000e+00, %a
-        %multmp2 = mul double %multmp1, %b
-        %addtmp = add double %multmp, %multmp2
-        %multmp3 = mul double %b, %b
-        %addtmp4 = add double %addtmp, %multmp3
+        %multmp = fmul double %a, %a
+        %multmp1 = fmul double 2.000000e+00, %a
+        %multmp2 = fmul double %multmp1, %b
+        %addtmp = fadd double %multmp, %multmp2
+        %multmp3 = fmul double %b, %b
+        %addtmp4 = fadd double %addtmp, %multmp3
         ret double %addtmp4
 }
 </pre>
@@ -525,7 +526,7 @@ define double @bar(double %a) {
 entry:
         %calltmp = call double @foo( double %a, double 4.000000e+00 )
         %calltmp1 = call double @bar( double 3.133700e+04 )
-        %addtmp = add double %calltmp, %calltmp1
+        %addtmp = fadd double %calltmp, %calltmp1
         ret double %addtmp
 }
 </pre>
@@ -561,18 +562,18 @@ ready&gt; <b>^D</b>
 
 define double @""() {
 entry:
-        %addtmp = add double 4.000000e+00, 5.000000e+00
+        %addtmp = fadd double 4.000000e+00, 5.000000e+00
         ret double %addtmp
 }
 
 define double @foo(double %a, double %b) {
 entry:
-        %multmp = mul double %a, %a
-        %multmp1 = mul double 2.000000e+00, %a
-        %multmp2 = mul double %multmp1, %b
-        %addtmp = add double %multmp, %multmp2
-        %multmp3 = mul double %b, %b
-        %addtmp4 = add double %addtmp, %multmp3
+        %multmp = fmul double %a, %a
+        %multmp1 = fmul double 2.000000e+00, %a
+        %multmp2 = fmul double %multmp1, %b
+        %addtmp = fadd double %multmp, %multmp2
+        %multmp3 = fmul double %b, %b
+        %addtmp4 = fadd double %addtmp, %multmp3
         ret double %addtmp4
 }
 
@@ -580,7 +581,7 @@ define double @bar(double %a) {
 entry:
         %calltmp = call double @foo( double %a, double 4.000000e+00 )
         %calltmp1 = call double @bar( double 3.133700e+04 )
-        %addtmp = add double %calltmp, %calltmp1
+        %addtmp = fadd double %calltmp, %calltmp1
         ret double %addtmp
 }
 
@@ -899,9 +900,11 @@ open Llvm
 
 exception Error of string
 
-let the_module = create_module "my cool jit"
-let builder = builder ()
+let context = global_context ()
+let the_module = create_module context "my cool jit"
+let builder = builder context
 let named_values:(string, llvalue) Hashtbl.t = Hashtbl.create 10
+let double_type = double_type context
 
 let rec codegen_expr = function
   | Ast.Number n -&gt; const_float double_type n
@@ -973,7 +976,7 @@ let codegen_func = function
       let the_function = codegen_proto proto in
 
       (* Create a new basic block to start insertion into. *)
-      let bb = append_block "entry" the_function in
+      let bb = append_block context "entry" the_function in
       position_at_end bb builder;
 
       try
@@ -1084,7 +1087,7 @@ main ()
   <a href="mailto:sabre@nondot.org">Chris Lattner</a><br>
   <a href="mailto:idadesub@users.sourceforge.net">Erick Tryzelaar</a><br>
   <a href="http://llvm.org">The LLVM Compiler Infrastructure</a><br>
-  Last modified: $Date: 2007-10-17 11:05:13 -0700 (Wed, 17 Oct 2007) $
+  Last modified: $Date: 2010-05-06 17:28:04 -0700 (Thu, 06 May 2010) $
 </address>
 </body>
 </html>

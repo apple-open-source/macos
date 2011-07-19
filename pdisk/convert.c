@@ -30,7 +30,7 @@
 #ifdef __linux__
 #include <endian.h>
 #else
-#ifdef __APPLE__
+#ifdef __unix__
 #include <machine/endian.h>
 #else
 #define LITTLE_ENDIAN 1234

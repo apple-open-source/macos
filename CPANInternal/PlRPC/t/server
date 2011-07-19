@@ -1,0 +1,80 @@
+# -*- perl -*-
+#
+#   This example implements a very simple server, let's call it
+#   CalcServer. Calculating is done by the 'Calculator' class,
+#   Calculator instances accept method calls like
+#
+#       my $result = $calculator->multiply(3, 4, 5);
+#
+
+require 5.004;
+use strict;
+
+use lib qw(blib/arch blib/lib);
+
+$| = 1;
+
+require Net::Daemon::Test;
+require RPC::PlServer::Test;
+require IO::Socket;
+
+
+package Calculator;
+
+sub new {
+    my $proto = shift;
+    my $self = { @_ };
+    bless($self, (ref($proto) || $proto));
+    $self;
+}
+
+sub add {
+    my $self = shift;
+    my $result = 0;
+    foreach my $arg (@_) { $result += $arg }
+    $result;
+}
+
+sub multiply {
+    my $self = shift;
+    my $result = 1;
+    foreach my $arg (@_) { $result *= $arg }
+    $result;
+}
+
+sub subtract {
+    my $self = shift;
+    die 'Usage: subtract($a, $b)'  if @_ != 2;
+    my $result = shift;
+    $result - shift;
+}
+
+sub divide {
+    my $self = shift;
+    die 'Usage: subtract($a, $b)'  if @_ != 2;
+    my $result = shift;
+    my $divisor = shift;
+    if (!$divisor) { die "Division by zero error" }
+    $result / $divisor;
+}
+
+
+package CalcServer;
+
+use vars qw($VERSION @ISA);
+
+$VERSION = '0.01';
+@ISA = qw(RPC::PlServer::Test);
+
+
+sub Version ($) {
+    return "CalcServer - A simple network calculator; 1998, Jochen Wiedmann";
+}
+
+
+package main;
+
+my $server = CalcServer->new({'pidfile' => 'none'}, \@ARGV);
+
+$server->Bind();
+

@@ -26,15 +26,14 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.13 2001/11/07 19:55:16 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strcoll.c,v 1.14 2009/02/03 17:58:20 danger Exp $");
 
 #include <stdlib.h>
 #include <string.h>
 #include "collate.h"
 
 int
-strcoll(s, s2)
-	const char *s, *s2;
+strcoll(const char *s, const char *s2)
 {
 	int len, len2, prim, prim2, sec, sec2, ret, ret2;
 	const char *t, *t2;

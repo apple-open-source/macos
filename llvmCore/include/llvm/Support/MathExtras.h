@@ -14,7 +14,7 @@
 #ifndef LLVM_SUPPORT_MATHEXTRAS_H
 #define LLVM_SUPPORT_MATHEXTRAS_H
 
-#include "llvm/Support/DataTypes.h"
+#include "llvm/System/DataTypes.h"
 
 namespace llvm {
 
@@ -32,24 +32,42 @@ inline uint32_t Lo_32(uint64_t Value) {
   return static_cast<uint32_t>(Value);
 }
 
-/// is?Type - these functions produce optimal testing for integer data types.
-inline bool isInt8  (int64_t Value) {
-  return static_cast<int8_t>(Value) == Value;
+/// isInt - Checks if an integer fits into the given bit width.
+template<unsigned N>
+inline bool isInt(int64_t x) {
+  return N >= 64 || (-(INT64_C(1)<<(N-1)) <= x && x < (INT64_C(1)<<(N-1)));
 }
-inline bool isUInt8 (int64_t Value) {
-  return static_cast<uint8_t>(Value) == Value;
+// Template specializations to get better code for common cases.
+template<>
+inline bool isInt<8>(int64_t x) {
+  return static_cast<int8_t>(x) == x;
 }
-inline bool isInt16 (int64_t Value) {
-  return static_cast<int16_t>(Value) == Value;
+template<>
+inline bool isInt<16>(int64_t x) {
+  return static_cast<int16_t>(x) == x;
 }
-inline bool isUInt16(int64_t Value) {
-  return static_cast<uint16_t>(Value) == Value;
+template<>
+inline bool isInt<32>(int64_t x) {
+  return static_cast<int32_t>(x) == x;
 }
-inline bool isInt32 (int64_t Value) {
-  return static_cast<int32_t>(Value) == Value;
+
+/// isUInt - Checks if an unsigned integer fits into the given bit width.
+template<unsigned N>
+inline bool isUInt(uint64_t x) {
+  return N >= 64 || x < (UINT64_C(1)<<N);
 }
-inline bool isUInt32(int64_t Value) {
-  return static_cast<uint32_t>(Value) == Value;
+// Template specializations to get better code for common cases.
+template<>
+inline bool isUInt<8>(uint64_t x) {
+  return static_cast<uint8_t>(x) == x;
+}
+template<>
+inline bool isUInt<16>(uint64_t x) {
+  return static_cast<uint16_t>(x) == x;
+}
+template<>
+inline bool isUInt<32>(uint64_t x) {
+  return static_cast<uint32_t>(x) == x;
 }
 
 /// isMask_32 - This function returns true if the argument is a sequence of ones
@@ -108,7 +126,7 @@ inline uint16_t ByteSwap_16(uint16_t Value) {
 /// ByteSwap_32 - This function returns a byte-swapped representation of the
 /// 32-bit argument, Value.
 inline uint32_t ByteSwap_32(uint32_t Value) {
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)) && !defined(__ICC)
   return __builtin_bswap32(Value);
 #elif defined(_MSC_VER) && !defined(_DEBUG)
   return _byteswap_ulong(Value);
@@ -124,7 +142,7 @@ inline uint32_t ByteSwap_32(uint32_t Value) {
 /// ByteSwap_64 - This function returns a byte-swapped representation of the
 /// 64-bit argument, Value.
 inline uint64_t ByteSwap_64(uint64_t Value) {
-#if __GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)
+#if (__GNUC__ > 4 || (__GNUC__ == 4 && __GNUC_MINOR__ >= 3)) && !defined(__ICC)
   return __builtin_bswap64(Value);
 #elif defined(_MSC_VER) && !defined(_DEBUG)
   return _byteswap_uint64(Value);
@@ -150,7 +168,7 @@ inline unsigned CountLeadingZeros_32(uint32_t Value) {
 #else
   if (!Value) return 32;
   Count = 0;
-  // bisecton method for count leading zeros
+  // bisection method for count leading zeros
   for (unsigned Shift = 32 >> 1; Shift; Shift >>= 1) {
     uint32_t Tmp = Value >> Shift;
     if (Tmp) {
@@ -187,7 +205,7 @@ inline unsigned CountLeadingZeros_64(uint64_t Value) {
   if (sizeof(long) == sizeof(int64_t)) {
     if (!Value) return 64;
     Count = 0;
-    // bisecton method for count leading zeros
+    // bisection method for count leading zeros
     for (unsigned Shift = 64 >> 1; Shift; Shift >>= 1) {
       uint64_t Tmp = Value >> Shift;
       if (Tmp) {
@@ -321,8 +339,8 @@ inline unsigned Log2_32_Ceil(uint32_t Value) {
   return 32-CountLeadingZeros_32(Value-1);
 }
 
-/// Log2_64 - This function returns the ceil log base 2 of the specified value,
-/// 64 if the value is zero. (64 bit edition.)
+/// Log2_64_Ceil - This function returns the ceil log base 2 of the specified
+/// value, 64 if the value is zero. (64 bit edition.)
 inline unsigned Log2_64_Ceil(uint64_t Value) {
   return 64-CountLeadingZeros_64(Value-1);
 }
@@ -423,6 +441,32 @@ static inline uint64_t NextPowerOf2(uint64_t A) {
 /// RoundUpToAlignment(~0LL, 8) = 0
 inline uint64_t RoundUpToAlignment(uint64_t Value, uint64_t Align) {
   return ((Value + Align - 1) / Align) * Align;
+}
+
+/// OffsetToAlignment - Return the offset to the next integer (mod 2**64) that
+/// is greater than or equal to \arg Value and is a multiple of \arg
+/// Align. Align must be non-zero.
+inline uint64_t OffsetToAlignment(uint64_t Value, uint64_t Align) {
+  return RoundUpToAlignment(Value, Align) - Value;
+}
+
+/// abs64 - absolute value of a 64-bit int.  Not all environments support
+/// "abs" on whatever their name for the 64-bit int type is.  The absolute
+/// value of the largest negative number is undefined, as with "abs".
+inline int64_t abs64(int64_t x) {
+  return (x < 0) ? -x : x;
+}
+
+/// SignExtend32 - Sign extend B-bit number x to 32-bit int.
+/// Usage int32_t r = SignExtend32<5>(x);
+template <unsigned B> inline int32_t SignExtend32(uint32_t x) {
+  return int32_t(x << (32 - B)) >> (32 - B);
+}
+
+/// SignExtend64 - Sign extend B-bit number x to 64-bit int.
+/// Usage int64_t r = SignExtend64<5>(x);
+template <unsigned B> inline int64_t SignExtend64(uint64_t x) {
+  return int64_t(x << (64 - B)) >> (64 - B);
 }
 
 } // End llvm namespace

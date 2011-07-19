@@ -2,6 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Simon Hausmann <hausmann@kde.org>
+ * Copyright (C) 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -19,26 +20,24 @@
  * Boston, MA 02110-1301, USA.
  *
  */
+
 #ifndef HTMLQuoteElement_h
 #define HTMLQuoteElement_h
 
+#include <wtf/Forward.h>
 #include "HTMLElement.h"
 
 namespace WebCore {
 
-class String;
-
 class HTMLQuoteElement : public HTMLElement {
 public:
+    static PassRefPtr<HTMLQuoteElement> create(const QualifiedName&, Document*);
+
+private:
     HTMLQuoteElement(const QualifiedName&, Document*);
     
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusRequired; }
-    virtual int tagPriority() const { return 1; }
-
     virtual void insertedIntoDocument();
-
-    String cite() const;
-    void setCite(const String&);
+    virtual bool isURLAttribute(Attribute*) const;
 };
 
 } //namespace

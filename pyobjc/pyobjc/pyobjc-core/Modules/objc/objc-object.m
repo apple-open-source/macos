@@ -87,12 +87,12 @@ static char* keywords[] = { "cobject", NULL };
 		return NULL;
 	}
 
-	if (arg == NULL || !PyCObject_Check(arg)) {
+	if (arg == NULL || !PyCapsule_CheckExact(arg)) {
 		PyErr_SetString(PyExc_TypeError, 
 			"Use class methods to instantiate new Objective-C objects");
 		return NULL;
 	} else {
-		NSObject* v = PyCObject_AsVoidPtr(arg);
+		NSObject* v = PyCapsule_GetPointer(arg, "objc.__object__");
 
 		return pythonify_c_value(@encode(NSObject), &v);
 	}
@@ -105,9 +105,9 @@ object_repr(PyObject* _self)
 	PyObject* res;
 
 	if (self->flags & PyObjCObject_kMAGIC_COOKIE) {
-		return PyString_FromFormat(
+		return PyText_FromFormat(
 			"<%s objective-c magic instance %p>",
-			self->ob_type->tp_name, self->objc_object);
+			Py_TYPE(self)->tp_name, self->objc_object);
 	}
 
 	if ((self->flags & PyObjCObject_kUNINITIALIZED) == 0 && !PyObjCObject_IsClassic(self)) {
@@ -118,15 +118,16 @@ object_repr(PyObject* _self)
 		 * is undefined behaviour and will crash the interpreter sometimes.
 		 */
 		res = PyObject_CallMethod((PyObject*)self, "description", NULL);
+		//res = NULL;
 		if (res == NULL) {
 			PyErr_Clear();
 		} else {
 			return res;
 		}
 	}
-	return PyString_FromFormat(
+	return PyText_FromFormat(
 		"<%s objective-c instance %p>",
-		self->ob_type->tp_name, self->objc_object);
+		Py_TYPE(self)->tp_name, self->objc_object);
 }
 
 static void
@@ -183,7 +184,7 @@ object_dealloc(PyObject* obj)
 			char buf[256];
 			snprintf(buf, sizeof(buf), 
 				"leaking an uninitialized object of type %s",
-				obj->ob_type->tp_name);
+				Py_TYPE(obj)->tp_name);
 			PyErr_Warn(PyObjCExc_UnInitDeallocWarning, buf);
 			((PyObjCObject*)obj)->objc_object = nil;
 
@@ -208,7 +209,7 @@ object_dealloc(PyObject* obj)
 		}
 	}
 
-	obj->ob_type->tp_free(obj);
+	Py_TYPE(obj)->tp_free(obj);
 
 	PyErr_Restore(ptype, pvalue, ptraceback);
 }
@@ -221,27 +222,38 @@ _type_lookup(PyTypeObject* tp, PyObject* name)
 	PyObject *mro, *base, *dict;
 	PyObject *descr = NULL;
 	PyObject* protDict;
+	PyObject* res;
+
+	/* FIXME: Support for method name cache */
 
 	/* Look in tp_dict of types in MRO */
 	mro = tp->tp_mro;
-	assert(mro != NULL);
+	if (mro == NULL) {
+		return NULL;
+	}
+	res = NULL;
 	assert(PyTuple_Check(mro));
 	n = PyTuple_GET_SIZE(mro);
 	for (i = 0; i < n; i++) {
 		base = PyTuple_GET_ITEM(mro, i);
 
-		if (PyClass_Check(base)) {
+		if (PyObjCClass_Check(base)) {
+			PyObjCClass_CheckMethodList(base, 0);
+			protDict = ((PyObjCClassObject*)base)->protectedMethods;
+			dict = ((PyTypeObject *)base)->tp_dict;
+
+		} else if (PyType_Check(base)) {
+			protDict = NULL;
+			dict = ((PyTypeObject *)base)->tp_dict;
+
+
+#if PY_MAJOR_VERSION == 2
+		} else if (PyClass_Check(base)) {
 			dict = ((PyClassObject*)base)->cl_dict;
 			protDict = NULL;
+#endif
 		} else {
-			assert(PyType_Check(base));
-			protDict = NULL;
-			if (PyObjCClass_Check(base)) {
-				PyObjCClass_CheckMethodList(base, 0);
-				protDict = ((PyObjCClassObject*)base)->protectedMethods;
-			}
-
-			dict = ((PyTypeObject *)base)->tp_dict;
+			return NULL;
 		}
 		assert(dict && PyDict_Check(dict));
 		descr = PyDict_GetItem(dict, name);
@@ -264,7 +276,7 @@ static PyObject** _get_dictptr(PyObject* obj)
 {
 	Py_ssize_t dictoffset;
 	id obj_object;
-	dictoffset = PyObjCClass_DictOffset((PyObject*)obj->ob_type);
+	dictoffset = PyObjCClass_DictOffset((PyObject*)Py_TYPE(obj));
 	if (dictoffset == 0) return NULL;
 	obj_object = PyObjCObject_GetObject(obj);
 	assert(obj_object != nil);
@@ -282,39 +294,50 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 	PyObject** dictptr;
 	char* namestr;
 	id obj_inst;
+	PyObject* bytes;
 
-	if (!PyString_Check(name)){
-#ifdef Py_USING_UNICODE
-		/* The Unicode to string conversion is done here because the
-		   existing tp_setattro slots expect a string object as name
-		   and we wouldn't want to break those. */
-		if (PyUnicode_Check(name)) {
-			name = PyUnicode_AsEncodedString(name, NULL, NULL);
-			if (name == NULL)
-				return NULL;
-		}
-		else
+	if (name == NULL) {
+		PyErr_SetString(PyExc_TypeError, "<nil> name");
+		return NULL;
+	}
+
+	if (PyUnicode_Check(name)) {
+		bytes = PyUnicode_AsEncodedString(name, NULL, NULL);
+		if (bytes == NULL) return NULL;
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(name)) {
+		bytes = name; Py_INCREF(bytes);
 #endif
-		{
-			PyErr_Format(PyExc_TypeError,
-				"attribute name must be string, got %s",
-				name->ob_type->tp_name);
-			return NULL;
+	} else {
+		PyErr_Format(PyExc_TypeError,
+			"attribute name must be string, got %s",
+			Py_TYPE(name)->tp_name);
+		return NULL;
+	}
+
+
+
+	namestr = PyBytes_AsString(bytes);
+	if (namestr == NULL) {
+		if (!PyErr_Occurred()) {
+			PyErr_SetString(PyExc_ValueError, "Empty name");
 		}
+		return NULL;
 	}
-	else {
-		Py_INCREF(name);
-	}
-
-
-	namestr = PyString_AS_STRING(name);
 
 	obj_inst = PyObjCObject_GetObject(obj);
 	if (!obj_inst) {
+#if PY_MAJOR_VERSION == 2
 		PyErr_Format(PyExc_AttributeError,
 		     "cannot access attribute '%.400s' of NIL '%.50s' object",
 		     PyString_AS_STRING(name),
-		     obj->ob_type->tp_name);
+		     Py_TYPE(obj)->tp_name);
+#else
+		PyErr_Format(PyExc_AttributeError,
+		     "cannot access attribute '%U' of NIL '%.50s' object",
+		     name,
+		     Py_TYPE(obj)->tp_name);
+#endif
 		goto done;
 	}
 
@@ -331,7 +354,7 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 
 		descr = NULL;
 
-		if (tp != obj->ob_type) {
+		if (tp != Py_TYPE(obj)) {
 			/* Workaround for KVO implementation feature */
 			PyObject* dict;
 
@@ -341,8 +364,8 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 			}
 
 // XXX: You'd expect the code below works, but it actually doesn't. Need to check why.
-//			Py_DECREF(obj->ob_type);
-//			obj->ob_type = tp;
+//			Py_DECREF(Py_TYPE(obj));
+//			Py_TYPE(obj) = tp;
 //			
 
 			PyObjCClass_CheckMethodList((PyObject*)tp, 0);
@@ -354,7 +377,7 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 		Py_DECREF(tp); tp = NULL;
 	}
 
-	tp = obj->ob_type;
+	tp = Py_TYPE(obj);
 	if (tp->tp_dict == NULL) {
 		if (PyType_Ready(tp) < 0)
 			goto done;
@@ -366,17 +389,20 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 	}
 
 	f = NULL;
-	if (descr != NULL &&
-	    PyType_HasFeature(descr->ob_type, Py_TPFLAGS_HAVE_CLASS)) {
-		f = descr->ob_type->tp_descr_get;
+	if (descr != NULL 
+#if PY_MAJOR_VERSION == 2
+		&& PyType_HasFeature(Py_TYPE(descr), Py_TPFLAGS_HAVE_CLASS)
+#endif
+	    ) {
+		f = Py_TYPE(descr)->tp_descr_get;
 		if (f != NULL && PyDescr_IsData(descr)) {
-			res = f(descr, obj, (PyObject*)obj->ob_type);
+			res = f(descr, obj, (PyObject*)Py_TYPE(obj));
 			goto done;
 		}
 	}
 
-	if (strcmp(PyString_AS_STRING(name), "__del__") == 0) {
-		res = PyObjCClass_GetDelMethod((PyObject*)obj->ob_type);
+	if (strcmp(PyBytes_AS_STRING(bytes), "__del__") == 0) {
+		res = PyObjCClass_GetDelMethod((PyObject*)Py_TYPE(obj));
 		if (res != NULL) {
 			/* XXX: bind self */	
 		}
@@ -389,7 +415,7 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 	if (dictptr != NULL) {
 		PyObject *dict;
 
-		if (strcmp(PyString_AS_STRING(name), "__dict__") == 0) {
+		if (strcmp(PyBytes_AS_STRING(bytes), "__dict__") == 0) {
 			res = *dictptr;
 			if (res == NULL) {
 				*dictptr = PyDict_New();
@@ -415,7 +441,7 @@ object_getattro(PyObject *obj, PyObject * volatile name)
 	}
 
 	if (f != NULL) {
-		res = f(descr, obj, (PyObject*)obj->ob_type);
+		res = f(descr, obj, (PyObject*)Py_TYPE(obj));
 		goto done;
 	}
 
@@ -440,14 +466,19 @@ done:
 		if (PyObjCSelector_Check(res) 
 				&& PyObjCSelector_IsClassMethod(res)) {
 			Py_DECREF(res);
+#if PY_MAJOR_VERSION == 2
 			PyErr_Format(PyExc_AttributeError,
 			     "'%.50s' object has no attribute '%.400s'",
 			     tp->tp_name, PyString_AS_STRING(name));
+#else
+			PyErr_Format(PyExc_AttributeError,
+			     "'%.50s' object has no attribute '%U'",
+			     tp->tp_name, name);
+#endif
 			res = NULL;
 		}
 	}
-
-	Py_DECREF(name);
+	Py_DECREF(bytes);
 	return res;
 }
 
@@ -455,58 +486,54 @@ done:
 static int
 object_setattro(PyObject *obj, PyObject *name, PyObject *value)
 {
-	PyTypeObject *tp = obj->ob_type;
+	PyTypeObject *tp = Py_TYPE(obj);
 	PyObject *descr;
 	descrsetfunc f;
 	PyObject** dictptr;
 	int res;
 	id obj_inst;
 	NSString *obj_name;
+	PyObject* bytes;
 	
-	if (!PyString_Check(name)) {
-#ifdef Py_USING_UNICODE
-		/* The Unicode to string conversion is done here because the
-		   existing tp_setattro slots expect a string object as name
-		   and we wouldn't want to break those. */
-		if (PyUnicode_Check(name)) {
-			name = PyUnicode_AsEncodedString(name, NULL, NULL);
-			if (name == NULL)
-				return -1;
-		}
-		else
+	if (PyUnicode_Check(name)) {
+		bytes = PyUnicode_AsEncodedString(name, NULL, NULL);
+		if (bytes == NULL) return -1;
+#if PY_MAJOR_VERSION == 2
+	} else if (PyString_Check(name)) {
+		bytes = name; Py_INCREF(bytes);
 #endif
-		{
-			PyErr_Format(PyExc_TypeError,
-				"attribute name must be string, got %s",
-				name->ob_type->tp_name);
-			return -1;
-		}
 	} else {
-		Py_INCREF(name);
+		PyErr_Format(PyExc_TypeError,
+			"attribute name must be string, got %s",
+			Py_TYPE(name)->tp_name);
+		return -1;
 	}
 
 	obj_inst = PyObjCObject_GetObject(obj);
 	if (obj_inst == nil) {
 		PyErr_Format(PyExc_AttributeError,
 		     "Cannot set '%s.400s' on NIL '%.50s' object",
-		     PyString_AS_STRING(name),
+		     PyBytes_AS_STRING(bytes),
 		     tp->tp_name);
-		Py_DECREF(name);
+		Py_DECREF(bytes);
 		return -1;
 	}
 
 	obj_name = nil;
 	if (((PyObjCClassObject*)tp)->useKVO) {
 		if ((PyObjCObject_GetFlags(obj) & PyObjCObject_kUNINITIALIZED) == 0) {
-			obj_name = [NSString stringWithUTF8String:PyString_AS_STRING(name)];
+			obj_name = [NSString stringWithUTF8String:PyBytes_AS_STRING(bytes)];
 			_UseKVO((NSObject *)obj_inst, obj_name, YES);
 		}
 	}
 	descr = _type_lookup(tp, name);
 	f = NULL;
-	if (descr != NULL &&
-	    PyType_HasFeature(descr->ob_type, Py_TPFLAGS_HAVE_CLASS)) {
-		f = descr->ob_type->tp_descr_set;
+	if (descr != NULL 
+#if PY_MAJOR_VERSION == 2
+		&& PyType_HasFeature(Py_TYPE(descr), Py_TPFLAGS_HAVE_CLASS)
+#endif
+	   ) {
+		f = Py_TYPE(descr)->tp_descr_set;
 		if (f != NULL && PyDescr_IsData(descr)) {
 			res = f(descr, obj, value);
 			goto done;
@@ -549,20 +576,20 @@ object_setattro(PyObject *obj, PyObject *name, PyObject *value)
 	if (descr == NULL) {
 		PyErr_Format(PyExc_AttributeError,
 			     "'%.50s' object has no attribute '%.400s'",
-			     tp->tp_name, PyString_AS_STRING(name));
+			     tp->tp_name, PyBytes_AS_STRING(bytes));
 		res = -1;
 		goto done;
 	}
 
 	PyErr_Format(PyExc_AttributeError,
 		     "'%.50s' object attribute '%.400s' is read-only",
-		     tp->tp_name, PyString_AS_STRING(name));
+		     tp->tp_name, PyBytes_AS_STRING(bytes));
 	res = -1;
   done:
 	if (obj_inst && obj_name) {
 		_UseKVO((NSObject *)obj_inst, obj_name, NO);
 	}
-	Py_DECREF(name);
+	Py_DECREF(bytes);
 	return res;
 }
 
@@ -576,9 +603,9 @@ objc_get_real_class(PyObject* self, void* closure __attribute__((__unused__)))
 	obj_object = PyObjCObject_GetObject(self);
 	assert(obj_object != nil);
 	ret = PyObjCClass_New(object_getClass(obj_object));
-	if (ret != (PyObject*)self->ob_type) {
-		Py_DECREF(self->ob_type);
-		self->ob_type = (PyTypeObject*)ret;
+	if (ret != (PyObject*)Py_TYPE(self)) {
+		Py_DECREF(Py_TYPE(self));
+		Py_TYPE(self) = (PyTypeObject*)ret;
 		Py_INCREF(ret);
 	}
 	return ret;
@@ -682,7 +709,7 @@ as_cobject(PyObject* self)
 		Py_INCREF(Py_None);
 		return Py_None;
 	}
-	return PyCObject_FromVoidPtr(PyObjCObject_GetObject(self), NULL);
+	return PyCapsule_New(PyObjCObject_GetObject(self), "objc.__object__", NULL);
 }
 
 
@@ -711,8 +738,7 @@ static PyMethodDef obj_methods[] = {
 PyObjCClassObject PyObjCObject_Type = {
    {
      {
-	PyObject_HEAD_INIT(&PyObjCClass_Type)
-	0,					/* ob_size */
+	PyVarObject_HEAD_INIT(&PyObjCClass_Type, 0)
 	"objc_object",				/* tp_name */
 	sizeof(PyObjCObject),			/* tp_basicsize */
 	0,					/* tp_itemsize */
@@ -760,11 +786,13 @@ PyObjCClassObject PyObjCObject_Type = {
 	0, 					/* tp_subclasses */
 	0,					/* tp_weaklist */
 	(destructor)object_del			/* tp_del */
+
 #if PY_VERSION_HEX >= 0x02060000
 	, 0                                     /* tp_version_tag */
 #endif
 
      },
+#if PY_MAJOR_VERSION == 2
      { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
        0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 
 #if PY_VERSION_HEX >= 0x02050000
@@ -780,6 +808,7 @@ PyObjCClassObject PyObjCObject_Type = {
      },			/* as_buffer */
      0,					/* name */
      0,					/* slots */
+#endif
    }, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0
 };
 
@@ -805,7 +834,7 @@ _PyObjCObject_NewDeallocHelper(id objc_object)
 		return NULL;
 	}
 
-	PyObjCClass_CheckMethodList((PyObject*)res->ob_type, 1);
+	PyObjCClass_CheckMethodList((PyObject*)Py_TYPE(res), 1);
 	
 	((PyObjCObject*)res)->objc_object = objc_object;
 	((PyObjCObject*)res)->flags = PyObjCObject_kDEALLOC_HELPER;
@@ -815,7 +844,7 @@ _PyObjCObject_NewDeallocHelper(id objc_object)
 void
 _PyObjCObject_FreeDeallocHelper(PyObject* obj)
 {
-	if (obj->ob_refcnt != 1) {
+	if (Py_REFCNT(obj) != 1) {
 		/* Someone revived this object. Objective-C doesn't like
 		 * this at all, therefore warn the user about this and
 		 * zero out the instance.
@@ -823,7 +852,7 @@ _PyObjCObject_FreeDeallocHelper(PyObject* obj)
 		char buf[256];
 		snprintf(buf, sizeof(buf), 
 			"revived Objective-C object of type %s. Object is zero-ed out.",
-			obj->ob_type->tp_name);
+			Py_TYPE(obj)->tp_name);
 
 		PyErr_Warn(PyObjCExc_ObjCRevivalWarning, buf);
 
@@ -880,7 +909,7 @@ PyObjCObject_New(id objc_object, int flags, int retain)
 	/* This should be in the tp_alloc for the new class, but 
 	 * adding a tp_alloc to PyObjCClass_Type doesn't seem to help
 	 */
-	PyObjCClass_CheckMethodList((PyObject*)res->ob_type, 1);
+	PyObjCClass_CheckMethodList((PyObject*)Py_TYPE(res), 1);
 	
 	((PyObjCObject*)res)->objc_object = objc_object;
 	((PyObjCObject*)res)->flags = flags;
@@ -913,7 +942,7 @@ PyObjCObject_FindSelector(PyObject* object, SEL selector)
 {
 	PyObject* meth;
 	
-	meth = PyObjCClass_FindSelector((PyObject*)object->ob_type, selector, NO);
+	meth = PyObjCClass_FindSelector((PyObject*)Py_TYPE(object), selector, NO);
 
 	if (meth == NULL) {
 		return NULL; 
@@ -928,7 +957,7 @@ id
 	if (!PyObjCObject_Check(object)) {
 		PyErr_Format(PyExc_TypeError,
 			"'objc.objc_object' expected, got '%s'",
-			object->ob_type->tp_name);
+			Py_TYPE(object)->tp_name);
 		
 	}
 	return PyObjCObject_GetObject(object);
@@ -940,10 +969,26 @@ PyObjCObject_ClearObject(PyObject* object)
 	if (!PyObjCObject_Check(object)) {
 		PyErr_Format(PyExc_TypeError,
 			"'objc.objc_object' expected, got '%s'",
-			object->ob_type->tp_name);
+			Py_TYPE(object)->tp_name);
 		
 	}
 	PyObjC_UnregisterPythonProxy(
 			((PyObjCObject*)object)->objc_object, object);
 	((PyObjCObject*)object)->objc_object = nil;
+}
+
+PyObject* PyObjCObject_GetAttr(PyObject* obj, PyObject* name)
+{
+	return object_getattro(obj, name);
+}
+
+
+PyObject* PyObjCObject_GetAttrString(PyObject* obj, char* name)
+{
+	PyObject* pyname = PyText_FromString(name);
+	if (pyname == NULL) return NULL;
+
+	PyObject* rv = object_getattro(obj, pyname);
+	Py_DECREF(pyname);
+	return rv;
 }

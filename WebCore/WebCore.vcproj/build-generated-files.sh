@@ -26,7 +26,7 @@
 # (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-NUMCPUS=`../../WebKitTools/Scripts/num-cpus`
+NUMCPUS=`../../../Tools/Scripts/num-cpus`
 
 XSRCROOT="`pwd`/.."
 XSRCROOT=`realpath "$XSRCROOT"`
@@ -53,11 +53,19 @@ SDKROOT=`cygpath -m -s "$SDKROOT"`
 SDKROOT=`cygpath -u "$SDKROOT"`
 export SDKROOT
 
+VSPROPSROOT="$3"
+export VSPROPSROOT
+# Do a little dance to get the path into 8.3 form to make it safe for gnu make
+# http://bugzilla.opendarwin.org/show_bug.cgi?id=8173
+VSPROPSROOT=`cygpath -m -s "$VSPROPSROOT"`
+VSPROPSROOT=`cygpath -u "$VSPROPSROOT"`
+export VSPROPSROOT
+
 export BUILT_PRODUCTS_DIR="$XDSTROOT/obj/WebCore"
 
 mkdir -p "${BUILT_PRODUCTS_DIR}/DerivedSources"
 cd "${BUILT_PRODUCTS_DIR}/DerivedSources"
 
 export WebCore="${XSRCROOT}"
-export FEATURE_DEFINES=`$SDKROOT/tools/scripts/feature-defines.sh $SDKROOT $3`
+export FEATURE_DEFINES=`$SDKROOT/tools/scripts/feature-defines.sh $VSPROPSROOT $4`
 make -f "$WebCore/DerivedSources.make" -j ${NUMCPUS} || exit 1

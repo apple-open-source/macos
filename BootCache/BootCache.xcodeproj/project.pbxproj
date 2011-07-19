@@ -22,15 +22,31 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 72565F281331B3C8008CA43A /* CoreFoundation.framework */; };
+		721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 721C495F134D6EF800F70C2B /* IOKit.framework */; };
+		7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */ = {isa = PBXBuildFile; fileRef = 72B84538126FE81E009E3486 /* libBootCache.a */; };
+		7220D9C31270B271009A4724 /* BootCache.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
+		7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */; };
+		7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246077213A9818100DDF965 /* Root.logical_playlist */; };
+		7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */ = {isa = PBXBuildFile; fileRef = 7246076F13A9812600DDF965 /* Login.logical_playlist */; };
+		72B0D74D1166A66F00EAA900 /* BootCacheControl.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = 72B0D72D11669ED300EAA900 /* BootCacheControl.8 */; };
+		72B8453E126FEBD0009E3486 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
+		72B8453F126FEBD4009E3486 /* library.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F47C34001F78EE30ECA2C3D /* library.c */; };
 		89F2557E0DAABEAD00CA7984 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; settings = {ATTRIBUTES = (); }; };
 		89F255820DAABEAD00CA7984 /* kext.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F30F63A01B745E90ECA2C3D /* kext.c */; };
 		89F255830DAABEAD00CA7984 /* kext_glue.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 9FF22D1E026652BA0ECA2C3D /* kext_glue.cpp */; };
 		89F255930DAABEAD00CA7984 /* BootCache.h in Headers */ = {isa = PBXBuildFile; fileRef = 9F30F63B01B745E90ECA2C3D /* BootCache.h */; };
 		89F255950DAABEAD00CA7984 /* control.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F67ED4101B842340ECA2C3D /* control.c */; };
-		89F255960DAABEAD00CA7984 /* library.c in Sources */ = {isa = PBXBuildFile; fileRef = 9F47C34001F78EE30ECA2C3D /* library.c */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		7220D94E126FF085009A4724 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 72B84537126FE81E009E3486;
+			remoteInfo = libBootCache;
+		};
 		89F255A20DAABEAD00CA7984 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 089C1669FE841209C02AAC07 /* Project object */;
@@ -54,7 +70,51 @@
 		};
 /* End PBXContainerItemProxy section */
 
+/* Begin PBXCopyFilesBuildPhase section */
+		7220D9C51270B291009A4724 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/local/include/;
+			dstSubfolderSpec = 0;
+			files = (
+				7220D9C31270B271009A4724 /* BootCache.h in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		7246077313A981E800DDF965 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /private/var/db/BootCaches;
+			dstSubfolderSpec = 0;
+			files = (
+				7223F8DC13AA82C3006C4DB0 /* RootExtra.logical_playlist in CopyFiles */,
+				7246077413A9820F00DDF965 /* Root.logical_playlist in CopyFiles */,
+				7246077513A9821200DDF965 /* Login.logical_playlist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		72B0D74311669F7100EAA900 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8;
+			dstSubfolderSpec = 0;
+			files = (
+				72B0D74D1166A66F00EAA900 /* BootCacheControl.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
 /* Begin PBXFileReference section */
+		721C495F134D6EF800F70C2B /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
+		7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = RootExtra.logical_playlist; sourceTree = "<group>"; };
+		7246076F13A9812600DDF965 /* Login.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Login.logical_playlist; sourceTree = "<group>"; };
+		7246077213A9818100DDF965 /* Root.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = Root.logical_playlist; sourceTree = "<group>"; };
+		72565F281331B3C8008CA43A /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
+		7294709713AADB3300FD8E8C /* LoginExtra.logical_playlist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LoginExtra.logical_playlist; sourceTree = "<group>"; };
+		72B0D72D11669ED300EAA900 /* BootCacheControl.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = BootCacheControl.8; sourceTree = "<group>"; };
+		72B84538126FE81E009E3486 /* libBootCache.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libBootCache.a; sourceTree = BUILT_PRODUCTS_DIR; };
+		72DE477E13AC15F400CAA790 /* convert_playlist_to_logical_playlist.sh */ = {isa = PBXFileReference; lastKnownFileType = text.script.sh; path = convert_playlist_to_logical_playlist.sh; sourceTree = "<group>"; };
 		89F2558F0DAABEAD00CA7984 /* Info-BootCache_kext.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-BootCache_kext.plist"; sourceTree = "<group>"; };
 		89F255900DAABEAD00CA7984 /* BootCache.kext */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = BootCache.kext; sourceTree = BUILT_PRODUCTS_DIR; };
 		89F255A00DAABEAD00CA7984 /* BootCacheControl */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = BootCacheControl; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -66,6 +126,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		72B84536126FE81E009E3486 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		89F255850DAABEAD00CA7984 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -77,6 +144,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				7220D94B126FF071009A4724 /* libBootCache.a in Frameworks */,
+				720C345D13441CDA00304FF8 /* CoreFoundation.framework in Frameworks */,
+				721C4960134D6EF800F70C2B /* IOKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -90,7 +160,7 @@
 				247142CAFF3F8F9811CA285C /* Source */,
 				089C167CFE841241C02AAC07 /* Resources */,
 				19C28FB6FE9D52B211CA2CBB /* Products */,
-				89F2558F0DAABEAD00CA7984 /* Info-BootCache_kext.plist */,
+				72565F271331B395008CA43A /* Libraries */,
 			);
 			name = SmartReadahead;
 			sourceTree = "<group>";
@@ -98,6 +168,13 @@
 		089C167CFE841241C02AAC07 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				72DE477E13AC15F400CAA790 /* convert_playlist_to_logical_playlist.sh */,
+				7294709713AADB3300FD8E8C /* LoginExtra.logical_playlist */,
+				7223F8DA13AA82A8006C4DB0 /* RootExtra.logical_playlist */,
+				7246077213A9818100DDF965 /* Root.logical_playlist */,
+				7246076F13A9812600DDF965 /* Login.logical_playlist */,
+				89F2558F0DAABEAD00CA7984 /* Info-BootCache_kext.plist */,
+				72B0D72D11669ED300EAA900 /* BootCacheControl.8 */,
 			);
 			name = Resources;
 			sourceTree = "<group>";
@@ -107,6 +184,7 @@
 			children = (
 				89F255900DAABEAD00CA7984 /* BootCache.kext */,
 				89F255A00DAABEAD00CA7984 /* BootCacheControl */,
+				72B84538126FE81E009E3486 /* libBootCache.a */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -114,12 +192,21 @@
 		247142CAFF3F8F9811CA285C /* Source */ = {
 			isa = PBXGroup;
 			children = (
-				9F30F63A01B745E90ECA2C3D /* kext.c */,
 				9F30F63B01B745E90ECA2C3D /* BootCache.h */,
+				9F30F63A01B745E90ECA2C3D /* kext.c */,
 				9F67ED4101B842340ECA2C3D /* control.c */,
 				9F47C34001F78EE30ECA2C3D /* library.c */,
 			);
 			name = Source;
+			sourceTree = "<group>";
+		};
+		72565F271331B395008CA43A /* Libraries */ = {
+			isa = PBXGroup;
+			children = (
+				721C495F134D6EF800F70C2B /* IOKit.framework */,
+				72565F281331B3C8008CA43A /* CoreFoundation.framework */,
+			);
+			name = Libraries;
 			sourceTree = "<group>";
 		};
 		9F3E16B701FF60D80ECA2C3D /* Classes */ = {
@@ -133,6 +220,14 @@
 /* End PBXGroup section */
 
 /* Begin PBXHeadersBuildPhase section */
+		72B84534126FE81E009E3486 /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72B8453E126FEBD0009E3486 /* BootCache.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		89F2557D0DAABEAD00CA7984 /* Headers */ = {
 			isa = PBXHeadersBuildPhase;
 			buildActionMask = 2147483647;
@@ -152,6 +247,25 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		72B84537126FE81E009E3486 /* libBootCache */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 72B8453B126FE855009E3486 /* Build configuration list for PBXNativeTarget "libBootCache" */;
+			buildPhases = (
+				72B84534126FE81E009E3486 /* Headers */,
+				72B84535126FE81E009E3486 /* Sources */,
+				72B84536126FE81E009E3486 /* Frameworks */,
+				7220D9C51270B291009A4724 /* CopyFiles */,
+				7220D980126FF612009A4724 /* ShellScript */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libBootCache;
+			productName = libbootcache;
+			productReference = 72B84538126FE81E009E3486 /* libBootCache.a */;
+			productType = "com.apple.product-type.library.static";
+		};
 		89F255780DAABEAD00CA7984 /* BootCache.kext */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 89F255880DAABEAD00CA7984 /* Build configuration list for PBXNativeTarget "BootCache.kext" */;
@@ -184,10 +298,13 @@
 				89F255940DAABEAD00CA7984 /* Sources */,
 				89F255970DAABEAD00CA7984 /* Frameworks */,
 				89F255980DAABEAD00CA7984 /* Rez */,
+				72B0D74311669F7100EAA900 /* CopyFiles */,
+				7246077313A981E800DDF965 /* CopyFiles */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				7220D94F126FF085009A4724 /* PBXTargetDependency */,
 			);
 			name = BootCacheControl;
 			productInstallPath = /usr/sbin;
@@ -200,9 +317,19 @@
 /* Begin PBXProject section */
 		089C1669FE841209C02AAC07 /* Project object */ = {
 			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0410;
+			};
 			buildConfigurationList = 42F550340A77D4BD00672F71 /* Build configuration list for PBXProject "BootCache" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* SmartReadahead */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -210,6 +337,7 @@
 				89F2556C0DAABEAD00CA7984 /* BootCache */,
 				89F255780DAABEAD00CA7984 /* BootCache.kext */,
 				89F255910DAABEAD00CA7984 /* BootCacheControl */,
+				72B84537126FE81E009E3486 /* libBootCache */,
 			);
 		};
 /* End PBXProject section */
@@ -242,6 +370,20 @@
 /* End PBXRezBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		7220D980126FF612009A4724 /* ShellScript */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "mv $INSTALL_ROOT/usr/local/include/BootCache.h $INSTALL_ROOT/usr/local/include/libBootCache_priv.h";
+			showEnvVarsInLog = 0;
+		};
 		89F2557B0DAABEAD00CA7984 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -276,6 +418,14 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		72B84535126FE81E009E3486 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				72B8453F126FEBD4009E3486 /* library.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		89F255810DAABEAD00CA7984 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -290,13 +440,17 @@
 			buildActionMask = 2147483647;
 			files = (
 				89F255950DAABEAD00CA7984 /* control.c in Sources */,
-				89F255960DAABEAD00CA7984 /* library.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		7220D94F126FF085009A4724 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 72B84537126FE81E009E3486 /* libBootCache */;
+			targetProxy = 7220D94E126FF085009A4724 /* PBXContainerItemProxy */;
+		};
 		89F255A30DAABEAD00CA7984 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 89F255910DAABEAD00CA7984 /* BootCacheControl */;
@@ -318,34 +472,64 @@
 		42F550350A77D4BD00672F71 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = "";
-				GCC_OPTIMIZATION_LEVEL = s;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
 				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
 			};
 			name = Development;
 		};
 		42F5503A0A77D4BD00672F71 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1)";
+				ARCHS_STANDARD_32_64_BIT_PRE_XCODE_3_1 = "x86_64 i386 ppc";
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_MODEL_TUNING = "";
-				GCC_OPTIMIZATION_LEVEL = s;
 				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
 				GCC_WARN_ABOUT_RETURN_TYPE = YES;
 				GCC_WARN_TYPECHECK_CALLS_TO_PRINTF = YES;
+				VALID_ARCHS = "armv6 armv7 i386 x86_64";
+				WARNING_CFLAGS = (
+					"-Wmost",
+					"-Wno-four-char-constants",
+					"-Wno-unknown-pragmas",
+				);
+			};
+			name = Default;
+		};
+		72B84539126FE81F009E3486 /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALL_PATH = /usr/local/lib;
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BootCache;
+			};
+			name = Development;
+		};
+		72B8453A126FE81F009E3486 /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				INSTALLHDRS_COPY_PHASE = YES;
+				INSTALL_PATH = /usr/local/lib;
+				OTHER_REZFLAGS = "";
+				PRODUCT_NAME = BootCache;
 			};
 			name = Default;
 		};
@@ -372,77 +556,31 @@
 		89F255890DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
-				COPY_PHASE_STRIP = NO;
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
-				HEADER_SEARCH_PATHS = "";
+				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
 				MODULE_VERSION = 23;
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-Wall",
-				);
-				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
-				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
 		89F2558E0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				ARCHS = (
-					i386,
-					ppc,
-					x86_64,
-				);
-				FRAMEWORK_SEARCH_PATHS = "";
-				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
-				HEADER_SEARCH_PATHS = "";
+				GCC_VERSION = "";
 				INFOPLIST_FILE = "Info-BootCache_kext.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Extensions";
 				KERNEL_MODULE = YES;
-				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.BootCache;
 				MODULE_VERSION = 23;
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-Wall",
-				);
-				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCache;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 				WRAPPER_EXTENSION = kext;
 			};
 			name = Default;
@@ -450,50 +588,22 @@
 		89F2559A0DAABEAD00CA7984 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				COPY_PHASE_STRIP = NO;
-				GCC_DYNAMIC_NO_PIC = NO;
-				GCC_ENABLE_FIX_AND_CONTINUE = YES;
-				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
-				GCC_OPTIMIZATION_LEVEL = 0;
-				GCC_PREPROCESSOR_DEFINITIONS = DEBUG;
-				GCC_TREAT_WARNINGS_AS_ERRORS = YES;
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-Wall",
-				);
-				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
 				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
-				ZERO_LINK = YES;
 			};
 			name = Development;
 		};
 		89F2559F0DAABEAD00CA7984 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				FRAMEWORK_SEARCH_PATHS = "\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"";
 				INSTALL_PATH = /usr/sbin;
-				OTHER_CFLAGS = (
-					"-no-cpp-precomp",
-					"-Wall",
-				);
-				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = BootCacheControl;
 				REZ_EXECUTABLE = YES;
-				SECTORDER_FLAGS = "";
-				WARNING_CFLAGS = (
-					"-Wmost",
-					"-Wno-four-char-constants",
-					"-Wno-unknown-pragmas",
-				);
 			};
 			name = Default;
 		};
@@ -505,6 +615,15 @@
 			buildConfigurations = (
 				42F550350A77D4BD00672F71 /* Development */,
 				42F5503A0A77D4BD00672F71 /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		72B8453B126FE855009E3486 /* Build configuration list for PBXNativeTarget "libBootCache" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				72B84539126FE81F009E3486 /* Development */,
+				72B8453A126FE81F009E3486 /* Default */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Default;

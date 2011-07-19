@@ -44,6 +44,7 @@
 #include "CAuditUtils.h"
 #include "Mbrd_MembershipResolver.h"
 #include "CInternalDispatch.h"
+#include <DirectoryServiceCore/DSSemaphore.h>
 
 #include <servers/bootstrap.h>
 #include <stdlib.h>
@@ -63,10 +64,6 @@ typedef enum CheckpwResult {
 
 // This is for MIG
 extern "C" {
-	#include "DirectoryServiceMIGServer.h"
-	#include "DSlibinfoMIGServer.h"
-	#include "DSmemberdMIGServer.h"
-	
 	tDirStatus dsGetRecordReferenceInfoInternal( tRecordReference recordRef, tRecordEntryPtr *recordEntry );
 	bool dsIsRecordDisabledInternal( tRecordReference recordRef );
 }
@@ -163,7 +160,9 @@ extern in_addr_t				gDaemonIPAddress;
 extern char					   *gDSLocalFilePath;
 extern DSSemaphore				gLocalSessionLock;
 extern UInt32					gLocalSessionCount;
-extern CCachePlugin			   *gCacheNode;
+#ifndef DISABLE_CACHE_PLUGIN
+	extern CCachePlugin			   *gCacheNode;
+#endif
 extern const char              *lookupProcedures[];
 
 extern CFRunLoopRef				gPluginRunLoop;
@@ -1045,7 +1044,6 @@ SInt32 CRequestHandler::HandlePluginCall ( sComData **inMsg )
 	bool			performanceStatGatheringActive = gSrvrCntl->IsPeformanceStatGatheringActive();
 	SInt32			pluginResult	= eDSNoErr;
 	UInt32			type			= 0;
-	char		   *textStr			= nil;
 	
 	// Set this to nil, it will get set in next call
 	fPluginPtr = nil;
@@ -3124,8 +3122,10 @@ SInt32 CRequestHandler::PackageReply ( void *inData, sComData **inMsg )
 			case kAddAttributeValue:
 			case kSetAttributeValue:
 			case kSetAttributeValues:
+#ifndef DISABLE_CACHE_PLUGIN
 				if (gCacheNode != NULL)
 					gCacheNode->EmptyCacheEntryType( CACHE_ENTRY_TYPE_NEGATIVE );
+#endif
 			case kDeleteRecord:
 //				if (gCacheNode != NULL)
 //					gCacheNode->EmptyCacheEntriesForNode( fPluginPtr->GetPluginName() );
@@ -4404,7 +4404,12 @@ void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, SInt32 *outStatus )
 		p->fInUID = inMsg->fUID;
 		p->fInEffectiveUID = inMsg->fEffectiveUID;
 		
-		DbgLog( kLogApplication, "Client: Requesting dsOpenDirNode with PID = %d, UID = %d, and EUID = %d", inMsg->fPID, inMsg->fUID, inMsg->fEffectiveUID );
+		if (inMsg->fPID == 0) {
+			DbgLog( kLogApplication, "Internal Dispatch, Requesting dsOpenDirNode with UID = %d, and EUID = %d", inMsg->fUID, inMsg->fEffectiveUID );
+		}
+		else {
+			DbgLog( kLogApplication, "Client: Requesting dsOpenDirNode with PID = %d, UID = %d, and EUID = %d", inMsg->fPID, inMsg->fUID, inMsg->fEffectiveUID );
+		}
 
 		if ( gNodeList != nil )
 		{
@@ -4423,12 +4428,6 @@ void* CRequestHandler::DoOpenDirNode ( sComData *inMsg, SInt32 *outStatus )
 				if ( strcmp(pNodeName, "/Configure") == 0 )
 				{
 					gNodeList->WaitForConfigureNode();
-				}
-				
-				//wait on ALL calls if DHCPLDAPv3 node is not yet ascertained
-				if ( strcmp(pNodeName, "/LDAPv3") == 0 )
-				{
-					gNodeList->WaitForDHCPLDAPv3Init();
 				}
 				
 				//this call means that plugins CANNOT register nodes for other plugins unless

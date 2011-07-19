@@ -7,7 +7,7 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 #
-# RCS: @(#) $Id: tree.tcl,v 1.44 2007/06/17 01:22:18 andreas_kupries Exp $
+# RCS: @(#) $Id: tree.tcl,v 1.45 2009/06/22 18:21:59 andreas_kupries Exp $
 
 # @mdgen EXCLUDE: tree_c.tcl
 
@@ -180,4 +180,4 @@ namespace eval ::struct {
     namespace export tree
 }
 
-package provide struct::tree 2.1.1
+package provide struct::tree 2.1.2

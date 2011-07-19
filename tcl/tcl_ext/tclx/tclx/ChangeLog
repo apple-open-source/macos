@@ -1,3 +1,9 @@
+2008-12-15  Andreas Kupries  <andreask@activestate.com>
+
+	* generic/tclExtdInt.h:  Handle TIP#336 addition of API to access
+	* generic/tclXgeneral.c: interp->errorLine.
+	* generic/tclXlib.c:
+
 2008-06-30  Pat Thoyts  <patthoyts@users.sourceforge.net>
 
 	* win/makefile.vc:  Updated the NMAKE build files to the

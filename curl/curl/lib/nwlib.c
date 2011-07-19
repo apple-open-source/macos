@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: nwlib.c,v 1.13 2009-10-27 16:38:42 yangtse Exp $
  ***************************************************************************/
 
 #ifdef NETWARE /* Novell NetWare */

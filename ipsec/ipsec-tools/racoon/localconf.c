@@ -62,13 +62,11 @@
 #include "gcmalloc.h"
 #include "session.h"
 
-#ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #if HAVE_SECURITY_FRAMEWORK
 #include <Security/Security.h>
 #else
 typedef void * SecKeychainRef;
-#endif
 #endif
 
 struct localconf *lcconf;
@@ -152,6 +150,8 @@ getpskbyname(id0)
 	char *id;
 	vchar_t *key = NULL;
 
+	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key by name.\n");
+
 	id = racoon_calloc(1, 1 + id0->l - sizeof(struct ipsecdoi_id_b));
 	if (id == NULL) {
 		plog(LLV_ERROR, LOCATION, NULL,
@@ -162,7 +162,11 @@ getpskbyname(id0)
 		id0->l - sizeof(struct ipsecdoi_id_b));
 	id[id0->l - sizeof(struct ipsecdoi_id_b)] = '\0';
 
+#ifdef HAVE_OPENSSL
 	key = privsep_getpsk(id, id0->l - sizeof(struct ipsecdoi_id_b));
+#else
+	key = getpsk(id, id0->l - sizeof(struct ipsecdoi_id_b));
+#endif
 
 end:
 	if (id)
@@ -170,7 +174,7 @@ end:
 	return key;
 }
 
-#if defined(__APPLE__) && HAVE_KEYCHAIN
+#if HAVE_KEYCHAIN
 /*
  * get PSK from keyChain.
  */
@@ -183,6 +187,8 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 	UInt32 cur_password_len	= 0;
 	OSStatus status;
 	char serviceName[] = "com.apple.net.racoon";
+
+	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key from keychain.\n");
 
 	status = SecKeychainSetPreferenceDomain(kSecPreferencesDomainSystem);
 	if (status != noErr) {
@@ -202,7 +208,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 	if (secrettype == SECRETTYPE_KEYCHAIN_BY_ID && etype == ISAKMP_ETYPE_AGG) {
 		/* try looking up based on peers id */
 		
-		char* peer_id;
+		char* peer_id = NULL;
 		int idlen = id_p->l - sizeof(struct ipsecdoi_id_b);
 		u_int8_t id_type = ((struct ipsecdoi_id_b *)(id_p->v))->type;
 
@@ -221,7 +227,7 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 			case IPSECDOI_ID_FQDN:
 			case IPSECDOI_ID_USER_FQDN:
 			case IPSECDOI_ID_KEY_ID:
-				peer_id = racoon_malloc(idlen);
+				peer_id = racoon_malloc(1 + idlen);
 				if (peer_id == NULL)
 					goto end;
 				memcpy(peer_id, id_p->v + sizeof(struct ipsecdoi_id_b), idlen);
@@ -254,7 +260,8 @@ getpskfromkeychain(const char *name, u_int8_t etype, int secrettype, vchar_t *id
 								&cur_password_len,
 								&cur_password,
 								NULL);
-	
+		if (peer_id)
+			racoon_free(peer_id);
 		if (status == noErr)
 			goto end;
 		/* otherwise fall through to use the default value */
@@ -302,14 +309,12 @@ no_id:
 end:
 
         if (cur_password) {
-                key = vmalloc(cur_password_len + 1);
+                key = vmalloc(cur_password_len);
                 if (key == NULL) {
                         plog(LLV_ERROR, LOCATION, NULL,
                                 "failed to allocate key buffer.\n");
-                } else {
-					memcpy(key->v, cur_password, key->l);
-					key->v[cur_password_len] = 0;
-                }
+                } else
+					memcpy(key->v, cur_password, cur_password_len);
 			free(cur_password);
         }
         
@@ -330,9 +335,15 @@ getpskbyaddr(remote)
 	vchar_t *key = NULL;
 	char addr[NI_MAXHOST], port[NI_MAXSERV];
 
+	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key by addr.\n");
+
 	GETNAMEINFO(remote, addr, port);
 
+#ifdef HAVE_OPENSSL
 	key = privsep_getpsk(addr, strlen(addr));
+#else
+	key = getpsk(addr, strlen(addr));
+#endif
 
 	return key;
 }
@@ -348,6 +359,8 @@ getpsk(str, len)
 	char *p, *q;
 	size_t keylen;
 	char *k = NULL;
+	
+	plog(LLV_DEBUG, LOCATION, NULL, "Getting pre-shared key from file.\n");
 
 	if (safefile(lcconf->pathinfo[LC_PATHTYPE_PSK], 1) == 0)
 		fp = fopen(lcconf->pathinfo[LC_PATHTYPE_PSK], "r");

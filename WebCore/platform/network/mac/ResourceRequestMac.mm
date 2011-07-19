@@ -25,21 +25,25 @@
 
 #import "config.h"
 #import "ResourceRequest.h"
+
+#if !USE(CFNETWORK)
+
 #import "WebCoreSystemInterface.h"
 
 #import "FormDataStreamMac.h"
+#import "ResourceRequestCFNet.h"
+#import "RuntimeApplicationChecks.h"
+#import "WebCoreSystemInterface.h"
 
 #import <Foundation/Foundation.h>
 
-#ifdef BUILDING_ON_TIGER
-typedef unsigned NSUInteger;
-#endif
 
-@interface NSURLRequest (WebCoreContentDispositionEncoding)
+@interface NSURLRequest (WebNSURLRequestDetails)
 - (NSArray *)contentDispositionEncodingFallbackArray;
++ (void)setDefaultTimeoutInterval:(NSTimeInterval)seconds;
 @end
 
-@interface NSMutableURLRequest (WebCoreContentDispositionEncoding)
+@interface NSMutableURLRequest (WebMutableNSURLRequestDetails)
 - (void)setContentDispositionEncodingFallbackArray:(NSArray *)theEncodingFallbackArray;
 @end
 
@@ -62,7 +66,12 @@ void ResourceRequest::doUpdateResourceRequest()
     if (NSString* method = [m_nsRequest.get() HTTPMethod])
         m_httpMethod = method;
     m_allowCookies = [m_nsRequest.get() HTTPShouldHandleCookies];
-    
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (ResourceRequest::httpPipeliningEnabled())
+        m_priority = toResourceLoadPriority(wkGetHTTPPipeliningPriority(m_nsRequest.get()));
+#endif
+
     NSDictionary *headers = [m_nsRequest.get() allHTTPHeaderFields];
     NSEnumerator *e = [headers keyEnumerator];
     NSString *name;
@@ -104,13 +113,19 @@ void ResourceRequest::doUpdatePlatformRequest()
     else
         nsRequest = [[NSMutableURLRequest alloc] initWithURL:url()];
 
-#ifdef BUILDING_ON_TIGER
-    wkSupportsMultipartXMixedReplace(nsRequest);
+
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    if (ResourceRequest::httpPipeliningEnabled())
+        wkSetHTTPPipeliningPriority(nsRequest, toHTTPPipeliningPriority(m_priority));
 #endif
 
     [nsRequest setCachePolicy:(NSURLRequestCachePolicy)cachePolicy()];
-    if (timeoutInterval() != unspecifiedTimeoutInterval)
-        [nsRequest setTimeoutInterval:timeoutInterval()];
+
+    double timeoutInterval = ResourceRequestBase::timeoutInterval();
+    if (timeoutInterval)
+        [nsRequest setTimeoutInterval:timeoutInterval];
+    // Otherwise, respect NSURLRequest default timeout.
+
     [nsRequest setMainDocumentURL:firstPartyForCookies()];
     if (!httpMethod().isEmpty())
         [nsRequest setHTTPMethod:httpMethod()];
@@ -151,11 +166,41 @@ void ResourceRequest::applyWebArchiveHackForMail()
     // Hack because Mail checks for this property to detect data / archive loads
     [NSURLProtocol setProperty:@"" forKey:@"WebDataRequest" inRequest:(NSMutableURLRequest *)nsURLRequest()];
 }
-    
-unsigned initializeMaximumHTTPConnectionCountPerHost()
+
+#if USE(CFURLSTORAGESESSIONS)
+
+void ResourceRequest::setStorageSession(CFURLStorageSessionRef storageSession)
 {
-    static const unsigned preferredConnectionCount = 6;
-    return wkInitializeMaximumHTTPConnectionCountPerHost(preferredConnectionCount);
+    m_nsRequest = wkCopyRequestWithStorageSession(storageSession, m_nsRequest.get());
 }
 
+#endif
+    
+static bool initQuickLookResourceCachingQuirks()
+{
+    if (applicationIsSafari())
+        return false;
+    
+    NSArray* frameworks = [NSBundle allFrameworks];
+    
+    if (!frameworks)
+        return false;
+    
+    for (unsigned int i = 0; i < [frameworks count]; i++) {
+        NSBundle* bundle = [frameworks objectAtIndex: i];
+        const char* bundleID = [[bundle bundleIdentifier] UTF8String];
+        if (bundleID && !strcasecmp(bundleID, "com.apple.QuickLookUIFramework"))
+            return true;
+    }
+    return false;
 }
+
+bool ResourceRequest::useQuickLookResourceCachingQuirks()
+{
+    static bool flag = initQuickLookResourceCachingQuirks();
+    return flag;
+}
+
+} // namespace WebCore
+
+#endif // !USE(CFNETWORK)

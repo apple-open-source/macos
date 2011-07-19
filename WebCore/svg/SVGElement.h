@@ -1,116 +1,142 @@
 /*
-    Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006 Rob Buis <buis@kde.org>
-    Copyright (C) 2009 Apple Inc. All rights reserved.
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2006, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006 Rob Buis <buis@kde.org>
+ * Copyright (C) 2009 Apple Inc. All rights reserved.
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #ifndef SVGElement_h
 #define SVGElement_h
 
 #if ENABLE(SVG)
-#include "SVGDocumentExtensions.h"
+#include "SVGLocatable.h"
 #include "StyledElement.h"
+#include <wtf/HashMap.h>
 
 namespace WebCore {
 
-    class CSSCursorImageValue;
-    class Document;
-    class SVGCursorElement;
-    class SVGElementInstance;
-    class SVGElementRareData;
-    class SVGSVGElement;
-    class AffineTransform;
+enum AnimatedAttributeType {
+    AnimatedAngle,
+    AnimatedBoolean,
+    AnimatedColor,
+    AnimatedEnumeration,
+    AnimatedInteger,
+    AnimatedLength,
+    AnimatedLengthList,
+    AnimatedNumber,
+    AnimatedNumberList,
+    AnimatedNumberOptionalNumber,
+    AnimatedPath,
+    AnimatedPoints,
+    AnimatedPreserveAspectRatio,
+    AnimatedRect,
+    AnimatedString,
+    AnimatedTransformList,
+    AnimatedUnknown
+};
 
-    class SVGElement : public StyledElement {
-    public:
-        static PassRefPtr<SVGElement> create(const QualifiedName&, Document*);
-        virtual ~SVGElement();
+typedef HashMap<QualifiedName, AnimatedAttributeType> AttributeToPropertyTypeMap;
 
-        String xmlbase() const;
-        void setXmlbase(const String&, ExceptionCode&);
+class CSSCursorImageValue;
+class Document;
+class SVGCursorElement;
+class SVGDocumentExtensions;
+class SVGElementInstance;
+class SVGElementRareData;
+class SVGSVGElement;
+class AffineTransform;
 
-        SVGSVGElement* ownerSVGElement() const;
-        SVGElement* viewportElement() const;
+class SVGElement : public StyledElement {
+public:
+    static PassRefPtr<SVGElement> create(const QualifiedName&, Document*);
+    virtual ~SVGElement();
 
-        SVGDocumentExtensions* accessDocumentSVGExtensions() const;
+    String xmlbase() const;
+    void setXmlbase(const String&, ExceptionCode&);
 
-        virtual void parseMappedAttribute(MappedAttribute*);
+    SVGSVGElement* ownerSVGElement() const;
+    SVGElement* viewportElement() const;
 
-        virtual bool isStyled() const { return false; }
-        virtual bool isStyledTransformable() const { return false; }
-        virtual bool isStyledLocatable() const { return false; }
-        virtual bool isSVG() const { return false; }
-        virtual bool isFilterEffect() const { return false; }
-        virtual bool isGradientStop() const { return false; }
-        virtual bool isTextContent() const { return false; }
+    SVGDocumentExtensions* accessDocumentSVGExtensions() const;
 
-        // For SVGTests
-        virtual bool isValid() const { return true; }
+    virtual bool isStyled() const { return false; }
+    virtual bool isStyledTransformable() const { return false; }
+    virtual bool isStyledLocatable() const { return false; }
+    virtual bool isSVG() const { return false; }
+    virtual bool isFilterEffect() const { return false; }
+    virtual bool isGradientStop() const { return false; }
+    virtual bool isTextContent() const { return false; }
 
-        virtual bool rendererIsNeeded(RenderStyle*) { return false; }
-        virtual bool childShouldCreateRenderer(Node*) const;
+    // For SVGTests
+    virtual bool isValid() const { return true; }
 
-        virtual void svgAttributeChanged(const QualifiedName&) { }
-        virtual void synchronizeProperty(const QualifiedName&) { }
+    virtual void svgAttributeChanged(const QualifiedName&) { }
+    virtual void synchronizeProperty(const QualifiedName&) { }
 
-        void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
-        
-        virtual AffineTransform* supplementalTransform() { return 0; }
+    virtual AttributeToPropertyTypeMap& attributeToPropertyTypeMap();
+    AnimatedAttributeType animatedPropertyTypeForAttribute(const QualifiedName&);
 
-        void invalidateSVGAttributes() { clearAreSVGAttributesValid(); }
+    virtual void fillAttributeToPropertyTypeMap() { }
 
-        const HashSet<SVGElementInstance*>& instancesForElement() const;
+    void sendSVGLoadEventIfPossible(bool sendParentLoadEvents = false);
 
-        void setCursorElement(SVGCursorElement*);
-        void cursorElementRemoved();
-        void setCursorImageValue(CSSCursorImageValue*);
-        void cursorImageValueRemoved();
+    virtual AffineTransform* supplementalTransform() { return 0; }
 
-        virtual void updateAnimatedSVGAttribute(const QualifiedName&) const;
+    void invalidateSVGAttributes() { clearAreSVGAttributesValid(); }
 
-    protected:
-        SVGElement(const QualifiedName&, Document*);
+    const HashSet<SVGElementInstance*>& instancesForElement() const;
 
-        virtual void finishParsingChildren();
-        virtual void insertedIntoDocument();
-        virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+    bool boundingBox(FloatRect&, SVGLocatable::StyleUpdateStrategy = SVGLocatable::AllowStyleUpdate) const;
 
-        SVGElementRareData* rareSVGData() const;
-        SVGElementRareData* ensureRareSVGData();
+    void setCursorElement(SVGCursorElement*);
+    void cursorElementRemoved();
+    void setCursorImageValue(CSSCursorImageValue*);
+    void cursorImageValueRemoved();
 
-    private:
-        friend class SVGElementInstance;
+    virtual void updateAnimatedSVGAttribute(const QualifiedName&) const;
 
-        virtual bool isSupported(StringImpl* feature, StringImpl* version) const;
+protected:
+    SVGElement(const QualifiedName&, Document*);
 
-        virtual ContainerNode* eventParentNode();
-        virtual void buildPendingResource() { }
+    virtual void parseMappedAttribute(Attribute*);
 
-        void mapInstanceToElement(SVGElementInstance*);
-        void removeInstanceMapping(SVGElementInstance*);
+    virtual void finishParsingChildren();
+    virtual void attributeChanged(Attribute*, bool preserveDecls = false);
+    virtual bool childShouldCreateRenderer(Node*) const;
+    
+    virtual void removedFromDocument();
 
-        virtual bool haveLoadedRequiredResources();
-    };
+    SVGElementRareData* rareSVGData() const;
+    SVGElementRareData* ensureRareSVGData();
+
+private:
+    friend class SVGElementInstance;
+
+    virtual bool rendererIsNeeded(RenderStyle*) { return false; }
+
+    virtual bool isSupported(StringImpl* feature, StringImpl* version) const;
+
+    void mapInstanceToElement(SVGElementInstance*);
+    void removeInstanceMapping(SVGElementInstance*);
+
+    virtual bool haveLoadedRequiredResources();
+};
 
 }
-
-// This file needs to be included after the SVGElement declaration
-#include "SVGAnimatedProperty.h"
 
 #endif
 #endif

@@ -154,7 +154,7 @@ struct tClientDetails
 };
 
 inline eRefType	GetRefType( UInt32 inRefNum ) { return (eRefType) ((inRefNum & kRefTypeMask) >> 24); }
-int GetClientIPString( sockaddr *clientIP, char *clientIP, size_t client_size );
+int GetClientIPString( sockaddr *address, char *clientIP, size_t client_size );
 
 //------------------------------------------------------------------------------------
 //	* CRefTable

@@ -47,9 +47,7 @@ QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) con
 {
     QNetworkRequest request;
     request.setUrl(url());
-#if QT_VERSION >= QT_VERSION_CHECK(4, 6, 0)
     request.setOriginatingObject(originatingFrame);
-#endif
 
     const HTTPHeaderMap &headers = httpHeaderFields();
     for (HTTPHeaderMap::const_iterator it = headers.begin(), end = headers.end();
@@ -63,6 +61,11 @@ QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) con
         else
             request.setRawHeader(name, "");
     }
+
+    // Make sure we always have an Accept header; some sites require this to
+    // serve subresources
+    if (!request.hasRawHeader("Accept"))
+        request.setRawHeader("Accept", "*/*");
 
     switch (cachePolicy()) {
     case ReloadIgnoringCacheData:
@@ -78,6 +81,12 @@ QNetworkRequest ResourceRequest::toNetworkRequest(QObject* originatingFrame) con
         // QNetworkRequest::PreferNetwork
     default:
         break;
+    }
+
+    if (!allowCookies()) {
+        request.setAttribute(QNetworkRequest::CookieLoadControlAttribute, QNetworkRequest::Manual);
+        request.setAttribute(QNetworkRequest::CookieSaveControlAttribute, QNetworkRequest::Manual);
+        request.setAttribute(QNetworkRequest::AuthenticationReuseAttribute, QNetworkRequest::Manual);
     }
 
     return request;

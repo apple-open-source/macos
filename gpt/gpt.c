@@ -27,7 +27,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/sbin/gpt/gpt.c,v 1.10.2.2 2006/07/07 03:30:37 marcel Exp $");
+__FBSDID("$FreeBSD: src/sbin/gpt/gpt.c,v 1.16.2.4.6.1 2010/02/10 00:26:20 kensmith Exp $");
 
 #include <sys/param.h>
 #include <sys/types.h>
@@ -317,6 +317,13 @@ parse_uuid(const char *s, uuid_t *uuid)
 		return (0);
 
 	switch (*s) {
+	case 'b':
+		if (strcmp(s, "boot") == 0) {
+			uuid_t boot = GPT_ENT_TYPE_FREEBSD_BOOT;
+			*uuid = boot;
+			return (0);
+		}
+		break;
 	case 'e':
 		if (strcmp(s, "efi") == 0) {
 			uuid_t efi = GPT_ENT_TYPE_EFI;
@@ -356,6 +363,13 @@ parse_uuid(const char *s, uuid_t *uuid)
 		if (strcmp(s, "windows") == 0) {
 			uuid_t win = GPT_ENT_TYPE_MS_BASIC_DATA;
 			*uuid = win;
+			return (0);
+		}
+		break;
+	case 'z':
+		if (strcmp(s, "zfs") == 0) {
+			uuid_t zfs = GPT_ENT_TYPE_FREEBSD_ZFS;
+			*uuid = zfs;
 			return (0);
 		}
 		break;
@@ -642,10 +656,23 @@ gpt_open(const char *dev)
 
 	if (gpt_mbr(fd, 0LL) == -1)
 		goto close;
+
+#ifdef __APPLE__
 	if (gpt_gpt(fd, 1LL) == -1)
 		goto close;
 	if (gpt_gpt(fd, mediasz / secsz - 1LL) == -1)
 		goto close;
+#else
+	/*
+	 * Don't look for a GPT unless we have a valid PMBR.
+	 */
+	if (map_find(MAP_TYPE_PMBR) != NULL) {
+		if (gpt_gpt(fd, 1LL) == -1)
+			goto close;
+		if (gpt_gpt(fd, mediasz / secsz - 1LL) == -1)
+			goto close;
+	}
+#endif
 
 	return (fd);
 
@@ -666,6 +693,11 @@ static struct {
 	const char *name;
 } cmdsw[] = {
 	{ cmd_add, "add" },
+#ifdef __APPLE__
+	{ NULL, "boot" },
+#else
+	{ cmd_boot, "boot" },
+#endif
 	{ cmd_create, "create" },
 	{ cmd_destroy, "destroy" },
 	{ NULL, "help" },
@@ -705,7 +737,7 @@ prefix(const char *cmd)
 	if (pfx == NULL)
 		return;
 
-	sprintf(pfx, "%s %s", prg, cmd);
+	snprintf(pfx, strlen(prg) + strlen(cmd) + 2, "%s %s", prg, cmd);
 	setprogname(pfx);
 }
 

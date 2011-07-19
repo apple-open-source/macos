@@ -25,8 +25,7 @@
  */
 
 #include <sys/param.h>
-/* dumb down UTF-8 to do UTF2 */
-__FBSDID("$FreeBSD: src/lib/libc/locale/utf8.c,v 1.11 2004/07/27 06:29:48 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/utf8.c,v 1.16 2007/10/15 09:51:30 ache Exp $");
 
 #include "xlocale_private.h"
 
@@ -40,14 +39,16 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/utf8.c,v 1.11 2004/07/27 06:29:48 tjr Ex
 
 #define UTF2_MB_CUR_MAX		3
 
-static size_t	_UTF2_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict, locale_t);
+static size_t	_UTF2_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict, locale_t);
 static int	_UTF2_mbsinit(const mbstate_t *, locale_t);
-static size_t	_UTF2_mbsnrtowcs(wchar_t * __restrict, const char ** __restrict,
-	    size_t, size_t, mbstate_t * __restrict, locale_t);
-static size_t	_UTF2_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict, locale_t);
+static size_t	_UTF2_mbsnrtowcs(wchar_t * __restrict,
+		    const char ** __restrict, size_t, size_t,
+		    mbstate_t * __restrict, locale_t);
+static size_t	_UTF2_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict, locale_t);
 static size_t	_UTF2_wcsnrtombs(char * __restrict, const wchar_t ** __restrict,
-	    size_t, size_t, mbstate_t * __restrict, locale_t);
+		    size_t, size_t, mbstate_t * __restrict, locale_t);
 
 typedef struct {
 	wchar_t	ch;
@@ -65,6 +66,12 @@ _UTF2_init(struct __xlocale_st_runelocale *xrl)
 	xrl->__mbsnrtowcs = _UTF2_mbsnrtowcs;
 	xrl->__wcsnrtombs = _UTF2_wcsnrtombs;
 	xrl->__mb_cur_max = UTF2_MB_CUR_MAX;
+	/*
+	 * UCS-4 encoding used as the internal representation, so
+	 * slots 0x0080-0x00FF are occuped and must be excluded
+	 * from the single byte ctype by setting the limit.
+	 */
+	xrl->__mb_sb_limit = 128;
 
 	return (0);
 }
@@ -86,7 +93,7 @@ _UTF2_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 
 	us = (_UTF2State *)ps;
 
-	if (us->want < 0 || us->want > 3) {
+	if (us->want < 0 || us->want > 6) {
 		errno = EINVAL;
 		return ((size_t)-1);
 	}
@@ -371,7 +378,7 @@ _UTF2_wcsnrtombs(char * __restrict dst, const wchar_t ** __restrict src,
 			*dst = *s;
 		} else if (len > (size_t)UTF2_MB_CUR_MAX) {
 			/* Enough space to translate in-place. */
-			if ((nb = (int)_UTF2_wcrtomb(dst, *s, ps, loc)) < 0) {
+			if ((nb = _UTF2_wcrtomb(dst, *s, ps, loc)) == (size_t)-1) {
 				*src = s;
 				return ((size_t)-1);
 			}
@@ -379,7 +386,7 @@ _UTF2_wcsnrtombs(char * __restrict dst, const wchar_t ** __restrict src,
 			/*
 			 * May not be enough space; use temp. buffer.
 			 */
-			if ((nb = (int)_UTF2_wcrtomb(buf, *s, ps, loc)) < 0) {
+			if ((nb = _UTF2_wcrtomb(buf, *s, ps, loc)) == (size_t)-1) {
 				*src = s;
 				return ((size_t)-1);
 			}

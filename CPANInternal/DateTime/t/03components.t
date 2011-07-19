@@ -2,7 +2,7 @@
 
 use strict;
 
-use Test::More tests => 130;
+use Test::More tests => 144;
 
 use DateTime;
 
@@ -31,7 +31,7 @@ is( $d->mday_0, 4, '->mday_0' );
 is( $d->mday, 5, '->mday' );
 is( $d->mday_0, 4, '->mday_0' );
 is( $d->hour, 2, '->hour' );
-is( $d->hour_1, 3, '->hour_1' );
+is( $d->hour_1, 2, '->hour_1' );
 is( $d->hour_12, 2, '->hour_12' );
 is( $d->hour_12_0, 2, '->hour_12_0' );
 is( $d->minute, 12, '->minute' );
@@ -74,6 +74,13 @@ is( $d->datetime, '2001-07-05T02:12:50', '->datetime' );
 is( $d->iso8601, '2001-07-05T02:12:50', '->iso8601' );
 
 is( $d->is_leap_year, 0, '->is_leap_year' );
+
+is( $d->era_abbr, 'AD', '->era_abbr' );
+is( $d->era, $d->era_abbr, '->era (deprecated)' );
+is( $d->era_name, 'Anno Domini', '->era_abbr' );
+
+is( $d->quarter_abbr, 'Q3', '->quarter_abbr' );
+is( $d->quarter_name, '3rd quarter', '->quarter_name' );
 
 my $leap_d = DateTime->new( year => 2004,
                             month => 7,
@@ -118,7 +125,7 @@ is( $monday->day_of_week, 1, "Monday is day 1" );
     is( $d->month, 7, '->month' );
     is( $d->day_of_month, 5, '->day_of_month' );
     is( $d->hour, 2, '->hour' );
-    is( $d->hour_1, 3, '->hour_1' );
+    is( $d->hour_1, 2, '->hour_1' );
     is( $d->minute, 12, '->minute' );
     is( $d->second, 50, '->second' );
 }
@@ -128,7 +135,7 @@ is( $monday->day_of_week, 1, "Monday is day 1" );
 
     is( $dt0->year, 1, "year 1 is year 1" );
     is( $dt0->ce_year, 1, "ce_year 1 is year 1" );
-    is( $dt0->era, 'AD', 'era is AD' );
+    is( $dt0->era_abbr, 'AD', 'era is AD' );
     is( $dt0->year_with_era, '1AD', 'year_with_era is 1AD' );
     is( $dt0->christian_era, 'AD', 'christian_era is AD' );
     is( $dt0->year_with_christian_era, '1AD', 'year_with_christian_era is 1AD' );
@@ -139,7 +146,7 @@ is( $monday->day_of_week, 1, "Monday is day 1" );
 
     is( $dt0->year, 0, "year 1 minus 1 is year 0" );
     is( $dt0->ce_year, -1, "ce_year 1 minus 1 is year -1" );
-    is( $dt0->era, 'BC', 'era is BC' );
+    is( $dt0->era_abbr, 'BC', 'era is BC' );
     is( $dt0->year_with_era, '1BC', 'year_with_era is 1BC' );
     is( $dt0->christian_era, 'BC', 'christian_era is BC' );
     is( $dt0->year_with_christian_era, '1BC', 'year_with_christian_era is 1BC' );
@@ -276,7 +283,7 @@ is( $monday->day_of_week, 1, "Monday is day 1" );
 {
     my $dt = DateTime->new( year => 1000, hour => 23 );
     is( $dt->hour,      23, '->hour' );
-    is( $dt->hour_1,    24, '->hour_1' );
+    is( $dt->hour_1,    23, '->hour_1' );
     is( $dt->hour_12,   11, '->hour_12' );
     is( $dt->hour_12_0, 11, '->hour_12_0' );
 }
@@ -284,7 +291,33 @@ is( $monday->day_of_week, 1, "Monday is day 1" );
 {
     my $dt = DateTime->new( year => 1000, hour => 0 );
     is( $dt->hour,       0, '->hour' );
-    is( $dt->hour_1,     1, '->hour_1' );
+    is( $dt->hour_1,    24, '->hour_1' );
     is( $dt->hour_12,   12, '->hour_12' );
     is( $dt->hour_12_0,  0, '->hour_12_0' );
+}
+
+SKIP:
+{
+    skip 'These tests require Test::Warn', 9
+        unless eval "use Test::Warn; 1";
+
+    my $dt = DateTime->new( year => 2000 );
+    warnings_like( sub { $dt->year(2001) }, qr/is a read-only/,
+                   'year() is read-only' );
+    warnings_like( sub { $dt->month(5) }, qr/is a read-only/,
+                   'month() is read-only' );
+    warnings_like( sub { $dt->day(5) }, qr/is a read-only/,
+                   'day() is read-only' );
+    warnings_like( sub { $dt->hour(5) }, qr/is a read-only/,
+                   'hour() is read-only' );
+    warnings_like( sub { $dt->minute(5) }, qr/is a read-only/,
+                   'minute() is read-only' );
+    warnings_like( sub { $dt->second(5) }, qr/is a read-only/,
+                   'second() is read-only' );
+    warnings_like( sub { $dt->nanosecond(5) }, qr/is a read-only/,
+                   'nanosecond() is read-only' );
+    warnings_like( sub { $dt->time_zone('America/Chicago') }, qr/is a read-only/,
+                   'time_zone() is read-only' );
+    warnings_like( sub { $dt->locale('en_US') }, qr/is a read-only/,
+                   'locale() is read-only' );
 }

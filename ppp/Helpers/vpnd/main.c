@@ -55,6 +55,7 @@
 #include <net/if.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <libgen.h>
 
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
@@ -64,6 +65,7 @@
 #include "vpnoptions.h"
 #include "vpnplugins.h"
 #include "cf_utils.h"
+#include "ipsec_utils.h"
 
 
 // ----------------------------------------------------------------------------
@@ -170,7 +172,8 @@ int main (int argc, char *argv[])
 
     if (process_prefs(params)) {	// prepare launch args
     	vpnlog(LOG_ERR, "Error processing prefs file\n");
-        exit(EXIT_OPTION_ERROR);
+		// <rdar://problem/7052049> return ok, otherwise launchd will most likely restart vpnd with the same erroneous prefs
+        exit(EXIT_OK);
     }
     if (check_conflicts(params))	// check if another server of this type already running
         exit(EXIT_OPTION_ERROR);
@@ -427,8 +430,21 @@ static void create_log_file(char *inLogPath)
 	logfile = fopen(inLogPath, "a");
 	mask = umask(mask);
 
+	/* if the first fopen fails, then it's likely to be due to an inexistant directory path.
+	 * Create the directory subtree and try fopen again
+	 */
     if (logfile == 0)
-            vpnlog(LOG_ERR, "Could not open log file %s.\n", inLogPath);
+	{
+		char *dirPath = dirname(inLogPath);
+		vpnlog(LOG_WARNING, "Warning: Creating directory for log file = %s\n", inLogPath);
+		makepath(dirPath);
+		logfile = fopen(inLogPath, "a");
+	}
+	
+	if(logfile == 0)
+	{
+		vpnlog(LOG_ERR, "Could not open log file = %s\n", inLogPath);
+	}
     else {
         fcntl(fileno(logfile), F_SETFD, 1);
 

@@ -84,7 +84,7 @@ Boolean isData (CFTypeRef obj)
 //	get_array_option
 // ----------------------------------------------------------------------------
 int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef property, CFIndex index,
-            u_char *opt, u_int32_t *outlen, u_char *defaultval)
+            u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval)
 {
     CFDictionaryRef	dict;
     CFArrayRef		array;
@@ -100,15 +100,15 @@ int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef 
             string = CFArrayGetValueAtIndex(array, index);
             if (isString(string)) {
                 opt[0] = 0;
-                CFStringGetCString(string, opt, OPT_STR_LEN, kCFStringEncodingMacRoman);
-                *outlen = strlen(opt);
+                CFStringGetCString(string, (char*)opt, optsiz, kCFStringEncodingMacRoman);
+                *outlen = strlen((char*)opt);
             }
             return (count > (index + 1));
         }
     }
     
-    strcpy(opt, defaultval);
-    *outlen = strlen(opt);
+    strlcpy((char*)opt, (char*)defaultval, optsiz);
+    *outlen = strlen((char*)opt);
     return 0;
 }
 
@@ -116,7 +116,7 @@ int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef 
 //	get_str_option
 // ----------------------------------------------------------------------------
 void get_str_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property, 
-                        u_char *opt, u_int32_t *outlen, u_char *defaultval)
+                        u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval)
 {
     CFDictionaryRef	dict;
     CFStringRef		ref;
@@ -126,14 +126,14 @@ void get_str_option (CFPropertyListRef options, CFStringRef entity, CFStringRef 
         opt[0] = 0;
         ref  = CFDictionaryGetValue(dict, property);
         if (isString(ref)) {
-            CFStringGetCString(ref, opt, OPT_STR_LEN, kCFStringEncodingUTF8);
-            *outlen = strlen(opt);
+            CFStringGetCString(ref, (char*)opt, optsiz, kCFStringEncodingUTF8);
+            *outlen = strlen((char*)opt);
             return;
         }
     }
 
-    strcpy(opt, defaultval);
-    *outlen = strlen(opt);
+    strlcpy((char*)opt, (char*)defaultval, optsiz);
+    *outlen = strlen((char*)opt);
 }
 
 // ----------------------------------------------------------------------------

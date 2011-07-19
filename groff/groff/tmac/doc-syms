@@ -204,13 +204,13 @@
 .as doc-str-At-v7  " \*[doc-Tn-font-size]AT&T UNIX\*[doc-str-At]
 .ds doc-str-At-V   \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V
 .as doc-str-At-V   " \*[doc-Tn-font-size]UNIX\*[doc-str-At]
-.ds doc-str-At-V.1 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V.1
+.ds doc-str-At-V.1 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V Release\~1
 .as doc-str-At-V.1 " \*[doc-Tn-font-size]UNIX\*[doc-str-At]
-.ds doc-str-At-V.2 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V.2
+.ds doc-str-At-V.2 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V Release\~2
 .as doc-str-At-V.2 " \*[doc-Tn-font-size]UNIX\*[doc-str-At]
-.ds doc-str-At-V.3 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V.3
+.ds doc-str-At-V.3 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V Release\~3
 .as doc-str-At-V.3 " \*[doc-Tn-font-size]UNIX\*[doc-str-At]
-.ds doc-str-At-V.4 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V.4
+.ds doc-str-At-V.4 \*[doc-Tn-font-size]AT&T\*[doc-str-At] System\~V Release\~4
 .as doc-str-At-V.4 " \*[doc-Tn-font-size]UNIX\*[doc-str-At]
 .
 .de At
@@ -247,6 +247,70 @@
 .
 .  \" replace current argument with result
 .  ds doc-arg\n[doc-arg-ptr] "\*[doc-str-At1]
+.  nr doc-type\n[doc-arg-ptr] 2
+.  ds doc-space\n[doc-arg-ptr] "\*[doc-space]
+.
+.  \" recompute space vector for remaining arguments
+.  nr doc-num-args (\n[doc-arg-limit] - \n[doc-arg-ptr])
+.  nr doc-arg-limit \n[doc-arg-ptr]
+.  if \n[doc-num-args] \
+.    doc-parse-space-vector
+.
+.  doc-print-recursive
+..
+.
+.
+.\" NS Dx user macro
+.\" NS   print DragonFly
+.\" NS
+.\" NS modifies:
+.\" NS   doc-arg-ptr
+.\" NS   doc-curr-font
+.\" NS   doc-curr-size
+.\" NS   doc-macro-name
+.\" NS
+.\" NS local variable:
+.\" NS   doc-str-Dx
+.\" NS   doc-str-Dx1
+.\" NS
+.\" NS width register `Dx' defined in doc-common
+.
+.\" we use the doc-operating-system-DragonFly-* strings defined in doc-common
+.
+.de Dx
+.  nr doc-curr-font \n[.f]
+.  nr doc-curr-size \n[.ps]
+.  ds doc-str-Dx \f[\n[doc-curr-font]]\s[\n[doc-curr-size]u]
+.
+.  \" default value if no argument
+.  ds doc-str-Dx1 \*[doc-Tn-font-size]\%DragonFly\*[doc-str-Dx]
+.
+.  if !\n[doc-arg-limit] \
+.    if \n[.$] \{\
+.      ds doc-macro-name Dx
+.      doc-parse-args \$@
+.    \}
+.
+.  if (\n[doc-arg-limit] > \n[doc-arg-ptr]) \{\
+.    nr doc-arg-ptr +1
+.    ie (\n[doc-type\n[doc-arg-ptr]] == 2) \{\
+.      ie \A\*[doc-arg\n[doc-arg-ptr]] \{\
+.        ie d doc-operating-system-DragonFly-\*[doc-arg\n[doc-arg-ptr]] \
+.          as doc-str-Dx1 \~\*[doc-operating-system-DragonFly-\*[doc-arg\n[doc-arg-ptr]]]
+.        el \{\
+.          tmc mdoc warning: .Dx: Unknown DragonFly version
+.          tm1 " `\*[doc-arg\n[doc-arg-ptr]]' (#\n[.c])
+.          as doc-str-Dx1 \~\*[doc-arg\n[doc-arg-ptr]]
+.      \}\}
+.      el \
+.        as doc-str-Dx1 \~\*[doc-arg\n[doc-arg-ptr]]
+.    \}
+.    el \
+.      nr doc-arg-ptr -1
+.  \}
+.
+.  \" replace current argument with result
+.  ds doc-arg\n[doc-arg-ptr] "\*[doc-str-Dx1]
 .  nr doc-type\n[doc-arg-ptr] 2
 .  ds doc-space\n[doc-arg-ptr] "\*[doc-space]
 .
@@ -543,6 +607,12 @@
 .als doc-str-St--isoC-90 doc-str-St--isoC
 .ds doc-str-St--isoC-99        \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899:1999
 .as doc-str-St--isoC-99        " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^99\*[doc-str-St]\*[Rq])
+.ds doc-str-St--isoC-amd1       \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/AMD1:1995
+.as doc-str-St--isoC-amd1       " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^90\*[doc-str-St], Amendment 1\*[Rq])
+.ds doc-str-St--isoC-tcor1      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/TCOR1:1994
+.as doc-str-St--isoC-tcor1      " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^90\*[doc-str-St], Technical Corrigendum 1\*[Rq])
+.ds doc-str-St--isoC-tcor2      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 9899/TCOR2:1995
+.as doc-str-St--isoC-tcor2      " (\*[Lq]\*[doc-Tn-font-size]ISO\~C\^90\*[doc-str-St], Technical Corrigendum 2\*[Rq])
 .
 .\" POSIX Part 1: System API
 .ds doc-str-St--p1003.1        \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.1
@@ -567,6 +637,9 @@
 .as doc-str-St--p1003.1-2001   " (\*[Lq]\)\*[Px]\*[doc-str-St].1\*[Rq])
 .ds doc-str-St--p1003.1-2004   \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.1-2004
 .as doc-str-St--p1003.1-2004   " (\*[Lq]\)\*[Px]\*[doc-str-St].1\*[Rq])
+.ds doc-str-St--p1003.1-2008   \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.1-2008
+.as doc-str-St--p1003.1-2008   " (\*[Lq]\)\*[Px]\*[doc-str-St].1\*[Rq])
+
 .
 .\" POSIX Part 2: Shell and Utilities
 .ds doc-str-St--p1003.2        \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1003.2
@@ -595,17 +668,23 @@
 .as doc-str-St--xns5           " (\*[Lq]\*[doc-Tn-font-size]XNS\*[doc-str-St]\^5\*[Rq])
 .ds doc-str-St--xns5.2         \*[doc-Tn-font-size]X/Open\*[doc-str-St] Networking Services Issue\~5.2
 .as doc-str-St--xns5.2         " (\*[Lq]\*[doc-Tn-font-size]XNS\*[doc-str-St]\^5.2\*[Rq])
+.ds doc-str-St--xns5.2d2.0     \*[doc-Tn-font-size]X/Open\*[doc-str-St] Networking Services Issue\~5.2, Draft\~2.0
+.as doc-str-St--xns5.2d2.0     " (\*[Lq]\*[doc-Tn-font-size]XNS\*[doc-str-St]\^5.2D2.0\*[Rq])
 .ds doc-str-St--xpg3           \*[doc-Tn-font-size]X/Open\*[doc-str-St] Portability Guide Issue\~3
 .as doc-str-St--xpg3           " (\*[Lq]\*[doc-Tn-font-size]XPG\*[doc-str-St]\^3\*[Rq])
 .ds doc-str-St--xpg4           \*[doc-Tn-font-size]X/Open\*[doc-str-St] Portability Guide Issue\~4
 .as doc-str-St--xpg4           " (\*[Lq]\*[doc-Tn-font-size]XPG\*[doc-str-St]\^4\*[Rq])
 .ds doc-str-St--xpg4.2         \*[doc-Tn-font-size]X/Open\*[doc-str-St] Portability Guide Issue\~4, Version\~2
 .as doc-str-St--xpg4.2         " (\*[Lq]\*[doc-Tn-font-size]XPG\*[doc-str-St]\^4.2\*[Rq])
+.ds doc-str-St--xpg4.3         \*[doc-Tn-font-size]X/Open\*[doc-str-St] Portability Guide Issue\~4, Version\~3
+.as doc-str-St--xpg4.3         " (\*[Lq]\*[doc-Tn-font-size]XPG\*[doc-str-St]\^4.3\*[Rq])
 .ds doc-str-St--xsh5           \*[doc-Tn-font-size]X/Open\*[doc-str-St] System Interfaces and Headers Issue\~5
 .as doc-str-St--xsh5           " (\*[Lq]\*[doc-Tn-font-size]XSH\*[doc-str-St]\^5\*[Rq])
 .
 .\" Miscellaneous
 .ds doc-str-St--ieee754        \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 754-1985
+.ds doc-str-St--ieee1275-94     \*[doc-Tn-font-size]\%IEEE\*[doc-str-St] Std 1275-1994
+.as doc-str-St--ieee1275-94     " (\*[Lq]\*[doc-Tn-font-size]Open Firmware\*[doc-str-St]\*[Rq])
 .ds doc-str-St--iso8802-3      \*[doc-Tn-font-size]ISO/IEC\*[doc-str-St] 8802-3:1989
 .
 .de St

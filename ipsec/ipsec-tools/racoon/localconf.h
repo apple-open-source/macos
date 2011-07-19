@@ -55,7 +55,7 @@
 #define LC_DEFAULT_PAD_STRICT		FALSE
 #define LC_DEFAULT_PAD_EXCLTAIL		TRUE
 #define LC_DEFAULT_RETRY_COUNTER	5
-#define LC_DEFAULT_RETRY_INTERVAL	10
+#define LC_DEFAULT_RETRY_INTERVAL	2
 #define LC_DEFAULT_COUNT_PERSEND	1
 #define LC_DEFAULT_RETRY_CHECKPH1	30
 #define LC_DEFAULT_WAIT_PH2COMPLETE	30
@@ -174,7 +174,7 @@ extern void initlcconf __P((void));
 extern void flushlcconf __P((void));
 extern vchar_t *getpskbyname __P((vchar_t *));
 extern vchar_t *getpskbyaddr __P((struct sockaddr *));
-#if defined(__APPLE__) && HAVE_KEYCHAIN
+#if HAVE_KEYCHAIN
 extern vchar_t *getpskfromkeychain __P((const char *, u_int8_t, int, vchar_t *));
 #endif
 extern void getpathname __P((char *, int, int, const char *));

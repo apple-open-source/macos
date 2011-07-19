@@ -67,9 +67,7 @@ static struct vendor_id all_vendor_ids[] = {
 { VENDORID_NATT_06    , "draft-ietf-ipsec-nat-t-ike-06" },
 { VENDORID_NATT_07    , "draft-ietf-ipsec-nat-t-ike-07" },
 { VENDORID_NATT_08    , "draft-ietf-ipsec-nat-t-ike-08" },
-#ifdef __APPLE__
 { VENDORID_NATT_APPLE , "draft-ietf-ipsec-nat-t-ike" },
-#endif
 { VENDORID_NATT_RFC   , "RFC 3947" },
 { VENDORID_XAUTH      , "draft-ietf-ipsra-isakmp-xauth-06.txt" },
 { VENDORID_UNITY      , "CISCO-UNITY" },
@@ -232,7 +230,8 @@ check_vendorid(struct isakmp_gen *gen)
 	return current->id;
 
 unknown:
-	plog(LLV_DEBUG, LOCATION, NULL, "received unknown Vendor ID\n");
+	plog(LLV_DEBUG, LOCATION, NULL, "received unknown Vendor ID:\n");
+	plogdump(LLV_DEBUG, (char *)(gen + 1), vidlen);
 	return (VENDORID_UNKNOWN);
 }
 

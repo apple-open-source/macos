@@ -160,7 +160,7 @@ int pppoe_wan_attach(void *rfc, struct ppp_link **link)
     lk = (struct ppp_link *) wan;
     
     // it's time now to register our brand new link
-    lk->lk_name 	= PPPOE_NAME;
+    lk->lk_name 	= (u_char*)PPPOE_NAME;
     lk->lk_mtu 		= PPPOE_MTU;
     lk->lk_mru 		= PPPOE_MTU;;
     lk->lk_type 	= PPP_TYPE_PPPoE;

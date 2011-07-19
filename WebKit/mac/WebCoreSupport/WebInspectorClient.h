@@ -30,7 +30,10 @@
 #import <WebCore/InspectorFrontendClientLocal.h>
 #import <WebCore/PlatformString.h>
 
+#import <wtf/Forward.h>
+#import <wtf/HashMap.h>
 #import <wtf/RetainPtr.h>
+#import <wtf/text/StringHash.h>
 
 #ifdef __OBJC__
 @class WebInspectorWindowController;
@@ -41,6 +44,12 @@ class WebInspectorWindowController;
 class WebNodeHighlighter;
 class WebView;
 #endif
+
+namespace WebCore {
+
+class Page;
+
+}
 
 class WebInspectorClient : public WebCore::InspectorClient {
 public:
@@ -53,36 +62,53 @@ public:
     virtual void highlight(WebCore::Node*);
     virtual void hideHighlight();
 
-    virtual void populateSetting(const WebCore::String& key, WebCore::String* value);
-    virtual void storeSetting(const WebCore::String& key, const WebCore::String& value);
+    virtual bool sendMessageToFrontend(const WTF::String&);
+
+    bool inspectorStartsAttached();
+    void setInspectorStartsAttached(bool);
+
+    void releaseFrontendPage();
+
+    void saveSessionSetting(const String& key, const String& value);
+    void loadSessionSetting(const String& key, String* value);
 
 private:
+    WTF::PassOwnPtr<WebCore::InspectorFrontendClientLocal::Settings> createFrontendSettings();
+
     WebView *m_webView;
     RetainPtr<WebNodeHighlighter> m_highlighter;
+    WebCore::Page* m_frontendPage;
+
+    WTF::HashMap<WTF::String, WTF::String> m_sessionSettings;
 };
+
 
 class WebInspectorFrontendClient : public WebCore::InspectorFrontendClientLocal {
 public:
-    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*);
+    WebInspectorFrontendClient(WebView*, WebInspectorWindowController*, WebCore::InspectorController*, WebCore::Page*, WTF::PassOwnPtr<Settings>);
 
     virtual void frontendLoaded();
-    
-    virtual WebCore::String localizedStringsURL();
-    virtual WebCore::String hiddenPanels();
-    
+
+    virtual WTF::String localizedStringsURL();
+    virtual WTF::String hiddenPanels();
+
     virtual void bringToFront();
     virtual void closeWindow();
-    
+    virtual void disconnectFromBackend();
+
     virtual void attachWindow();
     virtual void detachWindow();
-    
+
     virtual void setAttachedWindowHeight(unsigned height);
-    virtual void inspectedURLChanged(const WebCore::String& newURL);
+    virtual void inspectedURLChanged(const WTF::String& newURL);
+
+    virtual void saveSessionSetting(const String& key, const String& value);
+    virtual void loadSessionSetting(const String& key, String* value);
 
 private:
     void updateWindowTitle() const;
 
     WebView* m_inspectedWebView;
     RetainPtr<WebInspectorWindowController> m_windowController;
-    WebCore::String m_inspectedURL;
+    WTF::String m_inspectedURL;
 };

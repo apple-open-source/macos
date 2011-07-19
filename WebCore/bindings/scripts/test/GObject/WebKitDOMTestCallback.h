@@ -47,13 +47,19 @@ WEBKIT_API GType
 webkit_dom_test_callback_get_type (void);
 
 WEBKIT_API gboolean
-webkit_dom_test_callback_callback_with_class1param (WebKitDOMTestCallback *self, WebKitDOMClass1*  class1param);
+webkit_dom_test_callback_callback_with_no_param(WebKitDOMTestCallback* self);
 
 WEBKIT_API gboolean
-webkit_dom_test_callback_callback_with_class2param (WebKitDOMTestCallback *self, WebKitDOMClass2*  class2param, gchar*  str_arg);
+webkit_dom_test_callback_callback_with_class1param(WebKitDOMTestCallback* self, WebKitDOMClass1* class1param);
+
+WEBKIT_API gboolean
+webkit_dom_test_callback_callback_with_class2param(WebKitDOMTestCallback* self, WebKitDOMClass2* class2param, const gchar* str_arg);
 
 WEBKIT_API glong
-webkit_dom_test_callback_callback_with_non_bool_return_type (WebKitDOMTestCallback *self, WebKitDOMClass3*  class3param);
+webkit_dom_test_callback_callback_with_non_bool_return_type(WebKitDOMTestCallback* self, WebKitDOMClass3* class3param);
+
+WEBKIT_API gboolean
+webkit_dom_test_callback_callback_with_string_list(WebKitDOMTestCallback* self, WebKitDOMDOMStringList* list_param);
 
 G_END_DECLS
 

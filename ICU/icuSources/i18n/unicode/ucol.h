@@ -1,6 +1,6 @@
 /*
 *******************************************************************************
-* Copyright (c) 1996-2008, International Business Machines Corporation and others.
+* Copyright (c) 1996-2010, International Business Machines Corporation and others.
 * All Rights Reserved.
 *******************************************************************************
 */
@@ -13,6 +13,7 @@
 #if !UCONFIG_NO_COLLATION
 
 #include "unicode/unorm.h"
+#include "unicode/localpointer.h"
 #include "unicode/parseerr.h"
 #include "unicode/uloc.h"
 #include "unicode/uset.h"
@@ -131,6 +132,20 @@ typedef enum {
 
 } UColAttributeValue;
 
+/** Enum containing the codes for reordering segments of the collation table that are not script
+ *  codes. These reordering codes are to be used in conjunction with the script codes.
+ *  @internal
+ */
+typedef enum {
+    UCOL_REORDER_CODE_SPACE          = 0x1000,
+    UCOL_REORDER_CODE_FIRST          = UCOL_REORDER_CODE_SPACE,
+    UCOL_REORDER_CODE_PUNCTUATION    = 0x1001,
+    UCOL_REORDER_CODE_SYMBOL         = 0x1002,
+    UCOL_REORDER_CODE_CURRENCY       = 0x1003,
+    UCOL_REORDER_CODE_DIGIT          = 0x1004,
+    UCOL_REORDER_CODE_LIMIT          = 0x1005
+} UColReorderCode;
+
 /**
  * Base letter represents a primary difference.  Set comparison
  * level to UCOL_PRIMARY to ignore secondary and tertiary differences.
@@ -220,7 +235,11 @@ typedef enum {
      UCOL_HIRAGANA_QUATERNARY_MODE,
      /** When turned on, this attribute generates a collation key
       * for the numeric value of substrings of digits.
-      * This is a way to get '100' to sort AFTER '2'. */
+      * This is a way to get '100' to sort AFTER '2'. Note that the longest
+      * digit substring that can be treated as a single collation element is
+      * 254 digits (not counting leading zeros). If a digit substring is
+      * longer than that, the digits beyond the limit will be treated as a
+      * separate digit substring associated with a separate collation element. */
      UCOL_NUMERIC_COLLATION, 
      UCOL_ATTRIBUTE_COUNT
 } UColAttribute;
@@ -375,6 +394,25 @@ ucol_getContractionsAndExpansions( const UCollator *coll,
 U_STABLE void U_EXPORT2 
 ucol_close(UCollator *coll);
 
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUCollatorPointer
+ * "Smart pointer" class, closes a UCollator via ucol_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUCollatorPointer, UCollator, ucol_close);
+
+U_NAMESPACE_END
+
+#endif
+
 /**
  * Compare two strings.
  * The strings will be compared using the options already specified.
@@ -498,6 +536,37 @@ ucol_setStrength(UCollator *coll,
                  UCollationStrength strength);
 
 /**
+ * Get the current reordering of scripts (if one has been set).
+ * @param coll The UCollator to query.
+ * @param dest The array to fill with the script ordering.
+ * @param destCapacity The length of dest. If it is 0, then dest may be NULL and the function will only return the length of the result without writing any of the result string (pre-flighting).
+ * @param pErrorCode Must be a valid pointer to an error code value, which must not indicate a failure before the function call.
+ * @return The length of the array of the script ordering.
+ * @see ucol_setReorderCodes
+ * @internal 
+ */
+U_INTERNAL int32_t U_EXPORT2 
+ucol_getReorderCodes(const UCollator* coll,
+                    int32_t* dest,
+                    int32_t destCapacity,
+                    UErrorCode *pErrorCode);
+
+/**
+ * Set the ordering of scripts for this collator.
+ * @param coll The UCollator to set.
+ * @param reorderCodes An array of script codes in the new order.
+ * @param reorderCodesLength The length of reorderCodes.
+ * @param pErrorCode Must be a valid pointer to an error code value, which must not indicate a failure before the function call.
+ * @see ucol_getReorderCodes
+ * @internal 
+ */
+U_INTERNAL void U_EXPORT2 
+ucol_setReorderCodes(UCollator* coll,
+                    const int32_t* reorderCodes,
+                    int32_t reorderCodesLength,
+                    UErrorCode *pErrorCode);
+
+/**
  * Get the display name for a UCollator.
  * The display name is suitable for presentation to a user.
  * @param objLoc The locale of the collator in question.
@@ -520,13 +589,13 @@ ucol_getDisplayName(    const    char        *objLoc,
  * Get a locale for which collation rules are available.
  * A UCollator in a locale returned by this function will perform the correct
  * collation for the locale.
- * @param index The index of the desired locale.
+ * @param localeIndex The index of the desired locale.
  * @return A locale for which collation rules are available, or 0 if none.
  * @see ucol_countAvailable
  * @stable ICU 2.0
  */
 U_STABLE const char* U_EXPORT2 
-ucol_getAvailable(int32_t index);
+ucol_getAvailable(int32_t localeIndex);
 
 /**
  * Determine how many locales have collation rules available.
@@ -577,6 +646,28 @@ ucol_getKeywords(UErrorCode *status);
  */
 U_STABLE UEnumeration* U_EXPORT2
 ucol_getKeywordValues(const char *keyword, UErrorCode *status);
+
+/**
+ * Given a key and a locale, returns an array of string values in a preferred
+ * order that would make a difference. These are all and only those values where
+ * the open (creation) of the service with the locale formed from the input locale
+ * plus input keyword and that value has different behavior than creation with the
+ * input locale alone.
+ * @param key           one of the keys supported by this service.  For now, only
+ *                      "collation" is supported.
+ * @param locale        the locale
+ * @param commonlyUsed  if set to true it will return only commonly used values
+ *                      with the given locale in preferred order.  Otherwise,
+ *                      it will return all the available values for the locale.
+ * @param status error status
+ * @return a string enumeration over keyword values for the given key and the locale.
+ * @stable ICU 4.2
+ */
+U_STABLE UEnumeration* U_EXPORT2
+ucol_getKeywordValuesForLocale(const char* key,
+                               const char* locale,
+                               UBool commonlyUsed,
+                               UErrorCode* status);
 
 /**
  * Return the functionally equivalent locale for the given
@@ -683,6 +774,11 @@ ucol_normalizeShortDefinitionString(const char *source,
 /**
  * Get a sort key for a string from a UCollator.
  * Sort keys may be compared using <TT>strcmp</TT>.
+ *
+ * Like ICU functions that write to an output buffer, the buffer contents
+ * is undefined if the buffer capacity (resultLength parameter) is too small.
+ * Unlike ICU functions that write a string to an output buffer,
+ * the terminating zero byte is counted in the sort key length.
  * @param coll The UCollator containing the collation rules.
  * @param source The string to transform.
  * @param sourceLength The length of source, or -1 if null-terminated.
@@ -1129,4 +1225,3 @@ ucol_openBinary(const uint8_t *bin, int32_t length,
 #endif /* #if !UCONFIG_NO_COLLATION */
 
 #endif
-

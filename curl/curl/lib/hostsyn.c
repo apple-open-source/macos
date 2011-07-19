@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: hostsyn.c,v 1.16 2009-04-21 11:46:16 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -43,7 +42,7 @@
 #ifdef HAVE_UNISTD_H
 #include <unistd.h>     /* for the close() proto */
 #endif
-#ifdef  VMS
+#ifdef __VMS
 #include <in.h>
 #include <inet.h>
 #include <stdlib.h>

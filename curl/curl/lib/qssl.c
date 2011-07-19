@@ -5,7 +5,7 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * Copyright (C) 1998 - 2009, Daniel Stenberg, <daniel@haxx.se>, et al.
+ * Copyright (C) 1998 - 2011, Daniel Stenberg, <daniel@haxx.se>, et al.
  *
  * This software is licensed as described in the file COPYING, which
  * you should have received as part of this distribution. The terms
@@ -18,7 +18,6 @@
  * This software is distributed on an "AS IS" basis, WITHOUT WARRANTY OF ANY
  * KIND, either express or implied.
  *
- * $Id: qssl.c,v 1.17 2009-04-21 11:46:17 yangtse Exp $
  ***************************************************************************/
 
 #include "setup.h"
@@ -176,7 +175,7 @@ static CURLcode Curl_qsossl_handshake(struct connectdata * conn, int sockindex)
     h->exitPgm = Curl_qsossl_trap_cert;
 
   /* figure out how long time we should wait at maximum */
-  timeout_ms = Curl_timeleft(conn, NULL, TRUE);
+  timeout_ms = Curl_timeleft(data, NULL, TRUE);
 
   if(timeout_ms < 0) {
     /* time-out, bail out, go home */
@@ -243,6 +242,9 @@ static CURLcode Curl_qsossl_handshake(struct connectdata * conn, int sockindex)
 }
 
 
+static Curl_recv qsossl_recv;
+static Curl_send qsossl_send;
+
 CURLcode Curl_qsossl_connect(struct connectdata * conn, int sockindex)
 
 {
@@ -264,8 +266,11 @@ CURLcode Curl_qsossl_connect(struct connectdata * conn, int sockindex)
       connssl->state = ssl_connection_none;
     }
   }
-  if (rc == CURLE_OK)
+  if (rc == CURLE_OK) {
     connssl->state = ssl_connection_complete;
+    conn->recv[sockindex] = qsossl_recv;
+    conn->send[sockindex] = qsossl_send;
+  }
 
   return rc;
 }
@@ -289,7 +294,7 @@ static int Curl_qsossl_close_one(struct ssl_connect_data * conn,
     }
 
     /* An SSL error. */
-    failf(data, "SSL_Destroy() returned error %d", SSL_Strerror(rc, NULL));
+    failf(data, "SSL_Destroy() returned error %s", SSL_Strerror(rc, NULL));
     return -1;
   }
 
@@ -375,8 +380,8 @@ int Curl_qsossl_shutdown(struct connectdata * conn, int sockindex)
 }
 
 
-ssize_t Curl_qsossl_send(struct connectdata * conn, int sockindex,
-                         const void * mem, size_t len)
+static ssize_t qsossl_send(struct connectdata * conn, int sockindex,
+                           const void * mem, size_t len, CURLcode * curlcode)
 
 {
   /* SSL_Write() is said to return 'int' while write() and send() returns
@@ -392,22 +397,26 @@ ssize_t Curl_qsossl_send(struct connectdata * conn, int sockindex,
       /* The operation did not complete; the same SSL I/O function
          should be called again later. This is basicly an EWOULDBLOCK
          equivalent. */
-      return 0;
+      *curlcode = CURLE_AGAIN;
+      return -1;
 
     case SSL_ERROR_IO:
       switch (errno) {
       case EWOULDBLOCK:
       case EINTR:
-        return 0;
+        *curlcode = CURLE_AGAIN;
+        return -1;
         }
 
       failf(conn->data, "SSL_Write() I/O error: %s", strerror(errno));
+      *curlcode = CURLE_SEND_ERROR;
       return -1;
     }
 
     /* An SSL error. */
-    failf(conn->data, "SSL_Write() returned error %d",
+    failf(conn->data, "SSL_Write() returned error %s",
           SSL_Strerror(rc, NULL));
+    *curlcode = CURLE_SEND_ERROR;
     return -1;
   }
 
@@ -415,8 +424,8 @@ ssize_t Curl_qsossl_send(struct connectdata * conn, int sockindex,
 }
 
 
-ssize_t Curl_qsossl_recv(struct connectdata * conn, int num, char * buf,
-                         size_t buffersize, bool * wouldblock)
+static ssize_t qsossl_recv(struct connectdata * conn, int num, char * buf,
+                           size_t buffersize, CURLcode * curlcode)
 
 {
   char error_buffer[120]; /* OpenSSL documents that this must be at
@@ -427,7 +436,6 @@ ssize_t Curl_qsossl_recv(struct connectdata * conn, int num, char * buf,
 
   buffsize = (buffersize > (size_t)INT_MAX) ? INT_MAX : (int)buffersize;
   nread = SSL_Read(conn->ssl[num].handle, buf, buffsize);
-  *wouldblock = FALSE;
 
   if(nread < 0) {
     /* failed SSL_read */
@@ -436,21 +444,23 @@ ssize_t Curl_qsossl_recv(struct connectdata * conn, int num, char * buf,
 
     case SSL_ERROR_BAD_STATE:
       /* there's data pending, re-invoke SSL_Read(). */
-      *wouldblock = TRUE;
-      return -1; /* basically EWOULDBLOCK */
+      *curlcode = CURLE_AGAIN;
+      return -1;
 
     case SSL_ERROR_IO:
       switch (errno) {
       case EWOULDBLOCK:
-        *wouldblock = TRUE;
+        *curlcode = CURLE_AGAIN;
         return -1;
         }
 
       failf(conn->data, "SSL_Read() I/O error: %s", strerror(errno));
+      *curlcode = CURLE_RECV_ERROR;
       return -1;
 
     default:
       failf(conn->data, "SSL read error: %s", SSL_Strerror(nread, NULL));
+      *curlcode = CURLE_RECV_ERROR;
       return -1;
     }
   }

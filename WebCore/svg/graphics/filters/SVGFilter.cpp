@@ -1,20 +1,21 @@
 /*
- *  Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) 2009 Dirk Schulze <krit@webkit.org>
+ * Copyright (C) Research In Motion Limited 2010. All rights reserved.
  *
- *   This library is free software; you can redistribute it and/or
- *  modify it under the terms of the GNU Library General Public
- *  License as published by the Free Software Foundation; either
- *  version 2 of the License, or (at your option) any later version.
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
  *
- *  This library is distributed in the hope that it will be useful,
- *  but WITHOUT ANY WARRANTY; without even the implied warranty of
- *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
- *  Library General Public License for more details.
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
  *
- *  You should have received a copy of the GNU Library General Public License
- *  aint with this library; see the file COPYING.LIB.  If not, write to
- *  the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
- *  Boston, MA 02110-1301, USA.
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
 
 #include "config.h"
@@ -24,60 +25,34 @@
 
 namespace WebCore {
 
-SVGFilter::SVGFilter(const FloatRect& itemBox, const FloatRect& filterRect, bool effectBBoxMode)
+SVGFilter::SVGFilter(const AffineTransform& absoluteTransform, const FloatRect& absoluteSourceDrawingRegion, const FloatRect& targetBoundingBox, const FloatRect& filterRegion, bool effectBBoxMode)
     : Filter()
-    , m_itemBox(itemBox)
-    , m_filterRect(filterRect)
+    , m_absoluteTransform(absoluteTransform)
+    , m_absoluteSourceDrawingRegion(absoluteSourceDrawingRegion)
+    , m_targetBoundingBox(targetBoundingBox)
+    , m_filterRegion(filterRegion)
     , m_effectBBoxMode(effectBBoxMode)
 {
+    m_absoluteFilterRegion = absoluteTransform.mapRect(filterRegion);
 }
 
-void SVGFilter::calculateEffectSubRegion(FilterEffect* effect)
+float SVGFilter::applyHorizontalScale(float value) const
 {
-    FloatRect subRegionBBox = effect->effectBoundaries();
-    FloatRect useBBox = effect->unionOfChildEffectSubregions();
-    FloatRect newSubRegion = subRegionBBox;
-
-    if (m_effectBBoxMode) {
-        newSubRegion = useBBox;
-
-        if (effect->hasX())
-            newSubRegion.setX(m_itemBox.x() + subRegionBBox.x() * m_itemBox.width());
-
-        if (effect->hasY())
-            newSubRegion.setY(m_itemBox.y() + subRegionBBox.y() * m_itemBox.height());
-
-        if (effect->hasWidth())
-            newSubRegion.setWidth(subRegionBBox.width() * m_itemBox.width());
-
-        if (effect->hasHeight())
-            newSubRegion.setHeight(subRegionBBox.height() * m_itemBox.height());
-    } else {
-        if (!effect->hasX())
-            newSubRegion.setX(useBBox.x());
-
-        if (!effect->hasY())
-            newSubRegion.setY(useBBox.y());
-
-        if (!effect->hasWidth())
-            newSubRegion.setWidth(useBBox.width());
-
-        if (!effect->hasHeight())
-            newSubRegion.setHeight(useBBox.height());
-    }
-
-    // clip every filter effect to the filter region
-    newSubRegion.intersect(m_filterRect);
-
-    effect->setSubRegion(newSubRegion);
-    newSubRegion.scale(filterResolution().width(), filterResolution().height());
-    effect->setScaledSubRegion(newSubRegion);
-    m_maxImageSize = m_maxImageSize.expandedTo(newSubRegion.size()); 
+    if (m_effectBBoxMode)
+        value *= m_targetBoundingBox.width();
+    return Filter::applyHorizontalScale(value) * m_absoluteFilterRegion.width() / m_filterRegion.width();
 }
 
-PassRefPtr<SVGFilter> SVGFilter::create(const FloatRect& itemBox, const FloatRect& filterRect, bool effectBBoxMode)
+float SVGFilter::applyVerticalScale(float value) const
 {
-    return adoptRef(new SVGFilter(itemBox, filterRect, effectBBoxMode));
+    if (m_effectBBoxMode)
+        value *= m_targetBoundingBox.height();
+    return Filter::applyVerticalScale(value) * m_absoluteFilterRegion.height() / m_filterRegion.height();
+}
+
+PassRefPtr<SVGFilter> SVGFilter::create(const AffineTransform& absoluteTransform, const FloatRect& absoluteSourceDrawingRegion, const FloatRect& targetBoundingBox, const FloatRect& filterRegion, bool effectBBoxMode)
+{
+    return adoptRef(new SVGFilter(absoluteTransform, absoluteSourceDrawingRegion, targetBoundingBox, filterRegion, effectBBoxMode));
 }
 
 } // namespace WebCore

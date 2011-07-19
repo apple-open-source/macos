@@ -26,122 +26,184 @@
 
 #include "HTMLInputElement.h"
 #include "HTMLNames.h"
-#include "HTMLParser.h"
-#include "KURL.h"
+#include "HTMLSelectElement.h"
+#include "HTMLTextAreaElement.h"
+#include "HTMLTreeBuilder.h"
 #include "LocalizedStrings.h"
-#include "RegularExpression.h"
 #include <wtf/StdLibExtras.h>
 
 namespace WebCore {
 
 using namespace HTMLNames;
 
-static const char emailPattern[] =
-    "[a-z0-9!#$%&'*+/=?^_`{|}~.-]+" // local part
-    "@"
-    "[a-z0-9-]+(\\.[a-z0-9-]+)+"; // domain part
-
 String ValidityState::validationMessage() const
 {
-    if (!m_control->willValidate())
+    if (!toHTMLElement(m_control)->willValidate())
         return String();
 
     if (customError())
         return m_customErrorMessage;
-    if (valueMissing())
+    HTMLElement* element = toHTMLElement(m_control);
+    bool isInputElement = element->isFormControlElement() && element->hasTagName(inputTag);
+    bool isTextAreaElement = element->isFormControlElement() && element->hasTagName(textareaTag);
+    // The order of the following checks is meaningful. e.g. We'd like to show the
+    // valueMissing message even if the control has other validation errors.
+    if (valueMissing()) {
+        if (element->hasTagName(selectTag))
+            return validationMessageValueMissingForSelectText();
+        if (isInputElement)
+            return static_cast<HTMLInputElement*>(element)->valueMissingText();
         return validationMessageValueMissingText();
-    if (typeMismatch())
+    }
+    if (typeMismatch()) {
+        if (isInputElement)
+            return static_cast<HTMLInputElement*>(element)->typeMismatchText();
         return validationMessageTypeMismatchText();
+    }
     if (patternMismatch())
         return validationMessagePatternMismatchText();
-    if (tooLong())
-        return validationMessageTooLongText();
-    if (rangeUnderflow())
-        return validationMessageRangeUnderflowText();
-    if (rangeOverflow())
-        return validationMessageRangeOverflowText();
-    if (stepMismatch())
-        return validationMessageStepMismatchText();
+    if (tooLong()) {
+        if (!isInputElement && !isTextAreaElement) {
+            ASSERT_NOT_REACHED();
+            return String();
+        }
+        HTMLTextFormControlElement* text = static_cast<HTMLTextFormControlElement*>(element);
+        return validationMessageTooLongText(numGraphemeClusters(text->value()), text->maxLength());
+    }
+    if (rangeUnderflow()) {
+        if (!isInputElement) {
+            ASSERT_NOT_REACHED();
+            return String();
+        }
+        return validationMessageRangeUnderflowText(static_cast<HTMLInputElement*>(element)->minimumString());
+    }
+    if (rangeOverflow()) {
+        if (!isInputElement) {
+            ASSERT_NOT_REACHED();
+            return String();
+        }
+        return validationMessageRangeOverflowText(static_cast<HTMLInputElement*>(element)->maximumString());
+    }
+    if (stepMismatch()) {
+        if (!isInputElement) {
+            ASSERT_NOT_REACHED();
+            return String();
+        }
+        HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+        return validationMessageStepMismatchText(input->stepBaseString(), input->stepString());
+    }
 
     return String();
 }
 
+void ValidityState::setCustomErrorMessage(const String& message)
+{
+    m_customErrorMessage = message;
+    if (m_control->isFormControlElement())
+        static_cast<HTMLFormControlElement*>(m_control)->setNeedsValidityCheck();
+}
+
+bool ValidityState::valueMissing() const
+{
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
+        return false;
+
+    if (element->hasTagName(inputTag)) {
+        HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+        return input->valueMissing(input->value());
+    }
+    if (element->hasTagName(textareaTag)) {
+        HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(element);
+        return textArea->valueMissing(textArea->value());
+    }
+    if (element->hasTagName(selectTag)) {
+        HTMLSelectElement* select = static_cast<HTMLSelectElement*>(element);
+        return select->valueMissing();
+    }
+    return false;
+}
+
 bool ValidityState::typeMismatch() const
 {
-    if (!m_control->hasTagName(inputTag))
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
         return false;
 
-    HTMLInputElement* input = static_cast<HTMLInputElement*>(m_control);
-    String value = input->value();
+    if (!element->hasTagName(inputTag))
+        return false;
+    return static_cast<HTMLInputElement*>(element)->typeMismatch();
+}
 
-    if (value.isEmpty())
+bool ValidityState::patternMismatch() const
+{
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
         return false;
 
-    switch (input->inputType()) {
-    case HTMLInputElement::COLOR:
-        return !isValidColorString(value);
-    case HTMLInputElement::NUMBER:
-        return !parseToDoubleForNumberType(value, 0);
-    case HTMLInputElement::URL:
-        return !KURL(KURL(), value).isValid();
-    case HTMLInputElement::EMAIL: {
-        if (!input->multiple())
-            return !isValidEmailAddress(value);
-        Vector<String> addresses;
-        value.split(',', addresses);
-        for (unsigned i = 0; i < addresses.size(); ++i) {
-            if (!isValidEmailAddress(addresses[i]))
-                return true;
-        }
+    if (!element->hasTagName(inputTag))
         return false;
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+    return input->patternMismatch(input->value());
+}
+
+bool ValidityState::tooLong() const
+{
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
+        return false;
+
+    if (element->hasTagName(inputTag)) {
+        HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+        return input->tooLong(input->value(), HTMLTextFormControlElement::CheckDirtyFlag);
     }
-    case HTMLInputElement::DATE:
-    case HTMLInputElement::DATETIME:
-    case HTMLInputElement::DATETIMELOCAL:
-    case HTMLInputElement::MONTH:
-    case HTMLInputElement::TIME:
-    case HTMLInputElement::WEEK:
-        return !HTMLInputElement::parseToDateComponents(input->inputType(), value, 0);
-    case HTMLInputElement::BUTTON:
-    case HTMLInputElement::CHECKBOX:
-    case HTMLInputElement::FILE:
-    case HTMLInputElement::HIDDEN:
-    case HTMLInputElement::IMAGE:
-    case HTMLInputElement::ISINDEX:
-    case HTMLInputElement::PASSWORD:
-    case HTMLInputElement::RADIO:
-    case HTMLInputElement::RANGE:
-    case HTMLInputElement::RESET:
-    case HTMLInputElement::SEARCH:
-    case HTMLInputElement::SUBMIT:
-    case HTMLInputElement::TELEPHONE: // FIXME: Is there validation for <input type=telephone>?
-    case HTMLInputElement::TEXT:
-        return false;
+    if (element->hasTagName(textareaTag)) {
+        HTMLTextAreaElement* textArea = static_cast<HTMLTextAreaElement*>(element);
+        return textArea->tooLong(textArea->value(), HTMLTextFormControlElement::CheckDirtyFlag);
     }
-
-    ASSERT_NOT_REACHED();
     return false;
 }
 
 bool ValidityState::rangeUnderflow() const
 {
-    if (!m_control->hasTagName(inputTag))
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
         return false;
-    return static_cast<HTMLInputElement*>(m_control)->rangeUnderflow();
+
+    if (!element->hasTagName(inputTag))
+        return false;
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+    return input->rangeUnderflow(input->value());
 }
 
 bool ValidityState::rangeOverflow() const
 {
-    if (!m_control->hasTagName(inputTag))
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
         return false;
-    return static_cast<HTMLInputElement*>(m_control)->rangeOverflow();
+
+    if (!element->hasTagName(inputTag))
+        return false;
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+    return input->rangeOverflow(input->value());
 }
 
 bool ValidityState::stepMismatch() const
 {
-    if (!m_control->hasTagName(inputTag))
+    HTMLElement* element = toHTMLElement(m_control);
+    if (!element->willValidate())
         return false;
-    return static_cast<HTMLInputElement*>(m_control)->stepMismatch();
+
+    if (!element->hasTagName(inputTag))
+        return false;
+    HTMLInputElement* input = static_cast<HTMLInputElement*>(element);
+    return input->stepMismatch(input->value());
+}
+
+bool ValidityState::customError() const
+{
+    HTMLElement* element = toHTMLElement(m_control);
+    return element->willValidate() && !m_customErrorMessage.isEmpty();
 }
 
 bool ValidityState::valid() const
@@ -149,33 +211,6 @@ bool ValidityState::valid() const
     bool someError = typeMismatch() || stepMismatch() || rangeUnderflow() || rangeOverflow()
         || tooLong() || patternMismatch() || valueMissing() || customError();
     return !someError;
-}
-
-bool ValidityState::isValidColorString(const String& value)
-{
-    if (value.isEmpty())
-        return false;
-    if (value[0] == '#') {
-        // We don't accept #rgb and #aarrggbb formats.
-        if (value.length() != 7)
-            return false;
-    }
-    Color color(value);  // This accepts named colors such as "white".
-    return color.isValid() && !color.hasAlpha();
-}
-
-bool ValidityState::isValidEmailAddress(const String& address)
-{
-    int addressLength = address.length();
-    if (!addressLength)
-        return false;
-
-    DEFINE_STATIC_LOCAL(const RegularExpression, regExp, (emailPattern, TextCaseInsensitive));
-
-    int matchLength;
-    int matchOffset = regExp.match(address, 0, &matchLength);
-
-    return matchOffset == 0 && matchLength == addressLength;
 }
 
 } // namespace

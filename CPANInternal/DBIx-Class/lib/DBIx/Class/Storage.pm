@@ -4,9 +4,10 @@ use strict;
 use warnings;
 
 use base qw/DBIx::Class/;
+use mro 'c3';
 
-use Scalar::Util qw/weaken/;
-use Carp::Clan qw/^DBIx::Class/;
+use DBIx::Class::Exception;
+use Scalar::Util();
 use IO::File;
 use DBIx::Class::Storage::TxnScopeGuard;
 
@@ -82,7 +83,7 @@ storage object, such as during L<DBIx::Class::Schema/clone>.
 sub set_schema {
   my ($self, $schema) = @_;
   $self->schema($schema);
-  weaken($self->{schema}) if ref $self->{schema};
+  Scalar::Util::weaken($self->{schema}) if ref $self->{schema};
 }
 
 =head2 connected
@@ -119,8 +120,12 @@ Throws an exception - croaks.
 sub throw_exception {
   my $self = shift;
 
-  $self->schema->throw_exception(@_) if $self->schema;
-  croak @_;
+  if ($self->schema) {
+    $self->schema->throw_exception(@_);
+  }
+  else {
+    DBIx::Class::Exception->throw(@_);
+  }
 }
 
 =head2 txn_do
@@ -248,6 +253,9 @@ sub txn_begin { die "Virtual method!" }
 
 Issues a commit of the current transaction.
 
+It does I<not> perform an actual storage commit unless there's a DBIx::Class
+transaction currently in effect (i.e. you called L</txn_begin>).
+
 =cut
 
 sub txn_commit { die "Virtual method!" }
@@ -262,11 +270,62 @@ which allows the rollback to propagate to the outermost transaction.
 
 sub txn_rollback { die "Virtual method!" }
 
+=head2 svp_begin
+
+Arguments: $savepoint_name?
+
+Created a new savepoint using the name provided as argument. If no name
+is provided, a random name will be used.
+
+=cut
+
+sub svp_begin { die "Virtual method!" }
+
+=head2 svp_release
+
+Arguments: $savepoint_name?
+
+Release the savepoint provided as argument. If none is provided,
+release the savepoint created most recently. This will implicitly
+release all savepoints created after the one explicitly released as well.
+
+=cut
+
+sub svp_release { die "Virtual method!" }
+
+=head2 svp_rollback
+
+Arguments: $savepoint_name?
+
+Rollback to the savepoint provided as argument. If none is provided,
+rollback to the savepoint created most recently. This will implicitly
+release all savepoints created after the savepoint we rollback to.
+
+=cut
+
+sub svp_rollback { die "Virtual method!" }
+
 =for comment
 
 =head2 txn_scope_guard
 
-Return an object that does stuff.
+An alternative way of transaction handling based on
+L<DBIx::Class::Storage::TxnScopeGuard>:
+
+ my $txn_guard = $storage->txn_scope_guard;
+
+ $row->col1("val1");
+ $row->update;
+
+ $txn_guard->commit;
+
+If an exception occurs, or the guard object otherwise leaves the scope
+before C<< $txn_guard->commit >> is called, the transaction will be rolled
+back by an explicit L</txn_rollback> call. In essence this is akin to
+using a L</txn_begin>/L</txn_commit> pair, without having to worry
+about calling L</txn_rollback> at the right places. Note that since there
+is no defined code closure, there will be no retries and other magic upon
+database disconnection. If you need such functionality see L</txn_do>.
 
 =cut
 
@@ -277,7 +336,7 @@ sub txn_scope_guard {
 =head2 sql_maker
 
 Returns a C<sql_maker> object - normally an object of class
-C<DBIC::SQL::Abstract>.
+C<DBIx::Class::SQLAHacks>.
 
 =cut
 
@@ -294,7 +353,7 @@ shell environment.
 =head2 debugfh
 
 Set or retrieve the filehandle used for trace/debug output.  This should be
-an IO::Handle compatible ojbect (only the C<print> method is used.  Initially
+an IO::Handle compatible object (only the C<print> method is used.  Initially
 set to be STDERR - although see information on the
 L<DBIC_TRACE> environment variable.
 
@@ -434,7 +493,8 @@ Old name for DBIC_TRACE
 
 =head1 SEE ALSO
 
-L<DBIx::Class::Storage::DBI> - reference storage inplementation using SQL::Abstract and DBI.
+L<DBIx::Class::Storage::DBI> - reference storage implementation using
+SQL::Abstract and DBI.
 
 =head1 AUTHORS
 

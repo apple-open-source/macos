@@ -1,0 +1,111 @@
+*** IPC-LDT/LDT.pm	2000-02-29 11:35:20.000000000 -0800
+--- IPC-LDT/LDT.pm	2009-08-05 15:10:57.000000000 -0700
+***************
+*** 234,253 ****
+  # declare package version
+  $VERSION=2.03;
+  
+- # declare fields
+- use fields qw(
+-               delayFilter
+-               delayQueue
+-               fileno
+-               handle
+-               msg
+-               objectMode
+-               rc
+-               select
+-               startblockLength
+-               traceMode
+-              );
+- 
+  =pod
+  
+  =head2 Exports
+--- 234,239 ----
+***************
+*** 483,495 ****
+    bug("Missing handle parameter") unless exists $switches{'handle'} and $switches{'handle'};
+  
+    # declare function variables
+!   my ($me);
+  
+    # make new object
+!   {
+!    no strict 'refs';
+!    $me=bless([\%{"$class\::FIELDS"}], $class);
+!   }
+  
+    # check the handle for being valid and open
+    if (defined $switches{'handle'}->fileno)
+--- 469,478 ----
+    bug("Missing handle parameter") unless exists $switches{'handle'} and $switches{'handle'};
+  
+    # declare function variables
+!   my ($me) = {};
+  
+    # make new object
+!   bless( $me, $class );
+  
+    # check the handle for being valid and open
+    if (defined $switches{'handle'}->fileno)
+***************
+*** 526,535 ****
+    bug("Object parameter is no ${\(__PACKAGE__)} object") unless ref($me) eq __PACKAGE__;
+  
+    # get fileno (and handle status this way)
+!   my $fileno=$me->{'handle'}->fileno;
+  
+!   # trace, if necessary
+!   $me->trace("LDT ${\($fileno?$fileno:qq(with closed handle, was $me->{'fileno'}))}: object dies. Queue is", (defined $me->{'delayQueue'} and @{$me->{'delayQueue'}}) ? 'filled.' : 'empty.');
+   }
+  
+  
+--- 509,520 ----
+    bug("Object parameter is no ${\(__PACKAGE__)} object") unless ref($me) eq __PACKAGE__;
+  
+    # get fileno (and handle status this way)
+!   if (ref $me->{'handle'} ) {
+!     my $fileno=$me->{'handle'}->fileno;
+  
+!     # trace, if necessary
+!     $me->trace("LDT ${\($fileno?$fileno:qq(with closed handle, was $me->{'fileno'}))}: object dies. Queue is", (defined $me->{'delayQueue'} and @{$me->{'delayQueue'}}) ? 'filled.' : 'empty.');
+!   }
+   }
+  
+  
+***************
+*** 978,983 ****
+--- 963,994 ----
+  # -------------------------------------------------------------------
+  =pod
+  
++ =head2 can_read($timeout)
++ 
++ Does a C<select> on the handle to see if there is anything to read, and
++ returns non-zero.
++ If C<$timeout> is set, the C<can_read()> method will return zero if there
++ is nothing to read after this amount of time.
++ 
++ If no time is specified, the C<can_read()> method blocks until there is
++ something to read.
++ 
++ =cut
++ # -------------------------------------------------------------------
++ sub can_read {
++     my $me = shift;
++     bug("Object parameter is no ${\(__PACKAGE__)} object")
++       unless ref($me) eq __PACKAGE__;
++ 
++     # trace, if necessary
++     $me->trace("LDT can_read($_[0])");
++ 
++     my @res = $me->{'select'}->can_read(@_);
++     return(scalar(@res) > 0);
++ }
++ # -------------------------------------------------------------------
++ =pod
++ 
+  =head2 receive()
+  
+  reads a message from the associated handle and replies it.

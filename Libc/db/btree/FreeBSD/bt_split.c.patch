@@ -1,6 +1,6 @@
---- bt_split.c.orig	2008-09-07 11:37:54.000000000 -0700
-+++ bt_split.c	2008-09-07 12:29:24.000000000 -0700
-@@ -210,7 +210,7 @@ __bt_split(t, sp, key, data, flags, ilen
+--- bt_split.c.orig	2009-11-06 12:39:34.000000000 -0800
++++ bt_split.c	2009-11-06 12:40:06.000000000 -0800
+@@ -201,7 +201,7 @@ __bt_split(BTREE *t, PAGE *sp, const DBT
  			nbytes = NRINTERNAL;
  			break;
  		default:
@@ -9,7 +9,7 @@
  		}
  
  		/* Split the parent page if necessary or shift the indices. */
-@@ -285,7 +285,7 @@ __bt_split(t, sp, key, data, flags, ilen
+@@ -276,7 +276,7 @@ __bt_split(BTREE *t, PAGE *sp, const DBT
  			((RINTERNAL *)dest)->pgno = rchild->pgno;
  			break;
  		default:
@@ -18,7 +18,7 @@
  		}
  
  		/* Unpin the held pages. */
-@@ -580,7 +580,7 @@ bt_broot(t, h, l, r)
+@@ -556,7 +556,7 @@ bt_broot(BTREE *t, PAGE *h, PAGE *l, PAG
  		((BINTERNAL *)dest)->pgno = r->pgno;
  		break;
  	default:
@@ -27,7 +27,7 @@
  	}
  
  	/* There are two keys on the page. */
-@@ -663,7 +663,7 @@ bt_psplit(t, h, l, r, pskip, ilen)
+@@ -635,7 +635,7 @@ bt_psplit(BTREE *t, PAGE *h, PAGE *l, PA
  				isbigkey = 0;
  				break;
  			default:
@@ -36,7 +36,7 @@
  			}
  
  		/*
-@@ -756,7 +756,7 @@ bt_psplit(t, h, l, r, pskip, ilen)
+@@ -728,7 +728,7 @@ bt_psplit(BTREE *t, PAGE *h, PAGE *l, PA
  			nbytes = NRLEAF(rl);
  			break;
  		default:

@@ -76,7 +76,7 @@ foreach elem $fmtList {
     if { $testMode & $modeFile } {
 	set ph [readPhotoFile2 $fname "fmt $opt" 200 100 \
                                -from 140 50 200 110 -to 10 30]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.1: $fname Format: $fmt $sep (Read from file 2)"
@@ -86,7 +86,7 @@ foreach elem $fmtList {
 	set ph  [getCanvasPhoto .t.c]
 	set str [writePhotoFile $ph $fname "$fmt $opt" 1 -from 140 50 200 110]
 	set ph  [readPhotoBinary2 $fname "$fmt $opt" 200 100 -to 10 30]
-	if { $ph == {} } {
+	if { $ph eq "" } {
 	    set ph [createErrImg]
 	}
 	set msg "Image $count.2: $fname Format: $fmt $sep (Read as binary 2)"
@@ -95,11 +95,11 @@ foreach elem $fmtList {
     if { $testMode & $modeUU } {
 	set ph [getCanvasPhoto .t.c]
 	set str [writePhotoString $ph "$fmt $opt" 1 -from 140 50 200 110]
-	if { $str == "" } {
+	if { $str eq "" } {
 	    set ph [createErrImg]
 	} else {
             set ph [readPhotoString $str "$fmt $opt" 200 100 -to 10 30]
-	    if { $ph == {} } {
+	    if { $ph eq "" } {
 		set ph [createErrImg]
 	    }
 	}

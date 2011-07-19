@@ -31,9 +31,10 @@
 #include <QImage>
 #include <QPixmap>
 #include <QVariant>
+#include <runtime_method.h>
 #include <runtime_object.h>
 #include <runtime_root.h>
-#include <runtime_method.h>
+#include "runtime/FunctionPrototype.h"
 
 using namespace WebCore;
 namespace JSC {
@@ -51,9 +52,9 @@ public:
 class QtPixmapWidthField : public Field {
 public:
     static const char* name() { return "width"; }
-    virtual JSValue valueFromInstance(ExecState* exec, const Instance* instance) const
+    virtual JSValue valueFromInstance(ExecState*, const Instance* instance) const
     {
-        return jsNumber(exec, static_cast<const QtPixmapInstance*>(instance)->width());
+        return jsNumber(static_cast<const QtPixmapInstance*>(instance)->width());
     }
     virtual void setValueToInstance(ExecState*, const Instance*, JSValue) const {}
 };
@@ -61,9 +62,9 @@ public:
 class QtPixmapHeightField : public Field {
 public:
     static const char* name() { return "height"; }
-    virtual JSValue valueFromInstance(ExecState* exec, const Instance* instance) const
+    virtual JSValue valueFromInstance(ExecState*, const Instance* instance) const
     {
-        return jsNumber(exec, static_cast<const QtPixmapInstance*>(instance)->height());
+        return jsNumber(static_cast<const QtPixmapInstance*>(instance)->height());
     }
     virtual void setValueToInstance(ExecState*, const Instance*, JSValue) const {}
 };
@@ -74,7 +75,7 @@ public:
     {
         return 0;
     }
-    virtual JSValue invoke(ExecState* exec, QtPixmapInstance*, const ArgList&) = 0;
+    virtual JSValue invoke(ExecState* exec, QtPixmapInstance*) = 0;
 
 };
 
@@ -82,12 +83,12 @@ public:
 class QtPixmapAssignToElementMethod : public QtPixmapRuntimeMethod {
 public:
     static const char* name() { return "assignToHTMLImageElement"; }
-    JSValue invoke(ExecState* exec, QtPixmapInstance* instance, const ArgList& args)
+    JSValue invoke(ExecState* exec, QtPixmapInstance* instance)
     {
-        if (!args.size())
+        if (!exec->argumentCount())
             return jsUndefined();
 
-        JSObject* objectArg = args.at(0).toObject(exec);
+        JSObject* objectArg = exec->argument(0).toObject(exec);
         if (!objectArg)
             return jsUndefined();
 
@@ -113,12 +114,12 @@ public:
 class QtPixmapToDataUrlMethod : public QtPixmapRuntimeMethod {
 public:
     static const char* name() { return "toDataUrl"; }
-    JSValue invoke(ExecState* exec, QtPixmapInstance* instance, const ArgList&)
+    JSValue invoke(ExecState* exec, QtPixmapInstance* instance)
     {
         QByteArray byteArray;
         QBuffer buffer(&byteArray);
         instance->toImage().save(&buffer, "PNG");
-        const QString encodedString = QString("data:image/png;base64,") + byteArray.toBase64();
+        const QString encodedString = QLatin1String("data:image/png;base64,") + QLatin1String(byteArray.toBase64());
         const UString ustring((UChar*)encodedString.utf16(), encodedString.length());
         return jsString(exec, ustring);
     }
@@ -127,7 +128,7 @@ public:
 class QtPixmapToStringMethod : public QtPixmapRuntimeMethod {
     public:
     static const char* name() { return "toString"; }
-    JSValue invoke(ExecState* exec, QtPixmapInstance* instance, const ArgList&)
+    JSValue invoke(ExecState* exec, QtPixmapInstance* instance)
     {
         return instance->valueOf(exec);
     }
@@ -145,24 +146,21 @@ struct QtPixmapMetaData {
 // Derived RuntimeObject
 class QtPixmapRuntimeObject : public RuntimeObject {
 public:
-    QtPixmapRuntimeObject(ExecState*, PassRefPtr<Instance>);
+    QtPixmapRuntimeObject(ExecState*, JSGlobalObject*, PassRefPtr<Instance>);
 
     static const ClassInfo s_info;
 
-    static PassRefPtr<Structure> createStructure(JSValue prototype)
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
     {
-        return Structure::create(prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount);
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType,  StructureFlags), AnonymousSlotCount, &s_info);
     }
 
 protected:
-    static const unsigned StructureFlags = RuntimeObject::StructureFlags | OverridesMarkChildren;
-
-private:
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static const unsigned StructureFlags = RuntimeObject::StructureFlags | OverridesVisitChildren;
 };
 
-QtPixmapRuntimeObject::QtPixmapRuntimeObject(ExecState* exec, PassRefPtr<Instance> instance)
-    : RuntimeObject(exec, WebCore::deprecatedGetDOMStructure<QtPixmapRuntimeObject>(exec), instance)
+QtPixmapRuntimeObject::QtPixmapRuntimeObject(ExecState* exec, JSGlobalObject* globalObject, PassRefPtr<Instance> instance)
+    : RuntimeObject(exec, globalObject, WebCore::deprecatedGetDOMStructure<QtPixmapRuntimeObject>(exec), instance)
 {
 }
 
@@ -181,16 +179,16 @@ Class* QtPixmapInstance::getClass() const
 JSValue QtPixmapInstance::getMethod(ExecState* exec, const Identifier& propertyName)
 {
     MethodList methodList = getClass()->methodsNamed(propertyName, this);
-    return new (exec) RuntimeMethod(exec, propertyName, methodList);
+    return new (exec) RuntimeMethod(exec, exec->lexicalGlobalObject(), WebCore::deprecatedGetDOMStructure<RuntimeMethod>(exec), propertyName, methodList);
 }
 
-JSValue QtPixmapInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod, const ArgList& args)
+JSValue QtPixmapInstance::invokeMethod(ExecState* exec, RuntimeMethod* runtimeMethod)
 {
     const MethodList& methods = *runtimeMethod->methods();
 
     if (methods.size() == 1) {
         QtPixmapRuntimeMethod* method = static_cast<QtPixmapRuntimeMethod*>(methods[0]);
-        return method->invoke(exec, this, args);
+        return method->invoke(exec, this);
     }
     return jsUndefined();
 }
@@ -241,7 +239,7 @@ JSValue QtPixmapInstance::defaultValue(ExecState* exec, PreferredPrimitiveType p
 
 JSValue QtPixmapInstance::valueOf(ExecState* exec) const
 {
-    const QString stringValue = QString("[Qt Native Pixmap %1,%2]").arg(width()).arg(height());
+    const QString stringValue = QString::fromLatin1("[Qt Native Pixmap %1,%2]").arg(width()).arg(height());
     UString ustring((UChar*)stringValue.utf16(), stringValue.length());
     return jsString(exec, ustring);
 }
@@ -346,10 +344,17 @@ returnEmptyVariant:
         return QVariant::fromValue<QImage>(QImage());
     return QVariant();
 }
-JSObject* QtPixmapInstance::createRuntimeObject(ExecState* exec, PassRefPtr<RootObject> root, const QVariant& data)
+
+RuntimeObject* QtPixmapInstance::newRuntimeObject(ExecState* exec)
+{
+    return new(exec) QtPixmapRuntimeObject(exec, exec->lexicalGlobalObject(), this);
+}
+
+JSObject* QtPixmapInstance::createPixmapRuntimeObject(ExecState* exec, PassRefPtr<RootObject> root, const QVariant& data)
 {
     JSLock lock(SilenceAssertionsOnly);
-    return new(exec) QtPixmapRuntimeObject(exec, new QtPixmapInstance(root, data));
+    RefPtr<QtPixmapInstance> instance = adoptRef(new QtPixmapInstance(root, data));
+    return instance->createRuntimeObject(exec);
 }
 
 bool QtPixmapInstance::canHandle(QMetaType::Type hint)

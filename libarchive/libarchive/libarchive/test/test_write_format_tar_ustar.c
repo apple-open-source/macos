@@ -23,7 +23,7 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_write_format_tar_ustar.c,v 1.2 2008/08/11 01:19:36 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_write_format_tar_ustar.c 201247 2009-12-30 05:59:21Z kientzle $");
 
 static int
 is_null(const char *p, size_t l)
@@ -133,7 +133,8 @@ DEFINE_TEST(test_write_format_tar_ustar)
 	assert((entry = archive_entry_new()) != NULL);
 	archive_entry_set_mtime(entry, 3, 30);
 	archive_entry_set_pathname(entry, "symlink");
-	archive_entry_set_mode(entry, S_IFLNK | 0664);
+	archive_entry_set_mode(entry, 0664);
+	archive_entry_set_filetype(entry, AE_IFLNK);
 	archive_entry_set_symlink(entry,"file");
 	archive_entry_set_size(entry, 0);
 	archive_entry_set_uid(entry, 88);
@@ -340,7 +341,7 @@ DEFINE_TEST(test_write_format_tar_ustar)
 	assert(is_null(e, 1024));
 	e += 1024;
 
-	assertEqualInt(used, e - buff);
+	assertEqualInt((int)used, e - buff);
 
 	free(buff);
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2005-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_APACHE_LICENSE_HEADER_START@
  * 
@@ -18,7 +18,7 @@
  * @APPLE_APACHE_LICENSE_HEADER_END@
  */
 
-static const char *const __rcs_file_version__ = "$Revision: 23930 $";
+static const char *const __rcs_file_version__ = "$Revision: 24957 $";
 
 #include "config.h"
 #include "launch.h"
@@ -34,10 +34,6 @@ static const char *const __rcs_file_version__ = "$Revision: 23930 $";
 #include <CoreFoundation/CFPriv.h>
 #include <CoreFoundation/CFLogUtilities.h>
 #include <TargetConditionals.h>
-#if HAVE_SECURITY
-#include <Security/Security.h>
-#include <Security/AuthSession.h>
-#endif
 #include <IOKit/IOKitLib.h>
 #include <NSSystemDirectories.h>
 #include <mach/mach.h>
@@ -65,6 +61,7 @@ static const char *const __rcs_file_version__ = "$Revision: 23930 $";
 #include <unistd.h>
 #include <dirent.h>
 #include <libgen.h>
+#include <libinfo.h>
 #include <pwd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -83,6 +80,7 @@ static const char *const __rcs_file_version__ = "$Revision: 23930 $";
 #include <util.h>
 #include <spawn.h>
 #include <sys/syslimits.h>
+#include <fnmatch.h>
 
 #if HAVE_LIBAUDITD
 #include <bsm/auditd_lib.h>
@@ -95,6 +93,7 @@ extern char **environ;
 
 
 #define LAUNCH_SECDIR _PATH_TMP "launch-XXXXXX"
+#define LAUNCH_ENV_KEEPCONTEXT	"LaunchKeepContext"
 
 #define MACHINIT_JOBKEY_ONDEMAND	"OnDemand"
 #define MACHINIT_JOBKEY_SERVICENAME	"ServiceName"
@@ -108,7 +107,6 @@ extern char **environ;
 #define CFTypeCheck(cf, type) (CFGetTypeID(cf) == type ## GetTypeID())
 
 struct load_unload_state {
-	launch_data_t pass0;
 	launch_data_t pass1;
 	launch_data_t pass2;
 	char *session_type;
@@ -137,13 +135,10 @@ static int _fd(int);
 static int demux_cmd(int argc, char *const argv[]);
 static launch_data_t do_rendezvous_magic(const struct addrinfo *res, const char *serv);
 static void submit_job_pass(launch_data_t jobs);
-static void submit_mach_jobs(launch_data_t jobs);
-static void let_go_of_mach_jobs(launch_data_t jobs);
 static void do_mgroup_join(int fd, int family, int socktype, int protocol, const char *mgroup);
 static mach_port_t str2bsport(const char *s);
 static void print_jobs(launch_data_t j, const char *key, void *context);
 static void print_obj(launch_data_t obj, const char *key, void *context);
-static bool is_legacy_mach_job(launch_data_t obj);
 static bool delay_to_second_pass(launch_data_t o);
 static void delay_to_second_pass2(launch_data_t o, const char *key, void *context);
 static bool str2lim(const char *buf, rlim_t *res);
@@ -215,6 +210,7 @@ static int bstree_cmd(int argc __attribute__((unused)), char * const argv[] __at
 static int managerpid_cmd(int argc __attribute__((unused)), char * const argv[] __attribute__((unused)));
 static int manageruid_cmd(int argc __attribute__((unused)), char * const argv[] __attribute__((unused)));
 static int managername_cmd(int argc __attribute__((unused)), char * const argv[] __attribute__((unused)));
+static int asuser_cmd(int argc, char * const argv[]);
 static int exit_cmd(int argc, char *const argv[]) __attribute__((noreturn));
 static int help_cmd(int argc, char *const argv[]);
 
@@ -251,6 +247,7 @@ static const struct {
 	{ "managerpid",		managerpid_cmd,			"Print the PID of the launchd managing this Mach bootstrap." },
 	{ "manageruid",		manageruid_cmd,			"Print the UID of the launchd managing this Mach bootstrap." },
 	{ "managername",	managername_cmd,		"Print the name of this Mach bootstrap." },
+	{ "asuser",			asuser_cmd,				"Execute a subcommand in the given user's context." },
 	{ "exit",			exit_cmd,				"Exit the interactive invocation of launchctl" },
 	{ "quit",			exit_cmd,				"Quit the interactive invocation of launchctl" },
 	{ "help",			help_cmd,				"This help output" },
@@ -265,6 +262,7 @@ static bool rootuser_context;
 static bool bootstrapping_system;
 static bool bootstrapping_peruser;
 static bool g_verbose_boot = false;
+static bool g_startup_debugging = false;
 
 static bool g_job_overrides_db_has_changed = false;
 static CFMutableDictionaryRef g_job_overrides_db = NULL;
@@ -298,8 +296,8 @@ main(int argc, char *const argv[])
 				verbose = true;
 				break;
 			case 'u':
-				if( argc > 1 ) {
-					if( strncmp(argv[1], "root", sizeof("root")) == 0 ) {
+				if (argc > 1) {
+					if (strncmp(argv[1], "root", sizeof("root")) == 0) {
 						rootuser_context = true;
 					} else {
 						fprintf(stderr, "Unknown user: %s\n", argv[1]);
@@ -307,7 +305,7 @@ main(int argc, char *const argv[])
 					}
 					argc--, argv++;
 				} else {
-					fprintf(stderr, "-u option requires an argument. Currently, only \"root\" is supported.\n");
+					fprintf(stderr, "-u option requires an argument.\n");
 				}
 				break;
 			case '1':
@@ -324,30 +322,30 @@ main(int argc, char *const argv[])
 	/* Running in the context of the root user's per-user launchd is only supported ... well
 	 * in the root user's per-user context. I know it's confusing. I'm genuinely sorry.
 	 */
-	if( rootuser_context ) {
+	if (rootuser_context) {
 		int64_t manager_uid = -1, manager_pid = -1;
-		if( vproc_swap_integer(NULL, VPROC_GSK_MGR_UID, NULL, &manager_uid) == NULL ) {
-			if( vproc_swap_integer(NULL, VPROC_GSK_MGR_PID, NULL, &manager_pid) == NULL ) {
-				if( manager_uid || manager_pid == 1 ) {
+		if (vproc_swap_integer(NULL, VPROC_GSK_MGR_UID, NULL, &manager_uid) == NULL) {
+			if (vproc_swap_integer(NULL, VPROC_GSK_MGR_PID, NULL, &manager_pid) == NULL) {
+				if (manager_uid || manager_pid == 1) {
 					fprintf(stderr, "Running in the root user's per-user context is not supported outside of the root user's bootstrap.\n");
 					exit(EXIT_FAILURE);
 				}
 			}
 		}
-	} else if( !(system_context || rootuser_context) ) {
+	} else if (!(system_context || rootuser_context)) {
 		/* Running in the system context is implied when we're running as root and not running as a bootstrapper. */
-		system_context = ( !is_managed && getuid() == 0 );
+		system_context = (!is_managed && getuid() == 0);
 	}
 
-	if( system_context ) {
-		if( getuid() == 0 ) {
+	if (system_context) {
+		if (getuid() == 0) {
 			setup_system_context();
 		} else {
 			fprintf(stderr, "You must be root to run in the system context.\n");
 			exit(EXIT_FAILURE);
 		}
-	} else if( rootuser_context ) {
-		if( getuid() != 0 ) {
+	} else if (rootuser_context) {
+		if (getuid() != 0) {
 			fprintf(stderr, "You must be root to run in the root user context.\n");
 			exit(EXIT_FAILURE);
 		}
@@ -453,7 +451,7 @@ CFPropertyListRef CFPropertyListCreateFromFile(CFURLRef plistURL)
 	CFReadStreamRef plistReadStream = CFReadStreamCreateWithFile(NULL, plistURL);
 	
 	CFErrorRef streamErr = NULL;
-	if( !CFReadStreamOpen(plistReadStream) ) {
+	if (!CFReadStreamOpen(plistReadStream)) {
 		streamErr = CFReadStreamCopyError(plistReadStream);
 		CFStringRef errString = CFErrorCopyDescription(streamErr);
 		
@@ -464,11 +462,11 @@ CFPropertyListRef CFPropertyListCreateFromFile(CFURLRef plistURL)
 	}
 	
 	CFPropertyListRef plist = NULL;
-	if( plistReadStream ) {
+	if (plistReadStream) {
 		CFStringRef errString = NULL;
 		CFPropertyListFormat plistFormat = 0;
 		plist = CFPropertyListCreateFromStream(NULL, plistReadStream, 0, kCFPropertyListImmutable, &plistFormat, &errString);
-		if( !plist ) {
+		if (!plist) {
 			CFShow(errString);
 			CFRelease(errString);
 		}
@@ -480,7 +478,7 @@ CFPropertyListRef CFPropertyListCreateFromFile(CFURLRef plistURL)
 	return plist;
 }
 
-#define CFReleaseIfNotNULL(cf) if( cf ) CFRelease(cf);
+#define CFReleaseIfNotNULL(cf) if (cf) CFRelease(cf);
 void
 read_environment_dot_plist(void)
 {
@@ -494,55 +492,55 @@ read_environment_dot_plist(void)
 	snprintf(plist_path_str, sizeof(plist_path_str), "%s/.MacOSX/environment.plist", getenv("HOME"));
 	
 	struct stat sb;
-	if( stat(plist_path_str, &sb) == -1 ) {
+	if (stat(plist_path_str, &sb) == -1) {
 		goto out;
 	}
 	
 	plistPath = CFStringCreateWithFormat(NULL, NULL, CFSTR("%s"), plist_path_str);
-	if( !assumes(plistPath != NULL) ) {
+	if (!assumes(plistPath != NULL)) {
 		goto out;
 	}
 	
 	plistURL = CFURLCreateWithFileSystemPath(NULL, plistPath, kCFURLPOSIXPathStyle, false);
-	if( !assumes(plistURL != NULL) ) {
+	if (!assumes(plistURL != NULL)) {
 		goto out;
 	}
 	
 	envPlist = (CFDictionaryRef)CFPropertyListCreateFromFile(plistURL);
-	if( !assumes(envPlist != NULL) ) {
+	if (!assumes(envPlist != NULL)) {
 		goto out;
 	}
 	
 	launch_env_dict = CF2launch_data(envPlist);
-	if( !assumes(launch_env_dict != NULL) ) {
+	if (!assumes(launch_env_dict != NULL)) {
 		goto out;
 	}
 	
 	req = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
-	if( !assumes(req != NULL) ) {
+	if (!assumes(req != NULL)) {
 		goto out;
 	}
 	
 	launch_data_dict_insert(req, launch_env_dict, LAUNCH_KEY_SETUSERENVIRONMENT);
 	resp = launch_msg(req);
-	if( !assumes(resp != NULL) ) {
+	if (!assumes(resp != NULL)) {
 		goto out;
 	}
 	
-	if( !assumes(launch_data_get_type(resp) == LAUNCH_DATA_ERRNO) ) {
+	if (!assumes(launch_data_get_type(resp) == LAUNCH_DATA_ERRNO)) {
 		goto out;
 	}
 
-	assumes(launch_data_get_errno(resp) == 0);
+	(void)assumes(launch_data_get_errno(resp) == 0);
 out:
 	CFReleaseIfNotNULL(plistPath);
 	CFReleaseIfNotNULL(plistURL);
 	CFReleaseIfNotNULL(envPlist);	
-	if( req ) {
+	if (req) {
 		launch_data_free(req);
 	}
 	
-	if( resp ) {
+	if (resp) {
 		launch_data_free(resp);
 	}
 }
@@ -664,24 +662,24 @@ getenv_and_export_cmd(int argc, char *const argv[])
 int
 wait4debugger_cmd(int argc, char * const argv[])
 {
-	if( argc != 3 ) {
+	if (argc != 3) {
 		fprintf(stderr, "%s usage: debug <label> <value>\n", argv[0]);
 		return 1;
 	}
 	
 	int result = 1;
 	int64_t inval = 0;
-	if( strncmp(argv[2], "true", sizeof("true")) == 0 ) {
+	if (strncmp(argv[2], "true", sizeof("true")) == 0) {
 		inval = 1;
-	} else if( strncmp(argv[2], "false", sizeof("false")) != 0 ) {
+	} else if (strncmp(argv[2], "false", sizeof("false")) != 0) {
 		inval = atoi(argv[2]);
 		inval &= 1;
 	}
 	
 	vproc_t vp = vprocmgr_lookup_vproc(argv[1]);
-	if( vp ) {
+	if (vp) {
 		vproc_err_t verr = vproc_swap_integer(vp, VPROC_GSK_WAITFORDEBUGGER, &inval, NULL);
-		if( verr ) {
+		if (verr) {
 			fprintf(stderr, "Failed to set WaitForDebugger flag on %s.\n", argv[1]);
 		} else {
 			result = 0;
@@ -712,10 +710,10 @@ unloadjob(launch_data_t job)
 void
 job_override(CFTypeRef key, CFTypeRef val, CFMutableDictionaryRef job)
 {
-	if( !CFTypeCheck(key, CFString) ) {
+	if (!CFTypeCheck(key, CFString)) {
 		return;
 	}
-	if( CFStringCompare(key, CFSTR(LAUNCH_JOBKEY_LABEL), kCFCompareCaseInsensitive) == 0 ) {
+	if (CFStringCompare(key, CFSTR(LAUNCH_JOBKEY_LABEL), kCFCompareCaseInsensitive) == 0) {
 		return;
 	}
 	
@@ -728,23 +726,23 @@ read_plist_file(const char *file, bool editondisk, bool load)
 	CFPropertyListRef plist = CreateMyPropertyListFromFile(file);
 	launch_data_t r = NULL;
 
-	if( NULL == plist ) {
+	if (NULL == plist) {
 		fprintf(stderr, "%s: no plist was returned for: %s\n", getprogname(), file);
 		return NULL;
 	}
 
 	CFStringRef label = CFDictionaryGetValue(plist, CFSTR(LAUNCH_JOBKEY_LABEL));
-	if( g_job_overrides_db && label && CFTypeCheck(label, CFString) ) {
+	if (g_job_overrides_db && label && CFTypeCheck(label, CFString)) {
 		CFDictionaryRef overrides = CFDictionaryGetValue(g_job_overrides_db, label);
-		if( overrides && CFTypeCheck(overrides, CFDictionary) ) {
+		if (overrides && CFTypeCheck(overrides, CFDictionary)) {
 			CFDictionaryApplyFunction(overrides, (CFDictionaryApplierFunction)job_override, (void *)plist);
 		}
 	}
 
-	if( editondisk ) {
-		if( g_job_overrides_db ) {
+	if (editondisk) {
+		if (g_job_overrides_db) {
 			CFMutableDictionaryRef job = (CFMutableDictionaryRef)CFDictionaryGetValue(g_job_overrides_db, label);
-			if( !job || !CFTypeCheck(job, CFDictionary) ) {
+			if (!job || !CFTypeCheck(job, CFDictionary)) {
 				job = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 				CFDictionarySetValue(g_job_overrides_db, label, job);
 				CFRelease(job);
@@ -811,6 +809,48 @@ delay_to_second_pass(launch_data_t o)
 	return res;
 }
 
+static bool
+sysctl_hw_streq(int mib_slot, const char *str)
+{
+	char buf[1000];
+	size_t bufsz = sizeof(buf);
+	int mib[] = { CTL_HW, mib_slot };
+	
+	if (sysctl(mib, 2, buf, &bufsz, NULL, 0) != -1) {
+		if (strcmp(buf, str) == 0) {
+			return true;
+		}
+	}
+	
+	return false;
+}
+
+static void
+limitloadtohardware_iterator(launch_data_t val, const char *key, void *ctx)
+{
+	bool *result = ctx;
+
+	char name[128];
+	(void)snprintf(name, sizeof(name), "hw.%s", key);
+
+	int mib[2];
+	size_t sz = 2;
+	if (*result != true && assumes(sysctlnametomib(name, mib, &sz) != -1)) {
+		if (launch_data_get_type(val) == LAUNCH_DATA_ARRAY) {
+			size_t c = launch_data_array_get_count(val);
+			
+			size_t i = 0;
+			for (i = 0; i < c; i++) {
+				launch_data_t oai = launch_data_array_get_index(val, i);
+				if (sysctl_hw_streq(mib[1], launch_data_get_string(oai))) {
+					*result = true;
+					i = c;
+				}
+			}
+		}
+	}
+}
+
 void
 readfile(const char *what, struct load_unload_state *lus)
 {
@@ -825,15 +865,16 @@ readfile(const char *what, struct load_unload_state *lus)
 		fprintf(stderr, "%s: no plist was returned for: %s\n", getprogname(), what);
 		return;
 	}
-
-	if (is_legacy_mach_job(thejob)) {
-		fprintf(stderr, "%s: Please convert the following to launchd: %s\n", getprogname(), what);
-		launch_data_array_append(lus->pass0, thejob);
-		return;
-	}
+	
 
 	if (NULL == launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LABEL)) {
 		fprintf(stderr, "%s: missing the Label key: %s\n", getprogname(), what);
+		goto out_bad;
+	}
+	
+	if ((launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_PROGRAM) == NULL) && 
+		(launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_PROGRAMARGUMENTS) == NULL)) {
+		fprintf(stderr, "%s: neither a Program nor a ProgramArguments key was specified: %s", getprogname(), what);
 		goto out_bad;
 	}
 
@@ -863,6 +904,32 @@ readfile(const char *what, struct load_unload_state *lus)
 		}
 	}
 
+	if (NULL != (tmpd = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOHARDWARE))) {
+		bool result = false;
+		launch_data_dict_iterate(tmpd, limitloadtohardware_iterator, &result);
+		if (!result) {
+			goto out_bad;
+		}
+	}
+
+	if (NULL != (tmpd = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADFROMHARDWARE))) {
+		bool result = false;
+		launch_data_dict_iterate(tmpd, limitloadtohardware_iterator, &result);
+		if (result) {
+			goto out_bad;
+		}
+	}
+
+	// if the manager is Aqua, the LimitLoadToSessionType should default to 'Aqua'
+	// fixes <rdar://problem/8297909>
+	char *manager = "Bogus";
+	vproc_swap_string(NULL, VPROC_GSK_MGR_NAME, NULL, &manager);
+	if (!lus->session_type) {
+		if (strcmp(manager, "Aqua") == 0) {
+			lus->session_type = "Aqua";
+		}
+	}
+
 	if (lus->session_type && !(tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE))) {
 		tmpa = launch_data_new_string("Aqua");
 		launch_data_dict_insert(thejob, tmpa, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE);
@@ -871,6 +938,19 @@ readfile(const char *what, struct load_unload_state *lus)
 	if ((tmpa = launch_data_dict_lookup(thejob, LAUNCH_JOBKEY_LIMITLOADTOSESSIONTYPE))) {
 		const char *allowed_session;
 		bool skipjob = true;
+
+		/* My sincere apologies to anyone who has to deal with this
+		 * LimitLoadToSessionType madness. It was like this when I got here, but
+		 * I've knowingly made it worse, hopefully to the benefit of the end
+		 * user.
+		 *
+		 * See <rdar://problem/8769211> and <rdar://problem/7114980>.
+		 */
+		if (!lus->session_type && launch_data_get_type(tmpa) == LAUNCH_DATA_STRING) {
+			if (strcasecmp("System", manager) == 0 && strcasecmp("System", launch_data_get_string(tmpa)) == 0) {
+				skipjob = false;
+			}
+		}
 
 		if (lus->session_type) switch (launch_data_get_type(tmpa)) {
 		case LAUNCH_DATA_ARRAY:
@@ -914,7 +994,7 @@ readfile(const char *what, struct load_unload_state *lus)
 		goto out_bad;
 	}
 	
-	if( bootstrapping_system || bootstrapping_peruser ) {
+	if (bootstrapping_system || bootstrapping_peruser) {
 		uuid_t uuid;
 		uuid_clear(uuid);
 		
@@ -938,22 +1018,6 @@ out_bad:
 		fprintf(stdout, "Ignored: %s\n", what);
 	}
 	launch_data_free(thejob);
-}
-
-static bool
-sysctl_hw_streq(int mib_slot, const char *str)
-{
-	char buf[1000];
-	size_t bufsz = sizeof(buf);
-	int mib[] = { CTL_HW, mib_slot };
-
-	if (sysctl(mib, 2, buf, &bufsz, NULL, 0) != -1) {
-		if (strcmp(buf, str) == 0) {
-			return true;
-		}
-	}
-
-	return false;
 }
 
 static void
@@ -1021,6 +1085,11 @@ path_goodness_check(const char *path, bool forceload)
 
 	if (!(S_ISREG(sb.st_mode) || S_ISDIR(sb.st_mode))) {
 		fprintf(stderr, "%s: Dubious path. Not a regular file or directory (skipping): %s\n", getprogname(), path);
+		return false;
+	}
+	
+	if ((!S_ISDIR(sb.st_mode)) && (fnmatch("*.plist", path, FNM_CASEFOLD) == FNM_NOMATCH)) {
+		fprintf(stderr, "%s: Dubious file. Not of type .plist (skipping): %s\n", getprogname(), path);
 		return false;
 	}
 
@@ -1451,11 +1520,11 @@ CreateMyPropertyListFromFile(const char *posixfile)
 	}
 	
 	propertyList = CFPropertyListCreateFromXMLData(kCFAllocatorDefault, resourceData, kCFPropertyListMutableContainersAndLeaves, &errorString);
-	if( fileURL ) {
+	if (fileURL) {
 		CFRelease(fileURL);
 	}
 	
-	if( resourceData ) {
+	if (resourceData) {
 		CFRelease(resourceData);
 	}
 
@@ -1481,7 +1550,7 @@ WriteMyPropertyListToFile(CFPropertyListRef plist, const char *posixfile)
 		fprintf(stderr, "%s: CFURLWriteDataAndPropertiesToResource(%s) failed: %d\n", getprogname(), posixfile, (int)errorCode);
 	}
 	
-	if( resourceData ) {
+	if (resourceData) {
 		CFRelease(resourceData);
 	}
 }
@@ -1490,7 +1559,7 @@ static inline Boolean __is_launch_data_t(launch_data_t obj)
 {
 	Boolean result = true;
 	
-	switch( launch_data_get_type(obj) ) {
+	switch (launch_data_get_type(obj)) {
 		case LAUNCH_DATA_STRING		: break;
 		case LAUNCH_DATA_INTEGER	: break;
 		case LAUNCH_DATA_REAL		: break;
@@ -1507,11 +1576,11 @@ static inline Boolean __is_launch_data_t(launch_data_t obj)
 
 static void __launch_data_iterate(launch_data_t obj, const char *key, CFMutableDictionaryRef dict)
 {
-	if( obj && __is_launch_data_t(obj) ) {
+	if (obj && __is_launch_data_t(obj)) {
 		CFStringRef cfKey = CFStringCreateWithCString(NULL, key, kCFStringEncodingUTF8);
 		CFTypeRef cfVal = CFTypeCreateFromLaunchData(obj);
 		
-		if( cfVal ) {
+		if (cfVal) {
 			CFDictionarySetValue(dict, cfKey, cfVal);
 			CFRelease(cfVal);
 		}
@@ -1523,7 +1592,7 @@ static CFTypeRef CFTypeCreateFromLaunchData(launch_data_t obj)
 {
 	CFTypeRef cfObj = NULL;
 	
-	switch( launch_data_get_type(obj) ) {
+	switch (launch_data_get_type(obj)) {
 		case LAUNCH_DATA_STRING			:
 		{
 			const char *str = launch_data_get_string(obj);			
@@ -1590,15 +1659,15 @@ CFArrayRef CFArrayCreateFromLaunchArray(launch_data_t arr)
 	CFArrayRef result = NULL;	
 	CFMutableArrayRef mutResult = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 	
-	if( launch_data_get_type(arr) == LAUNCH_DATA_ARRAY ) {
+	if (launch_data_get_type(arr) == LAUNCH_DATA_ARRAY) {
 		unsigned int count = launch_data_array_get_count(arr);
 		unsigned int i = 0;
 		
-		for( i = 0; i < count; i++ ) {
+		for (i = 0; i < count; i++) {
 			launch_data_t launch_obj = launch_data_array_get_index(arr, i);
 			CFTypeRef obj = CFTypeCreateFromLaunchData(launch_obj);
 			
-			if( obj ) {
+			if (obj) {
 				CFArrayAppendValue(mutResult, obj);
 				CFRelease(obj);
 			}
@@ -1607,7 +1676,7 @@ CFArrayRef CFArrayCreateFromLaunchArray(launch_data_t arr)
 		result = CFArrayCreateCopy(NULL, mutResult);
 	}
 	
-	if( mutResult ) {
+	if (mutResult) {
 		CFRelease(mutResult);
 	}
 	return result;
@@ -1618,7 +1687,7 @@ static CFDictionaryRef CFDictionaryCreateFromLaunchDictionary(launch_data_t dict
 {
 	CFDictionaryRef result = NULL;
 	
-	if( launch_data_get_type(dict) == LAUNCH_DATA_DICTIONARY ) {
+	if (launch_data_get_type(dict) == LAUNCH_DATA_DICTIONARY) {
 		CFMutableDictionaryRef mutResult = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 		
 		launch_data_dict_iterate(dict, (void (*)(launch_data_t, const char *, void *))__launch_data_iterate, mutResult);
@@ -1670,7 +1739,7 @@ CF2launch_data(CFTypeRef cfr)
 		r = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 		CFDictionaryApplyFunction(cfr, myCFDictionaryApplyFunction, r);
 	} else if (cft == CFDataGetTypeID()) {
-		r = launch_data_alloc(LAUNCH_DATA_ARRAY);
+		r = launch_data_alloc(LAUNCH_DATA_OPAQUE);
 		launch_data_set_opaque(r, CFDataGetBytePtr(cfr), CFDataGetLength(cfr));
 	} else if (cft == CFNumberGetTypeID()) {
 		long long n;
@@ -1772,7 +1841,7 @@ do_single_user_mode2(void)
 	case 0:
 		break;
 	default:
-		assumes(waitpid(p, &wstatus, 0) != -1);
+		(void)assumes(waitpid(p, &wstatus, 0) != -1);
 		if (WIFEXITED(wstatus)) {
 			if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
 				return true;
@@ -1834,7 +1903,7 @@ do_crash_debug_mode2(void)
 		case 0:
 			break;
 		default:
-			assumes(waitpid(p, &wstatus, 0) != -1);
+			(void)assumes(waitpid(p, &wstatus, 0) != -1);
 			if (WIFEXITED(wstatus)) {
 				if (WEXITSTATUS(wstatus) == EXIT_SUCCESS) {
 					return true;
@@ -1873,7 +1942,7 @@ do_crash_debug_mode2(void)
 static void
 exit_at_sigterm(int sig)
 {
-	if( sig == SIGTERM ) {
+	if (sig == SIGTERM) {
 		_exit(EXIT_SUCCESS);
 	}
 }
@@ -1887,22 +1956,23 @@ fatal_signal_handler(int sig __attribute__((unused)), siginfo_t *si __attribute_
 void
 handle_system_bootstrapper_crashes_separately(void)
 {
-	if( !g_verbose_boot ) {
+	if (!g_startup_debugging) {
 		return;
 	}
 	
+	fprintf(stdout, "com.apple.launchctl.System\t\t\t*** Handling system bootstrapper crashes separately. ***\n");
 	struct sigaction fsa;
 	
 	fsa.sa_sigaction = fatal_signal_handler;
 	fsa.sa_flags = SA_SIGINFO;
 	sigemptyset(&fsa.sa_mask);
 	
-	assumes(sigaction(SIGILL, &fsa, NULL) != -1);
-	assumes(sigaction(SIGFPE, &fsa, NULL) != -1);
-	assumes(sigaction(SIGBUS, &fsa, NULL) != -1);
-	assumes(sigaction(SIGSEGV, &fsa, NULL) != -1);
-	assumes(sigaction(SIGTRAP, &fsa, NULL) != -1);
-	assumes(sigaction(SIGABRT, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGILL, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGFPE, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGBUS, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGSEGV, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGTRAP, &fsa, NULL) != -1);
+	(void)assumes(sigaction(SIGABRT, &fsa, NULL) != -1);
 }
 
 static void
@@ -1915,20 +1985,26 @@ system_specific_bootstrap(bool sflag)
 	launch_data_t lda, ldb;
 #endif
 
+	handle_system_bootstrapper_crashes_separately();
+
+	// Disable Libinfo lookups to mdns and ds while bootstrapping (8698260)
+	si_search_module_set_flags("mdns", 1);
+	si_search_module_set_flags("ds", 1);
+
 	do_sysversion_sysctl();
 
 	do_single_user_mode(sflag);
 
-	assumes((kq = kqueue()) != -1);
+	(void)assumes((kq = kqueue()) != -1);
 
 	EV_SET(&kev, 0, EVFILT_TIMER, EV_ADD|EV_ONESHOT, NOTE_SECONDS, 60, 0);
-	assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
+	(void)assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
 
 	EV_SET(&kev, SIGTERM, EVFILT_SIGNAL, EV_ADD, 0, 0, 0);
-	assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
-	assumes(signal(SIGTERM, SIG_IGN) != SIG_ERR);
+	(void)assumes(kevent(kq, &kev, 1, NULL, 0, NULL) != -1);
+	(void)assumes(signal(SIGTERM, SIG_IGN) != SIG_ERR);
 
-	assumes(sysctl(hnmib, 2, NULL, NULL, "localhost", sizeof("localhost")) != -1);
+	(void)assumes(sysctl(hnmib, 2, NULL, NULL, "localhost", sizeof("localhost")) != -1);
 
 	loopback_setup_ipv4();
 	loopback_setup_ipv6();
@@ -1939,8 +2015,8 @@ system_specific_bootstrap(bool sflag)
 	if (path_check("/etc/rc.boot")) {
 		const char *rcboot_tool[] = { "/etc/rc.boot", NULL };
 		
-		assumes(signal(SIGTERM, exit_at_sigterm) != SIG_ERR);
-		assumes(fwexec(rcboot_tool, NULL) != -1);
+		(void)assumes(signal(SIGTERM, exit_at_sigterm) != SIG_ERR);
+		(void)assumes(fwexec(rcboot_tool, NULL) != -1);
 	}
 #endif
 
@@ -1950,60 +2026,70 @@ system_specific_bootstrap(bool sflag)
 		/* The bootstrapper should always be killable during install-time (rdar://problem/6103485). 
 		 * This is a special case for /etc/rc.cdrom, which runs a process and never exits.
 		 */
-		assumes(signal(SIGTERM, exit_at_sigterm) != SIG_ERR);
-		assumes(fwexec(rccdrom_tool, NULL) != -1);
-		assumes(reboot(RB_HALT) != -1);
+		(void)assumes(signal(SIGTERM, exit_at_sigterm) != SIG_ERR);
+		(void)assumes(fwexec(rccdrom_tool, NULL) != -1);
+		(void)assumes(reboot(RB_HALT) != -1);
 		_exit(EXIT_FAILURE);
 	} else if (is_netboot()) {
 		const char *rcnetboot_tool[] = { _PATH_BSHELL, "/etc/rc.netboot", "init", NULL };
 		if (!assumes(fwexec(rcnetboot_tool, NULL) != -1)) {
-			assumes(reboot(RB_HALT) != -1);
+			(void)assumes(reboot(RB_HALT) != -1);
 			_exit(EXIT_FAILURE);
 		}
 	} else {
 		do_potential_fsck();
 	}
 
+#if TARGET_OS_EMBEDDED
+	if (path_check("/usr/libexec/cc_fips_test")) {
+		const char *fips_tool[] = { "/usr/libexec/cc_fips_test", "-P", NULL };
+		if (fwexec(fips_tool, NULL) == -1) {
+			printf("FIPS self check failure\n");
+			(void)assumes(reboot(RB_HALT) != -1);
+			_exit(EXIT_FAILURE);
+		}
+	}
+#endif
+    
 	if (path_check("/etc/rc.server")) {
 		const char *rcserver_tool[] = { _PATH_BSHELL, "/etc/rc.server", NULL };
-		assumes(fwexec(rcserver_tool, NULL) != -1);
+		(void)assumes(fwexec(rcserver_tool, NULL) != -1);
 	}
 
 	read_launchd_conf();
-	handle_system_bootstrapper_crashes_separately();
 
 	if (path_check("/var/account/acct")) {
-		assumes(acct("/var/account/acct") != -1);
+		(void)assumes(acct("/var/account/acct") != -1);
 	}
 
 #if !TARGET_OS_EMBEDDED
 	if (path_check("/etc/fstab")) {
 		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
-		assumes(fwexec(mount_tool, NULL) != -1);
+		(void)assumes(fwexec(mount_tool, NULL) != -1);
 	}
 #endif
 
 	if (path_check("/etc/rc.installer_cleanup")) {
 		const char *rccleanup_tool[] = { _PATH_BSHELL, "/etc/rc.installer_cleanup", "multiuser", NULL };
-		assumes(fwexec(rccleanup_tool, NULL) != -1);
+		(void)assumes(fwexec(rccleanup_tool, NULL) != -1);
 	}
 
-	if( path_check("/etc/rc.deferred_install") ) {
+	if (path_check("/etc/rc.deferred_install")) {
 		int status = 0;
 		const char *deferredinstall_tool[] = { _PATH_BSHELL, "/etc/rc.deferred_install", NULL };
-		if( assumes(fwexec(deferredinstall_tool, &status) != -1) ) {
-			if( WEXITSTATUS(status) == EXIT_SUCCESS ) {
-				if( do_apple_internal_magic ) {
+		if (assumes(fwexec(deferredinstall_tool, &status) != -1)) {
+			if (WEXITSTATUS(status) == EXIT_SUCCESS) {
+				if (do_apple_internal_magic) {
 					fprintf(stdout, "Deferred install script completed successfully. Rebooting in 3 seconds...\n");
 					sleep(3);
 				}
 				
-				assumes(remove(deferredinstall_tool[1]) != -1);
-				assumes(reboot(RB_AUTOBOOT) != -1);
+				(void)assumes(remove(deferredinstall_tool[1]) != -1);
+				(void)assumes(reboot(RB_AUTOBOOT) != -1);
 				exit(EXIT_FAILURE);
 			} else {
 				fprintf(stdout, "Deferred install script exited with status %i. Continuing boot and hoping it'll work...\n", WEXITSTATUS(status));
-				assumes(remove(deferredinstall_tool[1]) != -1);
+				(void)assumes(remove(deferredinstall_tool[1]) != -1);
 			}
 		}
 	}
@@ -2014,12 +2100,12 @@ system_specific_bootstrap(bool sflag)
 
 	if (path_check("/usr/libexec/dirhelper")) {
 		const char *dirhelper_tool[] = { "/usr/libexec/dirhelper", "-machineBoot", NULL };
-		assumes(fwexec(dirhelper_tool, NULL) != -1);
+		(void)assumes(fwexec(dirhelper_tool, NULL) != -1);
 	}
 
-	assumes(touch_file(_PATH_UTMPX, DEFFILEMODE) != -1);
+	(void)assumes(touch_file(_PATH_UTMPX, DEFFILEMODE) != -1);
 #if !TARGET_OS_EMBEDDED
-	assumes(touch_file(_PATH_VARRUN "/.systemStarterRunning", DEFFILEMODE) != -1);
+	(void)assumes(touch_file(_PATH_VARRUN "/.systemStarterRunning", DEFFILEMODE) != -1);
 #endif
 
 #if HAVE_LIBAUDITD
@@ -2030,13 +2116,13 @@ system_specific_bootstrap(bool sflag)
 		((ldb = launch_data_dict_lookup(lda, LAUNCH_JOBKEY_DISABLED)) == NULL ||
 		 job_disabled_logic(ldb) == false)) 
 	{
-		assumes(audit_quick_start() == 0);
+		(void)assumes(audit_quick_start() == 0);
 		launch_data_free(lda);	
 	}
 #else
 	if (path_check("/etc/security/rc.audit")) {
 		const char *audit_tool[] = { _PATH_BSHELL, "/etc/security/rc.audit", NULL };
-		assumes(fwexec(audit_tool, NULL) != -1);
+		(void)assumes(fwexec(audit_tool, NULL) != -1);
 	}
 #endif
 
@@ -2046,14 +2132,14 @@ system_specific_bootstrap(bool sflag)
 
 	_vproc_set_global_on_demand(true);
 
-	char *load_launchd_items[] = { "load", "-D", "all", "/etc/mach_init.d", NULL };
-	int load_launchd_items_cnt = 4;
+	char *load_launchd_items[] = { "load", "-D", "all", NULL };
+	int load_launchd_items_cnt = 3;
 
 	if (is_safeboot()) {
 		load_launchd_items[2] = "system";
 	}
 
-	assumes(load_and_unload_cmd(load_launchd_items_cnt, load_launchd_items) == 0);
+	(void)assumes(load_and_unload_cmd(load_launchd_items_cnt, load_launchd_items) == 0);
 
 	/*
 	 * 5066316
@@ -2108,17 +2194,17 @@ system_specific_bootstrap(bool sflag)
 
 	_vproc_set_global_on_demand(false);
 
-	assumes(kevent(kq, NULL, 0, &kev, 1, NULL) == 1);
+	(void)assumes(kevent(kq, NULL, 0, &kev, 1, NULL) == 1);
 
-	do_BootCache_magic(BOOTCACHE_STOP);
-
-	assumes(close(kq) != -1);
+	/* warmd now handles cutting off the BootCache. We just kick it off. */
+	
+	(void)assumes(close(kq) != -1);
 }
 
 void
 do_BootCache_magic(BootCache_action_t what)
 {
-	const char *bcc_tool[] = { "/usr/sbin/BootCacheControl", "-f", "/var/db/BootCache.playlist", NULL, NULL };
+	const char *bcc_tool[] = { "/usr/sbin/BootCacheControl", NULL, NULL };
 
 	if (is_safeboot() || !path_check(bcc_tool[0])) {
 		return;
@@ -2126,17 +2212,14 @@ do_BootCache_magic(BootCache_action_t what)
 
 	switch (what) {
 	case BOOTCACHE_START:
-		bcc_tool[3] = "start";
+		bcc_tool[1] = "start";
 		break;
 	case BOOTCACHE_TAG:
-		bcc_tool[3] = "tag";
+		bcc_tool[1] = "tag";
 		break;
 	case BOOTCACHE_STOP:
-		bcc_tool[3] = "stop";
+		bcc_tool[1] = "stop";
 		break;
-	default:
-		assumes(false);
-		return;
 	}
 
 	fwexec(bcc_tool, NULL);
@@ -2226,16 +2309,16 @@ bootstrap_cmd(int argc, char *const argv[])
 			bootstrapping_peruser = true;
 			read_launchd_conf();
 #if 0 /* XXX PR-6456403 */
-			assumes(SessionCreate(sessionKeepCurrentBootstrap, 0) == 0);
+			(void)assumes(SessionCreate(sessionKeepCurrentBootstrap, 0) == 0);
 #endif
 		}
 
 		int retval = load_and_unload_cmd(the_argc, load_launchd_items);
-		if( retval == 0 && the_argc_user != 0 ) {
+		if (retval == 0 && the_argc_user != 0) {
 			optind = 1;
 			int64_t junk = 0;
 			vproc_err_t err = vproc_swap_integer(NULL, VPROC_GSK_WEIRD_BOOTSTRAP, &junk, NULL);
-			if( !err ) {
+			if (!err) {
 				retval = load_and_unload_cmd(the_argc_user, load_launchd_items_user);
 			}
 		}
@@ -2313,7 +2396,7 @@ load_and_unload_cmd(int argc, char *const argv[])
 	int dbfd = -1;
 	char *db = NULL;
 	vproc_err_t verr = vproc_swap_string(NULL, VPROC_GSK_JOB_OVERRIDES_DB, NULL, &db);
-	if( verr ) {
+	if (verr) {
 		fprintf(stderr, "Could not get location of job overrides database.\n");
 		g_job_overrides_db_path[0] = 0;
 	} else {
@@ -2322,10 +2405,10 @@ load_and_unload_cmd(int argc, char *const argv[])
 		/* If we can't create or lock the overrides database, we'll fall back to writing to the
 		 * plist file directly.
 		 */
-		assumes((dbfd = open(g_job_overrides_db_path, O_RDONLY | O_EXLOCK | O_CREAT, S_IRUSR | S_IWUSR)) != -1);
-		if( dbfd != -1 ) {
+		(void)assumes((dbfd = open(g_job_overrides_db_path, O_RDONLY | O_EXLOCK | O_CREAT, S_IRUSR | S_IWUSR)) != -1);
+		if (dbfd != -1) {
 			g_job_overrides_db = (CFMutableDictionaryRef)CreateMyPropertyListFromFile(g_job_overrides_db_path);
-			if( !g_job_overrides_db ) {
+			if (!g_job_overrides_db) {
 				g_job_overrides_db = CFDictionaryCreateMutable(NULL, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
 			}
 		}
@@ -2341,7 +2424,6 @@ load_and_unload_cmd(int argc, char *const argv[])
 	 * launchd doesn't have reload support right now.
 	 */
 
-	lus.pass0 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	lus.pass1 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 	lus.pass2 = launch_data_alloc(LAUNCH_DATA_ARRAY);
 
@@ -2368,13 +2450,11 @@ load_and_unload_cmd(int argc, char *const argv[])
 		readpath(argv[i], &lus);
 	}
 
-	if (launch_data_array_get_count(lus.pass0) == 0 &&
-			launch_data_array_get_count(lus.pass1) == 0 &&
+	if (launch_data_array_get_count(lus.pass1) == 0 &&
 			launch_data_array_get_count(lus.pass2) == 0) {
 		if (!is_managed) {
 			fprintf(stderr, "nothing found to %s\n", lus.load ? "load" : "unload");
 		}
-		launch_data_free(lus.pass0);
 		launch_data_free(lus.pass1);
 		launch_data_free(lus.pass2);
 		return is_managed ? 0 : 1;
@@ -2382,9 +2462,7 @@ load_and_unload_cmd(int argc, char *const argv[])
 	
 	if (lus.load) {
 		distill_jobs(lus.pass1);
-		submit_mach_jobs(lus.pass0);
 		submit_job_pass(lus.pass1);
-		let_go_of_mach_jobs(lus.pass0);
 		distill_jobs(lus.pass2);
 		submit_job_pass(lus.pass2);
 	} else {
@@ -2396,69 +2474,13 @@ load_and_unload_cmd(int argc, char *const argv[])
 		}
 	}
 
-	if( g_job_overrides_db_has_changed ) {
+	if (g_job_overrides_db_has_changed) {
 		WriteMyPropertyListToFile(g_job_overrides_db, g_job_overrides_db_path);
 	}
 	
 	flock(dbfd, LOCK_UN);
 	close(dbfd);
 	return 0;
-}
-
-void
-submit_mach_jobs(launch_data_t jobs)
-{
-	size_t i, c;
-
-	c = launch_data_array_get_count(jobs);
-
-	for (i = 0; i < c; i++) {
-		launch_data_t tmp, oai = launch_data_array_get_index(jobs, i);
-		const char *sn = NULL, *cmd = NULL;
-		bool d = true;
-		mach_port_t msr, msv;
-		kern_return_t kr;
-		uid_t u = getuid();
-
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_ONDEMAND)))
-			d = launch_data_get_bool(tmp);
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVICENAME)))
-			sn = launch_data_get_string(tmp);
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_COMMAND)))
-			cmd = launch_data_get_string(tmp);
-
-		if ((kr = bootstrap_create_server(bootstrap_port, (char *)cmd, u, d, &msr)) != KERN_SUCCESS) {
-			fprintf(stderr, "%s: bootstrap_create_server(): %s\n", getprogname(), bootstrap_strerror(kr));
-			continue;
-		}
-		if ((kr = bootstrap_check_in(msr, (char*)sn, &msv)) != KERN_SUCCESS) {
-			fprintf(stderr, "%s: bootstrap_check_in(): %s\n", getprogname(), bootstrap_strerror(kr));
-			mach_port_mod_refs(mach_task_self(), msv, MACH_PORT_RIGHT_RECEIVE, -1);
-			continue;
-		}
-		launch_data_dict_insert(oai, launch_data_new_machport(msr), MACHINIT_JOBKEY_SERVERPORT);
-		launch_data_dict_insert(oai, launch_data_new_machport(msv), MACHINIT_JOBKEY_SERVICEPORT);
-	}
-}
-
-void
-let_go_of_mach_jobs(launch_data_t jobs)
-{
-	size_t i, c = launch_data_array_get_count(jobs);
-
-	for (i = 0; i < c; i++) {
-		launch_data_t tmp, oai = launch_data_array_get_index(jobs, i);
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVICEPORT))) {
-			mach_port_destroy(mach_task_self(), launch_data_get_machport(tmp));
-		} else {
-			fprintf(stderr, "%s: ack! missing service port!\n", getprogname());
-		}
-		if ((tmp = launch_data_dict_lookup(oai, MACHINIT_JOBKEY_SERVERPORT))) {
-			mach_port_destroy(mach_task_self(), launch_data_get_machport(tmp));
-		} else {
-			fprintf(stderr, "%s: ack! missing server port!\n", getprogname());
-		}
-	}
 }
 
 void
@@ -2658,12 +2680,12 @@ list_cmd(int argc, char *const argv[])
 	if (argc > 3) {
 		fprintf(stderr, "usage: %s list [-x] [label]\n", getprogname());
 		return 1;
-	} else if( argc >= 2 ) {
+	} else if (argc >= 2) {
 		plist_output = ( strncmp(argv[1], "-x", sizeof("-x")) == 0 );
 		label = plist_output ? argv[2] : argv[1];
 	}
 	
-	if( label ) {
+	if (label) {
 		msg = launch_data_alloc(LAUNCH_DATA_DICTIONARY);
 		launch_data_dict_insert(msg, launch_data_new_string(label), LAUNCH_KEY_GETJOB);
 		
@@ -2674,13 +2696,13 @@ list_cmd(int argc, char *const argv[])
 			fprintf(stderr, "launch_msg(): %s\n", strerror(errno));
 			r = 1;
 		} else if (launch_data_get_type(resp) == LAUNCH_DATA_DICTIONARY) {
-			if( plist_output ) {
+			if (plist_output) {
 				CFDictionaryRef respDict = CFDictionaryCreateFromLaunchDictionary(resp);
 				CFStringRef plistStr = NULL;
-				if( respDict ) {
+				if (respDict) {
 					CFDataRef plistData = CFPropertyListCreateXMLData(NULL, (CFPropertyListRef)respDict);
 					CFRelease(respDict);
-					if( plistData ) {
+					if (plistData) {
 						plistStr = CFStringCreateWithBytes(NULL, CFDataGetBytePtr(plistData), CFDataGetLength(plistData), kCFStringEncodingUTF8, false);
 						CFRelease(plistData);
 					} else {
@@ -2690,7 +2712,7 @@ list_cmd(int argc, char *const argv[])
 					r = 1;
 				}
 				
-				if( plistStr ) {
+				if (plistStr) {
 					CFShow(plistStr);
 					CFRelease(plistStr);
 					r = 0;
@@ -2705,7 +2727,7 @@ list_cmd(int argc, char *const argv[])
 			r = 1;
 			launch_data_free(resp);
 		}
-	} else if( vproc_swap_complex(NULL, VPROC_GSK_ALLJOBS, NULL, &resp) == NULL ) {
+	} else if (vproc_swap_complex(NULL, VPROC_GSK_ALLJOBS, NULL, &resp) == NULL) {
 		fprintf(stdout, "PID\tStatus\tLabel\n");
 		launch_data_dict_iterate(resp, print_jobs, NULL);
 		launch_data_free(resp);
@@ -2990,16 +3012,16 @@ limit_cmd(int argc, char *const argv[])
 	lmts[which].rlim_max = hlim;
 
 	bool maxfiles_exceeded = false;
-	if( strncmp(argv[1], "maxfiles", sizeof("maxfiles")) == 0 ) {
-		if( argc > 2 ) {
+	if (strncmp(argv[1], "maxfiles", sizeof("maxfiles")) == 0) {
+		if (argc > 2) {
 			maxfiles_exceeded = ( strncmp(argv[2], "unlimited", sizeof("unlimited")) == 0 );
 		}
 		
-		if( argc > 3 ) {
+		if (argc > 3) {
 			maxfiles_exceeded = ( maxfiles_exceeded || strncmp(argv[3], "unlimited", sizeof("unlimited")) == 0 );
 		}
 		
-		if( maxfiles_exceeded ) {
+		if (maxfiles_exceeded) {
 			fprintf(stderr, "Neither the hard nor soft limit for \"maxfiles\" can be unlimited. Please use a numeric parameter for both.\n");
 			return 1;
 		}
@@ -3062,7 +3084,15 @@ umask_cmd(int argc, char *const argv[])
 void
 setup_system_context(void)
 {
-	if( geteuid() != 0 ) {
+	if (getenv(LAUNCHD_SOCKET_ENV)) {
+		return;
+	}
+
+	if (getenv(LAUNCH_ENV_KEEPCONTEXT)) {
+		return;
+	}
+
+	if (geteuid() != 0) {
 		fprintf(stderr, "You must be the root user to perform this operation.\n");
 		return;
 	}
@@ -3229,7 +3259,7 @@ str2bsport(const char *s)
 				return 1;
 			}
 		} while (getrootbs && last_bport != bport);
-	} else if( strcmp(s, "0") == 0 || strcmp(s, "NULL") == 0 ) {
+	} else if (strcmp(s, "0") == 0 || strcmp(s, "NULL") == 0) {
 		bport = MACH_PORT_NULL;
 	} else {
 		int pid = atoi(s);
@@ -3275,6 +3305,7 @@ bsexec_cmd(int argc, char *const argv[])
 	setgid(getgid());
 	setuid(getuid());
 
+	setenv(LAUNCH_ENV_KEEPCONTEXT, "1", 1);
 	if (fwexec((const char *const *)argv + 2, NULL) == -1) {
 		fprintf(stderr, "%s bsexec failed: %s\n", getprogname(), strerror(errno));
 		return 1;
@@ -3310,7 +3341,7 @@ _bslist_cmd(mach_port_t bport, unsigned int depth, bool show_job, bool local_onl
 	
 	for (i = 0; i < service_cnt ; i++) {
 		fprintf(stdout, "%*s%-3s%s", depth, "", bport_state((service_actives[i])), service_names[i]);
-		if( show_job ) {
+		if (show_job) {
 			fprintf(stdout, " (%s)", service_jobs[i]);
 		}
 		fprintf(stdout, "\n");
@@ -3324,19 +3355,19 @@ bslist_cmd(int argc, char *const argv[])
 {
 	mach_port_t bport = bootstrap_port;
 	bool show_jobs = false;
-	if( argc > 2 && strcmp(argv[2], "-j") == 0 ) {
+	if (argc > 2 && strcmp(argv[2], "-j") == 0) {
 		show_jobs = true;
 	}
 	
-	if( argc > 1 ) {
-		if( show_jobs ) {
+	if (argc > 1) {
+		if (show_jobs) {
 			bport = str2bsport(argv[1]);
-		} else if( strcmp(argv[1], "-j") == 0 ) {
+		} else if (strcmp(argv[1], "-j") == 0) {
 			show_jobs = true;
 		}
 	}
 	
-	if( bport == MACH_PORT_NULL ) {
+	if (bport == MACH_PORT_NULL) {
 		fprintf(stderr, "Invalid bootstrap port\n");
 		return 1;
 	}
@@ -3347,7 +3378,7 @@ bslist_cmd(int argc, char *const argv[])
 int
 _bstree_cmd(mach_port_t bsport, unsigned int depth, bool show_jobs)
 {
-	if( bsport == MACH_PORT_NULL ) {
+	if (bsport == MACH_PORT_NULL) {
 		fprintf(stderr, "No root port!\n");
 		return 1;
 	}
@@ -3358,8 +3389,8 @@ _bstree_cmd(mach_port_t bsport, unsigned int depth, bool show_jobs)
 	unsigned int cnt = 0;
 	
 	kern_return_t kr = bootstrap_lookup_children(bsport, &child_ports, &child_names, &child_props, (mach_msg_type_number_t *)&cnt);
-	if( kr != BOOTSTRAP_SUCCESS && kr != BOOTSTRAP_NO_CHILDREN ) {
-		if( kr == BOOTSTRAP_NOT_PRIVILEGED ) {
+	if (kr != BOOTSTRAP_SUCCESS && kr != BOOTSTRAP_NO_CHILDREN) {
+		if (kr == BOOTSTRAP_NOT_PRIVILEGED) {
 			fprintf(stderr, "You must be root to perform this operation.\n");
 		} else {
 			fprintf(stderr, "bootstrap_lookup_children(): %d\n", kr);
@@ -3371,20 +3402,26 @@ _bstree_cmd(mach_port_t bsport, unsigned int depth, bool show_jobs)
 	unsigned int i = 0;
 	_bslist_cmd(bsport, depth, show_jobs, true);
 	
-	for( i = 0; i < cnt; i++ ) {
+	for (i = 0; i < cnt; i++) {
 		char *type = NULL;
-		if( child_props[i] & BOOTSTRAP_PROPERTY_PERUSER ) {
+		if (child_props[i] & BOOTSTRAP_PROPERTY_PERUSER) {
 			type = "Per-user";
-		} else if( child_props[i] & BOOTSTRAP_PROPERTY_EXPLICITSUBSET ) {
+		} else if (child_props[i] & BOOTSTRAP_PROPERTY_EXPLICITSUBSET) {
 			type = "Explicit Subset";
-		} else if( child_props[i] & BOOTSTRAP_PROPERTY_IMPLICITSUBSET ) {
+		} else if (child_props[i] & BOOTSTRAP_PROPERTY_IMPLICITSUBSET) {
 			type = "Implicit Subset";
-		} else if( child_props[i] & BOOTSTRAP_PROPERTY_MOVEDSUBSET ) {
+		} else if (child_props[i] & BOOTSTRAP_PROPERTY_MOVEDSUBSET) {
 			type = "Moved Subset";
+		} else if (child_props[i] & BOOTSTRAP_PROPERTY_XPC_SINGLETON) {
+			type = "XPC Singleton Domain";
+		} else if (child_props[i] & BOOTSTRAP_PROPERTY_XPC_DOMAIN) {
+			type = "XPC Private Domain";
+		} else {
+			type = "Unknown";
 		}
 		
 		fprintf(stdout, "%*s%s (%s)/\n", depth, "", child_names[i], type);
-		if( child_ports[i] != MACH_PORT_NULL ) {
+		if (child_ports[i] != MACH_PORT_NULL) {
 			_bstree_cmd(child_ports[i], depth + 4, show_jobs);
 		}
 	}
@@ -3396,11 +3433,11 @@ int
 bstree_cmd(int argc, char * const argv[])
 {
 	bool show_jobs = false;
-	if( geteuid() != 0 ) {
+	if (geteuid() != 0) {
 		fprintf(stderr, "You must be root to perform this operation.\n");
 		return 1;
 	} else {
-		if( argc == 2 && strcmp(argv[1], "-j") == 0 ) {
+		if (argc == 2 && strcmp(argv[1], "-j") == 0) {
 			show_jobs = true;
 		}
 		fprintf(stdout, "System/\n");
@@ -3414,7 +3451,7 @@ managerpid_cmd(int argc __attribute__((unused)), char * const argv[] __attribute
 {
 	int64_t manager_pid = 0;
 	vproc_err_t verr = vproc_swap_integer(NULL, VPROC_GSK_MGR_PID, NULL, (int64_t *)&manager_pid);
-	if( verr ) {
+	if (verr) {
 		fprintf(stdout, "Unknown job manager!\n");
 		return 1;
 	}
@@ -3428,7 +3465,7 @@ manageruid_cmd(int argc __attribute__((unused)), char * const argv[] __attribute
 {
 	int64_t manager_uid = 0;
 	vproc_err_t verr = vproc_swap_integer(NULL, VPROC_GSK_MGR_UID, NULL, (int64_t *)&manager_uid);
-	if( verr ) {
+	if (verr) {
 		fprintf(stdout, "Unknown job manager!\n");
 		return 1;
 	}
@@ -3442,7 +3479,7 @@ managername_cmd(int argc __attribute__((unused)), char * const argv[] __attribut
 {
 	char *manager_name = NULL;
 	vproc_err_t verr = vproc_swap_string(NULL, VPROC_GSK_MGR_NAME, NULL, &manager_name);
-	if( verr ) {
+	if (verr) {
 		fprintf(stdout, "Unknown job manager!\n");
 		return 1;
 	}
@@ -3453,14 +3490,66 @@ managername_cmd(int argc __attribute__((unused)), char * const argv[] __attribut
 	return 0;
 }
 
-bool
-is_legacy_mach_job(launch_data_t obj)
+int
+asuser_cmd(int argc, char * const argv[])
 {
-	bool has_servicename = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_SERVICENAME);
-	bool has_command = launch_data_dict_lookup(obj, MACHINIT_JOBKEY_COMMAND);
-	bool has_label = launch_data_dict_lookup(obj, LAUNCH_JOBKEY_LABEL);
+	/* This code plays fast and loose with Mach ports. Do NOT use it as any sort
+	 * of reference for port handling. Or really anything else in this file.
+	 */
+	uid_t req_uid = (uid_t)-2;
+	if (argc > 2) {
+		req_uid = atoi(argv[1]);
+		if (req_uid == (uid_t)-2) {
+			fprintf(stderr, "You cannot run a command nobody.\n");
+			return 1;
+		}
+	} else {
+		fprintf(stderr, "Usage: launchctl asuser <UID> <command> [arguments...].\n");
+		return 1;
+	}
 
-	return has_command && has_servicename && !has_label;
+	if (geteuid() != 0) {
+		fprintf(stderr, "You must be root to run a command as another user.\n");
+		return 1;
+	}
+
+	mach_port_t rbs = MACH_PORT_NULL;
+	kern_return_t kr = bootstrap_get_root(bootstrap_port, &rbs);
+	if (kr != BOOTSTRAP_SUCCESS) {
+		fprintf(stderr, "bootstrap_get_root(): %u\n", kr);
+		return 1;
+	}
+
+	mach_port_t bp = MACH_PORT_NULL;
+	kr = bootstrap_look_up_per_user(rbs, NULL, req_uid, &bp);
+	if (kr != BOOTSTRAP_SUCCESS) {
+		fprintf(stderr, "bootstrap_look_up_per_user(): %u\n", kr);
+		return 1;
+	}
+
+	bootstrap_port = bp;
+	kr = task_set_bootstrap_port(mach_task_self(), bp);
+	if (kr != KERN_SUCCESS) {
+		fprintf(stderr, "task_set_bootstrap_port(): 0x%x: %s\n", kr, mach_error_string(kr));
+		return 1;
+	}
+
+	name_t sockpath;
+	sockpath[0] = 0;
+	kr = _vprocmgr_getsocket(sockpath);
+	if (kr != BOOTSTRAP_SUCCESS) {
+		fprintf(stderr, "_vprocmgr_getsocket(): %u\n", kr);
+		return 1;
+	}
+
+	setenv(LAUNCHD_SOCKET_ENV, sockpath, 1);
+	setenv(LAUNCH_ENV_KEEPCONTEXT, "1", 1);
+	if (fwexec((const char *const *)argv + 2, NULL) == -1) {
+		fprintf(stderr, "Couldn't spawn command: %s\n", argv[2]);
+		return 1;
+	}
+	
+	return 0;
 }
 
 void
@@ -3504,7 +3593,7 @@ loopback_setup_ipv4(void)
 
 	if (assumes(ioctl(s, SIOCGIFFLAGS, &ifr) != -1)) {
 		ifr.ifr_flags |= IFF_UP;
-		assumes(ioctl(s, SIOCSIFFLAGS, &ifr) != -1);
+		(void)assumes(ioctl(s, SIOCSIFFLAGS, &ifr) != -1);
 	}
 
 	memset(&ifra, 0, sizeof(ifra));
@@ -3516,9 +3605,9 @@ loopback_setup_ipv4(void)
 	((struct sockaddr_in *)&ifra.ifra_mask)->sin_addr.s_addr = htonl(IN_CLASSA_NET);
 	((struct sockaddr_in *)&ifra.ifra_mask)->sin_len = sizeof(struct sockaddr_in);
 
-	assumes(ioctl(s, SIOCAIFADDR, &ifra) != -1);
+	(void)assumes(ioctl(s, SIOCAIFADDR, &ifra) != -1);
 
-	assumes(close(s) == 0);
+	(void)assumes(close(s) == 0);
 }
 
 void
@@ -3539,7 +3628,7 @@ loopback_setup_ipv6(void)
 
 	if (assumes(ioctl(s6, SIOCGIFFLAGS, &ifr) != -1)) {
 		ifr.ifr_flags |= IFF_UP;
-		assumes(ioctl(s6, SIOCSIFFLAGS, &ifr) != -1);
+		(void)assumes(ioctl(s6, SIOCSIFFLAGS, &ifr) != -1);
 	}
 
 	memset(&ifra6, 0, sizeof(ifra6));
@@ -3554,9 +3643,11 @@ loopback_setup_ipv6(void)
 	ifra6.ifra_lifetime.ia6t_vltime = ND6_INFINITE_LIFETIME;
 	ifra6.ifra_lifetime.ia6t_pltime = ND6_INFINITE_LIFETIME;
 
-	assumes(ioctl(s6, SIOCAIFADDR_IN6, &ifra6) != -1);
+	if (ioctl(s6, SIOCAIFADDR_IN6, &ifra6) == -1) {
+		(void)assumes(errno == EEXIST);
+	}
 
-	assumes(close(s6) == 0);
+	(void)assumes(close(s6) == 0);
 }
 
 pid_t
@@ -3566,7 +3657,6 @@ fwexec(const char *const *argv, int *wstatus)
 	pid_t p;
 
 	/* We'd use posix_spawnp(), but we want to workaround: 6288899 */
-
 	if ((p = vfork()) == -1) {
 		return -1;
 	} else if (p == 0) {
@@ -3591,8 +3681,11 @@ void
 do_potential_fsck(void)
 {
 	const char *safe_fsck_tool[] = { "fsck", "-fy", NULL };
-	const char *fsck_tool[] = { "fsck", "-p", NULL };
+	const char *fsck_tool[] = { "fsck", "-q", NULL };
 	const char *remount_tool[] = { "mount", "-uw", "/", NULL };
+#if TARGET_OS_EMBEDDED
+	const char *nvram_tool[] = { "/usr/sbin/nvram", "auto-boot=false", NULL };
+#endif
 	struct statfs sfs;
 
 	if (!assumes(statfs("/", &sfs) != -1)) {
@@ -3616,6 +3709,7 @@ do_potential_fsck(void)
 		}
 	}
 
+	fprintf(stdout, "Running safe fsck on the boot volume...\n");
 	if (fwexec(safe_fsck_tool, NULL) != -1) {
 		goto out;
 	}
@@ -3623,7 +3717,12 @@ do_potential_fsck(void)
 	fprintf(stdout, "fsck failed!\n");
 
 	/* someday, we should keep booting read-only, but as of today, other sub-systems cannot handle that scenario */
-	assumes(reboot(RB_HALT) != -1);
+#if TARGET_OS_EMBEDDED
+	(void)assumes(fwexec(nvram_tool, NULL) != -1);
+	(void)assumes(reboot(RB_AUTOBOOT) != -1);
+#else
+	(void)assumes(reboot(RB_HALT) != -1);
+#endif
 
 	return;
 out:
@@ -3639,11 +3738,14 @@ out:
 #if TARGET_OS_EMBEDDED
 	if (path_check("/etc/fstab")) {
 		const char *mount_tool[] = { "mount", "-vat", "nonfs", NULL };
-		assumes(fwexec(mount_tool, NULL) != -1);
+		if (!assumes(fwexec(mount_tool, NULL) != -1)) {
+			(void)assumes(fwexec(nvram_tool, NULL) != -1);
+			(void)assumes(reboot(RB_AUTOBOOT) != -1);
+		}
 	} else
 #endif
 	{
-		assumes(fwexec(remount_tool, NULL) != -1);
+		(void)assumes(fwexec(remount_tool, NULL) != -1);
 	}
 
 	fix_bogus_file_metadata();
@@ -3665,7 +3767,14 @@ fix_bogus_file_metadata(void)
 		{ _PATH_VARTMP, 0, 0, S_ISTXT|S_IRWXU|S_IRWXG|S_IRWXO, S_ISUID|S_ISGID, true },
 		{ "/var/folders", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_ISUID | S_ISGID, true },
 		{ LAUNCHD_DB_PREFIX, 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH, true },
-		{ LAUNCHD_DB_PREFIX "/com.apple.launchd", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH, true }
+		{ LAUNCHD_DB_PREFIX "/com.apple.launchd", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH, true },
+		// Fixing <rdar://problem/7571633>.
+		{ _PATH_VARDB, 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
+		{ _PATH_VARDB "mds/", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
+#if !TARGET_OS_EMBEDDED
+		// Similar fix for <rdar://problem/6550172>.
+		{ "/Library/StartupItems", 0, 0, S_IRWXU | S_IRGRP | S_IXGRP | S_IROTH | S_IXOTH, S_IWGRP | S_IWOTH | S_ISUID | S_ISGID, true },
+#endif
 	};
 	struct stat sb;
 	size_t i;
@@ -3678,10 +3787,10 @@ fix_bogus_file_metadata(void)
 
 		if (!assumes(stat(f[i].path, &sb) != -1)) {
 			fprintf(stdout, "Crucial filesystem check: Path not present: %s. %s\n", f[i].path, f[i].create ? "Will create." : "");
-			if( f[i].create ) {
-				if( !assumes(mkdir(f[i].path, f[i].needed_bits) != -1) ) {
+			if (f[i].create) {
+				if (!assumes(mkdir(f[i].path, f[i].needed_bits) != -1)) {
 					continue;
-				} else if( !assumes(stat(f[i].path, &sb) != -1) ) {
+				} else if (!assumes(stat(f[i].path, &sb) != -1)) {
 					continue;
 				}
 			} else {
@@ -3710,10 +3819,10 @@ fix_bogus_file_metadata(void)
 		}
 
 		if (fix_mode) {
-			assumes(chmod(f[i].path, (sb.st_mode & ~i_bad_bits) | i_needed_bits) != -1);
+			(void)assumes(chmod(f[i].path, (sb.st_mode & ~i_bad_bits) | i_needed_bits) != -1);
 		}
 		if (fix_id) {
-			assumes(chown(f[i].path, f[i].owner, f[i].group) != -1);
+			(void)assumes(chown(f[i].path, f[i].owner, f[i].group) != -1);
 		}
 	}
 }
@@ -3798,7 +3907,7 @@ empty_dir(const char *thedir, struct stat *psb)
 		}
 
 		if (psb->st_dev != sb.st_dev) {
-			assumes(unmount(de->d_name, MNT_FORCE) != -1);
+			(void)assumes(unmount(de->d_name, MNT_FORCE) != -1);
 
 			/* Let's lstat() again to see if the unmount() worked and what was under it */
 			if (!assumes(lstat(de->d_name, &sb) != -1)) {
@@ -3814,15 +3923,15 @@ empty_dir(const char *thedir, struct stat *psb)
 			empty_dir(de->d_name, &sb);
 		}
 
-		assumes(lchflags(de->d_name, 0) != -1);
-		assumes(remove(de->d_name) != -1);
+		(void)assumes(lchflags(de->d_name, 0) != -1);
+		(void)assumes(remove(de->d_name) != -1);
 	}
 
-	assumes(closedir(od) != -1);
+	(void)assumes(closedir(od) != -1);
 
 out:
-	assumes(fchdir(currend_dir_fd) != -1);
-	assumes(close(currend_dir_fd) != -1);
+	(void)assumes(fchdir(currend_dir_fd) != -1);
+	(void)assumes(close(currend_dir_fd) != -1);
 }
 
 int
@@ -3868,19 +3977,48 @@ apply_sysctls_from_file(const char *thefile)
 			goto skip_sysctl_tool;
 		}
 		sysctl_tool[2] = val;
-		assumes(fwexec(sysctl_tool, NULL) != -1);
+		(void)assumes(fwexec(sysctl_tool, NULL) != -1);
 skip_sysctl_tool:
 		free(tmpstr);
 	}
 
-	assumes(fclose(sf) == 0);
+	(void)assumes(fclose(sf) == 0);
+}
+
+static CFStringRef
+copySystemBuildVersion(void)
+{
+    CFStringRef build = NULL;
+    const char path[] = "/System/Library/CoreServices/SystemVersion.plist";
+    CFURLRef plistURL = CFURLCreateFromFileSystemRepresentation(kCFAllocatorSystemDefault, (const uint8_t *)path, sizeof(path) - 1, false);
+
+	CFPropertyListRef plist = NULL;
+    if (plistURL && (plist = CFPropertyListCreateFromFile(plistURL))) {
+		if (CFTypeCheck(plist, CFDictionary)) {
+			build = (CFStringRef)CFDictionaryGetValue((CFDictionaryRef)plist, _kCFSystemVersionBuildVersionKey);
+			if (build && CFTypeCheck(build, CFString)) {
+				CFRetain(build);
+			} else {
+				build = CFSTR("99Z999");
+			}
+		}
+
+		CFRelease(plist);
+    } else {
+		build = CFSTR("99Z999");
+	}
+
+	if (plistURL) {
+		CFRelease(plistURL);
+	}
+
+    return build;
 }
 
 void
 do_sysversion_sysctl(void)
 {
 	int mib[] = { CTL_KERN, KERN_OSVERSION };
-	CFDictionaryRef versdict;
 	CFStringRef buildvers;
 	char buf[1024];
 	size_t bufsz = sizeof(buf);
@@ -3896,17 +4034,13 @@ do_sysversion_sysctl(void)
 		return;
 	}
 
-	if (!assumes((versdict = _CFCopySystemVersionDictionary()))) {
-		return;
-	}
-
-	if (assumes((buildvers = CFDictionaryGetValue(versdict, _kCFSystemVersionBuildVersionKey)))) {
+	buildvers = copySystemBuildVersion();
+	if (assumes(buildvers)) {
 		CFStringGetCString(buildvers, buf, sizeof(buf), kCFStringEncodingUTF8);
-
-		assumes(sysctl(mib, 2, NULL, 0, buf, strlen(buf) + 1) != -1);
+		(void)assumes(sysctl(mib, 2, NULL, 0, buf, strlen(buf) + 1) != -1);
 	}
 
-	CFRelease(versdict);
+	CFRelease(buildvers);
 }
 
 void
@@ -3965,7 +4099,7 @@ do_application_firewall_magic(int sfd, launch_data_t thejob)
 
 	if (assumes(prog != NULL)) {
 		/* The networking team has asked us to ignore the failure of this API if errno == ENOPROTOOPT */
-		assumes(setsockopt(sfd, SOL_SOCKET, SO_EXECPATH, prog, (socklen_t)(strlen(prog) + 1)) != -1 || errno == ENOPROTOOPT);
+		(void)assumes(setsockopt(sfd, SOL_SOCKET, SO_EXECPATH, prog, (socklen_t)(strlen(prog) + 1)) != -1 || errno == ENOPROTOOPT);
 	}
 }
 
@@ -3998,7 +4132,7 @@ preheat_page_cache_hack(void)
 
 		if (fstat(fd, &sb) != -1) { 
 			if ((sb.st_size < 10*1024*1024) && (junkbuf = malloc((size_t)sb.st_size)) != NULL) {
-				assumes(read(fd, junkbuf, (size_t)sb.st_size) == (ssize_t)sb.st_size);
+				(void)assumes(read(fd, junkbuf, (size_t)sb.st_size) == (ssize_t)sb.st_size);
 				free(junkbuf);
 			}
 		}
@@ -4040,7 +4174,7 @@ do_bootroot_magic(void)
 	}
 
 	if (WIFEXITED(wstatus) && WEXITSTATUS(wstatus) == EX_OSFILE) {
-		assumes(reboot(RB_AUTOBOOT) != -1);
+		(void)assumes(reboot(RB_AUTOBOOT) != -1);
 	}
 }
 
@@ -4054,9 +4188,13 @@ do_file_init(void)
 	}
 
 	char bootargs[128];
-	size_t len = sizeof(bootargs) - 1;
+	size_t len = sizeof(bootargs);
 	int r = sysctlbyname("kern.bootargs", bootargs, &len, NULL, 0);
-	if( r == 0 && stat("/var/db/.launchd_shutdown_debugging", &sb) == 0 && strnstr(bootargs, "-v", len) != NULL ) {
+	if (r == 0 && (strnstr(bootargs, "-v", len) != NULL || strnstr(bootargs, "-s", len))) {
 		g_verbose_boot = true;
+	}
+	
+	if (stat("/var/db/.launchd_shutdown_debugging", &sb) == 0 && g_verbose_boot) {
+		g_startup_debugging = true;
 	}
 }

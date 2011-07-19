@@ -3,6 +3,7 @@
 [copyright {2002, Brett Schwarz <brett_schwarz@yahoo.com>}]
 [moddesc   {Tcl Data Structures}]
 [titledesc {Define and create records (similar to 'C' structures)}]
+[category  {Data structures}]
 [require Tcl 8.2]
 [require struct::record [opt 1.2.1]]
 [description]

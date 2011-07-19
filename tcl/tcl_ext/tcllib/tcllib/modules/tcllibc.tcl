@@ -2,10 +2,10 @@
 # found in Tcllib in one shared library.
 
 package require critcl
-package provide tcllibc 0.3.4
+package provide tcllibc 0.3.9
 
 namespace eval ::tcllib {
-    variable tcllibc_rcsid {$Id: tcllibc.tcl,v 1.8 2008/07/02 23:35:52 andreas_kupries Exp $}
+    variable tcllibc_rcsid {$Id: tcllibc.tcl,v 1.13 2010/05/25 19:26:17 andreas_kupries Exp $}
     critcl::ccode {
         /* no code required in this file */
     }

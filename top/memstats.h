@@ -32,5 +32,7 @@ struct statistic *top_vprvt_create(WINDOW *parent, const char *name);
 struct statistic *top_rshrd_create(WINDOW *parent, const char *name);
 struct statistic *top_mregion_create(WINDOW *parent, const char *name);
 struct statistic *top_pageins_create(WINDOW *parent, const char *name);
+struct statistic *top_kprvt_create(WINDOW *parent, const char *name);
+struct statistic *top_kshrd_create(WINDOW *parent, const char *name);
 
 #endif /*MEMSTATS_H*/

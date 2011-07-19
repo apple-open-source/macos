@@ -33,6 +33,8 @@ THIS SOFTWARE.
 
 #include "gdtoaimp.h"
 
+#include <sys/types.h>
+
 #ifdef USE_LOCALE
 #include "locale.h"
 #endif
@@ -47,6 +49,7 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 {
 	Bigint *b;
 	CONST unsigned char *decpt, *s0, *s, *s1;
+	unsigned char *strunc;
 	int big, esign, havedig, irv, j, k, n, n0, nbits, up, zret;
 	ULong L, lostbits, *x;
 	Long e, e1;
@@ -60,7 +63,7 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 	static unsigned char *decimalpoint_cache;
 	if (!(s0 = decimalpoint_cache)) {
 		s0 = (unsigned char*)localeconv_l(loc)->decimal_point;
-		if ((decimalpoint_cache = (char*)malloc(strlen(s0) + 1))) {
+		if ((decimalpoint_cache = (char*)MALLOC(strlen(s0) + 1))) {
 			strcpy(decimalpoint_cache, s0);
 			s0 = decimalpoint_cache;
 			}
@@ -201,8 +204,59 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 		*exp = fpi->emin;
 		return STRTOG_Normal | STRTOG_Inexlo;
 		}
+	/*
+	 * Truncate the hex string if it is longer than the precision needed,
+	 * to avoid denial-of-service issues with very large strings.  Use
+	 * additional digits to insure precision.  Scan to-be-truncated digits
+	 * and replace with either '1' or '0' to ensure proper rounding.
+	 */
+	{
+		int maxdigits = ((fpi->nbits + 3) >> 2) + 2;
+		size_t nd = s1 - s0;
+#ifdef USE_LOCALE
+		int dplen = strlen((const char *)decimalpoint);
+#else
+		int dplen = 1;
+#endif
+
+		if (decpt && s0 < decpt)
+			nd -= dplen;
+		if (nd > maxdigits && (strunc = alloca(maxdigits + dplen + 2)) != NULL) {
+			ssize_t nd0 = decpt ? decpt - s0 - dplen : nd;
+			unsigned char *tp = strunc + maxdigits;
+			int found = 0;
+			if ((nd0 -= maxdigits) >= 0 || s0 >= decpt)
+				memcpy(strunc, s0, maxdigits);
+			else {
+				memcpy(strunc, s0, maxdigits + dplen);
+				tp += dplen;
+				}
+			s0 += maxdigits;
+			e += (nd - (maxdigits + 1)) << 2;
+			if (nd0 > 0) {
+				while(nd0-- > 0)
+					if (*s0++ != '0') {
+						found++;
+						break;
+						}
+				s0 += dplen;
+				}
+			if (!found && decpt) {
+				while(s0 < s1)
+					if(*s0++ != '0') {
+						found++;
+						break;
+						}
+				}
+			*tp++ = found ? '1' : '0';
+			*tp = 0;
+			s0 = strunc;
+			s1 = tp;
+			}
+		}
+
 	n = s1 - s0 - 1;
-	for(k = 0; n > 7; n >>= 1)
+	for(k = 0; n > (1 << (kshift-2)) - 1; n >>= 1)
 		k++;
 	b = Balloc(k);
 	x = b->x;
@@ -221,7 +275,7 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 		if (*--s1 == '.')
 			continue;
 #endif
-		if (n == 32) {
+		if (n == ULbits) {
 			*x++ = L;
 			L = 0;
 			n = 0;
@@ -231,7 +285,7 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 		}
 	*x++ = L;
 	b->wds = n = x - b->x;
-	n = 32*n - hi0bits(L);
+	n = ULbits*n - hi0bits(L);
 	nbits = fpi->nbits;
 	lostbits = 0;
 	x = b->x;
@@ -317,7 +371,7 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 			break;
 		  case FPI_Round_near:
 			if (lostbits & 2
-			 && (lostbits & 1) | x[0] & 1)
+			 && (lostbits | x[0]) & 1)
 				up = 1;
 			break;
 		  case FPI_Round_up:
@@ -336,8 +390,8 @@ gethex( CONST char **sp, FPI *fpi, Long *exp, Bigint **bp, int sign, locale_t lo
 					irv =  STRTOG_Normal;
 				}
 			else if (b->wds > k
-			 || (n = nbits & kmask) !=0
-			     && hi0bits(x[k-1]) < 32-n) {
+			 || ((n = nbits & kmask) !=0
+			      && hi0bits(x[k-1]) < 32-n)) {
 				rshift(b,1);
 				if (++e > fpi->emax)
 					goto ovfl;

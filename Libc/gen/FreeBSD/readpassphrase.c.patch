@@ -1,6 +1,6 @@
---- readpassphrase.c.orig	2003-05-20 15:21:02.000000000 -0700
-+++ readpassphrase.c	2005-02-24 17:00:36.000000000 -0800
-@@ -33,6 +33,8 @@
+--- readpassphrase.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ readpassphrase.c	2009-11-07 14:51:39.000000000 -0800
+@@ -33,6 +33,8 @@ static const char rcsid[] = "$OpenBSD: r
  #include <sys/cdefs.h>
  __FBSDID("$FreeBSD: src/lib/libc/gen/readpassphrase.c,v 1.6 2002/03/09 03:16:41 green Exp $");
  
@@ -9,7 +9,7 @@
  #include "namespace.h"
  #include <ctype.h>
  #include <errno.h>
-@@ -59,6 +61,7 @@
+@@ -59,6 +61,7 @@ readpassphrase(const char *prompt, char 
  	struct termios term, oterm;
  	struct sigaction sa, saveint, savehup, savequit, saveterm;
  	struct sigaction savetstp, savettin, savettou;
@@ -17,7 +17,7 @@
  
  	/* I suppose we could alloc on demand in this case (XXX). */
  	if (bufsiz == 0) {
-@@ -115,11 +118,11 @@
+@@ -115,11 +118,11 @@ restart:
  		if (p < end) {
  			if ((flags & RPP_SEVENBIT))
  				ch &= 0x7f;

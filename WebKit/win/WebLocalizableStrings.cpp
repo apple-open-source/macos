@@ -28,11 +28,9 @@
 
 #include "WebLocalizableStrings.h"
 
-#pragma warning(push, 0)
 #include <WebCore/PlatformString.h>
-#include <WebCore/StringHash.h>
 #include <wtf/text/CString.h>
-#pragma warning(pop)
+#include <wtf/text/StringHash.h>
 
 #include <wtf/Assertions.h>
 #include <wtf/HashMap.h>
@@ -72,7 +70,8 @@ static LocalizedStringMap frameworkLocStrings()
     return map;
 }
 
-class LocalizedString : public Noncopyable {
+class LocalizedString {
+    WTF_MAKE_NONCOPYABLE(LocalizedString);
 public:
     LocalizedString(CFStringRef string)
         : m_cfString(string)

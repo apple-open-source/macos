@@ -1,0 +1,510 @@
+commit 3fe64746bb6c3ede67c9967ebd216a8a39cdb2ea
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Sep 24 11:53:40 2010 -0700
+
+    xmodmap 1.0.5
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit f6919f5958acc59d0b1936cc49900ea781bf2355
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Sep 24 11:52:18 2010 -0700
+
+    man page: Add setxkbmap & XStringToKeysym to the See Also list
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 663b798d1464be003b9659bbd00112d8b63f6f6f
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Sep 24 11:43:33 2010 -0700
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_CC & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    PKG_CONFIG_MODULES handles AC_SUBST of the CFLAGS & LIBS variables
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 7ff4acd4c8cf2d97d321276d2616d199f81c7e16
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Jul 20 18:45:18 2010 -0400
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 22189c5be96e864b60f9c4cb8a0d9c3f142e849a
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 21 18:12:09 2010 -0700
+
+    Sun's copyrights now belong to Oracle
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit d1091f9fee901b5cdc589aa544c0a5616bf99d9d
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Tue Sep 14 00:45:57 2010 -0700
+
+    Attempt to further improve keysym name info in man page
+    
+    - Move it to the top of the grammar section since it applies to
+      multiple commands, not just the keysym KEYSYMNAME = KEYSYMNAME command
+    - Note that XKeysymDB supplements keysymdef.h, doesn't stand in place
+      of it.
+    - Add note about automatic mapping of Unicode characters to keysyms
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit ffadc2376ede14285e2df8c43230d0d4ecca354f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Fri Aug 20 10:53:44 2010 -0400
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Use the appropriate platform version of sed
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 5b493fd2d6edfca06113b09e6cbd6d6f1776399a
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Jan 15 13:08:54 2010 -0800
+
+    Update Sun license notices to current X.Org standard form
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit bca4e6fdbe0e4f43c1c57dd9434c42741061407a
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Sun Dec 6 14:00:34 2009 +0100
+
+    Fix XKeysymDB path in manpage again
+    
+    commit 4da097462b0b899e1790fd5a5f5e8ec811623c3d "Bug 21675 xmodmap
+    manpage states the wrong path to XKeysymDB" made it use the right path,
+    but had trailing whitespace in Makefile.am so the manpage ended up with
+    "/usr/share/X11 /XKeysymDB".
+
+commit 584cc13735613f7788e033707ff756937a787bfa
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 27388cde37b85a4efe1e19715de4b574e350b81e
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 817f5345cf42ba4c903c62b5ff814e9c9e3fed3f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Tue Oct 27 15:07:25 2009 -0400
+
+    Deploy the new XORG_DEFAULT_OPTIONS #24242
+    
+    This macro aggregate a number of existing macros that sets commmon
+    X.Org components configuration options. It shields the configuration file from
+    future changes.
+
+commit 775727681868d51ba82b7da429ca91f3af3783a0
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:39 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit ea18aba03dc1a8f14d63b43e1ce960f3cda2d7ea
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 16:14:12 2009 -0400
+
+    Makefile.am: do not include autogen.sh in distribution #24183
+    
+    This is a private build script that should not be distributed
+
+commit 719ab352112d53c113b45ed691e39c4411b8f653
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 10:16:12 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit 3a95c2e779ab94ad76a35f5800d2b72b5b73da45
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Sat Nov 7 15:11:33 2009 -0800
+
+    Add note to man page about mapping pointer buttons to 0 to disable
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 95af7f0fa995ef1dd3a770c48ee3442f6279e936
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Wed Oct 21 12:47:21 2009 -0700
+
+    This is not a GNU project, so declare it foreign.
+    
+    On Wed, 2009-10-21 at 13:36 +1000, Peter Hutterer wrote:
+    > On Tue, Oct 20, 2009 at 08:23:55PM -0700, Jeremy Huddleston wrote:
+    > > I noticed an INSTALL file in xlsclients and libXvMC today, and it
+    > > was quite annoying to work around since 'autoreconf -fvi' replaces
+    > > it and git wants to commit it.  Should these files even be in git?
+    > > Can I nuke them for the betterment of humanity and since they get
+    > > created by autoreconf anyways?
+    >
+    > See https://bugs.freedesktop.org/show_bug.cgi?id=24206
+    
+    As an interim measure, replace AM_INIT_AUTOMAKE([dist-bzip2]) with
+    AM_INIT_AUTOMAKE([foreign dist-bzip2]). This will prevent the generation
+    of the INSTALL file. It is also part of the 24206 solution.
+    
+    Signed-off-by: Jeremy Huddleston <jeremyhu@freedesktop.org>
+
+commit 3f5223b0bc87b0b55d91ba8f1a8cedce0e25f974
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 5 20:41:49 2009 -0700
+
+    xmodmap 1.0.4
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6a24b39d0674ee35436bad6aa0fad8150cf2c427
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 5 20:40:45 2009 -0700
+
+    Add pointers to mailing lists, bugzilla, & git to README
+    
+    Also delete empty INSTALL so automake installs the default one
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 20a3ff72337c689ca46f140e594933df75d2bce4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Oct 5 20:38:40 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 4da097462b0b899e1790fd5a5f5e8ec811623c3d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon May 11 10:16:29 2009 -0700
+
+    Bug 21675 xmodmap manpage states the wrong path to XKeysymDB
+    
+    http://bugs.freedesktop.org/show_bug.cgi?id=21675
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit db17ca534037463051833eeaf6d09356c479565e
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jan 22 16:29:51 2009 -0200
+
+    Correct make distcheck.
+
+commit b45149922ee23a71efa013d3ef36ca4f6c6494be
+Author: Ben North <ben@redfrontdoor.org>
+Date:   Tue Jan 20 18:26:27 2009 +0100
+
+    Skip whitespace for virtual button '0'.
+
+commit 8d9922bdc53c5538dbfbba65f5a3e15afc8aea91
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Mon Aug 6 15:58:57 2007 -0700
+
+    Version bump: 1.0.3
+
+commit 822b6bffce953041accc13f4633d2c5d4a8c8dcd
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 15:57:10 2007 -0700
+
+    Use strncasecmp if we can, instead of our own homegrown strncmp_nocase
+
+commit d76839f34692c7bc4ad1337ca23a3362534c1172
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 15:52:39 2007 -0700
+
+    Change usage messages from arrays of strings to simple const strings
+
+commit 658d0022a87c5d3afe3e006e539c5c1b981a8d73
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 13:27:50 2007 -0700
+
+    Constify some simple cases
+
+commit b7aafba248db5e9c3ba39e4819d0b9ae156d2c82
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 13:03:38 2007 -0700
+
+    sparse warning: non-ANSI definition of function 'process_file' & 'process_line'
+
+commit e1cb231b31be520b76aeb72acc1af9ff6682fa9d
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 13:01:07 2007 -0700
+
+    Add hooks for checking source code with lint/sparse/etc.
+
+commit eda127631001674cd40466fddb5225e618c2a327
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 12:54:16 2007 -0700
+
+    Remove unused code
+
+commit b57637a154a40e874a6bcb351aaa8335e86ae3c0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 12:48:31 2007 -0700
+
+    Coverity #678: get_keysym_list: Returned without freeing storage "keysymlist"
+    
+    Free allocated memory in error path when it's not being returned
+
+commit 72a01c6a3bae2cf113ab0ec812df41fec9b99a51
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 11:04:16 2007 -0700
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 4dfbd74bda684bea748fbbcbfc172f6325423d12
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Tue Jul 17 10:37:57 2007 -0700
+
+    Use AM_CFLAGS instead of xmodmap_CFLAGS to avoid automake-1.10 warnings
+
+commit fd25acd688b86a1490198d61f66d2503a87883a0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Apr 11 15:30:16 2007 -0700
+
+    Bug 10616: manpage should note -pm is the default if no options are given
+    
+    X.Org Bugzilla #10616 <https://bugs.freedesktop.org/show_bug.cgi?id=10616>
+    Reported upstream from
+    Debian Bug #236918 <http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=236198>
+
+commit 15a83b060b9b4bd7d6a64eacc7191e33eb91b269
+Author: Adam Jackson <ajax@benzedrine.nwnk.net>
+Date:   Fri Oct 13 17:55:42 2006 -0400
+
+    Bump to 1.0.2
+
+commit 27404e37e50fe637f33f6efac2fa73c9cfc1026c
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 13 15:08:59 2006 -0700
+
+    Add *~ to .gitignore to ignore emacs droppings
+
+commit 98063dc377dff55f1b057eda14ace69beed82c16
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 13 15:08:19 2006 -0700
+
+    renamed: .cvsignore -> .gitignore
+
+commit 86a4f2a2d66bbeb6c9deee9133eb335f593c47f9
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Sep 13 15:07:16 2006 -0700
+
+    Sun bug 6459447: Add note on reversing CapsLock/Control swap to man page
+    
+    http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6459447
+
+commit 7410e78207ca01d70d9df14eb1e4e07e7fe5f237
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Apr 26 23:42:50 2006 +0000
+
+    Bump to 1.0.1
+
+commit e8a5353022f9e616c22a7a1659ff4d4d968f5d88
+Author: Matthias Hopf <mhopf@suse.de>
+Date:   Wed Mar 22 15:14:31 2006 +0000
+
+    Allow changing of only a few buttons (not all).
+
+commit b9854ab5e66bf9ec8911d6573440738325cd51b4
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:09 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit a01cd5fe1c387c62b11368e3fac100e24e7d841e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:24 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit d39efd733ad56391082b08f9f486cf147e931197
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:26 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit 8a0747a21f9737212784c55b62044e86caf1fbc8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:45 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit 5e4dec81bffb5f296773c43aa45f52dc354c1886
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:05 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit f9c0b2a947ea8690ac73e8f9ce857cd195551c01
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:54 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit 65fb2a168c968e486be090caad29349427e4d65e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:56 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 4c47648e4789efe03eec74c39b2ab6b9b27230fc
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 356f26e95eb7003f9f65ffe480773f0d788dc871
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit c4483b314106bcd2bb13e49650cfd279f74da73e
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Wed Sep 28 19:28:15 2005 +0000
+
+    Copy bits from COPYING here.
+    Copy first paragraph from man page.
+    Add swap.km.
+
+commit 149fc373521b4ceb33e37c693834a27a702fcc2b
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:36 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit 327ffdf93fd0b8f7942c08653cb644be2062428c
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Jul 28 02:58:59 2005 +0000
+
+    Add build system for xmodmap Add xmodmap to build script
+
+commit 9145de293109ba96fc8b97ac59c16c51b992f416
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Thu Nov 11 15:37:01 2004 +0000
+
+    Fix #1818
+
+commit d9e41011e4477f581fb5592ad81fc081e0b606b9
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Oct 30 20:33:44 2004 +0000
+
+    Add -d flag for compilers like the Sun C compilers that produce dependency
+        lists themselves. To use with the Sun compilers, add to host.def: #
+        define UseCCMakeDepend YES # define DependFlags -cc $(CC) -d -xM (Sun
+        bug id #4245688 - fix by Alan Coopersmith)
+    Add Solaris to the platforms on which mprotect is run to set execute
+        permissions when necessary. (Sun bug id #6175128 - fix by Alan
+        Coopersmith)
+    Internationalize digital output (Sun bug id #4119396 - fix by Steve
+        Swales), add -bgpixmap option to set XPM file as background (originally
+        from STSF project version of xclock by Alan Coopersmith)
+    xc/programs/xmodmap/handle.c,pf.c xmodmap was printing line numbers which
+        are one too low in error messages (Xorg bugzilla #1739, Sun bug id
+        4637857 - fix by Sam Lau)
+
+commit ce64b2b312a73b9a4f266da8810ab552af4fbb1e
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Fri Oct 15 00:44:08 2004 +0000
+
+    Thu Oct 14 20:43:03 2004 Søren Sandmann <sandmann@redhat.com>
+    Fix a write-to-constant-string issue.
+    Fix several buffer overruns.
+
+commit 8ad5d3b908d68353d407fa8f678c93320760eb12
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:59 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 536ef73f2a5310f25c99a9c3a41f71d032ef95a6
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:42 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 11073ef989618e076133b1f58be7a406ba373b1b
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit e8ce00f47c06ea1bfcfd6538a80a10b868cee19e
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 072ef0f49182d381ac7e630eccd1b5b6749334a7
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit eb9faf624f11691c4ca7344f4169117718cea9c7
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Thu Dec 4 22:03:56 2003 +0000
+
+    XFree86 4.3.99.901 (RC 1)
+
+commit d678c60d8b5bede9e61f532aa1740d741b8bbe90
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit dc0f15394719e18bb9b01e70468f4d9908488d35
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit e29f1f1ed2128d7382a72ccb1684045fe4bc8183
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 15:54:54 2003 +0000
+
+    R6.6 is the Xorg base-line

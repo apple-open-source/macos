@@ -26,7 +26,7 @@ Deletes the specified pie object.
 The pie class is part of the tkpiechart extension that allows the programmer to create and dynamically update 2D or 3D pie charts in a Tcl/Tk application. The tkpiechart package is written in Tcl only, using object oriented techniques thanks to the stooop package, included in tcllib.
 
 [section OPTIONS]
-[list_begin opt]
+[list_begin options]
 [opt_def -autoupdate boolean]
 Boolean value specifying whether all the slices and their labels are redrawn when a slice size is changed. On by default. Turn it off and invoke [method pie::update] if you change many slices at once and want to improve performance.
 [opt_def -background color]
@@ -55,7 +55,8 @@ Specifies the total width for the pie, including the room taken by the labeler l
 [list_begin definitions]
 [call pie::newSlice [arg pieObject] [opt labelText]]
 Creates a slice. A unique object identifier is returned (referred to as [emph sliceObject] in this document). The slice color is automatically allocated and the slice label placed using the specified labeler (using the [option -labeler] option). The slice itself is placed after (clockwise) the existing slices. The slice object identifier will be used for sizing and resizing the slice.
-[nl]If the label text is not specified, it will be set to [emph {"slice n"}], [emph n] being the number of the slice in the order of creation (first slice is number 1).
+[para]
+If the label text is not specified, it will be set to [emph {"slice n"}], [emph n] being the number of the slice in the order of creation (first slice is number 1).
 [call pie::deleteSlice [arg pieObject] [arg sliceObject]]
 Deletes a slice. The following slices (clockwise) if any are then moved to compensate for the empty space left by the deleted slice.
 [call pie::sizeSlice [arg pieObject] [arg sliceObject] [arg unitShare] [opt displayedValue]]
@@ -68,10 +69,10 @@ Returns a list of currently selected slice objects.
 
 [section TAGS]
 The whole pie, the pie graphics (all slices), and each slice have the following specific tags:
-[list_begin bullet]
-  [bullet][var {pie(pieObject)}]
-  [bullet][var {pieSlices(pieObject)}]
-  [bullet][var {slice(sliceObject)}]
+[list_begin itemized]
+  [item][var {pie(pieObject)}]
+  [item][var {pieSlices(pieObject)}]
+  [item][var {slice(sliceObject)}]
 [list_end]
 For example, the whole pie can be moved using the [syscmd canvas] [cmd move] command on the pie tag, or bindings on slices can be set using the slice tags (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information).
 

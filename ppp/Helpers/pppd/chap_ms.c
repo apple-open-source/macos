@@ -129,13 +129,13 @@ static const char rcsid[] = RCSID;
 
 
 static void	ChallengeHash __P((u_char[16], u_char *, char *, u_char[8]));
-static void	ascii2unicode __P((char[], int, u_char[]));
-static void	NTPasswordHash __P((char *, int, u_char[MD4_SIGNATURE_SIZE]));
+static void	ascii2unicode __P((u_char[], int, u_char[]));
+static void	NTPasswordHash __P((u_char *, int, u_char[MD4_SIGNATURE_SIZE]));
 static void	ChallengeResponse __P((u_char *, u_char *, u_char[24]));
-static void	ChapMS_NT __P((u_char *, char *, int, u_char[24]));
-static void	ChapMS2_NT __P((char *, u_char[16], char *, char *, int,
+static void	ChapMS_NT __P((u_char *, u_char *, int, u_char[24]));
+static void	ChapMS2_NT __P((u_char *, u_char[16], char *, u_char *, int,
 				u_char[24]));
-static void	GenerateAuthenticatorResponse __P((char*, int, u_char[24],
+static void	GenerateAuthenticatorResponse __P((u_char*, int, u_char[24],
 						   u_char[16], u_char *,
 						   char *, u_char[41]));
 #ifdef MSLANMAN
@@ -143,8 +143,8 @@ static void	ChapMS_LANMan __P((u_char *, char *, int, MS_ChapResponse *));
 #endif
 
 #ifdef MPPE
-static void	Set_Start_Key __P((u_char *, char *, int));
-static void	SetMasterKeys __P((char *, int, u_char[24], int));
+static void	Set_Start_Key __P((u_char *, u_char *, int));
+static void	SetMasterKeys __P((u_char *, int, u_char[24], int));
 #endif
 
 #ifdef MSLANMAN
@@ -161,11 +161,11 @@ int mppe_keys_set = 0;		/* Have the MPPE keys been set? */
 /* Use "[]|}{?/><,`!2&&(" (sans quotes) for RFC 3079 MS-CHAPv2 test value */
 static char *mschap_challenge = NULL;
 /* Use "!@\#$%^&*()_+:3|~" (sans quotes, backslash is to escape #) for ... */
-static char *mschap2_peer_challenge = NULL;
+static u_char *mschap2_peer_challenge = NULL;
 
 #ifdef __APPLE__
 static u_char last_challenge_id = 0;
-static char last_challenge_response[16] = "";
+static u_char last_challenge_response[16] = "";
 #endif
 
 #include "fsm.h"		/* Need to poke MPPE options */
@@ -275,7 +275,7 @@ chapms2_verify_response(int id, char *name,
 {
 	MS_Chap2Response *rmd;
 	MS_Chap2Response md;
-	char saresponse[MS_AUTH_RESPONSE_LENGTH+1];
+	u_char saresponse[MS_AUTH_RESPONSE_LENGTH+1];
 	int challenge_len, response_len;
 
 	challenge_len = *challenge++;	/* skip length, is 16 */
@@ -348,7 +348,7 @@ chapms2_verify_response(int id, char *name,
 
 static void
 chapms_make_response(unsigned char *response, int id, char *our_name,
-		     unsigned char *challenge, char *secret, int secret_len,
+		     unsigned char *challenge, u_char *secret, int secret_len,
 		     unsigned char *private)
 {
 	challenge++;	/* skip length, should be 8 */
@@ -358,13 +358,32 @@ chapms_make_response(unsigned char *response, int id, char *our_name,
 
 static void
 chapms2_make_response(unsigned char *response, int id, char *our_name,
-		      unsigned char *challenge, char *secret, int secret_len,
+		      unsigned char *challenge, u_char *secret, int secret_len,
 		      unsigned char *private)
 {
+	u_char *challenge_resp;
+	
 	challenge++;	/* skip length, should be 16 */
 	*response++ = MS_CHAP2_RESPONSE_LEN;
-	ChapMS2(challenge,  mschap2_peer_challenge  
+	
+	challenge_resp = mschap2_peer_challenge;
+	
 #ifdef __APPLE__
+	if(!challenge_resp) {
+		/* use the the last challenge response known if the peer
+		 * hasn't supplied one
+		 */
+		if(id == last_challenge_id && last_challenge_response[0])
+			challenge_resp = last_challenge_response;
+		else {
+			challenge_resp = NULL;
+		}
+	}
+#endif
+			
+	ChapMS2(challenge,  challenge_resp,
+//#ifdef __APPLE__
+#if 0
 			? mschap2_peer_challenge :
 				(id == last_challenge_id && last_challenge_response[0] ? last_challenge_response : NULL), 
 #endif		
@@ -475,8 +494,8 @@ EncryptPwBlockWithPasswordHash(
 }
 
 static void
-NewPasswordEncryptedWithOldNtPasswordHash(char *NewPassword, int NewPasswordLen,
-	char *OldPassword, int OldPasswordLen,
+NewPasswordEncryptedWithOldNtPasswordHash(u_char *NewPassword, int NewPasswordLen,
+	u_char *OldPassword, int OldPasswordLen,
 	u_char *EncryptedPwBlock)
 {
     u_char	unicodeOldPassword[MAX_NT_PASSWORD * 2];
@@ -505,8 +524,8 @@ NtPasswordHashEncryptedWithBlock(u_char *PasswordHash, u_char *Block, u_char *Cy
 }
 
 static void
-OldNtPasswordHashEncryptedWithNewNtPasswordHash(char *NewPassword, int NewPasswordLen,
-	char *OldPassword, int OldPasswordLen,
+OldNtPasswordHashEncryptedWithNewNtPasswordHash(u_char *NewPassword, int NewPasswordLen,
+	u_char *OldPassword, int OldPasswordLen,
 	u_char *EncryptedPasswordHash)
 {
     u_char	unicodeOldPassword[MAX_NT_PASSWORD * 2];
@@ -554,8 +573,8 @@ ascii2hex(u_char *text, int len, u_char *hex)
 static int
 chapms2_change_password(unsigned char *response, char *our_name,
 		      unsigned char *status_pkt,
-			  char *secret, int secret_len,
-			  char *new_secret, int new_secret_len,
+			  u_char *secret, int secret_len,
+			  u_char *new_secret, int new_secret_len,
 		      unsigned char *private)
 {
 	int pktlen;
@@ -586,7 +605,7 @@ chapms2_change_password(unsigned char *response, char *our_name,
 	pktlen -= CHAP_HDRLEN;
 	/* then the response */
 	for (; pktlen; pktlen--, status_pkt++) {
-		if (!strncmp(status_pkt, " C=", 3)) {
+		if (!strncmp((char*)status_pkt, " C=", 3)) {
 
 			unsigned char challenge[MAX_CHALLENGE_LEN];
 			
@@ -611,7 +630,7 @@ chapms2_change_password(unsigned char *response, char *our_name,
 static int
 chapms2_retry_password(unsigned char *response, char *our_name,
 		      unsigned char *status_pkt,
-			  char *secret, int secret_len,
+			  u_char *secret, int secret_len,
 		      unsigned char *private)
 {
 	int pktlen, namelen = strlen(our_name);
@@ -632,7 +651,7 @@ chapms2_retry_password(unsigned char *response, char *our_name,
 	pktlen -= CHAP_HDRLEN;
 	/* then the response */
 	for (; pktlen; pktlen--, status_pkt++) {
-		if (!strncmp(status_pkt, " C=", 3)) {
+		if (!strncmp((char*)status_pkt, " C=", 3)) {
 			unsigned char challenge[MAX_CHALLENGE_LEN];
 			
 			ascii2hex(status_pkt + 3, sizeof(challenge), challenge);
@@ -656,7 +675,7 @@ chapms2_retry_password(unsigned char *response, char *our_name,
 static int
 chapms2_check_success(unsigned char *msg, int len, unsigned char *private)
 {
-	if ((len < MS_AUTH_RESPONSE_LENGTH + 2) || strncmp(msg, "S=", 2)) {
+	if ((len < MS_AUTH_RESPONSE_LENGTH + 2) || strncmp((char*)msg, "S=", 2)) {
 		/* Packet does not start with "S=" */
 		error("MS-CHAPv2 Success packet is badly formed.");
 		return 0;
@@ -672,7 +691,7 @@ chapms2_check_success(unsigned char *msg, int len, unsigned char *private)
 	/* Authenticator Response matches. */
 	msg += MS_AUTH_RESPONSE_LENGTH; /* Eat it */
 	len -= MS_AUTH_RESPONSE_LENGTH;
-	if ((len >= 3) && !strncmp(msg, " M=", 3))
+	if ((len >= 3) && !strncmp((char*)msg, " M=", 3))
 	{
 		//spec-conformant 
 		msg += 3; /* Eat the delimiter */
@@ -682,7 +701,7 @@ chapms2_check_success(unsigned char *msg, int len, unsigned char *private)
 		//we'll allow the missing-space case from the server, even though
 		//it's non-conforming to spec!
 		dbglog("Rcvd non-conforming MSCHAPv2 Success packet, len=%d", len);
-		if(len >= 2 && !strncmp(msg, "M=", 2))
+		if(len >= 2 && !strncmp((char*)msg, "M=", 2))
 			msg += 2;
 		else
 		{
@@ -848,7 +867,7 @@ ChallengeHash(u_char PeerChallenge[16], u_char *rchallenge,
  * is machine-dependent.)
  */
 static void
-ascii2unicode(char ascii[], int ascii_len, u_char unicode[])
+ascii2unicode(u_char ascii[], int ascii_len, u_char unicode[])
 {
     int i;
 
@@ -858,7 +877,7 @@ ascii2unicode(char ascii[], int ascii_len, u_char unicode[])
 }
 
 static void
-NTPasswordHash(char *secret, int secret_len, u_char hash[MD4_SIGNATURE_SIZE])
+NTPasswordHash(u_char *secret, int secret_len, u_char hash[MD4_SIGNATURE_SIZE])
 {
 #ifdef __APPLE__
 	CC_MD4(secret, secret_len, hash);
@@ -886,7 +905,7 @@ NTPasswordHash(char *secret, int secret_len, u_char hash[MD4_SIGNATURE_SIZE])
 }
 
 static void
-ChapMS_NT(u_char *rchallenge, char *secret, int secret_len,
+ChapMS_NT(u_char *rchallenge, u_char *secret, int secret_len,
 	  u_char NTResponse[24])
 {
     u_char	unicodePassword[MAX_NT_PASSWORD * 2];
@@ -900,8 +919,8 @@ ChapMS_NT(u_char *rchallenge, char *secret, int secret_len,
 }
 
 static void
-ChapMS2_NT(char *rchallenge, u_char PeerChallenge[16], char *username,
-	   char *secret, int secret_len, u_char NTResponse[24])
+ChapMS2_NT(u_char *rchallenge, u_char PeerChallenge[16], char *username,
+	   u_char *secret, int secret_len, u_char NTResponse[24])
 {
     u_char	unicodePassword[MAX_NT_PASSWORD * 2];
     u_char	PasswordHash[MD4_SIGNATURE_SIZE];
@@ -941,7 +960,7 @@ ChapMS_LANMan(u_char *rchallenge, char *secret, int secret_len,
 
 
 static void
-GenerateAuthenticatorResponse(char *secret, int secret_len,
+GenerateAuthenticatorResponse(u_char *secret, int secret_len,
 			      u_char NTResponse[24], u_char PeerChallenge[16],
 			      u_char *rchallenge, char *username,
 			      u_char authResponse[MS_AUTH_RESPONSE_LENGTH+1])
@@ -990,7 +1009,7 @@ GenerateAuthenticatorResponse(char *secret, int secret_len,
 
     /* Convert to ASCII hex string. */
     for (i = 0; i < MAX((MS_AUTH_RESPONSE_LENGTH / 2), sizeof(Digest)); i++)
-	snprintf(&authResponse[i * 2], MS_AUTH_RESPONSE_LENGTH+1 - i * 2, "%02X", Digest[i]);
+	snprintf((char*)&authResponse[i * 2], MS_AUTH_RESPONSE_LENGTH+1 - i * 2, "%02X", Digest[i]);
 }
 
 
@@ -1020,7 +1039,7 @@ mppe_set_keys(u_char *rchallenge, u_char PasswordHashHash[MD4_SIGNATURE_SIZE])
  * Set mppe_xxxx_key from MS-CHAP credentials. (see RFC 3079)
  */
 static void
-Set_Start_Key(u_char *rchallenge, char *secret, int secret_len)
+Set_Start_Key(u_char *rchallenge, u_char *secret, int secret_len)
 {
     u_char	unicodePassword[MAX_NT_PASSWORD * 2];
     u_char	PasswordHash[MD4_SIGNATURE_SIZE];
@@ -1038,7 +1057,7 @@ Set_Start_Key(u_char *rchallenge, char *secret, int secret_len)
  * Set mppe_xxxx_key from MS-CHAPv2 credentials. (see RFC 3079)
  */
 static void
-SetMasterKeys(char *secret, int secret_len, u_char NTResponse[24], int IsServer)
+SetMasterKeys(u_char *secret, int secret_len, u_char NTResponse[24], int IsServer)
 {
     SHA1_CTX	sha1Context;
     u_char	unicodePassword[MAX_NT_PASSWORD * 2];
@@ -1137,7 +1156,7 @@ SetMasterKeys(char *secret, int secret_len, u_char NTResponse[24], int IsServer)
 
 
 void
-ChapMS(u_char *rchallenge, char *secret, int secret_len,
+ChapMS(u_char *rchallenge, u_char *secret, int secret_len,
        MS_ChapResponse *response)
 {
 #if 0
@@ -1175,7 +1194,7 @@ ChapMS(u_char *rchallenge, char *secret, int secret_len,
  */
 void
 ChapMS2(u_char *rchallenge, u_char *PeerChallenge,
-	char *user, char *secret, int secret_len, MS_Chap2Response *response,
+	char *user, u_char *secret, int secret_len, MS_Chap2Response *response,
 	u_char authResponse[], int authenticator)
 {
     /* ARGSUSED */
@@ -1262,7 +1281,7 @@ static struct chap_digest_type chapms2_digest = {
 	CHAP_MICROSOFT_V2,	/* code */
 	chapms2_generate_challenge,
 	chapms2_verify_response,
-	chapms2_make_response,
+	chapms2_make_response, 
 	chapms2_check_success,
 	chapms_handle_failure,
 #ifdef __APPLE__

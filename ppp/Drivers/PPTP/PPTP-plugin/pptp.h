@@ -29,7 +29,6 @@
  *
  */
 
-
 #define PPTP_NKE	"PPTP.kext"
 #define PPTP_NKE_ID	"com.apple.nke.pptp"
 
@@ -38,7 +37,7 @@
 #define EXIT_PPTP_NOANSWER  		2
 #define EXIT_PPTP_PROTOCOLERROR 	5
 #define EXIT_PPTP_NETWORKCHANGED 	6
-#ifdef TARGET_EMBEDDED_OS
+#if TARGET_OS_EMBEDDED
 #define EXIT_PPTP_NOEDGE			7
 #endif
 

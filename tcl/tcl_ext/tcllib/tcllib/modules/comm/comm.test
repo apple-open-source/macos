@@ -7,7 +7,7 @@
 # Copyright (c) 2001 by ActiveState Tool Corp.
 # All rights reserved.
 #
-# RCS: @(#) $Id: comm.test,v 1.12 2008/02/29 20:21:50 andreas_kupries Exp $
+# RCS: @(#) $Id: comm.test,v 1.13 2009/04/10 23:46:55 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -17,6 +17,8 @@ source [file join \
 
 testsNeedTcl     8.3 ; # snit
 testsNeedTcltest 1.0
+
+tcltest::testConstraint hastls [expr {![catch {package require tls}]}]
 
 support {
     # Using snit1 here, whatever the version of Tcl
@@ -198,8 +200,6 @@ test comm-4.1 {async reception of a result via callback} {
     set res
 } {{-chan ::comm::comm -code 0 -errorcode {} -errorinfo {} -result {b a}}}
 
-
-
 test comm-4.2 {async generation/reception of results in parallel} {
 
     # Setup long running operations with async result generation.
@@ -254,7 +254,52 @@ test comm-5.0 {-port already in use} {
     unset -nocomplain shdl port
     set msg
 } {couldn't open socket: address already in use}
- 
+
+# ------------------------------------------------------------------------
+
+test comm-6.0 {secured communication via tls package} hastls {
+    # Setup secured channel in main process.
+    tls::init \
+	-keyfile  [tcllibPath devtools/receiver.key] \
+	-certfile [tcllibPath devtools/receiver.crt] \
+	-cafile   [tcllibPath devtools/ca.crt] \
+	-ssl2 1    \
+	-ssl3 1    \
+	-tls1 0    \
+	-require 1
+    comm::comm new BAR -socketcmd tls::socket -listen 1
+
+    # Setup secured channel in slave process
+    ::comm::comm send [slave] {
+	package require tls
+	set fox dog
+    }
+    ::comm::comm send [slave] \
+	[list \
+	     tls::init \
+	     -keyfile  [tcllibPath devtools/transmitter.key] \
+	     -certfile [tcllibPath devtools/transmitter.crt] \
+	     -cafile   [tcllibPath devtools/ca.crt] \
+	     -ssl2 1    \
+	     -ssl3 1    \
+	     -tls1 0    \
+	     -require 1]
+    set FOO [::comm::comm send [slave] {
+	comm::comm new FOO -socketcmd tls::socket -listen 1
+	FOO self
+    }] ; # {}
+
+    # Run command interaction over the secured channel
+    set res [BAR send $FOO {set fox}]
+
+    # Cleanup, remove secured endpoints
+    comm::comm send [slave] {FOO destroy}
+    BAR destroy
+
+    # Return result of the secured command
+    set res
+} dog
+
 # ------------------------------------------------------------------------
 
 slavestop

@@ -62,6 +62,9 @@
    */
 #undef CRAY_STACKSEG_END
 
+/* Define to a custom value for the ZSH_PATCHLEVEL parameter */
+#undef CUSTOM_PATCHLEVEL
+
 /* Define to 1 if using `alloca.c'. */
 #undef C_ALLOCA
 
@@ -89,6 +92,9 @@
 
 /* Define to 1 if multiple modules defining the same symbol are OK. */
 #undef DYNAMIC_NAME_CLASH_OK
+
+/* Define to 1 if getcwd() calls malloc to allocate memory. */
+#undef GETCWD_CALLS_MALLOC
 
 /* Define to 1 if the `getpgrp' function requires zero arguments. */
 #undef GETPGRP_VOID
@@ -126,6 +132,9 @@
    */
 #undef HAVE_ALLOCA_H
 
+/* Define to 1 if you have the <bind/netdb.h> header file. */
+#undef HAVE_BIND_NETDB_H
+
 /* Define if you have the termcap boolcodes symbol. */
 #undef HAVE_BOOLCODES
 
@@ -137,6 +146,9 @@
 
 /* Define to 1 if there is a prototype defined for brk() on your system. */
 #undef HAVE_BRK_PROTO
+
+/* Define to 1 if you have the `canonicalize_file_name' function. */
+#undef HAVE_CANONICALIZE_FILE_NAME
 
 /* Define to 1 if you have the `cap_get_proc' function. */
 #undef HAVE_CAP_GET_PROC
@@ -214,6 +226,9 @@
 /* Define to 1 if you have the `getcchar' function. */
 #undef HAVE_GETCCHAR
 
+/* Define to 1 if you have the `getcwd' function. */
+#undef HAVE_GETCWD
+
 /* Define to 1 if you have the `getenv' function. */
 #undef HAVE_GETENV
 
@@ -255,6 +270,9 @@
 
 /* Define to 1 if you have the `gettimeofday' function. */
 #undef HAVE_GETTIMEOFDAY
+
+/* Define to 1 if you have the `getxattr' function. */
+#undef HAVE_GETXATTR
 
 /* Define to 1 if you have the `grantpt' function. */
 #undef HAVE_GRANTPT
@@ -454,6 +472,9 @@
 /* Define to 1 if you have the `readlink' function. */
 #undef HAVE_READLINK
 
+/* Define to 1 if you have the `realpath' function. */
+#undef HAVE_REALPATH
+
 /* Define to 1 if you have the `regcomp' function. */
 #undef HAVE_REGCOMP
 
@@ -540,6 +561,9 @@
 
 /* Define to 1 if you have the `setpgrp' function. */
 #undef HAVE_SETPGRP
+
+/* Define to 1 if the system supports `setproctitle' to change process name */
+#undef HAVE_SETPROCTITLE
 
 /* Define to 1 if you have the `setresuid' function. */
 #undef HAVE_SETRESUID
@@ -741,6 +765,9 @@
 /* Define to 1 if you have RFS superroot directory. */
 #undef HAVE_SUPERROOT
 
+/* Define to 1 if you have the `symlink' function. */
+#undef HAVE_SYMLINK
+
 /* Define to 1 if you have the `sysconf' function. */
 #undef HAVE_SYSCONF
 
@@ -790,6 +817,9 @@
 
 /* Define to 1 if you have <sys/wait.h> that is POSIX.1 compatible. */
 #undef HAVE_SYS_WAIT_H
+
+/* Define to 1 if you have the <sys/xattr.h> header file. */
+#undef HAVE_SYS_XATTR_H
 
 /* Define to 1 if you have the `tcgetattr' function. */
 #undef HAVE_TCGETATTR
@@ -885,7 +915,7 @@
 #undef HAVE__MKTEMP
 
 /* Define to 1 if you want to use dynamically loaded modules on HPUX 10. */
-#undef HPUXDYNAMIC
+#undef HPUX10DYNAMIC
 
 /* Define as const if the declaration of iconv() needs const. */
 #undef ICONV_CONST
@@ -1042,6 +1072,9 @@
 
 /* Define if your should include sys/stream.h and sys/ptem.h. */
 #undef WINSIZE_IN_PTEM
+
+/* Define if getxattr() etc. require additional MacOS-style arguments */
+#undef XATTR_EXTRA_ARGS
 
 /* Define to a 64 bit integer type if there is one, but long is shorter. */
 #undef ZSH_64_BIT_TYPE

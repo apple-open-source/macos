@@ -4,7 +4,7 @@
 #
 #	Generic dialog widget (themed)
 #
-# RCS: @(#) $Id: dialog.tcl,v 1.21 2007/03/02 00:38:03 hobbs Exp $
+# RCS: @(#) $Id: dialog.tcl,v 1.23 2010/06/01 18:06:52 hobbs Exp $
 #
 
 # Creation and Options - widget::dialog $path ...
@@ -69,7 +69,6 @@ if 0 {
 
 #package require image   ; # bitmaps
 package require snit    ; # object system
-package require tile
 package require msgcat
 
 # ### ######### ###########################
@@ -220,6 +219,8 @@ snit::widget widget::dialog {
 	    }
 	    vwait [myvar result]
 	    catch {after cancel $timeout_id}
+	    # A synchronous dialog will always withdraw, even if a -command
+	    # tries to return a break code.
 	    return [$self withdraw $result]
 	}
     }
@@ -469,4 +470,4 @@ snit::widget widget::dialog {
 # ### ######### ###########################
 ## Ready for use
 
-package provide widget::dialog 1.2
+package provide widget::dialog 1.3.1

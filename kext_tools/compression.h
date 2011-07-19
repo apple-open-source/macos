@@ -42,4 +42,4 @@ u_int8_t * compress_lzss(
     u_int8_t * src,
     u_int32_t        srclen);
 
-#endif /* __COMPRESSION_H__ */
+#endif

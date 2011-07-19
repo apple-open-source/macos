@@ -438,7 +438,7 @@ main(argc, argv)
 
 
 	optind = optreset = 1;		/* Reset for parse of new argv. */
-	while ((ch = getopt(argc, argv, "xu:g:m:e:o:wt:jc")) != EOF)
+	while ((ch = getopt(argc, argv, "xu:g:m:e:o:wt:jc")) != EOF) {
 		switch (ch) {
 		case 't': {
 			char *ptr;
@@ -491,17 +491,6 @@ main(argc, argv)
 			{
 				int dummy;
 				getmntopts(optarg, mopts, &mntflags, &dummy);
-				if (mntflags & MNT_IGNORE_OWNERSHIP) {
-					/*
-						The defaults to be supplied in lieu of the on-disk permissions
-						(could be overridden by explicit -u, -g, or -m options):
-					 */
-					if (args.hfs_uid == (uid_t)VNOVAL) args.hfs_uid = UNKNOWNUID;
-					if (args.hfs_gid == (gid_t)VNOVAL) args.hfs_gid = UNKNOWNGID;
-#if OVERRIDE_UNKNOWN_PERMISSIONS
-					if (args.hfs_mask == (mode_t)VNOVAL) args.hfs_mask = ACCESSPERMS;  /* 0777 */
-#endif
-				};
 			}
 			break;
 		case 'w':
@@ -519,7 +508,19 @@ main(argc, argv)
 #endif
 			usage();
 		}; /* switch */
+	}
     
+	if ((mntflags & MNT_IGNORE_OWNERSHIP) && !(mntflags & MNT_UPDATE)) {
+		/*
+		 * The defaults to be supplied in lieu of the on-disk permissions
+		 * (could be overridden by explicit -u, -g, or -m options):
+		 */
+		if (args.hfs_uid == (uid_t)VNOVAL) args.hfs_uid = UNKNOWNUID;
+		if (args.hfs_gid == (gid_t)VNOVAL) args.hfs_gid = UNKNOWNGID;
+#if OVERRIDE_UNKNOWN_PERMISSIONS
+		if (args.hfs_mask == (mode_t)VNOVAL) args.hfs_mask = ACCESSPERMS;  /* 0777 */
+#endif
+	}
 	argc -= optind;
 	argv += optind;
 
@@ -766,7 +767,7 @@ get_encoding_pref(const char *device)
 		return 0;
 
 	if (SWAP_BE16(mdbp->drSigWord) != kHFSSigWord ||
-	    SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord && (!wrapper_requested)) {
+	    (SWAP_BE16(mdbp->drEmbedSigWord) == kHFSPlusSigWord && (!wrapper_requested))) {
 		return (-1);
 	}
 	else {

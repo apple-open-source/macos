@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2006 Dirk Mueller <mueller@kde.org>
- * Copyright (C) 2006 George Stiakos <staikos@kde.org>
+ * Copyright (C) 2006 George Staikos <staikos@kde.org>
  * Copyright (C) 2006 Zack Rusin <zack@kde.org>
  * Copyright (C) 2006 Nikolas Zimmermann <zimmermann@kde.org>
  * Copyright (C) 2008 Holger Hans Peter Freyther
@@ -37,19 +37,15 @@
 #include "GraphicsContext.h"
 #include "HostWindow.h"
 #include "IntRect.h"
-#include "ScrollView.h"
 #include "NotImplemented.h"
 #include "QWebPageClient.h"
-
-#include "qwebframe.h"
-#include "qwebframe_p.h"
-#include "qwebpage.h"
+#include "ScrollView.h"
 
 #include <QCoreApplication>
-#include <QPainter>
-#include <QPaintEngine>
-
 #include <QDebug>
+#include <QPaintEngine>
+#include <QPainter>
+#include <QWidget>
 
 namespace WebCore {
 
@@ -82,10 +78,10 @@ void Widget::setFocus(bool focused)
 void Widget::setCursor(const Cursor& cursor)
 {
 #ifndef QT_NO_CURSOR
-    QWebPageClient* pageClient = root()->hostWindow()->platformPageClient();
-
-    if (pageClient)
-        pageClient->setCursor(cursor.impl());
+    ScrollView* view = root();
+    if (!view)
+        return;
+    view->hostWindow()->setCursor(cursor);
 #endif
 }
 
@@ -112,6 +108,16 @@ void Widget::paint(GraphicsContext*, const IntRect&)
 void Widget::setIsSelected(bool)
 {
     notImplemented();
+}
+
+void Widget::setBindingObject(QObject* object)
+{
+    m_bindingObject = object;
+}
+
+QObject* Widget::bindingObject() const
+{
+    return m_bindingObject.data();
 }
 
 }

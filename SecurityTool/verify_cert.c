@@ -196,7 +196,7 @@ verify_cert(int argc, char * const *argv)
 	}
 	
 	/* per-policy options */
-	if(compareOids(policy, &CSSMOID_APPLE_TP_SSL)) {
+	if(compareOids(policy, &CSSMOID_APPLE_TP_SSL) || compareOids(policy, &CSSMOID_APPLE_TP_APPLEID_SHARING)) {
 		if(sslHost != NULL) {
 			memset(&sslOpts, 0, sizeof(sslOpts));
 			sslOpts.Version = CSSM_APPLE_TP_SSL_OPTS_VERSION;

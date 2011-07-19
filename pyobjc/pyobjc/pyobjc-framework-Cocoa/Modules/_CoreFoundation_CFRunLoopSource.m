@@ -1,10 +1,6 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static const void* 
-mod_retain(const void* info) 
+mod_source_retain(const void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +9,7 @@ mod_retain(const void* info)
 }
 
 static void
-mod_release(const void* info)
+mod_source_release(const void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -99,8 +95,8 @@ mod_perform(void* info)
 static CFRunLoopSourceContext mod_CFRunLoopSourceContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_source_retain,
+	mod_source_release,
 	NULL,
 	NULL,
 	NULL,
@@ -138,7 +134,12 @@ mod_CFRunLoopSourceCreate(
 	}
 
 	PyObject* v = PyTuple_GetItem(py_context, 0);
-	if (!PyInt_Check(v) || PyInt_AsLong(v) != 0) {
+	NSInteger i;
+
+	if (PyObjC_PythonToObjC(@encode(NSInteger), v, &i) == -1) {
+		PyErr_SetString(PyExc_ValueError, "Version field must be 0");
+		return NULL;
+	} else if (i != 0) {
 		PyErr_SetString(PyExc_ValueError, "Version field must be 0");
 		return NULL;
 	}
@@ -178,11 +179,11 @@ mod_CFRunLoopSourceGetContext(
 	PyObject* args)
 {
 	PyObject* py_f;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFRunLoopSourceRef f;
 	CFRunLoopSourceContext context;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_f, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_f, &py_context)) {
 		return NULL;
 	}
 
@@ -214,7 +215,7 @@ mod_CFRunLoopSourceGetContext(
 		return NULL;
 	}
 
-	if (context.retain != mod_retain) {
+	if (context.retain != mod_source_retain) {
 		PyErr_SetString(PyExc_ValueError, 
 			"retrieved context is not supported");
 		return NULL;
@@ -229,27 +230,16 @@ mod_CFRunLoopSourceGetContext(
 	return (PyObject*)(context.info);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFRunLoopSourceCreate",
-		(PyCFunction)mod_CFRunLoopSourceCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_RUNLOOPSOURCE_METHODS \
+        {	\
+		"CFRunLoopSourceCreate",	\
+		(PyCFunction)mod_CFRunLoopSourceCreate,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFRunLoopSourceGetContext",	\
+		(PyCFunction)mod_CFRunLoopSourceGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFRunLoopSourceGetContext",
-		(PyCFunction)mod_CFRunLoopSourceGetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFRunLoopSource(void);
-void init_CFRunLoopSource(void)
-{
-	PyObject* m = Py_InitModule4("_CFRunLoopSource", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

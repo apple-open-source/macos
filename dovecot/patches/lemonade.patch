@@ -1,0 +1,4807 @@
+From: Mike Abbott <michael.abbott@apple.com>
+Date: April 9, 2010 6:24:29 AM CDT
+To: Dovecot Mailing List <dovecot@dovecot.org>
+Subject: Patch: support URLAUTH, BURL, CATENATE
+
+Hello Dovecot community,
+
+Below please find a patch that adds support to dovecot-1.2.11 for:
+   - RFC 4467 - IMAP URLAUTH Extension
+   - RFC 4468 - Submission BURL
+   - RFC 4469 - IMAP CATENATE Extension
+
+URLAUTH
+
+URLAUTH is added as a plugin so it can be disabled to satisfy site
+security requirements.
+
+Each user's URLAUTH keys for all mailboxes are stored in a file named
+"urlauthkeys" at the top level.  It is safe to remove this file but
+doing so invalidates all previously-generated IMAP URLs.
+
+BURL
+
+BURL is an extension to SMTP not IMAP, but support is needed on the IMAP
+side to establish a trust relationship between the submission server and
+the IMAP server.
+
+The patch adds the concept of "submit" users.  Submit users are like
+master users in that they may log in as any user.  However submit users
+can use only a limited set of commands:  just URLFETCH, ID, CAPABILITY
+(although the capabilities are a lie since submit users can't use most
+commands), and LOGOUT.  This restriction enables an IMAP server to allow
+a BURL-capable submission server to use URLFETCH commands without
+risking a huge security breach if a submit user's credentials are
+compromised.  In other words, you can safely enable limited-power submit
+users without enabling super-user master users.
+
+The patch adds a non-standard X-PLAIN-SUBMIT authentication method
+specifically to allow plain-text submit user logins while plain-text
+regular user logins are not allowed.  This lets the system administrator
+configure the same submit user and password credentials on both the
+submission server and the IMAP server.
+
+Today Apple also contributes BURL support to the Postfix open source
+project.  Postfix BURL interoperates with Dovecot BURL/URLAUTH.
+
+CATENATE
+
+The patch fully supports LITERAL+ and MULTIAPPEND in conjunction with
+CATENATE.
+
+
+As with our previous patches, all of our changes are commented with
+"APPLE" not to pollute the code but to help us merge in your new
+releases.  Feel free to remove those comments or restructure or rewrite
+the code as desired, as long as you preserve our copyright.  We
+understand that our implementation choices may differ from yours; if you
+see a better way to achieve the same goal please do adopt the better
+way.  Some areas we are aware could use improvement but satisfy our own
+needs:
+   - the maildir-specific code in urlauth-keys
+   - the NFS-unsafe locking and read-modify-write algorithms in urlauth-keys
+   - hook_delete_mailbox and hook_select_send_urlmech
+   - output_squelch in struct client
+   - urlfetch and urlfetched in struct imap_fetch_context
+
+Apple invites the dovecot developers and contributors to port this patch
+to Dovecot-2.0.  Dovecot-2.0 has not been stable enough for us yet to
+make it the base of our development.
+
+Please let me know if you have any questions, concerns, or bug reports
+regarding this patch.  Thanks.
+
+
+diff -Nur dovecot-1.2.11/AUTHORS dovecot-1.2.11+lemonade/AUTHORS
+--- dovecot-1.2.11/AUTHORS	2008-12-19 01:31:33.000000000 -0600
++++ dovecot-1.2.11+lemonade/AUTHORS	2010-04-08 09:59:12.000000000 -0500
+@@ -13,6 +13,6 @@
+Vaclav Haisman <v.haisman@sh.cvut.cz> (src/lib/ioloop-kqueue.c,
+  src/lib/ioloop-notify-kqueue.c)
+
+-Portions Copyright (c) 2008 Apple Inc.  All rights reserved.
++Portions Copyright (c) 2008-2010 Apple Inc.  All rights reserved.
+
+Grepping 'Patch by' from ChangeLog shows up more people.
+diff -Nur dovecot-1.2.11/COPYING dovecot-1.2.11+lemonade/COPYING
+--- dovecot-1.2.11/COPYING	2008-06-08 21:21:55.000000000 -0500
++++ dovecot-1.2.11+lemonade/COPYING	2010-04-08 09:59:12.000000000 -0500
+@@ -75,3 +75,37 @@
+ not be used in advertising or otherwise to promote the sale, use or other
+ dealings in these Data Files or Software without prior written
+ authorization of the copyright holder.
++
++CATENATE support in src/imap/cmd-append.c
++src/lib/lib-imap/imap-url.c
++src/lib/lib-imap/imap-url.h
++src/plugins/urlauth/*
++
++ Copyright (c) 2010 Apple Inc. All rights reserved.
++ 
++ Redistribution and use in source and binary forms, with or without  
++ modification, are permitted provided that the following conditions  
++ are met:
++ 
++ 1.  Redistributions of source code must retain the above copyright  
++ notice, this list of conditions and the following disclaimer.
++ 2.  Redistributions in binary form must reproduce the above  
++ copyright notice, this list of conditions and the following  
++ disclaimer in the documentation and/or other materials provided  
++ with the distribution.
++ 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ contributors may be used to endorse or promote products derived  
++ from this software without specific prior written permission.
++ 
++ THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++ ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++ USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ SUCH DAMAGE.
+diff -Nur dovecot-1.2.11/configure dovecot-1.2.11+lemonade/configure
+--- dovecot-1.2.11/configure	2010-03-08 11:31:05.000000000 -0600
++++ dovecot-1.2.11+lemonade/configure	2010-04-08 09:59:12.000000000 -0500
+@@ -23068,7 +23068,7 @@
+
+
+capability_banner="IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE"
+-capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS MULTIAPPEND UNSELECT IDLE CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS"
++capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS MULTIAPPEND CATENATE UNSELECT IDLE CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS"
+
+cat >>confdefs.h <<_ACEOF
+#define CAPABILITY_STRING "$capability"
+@@ -23089,7 +23089,7 @@
+
+ac_config_headers="$ac_config_headers config.h"
+
+-ac_config_files="$ac_config_files Makefile doc/Makefile doc/wiki/Makefile src/Makefile src/lib/Makefile src/lib-sql/Makefile src/lib-auth/Makefile src/lib-charset/Makefile src/lib-dict/Makefile src/lib-imap/Makefile src/lib-index/Makefile src/lib-mail/Makefile src/lib-ntlm/Makefile src/lib-otp/Makefile src/lib-settings/Makefile src/lib-storage/Makefile src/lib-storage/list/Makefile src/lib-storage/index/Makefile src/lib-storage/index/maildir/Makefile src/lib-storage/index/mbox/Makefile src/lib-storage/index/dbox/Makefile src/lib-storage/index/cydir/Makefile src/lib-storage/index/raw/Makefile src/lib-storage/index/shared/Makefile src/lib-storage/register/Makefile src/auth/Makefile src/deliver/Makefile src/dict/Makefile src/imap/Makefile src/imap-login/Makefile src/login-common/Makefile src/master/Makefile src/pop3/Makefile src/pop3-login/Makefile src/tests/Makefile src/util/Makefile src/plugins/Makefile src/plugins/acl/Makefile src/plugins/imap-acl/Makefile src/plugins/autocreate/Makefile src/plugins/convert/Makefile src/plugins/expire/Makefile src/plugins/fts/Makefile src/plugins/fts-lucene/Makefile src/plugins/fts-solr/Makefile src/plugins/fts-squat/Makefile src/plugins/lazy-expunge/Makefile src/plugins/listescape/Makefile src/plugins/mail-log/Makefile src/plugins/mbox-snarf/Makefile src/plugins/quota/Makefile src/plugins/imap-quota/Makefile src/plugins/trash/Makefile src/plugins/virtual/Makefile src/plugins/zlib/Makefile stamp.h dovecot-config.in"
++ac_config_files="$ac_config_files Makefile doc/Makefile doc/wiki/Makefile src/Makefile src/lib/Makefile src/lib-sql/Makefile src/lib-auth/Makefile src/lib-charset/Makefile src/lib-dict/Makefile src/lib-imap/Makefile src/lib-index/Makefile src/lib-mail/Makefile src/lib-ntlm/Makefile src/lib-otp/Makefile src/lib-settings/Makefile src/lib-storage/Makefile src/lib-storage/list/Makefile src/lib-storage/index/Makefile src/lib-storage/index/maildir/Makefile src/lib-storage/index/mbox/Makefile src/lib-storage/index/dbox/Makefile src/lib-storage/index/cydir/Makefile src/lib-storage/index/raw/Makefile src/lib-storage/index/shared/Makefile src/lib-storage/register/Makefile src/auth/Makefile src/deliver/Makefile src/dict/Makefile src/imap/Makefile src/imap-login/Makefile src/login-common/Makefile src/master/Makefile src/pop3/Makefile src/pop3-login/Makefile src/tests/Makefile src/util/Makefile src/plugins/Makefile src/plugins/acl/Makefile src/plugins/imap-acl/Makefile src/plugins/autocreate/Makefile src/plugins/convert/Makefile src/plugins/expire/Makefile src/plugins/fts/Makefile src/plugins/fts-lucene/Makefile src/plugins/fts-solr/Makefile src/plugins/fts-squat/Makefile src/plugins/lazy-expunge/Makefile src/plugins/listescape/Makefile src/plugins/mail-log/Makefile src/plugins/mbox-snarf/Makefile src/plugins/quota/Makefile src/plugins/imap-quota/Makefile src/plugins/trash/Makefile src/plugins/urlauth/Makefile src/plugins/virtual/Makefile src/plugins/zlib/Makefile stamp.h dovecot-config.in"
+
+
+cat >confcache <<\_ACEOF
+@@ -24282,6 +24282,7 @@
+    "src/plugins/quota/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/quota/Makefile" ;;
+    "src/plugins/imap-quota/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/imap-quota/Makefile" ;;
+    "src/plugins/trash/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/trash/Makefile" ;;
++    "src/plugins/urlauth/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/urlauth/Makefile" ;;
+    "src/plugins/virtual/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/virtual/Makefile" ;;
+    "src/plugins/zlib/Makefile") CONFIG_FILES="$CONFIG_FILES src/plugins/zlib/Makefile" ;;
+    "stamp.h") CONFIG_FILES="$CONFIG_FILES stamp.h" ;;
+diff -Nur dovecot-1.2.11/configure.in dovecot-1.2.11+lemonade/configure.in
+--- dovecot-1.2.11/configure.in	2010-03-08 11:30:53.000000000 -0600
++++ dovecot-1.2.11+lemonade/configure.in	2010-04-08 09:59:12.000000000 -0500
+@@ -2436,7 +2436,7 @@
+dnl **
+
+capability_banner="IMAP4rev1 LITERAL+ SASL-IR LOGIN-REFERRALS ID ENABLE"
+-capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS MULTIAPPEND UNSELECT IDLE CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS"
++capability="$capability_banner SORT SORT=DISPLAY THREAD=REFERENCES THREAD=REFS MULTIAPPEND CATENATE UNSELECT IDLE CHILDREN NAMESPACE UIDPLUS LIST-EXTENDED I18NLEVEL=1 CONDSTORE QRESYNC ESEARCH ESORT SEARCHRES WITHIN CONTEXT=SEARCH LIST-STATUS"
+AC_DEFINE_UNQUOTED(CAPABILITY_STRING, "$capability", IMAP capabilities)
+AC_DEFINE_UNQUOTED(CAPABILITY_BANNER_STRING, "$capability_banner", IMAP capabilities advertised in banner) 
+
+@@ -2503,6 +2503,7 @@
+src/plugins/quota/Makefile
+src/plugins/imap-quota/Makefile
+src/plugins/trash/Makefile
++src/plugins/urlauth/Makefile
+src/plugins/virtual/Makefile
+src/plugins/zlib/Makefile
+stamp.h
+diff -Nur dovecot-1.2.11/dovecot-example.conf dovecot-1.2.11+lemonade/dovecot-example.conf
+--- dovecot-1.2.11/dovecot-example.conf	2010-01-24 17:30:41.000000000 -0600
++++ dovecot-1.2.11+lemonade/dovecot-example.conf	2010-04-08 09:59:12.000000000 -0500
+@@ -323,6 +323,7 @@
+
+# Enable mail process debugging. This can help you figure out why Dovecot
+# isn't finding your mails.
++# (APPLE) This also helps troubleshoot URLFETCH issues.
+#mail_debug = no
+
+# Log prefix for mail processes. See <doc/wiki/Variables.txt> for list of
+@@ -1187,6 +1188,10 @@
+  # Mails are first deleted in lowest -> highest priority number order
+  #trash = /etc/dovecot-trash.conf
+
++  # (APPLE) Server name for GENURLAUTH/URLFETCH.  Can be host:port or
++  # just a FQHN.  Default is the system's real hostname.
++  #urlauth_hostport = 
++
+  # Expire plugin. Mails are expunged from mailboxes after being there the
+  # configurable time. The first expiration date for each mailbox is stored in
+  # a dictionary so it can be quickly determined which mailboxes contain
+diff -Nur dovecot-1.2.11/src/auth/auth-request-handler.c dovecot-1.2.11+lemonade/src/auth/auth-request-handler.c
+--- dovecot-1.2.11/src/auth/auth-request-handler.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/auth-request-handler.c	2010-04-08 09:59:12.000000000 -0500
+@@ -249,7 +249,8 @@
+
+		if (request->internal_failure)
+			auth_stream_reply_add(reply, "temp", NULL);
+-		else if (request->master_user != NULL) {
++		else if (request->master_user != NULL ||
++			request->submit_user != NULL) {  /* APPLE - urlauth */
+			/* authentication succeeded, but we can't log in
+			  as the wanted user */
+			auth_stream_reply_add(reply, "authz", NULL);
+@@ -473,6 +474,14 @@
+					     "master_user",
+					     request->master_user);
+		}
++
++		/* APPLE - urlauth */
++		if (request->submit_user != NULL) {
++			auth_stream_reply_add(request->userdb_reply,
++					     "submit_user",
++					     request->submit_user);
++		}
++
+		auth_stream_reply_import(reply,
+			auth_stream_reply_export(request->userdb_reply));
+		break;
+diff -Nur dovecot-1.2.11/src/auth/auth-request.c dovecot-1.2.11+lemonade/src/auth/auth-request.c
+--- dovecot-1.2.11/src/auth/auth-request.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/auth-request.c	2010-04-08 09:59:12.000000000 -0500
+@@ -126,6 +126,12 @@
+		auth_stream_reply_add(reply, "master_user",
+				     request->master_user);
+	}
++
++	/* APPLE - urlauth */
++        if (request->submit_user != NULL)
++		auth_stream_reply_add(reply, "submit_user",
++				     request->submit_user);
++
+	auth_stream_reply_add(reply, "original_username",
+			     request->original_username);
+
+@@ -162,6 +168,11 @@
+		request->user = p_strdup(request->pool, value);
+	else if (strcmp(key, "master_user") == 0)
+		request->master_user = p_strdup(request->pool, value);
++
++	/* APPLE - urlauth */
++	else if (strcmp(key, "submit_user") == 0)
++		request->submit_user = p_strdup(request->pool, value);
++
+	else if (strcmp(key, "original_username") == 0)
+		request->original_username = p_strdup(request->pool, value);
+	else if (strcmp(key, "cert_username") == 0) {
+@@ -188,7 +199,8 @@
+	else if (strcmp(key, "valid-client-cert") == 0)
+		request->valid_client_cert = TRUE;
+	else if (strcmp(key, "skip_password_check") == 0) {
+-		i_assert(request->master_user !=  NULL);
++		i_assert(request->master_user !=  NULL ||
++			request->submit_user !=  NULL);  /* APPLE - urlauth */
+		request->skip_password_check = TRUE;
+	} else if (strcmp(key, "mech") == 0)
+		request->mech_name = p_strdup(request->pool, value);
+@@ -303,15 +315,27 @@
+			 result == PASSDB_RESULT_OK);
+}
+
+-static bool auth_request_master_lookup_finish(struct auth_request *request)
++static bool auth_request_master_lookup_finish(struct auth_request *request,
++					     bool submit)  /* APPLE - urlauth */
+{
+	if (request->passdb_failure)
+		return TRUE;
+
+	/* master login successful. update user and master_user variables. */
++
++	/* APPLE - urlauth */
++	if (submit)
++		auth_request_log_info(request, "passdb",
++				     "Submit user logging in as %s",
++				     request->requested_login_user);
++	else	/* reduce code deltas */
+	auth_request_log_info(request, "passdb", "Master user logging in as %s",
+			     request->requested_login_user);
+
++	/* APPLE - urlauth */
++	if (submit)
++		request->submit_user = request->user;
++	else	/* reduce code deltas */
+	request->master_user = request->user;
+	request->user = request->requested_login_user;
+	request->requested_login_user = NULL;
+@@ -352,7 +376,20 @@
+		/* success */
+		if (request->requested_login_user != NULL) {
+			/* this was a master user lookup. */
+-			if (!auth_request_master_lookup_finish(request))
++
++			/* APPLE - urlauth */
++			if (request->passdb->submit &&
++			   strcasecmp(request->service, "imap") != 0) {
++				auth_request_log_info(request, "passdb",
++				   "Attempted submit user login for "
++				   "non-imap service %s "
++				   "(trying to log in as user: %s)",
++				   request->service,
++				   request->requested_login_user);
++				*result = PASSDB_RESULT_USER_DISABLED;
++			} else	/* reduce code deltas */
++			if (!auth_request_master_lookup_finish(request,
++			   request->passdb->submit))	/* APPLE - urlauth */
+				return FALSE;
+		} else {
+			if (request->passdb->pass) {
+@@ -1310,7 +1347,8 @@
+
+	if (request->skip_password_check) {
+		/* currently this can happen only with master logins */
+-		i_assert(request->master_user != NULL);
++		i_assert(request->master_user != NULL ||
++			request->submit_user != NULL);   /* APPLE - urlauth */
+		return 1;
+	}
+
+@@ -1458,8 +1496,13 @@
+		str_append_c(str, ',');
+		str_append(str, ip);
+	}
+-	if (auth_request->requested_login_user != NULL)
++	if (auth_request->requested_login_user != NULL) {
++		/* APPLE - urlauth */
++		if (auth_request->submit_user != NULL)
++			str_append(str, ",submit");
++		else	/* reduce code deltas */
+		str_append(str, ",master");
++	}
+	str_append(str, "): ");
+	str_vprintfa(str, format, va);
+	return str_c(str);
+diff -Nur dovecot-1.2.11/src/auth/auth-request.h dovecot-1.2.11+lemonade/src/auth/auth-request.h
+--- dovecot-1.2.11/src/auth/auth-request.h	2009-02-21 16:07:43.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/auth-request.h	2010-04-08 09:59:12.000000000 -0500
+@@ -32,6 +32,10 @@
+           has validated user as a valid master user, master_user is set to
+           user and user is set to requested_login_user. */
+        char *user, *requested_login_user, *master_user;
++
++	/* APPLE - urlauth - when the master user is a submission server */
++	char *submit_user;
++
+	/* original_username contains the username exactly as given by the
+	  client. this is needed at least with DIGEST-MD5 for password
+	  verification. however with master logins the master username has
+diff -Nur dovecot-1.2.11/src/auth/auth.c dovecot-1.2.11+lemonade/src/auth/auth.c
+--- dovecot-1.2.11/src/auth/auth.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/auth.c	2010-04-08 09:59:12.000000000 -0500
+@@ -37,6 +37,8 @@
+	masterdb_p = &auth->masterdbs;
+	auth_passdb = NULL;
+	for (i = 1; ; i++) {
++		bool is_master;				/* APPLE - urlauth */
++
+		driver = getenv(t_strdup_printf("PASSDB_%u_DRIVER", i));
+		if (driver == NULL)
+			break;
+@@ -49,7 +51,16 @@
+		auth_passdb->pass =
+                        getenv(t_strdup_printf("PASSDB_%u_PASS", i)) != NULL;
+
+-		if (getenv(t_strdup_printf("PASSDB_%u_MASTER", i)) == NULL) {
++		/* APPLE - urlauth - Submit user has much less power than
++		  master user.  Forbid both master and submit in one passdb
++		  so that unaware services (pop3, managesieve) don't
++		  compromise security. */
++		auth_passdb->submit =
++                        getenv(t_strdup_printf("PASSDB_%u_SUBMIT", i)) != NULL;
++		is_master = getenv(t_strdup_printf("PASSDB_%u_MASTER", i)) != NULL;
++		if (is_master && auth_passdb->submit)
++			i_fatal("Passdb can't have master=yes and submit=yes");
++		if (!is_master && !auth_passdb->submit) {
+			*passdb_p = auth_passdb;
+			passdb_p = &auth_passdb->next;
+                } else {
+diff -Nur dovecot-1.2.11/src/auth/auth.h dovecot-1.2.11+lemonade/src/auth/auth.h
+--- dovecot-1.2.11/src/auth/auth.h	2008-06-08 21:21:56.000000000 -0500
++++ dovecot-1.2.11+lemonade/src/auth/auth.h	2010-04-08 09:59:12.000000000 -0500
+@@ -16,6 +16,9 @@
+	unsigned int deny:1;
+	/* after a successful lookup, continue to next passdb */
+	unsigned int pass:1;
++
++	/* APPLE - urlauth - submission server login */
++	unsigned int submit:1;
+};
+
+struct auth_userdb {
+diff -Nur dovecot-1.2.11/src/auth/db-checkpassword.c dovecot-1.2.11+lemonade/src/auth/db-checkpassword.c
+--- dovecot-1.2.11/src/auth/db-checkpassword.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/db-checkpassword.c	2010-04-08 09:59:12.000000000 -0500
+@@ -120,6 +120,13 @@
+		env_put(t_strconcat("MASTER_USER=",
+				   request->master_user, NULL));
+	}
++
++	/* APPLE - urlauth */
++	if (request->submit_user != NULL) {
++		env_put(t_strconcat("SUBMIT_USER=",
++				   request->submit_user, NULL));
++	}
++
+	if (request->extra_fields != NULL) {
+		const char *fields =
+			auth_stream_reply_export(request->extra_fields);
+diff -Nur dovecot-1.2.11/src/auth/mech-plain.c dovecot-1.2.11+lemonade/src/auth/mech-plain.c
+--- dovecot-1.2.11/src/auth/mech-plain.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/mech-plain.c	2010-04-08 09:59:12.000000000 -0500
+@@ -6,9 +6,11 @@
+#include "passdb.h"
+#include "plain-common.h"
+
++/* APPLE - urlauth */
+static void
+-mech_plain_auth_continue(struct auth_request *request,
+-			const unsigned char *data, size_t data_size)
++mech_plain_auth_continue_submit(struct auth_request *request,
++				const unsigned char *data, size_t data_size,
++				bool submit)
+{
+	const char *authid, *authenid, *error;
+	char *pass;
+@@ -54,6 +56,19 @@
+                auth_request_log_info(request, "plain",
+                                      "login user: %s", error);
+                auth_request_fail(request);
++
++	/* APPLE - urlauth */
++	} else if (submit) {
++		if (request->requested_login_user != NULL &&
++		   *request->requested_login_user != '\0')
++			auth_request_verify_plain(request, pass,
++						 plain_verify_callback);
++		else {
++			auth_request_log_info(request, "x-plain-submit",
++					     "non-submit login");
++			auth_request_fail(request);
++		}
++
+        } else {
+                auth_request_verify_plain(request, pass,
+                                          plain_verify_callback);
+@@ -64,6 +79,14 @@
+		safe_memset(pass, 0, strlen(pass));
+}
+
++/* APPLE - urlauth */
++static void
++mech_plain_auth_continue(struct auth_request *request,
++			const unsigned char *data, size_t data_size)
++{
++	mech_plain_auth_continue_submit(request, data, data_size, FALSE);
++}
++
+static struct auth_request *mech_plain_auth_new(void)
+{
+        struct auth_request *request;
+@@ -86,3 +109,26 @@
+	mech_plain_auth_continue,
+	mech_generic_auth_free
+};
++
++/* APPLE - urlauth - rest of file
++   The X-PLAIN-SUBMIT mechanism mimics PLAIN but only for submit users
++   (and master users, since we can't tell the difference so early). */
++
++static void
++mech_submit_auth_continue(struct auth_request *request,
++			 const unsigned char *data, size_t data_size)
++{
++	mech_plain_auth_continue_submit(request, data, data_size, TRUE);
++}
++
++const struct mech_module mech_x_plain_submit = {
++	"X-PLAIN-SUBMIT",
++
++	MEMBER(flags) MECH_SEC_PLAINTEXT,
++	MEMBER(passdb_need) MECH_PASSDB_NEED_VERIFY_PLAIN,
++
++	mech_plain_auth_new,
++	mech_generic_auth_initial,
++	mech_submit_auth_continue,
++	mech_generic_auth_free
++};
+diff -Nur dovecot-1.2.11/src/auth/mech.c dovecot-1.2.11+lemonade/src/auth/mech.c
+--- dovecot-1.2.11/src/auth/mech.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/mech.c	2010-04-08 09:59:12.000000000 -0500
+@@ -64,6 +64,7 @@
+}
+
+extern const struct mech_module mech_plain;
++extern const struct mech_module mech_x_plain_submit;	/* APPLE - urlauth */
+extern const struct mech_module mech_login;
+extern const struct mech_module mech_apop;
+extern const struct mech_module mech_cram_md5;
+@@ -86,6 +87,7 @@
+void mech_init(void)
+{
+	mech_register_module(&mech_plain);
++	mech_register_module(&mech_x_plain_submit);	/* APPLE - urlauth */
+	mech_register_module(&mech_login);
+	mech_register_module(&mech_apop);
+	mech_register_module(&mech_cram_md5);
+@@ -112,6 +114,7 @@
+void mech_deinit(void)
+{
+	mech_unregister_module(&mech_plain);
++	mech_unregister_module(&mech_x_plain_submit);	/* APPLE - urlauth */
+	mech_unregister_module(&mech_login);
+	mech_unregister_module(&mech_apop);
+	mech_unregister_module(&mech_cram_md5);
+diff -Nur dovecot-1.2.11/src/auth/passdb-blocking.c dovecot-1.2.11+lemonade/src/auth/passdb-blocking.c
+--- dovecot-1.2.11/src/auth/passdb-blocking.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/auth/passdb-blocking.c	2010-04-08 09:59:12.000000000 -0500
+@@ -19,7 +19,8 @@
+
+	if (*args != NULL) {
+		i_assert(auth_stream_is_empty(request->extra_fields) ||
+-			request->master_user != NULL);
++			request->master_user != NULL ||
++			request->submit_user != NULL);   /* APPLE - urlauth */
+		auth_request_set_fields(request, args, NULL);
+	}
+}
+@@ -73,7 +74,8 @@
+	struct auth_stream_reply *reply;
+
+	i_assert(auth_stream_is_empty(request->extra_fields) ||
+-		request->master_user != NULL);
++		request->master_user != NULL ||
++		request->submit_user != NULL);		/* APPLE - urlauth */
+
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "PASSV", NULL);
+@@ -112,7 +114,8 @@
+	struct auth_stream_reply *reply;
+
+	i_assert(auth_stream_is_empty(request->extra_fields) ||
+-		request->master_user != NULL);
++		request->master_user != NULL ||
++		request->submit_user != NULL);		/* APPLE - urlauth */
+
+	reply = auth_stream_reply_init(pool_datastack_create());
+	auth_stream_reply_add(reply, "PASSL", NULL);
+diff -Nur dovecot-1.2.11/src/imap/client.c dovecot-1.2.11+lemonade/src/imap/client.c
+--- dovecot-1.2.11/src/imap/client.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/client.c	2010-04-08 09:59:12.000000000 -0500
+@@ -53,6 +53,7 @@
+	client->command_pool =
+		pool_alloconly_create(MEMPOOL_GROWING"client command", 2048);
+	client->user = user;
++	client->submit = getenv("SUBMIT_USER") != NULL;   /* APPLE - urlauth */
+
+	for (ns = user->namespaces; ns != NULL; ns = ns->next) {
+		mail_storage_set_callbacks(ns->storage,
+@@ -225,6 +226,10 @@
+	if (client->output->closed)
+		return -1;
+
++	/* APPLE - urlauth */
++	if (client->output_squelch)
++		return 1;
++
+	iov[0].iov_base = data;
+	iov[0].iov_len = strlen(data);
+	iov[1].iov_base = "\r\n";
+@@ -250,6 +255,10 @@
+	if (client->output->closed || cmd->cancel)
+		return;
+
++	/* APPLE - urlauth */
++	if (client->output_squelch)
++		return;
++
+	if (tag == NULL || *tag == '\0')
+		tag = "*";
+
+@@ -268,6 +277,10 @@
+	const char *error, *cmd_name;
+	bool fatal;
+
++	/* APPLE - urlauth */
++	if (client->output_squelch)
++		return;
++
+	if (msg == NULL) {
+		msg = imap_parser_get_error(cmd->parser, &fatal);
+		if (fatal) {
+@@ -551,7 +564,8 @@
+
+/* Skip incoming data until newline is found,
+   returns TRUE if newline was found. */
+-static bool client_skip_line(struct client *client)
++/* APPLE - catenate - was static */
++bool client_skip_line(struct client *client)
+{
+	const unsigned char *data;
+	size_t i, data_size;
+@@ -655,6 +669,19 @@
+		cmd->param_error = TRUE;
+		client_command_free(&cmd);
+		return TRUE;
++
++	/* APPLE - urlauth - Users logged in via the submit user may execute
++	  only commands marked with COMMAND_FLAG_OK_FOR_SUBMIT_USER.  This
++	  prevents leakage of the submit user's credentials from causing
++	  a huge security breach, as it would be if we relied solely on
++	  dovecot's regular master users who can do anything to any user. */
++	} else if ((cmd->cmd_flags & COMMAND_FLAG_OK_FOR_SUBMIT_USER) == 0 &&
++		  client->submit) {
++		client_send_tagline(cmd, "NO Command forbidden to submit user");
++		cmd->param_error = TRUE;
++		client_command_free(&cmd);
++		return TRUE;
++
+	} else {
+		i_assert(!client->disconnected);
+
+diff -Nur dovecot-1.2.11/src/imap/client.h dovecot-1.2.11+lemonade/src/imap/client.h
+--- dovecot-1.2.11/src/imap/client.h	2009-06-26 23:49:34.000000000 -0500
++++ dovecot-1.2.11+lemonade/src/imap/client.h	2010-04-08 09:59:12.000000000 -0500
+@@ -138,6 +138,8 @@
+	unsigned int input_skip_line:1; /* skip all the data until we've
+					  found a new line */
+	unsigned int modseqs_sent_since_sync:1;
++	unsigned int output_squelch:1;		/* APPLE - urlauth */
++	unsigned int submit:1;			/* APPLE - urlauth */
+};
+
+/* Create new client with specified input/output handles. socket specifies
+@@ -188,6 +190,9 @@
+bool client_handle_unfinished_cmd(struct client_command_context *cmd);
+void client_continue_pending_input(struct client *client);
+
++/* APPLE - catenate */
++bool client_skip_line(struct client *client);
++
+void client_input(struct client *client);
+bool client_handle_input(struct client *client);
+int client_output(struct client *client);
+diff -Nur dovecot-1.2.11/src/imap/cmd-append.c dovecot-1.2.11+lemonade/src/imap/cmd-append.c
+--- dovecot-1.2.11/src/imap/cmd-append.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/cmd-append.c	2010-04-08 09:59:12.000000000 -0500
+@@ -8,9 +8,16 @@
+#include "commands.h"
+#include "imap-parser.h"
+#include "imap-date.h"
++#include "imap-url.h"					/* APPLE - catenate */
++#include "imap-fetch.h"					/* APPLE - catenate */
++#include "imap-search-args.h"				/* APPLE - catenate */
++#include "fd-set-nonblock.h"				/* APPLE - catenate */
++#include "mail-storage-private.h"			/* APPLE - catenate */
++#include "mail-search.h"				/* APPLE - catenate */
+#include "mail-storage.h"
+
+#include <sys/time.h>
++#include <stdlib.h>					/* APPLE - catenate */
+
+/* Don't allow internaldates to be too far in the future. At least with Maildir
+   they can cause problems with incremental backups since internaldate is
+@@ -32,6 +39,21 @@
+	struct mail_save_context *save_ctx;
+	unsigned int count;
+
++	/* APPLE - catenate */
++	struct {
++		struct ostream *output;	/* to pipe; input is from pipe */
++		struct istream *literal_input;
++		uoff_t literal_size;
++		string_t *literal_url;
++		unsigned int parts;
++
++		/* also,
++			msg_size is the cumulative size of the message
++			message_input is used as "reading any literal"
++		*/
++	} cat;
++	const struct imap_arg *args;
++
+	unsigned int message_input:1;
+	unsigned int failed:1;
+};
+@@ -40,6 +62,13 @@
+static bool cmd_append_continue_message(struct client_command_context *cmd);
+static bool cmd_append_continue_parsing(struct client_command_context *cmd);
+
++/* APPLE - catenate */
++static bool args_indicate_catenate(const struct imap_arg *args);
++static bool catenate_begin_parsing(struct client_command_context *cmd,
++				  const struct imap_arg *args);
++static bool catenate_begin_cancel(struct client_command_context *cmd,
++				 const struct imap_arg *args);
++
+static void client_input_append(struct client_command_context *cmd)
+{
+	struct cmd_append_context *ctx = cmd->context;
+@@ -226,6 +255,11 @@
+	/* if error occurs, the CRLF is already read. */
+	client->input_skip_line = FALSE;
+
++	/* APPLE - catenate */
++	if (ctx->args != NULL) {
++		args = ctx->args;
++		ctx->args = NULL;
++	} else {	/* reduce code deltas */
+	/* [<flags>] [<internal date>] <message literal> */
+	ret = imap_parser_read_args(ctx->save_parser, 0,
+				   IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
+@@ -239,6 +273,7 @@
+		/* need more data */
+		return FALSE;
+	}
++	} /* APPLE - catenate */
+
+	if (args->type == IMAP_ARG_EOL) {
+		/* last message */
+@@ -295,6 +330,11 @@
+		return cmd_sync(cmd, sync_flags, imap_flags, msg);
+	}
+
++	/* APPLE - catenate */
++	if (args_indicate_catenate(args))
++		return ctx->failed ? catenate_begin_cancel(cmd, args) :
++				    catenate_begin_parsing(cmd, args);
++
+	if (!validate_args(args, &flags_list, &internal_date_str,
+			  &ctx->msg_size, &nonsync)) {
+		client_send_command_error(cmd, "Invalid arguments.");
+@@ -330,6 +370,11 @@
+	} else if (!imap_parse_datetime(internal_date_str,
+					&internal_date, &timezone_offset)) {
+		client_send_tagline(cmd, "BAD Invalid internal date.");
++
++		/* APPLE */
++		if (keywords != NULL)
++			mailbox_keywords_free(ctx->box, &keywords);
++
+		return cmd_append_cancel(ctx, nonsync);
+	}
+
+@@ -343,6 +388,11 @@
+	if (ctx->msg_size == 0) {
+		/* no message data, abort */
+		client_send_tagline(cmd, "NO Can't save a zero byte message.");
++
++		/* APPLE */
++		if (keywords != NULL)
++			mailbox_keywords_free(ctx->box, &keywords);
++
+		return cmd_append_cancel(ctx, nonsync);
+	}
+
+@@ -527,3 +577,908 @@
+	cmd->context = ctx;
+	return cmd_append_continue_parsing(cmd);
+}
++
++/* APPLE - rest of file - catenate
++   Implements RFC 4469.
++
++   Tried to weave CATENATE support into the existing code but was too messy.
++   Chose to keep a separate state machine rather than rewrite it all.
++
++   Enter at catenate_begin_parsing().  That iterates through all the
++   in-line URLs.  If it encounters a URL literal, it continues at
++   catenate_continue_url().  If it encounters a TEXT literal, it
++   continues at catenate_continue_text().  Both of these flow to
++   catenate_continue_parsing().  At the end, catenate_finish() passes
++   control back to cmd_append_continue_parsing(). */
++
++#define MAX_URL_LITERAL_SIZE	8000
++#define MAX_CATENATE_MSG_SIZE	((uint32_t) -1)
++#define MAX_CATENATE_PARTS	50
++#ifndef PIPE_MAX
++# define PIPE_MAX	5120
++#endif
++
++static bool catenate_process_args(struct client_command_context *cmd,
++				 const struct imap_arg *args, bool nonsync);
++static bool catenate_cancel_args(struct client_command_context *cmd,
++				const struct imap_arg *args, bool nonsync);
++static bool catenate_cancel(struct cmd_append_context *ctx, bool nonsync);
++static bool catenate_finish(struct cmd_append_context *ctx, bool cancel);
++static bool catenate_finish_literal(struct client_command_context *cmd,
++				   bool cancel);
++
++static bool args_indicate_catenate(const struct imap_arg *args)
++{
++	while (args->type != IMAP_ARG_EOL) {
++		if (args->type == IMAP_ARG_ATOM &&
++		   strcasecmp(args->_data.str, "CATENATE") == 0)
++			return TRUE;
++		args++;
++	}
++	return FALSE;
++}
++
++static void catenate_solicit(struct cmd_append_context *ctx, bool nonsync)
++{
++	if (!nonsync) {
++		o_stream_send(ctx->client->output, "+ OK\r\n", 6);
++		o_stream_flush(ctx->client->output);
++		o_stream_uncork(ctx->client->output);
++		o_stream_cork(ctx->client->output);
++	}
++}
++
++static bool catenate_url_validate(const struct imap_url_parts *parts,
++				 const char **error)
++{
++	// user: absent; RFC 3501 "userid"
++	if (parts->user != NULL) {
++		*error = "user ID present; need relative URL";
++		return FALSE;
++	}
++
++	// auth_type: absent; RFC 3501 "auth-type"
++	if (parts->auth_type != NULL) {
++		*error = "auth type present; need relative URL";
++		return FALSE;
++	}
++		   
++	// hostport: absent; RFC 1738 "hostport"
++	if (parts->hostport != NULL) {
++		*error = "server present; need relative URL";
++		return FALSE;
++	}
++
++	// mailbox: optional; RFC 3501 "mailbox"
++	if (parts->mailbox != NULL &&
++	   !imap_url_mailbox_validate(parts->mailbox)) {
++		*error = "invalid mailbox";
++		return FALSE;
++	}
++
++	// uidvalidity: optional; RFC 3501 "nz-number"
++	if (parts->uidvalidity != NULL &&
++	   !imap_url_nz_number_validate(parts->uidvalidity)) {
++		*error = "invalid uidvalidity";
++		return FALSE;
++	}
++
++	// uid: mandatory; RFC 3501 "nz-number"
++	if (parts->uid == NULL ||
++	   !imap_url_nz_number_validate(parts->uid)) {
++		*error = "missing or invalid uid";
++		return FALSE;
++	}
++
++	// section: optional; RFC 2192 "section"
++	if (parts->section != NULL &&
++	   !imap_url_section_validate(parts->section)) {
++		*error = "invalid section";
++		return FALSE;
++	}
++
++	// expiration: absent; RFC 3339 "date-time"
++	if (parts->expiration != NULL) {
++		*error = "expiration present";
++		return FALSE;
++	}
++
++	// access: absent; RFC 4467 "access"
++	if (parts->access != NULL) {
++		*error = "missing or invalid access ID";
++		return FALSE;
++	}
++
++	// mechanism: absent
++	if (parts->mechanism != NULL) {
++		*error = "mechanism present";
++		return FALSE;
++	}
++
++	// urlauth: absent
++	if (parts->urlauth != NULL) {
++		*error = "access token present";
++		return FALSE;
++	}
++
++	return TRUE;
++}
++
++struct catenate_fetch_context {
++	struct cmd_append_context *ctx;
++	struct ostream *client_output;
++	const char *url;
++	const char *mailbox;
++	struct mail_storage *storage;
++	struct mailbox *box;
++	struct istream *input;
++	struct imap_parser *parser;
++	struct mail_search_args *search_args;
++	struct imap_fetch_context *fetch_ctx;
++};
++
++static bool catenate_fetch_cleanup(struct catenate_fetch_context *cfctx,
++				  bool toobig, const char *error)
++{
++	if (cfctx->fetch_ctx != NULL) {
++		if (!cfctx->fetch_ctx->urlfetched) {
++			if (error == NULL && !toobig)
++				error = "message not found";
++		}
++		if (imap_fetch_deinit(cfctx->fetch_ctx) < 0)
++			cfctx->fetch_ctx->failed = TRUE;
++		if (cfctx->fetch_ctx->failed) {
++			if (error == NULL && !toobig)
++				error = "message fetch failed";
++		}
++		cfctx->fetch_ctx->urlfetch = FALSE;
++	}
++	if (cfctx->search_args != NULL)
++		mail_search_args_unref(&cfctx->search_args);
++	if (cfctx->parser != NULL)
++		imap_parser_destroy(&cfctx->parser);
++	if (cfctx->input != NULL)
++		i_stream_unref(&cfctx->input);
++	if (cfctx->box != NULL)
++		mailbox_close(&cfctx->box);
++	if (cfctx->client_output != NULL)
++		cfctx->ctx->client->output = cfctx->client_output;
++	cfctx->ctx->client->output_squelch = FALSE;
++
++	if (toobig)
++		client_send_tagline(cfctx->ctx->cmd,
++				   "NO [TOOBIG] Resulting message too large");
++	else if (error != NULL)
++		client_send_tagline(cfctx->ctx->cmd,
++				   t_strconcat("NO [BADURL ",
++						imap_url_sanitize(cfctx->url),
++						"] ", error, NULL));
++	return error == NULL && !toobig;
++}
++
++static bool catenate_url(struct cmd_append_context *ctx, const char *url)
++{
++	struct imap_url_parts enc_parts, dec_parts;
++	const char *error = NULL;
++	struct catenate_fetch_context cfctx;
++	struct mailbox_status status;
++	string_t *fetch_text;
++	const struct imap_arg *fetch_args = NULL, *next_arg = NULL;
++	int fetch_ret, flush_ret, ret;
++	bool header, toobig;
++	uoff_t size;
++
++	/* parse, decode, and validate the url */
++	memset(&enc_parts, 0, sizeof enc_parts);
++	memset(&dec_parts, 0, sizeof dec_parts);
++	imap_url_parse(url, &enc_parts);
++	if (!imap_url_decode(&enc_parts, &dec_parts, &error) ||
++	   !catenate_url_validate(&dec_parts, &error)) {
++		client_send_tagline(ctx->cmd,
++				   t_strconcat("NO [BADURL ",
++						imap_url_sanitize(url),
++						"] ", error, NULL));
++		return FALSE;
++	}
++
++	memset(&cfctx, 0, sizeof cfctx);
++	cfctx.ctx = ctx;
++	cfctx.url = url;
++
++	ctx->cmd->client->output_squelch = TRUE;
++
++	/* get the mailbox; if none in URL use the selected one */
++	if (dec_parts.mailbox) {
++		cfctx.mailbox = t_strdup(dec_parts.mailbox);
++		cfctx.storage = client_find_storage(ctx->cmd, &cfctx.mailbox);
++		if (cfctx.storage == NULL)
++			return catenate_fetch_cleanup(&cfctx, FALSE,
++						     "can't find storage");
++	} else if (ctx->cmd->client->mailbox != NULL) {
++		cfctx.mailbox = mailbox_get_name(ctx->cmd->client->mailbox);
++		cfctx.storage = ctx->cmd->client->mailbox->storage;
++	} else
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					"no mailbox specified or selected");
++	cfctx.box = mailbox_open(&cfctx.storage, cfctx.mailbox, NULL,
++			  MAILBOX_OPEN_READONLY | MAILBOX_OPEN_KEEP_RECENT);
++	if (cfctx.box == NULL)
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "can't open mailbox");
++
++	/* verify uidvalidity */
++	if (mailbox_sync(cfctx.box,
++			MAILBOX_SYNC_FLAG_FULL_READ | MAILBOX_SYNC_FLAG_FAST,
++			STATUS_UIDVALIDITY, &status) < 0 ||
++	   (dec_parts.uidvalidity != NULL &&
++	    strtoul(dec_parts.uidvalidity, NULL, 10) != status.uidvalidity))
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "uidvalidity mismatch");
++
++	/* fetch the data as in
++		UID FETCH dec_parts.uid BODY.PEEK[dec_parts.section]
++	  but with less output syntax */
++	fetch_text = t_str_new(11 + (dec_parts.section ?
++				    strlen(dec_parts.section) : 0));
++	str_append(fetch_text, "BODY.PEEK[");
++	if (dec_parts.section)
++		str_append(fetch_text, dec_parts.section);
++	str_append(fetch_text, "]");
++
++	cfctx.input = i_stream_create_from_data(str_data(fetch_text),
++						str_len(fetch_text));
++	(void) i_stream_read(cfctx.input);
++
++	cfctx.parser = imap_parser_create(cfctx.input, NULL, (size_t) -1);
++	if (imap_parser_finish_line(cfctx.parser, 0, 0, &fetch_args) < 0)
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "can't parse fetch string");
++
++	ctx->cmd->uid = TRUE;
++	if (imap_search_get_uidset_arg(ctx->cmd, dec_parts.uid,
++				      &cfctx.search_args, &error) < 0)
++		return catenate_fetch_cleanup(&cfctx, FALSE, error);
++
++	cfctx.fetch_ctx = imap_fetch_init(ctx->cmd, cfctx.box);
++	if (cfctx.fetch_ctx == NULL)
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "can't init fetch");
++	cfctx.fetch_ctx->search_args = cfctx.search_args;
++	mail_search_args_ref(cfctx.search_args);
++	cfctx.fetch_ctx->urlfetch = TRUE;
++
++	if (!fetch_parse_args(cfctx.fetch_ctx, fetch_args, &next_arg))
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "can't parse fetch args");
++
++	if (imap_fetch_begin(cfctx.fetch_ctx) != 0)
++		return catenate_fetch_cleanup(&cfctx, FALSE,
++					     "can't begin fetch");
++
++	/* fix the plumbing:  imap_fetch_more() writes to
++	  client->output, so set that to the pipe to mailbox_save()'s
++	  input */
++	cfctx.client_output = ctx->client->output;
++	ctx->client->output = ctx->cat.output;
++
++	fetch_ret = 0;
++	flush_ret = 0;
++	error = NULL;
++	header = TRUE;
++	toobig = FALSE;
++	do {
++		if (fetch_ret == 0)
++			fetch_ret = imap_fetch_more(cfctx.fetch_ctx);
++		else
++			flush_ret = o_stream_flush(ctx->client->output);
++		while ((ret = i_stream_read(ctx->input)) != 0 && ret != -1) {
++			/* parse the header line that imap_fetch produces */
++			if (header) {
++				char *line = i_stream_next_line(ctx->input);
++				if (line == NULL)
++					continue;
++				header = FALSE;
++
++				size = 0;
++				line = strchr(line, '{');
++				if (line != NULL)
++					size = strtoul(line + 1, NULL, 10);
++				ctx->msg_size += size;
++				if (ctx->msg_size > MAX_CATENATE_MSG_SIZE) {
++					toobig = TRUE;
++					ret = -1;
++					break;
++				}
++			}
++
++			/* feed the message data into the new message */
++			if (mailbox_save_continue(ctx->save_ctx) < 0) {
++				mailbox_save_cancel(&ctx->save_ctx);
++				ret = -1;
++				break;
++			}
++		}
++		if (ret == -1) {
++			if (!toobig)
++				error = "fetch/save failed";
++			break;
++		}
++	} while (fetch_ret == 0 || flush_ret == 0);
++
++	return catenate_fetch_cleanup(&cfctx, toobig, error);
++}
++
++static bool catenate_continue_cancel_literal(struct client_command_context *cmd)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	size_t size;
++
++	if (cmd->cancel)
++		return catenate_finish(ctx, TRUE);
++
++	(void) i_stream_read(ctx->cat.literal_input);
++	(void) i_stream_get_data(ctx->cat.literal_input, &size);
++	i_stream_skip(ctx->cat.literal_input, size);
++
++	if (ctx->cat.literal_input->eof || client->input->closed) {
++		/* finished, but there may be more URL or TEXT nonsync
++		  literals in a continued CATENATE command */
++		i_stream_unref(&ctx->cat.literal_input);
++		ctx->cat.literal_input = NULL;
++
++		if (cmd->client->input->closed || ctx->args != NULL)
++			return catenate_finish(ctx, TRUE);
++
++		return catenate_finish_literal(cmd, TRUE);
++	}
++
++	return FALSE;
++}
++
++static bool catenate_cancel(struct cmd_append_context *ctx, bool nonsync)
++{
++	ctx->failed = TRUE;
++
++	if (!nonsync || ctx->args != NULL)
++		return catenate_finish(ctx, TRUE);
++
++	/* we have to read this -- and any following -- nonsynced
++	  literals so we don't treat the literal data as commands. */
++	i_assert(ctx->cat.literal_input == NULL);
++	ctx->cat.literal_input = i_stream_create_limit(ctx->client->input,
++						      ctx->cat.literal_size);
++
++	ctx->message_input = TRUE;
++	ctx->cmd->func = catenate_continue_cancel_literal;
++	ctx->cmd->context = ctx;
++	return catenate_continue_cancel_literal(ctx->cmd);
++}
++
++static bool catenate_finish(struct cmd_append_context *ctx, bool cancel)
++{
++	if (!cancel) {
++		/* close the pipe and save any lingering output, which also
++		  crucially passes EOF down through the mailbox_save stack */
++		o_stream_close(ctx->cat.output);
++		if (mailbox_save_continue(ctx->save_ctx) < 0 ||
++		   mailbox_save_finish(&ctx->save_ctx) < 0) {
++			ctx->failed = TRUE;
++			client_send_storage_error(ctx->cmd, ctx->storage);
++			cancel = TRUE;
++		} else {
++			ctx->save_ctx = NULL;
++			++ctx->count;
++		}
++
++		if (ctx->args == NULL) {
++			// eat CRLF after close of CATENATE list
++			ctx->cmd->client->input_skip_line = TRUE;
++		}
++	}
++
++	if (ctx->cat.output != NULL)
++		o_stream_unref(&ctx->cat.output);
++	if (ctx->cat.literal_input != NULL)
++		i_stream_unref(&ctx->cat.literal_input);
++	if (ctx->cat.literal_url != NULL)
++		str_free(&ctx->cat.literal_url);
++	if (ctx->input != NULL)
++		i_stream_unref(&ctx->input);
++	ctx->cat.parts = 0;
++
++	if (ctx->msg_size == 0 || ctx->count == 0) {
++		if (!ctx->failed)
++			client_send_tagline(ctx->cmd,
++					"NO Can't save a zero byte message.");
++		ctx->failed = TRUE;
++		cancel = TRUE;
++	}
++
++	ctx->message_input = FALSE;
++	if (cancel) {
++		if (ctx->args != NULL) {
++			ctx->cmd->func = cmd_append_continue_parsing;
++			return cmd_append_continue_parsing(ctx->cmd);
++		}
++		cmd_append_finish(ctx);
++		return TRUE;
++	} else {
++		if (ctx->args == NULL)
++			imap_parser_reset(ctx->save_parser);
++		ctx->cmd->func = cmd_append_continue_parsing;
++		return cmd_append_continue_parsing(ctx->cmd);
++	}
++}
++
++static bool catenate_continue_parsing(struct client_command_context *cmd)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	const struct imap_arg *args;
++	int ret;
++	bool literal, nonsync;
++
++	if (cmd->cancel)
++		return catenate_finish(ctx, TRUE);
++
++	if (client->input_skip_line && !client_skip_line(client))
++		return FALSE;
++	ret = imap_parser_read_args(ctx->save_parser, 0,
++				   IMAP_PARSE_FLAG_LITERAL_SIZE, &args);
++	if (ret == -1) {
++		if (!ctx->failed)
++			client_send_command_error(cmd, NULL);
++		ctx->failed = TRUE;
++		return catenate_finish(ctx, TRUE);
++	}
++	if (ret < 0)
++		return FALSE;
++
++	// continuing the CATENATE list
++	i_assert(args->type == IMAP_ARG_LIST);
++	if (args[1].type != IMAP_ARG_EOL) {
++		i_assert(ctx->args == NULL);
++		ctx->args = &args[1];		// MULTIAPPEND
++	}
++	args = IMAP_ARG_LIST_ARGS(args);
++
++	if (args->type == IMAP_ARG_EOL) {
++		/* end of CATENATE list.  finish the message and return
++		  to regular MULTIAPPEND processing */
++		client->input_skip_line = ctx->args == NULL;
++		return catenate_finish(ctx, client->input->closed ||
++					   ctx->failed);
++	}
++
++	literal = imap_parser_get_literal_size(ctx->save_parser,
++					      &ctx->cat.literal_size);
++	client->input_skip_line = !literal;
++	nonsync = imap_parser_has_nonsync_literal(ctx->save_parser);
++	return ctx->failed ? catenate_cancel_args(cmd, args, nonsync) :
++			    catenate_process_args(cmd, args, nonsync);
++}
++
++static bool catenate_finish_literal(struct client_command_context *cmd,
++				   bool cancel)
++{
++	struct cmd_append_context *ctx = cmd->context;
++
++	ctx->message_input = FALSE;
++
++	// continue in the CATENATE list
++	i_assert(ctx->args == NULL);
++	imap_parser_reset(ctx->save_parser);
++	imap_parser_open_list(ctx->save_parser);
++
++	i_assert(!cancel || ctx->failed);
++	cmd->func = catenate_continue_parsing;
++	return catenate_continue_parsing(cmd);
++}
++
++static bool catenate_continue_url(struct client_command_context *cmd)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	int ret;
++	const unsigned char *data;
++	size_t size;
++
++	if (cmd->cancel)
++		return catenate_finish(ctx, TRUE);
++
++	if (ctx->cat.literal_input == NULL) {
++		ctx->cat.literal_input =
++			i_stream_create_limit(client->input,
++					     ctx->cat.literal_size);
++		i_assert(ctx->cat.literal_url == NULL);
++		ctx->cat.literal_url = str_new(cmd->pool,
++					      ctx->cat.literal_size + 1);
++		ctx->message_input = TRUE;
++	}
++
++	if (ctx->save_ctx != NULL) {
++		while (ctx->cat.literal_input->v_offset !=
++		      ctx->cat.literal_size) {
++			ret = i_stream_read(ctx->cat.literal_input);
++			data = i_stream_get_data(ctx->cat.literal_input,
++						&size);
++			buffer_append(ctx->cat.literal_url, data, size);
++			i_stream_skip(ctx->cat.literal_input, size);
++			if (ret == -1 || ret == 0)
++				break;
++		}
++	}
++
++	if (ctx->save_ctx == NULL) {
++		(void) i_stream_read(ctx->cat.literal_input);
++		(void) i_stream_get_data(ctx->cat.literal_input, &size);
++		i_stream_skip(ctx->cat.literal_input, size);
++	}
++
++	if (ctx->cat.literal_input->eof || client->input->closed) {
++		bool all_written = ctx->cat.literal_input->v_offset ==
++				  ctx->cat.literal_size;
++
++		/* finished */
++		i_stream_unref(&ctx->cat.literal_input);
++		ctx->cat.literal_input = NULL;
++
++		if (ctx->save_ctx == NULL) {
++			/* failed above */
++			ctx->failed = TRUE;
++		} else if (!all_written) {
++			/* client disconnected before it finished sending the
++			  whole literal. */
++			ctx->failed = TRUE;
++			mailbox_save_cancel(&ctx->save_ctx);
++			client_disconnect(client,
++					 "EOF while sending URL literal");
++		} else if (!catenate_url(ctx, str_c(ctx->cat.literal_url)))
++			ctx->failed = TRUE;
++
++		str_free(&ctx->cat.literal_url);
++		ctx->cat.literal_url = NULL;
++
++		if (client->input->closed)
++			return catenate_finish(ctx, TRUE);
++
++		/* done with this literal, resume the CATENATE list */
++		return catenate_finish_literal(cmd, ctx->failed);
++	}
++
++	return FALSE;
++}
++
++static bool catenate_continue_text(struct client_command_context *cmd)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	int ret;
++	size_t size;
++
++	if (cmd->cancel)
++		return catenate_finish(ctx, TRUE);
++
++	if (ctx->cat.literal_input == NULL) {
++		ctx->cat.literal_input =
++			i_stream_create_limit(client->input,
++					     ctx->cat.literal_size);
++		ctx->message_input = TRUE;
++	}
++
++	if (ctx->save_ctx != NULL) {
++		off_t send_ret = 1;
++		int flush_ret = 0;
++
++		do {
++			if (send_ret > 0)
++				send_ret = o_stream_send_istream(
++						ctx->cat.output,
++						ctx->cat.literal_input);
++			else
++				flush_ret = o_stream_flush(ctx->cat.output);
++			while ((ret = i_stream_read(ctx->input)) != 0 &&
++			      ret != -1) {
++				if (mailbox_save_continue(ctx->save_ctx) < 0) {
++					mailbox_save_cancel(&ctx->save_ctx);
++					ret = -1;
++					break;
++				}
++			}
++			if (ret == -1)
++				break;
++		} while (send_ret > 0 || flush_ret == 0);
++	}
++
++	if (ctx->save_ctx == NULL) {
++		(void) i_stream_read(ctx->cat.literal_input);
++		(void) i_stream_get_data(ctx->cat.literal_input, &size);
++		i_stream_skip(ctx->cat.literal_input, size);
++	}
++
++	if (ctx->cat.literal_input->eof || client->input->closed) {
++		bool all_written = ctx->cat.literal_input->v_offset ==
++				  ctx->cat.literal_size;
++
++		/* finished */
++		i_stream_unref(&ctx->cat.literal_input);
++		ctx->cat.literal_input = NULL;
++
++		if (ctx->save_ctx == NULL) {
++			/* failed above */
++			client_send_storage_error(cmd, ctx->storage);
++			ctx->failed = TRUE;
++		} else if (!all_written) {
++			/* client disconnected before it finished sending the
++			  whole literal. */
++			ctx->failed = TRUE;
++			mailbox_save_cancel(&ctx->save_ctx);
++			client_disconnect(client, "EOF while appending");
++		}
++
++		if (client->input->closed)
++			return catenate_finish(ctx, TRUE);
++
++		/* done with this literal, resume the CATENATE list */
++		return catenate_finish_literal(cmd, ctx->failed);
++	}
++
++	return FALSE;
++}
++
++static bool catenate_begin_parsing(struct client_command_context *cmd,
++				  const struct imap_arg *args)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	bool literal, nonsync;
++	enum mail_flags flags = 0;
++	struct mail_keywords *keywords = NULL;
++	time_t internal_date = (time_t) -1;
++	int ret, timezone_offset = 0;
++	int fds[2];
++
++	literal = imap_parser_get_literal_size(ctx->save_parser,
++					      &ctx->cat.literal_size);
++	client->input_skip_line = !literal;
++	nonsync = imap_parser_has_nonsync_literal(ctx->save_parser);
++
++	if (ctx->failed)
++		return catenate_cancel(ctx, nonsync);
++
++	/* [<flags>] */
++	if (args->type == IMAP_ARG_LIST) {
++		const struct imap_arg *flags_list = IMAP_ARG_LIST_ARGS(args);
++		const char *const *keywords_list = NULL;
++		++args;
++
++		if (!client_parse_mail_flags(cmd, flags_list,
++					    &flags, &keywords_list))
++			return catenate_cancel(ctx, nonsync);
++		if (keywords_list != NULL &&
++		   mailbox_keywords_create(ctx->box, keywords_list,
++					   &keywords) < 0) {
++			client_send_storage_error(cmd, ctx->storage);
++			return catenate_cancel(ctx, nonsync);
++		}
++	}
++
++	/* [<internal date>] */
++	if (args->type == IMAP_ARG_STRING) {
++		const char *str = IMAP_ARG_STR(args);
++		++args;
++
++		if (!imap_parse_datetime(str, &internal_date,
++					&timezone_offset)) {
++			client_send_tagline(cmd, "BAD Invalid internal date.");
++			if (keywords != NULL)
++				mailbox_keywords_free(ctx->box, &keywords);
++			return catenate_cancel(ctx, nonsync);
++		}
++
++		if (internal_date != (time_t)-1 &&
++		   internal_date > ioloop_time + INTERNALDATE_MAX_FUTURE_SECS) {
++			internal_date = (time_t)-1;
++			timezone_offset = 0;
++		}
++	}
++
++	if (args->type != IMAP_ARG_ATOM ||
++	   strcasecmp(args->_data.str, "CATENATE") != 0 ||
++	   args[1].type != IMAP_ARG_LIST) {
++		// do not use client_send_command_error()
++		client_send_tagline(cmd, "BAD Invalid arguments.");
++		if (keywords != NULL)
++			mailbox_keywords_free(ctx->box, &keywords);
++		return catenate_cancel(ctx, nonsync);
++	}
++	++args;
++
++	/* MULTIAPPEND syntax on a single line, e.g.:
++	  APPEND <mailbox> CATENATE (URL <url>) CATENATE (... */
++	if (args[1].type != IMAP_ARG_EOL)
++		ctx->args = &args[1];
++
++	// remainder of CATENATE parsing cares only about the items in the list
++	args = IMAP_ARG_LIST_ARGS(args);
++	if (args->type == IMAP_ARG_EOL) {	// empty list
++		client_send_tagline(cmd, "BAD Invalid arguments.");
++		if (keywords != NULL)
++			mailbox_keywords_free(ctx->box, &keywords);
++		return catenate_cancel(ctx, nonsync);
++	}
++
++	/* The mailbox_save() API pulls data from an istream, and the
++	  imap_fetch() API pushes data into an ostream.  Dovecot does
++	  not offer an ostream which feeds an istream, so use a UNIX
++	  pipe.  That's not the most efficient way to move the data
++	  around, but dovecot's ostreams and istreams are sufficiently
++	  complex (read: under-documented) that it's easier to use a
++	  pipe than to write an ostream-to-istream module.  Somebody
++	  call a plumber. */
++	if (pipe(fds) < 0) {
++		i_error("catenate_begin_parsing: pipe: %m");
++		client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
++		if (keywords != NULL)
++			mailbox_keywords_free(ctx->box, &keywords);
++		return catenate_cancel(ctx, nonsync);
++	}
++	fd_set_nonblock(fds[0], TRUE);
++	fd_set_nonblock(fds[1], TRUE);
++	ctx->cat.output = o_stream_create_fd(fds[1], PIPE_MAX, TRUE);
++	ctx->input = i_stream_create_fd(fds[0], PIPE_MAX, TRUE);
++
++	/* start assembling the message */
++	ctx->save_ctx = mailbox_save_alloc(ctx->t);
++	mailbox_save_set_flags(ctx->save_ctx, flags, keywords);
++	mailbox_save_set_received_date(ctx->save_ctx,
++				      internal_date, timezone_offset);
++	ret = mailbox_save_begin(&ctx->save_ctx, ctx->input);
++
++	if (keywords != NULL)
++		mailbox_keywords_free(ctx->box, &keywords);
++
++	if (ret < 0) {
++		/* save initialization failed */
++		client_send_storage_error(cmd, ctx->storage);
++		return catenate_cancel(ctx, nonsync);
++	}
++	ctx->msg_size = 0;
++
++	return catenate_process_args(cmd, args, nonsync);
++}
++
++static bool catenate_begin_cancel(struct client_command_context *cmd,
++				 const struct imap_arg *args)
++{
++	struct client *client = cmd->client;
++	struct cmd_append_context *ctx = cmd->context;
++	bool literal, nonsync;
++
++	literal = imap_parser_get_literal_size(ctx->save_parser,
++					      &ctx->cat.literal_size);
++	client->input_skip_line = !literal;
++	nonsync = imap_parser_has_nonsync_literal(ctx->save_parser);
++
++	/* [<flags>] */
++	if (args->type == IMAP_ARG_LIST)
++		++args;
++
++	/* [<internal date>] */
++	if (args->type == IMAP_ARG_STRING)
++		++args;
++
++	if (args->type != IMAP_ARG_ATOM ||
++	   strcasecmp(args->_data.str, "CATENATE") != 0 ||
++	   args[1].type != IMAP_ARG_LIST)
++		return catenate_cancel(ctx, nonsync);
++	++args;
++
++	/* MULTIAPPEND syntax on a single line, e.g.:
++	  APPEND <mailbox> CATENATE (URL <url>) CATENATE (... */
++	if (args[1].type != IMAP_ARG_EOL)
++		ctx->args = &args[1];
++
++	// remainder of CATENATE parsing cares only about the items in the list
++	args = IMAP_ARG_LIST_ARGS(args);
++	if (args->type == IMAP_ARG_EOL)		// empty list
++		return catenate_cancel(ctx, nonsync);
++
++	return catenate_cancel_args(cmd, args, nonsync);
++}
++
++static bool catenate_process_args(struct client_command_context *cmd,
++				 const struct imap_arg *args, bool nonsync)
++{
++	struct cmd_append_context *ctx = cmd->context;
++
++	/* [URL <url>] ... [URL <literal>] */
++	while (args->type == IMAP_ARG_ATOM &&
++	      strcasecmp(args->_data.str, "URL") == 0) {
++		if (++ctx->cat.parts > MAX_CATENATE_PARTS) {
++			client_send_tagline(cmd,
++					   "BAD Too many message parts.");
++			return catenate_cancel(ctx, nonsync);
++		}
++
++		++args;
++		if (args->type == IMAP_ARG_ATOM ||
++		   args->type == IMAP_ARG_STRING) {
++			if (!catenate_url(ctx, args->_data.str))
++				return catenate_cancel(ctx, nonsync);
++			++args;
++		} else if (args->type == IMAP_ARG_LITERAL_SIZE ||
++			  args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC) {
++			if (ctx->cat.literal_size > MAX_URL_LITERAL_SIZE) {
++				client_send_tagline(cmd,
++						"BAD URL literal too large");
++				return catenate_cancel(ctx, nonsync);
++			}
++
++			catenate_solicit(ctx, nonsync);
++			cmd->func = catenate_continue_url;
++			return catenate_continue_url(cmd);
++		} else {
++			client_send_tagline(cmd, "BAD Invalid arguments.");
++			return catenate_cancel(ctx, nonsync);
++		}
++	}
++
++	/* [TEXT <literal>] */
++	if (args->type == IMAP_ARG_ATOM &&
++	   strcasecmp(args->_data.str, "TEXT") == 0 &&
++	   (args[1].type == IMAP_ARG_LITERAL_SIZE ||
++	    args[1].type == IMAP_ARG_LITERAL_SIZE_NONSYNC)) {
++		if (++ctx->cat.parts > MAX_CATENATE_PARTS) {
++			client_send_tagline(cmd,
++					   "BAD Too many message parts.");
++			return catenate_cancel(ctx, nonsync);
++		}
++
++		ctx->msg_size += ctx->cat.literal_size;
++		if (ctx->msg_size > MAX_CATENATE_MSG_SIZE) {
++			client_send_tagline(cmd,
++				"NO [TOOBIG] Resulting message too large");
++			return catenate_cancel(ctx, nonsync);
++		}
++
++		catenate_solicit(ctx, nonsync);
++		cmd->func = catenate_continue_text;
++		return catenate_continue_text(cmd);
++	} else if (args->type != IMAP_ARG_EOL) {
++		client_send_tagline(cmd, "BAD Invalid arguments.");
++		return catenate_cancel(ctx, nonsync);
++	}
++
++	return catenate_finish(ctx, FALSE);
++}
++
++static bool catenate_cancel_args(struct client_command_context *cmd,
++				const struct imap_arg *args, bool nonsync)
++{
++	struct cmd_append_context *ctx = cmd->context;
++
++	/* [URL <url>] ... [URL <literal>] */
++	while (args->type == IMAP_ARG_ATOM &&
++	      strcasecmp(args->_data.str, "URL") == 0) {
++		++args;
++		if (args->type == IMAP_ARG_ATOM ||
++		   args->type == IMAP_ARG_STRING)
++			++args;
++		else if (args->type == IMAP_ARG_LITERAL_SIZE ||
++			args->type == IMAP_ARG_LITERAL_SIZE_NONSYNC)
++			return catenate_cancel(ctx, nonsync);
++	}
++
++	/* [TEXT <literal>] */
++	if (args->type == IMAP_ARG_ATOM &&
++	   strcasecmp(args->_data.str, "TEXT") == 0 &&
++	   (args[1].type == IMAP_ARG_LITERAL_SIZE ||
++	    args[1].type == IMAP_ARG_LITERAL_SIZE_NONSYNC))
++		return catenate_cancel(ctx, nonsync);
++	else if (args->type != IMAP_ARG_EOL)
++		return catenate_cancel(ctx, nonsync);
++
++	return catenate_finish(ctx, TRUE);
++}
+diff -Nur dovecot-1.2.11/src/imap/cmd-delete.c dovecot-1.2.11+lemonade/src/imap/cmd-delete.c
+--- dovecot-1.2.11/src/imap/cmd-delete.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/cmd-delete.c	2010-04-08 09:59:12.000000000 -0500
+@@ -4,6 +4,10 @@
+#include "commands.h"
+#include "mail-namespace.h"
+
++/* APPLE - urlauth */
++void (*hook_delete_mailbox)(struct mail_storage *storage,
++			   const char *mailbox) = NULL;
++
+bool cmd_delete(struct client_command_context *cmd)
+{
+	struct client *client = cmd->client;
+@@ -51,6 +55,10 @@
+	if (mailbox_list_delete_mailbox(list, name) < 0)
+		client_send_list_error(cmd, list);
+	else {
++		/* APPLE - urlauth */
++		if (hook_delete_mailbox)
++			hook_delete_mailbox(storage, name);
++
+		client_send_tagline(cmd, "OK Delete completed.");
+	}
+	return TRUE;
+diff -Nur dovecot-1.2.11/src/imap/cmd-fetch.c dovecot-1.2.11+lemonade/src/imap/cmd-fetch.c
+--- dovecot-1.2.11/src/imap/cmd-fetch.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/cmd-fetch.c	2010-04-08 09:59:12.000000000 -0500
+@@ -20,7 +20,7 @@
+	"FLAGS", "INTERNALDATE", "RFC822.SIZE", "ENVELOPE", "BODY", NULL
+};
+
+-static bool
++bool	/* APPLE was static - urlauth */
+fetch_parse_args(struct imap_fetch_context *ctx, const struct imap_arg *arg,
+		const struct imap_arg **next_arg_r)
+{
+diff -Nur dovecot-1.2.11/src/imap/cmd-rename.c dovecot-1.2.11+lemonade/src/imap/cmd-rename.c
+--- dovecot-1.2.11/src/imap/cmd-rename.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/cmd-rename.c	2010-04-08 09:59:12.000000000 -0500
+@@ -52,6 +52,12 @@
+	if (mailbox_list_rename_mailbox(list, oldname, newname) < 0)
+		client_send_list_error(cmd, list);
+	else {
++		/* APPLE - urlauth */
++		extern void (*hook_delete_mailbox)(struct mail_storage *storage,
++						  const char *mailbox);
++		if (hook_delete_mailbox)
++			hook_delete_mailbox(old_storage, oldname);
++
+		client_send_tagline(cmd, "OK Rename completed.");
+	}
+	return TRUE;
+diff -Nur dovecot-1.2.11/src/imap/cmd-select.c dovecot-1.2.11+lemonade/src/imap/cmd-select.c
+--- dovecot-1.2.11/src/imap/cmd-select.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/cmd-select.c	2010-04-08 09:59:12.000000000 -0500
+@@ -10,6 +10,9 @@
+
+#include <stdlib.h>
+
++/* APPLE - urlauth */
++void (*hook_select_send_urlmech)(struct client *client) = NULL;
++
+struct imap_select_context {
+	struct client_command_context *cmd;
+	struct mail_storage *storage;
+@@ -316,6 +319,10 @@
+		client->sync_last_full_modseq = status.highest_modseq;
+	}
+
++	/* APPLE - urlauth */
++	if (hook_select_send_urlmech)
++		hook_select_send_urlmech(client);
++
+	if (ctx->qresync_uid_validity == status.uidvalidity) {
+		if (select_qresync(ctx) < 0)
+			return -1;
+diff -Nur dovecot-1.2.11/src/imap/commands.c dovecot-1.2.11+lemonade/src/imap/commands.c
+--- dovecot-1.2.11/src/imap/commands.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/commands.c	2010-04-08 09:59:12.000000000 -0500
+@@ -8,8 +8,12 @@
+#include <stdlib.h>
+
+static const struct command imap4rev1_commands[] = {
+-	{ "CAPABILITY",		cmd_capability,  0 },
+-	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX },
++	{ "CAPABILITY",		cmd_capability,  0
++					/* APPLE - urlauth */
++					| COMMAND_FLAG_OK_FOR_SUBMIT_USER },
++	{ "LOGOUT",		cmd_logout,      COMMAND_FLAG_BREAKS_MAILBOX
++					/* APPLE - urlauth */
++					| COMMAND_FLAG_OK_FOR_SUBMIT_USER },
+	{ "NOOP",		cmd_noop,        COMMAND_FLAG_BREAKS_SEQS },
+
+	{ "APPEND",		cmd_append,      COMMAND_FLAG_BREAKS_SEQS },
+@@ -43,7 +47,9 @@
+static const struct command imap_ext_commands[] = {
+	{ "CANCELUPDATE",	cmd_cancelupdate,0 },
+	{ "ENABLE",		cmd_enable,      0 },
+-	{ "ID",			cmd_id,          0 },
++	{ "ID",			cmd_id,          0
++					/* APPLE - urlauth */
++					| COMMAND_FLAG_OK_FOR_SUBMIT_USER },
+	{ "IDLE",		cmd_idle,        COMMAND_FLAG_BREAKS_SEQS |
+						COMMAND_FLAG_REQUIRES_SYNC },
+	{ "NAMESPACE",		cmd_namespace,   0 },
+diff -Nur dovecot-1.2.11/src/imap/commands.h dovecot-1.2.11+lemonade/src/imap/commands.h
+--- dovecot-1.2.11/src/imap/commands.h	2010-01-19 05:56:56.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/commands.h	2010-04-08 09:59:12.000000000 -0500
+@@ -28,7 +28,10 @@
+	  Dovecot internally returns it for all kinds of commands,
+	  but unfortunately RFC 5530 specifies it only for "delete something"
+	  operations. */
+-	COMMAND_FLAG_USE_NONEXISTENT	= 0x10
++	COMMAND_FLAG_USE_NONEXISTENT	= 0x10,
++
++	/* APPLE - urlauth */
++	COMMAND_FLAG_OK_FOR_SUBMIT_USER = 0x20
+};
+
+struct command {
+@@ -108,4 +111,10 @@
+bool cmd_select_full(struct client_command_context *cmd, bool readonly);
+bool cmd_subscribe_full(struct client_command_context *cmd, bool subscribe);
+
++/* APPLE fetch_parse_args() was static - urlauth */
++struct imap_fetch_context;
++bool fetch_parse_args(struct imap_fetch_context *ctx,
++		     const struct imap_arg *arg,
++		     const struct imap_arg **next_arg_r);
++
+#endif
+diff -Nur dovecot-1.2.11/src/imap/imap-fetch-body.c dovecot-1.2.11+lemonade/src/imap/imap-fetch-body.c
+--- dovecot-1.2.11/src/imap/imap-fetch-body.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/imap-fetch-body.c	2010-04-08 09:59:12.000000000 -0500
+@@ -113,6 +113,8 @@
+	else
+		str_append_c(str, ' ');
+
++	/* APPLE - urlauth */
++	if (!ctx->urlfetch)	/* reduce code deltas */
+	str_append(str, get_body_name(body));
+
+	if (size != (uoff_t)-1)
+diff -Nur dovecot-1.2.11/src/imap/imap-fetch.c dovecot-1.2.11+lemonade/src/imap/imap-fetch.c
+--- dovecot-1.2.11/src/imap/imap-fetch.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/imap-fetch.c	2010-04-08 09:59:12.000000000 -0500
+@@ -449,6 +449,10 @@
+				break;
+			ctx->cur_mail = ctx->mail;
+
++			/* APPLE - urlauth */
++			if (ctx->urlfetch)
++				ctx->urlfetched = TRUE;
++			else	/* reduce code deltas */
+			str_printfa(ctx->cur_str, "* %u FETCH (",
+				   ctx->cur_mail->seq);
+			ctx->first = TRUE;
+@@ -504,6 +508,9 @@
+
+		ctx->line_finished = TRUE;
+		ctx->line_partial = FALSE;
++
++		/* APPLE - urlauth */
++		if (!ctx->urlfetch)	/* reduce code deltas */
+		if (o_stream_send(client->output, ")\r\n", 3) < 0)
+			return -1;
+		client->last_output = ioloop_time;
+@@ -761,6 +768,8 @@
+static int fetch_uid(struct imap_fetch_context *ctx, struct mail *mail,
+		    void *context ATTR_UNUSED)
+{
++	/* APPLE - urlauth */
++	if (!ctx->urlfetch)	/* reduce code deltas */
+	str_printfa(ctx->cur_str, "UID %u ", mail->uid);
+	return 1;
+}
+diff -Nur dovecot-1.2.11/src/imap/imap-fetch.h dovecot-1.2.11+lemonade/src/imap/imap-fetch.h
+--- dovecot-1.2.11/src/imap/imap-fetch.h	2009-06-26 23:49:34.000000000 -0500
++++ dovecot-1.2.11+lemonade/src/imap/imap-fetch.h	2010-04-08 09:59:12.000000000 -0500
+@@ -73,6 +73,8 @@
+	unsigned int partial_fetch:1;
+	unsigned int send_vanished:1;
+	unsigned int failed:1;
++	unsigned int urlfetch:1;			/* APPLE - urlauth */
++	unsigned int urlfetched:1;			/* APPLE - urlauth */
+};
+
+void imap_fetch_handlers_register(const struct imap_fetch_handler *handlers,
+diff -Nur dovecot-1.2.11/src/imap/imap-search-args.c dovecot-1.2.11+lemonade/src/imap/imap-search-args.c
+--- dovecot-1.2.11/src/imap/imap-search-args.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/imap-search-args.c	2010-04-08 09:59:12.000000000 -0500
+@@ -112,7 +112,7 @@
+	return 0;
+}
+
+-static int
++int	/* APPLE was static - urlauth */
+imap_search_get_uidset_arg(struct client_command_context *cmd,
+			  const char *uidset, struct mail_search_args **args_r,
+			  const char **error_r)
+diff -Nur dovecot-1.2.11/src/imap/imap-search-args.h dovecot-1.2.11+lemonade/src/imap/imap-search-args.h
+--- dovecot-1.2.11/src/imap/imap-search-args.h	2009-02-21 13:17:03.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/imap/imap-search-args.h	2010-04-08 09:59:12.000000000 -0500
+@@ -25,4 +25,10 @@
+			  const char *set, bool uid,
+			  struct mail_search_args **search_args_r);
+
++/* APPLE was static - urlauth */
++int imap_search_get_uidset_arg(struct client_command_context *cmd,
++			      const char *uidset,
++			      struct mail_search_args **args_r,
++			      const char **error_r);
++
+#endif
+diff -Nur dovecot-1.2.11/src/lib-imap/Makefile.am dovecot-1.2.11+lemonade/src/lib-imap/Makefile.am
+--- dovecot-1.2.11/src/lib-imap/Makefile.am	2008-11-15 13:04:59.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/lib-imap/Makefile.am	2010-04-08 09:59:13.000000000 -0500
+@@ -15,6 +15,7 @@
+	imap-parser.c \
+	imap-quote.c \
+	imap-seqset.c \
++	imap-url.c \
+	imap-utf7.c \
+	imap-util.c
+
+@@ -29,6 +30,7 @@
+	imap-resp-code.h \
+	imap-quote.h \
+	imap-seqset.h \
++	imap-url.h \
+	imap-utf7.h \
+	imap-util.h
+
+diff -Nur dovecot-1.2.11/src/lib-imap/Makefile.in dovecot-1.2.11+lemonade/src/lib-imap/Makefile.in
+--- dovecot-1.2.11/src/lib-imap/Makefile.in	2010-03-08 11:31:07.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/lib-imap/Makefile.in	2010-04-08 09:59:13.000000000 -0500
+@@ -55,7 +55,8 @@
+	imap-bodystructure.$(OBJEXT) imap-date.$(OBJEXT) \
+	imap-envelope.$(OBJEXT) imap-id.$(OBJEXT) imap-match.$(OBJEXT) \
+	imap-parser.$(OBJEXT) imap-quote.$(OBJEXT) \
+-	imap-seqset.$(OBJEXT) imap-utf7.$(OBJEXT) imap-util.$(OBJEXT)
++	imap-seqset.$(OBJEXT) imap-url.$(OBJEXT) imap-utf7.$(OBJEXT) \
++	imap-util.$(OBJEXT)
+libimap_a_OBJECTS = $(am_libimap_a_OBJECTS)
+DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
+depcomp = $(SHELL) $(top_srcdir)/depcomp
+@@ -75,11 +76,11 @@
+am__noinst_HEADERS_DIST = imap-base-subject.h imap-bodystructure.h \
+	imap-date.h imap-envelope.h imap-id.h imap-match.h \
+	imap-parser.h imap-resp-code.h imap-quote.h imap-seqset.h \
+-	imap-utf7.h imap-util.h
++	imap-url.h imap-utf7.h imap-util.h
+am__pkginc_lib_HEADERS_DIST = imap-base-subject.h imap-bodystructure.h \
+	imap-date.h imap-envelope.h imap-id.h imap-match.h \
+	imap-parser.h imap-resp-code.h imap-quote.h imap-seqset.h \
+-	imap-utf7.h imap-util.h
++	imap-url.h imap-utf7.h imap-util.h
+am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
+am__vpath_adj = case $$p in \
+    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
+@@ -275,6 +276,7 @@
+	imap-parser.c \
+	imap-quote.c \
+	imap-seqset.c \
++	imap-url.c \
+	imap-utf7.c \
+	imap-util.c
+
+@@ -289,6 +291,7 @@
+	imap-resp-code.h \
+	imap-quote.h \
+	imap-seqset.h \
++	imap-url.h \
+	imap-utf7.h \
+	imap-util.h
+
+@@ -352,6 +355,7 @@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-parser.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-quote.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-seqset.Po@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-url.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-utf7.Po@am__quote@
+@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/imap-util.Po@am__quote@
+
+diff -Nur dovecot-1.2.11/src/lib-imap/imap-parser.c dovecot-1.2.11+lemonade/src/lib-imap/imap-parser.c
+--- dovecot-1.2.11/src/lib-imap/imap-parser.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/lib-imap/imap-parser.c	2010-04-08 09:59:13.000000000 -0500
+@@ -133,7 +133,8 @@
+	return arg;
+}
+
+-static void imap_parser_open_list(struct imap_parser *parser)
++/* APPLE - catenate - was static */
++void imap_parser_open_list(struct imap_parser *parser)
+{
+	parser->list_arg = imap_arg_create(parser);
+	parser->list_arg->type = IMAP_ARG_LIST;
+@@ -649,6 +650,37 @@
+	return TRUE;
+}
+
++/* APPLE - catenate */
++bool imap_parser_has_nonsync_literal(struct imap_parser *parser)
++{
++	ARRAY_TYPE(imap_arg_list) *list;
++	struct imap_arg *args;
++	unsigned int count;
++
++	list = &parser->root_list;
++	args = array_get_modifiable(&parser->root_list, &count);
++	i_assert(count > 1 && args[count-1].type == IMAP_ARG_EOL);
++	count--;
++
++	while (args[count-1].type != IMAP_ARG_LITERAL_SIZE &&
++	      args[count-1].type != IMAP_ARG_LITERAL_SIZE_NONSYNC) {
++		if (args[count-1].type != IMAP_ARG_LIST)
++			return FALSE;
++
++		/* maybe the list ends with nonsync literal */
++		list = &args[count-1]._data.list;
++		args = array_get_modifiable(list, &count);
++
++		/* you might think the same assertion above would apply
++		  here, but if a list has IMAP_ARG_LITERAL_SIZE*
++		  there is no IMAP_ARG_EOL after it */
++		if (count == 0)
++			return FALSE;
++	}
++
++	return args[count-1].type == IMAP_ARG_LITERAL_SIZE_NONSYNC;
++}
++
+void imap_parser_read_last_literal(struct imap_parser *parser)
+{
+	ARRAY_TYPE(imap_arg_list) *list;
+diff -Nur dovecot-1.2.11/src/lib-imap/imap-parser.h dovecot-1.2.11+lemonade/src/lib-imap/imap-parser.h
+--- dovecot-1.2.11/src/lib-imap/imap-parser.h	2009-03-30 20:41:03.000000000 -0500
++++ dovecot-1.2.11+lemonade/src/lib-imap/imap-parser.h	2010-04-08 09:59:13.000000000 -0500
+@@ -112,6 +112,9 @@
+   given. */
+const char *imap_parser_get_error(struct imap_parser *parser, bool *fatal);
+
++/* APPLE - catenate - was static */
++void imap_parser_open_list(struct imap_parser *parser);
++
+/* Read a number of arguments. This function doesn't call i_stream_read(), you
+   need to do that. Returns number of arguments read (may be less than count
+   in case of EOL), -2 if more data is needed or -1 if error occurred.
+@@ -130,6 +133,9 @@
+   literal data when continuing argument parsing. */
+void imap_parser_read_last_literal(struct imap_parser *parser);
+
++/* APPLE - catenate */
++bool imap_parser_has_nonsync_literal(struct imap_parser *parser);
++
+/* just like imap_parser_read_args(), but assume \n at end of data in
+   input stream. */
+int imap_parser_finish_line(struct imap_parser *parser, unsigned int count,
+diff -Nur dovecot-1.2.11/src/lib-imap/imap-url.c dovecot-1.2.11+lemonade/src/lib-imap/imap-url.c
+--- dovecot-1.2.11/src/lib-imap/imap-url.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/lib-imap/imap-url.c	2010-04-08 10:20:47.000000000 -0500
+@@ -0,0 +1,741 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "lib.h"
++#include "str.h"
++#include "utc-mktime.h"
++#include "imap-utf7.h"
++#include "imap-url.h"
++
++#include <time.h>
++#include <ctype.h>
++
++#define	MECH_INTERNAL_ONLY	1
++
++#define	LOWALPHA	"abcdefghijklmnopqrstuvwxyz"	/* RFC 1738 */
++#define	HIALPHA		"ABCDEFGHIJKLMNOPQRSTUVWXYZ"	/* RFC 1738 */
++#define	ALPHA		LOWALPHA""HIALPHA		/* RFC 1738 */
++#define	DIGIT		"0123456789"			/* RFC 1738 */
++#define	SAFE		"$-_.+"				/* RFC 1738 */
++#define	EXTRA		"!*'(),"			/* RFC 1738 */
++#define	UNRESERVED	ALPHA""DIGIT""SAFE""EXTRA	/* RFC 1738 */
++#define	ESCAPE		"%"				/* RFC 1738 */
++#define	UCHAR		UNRESERVED""ESCAPE		/* RFC 1738 */
++#define	ACHAR		UCHAR"&=~"			/* RFC 2192 */
++#define	BCHAR		ACHAR":@/"			/* RFC 2192 */
++#define	HEXDIG		DIGIT"ABCDEFabcdef"		/* RFC 2234 */
++#define	HOST_CHARS	ALPHA".:-"DIGIT			/* RFC 1738 */
++#define	DATETIME_CHARS	DIGIT".+-:TZ"			/* RFC 3339 */
++
++// any CHAR except "(" / ")" / "{" / SP / CTL / "%" / "*" / '"' / "\" / "]"
++#define	ATOM_CHARS	"\
++!#$&'+,-./0123456789:;<=>?@\
++ABCDEFGHIJKLMNOPQRSTUVWXYZ[^_`\
++abcdefghijklmnopqrstuvwxyz|}~"
++
++// any CHAR except "(" / ")" / "{" / SP / CTL / "%" / "*" / '"' / "\"
++#define	ASTRING_CHARS	ATOM_CHARS"]"
++
++static char atom_chars_allowed[256];
++static char astring_chars_allowed[256];
++static char quoted_allowed[256];	// any CHAR except '"' / "\" / CR / LF
++static char quoted_specials_allowed[256];	// any CHAR except CR / LF
++static char host_chars_allowed[256];
++static char url_resp_allowed[256];
++static bool initialized = FALSE;
++
++// initialize the *_allowed tables once
++static void init_allowed(void)
++{
++	if (!initialized) {
++		const unsigned char *cp;
++		int i;
++
++		for (cp = (const unsigned char *) ATOM_CHARS; *cp; cp++)
++			atom_chars_allowed[*cp & 0xff] = 1;
++
++		for (cp = (const unsigned char *) ASTRING_CHARS; *cp; cp++)
++			astring_chars_allowed[*cp & 0xff] = 1;
++
++		for (cp = (const unsigned char *) HOST_CHARS; *cp; cp++)
++			host_chars_allowed[*cp & 0xff] = 1;
++
++		for (i = 0x01; i <= 0x7f; i++)
++			quoted_specials_allowed[i] = 1;
++		quoted_specials_allowed['\r'] = 0;
++		quoted_specials_allowed['\n'] = 0;
++		memcpy(quoted_allowed, quoted_specials_allowed,
++		      sizeof quoted_allowed);
++		quoted_allowed['"'] = 0;
++		quoted_allowed['\\'] = 0;
++
++		for (i = 0x01; i <= 0x09; i++)
++			url_resp_allowed[i] = 1;
++		for (i = 0x0b; i <= 0x0c; i++)
++			url_resp_allowed[i] = 1;
++		// RFC 4469 erroneously skips 0x5c but that's "\" not "]"
++		for (i = 0x0e; i <= 0x5c; i++)
++			url_resp_allowed[i] = 1;
++		for (i = 0x5e; i <= 0xfe; i++)
++			url_resp_allowed[i] = 1;
++
++		initialized = TRUE;
++	}
++}
++
++// URL-decode enc into dec (%XX decoding)
++bool url_decode(const char *enc, string_t *dec)
++{
++	const char *cp;
++
++	for (cp = enc; *cp; cp++) {
++		if (*cp == '%') {
++			unsigned int val;
++			if (cp[1] >= '0' && cp[1] <= '9')
++				val = cp[1] - '0';
++			else if (cp[1] >= 'A' && cp[1] <= 'F')
++				val = 10 + cp[1] - 'A';
++			else if (cp[1] >= 'a' && cp[1] <= 'f')
++				val = 10 + cp[1] - 'a';
++			else
++				return FALSE;
++			val *= 16;
++			if (cp[2] >= '0' && cp[2] <= '9')
++				val += cp[2] - '0';
++			else if (cp[2] >= 'A' && cp[2] <= 'F')
++				val += 10 + cp[2] - 'A';
++			else if (cp[2] >= 'a' && cp[2] <= 'f')
++				val += 10 + cp[2] - 'a';
++			else
++				return FALSE;
++			if (val == 0 || val > 0xff)
++				return FALSE;
++			str_append_c(dec, val);
++			cp += 2;
++		} else
++			str_append_c(dec, *cp);
++	}
++
++	return TRUE;
++}
++
++// parse an RFC 2192+4467 URL into its parts
++void imap_url_parse(const char *url, struct imap_url_parts *parts)
++{
++	const char *rump, *p;
++	size_t s;
++
++	rump = url;
++
++	// "imap://" ...
++	if (strncasecmp(url, "imap://", 7) == 0) {
++		url += 7;
++				     
++		// ... enc-user ...
++		s = strcspn(url, ";@");
++		if (s <= 0)
++			return;
++		parts->user = t_strdup_until(url, url + s);
++		url += s;
++
++		// ... [";AUTH=" ( "*" / enc_auth_type )] ...
++		if (strncasecmp(url, ";AUTH=", 6) == 0) {
++			url += 6;
++			p = strchr(url, '@');
++			if (p == NULL)
++				return;
++			parts->auth_type = t_strdup_until(url, p);
++			url = p;
++		}
++
++		// ... "@" hostport ...
++		if (*url != '@')
++			return;
++		++url;
++		p = strchr(url, '/');
++		if (p == NULL)
++			return;
++		parts->hostport = t_strdup_until(url, p);
++		url = p;
++	}
++
++	// ... ["/" enc_mailbox] ...
++	if (*url == '/' && strncasecmp(url, "/;UID=", 6) != 0) {
++		++url;
++		p = strcasestr(url, ";UIDVALIDITY=");
++		if (p == NULL)
++			p = strcasestr(url, "/;UID=");
++		if (p == NULL)
++			return;
++		parts->mailbox = t_strdup_until(url, p);
++		url = p;
++	}
++
++	// ... [";UIDVALIDITY=" nz_number] ...
++	if (strncasecmp(url, ";UIDVALIDITY=", 13) == 0) {
++		url += 13;
++		p = strchr(url, '/');
++		if (p == NULL)
++			return;
++		parts->uidvalidity = t_strdup_until(url, p);
++		url = p;
++	}
++
++	// ... ["/;UID=" nz_number] ...
++	if (strncasecmp(url, "/;UID=", 6) == 0) {
++		url += 6;
++		s = strcspn(url, ";/");
++		if (s <= 0)
++			return;
++		parts->uid = t_strdup_until(url, url + s);
++		url += s;
++	}
++
++	// ... ["/;SECTION=" enc_section] ...
++	if (strncasecmp(url, "/;SECTION=", 10) == 0) {
++		url += 10;
++		p = strchr(url, ';');
++		if (p == NULL) {
++			parts->section = t_strdup(url);
++			return;
++		}
++		parts->section = t_strdup_until(url, p);
++		url = p;
++	}
++
++	// ... [";EXPIRE=" date-time] ...
++	if (strncasecmp(url, ";EXPIRE=", 8) == 0) {
++		url += 8;
++		p = strchr(url, ';');
++		if (p == NULL)
++			return;
++		parts->expiration = t_strdup_until(url, p);
++		// set expiration_time after decoding
++		url = p;
++	}
++
++	// ... [";URLAUTH=" access] ...
++	if (strncasecmp(url, ";URLAUTH=", 9) != 0)
++		return;
++	url += 9;
++	p = strchr(url, ':');
++	if (p == NULL) {
++		parts->access = url;
++		return;
++	}
++	parts->access = t_strdup_until(url, p);
++	url = p;
++
++	// save rump
++	parts->rump = t_strdup_until(rump, url);
++
++	// ... [ ":INTERNAL:" 32*HEXDIG ]
++	if (strncasecmp(url, ":INTERNAL:", 10) != 0)
++		return;
++	parts->mechanism = "INTERNAL";
++	url += 10;
++	parts->urlauth = url;
++}
++
++// parse an RFC 3339 date-time into a time_t, or return 0
++static time_t imap_url_date_time_parse(const char *s)
++{
++	struct tm tm;
++	time_t t;
++
++	memset(&tm, 0, sizeof tm);
++
++	/* YYYY- */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]) ||
++	   !i_isdigit(s[2]) || !i_isdigit(s[3]) || s[4] != '-')
++		return 0;
++	tm.tm_year = (((s[0] - '0') * 10 + s[1] - '0') * 10 +
++		     s[2] - '0') * 10 + s[3] - '0' - 1900;
++	s += 5;
++
++	/* MM- */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || s[2] != '-')
++		return 0;
++	tm.tm_mon = (s[0] - '0') * 10 + s[1] - '0';
++	if (tm.tm_mon < 1 || tm.tm_mon > 12)
++		return 0;
++	--tm.tm_mon;	/* 0-11 not 1-12 */
++	s += 3;
++
++	/* DDT */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || i_toupper(s[2]) != 'T')
++		return 0;
++	tm.tm_mday = (s[0] - '0') * 10 + s[1] - '0';
++	s += 3;
++
++	/* HH: */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || s[2] != ':')
++		return 0;
++	tm.tm_hour = (s[0] - '0') * 10 + s[1] - '0';
++	s += 3;
++
++	/* MM: */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || s[2] != ':')
++		return 0;
++	tm.tm_min = (s[0] - '0') * 10 + s[1] - '0';
++	s += 3;
++
++	/* SS */
++	if (!i_isdigit(s[0]) || !i_isdigit(s[1]))
++		return 0;
++	tm.tm_sec = (s[0] - '0') * 10 + s[1] - '0';
++	s += 2;
++
++	/* skip optional fractional seconds */
++	if (*s == '.') {
++		do
++			++s;
++		while (i_isdigit(*s));
++	}
++
++	if (i_toupper(s[0]) == 'Z' && s[1] == '\0')
++		tm.tm_gmtoff = 0;
++	else if (s[0] == '+' || s[0] == '-') {
++		char tzsign = *s++;
++
++		/* HH: */
++		if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || s[2] != ':')
++			return 0;
++		tm.tm_gmtoff = ((s[0] - '0') * 10 + s[1] - '0') * 3600;
++		s += 3;
++
++		/* MM */
++		if (!i_isdigit(s[0]) || !i_isdigit(s[1]) || s[2] != '\0')
++			return 0;
++		tm.tm_gmtoff += ((s[0] - '0') * 10 + s[1] - '0') * 60;
++
++		if (tzsign == '-')
++			tm.tm_gmtoff = -tm.tm_gmtoff;
++	} else
++		return 0;
++
++	t = utc_mktime(&tm);
++	if (t < 0)
++		return 0;
++	return t - tm.tm_gmtoff;
++}
++
++// decode the parts of a URL
++bool imap_url_decode(const struct imap_url_parts *enc_parts,
++		    struct imap_url_parts *dec_parts,
++		    const char **error)
++{
++	string_t *str = t_str_new(256);
++
++#define	URL_DECODE(field, name)						\
++	if (enc_parts->field != NULL) {					\
++		if (url_decode(enc_parts->field, str))			\
++			dec_parts->field = t_strdup(str_c(str));	\
++		else {							\
++			*error = "invalid " name;			\
++			str_free(&str);					\
++			return FALSE;					\
++		}							\
++	}								\
++	str_truncate(str, 0);
++
++	URL_DECODE(user, "user ID");
++	URL_DECODE(auth_type, "auth type");
++	URL_DECODE(hostport, "server");
++	URL_DECODE(mailbox, "mailbox");
++	URL_DECODE(uidvalidity, "uidvalidity");
++	URL_DECODE(uid, "uid");
++	URL_DECODE(section, "section");
++	URL_DECODE(expiration, "expiration");
++	URL_DECODE(access, "access ID");
++	URL_DECODE(mechanism, "mechanism");
++	URL_DECODE(urlauth, "urlauth token");
++	// do not set dec_parts->rump
++
++	if (dec_parts->mailbox != NULL) {
++		if (imap_utf8_to_utf7(dec_parts->mailbox, str) == 0)
++			dec_parts->mailbox = t_strdup(str_c(str));
++		else {
++			*error = "invalid UTF-8 mailbox";
++			str_free(&str);
++			return FALSE;
++		}
++	}
++	str_truncate(str, 0);
++
++	if (dec_parts->expiration != NULL)
++		dec_parts->expiration_time =
++			imap_url_date_time_parse(dec_parts->expiration);
++
++	str_free(&str);
++
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "atom"
++bool imap_url_atom_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s == '\0')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!atom_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "ASTRING-CHAR"
++bool imap_url_astring_chars_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!astring_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "quoted"
++bool imap_url_quoted_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s != '"')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (unsigned char *) s + 1; *cp; cp++) {
++		if (*cp == '\\') {
++			if (!quoted_specials_allowed[cp[1] & 0xff])
++				return FALSE;
++			++cp;
++		} else if (*cp == '"')
++			return cp[1] == '\0';
++		else {
++			if (!quoted_allowed[*cp & 0xff])
++				return FALSE;
++		}
++	}
++
++	return FALSE;
++}
++
++// validate conformance to RFC 3501 "literal"
++bool imap_url_literal_validate(const char *s)
++{
++	const unsigned char *cp;
++	unsigned int length = 0;
++
++	if (*s != '{')
++		return FALSE;
++	for (cp = (const unsigned char *) s + 1; *cp && *cp != '}'; cp++) {
++		if (*cp < '0' || *cp > '9')
++			return FALSE;
++		length = length * 10 + *cp - '0';
++	}
++	if (cp == (const unsigned char *) s + 1 || *cp != '}')
++		return FALSE;
++	++cp;
++	if (*cp == '\r')
++		++cp;
++	if (*cp != '\n')
++		return FALSE;
++	if (strlen((const char *) cp + 1) != length)
++		return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "astring"
++bool imap_url_astring_validate(const char *s)
++{
++	return *s != '\0' &&
++		(imap_url_astring_chars_validate(s) ||
++		imap_url_quoted_validate(s) ||
++		imap_url_literal_validate(s));
++}
++
++// validate conformance to RFC 1738 "hostport"
++bool imap_url_hostport_validate(const char *s)
++{
++	const unsigned char *cp;
++
++	if (*s == '\0')
++		return FALSE;
++
++	init_allowed();
++
++	for (cp = (const unsigned char *) s; *cp; cp++)
++		if (!host_chars_allowed[*cp & 0xff])
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "mailbox"
++bool imap_url_mailbox_validate(const char *s)
++{
++	const char *qs;
++
++	if (strcasecmp(s, "INBOX") == 0 || imap_url_astring_validate(s))
++		return TRUE;
++
++	// RFC 2192 implies quotes around mailboxes containing, e.g., SP
++	qs = t_strconcat("\"", s, "\"", NULL);
++	return imap_url_quoted_validate(qs);
++}
++
++// validate conformance to RFC 3501 "nz_number"
++bool imap_url_nz_number_validate(const char *s)
++{
++	if (*s < '1' || *s > '9')
++		return FALSE;
++	while (*++s)
++		if (*s < '0' || *s > '9')
++			return FALSE;
++	return TRUE;
++}
++
++// validate conformance to RFC 3501 "section-text"
++bool imap_url_section_text_validate(const char *s)
++{
++	size_t spn;
++	const char *field;
++
++	if (strcasecmp(s, "HEADER") == 0 ||
++	   strcasecmp(s, "TEXT") == 0 ||
++	   strcasecmp(s, "MIME") == 0)
++		return TRUE;
++
++	if (strncasecmp(s, "HEADER.FIELDS", 13) != 0)
++		return FALSE;
++	s += 13;
++
++	if (strncasecmp(s, ".NOT", 4) == 0)
++		s += 4;
++
++	if (*s != ' ')
++		return FALSE;
++	++s;
++
++	if (*s != '(')
++		return FALSE;
++	++s;
++
++	spn = strcspn(s, " )");
++	if (spn <= 0)
++		return FALSE;
++	field = t_strdup_until(s, s + spn);
++	if (!imap_url_astring_validate(field))
++		return FALSE;
++	s += spn;
++
++	while (*s == ' ') {
++		++s;
++		spn = strcspn(s, " )");
++		if (spn <= 0)
++			return FALSE;
++		field = t_strdup_until(s, s + spn);
++		if (!imap_url_astring_validate(field))
++			return FALSE;
++		s += spn;
++	}
++
++	if (*s != ')')
++		return FALSE;
++	++s;
++
++	return *s == '\0';
++}
++
++// validate conformance to RFC 2192 "section"
++bool imap_url_section_validate(const char *s)
++{
++	size_t spn;
++	const char *part;
++
++	if (imap_url_section_text_validate(s))
++		return TRUE;
++
++	spn = strspn(s, DIGIT);
++	if (spn <= 0)
++		return FALSE;
++	part = t_strdup_until(s, s + spn);
++	if (!imap_url_nz_number_validate(part))
++		return FALSE;
++	s += spn;
++
++	while (*s == '.') {
++		++s;
++		spn = strspn(s, DIGIT);
++		if (spn <= 0) {
++			--s;
++			break;
++		}
++		part = t_strdup_until(s, s + spn);
++		if (!imap_url_nz_number_validate(part))
++			return FALSE;
++		s += spn;
++	}
++
++	if (*s == '.') {
++		++s;
++		return imap_url_section_text_validate(s);
++	}
++
++	return *s == '\0';
++}
++
++// validate conformance to RFC 3339 "date-time"
++bool imap_url_datetime_validate(const char *s)
++{
++	return *s != '\0' && strspn(s, DATETIME_CHARS) == strlen(s);
++}
++
++// validate conformance to RFC 4467 "access"
++bool imap_url_access_validate(const char *s)
++{
++	if (strncasecmp(s, "submit+", 7) == 0)
++		return imap_url_astring_validate(s + 7);
++	if (strncasecmp(s, "user+", 5) == 0)
++		return imap_url_astring_validate(s + 5);
++	return strcasecmp(s, "authuser") == 0 ||
++	      strcasecmp(s, "anonymous") == 0;
++}
++
++// validate conformance to RFC 4467 "mechanism"
++bool imap_url_mechanism_validate(const char *s)
++{
++#if MECH_INTERNAL_ONLY
++	return strcasecmp(s, "INTERNAL") == 0;
++#else
++	if (strcasecmp(s, "INTERNAL") == 0)
++		return TRUE;
++	if (*s == '\0')
++		return FALSE;
++	do {
++		if ((*s < 'A' || *s > 'Z') &&
++		   (*s < 'a' || *s > 'z') &&
++		   (*s < '0' || *s > '9') &&
++		   *s != '-' && *s != '.')
++			return FALSE;
++	} while (*++s);
++	return TRUE;
++#endif
++}
++
++// validate conformance to RFC 4467 "urlauth" (really enc-urlauth)
++bool imap_url_urlauth_validate(const char *s)
++{
++	const char *cp;
++
++	for (cp = s; *cp; cp++) {
++		if ((*cp < '0' || *cp > '9') &&
++		   (*cp < 'A' || *cp > 'F') &&
++		   (*cp < 'a' || *cp > 'f'))
++			return FALSE;
++	}
++
++	return cp - s >= 32;
++}
++
++// convert URL parts into a real URL
++void imap_url_construct(const struct imap_url_parts *parts, string_t *url)
++{
++	str_append(url, "imap://");
++	if (parts->user)
++		str_append(url, parts->user);
++	if (parts->auth_type) {
++		str_append(url, ";AUTH=");
++		str_append(url, parts->auth_type);
++	}
++	if (parts->hostport) {
++		str_append_c(url, '@');
++		str_append(url, parts->hostport);
++	}
++	str_append_c(url, '/');
++	if (parts->mailbox)
++		str_append(url, parts->mailbox);
++	if (parts->uidvalidity) {
++		str_append(url, ";UIDVALIDITY=");
++		str_append(url, parts->uidvalidity);
++	}
++	if (parts->uid) {
++		str_append(url, "/;UID=");
++		str_append(url, parts->uid);
++	}
++	if (parts->section) {
++		str_append(url, "/;SECTION=");
++		str_append(url, parts->section);
++	}
++	if (parts->expiration) {
++		str_append(url, ";EXPIRE=");
++		str_append(url, parts->expiration);
++	}
++	if (parts->access) {
++		str_append(url, ";URLAUTH=");
++		str_append(url, parts->access);
++	}
++	if (parts->mechanism) {
++		str_append_c(url, ':');
++		str_append(url, parts->mechanism);
++	}
++	if (parts->urlauth) {
++		str_append_c(url, ':');
++		str_append(url, parts->urlauth);
++	}
++}
++
++// filter a URL according to RFC 4469 url-resp-text
++const char *imap_url_sanitize(const char *url)
++{
++	const char *cp;
++	string_t *str;
++
++	init_allowed();
++
++	for (cp = url; *cp && url_resp_allowed[(unsigned char) *cp]; cp++)
++		;
++	if (*cp == '\0')
++		return url;
++
++	str = t_str_new(strlen(cp) + 1);
++	str_append_n(str, url, cp - url);
++	for ( ; *cp; cp++)
++		str_append_c(str,
++			url_resp_allowed[(unsigned char) *cp] ? *cp : '?');
++	return str_c(str);
++}
+diff -Nur dovecot-1.2.11/src/lib-imap/imap-url.h dovecot-1.2.11+lemonade/src/lib-imap/imap-url.h
+--- dovecot-1.2.11/src/lib-imap/imap-url.h	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/lib-imap/imap-url.h	2010-03-05 14:14:18.000000000 -0600
+@@ -0,0 +1,100 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++/* APPLE - urlauth, catenate */
++
++#ifndef IMAP_URL_H
++#define IMAP_URL_H
++
++struct imap_url_parts {
++	const char *user;
++	const char *auth_type;
++	const char *hostport;
++	const char *mailbox;
++	const char *uidvalidity;
++	const char *uid;
++	const char *section;
++	const char *expiration;
++	time_t expiration_time;
++	const char *access;
++	const char *mechanism;
++	const char *urlauth;
++
++	const char *rump;
++};
++
++// URL-decode enc into dec (%XX decoding)
++bool url_decode(const char *enc, string_t *dec);
++
++// parse an RFC 2192+4467 URL into its parts
++void imap_url_parse(const char *url, struct imap_url_parts *parts);
++
++// decode the parts of an IMAP URL
++bool imap_url_decode(const struct imap_url_parts *enc_parts,
++		    struct imap_url_parts *dec_parts,
++		    const char **error);
++
++// validate conformance to RFC 3501 "atom"
++bool imap_url_atom_validate(const char *s);
++// validate conformance to RFC 3501 "ASTRING-CHAR"
++bool imap_url_astring_chars_validate(const char *s);
++// validate conformance to RFC 3501 "quoted"
++bool imap_url_quoted_validate(const char *s);
++// validate conformance to RFC 3501 "literal"
++bool imap_url_literal_validate(const char *s);
++// validate conformance to RFC 3501 "astring"
++bool imap_url_astring_validate(const char *s);
++// validate conformance to RFC 1738 "hostport"
++bool imap_url_hostport_validate(const char *s);
++// validate conformance to RFC 3501 "mailbox"
++bool imap_url_mailbox_validate(const char *s);
++// validate conformance to RFC 3501 "nz_number"
++bool imap_url_nz_number_validate(const char *s);
++// validate conformance to RFC 3501 "section-text"
++bool imap_url_section_text_validate(const char *s);
++// validate conformance to RFC 2192 "section"
++bool imap_url_section_validate(const char *s);
++// validate conformance to RFC 3339 "date-time"
++bool imap_url_datetime_validate(const char *s);
++// validate conformance to RFC 4467 "access"
++bool imap_url_access_validate(const char *s);
++// validate conformance to RFC 4467 "mechanism"
++bool imap_url_mechanism_validate(const char *s);
++// validate conformance to RFC 4467 "urlauth" (really enc-urlauth)
++bool imap_url_urlauth_validate(const char *s);
++
++// build a URL from parts
++void imap_url_construct(const struct imap_url_parts *parts, string_t *url);
++
++// filter a URL according to RFC 4469 url-resp-text
++const char *imap_url_sanitize(const char *url);
++
++#endif
+diff -Nur dovecot-1.2.11/src/master/auth-process.c dovecot-1.2.11+lemonade/src/master/auth-process.c
+--- dovecot-1.2.11/src/master/auth-process.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/master/auth-process.c	2010-04-08 09:59:13.000000000 -0500
+@@ -470,6 +470,10 @@
+                        env_put(t_strdup_printf("PASSDB_%u_PASS=1", i));
+		if (ap->master)
+                        env_put(t_strdup_printf("PASSDB_%u_MASTER=1", i));
++
++		/* APPLE - urlauth */
++		if (ap->submit)
++                        env_put(t_strdup_printf("PASSDB_%u_SUBMIT=1", i));
+	}
+	for (au = set->userdbs, i = 1; au != NULL; au = au->next, i++) {
+		env_put(t_strdup_printf("USERDB_%u_DRIVER=%s", i, au->driver));
+diff -Nur dovecot-1.2.11/src/master/mail-process.c dovecot-1.2.11+lemonade/src/master/mail-process.c
+--- dovecot-1.2.11/src/master/mail-process.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/master/mail-process.c	2010-04-08 09:59:13.000000000 -0500
+@@ -349,6 +349,13 @@
+				   set->imap_logout_format, NULL));
+		env_put(t_strconcat("IMAP_ID_SEND=", set->imap_id_send, NULL));
+		env_put(t_strconcat("IMAP_ID_LOG=", set->imap_id_log, NULL));
++
++		/* APPLE - urlauth */
++		if (set->server && set->server->auths)
++			env_put(t_strconcat("AUTH_ANONYMOUS_USERNAME=",
++					   set->server->auths->anonymous_username,
++					   NULL));
++
+		env_put(t_strdup_printf("IMAP_IDLE_NOTIFY_INTERVAL=%u",
+					set->imap_idle_notify_interval));
+	}
+@@ -636,7 +643,9 @@
+			uid = (uid_t)strtoul(*args + 4, NULL, 10);
+		} else if (strncmp(*args, "gid=", 4) == 0) {
+			gid = (gid_t)strtoul(*args + 4, NULL, 10);
+-		} else if (strncmp(*args, "master_user=", 12) == 0) {
++		} else if (strncmp(*args, "master_user=", 12) == 0 ||
++			  /* APPLE - urlauth */
++			  strncmp(*args, "submit_user=", 12) == 0) {
+			const char *arg = *args;
+
+			master_user = arg + 12;
+diff -Nur dovecot-1.2.11/src/master/master-settings.c dovecot-1.2.11+lemonade/src/master/master-settings.c
+--- dovecot-1.2.11/src/master/master-settings.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/master/master-settings.c	2010-04-08 09:59:13.000000000 -0500
+@@ -134,6 +134,7 @@
+	DEF_BOOL(deny),
+	DEF_BOOL(pass),
+	DEF_BOOL(master),
++	DEF_BOOL(submit),				/* APPLE - urlauth */
+
+	{ 0, NULL, 0 }
+};
+diff -Nur dovecot-1.2.11/src/master/master-settings.h dovecot-1.2.11+lemonade/src/master/master-settings.h
+--- dovecot-1.2.11/src/master/master-settings.h	2010-01-22 10:46:52.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/master/master-settings.h	2010-04-08 09:59:13.000000000 -0500
+@@ -182,6 +182,7 @@
+	bool deny;
+	bool pass;
+	bool master;
++	bool submit;					/* APPLE - urlauth */
+};
+
+struct auth_userdb_settings {
+diff -Nur dovecot-1.2.11/src/plugins/Makefile.am dovecot-1.2.11+lemonade/src/plugins/Makefile.am
+--- dovecot-1.2.11/src/plugins/Makefile.am	2010-01-24 17:03:13.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/Makefile.am	2010-04-08 09:59:13.000000000 -0500
+@@ -25,6 +25,7 @@
+	quota \
+	imap-quota \
+	trash \
++	urlauth \
+	virtual \
+	$(ZLIB) \
+	$(FTS_LUCENE) \
+diff -Nur dovecot-1.2.11/src/plugins/Makefile.in dovecot-1.2.11+lemonade/src/plugins/Makefile.in
+--- dovecot-1.2.11/src/plugins/Makefile.in	2010-03-08 11:31:10.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/Makefile.in	2010-04-08 09:59:13.000000000 -0500
+@@ -61,7 +61,7 @@
+CTAGS = ctags
+DIST_SUBDIRS = acl imap-acl autocreate convert expire fts fts-squat \
+	lazy-expunge listescape mail-log mbox-snarf quota imap-quota \
+-	trash virtual zlib fts-lucene fts-solr
++	trash urlauth virtual zlib fts-lucene fts-solr
+DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
+am__relativize = \
+  dir0=`pwd`; \
+@@ -259,6 +259,7 @@
+	quota \
+	imap-quota \
+	trash \
++	urlauth \
+	virtual \
+	$(ZLIB) \
+	$(FTS_LUCENE) \
+diff -Nur dovecot-1.2.11/src/plugins/acl/acl-mailbox-list.c dovecot-1.2.11+lemonade/src/plugins/acl/acl-mailbox-list.c
+--- dovecot-1.2.11/src/plugins/acl/acl-mailbox-list.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/acl/acl-mailbox-list.c	2010-04-08 09:59:13.000000000 -0500
+@@ -537,6 +537,11 @@
+
+	owner_username = list->ns->user->username;
+	current_username = auser->master_user;
++
++	/* APPLE - urlauth */
++	if (current_username == NULL)
++		current_username = auser->submit_user;
++
+	if (current_username == NULL)
+		current_username = owner_username;
+	else
+diff -Nur dovecot-1.2.11/src/plugins/acl/acl-plugin.h dovecot-1.2.11+lemonade/src/plugins/acl/acl-plugin.h
+--- dovecot-1.2.11/src/plugins/acl/acl-plugin.h	2008-11-16 11:08:55.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/acl/acl-plugin.h	2010-04-08 09:59:13.000000000 -0500
+@@ -14,6 +14,7 @@
+	union mail_user_module_context module_ctx;
+
+	const char *master_user;
++	const char *submit_user;			/* APPLE - urlauth */
+	const char *acl_env;
+	const char *const *groups;
+
+diff -Nur dovecot-1.2.11/src/plugins/acl/acl-storage.c dovecot-1.2.11+lemonade/src/plugins/acl/acl-storage.c
+--- dovecot-1.2.11/src/plugins/acl/acl-storage.c	2010-01-24 17:14:17.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/acl/acl-storage.c	2010-04-08 09:59:13.000000000 -0500
+@@ -244,6 +244,7 @@
+	auser->acl_env = getenv("ACL");
+	i_assert(auser->acl_env != NULL);
+	auser->master_user = getenv("MASTER_USER");
++	auser->submit_user = getenv("SUBMIT_USER");	/* APPLE - urlauth */
+
+	env = getenv("ACL_GROUPS");
+	if (env != NULL) {
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/Makefile.am dovecot-1.2.11+lemonade/src/plugins/urlauth/Makefile.am
+--- dovecot-1.2.11/src/plugins/urlauth/Makefile.am	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/Makefile.am	2010-03-05 14:39:44.000000000 -0600
+@@ -0,0 +1,54 @@
++#
++# Copyright (c) 2010 Apple Inc. All rights reserved.
++# 
++# Redistribution and use in source and binary forms, with or without  
++# modification, are permitted provided that the following conditions  
++# are met:
++# 
++# 1.  Redistributions of source code must retain the above copyright  
++# notice, this list of conditions and the following disclaimer.
++# 2.  Redistributions in binary form must reproduce the above  
++# copyright notice, this list of conditions and the following  
++# disclaimer in the documentation and/or other materials provided  
++# with the distribution.
++# 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++# contributors may be used to endorse or promote products derived  
++# from this software without specific prior written permission.
++# 
++# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++# SUCH DAMAGE.
++#
++
++AM_CPPFLAGS = \
++	-I$(top_srcdir)/src/lib \
++	-I$(top_srcdir)/src/lib-imap \
++	-I$(top_srcdir)/src/lib-index \
++	-I$(top_srcdir)/src/lib-mail \
++	-I$(top_srcdir)/src/lib-storage \
++	-I$(top_srcdir)/src/imap
++
++imap_moduledir = $(moduledir)/imap
++
++lib10_urlauth_plugin_la_LDFLAGS = -module -avoid-version
++lib10_urlauth_plugin_la_LIBADD = -lcrypto
++
++imap_module_LTLIBRARIES = \
++	lib10_urlauth_plugin.la
++
++lib10_urlauth_plugin_la_SOURCES = \
++	urlauth-keys.c \
++	urlauth-plugin.c \
++	urlauth.c
++
++noinst_HEADERS = \
++	urlauth-plugin.h
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/Makefile.in dovecot-1.2.11+lemonade/src/plugins/urlauth/Makefile.in
+--- dovecot-1.2.11/src/plugins/urlauth/Makefile.in	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/Makefile.in	2010-03-05 14:39:44.000000000 -0600
+@@ -0,0 +1,614 @@
++# Makefile.in generated by automake 1.11 from Makefile.am.
++# @configure_input@
++
++# Copyright (C) 1994, 1995, 1996, 1997, 1998, 1999, 2000, 2001, 2002,
++# 2003, 2004, 2005, 2006, 2007, 2008, 2009  Free Software Foundation,
++# Inc.
++# This Makefile.in is free software; the Free Software Foundation
++# gives unlimited permission to copy and/or distribute it,
++# with or without modifications, as long as this notice is preserved.
++
++# This program is distributed in the hope that it will be useful,
++# but WITHOUT ANY WARRANTY, to the extent permitted by law; without
++# even the implied warranty of MERCHANTABILITY or FITNESS FOR A
++# PARTICULAR PURPOSE.
++
++@SET_MAKE@
++
++#
++# Copyright (c) 2010 Apple Inc. All rights reserved.
++# 
++# Redistribution and use in source and binary forms, with or without  
++# modification, are permitted provided that the following conditions  
++# are met:
++# 
++# 1.  Redistributions of source code must retain the above copyright  
++# notice, this list of conditions and the following disclaimer.
++# 2.  Redistributions in binary form must reproduce the above  
++# copyright notice, this list of conditions and the following  
++# disclaimer in the documentation and/or other materials provided  
++# with the distribution.
++# 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++# contributors may be used to endorse or promote products derived  
++# from this software without specific prior written permission.
++# 
++# THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND  
++# ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++# THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++# PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++# CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++# SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++# LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF  
++# USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++# ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++# OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++# OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++# SUCH DAMAGE.
++#
++
++
++VPATH = @srcdir@
++pkgdatadir = $(datadir)/@PACKAGE@
++pkgincludedir = $(includedir)/@PACKAGE@
++pkglibdir = $(libdir)/@PACKAGE@
++pkglibexecdir = $(libexecdir)/@PACKAGE@
++am__cd = CDPATH="$${ZSH_VERSION+.}$(PATH_SEPARATOR)" && cd
++install_sh_DATA = $(install_sh) -c -m 644
++install_sh_PROGRAM = $(install_sh) -c
++install_sh_SCRIPT = $(install_sh) -c
++INSTALL_HEADER = $(INSTALL_DATA)
++transform = $(program_transform_name)
++NORMAL_INSTALL = :
++PRE_INSTALL = :
++POST_INSTALL = :
++NORMAL_UNINSTALL = :
++PRE_UNINSTALL = :
++POST_UNINSTALL = :
++build_triplet = @build@
++host_triplet = @host@
++subdir = src/plugins/urlauth
++DIST_COMMON = $(noinst_HEADERS) $(srcdir)/Makefile.am \
++	$(srcdir)/Makefile.in
++ACLOCAL_M4 = $(top_srcdir)/aclocal.m4
++am__aclocal_m4_deps = $(top_srcdir)/configure.in
++am__configure_deps = $(am__aclocal_m4_deps) $(CONFIGURE_DEPENDENCIES) \
++	$(ACLOCAL_M4)
++mkinstalldirs = $(install_sh) -d
++CONFIG_HEADER = $(top_builddir)/config.h
++CONFIG_CLEAN_FILES =
++CONFIG_CLEAN_VPATH_FILES =
++am__vpath_adj_setup = srcdirstrip=`echo "$(srcdir)" | sed 's|.|.|g'`;
++am__vpath_adj = case $$p in \
++    $(srcdir)/*) f=`echo "$$p" | sed "s|^$$srcdirstrip/||"`;; \
++    *) f=$$p;; \
++  esac;
++am__strip_dir = f=`echo $$p | sed -e 's|^.*/||'`;
++am__install_max = 40
++am__nobase_strip_setup = \
++  srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*|]/\\\\&/g'`
++am__nobase_strip = \
++  for p in $$list; do echo "$$p"; done | sed -e "s|$$srcdirstrip/||"
++am__nobase_list = $(am__nobase_strip_setup); \
++  for p in $$list; do echo "$$p $$p"; done | \
++  sed "s| $$srcdirstrip/| |;"' / .*\//!s/ .*/ ./; s,\( .*\)/[^/]*$$,\1,' | \
++  $(AWK) 'BEGIN { files["."] = "" } { files[$$2] = files[$$2] " " $$1; \
++    if (++n[$$2] == $(am__install_max)) \
++      { print $$2, files[$$2]; n[$$2] = 0; files[$$2] = "" } } \
++    END { for (dir in files) print dir, files[dir] }'
++am__base_list = \
++  sed '$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;$$!N;s/\n/ /g' | \
++  sed '$$!N;$$!N;$$!N;$$!N;s/\n/ /g'
++am__installdirs = "$(DESTDIR)$(imap_moduledir)"
++LTLIBRARIES = $(imap_module_LTLIBRARIES)
++lib10_urlauth_plugin_la_DEPENDENCIES =
++am_lib10_urlauth_plugin_la_OBJECTS = urlauth-keys.lo urlauth-plugin.lo \
++	urlauth.lo
++lib10_urlauth_plugin_la_OBJECTS =  \
++	$(am_lib10_urlauth_plugin_la_OBJECTS)
++lib10_urlauth_plugin_la_LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) \
++	$(LIBTOOLFLAGS) --mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) \
++	$(lib10_urlauth_plugin_la_LDFLAGS) $(LDFLAGS) -o $@
++DEFAULT_INCLUDES = -I.@am__isrc@ -I$(top_builddir)
++depcomp = $(SHELL) $(top_srcdir)/depcomp
++am__depfiles_maybe = depfiles
++am__mv = mv -f
++COMPILE = $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) $(AM_CPPFLAGS) \
++	$(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
++LTCOMPILE = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
++	--mode=compile $(CC) $(DEFS) $(DEFAULT_INCLUDES) $(INCLUDES) \
++	$(AM_CPPFLAGS) $(CPPFLAGS) $(AM_CFLAGS) $(CFLAGS)
++CCLD = $(CC)
++LINK = $(LIBTOOL) --tag=CC $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) \
++	--mode=link $(CCLD) $(AM_CFLAGS) $(CFLAGS) $(AM_LDFLAGS) \
++	$(LDFLAGS) -o $@
++SOURCES = $(lib10_urlauth_plugin_la_SOURCES)
++DIST_SOURCES = $(lib10_urlauth_plugin_la_SOURCES)
++HEADERS = $(noinst_HEADERS)
++ETAGS = etags
++CTAGS = ctags
++DISTFILES = $(DIST_COMMON) $(DIST_SOURCES) $(TEXINFOS) $(EXTRA_DIST)
++ACLOCAL = @ACLOCAL@
++AMTAR = @AMTAR@
++AR = @AR@
++AUTH_CFLAGS = @AUTH_CFLAGS@
++AUTH_LIBS = @AUTH_LIBS@
++AUTOCONF = @AUTOCONF@
++AUTOHEADER = @AUTOHEADER@
++AUTOMAKE = @AUTOMAKE@
++AWK = @AWK@
++CC = @CC@
++CCDEPMODE = @CCDEPMODE@
++CFLAGS = @CFLAGS@
++CPP = @CPP@
++CPPFLAGS = @CPPFLAGS@
++CURLCONFIG = @CURLCONFIG@
++CURL_CFLAGS = @CURL_CFLAGS@
++CURL_LIBS = @CURL_LIBS@
++CXX = @CXX@
++CXXCPP = @CXXCPP@
++CXXDEPMODE = @CXXDEPMODE@
++CXXFLAGS = @CXXFLAGS@
++CYGPATH_W = @CYGPATH_W@
++DEFS = @DEFS@
++DEPDIR = @DEPDIR@
++DICT_LIBS = @DICT_LIBS@
++DSYMUTIL = @DSYMUTIL@
++DUMPBIN = @DUMPBIN@
++ECHO_C = @ECHO_C@
++ECHO_N = @ECHO_N@
++ECHO_T = @ECHO_T@
++EGREP = @EGREP@
++EXEEXT = @EXEEXT@
++FGREP = @FGREP@
++GREP = @GREP@
++INSTALL = @INSTALL@
++INSTALL_DATA = @INSTALL_DATA@
++INSTALL_PROGRAM = @INSTALL_PROGRAM@
++INSTALL_SCRIPT = @INSTALL_SCRIPT@
++INSTALL_STRIP_PROGRAM = @INSTALL_STRIP_PROGRAM@
++KRB5CONFIG = @KRB5CONFIG@
++KRB5_CFLAGS = @KRB5_CFLAGS@
++KRB5_LIBS = @KRB5_LIBS@
++LD = @LD@
++LDAP_LIBS = @LDAP_LIBS@
++LDFLAGS = @LDFLAGS@
++LIBCAP = @LIBCAP@
++LIBICONV = @LIBICONV@
++LIBOBJS = @LIBOBJS@
++LIBS = @LIBS@
++LIBTOOL = @LIBTOOL@
++LIPO = @LIPO@
++LN_S = @LN_S@
++LTLIBICONV = @LTLIBICONV@
++LTLIBOBJS = @LTLIBOBJS@
++MAINT = @MAINT@
++MAKEINFO = @MAKEINFO@
++MKDIR_P = @MKDIR_P@
++MODULE_LIBS = @MODULE_LIBS@
++MODULE_SUFFIX = @MODULE_SUFFIX@
++MYSQL_CFLAGS = @MYSQL_CFLAGS@
++MYSQL_LIBS = @MYSQL_LIBS@
++NM = @NM@
++NMEDIT = @NMEDIT@
++OBJDUMP = @OBJDUMP@
++OBJEXT = @OBJEXT@
++OTOOL = @OTOOL@
++OTOOL64 = @OTOOL64@
++PACKAGE = @PACKAGE@
++PACKAGE_BUGREPORT = @PACKAGE_BUGREPORT@
++PACKAGE_NAME = @PACKAGE_NAME@
++PACKAGE_STRING = @PACKAGE_STRING@
++PACKAGE_TARNAME = @PACKAGE_TARNAME@
++PACKAGE_URL = @PACKAGE_URL@
++PACKAGE_VERSION = @PACKAGE_VERSION@
++PATH_SEPARATOR = @PATH_SEPARATOR@
++PGSQL_CFLAGS = @PGSQL_CFLAGS@
++PGSQL_LIBS = @PGSQL_LIBS@
++PG_CONFIG = @PG_CONFIG@
++PKG_CONFIG = @PKG_CONFIG@
++RANLIB = @RANLIB@
++RPCGEN = @RPCGEN@
++SED = @SED@
++SET_MAKE = @SET_MAKE@
++SHELL = @SHELL@
++SQLITE_CFLAGS = @SQLITE_CFLAGS@
++SQLITE_LIBS = @SQLITE_LIBS@
++SQL_CFLAGS = @SQL_CFLAGS@
++SQL_LIBS = @SQL_LIBS@
++SSL_CFLAGS = @SSL_CFLAGS@
++SSL_LIBS = @SSL_LIBS@
++STORAGE_LIBS = @STORAGE_LIBS@
++STRIP = @STRIP@
++VERSION = @VERSION@
++abs_builddir = @abs_builddir@
++abs_srcdir = @abs_srcdir@
++abs_top_builddir = @abs_top_builddir@
++abs_top_srcdir = @abs_top_srcdir@
++ac_ct_CC = @ac_ct_CC@
++ac_ct_CXX = @ac_ct_CXX@
++ac_ct_DUMPBIN = @ac_ct_DUMPBIN@
++am__include = @am__include@
++am__leading_dot = @am__leading_dot@
++am__quote = @am__quote@
++am__tar = @am__tar@
++am__untar = @am__untar@
++bindir = @bindir@
++build = @build@
++build_alias = @build_alias@
++build_cpu = @build_cpu@
++build_os = @build_os@
++build_vendor = @build_vendor@
++builddir = @builddir@
++datadir = @datadir@
++datarootdir = @datarootdir@
++dict_drivers = @dict_drivers@
++docdir = @docdir@
++dvidir = @dvidir@
++exec_prefix = @exec_prefix@
++host = @host@
++host_alias = @host_alias@
++host_cpu = @host_cpu@
++host_os = @host_os@
++host_vendor = @host_vendor@
++htmldir = @htmldir@
++includedir = @includedir@
++infodir = @infodir@
++install_sh = @install_sh@
++libdir = @libdir@
++libexecdir = @libexecdir@
++localedir = @localedir@
++localstatedir = @localstatedir@
++lt_ECHO = @lt_ECHO@
++mail_storages = @mail_storages@
++mandir = @mandir@
++mkdir_p = @mkdir_p@
++moduledir = @moduledir@
++oldincludedir = @oldincludedir@
++pdfdir = @pdfdir@
++prefix = @prefix@
++program_transform_name = @program_transform_name@
++psdir = @psdir@
++rundir = @rundir@
++sbindir = @sbindir@
++sharedstatedir = @sharedstatedir@
++sql_drivers = @sql_drivers@
++srcdir = @srcdir@
++ssldir = @ssldir@
++statedir = @statedir@
++sysconfdir = @sysconfdir@
++target_alias = @target_alias@
++top_build_prefix = @top_build_prefix@
++top_builddir = @top_builddir@
++top_srcdir = @top_srcdir@
++AM_CPPFLAGS = \
++	-I$(top_srcdir)/src/lib \
++	-I$(top_srcdir)/src/lib-imap \
++	-I$(top_srcdir)/src/lib-index \
++	-I$(top_srcdir)/src/lib-mail \
++	-I$(top_srcdir)/src/lib-storage \
++	-I$(top_srcdir)/src/imap
++
++imap_moduledir = $(moduledir)/imap
++lib10_urlauth_plugin_la_LDFLAGS = -module -avoid-version
++lib10_urlauth_plugin_la_LIBADD = -lcrypto
++imap_module_LTLIBRARIES = \
++	lib10_urlauth_plugin.la
++
++lib10_urlauth_plugin_la_SOURCES = \
++	urlauth-keys.c \
++	urlauth-plugin.c \
++	urlauth.c
++
++noinst_HEADERS = \
++	urlauth-plugin.h
++
++all: all-am
++
++.SUFFIXES:
++.SUFFIXES: .c .lo .o .obj
++$(srcdir)/Makefile.in: @MAINTAINER_MODE_TRUE@ $(srcdir)/Makefile.am  $(am__configure_deps)
++	@for dep in $?; do \
++	 case '$(am__configure_deps)' in \
++	   *$$dep*) \
++	     ( cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh ) \
++	       && { if test -f $@; then exit 0; else break; fi; }; \
++	     exit 1;; \
++	 esac; \
++	done; \
++	echo ' cd $(top_srcdir) && $(AUTOMAKE) --foreign src/plugins/urlauth/Makefile'; \
++	$(am__cd) $(top_srcdir) && \
++	 $(AUTOMAKE) --foreign src/plugins/urlauth/Makefile
++.PRECIOUS: Makefile
++Makefile: $(srcdir)/Makefile.in $(top_builddir)/config.status
++	@case '$?' in \
++	 *config.status*) \
++	   cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh;; \
++	 *) \
++	   echo ' cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe)'; \
++	   cd $(top_builddir) && $(SHELL) ./config.status $(subdir)/$@ $(am__depfiles_maybe);; \
++	esac;
++
++$(top_builddir)/config.status: $(top_srcdir)/configure $(CONFIG_STATUS_DEPENDENCIES)
++	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
++
++$(top_srcdir)/configure: @MAINTAINER_MODE_TRUE@ $(am__configure_deps)
++	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
++$(ACLOCAL_M4): @MAINTAINER_MODE_TRUE@ $(am__aclocal_m4_deps)
++	cd $(top_builddir) && $(MAKE) $(AM_MAKEFLAGS) am--refresh
++$(am__aclocal_m4_deps):
++install-imap_moduleLTLIBRARIES: $(imap_module_LTLIBRARIES)
++	@$(NORMAL_INSTALL)
++	test -z "$(imap_moduledir)" || $(MKDIR_P) "$(DESTDIR)$(imap_moduledir)"
++	@list='$(imap_module_LTLIBRARIES)'; test -n "$(imap_moduledir)" || list=; \
++	list2=; for p in $$list; do \
++	 if test -f $$p; then \
++	   list2="$$list2 $$p"; \
++	 else :; fi; \
++	done; \
++	test -z "$$list2" || { \
++	 echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 '$(DESTDIR)$(imap_moduledir)'"; \
++	 $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=install $(INSTALL) $(INSTALL_STRIP_FLAG) $$list2 "$(DESTDIR)$(imap_moduledir)"; \
++	}
++
++uninstall-imap_moduleLTLIBRARIES:
++	@$(NORMAL_UNINSTALL)
++	@list='$(imap_module_LTLIBRARIES)'; test -n "$(imap_moduledir)" || list=; \
++	for p in $$list; do \
++	 $(am__strip_dir) \
++	 echo " $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f '$(DESTDIR)$(imap_moduledir)/$$f'"; \
++	 $(LIBTOOL) $(AM_LIBTOOLFLAGS) $(LIBTOOLFLAGS) --mode=uninstall rm -f "$(DESTDIR)$(imap_moduledir)/$$f"; \
++	done
++
++clean-imap_moduleLTLIBRARIES:
++	-test -z "$(imap_module_LTLIBRARIES)" || rm -f $(imap_module_LTLIBRARIES)
++	@list='$(imap_module_LTLIBRARIES)'; for p in $$list; do \
++	 dir="`echo $$p | sed -e 's|/[^/]*$$||'`"; \
++	 test "$$dir" != "$$p" || dir=.; \
++	 echo "rm -f \"$${dir}/so_locations\""; \
++	 rm -f "$${dir}/so_locations"; \
++	done
++lib10_urlauth_plugin.la: $(lib10_urlauth_plugin_la_OBJECTS) $(lib10_urlauth_plugin_la_DEPENDENCIES) 
++	$(lib10_urlauth_plugin_la_LINK) -rpath $(imap_moduledir) $(lib10_urlauth_plugin_la_OBJECTS) $(lib10_urlauth_plugin_la_LIBADD) $(LIBS)
++
++mostlyclean-compile:
++	-rm -f *.$(OBJEXT)
++
++distclean-compile:
++	-rm -f *.tab.c
++
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/urlauth-keys.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/urlauth-plugin.Plo@am__quote@
++@AMDEP_TRUE@@am__include@ @am__quote@./$(DEPDIR)/urlauth.Plo@am__quote@
++
++.c.o:
++@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
++@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(COMPILE) -c $<
++
++.c.obj:
++@am__fastdepCC_TRUE@	$(COMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ `$(CYGPATH_W) '$<'`
++@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Po
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=no @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(COMPILE) -c `$(CYGPATH_W) '$<'`
++
++.c.lo:
++@am__fastdepCC_TRUE@	$(LTCOMPILE) -MT $@ -MD -MP -MF $(DEPDIR)/$*.Tpo -c -o $@ $<
++@am__fastdepCC_TRUE@	$(am__mv) $(DEPDIR)/$*.Tpo $(DEPDIR)/$*.Plo
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	source='$<' object='$@' libtool=yes @AMDEPBACKSLASH@
++@AMDEP_TRUE@@am__fastdepCC_FALSE@	DEPDIR=$(DEPDIR) $(CCDEPMODE) $(depcomp) @AMDEPBACKSLASH@
++@am__fastdepCC_FALSE@	$(LTCOMPILE) -c -o $@ $<
++
++mostlyclean-libtool:
++	-rm -f *.lo
++
++clean-libtool:
++	-rm -rf .libs _libs
++
++ID: $(HEADERS) $(SOURCES) $(LISP) $(TAGS_FILES)
++	list='$(SOURCES) $(HEADERS) $(LISP) $(TAGS_FILES)'; \
++	unique=`for i in $$list; do \
++	   if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
++	 done | \
++	 $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
++	     END { if (nonempty) { for (i in files) print i; }; }'`; \
++	mkid -fID $$unique
++tags: TAGS
++
++TAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
++		$(TAGS_FILES) $(LISP)
++	set x; \
++	here=`pwd`; \
++	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
++	unique=`for i in $$list; do \
++	   if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
++	 done | \
++	 $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
++	     END { if (nonempty) { for (i in files) print i; }; }'`; \
++	shift; \
++	if test -z "$(ETAGS_ARGS)$$*$$unique"; then :; else \
++	 test -n "$$unique" || unique=$$empty_fix; \
++	 if test $$# -gt 0; then \
++	   $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
++	     "$$@" $$unique; \
++	 else \
++	   $(ETAGS) $(ETAGSFLAGS) $(AM_ETAGSFLAGS) $(ETAGS_ARGS) \
++	     $$unique; \
++	 fi; \
++	fi
++ctags: CTAGS
++CTAGS:  $(HEADERS) $(SOURCES)  $(TAGS_DEPENDENCIES) \
++		$(TAGS_FILES) $(LISP)
++	list='$(SOURCES) $(HEADERS)  $(LISP) $(TAGS_FILES)'; \
++	unique=`for i in $$list; do \
++	   if test -f "$$i"; then echo $$i; else echo $(srcdir)/$$i; fi; \
++	 done | \
++	 $(AWK) '{ files[$$0] = 1; nonempty = 1; } \
++	     END { if (nonempty) { for (i in files) print i; }; }'`; \
++	test -z "$(CTAGS_ARGS)$$unique" \
++	 || $(CTAGS) $(CTAGSFLAGS) $(AM_CTAGSFLAGS) $(CTAGS_ARGS) \
++	    $$unique
++
++GTAGS:
++	here=`$(am__cd) $(top_builddir) && pwd` \
++	 && $(am__cd) $(top_srcdir) \
++	 && gtags -i $(GTAGS_ARGS) "$$here"
++
++distclean-tags:
++	-rm -f TAGS ID GTAGS GRTAGS GSYMS GPATH tags
++
++distdir: $(DISTFILES)
++	@srcdirstrip=`echo "$(srcdir)" | sed 's/[].[^$$\\*]/\\\\&/g'`; \
++	topsrcdirstrip=`echo "$(top_srcdir)" | sed 's/[].[^$$\\*]/\\\\&/g'`; \
++	list='$(DISTFILES)'; \
++	 dist_files=`for file in $$list; do echo $$file; done | \
++	 sed -e "s|^$$srcdirstrip/||;t" \
++	     -e "s|^$$topsrcdirstrip/|$(top_builddir)/|;t"`; \
++	case $$dist_files in \
++	 */*) $(MKDIR_P) `echo "$$dist_files" | \
++			  sed '/\//!d;s|^|$(distdir)/|;s,/[^/]*$$,,' | \
++			  sort -u` ;; \
++	esac; \
++	for file in $$dist_files; do \
++	 if test -f $$file || test -d $$file; then d=.; else d=$(srcdir); fi; \
++	 if test -d $$d/$$file; then \
++	   dir=`echo "/$$file" | sed -e 's,/[^/]*$$,,'`; \
++	   if test -d "$(distdir)/$$file"; then \
++	     find "$(distdir)/$$file" -type d ! -perm -700 -exec chmod u+rwx {} \;; \
++	   fi; \
++	   if test -d $(srcdir)/$$file && test $$d != $(srcdir); then \
++	     cp -fpR $(srcdir)/$$file "$(distdir)$$dir" || exit 1; \
++	     find "$(distdir)/$$file" -type d ! -perm -700 -exec chmod u+rwx {} \;; \
++	   fi; \
++	   cp -fpR $$d/$$file "$(distdir)$$dir" || exit 1; \
++	 else \
++	   test -f "$(distdir)/$$file" \
++	   || cp -p $$d/$$file "$(distdir)/$$file" \
++	   || exit 1; \
++	 fi; \
++	done
++check-am: all-am
++check: check-am
++all-am: Makefile $(LTLIBRARIES) $(HEADERS)
++installdirs:
++	for dir in "$(DESTDIR)$(imap_moduledir)"; do \
++	 test -z "$$dir" || $(MKDIR_P) "$$dir"; \
++	done
++install: install-am
++install-exec: install-exec-am
++install-data: install-data-am
++uninstall: uninstall-am
++
++install-am: all-am
++	@$(MAKE) $(AM_MAKEFLAGS) install-exec-am install-data-am
++
++installcheck: installcheck-am
++install-strip:
++	$(MAKE) $(AM_MAKEFLAGS) INSTALL_PROGRAM="$(INSTALL_STRIP_PROGRAM)" \
++	 install_sh_PROGRAM="$(INSTALL_STRIP_PROGRAM)" INSTALL_STRIP_FLAG=-s \
++	 `test -z '$(STRIP)' || \
++	   echo "INSTALL_PROGRAM_ENV=STRIPPROG='$(STRIP)'"` install
++mostlyclean-generic:
++
++clean-generic:
++
++distclean-generic:
++	-test -z "$(CONFIG_CLEAN_FILES)" || rm -f $(CONFIG_CLEAN_FILES)
++	-test . = "$(srcdir)" || test -z "$(CONFIG_CLEAN_VPATH_FILES)" || rm -f $(CONFIG_CLEAN_VPATH_FILES)
++
++maintainer-clean-generic:
++	@echo "This command is intended for maintainers to use"
++	@echo "it deletes files that may require special tools to rebuild."
++clean: clean-am
++
++clean-am: clean-generic clean-imap_moduleLTLIBRARIES clean-libtool \
++	mostlyclean-am
++
++distclean: distclean-am
++	-rm -rf ./$(DEPDIR)
++	-rm -f Makefile
++distclean-am: clean-am distclean-compile distclean-generic \
++	distclean-tags
++
++dvi: dvi-am
++
++dvi-am:
++
++html: html-am
++
++html-am:
++
++info: info-am
++
++info-am:
++
++install-data-am: install-imap_moduleLTLIBRARIES
++
++install-dvi: install-dvi-am
++
++install-dvi-am:
++
++install-exec-am:
++
++install-html: install-html-am
++
++install-html-am:
++
++install-info: install-info-am
++
++install-info-am:
++
++install-man:
++
++install-pdf: install-pdf-am
++
++install-pdf-am:
++
++install-ps: install-ps-am
++
++install-ps-am:
++
++installcheck-am:
++
++maintainer-clean: maintainer-clean-am
++	-rm -rf ./$(DEPDIR)
++	-rm -f Makefile
++maintainer-clean-am: distclean-am maintainer-clean-generic
++
++mostlyclean: mostlyclean-am
++
++mostlyclean-am: mostlyclean-compile mostlyclean-generic \
++	mostlyclean-libtool
++
++pdf: pdf-am
++
++pdf-am:
++
++ps: ps-am
++
++ps-am:
++
++uninstall-am: uninstall-imap_moduleLTLIBRARIES
++
++.MAKE: install-am install-strip
++
++.PHONY: CTAGS GTAGS all all-am check check-am clean clean-generic \
++	clean-imap_moduleLTLIBRARIES clean-libtool ctags distclean \
++	distclean-compile distclean-generic distclean-libtool \
++	distclean-tags distdir dvi dvi-am html html-am info info-am \
++	install install-am install-data install-data-am install-dvi \
++	install-dvi-am install-exec install-exec-am install-html \
++	install-html-am install-imap_moduleLTLIBRARIES install-info \
++	install-info-am install-man install-pdf install-pdf-am \
++	install-ps install-ps-am install-strip installcheck \
++	installcheck-am installdirs maintainer-clean \
++	maintainer-clean-generic mostlyclean mostlyclean-compile \
++	mostlyclean-generic mostlyclean-libtool pdf pdf-am ps ps-am \
++	tags uninstall uninstall-am uninstall-imap_moduleLTLIBRARIES
++
++
++# Tell versions [3.59,3.63) of GNU make to not export all variables.
++# Otherwise a system limit (for SysV at least) may be exceeded.
++.NOEXPORT:
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/urlauth-keys.c dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-keys.c
+--- dovecot-1.2.11/src/plugins/urlauth/urlauth-keys.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-keys.c	2010-01-19 16:11:13.000000000 -0600
+@@ -0,0 +1,269 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "lib.h"
++#include "istream.h"
++#include "ostream.h"
++#include "hash.h"
++#include "mail-storage-private.h"
++#include "hex-binary.h"
++#include "randgen.h"
++#include "urlauth-plugin.h"
++
++#include <ctype.h>
++
++#define URLAUTH_KEYS_FILENAME	"urlauthkeys"
++
++enum urlauth_keys_action {
++	URLAUTH_KEYS_GET,	// get the key for a mailbox
++	URLAUTH_KEYS_SET,	// set a new random key for a mailbox
++	URLAUTH_KEYS_DELETE	// delete the key for a mailbox
++};
++
++// get the path to the access keys table
++static const char *urlauth_keys_path(struct mail_storage *storage)
++{
++	const char *control_dir =
++		mail_storage_get_mailbox_control_dir(storage, "");
++	return t_strconcat(control_dir, "/"URLAUTH_KEYS_FILENAME, NULL);
++	
++}
++
++// read the access keys into the hash table
++static struct hash_table *urlauth_keys_read(pool_t pool, int fd)
++{
++	struct hash_table *keys;
++	struct istream *is;
++	const char *line;
++
++	is = i_stream_create_fd(fd, 4096, FALSE);
++	if (is == NULL)
++		return NULL;
++
++	keys = hash_table_create(pool, pool, 16, strcase_hash,
++				(hash_cmp_callback_t *) strcasecmp);
++	if (keys == NULL) {
++		i_stream_destroy(&is);
++		return NULL;
++	}
++
++	i_stream_set_return_partial_line(is, TRUE);
++	while ((line = i_stream_read_next_line(is)) != NULL) {
++		const char *sep;
++
++		if (*line == '\0' || *line == '#')
++			continue;
++
++		/* future-proofing */
++		if (strcmp(line, URLAUTH_KEYS_FILENAME" version 1") == 0)
++			continue;
++
++		/* key:mailbox, both nonempty */
++		sep = strchr(line, ':');
++		if (sep == NULL || sep == line || sep[1] == '\0')
++			continue;
++
++		/* keys[mailbox] = key */
++		hash_table_insert(keys,
++				 p_strdup(pool, sep + 1),
++				 p_strdup_until(pool, line, sep));
++	}
++	i_stream_destroy(&is);
++
++	return keys;
++}
++
++// write the access keys to the file
++static bool urlauth_keys_write(int fd, struct hash_table *keys)
++{
++	struct ostream *os;
++	struct hash_iterate_context *iter;
++	void *key, *value;
++
++	os = o_stream_create_fd_file(fd, 0, FALSE);
++	if (os == NULL)
++		return NULL;
++
++	o_stream_send_str(os, URLAUTH_KEYS_FILENAME" version 1\n");
++	iter = hash_table_iterate_init(keys);
++	while (hash_table_iterate(iter, &key, &value)) {
++		/* key is the mailbox, value is the access key */
++		o_stream_send_str(os, (const char *) value);
++		o_stream_send(os, ":", 1);
++		o_stream_send_str(os, (const char *) key);
++		o_stream_send(os, "\n", 1);
++	}
++	hash_table_iterate_deinit(&iter);
++	o_stream_destroy(&os);
++
++	return TRUE;
++}
++
++// read/modify/write the access keys
++static bool urlauth_keys_update(struct mail_storage *storage,
++				enum urlauth_keys_action action,
++				const char *mailbox,
++				buffer_t *out_key)
++{
++	const char *path;
++	int flags, fd;
++	pool_t pool;
++	struct hash_table *keys;
++	unsigned char new_key[URLAUTH_KEY_BYTES];
++	const char *hex = NULL;
++	bool modified = FALSE;
++
++	if (strcmp(storage->name, "maildir") != 0) {
++		i_error("Unsupported URLAUTH backend: %s", storage->name);
++		return FALSE;
++	}
++
++	/* open and lock the keys file */
++	path = urlauth_keys_path(storage);
++	flags = O_RDWR | O_EXLOCK;
++	if (action == URLAUTH_KEYS_GET || action == URLAUTH_KEYS_SET)
++		flags |= O_CREAT;
++	fd = open(path, flags, 0644);
++	if (fd < 0) {
++		if ((flags & O_CREAT) || errno != ENOENT)
++			i_error("open(%s) failed: %m", path);
++		return FALSE;
++	}
++
++	/* read the keys */
++	pool = pool_alloconly_create("urlauth_keys", 1024);
++	keys = urlauth_keys_read(pool, fd);
++	if (keys == NULL) {
++		i_error("error reading %s: %m", path);
++		pool_unref(&pool);
++		close(fd);
++		return FALSE;
++	}
++
++	/* modify the keys */
++	switch (action) {
++	case URLAUTH_KEYS_GET:
++		hex = hash_table_lookup(keys, (void *) mailbox);
++
++		/* if hex key is bogus, set a new one */
++		if (hex) {
++			const char *cp;
++			for (cp = hex; *cp; cp++)
++				if (!i_isxdigit(*cp))
++					break;
++			if (*cp == '\0')
++				break;	/* good hex */
++		}
++
++		/* if not present, set one -- fall through */
++	case URLAUTH_KEYS_SET:
++		random_fill(new_key, sizeof new_key);
++		hex = binary_to_hex(new_key, sizeof new_key);
++		if (*mailbox) {
++			hash_table_insert(keys, (void *) mailbox,
++					 (void *) hex);
++			modified = TRUE;
++		} /* else mailbox="" for foiling timing attacks */
++		break;
++	case URLAUTH_KEYS_DELETE:
++		hex = hash_table_lookup(keys, (void *) mailbox);
++		if (hex) {
++			hash_table_remove(keys, (void *) mailbox);
++			modified = TRUE;
++		}
++		break;
++	}
++
++	if (out_key)
++		hex_to_binary(hex, out_key);
++
++	/* write the keys */
++	if (modified) {
++		lseek(fd, 0, SEEK_SET);
++		ftruncate(fd, 0);
++		urlauth_keys_write(fd, keys);
++	}
++
++	/* clean up */
++	close(fd);
++	hash_table_destroy(&keys);
++	pool_unref(&pool);
++
++	return TRUE;
++}
++
++void urlauth_keys_init(void)
++{
++	random_init();
++}
++
++void urlauth_keys_deinit(void)
++{
++	random_deinit();
++}
++
++// get the access key for a mailbox
++bool urlauth_keys_get(struct mail_storage *storage, const char *mailbox,
++		     buffer_t *key)
++{
++	return urlauth_keys_update(storage, URLAUTH_KEYS_GET, mailbox, key);
++}
++
++// set a new random access key for a mailbox
++bool urlauth_keys_set(struct mail_storage *storage, const char *mailbox)
++{
++	return urlauth_keys_update(storage, URLAUTH_KEYS_SET, mailbox, NULL);
++}
++
++// delete the access key for a mailbox
++bool urlauth_keys_delete(struct mail_storage *storage, const char *mailbox)
++{
++	return urlauth_keys_update(storage, URLAUTH_KEYS_DELETE, mailbox, NULL);
++}
++
++// delete all access keys
++bool urlauth_keys_reset(struct mail_storage *storage)
++{
++	const char *path;
++
++	if (strcmp(storage->name, "maildir") != 0) {
++		i_error("Unsupported URLAUTH backend: %s", storage->name);
++		return FALSE;
++	}
++
++	path = urlauth_keys_path(storage);
++	if (unlink(path) < 0 && errno != ENOENT && errno != ESTALE) {
++		i_error("unlink(%s) failed: %m", path);
++		return FALSE;
++	}
++
++	return TRUE;
++}
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/urlauth-plugin.c dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-plugin.c
+--- dovecot-1.2.11/src/plugins/urlauth/urlauth-plugin.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-plugin.c	2010-02-05 05:34:46.000000000 -0600
+@@ -0,0 +1,620 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++/* Implements RFC 4467 */
++
++#include "lib.h"
++#include "str.h"
++#include "common.h"
++#include "client.h"
++#include "hostpid.h"
++#include "ioloop.h"
++#include "istream.h"
++#include "ostream.h"
++#include "mail-user.h"
++#include "mail-search.h"
++#include "imap-fetch.h"
++#include "imap-search-args.h"
++#include "urlauth-plugin.h"
++
++#include <stdlib.h>
++#include <fcntl.h>
++#include <unistd.h>
++
++/* context for processing nested loops asynchronously:
++   for (each url in the urlfetch command)
++	while (the imap fetch is unfinished)
++		print the info, but non-blocking */
++struct urlfetch_context {
++	/* pertaining to the urlfetch command as a whole */
++	pool_t pool;
++	struct client_command_context *cmd;
++	const struct imap_arg *urlfetch_args;
++	string_t *response;
++	const char *hostport;
++	unsigned int debug:1;
++	unsigned int failed:1;
++
++	/* pertaining to the individual url being processed */
++	const char *url;
++	const char *mailbox;
++	struct mail_storage *storage;
++	struct mailbox *box;
++	struct istream *input;
++	struct imap_parser *parser;
++	struct mail_search_args *search_args;
++	struct imap_fetch_context *fetch_ctx;
++};
++
++enum urlfetch_status {
++	URLFETCH_DONE,
++	URLFETCH_MORE,
++	URLFETCH_UNFINISHED
++};
++
++const char *urlauth_plugin_version = PACKAGE_VERSION;
++
++extern void (*hook_select_send_urlmech)(struct client *client);
++extern void (*hook_delete_mailbox)(struct mail_storage *storage,
++				  const char *mailbox);
++
++// GENURLAUTH command
++static bool cmd_genurlauth(struct client_command_context *cmd)
++{
++	const struct imap_arg *args;
++	string_t *auth_urls;
++	const char *hostport;
++
++	/* url mechanism [url mechanism ...] */
++	if (!client_read_args(cmd, 0, 0, &args))
++		return FALSE;
++
++	auth_urls = t_str_new(256);
++
++	// resolve this each time in case my_hostname changed
++	hostport = getenv("URLAUTH_HOSTPORT");
++	if (hostport == NULL || *hostport == '\0')
++		hostport = my_hostname;
++
++	while (IMAP_ARG_TYPE_IS_STRING(args[0].type) &&
++	      IMAP_ARG_TYPE_IS_STRING(args[1].type)) {
++		const char *rump = imap_arg_string(&args[0]);
++		const char *mech = imap_arg_string(&args[1]);
++		struct imap_url_parts enc_parts, dec_parts;
++		const char *error = NULL, *mailbox;
++		struct mail_storage *storage;
++		buffer_t *key;
++
++		if (strcasecmp(mech, "INTERNAL") != 0) {
++			client_send_command_error(cmd,
++						 "Unsupported mechanism.");
++			return TRUE;
++		}
++
++		memset(&enc_parts, 0, sizeof enc_parts);
++		memset(&dec_parts, 0, sizeof dec_parts);
++		imap_url_parse(rump, &enc_parts);
++		if (!imap_url_decode(&enc_parts, &dec_parts, &error) ||
++		   !urlauth_url_validate(&dec_parts, FALSE, &error)) {
++			if (error)
++				client_send_command_error(cmd,
++					t_strconcat("Invalid arguments: ",
++						   error, NULL));
++			else
++				client_send_command_error(cmd,
++							 "Invalid arguments.");
++			return TRUE;
++		}
++
++		if (getenv("DEBUG") != NULL) {
++			string_t *url = t_str_new(strlen(rump) + 1);
++			imap_url_construct(&enc_parts, url);
++			if (strcasecmp(rump, str_c(url)) != 0)
++				i_warning("GENURLAUTH: reconstructed URL (%s) does not match original (%s)",
++					 str_c(url), rump);
++		}
++
++		// username and servername must match
++		if (strcmp(dec_parts.user, cmd->client->user->username) != 0 ||
++		   strcmp(dec_parts.hostport, hostport) != 0) {
++			client_send_command_error(cmd, "User/server mismatch.");
++			return TRUE;
++		}
++
++		// mailbox must exist
++		if (!client_verify_mailbox_name(cmd, dec_parts.mailbox,
++					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST))
++			return TRUE;
++
++		// get the access key
++		mailbox = dec_parts.mailbox;
++		storage = client_find_storage(cmd, &mailbox);
++		if (storage == NULL)
++			return TRUE;
++		key = buffer_create_static_hard(pool_datastack_create(),
++						URLAUTH_KEY_BYTES);
++		if (!urlauth_keys_get(storage, mailbox, key)) {
++			client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
++			return TRUE;
++		}
++
++		// generate the reply
++		if (str_len(auth_urls) > 0)
++			str_append_c(auth_urls, ' ');
++		str_append_c(auth_urls, '"');
++		str_append(auth_urls, rump);
++		str_append(auth_urls, ":INTERNAL:");
++		urlauth_urlauth_generate_internal(rump, key, auth_urls);
++		str_append_c(auth_urls, '"');
++
++		args += 2;
++	}
++	if (args[0].type == IMAP_ARG_EOL) {
++		if (str_len(auth_urls) > 0) {
++			client_send_line(cmd->client,
++					t_strconcat("* GENURLAUTH ",
++						    str_c(auth_urls), NULL));
++			client_send_tagline(cmd, "OK Genurlauth completed.");
++		} else
++			client_send_command_error(cmd, "Missing arguments.");
++	} else if (args[1].type == IMAP_ARG_EOL)
++		client_send_command_error(cmd, "Missing arguments.");
++	else
++		client_send_command_error(cmd, "Invalid arguments.");
++
++	return TRUE;
++}
++
++// initialize context for traversing the urlauth maze
++static struct urlfetch_context *
++urlfetch_init(struct client_command_context *cmd, const struct imap_arg *args)
++{
++	struct urlfetch_context *ufctx;
++
++	pool_ref(cmd->pool);
++	ufctx = p_new(cmd->pool, struct urlfetch_context, 1);
++	ufctx->pool = cmd->pool;
++	ufctx->cmd = cmd;
++	ufctx->urlfetch_args = args;
++
++	ufctx->response = str_new(ufctx->pool, 256);
++	str_append(ufctx->response, "* URLFETCH");
++
++	// resolve this each time in case my_hostname changed
++	ufctx->hostport = getenv("URLAUTH_HOSTPORT");
++	if (ufctx->hostport == NULL || *ufctx->hostport == '\0')
++		ufctx->hostport = my_hostname;
++
++	ufctx->debug = getenv("DEBUG") != NULL;
++
++	return ufctx;
++}
++
++// reset the context for the next url
++static enum urlfetch_status urlfetch_reset(struct urlfetch_context *ufctx)
++{
++	if (ufctx->fetch_ctx != NULL) {
++		if (!ufctx->fetch_ctx->urlfetched) {
++			// found no mail with that uid
++			// HERE - probably should send BAD response instead
++			if (ufctx->debug)
++				i_info("URLFETCH: \"%s\" failed: UID not found",
++				      ufctx->url);
++			i_assert(str_len(ufctx->response) == 0);
++			str_append_str(ufctx->response,
++				      ufctx->fetch_ctx->cur_str);
++			str_append(ufctx->response, " NIL");
++		}
++		if (imap_fetch_deinit(ufctx->fetch_ctx) < 0)
++			ufctx->fetch_ctx->failed = TRUE;
++		if (ufctx->fetch_ctx->failed)
++			ufctx->failed = TRUE;
++		ufctx->fetch_ctx = NULL;
++	}
++	if (ufctx->search_args != NULL)
++		mail_search_args_unref(&ufctx->search_args);
++	if (ufctx->parser != NULL)
++		imap_parser_destroy(&ufctx->parser);
++	if (ufctx->input != NULL)
++		i_stream_destroy(&ufctx->input);
++	if (ufctx->box != NULL)
++		mailbox_close(&ufctx->box);
++	ufctx->storage = NULL;
++	ufctx->mailbox = NULL;
++	ufctx->url = NULL;
++
++	return ufctx->failed ? URLFETCH_DONE : URLFETCH_MORE;
++}
++
++// destroy the context
++static void urlfetch_deinit(struct urlfetch_context **_ufctx)
++{
++	struct urlfetch_context *ufctx = *_ufctx;
++	*_ufctx = NULL;
++
++	urlfetch_reset(ufctx);
++
++	str_free(&ufctx->response);
++	pool_unref(&ufctx->pool);
++}
++
++// urlfetch for one url
++static int urlfetch_url(struct urlfetch_context *ufctx, const char **error)
++{
++	struct imap_url_parts enc_parts, dec_parts;
++	bool authorized = FALSE;
++	buffer_t *key;
++	string_t *urlauth, *fetch_text;
++	struct mailbox_status status;
++	const struct imap_arg *fetch_args = NULL, *next_arg = NULL;
++
++	memset(&enc_parts, 0, sizeof enc_parts);
++	memset(&dec_parts, 0, sizeof dec_parts);
++	imap_url_parse(ufctx->url, &enc_parts);
++	if (!imap_url_decode(&enc_parts, &dec_parts, error) ||
++	   !urlauth_url_validate(&dec_parts, TRUE, error))
++		return -1;
++	if (strcmp(dec_parts.user, ufctx->cmd->client->user->username) != 0 ||
++	   strcmp(dec_parts.hostport, ufctx->hostport) != 0) {
++		*error = "user/server mismatch";
++		return -1;
++	}
++
++	// expired?
++	if (dec_parts.expiration_time != 0 &&
++	   dec_parts.expiration_time < ioloop_time) {
++		*error = "expired";
++		return -1;
++	}
++
++	// authorized?
++	if (strcasecmp(dec_parts.access, "anonymous") == 0) {
++		/* any user */
++		authorized = TRUE;
++	} else if (strcasecmp(dec_parts.access, "authuser") == 0) {
++		/* any non-anonymous user */
++		const char *anonymous = getenv("AUTH_ANONYMOUS_USERNAME");
++		authorized = anonymous == NULL ||
++			strcmp(ufctx->cmd->client->user->username,
++			      anonymous) != 0;
++	} else if (strncasecmp(dec_parts.access, "user+", 5) == 0) {
++		/* logged-in user */
++		authorized = strcmp(dec_parts.access + 5,
++				   ufctx->cmd->client->user->username) == 0;
++	} else if (strncasecmp(dec_parts.access, "submit+", 7) == 0) {
++		/* logged-in user via submit-user login */
++		authorized = getenv("SUBMIT_USER") != NULL &&
++			strcmp(dec_parts.access + 7,
++			      ufctx->cmd->client->user->username) == 0;
++	}
++	if (!authorized) {
++		*error = "not authorized";
++		return -1;
++	}
++
++	// get the access key
++	key = buffer_create_static_hard(pool_datastack_create(),
++					URLAUTH_KEY_BYTES);
++	ufctx->mailbox = p_strdup(ufctx->pool, dec_parts.mailbox);
++	ufctx->storage = client_find_storage(ufctx->cmd, &ufctx->mailbox);
++	if (ufctx->storage == NULL) {
++		// invent a key to foil timing attacks
++		ufctx->mailbox = "INBOX";
++		ufctx->storage = client_find_storage(ufctx->cmd,
++						    &ufctx->mailbox);
++		ufctx->mailbox = "";
++	}
++	if (!urlauth_keys_get(ufctx->storage, ufctx->mailbox, key)) {
++		*error = "can't get mailbox key";
++		return -1;
++	}
++
++	// generate an access token and compare it to the one given
++	urlauth = t_str_new(strlen(dec_parts.urlauth));
++	urlauth_urlauth_generate_internal(enc_parts.rump, key, urlauth);
++	if (strcasecmp(dec_parts.urlauth, str_c(urlauth)) != 0 ||
++	   *ufctx->mailbox == '\0') {
++		*error = "access token mismatch";
++		return -1;
++	}
++
++	ufctx->box = mailbox_open(&ufctx->storage, ufctx->mailbox, NULL,
++				 MAILBOX_OPEN_READONLY |
++				 MAILBOX_OPEN_KEEP_RECENT);
++	if (ufctx->box == NULL) {
++		*error = "can't open mailbox";
++		return -1;
++	}
++
++	// verify uidvalidity
++	if (mailbox_sync(ufctx->box,
++			MAILBOX_SYNC_FLAG_FULL_READ | MAILBOX_SYNC_FLAG_FAST,
++			STATUS_UIDVALIDITY, &status) < 0 ||
++	   (dec_parts.uidvalidity != NULL &&
++	    strtoul(dec_parts.uidvalidity, NULL, 10) != status.uidvalidity)) {
++		*error = "uidvalidity mismatch";
++		return -1;
++	}
++
++	/* passed all tests.  go get the data as in
++		UID FETCH dec_parts.uid BODY.PEEK[dec_parts.section]
++	  but with less output syntax */
++	fetch_text = str_new(ufctx->pool,
++			    11 + (dec_parts.section ?
++				  strlen(dec_parts.section) : 0));
++	str_append(fetch_text, "BODY.PEEK[");
++	if (dec_parts.section)
++		str_append(fetch_text, dec_parts.section);
++	str_append(fetch_text, "]");
++
++	ufctx->input = i_stream_create_from_data(str_data(fetch_text),
++						str_len(fetch_text));
++	(void) i_stream_read(ufctx->input);
++
++	ufctx->parser = imap_parser_create(ufctx->input, NULL, (size_t) -1);
++	if (imap_parser_finish_line(ufctx->parser, 0, 0, &fetch_args) < 0) {
++		*error = "can't parse fetch string";
++		return -1;
++	}
++
++	ufctx->cmd->uid = TRUE;
++	if (imap_search_get_uidset_arg(ufctx->cmd, dec_parts.uid,
++				      &ufctx->search_args, error) < 0)
++		return -1;
++
++	ufctx->fetch_ctx = imap_fetch_init(ufctx->cmd, ufctx->box);
++	if (ufctx->fetch_ctx == NULL) {
++		*error = "can't init fetch";
++		return -1;
++	}
++	ufctx->fetch_ctx->search_args = ufctx->search_args;
++	mail_search_args_ref(ufctx->search_args);
++	str_append_str(ufctx->fetch_ctx->cur_str, ufctx->response);
++	str_truncate(ufctx->response, 0);
++	ufctx->fetch_ctx->urlfetch = TRUE;
++
++	if (!fetch_parse_args(ufctx->fetch_ctx, fetch_args, &next_arg)) {
++		*error = "can't parse fetch args";
++		return -1;
++	}
++
++	if (imap_fetch_begin(ufctx->fetch_ctx) != 0) {
++		*error = "can't begin fetch";
++		return -1;
++	}
++
++	return imap_fetch_more(ufctx->fetch_ctx);
++}
++
++// execute imap fetch for one urlfetch url
++static enum urlfetch_status urlfetch_more(struct urlfetch_context *ufctx)
++{
++	if (ufctx->url == NULL) {
++		int ret;
++		const char *error = NULL;
++
++		if (!IMAP_ARG_TYPE_IS_STRING(ufctx->urlfetch_args->type))
++			return URLFETCH_DONE;
++
++		ufctx->url = imap_arg_string(ufctx->urlfetch_args);
++		++ufctx->urlfetch_args;
++
++		str_printfa(ufctx->response, " \"%s\"", ufctx->url);
++		ret = urlfetch_url(ufctx, &error);
++		if (ret < 0) {
++			if (ufctx->debug)
++				i_info("URLFETCH: \"%s\" failed: %s",
++				      ufctx->url,
++				      error ? error : "(unspecified)");
++			str_append(ufctx->response, " NIL");
++		} else if (ret == 0)
++			return URLFETCH_UNFINISHED;
++	} else {
++		if (imap_fetch_more(ufctx->fetch_ctx) == 0)
++			return URLFETCH_UNFINISHED;
++	}
++
++	return urlfetch_reset(ufctx);
++}
++
++// finish off an urlfetch command
++static int urlfetch_finish(struct urlfetch_context *ufctx)
++{
++	ufctx->cmd->client->output_squelch = FALSE;
++
++	if (ufctx->failed) {
++		if (ufctx->cmd->client->output->closed)
++			client_disconnect(ufctx->cmd->client, "Disconnected");
++		else {
++			const char *error_string;
++			enum mail_error error;
++
++			error_string = mail_storage_get_last_error(
++						ufctx->storage, &error);
++
++			/* We never want to reply NO to FETCH requests,
++			BYE is preferrable (see imap-ml for reasons). */
++			client_disconnect_with_error(ufctx->cmd->client,
++						    error_string);
++		}
++	} else {
++		client_send_line(ufctx->cmd->client, str_c(ufctx->response));
++		client_send_tagline(ufctx->cmd, "OK Urlfetch completed.");
++	}
++
++	urlfetch_deinit(&ufctx);
++	return TRUE;
++}
++
++// client is ready for more output, continue urlfetch where we left off
++static bool urlfetch_continue(struct client_command_context *cmd)
++{
++	struct urlfetch_context *ufctx = cmd->context;
++	enum urlfetch_status status;
++
++	while ((status = urlfetch_more(ufctx)) == URLFETCH_MORE)
++		;
++	if (status == URLFETCH_UNFINISHED)
++		return FALSE;
++	return urlfetch_finish(ufctx);
++}
++
++// URLFETCH command
++static bool cmd_urlfetch(struct client_command_context *cmd)
++{
++	const struct imap_arg *args, *argp;
++	struct urlfetch_context *ufctx;
++	enum urlfetch_status status;
++
++	/* url [url ...] */
++	if (!client_read_args(cmd, 0, 0, &args))
++		return FALSE;
++
++	for (argp = args; argp->type != IMAP_ARG_EOL; argp++) {
++		if (!IMAP_ARG_TYPE_IS_STRING(argp->type)) {
++			client_send_command_error(cmd, "Invalid arguments.");
++			return TRUE;
++		}
++	}
++	if (argp == args) {
++		client_send_command_error(cmd, "Missing arguments.");
++		return TRUE;
++	}
++
++	/* Squelch all errors and output other than the fetched parts;
++	  we are allowed only NIL or "".  Dovecot does not cleanly
++	  separate the parsing, execution, and response phases of
++	  command handling, but instead interleaves them.  To re-use
++	  the imap-fetch code for urlfetch, output_squelch keeps
++	  dovecot quiet. */
++	cmd->client->output_squelch = TRUE;
++
++	ufctx = urlfetch_init(cmd, args);
++	while ((status = urlfetch_more(ufctx)) == URLFETCH_MORE)
++		;
++	if (status == URLFETCH_UNFINISHED) {
++		cmd->state = CLIENT_COMMAND_STATE_WAIT_OUTPUT;
++		cmd->func = urlfetch_continue;
++		cmd->context = ufctx;
++		return FALSE;
++	}
++	return urlfetch_finish(ufctx);
++}
++
++// RESETKEY command
++static bool cmd_resetkey(struct client_command_context *cmd)
++{
++	const struct imap_arg *args;
++	const char *mailbox = NULL;
++	const char *mechanism = NULL;
++	bool reset_all = FALSE;
++	struct mail_storage *storage;
++
++	/* [mailbox [mechanism]] */
++	if (!client_read_args(cmd, 0, 0, &args))
++		return FALSE;
++
++	if (IMAP_ARG_TYPE_IS_STRING(args[0].type)) {
++		mailbox = imap_arg_string(&args[0]);
++
++		/* mechanism name may be absent, empty, or "INTERNAL" */
++		if (IMAP_ARG_TYPE_IS_STRING(args[1].type)) {
++			mechanism = imap_arg_string(&args[1]);
++			if (*mechanism != '\0' &&
++			   strcasecmp(mechanism, "INTERNAL") != 0) {
++				client_send_command_error(cmd,
++						"Unsupported mechanism.");
++				return TRUE;
++			}
++		}
++	} else {
++		reset_all = args[0].type == IMAP_ARG_EOL;
++		mailbox = "INBOX";
++	}
++
++	if (!client_verify_mailbox_name(cmd, mailbox,
++					CLIENT_VERIFY_MAILBOX_SHOULD_EXIST))
++		return TRUE;
++
++	storage = client_find_storage(cmd, &mailbox);
++	if (storage == NULL)
++		return TRUE;
++
++	if (reset_all) {
++		if (urlauth_keys_reset(storage))
++			client_send_tagline(cmd, "OK All keys removed.");
++		else
++			client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
++	} else {
++		if (urlauth_keys_set(storage, mailbox))
++			client_send_tagline(cmd, "OK [URLMECH INTERNAL] Key changed.");
++		else
++			client_send_tagline(cmd, "NO "MAIL_ERRSTR_CRITICAL_MSG);
++	}
++
++	return TRUE;
++}
++
++// report urlauth mechanisms
++static void urlauth_send_urlmech(struct client *client)
++{
++	client_send_line(client,
++			"* OK [URLMECH INTERNAL] Mechanisms supported");
++}
++
++// a mailbox was deleted (or renamed away) so delete its urlauth key
++static void urlauth_delete_mailbox(struct mail_storage *storage,
++				  const char *mailbox)
++{
++	urlauth_keys_delete(storage, mailbox);
++}
++
++void urlauth_plugin_init(void)
++{
++	command_register("GENURLAUTH", cmd_genurlauth, 0);
++	command_register("URLFETCH", cmd_urlfetch,
++			COMMAND_FLAG_OK_FOR_SUBMIT_USER);
++	command_register("RESETKEY", cmd_resetkey, 0);
++	str_append(capability_string, " URLAUTH");
++	urlauth_keys_init();
++	hook_select_send_urlmech = urlauth_send_urlmech;
++	hook_delete_mailbox = urlauth_delete_mailbox;
++}
++
++void urlauth_plugin_deinit(void)
++{
++	command_unregister("GENURLAUTH");
++	command_unregister("URLFETCH");
++	command_unregister("RESETKEY");
++	urlauth_keys_deinit();
++	hook_select_send_urlmech = NULL;
++	hook_delete_mailbox = NULL;
++}
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/urlauth-plugin.h dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-plugin.h
+--- dovecot-1.2.11/src/plugins/urlauth/urlauth-plugin.h	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth-plugin.h	2010-01-19 16:11:13.000000000 -0600
+@@ -0,0 +1,57 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#ifndef URLAUTH_PLUGIN_H
++#define URLAUTH_PLUGIN_H
++
++#include "imap-url.h"
++#include "mail-storage.h"
++
++#define URLAUTH_KEY_BYTES		16
++
++void urlauth_plugin_init(void);
++void urlauth_plugin_deinit(void);
++
++void urlauth_keys_init(void);
++void urlauth_keys_deinit(void);
++bool urlauth_keys_get(struct mail_storage *storage, const char *mailbox,
++		     buffer_t *key);
++bool urlauth_keys_set(struct mail_storage *storage, const char *mailbox);
++bool urlauth_keys_delete(struct mail_storage *storage, const char *mailbox);
++bool urlauth_keys_reset(struct mail_storage *storage);
++
++bool urlauth_url_validate(const struct imap_url_parts *parts, bool full,
++			 const char **error);
++
++void urlauth_urlauth_generate_internal(const char *rump, const buffer_t *key,
++				      string_t *urlauth);
++
++#endif
+diff -Nur dovecot-1.2.11/src/plugins/urlauth/urlauth.c dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth.c
+--- dovecot-1.2.11/src/plugins/urlauth/urlauth.c	1969-12-31 18:00:00.000000000 -0600
++++ dovecot-1.2.11+lemonade/src/plugins/urlauth/urlauth.c	2010-03-05 14:07:34.000000000 -0600
+@@ -0,0 +1,159 @@
++/*
++ * Copyright (c) 2010 Apple Inc. All rights reserved.
++ * 
++ * Redistribution and use in source and binary forms, with or without  
++ * modification, are permitted provided that the following conditions  
++ * are met:
++ * 
++ * 1.  Redistributions of source code must retain the above copyright  
++ * notice, this list of conditions and the following disclaimer.
++ * 2.  Redistributions in binary form must reproduce the above  
++ * copyright notice, this list of conditions and the following  
++ * disclaimer in the documentation and/or other materials provided  
++ * with the distribution.
++ * 3.  Neither the name of Apple Inc. ("Apple") nor the names of its  
++ * contributors may be used to endorse or promote products derived  
++ * from this software without specific prior written permission.
++ * 
++ * THIS SOFTWARE IS PROVIDED BY APPLE AND ITS CONTRIBUTORS "AS IS" AND 
++ * ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO,  
++ * THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A  
++ * PARTICULAR PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL APPLE OR ITS  
++ * CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,  
++ * SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT  
++ * LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF 
++ * USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND  
++ * ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY,  
++ * OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT  
++ * OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF  
++ * SUCH DAMAGE.
++ */
++
++#include "lib.h"
++#include "buffer.h"
++#include "str.h"
++#include "hex-binary.h"
++#include "urlauth-plugin.h"
++
++#include <openssl/hmac.h>
++
++#define	URLAUTH_URLAUTH_INTERNAL_VERSION	"d1"	/* must be hex */
++
++// compute the urlauth token using the INTERNAL mechanism
++void urlauth_urlauth_generate_internal(const char *rump,
++				      const buffer_t *key,
++				      string_t *urlauth)
++{
++	const void *key_data;
++	size_t key_len = 0;
++	unsigned char mac[EVP_MAX_MD_SIZE];
++	unsigned int mac_len = 0;
++
++	// compute HMAC-SHA1 of rump with key
++	key_data = buffer_get_data(key, &key_len);
++	i_assert(key_len > 0);
++	HMAC(EVP_sha1(), key_data, key_len, (const unsigned char *) rump,
++	    strlen(rump), mac, &mac_len);
++
++	str_append(urlauth, URLAUTH_URLAUTH_INTERNAL_VERSION);
++	str_append(urlauth, binary_to_hex(mac, mac_len));
++}
++	
++// validate all the parts of the URL
++bool urlauth_url_validate(const struct imap_url_parts *parts, bool full,
++			 const char **error)
++{
++	// user: mandatory; RFC 3501 "userid"
++	if (parts->user == NULL ||
++	   !imap_url_astring_validate(parts->user)) {
++		*error = "missing or invalid user ID";
++		return FALSE;
++	}
++
++	// auth_type: optional; RFC 3501 "auth-type"
++	if (parts->auth_type != NULL &&
++	   !imap_url_atom_validate(parts->auth_type)) {
++		*error = "invalid auth type";
++		return FALSE;
++	}
++		   
++	// hostport: mandatory; RFC 1738 "hostport"
++	if (parts->hostport == NULL ||
++	   !imap_url_hostport_validate(parts->hostport)) {
++		*error = "missing or invalid server";
++		return FALSE;
++	}
++
++	// mailbox: mandatory; RFC 3501 "mailbox"
++	if (parts->mailbox == NULL ||
++	   !imap_url_mailbox_validate(parts->mailbox)) {
++		*error = "missing or invalid mailbox";
++		return FALSE;
++	}
++
++	// uidvalidity: optional; RFC 3501 "nz-number"
++	if (parts->uidvalidity != NULL &&
++	   !imap_url_nz_number_validate(parts->uidvalidity)) {
++		*error = "invalid uidvalidity";
++		return FALSE;
++	}
++
++	// uid: mandatory; RFC 3501 "nz-number"
++	if (parts->uid == NULL ||
++	   !imap_url_nz_number_validate(parts->uid)) {
++		*error = "missing or invalid uid";
++		return FALSE;
++	}
++
++	// section: optional; RFC 2192 "section"
++	if (parts->section != NULL &&
++	   !imap_url_section_validate(parts->section)) {
++		*error = "invalid section";
++		return FALSE;
++	}
++
++	// expiration: optional; RFC 3339 "date-time"
++	if (parts->expiration != NULL &&
++	   (!imap_url_datetime_validate(parts->expiration) ||
++	    parts->expiration_time == 0)) {
++		*error = "invalid expiration";
++		return FALSE;
++	}
++
++	// access: mandatory; RFC 4467 "access"
++	if (parts->access == NULL ||
++	   !imap_url_access_validate(parts->access)) {
++		*error = "missing or invalid access ID";
++		return FALSE;
++	}
++
++	if (full) {
++		// mechanism: mandatory; RFC 4467 "mechanism"
++		if (parts->mechanism == NULL ||
++		   !imap_url_mechanism_validate(parts->mechanism)) {
++			*error = "missing or invalid mechanism";
++			return FALSE;
++		}
++
++		// urlauth: mandatory; RFC 4467 "urlauth"
++		if (parts->urlauth == NULL ||
++		   !imap_url_urlauth_validate(parts->urlauth)) {
++			*error = "missing or invalid access token";
++			return FALSE;
++		}
++	} else {
++		// mechanism: absent
++		if (parts->mechanism != NULL) {
++			*error = "mechanism present";
++			return FALSE;
++		}
++
++		// urlauth: absent
++		if (parts->urlauth != NULL) {
++			*error = "access token present";
++			return FALSE;
++		}
++	}
++
++	return TRUE;
++}
+

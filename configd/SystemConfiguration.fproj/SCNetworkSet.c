@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2007, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2007, 2009-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -169,48 +169,13 @@ __SCNetworkSetCreatePrivate(CFAllocatorRef      allocator,
 #pragma mark -
 
 
-static Boolean
-_serviceIsVPN(SCNetworkServiceRef service)
-{
-	SCNetworkInterfaceRef	interface;
-	CFStringRef		interfaceType;
-
-	interface = SCNetworkServiceGetInterface(service);
-	if (interface == NULL) {
-		return FALSE;
-	}
-
-	interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
-	if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPP)) {
-		interface = SCNetworkInterfaceGetInterface(interface);
-		if (interface == NULL) {
-			return FALSE;
-		}
-
-		interfaceType = SCNetworkInterfaceGetInterfaceType(interface);
-		if (CFEqual(interfaceType, kSCNetworkInterfaceTypeL2TP)) {
-			return TRUE;
-		}
-		if (CFEqual(interfaceType, kSCNetworkInterfaceTypePPTP)) {
-			return TRUE;
-		}
-		return FALSE;
-	}
-	if (CFEqual(interfaceType, kSCNetworkInterfaceTypeIPSec)) {
-		return TRUE;
-	}
-
-	return FALSE;
-}
-
-
 static int
 _serviceOrder(SCNetworkServiceRef service)
 {
 	SCNetworkInterfaceRef	interface;
 
 	interface = SCNetworkServiceGetInterface(service);
-	if ((interface == NULL) || _serviceIsVPN(service)) {
+	if ((interface == NULL) || _SCNetworkServiceIsVPN(service)) {
 		return 100000;	// if unknown or VPN interface, sort last
 	}
 
@@ -346,6 +311,15 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 		return FALSE;
 	}
 
+	// make sure that we do not add an orphaned network service if its
+	// associated interface is a member of a bond or bridge.
+	interface = SCNetworkServiceGetInterface(service);
+	if ((interface != NULL) &&
+	    __SCNetworkInterfaceIsMember(servicePrivate->prefs, interface)) {
+		_SCErrorSet(kSCStatusKeyExists);
+		return FALSE;
+	}
+
 #define PREVENT_DUPLICATE_SERVICE_NAMES
 #ifdef  PREVENT_DUPLICATE_SERVICE_NAMES
 	CFStringRef	name;
@@ -376,9 +350,9 @@ SCNetworkSetAddService(SCNetworkSetRef set, SCNetworkServiceRef service)
 					return FALSE;
 				}
 			}
-		}
 
-		CFRelease(services);
+			CFRelease(services);
+		}
 	}
 #endif	// PREVENT_DUPLICATE_SERVICE_NAMES
 
@@ -484,33 +458,6 @@ SCNetworkSetCopy(SCPreferencesRef prefs, CFStringRef setID)
 }
 
 
-static Boolean
-_SCNetworkServiceExistsForInterface(CFArrayRef services, SCNetworkInterfaceRef interface)
-{
-	CFIndex	i;
-	CFIndex	n;
-
-	n = isA_CFArray(services) ? CFArrayGetCount(services) : 0;
-	for (i = 0; i < n; i++) {
-		SCNetworkServiceRef	service;
-		SCNetworkInterfaceRef	service_interface;
-
-		service = CFArrayGetValueAtIndex(services, i);
-
-		service_interface = SCNetworkServiceGetInterface(service);
-		while (service_interface != NULL) {
-			if (CFEqual(interface, service_interface)) {
-				return TRUE;
-			}
-
-			service_interface = SCNetworkInterfaceGetInterface(service_interface);
-		}
-	}
-
-	return FALSE;
-}
-
-
 Boolean
 SCNetworkSetContainsInterface(SCNetworkSetRef set, SCNetworkInterfaceRef interface)
 {
@@ -519,7 +466,7 @@ SCNetworkSetContainsInterface(SCNetworkSetRef set, SCNetworkInterfaceRef interfa
 
 	services = SCNetworkSetCopyServices(set);
 	if (services != NULL) {
-		found = _SCNetworkServiceExistsForInterface(services, interface);
+		found = __SCNetworkServiceExistsForInterface(services, interface);
 		CFRelease(services);
 	}
 
@@ -709,6 +656,8 @@ SCNetworkSetRef
 SCNetworkSetCreate(SCPreferencesRef prefs)
 {
 	CFArrayRef		components;
+	CFDictionaryRef		entity;
+	Boolean			ok;
 	CFStringRef		path;
 	CFStringRef		prefix;
 	CFStringRef		setID;
@@ -723,14 +672,25 @@ SCNetworkSetCreate(SCPreferencesRef prefs)
 	}
 
 	components = CFStringCreateArrayBySeparatingStrings(NULL, path, CFSTR("/"));
-	CFRelease(path);
-
 	setID = CFArrayGetValueAtIndex(components, 2);
 	setPrivate = __SCNetworkSetCreatePrivate(NULL, prefs, setID);
 	CFRelease(components);
 
 	// mark set as "new" (not yet established)
 	setPrivate->established = FALSE;
+
+	// establish the set in the preferences
+	entity = CFDictionaryCreate(NULL,
+				    NULL, NULL, 0,
+				    &kCFTypeDictionaryKeyCallBacks,
+				    &kCFTypeDictionaryValueCallBacks);
+	ok = SCPreferencesPathSetValue(prefs, path, entity);
+	CFRelease(path);
+	CFRelease(entity);
+	if (!ok) {
+		CFRelease(setPrivate);
+		setPrivate = NULL;
+	}
 
 	return (SCNetworkSetRef)setPrivate;
 }
@@ -869,6 +829,8 @@ SCNetworkSetRemove(SCNetworkSetRef set)
 	path = SCPreferencesPathKeyCreateSet(NULL, setPrivate->setID);
 	if (!isA_CFString(currentPath) || !CFEqual(currentPath, path)) {
 		ok = SCPreferencesPathRemoveValue(setPrivate->prefs, path);
+	} else {
+		_SCErrorSet(kSCStatusInvalidArgument);
 	}
 	CFRelease(path);
 
@@ -1168,63 +1130,66 @@ add_supported_interfaces(CFMutableArrayRef interface_list, SCNetworkInterfaceRef
 	return;
 }
 
-
-static CFStringRef
-next_service_name(SCNetworkServiceRef service)
+static CFSetRef	/* of SCNetworkInterfaceRef's */
+copyExcludedInterfaces(SCPreferencesRef prefs)
 {
-	CFArrayRef		components;
-	CFIndex			n;
-	CFStringRef		name;
-	CFMutableArrayRef	newComponents;
-	SInt32			suffix	= 2;
+	CFMutableSetRef	excluded;
+	CFArrayRef	interfaces;
 
-	name = SCNetworkServiceGetName(service);
-	if (name == NULL) {
-		return NULL;
+	excluded = CFSetCreateMutable(NULL, 0, &kCFTypeSetCallBacks);
+
+	// exclude Bond [member] interfaces
+	interfaces = SCBondInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		__SCBondInterfaceListCollectMembers(interfaces, excluded);
+		CFRelease(interfaces);
 	}
 
-	components = CFStringCreateArrayBySeparatingStrings(NULL, name, CFSTR(" "));
-	if (components != NULL) {
-		newComponents = CFArrayCreateMutableCopy(NULL, 0, components);
-		CFRelease(components);
-	} else {
-		newComponents = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-		CFArrayAppendValue(newComponents, name);
+	// exclude Bridge [member] interfaces
+	interfaces = SCBridgeInterfaceCopyAll(prefs);
+	if (interfaces != NULL) {
+		__SCBridgeInterfaceListCollectMembers(interfaces, excluded);
+		CFRelease(interfaces);
 	}
 
-	n = CFArrayGetCount(newComponents);
-	if (n > 1) {
-		CFStringRef	str;
-
-		str = CFArrayGetValueAtIndex(newComponents, n - 1);
-		suffix = CFStringGetIntValue(str);
-		if (suffix++ > 0) {
-			CFArrayRemoveValueAtIndex(newComponents, n - 1);
-		} else {
-			suffix = 2;
-		}
-	}
-
-	name = CFStringCreateWithFormat(NULL, NULL, CFSTR("%d"), suffix);
-	CFArrayAppendValue(newComponents, name);
-	CFRelease(name);
-
-	name = CFStringCreateByCombiningStrings(NULL, newComponents, CFSTR(" "));
-	CFRelease(newComponents);
-
-	return name;
+	return excluded;
 }
 
 
 static Boolean
 __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CFArrayRef interfaces)
 {
+	CFSetRef		excluded	= NULL;
 	CFIndex			i;
-	CFIndex			n;
+	CFIndex			n		= 0;
 	Boolean			ok		= TRUE;
 	CFArrayRef		services;
 	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
 	Boolean			updated		= FALSE;
+
+#if	TARGET_OS_IPHONE
+	CFArrayRef		orphans		= NULL;
+	CFArrayRef		sets;
+
+	sets = SCNetworkSetCopyAll(setPrivate->prefs);
+	if (sets != NULL) {
+		if (CFArrayGetCount(sets) == 1) {
+			services = SCNetworkSetCopyServices(set);
+			if (services != NULL) {
+				n = CFArrayGetCount(services);
+				CFRelease(services);
+			}
+
+			if ((n == 0) && CFEqual(set, CFArrayGetValueAtIndex(sets, 0))) {
+				// after a "Reset Network Settings" we need to find (and
+				// add back) any VPN services that were orphaned.
+				orphans = SCNetworkServiceCopyAll(setPrivate->prefs);
+			}
+		}
+
+		CFRelease(sets);
+	}
+#endif	// TARGET_OS_IPHONE
 
 	// first, assume that we only want to add new services
 	// for those interfaces that are not represented in the
@@ -1238,13 +1203,21 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 		services = SCNetworkServiceCopyAll(setPrivate->prefs);
 	}
 
+	excluded = copyExcludedInterfaces(setPrivate->prefs);
+
 	n = (interfaces != NULL) ? CFArrayGetCount(interfaces) : 0;
 	for (i = 0; i < n; i++) {
 		SCNetworkInterfaceRef	interface;
 		CFMutableArrayRef	interface_list;
 
 		interface = CFArrayGetValueAtIndex(interfaces, i);
-		if (_SCNetworkServiceExistsForInterface(services, interface)) {
+		if ((excluded != NULL)
+		    && CFSetContainsValue(excluded, interface)) {
+			// if this interface is a member of a Bond or Bridge
+			continue;
+		}
+
+		if (__SCNetworkServiceExistsForInterface(services, interface)) {
 			// if this is not a new interface
 			continue;
 		}
@@ -1303,7 +1276,7 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 					// we have two interfaces with the same service
 					// name, acquire a new, hopefully unique, name
 
-					newName = next_service_name(service);
+					newName = __SCNetworkServiceNextName(service);
 					if (newName == NULL) {
 						SCLog(TRUE, LOG_DEBUG,
 						      CFSTR("could not set unique name for \"%@\": %s\n"),
@@ -1344,6 +1317,30 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 		CFRelease(interface_list);
 	}
 	if (services != NULL)	CFRelease(services);
+	if (excluded != NULL)	CFRelease(excluded);
+
+#if	TARGET_OS_IPHONE
+	if (orphans != NULL) {
+		if (ok && updated) {
+			CFIndex	i;
+			CFIndex	n	= CFArrayGetCount(orphans);
+
+			for (i = 0; i < n; i++) {
+				SCNetworkServiceRef	service;
+
+				service = CFArrayGetValueAtIndex(orphans, i);
+				if (_SCNetworkServiceIsVPN(service)) {
+					ok = SCNetworkSetAddService(set, service);
+					if (!ok) {
+						break;
+					}
+				}
+			}
+		}
+
+		CFRelease(orphans);
+	}
+#endif	// TARGET_OS_IPHONE
 
 	if (ok && !updated) {
 		// if no changes were made
@@ -1357,17 +1354,20 @@ __SCNetworkSetEstablishDefaultConfigurationForInterfaces(SCNetworkSetRef set, CF
 Boolean
 SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
 {
-	CFArrayRef	interfaces;
-	Boolean		updated;
+	CFArrayRef		interfaces;
+	SCNetworkSetPrivateRef	setPrivate	= (SCNetworkSetPrivateRef)set;
+	Boolean			updated		= FALSE;
 
 	if (!isA_SCNetworkSet(set)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
 
-	interfaces = SCNetworkInterfaceCopyAll();
-	updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
-	if (interfaces != NULL) CFRelease(interfaces);
+	interfaces = _SCNetworkInterfaceCopyAllWithPreferences(setPrivate->prefs);
+	if (interfaces != NULL) {
+		updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
+		CFRelease(interfaces);
+	}
 
 	return updated;
 }
@@ -1376,8 +1376,8 @@ SCNetworkSetEstablishDefaultConfiguration(SCNetworkSetRef set)
 Boolean
 SCNetworkSetEstablishDefaultInterfaceConfiguration(SCNetworkSetRef set, SCNetworkInterfaceRef interface)
 {
-	CFMutableArrayRef	interfaces;
-	Boolean			updated;
+	CFArrayRef	interfaces;
+	Boolean		updated;
 
 	if (!isA_SCNetworkSet(set)) {
 		_SCErrorSet(kSCStatusInvalidArgument);
@@ -1389,10 +1389,156 @@ SCNetworkSetEstablishDefaultInterfaceConfiguration(SCNetworkSetRef set, SCNetwor
 		return FALSE;
 	}
 
-	interfaces = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
-	CFArrayAppendValue(interfaces, interface);
+	interfaces = CFArrayCreate(NULL, (const void **)&interface, 1, &kCFTypeArrayCallBacks);
 	updated = __SCNetworkSetEstablishDefaultConfigurationForInterfaces(set, interfaces);
 	CFRelease(interfaces);
 
 	return updated;
+}
+
+
+SCNetworkServiceRef
+SCNetworkSetCopySelectedVPNService(SCNetworkSetRef set)
+{
+	CFIndex			i;
+	CFIndex			n;
+	SCNetworkServiceRef	selected	= NULL;
+	CFArrayRef		services;
+	CFMutableArrayRef	services_vpn	= NULL;
+
+	if (!isA_SCNetworkSet(set)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	services = SCNetworkSetCopyServices(set);
+	if (services != NULL) {
+		n = CFArrayGetCount(services);
+		for (i = 0; i < n; i++) {
+			SCNetworkServiceRef	service;
+
+			service = CFArrayGetValueAtIndex(services, i);
+			if (!SCNetworkServiceGetEnabled(service)) {
+				// if not enabled
+				continue;
+			}
+
+			if (!_SCNetworkServiceIsVPN(service)) {
+				// if not VPN service
+				continue;
+			}
+
+			if (services_vpn == NULL) {
+				services_vpn = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+			}
+			CFArrayAppendValue(services_vpn, service);
+		}
+
+		CFRelease(services);
+	}
+
+	if (services_vpn == NULL) {
+		// if no VPN services
+		return NULL;
+	}
+
+	n = CFArrayGetCount(services_vpn);
+	if (n > 1) {
+		CFArrayRef		order;
+		CFMutableArrayRef	sorted;
+
+		order = SCNetworkSetGetServiceOrder(set);
+		sorted = CFArrayCreateMutableCopy(NULL, 0, services_vpn);
+		CFArraySortValues(sorted,
+				  CFRangeMake(0, CFArrayGetCount(sorted)),
+				  _SCNetworkServiceCompare,
+				  (void *)order);
+		CFRelease(services_vpn);
+		services_vpn = sorted;
+	}
+
+#if	TARGET_OS_IPHONE
+	if (n > 1) {
+		CFStringRef	serviceID_prefs;
+
+#define VPN_PREFERENCES	CFSTR("com.apple.mobilevpn")
+#define VPN_SERVICE_ID	CFSTR("activeVPNID")
+
+		CFPreferencesAppSynchronize(VPN_PREFERENCES);
+		serviceID_prefs = CFPreferencesCopyAppValue(VPN_SERVICE_ID, VPN_PREFERENCES);
+		if (serviceID_prefs != NULL) {
+			for (i = 0; i < n; i++) {
+				SCNetworkServiceRef	service;
+				CFStringRef		serviceID;
+
+				service = CFArrayGetValueAtIndex(services_vpn, i);
+				serviceID = SCNetworkServiceGetServiceID(service);
+				if (CFEqual(serviceID, serviceID_prefs)) {
+					selected = service;
+					CFRetain(selected);
+					break;
+				}
+
+			}
+
+			CFRelease(serviceID_prefs);
+		}
+	}
+#endif	// TARGET_OS_IPHONE
+
+	if (selected == NULL) {
+		selected = CFArrayGetValueAtIndex(services_vpn, 0);
+		CFRetain(selected);
+	}
+
+	CFRelease(services_vpn);
+	return selected;
+}
+
+
+Boolean
+SCNetworkSetSetSelectedVPNService(SCNetworkSetRef set, SCNetworkServiceRef service)
+{
+	Boolean		ok	= TRUE;
+	CFArrayRef	services;
+
+	if (!isA_SCNetworkSet(set)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!isA_SCNetworkService(service) || !_SCNetworkServiceIsVPN(service)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	services = SCNetworkSetCopyServices(set);
+	if (services != NULL) {
+		CFIndex	i;
+		CFIndex	n	= CFArrayGetCount(services);
+
+		if (!CFArrayContainsValue(services, CFRangeMake(0, n), service)) {
+			// if selected service not a member of the current set
+			_SCErrorSet(kSCStatusInvalidArgument);
+			ok = FALSE;
+			goto done;
+		}
+
+		for (i = 0; ok && (i < n); i++) {
+			SCNetworkServiceRef	vpn;
+
+			vpn = CFArrayGetValueAtIndex(services, i);
+			if (!_SCNetworkServiceIsVPN(vpn)) {
+				// if not VPN service
+				continue;
+			}
+
+			ok = SCNetworkServiceSetEnabled(vpn, CFEqual(service, vpn));
+		}
+	}
+
+    done :
+
+	if (services != NULL) CFRelease(services);
+	return ok;
 }

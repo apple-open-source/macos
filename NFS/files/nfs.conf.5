@@ -1,5 +1,5 @@
 .\"
-.\" Copyright (c) 2006-2008 Apple Inc.  All rights reserved.
+.\" Copyright (c) 2006-2010 Apple Inc.  All rights reserved.
 .\"
 .\" @APPLE_LICENSE_HEADER_START@
 .\" 
@@ -20,7 +20,7 @@
 .\" 
 .\" @APPLE_LICENSE_HEADER_END@
 .\"
-.Dd July 12, 2008
+.Dd July 21, 2009
 .Dt NFS.CONF 5 
 .Os
 .Sh NAME
@@ -60,6 +60,17 @@ The options are:
 How long (in seconds) that
 .Xr access 2
 information is cached.  The default is 60 seconds.
+.It Cm nfs.client.access_for_getattr
+This option specifies if
+.Xr access 2
+information should be opportunistically fetched every time attributes
+are fetched.  A GETATTR request will only return attributes, but since
+ACCESS requests usually also return current attributes, a single ACCESS
+request may be used to fetch both
+.Xr access 2
+information and attributes.  Enabling this may improve performance,
+but only if the ACCESS check on the server is inexpensive.  This may
+not be the case with many modern operating systems.  The default is 0 (off).
 .It Cm nfs.client.allow_async
 Allow the use of the -o
 .Cm async
@@ -70,6 +81,10 @@ mount option to be honored because (accidental) use of the
 .Cm async
 mount option may result in data loss if the server crashes.
 The default is 0 (off).
+.It Cm nfs.client.callback_port
+This option can be used to specify a port that the NFSv4 callback
+RPC service should be available on.  The default value is unspecified,
+which means that any available port will be used.
 .It Cm nfs.client.initialdowndelay
 When an NFS server is not responding, this option specifies how long
 to wait (in seconds) before the initial notification is posted.  The default
@@ -117,6 +132,13 @@ for monitored hosts.  Setting it to zero will disable the cache which
 will make lock and unlock requests from a single client more expensive
 because of additional interaction with the client's statd.  The default
 value is 60 seconds.
+.It Cm nfs.lockd.port
+This option can be used to specify a port that the NFS LOCK service
+(lockd) should be available on.  The default value is unspecified,
+which means that any available port will be used.
+.It Cm nfs.lockd.send_using_tcp
+This option tells lockd to use TCP sockets when contacting other
+hosts.  The default value is 0, which means lockd will use UDP.
 .It Cm nfs.lockd.shutdown_delay_client
 This option species how long (in seconds) the lockd daemon should
 remain running after the unmounting of the last NFS file system for
@@ -129,10 +151,12 @@ remain running after the NFS server daemon,
 .Xr nfsd 8 ,
 is stopped.  The default value is 180 seconds.  (Note: lockd may also
 remain running if it is needed by any NFS file system mounts.)
-.It Cm nfs.lockd.port
-This option can be used to specify a port that the NFS LOCK service
-(lockd) should be available on.  The default value is unspecified,
-which means that any available port will be used.
+.It Cm nfs.lockd.tcp
+This option specifies whether the LOCK server should support connections
+using TCP.  The default value is 1 (enabled).
+.It Cm nfs.lockd.udp
+This option specifies whether the LOCK server should support connections
+using UDP.  The default value is 1 (enabled).
 .It Cm nfs.lockd.verbose
 This option controls how much logging lockd performs.  It currently
 maps directly to the
@@ -195,6 +219,12 @@ that this requirement increases security.
 This option can be used to specify a port that the RQUOTA service
 (rquotad) should be available on.  The default value is unspecified,
 which means that any available port will be used.
+.It Cm nfs.server.rquota.tcp
+This option specifies whether the RQUOTA server should support connections
+using TCP.  The default value is 1 (enabled).
+.It Cm nfs.server.rquota.udp
+This option specifies whether the RQUOTA server should support connections
+using UDP.  The default value is 1 (enabled).
 .It Cm nfs.server.tcp
 This option specifies whether the NFS server should support connections
 using TCP.  The default value is 1 (enabled).
@@ -231,9 +261,18 @@ doing write gathering to increase performance.
 This option can be used to specify a port that the STATUS service
 (statd) should be available on.  The default value is unspecified,
 which means that any available port will be used.
+.It Cm nfs.statd.send_using_tcp
+This option tells statd to use TCP sockets when contacting other
+hosts.  The default value is 0, which means statd will use UDP.
 .It Cm nfs.statd.simu_crash_allowed
 This option controls whether statd allows SM_SIMU_CRASH requests.  The
 default value is 0 (not allowed).
+.It Cm nfs.statd.tcp
+This option specifies whether the STATUS server should support connections
+using TCP.  The default value is 1 (enabled).
+.It Cm nfs.statd.udp
+This option specifies whether the STATUS server should support connections
+using UDP.  The default value is 1 (enabled).
 .It Cm nfs.statd.verbose
 This option controls how much logging statd performs.  The default value is 0.
 .El

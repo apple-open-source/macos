@@ -40,6 +40,7 @@
 #import "HTMLCollection.h"
 #import "HTMLDocument.h"
 #import "HTMLInputElement.h"
+#import "HTMLParserIdioms.h"
 #import "HTMLSelectElement.h"
 #import "HTMLTextAreaElement.h"
 #import "Page.h"
@@ -70,7 +71,7 @@
 
 - (DOMDocumentFragment *)_createDocumentFragmentWithMarkupString:(NSString *)markupString baseURLString:(NSString *)baseURLString
 {
-    NSURL *baseURL = core(self)->completeURL(WebCore::deprecatedParseURL(baseURLString));
+    NSURL *baseURL = core(self)->completeURL(WebCore::stripLeadingAndTrailingHTMLSpaces(baseURLString));
     return [self createDocumentFragmentWithMarkupString:markupString baseURL:baseURL];
 }
 
@@ -81,24 +82,6 @@
 
 @end
 
-#ifdef BUILDING_ON_TIGER
-@implementation DOMHTMLDocument (DOMHTMLDocumentOverrides)
-
-- (DOMNode *)firstChild
-{
-    WebCore::HTMLDocument* coreHTMLDocument = core(self);
-    if (!coreHTMLDocument->page() || !coreHTMLDocument->page()->settings()->needsTigerMailQuirks())
-        return kit(coreHTMLDocument->firstChild());
-
-    WebCore::Node* child = coreHTMLDocument->firstChild();
-    while (child && child->nodeType() == WebCore::Node::DOCUMENT_TYPE_NODE)
-        child = child->nextSibling();
-    
-    return kit(child);
-}
-
-@end
-#endif
 
 @implementation DOMHTMLInputElement (FormAutoFillTransition)
 
@@ -124,7 +107,7 @@
 {
     WebCore::HTMLInputElement* inputElement = core(self);
     if (inputElement) {
-        WebCore::String newValue = inputElement->value();
+        WTF::String newValue = inputElement->value();
         newValue.replace(targetRange.location, targetRange.length, replacementString);
         inputElement->setValue(newValue);
         inputElement->setSelectionRange(index, newValue.length());
@@ -166,14 +149,22 @@
         select->setSelectedIndexByUser(index, true, true);
 }
 
+- (void)_activateItemAtIndex:(int)index allowMultipleSelection:(BOOL)allowMultipleSelection
+{
+    // Use the setSelectedIndexByUser function so a change event will be fired. <rdar://problem/6760590>
+    // If this is a <select multiple> the allowMultipleSelection flag will allow setting multiple
+    // selections without clearing the other selections.
+    if (WebCore::HTMLSelectElement* select = core(self))
+        select->setSelectedIndexByUser(index, true, true, allowMultipleSelection);
+}
+
 @end
 
 @implementation DOMHTMLInputElement (FormPromptAdditions)
 
 - (BOOL)_isEdited
 {
-    WebCore::RenderObject *renderer = core(self)->renderer();
-    return renderer && [self _isTextField] && static_cast<WebCore::RenderTextControl *>(renderer)->lastChangeWasUserEdit();
+    return core(self)->lastChangeWasUserEdit();
 }
 
 @end
@@ -182,8 +173,7 @@
 
 - (BOOL)_isEdited
 {
-    WebCore::RenderObject* renderer = core(self)->renderer();
-    return renderer && static_cast<WebCore::RenderTextControl*>(renderer)->lastChangeWasUserEdit();
+    return core(self)->lastChangeWasUserEdit();
 }
 
 @end

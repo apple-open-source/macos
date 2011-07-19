@@ -10,10 +10,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,7 +31,7 @@
 static char sccsid[] = "@(#)getcwd.c	8.5 (Berkeley) 2/7/95";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.25 2003/10/29 10:45:01 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/getcwd.c,v 1.29 2007/01/09 00:27:53 imp Exp $");
 
 #include "namespace.h"
 #include <sys/param.h>
@@ -180,8 +176,8 @@ __private_getcwd(pt, size, usegetpath)
 	*bpt = '\0';
 
 	/*
-	 * Allocate bytes MAXPATHLEN) for the string of "../"'s.
-	 * Should always be enough (it's 340 levels).  If it's not, allocate
+	 * Allocate MAXPATHLEN bytes for the string of "../"'s.
+	 * Should always be enough.  If it's not, allocate
 	 * as necessary.  Special case the first stat, it's ".", not "..".
 	 */
 	if ((up = malloc(upsize = MAXPATHLEN)) == NULL)
@@ -226,7 +222,7 @@ __private_getcwd(pt, size, usegetpath)
 		 * as necessary.  Max length is 3 for "../", the largest
 		 * possible component name, plus a trailing NUL.
 		 */
-		if (bup + 3  + MAXNAMLEN + 1 >= eup) {
+		while (bup + 3  + MAXNAMLEN + 1 >= eup) {
 			if ((up = reallocf(up, upsize *= 2)) == NULL)
 				goto err;
 			bup = up;
@@ -280,7 +276,7 @@ __private_getcwd(pt, size, usegetpath)
 		 * Check for length of the current name, preceding slash,
 		 * leading slash.
 		 */
-		if (bpt - pt < dp->d_namlen + (first ? 1 : 2)) {
+		while (bpt - pt < dp->d_namlen + (first ? 1 : 2)) {
 			size_t len, off;
 
 			if (!ptsize) {

@@ -19,10 +19,10 @@
 
 namespace llvm {
   class LibCallInfo;
-  class LibCallFunctionInfo;
+  struct LibCallFunctionInfo;
   
   /// LibCallAliasAnalysis - Alias analysis driven from LibCallInfo.
-  struct LibCallAliasAnalysis : public FunctionPass, AliasAnalysis {
+  struct LibCallAliasAnalysis : public FunctionPass, public AliasAnalysis {
     static char ID; // Class identification
     
     LibCallInfo *LCI;
@@ -49,9 +49,6 @@ namespace llvm {
       return false;
     }
     
-    /// hasNoModRefInfoForCalls - We can provide mod/ref information against
-    /// non-escaping allocations.
-    virtual bool hasNoModRefInfoForCalls() const { return false; }
   private:
     ModRefResult AnalyzeLibCallDetails(const LibCallFunctionInfo *FI,
                                        CallSite CS, Value *P, unsigned Size);

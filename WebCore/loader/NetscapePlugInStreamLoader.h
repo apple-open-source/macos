@@ -26,6 +26,9 @@
  * THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
+#ifndef NetscapePlugInStreamLoader_h
+#define NetscapePlugInStreamLoader_h
+
 #include "ResourceLoader.h"
 #include <wtf/Forward.h>
 
@@ -47,24 +50,27 @@ namespace WebCore {
 
     class NetscapePlugInStreamLoader : public ResourceLoader {
     public:
-        static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*);
+        static PassRefPtr<NetscapePlugInStreamLoader> create(Frame*, NetscapePlugInStreamLoaderClient*, const ResourceRequest&);
         virtual ~NetscapePlugInStreamLoader();
 
         bool isDone() const;
 
     private:
         virtual void didReceiveResponse(const ResourceResponse&);
-        virtual void didReceiveData(const char*, int, long long lengthReceived, bool allAtOnce);
-        virtual void didFinishLoading();
+        virtual void didReceiveData(const char*, int, long long encodedDataLength, bool allAtOnce);
+        virtual void didFinishLoading(double finishTime);
         virtual void didFail(const ResourceError&);
 
         virtual void releaseResources();
 
         NetscapePlugInStreamLoader(Frame*, NetscapePlugInStreamLoaderClient*);
 
-        virtual void didCancel(const ResourceError& error);
+        virtual void willCancel(const ResourceError&);
+        virtual void didCancel(const ResourceError&);
 
         NetscapePlugInStreamLoaderClient* m_client;
     };
 
 }
+
+#endif // NetscapePlugInStreamLoader_h

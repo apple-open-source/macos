@@ -14,69 +14,109 @@ cc -g -o /tmp/fbshared fbshared.c -framework ApplicationServices -framework IOKi
 
 int main(int argc, char * argv[])
 {
-    kern_return_t       status;
-    io_service_t        service;
+    kern_return_t       kr;
+    io_iterator_t       iter;
+    io_service_t        framebuffer;
+    io_string_t         path;
+    uint32_t            index, maxIndex;
     io_connect_t        connect;
     mach_timebase_info_data_t timebase;
-    StdFBShmem_t *      shmem;
+    StdFBShmem_t *      shmem[16];
     vm_size_t           shmemSize;
     CFNumberRef         clk, count;
     vm_address_t        mapAddr;
 
-    service = CGDisplayIOServicePort(CGMainDisplayID());
-   
-    if (!service) service = IOServiceGetMatchingService(kIOMasterPortDefault, 
-                                    IOServiceMatching(IOFRAMEBUFFER_CONFORMSTO));
+    kr = IOServiceGetMatchingServices(kIOMasterPortDefault, IOServiceMatching(
+                IOFRAMEBUFFER_CONFORMSTO), &iter);
+    assert( KERN_SUCCESS == kr );
 
-    clk = IORegistryEntryCreateCFProperty(service, CFSTR(kIOFBCurrentPixelClockKey),
-                                                            kCFAllocatorDefault, kNilOptions);
-    count = IORegistryEntryCreateCFProperty(service, CFSTR(kIOFBCurrentPixelCountKey),
-                                                            kCFAllocatorDefault, kNilOptions);
-    if (clk && count)
+    for ( index = 0; 
+            index++, (framebuffer = IOIteratorNext(iter));
+            IOObjectRelease(framebuffer))
     {
-        float num, div;
-        CFNumberGetValue(clk, kCFNumberFloatType, &num);
-        CFNumberGetValue(count, kCFNumberFloatType, &div);
-        printf("clock %.0f, count %.0f, rate %f Hz, period %f us\n",
-                num, div, num / div, div * 1000 / num);
-    }
-    if (clk)
-        CFRelease(clk);
-    if (count)
-        CFRelease(count);
 
-    status = mach_timebase_info(&timebase);
-    assert(kIOReturnSuccess == status);
 
-    status = IOServiceOpen(service, mach_task_self(), kIOFBSharedConnectType, &connect);
-    assert(kIOReturnSuccess == status);
+        kr = IORegistryEntryGetPath(framebuffer, kIOServicePlane, path);
+        assert( KERN_SUCCESS == kr );
+        printf("\n/* [%d] Using device: %s */\n", index, path);
 
-    status = IOConnectMapMemory(connect, kIOFBCursorMemory, mach_task_self(),
-                    &mapAddr, &shmemSize,
-                    kIOMapAnywhere);
-    assert(kIOReturnSuccess == status);
-
-    shmem = (StdFBShmem_t *) mapAddr;
-
-//    bzero( shmem, shmemSize); // make sure its read only!
-
-    printf("cursorShow %d, hw %d, cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
-            shmem->cursorShow, shmem->hardwareCursorActive, 
-            shmem->cursorRect.minx, shmem->cursorRect.miny, 
-            shmem->cursorRect.maxx, shmem->cursorRect.maxy,
-            shmem->saveRect.minx, shmem->saveRect.miny, 
-            shmem->saveRect.maxx, shmem->saveRect.maxy);
+	clk = IORegistryEntryCreateCFProperty(framebuffer, CFSTR(kIOFBCurrentPixelClockKey),
+								kCFAllocatorDefault, kNilOptions);
+	count = IORegistryEntryCreateCFProperty(framebuffer, CFSTR(kIOFBCurrentPixelCountKey),
+								kCFAllocatorDefault, kNilOptions);
+	if (clk && count)
+	{
+	    float num, div;
+	    CFNumberGetValue(clk, kCFNumberFloatType, &num);
+	    CFNumberGetValue(count, kCFNumberFloatType, &div);
+	    printf("clock %.0f, count %.0f, rate %f Hz, period %f us\n",
+		    num, div, num / div, div * 1000 / num);
+	}
+	if (clk)
+	    CFRelease(clk);
+	if (count)
+	    CFRelease(count);
     
-    while (1)
+	kr = mach_timebase_info(&timebase);
+	assert(kIOReturnSuccess == kr);
+    
+	kr = IOServiceOpen(framebuffer, mach_task_self(), kIOFBSharedConnectType, &connect);
+	if (kIOReturnSuccess != kr)
+	{
+    	    printf("IOServiceOpen(%x)\n", kr);
+    	    continue;
+    	}
+	kr = IOConnectMapMemory(connect, kIOFBCursorMemory, mach_task_self(),
+			&mapAddr, &shmemSize,
+			kIOMapAnywhere);
+	if (kIOReturnSuccess != kr)
+	{
+    	    printf("IOConnectMapMemory(%x)\n", kr);
+    	    continue;
+    	}
+	shmem[index] = (StdFBShmem_t *) mapAddr;
+    
+ //     bzero( shmem, shmemSize); // make sure its read only!
+    
+	printf("cursorShow %d, hw %d, frame %d, (%d, %d), cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
+		shmem[index]->cursorShow, shmem[index]->hardwareCursorActive, 
+		shmem[index]->frame, shmem[index]->cursorLoc.x, shmem[index]->cursorLoc.y,
+		shmem[index]->cursorRect.minx, shmem[index]->cursorRect.miny, 
+		shmem[index]->cursorRect.maxx, shmem[index]->cursorRect.maxy,
+		shmem[index]->saveRect.minx, shmem[index]->saveRect.miny, 
+		shmem[index]->saveRect.maxx, shmem[index]->saveRect.maxy);
+
+    }
+    maxIndex = index;
+    while (true)
     {
-        uint64_t time  = (((uint64_t) shmem->vblTime.hi) << 32 | shmem->vblTime.lo);
-        uint64_t delta = (((uint64_t) shmem->vblDelta.hi) << 32 | shmem->vblDelta.lo);
-        double usecs = delta * timebase.numer / timebase.denom / 1e6;
-
-        printf("time of last VBL 0x%qx, delta 0x%qx (%f us), count %qd\n", 
-                time, delta, usecs, shmem->vblCount);
-
-        sleep(1);
+	printf("\n");
+	for (index = 0; index < maxIndex; index++)
+	{
+	    if (!shmem[index])
+		continue;
+    
+	    uint64_t time  = (((uint64_t) shmem[index]->vblTime.hi) << 32 | shmem[index]->vblTime.lo);
+	    uint64_t delta = (((uint64_t) shmem[index]->vblDelta.hi) << 32 | shmem[index]->vblDelta.lo);
+	    double usecs = delta * timebase.numer / timebase.denom / 1e6;
+    
+	    printf("[%d] time of last VBL 0x%qx, delta 0x%qx (%f us), count %qd\n", 
+		    index, time, delta, usecs, shmem[index]->vblCount);
+	}
+	for (index = 0; index < maxIndex; index++)
+	{
+	    if (!shmem[index])
+		continue;
+	    printf("[%d] cursorShow %d, hw %d, frame %d, (%d, %d), cursorRect (%d, %d), (%d, %d), saveRect (%d, %d), (%d, %d)\n",
+		    index, 
+		    shmem[index]->cursorShow, shmem[index]->hardwareCursorActive, 
+		    shmem[index]->frame, shmem[index]->cursorLoc.x, shmem[index]->cursorLoc.y,
+		    shmem[index]->cursorRect.minx, shmem[index]->cursorRect.miny, 
+		    shmem[index]->cursorRect.maxx, shmem[index]->cursorRect.maxy,
+		    shmem[index]->saveRect.minx, shmem[index]->saveRect.miny, 
+		    shmem[index]->saveRect.maxx, shmem[index]->saveRect.maxy);
+	}
+	sleep(1);
     }
     
     exit(0);

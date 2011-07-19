@@ -20,6 +20,7 @@
 #include <IOKit/kext/kextmanager_types.h>
 
 #include <servers/bootstrap.h>    // bootstrap mach ports
+#include <bootfiles.h>
 
 #pragma mark Constants
 /*******************************************************************************
@@ -37,7 +38,7 @@ const char * progname = "(unknown)";
 #define LOCK_MAXTRIES 90
 #define LOCK_DELAY     1
 static mach_port_t sKextdPort = MACH_PORT_NULL;
-static mach_port_t sLockPort = MACH_PORT_NULL;
+static mach_port_t sLockPort = MACH_PORT_NULL;     // kext loading lock 
 static int sLockStatus = 0;
 static bool sLockTaken = false;
 
@@ -144,7 +145,7 @@ finish:
         mach_port_deallocate(mach_task_self(), sKextdPort);
     }
     if (sLockPort != MACH_PORT_NULL) {
-        mach_port_deallocate(mach_task_self(), sLockPort);
+        mach_port_mod_refs(mach_task_self(), sLockPort, MACH_PORT_RIGHT_RECEIVE, -1);
     }
 
    /* We're actually not going to free anything else because we're exiting!
@@ -176,7 +177,8 @@ readArgs(
     char * const * argv,
     KextutilArgs * toolArgs)
 {
-    ExitStatus   result = EX_USAGE;
+    ExitStatus   result          = EX_USAGE;
+    ExitStatus   scratchResult   = EX_USAGE;
     int          optchar;
     int          longindex;
     CFStringRef  scratchString   = NULL;  // must release
@@ -283,9 +285,10 @@ readArgs(
                 break;
                 
             case kOptRepository:
-                result = checkPath(optarg, /* suffix */ NULL,
+                scratchResult = checkPath(optarg, /* suffix */ NULL,
                     /* directoryRequired */ TRUE, /* writableRequired */ FALSE);
-                if (result != EX_OK) {
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
                     goto finish;
                 }
                 scratchURL = CFURLCreateFromFileSystemRepresentation(
@@ -355,9 +358,10 @@ readArgs(
                         kOptNameSymbolsDirectory, kOptSymbolsDirectory);
                     SAFE_RELEASE_NULL(toolArgs->symbolDirURL);
                 }
-                result = checkPath(optarg, /* suffix */ NULL,
+                scratchResult = checkPath(optarg, /* suffix */ NULL,
                     /* directoryRequired? */ TRUE, /* writable? */ TRUE);
-                if (result != EX_OK) {
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
                     goto finish;
                 }
                 scratchURL = CFURLCreateFromFileSystemRepresentation(
@@ -430,8 +434,9 @@ readArgs(
                 break;
 
             case kOptVerbose:
-                result = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
-                if (result != EX_OK) {
+                scratchResult = setLogFilterForOpt(argc, argv, /* forceOnFlags */ 0);
+                if (scratchResult != EX_OK) {
+                    result = scratchResult;
                     goto finish;
                 }
                 toolArgs->logFilterChanged = true;
@@ -493,9 +498,10 @@ readArgs(
     for (i = optind; i < argc; i++) {
         SAFE_RELEASE_NULL(scratchURL);
 
-        result = checkPath(argv[i], kOSKextBundleExtension,
+        scratchResult = checkPath(argv[i], kOSKextBundleExtension,
             /* directoryRequired */ TRUE, /* writableRequired */ FALSE);
-        if (result != EX_OK) {
+        if (scratchResult != EX_OK) {
+            result = scratchResult;
             goto finish;
         }
 
@@ -781,6 +787,32 @@ checkArgs(KextutilArgs * toolArgs)
         goto finish;
     }
 
+    if (!toolArgs->kernelURL && !toolArgs->doLoad) {
+        if (!toolArgs->archInfo || kernelArchInfo == toolArgs->archInfo) {
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                "No kernel file specified; using running kernel for linking.");
+        } else if (!toolArgs->kernelURL) {
+            CFURLRef scratchURL = CFURLCreateFromFileSystemRepresentation(
+                kCFAllocatorDefault,
+                (const UInt8 *)kDefaultKernel, strlen(kDefaultKernel), TRUE);
+            if (!scratchURL) {
+                OSKextLogStringError(/* kext */ NULL);
+                result = EX_OSERR;
+                goto finish;
+            }
+            toolArgs->kernelURL = scratchURL;
+
+            OSKextLog(/* kext */ NULL,
+                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
+                "No kernel file specified and "
+                "current arch %s doesn't match running kernel %s; using %s.",
+                toolArgs->archInfo->name,
+                kernelArchInfo->name,
+                kDefaultKernel);
+        }
+    }
+
     if (toolArgs->kernelURL) {
         SInt32 errorCode;
 
@@ -800,27 +832,7 @@ checkArgs(KextutilArgs * toolArgs)
                 kOSKextLogErrorLevel | kOSKextLogFileAccessFlag,
                 "Can't read kernel file %s.", kernelPathCString);
             result = EX_OSFILE;  // xxx - maybe not the right error?
-        }
-    } else if (!toolArgs->doLoad) {
-        if (!toolArgs->archInfo || kernelArchInfo == toolArgs->archInfo) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "No kernel file specified; using running kernel for linking.");
-        } else if (toolArgs->symbolDirURL && !toolArgs->kernelURL) {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Can't generate debug symbols; no kernel file provided "
-                "and current arch %s does not match running kernel %s.",
-                toolArgs->archInfo->name,
-                kernelArchInfo->name);
             goto finish;
-        } else {
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogWarningLevel | kOSKextLogGeneralFlag,
-                "Skipping link tests; no kernel file provided "
-                "and current arch %s does not match running kernel %s.",
-                toolArgs->archInfo->name,
-                kernelArchInfo->name);
         }
     }
 
@@ -1193,7 +1205,7 @@ processKext(
     * if we need to save symbols (which requires load addresses)
     * or do interactive stuff.
     *
-    * xxx - Should optimize OSKextReadLoadedKextInfo() with list
+    * xxx - Could optimize OSKextReadLoadedKextInfo() with list
     * xxx - of kextIdentifiers from load list.
     */
     if (toolArgs->doLoad &&
@@ -1303,6 +1315,14 @@ runTestsOnKext(
         }
     }
 
+   /* Check for safe boot loadability. Note we do each check separately so as
+    * not so short-circuit the checks; we want all diagnostics available.
+    */
+    if (toolArgs->safeBootMode) {
+        kextLooksGood = OSKextIsLoadableInSafeBoot(aKext) && kextLooksGood;
+        kextLooksGood = OSKextDependenciesAreLoadableInSafeBoot(aKext) && kextLooksGood;
+    }
+
    /*****
     * Print diagnostics/warnings as needed, set status if kext can't be used.
     */
@@ -1310,7 +1330,7 @@ runTestsOnKext(
         if ((logFilter & kOSKextLogLevelMask) >= kOSKextLogErrorLevel) {
             OSKextLog(aKext,
                 kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "%s has problems:",
+                "Diagnostics for %s:",
                 kextPathCString);
 
             OSKextLogDiagnostics(aKext, kOSKextDiagnosticsFlagAll);
@@ -1349,11 +1369,6 @@ runTestsOnKext(
     }
 
     if (result == EX_OK) {
-        const char * linkMessage = "";
-        
-        if (tryLink) {
-            linkMessage = "";
-        }
         OSKextLog(/* kext */ NULL,
             kOSKextLogBasicLevel | kOSKextLogLoadFlag, 
             "%s appears to be loadable (%sincluding linkage for on-disk libraries).",
@@ -1389,20 +1404,21 @@ loadKext(
     */
     if (toolArgs->interactiveLevel != kOSKextExcludeNone) {
 
-        switch (user_approve(1, "Load %s and its dependencies into the kernel",
+        switch (user_approve(/* ask_all */ FALSE, /* default_answer */ REPLY_YES,
+            "Load %s and its dependencies into the kernel",
             kextPathCString)) {
             
-            case -1: // error
+            case REPLY_NO:
+                fprintf(stderr, "Not loading %s.", kextPathCString);
+                goto finish;  // result is EX_OK!
+                break;
+            case REPLY_YES:
+                break;
+            default:
                 fprintf(stderr, "Failed to read response.");
                 result = EX_SOFTWARE;
                 *fatal = true;
                 goto finish;
-                break;
-            case 0: // no
-                fprintf(stderr, "Not loading %s.", kextPathCString);
-                goto finish;  // result is EX_OK!
-                break;
-            case 1: // yes
                 break;
         }
     }
@@ -1420,8 +1436,7 @@ loadKext(
     }
 
     loadResult = OSKextLoadWithOptions(aKext,
-        startExclude, matchExclude,
-        toolArgs->personalityNames,
+        startExclude, matchExclude, personalityNames,
         /* disableAutounload */ (startExclude != kOSKextExcludeNone));
  
     if (loadResult == kOSReturnSuccess) {
@@ -1460,7 +1475,6 @@ ExitStatus generateKextSymbols(
     Boolean      * fatal)
 {
     ExitStatus         result      = EX_OK;
-    CFStringRef        bundleID    = NULL;    // do not release
     CFArrayRef         loadList    = NULL;    // must release
     CFDictionaryRef    kextSymbols = NULL;    // must release
     const NXArchInfo * archInfo    = NULL;    // do not free
@@ -1471,8 +1485,6 @@ ExitStatus generateKextSymbols(
         *fatal = TRUE;
         goto finish;
     }
-
-    bundleID = OSKextGetIdentifier(aKext);
 
     // xxx - we might want to check these before processing any kexts
     if (OSKextIsKernelComponent(aKext)) {
@@ -1556,18 +1568,16 @@ ExitStatus generateKextSymbols(
                 * probably hit Return too many times.
                 */
                 if (mainNeedsAddress && OSKextNeedsLoadAddressForDebugSymbols(aKext)) {
-                    switch (user_approve(0,
+                    switch (user_approve(/* ask_all */ FALSE, /* default_anser */ REPLY_NO,
                         "\n%s is the main extension; really skip", kextPathCString)) {
-                        case -1:  // error
-                            result = EX_SOFTWARE;
-                            goto finish;
-                        case 0:   // don't skip; stay in do-while loop
+                        case REPLY_NO:
                             break;
-                        case 1:   // skip it
-                            mainNeedsAddress = false;
+                        case REPLY_YES:
                             result = EX_OK;
                             goto finish;  // skip symbol gen.
-                            break;
+                        default:
+                            result = EX_SOFTWARE;
+                            goto finish;
                     }
                 }
             } while (mainNeedsAddress && OSKextNeedsLoadAddressForDebugSymbols(aKext));
@@ -1693,7 +1703,9 @@ ExitStatus startKextsAndSendPersonalities(
     CFMutableArrayRef   kextIdentifiers             = NULL;  // must release
     char              * kextIDCString               = NULL;   // must free
     char              * thisKextIDCString           = NULL;   // must free
-    Boolean             startedAndPersonalitiesSent = true;   // loop breaks if ever false
+    Boolean             startedAndPersonalitiesSent = TRUE;   // loop breaks if ever false
+    Boolean             yesToAllKexts               = FALSE;
+    Boolean             yesToAllKextPersonalities   = FALSE;
     char                kextPath[PATH_MAX];
     CFIndex             count, i;  // used unothodoxically!
 
@@ -1701,14 +1713,6 @@ ExitStatus startKextsAndSendPersonalities(
         /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
         
         strlcpy(kextPath, "(unknown)", sizeof(kextPath));
-    }
-
-    if (toolArgs->interactiveLevel != kOSKextExcludeNone) {
-        fprintf(stderr, "\n"
-            "%s and its dependencies are now loaded, but not started (unless they were\n"
-            "already running). You may now set breakpoints in the debugger before\n"
-            "starting them.\n\n",
-            kextPath);
     }
 
     kextIDCString = createUTF8CStringForCFString(OSKextGetIdentifier(aKext));
@@ -1748,6 +1752,65 @@ ExitStatus startKextsAndSendPersonalities(
         goto finish;
     }
 
+   /*****
+    * For interactive loading to do gdb on start functions,
+    * go through the load list and print the started status of each kext.
+    */
+    if (toolArgs->interactiveLevel != kOSKextExcludeNone && toolArgs->doLoad) {
+
+        fprintf(stderr, "\n"
+            "%s and its dependencies are now loaded, and started as listed below. "
+            "You can now return to the debugger to set breakpoints before starting "
+            "any kexts that need to be started.\n\n",
+            kextPath);
+
+       /* If we're only doing interactive for the main kext, bump the loop
+        * index to the last one.
+        */
+        if (toolArgs->interactiveLevel == kOSKextExcludeKext) {
+            i = count - 1;
+        } else {
+            i = 0;
+        }
+        for (/* see above */ ; i < count; i++) {
+            OSKextRef thisKext = (OSKextRef)CFArrayGetValueAtIndex(
+                loadList, i);
+            const char * status = NULL;
+
+            SAFE_FREE_NULL(thisKextIDCString);
+
+            if (!CFURLGetFileSystemRepresentation(OSKextGetURL(thisKext),
+                /* resoveToBase */ false, (UInt8*)kextPath, sizeof(kextPath))) {
+                
+                strlcpy(kextPath, "(unknown)", sizeof(kextPath));
+            }
+
+            thisKextIDCString = createUTF8CStringForCFString(OSKextGetIdentifier(thisKext));
+            if (!thisKextIDCString) {
+                OSKextLogMemError();
+                result = EX_OSERR;
+                goto finish;
+            }
+
+            if (OSKextIsInterface(thisKext)) {
+                status = "interface, not startable";
+            } else if (!OSKextDeclaresExecutable(thisKext)) {
+                status = "no executable, not startable";
+            } else if (OSKextIsStarted(thisKext)) {
+                status = "already started";
+            } else {
+                status = "not started";
+            }
+            fprintf(stderr, "    %s - %s\n", thisKextIDCString, status);
+        }
+        
+        fprintf(stderr, "\n");
+    }
+
+   /*****
+    * Now go through and actually process each kext.
+    */
+
    /* If we're only doing interactive for the main kext, bump the loop
     * index to the last one.
     */
@@ -1781,22 +1844,26 @@ ExitStatus startKextsAndSendPersonalities(
         * if we're in interactive mode and we loaded it.
         */
         if (toolArgs->interactiveLevel != kOSKextExcludeNone && toolArgs->doLoad) {
-            result = startKext(thisKext, kextPath, toolArgs,
-                &startedAndPersonalitiesSent, fatal);
-            if (result != EX_OK || !startedAndPersonalitiesSent) {
-                break;
+            if (!OSKextIsStarted(thisKext)) {
+                result = startKext(thisKext, kextPath, toolArgs,
+                    &startedAndPersonalitiesSent, &yesToAllKexts, fatal);
+                if (result != EX_OK || !startedAndPersonalitiesSent) {
+                    break;
+                }
             }
         }
 
        /* Normally the kext's personalities are sent when the kext is loaded,
         * so send them from here only if we are in interactive mode or
         * if we are only sending personalities and not loading.
+        * It's ok to send personalities again if they're already in the kernel;
+        * that just restarts matching.
         */
         if (toolArgs->interactiveLevel != kOSKextExcludeNone ||
             (toolArgs->doStartMatching && !toolArgs->doLoad)) {
 
             result = sendPersonalities(thisKext, kextPath, toolArgs,
-                /* isMain */ (i + 1 == count), fatal);
+                /* isMain */ (i + 1 == count), &yesToAllKextPersonalities, fatal);
             if (result != EX_OK) {
                 startedAndPersonalitiesSent = false;
                 break;
@@ -1871,6 +1938,7 @@ ExitStatus startKext(
     char         * kextPathCString,
     KextutilArgs * toolArgs,
     Boolean      * started,
+    Boolean      * yesToAll,
     Boolean      * fatal)
 {
     ExitStatus    result      = EX_OK;
@@ -1892,37 +1960,37 @@ ExitStatus startKext(
         result = EX_OSERR;
         goto finish;
     }
-    if (OSKextIsStarted(aKext)) {
-        OSKextLog(/* kext */ NULL,
-            kOSKextLogBasicLevel | kOSKextLogLoadFlag,
-            "%s is already started.", kextPathCString);
-        *started = true;
-        goto finish;
-    }
-    
-    switch (user_approve(1,
-        "start %s",
-        kextPathCString)) {
-        
-        case -1: // error
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
-                "Couldn't read response.");
-            result = EX_SOFTWARE;
-            *started = false;
-            *fatal = true;
-            goto finish;
-            break;
-        case 0: // no
-            OSKextLog(/* kext */ NULL,
-                kOSKextLogBasicLevel | kOSKextLogLoadFlag,
-                "Not starting %s.",
-                kextPathCString);
-            *started = false;
-            goto finish;  // result is EX_OK!
-            break;
-        case 1: // yes
-            break;
+
+    if (FALSE == *yesToAll) {
+        switch (user_approve(/* ask_all */ TRUE,
+            /* default_answer */ REPLY_YES,
+            "Start %s",
+            kextPathCString)) {
+            
+            case REPLY_NO:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogBasicLevel | kOSKextLogLoadFlag,
+                    "Not starting %s.",
+                    kextPathCString);
+                *started = false;
+                goto finish;  // result is EX_OK!
+                break;
+            case REPLY_YES:
+                break;
+            case REPLY_ALL:
+                fprintf(stderr, "Starting all kexts just loaded.\n");
+                *yesToAll = TRUE;
+                break;
+            default:
+                OSKextLog(/* kext */ NULL,
+                    kOSKextLogErrorLevel | kOSKextLogGeneralFlag,
+                    "Error: couldn't read response.");
+                result = EX_SOFTWARE;
+                *started = false;
+                *fatal = true;
+                goto finish;
+                break;
+        }
     }
 
     startResult = OSKextStart(aKext);
@@ -1954,14 +2022,16 @@ ExitStatus sendPersonalities(
     char         * kextPathCString,
     KextutilArgs * toolArgs,
     Boolean        isMainFlag,
+    Boolean      * yesToAllKextPersonalities,
     Boolean      * fatal)
 {
     ExitStatus        result                  = EX_OK;
     CFDictionaryRef   kextPersonalities       = NULL;  // do not release
-    CFMutableArrayRef approvedNames           = NULL;  // must release
+    CFMutableArrayRef namesToSend             = NULL;  // must release
     CFStringRef     * names                   = NULL;  // must free
     char            * nameCString             = NULL;  // must free
     OSReturn          sendPersonalitiesResult = kOSReturnError;
+    Boolean           yesToAllPersonalities   = FALSE;
     CFIndex           count, i;
 
     kextPersonalities = OSKextGetValueForInfoDictionaryKey(aKext,
@@ -1969,95 +2039,121 @@ ExitStatus sendPersonalities(
     if (!kextPersonalities || !CFDictionaryGetCount(kextPersonalities)) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogStepLevel | kOSKextLogLoadFlag,
-            "%s has no personalities to send",
+            "%s has no personalities to send.",
             kextPathCString);
         goto finish;
     }
 
     if (toolArgs->interactiveLevel != kOSKextExcludeNone) {
-        switch (user_approve(1,
-            "send personalities for %s",
-            kextPathCString)) {
-            
-            case -1: // error
-                fprintf(stderr, "error: couldn't read response.");
-                result = EX_SOFTWARE;
-                *fatal = true;
-                goto finish;
-                break;
-            case 0: // no
-                fprintf(stderr, "not sending personalities for %s", kextPathCString);
-                goto finish;  // result is EX_OK!
-                break;
-            case 1: // yes
-                break;
-        }
-    }
-
-    if (isMainFlag) {
-        Boolean filtering = CFArrayGetCount(toolArgs->personalityNames) > 0;
-
-        approvedNames = CFArrayCreateMutable(kCFAllocatorDefault, 0,
-            &kCFTypeArrayCallBacks);
-        if (!approvedNames) {
-            OSKextLogMemError();
-            result = EX_OSERR;
-            *fatal = true;
-            goto finish;
-        }
-        count = CFDictionaryGetCount(kextPersonalities);
-        names = (CFStringRef *)malloc(count * sizeof(CFStringRef));
-        if (!names) {
-            OSKextLogMemError();
-            result = EX_OSERR;
-            *fatal = true;
-            goto finish;
-        }
-        CFDictionaryGetKeysAndValues(kextPersonalities,
-            (const void **)names, NULL);
-        for (i = 0; i < count; i++) {
-            SAFE_FREE_NULL(nameCString);
-// xxx - should we log any names filtered out from toolArgs->personalityNames?
-// xxx - should we log any toolArgs->personalityNames not found in the kext? 
-            if (!filtering ||
-                kCFNotFound != CFArrayGetFirstIndexOfValue(
-                    toolArgs->personalityNames,
-                    RANGE_ALL(toolArgs->personalityNames), names[i])) {
-
-                nameCString = createUTF8CStringForCFString(names[i]);
-                if (!nameCString) {
-                    OSKextLogMemError();
-                    result = EX_OSERR;
+        if (FALSE == *yesToAllKextPersonalities) {
+            switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
+                "Send personalities for %s",
+                kextPathCString)) {
+                
+                case REPLY_NO:
+                    fprintf(stderr, "Not sending personalities for %s.", kextPathCString);
+                    goto finish;  // result is EX_OK!
+                    break;
+                case REPLY_YES:
+                    break;
+                case REPLY_ALL:
+                    fprintf(stderr, "Sending personalities for all kexts just loaded.\n");
+                    *yesToAllKextPersonalities = TRUE;
+                    break;
+                default:
+                    fprintf(stderr, "Error: couldn't read response.");
+                    result = EX_SOFTWARE;
                     *fatal = true;
                     goto finish;
-                }
-                if (toolArgs->interactiveLevel != kOSKextExcludeNone) {
-                    switch (user_approve(1,
-                        "send personality %s", nameCString)) {
-                        
-                        case -1: // error
-                            fprintf(stderr, "error: couldn't read response.");
-                            result = EX_SOFTWARE;
-                            *fatal = true;
-                            goto finish;
-                            break;
-                        case 0: // no
-                            break;
-                        case 1: // yes
-                            CFArrayAppendValue(approvedNames, names[i]);
-                            break;
-                    }
-                }
+                    break;
             }
         }
     }
+
+    namesToSend = CFArrayCreateMutable(kCFAllocatorDefault, 0,
+        &kCFTypeArrayCallBacks);
+    if (!namesToSend) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        *fatal = true;
+        goto finish;
+    }
+
+    count = CFDictionaryGetCount(kextPersonalities);
+    names = (CFStringRef *)malloc(count * sizeof(CFStringRef));
+    if (!names) {
+        OSKextLogMemError();
+        result = EX_OSERR;
+        *fatal = true;
+        goto finish;
+    }
+    CFDictionaryGetKeysAndValues(kextPersonalities,
+        (const void **)names, NULL);
+
+    for (i = 0; i < count; i++) {
+        Boolean includeIt = TRUE;
+
+        SAFE_FREE_NULL(nameCString);
+
+        nameCString = createUTF8CStringForCFString(names[i]);
+        if (!nameCString) {
+            OSKextLogMemError();
+            result = EX_OSERR;
+            *fatal = true;
+            goto finish;
+        }
+
+       /* If -p was used on the command line, only consider those personalities.
+        */
+        if (isMainFlag && CFArrayGetCount(toolArgs->personalityNames) > 0) {
+            if (kCFNotFound == CFArrayGetFirstIndexOfValue(
+                toolArgs->personalityNames,
+                RANGE_ALL(toolArgs->personalityNames), names[i])) {
+                
+                continue;
+            }
+        }
+
+        if (toolArgs->interactiveLevel != kOSKextExcludeNone &&
+            FALSE == *yesToAllKextPersonalities) {
+
+            if (FALSE == yesToAllPersonalities) {
+                switch (user_approve(/* ask_all */ TRUE, /* default_answer */ REPLY_YES,
+                    "Send personality %s", nameCString)) {
+                    
+                    case REPLY_NO:
+                        includeIt = FALSE;
+                        break;
+                    case REPLY_YES:
+                        includeIt = TRUE;
+                        break;
+                    case REPLY_ALL:
+                        fprintf(stderr, "Sending all personalities for %s.\n",
+                            kextPathCString);
+                        includeIt = TRUE;
+                        yesToAllPersonalities = TRUE;
+                        break;
+                    default:
+                        fprintf(stderr, "Error: couldn't read response.");
+                        result = EX_SOFTWARE;
+                        *fatal = true;
+                        goto finish;
+                        break;
+                } /* switch */
+            } /* if (!*yesToAll) */
+        } /* if (toolArgs->interactiveLevel ... ) */
+        
+        if (includeIt) {
+            CFArrayAppendValue(namesToSend, names[i]);
+        }
+    } /* for */
 
     OSKextLog(/* kext */ NULL,
         kOSKextLogStepLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
         "Sending personalities of %s to the IOCatalogue.",
         kextPathCString);
-    sendPersonalitiesResult = OSKextSendKextPersonalitiesToKernel(aKext,
-        isMainFlag? toolArgs->personalityNames : NULL);
+
+    sendPersonalitiesResult = OSKextSendKextPersonalitiesToKernel(aKext, namesToSend);
     if (kOSReturnSuccess != sendPersonalitiesResult) {
         OSKextLog(/* kext */ NULL,
             kOSKextLogErrorLevel | kOSKextLogLoadFlag | kOSKextLogIPCFlag,
@@ -2074,7 +2170,7 @@ ExitStatus sendPersonalities(
     }
 
 finish:
-    SAFE_RELEASE(approvedNames);
+    SAFE_RELEASE(namesToSend);
     SAFE_FREE(names);
     SAFE_FREE(nameCString);
     return result;

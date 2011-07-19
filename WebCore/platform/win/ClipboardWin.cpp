@@ -38,25 +38,25 @@
 #include "FrameLoader.h"
 #include "FrameView.h"
 #include "HTMLNames.h"
+#include "HTMLParserIdioms.h"
 #include "Image.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "Page.h"
 #include "Pasteboard.h"
 #include "PlatformMouseEvent.h"
-#include "PlatformString.h"
 #include "Range.h"
 #include "RenderImage.h"
 #include "ResourceResponse.h"
 #include "SharedBuffer.h"
-#include "StringHash.h"
 #include "WCDataObject.h"
-#include "csshelper.h"
 #include "markup.h"
 #include <shlwapi.h>
 #include <wininet.h>
 #include <wtf/RefPtr.h>
 #include <wtf/text/CString.h>
+#include <wtf/text/WTFString.h>
+#include <wtf/text/StringHash.h>
 
 using namespace std;
 
@@ -64,13 +64,10 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-// format string for 
-static const char szShellDotUrlTemplate[] = "[InternetShortcut]\r\nURL=%s\r\n";
-
 // We provide the IE clipboard types (URL and Text), and the clipboard types specified in the WHATWG Web Applications 1.0 draft
 // see http://www.whatwg.org/specs/web-apps/current-work/ Section 6.3.5.3
 
-enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardDataTypeText };
+enum ClipboardDataType { ClipboardDataTypeNone, ClipboardDataTypeURL, ClipboardDataTypeText, ClipboardDataTypeTextHTML };
 
 static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
 {
@@ -81,41 +78,34 @@ static ClipboardDataType clipboardTypeFromMIMEType(const String& type)
         return ClipboardDataTypeText;
     if (qType == "url" || qType == "text/uri-list")
         return ClipboardDataTypeURL;
+    if (qType == "text/html")
+        return ClipboardDataTypeTextHTML;
 
     return ClipboardDataTypeNone;
 }
 
-static inline FORMATETC* fileDescriptorFormat()
-{
-    static UINT cf = RegisterClipboardFormat(CFSTR_FILEDESCRIPTOR);
-    static FORMATETC fileDescriptorFormat = {cf, 0, DVASPECT_CONTENT, -1, TYMED_HGLOBAL};
-    return &fileDescriptorFormat;
-}
-
-static inline FORMATETC* fileContentFormatZero()
-{
-    static UINT cf = RegisterClipboardFormat(CFSTR_FILECONTENTS);
-    static FORMATETC fileContentFormat = {cf, 0, DVASPECT_CONTENT, 0, TYMED_HGLOBAL};
-    return &fileContentFormat;
-}
-
+#if !OS(WINCE)
 static inline void pathRemoveBadFSCharacters(PWSTR psz, size_t length)
 {
     size_t writeTo = 0;
     size_t readFrom = 0;
     while (readFrom < length) {
         UINT type = PathGetCharType(psz[readFrom]);
-        if (psz[readFrom] == 0 || type & (GCT_LFNCHAR | GCT_SHORTCHAR)) {
+        if (!psz[readFrom] || type & (GCT_LFNCHAR | GCT_SHORTCHAR))
             psz[writeTo++] = psz[readFrom];
-        }
 
         readFrom++;
     }
     psz[writeTo] = 0;
 }
+#endif
 
-static String filesystemPathFromUrlOrTitle(const String& url, const String& title, TCHAR* extension, bool isLink)
+static String filesystemPathFromUrlOrTitle(const String& url, const String& title, const UChar* extension, bool isLink)
 {
+#if OS(WINCE)
+    notImplemented();
+    return String();
+#else
     static const size_t fsPathMaxLengthExcludingNullTerminator = MAX_PATH - 1;
     bool usedURL = false;
     WCHAR fsPathBuffer[MAX_PATH];
@@ -158,44 +148,9 @@ static String filesystemPathFromUrlOrTitle(const String& url, const String& titl
     }
 
     String result(static_cast<UChar*>(fsPathBuffer));
-    result += String(static_cast<UChar*>(extension));
+    result += String(extension);
     return result;
-}
-
-static HGLOBAL createGlobalURLContent(const String& url, int estimatedFileSize)
-{
-    HRESULT hr = S_OK;
-    HGLOBAL memObj = 0;
-
-    char* fileContents;
-    char ansiUrl[INTERNET_MAX_URL_LENGTH + 1];
-    // Used to generate the buffer. This is null terminated whereas the fileContents won't be.
-    char contentGenerationBuffer[INTERNET_MAX_URL_LENGTH + ARRAYSIZE(szShellDotUrlTemplate) + 1];
-    
-    if (estimatedFileSize > 0 && estimatedFileSize > ARRAYSIZE(contentGenerationBuffer))
-        return 0;
-
-    int ansiUrlSize = ::WideCharToMultiByte(CP_ACP, 0, (LPCWSTR)url.characters(), url.length(), ansiUrl, ARRAYSIZE(ansiUrl) - 1, 0, 0);
-    if (!ansiUrlSize)
-        return 0;
-
-    ansiUrl[ansiUrlSize] = 0;
-    
-    int fileSize = (int) (ansiUrlSize+strlen(szShellDotUrlTemplate)-2); // -2 to remove the %s
-    ASSERT(estimatedFileSize < 0 || fileSize == estimatedFileSize);
-
-    memObj = GlobalAlloc(GPTR, fileSize);
-    if (!memObj) 
-        return 0;
-
-    fileContents = (PSTR)GlobalLock(memObj);
-
-    sprintf_s(contentGenerationBuffer, ARRAYSIZE(contentGenerationBuffer), szShellDotUrlTemplate, ansiUrl);
-    CopyMemory(fileContents, contentGenerationBuffer, fileSize);
-    
-    GlobalUnlock(memObj);
-    
-    return memObj;
+#endif
 }
 
 static HGLOBAL createGlobalImageFileContent(SharedBuffer* data)
@@ -215,7 +170,7 @@ static HGLOBAL createGlobalImageFileContent(SharedBuffer* data)
 
 static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, SharedBuffer* data)
 {
-    if (fileName.isEmpty() || !data )
+    if (fileName.isEmpty() || !data)
         return 0;
 
     WCHAR filePath[MAX_PATH];
@@ -225,15 +180,19 @@ static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, Share
         // windows does not enjoy a leading slash on paths
         if (localPath[0] == '/')
             localPath = localPath.substring(1);
-        LPCTSTR localPathStr = localPath.charactersWithNullTermination();
+        LPCWSTR localPathStr = localPath.charactersWithNullTermination();
         if (wcslen(localPathStr) + 1 < MAX_PATH)
             wcscpy_s(filePath, MAX_PATH, localPathStr);
         else
             return 0;
     } else {
+#if OS(WINCE)
+        notImplemented();
+        return 0;
+#else
         WCHAR tempPath[MAX_PATH];
         WCHAR extension[MAX_PATH];
-        if (!::GetTempPath(ARRAYSIZE(tempPath), tempPath))
+        if (!::GetTempPath(WTF_ARRAY_LENGTH(tempPath), tempPath))
             return 0;
         if (!::PathAppend(tempPath, fileName.charactersWithNullTermination()))
             return 0;
@@ -260,6 +219,7 @@ static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, Share
         CloseHandle(tempFileHandle);
         if (!tempWriteSucceeded)
             return 0;
+#endif
     }
 
     SIZE_T dropFilesSize = sizeof(DROPFILES) + (sizeof(WCHAR) * (wcslen(filePath) + 2));
@@ -275,39 +235,6 @@ static HGLOBAL createGlobalHDropContent(const KURL& url, String& fileName, Share
     
     return memObj;
 }
-
-static HGLOBAL createGlobalUrlFileDescriptor(const String& url, const String& title, int& /*out*/ estimatedSize)
-{
-    HRESULT hr = S_OK;
-    HGLOBAL memObj = 0;
-    String fsPath;
-    memObj = GlobalAlloc(GPTR, sizeof(FILEGROUPDESCRIPTOR));
-    if (!memObj)
-        return 0;
-
-    FILEGROUPDESCRIPTOR* fgd = (FILEGROUPDESCRIPTOR*)GlobalLock(memObj);
-    memset(fgd, 0, sizeof(FILEGROUPDESCRIPTOR));
-    fgd->cItems = 1;
-    fgd->fgd[0].dwFlags = FD_FILESIZE;
-    int fileSize = ::WideCharToMultiByte(CP_ACP, 0, url.characters(), url.length(), 0, 0, 0, 0);
-    fileSize += strlen(szShellDotUrlTemplate) - 2;  // -2 is for getting rid of %s in the template string
-    fgd->fgd[0].nFileSizeLow = fileSize;
-    estimatedSize = fileSize;
-    fsPath = filesystemPathFromUrlOrTitle(url, title, L".URL", true);
-
-    if (fsPath.length() <= 0) {
-        GlobalUnlock(memObj);
-        GlobalFree(memObj);
-        return 0;
-    }
-
-    int maxSize = min(fsPath.length(), ARRAYSIZE(fgd->fgd[0].cFileName));
-    CopyMemory(fgd->fgd[0].cFileName, (LPCWSTR)fsPath.characters(), maxSize * sizeof(UChar));
-    GlobalUnlock(memObj);
-    
-    return memObj;
-}
-
 
 static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& title, CachedImage* image)
 {
@@ -335,7 +262,7 @@ static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& 
         return 0;
     }
     extension.insert(".", 0);
-    fsPath = filesystemPathFromUrlOrTitle(url, preferredTitle, (TCHAR*)extension.charactersWithNullTermination(), false);
+    fsPath = filesystemPathFromUrlOrTitle(url, preferredTitle, extension.charactersWithNullTermination(), false);
 
     if (fsPath.length() <= 0) {
         GlobalUnlock(memObj);
@@ -343,7 +270,7 @@ static HGLOBAL createGlobalImageFileDescriptor(const String& url, const String& 
         return 0;
     }
 
-    int maxSize = min(fsPath.length(), ARRAYSIZE(fgd->fgd[0].cFileName));
+    int maxSize = min(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
     CopyMemory(fgd->fgd[0].cFileName, (LPCWSTR)fsPath.characters(), maxSize * sizeof(UChar));
     GlobalUnlock(memObj);
     
@@ -376,11 +303,13 @@ static HRESULT writeFileToDataObject(IDataObject* dataObject, HGLOBAL fileDescri
     if (FAILED(hr = dataObject->SetData(fe, &medium, TRUE)))
         goto exit;
 
+#if USE(CF)
     // HDROP
     if (hDropContent) {
         medium.hGlobal = hDropContent;
         hr = dataObject->SetData(cfHDropFormat(), &medium, TRUE);
     }
+#endif
 
 exit:
     if (FAILED(hr)) {
@@ -394,17 +323,35 @@ exit:
     return hr;
 }
 
-ClipboardWin::ClipboardWin(bool isForDragging, IDataObject* dataObject, ClipboardAccessPolicy policy)
-    : Clipboard(policy, isForDragging)
+PassRefPtr<Clipboard> Clipboard::create(ClipboardAccessPolicy policy, DragData* dragData, Frame* frame)
+{
+    if (dragData->platformData())
+        return ClipboardWin::create(DragAndDrop, dragData->platformData(), policy, frame);
+    return ClipboardWin::create(DragAndDrop, dragData->dragDataMap(), policy, frame);
+}
+
+ClipboardWin::ClipboardWin(ClipboardType clipboardType, IDataObject* dataObject, ClipboardAccessPolicy policy, Frame* frame)
+    : Clipboard(policy, clipboardType)
     , m_dataObject(dataObject)
     , m_writableDataObject(0)
+    , m_frame(frame)
 {
 }
 
-ClipboardWin::ClipboardWin(bool isForDragging, WCDataObject* dataObject, ClipboardAccessPolicy policy)
-    : Clipboard(policy, isForDragging)
+ClipboardWin::ClipboardWin(ClipboardType clipboardType, WCDataObject* dataObject, ClipboardAccessPolicy policy, Frame* frame)
+    : Clipboard(policy, clipboardType)
     , m_dataObject(dataObject)
     , m_writableDataObject(dataObject)
+    , m_frame(frame)
+{
+}
+
+ClipboardWin::ClipboardWin(ClipboardType clipboardType, const DragDataMap& dataMap, ClipboardAccessPolicy policy, Frame* frame)
+    : Clipboard(policy, clipboardType)
+    , m_dataObject(0)
+    , m_writableDataObject(0)
+    , m_frame(frame)
+    , m_dragDataMap(dataMap)
 {
 }
 
@@ -437,7 +384,7 @@ static bool writeURL(WCDataObject *data, const KURL& url, String title, bool wit
 
     if (withHTML) {
         Vector<char> cfhtmlData;
-        markupToCF_HTML(urlToMarkup(url, title), "", cfhtmlData);
+        markupToCFHTML(urlToMarkup(url, title), "", cfhtmlData);
         medium.hGlobal = createGlobalData(cfhtmlData);
         if (medium.hGlobal && FAILED(data->SetData(htmlFormat(), &medium, TRUE)))
             ::GlobalFree(medium.hGlobal);
@@ -458,8 +405,8 @@ static bool writeURL(WCDataObject *data, const KURL& url, String title, bool wit
 
 void ClipboardWin::clearData(const String& type)
 {
-    //FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
-    ASSERT(isForDragging());
+    // FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
+    ASSERT(isForDragAndDrop());
     if (policy() != ClipboardWritable || !m_writableDataObject)
         return;
 
@@ -478,8 +425,8 @@ void ClipboardWin::clearData(const String& type)
 
 void ClipboardWin::clearAllData()
 {
-    //FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
-    ASSERT(isForDragging());
+    // FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
+    ASSERT(isForDragAndDrop());
     if (policy() != ClipboardWritable)
         return;
     
@@ -491,15 +438,20 @@ void ClipboardWin::clearAllData()
 String ClipboardWin::getData(const String& type, bool& success) const
 {     
     success = false;
-    if (policy() != ClipboardReadable || !m_dataObject) {
+    if (policy() != ClipboardReadable || (!m_dataObject && m_dragDataMap.isEmpty()))
         return "";
-    }
 
     ClipboardDataType dataType = clipboardTypeFromMIMEType(type);
     if (dataType == ClipboardDataTypeText)
-        return getPlainText(m_dataObject.get(), success);
-    else if (dataType == ClipboardDataTypeURL) 
-        return getURL(m_dataObject.get(), success);
+        return m_dataObject ? getPlainText(m_dataObject.get(), success) : getPlainText(&m_dragDataMap);
+    if (dataType == ClipboardDataTypeURL)
+        return m_dataObject ? getURL(m_dataObject.get(), DragData::DoNotConvertFilenames, success) : getURL(&m_dragDataMap, DragData::DoNotConvertFilenames);
+    else if (dataType == ClipboardDataTypeTextHTML) {
+        String data = m_dataObject ? getTextHTML(m_dataObject.get(), success) : getTextHTML(&m_dragDataMap);
+        if (success)
+            return data;
+        return m_dataObject ? getCFHTML(m_dataObject.get(), success) : getCFHTML(&m_dragDataMap);
+    }
     
     return "";
 }
@@ -507,7 +459,7 @@ String ClipboardWin::getData(const String& type, bool& success) const
 bool ClipboardWin::setData(const String& type, const String& data)
 {
     // FIXME: Need to be able to write to the system clipboard <rdar://problem/5015941>
-    ASSERT(isForDragging());
+    ASSERT(isForDragAndDrop());
     if (policy() != ClipboardWritable || !m_writableDataObject)
         return false;
 
@@ -554,22 +506,29 @@ HashSet<String> ClipboardWin::types() const
     if (policy() != ClipboardReadable && policy() != ClipboardTypesReadable)
         return results;
 
-    if (!m_dataObject)
+    if (!m_dataObject && m_dragDataMap.isEmpty())
         return results;
 
-    COMPtr<IEnumFORMATETC> itr;
+    if (m_dataObject) {
+        COMPtr<IEnumFORMATETC> itr;
 
-    if (FAILED(m_dataObject->EnumFormatEtc(DATADIR_GET, &itr)))
-        return results;
+        if (FAILED(m_dataObject->EnumFormatEtc(DATADIR_GET, &itr)))
+            return results;
 
-    if (!itr)
-        return results;
+        if (!itr)
+            return results;
 
-    FORMATETC data;
+        FORMATETC data;
 
-    // IEnumFORMATETC::Next returns S_FALSE if there are no more items.
-    while (itr->Next(1, &data, 0) == S_OK) {
-        addMimeTypesForFormat(results, data);
+        // IEnumFORMATETC::Next returns S_FALSE if there are no more items.
+        while (itr->Next(1, &data, 0) == S_OK)
+            addMimeTypesForFormat(results, data);
+    } else {
+        for (DragDataMap::const_iterator it = m_dragDataMap.begin(); it != m_dragDataMap.end(); ++it) {
+            FORMATETC data;
+            data.cfFormat = (*it).first;
+            addMimeTypesForFormat(results, data);
+        }
     }
 
     return results;
@@ -577,32 +536,45 @@ HashSet<String> ClipboardWin::types() const
 
 PassRefPtr<FileList> ClipboardWin::files() const
 {
+#if OS(WINCE)
+    notImplemented();
+    return 0;
+#else
     RefPtr<FileList> files = FileList::create();
     if (policy() != ClipboardReadable && policy() != ClipboardTypesReadable)
         return files.release();
 
-    if (!m_dataObject)
+    if (!m_dataObject && m_dragDataMap.isEmpty())
         return files.release();
 
-    STGMEDIUM medium;
-    if (FAILED(m_dataObject->GetData(cfHDropFormat(), &medium)))
-        return files.release();
+    if (m_dataObject) {
+        STGMEDIUM medium;
+        if (FAILED(m_dataObject->GetData(cfHDropFormat(), &medium)))
+            return files.release();
 
-    HDROP hdrop = reinterpret_cast<HDROP>(GlobalLock(medium.hGlobal));
-    if (!hdrop)
-        return files.release();
+        HDROP hdrop = reinterpret_cast<HDROP>(GlobalLock(medium.hGlobal));
+        if (!hdrop)
+            return files.release();
 
-    WCHAR filename[MAX_PATH];
-    UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
-    for (UINT i = 0; i < fileCount; i++) {
-        if (!DragQueryFileW(hdrop, i, filename, ARRAYSIZE(filename)))
-            continue;
-        files->append(File::create(reinterpret_cast<UChar*>(filename)));
+        WCHAR filename[MAX_PATH];
+        UINT fileCount = DragQueryFileW(hdrop, 0xFFFFFFFF, 0, 0);
+        for (UINT i = 0; i < fileCount; i++) {
+            if (!DragQueryFileW(hdrop, i, filename, WTF_ARRAY_LENGTH(filename)))
+                continue;
+            files->append(File::create(reinterpret_cast<UChar*>(filename)));
+        }
+
+        GlobalUnlock(medium.hGlobal);
+        ReleaseStgMedium(&medium);
+        return files.release();
     }
-
-    GlobalUnlock(medium.hGlobal);
-    ReleaseStgMedium(&medium);
+    if (!m_dragDataMap.contains(cfHDropFormat()->cfFormat))
+        return files.release();
+    Vector<String> filesVector = m_dragDataMap.get(cfHDropFormat()->cfFormat);
+    for (Vector<String>::iterator it = filesVector.begin(); it != filesVector.end(); ++it)
+        files->append(File::create((*it).characters()));
     return files.release();
+#endif
 }
 
 void ClipboardWin::setDragImage(CachedImage* image, Node *node, const IntPoint &loc)
@@ -642,14 +614,6 @@ DragImageRef ClipboardWin::createDragImage(IntPoint& loc) const
         loc = m_dragLoc;
     }
     return result;
-}
-
-static String imageToMarkup(const String& url)
-{
-    String markup("<img src=\"");
-    markup.append(url);
-    markup.append("\"/>");
-    return markup;
 }
 
 static CachedImage* getCachedImage(Element* element)
@@ -711,16 +675,15 @@ void ClipboardWin::declareAndWriteDragImage(Element* element, const KURL& url, c
     if (imageURL.isEmpty()) 
         return;
 
-    String fullURL = frame->document()->completeURL(deprecatedParseURL(imageURL)).string();
+    KURL fullURL = frame->document()->completeURL(stripLeadingAndTrailingHTMLSpaces(imageURL));
     if (fullURL.isEmpty()) 
         return;
     STGMEDIUM medium = {0};
     medium.tymed = TYMED_HGLOBAL;
-    ExceptionCode ec = 0;
 
     // Put img tag on the clipboard referencing the image
     Vector<char> data;
-    markupToCF_HTML(imageToMarkup(fullURL), "", data);
+    markupToCFHTML(imageToMarkup(fullURL, element), "", data);
     medium.hGlobal = createGlobalData(data);
     if (medium.hGlobal && FAILED(m_writableDataObject->SetData(htmlFormat(), &medium, TRUE)))
         ::GlobalFree(medium.hGlobal);
@@ -732,17 +695,40 @@ void ClipboardWin::writeURL(const KURL& kurl, const String& titleStr, Frame*)
          return;
     WebCore::writeURL(m_writableDataObject.get(), kurl, titleStr, true, true);
 
-    int estimatedSize = 0;
     String url = kurl.string();
+    ASSERT(url.containsOnlyASCII()); // KURL::string() is URL encoded.
 
-    HGLOBAL urlFileDescriptor = createGlobalUrlFileDescriptor(url, titleStr, estimatedSize);
+    String fsPath = filesystemPathFromUrlOrTitle(url, titleStr, L".URL", true);
+    String contentString("[InternetShortcut]\r\nURL=" + url + "\r\n");
+    CString content = contentString.latin1();
+
+    if (fsPath.length() <= 0)
+        return;
+
+    HGLOBAL urlFileDescriptor = GlobalAlloc(GPTR, sizeof(FILEGROUPDESCRIPTOR));
     if (!urlFileDescriptor)
         return;
-    HGLOBAL urlFileContent = createGlobalURLContent(url, estimatedSize);
+
+    HGLOBAL urlFileContent = GlobalAlloc(GPTR, content.length());
     if (!urlFileContent) {
         GlobalFree(urlFileDescriptor);
         return;
     }
+
+    FILEGROUPDESCRIPTOR* fgd = static_cast<FILEGROUPDESCRIPTOR*>(GlobalLock(urlFileDescriptor));
+    ZeroMemory(fgd, sizeof(FILEGROUPDESCRIPTOR));
+    fgd->cItems = 1;
+    fgd->fgd[0].dwFlags = FD_FILESIZE;
+    fgd->fgd[0].nFileSizeLow = content.length();
+
+    unsigned maxSize = min(fsPath.length(), WTF_ARRAY_LENGTH(fgd->fgd[0].cFileName));
+    CopyMemory(fgd->fgd[0].cFileName, fsPath.characters(), maxSize * sizeof(UChar));
+    GlobalUnlock(urlFileDescriptor);
+
+    char* fileContents = static_cast<char*>(GlobalLock(urlFileContent));
+    CopyMemory(fileContents, content.data(), content.length());
+    GlobalUnlock(urlFileContent);
+
     writeFileToDataObject(m_writableDataObject.get(), urlFileDescriptor, urlFileContent, 0);
 }
 
@@ -757,13 +743,13 @@ void ClipboardWin::writeRange(Range* selectedRange, Frame* frame)
     ExceptionCode ec = 0;
 
     Vector<char> data;
-    markupToCF_HTML(createMarkup(selectedRange, 0, AnnotateForInterchange),
+    markupToCFHTML(createMarkup(selectedRange, 0, AnnotateForInterchange),
         selectedRange->startContainer(ec)->document()->url().string(), data);
     medium.hGlobal = createGlobalData(data);
     if (medium.hGlobal && FAILED(m_writableDataObject->SetData(htmlFormat(), &medium, TRUE)))
         ::GlobalFree(medium.hGlobal);
 
-    String str = frame->selectedText();
+    String str = frame->editor()->selectedText();
     replaceNewlinesWithWindowsStyleNewlines(str);
     replaceNBSPWithSpace(str);
     medium.hGlobal = createGlobalData(str);
@@ -782,7 +768,6 @@ void ClipboardWin::writePlainText(const String& text)
     
     STGMEDIUM medium = {0};
     medium.tymed = TYMED_HGLOBAL;
-    ExceptionCode ec = 0;
     
     String str = text;
     replaceNewlinesWithWindowsStyleNewlines(str);
@@ -796,30 +781,33 @@ void ClipboardWin::writePlainText(const String& text)
     
 bool ClipboardWin::hasData()
 {
-    if (!m_dataObject)
+    if (!m_dataObject && m_dragDataMap.isEmpty())
         return false;
 
-    COMPtr<IEnumFORMATETC> itr;
-    if (FAILED(m_dataObject->EnumFormatEtc(DATADIR_GET, &itr)))
+    if (m_dataObject) {
+        COMPtr<IEnumFORMATETC> itr;
+        if (FAILED(m_dataObject->EnumFormatEtc(DATADIR_GET, &itr)))
+            return false;
+
+        if (!itr)
+            return false;
+
+        FORMATETC data;
+
+        // IEnumFORMATETC::Next returns S_FALSE if there are no more items.
+        if (itr->Next(1, &data, 0) == S_OK) {
+            // There is at least one item in the IDataObject
+            return true;
+        }
+
         return false;
-
-    if (!itr)
-        return false;
-
-    FORMATETC data;
-
-    // IEnumFORMATETC::Next returns S_FALSE if there are no more items.
-    if (itr->Next(1, &data, 0) == S_OK) {
-        // There is at least one item in the IDataObject
-        return true;
     }
-
-    return false;
+    return !m_dragDataMap.isEmpty();
 }
 
 void ClipboardWin::setExternalDataObject(IDataObject *dataObject)
 {
-    ASSERT(isForDragging());
+    ASSERT(isForDragAndDrop());
 
     m_writableDataObject = 0;
     m_dataObject = dataObject;

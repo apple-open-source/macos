@@ -1,5 +1,5 @@
 /* Automatically generated file, do not edit */
-#include "sys.h"
+#include "config.h"
 #include "el.h"
 private const el_func_t el_func[] = {
     ed_argument_digit,         ed_clear_screen,           

@@ -25,10 +25,11 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetwc.c,v 1.9 2004/07/20 08:27:27 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/ungetwc.c,v 1.11 2008/04/17 22:17:54 jhb Exp $");
 
 #include "namespace.h"
 #include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <wchar.h>
@@ -48,7 +49,7 @@ __ungetwc(wint_t wc, FILE *fp)
 
 	if (wc == WEOF)
 		return (WEOF);
-	if ((len = __wcrtomb(buf, wc, &fp->_extra->mbstate)) == (size_t)-1) {
+	if ((len = __wcrtomb(buf, wc, &fp->_mbstate)) == (size_t)-1) {
 		fp->_flags |= __SERR;
 		return (WEOF);
 	}

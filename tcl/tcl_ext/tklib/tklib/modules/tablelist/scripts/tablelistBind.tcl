@@ -8,13 +8,28 @@
 #   - Binding tag TablelistBody
 #   - Binding tags TablelistLabel, TablelistSubLabel, and TablelistArrow
 #
-# Copyright (c) 2000-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2000-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 #
 # Public helper procedures
 # ========================
 #
+
+#------------------------------------------------------------------------------
+# tablelist::getTablelistColumn
+#
+# Gets the column number from the path name w of a (sub)label or sort arrow of
+# a tablelist widget.
+#------------------------------------------------------------------------------
+proc tablelist::getTablelistColumn w {
+    if {[regexp {^(\..+)\.hdr\.t\.f\.l([0-9]+)(-[it]l)?$} $w dummy win col] ||
+	[regexp {^(\..+)\.hdr\.t\.f\.c([0-9]+)$} $w dummy win col]} {
+	return $col
+    } else {
+	return -1
+    }
+}
 
 #------------------------------------------------------------------------------
 # tablelist::getTablelistPath
@@ -47,22 +62,20 @@ proc tablelist::convEventFields {w x y} {
 # tablelist::addActiveTag
 #
 # This procedure is invoked when the tablelist widget win gains the keyboard
-# focus.  It adds the "active" tag to the line or cell that displays the active
-# item or element of the widget in its body text child.
+# focus.  It moves the "active" tag to the line or cell that displays the
+# active item or element of the widget in its body text child.
 #------------------------------------------------------------------------------
 proc tablelist::addActiveTag win {
     upvar ::tablelist::ns${win}::data data
-    set line [expr {$data(activeRow) + 1}]
-    set col $data(activeCol)
-    if {[string compare $data(-selecttype) "row"] == 0} {
-	$data(body) tag add active $line.0 $line.end
-    } elseif {$data(itemCount) > 0 && $data(colCount) > 0 &&
-	      $line > 0 && !$data($col-hide)} {
-	findTabs $win $line $col $col tabIdx1 tabIdx2
-	$data(body) tag add active $tabIdx1 $tabIdx2+1c
-    }
-
     set data(ownsFocus) 1
+
+    #
+    # Conditionally move the "active" tag to the line
+    # or cell that displays the active item or element
+    #
+    if {![info exists data(dispId)]} {
+	moveActiveTag $win
+    }
 }
 
 #------------------------------------------------------------------------------
@@ -73,9 +86,9 @@ proc tablelist::addActiveTag win {
 #------------------------------------------------------------------------------
 proc tablelist::removeActiveTag win {
     upvar ::tablelist::ns${win}::data data
-    $data(body) tag remove active 1.0 end
-
     set data(ownsFocus) 0
+
+    $data(body) tag remove active 1.0 end
 }
 
 #------------------------------------------------------------------------------
@@ -86,16 +99,16 @@ proc tablelist::removeActiveTag win {
 #------------------------------------------------------------------------------
 proc tablelist::cleanup win {
     #
-    # Cancel the execution of all delayed adjustSeps,
+    # Cancel the execution of all delayed updateKeyToRowMap, adjustSeps,
     # makeStripes, showLineNumbers, stretchColumns, updateColors,
-    # updateScrlColOffset, updateHScrlbar, updateVScrlbar,
-    # adjustElidedText, synchronize, displayItems, horizAutoScan,
-    # doCellConfig, redisplay, and redisplayCol commands
+    # updateScrlColOffset, updateHScrlbar, updateVScrlbar, updateView,
+    # adjustElidedText, synchronize, displayItems, horizAutoScan, forceRedraw,
+    # doCellConfig, redisplay, redisplayCol, and destroyWidgets commands
     #
     upvar ::tablelist::ns${win}::data data
-    foreach id {sepsId stripesId lineNumsId stretchId colorId offsetId \
-		hScrlbarId vScrlbarId elidedId syncId dispId afterId
-		reconfigId} {
+    foreach id {mapId sepsId stripesId lineNumsId stretchId colorId offsetId \
+		hScrlbarId vScrlbarId viewId elidedId syncId dispId afterId
+		redrawId reconfigId} {
 	if {[info exists data($id)]} {
 	    after cancel $data($id)
 	}
@@ -103,21 +116,28 @@ proc tablelist::cleanup win {
     foreach name [array names data *redispId] {
 	after cancel $data($name)
     }
+    foreach destroyId $data(destroyIdList) {
+	after cancel $destroyId
+    }
 
     #
     # If there is a list variable associated with the
     # widget then remove the trace set on this variable
     #
-    if {$data(hasListVar) && [info exists $data(-listvariable)]} {
-	upvar #0 $data(-listvariable) var
+    upvar #0 $data(-listvariable) var
+    if {$data(hasListVar) && [info exists var]} {
 	trace vdelete var wu $data(listVarTraceCmd)
     }
 
     #
-    # Destroy any existing bindings for data(bodyTag) and data(editwinTag)
+    # Destroy any existing bindings for data(bodyTag),
+    # data(labelTag), and data(editwinTag)
     #
     foreach event [bind $data(bodyTag)] {
 	bind $data(bodyTag) $event ""
+    }
+    foreach event [bind $data(labelTag)] {
+	bind $data(labelTag) $event ""
     }
     foreach event [bind $data(editwinTag)] {
 	bind $data(editwinTag) $event ""
@@ -125,6 +145,20 @@ proc tablelist::cleanup win {
 
     namespace delete ::tablelist::ns$win
     catch {rename ::$win ""}
+}
+
+#------------------------------------------------------------------------------
+# tablelist::updateCanvases
+#
+# This procedure handles the events <Activate> and <Deactivate> by configuring
+# the canvases displaying sort arrows.
+#------------------------------------------------------------------------------
+proc tablelist::updateCanvases win {
+    upvar ::tablelist::ns${win}::data data
+    foreach col $data(arrowColList) {
+	configCanvas $win $col
+	raiseArrow $win $col
+    }
 }
 
 #------------------------------------------------------------------------------
@@ -171,7 +205,8 @@ proc tablelist::updateConfigSpecs win {
     foreach opt {-background -foreground -disabledforeground -stripebackground
 		 -selectbackground -selectforeground -selectborderwidth -font
 		 -labelbackground -labelforeground -labelfont -labelborderwidth
-		 -labelpady -arrowcolor -arrowdisabledcolor -arrowstyle} {
+		 -labelpady -arrowcolor -arrowdisabledcolor -arrowstyle
+		 -treestyle} {
 	if {[string compare $data($opt) $tmp($opt)] == 0} {
 	    doConfig $win $opt $themeDefaults($opt)
 	}
@@ -179,6 +214,7 @@ proc tablelist::updateConfigSpecs win {
     foreach opt {-background -foreground} {
 	doConfig $win $opt $data($opt)	;# sets the bg color of the separators
     }
+    updateCanvases $win
 
     #
     # Destroy and recreate the edit window if present
@@ -196,7 +232,7 @@ proc tablelist::updateConfigSpecs win {
     if {$data(winCount) != 0} {
 	for {set row 0} {$row < $data(itemCount)} {incr row} {
 	    for {set col 0} {$col < $data(colCount)} {incr col} {
-		set key [lindex [lindex $data(itemList) $row] end]
+		set key [lindex $data(keyList) $row]
 		if {[info exists data($key,$col-window)]} {
 		    set val $data($key,$col-window)
 		    doCellConfig $row $col $win -window ""
@@ -230,10 +266,10 @@ proc tablelist::updateConfigSpecs win {
 # containing the window, if any.
 #------------------------------------------------------------------------------
 proc tablelist::cleanupWindow aux {
-    regexp {^(.+)\.body\.f(k[0-9]+),([0-9]+)$} $aux dummy win key col
+    regexp {^(.+)\.body\.frm_(k[0-9]+),([0-9]+)$} $aux dummy win key col
     upvar ::tablelist::ns${win}::data data
     if {[info exists data($key,$col-windowdestroy)]} {
-	set row [lsearch $data(itemList) "* $key"]
+	set row [keyToRow $win $key]
 	uplevel #0 $data($key,$col-windowdestroy) [list $win $row $col $aux.w]
     }
 }
@@ -256,20 +292,24 @@ proc tablelist::defineTablelistBody {} {
 	afterId			""
 	prevRow			""
 	prevCol			""
+	prevActExpCollCtrlCell	""
 	selection		{}
 	clicked			0
 	clickTime		0
+	releaseTime		0
 	clickedInEditWin	0
+	clickedExpCollCtrl	0
     }
 
     foreach event {<Enter> <Motion> <Leave>} {
-	bind TablelistBody $event {
+	bind TablelistBody $event [format {
 	    foreach {tablelist::W tablelist::x tablelist::y} \
-		[tablelist::convEventFields %W %x %y] {}
+		[tablelist::convEventFields %%W %%x %%y] {}
 
 	    tablelist::showOrHideTooltip $tablelist::W \
-		$tablelist::x $tablelist::y %X %Y
-	}
+		$tablelist::x $tablelist::y %%X %%Y %s
+	    tablelist::updateExpCollCtrl %%W %%x %%y
+	} $event]
     }
     bind TablelistBody <Button-1> {
 	if {[winfo exists %W]} {
@@ -287,21 +327,29 @@ proc tablelist::defineTablelistBody {} {
 		[string compare [$tablelist::W cget -state] "normal"] == 0} {
 		focus [$tablelist::W bodypath]
 	    }
-	    tablelist::condEditContainingCell $tablelist::W \
-		$tablelist::x $tablelist::y
-	    tablelist::condBeginMove $tablelist::W $tablelist::priv(row)
-	    tablelist::beginSelect $tablelist::W \
-		$tablelist::priv(row) $tablelist::priv(col)
+	    if {[tablelist::wasExpCollCtrlClicked %W %x %y]} {
+		set tablelist::priv(clickedExpCollCtrl) 1
+	    } else {
+		tablelist::condEditContainingCell $tablelist::W \
+		    $tablelist::x $tablelist::y
+		tablelist::condBeginMove $tablelist::W $tablelist::priv(row)
+		tablelist::beginSelect $tablelist::W \
+		    $tablelist::priv(row) $tablelist::priv(col)
+	    }
 	}
     }
     bind TablelistBody <Double-Button-1> {
-	# Empty script
+	if {[$tablelist::W cget -editselectedonly]} {
+	    tablelist::condEditContainingCell $tablelist::W \
+		$tablelist::x $tablelist::y
+	}
     }
     bind TablelistBody <B1-Motion> {
 	if {$tablelist::priv(clicked) &&
 	    %t - $tablelist::priv(clickTime) < 300} {
 	    continue
 	}
+
 	foreach {tablelist::W tablelist::x tablelist::y} \
 	    [tablelist::convEventFields %W %x %y] {}
 
@@ -315,10 +363,12 @@ proc tablelist::defineTablelistBody {} {
 	set tablelist::priv(x) $tablelist::x
 	set tablelist::priv(y) $tablelist::y
 	tablelist::condAutoScan $tablelist::W
-	tablelist::motion $tablelist::W \
-	    [$tablelist::W nearest       $tablelist::y] \
-	    [$tablelist::W nearestcolumn $tablelist::x]
-	tablelist::condShowTarget $tablelist::W $tablelist::y
+	if {!$tablelist::priv(clickedExpCollCtrl)} {
+	    tablelist::motion $tablelist::W \
+		[$tablelist::W nearest       $tablelist::y] \
+		[$tablelist::W nearestcolumn $tablelist::x]
+	    tablelist::condShowTarget $tablelist::W $tablelist::y
+	}
     }
     bind TablelistBody <ButtonRelease-1> {
 	foreach {tablelist::W tablelist::x tablelist::y} \
@@ -326,20 +376,24 @@ proc tablelist::defineTablelistBody {} {
 
 	set tablelist::priv(x) ""
 	set tablelist::priv(y) ""
-	set tablelist::priv(clicked) 0
 	after cancel $tablelist::priv(afterId)
 	set tablelist::priv(afterId) ""
+	set tablelist::priv(releaseTime) %t
 	set tablelist::priv(releasedInEditWin) 0
-	if {$tablelist::priv(clicked) &&
-	    %t - $tablelist::priv(clickTime) < 300} {
-	    tablelist::moveOrActivate $tablelist::W \
-		$tablelist::priv(row) $tablelist::priv(col)
-	} else {
-	    tablelist::moveOrActivate $tablelist::W \
-		[$tablelist::W nearest       $tablelist::y] \
-		[$tablelist::W nearestcolumn $tablelist::x]
+	if {!$tablelist::priv(clickedExpCollCtrl)} {
+	    if {$tablelist::priv(clicked) &&
+		%t - $tablelist::priv(clickTime) < 300} {
+		tablelist::moveOrActivate $tablelist::W \
+		    $tablelist::priv(row) $tablelist::priv(col)
+	    } else {
+		tablelist::moveOrActivate $tablelist::W \
+		    [$tablelist::W nearest       $tablelist::y] \
+		    [$tablelist::W nearestcolumn $tablelist::x]
+	    }
 	}
-	tablelist::condEvalInvokeCmd $tablelist::W
+	set tablelist::priv(clicked) 0
+	set tablelist::priv(clickedExpCollCtrl) 0
+	after 100 [list tablelist::condEvalInvokeCmd $tablelist::W]
     }
     bind TablelistBody <Shift-Button-1> {
 	foreach {tablelist::W tablelist::x tablelist::y} \
@@ -372,6 +426,18 @@ proc tablelist::defineTablelistBody {} {
     }
     bind TablelistBody <<PrevWindow>> {
 	tablelist::nextPrevCell [tablelist::getTablelistPath %W] -1
+    }
+    bind TablelistBody <plus> {
+	tablelist::plusMinus [tablelist::getTablelistPath %W] plus
+    }
+    bind TablelistBody <minus> {
+	tablelist::plusMinus [tablelist::getTablelistPath %W] minus
+    }
+    bind TablelistBody <KP_Add> {
+	tablelist::plusMinus [tablelist::getTablelistPath %W] plus
+    }
+    bind TablelistBody <KP_Subtract> {
+	tablelist::plusMinus [tablelist::getTablelistPath %W] minus
     }
     bind TablelistBody <Up> {
 	tablelist::upDown [tablelist::getTablelistPath %W] -1
@@ -562,7 +628,7 @@ proc tablelist::defineTablelistBody {} {
 # the pointer has crossed a cell boundary then the procedure removes the old
 # tooltip and displays the one corresponding to the new cell.
 #------------------------------------------------------------------------------
-proc tablelist::showOrHideTooltip {win x y X Y} {
+proc tablelist::showOrHideTooltip {win x y X Y event} {
     upvar ::tablelist::ns${win}::data data
     if {[string compare $data(-tooltipaddcommand) ""] == 0 ||
 	[string compare $data(-tooltipdelcommand) ""] == 0} {
@@ -572,8 +638,13 @@ proc tablelist::showOrHideTooltip {win x y X Y} {
     #
     # Get the containing cell from the coordinates relative to the parent
     #
-    set row [containingRow $win $y]
-    set col [containingCol $win $x]
+    if {[string compare $event "<Leave>"] == 0} {
+	set row -1
+	set col -1
+    } else {
+	set row [containingRow $win $y]
+	set col [containingCol $win $x]
+    }
     if {[string compare $row,$col $data(prevCell)] == 0} {
 	return ""
     }
@@ -584,7 +655,6 @@ proc tablelist::showOrHideTooltip {win x y X Y} {
     #
     event generate $win <Leave>
     catch {uplevel #0 $data(-tooltipdelcommand) [list $win]}
-    catch {uplevel #0 $data(-tooltipdelcommand) .*}
     set data(prevCell) $row,$col
     if {$row >= 0 && $col >= 0} {
 	set focus [focus -displayof $win]
@@ -596,6 +666,163 @@ proc tablelist::showOrHideTooltip {win x y X Y} {
 	    event generate $win <Enter> -rootx $X -rooty $Y
 	}
     }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::updateExpCollCtrl
+#
+# This procedure is invoked when the mouse pointer enters or leaves the body of
+# a tablelist widget win or one of its separators, or is moving within it.  It
+# activates or deactivates the expand/collapse control under the mouse pointer.
+#------------------------------------------------------------------------------
+proc tablelist::updateExpCollCtrl {w x y} {
+    foreach {win _x _y} [tablelist::convEventFields $w $x $y] {}
+    set row [containingRow $win $_y]
+    set col [containingCol $win $_x]
+    upvar ::tablelist::ns${win}::data data
+    set key [lindex $data(keyList) $row]
+    set indentLabel $data(body).ind_$key,$col
+
+    #
+    # Check whether the x coordinate is inside the expand/collapse control
+    #
+    set inExpCollCtrl 0
+    if {[winfo exists $indentLabel]} {
+	if {[string compare $w $data(body)] == 0 &&
+	    $x < [winfo x $indentLabel] &&
+	    [string compare $data($key-parent) "root"] == 0} {
+	    set imgName [$indentLabel cget -image]
+	    if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+			 $imgName dummy treeStyle state depth]} {
+		#
+		# The mouse position is in the tablelist body, to the left
+		# of an expand/collapse control of a top-level item:  Handle
+		# this like a position inside the expand/collapse control
+		#
+		set inExpCollCtrl 1
+	    }
+	} elseif {[string compare $w $indentLabel] == 0} {
+	    set imgName [$w cget -image]
+	    if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+			 $imgName dummy treeStyle state depth]} {
+		#
+		# The mouse position is in an expand/collapse
+		# image (which ends with the expand/collapse
+		# control):  Check whether it is inside the control
+		#
+		set baseWidth [image width tablelist_${treeStyle}_collapsedImg]
+		if {$x >= [winfo width $w] - $baseWidth - 5} {
+		    set inExpCollCtrl 1
+		}
+	    }
+	}
+    }
+
+    #
+    # Conditionally deactivate the previously activated expand/collapse control
+    #
+    variable priv
+    set prevCellIdx $priv(prevActExpCollCtrlCell)
+    if {[string compare $prevCellIdx ""] != 0 &&
+	[info exists data($prevCellIdx-indent)] &&
+	(!$inExpCollCtrl || [string compare $prevCellIdx $key,$col] != 0)} {
+	set data($prevCellIdx-indent) \
+	    [strMap {"Act" ""} $data($prevCellIdx-indent)]
+	$data(body).ind_$prevCellIdx configure -image $data($prevCellIdx-indent)
+	set priv(prevActExpCollCtrlCell) ""
+    }
+
+    if {!$inExpCollCtrl || [string compare $prevCellIdx $key,$col] == 0} {
+	return ""
+    }
+
+    #
+    # Activate the expand/collapse control under the mouse pointer
+    #
+    variable ${treeStyle}_collapsedActImg
+    if {[info exists ${treeStyle}_collapsedActImg]} {
+	set data($key,$col-indent) [strMap {"expanded" "expandedAct"
+	    "collapsed" "collapsedAct"} $data($key,$col-indent)]
+	$data(body).ind_$key,$col configure -image $data($key,$col-indent)
+	set priv(prevActExpCollCtrlCell) $key,$col
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::wasExpCollCtrlClicked
+#
+# This procedure is invoked when mouse button 1 is pressed in the body of a
+# tablelist widget or in one of its separators.  It checks whether the mouse
+# click occurred inside an expand/collapse control.
+#------------------------------------------------------------------------------
+proc tablelist::wasExpCollCtrlClicked {w x y} {
+    foreach {win _x _y} [tablelist::convEventFields $w $x $y] {}
+    set row [containingRow $win $_y]
+    set col [containingCol $win $_x]
+    upvar ::tablelist::ns${win}::data data
+    set key [lindex $data(keyList) $row]
+    set indentLabel $data(body).ind_$key,$col
+    if {![winfo exists $indentLabel]} {
+	return 0
+    }
+
+    #
+    # Check whether the x coordinate is inside the expand/collapse control
+    #
+    set inExpCollCtrl 0
+    if {[string compare $w $data(body)] == 0 && $x < [winfo x $indentLabel] &&
+	[string compare $data($key-parent) "root"] == 0} {
+	set imgName [$indentLabel cget -image]
+	if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+		     $imgName dummy treeStyle state depth]} {
+	    #
+	    # The mouse position is in the tablelist body, to the left
+	    # of an expand/collapse control of a top-level item:  Handle
+	    # this like a position inside the expand/collapse control
+	    #
+	    set inExpCollCtrl 1
+	}
+    } elseif {[string compare $w $indentLabel] == 0} {
+	set imgName [$w cget -image]
+	if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+		     $imgName dummy treeStyle state depth]} {
+	    #
+	    # The mouse position is in an expand/collapse
+	    # image (which ends with the expand/collapse
+	    # control):  Check whether it is inside the control
+	    #
+	    set baseWidth [image width tablelist_${treeStyle}_collapsedImg]
+	    if {$x >= [winfo width $w] - $baseWidth - 5} {
+		set inExpCollCtrl 1
+	    }
+	}
+    }
+
+    if {!$inExpCollCtrl} {
+	return 0
+    }
+
+    #
+    # Save the current vertical position
+    #
+    set topRow [expr {int([$data(body) index @0,0]) - 1}]
+
+    #
+    # Toggle the state of the expand/collapse control
+    #
+    if {[string compare $state "collapsed"] == 0} {
+	::$win expand $row -partly
+    } else {
+	::$win collapse $row -partly
+    }
+
+    #
+    # Restore the saved vertical position
+    #
+    $data(body) yview $topRow
+    updateViewWhenIdle $win
+
+    return 1
 }
 
 #------------------------------------------------------------------------------
@@ -615,7 +842,14 @@ proc tablelist::condEditContainingCell {win x y} {
     set col [containingCol $win $x]
 
     upvar ::tablelist::ns${win}::data data
-    if {$row >= 0 && $col >= 0 && [isCellEditable $win $row $col]} {
+    if {$data(-editselectedonly) &&
+	![::$win cellselection includes $row,$col]} {
+	set canEdit 0
+    } else {
+	set canEdit [expr {$row >= 0 && $col >= 0 &&
+		     [isCellEditable $win $row $col]}]
+    }
+    if {$canEdit} {
 	#
 	# Get the coordinates relative to the
 	# tablelist body and invoke doEditCell
@@ -629,9 +863,7 @@ proc tablelist::condEditContainingCell {win x y} {
 	#
 	# Finish a possibly active cell editing
 	#
-	if {$data(editRow) >= 0} {
-	    doFinishEditing $win
-	}
+	doFinishEditing $win
     }
 }
 
@@ -652,7 +884,10 @@ proc tablelist::condBeginMove {win row} {
     }
 
     set data(sourceRow) $row
-    set data(targetRow) $row
+    set sourceKey [lindex $data(keyList) $row]
+    set data(sourceEndRow) [nodeRow $win $sourceKey end 1]
+    set data(parentKey) $data($sourceKey-parent)
+    set data(parentEndRow) [nodeRow $win $data(parentKey) end 1]
 
     set topWin [winfo toplevel $win]
     set data(topEscBinding) [bind $topWin <Escape>]
@@ -910,7 +1145,16 @@ proc tablelist::condShowTarget {win y} {
 	set gapY [expr {$lineY + $lineHeight}]
     }
 
-    if {$row == $data(sourceRow)} {
+    if {$data(targetRow) != $data(parentEndRow)} {
+	set targetKey [lindex $data(keyList) $data(targetRow)]
+    }
+    if {$data(targetRow) == $data(sourceRow) ||
+	$data(targetRow) == $data(sourceEndRow) ||
+	$data(targetRow) <= [keyToRow $win $data(parentKey)] ||
+	$data(targetRow) > $data(parentEndRow) ||
+	($data(targetRow) != $data(parentEndRow) &&
+	 [string compare $data($targetKey-parent) $data(parentKey)] != 0)} {
+	unset data(targetRow)
 	$w configure -cursor $data(-cursor)
 	place forget $data(rowGap)
     } else {
@@ -943,14 +1187,17 @@ proc tablelist::moveOrActivate {win row col} {
     if {[info exists data(sourceRow)]} {
 	set sourceRow $data(sourceRow)
 	unset data(sourceRow)
+	unset data(sourceEndRow)
+	unset data(parentKey)
+	unset data(parentEndRow)
 	bind [winfo toplevel $win] <Escape> $data(topEscBinding)
 	$data(body) configure -cursor $data(-cursor)
 	place forget $data(rowGap)
 
-	if {$data(targetRow) != $sourceRow &&
-	    $data(targetRow) != $sourceRow + 1} {
+	if {[info exists data(targetRow)]} {
 	    ::$win move $sourceRow $data(targetRow)
 	    event generate $win <<TablelistRowMoved>>
+	    unset data(targetRow)
 	}
     } else {
 	switch $data(-selecttype) {
@@ -970,6 +1217,13 @@ proc tablelist::moveOrActivate {win row col} {
 # procedure evaluates that command.
 #------------------------------------------------------------------------------
 proc tablelist::condEvalInvokeCmd win {
+    #
+    # This is an "after 100" callback; check whether the window exists
+    #
+    if {![winfo exists $win]} {
+	return ""
+    }
+
     upvar ::tablelist::ns${win}::data data
     if {$data(editCol) < 0} {
 	return ""
@@ -991,7 +1245,7 @@ proc tablelist::condEvalInvokeCmd win {
     }
 
     #
-    # Return if the edit window is an editable combobox widgets
+    # Return if the edit window is an editable combobox widget
     #
     set w $data(bodyFrEd)
     switch [winfo class $w] {
@@ -1011,7 +1265,7 @@ proc tablelist::condEvalInvokeCmd win {
     #
     # Evaluate the edit window's invoke command
     #
-    update 
+    update
     if {![winfo exists $w]} {				;# because of update
 	return ""
     }
@@ -1033,6 +1287,10 @@ proc tablelist::cancelMove win {
     }
 
     unset data(sourceRow)
+    unset data(sourceEndRow)
+    unset data(parentKey)
+    unset data(parentEndRow)
+    catch {unset data(targetRow)}
     bind [winfo toplevel $win] <Escape> $data(topEscBinding)
     $data(body) configure -cursor $data(-cursor)
     place forget $data(rowGap)
@@ -1119,6 +1377,52 @@ proc tablelist::condEditActiveCell win {
     set col $data(activeCol)
     if {[isCellEditable $win $row $col]} {
 	doEditCell $win $row $col 0
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::plusMinus
+#
+# Partially expands or collapses the active row if possible.
+#------------------------------------------------------------------------------
+proc tablelist::plusMinus {win keysym} {
+    upvar ::tablelist::ns${win}::data data
+    set row $data(activeRow)
+    set col $data(treeCol)
+    set key [lindex $data(keyList) $row]
+    set op ""
+
+    if {[info exists data($key,$col-indent)]} {
+	set indentLabel $data(body).ind_$key,$col
+	set imgName [$indentLabel cget -image]
+	if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+		     $imgName dummy treeStyle state depth]} {
+	    if {[string compare $keysym "plus"] == 0 &&
+		[string compare $state "collapsed"] == 0} {
+		set op "expand"
+	    } elseif {[string compare $keysym "minus"] == 0 &&
+		      [string compare $state "expanded"] == 0} {
+		set op "collapse"
+	    }
+	}
+    }
+
+    if {[string compare $op ""] != 0} {
+	#
+	# Save the current vertical position
+	#
+	set topRow [expr {int([$data(body) index @0,0]) - 1}]
+
+	#
+	# Toggle the state of the expand/collapse control
+	#
+	::$win $op $row -partly
+
+	#
+	# Restore the saved vertical position
+	#
+	$data(body) yview $topRow
+	updateViewWhenIdle $win
     }
 }
 
@@ -1211,35 +1515,71 @@ proc tablelist::upDown {win amount} {
 #------------------------------------------------------------------------------
 # tablelist::leftRight
 #
-# If the tablelist widget's selection type is "row" then this procedure scrolls
-# the widget's view left or right by the width of the character "0".  Otherwise
-# it moves the location cursor (active element) left or right by one column,
-# and changes the selection if we are in browse or extended selection mode.
+# Partially expands or collapses the active row if possible.  Otherwise, if the
+# tablelist widget's selection type is "row" then this procedure scrolls the
+# widget's view left or right by the width of the character "0".  Otherwise it
+# moves the location cursor (active element) left or right by one column, and
+# changes the selection if we are in browse or extended selection mode.
 #------------------------------------------------------------------------------
 proc tablelist::leftRight {win amount} {
     upvar ::tablelist::ns${win}::data data
-    switch $data(-selecttype) {
-	row {
-	    ::$win xview scroll $amount units
-	}
+    set row $data(activeRow)
+    set col $data(treeCol)
+    set key [lindex $data(keyList) $row]
+    set op ""
 
-	cell {
-	    if {$data(editRow) >= 0} {
-		return ""
+    if {[info exists data($key,$col-indent)]} {
+	set indentLabel $data(body).ind_$key,$col
+	set imgName [$indentLabel cget -image]
+	if {[regexp {^tablelist_(.+)_(collapsed|expanded).*Img([0-9]+)$} \
+		     $imgName dummy treeStyle state depth]} {
+	    if {$amount > 0 && [string compare $state "collapsed"] == 0} {
+		set op "expand"
+	    } elseif {$amount < 0 && [string compare $state "expanded"] == 0} {
+		set op "collapse"
+	    }
+	}
+    }
+
+    if {[string compare $op ""] == 0} {
+	switch $data(-selecttype) {
+	    row {
+		::$win xview scroll $amount units
 	    }
 
-	    set row $data(activeRow)
-	    set col $data(activeCol)
-	    while 1 {
-		incr col $amount
-		if {$col < 0 || $col > $data(lastCol)} {
+	    cell {
+		if {$data(editRow) >= 0} {
 		    return ""
-		} elseif {!$data($col-hide)} {
-		    condChangeSelection $win $row $col
-		    return ""
+		}
+
+		set col $data(activeCol)
+		while 1 {
+		    incr col $amount
+		    if {$col < 0 || $col > $data(lastCol)} {
+			return ""
+		    } elseif {!$data($col-hide)} {
+			condChangeSelection $win $row $col
+			return ""
+		    }
 		}
 	    }
 	}
+    } else {
+	#
+	# Save the current vertical position
+	#
+	set topRow [expr {int([$data(body) index @0,0]) - 1}]
+
+	#
+	# Toggle the state of the expand/collapse control
+	#
+	::$win $op $row -partly
+
+	#
+	# Restore the saved vertical position
+	#
+	$data(body) yview $topRow
+	updateViewWhenIdle $win
     }
 }
 
@@ -1266,11 +1606,11 @@ proc tablelist::priorNext {win amount} {
 # cursor (active element) to the first/last element of the active row, selects
 # that element, and deselects everything else in the widget.
 #------------------------------------------------------------------------------
-proc tablelist::homeEnd {win key} {
+proc tablelist::homeEnd {win keysym} {
     upvar ::tablelist::ns${win}::data data
     switch $data(-selecttype) {
 	row {
-	    switch $key {
+	    switch $keysym {
 		Home { ::$win xview moveto 0 }
 		End  { ::$win xview moveto 1 }
 	    }
@@ -1278,7 +1618,7 @@ proc tablelist::homeEnd {win key} {
 
 	cell {
 	    set row $data(activeRow)
-	    switch $key {
+	    switch $keysym {
 		Home { set col [firstVisibleCol $win] }
 		End  { set col [ lastVisibleCol $win] }
 	    }
@@ -1401,7 +1741,7 @@ proc tablelist::extendLeftRight {win amount} {
 # element) to the first/last element of the active row, and, if we are in
 # extended mode, it extends the selection to that point.
 #------------------------------------------------------------------------------
-proc tablelist::extendToHomeEnd {win key} {
+proc tablelist::extendToHomeEnd {win keysym} {
     upvar ::tablelist::ns${win}::data data
     switch $data(-selecttype) {
 	row {
@@ -1410,7 +1750,7 @@ proc tablelist::extendToHomeEnd {win key} {
 
 	cell {
 	    set row $data(activeRow)
-	    switch $key {
+	    switch $keysym {
 		Home { set col [firstVisibleCol $win] }
 		End  { set col [ lastVisibleCol $win] }
 	    }
@@ -1828,6 +2168,7 @@ proc tablelist::labelEnter {w X Y x} {
 	    [string compare [winfo toplevel $focus] \
 	     [winfo toplevel $win]] == 0} {
 	    uplevel #0 $data(-tooltipaddcommand) [list $win -1 $col]
+	    event generate $win <Leave>
 	    event generate $win <Enter> -rootx $X -rooty $Y
 	}
     }
@@ -1836,18 +2177,8 @@ proc tablelist::labelEnter {w X Y x} {
 	return ""
     }
 
-    if {$x >= [winfo width $w] - 5} {
-	set inResizeArea 1
-	set col2 $col
-    } elseif {$x < 5} {
-	set X [expr {[winfo rootx $w] - 3}]
-	set contW [winfo containing -displayof $w $X [winfo rooty $w]]
-	set inResizeArea [parseLabelPath $contW dummy col2]
-    } else {
-	set inResizeArea 0
-    }
-
-    if {$inResizeArea && $data(-resizablecolumns) && $data($col2-resizable)} {
+    if {[inResizeArea $w $x col] &&
+	$data(-resizablecolumns) && $data($col-resizable)} {
 	configLabel $w -cursor $data(-resizecursor)
 	configLabel $w -active 0
     } else {
@@ -1883,7 +2214,6 @@ proc tablelist::labelLeave {w X x y} {
 	#
 	event generate $win <Leave>
 	catch {uplevel #0 $data(-tooltipdelcommand) [list $win]}
-	catch {uplevel #0 $data(-tooltipdelcommand) .*}
 	set data(prevCol) -1
     }
 
@@ -1915,19 +2245,10 @@ proc tablelist::labelB1Down {w x shiftPressed} {
     set data(X) [expr {[winfo rootx $w] + $x}]
     set data(shiftPressed) $shiftPressed
 
-    if {$x >= [winfo width $w] - 5} {
-	set inResizeArea 1
-	set col2 $col
-    } elseif {$x < 5} {
-	set X [expr {[winfo rootx $w] - 3}]
-	set contW [winfo containing -displayof $w $X [winfo rooty $w]]
-	set inResizeArea [parseLabelPath $contW dummy col2]
-    } else {
-	set inResizeArea 0
-    }
-
-    if {$inResizeArea && $data(-resizablecolumns) && $data($col2-resizable)} {
-	set data(colBeingResized) $col2
+    if {[inResizeArea $w $x col] &&
+	$data(-resizablecolumns) && $data($col-resizable)} {
+	set data(colBeingResized) $col
+	set data(colResized) 0
 
 	set w $data(body)
 	set topTextIdx [$w index @0,0]
@@ -1936,19 +2257,19 @@ proc tablelist::labelB1Down {w x shiftPressed} {
 	set data(topRow) [expr {int($topTextIdx) - 1}]
 	set data(btmRow) [expr {int($btmTextIdx) - 1}]
 
-	set w $data(hdrTxtFrLbl)$col2
+	set w $data(hdrTxtFrLbl)$col
 	set labelWidth [winfo width $w]
 	set data(oldStretchedColWidth) [expr {$labelWidth - 2*$data(charWidth)}]
-	set data(oldColDelta) $data($col2-delta)
-	set data(configColWidth) [lindex $data(-columns) [expr {3*$col2}]]
+	set data(oldColDelta) $data($col-delta)
+	set data(configColWidth) [lindex $data(-columns) [expr {3*$col}]]
 
-	if {[lsearch -exact $data(arrowColList) $col2] >= 0} {
+	if {[lsearch -exact $data(arrowColList) $col] >= 0} {
 	    set canvasWidth $data(arrowWidth)
 	    if {[llength $data(arrowColList)] > 1} {
 		incr canvasWidth 6
 	    }
 	    set data(minColWidth) $canvasWidth
-	} elseif {$data($col2-wrap)} {
+	} elseif {$data($col-wrap)} {
 	    set data(minColWidth) $data(charWidth)
 	} else {
 	    set data(minColWidth) 0
@@ -1960,7 +2281,7 @@ proc tablelist::labelB1Down {w x shiftPressed} {
 	focus $topWin
 	set data(topEscBinding) [bind $topWin <Escape>]
 	bind $topWin <Escape> \
-	     [list tablelist::escape [strMap {"%" "%%"} $win] $col2]
+	     [list tablelist::escape [strMap {"%" "%%"} $win] $col]
     } else {
 	set data(inClickedLabel) 1
 	set data(relief) [$w cget -relief]
@@ -2007,6 +2328,7 @@ proc tablelist::labelB1Motion {w X x y} {
 	set width [expr {$data(oldStretchedColWidth) + $X - $data(X)}]
 	if {$width >= $data(minColWidth)} {
 	    set col $data(colBeingResized)
+	    set data(colResized) 1
 	    set idx [expr {3*$col}]
 	    set data(-columns) [lreplace $data(-columns) $idx $idx -$width]
 	    set idx [expr {2*$col}]
@@ -2020,8 +2342,7 @@ proc tablelist::labelB1Motion {w X x y} {
 	    # greater (due to the redisplayCol invocation)
 	    #
 	    set b $data(body)
-	    set btmY [expr {[winfo height $b] - 1}]
-	    set btmTextIdx [$b index @0,$btmY]
+	    set btmTextIdx [$b index @0,$data(btmY)]
 	    set btmRow [expr {int($btmTextIdx) - 1}]
 	    while {$btmRow > $data(btmRow)} {
 		$b tag add visibleLines [expr {double($data(btmRow) + 2)}] \
@@ -2030,7 +2351,7 @@ proc tablelist::labelB1Motion {w X x y} {
 		redisplayCol $win $col $data(btmRow) $btmRow
 		set data(btmRow) $btmRow
 
-		set btmTextIdx [$b index @0,$btmY]
+		set btmTextIdx [$b index @0,$data(btmY)]
 		set btmRow [expr {int($btmTextIdx) - 1}]
 	    }
 
@@ -2053,6 +2374,7 @@ proc tablelist::labelB1Motion {w X x y} {
 
 	    adjustColumns $win {} 0
 	    adjustElidedText $win
+	    updateColors $win
 	    updateVScrlbarWhenIdle $win
 	}
     } else {
@@ -2144,12 +2466,13 @@ proc tablelist::labelB1Motion {w X x y} {
 		# Visualize the would-be target position
 		# of the clicked label if appropriate
 		#
-		if {$data(-protecttitlecolumns) &&
-		    (($col >= $data(-titlecolumns) &&
-		      $targetCol < $data(-titlecolumns)) ||
-		     ($col < $data(-titlecolumns) &&
-		      $targetCol > $data(-titlecolumns)))} {
-		    set data(targetCol) -1
+		if {$targetCol == $col || $targetCol == $col + 1 ||
+		    ($data(-protecttitlecolumns) &&
+		     (($col >= $data(-titlecolumns) &&
+		       $targetCol < $data(-titlecolumns)) ||
+		      ($col < $data(-titlecolumns) &&
+		       $targetCol > $data(-titlecolumns))))} {
+		    catch {unset data(targetCol)}
 		    configLabel $w -cursor $data(-cursor)
 		    $data(hdrTxtFrCanv)$col configure -cursor $data(-cursor)
 		    place forget $data(colGap)
@@ -2255,50 +2578,58 @@ proc tablelist::labelB1Up {w X} {
 	}
 	bind [winfo toplevel $win] <Escape> $data(topEscBinding)
 	set col $data(colBeingResized)
-	if {$data(-width) <= 0} {
-	    $data(hdr) configure -width $data(hdrPixels)
-	    $data(lb) configure -width \
-		      [expr {$data(hdrPixels) / $data(charWidth)}]
-	} elseif {[info exists data(stretchableCols)] &&
-		  [lsearch -exact $data(stretchableCols) $col] >= 0} {
-	    set oldColWidth \
-		[expr {$data(oldStretchedColWidth) - $data(oldColDelta)}]
-	    set stretchedColWidth \
-		[expr {$data(oldStretchedColWidth) + $X - $data(X)}]
-	    if {$oldColWidth < $data(stretchablePixels) &&
-		$stretchedColWidth >= $data(minColWidth) &&
-		$stretchedColWidth < $oldColWidth + $data(delta)} {
-		#
-		# Compute the new column width, using the following equations:
-		#
-		# $colWidth = $stretchedColWidth - $colDelta
-		# $colDelta / $colWidth =
-		#    ($data(delta) - $colWidth + $oldColWidth) /
-		#    ($data(stretchablePixels) + $colWidth - $oldColWidth)
-		#
-		set colWidth [expr {
-		    $stretchedColWidth *
-		    ($data(stretchablePixels) - $oldColWidth) /
-		    ($data(stretchablePixels) + $data(delta) -
-		     $stretchedColWidth)
-		}]
-		if {$colWidth < 1} {
-		    set colWidth 1
+	if {$data(colResized)} {
+	    if {$data(-width) <= 0} {
+		$data(hdr) configure -width $data(hdrPixels)
+		$data(lb) configure -width \
+			  [expr {$data(hdrPixels) / $data(charWidth)}]
+	    } elseif {[info exists data(stretchableCols)] &&
+		      [lsearch -exact $data(stretchableCols) $col] >= 0} {
+		set oldColWidth \
+		    [expr {$data(oldStretchedColWidth) - $data(oldColDelta)}]
+		set stretchedColWidth \
+		    [expr {$data(oldStretchedColWidth) + $X - $data(X)}]
+		if {$oldColWidth < $data(stretchablePixels) &&
+		    $stretchedColWidth >= $data(minColWidth) &&
+		    $stretchedColWidth < $oldColWidth + $data(delta)} {
+		    #
+		    # Compute the new column width,
+		    # using the following equations:
+		    #
+		    # $colWidth = $stretchedColWidth - $colDelta
+		    # $colDelta / $colWidth =
+		    #    ($data(delta) - $colWidth + $oldColWidth) /
+		    #    ($data(stretchablePixels) + $colWidth - $oldColWidth)
+		    #
+		    set colWidth [expr {
+			$stretchedColWidth *
+			($data(stretchablePixels) - $oldColWidth) /
+			($data(stretchablePixels) + $data(delta) -
+			 $stretchedColWidth)
+		    }]
+		    if {$colWidth < 1} {
+			set colWidth 1
+		    }
+		    set idx [expr {3*$col}]
+		    set data(-columns) \
+			[lreplace $data(-columns) $idx $idx -$colWidth]
+		    set idx [expr {2*$col}]
+		    set data(colList) \
+			[lreplace $data(colList) $idx $idx $colWidth]
+		    set data($col-delta) [expr {$stretchedColWidth - $colWidth}]
 		}
-		set idx [expr {3*$col}]
-		set data(-columns) \
-		    [lreplace $data(-columns) $idx $idx -$colWidth]
-		set idx [expr {2*$col}]
-		set data(colList) [lreplace $data(colList) $idx $idx $colWidth]
-		set data($col-delta) [expr {$stretchedColWidth - $colWidth}]
 	    }
 	}
 	unset data(colBeingResized)
-	$data(body) tag delete visibleLines 1.0 end
-	redisplayCol $win $col 0 end
-	adjustColumns $win {} 0
-	stretchColumns $win $col
-	event generate $win <<TablelistColumnResized>>
+	$data(body) tag remove visibleLines 1.0 end
+	$data(body) tag configure visibleLines -tabs {}
+
+	if {$data(colResized)} {
+	    redisplayCol $win $col 0 end
+	    adjustColumns $win {} 0
+	    stretchColumns $win $col
+	    event generate $win <<TablelistColumnResized>>
+	}
     } else {
 	if {[info exists data(X)]} {
 	    unset data(X)
@@ -2330,11 +2661,11 @@ proc tablelist::labelB1Up {w X} {
 	    }
 	} elseif {$data(-movablecolumns)} {
 	    $data(hdrTxtFrCanv)$col configure -cursor $data(-cursor)
-	    if {[info exists data(targetCol)] && $data(targetCol) != -1 &&
-		$data(targetCol) != $col && $data(targetCol) != $col + 1} {
+	    if {[info exists data(targetCol)]} {
 		moveCol $win $col $data(targetCol)
 		event generate $win <<TablelistColumnMoved>>
 	    }
+	    catch {unset data(targetCol)}
 	}
     }
 
@@ -2354,6 +2685,27 @@ proc tablelist::labelB3Down {w shiftPressed} {
     parseLabelPath $w win col
     upvar ::tablelist::ns${win}::data data
     if {!$data(isDisabled) &&
+	$data(-resizablecolumns) && $data($col-resizable)} {
+	if {$shiftPressed} {
+	    doColConfig $col $win -width -$data($col-lastStaticWidth)
+	} else {
+	    doColConfig $col $win -width 0
+	}
+	event generate $win <<TablelistColumnResized>>
+    }
+}
+
+#------------------------------------------------------------------------------
+# tablelist::labelDblB1
+#
+# This procedure is invoked when the header label w of a tablelist widget is
+# double-clicked.  If the pointer is on the right border of the label then the
+# procedure performs the same action as labelB3Down.
+#------------------------------------------------------------------------------
+proc tablelist::labelDblB1 {w x shiftPressed} {
+    parseLabelPath $w win col
+    upvar ::tablelist::ns${win}::data data
+    if {!$data(isDisabled) && [inResizeArea $w $x col] &&
 	$data(-resizablecolumns) && $data($col-resizable)} {
 	if {$shiftPressed} {
 	    doColConfig $col $win -width -$data($col-lastStaticWidth)
@@ -2392,7 +2744,8 @@ proc tablelist::escape {win col} {
 				    $data(configColWidth)] 0
 	redisplayCol $win $col $data(topRow) $data(btmRow)
 	unset data(colBeingResized)
-	$data(body) tag delete visibleLines 1.0 end
+	$data(body) tag remove visibleLines 1.0 end
+	$data(body) tag configure visibleLines -tabs {}
 	adjustColumns $win {} 1
     } elseif {!$data(inClickedLabel)} {
 	configLabel $w -cursor $data(-cursor)
@@ -2402,6 +2755,7 @@ proc tablelist::escape {win col} {
 	}
 	bind [winfo toplevel $win] <Escape> $data(topEscBinding)
 	place forget $data(colGap)
+	catch {unset data(targetCol)}
 	if {[info exists data(X)]} {
 	    unset data(X)
 	    after cancel $data(afterId)
@@ -2454,4 +2808,27 @@ proc tablelist::horizAutoScan win {
     }
 
     set data(afterId) [after $ms [list tablelist::horizAutoScan $win]]
+}
+
+#------------------------------------------------------------------------------
+# tablelist::inResizeArea
+#
+# Checks whether the given x coordinate relative to the header label w of a
+# tablelist widget is in the resize area of that label or of the one to its
+# left.
+#------------------------------------------------------------------------------
+proc tablelist::inResizeArea {w x colName} {
+    upvar $colName col
+    parseLabelPath $w dummy _col
+
+    if {$x >= [winfo width $w] - 5} {
+	set col $_col
+	return 1
+    } elseif {$x < 5} {
+	set X [expr {[winfo rootx $w] - 3}]
+	set contW [winfo containing -displayof $w $X [winfo rooty $w]]
+	return [parseLabelPath $contW dummy col]
+    } else {
+	return 0
+    }
 }

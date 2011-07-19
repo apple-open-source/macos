@@ -26,7 +26,7 @@
 			<corcoran@linuxnet.com>
 	Purpose: This handles abstract system level calls. 
 
-$Id: sys_macosx.cpp,v 1.5.40.1 2005/06/17 22:40:12 mb Exp $
+$Id: sys_macosx.cpp 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 
 ********************************************************************/
 
@@ -44,6 +44,7 @@ $Id: sys_macosx.cpp,v 1.5.40.1 2005/06/17 22:40:12 mb Exp $
 #include <stdlib.h>
 #include <signal.h>
 #include <time.h>
+#include <CoreServices/../Frameworks/CarbonCore.framework/Headers/MacTypes.h>
 #include "pcscexport.h"
 #include "debug.h"
 

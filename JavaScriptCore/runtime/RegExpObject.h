@@ -21,56 +21,71 @@
 #ifndef RegExpObject_h
 #define RegExpObject_h
 
-#include "JSObject.h"
+#include "JSObjectWithGlobalObject.h"
 #include "RegExp.h"
 
 namespace JSC {
 
-    class RegExpObject : public JSObject {
+    class RegExpObject : public JSObjectWithGlobalObject {
     public:
-        RegExpObject(NonNullPassRefPtr<Structure>, NonNullPassRefPtr<RegExp>);
+        typedef JSObjectWithGlobalObject Base;
+
+        RegExpObject(JSGlobalObject*, Structure*, NonNullPassRefPtr<RegExp>);
         virtual ~RegExpObject();
 
         void setRegExp(PassRefPtr<RegExp> r) { d->regExp = r; }
         RegExp* regExp() const { return d->regExp.get(); }
 
-        void setLastIndex(double lastIndex) { d->lastIndex = lastIndex; }
-        double lastIndex() const { return d->lastIndex; }
+        void setLastIndex(size_t lastIndex)
+        {
+            d->lastIndex.setWithoutWriteBarrier(jsNumber(lastIndex));
+        }
+        void setLastIndex(JSGlobalData& globalData, JSValue lastIndex)
+        {
+            d->lastIndex.set(globalData, this, lastIndex);
+        }
+        JSValue getLastIndex() const
+        {
+            return d->lastIndex.get();
+        }
 
-        JSValue test(ExecState*, const ArgList&);
-        JSValue exec(ExecState*, const ArgList&);
+        JSValue test(ExecState*);
+        JSValue exec(ExecState*);
 
         virtual bool getOwnPropertySlot(ExecState*, const Identifier& propertyName, PropertySlot&);
         virtual bool getOwnPropertyDescriptor(ExecState*, const Identifier&, PropertyDescriptor&);
         virtual void put(ExecState*, const Identifier& propertyName, JSValue, PutPropertySlot&);
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static JS_EXPORTDATA const ClassInfo s_info;
 
-        static PassRefPtr<Structure> createStructure(JSValue prototype)
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
         {
-            return Structure::create(prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount);
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
         }
 
     protected:
-        static const unsigned StructureFlags = OverridesGetOwnPropertySlot | JSObject::StructureFlags;
+        static const unsigned StructureFlags = OverridesVisitChildren | OverridesGetOwnPropertySlot | JSObjectWithGlobalObject::StructureFlags;
 
     private:
-        bool match(ExecState*, const ArgList&);
+        virtual void visitChildren(SlotVisitor&);
 
-        virtual CallType getCallData(CallData&);
+        bool match(ExecState*);
 
-        struct RegExpObjectData : FastAllocBase {
-            RegExpObjectData(NonNullPassRefPtr<RegExp> regExp, double lastIndex)
+        struct RegExpObjectData {
+            WTF_MAKE_FAST_ALLOCATED;
+        public:
+            RegExpObjectData(NonNullPassRefPtr<RegExp> regExp)
                 : regExp(regExp)
-                , lastIndex(lastIndex)
             {
+                lastIndex.setWithoutWriteBarrier(jsNumber(0));
             }
 
             RefPtr<RegExp> regExp;
-            double lastIndex;
+            WriteBarrier<Unknown> lastIndex;
         };
-
+#if COMPILER(MSVC)
+        friend void WTF::deleteOwnedPtr<RegExpObjectData>(RegExpObjectData*);
+#endif
         OwnPtr<RegExpObjectData> d;
     };
 
@@ -78,7 +93,7 @@ namespace JSC {
 
     inline RegExpObject* asRegExpObject(JSValue value)
     {
-        ASSERT(asObject(value)->inherits(&RegExpObject::info));
+        ASSERT(asObject(value)->inherits(&RegExpObject::s_info));
         return static_cast<RegExpObject*>(asObject(value));
     }
 

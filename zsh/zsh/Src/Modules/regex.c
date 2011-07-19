@@ -55,7 +55,7 @@ zcond_regex_match(char **a, int id)
 {
     regex_t re;
     regmatch_t *m, *matches = NULL;
-    size_t matchessz;
+    size_t matchessz = 0;
     char *lhstr, *rhre, *s, **arr, **x;
     int r, n, return_value, rcflags, reflags, nelem, start;
 
@@ -77,15 +77,16 @@ zcond_regex_match(char **a, int id)
 	/* re.re_nsub is number of parenthesized groups, we also need
 	 * 1 for the 0 offset, which is the entire matched portion
 	 */
-	if (re.re_nsub < 0) {
+	if ((int)re.re_nsub < 0) {
 	    zwarn("INTERNAL ERROR: regcomp() returned "
-		    "negative subpattern count %d", re.re_nsub);
+		    "negative subpattern count %d", (int)re.re_nsub);
 	    break;
 	}
 	matchessz = (re.re_nsub + 1) * sizeof(regmatch_t);
 	matches = zalloc(matchessz);
 	r = regexec(&re, lhstr, re.re_nsub+1, matches, reflags);
-	if (r == REG_NOMATCH) /**/;
+	if (r == REG_NOMATCH)
+	    ; /* We do nothing when we fail to match. */
 	else if (r == 0) {
 	    return_value = 1;
 	    if (isset(BASHREMATCH)) {
@@ -99,7 +100,7 @@ zcond_regex_match(char **a, int id)
 	    /* entire matched portion + re_nsub substrings + NULL */
 	    if (nelem) {
 		arr = x = (char **) zalloc(sizeof(char *) * (nelem + 1));
-		for (m = matches + start, n = start; n <= re.re_nsub; ++n, ++m, ++x) {
+		for (m = matches + start, n = start; n <= (int)re.re_nsub; ++n, ++m, ++x) {
 		    *x = ztrduppfx(lhstr + m->rm_so, m->rm_eo - m->rm_so);
 		}
 		*x = NULL;
@@ -107,18 +108,73 @@ zcond_regex_match(char **a, int id)
 	    if (isset(BASHREMATCH)) {
 		setaparam("BASH_REMATCH", arr);
 	    } else {
+		zlong offs;
+		char *ptr;
+
 		m = matches;
 		s = ztrduppfx(lhstr + m->rm_so, m->rm_eo - m->rm_so);
 		setsparam("MATCH", s);
-		if (nelem)
+		/*
+		 * Count the characters before the match.
+		 */
+		ptr = lhstr;
+		offs = 0;
+		MB_METACHARINIT();
+		while (ptr < lhstr + m->rm_so) {
+		    offs++;
+		    ptr += MB_METACHARLEN(ptr);
+		}
+		setiparam("MBEGIN", offs + !isset(KSHARRAYS));
+		/*
+		 * Add on the characters in the match.
+		 */
+		while (ptr < lhstr + m->rm_eo) {
+		    offs++;
+		    ptr += MB_METACHARLEN(ptr);
+		}
+		setiparam("MEND", offs + !isset(KSHARRAYS) - 1);
+		if (nelem) {
+		    char **mbegin, **mend, **bptr, **eptr;
+		    bptr = mbegin = (char **)zalloc(sizeof(char *)*(nelem+1));
+		    eptr = mend = (char **)zalloc(sizeof(char *)*(nelem+1));
+
+		    for (m = matches + start, n = 0;
+			 n < nelem;
+			 ++n, ++m, ++bptr, ++eptr)
+		    {
+			char buf[DIGBUFSIZE];
+			ptr = lhstr;
+			offs = 0;
+			/* Find the start offset */
+			MB_METACHARINIT();
+			while (ptr < lhstr + m->rm_so) {
+			    offs++;
+			    ptr += MB_METACHARLEN(ptr);
+			}
+			convbase(buf, offs + !isset(KSHARRAYS), 10);
+			*bptr = ztrdup(buf);
+			/* Continue to the end offset */
+			while (ptr < lhstr + m->rm_eo) {
+			    offs++;
+			    ptr += MB_METACHARLEN(ptr);
+			}
+			convbase(buf, offs + !isset(KSHARRAYS) - 1, 10);
+			*eptr = ztrdup(buf);
+		    }
+		    *bptr = *eptr = NULL;
+
 		    setaparam("match", arr);
+		    setaparam("mbegin", mbegin);
+		    setaparam("mend", mend);
+		}
 	    }
 	}
-	else zregex_regerrwarn(r, &re, "regex matching error");
+	else
+	    zregex_regerrwarn(r, &re, "regex matching error");
 	break;
     default:
 	DPUTS(1, "bad regex option");
-	break;
+	return 0; /* nothing to cleanup, especially not "re". */
     }
 
     if (matches)

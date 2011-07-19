@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEHandler.c"
  *                                    created: 5/6/2000 {11:34:24 PM} 
- *                                last update: 11/21/06 {11:10:47 PM} 
+ *                                last update: 8/1/10 {12:06:38 PM} 
  *  Author: Tim Endres
  *  Author: Pete Keleher
  *  Author: Jon Guyer
@@ -96,15 +96,22 @@ static OSErr TclaeDispatchEvent(const AppleEvent *theAppleEvent, AppleEvent *rep
 static AECoercePtrUPP		TclaeCoercionHandlerUPP;
 
 static AECoercePtrUPP		Tclaealis2TEXTHandlerUPP;
-static AECoercePtrUPP		Tclaefss_2TEXTHandlerUPP;
 static AECoercePtrUPP		TclaeTEXT2alisHandlerUPP;
+static AECoercePtrUPP		Tclaefsrf2TEXTHandlerUPP;
+static AECoercePtrUPP		TclaeTEXT2fsrfHandlerUPP;
+#if !__LP64__
+static AECoercePtrUPP		Tclaefss_2TEXTHandlerUPP;
 static AECoercePtrUPP		TclaeTEXT2fss_HandlerUPP;
+#endif // !__LP64__
 static AECoercePtrUPP		TclaeWILD2TEXTHandlerUPP;
 
 static pascal OSErr	Tclaealis2TEXTHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
-static pascal OSErr	Tclaefss_2TEXTHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
+static pascal OSErr	Tclaefsrf2TEXTHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
 static pascal OSErr	TclaeTEXT2alisHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
+#if !__LP64__
+static pascal OSErr	Tclaefss_2TEXTHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
 static pascal OSErr	TclaeTEXT2fss_Handler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
+#endif // !__LP64__
 static pascal OSErr	TclaeWILD2TEXTHandler(DescType dataType, const void *dataPtr, Size dataSize, DescType toType, long refCon, AEDesc *resultDesc);
 
 
@@ -204,7 +211,7 @@ Tclae_InstallCoercionHandlerCmd(ClientData clientData,
 	err = AEInstallCoercionHandler(fromType, 
 								   toType, 
 								   (AECoercionHandlerUPP)TclaeCoercionHandlerUPP, 
-								   (long) coercionHandlerPtr, 
+								   (SRefCon) coercionHandlerPtr, 
                                    false, false);
 	if (err != noErr) {
 		Tcl_ResetResult(interp);
@@ -328,7 +335,7 @@ Tclae_GetCoercionHandlerCmd(ClientData clientData,
 		err = AEGetCoercionHandler(fromType, 
 								   toType, 
 								   &handler,
-								   &handlerRefcon, 
+								   (SRefCon*) &handlerRefcon, 
 	                               &fromTypeIsDesc,
 	                               false);
 		if (err == errAEHandlerNotFound) {
@@ -338,7 +345,7 @@ Tclae_GetCoercionHandlerCmd(ClientData clientData,
 			err = AEGetCoercionHandler(fromType, 
 									   toType, 
 									   &handler,
-									   &handlerRefcon, 
+                                                   (SRefCon*) &handlerRefcon, 
 									   &fromTypeIsDesc,
 									   true);
 		}
@@ -349,7 +356,7 @@ Tclae_GetCoercionHandlerCmd(ClientData clientData,
 		err = AEGetCoercionHandler(fromType, 
 								   toType, 
 								   &handler,
-								   &handlerRefcon, 
+                                           (SRefCon*)  &handlerRefcon, 
 	                               &fromTypeIsDesc,
 	                               false);
 	                               
@@ -473,7 +480,7 @@ Tclae_InstallEventHandlerCmd(ClientData clientData,
 	err = AEInstallEventHandler(eventClass, 
 								eventID, 
 								TclaeEventHandlerUPP, 
-								(long) eventHandlerPtr, 
+                                    (SRefCon) eventHandlerPtr, 
 								false);
 	if (err != noErr) {
 		Tcl_ResetResult(interp);
@@ -602,7 +609,7 @@ Tclae_GetEventHandlerCmd(ClientData clientData,
 		err = AEGetEventHandler(eventClass, 
 								eventID, 
 								&handler,
-								&handlerRefcon, 
+								(SRefCon *) &handlerRefcon, 
 								false);
 		if (err != errAEHandlerNotFound) {
 			// Check if there's a non-Tcl event handler registered in
@@ -611,7 +618,7 @@ Tclae_GetEventHandlerCmd(ClientData clientData,
 			err = AEGetEventHandler(eventClass, 
 									eventID, 
 									&handler,
-									&handlerRefcon, 
+									(SRefCon *) &handlerRefcon, 
 									true);
 		}		
 	} else {
@@ -621,7 +628,7 @@ Tclae_GetEventHandlerCmd(ClientData clientData,
 		err = AEGetEventHandler(eventClass, 
 								eventID, 
 								&handler,
-								&handlerRefcon, 
+								(SRefCon *) &handlerRefcon, 
 								false);
 	                               
 	    if ((err != noErr)
@@ -845,7 +852,7 @@ TclaeReplyHandler(const AppleEvent *theAppleEvent,
 							
 	switch (err) {	
 		case noErr:	{
-				SInt32 hashKey = returnID;
+                                long hashKey = returnID;
 				hashEntryPtr = Tcl_FindHashEntry(tclAEEventHandlerHashTable, (char *) hashKey);
 			}
 			break;
@@ -1057,31 +1064,25 @@ Tclaealis2TEXTHandler(DescType		typeCode,
 					   AEDesc		*resultDesc)
 {
 	Boolean		wasChanged;
-	FSSpec		fss;
+	FSRef		fsref;
 	OSStatus	err;
 	AliasHandle aliasH;
 		
 	PtrToHand(dataPtr, (Handle *) &aliasH, dataSize);
     
     // Identify the target of the alias record
-	err = ResolveAlias(NULL, aliasH, &fss, &wasChanged);
+	err = FSResolveAlias(NULL, aliasH, &fsref, &wasChanged);
 	if (err == noErr)  {
-		// use Tclaefss_2TEXTHandler to get the paths to the file // das 25/10/00: Carbonization
-		err = Tclaefss_2TEXTHandler(typeCode, &fss, sizeof(FSSpec), toType, handlerRefcon, resultDesc);
+		// use Tclaefsrf2TEXTHandler to get the paths to the file // jeg 24/07/10: Carbonization
+		err = Tclaefsrf2TEXTHandler(typeCode, &fsref, sizeof(FSRef), toType, handlerRefcon, resultDesc);
     } else if (err == fnfErr) {
-	// ResolveAlias doesn't work for alias that don't exist yet
+	// FSResolveAlias doesn't work for alias that don't exist yet
 	// so we need to be a bit more creative
 	
 	// None of this will work on Mac OS X
 	// For some hammer-headed reason, alias AEDescs /cannot/ refer
 	// to a file that doesn't exist yet (tn2022), even though that's a 
 	// major reason to have aliases in the first place!!!
-    	long	gestalt;
-    	
-#if TARGET_API_MAC_OSX	
-	err = Gestalt(gestaltAliasMgrAttr, &gestalt);
-	if (err == noErr 
-	&&  (gestalt & (1 << gestaltAliasMgrSupportsFSCalls))) {
 	    CFStringRef		pathString;
 	    
 	    err = FSCopyAliasInfo(aliasH, NULL,NULL, &pathString, NULL, NULL);
@@ -1099,51 +1100,6 @@ Tclaealis2TEXTHandler(DescType		typeCode,
 		Tcl_DStringFree(&ds);
 		CFRelease(pathString);
     	    }	    
-	} else 
-#endif	
-	{
-	    AliasInfoType	index;
-	    Tcl_DString		ds1, ds2;
-	    Tcl_DString *	ds1P = &ds1;
-	    Tcl_DString *	ds2P = &ds2;
-	    Tcl_DString *	ds3P;
-	    
-	    Tcl_DStringInit(ds1P);
-	    Tcl_DStringInit(ds2P);
-	    
-	    for (index = 0; ; index++) {
-	    	Str63           theString;
-		
-		err = GetAliasInfo(aliasH, index, theString);
-		if (err != noErr || theString[0] == 0) {
-		    break;
-		}
-		
-		Tcl_ExternalToUtfDString(tclAE_macRoman_encoding, 
-					 (char *) &theString[1], theString[0], ds1P);
-					 
-					 
-		if (Tcl_DStringLength(ds2P) > 0) {
-		    Tcl_DStringAppend(ds1P, ":", 1);
-		    Tcl_DStringAppend(ds1P, Tcl_DStringValue(ds2P), Tcl_DStringLength(ds2P));
-		}
-		
-		// Swap the pointers
-		ds3P = ds2P;
-		ds2P = ds1P;
-		ds1P = ds3P;
-	    }
-	    
-	    if (err == noErr) {
-		Tcl_UtfToExternalDString(tclAE_macRoman_encoding, 
-					Tcl_DStringValue(ds2P), Tcl_DStringLength(ds2P), ds1P);
-		err = AECreateDesc(typeChar, Tcl_DStringValue(ds1P),
-					Tcl_DStringLength(ds1P), resultDesc);
-	    }
-					
-	    Tcl_DStringFree(&ds1);
-	    Tcl_DStringFree(&ds2);
-	}
     }
     DisposeHandle((Handle) aliasH);
     return err;
@@ -1154,9 +1110,9 @@ Tclaealis2TEXTHandler(DescType		typeCode,
 /* 
  * -------------------------------------------------------------------------
  * 
- * "Tclaefss_2TEXTHandler" --
+ * "Tclaefsrf2TEXTHandler" --
  * 
- *  Translate an FSSpec to a path
+ *  Translate an FSRef to a path
  * 
  * Results:
  *  MacOS error code
@@ -1169,24 +1125,24 @@ Tclaealis2TEXTHandler(DescType		typeCode,
  * -------------------------------------------------------------------------
  */
 static pascal OSErr
-Tclaefss_2TEXTHandler(DescType		typeCode, 
-		      const void *	dataPtr, 
-		      Size		dataSize, 
-		      DescType		toType, 
-		      long		handlerRefcon, 
-		      AEDesc *		resultDesc)
+Tclaefsrf2TEXTHandler(DescType		typeCode, 
+                      const void *	dataPtr, 
+                      Size		dataSize, 
+                      DescType		toType, 
+                      long		handlerRefcon, 
+                      AEDesc *		resultDesc)
 {
     int			len;
     OSErr		err;
     Handle		pathH;
     
     // Obtain the path to the file
-    err = FSpPathFromLocation((FSSpec *) dataPtr, &len, &pathH);
+    err = FSpPathFromLocation((FSRef *) dataPtr, &len, &pathH);
     if (err == noErr) {
-	HLock(pathH);
-	// FSpPathFromLocation() returns a C string, so strip the trailing '\0'
-	err = AECreateDesc(toType, *pathH, len, resultDesc);
-	DisposeHandle(pathH);
+        HLock(pathH);
+        // FSpPathFromLocation() returns a C string, so strip the trailing '\0'
+        err = AECreateDesc(toType, *pathH, len, resultDesc);
+        DisposeHandle(pathH);
     }
     return err;
 }
@@ -1233,18 +1189,20 @@ TclaeTEXT2alisHandler(DescType 		dataType,
 
     return err;
 #else
-    FSSpec	fss;
+    FSRef	fsref;
     AliasHandle	alisH;
     OSErr	err;
     
-    /* Use this instead of NewAliasMinimalFromFullPath() so that 
+    /* Use this instead of FSNewAliasMinimalUnicode() first so that 
      * we can get alii of partial paths, too. Nifty.
      */
-    err = FSpLocationFromPath(dataSize, dataPtr, &fss);
+    err = FSpLocationFromPath(dataSize, dataPtr, &fsref);
     
     switch (err) {
 	case noErr: {
-	    err = NewAliasMinimal(&fss, &alisH);
+            UniChar targetName[1];
+            
+            FSNewAliasMinimalUnicode(&fsref, 0, targetName, &alisH, NULL);
 	}
 	break;
 	
@@ -1301,6 +1259,80 @@ TclaeTEXT2alisHandler(DescType 		dataType,
 /* 
  * -------------------------------------------------------------------------
  * 
+ * "TclaeTEXT2fsrfHandler" --
+ * 
+ *  Translate a path to an FSRef
+ * 
+ * Results:
+ *  MacOS error code
+ * 
+ * Side effects:
+ *  result AEDesc is set to an 'fsrf' descriptor for the file
+ * 
+ * --Version--Author------------------Changes-------------------------------
+ *    1.0     jguyer@his.com original
+ * -------------------------------------------------------------------------
+ */
+static pascal OSErr
+TclaeTEXT2fsrfHandler(DescType 	dataType,
+                                           const void	*dataPtr,
+                                           Size 		dataSize,
+                                           DescType 	toType,
+                                           long 		refCon,
+                                           AEDesc 		*resultDesc)
+{
+        FSRef		fsref;
+        OSErr		err;
+        
+        err = FSpLocationFromPath(dataSize, dataPtr, &fsref);
+        
+        if (err == noErr) {
+                err = AECreateDesc(toType, &fsref, sizeof(FSRef), resultDesc);
+        }
+        
+        return err;
+}
+
+#if !__LP64__
+/* 
+ * -------------------------------------------------------------------------
+ * 
+ * "Tclaefss_2TEXTHandler" --
+ * 
+ *  Translate an FSSpec to a path
+ * 
+ * Results:
+ *  MacOS error code
+ * 
+ * Side effects:
+ *  result AEDesc is set to a 'TEXT' descriptor holding the path
+ * 
+ * --Version--Author------------------Changes-------------------------------
+ *    1.0     jguyer@his.com original
+ * -------------------------------------------------------------------------
+ */
+static pascal OSErr
+Tclaefss_2TEXTHandler(DescType		typeCode, 
+                      const void *	dataPtr, 
+                      Size		dataSize, 
+                      DescType		toType, 
+                      long		handlerRefcon, 
+                      AEDesc *		resultDesc)
+{
+    OSErr		err;
+    FSRef		fsref;
+    
+    // Obtain an FSRef to the file
+    err = FSpMakeFSRef((FSSpec *) dataPtr, &fsref);
+    if (err == noErr) {
+        err = Tclaefsrf2TEXTHandler(typeFSS, &fsref, sizeof(fsref), typeFSRef, handlerRefcon, resultDesc);
+    }
+    return err;
+}
+
+/* 
+ * -------------------------------------------------------------------------
+ * 
  * "TclaeTEXT2fss_Handler" --
  * 
  *  Translate a path to an FSSpec
@@ -1323,17 +1355,22 @@ TclaeTEXT2fss_Handler(DescType 	dataType,
 					   long 		refCon,
 					   AEDesc 		*resultDesc)
 {
-	FSSpec		fss;
+	FSRef		fsref;
 	OSErr		err;
 	
-	err = FSpLocationFromPath(dataSize, dataPtr, &fss);
+	err = FSpLocationFromPath(dataSize, dataPtr, &fsref);
 	
 	if (err == noErr) {
-		err = AECreateDesc(toType, &fss, sizeof(FSSpec), resultDesc);
+                FSSpec	fss;
+                err = FSGetCatalogInfo(&fsref,kFSCatInfoNone,NULL,NULL,&fss,NULL);
+                if (err == noErr) {
+                    err = AECreateDesc(toType, &fss, sizeof(FSSpec), resultDesc);
+                }
 	}
 	
 	return err;
 }
+#endif // !__LP64__
 
 /* 
  * -------------------------------------------------------------------------
@@ -1454,6 +1491,7 @@ TclaeInitEventHandlers(Tcl_Interp *interp)
 	tclAEEventHandler		*eventHandlerPtr = NULL;
 	Tcl_HashEntry			*hashEntryPtr;
 	int						isNew = 0;
+        long				handlerRefcon;
 
 	// Initialize the AE Handler hash table
 	tclAEEventHandlerHashTable = (Tcl_HashTable *)ckalloc(sizeof(Tcl_HashTable));
@@ -1479,7 +1517,7 @@ TclaeInitEventHandlers(Tcl_Interp *interp)
 	Tcl_IncrRefCount(eventHandlerPtr->eventHandlerProc);	 
 
 	do {
-		SInt32 hashKey = ++gReturnID;
+                long hashKey = ++gReturnID;
 		hashEntryPtr = Tcl_CreateHashEntry(tclAEEventHandlerHashTable, 
 										   (char *) hashKey, &isNew);
 	} while (!isNew);
@@ -1493,8 +1531,9 @@ TclaeInitEventHandlers(Tcl_Interp *interp)
 	if (!TclaeReplyHandlerUPP) {
 		TclaeReplyHandlerUPP = NewAEEventHandlerUPP(TclaeReplyHandler);
 	}
+        handlerRefcon = gReturnID;
 	err = AEInstallEventHandler(kCoreEventClass, kAEAnswer, 
-								TclaeReplyHandlerUPP, (UInt32) gReturnID, false);
+								TclaeReplyHandlerUPP, (SRefCon) handlerRefcon, false);
 	if (err != noErr) {
 		Tcl_ResetResult(interp);
 		Tcl_AppendResult(interp, "Couldn't install reply handler: ",
@@ -1535,15 +1574,23 @@ TclaeInitCoercionHandlers(Tcl_Interp *interp)
 	OSErr	err;
 	
 	Tclaealis2TEXTHandlerUPP = NewAECoercePtrUPP(Tclaealis2TEXTHandler);
-	Tclaefss_2TEXTHandlerUPP = NewAECoercePtrUPP(Tclaefss_2TEXTHandler);
 	TclaeTEXT2alisHandlerUPP = NewAECoercePtrUPP(TclaeTEXT2alisHandler);
+        Tclaefsrf2TEXTHandlerUPP = NewAECoercePtrUPP(Tclaefsrf2TEXTHandler);
+        TclaeTEXT2fsrfHandlerUPP = NewAECoercePtrUPP(TclaeTEXT2fsrfHandler);
+#if !__LP64__
+        Tclaefss_2TEXTHandlerUPP = NewAECoercePtrUPP(Tclaefss_2TEXTHandler);
 	TclaeTEXT2fss_HandlerUPP = NewAECoercePtrUPP(TclaeTEXT2fss_Handler);
+#endif // !__LP64__
 	TclaeWILD2TEXTHandlerUPP = NewAECoercePtrUPP(TclaeWILD2TEXTHandler);
 
 	err = AEInstallCoercionHandler(typeAlias, typeChar, (AECoercionHandlerUPP)Tclaealis2TEXTHandlerUPP, 0L, false, false);	
-	err = AEInstallCoercionHandler(typeFSS, typeChar, (AECoercionHandlerUPP)Tclaefss_2TEXTHandlerUPP, 0L, false, false);	
 	err = AEInstallCoercionHandler(typeChar, typeAlias, (AECoercionHandlerUPP)TclaeTEXT2alisHandlerUPP, 0L, false, false);
+        err = AEInstallCoercionHandler(typeFSRef, typeChar, (AECoercionHandlerUPP)Tclaefsrf2TEXTHandlerUPP, 0L, false, false);	
+        err = AEInstallCoercionHandler(typeChar, typeFSRef, (AECoercionHandlerUPP)TclaeTEXT2fsrfHandlerUPP, 0L, false, false);
+#if !__LP64__
+        err = AEInstallCoercionHandler(typeFSS, typeChar, (AECoercionHandlerUPP)Tclaefss_2TEXTHandlerUPP, 0L, false, false);	
 	err = AEInstallCoercionHandler(typeChar, typeFSS, (AECoercionHandlerUPP)TclaeTEXT2fss_HandlerUPP, 0L, false, false);
+#endif // !__LP64__
 //	err = AEInstallCoercionHandler(typeWildCard, typeChar, (AECoercionHandlerUPP)TclaeWILD2TEXTHandlerUPP, 0L, false, false);
 
 	/* Initialize the AE Handler hash table */
@@ -1607,7 +1654,7 @@ TclaeRegisterQueueHandler(
 	Tcl_IncrRefCount(replyHandlerProc);	 
 						
 	do {				
-		SInt32 hashKey = ++gReturnID;
+                long hashKey = ++gReturnID;
 		hashEntryPtr = Tcl_CreateHashEntry(tclAEEventHandlerHashTable, 
 										   (char *) hashKey, &isNew);
 	} while (!isNew);

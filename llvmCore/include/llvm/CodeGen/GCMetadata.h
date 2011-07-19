@@ -38,12 +38,10 @@
 #include "llvm/ADT/StringMap.h"
 
 namespace llvm {
-  
   class AsmPrinter;
   class GCStrategy;
   class Constant;
-  class TargetAsmInfo;
-  
+  class MCSymbol;
   
   namespace GC {
     /// PointKind - The type of a collector-safe point.
@@ -60,9 +58,9 @@ namespace llvm {
   /// 
   struct GCPoint {
     GC::PointKind Kind; //< The kind of the safe point.
-    unsigned Num;       //< Usually a label.
+    MCSymbol *Label;    //< A label.
     
-    GCPoint(GC::PointKind K, unsigned N) : Kind(K), Num(N) {}
+    GCPoint(GC::PointKind K, MCSymbol *L) : Kind(K), Label(L) {}
   };
   
   /// GCRoot - Metadata for a pointer to an object managed by the garbage
@@ -70,9 +68,9 @@ namespace llvm {
   struct GCRoot {
     int Num;            //< Usually a frame index.
     int StackOffset;    //< Offset from the stack pointer.
-    Constant *Metadata; //< Metadata straight from the call to llvm.gcroot.
+    const Constant *Metadata;//< Metadata straight from the call to llvm.gcroot.
     
-    GCRoot(int N, Constant *MD) : Num(N), StackOffset(-1), Metadata(MD) {}
+    GCRoot(int N, const Constant *MD) : Num(N), StackOffset(-1), Metadata(MD) {}
   };
   
   
@@ -116,15 +114,15 @@ namespace llvm {
     /// addStackRoot - Registers a root that lives on the stack. Num is the
     ///                stack object ID for the alloca (if the code generator is
     //                 using  MachineFrameInfo).
-    void addStackRoot(int Num, Constant *Metadata) {
+    void addStackRoot(int Num, const Constant *Metadata) {
       Roots.push_back(GCRoot(Num, Metadata));
     }
     
     /// addSafePoint - Notes the existence of a safe point. Num is the ID of the
     /// label just prior to the safe point (if the code generator is using 
     /// MachineModuleInfo).
-    void addSafePoint(GC::PointKind Kind, unsigned Num) {
-      SafePoints.push_back(GCPoint(Kind, Num));
+    void addSafePoint(GC::PointKind Kind, MCSymbol *Label) {
+      SafePoints.push_back(GCPoint(Kind, Label));
     }
     
     /// getFrameSize/setFrameSize - Records the function's frame size.

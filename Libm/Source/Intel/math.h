@@ -30,7 +30,7 @@
 #ifndef __MATH__
 #define __MATH__
 
-#include "sys/cdefs.h" /* For definition of __DARWIN_UNIX03 et al */
+#include <sys/cdefs.h> /* For definition of __DARWIN_UNIX03 et al */
 
 #ifdef __cplusplus
 extern "C" {
@@ -105,13 +105,13 @@ extern "C" {
 #define MATH_ERREXCEPT	2	/* Exceptions raised by math functions.  */
 
 #define math_errhandling (__math_errhandling())
-extern unsigned int __math_errhandling ( void );
+extern int __math_errhandling ( void );
 
 /********************************************************************************
 *                                                                               *
 *                              Inquiry macros                                   *
 *                                                                               *
-*   fpclassify      Returns one of the FP_Å values.                             *
+*   fpclassify      Returns one of the FP_* values.                             *
 *   isnormal        Non-zero if and only if the argument x is normalized.       *
 *   isfinite        Non-zero if and only if the argument x is finite.           *
 *   isnan           Non-zero if and only if the argument x is a NaN.            *
@@ -383,17 +383,14 @@ extern float roundf ( float );
 
 extern long int lround ( double );
 extern long int lroundf ( float );
-
-#if ( defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L ) || ! defined( __STRICT_ANSI__ )  || ! defined( __GNUC__ )
-
+    
+#if !(__DARWIN_NO_LONG_LONG)
     /* long long is not part of C90. Make sure you are passing -std=c99 or -std=gnu99 or better if you need this. */
     extern long long int llrint ( double );
     extern long long int llrintf ( float );
-
     extern long long int llround ( double );
     extern long long int llroundf ( float );
-
-#endif /* #if ( defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L ) || ! defined( __STRICT_ANSI__ )  || ! defined( __GNUC__ ) */
+#endif /* !(__DARWIN_NO_LONG_LONG) */
 
 extern double trunc ( double );
 extern float truncf ( float );
@@ -479,11 +476,11 @@ extern long int lrintl(long double);
 extern long double roundl(long double);
 extern long int lroundl(long double);
 
-#if ( defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L ) || ! defined( __STRICT_ANSI__ )  || ! defined( __GNUC__ )
+#if !(__DARWIN_NO_LONG_LONG)
     /* long long is not part of C90. Make sure you are passing -std=c99 or -std=gnu99 or better if you need this. */
     extern long long int llrintl(long double);
     extern long long int llroundl(long double);
-#endif /* #if ( defined (__STDC_VERSION__) && __STDC_VERSION__ >= 199901L ) || ! defined( __STRICT_ANSI__ )  || ! defined( __GNUC__ ) */
+#endif /* !(__DARWIN_NO_LONG_LONG) */
 
 extern long double truncl(long double);
 extern long double fmodl(long double, long double);
@@ -557,9 +554,11 @@ extern int signgam;     /* required for unix 2003 */
 #define FP_SNAN		FP_NAN
 #define FP_QNAN		FP_NAN
 
-extern long int rinttol ( double );		/* Legacy API: please use C99 lrint() instead. */
+/* Legacy API: please use C99 lrint() instead. */
+extern long int rinttol ( double );
 
-extern long int roundtol ( double );	/* Legacy API: please use C99 lround() instead. */
+/* Legacy API: please use C99 lround() instead. */
+extern long int roundtol ( double );
 
 /*
  * XOPEN/SVID
@@ -597,9 +596,12 @@ struct exception {
 #endif /* !_ANSI_SOURCE && (!_POSIX_C_SOURCE || _DARWIN_C_SOURCE) */
 
 #if !defined( __STRICT_ANSI__) && !defined(_ANSI_SOURCE) && (!defined(_POSIX_C_SOURCE) || defined(_DARWIN_C_SOURCE))
-extern int finite ( double );			/* Legacy API: please use C99 isfinite() instead. */
-
-extern double gamma ( double );			/* Legacy API: please use C99 tgamma() instead. */
+    
+/* Legacy API: please use C99 isfinite() instead. */
+extern int finite ( double );
+    
+/* Legacy API: please use C99 tgamma() instead. */
+extern double gamma ( double );
 
 #if (!defined(_XOPEN_SOURCE) || defined(_DARWIN_C_SOURCE))
 
@@ -615,7 +617,9 @@ extern double significand ( double );
 /*
  * BSD math library entry points
  */
-extern double drem ( double, double );	/* Legacy API: please use C99 remainder() instead. */
+
+/* Legacy API: please use C99 remainder() instead. */
+extern double drem ( double, double );
 	
 /*
  * Reentrant version of lgamma; passes signgam back by reference
@@ -623,7 +627,7 @@ extern double drem ( double, double );	/* Legacy API: please use C99 remainder()
  */
 	
 #ifdef _REENTRANT
-	#include <AvailabilityMacros.h>
+#include <AvailabilityMacros.h>
 	// Available on OS X 10.6 and later.
 	extern float  lgammaf_r ( float, int * ) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;
 	extern double lgamma_r ( double, int * ) AVAILABLE_MAC_OS_X_VERSION_10_6_AND_LATER;

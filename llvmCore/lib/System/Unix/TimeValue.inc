@@ -21,7 +21,7 @@
 namespace llvm {
   using namespace sys;
 
-std::string TimeValue::toString() const {
+std::string TimeValue::str() const {
   char buffer[32];
 
   time_t ourTime = time_t(this->toEpochTime());
@@ -48,7 +48,7 @@ TimeValue TimeValue::now() {
   }
 
   return TimeValue(
-    static_cast<TimeValue::SecondsType>( the_time.tv_sec ), 
+    static_cast<TimeValue::SecondsType>( the_time.tv_sec + PosixZeroTime.seconds_ ), 
     static_cast<TimeValue::NanoSecondsType>( the_time.tv_usec * 
       NANOSECONDS_PER_MICROSECOND ) );
 }

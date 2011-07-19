@@ -29,7 +29,7 @@
 
 #define super IOHIDEventDriver
 
-OSDefineMetaClassAndStructors( IOHIDEventRepairDriver, super )
+OSDefineMetaClassAndStructors( IOHIDEventRepairDriver, IOHIDEventDriver )
 //====================================================================================================
 // IOHIDEventRepairDriver::dispatchKeyboardEvent
 //====================================================================================================

@@ -1861,6 +1861,7 @@ echo "$as_me: error: cached CC is different -- throw away $cache_file
 (it is also a good idea to do 'make clean' before compiling)" >&2;}
    { (exit 1); exit 1; }; }
 fi
+test -z "$CC" || ac_cv_prog_CC="$CC"
 
 if test "$program_prefix" = NONE; then
   program_prefix=
@@ -16655,7 +16656,6 @@ LIBEXT=a
 
 
 STATIC=
-: ${LIBPATHFLAG=' -L%s'}
 : ${PATHFLAG=''}
 
 if test "$with_dln_a_out" != yes; then
@@ -16690,7 +16690,6 @@ else
 fi
 
   if test "$enable_rpath" = yes; then
-    LIBPATHFLAG=" -L%1\$-s"
     RPATHFLAG=" ${linker_flag}-R%1\$-s"
   fi
 
@@ -16813,6 +16812,12 @@ fi
   { echo "$as_me:$LINENO: result: $rb_cv_dlopen" >&5
 echo "${ECHO_T}$rb_cv_dlopen" >&6; }
 fi
+case ${RPATHFLAG} in
+*'%1$'*)
+    : ${LIBPATHFLAG=' -L%1$-s'};;
+*)
+    : ${LIBPATHFLAG=' -L%s'};;
+esac
 
 
 
@@ -17747,9 +17752,11 @@ _ACEOF
 _ACEOF
 
 else
-    arch="${target_cpu}-${target_os}"
+    arch="universal-${target_os}"
     cat >>confdefs.h <<_ACEOF
 #define RUBY_PLATFORM "${arch}"
+#define RUBY_THIN_ARCHLIB "${RUBY_LIB_PATH}/powerpc-${target_os}"
+#define RUBY_SITE_THIN_ARCHLIB "${RUBY_SITE_LIB_PATH2}/powerpc-${target_os}"
 _ACEOF
 
 fi

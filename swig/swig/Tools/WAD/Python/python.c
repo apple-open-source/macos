@@ -27,7 +27,7 @@
 #include "Python.h"
 #include "wad.h"
 
-static char cvs[] = "$Header: /cvsroot/swig/SWIG/Tools/WAD/Python/python.c,v 1.8 2001/06/20 15:12:52 beazley Exp $";
+static char cvs[] = "$Id: python.c 10001 2007-10-17 21:33:57Z wsfulton $";
 
 /* These are the python exception objects we will add
    SegFault, BusError, AbortError */

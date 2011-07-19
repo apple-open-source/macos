@@ -1,0 +1,485 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXAggregateTarget section */
+		D68D84BC10A504F500042EDD /* All */ = {
+			isa = PBXAggregateTarget;
+			buildConfigurationList = D68D84BF10A5051400042EDD /* Build configuration list for PBXAggregateTarget "All" */;
+			buildPhases = (
+			);
+			dependencies = (
+				D68D84C310A5051A00042EDD /* PBXTargetDependency */,
+				D68D84C110A5051500042EDD /* PBXTargetDependency */,
+			);
+			name = All;
+			productName = All;
+		};
+/* End PBXAggregateTarget section */
+
+/* Begin PBXBuildFile section */
+		D67ECAD6118F80A0005B80DF /* gssd_util.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BA10A4E98600042EDD /* gssd_util.c */; };
+		D68D83BE10A4E98600042EDD /* gssd_util.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BA10A4E98600042EDD /* gssd_util.c */; };
+		D68D83BF10A4E98600042EDD /* gssd.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83BB10A4E98600042EDD /* gssd.c */; };
+		D68D83D310A4EA6900042EDD /* gsstest.c in Sources */ = {isa = PBXBuildFile; fileRef = D68D83CA10A4EA2700042EDD /* gsstest.c */; };
+		D68D850D10A50BFA00042EDD /* gssd.8 in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83B610A4E93700042EDD /* gssd.8 */; };
+		D68D851110A50C5A00042EDD /* com.apple.gssd.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */; };
+		D68D851210A50C6100042EDD /* com.apple.gssd-agent.plist in CopyFiles */ = {isa = PBXBuildFile; fileRef = D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */; };
+		D69CCC69116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; settings = {ATTRIBUTES = (Server, Client, ); }; };
+		D69CCC6A116AB901002EA446 /* gssd_mach.defs in Sources */ = {isa = PBXBuildFile; fileRef = D69CCC68116AB901002EA446 /* gssd_mach.defs */; };
+		D6E1FB9D10A8BF5F0009D272 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */; };
+		D6E1FB9E10A8BF5F0009D272 /* Heimdal.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */; };
+		D6E1FBA510A8BF990009D272 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FBA410A8BF990009D272 /* GSS.framework */; };
+		D6E1FBA810A8BFA50009D272 /* GSS.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = D6E1FBA410A8BF990009D272 /* GSS.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		D68D84C010A5051500042EDD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8DD76FA90486AB0100D96B5E;
+			remoteInfo = gssd;
+		};
+		D68D84C210A5051A00042EDD /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 08FB7793FE84155DC02AAC07 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = D68D83CE10A4EA5400042EDD;
+			remoteInfo = gsstest;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		8DD76FAF0486AB0100D96B5E /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /usr/share/man/man8/;
+			dstSubfolderSpec = 0;
+			files = (
+				D68D850D10A50BFA00042EDD /* gssd.8 in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D68D850C10A50BC000042EDD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchDaemons;
+			dstSubfolderSpec = 0;
+			files = (
+				D68D851110A50C5A00042EDD /* com.apple.gssd.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+		D68D851310A50C7F00042EDD /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 8;
+			dstPath = /System/Library/LaunchAgents;
+			dstSubfolderSpec = 0;
+			files = (
+				D68D851210A50C6100042EDD /* com.apple.gssd-agent.plist in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		8DD76FB20486AB0100D96B5E /* gssd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gssd; sourceTree = BUILT_PRODUCTS_DIR; };
+		D68D83B610A4E93700042EDD /* gssd.8 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = gssd.8; sourceTree = "<group>"; };
+		D68D83BA10A4E98600042EDD /* gssd_util.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd_util.c; sourceTree = "<group>"; };
+		D68D83BB10A4E98600042EDD /* gssd.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gssd.c; sourceTree = "<group>"; };
+		D68D83BC10A4E98600042EDD /* gssd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = gssd.h; sourceTree = "<group>"; };
+		D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = "com.apple.gssd-agent.plist"; sourceTree = "<group>"; };
+		D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; path = com.apple.gssd.plist; sourceTree = "<group>"; };
+		D68D83CA10A4EA2700042EDD /* gsstest.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = gsstest.c; sourceTree = "<group>"; };
+		D68D83CF10A4EA5400042EDD /* gsstest */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = gsstest; sourceTree = BUILT_PRODUCTS_DIR; };
+		D69CCC68116AB901002EA446 /* gssd_mach.defs */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.mig; name = gssd_mach.defs; path = /System/Library/Frameworks/System.framework/Versions/B/PrivateHeaders/gssd/gssd_mach.defs; sourceTree = "<absolute>"; };
+		D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Heimdal.framework; path = /System/Library/PrivateFrameworks/Heimdal.framework; sourceTree = "<absolute>"; };
+		D6E1FBA410A8BF990009D272 /* GSS.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GSS.framework; path = /System/Library/Frameworks/GSS.framework; sourceTree = "<absolute>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		8DD76FAD0486AB0100D96B5E /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6E1FB9D10A8BF5F0009D272 /* Heimdal.framework in Frameworks */,
+				D6E1FBA510A8BF990009D272 /* GSS.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D68D83CD10A4EA5400042EDD /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D6E1FBA810A8BFA50009D272 /* GSS.framework in Frameworks */,
+				D6E1FB9E10A8BF5F0009D272 /* Heimdal.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* gssd */ = {
+			isa = PBXGroup;
+			children = (
+				D68D84CE10A507B300042EDD /* Frameworks */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = gssd;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				D69CCC68116AB901002EA446 /* gssd_mach.defs */,
+				D68D83CA10A4EA2700042EDD /* gsstest.c */,
+				D68D83C010A4E99B00042EDD /* com.apple.gssd-agent.plist */,
+				D68D83C110A4E99B00042EDD /* com.apple.gssd.plist */,
+				D68D83BA10A4E98600042EDD /* gssd_util.c */,
+				D68D83BB10A4E98600042EDD /* gssd.c */,
+				D68D83BC10A4E98600042EDD /* gssd.h */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				8DD76FB20486AB0100D96B5E /* gssd */,
+				D68D83CF10A4EA5400042EDD /* gsstest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+				D68D83B610A4E93700042EDD /* gssd.8 */,
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+		D68D84CE10A507B300042EDD /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				D6E1FB9C10A8BF5F0009D272 /* Heimdal.framework */,
+				D6E1FBA410A8BF990009D272 /* GSS.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8DD76FA90486AB0100D96B5E /* gssd */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "gssd" */;
+			buildPhases = (
+				8DD76FAB0486AB0100D96B5E /* Sources */,
+				8DD76FAD0486AB0100D96B5E /* Frameworks */,
+				D68D850C10A50BC000042EDD /* CopyFiles */,
+				D68D851310A50C7F00042EDD /* CopyFiles */,
+				8DD76FAF0486AB0100D96B5E /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = gssd;
+			productInstallPath = "$(HOME)/bin";
+			productName = gssd;
+			productReference = 8DD76FB20486AB0100D96B5E /* gssd */;
+			productType = "com.apple.product-type.tool";
+		};
+		D68D83CE10A4EA5400042EDD /* gsstest */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = D68D83F210A4EB0800042EDD /* Build configuration list for PBXNativeTarget "gsstest" */;
+			buildPhases = (
+				D68D83CC10A4EA5400042EDD /* Sources */,
+				D68D83CD10A4EA5400042EDD /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = gsstest;
+			productName = gsstest;
+			productReference = D68D83CF10A4EA5400042EDD /* gsstest */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gssd" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* gssd */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8DD76FA90486AB0100D96B5E /* gssd */,
+				D68D83CE10A4EA5400042EDD /* gsstest */,
+				D68D84BC10A504F500042EDD /* All */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DD76FAB0486AB0100D96B5E /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D68D83BE10A4E98600042EDD /* gssd_util.c in Sources */,
+				D68D83BF10A4E98600042EDD /* gssd.c in Sources */,
+				D69CCC69116AB901002EA446 /* gssd_mach.defs in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		D68D83CC10A4EA5400042EDD /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D67ECAD6118F80A0005B80DF /* gssd_util.c in Sources */,
+				D68D83D310A4EA6900042EDD /* gsstest.c in Sources */,
+				D69CCC6A116AB901002EA446 /* gssd_mach.defs in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		D68D84C110A5051500042EDD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8DD76FA90486AB0100D96B5E /* gssd */;
+			targetProxy = D68D84C010A5051500042EDD /* PBXContainerItemProxy */;
+		};
+		D68D84C310A5051A00042EDD /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = D68D83CE10A4EA5400042EDD /* gsstest */;
+			targetProxy = D68D84C210A5051A00042EDD /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		1DEB928608733DD80010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /usr/sbin;
+				OTHER_CFLAGS = "";
+				PRODUCT_NAME = gssd;
+			};
+			name = Debug;
+		};
+		1DEB928708733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_MODEL_TUNING = G5;
+				GCC_VERSION = com.apple.compilers.llvmgcc42;
+				INSTALL_MODE_FLAG = "a-w,a+rX";
+				INSTALL_PATH = /usr/sbin;
+				PRODUCT_NAME = gssd;
+			};
+			name = Release;
+		};
+		1DEB928A08733DD80010E9CD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				COPY_PHASE_STRIP = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_VERSION = com.apple.compilers.llvm.clang.1_0;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = NO;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				OTHER_CFLAGS = "";
+				PREBINDING = NO;
+				RUN_CLANG_STATIC_ANALYZER = YES;
+				STRIP_INSTALLED_PRODUCT = NO;
+			};
+			name = Debug;
+		};
+		1DEB928B08733DD80010E9CD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_TREAT_IMPLICIT_FUNCTION_DECLARATIONS_AS_ERRORS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_MISSING_FIELD_INITIALIZERS = YES;
+				GCC_WARN_ABOUT_MISSING_NEWLINE = YES;
+				GCC_WARN_ABOUT_MISSING_PROTOTYPES = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES;
+				GCC_WARN_CHECK_SWITCH_STATEMENTS = YES;
+				GCC_WARN_INITIALIZER_NOT_FULLY_BRACKETED = YES;
+				GCC_WARN_MISSING_PARENTHESES = YES;
+				GCC_WARN_PEDANTIC = NO;
+				GCC_WARN_PROTOTYPE_CONVERSION = NO;
+				GCC_WARN_SHADOW = YES;
+				GCC_WARN_SIGN_COMPARE = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES;
+				GCC_WARN_UNKNOWN_PRAGMAS = YES;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_LABEL = YES;
+				GCC_WARN_UNUSED_PARAMETER = YES;
+				GCC_WARN_UNUSED_VALUE = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				PREBINDING = NO;
+			};
+			name = Release;
+		};
+		D68D83D110A4EA5500042EDD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = NO;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_DYNAMIC_NO_PIC = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = YES;
+				GCC_MODEL_TUNING = G5;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = gsstest;
+			};
+			name = Debug;
+		};
+		D68D83D210A4EA5500042EDD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(inherited)",
+					"\"$(SRCROOT)\"",
+					"\"$(SYSTEM_LIBRARY_DIR)/PrivateFrameworks\"",
+				);
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_MODEL_TUNING = G5;
+				INSTALL_PATH = /usr/local/bin;
+				PREBINDING = NO;
+				PRODUCT_NAME = gsstest;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+		D68D84BD10A504F500042EDD /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				PRODUCT_NAME = All;
+			};
+			name = Debug;
+		};
+		D68D84BE10A504F500042EDD /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				PRODUCT_NAME = All;
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		1DEB928508733DD80010E9CD /* Build configuration list for PBXNativeTarget "gssd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928608733DD80010E9CD /* Debug */,
+				1DEB928708733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		1DEB928908733DD80010E9CD /* Build configuration list for PBXProject "gssd" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1DEB928A08733DD80010E9CD /* Debug */,
+				1DEB928B08733DD80010E9CD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D68D83F210A4EB0800042EDD /* Build configuration list for PBXNativeTarget "gsstest" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D68D83D110A4EA5500042EDD /* Debug */,
+				D68D83D210A4EA5500042EDD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		D68D84BF10A5051400042EDD /* Build configuration list for PBXAggregateTarget "All" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				D68D84BD10A504F500042EDD /* Debug */,
+				D68D84BE10A504F500042EDD /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

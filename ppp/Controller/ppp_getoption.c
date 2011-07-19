@@ -65,7 +65,7 @@ definitions
 #define MAX(a, b)	((a) > (b)? (a): (b))
 #endif
 
-
+static u_char *empty_str = (u_char *)"";
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
@@ -143,15 +143,15 @@ u_long get_int_option (struct service *serv, CFStringRef entity, CFStringRef pro
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
 int get_str_option (struct service *serv, CFStringRef entity, CFStringRef property,
-        CFDictionaryRef options, CFDictionaryRef setup, u_char *opt, u_int32_t *outlen, u_char *defaultval)
+        CFDictionaryRef options, CFDictionaryRef setup, u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval)
 {
     CFDictionaryRef	dict;
     
     // first search in the state
     if (serv->u.ppp.phase != PPP_IDLE
     	&& getStringFromEntity(gDynamicStore, kSCDynamicStoreDomainState, serv->serviceID, 
-                entity, property, opt, OPT_STR_LEN)) {
-        *outlen = strlen(opt);
+                entity, property, opt, optsiz)) {
+        *outlen = strlen((char*)opt);
         return 1;
     }
 
@@ -159,23 +159,23 @@ int get_str_option (struct service *serv, CFStringRef entity, CFStringRef proper
     if (options
         && (dict = CFDictionaryGetValue(options, entity))
     	&& (CFGetTypeID(dict) == CFDictionaryGetTypeID())
-        && getString(dict, property, opt, OPT_STR_LEN)) {
-        *outlen = strlen(opt);
+        && getString(dict, property, opt, optsiz)) {
+        *outlen = strlen((char*)opt);
         return 2;
     }
     // at last, search in the setup, only in lookinsetup flag is set
     if ((setup 
         && (dict = CFDictionaryGetValue(setup, entity))
         && (CFGetTypeID(dict) == CFDictionaryGetTypeID()) 
-        && getString(dict, property, opt, OPT_STR_LEN))
+        && getString(dict, property, opt, optsiz))
         || (!setup && getStringFromEntity(gDynamicStore, kSCDynamicStoreDomainSetup, serv->serviceID, 
-        entity, property, opt, OPT_STR_LEN))) {
-        *outlen = strlen(opt);
+        entity, property, opt, optsiz))) {
+        *outlen = strlen((char*)opt);
         return 3;
     }
 
-    strcpy(opt, defaultval);
-    *outlen = strlen(opt);
+    strlcpy((char*)opt, (char*)defaultval, optsiz);
+    *outlen = strlen((char*)opt);
     return 0;
 }
 
@@ -210,7 +210,7 @@ CFTypeRef get_cf_option (CFStringRef entity, CFStringRef property, CFTypeID type
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef setup, u_int32_t otype, void *pdata, u_int32_t *plen)
+int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef setup, u_int32_t otype, void *pdata, u_int32_t pdatasiz, u_int32_t *plen)
 {
     u_int32_t 			lval, lval1, lval2;
     u_int32_t			*lopt = (u_int32_t *)pdata;
@@ -248,9 +248,9 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
                     }
                 }
             }
-            get_str_option(serv, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, opts, setup, popt, plen,
-                           (serv->subtype == PPP_TYPE_SERIAL) ? OPT_DEV_NAME_DEF :
-                           ((serv->subtype == PPP_TYPE_PPPoE) ? OPT_DEV_NAME_PPPoE_DEF : ""));
+            get_str_option(serv, kSCEntNetInterface, kSCPropNetInterfaceDeviceName, opts, setup, popt, pdatasiz, plen,
+                           (serv->subtype == PPP_TYPE_SERIAL) ? (u_char*)OPT_DEV_NAME_DEF :
+                           ((serv->subtype == PPP_TYPE_PPPoE) ? (u_char*)OPT_DEV_NAME_PPPoE_DEF : empty_str));
             break;
         case PPP_OPT_DEV_SPEED:
             *lopt = 0; 
@@ -265,8 +265,8 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             }
             break;
         case PPP_OPT_DEV_CONNECTSCRIPT:
-            get_str_option(serv, kSCEntNetModem, kSCPropNetModemConnectionScript, opts, setup, popt, plen, 
-                (serv->subtype == PPP_TYPE_SERIAL) ? OPT_DEV_CONNECTSCRIPT_DEF : "");
+            get_str_option(serv, kSCEntNetModem, kSCPropNetModemConnectionScript, opts, setup, popt, pdatasiz, plen, 
+                (serv->subtype == PPP_TYPE_SERIAL) ? (u_char*)OPT_DEV_CONNECTSCRIPT_DEF : empty_str);
             break;
  
         case PPP_OPT_DEV_DIALMODE:
@@ -274,7 +274,7 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             *lopt = PPP_DEV_WAITFORDIALTONE;
             str[0] = 0;
             lval = sizeof(str);
-            get_str_option(serv, kSCEntNetModem, kSCPropNetModemDialMode, opts, setup, str, &lval, "");
+            get_str_option(serv, kSCEntNetModem, kSCPropNetModemDialMode, opts, setup, (u_char *)str, sizeof(str), &lval, empty_str);
             str2[0] = 0;
             CFStringGetCString(kSCValNetModemDialModeIgnoreDialTone, str2, sizeof(str2), kCFStringEncodingUTF8);
             if (!strcmp(str, str2))
@@ -311,7 +311,7 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             }
 	    break;	    
         case PPP_OPT_COMM_TERMINALSCRIPT:
-            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPCommTerminalScript, opts, setup, popt, plen, "");
+            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPCommTerminalScript, opts, setup, popt, pdatasiz, plen, empty_str);
             break;
         case PPP_OPT_COMM_IDLETIMER:
             get_int_option(serv, kSCEntNetPPP, kSCPropNetPPPDisconnectOnIdle, opts, setup, &lval, 0);
@@ -329,7 +329,7 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
                 get_int_option(serv, kSCEntNetPPP, kSCPropNetPPPIdleReminderTimer, opts, setup, lopt, OPT_COMM_REMINDERTIMER_DEF);
             break;
         case PPP_OPT_COMM_REMOTEADDR:
-            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, opts, setup, popt, plen, "");
+            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPCommRemoteAddress, opts, setup, popt, pdatasiz, plen, empty_str);
             break;
         case PPP_OPT_COMM_CONNECTDELAY:
             get_int_option(serv, kSCEntNetPPP, kSCPropNetPPPCommConnectDelay, opts, setup, lopt, OPT_COMM_CONNECTDELAY_DEF);
@@ -407,10 +407,10 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             // XXX To be fixed
             break;
         case PPP_OPT_AUTH_NAME:
-             get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPAuthName, opts, setup, popt, plen, "");
+             get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPAuthName, opts, setup, popt, pdatasiz, plen, empty_str);
             break;
         case PPP_OPT_AUTH_PASSWD:
-            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPAuthPassword, opts, setup, popt, plen, "");
+            get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPAuthPassword, opts, setup, popt, pdatasiz, plen, empty_str);
             // don't return the actual pasword.
             // instead, return len = 1 if password is known, len = 0 if password is unknown
             if (*plen) {
@@ -433,11 +433,11 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
            // MISC options
         case PPP_OPT_LOGFILE:
             // Note: this option is not taken from the user options
-             get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPLogfile, 0 /* opts */, setup, popt, plen, "");
+             get_str_option(serv, kSCEntNetPPP, kSCPropNetPPPLogfile, 0 /* opts */, setup, popt, pdatasiz, plen, empty_str);
              if (popt[0] && popt[0] != '/') {
                 lval = strlen(DIR_LOGS);
-                strncpy(popt + lval, popt, *plen);
-                strncpy(popt, DIR_LOGS, lval);
+                strncpy((char*)(popt + lval), (char*)popt, *plen);
+                strncpy((char*)popt, DIR_LOGS, lval);
                 *plen += lval;
              }
             break;
@@ -450,12 +450,12 @@ int ppp_getoptval(struct service *serv, CFDictionaryRef opts, CFDictionaryRef se
             break;
         case PPP_OPT_SERVICEID:
             popt[0] = 0;
-            CFStringGetCString(serv->serviceID, popt, 256, kCFStringEncodingUTF8);
-            *plen = strlen(popt);
+            CFStringGetCString(serv->serviceID, (char*)popt, 256, kCFStringEncodingUTF8);
+            *plen = strlen((char*)popt);
             break;
         case PPP_OPT_IFNAME:
-            strncpy(popt, serv->u.ppp.ifname, sizeof(serv->u.ppp.ifname));
-            *plen = strlen(popt);
+            strncpy((char*)popt, (char*)serv->if_name, sizeof(serv->if_name));
+            *plen = strlen((char*)popt);
             break;
 
         default:

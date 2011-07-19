@@ -19,11 +19,10 @@
 #include "llvm/Module.h"
 #include "llvm/Type.h"
 #include "llvm/Analysis/CallGraph.h"
+#include "llvm/Analysis/InlineCost.h"
 #include "llvm/Support/CallSite.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/InlinerPass.h"
-#include "llvm/Transforms/Utils/InlineCost.h"
 #include "llvm/ADT/SmallPtrSet.h"
 
 using namespace llvm;
@@ -31,7 +30,7 @@ using namespace llvm;
 namespace {
 
   // AlwaysInliner only inlines functions that are mark as "always inline".
-  class VISIBILITY_HIDDEN AlwaysInliner : public Inliner {
+  class AlwaysInliner : public Inliner {
     // Functions that are never inlined
     SmallPtrSet<const Function*, 16> NeverInline; 
     InlineCostAnalyzer CA;
@@ -46,12 +45,18 @@ namespace {
       return CA.getInlineFudgeFactor(CS);
     }
     void resetCachedCostInfo(Function *Caller) {
-      return CA.resetCachedCostInfo(Caller);
+      CA.resetCachedCostInfo(Caller);
+    }
+    void growCachedCostInfo(Function* Caller, Function* Callee) {
+      CA.growCachedCostInfo(Caller, Callee);
     }
     virtual bool doFinalization(CallGraph &CG) { 
       return removeDeadFunctions(CG, &NeverInline); 
     }
     virtual bool doInitialization(CallGraph &CG);
+    void releaseMemory() {
+      CA.clear();
+    }
   };
 }
 

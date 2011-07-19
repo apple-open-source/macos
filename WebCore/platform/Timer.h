@@ -35,7 +35,8 @@ namespace WebCore {
 
 class TimerHeapElement;
 
-class TimerBase : public Noncopyable {
+class TimerBase {
+    WTF_MAKE_NONCOPYABLE(TimerBase); WTF_MAKE_FAST_ALLOCATED;
 public:
     TimerBase();
     virtual ~TimerBase();
@@ -51,7 +52,8 @@ public:
     double nextFireInterval() const;
     double repeatInterval() const { return m_repeatInterval; }
 
-    void augmentRepeatInterval(double delta) { setNextFireTime(m_nextFireTime + delta); m_repeatInterval += delta; }
+    void augmentFireInterval(double delta) { setNextFireTime(m_nextFireTime + delta); }
+    void augmentRepeatInterval(double delta) { augmentFireInterval(delta); m_repeatInterval += delta; }
 
     static void fireTimersInNestedEventLoop();
 

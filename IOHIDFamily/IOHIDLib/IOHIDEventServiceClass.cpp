@@ -31,6 +31,7 @@
 #include <IOKit/hid/AppleEmbeddedHIDKeys.h>
 
 __BEGIN_DECLS
+#include <asl.h>
 #include <mach/mach.h>
 #include <mach/mach_interface.h>
 #include <IOKit/iokitmig.h>
@@ -97,6 +98,7 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _isOpen                     = FALSE;
 
     _asyncPort                  = MACH_PORT_NULL;
+    _asyncCFMachPort            = NULL;
     _asyncEventSource           = NULL;
         
     _serviceProperties          = NULL;
@@ -109,7 +111,7 @@ IOHIDEventServiceClass::IOHIDEventServiceClass() : IOHIDIUnknown(&sIOCFPlugInInt
     _queueMappedMemory          = NULL;
     _queueMappedMemorySize      = 0;
     
-    _queueBusy                  = TRUE;
+    _queueBusy                  = FALSE;
 
     pthread_mutex_init(&_queueLock, NULL);
     pthread_cond_init(&_queueCondition, NULL);
@@ -170,9 +172,12 @@ IOHIDEventServiceClass::~IOHIDEventServiceClass()
         _asyncEventSource = NULL;
     }
     
+    if ( _asyncCFMachPort ) {
+        CFMachPortInvalidate(_asyncCFMachPort);
+        CFRelease(_asyncCFMachPort);
+    }
+    
     if ( _asyncPort ) {
-    //  radr://6727552
-    //  mach_port_deallocate(mach_task_self(), _asyncPort);
         mach_port_mod_refs(mach_task_self(), _asyncPort, MACH_PORT_RIGHT_RECEIVE, -1);
         _asyncPort = MACH_PORT_NULL;
     }
@@ -273,6 +278,8 @@ void IOHIDEventServiceClass::_queueEventSourceCallback(
 
         // if queue empty, then stop
         while ((nextEntry = IODataQueuePeek(eventService->_queueMappedMemory))) {
+			// RY: cfPort==NULL means we're draining
+			if ( cfPort ) {
             data = CFDataCreateWithBytesNoCopy(kCFAllocatorDefault, (const UInt8*)&(nextEntry->data), nextEntry->size, kCFAllocatorNull);
 
             // if we got an entry
@@ -289,6 +296,7 @@ void IOHIDEventServiceClass::_queueEventSourceCallback(
                 }
                 CFRelease(data);
             }
+			}
             
             // dequeue the item
             dataSize = 0;
@@ -529,14 +537,6 @@ boolean_t IOHIDEventServiceClass::open(IOOptionBits options)
 
             _isOpen = true;
             
-            // drain the queue just in case
-            QUEUE_UNLOCK(this);
-
-            if ( _eventCallback )
-                _queueEventSourceCallback(NULL, NULL, 0, this);
-                
-            QUEUE_LOCK(this);
-            
         } while ( 0 );
     }
     
@@ -558,6 +558,14 @@ void IOHIDEventServiceClass::close(IOOptionBits options)
     if ( _isOpen ) {
         (void) IOConnectCallScalarMethod(_connect, kIOHIDEventServiceUserClientClose, &input, 1, 0, &len); 
         
+		// drain the queue just in case
+		QUEUE_UNLOCK(this);
+		
+		if ( _eventCallback )
+			_queueEventSourceCallback(NULL, NULL, 0, this);
+		
+		QUEUE_LOCK(this);
+		
         _isOpen = false;
     }
 
@@ -749,10 +757,6 @@ void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback
     _eventCallback = callback;
     _eventTarget = target;
     _eventRefcon = refcon;
-    
-    // drain the queue just in case
-    if ( _eventCallback )
-        _queueEventSourceCallback(NULL, NULL, 0, this);
 }
 
 //---------------------------------------------------------------------------
@@ -760,20 +764,19 @@ void IOHIDEventServiceClass::setEventCallback(IOHIDServiceEventCallback callback
 //---------------------------------------------------------------------------
 void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringRef runLoopMode)
 {
-    if ( !_asyncEventSource ) {
-        CFMachPortRef       cfPort;
-        CFMachPortContext   context;
-        Boolean             shouldFreeInfo;
+    if ( !_asyncPort ) {     
+        IOReturn ret = IOCreateReceivePort(kOSNotificationMessageID, &_asyncPort);
+        if (kIOReturnSuccess != ret || !_asyncPort)
+            return;
+            
+        ret = IOConnectSetNotificationPort(_connect, 0, _asyncPort, NULL);
+        if ( kIOReturnSuccess != ret )
+            return;
+    }
 
-        if ( !_asyncPort ) {     
-            IOReturn ret = IOCreateReceivePort(kOSNotificationMessageID, &_asyncPort);
-            if (kIOReturnSuccess != ret || !_asyncPort)
-                return;
-                
-            ret = IOConnectSetNotificationPort(_connect, 0, _asyncPort, NULL);
-            if ( kIOReturnSuccess != ret )
-                return;
-        }
+    if ( !_asyncCFMachPort ) {
+        CFMachPortContext   context;
+        Boolean             shouldFreeInfo = FALSE;
 
         context.version = 1;
         context.info = this;
@@ -781,14 +784,22 @@ void IOHIDEventServiceClass::scheduleWithRunLoop(CFRunLoopRef runLoop, CFStringR
         context.release = NULL;
         context.copyDescription = NULL;
 
-        cfPort = CFMachPortCreateWithPort(NULL, _asyncPort,
+        _asyncCFMachPort = CFMachPortCreateWithPort(NULL, _asyncPort,
                     (CFMachPortCallBack) IOHIDEventServiceClass::_queueEventSourceCallback,
                     &context, &shouldFreeInfo);
-        if (!cfPort)
+                    
+        if ( shouldFreeInfo ) {
+            // The CFMachPort we got might not work, but we'll proceed with it anyway.
+            asl_log(NULL, NULL, ASL_LEVEL_ERR, "%s received an unexpected reused CFMachPort", __func__);                    
+        }
+
+        if (!_asyncCFMachPort)
             return;
+    }
         
-        _asyncEventSource = CFMachPortCreateRunLoopSource(NULL, cfPort, 0);
-        CFRelease(cfPort);
+    if ( !_asyncEventSource ) {
+
+        _asyncEventSource = CFMachPortCreateRunLoopSource(NULL, _asyncCFMachPort, 0);
         
         if ( !_asyncEventSource )
             return;

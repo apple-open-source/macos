@@ -12,6 +12,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ADT/StringExtras.h"
 #include <cassert>
 using namespace llvm;
 
@@ -46,33 +47,18 @@ void StringMapImpl::init(unsigned InitSize) {
 }
 
 
-/// HashString - Compute a hash code for the specified string.
-///
-static unsigned HashString(const char *Start, const char *End) {
-  // Bernstein hash function.
-  unsigned int Result = 0;
-  // TODO: investigate whether a modified bernstein hash function performs
-  // better: http://eternallyconfuzzled.com/tuts/algorithms/jsw_tut_hashing.aspx
-  //   X*33+c -> X*33^c
-  while (Start != End)
-    Result = Result * 33 + *Start++;
-  Result = Result + (Result >> 5);
-  return Result;
-}
-
 /// LookupBucketFor - Look up the bucket that the specified string should end
 /// up in.  If it already exists as a key in the map, the Item pointer for the
 /// specified bucket will be non-null.  Otherwise, it will be null.  In either
 /// case, the FullHashValue field of the bucket will be set to the hash value
 /// of the string.
-unsigned StringMapImpl::LookupBucketFor(const char *NameStart,
-                                        const char *NameEnd) {
+unsigned StringMapImpl::LookupBucketFor(StringRef Name) {
   unsigned HTSize = NumBuckets;
   if (HTSize == 0) {  // Hash table unallocated so far?
     init(16);
     HTSize = NumBuckets;
   }
-  unsigned FullHashValue = HashString(NameStart, NameEnd);
+  unsigned FullHashValue = HashString(Name);
   unsigned BucketNo = FullHashValue & (HTSize-1);
   
   unsigned ProbeAmt = 1;
@@ -102,12 +88,10 @@ unsigned StringMapImpl::LookupBucketFor(const char *NameStart,
       // being non-null and for the full hash value) not at the items.  This
       // is important for cache locality.
       
-      // Do the comparison like this because NameStart isn't necessarily
+      // Do the comparison like this because Name isn't necessarily
       // null-terminated!
       char *ItemStr = (char*)BucketItem+ItemSize;
-      unsigned ItemStrLen = BucketItem->getKeyLength();
-      if (unsigned(NameEnd-NameStart) == ItemStrLen &&
-          memcmp(ItemStr, NameStart, ItemStrLen) == 0) {
+      if (Name == StringRef(ItemStr, BucketItem->getKeyLength())) {
         // We found a match!
         return BucketNo;
       }
@@ -126,10 +110,10 @@ unsigned StringMapImpl::LookupBucketFor(const char *NameStart,
 /// FindKey - Look up the bucket that contains the specified key. If it exists
 /// in the map, return the bucket number of the key.  Otherwise return -1.
 /// This does not modify the map.
-int StringMapImpl::FindKey(const char *KeyStart, const char *KeyEnd) const {
+int StringMapImpl::FindKey(StringRef Key) const {
   unsigned HTSize = NumBuckets;
   if (HTSize == 0) return -1;  // Really empty table?
-  unsigned FullHashValue = HashString(KeyStart, KeyEnd);
+  unsigned FullHashValue = HashString(Key);
   unsigned BucketNo = FullHashValue & (HTSize-1);
   
   unsigned ProbeAmt = 1;
@@ -151,9 +135,7 @@ int StringMapImpl::FindKey(const char *KeyStart, const char *KeyEnd) const {
       // Do the comparison like this because NameStart isn't necessarily
       // null-terminated!
       char *ItemStr = (char*)BucketItem+ItemSize;
-      unsigned ItemStrLen = BucketItem->getKeyLength();
-      if (unsigned(KeyEnd-KeyStart) == ItemStrLen &&
-          memcmp(ItemStr, KeyStart, ItemStrLen) == 0) {
+      if (Key == StringRef(ItemStr, BucketItem->getKeyLength())) {
         // We found a match!
         return BucketNo;
       }
@@ -172,16 +154,15 @@ int StringMapImpl::FindKey(const char *KeyStart, const char *KeyEnd) const {
 /// delete it.  This aborts if the value isn't in the table.
 void StringMapImpl::RemoveKey(StringMapEntryBase *V) {
   const char *VStr = (char*)V + ItemSize;
-  StringMapEntryBase *V2 = RemoveKey(VStr, VStr+V->getKeyLength());
+  StringMapEntryBase *V2 = RemoveKey(StringRef(VStr, V->getKeyLength()));
   V2 = V2;
   assert(V == V2 && "Didn't find key?");
 }
 
 /// RemoveKey - Remove the StringMapEntry for the specified key from the
 /// table, returning it.  If the key is not in the table, this returns null.
-StringMapEntryBase *StringMapImpl::RemoveKey(const char *KeyStart,
-                                             const char *KeyEnd) {
-  int Bucket = FindKey(KeyStart, KeyEnd);
+StringMapEntryBase *StringMapImpl::RemoveKey(StringRef Key) {
+  int Bucket = FindKey(Key);
   if (Bucket == -1) return 0;
   
   StringMapEntryBase *Result = TheTable[Bucket].Item;

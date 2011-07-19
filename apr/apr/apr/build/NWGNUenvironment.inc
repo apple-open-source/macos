@@ -39,14 +39,14 @@ ifndef NOVELLLIBC
 NOVELLLIBC = C:/novell/ndk/libc
 endif
 ifneq "$(wildcard $(NOVELLLIBC)/include/ndkvers.h)" "$(NOVELLLIBC)/include/ndkvers.h"
-$(error NOVELLLIBC does not point to a valid LIBC SDK) 
+$(error NOVELLLIBC does not point to a valid Novell LIBC SDK) 
 endif
 
 ifndef LDAPSDK
 LDAPSDK = C:/novell/ndk/cldapsdk/NetWare/libc
 endif
 ifneq "$(wildcard $(LDAPSDK)/inc/ldap.h)" "$(LDAPSDK)/inc/ldap.h"
-$(error LDAPSDK does not point to a valid CLDAP SDK) 
+$(error LDAPSDK does not point to a valid Novell CLDAP SDK) 
 endif
 
 ifndef METROWERKS
@@ -62,49 +62,47 @@ endif
 #
 # Set the Release type that you want to build, possible values are:
 #
-#  debug		- full debug switches are set
-#  noopt		- normal switches are set (default)
-#  optimized	- optimization switches are set
+#  debug	- full debug switches are set
+#  noopt	- normal switches are set
+#  release	- optimization switches are set (default)
 
 ifdef reltype
-RELEASE=$(reltype)
-endif
+RELEASE = $(reltype)
+endif    
 
 ifdef RELTYPE
-RELEASE=$(RELTYPE)
+RELEASE = $(RELTYPE)
 endif
 
 ifdef debug
-RELEASE=debug
+RELEASE = debug
 endif
 
 ifdef DEBUG
-RELEASE=debug
+RELEASE = debug
+endif
+
+ifdef noopt
+RELEASE = noopt
+endif
+
+ifdef NOOPT
+RELEASE = noopt
 endif
 
 ifdef optimized
-RELEASE=optimized
+RELEASE = release
 endif
 
 ifdef OPTIMIZED
-RELEASE=optimized
+RELEASE = release
 endif
 
 ifndef RELEASE
-RELEASE = optimized
+RELEASE = release
 endif
 
-ifeq "$(RELEASE)" "debug"
-OBJDIR = Debug
-endif
-
-ifeq "$(RELEASE)" "noopt"
-OBJDIR = Noopt
-endif
-
-ifeq "$(RELEASE)" "optimized"
-OBJDIR = Release
-endif
+OBJDIR = obj_$(RELEASE)
 
 #
 # Setup compiler information
@@ -174,7 +172,7 @@ CFLAGS += -g -O0
 endif
 
 # -O4,p                 level 4 optimizations, optimize for speed
-ifeq "$(RELEASE)" "optimized"
+ifeq "$(RELEASE)" "release"
 CFLAGS += -O4,p
 endif
 
@@ -235,28 +233,19 @@ endif
 
 INSTALLBASE := $(INSTALL)\$(BASEDIR)
 
-INSTDEVDIRS := \
-    $(INSTDIRS) \
-	$(INSTALLBASE) \
-	$(INSTALLBASE)\include \
-	$(INSTALLBASE)\lib \
-
-INSTDIRS += \
-	$(INSTALLBASE) \
-	
 else
+
 INSTALLBASE := $(INSTALL)\apr
 
-INSTDEVDIRS := \
-    $(INSTDIRS) \
-	$(INSTALLBASE) \
-	$(INSTALLBASE)\include \
-	$(INSTALLBASE)\lib \
+endif
 
 INSTDIRS += \
-	$(INSTALLBASE) \
-	
-endif	
+	$(INSTALLBASE)
+
+INSTDEVDIRS := \
+	$(INSTDIRS) \
+	$(INSTALLBASE)\include \
+	$(INSTALLBASE)\lib
 
 #
 # Declare Command and tool macros here

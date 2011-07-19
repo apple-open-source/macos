@@ -1,0 +1,94 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+proc snit               {} {box snit color green }
+proc math_geometry      {} {box math::geometry color green }
+proc struct_stack       {} {box struct::stack color green }
+proc struct_queue       {} {box struct::queue color green }
+proc struct_set         {} {box struct::set color green }
+proc namespacex         {} {box namespacex  color blue }
+proc d_point {} {group {
+    box diagram::point color red ; down ; ---
+    l ; --- 3 ; d ; ---> ;# math_geometry
+}}
+proc d_element {} {group {
+    box diagram::element color red ; down ; ---
+    group { l ; --- 7.5 ; d ; ---> 6 } ;#; snit
+    group { l ; --- 0.5 ; d ; ---> 6 } ;#math_geometry
+    group { r ; ---     ; d ; --->   } ;#d_point 
+}}
+proc d_direction {} {group {
+    box diagram::direction color red ; down ; --- 0.5
+    l ; --- 1 ; d ; ---> 6.5 ;# snit
+}}
+proc d_navigation {} {group {
+    box diagram::navigation color red ; down ; ---
+    group { l ; --- 1 ;                d ; --->   } ;#d_point
+    group {     --- 4 ; l ; --- 12.5 ; d ; ---> 2 } ;#snit
+    group {                                ---> 7 ; struct_stack }
+}}
+proc d_attribute {} {group {
+    box diagram::attribute color red ; down ; ---
+    group { --- 4.5 ; r ; --- 2 ; d ; ---> 1.5  } ;#snit
+    group {                           ---> 7    ; struct_queue }
+}}
+proc d_core {} {group {
+    box diagram::core color red ; down ; --- 2
+    group { l ; --- 23   ; d ; --->    ; d_attribute }
+    group { l ; --- 16   ; d ; --->    ; d_direction }
+    group { l ; --- 11.5 ; d ; ---> 11 ; math_geometry }
+    group { l ; ---  9   ; d ; --->    ; d_element }
+    group { l ; ---  6   ; d ; --->  6 ; d_point }
+    group { l ; ---  3.5 ; d ; --->    ; d_navigation }
+    group {                    ---> 12 ; namespacex }
+    group { r ; ---  3.5 ; d ; ---> 11 ; struct_set }
+}}
+proc d_basic {} {group {
+    box diagram::basic color red ; down ; ---
+    group { l ; --- 5.5 ; d ; ---> 12 ; snit }
+    group {                   ---> 13 } ;#math::geometry
+    group { r ; --- 4.5 ; d ; --->  7 } ;#d_point
+}}
+proc diagram {} {group {
+    box diagram color red ; down ; --- 0.5
+    group { l ; --- 14.5 ; d ; ---> 17 };#snit
+    group { l ; ---  7   ; d ; --->    ; d_basic }
+    group { r ; ---  4   ; d ; --->    ; d_core }
+}}
+
+# # ## ### ##### ######## #############
+## Parameters
+
+set grid [5 mm]
+set bw   8
+set bh   4
+set ll   2
+#set textfont {Helvetica 10}
+
+# # ## ### ##### ######## #############
+## Derived values
+
+set boxwidth     [expr {$bw   * $grid}]
+set boxheight    [expr {$bh   * $grid}]
+set movelength   [expr {$ll   * $grid}]
+set arcradius    [expr {$ll/2 * $grid}]
+
+# # ## ### ##### ######## #############
+## Macros
+
+proc --- {{n 1}} {
+    variable movelength
+    line [direction] [expr {$n * $movelength}]
+}
+proc ---> {{n 1}} {
+    variable movelength
+    arrow [direction] [expr {$n * $movelength}]
+}
+proc l {} { arc cw }
+proc r {} { arc }
+proc d {} { if {[direction] eq "west"} { arc } else { arc cw } }
+
+# # ## ### ##### ######## #############
+
+move right [22 cm] down [1 cm]
+#text {Class Hierarchy of the Diagram Processor}
+#down ; move
+diagram

@@ -58,16 +58,18 @@
 #include <sys/stat.h>
 #include <unistd.h>
 
+#ifdef HAVE_OPENSSL
 #include <openssl/bn.h>
 #include <openssl/rsa.h>
-
+#endif
+#include "crypto_openssl.h"
 #include "misc.h"
 #include "vmbuf.h"
 #include "plog.h"
 #include "oakley.h"
 #include "isakmp_var.h"
 #include "handler.h"
-#include "crypto_openssl.h"
+
 #include "sockmisc.h"
 #include "rsalist.h"
 

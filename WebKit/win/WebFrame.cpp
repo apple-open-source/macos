@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2006, 2007, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2006, 2007, 2008, 2009, 2011 Apple Inc. All rights reserved.
  * Copyright (C) Research In Motion Limited 2009. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,7 +30,6 @@
 
 #include "CFDictionaryPropertyBag.h"
 #include "COMPropertyBag.h"
-#include "COMPtr.h"
 #include "DOMCoreClasses.h"
 #include "DefaultPolicyDelegate.h"
 #include "HTMLFrameOwnerElement.h"
@@ -42,10 +41,10 @@
 #include "WebDownload.h"
 #include "WebEditorClient.h"
 #include "WebError.h"
+#include "WebFrameNetworkingContext.h"
 #include "WebFramePolicyListener.h"
 #include "WebHistory.h"
 #include "WebHistoryItem.h"
-#include "WebIconFetcher.h"
 #include "WebKit.h"
 #include "WebKitStatisticsPrivate.h"
 #include "WebMutableURLRequest.h"
@@ -53,16 +52,18 @@
 #include "WebScriptWorld.h"
 #include "WebURLResponse.h"
 #include "WebView.h"
-#pragma warning( push, 0 )
 #include <WebCore/BString.h>
-#include <WebCore/Cache.h>
+#include <WebCore/COMPtr.h>
+#include <WebCore/MemoryCache.h>
 #include <WebCore/Document.h>
 #include <WebCore/DocumentLoader.h>
+#include <WebCore/DocumentMarkerController.h>
 #include <WebCore/DOMImplementation.h>
 #include <WebCore/DOMWindow.h>
 #include <WebCore/Event.h>
 #include <WebCore/EventHandler.h>
 #include <WebCore/FormState.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoader.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameTree.h>
@@ -83,35 +84,36 @@
 #include <WebCore/NotImplemented.h>
 #include <WebCore/Page.h>
 #include <WebCore/PlatformKeyboardEvent.h>
-#include <WebCore/PluginInfoStore.h>
+#include <WebCore/PluginData.h>
 #include <WebCore/PluginDatabase.h>
 #include <WebCore/PluginView.h>
 #include <WebCore/PrintContext.h>
 #include <WebCore/ResourceHandle.h>
-#include <WebCore/ResourceHandleWin.h>
 #include <WebCore/ResourceRequest.h>
 #include <WebCore/RenderView.h>
 #include <WebCore/RenderTreeAsText.h>
 #include <WebCore/Settings.h>
+#include <WebCore/SVGDocumentExtensions.h>
 #include <WebCore/SVGSMILElement.h>
 #include <WebCore/TextIterator.h>
 #include <WebCore/JSDOMBinding.h>
 #include <WebCore/ScriptController.h>
+#include <WebCore/ScriptValue.h>
 #include <WebCore/SecurityOrigin.h>
 #include <JavaScriptCore/APICast.h>
 #include <JavaScriptCore/JSLock.h>
 #include <JavaScriptCore/JSObject.h>
 #include <JavaScriptCore/JSValue.h>
 #include <wtf/MathExtras.h>
-#pragma warning(pop)
 
-#if PLATFORM(CG)
+#if USE(CG)
 #include <CoreGraphics/CoreGraphics.h>
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
+#include "PlatformContextCairo.h"
 #include <cairo-win32.h>
 #endif
 
-#if PLATFORM(CG)
+#if USE(CG)
 // CG SPI used for printing
 extern "C" {
     CGAffineTransform CGContextGetBaseCTM(CGContextRef c); 
@@ -340,7 +342,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
         return E_FAIL;
 
     // We can't paint with a layout still pending.
-    view->layoutIfNeededRecursive();
+    view->updateLayoutAndStyleIfNeededRecursive();
 
     HDC dc = reinterpret_cast<HDC>(static_cast<ULONG64>(deviceContext));
     GraphicsContext gc(dc);
@@ -359,7 +361,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContext(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContextAtPoint(
+HRESULT STDMETHODCALLTYPE WebFrame::paintScrollViewRectToContextAtPoint(
     /* [in] */ RECT rect,
     /* [in] */ POINT pt,
     /* [in] */ OLE_HANDLE deviceContext)
@@ -373,16 +375,15 @@ HRESULT STDMETHODCALLTYPE WebFrame::paintDocumentRectToContextAtPoint(
         return E_FAIL;
 
     // We can't paint with a layout still pending.
-    view->layoutIfNeededRecursive();
+    view->updateLayoutAndStyleIfNeededRecursive();
 
     HDC dc = reinterpret_cast<HDC>(static_cast<ULONG64>(deviceContext));
     GraphicsContext gc(dc);
     gc.setShouldIncludeChildWindows(true);
     gc.save();
     IntRect dirtyRect(rect);
-    gc.translate(-pt.x, -pt.y);
-    gc.clip(dirtyRect);
-    view->paintContents(&gc, rect);
+    dirtyRect.move(-pt.x, -pt.y);
+    view->paint(&gc, dirtyRect);
     gc.restore();
 
     return S_OK;
@@ -440,7 +441,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::name(
     if (!coreFrame)
         return E_FAIL;
 
-    *frameName = BString(coreFrame->tree()->name()).release();
+    *frameName = BString(coreFrame->tree()->uniqueName()).release();
     return S_OK;
 }
 
@@ -507,9 +508,10 @@ HRESULT STDMETHODCALLTYPE WebFrame::currentForm(
 
     *currentForm = 0;
 
-    if (Frame* coreFrame = core(this))
-        if (HTMLFormElement* formElement = coreFrame->currentForm())
+    if (Frame* coreFrame = core(this)) {
+        if (HTMLFormElement* formElement = coreFrame->selection()->currentForm())
             *currentForm = DOMElement::createInstance(formElement);
+    }
 
     return *currentForm ? S_OK : E_FAIL;
 }
@@ -598,6 +600,17 @@ HRESULT STDMETHODCALLTYPE WebFrame::loadData(
     }
 
     loadData(sharedBuffer, mimeType, textEncodingName, url, 0);
+    return S_OK;
+}
+
+HRESULT WebFrame::loadPlainTextString(
+    /* [in] */ BSTR string,
+    /* [in] */ BSTR url)
+{
+    RefPtr<SharedBuffer> sharedBuffer = SharedBuffer::create(reinterpret_cast<char*>(string), sizeof(UChar) * SysStringLen(string));
+    BString plainTextMimeType(TEXT("text/plain"), 10);
+    BString utf16Encoding(TEXT("utf-16"), 6);
+    loadData(sharedBuffer.release(), plainTextMimeType, utf16Encoding, url, 0);
     return S_OK;
 }
 
@@ -691,7 +704,7 @@ KURL WebFrame::url() const
     if (!coreFrame)
         return KURL();
 
-    return coreFrame->loader()->url();
+    return coreFrame->document()->url();
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::stopLoading( void)
@@ -846,8 +859,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::childFrames(
 
 // IWebFramePrivate ------------------------------------------------------
 
-HRESULT STDMETHODCALLTYPE WebFrame::renderTreeAsExternalRepresentation(
-    /* [retval][out] */ BSTR *result)
+HRESULT WebFrame::renderTreeAsExternalRepresentation(BOOL forPrinting, BSTR *result)
 {
     if (!result)
         return E_POINTER;
@@ -856,7 +868,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::renderTreeAsExternalRepresentation(
     if (!coreFrame)
         return E_FAIL;
 
-    *result = BString(externalRepresentation(coreFrame)).release();
+    *result = BString(externalRepresentation(coreFrame, forPrinting ? RenderAsTextPrintingMode : RenderAsTextBehaviorNormal)).release();
     return S_OK;
 }
 
@@ -965,7 +977,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::firstLayoutDone(
     if (!coreFrame)
         return E_FAIL;
 
-    *result = coreFrame->loader()->firstLayoutDone();
+    *result = coreFrame->loader()->stateMachine()->firstLayoutDone();
     return S_OK;
 }
 
@@ -1005,27 +1017,30 @@ HRESULT STDMETHODCALLTYPE WebFrame::pendingFrameUnloadEventCount(
     return S_OK;
 }
 
-HRESULT STDMETHODCALLTYPE WebFrame::fetchApplicationIcon( 
-    /* [in] */ IWebIconFetcherDelegate *delegate,
-    /* [retval][out] */ IWebIconFetcher **result)
+HRESULT STDMETHODCALLTYPE WebFrame::unused2()
 {
-    if (!result)
-        return E_POINTER;
+    return E_NOTIMPL;
+}
 
-    *result = 0;
-
-    if (!delegate)
-        return E_FAIL;
-
+HRESULT STDMETHODCALLTYPE WebFrame::hasSpellingMarker(
+        /* [in] */ UINT from,
+        /* [in] */ UINT length,
+        /* [retval][out] */ BOOL* result)
+{
     Frame* coreFrame = core(this);
     if (!coreFrame)
         return E_FAIL;
-
-    *result = WebIconFetcher::fetchApplicationIcon(coreFrame, delegate);
-    if (!*result)
-        return E_FAIL;
-
+    *result = coreFrame->editor()->selectionStartHasMarkerFor(DocumentMarker::Spelling, from, length);
     return S_OK;
+}
+
+HRESULT STDMETHODCALLTYPE WebFrame::clearOpener()
+{
+    HRESULT hr = S_OK;
+    if (Frame* coreFrame = core(this))
+        coreFrame->loader()->setOpener(0);
+
+    return hr;
 }
 
 // IWebDocumentText -----------------------------------------------------------
@@ -1046,7 +1061,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::selectedString(
     if (!coreFrame)
         return E_FAIL;
 
-    String text = coreFrame->displayStringModifiedByEncoding(coreFrame->selectedText());
+    String text = coreFrame->displayStringModifiedByEncoding(coreFrame->editor()->selectedText());
 
     *result = BString(text).release();
     return S_OK;
@@ -1099,13 +1114,6 @@ void WebFrame::invalidate()
         document->recalcStyle(Node::Force);
 }
 
-void WebFrame::setTextSizeMultiplier(float multiplier)
-{
-    Frame* coreFrame = core(this);
-    ASSERT(coreFrame);
-    coreFrame->setZoomFactor(multiplier, ZoomTextOnly);
-}
-
 HRESULT WebFrame::inViewSourceMode(BOOL* flag)
 {
     if (!flag) {
@@ -1138,12 +1146,14 @@ HRESULT WebFrame::elementWithName(BSTR name, IDOMElement* form, IDOMElement** el
     if (!form)
         return E_INVALIDARG;
 
-    HTMLFormElement *formElement = formElementFromDOMElement(form);
+    HTMLFormElement* formElement = formElementFromDOMElement(form);
     if (formElement) {
-        Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+        const Vector<FormAssociatedElement*>& elements = formElement->associatedElements();
         AtomicString targetName((UChar*)name, SysStringLen(name));
         for (unsigned int i = 0; i < elements.size(); i++) {
-            HTMLFormControlElement *elt = elements[i];
+            if (!elements[i]->isFormControlElement())
+                continue;
+            HTMLFormControlElement* elt = static_cast<HTMLFormControlElement*>(elements[i]);
             // Skip option elements, other duds
             if (elt->name() == targetName) {
                 *element = DOMElement::createInstance(elt);
@@ -1181,7 +1191,7 @@ HRESULT WebFrame::elementDoesAutoComplete(IDOMElement *element, BOOL *result)
     if (!inputElement)
         *result = false;
     else
-        *result = inputElement->isTextField() && inputElement->inputType() != HTMLInputElement::PASSWORD && inputElement->autoComplete();
+        *result = inputElement->isTextField() && !inputElement->isPasswordField() && inputElement->autoComplete();
 
     return S_OK;
 }
@@ -1297,6 +1307,26 @@ HRESULT WebFrame::numberOfActiveAnimations(UINT* number)
     return S_OK;
 }
 
+HRESULT WebFrame::suspendAnimations()
+{
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    frame->animation()->suspendAnimations();
+    return S_OK;
+}
+
+HRESULT WebFrame::resumeAnimations()
+{
+    Frame* frame = core(this);
+    if (!frame)
+        return E_FAIL;
+
+    frame->animation()->resumeAnimations();
+    return S_OK;
+}
+
 HRESULT WebFrame::isDisplayingStandaloneImage(BOOL* result)
 {
     if (!result)
@@ -1324,7 +1354,7 @@ HRESULT WebFrame::allowsFollowingLink(BSTR url, BOOL* result)
     if (!frame)
         return E_FAIL;
 
-    *result = SecurityOrigin::canLoad(MarshallingHelpers::BSTRToKURL(url), String(), frame->document());
+    *result = frame->document()->securityOrigin()->canDisplay(MarshallingHelpers::BSTRToKURL(url));
     return S_OK;
 }
 
@@ -1333,12 +1363,12 @@ HRESULT WebFrame::controlsInForm(IDOMElement* form, IDOMElement** controls, int*
     if (!form)
         return E_INVALIDARG;
 
-    HTMLFormElement *formElement = formElementFromDOMElement(form);
+    HTMLFormElement* formElement = formElementFromDOMElement(form);
     if (!formElement)
         return E_FAIL;
 
     int inCount = *cControls;
-    int count = (int) formElement->formElements.size();
+    int count = (int) formElement->associatedElements().size();
     *cControls = count;
     if (!controls)
         return S_OK;
@@ -1346,10 +1376,10 @@ HRESULT WebFrame::controlsInForm(IDOMElement* form, IDOMElement** controls, int*
         return E_FAIL;
 
     *cControls = 0;
-    Vector<HTMLFormControlElement*>& elements = formElement->formElements;
+    const Vector<FormAssociatedElement*>& elements = formElement->associatedElements();
     for (int i = 0; i < count; i++) {
         if (elements.at(i)->isEnumeratable()) { // Skip option elements, other duds
-            controls[*cControls] = DOMElement::createInstance(elements.at(i));
+            controls[*cControls] = DOMElement::createInstance(toHTMLElement(elements.at(i)));
             (*cControls)++;
         }
     }
@@ -1358,9 +1388,8 @@ HRESULT WebFrame::controlsInForm(IDOMElement* form, IDOMElement** controls, int*
 
 HRESULT WebFrame::elementIsPassword(IDOMElement *element, bool *result)
 {
-    HTMLInputElement *inputElement = inputElementFromDOMElement(element);
-    *result = inputElement != 0
-        && inputElement->inputType() == HTMLInputElement::PASSWORD;
+    HTMLInputElement* inputElement = inputElementFromDOMElement(element);
+    *result = inputElement && inputElement->isPasswordField();
     return S_OK;
 }
 
@@ -1583,6 +1612,12 @@ bool WebFrame::canHandleRequest(const ResourceRequest& request) const
     return WebView::canHandleRequest(request);
 }
 
+bool WebFrame::canShowMIMETypeAsHTML(const String& /*MIMEType*/) const
+{
+    notImplemented();
+    return true;
+}
+
 bool WebFrame::canShowMIMEType(const String& /*MIMEType*/) const
 {
     notImplemented();
@@ -1689,7 +1724,13 @@ ResourceError WebFrame::pluginWillHandleLoadError(const ResourceResponse& respon
 
 bool WebFrame::shouldFallBack(const ResourceError& error)
 {
-    return error.errorCode() != WebURLErrorCancelled;
+    if (error.errorCode() == WebURLErrorCancelled && error.domain() == String(WebURLErrorDomain))
+        return false;
+
+    if (error.errorCode() == WebKitErrorPlugInWillHandleLoad && error.domain() == String(WebKitErrorDomain))
+        return false;
+
+    return true;
 }
 
 COMPtr<WebFramePolicyListener> WebFrame::setUpPolicyListener(WebCore::FramePolicyFunction function)
@@ -1724,7 +1765,7 @@ void WebFrame::receivedPolicyDecision(PolicyAction action)
     (coreFrame->loader()->policyChecker()->*function)(action);
 }
 
-void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String& mimeType, const ResourceRequest& request)
+void WebFrame::dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse& response, const ResourceRequest& request)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
@@ -1735,7 +1776,7 @@ void WebFrame::dispatchDecidePolicyForMIMEType(FramePolicyFunction function, con
 
     COMPtr<IWebURLRequest> urlRequest(AdoptCOM, WebMutableURLRequest::createInstance(request));
 
-    if (SUCCEEDED(policyDelegate->decidePolicyForMIMEType(d->webView, BString(mimeType), urlRequest.get(), this, setUpPolicyListener(function).get())))
+    if (SUCCEEDED(policyDelegate->decidePolicyForMIMEType(d->webView, BString(response.mimeType()), urlRequest.get(), this, setUpPolicyListener(function).get())))
         return;
 
     (coreFrame->loader()->policyChecker()->*function)(PolicyUse);
@@ -1859,9 +1900,9 @@ PassRefPtr<Widget> WebFrame::createJavaAppletWidget(const IntSize& pluginSize, H
     return pluginView;
 }
 
-ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType)
+ObjectContentType WebFrame::objectContentType(const KURL& url, const String& mimeType, bool shouldPreferPlugInsForImages)
 {
-    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType);
+    return WebCore::FrameLoader::defaultObjectContentType(url, mimeType, shouldPreferPlugInsForImages);
 }
 
 String WebFrame::overrideMediaType() const
@@ -1935,11 +1976,11 @@ static IntRect printerRect(HDC printDC)
                    GetDeviceCaps(printDC, PHYSICALHEIGHT) - 2 * GetDeviceCaps(printDC, PHYSICALOFFSETY));
 }
 
-void WebFrame::setPrinting(bool printing, float minPageWidth, float maxPageWidth, bool adjustViewSize)
+void WebFrame::setPrinting(bool printing, float minPageWidth, float maxPageWidth, float minPageHeight, bool adjustViewSize)
 {
     Frame* coreFrame = core(this);
     ASSERT(coreFrame);
-    coreFrame->setPrinting(printing, minPageWidth, maxPageWidth, adjustViewSize);
+    coreFrame->setPrinting(printing, FloatSize(minPageWidth, minPageHeight), maxPageWidth / minPageWidth, adjustViewSize ? AdjustViewSize : DoNotAdjustViewSize);
 }
 
 HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode( 
@@ -1959,20 +2000,25 @@ HRESULT STDMETHODCALLTYPE WebFrame::setInPrintingMode(
     // according to the paper size
     float minLayoutWidth = 0.0f;
     float maxLayoutWidth = 0.0f;
+    float minLayoutHeight = 0.0f;
     if (m_inPrintingMode && !coreFrame->document()->isFrameSet()) {
         if (!printDC) {
             ASSERT_NOT_REACHED();
             return E_POINTER;
         }
 
-        const int desiredHorizontalPixelsPerInch = 72;
+        const int desiredPixelsPerInch = 72;
+        IntRect printRect = printerRect(printDC);
         int paperHorizontalPixelsPerInch = ::GetDeviceCaps(printDC, LOGPIXELSX);
-        int paperWidth = printerRect(printDC).width() * desiredHorizontalPixelsPerInch / paperHorizontalPixelsPerInch;
+        int paperWidth = printRect.width() * desiredPixelsPerInch / paperHorizontalPixelsPerInch;
+        int paperVerticalPixelsPerInch = ::GetDeviceCaps(printDC, LOGPIXELSY);
+        int paperHeight = printRect.height() * desiredPixelsPerInch / paperVerticalPixelsPerInch;
         minLayoutWidth = paperWidth * PrintingMinimumShrinkFactor;
         maxLayoutWidth = paperWidth * PrintingMaximumShrinkFactor;
+        minLayoutHeight = paperHeight * PrintingMinimumShrinkFactor;
     }
 
-    setPrinting(m_inPrintingMode, minLayoutWidth, maxLayoutWidth, true);
+    setPrinting(m_inPrintingMode, minLayoutWidth, maxLayoutWidth, minLayoutHeight, true);
 
     if (!m_inPrintingMode)
         m_pageRects.clear();
@@ -2035,8 +2081,8 @@ const Vector<WebCore::IntRect>& WebFrame::computePageRects(HDC printDC)
     IntRect adjustedRect = IntRect(
         pageRect.x() + marginRect.x(),
         pageRect.y() + marginRect.y(),
-        pageRect.width() - marginRect.x() - marginRect.right(),
-        pageRect.height() - marginRect.y() - marginRect.bottom());
+        pageRect.width() - marginRect.x() - marginRect.maxX(),
+        pageRect.height() - marginRect.y() - marginRect.maxY());
 
     computePageRectsForFrame(coreFrame, adjustedRect, headerHeight, footerHeight, 1.0,m_pageRects, m_pageHeight);
     
@@ -2069,7 +2115,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::getPrintedPageCount(
     return S_OK;
 }
 
-#if PLATFORM(CG)
+#if USE(CG)
 void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
 {
     int x = pageRect.x();
@@ -2123,7 +2169,7 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     CGContextEndPage(pctx);
     CGContextRestoreGState(pctx);
 }
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
 static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& pageRect)
 {
     const IntRect& printRect = printerRect(printDC);
@@ -2131,8 +2177,8 @@ static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& 
     IntRect adjustedRect = IntRect(
         printRect.x() + marginRect.x(),
         printRect.y() + marginRect.y(),
-        printRect.width() - marginRect.x() - marginRect.right(),
-        printRect.height() - marginRect.y() - marginRect.bottom());
+        printRect.width() - marginRect.x() - marginRect.maxX(),
+        printRect.height() - marginRect.y() - marginRect.maxY());
 
     float scale = static_cast<float>(adjustedRect.width()) / static_cast<float>(pageRect.width());
     if (!scale)
@@ -2143,19 +2189,16 @@ static float scaleFactor(HDC printDC, const IntRect& marginRect, const IntRect& 
 
 static HDC hdcFromContext(PlatformGraphicsContext* pctx)
 {
-    cairo_surface_t* surface = cairo_get_target(pctx);
-    return cairo_win32_surface_get_dc(surface);
+    return cairo_win32_surface_get_dc(cairo_get_target(pctx->cr()));
 }
 
 void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, float headerHeight)
 {
     HDC hdc = hdcFromContext(pctx);
-    const IntRect& marginRect = printerMarginRect(hdc);
 
-    const float scale = scaleFactor(hdc, marginRect, pageRect);
-    int x = static_cast<int>(scale * pageRect.x());
+    int x = pageRect.x();
     int y = 0;
-    RECT headerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * headerHeight)};
+    RECT headerRect = {x, y, x + pageRect.width(), y + static_cast<int>(headerHeight)};
 
     ui->drawHeaderInRect(d->webView, &headerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)));
 }
@@ -2163,14 +2206,27 @@ void WebFrame::drawHeader(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, con
 void WebFrame::drawFooter(PlatformGraphicsContext* pctx, IWebUIDelegate* ui, const IntRect& pageRect, UINT page, UINT pageCount, float headerHeight, float footerHeight)
 {
     HDC hdc = hdcFromContext(pctx);
-    const IntRect& marginRect = printerMarginRect(hdc);
-
-    const float scale = scaleFactor(hdc, marginRect, pageRect);
-    int x = static_cast<int>(scale * pageRect.x());
-    int y = static_cast<int>(scale * max(static_cast<int>(headerHeight) + pageRect.height(), m_pageHeight-static_cast<int>(footerHeight)));
-    RECT footerRect = {x, y, x + static_cast<int>(scale * pageRect.width()), y + static_cast<int>(scale * footerHeight)};
+    
+    int x = pageRect.x();
+    int y = max(static_cast<int>(headerHeight) + pageRect.height(), m_pageHeight  -static_cast<int>(footerHeight));
+    RECT footerRect = {x, y, x + pageRect.width(), y + static_cast<int>(footerHeight)};
 
     ui->drawFooterInRect(d->webView, &footerRect, static_cast<OLE_HANDLE>(reinterpret_cast<LONG64>(hdc)), page+1, pageCount);
+}
+
+static XFORM buildXFORMFromCairo(HDC targetDC, cairo_t* previewContext)
+{
+    XFORM scaled;
+    GetWorldTransform(targetDC, &scaled);
+
+    cairo_matrix_t ctm;
+    cairo_get_matrix(previewContext, &ctm);    
+        
+    // Scale to the preview screen bounds
+    scaled.eM11 = ctm.xx;
+    scaled.eM22 = ctm.yy;
+
+    return scaled;
 }
 
 void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCtx, HDC printDC, IWebUIDelegate* ui, float headerHeight, float footerHeight, UINT page, UINT pageCount)
@@ -2180,48 +2236,84 @@ void WebFrame::spoolPage(PlatformGraphicsContext* pctx, GraphicsContext* spoolCt
     const IntRect& pageRect = m_pageRects[page];
     const IntRect& marginRect = printerMarginRect(printDC);
 
-    cairo_save(pctx);
+    // In preview, the printDC is a placeholder, so just always use the HDC backing the graphics context.
+    HDC hdc = hdcFromContext(pctx);
+
     spoolCtx->save();
+    
+    XFORM original, scaled;
+    GetWorldTransform(hdc, &original);
+    
+    cairo_t* cr = pctx->cr();
+    bool preview = (hdc != printDC);
+    if (preview) {
+        // If this is a preview, the Windows HDC was set to a non-scaled state so that Cairo will
+        // draw correctly.  We need to retain the correct preview scale here for use when the Cairo
+        // drawing completes so that we can scale our GDI-based header/footer calls. This is a
+        // workaround for a bug in Cairo (see https://bugs.freedesktop.org/show_bug.cgi?id=28161)
+        scaled = buildXFORMFromCairo(hdc, cr);
+    }
+
     float scale = scaleFactor(printDC, marginRect, pageRect);
-    cairo_scale(pctx, scale, scale);
+    
+    IntRect cairoMarginRect(marginRect);
+    cairoMarginRect.scale(1 / scale);
 
-    IntRect cairoMarginRect (marginRect);
-    cairoMarginRect.scale (1 / scale);
-
-    // Modify Cairo and GDI World Transform to account for margin in the
-    // subsequent WebKit-controlled 'paintContents' drawing operations:
-    spoolCtx->translate(cairoMarginRect.x(), cairoMarginRect.y() + headerHeight);
+    // We cannot scale the display HDC because the print surface also scales fonts,
+    // resulting in invalid printing (and print preview)
+    cairo_scale(cr, scale, scale);
+    cairo_translate(cr, cairoMarginRect.x(), cairoMarginRect.y() + headerHeight);
 
     // Modify Cairo (only) to account for page position.
-    cairo_translate(pctx, -pageRect.x(), -pageRect.y());
+    cairo_translate(cr, -pageRect.x(), -pageRect.y());
     coreFrame->view()->paintContents(spoolCtx, pageRect);
-
-    cairo_translate(pctx, pageRect.x(), pageRect.y());
-
-    XFORM originalWorld;
-    ::GetWorldTransform(printDC, &originalWorld);
-
-    // Position GDI world transform to account for margin in GDI-only
-    // header/footer calls
-    XFORM newWorld = originalWorld;
-    newWorld.eDx = marginRect.x();
-    newWorld.eDy = marginRect.y();
-
-    ::SetWorldTransform(printDC, &newWorld);
-
+    cairo_translate(cr, pageRect.x(), pageRect.y());
+    
+    if (preview) {
+        // If this is a preview, the Windows HDC was set to a non-scaled state so that Cairo would
+        // draw correctly.  We need to rescale the HDC to the correct preview scale so our GDI-based
+        // header/footer calls will draw properly.  This is a workaround for a bug in Cairo.
+        // (see https://bugs.freedesktop.org/show_bug.cgi?id=28161)
+        SetWorldTransform(hdc, &scaled);
+    }
+    
+    XFORM xform = TransformationMatrix().translate(marginRect.x(), marginRect.y()).scale(scale);
+    ModifyWorldTransform(hdc, &xform, MWT_LEFTMULTIPLY);
+   
     if (headerHeight)
         drawHeader(pctx, ui, pageRect, headerHeight);
     
     if (footerHeight)
         drawFooter(pctx, ui, pageRect, page, pageCount, headerHeight, footerHeight);
 
-    ::SetWorldTransform(printDC, &originalWorld);
+    SetWorldTransform(hdc, &original);
 
-    cairo_show_page(pctx);
-    ASSERT(!cairo_status(pctx));
+    cairo_show_page(cr);
+    ASSERT(!cairo_status(cr));
     spoolCtx->restore();
-    cairo_restore(pctx);
 }
+
+static void setCairoTransformToPreviewHDC(cairo_t* previewCtx, HDC previewDC)
+{
+    XFORM passedCTM;
+    GetWorldTransform(previewDC, &passedCTM);
+
+    // Reset HDC WorldTransform to unscaled state.  Scaling must be
+    // done in Cairo to avoid drawing errors.
+    XFORM unscaledCTM = passedCTM;
+    unscaledCTM.eM11 = 1.0;
+    unscaledCTM.eM22 = 1.0;
+        
+    SetWorldTransform(previewDC, &unscaledCTM);
+
+    // Make the Cairo transform match the information passed to WebKit
+    // in the HDC's WorldTransform.
+    cairo_matrix_t ctm = { passedCTM.eM11, passedCTM.eM12, passedCTM.eM21,
+                           passedCTM.eM22, passedCTM.eDx, passedCTM.eDy };
+
+    cairo_set_matrix(previewCtx, &ctm);    
+}
+
 #endif
 
 HRESULT STDMETHODCALLTYPE WebFrame::spoolPages( 
@@ -2230,23 +2322,42 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     /* [in] */ UINT endPage,
     /* [retval][out] */ void* ctx)
 {
-#if PLATFORM(CG)
+#if USE(CG)
     if (!printDC || !ctx) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
-#elif PLATFORM(CAIRO)
+#elif USE(CAIRO)
     if (!printDC) {
         ASSERT_NOT_REACHED();
         return E_POINTER;
     }
+    
+    HDC targetDC = (ctx) ? (HDC)ctx : printDC;
 
-    cairo_surface_t* printSurface = cairo_win32_printing_surface_create(printDC);
-    ctx = cairo_create(printSurface);
-    if (!ctx) {
+    cairo_surface_t* printSurface = 0;
+    if (ctx)
+        printSurface = cairo_win32_surface_create(targetDC); // in-memory
+    else
+        printSurface = cairo_win32_printing_surface_create(targetDC); // metafile
+    
+    cairo_t* cr = cairo_create(printSurface);
+    if (!cr) {
         cairo_surface_destroy(printSurface);    
         return E_FAIL;
     }
+
+    PlatformContextCairo platformContext(cr);
+    PlatformGraphicsContext* pctx = &platformContext;
+    cairo_destroy(cr);
+
+    if (ctx) {
+        // If this is a preview, the Windows HDC was sent with scaling information.
+        // Retrieve it and reset it so that it draws properly.  This is a workaround
+        // for a bug in Cairo (see https://bugs.freedesktop.org/show_bug.cgi?id=28161)
+        setCairoTransformToPreviewHDC(cr, targetDC);
+    }
+    
     cairo_surface_set_fallback_resolution(printSurface, 72.0, 72.0);
 #endif
 
@@ -2260,7 +2371,9 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
         return E_FAIL;
 
     UINT pageCount = (UINT) m_pageRects.size();
+#if USE(CG)
     PlatformGraphicsContext* pctx = (PlatformGraphicsContext*)ctx;
+#endif
 
     if (!pageCount || startPage > pageCount) {
         ASSERT_NOT_REACHED();
@@ -2285,8 +2398,7 @@ HRESULT STDMETHODCALLTYPE WebFrame::spoolPages(
     for (UINT ii = startPage; ii < endPage; ii++)
         spoolPage(pctx, &spoolCtx, printDC, ui.get(), headerHeight, footerHeight, ii, pageCount);
 
-#if PLATFORM(CAIRO)
-    cairo_destroy(pctx);
+#if USE(CAIRO)
     cairo_surface_finish(printSurface);
     ASSERT(!cairo_surface_status(printSurface));
     cairo_surface_destroy(printSurface);
@@ -2473,7 +2585,7 @@ void WebFrame::unmarkAllMisspellings()
         if (!doc)
             return;
 
-        doc->removeMarkers(DocumentMarker::Spelling);
+        doc->markers()->removeMarkers(DocumentMarker::Spelling);
     }
 }
 
@@ -2485,13 +2597,18 @@ void WebFrame::unmarkAllBadGrammar()
         if (!doc)
             return;
 
-        doc->removeMarkers(DocumentMarker::Grammar);
+        doc->markers()->removeMarkers(DocumentMarker::Grammar);
     }
 }
 
 WebView* WebFrame::webView() const
 {
     return d->webView;
+}
+
+void WebFrame::setWebView(WebView* webView)
+{
+    d->webView = webView;
 }
 
 COMPtr<IAccessible> WebFrame::accessible() const
@@ -2523,3 +2640,7 @@ void WebFrame::updateBackground()
     coreFrame->view()->updateBackgroundRecursively(backgroundColor, webView()->transparent());
 }
 
+PassRefPtr<FrameNetworkingContext> WebFrame::createNetworkingContext()
+{
+    return WebFrameNetworkingContext::create(core(this), userAgent(url()));
+}

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007,2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2008 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,26 +29,20 @@
 #ifndef SecurityOrigin_h
 #define SecurityOrigin_h
 
-#include <wtf/HashSet.h>
-#include <wtf/RefCounted.h>
-#include <wtf/PassRefPtr.h>
-#include <wtf/Threading.h>
-
 #include "FrameLoaderTypes.h"
 #include "PlatformString.h"
-#include "StringHash.h"
+#include <wtf/ThreadSafeRefCounted.h>
 
 namespace WebCore {
-
-typedef HashSet<String, CaseFoldingHash> URLSchemesMap;
 
 class Document;
 class KURL;
 
-class SecurityOrigin : public ThreadSafeShared<SecurityOrigin> {
+class SecurityOrigin : public ThreadSafeRefCounted<SecurityOrigin> {
 public:
     static PassRefPtr<SecurityOrigin> createFromDatabaseIdentifier(const String&);
     static PassRefPtr<SecurityOrigin> createFromString(const String&);
+    static PassRefPtr<SecurityOrigin> create(const String& protocol, const String& host, int port);
     static PassRefPtr<SecurityOrigin> create(const KURL&, SandboxFlags = SandboxNone);
     static PassRefPtr<SecurityOrigin> createEmpty();
 
@@ -86,17 +80,15 @@ public:
     // drawing an image onto an HTML canvas element with the drawImage API.
     bool taintsCanvas(const KURL&) const;
 
-    // Returns true for any non-local URL. If document parameter is supplied,
-    // its local load policy dictates, otherwise if referrer is non-empty and
-    // represents a local file, then the local load is allowed.
-    static bool canLoad(const KURL&, const String& referrer, Document* document);
-
-    bool canDisplay(const KURL& url) const;
-
     // Returns true if this SecurityOrigin can receive drag content from the
     // initiator. For example, call this function before allowing content to be
     // dropped onto a target.
     bool canReceiveDragData(const SecurityOrigin* dragInitiator) const;    
+
+    // Returns true if |document| can display content from the given URL (e.g.,
+    // in an iframe or as an image). For example, web sites generally cannot
+    // display content from the user's files system.
+    bool canDisplay(const KURL&) const;
 
     // Returns true if this SecurityOrigin can load local resources, such
     // as images, iframes, and style sheets, and can link to local URLs.
@@ -126,6 +118,8 @@ public:
     bool canAccessDatabase() const { return !isUnique(); }
     bool canAccessLocalStorage() const { return !isUnique(); }
     bool canAccessCookies() const { return !isUnique(); }
+    bool canAccessPasswordManager() const { return !isUnique(); }
+    bool canAccessFileSystem() const { return !isUnique(); }
 
     // Technically, we should always allow access to sessionStorage, but we
     // currently don't handle creating a sessionStorage area for unique
@@ -139,9 +133,6 @@ public:
     // resources, and can set arbitrary headers on XMLHttpRequests.
     bool isLocal() const;
 
-    // The empty SecurityOrigin is the least privileged SecurityOrigin.
-    bool isEmpty() const;
-
     // The origin is a globally unique identifier assigned when the Document is
     // created. http://www.whatwg.org/specs/web-apps/current-work/#sandboxOrigin
     //
@@ -149,6 +140,13 @@ public:
     // has the SandboxOrigin flag set. The latter implies the former, and, in
     // addition, the SandboxOrigin flag is inherited by iframes.
     bool isUnique() const { return m_isUnique; }
+
+    // The empty SecurityOrigin is a unique security orign (in the sense of
+    // isUnique above) that was created for a "blank" document, such about
+    // about:blank. Empty origins differ from unique origins in that they can
+    // sometimes be replaced by non-empty origins, for example when an
+    // about:blank iframe inherits its security origin from its parent frame.
+    bool isEmpty() const;
 
     // Marks a file:// origin as being in a domain defined by its path.
     void enforceFilePathSeparation();
@@ -180,18 +178,6 @@ public:
     // (and whether it was set) but considering the host. It is used for postMessage.
     bool isSameSchemeHostPort(const SecurityOrigin*) const;
 
-    static void registerURLSchemeAsLocal(const String&);
-    static void removeURLSchemeRegisteredAsLocal(const String&);
-    static const URLSchemesMap& localURLSchemes();
-    static bool shouldTreatURLAsLocal(const String&);
-    static bool shouldTreatURLSchemeAsLocal(const String&);
-
-    // Secure schemes do not trigger mixed content warnings. For example,
-    // https and data are secure schemes because they cannot be corrupted by
-    // active network attackers.
-    static void registerURLSchemeAsSecure(const String&);
-    static bool shouldTreatURLSchemeAsSecure(const String&);
-
     static bool shouldHideReferrer(const KURL&, const String& referrer);
 
     enum LocalLoadPolicy {
@@ -203,9 +189,6 @@ public:
     static bool restrictAccessToLocal();
     static bool allowSubstituteDataAccessToLocal();
 
-    static void registerURLSchemeAsNoAccess(const String&);
-    static bool shouldTreatURLSchemeAsNoAccess(const String&);
-
     static void addOriginAccessWhitelistEntry(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomains, bool allowDestinationSubdomains);
     static void removeOriginAccessWhitelistEntry(const SecurityOrigin& sourceOrigin, const String& destinationProtocol, const String& destinationDomains, bool allowDestinationSubdomains);
     static void resetOriginAccessWhitelists();
@@ -214,9 +197,11 @@ private:
     SecurityOrigin(const KURL&, SandboxFlags);
     explicit SecurityOrigin(const SecurityOrigin*);
 
-    bool passesFileCheck(const SecurityOrigin* other) const;
+    // FIXME: Rename this function to something more semantic.
+    bool passesFileCheck(const SecurityOrigin*) const;
 
-    bool isAccessWhiteListed(const SecurityOrigin* targetOrigin) const;
+    bool isAccessWhiteListed(const SecurityOrigin*) const;
+    bool isAccessToURLWhiteListed(const KURL&) const;
 
     SandboxFlags m_sandboxFlags;
     String m_protocol;

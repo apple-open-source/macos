@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2008 Apple Inc.  All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc.  All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -65,7 +65,7 @@
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/mman.h>		/* For mmap()				 */
-#include <rpc/rpc.h>
+#include <oncrpc/rpc.h>
 #include <syslog.h>
 #include <stdlib.h>
 #include <sys/param.h>
@@ -625,7 +625,7 @@ newfile:
 		}
 		rv = pwrite(status_fd, &fh, sizeof(fh), 0);
 		if ((rv < 0) || (rv = fsync(status_fd))) {
-			log(LOG_ERR, "unable to initialize status file header, aborting");
+			log(LOG_ERR, "unable to initialize status file header (%d), aborting", rv);
 			exit(1);
 		}
 	}
@@ -656,33 +656,63 @@ static int
 notify_one_host(char *hostname, int warn)
 {
 	struct timeval timeout = {20, 0};	/* 20 secs timeout		 */
+	struct timeval try = {4, 0};		/* 4 secs per try		 */
+	struct addrinfo *ai, *ailist;
 	CLIENT *cli;
-	char dummy, proto[] = "udp", empty[] = "";
+	char dummy, empty[] = "", *spcerr = NULL;
 	stat_chge arg;
 	char our_hostname[SM_MAXSTRLEN + 1];
+	int result, error, sock;
 
 	gethostname(our_hostname, sizeof(our_hostname));
 	our_hostname[SM_MAXSTRLEN] = '\0';
 	arg.mon_name = our_hostname;
 	arg.state = ntohl(status_info->fh_state);
+	result = FALSE;
 
 	DEBUG(1, "Sending SM_NOTIFY to host %s from %s", hostname, our_hostname);
 
-	cli = clnt_create(hostname, SM_PROG, SM_VERS, proto);
-	if (!cli) {
+	/* get the list of addresses for this host */
+	ailist = NULL;
+	if ((error = getaddresslist(hostname, &ailist))) {
 		if (warn)
-			log(LOG_WARNING, "Failed to contact host %s%s", hostname, clnt_spcreateerror(empty));
-		return (FALSE);
+			log(LOG_WARNING, "Failed to contact host %s - error %d resolving", hostname, error);
+		return (result);
 	}
-	if (clnt_call(cli, SM_NOTIFY, (xdrproc_t) xdr_stat_chge, &arg, (xdrproc_t) xdr_void, &dummy, timeout)
-	    != RPC_SUCCESS) {
+	if (!ailist) {
 		if (warn)
-			log(LOG_WARNING, "Failed to contact rpc.statd at host %s", hostname);
+			log(LOG_WARNING, "Failed to contact host %s - no addresses", hostname);
+		return (result);
+	}
+
+	/* try each address until we get success */
+	for (ai=ailist; ai && (result == FALSE); ai = ai->ai_next) {
+		if (config.send_using_tcp) {
+			sock = RPC_ANYSOCK;
+			cli = clnttcp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, &sock, 0, 0);
+		}
+		if (!config.send_using_tcp || !cli) {
+			sock = RPC_ANYSOCK;
+			cli = clntudp_create_sa(ai->ai_addr, SM_PROG, SM_VERS, try, &sock);
+		}
+		if (!cli) {
+			if (warn)
+				spcerr = clnt_spcreateerror(empty);
+			continue;
+		}
+		if (clnt_call(cli, SM_NOTIFY, (xdrproc_t)xdr_stat_chge, &arg, (xdrproc_t)xdr_void, &dummy, timeout) == RPC_SUCCESS)
+			result = TRUE;
 		clnt_destroy(cli);
-		return (FALSE);
 	}
-	clnt_destroy(cli);
-	return (TRUE);
+
+	if ((result == FALSE) && warn) {
+		if (spcerr)
+			log(LOG_WARNING, "Failed to contact host %s%s", hostname, spcerr);
+		log(LOG_WARNING, "Failed to contact rpc.statd at host %s", hostname);
+	}
+
+	freeaddrinfo(ailist);
+	return (result);
 }
 
 /* notify_hosts ------------------------------------------------------------ */
@@ -833,10 +863,11 @@ struct hoststate {
 };
 static
 TAILQ_HEAD(, hoststate) hosts;
-	static uint32_t prev_state, prev_reccnt;
-	static off_t prev_status_file_len;
+static uint32_t prev_state, prev_reccnt;
+static off_t prev_status_file_len;
 
-	int list_hosts(int mode)
+int
+list_hosts(int mode)
 {
 	uint i;
 	int watchmode = (mode == LIST_MODE_WATCH);

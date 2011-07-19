@@ -18,12 +18,16 @@
 #define LLVM_SUPPORT_CONSTANTFOLDER_H
 
 #include "llvm/Constants.h"
+#include "llvm/InstrTypes.h"
 
 namespace llvm {
+
+class LLVMContext;
 
 /// ConstantFolder - Create constants with minimum, target independent, folding.
 class ConstantFolder {
 public:
+  explicit ConstantFolder(LLVMContext &) {}
 
   //===--------------------------------------------------------------------===//
   // Binary Operators
@@ -32,17 +36,47 @@ public:
   Constant *CreateAdd(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getAdd(LHS, RHS);
   }
+  Constant *CreateNSWAdd(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNSWAdd(LHS, RHS);
+  }
+  Constant *CreateNUWAdd(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNUWAdd(LHS, RHS);
+  }
+  Constant *CreateFAdd(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getFAdd(LHS, RHS);
+  }
   Constant *CreateSub(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getSub(LHS, RHS);
   }
+  Constant *CreateNSWSub(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNSWSub(LHS, RHS);
+  }
+  Constant *CreateNUWSub(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNUWSub(LHS, RHS);
+  }
+  Constant *CreateFSub(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getFSub(LHS, RHS);
+  }
   Constant *CreateMul(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getMul(LHS, RHS);
+  }
+  Constant *CreateNSWMul(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNSWMul(LHS, RHS);
+  }
+  Constant *CreateNUWMul(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getNUWMul(LHS, RHS);
+  }
+  Constant *CreateFMul(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getFMul(LHS, RHS);
   }
   Constant *CreateUDiv(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getUDiv(LHS, RHS);
   }
   Constant *CreateSDiv(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getSDiv(LHS, RHS);
+  }
+  Constant *CreateExactSDiv(Constant *LHS, Constant *RHS) const {
+    return ConstantExpr::getExactSDiv(LHS, RHS);
   }
   Constant *CreateFDiv(Constant *LHS, Constant *RHS) const {
     return ConstantExpr::getFDiv(LHS, RHS);
@@ -87,6 +121,15 @@ public:
   Constant *CreateNeg(Constant *C) const {
     return ConstantExpr::getNeg(C);
   }
+  Constant *CreateNSWNeg(Constant *C) const {
+    return ConstantExpr::getNSWNeg(C);
+  }
+  Constant *CreateNUWNeg(Constant *C) const {
+    return ConstantExpr::getNUWNeg(C);
+  }
+  Constant *CreateFNeg(Constant *C) const {
+    return ConstantExpr::getFNeg(C);
+  }
   Constant *CreateNot(Constant *C) const {
     return ConstantExpr::getNot(C);
   }
@@ -104,6 +147,15 @@ public:
     return ConstantExpr::getGetElementPtr(C, IdxList, NumIdx);
   }
 
+  Constant *CreateInBoundsGetElementPtr(Constant *C, Constant* const *IdxList,
+                                        unsigned NumIdx) const {
+    return ConstantExpr::getInBoundsGetElementPtr(C, IdxList, NumIdx);
+  }
+  Constant *CreateInBoundsGetElementPtr(Constant *C, Value* const *IdxList,
+                                        unsigned NumIdx) const {
+    return ConstantExpr::getInBoundsGetElementPtr(C, IdxList, NumIdx);
+  }
+
   //===--------------------------------------------------------------------===//
   // Cast/Conversion Operators
   //===--------------------------------------------------------------------===//
@@ -112,9 +164,15 @@ public:
                        const Type *DestTy) const {
     return ConstantExpr::getCast(Op, C, DestTy);
   }
+  Constant *CreatePointerCast(Constant *C, const Type *DestTy) const {
+    return ConstantExpr::getPointerCast(C, DestTy);
+  }
   Constant *CreateIntCast(Constant *C, const Type *DestTy,
                           bool isSigned) const {
     return ConstantExpr::getIntegerCast(C, DestTy, isSigned);
+  }
+  Constant *CreateFPCast(Constant *C, const Type *DestTy) const {
+    return ConstantExpr::getFPCast(C, DestTy);
   }
 
   Constant *CreateBitCast(Constant *C, const Type *DestTy) const {
@@ -126,6 +184,13 @@ public:
   Constant *CreatePtrToInt(Constant *C, const Type *DestTy) const {
     return CreateCast(Instruction::PtrToInt, C, DestTy);
   }
+  Constant *CreateZExtOrBitCast(Constant *C, const Type *DestTy) const {
+    return ConstantExpr::getZExtOrBitCast(C, DestTy);
+  }
+  Constant *CreateSExtOrBitCast(Constant *C, const Type *DestTy) const {
+    return ConstantExpr::getSExtOrBitCast(C, DestTy);
+  }
+
   Constant *CreateTruncOrBitCast(Constant *C, const Type *DestTy) const {
     return ConstantExpr::getTruncOrBitCast(C, DestTy);
   }
@@ -140,14 +205,6 @@ public:
   }
   Constant *CreateFCmp(CmpInst::Predicate P, Constant *LHS,
                        Constant *RHS) const {
-    return ConstantExpr::getCompare(P, LHS, RHS);
-  }
-  Constant *CreateVICmp(CmpInst::Predicate P, Constant *LHS,
-                        Constant *RHS) const {
-    return ConstantExpr::getCompare(P, LHS, RHS);
-  }
-  Constant *CreateVFCmp(CmpInst::Predicate P, Constant *LHS,
-                        Constant *RHS) const {
     return ConstantExpr::getCompare(P, LHS, RHS);
   }
 

@@ -18,6 +18,7 @@ typedef struct sql_config {
 	char   *sql_login;
 	char   *sql_password;
 	char   *sql_db;
+	char   *sql_file;	/* for sqlite */
 	char   *query_user;
 	char   *default_profile;
 	char   *nas_query;
@@ -42,9 +43,12 @@ typedef struct sql_config {
 	char   *xlat_name;
 	int     deletestalesessions;
 	int     num_sql_socks;
+	int     lifetime;
+	int     max_queries;
 	int     connect_failure_retry_delay;
 	char   *postauth_query;
 	char   *allowed_chars;
+	int	query_timeout;
 
 	/* individual driver config */
 	void	*localcfg;

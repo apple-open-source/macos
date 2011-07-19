@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2002  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,13 +15,17 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: check-tool.c,v 1.35 2008/10/24 00:28:00 marka Exp $ */
+/* $Id: check-tool.c,v 1.39.104.2 2010-09-07 23:46:37 tbox Exp $ */
 
 /*! \file */
 
 #include <config.h>
 
 #include <stdio.h>
+
+#ifdef _WIN32
+#include <Winsock2.h>
+#endif
 
 #include "check-tool.h"
 #include <isc/buffer.h>
@@ -115,6 +119,7 @@ static isc_logcategory_t categories[] = {
 	{ "queries",	     0 },
 	{ "unmatched", 	     0 },
 	{ "update-security", 0 },
+	{ "query-errors",    0 },
 	{ NULL,		     0 }
 };
 
@@ -217,8 +222,8 @@ checkns(dns_zone_t *zone, dns_name_t *name, dns_name_t *owner,
 		while (cur != NULL && cur->ai_canonname == NULL &&
 		       cur->ai_next != NULL)
 			cur = cur->ai_next;
-		if (ai != NULL && cur->ai_canonname != NULL &&
-		    strcasecmp(ai->ai_canonname, namebuf) != 0 &&
+		if (cur != NULL && cur->ai_canonname != NULL &&
+		    strcasecmp(cur->ai_canonname, namebuf) != 0 &&
 		    !logged(namebuf, ERR_IS_CNAME)) {
 			dns_zone_log(zone, ISC_LOG_ERROR,
 				     "%s/NS '%s' (out of zone) "
@@ -596,8 +601,7 @@ load_zone(isc_mem_t *mctx, const char *zonename, const char *filename,
 	isc_buffer_add(&buffer, strlen(zonename));
 	dns_fixedname_init(&fixorigin);
 	origin = dns_fixedname_name(&fixorigin);
-	CHECK(dns_name_fromtext(origin, &buffer, dns_rootname,
-				ISC_FALSE, NULL));
+	CHECK(dns_name_fromtext(origin, &buffer, dns_rootname, 0, NULL));
 	CHECK(dns_zone_setorigin(zone, origin));
 	CHECK(dns_zone_setdbtype(zone, 1, (const char * const *) dbtype));
 	CHECK(dns_zone_setfile2(zone, filename, fileformat));
@@ -661,3 +665,26 @@ dump_zone(const char *zonename, dns_zone_t *zone, const char *filename,
 
 	return (result);
 }
+
+#ifdef _WIN32
+void
+InitSockets(void) {
+	WORD wVersionRequested;
+	WSADATA wsaData;
+	int err;
+
+	wVersionRequested = MAKEWORD(2, 0);
+
+	err = WSAStartup( wVersionRequested, &wsaData );
+	if (err != 0) {
+		fprintf(stderr, "WSAStartup() failed: %d\n", err);
+		exit(1);
+	}
+}
+
+void
+DestroySockets(void) {
+	WSACleanup();
+}
+#endif
+

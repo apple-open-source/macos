@@ -1,0 +1,1064 @@
+
+
+
+Network Working Group                                          M. Duerst
+Internet-Draft                                  Aoyama Gakuin University
+Obsoletes: 2368 (if approved)                                L. Masinter
+Intended status: Standards Track              Adobe Systems Incorporated
+Expires: August 28, 2008                                     J. Zawinski
+                                                              DNA Lounge
+                                                       February 25, 2008
+
+
+                        The 'mailto' URI Scheme
+                       draft-duerst-mailto-bis-05
+
+Status of this Memo
+
+   By submitting this Internet-Draft, each author represents that any
+   applicable patent or other IPR claims of which he or she is aware
+   have been or will be disclosed, and any of which he or she becomes
+   aware will be disclosed, in accordance with Section 6 of BCP 79.
+
+   Internet-Drafts are working documents of the Internet Engineering
+   Task Force (IETF), its areas, and its working groups.  Note that
+   other groups may also distribute working documents as Internet-
+   Drafts.
+
+   Internet-Drafts are draft documents valid for a maximum of six months
+   and may be updated, replaced, or obsoleted by other documents at any
+   time.  It is inappropriate to use Internet-Drafts as reference
+   material or to cite them other than as "work in progress."
+
+   The list of current Internet-Drafts can be accessed at
+   http://www.ietf.org/ietf/1id-abstracts.txt.
+
+   The list of Internet-Draft Shadow Directories can be accessed at
+   http://www.ietf.org/shadow.html.
+
+   This Internet-Draft will expire on August 28, 2008.
+
+Copyright Notice
+
+   Copyright (C) The IETF Trust (2008).
+
+Abstract
+
+   This document defines the format of Uniform Resource Identifiers
+   (URI) to identify resources that are reached using Internet mail.  It
+   adds better internationalization and compatibility with IRIs (RFC
+   3987) to the previous syntax of 'mailto' URIs (RFC 2368).
+
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 1]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+Table of Contents
+
+   1.  Introduction . . . . . . . . . . . . . . . . . . . . . . . . .  3
+   2.  Syntax of a mailto URI . . . . . . . . . . . . . . . . . . . .  3
+   3.  Semantics and Operations . . . . . . . . . . . . . . . . . . .  6
+   4.  Unsafe Header Fields . . . . . . . . . . . . . . . . . . . . .  6
+   5.  Encoding . . . . . . . . . . . . . . . . . . . . . . . . . . .  7
+   6.  Deployment of UTF-8-Based Percent-Encoding . . . . . . . . . .  7
+   7.  Examples . . . . . . . . . . . . . . . . . . . . . . . . . . .  8
+     7.1.  Examples Conforming to RFC2368 . . . . . . . . . . . . . .  8
+     7.2.  Examples of Complicated Email Addresses  . . . . . . . . .  9
+     7.3.  Examples Using UTF-8-Based Percent-Encoding  . . . . . . . 10
+   8.  Security Considerations  . . . . . . . . . . . . . . . . . . . 11
+   9.  IANA Considerations  . . . . . . . . . . . . . . . . . . . . . 12
+     9.1.  Registration of the Body Header Field  . . . . . . . . . . 13
+   10. Main Changes from RFC 2368 . . . . . . . . . . . . . . . . . . 13
+   11. Change Log . . . . . . . . . . . . . . . . . . . . . . . . . . 14
+     11.1. Changes between draft 04 and draft 05  . . . . . . . . . . 14
+     11.2. Changes between draft 03 and draft 04  . . . . . . . . . . 14
+     11.3. Changes between draft 02 and draft 03  . . . . . . . . . . 15
+     11.4. Changes between draft 01 and draft 02  . . . . . . . . . . 15
+     11.5. Changes between draft 00 and draft 01  . . . . . . . . . . 15
+     11.6. Changes from RFC 2368  . . . . . . . . . . . . . . . . . . 16
+   12. Acknowledgments  . . . . . . . . . . . . . . . . . . . . . . . 16
+   13. References . . . . . . . . . . . . . . . . . . . . . . . . . . 16
+     13.1. Normative References . . . . . . . . . . . . . . . . . . . 16
+     13.2. Informative References . . . . . . . . . . . . . . . . . . 17
+   Authors' Addresses . . . . . . . . . . . . . . . . . . . . . . . . 17
+   Intellectual Property and Copyright Statements . . . . . . . . . . 19
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 2]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+1.  Introduction
+
+   The 'mailto' URI scheme is used to identify resources that are
+   reached using Internet mail.  In its simplest form, a 'mailto' URI
+   contains an Internet mail address.  For interactions that require
+   message headers or message bodies to be specified, the 'mailto' URI
+   scheme also allows setting mail header fields and the message body.
+
+   This specification extends the previous scheme definition to also
+   allow character data to be percent-encoded based on UTF-8, which
+   offers a better and more consistent way of dealing with non-ASCII
+   characters for internationalization.
+
+   This specification does not address the needs of the ongoing Email
+   Address Internationalization effort (see [RFC4952]).  In particular,
+   this specification does not include syntax for fallback addresses.
+   This may be fixed in a future version of this specification.
+
+   In this document, the key words "MUST", "MUST NOT", "REQUIRED",
+   "SHALL", "SHALL NOT", "SHOULD", "SHOULD NOT", "RECOMMENDED", "MAY",
+   and "OPTIONAL" are to be interpreted as described in [RFC2119].
+
+   In this document, URIs are enclosed in '<' and '>' as described in
+   Appendix C of [STD66].  Extra whitespace and line breaks added to
+   present long URIs are not part of the actual URI.
+
+
+2.  Syntax of a mailto URI
+
+   The syntax of a 'mailto' URI is described using the ABNF of [STD68],
+   non-terminal definitions from [RFC2822] (domain, dot-atom, quoted-
+   string) and non-terminal definitions from [STD66] (unreserved, pct-
+   encoded):
+
+      mailtoURI   = "mailto:" [ to ] [ hfields ]
+      to          = [ addr-spec *("%2C" addr-spec ) ]
+      hfields     = "?" hfield *( "&" hfield )
+      hfield      = hfname "=" hfvalue
+      hfname      = *qchar
+      hfvalue     = *qchar
+      addr-spec   = local-part "@" domain
+      local-part  = dot-atom / quoted-string
+      qchar       = unreserved / pct-encoded / some-delims
+      some-delims = "!" / "$" / "'" / "(" / ")" / "*"
+                  / "+" / "," / ";" / ":" / "@"
+
+   <addr-spec> is a mail address as specified in [RFC2822], but
+   excluding <comment> from [RFC2822].  However, the following changes
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 3]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   apply:
+
+   1.  A number of characters that can appear in <addr-spec> have to be
+       percent-encoded.  These are the characters that cannot appear in
+       an URI according to [STD66] as well as "%" (because it is used
+       for percent-encoding) and all the characters in gen-delims except
+       "@" (i.e. "/", "?", "#", "[" and "]").  Of the characters in sub-
+       delims, at least the following also have to be percent-encoded:
+       "&", ";", and "=".  Care has to be taken both when encoding as
+       well as when decoding to make sure these operations are applied
+       only once.
+
+   2.  <obs-local-part> and <NO-WS-CTL> as defined in [RFC2822] are not
+       allowed.
+
+   3.  Whitespace and comments within <local-part> and <domain> are not
+       allowed.  They would not have any operational semantics.
+
+   4.  Percent-encoding can be used in the <domain> part of an <addr-
+       spec>, in order to denote an internationalized domain name.  The
+       considerations for <reg-name> in [STD66] apply.  In particular,
+       non-ASCII characters must first be encoded according to UTF-8
+       [STD63], and then each octet of the corresponding UTF-8 sequence
+       must be percent-encoded to be represented as URI characters.  URI
+       producing applications must not use percent-encoding in domain
+       names unless it is used to represent a UTF-8 character sequence.
+       When the internationalized domain name is used to compose a
+       message, the name must be transformed to the IDNA encoding where
+       appropriate [RFC3490].  URI producers should provide these domain
+       names in the IDNA encoding, rather than percent-encoded, if they
+       wish to maximize interoperability with legacy 'mailto' URI
+       interpreters.
+
+   5.  Percent-encoding of non-ASCII octets in the <local-part> of an
+       <addr-spec> is reserved for the internationalization of the
+       <local-part>.  Non-ASCII characters must first be encoded
+       according to UTF-8 [STD63], and then each octet of the
+       corresponding UTF-8 sequence must be percent-encoded to be
+       represented as URI characters.  Any other percent-encoding of
+       non-ASCII characters is prohibited.  When a <local-part>
+       containing non-ASCII characters will be used to compose a
+       message, the <local-part> must be transformed to conform to
+       whatever encoding may be defined in a future specification for
+       the internationalization of email addresses.
+
+   <hfname> and <hfvalue> are encodings of an [RFC2822] header field
+   name and value, respectively.  Percent-encoding is needed for the
+   same characters as listed above for <addr-spec>. <hfname> is case-
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 4]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   insensitive, but <hfvalue> in general is case-sensitive.
+
+   The special <hfname> "body" indicates that the associated <hfvalue>
+   is the body of the message.  The "body" field value should contain
+   the content for the first text/plain body part of the message.  The
+   "body" pseudo header field is primarily intended for the generation
+   of short text messages for automatic processing (such as "subscribe"
+   messages for mailing lists), not for general MIME bodies.  The "body"
+   pseudo header field name has been registered with IANA for this
+   special purpose, see Section 9.1.
+
+   Within 'mailto' URIs, the characters "?", "=", and "&" are reserved.
+
+   Because the "&" (ampersand) character is reserved in HTML and XML,
+   any 'mailto' URI which contains an ampersand must be spelled
+   differently in HTML and XML than in other contexts.  A 'mailto' URI
+   which appears in an HTML or XML document must escape the "&", e.g. as
+   "&amp;".
+
+   Non-ASCII characters can be encoded in hfvalue as follows:
+
+   1.  MIME encoded words (as defined in [RFC2047]) are permitted in
+       header field values, but not in an <hfvalue> of a "body"
+       <hfname>.
+
+   2.  Non-ASCII characters can be encoded according to UTF-8 [STD63],
+       and then each octet of the corresponding UTF-8 sequence is
+       percent-encoded to be represented as URI characters.  When header
+       field values encoded in this way are used to compose a message,
+       the <hfvalue> must be transformed into MIME encoded words
+       [RFC2047], except for an <hfvalue> of a "body" <hfname>, which
+       has to be encoded according to [RFC2045].  Please note that for
+       MIME encoded words and for bodies in composed email messages,
+       encodings other than UTF-8 MAY be used as long as the characters
+       are properly transcoded.
+
+   MIME encoded words and UTF-8-based percent-encoding SHOULD NOT both
+   be used sequentially in the same <hfvalue>, and MUST NOT be combined.
+
+   Also note that it is legal to specify both <to> and an <hfname> whose
+   value is "to".  That is,
+
+   <mailto:addr1@an.example%2C%20addr2@an.example>
+
+   is equivalent to
+
+   <mailto:?to=addr1@an.example%2C%20addr2@an.example>
+
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 5]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   is equivalent to
+
+   <mailto:addr1@an.example?to=addr2@an.example>
+
+   However, the latter form is NOT RECOMMENDED.  Implementations should
+   be careful not to produce two "To:" header fields in a message; the
+   "To:" header field may occur at most once in a message ([RFC2822],
+   Section 3.6).  Also, creators of 'mailto' URIs should be careful to
+   not include other message header fields multiple times if these
+   header fields can only be used once in a message.
+
+   Creators of 'mailto' URIs SHOULD avoid using the same <hfname>
+   multiple times in the same URI to avoid interoperability problems.
+   If the same <hfname> appears multiple times in an URI, behavior
+   varies widely for different user agents, and for each <hfname>.
+   Examples include only using the first or last <hfname>/<hfvalue>
+   pair, combining each <hfvalue> by simple concatenation, or in a way
+   appropriate for the corresponding header field, or creating multiple
+   header fields.
+
+
+3.  Semantics and Operations
+
+   A 'mailto' URI designates an "internet resource", which is the
+   mailbox specified in the address.  When additional header fields are
+   supplied, the resource designated is the same address, but with an
+   additional profile for accessing the resource.  While there are
+   Internet resources that can only be accessed via electronic mail, the
+   'mailto' URI is not intended as a way of retrieving such objects
+   automatically.
+
+   In current practice, resolving URIs such as those in the 'http' URI
+   scheme causes an immediate interaction between client software and a
+   host running an interactive server.  The 'mailto' URI has unusual
+   semantics because resolving such a URI does not cause an immediate
+   interaction.  Instead, the client creates a message to the designated
+   address with the various header fields set as default.  The user can
+   edit the message, send this message unedited, or choose not to send
+   the message.  The operation of how any URI scheme is resolved is not
+   mandated by the URI specifications.
+
+
+4.  Unsafe Header Fields
+
+   The user agent interpreting a 'mailto' URI SHOULD choose not to
+   create a message if any of the header fields are considered
+   dangerous; it may also choose to create a message with only a subset
+   of the header fields given in the URI.  Only a limited set of header
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 6]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   fields such as Subject and Keywords, as well as Body, are believed to
+   be both safe and useful in the general case.  In cases where the
+   source of an URI is well known, and/or specific header fields are
+   limited to specific well-known values, other header fields may be
+   considered safe, too.
+
+   The creator of a 'mailto' URI cannot expect the resolver of a URI to
+   understand more than the "subject" header field and "body".  Clients
+   that resolve 'mailto' URIs into mail messages MUST be able to
+   correctly create [RFC2822]-compliant mail messages using the
+   "subject" header field and "body".
+
+
+5.  Encoding
+
+   [STD66] requires that many characters in URIs be encoded.  This
+   affects the 'mailto' URI scheme for some common characters that might
+   appear in addresses, header fields, or message contents.  One such
+   character is space (" ", ASCII hex 20).  Note the examples below that
+   use "%20" for space in the message body.  Also note that line breaks
+   in the body of a message MUST be encoded with "%0D%0A".
+
+   People creating 'mailto' URIs must be careful to encode any reserved
+   characters that are used in the URIs so that properly-written URI
+   interpreters can read them.  Also, client software that reads URIs
+   must be careful to decode strings before creating the mail message so
+   that the mail messages appear in a form that the recipient software
+   will understand.  These strings should be decoded before showing the
+   message to the sending user.
+
+   Software creating 'mailto' URIs likewise has to be careful to encode
+   any reserved characters that are used.  One kind of software creating
+   'mailto' URIs are HTML forms.  Current implementations encode a space
+   as '+', but this creates problems because such a '+' standing for a
+   space cannot be distinguished from a real '+' in a 'mailto' URI.
+   When producing 'mailto' URIs, all spaces SHOULD be encoded as %20.
+
+   The 'mailto' URI scheme is limited in that it does not provide for
+   substitution of variables.  Thus, a message body that must include a
+   user's email address cannot be encoded using the 'mailto' URI.  This
+   limitation also prevents 'mailto' URIs that are signed with public
+   keys and other such variable information.
+
+
+6.  Deployment of UTF-8-Based Percent-Encoding
+
+   UTF-8-based percent-encoding should only be used in actual 'mailto'
+   URIs once it is well deployed in software that interprets 'mailto'
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 7]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   URIs (such as mail user agents).
+
+
+7.  Examples
+
+7.1.  Examples Conforming to RFC2368
+
+   A URI for an ordinary individual mailing address:
+
+   <mailto:chris@example.com>
+
+   A URI for a mail response system that requires the name of the file
+   in the subject:
+
+   <mailto:infobot@example.com?subject=current-issue>
+
+   A mail response system that requires a "send" request in the body:
+
+   <mailto:infobot@example.com?body=send%20current-issue>
+
+   A similar URI, with two lines with different "send" requests (in this
+   case, "send current-issue" and, on the next line, "send index"):
+
+   <mailto:infobot@
+   example.com?body=send%20current-issue%0D%0Asend%20index>
+
+   An interesting use of 'mailto' URIs occurs when browsing archives of
+   messages.  A link can be provided that allows to reply to a message
+   and conserve threading information.  This is done by adding a In-
+   Reply-To header field containing the Message-ID of the message where
+   the link is added, for example:
+
+   <mailto:list@example.org?In-Reply-To=%3C3469A91.D10AF4C@
+   example.com%3E>
+
+   A request to subscribe to a mailing list:
+
+   <mailto:majordomo@example.com?body=subscribe%20bamboo-l>
+
+   A URI for a single user which includes a CC of another user:
+
+   <mailto:joe@example.com?cc=bob@example.com&body=hello>
+
+   Note the use of the "&" reserved character above.  The following
+   example, using "?" twice, is incorrect:
+
+   <mailto:joe@example.com?cc=bob@example.com?body=hello> ; WRONG!
+
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 8]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   According to [RFC2822], the characters "?", "&", and even "%" may
+   occur in addr-specs.  The fact that they are reserved characters is
+   not a problem: those characters may appear in 'mailto' URIs, they
+   just may not appear in unencoded form.  The standard URI encoding
+   mechanisms ("%" followed by a two-digit hex number) must be used in
+   these cases.
+
+   To indicate the address "gorby%kremvax@example.com" one would use:
+
+   <mailto:gorby%25kremvax@example.com>
+
+   To indicate the address "unlikely?address@example.com", and include
+   another header field, one would use:
+
+   <mailto:unlikely%3Faddress@example.com?blat=foop>
+
+   As described above, the "&" (ampersand) character is reserved in HTML
+   and must be replaced e.g. with "&amp;".  Thus, a URI with an internal
+   ampersand might look like:
+
+   Click <a href="mailto:joe@an.example?cc=bob@
+   an.example&amp;body=hello">mailto:joe@an.example?cc=bob@
+   an.example&amp;body=hello</a> to send a greeting message to Joe and
+   Bob.
+
+   When an email address itself includes an "&" (ampersand) character,
+   that character has to be percent-escaped.  For example, the 'mailto'
+   URI to send mail to "Mike&family@example.org" is
+   <mailto:Mike%26family@example.org>.
+
+7.2.  Examples of Complicated Email Addresses
+
+   Following are a few examples of how to treat email addresses that
+   contain complicated escaping syntax.
+
+   Email address: "not@me"@example.org; corresponding 'mailto' URI:
+
+   <mailto:%22not%40me%22@example.org>.
+
+   Email address: "oh\\no"@example.org; corresponding 'mailto' URI:
+
+   <mailto:%22oh%5C%5Cno%22@example.org>.
+
+   Email address: "\\\"it's\ ugly\\\""@example.org; corresponding
+   'mailto' URI:
+
+   <mailto:%22%5C%5C%5C%22it's%22%20ugly%5C%5C%5C%22%22@example.org>.
+
+
+
+
+Duerst, et al.           Expires August 28, 2008                [Page 9]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+7.3.  Examples Using UTF-8-Based Percent-Encoding
+
+   Sending a mail with the subject "coffee" in French, i.e. "cafe" where
+   the final e is an e-acute, using UTF-8 and percent-encoding:
+
+   <mailto:user@example.org?subject=caf%C3%A9>
+
+   The same subject, this time using an encoded-word (escaping the "="
+   and "?" characters used in the encoded-word syntax, because they are
+   reserved):
+
+   <mailto:user@
+   example.org?subject=%3D%3Futf-8%3FQ%3Fcaf%3DC3%3DA9%3F%3D>
+
+   The same subject, this time encoded as iso-8859-1:
+
+   <mailto:user@
+   example.org?subject=%3D%3Fiso-8859-1%3FQ%3Fcaf%3DE9%3F%3D>
+
+   Going back to straight UTF-8 and adding a body with the same value:
+
+   <mailto:user@example.org?subject=caf%C3%A9&body=caf%C3%A9>
+
+   This 'mailto' URI may result in a message looking like this:
+
+      From: sender@example.net
+      To: user@example.org
+      Subject: =?utf-8?Q?caf=C3=A9?=
+      Content-Type: text/plain;charset=utf-8
+      Content-Transfer-Encoding: quoted-printable
+
+      caf=C3=A9
+
+   The software sending the email is not restricted to UTF-8, but can
+   use other encodings.  The following shows the same email using iso-
+   8859-1 two times:
+
+      From: sender@example.net
+      To: user@example.org
+      Subject: =?iso-8859-1?Q?caf=E9?=
+      Content-Type: text/plain;charset=iso-8859-1
+      Content-Transfer-Encoding: quoted-printable
+
+      caf=E9
+
+   Different content transfer encodings (i.e. "8bit" or "base64" instead
+   of "quoted-printable") and different encodings in encoded words (i.e.
+   "B" instead of "Q") can also be used.
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 10]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   For more examples of encoding the word coffee in different languages,
+   see [RFC2324].
+
+   The following example uses the Japanese word "natto" (Unicode
+   characters U+7D0D U+8C46) as a domain name label, sending a mail to a
+   user at "natto".example.org:
+
+   <mailto:user@%E7%B4%8D%E8%B1%86.example.org?subject=Test&body=NATTO>
+
+   When constructing the email, the domain name label is converted to
+   punycode.  The resulting message may look as follows:
+
+      From: sender@example.net
+      To: user@xn--99zt52a.example.org
+      Subject: Test
+      Content-Type: text/plain
+      Content-Transfer-Encoding: 7bit
+
+      NATTO
+
+
+8.  Security Considerations
+
+   The 'mailto' URI scheme can be used to send a message from one user
+   to another, and thus can introduce many security concerns.  Mail
+   messages can be logged at the originating site, the recipient site,
+   and intermediary sites along the delivery path.  If the messages are
+   not encoded, they can also be read at any of those sites.
+
+   A 'mailto' URI gives a template for a message that can be sent by
+   mail client software.  The contents of that template may be opaque or
+   difficult to read by the user at the time of specifying the URI.
+   Thus, a mail client should never send a message based on a 'mailto'
+   URI without first showing the full message that will be sent to the
+   user (including all header fields that were specified by the 'mailto'
+   URI), fully decoded, and asking the user for approval to send the
+   message as electronic mail.  The mail client should also make it
+   clear that the user is about to send an electronic mail message,
+   since the user may not be aware that this is the result of a 'mailto'
+   URI.
+
+   A mail client should never send anything without complete disclosure
+   to the user of what will be sent; it should disclose not only the
+   message destination, but also any header fields.  Unrecognized header
+   fields, or header fields with values inconsistent with those the mail
+   client would normally send should be especially suspect.  MIME header
+   fields (MIME- Version, Content-*) are most likely inappropriate,
+   except when added by the MUA to correctly encode the text(s) being
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 11]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   sent, as are those relating to routing (From, Apparently-To, etc.)
+
+   Note that some header fields are inherently unsafe to include in a
+   message generated from a URI.  For example, header fields such as
+   "From:", and so on, should never be interpreted from a URI.  In
+   general, the fewer header fields interpreted from the URI, the less
+   likely it is that a sending agent will create an unsafe message.
+
+   Examples of problems with sending unapproved mail include:
+
+      mail that breaks laws upon delivery, such as making illegal
+      threats;
+
+      mail that identifies the sender as someone interested in breaking
+      laws;
+
+      mail that identifies the sender to an unwanted third party;
+
+      mail that causes a financial charge to be incurred on the sender;
+
+      mail that causes an action on the recipient machine that causes
+      damage that might be attributed to the sender.
+
+   Programs that interpret 'mailto' URIs should ensure that the SMTP
+   "From" address (the SMTP envelope return path given as an argument to
+   the SMTP MAIL FROM command) is set and correct, and that the
+   resulting email is a complete, workable message.
+
+   'mailto' URIs on public Web pages expose mail addresses for
+   harvesting.  This applies to all mail addresses included in the
+   'mailto' URI, including the addresses in a "bcc" hfvalue.  Those
+   addresses will not be sent to the recipients in the 'to' field and in
+   the "to" and "cc" hfvalues, but will still be publicly visible in the
+   URI.
+
+   The security considerations of [STD66], [RFC3490], [RFC3491], and
+   [RFC3987] also apply.  Implementers and users are recommended to
+   check them carefully.
+
+
+9.  IANA Considerations
+
+   This document changes the definition of the 'mailto' URI scheme; the
+   registry of URI schemes needs to be updated to refer to this document
+   rather than its predecessor, [RFC2368].
+
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 12]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+9.1.  Registration of the Body Header Field
+
+   IANA is herewith requested to register the Body header field in the
+   Message Header Fields Registry ([RFC3864]) as follows:
+
+   Header field name:
+      Body
+
+   Applicable protocol:
+      None. This registration is made to assure that this header field
+      name is not used at all, in order to not create any problems
+      for 'mailto' URIs.
+
+   Status:
+      reserved
+
+   Author/Change controller:
+      IETF
+
+   Specification document(s):
+      Internet-Draft draft-duerst-mailto-bis-05.txt
+      (Note to RFC Editor: Replace this with
+       RFC YYYY (RFC number of this specification))
+
+   Related information:
+      none
+
+
+10.  Main Changes from RFC 2368
+
+   The main changes from RFC 2368 are as follows:
+
+   o  Changed syntax from RFC 2822 <mailbox> to RFC 2822 <addr-spec>.
+
+   o  Allowed UTF-8-based percent-encoding for domain names and in
+      <hfvalue>.
+
+   o  Nailed down percent-encoding in <local-part> to be based on UTF-8,
+      reserved for future use.
+
+   o  Removed prohibition against "Bcc:" header fields, but added a
+      warning about their visibility and harvesting for spam.
+
+   o  Added clarifications for escaping.
+
+
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 13]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+11.  Change Log
+
+   [RFC Editor, please remove this section before publication.]
+
+11.1.  Changes between draft 04 and draft 05
+
+   o  Added "Main Changes from RFC 2368" to help implementation updates
+      from RFC 2368.
+
+   o  Added a warning about spam harvesting and visibility of bcc
+      addresses.
+
+   o  Clarified that <addr-spec> does not include comments.
+
+   o  Changed names of syntax productions to be better in line with
+      standard terminology: headers -> hfields, header -> hfield, hname
+      -> hfname, hvalue -> hfvalue.
+
+   o  Streamlined terminology: mailto, mailto: -> 'mailto'; LHS ->
+      <local-part>; consistently used '<' and '>' for ABNF production
+      names.
+
+   o  Changed section heading from "Unsafe Headers" to "Unsafe Header
+      Fields".
+
+   o  Got rid of references and the word 'update' in the Abstract.
+
+   o  Updated ABNF reference to [STD68]
+
+   o  Some minor wording cleanup.
+
+11.2.  Changes between draft 03 and draft 04
+
+   o  Added mention of internationalization (not just IRI) to abstract.
+
+   o  Updated reference from draft-ietf-eai-framework to RFC 4952,
+      simplified referring text.
+
+   o  Used MUST for resolvers to understand Subject and Body for clear
+      interoperability.
+
+   o  Noted that multiple identical hnames can cause interoperability
+      problems and SHOULD be avoided.
+
+   o  Note the problem of '+' produced by HTML forms, made clear that
+      %20 SHOULD be used for encoding spaces.
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 14]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   o  Removed warning against using bcc; doesn't seem to be of any harm
+      if user checks explicitly.
+
+   o  Some minor wording cleanup.
+
+11.3.  Changes between draft 02 and draft 03
+
+   o  Adjusted description of mailto URI in abstract to match intro.
+
+   o  Added registration template for body header field.
+
+   o  Clarified requirements for produced email message.
+
+   o  Clarified case (in)sensitivity of header field names and values.
+
+   o  Introduced reference to EAI-framework, explained to what extent it
+      has been taken into account.
+
+   o  Changed reference label from RFC3986 to STD66.
+
+11.4.  Changes between draft 01 and draft 02
+
+   o  Fixed phone/fax for Martin.
+
+   o  Changed examples to reduce cases with both a 'to' field and a 'to'
+      hname.
+
+   o  Fixed syntax to not rely on non-terminals from RFC 2396.  Changed
+      description of set of characters that needs to be escaped.
+
+   o  Mollified warning about header fields other than Subject,
+      Keywords, and Body.
+
+   o  Clarified prohibition of mixing different encodings (%-escaping
+      and Mime encoded words) for header fields.
+
+   o  Improved some examples.  Fixed some terminology.
+
+11.5.  Changes between draft 00 and draft 01
+
+   o  Added clarification about permitted syntax and escaping on email
+      address LHS, and more complicated examples.
+
+   o  Added text about more safe headers in case origin or mailto URIs
+      is known.
+
+   o  Fixed date of [STD66]
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 15]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+   o  Added a sentence referencing [RFC2119]
+
+   o  Added Jamie back in as a co-author.  Changed address/affiliation
+      for Martin.
+
+11.6.  Changes from RFC 2368
+
+   o  For interoperability with IRIs ([RFC3987]), allowed percent-
+      encoding, fixed to UTF-8, in the domain name part of an email
+      address, in LHS part of an address (currently reserved because not
+      operationally usable), and in hvalue parts.
+
+   o  Changed from 'URL' to 'URI'
+
+   o  Updated references: ABNF to [STD68]; message syntax to [RFC2822],
+      URI Generic Syntax to [STD66]
+
+   o  Expanded "#mailbox", because the "#" shortcut is no longer
+      available; needs checking
+
+
+12.  Acknowledgments
+
+   This document was derived from [RFC2368]; the acknowledgments from
+   this specification still apply.  In addition, we thank Paul Hoffman
+   for his work on [RFC2368].
+
+   Valuable input on this document was received from (in no particular
+   order): Paul Hoffman, Charles Lindsey, Tim Kindberg, Frank Ellermann,
+   Etan Wexler, Michael Haardt, Michael Anthony Puls II, and Alfred
+   Hoenes.
+
+
+13.  References
+
+13.1.  Normative References
+
+   [RFC2045]  Freed, N. and N. Borenstein, "Multipurpose Internet Mail
+              Extensions (MIME) Part One: Format of Internet Message
+              Bodies", November 1996.
+
+   [RFC2047]  Moore, K., "MIME Part Three: Message Header Extensions for
+              Non-ASCII Text", RFC 2047, November 1996.
+
+   [RFC2119]  Bradner, S., "Key words for use in RFCs to Indicate
+              Requirement Levels", BCP 14, RFC 2119, March 1997.
+
+   [RFC2822]  Resnik, P., "Internet Message Format", RFC 2822,
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 16]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+              April 2001.
+
+   [RFC3490]  Faltstrom, P., Hoffman, P., and A. Costello,
+              "Internationalizing Domain Names in Applications (IDNA)",
+              RFC 3490, March 2003.
+
+   [RFC3491]  Hoffman, P. and M. Blanchet, "Nameprep: A Stringprep
+              Profile for Internationalized Domain Names (IDN)",
+              RFC 3491, March 2003.
+
+   [RFC3864]  Klyne, G., Nottingham, M., and J. Mogul, "Registration
+              Procedures for Message Header Fields", RFC 3864, BCP 90,
+              September 2004.
+
+   [RFC3987]  Duerst, M. and M. Suignard, "Internationalized Resource
+              Identifiers (IRIs)", RFC 3987, January 2005.
+
+   [STD63]    Yergeau, F., "UTF-8, a transformation format of ISO
+              10646", STD 63, RFC 3629, November 2003.
+
+   [STD66]    Berners-Lee, T., Fielding, R., and L. Masinter, "Uniform
+              Resource Identifier (URI): Generic Syntax", STD 66,
+              RFC 3986, January 2005.
+
+   [STD68]    Crocker, D. and P. Overell, "Augmented BNF for Syntax
+              Specifications: ABNF", STD 68, RFC 5234, January 2008.
+
+13.2.  Informative References
+
+   [RFC2324]  Masinter, L., "Hyper Text Coffee Pot Control Protocol
+              (HTCPCP/1.0)", RFC 2324, April 1998.
+
+   [RFC2368]  Hoffman, P., Masinter, L., and J. Zawinski, "The mailto
+              URL scheme", RFC 2368, July 1998.
+
+   [RFC4952]  Klensin, J. and Y. Ko, "Overview and Framework for
+              Internationalized Email", RFC 4952, July 2007.
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 17]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+Authors' Addresses
+
+   Martin Duerst (Note: Please write "Duerst" with u-umlaut wherever possible, for example as "D&#252;rst" in XML and HTML.)
+   Aoyama Gakuin University
+   5-10-1 Fuchinobe
+   Sagamihara, Kanagawa  229-8558
+   Japan
+
+   Phone: +81 42 759 6329
+   Fax:   +81 42 759 6495
+   Email: mailto:duerst@it.aoyama.ac.jp
+   URI:   http://www.sw.it.aoyama.ac.jp/D%C3%BCrst/
+
+
+   Larry Masinter
+   Adobe Systems Incorporated
+   345 Park Ave
+   San Jose, CA  95110
+   USA
+
+   Phone: +1-408-536-3024
+   Email: LMM@acm.org
+   URI:   http://larry.masinter.net/
+
+
+   Jamie Zawinski
+   DNA Lounge
+   375 Eleventh Street
+   San Francisco, CA  94103
+   USA
+
+   Email: jwz@jwz.org
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 18]
+
+Internet-Draft           The 'mailto' URI Scheme           February 2008
+
+
+Full Copyright Statement
+
+   Copyright (C) The IETF Trust (2008).
+
+   This document is subject to the rights, licenses and restrictions
+   contained in BCP 78, and except as set forth therein, the authors
+   retain all their rights.
+
+   This document and the information contained herein are provided on an
+   "AS IS" basis and THE CONTRIBUTOR, THE ORGANIZATION HE/SHE REPRESENTS
+   OR IS SPONSORED BY (IF ANY), THE INTERNET SOCIETY, THE IETF TRUST AND
+   THE INTERNET ENGINEERING TASK FORCE DISCLAIM ALL WARRANTIES, EXPRESS
+   OR IMPLIED, INCLUDING BUT NOT LIMITED TO ANY WARRANTY THAT THE USE OF
+   THE INFORMATION HEREIN WILL NOT INFRINGE ANY RIGHTS OR ANY IMPLIED
+   WARRANTIES OF MERCHANTABILITY OR FITNESS FOR A PARTICULAR PURPOSE.
+
+
+Intellectual Property
+
+   The IETF takes no position regarding the validity or scope of any
+   Intellectual Property Rights or other rights that might be claimed to
+   pertain to the implementation or use of the technology described in
+   this document or the extent to which any license under such rights
+   might or might not be available; nor does it represent that it has
+   made any independent effort to identify any such rights.  Information
+   on the procedures with respect to rights in RFC documents can be
+   found in BCP 78 and BCP 79.
+
+   Copies of IPR disclosures made to the IETF Secretariat and any
+   assurances of licenses to be made available, or the result of an
+   attempt made to obtain a general license or permission for the use of
+   such proprietary rights by implementers or users of this
+   specification can be obtained from the IETF on-line IPR repository at
+   http://www.ietf.org/ipr.
+
+   The IETF invites any interested party to bring to its attention any
+   copyrights, patents or patent applications, or other proprietary
+   rights that may cover technology that may be required to implement
+   this standard.  Please address the information to the IETF at
+   ietf-ipr@ietf.org.
+
+
+Acknowledgment
+
+   Funding for the RFC Editor function is provided by the IETF
+   Administrative Support Activity (IASA).
+
+
+
+
+
+Duerst, et al.           Expires August 28, 2008               [Page 19]
+

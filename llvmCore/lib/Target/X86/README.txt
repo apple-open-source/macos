@@ -2,6 +2,8 @@
 // Random ideas for the X86 backend.
 //===---------------------------------------------------------------------===//
 
+We should add support for the "movbe" instruction, which does a byte-swapping
+copy (3-addr bswap + memory support?)  This is available on Atom processors.
 
 //===---------------------------------------------------------------------===//
 
@@ -121,20 +123,6 @@ when it can invert the result of the compare for free.
 
 //===---------------------------------------------------------------------===//
 
-How about intrinsics? An example is:
-  *res = _mm_mulhi_epu16(*A, _mm_mul_epu32(*B, *C));
-
-compiles to
-	pmuludq (%eax), %xmm0
-	movl 8(%esp), %eax
-	movdqa (%eax), %xmm1
-	pmulhuw %xmm0, %xmm1
-
-The transformation probably requires a X86 specific pass or a DAG combiner
-target specific hook.
-
-//===---------------------------------------------------------------------===//
-
 In many cases, LLVM generates code like this:
 
 _test:
@@ -236,11 +224,6 @@ Optimize copysign(x, *y) to use an integer load from y.
 The following tests perform worse with LSR:
 
 lambda, siod, optimizer-eval, ackermann, hash2, nestedloop, strcat, and Treesor.
-
-//===---------------------------------------------------------------------===//
-
-Teach the coalescer to coalesce vregs of different register classes. e.g. FR32 /
-FR64 to VR128.
 
 //===---------------------------------------------------------------------===//
 
@@ -480,35 +463,6 @@ _usesbb:
 
 //===---------------------------------------------------------------------===//
 
-Currently we don't have elimination of redundant stack manipulations. Consider
-the code:
-
-int %main() {
-entry:
-	call fastcc void %test1( )
-	call fastcc void %test2( sbyte* cast (void ()* %test1 to sbyte*) )
-	ret int 0
-}
-
-declare fastcc void %test1()
-
-declare fastcc void %test2(sbyte*)
-
-
-This currently compiles to:
-
-	subl $16, %esp
-	call _test5
-	addl $12, %esp
-	subl $16, %esp
-	movl $_test5, (%esp)
-	call _test6
-	addl $12, %esp
-
-The add\sub pair is really unneeded here.
-
-//===---------------------------------------------------------------------===//
-
 Consider the expansion of:
 
 define i32 @test3(i32 %X) {
@@ -571,7 +525,7 @@ We should inline lrintf and probably other libc functions.
 
 //===---------------------------------------------------------------------===//
 
-Start using the flags more.  For example, compile:
+Use the FLAGS values from arithmetic instructions more.  For example, compile:
 
 int add_zf(int *x, int y, int a, int b) {
      if ((*x += y) == 0)
@@ -595,31 +549,8 @@ _add_zf:
         movl %ecx, %eax
         ret
 
-and:
-
-int add_zf(int *x, int y, int a, int b) {
-     if ((*x + y) < 0)
-          return a;
-     else
-          return b;
-}
-
-to:
-
-add_zf:
-        addl    (%rdi), %esi
-        movl    %edx, %eax
-        cmovns  %ecx, %eax
-        ret
-
-instead of:
-
-_add_zf:
-        addl (%rdi), %esi
-        testl %esi, %esi
-        cmovs %edx, %ecx
-        movl %ecx, %eax
-        ret
+As another example, compile function f2 in test/CodeGen/X86/cmp-test.ll
+without a test instruction.
 
 //===---------------------------------------------------------------------===//
 
@@ -723,55 +654,6 @@ LBB1_1:
         call L_abort$stub
 
 Though this probably isn't worth it.
-
-//===---------------------------------------------------------------------===//
-
-We need to teach the codegen to convert two-address INC instructions to LEA
-when the flags are dead (likewise dec).  For example, on X86-64, compile:
-
-int foo(int A, int B) {
-  return A+1;
-}
-
-to:
-
-_foo:
-        leal    1(%edi), %eax
-        ret
-
-instead of:
-
-_foo:
-        incl %edi
-        movl %edi, %eax
-        ret
-
-Another example is:
-
-;; X's live range extends beyond the shift, so the register allocator
-;; cannot coalesce it with Y.  Because of this, a copy needs to be
-;; emitted before the shift to save the register value before it is
-;; clobbered.  However, this copy is not needed if the register
-;; allocator turns the shift into an LEA.  This also occurs for ADD.
-
-; Check that the shift gets turned into an LEA.
-; RUN: llvm-as < %s | llc -march=x86 -x86-asm-syntax=intel | \
-; RUN:   not grep {mov E.X, E.X}
-
-@G = external global i32		; <i32*> [#uses=3]
-
-define i32 @test1(i32 %X, i32 %Y) {
-	%Z = add i32 %X, %Y		; <i32> [#uses=1]
-	volatile store i32 %Y, i32* @G
-	volatile store i32 %Z, i32* @G
-	ret i32 %X
-}
-
-define i32 @test2(i32 %X) {
-	%Z = add i32 %X, 1		; <i32> [#uses=1]
-	volatile store i32 %Z, i32* @G
-	ret i32 %X
-}
 
 //===---------------------------------------------------------------------===//
 
@@ -892,39 +774,6 @@ __Z11no_overflowjj:
         movzbl  %al, %eax
         ret
 
-
-//===---------------------------------------------------------------------===//
-
-Re-materialize MOV32r0 etc. with xor instead of changing them to moves if the
-condition register is dead. xor reg reg is shorter than mov reg, #0.
-
-//===---------------------------------------------------------------------===//
-
-We aren't matching RMW instructions aggressively
-enough.  Here's a reduced testcase (more in PR1160):
-
-define void @test(i32* %huge_ptr, i32* %target_ptr) {
-        %A = load i32* %huge_ptr                ; <i32> [#uses=1]
-        %B = load i32* %target_ptr              ; <i32> [#uses=1]
-        %C = or i32 %A, %B              ; <i32> [#uses=1]
-        store i32 %C, i32* %target_ptr
-        ret void
-}
-
-$ llvm-as < t.ll | llc -march=x86-64
-
-_test:
-        movl (%rdi), %eax
-        orl (%rsi), %eax
-        movl %eax, (%rsi)
-        ret
-
-That should be something like:
-
-_test:
-        movl (%rdi), %eax
-        orl %eax, (%rsi)
-        ret
 
 //===---------------------------------------------------------------------===//
 
@@ -1817,6 +1666,11 @@ LBB1_1:	## bb1
 	cmpl	$150, %edi
 	jne	LBB1_1	## bb1
 
+The issue is that we hoist the cast of "scaler" to long long outside of the
+loop, the value comes into the loop as two values, and
+RegsForValue::getCopyFromRegs doesn't know how to put an AssertSext on the
+constructed BUILD_PAIR which represents the cast value.
+
 //===---------------------------------------------------------------------===//
 
 Test instructions can be eliminated by using EFLAGS values from arithmetic
@@ -1879,5 +1733,199 @@ _foo:
 
 On Nehalem, it may even be cheaper to just use movups when unaligned than to
 fall back to lower-granularity chunks.
+
+//===---------------------------------------------------------------------===//
+
+Implement processor-specific optimizations for parity with GCC on these
+processors.  GCC does two optimizations:
+
+1. ix86_pad_returns inserts a noop before ret instructions if immediately
+   preceeded by a conditional branch or is the target of a jump.
+2. ix86_avoid_jump_misspredicts inserts noops in cases where a 16-byte block of
+   code contains more than 3 branches.
+   
+The first one is done for all AMDs, Core2, and "Generic"
+The second one is done for: Atom, Pentium Pro, all AMDs, Pentium 4, Nocona,
+  Core 2, and "Generic"
+
+//===---------------------------------------------------------------------===//
+
+Testcase:
+int a(int x) { return (x & 127) > 31; }
+
+Current output:
+	movl	4(%esp), %eax
+	andl	$127, %eax
+	cmpl	$31, %eax
+	seta	%al
+	movzbl	%al, %eax
+	ret
+
+Ideal output:
+	xorl	%eax, %eax
+	testl	$96, 4(%esp)
+	setne	%al
+	ret
+
+This should definitely be done in instcombine, canonicalizing the range
+condition into a != condition.  We get this IR:
+
+define i32 @a(i32 %x) nounwind readnone {
+entry:
+	%0 = and i32 %x, 127		; <i32> [#uses=1]
+	%1 = icmp ugt i32 %0, 31		; <i1> [#uses=1]
+	%2 = zext i1 %1 to i32		; <i32> [#uses=1]
+	ret i32 %2
+}
+
+Instcombine prefers to strength reduce relational comparisons to equality
+comparisons when possible, this should be another case of that.  This could
+be handled pretty easily in InstCombiner::visitICmpInstWithInstAndIntCst, but it
+looks like InstCombiner::visitICmpInstWithInstAndIntCst should really already
+be redesigned to use ComputeMaskedBits and friends.
+
+
+//===---------------------------------------------------------------------===//
+Testcase:
+int x(int a) { return (a&0xf0)>>4; }
+
+Current output:
+	movl	4(%esp), %eax
+	shrl	$4, %eax
+	andl	$15, %eax
+	ret
+
+Ideal output:
+	movzbl	4(%esp), %eax
+	shrl	$4, %eax
+	ret
+
+//===---------------------------------------------------------------------===//
+
+Testcase:
+int x(int a) { return (a & 0x80) ? 0x100 : 0; }
+int y(int a) { return (a & 0x80) *2; }
+
+Current:
+	testl	$128, 4(%esp)
+	setne	%al
+	movzbl	%al, %eax
+	shll	$8, %eax
+	ret
+
+Better:
+	movl	4(%esp), %eax
+	addl	%eax, %eax
+	andl	$256, %eax
+	ret
+
+This is another general instcombine transformation that is profitable on all
+targets.  In LLVM IR, these functions look like this:
+
+define i32 @x(i32 %a) nounwind readnone {
+entry:
+	%0 = and i32 %a, 128
+	%1 = icmp eq i32 %0, 0
+	%iftmp.0.0 = select i1 %1, i32 0, i32 256
+	ret i32 %iftmp.0.0
+}
+
+define i32 @y(i32 %a) nounwind readnone {
+entry:
+	%0 = shl i32 %a, 1
+	%1 = and i32 %0, 256
+	ret i32 %1
+}
+
+Replacing an icmp+select with a shift should always be considered profitable in
+instcombine.
+
+//===---------------------------------------------------------------------===//
+
+Re-implement atomic builtins __sync_add_and_fetch() and __sync_sub_and_fetch
+properly.
+
+When the return value is not used (i.e. only care about the value in the
+memory), x86 does not have to use add to implement these. Instead, it can use
+add, sub, inc, dec instructions with the "lock" prefix.
+
+This is currently implemented using a bit of instruction selection trick. The
+issue is the target independent pattern produces one output and a chain and we
+want to map it into one that just output a chain. The current trick is to select
+it into a MERGE_VALUES with the first definition being an implicit_def. The
+proper solution is to add new ISD opcodes for the no-output variant. DAG
+combiner can then transform the node before it gets to target node selection.
+
+Problem #2 is we are adding a whole bunch of x86 atomic instructions when in
+fact these instructions are identical to the non-lock versions. We need a way to
+add target specific information to target nodes and have this information
+carried over to machine instructions. Asm printer (or JIT) can use this
+information to add the "lock" prefix.
+
+//===---------------------------------------------------------------------===//
+
+_Bool bar(int *x) { return *x & 1; }
+
+define zeroext i1 @bar(i32* nocapture %x) nounwind readonly {
+entry:
+  %tmp1 = load i32* %x                            ; <i32> [#uses=1]
+  %and = and i32 %tmp1, 1                         ; <i32> [#uses=1]
+  %tobool = icmp ne i32 %and, 0                   ; <i1> [#uses=1]
+  ret i1 %tobool
+}
+
+bar:                                                        # @bar
+# BB#0:                                                     # %entry
+	movl	4(%esp), %eax
+	movb	(%eax), %al
+	andb	$1, %al
+	movzbl	%al, %eax
+	ret
+
+Missed optimization: should be movl+andl.
+
+//===---------------------------------------------------------------------===//
+
+Consider the following two functions compiled with clang:
+_Bool foo(int *x) { return !(*x & 4); }
+unsigned bar(int *x) { return !(*x & 4); }
+
+foo:
+	movl	4(%esp), %eax
+	testb	$4, (%eax)
+	sete	%al
+	movzbl	%al, %eax
+	ret
+
+bar:
+	movl	4(%esp), %eax
+	movl	(%eax), %eax
+	shrl	$2, %eax
+	andl	$1, %eax
+	xorl	$1, %eax
+	ret
+
+The second function generates more code even though the two functions are
+are functionally identical.
+
+//===---------------------------------------------------------------------===//
+
+Take the following C code:
+int x(int y) { return (y & 63) << 14; }
+
+Code produced by gcc:
+	andl	$63, %edi
+	sall	$14, %edi
+	movl	%edi, %eax
+	ret
+
+Code produced by clang:
+	shll	$14, %edi
+	movl	%edi, %eax
+	andl	$1032192, %eax
+	ret
+
+The code produced by gcc is 3 bytes shorter.  This sort of construct often
+shows up with bitfields.
 
 //===---------------------------------------------------------------------===//

@@ -66,7 +66,7 @@ extern CFPropertyListRef 		systemOptions;
 static int dsauth_check(void);
 static int dsauth_ip_allowed_address(u_int32_t addr);
 static int dsauth_pap(char *user, char *passwd, char **msgp, struct wordlist **paddrs, struct wordlist **popts);
-static int dsauth_chap(char *name, char *ourname, int id,
+static int dsauth_chap(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space);
@@ -207,7 +207,7 @@ cleanup:
 #define CHALLENGE_SIZE		16
 #define NT_RESPONSE_SIZE	24
 
-static int dsauth_chap(char *name, char *ourname, int id,
+static int dsauth_chap(u_char *name, u_char *ourname, int id,
 			struct chap_digest_type *digest,
 			unsigned char *challenge, unsigned char *response,
 			unsigned char *message, int message_space)
@@ -224,7 +224,7 @@ static int dsauth_chap(char *name, char *ourname, int id,
     char						*ptr;
     MS_Chap2Response			*resp;  
     u_int32_t					userShortNameSize;
-    u_int32_t					userNameSize = strlen(name);
+    u_int32_t					userNameSize = strlen((char*)name);
     u_int32_t					authDataSize;
     int							challenge_len, response_len;
 	CFMutableDictionaryRef		serviceInfo = 0;
@@ -304,7 +304,7 @@ static int dsauth_chap(char *name, char *ourname, int id,
 			goto cleanup;
 		}
 
-        if (dsauth_find_user_node(dirRef, name, &userNode, &recordNameAttr, &authAuthorityAttr) == 0) {  
+        if (dsauth_find_user_node(dirRef, (char*)name, &userNode, &recordNameAttr, &authAuthorityAttr) == 0) {  
             userShortNameSize = recordNameAttr->fAttributeValueData.fBufferLength;
             authDataSize = userNameSize + userShortNameSize + NT_RESPONSE_SIZE + (2 * CHALLENGE_SIZE) + (5 * sizeof(u_int32_t));   
             if ((authDataBufPtr = dsDataBufferAllocate(dirRef, authDataSize)) != 0) {   
@@ -351,9 +351,9 @@ static int dsauth_chap(char *name, char *ourname, int id,
 
                         responseDataBufPtr->fBufferData[4 + MS_AUTH_RESPONSE_LENGTH] = 0;
                          if (resp->Flags[0])
-                                slprintf(message, message_space, "S=%s", responseDataBufPtr->fBufferData + 4);
+                                slprintf((char*)message, message_space, "S=%s", responseDataBufPtr->fBufferData + 4);
                         else
-                                slprintf(message, message_space, "S=%s M=%s",
+                                slprintf((char*)message, message_space, "S=%s M=%s",
                                         responseDataBufPtr->fBufferData + 4, "Access granted");
                         authResult = 1;
                         dsauth_set_mppe_keys(dirRef, userNode, recordNameAttr->fAttributeValueData.fBufferData, response, response_len, authAuthorityAttr);
@@ -527,9 +527,9 @@ static void dsauth_set_mppe_keys(tDirReference dirRef, tDirNodeReference userNod
 cleanup:
     if (keyaccessPassword) {
 		bzero(keyaccessPassword, keyaccessPasswordSize);	// clear the admin password from memory
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
         SecKeychainItemFreeContent(NULL, keyaccessPassword);
-#endif /* TARGET_EMBEDDED_OS */
+#endif /* TARGET_OS_EMBEDDED */
     }
     if (keyaccessName) {
         free(keyaccessName);
@@ -594,7 +594,7 @@ static void dsauth_get_admin_acct(u_int32_t *acctNameSize, char** acctName, u_in
 //----------------------------------------------------------------------
 static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_t *password_len, char **password)
 {
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED // This file is not built for Embedded
     SecKeychainRef	keychain = 0;
     OSStatus		status;
     
@@ -616,7 +616,7 @@ static int dsauth_get_admin_password(u_int32_t acctlen, char* acctname, u_int32_
 #else
 	error("System Keychain support not available");
 	return -1;
-#endif /* TARGET_EMBEDDED_OS */
+#endif /* TARGET_OS_EMBEDDED */
 }
     
 //----------------------------------------------------------------------

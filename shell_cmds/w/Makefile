@@ -7,7 +7,7 @@ MANPAGES = uptime.1 w.1
 
 Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-Extra_CC_Flags = -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Wall \
 	-no-cpp-precomp -Wno-error -DHAVE_KVM=0 -DHAVE_UTMPX=1
 Extra_LD_Flags = -dead_strip
 ifeq ($(Embedded),NO)

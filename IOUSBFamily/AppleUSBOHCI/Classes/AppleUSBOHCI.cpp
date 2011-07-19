@@ -47,6 +47,8 @@ extern "C" {
 
 #define super IOUSBControllerV3
 
+#define _controllerCanSleep				_expansionData->_controllerCanSleep
+
 #define NUM_BUFFER_PAGES	9   // 54
 #define NUM_TDS			255 // 1500
 #define NUM_EDS			256 // 1500
@@ -275,7 +277,7 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 			 */
 			_errataBits = GetErrataBits(_vendorID, _deviceID, _revisionID);
 
-			if ((_errataBits & kErrataDontUseCompanionController) && !(gUSBStackDebugFlags & kUSBForceCompanionControllersMask))
+			if (_errataBits & kErrataDontUseCompanionController)
 			{
 				USBLog(3, "AppleUSBOHCI[%p]::UIMInitialize - companion controllers disallowed. Not initializing", this);
 				err =  kIOReturnUnsupported;
@@ -444,7 +446,6 @@ AppleUSBOHCI::UIMInitialize(IOService * provider)
 				OptiLSHSFix();
 			
 			CheckSleepCapability();
-			
 		}
 		_uimInitialized = true;
 		_myBusState = kUSBBusStateReset;

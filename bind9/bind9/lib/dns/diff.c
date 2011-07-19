@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2005, 2007, 2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004, 2005, 2007-2009  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2000-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: diff.c,v 1.18 2008/09/24 02:46:22 marka Exp $ */
+/* $Id: diff.c,v 1.23 2009-12-01 00:47:09 each Exp $ */
 
 /*! \file */
 
@@ -387,10 +387,22 @@ diff_apply(dns_diff_t *diff, dns_db_t *db, dns_dbversion_t *ver,
 				 * from a server that is not as careful.
 				 * Issue a warning and continue.
 				 */
-				if (warn)
+				if (warn) {
+					char classbuf[DNS_RDATATYPE_FORMATSIZE];
+					char namebuf[DNS_NAME_FORMATSIZE];
+
+					dns_name_format(dns_db_origin(db),
+							namebuf,
+							sizeof(namebuf));
+					dns_rdataclass_format(dns_db_class(db),
+							      classbuf,
+							      sizeof(classbuf));
 					isc_log_write(DIFF_COMMON_LOGARGS,
 						      ISC_LOG_WARNING,
-						      "update with no effect");
+						      "%s/%s: dns_diff_apply: "
+						      "update with no effect",
+						      namebuf, classbuf);
+				}
 			} else if (result == DNS_R_NXRRSET) {
 				/*
 				 * OK.
@@ -478,6 +490,7 @@ dns_diff_load(dns_diff_t *diff, dns_addrdatasetfunc_t addfunc,
 			if (result == DNS_R_UNCHANGED) {
 				isc_log_write(DIFF_COMMON_LOGARGS,
 					      ISC_LOG_WARNING,
+					      "dns_diff_load: "
 					      "update with no effect");
 			} else if (result == ISC_R_SUCCESS ||
 				   result == DNS_R_NXRRSET) {
@@ -533,7 +546,7 @@ dns_diff_sort(dns_diff_t *diff, dns_diff_compare_func *compare) {
 
 /*
  * Create an rdataset containing the single RR of the given
- * tuple.  The caller must allocate the the rdata, rdataset and
+ * tuple.  The caller must allocate the rdata, rdataset and
  * an rdatalist structure for it to refer to.
  */
 

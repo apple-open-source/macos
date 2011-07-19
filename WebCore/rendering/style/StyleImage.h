@@ -24,6 +24,8 @@
 #ifndef StyleImage_h
 #define StyleImage_h
 
+#include "CSSValue.h"
+#include "Image.h"
 #include "IntSize.h"
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -32,7 +34,6 @@
 namespace WebCore {
 
 class CSSValue;
-class Image;
 class RenderObject;
 
 typedef void* WrappedImagePtr;
@@ -41,12 +42,12 @@ class StyleImage : public RefCounted<StyleImage> {
 public:
     virtual ~StyleImage() { }
 
-    bool operator==(const StyleImage& other)
+    bool operator==(const StyleImage& other) const
     {
         return data() == other.data();
     }
-    
-    virtual PassRefPtr<CSSValue> cssValue() = 0;
+
+    virtual PassRefPtr<CSSValue> cssValue() const = 0;
 
     virtual bool canRender(float /*multiplier*/) const { return true; }
     virtual bool isLoaded() const { return true; }
@@ -58,9 +59,11 @@ public:
     virtual void setImageContainerSize(const IntSize&) = 0;
     virtual void addClient(RenderObject*) = 0;
     virtual void removeClient(RenderObject*) = 0;
-    virtual Image* image(RenderObject*, const IntSize&) const = 0;
+    virtual PassRefPtr<Image> image(RenderObject*, const IntSize&) const = 0;
     virtual WrappedImagePtr data() const = 0;
+
     virtual bool isCachedImage() const { return false; }
+    virtual bool isPendingImage() const { return false; }
     virtual bool isGeneratedImage() const { return false; }
     
     static  bool imagesEquivalent(StyleImage* image1, StyleImage* image2)

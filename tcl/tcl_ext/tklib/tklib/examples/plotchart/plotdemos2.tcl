@@ -2,13 +2,12 @@
 # -*- tcl -*- \
 exec tclsh "$0" ${1+"$@"}
 
-package require Tcl 8.3
+package require Tcl 8.4
 package require Tk
 
-source ../../modules/plotchart/plotchart.tcl
 package require Plotchart
 
-# testplsec.tcl --
+# plotdemos2.tcl --
 #    Second test program for the Plotchart package
 #
 
@@ -102,7 +101,7 @@ $s plaintext 30.0 60.0 "Peak" south
 
 set s2 [::Plotchart::createXYPlot .t2.c2 {0.0 100.0 10.0} {0.0 100.0 20.0}]
 
-set image [image create photo bg -file tcllogo.gif]
+set image [image create photo bg -file [file join [file dirname [info script]] tcllogo.gif]]
 $s2 background image $image
 
 #$s2 dataconfig series1 -filled up -fillcolour white

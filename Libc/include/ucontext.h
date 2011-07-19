@@ -42,15 +42,16 @@ __END_DECLS
 //End-Libc
 #ifdef _XOPEN_SOURCE
 #include <sys/ucontext.h>
+#include <Availability.h>
 
 __BEGIN_DECLS
-int  getcontext(ucontext_t *);
-void makecontext(ucontext_t *, void (*)(), int, ...);
-int  setcontext(const ucontext_t *);
-int  swapcontext(ucontext_t * __restrict, const ucontext_t * __restrict);
+int  getcontext(ucontext_t *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_6, __IPHONE_2_0, __IPHONE_2_0);
+void makecontext(ucontext_t *, void (*)(), int, ...) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_6, __IPHONE_2_0, __IPHONE_2_0);
+int  setcontext(const ucontext_t *) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_6, __IPHONE_2_0, __IPHONE_2_0);
+int  swapcontext(ucontext_t * __restrict, const ucontext_t * __restrict) __OSX_AVAILABLE_BUT_DEPRECATED(__MAC_10_5, __MAC_10_6, __IPHONE_2_0, __IPHONE_2_0);
 __END_DECLS
 #else /* !_XOPEN_SOURCE */
-#error ucontext routines are deprecated, and require _XOPEN_SOURCE to be defined
+#error The deprecated ucontext routines require _XOPEN_SOURCE to be defined
 #endif /* _XOPEN_SOURCE */
 //Begin-Libc
 #endif /* __LIBC__ */

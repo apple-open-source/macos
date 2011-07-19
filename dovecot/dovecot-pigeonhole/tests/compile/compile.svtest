@@ -1,0 +1,16 @@
+require "vnd.dovecot.testsuite";
+
+# Just test whether valid scripts will compile without problems
+
+test "Trivial" {
+	if not test_script_compile "trivial.sieve" {
+		test_fail "could not compile";
+	}
+}
+
+test "Redirect" {
+	if not test_script_compile "redirect.sieve" {
+		test_fail "could not compile";
+	}
+}
+

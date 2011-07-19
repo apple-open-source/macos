@@ -22,15 +22,16 @@
  *
  */
 
-#ifndef SelectionInfo_h
-#define SelectionInfo_h
+#ifndef RenderSelectionInfo_h
+#define RenderSelectionInfo_h
 
 #include "IntRect.h"
 #include "RenderBox.h"
 
 namespace WebCore {
 
-class RenderSelectionInfoBase : public Noncopyable {
+class RenderSelectionInfoBase {
+    WTF_MAKE_NONCOPYABLE(RenderSelectionInfoBase); WTF_MAKE_FAST_ALLOCATED;
 public:
     RenderSelectionInfoBase()
         : m_object(0)
@@ -101,4 +102,4 @@ private:
 } // namespace WebCore
 
 
-#endif // SelectionInfo_h
+#endif // RenderSelectionInfo_h

@@ -355,13 +355,13 @@ AppleSCSIPDT00Emulator::SendCommand (
 				if ( buffer != NULL )
 				{
 
-					COMMAND_LOG ( ( "Requested = %ld\n", *dataLen ) );
-					COMMAND_LOG ( ( "Amount = %ld\n", amount ) );
+					COMMAND_LOG ( ( "Requested = %llu\n", *dataLen ) );
+					COMMAND_LOG ( ( "Amount = %llu\n", amount ) );
 					
 					*dataLen = min ( amount, *dataLen );
 					dataDesc->writeBytes ( 0, buffer, *dataLen );
 
-					COMMAND_LOG ( ( "Realized = %ld\n", *dataLen ) );
+					COMMAND_LOG ( ( "Realized = %llu\n", *dataLen ) );
 
 					*scsiStatus = kSCSITaskStatus_GOOD;
 					
@@ -455,7 +455,7 @@ AppleSCSIPDT00Emulator::SendCommand (
 			byteOffset 		= lba * kBlockSize;
 			numBytes 		= transferLength * kBlockSize;
 			
-			COMMAND_LOG ( ( "SCSI Command: WRITE_10 - %qd (0x%qX) bytes at 0x%X (ptr = %p)\n", numBytes, numBytes, byteOffset, &fMemory[byteOffset] ) );
+			COMMAND_LOG ( ( "SCSI Command: WRITE_10 - %d (0x%X) bytes at 0x%X (ptr = %p)\n", numBytes, numBytes, byteOffset, &fMemory[byteOffset] ) );
 			
 			dataDesc->readBytes ( 0, &fMemory[byteOffset], numBytes );
 			
@@ -540,7 +540,7 @@ AppleSCSIPDT00Emulator::SendCommand (
 			// Just return the header.			
 			*senseBufferLen = 0;
 			
-			COMMAND_LOG ( ( "*dataLen = %ld, sizeof(header) = %d\n", *dataLen, sizeof ( header ) ) );
+			COMMAND_LOG ( ( "*dataLen = %llu, sizeof(header) = %lu\n", *dataLen, sizeof ( header ) ) );
 			COMMAND_LOG ( ( "pageCode = 0x%02x\n", cdb[2] & 0x3FFFF ) );
 			
 			*dataLen = min ( sizeof ( header ), *dataLen );
@@ -550,7 +550,7 @@ AppleSCSIPDT00Emulator::SendCommand (
 			header.DEVICE_SPECIFIC_PARAMETER	= 0;	// Not write protected. Doesn't support DPOFUA.
 			header.BLOCK_DESCRIPTOR_LENGTH		= 0;	// No block descriptors.
 			
-			COMMAND_LOG ( ( "header.MODE_DATA_LENGTH = %d, *dataLen = %ld\n", header.MODE_DATA_LENGTH, *dataLen ) );
+			COMMAND_LOG ( ( "header.MODE_DATA_LENGTH = %d, *dataLen = %llu\n", header.MODE_DATA_LENGTH, *dataLen ) );
 			
 			dataDesc->writeBytes ( 0, &header, *dataLen );
 			
@@ -570,7 +570,7 @@ AppleSCSIPDT00Emulator::SendCommand (
 			// Just return the header.			
 			*senseBufferLen = 0;
 			
-			COMMAND_LOG ( ( "*dataLen = %ld, sizeof(header) = %d\n", *dataLen, sizeof ( header ) ) );
+			COMMAND_LOG ( ( "*dataLen = %llu, sizeof(header) = %lu\n", *dataLen, sizeof ( header ) ) );
 			COMMAND_LOG ( ( "pageCode = 0x%02x\n", cdb[2] & 0x3FFFF ) );
 			
 			*dataLen = min ( sizeof ( header ), *dataLen );
@@ -580,7 +580,7 @@ AppleSCSIPDT00Emulator::SendCommand (
 			header.DEVICE_SPECIFIC_PARAMETER	= 0;	// Not write protected. Doesn't support DPOFUA.
 			header.BLOCK_DESCRIPTOR_LENGTH		= 0;	// No block descriptors.
 			
-			COMMAND_LOG ( ( "header.MODE_DATA_LENGTH = %d, *dataLen = %ld\n", header.MODE_DATA_LENGTH, *dataLen ) );
+			COMMAND_LOG ( ( "header.MODE_DATA_LENGTH = %d, *dataLen = %llu\n", header.MODE_DATA_LENGTH, *dataLen ) );
 			
 			dataDesc->writeBytes ( 0, &header, *dataLen );
 			

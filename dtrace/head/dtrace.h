@@ -27,7 +27,12 @@
 #ifndef	_DTRACE_H
 #define	_DTRACE_H
 
+#if !defined(__APPLE__)
+/*
+ * clang does not understand this pragma, and it is included in system headers
+ */
 #pragma ident	"@(#)dtrace.h	1.17	07/11/12 SMI"
+#endif
 
 #if !defined(__APPLE__)
 #include <sys/dtrace.h>

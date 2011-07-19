@@ -628,7 +628,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 30FE97250829B43100BB83AB /* Build configuration list for PBXProject "IOFWDVComponents" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOFWDVComponents */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -869,6 +876,7 @@
 					i386,
 				);
 				BUILD_STYLE = Development;
+				VALID_ARCHS = "ppc i386";
 			};
 			name = Development;
 		};
@@ -880,6 +888,7 @@
 					i386,
 				);
 				BUILD_STYLE = Deployment;
+				VALID_ARCHS = "ppc i386";
 			};
 			name = Deployment;
 		};
@@ -891,6 +900,7 @@
 					i386,
 				);
 				BUILD_STYLE = FireLog;
+				VALID_ARCHS = "ppc i386";
 			};
 			name = FireLog;
 		};
@@ -902,6 +912,7 @@
 					i386,
 				);
 				BUILD_STYLE = Default;
+				VALID_ARCHS = "ppc i386";
 			};
 			name = Default;
 		};

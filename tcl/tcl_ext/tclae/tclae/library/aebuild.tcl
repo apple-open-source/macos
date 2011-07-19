@@ -330,7 +330,7 @@ proc tclAE::build::TEXT {txt} {
  # -------------------------------------------------------------------------
  ##
 proc tclAE::build::alis {path} {
-    return [tclAE::coerceData TEXT $path alis]
+    return [tclAE::coerceData utxt $path alis]
 }
 
 ## 

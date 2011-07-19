@@ -36,8 +36,8 @@
 #include <arpa/inet.h>
 #include <netdb.h>
 
-#include <Kerberos/krb5.h>
-#include <Kerberos/locate_plugin.h>
+#include <Heimdal/krb5.h>
+#include <Heimdal/locate_plugin.h>
 
 #include "LKDCHelper.h"
 

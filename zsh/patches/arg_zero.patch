@@ -1,15 +1,15 @@
 --- Src/init.c	2007-01-30 10:42:55.000000000 -0800
 +++ Src/init.c	2007-05-14 13:42:58.000000000 -0700
-@@ -1331,7 +1331,7 @@
+@@ -1430,7 +1430,7 @@
  
  /**/
  mod_export int
 -zsh_main(UNUSED(int argc), char **argv)
 +zsh_main(int argc, char **argv)
  {
-     char **t;
+     char **t, *runscript = NULL;
      int t0;
-@@ -1339,6 +1339,12 @@
+@@ -1438,6 +1438,12 @@
      setlocale(LC_ALL, "");
  #endif
  

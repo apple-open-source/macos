@@ -55,11 +55,12 @@ public:
 	~CFMDiskRep();
 	
 	CFDataRef component(CodeDirectory::SpecialSlot slot);
-	const Requirements *defaultRequirements(const Architecture *arch);
-	size_t pageSize();
 	size_t signingLimit();
 	std::string format();
 	void flush();
+	
+	const Requirements *defaultRequirements(const Architecture *arch, const SigningContext &ctx);
+	size_t pageSize(const SigningContext &ctx);
 	
 	static bool candidate(UnixPlusPlus::FileDesc &fd); // could this reasonably be a CFM code?
 

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2007 Kevin Ollivier <kevino@theolliviers.com>
+ * Copyright (C) 2011 Apple Inc. All rights reserved.
  *
  * All rights reserved.
  *
@@ -34,6 +35,7 @@
 #include "PluginView.h"
 #include "ResourceResponse.h"
 #include "HTMLPlugInElement.h"
+#include <wtf/Forward.h>
 
 class wxWebFrame;
 class wxWebView;
@@ -45,7 +47,6 @@ namespace WebCore {
     class Element;
     class FormState;
     class NavigationAction;
-    class String;
     class ResourceLoader;
 
     struct LoadErrorResetToken;
@@ -102,13 +103,13 @@ namespace WebCore {
         virtual void dispatchWillClose();
         virtual void dispatchDidReceiveIcon();
         virtual void dispatchDidStartProvisionalLoad();
-        virtual void dispatchDidReceiveTitle(const String& title);
+        virtual void dispatchDidReceiveTitle(const StringWithDirection& title);
         virtual void dispatchDidCommitLoad();
         virtual void dispatchDidFinishDocumentLoad();
         virtual void dispatchDidFinishLoad();
         virtual void dispatchDidFirstLayout();
         virtual void dispatchDidFirstVisuallyNonEmptyLayout();
-        virtual void dispatchDidChangeIcons();
+        virtual void dispatchDidChangeIcons(WebCore::IconType);
 
         virtual void dispatchShow();
         virtual void cancelPolicyCheck();
@@ -131,6 +132,7 @@ namespace WebCore {
         virtual void finishedLoading(DocumentLoader*);
 
         virtual bool canShowMIMEType(const String& MIMEType) const;
+        virtual bool canShowMIMETypeAsHTML(const String& MIMEType) const;
         virtual bool representationExistsForURLScheme(const String& URLScheme) const;
         virtual String generatedMIMETypeForURLScheme(const String& URLScheme) const;
 
@@ -143,17 +145,23 @@ namespace WebCore {
         virtual void addHistoryItemForFragmentScroll();
         virtual void didFinishLoad();
         virtual void prepareForDataSourceReplacement();
-        virtual void setTitle(const String& title, const KURL&);
+        virtual void setTitle(const StringWithDirection&, const KURL&);
 
         virtual String userAgent(const KURL&);
 
         virtual void savePlatformDataToCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedFromCachedFrame(WebCore::CachedFrame*);
         virtual void transitionToCommittedForNewPage();
-        
+
+        virtual void didSaveToPageCache();
+        virtual void didRestoreFromPageCache();
+
+        virtual void dispatchDidBecomeFrameset(bool);
+
         virtual void updateGlobalHistory();
         virtual void updateGlobalHistoryRedirectLinks();
         virtual bool shouldGoToHistoryItem(HistoryItem*) const;
+        virtual bool shouldStopLoadingForHistoryItem(HistoryItem*) const;
         virtual void dispatchDidAddBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidRemoveBackForwardItem(HistoryItem*) const;
         virtual void dispatchDidChangeBackForwardIndex() const;
@@ -161,7 +169,7 @@ namespace WebCore {
         virtual bool canCachePage() const;
         
         virtual void didDisplayInsecureContent();
-        virtual void didRunInsecureContent(SecurityOrigin*);
+        virtual void didRunInsecureContent(SecurityOrigin*, const KURL&);
 
         virtual void setMainDocumentError(DocumentLoader*, const ResourceError&);
         virtual void committedLoad(DocumentLoader*, const char*, int);
@@ -189,8 +197,8 @@ namespace WebCore {
 
         virtual void dispatchDidFailProvisionalLoad(const ResourceError&);
         virtual void dispatchDidFailLoad(const ResourceError&);
-        virtual Frame* dispatchCreatePage();
-        virtual void dispatchDecidePolicyForMIMEType(FramePolicyFunction function, const String&, const ResourceRequest&);
+        virtual Frame* dispatchCreatePage(const WebCore::NavigationAction&);
+        virtual void dispatchDecidePolicyForResponse(FramePolicyFunction function, const ResourceResponse&, const ResourceRequest&);
         virtual void dispatchDecidePolicyForNewWindowAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>, const String&);
         virtual void dispatchDecidePolicyForNavigationAction(FramePolicyFunction function, const NavigationAction&, const ResourceRequest&, PassRefPtr<FormState>);
         virtual void dispatchUnableToImplementPolicy(const ResourceError&);
@@ -202,14 +210,15 @@ namespace WebCore {
 
         virtual PassRefPtr<Frame> createFrame(const KURL& url, const String& name, HTMLFrameOwnerElement* ownerElement,
                                    const String& referrer, bool allowsScrolling, int marginWidth, int marginHeight);
-        virtual void didTransferChildFrameToNewDocument();
+        virtual void didTransferChildFrameToNewDocument(Page*);
+        virtual void transferLoadingResourceFromPage(unsigned long, DocumentLoader*, const ResourceRequest&, Page*);
         virtual PassRefPtr<Widget> createPlugin(const IntSize&, HTMLPlugInElement*, const KURL&, const Vector<String>&, const Vector<String>&, const String&, bool loadManually) ;
         virtual void redirectDataToPlugin(Widget* pluginWidget);
         virtual ResourceError pluginWillHandleLoadError(const ResourceResponse&);
         
         virtual PassRefPtr<Widget> createJavaAppletWidget(const IntSize&, HTMLAppletElement*, const KURL& baseURL, const Vector<String>& paramNames, const Vector<String>& paramValues);
 
-        virtual ObjectContentType objectContentType(const KURL& url, const String& mimeType);
+        virtual ObjectContentType objectContentType(const KURL&, const String& mimeType, bool shouldPreferPlugInsForImages);
         virtual String overrideMediaType() const;
 
         virtual void dispatchDidClearWindowObjectInWorld(DOMWrapperWorld*);
@@ -220,6 +229,8 @@ namespace WebCore {
         virtual void registerForIconNotification(bool listen = true);
         
         virtual bool shouldUsePluginDocument(const String &mimeType) const;
+        
+        virtual PassRefPtr<FrameNetworkingContext> createNetworkingContext();
 
     private:
         wxWebFrame *m_webFrame;

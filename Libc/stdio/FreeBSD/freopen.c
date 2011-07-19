@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,13 +34,14 @@
 static char sccsid[] = "@(#)freopen.c	8.1 (Berkeley) 6/4/93";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.13 2004/05/22 15:19:41 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/freopen.c,v 1.21 2008/04/17 22:17:54 jhb Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <fcntl.h>
 #include <errno.h>
+#include <limits.h>
 #include <unistd.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -67,7 +64,9 @@ freopen(file, mode, fp)
 	int dflags, flags, isopen, oflags, sverrno, wantfd;
 
 	if ((flags = __sflags(mode, &oflags)) == 0) {
+		sverrno = errno;
 		(void) fclose(fp);
+		errno = sverrno;
 		return (NULL);
 	}
 
@@ -102,6 +101,8 @@ freopen(file, mode, fp)
 			errno = EINVAL;
 			return (NULL);
 		}
+		if (fp->_flags & __SWR)
+			(void) __sflush(fp);
 		if ((oflags ^ dflags) & O_APPEND) {
 			dflags &= ~O_APPEND;
 			dflags |= oflags & O_APPEND;
@@ -114,15 +115,9 @@ freopen(file, mode, fp)
 			}
 		}
 		if (oflags & O_TRUNC)
-			ftruncate(fp->_file, 0);
-		if (_fseeko(fp, 0, oflags & O_APPEND ? SEEK_END : SEEK_SET,
-		    0) < 0 && errno != ESPIPE) {
-			sverrno = errno;
-			fclose(fp);
-			FUNLOCKFILE(fp);
-			errno = sverrno;
-			return (NULL);
-		}
+			(void) ftruncate(fp->_file, (off_t)0);
+		if (!(oflags & O_APPEND))
+			(void) _sseek(fp, (fpos_t)0, SEEK_SET);
 		f = fp->_file;
 		isopen = 0;
 		wantfd = -1;
@@ -187,13 +182,13 @@ finish:
 	if (HASLB(fp))
 		FREELB(fp);
 	fp->_lb._size = 0;
-	fp->_extra->orientation = 0;
-	memset(&fp->_extra->mbstate, 0, sizeof(mbstate_t));
+	fp->_orientation = 0;
+	memset(&fp->_mbstate, 0, sizeof(mbstate_t));
 
 	if (f < 0) {			/* did not get it after all */
 		fp->_flags = 0;		/* set it free */
-		errno = sverrno;	/* restore in case _close clobbered */
 		FUNLOCKFILE(fp);
+		errno = sverrno;	/* restore in case _close clobbered */
 		return (NULL);
 	}
 
@@ -209,6 +204,20 @@ finish:
 		}
 	}
 
+	/*
+	 * File descriptors are a full int, but _file is only a short.
+	 * If we get a valid file descriptor that is greater than
+	 * SHRT_MAX, then the fd will get sign-extended into an
+	 * invalid file descriptor.  Handle this case by failing the
+	 * open.
+	 */
+	if (f > SHRT_MAX) {
+		fp->_flags = 0;		/* set it free */
+		FUNLOCKFILE(fp);
+		errno = EMFILE;
+		return (NULL);
+	}
+
 	fp->_flags = flags;
 	fp->_file = f;
 	fp->_cookie = fp;
@@ -216,6 +225,16 @@ finish:
 	fp->_write = __swrite;
 	fp->_seek = __sseek;
 	fp->_close = __sclose;
+	/*
+	 * When opening in append mode, even though we use O_APPEND,
+	 * we need to seek to the end so that ftell() gets the right
+	 * answer.  If the user then alters the seek pointer, or
+	 * the file extends, this will fail, but there is not much
+	 * we can do about this.  (We could set __SAPP and check in
+	 * fseek and ftell.)
+	 */
+	if (oflags & O_APPEND)
+		(void) _sseek(fp, (fpos_t)0, SEEK_END);
 	FUNLOCKFILE(fp);
 	return (fp);
 }

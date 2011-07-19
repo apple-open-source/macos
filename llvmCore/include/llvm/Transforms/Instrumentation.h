@@ -19,18 +19,11 @@ namespace llvm {
 class ModulePass;
 class FunctionPass;
 
-// Insert function profiling instrumentation
-ModulePass *createFunctionProfilerPass();
-
-// Insert block profiling instrumentation
-ModulePass *createBlockProfilerPass();
-
 // Insert edge profiling instrumentation
 ModulePass *createEdgeProfilerPass();
 
-// Random Sampling Profiling Framework
-ModulePass* createNullProfilerRSPass();
-FunctionPass* createRSProfilingPass();
+// Insert optimal edge profiling instrumentation
+ModulePass *createOptimalEdgeProfilerPass();
 
 } // End llvm namespace
 

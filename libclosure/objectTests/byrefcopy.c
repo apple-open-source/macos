@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  byrefcopy.m
 //  testObjects
@@ -6,31 +12,32 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
+// TEST_CONFIG
+
 #include <stdio.h>
 #include <Block.h>
 #include <Block_private.h>
-
-// CONFIG
+#include "test.h"
 
 void callVoidVoid(void (^closure)(void)) {
     closure();
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     int __block i = 10;
     
     void (^block)(void) = ^{ ++i; };
     //printf("original (old style) is  %s\n", _Block_dump_old(block));
     //printf("original (new style) is %s\n", _Block_dump(block));
-    void (^blockcopy)(void) = Block_copy(block);
+    void (^blockcopy)(void) __unused = Block_copy(block);
     //printf("copy is %s\n", _Block_dump(blockcopy));
     // use a copy & see that it updates i
     callVoidVoid(block);
     
     if (i != 11) {
-        printf("*** %s didn't update i\n", argv[0]);
+        fail("didn't update i");
         return 1;
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

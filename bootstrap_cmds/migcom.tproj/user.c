@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2003, 2008 Apple Inc. All rights reserved.
+ * Copyright (c) 1999-2003, 2008-2009 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -464,18 +464,11 @@ WriteMsgCheckForTimeout(FILE *file, routine_t *rt)
       if (akCheck(arg_ptr->argKind, akbSendKPD) && arg_ptr->argKPD_Type == MACH_MSG_OOL_DESCRIPTOR) {
         //    generate code to test current arg address vs. address before the msg_send call
         //    if not at the same address, mig_deallocate the argument
-        fprintf(file, "\t\t"   "if (InP->%s.address != %s)\n", arg_ptr->argVarName, arg_ptr->argVarName);
-        fprintf(file, "\t\t\t"   "mig_deallocate((vm_offset_t) InP->%s.address, ", arg_ptr->argVarName);
-        if (arg_ptr->argType->itVarArray) {
-          ipc_type_t *btype = arg_ptr->argType->itElement;
-          int        multiplier = btype->itNumber ? btype->itSize / (8 * btype->itNumber) : 0;
-          
-          if (multiplier > 1)
-            fprintf(file, "%d * ", multiplier);
-          fprintf(file, "InP->%s);\n", arg_ptr->argCount->argVarName);
-        }
-        else
-          fprintf(file, "%d);\n", (arg_ptr->argType->itNumber * arg_ptr->argType->itSize + 7) / 8);
+        // 11/19/09 - gab: <rdar://problem/7300079>: Emit typecast if necessary
+        fprintf(file, "\t\tif((vm_offset_t) InP->%s.address != (vm_offset_t) %s)\n", 
+		arg_ptr->argVarName, arg_ptr->argVarName);
+        fprintf(file, "\t\t\t"   "mig_deallocate((vm_offset_t) InP->%s.address, "
+		"(vm_size_t) InP->%s.size);\n", arg_ptr->argVarName, arg_ptr->argVarName);
       }
     }
     
@@ -626,7 +619,7 @@ WriteMsgRPC(FILE *file, routine_t *rt)
     fprintf(file, "#else\n");
   }
   if (rt->rtOverwrite) {
-    fprintf(file, "\tmsg_result = mach_msg_overwrite(&InP->Head, MACH_SEND_MSG|MACH_RCV_MSG|MACH_RCV_OVERWRITE%s%s%s, %s, (mach_msg_size_t)sizeof(Reply), InP->Head.msgh_reply_port, %s, MACH_PORT_NULL, ",
+    fprintf(file, "\tmsg_result = mach_msg_overwrite(&InP->Head, MACH_SEND_MSG|MACH_RCV_MSG|MACH_RCV_OVERWRITE|%s%s%s, %s, (mach_msg_size_t)sizeof(Reply), InP->Head.msgh_reply_port, %s, MACH_PORT_NULL, ",
             rt->rtUserImpl != 0 ? "MACH_RCV_TRAILER_TYPE(MACH_MSG_TRAILER_FORMAT_0)|" : "",
             rt->rtWaitTime != argNULL ? "MACH_SEND_TIMEOUT|MACH_RCV_TIMEOUT|" : "",
             rt->rtMsgOption->argVarName,
@@ -1819,6 +1812,14 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
     WriteCheckArgSize(file, arg);
     fprintf(file, "))\n");
     fprintf(file, "\t\t{ return MIG_TYPE_ERROR ; }\n");
+
+    /* 12/15/08 - gab: <rdar://problem/4900700>
+     * emit code to verify that the server-code-provided count does not exceed the maximum count allowed by the type.
+     */
+    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fputs("\t\t" "return MIG_TYPE_ERROR;\n", file);
+    /* ...end... */
+    
     fprintf(file, "#endif\t/* __MigTypeCheck */\n");
   }
   else {
@@ -1846,6 +1847,14 @@ WriteCheckMsgSize(FILE *file, register argument_t *arg)
     rtMinReplySize(file, rt, "__Reply");
     fprintf(file, " + msgh_size_delta)\n");
     fprintf(file, "\t\t{ return MIG_TYPE_ERROR; }\n");
+    
+    
+    /* 12/15/08 - gab: <rdar://problem/4900700>
+     * emit code to verify that the server-code-provided count does not exceed the maximum count allowed by the type.
+     */
+    fprintf(file, "\t" "if ( Out%dP->%s > %d )\n", arg->argCount->argReplyPos, arg->argCount->argMsgField, arg->argType->itNumber);
+    fputs("\t\t" "return MIG_TYPE_ERROR;\n", file);
+    /* ...end... */
     
     if (!LastVarArg)
       fprintf(file, "\tmsgh_size -= msgh_size_delta;\n");

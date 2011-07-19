@@ -118,7 +118,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 2D5B7F6108F71A3A0031C32D /* Build configuration list for PBXProject "IOSerialFamily" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 021C9E2C000BD0CF11CA285C /* IOSerialFamily */;
 			productRefGroup = 021C9E44000BD0CF11CA285C /* Products */;
 			projectDirPath = "";
@@ -251,6 +258,7 @@
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOSerialFamily;
 				MODULE_VERSION = 9.1;
+				OTHER_CFLAGS = "";
 				PRODUCT_NAME = IOSerialFamily;
 				WRAPPER_EXTENSION = kext;
 			};

@@ -7,7 +7,6 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		27B2CCC90EC50B590028A012 /* handler.c in Sources */ = {isa = PBXBuildFile; fileRef = 27B2CCC80EC50B590028A012 /* handler.c */; };
 		27B2CCCB0EC50B730028A012 /* mig_errors.h in Headers */ = {isa = PBXBuildFile; fileRef = 27B2CCCA0EC50B730028A012 /* mig_errors.h */; };
 		579F96740AF6B3AE008E535C /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 572500D70AD4567700A6E6C4 /* error.c */; };
 		579F96750AF6B3AE008E535C /* global.c in Sources */ = {isa = PBXBuildFile; fileRef = 572500D90AD4567700A6E6C4 /* global.c */; };
@@ -26,7 +25,8 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		27B2CCC80EC50B590028A012 /* handler.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; path = handler.c; sourceTree = "<group>"; };
+		2732677F10C48C6A00F8A57A /* mig.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = mig.1; sourceTree = "<group>"; };
+		2732678F10C48ED400F8A57A /* migcom.1 */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.man; path = migcom.1; sourceTree = "<group>"; };
 		27B2CCCA0EC50B730028A012 /* mig_errors.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = mig_errors.h; sourceTree = "<group>"; };
 		572500D60AD4567700A6E6C4 /* alloc.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = alloc.h; sourceTree = "<group>"; };
 		572500D70AD4567700A6E6C4 /* error.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = error.c; sourceTree = "<group>"; };
@@ -108,15 +108,16 @@
 				572500D80AD4567700A6E6C4 /* error.h */,
 				572500D90AD4567700A6E6C4 /* global.c */,
 				572500DA0AD4567700A6E6C4 /* global.h */,
-				27B2CCC80EC50B590028A012 /* handler.c */,
 				572500DB0AD4567700A6E6C4 /* header.c */,
 				572500DC0AD4567700A6E6C4 /* i386 */,
 				572500DE0AD4567700A6E6C4 /* lexxer.h */,
 				572500DF0AD4567700A6E6C4 /* lexxer.l */,
 				27B2CCCA0EC50B730028A012 /* mig_errors.h */,
 				572500E30AD4567700A6E6C4 /* mig_machine.h */,
+				2732677F10C48C6A00F8A57A /* mig.1 */,
 				572500E40AD4567700A6E6C4 /* mig.c */,
 				572500E50AD4567700A6E6C4 /* mig.sh */,
+				2732678F10C48ED400F8A57A /* migcom.1 */,
 				572500E60AD4567700A6E6C4 /* parser.y */,
 				572500E70AD4567700A6E6C4 /* ppc */,
 				572500E90AD4567700A6E6C4 /* routine.c */,
@@ -301,7 +302,6 @@
 				579F96800AF6B3AE008E535C /* utils.c in Sources */,
 				579F96ED0AF6BBD2008E535C /* lexxer.c in Sources */,
 				579F96EE0AF6BBD2008E535C /* parser.c in Sources */,
-				27B2CCC90EC50B590028A012 /* handler.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -335,6 +335,7 @@
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				PRODUCT_NAME = mig;
+				RC_ARCHS = "ppc i386";
 			};
 			name = Debug;
 		};
@@ -364,6 +365,7 @@
 				PRODUCT_NAME = migcom;
 				REZ_EXECUTABLE = YES;
 				SECTORDER_FLAGS = "";
+				VALID_ARCHS = "i386 ppc ppc7400 ppc970";
 				WARNING_CFLAGS = (
 					"-Wmost",
 					"-Wno-four-char-constants",

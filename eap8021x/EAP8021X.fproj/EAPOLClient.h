@@ -48,4 +48,9 @@ EAPOLClientReportStatus(EAPOLClientRef client, CFDictionaryRef status_dict);
 int
 EAPOLClientForceRenew(EAPOLClientRef client);
 
-#endif _EAP8021X_EAPOLCONTROL_H
+#if ! TARGET_OS_EMBEDDED
+int
+EAPOLClientUserCancelled(EAPOLClientRef client);
+#endif /* ! TARGET_OS_EMBEDDED */
+
+#endif /* _EAP8021X_EAPOLCONTROL_H */

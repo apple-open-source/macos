@@ -35,7 +35,6 @@
 #include "WebNodeHighlight.h"
 #include "WebView.h"
 
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
 #include <WebCore/Element.h>
 #include <WebCore/FloatRect.h>
@@ -45,10 +44,10 @@
 #include <WebCore/Page.h>
 #include <WebCore/RenderObject.h>
 #include <WebCore/WindowMessageBroadcaster.h>
-#pragma warning(pop)
 
-#include <tchar.h>
+#include <wchar.h>
 #include <wtf/RetainPtr.h>
+#include <wtf/text/StringConcatenate.h>
 
 using namespace WebCore;
 
@@ -69,6 +68,7 @@ static CFBundleRef getWebKitBundle()
 
 WebInspectorClient::WebInspectorClient(WebView* webView)
     : m_inspectedWebView(webView)
+    , m_frontendPage(0)
 {
     ASSERT(m_inspectedWebView);
     m_inspectedWebView->viewWindow((OLE_HANDLE*)&m_inspectedWebViewHwnd);
@@ -76,6 +76,7 @@ WebInspectorClient::WebInspectorClient(WebView* webView)
 
 WebInspectorClient::~WebInspectorClient()
 {
+    m_frontendPage = 0;
 }
 
 void WebInspectorClient::inspectorDestroyed()
@@ -109,7 +110,6 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
         return;
 
     // Keep preferences separate from the rest of the client, making sure we are using expected preference values.
-    // One reason this is good is that it keeps the inspector out of history via "private browsing".
     // FIXME: It's crazy that we have to do this song and dance to end up with
     // a private WebPreferences object, even within WebKit. We should make this
     // process simpler, and consider whether we can make it simpler for WebKit
@@ -122,8 +122,6 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
     if (!preferences)
         return;
     if (FAILED(preferences->setAutosaves(FALSE)))
-        return;
-    if (FAILED(preferences->setPrivateBrowsingEnabled(TRUE)))
         return;
     if (FAILED(preferences->setLoadsImagesAutomatically(TRUE)))
         return;
@@ -172,8 +170,8 @@ void WebInspectorClient::openInspectorFrontend(InspectorController* inspectorCon
     if (FAILED(frontendWebView->topLevelFrame()->loadRequest(request.get())))
         return;
 
-    Page* page = core(frontendWebView.get());
-    page->inspectorController()->setInspectorFrontendClient(new WebInspectorFrontendClient(m_inspectedWebView, m_inspectedWebViewHwnd, frontendHwnd, frontendWebView, frontendWebViewHwnd, this));
+    m_frontendPage = core(frontendWebView.get());
+    m_frontendPage->inspectorController()->setInspectorFrontendClient(adoptPtr(new WebInspectorFrontendClient(m_inspectedWebView, m_inspectedWebViewHwnd, frontendHwnd, frontendWebView, frontendWebViewHwnd, this, createFrontendSettings())));
     m_frontendHwnd = frontendHwnd;
 }
 
@@ -182,7 +180,7 @@ void WebInspectorClient::highlight(Node*)
     bool creatingHighlight = !m_highlight;
 
     if (creatingHighlight)
-        m_highlight.set(new WebNodeHighlight(m_inspectedWebView));
+        m_highlight = adoptPtr(new WebNodeHighlight(m_inspectedWebView));
 
     if (m_highlight->isShowing())
         m_highlight->update();
@@ -205,8 +203,8 @@ void WebInspectorClient::updateHighlight()
         m_highlight->update();
 }
 
-WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frontendWebView, HWND frontendWebViewHwnd, WebInspectorClient* inspectorClient)
-    : InspectorFrontendClientLocal(inspectedWebView->page()->inspectorController(),  core(frontendWebView.get()))
+WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView, HWND inspectedWebViewHwnd, HWND frontendHwnd, const COMPtr<WebView>& frontendWebView, HWND frontendWebViewHwnd, WebInspectorClient* inspectorClient, PassOwnPtr<Settings> settings)
+    : InspectorFrontendClientLocal(inspectedWebView->page()->inspectorController(),  core(frontendWebView.get()), settings)
     , m_inspectedWebView(inspectedWebView)
     , m_inspectedWebViewHwnd(inspectedWebViewHwnd)
     , m_inspectorClient(inspectorClient)
@@ -225,7 +223,7 @@ WebInspectorFrontendClient::WebInspectorFrontendClient(WebView* inspectedWebView
 
 WebInspectorFrontendClient::~WebInspectorFrontendClient()
 {
-    destroyInspectorView();
+    destroyInspectorView(true);
 }
 
 void WebInspectorFrontendClient::frontendLoaded()
@@ -257,7 +255,12 @@ void WebInspectorFrontendClient::bringToFront()
 
 void WebInspectorFrontendClient::closeWindow()
 {
-    destroyInspectorView();
+    destroyInspectorView(true);
+}
+
+void WebInspectorFrontendClient::disconnectFromBackend()
+{
+    destroyInspectorView(false);
 }
 
 void WebInspectorFrontendClient::attachWindow()
@@ -265,7 +268,7 @@ void WebInspectorFrontendClient::attachWindow()
     if (m_attached)
         return;
 
-    m_inspectedWebView->page()->inspectorController()->setSetting(InspectorController::inspectorStartsAttachedSettingName(), "true");
+    m_inspectorClient->setInspectorStartsAttached(true);
 
     closeWindowWithoutNotifications();
     showWindowWithoutNotifications();
@@ -276,7 +279,7 @@ void WebInspectorFrontendClient::detachWindow()
     if (!m_attached)
         return;
 
-    m_inspectedWebView->page()->inspectorController()->setSetting(InspectorController::inspectorStartsAttachedSettingName(), "false");
+    m_inspectorClient->setInspectorStartsAttached(false);
 
     closeWindowWithoutNotifications();
     showWindowWithoutNotifications();
@@ -316,6 +319,16 @@ void WebInspectorFrontendClient::inspectedURLChanged(const String& newURL)
     updateWindowTitle();
 }
 
+void WebInspectorFrontendClient::saveSessionSetting(const String& key, const String& value)
+{
+    m_inspectorClient->saveSessionSetting(key, value);
+}
+
+void WebInspectorFrontendClient::loadSessionSetting(const String& key, String* value)
+{
+    m_inspectorClient->loadSessionSetting(key, value);
+}
+
 void WebInspectorFrontendClient::closeWindowWithoutNotifications()
 {
     if (!m_frontendHwnd)
@@ -341,8 +354,6 @@ void WebInspectorFrontendClient::closeWindowWithoutNotifications()
     HWND hostWindow;
     if (SUCCEEDED(m_inspectedWebView->hostWindow((OLE_HANDLE*)&hostWindow)))
         SendMessage(hostWindow, WM_SIZE, 0, 0);
-
-    m_inspectorClient->updateHighlight();
 }
 
 void WebInspectorFrontendClient::showWindowWithoutNotifications()
@@ -358,8 +369,8 @@ void WebInspectorFrontendClient::showWindowWithoutNotifications()
         shouldAttach = true;
     else {
         // If no preference is set - default to an attached window. This is important for inspector LayoutTests.
-        String shouldAttachPref = m_inspectedWebView->page()->inspectorController()->setting(InspectorController::inspectorStartsAttachedSettingName());
-        shouldAttach = shouldAttachPref != "false";
+        // FIXME: This flag can be fetched directly from the flags storage.
+        shouldAttach = m_inspectorClient->inspectorStartsAttached();
 
         if (shouldAttach && !canAttachWindow())
             shouldAttach = false;
@@ -394,27 +405,26 @@ void WebInspectorFrontendClient::showWindowWithoutNotifications()
     m_inspectorClient->updateHighlight();
 }
 
-void WebInspectorFrontendClient::destroyInspectorView()
+void WebInspectorFrontendClient::destroyInspectorView(bool notifyInspectorController)
 {
     if (m_destroyingInspectorView)
         return;
     m_destroyingInspectorView = true;
 
-    m_inspectedWebView->page()->inspectorController()->disconnectFrontend();
 
     closeWindowWithoutNotifications();
-    m_inspectorClient->frontendClosing();
+
+    if (notifyInspectorController) {
+        m_inspectedWebView->page()->inspectorController()->disconnectFrontend();
+        m_inspectorClient->updateHighlight();
+        m_inspectorClient->frontendClosing();
+    }
     ::DestroyWindow(m_frontendHwnd);
 }
 
 void WebInspectorFrontendClient::updateWindowTitle()
 {
-    // FIXME: The series of appends should be replaced with a call to String::format()
-    // when it can be figured out how to get the unicode em-dash to show up.
-    String title = "Web Inspector ";
-    title.append((UChar)0x2014); // em-dash
-    title.append(' ');
-    title.append(m_inspectedURL);
+    String title = makeString("Web Inspector ", static_cast<UChar>(0x2014), ' ', m_inspectedURL);
     ::SetWindowText(m_frontendHwnd, title.charactersWithNullTermination());
 }
 

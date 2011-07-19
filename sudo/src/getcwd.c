@@ -44,11 +44,10 @@
 #endif /* STDC_HEADERS */
 #ifdef HAVE_STRING_H
 # include <string.h>
-#else
-# ifdef HAVE_STRINGS_H
-#  include <strings.h>
-# endif
 #endif /* HAVE_STRING_H */
+#ifdef HAVE_STRINGS_H
+# include <strings.h>
+#endif /* HAVE_STRINGS_H */
 #if defined(HAVE_MALLOC_H) && !defined(STDC_HEADERS)
 # include <malloc.h>
 #endif /* HAVE_MALLOC_H && !STDC_HEADERS */
@@ -77,10 +76,6 @@
 #define	ISDOT(dp) \
 	(dp->d_name[0] == '.' && (dp->d_name[1] == '\0' || \
 	    (dp->d_name[1] == '.' && dp->d_name[2] == '\0')))
-
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: getcwd.c,v 1.28 2005/02/08 03:55:42 millert Exp $";
-#endif /* lint */
 
 char *
 getcwd(pt, size)

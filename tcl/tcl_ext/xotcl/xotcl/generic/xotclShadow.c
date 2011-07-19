@@ -177,18 +177,20 @@ int XOTclCallCommand(Tcl_Interp *interp, XOTclGlobalNames name,
   int result;
   XOTclShadowTclCommandInfo *ti = &RUNTIME_STATE(interp)->tclCommands[name-XOTE_EXPR];
   ALLOC_ON_STACK(Tcl_Obj*,objc, ov);
-
-  /* {int i;
+  /*
+   {int i;
     fprintf(stderr,"calling %s (%p %p) in %p, objc=%d ",
-	    XOTclGlobalStrings[name],ti,ti->proc, in, objc);
-    for(i=0;i<objc;i++){fprintf(stderr, "'%s' ", ObjStr(objv[i]));}
+	    XOTclGlobalStrings[name],ti,ti->proc, interp, objc);
+            for(i=0;i<objc;i++){fprintf(stderr, "'%s' ", ObjStr(objv[i]));}
     fprintf(stderr,"\n");
-  } */
-  
+  } 
+  */
   ov[0] = XOTclGlobalObjects[name];
   if (objc > 1)
     memcpy(ov+1, objv+1, sizeof(Tcl_Obj *)*(objc-1));
-  result = (*ti->proc)(ti->cd, interp, objc, ov);
-  FREE_ON_STACK(ov);
+  
+  result = Tcl_NRCallObjProc(interp, ti->proc, ti->cd, objc, ov);
+
+  FREE_ON_STACK(Tcl_Obj *, ov);
   return result;
 }

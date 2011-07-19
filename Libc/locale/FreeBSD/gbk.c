@@ -14,10 +14,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -35,9 +31,10 @@
  * SUCH DAMAGE.
  */
 
-#include <sys/param.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/gbk.c,v 1.11 2004/05/17 11:16:14 tjr Exp $");
+#include <sys/cdefs.h>
+__FBSDID("$FreeBSD: src/lib/libc/locale/gbk.c,v 1.14 2007/10/13 16:28:21 ache Exp $");
 
+#include <sys/types.h>
 #include <errno.h>
 #include <runetype.h>
 #include <stdlib.h>
@@ -45,11 +42,13 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/gbk.c,v 1.11 2004/05/17 11:16:14 tjr Exp
 #include <wchar.h>
 #include "mblocal.h"
 
-int	_GBK_init(_RuneLocale *);
-size_t	_GBK_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-	    mbstate_t * __restrict);
-int	_GBK_mbsinit(const mbstate_t *);
-size_t	_GBK_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
+extern int __mb_sb_limit;
+
+static size_t	_GBK_mbrtowc(wchar_t * __restrict, const char * __restrict,
+		    size_t, mbstate_t * __restrict);
+static int	_GBK_mbsinit(const mbstate_t *);
+static size_t	_GBK_wcrtomb(char * __restrict, wchar_t,
+		    mbstate_t * __restrict);
 
 typedef struct {
 	wchar_t	ch;
@@ -64,10 +63,11 @@ _GBK_init(_RuneLocale *rl)
 	__mbsinit = _GBK_mbsinit;
 	_CurrentRuneLocale = rl;
 	__mb_cur_max = 2;
+	__mb_sb_limit = 128;
 	return (0);
 }
 
-int
+static int
 _GBK_mbsinit(const mbstate_t *ps)
 {
 
@@ -82,7 +82,7 @@ _gbk_check(u_int c)
 	return ((c >= 0x81 && c <= 0xfe) ? 2 : 1);
 }
 
-size_t
+static size_t
 _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
     mbstate_t * __restrict ps)
 {
@@ -143,7 +143,7 @@ _GBK_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 	}
 }
 
-size_t
+static size_t
 _GBK_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
 {
 	_GBKState *gs;

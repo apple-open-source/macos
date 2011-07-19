@@ -1,0 +1,37 @@
+require "vnd.dovecot.testsuite";
+
+require "relational";
+require "comparator-i;ascii-numeric";
+
+require "variables";
+
+test "String - :count" {
+	if not string :count "eq" :comparator "i;ascii-numeric" ["a", "b", "c"] "3" {
+		test_fail "string test failed :count match";
+	}
+}
+
+test "String - :count \"\"" {
+	if not string :count "eq" :comparator "i;ascii-numeric" ["a", "", "c"] "2" {
+		test_fail "string test failed :count match";
+	}
+}
+
+test "RFC example" {
+	set "state" "${state} pending";
+
+	if not string :matches " ${state} " "* pending *" {
+    	# the above test always succeeds
+		
+		test_fail "test should have matched: \" ${state} \"";
+	}
+}
+
+test "No whitespace stripping" {
+	set "vara" "      value       ";
+	set "varb" "value";
+
+	if not string :is :comparator "i;octet" "${vara}" "      ${varb}       " {
+		test_fail "string test seems to have stripped white space";
+	}
+}

@@ -21,14 +21,15 @@
 #ifndef StepRange_h
 #define StepRange_h
 
+#include <wtf/Forward.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
 class HTMLInputElement;
-class String;
 
-class StepRange : public Noncopyable {
+class StepRange {
+    WTF_MAKE_NONCOPYABLE(StepRange);
 public:
     bool hasStep;
     double step;

@@ -8,7 +8,7 @@
  *	$Log: IOFireWireLibNuDCLPool.h,v $
  *	Revision 1.6  2003/08/27 19:27:04  niels
  *	*** empty log message ***
- *	
+ *
  *	Revision 1.5  2003/08/26 05:11:22  niels
  *	*** empty log message ***
  *	

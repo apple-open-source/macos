@@ -10,7 +10,7 @@ Author
 
 Zsh was originally written by Paul Falstad <pf@zsh.org>.
 Zsh is now maintained by the members of the zsh-workers mailing
-list <zsh-workers@sunsite.dk>.  The development is currently
+list <zsh-workers@zsh.org>.  The development is currently
 coordinated by Peter Stephenson <pws@zsh.org>.  The coordinator
 can be contacted at <coordinator@zsh.org>, but matters relating to
 the code should generally go to the mailing list.
@@ -29,9 +29,6 @@ mirroring ftp.cs.elte.hu instead of the primary site.
       Australia
             ftp://ftp.zsh.org/pub/zsh/
             http://www.zsh.org/pub/zsh/
-
-      Denmark
-            ftp://sunsite.dk/pub/unix/shells/zsh/
 
       Finland
             ftp://ftp.funet.fi/pub/unix/shells/zsh/
@@ -82,8 +79,10 @@ mirroring ftp.cs.elte.hu instead of the primary site.
       USA
             http://zsh.open-mirror.com/
 
-The up-to-date source code is available via anonymous CVS from Sourceforge.
-See http://sourceforge.net/projects/zsh/ for details.
+The up-to-date source code is available via anonymous CVS and Git from
+Sourceforge.  See http://sourceforge.net/projects/zsh/ for details.
+A summary of instructions for the CVS and Git archives can be found at
+http://zsh.sourceforget.net/.
 
 
 Mailing Lists
@@ -91,26 +90,26 @@ Mailing Lists
 
 Zsh has 3 mailing lists:
 
-      <zsh-announce@sunsite.dk>
+      <zsh-announce@zsh.org>
             Announcements about releases, major changes in the shell and the
             monthly posting of the Zsh FAQ.  (moderated)
 
-      <zsh-users@sunsite.dk>
+      <zsh-users@zsh.org>
             User discussions.
 
-      <zsh-workers@sunsite.dk>
+      <zsh-workers@zsh.org>
             Hacking, development, bug reports and patches.
 
 To subscribe or unsubscribe, send mail
 to the associated administrative address for the mailing list.
 
-      <zsh-announce-subscribe@sunsite.dk>
-      <zsh-users-subscribe@sunsite.dk>
-      <zsh-workers-subscribe@sunsite.dk>
+      <zsh-announce-subscribe@zsh.org>
+      <zsh-users-subscribe@zsh.org>
+      <zsh-workers-subscribe@zsh.org>
 
-      <zsh-announce-unsubscribe@sunsite.dk>
-      <zsh-users-unsubscribe@sunsite.dk>
-      <zsh-workers-unsubscribe@sunsite.dk>
+      <zsh-announce-unsubscribe@zsh.org>
+      <zsh-users-unsubscribe@zsh.org>
+      <zsh-workers-unsubscribe@zsh.org>
 
 YOU ONLY NEED TO JOIN ONE OF THE MAILING LISTS AS THEY ARE NESTED.
 All submissions to zsh-announce are automatically forwarded to
@@ -150,7 +149,7 @@ A userguide is currently in preparation.  It is intended to complement the
 manual, with explanations and hints on issues where the manual can be
 cabbalistic, hierographic, or downright mystifying (for example, the word
 `hierographic' does not exist).  It can be viewed in its current state at
-http://zsh.sunsite.dk/Guide/.  At the time of writing, chapters
+http://zsh.sourceforge.net/Guide/.  At the time of writing, chapters
 dealing with startup files and their contents and the new completion system
 were essentially complete.
 

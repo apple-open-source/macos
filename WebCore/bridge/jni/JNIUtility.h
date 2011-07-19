@@ -28,33 +28,17 @@
 
 #if ENABLE(JAVA_BRIDGE)
 
-#include <JavaVM/jni.h>
+#include "JavaType.h"
 
-// The order of these items can not be modified as they are tightly
-// bound with the JVM on Mac OSX. If new types need to be added, they
-// should be added to the end. It is used in jni_obc.mm when calling
-// through to the JVM. Newly added items need to be made compatible
-// in that file.
-typedef enum {
-    invalid_type = 0,
-    void_type,
-    object_type,
-    boolean_type,
-    byte_type,
-    char_type,
-    short_type,
-    int_type,
-    long_type,
-    float_type,
-    double_type,
-    array_type
-} JNIType;
+#if OS(MAC_OS_X)
+#include <JavaVM/jni.h>
+#else
+#include <jni.h>
+#endif
 
 namespace JSC {
 
 namespace Bindings {
-
-class JavaParameter;
 
 const char* getCharactersFromJString(jstring);
 void releaseCharactersForJString(jstring, const char*);
@@ -64,11 +48,12 @@ void releaseCharactersForJStringInEnv(JNIEnv*, jstring, const char*);
 const jchar* getUCharactersFromJStringInEnv(JNIEnv*, jstring);
 void releaseUCharactersForJStringInEnv(JNIEnv*, jstring, const jchar*);
 
-JNIType JNITypeFromClassName(const char* name);
-JNIType JNITypeFromPrimitiveType(char type);
-const char* signatureFromPrimitiveType(JNIType);
+JavaType javaTypeFromClassName(const char* name);
+JavaType javaTypeFromPrimitiveType(char type);
+const char* signatureFromJavaType(JavaType);
 
-jvalue getJNIField(jobject, JNIType, const char* name, const char* signature);
+jvalue getJNIField(jobject, JavaType, const char* name, const char* signature);
+jvalue callJNIMethod(jobject, JavaType returnType, const char* name, const char* signature, jvalue* args);
 
 jmethodID getMethodID(jobject, const char* name, const char* sig);
 JNIEnv* getJNIEnv();

@@ -2,7 +2,7 @@
 	File:		MBCBoard.mm
 	Contains:	Implementation of fundamental board and move classes
 	Version:	1.0
-	Copyright:	© 2002 by Apple Computer, Inc., all rights reserved.
+	Copyright:	Â© 2002-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,12 @@
 	Change History (most recent first):
 
 		$Log: MBCBoard.mm,v $
+		Revision 1.22  2010/10/07 23:07:02  neerache
+		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
+		
+		Revision 1.21  2010/09/16 22:23:40  neerache
+		<rdar://problem/8352405> [Chess]: Ab-11A250: BIDI: RTL: Incorrect alignement for strings in cells in Came log
+		
 		Revision 1.20  2008/08/27 21:37:41  neerache
 		<rdar://problem/6138230> HARDENING: Replace unsafe string functions in Chess (53 found)
 		
@@ -203,41 +209,69 @@ NSString * sPieceLetters[] = {
 		return NSLocalizedString(sPieceLetters[piece], 
 								 "Piece Letter");
 }
- 
-- (NSString *) localizedText:(BOOL)aligned
+
+- (NSString *) localizedText
 {
-	const char * tab = aligned ? "\t" : "";
+	return [NSString stringWithFormat:NSLocalizedString(@"title_move_fmt", "%@ %@ %@"),
+			[self origin], [self operation], [self destination]];
+}
+
+- (NSString *) origin
+{
 	switch (fCommand) {
 	case kCmdMove:
 	case kCmdPMove:
-		if (fPromotion)
-			return [NSString stringWithFormat:@"%s%c%c%s%c%s%c%c=%@",
-							 tab,
-							 Col(fFromSquare), Row(fFromSquare)+'0',
-							 tab, fVictim ? 'x' :'-', tab,
-							 Col(fToSquare), Row(fToSquare)+'0',
-							 [self pieceLetter:fPromotion forDrop:YES]];
-		else if (fCastling != kNoCastle)
-			return [NSString stringWithFormat:@"%s%s0-0%s",
-							 tab, tab, 
-							 fCastling == kCastleQueenside ? "-O" : ""];
-		else
-			return [NSString stringWithFormat:@"%s%@%c%c%s%c%s%c%c",
-							 tab,
-							 [self pieceLetter:fPiece forDrop:NO],
-							 Col(fFromSquare), Row(fFromSquare)+'0',
-							 tab, fVictim ? 'x' : '-', tab,
-							 Col(fToSquare), Row(fToSquare)+'0'];
+		if (fCastling != kNoCastle)
+			return @"";
+		else 
+			return [NSString stringWithFormat:NSLocalizedString(@"move_origin_fmt", @"%@%c%c"),
+					[self pieceLetter:fPiece forDrop:NO],
+					Col(fFromSquare), Row(fFromSquare)+'0'];
 	case kCmdDrop:
 	case kCmdPDrop:
-		return [NSString stringWithFormat:@"%s%@%s@%s%c%c",
-						 tab,
-						 [self pieceLetter:fPiece forDrop:YES],
-						 tab, tab,
-						 Col(fToSquare), Row(fToSquare)+'0'];
+		return [NSString stringWithFormat:NSLocalizedString(@"drop_origin_fmt", @"%@"),
+				[self pieceLetter:fPiece forDrop:YES]];
 	default:
 		return @"";
 	}
+}
+
+- (NSString *) operation
+{
+	UniChar op = fVictim ? 0x00D7 : '-';
+	switch (fCommand) {
+	case kCmdMove:
+	case kCmdPMove:
+		switch (fCastling) {
+		case kCastleQueenside:
+			return @"0 - 0 - 0";
+		case kCastleKingside:
+			return @"0 - 0";
+		default:
+			break;
+		}
+		break;
+	case kCmdDrop:
+	case kCmdPDrop:
+		op = '@';
+		break;
+	default:
+		op = ' ';
+		break;
+	}
+	return [NSString stringWithFormat:NSLocalizedString(@"operation_fmt", @"%C"), op];
+}
+
+- (NSString *) destination
+{
+	if (fCastling != kNoCastle && fCastling != kUnknownCastle)
+		return @"";
+	else if (fPromotion)
+		return [NSString stringWithFormat:NSLocalizedString(@"promo_dest_fmt", @"%c%c=@%"),
+				Col(fToSquare), Row(fToSquare)+'0', [self pieceLetter:fPromotion forDrop:NO]];
+	else
+		return [NSString stringWithFormat:NSLocalizedString(@"move_dest_fmt", @"%c%c"),
+				Col(fToSquare), Row(fToSquare)+'0'];
 }
 
 - (NSString *) engineMove

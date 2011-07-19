@@ -1,4 +1,4 @@
-##
+#
 # Makefile for iODBC
 ##
 
@@ -21,23 +21,43 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 export LIBTOOL_CMD_SEP = +
 
 # For building fat
-export MACOSX_DEPLOYMENT_TARGET = 10.6
+export MACOSX_DEPLOYMENT_TARGET = 10.7
 export LD_TWOLEVEL_NAMESPACE = 1
+# We want to create dSYM files in fixup, which means we can't strip until then; so make
+# strip a no-op.
+export STRIP = /bin/echo
+STRIP2 = /usr/bin/strip
 
 Install_Target = install
 Extra_Configure_Flags += --prefix=/usr --with-iodbc-inidir=/Library/ODBC --disable-gui TMPDIR=$(OBJROOT)
 CFLAGS += -Wl,-framework,CoreFoundation
-tesLipo = $(eval "${LIPO} -verify_arch ppc64 $(RC_Install_Prefix)/bin/iodbctest")
 
+# The first half of fixup is a hack to get dsymutil generating (correct) .dSYM files.
+# When dsymutil runs, it expects .o files used during linking to be laid out in the filesystem 
+# in the same way they were when a library was linked. Unfortunately, the iodbc build process 
+# puts things in lib*.lax/lib*.a directories during linking, and then removes those directories,
+# which results in incomplete .dSYM files. 
+# Rather than try to change the actual build process, this just reconstructs the filesystem 
+# layout to make dsymutil happy.
 fixup:
-	@echo "Trashing RC undesirables *.la files"; \
+	${MKDIR} "$(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbctrace.a";\
+	${MKDIR} "$(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbc_common.a";\
+	${CP} $(OBJROOT)/iodbc/trace/*.o $(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbctrace.a/.;\
+	${CP} $(OBJROOT)/iodbcinst/*.o $(OBJROOT)/iodbc/.libs/libiodbc.lax/libiodbc_common.a/.;\
+	${MKDIR} "$(OBJROOT)/iodbcinst/.libs/libiodbcinst.lax/libiodbc_common.a";\
+	${CP} $(OBJROOT)/iodbcinst/*.o $(OBJROOT)/iodbcinst/.libs/libiodbcinst.lax/libiodbc_common.a/.;\
+	${CP} "$(RC_Install_Prefix)/bin/iodbctest" "$(SYMROOT)/iodbctest"; \
+	${CP} "$(RC_Install_Prefix)/bin/iodbctestw" "$(SYMROOT)/iodbctestw"; \
+	${CP} "$(RC_Install_Prefix)/lib/libiodbc.2.1.18.dylib" "$(SYMROOT)/libiodbc.2.1.18.dylib"; \
+	$(CP) "$(OBJROOT)/iodbcinst/.libs/libiodbcinst.2.1.18.dylib" "$(SYMROOT)/libiodbcinst.2.1.18.dylib"; \
+	$(CP) "$(OBJROOT)/iodbcinst/.libs/libiodbcinst.2.1.18.dylib.dSYM" "$(SYMROOT)/libiodbcinst.2.1.18.dylib.dSYM"; \
 	${RM} $(RC_Install_Prefix)/lib/*.la; \
-	${STRIP} -S $(RC_Install_Prefix)/lib/libiodbc.a; \
-	${STRIP} -S $(RC_Install_Prefix)/lib/libiodbcinst.a; \
-	${STRIP} -S $(RC_Install_Prefix)/lib/libiodbc.2.dylib; \
-	${STRIP} -S $(RC_Install_Prefix)/lib/libiodbcinst.2.dylib; \
-	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctest; \
-	${STRIP} -S $(RC_Install_Prefix)/bin/iodbctestw; \
+	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbc.a; \
+	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbcinst.a; \
+	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbc.2.dylib; \
+	${STRIP2} -S $(RC_Install_Prefix)/lib/libiodbcinst.2.dylib; \
+	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctest; \
+	${STRIP2} -S $(RC_Install_Prefix)/bin/iodbctestw; \
 
 	${MKDIR} $(RC_Install_Prefix)/local/OpenSourceVersions; \
 	${CP} $(SRCROOT)/iodbc.plist $(RC_Install_Prefix)/local/OpenSourceVersions/; \

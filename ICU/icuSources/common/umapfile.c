@@ -1,14 +1,14 @@
 /*
 ******************************************************************************
 *
-*   Copyright (C) 1999-2009, International Business Machines
+*   Copyright (C) 1999-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 ******************************************************************************/
 
 
 /*----------------------------------------------------------------------------
- *                           
+ *
  *       Memory mapped file wrappers for use by the ICU Data Implementation
  *       All of the platform-specific implementation for mapping data files
  *         is here.  The rest of the ICU Data implementation uses only the
@@ -16,29 +16,13 @@
  *
  *----------------------------------------------------------------------------*/
 
-/* Needed by OSF and z/OS to get the correct mmap version */
-#if !defined(_XOPEN_SOURCE_EXTENDED)
-#define _XOPEN_SOURCE_EXTENDED 1
-#endif
-
 #include "unicode/putil.h"
-
-
 #include "udatamem.h"
 #include "umapfile.h"
 
 /* memory-mapping base definitions ------------------------------------------ */
 
-/* MAP_NONE: no memory mapping, no file access at all */
-#define MAP_NONE        0
-#define MAP_WIN32       1
-#define MAP_POSIX       2
-#define MAP_STDIO       3
-#define MAP_390DLL      4
-
-#if UCONFIG_NO_FILE_IO
-#   define MAP_IMPLEMENTATION MAP_NONE
-#elif defined(U_WINDOWS)
+#if MAP_IMPLEMENTATION==MAP_WIN32
 #   define WIN32_LEAN_AND_MEAN
 #   define VC_EXTRALEAN
 #   define NOUSER
@@ -51,10 +35,7 @@
     typedef HANDLE MemoryMap;
 
 #   define IS_MAP(map) ((map)!=NULL)
-
-#   define MAP_IMPLEMENTATION MAP_WIN32
-
-#elif U_HAVE_MMAP || defined(OS390)
+#elif MAP_IMPLEMENTATION==MAP_POSIX || MAP_IMPLEMENTATION==MAP_390DLL
     typedef size_t MemoryMap;
 
 #   define IS_MAP(map) ((map)!=0)
@@ -68,7 +49,7 @@
 #       define MAP_FAILED ((void*)-1)
 #   endif
 
-#   if defined(OS390) && defined (OS390_STUBDATA)
+#   if MAP_IMPLEMENTATION==MAP_390DLL
         /*   No memory mapping for 390 batch mode.  Fake it using dll loading.  */
 #       include <dll.h>
 #       include "cstring.h"
@@ -76,32 +57,21 @@
 #       include "unicode/udata.h"
 #       define LIB_PREFIX "lib"
 #       define LIB_SUFFIX ".dll"
-#       define MAP_IMPLEMENTATION MAP_390DLL
-
-/* This is inconvienient until we figure out what to do with U_ICUDATA_NAME in utypes.h */
+        /* This is inconvienient until we figure out what to do with U_ICUDATA_NAME in utypes.h */
 #       define U_ICUDATA_ENTRY_NAME "icudt" U_ICU_VERSION_SHORT U_LIB_SUFFIX_C_NAME_STRING "_dat"
 #   else
-#       define MAP_IMPLEMENTATION MAP_POSIX
 #       if defined(U_DARWIN)
 #           include <TargetConditionals.h>
 #       endif
 #   endif
-
-#else /* unknown platform, no memory map implementation: use stdio.h and uprv_malloc() instead */
-
+#elif MAP_IMPLEMENTATION==MAP_STDIO
 #   include <stdio.h>
 #   include "cmemory.h"
 
     typedef void *MemoryMap;
 
 #   define IS_MAP(map) ((map)!=NULL)
-
-#   define MAP_IMPLEMENTATION MAP_STDIO
-
 #endif
-
-
-
 
 /*----------------------------------------------------------------------------*
  *                                                                            *
@@ -110,17 +80,17 @@
  *                                                                            *
  *----------------------------------------------------------------------------*/
 #if MAP_IMPLEMENTATION==MAP_NONE
-    UBool
+    U_CFUNC UBool
     uprv_mapFile(UDataMemory *pData, const char *path) {
         UDataMemory_init(pData); /* Clear the output struct. */
         return FALSE;            /* no file access */
     }
 
-    void uprv_unmapFile(UDataMemory *pData) {
+    U_CFUNC void uprv_unmapFile(UDataMemory *pData) {
         /* nothing to do */
     }
 #elif MAP_IMPLEMENTATION==MAP_WIN32
-    UBool
+    U_CFUNC UBool
     uprv_mapFile(
          UDataMemory *pData,    /* Fill in with info on the result doing the mapping. */
                                 /*   Output only; any original contents are cleared.  */
@@ -176,8 +146,7 @@
         return TRUE;
     }
 
-
-    void
+    U_CFUNC void
     uprv_unmapFile(UDataMemory *pData) {
         if(pData!=NULL && pData->map!=NULL) {
             UnmapViewOfFile(pData->pHeader);
@@ -190,7 +159,7 @@
 
 
 #elif MAP_IMPLEMENTATION==MAP_POSIX
-    UBool
+    U_CFUNC UBool
     uprv_mapFile(UDataMemory *pData, const char *path) {
         int fd;
         int length;
@@ -225,15 +194,13 @@
         pData->map = (char *)data + length;
         pData->pHeader=(const DataHeader *)data;
         pData->mapAddr = data;
-#if defined(U_DARWIN) && defined(TARGET_OS_IPHONE) && TARGET_OS_IPHONE
-        madvise(data, length, MADV_RANDOM);
+#if defined(U_DARWIN) && TARGET_OS_IPHONE
+        posix_madvise(data, length, POSIX_MADV_RANDOM);
 #endif
         return TRUE;
     }
 
-    
-    
-    void
+    U_CFUNC void
     uprv_unmapFile(UDataMemory *pData) {
         if(pData!=NULL && pData->map!=NULL) {
             size_t dataLen = (char *)pData->map - (char *)pData->mapAddr;
@@ -262,7 +229,7 @@
         return size;
     }
 
-    UBool
+    U_CFUNC UBool
     uprv_mapFile(UDataMemory *pData, const char *path) {
         FILE *file;
         int32_t fileLength;
@@ -303,7 +270,7 @@
         return TRUE;
     }
 
-    void
+    U_CFUNC void
     uprv_unmapFile(UDataMemory *pData) {
         if(pData!=NULL && pData->map!=NULL) {
             uprv_free(pData->map);
@@ -391,7 +358,7 @@
 
 #   define DATA_TYPE "dat"
 
-    UBool uprv_mapFile(UDataMemory *pData, const char *path) {
+    U_CFUNC UBool uprv_mapFile(UDataMemory *pData, const char *path) {
         const char *inBasename;
         char *basename;
         char pathBuffer[1024];
@@ -484,9 +451,7 @@
          }
     }
 
-
-
-    void uprv_unmapFile(UDataMemory *pData) {
+    U_CFUNC void uprv_unmapFile(UDataMemory *pData) {
         if(pData!=NULL && pData->map!=NULL) {
             uprv_free(pData->map);
             pData->map     = NULL;

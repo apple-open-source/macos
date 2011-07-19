@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -23,92 +23,96 @@
 
 #include <mach/std_types.defs>
 
-subsystem ipconfig 10000;
+subsystem ipconfig 20000;
 serverprefix _;
 
 import "ipconfig_types.h";
 
-type ip_address_t = MACH_MSG_TYPE_INTEGER_32;
-type ipconfig_method_t = MACH_MSG_TYPE_INTEGER_32;
-type ipconfig_status_t = MACH_MSG_TYPE_INTEGER_32;
+type ip_address = MACH_MSG_TYPE_INTEGER_32
+	ctype : uint32_t;
+type ipconfig_status = MACH_MSG_TYPE_INTEGER_32
+	ctype : ipconfig_status_t;
 
-type if_name_t = array[32] of char;
-type ooline_data_t = ^ array [] of char;
-type inline_data_t = array [ * : 2048 ] of char;
+type if_name = array[32] of char
+	ctype : if_name_t;
+type inline_data = array [ * : 2048 ] of char
+	ctype : inline_data_t;
 
-routine ipconfig_wait_if(	server : mach_port_t;
-				name : if_name_t);
+/*
+ * serialized XML data (client->server)
+ */
+type xmlData    = ^ array [] of MACH_MSG_TYPE_BYTE
+	ctype : xmlData_t;
 
-routine ipconfig_wait_all(	server : mach_port_t);
-
+/*
+ * MiG interfaces
+ */
 routine ipconfig_if_count(	server : mach_port_t;
 			 out	count : int);
 
-routine ipconfig_if_name(	server : mach_port_t;
-				intface : int;
-			 out	name : if_name_t);
-
 routine ipconfig_get_option(	server : mach_port_t;
-				name : if_name_t;
+				name : if_name;
 				option_code : int;
-			 out	option_data : inline_data_t);
+			 out	option_data : inline_data;
+			 out	status : ipconfig_status);
 
 routine ipconfig_if_addr(	server : mach_port_t;
-				name : if_name_t;
-			 out	addr : ip_address_t);
+				name : if_name;
+			 out	addr : ip_address;
+			 out	status : ipconfig_status);
 
 routine ipconfig_get_packet(	server : mach_port_t;
-				name : if_name_t;
-			 out	packet : inline_data_t);
+				name : if_name;
+			 out	packet : inline_data;
+			 out	status : ipconfig_status);
 
 routine ipconfig_set(		server : mach_port_t;
-				name : if_name_t;
-				method : ipconfig_method_t;
-				method_data : inline_data_t;
-			 out	status : ipconfig_status_t );
+				name : if_name;
+				method_data : xmlData;
+			 out	status : ipconfig_status );
 
 routine ipconfig_set_verbose(	server : mach_port_t;
 				verbose : int;
-			 out	status : ipconfig_status_t );
+			 out	status : ipconfig_status );
 #ifdef IPCONFIG_TEST_NO_ENTRY
 routine ipconfig_set_something(	server : mach_port_t;
 				verbose : int;
-			 out	status : ipconfig_status_t );
+			 out	status : ipconfig_status );
 #else IPCONFIG_TEST_NO_ENTRY
 	skip;
 #endif IPCONFIG_TEST_NO_ENTRY
 
 routine ipconfig_add_service(	server : mach_port_t;
-				name : if_name_t;
-				method : ipconfig_method_t;
-				method_data : inline_data_t;
-			out	service_id : inline_data_t;
-			out	status : ipconfig_status_t );
+				name : if_name;
+				method_data : xmlData;
+			out	service_id : inline_data;
+			out	status : ipconfig_status );
 
 routine ipconfig_remove_service_with_id(
 				server : mach_port_t;
-				service_id : inline_data_t;
-			out	status : ipconfig_status_t );
+				service_id : inline_data;
+			out	status : ipconfig_status );
 
 routine ipconfig_find_service(	server : mach_port_t;
-				name : if_name_t;
+				name : if_name;
 				exact : boolean_t;
-				method : ipconfig_method_t;
-				method_data : inline_data_t;
-			out	service_id : inline_data_t;
-			out	status : ipconfig_status_t );
+				method_data : xmlData;
+			out	service_id : inline_data;
+			out	status : ipconfig_status );
 
 routine ipconfig_remove_service(server : mach_port_t;
-				name : if_name_t;
-				method : ipconfig_method_t;
-				method_data : inline_data_t;
-			out	status : ipconfig_status_t );
+				name : if_name;
+				method_data : xmlData;
+			out	status : ipconfig_status );
 
 routine ipconfig_set_service(	server : mach_port_t;
-				name : if_name_t;
-				method : ipconfig_method_t;
-				method_data : inline_data_t;
-			out	service_id : inline_data_t;
-			out	status : ipconfig_status_t );
+				name : if_name;
+				method_data : xmlData;
+			out	service_id : inline_data;
+			out	status : ipconfig_status );
 
+routine ipconfig_get_v6_packet(	server : mach_port_t;
+				name : if_name;
+			 out	packet : inline_data;
+			 out	status : ipconfig_status);
 

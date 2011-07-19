@@ -40,7 +40,7 @@
 #include "debuglog.h"
 
 /*
- * / Load a module (if needed) 
+ * / Load a module (if needed)
  */
 int DYN_LoadLibrary(void **pvLHandle, char *pcLibrary)
 {
@@ -52,44 +52,33 @@ int DYN_LoadLibrary(void **pvLHandle, char *pcLibrary)
 	*pvLHandle = 0;
 
 	/*
-	 * @@@ kCFStringEncodingMacRoman might be wrong on non US systems. 
+	 * @@@ kCFStringEncodingMacRoman might be wrong on non US systems.
 	 */
 
 	bundlePath = CFStringCreateWithCString(NULL, pcLibrary,
 		kCFStringEncodingMacRoman);
 	if (bundlePath == NULL)
-	{
 		return SCARD_E_NO_MEMORY;
-
-	} else
-	{
-	}
 
 	bundleURL = CFURLCreateWithFileSystemPath(NULL, bundlePath,
 		kCFURLPOSIXPathStyle, TRUE);
 	CFRelease(bundlePath);
 	if (bundleURL == NULL)
-	{
 		return SCARD_E_NO_MEMORY;
-	} else
-	{
-	}
 
 	bundle = CFBundleCreate(NULL, bundleURL);
 	CFRelease(bundleURL);
 	if (bundle == NULL)
 	{
+		Log1(PCSC_LOG_ERROR, "CFBundleCreate");
 		return SCARD_F_UNKNOWN_ERROR;
-	} else
-	{
 	}
 
 	if (!CFBundleLoadExecutable(bundle))
 	{
+		Log1(PCSC_LOG_ERROR, "CFBundleLoadExecutable");
 		CFRelease(bundle);
 		return SCARD_F_UNKNOWN_ERROR;
-	} else
-	{
 	}
 
 	*pvLHandle = (void *) bundle;
@@ -106,16 +95,15 @@ int DYN_CloseLibrary(void **pvLHandle)
 	{
 		CFBundleUnloadExecutable(bundle);
 		CFRelease(bundle);
-	} else
-	{
-		DebugLogA("DYN_CloseLibrary: Cannot unload library.");
 	}
+	else
+		Log1(PCSC_LOG_ERROR, "Cannot unload library.");
 
 	*pvLHandle = 0;
 	return SCARD_S_SUCCESS;
 }
 
-int DYN_GetAddress(void *pvLHandle, void **pvFHandle, char *pcFunction)
+int DYN_GetAddress(void *pvLHandle, void **pvFHandle, const char *pcFunction)
 {
 
 	CFBundleRef bundle = (CFBundleRef) pvLHandle;

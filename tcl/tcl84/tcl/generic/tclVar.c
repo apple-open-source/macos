@@ -1602,8 +1602,10 @@ TclPtrSetVar(interp, varPtr, arrayPtr, part1, part2, newValuePtr, flags)
 
     /*
      * Invoke any read traces that have been set for the variable if it
-     * is requested; this is only done in the core by the INST_LAPPEND_*
-     * instructions.
+     * requested. This was done for INST_LAPPEND_* but that was inconsistent
+     * with the non-bc instruction, and would cause failures trying to
+     * lappend to any non-existing ::env var, which is inconsistent with
+     * documented behavior. [Bug #3057639].
      */
 
     if ((flags & TCL_TRACE_READS) && ((varPtr->tracePtr != NULL) 
@@ -1659,6 +1661,15 @@ TclPtrSetVar(interp, varPtr, arrayPtr, part1, part2, newValuePtr, flags)
 	    } else {
 		if (Tcl_IsShared(oldValuePtr)) {   /* append to copy */
 		    varPtr->value.objPtr = Tcl_DuplicateObj(oldValuePtr);
+#ifdef TCL_TIP280
+		    /*
+		     * TIP #280.
+		     * Ensure that the continuation line data for the
+		     * string is not lost and applies to the extended
+		     * script as well.
+		     */
+		    TclContinuationsCopy (varPtr->value.objPtr, oldValuePtr);
+#endif
 		    TclDecrRefCount(oldValuePtr);
 		    oldValuePtr = varPtr->value.objPtr;
 		    Tcl_IncrRefCount(oldValuePtr); /* since var is ref */

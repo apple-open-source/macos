@@ -150,12 +150,12 @@ uint8_t finalcount[8];
     memset(context->count, 0, 8);
     memset(&finalcount, 0, 8);
 }
-#endif 0
+#endif /* 0 */
 
 EXTERN
 void fr_SHA1FinalNoLen(uint8_t digest[20], fr_SHA1_CTX* context)
 {
-  uint32_t i, j;
+    uint32_t i;
 
     for (i = 0; i < 20; i++) {
         digest[i] = (uint8_t)
@@ -163,7 +163,6 @@ void fr_SHA1FinalNoLen(uint8_t digest[20], fr_SHA1_CTX* context)
     }
 
     /* Wipe variables */
-    i = j = 0;
     memset(context->buffer, 0, 64);
     memset(context->state, 0, 20);
     memset(context->count, 0, 8);

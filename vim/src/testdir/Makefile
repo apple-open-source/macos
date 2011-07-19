@@ -4,9 +4,11 @@
 
 VIMPROG = ../vim
 
-# Uncomment this line for using valgrind.
-# The output goes into a file "valgrind.$PID" (sorry, no test number).
-# VALGRIND = valgrind --tool=memcheck --leak-check=yes --num-callers=15 --logfile=valgrind
+# Uncomment this line to use valgrind for memory leaks and extra warnings.
+#   The output goes into a file "valgrind.testN"
+#   Vim should be compiled with EXITFREE to avoid false warnings.
+#   This will make testing about 10 times as slow.
+# VALGRIND = valgrind --tool=memcheck --leak-check=yes --num-callers=15 --log-file=valgrind.$*
 
 SCRIPTS = test1.out test2.out test3.out test4.out test5.out test6.out \
 		test7.out test8.out test9.out test10.out test11.out \
@@ -20,7 +22,8 @@ SCRIPTS = test1.out test2.out test3.out test4.out test5.out test6.out \
 		test48.out test49.out test51.out test52.out test53.out \
 		test54.out test55.out test56.out test57.out test58.out \
 		test59.out test60.out test61.out test62.out test63.out \
-		test64.out test65.out
+		test64.out test65.out test66.out test67.out test68.out \
+		test69.out test70.out test71.out test72.out test73.out
 
 SCRIPTS_GUI = test16.out
 
@@ -41,10 +44,10 @@ report:
 $(SCRIPTS) $(SCRIPTS_GUI): $(VIMPROG)
 
 clean:
-	-rm -rf *.out *.failed *.rej *.orig test.log tiny.vim small.vim mbyte.vim test.ok X* valgrind.pid* viminfo
+	-rm -rf *.out *.failed *.rej *.orig test.log tiny.vim small.vim mbyte.vim mzscheme.vim test.ok X* valgrind.pid* viminfo
 
 test1.out: test1.in
-	-rm -f $*.failed tiny.vim small.vim mbyte.vim test.ok X* viminfo
+	-rm -f $*.failed tiny.vim small.vim mbyte.vim mzscheme.vim test.ok X* viminfo
 	$(VALGRIND) $(VIMPROG) -u unix.vim -U NONE --noplugin -s dotest.in $*.in
 	@/bin/sh -c "if diff test.out $*.ok; \
 		then mv -f test.out $*.out; \

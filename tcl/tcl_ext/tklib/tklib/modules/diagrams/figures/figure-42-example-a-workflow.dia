@@ -1,0 +1,64 @@
+# -*- tcl -*- tcl.tk//DSL diagram//EN//1.0
+
+set movelength [1 cm]
+
+proc  filter {args} {box height [1 cm] {*}$args}
+
+set Top [block {
+    right
+    box "ms" "sources"
+    move
+    box "HTML" "sources"
+    move
+    box "linuxdoc-sgml" "sources" width [3 cm]
+    move
+    box "Texinfo" "sources"
+
+    line down from [1st box s]
+    set A [line down]
+    line down from [2nd box s]; filter "html2ms"
+    set B [line down]
+    line down from [3rd box s]; filter "format"
+    set C [line down]
+    line down from [4th box s]; filter "texi2roff"
+    set D [line down]
+}]
+move down from [last block s]
+set Anchor [box width [4 cm] "ms" "intermediate" "form"]
+arrow from [$Top A end] to [$Anchor nw]
+arrow from [$Top B end] to [.33 between [$Anchor nw] [$Anchor ne]]
+arrow from [$Top C end] to [.67 between [$Anchor nw] [$Anchor ne]]
+arrow from [$Top D end] to [$Anchor ne]
+group {
+    # PostScript column
+    move to [$Anchor sw]
+    arrow down left then down
+    filter "pic"
+    arrow
+    filter "eqn"
+    arrow
+    filter "tbl"
+    arrow
+    filter "groff"
+    arrow
+    box "PostScript"
+
+    # HTML column
+    move to [$Anchor se]
+    arrow down right then down
+    set A [filter dotted "pic2img"]
+    arrow
+    set B [filter dotted "eqn2html"]
+    arrow
+    set C [filter dotted "tbl2html"]
+    arrow
+    filter "ms2html"
+    arrow
+    box "HTML"
+
+    # Nonexistence caption
+    box dashed width [3 cm] at [$B + [[6 cm] 0]] "These tools" "don’t yet exist"
+    arrow chop 10 dashed from [last box nw] to [$A e]
+    arrow chop 10 dashed from [last box w]  to [$B e]
+    arrow chop 10 dashed from [last box sw] to [$C e]
+}

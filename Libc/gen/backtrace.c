@@ -43,27 +43,39 @@ int backtrace(void** buffer, int size) {
 
 #if __LP64__
 #define _BACKTRACE_FORMAT "%-4d%-35s 0x%016lx %s + %lu"
-#define _BACKTRACE_FORMAT_SIZE 82
+#define _BACKTRACE_FORMAT_SIZE 83 /* %lu can take up to 20, does not include %s, includes NUL */
+#define _BACKTRACE_ADDRESS_LEN 18 /* 0x + 16 (no NUL) */
 #else
 #define _BACKTRACE_FORMAT "%-4d%-35s 0x%08lx %s + %lu"
-#define _BACKTRACE_FORMAT_SIZE 65
+#define _BACKTRACE_FORMAT_SIZE 65 /* %lu can take up to 10, does not include %s, includes NUL */
+#define _BACKTRACE_ADDRESS_LEN 10 /* 0x + 8 (no NUL) */
 #endif
 
-
 static int _backtrace_snprintf(char* buf, size_t size, int frame, const void* addr, const Dl_info* info) {
-	char symbuf[19];
+	char symbuf[_BACKTRACE_ADDRESS_LEN + 1];
 	const char* image = "???";
-	const char* symbol = symbuf;
+	const char* symbol = "0x0";
+	uintptr_t symbol_offset = 0;
 
 	if (info->dli_fname) {
-		image = strrchr(info->dli_fname, '/') + 1;
-		if (image == NULL) image = info->dli_fname;
+		const char *tmp = strrchr(info->dli_fname, '/');
+		if(tmp == NULL)
+			image = info->dli_fname;
+		else
+			image = tmp + 1;
 	}
 	
 	if (info->dli_sname) {
 		symbol = info->dli_sname;
+		symbol_offset = (uintptr_t)addr - (uintptr_t)info->dli_saddr;
+	} else if(info->dli_fname) {
+		symbol = image;
+		symbol_offset = (uintptr_t)addr - (uintptr_t)info->dli_fbase;
+	} else if(0 < snprintf(symbuf, sizeof(symbuf), "0x%lx", (uintptr_t)info->dli_saddr)) {
+		symbol = symbuf;
+		symbol_offset = (uintptr_t)addr - (uintptr_t)info->dli_saddr;
 	} else {
-		snprintf(symbuf, sizeof(symbuf), "0x%lx", (uintptr_t)info->dli_saddr);
+		symbol_offset = (uintptr_t)addr;
 	}
 
 	return snprintf(buf, size,
@@ -72,7 +84,7 @@ static int _backtrace_snprintf(char* buf, size_t size, int frame, const void* ad
 			image,
 			(uintptr_t)addr,
 			symbol,
-			(uintptr_t)addr - (uintptr_t)info->dli_saddr) + 1;
+			symbol_offset) + 1;
 }
 
 char** backtrace_symbols(void* const* buffer, int size) {
@@ -80,7 +92,7 @@ char** backtrace_symbols(void* const* buffer, int size) {
 	size_t total_bytes;
 	char** result;
 	char** ptrs;
-	intptr_t strs;
+	intptr_t strs, end;
 	Dl_info* info = calloc(size, sizeof (Dl_info));
 	
 	if (info == NULL) return NULL;
@@ -94,8 +106,18 @@ char** backtrace_symbols(void* const* buffer, int size) {
 	// Plus each symbol description
 	for (i = 0 ; i < size; ++i) {
 		dladdr(buffer[i], &info[i]);
-		total_bytes += _BACKTRACE_FORMAT_SIZE + 1;
-		if (info[i].dli_sname) total_bytes += strlen(info[i].dli_sname);
+		total_bytes += _BACKTRACE_FORMAT_SIZE;
+		if (info[i].dli_sname) {
+			total_bytes += strlen(info[i].dli_sname);
+		} else if(info[i].dli_fname) {
+			const char *tmp = strrchr(info->dli_fname, '/');
+			if(tmp == NULL)
+				total_bytes += strlen(info->dli_fname);
+	                else
+				total_bytes += strlen(tmp + 1);
+		} else {
+			total_bytes += _BACKTRACE_ADDRESS_LEN;
+		}
 	}
 	
 	result = (char**)malloc(total_bytes);
@@ -103,16 +125,24 @@ char** backtrace_symbols(void* const* buffer, int size) {
 		free(info);
 		return NULL;
 	}
+	end = (intptr_t)result + total_bytes;
 	
 	// Fill in the array of pointers and append the strings for
 	// each symbol description.
 	
 	ptrs = result;
 	strs = ((intptr_t)result) + sizeof(char*) * size;
-	
+
 	for (i = 0; i < size; ++i) {
+		int chk = _backtrace_snprintf((char*)strs, end - (intptr_t)strs, i, buffer[i], &info[i]);
+
+		if(chk < 0) {
+			free(info);
+			return NULL;
+		}
+
 		ptrs[i] = (char*)strs;
-		strs += _backtrace_snprintf((char*)strs, total_bytes, i, buffer[i], &info[i]);
+		strs += chk;
 	}
 	
 	free(info);

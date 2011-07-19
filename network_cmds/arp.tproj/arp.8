@@ -42,6 +42,7 @@
 .Nm
 .Op Fl n
 .Op Fl i Ar interface
+.Op Fl l
 .Fl a
 .Nm
 .Fl d Ar hostname
@@ -115,6 +116,8 @@ entries on
 .Ar interface .
 Applicable only to the following operations:
 display one, display all, delete all.
+.It Fl l
+Show link-layer reachability information.
 .It Fl n
 Show network addresses as numbers (normally
 .Nm
@@ -208,7 +211,8 @@ character will mark the rest of the line as a comment.
 .Sh SEE ALSO
 .Xr inet 3 ,
 .Xr arp 4 ,
-.Xr ifconfig 8
+.Xr ifconfig 8 ,
+.Xr ndp 8
 .Sh HISTORY
 The
 .Nm

@@ -1,3 +1,13 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
 require 'abstract_signature'
 
 include Abstract_signature
@@ -23,7 +33,7 @@ rescue TypeError
   # TypeError: allocator undefined for Abstract_signature::Abstract_foo
 	exceptionRaised = true
 ensure
-  raise RuntimeError unless exceptionRaised
+  swig_assert( "exceptionRaised", binding)
 end
 
 #
@@ -47,6 +57,6 @@ rescue TypeError
   # TypeError: allocator undefined for Abstract_signature::Abstract_bar
 	exceptionRaised = true
 ensure
-  raise RuntimeError unless exceptionRaised
+  swig_assert( "exceptionRaised", binding)
 end
 

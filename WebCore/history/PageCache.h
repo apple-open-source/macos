@@ -26,7 +26,6 @@
 #ifndef PageCache_h
 #define PageCache_h
 
-#include "HistoryItem.h"
 #include "Timer.h"
 #include <wtf/Forward.h>
 #include <wtf/HashSet.h>
@@ -35,18 +34,23 @@
 namespace WebCore {
 
     class CachedPage;
+    class Frame;
     class HistoryItem;
+    class Page;
     
-    class PageCache : public Noncopyable {
+    class PageCache {
+        WTF_MAKE_NONCOPYABLE(PageCache); WTF_MAKE_FAST_ALLOCATED;
     public:
         friend PageCache* pageCache();
+        
+        static bool canCache(Page*);
 
         void setCapacity(int); // number of pages to cache
         int capacity() { return m_capacity; }
         
-        void add(PassRefPtr<HistoryItem>, PassRefPtr<CachedPage>); // Prunes if capacity() is exceeded.
+        void add(PassRefPtr<HistoryItem>, Page*); // Prunes if capacity() is exceeded.
         void remove(HistoryItem*);
-        CachedPage* get(HistoryItem* item) { return item ? item->m_cachedPage.get() : 0; }
+        CachedPage* get(HistoryItem* item);
 
         void releaseAutoreleasedPagesNow();
         
@@ -54,11 +58,15 @@ namespace WebCore {
         int frameCount() const;
         int autoreleasedPageCount() const;
 
+        void markPagesForVistedLinkStyleRecalc();
+
     private:
         typedef HashSet<RefPtr<CachedPage> > CachedPageSet;
 
         PageCache(); // Use pageCache() instead.
         ~PageCache(); // Not implemented to make sure nobody accidentally calls delete -- WebCore does not delete singletons.
+        
+        static bool canCachePageContainingThisFrame(Frame*);
 
         void addToLRUList(HistoryItem*); // Adds to the head of the list.
         void removeFromLRUList(HistoryItem*);

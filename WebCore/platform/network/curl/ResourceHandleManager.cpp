@@ -34,18 +34,19 @@
 #include "config.h"
 #include "ResourceHandleManager.h"
 
-#include "Base64.h"
+#include "DataURL.h"
 #include "HTTPParsers.h"
 #include "MIMETypeRegistry.h"
 #include "NotImplemented.h"
 #include "ResourceError.h"
 #include "ResourceHandle.h"
 #include "ResourceHandleInternal.h"
-#include "TextEncoding.h"
 
 #include <errno.h>
 #include <stdio.h>
+#if USE(CF)
 #include <wtf/RetainPtr.h>
+#endif
 #include <wtf/Threading.h>
 #include <wtf/Vector.h>
 #include <wtf/text/CString.h>
@@ -65,7 +66,7 @@ static const bool ignoreSSLErrors = getenv("WEBKIT_IGNORE_SSL_ERRORS");
 
 static CString certificatePath()
 {
-#if PLATFORM(CF)
+#if USE(CF)
     CFBundleRef webKitBundle = CFBundleGetBundleWithIdentifier(CFSTR("com.apple.WebKit"));
     if (webKitBundle) {
         RetainPtr<CFURLRef> certURLRef(AdoptCF, CFBundleCopyResourceURL(webKitBundle, CFSTR("cacert"), CFSTR("pem"), CFSTR("certificates")));
@@ -119,8 +120,9 @@ static void curl_unlock_callback(CURL* handle, curl_lock_data data, void* userPt
 ResourceHandleManager::ResourceHandleManager()
     : m_downloadTimer(this, &ResourceHandleManager::downloadTimerCallback)
     , m_cookieJarFileName(0)
-    , m_runningJobs(0)
     , m_certificatePath (certificatePath())
+    , m_runningJobs(0)
+
 {
     curl_global_init(CURL_GLOBAL_ALL);
     m_curlMultiHandle = curl_multi_init();
@@ -162,7 +164,7 @@ static void handleLocalReceiveResponse (CURL* handle, ResourceHandle* job, Resou
     // TODO: See if there is a better approach for handling this.
      const char* hdr;
      CURLcode err = curl_easy_getinfo(handle, CURLINFO_EFFECTIVE_URL, &hdr);
-     ASSERT(CURLE_OK == err);
+     ASSERT_UNUSED(err, CURLE_OK == err);
      d->m_response.setURL(KURL(ParsedURLString, hdr));
      if (d->client())
          d->client()->didReceiveResponse(job, d->m_response);
@@ -262,14 +264,14 @@ static size_t headerCallback(char* ptr, size_t size, size_t nmemb, void* data)
         if (httpCode >= 300 && httpCode < 400) {
             String location = d->m_response.httpHeaderField("location");
             if (!location.isEmpty()) {
-                KURL newURL = KURL(job->request().url(), location);
+                KURL newURL = KURL(job->firstRequest().url(), location);
 
-                ResourceRequest redirectedRequest = job->request();
+                ResourceRequest redirectedRequest = job->firstRequest();
                 redirectedRequest.setURL(newURL);
                 if (client)
                     client->willSendRequest(job, redirectedRequest, d->m_response);
 
-                d->m_request.setURL(newURL);
+                d->m_firstRequest.setURL(newURL);
 
                 return totalSize;
             }
@@ -370,7 +372,7 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
         ASSERT(handle);
         ResourceHandle* job = 0;
         CURLcode err = curl_easy_getinfo(handle, CURLINFO_PRIVATE, &job);
-        ASSERT(CURLE_OK == err);
+        ASSERT_UNUSED(err, CURLE_OK == err);
         ASSERT(job);
         if (!job)
             continue;
@@ -395,7 +397,7 @@ void ResourceHandleManager::downloadTimerCallback(Timer<ResourceHandleManager>* 
             }
 
             if (d->client())
-                d->client()->didFinishLoading(job);
+                d->client()->didFinishLoading(job, 0);
         } else {
             char* url = 0;
             curl_easy_getinfo(d->m_handle, CURLINFO_EFFECTIVE_URL, &url);
@@ -461,17 +463,17 @@ void ResourceHandleManager::setupPOST(ResourceHandle* job, struct curl_slist** h
     curl_easy_setopt(d->m_handle, CURLOPT_POST, TRUE);
     curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDSIZE, 0);
 
-    if (!job->request().httpBody())
+    if (!job->firstRequest().httpBody())
         return;
 
-    Vector<FormDataElement> elements = job->request().httpBody()->elements();
+    Vector<FormDataElement> elements = job->firstRequest().httpBody()->elements();
     size_t numElements = elements.size();
     if (!numElements)
         return;
 
     // Do not stream for simple POST data
     if (numElements == 1) {
-        job->request().httpBody()->flatten(d->m_postBytes);
+        job->firstRequest().httpBody()->flatten(d->m_postBytes);
         if (d->m_postBytes.size() != 0) {
             curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDSIZE, d->m_postBytes.size());
             curl_easy_setopt(d->m_handle, CURLOPT_POSTFIELDS, d->m_postBytes.data());
@@ -570,66 +572,12 @@ bool ResourceHandleManager::startScheduledJobs()
     return started;
 }
 
-static void parseDataUrl(ResourceHandle* handle)
-{
-    ResourceHandleClient* client = handle->client();
-
-    ASSERT(client);
-    if (!client)
-        return;
-
-    String url = handle->request().url().string();
-    ASSERT(url.startsWith("data:", false));
-
-    int index = url.find(',');
-    if (index == -1) {
-        client->cannotShowURL(handle);
-        return;
-    }
-
-    String mediaType = url.substring(5, index - 5);
-    String data = url.substring(index + 1);
-
-    bool base64 = mediaType.endsWith(";base64", false);
-    if (base64)
-        mediaType = mediaType.left(mediaType.length() - 7);
-
-    if (mediaType.isEmpty())
-        mediaType = "text/plain;charset=US-ASCII";
-
-    String mimeType = extractMIMETypeFromMediaType(mediaType);
-    String charset = extractCharsetFromMediaType(mediaType);
-
-    ResourceResponse response;
-    response.setMimeType(mimeType);
-
-    if (base64) {
-        data = decodeURLEscapeSequences(data);
-        response.setTextEncodingName(charset);
-        client->didReceiveResponse(handle, response);
-
-        // WebCore's decoder fails on Acid3 test 97 (whitespace).
-        Vector<char> out;
-        if (base64Decode(data.latin1().data(), data.latin1().length(), out) && out.size() > 0)
-            client->didReceiveData(handle, out.data(), out.size(), 0);
-    } else {
-        // We have to convert to UTF-16 early due to limitations in KURL
-        data = decodeURLEscapeSequences(data, TextEncoding(charset));
-        response.setTextEncodingName("UTF-16");
-        client->didReceiveResponse(handle, response);
-        if (data.length() > 0)
-            client->didReceiveData(handle, reinterpret_cast<const char*>(data.characters()), data.length() * sizeof(UChar), 0);
-    }
-
-    client->didFinishLoading(handle);
-}
-
 void ResourceHandleManager::dispatchSynchronousJob(ResourceHandle* job)
 {
-    KURL kurl = job->request().url();
+    KURL kurl = job->firstRequest().url();
 
-    if (kurl.protocolIs("data")) {
-        parseDataUrl(job);
+    if (kurl.protocolIsData()) {
+        handleDataURL(job);
         return;
     }
 
@@ -657,10 +605,10 @@ void ResourceHandleManager::dispatchSynchronousJob(ResourceHandle* job)
 
 void ResourceHandleManager::startJob(ResourceHandle* job)
 {
-    KURL kurl = job->request().url();
+    KURL kurl = job->firstRequest().url();
 
-    if (kurl.protocolIs("data")) {
-        parseDataUrl(job);
+    if (kurl.protocolIsData()) {
+        handleDataURL(job);
         return;
     }
 
@@ -672,7 +620,7 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
     // timeout will occur and do curl_multi_perform
     if (ret && ret != CURLM_CALL_MULTI_PERFORM) {
 #ifndef NDEBUG
-        fprintf(stderr, "Error %d starting job %s\n", ret, encodeWithURLEscapeSequences(job->request().url().string()).latin1().data());
+        fprintf(stderr, "Error %d starting job %s\n", ret, encodeWithURLEscapeSequences(job->firstRequest().url().string()).latin1().data());
 #endif
         job->cancel();
         return;
@@ -681,7 +629,7 @@ void ResourceHandleManager::startJob(ResourceHandle* job)
 
 void ResourceHandleManager::initializeHandle(ResourceHandle* job)
 {
-    KURL kurl = job->request().url();
+    KURL kurl = job->firstRequest().url();
 
     // Remove any fragment part, otherwise curl will send it as part of the request.
     kurl.removeFragmentIdentifier();
@@ -708,7 +656,7 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
         CURLcode error = curl_easy_pause(d->m_handle, CURLPAUSE_ALL);
         // If we did not pause the handle, we would ASSERT in the
         // header callback. So just assert here.
-        ASSERT(error == CURLE_OK);
+        ASSERT_UNUSED(error, error == CURLE_OK);
     }
 #endif
 #ifndef NDEBUG
@@ -751,8 +699,8 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
     }
 
     struct curl_slist* headers = 0;
-    if (job->request().httpHeaderFields().size() > 0) {
-        HTTPHeaderMap customHeaders = job->request().httpHeaderFields();
+    if (job->firstRequest().httpHeaderFields().size() > 0) {
+        HTTPHeaderMap customHeaders = job->firstRequest().httpHeaderFields();
         HTTPHeaderMap::const_iterator end = customHeaders.end();
         for (HTTPHeaderMap::const_iterator it = customHeaders.begin(); it != end; ++it) {
             String key = it->first;
@@ -765,13 +713,13 @@ void ResourceHandleManager::initializeHandle(ResourceHandle* job)
         }
     }
 
-    if ("GET" == job->request().httpMethod())
+    if ("GET" == job->firstRequest().httpMethod())
         curl_easy_setopt(d->m_handle, CURLOPT_HTTPGET, TRUE);
-    else if ("POST" == job->request().httpMethod())
+    else if ("POST" == job->firstRequest().httpMethod())
         setupPOST(job, &headers);
-    else if ("PUT" == job->request().httpMethod())
+    else if ("PUT" == job->firstRequest().httpMethod())
         setupPUT(job, &headers);
-    else if ("HEAD" == job->request().httpMethod())
+    else if ("HEAD" == job->firstRequest().httpMethod())
         curl_easy_setopt(d->m_handle, CURLOPT_NOBODY, TRUE);
 
     if (headers) {

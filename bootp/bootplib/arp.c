@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -411,7 +411,7 @@ arp_open_routing_socket(void)
     int		opt;
     int 	s;
 
-    s = socket(AF_ROUTE, SOCK_RAW, 0);
+    s = socket(AF_ROUTE, SOCK_RAW, AF_ROUTE);
     if (s < 0) {
 #ifdef MAIN
 	perror("arp: socket");
@@ -560,7 +560,7 @@ arp_delete(int s, struct in_addr iaddr, int if_index)
 }
 
 int
-arp_flush(int s, int all)
+arp_flush(int s, int all, int if_index)
 {
     char * 			buf;
     char *			lim;
@@ -568,7 +568,6 @@ arp_flush(int s, int all)
     size_t 			needed;
     char *			next;
     struct rt_msghdr *		rtm;
-    int				rtm_seq;
     struct sockaddr_dl *	sdl;
     struct sockaddr_inarp *	sin;
 
@@ -597,12 +596,17 @@ arp_flush(int s, int all)
 	    /* skip permanent entries */
 	    continue;
 	}
+	if (ip_is_linklocal(sin->sin_addr)
+	    && (if_index != 0 && if_index != rtm->rtm_index)) {
+	    /* IPv4 LL ARP entry doesn't match specified interface */
+	    continue;
+	}
 	sdl = (struct sockaddr_dl *)(sin->sin_len + (char *)sin);
 	if (sdl->sdl_family != AF_LINK) {
 	    continue;
 	}
 	/* turn the RTM_GET into an RTM_DELETE */
-	rtm->rtm_seq = rtm_seq = arp_get_next_seq();
+	rtm->rtm_seq = arp_get_next_seq();
 	rtm->rtm_type = RTM_DELETE;
 	if (write(s, (char *)rtm, rtm->rtm_msglen) < 0) {
 #ifdef MAIN

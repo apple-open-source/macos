@@ -1,15 +1,15 @@
---- wcstoumax.c.orig	2003-05-20 15:21:45.000000000 -0700
-+++ wcstoumax.c	2005-02-23 16:08:34.000000000 -0800
-@@ -40,6 +40,8 @@
+--- wcstoumax.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcstoumax.c	2009-11-09 15:05:26.000000000 -0800
+@@ -36,6 +36,8 @@ __FBSDID("FreeBSD: src/lib/libc/stdlib/s
  #endif
- __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoumax.c,v 1.1 2002/09/22 08:06:45 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/wcstoumax.c,v 1.2 2007/01/09 00:28:01 imp Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <errno.h>
  #include <inttypes.h>
  #include <stdlib.h>
-@@ -50,8 +52,8 @@
+@@ -46,8 +48,8 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * Convert a wide character string to a uintmax_t integer.
   */
  uintmax_t
@@ -20,7 +20,7 @@
  {
  	const wchar_t *s;
  	uintmax_t acc;
-@@ -59,13 +61,14 @@
+@@ -55,13 +57,14 @@ wcstoumax(const wchar_t * __restrict npt
  	uintmax_t cutoff;
  	int neg, any, cutlim;
  
@@ -36,7 +36,7 @@
  	if (c == L'-') {
  		neg = 1;
  		c = *s++;
-@@ -90,8 +93,8 @@
+@@ -86,8 +89,8 @@ wcstoumax(const wchar_t * __restrict npt
  	cutlim = UINTMAX_MAX % base;
  	for ( ; ; c = *s++) {
  #ifdef notyet
@@ -47,7 +47,7 @@
  		else
  #endif
  		if (c >= L'0' && c <= L'9')
-@@ -124,3 +127,10 @@
+@@ -120,3 +123,10 @@ noconv:
  		*endptr = (wchar_t *)(any ? s - 1 : nptr);
  	return (acc);
  }

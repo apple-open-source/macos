@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2009 Google Inc.  All rights reserved.
+ * Copyright (C) 2010, 2011 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -32,7 +33,11 @@ module websockets {
 
     interface [
         Conditional=WEB_SOCKETS,
-        CustomConstructor,    
+        ActiveDOMObject,
+        CanBeConstructed,
+        CustomConstructFunction,
+        ConstructorParameters=1,
+        V8CustomConstructor,
         EventTarget,
         NoStaticTables
     ] WebSocket {
@@ -52,8 +57,7 @@ module websockets {
         attribute EventListener onerror;
         attribute EventListener onclose;
 
-        [Custom] boolean send(in DOMString data)
-          raises(DOMException);
+        [RequiresAllArguments] boolean send(in DOMString data) raises(DOMException);
         void close();
 
         // EventTarget interface

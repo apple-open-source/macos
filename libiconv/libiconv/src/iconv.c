@@ -774,8 +774,8 @@ int main (int argc, char* argv[])
 #endif
 #if ENABLE_NLS
   bindtextdomain("libiconv",relocate(LOCALEDIR));
-#endif
   textdomain("libiconv");
+#endif
   for (i = 1; i < argc;) {
     size_t len = strlen(argv[i]);
     if (!strcmp(argv[i],"--")) {

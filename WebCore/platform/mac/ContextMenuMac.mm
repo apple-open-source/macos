@@ -28,92 +28,27 @@
 
 #if ENABLE(CONTEXT_MENUS)
 
-#include "ContextMenuController.h"
-
-@interface WebCoreMenuTarget : NSObject {
-    WebCore::ContextMenuController* _menuController;
-}
-+ (WebCoreMenuTarget*)sharedMenuTarget;
-- (WebCore::ContextMenuController*)menuController;
-- (void)setMenuController:(WebCore::ContextMenuController*)menuController;
-- (void)forwardContextMenuAction:(id)sender;
-- (BOOL)validateMenuItem:(NSMenuItem *)item;
-@end
-
-static WebCoreMenuTarget* target;
-
-@implementation WebCoreMenuTarget
-
-+ (WebCoreMenuTarget*)sharedMenuTarget
-{
-    if (!target)
-        target = [[WebCoreMenuTarget alloc] init];
-    return target;
-}
-
-- (WebCore::ContextMenuController*)menuController
-{
-    return _menuController;
-}
-
-- (void)setMenuController:(WebCore::ContextMenuController*)menuController
-{
-    _menuController = menuController;
-}
-
-- (void)forwardContextMenuAction:(id)sender
-{
-    WebCore::ContextMenuItem item(WebCore::ActionType, static_cast<WebCore::ContextMenuAction>([sender tag]), [sender title]);
-    _menuController->contextMenuItemSelected(&item);
-}
-
-- (BOOL)validateMenuItem:(NSMenuItem *)item
-{
-    WebCore::ContextMenuItem coreItem(item);
-    ASSERT(_menuController->contextMenu());
-    _menuController->contextMenu()->checkOrEnableIfNeeded(coreItem);
-    return coreItem.enabled();
-}
-
-@end
-
 namespace WebCore {
 
-ContextMenu::ContextMenu(const HitTestResult& result)
-    : m_hitTestResult(result)
+ContextMenu::ContextMenu()
 {
     NSMutableArray* array = [[NSMutableArray alloc] init];
     m_platformDescription = array;
     [array release];
-
-    [[WebCoreMenuTarget sharedMenuTarget] setMenuController:controller()];
 }
 
-ContextMenu::ContextMenu(const HitTestResult& result, const PlatformMenuDescription menu)
-    : m_hitTestResult(result)
-    , m_platformDescription(menu)
+ContextMenu::ContextMenu(const PlatformMenuDescription menu)
+    : m_platformDescription(menu)
 {
-    [[WebCoreMenuTarget sharedMenuTarget] setMenuController:controller()];
 }
 
 ContextMenu::~ContextMenu()
 {
 }
- 
-static void setMenuItemTarget(NSMenuItem* menuItem)
-{
-    [menuItem setTarget:[WebCoreMenuTarget sharedMenuTarget]];
-    [menuItem setAction:@selector(forwardContextMenuAction:)];
-}
 
 void ContextMenu::appendItem(ContextMenuItem& item)
 {
-    checkOrEnableIfNeeded(item);
-
-    ContextMenuItemType type = item.type();
     NSMenuItem* platformItem = item.releasePlatformDescription();
-    if (type == ActionType)
-        setMenuItemTarget(platformItem);
 
     [m_platformDescription.get() addObject:platformItem];
     [platformItem release];
@@ -121,12 +56,7 @@ void ContextMenu::appendItem(ContextMenuItem& item)
 
 void ContextMenu::insertItem(unsigned position, ContextMenuItem& item)
 {
-    checkOrEnableIfNeeded(item);
-
-    ContextMenuItemType type = item.type();
     NSMenuItem* platformItem = item.releasePlatformDescription();
-    if (type == ActionType)
-        setMenuItemTarget(platformItem);
 
     [m_platformDescription.get() insertObject:platformItem atIndex:position];
     [platformItem release];
@@ -151,6 +81,31 @@ NSMutableArray* ContextMenu::platformDescription() const
 NSMutableArray* ContextMenu::releasePlatformDescription()
 {
     return m_platformDescription.releaseRef();
+}
+
+Vector<ContextMenuItem> contextMenuItemVector(PlatformMenuDescription menu)
+{
+    Vector<ContextMenuItem> items;
+    unsigned count = [menu count];
+    if (menu)
+        items.reserveCapacity(count);
+    
+    for (unsigned i = 0; i < count; ++i)
+        items.append(ContextMenuItem([menu objectAtIndex:i]));
+    
+    return items;
+}
+
+PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>& menuItemVector)
+{
+    PlatformMenuDescription platformMenu = [[NSMutableArray alloc] initWithCapacity:menuItemVector.size()];
+    for (unsigned i = 0; i < menuItemVector.size(); ++i) {
+        PlatformMenuItemDescription platformItem = menuItemVector[i].releasePlatformDescription();
+        [platformMenu addObject:platformItem];
+        [platformItem release];
+    }
+    
+    return [platformMenu autorelease];
 }
 
 } // namespace WebCore

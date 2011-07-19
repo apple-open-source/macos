@@ -3,6 +3,7 @@
 [copyright {2004 Arjen Markus <arjenmarkus@users.sourceforge.net>}]
 [moddesc   {Tcl Math Library}]
 [titledesc {Straightforward complex number package}]
+[category  Mathematics]
 [require Tcl 8.3]
 [require math::complexnumbers [opt 1.0.2]]
 

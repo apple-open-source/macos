@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -44,9 +44,11 @@ extern "C" {
 	@param attrList A pointer to a list of zero or more keychain attribute records to match.  Pass NULL to match any keychain attribute.
 	@param searchRef On return, a pointer to the current search reference. You are responsible for calling the CFRelease function to release this reference when finished with it.
     @result A result code.  See "Security Error Codes" (SecBase.h).
+	@discussion This function is deprecated in Mac OS X 10.7 and later;
+	to find one or more keychain items which match specified attributes, use the SecItemCopyMatching API (see SecItem.h).
 */
-	OSStatus SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, CSSM_DB_CONJUNCTIVE dbConjunctive, CSSM_DB_OPERATOR dbOperator, SecKeychainSearchRef *searchRef);
-
+OSStatus SecKeychainSearchCreateFromAttributesExtended(CFTypeRef keychainOrArray, SecItemClass itemClass, const SecKeychainAttributeList *attrList, CSSM_DB_CONJUNCTIVE dbConjunctive, CSSM_DB_OPERATOR dbOperator, SecKeychainSearchRef *searchRef)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 #if defined(__cplusplus)
 }

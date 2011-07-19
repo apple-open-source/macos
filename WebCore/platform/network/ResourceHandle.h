@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2004, 2006, 2011 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,6 +29,7 @@
 #include "AuthenticationChallenge.h"
 #include "AuthenticationClient.h"
 #include "HTTPHeaderMap.h"
+#include "NetworkingContext.h"
 #include "ThreadableLoader.h"
 #include <wtf/OwnPtr.h>
 
@@ -36,22 +37,16 @@
 typedef struct _SoupSession SoupSession;
 #endif
 
-#if PLATFORM(CF)
+#if USE(CF)
 typedef const struct __CFData * CFDataRef;
 #endif
 
-#if PLATFORM(WIN)
+#if USE(WININET)
 typedef unsigned long DWORD;
 typedef unsigned long DWORD_PTR;
 typedef void* LPVOID;
 typedef LPVOID HINTERNET;
-typedef unsigned WPARAM;
-typedef long LPARAM;
-typedef struct HWND__* HWND;
-typedef _W64 long LONG_PTR;
-typedef LONG_PTR LRESULT;
 #endif
-
 
 #if PLATFORM(MAC)
 #include <wtf/RetainPtr.h>
@@ -75,11 +70,14 @@ typedef int CFHTTPCookieStorageAcceptPolicy;
 typedef struct OpaqueCFHTTPCookieStorage* CFHTTPCookieStorageRef;
 #endif
 
+#if USE(CFURLSTORAGESESSIONS)
+typedef const struct __CFURLStorageSession* CFURLStorageSessionRef;
+#endif
+
 namespace WebCore {
 
 class AuthenticationChallenge;
 class Credential;
-class FormData;
 class Frame;
 class KURL;
 class ProtectionSpace;
@@ -98,21 +96,13 @@ class ResourceHandle : public RefCounted<ResourceHandle>
     , public AuthenticationClient
 #endif
     {
-private:
-    ResourceHandle(const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
-
-    enum FailureType {
-        BlockedFailure,
-        InvalidURLFailure
-    };
-
 public:
-    // FIXME: should not need the Frame
-    static PassRefPtr<ResourceHandle> create(const ResourceRequest&, ResourceHandleClient*, Frame*, bool defersLoading, bool shouldContentSniff);
+    static PassRefPtr<ResourceHandle> create(NetworkingContext*, const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
+    static void loadResourceSynchronously(NetworkingContext*, const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data);
 
-    static void loadResourceSynchronously(const ResourceRequest&, StoredCredentials, ResourceError&, ResourceResponse&, Vector<char>& data, Frame* frame);
     static void prepareForURL(const KURL&);
     static bool willLoadFromCache(ResourceRequest&, Frame*);
+    static void cacheMetadata(const ResourceResponse&, const Vector<char>&);
 #if PLATFORM(MAC)
     static bool didSendBodyDataDelegateExists();
 #endif
@@ -130,7 +120,7 @@ public:
     virtual void receivedCancellation(const AuthenticationChallenge&);
 #endif
 
-#if PLATFORM(MAC)
+#if PLATFORM(MAC) && !USE(CFNETWORK)
     void didCancelAuthenticationChallenge(const AuthenticationChallenge&);
 #if USE(PROTECTION_SPACE_AUTH_CALLBACK)
     bool canAuthenticateAgainstProtectionSpace(const ProtectionSpace&);
@@ -139,10 +129,13 @@ public:
     WebCoreResourceHandleAsDelegate *delegate();
     void releaseDelegate();
     id releaseProxy();
+#endif
 
+#if PLATFORM(MAC)
     void schedule(SchedulePair*);
     void unschedule(SchedulePair*);
-#elif USE(CFNETWORK)
+#endif
+#if USE(CFNETWORK)
     CFURLConnectionRef connection() const;
     CFURLConnectionRef releaseConnectionForDownload();
     static void setHostAllowsAnyHTTPSCertificate(const String&);
@@ -152,7 +145,7 @@ public:
 #if PLATFORM(WIN) && USE(CURL)
     static void setHostAllowsAnyHTTPSCertificate(const String&);
 #endif
-#if PLATFORM(WIN) && USE(CURL) && PLATFORM(CF)
+#if PLATFORM(WIN) && USE(CURL) && USE(CF)
     static void setClientCertificate(const String& host, CFDataRef);
 #endif
 
@@ -165,14 +158,11 @@ public:
     static void forceContentSniffing();
 
 #if USE(WININET)
-    void setHasReceivedResponse(bool = true);
-    bool hasReceivedResponse() const;
+    void setSynchronousInternetHandle(HINTERNET);
     void fileLoadTimer(Timer<ResourceHandle>*);
-    void onHandleCreated(LPARAM);
-    void onRequestRedirected(LPARAM);
-    void onRequestComplete(LPARAM);
-    friend void __stdcall transferJobStatusCallback(HINTERNET, DWORD_PTR, DWORD, LPVOID, DWORD);
-    friend LRESULT __stdcall ResourceHandleWndProc(HWND, unsigned message, WPARAM, LPARAM);
+    void onRedirect();
+    bool onRequestComplete();
+    static void CALLBACK internetStatusCallback(HINTERNET, DWORD_PTR, DWORD, LPVOID, DWORD);
 #endif
 
 #if PLATFORM(QT) || USE(CURL) || USE(SOUP) || PLATFORM(ANDROID)
@@ -185,9 +175,10 @@ public:
 
     // Used to work around the fact that you don't get any more NSURLConnection callbacks until you return from the one you're in.
     static bool loadsBlocked();    
-    
+
+    bool hasAuthenticationChallenge() const;
     void clearAuthentication();
-    void cancel();
+    virtual void cancel();
 
     // The client may be 0, in which case no callbacks will be made.
     ResourceHandleClient* client() const;
@@ -195,21 +186,58 @@ public:
 
     void setDefersLoading(bool);
       
-    const ResourceRequest& request() const;
+    ResourceRequest& firstRequest();
     const String& lastHTTPMethod() const;
 
     void fireFailure(Timer<ResourceHandle>*);
 
+#if USE(CFURLSTORAGESESSIONS)
+    static void setPrivateBrowsingEnabled(bool);
+    static CFURLStorageSessionRef privateBrowsingStorageSession();
+    static void setPrivateBrowsingStorageSessionIdentifierBase(const String&);
+    static CFURLStorageSessionRef currentStorageSession();
+#if PLATFORM(WIN)
+    static void setDefaultStorageSession(CFURLStorageSessionRef);
+    static CFURLStorageSessionRef defaultStorageSession();
+#endif // PLATFORM(WIN)
+#endif // USE(CFURLSTORAGESESSIONS)
+
     using RefCounted<ResourceHandle>::ref;
     using RefCounted<ResourceHandle>::deref;
 
+#if PLATFORM(MAC) || USE(CFNETWORK)
+    static CFStringRef synchronousLoadRunLoopMode();
+#endif
+
+protected:
+    ResourceHandle(const ResourceRequest&, ResourceHandleClient*, bool defersLoading, bool shouldContentSniff);
+
 private:
+    enum FailureType {
+        NoFailure,
+        BlockedFailure,
+        InvalidURLFailure
+    };
+
+    void platformSetDefersLoading(bool);
+
     void scheduleFailure(FailureType);
 
-    bool start(Frame*);
+    bool start(NetworkingContext*);
 
     virtual void refAuthenticationClient() { ref(); }
     virtual void derefAuthenticationClient() { deref(); }
+
+#if PLATFORM(MAC)
+    void createNSURLConnection(id delegate, bool shouldUseCredentialStorage, bool shouldContentSniff);
+#elif USE(CF)
+    void createCFURLConnection(bool shouldUseCredentialStorage, bool shouldContentSniff);
+#endif
+
+#if USE(CFURLSTORAGESESSIONS)
+    static RetainPtr<CFURLStorageSessionRef> createPrivateBrowsingStorageSession(CFStringRef identifier);
+    static String privateBrowsingStorageSessionIdentifierDefaultBase();
+#endif
 
     friend class ResourceHandleInternal;
     OwnPtr<ResourceHandleInternal> d;

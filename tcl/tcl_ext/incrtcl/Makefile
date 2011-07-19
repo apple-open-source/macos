@@ -10,7 +10,7 @@ ProjectPlistName      = incrtcl
 
 # Fetch info
 Release               = 3.4
-ImportDate            = 2008-10-05
+ImportDate            = 2010-08-18
 CvsRoot               = :pserver:anonymous@$(ProjectPlistName).cvs.sourceforge.net:/cvsroot/$(ProjectPlistName)
 
 Extra_Configure_Flags = $(TEA_Configure_Flags)

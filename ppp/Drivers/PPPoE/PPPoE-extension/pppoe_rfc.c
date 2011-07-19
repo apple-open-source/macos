@@ -31,8 +31,6 @@
 #include <kern/locks.h>
 #include <net/if.h>
 
-#include <machine/spl.h>
-
 #include "../../../Family/if_ppplink.h"
 #include "../../../Family/ppp_domain.h"
 #include "PPPoE.h"
@@ -119,8 +117,8 @@ struct pppoe_tag {
 // This macro also makes sure that no overflow can occur.
 #define PPPOE_TAG_STRCPY(tag, str)		\
     do {					\
-        strncpy(tag.data, str, tag.max_len);	\
-        tag.len = strlen(tag.data);		\
+        strlcpy((char *)tag.data, (char*)str, tag.max_len);	\
+        tag.len = strlen((char *)tag.data);		\
     } while (0)
 
 // utility macro that allows to easily compare two pppoe_tag structs.
@@ -594,7 +592,10 @@ u_int16_t pppoe_rfc_output(void *data, mbuf_t m)
         skip = 2;
 #endif
 
-    mbuf_prepend(&m, sizeof(struct pppoe) - skip , MBUF_WAITOK);
+    if (mbuf_prepend(&m, sizeof(struct pppoe) - skip , MBUF_WAITOK) != 0) {
+        IOLog("pppoe_rfc_output: failed mbuf_prepend\n");
+        return ENOBUFS;
+    }
     d = mbuf_data(m);
 
     mbuf_setflags(m, mbuf_flags(m) | MBUF_PKTHDR);
@@ -1208,7 +1209,11 @@ u_int16_t handle_data(struct pppoe_rfc *rfc, mbuf_t m, u_int8_t *from)
 			mbuf_setlen(m, mbuf_len(m) - sizeof(struct pppoe));
         else
 			mbuf_setlen(m, ntohs(p->len));
-        mbuf_setdata(m, mbuf_data(m) + sizeof(struct pppoe), mbuf_len(m));
+        if (mbuf_setdata(m, mbuf_data(m) + sizeof(struct pppoe), mbuf_len(m))) {
+			IOLog("pppoe_rfc_output: failed mbuf_setdata\n");
+            mbuf_freem(m);
+            return 1;
+        }
 		mbuf_pkthdr_setlen(m, ntohs(p->len));
 
         // packet is passed up to the host

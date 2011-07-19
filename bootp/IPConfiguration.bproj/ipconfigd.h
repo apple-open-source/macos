@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 - 2004 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -22,29 +22,36 @@
  */
 #ifndef _S_IPCONFIGD_H
 #define _S_IPCONFIGD_H
+
+#include "ipconfigd_types.h"
+
+/**
+ ** Routines in support of MiG interface
+ **/
+extern ipconfig_status_t
+ipconfig_method_info_from_plist(CFPropertyListRef plist,
+				ipconfig_method_t * method_p,
+				ipconfig_method_data_t * * method_data_p);
 extern int 		 get_if_count();
-extern boolean_t 	 get_if_name(int intface, char * name, size_t namelen);
-extern boolean_t 	 get_if_addr(const char * name, u_int32_t * addr);
-extern boolean_t 	 get_if_option(const char * name, int option_code, 
+extern ipconfig_status_t get_if_addr(const char * name, u_int32_t * addr);
+extern ipconfig_status_t get_if_option(const char * name, int option_code, 
 				       void * option_data, 
 				       unsigned int * option_dataCnt);
-extern boolean_t 	 get_if_packet(const char * name, void * packet_data,
+extern ipconfig_status_t get_if_packet(const char * name, void * packet_data,
 				       unsigned int * packet_dataCnt);
-extern void 		 wait_all();
-extern boolean_t 	 wait_if(const char *);
-extern ipconfig_status_t set_if(const char * name, ipconfig_method_t method, 
-				void * method_data, 
-				unsigned int method_data_len);
+extern ipconfig_status_t get_if_v6_packet(const char * name, void * packet_data,
+					  unsigned int * packet_dataCnt);
+extern ipconfig_status_t set_if(const char * name,
+				ipconfig_method_t method, 
+				ipconfig_method_data_t * method_data);
 extern ipconfig_status_t add_service(const char * name,
 				     ipconfig_method_t method, 
-				     void * method_data, 
-				     unsigned int method_data_len,
+				     ipconfig_method_data_t * method_data,
 				     void * service_id, 
 				     unsigned int * service_id_len);
 extern ipconfig_status_t set_service(const char * name,
 				     ipconfig_method_t method, 
-				     void * method_data, 
-				     unsigned int method_data_len,
+				     ipconfig_method_data_t * method_data,
 				     void * service_id, 
 				     unsigned int * service_id_len);
 extern ipconfig_status_t remove_service_with_id(void * service_id, 
@@ -52,13 +59,12 @@ extern ipconfig_status_t remove_service_with_id(void * service_id,
 extern ipconfig_status_t find_service(const char * name,
 				      boolean_t exact,
 				      ipconfig_method_t method, 
-				      void * method_data, 
-				      unsigned int method_data_len,
+				      ipconfig_method_data_t * method_data,
 				      void * service_id, 
 				      unsigned int * service_id_len);
 extern ipconfig_status_t remove_service(const char * name,
 					ipconfig_method_t method,
-					void * method_data,
-					unsigned int method_data_len);
+					ipconfig_method_data_t * method_data);
 extern ipconfig_status_t set_verbose(int verbose);
+
 #endif _S_IPCONFIGD_H

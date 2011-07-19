@@ -26,54 +26,66 @@
 
 #include "config.h"
 
-#if ENABLE(3D_CANVAS)
+#if ENABLE(WEBGL)
 
 #include "GraphicsContext3D.h"
 
+#include "BitmapImage.h"
 #include "Image.h"
+#include "ImageSource.h"
 #include "NativeImageSkia.h"
+#include "SkColorPriv.h"
+#include <wtf/OwnPtr.h>
+#include <wtf/PassOwnPtr.h>
 
 #include <algorithm>
 
 namespace WebCore {
 
 bool GraphicsContext3D::getImageData(Image* image,
-                                     Vector<uint8_t>& outputVector,
+                                     GC3Denum format,
+                                     GC3Denum type,
                                      bool premultiplyAlpha,
-                                     bool* hasAlphaChannel,
-                                     AlphaOp* neededAlphaOp,
-                                     unsigned int* format)
+                                     bool ignoreGammaAndColorProfile,
+                                     Vector<uint8_t>& outputVector)
 {
     if (!image)
         return false;
+    OwnPtr<NativeImageSkia> pixels;
     NativeImageSkia* skiaImage = image->nativeImageForCurrentFrame();
+    AlphaOp neededAlphaOp = AlphaDoNothing;
+    bool hasAlpha = skiaImage ? !skiaImage->isOpaque() : true;
+    if ((!skiaImage || ignoreGammaAndColorProfile || (hasAlpha && !premultiplyAlpha)) && image->data()) {
+        ImageSource decoder(ImageSource::AlphaNotPremultiplied,
+                            ignoreGammaAndColorProfile ? ImageSource::GammaAndColorProfileIgnored : ImageSource::GammaAndColorProfileApplied);
+        // Attempt to get raw unpremultiplied image data 
+        decoder.setData(image->data(), true);
+        if (!decoder.frameCount() || !decoder.frameIsCompleteAtIndex(0))
+            return false;
+        hasAlpha = decoder.frameHasAlphaAtIndex(0);
+        pixels = adoptPtr(decoder.createFrameAtIndex(0));
+        if (!pixels.get() || !pixels->isDataComplete() || !pixels->width() || !pixels->height())
+            return false;
+        SkBitmap::Config skiaConfig = pixels->config();
+        if (skiaConfig != SkBitmap::kARGB_8888_Config)
+            return false;
+        skiaImage = pixels.get();
+        if (hasAlpha && premultiplyAlpha)
+            neededAlphaOp = AlphaDoPremultiply;
+    } else if (!premultiplyAlpha && hasAlpha)
+        neededAlphaOp = AlphaDoUnmultiply;
     if (!skiaImage)
-        return false;
-    SkBitmap::Config skiaConfig = skiaImage->config();
-    // FIXME: must support more image configurations.
-    if (skiaConfig != SkBitmap::kARGB_8888_Config)
         return false;
     SkBitmap& skiaImageRef = *skiaImage;
     SkAutoLockPixels lock(skiaImageRef);
-    int height = skiaImage->height();
-    int rowBytes = skiaImage->rowBytes();
-    ASSERT(rowBytes == skiaImage->width() * 4);
-    uint8_t* pixels = reinterpret_cast<uint8_t*>(skiaImage->getPixels());
-    outputVector.resize(rowBytes * height);
-    int size = rowBytes * height;
-    memcpy(outputVector.data(), pixels, size);
-    *hasAlphaChannel = true;
-    if (!premultiplyAlpha)
-        // FIXME: must fetch the image data before the premultiplication step
-        *neededAlphaOp = kAlphaDoUnmultiply;
-    // Convert from BGRA to RGBA. FIXME: add GL_BGRA extension support
-    // to all underlying OpenGL implementations.
-    for (int i = 0; i < size; i += 4)
-        std::swap(outputVector[i], outputVector[i + 2]);
-    *format = RGBA;
-    return true;
+    ASSERT(skiaImage->rowBytes() == skiaImage->width() * 4);
+    outputVector.resize(skiaImage->rowBytes() * skiaImage->height());
+    return packPixels(reinterpret_cast<const uint8_t*>(skiaImage->getPixels()),
+                      SK_B32_SHIFT ? SourceFormatRGBA8 : SourceFormatBGRA8,
+                      skiaImage->width(), skiaImage->height(), 0,
+                      format, type, neededAlphaOp, outputVector.data());
 }
 
 } // namespace WebCore
 
-#endif // ENABLE(3D_CANVAS)
+#endif // ENABLE(WEBGL)

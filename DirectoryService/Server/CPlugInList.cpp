@@ -34,7 +34,7 @@
 #include "CPluginConfig.h"
 #include "CLog.h"
 #include "CNodeList.h"
-#include "DSLDAPUtils.h"
+#include "od_passthru.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -43,7 +43,9 @@
 
 extern CFRunLoopRef			gPluginRunLoop;
 extern DSMutexSemaphore    *gKerberosMutex;
+#ifndef DISABLE_CONFIGURE_PLUGIN
 extern CPluginConfig	   *gPluginConfig;
+#endif
 extern DSMutexSemaphore	   *gLazyPluginLoadingLock;
 extern CPlugInList		   *gPlugins;
 extern CNodeList		   *gNodeList;
@@ -104,8 +106,12 @@ SInt32 CPlugInList::AddPlugIn ( const char		*inName,
 		return( eDSNullParameter );
 	}
 	
+#ifndef DISABLE_CONFIGURE_PLUGIN
 	// ask the plugin about it state outside the lock to avoid deadlock.
 	ePluginState pluginState = gPluginConfig->GetPluginState( inName );
+#else
+	ePluginState pluginState = kActive;
+#endif
 
 	fMutex.WaitLock();
 
@@ -316,7 +322,11 @@ void CPlugInList::InitPlugIns ( eDSPluginLevel inLevel )
 			else if ( aTableEntry->fName != nil )
 			{
 				// if this plugin is supposed to be active, we should mark it as such, it still should be uninitialized.
+#ifndef DISABLE_CONFIGURE_PLUGIN
 				ePluginState		pluginState = gPluginConfig->GetPluginState( aTableEntry->fName );
+#else
+				ePluginState		pluginState = kActive;
+#endif
 
 				aTableEntry->fState = pluginState | kUninitialized;
 				DbgLog( kLogApplication, "Plugin \"%s\", Version \"%s\", referenced to be loaded on demand successfully.", aTableEntry->fName, aTableEntry->fVersion );
@@ -591,7 +601,30 @@ UInt32 CPlugInList::GetPlugInCount ( void )
 	return( fPICount );
 } // GetPlugInCount
 
-
+void CPlugInList::RegisterPlugins(void)
+{
+	sTableData     *aTableEntry		= nil;
+	
+	fMutex.WaitLock();
+	
+	aTableEntry = fTable;
+	while ( aTableEntry != nil )
+	{
+		if (aTableEntry->fName != NULL) {
+			char name[512];
+			
+			strlcpy(name, "/", sizeof(name));
+			strlcat(name, aTableEntry->fName, sizeof(name));
+			
+			// hidden by default because top-level nodes are not normal nodes when a list of nodes is requested
+			od_passthru_register_node(name, true);
+		}
+		
+		aTableEntry = aTableEntry->pNext;
+	}
+	
+	fMutex.SignalLock();
+}
 
 // ---------------------------------------------------------------------------
 //	* GetActiveCount ()
@@ -635,12 +668,16 @@ void CPlugInList::SetPluginState( CServerPlugin	*inPluginPtr, ePluginState inPlu
 		return;
 
 	SInt32	siResult	= inPluginPtr->SetPluginState( inPluginState );
+	const char *pluginName = inPluginPtr->GetPluginName();
+	od_passthru_set_plugin_enabled(pluginName, (inPluginState & kActive) != 0);
 
-	if ( siResult == eDSNoErr )
-		SrvrLog( kLogApplication, "Plug-in %s state is now %s.", inPluginPtr->GetPluginName(), (inPluginState == kActive ? "active" : "inactive") );
-	else
-		SrvrLog( kLogApplication, "Unable to set %s plug-in state to %s.  Received error %l.", inPluginPtr->GetPluginName(), (inPluginState == kActive ? "active" : "inactive"),
+	if ( siResult == eDSNoErr ) {
+		SrvrLog( kLogApplication, "Plug-in %s state is now %s.", pluginName, (inPluginState == kActive ? "active" : "inactive") );
+	}
+	else {
+		SrvrLog( kLogApplication, "Unable to set %s plug-in state to %s.  Received error %l.", pluginName, (inPluginState == kActive ? "active" : "inactive"),
 				siResult );
+	}
 }
 
 
@@ -715,7 +752,11 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const char *inName, bool loadIfNeeded
 						if ( aTableEntry->fPluginPtr != NULL )
 						{
 							// save in newState so that we can call out to the plugin ouside the lock.
+#ifndef DISABLE_CONFIGURE_PLUGIN
 							newState = gPluginConfig->GetPluginState( aTableEntry->fPluginPtr->GetPluginName() );
+#else
+							newState = kActive;
+#endif
 							aTableEntry->fState = newState;
 						}
 					}
@@ -765,7 +806,9 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 			if ( aTableEntry->fKey == inKey )
 			{
 				if (	aTableEntry->fPluginPtr == NULL
+#ifndef DISABLE_CONFIGURE_PLUGIN
 					&&	(gPluginConfig->GetPluginState(aTableEntry->fName) & kActive)
+#endif
 					&&	loadIfNeeded )
 				{
 					// this means we will try to load the plugin below
@@ -801,7 +844,9 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 				if ( aTableEntry->fKey == inKey )
 				{
 					if (	aTableEntry->fPluginPtr == NULL
+#ifndef DISABLE_CONFIGURE_PLUGIN
 						&&	(gPluginConfig->GetPluginState(aTableEntry->fName) & kActive)
+#endif
 						&&	loadIfNeeded )
 					{
 						// now use the tmpTableEntry
@@ -812,7 +857,11 @@ CServerPlugin* CPlugInList::GetPlugInPtr ( const UInt32 inKey, bool loadIfNeeded
 						if ( aTableEntry->fPluginPtr != NULL )
 						{
 							// save in newState so that we can call out to the plugin ouside the lock.
+#ifndef DISABLE_CONFIGURE_PLUGIN
 							newState = gPluginConfig->GetPluginState( aTableEntry->fPluginPtr->GetPluginName() );
+#else
+							newState = kActive;
+#endif
 							aTableEntry->fState = newState;
 						}
 					}

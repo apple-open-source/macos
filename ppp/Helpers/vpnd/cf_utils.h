@@ -33,10 +33,10 @@ Boolean isNumber (CFTypeRef obj);
 Boolean isData (CFTypeRef obj);
 
 int get_array_option(CFPropertyListRef options, CFStringRef entity, CFStringRef property, CFIndex index,
-            u_char *opt, u_int32_t *outlen, u_char *defaultval);
+            u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval);
 
 void get_str_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property, 
-                        u_char *opt, u_int32_t *outlen, u_char *defaultval);
+                        u_char *opt, u_int32_t optsiz, u_int32_t *outlen, u_char *defaultval);
 
 CFStringRef get_cfstr_option (CFPropertyListRef options, CFStringRef entity, CFStringRef property);
 

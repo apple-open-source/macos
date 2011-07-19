@@ -57,7 +57,7 @@
  *
  * ENDHEADER
  *
- * $Id: sun.c 152 2008-10-22 08:49:40Z nijtmans $
+ * $Id: sun.c 233 2010-04-01 09:28:00Z nijtmans $
  *
  */
 
@@ -134,9 +134,7 @@ static Boln write_sun_cols (tkimg_MFile *ofp, SUNHEADER *sunhdr, UByte *colormap
 static RLEBUF
 	rlebuf;
 
-/* OPA TODO: Change from ANSI-C arguments to _ANSI_ARGS_ macro. */
-
-#if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 static Boln readUByte (tkimg_MFile *handle, UByte *b)
 {
     char buf[1];
@@ -147,7 +145,7 @@ static Boln readUByte (tkimg_MFile *handle, UByte *b)
 }
 #else
     /* Use this macro for better performance, esp. when reading RLE files. */
-    #define readUByte(h,b) (1 == tkimg_Read((h),(char *)(b),1))
+#   define readUByte(h,b) (1 == tkimg_Read((h),(char *)(b),1))
 #endif
 
 static Boln writeUByte (tkimg_MFile *handle, UByte b)
@@ -498,13 +496,6 @@ static Boln write_sun_cols (tkimg_MFile *ofp, SUNHEADER *sunhdr, UByte *colormap
 }
 */
 
-typedef struct myblock {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], in case it is not
-		  included already in Tk_PhotoImageBlock */
-} myblock;
-#define block bl.ck
-
 /* Load SUN Raster file with depth 1 */
 static Boln load_sun_d1 (Tcl_Interp *interp, tkimg_MFile *ifp,
                          Tk_PhotoHandle imageHandle, int destX, int destY,
@@ -513,7 +504,7 @@ static Boln load_sun_d1 (Tcl_Interp *interp, tkimg_MFile *ifp,
 {
     UByte *dest, bit2byte[256*8];
     UByte *pixbuf;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     int pix8;
     int linepad;
     int x, y;
@@ -521,6 +512,7 @@ static Boln load_sun_d1 (Tcl_Interp *interp, tkimg_MFile *ifp,
     int i, j;
     int err = 0, rle;
     char errMsg[200];
+    Boln result = TRUE;
 
     pixbuf = (UByte *) ckalloc (fileWidth);
     if (!pixbuf) {
@@ -585,11 +577,14 @@ static Boln load_sun_d1 (Tcl_Interp *interp, tkimg_MFile *ifp,
 	    return FALSE;
         }
 	if (y >= srcY) {
-	    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, TK_PHOTO_COMPOSITE_SET);
+	    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		result = FALSE;
+		break;
+	    }
 	    outY++;
 	}
     }
-    return TRUE;
+    return result;
 }
 
 /* Load SUN Raster file with depth 8 */
@@ -601,7 +596,7 @@ static Boln load_sun_d8 (Tcl_Interp *interp, tkimg_MFile *ifp,
 {
     UByte *dest, *indData = NULL, *src;
     UByte *pixbuf = NULL;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     int linepad;
     int x, y;
     int stopY, outY;
@@ -609,6 +604,7 @@ static Boln load_sun_d8 (Tcl_Interp *interp, tkimg_MFile *ifp,
     int greyscale, nchan;
     int err, rle;
     char errMsg[200];
+    Boln result = TRUE;
 
     rle     = (type == RAS_TYPE_RLE);
     linepad = fileWidth % 2;
@@ -694,12 +690,15 @@ static Boln load_sun_d8 (Tcl_Interp *interp, tkimg_MFile *ifp,
 	}
 
 	if (y >= srcY) {
-	    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, TK_PHOTO_COMPOSITE_SET);
+	    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		result = FALSE;
+		break;
+	    }
 	    outY++;
 	}
     }
     ckfree ((char *)indData);
-    return TRUE;
+    return result;
 }
 
 /* Load SUN Raster file with true color image: depth = 24 or 32 */
@@ -712,12 +711,13 @@ static Boln load_rgb (Tcl_Interp *interp, tkimg_MFile *ifp,
 {
     UByte *dest, tmp;
     UByte *pixbuf;
-    myblock bl;
+    Tk_PhotoImageBlock block;
     int linepad;
     int x, y;
     int stopY, outY;
     int err, rle;
     char errMsg[200];
+    Boln result = TRUE;
 
     pixbuf = (UByte *) ckalloc (fileWidth * nchan);
     if (!pixbuf) {
@@ -796,12 +796,15 @@ static Boln load_rgb (Tcl_Interp *interp, tkimg_MFile *ifp,
 		    }
 		}
 	    }
-	    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, showMatte? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET);
+	    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, width, 1, showMatte? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		result = FALSE;
+		break;
+	    }
 	    outY++;
 	}
     }
     ckfree ((char *)pixbuf);
-    return TRUE;
+    return result;
 }
 
 /*
@@ -812,17 +815,17 @@ static Boln load_rgb (Tcl_Interp *interp, tkimg_MFile *ifp,
  * Prototypes for local procedures defined in this file:
  */
 
-static int   ParseFormatOpts _ANSI_ARGS_((Tcl_Interp *interp, Tcl_Obj *format,
-                 int *comp, int *verb, int *matte));
-static int   CommonMatch _ANSI_ARGS_((tkimg_MFile *handle, int *widthPtr,
-	         int *heightPtr, SUNHEADER *sunHeaderPtr));
-static int   CommonRead _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
-	         const char *filename, Tcl_Obj *format,
-	         Tk_PhotoHandle imageHandle, int destX, int destY,
-		 int width, int height, int srcX, int srcY));
-static int   CommonWrite _ANSI_ARGS_((Tcl_Interp *interp,
-                 const char *filename, Tcl_Obj *format,
-                 tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr));
+static int ParseFormatOpts(Tcl_Interp *interp, Tcl_Obj *format,
+	int *comp, int *verb, int *matte);
+static int CommonMatch(tkimg_MFile *handle, int *widthPtr,
+	int *heightPtr, SUNHEADER *sunHeaderPtr);
+static int CommonRead(Tcl_Interp *interp, tkimg_MFile *handle,
+	const char *filename, Tcl_Obj *format,
+	Tk_PhotoHandle imageHandle, int destX, int destY,
+	int width, int height, int srcX, int srcY);
+static int CommonWrite(Tcl_Interp *interp,
+	const char *filename, Tcl_Obj *format,
+	tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr);
 
 static int ParseFormatOpts (interp, format, comp, verb, matte)
     Tcl_Interp *interp;
@@ -834,7 +837,7 @@ static int ParseFormatOpts (interp, format, comp, verb, matte)
     static const char *const sunOptions[] = {"-compression", "-verbose", "-matte"};
     int objc, length, c, i, index;
     Tcl_Obj **objv;
-    CONST84 char *compression, *verbose, *transp;
+    const char *compression, *verbose, *transp;
 
     *comp = 1;
     *verb = 0;
@@ -915,21 +918,19 @@ static int ParseFormatOpts (interp, format, comp, verb, matte)
     return TCL_OK;
 }
 
-static int ChnMatch(interp, chan, filename, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *filename;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ChnMatch(
+    Tcl_Channel chan,
+    const char *filename,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
 
-    #if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
 	printf("ChnMatch\n"); fflush(stdout);
-    #endif
-
-    tkimg_FixChanMatchProc (&interp, &chan, &filename, &format,
-                         &widthPtr, &heightPtr);
+#endif
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
@@ -937,19 +938,18 @@ static int ChnMatch(interp, chan, filename, format, widthPtr, heightPtr)
     return CommonMatch(&handle, widthPtr, heightPtr, NULL);
 }
 
-static int ObjMatch(interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ObjMatch(
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
 
-    #if defined (DEBUG_LOCAL)
+#ifdef DEBUG_LOCAL
         printf("ObjMatch\n"); fflush(stdout);
-    #endif
-
-    tkimg_FixObjMatchProc (&interp, &data, &format, &widthPtr, &heightPtr);
+#endif
 
     if (!tkimg_ReadInit(data, 'Y', &handle)) {
 	return 0;
@@ -1088,8 +1088,8 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 	    tkimg_ReadBuffer (0);
             return TCL_ERROR;
 	}
-	#if defined(DEBUG)
-        {
+#ifdef DEBUG
+	{
 	    int j, ncols;
 	    printf("Colormap values:\n");
 	    ncols = sh.ras_maplength/3;
@@ -1097,7 +1097,7 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 		printf("Entry 0x%08x: 0x%04x,  0x%04x, 0x%04x\n",
                        j,suncolmap[j],suncolmap[j+ncols],suncolmap[j+2*ncols]);
 	}
-	#endif
+#endif
     } else if (sh.ras_maplength > 0) {
 	UByte dummy[1];
 	int d, length;
@@ -1109,7 +1109,13 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 	}
     }
 
-    Tk_PhotoExpand(imageHandle, destX + outWidth, destY + outHeight);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + outWidth, destY + outHeight) == TCL_ERROR) {
+	if (suncolmap) {
+	    ckfree ((char *)suncolmap);
+	}
+	tkimg_ReadBuffer(0);
+	return TCL_ERROR;
+    }
 
     nchan = (sh.ras_depth == 32? 4: 3);
 
@@ -1153,7 +1159,7 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 
 static int ChnWrite (interp, filename, format, blockPtr)
     Tcl_Interp *interp;
-    CONST84 char *filename;
+    const char *filename;
     Tcl_Obj *format;
     Tk_PhotoImageBlock *blockPtr;
 {
@@ -1176,24 +1182,24 @@ static int ChnWrite (interp, filename, format, blockPtr)
     return result;
 }
 
-static int StringWrite (interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     tkimg_MFile handle;
     int result;
     Tcl_DString data;
 
-    tkimg_FixStringWriteProc (&data, &interp, &dataPtr, &format, &blockPtr);
-
-    tkimg_WriteInit(dataPtr, &handle);
-    result = CommonWrite (interp, "InlineData", format, &handle, blockPtr);
+    Tcl_DStringInit(&data);
+    tkimg_WriteInit(&data, &handle);
+    result = CommonWrite(interp, "InlineData", format, &handle, blockPtr);
     tkimg_Putc(IMG_DONE, &handle);
 
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult (interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }

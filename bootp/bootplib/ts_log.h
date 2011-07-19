@@ -2,7 +2,7 @@
 #ifndef _S_TS_LOG_H
 #define _S_TS_LOG_H
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 

@@ -1,0 +1,9 @@
+/^import sys/s//import os, sys/
+/raise ValueError("Unknown load command:/c
+                # skip unknown load commands rather than raise an exception
+                data_size = cmd_load.cmdsize - sizeof(load_command)
+                fh.seek(data_size, os.SEEK_CUR)
+                read_bytes += cmd_load.cmdsize
+                continue
+.
+w

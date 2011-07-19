@@ -41,6 +41,10 @@
 #include "IOHIPointing.h"
 #endif
 
+#ifndef kIOMessageDeviceSignaledWakeup
+#define kIOMessageDeviceSignaledWakeup  iokit_common_msg(0x350)
+#endif
+
 
 //===========================================================================
 // IOHIDDevice class
@@ -58,6 +62,7 @@ OSDefineMetaClassAndAbstractStructors( IOHIDDevice, IOService )
 #define _inputInterruptElementArray	_reserved->inputInterruptElementArray
 #define _publishNotify				_reserved->publishNotify
 #define _performTickle				_reserved->performTickle
+#define _performWakeTickle          _reserved->performWakeTickle
 #define _interfaceNub				_reserved->interfaceNub
 #define _rollOverElement            _reserved->rollOverElement
 #define _hierarchElements           _reserved->hierarchElements
@@ -113,10 +118,10 @@ static IOService *  gDisplayManager = 0;
 
 //---------------------------------------------------------------------------
 // Notification handler to grab an instance of the IOHIDSystem
-bool IOHIDDevice::_publishNotificationHandler(
-			void * target,
+bool IOHIDDevice::_publishNotificationHandler(void * target,
 			void * /* ref */,
-			IOService * newService )
+                                              IOService * newService,
+                                              IONotifier * /* notifier */)
 {
     IOHIDDevice * self = (IOHIDDevice *) target;
 
@@ -212,12 +217,6 @@ void IOHIDDevice::free()
     {
         _inputInterruptElementArray->release();
         _inputInterruptElementArray = 0;
-    }
-
-    if (_interfaceNub)
-    {
-        _interfaceNub->release();
-        _interfaceNub = 0;
     }
         
     if ( _reserved )
@@ -401,6 +400,12 @@ void IOHIDDevice::stop(IOService * provider)
         ELEMENT_UNLOCK;
     }
 
+    if (_interfaceNub)
+    {
+        _interfaceNub->release();
+        _interfaceNub = 0;
+    }
+
     super::stop(provider);
 }
 
@@ -519,18 +524,68 @@ static inline bool ShouldPostDisplayActivityTickles(IOService *device, OSSet * c
 
     if ( !isSeized && (iterator = OSCollectionIterator::withCollection(clientSet)) )
     {
-        while ( object = iterator->getNextObject() )
-        {
+        bool done = false;
+        while (!done) {
+            iterator->reset();
+            while (!done && (NULL != (object = iterator->getNextObject()))) {
             if ( object->metaCast("IOHIDEventService"))
             {
                 returnValue = false;
-                break;
+                    done = true;
+            }
+        }
+            if (iterator->isValid()) {
+                done = true;
             }
         }
         iterator->release();
     }
     return returnValue;
 }
+
+static inline bool ShouldPostDisplayActivityTicklesForWakeDevice(
+    IOService *device, OSSet * clientSet, bool isSeized)
+{
+    OSNumber *  primaryUsagePage = OSDynamicCast(OSNumber, device->getProperty(kIOHIDPrimaryUsagePageKey));
+    if (!primaryUsagePage)
+        return false;
+
+    if (primaryUsagePage->unsigned32BitValue() == kHIDPage_Consumer)
+        return true;
+
+    if (!clientSet->getCount() ||
+         (primaryUsagePage->unsigned32BitValue() != kHIDPage_GenericDesktop))
+        return false;
+
+    // We have clients and this device is generic desktop.
+    // Probe the client list to make sure that we are 
+    // openned by an IOHIDEventService.
+    
+    OSCollectionIterator *  iterator;
+    OSObject *              object;
+    bool                    returnValue = false;
+
+    if ( !isSeized && (iterator = OSCollectionIterator::withCollection(clientSet)) )
+    {
+        bool done = false;
+        while (!done) {
+            iterator->reset();
+            while (!done && (NULL != (object = iterator->getNextObject()))) {
+                if (object->metaCast("IOHIDEventService"))
+                {
+                    returnValue = true;
+                    done = true;
+                }
+            }
+            if (iterator->isValid()) {
+                done = true;
+            }
+        }
+        iterator->release();
+    }
+    return returnValue;
+}
+
 //---------------------------------------------------------------------------
 // Handle a client open on the interface.
 
@@ -580,16 +635,19 @@ bool IOHIDDevice::handleOpen(IOService *  client,
     while (false);
 
     _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
+    _performWakeTickle = ShouldPostDisplayActivityTicklesForWakeDevice(this, _clientSet, _seizedClient);
     
     // RY: Add a notification to get an instance of the Display
     // Manager.  This will allow us to tickle it upon receiveing
     // new reports. 
-    if ( _performTickle && !gDisplayManager )
+    if ( (_performTickle || _performWakeTickle) && !gDisplayManager )
     {
-        _publishNotify = addNotification( gIOPublishNotification, 
-                        serviceMatching("IODisplayWrangler"),
+        OSDictionary *matching = serviceMatching("IODisplayWrangler");
+        _publishNotify = addMatchingNotification( gIOPublishNotification, 
+                        matching,
                         &IOHIDDevice::_publishNotificationHandler,
                         this, 0 );
+        matching->release();
     }
     
     return accept;
@@ -622,6 +680,7 @@ void IOHIDDevice::handleClose(IOService * client, IOOptionBits options)
         }
         
         _performTickle = ShouldPostDisplayActivityTickles(this, _clientSet, _seizedClient);
+        _performWakeTickle = ShouldPostDisplayActivityTicklesForWakeDevice(this, _clientSet, _seizedClient);
     }
 }
 
@@ -705,6 +764,21 @@ IOReturn IOHIDDevice::newUserClientGated( task_t          owningTask,
     *handler = client;
 
     return kIOReturnSuccess;
+}
+
+//---------------------------------------------------------------------------
+// Handle provider messages.
+
+IOReturn IOHIDDevice::message( UInt32 type, IOService * provider, void * argument )
+{
+    if ((kIOMessageDeviceSignaledWakeup == type) &&
+        _performWakeTickle && gDisplayManager)
+    {
+        gDisplayManager->activityTickle(0,0);    
+        return kIOReturnSuccess;
+    }
+
+    return super::message(type, provider, argument);
 }
 
 //---------------------------------------------------------------------------
@@ -1461,7 +1535,7 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
     IOBufferMemoryDescriptor *  descriptor;
     IOHIDElementPrivate *       element;
     UInt32                      capacity = 0;
-    UInt8 *                     start;
+    UInt8 *                     beginning;
     UInt8 *                     buffer;
 
     // Discover the amount of memory required to publish the
@@ -1491,16 +1565,16 @@ IOBufferMemoryDescriptor * IOHIDDevice::createMemoryForElementValues()
     }
 
     // Now assign the update memory area for each report element.
-    start = buffer = (UInt8 *) descriptor->getBytesNoCopy();
+    beginning = buffer = (UInt8 *) descriptor->getBytesNoCopy();
 
     for ( UInt32 slot = 0; slot < kReportHandlerSlots; slot++ ) {
         for ( UInt32 type = 0; type < kIOHIDReportTypeCount; type++ ) {
             element = GetHeadElement(slot, type);
             while ( element ) {
-                assert ( buffer < (start + capacity) );
+                assert ( buffer < (beginning + capacity) );
 
                 element->setMemoryForElementValue( (IOVirtualAddress) buffer,
-                                                   (void *) (buffer - start));
+                                                   (void *) (buffer - beginning));
 
                 buffer += element->getElementValueSize();
                 element = element->getNextReportHandler();
@@ -1878,7 +1952,7 @@ IOReturn IOHIDDevice::handleReportWithTime(
     bool           shouldTickle = false;
     UInt8          reportID = 0;
     
-    IOHID_DEBUG(kIOHIDDebugCode_HandleReport, reportType, options, __OSAbsoluteTime(timeStamp), 0);
+    IOHID_DEBUG(kIOHIDDebugCode_HandleReport, reportType, options, __OSAbsoluteTime(timeStamp), this);
     
     // Only input reports are currently handled.
     
@@ -1980,8 +2054,12 @@ IOReturn IOHIDDevice::handleReportWithTime(
 OSMetaClassDefineReservedUsed(IOHIDDevice, 9);
 OSNumber * IOHIDDevice::newReportIntervalNumber() const
 {
-    // default to 8 milliseconds
-    return OSNumber::withNumber(8000, 32);
+    UInt32 interval = 8000; // default to 8 milliseconds
+    OSNumber *number = OSDynamicCast(OSNumber, getProperty(kIOHIDReportIntervalKey, gIOServicePlane, kIORegistryIterateRecursively | kIORegistryIterateParents));
+    if ( number )
+        interval = number->unsigned32BitValue();
+
+    return OSNumber::withNumber(interval, 32);
 }
 
 OSMetaClassDefineReservedUnused(IOHIDDevice, 10);

@@ -24,7 +24,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/locale/collate.h,v 1.14 2002/08/30 20:26:02 ache Exp $
+ * $FreeBSD: src/lib/libc/locale/collate.h,v 1.15 2005/02/27 20:31:13 ru Exp $
  */
 
 #ifndef _COLLATE_H_
@@ -37,7 +37,7 @@
 #define STR_LEN 10
 #define TABLE_SIZE 100
 #define COLLATE_VERSION    "1.0\n"
-#define COLLATE_VERSION1_1 "1.1\n"
+#define COLLATE_VERSION1_2 "1.2\n"
 
 struct __collate_st_char_pri {
 	int prim, sec;

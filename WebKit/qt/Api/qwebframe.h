@@ -49,12 +49,14 @@ class QWebHistoryItem;
 class QWebSecurityOrigin;
 class QWebElement;
 class QWebElementCollection;
+class QWebScriptWorld;
 
 class DumpRenderTreeSupportQt;
 namespace WebCore {
     class WidgetPrivate;
     class FrameLoaderClientQt;
     class ChromeClientQt;
+    class TextureMapperNodeClientQt;
 }
 class QWebFrameData;
 class QWebHitTestResultPrivate;
@@ -230,7 +232,9 @@ private:
     friend class WebCore::WidgetPrivate;
     friend class WebCore::FrameLoaderClientQt;
     friend class WebCore::ChromeClientQt;
+    friend class WebCore::TextureMapperNodeClientQt;
     QWebFramePrivate *d;
+    Q_PRIVATE_SLOT(d, void _q_orientationChanged())
 };
 
 #endif

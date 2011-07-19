@@ -41,6 +41,9 @@
 #define __GTK_XTBIN_H__
 
 #include <gtk/gtk.h>
+#ifndef GTK_API_VERSION_2
+#include <gtk/gtkx.h>
+#endif
 #include <X11/Intrinsic.h>
 #include <X11/Xutil.h>
 #include <X11/Xlib.h>
@@ -101,7 +104,7 @@ struct _GtkXtBinClass
 };
 
 GTKXTBIN_API(GType)       gtk_xtbin_get_type (void);
-GTKXTBIN_API(GtkWidget *) gtk_xtbin_new (GdkWindow *parent_window, String *f);
+GTKXTBIN_API(GtkWidget *) gtk_xtbin_new (GtkWidget *parent_widget, String *f);
 GTKXTBIN_API(void)        gtk_xtbin_set_position (GtkXtBin *xtbin,
                                                   gint       x,
                                                   gint       y);

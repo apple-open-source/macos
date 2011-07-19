@@ -145,9 +145,14 @@ cthread_set_errno_self(error)
 {
 	int *ep = __error();
 	extern int __unix_conforming;
+	pthread_t self = NULL;
 
-	if ((__unix_conforming) && (error == EINTR) && (__pthread_canceled(0) == 0))
+	if ((__unix_conforming) && ((error & 0xff) == EINTR) && (__pthread_canceled(0) == 0)) {
+		self = pthread_self();
+		if (self != NULL)
+			self->cancel_error = error;
 		pthread_exit(PTHREAD_CANCELED);
+	}
 
         if (ep != &errno)
             *ep = error;

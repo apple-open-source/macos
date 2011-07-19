@@ -1,7 +1,7 @@
 package # hide from PAUSE 
     DBICTest::Schema::SelfRef;
 
-use base 'DBIx::Class::Core';
+use base qw/DBICTest::BaseResult/;
 
 __PACKAGE__->table('self_ref');
 __PACKAGE__->add_columns(

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -178,7 +178,7 @@ dhcp_max_message_size(dhcpol_t * options)
 	u_int16_t 	sval;
 
 	sval = ntohs(*((u_int16_t *)opt));
-	if (sval > val && sval <= 1500) {
+	if (sval > DHCP_PACKET_MIN) {
 	    val = sval;
 	}
     }
@@ -601,7 +601,7 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     SubnetRef 		subnet = NULL;
     dhcp_lease_time_t *	suggested_lease = NULL;
     dhcp_cstate_t	state = dhcp_cstate_none_e;
-    char		txbuf[2048];
+    uint32_t		txbuf[ETHERMTU / sizeof(uint32_t)];
     boolean_t		use_broadcast = FALSE;
 
     iaddr.s_addr = 0;
@@ -609,6 +609,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     if (max_packet > sizeof(txbuf)) {
 	max_packet = sizeof(txbuf);
     }
+    /* need to exclude the IP/UDP header from what we send back */
+    max_packet -= DHCP_PACKET_OVERHEAD;
+
     /* check for a client identifier */
     cid = dhcpol_find(request->options_p, dhcptag_client_identifier_e, 
 		      &cid_len, NULL);
@@ -872,7 +875,6 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 		  
 		  if (binding == dhcp_binding_temporary_e) {
 		      S_remove_host(&entry);
-		      binding = dhcp_binding_none_e;
 		  }
 		  if (detect_other_dhcp_server) {
 		      my_log(LOG_INFO, 
@@ -1203,7 +1205,6 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
     if (reply) {
 	if (reply_msgtype == dhcp_msgtype_ack_e || 
 	    reply_msgtype == dhcp_msgtype_offer_e) {
-	    int			num_added;
 	    int			num_params;
 	    const uint8_t *	params;
 
@@ -1219,9 +1220,9 @@ dhcp_request(request_t * request, dhcp_msgtype_t msgtype,
 
 	    /* add the client-specified parameters */
 	    if (params != NULL)
-		num_added = add_subnet_options(hostname, iaddr, 
-					       request->if_p, 
-					       &options, params, num_params);
+		(void)add_subnet_options(hostname, iaddr, 
+					 request->if_p, 
+					 &options, params, num_params);
 	    /* terminate the options */
 	    if (dhcpoa_add(&options, dhcptag_end_e, 0, NULL)
 		!= dhcpoa_success_e) {

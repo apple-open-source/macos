@@ -1,8 +1,8 @@
 /* os-local.c -- platform-specific domain socket code */
-/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.44.2.4 2008/05/20 00:05:30 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/libraries/libldap/os-local.c,v 1.44.2.10 2010/04/13 20:22:59 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -149,7 +149,7 @@ ldap_pvt_is_socket_ready(LDAP *ld, int s)
 		== AC_SOCKET_ERROR )
 	{
 		/* XXX: needs to be replace with ber_stream_read() */
-		read(s, &ch, 1);
+		(void)read(s, &ch, 1);
 		TRACE;
 		return -1;
 	}
@@ -234,7 +234,7 @@ sendcred:
 				msg.msg_accrights = (char *)fds;
 				msg.msg_accrightslen = sizeof(int);
 # endif /* HAVE_STRUCT_MSGHDR_MSG_CONTROL */
-				getpeername( s, sa, &salen );
+				getpeername( s, (struct sockaddr *) sa, &salen );
 				fchmod( fds[0], S_ISUID|S_IRWXU );
 				write( fds[1], sa, salen );
 				sendmsg( s, &msg, 0 );
@@ -319,11 +319,12 @@ sendcred:
 }
 
 int
-ldap_connect_to_path(LDAP *ld, Sockbuf *sb, const char *path, int async)
+ldap_connect_to_path(LDAP *ld, Sockbuf *sb, LDAPURLDesc *srv, int async)
 {
 	struct sockaddr_un	server;
 	ber_socket_t		s;
 	int			rc;
+	const char *path = srv->lud_host;
 
 	oslocal_debug(ld, "ldap_connect_to_path\n",0,0,0);
 
@@ -350,8 +351,12 @@ ldap_connect_to_path(LDAP *ld, Sockbuf *sb, const char *path, int async)
 	rc = ldap_pvt_connect(ld, s, &server, async);
 
 	if (rc == 0) {
-		ber_sockbuf_ctrl( sb, LBER_SB_OPT_SET_FD, (void *)&s );
-	} else {
+		int err;
+		err = ldap_int_connect_cbs( ld, sb, &s, srv, (struct sockaddr *)&server );
+		if ( err )
+			rc = err;
+	}
+	if ( rc ) {
 		ldap_pvt_close_socket(ld, s);
 	}
 	return rc;

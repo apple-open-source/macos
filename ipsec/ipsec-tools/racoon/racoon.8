@@ -46,14 +46,20 @@
 .Bk -words
 .Op Fl l Ar logfile
 .Ek
-.Bk -words
-.Op Fl P Ar isakmp-natt-port
-.Ek
-.Bk -words
-.Op Fl p Ar isakmp-port
-.Ek
 .\"
 .Sh DESCRIPTION
+.Nm
+is used to setup and maintain an IPSec tunnel or transport channel, 
+between two devices, over which network traffic is conveyed securely. 
+This security is made possible by cryptographic keys and operations 
+on both devices.
+.\"
+.Nm
+relies on a standardized network protocol (IKE) to automatically 
+negotiate and manage the cryptographic keys (e.g. security 
+associations) that are necessary for the 
+IPSec tunnel or transport channel to function.
+.\"
 .Nm
 speaks the IKE
 .Pq ISAKMP/Oakley
@@ -104,15 +110,6 @@ Use
 .Ar logfile
 as the logging file instead of
 .Xr syslogd 8 .
-.It Fl P Ar isakmp-natt-port
-Use
-.Ar isakmp-natt-port
-for NAT-Traversal port-floating.
-The default is 4500.
-.It Fl p Ar isakmp-port
-Listen to the ISAKMP key exchange on port
-.Ar isakmp-port
-instead of the default port number, 500.
 .It Fl v
 This flag causes the packet dump be more verbose, with higher
 debugging level.

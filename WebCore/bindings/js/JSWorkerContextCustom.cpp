@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008, 2009 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2009, 2011 Apple Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -29,38 +29,43 @@
 
 #include "JSWorkerContext.h"
 
+#include "ExceptionCode.h"
 #include "JSDOMBinding.h"
 #include "JSDOMGlobalObject.h"
 #include "JSEventListener.h"
-#include "JSEventSourceConstructor.h"
-#include "JSMessageChannelConstructor.h"
+#include "JSEventSource.h"
+#include "JSMessageChannel.h"
 #include "JSMessagePort.h"
-#include "JSWebSocketConstructor.h"
 #include "JSWorkerLocation.h"
 #include "JSWorkerNavigator.h"
-#include "JSXMLHttpRequestConstructor.h"
+#include "JSXMLHttpRequest.h"
 #include "ScheduledAction.h"
 #include "WorkerContext.h"
 #include "WorkerLocation.h"
 #include "WorkerNavigator.h"
 #include <interpreter/Interpreter.h>
 
+#if ENABLE(WEB_SOCKETS)
+#include "JSWebSocket.h"
+#endif
+
 using namespace JSC;
 
 namespace WebCore {
 
-void JSWorkerContext::markChildren(MarkStack& markStack)
+void JSWorkerContext::visitChildren(SlotVisitor& visitor)
 {
-    Base::markChildren(markStack);
+    ASSERT_GC_OBJECT_INHERITS(this, &s_info);
+    COMPILE_ASSERT(StructureFlags & OverridesVisitChildren, OverridesVisitChildrenWithoutSettingFlag);
+    ASSERT(structure()->typeInfo().overridesVisitChildren());
+    Base::visitChildren(visitor);
 
-    JSGlobalData& globalData = *this->globalData();
+    if (WorkerLocation* location = impl()->optionalLocation())
+        visitor.addOpaqueRoot(location);
+    if (WorkerNavigator* navigator = impl()->optionalNavigator())
+        visitor.addOpaqueRoot(navigator);
 
-    markActiveObjectsForContext(markStack, globalData, scriptExecutionContext());
-
-    markDOMObjectWrapper(markStack, globalData, impl()->optionalLocation());
-    markDOMObjectWrapper(markStack, globalData, impl()->optionalNavigator());
-
-    impl()->markJSEventListeners(markStack);
+    impl()->visitJSEventListeners(visitor);
 }
 
 bool JSWorkerContext::getOwnPropertySlotDelegate(ExecState* exec, const Identifier& propertyName, PropertySlot& slot)
@@ -98,14 +103,14 @@ JSValue JSWorkerContext::webSocket(ExecState* exec) const
 }
 #endif
 
-JSValue JSWorkerContext::importScripts(ExecState* exec, const ArgList& args)
+JSValue JSWorkerContext::importScripts(ExecState* exec)
 {
-    if (!args.size())
+    if (!exec->argumentCount())
         return jsUndefined();
 
     Vector<String> urls;
-    for (unsigned i = 0; i < args.size(); i++) {
-        urls.append(ustringToString(args.at(i).toString(exec)));
+    for (unsigned i = 0; i < exec->argumentCount(); i++) {
+        urls.append(ustringToString(exec->argument(i).toString(exec)));
         if (exec->hadException())
             return jsUndefined();
     }
@@ -116,22 +121,24 @@ JSValue JSWorkerContext::importScripts(ExecState* exec, const ArgList& args)
     return jsUndefined();
 }
 
-JSValue JSWorkerContext::setTimeout(ExecState* exec, const ArgList& args)
+JSValue JSWorkerContext::setTimeout(ExecState* exec)
 {
-    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, args, currentWorld(exec));
+    // FIXME: Should we enforce a Content-Security-Policy on workers?
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), 0);
     if (exec->hadException())
         return jsUndefined();
-    int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setTimeout(action.release(), delay));
+    int delay = exec->argument(1).toInt32(exec);
+    return jsNumber(impl()->setTimeout(action.release(), delay));
 }
 
-JSValue JSWorkerContext::setInterval(ExecState* exec, const ArgList& args)
+JSValue JSWorkerContext::setInterval(ExecState* exec)
 {
-    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, args, currentWorld(exec));
+    // FIXME: Should we enforce a Content-Security-Policy on workers?
+    OwnPtr<ScheduledAction> action = ScheduledAction::create(exec, currentWorld(exec), 0);
     if (exec->hadException())
         return jsUndefined();
-    int delay = args.at(1).toInt32(exec);
-    return jsNumber(exec, impl()->setInterval(action.release(), delay));
+    int delay = exec->argument(1).toInt32(exec);
+    return jsNumber(impl()->setInterval(action.release(), delay));
 }
 
 

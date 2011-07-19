@@ -1,0 +1,4 @@
+[vset PACKAGE  fr]
+[vset NAME     FR]
+[vset LONGNAME {FR (french)}]
+[include include/msgcat.inc]

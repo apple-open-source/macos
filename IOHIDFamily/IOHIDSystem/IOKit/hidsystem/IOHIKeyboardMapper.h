@@ -314,7 +314,7 @@ public:
     OSMetaClassDeclareReservedUnused(IOHIKeyboardMapper, 15);
 };
 
-#endif _IOHIKEYBOARDMAPPER_H
+#endif // _IOHIKEYBOARDMAPPER_H
 
 /*
  * HISTORICAL NOTE:

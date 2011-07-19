@@ -18,10 +18,15 @@
     Boston, MA 02110-1301, USA.
 */
 
+/**
+ * @file    ewk_main.h
+ * @brief   The main file of WebKit-EFL, not tied to any view object.
+ */
+
 #ifndef ewk_main_h
 #define ewk_main_h
 
-#include "ewk_eapi.h"
+#include <Eina.h>
 
 #ifdef __cplusplus
 extern "C" {

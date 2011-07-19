@@ -1,13 +1,13 @@
 use strict;
-use warnings;  
+use warnings;
 
 use Test::More;
 use lib qw(t/lib);
 use DBICTest;
+use DBIC::SqlMakerTest;
+use DBIC::DebugObj;
 
 my $schema = DBICTest->init_schema();
-
-plan tests => 45;
 
 # Check the defined unique constraints
 is_deeply(
@@ -183,3 +183,53 @@ is($row->baz, 3, 'baz is correct');
   ok($cd->in_storage, 'find correctly grepped the key across a relationship');
   is($cd->cdid, 1, 'cdid is correct');
 }
+
+# Test update_or_new
+{
+    my $cd1 = $schema->resultset('CD')->update_or_new(
+      {
+        artist => $artistid,
+        title  => "SuperHits $$",
+        year   => 2007,
+      },
+      { key => 'cd_artist_title' }
+    );
+
+    is($cd1->in_storage, 0, 'CD is not in storage yet after update_or_new');
+    $cd1->insert;
+    ok($cd1->in_storage, 'CD got added to strage after update_or_new && insert');
+
+    my $cd2 = $schema->resultset('CD')->update_or_new(
+      {
+        artist => $artistid,
+        title  => "SuperHits $$",
+        year   => 2008,
+      },
+      { key => 'cd_artist_title' }
+    );
+    ok($cd2->in_storage, 'Updating year using update_or_new was successful');
+    is($cd2->id, $cd1->id, 'Got the same CD using update_or_new');
+}
+
+# make sure the ident condition is assembled sanely
+{
+  my $artist = $schema->resultset('Artist')->next;
+
+  my ($sql, @bind);
+  $schema->storage->debugobj(DBIC::DebugObj->new(\$sql, \@bind)),
+  $schema->storage->debug(1);
+
+  $artist->discard_changes;
+
+  is_same_sql_bind (
+    $sql,
+    \@bind,
+    'SELECT me.artistid, me.name, me.rank, me.charfield FROM artist me WHERE me.artistid = ?',
+    [qw/'1'/],
+  );
+
+  $schema->storage->debug(0);
+  $schema->storage->debugobj(undef);
+}
+
+done_testing;

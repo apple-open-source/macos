@@ -1,8 +1,8 @@
---- vprintf.c.orig	2003-05-20 15:22:44.000000000 -0700
-+++ vprintf.c	2005-02-23 16:51:20.000000000 -0800
-@@ -40,11 +40,21 @@
+--- vprintf.c.bsdnew	2009-11-11 13:33:19.000000000 -0800
++++ vprintf.c	2009-11-11 13:33:19.000000000 -0800
+@@ -36,11 +36,21 @@ static char sccsid[] = "@(#)vprintf.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/vprintf.c,v 1.10 2002/09/06 11:23:56 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/vprintf.c,v 1.11 2007/01/09 00:28:08 imp Exp $");
  
 +#include "xlocale_private.h"
 +

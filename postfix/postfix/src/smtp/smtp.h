@@ -20,6 +20,7 @@
 #include <vstring.h>
 #include <argv.h>
 #include <htable.h>
+#include <dict.h>
 
  /*
   * Global library.
@@ -119,6 +120,8 @@ typedef struct SMTP_STATE {
 #define SMTP_FEATURE_PIX_NO_ESMTP	(1<<16)	/* PIX smtp fixup mode */
 #define SMTP_FEATURE_PIX_DELAY_DOTCRLF	(1<<17)	/* PIX smtp fixup mode */
 #define SMTP_FEATURE_XFORWARD_PORT	(1<<18)
+#define SMTP_FEATURE_EARLY_TLS_MAIL_REPLY (1<<19)	/* CVE-2009-3555 */
+#define SMTP_FEATURE_XFORWARD_IDENT	(1<<20)
 
  /*
   * Features that passivate under the endpoint.
@@ -144,6 +147,8 @@ typedef struct SMTP_STATE {
 #define SMTP_MISC_FLAG_CONN_LOAD	(1<<6)
 #define SMTP_MISC_FLAG_CONN_STORE	(1<<7)
 #define SMTP_MISC_FLAG_COMPLETE_SESSION	(1<<8)
+#define SMTP_MISC_FLAG_PREF_IPV6	(1<<9)
+#define SMTP_MISC_FLAG_PREF_IPV4	(1<<10)
 
 #define SMTP_MISC_FLAG_CONN_CACHE_MASK \
 	(SMTP_MISC_FLAG_CONN_LOAD | SMTP_MISC_FLAG_CONN_STORE)
@@ -174,6 +179,7 @@ extern MAPS *smtp_pix_bug_maps;		/* PIX workarounds */
 
 extern MAPS *smtp_generic_maps;		/* make internal address valid */
 extern int smtp_ext_prop_mask;		/* address externsion propagation */
+extern unsigned smtp_dns_res_opt;	/* DNS query flags */
 
 #ifdef USE_TLS
 
@@ -208,7 +214,6 @@ typedef struct SMTP_SESSION {
     int     error_mask;			/* error classes */
     struct MIME_STATE *mime_state;	/* mime state machine */
 
-    int     sndbufsize;			/* PIPELINING buffer size */
     int     send_proto_helo;		/* XFORWARD support */
 
     time_t  expire_time;		/* session reuse expiration time */
@@ -366,7 +371,8 @@ typedef struct SMTP_RESP {		/* server response */
     VSTRING *str_buf;			/* reply buffer */
 } SMTP_RESP;
 
-extern void PRINTFLIKE(2, 3) smtp_chat_cmd(SMTP_SESSION *, char *,...);
+extern void PRINTFLIKE(2, 3) smtp_chat_cmd(SMTP_SESSION *, const char *,...);
+extern DICT *smtp_chat_resp_filter;
 extern SMTP_RESP *smtp_chat_resp(SMTP_SESSION *);
 extern void smtp_chat_init(SMTP_SESSION *);
 extern void smtp_chat_reset(SMTP_SESSION *);

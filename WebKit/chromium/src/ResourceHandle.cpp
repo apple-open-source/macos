@@ -31,6 +31,7 @@
 #include "config.h"
 #include "ResourceHandle.h"
 
+#include "PlatformBridge.h"
 #include "ResourceHandleClient.h"
 #include "ResourceRequest.h"
 #include "SharedBuffer.h"
@@ -71,8 +72,10 @@ public:
     virtual void didSendData(
         WebURLLoader*, unsigned long long bytesSent, unsigned long long totalBytesToBeSent);
     virtual void didReceiveResponse(WebURLLoader*, const WebURLResponse&);
-    virtual void didReceiveData(WebURLLoader*, const char* data, int dataLength);
-    virtual void didFinishLoading(WebURLLoader*);
+    virtual void didReceiveData(WebURLLoader*, const char* data, int dataLength, int encodedDataLength);
+
+    virtual void didReceiveCachedMetadata(WebURLLoader*, const char* data, int dataLength);
+    virtual void didFinishLoading(WebURLLoader*, double finishTime);
     virtual void didFail(WebURLLoader*, const WebURLError&);
 
     enum ConnectionState {
@@ -101,7 +104,7 @@ void ResourceHandleInternal::start()
         CRASH();
     m_state = ConnectionStateStarted;
 
-    m_loader.set(webKitClient()->createURLLoader());
+    m_loader = adoptPtr(webKitClient()->createURLLoader());
     ASSERT(m_loader.get());
 
     WrappedResourceRequest wrappedRequest(m_request);
@@ -157,27 +160,32 @@ void ResourceHandleInternal::didReceiveResponse(WebURLLoader*, const WebURLRespo
     m_client->didReceiveResponse(m_owner, response.toResourceResponse());
 }
 
-void ResourceHandleInternal::didReceiveData(
-    WebURLLoader*, const char* data, int dataLength)
+void ResourceHandleInternal::didReceiveData(WebURLLoader*, const char* data, int dataLength, int encodedDataLength)
 {
     ASSERT(m_client);
     if (m_state != ConnectionStateReceivedResponse && m_state != ConnectionStateReceivingData)
         CRASH();
     m_state = ConnectionStateReceivingData;
 
-    // FIXME(yurys): it looks like lengthReceived is always the same as
-    // dataLength and that the latter parameter can be eliminated.
-    // See WebKit bug: https://bugs.webkit.org/show_bug.cgi?id=31019
-    m_client->didReceiveData(m_owner, data, dataLength, dataLength);
+    m_client->didReceiveData(m_owner, data, dataLength, encodedDataLength);
 }
 
-void ResourceHandleInternal::didFinishLoading(WebURLLoader*)
+void ResourceHandleInternal::didReceiveCachedMetadata(WebURLLoader*, const char* data, int dataLength)
+{
+    ASSERT(m_client);
+    if (m_state != ConnectionStateReceivedResponse && m_state != ConnectionStateReceivingData)
+        CRASH();
+
+    m_client->didReceiveCachedMetadata(m_owner, data, dataLength);
+}
+
+void ResourceHandleInternal::didFinishLoading(WebURLLoader*, double finishTime)
 {
     ASSERT(m_client);
     if (m_state != ConnectionStateReceivedResponse && m_state != ConnectionStateReceivingData)
         CRASH();
     m_state = ConnectionStateFinishedLoading;
-    m_client->didFinishLoading(m_owner);
+    m_client->didFinishLoading(m_owner, finishTime);
 }
 
 void ResourceHandleInternal::didFail(WebURLLoader*, const WebURLError& error)
@@ -193,29 +201,29 @@ ResourceHandle::ResourceHandle(const ResourceRequest& request,
                                ResourceHandleClient* client,
                                bool defersLoading,
                                bool shouldContentSniff)
-    : d(new ResourceHandleInternal(request, client))
+    : d(adoptPtr(new ResourceHandleInternal(request, client)))
 {
     d->m_owner = this;
 
     // FIXME: Figure out what to do with the bool params.
 }
 
-PassRefPtr<ResourceHandle> ResourceHandle::create(const ResourceRequest& request,
+PassRefPtr<ResourceHandle> ResourceHandle::create(NetworkingContext* context,
+                                                  const ResourceRequest& request,
                                                   ResourceHandleClient* client,
-                                                  Frame* deprecated,
                                                   bool defersLoading,
                                                   bool shouldContentSniff)
 {
     RefPtr<ResourceHandle> newHandle = adoptRef(new ResourceHandle(
         request, client, defersLoading, shouldContentSniff));
 
-    if (newHandle->start(deprecated))
+    if (newHandle->start(context))
         return newHandle.release();
 
     return 0;
 }
 
-const ResourceRequest& ResourceHandle::request() const
+ResourceRequest& ResourceHandle::firstRequest()
 {
     return d->m_request;
 }
@@ -235,10 +243,15 @@ void ResourceHandle::setDefersLoading(bool value)
     d->setDefersLoading(value);
 }
 
-bool ResourceHandle::start(Frame* deprecated)
+bool ResourceHandle::start(NetworkingContext* context)
 {
     d->start();
     return true;
+}
+
+bool ResourceHandle::hasAuthenticationChallenge() const
+{
+    return false;
 }
 
 void ResourceHandle::clearAuthentication()
@@ -272,14 +285,14 @@ bool ResourceHandle::supportsBufferedData()
 }
 
 // static
-void ResourceHandle::loadResourceSynchronously(const ResourceRequest& request,
+void ResourceHandle::loadResourceSynchronously(NetworkingContext* context,
+                                               const ResourceRequest& request,
                                                StoredCredentials storedCredentials,
                                                ResourceError& error,
                                                ResourceResponse& response,
-                                               Vector<char>& data,
-                                               Frame* deprecated)
+                                               Vector<char>& data)
 {
-    OwnPtr<WebURLLoader> loader(webKitClient()->createURLLoader());
+    OwnPtr<WebURLLoader> loader = adoptPtr(webKitClient()->createURLLoader());
     ASSERT(loader.get());
 
     WrappedResourceRequest requestIn(request);
@@ -309,6 +322,12 @@ bool ResourceHandle::willLoadFromCache(ResourceRequest& request, Frame*)
     //
     ASSERT(request.httpMethod() == "POST");
     return true;
+}
+
+// static
+void ResourceHandle::cacheMetadata(const ResourceResponse& response, const Vector<char>& data)
+{
+    PlatformBridge::cacheMetadata(response.url(), response.responseTime(), data);
 }
 
 } // namespace WebCore

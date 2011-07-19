@@ -3,6 +3,7 @@
 [copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Benchmarking/Performance tools}]
 [titledesc {bench language introduction}]
+[category  {Benchmark tools}]
 [description]
 [para]
 

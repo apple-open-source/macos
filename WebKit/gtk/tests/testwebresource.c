@@ -23,7 +23,7 @@
 #include <string.h>
 #include <webkit/webkit.h>
 
-#if GLIB_CHECK_VERSION(2, 16, 0) && GTK_CHECK_VERSION(2, 14, 0)
+#if GTK_CHECK_VERSION(2, 14, 0)
 
 #define INDEX_HTML "<html></html>"
 #define MAIN_HTML "<html><head><script language=\"javascript\" src=\"/javascript.js\"></script></head><body><h1>hah</h1></html>"
@@ -218,8 +218,8 @@ static void resource_request_starting_sub_cb(WebKitWebView* web_view, WebKitWebF
 {
     if (!main_resource)
         main_resource = g_object_ref(web_resource);
-    else
-        sub_resource = g_object_ref(web_resource);
+    else if (!sub_resource)
+      sub_resource = g_object_ref(web_resource);
 }
 
 static void notify_load_status_sub_cb(WebKitWebView* web_view, GParamSpec* pspec, gpointer data)
@@ -279,8 +279,13 @@ static void test_web_resource_sub_resource_loading()
     g_assert(sub_resources->next);
     g_assert(!sub_resources->next->next);
 
-    g_assert(WEBKIT_WEB_RESOURCE(sub_resources->data) == sub_resource);
-    
+    // Test that the object we got from the data source is the same
+    // that went through resource-request-starting. Note that the order is
+    // not important (and not guaranteed since the resources are stored in a
+    // hashtable).
+    g_assert(WEBKIT_WEB_RESOURCE(sub_resources->data) == sub_resource
+             || WEBKIT_WEB_RESOURCE(sub_resources->next->data) == sub_resource);
+
     g_object_unref(web_view);
     g_main_loop_unref(loop);
 }
@@ -298,7 +303,7 @@ int main(int argc, char** argv)
 
     soup_server_add_handler(server, NULL, server_callback, NULL, NULL);
 
-    soup_uri = soup_uri_new ("http://127.0.0.1/");                             
+    soup_uri = soup_uri_new("http://127.0.0.1/");
     soup_uri_set_port(soup_uri, soup_server_get_port(server));
 
     base_uri = soup_uri_to_string(soup_uri, FALSE);
@@ -330,7 +335,7 @@ int main(int argc, char** argv)
 #else
 int main(int argc, char** argv)
 {
-    g_critical("You will need at least glib-2.16.0 and gtk-2.14.0 to run the unit tests. Doing nothing now.");
+    g_critical("You will need gtk-2.14.0 to run the unit tests. Doing nothing now.");
     return 0;
 }
 

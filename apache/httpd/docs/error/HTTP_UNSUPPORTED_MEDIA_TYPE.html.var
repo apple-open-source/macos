@@ -36,14 +36,13 @@ Body:----------en--
 ----------en--
 
 Content-language: es
-Content-type: text/html; charset=ISO-8859-1
+Content-type: text/html
 Body:----------es--
-<!--#set var="CONTENT_LANGUAGE" value="es"
---><!--#set var="TITLE" value="&iexcl;Tipo de datos no soportados!"
---><!--#include virtual="include/top.html" -->
+<!--#set var="TITLE" value="El tipo de medio no est&aacute; implementado!" -->
+<!--#include virtual="include/top.html" -->
 
-	Los datos de su solicitud no se encuentran en
-	un formato aceptado por este recurso.
+   El servidor no tiene implementado el tipo
+   de medio transmitido en la solicitud.
 
 <!--#include virtual="include/bottom.html" -->
 ----------es--
@@ -149,6 +148,17 @@ Body:-------pt-br--
 
 <!--#include virtual="include/bottom.html" -->
 -------pt-br--
+
+Content-language: pt
+Content-type: text/html; charset=ISO-8859-1
+Body:----------pt--
+<!--#set var="TITLE" value="Media n&atilde;o suportado!"
+--><!--#include virtual="include/top.html" -->
+
+	O servidor n&atilde;o suporta o <i>media type</i> transmitido no pedido.
+
+<!--#include virtual="include/bottom.html" -->
+----------pt--
 
 Content-language: ro
 Content-type: text/html; charset=ISO-8859-1

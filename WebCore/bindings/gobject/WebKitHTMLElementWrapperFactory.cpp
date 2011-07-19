@@ -37,6 +37,7 @@
 #include "HTMLAnchorElement.h"
 #include "HTMLAppletElement.h"
 #include "HTMLAreaElement.h"
+#include "HTMLAudioElement.h"
 #include "HTMLBRElement.h"
 #include "HTMLBaseElement.h"
 #include "HTMLBaseFontElement.h"
@@ -61,6 +62,7 @@
 #include "HTMLImageElement.h"
 #include "HTMLInputElement.h"
 #include "HTMLIsIndexElement.h"
+#include "HTMLKeygenElement.h"
 #include "HTMLLIElement.h"
 #include "HTMLLabelElement.h"
 #include "HTMLLegendElement.h"
@@ -91,6 +93,7 @@
 #include "HTMLTextAreaElement.h"
 #include "HTMLTitleElement.h"
 #include "HTMLUListElement.h"
+#include "HTMLVideoElement.h"
 
 #include "webkit/WebKitDOMHTMLAnchorElementPrivate.h"
 #include "webkit/WebKitDOMHTMLAppletElementPrivate.h"
@@ -120,6 +123,7 @@
 #include "webkit/WebKitDOMHTMLImageElementPrivate.h"
 #include "webkit/WebKitDOMHTMLInputElementPrivate.h"
 #include "webkit/WebKitDOMHTMLIsIndexElementPrivate.h"
+#include "webkit/WebKitDOMHTMLKeygenElementPrivate.h"
 #include "webkit/WebKitDOMHTMLLIElementPrivate.h"
 #include "webkit/WebKitDOMHTMLLabelElementPrivate.h"
 #include "webkit/WebKitDOMHTMLLegendElementPrivate.h"
@@ -151,6 +155,11 @@
 #include "webkit/WebKitDOMHTMLUListElementPrivate.h"
 #include "webkit/webkitdom.h"
 
+#if ENABLE(VIDEO)
+#include "webkit/WebKitDOMHTMLAudioElementPrivate.h"
+#include "webkit/WebKitDOMHTMLVideoElementPrivate.h"
+#endif
+
 #include <wtf/text/CString.h>
 
 namespace WebKit {
@@ -174,6 +183,18 @@ static gpointer createAreaWrapper(PassRefPtr<HTMLElement> element)
 {
     return wrapHTMLAreaElement(static_cast<HTMLAreaElement*>(element.get()));
 }
+
+#if ENABLE(VIDEO)
+static gpointer createAudioWrapper(PassRefPtr<HTMLElement> element)
+{
+    return wrapHTMLAudioElement(static_cast<HTMLAudioElement*>(element.get()));
+}
+
+static gpointer createVideoWrapper(PassRefPtr<HTMLElement> element)
+{
+    return wrapHTMLVideoElement(static_cast<HTMLVideoElement*>(element.get()));
+}
+#endif
 
 static gpointer createBaseWrapper(PassRefPtr<HTMLElement> element)
 {
@@ -310,6 +331,11 @@ static gpointer createIsIndexWrapper(PassRefPtr<HTMLElement> element)
     return wrapHTMLIsIndexElement(static_cast<HTMLIsIndexElement*>(element.get()));
 }
 
+static gpointer createKeygenWrapper(PassRefPtr<HTMLElement> element)
+{
+    return wrapHTMLKeygenElement(static_cast<HTMLKeygenElement*>(element.get()));
+}
+
 static gpointer createLabelWrapper(PassRefPtr<HTMLElement> element)
 {
     return wrapHTMLLabelElement(static_cast<HTMLLabelElement*>(element.get()));
@@ -442,10 +468,14 @@ static gpointer createUListWrapper(PassRefPtr<HTMLElement> element)
 
 gpointer createHTMLElementWrapper(PassRefPtr<WebCore::HTMLElement> element)
 {
-    static HashMap<WebCore::AtomicStringImpl*, CreateHTMLElementWrapperFunction> map;
+    static HashMap<WTF::AtomicStringImpl*, CreateHTMLElementWrapperFunction> map;
     if (map.isEmpty()) {
        map.set(aTag.localName().impl(), createAnchorWrapper);
        map.set(appletTag.localName().impl(), createAppletWrapper);
+#if ENABLE(VIDEO)
+       map.set(audioTag.localName().impl(), createAudioWrapper);
+       map.set(videoTag.localName().impl(), createVideoWrapper);
+#endif
        map.set(areaTag.localName().impl(), createAreaWrapper);
        map.set(baseTag.localName().impl(), createBaseWrapper);
        map.set(basefontTag.localName().impl(), createBaseFontWrapper);
@@ -508,7 +538,7 @@ gpointer createHTMLElementWrapper(PassRefPtr<WebCore::HTMLElement> element)
        map.set(h6Tag.localName().impl(), createHeadingWrapper);
        map.set(imageTag.localName().impl(), createImageWrapper);
        map.set(insTag.localName().impl(), createModWrapper);
-       map.set(keygenTag.localName().impl(), createSelectWrapper);
+       map.set(keygenTag.localName().impl(), createKeygenWrapper);
        map.set(listingTag.localName().impl(), createPreWrapper);
        map.set(tfootTag.localName().impl(), createTableSectionWrapper);
        map.set(thTag.localName().impl(), createTableCellWrapper);

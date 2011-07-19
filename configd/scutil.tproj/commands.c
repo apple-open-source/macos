@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -210,7 +210,7 @@ const cmdInfo commands_net[] = {
 		" remove set       [ <setName> | <set#> ]"					},
 
 	{ "select",	2,	3,	do_net_select,		7,	0,
-		" select interface <interfaceName> | <interface#> | $child | $service | $vlan | $bond <memberName>\n"
+		" select interface <interfaceName> | <interface#> | $child | $service | $vlan | $bond <memberName> | $bridge <memberName>\n"
 		" select protocol  <protocolType>\n"
 		" select service   <serviceName> | <service#>\n"
 		" select set       <setName> | <set#>"						},
@@ -219,7 +219,7 @@ const cmdInfo commands_net[] = {
 		" set interface context-sensitive-arguments (or ? for help)\n"
 		" set protocol  context-sensitive-arguments (or ? for help)\n"
 		" set service   [ name <serviceName> ] [ order new-order ] [ rank ("" | First | Last | Never) [temp] ]\n"
-		" set set       [ name setName ]"						},
+		" set set       [ name setName ] | [ current ]"					},
 
 	{ "show",	1,	2,	do_net_show,		9,	0,
 		" show interfaces\n"
@@ -396,6 +396,7 @@ do_readFile(int argc, char **argv)
 	/* allocate command input stream */
 	src = (InputRef)CFAllocatorAllocate(NULL, sizeof(Input), 0);
 	src->el = NULL;
+	src->h  = NULL;
 	src->fp = fopen(argv[0], "r");
 
 	if (src->fp == NULL) {

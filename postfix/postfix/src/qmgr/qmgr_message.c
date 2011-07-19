@@ -196,6 +196,7 @@ static QMGR_MESSAGE *qmgr_message_create(const char *queue_name,
     message->sasl_method = 0;
     message->sasl_username = 0;
     message->sasl_sender = 0;
+    message->log_ident = 0;
     message->rewrite_context = 0;
     recipient_list_init(&message->rcpt_list, RCPT_LIST_INIT_QUEUE);
     message->rcpt_count = 0;
@@ -406,10 +407,16 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 		msg_fatal("seek file %s: %m", VSTREAM_PATH(message->fp));
 	    curr_offset += message->data_size;
 	}
-	rec_type = rec_get(message->fp, buf, 0);
+	rec_type = rec_get_raw(message->fp, buf, 0, REC_FLAG_NONE);
 	start = vstring_str(buf);
 	if (msg_verbose > 1)
 	    msg_info("record %c %s", rec_type, start);
+	if (rec_type == REC_TYPE_PTR) {
+	    if ((rec_type = rec_goto(message->fp, start)) == REC_TYPE_ERROR)
+		break;
+	    /* Need to update curr_offset after pointer jump. */
+	    continue;
+	}
 	if (rec_type <= 0) {
 	    msg_warn("%s: message rejected: missing end record",
 		     message->queue_id);
@@ -667,6 +674,9 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	    } else if (strcmp(name, MAIL_ATTR_ACT_CLIENT_ADDR) == 0) {
 		if (have_log_client_attr == 0 && message->client_addr == 0)
 		    message->client_addr = mystrdup(value);
+	    } else if (strcmp(name, MAIL_ATTR_ACT_CLIENT_PORT) == 0) {
+		if (have_log_client_attr == 0 && message->client_port == 0)
+		    message->client_port = mystrdup(value);
 	    } else if (strcmp(name, MAIL_ATTR_ACT_PROTO_NAME) == 0) {
 		if (have_log_client_attr == 0 && message->client_proto == 0)
 		    message->client_proto = mystrdup(value);
@@ -718,6 +728,12 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 		else
 		    msg_warn("%s: ignoring multiple %s attribute: %s",
 			   message->queue_id, MAIL_ATTR_SASL_SENDER, value);
+	    } else if (strcmp(name, MAIL_ATTR_LOG_IDENT) == 0) {
+		if (message->log_ident == 0)
+		    message->log_ident = mystrdup(value);
+		else
+		    msg_warn("%s: ignoring multiple %s attribute: %s",
+			     message->queue_id, MAIL_ATTR_LOG_IDENT, value);
 	    } else if (strcmp(name, MAIL_ATTR_RWR_CONTEXT) == 0) {
 		if (message->rewrite_context == 0)
 		    message->rewrite_context = mystrdup(value);
@@ -756,6 +772,9 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 		    msg_warn("%s: ignoring bad VERP request: \"%.100s\"",
 			     message->queue_id, start);
 		} else {
+		    if (msg_verbose)
+			msg_info("%s: enabling VERP for sender \"%.100s\"",
+				 message->queue_id, message->sender);
 		    message->single_rcpt = 1;
 		    message->verp_delims = mystrdup(start);
 		}
@@ -812,6 +831,8 @@ static int qmgr_message_read(QMGR_MESSAGE *message)
 	message->sasl_username = mystrdup("");
     if (message->sasl_sender == 0)
 	message->sasl_sender = mystrdup("");
+    if (message->log_ident == 0)
+	message->log_ident = mystrdup("");
     if (message->rewrite_context == 0)
 	message->rewrite_context = mystrdup(MAIL_ATTR_RWR_LOCAL);
     /* Postfix < 2.3 compatibility. */
@@ -1048,12 +1069,19 @@ static void qmgr_message_resolve(QMGR_MESSAGE *message)
 	 * me" bits turned on, but we handle them here anyway for the sake of
 	 * future proofing.
 	 */
+#define FILTER_WITHOUT_NEXTHOP(filter, next) \
+	(((next) = split_at((filter), ':')) == 0 || *(next) == 0)
+
+#define RCPT_WITHOUT_DOMAIN(rcpt, next) \
+	((next = strrchr(rcpt, '@')) == 0 || *++(next) == 0)
+
 	else if (message->filter_xport
 		 && (message->tflags & DEL_REQ_TRACE_ONLY_MASK) == 0) {
 	    reply.flags = 0;
 	    vstring_strcpy(reply.transport, message->filter_xport);
-	    if ((nexthop = split_at(STR(reply.transport), ':')) == 0
-		|| *nexthop == 0)
+	    if (FILTER_WITHOUT_NEXTHOP(STR(reply.transport), nexthop)
+		&& *(nexthop = var_def_filter_nexthop) == 0
+		&& RCPT_WITHOUT_DOMAIN(recipient->address, nexthop))
 		nexthop = var_myhostname;
 	    vstring_strcpy(reply.nexthop, nexthop);
 	    vstring_strcpy(reply.recipient, recipient->address);
@@ -1389,6 +1417,8 @@ void    qmgr_message_free(QMGR_MESSAGE *message)
 	myfree(message->sasl_username);
     if (message->sasl_sender)
 	myfree(message->sasl_sender);
+    if (message->log_ident)
+	myfree(message->log_ident);
     if (message->rewrite_context)
 	myfree(message->rewrite_context);
     recipient_list_free(&message->rcpt_list);

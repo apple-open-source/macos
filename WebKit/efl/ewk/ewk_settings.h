@@ -21,8 +21,6 @@
 #ifndef ewk_settings_h
 #define ewk_settings_h
 
-#include "ewk_eapi.h"
-
 #include <Eina.h>
 #include <Evas.h>
 #include <cairo.h>
@@ -32,20 +30,31 @@ extern "C" {
 #endif
 
 /**
- * @file
+ * @file ewk_settings.h
  *
- * General purpose settings, not tied to any view object.
+ * @brief General purpose settings, not tied to any view object.
  */
 
-EAPI uint64_t         ewk_settings_web_database_default_quota_get();
+EAPI uint64_t         ewk_settings_web_database_default_quota_get(void);
+EAPI void             ewk_settings_web_database_path_set(const char *path);
+EAPI const char      *ewk_settings_web_database_path_get(void);
 
 EAPI Eina_Bool        ewk_settings_icon_database_path_set(const char *path);
-EAPI char            *ewk_settings_icon_database_path_get(void);
+EAPI const char      *ewk_settings_icon_database_path_get(void);
 EAPI Eina_Bool        ewk_settings_icon_database_clear(void);
 
 EAPI cairo_surface_t *ewk_settings_icon_database_icon_surface_get(const char *url);
 EAPI Evas_Object     *ewk_settings_icon_database_icon_object_add(const char *url, Evas *canvas);
 
+EAPI Eina_Bool        ewk_settings_cache_directory_path_set(const char *path);
+EAPI const char      *ewk_settings_cache_directory_path_get(void);
+
+EAPI void             ewk_settings_proxy_uri_set(const char* proxy);
+EAPI const char*      ewk_settings_proxy_uri_get(void);
+
+EAPI Eina_Bool        ewk_settings_cache_enable_get(void);
+EAPI void             ewk_settings_cache_enable_set(Eina_Bool set);
+EAPI void             ewk_settings_cache_capacity_set(unsigned capacity);
 
 #ifdef __cplusplus
 }

@@ -1,14 +1,14 @@
 #==============================================================================
 # Main Tablelist and Tablelist_tile package module.
 #
-# Copyright (c) 2000-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2000-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 namespace eval ::tablelist {
     #
     # Public variables:
     #
-    variable version	4.10
+    variable version	5.1
     variable library	[DIR]
 
     #
@@ -24,7 +24,7 @@ namespace eval ::tablelist {
     #
     # Helper procedures used in binding scripts:
     #
-    namespace export	getTablelistPath convEventFields
+    namespace export	convEventFields getTablelistPath getTablelistColumn
 
     #
     # Register various widgets for interactive cell editing:
@@ -34,7 +34,7 @@ namespace eval ::tablelist {
 			addIncrSpinner addIncrSpinint addIncrCombobox
     namespace export	addOakleyCombobox
     namespace export	addDateMentry addTimeMentry addDateTimeMentry \
-			addFixedPointMentry addIPAddrMentry
+			addFixedPointMentry addIPAddrMentry addIPv6AddrMentry
 }
 
 package provide tablelist::common $::tablelist::version

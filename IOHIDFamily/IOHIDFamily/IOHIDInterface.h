@@ -140,6 +140,8 @@ public:
 
     virtual bool            start( IOService * provider );
     
+
+    virtual void            stop( IOService * provider );
     /*! 
         @function matchPropertyTable
         @abstract Called by the provider during a match
@@ -200,17 +202,17 @@ public:
     virtual IOReturn        setReport ( 
                                 IOMemoryDescriptor *        report,
                                 IOHIDReportType             reportType,
-                                UInt32                      reportID            = 0,
-                                IOOptionBits                options             = 0,
-                                UInt32                      completionTimeout   = 0,
+                                UInt32                      reportID,
+                                IOOptionBits                options,
+                                UInt32                      completionTimeout,
                                 CompletionAction *          completion          = 0);    
 
     virtual IOReturn        getReport ( 
                                 IOMemoryDescriptor *        report,
                                 IOHIDReportType             reportType,
-                                UInt32                      reportID            = 0,
-                                IOOptionBits                options             = 0,
-                                UInt32                      completionTimeout   = 0,
+                                UInt32                      reportID,
+                                IOOptionBits                options,
+                                UInt32                      completionTimeout,
                                 CompletionAction *          completion          = 0);
                                     
     OSMetaClassDeclareReservedUsed(IOHIDInterface,  0);

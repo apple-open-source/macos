@@ -66,13 +66,14 @@ char gWebdavCachePath[MAXPATHLEN + 1] = ""; /* the current path to the cache dir
 int gSecureConnection = FALSE;	/* if TRUE, the connection is secure */
 CFURLRef gBaseURL = NULL;		/* the base URL for this mount */
 uint32_t gServerIdent = 0;		/* identifies some (not all) types of servers we are connected to (i.e. WEBDAV_IDISK_SERVER) */
+fsid_t	g_fsid;					/* file system id */
 boolean_t gUrlIsIdisk = FALSE;	/* True if URL host domain is of form idisk.mac.com or idisk.me.com */
+char g_mountPoint[MAXPATHLEN];	/* path to our mount point */
 
 /*
  * mount_webdav.c file globals
  */
 static int wakeupFDs[2] = { -1, -1 };	/* used by webdav_kill() to communicate with main select loop */
-static char mountPoint[MAXPATHLEN];		/* path to our mount point */
 static char mntfromname[MNAMELEN];		/* the mntfromname */
 
 /* host names of .Mac iDisk servers */
@@ -92,6 +93,8 @@ uint64_t webdavCacheMaximumSize = WEBDAV_DEFAULT_CACHE_MAX_SIZE;
 // system to cache, based on the amount of physical memory in
 // the system.
 static void setCacheMaximumSize(void);
+
+char* createUTF8CStringFromCFString(CFStringRef in_string);
 
 #define CFENVFORMATSTRING "__CF_USER_TEXT_ENCODING=0x%X:0:0"
 
@@ -250,7 +253,7 @@ static boolean_t urlIsIdisk(const char *url) {
 
 /*****************************************************************************/
 
-static char* createUTF8CStringFromCFString(CFStringRef in_string)
+char* createUTF8CStringFromCFString(CFStringRef in_string)
 {
 	char* out_cstring = NULL;
 	
@@ -639,24 +642,6 @@ static boolean_t readCredentialsFromFile(int fd, char *userName, char *userPassw
 		syslog(LOG_ERR, "%s: invalid file descriptor arg", __FUNCTION__);
 		return FALSE;
 	}
-	
-	if (userName == NULL) {
-		syslog(LOG_ERR, "%s: invalid username arg", __FUNCTION__);
-		return FALSE;
-	}	
-	
-	if (userPassword == NULL) {
-		syslog(LOG_ERR, "%s: invalid user credential arg", __FUNCTION__);
-		return FALSE;
-	}	
-	if (proxyUserName == NULL) {
-		syslog(LOG_ERR, "%s: invalid proxy username arg", __FUNCTION__);
-		return FALSE;
-	}
-	if (proxyUserPassword == NULL) {
-		syslog(LOG_ERR, "%s: invalid proxy user credential arg", __FUNCTION__);
-		return FALSE;
-	}
 
 	// seek to beginnning
 	if (lseek(fd, 0LL, SEEK_SET) == -1) {
@@ -813,15 +798,18 @@ int main(int argc, char *argv[])
 	boolean_t result;
 	
 	error = 0;
+	g_fsid.val[0] = -1;
+	g_fsid.val[1] = -1;
 	
 	/* store our UID */
 	gProcessUID = getuid();
-	
-	user[0] = '\0';
-	pass[0] = '\0';
-	proxy_user[0] = '\0';
-	proxy_pass[0] = '\0';
-	
+
+	// init auth arrays
+	memset(user, 0, sizeof(user));
+	memset(pass, 0, sizeof(pass));
+	memset(proxy_user, 0, sizeof(proxy_user));
+	memset(proxy_pass, 0, sizeof(proxy_pass));
+		
 	mntflags = 0;
 	/*
 	 * Crack command line args
@@ -935,7 +923,7 @@ int main(int argc, char *argv[])
 	mirrored_mount = gSuppressAllUI && (mntflags & MNT_DONTBROWSE);
 	
 	/* get the mount point */
-	require_action(realpath(argv[optind + 1], mountPoint) != NULL, error_exit, error = ENOENT);
+	require_action(realpath(argv[optind + 1], g_mountPoint) != NULL, error_exit, error = ENOENT);
 	
 	/* derive the volume name from the mount point if needed */
 	if ( *volumeName == '\0' )
@@ -943,7 +931,7 @@ int main(int argc, char *argv[])
 		/* the volume name wasn't passed on the command line so use the
 		 * last path segment of mountPoint
 		 */
-		strcpy(volumeName, strrchr(mountPoint, '/') + 1);
+		strcpy(volumeName, strrchr(g_mountPoint, '/') + 1);
 	}
 	
 	/* Get uri (fix it up if needed) */
@@ -959,7 +947,7 @@ int main(int argc, char *argv[])
 
 	/* Create a mntfromname from the uri. Make sure the string is no longer than MNAMELEN */
 	strncpy(mntfromname, uri , MNAMELEN);
-	mntfromname[MNAMELEN] = '\0';
+	mntfromname[MNAMELEN - 1] = '\0';
 	
 	/* Check to see if this mntfromname is already used by a mount point by the
 	 * current user. Sure, someone could mount using the DNS name one time and
@@ -1191,6 +1179,8 @@ int main(int argc, char *argv[])
 	args.pa_server_ident = gServerIdent;	/* gServerIdent is set in filesytem_mount() */
 	args.pa_root_id = root_node->nodeid;
 	args.pa_root_fileid = WEBDAV_ROOTFILEID;
+	args.pa_uid = geteuid();	/* effective uid of user mounting this volume */
+	args.pa_gid = getegid();	/* effective gid of user mounting this volume */	
 	args.pa_dir_size = WEBDAV_DIR_SIZE;
 	/* pathconf values: >=0 to return value; -1 if not supported */
 	args.pa_link_max = 1;			/* 1 for file systems that do not support link counts */
@@ -1204,7 +1194,6 @@ int main(int argc, char *argv[])
 	bzero(&reply_statfs, sizeof(struct webdav_reply_statfs));
 
 	request_statfs.pcr.pcr_uid = getuid();
-	request_statfs.pcr.pcr_ngroups = getgroups(NGROUPS_MAX, request_statfs.pcr.pcr_groups);
 	
 	request_statfs.root_obj_id = root_node->nodeid;
 
@@ -1228,18 +1217,18 @@ int main(int argc, char *argv[])
 		args.pa_vfsstatfs.f_iosize = (uint32_t)buf.f_iosize;
 
 	/* mount the volume */
-	return_code = mount(vfc.vfc_name, mountPoint, mntflags, &args);
+	return_code = mount(vfc.vfc_name, g_mountPoint, mntflags, &args);
 	require_noerr_action(return_code, error_exit, error = errno);
 		
 	/* we're mounted so kill our parent so it will call parentexit and exit with success */
  	kill(getppid(), SIGTERM);
 	
 	isMounted = TRUE;
-	
+
 	/* and set SIGTERM to webdav_kill */
 	signal(SIGTERM, webdav_kill);
 	
-	syslog(LOG_INFO, "%s mounted", mountPoint);
+	syslog(LOG_INFO, "%s mounted", g_mountPoint);
 	
 	/*
 	 * This code is needed so that the network reachability code doesn't have to
@@ -1313,7 +1302,7 @@ int main(int argc, char *argv[])
 			error = errno;
 			if (error != EINTR)
 				syslog(LOG_ERR, "%s: exiting on select errno %d for %s\n",
-					   __FUNCTION__, error, mountPoint);
+					   __FUNCTION__, error, g_mountPoint);
 			require(error == EINTR, error_exit); /* EINTR is OK */
 			continue;
 		}
@@ -1340,7 +1329,7 @@ int main(int argc, char *argv[])
 				{
 					/* positive messages are signal numbers */
 					syslog(LOG_ERR, "%s: received signal: %d. Unmounting %s\n",
-						   __FUNCTION__, message, mountPoint);
+						   __FUNCTION__, message, g_mountPoint);
 				}
 				else
 				{
@@ -1348,13 +1337,13 @@ int main(int argc, char *argv[])
 					{
 						/* this is the normal way out of the select loop */
 						syslog(LOG_DEBUG, "%s: received unmount message for %s\n",
-							   __FUNCTION__, mountPoint);
+							   __FUNCTION__, g_mountPoint);
 						break;
 					}
 					else
 					{
 						syslog(LOG_ERR, "%s: received message: %d. Force unmounting %s\n",
-							   __FUNCTION__, message, mountPoint);
+							   __FUNCTION__, message, g_mountPoint);
 					}
 				}
 				
@@ -1376,7 +1365,7 @@ int main(int argc, char *argv[])
 				error = errno;
 				if (error != EINTR)
 				syslog(LOG_ERR, "%s: exiting on select errno %d for %s\n",
-						__FUNCTION__, error, mountPoint);
+						__FUNCTION__, error, g_mountPoint);
 				require(error == EINTR, error_exit);
 				continue;
 			}
@@ -1418,7 +1407,7 @@ int main(int argc, char *argv[])
 		}
 	}
 	
-	syslog(LOG_DEBUG, "%s unmounted\n", mountPoint);
+	syslog(LOG_DEBUG, "%s unmounted\n", g_mountPoint);
 
 	/* attempt to delete the cache directory (if any) and the bound socket name */
 	if (*gWebdavCachePath != '\0')

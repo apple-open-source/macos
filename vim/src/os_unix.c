@@ -181,7 +181,8 @@ static RETSIGTYPE catch_sigpwr __ARGS(SIGPROTOARG);
 	&& defined(FEAT_TITLE) && !defined(FEAT_GUI_GTK)
 # define SET_SIG_ALARM
 static RETSIGTYPE sig_alarm __ARGS(SIGPROTOARG);
-static int sig_alarm_called;
+/* volatile because it is used in signal handler sig_alarm(). */
+static volatile int sig_alarm_called;
 #endif
 static RETSIGTYPE deathtrap __ARGS(SIGPROTOARG);
 
@@ -201,13 +202,16 @@ static int save_patterns __ARGS((int num_pat, char_u **pat, int *num_file, char_
 # define SIG_ERR	((RETSIGTYPE (*)())-1)
 #endif
 
-static int	do_resize = FALSE;
+/* volatile because it is used in signal handler sig_winch(). */
+static volatile int do_resize = FALSE;
 #ifndef __EMX__
 static char_u	*extra_shell_arg = NULL;
 static int	show_shell_mess = TRUE;
 #endif
-static int	deadly_signal = 0;	    /* The signal we caught */
-static int	in_mch_delay = FALSE;	    /* sleeping in mch_delay() */
+/* volatile because it is used in signal handler deathtrap(). */
+static volatile int deadly_signal = 0;	    /* The signal we caught */
+/* volatile because it is used in signal handler deathtrap(). */
+static volatile int in_mch_delay = FALSE;    /* sleeping in mch_delay() */
 
 static int curr_tmode = TMODE_COOK;	/* contains current terminal mode */
 
@@ -216,7 +220,7 @@ typedef struct
 {
     SmcConn smcconn;	    /* The SM connection ID */
     IceConn iceconn;	    /* The ICE connection ID */
-    char *clientid;         /* The client ID for the current smc session */
+    char *clientid;	    /* The client ID for the current smc session */
     Bool save_yourself;     /* If we're in the middle of a save_yourself */
     Bool shutdown;	    /* If we're in shutdown mode */
 } xsmp_config_T;
@@ -315,6 +319,23 @@ static struct signalinfo
     {-1,	    "Unknown!", FALSE}
 };
 
+    int
+mch_chdir(path)
+    char *path;
+{
+    if (p_verbose >= 5)
+    {
+	verbose_enter();
+	smsg((char_u *)"chdir(%s)", path);
+	verbose_leave();
+    }
+# ifdef VMS
+    return chdir(vms_fixfilename(path));
+# else
+    return chdir(path);
+# endif
+}
+
 /*
  * Write s[len] to the screen.
  */
@@ -345,6 +366,11 @@ mch_inchar(buf, maxlen, wtime, tb_change_cnt)
 {
     int		len;
 
+#ifdef FEAT_NETBEANS_INTG
+    /* Process the queued netbeans messages. */
+    netbeans_parse_messages();
+#endif
+
     /* Check if window changed size while we were busy, perhaps the ":set
      * columns=99" command was used. */
     while (do_resize)
@@ -357,6 +383,10 @@ mch_inchar(buf, maxlen, wtime, tb_change_cnt)
 	    if (!do_resize)	/* return if not interrupted by resize */
 		return 0;
 	    handle_resize();
+#ifdef FEAT_NETBEANS_INTG
+	    /* Process the queued netbeans messages. */
+	    netbeans_parse_messages();
+#endif
 	}
     }
     else	/* wtime == -1 */
@@ -386,12 +416,23 @@ mch_inchar(buf, maxlen, wtime, tb_change_cnt)
     {
 	while (do_resize)    /* window changed size */
 	    handle_resize();
+
+#ifdef FEAT_NETBEANS_INTG
+	/* Process the queued netbeans messages. */
+	netbeans_parse_messages();
+#endif
+#ifndef VMS  /* VMS: must try reading, WaitForChar() does nothing. */
 	/*
-	 * we want to be interrupted by the winch signal
+	 * We want to be interrupted by the winch signal
+	 * or by an event on the monitored file descriptors.
 	 */
-	WaitForChar(-1L);
-	if (do_resize)	    /* interrupted by SIGWINCH signal */
-	    continue;
+	if (WaitForChar(-1L) == 0)
+	{
+	    if (do_resize)	    /* interrupted by SIGWINCH signal */
+		handle_resize();
+	    return 0;
+	}
+#endif
 
 	/* If input was put directly in typeahead buffer bail out here. */
 	if (typebuf_changed(tb_change_cnt))
@@ -450,10 +491,9 @@ mch_char_avail()
  * Return total amount of memory available in Kbyte.
  * Doesn't change when memory has been allocated.
  */
-/* ARGSUSED */
     long_u
 mch_total_mem(special)
-    int special;
+    int special UNUSED;
 {
 # ifdef __EMX__
     return ulimit(3, 0L) >> 10;   /* always 32MB? */
@@ -655,12 +695,6 @@ mch_delay(msec, ignoreinput)
 	WaitForChar(msec);
 }
 
-#if 0    /* disabled, no longer needed now that regmatch() is not recursive */
-# if defined(HAVE_GETRLIMIT)
-#  define HAVE_STACK_LIMIT
-# endif
-#endif
-
 #if defined(HAVE_STACK_LIMIT) \
 	|| (!defined(HAVE_SIGALTSTACK) && defined(HAVE_SIGSTACK))
 # define HAVE_CHECK_STACK_GROWTH
@@ -828,12 +862,11 @@ init_signal_stack()
 #endif
 
 /*
- * We need correct potatotypes for a signal function, otherwise mean compilers
+ * We need correct prototypes for a signal function, otherwise mean compilers
  * will barf when the second argument to signal() is ``wrong''.
  * Let me try it with a few tricky defines from my own osdef.h	(jw).
  */
 #if defined(SIGWINCH)
-/* ARGSUSED */
     static RETSIGTYPE
 sig_winch SIGDEFARG(sigarg)
 {
@@ -845,7 +878,6 @@ sig_winch SIGDEFARG(sigarg)
 #endif
 
 #if defined(SIGINT)
-/* ARGSUSED */
     static RETSIGTYPE
 catch_sigint SIGDEFARG(sigarg)
 {
@@ -857,7 +889,6 @@ catch_sigint SIGDEFARG(sigarg)
 #endif
 
 #if defined(SIGPWR)
-/* ARGSUSED */
     static RETSIGTYPE
 catch_sigpwr SIGDEFARG(sigarg)
 {
@@ -877,7 +908,6 @@ catch_sigpwr SIGDEFARG(sigarg)
 /*
  * signal function for alarm().
  */
-/* ARGSUSED */
     static RETSIGTYPE
 sig_alarm SIGDEFARG(sigarg)
 {
@@ -1094,19 +1124,23 @@ deathtrap SIGDEFARG(sigarg)
     SIGRETURN;
 }
 
-#ifdef _REENTRANT
+#if defined(_REENTRANT) && defined(SIGCONT)
 /*
  * On Solaris with multi-threading, suspending might not work immediately.
  * Catch the SIGCONT signal, which will be used as an indication whether the
  * suspending has been done or not.
+ *
+ * On Linux, signal is not always handled immediately either.
+ * See https://bugs.launchpad.net/bugs/291373
+ *
+ * volatile because it is used in in signal handler sigcont_handler().
  */
-static int sigcont_received;
+static volatile int sigcont_received;
 static RETSIGTYPE sigcont_handler __ARGS(SIGPROTOARG);
 
 /*
  * signal handler for SIGCONT
  */
-/* ARGSUSED */
     static RETSIGTYPE
 sigcont_handler SIGDEFARG(sigarg)
 {
@@ -1144,15 +1178,28 @@ mch_suspend()
     }
 # endif
 
-# ifdef _REENTRANT
+# if defined(_REENTRANT) && defined(SIGCONT)
     sigcont_received = FALSE;
 # endif
     kill(0, SIGTSTP);	    /* send ourselves a STOP signal */
-# ifdef _REENTRANT
-    /* When we didn't suspend immediately in the kill(), do it now.  Happens
-     * on multi-threaded Solaris. */
-    if (!sigcont_received)
-	pause();
+# if defined(_REENTRANT) && defined(SIGCONT)
+    /*
+     * Wait for the SIGCONT signal to be handled. It generally happens
+     * immediately, but somehow not all the time. Do not call pause()
+     * because there would be race condition which would hang Vim if
+     * signal happened in between the test of sigcont_received and the
+     * call to pause(). If signal is not yet received, call sleep(0)
+     * to just yield CPU. Signal should then be received. If somehow
+     * it's still not received, sleep 1, 2, 3 ms. Don't bother waiting
+     * further if signal is not received after 1+2+3+4 ms (not expected
+     * to happen).
+     */
+    {
+	long wait_time;
+	for (wait_time = 0; !sigcont_received && wait_time <= 3L; wait_time++)
+	    /* Loop is not entered most of the time */
+	    mch_delay(wait_time, FALSE);
+    }
 # endif
 
 # ifdef FEAT_TITLE
@@ -1201,7 +1248,7 @@ set_signals()
 #ifdef SIGTSTP
     signal(SIGTSTP, restricted ? SIG_IGN : SIG_DFL);
 #endif
-#ifdef _REENTRANT
+#if defined(_REENTRANT) && defined(SIGCONT)
     signal(SIGCONT, sigcont_handler);
 #endif
 
@@ -1260,7 +1307,7 @@ catch_int_signal()
 reset_signals()
 {
     catch_signals(SIG_DFL, SIG_DFL);
-#ifdef _REENTRANT
+#if defined(_REENTRANT) && defined(SIGCONT)
     /* SIGCONT isn't in the list, because its default action is ignore */
     signal(SIGCONT, SIG_DFL);
 #endif
@@ -1317,7 +1364,7 @@ catch_signals(func_deadly, func_other)
  *			     return TRUE
  * "when" == SIGNAL_BLOCK:   Going to be busy, block signals
  * "when" == SIGNAL_UNBLOCK: Going to wait, unblock signals, use postponed
- *                           signal
+ *			     signal
  * Returns TRUE when Vim should exit.
  */
     int
@@ -1355,11 +1402,10 @@ vim_handle_signal(sig)
 /*
  * Check_win checks whether we have an interactive stdout.
  */
-/* ARGSUSED */
     int
 mch_check_win(argc, argv)
-    int	    argc;
-    char    **argv;
+    int	    argc UNUSED;
+    char    **argv UNUSED;
 {
 #ifdef OS2
     /*
@@ -1443,11 +1489,10 @@ x_error_handler(dpy, error_event)
 /*
  * Another X Error handler, just used to check for errors.
  */
-/* ARGSUSED */
     static int
 x_error_check(dpy, error_event)
-    Display *dpy;
-    XErrorEvent	*error_event;
+    Display *dpy UNUSED;
+    XErrorEvent	*error_event UNUSED;
 {
     got_x_error = TRUE;
     return 0;
@@ -1460,15 +1505,15 @@ x_error_check(dpy, error_event)
  */
 static int x_IOerror_check __ARGS((Display *dpy));
 
-/* ARGSUSED */
     static int
 x_IOerror_check(dpy)
-    Display *dpy;
+    Display *dpy UNUSED;
 {
     /* This function should not return, it causes exit().  Longjump instead. */
     LONGJMP(lc_jump_env, 1);
-    /*NOTREACHED*/
-    return 0;
+#  ifdef VMS
+    return 0;  /* avoid the compiler complains about missing return value */
+#  endif
 }
 # endif
 
@@ -1477,10 +1522,9 @@ x_IOerror_check(dpy)
  */
 static int x_IOerror_handler __ARGS((Display *dpy));
 
-/* ARGSUSED */
     static int
 x_IOerror_handler(dpy)
-    Display *dpy;
+    Display *dpy UNUSED;
 {
     xterm_dpy = NULL;
     x11_window = 0;
@@ -1489,8 +1533,9 @@ x_IOerror_handler(dpy)
 
     /* This function should not return, it causes exit().  Longjump instead. */
     LONGJMP(x_jump_env, 1);
-    /*NOTREACHED*/
-    return 0;
+# ifdef VMS
+    return 0;  /* avoid the compiler complains about missing return value */
+# endif
 }
 #endif
 
@@ -1735,9 +1780,9 @@ get_x11_icon(test_only)
     if (oldicon == NULL && !test_only)
     {
 	if (STRNCMP(T_NAME, "builtin_", 8) == 0)
-	    oldicon = T_NAME + 8;
+	    oldicon = vim_strsave(T_NAME + 8);
 	else
-	    oldicon = T_NAME;
+	    oldicon = vim_strsave(T_NAME);
     }
 
     return retval;
@@ -1798,15 +1843,19 @@ get_x11_thing(get_title, test_only)
 	    retval = TRUE;
 	    if (!test_only)
 	    {
-#ifdef FEAT_XFONTSET
-		if (text_prop.encoding == XA_STRING)
+#if defined(FEAT_XFONTSET) || defined(FEAT_MBYTE)
+		if (text_prop.encoding == XA_STRING
+# ifdef FEAT_MBYTE
+			&& !has_mbyte
+# endif
+			)
 		{
 #endif
 		    if (get_title)
 			oldtitle = vim_strsave((char_u *)text_prop.value);
 		    else
 			oldicon = vim_strsave((char_u *)text_prop.value);
-#ifdef FEAT_XFONTSET
+#if defined(FEAT_XFONTSET) || defined(FEAT_MBYTE)
 		}
 		else
 		{
@@ -1926,10 +1975,9 @@ set_x11_icon(icon)
 
 #else  /* FEAT_X11 */
 
-/*ARGSUSED*/
     static int
 get_x11_title(test_only)
-    int	    test_only;
+    int	    test_only UNUSED;
 {
     return FALSE;
 }
@@ -1941,9 +1989,9 @@ get_x11_icon(test_only)
     if (!test_only)
     {
 	if (STRNCMP(T_NAME, "builtin_", 8) == 0)
-	    oldicon = T_NAME + 8;
+	    oldicon = vim_strsave(T_NAME + 8);
 	else
-	    oldicon = T_NAME;
+	    oldicon = vim_strsave(T_NAME);
     }
     return FALSE;
 }
@@ -1998,7 +2046,7 @@ mch_settitle(title, icon)
 #endif
 
     /*
-     * Note: if "t_TS" is set, title is set with escape sequence rather
+     * Note: if "t_ts" is set, title is set with escape sequence rather
      *	     than x11 calls, because the x11 calls don't always work
      */
     if ((type || *T_TS != NUL) && title != NULL)
@@ -2443,6 +2491,12 @@ mch_FullName(fname, buf, len, force)
 #ifdef HAVE_FCHDIR
 	    if (fd >= 0)
 	    {
+		if (p_verbose >= 5)
+		{
+		    verbose_enter();
+		    MSG("fchdir() to previous dir");
+		    verbose_leave();
+		}
 		l = fchdir(fd);
 		close(fd);
 	    }
@@ -2467,7 +2521,7 @@ mch_FullName(fname, buf, len, force)
     }
 
     /* Catch file names which are too long. */
-    if (retval == FAIL || STRLEN(buf) + STRLEN(fname) >= len)
+    if (retval == FAIL || (int)(STRLEN(buf) + STRLEN(fname)) >= len)
 	return FAIL;
 
     /* Do not append ".", "/dir/." is equal to "/dir". */
@@ -2504,11 +2558,10 @@ mch_isFullName(fname)
  * file name to remain exactly the same.
  * Only required for file systems where case is ignored and preserved.
  */
-/*ARGSUSED*/
     void
 fname_case(name, len)
     char_u	*name;
-    int		len;	    /* buffer size, only used when name gets longer */
+    int		len UNUSED;  /* buffer size, only used when name gets longer */
 {
     struct stat st;
     char_u	*slash, *tail;
@@ -2686,7 +2739,7 @@ mch_copy_sec(from_file, to_file)
  */
     vim_acl_T
 mch_get_acl(fname)
-    char_u	*fname;
+    char_u	*fname UNUSED;
 {
     vim_acl_T	ret = NULL;
 #ifdef HAVE_POSIX_ACL
@@ -2746,7 +2799,7 @@ mch_get_acl(fname)
  */
     void
 mch_set_acl(fname, aclent)
-    char_u	*fname;
+    char_u	*fname UNUSED;
     vim_acl_T	aclent;
 {
     if (aclent == NULL)
@@ -2789,10 +2842,9 @@ mch_free_acl(aclent)
 /*
  * Set hidden flag for "name".
  */
-/* ARGSUSED */
     void
 mch_hide(name)
-    char_u	*name;
+    char_u	*name UNUSED;
 {
     /* can't hide a file */
 }
@@ -2965,8 +3017,7 @@ mch_free_mem()
     }
 #  endif
 # endif
-    /* Don't close the display for GTK 1, it is done in exit(). */
-# if defined(FEAT_X11) && (!defined(FEAT_GUI_GTK) || defined(HAVE_GTK2))
+# if defined(FEAT_X11)
     if (x11_display != NULL
 #  ifdef FEAT_XCLIPBOARD
 	    && x11_display != xterm_dpy
@@ -3079,8 +3130,7 @@ mch_exit(r)
 #endif
 
 #ifdef FEAT_NETBEANS_INTG
-    if (usingNetbeans)
-	netbeans_send_disconnect();
+    netbeans_send_disconnect();
 #endif
 
 #ifdef EXITFREE
@@ -3481,10 +3531,9 @@ check_mouse_termcode()
 /*
  * set screen mode, always fails.
  */
-/* ARGSUSED */
     int
 mch_screenmode(arg)
-    char_u   *arg;
+    char_u   *arg UNUSED;
 {
     EMSG(_(e_screenmode));
     return FAIL;
@@ -4122,6 +4171,9 @@ mch_call_shell(cmd, options)
 		int	    fromshell_fd;
 		garray_T    ga;
 		int	    noread_cnt;
+# if defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)
+		struct timeval  start_tv;
+# endif
 
 # ifdef FEAT_GUI
 		if (pty_master_fd >= 0)
@@ -4190,9 +4242,10 @@ mch_call_shell(cmd, options)
 			    {
 				s = vim_strchr(lp + written, NL);
 				len = write(toshell_fd, (char *)lp + written,
-					   s == NULL ? l : s - (lp + written));
+					   s == NULL ? l
+					      : (size_t)(s - (lp + written)));
 			    }
-			    if (len == l)
+			    if (len == (int)l)
 			    {
 				/* Finished a line, add a NL, unless this line
 				 * should not have one. */
@@ -4231,7 +4284,9 @@ mch_call_shell(cmd, options)
 		    ga_init2(&ga, 1, BUFLEN);
 
 		noread_cnt = 0;
-
+# if defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)
+		gettimeofday(&start_tv, NULL);
+# endif
 		for (;;)
 		{
 		    /*
@@ -4244,25 +4299,34 @@ mch_call_shell(cmd, options)
 		     * that a typed password is echoed for ssh or gpg command.
 		     * Don't get characters when the child has already
 		     * finished (wait_pid == 0).
-		     * Don't get extra characters when we already have one.
 		     * Don't read characters unless we didn't get output for a
-		     * while, avoids that ":r !ls" eats typeahead.
+		     * while (noread_cnt > 4), avoids that ":r !ls" eats
+		     * typeahead.
 		     */
 		    len = 0;
 		    if (!(options & SHELL_EXPAND)
 			    && ((options &
 					 (SHELL_READ|SHELL_WRITE|SHELL_COOKED))
 				      != (SHELL_READ|SHELL_WRITE|SHELL_COOKED)
-#ifdef FEAT_GUI
+# ifdef FEAT_GUI
 						    || gui.in_use
-#endif
+# endif
 						    )
 			    && wait_pid == 0
-			    && (ta_len > 0
-				|| (noread_cnt > 4
-				    && (len = ui_inchar(ta_buf,
-						       BUFLEN, 10L, 0)) > 0)))
+			    && (ta_len > 0 || noread_cnt > 4))
 		    {
+		      if (ta_len == 0)
+		      {
+			  /* Get extra characters when we don't have any.
+			   * Reset the counter and timer. */
+			  noread_cnt = 0;
+# if defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)
+			  gettimeofday(&start_tv, NULL);
+# endif
+			  len = ui_inchar(ta_buf, BUFLEN, 10L, 0);
+		      }
+		      if (ta_len > 0 || len > 0)
+		      {
 			/*
 			 * For pipes:
 			 * Check for CTRL-C: send interrupt signal to child.
@@ -4316,7 +4380,8 @@ mch_call_shell(cmd, options)
 				ta_buf[i] = '\n';
 # ifdef FEAT_MBYTE
 			    if (has_mbyte)
-				i += (*mb_ptr2len)(ta_buf + i) - 1;
+				i += (*mb_ptr2len_len)(ta_buf + i,
+							ta_len + len - i) - 1;
 # endif
 			}
 
@@ -4364,9 +4429,9 @@ mch_call_shell(cmd, options)
 			    {
 				ta_len -= len;
 				mch_memmove(ta_buf, ta_buf + len, ta_len);
-				noread_cnt = 0;
 			    }
 			}
+		      }
 		    }
 
 		    if (got_int)
@@ -4474,6 +4539,25 @@ mch_call_shell(cmd, options)
 			out_flush();
 			if (got_int)
 			    break;
+
+# if defined(HAVE_GETTIMEOFDAY) && defined(HAVE_SYS_TIME_H)
+			{
+			    struct timeval  now_tv;
+			    long	    msec;
+
+			    /* Avoid that we keep looping here without
+			     * checking for a CTRL-C for a long time.  Don't
+			     * break out too often to avoid losing typeahead. */
+			    gettimeofday(&now_tv, NULL);
+			    msec = (now_tv.tv_sec - start_tv.tv_sec) * 1000L
+				+ (now_tv.tv_usec - start_tv.tv_usec) / 1000L;
+			    if (msec > 2000)
+			    {
+				noread_cnt = 5;
+				break;
+			    }
+			}
+# endif
 		    }
 
 		    /* If we already detected the child has finished break the
@@ -4717,7 +4801,6 @@ WaitForChar(msec)
  * Returns also, when a request from Sniff is waiting -- toni.
  * Or when a Linux GPM mouse event is waiting.
  */
-/* ARGSUSED */
 #if defined(__BEOS__)
     int
 #else
@@ -4726,9 +4809,12 @@ WaitForChar(msec)
 RealWaitForChar(fd, msec, check_for_gpm)
     int		fd;
     long	msec;
-    int		*check_for_gpm;
+    int		*check_for_gpm UNUSED;
 {
     int		ret;
+#ifdef FEAT_NETBEANS_INTG
+    int		nb_fd = netbeans_filedesc();
+#endif
 #if defined(FEAT_XCLIPBOARD) || defined(USE_XSMP) || defined(FEAT_MZSCHEME)
     static int	busy = FALSE;
 
@@ -4778,7 +4864,7 @@ RealWaitForChar(fd, msec, check_for_gpm)
 # endif
 #endif
 #ifndef HAVE_SELECT
-	struct pollfd   fds[5];
+	struct pollfd   fds[6];
 	int		nfd;
 # ifdef FEAT_XCLIPBOARD
 	int		xterm_idx = -1;
@@ -4788,6 +4874,9 @@ RealWaitForChar(fd, msec, check_for_gpm)
 # endif
 # ifdef USE_XSMP
 	int		xsmp_idx = -1;
+# endif
+# ifdef FEAT_NETBEANS_INTG
+	int		nb_idx = -1;
 # endif
 	int		towait = (int)msec;
 
@@ -4839,6 +4928,15 @@ RealWaitForChar(fd, msec, check_for_gpm)
 	    nfd++;
 	}
 # endif
+#ifdef FEAT_NETBEANS_INTG
+	if (nb_fd != -1)
+	{
+	    nb_idx = nfd;
+	    fds[nfd].fd = nb_fd;
+	    fds[nfd].events = POLLIN;
+	    nfd++;
+	}
+#endif
 
 	ret = poll(fds, nfd, towait);
 # ifdef FEAT_MZSCHEME
@@ -4892,6 +4990,13 @@ RealWaitForChar(fd, msec, check_for_gpm)
 		finished = FALSE;	/* Try again */
 	}
 # endif
+#ifdef FEAT_NETBEANS_INTG
+	if (ret > 0 && nb_idx != -1 && fds[nb_idx].revents & POLLIN)
+	{
+	    netbeans_read();
+	    --ret;
+	}
+#endif
 
 
 #else /* HAVE_SELECT */
@@ -4973,6 +5078,14 @@ RealWaitForChar(fd, msec, check_for_gpm)
 		maxfd = xsmp_icefd;
 	}
 # endif
+#ifdef FEAT_NETBEANS_INTG
+	if (nb_fd != -1)
+	{
+	    FD_SET(nb_fd, &rfds);
+	    if (maxfd < nb_fd)
+		maxfd = nb_fd;
+	}
+#endif
 
 # ifdef OLD_VMS
 	/* Old VMS as v6.2 and older have broken select(). It waits more than
@@ -5050,6 +5163,13 @@ RealWaitForChar(fd, msec, check_for_gpm)
 	    }
 	}
 # endif
+#ifdef FEAT_NETBEANS_INTG
+	if (ret > 0 && nb_fd != -1 && FD_ISSET(nb_fd, &rfds))
+	{
+	    netbeans_read();
+	    --ret;
+	}
+#endif
 
 #endif /* HAVE_SELECT */
 
@@ -5121,7 +5241,6 @@ mch_expandpath(gap, path, flags)
 
 #define SHELL_SPECIAL (char_u *)"\t \"&'$;<>()\\|"
 
-/* ARGSUSED */
     int
 mch_expand_wildcards(num_pat, pat, num_file, file, flags)
     int		   num_pat;
@@ -5543,7 +5662,7 @@ mch_expand_wildcards(num_pat, pat, num_file, file, flags)
     i = fread((char *)buffer, 1, len, fd);
     fclose(fd);
     mch_remove(tempname);
-    if (i != len)
+    if (i != (int)len)
     {
 	/* unexpected read error */
 	EMSG2(_(e_notread), tempname);
@@ -5604,7 +5723,7 @@ mch_expand_wildcards(num_pat, pat, num_file, file, flags)
 	if (shell_style == STYLE_PRINT && !did_find_nul)
 	{
 	    /* If there is a NUL, set did_find_nul, else set check_spaces */
-	    if (len && (int)STRLEN(buffer) < len - 1)
+	    if (len && (int)STRLEN(buffer) < (int)len - 1)
 		did_find_nul = TRUE;
 	    else
 		check_spaces = TRUE;
@@ -5896,7 +6015,9 @@ gpm_open()
 	     * we are going to suspend or starting an external process
 	     * so we shouldn't  have problem with this
 	     */
+# ifdef SIGTSTP
 	    signal(SIGTSTP, restricted ? SIG_IGN : SIG_DFL);
+# endif
 	    return 1; /* succeed */
 	}
 	if (gpm_fd == -2)
@@ -6046,7 +6167,6 @@ sysmouse_close()
 /*
  * Gets info from sysmouse and adds special keys to input buf.
  */
-/* ARGSUSED */
     static RETSIGTYPE
 sig_sysmouse SIGDEFARG(sigarg)
 {
@@ -6375,6 +6495,7 @@ setup_term_clip()
 	    return;
 
 	x11_setup_atoms(xterm_dpy);
+	x11_setup_selection(xterm_Shell);
 	if (x11_display == NULL)
 	    x11_display = xterm_dpy;
 
@@ -6610,11 +6731,10 @@ static void xsmp_handle_interaction __ARGS((SmcConn smc_conn, SmPointer client_d
  * This is our chance to ask the user if they want to save,
  * or abort the logout
  */
-/*ARGSUSED*/
     static void
 xsmp_handle_interaction(smc_conn, client_data)
     SmcConn	smc_conn;
-    SmPointer	client_data;
+    SmPointer	client_data UNUSED;
 {
     cmdmod_T	save_cmdmod;
     int		cancel_shutdown = False;
@@ -6647,16 +6767,15 @@ xsmp_handle_interaction(smc_conn, client_data)
 /*
  * Callback that starts save-yourself.
  */
-/*ARGSUSED*/
     static void
 xsmp_handle_save_yourself(smc_conn, client_data, save_type,
 					       shutdown, interact_style, fast)
     SmcConn	smc_conn;
-    SmPointer	client_data;
-    int		save_type;
+    SmPointer	client_data UNUSED;
+    int		save_type UNUSED;
     Bool	shutdown;
-    int		interact_style;
-    Bool	fast;
+    int		interact_style UNUSED;
+    Bool	fast UNUSED;
 {
     /* Handle already being in saveyourself */
     if (xsmp.save_yourself)
@@ -6690,11 +6809,10 @@ xsmp_handle_save_yourself(smc_conn, client_data, save_type,
 /*
  * Callback to warn us of imminent death.
  */
-/*ARGSUSED*/
     static void
 xsmp_die(smc_conn, client_data)
-    SmcConn	smc_conn;
-    SmPointer	client_data;
+    SmcConn	smc_conn UNUSED;
+    SmPointer	client_data UNUSED;
 {
     xsmp_close();
 
@@ -6706,11 +6824,10 @@ xsmp_die(smc_conn, client_data)
 /*
  * Callback to tell us that save-yourself has completed.
  */
-/*ARGSUSED*/
     static void
 xsmp_save_complete(smc_conn, client_data)
-    SmcConn	smc_conn;
-    SmPointer	client_data;
+    SmcConn	smc_conn UNUSED;
+    SmPointer	client_data UNUSED;
 {
     xsmp.save_yourself = False;
 }
@@ -6720,11 +6837,10 @@ xsmp_save_complete(smc_conn, client_data)
  * Callback to tell us that an instigated shutdown was cancelled
  * (maybe even by us)
  */
-/*ARGSUSED*/
     static void
 xsmp_shutdown_cancelled(smc_conn, client_data)
     SmcConn	smc_conn;
-    SmPointer	client_data;
+    SmPointer	client_data UNUSED;
 {
     if (xsmp.save_yourself)
 	SmcSaveYourselfDone(smc_conn, True);
@@ -6736,13 +6852,12 @@ xsmp_shutdown_cancelled(smc_conn, client_data)
 /*
  * Callback to tell us that a new ICE connection has been established.
  */
-/*ARGSUSED*/
     static void
 xsmp_ice_connection(iceConn, clientData, opening, watchData)
     IceConn	iceConn;
-    IcePointer	clientData;
+    IcePointer	clientData UNUSED;
     Bool	opening;
-    IcePointer	*watchData;
+    IcePointer	*watchData UNUSED;
 {
     /* Intercept creation of ICE connection fd */
     if (opening)

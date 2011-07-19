@@ -21,11 +21,11 @@
 #include "config.h"
 #include "PlatformString.h"
 
-#if PLATFORM(CF)
+#if USE(CF)
 
 #include <CoreFoundation/CoreFoundation.h>
 
-namespace WebCore {
+namespace WTF {
 
 String::String(CFStringRef str)
 {
@@ -52,4 +52,4 @@ CFStringRef String::createCFString() const
 
 }
 
-#endif // PLATFORM(CF)
+#endif // USE(CF)

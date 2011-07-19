@@ -1,14 +1,18 @@
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -O
+OFLAG = -Os
 RC_OS = macos
-X_CFLAGS = -fno-builtin-round
+X_CFLAGS =
+ifneq "" "$(SDKROOT)"
+  SDK = -isysroot $(SDKROOT)
+  CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+endif
 
-ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
+ifeq "clang" "$(notdir $(CC))"
+  CFLAGS = $(OFLAG) -g -Wall \
+	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
 else
   CFLAGS = $(OFLAG) -g -Wall $(X_CFLAGS) \
-	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR)
+	 -I$(SRCROOT) -I$(SRCROOT)/../include -I$(OFILE_DIR) $(SDK)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
@@ -56,17 +60,17 @@ else
 endif
 
 makerelocs.NEW: makerelocs.o vers.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/makerelocs.private.o \
 		$(OFILE_DIR)/makerelocs.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/makerelocs.NEW \
+	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/makerelocs.NEW \
 		$(OFILE_DIR)/makerelocs.private.o
 
 mtoc.NEW: mtoc.o vers.o
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r \
+	$(CC) $(RC_CFLAGS) -nostdlib -r \
 		-o $(OBJROOT)/mtoc.private.o \
 		$(OFILE_DIR)/mtoc.o $(OFILE_DIR)/vers.o $(LIBSTUFF)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/mtoc.NEW \
+	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/mtoc.NEW \
 		$(OFILE_DIR)/mtoc.private.o
 
 clean: shlib_clean

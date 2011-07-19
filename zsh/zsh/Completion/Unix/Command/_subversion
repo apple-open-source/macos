@@ -2,6 +2,7 @@
 
 _svn () {
   local curcontext="$curcontext" state line expl ret=1
+  typeset -A opt_args
 
   _arguments -C \
     '(-)--help[print help information]' \
@@ -22,7 +23,7 @@ _svn () {
     ;;
     args)
       local cmd args usage
-      typeset -gHA _cache_svn_status
+      typeset -gHA _cache_svn_status _cache_svn_mtime
 
       cmd="${${(k)_svn_cmds[(R)*:$words[1]:*]}:-${(k)_svn_cmds[(i):$words[1]:]}}"
       if (( $#cmd )); then
@@ -150,7 +151,7 @@ _svnadmin () {
         args=(
           ${=${${${(M)${(f)"$(LC_ALL=C _call_program options svnadmin help $cmd)"#(*Valid options:|(#e))}:#* :*}%% #:*}/ (arg|ARG)/:arg:}/(#b)-([[:alpha:]]) \[--([a-z-]##)\](:arg:)#/(--$match[2])-$match[1]$match[3] (-$match[1])--$match[2]$match[3]}
         )
-        if [[ $_svnadmin_subcmd_usage == *REPOS_PATH* ]]; then
+        if [[ $usage == *REPOS_PATH* ]]; then
           args+=( ":path:_files -/" )
         elif [[ $cmd = help ]]; then
           args+=( "*:subcommand:_svnadmin_commands" )
@@ -193,40 +194,81 @@ _svn_status() {
   local dir=$REPLY:h
   local pat="${1:-([ADMR~]|?M)}"
 
-  if (( ! $+_cache_svn_status[$dir] )); then
-    _cache_svn_status[$dir]="$(_call_program files svn status -N $dir)"
+  zmodload -F zsh/stat b:zstat 2>/dev/null
+  local key="$(zstat +device $dir):$(zstat +inode $dir)"
+  local mtime="$(zstat +mtime $dir/.svn/entries)"
+
+  if (( ! $+_cache_svn_status[$key] || _cache_svn_mtime[$key] != mtime )); then
+    _cache_svn_status[$key]="$(_call_program files svn status -N $dir)"
+    _cache_svn_mtime[$key]="$mtime"
   fi
 
-  (( ${(M)#${(f)_cache_svn_status[$dir]}:#(#s)${~pat}*$REPLY} ))
+  (( ${(M)#${(f)_cache_svn_status[$key]}:#(#s)${~pat}*$REPLY} ))
+}
+
+(( $+functions[_svn_remote_paths] )) ||
+_svn_remote_paths() {
+  local expl remfiles remdispf remdispd suf ret=1 pfx='\^/' sub='^/'
+
+  # prefix must match a valid repository path format, either standard style
+  # schema://host/path/.. or ^/path/.. specifying a path relative to the
+  # root of the working directory repository.  In the second form, allow the
+  # leading '^' be escaped in case the user has the extendedglob option set.
+  [[ -prefix *://*/ ]] ||
+  [[ -f .svn/entries && ( -prefix '^/' || -prefix '\^/' ) ]] ||
+  return 1
+
+  # return if remote access is not permitted
+  zstyle -T ":completion:${curcontext}:" remote-access || return 1
+
+  remfiles=( ${(f)"$(svn list $IPREFIX${${PREFIX%%[^/]#}/#$pfx/$sub} 2>/dev/null)"} )
+  (( $? == 0 )) || return 1
+
+  # you might consider trying to return early if $#remfiles is zero,
+  # but for whatever reason remfiles will always contain at least a
+  # single empty string; that case is handled correctly below.
+
+  compset -P '*/'
+  compset -S '/*' || suf=file
+  remdispf=(${remfiles:#*/})
+  remdispd=(${(M)remfiles:#*/})
+  _tags files
+  while _tags; do
+    while _next_label files expl ${suf:-directory}; do
+      # add files, unless there is a '/' immediately to the right
+      [[ -n $suf ]] &&
+      compadd -S ' ' -q "$@" "$expl[@]" -d remdispf $remdispf && ret=0
+      # add directories; use empty suffix if there is a '/' immediately to the right
+      compadd -S "${suf:+/}" -q "$@" "$expl[@]" -d remdispd ${remdispd%/} && ret=0
+    done
+    (( ret )) || return 0
+  done
+
+  return 1
 }
 
 (( $+functions[_svn_urls] )) ||
 _svn_urls() {
-  local expl remfiles remdispf remdispd suf ret=1
+  local urlsch expl ret=1
 
-  if [[ -prefix *: ]] && ! _urls &&
-      zstyle -T ":completion:${curcontext}:" remote-access
-  then
-    remfiles=( ${(f)"$(svn list $IPREFIX${PREFIX%%[^./][^/]#} 2>/dev/null)"} )
-    compset -P '*/'
-    compset -S '/*' || suf=file
-    remdispf=(${remfiles:#*/})
-    remdispd=(${(M)remfiles:#*/})
-    _tags files
-    while _tags; do
-      while _next_label files expl ${suf:-directory}; do
-        [[ -n $suf ]] && compadd "$@" "$expl[@]" -d remdispf $remdispf && ret=0
-        compadd ${suf:+-S/} "$@" "$expl[@]" -d remdispd \
-            ${remdispd%/} && ret=0
-      done
-      (( ret )) || return 0
-    done
-  else
-    compset -S '[^:]*'
-    _wanted url-schemas expl 'URL schema' compadd -S '' - \
-        file:// http:// https:// svn:// svn+ssh:// && ret=0
+  # first try completing a remote path; if successful, we are all done..
+  _svn_remote_paths && return 0
+
+  # allow configuring svn repository locations using the 'urls' zstyle.
+  # always attempt completion of these because then matcher-list styles
+  # which do substring matching will work correctly.
+  _urls -S/ && ret=0
+
+  if [[ ! -prefix *://? ]] ; then
+    zstyle -a ":completion:${curcontext}:" url-schemas urlsch \
+     || urlsch=( file:// http:// https:// svn:// svn+ssh:// )
+    
+    if (( $#urlsch )) ; then
+      compset -S '[^:]*'
+      _wanted url-schemas expl 'URL schema' compadd -S '' - $urlsch[@] && ret=0
+    fi
   fi
-  
+
   return ret
 }
 

@@ -29,34 +29,51 @@
 #ifndef SourceProvider_h
 #define SourceProvider_h
 
+#include "SourceProviderCache.h"
 #include "UString.h"
+#include <wtf/PassOwnPtr.h>
 #include <wtf/RefCounted.h>
+#include <wtf/UnusedParam.h>
+#include <wtf/text/TextPosition.h>
 
 namespace JSC {
 
-    enum SourceBOMPresence { SourceHasNoBOMs, SourceCouldHaveBOMs };
-
     class SourceProvider : public RefCounted<SourceProvider> {
     public:
-        SourceProvider(const UString& url, SourceBOMPresence hasBOMs = SourceCouldHaveBOMs)
+        SourceProvider(const UString& url, SourceProviderCache* cache = 0)
             : m_url(url)
-            , m_hasBOMs(hasBOMs)
+            , m_validated(false)
+            , m_cache(cache ? cache : new SourceProviderCache)
+            , m_cacheOwned(!cache)
         {
         }
-        virtual ~SourceProvider() { }
+        virtual ~SourceProvider()
+        {
+            if (m_cacheOwned)
+                delete m_cache;
+        }
 
         virtual UString getRange(int start, int end) const = 0;
         virtual const UChar* data() const = 0;
         virtual int length() const = 0;
         
         const UString& url() { return m_url; }
+        virtual TextPosition1 startPosition() const { return TextPosition1::minimumPosition(); }
         intptr_t asID() { return reinterpret_cast<intptr_t>(this); }
 
-        SourceBOMPresence hasBOMs() const { return m_hasBOMs; }
+        bool isValid() const { return m_validated; }
+        void setValid() { m_validated = true; }
 
+        SourceProviderCache* cache() const { return m_cache; }
+        void notifyCacheSizeChanged(int delta) { if (!m_cacheOwned) cacheSizeChanged(delta); }
+        
     private:
+        virtual void cacheSizeChanged(int delta) { UNUSED_PARAM(delta); }
+
         UString m_url;
-        SourceBOMPresence m_hasBOMs;
+        bool m_validated;
+        SourceProviderCache* m_cache;
+        bool m_cacheOwned;
     };
 
     class UStringSourceProvider : public SourceProvider {
@@ -66,9 +83,12 @@ namespace JSC {
             return adoptRef(new UStringSourceProvider(source, url));
         }
 
-        UString getRange(int start, int end) const { return m_source.substr(start, end - start); }
-        const UChar* data() const { return m_source.data(); }
-        int length() const { return m_source.size(); }
+        UString getRange(int start, int end) const
+        {
+            return m_source.substringSharingImpl(start, end - start);
+        }
+        const UChar* data() const { return m_source.characters(); }
+        int length() const { return m_source.length(); }
 
     private:
         UStringSourceProvider(const UString& source, const UString& url)

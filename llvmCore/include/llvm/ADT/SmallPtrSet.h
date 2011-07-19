@@ -17,7 +17,8 @@
 
 #include <cassert>
 #include <cstring>
-#include "llvm/Support/DataTypes.h"
+#include <iterator>
+#include "llvm/System/DataTypes.h"
 #include "llvm/Support/PointerLikeTypeTraits.h"
 
 namespace llvm {
@@ -170,7 +171,14 @@ protected:
 template<typename PtrTy>
 class SmallPtrSetIterator : public SmallPtrSetIteratorImpl {
   typedef PointerLikeTypeTraits<PtrTy> PtrTraits;
+  
 public:
+  typedef PtrTy                     value_type;
+  typedef PtrTy                     reference;
+  typedef PtrTy                     pointer;
+  typedef std::ptrdiff_t            difference_type;
+  typedef std::forward_iterator_tag iterator_category;
+  
   explicit SmallPtrSetIterator(const void *const *BP)
     : SmallPtrSetIteratorImpl(BP) {}
 
@@ -217,7 +225,7 @@ struct NextPowerOfTwo {
 };
   
 
-/// SmallPtrSet - This class implements a set which is optimizer for holding
+/// SmallPtrSet - This class implements a set which is optimized for holding
 /// SmallSize or less elements.  This internally rounds up SmallSize to the next
 /// power of two if it is not already a power of two.  See the comments above
 /// SmallPtrSetImpl for details of the algorithm.

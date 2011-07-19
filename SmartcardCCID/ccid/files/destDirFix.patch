@@ -1,0 +1,27 @@
+Only in .: destDirFix.patch
+diff -ubr ../ccid-1.3.8/src/Makefile.in ./src/Makefile.in
+--- ../ccid-1.3.8/src/Makefile.in	2008-06-27 02:47:24.000000000 -0700
++++ ./src/Makefile.in	2008-09-05 08:26:19.000000000 -0700
+@@ -16,6 +16,7 @@
+ 
+ # $Id: Makefile.am 3024 2008-06-26 13:20:43Z rousseau $
+ 
++DRIVER_DEST="$(DSTROOT)"
+ 
+ VPATH = @srcdir@
+ pkgdatadir = $(datadir)/@PACKAGE@
+@@ -898,10 +899,10 @@
+ 	$(srcdir)/create_Info_plist.pl $(srcdir)/../readers/supported_readers.txt $(srcdir)/Info.plist.src $(ifdCapabilities) | sed s/TARGET/$(CCID_LIB)/ > Info.plist
+ 
+ install_ccid: libccid.la Info.plist
+-	$(mkinstalldirs) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
+-	cp Info.plist $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
+-	cp .libs/$(CCID_LIB) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB).$(VERSION)
+-	ln -fs $(CCID_LIB).$(VERSION) $(DESTDIR)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
++	$(mkinstalldirs) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/
++	cp Info.plist $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/
++	cp .libs/$(CCID_LIB) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB).$(VERSION)
++	ln -fs $(CCID_LIB).$(VERSION) $(DRIVER_DEST)$(usbdropdir)/$(CCID_BUNDLE)/Contents/$(BUNDLE_HOST)/$(CCID_LIB)
+ 	$(INSTALL_UDEV_RULE_FILE)
+ 
+ install_ccidtwin: libccidtwin.la

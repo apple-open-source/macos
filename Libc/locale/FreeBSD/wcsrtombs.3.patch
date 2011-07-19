@@ -1,5 +1,5 @@
---- _SB/Libc/locale/FreeBSD/wcsrtombs.3	2004-11-25 11:38:20.000000000 -0800
-+++ _SB/Libc/locale/FreeBSD/wcsrtombs.3.edit	2006-06-28 16:55:51.000000000 -0700
+--- wcsrtombs.3.orig	2009-11-09 15:05:25.000000000 -0800
++++ wcsrtombs.3	2009-11-09 15:05:26.000000000 -0800
 @@ -28,30 +28,57 @@
  .Dt WCSRTOMBS 3
  .Os
@@ -68,7 +68,7 @@
  .Fa dst .
  No more than
  .Fa len
-@@ -97,15 +124,28 @@
+@@ -97,15 +124,28 @@ except that conversion stops after readi
  .Fa nwc
  characters from the buffer pointed to by
  .Fa src .
@@ -99,7 +99,7 @@
  .Po Vt size_t Pc Ns \-1 .
  .Sh ERRORS
  The
-@@ -122,7 +162,8 @@
+@@ -122,7 +162,8 @@ The conversion state is invalid.
  .Sh SEE ALSO
  .Xr mbsrtowcs 3 ,
  .Xr wcrtomb 3 ,

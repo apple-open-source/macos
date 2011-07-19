@@ -1,6 +1,7 @@
+# buildit may need "-project copyfile-123" (any number should do)
 Project = copyfile
-Install_Dir = /usr/local/lib/system
-ProductType = staticlib
+Install_Dir = /usr/lib/system
+ProductType = dylib
 BuildProfile = YES
 BuildDebug = YES
 
@@ -24,6 +25,8 @@ SDKROOT ?= /
 
 Extra_CC_Flags = ${WFLAGS} -fno-common \
 	-D__DARWIN_NOW_CANCELABLE=1 -I.
+
+Extra_LD_Flags = -Wl,-umbrella -Wl,System
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make
   

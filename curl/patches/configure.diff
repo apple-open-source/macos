@@ -1,6 +1,15 @@
 --- configure.orig	2009-01-19 12:20:35.000000000 -0800
 +++ configure	2009-01-19 12:20:41.000000000 -0800
-@@ -11259,7 +11259,7 @@
+@@ -3850,7 +3850,7 @@
+ 
+ 
+ cat >>confdefs.h <<_ACEOF
+-#define OS "${host}"
++#define OS "universal-${host_vendor}-${host_os}"
+ _ACEOF
+ 
+ 
+@@ -11527,7 +11527,7 @@
    esac
    if test "$_lt_dar_can_shared" = "yes"; then
      output_verbose_link_cmd=echo
@@ -9,3 +18,12 @@
      module_cmds="\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dsymutil}"
      archive_expsym_cmds="sed 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC -dynamiclib \$allow_undefined_flag -o \$lib \$libobjs \$deplibs \$compiler_flags -install_name \$rpath/\$soname \$verstring ${_lt_dar_single_mod}${_lt_dar_export_syms}${_lt_dsymutil}"
      module_expsym_cmds="sed -e 's,^,_,' < \$export_symbols > \$output_objdir/\${libname}-symbols.expsym~\$CC \$allow_undefined_flag -o \$lib -bundle \$libobjs \$deplibs \$compiler_flags${_lt_dar_export_syms}${_lt_dsymutil}"
+@@ -14213,7 +14213,7 @@
+     flags_dbg_all="$flags_dbg_all -gdwarf-2"
+     flags_dbg_all="$flags_dbg_all -gvms"
+     flags_dbg_yes="-g"
+-    flags_dbg_off="-g0"
++    flags_dbg_off="-g"
+     flags_opt_all="-O -O0 -O1 -O2 -O3 -Os"
+     flags_opt_yes="-O2"
+     flags_opt_off="-O0"

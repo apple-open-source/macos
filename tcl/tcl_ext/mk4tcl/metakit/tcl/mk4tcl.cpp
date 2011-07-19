@@ -1,5 +1,5 @@
 // mk4tcl.cpp --
-// $Id: mk4tcl.cpp 4435 2008-08-01 19:58:42Z patthoyts $
+// $Id: mk4tcl.cpp 4452 2008-12-10 22:57:54Z patthoyts $
 // This is part of Metakit, see http://www.equi4.com/metakit.html
 
 #include "mk4tcl.h"
@@ -23,6 +23,10 @@
 //#else 
 //#define MyInitStubs(x) 1
 //#endif 
+
+#if 10 * TCL_MAJOR_VERSION + TCL_MINOR_VERSION < 86
+#define Tcl_GetErrorLine(interp) (interp)->errorLine
+#endif
 
 // definition of valid property name - alpha numerics, underscore, percent,
 // or any extended utf-8 character
@@ -2152,7 +2156,7 @@ int MkTcl::LoopCmd() {
         _error = TCL_OK;
       else if (_error == TCL_ERROR) {
         char msg[100];
-        sprintf(msg, "\n  (\"mk::loop\" body line %d)", interp->errorLine);
+        sprintf(msg, "\n  (\"mk::loop\" body line %d)", Tcl_GetErrorLine(interp));
         Tcl_AddObjErrorInfo(interp, msg,  - 1);
       }
       break;

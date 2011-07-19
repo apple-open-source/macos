@@ -38,18 +38,21 @@ private:
 
     virtual void subtreeHasChanged();
 
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
 
     virtual float getAvgCharWidth(AtomicString family);
     virtual int preferredContentWidth(float charWidth) const;
     virtual void adjustControlHeightBasedOnLineHeight(int lineHeight);
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox) const;
+    virtual int baselinePosition(FontBaseline, bool firstLine, LineDirectionMode, LinePositionMode = PositionOnContainingLine) const;
 
     virtual void updateFromElement();
     virtual void cacheSelection(int start, int end);
 
     virtual RenderStyle* textBaseStyle() const;
     virtual PassRefPtr<RenderStyle> createInnerTextStyle(const RenderStyle* startStyle) const;
+    virtual int textBlockInsetLeft() const;
+    virtual int textBlockInsetRight() const;
+    virtual int textBlockInsetTop() const;
 };
 
 inline RenderTextControlMultiLine* toRenderTextControlMultiLine(RenderObject* object)

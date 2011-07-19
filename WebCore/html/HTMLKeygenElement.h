@@ -2,7 +2,7 @@
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
  *           (C) 2000 Dirk Mueller (mueller@kde.org)
- * Copyright (C) 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -24,21 +24,35 @@
 #ifndef HTMLKeygenElement_h
 #define HTMLKeygenElement_h
 
-#include "HTMLSelectElement.h"
+#include "HTMLFormControlElement.h"
 
 namespace WebCore {
 
-class HTMLKeygenElement : public HTMLSelectElement {
-public:
-    HTMLKeygenElement(const QualifiedName&, Document*, HTMLFormElement* = 0);
+class HTMLSelectElement;
 
-    virtual int tagPriority() const { return 0; }
-    virtual const AtomicString& formControlType() const;
-    virtual bool isEnumeratable() const { return false; }
-    virtual void parseMappedAttribute(MappedAttribute*);
-    virtual bool appendFormData(FormDataList&, bool);
+class HTMLKeygenElement : public HTMLFormControlElementWithState {
+public:
+    static PassRefPtr<HTMLKeygenElement> create(const QualifiedName&, Document*, HTMLFormElement*);
+
+    virtual bool willValidate() const { return false; }
 
 private:
+    HTMLKeygenElement(const QualifiedName&, Document*, HTMLFormElement*);
+
+    virtual bool canStartSelection() const { return false; }
+
+    virtual void parseMappedAttribute(Attribute*);
+
+    virtual bool appendFormData(FormDataList&, bool);
+    virtual const AtomicString& formControlType() const;
+    virtual bool isOptionalFormControl() const { return false; }
+
+    virtual bool isEnumeratable() const { return true; }
+
+    virtual void reset();
+
+    HTMLSelectElement* shadowSelect() const;
+
     AtomicString m_challenge;
     AtomicString m_keyType;
 };

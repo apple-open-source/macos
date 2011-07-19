@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>org.dovecot.dovecotd</string>
+	<key>OnDemand</key>
+	<false/>
+	<key>Program</key>
+	<string>/usr/sbin/dovecotd</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>dovecotd</string>
+		<string>-F</string>
+	</array>
+	<key>ServiceIPC</key>
+	<false/>
+	<key>HardResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>8192</integer>
+	</dict>
+	<key>SoftResourceLimits</key>
+	<dict>
+		<key>NumberOfFiles</key>
+		<integer>8192</integer>
+	</dict>
+</dict>
+</plist>

@@ -34,7 +34,7 @@
  * Copyright (C) 2004
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: eventhandler.c 2377 2007-02-05 13:13:56Z rousseau $
+ * $Id: eventhandler.cpp 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**
@@ -204,7 +204,7 @@ LONG EHSpawnEventHandler(PREADER_CONTEXT rContext)
 	UCHAR ucAtr[MAX_ATR_SIZE];
 	DWORD dwAtrLen = 0;
 
-	secdebug("pcscd", "EHSpawnEventHandler: rContext: %p", rContext);
+	secdebug("pcscd", "EHSpawnEventHandler: rContext: 0x%p", rContext);
 	rv = IFDStatusICC(rContext, &dwStatus, ucAtr, &dwAtrLen);
 	if (rv != SCARD_S_SUCCESS)
 	{
@@ -262,7 +262,7 @@ void EHStatusHandlerThread(PREADER_CONTEXT rContext)
 	dwReaderSharing = 0;
 	dwCurrentState = 0;
 
-	secdebug("pcscd", "EHStatusHandlerThread: rContext: %p", rContext);
+	secdebug("pcscd", "EHStatusHandlerThread: rContext: 0x%p", rContext);
 	lpcReader = rContext->lpcReader;
 
 	PCSCD::SharedReaderState *rs = PCSCD::SharedReaderState::overlay(rContext->readerState);

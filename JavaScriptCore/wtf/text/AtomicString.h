@@ -32,13 +32,11 @@
 #define ATOMICSTRING_CONVERSION
 #endif
 
-// FIXME: This is a temporary layering violation while we move string code to WTF.
-// Landing the file moves in one patch, will follow on with patches to change the namespaces.
-namespace WebCore {
+namespace WTF {
 
 struct AtomicStringHash;
 
-class AtomicString : public FastAllocBase {
+class AtomicString {
 public:
     static void init();
 
@@ -73,10 +71,10 @@ public:
     bool contains(const String& s, bool caseSensitive = true) const
         { return m_string.contains(s, caseSensitive); }
 
-    int find(UChar c, int start = 0) const { return m_string.find(c, start); }
-    int find(const char* s, int start = 0, bool caseSentitive = true) const
+    size_t find(UChar c, size_t start = 0) const { return m_string.find(c, start); }
+    size_t find(const char* s, size_t start = 0, bool caseSentitive = true) const
         { return m_string.find(s, start, caseSentitive); }
-    int find(const String& s, int start = 0, bool caseSentitive = true) const
+    size_t find(const String& s, size_t start = 0, bool caseSentitive = true) const
         { return m_string.find(s, start, caseSentitive); }
     
     bool startsWith(const String& s, bool caseSensitive = true) const
@@ -97,7 +95,7 @@ public:
 
     static void remove(StringImpl*);
     
-#if PLATFORM(CF)
+#if USE(CF)
     AtomicString(CFStringRef s) :  m_string(add(String(s).impl())) { }
     CFStringRef createCFString() const { return m_string.createCFString(); }
 #endif    
@@ -109,6 +107,11 @@ public:
     AtomicString(const QString& s) : m_string(add(String(s).impl())) { }
     operator QString() const { return m_string; }
 #endif
+
+    // AtomicString::fromUTF8 will return a null string if
+    // the input data contains invalid UTF-8 sequences.
+    static AtomicString fromUTF8(const char*, size_t);
+    static AtomicString fromUTF8(const char*);
 
 private:
     String m_string;
@@ -124,19 +127,24 @@ private:
         return addSlowCase(r);
     }
     static PassRefPtr<StringImpl> addSlowCase(StringImpl*);
+    static AtomicString fromUTF8Internal(const char*, const char*);
 };
 
 inline bool operator==(const AtomicString& a, const AtomicString& b) { return a.impl() == b.impl(); }
 bool operator==(const AtomicString& a, const char* b);
+bool operator==(const AtomicString& a, const Vector<UChar>& b);
 inline bool operator==(const AtomicString& a, const String& b) { return equal(a.impl(), b.impl()); }
 inline bool operator==(const char* a, const AtomicString& b) { return b == a; }
 inline bool operator==(const String& a, const AtomicString& b) { return equal(a.impl(), b.impl()); }
+inline bool operator==(const Vector<UChar>& a, const AtomicString& b) { return b == a; }
 
 inline bool operator!=(const AtomicString& a, const AtomicString& b) { return a.impl() != b.impl(); }
 inline bool operator!=(const AtomicString& a, const char *b) { return !(a == b); }
 inline bool operator!=(const AtomicString& a, const String& b) { return !equal(a.impl(), b.impl()); }
+inline bool operator!=(const AtomicString& a, const Vector<UChar>& b) { return !(a == b); }
 inline bool operator!=(const char* a, const AtomicString& b) { return !(b == a); }
 inline bool operator!=(const String& a, const AtomicString& b) { return !equal(a.impl(), b.impl()); }
+inline bool operator!=(const Vector<UChar>& a, const AtomicString& b) { return !(a == b); }
 
 inline bool equalIgnoringCase(const AtomicString& a, const AtomicString& b) { return equalIgnoringCase(a.impl(), b.impl()); }
 inline bool equalIgnoringCase(const AtomicString& a, const char* b) { return equalIgnoringCase(a.impl(), b); }
@@ -147,26 +155,51 @@ inline bool equalIgnoringCase(const String& a, const AtomicString& b) { return e
 // Define external global variables for the commonly used atomic strings.
 // These are only usable from the main thread.
 #ifndef ATOMICSTRING_HIDE_GLOBALS
-    extern const JS_EXPORTDATA AtomicString nullAtom;
-    extern const JS_EXPORTDATA AtomicString emptyAtom;
-    extern const JS_EXPORTDATA AtomicString textAtom;
-    extern const JS_EXPORTDATA AtomicString commentAtom;
-    extern const JS_EXPORTDATA AtomicString starAtom;
-    extern const JS_EXPORTDATA AtomicString xmlAtom;
-    extern const JS_EXPORTDATA AtomicString xmlnsAtom;
+extern const JS_EXPORTDATA AtomicString nullAtom;
+extern const JS_EXPORTDATA AtomicString emptyAtom;
+extern const JS_EXPORTDATA AtomicString textAtom;
+extern const JS_EXPORTDATA AtomicString commentAtom;
+extern const JS_EXPORTDATA AtomicString starAtom;
+extern const JS_EXPORTDATA AtomicString xmlAtom;
+extern const JS_EXPORTDATA AtomicString xmlnsAtom;
+
+inline AtomicString AtomicString::fromUTF8(const char* characters, size_t length)
+{
+    if (!characters)
+        return nullAtom;
+    if (!length)
+        return emptyAtom;
+    return fromUTF8Internal(characters, characters + length);
+}
+
+inline AtomicString AtomicString::fromUTF8(const char* characters)
+{
+    if (!characters)
+        return nullAtom;
+    if (!*characters)
+        return emptyAtom;
+    return fromUTF8Internal(characters, 0);
+}
 #endif
 
-} // namespace WebCore
-
-
-namespace WTF {
-
-    // AtomicStringHash is the default hash for AtomicString
-    template<typename T> struct DefaultHash;
-    template<> struct DefaultHash<WebCore::AtomicString> {
-        typedef WebCore::AtomicStringHash Hash;
-    };
+// AtomicStringHash is the default hash for AtomicString
+template<typename T> struct DefaultHash;
+template<> struct DefaultHash<AtomicString> {
+    typedef AtomicStringHash Hash;
+};
 
 } // namespace WTF
 
+#ifndef ATOMICSTRING_HIDE_GLOBALS
+using WTF::AtomicString;
+using WTF::nullAtom;
+using WTF::emptyAtom;
+using WTF::textAtom;
+using WTF::commentAtom;
+using WTF::starAtom;
+using WTF::xmlAtom;
+using WTF::xmlnsAtom;
+#endif
+
+#include "StringConcatenate.h"
 #endif // AtomicString_h

@@ -14,21 +14,27 @@ GnuAfterInstall	= install-plist
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 
 # Specify the configure flags to use...
-Configure_Flags = --with-cups-build="cups-218.30" \
+Configure_Flags = --with-cups-build="cups-297" \
 		  --with-libcupsorder=/usr/local/lib/OrderFiles/libcups.2.order \
 		  --with-libcupsimageorder=/usr/local/lib/OrderFiles/libcupsimage.2.order \
 		  --enable-pie --disable-pap \
+		  --enable-webif \
 		  --with-archflags="$(RC_CFLAGS)" \
 		  --with-ldarchflags="`$(SRCROOT)/getldarchflags.sh $(RC_CFLAGS)` $(PPC_FLAGS)" \
 		  --with-adminkey="system.print.admin" \
 		  --with-operkey="system.print.operator" \
 		  --with-pam-module=opendirectory \
+		  --with-privateinclude=/usr/local/include \
 		  --disable-bannertops --disable-pdftops --disable-texttops \
 		  $(Extra_Configure_Flags)
 
+# Add "--enable-debug-guards" during OS development, remove for production...
+#		  --enable-debug-guards \
+
 # CUPS is able to build 1/2/3/4-way fat on its own, so don't override the
 # compiler flags in make, just in configure...
-Environment	=
+Environment	=	CC=`$(SRCROOT)/getcompiler.sh cc` \
+			CXX=`$(SRCROOT)/getcompiler.sh cxx`
 
 # The default target installs programs and data files...
 Install_Target	= install-data install-exec
@@ -66,7 +72,8 @@ install-clean: $(Sources)/Makedefs
 $(Sources)/Makedefs:	$(Sources)/configure $(Sources)/Makedefs.in \
 			$(Sources)/config.h.in $(Sources)/cups-config.in
 	@echo "Configuring $(Project)..."
-	$(_v) cd $(Sources) && $(Environment) LD_TRACE_FILE=/dev/null $(Configure) $(Configure_Flags)
+	$(_v) cd $(Sources) && $(Environment) LD_TRACE_FILE=/dev/null \
+		$(Configure) $(Configure_Flags)
 
 # Install everything.
 install-all: configure

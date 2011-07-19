@@ -1,0 +1,23 @@
+.TH XvFreeAdaptorInfo __libmansuffix__ __vendorversion__ "libXv Functions"
+.SH NAME
+XvFreeAdaptorInfo \- free adaptor information
+.\"
+.SH SYNOPSIS
+.BI "void XvFreeAdaptorInfo(XvAdaptorInfo *" p_adaptor_info ");"
+.SH ARGUMENTS
+.\"
+.IP \fIp_adaptor_info\fR 8
+Pointer to where the adaptor information is located.
+.\"
+.SH DESCRIPTION
+.\"
+.BR XvFreeAdaptorInfo (__libmansuffix__)
+frees adaptor information that was returned by
+.BR XvQueryAdaptors (__libmansuffix__).
+The data structure used for adaptor information is defined in the
+reference page for
+.BR XvQueryAdaptors (__libmansuffix__).
+.SH SEE ALSO
+.\"
+.BR XvQueryAdaptors (__libmansuffix__),
+.BR XvFreeEncodingInfo (__libmansuffix__)

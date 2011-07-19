@@ -1,6 +1,6 @@
---- _SB/Libc/compat-43/FreeBSD/gethostid.3	2004-11-25 11:37:56.000000000 -0800
-+++ _SB/Libc/compat-43/FreeBSD/gethostid.3.edit	2006-06-28 16:55:50.000000000 -0700
-@@ -51,11 +51,9 @@
+--- gethostid.3.orig	2009-11-06 10:36:38.000000000 -0800
++++ gethostid.3	2009-11-06 10:41:15.000000000 -0800
+@@ -47,11 +47,9 @@
  The
  .Fn sethostid
  function

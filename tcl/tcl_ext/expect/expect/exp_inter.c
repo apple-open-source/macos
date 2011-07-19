@@ -45,6 +45,11 @@ would appreciate credit if this program or parts of it are used.
 #include "exp_log.h"
 #include "exp_event.h" /* exp_get_next_event decl */
 
+/* Tcl 8.5+ moved this internal - needed for when I compile expect against 8.5. */
+#ifndef TCL_REG_BOSONLY
+#define TCL_REG_BOSONLY 002000
+#endif
+
 typedef struct ThreadSpecificData {
     Tcl_Obj *cmdObjReturn;
     Tcl_Obj *cmdObjInterpreter;

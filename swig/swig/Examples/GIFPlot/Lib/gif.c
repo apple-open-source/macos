@@ -56,7 +56,7 @@
  * memory overhead.
  *
  * -- Revision History 
- * $Log: gif.c,v $
+ * $Log$
  * Revision 1.2  2003/09/01 16:23:31  beazley
  * Restored the 'mojo'.
  *
@@ -268,7 +268,7 @@ static int maxmaxcode = 1 << GP_BITS; /* NEVER generate this */
 
 static  count_int      *htab;
 static  unsigned short *codetab;
-static  GIFOutBufSize;
+static  int GIFOutBufSize;
 
 /* static  count_int      htab [HSIZE];
 static  unsigned short codetab [HSIZE]; */
@@ -656,7 +656,11 @@ int FrameBuffer_writeGIF(FrameBuffer *f, ColorMap *c, char *filename) {
     fclose(file);
     return -1;
   }
-  fwrite(buffer,nbytes,1,file);
+  if (fwrite(buffer,nbytes,1,file) != 1) {
+    free(buffer);
+    fclose(file);
+    return -1;
+  }
   fclose(file);
   free(buffer);
   return 0;

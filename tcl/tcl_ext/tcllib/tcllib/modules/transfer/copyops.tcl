@@ -139,30 +139,43 @@ proc ::transfer::copy::doChan {in out ov} {
     set state [CGet $out]
     Configure $out [array get settings]
     upvar 0 settings(-progress) progress
+    upvar 0 settings(-blocksize) blocksize
 
     if {$size > 0} {
-	fcopy $in $out -size $size -command \
+	if {$blocksize < $size} {
+	    set n $blocksize
+	} else {
+	    set n $size
+	}
+
+	fcopy $in $out -size $n -command \
 		[list \
-		::transfer::copy::HandlerChan \
-		$size $progress $command \
-		$in $out $state]
+		     ::transfer::copy::HandlerChan \
+		     $n $size $size 0 \
+		     $progress $command \
+		     $in $out $state]
     } else {
-	fcopy $in $out -command [list \
-		::transfer::copy::HandlerChan \
-		$size $progress $command \
-		$in $out $state]
-	return
+	fcopy $in $out -size $blocksize -command \
+	    [list \
+		 ::transfer::copy::HandlerChan \
+		 $blocksize $size $size 0 \
+		 $progress $command \
+		 $in $out $state]
     }
+    return
 }
 
 proc ::transfer::copy::HandlerChan {
-    size progress command
+    blocksize remainder size total
+    progress command
     in out state
     transfered args
 } {
+    incr total $transfered
+
     # Progress
     if {[llength $progress]} {
-	Run progress $transfered
+	Run progress $total
     }
 
     # Error signaled ?
@@ -170,18 +183,18 @@ proc ::transfer::copy::HandlerChan {
 	# Restore channel state and then propagate the problem
 	# forward.
 	Configure $out $state
-	Run command $transfered [lindex $args 0]
+	Run command $total [lindex $args 0]
 	return
     }
 
     # How much transfered, have we transfered everything ?
 
-    if {($size >= 0) && ($size <= $transfered)} {
+    if {($remainder >= 0) && ($size <= $total)} {
 	# Everything has been transfered, trigger completion
 	# callback. The caller has to close the output channel!
 
 	Configure $out $state
-	Run command $transfered
+	Run command $total
 	return
     }
 
@@ -192,16 +205,38 @@ proc ::transfer::copy::HandlerChan {
 
 	Configure $out $state
 	if {$size < 0} {
-	    Run command $transfered
+	    Run command $total
 	} else {
-	    Run command $transfered \
-		    "Transfer aborted, not\
-		    enough input"
+	    Run command $total \
+		"Transfer aborted, not enough input"
 	}
 	return
     }
 
-    # Wait for more callbacks.
+    # Restart, for next chunk.
+    if {$size > 0} {
+	incr remainder -$blocksize
+	if {$blocksize < $remainder} {
+	    set n $blocksize
+	} else {
+	    set n $remainder
+	}
+	puts \tnext=$n
+
+	fcopy $in $out -size $n -command \
+	    [list \
+		 ::transfer::copy::HandlerChan \
+		 $blocksize $remainder $size $total \
+		 $progress $command \
+		 $in $out $state]
+    } else {
+	fcopy $in $out -size $blocksize -command \
+	    [list \
+		 ::transfer::copy::HandlerChan \
+		 $blocksize $remainder $size $total \
+		 $progress $command \
+		 $in $out $state]
+    }
     return
 }
 
@@ -351,4 +386,4 @@ proc ::transfer::copy::Configure {chan settings} {
 # ### ### ### ######### ######### #########
 ## Ready
 
-package provide transfer::copy 0.2
+package provide transfer::copy 0.3

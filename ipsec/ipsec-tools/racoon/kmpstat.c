@@ -39,11 +39,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -190,7 +186,7 @@ bad1:
  * Dumb plog functions (used by sockmisc.c) 
  */
 void
-plog(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
+plog_func(int pri, const char *func, struct sockaddr *sa, const char *fmt, ...)
 {
 	va_list ap;
 

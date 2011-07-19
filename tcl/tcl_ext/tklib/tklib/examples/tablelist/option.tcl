@@ -1,7 +1,7 @@
 #==============================================================================
 # Contains some Tk option database settings.
 #
-# Copyright (c) 2004-2008  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
+# Copyright (c) 2004-2010  Csaba Nemethi (E-mail: csaba.nemethi@t-online.de)
 #==============================================================================
 
 #
@@ -18,20 +18,15 @@ if {[catch {tk windowingsystem} winSys] != 0} {
 #
 # Add some entries to the Tk option database
 #
-switch $winSys {
-    x11 {
-	#
-	# Create the font TkDefaultFont if not yet present
-	#
-	catch {font create TkDefaultFont -family Helvetica -size -12}
+if {[string compare $winSys "x11"] == 0} {
+    #
+    # Create the font TkDefaultFont if not yet present
+    #
+    catch {font create TkDefaultFont -family Helvetica -size -12}
 
-	option add *Font		TkDefaultFont
-	option add *selectBackground	#678db2
-	option add *selectForeground	white
-    }
-    classic {
-	option add *background		#dedede
-    }
+    option add *Font			TkDefaultFont
+    option add *selectBackground	#678db2
+    option add *selectForeground	white
 }
 option add *Tablelist.background	gray98
 option add *Tablelist.stripeBackground	#e0e8f0

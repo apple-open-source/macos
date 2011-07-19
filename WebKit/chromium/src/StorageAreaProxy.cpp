@@ -25,6 +25,10 @@
  */
 
 #include "config.h"
+
+// FIXME: Remove this define!
+#define LOOSE_OWN_PTR
+
 #include "StorageAreaProxy.h"
 
 #if ENABLE(DOM_STORAGE)
@@ -41,9 +45,11 @@
 #include "StorageEvent.h"
 
 #include "WebFrameImpl.h"
+#include "WebPermissionClient.h"
 #include "WebStorageArea.h"
 #include "WebString.h"
 #include "WebURL.h"
+#include "WebViewImpl.h"
 
 namespace WebCore {
 
@@ -76,12 +82,17 @@ String StorageAreaProxy::setItem(const String& key, const String& value, Excepti
 {
     WebKit::WebStorageArea::Result result = WebKit::WebStorageArea::ResultOK;
     WebKit::WebString oldValue;
-    WebKit::WebFrame* webFrame = WebKit::WebFrameImpl::fromFrame(frame);
-    m_storageArea->setItem(key, value, frame->document()->url(), result, oldValue, webFrame);
-    ec = (result == WebKit::WebStorageArea::ResultOK) ? 0 : QUOTA_EXCEEDED_ERR;
-    String oldValueString = oldValue;
-    if (oldValueString != value && result == WebKit::WebStorageArea::ResultOK)
-        storageEvent(key, oldValue, value, m_storageType, frame->document()->securityOrigin(), frame);
+    WebKit::WebFrameImpl* webFrame = WebKit::WebFrameImpl::fromFrame(frame);
+    WebKit::WebViewImpl* webView = webFrame->viewImpl();
+    if (webView->permissionClient() && !webView->permissionClient()->allowStorage(webFrame, m_storageType == LocalStorage))
+        ec = QUOTA_EXCEEDED_ERR;
+    else {
+        m_storageArea->setItem(key, value, frame->document()->url(), result, oldValue, webFrame);
+        ec = (result == WebKit::WebStorageArea::ResultOK) ? 0 : QUOTA_EXCEEDED_ERR;
+        String oldValueString = oldValue;
+        if (oldValueString != value && result == WebKit::WebStorageArea::ResultOK)
+            storageEvent(key, oldValue, value, m_storageType, frame->document()->securityOrigin(), frame);
+    }
     return oldValue;
 }
 
@@ -129,7 +140,7 @@ void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, c
             ExceptionCode ec = 0;
             Storage* storage = frames[i]->domWindow()->sessionStorage(ec);
             if (!ec)
-                frames[i]->document()->enqueueEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, sourceFrame->document()->url(), storage));
+                frames[i]->document()->enqueueWindowEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, sourceFrame->document()->url(), storage));
         }
     } else {
         // Send events to every page.
@@ -146,7 +157,7 @@ void StorageAreaProxy::storageEvent(const String& key, const String& oldValue, c
             ExceptionCode ec = 0;
             Storage* storage = frames[i]->domWindow()->localStorage(ec);
             if (!ec)
-                frames[i]->document()->enqueueEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, sourceFrame->document()->url(), storage));
+                frames[i]->document()->enqueueWindowEvent(StorageEvent::create(eventNames().storageEvent, key, oldValue, newValue, sourceFrame->document()->url(), storage));
         }
     }
 }

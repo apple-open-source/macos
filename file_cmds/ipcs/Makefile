@@ -4,7 +4,7 @@ Install_Dir = /usr/bin
 CFILES = ipcs.c
 MANPAGES = ipcs.1
 
-Extra_CC_Flags = -Werror -Wall -mdynamic-no-pic \
+Extra_CC_Flags = -Werror -Wall \
         -D__FBSDID=__RCSID \
 	-iquote \
 	"$(SDKROOT)/System/Library/Frameworks/Kernel.framework/PrivateHeaders" \

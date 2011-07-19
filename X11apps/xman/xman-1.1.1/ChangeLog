@@ -1,0 +1,719 @@
+commit bee5d67ab054decda85e2ba2fc70cf8a53b74fcd
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 17:31:47 2010 -0700
+
+    xman 1.1.1
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 689cb1e03b0feb46bf198a468e4cc5c91ff59aa6
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 17:29:22 2010 -0700
+
+    config: Remove unnecessary calls from configure.ac
+    
+    AC_PROG_CC & AC_PROG_INSTALL are provided by XORG_DEFAULT_OPTIONS now
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 98f366e764334a853b291b84856996e3dfad8959
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Sat Oct 30 17:28:38 2010 -0700
+
+    config: upgrade to util-macros 1.8 for additional man page support
+    
+    Use MAN_SUBST now supplied in XORG_MANPAGE_SECTIONS
+    The value of MAN_SUBST is the same for all X.Org packages.
+    
+    Use AC_PROG_SED now supplied by XORG_DEFAULT_OPTIONS
+    Enables use of platform appropriate version of sed.
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 8d75f5d9e4c2c1f819dfc4e523ad88a2a0b0e251
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Oct 30 17:28:03 2010 -0700
+
+    config: update AC_PREREQ statement to 2.60
+    
+    Unrelated to the previous patches, the new value simply reflects
+    the reality that the minimum level for autoconf to configure
+    all x.org modules is 2.60 dated June 2006.
+    
+    ftp://ftp.gnu.org/gnu/autoconf/autoconf-2.60.tar.gz
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit fd30b754d17685ad971294ce31e34de5fede5a25
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sun Aug 8 12:00:53 2010 -0400
+
+    config: update direct dependencies for xman
+    
+    Depends on xproto through the inclusion of X.h.
+    Depends on Xaw through the inclusion of List.h
+    Depends on Xmu through the inclusion of Xmu/Misc.h
+    Depends on Xt through the inclusion of Intrinsic.h
+    
+    PKG_CHECK_MODULES calls AC_SUBST for CFLAGS and LIBS
+    
+    Reviewed-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 96224f67f30830c2b49045313dfa746d155c56bf
+Author: Alan Coopersmith <alan.coopersmith@oracle.com>
+Date:   Fri Aug 6 15:08:24 2010 -0700
+
+    Fill in COPYING file with copyright notices from source code
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@oracle.com>
+
+commit 522ee7a23d31a0a0e359922d1194214db215bb6f
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Feb 10 17:28:55 2010 -0500
+
+    make: remove version.h from xman_SOURCES
+    
+    Commit cac7f814053ddbc8ec14666cfe85adc34344220f
+    removed the file from git.
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit b36ab48574afae17c7701bc55a3a0d6a971c3ced
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Sat Dec 19 20:48:48 2009 -0500
+
+    configure.ac: use backticks rather than $() for cmd subs
+    
+    Use "$PKG_CONFIG" rather than hard coded "pkg-config"
+    
+    Signed-off-by: Gaetan Nadon <memsize@videotron.ca>
+
+commit 9b52967330f1c6466a5b8729ad36a0a96b3dcd62
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Nov 26 09:19:54 2009 -0500
+
+    Makefile.am: add ChangeLog and INSTALL on MAINTAINERCLEANFILES
+    
+    Now that the INSTALL file is generated.
+    Allows running make maintainer-clean.
+
+commit 05e1d899bc5df593b2fff79753aa7a53a8cc18aa
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Wed Oct 28 14:09:08 2009 -0400
+
+    INSTALL, NEWS, README or AUTHORS files are missing/incorrect #24206
+    
+    Add missing INSTALL file. Use standard GNU file on building tarball
+    README may have been updated
+    Remove AUTHORS file as it is empty and no content available yet.
+    Remove NEWS file as it is empty and no content available yet.
+
+commit 8cdd724d38f63ca07b75e106db3d087c53f67eed
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Mon Oct 26 22:08:39 2009 -0400
+
+    Makefile.am: ChangeLog not required: EXTRA_DIST or *CLEANFILES #24432
+    
+    ChangeLog filename is known to Automake and requires no further
+    coding in the makefile.
+
+commit 350724e6ee4a77586fcd8f026305a72cb3a9d3ca
+Author: Gaetan Nadon <memsize@videotron.ca>
+Date:   Thu Oct 22 12:34:15 2009 -0400
+
+    .gitignore: use common defaults with custom section # 24239
+    
+    Using common defaults will reduce errors and maintenance.
+    Only the very small or inexistent custom section need periodic maintenance
+    when the structure of the component changes. Do not edit defaults.
+
+commit cac7f814053ddbc8ec14666cfe85adc34344220f
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Tue Oct 27 22:45:12 2009 +0100
+
+    Fix version display.
+    
+    Reviewed-by: Peter Hutterer <peter.hutterer@who-t.net>
+    
+    Signed-off-by: Matthieu Herrb <matthieu.herrb@laas.fr>
+
+commit b82eb1279acc60f9ebb93730ac002dfde2118a4b
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Fri Oct 16 14:10:04 2009 -0700
+
+    xman 1.1.0
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 2983ab485ff3fd68ff33d81f9fa46977ec724ac6
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 15 18:20:41 2009 -0700
+
+    Migrate to xorg macros 1.3 & XORG_DEFAULT_OPTIONS
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 6c4d017430014699b5e108f10765e89bcc3f41cf
+Author: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+Date:   Thu Oct 15 16:09:44 2009 -0500
+
+    Cygwin uses Linux-style man
+    
+    Signed-off-by: Yaakov Selkowitz <yselkowitz@users.sourceforge.net>
+
+commit 44334f70b6623395bbef78513f712dbbf5cbfba0
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Thu Oct 1 14:54:27 2009 -0700
+
+    Add README with pointers to mailing lists, bugzilla, & git
+    
+    Signed-off-by: Alan Coopersmith <alan.coopersmith@sun.com>
+
+commit 86e63ab1821387f6fcf3fce506357f76ad8dd194
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Thu Jan 17 17:42:12 2008 -0200
+
+    Add lzma manpage extension support.
+    
+    This should really be handled by the existing code to handle multiple
+    extension formats...
+
+commit e4b0097161ec84b288ca480149ed0185e742d7a3
+Author: Paulo Cesar Pereira de Andrade <pcpa@mandriva.com.br>
+Date:   Tue Jan 13 18:16:03 2009 -0200
+
+    Ansification and compile warning fixes.
+    
+      This also uses XORG_CHANGELOG and XORG_CWARNFLAGS, and corrects
+    make distcheck.
+
+commit 3afab6ff3cd896514d3bb733244e3bb9640d1e7c
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Sat Nov 8 15:03:18 2008 -0800
+
+    Apple: Added Tiger's man.conf location to the search path
+
+commit 5722ca728763e7ec57088593e76ba84db61a726c
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Thu Aug 21 00:38:27 2008 +0200
+
+    Remove xprint remnants
+
+commit f3579250f8aa332f2015cb1352ed8b7373eb10db
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Wed Aug 20 10:32:52 2008 -0400
+
+    xaw8 is gone, use xaw7
+
+commit 74dbdc66607017cd9ba3c2c3dba4a5536332fabb
+Author: Julien Cristau <jcristau@debian.org>
+Date:   Fri Mar 28 11:53:13 2008 +0100
+
+    Use AM_CFLAGS instead of xman_CFLAGS and remove AM_PROG_CC_C_O
+
+commit 6c9f3307ba95604654d0f0227b7e0457ef4bc47f
+Author: Jeremy Huddleston <jeremyhu@freedesktop.org>
+Date:   Thu Mar 27 20:15:54 2008 -0700
+
+    Build fix for case insensitive file systems
+    Also added AM_PROG_CC_C_O
+
+commit dbfa16889ae66d5880e23c9a63f8385896512020
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Sat Feb 9 21:53:14 2008 -0500
+
+    Allow xman to use bzip2 to decompress man pages
+    
+    Patch is from Mandriva as posted to bugzilla bug 14400.
+    
+    Use bunzip2(1) to decompress man pages, akin to the current
+    support for gzip(1)ed pages.
+
+commit 2d03acacffae87865201991fc9ef44a7208ccb8f
+Author: James Cloos <cloos@jhcloos.com>
+Date:   Thu Dec 6 16:37:24 2007 -0500
+
+    Replace static ChangeLog with dist-hook to generate from git log
+
+commit 137a0fd2e258d9337049263895b1d6142af3a464
+Author: Jeremy C. Reed <reed@glacier.reedmedia.net>
+Date:   Thu Aug 16 11:45:37 2007 -0500
+
+    Allow xman to be cross build by adding a ./configure
+    --with-manconfig=<filename> option.
+    (Based on discussion on xorg list at end of July.)
+
+commit 8077ab96dbb30ec5b5b4bbc67124fc6f2681cdb5
+Author: Matthieu Herrb <matthieu@localhost.localdomain>
+Date:   Fri Aug 10 16:19:58 2007 +0200
+
+    Bump version for release
+
+commit 112a1b17708c8213cb19f31934458c19dd31f360
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jan 3 20:26:26 2007 -0800
+
+    renamed: .cvsignore -> .gitignore
+
+commit bede0f3651f51ce5bc99a2d6543664e3817d14f4
+Author: Alan Coopersmith <alan.coopersmith@sun.com>
+Date:   Wed Jan 3 20:25:54 2007 -0800
+
+    Sun Bug 6504978: xman on Solaris x86 does not render correctly, nroff visible
+    
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6504978>
+
+commit 7e0441a748aa62459bc74b08196e48e89860123e
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Sun Apr 2 01:13:58 2006 +0000
+
+    Bump to 1.0.2.
+
+commit d76e42586ff3032b1427b9c130ed65c09078f4e4
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Jan 6 22:39:24 2006 +0000
+
+    <http://bugs.opensolaris.org/bugdatabase/view_bug.do?bug_id=6240826> Sun
+        bug 6240826: xman typo: 'geometery' in usage message (Sam Lau)
+
+commit d0b90cd56262986a6b8a57d91f1f833d3039bc9e
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 21 02:29:52 2005 +0000
+
+    Update package version for X11R7 release.
+
+commit e8eb7902e02e7ccad9ddd32eb517d989f90b3fa3
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 20 21:54:20 2005 +0000
+
+    Bump hardcoded version number.
+
+commit cf34c7ba82f1aa7d25d1d7e9ad70aea39c05d780
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Mon Dec 19 16:22:46 2005 +0000
+
+    Stub COPYING files
+
+commit 4676f39901599df979f6a5da84234e76a713b583
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 15 00:24:09 2005 +0000
+
+    Update package version number for final X11R7 release candidate.
+
+commit 28b5296571c67d70d8808e2f80d2c3f51fba15b6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Dec 8 17:55:17 2005 +0000
+
+    Add configure options to allow hard-coded paths to be changed.
+
+commit 898dc25befe1d90e36e3735b011039745176e861
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Dec 7 16:18:01 2005 +0000
+
+    Change to use the app-defaults default dir configured in libXt.
+
+commit 60093efc850bea280c2931f81b90ee8d83a21df6
+Author: Kevin E Martin <kem@kem.org>
+Date:   Tue Dec 6 22:48:24 2005 +0000
+
+    Change *man_SOURCES ==> *man_PRE to fix autotools warnings.
+
+commit 3863a37b310d213e58732d6a5c9c7c878cdf1a8d
+Author: Kevin E Martin <kem@kem.org>
+Date:   Sat Dec 3 05:49:26 2005 +0000
+
+    Update package version number for X11R7 RC3 release.
+
+commit e0dfbe139da41143cdfc3c222110db790f160f3e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Nov 28 22:01:44 2005 +0000
+
+    Change *mandir targets to use new *_MAN_DIR variables set by xorg-macros.m4
+        update to fix bug #5167 (Linux prefers *.1x man pages in man1 subdir)
+
+commit e4156c926662a13bea5c59ecfc128dfd5b5f988c
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Mon Nov 21 10:35:02 2005 +0000
+
+    Another pass at .cvsignores for apps.
+
+commit 1a530f943936c8fe145e00567406a6c321dd9176
+Author: Eric Anholt <anholt@freebsd.org>
+Date:   Sun Nov 20 22:08:54 2005 +0000
+
+    Add/improve .cvsignore files for apps.
+
+commit d373967af861fb2c97dde15e56f13f575acc48da
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sun Nov 20 04:13:45 2005 +0000
+
+    Add dependency on xp module when building with Xprint support.
+
+commit 4b7d00e52f22d0c98152bc47f47a317619175ae9
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Nov 9 21:09:22 2005 +0000
+
+    Update package version number for X11R7 RC2 release.
+
+commit aaca206527e4fe4e3a825daae4261554681cec58
+Author: Kean Johnson <kean@armory.com>
+Date:   Tue Nov 8 06:33:33 2005 +0000
+
+    See ChangeLog entry 2005-11-07 for details.
+
+commit 61785b3b0421ab82f88671dd5d515579cd5d8243
+Author: Kevin E Martin <kem@kem.org>
+Date:   Wed Oct 19 02:47:56 2005 +0000
+
+    Update package version number for RC1 release.
+
+commit 4c5fda0874b94edf9189eb84839e9ae46df99df6
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Tue Oct 18 00:32:54 2005 +0000
+
+    Change default install dir for app-default files from
+        $(sysconfdir)/X11/app-defaults to $(libdir)/X11/app-defaults to match
+        the monolith & allow localization
+
+commit 009cf19ab0940f771eb5967a8f6528f20333b597
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Oct 17 23:56:24 2005 +0000
+
+    Use @APP_MAN_SUFFIX@ instead of $(APP_MAN_SUFFIX) in macro substitutions to
+        work better with BSD make
+
+commit 58076d1a51b69c6ef84258b2e3c4361fd6ac30e8
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Fri Oct 14 00:25:47 2005 +0000
+
+    Use sed to fill in variables in man page
+
+commit 41f684bf50fea4b96ebea38e728bb771b83dc736
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Mon Aug 1 20:25:30 2005 +0000
+
+    Install man pages to section 1 instead of section m (Patch from Donnie
+        Berkholz)
+
+commit f1b20d6d1578c6c57eed9fb81fd8d28282fc8bcc
+Author: Kevin E Martin <kem@kem.org>
+Date:   Fri Jul 29 21:22:36 2005 +0000
+
+    Various changes preparing packages for RC0:
+    - Verify and update package version numbers as needed
+    - Implement versioning scheme
+    - Change bug address to point to bugzilla bug entry form
+    - Disable loadable i18n in libX11 by default (use --enable-loadable-i18n to
+        reenable it)
+    - Fix makedepend to use pkgconfig and pass distcheck
+    - Update build script to build macros first
+    - Update modular Xorg version
+
+commit c42be410ac62efc0252fae37b4ed1fb9d30bd457
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 28 23:16:55 2005 +0000
+
+    Set default man path for Solaris.
+
+commit f4f185f8700de48dcb5b888cd113dcb9aff91829
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Thu Jul 28 22:47:57 2005 +0000
+
+    Install xman.help Attempt to determine man page configuration file location
+        and format (based on Imake MANCONFIGSTYLE and MANCONF settings - needs
+        testing on various Linux & BSD flavors to see if I translated
+        correctly)
+
+commit 7a3bd9a41a227ad0590d4104fd8ecc21e2099cd0
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Sat Jul 23 16:48:10 2005 +0000
+
+    fix remainig DEP_{CFLAGS,LIBS} references
+
+commit caa0a44964149cdbe1e3585b7799540e0827b4fc
+Author: Adam Jackson <ajax@nwnk.net>
+Date:   Wed Jul 20 19:32:02 2005 +0000
+
+    Use a unique token for PKG_CHECK_MODULES. Otherwise, if you use a global
+        configure cache, you cache it, and the cached value is probably wrong.
+
+commit 0423e9c256b9fd808e09f306e9b7b668c799ed45
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 22:07:13 2005 +0000
+
+    Add #ifdef HAVE_CONFIG_H/#include "config.h" to files that need it to get
+        HAS_MKSTEMP defined in modular builds.
+
+commit eb70952e2e8c3d103f8fcb3012328e542337c87a
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat Jul 16 21:59:14 2005 +0000
+
+    Define HAS_MKSTEMP if mkstemp() is present (needed for improved protection
+        against tempfile race conditions in many places)
+
+commit 622dfb510ce2896a79418a6227a8af634827b796
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Thu Jul 14 22:40:16 2005 +0000
+
+    Add _BSD_SOURCE to lots of applications - patch from Stefan Dirsch
+
+commit 6698505ac69196e38e1187c54204fb84ff6effe2
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Wed Jul 6 14:14:10 2005 +0000
+
+    Make Xman build again.
+    - Use $xaw_use_xprint instead of $XAW_USE_XPRINT
+    - Generate Xman by linking from either Xman-xprint.ad or Xman-noxprint.ad
+        Both pointed out by Stefan Dirsch.
+
+commit fb0ffe45044025c82e1597b9cff7f8e1b2f216e6
+Author: Søren Sandmann Pedersen <sandmann@daimi.au.dk>
+Date:   Tue Jul 5 22:51:11 2005 +0000
+
+    Add build systems for xlogo, xlsatoms, xlsclients, xmag, xman, xmessage,
+        xmh, xmore. lib/Xaw/xaw.m4: Add an AM_CONDITIONAL and a shell variable
+        xaw_use_xprint symlink.sh: add some extra files for xgc, xinit,
+        xkbcomp, xlogo, xmb, and xmodmap xc/programs/xmore/xmore.c:
+        Conditionalize use of xprint
+
+commit feaa900afe02312131f4f6f503fe6efa85a41eba
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Apr 11 01:06:15 2005 +0000
+
+    xc/programs/Xserver/Xprint/attributes.c
+    xc/programs/glxgears/glxgears.c
+    xc/programs/xdbedizzy/xdbedizzy.c
+    xc/programs/xedit/Imakefile
+    xc/programs/xedit/Xedit-xprint.ad
+    xc/programs/xedit/util.c
+    xc/programs/xedit/xedit.h
+    xc/programs/xlogo/print.c
+    xc/programs/xlogo/xlogo.c
+    xc/programs/xlogo/xlogo.h
+    xc/programs/xman/Imakefile
+    xc/programs/xman/print.h
+    xc/programs/xmore/Imakefile
+    xc/programs/xmore/print.c
+    xc/programs/xmore/print.h
+    xc/programs/xmore/printdialog.c
+    xc/programs/xphelloworld/xpawhelloworld/xpawhelloworld.c
+    xc/programs/xphelloworld/xphelloworld/xphelloworld.c
+    xc/programs/xphelloworld/xpsimplehelloworld/xpsimplehelloworld.c
+    xc/programs/xphelloworld/xpxmhelloworld/xpxmhelloworld.c
+    //bugs.freedesktop.org/show_bug.cgi?id=790) attachment #2379
+        (https://bugs.freedesktop.org/attachment.cgi?id=2379) Implement support
+        client+Xserver support for passing output (stdout+stderr) of the
+        spooler command started by the Xprint server back to the application
+        using the "xp-spooler-command-results" XPJobAttr attribute
+        (applications can fetch the attribute value after the XPEndJobNotify
+        event was received; more details can be found in
+        http://xprint.mozdev.org/docs/dtprint_fspec.ps).
+
+commit 821677f646bcaee8b5e4759d97909d05120de4d2
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Sat Apr 9 06:42:15 2005 +0000
+
+    //bugs.freedesktop.org/show_bug.cgi?id=2942) attachment #2360
+        (https://bugs.freedesktop.org/attachment.cgi?id=2360) Fix possible
+        crash due uninitalised structure when "xman" opens the print dialog.
+
+commit a42a211aba369513bf31d6d34c966c36c1ccc714
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Mon Jan 3 01:06:35 2005 +0000
+
+    xc/lib/XprintAppUtil/xpapputil.c
+    xc/lib/XprintAppUtil/xpapputil.h
+    xc/lib/XprintUtil/xprintutil.c
+    xc/lib/XprintUtil/xprintutil.h
+    xc/programs/glxgears/glxgears.c
+    xc/programs/xdbedizzy/xdbedizzy.c
+    xc/programs/xedit/Xedit-xprint.ad
+    xc/programs/xedit/commands.c
+    xc/programs/xlogo/print.c
+    xc/programs/xlsfonts/xlsfonts.c
+    xc/programs/xlsfonts/xlsfonts.man
+    xc/programs/xlsfonts/xlsfonts.sgml
+    xc/programs/xman/Xman-xprint.ad
+    xc/programs/xman/handler.c
+    xc/programs/xman/print.c
+    xc/programs/xman/print.h
+    xc/programs/xmore/XMore.ad
+    xc/programs/xmore/print.c
+    xc/programs/xmore/print.h
+    xc/programs/xmore/printdialog.c
+    xc/programs/xmore/printdialog.h
+    xc/programs/xmore/printdialogprivates.h
+    xc/programs/xmore/xmore.c
+    xc/programs/xphelloworld/xpawhelloworld/xpawhelloworld.c
+    xc/programs/xphelloworld/xphelloworld/xphelloworld.c
+    xc/programs/xphelloworld/xpsimplehelloworld/xpsimplehelloworld.c
+    xc/programs/xphelloworld/xpxmhelloworld/xpxmhelloworld.c
+    xc/programs/xphelloworld/xpxthelloworld/xpxthelloworld.c
+    xc/programs/xplsprinters/xplsprinters.c
+    //bugs.freedesktop.org/show_bug.cgi?id=1706) attachment #1615
+        (https://bugs.freedesktop.org/attachment.cgi?id=1615): XprintUtils
+        2004/Q3 update. This adds various new features to the XprintUtils
+        library including support for page resolutions where
+        X_resolution!=Y_resolution, listfonts-mode control and initial
+        framework for the COLORSPACE extension. Patch by Roland Mainz
+        <roland.mainz@nrubsig.org> and Julien Lafon <julien.lafon@gmail.com>.
+
+commit 6abedd2bce33d244546a3efed44beb95c6571157
+Author: Egbert Eich <eich@suse.de>
+Date:   Mon Oct 18 14:21:47 2004 +0000
+
+    Made handling of DevelDrivers for x86-64 more conformant to other
+        platforms.
+    Compress all font encodings (Stefan Dirsch).
+    Fixed warnings.
+    Turn on forwarding XNSpotLocation event to XIM server in OffTheSpot and
+        Root mode (bugzilla #1580, James Su).
+    Added another compose key combination for the Euro symbol (Stefan Dirsch).
+    Added support for UTF-8 in ja_JP, ko_KR and zh_TW locales (Mike Fabian).
+    Changed default encoding for ru from KOI8-R to ISO8859-5 (Mike Fabian).
+        This is the encoding that is also used by glibc. We may break other
+        libcs - lets see who complains.
+    Added explanation for DESTDIR to install to a different directory than /.
+    Added some early bailouts to atiprobe if PCI structure pointer is NULL to
+        prevent sig11.
+    XV support doesn't depend on 2D acceleration any more. This patch removes
+        this limitation from the NSC driver. This is a patch that I have
+        committed to XFree86 a while ago but never ported over to X.Org.
+        Matthieu Herrb contributed some build fixes.
+    Fixing SetDPMSTimers() so that DPMS*Time == 0 disables the appropriate
+        timer. This takes advantage of the fact that TimerSet() with a timeout
+        argument 0 behaves like TimerCanel().
+    Use /dev/xconsole (named pipe) or devpts for system logger (Werner Fink).
+    Create missing links for backward compatibility to XFree86 (Stefan Dirsch).
+    Changed comment to mention xorg.
+    Changed cursor for the 'kill' action from XC_draped_box to XC_Pirate. If
+        you don't like it we can change it back (original author unkown).
+    Added 'pic' to the man page rendering command pipeline (Werner Fink).
+    Added missing return value (Stefan Dirsch, Roland Mainz)
+
+commit 4cf1c874d8ea1eb2222e10ca92c2c5afa30e1326
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Oct 12 22:46:40 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=1601 - Fix
+        problems with wrong page counts in xedit&co. when a global "*geometry"
+        resource was overriding the internal geometry management used by
+        XawPrintShell(=usually adjust to current page size, the resource was
+        turning this into a static value). (Original patch by Felix Schulte
+        <felix.schulte@gmail.com>)
+
+commit b9b8f24095964cdfe21b52a5f2667a42fdc6220d
+Author: Matthieu Herrb <matthieu.herrb@laas.fr>
+Date:   Wed Sep 29 20:04:57 2004 +0000
+
+    Avoid several buffer overflows if search string is too long. Bugzilla
+        #1481.
+
+commit 545064318591f8c27701da0af0ebc5d9fd1b2ec5
+Author: Kevin E Martin <kem@kem.org>
+Date:   Thu Sep 2 08:40:33 2004 +0000
+
+    Restore xman and xedit changes that were previously reverted, and make
+        Xprint support optional (Bug #1273, Roland Mainz).
+
+commit 50a3e1e4269fe2ef6c97ff40a6dc02d074e7ba95
+Author: Kristian Høgsberg <krh@redhat.com>
+Date:   Mon Aug 16 16:36:26 2004 +0000
+
+    As discussed and agreed on on the release-wranglers meeting of August 16,
+        I'm committing the patch from bug #1060 to back out unconditional
+        Xprint functionality.
+    Back out Xprint changes.
+    Revert xman to CVS of June 5, revert xlogo to CVS of May 8, revert xedit to
+        CVS of April 25, to back out unconditional Xprint support.
+    Fix up Xprint config logic to be like the rest of the extensions:
+        BuildXprint is a one-stop option for disabling everything Xprint
+        related. XprtServer controls building Xprt, BuildXprintLib controls
+        building Xprint libs and BuildXprintClients controls building clients
+        related to Xprint. BuiltXprint defaults to YES and the other options
+        respects relevant settings, i.e. BuildServer and BuildServersOnly.
+    Build Xaw regardless of BuildXprintLib setting.
+    Only build xphelloworld, xplsprinters and xprehashprinterlist when
+        BuildXprintClients it YES. Disable building xmore, it has always
+        supported XawPrintShell.
+    Make Xprint support depend on BuildXprintLib.
+
+commit 6b0d9917116797e38b554397b815c555bf55a721
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Thu Jul 29 00:40:35 2004 +0000
+
+    Fix for https://freedesktop.org/bugzilla/show_bug.cgi?id=938 - Update
+        XawPrintShell per feedback and review comments.
+
+commit 24ffc96e3347125c213090d9c9550fbf48756459
+Author: Alan Hourihane <alanh@fairlite.demon.co.uk>
+Date:   Thu Jul 1 13:54:46 2004 +0000
+
+    DoSearch is defined in search.c
+
+commit 7cf0973ed5076c513b3a970a8250066a05b0473e
+Author: Roland Mainz <roland.mainz@nrubsig.org>
+Date:   Tue Jun 8 02:44:35 2004 +0000
+
+    Fix for http://freedesktop.org/bugzilla/show_bug.cgi?id=668 - Add print
+        support to xman
+
+commit 113139a1b202d0b94dcd24facc7b2c584faf294e
+Author: Alan Coopersmith <Alan.Coopersmith@sun.com>
+Date:   Sat May 22 19:20:06 2004 +0000
+
+    Set HasMkstemp to YES on Solaris
+    xc/programs/xman/man.c
+    xc/programs/xman/man.h
+    xc/programs/xman/misc.c
+    xman cannot display SGML man pages on Solaris
+
+commit 313f95249e4621b9002bdd054106b8b743ff64ae
+Author: Egbert Eich <eich@suse.de>
+Date:   Fri Apr 23 19:54:58 2004 +0000
+
+    Merging XORG-CURRENT into trunk
+
+commit 0b24854cbc017733d4e782db65912a473ec053be
+Author: Egbert Eich <eich@suse.de>
+Date:   Sun Mar 14 08:35:40 2004 +0000
+
+    Importing vendor version xf86-4_4_99_1 on Sun Mar 14 00:26:39 PST 2004
+
+commit 7093a5ad5e15f7c2a7bb8feb6f3255f9a4f8983a
+Author: Egbert Eich <eich@suse.de>
+Date:   Wed Mar 3 12:13:15 2004 +0000
+
+    Importing vendor version xf86-4_4_0 on Wed Mar 3 04:09:24 PST 2004
+
+commit 471b69d7053fb225fee8a2ff987c789d421aedfa
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 13:36:26 2004 +0000
+
+    readding XFree86's cvs IDs
+
+commit 31f5f6a32ae09278b3bb6f8aecc18793d66b3437
+Author: Egbert Eich <eich@suse.de>
+Date:   Thu Feb 26 09:24:14 2004 +0000
+
+    Importing vendor version xf86-4_3_99_903 on Wed Feb 26 01:21:00 PST 2004
+
+commit 06d8bbebd1daa587dc5509d9d464646a9ae07c45
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Tue Nov 25 19:29:15 2003 +0000
+
+    XFree86 4.3.99.16 Bring the tree up to date for the Cygwin folks
+
+commit 1504e01d61c573156fe82c2395362f0567102d8a
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    XFree86 4.3.0.1
+
+commit 36fca7804971e1b209138fcf82aee2d74cb2583e
+Author: Kaleb Keithley <kaleb@freedesktop.org>
+Date:   Fri Nov 14 16:49:23 2003 +0000
+
+    Initial revision

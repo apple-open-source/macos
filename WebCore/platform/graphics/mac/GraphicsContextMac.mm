@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.  All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -30,6 +30,7 @@
 #import <AppKit/AppKit.h>
 #import <wtf/StdLibExtras.h>
 
+#import "LocalCurrentGraphicsContext.h"
 #import "WebCoreSystemInterface.h"
 
 @class NSColor;
@@ -43,38 +44,26 @@ namespace WebCore {
 // calls in this file are all exception-safe, so we don't block
 // exceptions for those.
 
-static void drawFocusRingToContext(CGContextRef context, RetainPtr<CGPathRef> focusRingPath, RetainPtr<CGColorRef> colorRef, int radius)
+static void drawFocusRingToContext(CGContextRef context, CGPathRef focusRingPath, CGColorRef color, int radius)
 {
-#ifdef BUILDING_ON_TIGER
-    CGContextBeginTransparencyLayer(context, 0);
-#endif
     CGContextBeginPath(context);
-    CGContextAddPath(context, focusRingPath.get());
-    wkDrawFocusRing(context, colorRef.get(), radius);
-#ifdef BUILDING_ON_TIGER
-    CGContextEndTransparencyLayer(context);
-#endif
+    CGContextAddPath(context, focusRingPath);
+    wkDrawFocusRing(context, color, radius);
 }
 
-void GraphicsContext::drawFocusRing(const Vector<Path>& paths, int width, int offset, const Color& color)
+void GraphicsContext::drawFocusRing(const Path& path, int width, int /*offset*/, const Color& color)
 {
+    // FIXME: Use 'offset' for something? http://webkit.org/b/49909
+
     if (paintingDisabled())
         return;
-    
+
     int radius = (width - 1) / 2;
-    offset += radius;
-    RetainPtr<CGColorRef> colorRef;
-    if (color.isValid())
-        colorRef.adoptCF(createCGColor(color));
-    
-    RetainPtr<CGMutablePathRef> focusRingPath(AdoptCF, CGPathCreateMutable());
-    unsigned pathCount = paths.size();
-    for (unsigned i = 0; i < pathCount; i++)
-        CGPathAddPath(focusRingPath.get(), 0, paths[i].platformPath());
-    
-    drawFocusRingToContext(platformContext(), focusRingPath, colorRef, radius);
-}    
-    
+    CGColorRef colorRef = color.isValid() ? cachedCGColor(color, ColorSpaceDeviceRGB) : 0;
+
+    drawFocusRingToContext(platformContext(), path.platformPath(), colorRef, radius);
+}
+
 void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int offset, const Color& color)
 {
     if (paintingDisabled())
@@ -82,29 +71,16 @@ void GraphicsContext::drawFocusRing(const Vector<IntRect>& rects, int width, int
 
     int radius = (width - 1) / 2;
     offset += radius;
-    RetainPtr<CGColorRef> colorRef;
-    if (color.isValid())
-        colorRef.adoptCF(createCGColor(color));
+    CGColorRef colorRef = color.isValid() ? cachedCGColor(color, ColorSpaceDeviceRGB) : 0;
 
     RetainPtr<CGMutablePathRef> focusRingPath(AdoptCF, CGPathCreateMutable());
     unsigned rectCount = rects.size();
     for (unsigned i = 0; i < rectCount; i++)
         CGPathAddRect(focusRingPath.get(), 0, CGRectInset(rects[i], -offset, -offset));
 
-    drawFocusRingToContext(platformContext(), focusRingPath, colorRef, radius);
+    drawFocusRingToContext(platformContext(), focusRingPath.get(), colorRef, radius);
 }
 
-#ifdef BUILDING_ON_TIGER // Post-Tiger's setCompositeOperation() is defined in GraphicsContextCG.cpp.
-void GraphicsContext::setCompositeOperation(CompositeOperator op)
-{
-    if (paintingDisabled())
-        return;
-    NSAutoreleasePool* pool = [[NSAutoreleasePool alloc] init];
-    [[NSGraphicsContext graphicsContextWithGraphicsPort:platformContext() flipped:YES]
-        setCompositingOperation:(NSCompositingOperation)op];
-    [pool drain];
-}
-#endif
 
 static NSColor* createPatternColor(NSString* name, NSColor* defaultColor, bool& usingDot)
 {
@@ -119,31 +95,50 @@ static NSColor* createPatternColor(NSString* name, NSColor* defaultColor, bool& 
 }
 
 // WebKit on Mac is a standard platform component, so it must use the standard platform artwork for underline.
-void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, int width, bool grammar)
+void GraphicsContext::drawLineForTextChecking(const FloatPoint& point, float width, TextCheckingLineStyle style)
 {
     if (paintingDisabled())
         return;
         
     // These are the same for misspelling or bad grammar.
     int patternHeight = cMisspellingLineThickness;
-    int patternWidth = cMisspellingLinePatternWidth;
- 
+    float patternWidth = cMisspellingLinePatternWidth;
+
     bool usingDot;
     NSColor *patternColor;
-    if (grammar) {
-        // Constants for grammar pattern color.
-        static bool usingDotForGrammar = false;
-        DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, grammarPatternColor, (createPatternColor(@"GrammarDot", [NSColor greenColor], usingDotForGrammar)));
-        
-        usingDot = usingDotForGrammar;
-        patternColor = grammarPatternColor.get();
-    } else {
-        // Constants for spelling pattern color.
-        static bool usingDotForSpelling = false;
-        DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, spellingPatternColor, (createPatternColor(@"SpellingDot", [NSColor redColor], usingDotForSpelling)));
-        
-        usingDot = usingDotForSpelling;
-        patternColor = spellingPatternColor.get();
+    switch (style) {
+        case TextCheckingSpellingLineStyle:
+        {
+            // Constants for spelling pattern color.
+            static bool usingDotForSpelling = false;
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, spellingPatternColor, (createPatternColor(@"SpellingDot", [NSColor redColor], usingDotForSpelling)));
+            usingDot = usingDotForSpelling;
+            patternColor = spellingPatternColor.get();
+            break;
+        }
+        case TextCheckingGrammarLineStyle:
+        {
+            // Constants for grammar pattern color.
+            static bool usingDotForGrammar = false;
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, grammarPatternColor, (createPatternColor(@"GrammarDot", [NSColor greenColor], usingDotForGrammar)));
+            usingDot = usingDotForGrammar;
+            patternColor = grammarPatternColor.get();
+            break;
+        }
+#if PLATFORM(MAC) && !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+        // To support correction panel.
+        case TextCheckingReplacementLineStyle:
+        {
+            // Constants for spelling pattern color.
+            static bool usingDotForSpelling = false;
+            DEFINE_STATIC_LOCAL(RetainPtr<NSColor>, spellingPatternColor, (createPatternColor(@"CorrectionDot", [NSColor blueColor], usingDotForSpelling)));
+            usingDot = usingDotForSpelling;
+            patternColor = spellingPatternColor.get();
+            break;
+        }
+#endif
+        default:
+            return;
     }
 
     // Make sure to draw only complete dots.
@@ -153,7 +148,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     // space between adjacent misspelled words was underlined.
     if (usingDot) {
         // allow slightly more considering that the pattern ends with a transparent pixel
-        int widthMod = width % patternWidth;
+        float widthMod = fmodf(width, patternWidth);
         if (patternWidth - widthMod > cMisspellingLinePatternGapWidth)
             width -= widthMod;
     }
@@ -164,6 +159,7 @@ void GraphicsContext::drawLineForMisspellingOrBadGrammar(const IntPoint& point, 
     // for transforms.
 
     // Draw underline.
+    LocalCurrentGraphicsContext localContext(this);
     NSGraphicsContext *currentContext = [NSGraphicsContext currentContext];
     CGContextRef context = (CGContextRef)[currentContext graphicsPort];
     CGContextSaveGState(context);

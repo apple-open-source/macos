@@ -22,13 +22,15 @@ DateTime::Format::ISO8601 - Parses ISO8601 formats
 Parses almost all ISO8601 date and time formats.
 ISO8601 time-intervals will be supported in a later release.
 
-=head1 IMPORT PARAMETERS
+=head1 USAGE
+
+=head2 Import Parameters
 
 This module accepts no arguments to it's C<import> method.
 
-=head1 METHODS
+=head2 Methods
 
-=head2 Constructors
+=head3 Constructors
 
 =over 4
 
@@ -77,7 +79,7 @@ Returns a replica of the given object.
 
 =back
 
-=head2 Object Methods
+=head3 Object Methods
 
 =over 4
 
@@ -115,7 +117,7 @@ C<cut_off_year> should be used to place the year in either 20xx or 19xx.
 
 =back
 
-=head2 Class Methods
+=head3 Class Methods
 
 =over 4
 
@@ -135,7 +137,7 @@ default value for C<legacy_year>.
 
 =back
 
-=head2 Parser(s)
+=head3 Parser(s)
 
 These may be called as either class or object methods.
 
@@ -399,12 +401,14 @@ Jonathan Leffler (JOHNL) for reporting a test bug.
 
 Kelly McCauley for a patch to add 8 missing formats.
 
+Alasdair Allan (AALLAN) for complaining about excessive test execution time.
+
 Everyone at the DateTime C<Asylum>.
 
 =head1 SUPPORT
  
-Support for this module is provided via the datetime@perl.org email
-list. See http://lists.perl.org/ for more details.
+Support for this module is provided via the <datetime@perl.org> email list.
+See L<http://lists.perl.org/> for more details.
 
 =head1 AUTHOR
  
@@ -412,17 +416,16 @@ Joshua Hoblitt <jhoblitt@cpan.org>
  
 =head1 COPYRIGHT
  
-Copyright (c) 2003 Joshua Hoblitt.  All rights reserved.  This program
-is free software; you can redistribute it and/or modify it under the
-same terms as Perl itself.
- 
-The full text of the license can be found in the LICENSE file included
-with this module.
+Copyright (c) 2003-2005  Joshua Hoblitt. All rights reserved. This program is
+free software; you can redistribute it and/or modify it under the same terms as
+Perl itself.
+
+The full text of the licenses can be found in the I<LICENSE> file included with
+this module, or in L<perlartistic> and L<perlgpl> as supplied with Perl 5.8.1
+and later.
  
 =head1 SEE ALSO
- 
-datetime@perl.org mailing list
- 
-http://datetime.perl.org/
+
+L<DateTime>, L<DateTime::Format::Builder>, L<http://datetime.perl.org/>
  
 =cut

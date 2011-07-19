@@ -1,0 +1,118 @@
+#!/usr/bin/perl
+
+use strict;
+use File::Basename;
+
+my $configured = "/var/db/.configureLocalKDC";
+my $checked = "/var/db/.checkLocalKDC";
+my $keytab = "/etc/krb5.keytab";
+
+my $progname = basename ($0);
+
+chdir '/' or die "chdir: $!\n";
+
+if ($< != 0) {
+    print 'Error: '. $progname ." needs to be run by root\n";
+    exit 1;
+}
+
+if ($#ARGV != -1) {
+    sleep 60;  # Sleep for a minute so as not to slow down booting.
+}
+
+umask 022;
+
+my $kadmin = '/usr/sbin/kadmin';
+my $ktutil = '/usr/sbin/ktutil';
+my $dscl = '/usr/bin/dscl';
+my $security = '/usr/bin/security';
+
+if (! -e $configured) {
+    messageout("notConfigured", "The LocalKDC is not configured.");
+}
+
+my $realm = `$dscl . -read /Config/KerberosKDC RealName | awk '{print \$2}'`;
+chomp ($realm);
+
+if ($realm eq "") {
+    messageout("noKerberosKDC", "There is no KerberosKDC RealName.");
+}
+
+my $realmhash;
+if ($realm =~ /^.*LKDC:SHA1\.([0-9A-F]{40}).*$/) {
+    $realmhash = $1;
+}
+else {
+    messageout("notLocalRealm", "This ($realm) is not a LocalKDC realm.");
+}
+
+my $kdccerthash = `security find-certificate -c com.apple.kerberos.kdc -Z | head -1 | awk '{print \$3}'`;
+chomp($kdccerthash);
+
+if ($kdccerthash eq "") {
+    messageout("noCert", "There is no KDC certificate.");
+}
+
+if ($kdccerthash ne $realmhash) {
+    messageout("nonMatchingCert", "The KDC certificate hash ($kdccerthash) does not match the realm ($realmhash).");
+}
+
+if (! -e $keytab) {
+    messageout("noKeytab", "There is no keytab.");
+}
+
+if (-z $keytab) {
+    messageout("emptyKeytab", "The keytab is empty.");
+}
+
+my @ktlist = `$ktutil list`;
+if ($#ktlist < 6) {
+    messageout("brokenKeytab", "The keytab appears to be broken.");
+}
+
+my $foundafp = 0;
+foreach my $ktentry (@ktlist) {
+    if ($ktentry =~ /^.*?aes.*?afpserver\/$realm\@$realm.*$/) {
+	$foundafp = 1;
+    }
+}
+if (!$foundafp) {
+    messageout("incompleteKeytab", "The keytab appers to be incomplete.");
+}
+
+my $kadmincheck = system("$kadmin -l check --ds-local $realm");
+if ($kadmincheck != 0) {
+    messageout("kadminCheck", "The kadmin check failed.");
+}
+
+my @princs = `$dscl . -search /Users PrimaryGroupID 20 | grep PrimaryGroupID | awk '{print \$1}'`;
+my @kerbkeys;
+my $usercount = 0;
+my $badkeycount = 0;
+foreach my $p (@princs) {
+    chomp($p);
+    @kerbkeys = `$dscl . -read /Users/$p dsAttrTypeNative:KerberosKeys 2> /dev/null`;
+    if ($#kerbkeys < 1) {
+	$badkeycount++;
+    }
+    $usercount++;
+}
+if ($badkeycount) {
+    messageout("missingKeys", "$badkeycount of $usercount users have no Kerberos Keys.");
+}
+
+messageout("success", "Success.");
+
+
+sub messageout {
+    my $signature = shift;
+    my $message = shift;
+    my $result = "failure";
+    if ($signature eq "success") {
+	$result = "success";
+    }
+    `syslog -s -k com.apple.message.domain com.apple.kerberos.checkLocalKDC com.apple.message.signature $signature com.apple.message.result $result Message \"$message\"`;
+    print $message."\n";
+    `touch $checked`;
+    exit;
+}

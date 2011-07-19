@@ -22,10 +22,6 @@
 #ifndef __FENV_H__
 #define __FENV_H__
 
-#if defined(__GNUC__) && (__GNUC__ >= 4)
-#pragma GCC fenv
-#endif
-
 #if (defined(__ppc__) || defined(__ppc64__))
 #include "architecture/ppc/fenv.h"
 #elif (defined (__i386__) || defined( __x86_64__ ))

@@ -58,6 +58,21 @@ struct WebLocalizedString {
         AXLinkActionVerb,
         KeygenMenuHighGradeKeySize,
         KeygenMenuMediumGradeKeySize,
+        ValidationValueMissing,
+        ValidationValueMissingForCheckbox,
+        ValidationValueMissingForFile,
+        ValidationValueMissingForMultipleFile,
+        ValidationValueMissingForRadio,
+        ValidationValueMissingForSelect,
+        ValidationTypeMismatch,
+        ValidationTypeMismatchForEmail,
+        ValidationTypeMismatchForMultipleEmail,
+        ValidationTypeMismatchForURL,
+        ValidationPatternMismatch,
+        ValidationTooLong,
+        ValidationRangeUnderflow,
+        ValidationRangeOverflow,
+        ValidationStepMismatch,
     };
 };
 

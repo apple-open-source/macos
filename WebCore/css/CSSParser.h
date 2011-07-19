@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2003 Lars Knoll (knoll@kde.org)
- * Copyright (C) 2004, 2005, 2006, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2004, 2005, 2006, 2008, 2009, 2010 Apple Inc. All rights reserved.
  * Copyright (C) 2008 Eric Seidel <eric@webkit.org>
  * Copyright (C) 2009 - 2010  Torch Mobile (Beijing) Co. Ltd. All rights reserved.
  *
@@ -23,31 +23,33 @@
 #ifndef CSSParser_h
 #define CSSParser_h
 
-#include "AtomicString.h"
-#include "Color.h"
+#include "CSSGradientValue.h"
 #include "CSSParserValues.h"
-#include "CSSSelectorList.h"
+#include "CSSPropertySourceData.h"
+#include "CSSSelector.h"
+#include "Color.h"
 #include "MediaQuery.h"
+#include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
 #include <wtf/Vector.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
     class CSSMutableStyleDeclaration;
     class CSSPrimitiveValue;
+    class CSSPrimitiveValueCache;
     class CSSProperty;
     class CSSRule;
     class CSSRuleList;
-    class CSSSelector;
+    class CSSSelectorList;
     class CSSStyleSheet;
     class CSSValue;
     class CSSValueList;
-    class CSSVariablesDeclaration;
     class Document;
     class MediaList;
     class MediaQueryExp;
     class StyleBase;
-    class StyleList;
     class WebKitCSSKeyframeRule;
     class WebKitCSSKeyframesRule;
 
@@ -56,16 +58,19 @@ namespace WebCore {
         CSSParser(bool strictParsing = true);
         ~CSSParser();
 
-        void parseSheet(CSSStyleSheet*, const String&);
+        void parseSheet(CSSStyleSheet*, const String&, int startLineNumber = 0, StyleRuleRangeMap* ruleRangeMap = 0);
         PassRefPtr<CSSRule> parseRule(CSSStyleSheet*, const String&);
         PassRefPtr<CSSRule> parseKeyframeRule(CSSStyleSheet*, const String&);
-        bool parseValue(CSSMutableStyleDeclaration*, int propId, const String&, bool important);
+        static bool parseValue(CSSMutableStyleDeclaration*, int propId, const String&, bool important, bool strict);
         static bool parseColor(RGBA32& color, const String&, bool strict = false);
+        static bool parseSystemColor(RGBA32& color, const String&, Document*);
         bool parseColor(CSSMutableStyleDeclaration*, const String&);
-        bool parseDeclaration(CSSMutableStyleDeclaration*, const String&);
+        bool parseDeclaration(CSSMutableStyleDeclaration*, const String&, RefPtr<CSSStyleSourceData>* styleSourceData = 0);
         bool parseMediaQuery(MediaList*, const String&);
 
         Document* document() const;
+    
+        CSSPrimitiveValueCache* primitiveValueCache() const { return m_primitiveValueCache.get(); }
 
         void addProperty(int propId, PassRefPtr<CSSValue>, bool important);
         void rollbackLastProperties(int num);
@@ -75,17 +80,23 @@ namespace WebCore {
         bool parseShorthand(int propId, const int* properties, int numProperties, bool important);
         bool parse4Values(int propId, const int* properties, bool important);
         bool parseContent(int propId, bool important);
+        bool parseQuotes(int propId, bool important);
 
         PassRefPtr<CSSValue> parseAttr(CSSParserValueList* args);
 
         PassRefPtr<CSSValue> parseBackgroundColor();
 
         bool parseFillImage(RefPtr<CSSValue>&);
-        PassRefPtr<CSSValue> parseFillPositionXY(bool& xFound, bool& yFound);
-        void parseFillPosition(RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+
+        enum FillPositionFlag { InvalidFillPosition = 0, AmbiguousFillPosition = 1, XFillPosition = 2, YFillPosition = 4 };
+        PassRefPtr<CSSValue> parseFillPositionComponent(CSSParserValueList*, unsigned& cumulativeFlags, FillPositionFlag& individualFlag);
+        PassRefPtr<CSSValue> parseFillPositionX(CSSParserValueList*);
+        PassRefPtr<CSSValue> parseFillPositionY(CSSParserValueList*);
+        void parseFillPosition(CSSParserValueList*, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        
         void parseFillRepeat(RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         PassRefPtr<CSSValue> parseFillSize(int propId, bool &allowComma);
-        
+
         bool parseFillProperty(int propId, int& propId1, int& propId2, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parseFillShorthand(int propId, const int* properties, int numProperties, bool important);
 
@@ -103,12 +114,12 @@ namespace WebCore {
         PassRefPtr<CSSValue> parseAnimationProperty();
         PassRefPtr<CSSValue> parseAnimationTimingFunction();
 
-        void parseTransformOriginShorthand(RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
-        bool parseTimingFunctionValue(CSSParserValueList*& args, double& result);
+        bool parseTransformOriginShorthand(RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
+        bool parseCubicBezierTimingFunctionValue(CSSParserValueList*& args, double& result);
         bool parseAnimationProperty(int propId, RefPtr<CSSValue>&);
         bool parseTransitionShorthand(bool important);
         bool parseAnimationShorthand(bool important);
-        
+
         bool parseDashboardRegions(int propId, bool important);
 
         bool parseShape(int propId, bool important);
@@ -122,7 +133,7 @@ namespace WebCore {
         bool parseColorParameters(CSSParserValue*, int* colorValues, bool parseAlpha);
         bool parseHSLParameters(CSSParserValue*, double* colorValues, bool parseAlpha);
         PassRefPtr<CSSPrimitiveValue> parseColor(CSSParserValue* = 0);
-        bool parseColorFromValue(CSSParserValue*, RGBA32&, bool = false);
+        bool parseColorFromValue(CSSParserValue*, RGBA32&);
         void parseSelector(const String&, Document* doc, CSSSelectorList&);
 
         static bool parseColor(const String&, RGBA32& rgb, bool strict);
@@ -148,23 +159,32 @@ namespace WebCore {
         bool parseShadow(int propId, bool important);
         bool parseBorderImage(int propId, bool important, RefPtr<CSSValue>&);
         bool parseBorderRadius(int propId, bool important);
-        
+
         bool parseReflect(int propId, bool important);
 
         // Image generators
         bool parseCanvas(RefPtr<CSSValue>&);
-        bool parseGradient(RefPtr<CSSValue>&);
+
+        bool parseDeprecatedGradient(RefPtr<CSSValue>&);
+        bool parseLinearGradient(RefPtr<CSSValue>&, CSSGradientRepeat repeating);
+        bool parseRadialGradient(RefPtr<CSSValue>&, CSSGradientRepeat repeating);
+        bool parseGradientColorStops(CSSParserValueList*, CSSGradientValue*, bool expectComma);
 
         PassRefPtr<CSSValueList> parseTransform();
         bool parseTransformOrigin(int propId, int& propId1, int& propId2, int& propId3, RefPtr<CSSValue>&, RefPtr<CSSValue>&, RefPtr<CSSValue>&);
         bool parsePerspectiveOrigin(int propId, int& propId1, int& propId2,  RefPtr<CSSValue>&, RefPtr<CSSValue>&);
-        bool parseVariable(CSSVariablesDeclaration*, const String& variableName, const String& variableValue);
-        void parsePropertyWithResolvedVariables(int propId, bool important, CSSMutableStyleDeclaration*, CSSParserValueList*);
+
+        bool parseTextEmphasisStyle(bool important);
+
+        bool parseLineBoxContain(bool important);
 
         int yyparse();
 
-        CSSSelector* createFloatingSelector();
-        CSSSelector* sinkFloatingSelector(CSSSelector*);
+        CSSParserSelector* createFloatingSelector();
+        PassOwnPtr<CSSParserSelector> sinkFloatingSelector(CSSParserSelector*);
+
+        Vector<OwnPtr<CSSParserSelector> >* createFloatingSelectorVector();
+        PassOwnPtr<Vector<OwnPtr<CSSParserSelector> > > sinkFloatingSelectorVector(Vector<OwnPtr<CSSParserSelector> >*);
 
         CSSParserValueList* createFloatingValueList();
         CSSParserValueList* sinkFloatingValueList(CSSParserValueList*);
@@ -181,33 +201,32 @@ namespace WebCore {
         WebKitCSSKeyframesRule* createKeyframesRule();
         CSSRule* createMediaRule(MediaList*, CSSRuleList*);
         CSSRuleList* createRuleList();
-        CSSRule* createStyleRule(Vector<CSSSelector*>* selectors);
+        CSSRule* createStyleRule(Vector<OwnPtr<CSSParserSelector> >* selectors);
         CSSRule* createFontFaceRule();
-        CSSRule* createVariablesRule(MediaList*, bool variablesKeyword);
-        CSSRule* createPageRule(CSSSelector* pageSelector);
+        CSSRule* createPageRule(PassOwnPtr<CSSParserSelector> pageSelector);
         CSSRule* createMarginAtRule(CSSSelector::MarginBoxType marginBox);
         void startDeclarationsForMarginBox();
         void endDeclarationsForMarginBox();
 
         MediaQueryExp* createFloatingMediaQueryExp(const AtomicString&, CSSParserValueList*);
-        MediaQueryExp* sinkFloatingMediaQueryExp(MediaQueryExp*);
-        Vector<MediaQueryExp*>* createFloatingMediaQueryExpList();
-        Vector<MediaQueryExp*>* sinkFloatingMediaQueryExpList(Vector<MediaQueryExp*>*);
-        MediaQuery* createFloatingMediaQuery(MediaQuery::Restrictor, const String&, Vector<MediaQueryExp*>*);
-        MediaQuery* createFloatingMediaQuery(Vector<MediaQueryExp*>*);
-        MediaQuery* sinkFloatingMediaQuery(MediaQuery*);
+        PassOwnPtr<MediaQueryExp> sinkFloatingMediaQueryExp(MediaQueryExp*);
+        Vector<OwnPtr<MediaQueryExp> >* createFloatingMediaQueryExpList();
+        PassOwnPtr<Vector<OwnPtr<MediaQueryExp> > > sinkFloatingMediaQueryExpList(Vector<OwnPtr<MediaQueryExp> >*);
+        MediaQuery* createFloatingMediaQuery(MediaQuery::Restrictor, const String&, PassOwnPtr<Vector<OwnPtr<MediaQueryExp> > >);
+        MediaQuery* createFloatingMediaQuery(PassOwnPtr<Vector<OwnPtr<MediaQueryExp> > >);
+        PassOwnPtr<MediaQuery> sinkFloatingMediaQuery(MediaQuery*);
 
         void addNamespace(const AtomicString& prefix, const AtomicString& uri);
+        void updateSpecifiersWithElementName(const AtomicString& namespacePrefix, const AtomicString& elementName, CSSParserSelector*);
+        CSSParserSelector* updateSpecifiers(CSSParserSelector*, CSSParserSelector*);
 
-        bool addVariable(const CSSParserString&, CSSParserValueList*);
-        bool addVariableDeclarationBlock(const CSSParserString&);
-        bool checkForVariables(CSSParserValueList*);
-        void addUnresolvedProperty(int propId, bool important);
         void invalidBlockHit();
 
-        Vector<CSSSelector*>* reusableSelectorVector() { return &m_reusableSelectorVector; }
+        Vector<OwnPtr<CSSParserSelector> >* reusableSelectorVector() { return &m_reusableSelectorVector; }
 
-        void updateLastSelectorLine() { m_lastSelectorLine = m_line; }
+        void updateLastSelectorLineAndPosition();
+
+        void clearProperties();
 
         bool m_strict;
         bool m_important;
@@ -215,10 +234,11 @@ namespace WebCore {
         CSSStyleSheet* m_styleSheet;
         RefPtr<CSSRule> m_rule;
         RefPtr<CSSRule> m_keyframe;
-        MediaQuery* m_mediaQuery;
+        OwnPtr<MediaQuery> m_mediaQuery;
         CSSParserValueList* m_valueList;
         CSSProperty** m_parsedProperties;
         CSSSelectorList* m_selectorListForParseSelector;
+        RefPtr<CSSPrimitiveValueCache> m_primitiveValueCache;
         unsigned m_numParsedProperties;
         unsigned m_maxParsedProperties;
         unsigned m_numParsedPropertiesBeforeMarginBox;
@@ -230,32 +250,47 @@ namespace WebCore {
         bool m_hasFontFaceOnlyValues;
         bool m_hadSyntacticallyValidCSSRule;
 
-        Vector<String> m_variableNames;
-        Vector<RefPtr<CSSValue> > m_variableValues;
-
         AtomicString m_defaultNamespace;
 
         // tokenizer methods and data
+        bool m_inStyleRuleOrDeclaration;
+        SourceRange m_selectorListRange;
+        SourceRange m_ruleBodyRange;
+        SourceRange m_propertyRange;
+        StyleRuleRangeMap* m_ruleRangeMap;
+        RefPtr<CSSRuleSourceData> m_currentRuleData;
+        void markSelectorListStart();
+        void markSelectorListEnd();
+        void markRuleBodyStart();
+        void markRuleBodyEnd();
+        void markPropertyStart();
+        void markPropertyEnd(bool isImportantFound, bool isPropertyParsed);
+        void resetSelectorListMarks() { m_selectorListRange.start = m_selectorListRange.end = 0; }
+        void resetRuleBodyMarks() { m_ruleBodyRange.start = m_ruleBodyRange.end = 0; }
+        void resetPropertyMarks() { m_propertyRange.start = m_propertyRange.end = UINT_MAX; }
         int lex(void* yylval);
         int token() { return yyTok; }
         UChar* text(int* length);
         void countLines();
         int lex();
-        
+
     private:
+        void setStyleSheet(CSSStyleSheet*);
+        
         void recheckAtKeyword(const UChar* str, int len);
-    
-        void clearProperties();
 
         void setupParser(const char* prefix, const String&, const char* suffix);
 
         bool inShorthand() const { return m_inParseShorthand; }
 
         void checkForOrphanedUnits();
-        
-        void clearVariables();
 
         void deleteFontFaceOnlyValues();
+
+        bool isGeneratedImageValue(CSSParserValue*) const;
+        bool parseGeneratedImage(RefPtr<CSSValue>&);
+
+        bool parseValue(CSSMutableStyleDeclaration*, int propId, const String&, bool important);
 
         enum SizeParameterType {
             None,
@@ -278,24 +313,24 @@ namespace WebCore {
         int yyleng;
         int yyTok;
         int yy_start;
-        int m_line;
-        int m_lastSelectorLine;
+        int m_lineNumber;
+        int m_lastSelectorLineNumber;
 
         bool m_allowImportRules;
-        bool m_allowVariablesRules;
         bool m_allowNamespaceDeclarations;
 
         Vector<RefPtr<StyleBase> > m_parsedStyleObjects;
         Vector<RefPtr<CSSRuleList> > m_parsedRuleLists;
-        HashSet<CSSSelector*> m_floatingSelectors;
+        HashSet<CSSParserSelector*> m_floatingSelectors;
+        HashSet<Vector<OwnPtr<CSSParserSelector> >*> m_floatingSelectorVectors;
         HashSet<CSSParserValueList*> m_floatingValueLists;
         HashSet<CSSParserFunction*> m_floatingFunctions;
 
-        MediaQuery* m_floatingMediaQuery;
-        MediaQueryExp* m_floatingMediaQueryExp;
-        Vector<MediaQueryExp*>* m_floatingMediaQueryExpList;
-        
-        Vector<CSSSelector*> m_reusableSelectorVector;
+        OwnPtr<MediaQuery> m_floatingMediaQuery;
+        OwnPtr<MediaQueryExp> m_floatingMediaQueryExp;
+        OwnPtr<Vector<OwnPtr<MediaQueryExp> > > m_floatingMediaQueryExpList;
+
+        Vector<OwnPtr<CSSParserSelector> > m_reusableSelectorVector;
 
         // defines units allowed for a certain property, used in parseUnit
         enum Units {
@@ -317,7 +352,7 @@ namespace WebCore {
         }
 
         static bool validUnit(CSSParserValue*, Units, bool strict);
-        
+
         friend class TransformOperationInfo;
     };
 
@@ -325,7 +360,8 @@ namespace WebCore {
     int cssPropertyID(const String&);
     int cssValueKeywordID(const CSSParserString&);
 
-    class ShorthandScope : public FastAllocBase {
+    class ShorthandScope {
+        WTF_MAKE_FAST_ALLOCATED;
     public:
         ShorthandScope(CSSParser* parser, int propId) : m_parser(parser)
         {
@@ -346,6 +382,7 @@ namespace WebCore {
     String quoteCSSStringIfNeeded(const String&);
     String quoteCSSURLIfNeeded(const String&);
 
+    bool isValidNthToken(const CSSParserString&);
 } // namespace WebCore
 
 #endif // CSSParser_h

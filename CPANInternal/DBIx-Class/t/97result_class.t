@@ -2,20 +2,39 @@ use strict;
 use warnings;  
 
 use Test::More;
+use Test::Exception;
 use lib qw(t/lib);
 use DBICTest;
 
 my $schema = DBICTest->init_schema();
 
-plan tests => 9;
+plan tests => 12;
 
 {
   my $cd_rc = $schema->resultset("CD")->result_class;
   
+  throws_ok {
+    $schema->resultset("Artist")
+      ->search_rs({}, {result_class => "IWillExplode"})
+  } qr/Can't locate IWillExplode/, 'nonexistant result_class exception';
+
+# to make ensure_class_loaded happy, dies on inflate
+  eval 'package IWillExplode; sub dummy {}';
+
   my $artist_rs = $schema->resultset("Artist")
     ->search_rs({}, {result_class => "IWillExplode"});
   is($artist_rs->result_class, 'IWillExplode', 'Correct artist result_class');
-  
+
+  throws_ok {
+    $artist_rs->result_class('mtfnpy')
+  } qr/Can't locate mtfnpy/,
+  'nonexistant result_access exception (from accessor)';
+
+  throws_ok {
+    $artist_rs->first
+  } qr/Can't locate object method "inflate_result" via package "IWillExplode"/,
+  'IWillExplode explodes on inflate';
+
   my $cd_rs = $artist_rs->related_resultset('cds');
   is($cd_rs->result_class, $cd_rc, 'Correct cd result_class');
 

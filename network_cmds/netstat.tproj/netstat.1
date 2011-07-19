@@ -44,11 +44,13 @@
 .Op Fl f Ar address_family | Fl p Ar protocol
 .Nm
 .Op Fl gilns
+.Op Fl v
 .Op Fl f Ar address_family
+.Op Fl I Ar interface
 .Nm
 .Fl i | I Ar interface
 .Op Fl w Ar wait
-.Op Fl abdgt
+.Op Fl abdgRt
 .Nm
 .Fl s Op Fl s
 .Op Fl f Ar address_family | Fl p Ar protocol
@@ -124,10 +126,19 @@ and
 for
 .Dv AF_UNIX  .
 .It Fl g
-Show information related to multicast (group address) routing.  By default, show the
-IP Multicast virtual-interface and routing tables. If the
+Show information related to multicast (group address) membership.  If the
 .Fl s
-option is also present, show multicast routing statistics.
+option is also present, show extended interface group management statistics.  If the
+.Fl v
+option is specified, show link-layer memberships; they are suppressed by default.
+Source lists for each group will also be printed.  Specifiying
+.Fl v
+twice will print the control plane timers for each interface and the source list counters
+for each group.  If the
+.Fl i
+is specified, only that interface will be shown.  If the
+.Fl f
+is specified, only information for the address family will be displayed.
 .It Fl I Ar interface
 Show information about the specified interface; used with a
 .Ar wait
@@ -197,9 +208,15 @@ is also present,
 assumes more columns are there and the maximum transmission unit
 .Pq Dq mtu
 are also displayed.
+.It Fl R
+Show reachability information.  Use with
+.Fl i
+to show link-layer reachability information for a given interface.
 .It Fl s
 Show per-protocol statistics.  If this option is repeated, counters with a value of
 zero are suppressed.
+.It Fl v
+Increase verbosity level.
 .It Fl W
 In certain displays, avoid truncating addresses even if this causes some fields to
 overflow.
@@ -345,7 +362,6 @@ option.
 .Xr fstat 1 ,
 .Xr nfsstat 1 ,
 .Xr ps 1 ,
-.Xr sockstat 1 ,
 .Xr inet 4 ,
 .Xr unix 4 ,
 .Xr hosts 5 ,

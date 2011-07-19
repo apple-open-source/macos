@@ -1,9 +1,9 @@
 /*
- * "$Id: dbus.c 3027 2011-03-04 20:02:14Z msweet $"
+ * "$Id: dbus.c 3049 2011-03-14 19:16:09Z msweet $"
  *
- *   D-Bus notifier for the Common UNIX Printing System (CUPS).
+ *   D-Bus notifier for CUPS.
  *
- *   Copyright 2008 by Apple Inc.
+ *   Copyright 2008-2010 by Apple Inc.
  *   Copyright (C) 2007 Red Hat, Inc.
  *   Copyright (C) 2007 Tim Waugh <twaugh@redhat.com>
  *   Copyright 1997-2005 by Easy Software Products.
@@ -25,7 +25,7 @@
  */
 
 #include <cups/cups.h>
-#include <cups/string.h>
+#include <cups/string-private.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <sys/stat.h>
@@ -548,5 +548,5 @@ acquire_lock(int    *fd,		/* O - Lock file descriptor */
 
 
 /*
- * End of "$Id: dbus.c 3027 2011-03-04 20:02:14Z msweet $".
+ * End of "$Id: dbus.c 3049 2011-03-14 19:16:09Z msweet $".
  */

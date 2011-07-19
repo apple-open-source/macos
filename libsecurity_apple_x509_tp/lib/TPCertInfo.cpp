@@ -1131,10 +1131,11 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 	}
 
 	bool expired = false;
-	bool notValid = false;
+	bool postdated = false;
 	bool allowExpiredRoot = (actionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED_ROOT) ?
 		true : false;
 	bool allowExpired = (actionFlags & CSSM_TP_ACTION_ALLOW_EXPIRED) ? true : false;
+	bool allowPostdated = allowExpired; // flag overrides any temporal invalidity
 	bool requireRevPerCert = (actionFlags & CSSM_TP_ACTION_REQUIRE_REV_PER_CERT) ?
 		true : false;
 		
@@ -1153,13 +1154,13 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 		}
 		if(ci->isNotValidYet() && 
 		   ci->isStatusFatal(CSSMERR_TP_CERT_NOT_VALID_YET)) {
-			notValid = true;
+			postdated = true;
 		}
 	}
 	if(expired && !allowExpired) {
 		return CSSMERR_TP_CERT_EXPIRED;
 	}
-	if(notValid) {
+	if(postdated && !allowPostdated) {
 		return CSSMERR_TP_CERT_NOT_VALID_YET;
 	}
 	
@@ -1169,18 +1170,26 @@ CSSM_RETURN TPCertGroup::getReturnCode(
 			TPCertInfo *ci = mCertInfo[i];
 			if(ci->isSelfSigned(true)) {
 				/* revocation check meaningless for a root cert */
+				tpDebug("getReturnCode: ignoring revocation for self-signed cert %d", i);
 				continue;
 			}
 			if(!ci->revokeCheckGood() &&
 			   ci->isStatusFatal(CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK)) {
+				tpDebug("getReturnCode: FATAL: revocation check incomplete for cert %d", i);
 				return CSSMERR_APPLETP_INCOMPLETE_REVOCATION_CHECK;
 			}
+			#ifndef	NDEBUG
+			else {
+				tpDebug("getReturnCode: revocation check %s for cert %d",
+					(ci->revokeCheckGood()) ? "GOOD" : "OK", i);
+			}
+			#endif
 		}
 	}
 	return policyStatus;
 }
 
-/* set all TPCertINfo.mUsed flags false */
+/* set all TPCertInfo.mUsed flags false */
 void TPCertGroup::setAllUnused()
 {
 	for(unsigned dex=0; dex<mNumCerts; dex++) {
@@ -1241,7 +1250,7 @@ bool TPCertGroup::isInGroup(TPCertInfo &certInfo)
 	return false;
 }
 
-/*
+/* 
  * Encode issuing certs in this group as a PEM-encoded data blob.
  * Caller must free.
  */
@@ -1283,7 +1292,7 @@ void TPCertGroup::encodeIssuers(CSSM_DATA &issuers)
 		CFRelease(dataRef);
 	}
 	CFDataRef exportedPEMData = NULL;
-	OSStatus status = SecKeychainItemExport(certArray,
+	OSStatus status = SecItemExport(certArray,
 		kSecFormatPEMSequence,
 		kSecItemPemArmour,
 		NULL,
@@ -1471,8 +1480,9 @@ CSSM_RETURN TPCertGroup::buildCertGroup(
 	/*** main loop to seach inCertGroup and dbList ***
 	 *
 	 * Exit loop on: 
-	 *   -- find a root cert in the chain
-	 *	 -- find a cert which is trusted per Trust Settings (if enabled)
+	 *   -- find a root cert in the chain (self-signed)
+	 *   -- find a non-root cert which is also in the anchors list
+	 *   -- find a cert which is trusted per Trust Settings (if enabled)
 	 *   -- memory error
 	 *   -- or no more certs to add to chain. 
 	 */
@@ -1575,12 +1585,12 @@ post_trust_setting:
 				verifiedToRoot = CSSM_TRUE;
 				
 				/*
-				 * Special case if this root is expired (and it's not the 
-				 * leaf): remove it from the outgoing cert group, save it,
+				 * Special case if this root is temporally invalid (and it's not
+				 * the leaf): remove it from the outgoing cert group, save it,
 				 * and proceed, looking another (good) root in anchors. 
 				 * There's no way we'll find another good one in this loop.
 				 */
-				if(subjCert->isExpired() && 
+				if((subjCert->isExpired() || subjCert->isNotValidYet()) && 
 				   (!firstSubjectIsInGroup || (mNumCerts > 1))) {
 					tpDebug("buildCertGroup: EXPIRED ROOT %p, looking for good one", subjCert);
 					expiredRoot = subjCert;
@@ -1598,6 +1608,55 @@ post_trust_setting:
 				}
 				break;		/* out of main loop */
 			}	/* root */
+			
+			/*
+			 * If this non-root cert is in the provided anchors list,
+			 * we can stop building the chain at this point.
+			 *
+			 * If this cert is a leaf, the chain ends in an anchor, but if it's
+			 * also temporally invalid, we can't do anything further. However,
+			 * if it's not a leaf, then we need to roll back the chain to a
+			 * point just before this cert, so Case 1 will subsequently find
+			 * the anchor (and handle the anchor correctly if it's expired.)
+			 */
+			if(numAnchorCerts && anchorCerts) {
+				bool foundNonRootAnchor = false;
+				for(certDex=0; certDex<numAnchorCerts; certDex++) {
+					if(tp_CompareCerts(subjCert->itemData(), &anchorCerts[certDex])) {
+						foundNonRootAnchor = true;
+						/* if it's not the leaf, remove it from the outgoing cert group. */
+						if(!firstSubjectIsInGroup || (mNumCerts > 1)) {
+							if(mNumCerts) {
+								/* roll back to previous cert */
+								mNumCerts--;
+							}
+							if(mNumCerts == 0) {
+								/* roll back to caller's initial condition */
+								thisSubject = &subjectItem;
+							}
+							else {
+								thisSubject = lastCert();
+							}
+							tpAnchorDebug("buildCertGroup: CA cert in input AND anchors");
+						} /* not leaf */
+						else {
+							if(subjCert->isExpired() || subjCert->isNotValidYet()) {
+								crtn = CSSM_CERT_STATUS_EXPIRED;
+							} else {
+								crtn = CSSM_OK;
+							}
+							subjCert->isAnchor(true);
+							verifiedToAnchor = CSSM_TRUE;
+							tpAnchorDebug("buildCertGroup: leaf cert in input AND anchors");
+						} /* leaf */
+						break;	/* out of anchor-checking loop */
+					}
+				}
+				if(foundNonRootAnchor) {
+					break; /* out of main loop */
+				}
+			} /* non-root */
+			
 		}	/* subjectIsInGroup */
 		
 		/* 
@@ -1928,15 +1987,14 @@ post_trust_setting:
 	}	/* thisSubject not a root cert */
 	
 	/*
-	 * Case 2: last cert in output is a root cert. See if the root cert is in 
-	 * AnchorCerts. 
+	 * Case 2: Check whether endCert is present in anchor certs.
 	 *
 	 * Also used to validate an expiredRoot that we pulled off the chain in 
 	 * hopes of finding something better (which, if we're here, we haven't done). 
 	 *
 	 * Note that the main loop above did the actual root self-verify test.
 	 */
-	if((endCert && endCert->isSelfSigned()) || expiredRoot) {
+	if(endCert || expiredRoot) {
 		
 		TPCertInfo *theRoot;
 		if(expiredRoot) {
@@ -1950,7 +2008,7 @@ post_trust_setting:
 		for(certDex=0; certDex<numAnchorCerts; certDex++) {
 			if(tp_CompareCerts(theRoot->itemData(), &anchorCerts[certDex])) {
 				/* one fully successful return */
-				tpAnchorDebug("buildCertGroup: root in input AND anchors");
+				tpAnchorDebug("buildCertGroup: end cert in input AND anchors");
 				verifiedToAnchor = CSSM_TRUE;
 				theRoot->isAnchor(true);
 				if(!theRoot->isFromInputCerts()) {
@@ -1971,9 +2029,9 @@ post_trust_setting:
 				}
 			}
 		}
-		tpAnchorDebug("buildCertGroup: root in input, NOT anchors");
+		tpAnchorDebug("buildCertGroup: end cert in input, NOT anchors");
 		
-		if(!expiredRoot) {
+		if(!expiredRoot && endCert->isSelfSigned()) {
 			/* verified to a root cert which is not an anchor */
 			/* Generally maps to CSSMERR_TP_INVALID_ANCHOR_CERT by caller */
 			/* one more thing: partial public key processing needed? */
@@ -2016,7 +2074,7 @@ post_anchor:
 			return CSSM_OK;
 		}
 	}
-	
+
 	/* If we get here, determine if fetching the issuer from the network
 	 * should be attempted: <rdar://6113890&7419584&7422356>
 	 */

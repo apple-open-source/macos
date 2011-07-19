@@ -1,6 +1,7 @@
+/* $OpenLDAP: pkg/ldap/servers/slapd/slapacl.c,v 1.24.2.11 2010/04/13 20:23:20 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2004-2008 The OpenLDAP Foundation.
+ * Copyright 2004-2010 The OpenLDAP Foundation.
  * Portions Copyright 2004 Pierangelo Masarati.
  * All rights reserved.
  *
@@ -72,6 +73,7 @@ slapacl( int argc, char **argv )
 	char			*attr = NULL;
 	int			doclose = 0;
 	BackendDB		*bd;
+	void			*thrctx;
 
 	slap_tool_init( progname, SLAPACL, argc, argv );
 
@@ -95,8 +97,10 @@ slapacl( int argc, char **argv )
 	argv = &argv[ optind ];
 	argc -= optind;
 
-	connection_fake_init( &conn, &opbuf, &conn );
+	thrctx = ldap_pvt_thread_pool_context();
+	connection_fake_init( &conn, &opbuf, thrctx );
 	op = &opbuf.ob_op;
+	op->o_tmpmemctx = NULL;
 
 	conn.c_listener = &listener;
 	conn.c_listener_url = listener_url;
@@ -399,7 +403,8 @@ destroy:;
 		}
 	}
 
-	slap_tool_destroy();
+	if ( slap_tool_destroy())
+		rc = EXIT_FAILURE;
 
 	return rc;
 }

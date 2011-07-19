@@ -1,10 +1,6 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static void* 
-mod_retain(void* info) 
+mod_writestream_retain(void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +9,7 @@ mod_retain(void* info)
 }
 
 static void
-mod_release(void* info)
+mod_writestream_release(void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -21,11 +17,11 @@ mod_release(void* info)
 }
 
 
-static CFStreamClientContext mod_CFStreamClientContext = {
+static CFStreamClientContext mod_CFStreamClientContext_Write = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_writestream_retain,
+	mod_writestream_release,
 	NULL
 };
 
@@ -75,7 +71,7 @@ mod_CFWriteStreamSetClient(
 		return NULL;
 	}
 
-	CFStreamClientContext context = mod_CFStreamClientContext;
+	CFStreamClientContext context = mod_CFStreamClientContext_Write;
 	context.info = Py_BuildValue("OO", callout, info);
 	if (context.info == NULL) {
 		return NULL;
@@ -108,21 +104,10 @@ mod_CFWriteStreamSetClient(
 	return PyBool_FromLong(rv);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFWriteStreamSetClient",
-		(PyCFunction)mod_CFWriteStreamSetClient,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_WRITESTREAM_METHODS \
+        {	\
+		"CFWriteStreamSetClient",	\
+		(PyCFunction)mod_CFWriteStreamSetClient,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFWriteStream(void);
-void init_CFWriteStream(void)
-{
-	PyObject* m = Py_InitModule4("_CFWriteStream", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

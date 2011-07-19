@@ -1,8 +1,6 @@
 /* 
    HTTP session handling
-   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
-   Portions are:
-   Copyright (C) 1999-2000 Tommi Komulainen <Tommi.Komulainen@iki.fi>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -33,6 +31,10 @@
 #include <errno.h>
 #endif
 
+#ifdef HAVE_LIBPROXY
+#include <proxy.h>
+#endif
+
 #include "ne_session.h"
 #include "ne_alloc.h"
 #include "ne_utils.h"
@@ -52,6 +54,27 @@ static void destroy_hooks(struct hook *hooks)
 	ne_free(hooks);
 	hooks = nexthk;
     }
+}
+
+static void free_hostinfo(struct host_info *hi)
+{
+    if (hi->hostname) ne_free(hi->hostname);
+    if (hi->hostport) ne_free(hi->hostport);
+    if (hi->address) ne_addr_destroy(hi->address);
+}
+
+/* Destroy the sess->proxies array. */
+static void free_proxies(ne_session *sess)
+{
+    struct host_info *hi, *nexthi;
+
+    for (hi = sess->proxies; hi; hi = nexthi) {
+        nexthi = hi->next;
+        free_hostinfo(hi);
+        ne_free(hi);
+    }
+
+    sess->any_proxy_http = 0;
 }
 
 void ne_session_destroy(ne_session *sess) 
@@ -82,12 +105,13 @@ void ne_session_destroy(ne_session *sess)
     destroy_hooks(sess->private);
 
     ne_free(sess->scheme);
-    ne_free(sess->server.hostname);
-    ne_free(sess->server.hostport);
-    if (sess->server.address) ne_addr_destroy(sess->server.address);
-    if (sess->proxy.address) ne_addr_destroy(sess->proxy.address);
-    if (sess->proxy.hostname) ne_free(sess->proxy.hostname);
+
+    free_hostinfo(&sess->server);
+    free_proxies(sess);
+
     if (sess->user_agent) ne_free(sess->user_agent);
+    if (sess->socks_user) ne_free(sess->socks_user);
+    if (sess->socks_password) ne_free(sess->socks_password);
 
 #ifdef NE_HAVE_SSL
     if (sess->ssl_context)
@@ -120,11 +144,12 @@ static void set_hostport(struct host_info *host, unsigned int defaultport)
 
 /* Stores the hostname/port in *info, setting up the "hostport"
  * segment correctly. */
-static void
-set_hostinfo(struct host_info *info, const char *hostname, unsigned int port)
+static void set_hostinfo(struct host_info *hi, enum proxy_type type, 
+                         const char *hostname, unsigned int port)
 {
-    info->hostname = ne_strdup(hostname);
-    info->port = port;
+    hi->hostname = ne_strdup(hostname);
+    hi->port = port;
+    hi->proxy = type;
 }
 
 ne_session *ne_session_create(const char *scheme,
@@ -141,7 +166,7 @@ ne_session *ne_session_create(const char *scheme,
     sess->use_ssl = !strcmp(scheme, "https");
     
     /* set the hostname/port */
-    set_hostinfo(&sess->server, hostname, port);
+    set_hostinfo(&sess->server, PROXY_NONE, hostname, port);
     set_hostport(&sess->server, sess->use_ssl?443:80);
 
 #ifdef NE_HAVE_SSL
@@ -163,15 +188,139 @@ ne_session *ne_session_create(const char *scheme,
 void ne_session_proxy(ne_session *sess, const char *hostname,
 		      unsigned int port)
 {
-    sess->use_proxy = 1;
-    if (sess->proxy.hostname) ne_free(sess->proxy.hostname);
-    set_hostinfo(&sess->proxy, hostname, port);
+    free_proxies(sess);
+
+    sess->proxies = ne_calloc(sizeof *sess->proxies);
+
+    sess->any_proxy_http = 1;
+    
+    set_hostinfo(sess->proxies, PROXY_HTTP, hostname, port);
+}
+
+void ne_session_socks_proxy(ne_session *sess, enum ne_sock_sversion vers, 
+                            const char *hostname, unsigned int port,
+                            const char *username, const char *password)
+{
+    free_proxies(sess);
+
+    sess->proxies = ne_calloc(sizeof *sess->proxies);
+
+    set_hostinfo(sess->proxies, PROXY_SOCKS, hostname, port);
+
+    sess->socks_ver = vers;
+
+    if (username) sess->socks_user = ne_strdup(username);
+    if (password) sess->socks_password = ne_strdup(password);
+}
+
+void ne_session_system_proxy(ne_session *sess, unsigned int flags)
+{
+#ifdef HAVE_LIBPROXY
+    pxProxyFactory *pxf = px_proxy_factory_new();
+    struct host_info *hi, **lasthi;
+    char *url, **proxies;
+    ne_uri uri;
+    unsigned n;
+
+    free_proxies(sess);
+
+    /* Create URI for session to pass off to libproxy */
+    memset(&uri, 0, sizeof uri);
+    ne_fill_server_uri(sess, &uri);
+
+    uri.path = "/"; /* make valid URI structure. */
+    url = ne_uri_unparse(&uri);
+    uri.path = NULL;
+
+    /* Get list of pseudo-URIs from libproxy: */
+    proxies = px_proxy_factory_get_proxies(pxf, url);
+    
+    for (n = 0, lasthi = &sess->proxies; proxies[n]; n++) {
+        enum proxy_type ptype;
+
+        ne_uri_free(&uri);
+
+        NE_DEBUG(NE_DBG_HTTP, "sess: libproxy #%u=%s\n", 
+                 n, proxies[n]);
+
+        if (ne_uri_parse(proxies[n], &uri))
+            continue;
+        
+        if (!uri.scheme) continue;
+
+        if (ne_strcasecmp(uri.scheme, "http") == 0)
+            ptype = PROXY_HTTP;
+        else if (ne_strcasecmp(uri.scheme, "socks") == 0)
+            ptype = PROXY_SOCKS;
+        else if (ne_strcasecmp(uri.scheme, "direct") == 0)
+            ptype = PROXY_NONE;
+        else
+            continue;
+
+        /* Hostname/port required for http/socks schemes. */
+        if (ptype != PROXY_NONE && !(uri.host && uri.port))
+            continue;
+        
+        /* Do nothing if libproxy returned only a single "direct://"
+         * entry -- a single "direct" (noop) proxy is equivalent to
+         * having none. */
+        if (n == 0 && proxies[1] == NULL && ptype == PROXY_NONE)
+            break;
+
+        NE_DEBUG(NE_DBG_HTTP, "sess: Got proxy %s://%s:%d\n",
+                 uri.scheme, uri.host ? uri.host : "(none)",
+                 uri.port);
+        
+        hi = *lasthi = ne_calloc(sizeof *hi);
+        
+        if (ptype == PROXY_NONE) {
+            /* A "direct" URI requires an attempt to connect directly to
+             * the origin server, so dup the server details. */
+            set_hostinfo(hi, ptype, sess->server.hostname,
+                         sess->server.port);
+        }
+        else {
+            /* SOCKS/HTTP proxy. */
+            set_hostinfo(hi, ptype, uri.host, uri.port);
+
+            if (ptype == PROXY_HTTP)
+                sess->any_proxy_http = 1;
+            else if (ptype == PROXY_SOCKS)
+                sess->socks_ver = NE_SOCK_SOCKSV5;
+        }
+
+        lasthi = &hi->next;
+    }
+
+    /* Free up the proxies array: */
+    for (n = 0; proxies[n]; n++)
+        free(proxies[n]);
+    free(proxies[n]);
+
+    ne_free(url);
+    ne_uri_free(&uri);
+    px_proxy_factory_free(pxf);
+#endif
 }
 
 void ne_set_addrlist(ne_session *sess, const ne_inet_addr **addrs, size_t n)
 {
-    sess->addrlist = addrs;
-    sess->numaddrs = n;
+    struct host_info *hi, **lasthi;
+    size_t i;
+
+    free_proxies(sess);
+
+    lasthi = &sess->proxies;
+
+    for (i = 0; i < n; i++) {
+        *lasthi = hi = ne_calloc(sizeof *hi);
+        
+        hi->proxy = PROXY_NONE;
+        hi->network = addrs[i];
+        hi->port = sess->server.port;
+
+        lasthi = &hi->next;
+    }
 }
 
 void ne_set_localaddr(ne_session *sess, const ne_inet_addr *addr)
@@ -281,9 +430,13 @@ void ne_fill_server_uri(ne_session *sess, ne_uri *uri)
 
 void ne_fill_proxy_uri(ne_session *sess, ne_uri *uri)
 {
-    if (sess->use_proxy) {
-        uri->host = ne_strdup(sess->proxy.hostname);
-        uri->port = sess->proxy.port;
+    if (sess->proxies) {
+        struct host_info *hi = sess->nexthop ? sess->nexthop : sess->proxies;
+
+        if (hi->proxy == PROXY_HTTP) {
+            uri->host = ne_strdup(hi->hostname);
+            uri->port = hi->port;
+        }
     }
 }
 
@@ -300,8 +453,7 @@ void ne_close_connection(ne_session *sess)
         NE_DEBUG(NE_DBG_SOCKET, "sess: Closing connection.\n");
 
         if (sess->notify_cb) {
-            sess->status.cd.hostname = 
-                sess->use_proxy ? sess->proxy.hostname : sess->server.hostname;
+            sess->status.cd.hostname = sess->nexthop->hostname;
             sess->notify_cb(sess->notify_ud, ne_status_disconnected, 
                             &sess->status);
         }
@@ -386,6 +538,8 @@ void ne__ssl_set_verify_err(ne_session *sess, int failures)
 	{ NE_SSL_EXPIRED, N_("certificate has expired") },
 	{ NE_SSL_IDMISMATCH, N_("certificate issued for a different hostname") },
 	{ NE_SSL_UNTRUSTED, N_("issuer is not trusted") },
+        { NE_SSL_BADCHAIN, N_("bad certificate chain") },
+        { NE_SSL_REVOKED, N_("certificate has been revoked") },
 	{ 0, NULL }
     };
     int n, flag = 0;

@@ -35,11 +35,83 @@ namespace WebCore {
         ScrollRight
     };
 
+    enum ScrollLogicalDirection {
+        ScrollBlockDirectionBackward,
+        ScrollBlockDirectionForward,
+        ScrollInlineDirectionBackward,
+        ScrollInlineDirectionForward
+    };
+    
+    
+    inline ScrollDirection logicalToPhysical(ScrollLogicalDirection direction, bool isVertical, bool isFlipped) 
+    {
+        switch (direction) {
+        case ScrollBlockDirectionBackward: {
+            if (isVertical) {
+                if (!isFlipped)
+                    return ScrollUp;
+                return ScrollDown;
+            } else {
+                if (!isFlipped)
+                    return ScrollLeft;
+                return ScrollRight;
+            }
+            break;
+        }
+        case ScrollBlockDirectionForward: {
+            if (isVertical) {
+                if (!isFlipped)
+                    return ScrollDown;
+                return ScrollUp;
+            } else {
+                if (!isFlipped)
+                    return ScrollRight;
+                return ScrollLeft;
+            }
+            break;
+        }
+        case ScrollInlineDirectionBackward: {
+            if (isVertical) {
+                if (!isFlipped)
+                    return ScrollLeft;
+                return ScrollRight;
+            } else {
+                if (!isFlipped)
+                    return ScrollUp;
+                return ScrollDown;
+            }
+            break;
+        }
+        case ScrollInlineDirectionForward: {
+            if (isVertical) {
+                if (!isFlipped)
+                    return ScrollRight;
+                return ScrollLeft;
+            } else {
+                if (!isFlipped)
+                    return ScrollDown;
+                return ScrollUp;
+            }
+            break;
+        }
+        default:
+            ASSERT_NOT_REACHED();
+            break;
+        }
+        return ScrollUp;
+    }
+
     enum ScrollGranularity {
         ScrollByLine,
         ScrollByPage,
         ScrollByDocument,
         ScrollByPixel
+    };
+
+    enum ScrollElasticity {
+        ScrollElasticityAutomatic,
+        ScrollElasticityNone,
+        ScrollElasticityAllowed
     };
 
     enum ScrollbarOrientation { HorizontalScrollbar, VerticalScrollbar };
@@ -53,7 +125,7 @@ namespace WebCore {
     enum ScrollbarControlStateMask {
         ActiveScrollbarState = 1,
         EnabledScrollbarState = 1 << 1,
-        PressedScrollbarState = 1 << 2,
+        PressedScrollbarState = 1 << 2
     };
 
     enum ScrollbarPart {
@@ -67,7 +139,7 @@ namespace WebCore {
         ForwardButtonEndPart = 1 << 6,
         ScrollbarBGPart = 1 << 7,
         TrackBGPart = 1 << 8,
-        AllParts = 0xffffffff,
+        AllParts = 0xffffffff
     };
 
     enum ScrollbarButtonsPlacement {
@@ -76,6 +148,12 @@ namespace WebCore {
         ScrollbarButtonsDoubleStart,
         ScrollbarButtonsDoubleEnd,
         ScrollbarButtonsDoubleBoth
+    };
+    
+    enum ScrollbarOverlayStyle {
+        ScrollbarOverlayStyleDefault,
+        ScrollbarOverlayStyleDark,
+        ScrollbarOverlayStyleLight
     };
     
     typedef unsigned ScrollbarControlPartMask;

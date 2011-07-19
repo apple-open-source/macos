@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  variadic.c
  *  testObjects
  *
@@ -8,12 +14,13 @@
  */
 
 // PURPOSE Test that variadic arguments compile and work for Blocks
-// CONFIG
+// TEST_CONFIG
 
-#include <stdarg.h>
-#include <stdio.h>
+#import <stdarg.h>
+#import <stdio.h>
+#import "test.h"
 
-int main(int argc, char *argv[]) {
+int main() {
     
     long (^addthem)(const char *, ...) = ^long (const char *format, ...){
         va_list argp;
@@ -46,16 +53,14 @@ int main(int argc, char *argv[]) {
     };
     long testresult = addthem("ii", 10, 20);
     if (testresult != 30) {
-        printf("got wrong result: %ld\n", testresult);
-        return 1;
+        fail("got wrong result: %ld", testresult);
     }
     testresult = addthem("idc", 30, 40.0, 'a');
     if (testresult != (70+'a')) {
-        printf("got different wrong result: %ld\n", testresult);
-        return 1;
+        fail("got different wrong result: %ld", testresult);
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }
 
 

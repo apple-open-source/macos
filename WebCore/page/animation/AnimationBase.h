@@ -29,8 +29,10 @@
 #ifndef AnimationBase_h
 #define AnimationBase_h
 
-#include "AtomicString.h"
+#include "RenderStyleConstants.h"
 #include <wtf/HashMap.h>
+#include <wtf/HashSet.h>
+#include <wtf/text/AtomicString.h>
 
 namespace WebCore {
 
@@ -49,11 +51,16 @@ class AnimationBase : public RefCounted<AnimationBase> {
 
 public:
     AnimationBase(const Animation* transition, RenderObject* renderer, CompositeAnimation* compAnim);
-    virtual ~AnimationBase();
+    virtual ~AnimationBase() { }
 
     RenderObject* renderer() const { return m_object; }
-    void clearRenderer() { m_object = 0; }
-    
+    void clear()
+    {
+      endAnimation();
+      m_object = 0;
+      m_compAnim = 0;
+    }
+
     double duration() const;
 
     // Animations and Transitions go through the states below. When entering the STARTED state
@@ -69,6 +76,7 @@ public:
         AnimationStateLooping,              // response received, animation running, loop timer running, waiting for fire
         AnimationStateEnding,               // received, animation running, end timer running, waiting for fire
         AnimationStatePausedWaitTimer,      // in pause mode when animation started
+        AnimationStatePausedWaitStyleAvailable, // in pause mode when waiting for style setup
         AnimationStatePausedWaitResponse,   // animation paused when in STARTING state
         AnimationStatePausedRun,            // animation paused when in LOOPING or ENDING state
         AnimationStateDone,                 // end timer fired, animation finished and removed
@@ -101,7 +109,7 @@ public:
     }
 
     // Called to change to or from paused state
-    void updatePlayState(bool running);
+    void updatePlayState(EAnimPlayState);
     bool playStatePlaying() const;
 
     bool waitingToStart() const { return m_animState == AnimationStateNew || m_animState == AnimationStateStartWaitTimer; }
@@ -144,9 +152,10 @@ public:
 
     // Does this animation/transition involve the given property?
     virtual bool affectsProperty(int /*property*/) const { return false; }
-    bool isAnimatingProperty(int property, bool isRunningNow) const
+
+    bool isAnimatingProperty(int property, bool acceleratedOnly, bool isRunningNow) const
     {
-        if (m_fallbackAnimating)
+        if (acceleratedOnly && !m_isAccelerated)
             return false;
             
         if (isRunningNow)
@@ -159,13 +168,16 @@ public:
     
     // Freeze the animation; used by DumpRenderTree.
     void freezeAtTime(double t);
+
+    // Play and pause API
+    void play();
+    void pause();
     
     double beginAnimationUpdateTime() const;
     
     double getElapsedTime() const;
-    
-    AnimationBase* next() const { return m_next; }
-    void setNext(AnimationBase* animation) { m_next = animation; }
+    // Setting the elapsed time will adjust the start time and possibly pause time.
+    void setElapsedTime(double);
     
     void styleAvailable() 
     {
@@ -176,6 +188,10 @@ public:
 #if USE(ACCELERATED_COMPOSITING)
     static bool animationOfPropertyIsAccelerated(int prop);
 #endif
+
+    static HashSet<int> animatableShorthandsAffectingProperty(int property);
+
+    const Animation* animation() const { return m_animation.get(); }
 
 protected:
     virtual void overrideAnimations() { }
@@ -197,7 +213,7 @@ protected:
 
     void goIntoEndingOrLoopingState();
 
-    bool isFallbackAnimating() const { return m_fallbackAnimating; }
+    bool isAccelerated() const { return m_isAccelerated; }
 
     static bool propertiesEqual(int prop, const RenderStyle* a, const RenderStyle* b);
     static int getPropertyAtIndex(int, bool& isShorthand);
@@ -220,11 +236,9 @@ protected:
 
     RefPtr<Animation> m_animation;
     CompositeAnimation* m_compAnim;
-    bool m_fallbackAnimating;       // true when animating an accelerated property but have to fall back to software
+    bool m_isAccelerated;
     bool m_transformFunctionListValid;
     double m_totalDuration, m_nextIterationDuration;
-    
-    AnimationBase* m_next;
     
 private:
     static void ensurePropertyMap();

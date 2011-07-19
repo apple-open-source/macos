@@ -1,7 +1,7 @@
 #
 # Copyright (C) 1997-2000 Matt Newman <matt@novadigm.com> 
 #
-# $Header: /cvsroot/tls/tls/tls.tcl,v 1.10 2008/03/19 02:34:21 patthoyts Exp $
+# $Header: /cvsroot/tls/tls/tls.tcl,v 1.12 2010/07/27 17:15:47 hobbs2 Exp $
 #
 namespace eval tls {
     variable logcmd tclLog
@@ -27,6 +27,19 @@ proc tls::initlib {dir dll} {
     # the dependent DLL's in the CWD, where they may be.
     set cwd [pwd]
     catch {cd $dir}
+    if {[string equal $::tcl_platform(platform) "windows"] &&
+	![string equal [lindex [file system $dir] 0] "native"]} {
+	# If it is a wrapped executable running on windows, the openssl
+	# dlls must be copied out of the virtual filesystem to the disk
+	# where Windows will find them when resolving the dependency in
+	# the tls dll. We choose to make them siblings of the executable.
+	package require starkit
+	set dst [file nativename [file dirname $starkit::topdir]]
+	foreach sdll [glob -nocomplain -directory $dir -tails *eay32.dll] {
+	    catch {file delete -force            $dst/$sdll}
+	    catch {file copy   -force $dir/$sdll $dst/$sdll}
+	}
+    }
     set res [catch {uplevel #0 [list load [file join [pwd] $dll]]} err]
     catch {cd $cwd}
     if {$res} {
@@ -74,6 +87,7 @@ proc tls::socket {args} {
 	switch -glob -- $server,$arg {
 	    0,-async	{lappend sopts $arg}
 	    0,-myport	-
+	    *,-type	-
 	    *,-myaddr	{lappend sopts $arg [lindex $args [incr idx]]}
 	    *,-cadir	-
 	    *,-cafile	-
@@ -248,3 +262,4 @@ proc tls::log {level msg} {
     lappend cmd $msg
     uplevel #0 $cmd
 }
+

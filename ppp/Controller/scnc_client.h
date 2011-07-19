@@ -22,8 +22,8 @@
  */
 
 
-#ifndef __PPP_CLIENT_H__
-#define __PPP_CLIENT_H__
+#ifndef __SCNC_CLIENT_H__
+#define __SCNC_CLIENT_H__
 
 #include "ppp_msg.h"
 
@@ -44,7 +44,7 @@ struct client_opts {
 };
 
 #define CLIENT_FLAG_PRIVILEDGED			0x1		// client can send priviledged commands
-#define CLIENT_FLAG_UI_CONTROLLER		0x2		// client is UI controller
+#define CLIENT_FLAG_IPC_READY			0x2		// client is IPC ready VPN configuration app
 #define CLIENT_FLAG_NOTIFY_EVENT		0x4		// client wants notifications for events
 #define CLIENT_FLAG_NOTIFY_STATUS		0x8		// client wants notifications for status
 #define CLIENT_FLAG_IS_SOCKET			0x10	// client uses socket API (instead of Mach)
@@ -63,9 +63,11 @@ struct client {
     CFRunLoopSourceRef   sessionRls;	// session mach port ref
     CFStringRef		serviceID;		// service used by the client
 	mach_port_t		bootstrap_port;		// bootstrap port use by client
+	mach_port_name_t    au_session;		// audit session port
 	
 	uid_t			uid;			// user uid at the end of the control api
 	uid_t			gid;			// user gid at the end of the control api
+	pid_t			pid;			// pid of user app
 	
     u_int8_t		*msg;			// message in pogress from client
     u_int32_t		msglen;			// current message length
@@ -92,11 +94,12 @@ struct client {
 
 u_long client_init_all ();
 struct client *client_new_socket (CFSocketRef ref, int priviledged, uid_t uid, gid_t gid);
-struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, mach_port_t bootstrap, mach_port_t notify_port);
+struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, pid_t pid, mach_port_t bootstrap, mach_port_t notify_port, mach_port_t au_session);
 void client_dispose (struct client *client);
 CFMutableDictionaryRef client_newoptset (struct client *client, CFStringRef serviceid);
 CFMutableDictionaryRef client_findoptset (struct client *client, CFStringRef serviceid);
 u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long state, u_long error, int notification, SCNetworkConnectionStatus status);
+
 
 struct client *client_findbysocketref(CFSocketRef ref);
 struct client *client_findbymachport(mach_port_t port);

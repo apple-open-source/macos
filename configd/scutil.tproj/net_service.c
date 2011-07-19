@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2004-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2004-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -38,39 +38,6 @@
 
 
 /* -------------------- */
-
-
-__private_extern__
-CFComparisonResult
-_compare_services(const void *val1, const void *val2, void *context)
-{
-	CFStringRef		id1;
-	CFStringRef		id2;
-	CFArrayRef		order	= (CFArrayRef)context;
-	SCNetworkServiceRef	s1	= (SCNetworkServiceRef)val1;
-	SCNetworkServiceRef	s2	= (SCNetworkServiceRef)val2;
-
-	id1 = SCNetworkServiceGetServiceID(s1);
-	id2 = SCNetworkServiceGetServiceID(s2);
-
-	if (order != NULL) {
-		CFIndex	o1;
-		CFIndex	o2;
-		CFRange	range;
-
-		range = CFRangeMake(0, CFArrayGetCount(order));
-		o1 = CFArrayGetFirstIndexOfValue(order, range, id1);
-		o2 = CFArrayGetFirstIndexOfValue(order, range, id2);
-
-		if (o1 > o2) {
-			return (o2 != kCFNotFound) ? kCFCompareGreaterThan : kCFCompareLessThan;
-		} else if (o1 < o2) {
-			return (o1 != kCFNotFound) ? kCFCompareLessThan    : kCFCompareGreaterThan;
-		}
-	}
-
-	return CFStringCompare(id1, id2, 0);
-}
 
 
 static SCNetworkServiceRef
@@ -975,7 +942,7 @@ show_services(int argc, char **argv)
 			sorted = CFArrayCreateMutableCopy(NULL, 0, services);
 			CFArraySortValues(sorted,
 					  CFRangeMake(0, CFArrayGetCount(sorted)),
-					  _compare_services,
+					  _SCNetworkServiceCompare,
 					  (void *)order);
 			CFRelease(services);
 			services = sorted;

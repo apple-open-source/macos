@@ -15,7 +15,7 @@
 #
 # Usage: gen_stringprep_data.tcl infile outdir
 # 
-# RCS: @(#) $Id: gen_stringprep_data.tcl,v 1.1 2008/01/29 02:18:10 patthoyts Exp $
+# RCS: @(#) $Id: gen_stringprep_data.tcl,v 1.2 2009/11/02 00:26:44 patthoyts Exp $
 
 
 namespace eval uni {
@@ -203,6 +203,19 @@ proc uni::load_tables {data} {
 			    set casemap2($from) [llength $multicasemap]
 			    lappend multicasemap [list $to1 $to2 $to3]
 			}
+		    } elseif {[regexp {^   ([[:xdigit:]]+); ([[:xdigit:]]+) ([[:xdigit:]]+) ([[:xdigit:]]+) ([[:xdigit:]]+);} $line \
+			     temp from to1 to2 to3 to4]} {
+			scan $from %x from
+			scan $to1 %x to1
+			scan $to2 %x to2
+			scan $to3 %x to3
+			scan $to4 %x to4
+			if {$from <= 0x10ffff && \
+				$to1 <= 0x10ffff && $to2 <= 0x10ffff && \
+				$to3 <= 0x10ffff && $to4 <= 0x10ffff} {
+			    set casemap2($from) [llength $multicasemap]
+			    lappend multicasemap [list $to1 $to2 $to3 $to4]
+			}
 		    } else {
 			#puts "missed: $line"
 		    }
@@ -308,7 +321,7 @@ proc uni::main {} {
 # RCS: @(#) \$Id\$
 #
 
-package provide stringprep::data 1.0.0
+package provide stringprep::data 1.0.1
 
 namespace eval ::stringprep::data {
 

@@ -1,17 +1,23 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  refcounting.m
 //
 //  Created by Blaine Garst on 3/21/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG GC RR -C99
+// TEST_CFLAGS -framework Foundation
 
 #import <Foundation/Foundation.h>
 #import <Block.h>
 #import <Block_private.h>
+#import "test.h"
 
-
-int main(char *argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     int i = 10;
     void (^blockA)(void) = ^ { printf("i is %d\n", i); };
@@ -38,14 +44,14 @@ int main(char *argc, char *argv[]) {
     for (int i = 0; i < 1000; ++i) {
         void (^blockAcopycopy)(void) = Block_copy(blockAcopy);
         if (blockAcopycopy != blockAcopy) {
-            printf("copy %p of copy %p wasn't the same!!\n", (void *)blockAcopycopy, (void *)blockAcopy);
-            exit(1);
+            fail("copy %p of copy %p wasn't the same!!", (void *)blockAcopycopy, (void *)blockAcopy);
         }
     }
     for (int i = 0; i < 1000; ++i) {
         Block_release(blockAcopy);
     }
     Block_release(blockAcopy);
-    printf("%s: success\n", argv[0]);
-    return 0;
+    [pool drain];
+
+    succeed(__FILE__);
 }

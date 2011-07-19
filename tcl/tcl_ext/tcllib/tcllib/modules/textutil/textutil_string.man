@@ -1,6 +1,7 @@
 [manpage_begin textutil::string n 0.7]
 [moddesc   {Text and string utilities, macro processing}]
 [titledesc {Procedures to manipulate texts and strings.}]
+[category  {Text processing}]
 [require Tcl 8.2]
 [require textutil::string [opt 0.7]]
 [description]

@@ -1,0 +1,137 @@
+.\"
+.\" $XFree86: xc/lib/Xfontcache/Xfontcache.man,v 1.1 2003/10/13 21:19:28 herrb Exp $
+.\"
+.\" Copyright (C) 2003 The XFree86 Project, Inc.  All Rights Reserved.
+.\" 
+.\" Permission is hereby granted, free of charge, to any person obtaining
+.\" a copy of this software and associated documentation files (the
+.\" "Software"), to deal in the Software without restriction, including
+.\" without limitation the rights to use, copy, modify, merge, publish,
+.\" distribute, sublicense, and/or sell copies of the Software, and to
+.\" permit persons to whom the Software is furnished to do so, subject to
+.\" the following conditions:
+.\" 
+.\" The above copyright notice and this permission notice shall be
+.\" included in all copies or substantial portions of the Software.
+.\" 
+.\" THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+.\" EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
+.\" MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NON-INFRINGEMENT.
+.\" IN NO EVENT SHALL THE XFREE86 PROJECT BE LIABLE FOR ANY CLAIM, DAMAGES
+.\" OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR
+.\" OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR
+.\" THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+.\" 
+.\" Except as contained in this notice, the name of the XFree86 Project
+.\" shall not be used in advertising or otherwise to promote the sale, use
+.\" or other dealings in this Software without prior written authorization
+.\" from the XFree86 Project.
+.\" 
+.TH Xfontcache __libmansuffix__  __vendorversion__
+.SH NAME
+Xfontcache \- X-TrueType font cache extension client library
+.SH SYNOPSIS
+.B #include <X11/extensions/FontCache.h>
+.PP
+.nf
+.ta .5i 2i
+typedef struct {
+	long	himark;
+	long	lowmark;
+	long	balance;
+} FontCacheSettings, *FontCacheSettingsPtr;
+
+struct cacheinfo {
+	long	hits;
+	long	misshits;
+	long	purged;
+	long	usage;
+};
+
+typedef struct {
+	long	purge_runs;
+	long	purge_stat;
+	long	balance;
+	struct cacheinfo	f;
+	struct cacheinfo	v;
+} FontCacheStatistics, *FontCacheStatisticsPtr;
+.fi
+.HP
+Bool FontCacheQueryExtension(Display *\fIdpy\fP, 
+int *\fIevent_base_return\fP, int *\fIerror_base_return\fP\^);
+.HP
+Status FontCacheQueryVersion(Display *\fIdpy\fP, int *\fImajor_version_return\fP,
+int *\fIminor_version_return\fP\^);
+.HP
+Status FontCacheGetCacheSettings(Display *\fIdpy\fP,
+FontCacheSettings *\fIcache info\fP);
+.HP
+Status FontCacheChangeCacheSettings(Display *\fIdpy\fP,
+FontCacheSettings *\fIcache info\fP);
+.HP
+Status FontCacheGetCacheStatistics(Display *\fIdpy\fP,
+FontCacheStatistics *\fIcache statistics info\fP);
+.PP
+.SH DESCRIPTION
+.B FontCache
+is an extension that is used by X-TrueType to cache informations about
+fonts. 
+.\" XXXX This should be filled in
+.PP
+.B FontCacheQueryExtension
+returns
+.B True
+if the 
+.I FontCache
+extension is available on the given display.
+A client must call 
+.B FontCacheQueryExtension
+before calling any other Xfontcache function in order
+to negotiate a compatible protocol version; otherwise the client will
+get undefined behavior (Xfontcache may or may not work).
+.PP
+.B FontCacheQueryVersion
+returns
+.B True
+if the request succeeded; the values of the major and minor protocol
+versions supported by the server are returned in 
+.I major_version_return
+and 
+.I minor_version_return .
+.PP
+.B FontCacheGetCacheSettings
+should be documented here. 
+Returns 
+.B True
+on success or 
+.B False
+on failure. 
+.PP
+.B FontCacheChangeCacheSettings
+should be documented here.
+Returns 
+.B True
+on success or 
+.B False
+on failure. 
+.PP
+.B FontCacheGetCacheStatistics
+should be documented here.
+Returns 
+.B True
+on success or 
+.B False
+on failure. 
+.SH "ERRORS"
+.B FontCacheChangeCacheSettings
+will return 
+.I BadValue
+if passed an illegal parameters for lowmark, himark or balance fields.
+.SH "SEE ALSO"
+X(__miscmansuffix__)
+.SH AUTHOR
+Akio Morita, X-TrueType team, Nozomi Ytow.
+.SH STABILITY
+This API is considered as experimental. The Xfontcache library major
+revision may be incremented whenever incompatible changes are done to
+the API without notice. Use with care. 

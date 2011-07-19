@@ -20,15 +20,14 @@
 #ifndef ImageGStreamer_h
 #define ImageGStreamer_h
 
-#if ENABLE(VIDEO)
+#if USE(GSTREAMER)
 
 #include "BitmapImage.h"
-
 #include <gst/gst.h>
 #include <gst/video/video.h>
 #include <wtf/PassRefPtr.h>
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
 #include <cairo.h>
 #endif
 
@@ -49,14 +48,20 @@ class ImageGStreamer : public RefCounted<ImageGStreamer> {
     private:
         RefPtr<BitmapImage> m_image;
 
-#if PLATFORM(CAIRO)
+#if USE(CAIRO)
         ImageGStreamer(GstBuffer*&, IntSize, cairo_format_t&);
-        cairo_surface_t* m_surface;
+#endif
+
+#if PLATFORM(QT)
+        ImageGStreamer(GstBuffer*&, IntSize, QImage::Format);
+#endif
+
+#if PLATFORM(MAC)
+        ImageGStreamer(GstBuffer*&, IntSize);
 #endif
 
     };
 }
 
-#endif
-
+#endif // USE(GSTREAMER)
 #endif

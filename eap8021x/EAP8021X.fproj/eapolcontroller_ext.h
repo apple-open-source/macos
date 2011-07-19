@@ -35,4 +35,4 @@ eapolcontroller_server_port(mach_port_t * server)
     return (bootstrap_look_up(bootstrap_port, EAPOLCONTROLLER_SERVER, server));
 }
 
-#endif _EAPOLCONTROLLER_EXT_H
+#endif /* _EAPOLCONTROLLER_EXT_H */

@@ -66,7 +66,7 @@
 //
 // Forward declarations
 //
-unsigned long bitfield_set(unsigned long *bf, int base, int length, unsigned long value);
-unsigned long bitfield_get(unsigned long bf, int base, int length);
+unsigned int bitfield_set(unsigned int *bf, int base, int length, unsigned int value);
+unsigned int bitfield_get(unsigned int bf, int base, int length);
 
 #endif /* __bitfield__ */

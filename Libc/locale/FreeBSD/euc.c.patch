@@ -1,33 +1,32 @@
---- euc.c.orig	Thu Nov 25 11:38:16 2004
-+++ euc.c	Fri Feb 18 15:30:38 2005
-@@ -41,6 +41,8 @@
+--- euc.c.bsdnew	2009-11-09 15:05:25.000000000 -0800
++++ euc.c	2009-11-09 15:44:21.000000000 -0800
+@@ -41,6 +41,8 @@ static char sccsid[] = "@(#)euc.c	8.1 (B
  #include <sys/param.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.20 2004/06/23 07:01:43 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/euc.c,v 1.22 2007/10/13 16:28:21 ache Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <errno.h>
  #include <limits.h>
  #include <runetype.h>
-@@ -49,11 +51,12 @@
+@@ -49,13 +51,11 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
  #include <wchar.h>
  #include "mblocal.h"
  
--int	_EUC_init(_RuneLocale *);
--size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
--	    mbstate_t * __restrict);
--int	_EUC_mbsinit(const mbstate_t *);
--size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict);
-+__private_extern__ int	_EUC_init(struct __xlocale_st_runelocale *);
-+static size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict, size_t,
-+	    mbstate_t * __restrict, locale_t);
+-extern int __mb_sb_limit;
+-
+ static size_t	_EUC_mbrtowc(wchar_t * __restrict, const char * __restrict,
+-		    size_t, mbstate_t * __restrict);
+-static int	_EUC_mbsinit(const mbstate_t *);
++		    size_t, mbstate_t * __restrict, locale_t);
 +static int	_EUC_mbsinit(const mbstate_t *, locale_t);
-+static size_t	_EUC_wcrtomb(char * __restrict, wchar_t, mbstate_t * __restrict,
-+	    locale_t);
+ static size_t	_EUC_wcrtomb(char * __restrict, wchar_t,
+-		    mbstate_t * __restrict);
++		    mbstate_t * __restrict, locale_t);
  
  typedef struct {
  	int	count[4];
-@@ -67,12 +70,20 @@
+@@ -69,12 +69,20 @@ typedef struct {
  	int	want;
  } _EucState;
  
@@ -50,7 +49,7 @@
  
  	if (rl->__variable == NULL)
  		return (EFTYPE);
-@@ -111,23 +122,21 @@
+@@ -113,24 +121,22 @@ _EUC_init(_RuneLocale *rl)
  	}
  	rl->__variable = ei;
  	rl->__variable_len = sizeof(_EucInfo);
@@ -59,18 +58,19 @@
 -	__mbrtowc = _EUC_mbrtowc;
 -	__wcrtomb = _EUC_wcrtomb;
 -	__mbsinit = _EUC_mbsinit;
-+	xrl->__mb_cur_max = new__mb_cur_max;
-+	xrl->__mbrtowc = _EUC_mbrtowc;
-+	xrl->__wcrtomb = _EUC_wcrtomb;
-+	xrl->__mbsinit = _EUC_mbsinit;
-+	xrl->__free_extra = (__free_extra_t)_EUC_free_extra;
+-	__mb_sb_limit = 256;
++ 	xrl->__mb_cur_max = new__mb_cur_max;
++ 	xrl->__mbrtowc = _EUC_mbrtowc;
++ 	xrl->__wcrtomb = _EUC_wcrtomb;
++ 	xrl->__mbsinit = _EUC_mbsinit;
++	xrl->__mb_sb_limit = 256;
++ 	xrl->__free_extra = (__free_extra_t)_EUC_free_extra;
  	return (0);
  }
  
--int
+ static int
 -_EUC_mbsinit(const mbstate_t *ps)
-+static int
-+_EUC_mbsinit(const mbstate_t *ps, locale_t loc)
++_EUC_mbsinit(const mbstate_t *ps, locale_t loc __unused)
  {
  
  	return (ps == NULL || ((const _EucState *)ps)->want == 0);
@@ -81,12 +81,9 @@
  #define	_SS2	0x008e
  #define	_SS3	0x008f
  
-@@ -140,18 +149,20 @@
- 	return ((c & 0x80) ? c == _SS3 ? 3 : c == _SS2 ? 2 : 1 : 0);
- }
+@@ -146,16 +152,18 @@ _euc_set(u_int c)
  
--size_t
-+static size_t
+ static size_t
  _EUC_mbrtowc(wchar_t * __restrict pwc, const char * __restrict s, size_t n,
 -    mbstate_t * __restrict ps)
 +    mbstate_t * __restrict ps, locale_t loc)
@@ -105,15 +102,12 @@
  	    es->set > 3) {
  		errno = EINVAL;
  		return ((size_t)-1);
-@@ -213,12 +224,14 @@
- 	return (wc == L'\0' ? 0 : s - os);
+@@ -218,11 +226,12 @@ _EUC_mbrtowc(wchar_t * __restrict pwc, c
  }
  
--size_t
+ static size_t
 -_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps)
-+static size_t
-+_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps,
-+    locale_t loc)
++_EUC_wcrtomb(char * __restrict s, wchar_t wc, mbstate_t * __restrict ps, locale_t loc)
  {
  	_EucState *es;
  	wchar_t m, nm;

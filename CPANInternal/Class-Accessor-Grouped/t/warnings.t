@@ -1,5 +1,5 @@
 #!perl -wT
-# $Id: /local/CPAN/Class-Accessor-Grouped/t/warnings.t 23 2007-05-11T01:34:21.515012Z claco  $
+# $Id: warnings.t 3289 2007-05-11 01:34:21Z claco $
 use strict;
 use warnings;
 

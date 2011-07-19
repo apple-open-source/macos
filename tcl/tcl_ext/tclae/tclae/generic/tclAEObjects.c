@@ -4,7 +4,7 @@
  * 
  *  FILE: "tclAEObjects.c"
  *                                    created: 11/13/00 {10:30:29 PM} 
- *                                last update: 11/6/07 {7:38:13 PM} 
+ *                                last update: 7/26/10 {2:15:27 AM} 
  *  Author: Jonathan Guyer
  *  E-mail: jguyer@his.com
  *    mail: Alpha Cabal
@@ -433,7 +433,7 @@ Tclae_GetObjectAccessorCmd(ClientData clientData,
     OSErr					err;
 
 	OSLAccessorUPP			accessor;
-	long 					accessorRefcon;
+        SRefCon 				accessorRefcon;
 	
 	if (objc != 3) {
 		Tcl_WrongNumArgs(interp, 1, objv, "<desiredClass> <containerType>");
@@ -476,7 +476,7 @@ Tclae_GetObjectAccessorCmd(ClientData clientData,
 	                               
 	    if ((err != noErr)
 	    ||	(accessor != (OSLAccessorUPP)TclaeObjectAccessorUPP)
-	    ||	(accessorRefcon != (long) accessorPtr)) {
+	    ||	(accessorRefcon != (SRefCon) accessorPtr)) {
 	    	// Something is severely wrong.
 	    	// The accessor in the accessor hash table is either not
 	    	// registered with the AEM at all, or it is inconsistent
@@ -599,7 +599,7 @@ Tclae_InstallObjectAccessorCmd(ClientData clientData,
 	err = AEInstallObjectAccessor(desiredClass,
 								  containerType,
                                   TclaeObjectAccessorUPP,
-                                  (long) objectAccessorPtr,
+                                  (SRefCon) objectAccessorPtr,
                                   false);
 	if (err != noErr) {
 		Tcl_ResetResult(interp);

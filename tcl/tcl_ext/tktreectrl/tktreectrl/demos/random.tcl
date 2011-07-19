@@ -1,4 +1,4 @@
-# RCS: @(#) $Id: random.tcl,v 1.26 2006/12/07 03:55:27 treectrl Exp $
+# RCS: @(#) $Id: random.tcl,v 1.27 2010/03/08 16:59:31 treectrl Exp $
 
 set RandomN 500
 set RandomDepth 5
@@ -216,6 +216,7 @@ proc RandomButton1 {T x y} {
 
 proc RandomMotion1 {T x y} {
     variable TreeCtrl::Priv
+    if {![info exists Priv(buttonMode)]} return
     switch $Priv(buttonMode) {
 	"drag" {
 	    set Priv(autoscan,command,$T) {RandomMotion %T %x %y}

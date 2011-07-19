@@ -82,8 +82,8 @@ sub run {
         $proxy->{conn}++;    # Cannot use the interface for RO attributes
         $proxy->log( HTTP::Proxy::PROCESS, 'PROCESS',
             "Reaped child process $kid" );
-        $proxy->log( HTTP::Proxy::PROCESS, 'PROCESS',
-            "Remaining kids: @{[keys %$kids]}" );
+        $proxy->log( HTTP::Proxy::PROCESS, "PROCESS",
+            keys(%$kids) . " remaining kids: @{[ keys %$kids ]}" );
         delete $kids->{$kid};
     }
 
@@ -164,7 +164,7 @@ sub stop {
         $proxy->log( HTTP::Proxy::PROCESS, "PROCESS",
             "Reaped child process $pid" );
         $proxy->log( HTTP::Proxy::PROCESS, "PROCESS",
-            "Remaining kids: @{[ keys %$kids ]}" );
+            keys(%$kids) . " remaining kids: @{[ keys %$kids ]}" );
     }
 
     # remove the temporary file

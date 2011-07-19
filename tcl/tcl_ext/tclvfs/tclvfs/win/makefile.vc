@@ -15,10 +15,10 @@
 # Copyright (c) 1998-2000 Ajuba Solutions.
 # Copyright (c) 2001 ActiveState Corporation.
 # Copyright (c) 2001-2002 David Gravereaux.
-# Copyright (c) 2003-2006 Pat Thoyts
+# Copyright (c) 2003-2008 Pat Thoyts
 #
 #-------------------------------------------------------------------------
-# RCS: @(#)$Id: makefile.vc,v 1.27 2008/12/03 02:30:42 hobbs Exp $
+# RCS: @(#)$Id: makefile.vc,v 1.32 2009/05/30 17:00:52 patthoyts Exp $
 #-------------------------------------------------------------------------
 
 # Check to see we are configured to build with MSVC (MSDEVDIR or MSVCDIR)
@@ -278,12 +278,15 @@ TCL_CFLAGS	= -DPACKAGE_NAME="\"$(PROJECT)\"" \
 		  -DPACKAGE_VERSION="\"$(DOTVERSION)\"" \
                   -DBUILD_$(PROJECT) $(BASE_CFLAGS) $(OPTDEFINES)
 
+### Stubs files should not be compiled with -GL
+STUB_CFLAGS     = $(cflags) $(cdebug:-GL=) #$(TK_DEFINES)
+
 #---------------------------------------------------------------------
 # Link flags
 #---------------------------------------------------------------------
 
 !if $(DEBUG)
-ldebug	= -debug:full -debugtype:cv
+ldebug	= -debug
 !if $(MSVCRT)
 ldebug = $(ldebug) -nodefaultlib:msvcrt
 !endif
@@ -328,26 +331,34 @@ baselibs   = $(baselibs) bufferoverflowU.lib
 !endif
 !endif
 
+!if exist("$(TCLDIR)\win\coffbase.txt")
+#dllbase	= -base:@$(TCLDIR)\win\coffbase.txt,tclvfs
+dllbase = -base:0x10A70000
+!else
+dllbase = -base:0x10A70000
+!endif
+
 #---------------------------------------------------------------------
 # TclTest flags
 #---------------------------------------------------------------------
 
-!IF "$(TESTPAT)" != ""
+!if "$(TESTPAT)" != ""
 TESTFLAGS = $(TESTFLAGS) -file $(TESTPAT)
-!ENDIF
+!endif
 
 #---------------------------------------------------------------------
 # Project specific targets (EDIT)
 #---------------------------------------------------------------------
 
 all:	    setup $(PROJECT)
-$(PROJECT): setup $(OUT_DIR)\pkgIndex.tcl $(PRJLIB)
+$(PROJECT): setup $(PRJLIB) pkgIndex
 install:    install-binaries install-libraries install-docs
+pkgIndex:   setup $(OUT_DIR)\pkgIndex.tcl $(OUT_DIR)\vfs.tcl
 
 test: setup $(PROJECT)
-	@set VFS_LIBRARY=$(LIBDIR:\=/)
 	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
-	@set TCLLIBPATH=$(OUT_DIR:\=/)
+	@set TCLLIBPATH=$(OUT_DIR_PATH:\=/)
+	$(CPY) $(LIBDIR)\*.tcl $(OUT_DIR)
 !if $(TCLINSTALL)
 	@set PATH=$(_TCLDIR)\bin;$(PATH)
 !else
@@ -362,9 +373,9 @@ test: setup $(PROJECT)
 !endif
 
 shell: setup $(PROJECT)
-	@set VFS_LIBRARY=$(LIBDIR:\=/)
 	@set TCL_LIBRARY=$(TCL_LIBRARY:\=/)
-	@set TCLLIBPATH=$(OUT_DIR:\=/)
+        @set TCLLIBPATH=$(OUT_DIR_PATH:\=/)
+	@set VFS_LIBRARY=$(LIBDIR:\=/)
 !if $(TCLINSTALL)
 	@set PATH=$(_TCLDIR)\bin;$(PATH)
 !else
@@ -382,14 +393,13 @@ setup:
 	@if not exist $(OUT_DIR)\nul mkdir $(OUT_DIR)
 	@if not exist $(TMP_DIR)\nul mkdir $(TMP_DIR)
 
-# See <tcl>/win/coffbase.txt for extension base addresses.
 $(PRJLIB): $(DLLOBJS)
 !if $(STATIC_BUILD)
 	$(lib32) -nologo -out:$@ @<<
 $**
 <<
 !else
-	$(link32) $(dlllflags) -base:0x10A70000 -out:$@ $(baselibs) @<<
+	$(link32) $(dlllflags) $(dllbase) -out:$@ $(baselibs) @<<
 $**
 <<
 	$(_VC_MANIFEST_EMBED_DLL)
@@ -442,9 +452,16 @@ $<
 #
 #-------------------------------------------------------------------------
 
-.PHONY: $(OUT_DIR)\pkgIndex.tcl
+.PHONY: $(OUT_DIR)\pkgIndex.tcl $(OUT_DIR)\vfs.tcl
 
 $(OUT_DIR)\pkgIndex.tcl: $(ROOT)\pkgIndex.tcl.in
+	nmakehlp -s << $** > $@
+@PACKAGE_NAME@     $(PROJECT)
+@PACKAGE_VERSION@  $(DOTVERSION)
+@PKG_LIB_FILE@     $(PRJLIBNAME)
+<<
+
+$(OUT_DIR)\vfs.tcl: $(ROOT)\library\vfs.tcl.in
 	nmakehlp -s << $** > $@
 @PACKAGE_NAME@     $(PROJECT)
 @PACKAGE_VERSION@  $(DOTVERSION)
@@ -464,20 +481,13 @@ install-binaries:
 	@if not exist "$(SCRIPT_INSTALL_DIR)" mkdir "$(SCRIPT_INSTALL_DIR)"
 	@$(CPY) $(PRJLIB) "$(SCRIPT_INSTALL_DIR)" >NUL
 
-install-libraries:
+install-libraries: pkgIndex
         @echo Installing libraries to '$(SCRIPT_INSTALL_DIR)'
         @if exist $(LIBDIR) $(CPY) $(LIBDIR)\*.tcl "$(SCRIPT_INSTALL_DIR)"
-        @if exist $(LIBDIR) $(CPY) $(LIBDIR)\tclIndex "$(SCRIPT_INSTALL_DIR)"
+        @echo Installing package entrypoint in '$(SCRIPT_INSTALL_DIR)'
+	@$(CPY) $(OUT_DIR)\vfs.tcl "$(SCRIPT_INSTALL_DIR)"
         @echo Installing package index in '$(SCRIPT_INSTALL_DIR)'
-	$(TCLSH) <<
-  set f [open $(ROOT)/pkgIndex.tcl.in r]
-  set data [read $$f]
-  close $$f
-  set data [string map {@PACKAGE_VERSION@ $(DOTVERSION) @PKG_LIB_FILE@ $(PRJLIBNAME)} $$data]
-  set f [open [file join [file normalize {$(SCRIPT_INSTALL_DIR)}] pkgIndex.tcl] w]
-  puts $$f $$data
-  close $$f
-<<
+	@$(CPY) $(OUT_DIR)\pkgIndex.tcl "$(SCRIPT_INSTALL_DIR)"
 
 install-docs:
 	@echo Installing documentation files to '$(DOC_INSTALL_DIR)'
@@ -489,7 +499,7 @@ install-docs:
 
 clean:
 	@if exist $(TMP_DIR)\nul $(RMDIR) $(TMP_DIR)
-	@if exist $(WINDIR)\version.vc del $(WINDIR)\version.vc
+	@if exist $(WINDIR)\versions.vc del $(WINDIR)\versions.vc
 	@if exist $(WINDIR)\vercl.i del $(WINDIR)\vercl.i
 	@if exist $(WINDIR)\vercl.x del $(WINDIR)\vercl.x
 	@if exist $(WINDIR)\_junk.pch del $(WINDIR)\_junk.pch

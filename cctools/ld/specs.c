@@ -247,8 +247,8 @@ process_section_specs(void)
 			    ms->s.align = sect_spec->align;
 			else
 			    ms->s.align = defaultsectalign;
-			ms->s.size = round(sect_spec->file_size,
-					   1 << ms->s.align);
+			ms->s.size = rnd(sect_spec->file_size,
+					 1 << ms->s.align);
 			/*
 			 * Sections created from files don't have symbols and
 			 * can't be referenced via a relocation entry.  So to

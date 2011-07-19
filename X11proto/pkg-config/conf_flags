@@ -1,1 +1,0 @@
---prefix=/usr/local --datadir=/usr/X11/share --mandir=/usr/local/share/man --with-pc-path="/usr/lib/pkgconfig:/usr/share/pkgconfig:/usr/X11/lib/pkgconfig:/usr/local/lib/pkgconfig:/usr/local/share/pkgconfig"

@@ -15,12 +15,21 @@
  */
 
 #include "apr_arch_networkio.h"
+#include "apr_arch_misc.h" /* apr_os_level */
 #include "apr_network_io.h"
 #include "apr_general.h"
 #include "apr_strings.h"
 #include <string.h>
 
-apr_status_t soblock(SOCKET sd)
+/* IPV6_V6ONLY is missing from pre-Windows 2008 SDK as well as MinGW
+ * (at least up through 1.0.16).
+ * Runtime support is a separate issue.
+ */
+#ifndef IPV6_V6ONLY
+#define IPV6_V6ONLY 27
+#endif
+
+static apr_status_t soblock(SOCKET sd)
 {
     u_long zero = 0;
 
@@ -30,7 +39,7 @@ apr_status_t soblock(SOCKET sd)
     return APR_SUCCESS;
 }
 
-apr_status_t sononblock(SOCKET sd)
+static apr_status_t sononblock(SOCKET sd)
 {
     u_long one = 1;
 
@@ -195,7 +204,17 @@ APR_DECLARE(apr_status_t) apr_socket_opt_set(apr_socket_t *sock,
         }
         break;
     case APR_IPV6_V6ONLY:
-#if APR_HAVE_IPV6 && defined(IPV6_V6ONLY)
+#if APR_HAVE_IPV6
+        if (apr_os_level < APR_WIN_VISTA && 
+            sock->local_addr->family == AF_INET6) {
+            /* apr_set_option() called at socket creation */
+            if (on) {
+                return APR_SUCCESS;
+            }
+            else {
+                return APR_ENOTIMPL;
+            }
+        }
         /* we don't know the initial setting of this option,
          * so don't check sock->options since that optimization
          * won't work

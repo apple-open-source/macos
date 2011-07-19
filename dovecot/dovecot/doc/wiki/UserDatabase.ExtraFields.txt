@@ -1,0 +1,93 @@
+User database extra fields
+==========================
+
+A user database lookup typically returns <uid, gid, home and mail>
+[UserDatabase.txt] fields. Other possibilities are:
+
+ * *nice*: Set the mail process's priority to be the given value.
+ * *chroot*: Chroot to given directory. Overrides 'mail_chroot' setting in
+   'dovecot.conf'.
+ * *system_groups_user*: Specifies the username whose groups are read from
+   '/etc/group' (or wherever NSS is configured to taken them from). The logged
+   in user has access to those groups. This may be useful for shared mailboxes.
+ * *userdb_import*: This allows returning multiple extra fields in one
+   TAB-separated field. It's useful for userdbs which are a bit less flexible
+   for returning a variable number of fields (e.g. SQL).
+ * *uidgid_file*: Get uid and gid for user based on the given filename.
+ * It's possible to override settings from 'dovecot.conf'.
+
+These fields can be returned the exact same way as uid, gid, home and mail
+fields. Below are examples for some user databases.
+
+Overriding settings
+-------------------
+
+Most commonly settings are overridden from plugin section. For example if your
+plugin section has 'quota=maildir:storage=1024' value and the userdb lookup
+returns 'quota=maildir:storage=2048', the original quota setting gets
+overridden. In fact if the lookup always returns a quota field, there's no
+point in having the quota setting in plugin section at all, because it always
+gets overridden anyway.
+
+To understand how imap and pop3 processes see their settings, it may be helpful
+to know how Dovecot internally passes them:
+
+ 1. First all actual settings are first read into memory.
+ 2. Next if <post-login scripting is used> [PostLoginScripting.txt], it may
+    modify the settings if wanted.
+ 3. Last all the extra fields returned by userdb lookup are used to override
+    the settings. Any unknown setting is placed into plugin {} section (e.g.
+    foo=bar will be parsed as if it were plugin { foo=bar }).
+
+If you want to override settings inside sections, you can separate the section
+name and key with '/'. For example:
+
+---%<-------------------------------------------------------------------------
+namespace default {
+  inbox = yes
+}
+---%<-------------------------------------------------------------------------
+
+The inbox setting can be overridden by returning 'namespace/default/inbox=no'
+extra field.
+
+Examples
+--------
+
+SQL
+---
+
+dovecot-sql.conf:
+
+---%<-------------------------------------------------------------------------
+user_query = SELECT home, uid, gid, \
+  '*:storage=100M' as quota_rule, mail_plugins \
+  FROM users WHERE userid = '%u'
+---%<-------------------------------------------------------------------------
+
+LDAP
+----
+
+dovecot-ldap.conf:
+
+---%<-------------------------------------------------------------------------
+user_attrs =
+homeDirectory=home,uidNumber=uid,gidNumber=gid,quotaDovecot=quota,mail_plugins
+---%<-------------------------------------------------------------------------
+
+passwd-file
+-----------
+
+Below are examples that show how to give two userdb extra fields ("mail" and
+"quota"). Note that all userdb extra fields must be prefixed with "userdb_",
+otherwise they're treated as <passdb extra fields>
+[PasswordDatabase.ExtraFields.txt].
+
+---%<-------------------------------------------------------------------------
+user:{plain}pass:1000:1000::/home/user::userdb_mail=mbox:~/mail
+userdb_quota_rule=*:storage=100M
+user2:{plain}pass2:1001:1001::/home/user2::userdb_mail=maildir:~/Maildir
+userdb_quota_rule=*:storage=200M
+---%<-------------------------------------------------------------------------
+
+(This file was created from the wiki on 2011-05-11 04:42)

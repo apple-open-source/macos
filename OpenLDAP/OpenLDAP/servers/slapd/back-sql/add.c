@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/add.c,v 1.50.2.6 2008/02/11 23:26:48 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-sql/add.c,v 1.50.2.11 2010/04/19 16:53:03 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1999-2008 The OpenLDAP Foundation.
+ * Copyright 1999-2010 The OpenLDAP Foundation.
  * Portions Copyright 1999 Dmitry Kovalev.
  * Portions Copyright 2002 Pierangelo Masarati.
  * Portions Copyright 2004 Mark Adamson.
@@ -939,7 +939,7 @@ backsql_add( Operation *op, SlapReply *rs )
 	 * NOTE: fake successful result to force contextCSN to be bumped up
 	 */
 	if ( op->o_sync ) {
-		char		buf[ LDAP_LUTIL_CSNSTR_BUFSIZE ];
+		char		buf[ LDAP_PVT_CSNSTR_BUFSIZE ];
 		struct berval	csn;
 
 		csn.bv_val = buf;
@@ -962,7 +962,7 @@ backsql_add( Operation *op, SlapReply *rs )
 	if ( BACKSQL_CHECK_SCHEMA( bi ) ) {
 		char		textbuf[ SLAP_TEXT_BUFLEN ] = { '\0' };
 
-		rs->sr_err = entry_schema_check( op, op->ora_e, NULL, 0, 1,
+		rs->sr_err = entry_schema_check( op, op->ora_e, NULL, 0, 1, NULL,
 			&rs->sr_text, textbuf, sizeof( textbuf ) );
 		if ( rs->sr_err != LDAP_SUCCESS ) {
 			Debug( LDAP_DEBUG_TRACE, "   backsql_add(\"%s\"): "
@@ -974,6 +974,17 @@ backsql_add( Operation *op, SlapReply *rs )
 	}
 
 	slap_add_opattrs( op, &rs->sr_text, textbuf, textlen, 1 );
+
+	if ( get_assert( op ) &&
+		( test_filter( op, op->ora_e, get_assertion( op )) != LDAP_COMPARE_TRUE ))
+	{
+		Debug( LDAP_DEBUG_TRACE, "   backsql_add(\"%s\"): "
+			"assertion control failed -- aborting\n",
+			op->ora_e->e_name.bv_val, 0, 0 );
+		e = NULL;
+		rs->sr_err = LDAP_ASSERTION_FAILED;
+		goto done;
+	}
 
 	/* search structuralObjectClass */
 	for ( at = op->ora_e->e_attrs; at != NULL; at = at->a_next ) {

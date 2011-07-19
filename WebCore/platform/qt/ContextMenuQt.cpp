@@ -21,24 +21,21 @@
  * PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY
  * OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
- * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE. 
+ * OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
 #include "config.h"
 #include "ContextMenu.h"
 
-#include <wtf/Assertions.h>
-
-#include <QAction>
-
 #include <Document.h>
 #include <Frame.h>
 #include <FrameView.h>
+#include <QAction>
+#include <wtf/Assertions.h>
 
 namespace WebCore {
 
-ContextMenu::ContextMenu(const HitTestResult& result)
-    : m_hitTestResult(result)
+ContextMenu::ContextMenu()
 {
 }
 
@@ -76,6 +73,20 @@ PlatformMenuDescription ContextMenu::releasePlatformDescription()
     return PlatformMenuDescription();
 }
 
+Vector<ContextMenuItem> contextMenuItemVector(const QList<ContextMenuItem>* items)
+{
+    int itemCount = items->size();
+    Vector<ContextMenuItem> menuItemVector(itemCount);
+    for (int i = 0; i < itemCount; ++i)
+        menuItemVector.append(items->at(i));
+    return menuItemVector;
+}
+
+PlatformMenuDescription platformMenuDescription(Vector<ContextMenuItem>& menuItemVector)
+{
+    // FIXME - Implement    
+    return 0;
+}
 
 }
 // vim: ts=4 sw=4 et

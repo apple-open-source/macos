@@ -1,0 +1,82 @@
+Revision history for Perl extension Test::Warn.
+
+0.21  Aug 29 2009
+        - rename internal package Tree::MyDAG_Node with Test::Warn::DAG_Node_Tree
+
+0.20  Aug 29 2009
+        - fix warning_exists.t for perl 5.6.2
+        - warnings_exists was renamed to warnings_exist
+        - compatibility layer in Makefile.PL
+
+0.11_02  Jun 16 2009
+        - carped.t will work on VMS (RT#39579)
+        - fix warning_exists.t for perl 5.10
+        - warning_exists was renamed to warnings_exists
+
+0.11_01  Jun 14 2009
+        - small changes
+        - MIN_PERL_VERSION in Makefile.PL
+        - Array::Compare is not needed
+        - allow files with spaces in path (RT#21545 by frew )
+        - Test::Exception is also not needed
+        - warning_exists added
+
+0.11  Jul 09 2008
+        - better Makefile.PL
+        - mention Test::Trap
+        - uplevel 2 changed to uplevel 1 to work with Sub::Uplevel 0.19_02
+        - small fixes
+
+0.10  May 01 2007
+        - depend on newer version of Sub::Uplevel
+        - fixed pod error
+
+0.09  Mar 15 2007
+        - new maintainer: Alexandr Ciornii
+        - license in Makefile.PL
+        - fixed carped.t (patch by PSINNOTT)
+        - pod.t
+
+0.08  Tue Sep 02 2003
+        - fixed bug in warning_is, warnings_are when newlines are inside
+
+0.07  Mon Mar 10 2003
+        - fixed self test routines
+          that it doesn't play a role what kind of file separator is used
+          (/ on *nix or \ on win)
+        - added File::Spec to the requirements
+
+0.06  Wed Jul 31 2002
+        - used a patch given by chromatic and Schwern
+          to remove Dependancy of Switch
+        - fixed a typo in the doc
+
+0.05  Thu Jul 25 2002
+        - implemented the warnings category feature
+          warning_like {foo()} 'syntax', "Test for any syntax warning, given by the standard perl distribution";
+        - added Tree::DAG_Node to the requirements
+
+0.04  Tue Jul 16 2002
+        - implemented the possibility of saying
+          warning_like {foo()} {carped => ['x', 'y', 'z']}, "Warnings with x, y and z"
+          instead of
+          warning_like {foo()} [{carped => 'x'},
+                                {carped => 'y'},
+                                {carped => 'z'}],           "Warnings with x, y and z, too"
+        - added Dependancy to Switch
+
+0.03  Mon Jul 15 2002
+        - removed bug that occured with some versions of perl
+          Something something like
+          use List::Util qw/first/;
+          {$warn_kind => first {"$_\n"} split /\n/, $msg};
+          where the argument to first wasn't detected as a sub block
+        - removed Dependency of List::Util
+
+0.02  Thu Jul 11 2002
+        - implemented carped option to define a warning coming from carp
+
+0.01  Wed Jul 10 2002
+	- first CPAN release
+	- warning_is   / warning_are implemented
+        - warning_like / warnings_like implemented

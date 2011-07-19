@@ -1,6 +1,6 @@
 /*
 
-Copyright (c) 2003-2009 Apple Inc. All rights reserved.
+Copyright (c) 2003-2011 Apple Inc. All rights reserved.
 
 License for apache_mod_bonjour module:
 Redistribution and use in source and binary forms, with or without modification, 
@@ -62,14 +62,11 @@ the APIs.
  * To do : make this work without mod_userdir, by recognizing its config directives
  */
 
-#define CORE_PRIVATE                    1
-#define MSG_PREFIX                      "mod_bonjour:"
+#define CORE_PRIVATE	1
+#define MSG_PREFIX	"mod_bonjour:"
 
 #include <SystemConfiguration/SystemConfiguration.h>
 #include <dns_sd.h>
-#include <DirectoryService/DirServices.h>
-#include <DirectoryService/DirServicesUtils.h>
-#include <DirectoryService/DirServicesConst.h>
 #include "httpd.h" 
 #include "http_config.h" 
 #include "http_core.h" 
@@ -94,26 +91,36 @@ the APIs.
 #define TITLE_MAX 127
 #define TXT_MAX 511
 #define REGNAME_MAX 255
+#define PROTOCOL_MAX 14
 #define PORT_MAX 65535
 #define MAX_NAME_FORMAT 64
 #define ALL_USERS "all-users"
 #define CUSTOMIZED_USERS "customized-users"
 #define DEFAULT_NAME_FORMAT "%l"
 
+typedef struct resourceRec {
+	char* name;
+	char* text;
+	char* protocol;
+	uint16_t port;
+} resourceRec;
+
 typedef struct registrationRec {	/* Needs to store info required to clean up upon deregistration */
-    char        name[REGNAME_MAX+1];
+    char name[REGNAME_MAX+1];
     DNSServiceRef serviceRef;
     server_rec* serverData;
 } registrationRec;
 
 typedef struct module_cfg_rec {
     apr_pool_t *pPool;
-	char*	sig;
+	char* sig;
 	char* regName;
 	char* regNameFormat;
 	char* regText;
+	char* protocol;
 	uint16_t port;
-    apr_array_header_t *registrationRecPtrArray;
+    apr_array_header_t *registrationRecs;
+    apr_array_header_t *resourceRecs;
 	Boolean regUserSiteCmd;
 	Boolean regResourceCmd;
 	Boolean regDefaultSiteCmd;
@@ -132,11 +139,8 @@ static int		templateIndexFD = 0;
 static struct stat 	templateIndexFinfo;
 
 static apr_status_t unregisterRefs( void* arg );
-static void 	registerService( const char* inName, uint16_t *inPort, char* inTxt, 
+static void 	registerService( const char* inName, uint16_t *inPort, char* inProtocol, char* inTxt, 
 	server_rec* serverData );
-static tDirStatus getDefaultLocalNode ( tDirReference inDirRef, tDirNodeReference *outLocalNodeRef );
-static tDirStatus processUsers( tDirReference dirRef, tDirNodeReference defaultLocalNodeRef,
-                    const char* whichUsers, const char* regNameFormat, uint16_t *port, cmd_parms *cmd );
 static int 		getUserSitePath( const char *inUserName, char *outSitePath, cmd_parms* cmd );
 static char* 	extractHTMLTitle( char* fileName, cmd_parms* cmd );
 static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd );
@@ -148,8 +152,8 @@ static void     registerUsers( const char* whichUsers, const char* regNameFormat
 static const char *processRegDefaultSite( cmd_parms *cmd, void *dummy, const char *arg );
 static const char *processRegUserSite( cmd_parms *cmd, void *dummy, const char *inName,	
 	const char *inPort, const char *inHost );
-static const char *processRegResource( cmd_parms *cmd, void *dummy, const char *inName, 
-	const char *inPath, const char* inPort );
+static const char *processRegResource( cmd_parms *cmd, __attribute__((unused)) void *dummy, 
+									  const char *arg );
 static void 	*bonjourModuleCreateServerConfig( apr_pool_t *p, server_rec *serverData );
 static apr_uint32_t cksum(const unsigned char *mem, size_t size);
 static const apr_uint32_t crctab[];
@@ -165,9 +169,9 @@ static apr_status_t unregisterRefs( void* arg ) {
     module_cfg_rec *module_cfg = server_cfg->module_cfg;
 		
     registrationRec** registrationRecPtrs = NULL;
-    registrationRecPtrs = (registrationRec**)module_cfg->registrationRecPtrArray->elts;
+    registrationRecPtrs = (registrationRec**)module_cfg->registrationRecs->elts;
 
-    for (i = 0; i < module_cfg->registrationRecPtrArray->nelts; i++) {
+    for (i = 0; i < module_cfg->registrationRecs->nelts; i++) {
         if (!registrationRecPtrs[i])
             continue;
 		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, registrationRecPtrs[i]->serverData,
@@ -179,12 +183,21 @@ static apr_status_t unregisterRefs( void* arg ) {
 			registrationRecPtrs[i]->serviceRef = 0;
         }
     }
-    for (i = 0; i < module_cfg->registrationRecPtrArray->nelts; i++) {
+    for (i = 0; i < module_cfg->registrationRecs->nelts; i++) {
         if (!registrationRecPtrs[i])
             continue;
         free( registrationRecPtrs[i] );
     }
-    module_cfg->registrationRecPtrArray->nelts = 0;
+    module_cfg->registrationRecs->nelts = 0;
+
+	resourceRec** resourceRecPtrs = NULL;
+	resourceRecPtrs = (resourceRec**)module_cfg->resourceRecs->elts;
+    for (i = 0; i < module_cfg->resourceRecs->nelts; i++) {
+        if (!resourceRecPtrs[i])
+            continue;
+        free( resourceRecPtrs[i] );
+    }
+    module_cfg->resourceRecs->nelts = 0;
     if (templateIndexMM) {
         close( templateIndexFD );
         munmap( templateIndexMM, (size_t)templateIndexFinfo.st_size );
@@ -196,7 +209,7 @@ static apr_status_t unregisterRefs( void* arg ) {
 * Register the service.
 * The port is assumed to NOT already be in network byte order.
 */
-static void registerService( const char* inName, uint16_t *inPort, char* inTxt, 
+static void registerService( const char* inName, uint16_t *inPort, char* inProtocol, char* inTxt, 
 	server_rec* serverData ) {
     
 	char regName[MAX_NAME_FORMAT];
@@ -229,8 +242,9 @@ static void registerService( const char* inName, uint16_t *inPort, char* inTxt,
 	TXTRecordRef txtRecord;
 	TXTRecordCreate(&txtRecord, 0, NULL);
 	TXTRecordSetValue(&txtRecord, "path", txtLen, inTxt);
-
-	DNSServiceErrorType regErr = DNSServiceRegister(&(registrationRecPtr->serviceRef), 0, 0, regName, "_http._tcp", NULL, NULL, htons( *inPort ), TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
+	char		serviceType[32];
+	snprintf(serviceType, sizeof(serviceType), "_%s._tcp", inProtocol);
+	DNSServiceErrorType regErr = DNSServiceRegister(&(registrationRecPtr->serviceRef), 0, 0, regName, serviceType, NULL, NULL, htons( *inPort ), TXTRecordGetLength(&txtRecord), TXTRecordGetBytesPtr(&txtRecord), NULL, NULL);
 
 	TXTRecordDeallocate(&txtRecord);
     if (regErr != kDNSServiceErr_NoError || !registrationRecPtr->serviceRef) {
@@ -242,200 +256,13 @@ static void registerService( const char* inName, uint16_t *inPort, char* inTxt,
     }
     
     ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, serverData,
-        "%s Registered name='%s' txt='%s' port=%" PRIu16 " from pid=%d.",
-        MSG_PREFIX, regName, inTxt, *inPort, getpid() );
+        "%s Registered name='%s' txt='%s' port=%" PRIu16 " service type=%s from pid=%d.",
+        MSG_PREFIX, regName, inTxt, *inPort, serviceType, getpid() );
 		
-	saveRegistrationRec = (registrationRec **)apr_array_push( module_cfg->registrationRecPtrArray );
+	saveRegistrationRec = (registrationRec **)apr_array_push( module_cfg->registrationRecs );
 	*saveRegistrationRec = registrationRecPtr;
 }
 
-
-/* Find the default local directory node 
-*/
-static tDirStatus getDefaultLocalNode( tDirReference inDirRef, tDirNodeReference *outLocalNodeRef )
-{
-    tDirStatus dsStatus 	= eMemoryAllocError;
-    apr_uint32_t nodeCount 	= 0;
-    tDataBuffer *pTDataBuff     = NULL;
-    tDataList *pDataList        = NULL;
-
-    pTDataBuff = dsDataBufferAllocate( inDirRef, 8*1024 );
-    if ( pTDataBuff != NULL ) {
-        dsStatus = dsFindDirNodes( inDirRef, pTDataBuff, NULL, eDSLocalNodeNames, &nodeCount, NULL );
-        if ( dsStatus == eDSNoErr ) {
-            dsStatus = dsGetDirNodeName( inDirRef, pTDataBuff, 1, &pDataList );
-            if ( dsStatus == eDSNoErr )
-                dsStatus = dsOpenDirNode( inDirRef, pDataList, outLocalNodeRef );
-
-            if ( pDataList != NULL ) {
-                (void)dsDataListDeallocate( inDirRef, pDataList );
-                free( pDataList );
-                pDataList = NULL;
-            }
-        }
-        (void)dsDataBufferDeAllocate( inDirRef, pTDataBuff );
-        pTDataBuff = NULL;
-    }
-    return dsStatus;
-}
-
-/* Call registerUser for each user in node
-*/
-static tDirStatus processUsers( tDirReference inDirRef, tDirNodeReference inNodeRef, 
-	const char* whichUsers, const char* regNameFormat, uint16_t *inPort, cmd_parms *cmd ) {
-
-    tDataBufferPtr      nameDataBufferPtr;
-    tDataList           recTypes;
-    tDataList           recNames;
-    tDataList           attributeList;
-    tRecordEntryPtr     recordEntryPtr;
-    tAttributeListRef   attrListRef = 0;
-    tDirStatus          dsStatus;
-    apr_uint32_t		recordCount = 0;
-    unsigned long       i;
-    tContextData        contextDataRecList = 0;
-    tAttributeValueListRef  attrValueListRef;
-    tAttributeEntryPtr	attrEntryPtr;
-    tAttributeValueEntryPtr attrValueEntryPtr;
-    char*               recordName;
-
-    if( !(nameDataBufferPtr = dsDataBufferAllocate( inDirRef, 8*1024 )) ) {
-	ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-            "%s Failure of dsDataBufferAllocate",
-            MSG_PREFIX );
-        return -1;
-    }
-    dsStatus = dsBuildListFromStringsAlloc( inDirRef, &recTypes, kDSStdRecordTypeUsers, NULL );
-    if (dsStatus != eDSNoErr) {
-	dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-	ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-            "%s Failure of dsDataBufferDeAllocate: %d",
-            MSG_PREFIX, dsStatus );
-        return dsStatus;
-    }
-        
-    dsStatus = dsBuildListFromStringsAlloc( inDirRef, &recNames, kDSRecordsAll, NULL );
-    if (dsStatus != eDSNoErr) {
-	dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-        dsDataListDeallocate( inDirRef, &recTypes );
-	ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-            "%s Failure of dsBuildListFromStringsAlloc: %d",
-            MSG_PREFIX, dsStatus );
-        return dsStatus;
-    }
- 
-    dsStatus = dsBuildListFromStringsAlloc( inDirRef, &attributeList, kDSNAttrRecordName,
-        kDS1AttrUniqueID, NULL );
-    if (dsStatus != eDSNoErr) {
-	dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-        dsDataListDeallocate( inDirRef, &recTypes );
-        dsDataListDeallocate( inDirRef, &recNames );
-	ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-            "%s Failure of dsBuildListFromStringsAlloc: %d",
-            MSG_PREFIX, dsStatus );
-        return dsStatus;
-    }
-    do { 
-        /* 
-            While there are more buffers 
-        */
-
-        dsStatus = dsGetRecordList( inNodeRef, nameDataBufferPtr, &recNames, eDSiExact, &recTypes, 
-            &attributeList, 0, &recordCount, &contextDataRecList );
-        if (dsStatus != eDSNoErr) {
-            dsDataListDeallocate( inDirRef, &attributeList );
-            dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-            dsDataListDeallocate( inDirRef, &recTypes );
-            dsDataListDeallocate( inDirRef, &recNames );
-            ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                "%s Failure of dsGetRecordList: %d",
-                MSG_PREFIX, dsStatus );
-            return dsStatus;
-        }
-
-        for (i = 1; i <= recordCount; i++) {
-            /* 
-                For one buffer load of records
-            */
-            
-            dsStatus = dsGetRecordEntry( inNodeRef, nameDataBufferPtr, i, &attrListRef, 
-                &recordEntryPtr );
-            if (dsStatus != eDSNoErr) { 
-                dsDataListDeallocate( inDirRef, &attributeList );
-                dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-                dsDataListDeallocate( inDirRef, &recTypes );
-                dsDataListDeallocate( inDirRef, &recNames );
-                ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                    "%s Failure of dsGetRecordEntry: %d, i=%lu",
-                    MSG_PREFIX, dsStatus, i );
-	// failing with -14061 i=38
-                return dsStatus;
-            }
-    
-            // Turn the AttrListRef into an AttrValueListRef
-            dsStatus = dsGetAttributeEntry( inNodeRef, nameDataBufferPtr, attrListRef, 1, &attrValueListRef,
-                &attrEntryPtr );
-            if (dsStatus != eDSNoErr) {
-                dsDataListDeallocate( inDirRef, &attributeList );
-                dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-                dsDataListDeallocate( inDirRef, &recTypes );
-                dsDataListDeallocate( inDirRef, &recNames );
-                dsCloseAttributeList( attrListRef );
-                dsDeallocRecordEntry( inDirRef, recordEntryPtr );
-                ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                    "%s Failure of dsGetAttributeEntry: %d, i=%lu",
-                    MSG_PREFIX, dsStatus, i );
-                return dsStatus;
-            }
-    
-            // Finally get the name attribute
-            dsStatus = dsGetAttributeValue( inNodeRef, nameDataBufferPtr, 1, attrValueListRef,
-                &attrValueEntryPtr);
-            if (dsStatus  != eDSNoErr) {
-                dsDataListDeallocate( inDirRef, &attributeList );
-                dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-                dsDataListDeallocate( inDirRef, &recTypes );
-                dsDataListDeallocate( inDirRef, &recNames );
-                dsDeallocAttributeEntry( inDirRef, attrEntryPtr );
-                dsCloseAttributeValueList( attrValueListRef );
-                dsCloseAttributeList( attrListRef );
-                dsDeallocRecordEntry( inDirRef, recordEntryPtr );
-                ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                    "%s Failure of dsGetAttributeValue: %d, i=%lu",
-                    MSG_PREFIX, dsStatus, i );
-                return dsStatus;
-            }
-            
-            recordName = attrValueEntryPtr->fAttributeValueData.fBufferData;
-            if (!strcmp( whichUsers, ALL_USERS ))
-                registerUser( recordName, regNameFormat, inPort, cmd );
-            else if (!strcmp( whichUsers, CUSTOMIZED_USERS )) {
-                if (userHasValidCustomizedSite( recordName, cmd ))
-                    registerUser( recordName, regNameFormat, inPort, cmd );
-                else
-                    ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
-                        "%s Skipping non-customized user %s",
-                        MSG_PREFIX, recordName );
-            }
-            else
-                ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                        "%s Unexpected 'RegisterUserSite %s', not registering.",
-                        MSG_PREFIX, whichUsers );
-
-            dsDeallocAttributeValueEntry( inDirRef, attrValueEntryPtr );
-            dsDeallocAttributeEntry( inDirRef, attrEntryPtr );
-            dsCloseAttributeValueList( attrValueListRef );
-            dsCloseAttributeList( attrListRef );
-            dsDeallocRecordEntry( inDirRef, recordEntryPtr );
-        }
-    } while (contextDataRecList != 0);
-    
-    dsDataBufferDeAllocate( inDirRef, nameDataBufferPtr );
-    dsDataListDeallocate( inDirRef, &attributeList );
-    dsDataListDeallocate( inDirRef, &recTypes );
-    dsDataListDeallocate( inDirRef, &recNames );
-    return eDSNoErr;
-}
 
 /*
 * Read mod_userdir's config structure to determine userdir site path.
@@ -640,10 +467,10 @@ static char *extractHTMLTitle( char* fileName, cmd_parms* cmd )
 }
 
 /*
-* Figure out the index file at the given Site Folder path, as determined by mod_dir,
-* and call a function to extract the HTML title.
+* Check the configured DirectoryIndex list and return the first file that exists.
+* If PHP is not enabled, skip index.php. 
 */
-static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
+static Boolean getIndexFile( char* inSiteFolder, char* outIndexFileName, cmd_parms* cmd ) {
 
     typedef struct dir_config_struct {
         apr_array_header_t *index_names;
@@ -653,21 +480,22 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
     char *dummy_ptr[1];
     char **dirIndexNames;
     int dirIndexNameCount;
+    struct stat statBuf;
     
     module* dir_mod = ap_find_linked_module( "mod_dir.c" );
     if (!dir_mod) {
-	ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Mod_dir not loaded", MSG_PREFIX);
-        outTitle = NULL;
-        return;
+        outIndexFileName = NULL;
+        return FALSE;
     }
 
     dir_cfg = (dir_config_rec *) ap_get_module_config( cmd->server->lookup_defaults, dir_mod );
     if (!dir_cfg) {
 		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Mod_dir config not present", MSG_PREFIX );
-        outTitle = NULL;
-        return;
+        outIndexFileName = NULL;
+        return FALSE;
     }
 
     if (dir_cfg->index_names) {
@@ -684,26 +512,44 @@ static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
         char *dirIndexName = *dirIndexNames;
         char fullSitePath[PATH_MAX+1];
 
+		if (strlen( dirIndexName ) > 4 && !strcmp( &(dirIndexName[strlen( dirIndexName ) - 4]), ".php" ) && !ap_find_linked_module( "mod_php5.c" ))
+			continue;
         strlcpy( fullSitePath, inSiteFolder, sizeof(fullSitePath) );
         strlcat( fullSitePath, "/", sizeof(fullSitePath) );
         strlcat( fullSitePath, dirIndexName, sizeof(fullSitePath) );
-        // Use the first index file of type text/html. Should fix this to use mime type
-        if ((strlen( dirIndexName ) > 5 && !strcmp( &(dirIndexName[strlen( dirIndexName ) - 5]), ".html" ))
-            || (strlen( dirIndexName ) > 4 && !strcmp( &(dirIndexName[strlen( dirIndexName ) - 4]), ".htm" ))) {
-            char* titleStr = extractHTMLTitle( fullSitePath, cmd );
-            if (!titleStr || !strcmp( titleStr, "" )) {
-                ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, cmd->server,
-                    "%s Index file %s has no title.",
-                    MSG_PREFIX, fullSitePath );
-                outTitle = NULL;
-                return;
-            }
-            // Title found by extractHTMLTitle could be way longer than what we want to use for Bonjour; truncate.
-            strncpy( outTitle, titleStr, TITLE_MAX );
-            return;
+		if (!stat( fullSitePath, &statBuf )) {
+			strncpy( outIndexFileName, dirIndexName, PATH_MAX );
+			return TRUE;
         }
     }
+    outIndexFileName = NULL;
+	return FALSE;
+}
 
+static void getTitle( char* inSiteFolder, char* outTitle, cmd_parms* cmd ) {
+	char fullSitePath[PATH_MAX+1];
+	char indexFileName[FILENAME_MAX+1];
+	if (!getIndexFile(inSiteFolder, indexFileName, cmd)) {
+		outTitle = NULL;
+		return;
+	}
+	if ((strlen( indexFileName ) > 5 && !strcmp( &(indexFileName[strlen( indexFileName ) - 5]), ".html" ))
+		|| (strlen( indexFileName ) > 4 && !strcmp( &(indexFileName[strlen( indexFileName ) - 4]), ".htm" ))) {
+		strlcpy(fullSitePath, inSiteFolder, sizeof(fullSitePath));
+		strlcat(fullSitePath, "/", sizeof(fullSitePath));
+		strlcat(fullSitePath, indexFileName, sizeof(fullSitePath));
+		char* titleStr = extractHTMLTitle( fullSitePath, cmd );
+		if (!titleStr || !strcmp( titleStr, "" )) {
+			ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_NOTICE, 0, cmd->server,
+				"%s Index file %s has no title.",
+				MSG_PREFIX, fullSitePath );
+			outTitle = NULL;
+			return;
+		}
+		// Title found by extractHTMLTitle could be way longer than what we want to use for Bonjour; truncate.
+		strncpy( outTitle, titleStr, TITLE_MAX );
+		return;
+    }
     outTitle = NULL;
 }
 
@@ -734,6 +580,7 @@ static apr_uint32_t cksum(const unsigned char *mem, size_t size)
 */
 static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
     char	site_path[PATH_MAX+1];
+	char indexFileName[FILENAME_MAX+1];
     Boolean		filesDiffer;
     int 	userIndexFD;
     struct stat userIndexFinfo;
@@ -774,29 +621,20 @@ static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
 	/* SnowLeopard10A354 Italian same as Leopard */
 	/* SnowLeopard10A354 Spanish  */ 1593960486U, 
 	/* SnowLeopard10A354 Dutch    */ 3594138231U, 
+	
+	/* SnowLeopard10A434 English */ 3347385980U,
+	/* SnowLeopard10A434 Japanese */ 2502105902U, 
+	/* SnowLeopard10A434 French   */ 1222117367U, 
+	/* SnowLeopard10A434 German   */ 1523595349U, 
+	/* SnowLeopard10A434 Italian  */ 879634710U, 
+	/* SnowLeopard10A434 Spanish  */ 287962460U, 
+	/* SnowLeopard10A434 Dutch	*/ 3594138231U, 
+
+	/* Lion is same as SnowLeopard so far (11A354) */
 
 	0U};
 	apr_uint32_t checkSum;
 	Boolean validTemplate = TRUE;
-	if (templateIndexMM == NULL || templateIndexMM == (void*) -1 ) {
-        if (stat( TEMPLATE_PATH, &templateIndexFinfo ) == -1) {
-            ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-                "%s Cannot stat template index file '%s'.",
-                MSG_PREFIX, TEMPLATE_PATH );
-            validTemplate = FALSE;
-        }
-		else {
-			templateIndexFD = open( TEMPLATE_PATH, O_RDONLY, 0 );
-			templateIndexMM = mmap( NULL, (size_t)templateIndexFinfo.st_size, PROT_READ, MAP_SHARED, templateIndexFD, (off_t)0 );
-			if ( templateIndexMM == (void*) -1) {
-				ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,
-					"%s Cannot read template index file '%s'.",
-					MSG_PREFIX, TEMPLATE_PATH );
-				close( userIndexFD );
-				validTemplate = FALSE;
-			}
-		}
-    }
 
     if (getUserSitePath( inUserName, site_path, cmd )) {
         ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
@@ -804,13 +642,28 @@ static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
             MSG_PREFIX, inUserName );
         return FALSE;
     }
-    strlcat( site_path, "/index.html", sizeof(site_path) );
+
+	if (!getIndexFile(site_path, indexFileName, cmd)) {
+		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
+					 "%s Skipping user '%s' - no valid index file.",
+					 MSG_PREFIX, inUserName );
+		return FALSE;
+	}
+	if (strcmp(indexFileName, "index.html")) {
+		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
+					 "%s Concluding user '%s' is customized because existing configured index file has non-default name %s.",
+					 MSG_PREFIX, inUserName, indexFileName );
+		return TRUE;
+	}
+	strlcat( site_path, "/", sizeof(site_path) );
+	strlcat( site_path, indexFileName, sizeof(site_path) );
 	if (stat( site_path, &userIndexFinfo ) == -1) {
-        ap_log_error( APLOG_MARK,  - APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
-            "%s Skipping user '%s' - cannot read index file '%s'.",
-            MSG_PREFIX, inUserName, site_path );
-        return FALSE;
-    }
+		ap_log_error( APLOG_MARK,  - APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
+			"%s Skipping user '%s' - cannot read index file '%s'.",
+					 MSG_PREFIX, inUserName, site_path );
+		return FALSE;
+	}
+	
     if ((userIndexFinfo.st_mode & S_IFMT) != S_IFREG) {
         ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_WARNING, 0, cmd->server,
             "%s Skipping user '%s' - index file %s isn't a regular file.",
@@ -850,6 +703,25 @@ static Boolean	userHasValidCustomizedSite( char* inUserName, cmd_parms* cmd ) {
         return FALSE;
     }
 	
+	if (templateIndexMM == NULL || templateIndexMM == (void*) -1 ) {
+        if (stat( TEMPLATE_PATH, &templateIndexFinfo ) == -1) {
+            ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,
+						 "%s Cannot stat template index file '%s'.",
+						 MSG_PREFIX, TEMPLATE_PATH );
+            validTemplate = FALSE;
+        }
+		else {
+			templateIndexFD = open( TEMPLATE_PATH, O_RDONLY, 0 );
+			templateIndexMM = mmap( NULL, (size_t)templateIndexFinfo.st_size, PROT_READ, MAP_SHARED, templateIndexFD, (off_t)0 );
+			if ( templateIndexMM == (void*) -1) {
+				ap_log_error( APLOG_MARK, APLOG_WARNING, 0, cmd->server,
+							 "%s Cannot read template index file '%s'.",
+							 MSG_PREFIX, TEMPLATE_PATH );
+				close( userIndexFD );
+				validTemplate = FALSE;
+			}
+		}
+    }
 	filesDiffer = validTemplate ? (memcmp( templateIndexMM, userIndexMM, (size_t)userIndexFinfo.st_size ) != 0) : TRUE;
 	checkSum = cksum(userIndexMM, userIndexFinfo.st_size);
     munmap( userIndexMM, (size_t)userIndexFinfo.st_size );
@@ -897,7 +769,7 @@ static void registerUser( const char* inUserName, const char* inRegNameFormat,
         return;
     }
         
-    if ((int)pw->pw_uid < 100) {
+    if ((int)pw->pw_uid < 500) {
         ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
             "%s Skipping user '%s' - uid '%d' indicates system user.",
             MSG_PREFIX, pw->pw_name, pw->pw_uid );
@@ -988,53 +860,131 @@ static void registerUser( const char* inUserName, const char* inRegNameFormat,
         }
     }
 	/* max length of regname is MAX_NAME_FORMAT */
-    registerService( regName, inPort, txt, cmd->server );
+    registerService( regName, inPort, "http", txt, cmd->server );
     return;
 }
 
-/* Find the local Directory node and call processUsers
+/*
+* Returns a buffer of username separated by newlines, as provided by dscl
+*/
+static char* getUserNames(cmd_parms *cmd) {
+	
+	apr_status_t rv;
+	apr_procattr_t *pattr;
+	char *progname = "/usr/bin/dscl";
+	char *datasource = ".";
+	char *command = "list";
+	char *path = "/users";
+	char err_msg[128];
+	err_msg[0] = (char) 0;
+	char *usernames = "";
+
+    /* prepare process attribute */
+    if ((rv = apr_procattr_create(&pattr, cmd->pool)) != APR_SUCCESS) {
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, rv, cmd->server, "%s apr_procattr_create failed: %d", MSG_PREFIX, rv);
+		return NULL;
+    }
+	if ((rv = apr_procattr_io_set(pattr, APR_NO_PIPE, APR_FULL_BLOCK, APR_NO_PIPE)) != APR_SUCCESS) {
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, rv, cmd->server, "%s apr_procattr_io_set failed: %d", MSG_PREFIX, rv);
+		return NULL;
+	}
+	if ((rv = apr_procattr_cmdtype_set(pattr, APR_PROGRAM)) != APR_SUCCESS) {
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, rv, cmd->server, "%s apr_procattr_cmdtype_set failed: %d", MSG_PREFIX, rv);
+		return NULL;
+	}
+	apr_procattr_detach_set(pattr, FALSE);
+
+	int argc = 0;
+	const char* argv[8];
+	apr_proc_t proc;
+	argv[argc++] = progname;
+	argv[argc++] = datasource;
+	argv[argc++] = command;
+	argv[argc++] = path;
+	argv[argc++] = NULL;
+
+	if ((rv = apr_proc_create(&proc, progname, (const char* const*)argv,
+	NULL, (apr_procattr_t*)pattr, cmd->pool)) != APR_SUCCESS) {
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server, "%s apr_proc_create failed: %d", MSG_PREFIX, rv);
+		return NULL;
+	}
+	while (1) {
+		char buf[1024];
+
+		/* read the command's output through the pipe */
+		rv = apr_file_gets(buf, sizeof(buf), proc.out);
+		if (APR_STATUS_IS_EOF(rv)) {
+			break;
+		}
+		usernames = apr_pstrcat(cmd->pool, usernames, buf, NULL);
+	}
+	apr_file_close(proc.out);
+	int status;
+	apr_exit_why_e why;
+
+	rv = apr_proc_wait(&proc, &status, &why, APR_WAIT);
+	if (APR_STATUS_IS_CHILD_DONE(rv)) {
+		if ((why != APR_PROC_EXIT) || (status != 0)) {
+			ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server, "%s %s failed", progname, MSG_PREFIX);
+		}
+	} else {
+		ap_log_error(APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server, "%s %s failed to finish", MSG_PREFIX, progname);
+	}
+
+	return usernames;
+}
+/* 
 */
 static void registerUsers( const char* whichUsers, const char* regNameFormat, uint16_t *port, cmd_parms *cmd ) {
-
-    tDirStatus dsStatus;
-    tDirReference dirRef;
-    tDirNodeReference defaultLocalNodeRef;
-
-    dsStatus = dsOpenDirService( &dirRef );
-    if (dsStatus != eDSNoErr) {
-        ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-            "%s Unable to open Directory Services (error = %d).", MSG_PREFIX, dsStatus );
-        return;
-    }
-    
-    dsStatus = getDefaultLocalNode( dirRef, &defaultLocalNodeRef );
-    if (dsStatus != eDSNoErr) {
-        ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                "%s Unable to open Directory Services local node (error = %d).", MSG_PREFIX, dsStatus );
-        (void)dsCloseDirService( dirRef );
-        return;
-    }
-    
-    dsStatus = processUsers( dirRef, defaultLocalNodeRef, whichUsers, regNameFormat, port, cmd );
-    if (dsStatus != eDSNoErr) {
-        ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
-                "%s Unable to process all users (error = %d).", MSG_PREFIX, dsStatus );
-        (void)dsCloseDirService( dirRef );
-        return;
-    }
-
-    (void)dsCloseDirNode( defaultLocalNodeRef );
-    (void)dsCloseDirService( dirRef );
+	
+	char* usernames = getUserNames(cmd);
+	if (!usernames) {
+		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, cmd->server,
+			"%s Unable to find any users", MSG_PREFIX);
+		return;
+	}
+	if (strcmp( whichUsers, ALL_USERS) && strcmp( whichUsers, CUSTOMIZED_USERS)) {
+	    ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_ERR, 0, cmd->server,
+	            "%s Unexpected 'RegisterUserSite %s', not registering.",
+	            MSG_PREFIX, whichUsers );
+	}
+	
+	char *tok_cntx = NULL;
+    char* username = apr_strtok(usernames, "\n", &tok_cntx);
+	while (username) {
+        struct passwd *pw;
+		if (pw = getpwnam(username)) {
+  			
+			if ((int)pw->pw_uid < 500) {
+				ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, cmd->server,
+							 "%s Skipping user '%s' - uid '%d' indicates system user.",
+							 MSG_PREFIX, pw->pw_name, pw->pw_uid );
+			}
+			else {
+	
+				if (!strcmp( whichUsers, ALL_USERS ))
+				    registerUser( username, regNameFormat, port, cmd );
+				else if (!strcmp( whichUsers, CUSTOMIZED_USERS )) {
+				    if (userHasValidCustomizedSite( username, cmd ))
+				        registerUser( username, regNameFormat, port, cmd );
+				    else
+				        ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_INFO, 0, cmd->server,
+				            "%s Skipping non-customized user %s",
+				            MSG_PREFIX, username );
+				}
+			}
+	    }
+	    username = apr_strtok(NULL, "\n", &tok_cntx);
+	}
 }
 
 /*
  * Process the RegisterDefaultSite directive.
- * RegisterDefaultSite [port | main]
+ * RegisterDefaultSite [port | main] [[protocol]]
  */
 static const char *processRegDefaultSite( cmd_parms *cmd, __attribute__((unused)) void *dummy, 
 	const char *arg ) {
-
-
+		
 	/* Ensure that we only init once. */
     void *data;
     const char *userdata_key = "mod_bonjour_register_default_site";
@@ -1044,27 +994,29 @@ static const char *processRegDefaultSite( cmd_parms *cmd, __attribute__((unused)
     if (!data) {
         apr_pool_userdata_set((const void *) 1, userdata_key,
                               apr_pool_cleanup_null, pPool);
-        return NULL;
+  		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, NULL,
+			"%s Processing stopped because this is the DSO preflight, not the actual run. pid=%d", MSG_PREFIX, getpid());
+       return NULL;
     }
-
-
+		
 	server_cfg_rec *server_cfg = ap_get_module_config(cmd->server->module_config, &bonjour_module);
     module_cfg_rec *module_cfg = server_cfg->module_cfg;
     
     uint16_t port = DEFAULT_HTTP_PORT;
+	char* protocol = "http";
     int	err = 0;
 
     const char *errString = ap_check_cmd_context( cmd, GLOBAL_ONLY );
     if (errString != NULL) {
         return errString;
     }
-    
     char* portArg = ap_getword_conf( cmd->pool, &arg );
+    char* protocolArg = ap_getword_conf( cmd->pool, &arg );
 
     if (portArg && strcmp( portArg, "" )) {
         if (strlen( portArg ) > 5)
             return apr_pstrcat( cmd->pool, MSG_PREFIX, "Port argument too long", NULL );
-
+		
         if (!strcasecmp( portArg, "main" ))	// use port of main server
             port = cmd->server->port;
         else {
@@ -1073,10 +1025,15 @@ static const char *processRegDefaultSite( cmd_parms *cmd, __attribute__((unused)
                 return apr_pstrcat( cmd->pool, MSG_PREFIX, "Port argument not 'main' or numeric", NULL );
         }
     }
+    if (protocolArg && strcmp( protocolArg, "" )) {
+        if (strlen( protocolArg ) > PROTOCOL_MAX)
+            return apr_pstrcat( cmd->pool, MSG_PREFIX, "Protocol argument too long", NULL );
+		protocol = apr_pstrdup( cmd->pool, protocolArg );
+    }
 	
 	module_cfg->regDefaultSiteCmd = TRUE;
 	module_cfg->port = port;
-	
+	module_cfg->protocol = protocol;
 
     return NULL;
 }
@@ -1087,7 +1044,8 @@ static const char *processRegDefaultSite( cmd_parms *cmd, __attribute__((unused)
  */
 static const char *processRegUserSite( cmd_parms *cmd, __attribute__((unused)) void *dummy, 
 	const char *inName, const char *inRegNameFormat, const char *inPort ) {
-    uint16_t port = DEFAULT_HTTP_PORT;
+
+	uint16_t port = DEFAULT_HTTP_PORT;
     int err = 0;
 	server_cfg_rec *server_cfg = ap_get_module_config(cmd->server->module_config, &bonjour_module);
 	if (!server_cfg) {
@@ -1142,52 +1100,104 @@ static const char *processRegUserSite( cmd_parms *cmd, __attribute__((unused)) v
 
 /*
  * Process the RegisterResource directive.
- * RegisterResource name path [port | main]
+ * RegisterResource name path [port | main] [[protocol]]
  */
 static const char *processRegResource( cmd_parms *cmd, __attribute__((unused)) void *dummy, 
-	const char *inName, const char *inPath, const char* inPort ) {
+									  const char *arg ) {
 
-    uint16_t port = DEFAULT_HTTP_PORT;
+	uint16_t port = DEFAULT_HTTP_PORT;
+	char* protocol = "http";
     int err = 0;
 
 	server_cfg_rec *server_cfg = ap_get_module_config(cmd->server->module_config, &bonjour_module);
     module_cfg_rec *module_cfg = server_cfg->module_cfg;
 
-    const char *errString = ap_check_cmd_context( cmd, GLOBAL_ONLY );
+    const char *errString = ap_check_cmd_context( cmd, NOT_IN_DIR_LOC_FILE );
     if (errString != NULL) {
         return errString;
     }
     
-    if (inName && strcmp(inName, "" ))
-        if (strlen( inName ) > REGNAME_MAX)
+    char* nameArg = ap_getword_conf( cmd->pool, &arg );
+    if (nameArg && strcmp(nameArg, "" ))
+        if (strlen( nameArg ) > REGNAME_MAX)
             return apr_pstrcat( cmd->pool, MSG_PREFIX, "Name argument too long", NULL );
+
+	// Format string
+	int len = strlen(nameArg);
+	int i;
+	int j = 0;
+    CFStringRef hostRef;
+	char hostStr[65];
+    char regName[REGNAME_MAX+1];
+	bzero( regName, sizeof(regName) );
+	for (i = 0; i < len; i++) {
+	    if (nameArg[i] == '%') {
+	        switch (nameArg[i + 1]) {
+	            case 's':	// %s - server name if available
+					if (cmd->server->server_hostname) {
+	                	strncat( regName, cmd->server->server_hostname, sizeof(regName) );
+		                j = j + strlen( cmd->server->server_hostname );
+					}
+					else {
+	                	strncat( regName, "*", sizeof(regName) );
+	                	j = j + strlen( "*" );
+					}
+	                i++;
+	                break;
+	            case 'c':	// %c - computer name
+	                hostRef = SCDynamicStoreCopyComputerName( NULL, NULL );
+	                CFStringGetCString( hostRef, hostStr, sizeof(hostStr), kCFStringEncodingMacRoman ); 
+	                strncat( regName, hostStr, sizeof(regName) );
+	                j = j + strlen( hostStr );
+	                i++;
+	                break;
+	            default:
+	                regName[j++] = nameArg[i];
+	        }
+	    }
+	    else
+	        regName[j++] = nameArg[i];
+	}
             
-    if (inPath && strcmp(inPath, "" )) {
-        if (strlen( inPath ) > PATH_MAX)
+	char* pathArg = ap_getword_conf( cmd->pool, &arg );
+	if (pathArg && strcmp(pathArg, "" )) {
+        if (strlen( pathArg ) > PATH_MAX)
             return apr_pstrcat( cmd->pool, MSG_PREFIX, "Path argument too long to be a path", NULL );
-        if (strlen( inPath ) > TXT_MAX - 6) // allow space for "path="
+        if (strlen( pathArg ) > TXT_MAX - 6) // allow space for "path="
             return apr_pstrcat( cmd->pool, MSG_PREFIX, "Path argument too long to use with Bonjour", NULL );
     }
     
-    if (inPort && strcmp( inPort, "" )) {
-        if (strlen( inPort ) > 5)
+	char* portArg = ap_getword_conf( cmd->pool, &arg );
+    if (portArg && strcmp( portArg, "" )) {
+        if (strlen( portArg ) > 5)
             return apr_pstrcat( cmd->pool, MSG_PREFIX, "Port argument too long", NULL );
 
-        if (!strcasecmp( inPort, "main" ))	// use port of main server
+        if (!strcasecmp( portArg, "main" ))	// use port of main server
             port = cmd->server->port;
         else {
-            err = sscanf( inPort, "%" PRIu16, &port );
+            err = sscanf( portArg, "%" PRIu16, &port );
             if (!err)
                 return apr_pstrcat( cmd->pool, MSG_PREFIX, "Port argument not 'main' or numeric", NULL );
         }
     }
 	
-	/* To do: maintain array of resources */
+    char* protocolArg = ap_getword_conf( cmd->pool, &arg );
+    if (protocolArg && strcmp( protocolArg, "" )) {
+        if (strlen( protocolArg ) > PROTOCOL_MAX)
+            return apr_pstrcat( cmd->pool, MSG_PREFIX, "Protocol argument too long", NULL );
+		protocol = apr_pstrdup( cmd->pool, protocolArg );
+    }
 	
-	module_cfg->regResourceCmd = TRUE;
-	module_cfg->regName = apr_pstrdup( cmd->pool, inName );
-	module_cfg->regText = apr_pstrdup( cmd->pool, inPath );
-	module_cfg->port = port;
+	//resourceRec* resource = apr_palloc( module_cfg->pPool, sizeof(resourceRec) );	// pool?
+    resourceRec* resource = (resourceRec*) malloc( sizeof(resourceRec) );
+	resource->name = apr_pstrdup( cmd->pool, regName );
+	resource->text = apr_pstrdup( cmd->pool, pathArg );
+	resource->port = port;
+	resource->protocol = protocol;
+	resourceRec** saveResource = (resourceRec **)apr_array_push( module_cfg->resourceRecs );
+	*saveResource = resource;
+	
+	module_cfg->regResourceCmd = TRUE;	// ?
 
     return NULL;
 }
@@ -1199,7 +1209,8 @@ static command_rec bonjourModuleCmds[]=
 		processRegDefaultSite, 
 		NULL, 
 		RSRC_CONF,
-		"Optionally, specify a port or keyword main; defaults to 80"
+		"Optionally, specify a port or keyword main; default is 80, "
+		"optionally followed by a protocol; default is http which means _http._tcp"
 	),
 	AP_INIT_TAKE123("RegisterUserSite", 
 		processRegUserSite, 
@@ -1209,13 +1220,14 @@ static command_rec bonjourModuleCmds[]=
 		"optionally followed by keyword longname, title, or longname-title, "
 		"optionally followed by a port or keyword main; default is 80"
 	),
-    AP_INIT_TAKE23("RegisterResource",
+    AP_INIT_RAW_ARGS("RegisterResource",
 		processRegResource, 
 		NULL, 
 		RSRC_CONF,
 		"Specify a name under which to register, and a path, " 
-		"optionally followed by a port or keyword main; default is 80"
-	),
+		"optionally followed by a port or keyword main; default is 80, "
+		"optionally followed by a protocol; default is http which means _http._tcp"
+),
     {NULL, {NULL}, NULL, 0, NO_ARGS, NULL}
     };
 
@@ -1236,7 +1248,7 @@ static int bonjourPostConfig( apr_pool_t *p, __attribute__((unused)) apr_pool_t 
             "%s module config not set pid=%d.", MSG_PREFIX, getpid());
 		return !OK;
 	}
-	
+
 	apr_pool_t *pPool = serverData->process->pool;
 		/* Ensure that we only init once. */
     void *data;
@@ -1246,17 +1258,17 @@ static int bonjourPostConfig( apr_pool_t *p, __attribute__((unused)) apr_pool_t 
     if (!data) {
         apr_pool_userdata_set((const void *) 1, userdata_key,
                               apr_pool_cleanup_null, pPool);
-        return OK;
+		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, NULL,
+			"%s Processing stopped because this is the DSO preflight, not the actual run. pid=%d", MSG_PREFIX, getpid());
+       return OK;
     }
-
+	
 	cmd_parms fake_cmd;
 	fake_cmd.server = serverData;
 	fake_cmd.pool = p;
 
-	/* To do: Handle array of users or resources */
-	if (module_cfg->regUserSiteCmd) {
-		//registerUser( module_cfg->regName, module_cfg->regNameFormat, module_cfg->port, &fake_cmd );
-		
+	/* To do: Handle array of users */
+	if (module_cfg->regUserSiteCmd) {		
 		if (!strcasecmp( module_cfg->regName, ALL_USERS ) || !strcasecmp( module_cfg->regName, CUSTOMIZED_USERS ) ) {
 			registerUsers( module_cfg->regName,
 				module_cfg->regNameFormat ? module_cfg->regNameFormat : DEFAULT_NAME_FORMAT, 
@@ -1266,11 +1278,20 @@ static int bonjourPostConfig( apr_pool_t *p, __attribute__((unused)) apr_pool_t 
             registerUser( module_cfg->regName, module_cfg->regNameFormat, &module_cfg->port, &fake_cmd );
 	}
 	
-	if (module_cfg->regResourceCmd)
-        registerService( module_cfg->regName, &module_cfg->port, module_cfg->regText, serverData );
-
+	if (module_cfg->regResourceCmd) {
+		int i;
+		resourceRec** resourceRecPtrs = NULL;
+		resourceRecPtrs = (resourceRec**)module_cfg->resourceRecs->elts;
+		for (i = 0; i < module_cfg->resourceRecs->nelts; i++) {
+			if (!resourceRecPtrs[i])
+				continue;
+			registerService( resourceRecPtrs[i]->name, &resourceRecPtrs[i]->port, resourceRecPtrs[i]->protocol,
+							resourceRecPtrs[i]->text, serverData );
+		}
+	}
+	
 	if (module_cfg->regDefaultSiteCmd)
-        registerService( "", &module_cfg->port, "", serverData );
+        registerService( "", &module_cfg->port, module_cfg->protocol, "", serverData );
 
 	return OK;
 }
@@ -1292,7 +1313,9 @@ static void *bonjourModuleCreateServerConfig( apr_pool_t *p, server_rec *serverD
     if (!data) {
         apr_pool_userdata_set((const void *) 1, userdata_key,
                               apr_pool_cleanup_null, pPool);
-        return OK;
+   		ap_log_error( APLOG_MARK, APLOG_NOERRNO|APLOG_DEBUG, 0, NULL,
+			"%s Processing stopped because this is the DSO preflight, not the actual run. pid=%d", MSG_PREFIX, getpid());
+       return OK;
     }
 	
 	server_cfg_rec *server_cfg = apr_palloc(p, sizeof(*server_cfg));
@@ -1312,7 +1335,8 @@ static void *bonjourModuleCreateServerConfig( apr_pool_t *p, server_rec *serverD
 	 * Initialize per-module configuration
 	 */
 	module_cfg->pPool = pPool;
-	module_cfg->registrationRecPtrArray = apr_array_make( pPool, 0, sizeof(registrationRec*) );
+	module_cfg->registrationRecs = apr_array_make( pPool, 0, sizeof(registrationRec*) );
+	module_cfg->resourceRecs = apr_array_make( pPool, 0, sizeof(resourceRec*) );
 	module_cfg->regUserSiteCmd = FALSE;
 	module_cfg->regResourceCmd = FALSE;
 	module_cfg->regDefaultSiteCmd = FALSE;

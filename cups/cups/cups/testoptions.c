@@ -1,9 +1,9 @@
 /*
- * "$Id: testoptions.c 782 2008-05-20 00:33:42Z msweet $"
+ * "$Id: testoptions.c 2069 2010-04-11 07:14:37Z msweet $"
  *
- *   Option test program for the Common UNIX Printing System (CUPS).
+ *   Option test program for CUPS.
  *
- *   Copyright 2008 by Apple Inc.
+ *   Copyright 2008-2010 by Apple Inc.
  *
  *   These coded instructions, statements, and computer programs are the
  *   property of Apple Inc. and are protected by Federal copyright
@@ -22,8 +22,7 @@
  * Include necessary headers...
  */
 
-#include "string.h"
-#include "cups.h"
+#include "cups-private.h"
 
 
 /*
@@ -113,5 +112,5 @@ main(int  argc,				/* I - Number of command-line arguments */
 
 
 /*
- * End of "$Id: testoptions.c 782 2008-05-20 00:33:42Z msweet $".
+ * End of "$Id: testoptions.c 2069 2010-04-11 07:14:37Z msweet $".
  */

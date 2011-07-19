@@ -1,0 +1,20 @@
+2010-04-09  Jan Nijtmans <nijtmans@users.sourceforge.net>
+
+	* [Bug 682911] Build failure for jconfig.h
+
+2004-08-18  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tkimg 1.3 ========================
+	*
+
+2002-11-18  Andreas Kupries  <andreask@activestate.com>
+
+	* Configure and build ok for all platforms available to me at AS.
+
+2002-11-14  Andreas Kupries  <andreask@activestate.com>
+
+	* Start of logging.
+
+	* libjpeg/tcl/: New directory, packaging of support library for
+	  tcl.

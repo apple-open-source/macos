@@ -19,10 +19,11 @@
  */
 
 #include "config.h"
+#include "webkitwebwindowfeatures.h"
 
 #include "WindowFeatures.h"
-#include "webkitwebwindowfeatures.h"
-#include "webkitprivate.h"
+#include "webkitglobalsprivate.h"
+#include "webkitwebwindowfeaturesprivate.h"
 
 /**
  * SECTION:webkitwebwindowfeatures
@@ -38,7 +39,7 @@
  * In the normal case one will use #webkit_web_view_get_window_features
  * to get the #WebKitWebWindowFeatures and then monitor the property
  * changes. Be aware that the #WebKitWebWindowFeatures might change
- * change before #WebKitWebView::web-view-ready signal is emitted.
+ * before #WebKitWebView::web-view-ready signal is emitted.
  * To be safe listen to the notify::window-features signal of the #WebKitWebView
  * and reconnect the signals whenever the #WebKitWebWindowFeatures of
  * a #WebKitWebView changes.
@@ -100,7 +101,7 @@ static void webkit_web_window_features_class_init(WebKitWebWindowFeaturesClass* 
 
     GParamFlags flags = (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT);
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitWebWindowFeatures:x:
@@ -276,7 +277,7 @@ static void webkit_web_window_features_class_init(WebKitWebWindowFeaturesClass* 
 
 static void webkit_web_window_features_init(WebKitWebWindowFeatures* web_window_features)
 {
-    web_window_features->priv = WEBKIT_WEB_WINDOW_FEATURES_GET_PRIVATE(web_window_features);
+    web_window_features->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_window_features, WEBKIT_TYPE_WEB_WINDOW_FEATURES, WebKitWebWindowFeaturesPrivate);
 }
 
 static void webkit_web_window_features_set_property(GObject* object, guint prop_id, const GValue* value, GParamSpec* pspec)
@@ -378,35 +379,6 @@ WebKitWebWindowFeatures* webkit_web_window_features_new()
     return WEBKIT_WEB_WINDOW_FEATURES(g_object_new(WEBKIT_TYPE_WEB_WINDOW_FEATURES, NULL));
 }
 
-// for internal use only
-WebKitWebWindowFeatures* webkit_web_window_features_new_from_core_features(const WebCore::WindowFeatures& features)
-{
-    WebKitWebWindowFeatures *webWindowFeatures = webkit_web_window_features_new();
-
-    if(features.xSet)
-        g_object_set(webWindowFeatures, "x", static_cast<int>(features.x), NULL);
-
-    if(features.ySet)
-        g_object_set(webWindowFeatures, "y", static_cast<int>(features.y), NULL);
-
-    if(features.widthSet)
-        g_object_set(webWindowFeatures, "width", static_cast<int>(features.width), NULL);
-
-    if(features.heightSet)
-        g_object_set(webWindowFeatures, "height", static_cast<int>(features.height), NULL);
-
-    g_object_set(webWindowFeatures,
-                 "toolbar-visible", features.toolBarVisible,
-                 "statusbar-visible", features.statusBarVisible,
-                 "scrollbar-visible", features.scrollbarsVisible,
-                 "menubar-visible", features.menuBarVisible,
-                 "locationbar-visible", features.locationBarVisible,
-                 "fullscreen", features.fullscreen,
-                 NULL);
-
-    return webWindowFeatures;
-}
-
 /**
  * webkit_web_window_features_equal:
  * @features1: a #WebKitWebWindowFeatures instance
@@ -442,4 +414,36 @@ gboolean webkit_web_window_features_equal(WebKitWebWindowFeatures* features1, We
         && (priv1->fullscreen == priv2->fullscreen))
         return TRUE;
     return FALSE;
+}
+
+namespace WebKit {
+
+WebKitWebWindowFeatures* kitNew(const WebCore::WindowFeatures& features)
+{
+    WebKitWebWindowFeatures *webWindowFeatures = webkit_web_window_features_new();
+
+    if(features.xSet)
+        g_object_set(webWindowFeatures, "x", static_cast<int>(features.x), NULL);
+
+    if(features.ySet)
+        g_object_set(webWindowFeatures, "y", static_cast<int>(features.y), NULL);
+
+    if(features.widthSet)
+        g_object_set(webWindowFeatures, "width", static_cast<int>(features.width), NULL);
+
+    if(features.heightSet)
+        g_object_set(webWindowFeatures, "height", static_cast<int>(features.height), NULL);
+
+    g_object_set(webWindowFeatures,
+                 "toolbar-visible", features.toolBarVisible,
+                 "statusbar-visible", features.statusBarVisible,
+                 "scrollbar-visible", features.scrollbarsVisible,
+                 "menubar-visible", features.menuBarVisible,
+                 "locationbar-visible", features.locationBarVisible,
+                 "fullscreen", features.fullscreen,
+                 NULL);
+
+    return webWindowFeatures;
+}
+
 }

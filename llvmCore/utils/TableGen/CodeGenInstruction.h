@@ -22,6 +22,7 @@
 namespace llvm {
   class Record;
   class DagInit;
+  class CodeGenTarget;
 
   class CodeGenInstruction {
   public:
@@ -31,6 +32,36 @@ namespace llvm {
     /// AsmString - The format string used to emit a .s file for the
     /// instruction.
     std::string AsmString;
+    
+    class ConstraintInfo {
+      enum { None, EarlyClobber, Tied } Kind;
+      unsigned OtherTiedOperand;
+    public:
+      ConstraintInfo() : Kind(None) {}
+
+      static ConstraintInfo getEarlyClobber() {
+        ConstraintInfo I;
+        I.Kind = EarlyClobber;
+        I.OtherTiedOperand = 0;
+        return I;
+      }
+      
+      static ConstraintInfo getTied(unsigned Op) {
+        ConstraintInfo I;
+        I.Kind = Tied;
+        I.OtherTiedOperand = Op;
+        return I;
+      }
+      
+      bool isNone() const { return Kind == None; }
+      bool isEarlyClobber() const { return Kind == EarlyClobber; }
+      bool isTied() const { return Kind == Tied; }
+      
+      unsigned getTiedOperand() const {
+        assert(isTied());
+        return OtherTiedOperand;
+      }
+    };
     
     /// OperandInfo - The information we keep track of for each operand in the
     /// operand list for a tablegen instruction.
@@ -67,7 +98,7 @@ namespace llvm {
       
       /// Constraint info for this operand.  This operand can have pieces, so we
       /// track constraint info for each.
-      std::vector<std::string> Constraints;
+      std::vector<ConstraintInfo> Constraints;
 
       OperandInfo(Record *R, const std::string &N, const std::string &PMN, 
                   unsigned MION, unsigned MINO, DagInit *MIOI)
@@ -75,13 +106,18 @@ namespace llvm {
           MINumOperands(MINO), MIOperandInfo(MIOI) {}
     };
 
-    /// NumDefs - Number of def operands declared.
+    /// NumDefs - Number of def operands declared, this is the number of
+    /// elements in the instruction's (outs) list.
     ///
     unsigned NumDefs;
 
     /// OperandList - The list of declared operands, along with their declared
     /// type (which is a record).
     std::vector<OperandInfo> OperandList;
+
+    /// ImplicitDefs/ImplicitUses - These are lists of registers that are
+    /// implicitly defined and used by the instruction.
+    std::vector<Record*> ImplicitDefs, ImplicitUses;
 
     // Various boolean values we track for the instruction.
     bool isReturn;
@@ -97,15 +133,16 @@ namespace llvm {
     bool isTerminator;
     bool isReMaterializable;
     bool hasDelaySlot;
-    bool usesCustomDAGSchedInserter;
+    bool usesCustomInserter;
     bool isVariadic;
     bool hasCtrlDep;
     bool isNotDuplicable;
     bool hasOptionalDef;
     bool hasSideEffects;
-    bool mayHaveSideEffects;
     bool neverHasSideEffects;
     bool isAsCheapAsAMove;
+    bool hasExtraSrcRegAllocReq;
+    bool hasExtraDefRegAllocReq;
     
     /// ParseOperandName - Parse an operand name like "$foo" or "$foo.bar",
     /// where $foo is a whole operand and $foo.bar refers to a suboperand.
@@ -147,6 +184,12 @@ namespace llvm {
     /// non-empty name.  If the instruction does not have an operand with the
     /// specified name, throw an exception.
     unsigned getOperandNamed(const std::string &Name) const;
+    
+    /// HasOneImplicitDefWithKnownVT - If the instruction has at least one
+    /// implicit def and it has a known VT, return the VT, otherwise return
+    /// MVT::Other.
+    MVT::SimpleValueType 
+      HasOneImplicitDefWithKnownVT(const CodeGenTarget &TargetInfo) const;
   };
 }
 

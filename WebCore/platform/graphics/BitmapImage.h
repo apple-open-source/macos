@@ -53,11 +53,11 @@ namespace WebCore {
     struct FrameData;
 }
 
-// This complicated-looking declaration tells the FrameData Vector that it should copy without
-// invoking our constructor or destructor. This allows us to have a vector even for a struct
-// that's not copyable.
 namespace WTF {
-    template<> class VectorTraits<WebCore::FrameData> : public SimpleClassVectorTraits {};
+    // FIXME: This declaration gives FrameData a default constructor that zeroes
+    // all its data members, even though FrameData's default constructor defined
+    // below does not zero all its data members. One of these must be wrong!
+    template<> struct VectorTraits<WebCore::FrameData> : public SimpleClassVectorTraits { };
 }
 
 namespace WebCore {
@@ -68,7 +68,9 @@ template <typename T> class Timer;
 // FrameData Class
 // ================================================
 
-struct FrameData : Noncopyable {
+struct FrameData {
+    WTF_MAKE_NONCOPYABLE(FrameData);
+public:
     FrameData()
         : m_frame(0)
         , m_haveMetadata(false)
@@ -118,6 +120,7 @@ public:
 
     virtual IntSize size() const;
     IntSize currentFrameSize() const;
+    virtual bool getHotSpot(IntPoint&) const;
 
     virtual bool dataChanged(bool allDataReceived);
     virtual String filenameExtension() const; 
@@ -136,8 +139,10 @@ public:
     virtual CFDataRef getTIFFRepresentation();
 #endif
     
-#if PLATFORM(CG)
+#if USE(CG)
     virtual CGImageRef getCGImageRef();
+    virtual CGImageRef getFirstCGImageRefOfSize(const IntSize&);
+    virtual RetainPtr<CFArrayRef> getCGImageArray();
 #endif
 
 #if PLATFORM(WIN) || (PLATFORM(QT) && OS(WINDOWS))
@@ -153,12 +158,20 @@ public:
 #endif
 
     virtual NativeImagePtr nativeImageForCurrentFrame() { return frameAtIndex(currentFrame()); }
+    bool frameHasAlphaAtIndex(size_t); 
+
+#if !ASSERT_DISABLED
+    bool notSolidColor()
+    {
+        return size().width() != 1 || size().height() != 1 || frameCount() > 1;
+    }
+#endif
 
 protected:
     enum RepetitionCountStatus {
       Unknown,    // We haven't checked the source's repetition count.
       Uncertain,  // We have a repetition count, but it might be wrong (some GIFs have a count after the image data, and will report "loop once" until all data has been decoded).
-      Certain,    // The repetition count is known to be correct.
+      Certain     // The repetition count is known to be correct.
     };
 
     BitmapImage(NativeImagePtr, ImageObserver* = 0);
@@ -170,7 +183,7 @@ protected:
     virtual void draw(GraphicsContext*, const FloatRect& dstRect, const FloatRect& srcRect, ColorSpace styleColorSpace, CompositeOperator);
 
 #if (OS(WINCE) && !PLATFORM(QT))
-    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const TransformationMatrix& patternTransform,
+    virtual void drawPattern(GraphicsContext*, const FloatRect& srcRect, const AffineTransform& patternTransform,
                              const FloatPoint& phase, ColorSpace styleColorSpace, CompositeOperator, const FloatRect& destRect);
 #endif
 
@@ -183,7 +196,6 @@ protected:
     NativeImagePtr frameAtIndex(size_t);
     bool frameIsCompleteAtIndex(size_t);
     float frameDurationAtIndex(size_t);
-    bool frameHasAlphaAtIndex(size_t); 
 
     // Decodes and caches a frame. Never accessed except internally.
     void cacheFrame(size_t index);
@@ -207,6 +219,12 @@ protected:
 
     // Whether or not size is available yet.    
     bool isSizeAvailable();
+
+    // Called after asking the source for any information that may require
+    // decoding part of the image (e.g., the image size).  We need to report
+    // the partially decoded data to our observer so it has an accurate
+    // account of the BitmapImage's memory usage.
+    void didDecodeProperties() const;
 
     // Animation.
     int repetitionCount(bool imageKnownToBeComplete);  // |imageKnownToBeComplete| should be set if the caller knows the entire image has been decoded.
@@ -274,6 +292,7 @@ protected:
     mutable bool m_hasUniformFrameSize;
 
     unsigned m_decodedSize; // The current size of all decoded frames.
+    mutable unsigned m_decodedPropertiesSize; // The size of data decoded by the source to determine image properties (e.g. size, frame count, etc).
 
     mutable bool m_haveFrameCount;
     size_t m_frameCount;

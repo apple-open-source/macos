@@ -1,12 +1,19 @@
-// CONFIG rdar://6414583
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+// TEST_CONFIG rdar://6414583
 
 // a smaller case of byrefcopyint
 
 #include <Block.h>
 #include <dispatch/dispatch.h>
 #include <stdio.h>
+#include "test.h"
 
-int main(int argc, char *argv[]) {
+int main() {
     __block int c = 1;
 
     //printf("&c = %p - c = %i\n", &c, c);
@@ -20,6 +27,6 @@ int main(int argc, char *argv[]) {
 
         Block_release(block);
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

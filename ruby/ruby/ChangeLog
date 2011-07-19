@@ -1,3 +1,481 @@
+Sun Jan 10 19:00:31 2010  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/webrick/accesslog.rb : Escape needed.
+
+	* lib/webrick/httpstatus.rb : ditto.
+
+	* lib/webrick/httprequest.rb : ditto.
+
+	* lib/webrick/httputils.rb : ditto.
+
+Thu Dec 24 18:04:27 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in: default ac_cv_prog_CC to CC.
+
+Thu Dec 24 17:56:32 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/extmk.rb: MINIRUBY is given via make-flag.
+
+Thu Dec 24 17:56:32 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* common.mk (EXTMK_ARGS): needs MINIRUBY for cross-compile.
+	  [ruby-core:20131]
+
+Thu Dec 24 17:56:32 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* common.mk (EXTMK_ARGS): shouldn't use ``\"'' because cmd.exe eat
+	  ''\'' in such quotes.
+
+Thu Dec 24 17:56:32 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* common.mk (EXTMK_ARGS): needs MINIRUBY for cross-compile.
+	  [ruby-core:20131]
+
+Thu Dec 24 17:56:32 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* mkconfig.rb (patchlevel): config.status may not contain
+	  PATCHLEVEL even if other version numbers exist.
+
+Thu Dec 24 17:50:35 2009  Yusuke Endoh  <mame@tsg.ne.jp>
+
+	* ext/stringio/stringio.c (strio_init): rewind when reopened.
+
+Thu Dec 24 17:06:13 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* gc.c (run_final): runs finalizers with the object terminated.
+
+	* gc.c (rb_gc_call_finalizer_at_exit): ObjectSpace::finalizers needs
+	  to scan whole object space, although deprecated.
+
+Thu Dec 24 17:06:13 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* gc.c (chain_finalized_object): deletes finalizers to be invoked from
+	  finalizer_table.
+
+	* gc.c (rb_gc_call_finalizer_at_exit): warns when could not invoke
+	  finalizers.
+
+Mon Dec 21 16:09:09 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/Makefile.sub (LD_SHARED1): typo.
+
+Wed Dec 16 20:17:40 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (CreateChild): allocate temporary buffer and use it
+	  instead of directly modify the passed string.  [ruby-dev:39635]
+
+Wed Dec 16 19:49:47 2009  URABE Shyouhei  <shyouhei@ruby-lang.org>
+
+	* instruby.rb (with_destdir): revert. [ruby-dev:39885]
+
+Mon Dec 14 13:28:48 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/test/unit.rb (Test::Unit.run=, Test::Unit.run?): fixed rdoc.
+	  [ruby-core:25034]
+
+Mon Dec 14 13:21:32 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/open3.rb (Open3#popen3): fixed and improved rdoc.  [ruby-core:25658]
+
+Mon Dec 14 13:09:01 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* configure.in (LIBPATHFLAG): use numbered specifier if RPATHFLAG
+	  is set.  [ruby-talk:322136]
+
+Mon Dec 14 12:53:56 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* lib/bigdecimal.rb: fix comparison operators [ruby-core:26646]
+
+Mon Dec 14 12:40:10 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* object.c (rb_Float): Allow results of to_f to be NaN
+	  [ruby-core:26733]
+
+Mon Dec 14 12:35:21 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (proc_invoke): unbound block created by define_method
+	  cannot call super.  [ruby-core:26984]
+
+Mon Dec 14 12:06:39 2009  Akinori MUSHA  <knu@iDaemons.org>
+
+	* ext/digest/digest.c (rb_digest_instance_method_unimpl): Do not
+	  call rb_inspect() on an object that does not implement necessary
+	  methods; reported by NaHi.
+
+Mon Dec 14 11:47:31 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_method_missing): adjusted format and argument number.
+
+	* eval.c (rb_call): fixed for super in cached method.
+	  [ruby-dev:39757]
+
+Mon Dec 14 11:40:35 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* hash.c (ruby_setenv): get rid of crash in Solaris 8 and 10.
+	  [ruby-core:26668]
+
+Mon Dec 14 11:31:58 2009  Takeyuki FUJIOKA  <xibbar@ruby-lang.org>
+
+	* lib/cgi.rb: fix command-line option of
+	  non-interactive terminal. [ruby-core:23016]
+
+Mon Dec 14 03:36:20 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* eval.c (method_inspect, method_name, mnew): Bug fix when
+	  method created from an alias.
+	  Based on a patch by Peter Vanbroekhoven [ruby-core:22040]
+
+Mon Dec 14 02:27:32 2009  Yusuke Endoh  <mame@tsg.ne.jp>
+
+	* hash.c (rb_hash): always return a fixnum value because a return
+	  value of rb_hash may be used as a hash value itself and bignums have
+	  no unique VALUE.
+
+	* test/ruby/test_hash.rb: add a test for above.
+
+Mon Dec 14 00:42:55 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* string.c (rb_str_inspect): get rid of adding garbage to shor
+	  UTF-8 string.  [ruby-dev:39550]
+
+Sun Dec 13 23:54:22 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* marshal.c (marshal_load): should set taintness.  [ruby-dev:39723]
+
+Sun Dec 13 23:54:22 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* marshal.c (struct {dump,load}_arg): manage with dfree, instead
+	  of using local variable which may be moved by context switch.
+	  [ruby-dev:39425]
+
+Wed Nov 25 17:42:33 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (io_fwrite): adjust stdio file position after direct write on
+	  BSDish platforms.   [ruby-core:26300]
+
+Wed Nov 25 17:39:28 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* test/ostruct/test_ostruct.rb (test_frozen): added assertions.
+
+Wed Nov 25 16:43:24 2009  NAKAMURA, Hiroshi  <nahi@ruby-lang.org>
+
+	* lib/monitor.rb (MonitorMixin.mon_release): ensure the scheduled
+	  thread to be alive when a thread is releasing a monitor. #2240
+
+Wed Nov 25 16:28:11 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* lib/rexml/element.rb (text=): false should be converted to string.
+	  A patch by Teruo Oshida [ruby-dev:38351]
+
+Wed Nov 25 16:18:37 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_clear_cache_for_undef): clear entries for inherited
+	  methods.  [ruby-core:26074]
+
+Tue Nov 24 16:15:18 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* ext/iconv/iconv.c (iconv_create): cannot retry with given block.
+	  [ruby-dev:39487]
+
+Tue Nov 24 16:12:33 2009  Shugo Maeda  <shugo@ruby-lang.org>
+
+	* lib/net/imap.rb (resp_text_code): accepts response codes without
+	  text.  backported from trunk.  [ruby-core:24194]
+
+Tue Nov 24 16:09:41 2009  Shugo Maeda  <shugo@ruby-lang.org>
+
+	* lib/net/ftp.rb (getaddress): rescue exceptions.  [ruby-dev:39451]
+
+Tue Nov 24 15:51:07 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* ext/curses/curses.c: Many functions of module Curses could cause a
+	  crash if the ncurses library was not properly initialized.
+	  Fix pointed out by Alexander Beisig [ruby-core:22592]
+	  Functions fixed: attroff, attron, attrset, bkgd, bkgdset,
+	  can_change_color, close_screen, closed, color_content, curs_set,
+	  def_prog_mode, delch, deleteln, getmouse, getstr, has_colors,
+	  init_color, init_pair, insertln, keyname, mouseinterval, mousemask,
+	  pair_content, pair_number, reset_prog_mode, resizeterm, scrl,
+	  setscrreg, standend, standout, start_color, timeout, ungetmouse
+
+Fri Nov 20 15:49:59 2009  Tanaka Akira  <akr@fsij.org>
+
+	* lib/resolv.rb (Resolv::DNS.bind_random_port): bind to "::" for IPv6.
+	  (Resolv::DNS::ConnectedUDP#initialize): specify is_ipv6 argument of
+	  bind_random_port.
+	  [ruby-core:25970]
+
+Thu Nov 19 18:03:31 2009  Takeyuki FUJIOKA  <xibbar@ruby-lang.org>
+
+	* lib/cgi.rb (CGI.unescapeHTML): fix for hex values 80-FF,
+	  single-byte hex entity encodings from 80-FF are valid HTML.
+		[ruby-core:25702]
+
+Thu Nov 19 15:34:40 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* io.c (rb_io_fptr_finalize): free fptr to avoid memory leaks.
+	  fixed: #2009   [ruby-core:25173] [ruby-dev:39410]
+
+Thu Nov 19 15:27:17 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* lib/net/http.rb (transport_request): Handle timeout error by
+	  closing socket if exception raised. [ruby-core:20976]
+
+Wed Nov 18 14:14:38 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* ext/openssl/ossl_config.c (ossl_config_add_value_m,
+	  ossl_config_set_section): Check if frozen (or untainted for $SECURE >=
+	  4) [ruby-core:18377]
+
+Wed Nov 18 14:13:14 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* instruby.rb: win32/win32.h exists in srcdir.
+	  reported by arton ( http://www.artonx.org/diary/20090919.html#p01 )
+
+Wed Nov 18 14:13:14 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (subtract): if the parameters are same value, should
+	  return zero.
+
+Wed Nov 18 14:13:14 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (rb_w32_select): of course, need to initialize rest.
+
+Wed Nov 18 14:13:14 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (rb_w32_select): wait specified time on select.
+
+Wed Nov 18 14:13:14 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (rb_w32_select): on 1.8, we don't need to poll sockets,
+	  because our select is never called from multiple threads.
+
+Tue Nov 17 16:22:22 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_thread_start_0, rb_thread_start_1): should call star
+	  timer after added new thread to thread list.  [ruby-core:25613]
+
+Tue Nov 17 16:22:22 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_thread_start_timer): start to catch SIGVTALRM together
+	  with timer thread.   [ruby-core:25606]
+
+	* eval.c (rb_thread_atfork): stop timer thread.
+
+Tue Nov 17 16:04:02 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* lib/cgi/cookie.rb (value): Keep CGI::Cookie#value in sync with the
+	  cookie itself. A patch by Arthur Schreiber [ruby-core:17634]
+
+Tue Nov 17 15:49:00 2009  Marc-Andre Lafortune  <ruby-core@marc-andre.ca>
+
+	* lib/irb/ext/multi-irb.rb: Fix arguments handling for shell commands
+	  in irb; a patch by Yusuke Endoh [ruby-dev:35075]
+
+Tue Nov 17 15:32:27 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (rb_io_binmode): check if closed regardless platforms.
+	  [ruby-core:25363]
+
+Tue Nov 17 15:31:09 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* numeric.c (round): added declaration.  [ruby-dev:39222]
+
+Mon Nov 16 19:58:02 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* gc.c (gc_sweep): makes new room if object space is full of
+	  finalized objects and has no free objects.  [ruby-dev:39201]
+
+Mon Nov 16 19:45:27 2009  Tanaka Akira  <akr@fsij.org>
+
+	* util.c: suppress strict-aliasing warning with gcc-4.4.0 -O2 to fix
+	  infinite loop by ruby -e "1.402e-45" .
+
+Mon Nov 16 19:28:23 2009  URABE Shyouhei  <shyouhei@ruby-lang.org>
+
+	* ext/bigdecimal/bigdecimal.c (BigDecimal_to_i): revert a part of
+	  r23645, which was not a bug fix. [ruby-dev:39474]
+
+Fri Sep 11 11:56:53 2009  Akinori MUSHA  <knu@iDaemons.org>
+
+	* class.c (rb_singleton_class_clone): Qnil must be used for a null
+	  class reference when we use NIL_P() to check class reference
+	  validity.  The bug was exposed by the spec test of Sequel.
+
+	* eval.c (ruby_init): Use NEW_CREF().
+
+Thu Sep 10 10:53:03 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* io.c (rb_sysopen): workaround for MSVCRT's bug.
+	  [ruby-core:24838]
+
+Mon Sep  7 19:52:44 2009  Tanaka Akira  <akr@fsij.org>
+
+	* eval.c (rb_thread_schedule): need select for WAIT_SELECT, even if
+	  already timeout.  [ruby-dev:38971]
+	  (WAIT_DONE): defined for mark threads which can be runnable.
+
+Mon Sep  7 19:52:44 2009  Tanaka Akira  <akr@fsij.org>
+
+	* eval.c (rb_thread_schedule): refine previous change.
+
+Mon Sep  7 19:52:44 2009  Tanaka Akira  <akr@fsij.org>
+
+	* eval.c (rb_thread_schedule): fix condition for making thread
+	  runnable.  [ruby-core:23515]
+
+Sun Sep  6 19:47:10 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_exc_raise, rb_exc_fatal): require exception object.
+	  [ruby-core:24767]
+
+Sun Sep  6 01:34:03 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* win32/win32.c (rb_w32_connect): return value was broken when some
+	  error occurred.
+	  [ruby-core:24234]
+
+Fri Sep  4 10:03:22 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* io.c (argf_eof): go to the next file if called after ARGF.close
+	  or ARGF.skip.  a patch from Mike Kasick at [ruby-core:24561].
+
+Sun Aug  9 17:43:44 2009  Keiju Ishitsuka  <keiju@ruby-lang.org>
+
+	* lib/irb.rb, lib/irb/init.rb, lib/irb/ext/save-history.rb: add
+	  IRB::irb_at_exit. no use finalizer saving history. [ruby-dev-38563]
+
+Wed Aug  5 15:29:54 2009  NAKAMURA Usaku  <usa@ruby-lang.org>
+
+	* io.c (rb_io_flush): fsync() after buffer is flushed on win32.
+	  backported from trunk.  [ruby-core:20043]
+
+
+Tue Aug  4 11:00:30 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* re.h (RMATCH_REGS): added for compatibility.
+
+Mon Aug  3 14:46:53 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* lib/complex.rb (Numeric#arg): should return NaN for NaN.
+	  [ruby-core:24116]
+
+Thu Jul 30 09:27:44 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* bignum.c (big_lshift, big_rshift): return Bignum always withou
+	  normalization.  [ruby-dev:38680]
+
+Wed Jul 29 11:19:47 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* io.c (argf_close): always call #close method.  [ruby-core:23853]
+
+	* io.c (argf_skip): should close only when current_file is available.
+
+Sat Jul 25 21:26:18 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* enum.c (first_i): Enumerator#first should consume only what is
+	  needed.   a patch from Marc-Andre Lafortune.  [ruby-core:23661]
+
+	* enum.c (take_i): ditto.
+
+	* enum.c (enum_first): call to_int once for an argument.  a patch
+	  from Marc-Andre Lafortune.
+
+Fri Jul 24 17:19:40 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* lib/cgi.rb (HTTP_STATUS): typo fixed.   [ruby-dev:38538]
+
+Wed Jul 22 23:39:34 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* lib/rexml/text.rb (REXML::Text.normalize): call to_s for input.
+	  [ruby-talk:337069]
+
+Tue Jul 21 18:21:47 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/mkmf.rb (SRC_EXT): should be flat.
+	  http://twitter.com/_tad_/status/1825862632
+
+Sat Jul 18 00:44:43 2009  URABE Shyouhei  <shyouhei@ruby-lang.org>
+
+	* gc.c (rb_gc_call_finalizer_at_exit): finalizer_table can be NULL.
+	  [ruby-core:24395]
+
+Thu Jul 16 09:35:06 2009  Akinori MUSHA  <knu@iDaemons.org>
+
+	* lib/delegate.rb (Delegator#method_missing)
+	  (DelegateClass()#method_missing): Properly pass a given block
+	  through. [ruby-dev:38390]
+
+Wed Jul 15 11:40:34 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* file.c (rb_file_join): recursive array has no meaning as path
+	  name.  [ruby-core:23329]
+
+Tue Jul 14 19:57:28 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (get_ts): use readtime clock.  [ruby-dev:38354]
+
+	* eval.c (rb_thread_stop_timer): clear thread_init while locking.
+
+Tue Jul 14 19:57:28 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_thread_start_timer): guard condition was inverted.
+	  [ruby-dev:38319]
+
+Tue Jul 14 19:57:28 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (safe_mutex_lock): pthread_cleanup_push() must not be
+	  inside parens.
+
+Mon Jul 13 01:36:54 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* time.c (time_timeval): rounds subsecond toward zero.
+
+Mon Jul 13 01:36:54 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* time.c (time_timeval): check out-of-range.  [ruby-core:23282]
+	  [Bug #1396]
+
+Thu Jul  9 17:58:03 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (proc_invoke): shares dmethod scope local variables.
+	  a patch from coderrr at [ruby-core:23050]
+
+	* gc.c (obj_free): do not free cloned scope local variables.
+
+Wed Jul  8 19:28:03 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_thread_remove): stops timer thread unless other
+	  threads exist.  [ruby-core:18444]
+
+Mon Jul  6 16:01:38 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* eval.c (rb_eval): checks for interrupt, stack and finalizers too.
+	  [ruby-dev:38208], [Bug #1329]
+
+	* eval.c (eval): replaces the message if frozen.
+
+Sun Jul  5 03:50:52 2009  Nobuyoshi Nakada  <nobu@ruby-lang.org>
+
+	* lib/test/unit.rb: use Kernel.exit to get rid of using
+	  IRB::ExtendCommandBundle#exit.  a patch from Dmitry Vazhov by
+	  [ruby-core:22986].
+
+Fri Jul  3 09:05:38 2009  Masatoshi SEKI  <m_seki@mva.biglobe.ne.jp>
+
+	* lib/drb/drb.rb (open_server_inaddr_any): fixed multiple network
+	  families problem. a patch from Charl Matthee at [ruby-core:21033].
+
+Wed Jul  1 15:46:30 2009  Tanaka Akira  <akr@fsij.org>
+
+	* lib/pathname.rb (Pathname#sub): set $~ in block.binding.
+	  [ruby-dev:38173]
+
+Mon Jun 29 13:18:42 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
+
+	* lib/fileutils.rb (FileUtils#fu_get_gid): stringify group
+	  argument before making regexp match.  [ruby-dev:38155]
+
 Fri Jun 12 16:36:44 2009  Yukihiro Matsumoto  <matz@ruby-lang.org>
 
 	* ext/bigdecimal/bigdecimal.c (VpToString): fixed a bug introduced

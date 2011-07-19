@@ -10,7 +10,7 @@
 #include <string.h>
 #include <arpa/inet.h>
 
-static char vers_id[] = "packlib.c : v2.3p2 Alec Muffett 18 May 1993";
+static char __unused vers_id[] = "packlib.c : v2.3p2 Alec Muffett 18 May 1993";
 
 static void PWDictHeaderToHostOrder (struct pi_header* header)
 {
@@ -69,8 +69,6 @@ PWOpen(prefix, mode)
     FILE *ifp;
     FILE *wfp;
 
-	if (vers_id[0]) ;
-	
     if (pdesc.header.pih_magic == PIH_MAGIC)
     {
 	fprintf(stderr, "%s: another dictionary already open\n", prefix);
@@ -79,9 +77,9 @@ PWOpen(prefix, mode)
 
     memset(&pdesc, '\0', sizeof(pdesc));
 
-    sprintf(iname, "%s.pwi", prefix);
-    sprintf(dname, "%s.pwd", prefix);
-    sprintf(wname, "%s.hwm", prefix);
+    snprintf(iname, sizeof(iname), "%s.pwi", prefix);
+    snprintf(dname, sizeof(dname), "%s.pwd", prefix);
+    snprintf(wname, sizeof(wname), "%s.hwm", prefix);
 
     if (!(pdesc.dfp = fopen(dname, mode)))
     {
@@ -239,8 +237,7 @@ PutPW(pwp, string)
 
     if (string)
     {
-	strncpy(pwp->data[pwp->count], string, MAXWORDLEN);
-	pwp->data[pwp->count][MAXWORDLEN - 1] = '\0';
+	strlcpy(pwp->data[pwp->count], string, MAXWORDLEN);
 
 	pwp->hwms[string[0] & 0xff]= pwp->header.pih_numwords;
 
@@ -348,7 +345,7 @@ GetPW(pwp, number)
     for (i = 1; i < NUMWORDS; i++)
     {
 	nstr = data[i];
-	strcpy(nstr, ostr);
+	strlcpy(nstr, ostr, MAXWORDLEN);
 
 	ostr = nstr + *(bptr++);
 	while (*(ostr++) = *(bptr++));

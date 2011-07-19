@@ -22,8 +22,7 @@
 #define LLVM_ADT_SCCITERATOR_H
 
 #include "llvm/ADT/GraphTraits.h"
-#include "llvm/ADT/iterator.h"
-#include <map>
+#include "llvm/ADT/DenseMap.h"
 #include <vector>
 
 namespace llvm {
@@ -35,11 +34,13 @@ namespace llvm {
 ///
 template<class GraphT, class GT = GraphTraits<GraphT> >
 class scc_iterator
-  : public forward_iterator<std::vector<typename GT::NodeType>, ptrdiff_t> {
+  : public std::iterator<std::forward_iterator_tag,
+                         std::vector<typename GT::NodeType>, ptrdiff_t> {
   typedef typename GT::NodeType          NodeType;
   typedef typename GT::ChildIteratorType ChildItTy;
   typedef std::vector<NodeType*> SccTy;
-  typedef forward_iterator<SccTy, ptrdiff_t> super;
+  typedef std::iterator<std::forward_iterator_tag,
+                        std::vector<typename GT::NodeType>, ptrdiff_t> super;
   typedef typename super::reference reference;
   typedef typename super::pointer pointer;
 
@@ -47,7 +48,7 @@ class scc_iterator
   // visitNum is the global counter.
   // nodeVisitNumbers are per-node visit numbers, also used as DFS flags.
   unsigned visitNum;
-  std::map<NodeType *, unsigned> nodeVisitNumbers;
+  DenseMap<NodeType *, unsigned> nodeVisitNumbers;
 
   // SCCNodeStack - Stack holding nodes of the SCC.
   std::vector<NodeType *> SCCNodeStack;
@@ -65,13 +66,13 @@ class scc_iterator
   std::vector<unsigned> MinVisitNumStack;
 
   // A single "visit" within the non-recursive DFS traversal.
-  void DFSVisitOne(NodeType* N) {
+  void DFSVisitOne(NodeType *N) {
     ++visitNum;                         // Global counter for the visit order
     nodeVisitNumbers[N] = visitNum;
     SCCNodeStack.push_back(N);
     MinVisitNumStack.push_back(visitNum);
     VisitStack.push_back(std::make_pair(N, GT::child_begin(N)));
-    //DOUT << "TarjanSCC: Node " << N <<
+    //dbgs() << "TarjanSCC: Node " << N <<
     //      " : visitNum = " << visitNum << "\n";
   }
 
@@ -82,13 +83,14 @@ class scc_iterator
       // TOS has at least one more child so continue DFS
       NodeType *childN = *VisitStack.back().second++;
       if (!nodeVisitNumbers.count(childN)) {
-        // this node has never been seen
+        // this node has never been seen.
         DFSVisitOne(childN);
-      } else {
-        unsigned childNum = nodeVisitNumbers[childN];
-        if (MinVisitNumStack.back() > childNum)
-          MinVisitNumStack.back() = childNum;
+        continue;
       }
+      
+      unsigned childNum = nodeVisitNumbers[childN];
+      if (MinVisitNumStack.back() > childNum)
+        MinVisitNumStack.back() = childNum;
     }
   }
 
@@ -99,29 +101,30 @@ class scc_iterator
     while (!VisitStack.empty()) {
       DFSVisitChildren();
       assert(VisitStack.back().second ==GT::child_end(VisitStack.back().first));
-      NodeType* visitingN = VisitStack.back().first;
+      NodeType *visitingN = VisitStack.back().first;
       unsigned minVisitNum = MinVisitNumStack.back();
       VisitStack.pop_back();
       MinVisitNumStack.pop_back();
       if (!MinVisitNumStack.empty() && MinVisitNumStack.back() > minVisitNum)
         MinVisitNumStack.back() = minVisitNum;
 
-      //DOUT << "TarjanSCC: Popped node " << visitingN <<
+      //dbgs() << "TarjanSCC: Popped node " << visitingN <<
       //      " : minVisitNum = " << minVisitNum << "; Node visit num = " <<
       //      nodeVisitNumbers[visitingN] << "\n";
 
-      if (minVisitNum == nodeVisitNumbers[visitingN]) {
-        // A full SCC is on the SCCNodeStack!  It includes all nodes below
-          // visitingN on the stack.  Copy those nodes to CurrentSCC,
-          // reset their minVisit values, and return (this suspends
-          // the DFS traversal till the next ++).
-          do {
-            CurrentSCC.push_back(SCCNodeStack.back());
-            SCCNodeStack.pop_back();
-            nodeVisitNumbers[CurrentSCC.back()] = ~0U;
-          } while (CurrentSCC.back() != visitingN);
-          return;
-        }
+      if (minVisitNum != nodeVisitNumbers[visitingN])
+        continue;
+      
+      // A full SCC is on the SCCNodeStack!  It includes all nodes below
+      // visitingN on the stack.  Copy those nodes to CurrentSCC,
+      // reset their minVisit values, and return (this suspends
+      // the DFS traversal till the next ++).
+      do {
+        CurrentSCC.push_back(SCCNodeStack.back());
+        SCCNodeStack.pop_back();
+        nodeVisitNumbers[CurrentSCC.back()] = ~0U;
+      } while (CurrentSCC.back() != visitingN);
+      return;
     }
   }
 
@@ -135,11 +138,11 @@ public:
   typedef scc_iterator<GraphT, GT> _Self;
 
   // Provide static "constructors"...
-  static inline _Self begin(GraphT& G) { return _Self(GT::getEntryNode(G)); }
-  static inline _Self end  (GraphT& G) { return _Self(); }
+  static inline _Self begin(const GraphT &G){return _Self(GT::getEntryNode(G));}
+  static inline _Self end  (const GraphT &G) { return _Self(); }
 
-  // Direct loop termination test (I.fini() is more efficient than I == end())
-  inline bool fini() const {
+  // Direct loop termination test: I.isAtEnd() is more efficient than I == end()
+  inline bool isAtEnd() const {
     assert(!CurrentSCC.empty() || VisitStack.empty());
     return CurrentSCC.empty();
   }
@@ -180,18 +183,36 @@ public:
         return true;
     return false;
   }
+                           
+  /// ReplaceNode - This informs the scc_iterator that the specified Old node
+  /// has been deleted, and New is to be used in its place.
+  void ReplaceNode(NodeType *Old, NodeType *New) {
+    assert(nodeVisitNumbers.count(Old) && "Old not in scc_iterator?");
+    nodeVisitNumbers[New] = nodeVisitNumbers[Old];
+    nodeVisitNumbers.erase(Old);
+  }
 };
 
 
 // Global constructor for the SCC iterator.
 template <class T>
-scc_iterator<T> scc_begin(T G) {
+scc_iterator<T> scc_begin(const T &G) {
   return scc_iterator<T>::begin(G);
 }
 
 template <class T>
-scc_iterator<T> scc_end(T G) {
+scc_iterator<T> scc_end(const T &G) {
   return scc_iterator<T>::end(G);
+}
+
+template <class T>
+scc_iterator<Inverse<T> > scc_begin(const Inverse<T> &G) {
+  return scc_iterator<Inverse<T> >::begin(G);
+}
+
+template <class T>
+scc_iterator<Inverse<T> > scc_end(const Inverse<T> &G) {
+  return scc_iterator<Inverse<T> >::end(G);
 }
 
 } // End llvm namespace

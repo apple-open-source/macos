@@ -7,6 +7,13 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		1C6C40271121FC0C00031CDE /* test-checkpw.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CD90B631101115E008DD07F /* test-checkpw.c */; };
+		1C6C40291121FC0C00031CDE /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CD90B8F110112DD008DD07F /* libpam.dylib */; };
+		1C6C402A1121FC0C00031CDE /* security_checkpw in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* security_checkpw */; };
+		1CB7B4C411065DDB003458C5 /* security_checkpw in Frameworks */ = {isa = PBXBuildFile; fileRef = 4CA1FEBE052A3C8100F22E42 /* security_checkpw */; };
+		1CD90B71110111A4008DD07F /* test-checkpw.c in Sources */ = {isa = PBXBuildFile; fileRef = 1CD90B631101115E008DD07F /* test-checkpw.c */; };
+		1CD90B90110112DD008DD07F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CD90B8F110112DD008DD07F /* libpam.dylib */; };
+		1CD90BA2110113AE008DD07F /* libpam.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 1CD90B8F110112DD008DD07F /* libpam.dylib */; };
 		4CA5C62205802AEB0040D3AC /* security_checkpw.exp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCBFF50057FFCA600981D43 /* security_checkpw.exp */; };
 		4CCBFF4C057FFC7300981D43 /* checkpw.h in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCF8663052A491D00F2E8D8 /* checkpw.h */; };
 		4CCBFF60057FFCEB00981D43 /* security_checkpw.exp in CopyFiles */ = {isa = PBXBuildFile; fileRef = 4CCBFF50057FFCA600981D43 /* security_checkpw.exp */; };
@@ -15,6 +22,34 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
+		1C6C40231121FC0C00031CDE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C31803C0540C00A006FC739;
+			remoteInfo = security_checkpw;
+		};
+		1C6C40251121FC0C00031CDE /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_checkpw;
+		};
+		1CB7B4C011065DC8003458C5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4C31803C0540C00A006FC739;
+			remoteInfo = security_checkpw;
+		};
+		1CD90B6E11011196008DD07F /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 4CA1FEBD052A3C8100F22E42;
+			remoteInfo = libsecurity_checkpw;
+		};
 		4C7501F50540C1C200056564 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 4CA1FEAB052A3C3800F22E42 /* Project object */;
@@ -58,6 +93,11 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		1C6C402F1121FC0C00031CDE /* perf-checkpw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "perf-checkpw"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CB7B49511065A36003458C5 /* checkpw.pam */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = checkpw.pam; sourceTree = "<group>"; };
+		1CD90B631101115E008DD07F /* test-checkpw.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = "test-checkpw.c"; path = "test/test-checkpw.c"; sourceTree = "<group>"; };
+		1CD90B6711011176008DD07F /* test-checkpw */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = "test-checkpw"; sourceTree = BUILT_PRODUCTS_DIR; };
+		1CD90B8F110112DD008DD07F /* libpam.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libpam.dylib; path = /usr/lib/libpam.dylib; sourceTree = "<absolute>"; };
 		4C31803D0540C00A006FC739 /* security_checkpw.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; path = security_checkpw.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CA1FEBE052A3C8100F22E42 /* security_checkpw */ = {isa = PBXFileReference; explicitFileType = archive.ar; path = security_checkpw; sourceTree = BUILT_PRODUCTS_DIR; };
 		4CCBFF50057FFCA600981D43 /* security_checkpw.exp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.exports; path = security_checkpw.exp; sourceTree = "<group>"; };
@@ -66,21 +106,51 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		1C6C40281121FC0C00031CDE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C6C40291121FC0C00031CDE /* libpam.dylib in Frameworks */,
+				1C6C402A1121FC0C00031CDE /* security_checkpw in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CD90B6511011176008DD07F /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CD90BA2110113AE008DD07F /* libpam.dylib in Frameworks */,
+				1CB7B4C411065DDB003458C5 /* security_checkpw in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4CA1FEBB052A3C8100F22E42 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				1CD90B90110112DD008DD07F /* libpam.dylib in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		1CD90B6011011149008DD07F /* test */ = {
+			isa = PBXGroup;
+			children = (
+				1CD90B631101115E008DD07F /* test-checkpw.c */,
+			);
+			name = test;
+			sourceTree = "<group>";
+		};
 		4CA1FEA7052A3C3800F22E42 = {
 			isa = PBXGroup;
 			children = (
+				1CB7B49511065A36003458C5 /* checkpw.pam */,
 				4CCF8661052A491D00F2E8D8 /* lib */,
+				1CD90B6011011149008DD07F /* test */,
 				4CA1FEBF052A3C8100F22E42 /* Products */,
+				1CD90B8F110112DD008DD07F /* libpam.dylib */,
 			);
 			sourceTree = "<group>";
 		};
@@ -89,6 +159,8 @@
 			children = (
 				4CA1FEBE052A3C8100F22E42 /* security_checkpw */,
 				4C31803D0540C00A006FC739 /* security_checkpw.framework */,
+				1CD90B6711011176008DD07F /* test-checkpw */,
+				1C6C402F1121FC0C00031CDE /* perf-checkpw */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -124,6 +196,42 @@
 /* End PBXHeadersBuildPhase section */
 
 /* Begin PBXNativeTarget section */
+		1C6C40211121FC0C00031CDE /* perf-checkpw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1C6C402B1121FC0C00031CDE /* Build configuration list for PBXNativeTarget "perf-checkpw" */;
+			buildPhases = (
+				1C6C40261121FC0C00031CDE /* Sources */,
+				1C6C40281121FC0C00031CDE /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1C6C40221121FC0C00031CDE /* PBXTargetDependency */,
+				1C6C40241121FC0C00031CDE /* PBXTargetDependency */,
+			);
+			name = "perf-checkpw";
+			productName = "test-checkpw";
+			productReference = 1C6C402F1121FC0C00031CDE /* perf-checkpw */;
+			productType = "com.apple.product-type.tool";
+		};
+		1CD90B6611011176008DD07F /* test-checkpw */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 1CD90B77110111C3008DD07F /* Build configuration list for PBXNativeTarget "test-checkpw" */;
+			buildPhases = (
+				1CD90B6411011176008DD07F /* Sources */,
+				1CD90B6511011176008DD07F /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				1CB7B4C111065DC8003458C5 /* PBXTargetDependency */,
+				1CD90B6F11011196008DD07F /* PBXTargetDependency */,
+			);
+			name = "test-checkpw";
+			productName = "test-checkpw";
+			productReference = 1CD90B6711011176008DD07F /* test-checkpw */;
+			productType = "com.apple.product-type.tool";
+		};
 		4C31803C0540C00A006FC739 /* security_checkpw */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = C27AD30E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "security_checkpw" */;
@@ -152,6 +260,7 @@
 				4CA1FEBB052A3C8100F22E42 /* Frameworks */,
 				4C789C3F055AF7D700B6FC95 /* ShellScript */,
 				4CD0D497055B0E56001715CB /* ShellScript */,
+				1CE6F80B11066C3000300DAA /* Install PAM config */,
 			);
 			buildRules = (
 			);
@@ -178,11 +287,27 @@
 			targets = (
 				4CA1FEBD052A3C8100F22E42 /* libsecurity_checkpw */,
 				4C31803C0540C00A006FC739 /* security_checkpw */,
+				1CD90B6611011176008DD07F /* test-checkpw */,
+				1C6C40211121FC0C00031CDE /* perf-checkpw */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXShellScriptBuildPhase section */
+		1CE6F80B11066C3000300DAA /* Install PAM config */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 8;
+			files = (
+			);
+			inputPaths = (
+			);
+			name = "Install PAM config";
+			outputPaths = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+			shellPath = /bin/sh;
+			shellScript = "name=checkpw\n\nmkdir -p \"${DSTROOT}/private/etc/pam.d/\"\ncp \"${SRCROOT}/${name}.pam\" \"${DSTROOT}/private/etc/pam.d/${name}\"";
+		};
 		4C789C3F055AF7D700B6FC95 /* ShellScript */ = {
 			isa = PBXShellScriptBuildPhase;
 			buildActionMask = 2147483647;
@@ -212,6 +337,22 @@
 /* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		1C6C40261121FC0C00031CDE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1C6C40271121FC0C00031CDE /* test-checkpw.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		1CD90B6411011176008DD07F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1CD90B71110111A4008DD07F /* test-checkpw.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		4CA1FEBA052A3C8100F22E42 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -223,6 +364,26 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
+		1C6C40221121FC0C00031CDE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C31803C0540C00A006FC739 /* security_checkpw */;
+			targetProxy = 1C6C40231121FC0C00031CDE /* PBXContainerItemProxy */;
+		};
+		1C6C40241121FC0C00031CDE /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_checkpw */;
+			targetProxy = 1C6C40251121FC0C00031CDE /* PBXContainerItemProxy */;
+		};
+		1CB7B4C111065DC8003458C5 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4C31803C0540C00A006FC739 /* security_checkpw */;
+			targetProxy = 1CB7B4C011065DC8003458C5 /* PBXContainerItemProxy */;
+		};
+		1CD90B6F11011196008DD07F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 4CA1FEBD052A3C8100F22E42 /* libsecurity_checkpw */;
+			targetProxy = 1CD90B6E11011196008DD07F /* PBXContainerItemProxy */;
+		};
 		4C7501F60540C1C200056564 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
 			target = 4C31803C0540C00A006FC739 /* security_checkpw */;
@@ -231,6 +392,48 @@
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
+		1C6C402C1121FC0C00031CDE /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "perf-checkpw";
+			};
+			name = Development;
+		};
+		1C6C402D1121FC0C00031CDE /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "perf-checkpw";
+			};
+			name = Deployment;
+		};
+		1C6C402E1121FC0C00031CDE /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "perf-checkpw";
+			};
+			name = Default;
+		};
+		1CD90B6911011179008DD07F /* Development */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "test-checkpw";
+			};
+			name = Development;
+		};
+		1CD90B6A11011179008DD07F /* Deployment */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "test-checkpw";
+			};
+			name = Deployment;
+		};
+		1CD90B6B11011179008DD07F /* Default */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "test-checkpw";
+			};
+			name = Default;
+		};
 		C27AD30F0987FCDE001272E0 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -279,7 +482,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -288,7 +491,6 @@
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -327,14 +529,13 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -373,14 +574,13 @@
 					debug,
 					nopic,
 				);
-				CURRENT_PROJECT_VERSION = 36064;
+				CURRENT_PROJECT_VERSION = 55000;
 				EXECUTABLE_PREFIX = "";
 				EXECUTABLE_SUFFIX = "";
 				HEADER_SEARCH_PATHS = /usr/local/include;
 				LIBRARY_STYLE = STATIC;
 				OPT_CFLAGS = "-DNDEBUG -Os $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -438,6 +638,26 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		1C6C402B1121FC0C00031CDE /* Build configuration list for PBXNativeTarget "perf-checkpw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1C6C402C1121FC0C00031CDE /* Development */,
+				1C6C402D1121FC0C00031CDE /* Deployment */,
+				1C6C402E1121FC0C00031CDE /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
+		1CD90B77110111C3008DD07F /* Build configuration list for PBXNativeTarget "test-checkpw" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				1CD90B6911011179008DD07F /* Development */,
+				1CD90B6A11011179008DD07F /* Deployment */,
+				1CD90B6B11011179008DD07F /* Default */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Default;
+		};
 		C27AD30E0987FCDE001272E0 /* Build configuration list for PBXNativeTarget "security_checkpw" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (

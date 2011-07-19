@@ -13,8 +13,8 @@
 
 #if Select == 0
 	#define	Name		_AESEncryptWithExpandedKey	// Routine name.
-	#define	MTable		_AESEncryptTable			// Main table.
-	#define	FTable		_AESSubBytesWordTable		// Final table.
+	#define	MTable		_OLDAESEncryptTable			// Main table.
+	#define	FTable		_OLDAESSubBytesWordTable		// Final table.
 	#define	P0			S0							// State permutation.
 	#define	P1			S1
 	#define	P2			S2
@@ -22,8 +22,8 @@
 	#define	Increment	+16							// ExpandedKey increment.
 #elif Select == 1
 	#define	Name		_AESDecryptWithExpandedKey	// Routine name.
-	#define	MTable		_AESDecryptTable			// Main table.
-	#define	FTable		_AESInvSubBytesWordTable	// Final table.
+	#define	MTable		_OLDAESDecryptTable			// Main table.
+	#define	FTable		_OLDAESInvSubBytesWordTable	// Final table.
 	#define	P0			S2							// State permutation.
 	#define	P1			S3
 	#define	P2			S0
@@ -53,33 +53,33 @@
 				The following names must be locally defined so the assembler
 				can calculate certain offsets.
 
-				static const Word _AESEncryptTable[4][256].
+				static const Word _OLDAESEncryptTable[4][256].
 
-					_AESEncryptTable[i] contains the tables T[i] defined in AES
+					_OLDAESEncryptTable[i] contains the tables T[i] defined in AES
 					Proposal: Rijndael, version 2, 03/09/99, by Joan Daemen and
 					Vincent Rijmen, section 5.2.1, page 18.  These tables
 					combine the SubBytes and MixColumns operations.
 
-				static const Word _AESSubBytesWordTable[256].
+				static const Word _OLDAESSubBytesWordTable[256].
 
-					_AESSubBytesWordTable[i][j] = SubBytes(j) << 8*i, where
-					SubBytes is defined in FIPS-197.  _AESSubBytesWordTable
-					differs from _AESEncryptTable in that it does not include
+					_OLDAESSubBytesWordTable[i][j] = SubBytes(j) << 8*i, where
+					SubBytes is defined in FIPS-197.  _OLDAESSubBytesWordTable
+					differs from _OLDAESEncryptTable in that it does not include
 					the MixColumn operation.  It is used in performing the last
 					round, which differs fromm the previous rounds in that it
 					does not include the MixColumn operation.
 
 			For decryption:
 
-				static const Word _AESDecryptTable[4][256].
+				static const Word _OLDAESDecryptTable[4][256].
 
-					The analog of _AESEncryptTable for decryption.
+					The analog of _OLDAESEncryptTable for decryption.
 
-				static const Word _AESSubBytesWordTable[256].
+				static const Word _OLDAESSubBytesWordTable[256].
 
-					_AESInvSubBytesWordTable[i][j] = InvSubBytes(j) << 8*i,
+					_OLDAESInvSubBytesWordTable[i][j] = InvSubBytes(j) << 8*i,
 					where InvSubBytes is defined in FIPS-197.
-					_AESInvSubBytesWordTable differs from _AESDecryptTable in
+					_OLDAESInvSubBytesWordTable differs from _OLDAESDecryptTable in
 					that it does not include the InvMixColumn operation.  It is
 					used in performing the last round, which differs fromm the
 					previous rounds in that it does not include the

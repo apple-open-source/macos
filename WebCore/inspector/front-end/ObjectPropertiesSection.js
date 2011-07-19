@@ -45,12 +45,16 @@ WebInspector.ObjectPropertiesSection.prototype = {
     update: function()
     {
         var self = this;
-        var callback = function(properties) {
+        function callback(properties)
+        {
             if (!properties)
                 return;
             self.updateProperties(properties);
-        };
-        InjectedScriptAccess.get(this.object.injectedScriptId).getProperties(this.object, this.ignoreHasOwnProperty, true, callback);
+        }
+        if (this.ignoreHasOwnProperty)
+            this.object.getAllProperties(callback);
+        else
+            this.object.getOwnProperties(callback);
     },
 
     updateProperties: function(properties, rootTreeElementConstructor, rootPropertyComparer)
@@ -69,12 +73,15 @@ WebInspector.ObjectPropertiesSection.prototype = {
 
         this.propertiesTreeOutline.removeChildren();
 
-        for (var i = 0; i < properties.length; ++i)
+        for (var i = 0; i < properties.length; ++i) {
+            properties[i].parentObject = this.object;
             this.propertiesTreeOutline.appendChild(new rootTreeElementConstructor(properties[i]));
+        }
 
         if (!this.propertiesTreeOutline.children.length) {
             var title = "<div class=\"info\">" + this.emptyPlaceholder + "</div>";
-            var infoElement = new TreeElement(title, null, false);
+            var infoElement = new TreeElement(null, null, false);
+            infoElement.titleHTML = title;
             this.propertiesTreeOutline.appendChild(infoElement);
         }
         this.propertiesForTest = properties;
@@ -152,7 +159,7 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
                 this.appendChild(new this.treeOutline.section.treeElementConstructor(properties[i]));
             }
         };
-        InjectedScriptAccess.get(this.property.value.injectedScriptId).getProperties(this.property.value, false, true, callback.bind(this));
+        this.property.value.getOwnProperties(callback.bind(this));
     },
 
     ondblclick: function(event)
@@ -177,20 +184,54 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
         
         this.valueElement = document.createElement("span");
         this.valueElement.className = "value";
-        this.valueElement.textContent = this.property.value.description;
-        if (typeof this.property.value.propertyLength !== "undefined")
-            this.valueElement.textContent += " (" + this.property.value.propertyLength + ")";
+
+        var description = this.property.value.description;
+        // Render \n as a nice unicode cr symbol.
+        if (this.property.wasThrown)
+            this.valueElement.textContent = "[Exception: " + description + "]";
+        else if (this.property.value.type === "string" && typeof description === "string") {
+            this.valueElement.textContent = "\"" + description.replace(/\n/g, "\u21B5") + "\"";
+            this.valueElement._originalTextContent = "\"" + description + "\"";
+        } else if (this.property.value.type === "function" && typeof description === "string") {
+            this.valueElement.textContent = /.*/.exec(description)[0].replace(/ +$/g, "");
+            this.valueElement._originalTextContent = description;
+        } else
+            this.valueElement.textContent = description;
+
         if (this.property.isGetter)
             this.valueElement.addStyleClass("dimmed");
-        if (this.property.isError)
+        if (this.property.wasThrown)
             this.valueElement.addStyleClass("error");
+        if (this.property.value.type)
+            this.valueElement.addStyleClass("console-formatted-" + this.property.value.type);
+        if (this.property.value.type === "node")
+            this.valueElement.addEventListener("contextmenu", this._contextMenuEventFired.bind(this), false);
 
         this.listItemElement.removeChildren();
 
         this.listItemElement.appendChild(this.nameElement);
         this.listItemElement.appendChild(separatorElement);
         this.listItemElement.appendChild(this.valueElement);
-        this.hasChildren = this.property.value.hasChildren;
+        this.hasChildren = this.property.value.hasChildren && !this.property.wasThrown;
+    },
+
+    _contextMenuEventFired: function()
+    {
+        function selectNode(nodeId)
+        {
+            if (nodeId) {
+                WebInspector.panels.elements.switchToAndFocus(WebInspector.domAgent.nodeForId(nodeId));
+            }
+        }
+
+        function revealElement()
+        {
+            this.property.value.pushNodeToFrontend(selectNode);
+        }
+
+        var contextMenu = new WebInspector.ContextMenu();
+        contextMenu.appendItem(WebInspector.UIString("Reveal in Elements Panel"), revealElement.bind(this));
+        contextMenu.show(event);
     },
 
     updateSiblings: function()
@@ -213,7 +254,15 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
 
         this.listItemElement.addStyleClass("editing-sub-part");
 
-        WebInspector.startEditing(this.valueElement, this.editingCommitted.bind(this), this.editingCancelled.bind(this), context);
+        // Edit original source.
+        if (typeof this.valueElement._originalTextContent === "string")
+            this.valueElement.textContent = this.valueElement._originalTextContent;
+
+        WebInspector.startEditing(this.valueElement, {
+            context: context,
+            commitHandler: this.editingCommitted.bind(this),
+            cancelHandler: this.editingCancelled.bind(this)
+        });
     },
 
     editingEnded: function(context)
@@ -244,23 +293,23 @@ WebInspector.ObjectPropertyTreeElement.prototype = {
     {
         expression = expression.trim();
         var expressionLength = expression.length;
-        var self = this;
-        var callback = function(success) {
+        function callback(error)
+        {
             if (!updateInterface)
                 return;
 
-            if (!success)
-                self.update();
+            if (error)
+                this.update();
 
             if (!expressionLength) {
                 // The property was deleted, so remove this tree element.
-                self.parent.removeChild(this);
+                this.parent.removeChild(this);
             } else {
                 // Call updateSiblings since their value might be based on the value that just changed.
-                self.updateSiblings();
+                this.updateSiblings();
             }
         };
-        InjectedScriptAccess.get(this.property.parentObjectProxy.injectedScriptId).setPropertyValue(this.property.parentObjectProxy, this.property.name, expression.trim(), callback);
+        this.property.parentObject.setPropertyValue(this.property.name, expression.trim(), callback.bind(this));
     }
 }
 

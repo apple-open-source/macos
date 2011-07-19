@@ -24,16 +24,17 @@
 #ifndef ValidityState_h
 #define ValidityState_h
 
-#include "HTMLFormControlElement.h"
+#include "FormAssociatedElement.h"
 #include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
-class ValidityState : public Noncopyable {
+class ValidityState {
+    WTF_MAKE_NONCOPYABLE(ValidityState); WTF_MAKE_FAST_ALLOCATED;
 public:
-    static PassOwnPtr<ValidityState> create(HTMLFormControlElement* control)
+    static PassOwnPtr<ValidityState> create(FormAssociatedElement* control)
     {
-        return new ValidityState(control);
+        return adoptPtr(new ValidityState(control));
     }
 
     void ref() { m_control->ref(); }
@@ -41,25 +42,25 @@ public:
 
     String validationMessage() const;
 
-    void setCustomErrorMessage(const String& message) { m_customErrorMessage = message; }
+    void setCustomErrorMessage(const String&);
 
-    bool valueMissing() const { return m_control->valueMissing(); }
+    bool valueMissing() const;
     bool typeMismatch() const;
-    bool patternMismatch() const { return m_control->patternMismatch(); }
-    bool tooLong() const { return m_control->tooLong(); }
+    bool patternMismatch() const;
+    bool tooLong() const;
     bool rangeUnderflow() const;
     bool rangeOverflow() const;
     bool stepMismatch() const;
-    bool customError() const { return !m_customErrorMessage.isEmpty(); }
+    bool customError() const;
     bool valid() const;
 
 private:
-    ValidityState(HTMLFormControlElement* control) : m_control(control) { }
+    ValidityState(FormAssociatedElement* control) : m_control(control) { }
 
     static bool isValidColorString(const String&);
     static bool isValidEmailAddress(const String&);
 
-    HTMLFormControlElement* m_control;
+    FormAssociatedElement* m_control;
     String m_customErrorMessage;
 };
 

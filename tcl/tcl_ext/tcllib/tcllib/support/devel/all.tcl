@@ -8,7 +8,7 @@
 # Copyright (c) 1998-2000 by Ajuba Solutions.
 # All rights reserved.
 # 
-# RCS: @(#) $Id: all.tcl,v 1.6 2006/10/10 06:07:18 andreas_kupries Exp $
+# RCS: @(#) $Id: all.tcl,v 1.7 2009/12/08 21:00:51 andreas_kupries Exp $
 
 catch {wm withdraw .}
 
@@ -209,6 +209,7 @@ foreach module $modules {
     foreach file [lsort [::tcltest::getMatchingFiles]] {
 	set tail [file tail $file]
 	Note Testsuite [string map [list "$root/" ""] $file]
+	Note StartFile [Now]
 	$c eval {
 	    if {[catch {source [pSet file]} msg]} {
 		puts stdout "@+"
@@ -216,6 +217,7 @@ foreach module $modules {
 		puts stdout "@-"
 	    }
 	}
+	Note EndFile [Now]
     }
     interp delete $c
     puts stdout ""

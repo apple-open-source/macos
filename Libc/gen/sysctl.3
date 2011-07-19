@@ -187,7 +187,7 @@ Note:  Implementation of
 -- to print whatever data deemed necessary from the large
 .Vt kinfo_proc
 structure (
-.In sysctl.h
+.In sys/sysctl.h
 ) -- is left as an exercise for the reader.
 .Pp
 The top level names are defined with a CTL_ prefix in
@@ -288,7 +288,7 @@ privilege may change the value.
 .It Sy "Second level name	Type	Changeable"
 .It "HW_MACHINE	string	no"
 .It "HW_MODEL	string	no"
-.It "HW_NCPU	integer	no"
+.It "HW_NCPU	integer	no (DEPRECATED)"
 .It "HW_BYTEORDER	integer	no"
 .It "HW_PHYSMEM	integer	no"
 .It "HW_MEMSIZE	integer	no"
@@ -305,8 +305,16 @@ privilege may change the value.
 The machine class.
 .It Li HW_MODEL
 The machine model
-.It Li HW_NCPU
-The number of cpus.
+.It Li HW_NCPU (DEPRECATED)
+The number of cpus.  It is recommended that you use "hw.physicalcpu" "hw.physicalcpu_max" "hw.logicalcpu" or "hw.logicalcpu_max" instead.
+.It Li "hw.physicalcpu"
+The number of physical processors available in the current power management mode.
+.It Li "hw.physicalcpu_max"
+The maximum number of physical processors that could be available this boot.
+.It Li "hw.logicalcpu"
+The number of logical processors available in the current power management mode.
+.It Li "hw.logicalcpu_max"
+The maximum number of logical processors that could be available this boot.
 .It Li HW_BYTEORDER
 The byteorder (4,321, or 1,234).
 .It Li HW_PHYSMEM
@@ -355,7 +363,7 @@ information.
 .It "KERN_OSREV	integer	no"
 .It "KERN_OSTYPE	string	no"
 .It "KERN_POSIX1	integer	no"
-.It "KERN_PROC	struct proc	no"
+.It "KERN_PROC	struct kinfo_proc	no"
 .It "KERN_PROF	node	not applicable"
 .It "KERN_QUANTUM	integer	yes"
 .It "KERN_SAVED_IDS	integer	no"
@@ -449,10 +457,8 @@ with which the system
 attempts to comply.
 .It Li KERN_PROC
 Return the entire process table, or a subset of it.
-An array of pairs of
-.Va struct proc
-followed by corresponding
-.Va struct eproc
+An array of
+.Va struct kinfo_proc
 structures is returned,
 whose size depends on the current number of such objects in the system.
 The third and fourth level names are as follows:

@@ -1,0 +1,1333 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$560|@interface MyClass: NSObject
+/* Choice 1: Remove this comment line, and everything parses again. Or... */
+<
+        NSCopying
+>
+
+{
+        float someProperty;
+}
+
+
+/* Choice 2: Remove the following HeaderDoc comment, and everything parses again.
+Or... */
+/*!
+ *        @property someProperty
+ *        @abstract .
+ */
+@property (readwrite, nonatomic, assign)
+        float someProperty;
+
+
+/* Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. */
+/*!
+ *        @method someMethod
+ *        @abstract .
+ */
+-(void)someMethod;
+
+
+@end
+$64|/*!
+ *        @class MyClass
+ *        @abstract MyAbstract
+ */
+$0|$17175|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_9.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_9.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{conformsToList} => 
+        NSCopying
+
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inClassConformingToProtocol} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 24
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{leavingComment} => 0
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface MyClass: NSObject  /* Choice 1: Remove this 
+    comment line, and everything parses again. Or... */
+<          NSCopying  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  MyClass NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => @interface MyClass: NSObject  /* Choice 1: Remove this 
+    comment line, and everything parses again. Or... */
+
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 24
+typelist: @interface
+namelist: MyClass
+posstypes: NSObject
+value: 
+returntype: MyClass NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+        NSCopying
+
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---MyClass
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 1: Remove this comment line, and everything parses again. Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-float (HAS STATE)
+|   |   +--- 
+|   |   +---someProperty
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 2: Remove the following HeaderDoc comment, and everything parses again.
+|   |   +---
+Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@property someProperty
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readwrite
+|   |   +---,
+|   |   +--- 
+|   |   +---nonatomic
+|   |   +---,
+|   |   +--- 
+|   |   +---assign
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---        
+|   +---float
+|   +--- 
+|   +---someProperty
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method someMethod
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---someMethod
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 9
+APIUID: //test_ref/doc/header/ObjC_class_9.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: MyClass
+    APIUID: 
+    ABSTRACT: "<p>MyAbstract
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Conforms&nbsp;to</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/intf/NSCopying" machineGenerated="true" -->NSCopying<!-- /a --></p>
+<p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_9.test" target="_top" machineGenerated="true">ObjC class 9</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: someMethod
+        APIUID: //test_ref/occ/instm/MyClass/someMethod
+        ABSTRACT: "<p>.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: someProperty
+        APIUID: //test_ref/occ/instp/MyClass/someProperty
+        ABSTRACT: "<p>.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "float"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: MyClass (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---MyClass
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 1: Remove this comment line, and everything parses again. Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-float (HAS STATE)
+|   |   +--- 
+|   |   +---someProperty
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 2: Remove the following HeaderDoc comment, and everything parses again.
+|   |   +---
+Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@property someProperty
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readwrite
+|   |   +---,
+|   |   +--- 
+|   |   +---nonatomic
+|   |   +---,
+|   |   +--- 
+|   |   +---assign
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---        
+|   +---float
+|   +--- 
+|   +---someProperty
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method someMethod
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---someMethod
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: someMethod (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---someMethod
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readwrite
+|   +---,
+|   +--- 
+|   +---nonatomic
+|   +---,
+|   +--- 
+|   +---assign
+|   +---)
++---[ NEWLINE ]
++---        
++---float
++--- 
++---someProperty
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +--- 
+|   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@method someMethod
+|   +---
+@abstract .
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---someMethod
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: MyClass (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/MyClass //test_ref/occ/tdef/MyClass //test_ref/occ/tag/MyClass //test_ref/occ/struct/MyClass //test_ref/occ/intf/MyClass //test_ref/doc/anysymbol/MyClass" machineGenerated="true" --><span class="type">MyClass</span><!-- /a -->: <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> <span class="comment">/* Choice 1: Remove this comment line, and everything parses again. Or... */</span>
+	    &lt; <!-- a logicalPath="//test_ref/occ/cl/NSCopying //test_ref/occ/tdef/NSCopying //test_ref/occ/tag/NSCopying //test_ref/occ/struct/NSCopying //test_ref/occ/intf/NSCopying //test_ref/doc/anysymbol/NSCopying" machineGenerated="true" --><span class="type">NSCopying</span><!-- /a --> &gt;  { 
+	        <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->; 
+	        }   <span class="comment">/* Choice 2: Remove the following HeaderDoc comment, and everything parses again.</span>
+	        <span class="comment">*/</span>
+	    <span class="comment">/*!
+	@property someProperty
+	@abstract .</span>
+	        <span class="comment">*/</span>
+	    @property (<span class="param">readwrite</span>,
+	        <span class="param">nonatomic</span>,
+	        <span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->;    <span class="comment">/* Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. */</span>
+	    <span class="comment">/*!
+	@method someMethod
+	@abstract .</span>
+	        <span class="comment">*/</span>
+	    -(<span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/econst/someMethod //test_ref/occ/data/someMethod //test_ref/occ/clconst/someMethod " machineGenerated="true" --><span class="var">someMethod</span><!-- /a -->;    @@end 
+END OF OBJECT
+
+
+OBJECT: someMethod (HeaderDoc::Method)
+	-(<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/someMethod //test_ref/occ/data/MyClass/someMethod //test_ref/occ/data/someMethod //test_ref/occ/clconst/MyClass/someMethod " machineGenerated="true" --><span class="var">someMethod</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
+	@property (<span class="param">readwrite</span>,
+	    <span class="param">nonatomic</span>,
+	    <span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/MyClass/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/MyClass/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$18955|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/ObjC_class_9.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/ObjC_class_9.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classIsObjC} => 1
+$parserState->{classtype} => @interface
+$parserState->{conformsToList} => 
+        NSCopying
+
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inClassConformingToProtocol} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 24
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => end
+$parserState->{leavingComment} => 0
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occSuper} => NSObject
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 1
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 0
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 1
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => interface
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => @interface MyClass: NSObject  /* Choice 1: Remove this 
+    comment line, and everything parses again. Or... */
+<          NSCopying  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => end
+$parserState->{sodtype} =>  MyClass NSObject
+$parserState->{sodtypeclasstoken} => interface
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 2
+$parserState->{storeDec} => @interface MyClass: NSObject  /* Choice 1: Remove this 
+    comment line, and everything parses again. Or... */
+
+$parserState->{sublang} => C
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 24
+typelist: @interface
+namelist: MyClass
+posstypes: NSObject
+value: 
+returntype: MyClass NSObject
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+        NSCopying
+
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---@
++---interface
+|   +--- 
+|   +---MyClass
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 1: Remove this comment line, and everything parses again. Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-float (HAS STATE)
+|   |   +--- 
+|   |   +---someProperty
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 2: Remove the following HeaderDoc comment, and everything parses again.
+|   |   +---
+Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@property someProperty
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readwrite
+|   |   +---,
+|   |   +--- 
+|   |   +---nonatomic
+|   |   +---,
+|   |   +--- 
+|   |   +---assign
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---        
+|   +---float
+|   +--- 
+|   +---someProperty
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method someMethod
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---someMethod
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: ObjC class 9
+APIUID: //test_ref/doc/header/ObjC_class_9.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::ObjCClass
+    NAME: MyClass
+    APIUID: 
+    ABSTRACT: "<p>MyAbstract
+"
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::ObjCClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Conforms&nbsp;to</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/intf/NSCopying" machineGenerated="true" -->NSCopying<!-- /a --></p>
+<p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/occ/cl/NSObject" machineGenerated="true" -->NSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/ObjC_class_9.test" target="_top" machineGenerated="true">ObjC class 9</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Method
+        NAME: someMethod
+        APIUID: //test_ref/occ/instm/MyClass/someMethod
+        ABSTRACT: "<p>.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Method"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 0
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: someProperty
+        APIUID: //test_ref/occ/data/MyClass/someProperty
+        ABSTRACT: ""
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "float"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS PROPERTY: 1
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Var
+        NAME: someProperty
+        APIUID: //test_ref/occ/instp/MyClass/someProperty
+        ABSTRACT: "<p>.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: ""
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: ""
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: "float"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Var"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: MyClass (HeaderDoc::ObjCClass)
++---@
++---interface
+|   +--- 
+|   +---MyClass
+|   +---:
+|   +--- 
+|   +---NSObject
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 1: Remove this comment line, and everything parses again. Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---<
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +---NSCopying
+|   |   +---[ NEWLINE ]
+|   |   +--->
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---{
+|   |   +---[ NEWLINE ]
+|   |   +---        
+|   |   +-*-float (HAS STATE)
+|   |   +--- 
+|   |   +---someProperty
+|   |   +---;
+|   |   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   |   +---[ NEWLINE ]
+|   |   +---}
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 2: Remove the following HeaderDoc comment, and everything parses again.
+|   |   +---
+Or... 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@property someProperty
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-@property (HAS STATE)
+|   +--- 
+|   +---(
+|   |   +---readwrite
+|   |   +---,
+|   |   +--- 
+|   |   +---nonatomic
+|   |   +---,
+|   |   +--- 
+|   |   +---assign
+|   |   +---)
+|   +---[ NEWLINE ]
+|   +---        
+|   +---float
+|   +--- 
+|   +---someProperty
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +--- 
+|   |   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +---
+@method someMethod
+|   |   +---
+@abstract .
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +-*-- (HAS STATE)
+|   |   +---(
+|   |   |   +---void
+|   |   |   +---)
+|   |   +---someMethod
+|   |   +---;
+|   +--- 
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---@
+|   +---@end
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: someMethod (HeaderDoc::Method)
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---someMethod
+|   +---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
++-*-float (HAS STATE)
++--- 
++---someProperty
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
++-*-@property (HAS STATE)
++--- 
++---(
+|   +---readwrite
+|   +---,
+|   +--- 
+|   +---nonatomic
+|   +---,
+|   +--- 
+|   +---assign
+|   +---)
++---[ NEWLINE ]
++---        
++---float
++--- 
++---someProperty
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---/*
+|   +--- 
+|   +---Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. 
+|   +---*/
++---[ NEWLINE ]
++---/*
+|   +---!
+|   +---
+@method someMethod
+|   +---
+@abstract .
+|   +---[ NEWLINE ]
+|   +---*/
++---[ NEWLINE ]
++-*-- (HAS STATE)
+|   +---(
+|   |   +---void
+|   |   +---)
+|   +---someMethod
+|   +---;
++--- 
++---[ NEWLINE ]
++---[ NEWLINE ]
++---[ NEWLINE ]
++---@
++---@end
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: MyClass (HeaderDoc::ObjCClass)
+	@<!-- a logicalPath="//test_ref/occ/cl/interface //test_ref/occ/tdef/interface //test_ref/occ/tag/interface //test_ref/occ/struct/interface //test_ref/occ/intf/interface //test_ref/doc/anysymbol/interface" machineGenerated="true" --><span class="type">interface</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/cl/MyClass //test_ref/occ/tdef/MyClass //test_ref/occ/tag/MyClass //test_ref/occ/struct/MyClass //test_ref/occ/intf/MyClass //test_ref/doc/anysymbol/MyClass" machineGenerated="true" --><span class="type">MyClass</span><!-- /a -->: <!-- a logicalPath="//test_ref/occ/cl/NSObject //test_ref/occ/tdef/NSObject //test_ref/occ/tag/NSObject //test_ref/occ/struct/NSObject //test_ref/occ/intf/NSObject //test_ref/doc/anysymbol/NSObject" machineGenerated="true" --><span class="type">NSObject</span><!-- /a --> <span class="comment">/* Choice 1: Remove this comment line, and everything parses again. Or... */</span>
+	    &lt; <!-- a logicalPath="//test_ref/occ/cl/NSCopying //test_ref/occ/tdef/NSCopying //test_ref/occ/tag/NSCopying //test_ref/occ/struct/NSCopying //test_ref/occ/intf/NSCopying //test_ref/doc/anysymbol/NSCopying" machineGenerated="true" --><span class="type">NSCopying</span><!-- /a --> &gt;  { 
+	        <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->; 
+	        }   <span class="comment">/* Choice 2: Remove the following HeaderDoc comment, and everything parses again.</span>
+	        <span class="comment">*/</span>
+	    <span class="comment">/*!
+	@property someProperty
+	@abstract .</span>
+	        <span class="comment">*/</span>
+	    @property (<span class="param">readwrite</span>,
+	        <span class="param">nonatomic</span>,
+	        <span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->;    <span class="comment">/* Choice 3: Remove the following HeaderDoc comment, and the parsing error changes. */</span>
+	    <span class="comment">/*!
+	@method someMethod
+	@abstract .</span>
+	        <span class="comment">*/</span>
+	    -(<span class="param">void</span>)<!-- a logicalPath="//test_ref/occ/econst/someMethod //test_ref/occ/data/someMethod //test_ref/occ/clconst/someMethod " machineGenerated="true" --><span class="var">someMethod</span><!-- /a -->;    @@end 
+END OF OBJECT
+
+
+OBJECT: someMethod (HeaderDoc::Method)
+	-(<!-- a logicalPath="//test_ref/occ/cl/void //test_ref/occ/tdef/void //test_ref/occ/tag/void //test_ref/occ/struct/void //test_ref/occ/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a -->)<!-- a logicalPath="//test_ref/occ/econst/someMethod //test_ref/occ/data/MyClass/someMethod //test_ref/occ/data/someMethod //test_ref/occ/clconst/MyClass/someMethod " machineGenerated="true" --><span class="var">someMethod</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
+	<!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/MyClass/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/MyClass/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->; 
+END OF OBJECT
+
+
+OBJECT: someProperty (HeaderDoc::Var)
+	@property (<span class="param">readwrite</span>,
+	    <span class="param">nonatomic</span>,
+	    <span class="param">assign</span>) <!-- a logicalPath="//test_ref/occ/cl/float //test_ref/occ/tdef/float //test_ref/occ/tag/float //test_ref/occ/struct/float //test_ref/occ/intf/float //test_ref/doc/anysymbol/float" machineGenerated="true" --><span class="type">float</span><!-- /a --> <!-- a logicalPath="//test_ref/occ/econst/someProperty //test_ref/occ/data/MyClass/someProperty //test_ref/occ/data/someProperty //test_ref/occ/clconst/MyClass/someProperty " machineGenerated="true" --><span class="var">someProperty</span><!-- /a -->; 
+END OF OBJECT
+
+
+
+$56|Test for comments mixed within ObjC class declarations.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/ObjC_class_9.test$1|C$12|ObjC class 9$1|C$6|parser

@@ -30,40 +30,40 @@ swap_m88k_thread_state_grf_t(
 m88k_thread_state_grf_t *cpu,
 enum NXByteOrder target_byte_sex)
 {
-	cpu->r1 = NXSwapLong(cpu->r1);
-	cpu->r2 = NXSwapLong(cpu->r2);
-	cpu->r3 = NXSwapLong(cpu->r3);
-	cpu->r4 = NXSwapLong(cpu->r4);
-	cpu->r5 = NXSwapLong(cpu->r5);
-	cpu->r6 = NXSwapLong(cpu->r6);
-	cpu->r7 = NXSwapLong(cpu->r7);
-	cpu->r8 = NXSwapLong(cpu->r8);
-	cpu->r9 = NXSwapLong(cpu->r9);
-	cpu->r10 = NXSwapLong(cpu->r10);
-	cpu->r11 = NXSwapLong(cpu->r11);
-	cpu->r12 = NXSwapLong(cpu->r12);
-	cpu->r13 = NXSwapLong(cpu->r13);
-	cpu->r14 = NXSwapLong(cpu->r14);
-	cpu->r15 = NXSwapLong(cpu->r15);
-	cpu->r16 = NXSwapLong(cpu->r16);
-	cpu->r17 = NXSwapLong(cpu->r17);
-	cpu->r18 = NXSwapLong(cpu->r18);
-	cpu->r19 = NXSwapLong(cpu->r19);
-	cpu->r20 = NXSwapLong(cpu->r20);
-	cpu->r21 = NXSwapLong(cpu->r21);
-	cpu->r22 = NXSwapLong(cpu->r22);
-	cpu->r23 = NXSwapLong(cpu->r23);
-	cpu->r24 = NXSwapLong(cpu->r24);
-	cpu->r25 = NXSwapLong(cpu->r25);
-	cpu->r26 = NXSwapLong(cpu->r26);
-	cpu->r27 = NXSwapLong(cpu->r27);
-	cpu->r28 = NXSwapLong(cpu->r28);
-	cpu->r29 = NXSwapLong(cpu->r29);
-	cpu->r30 = NXSwapLong(cpu->r30);
-	cpu->r31 = NXSwapLong(cpu->r31);
-	cpu->xip = NXSwapLong(cpu->xip);
-	cpu->xip_in_bd = NXSwapLong(cpu->xip_in_bd);
-	cpu->nip = NXSwapLong(cpu->nip);
+	cpu->r1 = OSSwapInt32(cpu->r1);
+	cpu->r2 = OSSwapInt32(cpu->r2);
+	cpu->r3 = OSSwapInt32(cpu->r3);
+	cpu->r4 = OSSwapInt32(cpu->r4);
+	cpu->r5 = OSSwapInt32(cpu->r5);
+	cpu->r6 = OSSwapInt32(cpu->r6);
+	cpu->r7 = OSSwapInt32(cpu->r7);
+	cpu->r8 = OSSwapInt32(cpu->r8);
+	cpu->r9 = OSSwapInt32(cpu->r9);
+	cpu->r10 = OSSwapInt32(cpu->r10);
+	cpu->r11 = OSSwapInt32(cpu->r11);
+	cpu->r12 = OSSwapInt32(cpu->r12);
+	cpu->r13 = OSSwapInt32(cpu->r13);
+	cpu->r14 = OSSwapInt32(cpu->r14);
+	cpu->r15 = OSSwapInt32(cpu->r15);
+	cpu->r16 = OSSwapInt32(cpu->r16);
+	cpu->r17 = OSSwapInt32(cpu->r17);
+	cpu->r18 = OSSwapInt32(cpu->r18);
+	cpu->r19 = OSSwapInt32(cpu->r19);
+	cpu->r20 = OSSwapInt32(cpu->r20);
+	cpu->r21 = OSSwapInt32(cpu->r21);
+	cpu->r22 = OSSwapInt32(cpu->r22);
+	cpu->r23 = OSSwapInt32(cpu->r23);
+	cpu->r24 = OSSwapInt32(cpu->r24);
+	cpu->r25 = OSSwapInt32(cpu->r25);
+	cpu->r26 = OSSwapInt32(cpu->r26);
+	cpu->r27 = OSSwapInt32(cpu->r27);
+	cpu->r28 = OSSwapInt32(cpu->r28);
+	cpu->r29 = OSSwapInt32(cpu->r29);
+	cpu->r30 = OSSwapInt32(cpu->r30);
+	cpu->r31 = OSSwapInt32(cpu->r31);
+	cpu->xip = OSSwapInt32(cpu->xip);
+	cpu->xip_in_bd = OSSwapInt32(cpu->xip_in_bd);
+	cpu->nip = OSSwapInt32(cpu->nip);
 }
 
 void
@@ -106,134 +106,134 @@ enum NXByteOrder target_byte_sex)
 
 	host_byte_sex = NXHostByteOrder();
 
-	fpu->x1.x[0] = NXSwapLong(fpu->x1.x[0]);
-	fpu->x1.x[1] = NXSwapLong(fpu->x1.x[1]);
-	fpu->x1.x[2] = NXSwapLong(fpu->x1.x[2]);
-	fpu->x1.x[3] = NXSwapLong(fpu->x1.x[3]);
-	fpu->x2.x[0] = NXSwapLong(fpu->x2.x[0]);
-	fpu->x2.x[1] = NXSwapLong(fpu->x2.x[1]);
-	fpu->x2.x[2] = NXSwapLong(fpu->x2.x[2]);
-	fpu->x2.x[3] = NXSwapLong(fpu->x2.x[3]);
-	fpu->x3.x[0] = NXSwapLong(fpu->x3.x[0]);
-	fpu->x3.x[1] = NXSwapLong(fpu->x3.x[1]);
-	fpu->x3.x[2] = NXSwapLong(fpu->x3.x[2]);
-	fpu->x3.x[3] = NXSwapLong(fpu->x3.x[3]);
-	fpu->x4.x[0] = NXSwapLong(fpu->x4.x[0]);
-	fpu->x4.x[1] = NXSwapLong(fpu->x4.x[1]);
-	fpu->x4.x[2] = NXSwapLong(fpu->x4.x[2]);
-	fpu->x4.x[3] = NXSwapLong(fpu->x4.x[3]);
-	fpu->x5.x[0] = NXSwapLong(fpu->x5.x[0]);
-	fpu->x5.x[1] = NXSwapLong(fpu->x5.x[1]);
-	fpu->x5.x[2] = NXSwapLong(fpu->x5.x[2]);
-	fpu->x5.x[3] = NXSwapLong(fpu->x5.x[3]);
-	fpu->x6.x[0] = NXSwapLong(fpu->x6.x[0]);
-	fpu->x6.x[1] = NXSwapLong(fpu->x6.x[1]);
-	fpu->x6.x[2] = NXSwapLong(fpu->x6.x[2]);
-	fpu->x6.x[3] = NXSwapLong(fpu->x6.x[3]);
-	fpu->x7.x[0] = NXSwapLong(fpu->x7.x[0]);
-	fpu->x7.x[1] = NXSwapLong(fpu->x7.x[1]);
-	fpu->x7.x[2] = NXSwapLong(fpu->x7.x[2]);
-	fpu->x7.x[3] = NXSwapLong(fpu->x7.x[3]);
-	fpu->x8.x[0] = NXSwapLong(fpu->x8.x[0]);
-	fpu->x8.x[1] = NXSwapLong(fpu->x8.x[1]);
-	fpu->x8.x[2] = NXSwapLong(fpu->x8.x[2]);
-	fpu->x8.x[3] = NXSwapLong(fpu->x8.x[3]);
-	fpu->x9.x[0] = NXSwapLong(fpu->x9.x[0]);
-	fpu->x9.x[1] = NXSwapLong(fpu->x9.x[1]);
-	fpu->x9.x[2] = NXSwapLong(fpu->x9.x[2]);
-	fpu->x9.x[3] = NXSwapLong(fpu->x9.x[3]);
-	fpu->x10.x[0] = NXSwapLong(fpu->x10.x[0]);
-	fpu->x10.x[1] = NXSwapLong(fpu->x10.x[1]);
-	fpu->x10.x[2] = NXSwapLong(fpu->x10.x[2]);
-	fpu->x10.x[3] = NXSwapLong(fpu->x10.x[3]);
-	fpu->x11.x[0] = NXSwapLong(fpu->x11.x[0]);
-	fpu->x11.x[1] = NXSwapLong(fpu->x11.x[1]);
-	fpu->x11.x[2] = NXSwapLong(fpu->x11.x[2]);
-	fpu->x11.x[3] = NXSwapLong(fpu->x11.x[3]);
-	fpu->x12.x[0] = NXSwapLong(fpu->x12.x[0]);
-	fpu->x12.x[1] = NXSwapLong(fpu->x12.x[1]);
-	fpu->x12.x[2] = NXSwapLong(fpu->x12.x[2]);
-	fpu->x12.x[3] = NXSwapLong(fpu->x12.x[3]);
-	fpu->x13.x[0] = NXSwapLong(fpu->x13.x[0]);
-	fpu->x13.x[1] = NXSwapLong(fpu->x13.x[1]);
-	fpu->x13.x[2] = NXSwapLong(fpu->x13.x[2]);
-	fpu->x13.x[3] = NXSwapLong(fpu->x13.x[3]);
-	fpu->x14.x[0] = NXSwapLong(fpu->x14.x[0]);
-	fpu->x14.x[1] = NXSwapLong(fpu->x14.x[1]);
-	fpu->x14.x[2] = NXSwapLong(fpu->x14.x[2]);
-	fpu->x14.x[3] = NXSwapLong(fpu->x14.x[3]);
-	fpu->x15.x[0] = NXSwapLong(fpu->x15.x[0]);
-	fpu->x15.x[1] = NXSwapLong(fpu->x15.x[1]);
-	fpu->x15.x[2] = NXSwapLong(fpu->x15.x[2]);
-	fpu->x15.x[3] = NXSwapLong(fpu->x15.x[3]);
-	fpu->x16.x[0] = NXSwapLong(fpu->x16.x[0]);
-	fpu->x16.x[1] = NXSwapLong(fpu->x16.x[1]);
-	fpu->x16.x[2] = NXSwapLong(fpu->x16.x[2]);
-	fpu->x16.x[3] = NXSwapLong(fpu->x16.x[3]);
-	fpu->x17.x[0] = NXSwapLong(fpu->x17.x[0]);
-	fpu->x17.x[1] = NXSwapLong(fpu->x17.x[1]);
-	fpu->x17.x[2] = NXSwapLong(fpu->x17.x[2]);
-	fpu->x17.x[3] = NXSwapLong(fpu->x17.x[3]);
-	fpu->x18.x[0] = NXSwapLong(fpu->x18.x[0]);
-	fpu->x18.x[1] = NXSwapLong(fpu->x18.x[1]);
-	fpu->x18.x[2] = NXSwapLong(fpu->x18.x[2]);
-	fpu->x18.x[3] = NXSwapLong(fpu->x18.x[3]);
-	fpu->x19.x[0] = NXSwapLong(fpu->x19.x[0]);
-	fpu->x19.x[1] = NXSwapLong(fpu->x19.x[1]);
-	fpu->x19.x[2] = NXSwapLong(fpu->x19.x[2]);
-	fpu->x19.x[3] = NXSwapLong(fpu->x19.x[3]);
-	fpu->x20.x[0] = NXSwapLong(fpu->x20.x[0]);
-	fpu->x20.x[1] = NXSwapLong(fpu->x20.x[1]);
-	fpu->x20.x[2] = NXSwapLong(fpu->x20.x[2]);
-	fpu->x20.x[3] = NXSwapLong(fpu->x20.x[3]);
-	fpu->x21.x[0] = NXSwapLong(fpu->x21.x[0]);
-	fpu->x21.x[1] = NXSwapLong(fpu->x21.x[1]);
-	fpu->x21.x[2] = NXSwapLong(fpu->x21.x[2]);
-	fpu->x21.x[3] = NXSwapLong(fpu->x21.x[3]);
-	fpu->x22.x[0] = NXSwapLong(fpu->x22.x[0]);
-	fpu->x22.x[1] = NXSwapLong(fpu->x22.x[1]);
-	fpu->x22.x[2] = NXSwapLong(fpu->x22.x[2]);
-	fpu->x22.x[3] = NXSwapLong(fpu->x22.x[3]);
-	fpu->x23.x[0] = NXSwapLong(fpu->x23.x[0]);
-	fpu->x23.x[1] = NXSwapLong(fpu->x23.x[1]);
-	fpu->x23.x[2] = NXSwapLong(fpu->x23.x[2]);
-	fpu->x23.x[3] = NXSwapLong(fpu->x23.x[3]);
-	fpu->x24.x[0] = NXSwapLong(fpu->x24.x[0]);
-	fpu->x24.x[1] = NXSwapLong(fpu->x24.x[1]);
-	fpu->x24.x[2] = NXSwapLong(fpu->x24.x[2]);
-	fpu->x24.x[3] = NXSwapLong(fpu->x24.x[3]);
-	fpu->x25.x[0] = NXSwapLong(fpu->x25.x[0]);
-	fpu->x25.x[1] = NXSwapLong(fpu->x25.x[1]);
-	fpu->x25.x[2] = NXSwapLong(fpu->x25.x[2]);
-	fpu->x25.x[3] = NXSwapLong(fpu->x25.x[3]);
-	fpu->x26.x[0] = NXSwapLong(fpu->x26.x[0]);
-	fpu->x26.x[1] = NXSwapLong(fpu->x26.x[1]);
-	fpu->x26.x[2] = NXSwapLong(fpu->x26.x[2]);
-	fpu->x26.x[3] = NXSwapLong(fpu->x26.x[3]);
-	fpu->x27.x[0] = NXSwapLong(fpu->x27.x[0]);
-	fpu->x27.x[1] = NXSwapLong(fpu->x27.x[1]);
-	fpu->x27.x[2] = NXSwapLong(fpu->x27.x[2]);
-	fpu->x27.x[3] = NXSwapLong(fpu->x27.x[3]);
-	fpu->x28.x[0] = NXSwapLong(fpu->x28.x[0]);
-	fpu->x28.x[1] = NXSwapLong(fpu->x28.x[1]);
-	fpu->x28.x[2] = NXSwapLong(fpu->x28.x[2]);
-	fpu->x28.x[3] = NXSwapLong(fpu->x28.x[3]);
-	fpu->x29.x[0] = NXSwapLong(fpu->x29.x[0]);
-	fpu->x29.x[1] = NXSwapLong(fpu->x29.x[1]);
-	fpu->x29.x[2] = NXSwapLong(fpu->x29.x[2]);
-	fpu->x29.x[3] = NXSwapLong(fpu->x29.x[3]);
-	fpu->x30.x[0] = NXSwapLong(fpu->x30.x[0]);
-	fpu->x30.x[1] = NXSwapLong(fpu->x30.x[1]);
-	fpu->x30.x[2] = NXSwapLong(fpu->x30.x[2]);
-	fpu->x30.x[3] = NXSwapLong(fpu->x30.x[3]);
-	fpu->x31.x[0] = NXSwapLong(fpu->x31.x[0]);
-	fpu->x31.x[1] = NXSwapLong(fpu->x31.x[1]);
-	fpu->x31.x[2] = NXSwapLong(fpu->x31.x[2]);
-	fpu->x31.x[3] = NXSwapLong(fpu->x31.x[3]);
+	fpu->x1.x[0] = OSSwapInt32(fpu->x1.x[0]);
+	fpu->x1.x[1] = OSSwapInt32(fpu->x1.x[1]);
+	fpu->x1.x[2] = OSSwapInt32(fpu->x1.x[2]);
+	fpu->x1.x[3] = OSSwapInt32(fpu->x1.x[3]);
+	fpu->x2.x[0] = OSSwapInt32(fpu->x2.x[0]);
+	fpu->x2.x[1] = OSSwapInt32(fpu->x2.x[1]);
+	fpu->x2.x[2] = OSSwapInt32(fpu->x2.x[2]);
+	fpu->x2.x[3] = OSSwapInt32(fpu->x2.x[3]);
+	fpu->x3.x[0] = OSSwapInt32(fpu->x3.x[0]);
+	fpu->x3.x[1] = OSSwapInt32(fpu->x3.x[1]);
+	fpu->x3.x[2] = OSSwapInt32(fpu->x3.x[2]);
+	fpu->x3.x[3] = OSSwapInt32(fpu->x3.x[3]);
+	fpu->x4.x[0] = OSSwapInt32(fpu->x4.x[0]);
+	fpu->x4.x[1] = OSSwapInt32(fpu->x4.x[1]);
+	fpu->x4.x[2] = OSSwapInt32(fpu->x4.x[2]);
+	fpu->x4.x[3] = OSSwapInt32(fpu->x4.x[3]);
+	fpu->x5.x[0] = OSSwapInt32(fpu->x5.x[0]);
+	fpu->x5.x[1] = OSSwapInt32(fpu->x5.x[1]);
+	fpu->x5.x[2] = OSSwapInt32(fpu->x5.x[2]);
+	fpu->x5.x[3] = OSSwapInt32(fpu->x5.x[3]);
+	fpu->x6.x[0] = OSSwapInt32(fpu->x6.x[0]);
+	fpu->x6.x[1] = OSSwapInt32(fpu->x6.x[1]);
+	fpu->x6.x[2] = OSSwapInt32(fpu->x6.x[2]);
+	fpu->x6.x[3] = OSSwapInt32(fpu->x6.x[3]);
+	fpu->x7.x[0] = OSSwapInt32(fpu->x7.x[0]);
+	fpu->x7.x[1] = OSSwapInt32(fpu->x7.x[1]);
+	fpu->x7.x[2] = OSSwapInt32(fpu->x7.x[2]);
+	fpu->x7.x[3] = OSSwapInt32(fpu->x7.x[3]);
+	fpu->x8.x[0] = OSSwapInt32(fpu->x8.x[0]);
+	fpu->x8.x[1] = OSSwapInt32(fpu->x8.x[1]);
+	fpu->x8.x[2] = OSSwapInt32(fpu->x8.x[2]);
+	fpu->x8.x[3] = OSSwapInt32(fpu->x8.x[3]);
+	fpu->x9.x[0] = OSSwapInt32(fpu->x9.x[0]);
+	fpu->x9.x[1] = OSSwapInt32(fpu->x9.x[1]);
+	fpu->x9.x[2] = OSSwapInt32(fpu->x9.x[2]);
+	fpu->x9.x[3] = OSSwapInt32(fpu->x9.x[3]);
+	fpu->x10.x[0] = OSSwapInt32(fpu->x10.x[0]);
+	fpu->x10.x[1] = OSSwapInt32(fpu->x10.x[1]);
+	fpu->x10.x[2] = OSSwapInt32(fpu->x10.x[2]);
+	fpu->x10.x[3] = OSSwapInt32(fpu->x10.x[3]);
+	fpu->x11.x[0] = OSSwapInt32(fpu->x11.x[0]);
+	fpu->x11.x[1] = OSSwapInt32(fpu->x11.x[1]);
+	fpu->x11.x[2] = OSSwapInt32(fpu->x11.x[2]);
+	fpu->x11.x[3] = OSSwapInt32(fpu->x11.x[3]);
+	fpu->x12.x[0] = OSSwapInt32(fpu->x12.x[0]);
+	fpu->x12.x[1] = OSSwapInt32(fpu->x12.x[1]);
+	fpu->x12.x[2] = OSSwapInt32(fpu->x12.x[2]);
+	fpu->x12.x[3] = OSSwapInt32(fpu->x12.x[3]);
+	fpu->x13.x[0] = OSSwapInt32(fpu->x13.x[0]);
+	fpu->x13.x[1] = OSSwapInt32(fpu->x13.x[1]);
+	fpu->x13.x[2] = OSSwapInt32(fpu->x13.x[2]);
+	fpu->x13.x[3] = OSSwapInt32(fpu->x13.x[3]);
+	fpu->x14.x[0] = OSSwapInt32(fpu->x14.x[0]);
+	fpu->x14.x[1] = OSSwapInt32(fpu->x14.x[1]);
+	fpu->x14.x[2] = OSSwapInt32(fpu->x14.x[2]);
+	fpu->x14.x[3] = OSSwapInt32(fpu->x14.x[3]);
+	fpu->x15.x[0] = OSSwapInt32(fpu->x15.x[0]);
+	fpu->x15.x[1] = OSSwapInt32(fpu->x15.x[1]);
+	fpu->x15.x[2] = OSSwapInt32(fpu->x15.x[2]);
+	fpu->x15.x[3] = OSSwapInt32(fpu->x15.x[3]);
+	fpu->x16.x[0] = OSSwapInt32(fpu->x16.x[0]);
+	fpu->x16.x[1] = OSSwapInt32(fpu->x16.x[1]);
+	fpu->x16.x[2] = OSSwapInt32(fpu->x16.x[2]);
+	fpu->x16.x[3] = OSSwapInt32(fpu->x16.x[3]);
+	fpu->x17.x[0] = OSSwapInt32(fpu->x17.x[0]);
+	fpu->x17.x[1] = OSSwapInt32(fpu->x17.x[1]);
+	fpu->x17.x[2] = OSSwapInt32(fpu->x17.x[2]);
+	fpu->x17.x[3] = OSSwapInt32(fpu->x17.x[3]);
+	fpu->x18.x[0] = OSSwapInt32(fpu->x18.x[0]);
+	fpu->x18.x[1] = OSSwapInt32(fpu->x18.x[1]);
+	fpu->x18.x[2] = OSSwapInt32(fpu->x18.x[2]);
+	fpu->x18.x[3] = OSSwapInt32(fpu->x18.x[3]);
+	fpu->x19.x[0] = OSSwapInt32(fpu->x19.x[0]);
+	fpu->x19.x[1] = OSSwapInt32(fpu->x19.x[1]);
+	fpu->x19.x[2] = OSSwapInt32(fpu->x19.x[2]);
+	fpu->x19.x[3] = OSSwapInt32(fpu->x19.x[3]);
+	fpu->x20.x[0] = OSSwapInt32(fpu->x20.x[0]);
+	fpu->x20.x[1] = OSSwapInt32(fpu->x20.x[1]);
+	fpu->x20.x[2] = OSSwapInt32(fpu->x20.x[2]);
+	fpu->x20.x[3] = OSSwapInt32(fpu->x20.x[3]);
+	fpu->x21.x[0] = OSSwapInt32(fpu->x21.x[0]);
+	fpu->x21.x[1] = OSSwapInt32(fpu->x21.x[1]);
+	fpu->x21.x[2] = OSSwapInt32(fpu->x21.x[2]);
+	fpu->x21.x[3] = OSSwapInt32(fpu->x21.x[3]);
+	fpu->x22.x[0] = OSSwapInt32(fpu->x22.x[0]);
+	fpu->x22.x[1] = OSSwapInt32(fpu->x22.x[1]);
+	fpu->x22.x[2] = OSSwapInt32(fpu->x22.x[2]);
+	fpu->x22.x[3] = OSSwapInt32(fpu->x22.x[3]);
+	fpu->x23.x[0] = OSSwapInt32(fpu->x23.x[0]);
+	fpu->x23.x[1] = OSSwapInt32(fpu->x23.x[1]);
+	fpu->x23.x[2] = OSSwapInt32(fpu->x23.x[2]);
+	fpu->x23.x[3] = OSSwapInt32(fpu->x23.x[3]);
+	fpu->x24.x[0] = OSSwapInt32(fpu->x24.x[0]);
+	fpu->x24.x[1] = OSSwapInt32(fpu->x24.x[1]);
+	fpu->x24.x[2] = OSSwapInt32(fpu->x24.x[2]);
+	fpu->x24.x[3] = OSSwapInt32(fpu->x24.x[3]);
+	fpu->x25.x[0] = OSSwapInt32(fpu->x25.x[0]);
+	fpu->x25.x[1] = OSSwapInt32(fpu->x25.x[1]);
+	fpu->x25.x[2] = OSSwapInt32(fpu->x25.x[2]);
+	fpu->x25.x[3] = OSSwapInt32(fpu->x25.x[3]);
+	fpu->x26.x[0] = OSSwapInt32(fpu->x26.x[0]);
+	fpu->x26.x[1] = OSSwapInt32(fpu->x26.x[1]);
+	fpu->x26.x[2] = OSSwapInt32(fpu->x26.x[2]);
+	fpu->x26.x[3] = OSSwapInt32(fpu->x26.x[3]);
+	fpu->x27.x[0] = OSSwapInt32(fpu->x27.x[0]);
+	fpu->x27.x[1] = OSSwapInt32(fpu->x27.x[1]);
+	fpu->x27.x[2] = OSSwapInt32(fpu->x27.x[2]);
+	fpu->x27.x[3] = OSSwapInt32(fpu->x27.x[3]);
+	fpu->x28.x[0] = OSSwapInt32(fpu->x28.x[0]);
+	fpu->x28.x[1] = OSSwapInt32(fpu->x28.x[1]);
+	fpu->x28.x[2] = OSSwapInt32(fpu->x28.x[2]);
+	fpu->x28.x[3] = OSSwapInt32(fpu->x28.x[3]);
+	fpu->x29.x[0] = OSSwapInt32(fpu->x29.x[0]);
+	fpu->x29.x[1] = OSSwapInt32(fpu->x29.x[1]);
+	fpu->x29.x[2] = OSSwapInt32(fpu->x29.x[2]);
+	fpu->x29.x[3] = OSSwapInt32(fpu->x29.x[3]);
+	fpu->x30.x[0] = OSSwapInt32(fpu->x30.x[0]);
+	fpu->x30.x[1] = OSSwapInt32(fpu->x30.x[1]);
+	fpu->x30.x[2] = OSSwapInt32(fpu->x30.x[2]);
+	fpu->x30.x[3] = OSSwapInt32(fpu->x30.x[3]);
+	fpu->x31.x[0] = OSSwapInt32(fpu->x31.x[0]);
+	fpu->x31.x[1] = OSSwapInt32(fpu->x31.x[1]);
+	fpu->x31.x[2] = OSSwapInt32(fpu->x31.x[2]);
+	fpu->x31.x[3] = OSSwapInt32(fpu->x31.x[3]);
 
 	if(target_byte_sex == host_byte_sex){
 	    memcpy(&ssr, &(fpu->fpsr), sizeof(struct swapped_m88k_fpsr));
-	    ssr.u.word = NXSwapLong(ssr.u.word);
+	    ssr.u.word = OSSwapInt32(ssr.u.word);
 	    fpu->fpsr.afinx = ssr.u.fields.afinx;
 	    fpu->fpsr.afovf = ssr.u.fields.afovf;
 	    fpu->fpsr.afunf = ssr.u.fields.afunf;
@@ -242,7 +242,7 @@ enum NXByteOrder target_byte_sex)
 	    fpu->fpsr.xmod = ssr.u.fields.xmod;
 
 	    memcpy(&scr, &(fpu->fpcr), sizeof(struct swapped_m88k_fpcr));
-	    scr.u.word = NXSwapLong(scr.u.word);
+	    scr.u.word = OSSwapInt32(scr.u.word);
 	    fpu->fpcr.efinx = scr.u.fields.efinx;
 	    fpu->fpcr.efovf = scr.u.fields.efovf;
 	    fpu->fpcr.efunf = scr.u.fields.efunf;
@@ -257,7 +257,7 @@ enum NXByteOrder target_byte_sex)
 	    ssr.u.fields.afdvz = fpu->fpsr.afdvz;
 	    ssr.u.fields.afinv = fpu->fpsr.afinv;
 	    ssr.u.fields.xmod = fpu->fpsr.xmod;
-	    ssr.u.word = NXSwapLong(ssr.u.word);
+	    ssr.u.word = OSSwapInt32(ssr.u.word);
 	    memcpy(&(fpu->fpsr), &ssr, sizeof(struct swapped_m88k_fpsr));
 
 	    scr.u.fields.efinx = fpu->fpcr.efinx;
@@ -266,7 +266,7 @@ enum NXByteOrder target_byte_sex)
 	    scr.u.fields.efdvz = fpu->fpcr.efdvz;
 	    scr.u.fields.efinv = fpu->fpcr.efinv;
 	    scr.u.fields.rm = fpu->fpcr.rm;
-	    scr.u.word = NXSwapLong(scr.u.word);
+	    scr.u.word = OSSwapInt32(scr.u.word);
 	    memcpy(&(fpu->fpcr), &scr, sizeof(struct swapped_m88k_fpcr));
 	}
 }
@@ -276,7 +276,7 @@ swap_m88k_thread_state_user_t(
 m88k_thread_state_user_t *user,
 enum NXByteOrder target_byte_sex)
 {
-	user->user = NXSwapLong(user->user);
+	user->user = OSSwapInt32(user->user);
 }
 
 void
@@ -346,10 +346,10 @@ enum NXByteOrder target_byte_sex)
 
 	if(target_byte_sex == host_byte_sex){
 	    for(i = 0; i < M88110_N_DATA_BP; i++){
-		spu->data_bp[i].addr = NXSwapLong(spu->data_bp[i].addr);
+		spu->data_bp[i].addr = OSSwapInt32(spu->data_bp[i].addr);
 		memcpy(&sbpc, &(spu->data_bp[i].ctrl),
 		       sizeof(struct swapped_m88110_bp_ctrl));
-		sbpc.u.word = NXSwapLong(sbpc.u.word);
+		sbpc.u.word = OSSwapInt32(sbpc.u.word);
 		spu->data_bp[i].ctrl.v = sbpc.u.fields.v;
 		spu->data_bp[i].ctrl.addr_match = sbpc.u.fields.addr_match;
 		spu->data_bp[i].ctrl.rwm = sbpc.u.fields.rwm;
@@ -357,7 +357,7 @@ enum NXByteOrder target_byte_sex)
 	    }
 
 	    memcpy(&spsr, &(spu->psr), sizeof(struct swap_m88110_psr));
-	    spsr.u.word = NXSwapLong(spsr.u.word);
+	    spsr.u.word = OSSwapInt32(spsr.u.word);
 	    spu->psr.mxm_dis = spsr.u.fields.mxm_dis;
 	    spu->psr.sfu1dis = spsr.u.fields.sfu1dis;
 	    spu->psr.trace = spsr.u.fields.trace;
@@ -370,7 +370,7 @@ enum NXByteOrder target_byte_sex)
 
 	    memcpy(&sfps, &(spu->fp_trap_status),
 		   sizeof(struct swapped_m88110_fp_trap_status));
-	    sfps.u.word = NXSwapLong(sfps.u.word);
+	    sfps.u.word = OSSwapInt32(sfps.u.word);
 	    spu->fp_trap_status.efinx = sfps.u.fields.efinx;
 	    spu->fp_trap_status.efovf = sfps.u.fields.efovf;
 	    spu->fp_trap_status.efunf = sfps.u.fields.efunf;
@@ -383,12 +383,12 @@ enum NXByteOrder target_byte_sex)
 	}
 	else{
 	    for(i = 0; i < M88110_N_DATA_BP; i++){
-		spu->data_bp[i].addr = NXSwapLong(spu->data_bp[i].addr);
+		spu->data_bp[i].addr = OSSwapInt32(spu->data_bp[i].addr);
 		sbpc.u.fields.v = spu->data_bp[i].ctrl.v;
 		sbpc.u.fields.addr_match = spu->data_bp[i].ctrl.addr_match;
 		sbpc.u.fields.rwm = spu->data_bp[i].ctrl.rwm;
 		sbpc.u.fields.rw = spu->data_bp[i].ctrl.rw;
-		sbpc.u.word = NXSwapLong(sbpc.u.word);
+		sbpc.u.word = OSSwapInt32(sbpc.u.word);
 		memcpy(&(spu->data_bp[i].ctrl), &sbpc,
 		       sizeof(struct swapped_m88110_bp_ctrl));
 	    }
@@ -402,7 +402,7 @@ enum NXByteOrder target_byte_sex)
 	    spsr.u.fields.se = spu->psr.se;
 	    spsr.u.fields.le = spu->psr.le;
 	    spsr.u.fields.supr = spu->psr.supr;
-	    spsr.u.word = NXSwapLong(spsr.u.word);
+	    spsr.u.word = OSSwapInt32(spsr.u.word);
 	    memcpy(&(spu->psr), &spsr, sizeof(struct swap_m88110_psr));
 
 	    sfps.u.fields.efinx = spu->fp_trap_status.efinx;
@@ -414,17 +414,17 @@ enum NXByteOrder target_byte_sex)
 	    sfps.u.fields.unimp = spu->fp_trap_status.unimp;
 	    sfps.u.fields.sfu1_disabled = spu->fp_trap_status.sfu1_disabled;
 	    sfps.u.fields.iresult_size = spu->fp_trap_status.iresult_size;
-	    sfps.u.word = NXSwapLong(sfps.u.word);
+	    sfps.u.word = OSSwapInt32(sfps.u.word);
 	    memcpy(&(spu->fp_trap_status), &sfps,
 		   sizeof(struct swapped_m88110_fp_trap_status));
 	}
 	spu->intermediate_result.x[0] =
-	    NXSwapLong(spu->intermediate_result.x[0]);
+	    OSSwapInt32(spu->intermediate_result.x[0]);
 	spu->intermediate_result.x[1] =
-	    NXSwapLong(spu->intermediate_result.x[1]);
+	    OSSwapInt32(spu->intermediate_result.x[1]);
 	spu->intermediate_result.x[2] =
-	    NXSwapLong(spu->intermediate_result.x[2]);
+	    OSSwapInt32(spu->intermediate_result.x[2]);
 	spu->intermediate_result.x[3] =
-	    NXSwapLong(spu->intermediate_result.x[3]);
+	    OSSwapInt32(spu->intermediate_result.x[3]);
 }
 #endif /* !defined(RLD) */

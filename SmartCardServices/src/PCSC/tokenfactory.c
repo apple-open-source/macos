@@ -24,7 +24,7 @@
 		Date   : 01/01/00
 		Purpose: This handles card abstraction attachment. 
 
- $Id: tokenfactory.c,v 1.3 2004/09/21 02:43:57 mb Exp $
+ $Id: tokenfactory.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
 
 *******************************************************************/
 

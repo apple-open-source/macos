@@ -1,0 +1,136 @@
+Basic Configuration
+===================
+
+This page tells you the basics that you'll need to get a working Dovecot
+installation.
+
+Find Dovecot configuration file location using:
+
+---%<-------------------------------------------------------------------------
+doveconf -n | head -1
+---%<-------------------------------------------------------------------------
+
+Your configuration file doesn't exist if you installed Dovecot from sources.
+You can copy example configuration from the location printed by doveconf. For
+example:
+
+---%<-------------------------------------------------------------------------
+cp -r /usr/local/share/doc/dovecot/example-config/* /usr/local/etc/dovecot/
+---%<-------------------------------------------------------------------------
+
+Authentication
+--------------
+
+Here we're going to create a simple passwd-like file to make sure that the
+authentication will work. Later when you know Dovecot is working, you can do it
+differently:
+
+ * If you're going to use system users, see <PAM> [PasswordDatabase.PAM.txt].
+ * If you're going to use virtual users, see <VirtualUsers.txt>.
+
+Run as your own non-root user:
+
+---%<-------------------------------------------------------------------------
+echo "$USER:{PLAIN}password:$UID:$GID::$HOME" > users
+sudo mv users /etc/dovecot/
+---%<-------------------------------------------------------------------------
+
+You can (and should) replace the "password" with whatever password you wish to
+use, but don't use any important password here as we'll be logging in with
+insecure plaintext authentication until <SSL.txt> is configured.
+
+If you used the example configuration files, switch to passwd-file by modifying
+'conf.d/10-auth.conf':
+
+---%<-------------------------------------------------------------------------
+!include auth-passwdfile.conf.ext
+---%<-------------------------------------------------------------------------
+
+In auth-passwdfile.conf.ext you should have:
+
+---%<-------------------------------------------------------------------------
+passdb {
+  driver = passwd-file
+  args = scheme=CRYPT username_format=%u /etc/dovecot/users
+}
+---%<-------------------------------------------------------------------------
+
+Verify with 'doveconf -n passdb userdb' that the output looks like this (and
+there are no other passdbs or userdbs):
+
+---%<-------------------------------------------------------------------------
+passdb {
+  args = scheme=CRYPT username_format=%u /etc/dovecot/users
+  driver = passwd-file
+}
+userdb {
+  args = username_format=%u /etc/dovecot/users
+  driver = passwd-file
+}
+---%<-------------------------------------------------------------------------
+
+Plaintext Authentication
+------------------------
+
+Until SSL is configured, allow plaintext authentication. You probably want to
+switch this back to "yes" afterwards.
+
+If you didn't use the temporary passwd-file created above, don't do this if you
+don't want your password to be sent in clear to network. Instead get SSL
+configuration working and connect to Dovecot only using SSL.
+
+---%<-------------------------------------------------------------------------
+disable_plaintext_auth = no
+---%<-------------------------------------------------------------------------
+
+Mail Location
+-------------
+
+Set the 'mail_location' as instructed by <FindMailLocation.txt>.
+('default_mail_env' in older Dovecot versions)
+
+mbox
+----
+
+If you're using mboxes, it's important to have locking configuration correct.
+See <MboxLocking.txt> for more information.
+
+If you're using '/var/mail/' or '/var/spool/mail/' directory for INBOXes, you
+may need to give Dovecot additional permissions so it can create dotlock files
+there. A failure to do so will result in errors like these:
+
+---%<-------------------------------------------------------------------------
+open(/var/mail/.temp.host.1234.abcdefg) failed: Permission denied
+file_lock_dotlock() failed with mbox file /var/mail/user: Permission denied
+---%<-------------------------------------------------------------------------
+
+From here on I'm assuming the INBOX directory is '/var/mail'.
+
+First check what the permissions of '/var/mail' are:
+
+---%<-------------------------------------------------------------------------
+# ls -ld /var/mail
+drwxrwxrwt 2 root mail 47 2006-01-07 20:44 /var/mail/
+---%<-------------------------------------------------------------------------
+
+In this case everyone has write access there and the directory is marked
+sticky. This allows Dovecot to create the dotlock files, so you don't need to
+do anything.
+
+---%<-------------------------------------------------------------------------
+# ls -ld /var/mail
+drwxrwxr-- 2 root mail 47 2006-01-07 20:44 /var/mail/
+---%<-------------------------------------------------------------------------
+
+In this case only the root and the 'mail' group has write permission to the
+directory. You'll need to give Dovecot's mail processes ability to use this
+group by changing 'dovecot.conf':
+
+---%<-------------------------------------------------------------------------
+mail_privileged_group = mail
+---%<-------------------------------------------------------------------------
+
+Note: Specifying the privileged user must be done as shown. Simply adding
+'dovecot' user to the 'mail' group does /*not*/ grant write permission.
+
+(This file was created from the wiki on 2011-05-11 04:42)

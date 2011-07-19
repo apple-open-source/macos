@@ -31,7 +31,7 @@
 
 #include "JSDOMGlobalObject.h"
 #include "VoidCallback.h"
-#include <runtime/Protect.h>
+#include <heap/Strong.h>
 #include <wtf/Forward.h>
 
 namespace WebCore {
@@ -53,6 +53,7 @@ private:
     JSCustomVoidCallback(JSC::JSObject* callback, JSDOMGlobalObject*);
 
     JSCallbackData* m_data;
+    ScriptExecutionContext* m_scriptExecutionContext;
 };
 
 } // namespace WebCore

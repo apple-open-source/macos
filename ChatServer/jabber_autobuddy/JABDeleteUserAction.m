@@ -43,7 +43,6 @@
 	[NSArray arrayWithObjects: 
 	 [NSArray arrayWithObjects: @"active", @"collection-owner", nil],
 	 [NSArray arrayWithObjects: @"vcard", @"collection-owner", nil],
-	 [NSArray arrayWithObjects: @"disco-items", @"collection-owner", nil],
 	 [NSArray arrayWithObjects: @"privacy-default", @"collection-owner", nil],
 	 [NSArray arrayWithObjects: @"privacy-items", @"collection-owner", nil],
 	 [NSArray arrayWithObjects: @"private", @"collection-owner", nil],

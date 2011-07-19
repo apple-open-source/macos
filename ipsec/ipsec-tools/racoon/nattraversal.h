@@ -32,10 +32,13 @@
 #define _NATTRAVERSAL_H
 
 #include "vendorid.h"
+#ifdef ENABLE_NATT
+#ifdef ENABLE_FRAG
+#include "isakmp_frag.h"
+#endif /* ENABLE_NATT */
+#endif /* ENABLE_FRAG */
 
-#ifdef __APPLE__
 #define UDP_ENCAP_ESPINUDP	2	/* to make it compile - we don't use this */
-#endif
 
 #define	NAT_ANNOUNCED		(1L<<0)
 #define	NAT_DETECTED_ME		(1L<<1)
@@ -55,13 +58,19 @@
 #ifdef ENABLE_FRAG
 #define PH1_NON_ESP_EXTRA_LEN(iph1) ((iph1->frag && iph1->sendbuf->l > ISAKMP_FRAG_MAXLEN) ? 0: (NON_ESP_MARKER_USE(iph1) ? NON_ESP_MARKER_LEN : 0))
 #define PH2_NON_ESP_EXTRA_LEN(iph2) ((iph2->ph1->frag && iph2->sendbuf->l > ISAKMP_FRAG_MAXLEN) ? 0: (NON_ESP_MARKER_USE(iph2->ph1) ? NON_ESP_MARKER_LEN : 0))
+#define PH1_FRAG_FLAGS(iph1) (NON_ESP_MARKER_USE(iph1) ? FRAG_PUT_NON_ESP_MARKER : 0)
+#define PH2_FRAG_FLAGS(iph2) (NON_ESP_MARKER_USE(iph2->ph1) ? FRAG_PUT_NON_ESP_MARKER : 0)
 #else
 #define PH1_NON_ESP_EXTRA_LEN(iph1) (NON_ESP_MARKER_USE(iph1) ? NON_ESP_MARKER_LEN : 0)
 #define PH2_NON_ESP_EXTRA_LEN(iph2) (NON_ESP_MARKER_USE(iph2->ph1) ? NON_ESP_MARKER_LEN : 0)
+#define PH1_FRAG_FLAGS(iph1) 0
+#define PH2_FRAG_FLAGS(iph2) 0
 #endif
 #else
 #define PH1_NON_ESP_EXTRA_LEN(iph1) 0
 #define PH2_NON_ESP_EXTRA_LEN(iph2) 0
+#define PH1_FRAG_FLAGS(iph1) 0
+#define PH2_FRAG_FLAGS(iph2) 0
 #endif
 
 /* These are the values from parsing "remote {}" 
@@ -101,14 +110,6 @@ struct sockaddr * process_natoa_payload(vchar_t *buf);
 
 struct payload_list *
 isakmp_plist_append_natt_vids (struct payload_list *plist, vchar_t *vid_natt[MAX_NATT_VID_COUNT]);
-
-#ifndef __APPLE__
-/* NAT keepalive functions */
-void natt_keepalive_init (void);
-int natt_keepalive_add (struct sockaddr *src, struct sockaddr *dst);
-int natt_keepalive_add_ph1 (struct ph1handle *iph1);
-void natt_keepalive_remove (struct sockaddr *src, struct sockaddr *dst);
-#endif
 
 /* Walk through all rmconfigs and tell if NAT-T is enabled in at least one. */
 int natt_enabled_in_rmconf (void);

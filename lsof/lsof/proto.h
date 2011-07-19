@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: proto.h,v 1.34 2008/10/21 16:21:41 abe Exp $
+ * $Id: proto.h,v 1.35 2010/07/29 16:00:20 abe Exp $
  */
 
 
@@ -125,7 +125,13 @@ _PROTOTYPE(extern void hashSfile,(void));
 _PROTOTYPE(extern void initialize,(void));
 _PROTOTYPE(extern int is_cmd_excl,(char *cmd, short *pss, short *sf));
 _PROTOTYPE(extern int is_nw_addr,(unsigned char *ia, int p, int af));
+
+#if	defined(HASTASKS)
+_PROTOTYPE(extern int is_proc_excl,(int pid, int pgid, UID_ARG uid, short *pss, short *sf, int tid));
+#else	/* !defined(HASTASKS) */
 _PROTOTYPE(extern int is_proc_excl,(int pid, int pgid, UID_ARG uid, short *pss, short *sf));
+#endif	/* defined(HASTASKS) */
+
 _PROTOTYPE(extern int is_readable,(char *path, int msg));
 _PROTOTYPE(extern int kread,(KA_T addr, char *buf, READLEN_T len));
 _PROTOTYPE(extern void link_lfile,(void));

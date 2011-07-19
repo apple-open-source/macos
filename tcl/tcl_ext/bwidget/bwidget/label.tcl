@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 #  label.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: label.tcl,v 1.10 2003/10/20 21:23:52 damonc Exp $
+#  $Id: label.tcl,v 1.12 2009/10/25 20:55:36 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - Label::create
@@ -25,10 +25,10 @@ namespace eval Label {
         {-textvariable       String     ""     0}
         {-underline          Int        -1     0 "%d >= -1"}
         {-focus              String     ""     0}
-        {-foreground         TkResource ""     0 label}
-        {-disabledforeground TkResource ""     0 button}
+	{-foreground         Color      "SystemWindowText"   0}
+        {-background         Color      "SystemWindowFrame"  0}
+        {-disabledforeground Color      "SystemDisabledText" 0}
         {-state              Enum       normal 0  {normal disabled}}
-
         {-fg                 Synonym    -foreground}
     }
 
@@ -56,7 +56,10 @@ namespace eval Label {
 proc Label::create { path args } {
     array set maps [list Label {} .l {}]
     array set maps [Widget::parseArgs Label $args]
-    frame $path -class Label -borderwidth 0 -highlightthickness 0 -relief flat
+    
+    BWidget::wrap frame $path \
+        -class Label -borderwidth 0 -highlightthickness 0 -relief flat
+
     Widget::initFromODB Label $path $maps(Label)
 
     eval [list label $path.l] $maps(.l)

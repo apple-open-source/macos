@@ -306,7 +306,7 @@ static off_t get_sig_offset(xar_t x) {
 	return signedDataOffset;
 }
 
-static void extract_sig_offset(xar_t x, const char *filename) {
+static int extract_sig_offset(xar_t x, const char *filename) {
 	off_t signedDataOffset;
 	FILE *file;
 	int i;
@@ -318,14 +318,16 @@ static void extract_sig_offset(xar_t x, const char *filename) {
 	file = fopen(filename, "w");
 	if (!file) {
 		fprintf(stderr, "Could not open %s for saving signature offset!\n", filename);
-		exit(1);
+		return 1;
 	}
 	i = fprintf(file, "%lli\n", signedDataOffset);
 	if (i < 0) {
 		fprintf(stderr, "Failed to write signature offset to %s (fprintf() returned %i)!\n", filename, i);
-		exit(1);
+		return 1;
 	}
 	fclose(file);
+	
+	return 0;
 }
 
 stack stack_new() {
@@ -484,9 +486,16 @@ static void replace_sign(const char *filename) {
 	new_xar = xar_open(new_xar_path, READ);
 	if( !new_xar ) {
 		fprintf(stderr, "Error re-opening new archive %s\n", new_xar_path);
+		unlink(new_xar_path);
 		exit(1);
 	}
-	extract_sig_offset(new_xar, SigOffsetDumpPath);
+	
+	if (extract_sig_offset(new_xar, SigOffsetDumpPath)) {
+		xar_close(new_xar);
+		unlink(new_xar_path);
+		exit(1);
+	}
+		
 	xar_close(new_xar);
 	
 	// delete old archive, move new in its place
@@ -495,8 +504,13 @@ static void replace_sign(const char *filename) {
 	err = system(systemcall);
 	if (err) {
 		fprintf(stderr, "Could not copy new archive to final location (system() returned %i)\n", err);
+		unlink(new_xar_path);
 		exit(1);
 	}
+	
+	// Delete the tmp archive
+	unlink(new_xar_path);
+	
 	free(systemcall);
 }
 
@@ -747,7 +761,8 @@ static int archive(const char *filename, int arglen, char *args[]) {
 			fprintf(stderr, "Error re-opening archive %s\n", filename);
 			exit(1);
 		}
-		extract_sig_offset(x, SigOffsetDumpPath);
+		if (extract_sig_offset(x, SigOffsetDumpPath)) 
+			exit(1);
 	}
 	
 	return Err;

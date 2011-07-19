@@ -47,5 +47,5 @@ fprint_bytes(FILE * out_f, const u_char * data_p, int n_bytes);
 void
 print_bytes(const u_char * data, int len);
 
-#endif _S_PRINTDATA_H
+#endif /* _S_PRINTDATA_H */
 

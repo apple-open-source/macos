@@ -1,13 +1,19 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //  -*- mode:C; c-basic-offset:4; tab-width:4; intent-tabs-mode:nil;  -*-
-// CONFIG
+// TEST_CONFIG
 
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
 #import <stdarg.h>
+#import "test.h"
 
-
-int main (int argc, const char * argv[]) {
+int main () {
     int (^sumn)(int n, ...) = ^(int n, ...){
         int result = 0;
         va_list numbers;
@@ -24,10 +30,8 @@ int main (int argc, const char * argv[]) {
     int six = sumn(3, 1, 2, 3);
     
     if ( six != 6 ) {
-        printf("%s: Expected 6 but got %d\n", argv[0], six);
-        exit(1);
+        fail("Expected 6 but got %d", six);
     }
-    
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

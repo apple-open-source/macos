@@ -38,7 +38,18 @@
 
 dtrace=/usr/sbin/dtrace
 
-$dtrace -n begin
+##
+#
+# __APPLE__ 
+#
+# This test was orginally $dtrace -n begin
+#
+# That accidentally matched an existing Apple probe
+#
+# We have changed it to $dtrace -n Begin
+#
+##
+$dtrace -n Begin
 
 status=$?
 

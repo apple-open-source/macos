@@ -54,7 +54,7 @@ long dksecsize (dev)
     extern int errno;
 
     /* Convert block device into a character device string */
-    if (cdev = blockcheck(dev)) {
+    if ((cdev = blockcheck(dev))) {
         if ((fd = open(cdev, O_RDONLY)) < 0) {
   	  fprintf(stderr, "Can't open %s, %s\n", cdev, strerror(errno));
 	  return (0);

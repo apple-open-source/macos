@@ -1,3 +1,180 @@
+[Changes for 1.07 (JSON::Syck 0.30) - 2009-04-25]
+
+* Added the missing Loadfile function to JSON::Syck.
+  Reported by: Dan McCormick
+
+[Changes for 1.05 (JSON::Syck 0.29) - 2008-06-09]
+
+* Loading a YAML stream containing Regexp nodes under -d:DProf should
+  not fail with "panic: Devel::DProf inconsistent subroutine return".
+  Reported by: Richard Jelinek
+
+[Changes for 1.04 (JSON::Syck 0.29) - 2008-02-17]
+
+* The 'Name "YAML::Syck::ImplicitBinary" used only once: possible typo'
+  warnings no longer triggers in Perl 5.10 when running with perl -w.
+  Reported by: Jesse Vincent
+
+[Changes for 1.03 (JSON::Syck 0.29) - 2008-02-16]
+
+* JSON::Syck: When $JSON::Syck::SingleQuote is false, implicit booleans
+  such as "yes" and "no" should be dumped with double quotes, instead of
+  single quotes (which breaks RFC 4627).
+  Reported by: cho45
+
+[Changes for 1.02 (JSON::Syck 0.28) - 2008-02-16]
+
+* JSON::Syck: Colons in single-quoted strings are no longer loaded
+  with an extra space after it.
+  Reported by: Agent Zhang
+
+[Changes for 1.01 (JSON::Syck 0.27) - 2008-01-19]
+
+* JSON::XS is now promoted prominiently in JSON::Syck's documentation.
+
+* Added support for Perl 5.11 and its first-class Regexp objects.
+  Contributed by: Andreas Koenig
+
+* Tests no longer fail incorrectly when JSON.pm 2.00+ is installed.
+  Contributed by: Andreas Koenig
+
+* Removed the unused Syck bytecode modules (yamlbyte.h and yaml2byte.c)
+  to further reduce our memory footprint.
+
+[Changes for 1.00 (JSON::Syck 0.26) - 2007-12-10]
+
+* When $YAML::Syck::SingleQuote is set to true, Dump() now emits newlines
+  in strings correctly.  (Previously it would emit extra newlines.)
+
+[Changes for 0.99 (JSON::Syck 0.26) - 2007-10-23]
+
+* TODOify tests as appropriate for Perl 5.005 and Perl 5.6.x.
+
+[Changes for 0.98 (JSON::Syck 0.26) - 2007-10-13]
+
+* Restore support for Perl 5.005 and earlier.
+
+[Changes for 0.97 (JSON::Syck 0.26) - 2007-09-03]
+
+* When loading !!perl/code with $YAML::Syck::LoadCode set to false,
+  YAML::Syck now returns a coderef that does nothing (i.e. sub {}),
+  in accordance with YAML.pm's treatment, instead of returning the
+  actual code of the sub as a string.
+  Contributed by: Florian Ragwitz
+
+[Changes for 0.96 (JSON::Syck 0.26) - 2007-08-08]
+
+* The always-quote rule now applies to all implicit booleans
+  and null values, i.e. strings that match the following regex:
+
+    /y|Y
+    |n|N
+    |yes|Yes|YES
+    |no|No|NO
+    |true|True|TRUE
+    |false|False|FALSE
+    |on|On|ON
+    |off|Off|OFF
+    |null|Null|NULL
+    |~
+    /x
+
+* Bare literals "Y", "N", "y" and "n" are now recognized as
+  booleans when loading with implicit typing turned on.
+
+* Mixed case strings that does not represent implicit boolean
+  values, such as "yES" and "nO", are no longer always-quoted.
+  Contributed by: Malcolm Studd
+
+[Changes for 0.95 (JSON::Syck 0.26) - 2007-08-04]
+
+* "Yes" and "no" (including all upper/lower case forms) are now
+  always dumped in quoted form to avoid ambiguities when loaded
+  by loaders with ImplicitTyping set to true.
+  Reported by: Malcolm Studd
+
+* lib/YAML/Syck.pod is merged back into lib/YAML/Syck.pm.
+  (No functional changes.)
+
+[Changes for 0.94 (JSON::Syck 0.26) - 2007-07-10]
+
+* Repair broken PAUSE upload, again. (Sigh.)
+
+[Changes for 0.93 (JSON::Syck 0.26) - 2007-07-10]
+
+* Repair broken PAUSE upload.
+
+[Changes for 0.92 (JSON::Syck 0.26) - 2007-07-10]
+
+* Allow for LoadFile(*FH) and DumpFile(*FH), in addition to
+  ($fh) and (\*FH).  Also, new tests for LoadFile and DumpFile.
+  Contributed by: Adriano Ferreira
+
+[Changes for 0.91 (JSON::Syck 0.26) - 2007-06-23]
+
+* Corrected loading Regexps with all combinations of quantifiers.
+  Contributed by: Ingy döt Net
+
+[Changes for 0.90 (JSON::Syck 0.26) - 2007-06-22]
+
+* Regexes are now dump/loaded correctly with modifiers, with a new
+  representation: "--- !!perl/regexp:main (?i-xsm:1)", instead of the
+  old mapping with a REGEXP key.  The old form still loads correctly;
+  the new form corresponds to YAML.pm 0.63 and later.
+  Requested by: Ingy döt Net
+
+* Loading regexes with modifiers no longer involves an eval"" call.
+
+[Changes for 0.88 (JSON::Syck 0.26) - 2007-06-17]
+
+* New dependency: Scalar::Util, for LoadFile and DumpFile functions.
+  You can safely do without that module if you do not make use of the
+  two functions.
+
+* LoadFile and DumpFile now accept glob values, and reject unopened
+  handles properly instead of silently ignores it.
+  Contributed by: Adriano Ferreira
+
+[Changes for 0.87 (JSON::Syck 0.25) - 2007-06-17]
+
+* New LoadFile and DumpFile functions for JSON::Syck.
+
+* JSON::Syck now actually exports its functions if you ask for it.
+
+* LoadFile and DumpFile now accept IO objects in addition to file names.
+  Requested by: Adriano Ferreira
+
+[Changes for 0.86 (JSON::Syck 0.24) - 2007-06-16]
+
+* Support for dumping and loading regexps created by qr//, including
+  blessed once.  Note that loading Regexp values dumped by YAML.pm
+  currently discards modifiers.
+
+[Changes for 0.85 (JSON::Syck 0.24) - 2007-04-20]
+
+* Strings containing both single quotes and newlines were incorrectly 
+  quoted with backslash-escaped single quotes.  This is a regression
+  introduced in YAML::Syck 0.84.
+  Reported by: Agent Zhang
+
+[Changes for 0.84 (JSON::Syck 0.23) - 2007-04-02]
+
+* New $YAML::Syck::SingleQuote flag: When it is set to true, Dump will
+  always emit quotes instead of bare strings.
+  Requested by: Ingo Bax
+
+* When $JSON::Syck::SingleQuote is set to true, special characters such as
+  \r\n are still escaped as usual, because JavaScript allows the same form
+  of escaping in strings with either quotes.
+  Reported by: Dobrica Pavlinusic
+
+[Changes for 0.83 (JSON::Syck 0.22) - 2007-02-05]
+
+* Under JSON::Syck, as well as YAML::Syck when $ImplicitTyping is set to
+  true, integer numbers larger than an unsigned integer (>=4294967296 on
+  32-bit platforms) was erroneously loaded as 0.
+  Reported by: Markus Wörle
+
 [Changes for 0.82 (JSON::Syck 0.21) - 2007-01-26]
 
 * Bytestrings containing no high bit bytes are no longer dumped as "!binary".
@@ -239,7 +416,7 @@
 * Documentation change: in the POD text, stress the importance of setting
   $YAML::Syck::ImplicitTyping to true, for interoperability with other
   language's YAML/Syck bindings is desired.
-  Suggested by: "dgaramond2" on Perlmonks.
+  Requested by: "dgaramond2" on Perlmonks.
 
 [Changes for 0.37 - 2006-03-14]
 

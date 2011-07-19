@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.15 2002/09/06 11:24:06 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/strxfrm.c,v 1.17 2008/10/19 09:10:44 delphij Exp $");
 
 #include <stdlib.h>
 #include <string.h>
@@ -45,18 +45,8 @@ strxfrm(char * __restrict dest, const char * __restrict src, size_t len)
 		return 0;
 	}
 
-	if (__collate_load_error) {
-		slen = strlen(src);
-		if (len > 0) {
-			if (slen < len)
-				strcpy(dest, src);
-			else {
-				strncpy(dest, src, len - 1);
-				dest[len - 1] = '\0';
-			}
-		}
-		return slen;
-	}
+	if (__collate_load_error)
+		return strlcpy(dest, src, len);
 
 	slen = 0;
 	prim = sec = 0;

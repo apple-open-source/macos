@@ -32,6 +32,7 @@
 #include <Packages.h>
 #include <NumberFormatting.h>
 #include <AppleEvents.h>
+#include <CFString.h>
 #endif
 #include "AEPrintCarbon.h"
 
@@ -105,7 +106,9 @@ bufput( register Buf *buf, void *data, register long len )
 		if( buf->len < len )
 			len = buf->len;
 		if( buf->str ) {						// Only write data if we have a place for it
-			BlockMove(data,buf->str,len);
+                        if ( len > 0 ) {
+                            memmove( buf->str, data, len );
+                        }
 			buf->str += len;
 			buf->str[0] = '\0';
 		}
@@ -190,7 +193,7 @@ bufputfloat( Buf *buf, float f )
 	AEDesc desc, textDesc;
 	OSErr err;
 	
-	err= AECreateDesc(typeSMFloat,&f,sizeof(f), &desc);
+	err= AECreateDesc(typeIEEE32BitFloatingPoint,&f,sizeof(f), &desc);
 	if( err ) return err;
 	err= AECoerceDesc(&desc,'TEXT',&textDesc);
 	AEDisposeDesc(&desc);
@@ -253,22 +256,6 @@ exit:
 	}
 	return err;
 }
-
-
-static Boolean
-keyInList( AEKeyword key, AEKeyword **list )
-{
-	AEKeyword *elem;
-	long i;
-	
-	if( list==NULL )
-		return false;
-	for( elem= *list, i= GetHandleSize((Handle)list);  i>=0;  i-=sizeof(AEKeyword), elem++ )
-		if( key == *elem )
-			return true;
-	return false;
-}
-
 
 /*******************************  THE MAIN ROUTINES  ***********************************/
 
@@ -336,8 +323,6 @@ printDescList( Buf *buf,  AEDescList *desc, DescType originalType )
 				
 			if( itemNo++ >0 )
 				bufputs(buf, ", ");
-//			if( keyInList(keyword,optionals) )				// Prefix for optional parameter
-//				bufputc(buf,'~');  /* JEG - 13 Nov 2004 - Bug 1217 */
 			if( type!='list' ) {
 				bufputOSType(buf,keyword);						/* If we're in a record, show key */
 				bufputc(buf,':');
@@ -475,9 +460,15 @@ printDesc( Buf *buf, const register AEDesc *desc )
 		case 'long':
 			err= AECoerceDesc(desc,'long',&tempDesc);		/* Coerce to longint */
 			if( !err ) {
-				unsigned char str[12];
-				NumToString(**(long**)tempDesc.dataHandle,str);
-				bufput(buf,str+1,str[0]);
+                            CFStringRef theString;
+                            CFIndex 	len;
+                            UInt8	buffer[12];
+                            
+                            theString = CFStringCreateWithFormat(kCFAllocatorDefault, NULL, CFSTR("%d"), **(long**)tempDesc.dataHandle);
+                            len = CFStringGetLength(theString);
+                            CFStringGetBytes(theString, CFRangeMake(0, len), kCFStringEncodingMacRoman, 0, false, buffer, sizeof(buffer), NULL);
+                            bufput(buf,buffer,len);
+                            CFRelease(theString);
 			} else if( err==errAECoercionFail )
 				err= hexDumpDesc(buf,desc);
 			AEDisposeDesc(&tempDesc);

@@ -24,20 +24,22 @@
  *
  */
 
-#ifndef CrossOriginPreflightResultCacheItem_h
-#define CrossOriginPreflightResultCacheItem_h
+#ifndef CrossOriginPreflightResultCache_h
+#define CrossOriginPreflightResultCache_h
 
 #include "KURLHash.h"
-#include "StringHash.h"
 #include <wtf/HashMap.h>
 #include <wtf/HashSet.h>
+#include <wtf/PassOwnPtr.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
     class HTTPHeaderMap;
     class ResourceResponse;
 
-    class CrossOriginPreflightResultCacheItem : public Noncopyable {
+    class CrossOriginPreflightResultCacheItem {
+        WTF_MAKE_NONCOPYABLE(CrossOriginPreflightResultCacheItem); WTF_MAKE_FAST_ALLOCATED;
     public:
         CrossOriginPreflightResultCacheItem(bool credentials)
             : m_absoluteExpiryTime(0)
@@ -45,9 +47,9 @@ namespace WebCore {
         {
         }
 
-        bool parse(const ResourceResponse&);
-        bool allowsCrossOriginMethod(const String&) const;
-        bool allowsCrossOriginHeaders(const HTTPHeaderMap&) const;
+        bool parse(const ResourceResponse&, String& errorDescription);
+        bool allowsCrossOriginMethod(const String&, String& errorDescription) const;
+        bool allowsCrossOriginHeaders(const HTTPHeaderMap&, String& errorDescription) const;
         bool allowsRequest(bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders) const;
 
     private:
@@ -62,11 +64,12 @@ namespace WebCore {
         HeadersSet m_headers;
     };
 
-    class CrossOriginPreflightResultCache : public Noncopyable {
+    class CrossOriginPreflightResultCache {
+        WTF_MAKE_NONCOPYABLE(CrossOriginPreflightResultCache); WTF_MAKE_FAST_ALLOCATED;
     public:
         static CrossOriginPreflightResultCache& shared();
 
-        void appendEntry(const String& origin, const KURL&, CrossOriginPreflightResultCacheItem*);
+        void appendEntry(const String& origin, const KURL&, PassOwnPtr<CrossOriginPreflightResultCacheItem>);
         bool canSkipPreflight(const String& origin, const KURL&, bool includeCredentials, const String& method, const HTTPHeaderMap& requestHeaders);
 
         void empty();

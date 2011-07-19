@@ -18,10 +18,6 @@
 #include <config.h>
 #include <compat.h>
 
-#ifndef lint
-__unused static const char rcsid[] = "$Sudo: strcasecmp.c,v 1.7 2005/02/12 22:56:06 millert Exp $";
-#endif /* lint */
-
 /*
  * Case insensitive string compare routines, same semantics as str[n]cmp()
  * (assumes ASCII..).

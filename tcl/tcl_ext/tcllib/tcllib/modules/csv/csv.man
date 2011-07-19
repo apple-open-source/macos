@@ -1,10 +1,11 @@
 [comment {-*- tcl -*-}]
-[manpage_begin csv n 0.7.1]
-[copyright {2002-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin csv n 0.7.2]
+[copyright {2002-2009 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {CSV processing}]
 [titledesc {Procedures to handle CSV data.}]
+[category  {Text processing}]
 [require Tcl 8.3]
-[require csv [opt 0.7.1]]
+[require csv [opt 0.7.2]]
 [description]
 
 [para]
@@ -87,7 +88,7 @@ by the caller, but this is optional. The default is '"'.
 
 [para]
 
-If the option [option -alternate] is spcified a slightly different
+If the option [option -alternate] is specified a slightly different
 syntax is used to parse the input. This syntax is explained below, in
 the section [sectref FORMAT].
 
@@ -174,7 +175,7 @@ i.e. that the value was not quoted.
 [para]
 
 An alternate format definition mainly used by MS products specifies
-that the output string "" is an representatation of the empty
+that the output string "" is a representation of the empty
 string. In other words, it is assumed that the output was generated
 out of the empty string by quoting it (i.e. rule 2), and not through
 rule 3. This is the only difference between the regular and the

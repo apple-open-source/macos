@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2000-2011 Apple Computer, Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -46,6 +46,7 @@ includes
 #include "scnc_mach_server.h"
 #include "ppp_socket_server.h"
 
+
 /* -----------------------------------------------------------------------------
 definitions
 ----------------------------------------------------------------------------- */
@@ -91,7 +92,7 @@ struct client *client_new_socket (CFSocketRef ref, int priviledged, uid_t uid, g
 
 /* -----------------------------------------------------------------------------
 ----------------------------------------------------------------------------- */
-struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, mach_port_t bootstrap, mach_port_t notify_port)
+struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFStringRef serviceID, uid_t uid, gid_t gid, pid_t pid, mach_port_t bootstrap, mach_port_t notify_port, mach_port_t au_session)
 {
     struct client	*client;
     
@@ -109,9 +110,11 @@ struct client *client_new_mach (CFMachPortRef port, CFRunLoopSourceRef rls, CFSt
     client->serviceID = serviceID;
 	client->uid = uid;
 	client->gid = gid;
+	client->pid = pid;
 	client->bootstrap_port = bootstrap;
 	client->notify_port = notify_port;
 	client->flags &= ~CLIENT_FLAG_IS_SOCKET;
+	client->au_session = au_session;
     TAILQ_INIT(&client->opts_head);
 
     TAILQ_INSERT_TAIL(&client_head, client, next);
@@ -127,7 +130,6 @@ void client_dispose (struct client *client)
     
     TAILQ_REMOVE(&client_head, client, next);
 
-    client_gone(client);
 
     while (opts = TAILQ_FIRST(&(client->opts_head))) {
         
@@ -155,10 +157,15 @@ void client_dispose (struct client *client)
     }
 
     if (client->notify_port != MACH_PORT_NULL) {
-		mach_port_destroy(mach_task_self(), client->notify_port);
+		mach_port_deallocate(mach_task_self(), client->notify_port);
 		client->notify_port = MACH_PORT_NULL;
     }
-
+    
+    if (client->au_session != MACH_PORT_NULL) {
+		mach_port_deallocate(mach_task_self(), client->au_session);
+		client->au_session = MACH_PORT_NULL;
+    }
+    
 	if (client->socketRef) {
 		CFSocketInvalidate(client->socketRef);
 		my_CFRelease(&client->socketRef);
@@ -231,7 +238,7 @@ u_long client_notify (CFStringRef serviceID, u_char* sid, u_int32_t link, u_long
 			if (client->flags & CLIENT_FLAG_IS_SOCKET) {
 				if (client->notify_serviceid) {
 					doit = ((client->notify_serviceid[0] == 0)	// any service
-							|| !strcmp(client->notify_serviceid, sid));
+							|| !strcmp((char*)client->notify_serviceid, (char*)sid));
 				}
 				else { 
 					doit = ((client->notify_link == link)			// exact same link
@@ -281,3 +288,5 @@ struct client *client_findbymachport(mach_port_t port)
             
     return 0;
 }
+
+

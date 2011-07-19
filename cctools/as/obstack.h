@@ -247,10 +247,10 @@ void _obstack_newchunk (struct obstack *h, int length);
    (void) 0; })
 
 #define obstack_1grow(OBSTACK,datum)					\
-({ struct obstack *__o = (OBSTACK);					\
-   ((__o->next_free + 1 > __o->chunk_limit)				\
-    ? _obstack_newchunk (__o, 1) : 0),					\
-   *(__o->next_free)++ = (datum);					\
+(void)({ struct obstack *__o = (OBSTACK);				\
+   (void)((__o->next_free + 1 > __o->chunk_limit)			\
+    ? (void)(_obstack_newchunk (__o, 1)) : (void)0),			\
+   (void)(*(__o->next_free)++ = (datum));				\
    (void) 0; })
 
 /* These assume that the obstack alignment is good enough for pointers or ints,
@@ -305,7 +305,7 @@ void _obstack_newchunk (struct obstack *h, int length);
 		     & ~ (__o->alignment_mask));			\
    ((__o->next_free - (char *)__o->chunk				\
      > __o->chunk_limit - (char *)__o->chunk)				\
-    ? (__o->next_free = __o->chunk_limit) : 0);				\
+    ? (void)(__o->next_free = __o->chunk_limit) : (void)0);		\
    __o->object_base = __o->next_free;					\
    value; })
 

@@ -31,12 +31,12 @@ enum NXByteOrder target_byte_sex)
     uint32_t i;
 
 	for(i = 0; i < 8; i++)
-	    cpu->dreg[i] = NXSwapLong(cpu->dreg[i]);
+	    cpu->dreg[i] = OSSwapInt32(cpu->dreg[i]);
 	for(i = 0; i < 8; i++)
-	    cpu->areg[i] = NXSwapLong(cpu->areg[i]);
-	cpu->pad0 = NXSwapShort(cpu->pad0);
-	cpu->sr = NXSwapShort(cpu->sr);
-	cpu->pc = NXSwapLong(cpu->pc);
+	    cpu->areg[i] = OSSwapInt32(cpu->areg[i]);
+	cpu->pad0 = OSSwapInt16(cpu->pad0);
+	cpu->sr = OSSwapInt16(cpu->sr);
+	cpu->pc = OSSwapInt32(cpu->pc);
 }
 
 void
@@ -47,15 +47,15 @@ enum NXByteOrder target_byte_sex)
     uint32_t i, tmp;
 
 	for(i = 0; i < 8; i++){
-	                   tmp = NXSwapLong(fpu->regs[i].fp[0]);
-	    fpu->regs[i].fp[1] = NXSwapLong(fpu->regs[i].fp[1]);
-	    fpu->regs[i].fp[0] = NXSwapLong(fpu->regs[i].fp[2]);
+	                   tmp = OSSwapInt32(fpu->regs[i].fp[0]);
+	    fpu->regs[i].fp[1] = OSSwapInt32(fpu->regs[i].fp[1]);
+	    fpu->regs[i].fp[0] = OSSwapInt32(fpu->regs[i].fp[2]);
 	    fpu->regs[i].fp[2] = tmp;
 	}
-	fpu->cr = NXSwapLong(fpu->cr);
-	fpu->sr = NXSwapLong(fpu->sr);
-	fpu->iar = NXSwapLong(fpu->iar);
-	fpu->state = NXSwapLong(fpu->state);
+	fpu->cr = OSSwapInt32(fpu->cr);
+	fpu->sr = OSSwapInt32(fpu->sr);
+	fpu->iar = OSSwapInt32(fpu->iar);
+	fpu->state = OSSwapInt32(fpu->state);
 }
 
 void
@@ -63,6 +63,6 @@ swap_m68k_thread_state_user_reg(
 struct m68k_thread_state_user_reg *user_reg,
 enum NXByteOrder target_byte_sex)
 {
-	user_reg->user_reg = NXSwapLong(user_reg->user_reg);
+	user_reg->user_reg = OSSwapInt32(user_reg->user_reg);
 }
 #endif /* !defined(RLD) */

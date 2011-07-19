@@ -14,7 +14,7 @@
  * RCS: @(#) $Id$
  */
 
-#include "tkMacOSXInt.h"
+#include "tkMacOSXPrivate.h"
 
 /*
  * Forward declarations of procedures defined later in this file:

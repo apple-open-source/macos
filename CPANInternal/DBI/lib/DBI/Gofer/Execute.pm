@@ -1,6 +1,6 @@
 package DBI::Gofer::Execute;
 
-#   $Id: Execute.pm 10287 2007-11-21 12:29:07Z timbo $
+#   $Id: Execute.pm 11769 2008-09-12 13:18:59Z timbo $
 #
 #   Copyright (c) 2007, Tim Bunce, Ireland
 #
@@ -10,13 +10,15 @@ package DBI::Gofer::Execute;
 use strict;
 use warnings;
 
+use Carp;
+
 use DBI qw(dbi_time);
 use DBI::Gofer::Request;
 use DBI::Gofer::Response;
 
 use base qw(DBI::Util::_accessor);
 
-our $VERSION = sprintf("0.%06d", q$Revision: 10287 $ =~ /(\d+)/o);
+our $VERSION = sprintf("0.%06d", q$Revision: 11769 $ =~ /(\d+)/o);
 
 our @all_dbh_methods = sort map { keys %$_ } $DBI::DBI_methods{db}, $DBI::DBI_methods{common};
 our %all_dbh_methods = map { $_ => (DBD::_::db->can($_)||undef) } @all_dbh_methods;
@@ -35,6 +37,7 @@ DBI->trace(split /=/, $ENV{DBI_GOFER_TRACE}, 2) if $ENV{DBI_GOFER_TRACE};
 # define valid configuration attributes (args to new())
 # the values here indicate the basic type of values allowed
 my %configuration_attributes = (
+    gofer_execute_class => 1,
     default_connect_dsn => 1,
     forced_connect_dsn  => 1,
     default_connect_attributes => {},
@@ -154,7 +157,8 @@ sub _connect {
         }
     }
 
-    local $ENV{DBI_AUTOPROXY}; # limit the insanity
+    # local $ENV{...} can leak, so only do it if required
+    local $ENV{DBI_AUTOPROXY} if $ENV{DBI_AUTOPROXY};
 
     my ($connect_method, $dsn, $username, $password, $attr) = @{ $request->dbh_connect_call };
     $connect_method ||= 'connect_cached';
@@ -167,15 +171,9 @@ sub _connect {
     $dsn = $self->forced_connect_dsn || $dsn || $self->default_connect_dsn
         or die "No forced_connect_dsn, requested dsn, or default_connect_dsn for request";
 
-    # ensure this connect_cached doesn't have the same args as the client
-    # because that causes subtle issues if in the same process (ie transport=null)
-    # include pid to avoid problems with forking (ie null transport in mod_perl)
-    # include gofer-random to avoid random behaviour leaking to other handles
-    my $extra_cache_key = join "|",
-        __PACKAGE__, "$$", $self->{forced_gofer_random} || $ENV{DBI_GOFER_RANDOM} || '';
+    my $random = $self->{forced_gofer_random} || $ENV{DBI_GOFER_RANDOM} || '';
 
-    # XXX implement our own private connect_cached method? (with rate-limited ping)
-    my $dbh = DBI->$connect_method($dsn, undef, undef, {
+    my $connect_attr = {
 
         # the configured default attributes, if any
         %{ $self->default_connect_attributes },
@@ -202,14 +200,20 @@ sub _connect {
         # if errors happened before the main part of the request was executed
         Executed => 0,
 
-        # ensure connect_cached is sufficiently distinct
-        dbi_go_execute_unique => $extra_cache_key,
-    });
+        # ensure this connect_cached doesn't have the same args as the client
+        # because that causes subtle issues if in the same process (ie transport=null)
+        # include pid to avoid problems with forking (ie null transport in mod_perl)
+        # include gofer-random to avoid random behaviour leaking to other handles
+        dbi_go_execute_unique => join("|", __PACKAGE__, $$, $random),
+    };
+
+    # XXX implement our own private connect_cached method? (with rate-limited ping)
+    my $dbh = DBI->$connect_method($dsn, undef, undef, $connect_attr);
 
     $dbh->{ShowErrorStatement} = 1 if $local_log;
 
     # XXX should probably just be a Callbacks => arg to connect_cached
-    # with a cache of pre-built callback hoks (memoized, without $self) 
+    # with a cache of pre-built callback hooks (memoized, without $self) 
     if (my $random = $self->{forced_gofer_random} || $ENV{DBI_GOFER_RANDOM}) {
         $self->_install_rand_callbacks($dbh, $random);
     }
@@ -233,18 +237,23 @@ sub reset_dbh {
 
 sub new_response_with_err {
     my ($self, $rv, $eval_error, $dbh) = @_;
+    # this is the usual way to create a response for both success and failure
     # capture err+errstr etc and merge in $eval_error ($@)
 
     my ($err, $errstr, $state) = ($DBI::err, $DBI::errstr, $DBI::state);
 
-    # if we caught an exception and there's either no DBI error, or the
-    # exception itself doesn't look like a DBI exception, then append the
-    # exception to errstr
-    if ($eval_error and (!$errstr || $eval_error !~ /^DBD::/)) {
-        chomp $eval_error;
-        $err ||= 1;
-        $errstr = ($errstr) ? "$errstr; $eval_error" : $eval_error;
+    if ($eval_error) {
+        $err ||= $DBI::stderr || 1; # ensure err is true
+        if ($errstr) {
+            $eval_error =~ s/(?: : \s)? \Q$errstr//x if $errstr;
+            chomp $errstr;
+            $errstr .= "; $eval_error";
+        }
+        else {
+            $errstr = $eval_error;
+        }
     }
+    chomp $errstr if $errstr;
 
     my $flags;
     # (XXX if we ever add transaction support then we'll need to take extra
@@ -270,7 +279,10 @@ sub execute_request {
     DBI->trace_msg("-----> execute_request\n");
 
     my @warnings;
-    local $SIG{__WARN__} = sub { push @warnings, @_; warn @_ if $local_log };
+    local $SIG{__WARN__} = sub {
+        push @warnings, @_;
+        warn @_ if $local_log;
+    };
 
     my $response = eval {
 
@@ -559,6 +571,7 @@ sub _get_default_methods {
 }
 
 
+# XXX would be nice to make this a generic DBI module
 sub _install_rand_callbacks {
     my ($self, $dbh, $dbi_gofer_random) = @_;
 
@@ -566,27 +579,36 @@ sub _install_rand_callbacks {
     my $prev      = $dbh->{private_gofer_rand_fail_callbacks} || {};
 
     # return if we've already setup this handle with callbacks for these specs
-    return if (($prev->{_dbi_gofer_random_spec}||'') eq $dbi_gofer_random);
-    $prev->{_dbi_gofer_random_spec} = $dbi_gofer_random;
+    return if (($callbacks->{_dbi_gofer_random_spec}||'') eq $dbi_gofer_random);
+    #warn "$dbh # $callbacks->{_dbi_gofer_random_spec}";
+    $callbacks->{_dbi_gofer_random_spec} = $dbi_gofer_random;
 
-    my ($fail_percent, $delay_percent, $delay_duration);
+    my ($fail_percent, $fail_err, $delay_percent, $delay_duration, %spec_part, @spec_note);
     my @specs = split /,/, $dbi_gofer_random;
     for my $spec (@specs) {
         if ($spec =~ m/^fail=(-?[.\d]+)%?$/) {
             $fail_percent = $1;
+            $spec_part{fail} = $spec;
+            next;
+        }
+        if ($spec =~ m/^err=(-?\d+)$/) {
+            $fail_err = $1;
+            $spec_part{err} = $spec;
             next;
         }
         if ($spec =~ m/^delay([.\d]+)=(-?[.\d]+)%?$/) {
             $delay_duration = $1;
             $delay_percent  = $2;
+            $spec_part{delay} = $spec;
             next;
         }
         elsif ($spec !~ m/^(\w+|\*)$/) {
             warn "Ignored DBI_GOFER_RANDOM item '$spec' which isn't a config or a dbh method name";
             next;
         }
+
         my $method = $spec;
-        if ($callbacks->{$method} && $callbacks->{$method} != $prev->{$method}) {
+        if ($callbacks->{$method} && $prev->{$method} && $callbacks->{$method} != $prev->{$method}) {
             warn "Callback for $method method already installed so DBI_GOFER_RANDOM callback not installed\n";
             next;
         }
@@ -594,9 +616,12 @@ sub _install_rand_callbacks {
             warn "Ignored DBI_GOFER_RANDOM item '$spec' because not preceeded by 'fail=N' and/or 'delayN=N'";
             next;
         }
-        warn "DBI_GOFER_RANDOM enabled for $method() - random failures/delays will be generated!\n";
-        $callbacks->{$method} = $self->_mk_rand_callback($method, $fail_percent, $delay_percent, $delay_duration);
+
+        push @spec_note, join(",", values(%spec_part), $method);
+        $callbacks->{$method} = $self->_mk_rand_callback($method, $fail_percent, $delay_percent, $delay_duration, $fail_err);
     }
+    warn "DBI_GOFER_RANDOM failures/delays enabled: @spec_note\n"
+        if @spec_note;
     $dbh->{Callbacks} = $callbacks;
     $dbh->{private_gofer_rand_fail_callbacks} = $callbacks;
 }
@@ -604,11 +629,11 @@ sub _install_rand_callbacks {
 my %_mk_rand_callback_seqn;
 
 sub _mk_rand_callback {
-    my ($self, $method, $fail_percent, $delay_percent, $delay_duration) = @_;
+    my ($self, $method, $fail_percent, $delay_percent, $delay_duration, $fail_err) = @_;
     my ($fail_modrate, $delay_modrate);
     $fail_percent  ||= 0;  $fail_modrate  = int(1/(-$fail_percent )*100) if $fail_percent;
     $delay_percent ||= 0;  $delay_modrate = int(1/(-$delay_percent)*100) if $delay_percent;
-    # note that $method may be "*"
+    # note that $method may be "*" but that's not recommended or documented or wise
     return sub {
         my ($h) = @_;
         my $seqn = ++$_mk_rand_callback_seqn{$method};
@@ -620,14 +645,17 @@ sub _mk_rand_callback {
         #warn "_mk_rand_callback($fail_percent:$fail_modrate, $delay_percent:$delay_modrate): seqn=$seqn fail=$fail delay=$delay";
         if ($delay) {
             my $msg = "DBI_GOFER_RANDOM delaying execution of $method() by $delay_duration seconds\n";
-            # Note what's happening in a trace message. If the delay percent is an odd
-            # number then use warn() so it's sent back to the client
-            ($delay_percent % 2 == 0) ? $h->trace_msg($msg) : warn($msg);
+            # Note what's happening in a trace message. If the delay percent is an even
+            # number then use warn() instead so it's sent back to the client.
+            ($delay_percent % 2 == 1) ? warn($msg) : $h->trace_msg($msg);
             select undef, undef, undef, $delay_duration; # allows floating point value
         }
         if ($fail) {
             undef $_; # tell DBI to not call the method
-            return $h->set_err($DBI::stderr, "fake error from $method method induced by DBI_GOFER_RANDOM env var ($fail_percent%)");
+            # the "induced by DBI_GOFER_RANDOM" is special and must be included in errstr
+            # as it's checked for in a few places, such as the gofer retry logic
+            return $h->set_err($fail_err || $DBI::stderr,
+                "fake error from $method method induced by DBI_GOFER_RANDOM env var ($fail_percent%)");
         }
         return;
     }
@@ -635,13 +663,23 @@ sub _mk_rand_callback {
 
 
 sub update_stats {
-    my ($self, $request, $response, $frozen_request, $frozen_response, $time_received, $meta) = @_;
+    my ($self,
+        $request, $response,
+        $frozen_request, $frozen_response,
+        $time_received,
+        $store_meta, $other_meta,
+    ) = @_;
+
+    # should always have a response object here
+    carp("No response object provided") unless $request;
 
     my $stats = $self->{stats};
     $stats->{frozen_request_max_bytes} = length($frozen_request)
-        if length($frozen_request)  > ($stats->{frozen_request_max_bytes}||0);
+        if $frozen_request
+        && length($frozen_request)  > ($stats->{frozen_request_max_bytes}||0);
     $stats->{frozen_response_max_bytes} = length($frozen_response)
-        if length($frozen_response) > ($stats->{frozen_response_max_bytes}||0);
+        if $frozen_response
+        && length($frozen_response) > ($stats->{frozen_response_max_bytes}||0);
 
     my $recent;
     if (my $track_recent = $self->{track_recent}) {
@@ -650,10 +688,16 @@ sub update_stats {
             response => $frozen_response,
             time_received => $time_received,
             duration => dbi_time()-$time_received,
-            ($meta) ? (meta => $meta) : (), # for any other info
+            # for any other info
+            ($store_meta) ? (meta => $store_meta) : (),
         };
+        $recent->{request_object} = $request
+            if !$frozen_request && $request;
+        $recent->{response_object} = $response
+            if !$frozen_response;
         my @queues =  ($stats->{recent_requests} ||= []);
-        push @queues, ($stats->{recent_errors}   ||= []) if $response->err;
+        push @queues, ($stats->{recent_errors}   ||= [])
+            if !$response or $response->err;
         for my $queue (@queues) {
             push @$queue, $recent;
             shift @$queue if @$queue > $track_recent;
@@ -806,15 +850,24 @@ Set the current failure rate to R where R is a percentage.
 The value R can be floating point, e.g., C<fail=0.05%>.
 Negative values for R have special meaning, see below.
 
+=item err=N
+
+Sets the current failure err vaue to N (instead of the DBI's default 'standard
+err value' of 2000000000). This is useful when you want to simulate a
+specific error.
+
 =item delayN=R%
 
 Set the current random delay rate to R where R is a percentage, and set the
 current delay duration to N seconds. The values of R and N can be floating point,
-e.g., C<delay120=0.1%>.  Negative values for R have special meaning, see below.
+e.g., C<delay0.5=0.2%>.  Negative values for R have special meaning, see below.
+
+If R is an odd number (R % 2 == 1) then a message is logged via warn() which
+will be returned to, and echoed at, the client.
 
 =item methodname
 
-Applies the current current random failure rate and random delay rate and duration to the named method.
+Applies the current fail, err, and delay values to the named method.
 If neither a fail nor delay have been set yet then a warning is generated.
 
 =back

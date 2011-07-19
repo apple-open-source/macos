@@ -24,38 +24,43 @@
 #include "InternalFunction.h"
 
 #include "FunctionPrototype.h"
+#include "JSGlobalObject.h"
 #include "JSString.h"
 
 namespace JSC {
 
+// Ensure the compiler generates a vtable for InternalFunction!
+void InternalFunction::vtableAnchor() {}
+
 ASSERT_CLASS_FITS_IN_CELL(InternalFunction);
 
-const ClassInfo InternalFunction::info = { "Function", 0, 0, 0 };
+const ClassInfo InternalFunction::s_info = { "Function", &JSObjectWithGlobalObject::s_info, 0, 0 };
 
-const ClassInfo* InternalFunction::classInfo() const
+InternalFunction::InternalFunction(VPtrStealingHackType)
+    : JSObjectWithGlobalObject(VPtrStealingHack)
 {
-    return &info;
 }
 
-InternalFunction::InternalFunction(JSGlobalData* globalData, NonNullPassRefPtr<Structure> structure, const Identifier& name)
-    : JSObject(structure)
+InternalFunction::InternalFunction(JSGlobalData* globalData, JSGlobalObject* globalObject, Structure* structure, const Identifier& name)
+    : JSObjectWithGlobalObject(globalObject, structure)
 {
-    putDirect(globalData->propertyNames->name, jsString(globalData, name.isNull() ? "" : name.ustring()), DontDelete | ReadOnly | DontEnum);
+    ASSERT(inherits(&s_info));
+    putDirect(*globalData, globalData->propertyNames->name, jsString(globalData, name.isNull() ? "" : name.ustring()), DontDelete | ReadOnly | DontEnum);
 }
 
 const UString& InternalFunction::name(ExecState* exec)
 {
-    return asString(getDirect(exec->globalData().propertyNames->name))->tryGetValue();
+    return asString(getDirect(exec->globalData(), exec->globalData().propertyNames->name))->tryGetValue();
 }
 
 const UString InternalFunction::displayName(ExecState* exec)
 {
-    JSValue displayName = getDirect(exec->globalData().propertyNames->displayName);
+    JSValue displayName = getDirect(exec->globalData(), exec->globalData().propertyNames->displayName);
     
     if (displayName && isJSString(&exec->globalData(), displayName))
         return asString(displayName)->tryGetValue();
     
-    return UString::null();
+    return UString();
 }
 
 const UString InternalFunction::calculatedDisplayName(ExecState* exec)

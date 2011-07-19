@@ -1,6 +1,6 @@
 /********************************************************************
  * COPYRIGHT:
- * Copyright (c) 1996-2006, International Business Machines Corporation and
+ * Copyright (c) 1996-2010, International Business Machines Corporation and
  * others. All Rights Reserved.
  ********************************************************************/
 
@@ -36,20 +36,21 @@ void AstroTest::runIndexedTest( int32_t index, UBool exec, const char* &name, ch
       CASE(3,TestCoverage);
       CASE(4,TestSunriseTimes);
       CASE(5,TestBasics);
+      CASE(6,TestMoonAge);
     default: name = ""; break;
     }
 }
 
 #undef CASE
 
-#define ASSERT_OK(x)   if(U_FAILURE(x)) { errln("%s:%d: %s\n", __FILE__, __LINE__, u_errorName(x)); return; }
+#define ASSERT_OK(x)   if(U_FAILURE(x)) { dataerrln("%s:%d: %s\n", __FILE__, __LINE__, u_errorName(x)); return; }
 
 
 void AstroTest::initAstro(UErrorCode &status) {
   if(U_FAILURE(status)) return;
 
   if((astro != NULL) || (gc != NULL)) {
-    errln("Err: initAstro() called twice!");
+    dataerrln("Err: initAstro() called twice!");
     closeAstro(status);
     if(U_SUCCESS(status)) {
       status = U_INTERNAL_PROGRAM_ERROR;
@@ -278,7 +279,7 @@ void AstroTest::TestSunriseTimes(void) {
   DateFormat *df_d  = DateFormat::createDateInstance(DateFormat::MEDIUM,Locale::getUS());
   DateFormat *df_dt = DateFormat::createDateTimeInstance(DateFormat::MEDIUM, DateFormat::MEDIUM, Locale::getUS());
   if(!df_t || !df_d || !df_dt) {
-    errln("couldn't create dateformats.");
+    dataerrln("couldn't create dateformats.");
     return;
   }
   df_t->adoptTimeZone(tz->clone());
@@ -372,7 +373,10 @@ void AstroTest::TestSunriseTimes(void) {
 void AstroTest::TestBasics(void) {
   UErrorCode status = U_ZERO_ERROR;
   initAstro(status);
-  ASSERT_OK(status);
+  if (U_FAILURE(status)) {
+    dataerrln("Got error: %s", u_errorName(status));
+    return;
+  }
 
   // Check that our JD computation is the same as the book's (p. 88)
   GregorianCalendar *cal3 = new GregorianCalendar(TimeZone::getGMT()->clone(), Locale::getUS(), status);
@@ -424,6 +428,50 @@ void AstroTest::TestBasics(void) {
   closeAstro(status);
   ASSERT_OK(status);
 
+}
+
+void AstroTest::TestMoonAge(void){
+	UErrorCode status = U_ZERO_ERROR;
+	initAstro(status);
+	ASSERT_OK(status);
+	
+	// more testcases are around the date 05/20/2012
+	//ticket#3785  UDate ud0 = 1337557623000.0;
+	static const double testcase[][10] = {{2012, 5, 20 , 16 , 48, 59},
+	                {2012, 5, 20 , 16 , 47, 34},
+	                {2012, 5, 21, 00, 00, 00},
+	                {2012, 5, 20, 14, 55, 59},
+	                {2012, 5, 21, 7, 40, 40},
+	                {2023, 9, 25, 10,00, 00},
+	                {2008, 7, 7, 15, 00, 33}, 
+	                {1832, 9, 24, 2, 33, 41 },
+	                {2016, 1, 31, 23, 59, 59},
+	                {2099, 5, 20, 14, 55, 59}
+	        };
+	// Moon phase angle - Got from http://www.moonsystem.to/checkupe.htm
+	static const double angle[] = {356.8493418421329, 356.8386760059673, 0.09625415252237701, 355.9986960782416, 3.5714026601303317, 124.26906744384183, 59.80247650195558,
+									357.54163205513123, 268.41779281511094, 4.82340276581624};
+	static const double precision = CalendarAstronomer::PI/32;
+	for (int32_t i = 0; i < (int32_t)(sizeof(testcase)/sizeof(testcase[0])); i++) {
+		gc->clear();
+		logln((UnicodeString)"CASE["+i+"]: Year "+(int32_t)testcase[i][0]+" Month "+(int32_t)testcase[i][1]+" Day "+
+		                                    (int32_t)testcase[i][2]+" Hour "+(int32_t)testcase[i][3]+" Minutes "+(int32_t)testcase[i][4]+
+		                                    " Seconds "+(int32_t)testcase[i][5]);
+		gc->set((int32_t)testcase[i][0], (int32_t)testcase[i][1]-1, (int32_t)testcase[i][2], (int32_t)testcase[i][3], (int32_t)testcase[i][4], (int32_t)testcase[i][5]);
+		astro->setDate(gc->getTime(status));
+		double expectedAge = (angle[i]*CalendarAstronomer::PI)/180;
+		double got = astro->getMoonAge();
+		//logln(testString);
+		if(!(got>expectedAge-precision && got<expectedAge+precision)){
+			errln((UnicodeString)"FAIL: expected " + expectedAge +
+					" got " + got);
+		}else{
+			logln((UnicodeString)"PASS: expected " + expectedAge +
+					" got " + got);
+		}
+	}
+	closeAstro(status);
+	ASSERT_OK(status);
 }
 
 

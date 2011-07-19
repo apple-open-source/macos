@@ -928,6 +928,18 @@ dt_action_raise(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 	ap->dtad_kind = DTRACEACT_RAISE;
 }
 
+#if defined(__APPLE__)
+static void
+dt_action_pidresume(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
+{
+	dtrace_actdesc_t *ap = dt_stmt_action(dtp, sdp);
+
+	dt_cg(yypcb, dnp->dn_args);
+	ap->dtad_difo = dt_as(yypcb);
+	ap->dtad_kind = DTRACEACT_PIDRESUME;
+}
+#endif /*__APPLE__*/
+
 static void
 dt_action_exit(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 {
@@ -1241,14 +1253,18 @@ dt_compile_fun(dtrace_hdl_t *dtp, dt_node_t *dnp, dtrace_stmtdesc_t *sdp)
 		dt_action_ustack(dtp, dnp->dn_expr, sdp);
 		break;
 #if defined(__APPLE__)
-    case DT_ACT_APPLEDEFINE:
-    case DT_ACT_APPLEFLAG:
-    case DT_ACT_APPLEGEN:
-    case DT_ACT_APPLELOG:
-    case DT_ACT_APPLESTACK:
-    case DT_ACT_APPLEUSTACK:
-        dt_action_apple(dtp, dnp->dn_expr, sdp);
-        break;
+	case DT_ACT_APPLEDEFINE:
+	case DT_ACT_APPLEFLAG:
+	case DT_ACT_APPLEGEN:
+	case DT_ACT_APPLELOG:
+	case DT_ACT_APPLESTACK:
+	case DT_ACT_APPLEUSTACK:
+		dt_action_apple(dtp, dnp->dn_expr, sdp);
+		break;
+
+	case DT_ACT_PIDRESUME:
+		dt_action_pidresume(dtp, dnp->dn_expr, sdp);
+		break;		
 #endif
 	default:
 		dnerror(dnp->dn_expr, D_UNKNOWN, "tracing function %s( ) is "

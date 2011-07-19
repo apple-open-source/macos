@@ -30,7 +30,9 @@
 #include <locale.h>
 #endif
 
+#ifndef HAVE_DECL_GETENV
 extern char *getenv(const char *);	/* needed on sysV68 R3V7.1. */
+#endif
 
 void envquery(int argc, char **argv)
 /* set up basic stuff from the environment (including the rc file name) */
@@ -110,6 +112,8 @@ void envquery(int argc, char **argv)
 	}
 	user = xstrdup(pwp->pw_name);
     }
+
+    endpwent();
 
     /* compute user's home directory */
     home = getenv("HOME_ETC");
@@ -296,7 +300,7 @@ char *visbuf(const char *buf)
 
     needed = strlen(buf) * 5 + 1; /* worst case: HEX, plus NUL byte */
 
-    if (needed > vbufs) {
+    if (!vbuf || needed > vbufs) {
 	vbufs = needed;
 	vbuf = (char *)xrealloc(vbuf, vbufs);
     }
@@ -324,7 +328,7 @@ char *visbuf(const char *buf)
 	    buf++;
 	}
     }
-    *tp++ = '\0';
+    *tp = '\0';
     return(vbuf);
 }
 /* env.c ends here */

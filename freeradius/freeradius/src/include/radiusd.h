@@ -89,6 +89,15 @@ typedef struct auth_req REQUEST;
 #ifndef WITHOUT_COMMAND_SOCKET
 #ifdef HAVE_SYS_UN_H
 #define WITH_COMMAND_SOCKET (1)
+#else
+#define WITHOUT_COMMAND_SOCKET (1)
+#endif
+#endif
+
+#ifndef WITHOUT_COA
+#define WITH_COA (1)
+#ifndef WITH_PROXY
+#error WITH_COA requires WITH_PROXY
 #endif
 #endif
 
@@ -127,6 +136,13 @@ typedef struct radclient {
 	time_t			created;
 	time_t			last_new_client;
 	char			*client_server;
+	int			rate_limit;
+#endif
+
+#ifdef WITH_COA
+	char			*coa_name;
+	home_server		*coa_server;
+	home_pool_t		*coa_pool;
 #endif
 } RADCLIENT;
 
@@ -155,6 +171,9 @@ typedef enum RAD_LISTEN_TYPE {
 #endif
 #ifdef WITH_COMMAND_SOCKET
 	RAD_LISTEN_COMMAND,
+#endif
+#ifdef WITH_COA
+	RAD_LISTEN_COA,
 #endif
 	RAD_LISTEN_MAX
 } RAD_LISTEN_TYPE;
@@ -193,7 +212,7 @@ struct auth_req {
 	pthread_t    		child_pid;
 #endif
 	time_t			timestamp;
-	int			number; /* internal server number */
+	unsigned int	       	number; /* internal server number */
 
 	rad_listen_t		*listener;
 #ifdef WITH_PROXY
@@ -239,6 +258,10 @@ struct auth_req {
 	const char		*server;
 	REQUEST			*parent;
 	radlog_func_t		radlog;	/* logging function, if set */
+#ifdef WITH_COA
+	REQUEST			*coa;
+	int			num_coa_requests;
+#endif
 };				/* REQUEST typedef */
 
 #define RAD_REQUEST_OPTION_NONE            (0)
@@ -278,7 +301,7 @@ typedef struct pair_list {
 
 typedef int (*rad_listen_recv_t)(rad_listen_t *, RAD_REQUEST_FUNP *, REQUEST **);
 typedef int (*rad_listen_send_t)(rad_listen_t *, REQUEST *);
-typedef int (*rad_listen_print_t)(rad_listen_t *, char *, size_t);
+typedef int (*rad_listen_print_t)(const rad_listen_t *, char *, size_t);
 typedef int (*rad_listen_encode_t)(rad_listen_t *, REQUEST *);
 typedef int (*rad_listen_decode_t)(rad_listen_t *, REQUEST *);
 
@@ -348,6 +371,8 @@ typedef struct main_config_t {
 	radlog_dest_t	radlog_dest;
 	CONF_SECTION	*config;
 	const char	*name;
+	const char	*auth_badpass_msg;
+	const char	*auth_goodpass_msg;
 } MAIN_CONFIG_T;
 
 #define DEBUG	if(debug_flag)log_debug
@@ -468,6 +493,7 @@ int		rad_checkfilename(const char *filename);
 void		*rad_malloc(size_t size); /* calls exit(1) on error! */
 REQUEST		*request_alloc(void);
 REQUEST		*request_alloc_fake(REQUEST *oldreq);
+REQUEST		*request_alloc_coa(REQUEST *request);
 int		request_data_add(REQUEST *request,
 				 void *unique_ptr, int unique_int,
 				 void *opaque, void (*free_opaque)(void *));
@@ -570,7 +596,7 @@ void		xlat_unregister(const char *module, RAD_XLAT_FUNC func);
 void		xlat_free(void);
 
 /* threads.c */
-extern		int thread_pool_init(CONF_SECTION *cs, int spawn_flag);
+extern		int thread_pool_init(CONF_SECTION *cs, int *spawn_flag);
 extern		int thread_pool_addrequest(REQUEST *, RAD_REQUEST_FUNP);
 extern		pid_t rad_fork(void);
 extern		pid_t rad_waitpid(pid_t pid, int *status);
@@ -590,11 +616,15 @@ extern struct main_config_t mainconfig;
 
 int read_mainconfig(int reload);
 int free_mainconfig(void);
+void hup_mainconfig(void);
+void fr_suid_down(void);
+void fr_suid_up(void);
+void fr_suid_down_permanent(void);
 
 /* listen.c */
 void listen_free(rad_listen_t **head);
 int listen_init(CONF_SECTION *cs, rad_listen_t **head);
-rad_listen_t *proxy_new_listener(void);
+rad_listen_t *proxy_new_listener(fr_ipaddr_t *ipaddr, int exists);
 RADCLIENT *client_listener_find(const rad_listen_t *listener,
 				const fr_ipaddr_t *ipaddr, int src_port);
 #ifdef WITH_STATS

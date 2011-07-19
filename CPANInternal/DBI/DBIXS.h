@@ -1,4 +1,4 @@
-/* $Id: DBIXS.h 10899 2008-03-10 12:00:51Z timbo $
+/* $Id: DBIXS.h 12559 2009-03-02 11:14:07Z timbo $
  *
  * Copyright (c) 1994-2002  Tim Bunce  Ireland
  *
@@ -304,7 +304,8 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 	if (!DBIc_ACTIVE(imp) && ph_com && !dirty			\
 		&& ++DBIc_ACTIVE_KIDS(ph_com) > DBIc_KIDS(ph_com))	\
 	    croak("panic: DBI active kids (%ld) > kids (%ld)",		\
-		DBIc_ACTIVE_KIDS(ph_com), DBIc_KIDS(ph_com));		\
+		(long)DBIc_ACTIVE_KIDS(ph_com),				\
+		(long)DBIc_KIDS(ph_com));				\
 	DBIc_FLAGS(imp) |=  DBIcf_ACTIVE;				\
     } while(0)
 #define DBIc_ACTIVE_off(imp)	/* adjust parent's active kid count */	\
@@ -314,7 +315,8 @@ typedef struct {		/* -- FIELD DESCRIPTOR --		*/
 		&& (--DBIc_ACTIVE_KIDS(ph_com) > DBIc_KIDS(ph_com)	\
 		   || DBIc_ACTIVE_KIDS(ph_com) < 0) )			\
 	    croak("panic: DBI active kids (%ld) < 0 or > kids (%ld)",	\
-		DBIc_ACTIVE_KIDS(ph_com), DBIc_KIDS(ph_com));		\
+		(long)DBIc_ACTIVE_KIDS(ph_com),				\
+		(long)DBIc_KIDS(ph_com));				\
 	DBIc_FLAGS(imp) &= ~DBIcf_ACTIVE;				\
     } while(0)
 
@@ -449,21 +451,21 @@ struct dbistate_st {
 
 /* --- perl object (ActiveState) / multiplicity hooks and hoops --- */
 /* note that USE_ITHREADS implies MULTIPLICITY                      */
+#define DBIS_PUBLISHED_LVALUE (*(INT2PTR(dbistate_t**, &SvIVX(DBISTATE_ADDRSV))))
 #if defined(MULTIPLICITY) || defined(PERL_OBJECT) || defined(PERL_CAPI)
 
-# define DBISTATE_DECLARE typedef int dummy_dbistate /* keep semicolon from feeling lonely */
-# define DBISTATE_ASSIGN(st)
-# define DBISTATE_INIT
-# undef DBIS
-# define DBIS (*(INT2PTR(dbistate_t**, &SvIVX(DBISTATE_ADDRSV))))
-/* 'dbis' is temp for bad drivers using 'dbis' instead of 'DBIS' */
-# define dbis (*(INT2PTR(dbistate_t**, &SvIVX(DBISTATE_ADDRSV))))
+# define DBISTATE_DECLARE    typedef int dummy_dbistate /* keep semicolon from feeling lonely */
+# define DBISTATE_INIT_DBIS  typedef int dummy_dbistate2; /* keep semicolon from feeling lonely */
+# undef  DBIS
+# define DBIS DBIS_PUBLISHED_LVALUE
+# define dbis DBIS_PUBLISHED_LVALUE /* temp for old drivers using 'dbis' instead of 'DBIS' */
 
 #else	/* plain and simple non perl object / multiplicity case */
 
 # define DBISTATE_DECLARE	static dbistate_t *DBIS
-# define DBISTATE_ASSIGN(st)	(DBIS = (st))
-# define DBISTATE_INIT_DBIS	DBISTATE_ASSIGN(INT2PTR(dbistate_t*, SvIV(DBISTATE_ADDRSV)))
+# define DBISTATE_INIT_DBIS	(DBIS = DBIS_PUBLISHED_LVALUE)
+#endif
+
 # define DBISTATE_INIT {	/* typically use in BOOT: of XS file	*/    \
     DBISTATE_INIT_DBIS;	\
     if (DBIS == NULL)	\
@@ -472,7 +474,6 @@ struct dbistate_st {
 		sizeof(dbih_drc_t), sizeof(dbih_dbc_t), sizeof(dbih_stc_t), sizeof(dbih_fdc_t) \
     ); \
 }
-#endif
 
 
 /* --- Assorted Utility Macros	--- */
@@ -512,7 +513,7 @@ struct dbistate_st {
 	    ? SvPV_nolen(*svp) : (dflt))
 
 #define DBD_ATTRIB_DELETE(attribs, key, klen)			\
-	hv_delete((HV*)attribs, key, klen, G_DISCARD)
+	hv_delete((HV*)SvRV(attribs), key, klen, G_DISCARD)
 
 #endif /* DBIXS_VERSION */
 /* end of DBIXS.h */

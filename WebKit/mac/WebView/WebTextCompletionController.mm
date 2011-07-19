@@ -28,10 +28,12 @@
 
 #import "WebTextCompletionController.h"
 
+#import "DOMNodeInternal.h"
 #import "DOMRangeInternal.h"
 #import "WebFrameInternal.h"
 #import "WebHTMLViewInternal.h"
 #import "WebTypesInternal.h"
+#import "WebView.h"
 #import <WebCore/Frame.h>
 
 @interface NSWindow (WebNSWindowDetails)
@@ -172,8 +174,8 @@ using namespace std;
         // Get preceeding word stem
         WebFrame *frame = [_htmlView _frame];
         DOMRange *selection = kit(core(frame)->selection()->toNormalizedRange().get());
-        DOMRange *wholeWord = [frame _rangeByAlteringCurrentSelection:SelectionController::EXTEND
-            direction:SelectionController::BACKWARD granularity:WordGranularity];
+        DOMRange *wholeWord = [frame _rangeByAlteringCurrentSelection:FrameSelection::AlterationExtend
+            direction:DirectionBackward granularity:WordGranularity];
         DOMRange *prefix = [wholeWord cloneRange];
         [prefix setEnd:[selection startContainer] offset:[selection startOffset]];
 
@@ -203,7 +205,7 @@ using namespace std;
             ASSERT(!_originalString);       // this should only be set IFF we have a popup window
             _originalString = [[frame _stringForRange:selection] retain];
             [self _buildUI];
-            NSRect wordRect = [frame _caretRectAtNode:[wholeWord startContainer] offset:[wholeWord startOffset] affinity:NSSelectionAffinityDownstream];
+            NSRect wordRect = [frame _caretRectAtPosition:Position(core([wholeWord startContainer]), [wholeWord startOffset], Position::PositionIsOffsetInAnchor) affinity:NSSelectionAffinityDownstream];
             // +1 to be under the word, not the caret
             // FIXME - 3769652 - Wrong positioning for right to left languages.  We should line up the upper
             // right corner with the caret instead of upper left, and the +1 would be a -1.
@@ -285,7 +287,7 @@ using namespace std;
         [self endRevertingChange:YES moveLeft:NO];
         return YES;
     }
-    if (c == ' ' || c >= 0x21 && c <= 0x2F || c >= 0x3A && c <= 0x40 || c >= 0x5B && c <= 0x60 || c >= 0x7B && c <= 0x7D) {
+    if (c == ' ' || (c >= 0x21 && c <= 0x2F) || (c >= 0x3A && c <= 0x40) || (c >= 0x5B && c <= 0x60) || (c >= 0x7B && c <= 0x7D)) {
         // FIXME: Is the above list of keys really definitive?
         // Originally this code called ispunct; aren't there other punctuation keys on international keyboards?
         [self endRevertingChange:NO moveLeft:NO];

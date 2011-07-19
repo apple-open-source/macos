@@ -1,6 +1,6 @@
 /*
 
-  Create a file with this name, 'fragments.i', in your working
+  Create a file with this name, 'rubyfragments.swg', in your working
   directory and add all the %fragments you want to take precedence
   over the ones defined by default by swig.
 
@@ -8,7 +8,7 @@
   
   %fragment(SWIG_AsVal_frag(int),"header") {
    SWIGINTERNINLINE int
-   SWIG_AsVal(int)(PyObject *obj, int *val)
+   SWIG_AsVal(int)(VALUE obj, int *val)
    { 
      <your code here>;
    }

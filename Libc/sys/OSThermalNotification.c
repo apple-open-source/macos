@@ -21,24 +21,55 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include <dispatch/dispatch.h>
 #include <libkern/OSThermalNotification.h>
 #include <notify.h>
 
-const char *kOSThermalNotificationName = "com.apple.system.thermalstatus";
+#define OSThermalStatusName "com.apple.system.thermalstatus"
+
+const char * const kOSThermalNotificationName = OSThermalStatusName; 
+
+static const char * const kOSThermalMitigationNames[kOSThermalMitigationCount] = {
+	OSThermalStatusName,
+	"com.apple.system.thermalmitigation.70percenttorch",
+	"com.apple.system.thermalmitigation.70percentbacklight",
+	"com.apple.system.thermalmitigation.50percenttorch",
+	"com.apple.system.thermalmitigation.50percentbacklight",
+	"com.apple.system.thermalmitigation.disabletorch",
+	"com.apple.system.thermalmitigation.25percentbacklight",
+	"com.apple.system.thermalmitigation.disablemapshalo",
+	"com.apple.system.thermalmitigation.appterminate",
+	"com.apple.system.thermalmitigation.devicerestart"
+};
+
+static int tokens[kOSThermalMitigationCount];
+static dispatch_once_t predicates[kOSThermalMitigationCount];
+
+OSThermalNotificationLevel _OSThermalNotificationLevelForBehavior(int behavior)
+{
+	uint64_t val = OSThermalNotificationLevelAny;
+	if (behavior >= 0 && behavior < kOSThermalMitigationCount) {
+		dispatch_once(&predicates[behavior], ^{
+				(void)notify_register_check(kOSThermalMitigationNames[behavior], &tokens[behavior]);
+		});
+		(void)notify_get_state(tokens[behavior], &val);
+	}
+	return (OSThermalNotificationLevel)val;
+}
+
+void _OSThermalNotificationSetLevelForBehavior(int level, int behavior)
+{
+	uint64_t val = (uint64_t)level;
+	if (behavior >= 0 && behavior < kOSThermalMitigationCount) {
+		dispatch_once(&predicates[behavior], ^{
+				(void)notify_register_check(kOSThermalMitigationNames[behavior], &tokens[behavior]);
+		});
+		(void)notify_set_state(tokens[behavior], val);
+	}
+}
+
 
 OSThermalNotificationLevel OSThermalNotificationCurrentLevel(void)
 {
-	uint64_t val;
-	int token;
-
-	if (NOTIFY_STATUS_OK != notify_register_check(kOSThermalNotificationName, &token))
-		return OSThermalNotificationLevelAny;
-
-	if (NOTIFY_STATUS_OK != notify_get_state(token, &val))
-		return OSThermalNotificationLevelAny;
-
-	if (NOTIFY_STATUS_OK != notify_cancel(token))
-		return OSThermalNotificationLevelAny;
-
-	return (OSThermalNotificationLevel)val;
+	return _OSThermalNotificationLevelForBehavior(kOSThermalMitigationNone);
 }

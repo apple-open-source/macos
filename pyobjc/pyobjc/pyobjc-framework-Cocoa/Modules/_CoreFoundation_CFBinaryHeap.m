@@ -1,18 +1,13 @@
 /*
  * Manual wrappers for CFBinaryHeap
  */
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-#import <Foundation/Foundation.h>
 
 @interface NSObject (OC_Comparison)
 -(NSComparisonResult)compare:(NSObject*)other;
 @end
 
 
-static const void *mod_retain (CFAllocatorRef allocator __attribute__((__unused__)), const void *ptr)
+static const void *mod_binheap_retain (CFAllocatorRef allocator __attribute__((__unused__)), const void *ptr)
 {
 	if (ptr) {
 		CFRetain(ptr);
@@ -20,22 +15,24 @@ static const void *mod_retain (CFAllocatorRef allocator __attribute__((__unused_
 	return ptr;
 }
 
-static void mod_release (CFAllocatorRef allocator __attribute__((__unused__)), const void *ptr)
+static void mod_binheap_release (CFAllocatorRef allocator __attribute__((__unused__)), const void *ptr)
 {
 	if (ptr) {
 		CFRelease(ptr);
 	}
 }
 
-static CFStringRef mod_copydescription(const void* ptr)
+static CFStringRef mod_binheap_copydescription(const void* ptr)
 {
-	return CFCopyDescription(ptr);	
+	CFStringRef r =  CFCopyDescription(ptr);	
+	return r;
 }
 
-CFComparisonResult mod_compare(const void *ptr1, const void *ptr2, void *info __attribute__((__unused__)))
+CFComparisonResult mod_binheap_compare(const void *ptr1, const void *ptr2, void *info __attribute__((__unused__)))
 {
 	NSObject* o1 = (NSObject*)ptr1;
 	NSObject* o2 = (NSObject*)ptr2;
+
 
 	NSComparisonResult result = [o1 compare:o2];
 	return (CFComparisonResult)result;
@@ -44,10 +41,10 @@ CFComparisonResult mod_compare(const void *ptr1, const void *ptr2, void *info __
 
 static CFBinaryHeapCallBacks mod_NSObjectBinaryHeapCallbacks = {
 	0, 
-	mod_retain,
-	mod_release,
-	mod_copydescription,
-	mod_compare
+	mod_binheap_retain,
+	mod_binheap_release,
+	mod_binheap_copydescription,
+	mod_binheap_compare
 };
 
 
@@ -56,7 +53,7 @@ mod_CFBinaryHeapCreate(PyObject* self __attribute__((__unused__)),
 	PyObject* args)
 {
 	PyObject* py_allocator;
-	Py_ssize_t count;
+	Py_ssize_t count = -1;
 	CFAllocatorRef allocator;
 	CFBinaryHeapRef heap;
 
@@ -110,28 +107,16 @@ mod_CFBinaryHeapGetValues(
 	return result;
 }
 
-
-static PyMethodDef mod_methods[] = {
-        {
-		"CFBinaryHeapCreate",
-		(PyCFunction)mod_CFBinaryHeapCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_CFBINARYHEAP_METHODS \
+        { \
+		"CFBinaryHeapCreate", \
+		(PyCFunction)mod_CFBinaryHeapCreate, \
+		METH_VARARGS, \
+		NULL \
+	}, \
+        { \
+		"CFBinaryHeapGetValues", \
+		(PyCFunction)mod_CFBinaryHeapGetValues, \
+		METH_VARARGS, \
+		NULL \
 	},
-        {
-		"CFBinaryHeapGetValues",
-		(PyCFunction)mod_CFBinaryHeapGetValues,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFBinaryHeap(void);
-void init_CFBinaryHeap(void)
-{
-	PyObject* m = Py_InitModule4("_CFBinaryHeap", mod_methods, "", NULL,
-		PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

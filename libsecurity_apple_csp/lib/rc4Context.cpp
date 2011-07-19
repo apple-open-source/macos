@@ -25,7 +25,10 @@
 
 RC4Context::~RC4Context()
 {
-	memset(&rc4Key, 0, sizeof(RC4_KEY));
+    if (rc4Key != NULL) {
+        CCCryptorRelease(rc4Key);
+    }
+    rc4Key = NULL;
 }
 	
 /* 
@@ -43,13 +46,14 @@ void RC4Context::init(
 	symmetricKeyBits(context, session(), CSSM_ALGID_RC4, 
 		encrypting ? CSSM_KEYUSE_ENCRYPT : CSSM_KEYUSE_DECRYPT,
 		keyData, keyLen);
-	if((keyLen < RC4_MIN_KEY_SIZE_BYTES) || (keyLen > RC4_MAX_KEY_SIZE_BYTES)) {
+	if((keyLen < kCCKeySizeMinRC4) || (keyLen > kCCKeySizeMaxRC4)) {
 		CssmError::throwMe(CSSMERR_CSP_INVALID_ATTR_KEY);
 	}
 	
 	/* All other context attributes ignored */
 	/* init the low-level state */
-	RC4_set_key(&rc4Key, keyLen, keyData);
+    (void) CCCryptorCreateWithMode(0, kCCModeRC4, kCCAlgorithmRC4, ccDefaultPadding, NULL, keyData, keyLen, NULL, 0, 0, 0, &rc4Key);
+
 }	
 
 /*
@@ -61,8 +65,7 @@ void RC4Context::update(
 	void 			*outp, 
 	size_t 			&outSize)			// in/out
 {
-	RC4(&rc4Key, inSize, (unsigned char *)inp, (unsigned char *)outp);
-	outSize = inSize;
+    (void) CCCryptorUpdate(rc4Key, inp, inSize, outp, inSize, &outSize);
 }
 
 /* remainding functions are trivial for any stream cipher */

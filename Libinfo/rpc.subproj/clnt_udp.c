@@ -77,7 +77,7 @@ static char *rcsid = "$Id: clnt_udp.c,v 1.4 2002/03/15 22:07:49 majka Exp $";
 extern int	bindresvport();
 extern bool_t	xdr_opaque_auth();
 
-__private_extern__ u_short pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout);
+extern u_short pmap_getport_timeout(struct sockaddr_in *address, uint32_t program, uint32_t version, uint32_t protocol, struct timeval *timeout, struct timeval *totaltimeout);
 
 extern int errno;
 
@@ -135,7 +135,7 @@ struct cu_data {
  * sendsz and recvsz are the maximum allowable packet sizes that can be
  * sent and received.
  */
-__private_extern__ CLIENT *
+CLIENT *
 clntudp_bufcreate_timeout(struct sockaddr_in *raddr, uint32_t program, uint32_t version, int *sockp, uint32_t sendsz, uint32_t recvsz, struct timeval *retry_timeout, struct timeval *total_timeout)
 {
 	CLIENT *cl;

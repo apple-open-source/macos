@@ -25,7 +25,7 @@
  */
 
 #include "test.h"
-__FBSDID("$FreeBSD: src/lib/libarchive/test/test_write_compress.c,v 1.4 2008/12/17 19:05:25 kientzle Exp $");
+__FBSDID("$FreeBSD: head/lib/libarchive/test/test_write_compress.c 189308 2009-03-03 17:02:51Z kientzle $");
 
 /*
  * A basic exercise of compress reading and writing.
@@ -88,7 +88,7 @@ DEFINE_TEST(test_write_compress)
 		if (!assertEqualInt(0, archive_read_next_header(a, &ae)))
 			break;
 		assertEqualString(path, archive_entry_pathname(ae));
-		assertEqualInt(datasize, archive_entry_size(ae));
+		assertEqualInt((int)datasize, archive_entry_size(ae));
 	}
 	assert(0 == archive_read_close(a));
 #if ARCHIVE_VERSION_NUMBER < 2000000

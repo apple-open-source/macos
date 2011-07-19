@@ -392,6 +392,7 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
         // from the OS point of view, only it's an HFS or boot partition, it needs a booter
 
         if(CFEqual(content, CFSTR("Apple_HFS"))  ||
+           CFEqual(content, CFSTR("Apple_HFSX")) ||
            CFEqual(content, CFSTR("Apple_Boot")) ||
            CFEqual(content, CFSTR("Apple_Boot_RAID")) ) {
             needsBooter = false;
@@ -455,24 +456,32 @@ static int addDataPartitionInfo(BLContextPtr context, io_service_t dataPartition
                         if(childBSDName && (CFGetTypeID(childBSDName) == CFStringGetTypeID())) {
                             if(!CFArrayContainsValue(booterPartitions,CFRangeMake(0, CFArrayGetCount(booterPartitions)), childBSDName)) {
                                 CFArrayAppendValue(booterPartitions, childBSDName);
+                                contextprintf(context, kBLLogLevelVerbose,  "Booter partition found\n" );                        
                             }
                         }
-                        CFRelease(childBSDName);
-                        contextprintf(context, kBLLogLevelVerbose,  "Booter partition found\n" );                        
+                        
+                        if (childBSDName) {
+                            CFRelease(childBSDName);
+                        }
                     }
                 } else if(neededSystemContent && CFEqual(childContent, neededSystemContent)) {
                     childBSDName = IORegistryEntryCreateCFProperty(child, CFSTR(kIOBSDNameKey), kCFAllocatorDefault, 0);
                     if(childBSDName && (CFGetTypeID(childBSDName) == CFStringGetTypeID())) {
                         if(!CFArrayContainsValue(systemPartitions,CFRangeMake(0, CFArrayGetCount(systemPartitions)), childBSDName)) {
                             CFArrayAppendValue(systemPartitions, childBSDName);
+                            contextprintf(context, kBLLogLevelVerbose,  "System partition found\n" );                    
                         }
                     }
-                    CFRelease(childBSDName);
-                    contextprintf(context, kBLLogLevelVerbose,  "System partition found\n" );                    
+                    
+                    if (childBSDName) {
+                        CFRelease(childBSDName);
+                    }
                 }
             }
             
-            if(childContent) CFRelease(childContent);
+            if(childContent) {
+                CFRelease(childContent);
+            }
             
             IOObjectRelease(child);
         }

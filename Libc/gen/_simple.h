@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2006, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -127,3 +127,4 @@ void _simple_sfree(_SIMPLE_STRING __b);
  * requires knowledge of the format used by ASL.
  */
 void _simple_asl_log(int __level, const char *__facility, const char *__message);
+void _simple_asl_log_prog(int level, const char *facility, const char *message, const char *progname);

@@ -31,23 +31,6 @@ static const OSSymbol *fake_batt_dict_sym =
 OSDefineMetaClassAndStructors(BatteryFaker,IOService)
 
 /******************************************************************************
- * BatteryFakerKEXT::init
- *
- ******************************************************************************/
-
-bool BatteryFaker::init(void) 
-{
-    if(!super::init()) {
-        return false;
-    }
-
-    fProvider = NULL;
-
-    return true;
-}
-
-
-/******************************************************************************
  * BatteryFakerKEXT::start
  *
  ******************************************************************************/
@@ -67,21 +50,16 @@ bool BatteryFaker::start(IOService *provider)
     for(i=0; i<kUseNumBatteries; i++)
     {
         batteries[i] = BatteryFakerObject::fakerObject( i );
-
         if(NULL == batteries[i]) {
             return false;
         }
-
         batteries[i]->attach(this);
-        
         batteries[i]->start(this);
-        
+        batteries[i]->setProperty("AppleSoftwareSimulatedBattery", kOSBooleanTrue);       
         batteries[i]->registerService(0);
-
     }
     
     this->registerService(0);
-    
     return true;
 }
 
@@ -92,7 +70,8 @@ void BatteryFaker::stop( IOService *provider )
     for(i=0; i<kUseNumBatteries; i++)
     {
         if(batteries[i]) {
-            batteries[i]->stop(this);
+            batteries[i]->detach(this);
+            batteries[i]->release();
         }
     }
 
@@ -135,22 +114,6 @@ IOReturn BatteryFaker::setProperties(OSObject *arg_props)
 #define super IOPMPowerSource
 OSDefineMetaClassAndStructors(BatteryFakerObject, IOPMPowerSource)
 
-/******************************************************************************
- * BatteryFakerObject::init
- *
- ******************************************************************************/
-
-bool BatteryFakerObject::init(void) 
-{
-    if(!super::init()) {
-        return false;
-    }
-
-    fProvider = NULL;
-
-    return true;
-}
-
 
 /******************************************************************************
  * BatteryFakerObject::start
@@ -168,32 +131,8 @@ BatteryFakerObject  *BatteryFakerObject::fakerObject(int i)
         ret_obj->release();
         return NULL;
     }
-    
-    if(ret_obj) {
-        ret_obj->fBatteryIndex = i;
-    }
-    
     return ret_obj;
 }
-
-bool BatteryFakerObject::start(IOService *provider)
-{    
-    if( !super::start( provider ) ) {
-        return false;
-    }
-
-    return true;
-}
-
-void BatteryFakerObject::stop( IOService *provider )
-{
-    super::stop(provider);
-
-    IOLog("BatteryFakerObject unloading.\n");
-          
-    return;
-}
-
 
 IOReturn BatteryFakerObject::setBatteryProperties(OSDictionary *d)
 {
@@ -206,27 +145,13 @@ IOReturn BatteryFakerObject::setBatteryProperties(OSDictionary *d)
         return 0;
     }
     
-#if 0
-    OSIterator  *iter = OSCollectionIterator::withCollection(d);
-    OSSymbol    *key = NULL;
-    IOLog("BatteryFakerObject::setBatteryProperties - Dictionary count = %d\n",
-            d->getCount());
-    while (key = OSDynamicCast(OSSymbol, iter->getNextObject())) 
-    {
-        OSNumber *num = OSDynamicCast(OSNumber, d->getObject(key));
-        IOLog("BatteryFakerObject::setBatteryProperties @\"%s\" = %d\n",
-                    key->getCStringNoCopy(),
-                    num ? num->unsigned32BitValue() : 0);
-    }
-    
-#endif
-    
     setProperty("PropertiesDict", d);
 
     d = OSDictionary::withDictionary(d);
 
-    if(properties) properties->release();
-
+    if(properties) {
+        properties->release();
+    }
     properties = d;
     
     // And trigger the update with the new fake dictionary

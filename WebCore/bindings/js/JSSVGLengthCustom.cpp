@@ -22,28 +22,76 @@
 #if ENABLE(SVG)
 #include "JSSVGLength.h"
 
+#include <runtime/Error.h>
+#include "SVGAnimatedProperty.h"
+#include "SVGException.h"
+
 using namespace JSC;
 
 namespace WebCore {
 
 JSValue JSSVGLength::value(ExecState* exec) const
 {
-    JSSVGPODTypeWrapper<SVGLength>* imp = impl();
-    SVGElement* context = JSSVGContextCache::svgContextForDOMObject(const_cast<JSSVGLength*>(this));
+    SVGLength& podImp = impl()->propertyReference();
+    ExceptionCode ec = 0;
+    float value = podImp.value(impl()->contextElement(), ec);
+    if (ec) {
+        setDOMException(exec, ec);
+        return jsUndefined();
+    }
 
-    SVGLength podImp(*imp);
-    return jsNumber(exec, podImp.value(context));
+    return jsNumber(value);
 }
 
-JSValue JSSVGLength::convertToSpecifiedUnits(ExecState* exec, const ArgList& args)
+void JSSVGLength::setValue(ExecState* exec, JSValue value)
 {
-    JSSVGPODTypeWrapper<SVGLength>* imp = impl();
-    SVGElement* context = JSSVGContextCache::svgContextForDOMObject(this);
+    if (impl()->role() == AnimValRole) {
+        setDOMException(exec, NO_MODIFICATION_ALLOWED_ERR);
+        return;
+    }
 
-    SVGLength podImp(*imp);
-    podImp.convertToSpecifiedUnits(args.at(0).toInt32(exec), context);
+    if (!value.isUndefinedOrNull() && !value.isNumber() && !value.isBoolean()) {
+        throwVMTypeError(exec);
+        return;
+    }
 
-    imp->commitChange(podImp, this);
+    SVGLength& podImp = impl()->propertyReference();
+
+    ExceptionCode ec = 0;
+    podImp.setValue(value.toFloat(exec), impl()->contextElement(), ec);
+    if (ec) {
+        setDOMException(exec, ec);
+        return;
+    }
+
+    impl()->commitChange();
+}
+
+JSValue JSSVGLength::convertToSpecifiedUnits(ExecState* exec)
+{
+    if (impl()->role() == AnimValRole) {
+        setDOMException(exec, NO_MODIFICATION_ALLOWED_ERR);
+        return jsUndefined();
+    }
+
+    SVGLength& podImp = impl()->propertyReference();
+
+    // Mimic the behaviour of RequiresAllArguments=Raise.
+    if (exec->argumentCount() < 1)
+        return throwError(exec, createSyntaxError(exec, "Not enough arguments"));
+
+    unsigned short unitType = exec->argument(0).toUInt32(exec);
+    if (exec->hadException())
+        return jsUndefined();
+
+    ExceptionCode ec = 0;
+    podImp.convertToSpecifiedUnits(unitType, impl()->contextElement(), ec);
+    if (ec) {
+        setDOMException(exec, ec);
+        return jsUndefined();
+    }
+
+    impl()->commitChange();
     return jsUndefined();
 }
 

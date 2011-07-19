@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: simplepost.c,v 1.4 2008-05-22 21:20:09 danf Exp $
  */
 
 #include <stdio.h>
@@ -21,7 +20,7 @@ int main(void)
 
   curl = curl_easy_init();
   if(curl) {
-    curl_easy_setopt(curl, CURLOPT_URL, "http://posthere.com");
+    curl_easy_setopt(curl, CURLOPT_URL, "http://example.com");
     curl_easy_setopt(curl, CURLOPT_POSTFIELDS, postthis);
 
     /* if we don't provide POSTFIELDSIZE, libcurl will strlen() by

@@ -36,8 +36,8 @@ struct IOMbufQueue;
 // We do not want the enqueue/dequeue macros defined in queue.h.
 //
 // #warning queue.h should not be included
-#undef enqueue(queue,elt)
-#undef dequeue(queue)
+#undef enqueue
+#undef dequeue
 
 /*! @class IOPacketQueue
     @abstract Implements a bounded FIFO queue of mbuf packets. 

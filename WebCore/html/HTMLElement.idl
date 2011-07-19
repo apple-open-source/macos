@@ -26,14 +26,16 @@ module html {
     ] HTMLElement : Element {
                  // iht.com relies on id returning the empty string when no id is present. 
                  // Other browsers do this as well. So we don't convert null to JS null.
-                 attribute [ConvertNullToNullString, Reflect] DOMString id;
-                 attribute [ConvertNullToNullString, Reflect] DOMString title;
-                 attribute [ConvertNullToNullString, Reflect] DOMString lang;
-                 attribute [ConvertNullToNullString, Reflect] DOMString dir;
-                 attribute [ConvertNullToNullString, Reflect=class] DOMString className;
+                 attribute [Reflect] DOMString id;
+                 attribute [Reflect] DOMString title;
+                 attribute [Reflect] DOMString lang;
+                 attribute [Reflect] DOMString dir;
+                 attribute [Reflect=class] DOMString className;
+                 readonly attribute DOMTokenList classList;
 
-                 attribute long            tabIndex;
-                 attribute boolean         draggable;
+                 attribute long              tabIndex;
+                 attribute boolean           draggable;
+                 attribute [Reflect] boolean hidden;
 
         // Extensions
                  attribute [ConvertNullToNullString] DOMString innerHTML
@@ -57,8 +59,11 @@ module html {
 
         readonly attribute HTMLCollection children;
 
-                 attribute [ConvertNullToNullString] DOMString contentEditable;
+                 attribute [ConvertNullToNullString] DOMString contentEditable
+                     setter raises(DOMException);
         readonly attribute boolean isContentEditable;
+
+                 attribute boolean spellcheck;
 
 #if defined(LANGUAGE_OBJECTIVE_C) && LANGUAGE_OBJECTIVE_C
         readonly attribute DOMString titleDisplayString;

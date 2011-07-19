@@ -230,12 +230,12 @@ This testcase tests operators for defines
 
 #ifdef __cplusplus
 		   
-#define %mangle(...) #@__VA_ARGS__
-#define %mangle_str(...) ##@__VA_ARGS__
+#define %mangle_macro(...) #@__VA_ARGS__
+#define %mangle_macro_str(...) ##@__VA_ARGS__
 
 %define my_func(...)
-inline const char* mangle ## #@__VA_ARGS__ () {
-  return %mangle_str(__VA_ARGS__);
+inline const char* mangle_macro ## #@__VA_ARGS__ () {
+  return %mangle_macro_str(__VA_ARGS__);
 }
 %enddef
 
@@ -312,3 +312,33 @@ int test(int defined)
 
 #define MASK(shift, size) (((1 << (size)) - 1) <<(shift))
 #define SOME_MASK_DEF (80*MASK(8, 10))
+
+/* some constants */
+#define BOLTZMANN    (1.380658e-23)
+#define AVOGADRO     (6.0221367e23)
+#define RGAS         (BOLTZMANN*AVOGADRO)
+#define RGASX        (BOLTZMANN*AVOGADRO*BOLTZMANN)
+
+%{
+#define TEUCHOS_TYPE_NAME_TRAITS_BUILTIN_TYPE_SPECIALIZATION(TYPE) \
+struct TypeNameTraits { \
+  int val; \
+} \
+
+%}
+
+
+#define TEUCHOS_TYPE_NAME_TRAITS_BUILTIN_TYPE_SPECIALIZATION(TYPE) \
+struct TypeNameTraits { \
+  int val; \
+} \
+
+%inline %{
+TEUCHOS_TYPE_NAME_TRAITS_BUILTIN_TYPE_SPECIALIZATION(int);
+%}
+
+%inline %{
+int method(struct TypeNameTraits tnt) {
+  return tnt.val;
+}
+%}

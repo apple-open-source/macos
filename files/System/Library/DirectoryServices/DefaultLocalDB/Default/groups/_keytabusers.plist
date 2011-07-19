@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>dsAttrTypeStandard:AppleMetaNodeLocation</key>
+	<array>
+		<string>/Local/Default</string>
+	</array>
+	<key>generateduid</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF0000001E</string>
+	</array>
+	<key>gid</key>
+	<array>
+		<string>30</string>
+	</array>
+	<key>groupmembers</key>
+	<array>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000005D</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000054</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA0000001B</string>
+		<string>FFFFEEEE-DDDD-CCCC-BBBB-AAAA00000056</string>
+	</array>
+	<key>name</key>
+	<array>
+		<string>_keytabusers</string>
+	</array>
+	<key>nestedgroups</key>
+	<array>
+		<string>ABCDEFAB-CDEF-ABCD-EFAB-CDEF00000006</string>
+	</array>
+	<key>realname</key>
+	<array>
+		<string>keytabusers</string>
+	</array>
+	<key>passwd</key>
+	<array>
+		<string>*</string>
+	</array>
+	<key>users</key>
+	<array>
+		<string>_calendar</string>
+		<string>_jabber</string>
+		<string>_postfix</string>
+		<string>_xgridagent</string>
+	</array>
+</dict>
+</plist>

@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  weakblock.m
 //  testObjects
@@ -5,11 +11,13 @@
 //  Created by Blaine Garst on 10/30/08.
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
-// CONFIG RR rdar://5847976
+// TEST_CFLAGS -framework Foundation
 //
+// rdar://5847976
 // Super basic test - does compiler a) compile and b) call out on assignments
 
 #import <Foundation/Foundation.h>
+#import "test.h"
 
 // provide our own version for testing
 
@@ -28,8 +36,7 @@ int recovered = 0;
 
 @implementation TestObject
 - (id)retain {
-    printf("Whoops, retain called!\n");
-    exit(1);
+    fail("Whoops, retain called!");
 }
 - (void)finalize {
     ++recovered;
@@ -45,17 +52,18 @@ int recovered = 0;
 void testRR() {
     // create test object
     TestObject *to = [[TestObject alloc] init];
-    __block TestObject *__weak  testObject = to;    // iniitialization does NOT require support function
+    __block TestObject *__weak  testObject __unused = to;    // iniitialization does NOT require support function
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     NSAutoreleasePool *pool = [[NSAutoreleasePool alloc] init];
     GotCalled = 0;
     testRR();
     if (GotCalled == 1) {
-        printf("called out to support function on initialization\n");
+        fail("called out to support function on initialization");
         return 1;
     }
-    printf("%s: Success\n", argv[0]);
-    return 0;
+    [pool drain];
+
+    succeed(__FILE__);
 }

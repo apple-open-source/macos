@@ -9,7 +9,7 @@
 # Copyright (c) 2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: Xcontrol,v 1.2 2008/10/11 23:23:48 andreas_kupries Exp $
+# RCS: @(#) $Id: Xcontrol,v 1.3 2009/09/24 16:23:47 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -40,6 +40,7 @@ source ${SELF}/arc/move-target.test
 source ${SELF}/arc/rename.test
 source ${SELF}/arc/source.test
 source ${SELF}/arc/target.test
+source ${SELF}/arc/nodes.test
 source ${SELF}/arc/getweight.test
 source ${SELF}/arc/getunweighted.test
 source ${SELF}/arc/hasweight.test

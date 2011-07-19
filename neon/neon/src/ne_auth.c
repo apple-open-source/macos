@@ -1,6 +1,6 @@
 /* 
    HTTP Authentication routines
-   Copyright (C) 1999-2008, Joe Orton <joe@manyfish.co.uk>
+   Copyright (C) 1999-2009, Joe Orton <joe@manyfish.co.uk>
 
    This library is free software; you can redistribute it and/or
    modify it under the terms of the GNU Library General Public
@@ -77,6 +77,10 @@
 #include "ne_sspi.h"
 #endif
 
+#ifdef HAVE_NTLM
+#include "ne_ntlm.h"
+#endif
+ 
 #define HOOK_SERVER_ID "http://webdav.org/neon/hooks/server-auth"
 #define HOOK_PROXY_ID "http://webdav.org/neon/hooks/proxy-auth"
 
@@ -172,6 +176,10 @@ typedef struct {
     /* This is used for SSPI (Negotiate/NTLM) auth */
     char *sspi_token;
     void *sspi_context;
+#endif
+#ifdef HAVE_NTLM
+     /* This is used for NTLM auth */
+     ne_ntlm_context *ntlm_context;
 #endif
     /* These all used for Digest auth */
     char *realm;
@@ -287,6 +295,13 @@ static void clean_session(auth_session *sess)
     ne_sspi_destroy_context(sess->sspi_context);
     sess->sspi_context = NULL;
 #endif
+#ifdef HAVE_NTLM
+    if (sess->ntlm_context) {
+        ne__ntlm_destroy_context(sess->ntlm_context);
+        sess->ntlm_context = NULL;
+    }
+#endif
+
     sess->protocol = NULL;
 }
 
@@ -688,6 +703,53 @@ static int parse_domain(auth_session *sess, const char *domain)
     return invalid;
 }
 
+#ifdef HAVE_NTLM
+
+static char *request_ntlm(auth_session *sess, struct auth_request *request) 
+{
+    char *token = ne__ntlm_getRequestToken(sess->ntlm_context);
+    if (token) {
+        char *req = ne_concat(sess->protocol->name, " ", token, "\r\n", NULL);
+        ne_free(token);
+        return req;
+    } else {
+        return NULL;
+    }
+}
+
+static int ntlm_challenge(auth_session *sess, int attempt,
+                          struct auth_challenge *parms,
+                          ne_buffer **errmsg) 
+{
+    int status;
+    
+    NE_DEBUG(NE_DBG_HTTPAUTH, "auth: NTLM challenge.\n");
+    
+    if (!parms->opaque) {
+        char password[NE_ABUFSIZ];
+
+        if (get_credentials(sess, errmsg, attempt, parms, password)) {
+            /* Failed to get credentials */
+            return -1;
+        }
+
+        if (sess->ntlm_context) {
+            ne__ntlm_destroy_context(sess->ntlm_context);
+            sess->ntlm_context = NULL;
+        }
+
+        sess->ntlm_context = ne__ntlm_create_context(sess->username, password);
+    }
+
+    status = ne__ntlm_authenticate(sess->ntlm_context, parms->opaque);
+    if (status) {
+        return status;
+    }
+
+    return 0;
+}
+#endif /* HAVE_NTLM */
+  
 /* Examine a digest challenge: return 0 if it is a valid Digest challenge,
  * else non-zero. */
 static int digest_challenge(auth_session *sess, int attempt,
@@ -708,7 +770,7 @@ static int digest_challenge(auth_session *sess, int attempt,
         challenge_error(errmsg, _("missing parameter in Digest challenge"));
 	return -1;
     }
-    else if (parms->stale && sess->nonce_count == 0) {
+    else if (parms->stale && sess->realm == NULL) {
         challenge_error(errmsg, _("initial Digest challenge was stale"));
         return -1;
     }
@@ -1126,16 +1188,21 @@ static const struct auth_protocol protocols[] = {
       digest_challenge, request_digest, verify_digest_response,
       0 },
 #ifdef HAVE_GSSAPI
-    { NE_AUTH_NEGOTIATE, 30, "Negotiate",
+    { NE_AUTH_GSSAPI, 30, "Negotiate",
       negotiate_challenge, request_negotiate, verify_negotiate_response,
       AUTH_FLAG_OPAQUE_PARAM|AUTH_FLAG_VERIFY_NON40x|AUTH_FLAG_CONN_AUTH },
 #endif
 #ifdef HAVE_SSPI
-    { NE_AUTH_NEGOTIATE, 30, "NTLM",
+    { NE_AUTH_NTLM, 30, "NTLM",
       sspi_challenge, request_sspi, NULL,
       AUTH_FLAG_OPAQUE_PARAM|AUTH_FLAG_VERIFY_NON40x|AUTH_FLAG_CONN_AUTH },
-    { NE_AUTH_NEGOTIATE, 30, "Negotiate",
+    { NE_AUTH_GSSAPI, 30, "Negotiate",
       sspi_challenge, request_sspi, NULL,
+      AUTH_FLAG_OPAQUE_PARAM|AUTH_FLAG_VERIFY_NON40x|AUTH_FLAG_CONN_AUTH },
+#endif
+#ifdef HAVE_NTLM
+    { NE_AUTH_NTLM, 30, "NTLM",
+      ntlm_challenge, request_ntlm, NULL,
       AUTH_FLAG_OPAQUE_PARAM|AUTH_FLAG_VERIFY_NON40x|AUTH_FLAG_CONN_AUTH },
 #endif
     { 0 }
@@ -1489,6 +1556,11 @@ static void auth_register(ne_session *sess, int isproxy, unsigned protomask,
         }
     }
 
+    if ((protomask & NE_AUTH_NEGOTIATE) == NE_AUTH_NEGOTIATE) {
+        /* Map NEGOTIATE to NTLM | GSSAPI. */
+        protomask |= NE_AUTH_GSSAPI | NE_AUTH_NTLM;
+    }
+
     ahs = ne_get_session_private(sess, id);
     if (ahs == NULL) {
         ahs = ne_calloc(sizeof *ahs);
@@ -1513,7 +1585,7 @@ static void auth_register(ne_session *sess, int isproxy, unsigned protomask,
     }
 
 #ifdef HAVE_GSSAPI
-    if (protomask & NE_AUTH_NEGOTIATE && ahs->gssname == GSS_C_NO_NAME) {
+    if ((protomask & NE_AUTH_GSSAPI) && ahs->gssname == GSS_C_NO_NAME) {
         ne_uri uri = {0};
         
         if (isproxy)

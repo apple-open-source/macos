@@ -24,7 +24,9 @@ AEP_ExtractDir = $(AEP_ProjVers)
 #
 # Update $(Project).plist when changing AEP_Patches
 #
-AEP_Patches    = scanEOF.diff filter-stdin.diff Makefile.in.diff libmain.c.diff main.c.diff Wall.diff W64-32.diff
+AEP_Patches    = scanEOF.diff filter-stdin.diff Makefile.in.diff \
+	libmain.c.diff main.c.diff Wall.diff W64-32.diff \
+	Wsign-compare.diff
 
 ifeq ($(suffix $(AEP_Filename)),.bz2)
 AEP_ExtractOption = j
@@ -35,6 +37,10 @@ endif
 OSV = $(DSTROOT)/usr/local/OpenSourceVersions
 OSL = $(DSTROOT)/usr/local/OpenSourceLicenses
 
+ifneq ($(INSTALL_LOCATION),)
+Install_Prefix=$(INSTALL_LOCATION)/usr
+endif
+
 # Extract the source.
 install_source::
 ifeq ($(AEP),YES)
@@ -42,7 +48,8 @@ ifeq ($(AEP),YES)
 	$(RMDIR) $(SRCROOT)/$(Project)
 	$(MV) $(SRCROOT)/$(AEP_ExtractDir) $(SRCROOT)/$(Project)
 	for patchfile in $(AEP_Patches); do \
-		cd $(SRCROOT)/$(Project) && patch -p0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
+		printf "Applying $$patchfile\n"; \
+		patch -d $(SRCROOT)/$(Project) -p0 -F0 < $(SRCROOT)/patches/$$patchfile || exit 1; \
 	done
 	# Avoid calling help2man
 	printf "1d\nw\nq\n" | ed -s $(SRCROOT)/$(Project)/doc/flex.1
@@ -50,13 +57,21 @@ ifeq ($(AEP),YES)
 endif
 
 after_install::
-	$(INSTALL) lex.sh $(DSTROOT)$(USRBINDIR)/lex
+ifneq ($(INSTALL_LOCATION),)
+	# not wanted
+	$(RM) -rf $(DSTROOT)/usr $(DSTROOT)/$(INSTALL_LOCATION)/$(USRLIBDIR) 
+	$(INSTALL) lex.sh $(DSTROOT)/$(INSTALL_LOCATION)$(USRBINDIR)/lex
+	$(LN) -fs flex $(DSTROOT)/$(INSTALL_LOCATION)$(USRBINDIR)/flex++
+	$(RM) -rf 
+else
+	$(LN) -fs flex $(DSTROOT)$(USRBINDIR)/flex++
 	$(LN) -f $(DSTROOT)/usr/share/man/man1/flex.1 $(DSTROOT)/usr/share/man/man1/flex++.1
 	$(LN) -f $(DSTROOT)/usr/share/man/man1/flex.1 $(DSTROOT)/usr/share/man/man1/lex.1
-	$(LN) -fs flex $(DSTROOT)$(USRBINDIR)/flex++
+	$(INSTALL) lex.sh $(DSTROOT)$(USRBINDIR)/lex
 	$(LN) -fs libfl.a $(DSTROOT)$(USRLIBDIR)/libl.a
 	$(MKDIR) $(OSV)
 	$(INSTALL_FILE) "$(SRCROOT)/$(Project).plist" $(OSV)/$(Project).plist
 	$(MKDIR) $(OSL)
 	$(INSTALL_FILE) $(Sources)/COPYING $(OSL)/$(Project).txt
 	$(RM) -f "$(DSTROOT)/usr/share/info/dir"
+endif

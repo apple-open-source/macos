@@ -22,11 +22,16 @@
 #include "webkithittestresult.h"
 
 #include "GOwnPtr.h"
+#include "GRefPtr.h"
+#include "HitTestResult.h"
+#include "KURL.h"
+#include "WebKitDOMBinding.h"
+#include "WebKitDOMNode.h"
 #include "webkitenumtypes.h"
-#include "webkitprivate.h"
-#include <wtf/text/CString.h>
-
+#include "webkitglobals.h"
+#include "webkitglobalsprivate.h"
 #include <glib/gi18n-lib.h>
+#include <wtf/text/CString.h>
 
 /**
  * SECTION:webkithittestresult
@@ -43,9 +48,8 @@ struct _WebKitHitTestResultPrivate {
     char* linkURI;
     char* imageURI;
     char* mediaURI;
+    GRefPtr<WebKitDOMNode> innerNode;
 };
-
-#define WEBKIT_HIT_TEST_RESULT_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_HIT_TEST_RESULT, WebKitHitTestResultPrivate))
 
 enum {
     PROP_0,
@@ -53,7 +57,8 @@ enum {
     PROP_CONTEXT,
     PROP_LINK_URI,
     PROP_IMAGE_URI,
-    PROP_MEDIA_URI
+    PROP_MEDIA_URI,
+    PROP_INNER_NODE
 };
 
 static void webkit_hit_test_result_finalize(GObject* object)
@@ -66,6 +71,13 @@ static void webkit_hit_test_result_finalize(GObject* object)
     g_free(priv->mediaURI);
 
     G_OBJECT_CLASS(webkit_hit_test_result_parent_class)->finalize(object);
+}
+
+static void webkit_hit_test_result_dispose(GObject* object)
+{
+    WEBKIT_HIT_TEST_RESULT(object)->priv->~WebKitHitTestResultPrivate();
+
+    G_OBJECT_CLASS(webkit_hit_test_result_parent_class)->dispose(object);
 }
 
 static void webkit_hit_test_result_get_property(GObject* object, guint propertyID, GValue* value, GParamSpec* pspec)
@@ -85,6 +97,9 @@ static void webkit_hit_test_result_get_property(GObject* object, guint propertyI
         break;
     case PROP_MEDIA_URI:
         g_value_set_string(value, priv->mediaURI);
+        break;
+    case PROP_INNER_NODE:
+        g_value_set_object(value, priv->innerNode.get());
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyID, pspec);
@@ -112,6 +127,9 @@ static void webkit_hit_test_result_set_property(GObject* object, guint propertyI
         g_free (priv->mediaURI);
         priv->mediaURI = g_value_dup_string(value);
         break;
+    case PROP_INNER_NODE:
+        priv->innerNode = static_cast<WebKitDOMNode*>(g_value_get_object(value));
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, propertyID, pspec);
     }
@@ -122,10 +140,11 @@ static void webkit_hit_test_result_class_init(WebKitHitTestResultClass* webHitTe
     GObjectClass* objectClass = G_OBJECT_CLASS(webHitTestResultClass);
 
     objectClass->finalize = webkit_hit_test_result_finalize;
+    objectClass->dispose = webkit_hit_test_result_dispose;
     objectClass->get_property = webkit_hit_test_result_get_property;
     objectClass->set_property = webkit_hit_test_result_set_property;
 
-    webkit_init();
+    webkitInit();
 
     /**
      * WebKitHitTestResult:context:
@@ -184,10 +203,78 @@ static void webkit_hit_test_result_class_init(WebKitHitTestResultClass* webHitTe
                                                         NULL,
                                                         static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE|G_PARAM_CONSTRUCT_ONLY)));
 
+    /**
+     * WebKitHitTestResult:inner-node:
+     *
+     * The DOM node at the coordinates where the hit test
+     * happened. Keep in mind that the node might not be
+     * representative of the information given in the context
+     * property, since WebKit uses a series of heuristics to figure
+     * out that information. One common example is inner-node having
+     * the text node inside the anchor (<a>) tag; WebKit knows the
+     * whole context and will put WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK
+     * in the 'context' property, but the user might be confused by
+     * the lack of any link tag in 'inner-node'.
+     *
+     * Since: 1.3.2
+     */
+    g_object_class_install_property(objectClass, PROP_INNER_NODE,
+                                    g_param_spec_object("inner-node",
+                                                        _("Inner node"),
+                                                        _("The inner DOM node associated with the hit test result."),
+                                                        WEBKIT_TYPE_DOM_NODE,
+                                                        static_cast<GParamFlags>(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT_ONLY)));
+
     g_type_class_add_private(webHitTestResultClass, sizeof(WebKitHitTestResultPrivate));
 }
 
 static void webkit_hit_test_result_init(WebKitHitTestResult* web_hit_test_result)
 {
-    web_hit_test_result->priv = WEBKIT_HIT_TEST_RESULT_GET_PRIVATE(web_hit_test_result);
+    web_hit_test_result->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_hit_test_result, WEBKIT_TYPE_HIT_TEST_RESULT, WebKitHitTestResultPrivate);
+    new (web_hit_test_result->priv) WebKitHitTestResultPrivate();
+}
+
+namespace WebKit {
+
+WebKitHitTestResult* kit(const WebCore::HitTestResult& result)
+{
+    guint context = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT;
+    GOwnPtr<char> linkURI(0);
+    GOwnPtr<char> imageURI(0);
+    GOwnPtr<char> mediaURI(0);
+    WebKitDOMNode* node = 0;
+
+    if (!result.absoluteLinkURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK;
+        linkURI.set(g_strdup(result.absoluteLinkURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteImageURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE;
+        imageURI.set(g_strdup(result.absoluteImageURL().string().utf8().data()));
+    }
+
+    if (!result.absoluteMediaURL().isEmpty()) {
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA;
+        mediaURI.set(g_strdup(result.absoluteMediaURL().string().utf8().data()));
+    }
+
+    if (result.isSelected())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION;
+
+    if (result.isContentEditable())
+        context |= WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE;
+
+    if (result.innerNonSharedNode())
+        node = kit(result.innerNonSharedNode());
+
+    return WEBKIT_HIT_TEST_RESULT(g_object_new(WEBKIT_TYPE_HIT_TEST_RESULT,
+                                               "link-uri", linkURI.get(),
+                                               "image-uri", imageURI.get(),
+                                               "media-uri", mediaURI.get(),
+                                               "context", context,
+                                               "inner-node", node,
+                                               NULL));
+}
+
 }

@@ -1,5 +1,10 @@
 /* include/arch/unix/apr_private.h.in.  Generated from configure.in by autoheader.  */
 
+
+#ifndef APR_PRIVATE_H
+#define APR_PRIVATE_H
+
+
 /* Define if building universal (internal helper macro) */
 #undef AC_APPLE_UNIVERSAL_BUILD
 
@@ -145,6 +150,9 @@
 
 /* Define to 1 if you have the <fcntl.h> header file. */
 #undef HAVE_FCNTL_H
+
+/* Define to 1 if you have the `fdatasync' function. */
+#undef HAVE_FDATASYNC
 
 /* Define to 1 if you have the `flock' function. */
 #undef HAVE_FLOCK
@@ -710,6 +718,10 @@
 /* Define for z/OS pthread API nuances */
 #undef HAVE_ZOS_PTHREADS
 
+/* Define to the sub-directory in which libtool stores uninstalled libraries.
+   */
+#undef LT_OBJDIR
+
 /* Define if EAI_ error codes from getaddrinfo are negative */
 #undef NEGATIVE_EAI
 
@@ -936,4 +948,5 @@
  * Include common private declarations.
  */
 #include "../apr_private_common.h"
+#endif /* APR_PRIVATE_H */
 

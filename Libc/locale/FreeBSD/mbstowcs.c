@@ -25,7 +25,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/mbstowcs.c,v 1.11 2004/07/21 10:54:57 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/mbstowcs.c,v 1.12 2009/01/15 18:53:52 rdivacky Exp $");
 
 #include <limits.h>
 #include <stdlib.h>
@@ -37,7 +37,9 @@ mbstowcs(wchar_t * __restrict pwcs, const char * __restrict s, size_t n)
 {
 	static const mbstate_t initial;
 	mbstate_t mbs;
+	const char *sp;
 
 	mbs = initial;
-	return (__mbsnrtowcs(pwcs, &s, SIZE_T_MAX, n, &mbs));
+	sp = s;
+	return (__mbsnrtowcs(pwcs, &sp, SIZE_T_MAX, n, &mbs));
 }

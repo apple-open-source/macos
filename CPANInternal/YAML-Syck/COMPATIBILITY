@@ -1,5 +1,5 @@
-YAML.pm 0.60 breaks compatability with older version by changing the
-tags that are output for serialized objects.
+YAML::Syck and YAML.pm 0.60 breaks compatibility with older versions by
+changing the tags that are output for serialized objects.
 
 This was the old way:
 
@@ -14,7 +14,7 @@ New way:
     --- !!perl/scalar:Quux ""
 
 * This change was made after discussions with the Python and Ruby
-  implementors to standardize on this form.
+  implementers to standardize on this form.
 * YAML::Syck was updated at the same time as YAML.pm so that they
   serialize objects the same way.
 * YAML.pm roundtrips the new format and still parses the old (now

@@ -43,7 +43,7 @@ server buffered-sql {
 		#  The location where the detail file is located.
 		#  This should be on local disk, and NOT on an NFS
 		#  mounted location!
-		filename = ${radacctdir}/detail
+		filename = "${radacctdir}/detail-*"
 
 		#
 		#  The server can read accounting packets from the
@@ -71,6 +71,24 @@ server buffered-sql {
 		#  causing databases to go into overload.
 		#  
 		load_factor = 10
+
+		#
+		#  Set the interval for polling the detail file.
+		#  If the detail file doesn't exist, the server will
+		#  wake up, and poll for it every N seconds.
+		#
+		#  Useful range of values: 1 to 60
+		poll_interval = 1
+
+		#
+		#  Set the retry interval for when the home server
+		#  does not respond.  The current packet will be
+		#  sent repeatedly, at this interval, until the
+		#  home server responds.
+		#
+		#  Useful range of values: 5 to 30
+		retry_interval = 30
+
 	}
 
 	#

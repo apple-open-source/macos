@@ -2158,7 +2158,7 @@ jisx0212_wctomb (conv_t conv, unsigned char *r, ucs4_t wc, int n)
 {
   if (n >= 2) {
     const Summary16 *summary = NULL;
-    if (wc >= 0x0000 && wc < 0x0460)
+    if (/* wc >= 0x0000 && */ wc < 0x0460)
       summary = &jisx0212_uni2indx_page00[(wc>>4)];
     else if (wc >= 0x2100 && wc < 0x2130)
       summary = &jisx0212_uni2indx_page21[(wc>>4)-0x210];

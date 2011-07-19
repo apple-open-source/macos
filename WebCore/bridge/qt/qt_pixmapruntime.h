@@ -20,7 +20,7 @@
 #ifndef qt_pixmapruntime_h
 #define qt_pixmapruntime_h
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include <QVariant>
 
 namespace JSC {
@@ -33,7 +33,7 @@ public:
     QtPixmapInstance(PassRefPtr<RootObject> rootObj, const QVariant& newData);
     virtual Class* getClass() const;
     virtual JSValue getMethod(ExecState* exec, const Identifier& propertyName);
-    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*, const ArgList& args);
+    virtual JSValue invokeMethod(ExecState*, RuntimeMethod*);
     virtual void getPropertyNames(ExecState*, PropertyNameArray&);
 
     virtual JSValue defaultValue(ExecState*, PreferredPrimitiveType) const;
@@ -42,7 +42,8 @@ public:
     int height() const;
     QPixmap toPixmap();
     QImage toImage();
-    static JSObject* createRuntimeObject(ExecState*, PassRefPtr<RootObject>, const QVariant&);
+    RuntimeObject* newRuntimeObject(ExecState* exec);
+    static JSObject* createPixmapRuntimeObject(ExecState*, PassRefPtr<RootObject>, const QVariant&);
     static QVariant variantFromObject(JSObject*, QMetaType::Type hint);
     static bool canHandle(QMetaType::Type hint);
 };

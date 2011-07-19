@@ -3,7 +3,7 @@
   io.c -
 
   $Author: shyouhei $
-  $Date: 2009-03-09 09:55:01 +0900 (Mon, 09 Mar 2009) $
+  $Date: 2009-11-25 17:45:13 +0900 (Wed, 25 Nov 2009) $
   created at: Fri Oct 15 18:08:59 JST 1993
 
   Copyright (C) 1993-2003 Yukihiro Matsumoto
@@ -35,6 +35,14 @@
 
 #if defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__DragonFly__) || defined(sun) || defined(_nec_ews)
 # define USE_SETVBUF
+#endif
+
+#ifndef BSD_STDIO
+# if defined(__MACH__) || defined(__DARWIN__) || defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__bsdi__)
+#   define BSD_STDIO 1
+# else
+#   define BSD_STDIO 0
+# endif
 #endif
 
 #ifdef __QNXNTO__
@@ -479,6 +487,9 @@ io_fwrite(str, fptr)
         TRAP_BEG;
 	r = write(fileno(f), RSTRING(str)->ptr+offset, l);
         TRAP_END;
+#if BSD_STDIO
+	fseeko(f, lseek(fileno(f), (off_t)0, SEEK_CUR), SEEK_SET);
+#endif
         if (r == n) return len;
         if (0 <= r) {
             offset += r;
@@ -650,6 +661,9 @@ rb_io_flush(io)
     f = GetWriteFile(fptr);
 
     io_fflush(f, fptr);
+#ifdef _WIN32
+    fsync(fileno(f));
+#endif
 
     return io;
 }
@@ -2331,10 +2345,10 @@ rb_io_fptr_finalize(fptr)
     if (fptr->path) {
 	free(fptr->path);
     }
-    if (!fptr->f && !fptr->f2) return;
-    if (fileno(fptr->f) < 3) return;
-
-    rb_io_fptr_cleanup(fptr, Qtrue);
+    if ((fptr->f && fileno(fptr->f) > 2) || fptr->f2) {
+	rb_io_fptr_cleanup(fptr, Qtrue);
+    }
+    xfree(fptr);
 }
 
 VALUE
@@ -2693,11 +2707,11 @@ VALUE
 rb_io_binmode(io)
     VALUE io;
 {
-#if defined(_WIN32) || defined(DJGPP) || defined(__CYGWIN__) || defined(__human68k__) || defined(__EMX__)
     rb_io_t *fptr;
 
     GetOpenFile(io, fptr);
-#ifdef __human68k__
+#if (defined(O_BINARY) && O_BINARY) || (defined(_IOBIN) && _IOBIN)
+#if (defined(_IOBIN) && _IOBIN)	/* __human68k__ */
     if (fptr->f)
 	fmode(fptr->f, _IOBIN);
     if (fptr->f2)
@@ -2902,10 +2916,16 @@ rb_sysopen(fname, flags, mode)
 {
     int fd;
 
+#ifdef _WIN32
+    errno = EINVAL;
+#endif
     fd = open(fname, flags, mode);
     if (fd < 0) {
 	if (errno == EMFILE || errno == ENFILE) {
 	    rb_gc();
+#ifdef _WIN32
+	    errno = EINVAL;
+#endif
 	    fd = open(fname, flags, mode);
 	}
 	if (fd < 0) {
@@ -4484,10 +4504,7 @@ static void
 argf_close(file)
     VALUE file;
 {
-    if (TYPE(file) == T_FILE)
-	rb_io_close(file);
-    else
-	rb_funcall3(file, rb_intern("close"), 0, 0);
+    rb_funcall3(file, rb_intern("close"), 0, 0);
 }
 
 static int
@@ -5546,6 +5563,7 @@ argf_eof()
 {
     if (current_file) {
 	if (init_p == 0) return Qtrue;
+	next_argv();
 	ARGF_FORWARD(0, 0);
 	if (rb_io_eof(current_file)) {
 	    return Qtrue;
@@ -5735,7 +5753,7 @@ argf_binmode()
 static VALUE
 argf_skip()
 {
-    if (next_p != -1) {
+    if (init_p && next_p == 0) {
 	argf_close(current_file);
 	next_p = 1;
     }

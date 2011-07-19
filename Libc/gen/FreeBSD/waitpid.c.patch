@@ -1,6 +1,6 @@
---- waitpid.c.orig	2006-09-16 19:12:38.000000000 -0700
-+++ waitpid.c	2006-09-16 20:38:56.000000000 -0700
-@@ -44,10 +44,31 @@
+--- waitpid.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ waitpid.c	2009-11-07 14:51:40.000000000 -0800
+@@ -40,10 +40,31 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/wai
  #include <sys/resource.h>
  #include "un-namespace.h"
  

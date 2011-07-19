@@ -1869,7 +1869,9 @@ SetStringFromAny(interp, objPtr)
 
 	if (objPtr->bytes != NULL) {
 	    stringPtr->allocated = objPtr->length;	    
- 	    objPtr->bytes[objPtr->length] = 0;
+	    if (objPtr->bytes != tclEmptyStringRep) {
+		objPtr->bytes[objPtr->length] = 0;
+	    }
 	} else {
 	    objPtr->length = 0;
 	}
@@ -1929,7 +1931,7 @@ UpdateStringOfString(objPtr)
 	 */
 
 	if (stringPtr->numChars <= INT_MAX/TCL_UTF_MAX
-		&& stringPtr->allocated >= stringPtr->numChars * TCL_UTF_MAX) {
+		&& stringPtr->allocated >= (size_t) (stringPtr->numChars * TCL_UTF_MAX)) {
 	    goto copyBytes;
 	}
 

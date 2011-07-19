@@ -1,3 +1,9 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //
 //  byrefcopystack.m
 //  testObjects
@@ -6,12 +12,13 @@
 //  Copyright 2008 __MyCompanyName__. All rights reserved.
 //
 
+// TEST_CONFIG
 
+// rdar://6255170
 
 #include <stdio.h>
 #include <Block.h>
-
-// CONFIG rdar://6255170
+#include "test.h"
 
 void (^bumpi)(void);
 int (^geti)(void);
@@ -22,15 +29,14 @@ void setClosures() {
     geti = Block_copy(^{ return i; });
 }
 
-int main(int argc, char *argv[]) {
+int main() {
     setClosures();
     bumpi();
     int i = geti();
     
     if (i != 11) {
-        printf("*** %s didn't update i\n", argv[0]);
-        return 1;
+        fail("didn't update i");
     }
-    printf("%s: success\n", argv[0]);
-    return 0;
+
+    succeed(__FILE__);
 }

@@ -1,7 +1,7 @@
 # ------------------------------------------------------------------------------
 #  pagesmgr.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: pagesmgr.tcl,v 1.6 2003/10/20 21:23:52 damonc Exp $
+#  $Id: pagesmgr.tcl,v 1.61 2009/09/06 21:28:51 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - PagesManager::create
@@ -26,7 +26,7 @@ namespace eval PagesManager {
     Widget::define PagesManager pagesmgr
 
     Widget::declare PagesManager {
-        {-background TkResource "" 0 frame}
+        {-background Color      "SystemWindow" 0}
         {-cursor     TkResource "" 0 frame}
         {-width      Int        0  0 "%d >= 0"}
         {-height     Int        0  0 "%d >= 0"}
@@ -50,7 +50,6 @@ proc PagesManager::create { path args } {
     set data(cpt)      0
     set data(realized) 0
 
-    # --- creation du canvas -----------------------------------------------------------------
     eval canvas $path -relief flat -bd 0 -highlightthickness 0 \
 	    [Widget::subcget $path :cmd]
 
@@ -110,7 +109,8 @@ proc PagesManager::add { path page } {
 
     lappend data(pages) $page
 
-    frame $path.f$page -relief flat \
+    BWidget::wrap \
+       frame $path.f$page -relief flat \
 	    -background [Widget::cget $path -background] -borderwidth 0
 
     return $path.f$page

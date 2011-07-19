@@ -19,29 +19,22 @@
 using namespace llvm;
 
 // runEnums - Print out enum values for all of the instructions.
-void InstrEnumEmitter::run(std::ostream &OS) {
+void InstrEnumEmitter::run(raw_ostream &OS) {
   EmitSourceFileHeader("Target Instruction Enum Values", OS);
   OS << "namespace llvm {\n\n";
 
   CodeGenTarget Target;
 
   // We must emit the PHI opcode first...
-  std::string Namespace;
-  for (CodeGenTarget::inst_iterator II = Target.inst_begin(), 
-       E = Target.inst_end(); II != E; ++II) {
-    if (II->second.Namespace != "TargetInstrInfo") {
-      Namespace = II->second.Namespace;
-      break;
-    }
-  }
+  std::string Namespace = Target.getInstNamespace();
   
   if (Namespace.empty()) {
     fprintf(stderr, "No instructions defined!\n");
     exit(1);
   }
 
-  std::vector<const CodeGenInstruction*> NumberedInstructions;
-  Target.getInstructionsByEnumValue(NumberedInstructions);
+  const std::vector<const CodeGenInstruction*> &NumberedInstructions =
+    Target.getInstructionsByEnumValue();
 
   OS << "namespace " << Namespace << " {\n";
   OS << "  enum {\n";

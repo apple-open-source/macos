@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -105,6 +105,8 @@ const CFStringRef kDADiskDescriptionBusNameKey         = CFSTR( "DABusName"     
 const CFStringRef kDADiskDescriptionBusPathKey         = CFSTR( "DABusPath"         );
 
 const CFStringRef kDADiskDescriptionAppearanceTimeKey  = CFSTR( "DAAppearanceTime"  );
+
+const CFStringRef kDADiskDescriptionMediaMatchKey      = CFSTR( "DAMediaMatch"      );
 
 static const char * __kDAKindNameList[] =
 {
@@ -559,11 +561,11 @@ __private_extern__ char * _DAVolumeGetID( const struct statfs * fs )
 
     if ( strncmp( fs->f_mntfromname, _PATH_DEV, strlen( _PATH_DEV ) ) )
     {
-        sprintf( id, "%s?owner=%u", fs->f_mntonname, fs->f_owner );
+        snprintf( id, sizeof( id ), "%s?owner=%u", fs->f_mntonname, fs->f_owner );
     }
     else
     {
-        sprintf( id, "%s", fs->f_mntfromname );
+        snprintf( id, sizeof( id ), "%s", fs->f_mntfromname );
     }
 
     return id;

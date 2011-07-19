@@ -75,6 +75,7 @@ static CFDictionaryRef _evCAOidDict();
 static void _freeFieldData(CSSM_DATA_PTR value, CSSM_OID_PTR oid, CSSM_CL_HANDLE clHandle);
 static CFStringRef _oidStringForCertificatePolicies(const CE_CertPolicies *certPolicies);
 static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificateRef certificate);
+static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertificateRef certificate);
 
 // utility function to safely release (and clear) the given CFTypeRef variable.
 //
@@ -302,6 +303,10 @@ static CFStringRef organizationNameForCertificate(SecCertificateRef certificate)
     return organizationName;
 }
 
+#if !defined(NDEBUG)
+void showCertSKID(const void *value, void *context);
+#endif
+
 static ModuleNexus<Mutex> gPotentialEVChainWithCertificatesMutex;
 
 // returns a CFArrayRef of SecCertificateRef instances; caller must release the returned array
@@ -317,6 +322,7 @@ CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates)
     // intermediate from the returned certificate array.
     
 	CFIndex chainIndex, chainLen = (certificates) ? CFArrayGetCount(certificates) : 0;
+	secdebug("trusteval", "potentialEVChainWithCertificates: chainLen: %ld", chainLen);
     if (chainLen < 2) {
 		if (certificates) {
 			CFRetain(certificates);
@@ -328,15 +334,28 @@ CFArrayRef potentialEVChainWithCertificates(CFArrayRef certificates)
     for (chainIndex = 0; chainIndex < chainLen; chainIndex++) {
         SecCertificateRef aCert = (SecCertificateRef) CFArrayGetValueAtIndex(certificates, chainIndex);
         SecCertificateRef replacementCert = NULL;
+		secdebug("trusteval", "potentialEVChainWithCertificates: examining chainIndex: %ld", chainIndex);
         if (chainIndex > 0) {
             // if this is not the leaf, then look for a possible replacement root to end the chain
+			// Try lookup using Subject Key ID first
+			replacementCert = _rootCertificateWithSubjectKeyIDOfCertificate(aCert);
+			if (!replacementCert)
+			{
+				secdebug("trusteval", "  not found using SKID, try by subject");
             replacementCert = _rootCertificateWithSubjectOfCertificate(aCert);
         }
+        }
         if (!replacementCert) {
+			secdebug("trusteval", "  No replacement found using SKID or subject; keeping original intermediate");
             CFArrayAppendValue(certArray, aCert);
         }
         SafeCFRelease(&replacementCert);
     }
+	secdebug("trusteval", "potentialEVChainWithCertificates: exit: new chainLen: %ld", CFArrayGetCount(certArray));
+#if !defined(NDEBUG)
+	CFArrayApplyFunction(certArray, CFRangeMake(0, CFArrayGetCount(certArray)), showCertSKID, NULL);
+#endif
+
     return certArray;
 }
 
@@ -445,6 +464,75 @@ static SecCertificateRef _rootCertificateWithSubjectOfCertificate(SecCertificate
     }
     _freeFieldData(subjectDataPtr, oidPtr, clHandle);
     SafeCFRelease(&keyRef);
+	SafeCFRelease(&systemRoots);
+
+    return resultCert;
+}
+
+
+#if !defined(NDEBUG)
+static void logSKID(const char *msg, const CssmData &subjectKeyID)
+{
+	const unsigned char *px = (const unsigned char *)subjectKeyID.data();
+	char buffer[256]={0,};
+	char bytes[16];
+	if (px && msg)
+	{
+		strcpy(buffer, msg);
+		for (unsigned int ix=0; ix<20; ix++)
+		{
+			sprintf(bytes, "%02X", px[ix]);
+			strcat(buffer, bytes);
+		}
+		secdebug("trusteval", " SKID: %s",buffer);
+	}
+}
+
+void showCertSKID(const void *value, void *context)
+{
+	SecCertificateRef certificate = (SecCertificateRef)value;
+	OSStatus status = noErr;
+	BEGIN_SECAPI_INTERNAL_CALL
+	const CssmData &subjectKeyID = Certificate::required(certificate)->subjectKeyIdentifier();
+	logSKID("subjectKeyID: ", subjectKeyID);
+	END_SECAPI_INTERNAL_CALL
+}
+#endif
+
+// returns a reference to a root certificate, if one can be found in the
+// system root store whose subject key ID are identical to
+// that of the provided certificate, otherwise returns nil.
+//
+static SecCertificateRef _rootCertificateWithSubjectKeyIDOfCertificate(SecCertificateRef certificate)
+{
+    SecCertificateRef resultCert = NULL;
+	OSStatus status = noErr;
+
+    if (!certificate)
+        return NULL;
+
+	StLock<Mutex> _(SecTrustKeychainsGetMutex());
+
+	// get system roots keychain reference
+    SecKeychainRef systemRoots = systemRootStore();
+	if (!systemRoots)
+		return NULL;
+
+	StorageManager::KeychainList keychains;
+	globals().storageManager.optionalSearchList(systemRoots, keychains);
+
+	BEGIN_SECAPI_INTERNAL_CALL
+	const CssmData &subjectKeyID = Certificate::required(certificate)->subjectKeyIdentifier();
+#if !defined(NDEBUG)
+	logSKID("search for SKID: ", subjectKeyID);
+#endif
+	// caller must release
+	resultCert = Certificate::required(certificate)->findBySubjectKeyID(keychains, subjectKeyID)->handle();
+#if !defined(NDEBUG)
+	logSKID("  found SKID: ", subjectKeyID);
+#endif
+	END_SECAPI_INTERNAL_CALL
+
 	SafeCFRelease(&systemRoots);
 
     return resultCert;

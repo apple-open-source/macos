@@ -198,10 +198,11 @@ static inline bool analyseSegments(
 
     mbuf_t in = packet;   // save the original input packet pointer.
     UInt32 inIndex = 0;
+    const uint32_t c_mlen = mbuf_get_mlen();
 
     // Allocate a mbuf (non header mbuf) to begin the output mbuf chain.
     
-    if(mbuf_get(M_DONTWAIT, MT_DATA, &newPacket))
+    if(mbuf_get(MBUF_DONTWAIT, MT_DATA, &newPacket))
     {
         ERROR_LOG("analyseSegments: MGET() 1 error\n");
         return false;
@@ -209,7 +210,7 @@ static inline bool analyseSegments(
 
     /* Initialise outgoing packet controls */
     out = newPacket;
-    outSize = MLEN;
+    outSize = c_mlen;
     doneSegs = outSegs = outLen = 0;
 
     // numSegs stores the delta between the total and the max. For each
@@ -232,7 +233,7 @@ static inline bool analyseSegments(
                 // Current mbuf is not yet a cluster so promote, then
                 // check for error.
 
-                if(mbuf_mclget(M_DONTWAIT, MT_DATA, &out) || !(mbuf_flags(out) & M_EXT) ) 
+                if(mbuf_mclget(MBUF_DONTWAIT, MT_DATA, &out) || !(mbuf_flags(out) & MBUF_EXT) ) 
 				{
                     ERROR_LOG("analyseSegments: MCLGET() error\n");
                     goto bombAnalysis;
@@ -259,14 +260,14 @@ static inline bool analyseSegments(
             }
 
             mbuf_t tempmbuf;
-			if(mbuf_get(M_DONTWAIT, MT_DATA, &tempmbuf))
+			if(mbuf_get(MBUF_DONTWAIT, MT_DATA, &tempmbuf))
             {
                 ERROR_LOG("analyseSegments: MGET() error\n");
                 goto bombAnalysis;
             }
             mbuf_setnext(out, tempmbuf);
             out = tempmbuf;
-            outSize = MLEN;
+            outSize = c_mlen;
             outLen -= MCLBYTES;
         }
 
@@ -337,7 +338,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
 {
     bool doneCoalesce = false;
 
-    if (!packet || !(mbuf_flags(packet) & M_PKTHDR))
+    if (!packet || !(mbuf_flags(packet) & MBUF_PKTHDR))
         return 0;
 
     if (!maxSegs)
@@ -360,7 +361,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
 
         if ( trunc_page(src) == trunc_page(src + mbuf_len(packet) - 1) )
         {
-            physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
+            physSeg.location = (IOPhysicalAddress) mbuf_data_to_physical((char *)src);
             if ( physSeg.location )
             {
                 physSeg.length = mbuf_len(packet);
@@ -388,9 +389,9 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
         m = packet;
 
         // Allocate a non-header mbuf + cluster.
-        if (mbuf_getpacket( M_DONTWAIT, &out ))
+        if (mbuf_getpacket( MBUF_DONTWAIT, &out ))
 			return 0;
-		mbuf_setflags( out, mbuf_flags( out ) & ~M_PKTHDR );
+		mbuf_setflags( out, mbuf_flags( out ) & ~MBUF_PKTHDR );
         dst = (uintptr_t)mbuf_data(out);
 
         do
@@ -404,7 +405,7 @@ UInt32 IOMbufMemoryCursor::genPhysicalSegments(mbuf_t packet, void *vector,
         mbuf_setlen(out , len);
 
         dst = (uintptr_t)mbuf_data(out);
-        physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)dst);
+        physSeg.location = (IOPhysicalAddress) mbuf_data_to_physical((char *)dst);
         if (!physSeg.location)
         {
             mbuf_free(out);
@@ -466,7 +467,7 @@ tryAgain:
             if (curSegIndex < maxSegs) {
                 struct IOPhysicalSegment physSeg;
 
-                physSeg.location = (IOPhysicalAddress) mcl_to_paddr((char *)src);
+                physSeg.location = (IOPhysicalAddress) mbuf_data_to_physical((char *)src);
                 if ( physSeg.location == 0 )
                 {
                     return doCoalesce ?

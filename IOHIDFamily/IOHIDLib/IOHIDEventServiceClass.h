@@ -49,6 +49,7 @@ protected:
     bool                                _isOpen;
     
     mach_port_t                         _asyncPort;
+    CFMachPortRef                       _asyncCFMachPort;
 
     CFRunLoopSourceRef                  _asyncEventSource;
 

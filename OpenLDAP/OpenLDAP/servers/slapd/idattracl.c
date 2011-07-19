@@ -464,7 +464,8 @@ idattr_id_to_dn_cb (
 			object_dn->found = 1;
 		}
 	} else {
-		assert( rs->sr_type == REP_RESULT );
+        if(rs->sr_type != REP_INTERMEDIATE)
+            assert( rs->sr_type == REP_RESULT );
 	}
 
 	return 0;
@@ -524,9 +525,9 @@ idattr_id_to_dn (
 	cb.sc_private = &dn_result;
 
 	rc = nop.o_bd->be_search( &nop, &sreply );
-	Debug(LDAP_DEBUG_ACL, "idattr_id_to_dn be_search[%d]\n", rc, 0, 0);
-	if (dn_result.found)
-		ber_dupbv(resultDN, &dn_result.target_dn);
+	if (dn_result.found) {
+		ber_dupbv(resultDN, &dn_result.target_dn );
+	}
 		
 	return 0;
 }
@@ -820,7 +821,7 @@ idattr_check_applyto (
 		idattr_id_to_dn (op,searchAttr, &(id->idattr_applyto_uuid), &(id->idattr_applyto_dn));
 		Debug( LDAP_DEBUG_ACL, "idattr_dynacl_mask: len[%d] idattr_applyto_dn[%s] \n", id->idattr_applyto_dn.bv_len, id->idattr_applyto_dn.bv_val, 0 );
 	}
- 
+
 	if (!BER_BVISNULL(&id->idattr_applyto_dn)) {
 		entry_rc = be_entry_get_rw( op, &target->e_nname, NULL , idattr_uuid, 0, &theEntry );
 		
@@ -1105,7 +1106,7 @@ idattr_dynacl_mask(
 		// lookup user record	
 		user_rc = be_entry_get_rw( op, searchTarget, NULL, searchAttr, 0, &user );
 
-		Debug( LDAP_DEBUG_ACL, "idattr_dynacl_mask: be_entry_get_rw rc(%d) user(%x) \n", rc, user, 0 );
+		Debug( LDAP_DEBUG_ACL, "idattr_dynacl_mask: be_entry_get_rw user_rc(%d) user(%x) \n", user_rc, user, 0 );
 		
 		if ( user_rc != LDAP_SUCCESS || user == NULL ) {
 			op->o_bd = be; 

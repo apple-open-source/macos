@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2005-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2005-2007, 2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -67,15 +67,16 @@ enum {
 
 __BEGIN_DECLS
 
-int	_SCHelperOpen	(CFDataRef		authorizationData);
+Boolean	_SCHelperOpen	(CFDataRef		authorizationData,
+			 mach_port_t		*helper_port);
 
-Boolean	_SCHelperExec	(int			helper,
+Boolean	_SCHelperExec	(mach_port_t		helper_port,
 			 uint32_t		msgID,
 			 CFDataRef		data,
 			 uint32_t		*status,
 			 CFDataRef		*reply);
 
-void	_SCHelperClose	(int			helper);
+void	_SCHelperClose	(mach_port_t		*helper_port);
 
 __END_DECLS
 

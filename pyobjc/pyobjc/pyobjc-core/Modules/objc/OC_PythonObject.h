@@ -43,11 +43,11 @@ extern void PyObjC_encodeWithCoder(PyObject* pyObject, NSCoder* coder);
 }
 
 + (int)wrapPyObject:(PyObject *)argument toId:(id *)datum;
-+ newWithObject:(PyObject *) obj;
++ objectWithPythonObject:(PyObject *) obj;
 + depythonifyTable;
 + pythonifyStructTable;
 + (PyObject *)__pythonifyStruct:(PyObject *) obj withType:(const char *) type length:(Py_ssize_t) length;
-+ newWithCoercedObject:(PyObject *) obj;
++ objectWithCoercedObject:(PyObject *) obj;
 - initWithObject:(PyObject *) obj;
 
 /*!
@@ -70,7 +70,7 @@ extern void PyObjC_encodeWithCoder(PyObject* pyObject, NSCoder* coder);
 - (void) doesNotRecognizeSelector:(SEL) aSelector;
 
 /* NSObject protocol */
-- (unsigned)hash;
+- (NSUInteger)hash;
 - (BOOL)isEqual:(id)anObject;
 /* NSObject methods */
 - (NSComparisonResult)compare:(id)other;

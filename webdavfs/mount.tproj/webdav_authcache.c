@@ -73,7 +73,7 @@ static CFStringRef mount_domain = NULL;
 
 /*****************************************************************************/
 
-static
+// static
 char *CopyCFStringToCString(CFStringRef theString);
 
 static
@@ -149,7 +149,7 @@ void SetCredentials(
 
 /*****************************************************************************/
 
-static
+// static
 char *CopyCFStringToCString(CFStringRef theString)
 {
 	char *cstring;
@@ -201,13 +201,13 @@ int CopyMountCredentials(
 			*secureAuth = FALSE;
 		}
 	}
-	
+
 	/* make sure we aren't using Basic over an unsecure connnection if gSecureServerAuth is TRUE */
 	if ( (gSecureServerAuth == TRUE) && (*secureAuth == FALSE) ) {
 		syslog(LOG_ERR, "Mount failed, Authentication method (Basic) too weak");
 		result = EAUTH;
 		goto SecureServerAuthRequired;
-	}	
+	}
 	
 	if ( mount_username != NULL )
 	{
@@ -522,7 +522,7 @@ struct authcache_entry *CreateAuthenticationFromResponse(
 	uid_t uid,							/* -> uid of the user making the request */
 	CFHTTPMessageRef request,			/* -> the request message to apply authentication to */
 	CFHTTPMessageRef response,			/* -> the response message  */
-	int *result,						/* -> result of this function (errno) */													 
+	int *result,						/* -> result of this function (errno) */
 	int isProxy)						/* -> if TRUE, create authcache_proxy_entry */
 {
 	struct authcache_entry *entry_ptr;

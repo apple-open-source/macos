@@ -71,7 +71,6 @@ u_int16_t l2tp_rfc_new_client(void *host, void **data,
                          l2tp_rfc_event_callback event);
 
 void l2tp_rfc_free_client(void *data);
-void l2tp_rfc_fasttimer();
 void l2tp_rfc_slowtimer();
 u_int16_t l2tp_rfc_command(void *userdata, u_int32_t cmd, void *cmddata);
 u_int16_t l2tp_rfc_output(void *data, mbuf_t m, struct sockaddr *to);

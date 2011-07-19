@@ -11,7 +11,7 @@
 ******************************************************************/
 
 %{
-int evaluatetoken( char *pcToken );
+int evaluatetoken(char *pcToken);
 
 static int iLinenumber      = 1;
 static char *pcPrevious     = 0;
@@ -22,18 +22,21 @@ static char *pcLibpath      = 0;
 static char *pcChannelid    = 0;
 static int   badError       = 0;
 
-void tok_error ( char *pcToken_error );
+void tok_error(char *pcToken_error);
 
 %}
+
+%option nounput
+%option noyywrap
 
 %%
 
 #.*                                       {}
 "\n"                                      { iLinenumber++; }
-(\"[^"\n]*["\n])|(\'[^'\n]*['\n])         { evaluatetoken( yytext); } 
-[ \t]                     {}
-([A-Z]|[a-z]|[0-9]|[\\\/\-\.\_\@])+       { evaluatetoken( yytext ); } 
-.                                         { tok_error( yytext ); }
+(\"[^"\n]*["\n])|(\'[^'\n]*['\n])         { (void)evaluatetoken(yytext); }
+[ \t]                                     {}
+([A-Z]|[a-z]|[0-9]|[\\\/\-\.\_\@])+       { (void)evaluatetoken(yytext); }
+.                                         { tok_error(yytext); }
 %%
 
 #include <stdio.h>
@@ -45,98 +48,132 @@ void tok_error ( char *pcToken_error );
 #include "readerfactory.h"
 #include "debuglog.h"
 
-int evaluatetoken( char *pcToken ) {
+int evaluatetoken(char *pcToken)
+{
 
-  DWORD dwChannelId = 0;
-  int p             = 0;
-  int n             = 0;
+	DWORD dwChannelId = 0;
+	int p = 0;
+	int n = 0;
 
-  if ( pcPrevious == 0 ) {       /* This is the key */
-    pcPrevious = strdup( pcToken );
-  } else {
-    pcCurrent = pcToken;
-    if ( strcmp( pcPrevious, "FRIENDLYNAME" ) == 0 ) {
-       if ( pcFriendlyname == 0 ) {
-         pcFriendlyname = (char *)malloc(strlen(pcCurrent)-1);
-        for ( n = 0; n < strlen(pcCurrent); n++ ) {
-           if ( pcCurrent[n] != '"' ) { /* Strip off the quotes */
-             pcFriendlyname[p++] = pcCurrent[n];         
-           }
-         }
-         pcFriendlyname[p++] = 0;
-       } else {
-         tok_error( pcPrevious ); return 1;
-       }
-    } else if ( strcmp( pcPrevious, "DEVICENAME" ) == 0 ) {
-       if ( pcDevicename == 0 ) {
-         pcDevicename = strdup( pcCurrent );
-       } else {
-         tok_error( pcPrevious ); return 1;
-       }
-    } else if ( strcmp( pcPrevious, "LIBPATH" ) == 0 ) {
-       if ( pcLibpath == 0 ) {
-         pcLibpath = strdup( pcCurrent );
-       } else {
-         tok_error( pcPrevious ); return 1;
-       }
-    } else if ( strcmp( pcPrevious, "CHANNELID" ) == 0 ) {
-       if ( pcChannelid == 0 ) {
-         pcChannelid = strdup( pcCurrent );
-       } else {
-         tok_error( pcPrevious ); return 1;
-       }
-    } else {
-       tok_error( pcPrevious ); return 1;
-    }
+	if (pcPrevious == NULL)
+	{	/* This is the key */
+		pcPrevious = strdup(pcToken);
+	}
+	else
+	{
+		pcCurrent = pcToken;
+		if (strcmp(pcPrevious, "FRIENDLYNAME") == 0)
+		{
+			if (pcFriendlyname == NULL)
+			{
+				pcFriendlyname = malloc(strlen(pcCurrent) - 1);
+				for (n = 0; n < strlen(pcCurrent); n++)
+				{
+					if (pcCurrent[n] != '"')
+					{	/* Strip off the quotes */
+						pcFriendlyname[p++] = pcCurrent[n];
+					}
+				}
+				pcFriendlyname[p++] = '\0';
+			}
+			else
+			{
+				tok_error(pcPrevious);
+				return 1;
+			}
+		}
+		else if (strcmp(pcPrevious, "DEVICENAME") == 0)
+		{
+			if (pcDevicename == NULL)
+			{
+				pcDevicename = strdup(pcCurrent);
+			}
+			else
+			{
+				tok_error(pcPrevious);
+				return 1;
+			}
+		}
+		else if (strcmp(pcPrevious, "LIBPATH") == 0)
+		{
+			if (pcLibpath == NULL)
+			{
+				pcLibpath = strdup(pcCurrent);
+			}
+			else
+			{
+				tok_error(pcPrevious);
+				return 1;
+			}
+		}
+		else if (strcmp(pcPrevious, "CHANNELID") == 0)
+		{
+			if (pcChannelid == NULL)
+				pcChannelid = strdup(pcCurrent);
+			else
+			{
+				tok_error(pcPrevious);
+				return 1;
+			}
+		}
+		else
+		{
+			tok_error(pcPrevious);
+			return 1;
+		}
 
-    free( pcPrevious ); pcPrevious = 0;
-  }
+		free(pcPrevious);
+		pcPrevious = NULL;
+	}
 
-  if ( pcFriendlyname != 0 && pcDevicename != 0 &&
-       pcLibpath      != 0 && pcChannelid != 0 ) {
-     
-       dwChannelId = strtoul( pcChannelid, 0, 16 );
-       RFAddReader( pcFriendlyname, dwChannelId, pcLibpath, pcDevicename );
+	if (pcFriendlyname != NULL && pcDevicename != NULL &&
+		pcLibpath != NULL && pcChannelid != NULL)
+	{
 
-       free( pcFriendlyname ); free( pcDevicename );
-       free( pcLibpath);       free( pcChannelid );
-       pcFriendlyname = 0;     pcDevicename = 0;
-       pcLibpath      = 0;     pcChannelid  = 0;
-  }
+		dwChannelId = strtoul(pcChannelid, 0, 16);
+		RFAddReader(pcFriendlyname, dwChannelId, pcLibpath, pcDevicename);
 
-  return 0;
+		free(pcFriendlyname);
+		free(pcDevicename);
+		free(pcLibpath);
+		free(pcChannelid);
+		pcFriendlyname = NULL;
+		pcDevicename = NULL;
+		pcLibpath = NULL;
+		pcChannelid = NULL;
+	}
+
+	return 0;
 }
 
-void tok_error ( char *token_error ) {
-  debug_msg("%s:%d tok_error: invalid value in reader.conf", 
-             __FILE__, __LINE__);
-  badError = 1;
+void tok_error (char *token_error)
+{
+	Log2(PCSC_LOG_ERROR, "tok_error: invalid value in " PCSCLITE_READER_CONFIG ": %s", token_error);
+	badError = 1;
 }
 
-int DBUpdateReaders ( char *readerconf ) {
+int DBUpdateReaders (const char *readerconf)
+{
+	FILE *configFile = NULL;
 
-  FILE *configFile;
-  configFile = 0;	
+	configFile = fopen(readerconf, "r");
 
-  configFile = fopen( readerconf, "r");
+	if (configFile == NULL)
+		return 1;
 
-  if (configFile == 0) {
-    return 1;
-  }
+	yyin = configFile;
 
-  yyin = configFile;
+	do
+	{
+		(void)yylex();
+	}
+	while (!feof(configFile));
 
-  do {
-    yylex();
-  }
-  while (!feof(configFile));
+	(void)fclose(configFile);
 
-  fclose(configFile);
-
-  if (badError == 1) {
-    return -1;
-  } else {
-    return 0;
-  }
+	if (badError == 1)
+		return -1;
+	else
+		return 0;
 } /* End of configfile.c */
 

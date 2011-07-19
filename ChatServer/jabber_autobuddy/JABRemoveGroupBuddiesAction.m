@@ -76,17 +76,30 @@
 											   andBuddy: buddyJid];
 			if (![self checkDatabaseStatus]) 
 				break; // operation failed -- abort processing
-			if (!bExists) continue; // nothing to remove
-			
-			// Remove the roster-groups entry
-			[_database deleteRosterGroup: _groupName
-								forOwner: ownerJid
-								andBuddy: buddyJid
-								  source: __PRETTY_FUNCTION__
-									line: __LINE__];
+			if (bExists) {
+				// Remove the roster-groups entry
+				[_database deleteRosterGroup: _groupName
+									forOwner: ownerJid
+									andBuddy: buddyJid
+									  source: __PRETTY_FUNCTION__
+										line: __LINE__];
+				if (![self checkDatabaseStatus]) 
+					break; // operation failed -- abort processing
+			}
+
+			// check if the pairing exists in roster-items
+			bExists = [_database verifyRosterItemForOwner: ownerJid andBuddy: buddyJid];
 			if (![self checkDatabaseStatus]) 
 				break; // operation failed -- abort processing
-
+			if (bExists) {
+				// Remove the roster-items entry
+				[_database deleteRosterItemForOwner: ownerJid
+									andBuddy: buddyJid
+									  source: __PRETTY_FUNCTION__
+										line: __LINE__];
+				if (![self checkDatabaseStatus])
+					break; // operation failed -- abort processing
+			}
 		} // while buddyJid
 
 		[_activeQuery2 finalizeStatement];

@@ -111,11 +111,8 @@ void *DefaultAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc
 
 void SensitiveAllocator::free(void *addr) throw()
 {
-	if (addr != NULL)
-	{
-		memset(addr, 0, malloc_size(addr));
-		DefaultAllocator::free(addr);
-	}
+    memset(addr, 0, malloc_size(addr));
+    DefaultAllocator::free(addr);
 }
 
 void *SensitiveAllocator::realloc(void *addr, size_t newSize) throw(std::bad_alloc)

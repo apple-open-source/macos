@@ -2,7 +2,7 @@
 	File:		MBCEngine.h
 	Contains:	An agent representing the chess playing engine
 	Version:	1.0
-	Copyright:	© 2002-2004 by Apple Computer, Inc., all rights reserved.
+	Copyright:	© 2002-2010 by Apple Computer, Inc., all rights reserved.
 
 	File Ownership:
 
@@ -15,6 +15,9 @@
 	Change History (most recent first):
 
 		$Log: MBCEngine.h,v $
+		Revision 1.12  2010/01/18 18:37:16  neerache
+		<rdar://problem/7297328> Deprecated methods in Chess, part 1
+		
 		Revision 1.11  2004/10/20 18:31:55  neerache
 		Fix typo in comment (RADAR 3846101)
 		
@@ -56,7 +59,7 @@
 // MBCEngine is an instance of MBCPlayer, but it also serves other
 // purposes like move generation and checking.
 //
-@interface MBCEngine : MBCPlayer
+@interface MBCEngine : MBCPlayer <NSPortDelegate>
 {
 	NSTask * 		fEngineTask;	// The chess engine
 	NSFileHandle * 	fToEngine;		// Writing to the engine

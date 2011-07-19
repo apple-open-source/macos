@@ -30,7 +30,6 @@
 #define ScrollbarEfl_h
 
 #include "Scrollbar.h"
-#include <Evas.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
@@ -50,16 +49,16 @@ public:
 
     virtual void frameRectsChanged();
 
-    virtual void paint(GraphicsContext* context, const IntRect& damageRect);
+    virtual void paint(GraphicsContext*, const IntRect&);
 
 protected:
-    ScrollbarEfl(ScrollbarClient*, ScrollbarOrientation, ScrollbarControlSize);
+    ScrollbarEfl(ScrollableArea*, ScrollbarOrientation, ScrollbarControlSize);
 
     virtual void updateThumbPositionAndProportion();
     virtual void updateThumbPosition();
     virtual void updateThumbProportion();
 
-    virtual void setParent(ScrollView* view);
+    virtual void setParent(ScrollView*);
 
 private:
     int m_lastPos;

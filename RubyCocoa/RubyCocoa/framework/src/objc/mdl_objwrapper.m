@@ -19,6 +19,7 @@
 #import "internal_macros.h"
 #import "ocexception.h"
 #import "objc_compat.h"
+#import <sys/mman.h>
 
 #if __LP64__
 /* FIXME */
@@ -72,6 +73,16 @@ ocm_retain_arg_if_necessary (VALUE result, BOOL is_result, void *context)
     OBJCID_DATA_PTR(result)->retained = YES; 
     if (selector != @selector(alloc) && selector != @selector(allocWithZone:)) {
       OBJCID_DATA_PTR(result)->can_be_released = YES;
+    }
+    // FIXME: 10.6 NSUndoManager#prepareWithInvocationTarget: raises the
+    // following exception:
+    // ----
+    // uncaught exception 'NSInternalInconsistencyException', reason:
+    // 'forwardInvocation:: NSUndoManager 0x*** received forwarded invocation
+    // while invocation target is nil. Call prepareWithInvocationTarget:
+    // before invoking respondsToSelector:'
+    if (IS_UNDOPROXY(OBJCID_ID(result))) {
+      return; // do not call performSelector:
     }
     // Objects that come from an NSObject-based class defined in Ruby have a
     // slave object as an instance variable that serves as the message proxy.
@@ -141,9 +152,13 @@ ocm_ffi_closure(VALUE mname, VALUE is_predicate)
     } 
   }
 
-  closure = (ffi_closure *)malloc(sizeof(ffi_closure));
-  ASSERT_ALLOC(closure);
- 
+  // Allocate a page to hold the closure with read and write permissions.
+  closure = mmap(NULL, sizeof(ffi_closure), PROT_READ | PROT_WRITE,
+	  MAP_ANON | MAP_PRIVATE, -1, 0);
+  if (closure == (void *)-1) {
+    return NULL;
+  }
+
   userdata = (struct ocm_closure_userdata *)malloc(
     sizeof(struct ocm_closure_userdata));
   ASSERT_ALLOC(userdata);
@@ -154,6 +169,10 @@ ocm_ffi_closure(VALUE mname, VALUE is_predicate)
   if (ffi_prep_closure(closure, cif, ocm_closure_handler, userdata) 
       != FFI_OK)
     return NULL;
+
+  if (mprotect(closure, sizeof(ffi_closure), PROT_READ | PROT_EXEC) == -1) {
+    return NULL;
+  }
 
   return closure; 
 }
@@ -183,8 +202,13 @@ ocm_register(Class klass, VALUE oc_mname, VALUE rb_mname, VALUE is_predicate,
   VALUE rclass;
   RB_ID rclass_id;
   void *closure;
-  char *rb_mname_str;
+  const char *rb_mname_str;
  
+  // should not register methods on proxy classes
+  if ([klass isKindOfClass:[NSProxy class]]) {
+    return;
+  }
+
   // Let's locate the original class where the method is defined.
   getMethod = is_class_method ? class_getClassMethod : class_getInstanceMethod;
   while ((c = class_getSuperclass(klass)) != NULL 
@@ -207,7 +231,20 @@ ocm_register(Class klass, VALUE oc_mname, VALUE rb_mname, VALUE is_predicate,
     return;
   }
 
-  rb_mname_str = rb_id2name(SYM2ID(rb_mname));
+  if (TYPE(rb_mname) == T_SYMBOL) {
+    rb_mname_str = rb_id2name(SYM2ID(rb_mname));
+  } else {
+    rb_mname_str = NULL;
+  }
+
+  if (rb_mname_str == NULL || strlen(rb_mname_str) <= 0) {
+    OBJWRP_LOG("cannot register Ruby %s method `%s' on `%s' "
+      "(problem when getting method name)",
+      is_class_method ? "class" : "instance",
+      RSTRING(rb_inspect(rb_mname))->ptr, rb_class2name(rclass));
+    return;
+  }
+
   OBJWRP_LOG("registering Ruby %s method `%s' on `%s'", 
     is_class_method ? "class" : "instance", rb_mname_str, 
     rb_class2name(rclass));

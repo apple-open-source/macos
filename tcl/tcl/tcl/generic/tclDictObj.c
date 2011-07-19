@@ -9,7 +9,7 @@
  * See the file "license.terms" for information on usage and redistribution of
  * this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tclDictObj.c,v 1.56.2.2 2009/01/06 16:07:17 dkf Exp $
+ * RCS: @(#) $Id: tclDictObj.c,v 1.56.2.4 2010/05/19 21:47:49 ferrieux Exp $
  */
 
 #include "tclInt.h"
@@ -601,6 +601,14 @@ SetDictFromAny(
 	    hPtr = CreateChainEntry(dict, objv[i], &isNew);
 	    if (!isNew) {
 		Tcl_Obj *discardedValue = Tcl_GetHashValue(hPtr);
+
+		/*
+		 * Not really a well-formed dictionary as there are duplicate
+		 * keys, so better get the string rep here so that we can
+		 * convert back.
+		 */
+
+		(void) Tcl_GetString(objPtr);
 
 		TclDecrRefCount(discardedValue);
 	    }
@@ -2151,6 +2159,12 @@ DictIncrCmd(
 	    if (code != TCL_OK) {
 		Tcl_AddErrorInfo(interp, "\n    (reading increment)");
 	    } else {
+		/*
+		 * Remember to dispose with the bignum as we're not actually
+		 * using it directly. [Bug 2874678]
+		 */
+
+		mp_clear(&increment);
 		Tcl_DictObjPut(interp, dictPtr, objv[2], objv[3]);
 	    }
 	} else {

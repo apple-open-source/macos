@@ -384,7 +384,7 @@ TclExpatInstanceCmd (clientData, interp, objc, objv)
 {
   TclExpatInfo *expat = (TclExpatInfo *) clientData;
   char *data;
-  size_t len;
+  int len;
   int index, result = TCL_OK;
   static char CONST_XOTCL_EXPAT *options[] = {
     "configure", "cget", "parse", "reset", NULL
@@ -423,7 +423,7 @@ TclExpatInstanceCmd (clientData, interp, objc, objv)
 
       data = Tcl_GetStringFromObj(objv[2], &len);
 
-      result = TclExpatParse(interp, expat, data, len);
+      result = TclExpatParse(interp, expat, data, (size_t)len);
 
       break;
 

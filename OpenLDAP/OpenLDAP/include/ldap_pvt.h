@@ -1,7 +1,7 @@
-/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.91.2.6 2008/02/11 23:26:40 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/include/ldap_pvt.h,v 1.91.2.13 2010/04/19 16:53:01 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  * 
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -21,6 +21,7 @@
 #define _LDAP_PVT_H 1
 
 #include <lber.h>				/* get ber_slen_t */
+#include <lber_pvt.h>				/* get Sockbuf_Buf */
 
 LDAP_BEGIN_DECL
 
@@ -89,6 +90,51 @@ LDAP_F( char * )
 ldap_pvt_ctime LDAP_P((
 	const time_t *tp,
 	char *buf ));
+
+# if defined( HAVE_GMTIME_R )
+#   define USE_GMTIME_R
+#   define ldap_pvt_gmtime(timep, result) gmtime_r((timep), (result))
+# else
+LDAP_F( struct tm * )
+ldap_pvt_gmtime LDAP_P((
+	LDAP_CONST time_t *timep,
+	struct tm *result ));
+#endif
+
+# if defined( HAVE_LOCALTIME_R )
+#   define USE_LOCALTIME_R
+#   define ldap_pvt_localtime(timep, result) localtime_r((timep), (result))
+# else
+LDAP_F( struct tm * )
+ldap_pvt_localtime LDAP_P((
+	LDAP_CONST time_t *timep,
+	struct tm *result ));
+# endif
+
+#if defined( USE_GMTIME_R ) && defined( USE_LOCALTIME_R )
+#   define ldap_pvt_gmtime_lock() (0)
+#   define ldap_pvt_gmtime_unlock() (0)
+#else
+LDAP_F( int )
+ldap_pvt_gmtime_lock LDAP_P(( void ));
+
+LDAP_F( int )
+ldap_pvt_gmtime_unlock LDAP_P(( void ));
+#endif /* USE_GMTIME_R && USE_LOCALTIME_R */
+
+/* Get current time as a structured time */
+struct lutil_tm;
+LDAP_F( void )
+ldap_pvt_gettime LDAP_P(( struct lutil_tm * ));
+
+/* use this macro to allocate buffer for ldap_pvt_csnstr */
+#define LDAP_PVT_CSNSTR_BUFSIZE	64
+LDAP_F( size_t )
+ldap_pvt_csnstr( char *buf, size_t len, unsigned int replica, unsigned int mod );
+
+#ifdef __APPLE__
+LDAP_F( char *) ldap_pvt_get_fqdn_from_sys_conf LDAP_P(( void ));
+#endif
 
 LDAP_F( char *) ldap_pvt_get_fqdn LDAP_P(( char * ));
 
@@ -217,12 +263,54 @@ LDAP_F (void *) ldap_pvt_sasl_mutex_new LDAP_P((void));
 LDAP_F (int) ldap_pvt_sasl_mutex_lock LDAP_P((void *mutex));
 LDAP_F (int) ldap_pvt_sasl_mutex_unlock LDAP_P((void *mutex));
 LDAP_F (void) ldap_pvt_sasl_mutex_dispose LDAP_P((void *mutex));
+#endif /* HAVE_CYRUS_SASL */
 
 struct sockbuf; /* avoid pulling in <lber.h> */
 LDAP_F (int) ldap_pvt_sasl_install LDAP_P(( struct sockbuf *, void * ));
 LDAP_F (void) ldap_pvt_sasl_remove LDAP_P(( struct sockbuf * ));
-#endif /* HAVE_CYRUS_SASL */
 
+/*
+ * SASL encryption support for LBER Sockbufs
+ */
+
+struct sb_sasl_generic_data;
+
+struct sb_sasl_generic_ops {
+	void (*init)(struct sb_sasl_generic_data *p,
+		     ber_len_t *min_send,
+		     ber_len_t *max_send,
+		     ber_len_t *max_recv);
+	ber_int_t (*encode)(struct sb_sasl_generic_data *p,
+			    unsigned char *buf,
+			    ber_len_t len,
+			    Sockbuf_Buf *dst);
+	ber_int_t (*decode)(struct sb_sasl_generic_data *p,
+			    const Sockbuf_Buf *src,
+			    Sockbuf_Buf *dst);
+	void (*reset_buf)(struct sb_sasl_generic_data *p,
+			  Sockbuf_Buf *buf);
+	void (*fini)(struct sb_sasl_generic_data *p);
+};
+
+struct sb_sasl_generic_install {
+	const struct sb_sasl_generic_ops 	*ops;
+	void					*ops_private;
+};
+
+struct sb_sasl_generic_data {
+	const struct sb_sasl_generic_ops 	*ops;
+	void					*ops_private;
+	Sockbuf_IO_Desc				*sbiod;
+	ber_len_t				min_send;
+	ber_len_t				max_send;
+	ber_len_t				max_recv;
+	Sockbuf_Buf				sec_buf_in;
+	Sockbuf_Buf				buf_in;
+	Sockbuf_Buf				buf_out;
+	unsigned int				flags;
+#define LDAP_PVT_SASL_PARTIAL_WRITE	1
+};
+ 
 #ifndef LDAP_PVT_SASL_LOCAL_SSF
 #define LDAP_PVT_SASL_LOCAL_SSF	71	/* SSF for Unix Domain Sockets */
 #endif /* ! LDAP_PVT_SASL_LOCAL_SSF */
@@ -245,6 +333,20 @@ LDAP_F (int) ldap_open_internal_connection LDAP_P((
 LDAP_F (int) ldap_init_fd LDAP_P((
 	ber_socket_t fd, int proto, LDAP_CONST char *url, struct ldap **ldp ));
 
+/* sasl.c */
+LDAP_F (int) ldap_pvt_sasl_generic_install LDAP_P(( Sockbuf *sb,
+	struct sb_sasl_generic_install *install_arg ));
+LDAP_F (void) ldap_pvt_sasl_generic_remove LDAP_P(( Sockbuf *sb ));
+
+#ifdef __APPLE__
+/* os-ip.c */
+LDAP_F( void ) ldap_pvt_open_select_pipe LDAP_P(( struct ldap *ld ));
+LDAP_F( void ) ldap_pvt_close_select_pipe LDAP_P(( struct ldap *ld ));
+
+/* result.c */
+LDAP_F( void ) ldap_pvt_clear_search_results_callback LDAP_P(( struct ldap *ld ));
+#endif /* __APPLE__ */
+
 /* search.c */
 LDAP_F( int ) ldap_pvt_put_filter LDAP_P((
 	BerElement *ber,
@@ -262,6 +364,34 @@ ldap_bv2escaped_filter_value_len LDAP_P(( struct berval *in ));
 LDAP_F( int )
 ldap_bv2escaped_filter_value_x LDAP_P(( struct berval *in, struct berval *out,
 	int inplace, void *ctx ));
+
+LDAP_F (int) ldap_pvt_search LDAP_P((
+	struct ldap *ld,
+	LDAP_CONST char *base,
+	int scope,
+	LDAP_CONST char *filter,
+	char **attrs,
+	int attrsonly,
+	struct ldapcontrol **sctrls,
+	struct ldapcontrol **cctrls,
+	struct timeval *timeout,
+	int sizelimit,
+	int deref,
+	int *msgidp ));
+
+LDAP_F(int) ldap_pvt_search_s LDAP_P((
+	struct ldap *ld,
+	LDAP_CONST char *base,
+	int scope,
+	LDAP_CONST char *filter,
+	char **attrs,
+	int attrsonly,
+	struct ldapcontrol **sctrls,
+	struct ldapcontrol **cctrls,
+	struct timeval *timeout,
+	int sizelimit,
+	int deref,
+	struct ldapmsg **res ));
 
 /* string.c */
 LDAP_F( char * )

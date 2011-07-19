@@ -1,0 +1,20 @@
+This distribution contains the IPC::Signal module.  To build it run
+
+    perl Makefile.PL
+    make
+    make test
+    make install
+
+The documentation is embeded in the module, use
+
+    perldoc Signal.pm
+
+to read it before installation.
+
+Roderick Schertler <roderick@argon.org>
+
+Copyright (c) 1997 Roderick Schertler.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+$Id: README,v 1.3 1997-05-23 10:21:26-04 roderick Exp $

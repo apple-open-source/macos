@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triop.h,v 1.17 2009/05/21 12:52:14 breese Exp $
+ * $Id: triop.h,v 1.18 2009/07/05 10:14:07 breese Exp $
  *
  * Copyright (C) 2000 Bjorn Reese and Daniel Stenberg.
  *
@@ -404,7 +404,7 @@ trio_pointer_t trio_register TRIO_PROTO((trio_callback_t callback, const char *n
 void trio_unregister TRIO_PROTO((trio_pointer_t handle));
 
 TRIO_CONST char *trio_get_format TRIO_PROTO((trio_pointer_t ref));
-trio_pointer_t trio_get_argument TRIO_PROTO((trio_pointer_t ref));
+TRIO_CONST trio_pointer_t trio_get_argument TRIO_PROTO((trio_pointer_t ref));
 
 /* Modifiers */
 int  trio_get_width TRIO_PROTO((trio_pointer_t ref));
@@ -429,7 +429,7 @@ int  trio_get_alternative TRIO_PROTO((trio_pointer_t ref)); /* # */
 void trio_set_alternative TRIO_PROTO((trio_pointer_t ref, int is_alternative));
 int  trio_get_alignment TRIO_PROTO((trio_pointer_t ref)); /* - */
 void trio_set_alignment TRIO_PROTO((trio_pointer_t ref, int is_leftaligned));
-int  trio_get_spacing TRIO_PROTO((trio_pointer_t ref)); /*  TRIO_PROTO((space) */
+int  trio_get_spacing TRIO_PROTO((trio_pointer_t ref)); /* (space) */
 void trio_set_spacing TRIO_PROTO((trio_pointer_t ref, int is_space));
 int  trio_get_sign TRIO_PROTO((trio_pointer_t ref)); /* + */
 void trio_set_sign TRIO_PROTO((trio_pointer_t ref, int is_showsign));

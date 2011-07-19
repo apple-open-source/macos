@@ -1,0 +1,81 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE article PUBLIC "-//OASIS//DTD DocBook XML V4.3//EN"
+          "http://www.oasis-open.org/docbook/xml/4.3/docbookx.dtd" [
+]>
+
+<article>
+
+<articleinfo>
+
+<title>X and DPS</title>
+<author>
+<firstname>Juliusz</firstname><surname>Chroboczek</surname>
+<email>jch@freedesktop.org</email>
+</author>
+<pubdate>27 February 2001, updated 30 October 2006</pubdate>
+
+</articleinfo>
+
+<para>
+Updated by Jim Gettys and Juliusz Chroboczek.
+</para>
+
+<para>
+
+</para>
+
+<para>
+
+</para>
+
+<sect1>
+<title>Notice of Obsolescence and Removal from X.Org Releases</title>
+
+<para>
+DPS is now obsolete.
+</para>
+
+<para>
+At the time when I started this project, there was no decent rendering
+interface for X11 other than DPS.
+</para>
+
+<para>
+Since then, there has been a large amount of work on a simple and
+clean X server extension, Xrender, which provides the basis for just
+such an interface.
+</para>
+
+<para>
+Rendering libraries that are being built above Xrender include Xft, a
+font rendering library built on FreeType; Cairo, a geometry rendering
+library that provides PostScript-like rendering primitives but with
+from-the-ground support for Porter-Duff compositing (transparency);
+Pango, a high-level typesetting library.
+</para>
+
+<para>
+If your application uses DPS, please consider porting it to the above libraries.
+See <ulink url="http://dps.sourceforge.net">the DPS extension site</ulink>
+for more details
+</para>
+
+<para>
+The client-side DPS software was included and built by default (except
+as noted below) in the X.Org X11R6.8 release series.  The client-side
+software was included, but not built unless specifically
+configured by the builder, in the X.Org X11R6.9 release series.
+The client-side DPS software is no longer included in X11R7.0 or
+later releases.
+</para>
+
+<para>
+The server-side software is not included in any X.Org release for
+licensing reasons; the code is still available
+from <ulink url="http://dps.sourceforge.net">the DPS extension site</ulink>;
+it is not known whether it still compiles.
+</para>
+
+</sect1>
+
+</article>

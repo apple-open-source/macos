@@ -74,6 +74,8 @@ struct statistic_name_map statistic_name_map[] = {
     {STATISTIC_SYSMACH, top_sysmach_create, "SYSMACH"},
     {STATISTIC_CSW, top_csw_create, "CSW"},
     {STATISTIC_PAGEINS, top_pageins_create, "PAGEINS"},
+    {STATISTIC_KPRVT, top_kprvt_create, "KPRVT"},
+    {STATISTIC_KSHRD, top_kshrd_create, "KSHRD"},
     {STATISTIC_USER, top_user_create, "USER"},
     {0, NULL, NULL}
 };

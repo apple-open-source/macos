@@ -33,36 +33,40 @@ RCSID("$Id$")
 
 #ifdef HAVE_SYS_UN_H
 #include <sys/un.h>
+#ifndef SUN_LEN
+#define SUN_LEN(su)  (sizeof(*(su)) - sizeof((su)->sun_path) + strlen((su)->sun_path))
+#endif
 #endif
 
 #ifdef HAVE_GETOPT_H
 #include <getopt.h>
 #endif
 
+#ifdef HAVE_SYS_STAT_H
+#include <sys/stat.h>
+#endif
+
 #ifdef HAVE_LIBREADLINE
+
 #if defined(HAVE_READLINE_READLINE_H)
 #include <readline/readline.h>
+#define USE_READLINE (1)
 #elif defined(HAVE_READLINE_H)
 #include <readline.h>
-#else /* !defined(HAVE_READLINE_H) */
-extern char *readline ();
+#define USE_READLINE (1)
 #endif /* !defined(HAVE_READLINE_H) */
-char *cmdline = NULL;
-#else /* !defined(HAVE_READLINE_READLINE_H) */
-  /* no readline */
+
 #endif /* HAVE_LIBREADLINE */
 
 #ifdef HAVE_READLINE_HISTORY
 #if defined(HAVE_READLINE_HISTORY_H)
 #include <readline/history.h>
+#define USE_READLINE_HISTORY (1)
 #elif defined(HAVE_HISTORY_H)
 #include <history.h>
-#else /* !defined(HAVE_HISTORY_H) */
-extern void add_history ();
-extern int write_history ();
-extern int read_history ();
+#define USE_READLINE_HISTORY (1)
 #endif /* defined(HAVE_READLINE_HISTORY_H) */
-  /* no history */
+
 #endif /* HAVE_READLINE_HISTORY */
 
 /*
@@ -115,9 +119,21 @@ static int fr_domain_socket(const char *path)
 	socklen = SUN_LEN(&saremote);
 
         if (connect(sockfd, (struct sockaddr *)&saremote, socklen) < 0) {
+		struct stat buf;
+
+		close(sockfd);
 		fprintf(stderr, "%s: Failed connecting to %s: %s\n",
 			progname, path, strerror(errno));
-		close(sockfd);
+
+		/*
+		 *	The file doesn't exist.  Tell the user how to
+		 *	fix it.
+		 */
+		if ((stat(path, &buf) < 0) &&
+		    (errno == ENOENT)) {
+			fprintf(stderr, "  Perhaps you need to run the commands:\n\tcd /etc/raddb\n\tln -s sites-available/control-socket sites-enabled/control-socket\n  and then re-start the server?\n");
+		}
+
 		return -1;
         }
 
@@ -165,7 +181,6 @@ static ssize_t run_command(int sockfd, const char *command,
 {
 	char *p;
 	ssize_t size, len;
-	int flag = 1;
 
 	if (echo) {
 		fprintf(outputfp, "%s\n", command);
@@ -185,7 +200,7 @@ static ssize_t run_command(int sockfd, const char *command,
 
 	memset(buffer, 0, bufsize);
 
-	while (flag == 1) {
+	while (1) {
 		int rcode;
 		fd_set readfds;
 
@@ -238,8 +253,6 @@ static ssize_t run_command(int sockfd, const char *command,
 			*p = '\0';
 
 			if (p[-1] == '\n') p[-1] = '\0';
-
-			flag = 0;
 			break;
 		}
 	}
@@ -254,6 +267,7 @@ static ssize_t run_command(int sockfd, const char *command,
 	return 2;
 }
 
+#define MAX_COMMANDS (4)
 
 int main(int argc, char **argv)
 {
@@ -269,6 +283,9 @@ int main(int argc, char **argv)
 	const char *input_file = NULL;
 	FILE *inputfp = stdin;
 	const char *output_file = NULL;
+	
+	char *commands[MAX_COMMANDS];
+	int num_commands = -1;
 
 	outputfp = stdout;	/* stdout is not a constant value... */
 
@@ -288,7 +305,13 @@ int main(int argc, char **argv)
 			break;
 
 		case 'e':
-			line = optarg;
+			num_commands++; /* starts at -1 */
+			if (num_commands >= MAX_COMMANDS) {
+				fprintf(stderr, "%s: Too many '-e'\n",
+					progname);
+				exit(1);
+			}
+			commands[num_commands] = optarg;
 			break;
 
 		case 'E':
@@ -406,9 +429,11 @@ int main(int argc, char **argv)
 	 */
 	if (input_file && !quiet && !isatty(STDIN_FILENO)) quiet = 1;
 
-#ifdef HAVE_LIBREADLINE
+#ifdef USE_READLINE
 	if (!quiet) {
+#ifdef USE_READLINE_HISTORY
 		using_history();
+#endif
 		rl_bind_key('\t', rl_insert);
 	}
 #endif
@@ -452,14 +477,20 @@ int main(int argc, char **argv)
 	/*
 	 *	Run one command.
 	 */
-	if (line) {
-		size = run_command(sockfd, line, buffer, sizeof(buffer));
-		if (size < 0) exit(1);
-		if ((size == 0) || (size == 1)) exit(0);
+	if (num_commands >= 0) {
+		int i;
 
-		fputs(buffer, outputfp);
-		fprintf(outputfp, "\n");
-		fflush(outputfp);
+		for (i = 0; i <= num_commands; i++) {
+			size = run_command(sockfd, commands[i],
+					   buffer, sizeof(buffer));
+			if (size < 0) exit(1);
+			
+			if (buffer[0]) {
+				fputs(buffer, outputfp);
+				fprintf(outputfp, "\n");
+				fflush(outputfp);
+			}
+		}
 		exit(0);
 	}
 
@@ -479,7 +510,7 @@ int main(int argc, char **argv)
 	 */
 
 	while (1) {
-#ifndef HAVE_LIBREADLINE
+#ifndef USE_READLINE
 		if (!quiet) {
 			printf("radmin> ");
 			fflush(stdout);
@@ -495,7 +526,9 @@ int main(int argc, char **argv)
 				continue;
 			}
 			
+#ifdef USE_READLINE_HISTORY
 			add_history(line);
+#endif
 		} else		/* quiet, or no readline */
 #endif
 		{

@@ -1,0 +1,38 @@
+--- src/fetch.c.orig	2007-08-06 00:33:23.000000000 -0400
++++ src/fetch.c	2010-02-23 15:05:50.000000000 -0500
+@@ -199,7 +199,7 @@
+ 		fprintf(ttyout, "%s\n", user);
+ 	} else {
+ 		(void)fflush(ttyout);
+-		if (getline(stdin, user, sizeof(user), &errormsg) < 0) {
++		if (get_line(stdin, user, sizeof(user), &errormsg) < 0) {
+ 			warnx("%s; can't authenticate", errormsg);
+ 			goto cleanup_auth_url;
+ 		}
+@@ -839,7 +839,7 @@
+ 		}
+ 
+ 				/* Read the response */
+-		len = getline(fin, buf, sizeof(buf), &errormsg);
++		len = get_line(fin, buf, sizeof(buf), &errormsg);
+ 		if (len < 0) {
+ 			if (*errormsg == '\n')
+ 				errormsg++;
+@@ -863,7 +863,7 @@
+ 
+ 				/* Read the rest of the header. */
+ 		while (1) {
+-			len = getline(fin, buf, sizeof(buf), &errormsg);
++			len = get_line(fin, buf, sizeof(buf), &errormsg);
+ 			if (len < 0) {
+ 				if (*errormsg == '\n')
+ 					errormsg++;
+@@ -1067,7 +1067,7 @@
+ 
+ 				fprintf(ttyout,
+ 				    "Authorization failed. Retry (y/n)? ");
+-				if (getline(stdin, reply, sizeof(reply), NULL)
++				if (get_line(stdin, reply, sizeof(reply), NULL)
+ 				    < 0) {
+ 					goto cleanup_fetch_url;
+ 				}

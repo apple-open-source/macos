@@ -24,6 +24,17 @@
 #include "ewk_private.h"
 #include <eina_safety_checks.h>
 
+#ifdef HAVE_ECORE_X
+#include <Ecore_X.h>
+#endif
+
+/**
+ * Converts an image from cairo_surface to the Evas_Object.
+ *
+ * @param canvas display canvas
+ * @param surface cairo representation of an image
+ * @return converted cairo_surface object to the Evas_Object
+ */
 Evas_Object* ewk_util_image_from_cairo_surface_add(Evas* canvas, cairo_surface_t* surface)
 {
     cairo_status_t status;
@@ -81,9 +92,9 @@ Evas_Object* ewk_util_image_from_cairo_surface_add(Evas* canvas, cairo_surface_t
     evas_object_image_size_set(image, w, h);
     evas_object_image_alpha_set(image, format == CAIRO_FORMAT_ARGB32);
 
-    if (evas_object_image_stride_get(image) * 4 != stride) {
+    if (evas_object_image_stride_get(image) != stride) {
         ERR("evas' stride %d diverges from cairo's %d.",
-            evas_object_image_stride_get(image) * 4, stride);
+            evas_object_image_stride_get(image), stride);
         evas_object_del(image);
         return 0;
     }
@@ -96,3 +107,19 @@ Evas_Object* ewk_util_image_from_cairo_surface_add(Evas* canvas, cairo_surface_t
 
     return image;
 }
+
+/**
+ * @internal
+ * Gets dpi value.
+ *
+ * @return device's dpi value.
+ */
+int ewk_util_dpi_get(void)
+{
+#ifdef HAVE_ECORE_X
+     return ecore_x_dpi_get();
+#else
+     return 160;
+#endif
+}
+

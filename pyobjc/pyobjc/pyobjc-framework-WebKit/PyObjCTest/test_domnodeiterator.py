@@ -4,7 +4,9 @@ from WebKit import *
 
 class TestDOMNodeIterator (TestCase):
     def testMethods(self):
-        self.failUnlessResultIsBOOL(DOMNodeIterator.expandEntityReferences)
+        self.assertResultIsBOOL(DOMNodeIterator.expandEntityReferences)
+
+        self.assertResultIsBOOL(DOMNodeIterator.pointerBeforeReferenceNode)
 
 if __name__ == "__main__":
     main()

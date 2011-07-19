@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)rec_open.c	8.10 (Berkeley) 9/1/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_open.c,v 1.6 2002/03/22 21:52:02 obrien Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_open.c,v 1.9 2009/03/04 00:58:04 delphij Exp $");
 
 #include "namespace.h"
 #include <sys/types.h>
@@ -57,10 +53,8 @@ __FBSDID("$FreeBSD: src/lib/libc/db/recno/rec_open.c,v 1.6 2002/03/22 21:52:02 o
 #include "recno.h"
 
 DB *
-__rec_open(fname, flags, mode, openinfo, dflags)
-	const char *fname;
-	int flags, mode, dflags;
-	const RECNOINFO *openinfo;
+__rec_open(const char *fname, int flags, int mode, const RECNOINFO *openinfo,
+    int dflags)
 {
 	BTREE *t;
 	BTREEINFO btopeninfo;
@@ -209,7 +203,7 @@ slow:			if ((t->bt_rfp = fdopen(rfd, "r")) == NULL)
 	if (openinfo && openinfo->flags & R_SNAPSHOT &&
 	    !F_ISSET(t, R_EOF | R_INMEM) &&
 	    t->bt_irec(t, MAX_REC_NUMBER) == RET_ERROR)
-                goto err;
+		goto err;
 	return (dbp);
 
 einval:	errno = EINVAL;
@@ -223,8 +217,7 @@ err:	sverrno = errno;
 }
 
 int
-__rec_fd(dbp)
-	const DB *dbp;
+__rec_fd(const DB *dbp)
 {
 	BTREE *t;
 

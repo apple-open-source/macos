@@ -30,11 +30,14 @@ class SDTCisVT<int OpNum, ValueType vt> : SDTypeConstraint<OpNum> {
 
 class SDTCisPtrTy<int OpNum> : SDTypeConstraint<OpNum>;
 
-// SDTCisInt - The specified operand is has integer type.
+// SDTCisInt - The specified operand has integer type.
 class SDTCisInt<int OpNum> : SDTypeConstraint<OpNum>;
 
-// SDTCisFP - The specified operand is has floating point type.
+// SDTCisFP - The specified operand has floating-point type.
 class SDTCisFP<int OpNum> : SDTypeConstraint<OpNum>;
+
+// SDTCisVec - The specified operand has a vector type.
+class SDTCisVec<int OpNum> : SDTypeConstraint<OpNum>;
 
 // SDTCisSameAs - The two specified operands have identical types.
 class SDTCisSameAs<int OpNum, int OtherOp> : SDTypeConstraint<OpNum> {
@@ -89,6 +92,10 @@ def SDTIntBinOp : SDTypeProfile<1, 2, [     // add, and, or, xor, udiv, etc.
 def SDTIntShiftOp : SDTypeProfile<1, 2, [   // shl, sra, srl
   SDTCisSameAs<0, 1>, SDTCisInt<0>, SDTCisInt<2>
 ]>;
+def SDTIntBinHiLoOp : SDTypeProfile<2, 2, [ // mulhi, mullo, sdivrem, udivrem
+  SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisSameAs<0, 3>,SDTCisInt<0>
+]>;
+
 def SDTFPBinOp : SDTypeProfile<1, 2, [      // fadd, fmul, etc.
   SDTCisSameAs<0, 1>, SDTCisSameAs<0, 2>, SDTCisFP<0>
 ]>;
@@ -216,6 +223,7 @@ def SDNPMayStore    : SDNodeProperty;   // May write to memory, sets 'mayStore'.
 def SDNPMayLoad     : SDNodeProperty;   // May read memory, sets 'mayLoad'.
 def SDNPSideEffect  : SDNodeProperty;   // Sets 'HasUnmodelledSideEffects'.
 def SDNPMemOperand  : SDNodeProperty;   // Touches memory, has assoc MemOperand
+def SDNPVariadic    : SDNodeProperty;   // Node has variable arguments.
 
 //===----------------------------------------------------------------------===//
 // Selection DAG Node definitions.
@@ -228,9 +236,9 @@ class SDNode<string opcode, SDTypeProfile typeprof,
   SDTypeProfile TypeProfile = typeprof;
 }
 
+// Special TableGen-recognized dag nodes
 def set;
 def implicit;
-def parallel;
 def node;
 def srcvalue;
 
@@ -265,6 +273,10 @@ def externalsym : SDNode<"ISD::ExternalSymbol",       SDTPtrLeaf, [],
                          "ExternalSymbolSDNode">;
 def texternalsym: SDNode<"ISD::TargetExternalSymbol", SDTPtrLeaf, [],
                          "ExternalSymbolSDNode">;
+def blockaddress : SDNode<"ISD::BlockAddress",        SDTPtrLeaf, [],
+                         "BlockAddressSDNode">;
+def tblockaddress: SDNode<"ISD::TargetBlockAddress",  SDTPtrLeaf, [],
+                         "BlockAddressSDNode">;
 
 def add        : SDNode<"ISD::ADD"       , SDTIntBinOp   ,
                         [SDNPCommutative, SDNPAssociative]>;
@@ -273,10 +285,14 @@ def mul        : SDNode<"ISD::MUL"       , SDTIntBinOp,
                         [SDNPCommutative, SDNPAssociative]>;
 def mulhs      : SDNode<"ISD::MULHS"     , SDTIntBinOp, [SDNPCommutative]>;
 def mulhu      : SDNode<"ISD::MULHU"     , SDTIntBinOp, [SDNPCommutative]>;
+def smullohi   : SDNode<"ISD::SMUL_LOHI" , SDTIntBinHiLoOp, [SDNPCommutative]>;
+def umullohi   : SDNode<"ISD::UMUL_LOHI" , SDTIntBinHiLoOp, [SDNPCommutative]>;
 def sdiv       : SDNode<"ISD::SDIV"      , SDTIntBinOp>;
 def udiv       : SDNode<"ISD::UDIV"      , SDTIntBinOp>;
 def srem       : SDNode<"ISD::SREM"      , SDTIntBinOp>;
 def urem       : SDNode<"ISD::UREM"      , SDTIntBinOp>;
+def sdivrem    : SDNode<"ISD::SDIVREM"   , SDTIntBinHiLoOp>;
+def udivrem    : SDNode<"ISD::UDIVREM"   , SDTIntBinHiLoOp>;
 def srl        : SDNode<"ISD::SRL"       , SDTIntShiftOp>;
 def sra        : SDNode<"ISD::SRA"       , SDTIntShiftOp>;
 def shl        : SDNode<"ISD::SHL"       , SDTIntShiftOp>;
@@ -321,6 +337,8 @@ def fneg       : SDNode<"ISD::FNEG"       , SDTFPUnaryOp>;
 def fsqrt      : SDNode<"ISD::FSQRT"      , SDTFPUnaryOp>;
 def fsin       : SDNode<"ISD::FSIN"       , SDTFPUnaryOp>;
 def fcos       : SDNode<"ISD::FCOS"       , SDTFPUnaryOp>;
+def fexp2      : SDNode<"ISD::FEXP2"      , SDTFPUnaryOp>;
+def flog2      : SDNode<"ISD::FLOG2"      , SDTFPUnaryOp>;
 def frint      : SDNode<"ISD::FRINT"      , SDTFPUnaryOp>;
 def ftrunc     : SDNode<"ISD::FTRUNC"     , SDTFPUnaryOp>;
 def fceil      : SDNode<"ISD::FCEIL"      , SDTFPUnaryOp>;
@@ -335,6 +353,8 @@ def sint_to_fp : SDNode<"ISD::SINT_TO_FP" , SDTIntToFPOp>;
 def uint_to_fp : SDNode<"ISD::UINT_TO_FP" , SDTIntToFPOp>;
 def fp_to_sint : SDNode<"ISD::FP_TO_SINT" , SDTFPToIntOp>;
 def fp_to_uint : SDNode<"ISD::FP_TO_UINT" , SDTFPToIntOp>;
+def f16_to_f32 : SDNode<"ISD::FP16_TO_FP32", SDTIntToFPOp>;
+def f32_to_f16 : SDNode<"ISD::FP32_TO_FP16", SDTFPToIntOp>;
 
 def setcc      : SDNode<"ISD::SETCC"      , SDTSetCC>;
 def select     : SDNode<"ISD::SELECT"     , SDTSelect>;
@@ -344,7 +364,6 @@ def vsetcc     : SDNode<"ISD::VSETCC"     , SDTSetCC>;
 def brcond     : SDNode<"ISD::BRCOND"     , SDTBrcond, [SDNPHasChain]>;
 def brind      : SDNode<"ISD::BRIND"      , SDTBrind,  [SDNPHasChain]>;
 def br         : SDNode<"ISD::BR"         , SDTBr,     [SDNPHasChain]>;
-def ret        : SDNode<"ISD::RET"        , SDTNone,   [SDNPHasChain]>;
 def trap       : SDNode<"ISD::TRAP"       , SDTNone,
                         [SDNPHasChain, SDNPSideEffect]>;
 
@@ -470,26 +489,18 @@ class PatLeaf<dag frag, code pred = [{}], SDNodeXForm xform = NOOP_SDNodeXForm>
 def vtInt      : PatLeaf<(vt),  [{ return N->getVT().isInteger(); }]>;
 def vtFP       : PatLeaf<(vt),  [{ return N->getVT().isFloatingPoint(); }]>;
 
-def immAllOnes : PatLeaf<(imm), [{ return N->isAllOnesValue(); }]>;
 def immAllOnesV: PatLeaf<(build_vector), [{
   return ISD::isBuildVectorAllOnes(N);
 }]>;
-def immAllOnesV_bc: PatLeaf<(bitconvert), [{
-  return ISD::isBuildVectorAllOnes(N);
-}]>;
 def immAllZerosV: PatLeaf<(build_vector), [{
-  return ISD::isBuildVectorAllZeros(N);
-}]>;
-def immAllZerosV_bc: PatLeaf<(bitconvert), [{
   return ISD::isBuildVectorAllZeros(N);
 }]>;
 
 
 
 // Other helper fragments.
-def not  : PatFrag<(ops node:$in), (xor node:$in, immAllOnes)>;
+def not  : PatFrag<(ops node:$in), (xor node:$in, -1)>;
 def vnot : PatFrag<(ops node:$in), (xor node:$in, immAllOnesV)>;
-def vnot_conv : PatFrag<(ops node:$in), (xor node:$in, immAllOnesV_bc)>;
 def ineg : PatFrag<(ops node:$in), (sub 0, node:$in)>;
 
 // load fragments.
@@ -834,11 +845,6 @@ class Pat<dag pattern, dag result> : Pattern<pattern, [result]>;
 // Complex pattern definitions.
 //
 
-class CPAttribute;
-// Pass the parent Operand as root to CP function rather 
-// than the root of the sub-DAG
-def CPAttrParentAsRoot : CPAttribute;
-
 // Complex patterns, e.g. X86 addressing mode, requires pattern matching code
 // in C++. NumOperands is the number of operands returned by the select function;
 // SelectFunc is the name of the function used to pattern match the max. pattern;
@@ -846,19 +852,10 @@ def CPAttrParentAsRoot : CPAttribute;
 // e.g. X86 addressing mode - def addr : ComplexPattern<4, "SelectAddr", [add]>;
 //
 class ComplexPattern<ValueType ty, int numops, string fn,
-                     list<SDNode> roots = [], list<SDNodeProperty> props = [],
-                     list<CPAttribute> attrs = []> {
+                     list<SDNode> roots = [], list<SDNodeProperty> props = []> {
   ValueType Ty = ty;
   int NumOperands = numops;
   string SelectFunc = fn;
   list<SDNode> RootNodes = roots;
   list<SDNodeProperty> Properties = props;
-  list<CPAttribute> Attributes = attrs;
 }
-
-//===----------------------------------------------------------------------===//
-// Dwarf support.
-//
-def SDT_dwarf_loc : SDTypeProfile<0, 3,
-                      [SDTCisInt<0>, SDTCisInt<1>, SDTCisInt<2>]>;
-def dwarf_loc : SDNode<"ISD::DEBUG_LOC", SDT_dwarf_loc,[SDNPHasChain]>;

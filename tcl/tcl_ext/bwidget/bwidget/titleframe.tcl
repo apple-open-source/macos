@@ -1,6 +1,7 @@
 # ------------------------------------------------------------------------------
 #  titleframe.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: titleframe.tcl,v 1.52 2009/10/25 20:55:36 oberdorfer Exp $
 # ------------------------------------------------------------------------------
 #  Index of commands:
 #     - TitleFrame::create
@@ -17,7 +18,8 @@ namespace eval TitleFrame {
         {-relief      TkResource groove 0 frame}
         {-borderwidth TkResource 2      0 frame}
         {-font        TkResource ""     0 label}
-        {-foreground  TkResource ""     0 label}
+        {-foreground  Color      "SystemWindowText"  0}
+        {-background  Color      "SystemWindowFrame" 0}
         {-state       TkResource ""     0 label}
         {-background  TkResource ""     0 frame}
         {-text        String     ""     0}
@@ -49,20 +51,39 @@ namespace eval TitleFrame {
 proc TitleFrame::create { path args } {
     Widget::init TitleFrame $path $args
 
-    set frame  [eval [list frame $path] [Widget::subcget $path :cmd] \
+    if { [BWidget::using ttk] } {
+
+      set frame  [eval [list ttk::frame $path] [Widget::subcget $path :cmd] \
+	    -class TitleFrame -relief flat]
+
+      set padtop [eval [list ttk::frame $path.p] [Widget::subcget $path :cmd] \
+	    -relief flat]
+      set border [eval [list ttk::frame $path.b] [Widget::subcget $path .b]]
+      set label  [eval [list ttk::label $path.l] [Widget::subcget $path .l] \
+                    -relief flat]
+      set padbot [eval [list ttk::frame $border.p] [Widget::subcget $path .p] \
+	    -relief flat]
+      set frame  [eval [list ttk::frame $path.f] [Widget::subcget $path .f] \
+	    -relief flat]
+
+    } else {
+
+      set frame  [eval [list frame $path] [Widget::subcget $path :cmd] \
 	    -class TitleFrame -relief flat -bd 0 -highlightthickness 0]
 
-    set padtop [eval [list frame $path.p] [Widget::subcget $path :cmd] \
+      set padtop [eval [list frame $path.p] [Widget::subcget $path :cmd] \
 	    -relief flat -borderwidth 0]
-    set border [eval [list frame $path.b] [Widget::subcget $path .b] -highlightthickness 0]
-    set label  [eval [list label $path.l] [Widget::subcget $path .l] \
+      set border [eval [list frame $path.b] [Widget::subcget $path .b] -highlightthickness 0]
+      set label  [eval [list label $path.l] [Widget::subcget $path .l] \
                     -highlightthickness 0 \
                     -relief flat \
                     -bd     0 -padx 2 -pady 0]
-    set padbot [eval [list frame $border.p] [Widget::subcget $path .p] \
+      set padbot [eval [list frame $border.p] [Widget::subcget $path .p] \
 	    -relief flat -bd 0 -highlightthickness 0]
-    set frame  [eval [list frame $path.f] [Widget::subcget $path .f] \
+      set frame  [eval [list frame $path.f] [Widget::subcget $path .f] \
 	    -relief flat -bd 0 -highlightthickness 0]
+    }
+
     set height [winfo reqheight $label]
 
     switch [Widget::getoption $path -side] {
@@ -155,16 +176,24 @@ proc TitleFrame::_place { path } {
     }
     set bd [Widget::getoption $path -borderwidth]
     switch [Widget::getoption $path -baseline] {
-        top    { set htop $height; set hbot 1; set y 0 }
-        center { set htop [expr {$height/2}]; set hbot [expr {$height/2+$height%2+1}]; set y 0 }
-        bottom { set htop 1; set hbot $height; set y [expr {$bd+1}] }
+        top {
+	  set htop $height
+	  set hbot 1
+	  set y 0
+	}
+        center { 
+	  set htop [expr {$height/2}]
+	  set hbot [expr {$height/2+$height%2+1}]
+	  set y 0
+	}
+        bottom {
+	  set htop 1
+	  set hbot $height
+	  set y [expr {$bd+1}]
+	}
     }
     $path.p   configure -height $htop
     $path.b.p configure -height $hbot
 
     place $path.l -relx $relx -x $x -anchor $anchor -y $y
 }
-
-
-
-

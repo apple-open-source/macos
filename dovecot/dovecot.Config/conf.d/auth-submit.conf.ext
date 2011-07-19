@@ -1,0 +1,9 @@
+# Authentication for submit users from submission servers.
+# Included from auth.conf.
+
+passdb {
+  driver = passwd-file
+  submit = yes
+  args = /etc/dovecot/submit.passdb
+  pass = yes
+}

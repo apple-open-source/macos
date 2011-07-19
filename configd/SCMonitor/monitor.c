@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2007-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2007-2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -75,6 +75,8 @@ typedef struct {
 	CFUUIDRef			_factoryID;
 	UInt32				_refCount;
 
+	Boolean				debug;
+
 	aslmsg				log_msg;
 
 	CFStringRef			configuration_action;
@@ -96,9 +98,83 @@ typedef struct {
 
 	CFUserNotificationRef		userNotification;
 	CFRunLoopSourceRef		userRls;
+
+	AuthorizationRef		authorization;
 } MyType;
 
 static CFMutableDictionaryRef	notify_to_instance	= NULL;
+
+
+#pragma mark -
+#pragma mark Authorization
+
+
+static AuthorizationRef
+getAuthorization(MyType *myInstance)
+{
+	if (myInstance->authorization == NULL) {
+		AuthorizationFlags	flags	= kAuthorizationFlagDefaults;
+		OSStatus		status;
+
+		status = AuthorizationCreate(NULL,
+					     kAuthorizationEmptyEnvironment,
+					     flags,
+					     &myInstance->authorization);
+		if (status != errAuthorizationSuccess) {
+			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
+			      CFSTR("AuthorizationCreate() failed: status = %d"),
+			      status);
+		}
+	}
+
+	return myInstance->authorization;
+}
+
+
+static Boolean
+hasAuthorization(MyType *myInstance)
+{
+	AuthorizationRef	authorization;
+	Boolean			isAdmin		= FALSE;
+
+	authorization = getAuthorization(myInstance);
+	if (authorization != NULL) {
+		AuthorizationFlags	flags	= kAuthorizationFlagDefaults;
+		AuthorizationItem	items[1];
+		AuthorizationRights	rights;
+		OSStatus		status;
+
+		items[0].name        = "system.preferences";
+		items[0].value       = NULL;
+		items[0].valueLength = 0;
+		items[0].flags       = 0;
+
+		rights.count = sizeof(items) / sizeof(items[0]);
+		rights.items = items;
+
+		status = AuthorizationCopyRights(authorization,
+						 &rights,
+						 kAuthorizationEmptyEnvironment,
+						 flags,
+						 NULL);
+		isAdmin = (status == errAuthorizationSuccess);
+	}
+
+	return isAdmin;
+}
+
+
+static void
+freeAuthorization(MyType *myInstance)
+{
+	if (myInstance->authorization != NULL) {
+		AuthorizationFree(myInstance->authorization, kAuthorizationFlagDefaults);
+//              AuthorizationFree(myInstance->authorization, kAuthorizationFlagDestroyRights);
+		myInstance->authorization = NULL;
+	}
+
+	return;
+}
 
 
 #pragma mark -
@@ -377,7 +453,6 @@ notify_add(MyType *myInstance)
 static void
 notify_configure(MyType *myInstance)
 {
-	AuthorizationRef	authorization	= NULL;
 	CFIndex			i;
 	CFIndex			n		= CFArrayGetCount(myInstance->interfaces_configure);
 	Boolean			ok;
@@ -387,17 +462,10 @@ notify_configure(MyType *myInstance)
 	if (geteuid() == 0) {
 		prefs = SCPreferencesCreate(NULL, CFSTR("SCMonitor"), NULL);
 	} else {
-		AuthorizationFlags	flags		= kAuthorizationFlagDefaults;
-		OSStatus		status;
+		AuthorizationRef	authorization;
 
-		status = AuthorizationCreate(NULL,
-					     kAuthorizationEmptyEnvironment,
-					     flags,
-					     &authorization);
-		if (status != errAuthorizationSuccess) {
-			SCLOG(NULL, myInstance->log_msg, ASL_LEVEL_ERR,
-			      CFSTR("AuthorizationCreate() failed: status = %d"),
-			      status);
+		authorization = getAuthorization(myInstance);
+		if (authorization == NULL) {
 			return;
 		}
 
@@ -453,12 +521,6 @@ notify_configure(MyType *myInstance)
 		prefs = NULL;
 	}
 
-	if (authorization != NULL) {
-		AuthorizationFree(authorization, kAuthorizationFlagDefaults);
-//              AuthorizationFree(authorization, kAuthorizationFlagDestroyRights);
-		authorization = NULL;
-	}
-
 	CFRelease(myInstance->interfaces_configure);
 	myInstance->interfaces_configure = NULL;
 
@@ -495,7 +557,7 @@ updateInterfaceList(MyType *myInstance)
 
 	interfaces_old = CFSetCreateMutableCopy(NULL, 0, myInstance->interfaces_known);
 
-	interfaces = SCNetworkInterfaceCopyAll();
+	interfaces = _SCNetworkInterfaceCopyAllWithPreferences(prefs);
 	if (interfaces != NULL) {
 		n = CFArrayGetCount(interfaces);
 		for (i = 0; i < n; i++) {
@@ -539,6 +601,12 @@ updateInterfaceList(MyType *myInstance)
 					continue;
 				} else if (CFEqual(action, kSCNetworkInterfaceConfigurationActionValueConfigure)) {
 					// configure automatically (without user intervention)
+					if (myInstance->interfaces_configure == NULL) {
+						myInstance->interfaces_configure = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
+					}
+					CFArrayAppendValue(myInstance->interfaces_configure, interface);
+				} else if (hasAuthorization(myInstance)) {
+					// if we already have the "admin" (system.preferences) right, configure automatically (without user intervention)
 					if (myInstance->interfaces_configure == NULL) {
 						myInstance->interfaces_configure = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 					}
@@ -841,14 +909,14 @@ add_init_watcher(MyType *myInstance, io_registry_entry_t interface)
 	while (node != MACH_PORT_NULL) {
 		io_registry_entry_t	parent;
 
-		val = IORegistryEntryCreateCFProperty(node, CFSTR("HiddenPort"), NULL, 0);
+		val = IORegistryEntryCreateCFProperty(node, kSCNetworkInterfaceHiddenPortKey, NULL, 0);
 		if (val != NULL) {
 			CFRelease(val);
 			val = NULL;
 			break;
 		}
 
-		val = IORegistryEntryCreateCFProperty(node, CFSTR("Initializing"), NULL, 0);
+		val = IORegistryEntryCreateCFProperty(node, kSCNetworkInterfaceInitializingKey, NULL, 0);
 		if (val != NULL) {
 			break;
 		}
@@ -1007,12 +1075,19 @@ watcher_add(MyType *myInstance)
 	bundle = CFBundleGetBundleWithIdentifier(CFSTR(MY_BUNDLE_ID));
 	if (bundle != NULL) {
 		CFStringRef	action;
+		CFBooleanRef	bVal;
 		CFDictionaryRef	info;
 
 		info = CFBundleGetInfoDictionary(bundle);
+
+		bVal = CFDictionaryGetValue(info, CFSTR("Debug"));
+		bVal = isA_CFBoolean(bVal);
+		if (bVal != NULL) {
+			myInstance->debug = CFBooleanGetValue(bVal);
+		}
+
 		action = CFDictionaryGetValue(info, kSCNetworkInterfaceConfigurationActionKey);
 		action = isA_CFString(action);
-
 		if (action != NULL) {
 			myInstance->configuration_action = action;
 		} else {
@@ -1095,6 +1170,7 @@ myRelease(void *myInstance)
 
 			watcher_remove((MyType *)myInstance);
 			notify_remove((MyType *)myInstance, TRUE);
+			freeAuthorization((MyType *)myInstance);
 		}
 		free(myInstance);
 		return 0;

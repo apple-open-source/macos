@@ -92,7 +92,7 @@ extern int cflag;
 //
 // Forward declarations
 //
-int add_data_to_map(struct dpme *data, long index, partition_map_header *map);
+int add_data_to_map(struct dpme *, long, partition_map_header *);
 int coerce_block0(partition_map_header *map);
 int contains_driver(partition_map *entry);
 void combine_entry(partition_map *entry);
@@ -120,7 +120,7 @@ open_partition_map(char *name, int *valid_file, int ask_logical_size, int oflag)
     MEDIA m;
     partition_map_header * map;
     int writable;
-    int size;
+    long size;
 
     m = open_pathname_as_media(name, oflag);
     if (m == 0) {
@@ -172,10 +172,10 @@ open_partition_map(char *name, int *valid_file, int ask_logical_size, int oflag)
 
     if (ask_logical_size && interactive) {
 	size = PBLOCK_SIZE;
-	printf("A logical block is %d bytes: ", size);
+	printf("A logical block is %ld bytes: ", size);
 	flush_to_newline(0);
 	get_number_argument("what should be the logical block size? ",
-		(long *)&size, size);
+		&size, size);
 	size = (size / PBLOCK_SIZE) * PBLOCK_SIZE;
 	if (size < PBLOCK_SIZE) {
 	    size = PBLOCK_SIZE;
@@ -234,7 +234,7 @@ read_partition_map(partition_map_header *map)
 {
     DPME *data;
     u32 limit;
-    int index;
+    unsigned int ix;
     int old_logical;
     double d;
 
@@ -276,17 +276,17 @@ read_partition_map(partition_map_header *map)
 //printf("logical = %d, physical = %d\n", map->logical_block, map->physical_block);
 
     limit = data->dpme_map_entries;
-    index = 1;
+    ix = 1;
     while (1) {
-	if (add_data_to_map(data, index, map) == 0) {
+	if (add_data_to_map(data, ix, map) == 0) {
 	    free(data);
 	    return -1;
 	}
 
-	if (index >= limit) {
+	if (ix >= limit) {
 	    break;
 	} else {
-	    index++;
+	    ix++;
 	}
 
 	data = (DPME *) malloc(PBLOCK_SIZE);
@@ -295,14 +295,14 @@ read_partition_map(partition_map_header *map)
 	    return -1;
 	}
 
-	if (read_block(map, index, (char *)data) == 0) {
-	    error(-1, "Can't read block %u from '%s'", index, map->name);
+	if (read_block(map, ix, (char *)data) == 0) {
+	    error(-1, "Can't read block %u from '%s'", ix, map->name);
 	    free(data);
 	    return -1;
 	} else if (convert_dpme(data, 1)
 		|| (data->dpme_signature != DPME_SIGNATURE && dflag == 0)
 		|| (data->dpme_map_entries != limit && dflag == 0)) {
-	    error(-1, "Bad data in block %u from '%s'", index, map->name);
+	    error(-1, "Bad data in block %u from '%s'", ix, map->name);
 	    free(data);
 	    return -1;
 	}
@@ -368,11 +368,11 @@ write_partition_map(partition_map_header *map)
 
 
 int
-add_data_to_map(struct dpme *data, long index, partition_map_header *map)
+add_data_to_map(struct dpme *data, long ix, partition_map_header *map)
 {
     partition_map *entry;
 
-//printf("add data %d to map\n", index);
+//printf("add data %d to map\n", ix);
     entry = (partition_map *) malloc(sizeof(partition_map));
     if (entry == NULL) {
 	error(errno, "can't allocate memory for map entries");
@@ -382,7 +382,7 @@ add_data_to_map(struct dpme *data, long index, partition_map_header *map)
     entry->prev_on_disk = NULL;
     entry->next_by_base = NULL;
     entry->prev_by_base = NULL;
-    entry->disk_address = index;
+    entry->disk_address = ix;
     entry->the_map = map;
     entry->data = data;
     entry->contains_driver = contains_driver(entry);
@@ -434,7 +434,7 @@ create_partition_map(char *name, partition_map_header *oldmap, int oflag)
     DPME *data;
     unsigned long default_number;
     unsigned long number;
-    int size;
+    long size;
     unsigned long multiple;
 
     m = open_pathname_as_media(name, oflag);
@@ -464,10 +464,10 @@ create_partition_map(char *name, partition_map_header *oldmap, int oflag)
     m = open_deblock_media(PBLOCK_SIZE, m);
     map->m = m;
     if (interactive) {
-	printf("A physical block is %d bytes: ", size);
+	printf("A physical block is %ld bytes: ", size);
 	flush_to_newline(0);
 	get_number_argument("what should be the physical block size? ",
-		(long *)&size, size);
+		&size, size);
 	size = (size / PBLOCK_SIZE) * PBLOCK_SIZE;
 	if (size < PBLOCK_SIZE) {
 	    size = PBLOCK_SIZE;
@@ -485,10 +485,10 @@ create_partition_map(char *name, partition_map_header *oldmap, int oflag)
 	size = PBLOCK_SIZE;
     }
     if (interactive) {
-	printf("A logical block is %d bytes: ", size);
+	printf("A logical block is %ld bytes: ", size);
 	flush_to_newline(0);
 	get_number_argument("what should be the logical block size? ",
-		(long *)&size, size);
+		&size, size);
 	size = (size / PBLOCK_SIZE) * PBLOCK_SIZE;
 	if (size < PBLOCK_SIZE) {
 	    size = PBLOCK_SIZE;
@@ -700,7 +700,7 @@ add_partition_to_map(const char *name, const char *dptype, u32 base, u32 length,
     } else {
 	limit = map->maximum_in_map;
     }
-    if (map->blocks_in_map + act > limit) {
+    if (map->blocks_in_map + (int)act > limit) {
 	printf("the map is not big enough\n");
 	return 0;
     }
@@ -798,17 +798,17 @@ bzb_init_slice(BZB *bp, int slice)
 	return;
     case 'a':
 	bp->bzb_type = FST;
-	strlcpy(bp->bzb_mount_point, "/", sizeof(bp->bzb_mount_point));
+	strlcpy((char *)bp->bzb_mount_point, "/", sizeof(bp->bzb_mount_point));
 	bp->bzb_inode = 1;
 	bzb_root_set(bp,1);
 	bzb_usr_set(bp,1);
 	break;
     case 'b':
 	bp->bzb_type = FSTSFS;
-	strlcpy(bp->bzb_mount_point, "(swap)", sizeof(bp->bzb_mount_point));
+	strlcpy((char *)bp->bzb_mount_point, "(swap)", sizeof(bp->bzb_mount_point));
 	break;
     case 'g':
-	strlcpy(bp->bzb_mount_point, "/usr", sizeof(bp->bzb_mount_point));
+	strlcpy((char *)bp->bzb_mount_point, "/usr", sizeof(bp->bzb_mount_point));
 	/* Fall through */
     default:
 	bp->bzb_type = FST;
@@ -825,13 +825,13 @@ void
 renumber_disk_addresses(partition_map_header *map)
 {
     partition_map * cur;
-    long index;
+    long ix;
 
 	// reset disk addresses
     cur = map->disk_order;
-    index = 1;
+    ix = 1;
     while (cur != NULL) {
-	cur->disk_address = index++;
+	cur->disk_address = ix++;
 	cur->data->dpme_map_entries = map->blocks_in_map;
 	cur = cur->next_on_disk;
     }
@@ -1144,13 +1144,13 @@ delete_entry(partition_map *entry)
 
 
 partition_map *
-find_entry_by_disk_address(long index, partition_map_header *map)
+find_entry_by_disk_address(long ix, partition_map_header *map)
 {
     partition_map * cur;
 
     cur = map->disk_order;
     while (cur != NULL) {
-	if (cur->disk_address == index) {
+	if (cur->disk_address == ix) {
 	    break;
 	}
 	cur = cur->next_on_disk;
@@ -1191,7 +1191,7 @@ find_entry_by_base(u32 base, partition_map_header *map)
 
 
 void
-move_entry_in_map(long old_index, long index, partition_map_header *map)
+move_entry_in_map(long old_index, long ix, partition_map_header *map)
 {
     partition_map * cur;
 
@@ -1200,7 +1200,7 @@ move_entry_in_map(long old_index, long index, partition_map_header *map)
 	printf("No such partition\n");
     } else {
 	remove_from_disk_order(cur);
-	cur->disk_address = index;
+	cur->disk_address = ix;
 	insert_in_disk_order(cur);
 	renumber_disk_addresses(map);
 	map->changed = 1;
@@ -1301,11 +1301,11 @@ insert_in_base_order(partition_map *entry)
 
 
 void
-resize_map(long new_size, partition_map_header *map)
+resize_map(unsigned long new_size, partition_map_header *map)
 {
     partition_map * entry;
     partition_map * next;
-    int incr;
+    unsigned int incr;
 
     // find map entry
     entry = find_entry_by_type(kMapType, map);

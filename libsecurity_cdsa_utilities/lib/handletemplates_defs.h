@@ -79,7 +79,7 @@ void MappingHandle<_Handle>::make()
         if (!state().handleInUse(handle)) {
             // assumes sizeof(unsigned long) >= sizeof(handle)
             secdebug("handleobj", "create %#lx for %p", static_cast<unsigned long>(handle), this);
-            setHandle(handle);
+            TypedHandle<_Handle>::setHandle(handle);
             state().add(handle, this);
             return;
         }

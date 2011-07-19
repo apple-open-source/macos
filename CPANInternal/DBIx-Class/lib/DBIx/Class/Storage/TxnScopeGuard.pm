@@ -1,8 +1,8 @@
-package # Hide from pause for now - till we get it working
-  DBIx::Class::Storage::TxnScopeGuard;
+package DBIx::Class::Storage::TxnScopeGuard;
 
 use strict;
 use warnings;
+use Carp::Clan qw/^DBIx::Class/;
 
 sub new {
   my ($class, $storage) = @_;
@@ -25,19 +25,32 @@ sub DESTROY {
 
   my $exception = $@;
 
-  $DB::single = 1;
+  {
+    local $@;
 
-  local $@;
-  eval { $storage->txn_rollback };
-  my $rollback_exception = $@;
-  if($rollback_exception) {
-    my $exception_class = "DBIx::Class::Storage::NESTED_ROLLBACK_EXCEPTION";
+    carp 'A DBIx::Class::Storage::TxnScopeGuard went out of scope without explicit commit or error. Rolling back.'
+      unless $exception;
 
-    $storage->throw_exception(
-      "Transaction aborted: ${exception}. "
-      . "Rollback failed: ${rollback_exception}"
-    ) unless $rollback_exception =~ /$exception_class/;
+    eval { $storage->txn_rollback };
+    my $rollback_exception = $@;
+
+    if ($rollback_exception && $rollback_exception !~ /DBIx::Class::Storage::NESTED_ROLLBACK_EXCEPTION/) {
+      if ($exception) {
+        $exception = "Transaction aborted: ${exception} "
+          ."Rollback failed: ${rollback_exception}";
+      }
+      else {
+        carp (join ' ',
+          "********************* ROLLBACK FAILED!!! ********************",
+          "\nA rollback operation failed after the guard went out of scope.",
+          'This is potentially a disastrous situation, check your data for',
+          "consistency: $rollback_exception"
+        );
+      }
+    }
   }
+
+  $@ = $exception;
 }
 
 1;
@@ -46,7 +59,7 @@ __END__
 
 =head1 NAME
 
-DBIx::Class::Storage::TxnScopeGuard
+DBIx::Class::Storage::TxnScopeGuard - Scope-based transaction handling
 
 =head1 SYNOPSIS
 
@@ -69,14 +82,15 @@ right thing with transactions in DBIx::Class.
 
 =head2 new
 
-Creating an instance of this class will start a new transaction. Expects a
+Creating an instance of this class will start a new transaction (by
+implicitly calling L<DBIx::Class::Storage/txn_begin>. Expects a
 L<DBIx::Class::Storage> object as its only argument.
 
 =head2 commit
 
 Commit the transaction, and stop guarding the scope. If this method is not
-called (i.e. an exception is thrown) and this object goes out of scope then
-the transaction is rolled back.
+called and this object goes out of scope (e.g. an exception is thrown) then
+the transaction is rolled back, via L<DBIx::Class::Storage/txn_rollback>
 
 =cut
 
@@ -88,7 +102,7 @@ L<DBIx::Class::Schema/txn_scope_guard>.
 
 Ash Berlin, 2008.
 
-Insipred by L<Scope::Guard> by chocolateboy.
+Inspired by L<Scope::Guard> by chocolateboy.
 
 This module is free software. It may be used, redistributed and/or modified
 under the same terms as Perl itself.

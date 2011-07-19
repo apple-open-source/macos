@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2005-2008, International Business Machines
+*   Copyright (C) 2005-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -21,6 +21,7 @@
 
 #include "unicode/utypes.h"
 #include "unicode/ustring.h"
+#include "unicode/localpointer.h"
 
 /**
  * \file
@@ -75,6 +76,25 @@ ucasemap_open(const char *locale, uint32_t options, UErrorCode *pErrorCode);
  */
 U_STABLE void U_EXPORT2
 ucasemap_close(UCaseMap *csm);
+
+#if U_SHOW_CPLUSPLUS_API
+
+U_NAMESPACE_BEGIN
+
+/**
+ * \class LocalUCaseMapPointer
+ * "Smart pointer" class, closes a UCaseMap via ucasemap_close().
+ * For most methods see the LocalPointerBase base class.
+ *
+ * @see LocalPointerBase
+ * @see LocalPointer
+ * @stable ICU 4.4
+ */
+U_DEFINE_LOCAL_OPEN_POINTER(LocalUCaseMapPointer, UCaseMap, ucasemap_close);
+
+U_NAMESPACE_END
+
+#endif
 
 /**
  * Get the locale ID that is used for language-dependent case mappings.
@@ -134,7 +154,7 @@ ucasemap_setOptions(UCaseMap *csm, uint32_t options, UErrorCode *pErrorCode);
  * @see ucasemap_toTitle
  * @see ucasemap_utf8ToTitle
  * @see UnicodeString::toTitle
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
 #define U_TITLECASE_NO_LOWERCASE 0x100
 
@@ -159,7 +179,7 @@ ucasemap_setOptions(UCaseMap *csm, uint32_t options, UErrorCode *pErrorCode);
  * @see ucasemap_utf8ToTitle
  * @see UnicodeString::toTitle
  * @see U_TITLECASE_NO_LOWERCASE
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
 #define U_TITLECASE_NO_BREAK_ADJUSTMENT 0x200
 
@@ -170,9 +190,9 @@ ucasemap_setOptions(UCaseMap *csm, uint32_t options, UErrorCode *pErrorCode);
  * Do not modify the returned break iterator.
  * @param csm UCaseMap service object.
  * @return titlecasing break iterator
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
-U_DRAFT const UBreakIterator * U_EXPORT2
+U_STABLE const UBreakIterator * U_EXPORT2
 ucasemap_getBreakIterator(const UCaseMap *csm);
 
 /**
@@ -193,9 +213,9 @@ ucasemap_getBreakIterator(const UCaseMap *csm);
  *
  * @see ucasemap_toTitle
  * @see ucasemap_utf8ToTitle
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
-U_DRAFT void U_EXPORT2
+U_STABLE void U_EXPORT2
 ucasemap_setBreakIterator(UCaseMap *csm, UBreakIterator *iterToAdopt, UErrorCode *pErrorCode);
 
 /**
@@ -209,20 +229,25 @@ ucasemap_setBreakIterator(UCaseMap *csm, UBreakIterator *iterToAdopt, UErrorCode
  * that are to be titlecased. It titlecases those characters and lowercases
  * all others. (This can be modified with ucasemap_setOptions().)
  *
+ * Note: This function takes a non-const UCaseMap pointer because it will
+ * open a default break iterator if no break iterator was set yet,
+ * and effectively call ucasemap_setBreakIterator();
+ * also because the break iterator is stateful and will be modified during
+ * the iteration.
+ *
  * The titlecase break iterator can be provided to customize for arbitrary
  * styles, using rules and dictionaries beyond the standard iterators.
- * It may be more efficient to always provide an iterator to avoid
- * opening and closing one for each string.
  * The standard titlecase iterator for the root locale implements the
  * algorithm of Unicode TR 21.
  *
- * This function uses only the setText(), first() and next() methods of the
+ * This function uses only the setUText(), first(), next() and close() methods of the
  * provided break iterator.
  *
  * The result may be longer or shorter than the original.
  * The source string and the destination buffer must not overlap.
  *
- * @param csm       UCaseMap service object.
+ * @param csm       UCaseMap service object. This pointer is non-const!
+ *                  See the note above for details.
  * @param dest      A buffer for the result string. The result will be NUL-terminated if
  *                  the buffer is large enough.
  *                  The contents is undefined in case of failure.
@@ -237,9 +262,9 @@ ucasemap_setBreakIterator(UCaseMap *csm, UBreakIterator *iterToAdopt, UErrorCode
  *         in which case it will be greater than destCapacity.
  *
  * @see u_strToTitle
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucasemap_toTitle(UCaseMap *csm,
                  UChar *dest, int32_t destCapacity,
                  const UChar *src, int32_t srcLength,
@@ -314,20 +339,25 @@ ucasemap_utf8ToUpper(const UCaseMap *csm,
  * that are to be titlecased. It titlecases those characters and lowercases
  * all others. (This can be modified with ucasemap_setOptions().)
  *
+ * Note: This function takes a non-const UCaseMap pointer because it will
+ * open a default break iterator if no break iterator was set yet,
+ * and effectively call ucasemap_setBreakIterator();
+ * also because the break iterator is stateful and will be modified during
+ * the iteration.
+ *
  * The titlecase break iterator can be provided to customize for arbitrary
  * styles, using rules and dictionaries beyond the standard iterators.
- * It may be more efficient to always provide an iterator to avoid
- * opening and closing one for each string.
  * The standard titlecase iterator for the root locale implements the
  * algorithm of Unicode TR 21.
  *
- * This function uses only the setText(), first() and next() methods of the
+ * This function uses only the setUText(), first(), next() and close() methods of the
  * provided break iterator.
  *
  * The result may be longer or shorter than the original.
  * The source string and the destination buffer must not overlap.
  *
- * @param csm       UCaseMap service object.
+ * @param csm       UCaseMap service object. This pointer is non-const!
+ *                  See the note above for details.
  * @param dest      A buffer for the result string. The result will be NUL-terminated if
  *                  the buffer is large enough.
  *                  The contents is undefined in case of failure.
@@ -344,9 +374,9 @@ ucasemap_utf8ToUpper(const UCaseMap *csm,
  * @see u_strToTitle
  * @see U_TITLECASE_NO_LOWERCASE
  * @see U_TITLECASE_NO_BREAK_ADJUSTMENT
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucasemap_utf8ToTitle(UCaseMap *csm,
                     char *dest, int32_t destCapacity,
                     const char *src, int32_t srcLength,
@@ -380,9 +410,9 @@ ucasemap_utf8ToTitle(UCaseMap *csm,
  * @see ucasemap_setOptions
  * @see U_FOLD_CASE_DEFAULT
  * @see U_FOLD_CASE_EXCLUDE_SPECIAL_I
- * @stable ICU 4.0
+ * @stable ICU 3.8
  */
-U_DRAFT int32_t U_EXPORT2
+U_STABLE int32_t U_EXPORT2
 ucasemap_utf8FoldCase(const UCaseMap *csm,
                       char *dest, int32_t destCapacity,
                       const char *src, int32_t srcLength,

@@ -5,11 +5,10 @@ exec tclsh "$0" ${1+"$@"}
 package require Tcl 8.4
 package require Tk
 
-source ../../modules/plotchart/plotchart.tcl
 package require Plotchart
 
-#
-# Show a Gantt chart
+# plotdemos3.tcl --
+#     Show a Gantt chart
 #
 
 canvas .c -width 500 -height 200 -bg white
@@ -40,4 +39,3 @@ canvas   .t.c -width 700 -height 500
 pack .t.c
 ::Plotchart::plotpack .t.c top $s $s
 ::Plotchart::plotpack .t.c left $s
-console show

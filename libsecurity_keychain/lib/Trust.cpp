@@ -28,8 +28,9 @@
 #include <security_keychain/TrustSettingsSchema.h>
 #include <security_cdsa_utilities/cssmdates.h>
 #include <security_utilities/cfutilities.h>
-#include <CoreFoundation/CFData.h>
+#include <CoreFoundation/CoreFoundation.h>
 #include <Security/SecCertificate.h>
+#include <Security/SecTrust.h>
 #include "SecBridge.h"
 #include "TrustAdditions.h"
 #include "TrustKeychains.h"
@@ -65,7 +66,7 @@ ModuleNexus<TrustStore> Trust::gStore;
 
 //
 // TrustKeychains maintains a global reference to standard system keychains,
-// to avoid having them be opened anew for each Trust instance.
+// to avoid having them be opened anew for each Trust instance. 
 //
 class TrustKeychains 
 {
@@ -74,8 +75,8 @@ public:
 	~TrustKeychains()	{}
 	CSSM_DL_DB_HANDLE	rootStoreHandle()	{ return mRootStore->database()->handle(); }
 	CSSM_DL_DB_HANDLE	systemKcHandle()	{ return mSystem->database()->handle(); }
-	Keychain			rootStore()			{ return mRootStore; }
-	Keychain			systemKc()			{ return mSystem; }
+	Keychain			&rootStore()		{ return mRootStore; }
+	Keychain			&systemKc()			{ return mSystem; }
 private:
 	Keychain			mRootStore;
 	Keychain			mSystem;
@@ -83,7 +84,7 @@ private:
 
 //
 // Singleton maintaining open references to standard system keychains,
-// to avoid having them be opened anew every time SecTrust is used.
+// to avoid having them be opened anew every time SecTrust is used. 
 //
 
 static ModuleNexus<TrustKeychains> trustKeychains;
@@ -109,7 +110,7 @@ Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
     : mTP(gGuidAppleX509TP), mAction(CSSM_TP_ACTION_DEFAULT),
       mCerts(cfArrayize(certificates)), mPolicies(cfArrayize(policies)),
       mResult(kSecTrustResultInvalid), mUsingTrustSettings(false),
-	  mMutex(Mutex::recursive)
+	  mAnchorPolicy(useAnchorsDefault), mMutex(Mutex::recursive)
 {
 	// set default search list from user's default
 	globals().storageManager.getSearchList(mSearchLibs);
@@ -119,7 +120,7 @@ Trust::Trust(CFTypeRef certificates, CFTypeRef policies)
 //
 // Clean up a Trust object
 //
-Trust::~Trust()
+Trust::~Trust() 
 {
 	clearResults();
 }
@@ -156,6 +157,9 @@ CSSM_DL_DB_HANDLE cfKeychain(SecKeychainRef ref)
 	return keychain->database()->handle();
 }
 
+#if !defined(NDEBUG)
+void showCertSKID(const void *value, void *context);
+#endif
 
 //
 // Here's the big "E" - evaluation.
@@ -181,6 +185,7 @@ void Trust::evaluate(bool disableEV)
 	if (isEVCandidate) {
 		secdebug("evTrust", "Trust::evaluate() certificate is EV candidate");
 		filteredCerts = potentialEVChainWithCertificates(mCerts);
+		mCerts = filteredCerts;
 	} else {
 		if (mCerts) {
 			filteredCerts = CFArrayCreateMutableCopy(NULL, 0, mCerts);
@@ -199,6 +204,14 @@ void Trust::evaluate(bool disableEV)
 	if (filteredCerts)
 		CFRelease(filteredCerts);
 	
+	if (mAllowedAnchors)
+	{
+		secdebug("trusteval", "Trust::evaluate: anchors: %ld", CFArrayGetCount(mAllowedAnchors));
+#if !defined(NDEBUG)
+		CFArrayApplyFunction(mAllowedAnchors, CFRangeMake(0, CFArrayGetCount(mAllowedAnchors)), showCertSKID, NULL);
+#endif
+	}
+
     // build the target cert group
     CFToVector<CssmData, SecCertificateRef, cfCertificateData> subjects(mFilteredCerts);
     CertGroup subjectCertGroup(CSSM_CERT_X_509v3,
@@ -226,10 +239,10 @@ void Trust::evaluate(bool disableEV)
 		context.actionData() = localActionCData;
 	}
 	
-		if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
-			// enable network cert fetch for SSL only: <rdar://7422356>
-			actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
-		}
+	if (policySpecified(mPolicies, CSSMOID_APPLE_TP_SSL)) {
+		// enable network cert fetch for SSL only: <rdar://7422356>
+		actionDataP->ActionFlags |= CSSM_TP_ACTION_FETCH_CERT_FROM_NET;
+	}
 	
     /*
 	 * Policies (one at least, please).
@@ -250,13 +263,13 @@ void Trust::evaluate(bool disableEV)
 		allPolicies = NULL; // use only mPolicies
 	}
 	else if(!(revocationPolicySpecified(mPolicies))) {
-		/*
+		/* 
 		 * None specified in mPolicies; see if any specified via SPI.
 		 */
 		allPolicies = addSpecifiedRevocationPolicies(numSpecAdded, context.allocator);
 		if(allPolicies == NULL) {
-			/*
-			 * None there; try preferences.
+			/* 
+			 * None there; try preferences. 
 			 */
 			allPolicies = Trust::addPreferenceRevocationPolicies(numPrefAdded,
 				context.allocator);
@@ -271,21 +284,26 @@ void Trust::evaluate(bool disableEV)
         MacOSError::throwMe(CSSMERR_TP_INVALID_POLICY_IDENTIFIERS);
     context.setPolicies(policies, policies);
 
-    // anchor certificates - only use if caller provides them, or if cert requires EV,
-	// else use UserTrust
-    CFCopyRef<CFArrayRef> anchors(mAllowedAnchors);
+	// anchor certificates (if caller provides them, or if cert requires EV)
+	CFCopyRef<CFArrayRef> anchors(mAllowedAnchors);
 	CFToVector<CssmData, SecCertificateRef, cfCertificateData> roots(anchors);
 	if (!anchors) {
-		mUsingTrustSettings = true;
-		secdebug("userTrust", "Trust::evaluate() using UserTrust");
+		// no anchor certificates were provided;
+		// built-in anchors will be trusted unless explicitly disabled.
+		mUsingTrustSettings = (mAnchorPolicy < useAnchorsOnly);
+		secdebug("userTrust", "Trust::evaluate() %s",
+				 (mUsingTrustSettings) ? "using UserTrust" : "has no trusted anchors!");
     }
 	else {
-		mUsingTrustSettings = false;
-		secdebug("userTrust", "Trust::evaluate() !UserTrust; using %s anchors",
-				(isEVCandidate) ? "EV" : "caller");
+		// anchor certificates were provided;
+		// built-in anchors will NOT also be trusted unless explicitly enabled.
+		mUsingTrustSettings = (mAnchorPolicy == useAnchorsAndBuiltIns);
+		secdebug("userTrust", "Trust::evaluate() using %s %s anchors",
+				 (mUsingTrustSettings) ? "UserTrust AND" : "only",
+				 (isEVCandidate) ? "EV" : "caller");		
 		context.anchors(roots, roots);
 	}
-
+    
 	// dlDbList (keychain list)
 	vector<CSSM_DL_DB_HANDLE> dlDbList;
 	{
@@ -306,7 +324,7 @@ void Trust::evaluate(bool disableEV)
 					if (crtn == CSSM_OK) {
 						if ((memcmp(&guid, &gGuidAppleLDAPDL, sizeof(CSSM_GUID))==0) ||
 							(memcmp(&guid, &gGuidAppleDotMacDL, sizeof(CSSM_GUID))==0)) {
-							continue; // don't add to dlDbList							
+							continue; // don't add to dlDbList					
 						}
 					}
 				}
@@ -648,6 +666,44 @@ void Trust::extendedResult(CFDictionaryRef &result)
     result = mExtendedResult;
 }
 
+
+//
+// Return properties array (a CFDictionaryRef for each certificate in chain)
+//
+CFArrayRef Trust::properties()
+{
+	// Builds and returns an array which the caller must release.
+	StLock<Mutex>_(mMutex);
+	CFMutableArrayRef properties = CFArrayCreateMutable(NULL, 0,
+		&kCFTypeArrayCallBacks);
+	if (mResult == kSecTrustResultInvalid) // chain not built or evaluated
+		return properties;
+
+	// Walk the chain from leaf to anchor, building properties dictionaries
+	for (uint32 idx=0; idx < mCertChain.size(); idx++) {
+		CFMutableDictionaryRef dict = CFDictionaryCreateMutable(NULL, 0,
+			&kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+		if (dict) {
+			CFStringRef title = NULL;
+			mCertChain[idx]->inferLabel(false, &title);
+			if (title) {
+				CFDictionarySetValue(dict, (const void *)kSecPropertyTypeTitle, (const void *)title);
+				CFRelease(title);
+			}
+			if (idx == 0 && mTpReturn != noErr) {
+				CFStringRef error = SecCopyErrorMessageString(mTpReturn, NULL);
+				if (error) {
+					CFDictionarySetValue(dict, (const void *)kSecPropertyTypeError, (const void *)error);
+					CFRelease(error);
+				}
+			}
+			CFArrayAppendValue(properties, (const void *)dict);
+			CFRelease(dict);
+		}
+	}
+
+	return properties;
+}
 
 //
 // Given a DL_DB_HANDLE, locate the Keychain object (from the search list)

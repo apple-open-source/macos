@@ -1,10 +1,6 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static const void* 
-mod_retain(const void* info) 
+mod_observer_retain(const void* info) 
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_INCREF((PyObject*)info);
@@ -13,7 +9,7 @@ mod_retain(const void* info)
 }
 
 static void
-mod_release(const void* info)
+mod_observer_release(const void* info)
 {
 	PyGILState_STATE state = PyGILState_Ensure();
 	Py_DECREF((PyObject*)info);
@@ -24,8 +20,8 @@ mod_release(const void* info)
 static CFRunLoopObserverContext mod_CFRunLoopObserverContext = {
 	0,		
 	NULL,
-	mod_retain,
-	mod_release,
+	mod_observer_retain,
+	mod_observer_release,
 	NULL
 };
 
@@ -123,11 +119,11 @@ mod_CFRunLoopObserverGetContext(
 	PyObject* args)
 {
 	PyObject* py_f;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFRunLoopObserverRef f;
 	CFRunLoopObserverContext context;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_f, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_f, &py_context)) {
 		return NULL;
 	}
 
@@ -159,7 +155,7 @@ mod_CFRunLoopObserverGetContext(
 		return NULL;
 	}
 
-	if (context.retain != mod_retain) {
+	if (context.retain != mod_observer_retain) {
 		PyErr_SetString(PyExc_ValueError, 
 			"retrieved context is not supported");
 		return NULL;
@@ -175,27 +171,16 @@ mod_CFRunLoopObserverGetContext(
 	return PyTuple_GET_ITEM((PyObject*)context.info, 1);
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFRunLoopObserverCreate",
-		(PyCFunction)mod_CFRunLoopObserverCreate,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_RUNLOOP_METHODS \
+        {	\
+		"CFRunLoopObserverCreate",	\
+		(PyCFunction)mod_CFRunLoopObserverCreate,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFRunLoopObserverGetContext",	\
+		(PyCFunction)mod_CFRunLoopObserverGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
 	},
-        {
-		"CFRunLoopObserverGetContext",
-		(PyCFunction)mod_CFRunLoopObserverGetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFRunLoopObserver(void);
-void init_CFRunLoopObserver(void)
-{
-	PyObject* m = Py_InitModule4("_CFRunLoopObserver", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

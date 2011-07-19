@@ -113,6 +113,9 @@ open_archive(mode)
 	if ((fd = open(archive, mode, DEFFILEMODE)) < 0)
 		error(archive);
 
+	if((mode & O_ACCMODE) == O_RDONLY)
+	    goto skip_flock;
+
 	/* 
 	 * Attempt to place a lock on the opened file - if we get an 
 	 * error then someone is already working on this library (or
@@ -169,6 +172,7 @@ opened:
 			break;
 		}
 	}
+skip_flock:
 
 	/*
 	 * If not created, O_RDONLY|O_RDWR indicates that it has to be
@@ -299,6 +303,7 @@ put_arobj(cfp, sb)
 	char *name;
 	struct ar_hdr *hdr;
 	off_t size;
+	long int tv_sec;
 
 	/*
 	 * If passed an sb structure, reading a file from disk.  Get stat(2)
@@ -309,6 +314,16 @@ put_arobj(cfp, sb)
 	if (sb) {
 		name = rname(cfp->rname);
 		(void)fstat(cfp->rfd, sb);
+
+		/*
+		 * The environment variable ZERO_AR_DATE is used here and other
+		 * places that write archives to allow testing and comparing
+		 * things for exact binary equality.
+		 */
+		if (getenv("ZERO_AR_DATE") == NULL)
+			tv_sec = (long int)sb->st_mtimespec.tv_sec;
+		else
+			tv_sec = (long int)0;
 
 		/*
 		 * If not truncating names and the name is too long or contains
@@ -322,21 +337,21 @@ put_arobj(cfp, sb)
 				    name, OLDARMAXNAME, name);
 				(void)fflush(stderr);
 			}
-			(void)sprintf(hb, HDR3, name, (long int)sb->st_mtimespec.tv_sec,
+			(void)sprintf(hb, HDR3, name, (long int)tv_sec,
 			    (unsigned int)(u_short)sb->st_uid,
 			    (unsigned int)(u_short)sb->st_gid,
 			    sb->st_mode, sb->st_size, ARFMAG);
 			lname = 0;
 		} else if (lname > sizeof(hdr->ar_name) || strchr(name, ' '))
 			(void)sprintf(hb, HDR1, AR_EFMT1, (lname + 3) & ~3,
-			    (long int)sb->st_mtimespec.tv_sec,
+			    (long int)tv_sec,
 			    (unsigned int)(u_short)sb->st_uid,
 			    (unsigned int)(u_short)sb->st_gid,
 			    sb->st_mode, sb->st_size + ((lname + 3) & ~3),
 			    ARFMAG);
 		else {
 			lname = 0;
-			(void)sprintf(hb, HDR2, name, (long int)sb->st_mtimespec.tv_sec,
+			(void)sprintf(hb, HDR2, name, (long int)tv_sec,
 			    (unsigned int)(u_short)sb->st_uid,
 			    (unsigned int)(u_short)sb->st_gid,
 			    sb->st_mode, sb->st_size, ARFMAG);

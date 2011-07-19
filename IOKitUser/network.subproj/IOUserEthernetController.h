@@ -1,8 +1,7 @@
 /*
+ * Copyright (c) 1999-2009 Apple, Inc.  All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
- * 
- * Copyright (c) 1999-2003 Apple Computer, Inc.  All Rights Reserved.
  * 
  * This file contains Original Code and/or Modifications of Original Code
  * as defined in and that are subject to the Apple Public Source License
@@ -35,6 +34,21 @@ typedef struct __IOEthernetController * IOEthernetControllerRef;
 typedef void (*IOEthernetControllerCallback)(IOEthernetControllerRef controller, void * refcon);
 
 extern CFTypeRef kIOEthernetHardwareAddress;
+extern CFTypeRef kIOUserEthernetInterfaceRole;
+
+/*!
+ * @const kIOUserEthernetInterfaceMergeProperties
+ * @abstract
+ * The key for a dictionary of properties to merge into the property table
+ * of the Ethernet interface.
+ * @discussion
+ * The properties supplied to <code>IOEthernetControllerCreate</code> may
+ * contain a dictionary stored using this key. The contents of the dictionary
+ * are merged to the property table of the IOEthernetInterface when it is
+ * initialized, before the interface object is registered and attached as
+ * a child of the Ethernet controller.
+ */
+extern CFTypeRef kIOUserEthernetInterfaceMergeProperties;
 
 /*!
 	@function   IOEthernetControllerGetTypeID
@@ -56,6 +70,11 @@ CF_EXPORT
 IOReturn IOEthernetControllerSetLinkStatus(
                                 IOEthernetControllerRef         controller, 
                                 Boolean                         state);
+
+CF_EXPORT
+IOReturn IOEthernetControllerSetPowerSavings(
+								IOEthernetControllerRef			controller,
+								Boolean							state);
                                 
 CF_EXPORT
 CFIndex IOEthernetControllerReadPacket(

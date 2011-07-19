@@ -82,10 +82,12 @@
 #include "backupsa.h"
 #include "vendorid.h"
 
-#ifdef __APPLE__
 #include <CoreFoundation/CoreFoundation.h>
 #include <SystemConfiguration/SystemConfiguration.h>
-#endif
+#ifndef TARGET_OS_EMBEDDED
+#include <sandbox.h>
+#endif // !TARGET_OS_EMBEDDED
+#include "power_mgmt.h"
 
 //#include "package_version.h"
 
@@ -112,6 +114,7 @@ int launchedbylaunchd __P((void));
 
 pid_t racoon_pid = 0;
 int print_pid = 1;	/* for racoon only */
+char  logFileStr[MAXPATHLEN+1];
 
 void
 usage()
@@ -156,7 +159,21 @@ main(ac, av)
 	char **av;
 {
 	int error;
-	char				logFileStr[MAXPATHLEN+1];
+#ifndef TARGET_OS_EMBEDDED
+	char *sb_errorbuf = NULL;
+#endif // !TARGET_OS_EMBEDDED
+
+#ifndef TARGET_OS_EMBEDDED
+	if (sandbox_init("racoon", SANDBOX_NAMED, &sb_errorbuf) == -1) {
+		if (sb_errorbuf) {
+			syslog(LOG_ERR, "sandbox_init failed: %s\n", sb_errorbuf);
+			sandbox_free_error(sb_errorbuf);
+			sb_errorbuf = NULL;
+		} else {
+			syslog(LOG_ERR, "sandbox_init failed\n");
+		}
+	}
+#endif // !TARGET_OS_EMBEDDED
 
 	if (geteuid() != 0) {
 		errx(1, "must be root to invoke this program.");
@@ -181,15 +198,18 @@ main(ac, av)
 
 	logFileStr[0] = 0;
 
+#ifdef HAVE_OPENSSL
 	eay_init();
+#endif
+	
 	initlcconf();
 	initrmconf();
 	oakley_dhinit();
 	compute_vendorids();
 
 	parse(ac, av);
-	
-	#ifdef __APPLE__
+	plogmtxinit();
+
 	/*
 	 * Check IPSec plist
 	 */
@@ -241,7 +261,6 @@ skip:
 	if (logFileStr[0])
 			plogset(logFileStr);
 	else	
-#endif /* __APPLE__ */
 		if (lcconf->logfile_param)
 			plogset(lcconf->logfile_param);			
 
@@ -249,9 +268,11 @@ skip:
 
 	plog(LLV_INFO, LOCATION, NULL, "***** racoon started: pid=%d  started by: %d\n", getpid(), getppid());
 	plog(LLV_INFO, LOCATION, NULL, "%s\n", version);
+#ifdef HAVE_OPENSSL
 	plog(LLV_INFO, LOCATION, NULL, "@(#)"
 	    "This product linked %s (http://www.openssl.org/)"
 	    "\n", eay_version());
+#endif
 	plog(LLV_INFO, LOCATION, NULL, "Reading configuration from \"%s\"\n", 
 	    lcconf->racoon_conf);
 

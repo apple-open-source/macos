@@ -105,7 +105,7 @@ sub Browse()
 ################################################################################
 sub Restore() 
 {
-	my $jabberdDataPath = "/var/jabberd";
+	my $jabberdDataPath = "/Library/Server/iChat/Data";
 	my $jabberdDBPath = "";
 	$jabberdDBPath = "$jabberdDataPath/sqlite";
 	my $sqliteDefaultDbPath = "$jabberdDBPath/jabberd2.db";

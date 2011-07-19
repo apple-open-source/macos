@@ -26,7 +26,7 @@
 #include "config.h"
 #include "runtime_root.h"
 
-#include "Bridge.h"
+#include "BridgeJSC.h"
 #include "runtime_object.h"
 #include <runtime/JSGlobalObject.h>
 #include <wtf/HashCountedSet.h>
@@ -83,7 +83,7 @@ PassRefPtr<RootObject> RootObject::create(const void* nativeHandle, JSGlobalObje
 RootObject::RootObject(const void* nativeHandle, JSGlobalObject* globalObject)
     : m_isValid(true)
     , m_nativeHandle(nativeHandle)
-    , m_globalObject(globalObject)
+    , m_globalObject(globalObject->globalData(), globalObject)
 {
     ASSERT(globalObject);
     rootObjectSet()->add(this);
@@ -101,17 +101,18 @@ void RootObject::invalidate()
         return;
 
     {
-        HashSet<RuntimeObject*>::iterator end = m_runtimeObjects.end();
-        for (HashSet<RuntimeObject*>::iterator it = m_runtimeObjects.begin(); it != end; ++it)
-            (*it)->invalidate();
-        
+        HashMap<RuntimeObject*, JSC::Weak<RuntimeObject> >::iterator end = m_runtimeObjects.end();
+        for (HashMap<RuntimeObject*, JSC::Weak<RuntimeObject> >::iterator it = m_runtimeObjects.begin(); it != end; ++it) {
+            it->second.get()->invalidate();
+        }
+
         m_runtimeObjects.clear();
     }
-    
+
     m_isValid = false;
 
     m_nativeHandle = 0;
-    m_globalObject = 0;
+    m_globalObject.clear();
 
     {
         HashSet<InvalidationCallback*>::iterator end = m_invalidationCallbacks.end();
@@ -165,22 +166,38 @@ const void* RootObject::nativeHandle() const
 JSGlobalObject* RootObject::globalObject() const
 {
     ASSERT(m_isValid);
-    return m_globalObject;
+    return m_globalObject.get();
 }
 
-void RootObject::addRuntimeObject(RuntimeObject* object)
+void RootObject::updateGlobalObject(JSGlobalObject* globalObject)
+{
+    m_globalObject.set(globalObject->globalData(), globalObject);
+}
+
+void RootObject::addRuntimeObject(JSGlobalData& globalData, RuntimeObject* object)
 {
     ASSERT(m_isValid);
-    ASSERT(!m_runtimeObjects.contains(object));
-    
-    m_runtimeObjects.add(object);
-}        
-    
+    ASSERT(!m_runtimeObjects.get(object));
+
+    m_runtimeObjects.set(object, JSC::Weak<RuntimeObject>(globalData, object, this));
+}
+
 void RootObject::removeRuntimeObject(RuntimeObject* object)
 {
-    ASSERT(m_isValid);
+    if (!m_isValid)
+        return;
+
+    ASSERT(m_runtimeObjects.get(object));
+
+    m_runtimeObjects.take(object);
+}
+
+void RootObject::finalize(JSC::Handle<JSC::Unknown> handle, void*)
+{
+    RuntimeObject* object = static_cast<RuntimeObject*>(asObject(handle.get()));
     ASSERT(m_runtimeObjects.contains(object));
-    
+
+    object->invalidate();
     m_runtimeObjects.remove(object);
 }
 

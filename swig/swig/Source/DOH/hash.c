@@ -9,7 +9,7 @@
  * See the file LICENSE for information on usage and redistribution.
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_hash_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/hash.c,v 1.10 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_hash_c[] = "$Id: hash.c 10926 2008-11-11 22:17:40Z wsfulton $";
 
 #include "dohint.h"
 
@@ -112,12 +112,11 @@ static void DelHash(DOH *ho) {
   int i;
 
   for (i = 0; i < h->hashsize; i++) {
-    if ((n = h->hashtable[i])) {
-      while (n) {
-	next = n->next;
-	DelNode(n);
-	n = next;
-      }
+    n = h->hashtable[i];
+    while (n) {
+      next = n->next;
+      DelNode(n);
+      n = next;
     }
   }
   DohFree(h->hashtable);
@@ -138,12 +137,11 @@ static void Hash_clear(DOH *ho) {
   int i;
 
   for (i = 0; i < h->hashsize; i++) {
-    if ((n = h->hashtable[i])) {
-      while (n) {
-	next = n->next;
-	DelNode(n);
-	n = next;
-      }
+    n = h->hashtable[i];
+    while (n) {
+      next = n->next;
+      DelNode(n);
+      n = next;
     }
     h->hashtable[i] = 0;
   }
@@ -253,61 +251,30 @@ static int Hash_setattr(DOH *ho, DOH *k, DOH *obj) {
  * ----------------------------------------------------------------------------- */
 typedef int (*binop) (DOH *obj1, DOH *obj2);
 
-#define _Hash_getattr(h, k, o)                                      \
-  int hv = Hashval(k) % h->hashsize;                                \
-  DohObjInfo *k_type = ((DohBase*)k)->type;                         \
-  HashNode *n = h->hashtable[hv];                                   \
-  if (k_type->doh_equal) {                                          \
-    binop equal = k_type->doh_equal;                                \
-    while (n) {                                                     \
-      DohBase *nk = (DohBase *)n->key;                              \
-      if ((k_type == nk->type) && equal(k, nk)) o = n->object;      \
-      n = n->next;                                                  \
-    }                                                               \
-  } else {                                                          \
-    binop cmp = k_type->doh_cmp;                                    \
-    while (n) {                                                     \
-      DohBase *nk = (DohBase *)n->key;                              \
-      if ((k_type == nk->type) && (cmp(k, nk) == 0)) o = n->object; \
-      n = n->next;                                                  \
-    }                                                               \
-  }
-
 
 static DOH *Hash_getattr(DOH *h, DOH *k) {
   DOH *obj = 0;
   Hash *ho = (Hash *) ObjData(h);
   DOH *ko = DohCheck(k) ? k : find_key(k);
-  _Hash_getattr(ho, ko, obj);
-  return obj;
-}
-
-DOH *DohHashGetAttr(DOH *h, const DOH *k) {
-  DOH *obj = 0;
-  Hash *ho = (Hash *) ObjData(h);
-  _Hash_getattr(ho, (DOH *) k, obj);
-  return obj;
-}
-
-
-/* -----------------------------------------------------------------------------
- * HashCheckAttr()
- *
- * Check an attribute from the hash table.
- * ----------------------------------------------------------------------------- */
-
-int DohHashCheckAttr(DOH *h, DOH *k, DOH *v) {
-  DOH *obj = 0;
-  Hash *ho = (Hash *) ObjData(h);
-  _Hash_getattr(ho, k, obj);
-  if (obj) {
-    DohObjInfo *o_type = ((DohBase *) obj)->type;
-    if (o_type == ((DohBase *) v)->type) {
-      binop equal = o_type->doh_equal;
-      return equal ? equal(obj, v) : (o_type->doh_cmp(obj, v) == 0);
+  int hv = Hashval(ko) % ho->hashsize;
+  DohObjInfo *k_type = ((DohBase*)ko)->type;
+  HashNode *n = ho->hashtable[hv];
+  if (k_type->doh_equal) {
+    binop equal = k_type->doh_equal;
+    while (n) {
+      DohBase *nk = (DohBase *)n->key;
+      if ((k_type == nk->type) && equal(ko, nk)) obj = n->object;
+      n = n->next;
+    }
+  } else {
+    binop cmp = k_type->doh_cmp;
+    while (n) {
+      DohBase *nk = (DohBase *)n->key;
+      if ((k_type == nk->type) && (cmp(ko, nk) == 0)) obj = n->object;
+      n = n->next;
     }
   }
-  return 0;
+  return obj;
 }
 
 /* -----------------------------------------------------------------------------
@@ -485,11 +452,10 @@ static DOH *CopyHash(DOH *ho) {
 
   nho = DohObjMalloc(&DohHashType, nh);
   for (i = 0; i < h->hashsize; i++) {
-    if ((n = h->hashtable[i])) {
-      while (n) {
-	Hash_setattr(nho, n->key, n->object);
-	n = n->next;
-      }
+    n = h->hashtable[i];
+    while (n) {
+      Hash_setattr(nho, n->key, n->object);
+      n = n->next;
     }
   }
   return nho;
@@ -569,7 +535,7 @@ DohObjInfo DohHashType = {
  * Create a new hash table.
  * ----------------------------------------------------------------------------- */
 
-DOH *DohNewHash() {
+DOH *DohNewHash(void) {
   Hash *h;
   int i;
   h = (Hash *) DohMalloc(sizeof(Hash));

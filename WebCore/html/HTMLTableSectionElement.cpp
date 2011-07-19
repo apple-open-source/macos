@@ -1,10 +1,10 @@
-/**
+/*
  * Copyright (C) 1997 Martin Jones (mjones@kde.org)
  *           (C) 1997 Torben Weis (weis@kde.org)
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006 Apple Computer, Inc.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -21,6 +21,7 @@
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
  */
+
 #include "config.h"
 #include "HTMLTableSectionElement.h"
 
@@ -36,37 +37,20 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLTableSectionElement::HTMLTableSectionElement(const QualifiedName& tagName, Document* document)
+inline HTMLTableSectionElement::HTMLTableSectionElement(const QualifiedName& tagName, Document* document)
     : HTMLTablePartElement(tagName, document)
 {
 }
 
-bool HTMLTableSectionElement::checkDTD(const Node* newChild)
+PassRefPtr<HTMLTableSectionElement> HTMLTableSectionElement::create(const QualifiedName& tagName, Document* document)
 {
-    if (newChild->isTextNode())
-        return static_cast<const Text*>(newChild)->containsOnlyWhitespace();
-    return newChild->hasTagName(trTag) || newChild->hasTagName(formTag) ||
-           newChild->hasTagName(scriptTag);
-}
-
-ContainerNode* HTMLTableSectionElement::addChild(PassRefPtr<Node> child)
-{
-    if (child->hasTagName(formTag)) {
-        // First add the child.
-        HTMLTablePartElement::addChild(child);
-
-        // Now simply return ourselves as the container to insert into.
-        // This has the effect of demoting the form to a leaf and moving it safely out of the way.
-        return this;
-    }
-
-    return HTMLTablePartElement::addChild(child);
+    return adoptRef(new HTMLTableSectionElement(tagName, document));
 }
 
 // used by table row groups to share style decls created by the enclosing table.
 void HTMLTableSectionElement::additionalAttributeStyleDecls(Vector<CSSMutableStyleDeclaration*>& results)
 {
-    Node* p = parentNode();
+    ContainerNode* p = parentNode();
     while (p && !p->hasTagName(tableTag))
         p = p->parentNode();
     if (!p)
@@ -78,25 +62,25 @@ void HTMLTableSectionElement::additionalAttributeStyleDecls(Vector<CSSMutableSty
 // the index... but they aren't used during usual HTML parsing anyway
 PassRefPtr<HTMLElement> HTMLTableSectionElement::insertRow(int index, ExceptionCode& ec)
 {
-    RefPtr<HTMLTableRowElement> r;
+    RefPtr<HTMLTableRowElement> row;
     RefPtr<HTMLCollection> children = rows();
     int numRows = children ? (int)children->length() : 0;
     if (index < -1 || index > numRows)
         ec = INDEX_SIZE_ERR; // per the DOM
     else {
-        r = new HTMLTableRowElement(trTag, document());
+        row = HTMLTableRowElement::create(trTag, document());
         if (numRows == index || index == -1)
-            appendChild(r, ec);
+            appendChild(row, ec);
         else {
             Node* n;
             if (index < 1)
                 n = firstChild();
             else
                 n = children->item(index);
-            insertBefore(r, n, ec);
+            insertBefore(row, n, ec);
         }
     }
-    return r.release();
+    return row.release();
 }
 
 void HTMLTableSectionElement::deleteRow(int index, ExceptionCode& ec)

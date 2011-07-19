@@ -31,19 +31,20 @@
 #define DEBUG_TYPE "x86-codegen"
 #include "X86.h"
 #include "X86InstrInfo.h"
-#include "llvm/CodeGen/MachineFunctionPass.h"
-#include "llvm/CodeGen/MachineInstrBuilder.h"
-#include "llvm/CodeGen/MachineRegisterInfo.h"
-#include "llvm/CodeGen/Passes.h"
-#include "llvm/Target/TargetInstrInfo.h"
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Support/Debug.h"
-#include "llvm/Support/Compiler.h"
 #include "llvm/ADT/DepthFirstIterator.h"
 #include "llvm/ADT/SmallPtrSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/ADT/STLExtras.h"
+#include "llvm/CodeGen/MachineFunctionPass.h"
+#include "llvm/CodeGen/MachineInstrBuilder.h"
+#include "llvm/CodeGen/MachineRegisterInfo.h"
+#include "llvm/CodeGen/Passes.h"
+#include "llvm/Support/Debug.h"
+#include "llvm/Support/ErrorHandling.h"
+#include "llvm/Support/raw_ostream.h"
+#include "llvm/Target/TargetInstrInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include <algorithm>
 using namespace llvm;
 
@@ -51,11 +52,12 @@ STATISTIC(NumFXCH, "Number of fxch instructions inserted");
 STATISTIC(NumFP  , "Number of floating point instructions");
 
 namespace {
-  struct VISIBILITY_HIDDEN FPS : public MachineFunctionPass {
+  struct FPS : public MachineFunctionPass {
     static char ID;
     FPS() : MachineFunctionPass(&ID) {}
 
     virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+      AU.setPreservesCFG();
       AU.addPreservedID(MachineLoopInfoID);
       AU.addPreservedID(MachineDominatorsID);
       MachineFunctionPass::getAnalysisUsage(AU);
@@ -73,12 +75,12 @@ namespace {
     unsigned StackTop;          // The current top of the FP stack.
 
     void dumpStack() const {
-      cerr << "Stack contents:";
+      dbgs() << "Stack contents:";
       for (unsigned i = 0; i != StackTop; ++i) {
-        cerr << " FP" << Stack[i];
+        dbgs() << " FP" << Stack[i];
         assert(RegMap[Stack[i]] == i && "Stack[] doesn't match RegMap[]!");
       }
-      cerr << "\n";
+      dbgs() << "\n";
     }
   private:
     /// isStackEmpty - Return true if the FP stack is empty.
@@ -210,6 +212,14 @@ bool FPS::runOnMachineFunction(MachineFunction &MF) {
        I != E; ++I)
     Changed |= processBasicBlock(MF, **I);
 
+  // Process any unreachable blocks in arbitrary order now.
+  if (MF.size() == Processed.size())
+    return Changed;
+
+  for (MachineFunction::iterator BB = MF.begin(), E = MF.end(); BB != E; ++BB)
+    if (Processed.insert(BB))
+      Changed |= processBasicBlock(MF, *BB);
+  
   return Changed;
 }
 
@@ -225,7 +235,7 @@ bool FPS::processBasicBlock(MachineFunction &MF, MachineBasicBlock &BB) {
     unsigned Flags = MI->getDesc().TSFlags;
     
     unsigned FPInstClass = Flags & X86II::FPTypeMask;
-    if (MI->getOpcode() == TargetInstrInfo::INLINEASM)
+    if (MI->isInlineAsm())
       FPInstClass = X86II::SpecialFP;
     
     if (FPInstClass == X86II::NotFP)
@@ -236,7 +246,7 @@ bool FPS::processBasicBlock(MachineFunction &MF, MachineBasicBlock &BB) {
       PrevMI = prior(I);
 
     ++NumFP;  // Keep track of # of pseudo instrs
-    DOUT << "\nFPInst:\t" << *MI;
+    DEBUG(dbgs() << "\nFPInst:\t" << *MI);
 
     // Get dead variables list now because the MI pointer may be deleted as part
     // of processing!
@@ -255,7 +265,7 @@ bool FPS::processBasicBlock(MachineFunction &MF, MachineBasicBlock &BB) {
     case X86II::CompareFP:  handleCompareFP(I); break;
     case X86II::CondMovFP:  handleCondMovFP(I); break;
     case X86II::SpecialFP:  handleSpecialFP(I); break;
-    default: assert(0 && "Unknown FP Type!");
+    default: llvm_unreachable("Unknown FP Type!");
     }
 
     // Check to see if any of the values defined by this instruction are dead
@@ -263,7 +273,7 @@ bool FPS::processBasicBlock(MachineFunction &MF, MachineBasicBlock &BB) {
     for (unsigned i = 0, e = DeadRegs.size(); i != e; ++i) {
       unsigned Reg = DeadRegs[i];
       if (Reg >= X86::FP0 && Reg <= X86::FP6) {
-        DOUT << "Register FP#" << Reg-X86::FP0 << " is dead!\n";
+        DEBUG(dbgs() << "Register FP#" << Reg-X86::FP0 << " is dead!\n");
         freeStackSlotAfter(I, Reg-X86::FP0);
       }
     }
@@ -272,14 +282,14 @@ bool FPS::processBasicBlock(MachineFunction &MF, MachineBasicBlock &BB) {
     DEBUG(
       MachineBasicBlock::iterator PrevI(PrevMI);
       if (I == PrevI) {
-        cerr << "Just deleted pseudo instruction\n";
+        dbgs() << "Just deleted pseudo instruction\n";
       } else {
         MachineBasicBlock::iterator Start = I;
         // Rewind to first instruction newly inserted.
         while (Start != BB.begin() && prior(Start) != PrevI) --Start;
-        cerr << "Inserted instructions:\n\t";
-        Start->print(*cerr.stream(), &MF.getTarget());
-        while (++Start != next(I)) {}
+        dbgs() << "Inserted instructions:\n\t";
+        Start->print(dbgs(), &MF.getTarget());
+        while (++Start != llvm::next(I)) {}
       }
       dumpStack();
     );
@@ -945,7 +955,7 @@ void FPS::handleSpecialFP(MachineBasicBlock::iterator &I) {
   MachineInstr *MI = I;
   DebugLoc dl = MI->getDebugLoc();
   switch (MI->getOpcode()) {
-  default: assert(0 && "Unknown SpecialFP instruction!");
+  default: llvm_unreachable("Unknown SpecialFP instruction!");
   case X86::FpGET_ST0_32:// Appears immediately after a call returning FP type!
   case X86::FpGET_ST0_64:// Appears immediately after a call returning FP type!
   case X86::FpGET_ST0_80:// Appears immediately after a call returning FP type!
@@ -990,11 +1000,21 @@ void FPS::handleSpecialFP(MachineBasicBlock::iterator &I) {
   }
   case X86::FpSET_ST0_32:
   case X86::FpSET_ST0_64:
-  case X86::FpSET_ST0_80:
-    assert((StackTop == 1 || StackTop == 2)
-           && "Stack should have one or two element on it to return!");
+  case X86::FpSET_ST0_80: {
+    unsigned Op0 = getFPReg(MI->getOperand(0));
+
+    // FpSET_ST0_80 is generated by copyRegToReg for both function return
+    // and inline assembly with the "st" constrain. In the latter case,
+    // it is possible for ST(0) to be alive after this instruction.
+    if (!MI->killsRegister(X86::FP0 + Op0)) {
+      // Duplicate Op0
+      duplicateToTop(0, 7 /*temp register*/, I);
+    } else {
+      moveToTop(Op0, I);
+    }
     --StackTop;   // "Forget" we have something on the top of stack!
     break;
+  }
   case X86::FpSET_ST1_32:
   case X86::FpSET_ST1_64:
   case X86::FpSET_ST1_80:
@@ -1063,13 +1083,12 @@ void FPS::handleSpecialFP(MachineBasicBlock::iterator &I) {
     }
     }
     break;
-  case TargetInstrInfo::INLINEASM: {
+  case TargetOpcode::INLINEASM: {
     // The inline asm MachineInstr currently only *uses* FP registers for the
     // 'f' constraint.  These should be turned into the current ST(x) register
     // in the machine instr.  Also, any kills should be explicitly popped after
     // the inline asm.
-    unsigned Kills[7];
-    unsigned NumKills = 0;
+    unsigned Kills = 0;
     for (unsigned i = 0, e = MI->getNumOperands(); i != e; ++i) {
       MachineOperand &Op = MI->getOperand(i);
       if (!Op.isReg() || Op.getReg() < X86::FP0 || Op.getReg() > X86::FP6)
@@ -1083,7 +1102,7 @@ void FPS::handleSpecialFP(MachineBasicBlock::iterator &I) {
       // asm.  We just remember it for now, and pop them all off at the end in
       // a batch.
       if (Op.isKill())
-        Kills[NumKills++] = FPReg;
+        Kills |= 1U << FPReg;
     }
 
     // If this asm kills any FP registers (is the last use of them) we must
@@ -1094,9 +1113,11 @@ void FPS::handleSpecialFP(MachineBasicBlock::iterator &I) {
     // Note: this might be a non-optimal pop sequence.  We might be able to do
     // better by trying to pop in stack order or something.
     MachineBasicBlock::iterator InsertPt = MI;
-    while (NumKills)
-      freeStackSlotAfter(InsertPt, Kills[--NumKills]);
-
+    while (Kills) {
+      unsigned FPReg = CountTrailingZeros_32(Kills);
+      freeStackSlotAfter(InsertPt, FPReg);
+      Kills &= ~(1U << FPReg);
+    }
     // Don't delete the inline asm!
     return;
   }

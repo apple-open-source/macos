@@ -23,13 +23,9 @@
 #include <GRefPtr.h>
 #include "KURL.h"
 #include "Range.h"
-#include "StringHash.h"
 #include <wtf/RefCounted.h>
 #include <wtf/text/CString.h>
-
-typedef struct _GdkPixbuf GdkPixbuf;
-typedef struct _GdkDragContext GdkDragContext;
-typedef struct _GtkClipboard GtkClipboard;
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
@@ -40,27 +36,30 @@ public:
         return adoptRef(new DataObjectGtk());
     }
 
-    Vector<KURL> uriList() { return m_uriList; }
+    const KURL& url() { return m_url; }
+    const String& uriList() { return m_uriList; }
+    const Vector<String>& filenames() { return m_filenames; }
     GdkPixbuf* image() { return m_image.get(); }
     void setRange(PassRefPtr<Range> newRange) { m_range = newRange; }
-    void setURIList(const Vector<KURL>& newURIList) {  m_uriList = newURIList; }
     void setImage(GdkPixbuf* newImage) { m_image = newImage; }
     void setDragContext(GdkDragContext* newDragContext) { m_dragContext = newDragContext; }
+    void setURL(const KURL&, const String&);
     bool hasText() { return m_range || !m_text.isEmpty(); }
     bool hasMarkup() { return m_range || !m_markup.isEmpty(); }
     bool hasURIList() { return !m_uriList.isEmpty(); }
+    bool hasURL() { return !m_url.isEmpty() && m_url.isValid(); }
+    bool hasFilenames() { return !m_filenames.isEmpty(); }
     bool hasImage() { return m_image; }
-    void clearURIList() { m_uriList.clear(); }
+    void clearURIList() { m_uriList = ""; }
+    void clearURL() { m_url = KURL(); }
     void clearImage() { m_image = 0; }
     GdkDragContext* dragContext() { return m_dragContext.get(); }
 
     String text();
     String markup();
-    Vector<String> files();
-    void setText(const String& newText);
-    void setMarkup(const String& newMarkup);
-    bool hasURL();
-    String url();
+    void setText(const String&);
+    void setMarkup(const String&);
+    void setURIList(const String&);
     String urlLabel();
     void clear();
     void clearText();
@@ -71,7 +70,9 @@ public:
 private:
     String m_text;
     String m_markup;
-    Vector<KURL> m_uriList;
+    KURL m_url;
+    String m_uriList;
+    Vector<String> m_filenames;
     GRefPtr<GdkPixbuf> m_image;
     GRefPtr<GdkDragContext> m_dragContext;
     RefPtr<Range> m_range;

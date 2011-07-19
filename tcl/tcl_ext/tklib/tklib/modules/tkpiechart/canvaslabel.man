@@ -23,7 +23,7 @@ Deletes the specified canvasLabel object.
 [list_end]
 
 [section OPTIONS]
-[list_begin opt]
+[list_begin options]
 [opt_def -anchor value]
 Specifies the anchor position of the rectangle and the text, relative to the positioning point. The behavior is similar to the [option -anchor] option of the [syscmd canvas] [emph text] item, except that the rectangle is taken into account. The default is [emph center].
 [opt_def -background color]
@@ -62,8 +62,8 @@ Specifies a maximum line length for the text, as in the [option -width] option o
 
 [section TAGS]
 The labeler has the following specific tag (see the [syscmd canvas] manual page [emph {ITEM IDS AND TAGS}] section for more information):
-[list_begin bullet]
-  [bullet]canvasLabel(canvasLabelObject)
+[list_begin itemized]
+  [item]canvasLabel(canvasLabelObject)
 [list_end]
 
 [see_also pie pieBoxLabeler piePeripheralLabeler]

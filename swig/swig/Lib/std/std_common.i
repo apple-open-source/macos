@@ -1,3 +1,5 @@
+%include <std/std_except.i>
+
 //
 // Use the following macro with modern STL implementations
 //
@@ -8,22 +10,13 @@
 //
 //#define SWIG_STD_NOMODERN_STL
 
-// Here, we identify compilers we now have problems with STL.
+// Here, we identify compilers we know have problems with STL.
 %{
-  
-#if defined(__SUNPRO_CC) && defined(_RWSTD_VER)
-#  define SWIG_STD_NOASSIGN_STL
-#  define SWIG_STD_NOINSERT_TEMPLATE_STL
-#  define SWIG_STD_NOITERATOR_TRAITS_STL
-#endif
-
 #if defined(__GNUC__)
 #  if __GNUC__ == 2 && __GNUC_MINOR <= 96
 #     define SWIG_STD_NOMODERN_STL
 #  endif
 #endif
-
-
 %}
 
 //
@@ -37,23 +30,27 @@
 
 
 %fragment("StdIteratorTraits","header") %{
+#if defined(__SUNPRO_CC) && defined(_RWSTD_VER)
+#  if !defined(SWIG_NO_STD_NOITERATOR_TRAITS_STL)
+#    define SWIG_STD_NOITERATOR_TRAITS_STL
+#  endif
+#endif
+
 #if !defined(SWIG_STD_NOITERATOR_TRAITS_STL)
 #include <iterator>
 #else
-namespace std  {
+namespace std {
   template <class Iterator>
   struct iterator_traits {
     typedef ptrdiff_t difference_type;
     typedef typename Iterator::value_type value_type;
   };
 
-#if defined(__SUNPRO_CC) && defined(_RWSTD_VER)
   template <class Iterator, class Category,class T, class Reference, class Pointer, class Distance>
   struct iterator_traits<__reverse_bi_iterator<Iterator,Category,T,Reference,Pointer,Distance> > {
     typedef Distance difference_type;
     typedef T value_type;
   };
-#endif  
 
   template <class T>
   struct iterator_traits<T*> {
@@ -71,8 +68,7 @@ namespace std  {
     }
     return __n;
   }
-
-} 
+}
 #endif
 %}
 
@@ -162,36 +158,6 @@ namespace swig {
 %enddef
 
 
-/*
-  Generate the traits for a 'primitive' type, such as 'double',
-  for which the SWIG_AsVal and SWIG_From methods are already defined.
-*/
-
-%define %traits_ptypen(Type...)
-  %fragment(SWIG_Traits_frag(Type),"header",
-	    fragment=SWIG_AsVal_frag(Type),
-	    fragment=SWIG_From_frag(Type),
-	    fragment="StdTraits") {
-namespace swig {
-  template <> struct traits<Type > {
-    typedef value_category category;
-    static const char* type_name() { return  #Type; }
-  };  
-  template <>  struct traits_asval<Type > {   
-    typedef Type value_type;
-    static int asval(PyObject *obj, value_type *val) { 
-      return SWIG_AsVal(Type)(obj, val);
-    }
-  };
-  template <>  struct traits_from<Type > {
-    typedef Type value_type;
-    static PyObject *from(const value_type& val) {
-      return SWIG_From(Type)(val);
-    }
-  };
-}
-}
-%enddef
 
 /*
   Generate the typemaps for a class that has 'value' traits
@@ -269,5 +235,4 @@ namespace swig {
 %std_equal_methods(Type )
 %std_order_methods(Type )
 %enddef
-
 

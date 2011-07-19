@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006, 2007, 2008, Google Inc. All rights reserved.
+ * Copyright (c) 2006, 2007, 2008, 2009, 2010, Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -34,15 +34,34 @@
 #include <limits>
 
 #include "PlatformString.h"
-#include "StringHash.h"
 #include "UniscribeHelper.h"
 #include <unicode/locid.h>
 #include <unicode/uchar.h>
 #include <wtf/HashMap.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 namespace {
+
+bool isFontPresent(const UChar* fontName)
+{
+    HFONT hfont = CreateFont(12, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                             fontName);
+    if (!hfont)
+        return false;
+    HDC dc = GetDC(0);
+    HGDIOBJ oldFont = static_cast<HFONT>(SelectObject(dc, hfont));
+    WCHAR actualFontName[LF_FACESIZE];
+    GetTextFace(dc, LF_FACESIZE, actualFontName);
+    actualFontName[LF_FACESIZE - 1] = 0;
+    SelectObject(dc, oldFont);
+    DeleteObject(hfont);
+    ReleaseDC(0, dc);
+    // We don't have to worry about East Asian fonts with locale-dependent
+    // names here for now.
+    return !wcscmp(fontName, actualFontName);
+}
 
 // A simple mapping from UScriptCode to family name.  This is a sparse array,
 // which works well since the range of UScriptCode values is small.
@@ -55,10 +74,14 @@ void initializeScriptFontMap(ScriptToFontMap& scriptFontMap)
         const UChar* family;
     };
 
-    const static FontMap fontMap[] = {
+    static const FontMap fontMap[] = {
         {USCRIPT_LATIN, L"times new roman"},
         {USCRIPT_GREEK, L"times new roman"},
         {USCRIPT_CYRILLIC, L"times new roman"},
+        // FIXME: Consider trying new Vista fonts before XP fonts for CJK.
+        // Some Vista users do want to use Vista cleartype CJK fonts. If we
+        // did, the results of tests with CJK characters would have to be
+        // regenerated for Vista.
         {USCRIPT_SIMPLIFIED_HAN, L"simsun"},
         {USCRIPT_TRADITIONAL_HAN, L"pmingliu"},
         {USCRIPT_HIRAGANA, L"ms pgothic"},
@@ -72,31 +95,80 @@ void initializeScriptFontMap(ScriptToFontMap& scriptFontMap)
         {USCRIPT_BENGALI, L"vrinda"},
         {USCRIPT_GURMUKHI, L"raavi"},
         {USCRIPT_GUJARATI, L"shruti"},
-        {USCRIPT_ORIYA, L"kalinga"},
         {USCRIPT_TAMIL, L"latha"},
         {USCRIPT_TELUGU, L"gautami"},
         {USCRIPT_KANNADA, L"tunga"},
-        {USCRIPT_MALAYALAM, L"kartika"},
-        {USCRIPT_LAO, L"dokchampa"},
-        {USCRIPT_TIBETAN, L"microsoft himalaya"},
         {USCRIPT_GEORGIAN, L"sylfaen"},
         {USCRIPT_ARMENIAN, L"sylfaen"},
-        {USCRIPT_ETHIOPIC, L"nyala"},
+        {USCRIPT_THAANA, L"mv boli"},
         {USCRIPT_CANADIAN_ABORIGINAL, L"euphemia"},
         {USCRIPT_CHEROKEE, L"plantagenet cherokee"},
-        {USCRIPT_YI, L"microsoft yi balti"},
-        {USCRIPT_SINHALA, L"iskoola pota"},
-        {USCRIPT_SYRIAC, L"estrangelo edessa"},
-        {USCRIPT_KHMER, L"daunpenh"},
-        {USCRIPT_THAANA, L"mv boli"},
         {USCRIPT_MONGOLIAN, L"mongolian balti"},
-        {USCRIPT_MYANMAR, L"padauk"},
         // For USCRIPT_COMMON, we map blocks to scripts when
         // that makes sense.
     };
-    
-    for (int i = 0; i < sizeof(fontMap) / sizeof(fontMap[0]); ++i)
+
+    struct ScriptToFontFamilies {
+        UScriptCode script;
+        const UChar** families;
+    };
+
+    // Kartika on Vista or earlier lacks the support for Chillu 
+    // letters added to Unicode 5.1.
+    // Try AnjaliOldLipi (a very widely used Malaylalam font with the full
+    // Unicode 5.x support) before falling back to Kartika.
+    static const UChar* malayalamFonts[] = {L"AnjaliOldLipi", L"Lohit Malayalam", L"Kartika", L"Rachana", 0};
+    // Try Khmer OS before Vista fonts because 'Khmer OS' goes along better
+    // with Latin and looks better/larger for the same size.
+    static const UChar* khmerFonts[] = {L"Khmer OS", L"MoolBoran", L"DaunPenh", L"Code2000", 0};
+    // For the following 6 scripts, two or fonts are listed. The fonts in 
+    // the 1st slot are not available on Windows XP. To support these
+    // scripts on XP, listed in the rest of slots are widely used
+    // fonts.
+    static const UChar* ethiopicFonts[] = {L"Nyala", L"Abyssinica SIL", L"Ethiopia Jiret", L"Visual Geez Unicode", L"GF Zemen Unicode", 0};
+    static const UChar* oriyaFonts[] = {L"Kalinga", L"ori1Uni", L"Lohit Oriya", 0};
+    static const UChar* laoFonts[] = {L"DokChampa", L"Saysettha OT", L"Phetsarath OT", L"Code2000", 0};
+    static const UChar* tibetanFonts[] = {L"Microsoft Himalaya", L"Jomolhari", L"Tibetan Machine Uni", 0};
+    static const UChar* sinhalaFonts[] = {L"Iskoola Pota", L"AksharUnicode", 0};
+    static const UChar* yiFonts[] = {L"Microsoft Yi Balti", L"Nuosu SIL", L"Code2000", 0};
+    // http://www.bethmardutho.org/support/meltho/download/index.php
+    static const UChar* syriacFonts[] = {L"Estrangelo Edessa", L"Estrangelo Nisibin", L"Code2000", 0};
+    // No Myanmar/Burmese font is shipped with Windows, yet. Try a few
+    // widely available/used ones that supports Unicode 5.1 or later. 
+    static const UChar* myanmarFonts[] = {L"Padauk", L"Parabaik", L"Myanmar3", L"Code2000", 0};
+
+    static const ScriptToFontFamilies scriptToFontFamilies[] = {
+        {USCRIPT_MALAYALAM, malayalamFonts},
+        {USCRIPT_KHMER, khmerFonts},
+        {USCRIPT_ETHIOPIC, ethiopicFonts},
+        {USCRIPT_ORIYA, oriyaFonts},
+        {USCRIPT_LAO, laoFonts},
+        {USCRIPT_TIBETAN, tibetanFonts},
+        {USCRIPT_SINHALA, sinhalaFonts},
+        {USCRIPT_YI, yiFonts},
+        {USCRIPT_SYRIAC, syriacFonts},
+        {USCRIPT_MYANMAR, myanmarFonts},
+    };
+
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(fontMap); ++i)
         scriptFontMap[fontMap[i].script] = fontMap[i].family;
+
+    // FIXME: Instead of scanning the hard-coded list, we have to 
+    // use EnumFont* to 'inspect' fonts to pick up fonts covering scripts
+    // when it's possible (e.g. using OS/2 table). If we do that, this 
+    // had better be pulled out of here.
+    for (size_t i = 0; i < WTF_ARRAY_LENGTH(scriptToFontFamilies); ++i) {
+        UScriptCode script = scriptToFontFamilies[i].script;
+        scriptFontMap[script] = 0;
+        const UChar** familyPtr = scriptToFontFamilies[i].families;
+        while (*familyPtr) {
+            if (isFontPresent(*familyPtr)) {
+                scriptFontMap[script] = *familyPtr;
+                break;
+            }
+            ++familyPtr;
+        }
+    }
 
     // Initialize the locale-dependent mapping.
     // Since Chrome synchronizes the ICU default locale with its UI locale,
@@ -178,17 +250,31 @@ int getAscent(HFONT hfont)
     return gotMetrics ? tm.tmAscent : kUndefinedAscent;
 }
 
+WORD getSpaceGlyph(HFONT hfont) 
+{
+    HDC dc = GetDC(0);
+    HGDIOBJ oldFont = SelectObject(dc, hfont);
+    WCHAR space = L' ';
+    WORD spaceGlyph = 0;
+    GetGlyphIndices(dc, &space, 1, &spaceGlyph, 0);
+    SelectObject(dc, oldFont);
+    ReleaseDC(0, dc);
+    return spaceGlyph;
+}
+
 struct FontData {
     FontData()
         : hfont(0)
         , ascent(kUndefinedAscent)
         , scriptCache(0)
+        , spaceGlyph(0)
     {
     }
 
     HFONT hfont;
     int ascent;
     mutable SCRIPT_CACHE scriptCache;
+    WORD spaceGlyph;
 };
 
 // Again, using hash_map does not earn us much here.  page_cycler_test intl2
@@ -198,7 +284,7 @@ struct FontData {
 // in the 1st pass. Need to experiment further.
 typedef HashMap<String, FontData> FontDataCache;
 
-}  // namespace
+} // namespace
 
 // FIXME: this is font fallback code version 0.1
 //  - Cover all the scripts
@@ -307,7 +393,8 @@ bool getDerivedFontData(const UChar* family,
                         LOGFONT* logfont,
                         int* ascent,
                         HFONT* hfont,
-                        SCRIPT_CACHE** scriptCache)
+                        SCRIPT_CACHE** scriptCache,
+                        WORD* spaceGlyph)
 {
     ASSERT(logfont);
     ASSERT(family);
@@ -336,6 +423,7 @@ bool getDerivedFontData(const UChar* family,
         // cache it so that we won't have to call CreateFontIndirect once
         // more for HFONT next time.
         derived->ascent = getAscent(derived->hfont);
+        derived->spaceGlyph = getSpaceGlyph(derived->hfont);
     } else {
         derived = &iter->second;
         // Last time, GetAscent failed so that only HFONT was
@@ -347,6 +435,7 @@ bool getDerivedFontData(const UChar* family,
     *hfont = derived->hfont;
     *ascent = derived->ascent;
     *scriptCache = &(derived->scriptCache);
+    *spaceGlyph = derived->spaceGlyph;
     return *ascent != kUndefinedAscent;
 }
 
@@ -363,4 +452,4 @@ int getStyleFromLogfont(const LOGFONT* logfont)
            (logfont->lfWeight >= 700 ? FontStyleBold : FontStyleNormal);
 }
 
-}  // namespace WebCore
+} // namespace WebCore

@@ -156,6 +156,9 @@ public:
 	
 	CFCopyRef &operator = (const CFCopyRef &ref)
 	{ _Base::operator = (ref); return *this; }
+	
+	template <class _T> CFCopyRef &operator = (const CFRef<_T> &ref)
+	{ _Base::operator = (ref); return *this; }
 };
 
 
@@ -202,7 +205,7 @@ string cfString(CFStringRef str, bool release = false);	// extract UTF8 string
 string cfString(CFURLRef url, bool release = false);	// path of file: URL (only)
 string cfString(CFBundleRef url, bool release = false);	// path to bundle root
 
-string cfString(CFTypeRef url, OSStatus err);			// dynamic form; throws on bad type or NULL
+string cfString(CFTypeRef anything, OSStatus err);		// dynamic form; throws err on NULL
 
 
 //
@@ -295,6 +298,37 @@ inline uint32_t cfNumber(CFNumberRef number) { return cfNumber<uint32_t>(number)
 
 
 //
+// Translate strings into CFStrings
+//
+inline CFStringRef makeCFString(const char *s, CFStringEncoding encoding = kCFStringEncodingUTF8)
+{
+	return s ? CFStringCreateWithCString(NULL, s, encoding) : NULL;
+}
+
+inline CFStringRef makeCFString(const string &s, CFStringEncoding encoding = kCFStringEncodingUTF8)
+{
+	return CFStringCreateWithCString(NULL, s.c_str(), encoding);
+}
+
+inline CFStringRef makeCFString(CFDataRef data, CFStringEncoding encoding = kCFStringEncodingUTF8)
+{
+	return CFStringCreateFromExternalRepresentation(NULL, data, encoding);
+}
+
+
+//
+// Create CFURL objects from various sources
+//
+CFURLRef makeCFURL(const char *s, bool isDirectory = false, CFURLRef base = NULL);
+CFURLRef makeCFURL(CFStringRef s, bool isDirectory = false, CFURLRef base = NULL);
+
+inline CFURLRef makeCFURL(const string &s, bool isDirectory = false, CFURLRef base = NULL)
+{
+	return makeCFURL(s.c_str(), isDirectory, base);
+}
+
+
+//
 // Make temporary CF objects.
 //
 class CFTempString : public CFRef<CFStringRef> {
@@ -334,6 +368,16 @@ public:
 		: CFRef<CFDataRef>(CFDataCreate(NULL, (const UInt8 *)dataoid.data(), dataoid.length())) { }
 };
 
+class CFTempDataWrap : public CFRef<CFDataRef> {
+public:
+	CFTempDataWrap(const void *data, size_t length)
+		: CFRef<CFDataRef>(CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)data, length, kCFAllocatorNull)) { }
+	
+	template <class Dataoid>
+	CFTempDataWrap(const Dataoid &dataoid)
+		: CFRef<CFDataRef>(CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)dataoid.data(), dataoid.length(), kCFAllocatorNull)) { }
+};
+
 
 //
 // Create CFData objects from various sources.
@@ -363,37 +407,6 @@ template <class Data>
 inline CFDataRef makeCFDataMalloc(const Data &source)
 {
 	return CFDataCreateWithBytesNoCopy(NULL, (const UInt8 *)source.data(), source.length(), kCFAllocatorMalloc);
-}
-
-
-//
-// Translate strings into CFStrings
-//
-inline CFStringRef makeCFString(const char *s, CFStringEncoding encoding = kCFStringEncodingUTF8)
-{
-	return s ? CFStringCreateWithCString(NULL, s, encoding) : NULL;
-}
-
-inline CFStringRef makeCFString(const string &s, CFStringEncoding encoding = kCFStringEncodingUTF8)
-{
-	return CFStringCreateWithCString(NULL, s.c_str(), encoding);
-}
-
-inline CFStringRef makeCFString(CFDataRef data, CFStringEncoding encoding = kCFStringEncodingUTF8)
-{
-	return CFStringCreateFromExternalRepresentation(NULL, data, encoding);
-}
-
-
-//
-// Create CFURL objects from various sources
-//
-CFURLRef makeCFURL(const char *s, bool isDirectory = false, CFURLRef base = NULL);
-CFURLRef makeCFURL(CFStringRef s, bool isDirectory = false, CFURLRef base = NULL);
-
-inline CFURLRef makeCFURL(const string &s, bool isDirectory = false, CFURLRef base = NULL)
-{
-	return makeCFURL(s.c_str(), isDirectory, base);
 }
 
 

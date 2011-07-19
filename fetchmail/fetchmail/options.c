@@ -45,6 +45,7 @@ enum {
     LA_SSLCERT,
     LA_SSLPROTO,
     LA_SSLCERTCK,
+    LA_SSLCERTFILE,
     LA_SSLCERTPATH,
     LA_SSLCOMMONNAME,
     LA_SSLFINGERPRINT,
@@ -53,7 +54,8 @@ enum {
     LA_LIMITFLUSH,
     LA_IDLE,
     LA_NOSOFTBOUNCE,
-    LA_SOFTBOUNCE
+    LA_SOFTBOUNCE,
+    LA_BADHEADER
 };
 
 /* options still left: CgGhHjJoORTWxXYz */
@@ -93,6 +95,7 @@ static const struct option longoptions[] = {
   {"timeout",	required_argument, (int *) 0, 't' },
   {"envelope",	required_argument, (int *) 0, 'E' },
   {"qvirtual",	required_argument, (int *) 0, 'Q' },
+  {"bad-header",required_argument, (int *) 0, LA_BADHEADER},
 
   {"user",	required_argument, (int *) 0, 'u' },
   {"username",	required_argument, (int *) 0, 'u' },
@@ -129,6 +132,7 @@ static const struct option longoptions[] = {
   {"sslcert",	required_argument, (int *) 0, LA_SSLCERT },
   {"sslproto",	 required_argument, (int *) 0, LA_SSLPROTO },
   {"sslcertck", no_argument,	   (int *) 0, LA_SSLCERTCK },
+  {"sslcertfile",   required_argument, (int *) 0, LA_SSLCERTFILE },
   {"sslcertpath",   required_argument, (int *) 0, LA_SSLCERTPATH },
   {"sslcommonname",    required_argument, (int *) 0, LA_SSLCOMMONNAME },
   {"sslfingerprint",   required_argument, (int *) 0, LA_SSLFINGERPRINT },
@@ -283,7 +287,7 @@ int parsecmdline (int argc /** argument count */,
 	    rctl->logfile = prependdir (optarg, currentwd);
 	    break;
 	case LA_INVISIBLE:
-	    rctl->invisible = TRUE;
+	    rctl->invisible = FLAG_TRUE;
 	    break;
 	case LA_SHOWDOTS:
 	    rctl->showdots = FLAG_TRUE;
@@ -302,14 +306,25 @@ int parsecmdline (int argc /** argument count */,
 	    rctl->postmaster = (char *) xstrdup(optarg);
 	    break;
 	case LA_NOBOUNCE:
-	    run.bouncemail = FALSE;
+	    rctl->bouncemail = FLAG_FALSE;
 	    break;
 	case LA_NOSOFTBOUNCE:
-	    run.softbounce = FALSE;
+	    rctl->softbounce = FLAG_FALSE;
 	    break;
 	case LA_SOFTBOUNCE:
-	    run.softbounce = TRUE;
+	    rctl->softbounce = FLAG_TRUE;
 	    break;
+	case LA_BADHEADER:
+	    if (strcasecmp(optarg,"accept") == 0) {
+		ctl->server.badheader = BHACCEPT;
+	    } else if (strcasecmp(optarg,"reject") == 0) {
+		ctl->server.badheader = BHREJECT;
+	    } else {
+		fprintf(stderr,GT_("Invalid bad-header policy `%s' specified.\n"), optarg);
+		errflag++;
+	    }
+	    break;
+
 	case 'p':
 	    /* XXX -- should probably use a table lookup here */
 	    if (strcasecmp(optarg,"auto") == 0)
@@ -547,6 +562,10 @@ int parsecmdline (int argc /** argument count */,
 	    ctl->sslcertck = FLAG_TRUE;
 	    break;
 
+	case LA_SSLCERTFILE:
+	    ctl->sslcertfile = prependdir(optarg, currentwd);
+	    break;
+
 	case LA_SSLCERTPATH:
 	    ctl->sslcertpath = prependdir(optarg, currentwd);
 	    break;
@@ -628,13 +647,16 @@ int parsecmdline (int argc /** argument count */,
 	P(GT_("      --sslkey      ssl private key file\n"));
 	P(GT_("      --sslcert     ssl client certificate\n"));
 	P(GT_("      --sslcertck   do strict server certificate check (recommended)\n"));
-	P(GT_("      --sslcertpath path to ssl certificates\n"));
+	P(GT_("      --sslcertfile path to trusted-CA ssl certificate file\n"));
+	P(GT_("      --sslcertpath path to trusted-CA ssl certificate directory\n"));
 	P(GT_("      --sslcommonname  expect this CommonName from server (discouraged)\n"));
 	P(GT_("      --sslfingerprint fingerprint that must match that of the server's cert.\n"));
 	P(GT_("      --sslproto    force ssl protocol (SSL2/SSL3/TLS1)\n"));
 #endif
 	P(GT_("      --plugin      specify external command to open connection\n"));
 	P(GT_("      --plugout     specify external command to open smtp connection\n"));
+	P(GT_("      --bad-header {reject|accept}\n"
+	      "                    specify policy for handling messages with bad headers\n"));
 
 	P(GT_("  -p, --protocol    specify retrieval protocol (see man page)\n"));
 	P(GT_("  -U, --uidl        force the use of UIDLs (pop3 only)\n"));

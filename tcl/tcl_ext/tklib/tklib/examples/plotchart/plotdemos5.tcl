@@ -1,5 +1,14 @@
+#! /bin/sh
+# the next line restarts with tclsh \
+exec tclsh "$0" ${1+"$@"}
+
+package require Tcl 8.4
+package require Tk
 package require Plotchart
 
+# plotdemos5.tcl --
+#     Contour and isoline plots
+#
 proc cowboyhat {x y} {
    set x1 [expr {$x/9.0}]
    set y1 [expr {$y/9.0}]

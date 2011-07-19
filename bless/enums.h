@@ -51,6 +51,7 @@ enum {
     khelp,
     kinfo,
     kkernel,
+    kkernelcache,
     klabel,
     klabelfile,
     klegacy,

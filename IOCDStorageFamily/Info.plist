@@ -15,11 +15,11 @@
 	<key>CFBundlePackageType</key>
 	<string>KEXT</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 	<key>CFBundleSignature</key>
 	<string>????</string>
 	<key>CFBundleVersion</key>
-	<string>1.6.1</string>
+	<string>1.7</string>
 	<key>IOKitPersonalities</key>
 	<dict>
 		<key>IOCDBlockStorageDriver</key>
@@ -81,7 +81,7 @@
 	<key>OSBundleLibraries</key>
 	<dict>
 		<key>com.apple.iokit.IOStorageFamily</key>
-		<string>1.6</string>
+		<string>1.7</string>
 		<key>com.apple.kpi.bsd</key>
 		<string>8.0</string>
 		<key>com.apple.kpi.iokit</key>

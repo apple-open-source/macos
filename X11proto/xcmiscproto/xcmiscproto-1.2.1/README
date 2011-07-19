@@ -1,0 +1,30 @@
+				XC-MISC Extension
+
+This extension defines a protocol that provides Xlib two ways to query
+the server for available resource IDs. 
+
+Extension name: XC-MISC
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/proto/xcmiscproto
+
+        http://cgit.freedesktop.org/xorg/proto/xcmiscproto
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

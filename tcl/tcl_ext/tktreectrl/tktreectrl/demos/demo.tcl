@@ -1,8 +1,8 @@
 #!/bin/wish84.exe
 
-# RCS: @(#) $Id: demo.tcl,v 1.71 2008/10/08 19:48:50 treectrl Exp $
+# RCS: @(#) $Id: demo.tcl,v 1.76 2010/06/12 20:41:42 treectrl Exp $
 
-set VERSION 2.2.8
+set VERSION 2.2.10
 
 package require Tk 8.4
 
@@ -724,10 +724,13 @@ MakeMenuBar
 
 # http://wiki.tcl.tk/950
 proc sbset {sb first last} {
-    if {$first <= 0 && $last >= 1} {
-	grid remove $sb
-    } else {
-	grid $sb
+    # Get infinite loop on X11
+    if {$::thisPlatform ne "unix"} {
+	if {$first <= 0 && $last >= 1} {
+	    grid remove $sb
+	} else {
+	    grid $sb
+	}
     }
     $sb set $first $last
     return
@@ -901,6 +904,8 @@ proc MakeMainWindow {} {
     [DemoList] notify install <Edit-accept>
     ###
 
+    [DemoList] notify install <DemoColumnVisibility>
+
     return
 }
 
@@ -961,7 +966,7 @@ proc MakeListPopup {T} {
     $m2 add checkbutton -label Enable -variable Popup(debug,enable) \
 	-command {$Popup(T) debug configure -enable $Popup(debug,enable)}
     $m add cascade -label Debug -menu $m2
-
+if 0 {
     set m2 [menu $m.mBuffer -tearoff no]
     $m2 add radiobutton -label "none" -variable Popup(doublebuffer) -value none \
 	-command {$Popup(T) configure -doublebuffer $Popup(doublebuffer)}
@@ -970,6 +975,9 @@ proc MakeListPopup {T} {
     $m2 add radiobutton -label "window" -variable Popup(doublebuffer) -value window \
 	-command {$Popup(T) configure -doublebuffer $Popup(doublebuffer)}
     $m add cascade -label Buffering -menu $m2
+}
+    set m2 [menu $m.mItemWrap -tearoff no]
+    $m add cascade -label "Item Wrap" -menu $m2
 
     set m2 [menu $m.mLineStyle -tearoff no]
     $m2 add radiobutton -label "dot" -variable Popup(linestyle) -value dot \
@@ -1165,9 +1173,27 @@ proc ShowPopup {T x y X Y} {
     foreach C [$T column list] {
 	set break [expr {!([$T column order $C] % 20)}]
 	set Popup(visible,$C) [$T column cget $C -visible]
-	$m add checkbutton -label "Column $C \"[$T column cget $C -text]\" \[[$T column cget $C -image]\]" -variable Popup(visible,$C) \
-	    -command "$T column configure $C -visible \$Popup(visible,$C)" \
+	$m add checkbutton \
+	    -label "Column $C \"[$T column cget $C -text]\" \[[$T column cget $C -image]\]" \
+	    -variable Popup(visible,$C) \
+	    -command "$T column configure $C -visible \$Popup(visible,$C) ;
+		TreeCtrl::TryEvent $T DemoColumnVisibility {} {C $C}" \
 	    -columnbreak $break
+    }
+
+    set m $menu.mItemWrap
+    $m delete 0 end
+    $m add command -label "All Off" -command {$Popup(T) item configure all -wrap off}
+    $m add command -label "All On" -command {$Popup(T) item configure all -wrap on}
+    if {$id ne ""} {
+	if {[lindex $id 0] eq "item"} {
+	    set item [lindex $id 1]
+	    if {[$T item cget $item -wrap]} {
+		$m add command -label "Item $item Off" -command "$T item configure $item -wrap off"
+	    } else {
+		$m add command -label "Item $item On" -command "$T item configure $item -wrap on"
+	    }
+	}
     }
 
     set m $menu.mSpan
@@ -1232,6 +1258,7 @@ proc InitDemoList {} {
 	"MailWasher" DemoMailWasher mailwasher.tcl \
 	"Bitmaps" DemoBitmaps bitmaps.tcl \
 	"iMovie" DemoIMovie imovie.tcl \
+	"iMovie (Wrap)" DemoIMovieWrap imovie.tcl \
 	"Firefox Privacy" DemoFirefoxPrivacy firefox.tcl \
 	"Textvariable" DemoTextvariable textvariable.tcl \
 	"Big List" DemoBigList biglist.tcl \
@@ -1507,7 +1534,7 @@ proc DemoClear {} {
 	destroy $child
     }
 
-    $T item configure root -button no
+    $T item configure root -button no -wrap no
     $T item expand root
 
     # Restore some happy defaults to the demo list

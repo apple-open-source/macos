@@ -1,6 +1,5 @@
-#!/usr/bin/perl -w
-
 use strict;
+use warnings;
 
 use File::Spec;
 use Test::More;
@@ -9,7 +8,7 @@ use lib File::Spec->catdir( File::Spec->curdir, 't' );
 
 BEGIN { require 'check_datetime_version.pl' }
 
-plan tests => 12;
+plan tests => 13;
 
 foreach ( qw( America/Chicago
               UTC
@@ -34,3 +33,11 @@ foreach ( qw( America/Hell
     ok( ! DateTime::TimeZone->is_valid_name($_),
         "$_ is not a valid timezone name" );
 }
+
+{
+    DateTime::TimeZone->is_valid_name(undef);
+
+    is( $@, '',
+        'calling is_valid_name with a bad argument does not leave $@ set' );
+}
+

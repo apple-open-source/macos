@@ -18,16 +18,14 @@
  */
 
 #include "config.h"
-
-#include <wtf/Assertions.h>
-#include "FrameLoaderTypes.h"
-
-#include <glib/gi18n-lib.h>
 #include "webkitwebnavigationaction.h"
-#include "webkitprivate.h"
-#include "webkitenumtypes.h"
 
+#include "FrameLoaderTypes.h"
+#include "webkitenumtypes.h"
+#include "webkitglobalsprivate.h"
+#include <glib/gi18n-lib.h>
 #include <string.h>
+#include <wtf/Assertions.h>
 
 static void webkit_web_navigation_action_set_target_frame(WebKitWebNavigationAction* navigationAction, const gchar* targetFrame);
 
@@ -47,8 +45,6 @@ struct _WebKitWebNavigationActionPrivate {
     gint modifier_state;
     gchar* targetFrame;
 };
-
-#define WEBKIT_WEB_NAVIGATION_ACTION_GET_PRIVATE(obj)(G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_NAVIGATION_ACTION, WebKitWebNavigationActionPrivate))
 
 enum  {
     PROP_0,
@@ -118,7 +114,7 @@ static void webkit_web_navigation_action_set_property(GObject* object, guint pro
 
 static void webkit_web_navigation_action_init(WebKitWebNavigationAction* navigationAction)
 {
-    navigationAction->priv = WEBKIT_WEB_NAVIGATION_ACTION_GET_PRIVATE(navigationAction);
+    navigationAction->priv = G_TYPE_INSTANCE_GET_PRIVATE(navigationAction, WEBKIT_TYPE_WEB_NAVIGATION_ACTION, WebKitWebNavigationActionPrivate);
 }
 
 static void webkit_web_navigation_action_finalize(GObject* obj)
@@ -134,13 +130,6 @@ static void webkit_web_navigation_action_finalize(GObject* obj)
 static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionClass* requestClass)
 {
     GObjectClass* objectClass = G_OBJECT_CLASS(requestClass);
-
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_LINK_CLICKED) == static_cast<int>(WebCore::NavigationTypeLinkClicked), navigation_type_link_clicked_enum_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_FORM_SUBMITTED) == static_cast<int>(WebCore::NavigationTypeFormSubmitted), navigation_type_form_submitted_enum_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_BACK_FORWARD) == static_cast<int>(WebCore::NavigationTypeBackForward), navigation_type_back_forward_enum_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_RELOAD) == static_cast<int>(WebCore::NavigationTypeReload), navigation_type_reload_enum_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_FORM_RESUBMITTED) == static_cast<int>(WebCore::NavigationTypeFormResubmitted), navigation_type_form_resubmitted_enum_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_WEB_NAVIGATION_REASON_OTHER) == static_cast<int>(WebCore::NavigationTypeOther), navigation_type_other_enum_match);
 
     objectClass->get_property = webkit_web_navigation_action_get_property;
     objectClass->set_property = webkit_web_navigation_action_set_property;
@@ -177,8 +166,8 @@ static void webkit_web_navigation_action_class_init(WebKitWebNavigationActionCla
     /**
      * WebKitWebNavigationAction:button:
      *
-     * The DOM identifier for the mouse button used to click. DOM button values
-     * are 0, 1 and 2 for left, middle and right buttons. If the action was not
+     * The GTK+ identifier for the mouse button used to click. Notice that GTK+ button values
+     * are 1, 2 and 3 for left, middle and right buttons, so they are DOM button values +1. If the action was not
      * initiated by a mouse click the value will be -1.
      *
      * Since: 1.0.3
@@ -310,9 +299,9 @@ void webkit_web_navigation_action_set_original_uri(WebKitWebNavigationAction* na
  * webkit_web_navigation_action_get_button:
  * @navigationAction: a #WebKitWebNavigationAction
  *
- * Returns the DOM identifier for the mouse button used to click.
- * DOM button values are 0, 1 and 2 for left, middle and right buttons.
- * If the action was not initiated by a mouse click, returns -1.
+ * The GTK+ identifier for the mouse button used to click. Notice that GTK+ button values
+ * are 1, 2 and 3 for left, middle and right buttons, so they are DOM button values +1. If the action was not
+ * initiated by a mouse click the value will be -1.
  *
  * Return value: the mouse button used to click
  *
@@ -368,4 +357,18 @@ static void webkit_web_navigation_action_set_target_frame(WebKitWebNavigationAct
     g_free(navigationAction->priv->targetFrame);
     navigationAction->priv->targetFrame = g_strdup(targetFrame);
     g_object_notify(G_OBJECT(navigationAction), "target-frame");
+}
+
+namespace WebKit {
+
+WebKitWebNavigationReason kit(WebCore::NavigationType type)
+{
+    return (WebKitWebNavigationReason)type;
+}
+
+WebCore::NavigationType core(WebKitWebNavigationReason type)
+{
+    return static_cast<WebCore::NavigationType>(type);
+}
+
 }

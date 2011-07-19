@@ -1,9 +1,9 @@
-.TH ZPRINT 1 27/02/87
+.TH ZPRINT 1 02/12/09
 .CM 4
 .SH NAME
 zprint \- show information about kernel zones
 .SH SYNOPSIS
-\fBzprint\fP [\fB-w\fP] [\fB-s\fP] [\fB-c\fP] [\fB-h\fP] [name]
+\fBzprint\fP [\fB-w\fP] [\fB-s\fP] [\fB-c\fP] [\fB-h\fP] [\fB-t\fP] [\fB-d\fP] [\fB-p <pid>\fP][name]
 .SH DESCRIPTION
 \fIzprint(1)\fR displays data about Mach zones.  By default,
 \fIzprint\fR will print out information about all Mach zones.  If the
@@ -30,12 +30,28 @@ It may be useful to override this option when sorting by column.
 .\" ==========
 .TP 8
 .B \-s
-\fIzprint\fR sorts the zones, showing the wasting the most memory first.
+\fIzprint\fR sorts the zones, showing the zone wasting the most memory first.
 .\" ==========
 .TP 8
 .B \-w
 For each zone, \fIzprint\fR calculates how much space is allocated but
 not currently in use, the space wasted by the zone.
+.TP 8
+.B \-t
+For each zone, \fIzprint\fR calculates the total size of allocations from
+the zone over the life of the zone.
+.TP 8
+.B \-d
+Display deltas over time, showing any zones that have achieved a new maximum
+current allocation size during the interval.  If the total allocation sizes are
+being displayed for the zones in question, it will also display the deltas if the
+total allocations have doubled.
+.B \-p <pid>
+Display zone usage related to the specified process id.  Each zone will display
+standard columns and the amount of memory from that zone associated with a given
+process.  The letter "A" in the flags column indicates that this total is being
+accounted to the process.  Otherwise, the total is an indication of the influence
+the process has on the kernel, but the memory is being accounted to the kernel proper.
 .PP
 Any option (including default options) can be overridden
 by specifying the option in upper-case; for example, -C overrides

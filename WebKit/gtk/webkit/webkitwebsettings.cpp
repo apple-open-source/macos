@@ -26,28 +26,30 @@
 #include "config.h"
 #include "webkitwebsettings.h"
 
-#include "webkitenumtypes.h"
-#include "webkitprivate.h"
-#include "webkitversion.h"
-
+#include "EditingBehavior.h"
 #include "FileSystem.h"
 #include "PluginDatabase.h"
-#include "Language.h"
-#include "PlatformString.h"
+#include "webkitenumtypes.h"
+#include "webkitglobalsprivate.h"
+#include "webkitversion.h"
+#include "webkitwebsettingsprivate.h"
 #include <wtf/text/CString.h>
-
+#include <wtf/text/StringConcatenate.h>
 #include <glib/gi18n-lib.h>
+
 #if OS(UNIX)
 #include <sys/utsname.h>
+#elif OS(WINDOWS)
+#include "SystemInfo.h"
 #endif
 
 /**
  * SECTION:webkitwebsettings
  * @short_description: Control the behaviour of a #WebKitWebView
  *
- * #WebKitWebSettings can be applied to a #WebKitWebView to control
- * the to be used text encoding, color, font sizes, printing mode,
- * script support, loading of images and various other things.
+ * #WebKitWebSettings can be applied to a #WebKitWebView to control text encoding, 
+ * color, font sizes, printing mode, script support, loading of images and various other things. 
+ * After creation, a #WebKitWebSettings object contains default settings. 
  *
  * <informalexample><programlisting>
  * /<!-- -->* Create a new websettings and disable java script *<!-- -->/
@@ -88,12 +90,12 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_private_browsing;
     gboolean enable_spell_checking;
     gchar* spell_checking_languages;
-    GSList* enchant_dicts;
     gboolean enable_caret_browsing;
     gboolean enable_html5_database;
     gboolean enable_html5_local_storage;
     gboolean enable_xss_auditor;
     gboolean enable_spatial_navigation;
+    gboolean enable_frame_flattening;
     gchar* user_agent;
     gboolean javascript_can_open_windows_automatically;
     gboolean javascript_can_access_clipboard;
@@ -108,6 +110,10 @@ struct _WebKitWebSettingsPrivate {
     gboolean enable_page_cache;
     gboolean auto_resize_window;
     gboolean enable_java_applet;
+    gboolean enable_hyperlink_auditing;
+    gboolean enable_fullscreen;
+    gboolean enable_dns_prefetching;
+    gboolean enable_webgl;
 };
 
 #define WEBKIT_WEB_SETTINGS_GET_PRIVATE(obj) (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate))
@@ -144,6 +150,7 @@ enum {
     PROP_ENABLE_HTML5_LOCAL_STORAGE,
     PROP_ENABLE_XSS_AUDITOR,
     PROP_ENABLE_SPATIAL_NAVIGATION,
+    PROP_ENABLE_FRAME_FLATTENING,
     PROP_USER_AGENT,
     PROP_JAVASCRIPT_CAN_OPEN_WINDOWS_AUTOMATICALLY,
     PROP_JAVASCRIPT_CAN_ACCESS_CLIPBOARD,
@@ -157,62 +164,72 @@ enum {
     PROP_ENABLE_SITE_SPECIFIC_QUIRKS,
     PROP_ENABLE_PAGE_CACHE,
     PROP_AUTO_RESIZE_WINDOW,
-    PROP_ENABLE_JAVA_APPLET
+    PROP_ENABLE_JAVA_APPLET,
+    PROP_ENABLE_HYPERLINK_AUDITING,
+    PROP_ENABLE_FULLSCREEN,
+    PROP_ENABLE_DNS_PREFETCHING,
+    PROP_ENABLE_WEBGL
 };
 
 // Create a default user agent string
 // This is a liberal interpretation of http://www.mozilla.org/build/revised-user-agent-strings.html
 // See also http://developer.apple.com/internet/safari/faq.html#anchor2
-static String webkit_get_user_agent()
+static String webkitPlatform()
 {
-    gchar* platform;
-    gchar* osVersion;
-
 #if PLATFORM(X11)
-    platform = g_strdup("X11");
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("X11; ")));
 #elif OS(WINDOWS)
-    platform = g_strdup("Windows");
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("")));
 #elif PLATFORM(MAC)
-    platform = g_strdup("Macintosh");
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Macintosh; ")));
 #elif defined(GDK_WINDOWING_DIRECTFB)
-    platform = g_strdup("DirectFB");
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("DirectFB; ")));
 #else
-    platform = g_strdup("Unknown");
+    DEFINE_STATIC_LOCAL(const String, uaPlatform, (String("Unknown; ")));
 #endif
 
+    return uaPlatform;
+}
+
+static String webkitOSVersion()
+{
    // FIXME: platform/version detection can be shared.
 #if OS(DARWIN)
 
 #if CPU(X86)
-    osVersion = g_strdup("Intel Mac OS X");
+    DEFINE_STATIC_LOCAL(const String, uaOSVersion, (String("Intel Mac OS X")));
 #else
-    osVersion = g_strdup("PPC Mac OS X");
+    DEFINE_STATIC_LOCAL(const String, uaOSVersion, (String("PPC Mac OS X")));
 #endif
 
 #elif OS(UNIX)
+    DEFINE_STATIC_LOCAL(String, uaOSVersion, (String()));
+
+    if (!uaOSVersion.isEmpty())
+        return uaOSVersion;
+
     struct utsname name;
     if (uname(&name) != -1)
-        osVersion = g_strdup_printf("%s %s", name.sysname, name.machine);
+        uaOSVersion = makeString(name.sysname, ' ', name.machine);
     else
-        osVersion = g_strdup("Unknown");
-
+        uaOSVersion = String("Unknown");
 #elif OS(WINDOWS)
-    // FIXME: Compute the Windows version
-    osVersion = g_strdup("Windows");
-
+    DEFINE_STATIC_LOCAL(const String, uaOSVersion, (windowsVersionForUAString()));
 #else
-    osVersion = g_strdup("Unknown");
+    DEFINE_STATIC_LOCAL(const String, uaOSVersion, (String("Unknown")));
 #endif
 
+    return uaOSVersion;
+}
+
+String webkitUserAgent()
+{
     // We mention Safari since many broken sites check for it (OmniWeb does this too)
     // We re-use the WebKit version, though it doesn't seem to matter much in practice
 
-    DEFINE_STATIC_LOCAL(const String, uaVersion, (String::format("%d.%d+", WEBKIT_USER_AGENT_MAJOR_VERSION, WEBKIT_USER_AGENT_MINOR_VERSION)));
-    DEFINE_STATIC_LOCAL(const String, staticUA, (String::format("Mozilla/5.0 (%s; U; %s; %s) AppleWebKit/%s (KHTML, like Gecko) Safari/%s",
-                                                                platform, osVersion, defaultLanguage().utf8().data(), uaVersion.utf8().data(), uaVersion.utf8().data())));
-
-    g_free(osVersion);
-    g_free(platform);
+    DEFINE_STATIC_LOCAL(const String, uaVersion, (makeString(String::number(WEBKIT_USER_AGENT_MAJOR_VERSION), '.', String::number(WEBKIT_USER_AGENT_MINOR_VERSION), '+')));
+    DEFINE_STATIC_LOCAL(const String, staticUA, (makeString("Mozilla/5.0 (", webkitPlatform(), webkitOSVersion(), ") AppleWebKit/", uaVersion) +
+                                                 makeString(" (KHTML, like Gecko) Version/5.0 Safari/", uaVersion)));
 
     return staticUA;
 }
@@ -230,7 +247,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
     gobject_class->set_property = webkit_web_settings_set_property;
     gobject_class->get_property = webkit_web_settings_get_property;
 
-    webkit_init();
+    webkitInit();
 
     GParamFlags flags = (GParamFlags)(WEBKIT_PARAM_READWRITE | G_PARAM_CONSTRUCT);
 
@@ -321,7 +338,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     "minimum-font-size",
                                     _("Minimum Font Size"),
                                     _("The minimum font size used to display text."),
-                                    1, G_MAXINT, 5,
+                                    0, G_MAXINT, 5,
                                     flags));
 
     g_object_class_install_property(gobject_class,
@@ -522,7 +539,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_CARET_BROWSING,
                                     g_param_spec_boolean("enable-caret-browsing",
                                                          _("Enable Caret Browsing"),
-                                                         _("Whether to enable accesibility enhanced keyboard navigation"),
+                                                         _("Whether to enable accessibility enhanced keyboard navigation"),
                                                          FALSE,
                                                          flags));
     /**
@@ -569,7 +586,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     PROP_ENABLE_XSS_AUDITOR,
                                     g_param_spec_boolean("enable-xss-auditor",
                                                          _("Enable XSS Auditor"),
-                                                         _("Whether to enable teh XSS auditor"),
+                                                         _("Whether to enable the XSS auditor"),
                                                          TRUE,
                                                          flags));
     /**
@@ -592,6 +609,25 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          FALSE,
                                                          flags));
     /**
+    * WebKitWebSettings:enable-frame-flattening
+    *
+    * Whether to enable the Frame Flattening. With this setting each subframe is expanded
+    * to its contents, which will flatten all the frames to become one scrollable page.
+    * On touch devices, it is desired to not have any scrollable sub parts of the page as
+    * it results in a confusing user experience, with scrolling sometimes scrolling sub parts
+    * and at other times scrolling the page itself. For this reason iframes and framesets are
+    * barely usable on touch devices.
+    *
+    * Since: 1.3.5
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_FRAME_FLATTENING,
+                                    g_param_spec_boolean("enable-frame-flattening",
+                                                         _("Enable Frame Flattening"),
+                                                         _("Whether to enable Frame Flattening"),
+                                                         FALSE,
+                                                         flags));
+    /**
      * WebKitWebSettings:user-agent:
      *
      * The User-Agent string used by WebKitGtk.
@@ -607,7 +643,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                     g_param_spec_string("user-agent",
                                                         _("User Agent"),
                                                         _("The User-Agent string used by WebKitGtk"),
-                                                        webkit_get_user_agent().utf8().data(),
+                                                        webkitUserAgent().utf8().data(),
                                                         flags));
 
     /**
@@ -658,8 +694,6 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          TRUE,
                                                          flags));
 
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_MAC) == static_cast<int>(WebCore::EditingMacBehavior), editing_behavior_type_mac_match);
-    COMPILE_ASSERT(static_cast<int>(WEBKIT_EDITING_BEHAVIOR_WINDOWS) == static_cast<int>(WebCore::EditingWindowsBehavior), editing_behavior_type_windows_match);
 
     /**
     * WebKitWebSettings:editing-behavior
@@ -684,7 +718,7 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                       _("Editing behavior"),
                                                       _("The behavior mode to use in editing mode"),
                                                       WEBKIT_TYPE_EDITING_BEHAVIOR,
-                                                      WEBKIT_EDITING_BEHAVIOR_MAC,
+                                                      WEBKIT_EDITING_BEHAVIOR_UNIX,
                                                       flags));
 
     /**
@@ -857,29 +891,68 @@ static void webkit_web_settings_class_init(WebKitWebSettingsClass* klass)
                                                          TRUE,
                                                          flags));
 
+    /**
+    * WebKitWebSettings:enable-hyperlink-auditing:
+    *
+    * Enable or disable support for <a ping>.
+    *
+    * Since: 1.2.5
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_HYPERLINK_AUDITING,
+                                    g_param_spec_boolean("enable-hyperlink-auditing",
+                                                         _("Enable Hyperlink Auditing"),
+                                                         _("Whether <a ping> should be able to send pings"),
+                                                         FALSE,
+                                                         flags));
+
+    /* Undocumented for now */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_FULLSCREEN,
+                                    g_param_spec_boolean("enable-fullscreen",
+                                                         _("Enable Fullscreen"),
+                                                         _("Whether the Mozilla style API should be enabled."),
+                                                         FALSE,
+                                                         flags));
+    /**
+    * WebKitWebSettings:enable-webgl:
+    *
+    * Enable or disable support for WebGL on pages. WebGL is an experimental
+    * proposal for allowing web pages to use OpenGL ES-like calls directly. The
+    * standard is currently a work-in-progress by the Khronos Group.
+    *
+    * Since: 1.3.14
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_WEBGL,
+                                    g_param_spec_boolean("enable-webgl",
+                                                         _("Enable WebGL"),
+                                                         _("Whether WebGL content should be rendered"),
+                                                         FALSE,
+                                                         flags));
+
+    /**
+    * WebKitWebSettings:enable-dns-prefetching
+    *
+    * Whether webkit prefetches domain names.  This is a separate knob from private browsing.
+    * Whether private browsing should set this or not is up for debate, for now it doesn't.
+    *
+    * Since: 1.3.13.
+    */
+    g_object_class_install_property(gobject_class,
+                                    PROP_ENABLE_DNS_PREFETCHING,
+                                    g_param_spec_boolean("enable-dns-prefetching",
+                                                         _("WebKit prefetches domain names"),
+                                                         _("Whether WebKit prefetches domain names"),
+                                                         TRUE,
+                                                         flags));
+
     g_type_class_add_private(klass, sizeof(WebKitWebSettingsPrivate));
 }
 
 static void webkit_web_settings_init(WebKitWebSettings* web_settings)
 {
-    web_settings->priv = WEBKIT_WEB_SETTINGS_GET_PRIVATE(web_settings);
-}
-
-static EnchantBroker* get_enchant_broker()
-{
-    static EnchantBroker* broker = 0;
-    if (!broker)
-        broker = enchant_broker_init();
-
-    return broker;
-}
-
-static void free_spell_checking_language(gpointer data, gpointer user_data)
-{
-    EnchantDict* dict = static_cast<EnchantDict*>(data);
-    EnchantBroker* broker = get_enchant_broker();
-
-    enchant_broker_free_dict(broker, dict);
+    web_settings->priv = G_TYPE_INSTANCE_GET_PRIVATE(web_settings, WEBKIT_TYPE_WEB_SETTINGS, WebKitWebSettingsPrivate);
 }
 
 static void webkit_web_settings_finalize(GObject* object)
@@ -897,9 +970,6 @@ static void webkit_web_settings_finalize(GObject* object)
     g_free(priv->user_stylesheet_uri);
     g_free(priv->spell_checking_languages);
 
-    g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
-    g_slist_free(priv->enchant_dicts);
-
     g_free(priv->user_agent);
 
     G_OBJECT_CLASS(webkit_web_settings_parent_class)->finalize(object);
@@ -909,9 +979,6 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
 {
     WebKitWebSettings* web_settings = WEBKIT_WEB_SETTINGS(object);
     WebKitWebSettingsPrivate* priv = web_settings->priv;
-    EnchantBroker* broker;
-    EnchantDict* dict;
-    GSList* spellDictionaries = 0;
 
     switch(prop_id) {
     case PROP_DEFAULT_ENCODING:
@@ -1003,27 +1070,6 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_SPELL_CHECKING_LANGUAGES:
         g_free(priv->spell_checking_languages);
         priv->spell_checking_languages = g_strdup(g_value_get_string(value));
-
-        broker = get_enchant_broker();
-        if (priv->spell_checking_languages) {
-            char** langs = g_strsplit(priv->spell_checking_languages, ",", -1);
-            for (int i = 0; langs[i]; i++) {
-                if (enchant_broker_dict_exists(broker, langs[i])) {
-                    dict = enchant_broker_request_dict(broker, langs[i]);
-                    spellDictionaries = g_slist_append(spellDictionaries, dict);
-                }
-            }
-            g_strfreev(langs);
-        } else {
-            const char* language = pango_language_to_string(gtk_get_default_language());
-            if (enchant_broker_dict_exists(broker, language)) {
-                dict = enchant_broker_request_dict(broker, language);
-                spellDictionaries = g_slist_append(spellDictionaries, dict);
-            }
-        }
-        g_slist_foreach(priv->enchant_dicts, free_spell_checking_language, 0);
-        g_slist_free(priv->enchant_dicts);
-        priv->enchant_dicts = spellDictionaries;
         break;
     case PROP_ENABLE_XSS_AUDITOR:
         priv->enable_xss_auditor = g_value_get_boolean(value);
@@ -1031,10 +1077,13 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         priv->enable_spatial_navigation = g_value_get_boolean(value);
         break;
+    case PROP_ENABLE_FRAME_FLATTENING:
+        priv->enable_frame_flattening = g_value_get_boolean(value);
+        break;
     case PROP_USER_AGENT:
         g_free(priv->user_agent);
         if (!g_value_get_string(value) || !strlen(g_value_get_string(value)))
-            priv->user_agent = g_strdup(webkit_get_user_agent().utf8().data());
+            priv->user_agent = g_strdup(webkitUserAgent().utf8().data());
         else
             priv->user_agent = g_strdup(g_value_get_string(value));
         break;
@@ -1076,6 +1125,18 @@ static void webkit_web_settings_set_property(GObject* object, guint prop_id, con
         break;
     case PROP_ENABLE_JAVA_APPLET:
         priv->enable_java_applet = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_HYPERLINK_AUDITING:
+        priv->enable_hyperlink_auditing = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_FULLSCREEN:
+        priv->enable_fullscreen = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_DNS_PREFETCHING:
+        priv->enable_dns_prefetching = g_value_get_boolean(value);
+        break;
+    case PROP_ENABLE_WEBGL:
+        priv->enable_webgl = g_value_get_boolean(value);
         break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
@@ -1176,6 +1237,9 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_SPATIAL_NAVIGATION:
         g_value_set_boolean(value, priv->enable_spatial_navigation);
         break;
+    case PROP_ENABLE_FRAME_FLATTENING:
+        g_value_set_boolean(value, priv->enable_frame_flattening);
+        break;
     case PROP_USER_AGENT:
         g_value_set_string(value, priv->user_agent);
         break;
@@ -1218,6 +1282,18 @@ static void webkit_web_settings_get_property(GObject* object, guint prop_id, GVa
     case PROP_ENABLE_JAVA_APPLET:
         g_value_set_boolean(value, priv->enable_java_applet);
         break;
+    case PROP_ENABLE_HYPERLINK_AUDITING:
+        g_value_set_boolean(value, priv->enable_hyperlink_auditing);
+        break;
+    case PROP_ENABLE_FULLSCREEN:
+        g_value_set_boolean(value, priv->enable_fullscreen);
+        break;
+    case PROP_ENABLE_DNS_PREFETCHING:
+        g_value_set_boolean(value, priv->enable_dns_prefetching);
+        break;
+    case PROP_ENABLE_WEBGL:
+        g_value_set_boolean(value, priv->enable_webgl);
+        break;
     default:
         G_OBJECT_WARN_INVALID_PROPERTY_ID(object, prop_id, pspec);
         break;
@@ -1242,7 +1318,7 @@ WebKitWebSettings* webkit_web_settings_new()
  *
  * Copies an existing #WebKitWebSettings instance.
  *
- * Returns: a new #WebKitWebSettings instance
+ * Returns: (transfer full): a new #WebKitWebSettings instance
  **/
 WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
 {
@@ -1277,6 +1353,7 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "enable-html5-local-storage", priv->enable_html5_local_storage,
                  "enable-xss-auditor", priv->enable_xss_auditor,
                  "enable-spatial-navigation", priv->enable_spatial_navigation,
+                 "enable-frame-flattening", priv->enable_frame_flattening,
                  "user-agent", webkit_web_settings_get_user_agent(web_settings),
                  "javascript-can-open-windows-automatically", priv->javascript_can_open_windows_automatically,
                  "javascript-can-access-clipboard", priv->javascript_can_access_clipboard,
@@ -1291,6 +1368,9 @@ WebKitWebSettings* webkit_web_settings_copy(WebKitWebSettings* web_settings)
                  "enable-page-cache", priv->enable_page_cache,
                  "auto-resize-window", priv->auto_resize_window,
                  "enable-java-applet", priv->enable_java_applet,
+                 "enable-hyperlink-auditing", priv->enable_hyperlink_auditing,
+                 "enable-fullscreen", priv->enable_fullscreen,
+                 "enable-dns-prefetching", priv->enable_dns_prefetching,
                  NULL));
 
     return copy;
@@ -1313,24 +1393,6 @@ void webkit_web_settings_add_extra_plugin_directory(WebKitWebView* webView, cons
 }
 
 /**
- * webkit_web_settings_get_enchant_dicts:
- * @web_view: a #WebKitWebView
- *
- * Internal use only. Retrieves a GSList of EnchantDicts from the
- * #WebKitWebSettings of @web_view.
- *
- * Since: 1.1.22
- */
-GSList* webkit_web_settings_get_enchant_dicts(WebKitWebView* webView)
-{
-    g_return_val_if_fail(WEBKIT_IS_WEB_VIEW(webView), 0);
-
-    WebKitWebSettings* settings = webkit_web_view_get_settings(webView);
-
-    return settings->priv->enchant_dicts;
-}
-
-/**
  * webkit_web_settings_get_user_agent:
  * @web_settings: a #WebKitWebSettings
  *
@@ -1346,4 +1408,13 @@ G_CONST_RETURN gchar* webkit_web_settings_get_user_agent(WebKitWebSettings* webS
     WebKitWebSettingsPrivate* priv = webSettings->priv;
 
     return priv->user_agent;
+}
+
+namespace WebKit {
+
+WebCore::EditingBehaviorType core(WebKitEditingBehavior type)
+{
+    return (WebCore::EditingBehaviorType)type;
+}
+
 }

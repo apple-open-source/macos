@@ -13,8 +13,8 @@ would appreciate credit if this program or parts of it are used.
 #ifndef HAVE_STRCHR
 #define strchr(s,c) index(s,c)
 #endif /* HAVE_STRCHR */
+
 #if 0
-#include "tcldbgcf.h"
 /* tclInt.h drags in stdlib.  By claiming no-stdlib, force it to drag in */
 /* Tcl's compat version.  This avoids having to test for its presence */
 /* which is too tricky - configure can't generate two cf files, so when */
@@ -37,15 +37,15 @@ would appreciate credit if this program or parts of it are used.
 #define FALSE 0
 #endif
 
-static int simple_interactor();
-static int zero();
+static int simple_interactor (Tcl_Interp *interp, ClientData data);
+static int zero (Tcl_Interp *interp, char *string);
 
 /* most of the static variables in this file may be */
 /* moved into Tcl_Interp */
 
-static Dbg_InterProc *interactor = simple_interactor;
+static Dbg_InterProc *interactor = &simple_interactor;
 static ClientData interdata = 0;
-static Dbg_IgnoreFuncsProc *ignoreproc = zero;
+static Dbg_IgnoreFuncsProc *ignoreproc = &zero;
 static Dbg_OutputProc *printproc = 0;
 static ClientData printdata = 0;
 static int stdinmode;
@@ -86,7 +86,7 @@ static int last_step_count = 1;
 
 /* this acts as a strobe (while testing breakpoints).  It is set to true */
 /* every time a new debugger command is issued that is an action */
-static debug_new_action;
+static int debug_new_action;
 
 #define NO_LINE -1	/* if break point is not set by line number */
 
@@ -1249,9 +1249,8 @@ static struct cmd_list {
 /* this may seem excessive, but this avoids the explicit test for non-zero */
 /* in the caller, and chances are that that test will always be pointless */
 /*ARGSUSED*/
-static int zero(interp,string)
-Tcl_Interp *interp;
-char *string;
+static int
+zero (Tcl_Interp *interp, char *string)
 {
 	return 0;
 }
@@ -1259,8 +1258,7 @@ char *string;
 extern int expSetBlockModeProc _ANSI_ARGS_((int fd, int mode));
 
 static int
-simple_interactor(interp)
-Tcl_Interp *interp;
+simple_interactor(Tcl_Interp *interp, ClientData data)
 {
 	int rc;
 	char *ccmd;		/* pointer to complete command */

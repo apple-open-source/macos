@@ -1,0 +1,94 @@
+diff -Naur tnftpd-20100324/configure tnftpd/configure
+--- tnftpd-20100324/configure	2010-03-24 05:31:54.000000000 -0700
++++ tnftpd/configure	2010-06-01 17:42:14.000000000 -0700
+@@ -20429,7 +20429,7 @@
+ for ac_header in sys/resource.h \
+                   arpa/inet.h arpa/nameser.h arpa/telnet.h err.h \
+                   fcntl.h fnmatch.h grp.h libutil.h limits.h locale.h \
+-                  netinet/in.h netinet/in_systm.h netinet/ip.h \
++                  membership.h netinet/in.h netinet/in_systm.h netinet/ip.h \
+                   paths.h poll.h pwd.h sys/poll.h \
+                   setjmp.h signal.h stddef.h syslog.h termios.h \
+                   unistd.h util.h utime.h utmp.h
+diff -Naur tnftpd-20100324/configure.ac tnftpd/configure.ac
+--- tnftpd-20100324/configure.ac	2010-03-24 05:31:39.000000000 -0700
++++ tnftpd/configure.ac	2010-06-01 17:09:56.000000000 -0700
+@@ -198,7 +198,7 @@
+ AC_CHECK_HEADERS([sys/resource.h \
+                   arpa/inet.h arpa/nameser.h arpa/telnet.h err.h \
+                   fcntl.h fnmatch.h grp.h libutil.h limits.h locale.h \
+-                  netinet/in.h netinet/in_systm.h netinet/ip.h \
++                  membership.h netinet/in.h netinet/in_systm.h netinet/ip.h \
+                   paths.h poll.h pwd.h sys/poll.h \
+                   setjmp.h signal.h stddef.h syslog.h termios.h \
+                   unistd.h util.h utime.h utmp.h],
+diff -Naur tnftpd-20100324/src/ftpd.c tnftpd/src/ftpd.c
+--- tnftpd-20100324/src/ftpd.c	2010-05-18 17:05:54.000000000 -1000
++++ tnftpd/src/ftpd.c	2010-05-18 17:09:11.000000000 -1000
+@@ -1450,6 +1450,12 @@
+ #ifdef USE_PAM
+ 	int e;
+ #endif
++#ifdef HAVE_MEMBERSHIP_H
++	const char	*service_name = "ftp";
++	uuid_t		user_uuid;
++	int		is_member = 0;
++	int		checkit;
++#endif
+ 
+ 	rval = 1;
+ 
+@@ -1545,7 +1551,25 @@
+ 			    remoteloghost, pw->pw_name);
+ 		goto bad;
+ 	}
+-
++#ifdef HAVE_MEMBERSHIP_H
++	checkit = mbr_uid_to_uuid(pw->pw_uid, user_uuid);
++	if (checkit != 0) {
++		reply(550, "Could not find UUID for this user.");
++		goto bad;
++	}
++	checkit = mbr_check_service_membership(user_uuid, service_name, &is_member);
++	if (checkit == ENOENT) {
++		// no SACL exists; access OK
++	} else if (checkit != 0) {
++		// unexpected error finding group; access denied
++		reply(550, "Could not find membership for this UUID.");
++		goto bad;
++	} else if (is_member == 0) {
++		// user is not in SACL; access denied
++		reply(530, "User %s denied by SACL.", pw->pw_name);
++		goto bad;
++	}
++#endif /* HAVE_MEMBERSHIP_H */
+ 	login_attempts = 0;		/* this time successful */
+ 	if (setegid((gid_t)pw->pw_gid) < 0) {
+ 		reply(550, "Can't set gid.");
+diff -Naur tnftpd-20100324/tnftpd.h tnftpd/tnftpd.h
+--- tnftpd-20100324/tnftpd.h	2010-05-18 17:05:54.000000000 -1000
++++ tnftpd/tnftpd.h	2010-05-18 17:10:24.000000000 -1000
+@@ -173,6 +173,10 @@
+ # include <err.h>
+ #endif
+ 
++#if defined(HAVE_MEMBERSHIP_H)
++# include <membership.h>
++#endif
++
+ #include "ftpglob.h"
+ 
+ #if defined(HAVE_FNMATCH_H) && HAVE_DECL_FNM_CASEFOLD
+diff -Naur tnftpd-20100324/tnftpd_config.h.in tnftpd/tnftpd_config.h.in
+--- tnftpd-20100324/tnftpd_config.h.in	2010-03-24 02:27:11.000000000 -1000
++++ tnftpd/tnftpd_config.h.in	2010-05-18 17:07:20.000000000 -1000
+@@ -184,6 +184,9 @@
+ /* Define to 1 if you have the `madvise' function. */
+ #undef HAVE_MADVISE
+ 
++/* Define to 1 if you have the <membership.h> header file. */
++#undef HAVE_MEMBERSHIP_H
++
+ /* Define to 1 if you have the `memmove' function. */
+ #undef HAVE_MEMMOVE
+ 

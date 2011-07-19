@@ -1,0 +1,54 @@
+Missing mailboxes
+=================
+
+Dovecot by default doesn't use any "personal IMAP namespace prefix", which
+clients often call either "IMAP namespace" or "IMAP prefix". With Courier you
+probably had this set to "INBOX.", with UW-IMAP you might have set it to
+"mail/". So, the solution is simply to set this field empty and restart your
+IMAP client. If this helps, but you don't want to modify the clients'
+configuration, see <Namespaces.txt>.
+
+If it didn't help, you might have <mail_location> [MailLocation.txt] setting
+wrong. If it's unset, Dovecot tries to detect where your mail is stored by
+looking at '~/Maildir', '~/mail', '/var/spool/mail/' and '/var/mail/'
+directories. Depending on what you want, Dovecot might have guessed wrong. See
+<TestInstallation.txt> for how to figure out what exactly is the problem.
+
+Missing INBOX
+-------------
+
+See if the mails are stored in '~/mbox' file. If '~/mbox' file exists, UW-IMAP
+moves mails there from '/var/mail/user'. Currently Dovecot doesn't support this
+feature, so you'll have to either move everyone's mails to '~/mbox' and
+reconfigure your MDA to store mails there, or alternatively get the '~/mbox'
+users to move their mails back to '/var/mail/user'. This feature may be
+implemented later to Dovecot, but it's not planned in near future.
+
+It's also possible to symlink the mbox files to the wanted location, but this
+breaks dotlocking so it may not be a good idea.
+
+Subscriptions
+-------------
+
+Dovecot uses different filenames for list of mailbox subscriptions. You'll need
+to rename these to ones that Dovecot wants (currently '.subscriptions' for mbox
+and 'subscriptions' for Maildir). See <Migration.txt> for more information.
+
+Troubleshooting
+---------------
+
+If it's still not working, check first if the problem is with IMAP client or
+server configuration. Easiest way to do this is to talk IMAP directly. (include
+the A, B, C):
+
+---%<-------------------------------------------------------------------------
+telnet imap.example.org 143
+A login username password
+B list "" *
+C logout
+---%<-------------------------------------------------------------------------
+
+If you see a list of expected mailboxes, the problem is with your IMAP client.
+If not, set 'mail_debug=yes' and look at the logs.
+
+(This file was created from the wiki on 2011-05-11 04:42)

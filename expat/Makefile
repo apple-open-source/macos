@@ -1,7 +1,7 @@
 Project               = expat
 UserType              = Administrator
 ToolType              = Commands
-Extra_Configure_Flags = --mandir=\$${prefix}/share/man
+Extra_Configure_Flags = --mandir=\$${prefix}/share/man --disable-static
 GnuNoBuild            = YES
 GnuAfterInstall       = install-plist post-install
 
@@ -18,8 +18,6 @@ post-install:
 	$(STRIP) -x $(DSTROOT)/usr/bin/xmlwf
 	$(CP) $(DSTROOT)/usr/lib/libexpat.1.5.2.dylib $(SYMROOT)
 	$(STRIP) -x $(DSTROOT)/usr/lib/libexpat.1.5.2.dylib
-	$(MKDIR) $(DSTROOT)/usr/local/lib
-	$(MV) $(DSTROOT)/usr/lib/libexpat.a $(DSTROOT)/usr/local/lib
 
 # Automatic Extract & Patch
 AEP_Project    = expat
@@ -27,7 +25,7 @@ AEP_Version    = 2.0.1
 AEP_ProjVers   = $(AEP_Project)-$(AEP_Version)
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
-AEP_Patches    = configure.diff PR4333375.diff static.diff PR6295922.diff
+AEP_Patches    = configure.diff PR4333375.diff static.diff PR6295922.diff PR7160809.diff
 
 # Extract the source.
 install_source::

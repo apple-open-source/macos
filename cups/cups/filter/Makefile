@@ -1,9 +1,9 @@
 #
-# "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $"
+# "$Id: Makefile 9668 2011-04-01 05:55:27Z mike $"
 #
-#   Filter makefile for the Common UNIX Printing System (CUPS).
+#   Filter makefile for CUPS.
 #
-#   Copyright 2007-2010 by Apple Inc.
+#   Copyright 2007-2011 by Apple Inc.
 #   Copyright 1997-2006 by Easy Software Products.
 #
 #   These coded instructions, statements, and computer programs are the
@@ -22,14 +22,14 @@ FILTERS	=	\
 		$(BANNERTOPS) \
 		commandtops \
 		gziptoany \
-		hpgltops \
 		$(TEXTTOPS) \
 		pstops \
 		$(IMGFILTERS) \
 		$(PDFTOPS) \
-		rastertolabel \
 		rastertoepson \
-		rastertohp
+		rastertohp \
+		rastertolabel \
+		rastertopwg
 LIBTARGETS =	\
 		$(LIBCUPSIMAGE) \
 		libcupsimage.a \
@@ -43,20 +43,17 @@ TARGETS	=	\
 		$(LIBTARGETS) \
 		$(FILTERS)
 
-HPGLOBJS =	hpgl-attr.o hpgl-config.o hpgl-main.o hpgl-prolog.o \
-		hpgl-char.o hpgl-input.o hpgl-polygon.o hpgl-vector.o
 IMAGEOBJS =	image-bmp.o image-colorspace.o image-gif.o image-jpeg.o \
 		image-photocd.o image-pix.o image-png.o image-pnm.o \
 		image-sgi.o image-sgilib.o image-sun.o image-tiff.o \
 		image-zoom.o image.o error.o interpret.o raster.o
 IMAGE32OBJS =	$(IMAGEOBJS:.o=.32.o)
 IMAGE64OBJS =	$(IMAGEOBJS:.o=.64.o)
-FORMOBJS =	form-attr.o form-main.o form-ps.o form-text.o form-tree.o
-OBJS	=	$(HPGLOBJS) $(IMAGEOBJS) $(FORMOBJS) \
+OBJS	=	$(IMAGEOBJS) \
 		bannertops.o commandtops.o gziptoany.o imagetops.o \
 		imagetoraster.o common.o pdftops.o pstext.o pstops.o \
 		rasterbench.o rastertoepson.o rastertohp.o rastertolabel.o \
-		testimage.o testraster.o textcommon.o texttops.o
+		rastertopwg.o testimage.o testraster.o textcommon.o texttops.o
 
 
 #
@@ -249,6 +246,12 @@ apihelp:
 		--header raster-driver.header \
 		--intro raster-driver.shtml \
 		>../doc/help/raster-driver.html
+	mxmldoc --section "Specifications" \
+		--title "CUPS PPD Extensions" \
+		--css ../doc/cups-printable.css \
+		--header spec-ppd.header \
+		--intro spec-ppd.shtml \
+		>../doc/help/spec-ppd.html
 
 framedhelp:
 	echo Generating CUPS API help files...
@@ -275,6 +278,12 @@ framedhelp:
 		--css ../doc/cups-printable.css \
 		--header raster-driver.header \
 		--intro raster-driver.shtml
+	mxmldoc --section "Specifications" \
+		--title "CUPS PPD Extensions" \
+		--framed ../cups/spec-ppd \
+		--css ../doc/cups-printable.css \
+		--header spec-ppd.header \
+		--intro spec-ppd.shtml \
 
 
 #
@@ -297,30 +306,12 @@ commandtops:	commandtops.o ../cups/$(LIBCUPS)
 
 
 #
-# formtops
-#
-
-formtops:	$(FORMOBJS) common.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ $(FORMOBJS) common.o $(LIBS) -lm
-
-
-#
 # gziptoany
 #
 
 gziptoany:	gziptoany.o ../Makedefs ../cups/$(LIBCUPS)
 	echo Linking $@...
 	$(CC) $(LDFLAGS) -o $@ gziptoany.o $(LIBZ) $(LIBS)
-
-
-#
-# hpgltops
-#
-
-hpgltops:	$(HPGLOBJS) common.o ../cups/$(LIBCUPS)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ $(HPGLOBJS) common.o $(LIBS) -lm
 
 
 #
@@ -367,7 +358,6 @@ libcupsimage.2.dylib:	$(IMAGEOBJS) $(LIBCUPSIMAGEORDER)
 		-install_name $(libdir)/$@ \
 		-current_version 2.3.0 \
 		-compatibility_version 2.0.0 \
-		-sectorder __TEXT __text $(LIBCUPSIMAGEORDER) \
 		$(IMAGEOBJS) $(DSOLIBS) -L../cups $(LINKCUPS) -lm
 	$(RM) libcupsimage.dylib
 	$(LN) $@ libcupsimage.dylib
@@ -458,15 +448,6 @@ pdftops:	pdftops.o common.o ../cups/$(LIBCUPS)
 
 
 #
-# rastertolabel
-#
-
-rastertolabel:	rastertolabel.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
-	echo Linking $@...
-	$(CC) $(LDFLAGS) -o $@ rastertolabel.o $(LINKCUPSIMAGE) $(IMGLIBS) $(LIBS)
-
-
-#
 # rastertoepson
 #
 
@@ -485,13 +466,31 @@ rastertohp:	rastertohp.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
 
 
 #
+# rastertolabel
+#
+
+rastertolabel:	rastertolabel.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ rastertolabel.o $(LINKCUPSIMAGE) $(IMGLIBS) $(LIBS)
+
+
+#
+# rastertopwg
+#
+
+rastertopwg:	rastertopwg.o ../cups/$(LIBCUPS) $(LIBCUPSIMAGE)
+	echo Linking $@...
+	$(CC) $(LDFLAGS) -o $@ rastertopwg.o $(LINKCUPSIMAGE) $(IMGLIBS) $(LIBS)
+
+
+#
 # testraster
 #
 
-testraster:	testraster.o ../cups/libcups.a libcupsimage.a
+testraster:	testraster.o ../cups/$(LIBCUPSSTATIC) libcupsimage.a
 	echo Linking $@...
 	$(CC) $(ARCHFLAGS) $(LDFLAGS) -o $@ testraster.o libcupsimage.a \
-		../cups/libcups.a $(IMGLIBS) $(DSOLIBS) $(COMMONLIBS) \
+		../cups/$(LIBCUPSSTATIC) $(IMGLIBS) $(DSOLIBS) $(COMMONLIBS) \
 		$(SSLLIBS) $(DNSSDLIBS) $(LIBGSSAPI)
 	echo Running raster API tests...
 	./testraster
@@ -519,10 +518,10 @@ texttops:	texttops.o textcommon.o common.o \
 #
 # Dependencies...
 #
-  
+
 include Dependencies
 
 
 #
-# End of "$Id: Makefile 7871 2008-08-27 21:12:43Z mike $".
+# End of "$Id: Makefile 9668 2011-04-01 05:55:27Z mike $".
 #

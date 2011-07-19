@@ -35,7 +35,7 @@
 
 
 /*
- * $Id: machine.h,v 1.6 2008/10/21 16:15:16 abe Exp $
+ * $Id: machine.h,v 1.7 2010/07/29 16:03:06 abe Exp $
  */
 
 
@@ -229,12 +229,15 @@
  * private lfile elements are used.
  */
 
-#define	HASLFILEADD char *V_path;
+#define	HASLFILEADD char *V_path; \
+		    mach_port_t fileport;
 #define CLRLFILEADD(lf)	if (lf->V_path) { \
 			    (void) free((FREE_P *)lf->V_path); \
 			    lf->V_path = (char *)NULL; \
-			}
-#define SETLFILEADD Lf->V_path = (char *)NULL;
+			} \
+			lf->fileport = MACH_PORT_NULL;
+#define SETLFILEADD Lf->V_path = (char *)NULL; \
+		    Lf->fileport = MACH_PORT_NULL;
 
 
 /*
@@ -327,7 +330,7 @@
 
 /* #define	HASPRINTDEV	print_dev	*/
 /* #define	HASPRINTINO	print_ino?	*/
-/* #define	HASPRINTNM	print_nm?	*/
+#define	HASPRINTNM	print_nm
 /* #define	HASPRINTOFF	print_off?	*/
 /* #define	HASPRINTSZ	print_sz?	*/
 
@@ -442,6 +445,13 @@
  */
 
 /* #define	HASSNODE	1	*/
+
+
+/*
+ * HASTASKS is defined for those dialects that have task reporting support.
+ */
+
+/* #define	HASTASKS	1 */
 
 
 /*

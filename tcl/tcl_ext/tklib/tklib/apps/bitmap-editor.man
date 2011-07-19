@@ -1,0 +1,53 @@
+[comment {-*- tcl -*- doctools manpage}]
+[manpage_begin bitmap-editor n 1.0]
+[copyright {}]
+[titledesc {Editor for XBM images}]
+[moddesc   {Bitmap handling}]
+[category  {Image processing}]
+[keywords xbm bitmap editor pixel image]
+[description]
+[para]
+
+The application described by this document, [syscmd bitmap-editor], is
+a simple editor for XBM based bitmap images.
+
+Written by Keith Vetter the original code can be found at
+[uri http://wiki.tcl.tk/6298].
+
+
+[subsection {COMMAND LINE}]
+
+[list_begin definitions]
+
+[call [cmd bitmap-editor] [opt [arg xbmfile]]]
+
+Invoked without argument the editor GUI will be opened and show a
+standard bitmap to edit. Invoked with an argument it is expected to be
+the path to a bitmap file in XBM format, and the contained bitmap is
+shown.
+
+[list_begin arguments]
+
+[arg_def path xbmfile in/out]
+
+This argument specifies the path to a bitmap file in XBM format, whose
+contents is to shown and edited by the application.
+
+[list_end]
+[para]
+
+[list_end]
+
+
+[section {BUGS, IDEAS, FEEDBACK}]
+
+This document, and the application it describes, will undoubtedly
+contain bugs and other problems.
+
+Please report such in the category [emph bitmap] of the
+[uri {http://sourceforge.net/tracker/?group_id=12883} {Tcllib SF Trackers}].
+
+Please also report any ideas for enhancements you may have for either
+application and/or documentation.
+
+[manpage_end]

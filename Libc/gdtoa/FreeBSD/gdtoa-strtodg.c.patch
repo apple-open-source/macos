@@ -1,5 +1,5 @@
---- gdtoa-strtodg.c.orig	2008-10-28 12:23:36.000000000 -0700
-+++ gdtoa-strtodg.c	2008-10-28 12:34:18.000000000 -0700
+--- gdtoa-strtodg.c.orig	2010-01-29 16:43:20.000000000 -0800
++++ gdtoa-strtodg.c	2010-01-29 18:13:37.000000000 -0800
 @@ -29,13 +29,29 @@ THIS SOFTWARE.
  /* Please send bug reports to David M. Gay (dmg at acm dot org,
   * with " at " changed at "@" and " dot " changed to ".").	*/
@@ -23,8 +23,8 @@
 +extern CONST int fivesbits[];
 +int all_on(Bigint *b, int n);
 +Bigint *set_ones(Bigint *b, int n);
-+int rvOK(double d, FPI *fpi, Long *exp, ULong *bits, int exact, int rd, int *irv);
-+int mantbits(double d);
++int rvOK(U *d, FPI *fpi, Long *exp, ULong *bits, int exact, int rd, int *irv);
++int mantbits(U *d);
 +#else /* !BUILDING_VARIANT */
 +
 + __private_extern__ CONST int
@@ -56,9 +56,9 @@
 - static int
 + __private_extern__ int
  #ifdef KR_headers
- mantbits(d) double d;
+ mantbits(d) U *d;
  #else
-@@ -312,13 +328,15 @@ mantbits(double d)
+@@ -312,13 +328,15 @@ mantbits(U *d)
  	return P - 32 - lo0bits(&L);
  	}
  
@@ -77,24 +77,33 @@
  #endif
  {
  	int abe, abits, asub;
-@@ -332,13 +350,14 @@ strtodg
+@@ -327,21 +345,23 @@ strtodg
+ 	int j, k, nbits, nd, nd0, nf, nz, nz0, rd, rvbits, rve, rve1, sign;
+ 	int sudden_underflow;
+ 	CONST char *s, *s0, *s1;
++	char *strunc = NULL;
+ 	double adj0, tol;
+ 	Long L;
+ 	U adj, rv;
  	ULong *b, *be, y, z;
  	Bigint *ab, *bb, *bb1, *bd, *bd0, *bs, *delta, *rvb, *rvb0;
- #ifdef USE_LOCALE
-+	NORMALIZE_LOCALE(loc)
+ #ifdef USE_LOCALE /*{{*/
++	NORMALIZE_LOCALE(loc);
  #ifdef NO_LOCALE_CACHE
 -	char *decimalpoint = localeconv()->decimal_point;
 +	char *decimalpoint = localeconv_l(loc)->decimal_point;
+ 	int dplen = strlen(decimalpoint);
  #else
  	char *decimalpoint;
  	static char *decimalpoint_cache;
+ 	static int dplen;
  	if (!(s0 = decimalpoint_cache)) {
 -		s0 = localeconv()->decimal_point;
 +		s0 = localeconv_l(loc)->decimal_point;
- 		if ((decimalpoint_cache = (char*)malloc(strlen(s0) + 1))) {
+ 		if ((decimalpoint_cache = (char*)MALLOC(strlen(s0) + 1))) {
  			strcpy(decimalpoint_cache, s0);
  			s0 = decimalpoint_cache;
-@@ -382,7 +401,7 @@ strtodg
+@@ -388,7 +408,7 @@ strtodg
  		switch(s[1]) {
  		  case 'x':
  		  case 'X':
@@ -103,7 +112,15 @@
  			if (irv == STRTOG_NoNumber) {
  				s = s00;
  				sign = 0;
-@@ -687,6 +706,10 @@ strtodg
+@@ -525,6 +545,7 @@ strtodg
+ 			}
+ 		goto ret;
+ 		}
++	TRUNCATE_DIGITS(s0, strunc, nd, nd0, nf, fpi->nbits, fpi->emin, dplen);
+ 
+ 	irv = STRTOG_Normal;
+ 	e1 = e -= nf;
+@@ -693,6 +714,10 @@ strtodg
  					rvb->x[0] = 0;
  					*exp = emin;
  					irv = STRTOG_Underflow | STRTOG_Inexlo;
@@ -114,20 +131,7 @@
  					goto ret;
  					}
  				rvb->x[0] = rvb->wds = rvbits = 1;
-@@ -703,7 +726,11 @@ strtodg
- 
- 	/* Put digits into bd: true value = bd * 10^e */
- 
--	bd0 = s2b(s0, nd0, nd, y);
-+#ifdef USE_LOCALE
-+	bd0 = s2b(s0, nd0, nd, y, strlen(decimalpoint));
-+#else
-+	bd0 = s2b(s0, nd0, nd, y, 1);
-+#endif
- 
- 	for(;;) {
- 		bd = Balloc(bd0->k);
-@@ -1032,7 +1059,7 @@ strtodg
+@@ -1038,7 +1063,7 @@ strtodg
  		if (sudden_underflow) {
  			rvb->wds = 0;
  			irv = STRTOG_Underflow | STRTOG_Inexlo;
@@ -136,7 +140,7 @@
  			errno = ERANGE;
  #endif
  			}
-@@ -1041,7 +1068,7 @@ strtodg
+@@ -1047,7 +1072,7 @@ strtodg
  				(rvb->wds > 0 ? STRTOG_Denormal : STRTOG_Zero);
  			if (irv & STRTOG_Inexact) {
  				irv |= STRTOG_Underflow;
@@ -145,3 +149,15 @@
  				errno = ERANGE;
  #endif
  				}
+@@ -1061,5 +1086,11 @@ strtodg
+ 		copybits(bits, nbits, rvb);
+ 		Bfree(rvb);
+ 		}
++	if (strunc)
++#ifdef FREE
++		FREE(strunc);
++#else
++		free(strunc);
++#endif
+ 	return irv;
+ 	}

@@ -3,7 +3,7 @@
 #  statusbar.tcl -
 #	Create a status bar Tk widget
 #
-# RCS: @(#) $Id: statusbar.tcl,v 1.7 2007/06/21 01:59:40 hobbs Exp $
+# RCS: @(#) $Id: statusbar.tcl,v 1.8 2010/06/01 18:06:52 hobbs Exp $
 #
 
 # Creation and Options - widget::scrolledwindow $path ...
@@ -34,7 +34,6 @@
 #
 
 package require widget
-package require tile
 
 if {0} {
     proc sample {} {
@@ -285,4 +284,4 @@ snit::widget widget::statusbar {
     }
 }
 
-package provide widget::statusbar 1.2
+package provide widget::statusbar 1.2.1

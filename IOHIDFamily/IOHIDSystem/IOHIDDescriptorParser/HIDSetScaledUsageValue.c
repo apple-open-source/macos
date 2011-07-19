@@ -141,9 +141,9 @@ OSStatus HIDSetScaledUsageValue(HIDReportType reportType,
 				iStatus = HIDScaleUsageValueOut(ptReportItem,iUsageValue,&data);
 				if (iStatus != kHIDSuccess)
 					return iStatus;
-				iStart = ptReportItem->startBit + (ptReportItem->globals.reportSize * iUsageIndex);
-				iStatus = HIDPreProcessRIValue (ptReportItem, &data);
-				iStatus = HIDPutData(psReport, iReportLength, iStart, ptReportItem->globals.reportSize, data);
+				iStart = ptReportItem->startBit + (int)(ptReportItem->globals.reportSize * iUsageIndex);
+				HIDPreProcessRIValue (ptReportItem, &data); // error ignored
+				iStatus = HIDPutData(psReport, iReportLength, iStart, (int)ptReportItem->globals.reportSize, data);
 				if (iStatus != kHIDSuccess)
 					return iStatus;
 				return kHIDSuccess;

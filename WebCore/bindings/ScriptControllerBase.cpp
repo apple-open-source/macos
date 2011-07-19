@@ -21,13 +21,15 @@
 #include "config.h"
 #include "ScriptController.h"
 
+#include "ContentSecurityPolicy.h"
+#include "Document.h"
+#include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
 #include "Page.h"
 #include "ScriptSourceCode.h"
 #include "ScriptValue.h"
 #include "Settings.h"
-#include "XSSAuditor.h"
 
 namespace WebCore {
 
@@ -44,12 +46,12 @@ bool ScriptController::canExecuteScripts(ReasonForCallingCanExecuteScripts reaso
     return allowed;
 }
 
-ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture, ShouldAllowXSS shouldAllowXSS)
+ScriptValue ScriptController::executeScript(const String& script, bool forceUserGesture)
 {
-    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_frame->loader()->url()), shouldAllowXSS);
+    return executeScript(ScriptSourceCode(script, forceUserGesture ? KURL() : m_frame->document()->url()));
 }
 
-ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode, ShouldAllowXSS shouldAllowXSS)
+ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode)
 {
     if (!canExecuteScripts(AboutToExecuteScript) || isPaused())
         return ScriptValue();
@@ -57,7 +59,7 @@ ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode, 
     bool wasInExecuteScript = m_inExecuteScript;
     m_inExecuteScript = true;
 
-    ScriptValue result = evaluate(sourceCode, shouldAllowXSS);
+    ScriptValue result = evaluate(sourceCode);
 
     if (!wasInExecuteScript) {
         m_inExecuteScript = false;
@@ -67,23 +69,30 @@ ScriptValue ScriptController::executeScript(const ScriptSourceCode& sourceCode, 
     return result;
 }
 
-bool ScriptController::executeIfJavaScriptURL(const KURL& url, bool userGesture, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
+bool ScriptController::executeIfJavaScriptURL(const KURL& url, ShouldReplaceDocumentIfJavaScriptURL shouldReplaceDocumentIfJavaScriptURL)
 {
     if (!protocolIsJavaScript(url))
         return false;
 
-    if (m_frame->page() && !m_frame->page()->javaScriptURLsAreAllowed())
+    if (!m_frame->page()
+        || !m_frame->page()->javaScriptURLsAreAllowed()
+        || !m_frame->document()->contentSecurityPolicy()->allowJavaScriptURLs()
+        || m_frame->inViewSourceMode())
         return true;
 
-    if (m_frame->inViewSourceMode())
-        return true;
+    // We need to hold onto the Frame here because executing script can
+    // destroy the frame.
+    RefPtr<Frame> protector(m_frame);
 
     const int javascriptSchemeLength = sizeof("javascript:") - 1;
 
     String decodedURL = decodeURLEscapeSequences(url.string());
-    ScriptValue result;
-    if (xssAuditor()->canEvaluateJavaScriptURL(decodedURL))
-        result = executeScript(decodedURL.substring(javascriptSchemeLength), userGesture, AllowXSS);
+    ScriptValue result = executeScript(decodedURL.substring(javascriptSchemeLength), false);
+
+    // If executing script caused this frame to be removed from the page, we
+    // don't want to try to replace its document!
+    if (!m_frame->page())
+        return true;
 
     String scriptResult;
 #if USE(JSC)
@@ -99,9 +108,15 @@ bool ScriptController::executeIfJavaScriptURL(const KURL& url, bool userGesture,
     // FIXME: We should always replace the document, but doing so
     //        synchronously can cause crashes:
     //        http://bugs.webkit.org/show_bug.cgi?id=16782
-    if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL)
-        m_frame->loader()->writer()->replaceDocument(scriptResult);
-
+    if (shouldReplaceDocumentIfJavaScriptURL == ReplaceDocumentIfJavaScriptURL) {
+        // We're still in a frame, so there should be a DocumentLoader.
+        ASSERT(m_frame->document()->loader());
+        
+        // DocumentWriter::replaceDocument can cause the DocumentLoader to get deref'ed and possible destroyed,
+        // so protect it with a RefPtr.
+        if (RefPtr<DocumentLoader> loader = m_frame->document()->loader())
+            loader->writer()->replaceDocument(scriptResult);
+    }
     return true;
 }
 

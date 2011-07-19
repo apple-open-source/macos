@@ -334,7 +334,7 @@ IOCDBlockStorageDriver::executeRequest(UInt64 byteStart,
     UInt32 nblks;
     IOReturn result;
 
-    if (!_mediaPresent) {		/* no media? you lose */
+    if (!_mediaObject) {		/* no media? you lose */
         complete(completion, kIOReturnNoMedia,0);
         return;
     }

@@ -8,42 +8,14 @@
 ;;
 
 (version 1)
+
 (deny default)
 
-(import "system.sb")
-
-(deny file-read*
-      (literal "/")
-      (subpath "/dev")
-      (with no-log))
-
 (allow file-chroot)
-(allow file-read-metadata
- 	(literal "/var"))
+(allow file-read-metadata (literal "/var"))
 
-(allow signal)
 (allow sysctl-read)
-(allow system-audit)
-
-(allow file-read* 
- 	(literal "/dev"))
-(allow file-read* 
- 	(literal "/dev/urandom"))
-(allow file-read* file-write* 
- 	(literal "/dev/null"))
-(allow file-read* file-write* 
- 	(literal "/private/var/run/utmpx"))
-(allow file-read* file-write* file-ioctl 
- 	(literal "/dev/ptmx"))
-(allow file-read* file-write* file-ioctl 
- 	(regex #"^/dev/ttys"))
-
-(allow file-read*
-	(regex #"^/private/var/log/asl(/|$)"))
-
+(allow mach-per-user-lookup)
 (allow mach-lookup
-       (global-name "com.apple.DirectoryService")
-       (global-name "com.apple.system.DirectoryService.libinfo_v1")
-       (global-name "com.apple.system.DirectoryService.membership_v1")
-       (global-name "com.apple.system.logger")
-       (global-name "com.apple.system.notification_center"))
+	(global-name "com.apple.system.notification_center")
+	(global-name "com.apple.system.logger"))

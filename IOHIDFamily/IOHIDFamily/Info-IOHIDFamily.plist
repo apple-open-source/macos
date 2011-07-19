@@ -40,18 +40,22 @@
 	<string>1.0.0b1</string>
 	<key>OSBundleLibraries</key>
 	<dict>
-		<key>com.apple.kpi.private</key>
-		<string>8.0.0</string>
+		<key>com.apple.driver.AppleKeyStore</key>
+		<string>28.18</string>
 		<key>com.apple.kpi.bsd</key>
-		<string>8.0.0b2</string>
+		<string>11.0</string>
+		<key>com.apple.kpi.dsep</key>
+		<string>11.0</string>
 		<key>com.apple.kpi.iokit</key>
-		<string>8.0.0b2</string>
+		<string>11.0</string>
 		<key>com.apple.kpi.libkern</key>
-		<string>8.0.0b2</string>
+		<string>11.0</string>
 		<key>com.apple.kpi.mach</key>
-		<string>8.0.0b2</string>
+		<string>11.0</string>
+		<key>com.apple.kpi.private</key>
+		<string>11.0</string>
 		<key>com.apple.kpi.unsupported</key>
-		<string>8.0.0b2</string>
+		<string>11.0</string>
 	</dict>
 	<key>OSBundleRequired</key>
 	<string>Root</string>

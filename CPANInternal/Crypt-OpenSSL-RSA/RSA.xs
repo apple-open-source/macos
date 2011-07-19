@@ -2,8 +2,24 @@
 #include "perl.h"
 #include "XSUB.h"
 
-#include <openssl/ssl.h>
+#include <openssl/bio.h>
 #include <openssl/bn.h>
+#include <openssl/err.h>
+#include <openssl/md5.h>
+#include <openssl/objects.h>
+#include <openssl/pem.h>
+#include <openssl/rand.h>
+#include <openssl/ripemd.h>
+#include <openssl/rsa.h>
+#include <openssl/sha.h>
+#include <openssl/ssl.h>
+
+typedef struct
+{
+    RSA* rsa;
+    int padding;
+    int hashMode;
+} rsaData;
 
 /* Key names for the rsa hash structure */
 
@@ -13,98 +29,39 @@
 
 #define PACKAGE_NAME "Crypt::OpenSSL::RSA"
 
-#define CHECK_OPEN_SSL(p_result) if (!(p_result)) \
-  croak("OpenSSL error in %s at %d: %s", \
-        __FILE__, __LINE__, ERR_reason_error_string(ERR_get_error()));
-
-/* convenience hv routines - I'm lazy */
-
-void hvStore(HV* hv, char* key, SV* value)
+void croakSsl(char* p_file, int p_line)
 {
-    hv_delete(hv, key, strlen(key), G_DISCARD);
-
-    if (hv_store(hv, key, strlen(key), value, 0) != NULL)
-    {
-        SvREFCNT_inc(value);
-    }
+    const char* errorReason;
+    /* Just return the top error on the stack */
+    errorReason = ERR_reason_error_string(ERR_get_error());
+    ERR_clear_error();
+    croak("%s:%d: OpenSSL error: %s", p_file, p_line, errorReason);
 }
 
-SV** hvFetch(HV* hv, char* key)
+#define CHECK_OPEN_SSL(p_result) if (!(p_result)) croakSsl(__FILE__, __LINE__);
+
+#define PACKAGE_CROAK(p_message) croak("%s:%d: %s", (p_message))
+#define CHECK_NEW(p_var, p_size, p_type) \
+  if (New(0, p_var, p_size, p_type) == NULL) \
+    { PACKAGE_CROAK("unable to alloc buffer"); }
+
+#define THROW(p_result) if (!(p_result)) { error = 1; goto err; }
+
+char _is_private(rsaData* p_rsa)
 {
-    return hv_fetch(hv, key, strlen(key), 0);
-}
-
-/* Free the RSA key, if there is one */
-void free_RSA_key(HV* rsa_HV)
-{
-    SV** rsa_ptr_SV_ptr;
-
-    if ((rsa_ptr_SV_ptr = hvFetch(rsa_HV, KEY_KEY)) != NULL)
-    {
-        RSA_free((RSA*) SvIV(*rsa_ptr_SV_ptr));
-        hv_delete(rsa_HV, KEY_KEY, strlen(KEY_KEY), G_DISCARD);
-    }
-}
-
-RSA* get_RSA_key(HV* rsa_HV)
-{
-    SV** rsa_ptr_SV_ptr;
-
-    if ((rsa_ptr_SV_ptr = hvFetch(rsa_HV, KEY_KEY)) == NULL)
-    {
-        croak("There is no key set");
-    }
-    else
-    {
-        return (RSA*) SvIV(*rsa_ptr_SV_ptr);
-    }
-}
-
-void set_RSA_key(HV* rsa_HV, RSA* rsa)
-{
-    hvStore(rsa_HV, KEY_KEY, sv_2mortal(newSViv((IV)rsa)));
-}
-
-int get_padding(HV* rsa_HV)
-{
-    SV** padding;
-
-    padding = hvFetch(rsa_HV, PADDING_KEY);
-    return padding == NULL ? -1 : SvIV(*padding);
-}
-
-void set_padding(HV* rsa_HV, int padding)
-{
-    hvStore(rsa_HV, PADDING_KEY, sv_2mortal(newSViv((IV) padding)));
-}
-
-int get_hash(HV* rsa_HV)
-{
-    SV** hash;
-
-    hash = hvFetch(rsa_HV, HASH_KEY);
-    return hash == NULL ? -1 : SvIV(*hash);
-}
-
-void set_hash(HV* rsa_HV, int hash)
-{
-    hvStore(rsa_HV, HASH_KEY, sv_2mortal(newSViv((IV) hash)));
-}
-
-char is_private(HV* rsa_HV)
-{
-    return(get_RSA_key(rsa_HV)->d != NULL);
+    return(p_rsa->rsa->d != NULL);
 }
 
 SV* make_rsa_obj(SV* p_proto, RSA* p_rsa)
 {
-    HV* rsa_HV;
-    rsa_HV = newHV();
-    hvStore(rsa_HV, KEY_KEY, sv_2mortal(newSViv((IV) p_rsa )));
-    set_hash(rsa_HV, NID_sha1);
-    set_padding(rsa_HV, RSA_PKCS1_OAEP_PADDING);
+    rsaData* rsa;
+
+    CHECK_NEW(rsa, 1, rsaData);
+    rsa->rsa = p_rsa;
+    rsa->hashMode = NID_sha1;
+    rsa->padding = RSA_PKCS1_OAEP_PADDING;
     return sv_bless(
-        newRV_noinc((SV*) rsa_HV),
+        newRV_noinc(newSViv((IV) rsa)),
         (SvROK(p_proto) ? SvSTASH(SvRV(p_proto)) : gv_stashsv(p_proto, 1)));
 }
 
@@ -113,11 +70,27 @@ int get_digest_length(int hash_method)
     switch(hash_method)
     {
         case NID_md5:
-            return 16;
+            return MD5_DIGEST_LENGTH;
             break;
         case NID_sha1:
+            return SHA_DIGEST_LENGTH;
+            break;
+#ifdef SHA512_DIGEST_LENGTH
+        case NID_sha224:
+            return SHA224_DIGEST_LENGTH;
+            break;
+        case NID_sha256:
+            return SHA256_DIGEST_LENGTH;
+            break;
+        case NID_sha384:
+            return SHA384_DIGEST_LENGTH;
+            break;
+        case NID_sha512:
+            return SHA512_DIGEST_LENGTH;
+            break;
+#endif
         case NID_ripemd160:
-            return 20;
+            return RIPEMD160_DIGEST_LENGTH;
             break;
         default:
             croak("Unknown digest hash code");
@@ -125,57 +98,42 @@ int get_digest_length(int hash_method)
     }
 }
 
-char* get_message_digest(SV* text_SV, int hash_method)
+unsigned char* get_message_digest(SV* text_SV, int hash_method)
 {
-    int text_length;
+    STRLEN text_length;
     unsigned char* text;
-    unsigned char* message_digest;
 
-    text = SvPV(text_SV, text_length);
-
-    if (New(0, message_digest, get_digest_length(hash_method), char) == NULL)
-    {
-        croak("unable to allocate buffer for message digest in package "
-              PACKAGE_NAME);
-    }
+    text = (unsigned char*) SvPV(text_SV, text_length);
 
     switch(hash_method)
     {
         case NID_md5:
-        {
-            if (MD5(text, text_length, message_digest) == NULL)
-            {
-                croak("failed to compute the MD5 message digest in package "
-                       PACKAGE_NAME);
-            }
+            return MD5(text, text_length, NULL);
             break;
-        }
-
         case NID_sha1:
-        {
-            if (SHA1(text, text_length, message_digest) == NULL)
-            {
-                croak("failed to compute the SHA1 message digest in package "
-                       PACKAGE_NAME);
-            }
+            return SHA1(text, text_length, NULL);
             break;
-        }
+#ifdef SHA512_DIGEST_LENGTH
+        case NID_sha224:
+            return SHA224(text, text_length, NULL);
+            break;
+        case NID_sha256:
+            return SHA256(text, text_length, NULL);
+            break;
+        case NID_sha384:
+            return SHA384(text, text_length, NULL);
+            break;
+        case NID_sha512:
+            return SHA512(text, text_length, NULL);
+            break;
+#endif
         case NID_ripemd160:
-        {
-            if (RIPEMD160(text, text_length, message_digest) == NULL)
-            {
-                croak("failed to compute the SHA1 message digest in package "
-                       PACKAGE_NAME);
-            }
+            return RIPEMD160(text, text_length, NULL);
             break;
-        }
         default:
-        {
             croak("Unknown digest hash code");
             break;
-        }
     }
-    return message_digest;
 }
 
 SV* bn2sv(BIGNUM* p_bn)
@@ -190,40 +148,64 @@ SV* extractBioString(BIO* p_stringBio)
     SV* sv;
     BUF_MEM* bptr;
 
-    BIO_flush(p_stringBio);
+    CHECK_OPEN_SSL(BIO_flush(p_stringBio) == 1);
     BIO_get_mem_ptr(p_stringBio, &bptr);
     sv = newSVpv(bptr->data, bptr->length);
 
-    BIO_set_close(p_stringBio, BIO_CLOSE);
+    CHECK_OPEN_SSL(BIO_set_close(p_stringBio, BIO_CLOSE) == 1);
     BIO_free(p_stringBio);
     return sv;
 }
 
-void _load_rsa_key(HV* p_rsaHv,
-                   SV* p_keyStringSv,
+RSA* _load_rsa_key(SV* p_keyStringSv,
                    RSA*(*p_loader)(BIO*, RSA**, pem_password_cb*, void*))
 {
-    int keyStringLength;  /* Needed to pass to SvPV */
+    STRLEN keyStringLength;
     char* keyString;
 
     RSA* rsa;
     BIO* stringBIO;
 
-    /* First; remove any old rsa structures, to avoid leakage */
-    free_RSA_key(p_rsaHv);
-
     keyString = SvPV(p_keyStringSv, keyStringLength);
 
-    CHECK_OPEN_SSL(stringBIO = BIO_new_mem_buf(keyString, keyStringLength))
+    CHECK_OPEN_SSL(stringBIO = BIO_new_mem_buf(keyString, keyStringLength));
 
     rsa = p_loader(stringBIO, NULL, NULL, NULL);
 
-    BIO_set_close(stringBIO, BIO_CLOSE);
+    CHECK_OPEN_SSL(BIO_set_close(stringBIO, BIO_CLOSE) == 1);
     BIO_free(stringBIO);
 
-    CHECK_OPEN_SSL(rsa)
-    set_RSA_key(p_rsaHv, rsa);
+    CHECK_OPEN_SSL(rsa);
+    return rsa;
 }
+
+SV* rsa_crypt(rsaData* p_rsa, SV* p_from,
+              int (*p_crypt)(int, const unsigned char*, unsigned char*, RSA*, int))
+{
+    STRLEN from_length;
+    int to_length;
+    int size;
+    unsigned char* from;
+    char* to;
+    SV* sv;
+
+    from = (unsigned char*) SvPV(p_from, from_length);
+    size = RSA_size(p_rsa->rsa);
+    CHECK_NEW(to, size, char);
+
+    to_length = p_crypt(
+       from_length, from, (unsigned char*) to, p_rsa->rsa, p_rsa->padding);
+
+    if (to_length < 0)
+    {
+        Safefree(to);
+        CHECK_OPEN_SSL(0);
+    }
+    sv = newSVpv(to, to_length);
+    Safefree(to);
+    return sv;
+}
+
 
 MODULE = Crypt::OpenSSL::RSA		PACKAGE = Crypt::OpenSSL::RSA
 PROTOTYPES: DISABLE
@@ -231,96 +213,96 @@ PROTOTYPES: DISABLE
 BOOT:
     ERR_load_crypto_strings();
 
-void
-load_private_key(rsa_HV, key_string_SV)
-    HV* rsa_HV;
+SV*
+new_private_key(proto, key_string_SV)
+    SV* proto;
     SV* key_string_SV;
   CODE:
-    _load_rsa_key(rsa_HV, key_string_SV, PEM_read_bio_RSAPrivateKey);
-
-void
-_load_public_pkcs1_key(rsa_HV, key_string_SV)
-    HV* rsa_HV;
-    SV* key_string_SV;
-  CODE:
-    _load_rsa_key(rsa_HV, key_string_SV, PEM_read_bio_RSAPublicKey);
-
-void
-_load_public_x509_key(rsa_HV, key_string_SV)
-    HV* rsa_HV;
-    SV* key_string_SV;
-  CODE:
-    _load_rsa_key(rsa_HV, key_string_SV, PEM_read_bio_RSA_PUBKEY);
-
-void
-_free_RSA_key(rsa_HV)
-    HV* rsa_HV;
-  CODE:
-    free_RSA_key(rsa_HV);
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSAPrivateKey));
+  OUTPUT:
+    RETVAL
 
 SV*
-get_private_key_string(rsa_HV)
-    HV* rsa_HV;
+_new_public_key_pkcs1(proto, key_string_SV)
+    SV* proto;
+    SV* key_string_SV;
+  CODE:
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSAPublicKey));
+  OUTPUT:
+    RETVAL
+
+SV*
+_new_public_key_x509(proto, key_string_SV)
+    SV* proto;
+    SV* key_string_SV;
+  CODE:
+    RETVAL = make_rsa_obj(
+        proto, _load_rsa_key(key_string_SV, PEM_read_bio_RSA_PUBKEY));
+  OUTPUT:
+    RETVAL
+
+void
+DESTROY(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    RSA_free(p_rsa->rsa);
+    Safefree(p_rsa);
+
+SV*
+get_private_key_string(p_rsa)
+    rsaData* p_rsa;
   PREINIT:
     BIO* stringBIO;
   CODE:
-    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()))
+    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
     PEM_write_bio_RSAPrivateKey(
-        stringBIO, get_RSA_key(rsa_HV), NULL, NULL, 0, NULL, NULL);
+        stringBIO, p_rsa->rsa, NULL, NULL, 0, NULL, NULL);
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
 
 SV*
-get_public_key_string(rsa_HV)
-    HV* rsa_HV;
+get_public_key_string(p_rsa)
+    rsaData* p_rsa;
   PREINIT:
     BIO* stringBIO;
   CODE:
-    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()))
-    PEM_write_bio_RSAPublicKey(stringBIO, get_RSA_key(rsa_HV));
+    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
+    PEM_write_bio_RSAPublicKey(stringBIO, p_rsa->rsa);
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
 
 SV*
-get_public_key_x509_string(rsa_HV)
-    HV* rsa_HV;
+get_public_key_x509_string(p_rsa)
+    rsaData* p_rsa;
   PREINIT:
     BIO* stringBIO;
   CODE:
-    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()))
-    PEM_write_bio_RSA_PUBKEY(stringBIO, get_RSA_key(rsa_HV));
+    CHECK_OPEN_SSL(stringBIO = BIO_new(BIO_s_mem()));
+    PEM_write_bio_RSA_PUBKEY(stringBIO, p_rsa->rsa);
     RETVAL = extractBioString(stringBIO);
 
   OUTPUT:
     RETVAL
 
- #
- # Generate a new RSA key.  The optional third argument is a prime.
- # It defaults to 65535
- #
-
-void
-_generate_key(rsa_HV, bitsSV, ...)
-    HV* rsa_HV;
+SV*
+generate_key(proto, bitsSV, exponent = 65537)
+    SV* proto;
     SV* bitsSV;
+    unsigned long exponent;
   PREINIT:
     RSA* rsa;
-    unsigned long exponent;
   CODE:
-{
-    if (items > 3)
-    {
-        croak("Usage: rsa->generate_key($bits [, $exponent])");
-    }
+    CHECK_OPEN_SSL(rsa = RSA_generate_key(SvIV(bitsSV), exponent, NULL, NULL));
+    RETVAL = make_rsa_obj(proto, rsa);
+  OUTPUT:
+    RETVAL
 
-    exponent = (items == 3) ? SvIV(ST(2)) : 65535;
-    CHECK_OPEN_SSL(rsa = RSA_generate_key(SvIV(bitsSV), exponent, NULL, NULL))
-    set_RSA_key(rsa_HV, rsa);
-}
 
 SV*
 _new_key_from_parameters(proto, n, e, d, p, q)
@@ -333,62 +315,61 @@ _new_key_from_parameters(proto, n, e, d, p, q)
   PREINIT:
     RSA* rsa;
     BN_CTX* ctx;
-    BIGNUM* bn;
-    BIGNUM* p_minus_1;
-    BIGNUM* q_minus_1;
+    BIGNUM* p_minus_1 = NULL;
+    BIGNUM* q_minus_1 = NULL;
+    int error;
   CODE:
 {
     if (!(n && e))
     {
         croak("At least a modulous and public key must be provided");
     }
-    rsa = RSA_new();
+    CHECK_OPEN_SSL(rsa = RSA_new());
     rsa->n = n;
     rsa->e = e;
     if (p || q)
     {
-        bn = BN_new();
-        ctx = BN_CTX_new();
+        error = 0;
+        THROW(ctx = BN_CTX_new());
         if (!p)
         {
-            p = BN_new();
-            CHECK_OPEN_SSL(BN_div(p, bn, n, q, ctx))
-            if (! BN_is_zero(bn))
-            {
-                croak("q does not divide n");
-            }
+            THROW(p = BN_new());
+            THROW(BN_div(p, NULL, n, q, ctx));
         }
-        else if (! q)
+        else if (!q)
         {
             q = BN_new();
-            CHECK_OPEN_SSL(BN_div(q, bn, n, p, ctx))
-            if (! BN_is_zero(bn))
-            {
-                croak("p does not divide n");
-            }
+            THROW(BN_div(q, NULL, n, p, ctx));
         }
         rsa->p = p;
         rsa->q = q;
-        p_minus_1 = BN_new();
-        CHECK_OPEN_SSL(BN_sub(p_minus_1, p, BN_value_one()))
-        q_minus_1 = BN_new();
-        CHECK_OPEN_SSL(BN_sub(q_minus_1, q, BN_value_one()))
+        THROW(p_minus_1 = BN_new());
+        THROW(BN_sub(p_minus_1, p, BN_value_one()));
+        THROW(q_minus_1 = BN_new());
+        THROW(BN_sub(q_minus_1, q, BN_value_one()));
         if (!d)
         {
-            d = BN_new();
-            CHECK_OPEN_SSL(BN_mul(bn, p_minus_1, q_minus_1, ctx))
-            CHECK_OPEN_SSL(BN_mod_inverse(d, e, bn, ctx))
+            THROW(d = BN_new());
+            THROW(BN_mul(d, p_minus_1, q_minus_1, ctx));
+            THROW(BN_mod_inverse(d, e, d, ctx));
         }
         rsa->d = d;
-        rsa->dmp1 = BN_new();
-        CHECK_OPEN_SSL(BN_mod(rsa->dmp1, d, p_minus_1, ctx))
-        rsa->dmq1 = BN_new();
-        CHECK_OPEN_SSL(BN_mod(rsa->dmq1, d, q_minus_1, ctx))
-        rsa->iqmp = BN_new();
-        CHECK_OPEN_SSL(BN_mod_inverse(rsa->iqmp, q, p, ctx))
-        BN_clear_free(bn);
-        BN_clear_free(p_minus_1);
-        BN_clear_free(q_minus_1);
+        THROW(rsa->dmp1 = BN_new());
+        THROW(BN_mod(rsa->dmp1, d, p_minus_1, ctx));
+        THROW(rsa->dmq1 = BN_new());
+        THROW(BN_mod(rsa->dmq1, d, q_minus_1, ctx));
+        THROW(rsa->iqmp = BN_new());
+        THROW(BN_mod_inverse(rsa->iqmp, q, p, ctx));
+        THROW(RSA_check_key(rsa) == 1);
+     err:
+        if (p_minus_1) BN_clear_free(p_minus_1);
+        if (q_minus_1) BN_clear_free(q_minus_1);
+        if (ctx) BN_CTX_free(ctx);
+        if (error)
+        {
+            RSA_free(rsa);
+            CHECK_OPEN_SSL(0);
+        }
     }
     else
     {
@@ -400,12 +381,12 @@ _new_key_from_parameters(proto, n, e, d, p, q)
     RETVAL
 
 void
-_get_key_parameters(rsa_HV)
-    HV* rsa_HV;
+_get_key_parameters(p_rsa)
+    rsaData* p_rsa;
 PPCODE:
 {
     RSA* rsa;
-    rsa = get_RSA_key(rsa_HV);
+    rsa = p_rsa->rsa;
     XPUSHs(bn2sv(rsa->n));
     XPUSHs(bn2sv(rsa->e));
     XPUSHs(bn2sv(rsa->d));
@@ -416,102 +397,67 @@ PPCODE:
     XPUSHs(bn2sv(rsa->iqmp));
 }
 
-# Encrypt plain text into cipher text.  Returns the cipher text
-
 SV*
-encrypt(rsa_HV, plaintext_SV, ...)
-    HV* rsa_HV;
-    SV* plaintext_SV;
-  PREINIT:
-    int plaintext_length;
-    unsigned char* plaintext;
-    unsigned char* ciphertext;
-    size_t size;
-    int ciphertext_length;
-    RSA* rsa;
+encrypt(p_rsa, p_plaintext)
+    rsaData* p_rsa;
+    SV* p_plaintext;
   CODE:
-    plaintext = SvPV(plaintext_SV, plaintext_length);
-
-    rsa = get_RSA_key(rsa_HV);
-
-    size = RSA_size(rsa);
-    if (New(0,ciphertext, size, char) == NULL)
-    {
-        croak("unable to allocate buffer for ciphertext in package "
-              PACKAGE_NAME);
-    }
-
-    ciphertext_length = RSA_public_encrypt(
-        plaintext_length, plaintext, ciphertext, rsa, get_padding(rsa_HV));
-
-    if (ciphertext_length < 0)
-    {
-        Safefree(ciphertext);
-        CHECK_OPEN_SSL(0)
-    }
-
-    RETVAL = newSVpv(ciphertext, size);
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_public_encrypt);
   OUTPUT:
     RETVAL
 
-
-# Decrypt cipher text into plain text.  Returns the plain text
 SV*
-decrypt(rsa_HV, ciphertext_SV)
-    HV* rsa_HV;
-    SV* ciphertext_SV;
-  PREINIT:
-    int ciphertext_length;  /* Needed to pass to SvPV */
-    int plaintext_length;
-    char* plaintext;
-    char* ciphertext;
-    unsigned long size;
-    RSA* rsa;
+decrypt(p_rsa, p_ciphertext)
+    rsaData* p_rsa;
+    SV* p_ciphertext;
   CODE:
-{
-    if (! is_private(rsa_HV))
+    if (!_is_private(p_rsa))
     {
-        croak("Public keys cannot decrypt messages.");
+        croak("Public keys cannot decrypt");
     }
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_private_decrypt);
+  OUTPUT:
+    RETVAL
 
-    ciphertext = SvPV(ciphertext_SV, ciphertext_length);
-
-    rsa = get_RSA_key(rsa_HV);
-    size = RSA_size(rsa);
-    if (New(0, plaintext, size, char) == NULL)
+SV*
+private_encrypt(p_rsa, p_plaintext)
+    rsaData* p_rsa;
+    SV* p_plaintext;
+  CODE:
+    if (!_is_private(p_rsa))
     {
-        croak("unable to allocate buffer for plaintext in package "
-               PACKAGE_NAME);
+        croak("Public keys cannot private_encrypt");
     }
+    RETVAL = rsa_crypt(p_rsa, p_plaintext, RSA_private_encrypt);
+  OUTPUT:
+    RETVAL
 
-    plaintext_length = RSA_private_decrypt(
-        size, ciphertext, plaintext, rsa, get_padding(rsa_HV));
-
-    if (plaintext_length < 0)
-    {
-        Safefree(plaintext);
-        CHECK_OPEN_SSL(0)
-    }
-
-    RETVAL = newSVpv(plaintext, plaintext_length);
-    Safefree(plaintext);
-}
+SV*
+public_decrypt(p_rsa, p_ciphertext)
+    rsaData* p_rsa;
+    SV* p_ciphertext;
+  CODE:
+    RETVAL = rsa_crypt(p_rsa, p_ciphertext, RSA_public_decrypt);
   OUTPUT:
     RETVAL
 
 int
-size(rsa_HV)
-    HV* rsa_HV;
+size(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    RETVAL = RSA_size(get_RSA_key(rsa_HV));
+    RETVAL = RSA_size(p_rsa->rsa);
   OUTPUT:
     RETVAL
 
 int
-check_key(rsa_HV)
-    HV* rsa_HV;
+check_key(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    RETVAL = RSA_check_key(get_RSA_key(rsa_HV));
+    if (!_is_private(p_rsa))
+    {
+        croak("Public keys cannot be checked");
+    }
+    RETVAL = RSA_check_key(p_rsa->rsa);
   OUTPUT:
     RETVAL
 
@@ -522,7 +468,7 @@ int
 _random_seed(random_bytes_SV)
     SV* random_bytes_SV;
   PREINIT:
-    int random_bytes_length;
+    STRLEN random_bytes_length;
     char* random_bytes;
   CODE:
     random_bytes = SvPV(random_bytes_SV, random_bytes_length);
@@ -543,131 +489,149 @@ _random_status()
 # Sign text. Returns the signature.
 
 void
-use_md5_hash(rsa_HV)
-    HV* rsa_HV;
+use_md5_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_hash(rsa_HV, NID_md5);
+    p_rsa->hashMode = NID_md5;
 
 void
-use_sha1_hash(rsa_HV)
-    HV* rsa_HV;
+use_sha1_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_hash(rsa_HV, NID_sha1);
+    p_rsa->hashMode =  NID_sha1;
+
+#ifdef SHA512_DIGEST_LENGTH
 
 void
-use_ripemd160_hash(rsa_HV)
-    HV* rsa_HV;
+use_sha224_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_hash(rsa_HV, NID_ripemd160);
+    p_rsa->hashMode =  NID_sha224;
 
 void
-use_no_padding(rsa_HV)
-    HV* rsa_HV;
+use_sha256_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_padding(rsa_HV, RSA_NO_PADDING);
+    p_rsa->hashMode =  NID_sha256;
 
 void
-use_pkcs1_padding(rsa_HV)
-    HV* rsa_HV;
+use_sha384_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_padding(rsa_HV, RSA_PKCS1_PADDING);
+    p_rsa->hashMode =  NID_sha384;
 
 void
-use_pkcs1_oaep_padding(rsa_HV)
-    HV* rsa_HV;
+use_sha512_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_padding(rsa_HV, RSA_PKCS1_OAEP_PADDING);
+    p_rsa->hashMode =  NID_sha512;
+
+#endif
 
 void
-use_sslv23_padding(rsa_HV)
-    HV* rsa_HV;
+use_ripemd160_hash(p_rsa)
+    rsaData* p_rsa;
   CODE:
-    set_padding(rsa_HV, RSA_SSLV23_PADDING);
+    p_rsa->hashMode =  NID_ripemd160;
+
+void
+use_no_padding(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    p_rsa->padding = RSA_NO_PADDING;
+
+void
+use_pkcs1_padding(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    p_rsa->padding = RSA_PKCS1_PADDING;
+
+void
+use_pkcs1_oaep_padding(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    p_rsa->padding = RSA_PKCS1_OAEP_PADDING;
+
+void
+use_sslv23_padding(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    p_rsa->padding = RSA_SSLV23_PADDING;
 
 SV*
-sign(rsa_HV, text_SV, ...)
-    HV* rsa_HV;
+sign(p_rsa, text_SV)
+    rsaData* p_rsa;
     SV* text_SV;
   PREINIT:
-    unsigned char* signature;
-    char* digest;
-    int signature_length;
-    int hash;
-    RSA* rsa;
+    char* signature;
+    unsigned char* digest;
+    unsigned int signature_length;
   CODE:
-    if (! is_private(rsa_HV))
+{
+    if (!_is_private(p_rsa))
     {
         croak("Public keys cannot sign messages.");
     }
 
-    rsa = get_RSA_key(rsa_HV);
+    CHECK_NEW(signature, RSA_size(p_rsa->rsa), char);
 
-    if (New(0, signature, RSA_size(rsa), char) == NULL)
-    {
-        croak("unable to allocate buffer for ciphertext in package "
-               PACKAGE_NAME);
-    }
-
-    hash = get_hash(rsa_HV);
-    digest = get_message_digest(text_SV, hash);
-    if (! RSA_sign(hash,
-                   digest,
-                   get_digest_length(hash),
-                   signature,
-                   &signature_length,
-                   rsa))
-    {
-        CHECK_OPEN_SSL(0)
-    }
-    Safefree(digest);
+    CHECK_OPEN_SSL(digest = get_message_digest(text_SV, p_rsa->hashMode));
+    CHECK_OPEN_SSL(RSA_sign(p_rsa->hashMode,
+                            digest,
+                            get_digest_length(p_rsa->hashMode),
+                            (unsigned char*) signature,
+                            &signature_length,
+                            p_rsa->rsa));
     RETVAL = newSVpvn(signature, signature_length);
     Safefree(signature);
+}
   OUTPUT:
     RETVAL
 
-# Verify signature. Returns 1 if correct, 0 otherwise.
+# Verify signature. Returns true if correct, false otherwise.
 
 void
-verify(rsa_HV, text_SV, sig_SV, ...)
-    HV* rsa_HV;
+verify(p_rsa, text_SV, sig_SV)
+    rsaData* p_rsa;
     SV* text_SV;
     SV* sig_SV;
 PPCODE:
 {
     unsigned char* sig;
-    char* digest;
-    RSA* rsa;
-    int sig_length;
-    int hash;
-    int result;
+    unsigned char* digest;
+    STRLEN sig_length;
 
-    if (is_private(rsa_HV))
-    {
-        croak("Secret keys should not check signatures.");
-    }
-
-    sig = SvPV(sig_SV, sig_length);
-    rsa = get_RSA_key(rsa_HV);
-    if (RSA_size(rsa) < sig_length)
+    sig = (unsigned char*) SvPV(sig_SV, sig_length);
+    if (RSA_size(p_rsa->rsa) < sig_length)
     {
         croak("Signature longer than key");
     }
 
-    hash = get_hash(rsa_HV);
-    digest = get_message_digest(text_SV, hash);
-    result = RSA_verify(
-        hash, digest, get_digest_length(hash), sig, sig_length, rsa);
-    Safefree(digest);
-    switch(result)
+    CHECK_OPEN_SSL(digest = get_message_digest(text_SV, p_rsa->hashMode));
+    switch(RSA_verify(p_rsa->hashMode,
+                      digest,
+                      get_digest_length(p_rsa->hashMode),
+                      sig,
+                      sig_length,
+                      p_rsa->rsa))
     {
-        case 0: /* FIXME - could there be an error in this case? */
+        case 0:
+            CHECK_OPEN_SSL(ERR_peek_error());
             XSRETURN_NO;
             break;
         case 1:
             XSRETURN_YES;
             break;
         default:
-            CHECK_OPEN_SSL(0)
+            CHECK_OPEN_SSL(0);
             break;
     }
 }
+
+int
+is_private(p_rsa)
+    rsaData* p_rsa;
+  CODE:
+    RETVAL = _is_private(p_rsa);
+  OUTPUT:
+    RETVAL

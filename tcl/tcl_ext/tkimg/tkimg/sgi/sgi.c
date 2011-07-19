@@ -59,7 +59,7 @@
  *
  * ENDHEADER
  *
- * $Id: sgi.c 175 2008-12-01 15:41:34Z nijtmans $
+ * $Id: sgi.c 251 2010-04-28 13:28:28Z nijtmans $
  *
  */
 
@@ -72,13 +72,11 @@
 #include "init.c"
 
 
-/* OPA TODO: Change from ANSI-C arguments to _ANSI_ARGS_ macro. */
-
-#if defined (WIN32)
-    #define TCLSEEK_WORKAROUND
+#ifdef WIN32
+#   define TCLSEEK_WORKAROUND
 #endif
 
-#if defined (TCLSEEK_WORKAROUND)
+#ifdef TCLSEEK_WORKAROUND
     static int ioMode = 0; /* Needed for Windows patch */
 
     static int MyWrite (Tcl_Channel chan, char *buf, int size)
@@ -108,15 +106,15 @@
 	}
     }
 
-    #define MYCHANNEL Tcl_Channel
-    #undef Tcl_Seek
-    #define Tcl_Seek  MySeek
-    #undef Tcl_Write
-    #define Tcl_Write MyWrite
-    #define MYCLOSE   MyClose
+#   define MYCHANNEL Tcl_Channel
+#   undef Tcl_Seek
+#   define Tcl_Seek MySeek
+#   undef Tcl_Write
+#   define Tcl_Write MyWrite
+#   define MYCLOSE MyClose
 #else
-    #define MYCHANNEL Tcl_Channel
-    #define MYCLOSE   Tcl_Close
+#   define MYCHANNEL Tcl_Channel
+#   define MYCLOSE Tcl_Close
 #endif
 
 /* Some defines and typedefs for compatibility reasons. */
@@ -202,19 +200,19 @@ typedef struct {
 } IMAGE;
 
 #if !defined (_IOWRT)
-    #define _IOWRT  1
+#   define _IOWRT  1
 #endif
 #if !defined (_IOREAD)
-    #define _IOREAD 2
+#   define _IOREAD 2
 #endif
 #if !defined (_IORW)
-    #define _IORW   4
+#   define _IORW   4
 #endif
 #if !defined (_IOERR)
-    #define _IOERR  8
+#   define _IOERR  8
 #endif
 #if !defined (_IOEOF)
-    #define _IOEOF 16
+#   define _IOEOF 16
 #endif
 
 static int img_badrow(IMAGE *image, unsigned int y, unsigned int z);
@@ -317,9 +315,9 @@ static unsigned short *ibufalloc(IMAGE *image)
 
 static int imgOpenRead (MYCHANNEL file, IMAGE *image, const char *mode)
 {
-    #if defined (TCLSEEK_WORKAROUND)
+#ifdef TCLSEEK_WORKAROUND
 	ioMode = 0;
-    #endif
+#endif
     return imgopen (0, file, image, mode, 0, 0, 0, 0, 0);
 }
 
@@ -327,9 +325,9 @@ static int imgOpenWrite (MYCHANNEL file, IMAGE *image, const char *mode,
                      unsigned int type, unsigned int dim,
                      unsigned int xsize, unsigned int ysize, unsigned int zsize)
 {
-    #if defined (TCLSEEK_WORKAROUND)
+#ifdef TCLSEEK_WORKAROUND
 	ioMode = 1;
-    #endif
+#endif
     return imgopen (0, file, image, mode, type, dim, xsize, ysize, zsize);
 }
 
@@ -1129,11 +1127,10 @@ typedef struct {
 
 static int isIntel (void)
 {
-    char order[] = { 1, 2, 3, 4};
-    unsigned int val = (unsigned int)*((short *)order);
-    /* On Intel (little-endian) systems this value is equal to 513.
-       On big-endian systems this value equals 258. */
-    return (val == 513);
+    unsigned long val = 513;
+    /* On Intel (little-endian) systems this value is equal to "\01\02\00\00".
+       On big-endian systems this value equals "\00\00\02\01" */
+    return memcmp(&val, "\01\02", 2) == 0;
 }
 
 static void sgiClose (SGIFILE *tf)
@@ -1285,17 +1282,17 @@ static Boln sgiWriteScan(Tcl_Interp *interp, tkimg_MFile *handle,
  * Prototypes for local procedures defined in this file:
  */
 
-static int   ParseFormatOpts _ANSI_ARGS_((Tcl_Interp *interp, Tcl_Obj *format,
-                 int *comp, int *verb, int *matte));
-static int   CommonMatch _ANSI_ARGS_((tkimg_MFile *handle, int *widthPtr,
-	         int *heightPtr, IMAGE *sgiHeaderPtr));
-static int   CommonRead _ANSI_ARGS_((Tcl_Interp *interp, tkimg_MFile *handle,
-                 const char *filename, Tcl_Obj *format,
-	         Tk_PhotoHandle imageHandle, int destX, int destY,
-                 int width, int height, int srcX, int srcY));
-static int   CommonWrite _ANSI_ARGS_((Tcl_Interp *interp,
-                 const char *filename, Tcl_Obj *format,
-	         tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr));
+static int ParseFormatOpts(Tcl_Interp *interp, Tcl_Obj *format,
+	int *comp, int *verb, int *matte);
+static int CommonMatch(tkimg_MFile *handle, int *widthPtr,
+	int *heightPtr, IMAGE *sgiHeaderPtr);
+static int CommonRead(Tcl_Interp *interp, tkimg_MFile *handle,
+	const char *filename, Tcl_Obj *format,
+	Tk_PhotoHandle imageHandle, int destX, int destY,
+	int width, int height, int srcX, int srcY);
+static int CommonWrite(Tcl_Interp *interp,
+	const char *filename, Tcl_Obj *format,
+	tkimg_MFile *handle, Tk_PhotoImageBlock *blockPtr);
 
 static int ParseFormatOpts (interp, format, comp, verb, matte)
     Tcl_Interp *interp;
@@ -1307,7 +1304,7 @@ static int ParseFormatOpts (interp, format, comp, verb, matte)
     static const char *const sgiOptions[] = {"-compression", "-verbose", "-matte"};
     int objc, length, c, i, index;
     Tcl_Obj **objv;
-    CONST84 char *compression, *verbose, *transp;
+    const char *compression, *verbose, *transp;
 
     *comp  = 1;
     *verb  = 0;
@@ -1389,17 +1386,15 @@ static int ParseFormatOpts (interp, format, comp, verb, matte)
     return TCL_OK;
 }
 
-static int ChnMatch(interp, chan, filename, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Channel chan;
-    const char *filename;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ChnMatch(
+    Tcl_Channel chan,
+    const char *filename,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixChanMatchProc (&interp, &chan, &filename, &format,
-			 &widthPtr, &heightPtr);
 
     handle.data = (char *) chan;
     handle.state = IMG_CHAN;
@@ -1407,15 +1402,14 @@ static int ChnMatch(interp, chan, filename, format, widthPtr, heightPtr)
     return CommonMatch(&handle, widthPtr, heightPtr, NULL);
 }
 
-static int ObjMatch(interp, data, format, widthPtr, heightPtr)
-    Tcl_Interp *interp;
-    Tcl_Obj *data;
-    Tcl_Obj *format;
-    int *widthPtr, *heightPtr;
-{
+static int ObjMatch(
+    Tcl_Obj *data,
+    Tcl_Obj *format,
+    int *widthPtr,
+    int *heightPtr,
+    Tcl_Interp *interp
+) {
     tkimg_MFile handle;
-
-    tkimg_FixObjMatchProc (&interp, &data, &format, &widthPtr, &heightPtr);
 
     if (!tkimg_ReadInit(data, '\001', &handle)) {
         return 0;
@@ -1483,7 +1477,7 @@ static int ObjRead (interp, data, format, imageHandle,
     int srcX, srcY;
 {
     tkimg_MFile handle;
-    char tempFileName[256];
+    char *tempFileName, tempFileNameBuffer[256];
     char buffer[BUFLEN];
     MYCHANNEL outchan;
     Tcl_Channel inchan;
@@ -1491,8 +1485,8 @@ static int ObjRead (interp, data, format, imageHandle,
 
     tkimg_ReadInit (data, '\001', &handle);
 
-    tmpnam(tempFileName);
-#if defined (TCLSEEK_WORKAROUND)
+    tempFileName = tmpnam(tempFileNameBuffer);
+#ifdef TCLSEEK_WORKAROUND
     outchan = (Tcl_Channel)fopen (tempFileName, "wb");
 #else
     outchan = tkimg_OpenFileChannel (interp, tempFileName, 0644);
@@ -1530,14 +1524,6 @@ static int ObjRead (interp, data, format, imageHandle,
     return retVal;
 }
 
-typedef struct myblock {
-    Tk_PhotoImageBlock ck;
-    int dummy; /* extra space for offset[3], in case it is not
-		  included already in Tk_PhotoImageBlock */
-} myblock;
-
-#define block bl.ck
-
 static int CommonRead (interp, handle, filename, format, imageHandle,
                        destX, destY, width, height, srcX, srcY)
     Tcl_Interp *interp;         /* Interpreter to use for reporting errors. */
@@ -1552,14 +1538,15 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
     int srcX, srcY;             /* Coordinates of top-left pixel to be used
                                  * in image being read. */
 {
-    myblock bl;
+	Tk_PhotoImageBlock block;
     Int y, nchan;
     int fileWidth, fileHeight;
     int stopY, outY, outWidth, outHeight;
     SGIFILE tf;
     int compr, verbose, matte;
+    int result = TCL_OK;
 
-    memset (&tf, 0, sizeof (SGIFILE));
+    memset(&tf, 0, sizeof (SGIFILE));
     if (ParseFormatOpts(interp, format, &compr, &verbose, &matte) != TCL_OK) {
         return TCL_ERROR;
     }
@@ -1583,7 +1570,9 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
 	return TCL_OK;
     }
 
-    Tk_PhotoExpand(imageHandle, destX + outWidth, destY + outHeight);
+    if (tkimg_PhotoExpand(interp, imageHandle, destX + outWidth, destY + outHeight) == TCL_ERROR) {
+	return TCL_ERROR;
+    }
 
     nchan = tf.th.zsize;
 
@@ -1622,17 +1611,20 @@ static int CommonRead (interp, handle, filename, format, imageHandle,
     for (y=0; y<stopY; y++) {
 	sgiReadScan (interp, handle, &tf, fileHeight-1-y);
 	if (y >= srcY) {
-	    tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, outWidth, 1, matte? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET);
+	    if (tkimg_PhotoPutBlock(interp, imageHandle, &block, destX, outY, outWidth, 1, matte? TK_PHOTO_COMPOSITE_OVERLAY: TK_PHOTO_COMPOSITE_SET) == TCL_ERROR) {
+		result = TCL_ERROR;
+		break;
+	    }
 	    outY++;
 	}
     }
     sgiClose (&tf);
-    return TCL_OK ;
+    return result;
 }
 
 static int ChnWrite (interp, filename, format, blockPtr)
     Tcl_Interp *interp;
-    CONST84 char *filename;
+    const char *filename;
     Tcl_Obj *format;
     Tk_PhotoImageBlock *blockPtr;
 {
@@ -1640,7 +1632,7 @@ static int ChnWrite (interp, filename, format, blockPtr)
     tkimg_MFile handle;
     int result;
 
-#if defined (TCLSEEK_WORKAROUND)
+#ifdef TCLSEEK_WORKAROUND
     chan = (Tcl_Channel)fopen(filename, "wb");
 #else
     chan = tkimg_OpenFileChannel (interp, filename, 0644);
@@ -1659,25 +1651,23 @@ static int ChnWrite (interp, filename, format, blockPtr)
     return result;
 }
 
-static int StringWrite (interp, dataPtr, format, blockPtr)
-    Tcl_Interp *interp;
-    Tcl_DString *dataPtr;
-    Tcl_Obj *format;
-    Tk_PhotoImageBlock *blockPtr;
-{
+static int StringWrite(
+    Tcl_Interp *interp,
+    Tcl_Obj *format,
+    Tk_PhotoImageBlock *blockPtr
+) {
     tkimg_MFile handle;
     int result;
     Tcl_DString data;
     Tcl_Channel inchan;
     MYCHANNEL outchan;
-    char tempFileName[256];
+    char *tempFileName, tempFileNameBuffer[256];
     char buffer[BUFLEN];
     int count;
 
-    tkimg_FixStringWriteProc (&data, &interp, &dataPtr, &format, &blockPtr);
-
-    tmpnam(tempFileName);
-#if defined (TCLSEEK_WORKAROUND)
+    Tcl_DStringInit(&data);
+    tempFileName = tmpnam(tempFileNameBuffer);
+#ifdef TCLSEEK_WORKAROUND
     outchan = (Tcl_Channel)fopen(tempFileName, "wb");
 #else
     outchan = tkimg_OpenFileChannel (interp, tempFileName, 0644);
@@ -1689,34 +1679,36 @@ static int StringWrite (interp, dataPtr, format, blockPtr)
     handle.data = (char *) outchan;
     handle.state = IMG_CHAN;
 
-    result = CommonWrite (interp, tempFileName, format, &handle, blockPtr);
-    if (MYCLOSE (interp, outchan) == TCL_ERROR) {
+    result = CommonWrite(interp, tempFileName, format, &handle, blockPtr);
+    if (MYCLOSE(interp, outchan) == TCL_ERROR) {
 	return TCL_ERROR;
     }
 
-    tkimg_WriteInit(dataPtr, &handle);
+    tkimg_WriteInit(&data, &handle);
 
-    inchan = tkimg_OpenFileChannel (interp, tempFileName, 0);
+    inchan = tkimg_OpenFileChannel(interp, tempFileName, 0);
     if (!inchan) {
 	return TCL_ERROR;
     }
 
-    count = Tcl_Read (inchan, buffer, BUFLEN);
+    count = Tcl_Read(inchan, buffer, BUFLEN);
     while (count == BUFLEN) {
 	tkimg_Write(&handle, buffer, count);
-	count = Tcl_Read (inchan, buffer, BUFLEN);
+	count = Tcl_Read(inchan, buffer, BUFLEN);
     }
     if (count>0) {
 	tkimg_Write(&handle, buffer, count);
     }
-    if (Tcl_Close (interp, inchan) == TCL_ERROR) {
+    if (Tcl_Close(interp, inchan) == TCL_ERROR) {
 	return TCL_ERROR;
     }
     remove (tempFileName);
-    tkimg_Putc (IMG_DONE, &handle);
+    tkimg_Putc(IMG_DONE, &handle);
 
-    if ((result == TCL_OK) && (dataPtr == &data)) {
-	Tcl_DStringResult (interp, dataPtr);
+    if (result == TCL_OK) {
+	Tcl_DStringResult(interp, &data);
+    } else {
+	Tcl_DStringFree(&data);
     }
     return result;
 }
@@ -1762,13 +1754,13 @@ static int CommonWrite (interp, filename, format, handle, blockPtr)
     tf.matteScan = (UByte *)  ckalloc (blockPtr->width);
     tf.pixbuf    = (UShort *) ckalloc (blockPtr->width * sizeof (UShort));
     tf.th.imagic = IMAGIC;
-    tf.th.dorev  = isIntel();
 
     if (!writeHeader(handle, &tf.th,
                       compr? RLE(bpp): UNCOMPRESSED(bpp),
                       nchan, blockPtr->width, blockPtr->height, nchan)) {
 	return TCL_ERROR;
     }
+    tf.th.dorev  = isIntel();
 
     rowPixPtr = blockPtr->pixelPtr + blockPtr->offset[0];
     for (y = blockPtr->height -1; y >=0; y--) {

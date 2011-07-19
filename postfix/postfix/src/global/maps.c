@@ -192,9 +192,62 @@ const char *maps_find(MAPS *maps, const char *name, int flags)
 	    if (msg_verbose)
 		msg_info("%s: %s: %s: %s = %s", myname, maps->title,
 			 *map_name, name, expansion);
+#ifdef __APPLE_OS_X_SERVER__
+		if (var_minimum_valid_uid && 
+			 strncmp(maps->title, "local_recipient_maps", 20) == 0 ) {
+			if ( var_use_getpwnam_ext ) {
+				uid_t a_uid = ads_get_uid(name);
+				if (a_uid > 0 && a_uid < var_minimum_valid_uid) {
+					msg_warn("recipient rejected <%s> uid falls below minimum allowed: %d < %d",
+						name, a_uid, var_minimum_valid_uid);
+					return (0);
+				}
+			} else {
+				struct passwd *pwd;
+				if ((pwd = getpwnam(name)) != 0) {
+					if (pwd->pw_uid > 0 && pwd->pw_uid < var_minimum_valid_uid) {
+						msg_warn("recipient rejected <%s> uid falls below minimum allowed: %d < %d",
+							name, pwd->pw_uid, var_minimum_valid_uid);
+						return (0);
+					}
+				}
+			}
+
+			if (sacl_check(name) == 0) {
+				msg_warn("recipient rejected <%s> not in Mail Service ACL", name);
+				return 0;
+			}
+		}
+
+#endif /* __APPLE_OS_X_SERVER__ */
 	    return (expansion);
 #ifdef __APPLE_OS_X_SERVER__
 	} else if (strncmp(maps->title, "virtual_alias_maps", 18) == 0 ) {
+		if (var_minimum_valid_uid) {
+			if ( var_use_getpwnam_ext ) {
+				uid_t a_uid = ads_get_uid(name);
+				if (a_uid > 0 && a_uid < var_minimum_valid_uid) {
+					msg_warn("recipient <%s> uid falls below minimum allowed: %d < %d",
+						name, a_uid, var_minimum_valid_uid);
+					return (0);
+				}
+			} else {
+				struct passwd *pwd;
+				if ((pwd = getpwnam(name)) != 0) {
+					if (pwd->pw_uid > 0 && pwd->pw_uid < var_minimum_valid_uid) {
+						msg_warn("recipient <%s> uid falls below minimum allowed: %d < %d",
+							name, pwd->pw_uid, var_minimum_valid_uid);
+						return (0);
+					}
+				}
+			}
+		}
+
+		if (sacl_check(name) == 0) {
+			msg_warn("recipient <%s> not in Mail Service ACL", name);
+			return 0;
+		}
+
 		/* if virtual_alias_maps, we want to look in the directory
 			for a possible match as well */
 		if ( var_use_getpwnam_ext ) {

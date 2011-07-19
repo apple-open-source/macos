@@ -44,7 +44,7 @@
 #import "USBTracepoints.h"
 
 /* Convert USBLog to use kprintf debugging */
-#ifndef IOUSBHIDDriver_USE_KPRINTF 0
+#ifndef IOUSBHIDDriver_USE_KPRINTF
 	#define IOUSBHIDDriver_USE_KPRINTF 0
 #endif
 
@@ -315,7 +315,7 @@ IOUSBHIDDriver::start(IOService *provider)
     
 	USBTrace_Start( kUSBTHID, kTPHIDStart, (uintptr_t)this, 0, 0, 0);
 	
-    USBLog(7, "IOUSBHIDDriver(%s)[%p]::start", getName(), this);
+    USBLog(6, "IOUSBHIDDriver(%s)[%p]::start", getName(), this);
     IncrementOutstandingIO();			// make sure that once we open we don't close until start is finished
 
     // Get our locationID as an unsigned 32 bit number
@@ -374,25 +374,6 @@ IOUSBHIDDriver::start(IOService *provider)
 
     addEventSourceSuccess = true;
 
-    // Now, find our interrupt out pipe and interrupt in pipes
-    //
-    request.type = kUSBInterrupt;
-    request.direction = kUSBOut;
-    _interruptOutPipe = _interface->FindNextPipe(NULL, &request);
-
-    request.type = kUSBInterrupt;
-    request.direction = kUSBIn;
-    _interruptPipe = _interface->FindNextPipe(NULL, &request);
-
-    if (!_interruptPipe)
-    {
-        USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to get interrupt pipe", getName(), this);
-        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 5 );
-        goto ErrorExit;
-    }
-
-	_interruptPipe->retain();
-	
     // The HID spec specifies that only input reports should come thru the interrupt pipe.  Thus,
     // set the buffer size to the Max Input Report Size that has been decoded by the HID Mgr.
     //
@@ -993,7 +974,9 @@ IOUSBHIDDriver::powerChangeDone ( unsigned long fromState)
 bool 
 IOUSBHIDDriver::handleStart(IOService * provider)
 {
-    USBLog(7, "IOUSBHIDDriver(%s)[%p]::handleStart", getName(), this);
+	IOUSBFindEndpointRequest	request;
+
+	USBLog(6, "IOUSBHIDDriver(%s)[%p]::handleStart", getName(), this);
 	USBTrace_Start( kUSBTHID, kTPHIDhandleStart, (uintptr_t)this, (uintptr_t)provider, 0, 0);
 
     if ( !super::handleStart(provider))
@@ -1030,8 +1013,31 @@ IOUSBHIDDriver::handleStart(IOService * provider)
 	_interface->retain();
 	_device->retain();
 	
+    // Now, find our interrupt out pipe and interrupt in pipes
+    //
+    request.type = kUSBInterrupt;
+    request.direction = kUSBOut;
+    _interruptOutPipe = _interface->FindNextPipe(NULL, &request);
+	
+    request.type = kUSBInterrupt;
+    request.direction = kUSBIn;
+    _interruptPipe = _interface->FindNextPipe(NULL, &request);
+	
+    if (!_interruptPipe)
+    {
+        USBLog(1, "IOUSBHIDDriver(%s)[%p]::start - unable to get interrupt pipe", getName(), this);
+        USBTrace( kUSBTHID,  kTPHIDStart, (uintptr_t)this, 0, 0, 5 );
+        goto ErrorExit;
+    }
+	
+	_interruptPipe->retain();
+	
 	USBTrace_End( kUSBTHID, kTPHIDhandleStart, (uintptr_t)this, (uintptr_t)_interface, (uintptr_t)_device, 0);
     return true;
+	
+ErrorExit:
+	
+	return false;
 }
 
 
@@ -1128,6 +1134,14 @@ IOUSBHIDDriver::getReport(	IOMemoryDescriptor * report,
             USBLog(3, "IOUSBHIDDriver(%s)[%p]::getReport request failed; err = 0x%x)", getName(), this, ret);
 	}
            
+	// 9196402:  If we get an IOBMD passed in, set the length to be the # of bytes that were transferred
+	IOBufferMemoryDescriptor * buffer = OSDynamicCast(IOBufferMemoryDescriptor, report);
+	if (buffer)
+	{
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::getReport we have an IOBufferMemoryDescriptor, so set the length to wLenDone of %d", getName(), this, requestPB.wLenDone);
+		buffer->setLength((vm_size_t)requestPB.wLenDone);
+	}
+	
     DecrementOutstandingIO();
 
 	if ( _LOG_HID_REPORTS )
@@ -1417,6 +1431,7 @@ IOUSBHIDDriver::newVendorIDNumber() const
     if (_device != NULL)
         vendorID = _device->GetVendorID();
 
+	USBLog(6, "IOUSBHIDDriver(%s)[%p]::newVendorIDNumber -returning %d", getName(), this, (uint32_t)vendorID);
     return OSNumber::withNumber(vendorID, 16);
 }
 
@@ -1435,7 +1450,8 @@ IOUSBHIDDriver::newVersionNumber() const
     if (_device != NULL)
         releaseNum = _device->GetDeviceRelease();
 
-    return OSNumber::withNumber(releaseNum, 16);
+	USBLog(6, "IOUSBHIDDriver(%s)[%p]::newVersionNumber -returning %d", getName(), this, (uint32_t)releaseNum);
+	return OSNumber::withNumber(releaseNum, 16);
 }
 
 
@@ -1465,7 +1481,48 @@ IOUSBHIDDriver::newCountryCodeNumber() const
         return NULL;
     }
     
+	USBLog(6, "IOUSBHIDDriver(%s)[%p]::newCountryCodeNumber - returning 0x%d", getName(), this, (uint32_t)theHIDDesc->hidCountryCode);
     return OSNumber::withNumber((unsigned long long)theHIDDesc->hidCountryCode, 8);
+}
+
+
+//=============================================================================================
+//
+//  newReportIntervalNumber
+//
+//=============================================================================================
+//
+OSNumber *
+IOUSBHIDDriver::newReportIntervalNumber() const
+{
+	UInt8	interval = 8;
+	
+	if ( _interruptPipe )
+	{
+		UInt8	pollingRate;
+		
+		// The problem with the GetInterval() is that this is the descriptors polling rate.  The USB controller is free to change the polling interval to whatever they
+		// like as long as it's less than the descriptor's rate. 
+		pollingRate = _interruptPipe->GetInterval();
+		
+		// We assume that a controller will actually only poll at powers of 2 and that it will not poll any slower than 32 ms.
+		
+		if (pollingRate >= 32)		{ interval = 32; }
+		else if (pollingRate >= 16) { interval = 16; }
+		else if (pollingRate >= 8)	{ interval = 8; }
+		else if (pollingRate >= 4)	{ interval = 4; }
+		else if (pollingRate >= 2)	{ interval = 2; }
+		else interval = 1;
+		
+		USBLog(5, "IOUSBHIDDriver(%s)[%p]::newReportIntervalNumber - _interval is %d", getName(), this, (uint32_t)interval);
+	}
+	else
+	{
+        USBLog(5, "IOUSBHIDDriver(%s)[%p]::newReportIntervalNumber - no _interruptPipe, returning 8", getName(), this);
+	}
+
+	
+	return OSNumber::withNumber((unsigned long long)(interval*1000), 32);
 }
 
 

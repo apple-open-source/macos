@@ -1,9 +1,10 @@
-#!/usr/bin/perl -w
-#Simon Ilyushchenko, 12/05/05
-#Testing the case when we try to inject into @ISA a class that's already a parent of the target class.
 
 use strict;
 use Test::More tests => 2;
+use MRO::Compat;
+
+use lib qw(t/lib);
+use DBICTest; # do not remove even though it is not used
 
 {
 package AAA;
@@ -26,8 +27,8 @@ use base 'AAA';
 __PACKAGE__->inject_base( __PACKAGE__, 'DBIx::Class::Core' );
 }
 
-eval { Class::C3::calculateMRO('BBB'); };
+eval { mro::get_linear_isa('BBB'); };
 ok (! $@, "Correctly skipped injecting a direct parent of class BBB");
 
-eval { Class::C3::calculateMRO('CCC'); };
+eval { mro::get_linear_isa('CCC'); };
 ok (! $@, "Correctly skipped injecting an indirect parent of class BBB");

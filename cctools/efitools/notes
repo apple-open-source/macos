@@ -5,6 +5,60 @@ Add flags for:
 Add support for:
 - Remove empty __IMPORT segment
 
+Changes for the 5.29 release (the cctools-800 release):
+- Added support for rewriting UUID of generated file with command line flag -u.
+  Radar bug #8946107.
+
+Changes for the 5.28 release (the cctools-795 release):
+- Added added more subsystem types to mtoc(1).  Radar bug #8492168.
+
+Changes for the 5.28 release (the cctools-792 release):
+- Picked up changes to generate correct x86_64 relocations and to correctly
+  calculate SizeOfImage in mtoc.c. Radar bug #8211617.
+
+Changes for the 5.28 release (the cctools-787 release):
+- Changed mtoc(1) to zero pad PE/COFF sections to support XIP PE/COFF images.
+  Radar bug #8199851.
+- Changed mtoc(1) support building XIP PEI/COFF images in all cases. Radar bug
+  #8197128.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() and stuff/round.h to stuff/rnd.h in all files and
+  removed -fno-builtin-round from the Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.27 release (the cctools-765 release):
+- Moved the install location of motc(1) back to /usr/local/efi/bin . Radar bug
+  #7117645.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-761 release):
+- Moved the install location of motc(1) into /usr/bin .  Radar bug #7038602.
+- Fixed a problem in mtoc(1) with the -p option that caused it to crash.  The
+  First problem was process_64bit_arch() needed to account for the debug
+  section when the -d option was used just like process_32bit_arch() did.
+  Second problem was if there happen to be no relocation entries then both
+  routines needed to set the debug_addr when reloc_size was zero and not use
+  reloc_scnhdr as it may be NULL.  Radar bug #6904701.
+
+Changes for the 5.27 release (the cctools-759 release):
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.27 release (the cctools-754 release):
+- Changed mtoc(1) to not create a .reloc section if it would have a zero size.
+  Also changed mtoc(1) to include the SizeOfHeaders in SizeOfImage.
+  Radar bug #6795386
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248 and 6756912.
+  - Added a cast to int for a switch statement in process_32bit_arch() in mtoc.c
+  - Commented out the if statement with an empty body with a TODO comment in
+    create_base_reloc() in mtoc.c .
+
 Changes for the 4.26 release (the cctools-717 release):
 - Added the -d filename option to mtoc(1) which adds a debug directory entry
   in the .debug section with the file name.  Radar bug #6211642.

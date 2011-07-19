@@ -407,7 +407,9 @@ errpfx
 errx
 exploders
 extentsize
+failcheck
 failchk
+failover
 fastsplit
 fclose
 fcntl
@@ -515,6 +517,7 @@ mutexes
 mutexlocks
 ndbm
 nelem
+nsites
 numobjs
 objectToEntry
 ol
@@ -551,12 +554,15 @@ record's
 recs
 refcnt
 regionmax
+replicationManagerAddRemoteSite
+replicationManagerStart
 repquote
 req
 roff
 rootsplit
 rpc
 secondaryKeyCreate
+selfblock
 setReadOnly
 shalloc
 shm
@@ -603,6 +609,7 @@ umrw
 uninstalling
 uniquename
 unix
+unmap
 unmarshalling
 usr
 vec

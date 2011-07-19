@@ -1,0 +1,23 @@
+[libdefaults]
+	default_realm = TEST.H5L.SE
+
+[domain_realm]
+	.test.h5l.se = TEST.H5L.SE
+	.sub.test.h5l.se = SUB.TEST.H5L.SE
+	.example.com = TEST2.H5L.SE
+	localhost = TEST.H5L.SE
+	
+[realms]
+	HEIM-TEST-DOMAIN.APPLE.COM = {
+		kdc = localhost
+	}
+
+[logging]
+	kdc = 0-/FILE:@testdir@/messages.log
+	default = 0-/FILE:@testdir@/messages.log
+	krb5 = 0-/FILE:@testdir@/messages.log
+
+[kdc]
+	enable-pkinit = true
+	pkinit_anchors = FILE:@certdir@/ca.crt
+

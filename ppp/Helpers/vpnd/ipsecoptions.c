@@ -107,7 +107,11 @@ void *ipsec_resolver_thread(void *arg)
 				close(fd);
 			}
 
-            peer_address = *(struct in_addr *)host->h_addr_list[rd8 % count];
+			if (count) {
+				peer_address = *(struct in_addr *)host->h_addr_list[rd8 % count];
+			} else {
+				bzero(&peer_address, sizeof(peer_address));
+			}
             result = 0;
         }
     }

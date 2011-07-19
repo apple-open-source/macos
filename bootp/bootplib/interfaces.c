@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -53,6 +53,15 @@
 #include "util.h"
 #include <ifaddrs.h>
 
+static boolean_t
+S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p);
+
+static boolean_t
+S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p);
+
+static link_status_t
+S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p);
+
 void *
 inet_addrinfo_copy(void * p)
 {
@@ -65,6 +74,7 @@ inet_addrinfo_copy(void * p)
     }
     return (dest);
 }
+
 void
 inet_addrinfo_free(void * p)
 {
@@ -105,6 +115,7 @@ S_build_interface_list(interface_list_t * interfaces)
 {
     struct ifaddrs *	addrs = NULL;
     struct ifaddrs *	ifap = NULL;
+    struct ifmediareq	ifmr;
     int			size;
 
     if (getifaddrs(&addrs) < 0) {
@@ -175,8 +186,8 @@ S_build_interface_list(interface_list_t * interfaces)
 		  entry->flags = ifap->ifa_flags;
 	      }
 	      if (dl_p->sdl_alen > sizeof(entry->link_address.addr)) {
-		  syslog(LOG_DEBUG,
-			 "%s: link type %d address length %d > %d", name,
+		  syslog(LOG_ERR,
+			 "%s: link type %d address length %d > %ld", name,
 			 dl_p->sdl_type, dl_p->sdl_alen,
 			 sizeof(entry->link_address.addr));
 		  entry->link_address.alen = sizeof(entry->link_address.addr);
@@ -195,21 +206,13 @@ S_build_interface_list(interface_list_t * interfaces)
 	      else {
 		  entry->type = dl_p->sdl_type;
 	      }
-	      if (entry->type == IFT_ETHER) {
-		  int	s;
-
-		  s = socket(AF_INET, SOCK_DGRAM, 0);
-		  if (s != -1) {
-		      struct ifmediareq 	ifmr;
-		      
-		      bzero(&ifmr, sizeof(ifmr));
-		      strlcpy(ifmr.ifm_name, name, sizeof(ifmr.ifm_name));
-		      if (ioctl(s, SIOCGIFMEDIA, &ifmr) != -1
-			  && IFM_TYPE(ifmr.ifm_current) == IFM_IEEE80211) {
-			  entry->is_wireless = TRUE;
-		      }
-		      close(s);
+	      if (S_get_ifmediareq(name, &ifmr)) {
+		  if (entry->type == IFT_ETHER) {
+		      entry->is_wireless 
+			  = S_ifmediareq_get_is_wireless(&ifmr);
 		  }
+		  entry->link_status
+		      = S_ifmediareq_get_link_status(&ifmr);
 	      }
 	      break;
 	  }
@@ -478,12 +481,6 @@ if_dup(interface_t * intface)
     return (new_p);
 }
 
-static __inline__ boolean_t
-if_inet_addr_remove_at(interface_t * if_p, int i)
-{
-    return (dynarray_free_element(&if_p->inet, i));
-}
-
 int
 if_inet_find_ip(interface_t * if_p, struct in_addr iaddr)
 {
@@ -497,40 +494,10 @@ if_inet_find_ip(interface_t * if_p, struct in_addr iaddr)
     return (INDEX_BAD);
 }
 
-/*
- * Function: if_inet_addr_add
- * Purpose:
- *   Add an inet address to the list.
- * Note:
- *   Most recently added addresses always end up at the end.
- *   If the address was already in the list, deleted first
- *   then added to the end.
- */
-boolean_t
-if_inet_addr_add(interface_t * if_p, inet_addrinfo_t * info)
-{
-    int 		i = if_inet_find_ip(if_p, info->addr);
-    
-    if (i != INDEX_BAD) {
-	if_inet_addr_remove_at(if_p, i);
-    }
-    return (dynarray_add(&if_p->inet, inet_addrinfo_copy(info)));
-
-}
-
-boolean_t
-if_inet_addr_remove(interface_t * if_p, struct in_addr iaddr)
-{
-    int 	i = if_inet_find_ip(if_p, iaddr);
-
-    if (i == INDEX_BAD)
-	return (FALSE);
-    return (if_inet_addr_remove_at(if_p, i));
-}
-
 void
 if_link_copy(interface_t * dest, const interface_t * source)
 {
+    dest->link_status = source->link_status;
     dest->link_address = source->link_address;
     return;
 }
@@ -566,8 +533,9 @@ if_link_update(interface_t * if_p)
 	dl_p = (struct sockaddr_dl *)(ifm + 1);
 	if (dl_p->sdl_alen > sizeof(if_p->link_address.addr)) {
 	    syslog(LOG_DEBUG,
-		   "%s: link type %d address length %d > %d", if_name(if_p),
-		   dl_p->sdl_type, dl_p->sdl_alen, sizeof(if_p->link_address.addr));
+		   "%s: link type %d address length %d > %ld", if_name(if_p),
+		   dl_p->sdl_type, dl_p->sdl_alen, 
+		   sizeof(if_p->link_address.addr));
 	    if_p->link_address.alen = sizeof(if_p->link_address.addr);
 	}
 	else {
@@ -638,6 +606,89 @@ if_link_index(interface_t * if_p)
     return (if_p->link_address.index);
 }
 
+link_status_t 
+if_get_link_status(interface_t * if_p)
+{
+    return (if_p->link_status);
+}
+
+static int
+siocgifmedia(int sockfd, struct ifmediareq * ifmr_p,
+	     const char * name)
+{
+    (void)memset(ifmr_p, 0, sizeof(*ifmr_p));
+    (void)strlcpy(ifmr_p->ifm_name, name, sizeof(ifmr_p->ifm_name));
+    return (ioctl(sockfd, SIOCGIFMEDIA, (caddr_t)ifmr_p));
+}
+
+static boolean_t
+S_get_ifmediareq(const char * name, struct ifmediareq * ifmr_p)
+{
+    boolean_t	ret;
+    int		s;
+
+    s = socket(AF_INET, SOCK_DGRAM, 0);
+    if (s < 0) {
+	return (FALSE);
+    }
+    if (siocgifmedia(s, ifmr_p, name) == -1) {
+	if (errno == EOPNOTSUPP) {
+	    ifmr_p->ifm_status = IFM_ACTIVE | IFM_AVALID;
+    	    ifmr_p->ifm_count = 1;
+	    ret = TRUE;
+	}
+	else {
+	    ret = FALSE;
+	}
+    }
+    else {
+	ret = TRUE;
+    }
+    close(s);
+    return (ret);
+}
+
+static boolean_t
+S_ifmediareq_get_is_wireless(struct ifmediareq * ifmr_p)
+{
+    return (IFM_TYPE(ifmr_p->ifm_current) == IFM_IEEE80211);
+}
+
+static link_status_t
+S_ifmediareq_get_link_status(struct ifmediareq * ifmr_p)
+{
+    link_status_t 	link;
+
+    link.valid = FALSE;
+    link.active = FALSE;
+    if (ifmr_p->ifm_count > 0 && (ifmr_p->ifm_status & IFM_AVALID) != 0) {
+	link.valid = TRUE;
+	if ((ifmr_p->ifm_status & IFM_ACTIVE) != 0) {
+	    link.active = TRUE;
+	}
+    }
+    return (link);
+}
+
+link_status_t
+if_link_status_update(interface_t * if_p)
+{
+    struct ifmediareq 		ifmr;
+
+    if (S_get_ifmediareq(if_name(if_p), &ifmr) == FALSE) {
+	if (errno != ENXIO && errno != EPWROFF && errno != EINVAL) {
+	    syslog(LOG_NOTICE,
+		   "if_link_status_update(%s): failed to get media status, %m",
+		   if_name(if_p));
+	}
+    }
+    else {
+	if_p->link_status = S_ifmediareq_get_link_status(&ifmr);
+    }
+    return (if_p->link_status);
+}
+
+
 #ifdef TEST_INTERFACES
 
 #if 0
@@ -698,6 +749,10 @@ ifl_print(interface_list_t * list_p)
 	}
 	if (if_p->link_address.type != 0) {
 	    link_addr_print(&if_p->link_address);
+	    if (if_p->link_status.valid) {
+		printf("Link is %s\n",
+		       if_p->link_status.active ? "active" : "inactive");
+	    }
 	    if (if_p->is_wireless) {
 		printf("wireless\n");
 	    }

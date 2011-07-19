@@ -32,7 +32,47 @@
 #ifndef _PMSystemEvents_h_
 #define _PMSystemEvents_h_
 
+#include <notify.h>
+
+
 #define kRootDomainThermalStatusKey "Power Status"
+
+#define kMySCIdentity           CFSTR("IOKit Power")
+
+
+static CFStringRef createSCKeyForIOKitString(CFStringRef str)
+{
+    CFStringRef     keyForString = NULL;
+
+    if (CFEqual(str, CFSTR(kIOPMThermalLevelWarningKey))) 
+    {
+        keyForString = CFSTR("ThermalWarning");
+    } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) {
+        keyForString = CFSTR("CPUPower");
+    }
+
+    if (!keyForString)
+        return NULL;
+
+    return SCDynamicStoreKeyCreate(kCFAllocatorDefault, 
+                        CFSTR("%@%@/%@"),
+                        kSCDynamicStoreDomainState, 
+                        CFSTR("/IOKit/Power"),
+                        keyForString);
+}
+
+static const char * getNotifyKeyForIOKitString(CFStringRef str)
+{
+    if (CFEqual(str, CFSTR(kIOPMThermalLevelWarningKey))) 
+    {
+        return kIOPMThermalWarningNotificationKey;
+    } else if (CFEqual(str, CFSTR(kIOPMCPUPowerLimitsKey))) 
+    {
+        return kIOPMCPUPowerNotificationKey;
+    }
+    return NULL;
+}
+
     
 __private_extern__ void 
 PMSystemEvents_prime(void)
@@ -44,10 +84,11 @@ PMSystemEvents_prime(void)
 __private_extern__ void 
 PMSystemEventsRootDomainInterest(void)
 {
-    IOReturn                ret;
     CFDictionaryRef         thermalStatus;
+    CFMutableDictionaryRef  setTheseDSKeys = NULL;
     CFStringRef             *keys = NULL;
     CFNumberRef             *vals = NULL;
+    SCDynamicStoreRef       store = NULL;
     int                     count = 0;
     int                     i;
 
@@ -58,11 +99,13 @@ PMSystemEventsRootDomainInterest(void)
                             kCFAllocatorDefault,
                             kNilOptions);
 
-    if(!thermalStatus)
+    if (!thermalStatus
+        || !(count = CFDictionaryGetCount(thermalStatus)))
+    {
         goto exit;
+    }
     
     // Publish dictionary in SCDynamicStore
-    count = CFDictionaryGetCount(thermalStatus);
     keys = (CFStringRef *)malloc(count*sizeof(CFStringRef));
     vals = (CFNumberRef *)malloc(count*sizeof(CFNumberRef));
     if (!keys||!vals) 
@@ -71,12 +114,31 @@ PMSystemEventsRootDomainInterest(void)
     CFDictionaryGetKeysAndValues(thermalStatus, 
                     (const void **)keys, (const void **)vals);
     
-    for(i=0; i<count; i++) {
+    setTheseDSKeys = CFDictionaryCreateMutable(0, count, 
+                    &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (!setTheseDSKeys)
+        goto exit;
+    
+    for (i=0; i<count; i++) 
+    {
+        CFStringRef writeToKey = createSCKeyForIOKitString(keys[i]);
+        if (writeToKey) {
+            CFDictionarySetValue(setTheseDSKeys, writeToKey, keys[i]);
+            CFRelease(writeToKey);
+        }
+    }
 
-        ret = IOPMSystemPowerEventOccurred(keys[i], vals[i]);
-        
-        // IOPMSystemPowerEventOccurred may fail if configd is down
-        // but we ignore those failure cases.
+    store = SCDynamicStoreCreate(0, kMySCIdentity, NULL, NULL);
+    if (!store)
+        goto exit;
+
+    SCDynamicStoreSetMultiple(store, setTheseDSKeys, NULL, NULL);
+
+    for (i=0; i<count; i++)
+    {
+        const char *notify3Key = getNotifyKeyForIOKitString(keys[i]);
+        if (notify3Key) 
+            notify_post(notify3Key);
     }
 
 exit:    
@@ -84,6 +146,10 @@ exit:
         free(keys);
     if (vals)
         free(vals);
+    if (setTheseDSKeys)
+        CFRelease(setTheseDSKeys);
+    if (store)
+        CFRelease(store);
     if (thermalStatus)
         CFRelease(thermalStatus);
     return;

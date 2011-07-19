@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1998-2009 Apple Inc. All Rights Reserved.
+ * Copyright (c) 1998-2011 Apple Inc. All Rights Reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -742,7 +742,7 @@ void DAPreferenceListRefresh( void )
         CFRelease( preferences );
     }
 
-    preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( _kDAServiceName ), CFSTR( _kDAServiceName ".plist" ) );
+    preferences = SCPreferencesCreate( kCFAllocatorDefault, CFSTR( _kDADaemonName ), CFSTR( _kDADaemonName ".plist" ) );
 
     if ( preferences )
     {

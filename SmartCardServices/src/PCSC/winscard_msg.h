@@ -34,7 +34,7 @@
  *  Damien Sauveron <damien.sauveron@labri.fr>
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: winscard_msg.h 2900 2008-04-22 13:12:50Z rousseau $
+ * $Id: winscard_msg.h 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

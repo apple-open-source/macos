@@ -62,6 +62,17 @@ struct WebDynamicScrollBarsViewPrivate {
     bool alwaysHideVerticalScroller;
     bool horizontalScrollingAllowedButScrollerHidden;
     bool verticalScrollingAllowedButScrollerHidden;
+
+    // scrollOrigin is set for various combinations of writing mode and direction.
+    // See the comment next to the corresponding member in ScrollView.h.
+    NSPoint scrollOrigin;
+
+    // Flag to indicate that the scrollbar thumb's initial position needs to
+    // be manually set.
+    bool scrollOriginChanged;
+    NSPoint scrollPositionExcludingOrigin;
+
+    bool inProgrammaticScroll;
 };
 
 @implementation WebDynamicScrollBarsView
@@ -174,7 +185,7 @@ struct WebDynamicScrollBarsViewPrivate {
         [[self contentView] setFrame:[self contentViewFrame]];
 }
 
-- (void)setSuppressLayout:(BOOL)flag;
+- (void)setSuppressLayout:(BOOL)flag
 {
     _private->suppressLayout = flag;
 }
@@ -183,9 +194,6 @@ struct WebDynamicScrollBarsViewPrivate {
 {
     _private->suppressScrollers = suppressed;
 
-    // This code was originally changes for a Leopard performance imporvement. We decided to 
-    // ifdef it to fix correctness issues on Tiger documented in <rdar://problem/5441823>.
-#ifndef BUILDING_ON_TIGER
     if (suppressed) {
         [[self verticalScroller] setNeedsDisplay:NO];
         [[self horizontalScroller] setNeedsDisplay:NO];
@@ -193,12 +201,24 @@ struct WebDynamicScrollBarsViewPrivate {
 
     if (!suppressed && repaint)
         [super reflectScrolledClipView:[self contentView]];
-#else
-    if (suppressed || repaint) {
-        [[self verticalScroller] setNeedsDisplay:!suppressed];
-        [[self horizontalScroller] setNeedsDisplay:!suppressed];
-    }
-#endif
+}
+
+- (void)adjustForScrollOriginChange
+{
+    if (!_private->scrollOriginChanged)
+        return;
+
+    _private->scrollOriginChanged = false;
+
+    NSView *documentView = [self documentView];
+    NSRect documentRect = [documentView bounds];
+
+    // The call to [NSView scrollPoint:] fires off notification the handler for which needs to know that
+    // we're setting the initial scroll position so it doesn't interpret this as a user action and
+    // fire off a JS event.
+    _private->inProgrammaticScroll = true;
+    [documentView scrollPoint:NSMakePoint(_private->scrollPositionExcludingOrigin.x + documentRect.origin.x, _private->scrollPositionExcludingOrigin.y + documentRect.origin.y)];
+    _private->inProgrammaticScroll = false;
 }
 
 static const unsigned cMaxUpdateScrollbarsPass = 2;
@@ -262,6 +282,15 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     NSSize documentSize = [documentView frame].size;
     NSSize visibleSize = [self documentVisibleRect].size;
     NSSize frameSize = [self frame].size;
+    
+    // When in HiDPI with a scale factor > 1, the visibleSize and frameSize may be non-integral values,
+    // while the documentSize (set by WebCore) will be integral.  Round up the non-integral sizes so that
+    // the mismatch won't cause unwanted scrollbars to appear.  This can result in slightly cut off content,
+    // but it will always be less than one pixel, which should not be noticeable.
+    visibleSize.width = ceilf(visibleSize.width);
+    visibleSize.height = ceilf(visibleSize.height);
+    frameSize.width = ceilf(frameSize.width);
+    frameSize.height = ceilf(frameSize.height);
 
     if (_private->hScroll == ScrollbarAuto) {
         newHasHorizontalScroller = documentSize.width > visibleSize.width;
@@ -295,6 +324,10 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
         [self setHasHorizontalScroller:newHasHorizontalScroller];
         _private->inUpdateScrollers = NO;
         needsLayout = YES;
+        NSView *documentView = [self documentView];
+        NSRect documentRect = [documentView bounds];
+        if (documentRect.origin.y < 0 && !newHasHorizontalScroller)
+            [documentView setBoundsOrigin:NSMakePoint(documentRect.origin.x, documentRect.origin.y + 15)];
     }
 
     if (hasVerticalScroller != newHasVerticalScroller) {
@@ -302,6 +335,10 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
         [self setHasVerticalScroller:newHasVerticalScroller];
         _private->inUpdateScrollers = NO;
         needsLayout = YES;
+        NSView *documentView = [self documentView];
+        NSRect documentRect = [documentView bounds];
+        if (documentRect.origin.x < 0 && !newHasVerticalScroller)
+            [documentView setBoundsOrigin:NSMakePoint(documentRect.origin.x + 15, documentRect.origin.y)];
     }
 
     if (needsLayout && _private->inUpdateScrollersLayoutPass < cMaxUpdateScrollbarsPass &&
@@ -339,21 +376,14 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
             [self updateScrollers];
     }
 
-    // This code was originally changed for a Leopard performance imporvement. We decided to 
-    // ifdef it to fix correctness issues on Tiger documented in <rdar://problem/5441823>.
-#ifndef BUILDING_ON_TIGER
     // Update the scrollers if they're not being suppressed.
     if (!_private->suppressScrollers)
         [super reflectScrolledClipView:clipView];
-#else
-    [super reflectScrolledClipView:clipView];
 
-    // Validate the scrollers if they're being suppressed.
-    if (_private->suppressScrollers) {
-        [[self verticalScroller] setNeedsDisplay:NO];
-        [[self horizontalScroller] setNeedsDisplay:NO];
-    }
-#endif
+    // The call to [NSView reflectScrolledClipView] sets the scrollbar thumb
+    // position to 0 (the left) when the view is initially displayed.
+    // This call updates the initial position correctly.
+    [self adjustForScrollOriginChange];
 
 #if USE(ACCELERATED_COMPOSITING) && defined(BUILDING_ON_LEOPARD)
     NSView *documentView = [self documentView];
@@ -461,12 +491,16 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
 {
     float deltaX;
     float deltaY;
-    float wheelTicksX;
-    float wheelTicksY;
     BOOL isContinuous;
-    WKGetWheelEventDeltas(event, &deltaX, &deltaY, &wheelTicksX, &wheelTicksY, &isContinuous);
+    WKGetWheelEventDeltas(event, &deltaX, &deltaY, &isContinuous);
 
-    BOOL isLatchingEvent = WKIsLatchingWheelEvent(event);
+#if !defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD)
+    NSEventPhase momentumPhase = [event momentumPhase];
+    BOOL isLatchingEvent = momentumPhase & NSEventPhaseBegan || momentumPhase & NSEventPhaseStationary;
+#else
+    int momentumPhase = WKGetNSEventMomentumPhase(event);
+    BOOL isLatchingEvent = momentumPhase == WKEventPhaseBegan || momentumPhase == WKEventPhaseChanged;
+#endif
 
     if (fabsf(deltaY) > fabsf(deltaX)) {
         if (![self allowsVerticalScrolling]) {
@@ -509,13 +543,41 @@ static const unsigned cMaxUpdateScrollbarsPass = 2;
     [self release];
 }
 
+// This object will be the parent of the web area in WK1, so it should not be ignored.
 - (BOOL)accessibilityIsIgnored 
 {
+    return NO;
+}
+
+- (void)setScrollOrigin:(NSPoint)scrollOrigin updatePositionAtAll:(BOOL)updatePositionAtAll immediately:(BOOL)updatePositionSynchronously
+{
+    // The cross-platform ScrollView call already checked to see if the old/new scroll origins were the same or not
+    // so we don't have to check for equivalence here.
+    _private->scrollOrigin = scrollOrigin;
     id docView = [self documentView];
-    if ([docView isKindOfClass:[WebFrameView class]] && ![(WebFrameView *)docView allowsScrolling])
-        return YES;
-    
-    return [super accessibilityIsIgnored];
+
+    NSRect visibleRect = [self documentVisibleRect];
+
+    [docView setBoundsOrigin:NSMakePoint(-scrollOrigin.x, -scrollOrigin.y)];
+
+    if (updatePositionAtAll)
+        _private->scrollOriginChanged = true;
+
+    // Maintain our original position in the presence of the new scroll origin.
+    _private->scrollPositionExcludingOrigin = NSMakePoint(visibleRect.origin.x + scrollOrigin.x, visibleRect.origin.y + scrollOrigin.y);
+
+    if (updatePositionAtAll && updatePositionSynchronously) // Otherwise we'll just let the snap happen when we update for the resize.
+        [self adjustForScrollOriginChange];
+}
+
+- (NSPoint)scrollOrigin
+{
+    return _private->scrollOrigin;
+}
+
+- (BOOL)inProgrammaticScroll
+{
+    return _private->inProgrammaticScroll;
 }
 
 @end

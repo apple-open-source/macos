@@ -34,7 +34,7 @@
 # ~ $
 #
 
-configuration=Development
+configuration=Debug
 
 if [ $1 = -config ]; then
 	configuration="$2"

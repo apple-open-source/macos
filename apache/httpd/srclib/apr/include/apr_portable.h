@@ -321,6 +321,7 @@ APR_DECLARE(apr_os_thread_t) apr_os_thread_current(void);
  * Compare two thread id's
  * @param tid1 1st Thread ID to compare
  * @param tid2 2nd Thread ID to compare
+ * @return non-zero if the two threads are equal, zero otherwise
  */ 
 APR_DECLARE(int) apr_os_thread_equal(apr_os_thread_t tid1, 
                                      apr_os_thread_t tid2);
@@ -471,15 +472,16 @@ APR_DECLARE(apr_status_t) apr_os_dso_handle_put(apr_dso_handle_t **dso,
 APR_DECLARE(apr_status_t) apr_os_dso_handle_get(apr_os_dso_handle_t *dso,
                                                 apr_dso_handle_t *aprdso);
 
+/** @} */
+#endif /* APR_HAS_DSO */
+
+
 #if APR_HAS_OS_UUID
 /**
  * Private: apr-util's apr_uuid module when supported by the platform
  */
 APR_DECLARE(apr_status_t) apr_os_uuid_get(unsigned char *uuid_data);
 #endif
-
-/** @} */
-#endif /* APR_HAS_DSO */
 
 
 /**

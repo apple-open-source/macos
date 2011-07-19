@@ -1,3 +1,5 @@
+/*	$OpenBSD: stack_protector.c,v 1.10 2006/03/31 05:34:44 deraadt Exp $	*/
+
 /*
  * Copyright (c) 2002 Hiroaki Etoh, Federico G. Schwindt, and Miodrag Vallat.
  * All rights reserved.
@@ -25,13 +27,14 @@
  *
  */
 
-#if defined(LIBC_SCCS) && !defined(list)
-static char rcsid[] = "$OpenBSD: stack_protector.c,v 1.3 2002/12/10 08:53:42 etoh Exp $";
-#endif
-
 #include <sys/param.h>
 #include <sys/sysctl.h>
+#include <signal.h>
+#include <string.h>
 #include <syslog.h>
+#include <unistd.h>
+
+extern int __sysctl(int *, u_int, void *, size_t *, void *, size_t);
 
 long __guard[8] = {0, 0, 0, 0, 0, 0, 0, 0};
 static void __guard_setup(void) __attribute__ ((constructor));
@@ -40,36 +43,50 @@ void __stack_smash_handler(char func[], int damaged __attribute__((unused)));
 static void
 __guard_setup(void)
 {
-  int fd;
-  if (__guard[0]!=0) return;
-  fd = open ("/dev/urandom", 0);
-  if (fd != -1) {
-    ssize_t size = read (fd, (char*)&__guard, sizeof(__guard));
-    close (fd) ;
-    if (size == sizeof(__guard)) return;
-  }
-  /* If a random generator can't be used, the protector switches the guard
-     to the "terminator canary" */
-  ((char*)__guard)[0] = 0; ((char*)__guard)[1] = 0;
-  ((char*)__guard)[2] = '\n'; ((char*)__guard)[3] = 255;
+	int mib[2];
+	size_t len;
+
+	if (__guard[0] != 0)
+		return;
+
+	mib[0] = CTL_KERN;
+	mib[1] = KERN_ARND;
+
+	len = sizeof(__guard);
+	if (__sysctl(mib, 2, __guard, &len, NULL, 0) == -1 ||
+	    len != sizeof(__guard)) {
+		/* If sysctl was unsuccessful, use the "terminator canary". */
+		((unsigned char *)__guard)[0] = 0;
+		((unsigned char *)__guard)[1] = 0;
+		((unsigned char *)__guard)[2] = '\n';
+		((unsigned char *)__guard)[3] = 255;
+	}
 }
 
+/*ARGSUSED*/
 void
 __stack_smash_handler(char func[], int damaged)
 {
-  const char message[] = "stack overflow in function %s";
-  struct sigaction sa;
+	struct syslog_data sdata = SYSLOG_DATA_INIT;
+	const char message[] = "stack overflow in function %s";
+	struct sigaction sa;
+	sigset_t mask;
 
-  /* this may fail on a chroot jail, though luck */
-  syslog(LOG_CRIT, message, func);
+	/* Immediately block all signal handlers from running code */
+	sigfillset(&mask);
+	sigdelset(&mask, SIGABRT);
+	sigprocmask(SIG_BLOCK, &mask, NULL);
 
-  bzero(&sa, sizeof(struct sigaction));
-  sigemptyset(&sa.sa_mask);
-  sa.sa_flags = 0;
-  sa.sa_handler = SIG_DFL;
-  sigaction(SIGABRT, &sa, NULL);
+	/* This may fail on a chroot jail... */
+	syslog_r(LOG_CRIT, &sdata, message, func);
 
-  kill(getpid(), SIGABRT);
+	bzero(&sa, sizeof(struct sigaction));
+	sigemptyset(&sa.sa_mask);
+	sa.sa_flags = 0;
+	sa.sa_handler = SIG_DFL;
+	sigaction(SIGABRT, &sa, NULL);
 
-  _exit(127);
+	kill(getpid(), SIGABRT);
+
+	_exit(127);
 }

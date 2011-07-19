@@ -27,7 +27,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 #pragma ident	"@(#)ns_files.c	1.49	05/06/08 SMI"
@@ -47,11 +47,11 @@
 #include "autofs.h"
 #include "automount.h"
 
-static int read_execout(char *key, char **lp, char *fname, char *line,
+static int read_execout(const char *key, char **lp, char *fname, char *line,
 			int linesz);
 static int read_execoutreaddir(struct dir_entry **list, char *fname,
 			       char *linebuf, int linebufsz);
-static FILE *file_open(char *, char *, char **, char ***);
+static FILE *file_open(const char *, char *, char **, char ***);
 
 /*
  * Initialize the stack
@@ -71,8 +71,8 @@ init_files(char **stack, char ***stkptr)
 
 int
 getmapent_files(key, mapname, ml, stack, stkptr, iswildcard, isrestricted)
-	char *key;
-	char *mapname;
+	const char *key;
+	const char *mapname;
 	struct mapline *ml;
 	char **stack, ***stkptr;
 	bool_t *iswildcard;
@@ -221,6 +221,7 @@ getmapkeys_files(mapname, list, error, cache_time, stack, stkptr)
 	char fname[MAXFILENAMELEN]; /* /etc prepended to mapname if reqd */
 	int syntaxok = 1;
 	int nserr;
+	int err;
 	struct dir_entry *last = NULL;
 
 	if (trace > 1)
@@ -317,17 +318,24 @@ getmapkeys_files(mapname, list, error, cache_time, stack, stkptr)
 			continue;
 		}
 
-		if (add_dir_entry(word, list, &last) != 0) {
-			/*
-			 * XXX - if we've gotten any entries, *error
-			 * will be zeroed out.  In addition, nobody
-			 * checks our return value in any case.
-			 */
-			*error = ENOMEM;
-			nserr = __NSW_UNAVAIL;
-			goto done;
+		/*
+		 * A return value of -1 means the name is invalid,
+		 * so nothing was added to the list.
+		 */
+		err = add_dir_entry(word, lp, lq, list, &last);
+		if (err != -1) {
+			if (err != 0) {
+				/*
+				 * XXX - if we've gotten any entries, *error
+				 * will be zeroed out.  In addition, nobody
+				 * checks our return value in any case.
+				 */
+				*error = err;
+				nserr = __NSW_UNAVAIL;
+				goto done;
+			}
+			assert(last != NULL);
 		}
-		assert(last != NULL);
 	}
 
 	nserr = __NSW_SUCCESS;
@@ -495,7 +503,8 @@ loaddirect_files(map, local_map, opts, stack, stkptr)
  */
 static FILE *
 file_open(map, fname, stack, stkptr)
-	char *map, *fname;
+	const char *map;
+	char *fname;
 	char **stack, ***stkptr;
 {
 	FILE *fp;
@@ -595,7 +604,7 @@ stack_op(op, name, stack, stkptr)
  * Returns 0 on OK or -1 on error.
  */
 static int
-read_execout(char *key, char **lp, char *fname, char *line, int linesz)
+read_execout(const char *key, char **lp, char *fname, char *line, int linesz)
 {
 	int p[2];
 	int status = 0;
@@ -759,11 +768,17 @@ read_execoutreaddir(struct dir_entry **list, char *fname, char *linebuf, int lin
 					break;
 				}
 				linebuf[linelen - 1] = '\0';	/* remove NL */
-				if (add_dir_entry(linebuf, list, &last) != 0) {
-					error = ENOMEM;
-					break;
+				/*
+				 * A return value of -1 means the name is
+				 * invalid, so nothing was added to the list.
+				 */
+				error = add_dir_entry(linebuf, NULL, NULL, list,
+				    &last);
+				if (error != -1) {
+					if (error != 0)
+						break;
+					assert(last != NULL);
 				}
-				assert(last != NULL);
 			}
 			if (ferror(fp0))
 				error = errno;

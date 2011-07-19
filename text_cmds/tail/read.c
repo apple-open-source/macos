@@ -36,7 +36,7 @@
 
 #include <sys/cdefs.h>
 
-__FBSDID("$FreeBSD: src/usr.bin/tail/read.c,v 1.11 2004/11/03 15:23:11 paul Exp $");
+__FBSDID("$FreeBSD$");
 
 #ifndef lint
 static const char sccsid[] = "@(#)read.c	8.1 (Berkeley) 6/6/93";
@@ -85,6 +85,7 @@ bytes(FILE *fp, off_t off)
 	}
 	if (ferror(fp)) {
 		ierr();
+		free(sp);
 		return 1;
 	}
 
@@ -119,6 +120,8 @@ bytes(FILE *fp, off_t off)
 		if (len)
 			WR(sp, len);
 	}
+
+	free(sp);
 	return 0;
 }
 
@@ -140,7 +143,7 @@ lines(FILE *fp, off_t off)
 		u_int len;
 		char *l;
 	} *llines;
-	int ch;
+	int ch, rc;
 	char *p, *sp;
 	int blen, cnt, recno, wrap;
 
@@ -149,6 +152,7 @@ lines(FILE *fp, off_t off)
 	bzero(llines, off * sizeof(*llines));
 	sp = NULL;
 	blen = cnt = recno = wrap = 0;
+	rc = 0;
 
 	while ((ch = getc(fp)) != EOF) {
 		if (++cnt > blen) {
@@ -175,10 +179,12 @@ lines(FILE *fp, off_t off)
 	}
 	if (ferror(fp)) {
 		ierr();
-		return 1;
+		rc = 1;
+		goto done;
 	}
 	if (cnt) {
 		llines[recno].l = sp;
+		sp = NULL;
 		llines[recno].len = cnt;
 		if (++recno == off) {
 			wrap = 1;
@@ -199,5 +205,10 @@ lines(FILE *fp, off_t off)
 		for (cnt = 0; cnt < recno; ++cnt)
 			WR(llines[cnt].l, llines[cnt].len);
 	}
-	return 0;
+done:
+	for (cnt = 0; cnt < off; cnt++)
+		free(llines[cnt].l);
+	free(sp);
+	free(llines);
+	return (rc);
 }

@@ -56,8 +56,7 @@ protected:
   void InitializeAliasAnalysis(Pass *P);
 
   /// getAnalysisUsage - All alias analysis implementations should invoke this
-  /// directly (using AliasAnalysis::getAnalysisUsage(AU)) to make sure that
-  /// TargetData is required by the pass.
+  /// directly (using AliasAnalysis::getAnalysisUsage(AU)).
   virtual void getAnalysisUsage(AnalysisUsage &AU) const;
 
 public:
@@ -65,11 +64,15 @@ public:
   AliasAnalysis() : TD(0), AA(0) {}
   virtual ~AliasAnalysis();  // We want to be subclassed
 
-  /// getTargetData - Every alias analysis implementation depends on the size of
-  /// data items in the current Target.  This provides a uniform way to handle
-  /// it.
+  /// getTargetData - Return a pointer to the current TargetData object, or
+  /// null if no TargetData object is available.
   ///
-  const TargetData &getTargetData() const { return *TD; }
+  const TargetData *getTargetData() const { return TD; }
+
+  /// getTypeStoreSize - Return the TargetData store size for the given type,
+  /// if known, or a conservative value otherwise.
+  ///
+  unsigned getTypeStoreSize(const Type *Ty);
 
   //===--------------------------------------------------------------------===//
   /// Alias Queries...
@@ -91,13 +94,12 @@ public:
   virtual AliasResult alias(const Value *V1, unsigned V1Size,
                             const Value *V2, unsigned V2Size);
 
-  /// getMustAliases - If there are any pointers known that must alias this
-  /// pointer, return them now.  This allows alias-set based alias analyses to
-  /// perform a form a value numbering (which is exposed by load-vn).  If an
-  /// alias analysis supports this, it should ADD any must aliased pointers to
-  /// the specified vector.
-  ///
-  virtual void getMustAliases(Value *P, std::vector<Value*> &RetVals);
+  /// isNoAlias - A trivial helper function to check to see if the specified
+  /// pointers are no-alias.
+  bool isNoAlias(const Value *V1, unsigned V1Size,
+                 const Value *V2, unsigned V2Size) {
+    return alias(V1, V1Size, V2, V2Size) == NoAlias;
+  }
 
   /// pointsToConstantMemory - If the specified pointer is known to point into
   /// constant global memory, return true.  This allows disambiguation of store
@@ -195,6 +197,10 @@ public:
   virtual ModRefBehavior getModRefBehavior(Function *F,
                                    std::vector<PointerAccessInfo> *Info = 0);
 
+  /// getModRefBehavior - Return the modref behavior of the intrinsic with the
+  /// given id.
+  static ModRefBehavior getModRefBehavior(unsigned iid);
+
   /// doesNotAccessMemory - If the specified call is known to never read or
   /// write memory, return true.  If the call only reads from known-constant
   /// memory, it is also legal to return true.  Calls that unwind the stack
@@ -258,14 +264,6 @@ public:
   /// ModRef if CS1 might read or write memory accessed by CS2.
   ///
   virtual ModRefResult getModRefInfo(CallSite CS1, CallSite CS2);
-
-  /// hasNoModRefInfoForCalls - Return true if the analysis has no mod/ref
-  /// information for pairs of function calls (other than "pure" and "const"
-  /// functions).  This can be used by clients to avoid many pointless queries.
-  /// Remember that if you override this and chain to another analysis, you must
-  /// make sure that it doesn't have mod/ref info either.
-  ///
-  virtual bool hasNoModRefInfoForCalls() const;
 
 public:
   /// Convenience functions...
@@ -344,7 +342,7 @@ bool isNoAliasCall(const Value *V);
 
 /// isIdentifiedObject - Return true if this pointer refers to a distinct and
 /// identifiable object.  This returns true for:
-///    Global Variables and Functions
+///    Global Variables and Functions (but not Global Aliases)
 ///    Allocas and Mallocs
 ///    ByVal and NoAlias Arguments
 ///    NoAlias returns

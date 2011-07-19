@@ -1,0 +1,12 @@
+﻿# ***************************************************************************
+# *
+# *  Copyright (C) 2011, International Business Machines
+# *  Corporation; Unicode, Inc.; and others.  All Rights Reserved.
+# *
+# ***************************************************************************
+# File: el_Upper.txt
+# remove \0301 following Greek, with possible intervening 0308 marks
+:: NFD() ;
+[[:Greek:]&[:Ll:]] [\u0308]? { \u0301 → ;
+:: NFC() ;
+::Any-Upper();

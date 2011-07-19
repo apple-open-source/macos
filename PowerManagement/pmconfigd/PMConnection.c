@@ -35,11 +35,17 @@
 #include <mach/mach.h>
 #include <mach/message.h>
 #include <notify.h>
+#include <IOKit/pwr_mgt/IOPM.h>
 
 #include "PrivateLib.h"
 #include "PMConnection.h"
 #include "AutoWakeScheduler.h"
 #include "RepeatingAutoWake.h"
+#include "PMAssertions.h"
+#include "PMStore.h"
+#if !TARGET_OS_EMBEDDED
+#include "TTYKeepAwake.h"
+#endif
 
 /************************************************************************************/
 
@@ -106,6 +112,7 @@ typedef struct {
     uint32_t                uniqueID;
     int                     callerPID;
     IOPMSystemPowerStateCapabilities    interestsBits;
+    bool                    notifyEnable;
 } PMConnection;
 
 
@@ -123,14 +130,6 @@ typedef struct {
     bool                    replied;
     bool                    timedout;
 } PMResponse;
-
-
-/*****************************************************************************/
-// Private constants shared between us and xnu IOPMrootDomain
-
-#define kIOPMPrivilegedPowerInterest    "IOPMPrivilegedPowerInterest"
-
-#define kIOPMRootDomainRunStateKey      "Run State"
 
 
 /************************************************************************************/
@@ -172,7 +171,7 @@ static void PMConnectionPowerCallBack(
     void            *port,
     io_service_t    rootdomainservice,
     natural_t       messageType,
-    void            *acknowledgementToken);
+    void            *messageData);
 
 __private_extern__ void
 ClockSleepWakeNotification(
@@ -249,15 +248,11 @@ void PMConnection_prime()
     }
 
     // Register for sleep wake notifications
-    kr = IOServiceAddInterestNotification(
-            notify,
-            rootDomainService,
-            kIOPMPrivilegedPowerInterest,
-            (IOServiceInterestCallback) PMConnectionPowerCallBack,
-            NULL,
-            &sleepWakeCallbackHandle);
+    kr = IOServiceAddInterestNotification(notify, rootDomainService, "IOPMSystemCapabilityInterest",
+                                          (IOServiceInterestCallback) PMConnectionPowerCallBack, NULL,
+                                          &sleepWakeCallbackHandle);
     if (KERN_SUCCESS != kr) {
-        errorString = "Could not add interest notification kIOPMPrivilegedPowerInterest";
+        errorString = "Could not add interest notification kIOPMAppPowerStateInterest";
         goto error;
     }
 
@@ -265,14 +260,13 @@ void PMConnection_prime()
             IONotificationPortGetRunLoopSource(notify),
             kCFRunLoopDefaultMode);
 
-
     return;
 
 error:
     // ASL_LOG: KEEP
     asl_log(NULL, NULL, ASL_LEVEL_ERR,
                     "PowerManagement: unable to register with kernel power management. %s %s",
-                    errorString ? "Reason = : ":"", errorString ? errorString:"");
+                    errorString ? "Reason = : ":"", errorString ? errorString:"unknown");
     return;
 }    
 
@@ -335,6 +329,8 @@ exit:
 
     if (MACH_PORT_NULL != task_in)
     {
+        // Release the send right on task_in that we received as an argument
+        // to this method.
         __MACH_PORT_DEBUG(true, "_io_pm_connection_create dropping send right", task_in);
         mach_port_deallocate(mach_task_self(), task_in);
     }
@@ -370,18 +366,24 @@ exit:
         return kIOReturnNotFound;
     }
 
-    connection->notifyPort = notify_port_in;
+    connection->notifyEnable = (disable == 0);
 
-    mach_port_request_notification(
-                mach_task_self(),           // task
-                notify_port_in,                 // port that will die
-                MACH_NOTIFY_DEAD_NAME,      // msgid
-                1,                          // make-send count
-                CFMachPortGetPort(pmServerMachPort),        // notify port
-                MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
-                &oldNotify);                                // previous
+    if (!disable && (MACH_PORT_NULL == connection->notifyPort)) {
+        connection->notifyPort = notify_port_in;
 
-    __MACH_PORT_DEBUG(true, "Registered dead name notification on notifyPort", notify_port_in);
+        mach_port_request_notification(
+                    mach_task_self(),           // task
+                    notify_port_in,                 // port that will die
+                    MACH_NOTIFY_DEAD_NAME,      // msgid
+                    1,                          // make-send count
+                    CFMachPortGetPort(pmServerMachPort),        // notify port
+                    MACH_MSG_TYPE_MAKE_SEND_ONCE,               // notifyPoly
+                    &oldNotify);                                // previous
+    
+        __MACH_PORT_DEBUG(true, "Registered dead name notification on notifyPort", notify_port_in);
+    } else {
+        mach_port_deallocate(mach_task_self(), notify_port_in);
+    }
 
     *return_code = kIOReturnSuccess;
 exit:
@@ -592,7 +594,10 @@ static void cleanupConnection(PMConnection *reap)
     CFRange                 connectionsRange =
                                 CFRangeMake(0, CFArrayGetCount(gConnections));
 
-    if (MACH_PORT_NULL != reap->notifyPort) {
+    if (MACH_PORT_NULL != reap->notifyPort) 
+    {
+        // Release the send right on reap->notifyPort that we obtained 
+        // when we received it as an argument to _io_pm_connection_schedule_notification.
         __MACH_PORT_DEBUG(true, "IOPMConnection cleanupConnection drop notifyPort", reap->notifyPort);
         mach_port_deallocate(mach_task_self(), reap->notifyPort);
         reap->notifyPort = MACH_PORT_NULL;
@@ -613,10 +618,11 @@ static void cleanupConnection(PMConnection *reap)
             openResponse = (PMResponse *)CFArrayGetValueAtIndex(    
                                     responseWrangler->awaitingResponses, i);
 
-            if (openResponse) {
+            if (openResponse && (openResponse->connection == reap)) {
                 openResponse->connection    = NULL;
                 openResponse->replied       = true;
                 openResponse->timedout      = true;
+                break;
             }
         }    
 
@@ -628,15 +634,10 @@ static void cleanupConnection(PMConnection *reap)
     // Remove our struct from gConnections
     index = CFArrayGetFirstIndexOfValue(gConnections, connectionsRange, (void *)reap);
 
-    if (kCFNotFound != index)
-    {
+    if (kCFNotFound != index) {
         CFArrayRemoveValueAtIndex(gConnections, index);
     }
     
-/*    // ASL_LOG: KEEP
-    asl_log(NULL, NULL, ASL_LEVEL_ERR,
-        "PowerManagement: cleaned up connection for pid=%d.\n", reap ? reap->callerPID : 666);
-*/    
     free(reap);
 
     return;
@@ -710,12 +711,13 @@ static void cleanupResponseWrangler(PMResponseWrangler *reap)
     {
         PMResponseWrangler * resp;
         resp = connectionFireNotification(nextInterestBits, nextAcknowledgementID);
-        if (!resp && (nextInterestBits == _kSleepStateBits))
+        if (!resp)
         {
             _pm_scheduledevent_choose_best_wake_event(
                 kChooseMaintenance, 0);
-
-            IOAllowPowerChange(gRootDomainConnect, nextAcknowledgementID);
+            
+            if (nextAcknowledgementID)
+                IOAllowPowerChange(gRootDomainConnect, nextAcknowledgementID);
         }
     }
 }
@@ -755,36 +757,6 @@ __private_extern__ bool PMConnectionHandleDeadName(mach_port_t deadPort)
     }
 }
 
-static int getRunState(void)
-{
-    io_registry_entry_t rootdomainservice = IO_OBJECT_NULL;
-    CFNumberRef     runState = NULL;
-    CFTypeRef       runState0 = NULL;
-    int             rstate = 0;
-    
-    rootdomainservice = getRootDomain();
-
-    runState0 = IORegistryEntryCreateCFProperty(
-            rootdomainservice, 
-            CFSTR(kIOPMRootDomainRunStateKey),
-            kCFAllocatorDefault,
-            kNilOptions);
-
-    runState = (CFNumberRef)isA_CFNumber(runState0);
-    
-    if (runState) 
-    {
-        CFNumberGetValue(runState, kCFNumberSInt32Type, &rstate);
-        CFRelease(runState);
-    } else if (runState0) {
-        // on the remote chance that runState0 is a valid CF type, but not
-        // a number, we release it here to avoid a leak.
-        CFRelease(runState0);
-    }
-    
-    return rstate;
-}
-
 /*****************************************************************************/
 /*****************************************************************************/
 
@@ -806,40 +778,94 @@ static void setSystemSleepStateTracking(IOPMSystemPowerStateCapabilities capable
 	capablesNum = CFNumberCreate(0, kCFNumberIntType, &capables);
 
     if (capablesNum) {
-        SCDynamicStoreSetValue(store, key, capablesNum);     
+        PMStoreSetValue(key, capablesNum);     
         CFRelease(capablesNum);
     }
 
     CFRelease(key);
 }
 
+#define IS_CAP_GAIN(c, f)       \
+        ((((c)->fromCapabilities & (f)) == 0) && \
+         (((c)->toCapabilities & (f)) != 0))
 
-__private_extern__ void PMConnectionPowerCallBack(
+static void PMConnectionPowerCallBack(
     void            *port,
     io_service_t    rootdomainservice,
-    natural_t       messageType,
-    void            *acknowledgementToken)
+    natural_t       inMessageType,
+    void            *messageData)
 {
     PMResponseWrangler                      *responseController = NULL;
     IOPMSystemPowerStateCapabilities        deliverCapabilityBits = 0;
-    int                                     rstate = getRunState();
+    const struct IOPMSystemCapabilityChangeParameters *capArgs;
+    natural_t                               messageType = 0;
+    int                                     rstate = kRStateNormal;
+    bool                                    allow_sleep = true;;
+
+    if (kIOMessageCanSystemSleep == inMessageType)
+    {
+#if !TARGET_OS_EMBEDDED
+        // Re-examine TTY activeness right before system sleep
+        allow_sleep = TTYKeepAwakeConsiderAssertion( );
+#endif        
+        
+        if (allow_sleep)
+           IOAllowPowerChange(gRootDomainConnect, (long)messageData);                
+        else
+           IOCancelPowerChange(gRootDomainConnect, (long)messageData);                
+
+        return;
+    }
+    if (kIOMessageSystemCapabilityChange != inMessageType)
+        return;
+
+    capArgs = (const struct IOPMSystemCapabilityChangeParameters *)messageData;
+
+    _ProxyAssertions(capArgs);
 
     // We run all of our scheduled event code on every maintenance wake
     // and on every maintenance sleep, in case there's a scheduled
     // event we have to honor coming up.
-    if (kIOMessageSystemWillSleep == messageType
-        || kIOMessageSystemHasPoweredOn == messageType)
+    if ((kIOPMSystemCapabilityCPU & capArgs->toCapabilities) !=
+        (kIOPMSystemCapabilityCPU & capArgs->fromCapabilities))
     {
-        // Reset the arbiter between full wake events and 
-        // maintenance wake events.
-        _pm_scheduledevent_choose_best_wake_event(kChooseReset, 0);
+        uint32_t flag = (kIOPMSystemCapabilityCPU & capArgs->toCapabilities) ?
+                        kIOPMSystemCapabilityDidChange :
+                        kIOPMSystemCapabilityWillChange;
+        if (flag & capArgs->changeFlags)
+        {
+            // Reset the arbiter between full wake events and 
+            // maintenance wake events.
+            _pm_scheduledevent_choose_best_wake_event(kChooseReset, 0);
+        }
     }
+    
+    // Synthesize legacy messageType from the capability change.
+    if ((kIOPMSystemCapabilityWillChange & capArgs->changeFlags) &&
+        !(kIOPMSystemCapabilityCPU & capArgs->toCapabilities))
+    {
+        messageType = kIOMessageSystemWillSleep;
+    }
+    else if (kIOPMSystemCapabilityDidChange & capArgs->changeFlags)
+    {
+        if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityGraphics))
+        {
+            messageType = kIOMessageSystemHasPoweredOn;
+            rstate = kRStateNormal;
+        }
+        else if (IS_CAP_GAIN(capArgs, kIOPMSystemCapabilityCPU))
+        {
+            messageType = kIOMessageSystemHasPoweredOn;
+            rstate = kRStateMaintenance;
+        }
+    }
+
     AutoWakeSleepWakeNotification(messageType, rstate);
     
     RepeatingAutoWakeSleepWakeNotification(messageType, rstate);
 
     ClockSleepWakeNotification(messageType);
-
+        
     switch (messageType)
     {
         case kIOMessageSystemWillSleep:
@@ -849,7 +875,7 @@ __private_extern__ void PMConnectionPowerCallBack(
 			notify_post(kIOPMSystemPowerStateNotify);
 
             responseController = connectionFireNotification(_kSleepStateBits,
-                                    (long)acknowledgementToken);
+                                    (long)capArgs->notifyRef);
             
             if (!responseController) {
                 // We have zero clients. Acknowledge immediately.            
@@ -857,25 +883,19 @@ __private_extern__ void PMConnectionPowerCallBack(
                 _pm_scheduledevent_choose_best_wake_event(
                         kChooseMaintenance, 0);
 
-                IOAllowPowerChange(gRootDomainConnect, (long)acknowledgementToken);                
+                IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
             }
-
+            
             /* We must acknowledge this sleep event within 30 second timeout, 
              *      once clients ack via IOPMConnectionAcknowledgeEvent().
              * Our processing will pick-up again in our handler
              *      _io_pm_connection_acknowledge_event
              */
+            logASLMessageSleep(kMsgTracerSigSuccess, NULL, CFAbsoluteTimeGetCurrent(), NULL);
+
             break;
 
-        case kIOMessageCanSystemSleep:
-            /* IOPMConnection clients don't get any notification of CanSystemSleep
-             * They should all be using IOPMAssertions to prevent idle sleep!
-             */
-            IOAllowPowerChange(gRootDomainConnect, (long)acknowledgementToken);                
-             break;
-            
-        case kIOMessageSystemWillPowerOn:
-
+        case kIOMessageSystemHasPoweredOn:
             switch (rstate) 
             {
                 case kRStateNormal:
@@ -904,33 +924,34 @@ __private_extern__ void PMConnectionPowerCallBack(
 			setSystemSleepStateTracking(deliverCapabilityBits);
 			notify_post(kIOPMSystemPowerStateNotify);
 
-            responseController = connectionFireNotification(deliverCapabilityBits, 0);
+            responseController = connectionFireNotification(deliverCapabilityBits,
+                                    (long)capArgs->notifyRef);
 
-            /* We don't need to acknowledge this wake event. But we make our clients
-             * acknowledge us.  
+            /* We must acknowledge this sleep event within 30 second timeout, 
+             *      once clients ack via IOPMConnectionAcknowledgeEvent().
              * Our processing will pick-up again in our handler
              *      _io_pm_connection_acknowledge_event
              */
-            break;
-
-        case kIOMessageSystemHasPoweredOn:
+            
             switch (rstate) 
             {
                 case kRStateNormal:
-                    logASLMessageSleep(kMsgTracerSigSuccess, NULL, CFAbsoluteTimeGetCurrent(), NULL);
                     logASLMessageWake(kMsgTracerSigSuccess, NULL, CFAbsoluteTimeGetCurrent(), NULL);
-                    logASLMessageHibernateStatistics();
                     logASLMessageKernelApplicationResponses();
                 break;
-                
-                case kRStateDark:
-                case kRStateMaintenance:
-                    logASLMessageMaintenanceWake();
-                    break;
+            }
+
+            if (!responseController) {
+                // We have zero clients. Acknowledge immediately.            
+                IOAllowPowerChange(gRootDomainConnect, (long)capArgs->notifyRef);                
             }
             break;
+        
+        default:
+            if (capArgs->notifyRef)
+                IOAllowPowerChange(gRootDomainConnect, capArgs->notifyRef);
+            break;
     }
-
 }
 
 /************************************************************************************/
@@ -957,9 +978,9 @@ static PMResponseWrangler *connectionFireNotification(
     /*
      * If a response wrangler is active, store the new notification on the
      * active wrangler. Then wait for its completion before firing the new
-     * notification. Only a single notification can be stored.
+     * notification. Only the last notification is stored.
      */
-    if (gLastResponseWrangler && !gLastResponseWrangler->nextIsValid)
+    if (gLastResponseWrangler)
     {
         gLastResponseWrangler->nextIsValid = true;
         gLastResponseWrangler->nextInterestBits = interestBitsNotify;
@@ -1014,7 +1035,8 @@ static PMResponseWrangler *connectionFireNotification(
     {
         connection = (PMConnection *)CFArrayGetValueAtIndex(interested, calloutCount);
     
-        if (MACH_PORT_NULL == connection->notifyPort) {
+        if ((MACH_PORT_NULL == connection->notifyPort) ||
+            (false == connection->notifyEnable)) {
             continue;
         }
         
@@ -1195,7 +1217,7 @@ static void checkResponses(PMResponseWrangler *wrangler)
     int             notRepliedCount = 0;
     bool            complete = true;
     PMResponse      *oneResponse = NULL;
-    PMResponse      *maintrequester = NULL;
+//    PMResponse      *maintrequester = NULL;
     CFAbsoluteTime  earliestRequest = 0.0;
 
     responsesCount = CFArrayGetCount(wrangler->awaitingResponses);    
@@ -1215,7 +1237,7 @@ static void checkResponses(PMResponseWrangler *wrangler)
             && oneResponse->maintenanceRequested != 0.0)
         {
             earliestRequest = oneResponse->maintenanceRequested;
-            maintrequester = oneResponse;
+//            maintrequester = oneResponse;
         }
     }
 
@@ -1238,7 +1260,7 @@ static void checkResponses(PMResponseWrangler *wrangler)
     }
     
     // Handle PowerManagement acknowledgements
-    if (_kSleepStateBits == wrangler->notificationType) 
+    if (wrangler->kernelAcknowledgementID) 
     {
         IOAllowPowerChange(gRootDomainConnect, wrangler->kernelAcknowledgementID);
     }

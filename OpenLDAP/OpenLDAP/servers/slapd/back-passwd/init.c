@@ -1,8 +1,8 @@
 /* init.c - initialize passwd backend */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/init.c,v 1.32.2.3 2008/02/11 23:26:47 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-passwd/init.c,v 1.32.2.5 2010/04/13 20:23:36 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

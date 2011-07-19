@@ -37,35 +37,27 @@ namespace WebCore {
 
 StyleFillData::StyleFillData()
     : opacity(SVGRenderStyle::initialFillOpacity())
-    , paint(SVGRenderStyle::initialFillPaint())
+    , paintType(SVGRenderStyle::initialFillPaintType())
+    , paintColor(SVGRenderStyle::initialFillPaintColor())
+    , paintUri(SVGRenderStyle::initialFillPaintUri())
 {
 }
 
 StyleFillData::StyleFillData(const StyleFillData& other)
     : RefCounted<StyleFillData>()
     , opacity(other.opacity)
-    , paint(other.paint)
+    , paintType(other.paintType)
+    , paintColor(other.paintColor)
+    , paintUri(other.paintUri)
 {
 }
 
 bool StyleFillData::operator==(const StyleFillData& other) const
 {
-    if (opacity != other.opacity)
-        return false;
-
-    if (!paint || !other.paint)
-        return paint == other.paint;
-
-    if (paint->paintType() != other.paint->paintType())
-        return false;
-
-    if (paint->paintType() == SVGPaint::SVG_PAINTTYPE_URI)
-        return paint->uri() == other.paint->uri();
-
-    if (paint->paintType() == SVGPaint::SVG_PAINTTYPE_RGBCOLOR)
-        return paint->color() == other.paint->color();
-
-    return paint == other.paint;
+    return opacity == other.opacity 
+        && paintType == other.paintType
+        && paintColor == other.paintColor
+        && paintUri == other.paintUri;
 }
 
 StyleStrokeData::StyleStrokeData()
@@ -73,8 +65,10 @@ StyleStrokeData::StyleStrokeData()
     , miterLimit(SVGRenderStyle::initialStrokeMiterLimit())
     , width(SVGRenderStyle::initialStrokeWidth())
     , dashOffset(SVGRenderStyle::initialStrokeDashOffset())
-    , paint(SVGRenderStyle::initialStrokePaint())
     , dashArray(SVGRenderStyle::initialStrokeDashArray())
+    , paintType(SVGRenderStyle::initialStrokePaintType())
+    , paintColor(SVGRenderStyle::initialStrokePaintColor())
+    , paintUri(SVGRenderStyle::initialStrokePaintUri())
 {
 }
 
@@ -84,19 +78,23 @@ StyleStrokeData::StyleStrokeData(const StyleStrokeData& other)
     , miterLimit(other.miterLimit)
     , width(other.width)
     , dashOffset(other.dashOffset)
-    , paint(other.paint)
     , dashArray(other.dashArray)
+    , paintType(other.paintType)
+    , paintColor(other.paintColor)
+    , paintUri(other.paintUri)
 {
 }
 
 bool StyleStrokeData::operator==(const StyleStrokeData& other) const
 {
-    return paint == other.paint
-        && width == other.width
+    return width == other.width
         && opacity == other.opacity
         && miterLimit == other.miterLimit
         && dashOffset == other.dashOffset
-        && dashArray == other.dashArray;
+        && dashArray == other.dashArray
+        && paintType == other.paintType
+        && paintColor == other.paintColor
+        && paintUri == other.paintUri;
 }
 
 StyleStopData::StyleStopData()
@@ -165,7 +163,7 @@ StyleShadowSVGData::StyleShadowSVGData()
 
 StyleShadowSVGData::StyleShadowSVGData(const StyleShadowSVGData& other)
     : RefCounted<StyleShadowSVGData>()
-    , shadow(other.shadow ? new ShadowData(*other.shadow) : 0)
+    , shadow(other.shadow ? adoptPtr(new ShadowData(*other.shadow)) : nullptr)
 {
 }
 

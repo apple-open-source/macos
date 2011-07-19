@@ -88,6 +88,10 @@ void NetworkStateNotifier::callAddressChanged(void* context)
 
 void CALLBACK NetworkStateNotifier::addrChangeCallback(void* context, BOOLEAN timedOut)
 {
+    // NotifyAddrChange only notifies us of a single address change. Now that we've been notified,
+    // we need to call it again so we'll get notified the *next* time.
+    static_cast<NetworkStateNotifier*>(context)->registerForAddressChange();
+
     callOnMainThread(callAddressChanged, context);
 }
 
@@ -105,11 +109,14 @@ NetworkStateNotifier::NetworkStateNotifier()
 
     memset(&m_overlapped, 0, sizeof(m_overlapped));
 
+// FIXME: Check m_overlapped on WinCE.
+#if !OS(WINCE)
     m_overlapped.hEvent = ::CreateEvent(0, false, false, 0);
 
     ::RegisterWaitForSingleObject(&m_waitHandle, m_overlapped.hEvent, addrChangeCallback, this, INFINITE, 0);
 
     registerForAddressChange();
+#endif
 }
 
-}
+} // namespace WebCore

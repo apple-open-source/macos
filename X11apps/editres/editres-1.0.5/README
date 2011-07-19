@@ -1,0 +1,37 @@
+
+		  Instructions for building Editres.
+
+
+Editres depends on the _EresInsert<something> and
+_EresRetrieve<something> routines that are are implemented and used by
+"EditresCom.c".  Since this module is intended to be included in your
+widget library or toolkit, editres should automatically link in the
+module, but if you have not included that module into your library you
+will need to edit the makefile to make sure that editres links in this
+file.
+
+        ------------------------------------------------------------
+
+All questions regarding this software should be directed at the
+Xorg mailing list:
+
+        http://lists.freedesktop.org/mailman/listinfo/xorg
+
+Please submit bug reports to the Xorg bugzilla:
+
+        https://bugs.freedesktop.org/enter_bug.cgi?product=xorg
+
+The master development code repository can be found at:
+
+        git://anongit.freedesktop.org/git/xorg/app/editres
+
+        http://cgit.freedesktop.org/xorg/app/editres
+
+For patch submission instructions, see:
+
+	http://www.x.org/wiki/Development/Documentation/SubmittingPatches
+
+For more information on the git code manager, see:
+
+        http://wiki.x.org/wiki/GitPage
+

@@ -399,7 +399,7 @@ merge_sections(void)
 		 */
 		if(cur_obj != base_obj && s->size != 0){
 		    cur_obj->section_maps[i].flush_offset = ms->s.size;
-		    ms->s.size = round(ms->s.size, 1 << s->align);
+		    ms->s.size = rnd(ms->s.size, 1 << s->align);
 		    cur_obj->section_maps[i].offset = ms->s.size;
 		    ms->s.size   += s->size;
 		    ms->s.nreloc += s->nreloc;
@@ -1547,7 +1547,7 @@ struct merged_section *ms)
 			      line_number, ms->s.segname, ms->s.sectname,
 			      MAXSECTALIGN);
 		    else
-			output_offset = round(output_offset, 1 << align);
+			output_offset = rnd(output_offset, 1 << align);
 		}
 		else if(strcmp(symbol_name, ".section_all") == 0){
 		    section_map = lookup_section_map(archive_name,
@@ -1555,7 +1555,7 @@ struct merged_section *ms)
 		    if(section_map != NULL){
 			section_map->no_load_order = TRUE;
 			section_map->order = order++;
-			output_offset = round(output_offset,
+			output_offset = rnd(output_offset,
 					      (1 << section_map->s->align));
 			section_map->offset = output_offset;
 			output_offset += section_map->s->size;
@@ -1710,7 +1710,7 @@ struct merged_section *ms)
 			cur_obj->cur_section_map->no_load_order = TRUE;
 			if(cur_obj->cur_section_map->order == 0)
 			    cur_obj->cur_section_map->order = order++;
-			output_offset = round(output_offset,
+			output_offset = rnd(output_offset,
 				  (1 << cur_obj->cur_section_map->s->align));
 			cur_obj->cur_section_map->offset = output_offset;
 			output_offset += cur_obj->cur_section_map->s->size;
@@ -2029,7 +2029,7 @@ unsigned long align)
 	if(output_mod <= input_mod)
 	    return(output_offset + (input_mod - output_mod));
 	else
-	    return(round(output_offset, (1 << align)) + input_mod);
+	    return(rnd(output_offset, (1 << align)) + input_mod);
 }
 
 #ifndef RLD

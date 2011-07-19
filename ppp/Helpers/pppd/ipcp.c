@@ -1831,8 +1831,11 @@ ipcp_up(f)
 
     if (usepeerwins && (go->winsaddr[0] || go->winsaddr[1])) {
 #ifdef __APPLE__
-        sifwins(go->winsaddr[0], go->winsaddr[1]);
-#else
+		/* if WINS1 and WINS2 are the same, just publish WINS1's value */
+		if(go->winsaddr[0] != go->winsaddr[1])
+			sifwins(go->winsaddr[0], go->winsaddr[1]);
+		else 
+			sifwins(go->winsaddr[0], 0);
 #endif
     }
 

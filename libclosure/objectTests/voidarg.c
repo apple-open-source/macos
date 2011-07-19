@@ -1,4 +1,10 @@
 /*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
+/*
  *  voidarg.c
  *  testObjects
  *
@@ -8,15 +14,15 @@
  */
 
 // PURPOSE should complain about missing 'void' but both GCC and clang are supporting K&R instead
-// CONFIG open error:
+// TEST_DISABLED
 
-#include <stdio.h>
+#import <stdio.h>
+#import "test.h"
 
 int Global;
 
 void (^globalBlock)() = ^{ ++Global; };         // should be void (^gb)(void) = ...
 
-int main(int argc, char *argv[]) {
-    printf("%s: success", argv[0]);
-    return 0;
+int main(int argc __unused, char *argv[]) {
+    succeed(__FILE__);
 }

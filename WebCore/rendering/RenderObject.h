@@ -26,24 +26,30 @@
 #ifndef RenderObject_h
 #define RenderObject_h
 
-#include "AffineTransform.h"
 #include "CachedResourceClient.h"
 #include "Document.h"
 #include "Element.h"
 #include "FloatQuad.h"
+#include "PaintPhase.h"
 #include "RenderObjectChildList.h"
 #include "RenderStyle.h"
 #include "TextAffinity.h"
 #include "TransformationMatrix.h"
 #include <wtf/UnusedParam.h>
 
+#if USE(CG) || USE(CAIRO) || PLATFORM(QT)
+#define HAVE_PATH_BASED_BORDER_RADIUS_DRAWING 1
+#endif
+
 namespace WebCore {
 
+class AffineTransform;
 class AnimationController;
 class HitTestResult;
 class InlineBox;
 class InlineFlowBox;
 class OverlapTestRequestClient;
+class Path;
 class Position;
 class RenderBoxModelObject;
 class RenderInline;
@@ -57,37 +63,7 @@ class VisiblePosition;
 class RenderSVGResourceContainer;
 #endif
 
-/*
- *  The painting of a layer occurs in three distinct phases.  Each phase involves
- *  a recursive descent into the layer's render objects. The first phase is the background phase.
- *  The backgrounds and borders of all blocks are painted.  Inlines are not painted at all.
- *  Floats must paint above block backgrounds but entirely below inline content that can overlap them.
- *  In the foreground phase, all inlines are fully painted.  Inline replaced elements will get all
- *  three phases invoked on them during this phase.
- */
-
-enum PaintPhase {
-    PaintPhaseBlockBackground,
-    PaintPhaseChildBlockBackground,
-    PaintPhaseChildBlockBackgrounds,
-    PaintPhaseFloat,
-    PaintPhaseForeground,
-    PaintPhaseOutline,
-    PaintPhaseChildOutlines,
-    PaintPhaseSelfOutline,
-    PaintPhaseSelection,
-    PaintPhaseCollapsedTableBorders,
-    PaintPhaseTextClip,
-    PaintPhaseMask
-};
-
-enum PaintBehaviorFlags {
-    PaintBehaviorNormal = 0,
-    PaintBehaviorSelectionOnly = 1 << 0,
-    PaintBehaviorForceBlackText = 1 << 1,
-    PaintBehaviorFlattenCompositingLayers = 1 << 2
-};
-typedef unsigned PaintBehavior;
+struct PaintInfo;
 
 enum HitTestFilter {
     HitTestAll,
@@ -103,13 +79,12 @@ enum HitTestAction {
     HitTestForeground
 };
 
-// Sides used when drawing borders and outlines.  This is in RenderObject rather than RenderBoxModelObject since outlines can
-// be drawn by SVG around bounding boxes.
+// Sides used when drawing borders and outlines. The values should run clockwise from top.
 enum BoxSide {
     BSTop,
+    BSRight,
     BSBottom,
-    BSLeft,
-    BSRight
+    BSLeft
 };
 
 const int caretWidth = 1;
@@ -130,6 +105,10 @@ struct DashboardRegionValue {
     IntRect clip;
     int type;
 };
+#endif
+
+#ifndef NDEBUG
+const int showTreeCharacterOffset = 39;
 #endif
 
 // Base class for all rendering tree objects.
@@ -167,6 +146,18 @@ public:
             return children->lastChild();
         return 0;
     }
+    RenderObject* beforePseudoElementRenderer() const
+    {
+        if (const RenderObjectChildList* children = virtualChildren())
+            return children->beforePseudoElementRenderer(this);
+        return 0;
+    }
+    RenderObject* afterPseudoElementRenderer() const
+    {
+        if (const RenderObjectChildList* children = virtualChildren())
+            return children->afterPseudoElementRenderer(this);
+        return 0;
+    }
     virtual RenderObjectChildList* virtualChildren() { return 0; }
     virtual const RenderObjectChildList* virtualChildren() const { return 0; }
 
@@ -184,7 +175,6 @@ public:
     // properly added and removed.  Since containership can be implemented by any subclass, and since a hierarchy
     // can contain a mixture of boxes and other object types, these functions need to be in the base class.
     RenderLayer* enclosingLayer() const;
-    RenderLayer* enclosingSelfPaintingLayer() const;
     void addLayers(RenderLayer* parentLayer, RenderObject* newObject);
     void removeLayers(RenderLayer* parentLayer);
     void moveLayers(RenderLayer* oldParent, RenderLayer* newParent);
@@ -236,6 +226,8 @@ private:
 public:
 #ifndef NDEBUG
     void showTreeForThis() const;
+    void showRenderTreeForThis() const;
+    void showLineTreeForThis() const;
 
     void showRenderObject() const;
     // We don't make printedCharacters an optional parameter so that
@@ -265,6 +257,11 @@ public:
     virtual bool isBlockFlow() const { return false; }
     virtual bool isBoxModelObject() const { return false; }
     virtual bool isCounter() const { return false; }
+    virtual bool isQuote() const { return false; }
+#if ENABLE(DETAILS)
+    virtual bool isDetails() const { return false; }
+    virtual bool isDetailsMarker() const { return false; }
+#endif
     virtual bool isEmbeddedObject() const { return false; }
     virtual bool isFieldset() const { return false; }
     virtual bool isFileUploadControl() const { return false; }
@@ -277,6 +274,9 @@ public:
     virtual bool isListMarker() const { return false; }
     virtual bool isMedia() const { return false; }
     virtual bool isMenuList() const { return false; }
+#if ENABLE(METER_TAG)
+    virtual bool isMeter() const { return false; }
+#endif
 #if ENABLE(PROGRESS_TAG)
     virtual bool isProgress() const { return false; }
 #endif
@@ -288,13 +288,16 @@ public:
     virtual bool isRenderPart() const { return false; }
     virtual bool isRenderView() const { return false; }
     virtual bool isReplica() const { return false; }
-#if ENABLE(RUBY)
+
     virtual bool isRuby() const { return false; }
     virtual bool isRubyBase() const { return false; }
     virtual bool isRubyRun() const { return false; }
     virtual bool isRubyText() const { return false; }
-#endif
+
     virtual bool isSlider() const { return false; }
+#if ENABLE(DETAILS)
+    virtual bool isSummary() const { return false; }
+#endif
     virtual bool isTable() const { return false; }
     virtual bool isTableCell() const { return false; }
     virtual bool isTableCol() const { return false; }
@@ -306,6 +309,10 @@ public:
     virtual bool isVideo() const { return false; }
     virtual bool isWidget() const { return false; }
     virtual bool isCanvas() const { return false; }
+#if ENABLE(FULLSCREEN_API)
+    virtual bool isRenderFullScreen() const { return false; }
+    virtual bool isRenderFullScreenPlaceholder() const { return false; }
+#endif
 
     bool isRoot() const { return document()->documentElement() == m_node; }
     bool isBody() const;
@@ -314,15 +321,15 @@ public:
 
     bool isHTMLMarquee() const;
 
+    inline bool isBeforeContent() const;
     inline bool isAfterContent() const;
+    static inline bool isBeforeContent(const RenderObject* obj) { return obj && obj->isBeforeContent(); }
     static inline bool isAfterContent(const RenderObject* obj) { return obj && obj->isAfterContent(); }
 
     bool childrenInline() const { return m_childrenInline; }
     void setChildrenInline(bool b = true) { m_childrenInline = b; }
     bool hasColumns() const { return m_hasColumns; }
     void setHasColumns(bool b = true) { m_hasColumns = b; }
-    bool cellWidthChanged() const { return m_cellWidthChanged; }
-    void setCellWidthChanged(bool b = true) { m_cellWidthChanged = b; }
 
     virtual bool requiresForcedStyleRecalcPropagation() const { return false; }
 
@@ -335,13 +342,19 @@ public:
     // to add SVG renderer methods to RenderObject with an ASSERT_NOT_REACHED() default implementation.
     virtual bool isSVGRoot() const { return false; }
     virtual bool isSVGContainer() const { return false; }
+    virtual bool isSVGViewportContainer() const { return false; } 
     virtual bool isSVGGradientStop() const { return false; }
     virtual bool isSVGHiddenContainer() const { return false; }
-    virtual bool isRenderPath() const { return false; }
+    virtual bool isSVGPath() const { return false; }
     virtual bool isSVGText() const { return false; }
+    virtual bool isSVGTextPath() const { return false; }
+    virtual bool isSVGInline() const { return false; }
+    virtual bool isSVGInlineText() const { return false; }
     virtual bool isSVGImage() const { return false; }
     virtual bool isSVGForeignObject() const { return false; }
     virtual bool isSVGResourceContainer() const { return false; }
+    virtual bool isSVGResourceFilter() const { return false; }
+    virtual bool isSVGResourceFilterPrimitive() const { return false; }
     virtual bool isSVGShadowTreeRootContainer() const { return false; }
 
     virtual RenderSVGResourceContainer* toRenderSVGResourceContainer();
@@ -350,7 +363,7 @@ public:
     // Unfortunately we don't have such a class yet, because it's not possible for all renderers
     // to inherit from RenderSVGObject -> RenderObject (some need RenderBlock inheritance for instance)
     virtual void setNeedsTransformUpdate() { }
-    virtual void setNeedsBoundariesUpdate() { }
+    virtual void setNeedsBoundariesUpdate();
 
     // Per SVG 1.1 objectBoundingBox ignores clipping, masking, filter effects, opacity and stroke-width.
     // This is used for all computation of objectBoundingBox relative units and by SVGLocateable::getBBox().
@@ -383,9 +396,24 @@ public:
     void setIsAnonymous(bool b) { m_isAnonymous = b; }
     bool isAnonymousBlock() const
     {
-        return m_isAnonymous && style()->display() == BLOCK && style()->styleType() == NOPSEUDO && !isListMarker();
+        // This function is kept in sync with anonymous block creation conditions in
+        // RenderBlock::createAnonymousBlock(). This includes creating an anonymous
+        // RenderBlock having a BLOCK or BOX display. Other classes such as RenderTextFragment
+        // are not RenderBlocks and will return false. See https://bugs.webkit.org/show_bug.cgi?id=56709. 
+        return m_isAnonymous && (style()->display() == BLOCK || style()->display() == BOX) && style()->styleType() == NOPSEUDO && isRenderBlock() && !isListMarker()
+#if ENABLE(FULLSCREEN_API)
+            && !isRenderFullScreen()
+            && !isRenderFullScreenPlaceholder()
+#endif
+            ;
     }
-    bool isInlineContinuation() const { return (node() ? node()->renderer() != this : false) && isRenderInline(); }
+    bool isAnonymousColumnsBlock() const { return style()->specifiesColumns() && isAnonymousBlock(); }
+    bool isAnonymousColumnSpanBlock() const { return style()->columnSpan() && isAnonymousBlock(); }
+    bool isElementContinuation() const { return node() && node()->renderer() != this; }
+    bool isInlineElementContinuation() const { return isElementContinuation() && isInline(); }
+    bool isBlockElementContinuation() const { return isElementContinuation() && !isInline(); }
+    virtual RenderBoxModelObject* virtualContinuation() const { return 0; }
+
     bool isFloating() const { return m_floating; }
     bool isPositioned() const { return m_positioned; } // absolute or fixed positioning
     bool isRelPositioned() const { return m_relPositioned; } // relative positioning
@@ -395,27 +423,23 @@ public:
     bool isRunIn() const { return style()->display() == RUN_IN; } // run-in object
     bool isDragging() const { return m_isDragging; }
     bool isReplaced() const { return m_replaced; } // a "replaced" element (see CSS)
-    
+    bool isHorizontalWritingMode() const { return m_horizontalWritingMode; }
+
     bool hasLayer() const { return m_hasLayer; }
     
     bool hasBoxDecorations() const { return m_paintBackground; }
+    bool borderImageIsLoadedAndCanBeRendered() const;
     bool mustRepaintBackgroundOrBorder() const;
-    bool hasBackground() const
-    {
-        Color color = style()->visitedDependentColor(CSSPropertyBackgroundColor);
-        if (color.isValid() && color.alpha() > 0)
-            return true;
-        return style()->hasBackgroundImage();
-    }
-
-    bool needsLayout() const { return m_needsLayout || m_normalChildNeedsLayout || m_posChildNeedsLayout || m_needsPositionedMovementLayout; }
+    bool hasBackground() const { return style()->hasBackground(); }
+    bool needsLayout() const { return m_needsLayout || m_normalChildNeedsLayout || m_posChildNeedsLayout || m_needsSimplifiedNormalFlowLayout || m_needsPositionedMovementLayout; }
     bool selfNeedsLayout() const { return m_needsLayout; }
     bool needsPositionedMovementLayout() const { return m_needsPositionedMovementLayout; }
-    bool needsPositionedMovementLayoutOnly() const { return m_needsPositionedMovementLayout && !m_needsLayout && !m_normalChildNeedsLayout && !m_posChildNeedsLayout; }
+    bool needsPositionedMovementLayoutOnly() const { return m_needsPositionedMovementLayout && !m_needsLayout && !m_normalChildNeedsLayout && !m_posChildNeedsLayout && !m_needsSimplifiedNormalFlowLayout; }
     bool posChildNeedsLayout() const { return m_posChildNeedsLayout; }
+    bool needsSimplifiedNormalFlowLayout() const { return m_needsSimplifiedNormalFlowLayout; }
     bool normalChildNeedsLayout() const { return m_normalChildNeedsLayout; }
     
-    bool prefWidthsDirty() const { return m_prefWidthsDirty; }
+    bool preferredLogicalWidthsDirty() const { return m_preferredLogicalWidthsDirty; }
 
     bool isSelectionBorder() const;
 
@@ -425,10 +449,17 @@ public:
     bool hasTransform() const { return m_hasTransform; }
     bool hasMask() const { return style() && style()->hasMask(); }
 
-    void drawLineForBoxSide(GraphicsContext*, int x1, int y1, int x2, int y2, BoxSide,
-                            Color, EBorderStyle, int adjbw1, int adjbw2);
-    void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, IntSize radius, int angleStart,
+    inline bool preservesNewline() const;
+
+#if !HAVE(PATH_BASED_BORDER_RADIUS_DRAWING)
+    // FIXME: This function should be removed when all ports implement GraphicsContext::clipConvexPolygon()!!
+    // At that time, everyone can use RenderObject::drawBoxSideFromPath() instead. This should happen soon.
+    void drawArcForBoxSide(GraphicsContext*, int x, int y, float thickness, const IntSize& radius, int angleStart,
                            int angleSpan, BoxSide, Color, EBorderStyle, bool firstCorner);
+#endif
+
+    IntRect borderInnerRect(const IntRect&, unsigned short topWidth, unsigned short bottomWidth,
+                            unsigned short leftWidth, unsigned short rightWidth) const;
 
     // The pseudo element style can be cached or uncached.  Use the cached method if the pseudo element doesn't respect
     // any pseudo classes (and therefore has no concept of changing state).
@@ -443,8 +474,15 @@ public:
     bool isRooted(RenderView** = 0);
 
     Node* node() const { return m_isAnonymous ? 0 : m_node; }
-    Document* document() const { return m_node->document(); }
+
+    // Returns the styled node that caused the generation of this renderer.
+    // This is the same as node() except for renderers of :before and :after
+    // pseudo elements for which their parent node is returned.
+    Node* generatingNode() const { return m_node == document() ? 0 : m_node; }
     void setNode(Node* node) { m_node = node; }
+
+    Document* document() const { return m_node->document(); }
+    Frame* frame() const { return document()->frame(); }
 
     bool hasOutlineAnnotation() const;
     bool hasOutline() const { return style()->hasOutline() || hasOutlineAnnotation(); }
@@ -463,13 +501,14 @@ public:
     void setNeedsLayout(bool b, bool markParents = true);
     void setChildNeedsLayout(bool b, bool markParents = true);
     void setNeedsPositionedMovementLayout();
-    void setPrefWidthsDirty(bool, bool markParents = true);
-    void invalidateContainerPrefWidths();
+    void setNeedsSimplifiedNormalFlowLayout();
+    void setPreferredLogicalWidthsDirty(bool, bool markParents = true);
+    void invalidateContainerPreferredLogicalWidths();
     
     void setNeedsLayoutAndPrefWidthsRecalc()
     {
         setNeedsLayout(true);
-        setPrefWidthsDirty(true);
+        setPreferredLogicalWidthsDirty(true);
     }
 
     void setPositioned(bool b = true)  { m_positioned = b;  }
@@ -480,6 +519,7 @@ public:
     void setIsText() { m_isText = true; }
     void setIsBox() { m_isBox = true; }
     void setReplaced(bool b = true) { m_replaced = b; }
+    void setHorizontalWritingMode(bool b = true) { m_horizontalWritingMode = b; }
     void setHasOverflowClip(bool b = true) { m_hasOverflowClip = b; }
     void setHasLayer(bool b = true) { m_hasLayer = b; }
     void setHasTransform(bool b = true) { m_hasTransform = b; }
@@ -489,41 +529,6 @@ public:
 
     void updateFillImages(const FillLayer*, const FillLayer*);
     void updateImage(StyleImage*, StyleImage*);
-
-    // for discussion of lineHeight see CSS2 spec
-    virtual int lineHeight(bool firstLine, bool isRootLineBox = false) const;
-    // for the vertical-align property of inline elements
-    // the offset of baseline from the top of the object.
-    virtual int baselinePosition(bool firstLine, bool isRootLineBox = false) const;
-
-    typedef HashMap<OverlapTestRequestClient*, IntRect> OverlapTestRequestMap;
-
-    /*
-     * Paint the object and its children, clipped by (x|y|w|h).
-     * (tx|ty) is the calculated position of the parent
-     */
-    struct PaintInfo {
-        PaintInfo(GraphicsContext* newContext, const IntRect& newRect, PaintPhase newPhase, bool newForceBlackText,
-                  RenderObject* newPaintingRoot, ListHashSet<RenderInline*>* newOutlineObjects,
-                  OverlapTestRequestMap* overlapTestRequests = 0)
-            : context(newContext)
-            , rect(newRect)
-            , phase(newPhase)
-            , forceBlackText(newForceBlackText)
-            , paintingRoot(newPaintingRoot)
-            , outlineObjects(newOutlineObjects)
-            , overlapTestRequests(overlapTestRequests)
-        {
-        }
-
-        GraphicsContext* context;
-        IntRect rect;
-        PaintPhase phase;
-        bool forceBlackText;
-        RenderObject* paintingRoot; // used to draw just one element and its visual kids
-        ListHashSet<RenderInline*>* outlineObjects; // used to list outlines that should be painted by a block with inline children
-        OverlapTestRequestMap* overlapTestRequests;
-    };
 
     virtual void paint(PaintInfo&, int tx, int ty);
 
@@ -543,7 +548,7 @@ public:
 #endif
 
     bool hitTest(const HitTestRequest&, HitTestResult&, const IntPoint&, int tx, int ty, HitTestFilter = HitTestAll);
-    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, int x, int y, int tx, int ty, HitTestAction);
+    virtual bool nodeAtPoint(const HitTestRequest&, HitTestResult&, const IntPoint& pointInContainer, int tx, int ty, HitTestAction);
     virtual void updateHitTestResult(HitTestResult&, const IntPoint&);
 
     VisiblePosition positionForCoordinates(int x, int y);
@@ -570,8 +575,8 @@ public:
 
     // Convert the given local point to absolute coordinates
     // FIXME: Temporary. If useTransforms is true, take transforms into account. Eventually localToAbsolute() will always be transform-aware.
-    FloatPoint localToAbsolute(FloatPoint localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
-    FloatPoint absoluteToLocal(FloatPoint, bool fixed = false, bool useTransforms = false) const;
+    FloatPoint localToAbsolute(const FloatPoint& localPoint = FloatPoint(), bool fixed = false, bool useTransforms = false) const;
+    FloatPoint absoluteToLocal(const FloatPoint&, bool fixed = false, bool useTransforms = false) const;
 
     // Convert a local quad to absolute coordinates, taking transforms into account.
     FloatQuad localToAbsoluteQuad(const FloatQuad& quad, bool fixed = false) const
@@ -599,8 +604,8 @@ public:
     // the rect that will be painted if this object is passed as the paintingRoot
     IntRect paintingRootRect(IntRect& topLevelRect);
 
-    virtual int minPrefWidth() const { return 0; }
-    virtual int maxPrefWidth() const { return 0; }
+    virtual int minPreferredLogicalWidth() const { return 0; }
+    virtual int maxPreferredLogicalWidth() const { return 0; }
 
     RenderStyle* style() const { return m_style.get(); }
     RenderStyle* firstLineStyle() const { return document()->usesFirstLineRules() ? firstLineStyleSlowCase() : style(); }
@@ -710,13 +715,10 @@ public:
     // Obtains the selection colors that should be used when painting a selection.
     Color selectionBackgroundColor() const;
     Color selectionForegroundColor() const;
+    Color selectionEmphasisMarkColor() const;
 
     // Whether or not a given block needs to paint selection gaps.
     virtual bool shouldPaintSelectionGaps() const { return false; }
-
-#if ENABLE(DRAG_SUPPORT)
-    Node* draggableNode(bool dhtmlOK, bool uaOK, int x, int y, bool& dhtmlWillDrag) const;
-#endif
 
     /**
      * Returns the local coordinates of the caret within this render object.
@@ -726,11 +728,10 @@ public:
      */
     virtual IntRect localCaretRect(InlineBox*, int caretOffset, int* extraWidthToEndOfLine = 0);
 
-    virtual void calcVerticalMargins() { }
-    bool isTopMarginQuirk() const { return m_topMarginQuirk; }
-    bool isBottomMarginQuirk() const { return m_bottomMarginQuirk; }
-    void setTopMarginQuirk(bool b = true) { m_topMarginQuirk = b; }
-    void setBottomMarginQuirk(bool b = true) { m_bottomMarginQuirk = b; }
+    bool isMarginBeforeQuirk() const { return m_marginBeforeQuirk; }
+    bool isMarginAfterQuirk() const { return m_marginAfterQuirk; }
+    void setMarginBeforeQuirk(bool b = true) { m_marginBeforeQuirk = b; }
+    void setMarginAfterQuirk(bool b = true) { m_marginAfterQuirk = b; }
 
     // When performing a global document tear-down, the renderer of the document is cleared.  We use this
     // as a hook to detect the case of document destruction and don't waste time doing unnecessary work.
@@ -742,6 +743,8 @@ public:
     virtual bool isFlexibleBox() const { return false; }
     virtual bool isFlexingChildren() const { return false; }
     virtual bool isStretchingChildren() const { return false; }
+
+    virtual bool isCombineText() const { return false; }
 
     virtual int caretMinOffset() const;
     virtual int caretMaxOffset() const;
@@ -756,17 +759,6 @@ public:
     virtual bool willRenderImage(CachedImage*);
 
     void selectionStartEnd(int& spos, int& epos) const;
-
-    RenderObject* paintingRootForChildren(PaintInfo& paintInfo) const
-    {
-        // if we're the painting root, kids draw normally, and see root of 0
-        return (!paintInfo.paintingRoot || paintInfo.paintingRoot == this) ? 0 : paintInfo.paintingRoot;
-    }
-
-    bool shouldPaintWithinRoot(PaintInfo& paintInfo) const
-    {
-        return !paintInfo.paintingRoot || paintInfo.paintingRoot == this;
-    }
 
     bool hasOverrideSize() const { return m_hasOverrideSize; }
     void setHasOverrideSize(bool b) { m_hasOverrideSize = b; }
@@ -798,7 +790,11 @@ protected:
     // Overrides should call the superclass at the start
     virtual void styleDidChange(StyleDifference, const RenderStyle* oldStyle);
 
-    void paintOutline(GraphicsContext*, int tx, int ty, int w, int h);
+    void drawLineForBoxSide(GraphicsContext*, int x1, int y1, int x2, int y2, BoxSide,
+                            Color, EBorderStyle, int adjbw1, int adjbw2, bool antialias = false);
+
+    void paintFocusRing(GraphicsContext*, int tx, int ty, RenderStyle*);
+    void paintOutline(GraphicsContext*, const IntRect&);
     void addPDFURLRect(GraphicsContext*, const IntRect&);
 
     virtual IntRect viewRect() const;
@@ -842,6 +838,8 @@ protected:
 private:
     RenderStyle* firstLineStyleSlowCase() const;
     StyleDifference adjustStyleDifference(StyleDifference, unsigned contextSensitiveProperties) const;
+
+    Color selectionColor(int colorProperty) const;
     
     RefPtr<RenderStyle> m_style;
 
@@ -861,7 +859,8 @@ private:
     bool m_needsPositionedMovementLayout :1;
     bool m_normalChildNeedsLayout    : 1;
     bool m_posChildNeedsLayout       : 1;
-    bool m_prefWidthsDirty           : 1;
+    bool m_needsSimplifiedNormalFlowLayout  : 1;
+    bool m_preferredLogicalWidthsDirty           : 1;
     bool m_floating                  : 1;
 
     bool m_positioned                : 1;
@@ -874,10 +873,11 @@ private:
     bool m_isBox                     : 1;
     bool m_inline                    : 1;
     bool m_replaced                  : 1;
+    bool m_horizontalWritingMode : 1;
     bool m_isDragging                : 1;
 
     bool m_hasLayer                  : 1;
-    bool m_hasOverflowClip           : 1;
+    bool m_hasOverflowClip           : 1; // Set in the case of overflow:auto/scroll/hidden
     bool m_hasTransform              : 1;
     bool m_hasReflection             : 1;
 
@@ -891,8 +891,8 @@ private:
     // These bitfields are moved here from subclasses to pack them together
     // from RenderBlock
     bool m_childrenInline : 1;
-    bool m_topMarginQuirk : 1;
-    bool m_bottomMarginQuirk : 1;
+    bool m_marginBeforeQuirk : 1;
+    bool m_marginAfterQuirk : 1;
     bool m_hasMarkupTruncation : 1;
     unsigned m_selectionState : 3; // SelectionState
     bool m_hasColumns : 1;
@@ -908,6 +908,16 @@ private:
 inline bool RenderObject::documentBeingDestroyed() const
 {
     return !document()->renderer();
+}
+
+inline bool RenderObject::isBeforeContent() const
+{
+    if (style()->styleType() != BEFORE)
+        return false;
+    // Text nodes don't have their own styles, so ignore the style on a text node.
+    if (isText() && !isBR())
+        return false;
+    return true;
 }
 
 inline bool RenderObject::isAfterContent() const
@@ -935,6 +945,7 @@ inline void RenderObject::setNeedsLayout(bool b, bool markParents)
     } else {
         m_everHadLayout = true;
         m_posChildNeedsLayout = false;
+        m_needsSimplifiedNormalFlowLayout = false;
         m_normalChildNeedsLayout = false;
         m_needsPositionedMovementLayout = false;
     }
@@ -950,6 +961,7 @@ inline void RenderObject::setChildNeedsLayout(bool b, bool markParents)
             markContainingBlocksForLayout();
     } else {
         m_posChildNeedsLayout = false;
+        m_needsSimplifiedNormalFlowLayout = false;
         m_normalChildNeedsLayout = false;
         m_needsPositionedMovementLayout = false;
     }
@@ -957,8 +969,21 @@ inline void RenderObject::setChildNeedsLayout(bool b, bool markParents)
 
 inline void RenderObject::setNeedsPositionedMovementLayout()
 {
-    bool alreadyNeededLayout = needsLayout();
+    bool alreadyNeededLayout = m_needsPositionedMovementLayout;
     m_needsPositionedMovementLayout = true;
+    ASSERT(!isSetNeedsLayoutForbidden());
+    if (!alreadyNeededLayout) {
+        markContainingBlocksForLayout();
+        if (hasLayer())
+            setLayerNeedsFullRepaint();
+    }
+}
+
+inline void RenderObject::setNeedsSimplifiedNormalFlowLayout()
+{
+    bool alreadyNeededLayout = m_needsSimplifiedNormalFlowLayout;
+    m_needsSimplifiedNormalFlowLayout = true;
+    ASSERT(!isSetNeedsLayoutForbidden());
     if (!alreadyNeededLayout) {
         markContainingBlocksForLayout();
         if (hasLayer())
@@ -986,6 +1011,8 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
     RenderObject* o = container();
     RenderObject* last = this;
 
+    bool simplifiedNormalFlowLayout = needsSimplifiedNormalFlowLayout() && !selfNeedsLayout() && !normalChildNeedsLayout();
+
     while (o) {
         // Don't mark the outermost object of an unrooted subtree. That object will be 
         // marked when the subtree is added to the document.
@@ -993,17 +1020,17 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         if (!container && !o->isRenderView())
             return;
         if (!last->isText() && (last->style()->position() == FixedPosition || last->style()->position() == AbsolutePosition)) {
-            if ((last->style()->top().isAuto() && last->style()->bottom().isAuto()) || last->style()->top().isStatic()) {
-                RenderObject* parent = last->parent();
-                if (!parent->normalChildNeedsLayout()) {
-                    parent->setChildNeedsLayout(true, false);
-                    if (parent != newRoot)
-                        parent->markContainingBlocksForLayout(scheduleRelayout, newRoot);
-                }
-            }
-            if (o->m_posChildNeedsLayout)
+            while (o && !o->isRenderBlock()) // Skip relatively positioned inlines and get to the enclosing RenderBlock.
+                o = o->container();
+            if (!o || o->m_posChildNeedsLayout)
                 return;
             o->m_posChildNeedsLayout = true;
+            simplifiedNormalFlowLayout = true;
+            ASSERT(!o->isSetNeedsLayoutForbidden());
+        } else if (simplifiedNormalFlowLayout) {
+            if (o->m_needsSimplifiedNormalFlowLayout)
+                return;
+            o->m_needsSimplifiedNormalFlowLayout = true;
             ASSERT(!o->isSetNeedsLayoutForbidden());
         } else {
             if (o->m_normalChildNeedsLayout)
@@ -1025,6 +1052,16 @@ inline void RenderObject::markContainingBlocksForLayout(bool scheduleRelayout, R
         last->scheduleRelayout();
 }
 
+inline bool RenderObject::preservesNewline() const
+{
+#if ENABLE(SVG)
+    if (isSVGInlineText())
+        return false;
+#endif
+        
+    return style()->preserveNewline();
+}
+
 inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRendering)
 {
 #if !ENABLE(3D_RENDERING)
@@ -1039,14 +1076,6 @@ inline void makeMatrixRenderable(TransformationMatrix& matrix, bool has3DRenderi
 inline int adjustForAbsoluteZoom(int value, RenderObject* renderer)
 {
     return adjustForAbsoluteZoom(value, renderer->style());
-}
-
-inline void adjustIntRectForAbsoluteZoom(IntRect& rect, RenderObject* renderer)
-{
-    rect.setX(adjustForAbsoluteZoom(rect.x(), renderer));
-    rect.setY(adjustForAbsoluteZoom(rect.y(), renderer));
-    rect.setWidth(adjustForAbsoluteZoom(rect.width(), renderer));
-    rect.setHeight(adjustForAbsoluteZoom(rect.height(), renderer));
 }
 
 inline FloatPoint adjustFloatPointForAbsoluteZoom(const FloatPoint& point, RenderObject* renderer)
@@ -1066,11 +1095,48 @@ inline void adjustFloatQuadForAbsoluteZoom(FloatQuad& quad, RenderObject* render
     quad.setP4(adjustFloatPointForAbsoluteZoom(quad.p4(), renderer));
 }
 
+inline void adjustFloatRectForAbsoluteZoom(FloatRect& rect, RenderObject* renderer)
+{
+    RenderStyle* style = renderer->style();
+    rect.setX(adjustFloatForAbsoluteZoom(rect.x(), style));
+    rect.setY(adjustFloatForAbsoluteZoom(rect.y(), style));
+    rect.setWidth(adjustFloatForAbsoluteZoom(rect.width(), style));
+    rect.setHeight(adjustFloatForAbsoluteZoom(rect.height(), style));
+}
+
+inline FloatPoint adjustFloatPointForPageScale(const FloatPoint& point, float pageScale)
+{
+    if (pageScale == 1)
+        return point;
+    return FloatPoint(point.x() / pageScale, point.y() / pageScale);
+}
+
+inline void adjustFloatQuadForPageScale(FloatQuad& quad, float pageScale)
+{
+    if (pageScale == 1)
+        return;
+    quad.setP1(adjustFloatPointForPageScale(quad.p1(), pageScale));
+    quad.setP2(adjustFloatPointForPageScale(quad.p2(), pageScale));
+    quad.setP3(adjustFloatPointForPageScale(quad.p3(), pageScale));
+    quad.setP4(adjustFloatPointForPageScale(quad.p4(), pageScale));
+}
+
+inline void adjustFloatRectForPageScale(FloatRect& rect, float pageScale)
+{
+    if (pageScale == 1)
+        return;
+    rect.setX(rect.x() / pageScale);
+    rect.setY(rect.y() / pageScale);
+    rect.setWidth(rect.width() / pageScale);
+    rect.setHeight(rect.height() / pageScale);
+}
+
 } // namespace WebCore
 
 #ifndef NDEBUG
 // Outside the WebCore namespace for ease of invocation from gdb.
 void showTree(const WebCore::RenderObject*);
+void showLineTree(const WebCore::RenderObject*);
 void showRenderTree(const WebCore::RenderObject* object1);
 // We don't make object2 an optional parameter so that showRenderTree
 // can be called from gdb easily.

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2002 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2002 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -43,12 +43,14 @@
 #include <sys/param.h>
 #include <arpa/inet.h>
 #include <net/ethernet.h>
-#include "cfutil.h"
-
 #include <SystemConfiguration/SCValidation.h>
 #include <CoreFoundation/CFData.h>
+#include "util.h"
+#include "cfutil.h"
 
-__private_extern__ void
+#include "symbol_scope.h"
+
+PRIVATE_EXTERN void
 my_CFRelease(void * t)
 {
     void * * obj = (void * *)t;
@@ -120,7 +122,7 @@ write_file(const char * filename, const void * data, size_t data_length)
     return (ret);
 }
 
-__private_extern__ CFPropertyListRef 
+PRIVATE_EXTERN CFPropertyListRef 
 my_CFPropertyListCreateFromFile(const char * filename)
 {
     void *		buf;
@@ -147,7 +149,7 @@ my_CFPropertyListCreateFromFile(const char * filename)
     return (plist);
 }
 
-__private_extern__ int
+PRIVATE_EXTERN int
 my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
 {
     CFDataRef	data;
@@ -166,7 +168,7 @@ my_CFPropertyListWriteFile(CFPropertyListRef plist, const char * filename)
     return (ret);
 }
 
-__private_extern__ int
+PRIVATE_EXTERN int
 my_CFStringToCStringAndLengthExt(CFStringRef cfstr, char * str, int len,
 				 boolean_t is_external)
 {
@@ -181,7 +183,7 @@ my_CFStringToCStringAndLengthExt(CFStringRef cfstr, char * str, int len,
     return (ret_len + 1); /* leave 1 byte for nul-termination */
 }
 
-__private_extern__ Boolean
+PRIVATE_EXTERN Boolean
 my_CFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
 			       int * ret_count)
 {
@@ -226,7 +228,7 @@ my_CFStringArrayToCStringArray(CFArrayRef arr, char * buffer, int * buffer_size,
     return (TRUE);
 }
 
-__private_extern__ Boolean
+PRIVATE_EXTERN Boolean
 my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
 			     int * ret_count)
 {
@@ -268,24 +270,26 @@ my_CFStringArrayToEtherArray(CFArrayRef array, char * buffer, int * buffer_size,
     return (TRUE);
 }
 
-__private_extern__ bool
+PRIVATE_EXTERN bool
 my_CFStringToIPAddress(CFStringRef str, struct in_addr * ret_ip)
 {
     char		buf[64];
-    struct in_addr	ip;
 
+    ret_ip->s_addr = 0;
+    if (isA_CFString(str) == NULL) {
+	return (FALSE);
+    }
     if (CFStringGetCString(str, buf, sizeof(buf), kCFStringEncodingASCII)
 	== FALSE) {
 	return (FALSE);
     }
-    if (inet_aton(buf, &ip) == 1) {
-	*ret_ip = ip;
+    if (inet_aton(buf, ret_ip) == 1) {
 	return (TRUE);
     }
     return (FALSE);
 }
 
-__private_extern__ bool
+PRIVATE_EXTERN bool
 my_CFStringToNumber(CFStringRef str, uint32_t * ret_val)
 {
     char		buf[64];
@@ -300,7 +304,7 @@ my_CFStringToNumber(CFStringRef str, uint32_t * ret_val)
     return (FALSE);
 }
 
-__private_extern__ bool
+PRIVATE_EXTERN bool
 my_CFTypeToNumber(CFTypeRef element, uint32_t * l_p)
 {
     if (isA_CFString(element) != NULL) {
@@ -321,5 +325,163 @@ my_CFTypeToNumber(CFTypeRef element, uint32_t * l_p)
 	return (FALSE);
     }
     return (TRUE);
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetTypeAsArrayValue(CFMutableDictionaryRef dict,
+				   CFStringRef prop, CFTypeRef val)
+{
+    CFArrayRef	array;
+
+    array = CFArrayCreate(NULL, (const void **)&val, 1,
+			  &kCFTypeArrayCallBacks);
+    if (array != NULL) {
+	CFDictionarySetValue(dict, prop, array);
+	CFRelease(array);
+    }
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFDictionarySetIPAddressAsArrayValue(CFMutableDictionaryRef dict,
+					CFStringRef prop,
+					struct in_addr ip_addr)
+{
+    CFStringRef		str;
+
+    str = CFStringCreateWithFormat(NULL, NULL, CFSTR(IP_FORMAT),
+				   IP_LIST(&ip_addr));
+    my_CFDictionarySetTypeAsArrayValue(dict, prop, str);
+    CFRelease(str);
+    return;
+}
+
+PRIVATE_EXTERN void
+my_CFArrayAppendUniqueValue(CFMutableArrayRef arr, CFTypeRef new)
+{
+    int count;
+    int i;
+
+    count = CFArrayGetCount(arr);
+    for (i = 0; i < count; i++) {
+	CFStringRef element = CFArrayGetValueAtIndex(arr, i);
+	if (CFEqual(element, new)) {
+	    return;
+	}
+    }
+    CFArrayAppendValue(arr, new);
+    return;
+}
+
+PRIVATE_EXTERN Boolean
+my_CFEqual(CFTypeRef val1, CFTypeRef val2)
+{
+    if (val1 == NULL) {
+	if (val2 == NULL) {
+	    return (TRUE);
+	}
+	return (FALSE);
+    }
+    if (val2 == NULL) {
+	return (FALSE);
+    }
+    if (CFGetTypeID(val1) != CFGetTypeID(val2)) {
+	return (FALSE);
+    }
+    return (CFEqual(val1, val2));
+}
+
+
+/* 
+ * Function: my_CFStringCopyComponent
+ * Purpose:
+ *    Separates the given string using the given separator, and returns
+ *    the component at the specified index.
+ * Returns:
+ *    NULL if no such component exists, non-NULL component otherwise
+ */
+PRIVATE_EXTERN CFStringRef
+my_CFStringCopyComponent(CFStringRef path, CFStringRef separator, 
+			 CFIndex component_index)
+{
+    CFArrayRef		arr;
+    CFStringRef		component = NULL;
+
+    arr = CFStringCreateArrayBySeparatingStrings(NULL, path, separator);
+    if (arr == NULL) {
+	goto done;
+    }
+    if (CFArrayGetCount(arr) <= component_index) {
+	goto done;
+    }
+    component = CFRetain(CFArrayGetValueAtIndex(arr, component_index));
+
+ done:
+    my_CFRelease(&arr);
+    return (component);
+
+}
+
+CFStringRef
+my_CFStringCreateWithIPAddress(const struct in_addr ip)
+{
+    return (CFStringCreateWithFormat(NULL, NULL, 
+				     CFSTR(IP_FORMAT), IP_LIST(&ip)));
+}
+
+CFStringRef
+my_CFStringCreateWithIPv6Address(const struct in6_addr * ip6_addr)
+{
+    char 		ntopbuf[INET6_ADDRSTRLEN];
+    const char *	c_str;
+
+    c_str = inet_ntop(AF_INET6, ip6_addr, ntopbuf, sizeof(ntopbuf));
+    return (CFStringCreateWithCString(NULL, c_str, kCFStringEncodingASCII));
+}
+
+void
+my_CFStringAppendBytesAsHex(CFMutableStringRef str, const uint8_t * bytes,
+			    int length, char separator)
+{
+    int i;
+
+    for (i = 0; i < length; i++) {
+	char  	sep[3];
+
+	if (i == 0) {
+	    sep[0] = '\0';
+	}
+	else {
+	    if ((i % 8) == 0 && separator == ' ') {
+		sep[0] = sep[1] = ' ';
+		sep[2] = '\0';
+	    }
+	    else {
+		sep[0] = separator;
+		sep[1] = '\0';
+	    }
+	}
+	CFStringAppendFormat(str, NULL, CFSTR("%s%02x"), sep, bytes[i]);
+    }
+    return;
+}
+
+char *
+my_CFStringToCString(CFStringRef cfstr, CFStringEncoding encoding)
+{
+    CFIndex		l;
+    CFRange		range;
+    uint8_t *		str;
+
+    range = CFRangeMake(0, CFStringGetLength(cfstr));
+    CFStringGetBytes(cfstr, range, encoding,
+		     0, FALSE, NULL, 0, &l);
+    if (l <= 0) {
+	return (NULL);
+    }
+    str = (uint8_t *)malloc(l + 1);
+    CFStringGetBytes(cfstr, range, encoding, 0, FALSE, str, l, &l);
+    str[l] = '\0';
+    return ((char *)str);
 }
 

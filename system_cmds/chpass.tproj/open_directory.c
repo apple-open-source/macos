@@ -61,11 +61,13 @@ prompt_passwd(CFStringRef user)
 {
 	CFStringRef result = NULL;
 	CFStringRef prompt = CFStringCreateWithFormat(NULL, NULL, CFSTR("Password for %@: "), user);
-	char buf[128];
-	CFStringGetCString(prompt, buf, sizeof(buf), kCFStringEncodingUTF8);
+	size_t prompt_size = CFStringGetMaximumSizeForEncoding(CFStringGetLength(prompt), kCFStringEncodingUTF8);
+	char* buf = malloc(prompt_size);
+	CFStringGetCString(prompt, buf, prompt_size, kCFStringEncodingUTF8);
 	char* pass = getpass(buf);
 	result = CFStringCreateWithCString(NULL, pass, kCFStringEncodingUTF8);
 	memset(pass, 0, strlen(pass));
+	free(buf);
 	CFRelease(prompt);
 	return result;
 }
@@ -88,51 +90,9 @@ show_error(CFErrorRef error) {
 	}
 }
 
-static int
-is_singleuser(void) {
-	uint32_t su = 0;
-	size_t susz = sizeof(su);
-	if (sysctlbyname("kern.singleuser", &su, &susz, NULL, 0) != 0) {
-		return 0;
-	} else {
-		return (int)su;
-	}
-}
-
-static int
-load_DirectoryServicesLocal() {
-	const char* launchctl = "/bin/launchctl";
-	const char* plist = "/System/Library/LaunchDaemons/com.apple.DirectoryServicesLocal.plist";
-
-	pid_t pid = fork();
-	int status, res;
-	switch (pid) {
-		case -1: // ERROR
-			perror("launchctl");
-			return 0;
-		case 0: // CHILD
-			execl(launchctl, launchctl, "load", plist, NULL);
-			/* NOT REACHED */
-			perror("launchctl");
-			exit(1);
-			break;
-		default: // PARENT
-			do {
-				res = waitpid(pid, &status, 0);
-			} while (res == -1 && errno == EINTR);
-			if (res == -1) {
-				perror("launchctl");
-				return 0;
-			}
-			break;
-	}
-	return (WIFEXITED(status) && (WEXITSTATUS(status) == EXIT_SUCCESS));
-}
-
 ODRecordRef
 odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictionaryRef* attrs)
 {
-	ODSessionRef session = NULL;
 	ODNodeRef node = NULL;
 	ODRecordRef rec = NULL;
 	CFErrorRef error = NULL;
@@ -140,41 +100,14 @@ odGetUser(CFStringRef location, CFStringRef authname, CFStringRef user, CFDictio
 	assert(attrs);
 
 	/*
-	 * Connect to DS server
-	 */
-	session = ODSessionCreate(NULL, NULL, &error);
-	if ( !session && error && CFErrorGetCode(error) == kODErrorSessionDaemonNotRunning ) {
-		/*
-		 * In single-user mode, attempt to load the local DS daemon.
-		 */
-		if (is_singleuser() && load_DirectoryServicesLocal()) {
-			CFTypeRef keys[] = { kODSessionLocalPath };
-			CFTypeRef vals[] = { CFSTR("/var/db/dslocal") };
-			CFDictionaryRef opts = CFDictionaryCreate(NULL, keys, vals, 1, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-			if (opts) {
-				session = ODSessionCreate(NULL, opts, &error);
-				CFRelease(opts);
-			}
-
-			if (!location) {
-				location = CFRetain(CFSTR("/Local/Default"));
-			}
-		} else {
-			show_error(error);
-			return NULL;
-		}
-	}
-
-	/*
 	 * Open the specified node, or perform a search.
 	 * Copy the record and put the record's location into DSPath.
 	 */
 	if (location) {
-		node = ODNodeCreateWithName(NULL, session, location, &error);
+		node = ODNodeCreateWithName(NULL, kODSessionDefault, location, &error);
 	} else {
-		node = ODNodeCreateWithNodeType(NULL, session, kODNodeTypeAuthentication, &error);
+		node = ODNodeCreateWithNodeType(NULL, kODSessionDefault, kODNodeTypeAuthentication, &error);
 	}
-	if (session) CFRelease(session);
 	if (node) {
 		CFTypeRef	vals[] = { kODAttributeTypeStandardOnly };
 		CFArrayRef desiredAttrs = CFArrayCreate(NULL, vals, 1, &kCFTypeArrayCallBacks);

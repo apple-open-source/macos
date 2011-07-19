@@ -27,21 +27,18 @@
 #define WebResource_h
 
 #include "WebKit.h"
-#include "COMPtr.h"
-
-#pragma warning(push, 0)
+#include <WebCore/COMPtr.h>
 #include <WebCore/KURL.h>
 #include <WebCore/PlatformString.h>
 #include <WebCore/ResourceResponse.h>
 #include <WebCore/SharedBuffer.h>
 #include <wtf/PassRefPtr.h>
-#pragma warning(pop)
 
 class WebResource : public IWebResource {
 public:
     static WebResource* createInstance(PassRefPtr<WebCore::SharedBuffer> data, const WebCore::ResourceResponse& response);
 protected:
-    WebResource(IStream* data, const WebCore::KURL& url, const WebCore::String& mimeType, const WebCore::String& textEncodingName, const WebCore::String& frameName);
+    WebResource(IStream* data, const WebCore::KURL& url, const WTF::String& mimeType, const WTF::String& textEncodingName, const WTF::String& frameName);
     ~WebResource();
 
 public:
@@ -77,9 +74,9 @@ private:
     ULONG m_refCount;
     COMPtr<IStream> m_data;
     WebCore::KURL m_url;
-    WebCore::String m_mimeType;
-    WebCore::String m_textEncodingName;
-    WebCore::String m_frameName;
+    WTF::String m_mimeType;
+    WTF::String m_textEncodingName;
+    WTF::String m_frameName;
 };
 
 #endif

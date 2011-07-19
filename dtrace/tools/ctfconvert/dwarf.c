@@ -487,18 +487,6 @@ die_isdecl(dwarf_t *dw, Dwarf_Die die)
 }
 
 #if defined(__APPLE__)
-/* Prototype taken from <libiberty/demangle.h> (which won't #include cleanly) */
-extern char *cplus_demangle(const char *, int);
-
-static char 
-*demangleSymbolCString(const char *mangled)
-{
-	 if(mangled[0]!='_') return NULL;
-	 if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-	 if(mangled[1]!='Z') return NULL;
-	 return cplus_demangle(mangled, 0);
-}
-
 static char *
 die_linkage_name(dwarf_t *dw, Dwarf_Die die)
 {
@@ -507,6 +495,26 @@ die_linkage_name(dwarf_t *dw, Dwarf_Die die)
 	(void) die_string(dw, die, DW_AT_MIPS_linkage_name, &str, 0);
 
 	return (str);
+}
+
+static Dwarf_Die
+die_specification_die(dwarf_t *dw, Dwarf_Die die)
+{
+	Dwarf_Attribute attr;
+	Dwarf_Off ref;
+	Dwarf_Die new_die;
+	int rc;
+	
+	if ((attr = die_attr(dw, die, DW_AT_specification, 0)) == NULL)
+		return (NULL);
+		
+	ref = die_attr_ref(dw, die, DW_AT_specification);
+	
+	if ((rc = dwarf_offdie(dw->dw_dw, ref, &new_die, &dw->dw_err)) != DW_DLV_OK) {
+		terminate("die %llu: failed to get DW_AT_specificaiton ref\n", die);
+	}
+	
+	return (new_die);
 }
 
 static int
@@ -1560,14 +1568,24 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 	}
 
 #if defined(__APPLE__)
-	if (die_isvirtual(dw, die) && (name = die_linkage_name(dw, die))) {
-		char *tmp = demangleSymbolCString(name);
-		if (tmp)
-			name = tmp;
-		/* and press on with this die describing a C++ method ... */
+	if (die_isdecl(dw, die)) {
+		return; /* Prototype. */
 	}
-	else
-#endif
+	
+	Dwarf_Die spec_die = die_specification_die(dw, die); // AT_specification indirection?
+	if (spec_die)
+		die = spec_die; // and we'll deallocate through spec_die below.
+	
+	if ((name = die_linkage_name(dw, die)) != NULL) {
+		/* and press on with this die describing a C++ method ... */
+	} else {
+		name = die_name(dw, die);
+	}
+	
+	if (name == NULL) {
+		return; /* Subprogram without name. */
+	}
+#else
 	if (die_isdecl(dw, die) || (name = die_name(dw, die)) == NULL) {
 		/*
 		 * We process neither prototypes nor subprograms without
@@ -1575,6 +1593,7 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 		 */
 		return;
 	}
+#endif
 
 	ii = xcalloc(sizeof (iidesc_t));
 	ii->ii_type = die_isglobal(dw, die) ? II_GFUN : II_SFUN;
@@ -1599,19 +1618,25 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 
 		if (die_tag(dw, arg) != DW_TAG_formal_parameter)
 			continue;
+#if defined(__APPLE__)
+		if (die_attr(dw, die, DW_AT_type, 0) == NULL)
+			continue; /* C++ "this" and "meta" can land here. */
+#endif /* __APPLE__ */
 
-		if ((name = die_name(dw, arg)) == NULL) {
 #if !defined(__APPLE__)
+		if ((name = die_name(dw, arg)) == NULL) {
 			terminate("die %llu: func arg %d has no name\n",
 			    off, ii->ii_nargs + 1);
+		}
 #else
+		if ((name = die_name(dw, arg)) == NULL) {
 			/* C++ admits this, IOKit does it, we'll allow it. */
 			debug(1, "die %llu: func arg %d has no name\n",
 			    off, ii->ii_nargs + 1);
 			ii->ii_nargs++;
 			continue;
-#endif /* __APPLE__ */
 		}
+#endif /* __APPLE__ */
 
 		if (strcmp(name, "...") == 0) {
 			free(name);
@@ -1635,13 +1660,21 @@ die_function_create(dwarf_t *dw, Dwarf_Die die, Dwarf_Off off, tdesc_t *tdp)
 		    arg = die_sibling(dw, arg)) {
 			if (die_tag(dw, arg) != DW_TAG_formal_parameter)
 				continue;
-
+#if defined(__APPLE__)
+			if (die_attr(dw, die, DW_AT_type, 0) == NULL)
+				continue; /* C++ "this" and "meta" can land here. */
+#endif /* __APPLE__ */
 			ii->ii_args[i++] = die_lookup_pass1(dw, arg,
 			    DW_AT_type);
 		}
 	}
 
 	iidesc_add(dw->dw_td->td_iihash, ii);
+
+#if defined(__APPLE__)
+	if (spec_die)
+		dwarf_dealloc(dw->dw_dw, spec_die, DW_DLA_DIE);
+#endif /* __APPLE__ */
 }
 
 /*ARGSUSED3*/

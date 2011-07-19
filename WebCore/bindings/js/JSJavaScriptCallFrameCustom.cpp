@@ -30,25 +30,26 @@
 
 #include "JavaScriptCallFrame.h"
 #include <runtime/ArrayPrototype.h>
+#include <runtime/Error.h>
 
 using namespace JSC;
 
 namespace WebCore {
 
-JSValue JSJavaScriptCallFrame::evaluate(ExecState* exec, const ArgList& args)
+JSValue JSJavaScriptCallFrame::evaluate(ExecState* exec)
 {
     JSValue exception;
-    JSValue result = impl()->evaluate(args.at(0).toString(exec), exception);
+    JSValue result = impl()->evaluate(exec->argument(0).toString(exec), exception);
 
     if (exception)
-        exec->setException(exception);
+        throwError(exec, exception);
 
     return result;
 }
 
 JSValue JSJavaScriptCallFrame::thisObject(ExecState*) const
 {
-    return impl()->thisObject() ? impl()->thisObject() : jsNull();
+    return impl()->thisObject() ? JSValue(impl()->thisObject()) : jsNull();
 }
 
 JSValue JSJavaScriptCallFrame::type(ExecState* exec) const
@@ -69,7 +70,7 @@ JSValue JSJavaScriptCallFrame::scopeChain(ExecState* exec) const
     if (!impl()->scopeChain())
         return jsNull();
 
-    const ScopeChainNode* scopeChain = impl()->scopeChain();
+    ScopeChainNode* scopeChain = impl()->scopeChain();
     ScopeChainIterator iter = scopeChain->begin();
     ScopeChainIterator end = scopeChain->end();
 
@@ -78,28 +79,28 @@ JSValue JSJavaScriptCallFrame::scopeChain(ExecState* exec) const
 
     MarkedArgumentBuffer list;
     do {
-        list.append(*iter);
+        list.append(iter->get());
         ++iter;
     } while (iter != end);
 
-    return constructArray(exec, list);
+    return constructArray(exec, globalObject(), list);
 }
 
-JSValue JSJavaScriptCallFrame::scopeType(ExecState* exec, const ArgList& args)
+JSValue JSJavaScriptCallFrame::scopeType(ExecState* exec)
 {
     if (!impl()->scopeChain())
         return jsUndefined();
 
-    if (!args.at(0).isInt32())
+    if (!exec->argument(0).isInt32())
         return jsUndefined();
-    int index = args.at(0).asInt32();
+    int index = exec->argument(0).asInt32();
 
-    const ScopeChainNode* scopeChain = impl()->scopeChain();
+    ScopeChainNode* scopeChain = impl()->scopeChain();
     ScopeChainIterator end = scopeChain->end();
 
     bool foundLocalScope = false;
     for (ScopeChainIterator iter = scopeChain->begin(); iter != end; ++iter) {
-        JSObject* scope = *iter;
+        JSObject* scope = iter->get();
         if (scope->isActivationObject()) {
             if (!foundLocalScope) {
                 // First activation object is local scope, each successive activation object is closure.

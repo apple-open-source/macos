@@ -174,7 +174,8 @@ XCopyArea(
 	TkMacOSXRestoreDrawingContext(&dc);
     } else if (TkMacOSXDrawableWindow(src)) {
 	NSView *view = TkMacOSXDrawableView(srcDraw);
-	NSInteger gs = [[view window] gState];
+	NSWindow *w = [view window];
+	NSInteger gs = [w windowNumber] > 0 ? [w gState] : 0;
 	/* // alternative using per-view gState:
 	NSInteger gs = [view gState];
 	if (!gs) {
@@ -1564,6 +1565,7 @@ TkMacOSXSetupDrawingContext(
 	    if (dontDraw) {
 		goto end;
 	    }
+	    [[view window] disableFlushWindow];
 	    dc.view = view;
 	    dc.context = [[NSGraphicsContext currentContext] graphicsPort];
 	    dc.portBounds = NSRectToCGRect([view bounds]);
@@ -1689,6 +1691,7 @@ TkMacOSXRestoreDrawingContext(
 {
     if (dcPtr->context) {
 	CGContextSynchronize(dcPtr->context);
+	[[dcPtr->view window] enableFlushWindow];
 	if (dcPtr->focusLocked) {
 	    [dcPtr->view unlockFocus];
 	} else {
@@ -1899,7 +1902,7 @@ ClipToGC(
  *----------------------------------------------------------------------
  */
 
-BitMapPtr
+void *
 TkMacOSXMakeStippleMap(
     Drawable drawable,		/* Window to apply stipple. */
     Drawable stipple)		/* The stipple pattern. */

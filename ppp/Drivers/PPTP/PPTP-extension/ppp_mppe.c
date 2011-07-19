@@ -58,7 +58,6 @@
 #include <sys/syslog.h>
 #include <sys/sockio.h>
 #include <sys/kernel.h>
-#include <machine/spl.h>
 #include <kern/clock.h>
 
 #include <IOKit/IOLib.h>

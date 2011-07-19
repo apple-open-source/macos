@@ -1,9 +1,131 @@
 #!/usr/bin/env python
 
-import ez_setup
-ez_setup.use_setuptools()
-
 import sys
+import subprocess
+import shutil
+import re
+import os
+
+# We need at least Python 2.5
+MIN_PYTHON = (2, 5)
+
+# FIXME: autodetect default values for USE_* variables:
+#  both should be false by default, unless
+#  1) python is /usr/bin/python: both should be true
+#  2) python build with --with-system-libffi: USE_SYSTEM_FFI
+#     should be true.
+
+# Set USE_SYSTEM_FFI to True to link to the system version
+# of libffi
+USE_SYSTEM_FFI = True
+
+# Set USE_SYSTEM_LIBXML to True to link to the system version
+# of libxml2 (defaults to False to avoid problems when building
+# on 10.6 and running on an earlier release)
+USE_SYSTEM_LIBXML = True
+
+if sys.version_info < MIN_PYTHON:
+    vstr = '.'.join(map(str, MIN_PYTHON))
+    raise SystemExit('PyObjC: Need at least Python ' + vstr)
+
+
+try:
+    import setuptools
+
+except ImportError:
+    import distribute_setup
+    distribute_setup.use_setuptools()
+
+
+extra_args=dict(
+    use_2to3 = True,
+)
+
+from setuptools.command import build_py
+from setuptools.command import test
+from distutils import log
+class oc_build_py (build_py.build_py):
+    def run_2to3(self, files, doctests=True):
+        files = [ fn for fn in files if not os.path.basename(fn).startswith('test3_') ]
+        build_py.build_py.run_2to3(self, files, doctests)
+
+    def build_packages(self):
+        log.info("Overriding build_packages to copy PyObjCTest")        
+        p = self.packages
+        self.packages = list(self.packages) + ['PyObjCTest']
+        try:
+            build_py.build_py.build_packages(self)
+        finally:
+            self.packages = p
+
+from pkg_resources import working_set, normalize_path, add_activation_listener, require
+
+class oc_test (test.test):
+    def run_tests(self):
+        import sys, os
+
+        if sys.version_info[0] == 3:
+            rootdir =  os.path.dirname(os.path.abspath(__file__))
+            if rootdir in sys.path:
+                sys.path.remove(rootdir)
+
+        ei_cmd = self.get_finalized_command('egg_info')
+        egg_name = ei_cmd.egg_name.replace('-', '_')
+
+        to_remove = []
+        for dirname in sys.path:
+            bn = os.path.basename(dirname)
+            if bn.startswith(egg_name + "-"):
+                to_remove.append(dirname)
+
+        for dirname in to_remove:
+            log.info("removing installed %r from sys.path before testing"%(dirname,))
+            sys.path.remove(dirname)
+
+        from PyObjCTest.loader import makeTestSuite
+        import unittest
+
+        #import pprint; pprint.pprint(sys.path)
+       
+        unittest.main(None, None, [unittest.__file__]+self.test_args)
+
+from setuptools.command import egg_info as orig_egg_info
+
+def write_header(cmd, basename, filename):
+    data = open(os.path.join('Modules/objc/', os.path.basename(basename)), 'rU').read()
+    if not cmd.dry_run:
+        if not os.path.exists(os.path.dirname(filename)):
+            os.makedirs(os.path.dirname(filename))
+
+    cmd.write_file(basename, filename, data)
+
+
+# This is a workaround for a bug in setuptools: I'd like
+# to use the 'egg_info.writers' entry points in the setup()
+# call, but those don't work when also using a package_base
+# argument as we do.
+# (issue 123 in the distribute tracker)
+class egg_info (orig_egg_info.egg_info):
+    def run(self):
+        orig_egg_info.egg_info.run(self)
+
+        for hdr in ("pyobjc-compat.h", "pyobjc-api.h"):
+            fn = os.path.join("include", hdr)
+
+            write_header(self, fn, os.path.join(self.egg_info, fn))
+
+if sys.version_info[0] == 3:
+    # FIXME: add custom test command that does the work.
+    # - Patch sys.path
+    # - Ensure PyObjCTest gets translated by 2to3
+    from distutils.util import get_platform
+    build_dir = 'build/lib.%s-%d.%d'%(
+        get_platform(), sys.version_info[0], sys.version_info[1])
+    if hasattr(sys, 'gettotalrefcount'):
+        build_dir += '-pydebug'
+    sys.path.insert(0,  build_dir)
+
+
 import os
 import glob
 import site
@@ -17,16 +139,10 @@ if 'MallocStackLoggingNoCompact' in os.environ:
 # See the news file:
 #os.environ['MACOSX_DEPLOYMENT_TARGET']='10.5'
 
-# We need at least Python 2.3
-MIN_PYTHON = (2, 3)
 
-if sys.version_info < MIN_PYTHON:
-    vstr = '.'.join(map(str, MIN_PYTHON))
-    raise SystemExit('PyObjC: Need at least Python ' + vstr)
 
-USE_SYSTEM_FFI = False
-if int(os.uname()[2].split('.')[0]) >= 10:
-	USE_SYSTEM_FFI = True
+#if int(os.uname()[2].split('.')[0]) >= 10:
+#        USE_SYSTEM_FFI = True
 
 
 # Some PiPy stuff
@@ -57,13 +173,62 @@ class pyobjc_install_lib (install_lib.install_lib):
     def get_exclusions(self):
         result = install_lib.install_lib.get_exclusions(self)
         for fn in install_lib._install_lib.get_outputs(self):
-	    if 'PyObjCTest' in fn:
+            if 'PyObjCTest' in fn:
                 result[fn] = 1
 
-	return result
+        for fn in os.listdir('PyObjCTest'):
+            result[os.path.join('PyObjCTest', fn)] = 1
+            result[os.path.join(self.install_dir, 'PyObjCTest', fn)] = 1
+
+
+        return result
 
 class pyobjc_build_ext (build_ext.build_ext):
     def run(self):
+        if not USE_SYSTEM_LIBXML:
+            build = self.get_finalized_command('build')
+            xmldir=os.path.join(build.build_base, 'libxml')
+            if not os.path.exists(xmldir):
+                builddir=os.path.join(build.build_base, 'libxml-build')
+                if os.path.exists(builddir):
+                    shutil.rmtree(builddir)
+                os.makedirs(builddir)
+
+                cflags = get_config_var('CFLAGS')
+                if '-isysroot' in cflags:
+                    cflags = re.sub(r'-isysroot\s*\S*', '-isysroot /', cflags)
+
+                p = subprocess.Popen(
+                        ['../../libxml2-src/configure',
+                            '--disable-dependency-tracking',
+                            '--enable-static',
+                            '--disable-shared',
+                            '--prefix=%s'%(os.path.abspath(xmldir),),
+                            '--with-minimum',
+                            'CFLAGS=%s'%(cflags,),
+                            'CC=%s'%(get_config_var('CC')),
+                            ], 
+                        cwd=builddir)
+                xit=p.wait()
+                if xit != 0:
+                    shutil.rmtree(builddir)
+                    raise RuntimeError("libxml configure failed")
+                p = subprocess.Popen(
+                        ['make', 'install'],
+                        cwd=builddir)
+                xit=p.wait()
+                if xit != 0:
+                    raise RuntimeError("libxml install failed")
+
+            os.environ['PATH'] = xmldir + "/bin:" + os.environ['PATH']
+
+        for ext in self.extensions:
+            if ext.name == "objc._objc":
+                if not USE_SYSTEM_LIBXML:
+                    ext.extra_link_args.append('-Wl,-search_paths_first')
+                ext.extra_compile_args.extend(xml2config('--cflags'))
+                ext.extra_link_args.extend(xml2config('--libs'))
+
         build_ext.build_ext.run(self)
         extensions = self.extensions
         self.extensions = [
@@ -92,120 +257,63 @@ def IfFrameWork(name, packages, extensions, headername=None):
 
 # Double-check
 if sys.platform != 'darwin':
-    print "You're not running on MacOS X, and don't use GNUstep"
-    print "I don't know how to build PyObjC on such a platform."
-    print "Please read the ReadMe."
-    print ""
+    print("You're not running on MacOS X, and don't use GNUstep")
+    print("I don't know how to build PyObjC on such a platform.")
+    print("Please read the ReadMe.")
+    print("")
     raise SystemExit("ObjC runtime not found")
 
 from distutils.sysconfig import get_config_var
-cc = get_config_var('CC')
 
 CFLAGS=[ ]
-
-if cc == 'XXXgcc':
-    # This is experimental code that tries to avoid refering to files in 
-    # /Library/Frameworks or /usr/local.
-    # 
-    # NOTE: This is not enabled by default because the linker will still look
-    # in /usr/local/lib and /Library/Frameworks...
-
-    fp = os.popen('cpp -v </dev/null 2>&1', 'r')
-    dirs = []
-    started = False
-    for ln in fp:
-        if not started:
-            if ln.startswith('#include <...> search starts here:'):
-                started=True
-            continue
-
-        else:
-            ln = ln.strip()
-            if not ln.startswith('/'):
-                break
-
-            if ln == '/usr/local/include':
-                continue
-
-            elif ln == '/Library/Frameworks':
-                continue
-
-            if ln.endswith('(framework directory)'):
-                dirs.append(('framework', ln.split()[0]))
-            else:
-                dirs.append(('system', ln))
-
-    if dirs:
-        CFLAGS.append('-nostdinc')
-        for k, d in dirs:
-            CFLAGS.append('-i%s%s'%(k,d))
 
 # Enable 'PyObjC_STRICT_DEBUGGING' to enable some costly internal 
 # assertions. 
 CFLAGS.extend([
+    
+    # Use this to analyze with clang
+    #"--analyze",
 
 # The following flags are an attempt at getting rid of /usr/local
 # in the compiler search path.
     "-DPyObjC_STRICT_DEBUGGING",
     "-DMACOSX", # For libffi
     "-DPyObjC_BUILD_RELEASE=%02d%02d"%(tuple(map(int, platform.mac_ver()[0].split('.')[:2]))),
-    #"-Wno-long-double",
-    #"-Wselector",
-    #"-Wstrict-overflow",
+    "-no-cpp-precomp",
+    "-DMACOSX",
     "-g",
-    #"-fobjc-gc",
     "-fexceptions",
 
-    ## Arghh, a stupid compiler flag can cause problems. Don't 
-    ## enable -O0 if you value your sanity. With -O0 PyObjC will crash
-    ## on i386 systems when a method returns a struct that isn't returned
-    ## in registers. 
-    #"-O0",
-    "-O1",
-    #"-O2",
-    #"-O3",
-    #'-arch', 'x86_64', '-arch', 'ppc64',
 
     # Loads of warning flags
     "-Wall", "-Wstrict-prototypes", "-Wmissing-prototypes",
-    "-Wformat=2", "-W", "-Wshadow",
+    "-Wformat=2", "-W", 
+    #"-Wshadow", # disabled due to warnings from Python headers
     "-Wpointer-arith", #"-Wwrite-strings",
     "-Wmissing-declarations",
     "-Wnested-externs",
     "-Wno-long-long",
-    #"-Wfloat-equal",
-
-    # These two are fairly useless:
-    #"-Wunreachable-code",
-    #"-pedantic",
 
     "-Wno-import",
-    #"-Werror",
-
-    # use the same optimization as Python, probably -O3,
-    # but can be overrided by one of the following:
-
-    # no optimization, for debugging
-    #"-O0",
-
-    # g4 optimized
-    #"-fast", "-fPIC", "-mcpu=7450",
-
-    # g5 optimized
-    #"-fast", "-fPIC",
     ])
 
+## Arghh, a stupid compiler flag can cause problems. Don't 
+## enable -O0 if you value your sanity. With -O0 PyObjC will crash
+## on i386 systems when a method returns a struct that isn't returned
+## in registers. 
+if '-O0' in get_config_var('CFLAGS'):
+    print ("Change -O0 to -O1")
+    CFLAGS.append('-O1')
 
 OBJC_LDFLAGS = frameworks('CoreFoundation', 'Foundation', 'Carbon')
 
 if not os.path.exists('/usr/include/objc/runtime.h'):
     CFLAGS.append('-DNO_OBJC2_RUNTIME')
 
-else:
-    # Force compilation with the local SDK, compilation of PyObC will result in
-    # a binary that runs on other releases of the OS without using a particular SDK.
-    CFLAGS.extend(['-isysroot', '/'])
-    OBJC_LDFLAGS.extend(['-isysroot', '/'])
+# Force compilation with the local SDK, compilation of PyObC will result in
+# a binary that runs on other releases of the OS without using a particular SDK.
+CFLAGS.extend(['-isysroot', '/'])
+OBJC_LDFLAGS.extend(['-isysroot', '/'])
 
 
 # We're using xml2, check for the flags to use:
@@ -216,8 +324,8 @@ def xml2config(arg):
 
     return shlex.split(ln)
 
-CFLAGS.extend(xml2config('--cflags'))
-OBJC_LDFLAGS.extend(xml2config('--libs'))
+#CFLAGS.extend(xml2config('--cflags'))
+#OBJC_LDFLAGS.extend(xml2config('--libs'))
 
 
 
@@ -256,22 +364,24 @@ FFI_SOURCE=[
 #
 
 if USE_SYSTEM_FFI:
-	ExtensionList =  [ 
-	    Extension("objc._objc",
-		list(glob.glob(os.path.join('Modules', 'objc', '*.m'))),
-		extra_compile_args=CFLAGS + ["-I/usr/include/ffi"],
-		extra_link_args=OBJC_LDFLAGS + ["-lffi"],
-	    )
-	]
+    ExtensionList =  [ 
+        Extension("objc._objc",
+            list(glob.glob(os.path.join('Modules', 'objc', '*.m'))),
+            extra_compile_args=CFLAGS + ["-I/usr/include/ffi"],
+            extra_link_args=OBJC_LDFLAGS + ["-lffi"],
+            depends=list(glob.glob(os.path.join('Modules', 'objc', '*.h'))),
+        ),
+    ]
 
 else:
-	ExtensionList =  [ 
-	    Extension("objc._objc",
-		FFI_SOURCE + list(glob.glob(os.path.join('Modules', 'objc', '*.m'))),
-		extra_compile_args=CFLAGS + FFI_CFLAGS,
-		extra_link_args=OBJC_LDFLAGS,
-	    )
-	]
+    ExtensionList =  [ 
+        Extension("objc._objc",
+            FFI_SOURCE + list(glob.glob(os.path.join('Modules', 'objc', '*.m'))),
+            extra_compile_args=CFLAGS + FFI_CFLAGS,
+            extra_link_args=OBJC_LDFLAGS,
+            depends=list(glob.glob(os.path.join('Modules', 'objc', '*.h'))),
+        ),
+    ]
 
 for test_source in glob.glob(os.path.join('Modules', 'objc', 'test', '*.m')):
     name, ext = os.path.splitext(os.path.basename(test_source))
@@ -288,7 +398,7 @@ def package_version():
             fp.close()
             return ln.split()[-1][1:-1]
 
-    raise ValueError, "Version not found"
+    raise ValueError("Version not found")
 
 CLASSIFIERS = filter(None,
 """
@@ -300,10 +410,17 @@ License :: OSI Approved :: MIT License
 Natural Language :: English
 Operating System :: MacOS :: MacOS X
 Programming Language :: Python
+Programming Language :: Python :: 2
+Programming Language :: Python :: 2.6
+Programming Language :: Python :: 2.7
+Programming Language :: Python :: 3
+Programming Language :: Python :: 3.1
+Programming Language :: Python :: 3.2
 Programming Language :: Objective C
 Topic :: Software Development :: Libraries :: Python Modules
 Topic :: Software Development :: User Interfaces
 """.splitlines())
+
 
 dist = setup(
     name = "pyobjc-core", 
@@ -315,15 +432,22 @@ dist = setup(
     url = "http://pyobjc.sourceforge.net/",
     platforms = [ 'MacOS X' ],
     ext_modules = ExtensionList,
-    packages = [ 'objc', 'PyObjCTools' ], 
+    packages = [ 'objc', 'PyObjCTools', ], 
     #namespace_packages = ['PyObjCTools'],
     package_dir = { '': 'Lib', 'PyObjCTest': 'PyObjCTest' },
     extra_path = "PyObjC",
-    cmdclass = {'build_ext': pyobjc_build_ext, 'install_lib': pyobjc_install_lib },
+    cmdclass = {'build_ext': pyobjc_build_ext, 'install_lib': pyobjc_install_lib, 'build_py': oc_build_py, 'test': oc_test, 'egg_info':egg_info },
     options = {'egg_info': {'egg_base': 'Lib'}},
     classifiers = CLASSIFIERS,
     license = 'MIT License',
     download_url = 'http://pyobjc.sourceforge.net/software/index.php',
     test_suite='PyObjCTest.loader.makeTestSuite',
     zip_safe = False,
+#    entry_points = {
+#        "egg_info.writers": [
+#            "include/pyobjc-api.h = __main__:write_header",
+#            "include/pyobjc-compat.h = __main__:write_header",
+#        ],
+#    },
+    **extra_args
 )

@@ -14,9 +14,9 @@ UserType              = Developer
 ToolType              = Commands
 
 # Fetch info
-Release               = 8.5.7
+Release               = 8.5.9
 UrlFile               = $(Project)$(Release)
-Url                   = $(UrlBase)/tcl/$(UrlFile)-src$(UrlExt)
+Url                   = $(UrlBase)/$(Project)/$(ProjectName)/$(Release)/$(UrlFile)-src$(UrlExt)
 
 Configure             = $(Sources)/unix/configure
 Extra_Environment     = INSTALL_PATH="$(NSFRAMEWORKDIR)" PREFIX="$(USRDIR)" \
@@ -25,7 +25,7 @@ Extra_Environment     = INSTALL_PATH="$(NSFRAMEWORKDIR)" PREFIX="$(USRDIR)" \
 			EXTRA_CONFIGURE_ARGS="$(Configure_Flags)" \
 			TCL_PACKAGE_PATH="$(Tcl_Package_Path)" \
 			TCL_MODULE_PATH="$(Tcl_Module_Path)"
-AfterInstall          = extra-int-headers fix-tclConfig lipo_ppc links compress_man_pages fix-perms
+AfterInstall          = extra-int-headers fix-tclConfig lipo links compress_man_pages fix-perms
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/Common.make
 include ../tcl_ext/Fetch.make
@@ -39,7 +39,7 @@ Install_Flags         = INSTALL_ROOT="$(DSTROOT)"
 
 Version               = $(shell $(GREP) "TCL_VERSION=" "$(Configure)" | $(CUT) -d '=' -f 2)
 
-FmwkDir               = $(NSFRAMEWORKDIR)/Tcl.framework/Versions/$(Version)
+FmwkDir               = $(NSFRAMEWORKDIR)/$(ProjectName).framework/Versions/$(Version)
 LibItems              = tclConfig.sh libtclstub$(Version).a
 HeaderItems           = tcl.h tclDecls.h tclPlatDecls.h tclTomMath.h tclTomMathDecls.h
 PrivateHeaderItems    = tclInt.h tclIntDecls.h tclIntPlatDecls.h \
@@ -65,11 +65,14 @@ fix-tclConfig:
 	$(_v) $(SED) -e "s#$(CFLAGS)##g" -e "s#$(LDFLAGS)##g" "$(DSTROOT)$(FmwkDir)/tclConfig.sh" > "$(SYMROOT)/tclConfig.sh"
 	$(_v) $(INSTALL_FILE) "$(SYMROOT)/tclConfig.sh" "$(DSTROOT)$(FmwkDir)"
 
-lipo_ppc:
-ifeq '$(RC_ppc)' 'YES'
-	$(_v) lipo -remove ppc7400 -output $(DSTROOT)$(USRBINDIR)/tclsh$(Version) \
-		$(DSTROOT)$(USRBINDIR)/tclsh$(Version)
+lipo_archs := $(filter ppc,$(RC_ARCHS))
+ifdef lipo_archs
+define lipo
+	$(_v) lipo $(patsubst %,-remove %,$(patsubst ppc,ppc7400,$(lipo_archs))) -output $(1) $(1)
+endef
 endif
+lipo:
+	$(call lipo,$(DSTROOT)$(USRBINDIR)/tclsh$(Version))
 
 links:
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)$(USRLIBDIR)"
@@ -103,22 +106,28 @@ fix-perms:
 Sources               = $(SRCROOT)/$(Project)
 MakeDir               = $(Sources)/macosx
 
-Fmwk                  = $(SYMROOT)/Tcl.framework
-BuildTarget           = deploy
+Fmwk                  = $(SYMROOT)/$(ProjectName).framework
+BuildTarget           = $(Project) BUILD_STYLE=Deployment EXTRA_CFLAGS=-DNDEBUG
+InstallTarget         = install-deploy
 
 all: build
 
-build:: $(Fmwk)
+build:: $(Fmwk) $(Fmwk).dSYM
 
 $(Fmwk):
 	@echo "Building $(Project)..."
 	$(_v) $(Environment) $(MAKE) -C $(MakeDir) $(BuildTarget)
 
-install:: $(Fmwk)
+$(Fmwk).dSYM: $(Fmwk)
+	$(_v) $(DSYMUTIL) -o $(Fmwk).dSYM $(Fmwk)/$(ProjectName)
+	$(call lipo,$(SYMROOT)/tclsh$(Version))
+	$(_v) $(DSYMUTIL) $(SYMROOT)/tclsh$(Version)
+
+install:: $(Fmwk) $(Fmwk).dSYM
 	@echo "Installing $(Project)..."
 	-@$(RM) -f "$(DSTROOT)$(FmwkDir)/PrivateHeaders"
 	$(_v) umask $(Install_Mask) ; $(Environment) $(MAKE) -C $(MakeDir) \
-	        $(Install_Flags) install-$(BuildTarget)
+	        $(Install_Flags) $(InstallTarget)
 	$(_v) $(FIND) $(DSTROOT) $(Find_Cruft) -print0 | $(XARGS) -0 $(RMDIR)
 	$(_v) $(MAKE) $(AfterInstall)
 

@@ -10,7 +10,7 @@ ToolType    = Library
 
 Configure = $(BuildDirectory)/$(Project)/configure
 
-# Private API only
+# This is private API only; do not include in standard OS install
 Install_Prefix = $(USRDIR)/local/$(Project)
 
 # Include common makefile targets for B&I
@@ -21,7 +21,7 @@ include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
 #
 
 AEP	       = YES
-AEP_ProjVers   = $(Project)-1.4.4-stable
+AEP_ProjVers   = $(Project)-1.4.13-stable
 AEP_Filename   = $(AEP_ProjVers).tar.gz
 AEP_ExtractDir = $(AEP_ProjVers)
 AEP_Patches    = 
@@ -49,6 +49,11 @@ OSV = /usr/local/OpenSourceVersions
 OSL = /usr/local/OpenSourceLicenses
 
 install:: install-ossfiles
+
+# Override compress_man_pages to delete them instead.  Mwahahaha.
+compress_man_pages:
+	$(_v) $(RM) "$(DSTROOT)/$(MANDIR)/man3/evdns.3";
+	$(_v) $(RM) "$(DSTROOT)/$(MANDIR)/man3/event.3";
 
 install-ossfiles::
 	$(_v) $(INSTALL_DIRECTORY) "$(DSTROOT)/$(OSV)";

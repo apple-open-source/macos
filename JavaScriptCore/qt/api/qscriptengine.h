@@ -23,12 +23,16 @@
 #include "qscriptprogram.h"
 #include "qscriptstring.h"
 #include "qscriptsyntaxcheckresult.h"
+#include "qscriptvalue.h"
 #include <QtCore/qobject.h>
 #include <QtCore/qshareddata.h>
 #include <QtCore/qstring.h>
 
-class QScriptValue;
+class QDateTime;
 class QScriptEnginePrivate;
+
+// FIXME: Remove this once QScriptContext is properly defined.
+typedef void QScriptContext;
 
 // Internal typedef
 typedef QExplicitlySharedDataPointer<QScriptEnginePrivate> QScriptEnginePtr;
@@ -42,13 +46,32 @@ public:
     QScriptValue evaluate(const QString& program, const QString& fileName = QString(), int lineNumber = 1);
     QScriptValue evaluate(const QScriptProgram& program);
 
+    bool hasUncaughtException() const;
+    QScriptValue uncaughtException() const;
+    void clearExceptions();
+    int uncaughtExceptionLineNumber() const;
+    QStringList uncaughtExceptionBacktrace() const;
+
     void collectGarbage();
     void reportAdditionalMemoryCost(int cost);
 
     QScriptString toStringHandle(const QString& str);
+    QScriptValue toObject(const QScriptValue& value);
 
     QScriptValue nullValue();
     QScriptValue undefinedValue();
+
+    typedef QScriptValue (*FunctionSignature)(QScriptContext *, QScriptEngine *);
+    typedef QScriptValue (*FunctionWithArgSignature)(QScriptContext *, QScriptEngine *, void *);
+
+    QScriptValue newFunction(FunctionSignature fun, int length = 0);
+    QScriptValue newFunction(FunctionSignature fun, const QScriptValue& prototype, int length = 0);
+    QScriptValue newFunction(FunctionWithArgSignature fun, void* arg);
+
+    QScriptValue newObject();
+    QScriptValue newArray(uint length = 0);
+    QScriptValue newDate(qsreal value);
+    QScriptValue newDate(const QDateTime& value);
     QScriptValue globalObject() const;
 private:
     friend class QScriptEnginePrivate;

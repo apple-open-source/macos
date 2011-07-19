@@ -13,6 +13,8 @@ MALLOC_CHECK_=2
 MALLOC_PERTURB_=`expr $RANDOM % 255 2>/dev/null`
 export MALLOC_CHECK_ MALLOC_PERTURB_
 
+export TEST_QUIET=${TEST_QUIET:-1}
+
 RETVAL=0
 
 for f in $*; do

@@ -1,23 +1,23 @@
 /*
-    Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005 Rob Buis <buis@kde.org>
-                  2010 Dirk Schulze <krit@webkit.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2007 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005 Rob Buis <buis@kde.org>
+ * Copyright (C) 2010 Dirk Schulze <krit@webkit.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -26,22 +26,32 @@
 
 #include "Attr.h"
 #include "CachedImage.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
+#include "ColorSpace.h"
 #include "Document.h"
-#include "MappedAttribute.h"
-#include "SVGLength.h"
+#include "Image.h"
+#include "RenderObject.h"
+#include "RenderSVGResource.h"
+#include "SVGImageBufferTools.h"
 #include "SVGNames.h"
 #include "SVGPreserveAspectRatio.h"
-#include "SVGRenderSupport.h"
 
 namespace WebCore {
 
-SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* doc)
-    : SVGFilterPrimitiveStandardAttributes(tagName, doc)
-    , SVGURIReference()
-    , SVGLangSpace()
-    , SVGExternalResourcesRequired()
+// Animated property definitions
+DEFINE_ANIMATED_PRESERVEASPECTRATIO(SVGFEImageElement, SVGNames::preserveAspectRatioAttr, PreserveAspectRatio, preserveAspectRatio)
+DEFINE_ANIMATED_STRING(SVGFEImageElement, XLinkNames::hrefAttr, Href, href)
+DEFINE_ANIMATED_BOOLEAN(SVGFEImageElement, SVGNames::externalResourcesRequiredAttr, ExternalResourcesRequired, externalResourcesRequired)
+
+inline SVGFEImageElement::SVGFEImageElement(const QualifiedName& tagName, Document* document)
+    : SVGFilterPrimitiveStandardAttributes(tagName, document)
 {
+    ASSERT(hasTagName(SVGNames::feImageTag));
+}
+
+PassRefPtr<SVGFEImageElement> SVGFEImageElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new SVGFEImageElement(tagName, document));
 }
 
 SVGFEImageElement::~SVGFEImageElement()
@@ -57,17 +67,17 @@ void SVGFEImageElement::requestImageResource()
         m_cachedImage = 0;
     }
 
-    Element* hrefElement = document()->getElementById(SVGURIReference::getTarget(href()));
+    Element* hrefElement = treeScope()->getElementById(SVGURIReference::getTarget(href()));
     if (hrefElement && hrefElement->isSVGElement() && hrefElement->renderer())
         return;
 
-    m_cachedImage = ownerDocument()->docLoader()->requestImage(href());
+    m_cachedImage = ownerDocument()->cachedResourceLoader()->requestImage(href());
 
     if (m_cachedImage)
         m_cachedImage->addClient(this);
 }
 
-void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGFEImageElement::parseMappedAttribute(Attribute* attr)
 {
     const String& value = attr->value();
     if (attr->name() == SVGNames::preserveAspectRatioAttr)
@@ -84,6 +94,14 @@ void SVGFEImageElement::parseMappedAttribute(MappedAttribute* attr)
 
         SVGFilterPrimitiveStandardAttributes::parseMappedAttribute(attr);
     }
+}
+
+void SVGFEImageElement::svgAttributeChanged(const QualifiedName& attrName)
+{
+    SVGFilterPrimitiveStandardAttributes::svgAttributeChanged(attrName);
+
+    if (attrName == SVGNames::preserveAspectRatioAttr)
+        invalidate();
 }
 
 void SVGFEImageElement::synchronizeProperty(const QualifiedName& attrName)
@@ -105,15 +123,39 @@ void SVGFEImageElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeExternalResourcesRequired();
 }
 
-void SVGFEImageElement::notifyFinished(CachedResource*)
+AttributeToPropertyTypeMap& SVGFEImageElement::attributeToPropertyTypeMap()
 {
-    SVGStyledElement::invalidateResourcesInAncestorChain();
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
 }
 
-PassRefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder*)
+void SVGFEImageElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
+
+    SVGFilterPrimitiveStandardAttributes::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::preserveAspectRatioAttr, AnimatedPreserveAspectRatio);
+    attributeToPropertyTypeMap.set(XLinkNames::hrefAttr, AnimatedString);
+}
+
+void SVGFEImageElement::notifyFinished(CachedResource*)
+{
+    if (!inDocument())
+        return;
+
+    Element* parent = parentElement();
+    ASSERT(parent);
+
+    if (!parent->hasTagName(SVGNames::filterTag) || !parent->renderer())
+        return;
+
+    RenderSVGResource::markForLayoutAndParentResourceInvalidation(parent->renderer());
+}
+
+PassRefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder*, Filter* filter)
 {
     if (!m_cachedImage && !m_targetImage) {
-        Element* hrefElement = document()->getElementById(SVGURIReference::getTarget(href()));
+        Element* hrefElement = treeScope()->getElementById(SVGURIReference::getTarget(href()));
         if (!hrefElement || !hrefElement->isSVGElement())
             return 0;
 
@@ -122,12 +164,13 @@ PassRefPtr<FilterEffect> SVGFEImageElement::build(SVGFilterBuilder*)
             return 0;
 
         IntRect targetRect = enclosingIntRect(renderer->objectBoundingBox());
-        m_targetImage = ImageBuffer::create(targetRect.size(), LinearRGB);
+        m_targetImage = ImageBuffer::create(targetRect.size(), ColorSpaceLinearRGB);
 
-        renderSubtreeToImage(m_targetImage.get(), renderer);
+        AffineTransform contentTransformation;
+        SVGImageBufferTools::renderSubtreeToImageBuffer(m_targetImage.get(), renderer, contentTransformation);
     }
 
-    return FEImage::create(m_targetImage ? m_targetImage->image() : m_cachedImage->image(), preserveAspectRatio());
+    return FEImage::create(filter, m_targetImage ? m_targetImage->copyImage() : m_cachedImage->image(), preserveAspectRatio());
 }
 
 void SVGFEImageElement::addSubresourceAttributeURLs(ListHashSet<KURL>& urls) const

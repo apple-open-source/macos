@@ -63,33 +63,6 @@ static bool initFontData(SimpleFontData* fontData)
     if (!fontData->platformData().cgFont())
         return false;
 
-#ifdef BUILDING_ON_TIGER
-    ATSUStyle fontStyle;
-    if (ATSUCreateStyle(&fontStyle) != noErr)
-        return false;
-
-    ATSUFontID fontId = fontData->platformData().m_atsuFontID;
-    if (!fontId) {
-        ATSUDisposeStyle(fontStyle);
-        return false;
-    }
-
-    ATSUAttributeTag tag = kATSUFontTag;
-    ByteCount size = sizeof(ATSUFontID);
-    ATSUFontID *valueArray[1] = {&fontId};
-    OSStatus status = ATSUSetAttributes(fontStyle, 1, &tag, &size, (void* const*)valueArray);
-    if (status != noErr) {
-        ATSUDisposeStyle(fontStyle);
-        return false;
-    }
-
-    if (wkGetATSStyleGroup(fontStyle, &fontData->m_styleGroup) != noErr) {
-        ATSUDisposeStyle(fontStyle);
-        return false;
-    }
-
-    ATSUDisposeStyle(fontStyle);
-#endif
 
     return true;
 }
@@ -101,37 +74,22 @@ static NSString *webFallbackFontFamily(void)
 }
 
 #if !ERROR_DISABLED
-#ifdef __LP64__
+#if defined(__LP64__) || (!defined(BUILDING_ON_LEOPARD) && !defined(BUILDING_ON_SNOW_LEOPARD))
 static NSString* pathFromFont(NSFont*)
 {
-    // FMGetATSFontRefFromFont is not available in 64-bit. As pathFromFont is only used for debugging
-    // purposes, returning nil is acceptable.
+    // FMGetATSFontRefFromFont is not available. As pathFromFont is only used for debugging purposes,
+    // returning nil is acceptable.
     return nil;
 }
 #else
 static NSString* pathFromFont(NSFont *font)
 {
-#ifndef BUILDING_ON_TIGER
     ATSFontRef atsFont = FMGetATSFontRefFromFont(CTFontGetPlatformFont(toCTFontRef(font), 0));
-#else
-    ATSFontRef atsFont = FMGetATSFontRefFromFont(wkGetNSFontATSUFontId(font));
-#endif
     FSRef fileRef;
 
-#ifndef BUILDING_ON_TIGER
     OSStatus status = ATSFontGetFileReference(atsFont, &fileRef);
     if (status != noErr)
         return nil;
-#else
-    FSSpec oFile;
-    OSStatus status = ATSFontGetFileSpecification(atsFont, &oFile);
-    if (status != noErr)
-        return nil;
-
-    status = FSpMakeFSRef(&oFile, &fileRef);
-    if (status != noErr)
-        return nil;
-#endif
 
     UInt8 filePathBuffer[PATH_MAX];
     status = FSRefMakePath(&fileRef, filePathBuffer, PATH_MAX);
@@ -145,9 +103,6 @@ static NSString* pathFromFont(NSFont *font)
 
 void SimpleFontData::platformInit()
 {
-#ifdef BUILDING_ON_TIGER
-    m_styleGroup = 0;
-#endif
 #if USE(ATSUI)
     m_ATSUMirrors = false;
     m_checkedShapesArabic = false;
@@ -218,19 +173,16 @@ void SimpleFontData::platformInit()
     int iAscent;
     int iDescent;
     int iLineGap;
-#ifdef BUILDING_ON_TIGER
-    wkGetFontMetrics(m_platformData.cgFont(), &iAscent, &iDescent, &iLineGap, &m_unitsPerEm);
-#else
+    unsigned unitsPerEm;
     iAscent = CGFontGetAscent(m_platformData.cgFont());
     iDescent = CGFontGetDescent(m_platformData.cgFont());
     iLineGap = CGFontGetLeading(m_platformData.cgFont());
-    m_unitsPerEm = CGFontGetUnitsPerEm(m_platformData.cgFont());
-#endif
+    unitsPerEm = CGFontGetUnitsPerEm(m_platformData.cgFont());
 
     float pointSize = m_platformData.m_size;
-    float fAscent = scaleEmToUnits(iAscent, m_unitsPerEm) * pointSize;
-    float fDescent = -scaleEmToUnits(iDescent, m_unitsPerEm) * pointSize;
-    float fLineGap = scaleEmToUnits(iLineGap, m_unitsPerEm) * pointSize;
+    float ascent = scaleEmToUnits(iAscent, unitsPerEm) * pointSize;
+    float descent = -scaleEmToUnits(iDescent, unitsPerEm) * pointSize;
+    float lineGap = scaleEmToUnits(iLineGap, unitsPerEm) * pointSize;
 
     // We need to adjust Times, Helvetica, and Courier to closely match the
     // vertical metrics of their Microsoft counterparts that are the de facto
@@ -239,70 +191,64 @@ void SimpleFontData::platformInit()
     // and add it to the ascent.
     NSString *familyName = [m_platformData.font() familyName];
     if ([familyName isEqualToString:@"Times"] || [familyName isEqualToString:@"Helvetica"] || [familyName isEqualToString:@"Courier"])
-        fAscent += floorf(((fAscent + fDescent) * 0.15f) + 0.5f);
+        ascent += floorf(((ascent + descent) * 0.15f) + 0.5f);
+#if defined(BUILDING_ON_LEOPARD)
     else if ([familyName isEqualToString:@"Geeza Pro"]) {
         // Geeza Pro has glyphs that draw slightly above the ascent or far below the descent. Adjust
         // those vertical metrics to better match reality, so that diacritics at the bottom of one line
         // do not overlap diacritics at the top of the next line.
-        fAscent *= 1.08f;
-        fDescent *= 2.f;
+        ascent *= 1.08f;
+        descent *= 2.f;
     }
+#endif
 
-    m_ascent = lroundf(fAscent);
-    m_descent = lroundf(fDescent);
-    m_lineGap = lroundf(fLineGap);
-    m_lineSpacing = m_ascent + m_descent + m_lineGap;
-    
+    // Compute and store line spacing, before the line metrics hacks are applied.
+    m_fontMetrics.setLineSpacing(lroundf(ascent) + lroundf(descent) + lroundf(lineGap));
+
     // Hack Hiragino line metrics to allow room for marked text underlines.
     // <rdar://problem/5386183>
-    if (m_descent < 3 && m_lineGap >= 3 && [familyName hasPrefix:@"Hiragino"]) {
-        m_lineGap -= 3 - m_descent;
-        m_descent = 3;
+    if (descent < 3 && lineGap >= 3 && [familyName hasPrefix:@"Hiragino"]) {
+        lineGap -= 3 - descent;
+        descent = 3;
     }
     
-    // Measure the actual character "x", because AppKit synthesizes X height rather than getting it from the font.
-    // Unfortunately, NSFont will round this for us so we don't quite get the right value.
-    GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
-    NSGlyph xGlyph = glyphPageZero ? glyphPageZero->glyphDataForCharacter('x').glyph : 0;
-    if (xGlyph) {
-        CGRect xBox = platformBoundsForGlyph(xGlyph);
-        // Use the maximum of either width or height because "x" is nearly square
-        // and web pages that foolishly use this metric for width will be laid out
-        // poorly if we return an accurate height. Classic case is Times 13 point,
-        // which has an "x" that is 7x6 pixels.
-        m_xHeight = static_cast<float>(max(CGRectGetMaxX(xBox), CGRectGetMaxY(xBox)));
-    } else {
-#ifndef BUILDING_ON_TIGER
-        m_xHeight = static_cast<float>(CGFontGetXHeight(m_platformData.cgFont())) / m_unitsPerEm;
-#else
-        m_xHeight = m_platformData.font() ? [m_platformData.font() xHeight] : 0;
-#endif
+    if (platformData().orientation() == Vertical && !isTextOrientationFallback()) {
+        // The check doesn't look neat but this is what AppKit does for vertical writing...
+        RetainPtr<CFArrayRef> tableTags(AdoptCF, CTFontCopyAvailableTables(m_platformData.ctFont(), kCTFontTableOptionExcludeSynthetic));
+        CFIndex numTables = CFArrayGetCount(tableTags.get());
+        for (CFIndex index = 0; index < numTables; ++index) {
+            CTFontTableTag tag = (CTFontTableTag)(uintptr_t)CFArrayGetValueAtIndex(tableTags.get(), index);
+            if (tag == kCTFontTableVhea || tag == kCTFontTableVORG) {
+                m_hasVerticalGlyphs = true;
+                break;
+            }
+        }
     }
-}
-    
-static CFDataRef copyFontTableForTag(FontPlatformData platformData, FourCharCode tableName)
-{
-#ifdef BUILDING_ON_TIGER
-    ATSFontRef atsFont = FMGetATSFontRefFromFont(platformData.m_atsuFontID);
 
-    ByteCount tableSize;
-    if (ATSFontGetTable(atsFont, tableName, 0, 0, NULL, &tableSize) != noErr)
-        return 0;
-    
-    CFMutableDataRef data = CFDataCreateMutable(kCFAllocatorDefault, tableSize);
-    if (!data)
-        return 0;
-    
-    CFDataIncreaseLength(data, tableSize);
-    if (ATSFontGetTable(atsFont, tableName, 0, tableSize, CFDataGetMutableBytePtr(data), &tableSize) != noErr) {
-        CFRelease(data);
-        return 0;
-    }
-    
-    return data;
-#else
+    float xHeight;
+
+    if (platformData().orientation() == Horizontal) {
+        // Measure the actual character "x", since it's possible for it to extend below the baseline, and we need the
+        // reported x-height to only include the portion of the glyph that is above the baseline.
+        GlyphPage* glyphPageZero = GlyphPageTreeNode::getRootChild(this, 0)->page();
+        NSGlyph xGlyph = glyphPageZero ? glyphPageZero->glyphDataForCharacter('x').glyph : 0;
+        if (xGlyph)
+            xHeight = -CGRectGetMinY(platformBoundsForGlyph(xGlyph));
+        else
+            xHeight = scaleEmToUnits(CGFontGetXHeight(m_platformData.cgFont()), unitsPerEm) * pointSize;
+    } else
+        xHeight = verticalRightOrientationFontData()->fontMetrics().xHeight();
+
+    m_fontMetrics.setUnitsPerEm(unitsPerEm);
+    m_fontMetrics.setAscent(ascent);
+    m_fontMetrics.setDescent(descent);
+    m_fontMetrics.setLineGap(lineGap);
+    m_fontMetrics.setXHeight(xHeight);
+}
+
+static CFDataRef copyFontTableForTag(FontPlatformData& platformData, FourCharCode tableName)
+{
     return CGFontCopyTableForTag(platformData.cgFont(), tableName);
-#endif
 }
 
 void SimpleFontData::platformCharWidthInit()
@@ -314,7 +260,7 @@ void SimpleFontData::platformCharWidthInit()
     if (os2Table && CFDataGetLength(os2Table.get()) >= 4) {
         const UInt8* os2 = CFDataGetBytePtr(os2Table.get());
         SInt16 os2AvgCharWidth = os2[2] * 256 + os2[3];
-        m_avgCharWidth = scaleEmToUnits(os2AvgCharWidth, m_unitsPerEm) * m_platformData.m_size;
+        m_avgCharWidth = scaleEmToUnits(os2AvgCharWidth, m_fontMetrics.unitsPerEm()) * m_platformData.m_size;
     }
 
     RetainPtr<CFDataRef> headTable(AdoptCF, copyFontTableForTag(m_platformData, 'head'));
@@ -325,7 +271,7 @@ void SimpleFontData::platformCharWidthInit()
         SInt16 xMin = static_cast<SInt16>(uxMin);
         SInt16 xMax = static_cast<SInt16>(uxMax);
         float diff = static_cast<float>(xMax - xMin);
-        m_maxCharWidth = scaleEmToUnits(diff, m_unitsPerEm) * m_platformData.m_size;
+        m_maxCharWidth = scaleEmToUnits(diff, m_fontMetrics.unitsPerEm()) * m_platformData.m_size;
     }
 
     // Fallback to a cross-platform estimate, which will populate these values if they are non-positive.
@@ -334,10 +280,15 @@ void SimpleFontData::platformCharWidthInit()
 
 void SimpleFontData::platformDestroy()
 {
-#ifdef BUILDING_ON_TIGER
-    if (m_styleGroup)
-        wkReleaseStyleGroup(m_styleGroup);
-#endif
+    if (!isCustomFont() && m_derivedFontData) {
+        // These come from the cache.
+        if (m_derivedFontData->smallCaps)
+            fontCache()->releaseFontData(m_derivedFontData->smallCaps.leakPtr());
+
+        if (m_derivedFontData->emphasisMark)
+            fontCache()->releaseFontData(m_derivedFontData->emphasisMark.leakPtr());
+    }
+
 #if USE(ATSUI)
     HashMap<unsigned, ATSUStyle>::iterator end = m_ATSUStyleMap.end();
     for (HashMap<unsigned, ATSUStyle>::iterator it = m_ATSUStyleMap.begin(); it != end; ++it)
@@ -345,41 +296,61 @@ void SimpleFontData::platformDestroy()
 #endif
 }
 
+PassOwnPtr<SimpleFontData> SimpleFontData::createScaledFontData(const FontDescription& fontDescription, float scaleFactor) const
+{
+    if (isCustomFont()) {
+        FontPlatformData scaledFontData(m_platformData);
+        scaledFontData.m_size = scaledFontData.m_size * scaleFactor;
+        return adoptPtr(new SimpleFontData(scaledFontData, true, false));
+    }
+
+    BEGIN_BLOCK_OBJC_EXCEPTIONS;
+    float size = m_platformData.size() * scaleFactor;
+    FontPlatformData scaledFontData([[NSFontManager sharedFontManager] convertFont:m_platformData.font() toSize:size], size, false, false, m_platformData.orientation());
+
+    // AppKit resets the type information (screen/printer) when you convert a font to a different size.
+    // We have to fix up the font that we're handed back.
+    scaledFontData.setFont(fontDescription.usePrinterFont() ? [scaledFontData.font() printerFont] : [scaledFontData.font() screenFont]);
+
+    if (scaledFontData.font()) {
+        NSFontManager *fontManager = [NSFontManager sharedFontManager];
+        NSFontTraitMask fontTraits = [fontManager traitsOfFont:m_platformData.font()];
+
+        if (m_platformData.m_syntheticBold)
+            fontTraits |= NSBoldFontMask;
+        if (m_platformData.m_syntheticOblique)
+            fontTraits |= NSItalicFontMask;
+
+        NSFontTraitMask scaledFontTraits = [fontManager traitsOfFont:scaledFontData.font()];
+        scaledFontData.m_syntheticBold = (fontTraits & NSBoldFontMask) && !(scaledFontTraits & NSBoldFontMask);
+        scaledFontData.m_syntheticOblique = (fontTraits & NSItalicFontMask) && !(scaledFontTraits & NSItalicFontMask);
+
+        // SimpleFontData::platformDestroy() takes care of not deleting the cached font data twice.
+        return adoptPtr(fontCache()->getCachedFontData(&scaledFontData));
+    }
+    END_BLOCK_OBJC_EXCEPTIONS;
+
+    return nullptr;
+}
+
 SimpleFontData* SimpleFontData::smallCapsFontData(const FontDescription& fontDescription) const
 {
-    if (!m_smallCapsFontData) {
-        if (isCustomFont()) {
-            FontPlatformData smallCapsFontData(m_platformData);
-            smallCapsFontData.m_size = smallCapsFontData.m_size * smallCapsFontSizeMultiplier;
-            m_smallCapsFontData = new SimpleFontData(smallCapsFontData, true, false);
-        } else {
-            BEGIN_BLOCK_OBJC_EXCEPTIONS;
-            float size = [m_platformData.font() pointSize] * smallCapsFontSizeMultiplier;
-            FontPlatformData smallCapsFont([[NSFontManager sharedFontManager] convertFont:m_platformData.font() toSize:size]);
-            
-            // AppKit resets the type information (screen/printer) when you convert a font to a different size.
-            // We have to fix up the font that we're handed back.
-            smallCapsFont.setFont(fontDescription.usePrinterFont() ? [smallCapsFont.font() printerFont] : [smallCapsFont.font() screenFont]);
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->smallCaps)
+        m_derivedFontData->smallCaps = createScaledFontData(fontDescription, smallCapsFontSizeMultiplier);
 
-            if (smallCapsFont.font()) {
-                NSFontManager *fontManager = [NSFontManager sharedFontManager];
-                NSFontTraitMask fontTraits = [fontManager traitsOfFont:m_platformData.font()];
+    return m_derivedFontData->smallCaps.get();
+}
 
-                if (m_platformData.m_syntheticBold)
-                    fontTraits |= NSBoldFontMask;
-                if (m_platformData.m_syntheticOblique)
-                    fontTraits |= NSItalicFontMask;
+SimpleFontData* SimpleFontData::emphasisMarkFontData(const FontDescription& fontDescription) const
+{
+    if (!m_derivedFontData)
+        m_derivedFontData = DerivedFontData::create(isCustomFont());
+    if (!m_derivedFontData->emphasisMark)
+        m_derivedFontData->emphasisMark = createScaledFontData(fontDescription, .5f);
 
-                NSFontTraitMask smallCapsFontTraits = [fontManager traitsOfFont:smallCapsFont.font()];
-                smallCapsFont.m_syntheticBold = (fontTraits & NSBoldFontMask) && !(smallCapsFontTraits & NSBoldFontMask);
-                smallCapsFont.m_syntheticOblique = (fontTraits & NSItalicFontMask) && !(smallCapsFontTraits & NSItalicFontMask);
-
-                m_smallCapsFontData = fontCache()->getCachedFontData(&smallCapsFont);
-            }
-            END_BLOCK_OBJC_EXCEPTIONS;
-        }
-    }
-    return m_smallCapsFontData;
+    return m_derivedFontData->emphasisMark.get();
 }
 
 bool SimpleFontData::containsCharacters(const UChar* characters, int length) const
@@ -416,18 +387,8 @@ void SimpleFontData::determinePitch()
 FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 {
     FloatRect boundingBox;
-#ifndef BUILDING_ON_TIGER
-    CGRect box;
-    CGFontGetGlyphBBoxes(platformData().cgFont(), &glyph, 1, &box);
-    float pointSize = platformData().m_size;
-    CGFloat scale = pointSize / unitsPerEm();
-    boundingBox = CGRectApplyAffineTransform(box, CGAffineTransformMakeScale(scale, -scale));
-#else
-    // FIXME: Custom fonts don't have NSFonts, so this function doesn't compute correct bounds for these on Tiger.
-    if (!m_platformData.font())
-        return boundingBox;
-    boundingBox = [m_platformData.font() boundingRectForGlyph:glyph];
-#endif
+    boundingBox = CTFontGetBoundingRectsForGlyphs(m_platformData.ctFont(), platformData().orientation() == Vertical ? kCTFontVerticalOrientation : kCTFontHorizontalOrientation, &glyph, 0, 1);
+    boundingBox.setY(-boundingBox.maxY());
     if (m_syntheticBoldOffset)
         boundingBox.setWidth(boundingBox.width() + m_syntheticBoldOffset);
 
@@ -436,14 +397,18 @@ FloatRect SimpleFontData::platformBoundsForGlyph(Glyph glyph) const
 
 float SimpleFontData::platformWidthForGlyph(Glyph glyph) const
 {
-    NSFont* font = platformData().font();
-    float pointSize = platformData().m_size;
-    CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
     CGSize advance;
-    if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
-        LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
-        advance.width = 0;
-    }
+    if (platformData().orientation() == Horizontal || m_isBrokenIdeographFallback) {
+        NSFont* font = platformData().font();
+        float pointSize = platformData().m_size;
+        CGAffineTransform m = CGAffineTransformMakeScale(pointSize, pointSize);
+        if (!wkGetGlyphTransformedAdvances(platformData().cgFont(), font, &m, &glyph, &advance)) {
+            LOG_ERROR("Unable to cache glyph widths for %@ %f", [font displayName], pointSize);
+            advance.width = 0;
+        }
+    } else
+        CTFontGetAdvancesForGlyphs(m_platformData.ctFont(), kCTFontVerticalOrientation, &glyph, &advance, 1);
+
     return advance.width + m_syntheticBoldOffset;
 }
 

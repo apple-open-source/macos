@@ -51,7 +51,7 @@
 
 #ifndef lint
 static const char rcsid[] _U_ =
-     "@(#) $Header: /tcpdump/master/libpcap/Win32/Src/getaddrinfo.c,v 1.2.4.1 2008-09-15 23:38:45 guy Exp $";
+     "@(#) $Header: /tcpdump/master/libpcap/Win32/Src/getaddrinfo.c,v 1.3 2008-09-15 23:37:51 guy Exp $";
 #endif
 
 #include <pcap-stdinc.h>
@@ -252,6 +252,7 @@ do { \
 #define MATCH(x, y, w) \
 	((x) == (y) || ((w) && ((x) == ANY || (y) == ANY)))
 
+#if  defined(DEFINE_ADDITIONAL_IPV6_STUFF)
 char *
 gai_strerror(ecode)
 	int ecode;
@@ -260,6 +261,7 @@ gai_strerror(ecode)
 		ecode = EAI_MAX;
 	return ai_errlist[ecode];
 }
+#endif
 
 void
 freeaddrinfo(ai)

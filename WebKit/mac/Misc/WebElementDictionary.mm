@@ -66,9 +66,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 {
     JSC::initializeThreading();
     WTF::initializeMainThreadToProcessMainThread();
-#ifndef BUILDING_ON_TIGER
     WebCoreObjCFinalizeOnMainThread(self);
-#endif
 }
 
 + (void)initializeLookupTable
@@ -85,6 +83,7 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
     addLookupKey(WebElementImageRectKey, @selector(_imageRect));
     addLookupKey(WebElementImageURLKey, @selector(_absoluteImageURL));
     addLookupKey(WebElementIsSelectedKey, @selector(_isSelected));
+    addLookupKey(WebElementMediaURLKey, @selector(_absoluteMediaURL));
     addLookupKey(WebElementSpellingToolTipKey, @selector(_spellingToolTip));
     addLookupKey(WebElementTitleKey, @selector(_title));
     addLookupKey(WebElementLinkURLKey, @selector(_absoluteLinkURL));
@@ -99,7 +98,9 @@ static void cacheValueForKey(const void *key, const void *value, void *self)
 - (id)initWithHitTestResult:(const HitTestResult&)result
 {
     [[self class] initializeLookupTable];
-    [super init];
+    self = [super init];
+    if (!self)
+        return nil;
     _result = new HitTestResult(result);
     return self;
 }
@@ -214,6 +215,11 @@ static NSString* NSStringOrNil(String coreString)
 - (NSURL *)_absoluteImageURL
 {
     return _result->absoluteImageURL();
+}
+
+- (NSURL *)_absoluteMediaURL
+{
+    return _result->absoluteMediaURL();
 }
 
 - (NSNumber *)_isSelected

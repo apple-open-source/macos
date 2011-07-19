@@ -14,11 +14,10 @@
  * all claims, expenses, losses, damages and costs any user may incur
  * as a result of using, copying or modifying the software.
  *
- * $Id: tkimgIO.c 170 2008-11-14 13:31:59Z nijtmans $
+ * $Id: tkimgIO.c 274 2010-06-28 13:23:34Z nijtmans $
  *
  */
 
-#include "tk.h"
 #include "tkimg.h"
 
 /*
@@ -49,8 +48,7 @@ static char readBuf[BUFLEN];
  *--------------------------------------------------------------------------
  */
 
-static int
-char64(
+static int char64(
     int c
 ) {
     switch(c) {
@@ -114,7 +112,7 @@ void tkimg_ReadBuffer(
 ) {
     useReadBuf = onOff;
     if (onOff) {
-	memset (readBuf, 0, BUFLEN);
+	memset(readBuf, 0, BUFLEN);
 	bufStart = -1;
 	bufEnd   = -1;
     }
@@ -135,8 +133,7 @@ void tkimg_ReadBuffer(
  *--------------------------------------------------------------------------
  */
 
-int
-tkimg_Read(
+int tkimg_Read(
 	tkimg_MFile *handle /* mmdecode "file" handle */,
 	char *dst /* where to put the result */,
 	int count /* number of bytes */
@@ -164,36 +161,36 @@ tkimg_Read(
 	bytesToRead = count;
 	bytesRead = 0;
 	while (bytesToRead > 0) {
-	    #ifdef DEBUG_LOCAL
+#ifdef DEBUG_LOCAL
 		printf ("bytesToRead=%d bytesRead=%d (bufStart=%d bufEnd=%d)\n",
 			 bytesToRead, bytesRead, bufStart, bufEnd);
-	    #endif
+#endif
 	    if (bufStart < 0) {
 		bufEnd = Tcl_Read((Tcl_Channel)handle->data, readBuf, BUFLEN)-1;
-		#ifdef DEBUG_LOCAL
+#ifdef DEBUG_LOCAL
 		    printf ("Reading new %d bytes into buffer "
                             "(bufStart=%d bufEnd=%d)\n",
                             BUFLEN, bufStart, bufEnd);
-		#endif
+#endif
 		bufStart = 0;
 	   	if (bufEnd < 0)
 		    return bufEnd;
 	    }
 	    if (bufStart + bytesToRead <= bufEnd +1) {
-		#ifdef DEBUG_LOCAL
-		    printf ("All in buffer: memcpy %d bytes\n", bytesToRead);
-		#endif
+#ifdef DEBUG_LOCAL
+		    printf("All in buffer: memcpy %d bytes\n", bytesToRead);
+#endif
 		/* All bytes already in the buffer. Just copy them to dst. */
-		memcpy (dstPtr, readBuf + bufStart, bytesToRead);
+		memcpy(dstPtr, readBuf + bufStart, bytesToRead);
 		bufStart += bytesToRead;
 		if (bufStart > BUFLEN)
 		    bufStart = -1;
 		return bytesRead + bytesToRead;
 	    } else {
-		#ifdef DEBUG_LOCAL
-		    printf ("Copy rest of buffer: memcpy %d bytes\n",
+#ifdef DEBUG_LOCAL
+		    printf("Copy rest of buffer: memcpy %d bytes\n",
                             bufEnd+1-bufStart);
-		#endif
+#endif
 		memcpy (dstPtr, readBuf + bufStart, bufEnd+1 - bufStart);
 		bytesRead += (bufEnd +1 - bufStart);
 		bytesToRead -= (bufEnd+1 - bufStart);
@@ -203,7 +200,7 @@ tkimg_Read(
 	}
     }
 
-    for(i=0; i<count && (c=tkimg_Getc(handle)) != IMG_DONE; i++) {
+    for(i = 0; i < count && (c = tkimg_Getc(handle)) != IMG_DONE; i++) {
 	*dst++ = c;
     }
     return i;
@@ -226,8 +223,7 @@ tkimg_Read(
  *--------------------------------------------------------------------------
  */
 
-int
-tkimg_Getc(
+int tkimg_Getc(
 	tkimg_MFile *handle /* Input stream handle */
 ) {
     int c;
@@ -295,8 +291,7 @@ tkimg_Getc(
  *-----------------------------------------------------------------------
  */
 
-int
-tkimg_Write(
+int tkimg_Write(
     tkimg_MFile *handle /* mmencode "file" handle */,
     const char *src /* where to get the data */,
     int count /* number of bytes */
@@ -350,8 +345,7 @@ static char const base64_table[64] = {
     '4', '5', '6', '7', '8', '9', '+', '/'
 };
 
-int
-tkimg_Putc(
+int tkimg_Putc(
     register int c /* character to be written */,
     register tkimg_MFile *handle /* handle containing decoder data and state */
 ) {
@@ -426,8 +420,7 @@ tkimg_Putc(
  *-------------------------------------------------------------------------
  */
 
-void
-tkimg_WriteInit(
+void tkimg_WriteInit(
 	Tcl_DString *buffer,
 	tkimg_MFile *handle /* mmencode "file" handle */
 ) {
@@ -452,8 +445,7 @@ tkimg_WriteInit(
  *-------------------------------------------------------------------------
  */
 
-int
-tkimg_ReadInit(
+int tkimg_ReadInit(
 	Tcl_Obj *data /* string containing initial mmencoded data */,
 	int c,
 	tkimg_MFile *handle /* mmdecode "file" handle */
@@ -465,7 +457,7 @@ tkimg_ReadInit(
     }
     c = base64_table[(c>>2)&63];
 
-    while((handle->length) && (char64(*handle->data) == IMG_SPACE)) {
+    while ((handle->length) && (char64(*handle->data) == IMG_SPACE)) {
 	handle->data++;
 	handle->length--;
     }
@@ -496,8 +488,7 @@ tkimg_ReadInit(
  *----------------------------------------------------------------------
  */
 
-Tcl_Channel
-tkimg_OpenFileChannel(
+Tcl_Channel tkimg_OpenFileChannel(
 	Tcl_Interp *interp,
 	const char *fileName,
 	int permissions
@@ -505,15 +496,15 @@ tkimg_OpenFileChannel(
     Tcl_Channel chan = Tcl_OpenFileChannel(interp, (CONST84 char *) fileName,
 	    permissions?"w":"r", permissions);
     if (!chan) {
-	return (Tcl_Channel) NULL;
+	return NULL;
     }
     if (Tcl_SetChannelOption(interp, chan, "-buffersize", "131072") != TCL_OK) {
         Tcl_Close(interp, chan);
-        return (Tcl_Channel) NULL;
+        return NULL;
     }
     if (Tcl_SetChannelOption(interp, chan, "-translation", "binary") != TCL_OK) {
 	Tcl_Close(interp, chan);
-	return (Tcl_Channel) NULL;
+	return NULL;
     }
     return chan;
 }

@@ -47,7 +47,7 @@ RefPointer<OSXCode> OSXCode::main()
 {
 	// return a code signing-aware OSXCode subclass if possible
 	CFRef<SecCodeRef> me;
-	if (SecCodeCopySelf(kSecCSDefaultFlags, &me.aref()))
+	if (!SecCodeCopySelf(kSecCSDefaultFlags, &me.aref()))
 		return new OSXCodeWrap(me);
 
 	// otherwise, follow the legacy path precisely - no point in messing with this, is there?
@@ -80,7 +80,12 @@ SecStaticCodeRef OSXCode::codeRef() const
 //
 RefPointer<OSXCode> OSXCode::at(const char *path)
 {
+	CFRef<SecStaticCodeRef> code;
+	if (!SecStaticCodeCreateWithPath(CFTempURL(path), kSecCSDefaultFlags, &code.aref()))
+		return new OSXCodeWrap(code);
+
 	struct stat st;
+	// otherwise, follow the legacy path precisely - no point in messing with this, is there?
 	if (stat(path, &st))
 		UnixError::throwMe();
 	if ((st.st_mode & S_IFMT) == S_IFDIR) {	// directory - assume bundle

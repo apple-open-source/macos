@@ -1,16 +1,23 @@
+/*
+ * Copyright (c) 2010 Apple Inc. All rights reserved.
+ *
+ * @APPLE_LLVM_LICENSE_HEADER@
+ */
+
 //  -*- mode:C; c-basic-offset:4; tab-width:4; intent-tabs-mode:nil;  -*-
-// CONFIG
+// TEST_CONFIG
 
 #import <stdio.h>
 #import <stdlib.h>
 #import <string.h>
+#import "test.h"
 
 typedef struct {
   int a;
   int b;
 } MiniStruct;
 
-int main (int argc, const char * argv[]) {
+int main () {
     MiniStruct inny;
     MiniStruct outty;
     MiniStruct (^copyStruct)(MiniStruct);
@@ -26,14 +33,11 @@ int main (int argc, const char * argv[]) {
     outty = copyStruct(inny);
 
     if ( &inny == &outty ) {
-        printf("%s: struct wasn't copied.", argv[0]);
-        exit(1);
+        fail("struct wasn't copied");
     }
     if ( (inny.a != outty.a) || (inny.b != outty.b) ) {
-        printf("%s: struct contents did not match.", argv[0]);
-        exit(1);
+        fail("struct contents did not match");
     }
     
-    printf("%s: success\n", argv[0]);
-    return 0;
+    succeed(__FILE__);
 }

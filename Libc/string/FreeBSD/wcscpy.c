@@ -32,14 +32,12 @@
 __RCSID("$NetBSD: wcscpy.c,v 1.1 2000/12/23 23:14:36 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wcscpy.c,v 1.8 2002/09/26 09:23:07 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcscpy.c,v 1.9 2009/02/03 17:58:20 danger Exp $");
 
 #include <wchar.h>
 
 wchar_t *
-wcscpy(s1, s2)
-	wchar_t * __restrict s1;
-	const wchar_t * __restrict s2;
+wcscpy(wchar_t * __restrict s1, const wchar_t * __restrict s2)
 {
 	wchar_t *cp;
 

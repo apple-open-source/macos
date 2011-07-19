@@ -199,7 +199,7 @@ extern const SecAsn1Template kSecAsn1AccessDescriptionTemplate[];
 extern const SecAsn1Template kSecAsn1AuthorityInfoAccessTemplate[];
 
 /*
- * Qualified Certificate Statements support.
+ * Qualified Certificate Statements support
  */
 typedef struct {
 	CSSM_OID				*semanticsIdentifier;			/* optional */
@@ -218,6 +218,55 @@ typedef struct {
 extern const SecAsn1Template kSecAsn1SemanticsInformationTemplate[];
 extern const SecAsn1Template kSecAsn1QC_StatementTemplate[];
 extern const SecAsn1Template kSecAsn1QC_StatementsTemplate[];
+
+/*
+ * NameConstraints support
+ */
+typedef struct {
+	NSS_GeneralNames		base;
+	CSSM_DATA				minimum;	// INTEGER default=0
+	CSSM_DATA				maximum;	// INTEGER optional
+} NSS_GeneralSubtree;
+
+typedef struct {
+	NSS_GeneralSubtree		**subtrees; // SEQUENCE OF
+} NSS_GeneralSubtrees; 
+
+typedef struct {
+	NSS_GeneralSubtrees		*permittedSubtrees; // optional
+	NSS_GeneralSubtrees		*excludedSubtrees;  // optional
+} NSS_NameConstraints; 
+
+extern const SecAsn1Template kSecAsn1NameConstraintsTemplate[];
+
+/*
+ * PolicyMappings support
+ */
+typedef struct {
+	CSSM_OID				issuerDomainPolicy;
+	CSSM_OID				subjectDomainPolicy;
+} NSS_PolicyMapping;
+
+typedef struct {
+	NSS_PolicyMapping		**policyMappings; // SEQUENCE OF
+} NSS_PolicyMappings; 
+
+extern const SecAsn1Template kSecAsn1PolicyMappingsTemplate[];
+
+/*
+ * PolicyConstraints support
+ */
+typedef struct {
+	CSSM_DATA				requireExplicitPolicy;	// INTEGER optional
+	CSSM_DATA				inhibitPolicyMapping;	// INTEGER optional
+} NSS_PolicyConstraints;
+
+extern const SecAsn1Template kSecAsn1PolicyConstraintsTemplate[];
+
+/*
+ * InhibitAnyPolicy support
+ */
+#define kSecAsn1InhibitAnyPolicyTemplate	kSecAsn1IntegerTemplate;
 
 #ifdef	__cplusplus
 }

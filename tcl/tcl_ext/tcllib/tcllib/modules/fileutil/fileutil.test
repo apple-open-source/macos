@@ -9,7 +9,7 @@
 # Copyright (c) 2005-2007 by Andreas Kupries <andreas_kupries@users.sourceforge.net>
 # All rights reserved.
 #
-# RCS: @(#) $Id: fileutil.test,v 1.55 2007/08/04 00:58:27 andreas_kupries Exp $
+# RCS: @(#) $Id: fileutil.test,v 1.56 2009/10/06 20:07:18 andreas_kupries Exp $
 
 # -------------------------------------------------------------------------
 
@@ -348,7 +348,7 @@ i_cleanup
 # -------------------------------------------------------------------------
 
 proc tmp_setup {} {
-    global xpath
+    global xpath res
 
     # Set up an exclusive directory to search. This cannot be unset,
     # hence the location of these tests after the regular
@@ -356,6 +356,7 @@ proc tmp_setup {} {
 
     removeDirectory x
     set xpath [makeDirectory x]
+    set res {}
     removeDirectory x
     return
 }

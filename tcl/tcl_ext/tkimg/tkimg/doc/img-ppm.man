@@ -4,30 +4,97 @@
 
 [include format-header.inc]
 
-This handler does not provide additional configuration options.
+This handler provides additional configuration options. See
+section [sectref {PPM OPTIONS}] for more detailed explanations.
 
 [include format-middle.inc]
+
+In addition the value for the option is treated as list and may
+contain any of the special options listed in section
+
+[sectref {PPM OPTIONS}].
 
 [list_end]
 
 [section {SUPPORTED PPM TYPES}]
 
-There are two types of PPM files: RAW (binary) and ASCII.
-Currently only the RAW format is implemented.
+This handler supports the PPM (Truecolor) and PGM (Greyscale) image formats.
+There are two types of PPM/PGM files: RAW (binary) and ASCII.
+The values stored in PPM/PGM files can be unsigned 8-bit or unsigned 16-bit
+values.
 
 [example_begin]
-  8-bit pixels: Grayscale, also known as PGM.
- 24-bit pixels: True-color (RGB, each channel 8 bit).
+
+ Grayscale (PGM): 8-bit and 16-bit, 1 channel per pixel.
+ Truecolor (PPM): 8-bit and 16-bit, 3 channels per pixel.
 
  List of currently supported features:
 
- Type   |     Read      |     Write     |
-        | -file | -data | -file | -data |
- ----------------------------------------
-  8-bit | Yes   | Yes   | Yes   | Yes   |
- 24-bit | Yes   | Yes   | Yes   | Yes   |
+ Type              |     Read      |     Write     |
+                   | -file | -data | -file | -data |
+ ---------------------------------------------------
+ PGM  8-bit ASCII  | Yes   | Yes   | No    | No    |
+ PGM  8-bit BINARY | Yes   | Yes   | No    | No    |
+ PGM 16-bit ASCII  | Yes   | Yes   | No    | No    |
+ PGM 16-bit BINARY | Yes   | Yes   | No    | No    |
+ PPM  8-bit ASCII  | Yes   | Yes   | Yes   | Yes   |
+ PPM  8-bit BINARY | Yes   | Yes   | Yes   | Yes   |
+ PPM 16-bit ASCII  | Yes   | Yes   | No    | No    |
+ PPM 16-bit BINARY | Yes   | Yes   | No    | No    |
 
 [example_end]
+
+[section {PPM OPTIONS}]
+
+The handler provides the following options:
+
+[list_begin definitions]
+
+[lst_item "[option -verbose] [arg bool]"]
+
+This option is supported for reading and writing.
+[nl]
+If set to [const true], additional information about the loaded/stored image
+is printed to stdout. Default is [const false].
+
+[lst_item "[option -scanorder] [arg string]"]
+
+This option is supported for reading only.
+[nl]
+Specify the scanline order of the input image.
+Possible values: [const TopDown] or [const BottomUp]. Default is [const TopDown].
+
+[lst_item "[option -gamma] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify a gamma correction to be applied when mapping
+16-bit input data to 8-bit image values.
+Default is [const 1.0].
+
+[lst_item "[option -min] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify the minimum pixel value to be used for mapping
+16-bit input data to 8-bit image values.
+Default is the minimum value found in the image data.
+
+[lst_item "[option -max] [arg float]"]
+
+This option is supported for reading only.
+[nl]
+Specify the maximum pixel value to be used for mapping
+16-bit input data to 8-bit image values.
+Default is the maximum value found in the image data.
+
+[lst_item "[option -ascii] [arg bool]"]
+
+This option is supported for writing only.
+If set to [const true], the file is written in PPM 8-bit ASCII format (P3).
+Default is [const false], i.e. write in PPM 8-bit binary format (P6).
+
+[list_end]
 
 [list_begin definitions]
 [include format-footer.inc]

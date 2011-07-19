@@ -1,0 +1,1 @@
+FreeBSD/stpncpy.c

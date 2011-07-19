@@ -25,6 +25,18 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		521CEA1E1177DE9100A01E25 /* debug.c in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA191177DE9100A01E25 /* debug.c */; };
+		521CEA1F1177DE9100A01E25 /* debug.h in Headers */ = {isa = PBXBuildFile; fileRef = 521CEA1A1177DE9100A01E25 /* debug.h */; };
+		521CEA201177DE9100A01E25 /* error.c in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA1B1177DE9100A01E25 /* error.c */; };
+		521CEA211177DE9100A01E25 /* pcscd_reader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA1C1177DE9100A01E25 /* pcscd_reader.cpp */; };
+		521CEA221177DE9100A01E25 /* pcscd_reader.h in Headers */ = {isa = PBXBuildFile; fileRef = 521CEA1D1177DE9100A01E25 /* pcscd_reader.h */; };
+		521CEA2F1178D06500A01E25 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA2E1178D06500A01E25 /* debuglog.c */; };
+		521CEA3B1178D1CA00A01E25 /* pcscd_reader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 521CEA1C1177DE9100A01E25 /* pcscd_reader.cpp */; };
+		521CEA6D1178D43000A01E25 /* readerfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A10254242101B94B21 /* readerfactory.c */; };
+		521CEA8E1178D6C700A01E25 /* atrhandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94510254232701B94B21 /* atrhandler.c */; };
+		521CEAC11178DB9E00A01E25 /* configfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94900254242101B94B21 /* configfile.c */; };
+		521CEAC81178DBE100A01E25 /* eventhandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94960254242101B94B21 /* eventhandler.cpp */; };
+		521CEACE1178DC3600A01E25 /* ifdwrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949B0254242101B94B21 /* ifdwrapper.c */; };
 		5234B67F0E78286000F02D95 /* atrhandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A948F0254242101B94B21 /* atrhandler.h */; };
 		5234B6800E78286000F02D95 /* configfile.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94910254242101B94B21 /* configfile.h */; };
 		5234B6810E78286000F02D95 /* debuglog.h in Headers */ = {isa = PBXBuildFile; fileRef = F52A94930254242101B94B21 /* debuglog.h */; };
@@ -53,7 +65,6 @@
 		5234B6990E78286000F02D95 /* atrhandler.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94510254232701B94B21 /* atrhandler.c */; };
 		5234B69A0E78286000F02D95 /* readerstate.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */; };
 		5234B69B0E78286000F02D95 /* configfile.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94900254242101B94B21 /* configfile.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
-		5234B69C0E78286000F02D95 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
 		5234B69D0E78286000F02D95 /* dyn_macosx.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94950254242101B94B21 /* dyn_macosx.c */; };
 		5234B69E0E78286000F02D95 /* eventhandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F52A94960254242101B94B21 /* eventhandler.cpp */; };
 		5234B69F0E78286000F02D95 /* ifdwrapper.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A949B0254242101B94B21 /* ifdwrapper.c */; };
@@ -69,7 +80,6 @@
 		5234B6A90E78286000F02D95 /* PCSCDevice.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293D0A87EA8E004FE8DC /* PCSCDevice.cpp */; };
 		5234B6AA0E78286000F02D95 /* PCSCDriverBundle.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 5286293F0A87EA8E004FE8DC /* PCSCDriverBundle.cpp */; };
 		5234B6AB0E78286000F02D95 /* PCSCDriverBundles.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 528629410A87EA8E004FE8DC /* PCSCDriverBundles.cpp */; };
-		5234B6AC0E78286000F02D95 /* reader.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 52D00D1B0A9252350093277A /* reader.cpp */; };
 		5234B6AD0E78286000F02D95 /* pcscdmonitor.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60A0AA5192B007589FF /* pcscdmonitor.cpp */; };
 		5234B6AE0E78286000F02D95 /* pcscdserver.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 527CF60C0AA5192B007589FF /* pcscdserver.cpp */; };
 		5234B6AF0E78286000F02D95 /* winscard_msg_srv.c in Sources */ = {isa = PBXBuildFile; fileRef = 52D2492C0BA07E1100F9827A /* winscard_msg_srv.c */; };
@@ -97,7 +107,6 @@
 		5234B6D10E78286000F02D95 /* tokenfactory.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D0025424AC01B94B21 /* tokenfactory.c */; };
 		5234B6D20E78286000F02D95 /* sys_unix.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94A40254242101B94B21 /* sys_unix.c */; };
 		5234B6D30E78286000F02D95 /* tokenparser.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D2025424AC01B94B21 /* tokenparser.c */; settings = {COMPILER_FLAGS = "-DYY_NO_UNPUT"; }; };
-		5234B6D40E78286000F02D95 /* debuglog.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94920254242101B94B21 /* debuglog.c */; };
 		5234B6D50E78286000F02D95 /* winscard_clnt.c in Sources */ = {isa = PBXBuildFile; fileRef = F52A94D4025424AC01B94B21 /* winscard_clnt.c */; };
 		5234B6D80E78286000F02D95 /* security_utilities.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 52D58C080A87FEA000DC3F19 /* security_utilities.framework */; };
 		5234B6D90E78286000F02D95 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = F503CADB025428F601B94B21 /* CoreFoundation.framework */; };
@@ -149,6 +158,12 @@
 		2CC9AB9A06CC036D0048A811 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = /System/Library/Frameworks/CoreFoundation.framework; sourceTree = "<absolute>"; };
 		2CC9ABC806CC03A10048A811 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = /System/Library/Frameworks/IOKit.framework; sourceTree = "<absolute>"; };
 		4CB55A760592598500B25B27 /* Makefile.installPhase */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = text; path = Makefile.installPhase; sourceTree = "<group>"; };
+		521CEA191177DE9100A01E25 /* debug.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debug.c; path = src/PCSC/debug.c; sourceTree = "<group>"; };
+		521CEA1A1177DE9100A01E25 /* debug.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = debug.h; path = src/PCSC/debug.h; sourceTree = "<group>"; };
+		521CEA1B1177DE9100A01E25 /* error.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = error.c; path = src/PCSC/error.c; sourceTree = "<group>"; };
+		521CEA1C1177DE9100A01E25 /* pcscd_reader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = pcscd_reader.cpp; path = src/PCSC/pcscd_reader.cpp; sourceTree = "<group>"; };
+		521CEA1D1177DE9100A01E25 /* pcscd_reader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = pcscd_reader.h; path = src/PCSC/pcscd_reader.h; sourceTree = "<group>"; };
+		521CEA2E1178D06500A01E25 /* debuglog.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = debuglog.c; path = src/PCSC/debuglog.c; sourceTree = "<group>"; };
 		5234B6BB0E78286000F02D95 /* pcscd */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = pcscd; sourceTree = BUILT_PRODUCTS_DIR; };
 		5234B6DF0E78286000F02D95 /* Info-PCSC.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "Info-PCSC.plist"; sourceTree = "<group>"; };
 		5234B6E00E78286000F02D95 /* PCSC.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = PCSC.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -168,7 +183,6 @@
 		528629410A87EA8E004FE8DC /* PCSCDriverBundles.cpp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.cpp.cpp; name = PCSCDriverBundles.cpp; path = src/PCSC/PCSCDriverBundles.cpp; sourceTree = "<group>"; };
 		528629420A87EA8E004FE8DC /* PCSCDriverBundles.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = PCSCDriverBundles.h; path = src/PCSC/PCSCDriverBundles.h; sourceTree = "<group>"; };
 		52D00D1A0A9252350093277A /* reader.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = reader.h; path = src/PCSC/reader.h; sourceTree = "<group>"; };
-		52D00D1B0A9252350093277A /* reader.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = reader.cpp; path = src/PCSC/reader.cpp; sourceTree = "<group>"; };
 		52D2492C0BA07E1100F9827A /* winscard_msg_srv.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = winscard_msg_srv.c; path = src/PCSC/winscard_msg_srv.c; sourceTree = "<group>"; };
 		52D58C080A87FEA000DC3F19 /* security_utilities.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = security_utilities.framework; path = /usr/local/SecurityPieces/Frameworks/security_utilities.framework; sourceTree = "<absolute>"; };
 		52DBCAAE0BB851C8007D06A5 /* PCSC.exp */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.exports; name = PCSC.exp; path = src/PCSC/PCSC.exp; sourceTree = "<group>"; };
@@ -184,7 +198,6 @@
 		F52A948F0254242101B94B21 /* atrhandler.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = atrhandler.h; path = src/PCSC/atrhandler.h; sourceTree = SOURCE_ROOT; };
 		F52A94900254242101B94B21 /* configfile.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = configfile.c; path = src/PCSC/configfile.c; sourceTree = SOURCE_ROOT; };
 		F52A94910254242101B94B21 /* configfile.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = configfile.h; path = src/PCSC/configfile.h; sourceTree = SOURCE_ROOT; };
-		F52A94920254242101B94B21 /* debuglog.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = debuglog.c; path = src/PCSC/debuglog.c; sourceTree = SOURCE_ROOT; };
 		F52A94930254242101B94B21 /* debuglog.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = debuglog.h; path = src/PCSC/debuglog.h; sourceTree = SOURCE_ROOT; };
 		F52A94940254242101B94B21 /* dyn_generic.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; name = dyn_generic.h; path = src/PCSC/dyn_generic.h; sourceTree = SOURCE_ROOT; };
 		F52A94950254242101B94B21 /* dyn_macosx.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; name = dyn_macosx.c; path = src/PCSC/dyn_macosx.c; sourceTree = SOURCE_ROOT; };
@@ -277,6 +290,11 @@
 		527CF6040AA51879007589FF /* pcscd */ = {
 			isa = PBXGroup;
 			children = (
+				521CEA191177DE9100A01E25 /* debug.c */,
+				521CEA1A1177DE9100A01E25 /* debug.h */,
+				521CEA1B1177DE9100A01E25 /* error.c */,
+				521CEA1C1177DE9100A01E25 /* pcscd_reader.cpp */,
+				521CEA1D1177DE9100A01E25 /* pcscd_reader.h */,
 				5236DD1C0B9DDBD7007CEF56 /* readerstate.cpp */,
 				5236DD1D0B9DDBD7007CEF56 /* readerstate.h */,
 				F52A949D0254242101B94B21 /* pcscdaemon.c */,
@@ -294,7 +312,6 @@
 				F52A94A10254242101B94B21 /* readerfactory.c */,
 				F52A94A20254242101B94B21 /* readerfactory.h */,
 				52D00D1A0A9252350093277A /* reader.h */,
-				52D00D1B0A9252350093277A /* reader.cpp */,
 			);
 			name = pcscd;
 			sourceTree = "<group>";
@@ -349,7 +366,7 @@
 				F52A948F0254242101B94B21 /* atrhandler.h */,
 				F52A94900254242101B94B21 /* configfile.c */,
 				F52A94910254242101B94B21 /* configfile.h */,
-				F52A94920254242101B94B21 /* debuglog.c */,
+				521CEA2E1178D06500A01E25 /* debuglog.c */,
 				F52A94930254242101B94B21 /* debuglog.h */,
 				F52A94940254242101B94B21 /* dyn_generic.h */,
 				F52A94950254242101B94B21 /* dyn_macosx.c */,
@@ -450,6 +467,8 @@
 				5234B6C70E78286000F02D95 /* wintypes.h in Headers */,
 				5234B6C80E78286000F02D95 /* debuglog.h in Headers */,
 				5234B6C90E78286000F02D95 /* config.h in Headers */,
+				521CEA1F1177DE9100A01E25 /* debug.h in Headers */,
+				521CEA221177DE9100A01E25 /* pcscd_reader.h in Headers */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -601,7 +620,6 @@
 				5234B6990E78286000F02D95 /* atrhandler.c in Sources */,
 				5234B69A0E78286000F02D95 /* readerstate.cpp in Sources */,
 				5234B69B0E78286000F02D95 /* configfile.c in Sources */,
-				5234B69C0E78286000F02D95 /* debuglog.c in Sources */,
 				5234B69D0E78286000F02D95 /* dyn_macosx.c in Sources */,
 				5234B69E0E78286000F02D95 /* eventhandler.cpp in Sources */,
 				5234B69F0E78286000F02D95 /* ifdwrapper.c in Sources */,
@@ -617,11 +635,12 @@
 				5234B6A90E78286000F02D95 /* PCSCDevice.cpp in Sources */,
 				5234B6AA0E78286000F02D95 /* PCSCDriverBundle.cpp in Sources */,
 				5234B6AB0E78286000F02D95 /* PCSCDriverBundles.cpp in Sources */,
-				5234B6AC0E78286000F02D95 /* reader.cpp in Sources */,
 				5234B6AD0E78286000F02D95 /* pcscdmonitor.cpp in Sources */,
 				5234B6AE0E78286000F02D95 /* pcscdserver.cpp in Sources */,
 				5234B6AF0E78286000F02D95 /* winscard_msg_srv.c in Sources */,
 				5234B6B00E78286000F02D95 /* winscard.c in Sources */,
+				521CEA2F1178D06500A01E25 /* debuglog.c in Sources */,
+				521CEA3B1178D1CA00A01E25 /* pcscd_reader.cpp in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -637,8 +656,15 @@
 				5234B6D10E78286000F02D95 /* tokenfactory.c in Sources */,
 				5234B6D20E78286000F02D95 /* sys_unix.c in Sources */,
 				5234B6D30E78286000F02D95 /* tokenparser.c in Sources */,
-				5234B6D40E78286000F02D95 /* debuglog.c in Sources */,
 				5234B6D50E78286000F02D95 /* winscard_clnt.c in Sources */,
+				521CEA1E1177DE9100A01E25 /* debug.c in Sources */,
+				521CEA201177DE9100A01E25 /* error.c in Sources */,
+				521CEA211177DE9100A01E25 /* pcscd_reader.cpp in Sources */,
+				521CEA6D1178D43000A01E25 /* readerfactory.c in Sources */,
+				521CEA8E1178D6C700A01E25 /* atrhandler.c in Sources */,
+				521CEAC11178DB9E00A01E25 /* configfile.c in Sources */,
+				521CEAC81178DBE100A01E25 /* eventhandler.cpp in Sources */,
+				521CEACE1178DC3600A01E25 /* ifdwrapper.c in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -772,7 +798,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					"${BUILT_PRODUCTS_DIR}",
 					/usr/local/SecurityPieces/Components/Security,
@@ -786,6 +812,7 @@
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					/System/Library/Frameworks/CoreFoundation.framework/Headers,
 					/System/Library/Frameworks/IOKit.framework/Headers/usb,
@@ -795,7 +822,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
 				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
 				OPT_LDXFLAGS = "-dead_strip";
 				OPT_LDXNOPIC = ",_nopic";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -832,7 +858,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					"${BUILT_PRODUCTS_DIR}",
 					/usr/local/SecurityPieces/Components/Security,
@@ -843,6 +869,7 @@
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					/System/Library/Frameworks/CoreFoundation.framework/Headers,
 					/System/Library/Frameworks/IOKit.framework/Headers/usb,
@@ -852,7 +879,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
 				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
 				OPT_LDXFLAGS = "-dead_strip";
 				OPT_LDXNOPIC = ",_nopic";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -886,7 +912,7 @@
 			buildSettings = {
 				ARCHS = "$(NATIVE_ARCH)";
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					"${BUILT_PRODUCTS_DIR}",
 					/usr/local/SecurityPieces/Components/Security,
@@ -897,6 +923,7 @@
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					/System/Library/Frameworks/CoreFoundation.framework/Headers,
 					/System/Library/Frameworks/IOKit.framework/Headers/usb,
@@ -906,7 +933,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
 				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OPT_LDXFLAGS = "";
 				OPT_LDXNOPIC = "";
@@ -944,7 +970,7 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = (
 					"${BUILT_PRODUCTS_DIR}",
 					/usr/local/SecurityPieces/Components/Security,
@@ -955,6 +981,7 @@
 					"USE_SYSLOG=1",
 					"USE_DAEMON=1",
 				);
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				HEADER_SEARCH_PATHS = (
 					/System/Library/Frameworks/CoreFoundation.framework/Headers,
 					/System/Library/Frameworks/IOKit.framework/Headers/usb,
@@ -964,7 +991,6 @@
 				ONLY_ACTIVE_ARCH = NO;
 				OPT_CPPXFLAGS = "$(OPT_CXFLAGS)";
 				OPT_CXFLAGS = "-DNDEBUG  $(OPT_INLINEXFLAGS)";
-				OPT_INLINEXFLAGS = "-finline-functions";
 				OPT_LDXFLAGS = "-dead_strip";
 				OPT_LDXNOPIC = ",_nopic";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
@@ -996,9 +1022,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36160;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1014,11 +1040,11 @@
 					"USE_DAEMON=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1052,9 +1078,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36160;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1067,11 +1093,11 @@
 					"USE_DAEMON=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1102,9 +1128,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36160;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1117,11 +1143,11 @@
 					"USE_DAEMON=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "";
 				OPT_LDXFLAGS = "";
 				OPT_LDXNOPIC = "";
@@ -1158,9 +1184,9 @@
 					normal,
 					debug,
 				);
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				DYLIB_COMPATIBILITY_VERSION = 1;
-				DYLIB_CURRENT_VERSION = 36160;
+				DYLIB_CURRENT_VERSION = 55000;
 				EXPORTED_SYMBOLS_FILE = "$(SRCROOT)/src/PCSC/PCSC.exp";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1173,11 +1199,11 @@
 					"USE_DAEMON=1",
 				);
 				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INFOPLIST_FILE = "Info-PCSC.plist";
 				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Frameworks";
 				OPT_CFLAGS = "-DNDEBUG  $(OPT_INLINEFLAGS)";
 				OPT_CPPFLAGS = "$(OPT_CFLAGS)";
-				OPT_INLINEFLAGS = "-finline-functions";
 				OPT_LDFLAGS = "-dead_strip";
 				OTHER_ASFLAGS_debug = "$(OTHER_CFLAGS)";
 				OTHER_ASFLAGS_normal = "-DNDEBUG $(OTHER_CFLAGS)";
@@ -1207,7 +1233,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
@@ -1232,7 +1258,7 @@
 		5234B6E90E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1255,7 +1281,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OPT_LDFLAGS = "";
@@ -1283,7 +1309,7 @@
 		5234B6EB0E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
@@ -1305,11 +1331,12 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = debug;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
 				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1330,8 +1357,9 @@
 		5234B6F60E78286000F02D95 /* Deployment */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
@@ -1353,8 +1381,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				BUILD_VARIANTS = normal;
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OPT_LDFLAGS = "";
 				OPT_LDXFLAGS = "";
@@ -1381,8 +1410,9 @@
 		5234B6F80E78286000F02D95 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
-				CURRENT_PROJECT_VERSION = 36160;
+				CURRENT_PROJECT_VERSION = 55000;
 				FRAMEWORK_SEARCH_PATHS = "";
+				GCC_WARN_ABOUT_DEPRECATED_FUNCTIONS = NO;
 				INSTALL_PATH = /usr/bin;
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";

@@ -1,6 +1,12 @@
-2007-10-10  Andreas Kuprie  <andreask@activestate.com>
+2009-01-21  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
-	* datefield.tcl: Updated to automatically use tile/ttdk when
+	*
+	* Released and tagged Tklib 0.5 ========================
+	* 
+
+2007-10-10  Andreas Kupries  <andreask@activestate.com>
+
+	* datefield.tcl: Updated to automatically use tile/ttk when
 	* datefield.man: available. Version updated to 0.2
 	* pkgIndex.tcl:
 

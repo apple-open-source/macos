@@ -3,9 +3,9 @@
  *
  *	This module implements platform-specific visual themes.
  *
- * Copyright (c) 2006-2008 Tim Baker
+ * Copyright (c) 2006-2009 Tim Baker
  *
- * RCS: @(#) $Id: tkTreeTheme.c,v 1.25 2008/02/28 00:25:07 hobbs2 Exp $
+ * RCS: @(#) $Id: tkTreeTheme.c,v 1.33 2010/03/08 17:04:58 treectrl Exp $
  */
 
 #if defined(WIN32) || defined(_WIN32)
@@ -23,6 +23,11 @@
 #define COLUMN_STATE_NORMAL 0
 #define COLUMN_STATE_ACTIVE 1
 #define COLUMN_STATE_PRESSED 2
+
+/* These must agree with tkTreeColumn.c */
+#define ARROW_NONE 0
+#define ARROW_UP 1
+#define ARROW_DOWN 2
 
 #ifndef USE_TTK
 #ifdef WIN32
@@ -135,7 +140,7 @@ GetActCtxProcs(void)
     HINSTANCE hInst;
     ActCtxProcs *procs = (ActCtxProcs *) ckalloc(sizeof(ActCtxProcs));
 
-    hInst = LoadLibrary("kernel32.dll"); // FIXME: leak?
+    hInst = LoadLibrary("kernel32.dll"); /* FIXME: leak? */
     if (hInst != 0)
     {
  #define LOADPROC(name) \
@@ -178,10 +183,10 @@ GetMyHandle(void)
 }
 
 BOOL WINAPI
-DllMain(hInst, reason, reserved)
-    HINSTANCE hInst;	/* Library instance handle. */
-    DWORD reason;	/* Reason this function is being called. */
-    LPVOID reserved;	/* Not used. */
+DllMain(
+    HINSTANCE hInst,	/* Library instance handle. */
+    DWORD reason,	/* Reason this function is being called. */
+    LPVOID reserved)	/* Not used. */
 {
     if (reason == DLL_PROCESS_ATTACH) {
 	thisModule = (HMODULE) hInst;
@@ -359,7 +364,7 @@ LoadXPThemeProcs(HINSTANCE *phlib)
 }
 
 int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state,
-    int arrow, int x, int y, int width, int height)
+    int arrow, int visIndex, int x, int y, int width, int height)
 {
     HTHEME hTheme;
     HDC hDC;
@@ -748,6 +753,63 @@ TreeTheme_Relayout(
 {
 }
 
+int
+TreeTheme_IsDesktopComposited(
+    TreeCtrl *tree
+    )
+{
+    /* TODO:
+	Detect Vista/Win7 use of Desktop Window Manager using
+	  DwmIsCompositionEnabled().
+	WndProc should listen for WM_DWMCOMPOSITIONCHANGED.
+    */
+#if 1
+    /* On Win7 I see lots of flickering with the dragimage in the demo
+     * "Explorer (Large Icons)", so Composition must not work quite how I
+     * expected. */
+    return FALSE;
+#elif 0
+    HMODULE library = LoadLibrary("dwmapi.dll");
+    int result = FALSE;
+
+    if (0 != library) {
+	typedef BOOL (STDAPICALLTYPE DwmIsCompositionEnabledProc)(BOOL *pfEnabled);
+	DwmIsCompositionEnabledProc *proc;
+
+	if (0 != (proc = GetProcAddress(library, "DwmIsCompositionEnabled"))) {
+	    BOOL enabled = FALSE;
+	    result = SUCCEEDED(proc(&enabled)) && enabled;
+	}
+
+	FreeLibrary(library);
+    }
+
+    return result;
+#else
+/* http://weblogs.asp.net/kennykerr/archive/2006/08/10/Windows-Vista-for-Developers-_1320_-Part-3-_1320_-The-Desktop-Window-Manager.aspx */
+bool IsCompositionEnabled()
+{
+    HMODULE library = ::LoadLibrary(L"dwmapi.dll");
+    bool result = false;
+
+    if (0 != library)
+    {
+        if (0 != ::GetProcAddress(library,
+                                  "DwmIsCompositionEnabled"))
+        {
+            BOOL enabled = FALSE;
+            result = SUCCEEDED(::DwmIsCompositionEnabled(&enabled)) && enabled;
+        }
+
+        VERIFY(::FreeLibrary(library));
+    }
+
+    return result;
+}
+#endif
+    return FALSE;
+}
+
 #if !defined(WM_THEMECHANGED)
 #define WM_THEMECHANGED 0x031A
 #endif
@@ -926,7 +988,285 @@ int TreeTheme_InitInterp(Tcl_Interp *interp)
     return TCL_OK;
 }
 
-#elif defined(MAC_OSX_TK)
+#elif defined(MAC_TK_COCOA)
+
+#import <Cocoa/Cocoa.h>
+#import <Carbon/Carbon.h>
+#include "tkMacOSXInt.h"
+
+/*
+ * Since TkMacOSXSetupDrawingContext() isn't in the stubs table I call
+ * XFillRectangle which will create the Pixmap context if it doesn't
+ * exist.  THIS WON'T WORK FOR DRAWING IN A WINDOW.
+ */
+static CGContextRef
+GetCGContextForDrawable(
+    TreeCtrl *tree,
+    Drawable d,
+    int x, int y, int width, int height)
+{
+    MacDrawable *macDraw = (MacDrawable *) d;
+
+    if (macDraw->context == NULL) {
+	GC gc = Tk_3DBorderGC(tree->tkwin, tree->border, TK_3D_FLAT_GC);
+	XFillRectangle(tree->display, d, gc, x, y, width, height);
+    }
+    
+    return macDraw->context;
+}
+
+static HIThemeButtonDrawInfo
+GetThemeButtonDrawInfo(
+    TreeCtrl *tree,
+    int state,
+    int arrow)
+{
+    HIThemeButtonDrawInfo info;
+
+    info.version = 0;
+    switch (state) {
+	case COLUMN_STATE_ACTIVE:  info.state = kThemeStateActive /* kThemeStateRollover */; break;
+	case COLUMN_STATE_PRESSED: info.state = kThemeStatePressed; break;
+	default:		   info.state = kThemeStateActive; break;
+    }
+    /* Background window */
+    if (!tree->isActive)
+	info.state = kThemeStateInactive;
+    info.kind = kThemeListHeaderButton;
+    info.value = (arrow != ARROW_NONE) ? kThemeButtonOn : kThemeButtonOff;
+    switch (arrow) {
+	case ARROW_NONE: info.adornment = kThemeAdornmentHeaderButtonNoSortArrow; break;
+	case ARROW_UP: info.adornment = kThemeAdornmentHeaderButtonSortUp; break;
+	case ARROW_DOWN: info.adornment = kThemeAdornmentDefault; break;
+    }
+
+    return info;
+}
+
+int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state,
+    int arrow, int visIndex, int x, int y, int width, int height)
+{
+    MacDrawable *macDraw = (MacDrawable *) drawable;
+    CGRect bounds;
+    HIThemeButtonDrawInfo info;
+    CGContextRef context;
+    HIShapeRef boundsRgn;
+    CGAffineTransform t = { .a = 1, .b = 0, .c = 0, .d = -1, .tx = 0,
+	.ty = macDraw->size.height};
+    int leftEdgeOffset;
+
+    if (!(macDraw->flags & TK_IS_PIXMAP))
+	return TCL_ERROR;
+
+    info = GetThemeButtonDrawInfo(tree, state, arrow);
+
+    /* Really want TkMacOSXSetupDrawingContext here. */
+    context = GetCGContextForDrawable(tree, drawable, x, y, width, height);
+    if (context == NULL)
+	return TCL_ERROR;
+    CGContextSaveGState(context);
+    CGContextConcatCTM(context, t);
+
+    /* See SF patch 'aqua header drawing - ID: 1356447' */
+    /* The left edge overlaps the right edge of the previous column. */
+    /* Only show the left edge if this is the first column or the
+     * "blue" column (with a sort arrow). */
+    if (visIndex == 0 || arrow == ARROW_NONE)
+	leftEdgeOffset = 0;
+    else
+	leftEdgeOffset = -1;
+
+    /* Create a clipping region as big as the header. */
+    bounds.origin.x = macDraw->xOff + x + leftEdgeOffset;
+    bounds.origin.y = macDraw->yOff + y;
+    bounds.size.width = width - leftEdgeOffset;
+    bounds.size.height = height;
+    boundsRgn = HIShapeCreateWithRect(&bounds);
+
+    /* Set the clipping region */
+    HIShapeReplacePathInCGContext(boundsRgn, context);
+    CGContextEOClip(context);
+
+    /* See SF patch 'aqua header drawing - ID: 1356447' */
+    if (visIndex == 0)
+	leftEdgeOffset = 0;
+    else
+	leftEdgeOffset = -1;
+    bounds.origin.x = macDraw->xOff + x + leftEdgeOffset;
+    bounds.size.width = width - leftEdgeOffset;
+
+    (void) HIThemeDrawButton(&bounds, &info, context,
+	kHIThemeOrientationNormal, NULL);
+
+    CGContextRestoreGState(context);
+    CFRelease(boundsRgn);
+
+    return TCL_OK;
+}
+
+/* List headers are a fixed height on Aqua */
+int TreeTheme_GetHeaderFixedHeight(TreeCtrl *tree, int *heightPtr)
+{
+    SInt32 metric;
+
+    GetThemeMetric(kThemeMetricListHeaderHeight, &metric);
+    *heightPtr = metric;
+    return TCL_OK;
+}
+
+int TreeTheme_GetHeaderContentMargins(TreeCtrl *tree, int state, int arrow,
+    int bounds[4])
+{
+    CGRect inBounds, outBounds;
+    HIThemeButtonDrawInfo info;
+    SInt32 metric;
+
+    inBounds.origin.x = 0;
+    inBounds.origin.y = 0;
+    inBounds.size.width = 100;
+    GetThemeMetric(kThemeMetricListHeaderHeight, &metric);
+    inBounds.size.height = metric;
+
+    info = GetThemeButtonDrawInfo(tree, state, arrow);
+
+    (void) HIThemeGetButtonContentBounds(
+	&inBounds,
+	&info,
+	&outBounds);
+
+    bounds[0] = CGRectGetMinX(outBounds) - CGRectGetMinX(inBounds);
+    bounds[1] = CGRectGetMinY(outBounds) - CGRectGetMinY(inBounds);
+    bounds[2] = CGRectGetMaxX(inBounds) - CGRectGetMaxX(outBounds);
+    bounds[3] = CGRectGetMaxY(inBounds) - CGRectGetMaxY(outBounds);
+
+    return TCL_OK;
+}
+
+int TreeTheme_DrawHeaderArrow(TreeCtrl *tree, Drawable drawable, int up, int x, int y, int width, int height)
+{
+    return TCL_ERROR;
+}
+
+int TreeTheme_DrawButton(TreeCtrl *tree, Drawable drawable, int open,
+    int x, int y, int width, int height)
+{
+    MacDrawable *macDraw = (MacDrawable *) drawable;
+    CGRect bounds;
+    HIThemeButtonDrawInfo info;
+    CGContextRef context;
+    CGAffineTransform t = { .a = 1, .b = 0, .c = 0, .d = -1, .tx = 0,
+	.ty = macDraw->size.height};
+    HIShapeRef clipRgn;
+
+    if (!(macDraw->flags & TK_IS_PIXMAP))
+	return TCL_ERROR;
+
+    bounds.origin.x = macDraw->xOff + x;
+    bounds.origin.y = macDraw->yOff + y;
+    bounds.size.width = width;
+    bounds.size.height = height;
+
+    info.version = 0;
+    info.state = kThemeStateActive;
+    info.kind = kThemeDisclosureButton;
+    info.value = open ? kThemeDisclosureDown : kThemeDisclosureRight;
+    info.adornment = kThemeAdornmentDrawIndicatorOnly;
+
+    /* Really want TkMacOSXSetupDrawingContext here. */
+    /* FIXME: If the context doesn't exist, this will draw a box under
+     * the button. But the item background will already have been drawn
+     * into the Pixmap, creating the context, so this should work. */
+    context = GetCGContextForDrawable(tree, drawable, x, y, width, height);
+    if (context == NULL)
+	return TCL_ERROR;
+    CGContextSaveGState(context);
+    CGContextConcatCTM(context, t);
+
+    /* Set the clipping region */
+    clipRgn = HIShapeCreateWithRect(&bounds);
+    HIShapeReplacePathInCGContext(clipRgn, context);
+    CGContextEOClip(context);
+
+    (void) HIThemeDrawButton(&bounds, &info, context,
+	kHIThemeOrientationNormal, NULL);
+
+    CGContextRestoreGState(context);
+    CFRelease(clipRgn);
+
+    return TCL_OK;
+}
+
+int TreeTheme_GetButtonSize(TreeCtrl *tree, Drawable drawable, int open, int *widthPtr, int *heightPtr)
+{
+    SInt32 metric;
+
+    (void) GetThemeMetric(
+	kThemeMetricDisclosureTriangleWidth,
+	&metric);
+    *widthPtr = metric;
+
+    (void) GetThemeMetric(
+	kThemeMetricDisclosureTriangleHeight,
+	&metric);
+    *heightPtr = metric;
+
+    return TCL_OK;
+}
+
+int TreeTheme_GetArrowSize(TreeCtrl *tree, Drawable drawable, int up, int *widthPtr, int *heightPtr)
+{
+    return TCL_ERROR;
+}
+
+int TreeTheme_SetBorders(TreeCtrl *tree)
+{
+    return TCL_ERROR;
+}
+
+int
+TreeTheme_DrawBorders(
+    TreeCtrl *tree,
+    Drawable drawable
+    )
+{
+    return TCL_ERROR;
+}
+
+void
+TreeTheme_Relayout(
+    TreeCtrl *tree
+    )
+{
+}
+
+int
+TreeTheme_IsDesktopComposited(
+    TreeCtrl *tree
+    )
+{
+    return TRUE;
+}
+
+void TreeTheme_ThemeChanged(TreeCtrl *tree)
+{
+}
+
+int TreeTheme_Init(TreeCtrl *tree)
+{
+    return TCL_OK;
+}
+
+int TreeTheme_Free(TreeCtrl *tree)
+{
+    return TCL_OK;
+}
+
+int TreeTheme_InitInterp(Tcl_Interp *interp)
+{
+    return TCL_OK;
+}
+
+#elif defined(MAC_TK_CARBON)
 
 #include <Carbon/Carbon.h>
 #include "tkMacOSXInt.h"
@@ -934,7 +1274,7 @@ int TreeTheme_InitInterp(Tcl_Interp *interp)
 static RgnHandle oldClip = NULL, boundsRgn = NULL;
 
 int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state,
-    int arrow, int x, int y, int width, int height)
+    int arrow, int visIndex, int x, int y, int width, int height)
 {
     MacDrawable *macWin = (MacDrawable *) drawable;
     Rect bounds;
@@ -1138,12 +1478,19 @@ TreeTheme_DrawBorders(
     return TCL_ERROR;
 }
 
-
 void
 TreeTheme_Relayout(
     TreeCtrl *tree
     )
 {
+}
+
+int
+TreeTheme_IsDesktopComposited(
+    TreeCtrl *tree
+    )
+{
+    return TRUE;
 }
 
 void TreeTheme_ThemeChanged(TreeCtrl *tree)
@@ -1165,9 +1512,10 @@ int TreeTheme_InitInterp(Tcl_Interp *interp)
     return TCL_OK;
 }
 
-#else /* MAC_OSX_TK */
+#else /* MAC_TK_CARBON */
 
-int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state, int arrow, int x, int y, int width, int height)
+int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state,
+    int arrow, int visIndex, int x, int y, int width, int height)
 {
     return TCL_ERROR;
 }
@@ -1212,12 +1560,19 @@ TreeTheme_DrawBorders(
     return TCL_ERROR;
 }
 
-
 void
 TreeTheme_Relayout(
     TreeCtrl *tree
     )
 {
+}
+
+int
+TreeTheme_IsDesktopComposited(
+    TreeCtrl *tree
+    )
+{
+    return FALSE;
 }
 
 void TreeTheme_ThemeChanged(TreeCtrl *tree)
@@ -1255,7 +1610,8 @@ typedef struct TreeThemeData_
     Ttk_Padding buttonPadding[2];
 } TreeThemeData_;
 
-int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state, int arrow, int x, int y, int width, int height)
+int TreeTheme_DrawHeaderItem(TreeCtrl *tree, Drawable drawable, int state,
+    int arrow, int visIndex, int x, int y, int width, int height)
 {
     TreeThemeData themeData = tree->themeData;
     Ttk_Layout layout = themeData->headingLayout;
@@ -1396,7 +1752,7 @@ TreeTheme_DrawBorders(
 		Tk_Width(tkwin), MAX(top, bottom), Tk_Depth(tkwin));
     }
 
-    DebugDrawBorder(tree, 0, left, top, right, bottom);
+/*    DebugDrawBorder(tree, 0, left, top, right, bottom);*/
 
     if (left > 0) {
 	eTtk_DrawLayout(themeData->layout, state, pixmapLR);

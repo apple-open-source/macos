@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple Computer//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>Disabled</key>
+	<true/>
+	<key>Label</key>
+	<string>com.apple.push_notify</string>
+	<key>OnDemand</key>
+	<false/>
+	<key>Program</key>
+	<string>/usr/sbin/push_notify</string>
+	<key>ProgramArguments</key>
+	<array>
+		<string>push_notify</string>
+	</array>
+</dict>
+</plist>

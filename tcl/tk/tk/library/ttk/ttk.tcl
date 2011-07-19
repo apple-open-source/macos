@@ -44,8 +44,11 @@ proc ttk::deprecated'warning {old new} {
 
 ### Backward-compatibility.
 #
-
-package ifneeded tile 0.8.0 { package require Tk ; package provide tile 0.8.0 }
+#
+# Make [package require tile] an effective no-op;
+# see SF#3016598 for discussion.
+#
+package ifneeded tile 0.8.6 { package provide tile 0.8.6 }
 
 # ttk::panedwindow used to be named ttk::paned.  Keep the alias for now.
 #
@@ -105,6 +108,7 @@ source [file join $::ttk::library notebook.tcl]
 source [file join $::ttk::library panedwindow.tcl]
 source [file join $::ttk::library entry.tcl]
 source [file join $::ttk::library combobox.tcl]	;# dependency: entry.tcl
+source [file join $::ttk::library spinbox.tcl]  ;# dependency: entry.tcl
 source [file join $::ttk::library treeview.tcl]
 source [file join $::ttk::library sizegrip.tcl]
 
@@ -123,16 +127,18 @@ proc ttk::LoadThemes {} {
     uplevel #0 [list source [file join $library defaults.tcl]] 
 
     set builtinThemes [style theme names]
-    foreach {theme script} {
+    foreach {theme scripts} {
 	classic 	classicTheme.tcl
 	alt 		altTheme.tcl
 	clam 		clamTheme.tcl
 	winnative	winTheme.tcl
-	xpnative	xpTheme.tcl
+	xpnative	{xpTheme.tcl vistaTheme.tcl}
 	aqua 		aquaTheme.tcl
     } {
 	if {[lsearch -exact $builtinThemes $theme] >= 0} {
-	    uplevel #0 [list source [file join $library $script]]
+            foreach script $scripts {
+                uplevel #0 [list source [file join $library $script]]
+            }
 	}
     }
 }
@@ -141,7 +147,7 @@ ttk::LoadThemes; rename ::ttk::LoadThemes {}
 
 ### Select platform-specific default theme:
 #
-# Notes: 
+# Notes:
 #	+ On OSX, aqua theme is the default
 #	+ On Windows, xpnative takes precedence over winnative if available.
 #	+ On X11, users can use the X resource database to
@@ -150,17 +156,17 @@ ttk::LoadThemes; rename ::ttk::LoadThemes {}
 #
 
 proc ttk::DefaultTheme {} {
-    set preferred [list aqua xpnative winnative]
+    set preferred [list aqua vista xpnative winnative]
 
     set userTheme [option get . tkTheme TkTheme]
-    if {$userTheme != {} && ![catch {
+    if {$userTheme ne {} && ![catch {
 	uplevel #0 [list package require ttk::theme::$userTheme]
     }]} {
 	return $userTheme
     }
 
     foreach theme $preferred {
-	if {[package provide ttk::theme::$theme] != ""} {
+	if {[package provide ttk::theme::$theme] ne ""} {
 	    return $theme
 	}
     }

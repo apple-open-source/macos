@@ -45,6 +45,14 @@ assert(f/g==Op(1))
 -- test unary operators
 --assert((not a)==true) -- lua does not allow overloading for not operator
 --assert((not b)==false) -- lua does not allow overloading for not operator
+
+--lua 5.0.2 defines that unary - is __unm(self,nil)
+--lua 5.1.2 defines that unary - is __unm(self,self)
+--C++ expectes unary - as operator-()
+--however the latest version of SWIG strictly checks the number of args
+--and will complain if too many args are provided
+--therefore disabling these tests for now
+-- (solution will to be not to check args for this test case)
 assert(-a==a)
 assert(-b==Op(-5))
 

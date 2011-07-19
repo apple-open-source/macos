@@ -1,0 +1,1383 @@
+diff -Naur tnftpd-20100324/configure tnftpd/configure
+--- tnftpd-20100324/configure	2010-06-18 15:33:24.000000000 -0700
++++ tnftpd/configure	2010-06-18 15:47:13.000000000 -0700
+@@ -881,6 +881,7 @@
+ with_pam
+ with_sia
+ with_skey
++with_gssapi
+ enable_dependency_tracking
+ enable_shared
+ enable_static
+@@ -1552,6 +1553,8 @@
+                           Architecture (SIA) authentication [default=auto]
+   --with-skey             enable support for S/Key authentication (not
+                           compatible with --with-pam) [default=no]
++  --with-gssapi           enable support for GSSAPI Kerberos authentication
++                          [default=no]
+   --with-gnu-ld           assume the C compiler uses GNU ld [default=no]
+   --with-pic              try to use only PIC/non-PIC objects [default=use
+                           both]
+@@ -3487,6 +3490,14 @@
+ fi
+ 
+ 
++# Check whether --with-gssapi was given.
++if test "${with_gssapi+set}" = set; then :
++  withval=$with_gssapi;
++else
++  with_gssapi=no
++fi
++
++
+ #
+ # Autoheader templates symbols.
+ #
+@@ -22030,6 +22042,80 @@
+ 
+ fi
+ 
++# Check for GSSAPI
++#
++if test "$with_gssapi" != no; then :
++  { $as_echo "$as_me:${as_lineno-$LINENO}: --with-gssapi=$with_gssapi; checking for required GSSAPI features" >&5
++$as_echo "$as_me: --with-gssapi=$with_gssapi; checking for required GSSAPI features" >&6;}
++       { $as_echo "$as_me:${as_lineno-$LINENO}: checking for gss_krb5_copy_ccache in -lgssapi_krb5" >&5
++$as_echo_n "checking for gss_krb5_copy_ccache in -lgssapi_krb5... " >&6; }
++if test "${ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache+set}" = set; then :
++  $as_echo_n "(cached) " >&6
++else
++  ac_check_lib_save_LIBS=$LIBS
++LIBS="-lgssapi_krb5  $LIBS"
++cat confdefs.h - <<_ACEOF >conftest.$ac_ext
++/* end confdefs.h.  */
++
++/* Override any GCC internal prototype to avoid an error.
++   Use char because int might match the return type of a GCC
++   builtin and then its argument prototype would still apply.  */
++#ifdef __cplusplus
++extern "C"
++#endif
++char gss_krb5_copy_ccache ();
++int
++main ()
++{
++return gss_krb5_copy_ccache ();
++  ;
++  return 0;
++}
++_ACEOF
++if ac_fn_c_try_link "$LINENO"; then :
++  ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache=yes
++else
++  ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache=no
++fi
++rm -f core conftest.err conftest.$ac_objext \
++    conftest$ac_exeext conftest.$ac_ext
++LIBS=$ac_check_lib_save_LIBS
++fi
++{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache" >&5
++$as_echo "$ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache" >&6; }
++if test "x$ac_cv_lib_gssapi_krb5_gss_krb5_copy_ccache" = x""yes; then :
++  LIBS="-lgssapi_krb5 $LIBS"
++                     $as_echo "#define USE_GSSAPI 1" >>confdefs.h
++
++                     for ac_header in gssapi.h
++do :
++  ac_fn_c_check_header_mongrel "$LINENO" "gssapi.h" "ac_cv_header_gssapi_h" "$ac_includes_default"
++if test "x$ac_cv_header_gssapi_h" = x""yes; then :
++  cat >>confdefs.h <<_ACEOF
++#define HAVE_GSSAPI_H 1
++_ACEOF
++
++fi
++
++done
++
++                     { $as_echo "$as_me:${as_lineno-$LINENO}: enabling GSSAPI/Kerberos authentication" >&5
++$as_echo "$as_me: enabling GSSAPI/Kerberos authentication" >&6;}
++                     with_gssapi=yes
++else
++  if test "$with_gssapi" != auto; then :
++  { { $as_echo "$as_me:${as_lineno-$LINENO}: error: in \`$ac_pwd':" >&5
++$as_echo "$as_me: error: in \`$ac_pwd':" >&2;}
++as_fn_error "--with-gssapi was given, but gss_krb5_copy_ccache() wasn't found
++See \`config.log' for more details." "$LINENO" 5; }
++fi
++                     { $as_echo "$as_me:${as_lineno-$LINENO}: disabling --with-gssapi" >&5
++$as_echo "$as_me: disabling --with-gssapi" >&6;}
++                     with_gssapi=no
++fi
++
++fi
++
+ # Tests for items required for inbuilt ls.
+ #
+ if test "$opt_builtinls" = yes; then :
+@@ -23548,5 +23634,7 @@
+ $as_echo "$as_me: SIA authentication:    $with_sia" >&6;}
+ { $as_echo "$as_me:${as_lineno-$LINENO}: S/Key authentication:  $with_skey" >&5
+ $as_echo "$as_me: S/Key authentication:  $with_skey" >&6;}
++{ $as_echo "$as_me:${as_lineno-$LINENO}: GSSAPI authentication: $with_gssapi" >&5
++$as_echo "$as_me: GSSAPI authentication: $with_gssapi" >&6;}
+ { $as_echo "$as_me:${as_lineno-$LINENO}:  =============================" >&5
+ $as_echo "$as_me:  =============================" >&6;}
+diff -Naur tnftpd-20100324/configure.ac tnftpd/configure.ac
+--- tnftpd-20100324/configure.ac	2010-06-18 15:33:24.000000000 -0700
++++ tnftpd/configure.ac	2010-06-18 15:47:06.000000000 -0700
+@@ -57,6 +57,12 @@
+                              [default=no]])],
+             [],
+             [with_skey=no])
++AC_ARG_WITH([gssapi],
++            [AS_HELP_STRING([--with-gssapi],
++                            [enable support for GSSAPI Kerberos authentication
++                             [default=no]])],
++            [],
++            [with_gssapi=no])
+ 
+ #
+ # Autoheader templates symbols.
+@@ -81,6 +87,8 @@
+             [Define if using SIA authentication.])
+ AH_TEMPLATE([USE_SKEY],
+             [Define if using S/Key authentication.])
++AH_TEMPLATE([USE_GSSAPI],
++            [Define if using GSSAPI authentication.])
+ 
+ #
+ # Checks for programs.
+@@ -414,6 +433,23 @@
+                      AC_MSG_NOTICE([disabling --with-skey])
+                      with_skey=no])])
+ 
++# Check for GSSAPI
++#
++AS_IF([test "$with_gssapi" != no],
++      [AC_MSG_NOTICE([--with-gssapi=$with_gssapi; checking for required GSSAPI features])
++       AC_CHECK_LIB([gssapi_krb5],
++                    [gss_krb5_copy_ccache],
++                    [LIBS="-lgssapi_krb5 $LIBS"
++                     AC_DEFINE([USE_GSSAPI], [1])
++                     AC_CHECK_HEADERS([gssapi.h])
++                     AC_MSG_NOTICE([enabling GSSAPI/Kerberos authentication])
++                     with_gssapi=yes],
++                    [AS_IF([test "$with_gssapi" != auto],
++                           [AC_MSG_FAILURE(
++                [--with-gssapi was given, but gss_krb5_copy_ccache() wasn't found])])
++                     AC_MSG_NOTICE([disabling --with-gssapi])
++                     with_gssapi=no])])
++
+ # Tests for items required for inbuilt ls.
+ #
+ AS_IF([test "$opt_builtinls" = yes],
+@@ -451,4 +487,5 @@
+ AC_MSG_NOTICE([PAM authentication:    $with_pam])
+ AC_MSG_NOTICE([SIA authentication:    $with_sia])
+ AC_MSG_NOTICE([S/Key authentication:  $with_skey])
++AC_MSG_NOTICE([GSSAPI authentication: $with_gssapi])
+ AC_MSG_NOTICE([ =============================])
+diff -Naur tnftpd-20100324/src/cmds.c tnftpd/src/cmds.c
+--- tnftpd-20100324/src/cmds.c	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/cmds.c	2010-06-18 15:35:42.000000000 -0700
+@@ -134,7 +134,6 @@
+ } factelem;
+ 
+ static void	ack(const char *);
+-static void	base64_encode(const char *, size_t, char *, int);
+ static void	fact_type(const char *, FILE *, factelem *);
+ static void	fact_size(const char *, FILE *, factelem *);
+ static void	fact_modify(const char *, FILE *, factelem *);
+@@ -558,7 +557,7 @@
+  * If nulterm is non-zero, terminate with \0 otherwise pad to 3 byte boundary
+  * with `='.
+  */
+-static void
++void
+ base64_encode(const char *clear, size_t len, char *encoded, int nulterm)
+ {
+ 	static const char base64[] =
+@@ -589,6 +588,60 @@
+ 	*e = '\0';
+ }
+ 
++/*
++ * decode base64-encoded into clear, to a max of len clear bytes
++ * return (positive) length if decode okay,
++ * or negative code for use with base64_decode_error() below
++ */
++
++int
++base64_decode(const char *encoded, char *clear, size_t len)
++{
++	static const char base64[] =
++	    "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
++	int i, j = 0;
++	int Q = 0;
++	char *p;
++	unsigned char c = 0;
++	len--;
++
++	for (i = 0; encoded[i] && encoded[i] != '='; i++) {
++		if ((p = strchr(base64, encoded[i])) == NULL) return(-1);
++		if (j == len) return(-7);
++		Q = p - base64;
++		switch (i & 3) {
++			case 0: c = Q<<2;				break;
++			case 1:	clear[j++] = c | Q>>4;	c = (Q&15)<<4;	break;
++			case 2:	clear[j++] = c | Q>>2;	c = (Q&3)<<6;	break;
++			case 3:	clear[j++] = c | Q;			break;
++		}
++	}
++	/* failure: bad padding, or decoded bits % 8 */
++	switch (i & 3) {
++		case 1: return(-3);
++		case 2: if (Q&15) return(-3);
++			if (strcmp((char *)&clear[i], "==")) return(-2);
++			break;
++		case 3: if (Q&3) return(-3);
++			if (strcmp((char *)&clear[i], "=")) return(-2);
++	}
++	clear[j] = '\0';
++	return(j);
++}
++
++char *
++base64_decode_error(int reason)
++{
++	switch(reason) {
++		case 0:  return("OK");
++		case -1:  return("Bad character in encoded message");
++		case -2:  return("Encoded message not properly padded");
++		case -3:  return("Encoded message has odd number of bits");
++		case -7:  return("Message too long for decode buffer");
++		default: return("Unknown error");
++	}
++}
++
+ static void
+ fact_modify(const char *fact, FILE *fd, factelem *fe)
+ {
+diff -Naur tnftpd-20100324/src/extern.h tnftpd/src/extern.h
+--- tnftpd-20100324/src/extern.h	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/extern.h	2010-06-18 15:35:42.000000000 -0700
+@@ -123,6 +123,9 @@
+ #define FTP_BUFLEN	512
+ 
+ void	abor(void);
++int	base64_decode(const char *, char *, size_t);
++char	*base64_decode_error(int);
++void	base64_encode(const char *, size_t, char *, int);
+ void	closedataconn(FILE *);
+ char   *conffilename(const char *);
+ void	count_users(void);
+@@ -347,6 +350,33 @@
+ GLOBAL	const char     *version;
+ GLOBAL	int		is_oob;
+ 
++#if (USE_GSSAPI && HAVE_GSSAPI_H)
++#include <gssapi.h>
++#include <gssapi/gssapi_krb5.h>
++
++GLOBAL	gss_ctx_id_t	gcontext;
++GLOBAL	gss_buffer_desc	client_name;
++GLOBAL	krb5_context	kcontext;
++GLOBAL	krb5_ccache	kccache;
++#endif
++
++GLOBAL	char		*auth_type;
++GLOBAL	char		*auth_type_tmp;		/* post-AUTH && pre-ADAT */
++GLOBAL	int		auth_control_prot;	/* protection levels */
++GLOBAL	int		auth_data_prot;
++GLOBAL	int		authorized;		/* via supported AUTH */
++GLOBAL	int		creds_valid;
++GLOBAL	int		auth_want_creds;
++GLOBAL	int		auth_have_creds;
++
++/* these should be defined in <arpa/ftp.h> */
++#ifndef PROT_C
++#define PROT_C		1	/* clear */
++#define PROT_S		2	/* safe */
++#define PROT_P		3	/* private */
++#define PROT_E		4	/* confidential */
++#endif
++GLOBAL	char		*protnames[];
+ 						/* total file data bytes */
+ GLOBAL	off_t		total_data_in,  total_data_out,  total_data;
+ 						/* total number of data files */
+diff -Naur tnftpd-20100324/src/ftpcmd.y tnftpd/src/ftpcmd.y
+--- tnftpd-20100324/src/ftpcmd.y	2009-11-06 19:26:48.000000000 -0800
++++ tnftpd/src/ftpcmd.y	2010-06-18 15:35:42.000000000 -0700
+@@ -119,6 +119,15 @@
+ char	*cmdp;
+ char	*fromname;
+ 
++extern	int	auth_required;
++extern	int	auth_ccc_allowed;
++extern	int	auth_ccc_enabled;
++extern	int	auth_control_prot;
++unsigned int	auth_max_buffer;
++unsigned char	*auth_max_buffer_ptr;
++unsigned int	auth_max_buffer_tmp;
++static	int	prot_type;
++
+ extern int	epsvall;
+ struct tab	sitetab[];
+ 
+@@ -748,33 +757,77 @@
+ 						/* RFC 2228 */
+ 	| AUTH SP mechanism_name CRLF
+ 		{
+-			reply(502, "RFC 2228 authentication not implemented.");
++			auth((char *) $3);
+ 			free($3);
+ 		}
+ 
+ 	| ADAT SP base64data CRLF
+ 		{
+-			reply(503,
+-			    "Please set authentication state with AUTH.");
++			adat((unsigned char *) $3);
+ 			free($3);
+ 		}
+ 
+ 	| PROT SP prot_code CRLF
+ 		{
+-			reply(503,
+-			    "Please set protection buffer size with PBSZ.");
+-			free($3);
++			if (auth_max_buffer)
++			{
++				switch (prot_type) {
++				case PROT_S:
++#ifdef DO_NOT_ENCRYPT
++				case PROT_P:
++#endif
++					if (auth_type)
++				case PROT_C:
++						reply(200, "Data channel protected at level: %s",
++							(auth_data_prot = prot_type) == PROT_S ?
++								"safe" : auth_data_prot == PROT_C ?
++								"clear" : "private");
++					else
++				default:
++					reply(536, "protection level %s not supported",
++						protnames[prot_type]);
++				}
++
++			} else
++				reply(503, "Must set PBSZ first.");
+ 		}
+ 
+-	| PBSZ SP decimal_integer CRLF
++	| PBSZ SP STRING CRLF
+ 		{
+-			reply(503,
+-			    "Please set authentication state with AUTH.");
++			if (!auth_type)
++				reply(503, "Must perform authentication first");
++			else if (strlen($3) > 10 ||
++					(strlen($3) == 10 && strcmp($3,"4294967296") >= 0))
++				reply(501, "Bad value for PBSZ: %s", $3);
++			else {
++				if (auth_max_buffer_ptr) (void) free(auth_max_buffer_ptr);
++				auth_max_buffer_tmp = (unsigned int) atol($3);
++				/* try requested, then smaller buffers until too bad */
++				while ((auth_max_buffer_ptr = (unsigned char *)malloc(auth_max_buffer_tmp)) == NULL)
++					if (auth_max_buffer_tmp)
++						reply(-200, "Trying %u", auth_max_buffer_tmp >>= 2);
++					else {
++						perror_reply(421,
++							"Local resource failure: malloc");
++						dologout(1);
++					}
++				reply(200, "PBSZ=%u", auth_max_buffer = auth_max_buffer_tmp);
++                        }
++			free ($3);
+ 		}
+ 
+ 	| CCC CRLF
+ 		{
+-			reply(533, "No protection enabled.");
++			if (!auth_ccc_allowed) {
++				reply(534, "CCC not supported");
++			} else {
++				if(auth_control_prot == PROT_C && !auth_ccc_enabled) {
++					reply(533, "CCC command must be integrity protected");
++				} else {
++					reply(200, "CCC command successful.");
++					auth_ccc_enabled = 1;
++				}
++			}
+ 		}
+ 
+ 	| MIC SP base64data CRLF
+@@ -1017,6 +1070,25 @@
+ 		}
+ 	;
+ 
++prot_code
++	: C
++		{
++			prot_type = PROT_C;
++		}
++	| S
++		{
++			prot_type = PROT_S;
++		}
++	| P
++		{
++			prot_type = PROT_P;
++		}
++	| E
++		{
++			prot_type = PROT_E;
++		}
++	;
++
+ type_code
+ 	: A
+ 		{
+@@ -1264,7 +1336,7 @@
+ 	{ "AUTH", AUTH, STR1,	1,	"<sp> mechanism-name", 0, },
+ 	{ "ADAT", ADAT, STR1,	1,	"<sp> base-64-data", 0, },
+ 	{ "PROT", PROT, STR1,	1,	"<sp> prot-code", 0, },
+-	{ "PBSZ", PBSZ, ARGS,	1,	"<sp> decimal-integer", 0, },
++	{ "PBSZ", PBSZ, STR1,	1,	"<sp> decimal-integer", 0, },
+ 	{ "CCC",  CCC,  NOARGS,	1,	"(Disable data protection)", 0, },
+ 	{ "MIC",  MIC,  STR1,	4,	"<sp> base64data", 0, },
+ 	{ "CONF", CONF, STR1,	4,	"<sp> base64data", 0, },
+@@ -1361,6 +1433,16 @@
+ 	return (0);
+ }
+ 
++void
++upper(register char *s)
++{
++	while (*s != '\0') {
++		if (islower((int)(*s)))
++			*s = toupper((int) *s);
++		s++;
++	}
++}
++
+ #include <arpa/telnet.h>
+ 
+ /*
+@@ -1444,6 +1526,130 @@
+ 	if (c == EOF && cs == s)
+ 		return (-1);
+ 	*cs++ = '\0';
++
++	if (auth_type) {
++		unsigned char out[sizeof(cbuf)];
++		char *cp;
++		int len;
++		int mic;
++
++
++		/* do we have a protected command? */
++		if (!((mic = strncmp(s, "ENC", 3)) && strncmp(s, "MIC", 3)
++			&& strncmp(s, "AUTH", 4)
++#ifdef DO_CONFIDENTIAL
++			&& strncmp(s, "CONF", 4)
++#endif
++			) && (cs = strpbrk(s, " \r\n"))) {
++				*cs++ = '\0'; /* yes, split into s and cs. */
++		} else { /* no, check if that's okay */
++			if (auth_ccc_enabled) {
++				auth_control_prot = PROT_C;
++				upper(s);
++				return (0);
++			} else {
++				reply(533, "Commands must be protected.");
++				syslog(LOG_ERR, "Unprotected command received");
++				*s = '\0';
++				return (0);
++			}
++		}
++		upper(s);
++		if (ftpd_debug)
++			syslog(LOG_INFO, "command %s received (mic=%d)", s, mic);
++#ifndef DO_CONFIDENTIAL
++		if (!strcmp(s, "CONF")) {
++			reply(537, "CONF protected commands not supported.");
++			*s = '\0';
++			return(0);
++		}
++#endif
++#ifdef DO_PARANOID
++		/* truly paranoid sites will also require command encryption */
++		if (mic) {
++			reply(533, "All commands must be ENC protected.  Retry command under ENC.");
++			*s = '\0';
++			return(0);
++		}
++#endif /* DO_PARANOID */
++#ifdef DO_NOT_ENCRYPT
++		if (!mic) {
++			reply(533, "ENC protection not supported.  Retry command under MIC.");
++			*s = '\0';
++			return(0);
++		}
++#endif /* DO_NOT_ENCRYPT */
++		if ((cp = strpbrk(cs, " \r\n")))
++			*cp = '\0';
++		len = base64_decode((unsigned char)cs, out, strlen(cs));
++		if (len < 0) {
++			reply(501, "could not decode argument to %s command: %s",
++				mic ? "MIC" : "ENC", base64_decode_error(len));
++			*s = '\0';
++			return(0);
++		}
++		if (ftpd_debug) syslog(LOG_DEBUG, "getline got %lu from %s <%s>\n", 
++					  (unsigned long) len, cs, mic ? "MIC" : "ENC");
++		auth_control_prot = mic ? PROT_S : PROT_P;
++#ifdef USE_GSSAPI
++		/* we know this is a MIC or ENC already, and out/len already has the bits */
++		if (strcmp(auth_type, "GSSAPI") == 0) {
++			gss_buffer_desc transmit_buf, message_buf;
++			OM_uint32 major, minor;
++			int conf_state;
++
++			transmit_buf.value = out;
++			transmit_buf.length = len;
++			/* decrypt the message */
++			conf_state = !mic;
++			major = gss_unseal(&minor, gcontext, &transmit_buf,
++				  &message_buf, &conf_state, NULL);
++			if (major == GSS_S_CONTINUE_NEEDED) {
++				if (ftpd_debug) syslog(LOG_DEBUG, "%s-unseal continued", 
++						  mic ? "MIC" : "ENC");
++				reply(535, "%s-unseal continued, oops",
++					  mic ? "MIC" : "ENC");
++				*s = '\0';
++				return(0);
++			}
++			if (major != GSS_S_COMPLETE) {
++				reply_gss_error(535, major, minor, 
++					mic ? "failed unsealing MIC message" :
++						"failed unsealing ENC message");
++				*s = '\0';
++				return(0);
++			}
++
++			memcpy(s, message_buf.value, message_buf.length);
++			memcpy(s + message_buf.length - (s[message_buf.length-1] ? 0 : 1), "\r\n", 3);
++			gss_release_buffer(&minor, &message_buf);
++		}
++#endif /* USE_GSSAPI */
++		/* other auth types ... */
++
++		/* some antique clients misunderstood the spec */
++		if (auth_required && mic && !strncmp(s, "PASS", 4)) {
++			reply(-530, "Password refused: there is a problem with your ftp client.");
++			reply(530, "Enable encryption before logging in, or update your ftp program.");
++			*s = '\0';
++			return(0);
++		}
++
++	}
++#ifdef USE_GSSAPI	/* or other auth types */
++	else {	/* !auth_type */
++		if ( (!(strncmp(s, "ENC", 3))) || (!(strncmp(s, "MIC", 3)))
++#ifdef DO_CONFIDENTIAL
++			|| (!(strncmp(s, "CONF", 4)))
++#endif
++		) {
++			reply(503, "Must perform authentication before sending protected commands");
++			*s = '\0';
++			return(0);
++		}
++	}
++#endif /*  */
++
+ 	if (ftpd_debug) {
+ 		if ((curclass.type != CLASS_GUEST &&
+ 		    strncasecmp(s, "PASS ", 5) == 0) ||
+diff -Naur tnftpd-20100324/src/ftpd.c tnftpd/src/ftpd.c
+--- tnftpd-20100324/src/ftpd.c	2010-06-18 15:33:24.000000000 -0700
++++ tnftpd/src/ftpd.c	2010-06-18 15:35:42.000000000 -0700
+@@ -176,6 +176,14 @@
+ #include <security/pam_appl.h>
+ #endif
+ 
++#ifdef USE_GSSAPI
++#include <com_err.h>
++#include <krb5/krb5.h>
++#include <gssapi/gssapi.h>
++#include <gssapi/gssapi_generic.h>
++#include <gssapi/gssapi_krb5.h>
++#endif
++
+ #endif /* !defined(HAVE_TNFTPD_H) */
+ 
+ #define	GLOBAL
+@@ -235,6 +243,41 @@
+ int	login_krb5_forwardable_tgt = 0;
+ #endif
+ 
++/*
++ * RFC2228 theoretically supports other auth types,
++ * so these are not necessarily GSSAPI-specific
++ */
++int	auth_required = 0;	/* needs cli flag */
++int	auth_want_creds = 0;	/* needs cli flag */
++int	auth_have_creds = 0;
++int	auth_ccc_allowed;	/* needs cli flag */
++int	auth_ccc_enabled;	/* CCC command */
++char	*auth_type;		/* AUTH command */
++char	*auth_type_tmp;		/* post-AUTH && pre-ADAT */
++
++int	auth_control_prot;
++int	auth_data_prot;
++int	auth_user_ok;
++
++				/* should be <arpa/ftp.h> */
++char	*protnames[] =
++		{"0", "Clear", "Safe", "Private", "Confidential" };
++
++#define	AUTH_NONE		0
++#define	AUTH_MUST_AUTHENTICATE	1
++#define	AUTH_MUST_AUTHORIZE	2
++
++#ifdef USE_GSSAPI
++gss_buffer_desc	auth_gss_client_name;
++krb5_context	kcontext;
++krb5_ccache	kccache;
++
++static	void ftpd_gss_convert_creds(char *name, gss_cred_id_t);
++static	int ftpd_gss_userok(gss_buffer_t, char *name);
++void reply_gss_error(int code, OM_uint32 major, OM_uint32 minor, char *s);
++
++#endif
++
+ int epsvall = 0;
+ 
+ /*
+@@ -340,6 +383,10 @@
+ 	gidcount = 0;
+ 	is_oob = 0;
+ 	version = FTPD_VERSION;
++	auth_required = AUTH_NONE;
++	auth_ccc_allowed = 0;
++	auth_ccc_enabled = 0;
++	auth_want_creds = 0;
+ 
+ 	/*
+ 	 * LOG_NDELAY sets up the logging connection immediately,
+@@ -348,7 +395,7 @@
+ 	openlog("ftpd", LOG_PID | LOG_NDELAY, FTPD_LOGTYPE);
+ 
+ 	while ((ch = getopt(argc, argv,
+-	    "46a:c:C:Dde:h:HlL:nP:qQrst:T:uUvV:wWX")) != -1) {
++	    "46a:c:C:Dde:h:HkKlL:nP:qQrst:T:uUvV:wWXzZ")) != -1) {
+ 		switch (ch) {
+ 		case '4':
+ 			af = AF_INET;
+@@ -417,6 +464,14 @@
+ 			hostname[sizeof(hostname) - 1] = '\0';
+ 			break;
+ 
++		case 'k':
++			auth_ccc_allowed = 1;
++			break;
++
++		case 'K':
++			auth_want_creds = 1;
++			break;
++
+ 		case 'l':
+ 			logging++;	/* > 1 == extra logging */
+ 			break;
+@@ -493,6 +548,14 @@
+ 			doxferlog |= 1;
+ 			break;
+ 
++		case 'z':
++			auth_required = AUTH_MUST_AUTHORIZE;
++			break;
++
++		case 'Z':
++			auth_required = AUTH_MUST_AUTHENTICATE;
++			break;
++
+ 		default:
+ 			if (optopt == 'a' || optopt == 'C')
+ 				exit(1);
+@@ -766,6 +829,9 @@
+ 	mode = MODE_S;
+ 	tmpline[0] = '\0';
+ 	hasyyerrored = 0;
++#ifdef USE_GSSAPI
++	auth_control_prot = auth_data_prot = PROT_C;
++#endif
+ 
+ #ifdef KERBEROS5
+ 	kerror = krb5_init_context(&kcontext);
+@@ -998,6 +1064,9 @@
+ #if defined(KERBEROS5)
+ 	k5destroy();
+ #endif
++#ifdef USE_GSSAPI /* or other auth */
++	auth_user_ok = 0;
++#endif
+ 
+ 	curclass.type = CLASS_REAL;
+ 	askpasswd = 0;
+@@ -1024,6 +1093,9 @@
+ 			goto cleanup_user;
+ 		}
+ 		name = "ftp";
++	} else if (auth_required && !auth_type) {
++		reply(530, "must authenticate before USER");
++		goto cleanup_user;
+ 	} else {
+ 		pw = sgetpwnam(name);
+ 
+@@ -1102,6 +1174,47 @@
+ 		goto cleanup_user;
+ 	}
+ 
++	if (auth_type) {
++		int result;
++		char buf[MAXPATHLEN];
++#ifdef USE_GSSAPI
++		if (auth_type && strcmp(auth_type, "GSSAPI") == 0) {
++			size_t len;
++
++			auth_user_ok = ftpd_gss_userok(&auth_gss_client_name, (char*)name) == 0;
++			len = sizeof("GSSAPI user  is not authorized as "
++					"; Password required.")
++					+ strlen(auth_gss_client_name.value)
++					+ strlen(name);
++			if (len >= sizeof(buf)) {
++				syslog(LOG_ERR, "user: username too long");
++				name = "[username too long]";
++			}
++			snprintf(buf, sizeof(buf),
++					"GSSAPI user %s is%s authorized as %s",
++					(char *) auth_gss_client_name.value,
++					auth_user_ok ? "" : " not",
++					name);
++		}
++#endif
++		/* "ok" should apply to other auth types as well */
++		if (!auth_user_ok && auth_required == AUTH_MUST_AUTHORIZE) {
++			strncat(buf, "; Access denied.",
++				sizeof(buf) - strlen(buf) - 1);
++			result = 530;
++			pw = NULL;
++		} else if (!auth_user_ok || (auth_want_creds && !auth_have_creds)) {
++			strncat(buf, "; Password required.",
++			sizeof(buf) - strlen(buf) - 1);
++			askpasswd = 1;
++			result = 331;
++		} /* else result = 232; */ /* login somehow? */
++		reply(result, "%s", buf);
++		syslog(auth_user_ok ? LOG_INFO : LOG_ERR, "%s", buf);
++
++		goto cleanup_user;
++	}
++
+ 			/* if haven't asked yet (i.e, not anon), ask now */
+ 	if (!askpasswd) {
+ 		askpasswd = 1;
+@@ -1421,6 +1534,96 @@
+ 		pamh = NULL;
+ 	}
+ #endif
++	if (auth_have_creds) {
++#ifdef USE_GSSAPI
++		krb5_cc_destroy(kcontext, kccache);
++#endif
++		auth_have_creds = 0;
++	}
++}
++
++void
++setdataprot(int new_prot)
++{
++	switch (new_prot) {
++		case PROT_S:
++#ifdef DO_NOT_ENCRYPT
++		case PROT_P:
++#endif
++			if (auth_type)
++		case PROT_C:
++				reply(200, "Data channel protected at level: %s",
++					(auth_data_prot = new_prot) == PROT_S ?
++						"safe" : auth_data_prot == PROT_C ?
++						"clear" : "private");
++			else
++		default:
++				reply(536, "protection level %s not supported",
++					protnames[new_prot]);
++	}
++}
++
++
++static int
++kpass(name, passwd)
++char *name, *passwd;
++{
++#ifdef USE_GSSAPI
++	krb5_principal server, me;
++	krb5_creds my_creds;
++	krb5_timestamp now;
++#endif /* USE_GSSAPI */
++	char ccname[MAXPATHLEN];
++
++#ifdef USE_GSSAPI
++	memset(&my_creds, 0, sizeof(my_creds));
++	if (krb5_parse_name(kcontext, name, &me))
++		return 0;
++	my_creds.client = me;
++
++	snprintf(ccname, sizeof(ccname), "FILE:/tmp/krb5cc_ftpd%ld",
++			(long) getpid());
++	if (krb5_cc_resolve(kcontext, ccname, &kccache))
++		return(0);
++	if (krb5_cc_initialize(kcontext, kccache, me))
++		return(0);
++	if (krb5_build_principal_ext(kcontext, &server,
++			krb5_princ_realm(kcontext, me)->length,
++			krb5_princ_realm(kcontext, me)->data,
++			KRB5_TGS_NAME_SIZE, KRB5_TGS_NAME,
++			krb5_princ_realm(kcontext, me)->length,
++			krb5_princ_realm(kcontext, me)->data,
++			0))
++		goto wipe_ccache;
++
++	my_creds.server = server;
++	if (krb5_timeofday(kcontext, &now))
++		goto wipe_ccache;
++	my_creds.times.starttime = 0; /* real time */
++	my_creds.times.endtime = now + 60 * 60 * 10;
++	my_creds.times.renew_till = 0;
++
++	if (krb5_get_init_creds_password(kcontext, &my_creds, me,
++			passwd, NULL, NULL, 0, NULL, NULL))
++		goto wipe_ccache;
++
++	if (krb5_cc_store_cred(kcontext, kccache, &my_creds))
++		goto wipe_ccache;
++
++	if (!auth_want_creds) {
++		krb5_cc_destroy(kcontext, kccache);
++		return(1);
++	}
++
++	auth_have_creds = 1;
++	return(1);
++
++#endif /* USE_GSSAPI */
++wipe_ccache:
++#ifdef USE_GSSAPI
++	krb5_cc_destroy(kcontext, kccache);
++#endif /* USE_GSSAPI */
++	return(0);
+ }
+ 
+ void
+@@ -1510,6 +1713,12 @@
+ 			}
+ 		}
+ #endif
++#ifdef USE_GSSAPI
++		/* creds desired and kpass fails */
++		rval = auth_want_creds && kpass(pw->pw_name, passwd);
++		goto skip;
++#endif
++
+ 		if (!sflag)
+ 			rval = checkpassword(pw, passwd);
+ 		else
+@@ -1567,6 +1779,12 @@
+ 		goto bad;
+ 	}
+ #endif /* HAVE_MEMBERSHIP_H */
++#ifdef USE_GSSAPI
++	if (auth_have_creds) {
++		char *ccname = krb5_cc_get_name(kcontext, kccache);
++		chown(ccname, pw->pw_uid, pw->pw_gid);
++	}
++#endif
+ 	login_attempts = 0;		/* this time successful */
+ 	if (setegid((gid_t)pw->pw_gid) < 0) {
+ 		reply(550, "Can't set gid.");
+@@ -2727,6 +2945,7 @@
+ 	else
+ 		reply(0, "Connected to %s", remotehost);
+ 
++	if (auth_type) reply(0, "     Authentication type: %s", auth_type);
+ 	if (logged_in) {
+ 		if (curclass.type == CLASS_GUEST)
+ 			reply(0, "Logged in anonymously");
+@@ -2735,8 +2954,11 @@
+ 			    curclass.type == CLASS_CHROOT ? " (chroot)" : "");
+ 	} else if (askpasswd)
+ 		reply(0, "Waiting for password");
++	else if (auth_type_tmp)
++		reply(0, "     Waiting for authentication data");
+ 	else
+ 		reply(0, "Waiting for user name");
++	reply(0, "     Protection level: %s", protnames[auth_data_prot]);
+ 	cprintf(stdout, "    TYPE: %s", typenames[type]);
+ 	if (type == TYPE_A || type == TYPE_E)
+ 		cprintf(stdout, ", FORM: %s", formnames[form]);
+@@ -2990,12 +3212,14 @@
+  *	n < -1		prefix the message with abs(n) + "-"	(initial line)
+  *	n == 0		prefix the message with 4 spaces	(middle lines)
+  *	n >  0		prefix the message with n + " "		(final line)
++ *	encrypted replies will use the continuation of the cleartext message
+  */
+ void
+ reply(int n, const char *fmt, ...)
+ {
+ 	char	msg[MAXPATHLEN * 2 + 100];
+ 	size_t	b;
++	int	secure = 0;
+ 	va_list	ap;
+ 
+ 	b = 0;
+@@ -3008,7 +3232,52 @@
+ 	va_start(ap, fmt);
+ 	vsnprintf(msg + b, sizeof(msg) - b, fmt, ap);
+ 	va_end(ap);
+-	cprintf(stdout, "%s\r\n", msg);
++
++	if (auth_type) {
++		/* base64 expansion, signature, slop */
++		char msg_secure[(MAXPATHLEN * 2 + 100) * 3 / 2];
++		size_t msg_length = 0;
++
++#ifdef USE_GSSAPI
++		/* reply (based on level) */
++		if (strcmp(auth_type, "GSSAPI") == 0) {
++			gss_buffer_desc input_buf, output_buf;
++			OM_uint32 major, minor;
++			int conf_state;
++		
++			input_buf.value = msg;
++			input_buf.length = strlen(msg);
++			major = gss_seal(&minor, gcontext,
++					    auth_control_prot == PROT_P, /* private */
++					    GSS_C_QOP_DEFAULT,
++					    &input_buf, &conf_state,
++					    &output_buf);
++			if (major != GSS_S_COMPLETE) {
++				/* gss_seal didn't complete */
++				/* xxx no good way to handle this without infinite loop */
++			} else if ((auth_control_prot == PROT_P) && !conf_state) {
++				/* message wasn't encrypted */
++				/* xxx no good way to handle this without infinite loop */
++			} else {
++				memcpy(msg_secure, output_buf.value, 
++				       msg_length = output_buf.length);
++				gss_release_buffer(&minor, &output_buf);
++			}
++		}
++#endif /* USE_GSSAPI */
++		/* other auth types ... */
++		if (msg_length >= sizeof(msg) / 4 * 3) {
++			syslog(LOG_ERR, "input to base64_encode too long");
++		} else {
++			/* rewrite the msg with encoded encrypted copy */
++			base64_encode(msg_secure, msg_length, msg, 0);
++			secure = 1;
++		}
++	}
++
++	if(secure) cprintf(stdout, "%s%c%s\r\n",
++		auth_control_prot == PROT_P ? "632" : "631", n > 0 ? ' ' : '-', msg);
++	else cprintf(stdout, "%s\r\n", msg);
+ 	(void)fflush(stdout);
+ 	if (ftpd_debug)
+ 		syslog(LOG_DEBUG, "<--- %s", msg);
+@@ -3063,6 +3332,11 @@
+ 			unlink(krbtkfile_env);
+ #endif
+ 	}
++#ifdef USE_GSSAPI
++	if (auth_have_creds)
++		krb5_cc_destroy(kcontext, kccache);
++	auth_ccc_enabled = 0;
++#endif
+ 	/* beware of flushing buffers after a SIGPIPE */
+ 	if (xferlogfd != -1)
+ 		close(xferlogfd);
+@@ -4247,3 +4521,261 @@
+ 	return 0;
+ }
+ #endif /* USE_SIA */
++
++#ifdef USE_GSSAPI
++
++static void
++ftpd_gss_convert_creds(char *name, gss_cred_id_t creds)
++{
++	OM_uint32 major, minor;
++	krb5_principal me;
++	char ccname[MAXPATHLEN];
++
++	/* get ccache */
++	if (krb5_parse_name(kcontext, name, &me))
++		return;
++
++	snprintf(ccname, sizeof(ccname), "FILE:/tmp/krb5cc_ftpd%ld",
++			(long) getpid());
++	if (krb5_cc_resolve(kcontext, ccname, &kccache))
++		return;
++	if (krb5_cc_initialize(kcontext, kccache, me))
++		return;
++
++	/* extract gss-wrapped krb creds into our cache */
++	major = gss_krb5_copy_ccache(&minor, creds, kccache);
++	if (major != GSS_S_COMPLETE)
++		goto cleanup;
++
++	auth_have_creds = 1;
++	return;
++
++	cleanup:
++	krb5_cc_destroy(kcontext, kccache);
++}
++
++/* verify gss-wrapped kerberos user */
++static int
++ftpd_gss_userok(gss_buffer_t gclient_name, char *name)
++{
++	int retval = -1;
++	krb5_principal p;
++
++	if (krb5_parse_name(kcontext, gclient_name->value, &p) != 0)
++		return -1;
++	if (krb5_kuserok(kcontext, p, name))
++		retval = 0;
++	else
++		retval = 1;
++	krb5_free_principal(kcontext, p);
++	return retval;
++}
++
++/* callback seems overkill, but easiest way to handle gssapi */
++static void
++reply_gss_error_text(void (*cb)(const char *, int, int),
++		OM_uint32 major, OM_uint32 minor, int misc)
++{
++	OM_uint32 gmajor, gminor;
++	gss_buffer_desc msg;
++	OM_uint32 msg_ctx;
++	msg_ctx = 0;
++	while (!msg_ctx) {
++		gmajor= gss_display_status(&gminor, major,
++				GSS_C_GSS_CODE,
++				GSS_C_NULL_OID,
++				&msg_ctx, &msg);
++		if ((gmajor == GSS_S_COMPLETE)||
++				(gmajor == GSS_S_CONTINUE_NEEDED)) {
++			(*cb)((char*)msg.value, misc, 1);
++			(void) gss_release_buffer(&gminor, &msg);
++		}
++		if (gmajor != GSS_S_CONTINUE_NEEDED)
++			break;
++	}
++	msg_ctx = 0;
++	while (!msg_ctx) {
++		gmajor = gss_display_status(&gminor, minor,
++				GSS_C_MECH_CODE,
++				GSS_C_NULL_OID,
++				&msg_ctx, &msg);
++		if ((gmajor == GSS_S_COMPLETE)||
++				(gmajor == GSS_S_CONTINUE_NEEDED)) {
++			(*cb)((char*)msg.value, misc, 0);
++			(void) gss_release_buffer(&gminor, &msg);
++		}
++		if (gmajor != GSS_S_CONTINUE_NEEDED)
++			break;
++	}
++}
++
++static void
++reply_gss_error_wrapper(const char *msg, int code, int major)
++{
++	if(code > 0) code *= -1;	/* all are continuation messages */
++	reply(code, "GSSAPI error %s: %s", major ? "major" : "minor", msg);
++}
++
++void
++reply_gss_error(int code, OM_uint32 major, OM_uint32 minor, char *s)
++{
++	reply_gss_error_text(reply_gss_error_wrapper, major, minor, code);
++	reply(code, "GSSAPI error: %s", s);
++}
++
++#endif
++
++/*
++ * AUTH command
++ */
++void
++auth(char *new_type)
++{
++	if (auth_type)
++		reply(534, "Authentication type is already %s", auth_type);
++	else
++#ifdef USE_GSSAPI
++	if (strcmp(new_type, "GSSAPI") == 0)
++		reply(334, "ADAT must follow for authentication type %s",
++			auth_type_tmp = new_type);
++#endif
++	reply(504, "Authentication via %s not supported", new_type);
++}
++
++/*
++ * ADAT command
++ *
++ */
++void
++adat(unsigned char *new_key)
++{
++	if (auth_type) {
++		reply(503, "Authentication has already been set");
++		return;
++	}
++	if (!auth_type_tmp) {
++		reply(503, "AUTH type required before ADAT");
++		return;
++	}
++
++#ifdef USE_GSSAPI
++	if (strcmp(auth_type_tmp, "GSSAPI") == 0) {
++		gss_cred_id_t deleg_creds;
++		gss_name_t client;
++		OM_uint32 ret_flags, major, minor;
++		gss_OID mech_type;
++		gss_buffer_desc g_token, g_out_token;
++		char buf[MAXPATHLEN];
++		unsigned char g_buf[MAXPATHLEN];
++		u_char g_out_buf[MAXPATHLEN];
++		int length, replied = 0;
++		size_t rad_len;
++		char localname[MAXHOSTNAMELEN];
++		struct hostent *hp;
++
++		length = base64_decode(new_key, g_out_buf, MAXPATHLEN);
++		if (length < 0) {
++			reply(501, "Couldn't decode ADAT (%s)",
++			      base64_decode_error(length));
++			return;
++		}
++		g_token.value = g_out_buf;
++		g_token.length = length;
++
++		if (gethostname(localname, MAXHOSTNAMELEN)) {
++			reply(501, "couldn't get local hostname (%d)\n", errno);
++			return;
++		}
++		if (!(hp = gethostbyname(localname))) {
++			reply(501, "couldn't canonicalize local hostname\n");
++			return;
++		}
++		strncpy(localname, hp->h_name, sizeof(localname) - 1);
++		localname[sizeof(localname) - 1] = '\0';
++
++		major = gss_accept_sec_context(&minor,
++					     &gcontext,
++					     GSS_C_NO_CREDENTIAL, /* no verifier */
++					     &g_token, /* input */
++					     GSS_C_NO_CHANNEL_BINDINGS,
++					     &client, /* source */
++					     &mech_type,
++					     &g_out_token,
++					     &ret_flags,
++					     NULL, 	/* ignore time_rec */
++					     &deleg_creds  /* forwarded credentials */
++					     );
++
++		if (major != GSS_S_COMPLETE && major != GSS_S_CONTINUE_NEEDED) {
++			reply_gss_error(535, major, minor, "accepting context");
++			if (ret_flags & GSS_C_DELEG_FLAG)
++				(void) gss_release_cred(&minor, &deleg_creds);
++			return;
++		}
++
++		if (g_out_token.length) {
++			if (g_out_token.length >= ((MAXPATHLEN - sizeof("ADAT="))
++					       / 4 * 3)) {
++				reply(535, "ADAT: reply too long");
++				/* syslog(LOG_ERR, "ADAT: reply too long");
++				if (ret_flags & GSS_C_DELEG_FLAG)
++					(void) gss_release_cred(&minor, &deleg_creds);
++				return;
++			}
++
++			base64_encode(g_out_token.value, g_out_token.length, g_buf, 1);
++
++			if (major == GSS_S_COMPLETE) {
++				/* 2xx finished */
++				reply(235, "ADAT=%s", g_buf);
++			} else {
++				/* 3xx require additional data */
++				reply(335, "ADAT=%s", g_buf);
++			}
++			replied = 1;
++			(void) gss_release_buffer(&minor, &g_out_token);
++		}
++		if (major == GSS_S_COMPLETE) {
++			/* authentication succeeded */
++			major = gss_display_name(&minor, client, &auth_gss_client_name,
++					       &mech_type);
++			if (major != GSS_S_COMPLETE) {
++				/* rejecting security data ... reply with 535 */
++				reply_gss_error(535, major, minor,
++						"extracting GSSAPI identity name");
++				if (ret_flags & GSS_C_DELEG_FLAG)
++					(void) gss_release_cred(&minor, &deleg_creds);
++				return;
++			}
++			auth_type = auth_type_tmp; /* auth complete */
++			auth_type_tmp = NULL;
++
++			if (ret_flags & GSS_C_DELEG_FLAG) {
++			  if (auth_want_creds)
++			    ftpd_gss_convert_creds(auth_gss_client_name.value, deleg_creds);
++			  (void) gss_release_cred(&minor, &deleg_creds);
++			}
++
++			/* more data not required, so must reply 2xx */
++			if (!replied)
++			  {
++			    /* this 235 not accurate but "correct" */
++			    if (ret_flags & GSS_C_DELEG_FLAG && !auth_have_creds)
++			      reply(235, "GSSAPI Authentication succeeded; could not accept forwarded credentials");
++			    else
++			      reply(235, "GSSAPI Authentication succeeded");
++			  }
++				
++			return;
++		} else {
++			if (!replied)
++			    reply(335, "more data needed");
++			if (ret_flags & GSS_C_DELEG_FLAG)
++			  (void) gss_release_cred(&minor, &deleg_creds);
++			return;
++		}
++	}
++#endif /* USE_GSSAPI */
++	return;
++}
++
+diff -Naur tnftpd-20100324/src/tnftpd.manin tnftpd/src/tnftpd.manin
+--- tnftpd-20100324/src/tnftpd.manin	2010-01-03 17:10:43.000000000 -0800
++++ tnftpd/src/tnftpd.manin	2010-06-18 15:35:42.000000000 -0700
+@@ -66,7 +66,7 @@
+ Internet File Transfer Protocol server
+ .Sh SYNOPSIS
+ .Nm
+-.Op Fl 46DdHlnQqrsUuWwX
++.Op Fl 46DdHkKlnQqrsUuWwXzZ
+ .Op Fl a Ar anondir
+ .Op Fl C Ar user Ns Op @ Ns Ar host
+ .Op Fl c Ar confdir
+@@ -178,6 +178,10 @@
+ Refer to
+ .Xr inetd.conf 5
+ for more information on starting services to listen on specific IP addresses.
++.It Fl k
++Allow use of the CCC command.
++.It Fl K
++Require authenticated credentials.
+ .It Fl L Ar xferlogfile
+ Log
+ .Tn wu-ftpd
+@@ -280,6 +284,10 @@
+ file suitable for input into a third-party log analysis tool with a command
+ similar to:
+ .Dl "sed -ne 's/^.*xferlog: //p' /var/log/xferlog \*[Gt] wuxferlog"
++.It Fl z
++Require authorization.
++.It Fl Z
++Require authentication.
+ .El
+ .Pp
+ The file
+@@ -317,11 +325,15 @@
+ .It Sy Request Ta Sy Description
+ .It ABOR Ta "abort previous command"
+ .It ACCT Ta "specify account (ignored)"
++.It ADAT Ta "supply authentication data"
+ .It ALLO Ta "allocate storage (vacuously)"
+ .It APPE Ta "append to a file"
++.It AUTH Ta "select authentication paradigm"
++.It CCC Ta "force cleartext commands"
+ .It CDUP Ta "change to parent of current working directory"
+ .It CWD Ta "change working directory"
+ .It DELE Ta "delete a file"
++.It ENC Ta "send privacy protected command"
+ .It EPSV Ta "prepare for server-to-server transfer"
+ .It EPRT Ta "specify data connection port"
+ .It FEAT Ta "list extra features that are not defined in" Cm "RFC 959"
+@@ -329,6 +341,7 @@
+ .It LIST Ta "give list files in a directory" Pq Dq Li "ls -lA"
+ .It LPSV Ta "prepare for server-to-server transfer"
+ .It LPRT Ta "specify data connection port"
++.It MIC Ta "send integrity protected command"
+ .It MLSD Ta "list contents of directory in a machine-processable form"
+ .It MLST Ta "show a pathname in a machine-processable form"
+ .It MKD Ta "make a directory"
+@@ -339,7 +352,9 @@
+ .It OPTS Ta "define persistent options for a given command"
+ .It PASS Ta "specify password"
+ .It PASV Ta "prepare for server-to-server transfer"
++.It PBSZ Ta "set protection buffer size"
+ .It PORT Ta "specify data connection port"
++.It PROT Ta "set data protection mode"
+ .It PWD Ta "print the current working directory"
+ .It QUIT Ta "terminate session"
+ .It REST Ta "restart incomplete transfer"
+diff -Naur tnftpd-20100324/tnftpd.h tnftpd/tnftpd.h
+--- tnftpd-20100324/tnftpd.h	2010-06-18 15:33:24.000000000 -0700
++++ tnftpd/tnftpd.h	2010-06-21 18:17:41.000000000 -0700
+@@ -1,9 +1,15 @@
+ /* $NetBSD: tnftpd.h,v 1.33 2009/11/07 09:59:09 lukem Exp $	*/
+ 
+-#define	FTPD_VERSION	PACKAGE_STRING
+-
+ #include "tnftpd_config.h"
+ 
++#if defined(USE_GSSAPI)
++# warning "GSSAPI enabled!"
++# define	FTPD_VERSION	PACKAGE_STRING "+GSSAPI"
++#else	/* !USE_GSSAPI */
++# warning "GSSAPI disabled."
++# define	FTPD_VERSION	PACKAGE_STRING
++#endif
++
+ #include <stdio.h>
+ #include <ctype.h>
+ #include <errno.h>
+diff -Naur tnftpd-20100324/tnftpd_config.h.in tnftpd/tnftpd_config.h.in
+--- tnftpd-20100324/tnftpd_config.h.in	2010-06-18 15:33:24.000000000 -0700
++++ tnftpd/tnftpd_config.h.in	2010-06-21 18:12:40.000000000 -0700
+@@ -148,6 +148,9 @@
+ /* Define to 1 if you have the <grp.h> header file. */
+ #undef HAVE_GRP_H
+ 
++/* Define to 1 if you have the <gssapi.h> header file. */
++#undef HAVE_GSSAPI_H
++
+ /* Define to 1 if you have the `inet_net_pton' function. */
+ #undef HAVE_INET_NET_PTON
+ 
+@@ -488,6 +491,9 @@
+ /* Define to 1 if your <sys/time.h> declares `struct tm'. */
+ #undef TM_IN_SYS_TIME
+ 
++/* Define if using GSSAPI authentication. */
++#undef USE_GSSAPI
++
+ /* Define if using IPv6 support. */
+ #undef USE_INET6
+ 

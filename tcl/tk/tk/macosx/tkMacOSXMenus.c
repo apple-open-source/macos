@@ -32,6 +32,10 @@ static Tcl_Obj *	GetWidgetDemoPath(Tcl_Interp *interp);
     if (!applicationName) {
 	applicationName = [[NSProcessInfo processInfo] processName];
     }
+    NSString *aboutName = (applicationName &&
+	    ![applicationName isEqualToString:@"Wish"] &&
+	    ![applicationName hasPrefix:@"tclsh"]) ?
+	    applicationName : @"Tcl & Tk";
     _servicesMenu = [NSMenu menuWithTitle:@"Services"];
     _defaultApplicationMenuItems = [[NSArray arrayWithObjects:
 	    [NSMenuItem separatorItem],
@@ -58,8 +62,9 @@ static Tcl_Obj *	GetWidgetDemoPath(Tcl_Interp *interp);
     _defaultApplicationMenu = [TKMenu menuWithTitle:applicationName
 	    menuItems:_defaultApplicationMenuItems];
     [_defaultApplicationMenu insertItem:
-	    [NSMenuItem itemWithTitle:@"About Tcl & Tk"
-		   action:@selector(orderFrontStandardAboutPanel:)] atIndex:0];
+	    [NSMenuItem itemWithTitle:
+		    [NSString stringWithFormat:@"About %@", aboutName]
+		    action:@selector(orderFrontStandardAboutPanel:)] atIndex:0];
     TKMenu *fileMenu = [TKMenu menuWithTitle:@"File" menuItems:
 	    [NSArray arrayWithObjects:
 	    [NSMenuItem itemWithTitle:
@@ -153,6 +158,20 @@ static Tcl_Obj *	GetWidgetDemoPath(Tcl_Interp *interp);
 	TkAboutDlg();
     } else {
 	int code = Tcl_EvalEx(_eventInterp, "tkAboutDialog", -1,
+		TCL_EVAL_GLOBAL);
+	if (code != TCL_OK) {
+	    Tcl_BackgroundError(_eventInterp);
+	}
+	Tcl_ResetResult(_eventInterp);
+    }
+}
+- (void)showHelp:(id)sender {
+    Tcl_CmdInfo dummy;
+    if (!_eventInterp || !Tcl_GetCommandInfo(_eventInterp,
+	    "::tk::mac::ShowHelp", &dummy)) {
+	[super showHelp:sender];
+    } else {
+	int code = Tcl_EvalEx(_eventInterp, "::tk::mac::ShowHelp", -1,
 		TCL_EVAL_GLOBAL);
 	if (code != TCL_OK) {
 	    Tcl_BackgroundError(_eventInterp);
@@ -422,7 +441,7 @@ GenerateEditEvent(
     NSMenuItem *i = [[self alloc] initWithTitle:title action:action
 	    keyEquivalent:keyEquivalent];
     [i setTarget:target];
-    return i;
+    return [i autorelease];
 }
 + (id)itemWithTitle:(NSString *)title action:(SEL)action
 	keyEquivalent:(NSString *)keyEquivalent

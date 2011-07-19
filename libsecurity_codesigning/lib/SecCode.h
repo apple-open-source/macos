@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2006-2007 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -74,6 +74,12 @@ OSStatus SecCodeCopySelf(SecCSFlags flags, SecCodeRef *self);
 	accept a SecCodeRef and apply this translation implicitly, operating on
 	its result or returning its error code if any. Each of these functions
 	calls out that behavior in its documentation.
+	
+	If the code was obtained from a universal (aka "fat") program file,
+	the resulting SecStaticCodeRef will refer only to the architecture actually
+	being used. This means that multiple running codes started from the same file
+	may conceivably result in different static code references if they ended up
+	using different execution architectures. (This is unusual but possible.)
 
 	@param code A valid SecCode object reference representing code running
 	on the system.
@@ -106,10 +112,15 @@ OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef *host);
 
 /*!
 	@function SecCodeCopyGuestWithAttributes
-	Asks a SecCode object acting as a Code Signing host to identify one of
-	its guests by the type and value of specific attribute(s). Different hosts
-	support different types and combinations of attributes.
-	
+	This is the omnibus API function for obtaining dynamic code references.
+	In general, it asks a particular code acting as a code host to locate
+	and return a guest with given attributes. Different hosts support
+	different combinations of attributes and values for guest selection. 
+
+	Asking the NULL host invokes system default	procedures for obtaining
+	any running code in the system with the	attributes given. The returned
+	code may be anywhere in the system.
+ 
 	The methods a host uses to identify, separate, and control its guests
 	are specific to each type of host. This call provides a generic abstraction layer
 	that allows uniform interrogation of all hosts. A SecCode that does not
@@ -132,6 +143,8 @@ OSStatus SecCodeCopyHost(SecCodeRef guest, SecCSFlags flags, SecCodeRef *host);
 	may return sub-guests in this call. In other words, do not assume that
 	a SecCodeRef returned by this call is a direct guest of the queried host
 	(though it will be a proximate guest, i.e. a guest's guest some way down).
+	Asking the NULL host for NULL attributes returns a code reference for the system root
+	of trust (at present, the running Darwin kernel).
 	@param flags Optional flags. Pass kSecCSDefaultFlags for standard behavior.
 	@param guest On successful return, a SecCode object reference identifying
 	the particular guest of the host that owns the attribute value(s) specified.
@@ -307,6 +320,8 @@ OSStatus SecCodeCopyDesignatedRequirement(SecStaticCodeRef code, SecCSFlags flag
 		blob of the code, if any.
 	@constant kSecCodeInfoFormat A CFString characterizing the type and format of
 		the code. Suitable for display to a (knowledeable) user.
+	@constant kSecCodeInfoDigestAlgorithm A CFNumber indicating the kind of cryptographic
+		hash function used within the signature to seal its pieces together.
 	@constant kSecCodeInfoIdentifier A CFString with the actual signing identifier
 		sealed into the signature. Absent for unsigned code.
 	@constant kSecCodeInfoImplicitDesignatedRequirement A SecRequirement describing
@@ -365,6 +380,7 @@ extern const CFStringRef kSecCodeInfoCMS;			/* Signing */
 extern const CFStringRef kSecCodeInfoDesignatedRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoEntitlements;	/* Requirement */
 extern const CFStringRef kSecCodeInfoFormat;		/* generic */
+extern const CFStringRef kSecCodeInfoDigestAlgorithm; /* generic */
 extern const CFStringRef kSecCodeInfoIdentifier;	/* generic */
 extern const CFStringRef kSecCodeInfoImplicitDesignatedRequirement; /* Requirement */
 extern const CFStringRef kSecCodeInfoMainExecutable; /* generic */

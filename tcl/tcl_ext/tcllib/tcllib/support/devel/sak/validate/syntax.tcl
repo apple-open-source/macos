@@ -25,13 +25,13 @@ namespace eval ::sak::validate::syntax {
 
 # ###
 
-proc ::sak::validate::syntax {modules mode stem} {
-    syntax::run $modules $mode $stem
+proc ::sak::validate::syntax {modules mode stem tclv} {
+    syntax::run $modules $mode $stem $tclv
     syntax::summary
     return
 }
 
-proc ::sak::validate::syntax::run {modules mode stem} {
+proc ::sak::validate::syntax::run {modules mode stem tclv} {
     sak::feedback::init $mode $stem
     sak::feedback::first log  "\[ Syntax \] ======================================================"
     sak::feedback::first unc  "\[ Syntax \] ======================================================"
@@ -96,7 +96,7 @@ proc ::sak::validate::syntax::run {modules mode stem} {
 	ProcessAllPCX     $m
 	ProcessPackages   $m
 	ProcessUnclaimed
-	ProcessTclSources $m
+	ProcessTclSources $m $tclv
 	ModuleSummary
     }
 
@@ -157,7 +157,7 @@ proc ::sak::validate::syntax::ProcessUnclaimed {} {
     return
 }
 
-proc ::sak::validate::syntax::ProcessTclSources {m} {
+proc ::sak::validate::syntax::ProcessTclSources {m tclv} {
     variable tclchecker
     if {![llength $tclchecker]} return
 
@@ -166,7 +166,7 @@ proc ::sak::validate::syntax::ProcessTclSources {m} {
 	if {[string equal [file extension $t] .tex]} continue
 
 	=file $t
-	set cmd [Command $t]
+	set cmd [Command $t $tclv]
 	if {[catch {Close [Process [open |$cmd r+]]} msg]} {
 	    if {[string match {*child process exited abnormally*} $msg]} continue
 	    +e $msg
@@ -294,11 +294,11 @@ proc ::sak::validate::syntax::IsError {code} {
     exit
 }
 
-proc ::sak::validate::syntax::Command {t} {
+proc ::sak::validate::syntax::Command {t tclv} {
     # Unix. Construction of the pipe to run the tclchecker against a
     # single tcl file.
 
-    set     cmd [Driver]
+    set     cmd [Driver $tclv]
     lappend cmd $t
 
     #lappend cmd >@ stdout 2>@ stderr
@@ -312,16 +312,18 @@ proc ::sak::validate::syntax::Close {pipe} {
     return
 }
 
-proc ::sak::validate::syntax::Driver {} {
+proc ::sak::validate::syntax::Driver {tclv} {
     variable tclchecker
     set cmd $tclchecker
+
+    if {$tclv ne {}} { lappend cmd -use Tcl-$tclv }
 
     # Make all syntax definition files we may have available to the
     # checker for higher accuracy of its output.
     foreach m [modules] { lappend cmd -pcx [At $m] }
 
     # Memoize
-    proc ::sak::validate::syntax::Driver {} [list return $cmd]
+    proc ::sak::validate::syntax::Driver {tclv} [list return $cmd]
     return $cmd
 }
 

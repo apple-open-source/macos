@@ -379,7 +379,6 @@ certtest(ac, av)
 		printf("\n");
 		vfree(vstr);
 
-#ifdef __APPLE__
 		/* print subject alt name */
 	    {
 		int pos;
@@ -396,23 +395,6 @@ certtest(ac, av)
 			racoon_free(str);
 		}
 	    }
-#else
-		/* print subject alt name */
-	    {
-		int pos;
-		for (pos = 1; ; pos++) {
-			error = eay_get_x509subjectaltname(&c, &str, &type, pos);
-			if (error) {
-				printf("no subjectaltname found.\n");
-				break;
-			}
-			if (!str)
-				break;
-			printf("SubjectAltName: %d: %s\n", type, str);
-			racoon_free(str);
-		}
-	    }
-#endif		
 
 		/* NULL => name of the certificate file */
 		error = eay_check_x509cert(&c, certpath, NULL, 1);

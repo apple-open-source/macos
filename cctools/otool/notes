@@ -3,6 +3,168 @@ TODO:
 - HPPA, bring the private version of mach/hppa/thread_status.h in sync with
   the kernel header and change ofile_print.c to recognize new thread states.
 
+Changes for the 5.29 release (the cctools-800 release):
+- Fixed the arm VCVT (between half-precision and single-precision) instructions
+  encodings.  Had the op bit inverted in the table.  It should have been:
+    VCVT<c><q>.F32.F16 <Qd>, <Dm> Encoded as op = 1 (aka fcvtshp)
+    VCVT<c><q>.F16.F32 <Dd>, <Qm> Encoded as op = 0 (aka fcvthps)
+  Radar bug #8951023.
+
+Changes for the 5.28 release (the cctools-798 release):
+- Changed arm_disasm.c to use the arm assembly comment character '@' instead of
+  the intel comment character ';' so the output of otool(1) can be assembled.
+
+Changes for the 5.28 release (the cctools-797 release):
+- Added support for LC_DYLD_ENVIRONMENT in ofile_print.c . Radar bug #8653976.
+
+Changes for the 5.28 release (the cctools-796 release):
+- Fixed the arm disassembly of vq{r}shr{u}n instructions.  The masks should have
+  not included the 0x00300000 as those were part of the imm6 feild and not part
+  of the opcode.  Radar bug# 8597212.
+- Fixed the i386 (32-bit) disassembly of displacement to not have more than
+  32-bits.  Radar bug #8454529.
+- Fixed the movabs disassembly to print the correct suffix.
+
+Changes for the 5.28 release (the cctools-795 release):
+- Fixed the disassemble of the first operand in the specific case for i386 of
+  the "move doubleword to quadword with sign-extension" that was broken with
+  the fix to Radar bug #8017633.  Where it needed to only clear the rex byte
+  when the opcode was not 0x63.  Radar bug #8325388.
+
+Changes for the 5.28 release (the cctools-794 release):
+- Updated ofile_print.c to print the MH_NO_HEAP_EXECUTION flag. Radar bug
+  #8457105.
+
+Changes for the 5.28 release (the cctools-790 release):
+- Added moves for the arm Media and VFP Feature Registers 1 and 0 to
+  arm_disasm.c .  Radar bug #8246341.
+
+Changes for the 5.27 release (the cctools-784 release):
+- Changed the handling of printing the Objective-C section to deal with iOS
+  simulator binaries being 32-bit intel and in the Objective-C 2 ABI.  The
+  change was to have print_objc_segment() now return a bool if the binary does
+  not have the __OBJC segment and is an I386 binrary.  Then the code in main()
+  sets up and calls print_objc2_32bit().  Radar bug #7912209.
+- Added print_version_min_command() to ofile_print.[ch] and support for
+  printing the LC_FUNCTION_STARTS load command.  Radar bug #7902277.
+- Fixed the disassembly of first operand of a movzw{l,q} in i386_disassemble()
+  in i386_disasm.c for the case MOVZ by setting rex to 0 after calling
+  get_reg_name() to get the second argument.  Radar bug #8017633.
+- Fixed the disassembly of j*cxz instructions in i386_disassemble() in
+  i386_disasm.c for the case BD to look at if the target is 64-bit and look for
+  the Address-size override prefix byte to print the correct form of the
+  mnemonic.  Also fixed the constants in displacement() in i386_disasm.c
+  when sign extending a byte and a word to be unsigned long long values.
+  Radar bug #8061602.
+
+Changes for the 5.27 release (the cctools-783 release):
+- Added the -llvm_mc option to disassemble so llvm-mc will assemble.
+- Added printing the section types to support thread local variables,
+  added printing the X86_64_RELOC_TLV and GENERIC_RELOC_TLV relocation types,
+  and added printing the indirect table entries for sections of type
+  S_THREAD_LOCAL_VARIABLE_POINTERS to ofile_print.c . Radar bug #7796734.
+
+Changes for the 5.28 release (the cctools-782 release):
+- Fixed a bug with disassembling crc32b in 64-bit when a register greater than
+  8 is used.  In i386_disasm.c the array REG64_BYTE[] was extended to include
+  the other 8 register names and the code that uses it had (REX_B(rex) << 3)
+  or'ed into the index with the existing r_m bits.  
+- Added support for disassembling the Intel aes instructions.  Radar bug
+  #7709572.
+
+Changes for the 5.28 release (the cctools-781 release):
+- Added support for LC_LOAD_UPWARD_DYLIB to print_loadcmds(), print_libraries(),
+  print_dylib_command() and print_hints() in ofile_print.c . Radar bug #7659206.
+- Fixed a problem with 64-bit disassembly of call instructions getting the
+  incorrect target.  Radar bug #7615109.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Removed -fno-builtin-round from the Makefile.  Radar bug #7475139.
+- Changed the Makefile to use -Os for OFLAG.  Radar bug #7475093.
+
+Changes for the 5.27 release (the cctools-775 release):
+- Added the print_immediate_func() to arm_disasm.c to print out the movw and
+  movt instruction immediates with the new arm HALF relocation entries.
+  Updated print_relocs() in ofile_print.c to print out the new arm HALF 
+  relocation entries.  Radar bug #7421496.
+- Fixed a bug in the print_address_func() in arm_disasm.c where it needed the
+  pc also passed to it be able to match that up with the r_address of a
+  relocation entry.
+
+Changes for the 5.27 release (the cctools-774 release):
+- Fixed the intel disassembly in i386_disasm.c so that make a386_test and make
+  ax86_64_test targets in the cctools as directory will work.  Radar bug 7414888
+- Added the disassembly of the invvpid and invept instructions to
+  i386_disasm.c .  Radar bug #7383743.
+
+Changes for the 5.27 release (the cctools-772 release):
+- Fixed the disassembly of vshll where the table entry on line 751 had the first
+  and second register operands switched.  Radar bug 7308888.
+
+Changes for the 5.27 release (the cctools-764 release):
+- Changed the license on all otool source files.  Radar bug #6538662.
+
+Changes for the 5.27 release (the cctools-763 release):
+- Added the disassembly for the rrx instructions to arm_disasm.c .  Radar bug
+  #7098328.
+
+Changes for the 5.27 release (the cctools-762 release):
+- Changed the Makefile to set CC when when SDKROOT is set.  Radar bug #7078805.
+
+Changes for the 5.27 release (the cctools-760 release):
+- Fixed a problem with the leading address for raw text bytes of x86_64 not
+  being printed as a 64-bit hex value.  The fix was in print_text() in main.c .
+  Radar bug #7012357,
+
+Changes for the 5.27 release (the cctools-759 release):
+- Added the disassembly for the pldw, vcvt.f32.f16, vcvt.f16.f32, vcvtt and
+  vcvtb instructions to arm_disasm.c .  Radar bug #6959129.
+- Added printing the memory barrior options ish, ishst, osh and oshst and
+  changed un to nsh and unst to nshst in arm_disasm.c . Radar bug #6982242.
+- Changed the Makefile to add -isysroot $(SDKROOT) to compile and link lines
+  when SDKROOT is set.  Radar bug #6965029.
+
+Changes for the 5.27 release (the cctools-757 release):
+- Fixed a problem with 64-bit call (near) instructions not showing 64-bit
+  register names.  This is a special case where in a 64-bit object the
+  FF /2 opcode results in a 64-bit operand even without a rex prefix byte.
+  So added logic for this in the case of indirect to memory or register operand
+  to set the REX.W bit to indicate 64-bit operand size.  Radar bug #6907058.
+
+Changes for the 5.27 release (the cctools-755 release):
+- Fixed a problem with 64-bit intel binaries not having their addresses correct
+  for call targets when some of the high 32-bits are set.  Changed the type of
+  the parameter value of displacement() in i386_disasm.c from uint32_t to
+  uint64_t.  And change the two uses to use the variable imm0 instead of value0
+  in i386_disassemble() in i386_disasm.c . Radar bug #6740004.
+
+Changes for the 5.27 release (the cctools-754 release):
+- Changed the Objective C data printers to account for the LC_ENCRYPTION_INFO
+  load command causing some of the sections to be encrypted.  Code and fields
+  were added to print_objc.c, print_objc2_32bit.c and print_objc2_64bit.c to
+  set the protected field of the sections structure based on the range of the
+  LC_ENCRYPTION_INFO load command if present.  Radar bug #6784286.
+
+Changes for the 5.27 release (the cctools-753 release):
+- Change the #ifdef around the print_x86_thread_state32 lable in ofile_print.c
+  to removed a warning when compiled on Tiger.
+
+Changes for the 5.27 release (the cctools-752 release):
+- Ported to build with clang.
+  - Changed Makefile to work around bugs 6761248 and 6756912.
+  - Added cast to int in ofile_print.c (two places) in switch statements.
+  - Removed an extra '%' in a printf() statement in "%movsldup\t" on line 2152
+    in i386_disasm.c.
+- Fixed typos in the usage line for "symbolically".  Radar bug #6700325.
+- Changed the printing of the uuid in print_uuid_command in ofile_print.c so it
+  matches how dwarfdump(1) prints it.  Radar bug #6723850.
+
+Changes for the 5.27 release (the cctools-751 release):
+- Changed the printing of Objective-C data so that strings from protected
+  sections are printed as "some string from a protected section" instead of
+  what looks like junk when the protected string is printed as characters.
+  Radar bug #5578032.
+
 Changes for the 5.26 release (the cctools-750 release):
 - Changed so that armv7 defaults to printing in thumb mode.  Moved in_thumb
   boolean to a global in arm_disasm.[ch] and set it to TRUE in main.c if the

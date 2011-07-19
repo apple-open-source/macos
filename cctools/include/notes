@@ -1,3 +1,96 @@
+Changes for the 5.27 release (the cctools-800 release):
+- Updated comment in <mach-o/loader.h> before GET_LIBRARY_ORDINAL to include
+  other dynamic library load commands.  Radar bug #8723078.
+
+Changes for the 5.27 release (the cctools-797 release):
+- Added LC_DYLD_ENVIRONMENT to <mach-o/loader.h> .  Radar bug #8653976.
+
+Changes for the 5.27 release (the cctools-794 release):
+- Added MH_NO_HEAP_EXECUTION to <mach-o/loader.h> .  Radar bug #8457105.
+
+Changes for the 5.27 release (the cctools-792 release):
+- Fixed more problems with incorrect support for LC_FUNCTION_STARTS.  Radar bug
+  #8401082.  Added the output_func_start_info_data and
+  output_func_start_info_data_size fields to the struct object in
+  stuff/breakout.h.
+
+Changes for the 5.27 release (the cctools-791 release):
+- Commented out some of the #defined's in mach/ppc/thread_status.h to stop
+  warnings.
+
+Changes for the 5.27 release (the cctools-790 release):
+- Added the func_starts_info_cmd field to the struct object in stuff/breakout.h.
+  Radar bug #8274584.
+- Added mach/ppc/thread_status.h and mach/ppc/_structs.h to GAS_MISSING_SRCS in
+  the Makefile.  Radar bug #8257646.
+
+Changes for the 5.27 release (the cctools-787 release):
+- Added N_SYMBOL_RESOLVER to <mach-o/nlist.h> . Radar bug #7901954.
+
+Changes for the 5.27 release (the cctools-785 release):
+- Added AT_APPLE_flags to "elf/dwarf2.h".  Radar bug #7580966.
+
+Changes for the 5.27 release (the cctools-784 release):
+- Added LC_VERSION_MIN_* and LC_FUNCTION_STARTS to <mach-o/loader.h> .
+  Added swap_version_min_command() to "stuff/bytesex.h" .
+  Radar bug #7902277.
+
+Changes for the 5.27 release (the cctools-783 release):
+- Added the section types to support thread local variables to <mach-o/loader.h>
+  and added X86_64_RELOC_TLV to <mach-o/x86_64/reloc.h> and GENERIC_RELOC_TLV
+  to <mach-o/reloc.h> . Radar bug #7796734.
+
+Changes for the 5.27 release (the cctools-782 release):
+- Fixed a comment typo in loader.h where rebase should have been bind.
+  Radar bug #6789853.
+
+Changes for the 5.27 release (the cctools-781 release):
+- Added support in "stuff/breakout.h" to add content to Mach-O files so the
+  program ctf_insert(1) can add a (__CTF,__ctf) section to a statically
+  linked Mach-O file.  Radar bug #7016839.
+- Added LC_LOAD_UPWARD_DYLIB to <mach-o/loader.h> . Radar bug #7659206.
+
+Changes for the 5.27 release (the cctools-780 release):
+- Added getsegmentdata() API to mach-o/getsect.h . Radar bug #7588238.
+
+Changes for the 5.28 release (the cctools-777 release):
+- Changed round() to rnd() and moved stuff/round.h to stuff/rnd.h .
+  Radar bug #7475139.
+
+Changes for the 5.28 release (the cctools-775 release):
+- Added new ARM_RELOC_HALF and ARM_RELOC_HALF_SECTDIFF relocation entries to
+ <mach-o/arm/reloc.h> for the movw and movt instructions.  Radar bug #7421496.
+
+Changes for the 5.27 release (the cctools-772 release):
+- Added getsectiondata() API to mach-o/getsect.h . Radar bug #5724145.
+
+Changes for the 5.27 release (the cctools-769 release):
+- Changed round() in stuff/round.h to take and return uint64_t types.  Radar
+  bug #7245879.
+
+Changes for the 5.26 release (the cctools-760 release):
+- Changed the sources so the armv7 stuff is a no longer #ifndef __OPEN_SOURCE__
+  Radar bug #7016121.
+  - Changed the Makefile and removed #ifndef __OPEN_SOURCE__ for "opcode/arm.h".
+  - Removed the #ifndef __OPEN_SOURCE__ in "mach/machine.h" that bracket armv7.
+
+Changes for the 5.26 release (the cctools-758 release):
+- Backed out the change for Radar bug #6511482:
+  - Left in ARM_THUMB_32BIT_BRANCH in <mach-o/arm/reloc.h> but added a comment
+    to say it is obsolete.
+  Radar bug #6945428.
+
+Changes for the 5.26 release (the cctools-756 release):
+- Added add_execute_list_with_prefix() to "stuff/execute.h" to add a string
+  prefixed with the executable's path.  Radar bug #6821441.
+
+Changes for the 5.26 release (the cctools-752 release):
+- Ported to build with clang.
+  - Added a #define for __STDBOOL_H to "stuff/bool.h" to allow building with
+    clang. Radar bug #6753135.
+  - Fixed a warning about extra tokens at end of #endif directive in 
+    "mach/machine.h" by putting __OPEN_SOURCE__ in a comment.
+
 Changes for the 5.26 release (the cctools-750 release):
 - Added lto_get_nlist_64() to stuff/lto.h for use by nm(1) print information
   from llvm bit code files.  Radar bug #6067110.

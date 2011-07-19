@@ -10,11 +10,11 @@
  * See the file "license.terms" for information on usage and redistribution
  * of this file, and for a DISCLAIMER OF ALL WARRANTIES.
  *
- * RCS: @(#) $Id: tkimgStubLib.c 170 2008-11-14 13:31:59Z nijtmans $
+ * RCS: @(#) $Id: tkimgStubLib.c 274 2010-06-28 13:23:34Z nijtmans $
  */
 
 #ifndef USE_TCL_STUBS
-#define USE_TCL_STUBS
+#   define USE_TCL_STUBS
 #endif
 
 #include "tkimg.h"
@@ -39,18 +39,14 @@ const TkimgStubs *tkimgStubsPtr;
  *----------------------------------------------------------------------
  */
 
-#ifdef Tkimg_InitStubs
-#undef Tkimg_InitStubs
-#endif
-
-const char *
-Tkimg_InitStubs(interp, version, exact)
-Tcl_Interp *interp;
-const char *version;
-int exact;
-{
+MODULE_SCOPE const char *
+Tkimg_InitStubs(
+	Tcl_Interp *interp,
+	const char *version,
+	int exact
+) {
 	const char *result;
-	ClientData data;
+	void *data;
 
 	result = Tcl_PkgRequireEx(interp, PACKAGE_TCLNAME, (CONST84 char *) version, exact, &data);
 	if (!result || !data) {

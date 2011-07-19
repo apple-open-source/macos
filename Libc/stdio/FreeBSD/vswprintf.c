@@ -31,7 +31,7 @@
 #if 0
 __FBSDID("FreeBSD: src/lib/libc/stdio/vasprintf.c,v 1.16 2002/08/21 16:19:57 mike Exp ");
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/stdio/vswprintf.c,v 1.5 2004/04/07 09:55:05 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/stdio/vswprintf.c,v 1.7 2008/04/17 22:17:54 jhb Exp $");
 
 #include <errno.h>
 #include <stdio.h>
@@ -46,9 +46,9 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	static const mbstate_t initial;
 	mbstate_t mbs;
 	FILE f;
-	struct __sFILEX ext;
 	char *mbp;
 	int ret, sverrno;
+	size_t nwc;
 
 	if (n == 0) {
 		errno = EINVAL;
@@ -63,8 +63,8 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 		return (-1);
 	}
 	f._bf._size = f._w = 127;		/* Leave room for the NUL */
-	f._extra = &ext;
-	INITEXTRA(&f);
+	f._orientation = 0;
+	memset(&f._mbstate, 0, sizeof(mbstate_t));
 	ret = __vfwprintf(&f, fmt, ap);
 	if (ret < 0) {
 		sverrno = errno;
@@ -79,13 +79,13 @@ vswprintf(wchar_t * __restrict s, size_t n, const wchar_t * __restrict fmt,
 	 * fputwc() did in __vfwprintf().
 	 */
 	mbs = initial;
-	if (mbsrtowcs(s, (const char **)&mbp, n, &mbs) == (size_t)-1) {
-		free(f._bf._base);
+	nwc = mbsrtowcs(s, (const char **)&mbp, n, &mbs);
+	free(f._bf._base);
+	if (nwc == (size_t)-1) {
 		errno = EILSEQ;
 		return (-1);
 	}
-	free(f._bf._base);
-	if (s[n - 1] != L'\0') {
+	if (nwc == n) {
 		s[n - 1] = L'\0';
 		errno = EOVERFLOW;
 		return (-1);

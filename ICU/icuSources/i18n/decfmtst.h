@@ -1,5 +1,5 @@
 //
-//  regexst.h
+//  decfmtst.h
 //
 //  Copyright (C) 2009, International Business Machines Corporation and others.
 //  All Rights Reserved.
@@ -14,6 +14,8 @@
 #define DECFMTST_H
 
 #include "unicode/utypes.h"
+
+ #if !UCONFIG_NO_FORMATTING
 
 U_NAMESPACE_BEGIN
 
@@ -52,4 +54,5 @@ public:
 
 U_NAMESPACE_END
 
-#endif   // REGEXST_H
+#endif   // !UCONFIG_NO_FORMATTING
+#endif   // DECFMTST_H

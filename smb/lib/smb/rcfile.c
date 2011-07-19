@@ -2,7 +2,7 @@
  * Copyright (c) 2000, Boris Popov
  * All rights reserved.
  *
- * Portions Copyright (C) 2001 - 2007 Apple Inc. All rights reserved.
+ * Portions Copyright (C) 2001 - 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -33,145 +33,34 @@
  *
  * $Id: rcfile.c,v 1.1.1.2 2001/07/06 22:38:43 conrad Exp $
  */
-#include <sys/types.h>
-#include <sys/queue.h>
-#include <ctype.h>
-#include <errno.h>
-#include <stdio.h>
-#include <string.h>
-#include <stdlib.h>
-#include <pwd.h>
-#include <unistd.h>
 #include <err.h>
-#include <asl.h>
+#include <netsmb/smb_lib.h>
 
-#include <cflib.h>
+#include "rcfile.h"
 #include "rcfile_priv.h"
 
-static struct rcsection *rc_findsect(struct rcfile *rcp, const char *sectname);
-static struct rcsection *rc_addsect(struct rcfile *rcp, const char *sectname);
-static int rc_freesect(struct rcfile *rcp, struct rcsection *rsp);
-static struct rckey *rc_sect_findkey(struct rcsection *rsp, const char *keyname);
-static struct rckey *rc_sect_addkey(struct rcsection *rsp, const char *name, const char *value);
-static void rc_key_free(struct rckey *p);
-static void rc_parse(struct rcfile *rcp);
+#define	SMB_CFG_FILE		"/etc/nsmb.conf"
+#define SMB_CFG_LOCAL_FILE	"/Library/Preferences/nsmb.conf"
 
-
-/*
- * open rcfile and load its content, if already open - return previous handle
- */
-int
-rc_open(const char *filename, const char *mode, struct rcfile **rcfile)
+static void
+rc_key_free(struct rckey *p)
 {
-	struct rcfile *rcp;
-	FILE *f;
-	
-	f = fopen(filename, mode);
-	if (f == NULL)
-		return errno;
-	rcp = malloc(sizeof(struct rcfile));
-	if (rcp == NULL) {
-		fclose(f);
-		return ENOMEM;
-	}
-	bzero(rcp, sizeof(struct rcfile));
-	rcp->rf_name = strdup(filename);
-	rcp->rf_f = f;
-
-	rc_parse(rcp);
-	*rcfile = rcp;
-	return 0;
-}
-
-int
-rc_merge(const char *filename, struct rcfile **rcfile)
-{
-	struct rcfile *rcp = *rcfile;
-	FILE *f, *t;
-	
-	if (rcp == NULL) {
-		return rc_open(filename, "r", rcfile);
-	}
-	f = fopen (filename, "r");
-	if (f == NULL)
-		return errno;
-	t = rcp->rf_f;
-	rcp->rf_f = f;
-	rc_parse(rcp);
-	rcp->rf_f = t;
-	fclose(f);
-	return 0;
-}
-
-int
-rc_close(struct rcfile *rcp)
-{
-	struct rcsection *p, *n;
-
-	fclose(rcp->rf_f);
-	for(p = SLIST_FIRST(&rcp->rf_sect); p;) {
-		n = p;
-		p = SLIST_NEXT(p,rs_next);
-		rc_freesect(rcp, n);
-	}
-	free(rcp->rf_name);
-	free(rcp);
-	return 0;
-}
-
-static struct rcsection *
-rc_findsect(struct rcfile *rcp, const char *sectname)
-{
-	struct rcsection *p;
-
-	SLIST_FOREACH(p, &rcp->rf_sect, rs_next)
-		if (strcmp(p->rs_name, sectname)==0)
-			return p;
-	return NULL;
-}
-
-static struct rcsection *
-rc_addsect(struct rcfile *rcp, const char *sectname)
-{
-	struct rcsection *p;
-
-	/* Not the best way to do this, but it improves the lookup speed */
-	if (strcmp(sectname, "global") == 0)
-		sectname = "default";	/* To us they are the same section */
-	p = rc_findsect(rcp, sectname);
-	if (p) return p;
-	p = malloc(sizeof(*p));
-	if (!p) return NULL;
-	p->rs_name = strdup(sectname);
-	SLIST_INIT(&p->rs_keys);
-	SLIST_INSERT_HEAD(&rcp->rf_sect, p, rs_next);
-	return p;
-}
-
-static int
-rc_freesect(struct rcfile *rcp, struct rcsection *rsp)
-{
-	struct rckey *p,*n;
-
-	SLIST_REMOVE(&rcp->rf_sect, rsp, rcsection, rs_next);
-	for(p = SLIST_FIRST(&rsp->rs_keys);p;) {
-		n = p;
-		p = SLIST_NEXT(p,rk_next);
-		rc_key_free(n);
-	}
-	free(rsp->rs_name);
-	free(rsp);
-	return 0;
+	if (p->rk_value)
+		free(p->rk_value);
+	if (p->rk_name)
+		free(p->rk_name);
+	if (p)
+		free(p);
 }
 
 static struct rckey *
 rc_sect_findkey(struct rcsection *rsp, const char *keyname)
 {
 	struct rckey *p;
-
+	
 	SLIST_FOREACH(p, &rsp->rs_keys, rk_next)
-		if (strcmp(p->rk_name, keyname)==0)
-			return p;
+	if (strcmp(p->rk_name, keyname)==0)
+		return p;
 	return NULL;
 }
 
@@ -179,7 +68,7 @@ static struct rckey *
 rc_sect_addkey(struct rcsection *rsp, const char *name, const char *value)
 {
 	struct rckey *p;
-
+	
 	p = rc_sect_findkey(rsp, name);
 	if (p) {
 		free(p->rk_value);
@@ -193,26 +82,32 @@ rc_sect_addkey(struct rcsection *rsp, const char *name, const char *value)
 	return p;
 }
 
-#if 0
-void
-rc_sect_delkey(struct rcsection *rsp, struct rckey *p)
+static struct rcsection *
+rc_findsect(struct rcfile *rcp, const char *sectname)
 {
-
-	SLIST_REMOVE(&rsp->rs_keys, p, rckey, rk_next);
-	rc_key_free(p);
-	return;
+	struct rcsection *p;
+	
+	SLIST_FOREACH(p, &rcp->rf_sect, rs_next)
+	if (strcmp(p->rs_name, sectname)==0)
+		return p;
+	return NULL;
 }
-#endif
 
-static void
-rc_key_free(struct rckey *p)
+static struct rcsection * rc_addsect(struct rcfile *rcp, const char *sectname)
 {
-	if (p->rk_value)
-		free(p->rk_value);
-	if (p->rk_name)
-		free(p->rk_name);
-	if (p)
-		free(p);
+	struct rcsection *p;
+	
+	/* Not the best way to do this, but it improves the lookup speed */
+	if (strcmp(sectname, "global") == 0)
+		sectname = "default";	/* To us they are the same section */
+	p = rc_findsect(rcp, sectname);
+	if (p) return p;
+	p = malloc(sizeof(*p));
+	if (!p) return NULL;
+	p->rs_name = strdup(sectname);
+	SLIST_INIT(&p->rs_keys);
+	SLIST_INSERT_HEAD(&rcp->rf_sect, p, rs_next);
+	return p;
 }
 
 enum { stNewLine, stHeader, stSkipToEOL, stGetKey, stGoToGetValue, stGetValue};
@@ -226,7 +121,7 @@ rc_parse(struct rcfile *rcp)
 	struct rckey *rkp = NULL;
 	char buf[2048];
 	char *next = buf, *last = &buf[sizeof(buf)-1];
-
+	
 	while ((c = getc (f)) != EOF) {
 		if (c == '\r')
 			continue;
@@ -294,7 +189,7 @@ rc_parse(struct rcfile *rcp)
 			continue;
 		else /* Now only the value left get it */
 			state = stGetValue;
-						
+		
 		if (c != '\n') {
 			*next++ = c;
 			continue;
@@ -314,6 +209,95 @@ rc_parse(struct rcfile *rcp)
 	}
 	return;
 }
+
+/*
+ * open rcfile and load its content, if already open - return previous handle
+ */
+static int
+rc_open(const char *filename, const char *mode, struct rcfile **rcfile)
+{
+	struct rcfile *rcp;
+	FILE *f;
+	
+	f = fopen(filename, mode);
+	if (f == NULL)
+		return errno;
+	rcp = malloc(sizeof(struct rcfile));
+	if (rcp == NULL) {
+		fclose(f);
+		return ENOMEM;
+	}
+	bzero(rcp, sizeof(struct rcfile));
+	rcp->rf_name = strdup(filename);
+	rcp->rf_f = f;
+
+	rc_parse(rcp);
+	*rcfile = rcp;
+	return 0;
+}
+
+static int
+rc_merge(const char *filename, struct rcfile **rcfile)
+{
+	struct rcfile *rcp = *rcfile;
+	FILE *f, *t;
+	
+	if (rcp == NULL) {
+		return rc_open(filename, "r", rcfile);
+	}
+	f = fopen (filename, "r");
+	if (f == NULL)
+		return errno;
+	t = rcp->rf_f;
+	rcp->rf_f = f;
+	rc_parse(rcp);
+	rcp->rf_f = t;
+	fclose(f);
+	return 0;
+}
+
+static int
+rc_freesect(struct rcfile *rcp, struct rcsection *rsp)
+{
+	struct rckey *p,*n;
+	
+	SLIST_REMOVE(&rcp->rf_sect, rsp, rcsection, rs_next);
+	for(p = SLIST_FIRST(&rsp->rs_keys);p;) {
+		n = p;
+		p = SLIST_NEXT(p,rk_next);
+		rc_key_free(n);
+	}
+	free(rsp->rs_name);
+	free(rsp);
+	return 0;
+}
+
+int
+rc_close(struct rcfile *rcp)
+{
+	struct rcsection *p, *n;
+
+	fclose(rcp->rf_f);
+	for(p = SLIST_FIRST(&rcp->rf_sect); p;) {
+		n = p;
+		p = SLIST_NEXT(p,rs_next);
+		rc_freesect(rcp, n);
+	}
+	free(rcp->rf_name);
+	free(rcp);
+	return 0;
+}
+
+#if 0
+void
+rc_sect_delkey(struct rcsection *rsp, struct rckey *p)
+{
+
+	SLIST_REMOVE(&rsp->rs_keys, p, rckey, rk_next);
+	rc_key_free(p);
+	return;
+}
+#endif
 
 int
 rc_getstringptr(struct rcfile *rcp, const char *section, const char *key,
@@ -342,7 +326,7 @@ rc_getstring(struct rcfile *rcp, const char *section, const char *key,
 	if (error)
 		return error;
 	if (strlen(value) >= maxlen) {
-		warnx("line too long for key '%s' in section '%s', max = %d\n", key, section, maxlen);
+		warnx("line too long for key '%s' in section '%s', max = %zu\n", key, section, maxlen);
 		return EINVAL;
 	}
 	strlcpy(dest, value, maxlen);
@@ -397,4 +381,41 @@ rc_getbool(struct rcfile *rcp, const char *section, const char *key, int *value)
 	}
 	fprintf(stderr, "invalid boolean value '%s' for key '%s' in section '%s' \n",p, key, section);
 	return EINVAL;
+}
+
+
+/*
+ * first read ~/.smbrc, next try to merge SMB_CFG_FILE - 
+ */
+struct rcfile * smb_open_rcfile(int noUserPrefs)
+{
+	struct rcfile * smb_rc = NULL;
+	char *home = NULL;
+	char *fn;
+	int error;
+	int fnlen;
+	
+	if (! noUserPrefs)
+		home = getenv("HOME");
+	
+	if (home) {
+		fnlen = (int)(strlen(home) + strlen(SMB_CFG_LOCAL_FILE) + 1);
+		fn = malloc(fnlen);
+		snprintf(fn, fnlen, "%s%s", home, SMB_CFG_LOCAL_FILE);		
+		error = rc_open(fn, "r", &smb_rc);
+		/* Used for debugging bad configuration files. */
+		if (error && (error != ENOENT) )
+			smb_log_info("%s: Can't open %s, syserr = %s", 
+						 ASL_LEVEL_DEBUG, __FUNCTION__, fn, strerror(errno));
+		free(fn);
+	}
+	fn = (char *)SMB_CFG_FILE;
+	error = rc_merge(fn, &smb_rc);
+	/* Used for debugging bad configuration files. */
+	if (error && (error != ENOENT) )
+		smb_log_info("%s: Can't open %s, syserr = %s", 
+					 ASL_LEVEL_DEBUG, __FUNCTION__, fn, strerror(errno));
+	
+	
+	return smb_rc;
 }

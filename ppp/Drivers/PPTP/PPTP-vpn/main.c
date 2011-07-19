@@ -121,7 +121,7 @@ int start(struct vpn_channel* the_vpn_channel, CFBundleRef ref, CFBundleRef pppr
                     CFRelease(url);
                     strlcat(name, "/", sizeof(name));
                     strlcat(name, PPTP_NKE, sizeof(name));
-#ifndef TARGET_EMBEDDED_OS
+#if !TARGET_OS_EMBEDDED  // This file is not built for Embedded
                     if (!load_kext(name, 0))
 #else
                     if (!load_kext(PPTP_NKE_ID, 1))
@@ -172,7 +172,7 @@ int pptp_sys_accept(int sockfd, struct sockaddr *cliaddr, int *addrlen)
 {
     int fd;
     
-    while ((fd = accept(sockfd, cliaddr, addrlen)) == -1)
+    while ((fd = accept(sockfd, cliaddr, (uint32_t *)addrlen)) == -1)
         if (errno != EINTR) {
             vpnlog(LOG_ERR, "PPTP plugin: error calling accept = %s\n", strerror(errno));
             return -1;

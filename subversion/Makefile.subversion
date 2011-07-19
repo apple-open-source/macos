@@ -1,0 +1,27 @@
+GnuAfterInstall       = post-install install-plist
+Extra_Configure_Flags = --disable-shared --enable-static \
+                        --without-berkeley-db \
+                        --without-apxs \
+                        --with-apr=/usr --with-apr-util=/usr \
+                        --with-neon=/usr/local \
+                        --with-swig=/usr/local \
+                        --with-ruby-sitedir=$(RBLIBDIR)/ruby \
+                        --without-sasl
+
+include $(MAKEFILEPATH)/CoreOS/ReleaseControl/GNUSource.make
+
+Install_Target  = install
+Install_Flags   = DESTDIR=$(DSTROOT)
+
+# Post-install cleanup
+post-install:
+	[ -n "$(DSTROOT)" ] || exit 1
+	rm -rf $(DSTROOT)/usr/lib
+	rm -rf $(DSTROOT)/usr/include
+	@for binary in svn svnadmin svndumpfilter svnlook svnserve svnsync svnversion; do \
+		file=$(DSTROOT)/usr/bin/$${binary}; \
+		echo $(CP) $${file} $(SYMROOT); \
+		$(CP) $${file} $(SYMROOT); \
+		echo $(STRIP) -x $${file}; \
+		$(STRIP) -x $${file}; \
+	done

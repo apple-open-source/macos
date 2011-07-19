@@ -26,7 +26,7 @@
  */
 
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.33 2004/09/22 16:56:48 stefanf Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/locale/collate.c,v 1.35 2005/02/27 20:31:13 ru Exp $");
 
 #include "namespace.h"
 #include <arpa/inet.h>
@@ -99,7 +99,7 @@ __collate_load_tables(const char *encoding)
 	chains = -1;
 	if (strcmp(strbuf, COLLATE_VERSION) == 0)
 		chains = 0;
-	else if (strcmp(strbuf, COLLATE_VERSION1_1) == 0)
+	else if (strcmp(strbuf, COLLATE_VERSION1_2) == 0)
 		chains = 1;
 	if (chains < 0) {
 		(void)fclose(fp);
@@ -172,10 +172,21 @@ __collate_load_tables(const char *encoding)
 	if (__collate_char_pri_table_ptr != NULL)
 		free(__collate_char_pri_table_ptr);
 	__collate_char_pri_table_ptr = TMP_char_pri_table;
+	for (i = 0; i < UCHAR_MAX + 1; i++) {
+		__collate_char_pri_table[i].prim =
+		    ntohl(__collate_char_pri_table[i].prim);
+		__collate_char_pri_table[i].sec =
+		    ntohl(__collate_char_pri_table[i].sec);
+	}
 	if (__collate_chain_pri_table != NULL)
 		free(__collate_chain_pri_table);
 	__collate_chain_pri_table = TMP_chain_pri_table;
-	
+	for (i = 0; i < chains; i++) {
+		__collate_chain_pri_table[i].prim =
+		    ntohl(__collate_chain_pri_table[i].prim);
+		__collate_chain_pri_table[i].sec =
+		    ntohl(__collate_chain_pri_table[i].sec);
+	}
 	__collate_substitute_nontrivial = 0;
 	for (i = 0; i < UCHAR_MAX + 1; i++) {
 		if (__collate_substitute_table[i][0] != i ||
@@ -190,8 +201,7 @@ __collate_load_tables(const char *encoding)
 }
 
 u_char *
-__collate_substitute(s)
-	const u_char *s;
+__collate_substitute(const u_char *s)
 {
 	int dest_len, len, nlen;
 	int delta = strlen(s);
@@ -218,9 +228,7 @@ __collate_substitute(s)
 }
 
 void
-__collate_lookup(t, len, prim, sec)
-	const u_char *t;
-	int *len, *prim, *sec;
+__collate_lookup(const u_char *t, int *len, int *prim, int *sec)
 {
 	struct __collate_st_chain_pri *p2;
 
@@ -240,8 +248,7 @@ __collate_lookup(t, len, prim, sec)
 }
 
 u_char *
-__collate_strdup(s)
-	u_char *s;
+__collate_strdup(u_char *s)
 {
 	u_char *t = strdup(s);
 

@@ -3,6 +3,7 @@
 [copyright {2006 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Interpreter utilities}]
 [titledesc {Interp creation and aliasing}]
+[category  {Programming tools}]
 [require Tcl 8.3]
 [require interp [opt 0.1.1]]
 [description]

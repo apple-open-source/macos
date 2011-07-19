@@ -1,6 +1,6 @@
---- pause.c.orig	2006-09-17 12:11:15.000000000 -0700
-+++ pause.c	2006-09-24 16:38:00.000000000 -0700
-@@ -34,6 +34,13 @@
+--- pause.c.orig	2009-11-07 14:51:38.000000000 -0800
++++ pause.c	2009-11-07 14:51:40.000000000 -0800
+@@ -30,6 +30,13 @@
  #if defined(LIBC_SCCS) && !defined(lint)
  static char sccsid[] = "@(#)pause.c	8.1 (Berkeley) 6/4/93";
  #endif /* LIBC_SCCS and not lint */
@@ -12,9 +12,9 @@
 +#endif /* VARIANT_CANCELABLE */
 +
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/gen/pause.c,v 1.6 2002/02/01 00:57:29 obrien Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/gen/pause.c,v 1.7 2007/01/09 00:27:54 imp Exp $");
  
-@@ -46,7 +53,10 @@
+@@ -42,7 +49,10 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/pau
  int
  __pause()
  {

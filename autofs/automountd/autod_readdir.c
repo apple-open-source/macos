@@ -25,7 +25,7 @@
  */
 
 /*
- * Portions Copyright 2007-2009 Apple Inc.
+ * Portions Copyright 2007-2011 Apple Inc.
  */
 
 /*
@@ -52,17 +52,19 @@
 
 static void build_dir_entry_list(struct rddir_cache *rdcp,
 				struct dir_entry *list);
-static int rddir_cache_enter(char *map, uint_t bucket_size,
+static void build_subdir_entry_list(struct dir_entry *list, ino_t start_inonum);
+static int rddir_cache_enter(const char *map, uint_t bucket_size,
 				struct rddir_cache **rdcpp);
-int rddir_cache_lookup(char *map, struct rddir_cache **rdcpp);
+static int rddir_cache_lookup(const char *map, struct rddir_cache **rdcpp);
 static int rddir_cache_delete(struct rddir_cache *rdcp);
-static int create_dirents(struct rddir_cache *rdcp, off_t offset,
+static struct dir_entry *scan_cache_entry_for_bucket(struct rddir_cache *rdcp,
+				off_t offset);
+static int create_dirents(struct dir_entry *list, off_t offset,
 				uint32_t rda_count,
 				off_t *rddir_offset,
 				boolean_t *rddir_eof,
 				byte_buffer *rddir_entries,
 				mach_msg_type_number_t *rddir_entriesCnt);
-struct dir_entry *rddir_entry_lookup(char *name, struct dir_entry *list);
 static void free_offset_tbl(struct off_tbl *head);
 static void free_dir_list(struct dir_entry *head);
 
@@ -77,7 +79,7 @@ do_readdir(autofs_pathname rda_map, off_t rda_offset,
     boolean_t *rddir_eof, byte_buffer *rddir_entries,
     mach_msg_type_number_t *rddir_entriesCnt)
 {
-	struct dir_entry *list = NULL, *l;
+	struct dir_entry *list = NULL, *l, *bucket;
 	struct rddir_cache *rdcp = NULL;
 	int error;
 	int cache_time = RDDIR_CACHE_TIME;
@@ -86,7 +88,7 @@ do_readdir(autofs_pathname rda_map, off_t rda_offset,
 		/*
 		 * Browsability was disabled return an empty list.
 		 */
-		rddir_entriesCnt = 0;
+		*rddir_entriesCnt = 0;
 		*rddir_eof = TRUE;
 		*rddir_entries = NULL;
 
@@ -145,7 +147,8 @@ do_readdir(autofs_pathname rda_map, off_t rda_offset,
 		pthread_rwlock_rdlock(&rdcp->rwlock);
 
 	if (!error) {
-		error = create_dirents(rdcp, rda_offset, rda_count,
+		bucket = scan_cache_entry_for_bucket(rdcp, rda_offset);
+		error = create_dirents(bucket, rda_offset, rda_count,
 		    rddir_offset, rddir_eof, rddir_entries,
 		    rddir_entriesCnt);
 		if (error) {
@@ -212,27 +215,127 @@ do_readdir(autofs_pathname rda_map, off_t rda_offset,
 	return (error);
 }
 
-#define	roundtoint(x)	(((x) + sizeof (int) - 1) & ~(sizeof (int) - 1))
-
-static int
-create_dirents(struct rddir_cache *rdcp, off_t offset, uint32_t rda_count,
-    off_t *rddir_offset, boolean_t *rddir_eof, byte_buffer *rddir_entries,
+int
+do_readsubdir(autofs_pathname rda_map, char *key,
+    autofs_pathname rda_subdir, autofs_opts mapopts, uint32_t rda_dirino,
+    off_t rda_offset, uint32_t rda_count, off_t *rddir_offset,
+    boolean_t *rddir_eof, byte_buffer *rddir_entries,
     mach_msg_type_number_t *rddir_entriesCnt)
 {
-	uint_t total_bytes_wanted;
-	size_t bufsize;
-	size_t this_reclen;
-	uint_t outcount = 0;
-	int namelen;
-	struct dir_entry *list = NULL, *l;
-	kern_return_t ret;
-	vm_address_t buffer_vm_address;
-	struct dirent_nonext *dp;
-	uint8_t *outbuf;
+	struct mapent *me, *mapents;
+	int err;
+	bool_t isrestricted = hasrestrictopt(mapopts);
+	char *p;
+	struct dir_entry *list = NULL;
+	struct dir_entry *last = NULL;
+
+	/*
+	 * We're not reading the top-level directory of an indirect
+	 * map, we're reading a directory underneath that.  We must
+	 * always show that, even if we've globally turned off
+	 * browsability.
+	 *
+	 * First, look up the map entry for the directory immediately
+	 * below the top-level directory.
+	 */
+
+	/*
+	 * call parser w default mount_access = TRUE
+	 */
+	mapents = parse_entry(key, rda_map, mapopts, rda_subdir, FALSE,
+		NULL, isrestricted, TRUE, &err);
+	if (mapents == NULL) {
+		/* Return the error parse_entry handed back. */
+		return (err);
+	}
+	for (me = mapents; me; me = me->map_next) {
+		p = me->map_mntpnt;
+		if (p == NULL) {
+			syslog(LOG_ERR, "null mountpoint in entry in %s",
+			    me->map_root  ? me->map_root : "<NULL>");
+			continue;
+		}
+		while (*p == '/')
+			p++;
+		err = add_dir_entry(p, NULL, NULL, &list, &last);
+		if (err != -1) {
+			if (err != 0) {
+				/*
+				 * Free up list.
+				 */
+				if (list)
+					free_dir_list(list);
+
+				/*
+				 * Free the map entries.
+				 */
+				free_mapent(mapents);
+
+				/*
+				 * return an empty list
+				 */
+				*rddir_entriesCnt = 0;
+				*rddir_eof = TRUE;
+				*rddir_entries = NULL;
+				return (err);
+			}
+		}
+	}
+
+	if (mapents)
+		free_mapent(mapents);
+
+	/*
+	 * We base the inode numbers in the subdirectory on the inode
+	 * number of the directory we're reading, so that:
+	 *
+	 *	1) they don't match the inode numbers in other
+	 *	   subdirectories, or in the top-level directory;
+	 *
+	 *	2) they're likely to remain the same from readdir
+	 *	   to readdir.
+	 *
+	 * We swap the two halves of the directory inode number, so
+	 * that the part we change is the slowly-changing part of
+	 * the inode number handed out by autofs.  automountd hands
+	 * out even inode numbers, and autofs hands out odd inode
+	 * numbers, so, if the low-order bit of the result of the
+	 * swap is 1, we clear it and the (known to be 1) low-order
+	 * bit of the upper 16 bits.  If the upper 16 bits are 0, we set
+	 * them to 0xffff, so that we never hand out "small" (<65536)
+	 * inode numbers, which might collide with the inode numbers
+	 * handed out for top-level directories.
+	 */
+	rda_dirino = ((rda_dirino >> 16) & 0x0000FFFF) |
+		     ((rda_dirino << 16) & 0xFFFF0000);
+	if (rda_dirino & 0x00000001)
+		rda_dirino &= ~0x00010001;
+
+	build_subdir_entry_list(list, rda_dirino);
+
+	err = create_dirents(list, rda_offset, rda_count,
+	    rddir_offset, rddir_eof, rddir_entries,
+	    rddir_entriesCnt);
+
+	if (err) {
+		/*
+		 * return an empty list
+		 */
+		*rddir_entriesCnt = 0;
+		*rddir_eof = TRUE;
+		*rddir_entries = NULL;
+	}
+
+	return (err);
+}
+
+static struct dir_entry *
+scan_cache_entry_for_bucket(struct rddir_cache *rdcp, off_t offset)
+{
 	struct off_tbl *offtp, *next = NULL;
 	int this_bucket = 0;
-	int error = 0;
-	int x = 0, y = 0;
+	struct dir_entry *list = NULL;
+	int x = 0;
 
 #if 0
 	assert(RW_LOCK_HELD(&rdcp->rwlock));
@@ -256,6 +359,30 @@ create_dirents(struct rddir_cache *rdcp, off_t offset, uint32_t rda_count,
 		 */
 	}
 
+	if (trace > 2)
+		trace_prt(1, "%s: offset searches (%d)\n", rdcp->map, x);
+
+	return (list);
+}
+
+static int
+create_dirents(struct dir_entry *list, off_t offset, uint32_t rda_count,
+    off_t *rddir_offset, boolean_t *rddir_eof, byte_buffer *rddir_entries,
+    mach_msg_type_number_t *rddir_entriesCnt)
+{
+	uint_t total_bytes_wanted;
+	size_t bufsize;
+	size_t this_reclen;
+	uint_t outcount = 0;
+	int namelen;
+	struct dir_entry *l;
+	kern_return_t ret;
+	vm_address_t buffer_vm_address;
+	struct dirent_nonext *dp;
+	uint8_t *outbuf;
+	int error = 0;
+	int y = 0;
+
 	for (l = list; l != NULL && l->offset < offset; l = l->next)
 		y++;
 
@@ -268,7 +395,7 @@ create_dirents(struct rddir_cache *rdcp, off_t offset, uint32_t rda_count,
 	}
 
 	if (trace > 2)
-		trace_prt(1, "%s: offset searches (%d, %d)\n", rdcp->map, x, y);
+		trace_prt(1, "offset searches (%d)\n", y);
 
 	total_bytes_wanted = rda_count;
 	bufsize = total_bytes_wanted + sizeof (struct dirent_nonext);
@@ -352,7 +479,8 @@ empty:	*rddir_entriesCnt = 0;
  * add new entry to cache for 'map'
  */
 static int
-rddir_cache_enter(char *map, uint_t bucket_size, struct rddir_cache **rdcpp)
+rddir_cache_enter(const char *map, uint_t bucket_size,
+    struct rddir_cache **rdcpp)
 {
 	struct rddir_cache *p;
 #if 0
@@ -402,8 +530,8 @@ rddir_cache_enter(char *map, uint_t bucket_size, struct rddir_cache **rdcpp)
 /*
  * find 'map' in readdir cache
  */
-int
-rddir_cache_lookup(char *map, struct rddir_cache **rdcpp)
+static int
+rddir_cache_lookup(const char *map, struct rddir_cache **rdcpp)
 {
 	struct rddir_cache *p;
 
@@ -452,6 +580,8 @@ free_dir_list(struct dir_entry *head)
 
 	for (p = head; p != NULL; p = next) {
 		next = p->next;
+		free(p->line);
+		free(p->lineq);
 		assert(p->name);
 		free(p->name);
 		free(p);
@@ -506,18 +636,50 @@ rddir_cache_delete(struct rddir_cache *rdcp)
 		}
 		prev = p;
 	}
-	syslog(LOG_ERR, "Couldn't find entry %x in cache\n", p);
+	syslog(LOG_ERR, "Couldn't find entry %p in cache\n", rdcp);
 	return (ENOENT);
 }
 
 /*
- * Return entry that matches name, NULL otherwise.
- * Assumes the readers lock for this list has been grabed.
+ * Return entry in map that matches name, NULL otherwise.
  */
 struct dir_entry *
-rddir_entry_lookup(char *name, struct dir_entry *list)
+rddir_entry_lookup(const char *mapname, const char *name)
 {
-	return (btree_lookup(list, name));
+	int err;
+	struct rddir_cache *rdcp;
+	struct dir_entry *p = NULL;
+
+	pthread_rwlock_rdlock(&rddir_cache_lock);
+	err = rddir_cache_lookup(mapname, &rdcp);
+	if (!err && rdcp->full) {
+		pthread_rwlock_unlock(&rddir_cache_lock);
+		/*
+		 * Try to lock readdir cache entry for reading, if
+		 * the entry can not be locked, then avoid blocking
+		 * and return null; our caller will have to go to the
+		 * name service to find the entry. I'm assuming it is
+		 * faster to go to the name service than to wait for
+		 * the cache to be populated.
+		 */
+		if (pthread_rwlock_tryrdlock(&rdcp->rwlock) == 0) {
+			p = btree_lookup(rdcp->entp, name);
+			pthread_rwlock_unlock(&rdcp->rwlock);
+		}
+	} else
+		pthread_rwlock_unlock(&rddir_cache_lock);
+
+	if (!err) {
+		/*
+		 * release reference on cache entry
+		 */
+		pthread_mutex_lock(&rdcp->lock);
+		rdcp->in_use--;
+		assert(rdcp->in_use >= 0);
+		pthread_mutex_unlock(&rdcp->lock);
+	}
+
+	return (p);
 }
 
 static void
@@ -567,6 +729,21 @@ build_dir_entry_list(struct rddir_cache *rdcp, struct dir_entry *list)
 	rdcp->full = 1;
 }
 
+static void
+build_subdir_entry_list(struct dir_entry *list, ino_t start_inonum)
+{
+	struct dir_entry *p;
+	off_t offset = AUTOFS_DAEMONCOOKIE;
+	ino_t inonum = start_inonum;
+
+	for (p = list; p != NULL; p = p->next) {
+		p->nodeid = inonum;
+		p->offset = offset;
+		offset++;
+		inonum += 2;		/* use even numbers in daemon */
+	}
+}
+
 pthread_mutex_t cleanup_lock;
 pthread_cond_t cleanup_start_cv;
 pthread_cond_t cleanup_done_cv;
@@ -581,6 +758,7 @@ cache_cleanup(__unused void *unused)
 	struct rddir_cache *p, *next = NULL;
 	int error;
 
+	pthread_setname_np("cache cleanup");
 	pthread_mutex_init(&cleanup_lock, NULL);
 	pthread_cond_init(&cleanup_start_cv, NULL);
 	pthread_cond_init(&cleanup_done_cv, NULL);

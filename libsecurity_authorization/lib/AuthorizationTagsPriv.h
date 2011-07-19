@@ -179,17 +179,33 @@
 */
 #define kAuthorizationRuleParameterDefaultPrompt	"default-prompt"
 
+/*! @defined kAuthorizationRuleParameterDefaultButton
+ dictionary of localization-name and localized button name pairs 
+ */
+#define kAuthorizationRuleParameterDefaultButton	"default-button"
+
 /*! @defined kAuthorizationRuleParameterDescription
     string, default description of right.  Usually localized versions are 
     added using the AuthorizationDBSet call (@see AuthorizationDB.h). 
 */
 #define kAuthorizationRuleParameterDescription      "description"
 
+/*! @defined kAuthorizationRuleParameterButton
+ string, name of the default button.  Usually localized versions are 
+ added using the AuthorizationDBSet call (@see AuthorizationDB.h). 
+ */
+#define kAuthorizationRuleParameterButton      "button"
+
 /*! @defined kAuthorizationRuleParameterAuthenticateUser
 	boolean that indicates whether to authenticate the user requesting 
     authorization 
 */
 #define kAuthorizationRuleParameterAuthenticateUser		"authenticate-user"
+
+/*! @defined kAuthorizationRuleParameterExtractPassword
+	boolean that indicates that the password should be extracted to the context
+ */
+#define kAuthorizationRuleParameterExtractPassword		"extract-password"
 
 /*
  * Hints for internal Authorization use
@@ -205,6 +221,7 @@
 #define AGENT_HINT_CLIENT_UID "client-uid"
 #define AGENT_HINT_CLIENT_VALIDITY "client-signature-validity"
 #define AGENT_HINT_CREATOR_PID "creator-pid"
+#define AGENT_HINT_CREATOR_AUDIT_TOKEN "creator-audit-token"
 #define AGENT_HINT_CLIENT_TYPE "client-type"
 #define AGENT_HINT_CLIENT_PATH "client-path"
 #define AGENT_HINT_CLIENT_NAME "client-name"
@@ -265,6 +282,8 @@
 #define AGENT_USERNAME "username"
 #define AGENT_PASSWORD "password"
 #define AGENT_CONTEXT_NEW_PASSWORD "new-password"
+#define AGENT_CONTEXT_AUTO_LOGIN "auto-login"
+#define AGENT_CONTEXT_USER_CONSENT "user-consent"
 
 #define AGENT_HINT_SHOW_ADD_TO_KEYCHAIN "show-add-to-keychain"
 /* can be in hints or context */

@@ -4,7 +4,7 @@
 # Synopsis: Holds comments pertaining to a C++ class, as parsed by HeaderDoc
 # from a C++ header
 #
-# Last Updated: $Date: 2009/03/30 19:38:50 $
+# Last Updated: $Date: 2011/02/18 19:02:57 $
 # 
 # Copyright (c) 1999-2004 Apple Computer, Inc.  All rights reserved.
 #
@@ -33,14 +33,49 @@ BEGIN {
 	    $MOD_AVAIL{$_} = eval "use $_; 1";
     }
 }
+
+# /*!
+#     @header
+#     @abstract
+#         <code>CPPClass</code> class package file.
+#     @discussion
+#         This file contains the <code>CPPClass</code> class.  This class
+#         is used to represent classes, modules, and packages
+#         in every supported language except Objective-C.
+#
+#         See the class documentation below for more details.
+#     @indexgroup HeaderDoc API Objects
+#  */
+
+# /*!
+#     @abstract
+#         API object that describes most classes, modules, and packages.
+#     @discussion
+#         This class is used to represent classes, modules,
+#         and packages in every supported language except
+#         Objective-C.
+#
+#         This class is also used to represent COM interfaces
+#         in C.
+#     @var ISCOMINTERFACE
+#         Set high (1) if this object represents a C COM interface, else low (0).
+#  */
 package HeaderDoc::CPPClass;
 
-use HeaderDoc::Utilities qw(findRelativePath safeName getAPINameAndDisc printArray printHash sanitize);
+use HeaderDoc::Utilities qw(findRelativePath safeName printArray printHash sanitize);
 use HeaderDoc::APIOwner;
 
 use strict;
 use vars qw($VERSION @ISA);
-$HeaderDoc::CPPClass::VERSION = '$Revision: 1.16 $';
+
+# /*!
+#     @abstract
+#         The revision control revision number for this module.
+#     @discussion
+#         In the git repository, contains the number of seconds since
+#         January 1, 1970.
+#  */
+$HeaderDoc::CPPClass::VERSION = '$Revision: 1298084577 $';
 
 # Inheritance
 @ISA = qw( HeaderDoc::APIOwner );
@@ -67,6 +102,12 @@ my $tocFrameName = "toc.html";
 # my $dateStamp = "$moy/$dom/$year";
 ######################################################################
 
+# /*!
+#     @abstract
+#         Initializes an instance of a <code>CPPClass</code> object.
+#     @param self
+#         The object to initialize.
+#  */
 sub _initialize {
     my($self) = shift;
     $self->SUPER::_initialize();
@@ -75,13 +116,21 @@ sub _initialize {
     $self->{CLASS} = "HeaderDoc::CPPClass";
 }
 
+# /*!
+#     @abstract
+#         Duplicates this <code>CPPClass</code> object into another one.
+#     @param self
+#                The object to clone.
+#     @param clone
+#                The victim object.
+#  */
 sub clone {
     my $self = shift;
     my $clone = undef;
     if (@_) {
 	$clone = shift;
     } else {
-	$clone = HeaderDoc::CPPClass->new();
+	$clone = HeaderDoc::CPPClass->new("LANG" => $self->{LANG}, "SUBLANG" => $self->{SUBLANG});
     }
 
     $self->SUPER::clone($clone);
@@ -90,6 +139,10 @@ sub clone {
     return $clone;
 }
 
+# /*!
+#     @abstract
+#         Gets/sets whether this class is a COM interface (0/1).
+#  */
 sub isCOMInterface {
     my $self = shift;
 
@@ -100,161 +153,22 @@ sub isCOMInterface {
     return $self->{ISCOMINTERFACE};
 }
 
-
-sub _old_getCompositePageString { 
-    my $self = shift;
-    my $name = $self->name();
-    my $compositePageString;
-    my $contentString;
-    my $list_attributes = $self->getAttributeLists(1);
-
-    $compositePageString .= $self->compositePageAPIRef();
-    
-    my $abstract = $self->abstract();
-    if (length($abstract)) {
-	    $compositePageString .= "<h2>Abstract</h2>\n";
-	    $compositePageString .= $abstract;
-    }
-
-    my $namespace = $self->namespace();
-    my $availability = $self->availability();
-    my $updated = $self->updated();
-
-    if (length($namespace) || length($updated) || length($availability)) {
-	    $compositePageString .= "<p></p>\n";
-    }
-
-    if (length($namespace)) {
-	    $compositePageString .= "<b>Namespace:</b> $namespace<br>\n";
-    }
-    if (length($availability)) {
-	    $compositePageString .= "<b>Availability:</b> $availability<br>\n";
-    }
-    if (length($updated)) {
-	    $compositePageString .= "<b>Updated:</b> $updated<br>\n";
-    }
-
-    my $short_attributes = $self->getAttributes(0);
-    my $long_attributes = $self->getAttributes(1);
-    my $list_attributes = $self->getAttributeLists(1);
-    if (length($short_attributes)) {
-            $compositePageString .= "$short_attributes";
-    }
-    if (length($long_attributes)) {
-            $compositePageString .= "$long_attributes";
-    }
-    if (length($list_attributes)) {
-	$contentString .= $list_attributes;
-    }
-
-    my $discussion = $self->discussion();
-    my $checkDisc = $self->halfbaked_discussion();
-    if (length($checkDisc)) {
-	    $compositePageString .= "<h2>Discussion</h2>\n";
-	    $compositePageString .= $discussion;
-    }
-    if (length($long_attributes)) {
-            $compositePageString .= "$long_attributes";
-    }
-    
-    # if ((length($long_attributes)) || (length($discussion))) {
-    # ALWAYS....
-	    $compositePageString .= "<hr><br>";
-    # }
-
-    my $etoc = $self->_getClassEmbeddedTOC(1);
-    if (length($etoc)) {
-	$compositePageString .= $etoc;
-	$compositePageString .= "<hr><br>";
-    }
-
-    $contentString= $self->_getFunctionDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Member Functions</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    $contentString= $self->_getVarDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Member Data</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    $contentString= $self->_getConstantDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Constants</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    $contentString= $self->_getTypedefDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Typedefs</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    $contentString= $self->_getStructDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Structs and Unions</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-    
-    $contentString= $self->_getEnumDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>Enumerations</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }
-
-    $contentString= $self->_getPDefineDetailString(1);
-    if (length($contentString)) {
-	    $compositePageString .= "<h2>#defines</h2>\n";
-		# $contentString = $self->stripAppleRefs($contentString);
-	    $compositePageString .= $contentString;
-    }  
-    return $compositePageString;
-}
-
-sub getMethodType {
-    my $self = shift;
-
-	my $declaration = shift;
-	my $methodType = "instm";
-	
-	if ($declaration =~ /^\s*static/o) {
-	    $methodType = "clm";
-	}
-	if ($self->sublang() eq "C") {
-		# COM interfaces, C pseudoclasses
-		$methodType = "intfm";
-	}
-	return $methodType;
-}
-
-sub old_getParamSignature {
-    my $self = shift;
-	my $declaration = shift;
-	my $sig;
-	my @params;
-	
-	$declaration =~ s/^[^(]+\(([^)]*)\).*/$1/o;
-	@params = split (/,/, $declaration);
-	foreach my $paramString (@params) {
-	    my @paramElements = split (/\s+/, $paramString);
-	    my $lastElement = pop @paramElements;
-	    $sig .= join ("", @paramElements);
-	    if ($lastElement =~ /^\*.*/o) {$sig .= "*";};  #if the arg was a pointer
-	}
-	return $sig;
-}
-
 # we add the apple_ref markup to the navigator comment to identify
 # to Project Builder and other applications indexing the documentation
 # that this is the entry point for documentation for this class
+# /*!
+#     @abstract
+#         Returns a comment marker for
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}.
+#     @discussion
+#         Returns an HTML comment that identifies the index file
+#         (Header vs. Class, name, and so on).  The
+#         {@link //apple_ref/doc/header/gatherHeaderDoc.pl gatherHeaderDoc}
+#         tool uses this information to create a master TOC for the
+#         generated doc.
+#     @param self
+#         The APIOwner object.
+# */
 sub docNavigatorComment {
     my $self = shift;
     my $name = $self->name();
@@ -279,47 +193,14 @@ sub docNavigatorComment {
     return "$navComment\n$appleRef";
 }
 
-################## Misc Functions ###################################
-
-
-sub objName { # used for sorting
-   my $obj1 = $a;
-   my $obj2 = $b;
-   return (lc($obj1->name()) cmp lc($obj2->name()));
-}
-
-sub byLinkage { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->linkageState()) cmp lc($obj2->linkageState()));
-}
-
-sub byAccessControl { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->accessControl()) cmp lc($obj2->accessControl()));
-}
-
-sub objGroup { # used for sorting
-    my $obj1 = $a;
-    my $obj2 = $b;
-    return (lc($obj1->group()) cmp lc($obj2->group()));
-}
-
-sub linkageAndObjName { # used for sorting
-   my $obj1 = $a;
-   my $obj2 = $b;
-   my $linkAndName1 = $obj1->linkageState() . $obj1->name();
-   my $linkAndName2 = $obj2->linkageState() . $obj2->name();
-   if ($HeaderDoc::sort_entries) {
-        return (lc($linkAndName1) cmp lc($linkAndName2));
-   } else {
-        return byLinkage($obj1, $obj2);
-   }
-}
 
 ##################### Debugging ####################################
 
+# /*! @abstract
+#         Prints this object for debugging.
+#     @param self
+#         The <code>CPPClass</code> object.
+#  */
 sub printObject {
     my $self = shift;
  

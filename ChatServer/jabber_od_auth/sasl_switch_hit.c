@@ -221,6 +221,24 @@ sasl_switch_hit_server_mech_step1(sasl_switch_hit_context *text,
         /* if this call fails, just continue, hoping for the best */
         (void)sasl_setprop(sparams->utils->conn, SASL_SEC_PROPS, &secprops);
 
+        // The user realm from XSAuthenticator is required for digest-md5, but won't
+        // always work for kerberos.
+        char new_realm[1025];
+        if (ODCKGetUserRealm((char *)&new_realm) != 0) {
+            SETERROR(sparams->utils, "error getting user realm for digest");
+            retval = SASL_FAIL;
+            goto done;
+        }
+        new_realm[1024] = '\0';
+        void *ret = realloc((char *)sparams->user_realm, strlen(new_realm)+1);
+        if (ret == NULL) {
+            SETERROR(sparams->utils, "realloc error when setting user_realm");
+            retval = SASL_FAIL;
+            goto done;
+        }
+        strlcpy((char *)sparams->user_realm, new_realm, sizeof(sparams->user_realm));
+        sparams->urlen = strlen(sparams->user_realm);
+
         retval = sasl_switch_hit_plugin_to_override->mech_step(
                                       text->conn_context, sparams,
                                       clientin, clientinlen,
@@ -242,6 +260,7 @@ sasl_switch_hit_server_mech_step1(sasl_switch_hit_context *text,
         }
     }
 
+done:
     return retval;
 }
 

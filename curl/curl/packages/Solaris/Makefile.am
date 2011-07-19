@@ -1,5 +1,4 @@
 #
-# $Id: Makefile.am,v 1.3 2009-05-19 12:12:22 yangtse Exp $
 #
 
 PKGADD_PKG="@PKGADD_PKG@"

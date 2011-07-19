@@ -44,6 +44,8 @@ class QWEBKIT_EXPORT QWebView : public QWidget {
     Q_PROPERTY(QUrl url READ url WRITE setUrl)
     Q_PROPERTY(QIcon icon READ icon)
     Q_PROPERTY(QString selectedText READ selectedText)
+    Q_PROPERTY(QString selectedHtml READ selectedHtml)
+    Q_PROPERTY(bool hasSelection READ hasSelection)
     Q_PROPERTY(bool modified READ isModified)
     //Q_PROPERTY(Qt::TextInteractionFlags textInteractionFlags READ textInteractionFlags WRITE setTextInteractionFlags)
     Q_PROPERTY(qreal textSizeMultiplier READ textSizeMultiplier WRITE setTextSizeMultiplier DESIGNABLE false)
@@ -73,7 +75,9 @@ public:
     QUrl url() const;
     QIcon icon() const;
 
+    bool hasSelection() const;
     QString selectedText() const;
+    QString selectedHtml() const;
 
 #ifndef QT_NO_ACTION
     QAction* pageAction(QWebPage::WebAction action) const;

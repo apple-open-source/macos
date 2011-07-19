@@ -1,8 +1,3 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
-
 static PyObject*
 mod_CFSetGetValues(
 	PyObject* self __attribute__((__unused__)),
@@ -25,6 +20,7 @@ mod_CFSetGetValues(
 
 	if (pyValues == PyObjC_NULL) {
 		values = NULL;
+		count = 0;
 	} else if (pyValues == Py_None){
 		count = CFSetGetCount(set);
 		values = malloc(sizeof(void*) * count);
@@ -64,21 +60,10 @@ mod_CFSetGetValues(
 	return pyValues;
 }
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFSetGetValues",
-		(PyCFunction)mod_CFSetGetValues,
-		METH_VARARGS,
-		NULL
+#define COREFOUNDATION_SET_METHODS \
+        { 	\
+		"CFSetGetValues", 	\
+		(PyCFunction)mod_CFSetGetValues, 	\
+		METH_VARARGS, 	\
+		NULL 	\
 	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFSet(void);
-void init_CFSet(void)
-{
-	PyObject* m = Py_InitModule4("_CFSet", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}

@@ -36,6 +36,7 @@
 #include <sys/time.h>
 #include <sys/un.h>
 
+#include <net/if.h>
 #include <netinet/in.h>
 #include <netinet/tcp.h>
 #include <arpa/telnet.h>
@@ -85,6 +86,12 @@ int	Dflag;					/* sodebug */
 int	Sflag;					/* TCP MD5 signature option */
 #endif /* !__APPLE__ */
 
+#ifdef __APPLE__
+char	*boundif;				/* interface to bind to */
+int	ifscope;				/* idx of bound to interface */
+int Cflag;					/* cellular connection OFF option */
+#endif /* __APPLE__ */
+
 int timeout = -1;
 int family = AF_UNSPEC;
 char *portlist[PORT_MAX+1];
@@ -100,7 +107,7 @@ int	socks_connect(const char *, const char *, struct addrinfo, const char *, con
 int	udptest(int);
 int	unix_connect(char *);
 int	unix_listen(char *);
-int     set_common_sockopts(int);
+void     set_common_sockopts(int);
 void	usage(int);
 
 int
@@ -125,7 +132,7 @@ main(int argc, char *argv[])
 	sv = NULL;
 
 	while ((ch = getopt(argc, argv,
-	    "46Ddhi:jklnp:rSs:tUuvw:X:x:z")) != -1) {
+	    "46DCb:dhi:jklnp:rSs:tUuvw:X:x:z")) != -1) {
 		switch (ch) {
 		case '4':
 			family = AF_INET;
@@ -146,6 +153,16 @@ main(int argc, char *argv[])
 			else
 				errx(1, "unsupported proxy protocol");
 			break;
+#ifdef __APPLE__
+		case 'C':
+			Cflag = 1;
+			break;
+		case 'b':
+			boundif = optarg;
+			if ((ifscope = if_nametoindex(boundif)) == 0)
+				errx(1, "bad interface name");
+			break;
+#endif /* __APPLE__ */
 		case 'd':
 			dflag = 1;
 			break;
@@ -814,7 +831,7 @@ udptest(int s)
 	return (ret);
 }
 
-int
+void
 set_common_sockopts(int s)
 {
 	int x = 1;
@@ -838,6 +855,25 @@ set_common_sockopts(int s)
 			err(1, NULL);
 	}
 #endif /* !__APPLE__ */
+#ifdef __APPLE__
+	if (boundif) {
+		/* Socket family could be AF_UNSPEC, so try both */
+		if (setsockopt(s, IPPROTO_IP, IP_BOUND_IF, &ifscope,
+		    sizeof (ifscope)) == -1 &&
+		    setsockopt(s, IPPROTO_IPV6, IPV6_BOUND_IF, &ifscope,
+		    sizeof (ifscope)) == -1)
+			err(1, NULL);
+	}
+	
+	if (Cflag) {
+		/* Socket family could be AF_UNSPEC, so try both */
+		if (setsockopt(s, IPPROTO_IP, IP_NO_IFT_CELLULAR, &x,
+					   sizeof (x)) == -1 &&
+		    setsockopt(s, IPPROTO_IPV6, IPV6_NO_IFT_CELLULAR, &x,
+					   sizeof (x)) == -1)
+			err(1, NULL);
+	}
+#endif /* __APPLE__ */
 }
 
 void
@@ -847,6 +883,8 @@ help(void)
 	fprintf(stderr, "\tCommand Summary:\n\
 	\t-4		Use IPv4\n\
 	\t-6		Use IPv6\n\
+%s\
+%s\
 	\t-D		Enable the debug socket option\n\
 	\t-d		Detach from stdin\n\
 	\t-h		This help text\n\
@@ -868,8 +906,12 @@ help(void)
 	\t-z		Zero-I/O mode [used for scanning]\n\
 	Port numbers can be individual or ranges: lo-hi [inclusive]\n",
 #ifndef __APPLE__
+	"",
+	"",
 	"	\t-S		Enable the TCP MD5 signature option\n"
 #else /* __APPLE__ */
+	"	\t-C		Don't use cellular connection\n",
+	"	\t-b ifbound	Bind socket to interface\n",
 	""
 #endif /* !__APPLE__ */
 	);
@@ -882,7 +924,7 @@ usage(int ret)
 #ifndef __APPLE__
 	fprintf(stderr, "usage: nc [-46DdhklnrStUuvz] [-i interval] [-p source_port]\n");
 #else /* __APPLE__ */
-	fprintf(stderr, "usage: nc [-46DdhklnrtUuvz] [-i interval] [-p source_port]\n");
+	fprintf(stderr, "usage: nc [-46CDdhklnrtUuvz] [-b boundif] [-i interval] [-p source_port]\n");
 #endif /* !__APPLE__ */
 	fprintf(stderr, "\t  [-s source_ip_address] [-w timeout] [-X proxy_version]\n");
 	fprintf(stderr, "\t  [-x proxy_address[:port]] [hostname] [port[s]]\n");

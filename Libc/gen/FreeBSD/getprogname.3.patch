@@ -1,6 +1,6 @@
---- getprogname.3.orig	Fri May 28 17:17:08 2004
-+++ getprogname.3	Fri May 28 17:17:39 2004
-@@ -85,8 +85,7 @@
+--- getprogname.3.orig	2009-11-07 14:51:38.000000000 -0800
++++ getprogname.3	2009-11-07 14:51:39.000000000 -0800
+@@ -85,8 +85,7 @@ Calling
  allows the aforementioned library to learn the program name without
  modifications to the start-up code.
  .Sh SEE ALSO

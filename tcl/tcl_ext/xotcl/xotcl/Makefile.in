@@ -358,6 +358,9 @@ test-core: $(TCLSH_PROG)
 		-libdir $(PLATFORM_DIR) $(TESTFLAGS)
 	$(TCLSH) $(src_test_dir_native)/mixinoftest.xotcl \
 		-libdir $(PLATFORM_DIR) $(TESTFLAGS)
+	$(TCLSH) $(src_test_dir_native)/varresolutiontest.xotcl \
+		-libdir $(PLATFORM_DIR) $(TESTFLAGS)
+
 
 test-http: $(TCLSH_PROG)
 	$(TCLSH) $(src_test_dir_native)/xocomm.test \

@@ -1,15 +1,15 @@
---- fputws.c.orig	2004-11-25 11:38:34.000000000 -0800
-+++ fputws.c	2005-02-23 17:23:49.000000000 -0800
+--- fputws.c.orig	2010-03-18 18:11:42.000000000 -0700
++++ fputws.c	2010-03-18 18:17:53.000000000 -0700
 @@ -27,6 +27,8 @@
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.6 2004/07/21 10:54:57 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/fputws.c,v 1.8 2009/01/15 18:53:52 rdivacky Exp $");
  
 +#include "xlocale_private.h"
 +
  #include "namespace.h"
  #include <errno.h>
  #include <limits.h>
-@@ -39,13 +41,17 @@
+@@ -39,14 +41,18 @@ __FBSDID("$FreeBSD: src/lib/libc/stdio/f
  #include "mblocal.h"
  
  int
@@ -20,6 +20,8 @@
  	char buf[BUFSIZ];
  	struct __suio uio;
  	struct __siov iov;
+-	const wchar_t *wsp;
++	const wchar_t *wsp = ws;
 +	size_t (*__wcsnrtombs)(char * __restrict, const wchar_t ** __restrict,
 +	    size_t, size_t, mbstate_t * __restrict, locale_t);
  
@@ -28,16 +30,25 @@
  	FLOCKFILE(fp);
  	ORIENT(fp, 1);
  	if (prepwrite(fp) != 0)
-@@ -55,7 +61,7 @@
+@@ -55,15 +61,14 @@ fputws(const wchar_t * __restrict ws, FI
+ 	uio.uio_iovcnt = 1;
  	iov.iov_base = buf;
  	do {
- 		nbytes = __wcsnrtombs(buf, &ws, SIZE_T_MAX, sizeof(buf),
--		    &fp->_extra->mbstate);
-+		    &fp->_extra->mbstate, loc);
+-		wsp = ws;
+ 		nbytes = __wcsnrtombs(buf, &wsp, SIZE_T_MAX, sizeof(buf),
+-		    &fp->_mbstate);
++		    &fp->_mbstate, loc);
  		if (nbytes == (size_t)-1)
  			goto error;
  		iov.iov_len = uio.uio_resid = nbytes;
-@@ -69,3 +75,9 @@
+ 		if (__sfvwrite(fp, &uio) != 0)
+ 			goto error;
+-	} while (ws != NULL);
++	} while (wsp != NULL);
+ 	FUNLOCKFILE(fp);
+ 	return (0);
+ 
+@@ -71,3 +76,9 @@ error:
  	FUNLOCKFILE(fp);
  	return (-1);
  }

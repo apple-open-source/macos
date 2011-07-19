@@ -1,6 +1,5 @@
-
 /*
- * Copyright (c) 2002-2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -28,6 +27,9 @@
 #include <CoreFoundation/CFString.h>
 #include <TargetConditionals.h>
 #include <EAP8021X/EAPOLControlTypes.h>
+#if ! TARGET_OS_EMBEDDED
+#include <EAP8021X/EAPOLClientConfiguration.h>
+#endif /* ! TARGET_OS_EMBEDDED */
 
 /*
  * Function: EAPOLControlKeyCreate
@@ -58,34 +60,97 @@ EAPOLControlKeyCopyInterface(CFStringRef key);
 
 
 /*
- * The config dictionary has the following format:
- *   kEAPOLControlEAPClientConfiguration    EAP client properties
- *   kEAPOLControlUniqueIdentifier	    unique string for session (optional)
- *   kEAPOLControlLogLevel		    log level (optional)
+ * Function: EAPOLControlStart
  *
- * See also <EAP8021X/EAPOLControlTypes.h>.
- */
-
-/*
- * Functions: EAPOLControlStart
  * Purpose:
- *   Start an 802.1X authentication session on the given
- *   interface.
+ *   Start an authentication session on the specified interface.
+ *
+ *   The config dictionary has the following format:
+ *     kEAPOLControlEAPClientConfiguration  authentication properties
+ *     kEAPOLControlUniqueIdentifier	    unique string for session (optional)
+ *     kEAPOLControlLogLevel		    log level (optional)
+ *
+ *   See also <EAP8021X/EAPOLControlTypes.h>.
+ *
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ * Note:
+ *   On the Mac, EAPOLControlStartWithClientItemID() is the preferred way to
+ *   start the authentication session.   This function remains for
+ *   backwards compatibility.
  */
 int
 EAPOLControlStart(const char * interface_name, CFDictionaryRef config);
 
+#if ! TARGET_OS_EMBEDDED
+/*
+ * Function: EAPOLControlStartWithClientItemID
+ *
+ * Purpose:
+ *   Start an authentication session over the specified interface using
+ *   the specified EAPOLClientItemIDRef.
+ *   
+ *   The 'auth_info' dictionary may be NULL.   If it is not NULL, it may
+ *   contain any of the following properties:
+ *     kEAPClientPropUserName
+ *     kEAPClientPropUserPassword
+ *     kEAPClientPropTLSIdentityHandle
+ *   If properties not in this list are specified in 'auth_info", EINVAL
+ *   is returned.
+ *   
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ */
+int
+EAPOLControlStartWithClientItemID(const char * if_name,
+				  EAPOLClientItemIDRef itemID,
+				  CFDictionaryRef auth_info);
+#endif /* ! TARGET_OS_EMBEDDED */
+
+/*
+ * Function: EAPOLControlUpdate
+ *
+ * Purpose:
+ *   Update the configuration used by the authentication session on
+ *   the specified interface.
+ *
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ */
 int
 EAPOLControlUpdate(const char * interface_name, CFDictionaryRef config);
 
+/*
+ * Function: EAPOLControlStop
+ *
+ * Purpose:
+ *    Terminate the authentication session over the specified interface.
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ */
 int
 EAPOLControlStop(const char * interface_name);
 
+/*
+ * Function: EAPOLControlRetry
+ *
+ * Purpose:
+ *    Forces the authentication client to send an EAPOL Start
+ *    packet which usually has the effect of triggering a re-authentication
+ *
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ *
+ * Note:
+ *   This function should not be called by production code, it's there for
+ *   testing/debugging.
+ */
 int
 EAPOLControlRetry(const char * interface_name);
 
 /*
  * Function: EAPOLControlProvideUserInput
+ *
  * Purpose:
  *   Tell the EAP client that the user has provided input and/or changed
  *   something in the environment that would allow the authentication to
@@ -105,6 +170,18 @@ EAPOLControlRetry(const char * interface_name);
 int
 EAPOLControlProvideUserInput(const char * interface_name,
 			     CFDictionaryRef user_input);
+
+/* 
+ * Function: EAPOLControlCopyStateAndStatus
+ *
+ * Purpose:
+ *   Return the current EAPOLControl state (Idle, Starting, Running, Stopping)
+ *   and the current authentication status.
+ *
+ * Returns:
+ *   0 if successful, *status_dict_p may be non-NULL,
+ *   non-zero errno value otherwise.
+ */
 int
 EAPOLControlCopyStateAndStatus(const char * interface_name, 
 			       EAPOLControlState * state,
@@ -121,7 +198,7 @@ EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
 
 #if ! TARGET_OS_EMBEDDED
 /*
- * Functions: EAPOLControlStartSystem
+ * Function: EAPOLControlStartSystem
  * Purpose:
  *   If a System Mode configuration exists on the given interface, start it.
  *   This function is used to resume a System mode authentication session
@@ -133,6 +210,19 @@ EAPOLControlSetLogLevel(const char * interface_name, int32_t level);
  */
 int
 EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options);
+
+/*
+ * Function: EAPOLControlStartSystemWithClientItemID
+ * Purpose:
+ *   Start an authentication session running in System Mode over the
+ *   specified interface using the specified EAPOLClientItemIDRef.
+ *   
+ * Returns:
+ *   0 if successful, non-zero errno value otherwise.
+ */
+int
+EAPOLControlStartSystemWithClientItemID(const char * interface_name,
+					EAPOLClientItemIDRef itemID);
 
 /*
  * Function: EAPOLControlCopyLoginWindowConfiguration
@@ -147,6 +237,46 @@ EAPOLControlStartSystem(const char * interface_name, CFDictionaryRef options);
 int
 EAPOLControlCopyLoginWindowConfiguration(const char * interface_name,
 					 CFDictionaryRef * config_p);
+/*
+ * Function: EAPOLControlCopyLoginWindowClientItemID
+ *
+ * Purpose:
+ *   If LoginWindow mode is activated during this login session, returns the
+ *   EAPOLClientItemIDRef corresponding to the profile that was used.  The
+ *   information is cleared when the user logs out.
+ *
+ * Returns:
+ *   0 and non-NULL EAPOLClientItemIDRef on success,
+ *   non-zero errno on failure.
+ */
+int
+EAPOLControlCopyLoginWindowClientItemID(const char * if_name,
+					EAPOLClientItemIDRef * itemID_p);
+
+/*
+ * Function: EAPOLControlSetUserAutoConnectEnabled
+ * Purpose:
+ *    Enable/disable connecting automatically to 802.1X ethernet networks
+ *    for the logged-in user.
+ *
+ *    If "enable" is TRUE, connection attempts will be made automatically.
+ *    If "enable" is FALSE, no connection attempts will be made automatically.
+ */
+void
+EAPOLControlSetUserAutoConnectEnabled(Boolean enable);
+
+/*
+ * Function: EAPOLControlIsUserAutoConnectEnabled
+ * Purpose:
+ *   Return whether the system will auto-connect to 802.1X to ethernet
+ *   networks for the logged-in user.
+ *
+ * Returns:
+ *   TRUE if auto-connect is enabled, FALSE otherwise.
+ */
+Boolean
+EAPOLControlIsUserAutoConnectEnabled(void);
+
 #endif /* ! TARGET_OS_EMBEDDED */
 
-#endif _EAP8021X_EAPOLCONTROL_H
+#endif /* _EAP8021X_EAPOLCONTROL_H */

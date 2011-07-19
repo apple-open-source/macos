@@ -33,18 +33,25 @@
 #	Do not build with Linux EPOLL support.
 #	By default, EPOLL support is compiled in on platforms that
 #	are known to support it.
-# .IP \fB-DNO_KQUEUE\fR
-#	Do not build with FreeBSD/NetBSD/OpenBSD KQUEUE support.
-#	By default, KQUEUE support is compiled in on platforms that
-#	are known to support it.
 # .IP \fB-DNO_IPV6\fR
 #	Do not build with IPv6 support.
 #	By default, IPv6 support is compiled in on platforms that
 #	are known to have IPv6 support.
+#
+#	Note: this directive is for debugging and testing only. It
+#	is not guaranteed to work on all platforms.
+# .IP \fB-DNO_KQUEUE\fR
+#	Do not build with FreeBSD/NetBSD/OpenBSD/MacOSX KQUEUE support.
+#	By default, KQUEUE support is compiled in on platforms that
+#	are known to support it.
 # .IP \fB-DNO_PCRE\fR
 #	Do not build with PCRE support.
 #	By default, PCRE support is compiled in when the \fBpcre-config\fR
 #	utility is installed.
+# .IP \fB-DNO_SIGSETJMP\fR
+#	Use setjmp()/longjmp() instead of sigsetjmp()/siglongjmp().
+#	By default, Postfix uses sigsetjmp()/siglongjmp() when they
+#	appear to work.
 # .RE
 # .IP \fBDEBUG=\fIdebug_level\fR
 #	Specifies a non-default debugging level. The default is \fB-g\fR.
@@ -88,12 +95,17 @@ error() {
    exit 1
 }
 
-SYSTEM=`(uname -s) 2>/dev/null`
-RELEASE=`(uname -r) 2>/dev/null`
-VERSION=`(uname -v) 2>/dev/null`
-
-case "$VERSION" in
- dcosx*) SYSTEM=$VERSION;;
+case $# in
+ # Officially supported usage.
+ 0) SYSTEM=`(uname -s) 2>/dev/null`
+    RELEASE=`(uname -r) 2>/dev/null`
+    VERSION=`(uname -v) 2>/dev/null`
+    case "$VERSION" in
+     dcosx*) SYSTEM=$VERSION;;
+    esac;;
+ # Unsupported debug-only mode. Not suitable for cross-platform tests.
+ 2) SYSTEM="$1"; RELEASE="$2";;
+ *) echo usage: $0 [system release] 1>&2; exit 1;;
 esac
 
 case "$SYSTEM.$RELEASE" in
@@ -132,6 +144,8 @@ case "$SYSTEM.$RELEASE" in
 		;;
   FreeBSD.7*)	SYSTYPE=FREEBSD7
 		;;
+  FreeBSD.8*)	SYSTYPE=FREEBSD8
+		;;
   OpenBSD.2*)	SYSTYPE=OPENBSD2
 		;;
   OpenBSD.3*)	SYSTYPE=OPENBSD3
@@ -168,7 +182,9 @@ case "$SYSTEM.$RELEASE" in
     SunOS.5*)	SYSTYPE=SUNOS5
 		RANLIB=echo
 		SYSLIBS="-lresolv -lsocket -lnsl"
-		# Solaris 5 added usleep() and POSIX regular expressions
+		# Stock awk breaks with >10 files.
+		test -x /usr/xpg4/bin/awk && AWK=/usr/xpg4/bin/awk
+		# Solaris 2.5 added usleep() and POSIX regular expressions
 		case $RELEASE in
 		    5.[0-4]) CCARGS="$CCARGS -DMISSING_USLEEP -DNO_POSIX_REGEXP";;
 		esac
@@ -183,7 +199,7 @@ case "$SYSTEM.$RELEASE" in
 		# Work around broken str*casecmp(). Do it all here instead
 		# of having half the solution in the sys_defs.h file.
 		CCARGS="$CCARGS -Dstrcasecmp=fix_strcasecmp \
-			-Dstrncasecmp=fix_strncasecmp"
+		    -Dstrncasecmp=fix_strncasecmp"
 		STRCASE="strcasecmp.o"
 		# Avoid common types of braindamage
 		case "$LD_LIBRARY_PATH" in
@@ -283,12 +299,17 @@ case "$SYSTEM.$RELEASE" in
 		# Kernel 2.6 added EPOLL
 		case "$RELEASE" in
 		2.[0-5].*) CCARGS="$CCARGS -DNO_EPOLL";;
-		esac
-		# Workaround for retarded libc 
-		case "$RELEASE" in
-		2.6.*)
-		trap 'rm -f makedefs.test makedefs.test.o makedefs.test.c' 1 2 3 15
-		cat >makedefs.test.c <<EOF
+		    # Workaround for retarded libc 
+		    2.6.*)
+		       if [ `expr "X$CCARGS" : "X.*-DNO_EPOLL"` -gt 0 ]
+                       then
+                           :
+                       elif [ ! -e /usr/include/sys/epoll.h ]
+                       then
+                           echo CCARGS="$CCARGS -DNO_EPOLL"
+                       else
+			   trap 'rm -f makedefs.test makedefs.test.[co]' 1 2 3 15
+			   cat >makedefs.test.c <<'EOF'
 #include <sys/types.h>
 #include <sys/epoll.h>
 #include <errno.h>
@@ -306,9 +327,11 @@ int     main(int argc, char **argv)
     exit(0);
 }
 EOF
-		${CC-gcc} -o makedefs.test makedefs.test.c || exit 1
-		./makedefs.test 2>/dev/null || CCARGS="$CCARGS -DNO_EPOLL"
-		rm -f makedefs.test makedefs.test.o makedefs.test.c;;
+			   ${CC-gcc} -o makedefs.test makedefs.test.c || exit 1
+			   ./makedefs.test 2>/dev/null ||
+				CCARGS="$CCARGS -DNO_EPOLL"
+			   rm -f makedefs.test makedefs.test.[co]
+		       fi;;
 		esac
 		;;
      GNU.0*|GNU/kFreeBSD.[567]*)
@@ -384,28 +407,83 @@ ReliantUNIX-?.5.43) SYSTYPE=ReliantUnix543
 		RANLIB=echo
 		SYSLIBS="-lresolv -lsocket -lnsl"
 		;;
-Rhapsody.5*|Darwin.*)
-		SYSTYPE=MACOSX
+    Darwin.*)   SYSTYPE=MACOSX
 		# Use the native compiler by default
 		: ${CC=cc}
+		# Darwin > 1.3 uses awk and flat_namespace
 		case $RELEASE in
-		 1.[0-3]) AWK=gawk
-			  CCARGS="$CCARGS -DNO_IPV6"
-			  ;;
-		 [2-6].*) AWK=awk
-			  CCARGS="$CCARGS -DNO_IPV6"
-			  SYSLIBS=-flat_namespace
-			  ;;
+		 1.[0-3]) AWK=gawk;;
 		       *) AWK=awk
-			  SYSLIBS=-flat_namespace
-			  CCARGS="$CCARGS -DNO_NETINFO"
-			  ;;
+			  SYSLIBS=-flat_namespace;;
 		esac
-		;;
-"Mac OS".10*)	SYSTYPE=MACOSX
-		# Use the native compiler by default
-		: ${CC=cc}
-		AWK=gawk
+		# Darwin 7 adds IPv6 support, BIND_8_COMPAT, NO_NETINFO
+		case $RELEASE in
+		 [1-6].*) CCARGS="$CCARGS -DNO_IPV6";;
+		       *) CCARGS="$CCARGS -DBIND_8_COMPAT -DNO_NETINFO";;
+		esac
+		# Darwin 10.3.0 no longer has <nameser8_compat.h>.
+		case $RELEASE in
+		     ?.*) CCARGS="$CCARGS -DRESOLVE_H_NEEDS_NAMESER8_COMPAT_H";;
+		       *) CCARGS="$CCARGS -DRESOLVE_H_NEEDS_ARPA_NAMESER_COMPAT_H";;
+		esac
+		# kqueue and/or poll are broken up to and including MacOS X 10.5
+		CCARGS="$CCARGS -DNO_KQUEUE"
+#		# Darwin 8.11.1 has kqueue support, but let's play safe
+#		case $RELEASE in
+#		 [1-8].*) CCARGS="$CCARGS -DNO_KQUEUE";;
+#		       *) trap 'rm -f makedefs.test makedefs.test.[co]' 1 2 3 15
+#			  cat >makedefs.test.c <<'EOF'
+#/* Adapted from libevent. */
+#
+##include <sys/types.h>
+##include <sys/event.h>
+##include <sys/time.h>
+##include <string.h>
+##include <stdlib.h>
+##include <stdio.h>
+#
+##ifndef EV_SET
+##define EV_SET(kp, id, fi, fl, ffl, da, ud) do { \
+#	struct kevent *__kp = (kp); \
+#	__kp->ident = (id); \
+#	__kp->filter = (fi); \
+#	__kp->flags = (fl); \
+#	__kp->fflags = (ffl); \
+#	__kp->data = (da); \
+#	__kp->udata = (ud); \
+#    } while(0)
+##endif
+#
+#int     main(int argc, char **argv)
+#{
+#    int     kq;
+#    struct kevent test_change;
+#    struct kevent test_result;
+#
+#    if ((kq = kqueue()) < 0) {
+#	perror("kqueue");
+#	exit(1);
+#    }
+##define TEST_FD (-1)
+#
+#    EV_SET(&test_change, TEST_FD, EVFILT_READ, EV_ADD, 0, 0, 0);
+#    if (kevent(kq,
+#	       &test_change, sizeof(test_change) / sizeof(struct kevent),
+#	       &test_result, sizeof(test_result) / sizeof(struct kevent),
+#	       (struct timespec *) 0) != 1 ||
+#	test_result.ident != TEST_FD ||
+#	test_result.flags != EV_ERROR) {
+#	fprintf(stderr, "Error: kevent reports errors incorrectly\n");
+#	exit(1);
+#    }
+#    exit(0);
+#}
+#EOF
+#			  $CC -o makedefs.test makedefs.test.c || exit 1
+#			  ./makedefs.test 2>/dev/null || 
+#				CCARGS="$CCARGS -DNO_KQUEUE"
+#			  rm -f makedefs.test makedefs.test.[co];;
+#		esac
 		;;
     dcosx.1*)	SYSTYPE=DCOSX1
 		RANLIB=echo
@@ -426,6 +504,59 @@ Rhapsody.5*|Darwin.*)
 		fi
 		;;
 	   *)	error "Unknown system type: $SYSTEM $RELEASE";;
+esac
+
+#
+# sigsetjmp()/siglongjmp() can be "better" than setjmp()/longjmp()
+# if used wisely (that is: almost never, just like signals).
+# Unfortunately some implementations have been buggy in the past.
+#
+case "$CCARGS" in
+ *-DNO_SIGSETJMP*) ;;
+                *) trap 'rm -f makedefs.test makedefs.test.[co]' 1 2 3 15
+		   cat >makedefs.test.c <<'EOF'
+#include <setjmp.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+static int count = 0;
+
+int     main(int argc, char **argv)
+{
+    sigjmp_buf env;
+    int     retval;
+
+    switch (retval = sigsetjmp(env, 1)) {
+    case 0:
+	siglongjmp(env, 12345);
+    case 12345:
+	break;
+    default:
+	fprintf(stderr, "Error: siglongjmp ignores second argument\n");
+	exit(1);
+    }
+
+    switch (retval = sigsetjmp(env, 1)) {
+    case 0:
+	if (count++ > 0) {
+	    fprintf(stderr, "Error: not overriding siglongjmp(env, 0)\n");
+	    exit(1);
+	}
+	siglongjmp(env, 0);
+    case 1:
+	break;
+    default:
+	fprintf(stderr, "Error: overriding siglongjmp(env, 0) with %d\n",
+		retval);
+	exit(1);
+    }
+    exit(0);
+}
+EOF
+		   ${CC-gcc} -o makedefs.test makedefs.test.c || exit 1
+		   ./makedefs.test 2>/dev/null ||
+			CCARGS="$CCARGS -DNO_SIGSETJMP"
+		   rm -f makedefs.test makedefs.test.[co]
 esac
 
 #
@@ -479,7 +610,7 @@ esac
 : ${CC='gcc $(WARN)'} ${OPT='-O'} ${DEBUG='-g'} ${AWK=awk} \
 ${WARN='-Wall -Wno-comment -Wformat -Wimplicit -Wmissing-prototypes \
 	-Wparentheses -Wstrict-prototypes -Wswitch -Wuninitialized \
-	-Wunused'}
+	-Wunused -Wno-missing-braces'}
 
 export SYSTYPE AR ARFL RANLIB SYSLIBS CC OPT DEBUG AWK OPTS
 

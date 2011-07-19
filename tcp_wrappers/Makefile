@@ -9,7 +9,7 @@ MINOR=6
 Project             = tcp_wrappers
 UserType            = Developer
 ToolType            = Commands
-Extra_CC_Flags      = -fno-common
+Extra_CC_Flags      = -fno-common -Wall
 Extra_Environment   = REAL_DAEMON_DIR=/usr/libexec	\
 		      STYLE=-DPROCESS_OPTIONS		\
 		      FACILITY=LOG_REMOTEAUTH		\

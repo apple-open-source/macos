@@ -28,6 +28,7 @@
 #include "PlatformString.h"
 #include <wtf/ASCIICType.h>
 #include <wtf/Assertions.h>
+#include <wtf/OwnArrayPtr.h>
 #include <wtf/text/StringBuffer.h>
 
 using namespace WTF;
@@ -83,7 +84,7 @@ static int countCharacter(const UChar* data, unsigned length, UChar character)
     return count;
 }
 
-Length* newCoordsArray(const String& string, int& len)
+PassOwnArrayPtr<Length> newCoordsArray(const String& string, int& len)
 {
     unsigned length = string.length();
     const UChar* data = string.characters();
@@ -100,13 +101,13 @@ Length* newCoordsArray(const String& string, int& len)
     str = str->simplifyWhiteSpace();
 
     len = countCharacter(str->characters(), str->length(), ' ') + 1;
-    Length* r = new Length[len];
+    OwnArrayPtr<Length> r = adoptArrayPtr(new Length[len]);
 
     int i = 0;
-    int pos = 0;
-    int pos2;
+    unsigned pos = 0;
+    size_t pos2;
 
-    while ((pos2 = str->find(' ', pos)) != -1) {
+    while ((pos2 = str->find(' ', pos)) != notFound) {
         r[i++] = parseLength(str->characters() + pos, pos2 - pos);
         pos = pos2+1;
     }
@@ -114,25 +115,25 @@ Length* newCoordsArray(const String& string, int& len)
 
     ASSERT(i == len - 1);
 
-    return r;
+    return r.release();
 }
 
-Length* newLengthArray(const String& string, int& len)
+PassOwnArrayPtr<Length> newLengthArray(const String& string, int& len)
 {
     RefPtr<StringImpl> str = string.impl()->simplifyWhiteSpace();
     if (!str->length()) {
         len = 1;
-        return 0;
+        return nullptr;
     }
 
     len = countCharacter(str->characters(), str->length(), ',') + 1;
-    Length* r = new Length[len];
+    OwnArrayPtr<Length> r = adoptArrayPtr(new Length[len]);
 
     int i = 0;
-    int pos = 0;
-    int pos2;
+    unsigned pos = 0;
+    size_t pos2;
 
-    while ((pos2 = str->find(',', pos)) != -1) {
+    while ((pos2 = str->find(',', pos)) != notFound) {
         r[i++] = parseLength(str->characters() + pos, pos2 - pos);
         pos = pos2+1;
     }
@@ -145,7 +146,7 @@ Length* newLengthArray(const String& string, int& len)
     else
         len--;
 
-    return r;
+    return r.release();
 }
 
 } // namespace WebCore

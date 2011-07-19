@@ -7,15 +7,18 @@ use warnings;
 use File::Spec;
 use File::Find;
 
-our $VERSION = '0.05';
+our $VERSION = '0.08';
 
 our $basedir = undef;
 our @results = ();
 our $prune = 0;
+our $followMode = 1;
 
 our @ISA = qw(Exporter);
 
 our @EXPORT = qw(findsubmod findallmod usesub useall setmoduledirs);
+
+our @EXPORT_OK = qw(followsymlinks ignoresymlinks);
 
 =head1 NAME
 
@@ -39,6 +42,15 @@ Module::Find - Find and use installed modules in a (sub)category
   
   # set your own search dirs (uses @INC otherwise)
   setmoduledirs(@INC, @plugindirs, $appdir);
+  
+  # not exported by default
+  use Module::Find qw(ignoresymlinks followsymlinks);
+  
+  # ignore symlinks
+  ignoresymlinks();
+  
+  # follow symlinks (default)
+  followsymlinks();
 
 =head1 DESCRIPTION
 
@@ -118,8 +130,7 @@ sub usesub(*) {
 
 =item C<@found = useall Module::Category>
 
-Uses and returns modules found in the Module/Category subdirectories of your perl 
-installation. E.g. C<useall CGI> will return C<CGI::Session> and also 
+Uses and returns modules found in the Module/Category subdirectories of your perl installation. E.g. C<useall CGI> will return C<CGI::Session> and also 
 C<CGI::Session::File> .
 
 =cut
@@ -178,11 +189,36 @@ sub _find(*) {
         	next unless -d $basedir;
     	
         find({wanted   => \&_wanted,
-              no_chdir => 1}, $basedir);
+              no_chdir => 1,
+              follow   => $followMode}, $basedir);
     }
+
+    # filter duplicate modules
+    my %seen = ();
+    @results = grep { not $seen{$_}++ } @results;
 
     @results = map "$category\::$_", @results;
     return @results;
+}
+
+=item C<ignoresymlinks()>
+
+Do not follow symlinks. This function is not exported by default.
+
+=cut
+
+sub ignoresymlinks {
+    $followMode = 0;
+}
+
+=item C<followsymlinks()>
+
+Follow symlinks (default behaviour). This function is not exported by default.
+
+=cut
+
+sub followsymlinks {
+    $followMode = 1;
 }
 
 =back
@@ -219,7 +255,19 @@ Added POD tests.
 
 Fixed issue with bugfix in PathTools-3.14.
 
+=item 0.06, 2008-01-26
+
+Module::Find now won't report duplicate modules several times anymore (thanks to Uwe Völker for the report and the patch)
+
+=item 0.07, 2009-09-08
+
+Fixed RT#38302: Module::Find now follows symlinks by default (can be disabled).
+
 =back
+
+=head1 DEVELOPMENT NOTES
+
+Please report any bugs sing the CPAN RT system. The development repository for this module is hosted on GitHub: L<http://github.com/crenz/Module-Find/>.
 
 =head1 SEE ALSO
 
@@ -231,7 +279,7 @@ Christian Renz, E<lt>crenz@web42.comE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2004 by Christian Renz <crenz@web42.com>. All rights reserved.
+Copyright 2004-2008 by Christian Renz <crenz@web42.com>. All rights reserved.
 
 This library is free software; you can redistribute it and/or modify
 it under the same terms as Perl itself. 

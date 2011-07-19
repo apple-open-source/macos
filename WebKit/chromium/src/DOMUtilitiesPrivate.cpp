@@ -39,8 +39,6 @@
 #include "HTMLOptionElement.h"
 #include "Node.h"
 
-#include "WebInputElement.h"
-
 using namespace WebCore;
 
 namespace {
@@ -79,11 +77,6 @@ HTMLOptionElement* toHTMLOptionElement(Node* node)
     return toHTMLElement<HTMLOptionElement>(node, HTMLNames::optionTag);
 }
 
-String nameOfInputElement(HTMLInputElement* element)
-{
-    return WebInputElement(element).nameForAutofill();
-}
-
 bool elementHasLegalLinkAttribute(const Element* element,
                                   const QualifiedName& attrName)
 {
@@ -97,7 +90,7 @@ bool elementHasLegalLinkAttribute(const Element* element,
         if (element->hasTagName(HTMLNames::inputTag)) {
             const HTMLInputElement* input =
             static_cast<const HTMLInputElement*>(element);
-            if (input->inputType() == HTMLInputElement::IMAGE)
+            if (input->isImageButton())
                 return true;
         }
     } else if (attrName == HTMLNames::hrefAttr) {

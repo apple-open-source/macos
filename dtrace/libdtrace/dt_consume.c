@@ -1084,7 +1084,7 @@ dt_print_usym(dtrace_hdl_t *dtp, FILE *fp, caddr_t addr, dtrace_actkind_t act)
 	do {
 		n = len;
 		s = alloca(n);
-	} while ((len = dtrace_uaddr2str(dtp, pid, pc, s, n)) >= n);
+	} while ((len = dtrace_uaddr2str(dtp, pid, pc, s, n)) > n);
 
 	return (dt_printf(dtp, fp, format, s));
 }

@@ -29,12 +29,15 @@
 #include "llvm/ADT/DenseSet.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Config/config.h"
-#include <fstream>
 using namespace llvm;
 
 namespace llvm {
   template<>
   struct DOTGraphTraits<SelectionDAG*> : public DefaultDOTGraphTraits {
+
+    explicit DOTGraphTraits(bool isSimple=false) :
+      DefaultDOTGraphTraits(isSimple) {}
+
     static bool hasEdgeDestLabels() {
       return true;
     }
@@ -44,12 +47,17 @@ namespace llvm {
     }
 
     static std::string getEdgeDestLabel(const void *Node, unsigned i) {
-      return ((const SDNode *) Node)->getValueType(i).getMVTString();
+      return ((const SDNode *) Node)->getValueType(i).getEVTString();
+    }
+
+    template<typename EdgeIter>
+    static std::string getEdgeSourceLabel(const void *Node, EdgeIter I) {
+      return itostr(I - SDNodeIterator::begin((SDNode *) Node));
     }
 
     /// edgeTargetsEdgeSource - This method returns true if this outgoing edge
-    /// should actually target another edge source, not a node.  If this method is
-    /// implemented, getEdgeTarget should be implemented.
+    /// should actually target another edge source, not a node.  If this method
+    /// is implemented, getEdgeTarget should be implemented.
     template<typename EdgeIter>
     static bool edgeTargetsEdgeSource(const void *Node, EdgeIter I) {
       return true;
@@ -73,28 +81,36 @@ namespace llvm {
     static bool renderGraphFromBottomUp() {
       return true;
     }
-    
+
     static bool hasNodeAddressLabel(const SDNode *Node,
                                     const SelectionDAG *Graph) {
       return true;
     }
-    
+
     /// If you want to override the dot attributes printed for a particular
     /// edge, override this method.
     template<typename EdgeIter>
     static std::string getEdgeAttributes(const void *Node, EdgeIter EI) {
       SDValue Op = EI.getNode()->getOperand(EI.getOperand());
-      MVT VT = Op.getValueType();
+      EVT VT = Op.getValueType();
       if (VT == MVT::Flag)
         return "color=red,style=bold";
       else if (VT == MVT::Other)
         return "color=blue,style=dashed";
       return "";
     }
-    
 
-    static std::string getNodeLabel(const SDNode *Node,
-                                    const SelectionDAG *Graph);
+
+    static std::string getSimpleNodeLabel(const SDNode *Node,
+                                          const SelectionDAG *G) {
+      std::string Result = Node->getOperationName(G);
+      {
+        raw_string_ostream OS(Result);
+        Node->print_details(OS, G);
+      }
+      return Result;
+    }
+    std::string getNodeLabel(const SDNode *Node, const SelectionDAG *Graph);
     static std::string getNodeAttributes(const SDNode *N,
                                          const SelectionDAG *Graph) {
 #ifndef NDEBUG
@@ -121,138 +137,7 @@ namespace llvm {
 
 std::string DOTGraphTraits<SelectionDAG*>::getNodeLabel(const SDNode *Node,
                                                         const SelectionDAG *G) {
-  std::string Op = Node->getOperationName(G);
-
-  if (const ConstantSDNode *CSDN = dyn_cast<ConstantSDNode>(Node)) {
-    Op += ": " + utostr(CSDN->getZExtValue());
-  } else if (const ConstantFPSDNode *CSDN = dyn_cast<ConstantFPSDNode>(Node)) {
-    Op += ": " + ftostr(CSDN->getValueAPF());
-  } else if (const GlobalAddressSDNode *GADN =
-             dyn_cast<GlobalAddressSDNode>(Node)) {
-    Op += ": " + GADN->getGlobal()->getName();
-    if (int64_t Offset = GADN->getOffset()) {
-      if (Offset > 0)
-        Op += "+" + itostr(Offset);
-      else
-        Op += itostr(Offset);
-    }
-  } else if (const FrameIndexSDNode *FIDN = dyn_cast<FrameIndexSDNode>(Node)) {
-    Op += " " + itostr(FIDN->getIndex());
-  } else if (const JumpTableSDNode *JTDN = dyn_cast<JumpTableSDNode>(Node)) {
-    Op += " " + itostr(JTDN->getIndex());
-  } else if (const ConstantPoolSDNode *CP = dyn_cast<ConstantPoolSDNode>(Node)){
-    if (CP->isMachineConstantPoolEntry()) {
-      Op += '<';
-      {
-        raw_string_ostream OSS(Op);
-        OSS << *CP->getMachineCPVal();
-      }
-      Op += '>';
-    } else {
-      if (ConstantFP *CFP = dyn_cast<ConstantFP>(CP->getConstVal()))
-        Op += "<" + ftostr(CFP->getValueAPF()) + ">";
-      else if (ConstantInt *CI = dyn_cast<ConstantInt>(CP->getConstVal()))
-        Op += "<" + utostr(CI->getZExtValue()) + ">";
-      else {
-        Op += '<';
-        {
-          raw_string_ostream OSS(Op);
-          WriteAsOperand(OSS, CP->getConstVal(), false);
-        }
-        Op += '>';
-      }
-    }
-    Op += " A=" + itostr(CP->getAlignment());
-  } else if (const BasicBlockSDNode *BBDN = dyn_cast<BasicBlockSDNode>(Node)) {
-    Op = "BB: ";
-    const Value *LBB = (const Value*)BBDN->getBasicBlock()->getBasicBlock();
-    if (LBB)
-      Op += LBB->getName();
-    //Op += " " + (const void*)BBDN->getBasicBlock();
-  } else if (const RegisterSDNode *R = dyn_cast<RegisterSDNode>(Node)) {
-    if (G && R->getReg() != 0 &&
-        TargetRegisterInfo::isPhysicalRegister(R->getReg())) {
-      Op = Op + " " +
-        G->getTarget().getRegisterInfo()->getName(R->getReg());
-    } else {
-      Op += " #" + utostr(R->getReg());
-    }
-  } else if (const DbgStopPointSDNode *D = dyn_cast<DbgStopPointSDNode>(Node)) {
-    DICompileUnit CU(cast<GlobalVariable>(D->getCompileUnit()));
-    std::string FN;
-    Op += ": " + CU.getFilename(FN);
-    Op += ":" + utostr(D->getLine());
-    if (D->getColumn() != 0)
-      Op += ":" + utostr(D->getColumn());
-  } else if (const LabelSDNode *L = dyn_cast<LabelSDNode>(Node)) {
-    Op += ": LabelID=" + utostr(L->getLabelID());
-  } else if (const CallSDNode *C = dyn_cast<CallSDNode>(Node)) {
-    Op += ": CallingConv=" + utostr(C->getCallingConv());
-    if (C->isVarArg())
-      Op += ", isVarArg";
-    if (C->isTailCall())
-      Op += ", isTailCall";
-  } else if (const ExternalSymbolSDNode *ES =
-             dyn_cast<ExternalSymbolSDNode>(Node)) {
-    Op += "'" + std::string(ES->getSymbol()) + "'";
-  } else if (const SrcValueSDNode *M = dyn_cast<SrcValueSDNode>(Node)) {
-    if (M->getValue())
-      Op += "<" + M->getValue()->getName() + ">";
-    else
-      Op += "<null>";
-  } else if (const MemOperandSDNode *M = dyn_cast<MemOperandSDNode>(Node)) {
-    const Value *V = M->MO.getValue();
-    Op += '<';
-    if (!V) {
-      Op += "(unknown)";
-    } else if (const PseudoSourceValue *PSV = dyn_cast<PseudoSourceValue>(V)) {
-      // PseudoSourceValues don't have names, so use their print method.
-      raw_string_ostream OSS(Op);
-      PSV->print(OSS);
-    } else {
-      Op += V->getName();
-    }
-    Op += '+' + itostr(M->MO.getOffset()) + '>';
-  } else if (const ARG_FLAGSSDNode *N = dyn_cast<ARG_FLAGSSDNode>(Node)) {
-    Op = Op + " AF=" + N->getArgFlags().getArgFlagsString();
-  } else if (const VTSDNode *N = dyn_cast<VTSDNode>(Node)) {
-    Op = Op + " VT=" + N->getVT().getMVTString();
-  } else if (const LoadSDNode *LD = dyn_cast<LoadSDNode>(Node)) {
-    bool doExt = true;
-    switch (LD->getExtensionType()) {
-    default: doExt = false; break;
-    case ISD::EXTLOAD:
-      Op = Op + "<anyext ";
-      break;
-    case ISD::SEXTLOAD:
-      Op = Op + " <sext ";
-      break;
-    case ISD::ZEXTLOAD:
-      Op = Op + " <zext ";
-      break;
-    }
-    if (doExt)
-      Op += LD->getMemoryVT().getMVTString() + ">";
-    if (LD->isVolatile())
-      Op += "<V>";
-    Op += LD->getIndexedModeName(LD->getAddressingMode());
-    if (LD->getAlignment() > 1)
-      Op += " A=" + utostr(LD->getAlignment());
-  } else if (const StoreSDNode *ST = dyn_cast<StoreSDNode>(Node)) {
-    if (ST->isTruncatingStore())
-      Op += "<trunc " + ST->getMemoryVT().getMVTString() + ">";
-    if (ST->isVolatile())
-      Op += "<V>";
-    Op += ST->getIndexedModeName(ST->getAddressingMode());
-    if (ST->getAlignment() > 1)
-      Op += " A=" + utostr(ST->getAlignment());
-  }
-
-#if 0
-  Op += " Id=" + itostr(Node->getNodeId());
-#endif
-  
-  return Op;
+  return DOTGraphTraits<SelectionDAG*>::getSimpleNodeLabel(Node, G);
 }
 
 
@@ -262,11 +147,11 @@ std::string DOTGraphTraits<SelectionDAG*>::getNodeLabel(const SDNode *Node,
 void SelectionDAG::viewGraph(const std::string &Title) {
 // This code is only for debugging!
 #ifndef NDEBUG
-  ViewGraph(this, "dag." + getMachineFunction().getFunction()->getName(),
-            Title);
+  ViewGraph(this, "dag." + getMachineFunction().getFunction()->getNameStr(),
+            false, Title);
 #else
-  cerr << "SelectionDAG::viewGraph is only available in debug builds on "
-       << "systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::viewGraph is only available in debug builds on "
+         << "systems with Graphviz or gv!\n";
 #endif  // NDEBUG
 }
 
@@ -282,8 +167,8 @@ void SelectionDAG::clearGraphAttrs() {
 #ifndef NDEBUG
   NodeGraphAttrs.clear();
 #else
-  cerr << "SelectionDAG::clearGraphAttrs is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::clearGraphAttrs is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
 #endif
 }
 
@@ -294,8 +179,8 @@ void SelectionDAG::setGraphAttrs(const SDNode *N, const char *Attrs) {
 #ifndef NDEBUG
   NodeGraphAttrs[N] = Attrs;
 #else
-  cerr << "SelectionDAG::setGraphAttrs is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::setGraphAttrs is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
 #endif
 }
 
@@ -306,14 +191,14 @@ const std::string SelectionDAG::getGraphAttrs(const SDNode *N) const {
 #ifndef NDEBUG
   std::map<const SDNode *, std::string>::const_iterator I =
     NodeGraphAttrs.find(N);
-    
+
   if (I != NodeGraphAttrs.end())
     return I->second;
   else
     return "";
 #else
-  cerr << "SelectionDAG::getGraphAttrs is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::getGraphAttrs is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
   return std::string("");
 #endif
 }
@@ -324,8 +209,8 @@ void SelectionDAG::setGraphColor(const SDNode *N, const char *Color) {
 #ifndef NDEBUG
   NodeGraphAttrs[N] = std::string("color=") + Color;
 #else
-  cerr << "SelectionDAG::setGraphColor is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::setGraphColor is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
 #endif
 }
 
@@ -340,7 +225,7 @@ bool SelectionDAG::setSubgraphColorHelper(SDNode *N, const char *Color, DenseSet
   if (level >= 20) {
     if (!printed) {
       printed = true;
-      DOUT << "setSubgraphColor hit max level\n";
+      DEBUG(dbgs() << "setSubgraphColor hit max level\n");
     }
     return true;
   }
@@ -356,8 +241,8 @@ bool SelectionDAG::setSubgraphColorHelper(SDNode *N, const char *Color, DenseSet
     }
   }
 #else
-  cerr << "SelectionDAG::setSubgraphColor is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::setSubgraphColor is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
 #endif
   return hit_limit;
 }
@@ -372,15 +257,14 @@ void SelectionDAG::setSubgraphColor(SDNode *N, const char *Color) {
     // Visually mark that we hit the limit
     if (strcmp(Color, "red") == 0) {
       setSubgraphColorHelper(N, "blue", visited, 0, printed);
-    }
-    else if (strcmp(Color, "yellow") == 0) {
+    } else if (strcmp(Color, "yellow") == 0) {
       setSubgraphColorHelper(N, "green", visited, 0, printed);
     }
   }
 
 #else
-  cerr << "SelectionDAG::setSubgraphColor is only available in debug builds"
-       << " on systems with Graphviz or gv!\n";
+  errs() << "SelectionDAG::setSubgraphColor is only available in debug builds"
+         << " on systems with Graphviz or gv!\n";
 #endif
 }
 
@@ -393,7 +277,8 @@ std::string ScheduleDAGSDNodes::getGraphNodeLabel(const SUnit *SU) const {
     for (SDNode *N = SU->getNode(); N; N = N->getFlaggedNode())
       FlaggedNodes.push_back(N);
     while (!FlaggedNodes.empty()) {
-      O << DOTGraphTraits<SelectionDAG*>::getNodeLabel(FlaggedNodes.back(), DAG);
+      O << DOTGraphTraits<SelectionDAG*>
+	     ::getSimpleNodeLabel(FlaggedNodes.back(), DAG);
       FlaggedNodes.pop_back();
       if (!FlaggedNodes.empty())
         O << "\n    ";

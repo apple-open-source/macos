@@ -1,0 +1,15 @@
+require "vnd.dovecot.testsuite";
+
+require "comparator-i;ascii-numeric";
+require "relational";
+
+test "Syntax errors" {
+	if test_script_compile "errors/syntax-errors.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "5" {
+		test_fail "wrong number of errors reported";
+	}
+}
+

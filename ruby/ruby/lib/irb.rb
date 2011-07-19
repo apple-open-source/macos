@@ -1,8 +1,8 @@
 #
 #   irb.rb - irb main module
 #   	$Release Version: 0.9.5 $
-#   	$Revision: 15408 $
-#   	$Date: 2008-02-09 00:44:54 +0900 (Sat, 09 Feb 2008) $
+#   	$Revision: 24483 $
+#   	$Date: 2009-08-09 17:44:15 +0900 (Sun, 09 Aug 2009) $
 #   	by Keiju ISHITSUKA(keiju@ruby-lang.org)
 #
 # --
@@ -23,7 +23,7 @@ require "irb/locale"
 STDOUT.sync = true
 
 module IRB
-  @RCS_ID='-$Id: irb.rb 15408 2008-02-08 15:44:54Z nobu $-'
+  @RCS_ID='-$Id: irb.rb 24483 2009-08-09 08:44:15Z shyouhei $-'
 
   class Abort < Exception;end
 
@@ -65,11 +65,19 @@ module IRB
     trap("SIGINT") do
       irb.signal_handle
     end
-    
-    catch(:IRB_EXIT) do
-      irb.eval_input
+
+    begin
+      catch(:IRB_EXIT) do
+	irb.eval_input
+      end
+    ensure
+      irb_at_exit
     end
 #    print "\n"
+  end
+
+  def IRB.irb_at_exit
+    @CONF[:AT_EXIT].each{|hook| hook.call}
   end
 
   def IRB.irb_exit(irb, ret)

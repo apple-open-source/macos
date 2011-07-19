@@ -5,13 +5,13 @@
 	<key>OpenSourceProject</key>
 	<string>file</string>
 	<key>OpenSourceVersion</key>
-	<string>5.03</string>
+	<string>5.04</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string></string>
 	<key>OpenSourceURL</key>
-	<string>ftp://ftp.astron.com/pub/file/file-5.03.tar.gz</string>
+	<string>ftp://ftp.astron.com/pub/file/file-5.04.tar.gz</string>
 	<key>OpenSourceSHA1</key>
-	<string>f659a4e1fa96fbdc99c924ea8e2dc07319f046c1</string>
+	<string>56ddf7135471aa656334ed8fefe1112bcccc2cc3</string>
 	<key>OpenSourceImportDate</key>
 	<string>2009-09-22</string>
 	<key>OpenSourceModifications</key>
@@ -26,6 +26,7 @@
 		<string>Fix crash on far-future date (7274959).</string>
 		<string>Archive (ar) format fix (4204136).</string>
 		<string>GNU catalog format fix (4695678).</string>
+		<string>LLVM bitcode magics (6867338).</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>BSD</string>

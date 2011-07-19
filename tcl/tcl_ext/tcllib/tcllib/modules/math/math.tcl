@@ -8,15 +8,17 @@
 # See the file "license.terms" for information on usage and redistribution
 # of this file, and for a DISCLAIMER OF ALL WARRANTIES.
 # 
-# RCS: @(#) $Id: math.tcl,v 1.22 2006/09/20 22:16:02 andreas_kupries Exp $
+# RCS: @(#) $Id: math.tcl,v 1.23 2009/12/04 17:37:47 andreas_kupries Exp $
 
 package require Tcl 8.2		;# uses [lindex $l end-$integer]
 
 # @mdgen OWNER: tclIndex
+# @mdgen OWNER: misc.tcl
+# @mdgen OWNER: combinatorics.tcl
 
 namespace eval ::math {
 
-    variable version 1.2.4
+    variable version 1.2.5
 
     # misc.tcl
 
@@ -33,9 +35,14 @@ namespace eval ::math {
 
     # Set up for auto-loading
 
-    variable home [file join [pwd] [file dirname [info script]]]
-    if {[lsearch -exact $::auto_path $home] == -1} {
-	lappend ::auto_path $home
+    if { ![interp issafe {}]} {
+	variable home [file join [pwd] [file dirname [info script]]]
+	if {[lsearch -exact $::auto_path $home] == -1} {
+	    lappend ::auto_path $home
+	}
+    } else {
+	source [file join [file dirname [info script]] misc.tcl]
+	source [file join [file dirname [info script]] combinatorics.tcl]
     }
 
     package provide [namespace tail [namespace current]] $version

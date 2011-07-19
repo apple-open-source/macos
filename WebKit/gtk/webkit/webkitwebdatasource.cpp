@@ -22,18 +22,21 @@
 
 #include "ArchiveResource.h"
 #include "DocumentLoaderGtk.h"
-#include "FrameLoaderClientGtk.h"
 #include "FrameLoader.h"
+#include "FrameLoaderClientGtk.h"
 #include "KURL.h"
 #include "PlatformString.h"
 #include "ResourceRequest.h"
-#include "runtime/InitializeThreading.h"
 #include "SharedBuffer.h"
 #include "SubstituteData.h"
+#include "runtime/InitializeThreading.h"
+#include "webkitglobalsprivate.h"
+#include "webkitnetworkrequestprivate.h"
+#include "webkitwebdatasourceprivate.h"
+#include "webkitwebframeprivate.h"
 #include "webkitwebresource.h"
-#include "webkitprivate.h"
+#include "webkitwebviewprivate.h"
 #include "wtf/Assertions.h"
-
 #include <glib.h>
 
 /**
@@ -71,8 +74,6 @@ struct _WebKitWebDataSourcePrivate {
     gchar* textEncoding;
     gchar* unreachableURL;
 };
-
-#define WEBKIT_WEB_DATA_SOURCE_GET_PRIVATE(obj)        (G_TYPE_INSTANCE_GET_PRIVATE((obj), WEBKIT_TYPE_WEB_DATA_SOURCE, WebKitWebDataSourcePrivate))
 
 G_DEFINE_TYPE(WebKitWebDataSource, webkit_web_data_source, G_TYPE_OBJECT);
 
@@ -126,23 +127,14 @@ static void webkit_web_data_source_class_init(WebKitWebDataSourceClass* klass)
     gobject_class->dispose = webkit_web_data_source_dispose;
     gobject_class->finalize = webkit_web_data_source_finalize;
 
-    webkit_init();
+    webkitInit();
 
     g_type_class_add_private(gobject_class, sizeof(WebKitWebDataSourcePrivate));
 }
 
 static void webkit_web_data_source_init(WebKitWebDataSource* webDataSource)
 {
-    webDataSource->priv = WEBKIT_WEB_DATA_SOURCE_GET_PRIVATE(webDataSource);
-}
-
-WebKitWebDataSource* webkit_web_data_source_new_with_loader(PassRefPtr<WebKit::DocumentLoader> loader)
-{
-    WebKitWebDataSource* webDataSource = WEBKIT_WEB_DATA_SOURCE(g_object_new(WEBKIT_TYPE_WEB_DATA_SOURCE, NULL));
-    WebKitWebDataSourcePrivate* priv = webDataSource->priv;
-    priv->loader = loader.releaseRef();
-
-    return webDataSource;
+    webDataSource->priv = G_TYPE_INSTANCE_GET_PRIVATE(webDataSource, WEBKIT_TYPE_WEB_DATA_SOURCE, WebKitWebDataSourcePrivate);
 }
 
 /**
@@ -182,10 +174,8 @@ WebKitWebDataSource* webkit_web_data_source_new_with_request(WebKitNetworkReques
 
     const gchar* uri = webkit_network_request_get_uri(request);
 
-    WebKitWebDataSource* datasource;
-    datasource = webkit_web_data_source_new_with_loader(
-        WebKit::DocumentLoader::create(ResourceRequest(KURL(KURL(), String::fromUTF8(uri))),
-                                       SubstituteData()));
+    ResourceRequest resourceRequest(ResourceRequest(KURL(KURL(), String::fromUTF8(uri))));
+    WebKitWebDataSource* datasource = kitNew(WebKit::DocumentLoader::create(resourceRequest, SubstituteData()));
 
     WebKitWebDataSourcePrivate* priv = datasource->priv;
     priv->initialRequest = request;
@@ -194,14 +184,15 @@ WebKitWebDataSource* webkit_web_data_source_new_with_request(WebKitNetworkReques
 }
 
 /**
- * webkit_web_data_source_get_web_frame
+ * webkit_web_data_source_get_web_frame:
  * @data_source: a #WebKitWebDataSource
  *
  * Returns the #WebKitWebFrame that represents this data source
  *
- * Return value: the #WebKitWebFrame that represents the @data_source. The
- * #WebKitWebFrame is owned by WebKit and should not be freed or destroyed.
- * This will return %NULL of the @data_source is not attached to a frame.
+ * Return value: (transfer none): the #WebKitWebFrame that represents
+ * the @data_source. The #WebKitWebFrame is owned by WebKit and should
+ * not be freed or destroyed.  This will return %NULL if the
+ * @data_source is not attached to a frame.
  *
  * Since: 1.1.14
  */
@@ -227,7 +218,7 @@ WebKitWebFrame* webkit_web_data_source_get_web_frame(WebKitWebDataSource* webDat
  * prior to the "committed" load state. See webkit_web_data_source_get_request
  * for getting the "committed" request.
  *
- * Return value: the original #WebKitNetworkRequest
+ * Return value: (transfer none): the original #WebKitNetworkRequest
  *
  * Since: 1.1.14
  */
@@ -241,7 +232,7 @@ WebKitNetworkRequest* webkit_web_data_source_get_initial_request(WebKitWebDataSo
     if (priv->initialRequest)
         g_object_unref(priv->initialRequest);
 
-    priv->initialRequest = webkit_network_request_new_with_core_request(request);
+    priv->initialRequest = kitNew(request);
     return priv->initialRequest;
 }
 
@@ -254,9 +245,9 @@ WebKitNetworkRequest* webkit_web_data_source_get_initial_request(WebKitWebDataSo
  * the request that was "committed", and hence, different from the request you
  * get from the webkit_web_data_source_get_initial_request method.
  *
- * Return value: the #WebKitNetworkRequest that created the @data_source or
- * %NULL if the @data_source is not attached to the frame or the frame hasn't
- * been loaded.
+ * Return value: (transfer none): the #WebKitNetworkRequest that
+ * created the @data_source or %NULL if the @data_source is not
+ * attached to the frame or the frame hasn't been loaded.
  *
  * Since: 1.1.14
  */
@@ -274,7 +265,7 @@ WebKitNetworkRequest* webkit_web_data_source_get_request(WebKitWebDataSource* we
      if (priv->networkRequest)
          g_object_unref(priv->networkRequest);
 
-     priv->networkRequest = webkit_network_request_new_with_core_request(request);
+     priv->networkRequest = kitNew(request);
      return priv->networkRequest;
 }
 
@@ -317,7 +308,7 @@ G_CONST_RETURN gchar* webkit_web_data_source_get_encoding(WebKitWebDataSource* w
  */
 gboolean webkit_web_data_source_is_loading(WebKitWebDataSource* webDataSource)
 {
-    g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), NULL);
+    g_return_val_if_fail(WEBKIT_IS_WEB_DATA_SOURCE(webDataSource), FALSE);
 
     WebKitWebDataSourcePrivate* priv = webDataSource->priv;
 
@@ -333,8 +324,9 @@ gboolean webkit_web_data_source_is_loading(WebKitWebDataSource* webDataSource)
  * frame hasn't loaded any data. Use webkit_web_data_source_is_loading to test
  * if data source is in the process of loading.
  *
- * Return value: a #GString which contains the raw data that represents the @data_source or %NULL if the
- * @data_source hasn't loaded any data.
+ * Return value: (transfer none): a #GString which contains the raw
+ * data that represents the @data_source or %NULL if the @data_source
+ * hasn't loaded any data.
  *
  * Since: 1.1.14
  */
@@ -364,8 +356,8 @@ GString* webkit_web_data_source_get_data(WebKitWebDataSource* webDataSource)
  *
  * Returns the main resource of the @data_source
  *
- * Return value: a new #WebKitWebResource representing the main resource of
- * the @data_source.
+ * Return value: (transfer none): a new #WebKitWebResource
+ * representing the main resource of the @data_source.
  *
  * Since: 1.1.14
  */
@@ -414,14 +406,15 @@ G_CONST_RETURN gchar* webkit_web_data_source_get_unreachable_uri(WebKitWebDataSo
 }
 
 /**
- * webkit_web_data_source_get_subresources
+ * webkit_web_data_source_get_subresources:
  * @data_source: a #WebKitWebDataSource
  *
  * Gives you a #GList of #WebKitWebResource objects that compose the
  * #WebKitWebView to which this #WebKitWebDataSource is attached.
  *
- * Return value: a #GList of #WebKitWebResource objects; the objects are
- * owned by WebKit, but the GList must be freed.
+ * Return value: (element-type WebKitWebResource) (transfer container):
+ * a #GList of #WebKitWebResource objects; the objects are owned by
+ * WebKit, but the GList must be freed.
  *
  * Since: 1.1.15
  */
@@ -433,4 +426,17 @@ GList* webkit_web_data_source_get_subresources(WebKitWebDataSource* webDataSourc
     WebKitWebView* webView = getViewFromFrame(webFrame);
 
     return webkit_web_view_get_subresources(webView);
+}
+
+namespace WebKit {
+
+WebKitWebDataSource* kitNew(PassRefPtr<WebKit::DocumentLoader> loader)
+{
+    WebKitWebDataSource* webDataSource = WEBKIT_WEB_DATA_SOURCE(g_object_new(WEBKIT_TYPE_WEB_DATA_SOURCE, NULL));
+    WebKitWebDataSourcePrivate* priv = webDataSource->priv;
+    priv->loader = loader.releaseRef();
+
+    return webDataSource;
+}
+
 }

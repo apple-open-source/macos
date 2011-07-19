@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * The contents of this file constitute Original Code as defined in and are
  * subject to the Apple Public Source License Version 1.2 (the 'License').
@@ -19,9 +19,6 @@
 /*
  * CLCertExtensions.h - extern declarations of get/set/free functions implemented in
  *                    CertExtensions,cpp and used only in CertFields.cpp.
- *
- * Created 9/8/2000 by Doug Mitchell. 
- * Copyright (c) 2000 by Apple Computer. 
  */
 
 #ifndef	_CL_CERT_EXTENSIONS_H_
@@ -43,17 +40,22 @@ getItemFieldFcn getFieldKeyUsage, getFieldBasicConstraints,
 	getFieldIssuerAltName,
 	getFieldCertPolicies, getFieldNetscapeCertType, getFieldCrlDistPoints,
 	getFieldAuthInfoAccess, getFieldSubjInfoAccess, getFieldUnknownExt,
-	getFieldQualCertStatements;
+	getFieldQualCertStatements,
+	getFieldNameConstraints, getFieldPolicyMappings, getFieldPolicyConstraints,
+	getFieldInhibitAnyPolicy;
 setItemFieldFcn setFieldKeyUsage, setFieldBasicConstraints, 
 	setFieldExtKeyUsage,
 	setFieldSubjectKeyId, setFieldAuthorityKeyId, setFieldSubjIssuerAltName,
 	setFieldCertPolicies, setFieldNetscapeCertType, setFieldCrlDistPoints,
-	setFieldAuthInfoAccess, setFieldUnknownExt, setFieldQualCertStatements;
+	setFieldAuthInfoAccess, setFieldUnknownExt, setFieldQualCertStatements,
+	setFieldNameConstraints, setFieldPolicyMappings, setFieldPolicyConstraints,
+	setFieldInhibitAnyPolicy;
 freeFieldFcn freeFieldExtKeyUsage, freeFieldSubjectKeyId,
 	freeFieldAuthorityKeyId, freeFieldSubjIssuerAltName, 
 	freeFieldCertPolicies, 
 	freeFieldCrlDistPoints, freeFieldInfoAccess, freeFieldUnknownExt,
-	freeFieldQualCertStatements;
+	freeFieldQualCertStatements,
+	freeFieldNameConstraints, freeFieldPolicyMappings, freeFieldPolicyConstraints;
 	
 #ifdef	__cplusplus
 }

@@ -31,7 +31,7 @@
 
 
 /*
- * $Id: lsof.h,v 1.61 2008/10/21 16:21:41 abe Exp $
+ * $Id: lsof.h,v 1.64 2010/07/29 15:59:28 abe Exp $
  */
 
 
@@ -267,11 +267,13 @@ extern int optind;
 # if	!defined(LOGINML)
 #  if	defined(HASUTMPX)
 static struct utmpx dummy_utmp;		/* to get login name length */
-# else	/* !defined(HASUTMPX) */
+#define	LOGINML		sizeof(dummy_utmp.ut_user)
+					/* login name length */
+#  else	/* !defined(HASUTMPX) */
 static struct utmp dummy_utmp;		/* to get login name length */
-# endif	/* defined(HASUTMPX) */
 #define	LOGINML		sizeof(dummy_utmp.ut_name)
 					/* login name length */
+#  endif	/* defined(HASUTMPX) */
 # endif	/* !defined(LOGINML) */
 
 #define	LPROCINCR	128		/* Lproc[] allocation increment */
@@ -336,14 +338,16 @@ static struct utmp dummy_utmp;		/* to get login name length */
 #define	N_PSEU		49		/* pseudofs node */
 #define	N_SAMFS		41		/* Solaris SAM-FS */
 #define	N_SANFS		42		/* AIX SANFS */
-#define	N_SOCK		43		/* sock_vnodeops node */
-#define	N_SPEC		44		/* spec_vnodeops node */
-#define	N_STREAM	45		/* stream node */
-#define	N_TMP		46		/* tmpfs node */
-#define	N_UFS		47		/* UNIX file system node */
-#define	N_VXFS		48		/* Veritas file system node */
-#define	N_XFS		49		/* XFS node */
-#define	N_ZFS		50		/* ZFS node */
+#define	N_SDEV		43		/* Solaris sdev file system node */
+#define	N_SHARED	44		/* Solaris sharedfs */
+#define	N_SOCK		45		/* sock_vnodeops node */
+#define	N_SPEC		46		/* spec_vnodeops node */
+#define	N_STREAM	47		/* stream node */
+#define	N_TMP		48		/* tmpfs node */
+#define	N_UFS		49		/* UNIX file system node */
+#define	N_VXFS		50		/* Veritas file system node */
+#define	N_XFS		51		/* XFS node */
+#define	N_ZFS		52		/* ZFS node */
 
 # if	!defined(OFFDECDIG)
 #define	OFFDECDIG	8		/* maximum number of digits in the
@@ -431,6 +435,8 @@ extern int PpidColW;
 #define SZTTL		"SIZE"
 #define	SZOFFTTL	"SIZE/OFF"
 extern int SzOffColW;
+#define	TIDTTL		"TID"
+extern	int TidColW;
 #define TYPETTL		"TYPE"
 extern int TypeColW;
 #define	USERTTL		"USER"
@@ -461,8 +467,9 @@ extern int ZoneColW;
 #define	SELUNX		0x0800		/* select UNIX socket (-U) */
 #define	SELZONE		0x1000		/* select zone (-z) */
 #define	SELEXCLF	0x2000		/* file selection excluded */
-#define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE)
-#define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE)
+#define	SELTASK		0x4000		/* select tasks (-K) */
+#define	SELALL		(SELCMD|SELCNTX|SELFD|SELNA|SELNET|SELNM|SELNFS|SELPID|SELUID|SELUNX|SELZONE|SELTASK)
+#define	SELPROC		(SELCMD|SELCNTX|SELPGID|SELPID|SELUID|SELZONE|SELTASK)
 					/* process selecters */
 #define	SELFILE		(SELFD|SELNFS|SELNLINK|SELNM)	/* file selecters */
 #define	SELNW		(SELNA|SELNET|SELUNX)		/* network selecters */
@@ -609,6 +616,7 @@ extern int Fsize;
 extern int Fsv;
 extern int FsvByf;
 extern int FsvFlagX;
+extern int Ftask;
 extern int Ftcptpi;
 extern int Fterse;
 extern int Funix;
@@ -813,6 +821,11 @@ struct lproc {
 				 	 *	  1 = wholly selected
 				 	 *	  2 = partially selected */
 	int pid;			/* process ID */
+
+# if	defined(HASTASKS)
+	int tid;			/* task ID */
+# endif	/* HASTASKS */
+
 	int pgid;			/* process group ID */
 	int ppid;			/* parent process ID */
 	uid_t uid;			/* user ID */
@@ -920,6 +933,7 @@ extern char *SzOffFmt_0t;
 extern char *SzOffFmt_d;
 extern char *SzOffFmt_dv;
 extern char *SzOffFmt_x;
+extern int TaskPrtFl;
 extern int TcpStAlloc;
 extern unsigned char *TcpStI;
 extern int TcpStIn;

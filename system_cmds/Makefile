@@ -2,13 +2,13 @@ Project = system_cmds
 
 Embedded=$(shell tconf --test TARGET_OS_EMBEDDED)
 
-SubProjects = ac.tproj accton.tproj arch.tproj bootlog.tproj		\
+SubProjects = ac.tproj accton.tproj arch.tproj \
 	dmesg.tproj dp_notify_lib dynamic_pager.tproj fs_usage.tproj	\
 	getconf.tproj getty.tproj hostinfo.tproj iostat.tproj		\
 	latency.tproj login.tproj makekey.tproj mkfile.tproj		\
 	newgrp.tproj nologin.tproj nvram.tproj pagesize.tproj		\
 	passwd.tproj pwd_mkdb.tproj reboot.tproj sa.tproj sadc.tproj	\
-	sar.tproj sc_usage.tproj sync.tproj sysctl.tproj		\
+	sar.tproj sc_usage.tproj sync.tproj sysctl.tproj trace.tproj	\
 	vipw.tproj vifs.tproj vm_stat.tproj zdump.tproj zic.tproj	\
 	zprint.tproj
 
@@ -18,7 +18,5 @@ SubProjects += at.tproj atrun.tproj \
 else
 SubProjects += mean.tproj
 endif
-
-Extra_LD_Flags += -lcurses -lutil
 
 include $(MAKEFILEPATH)/CoreOS/ReleaseControl/BSDCommon.make

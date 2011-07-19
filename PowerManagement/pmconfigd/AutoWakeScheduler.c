@@ -29,9 +29,6 @@
  *
  */
 
-#include <IOKit/hidsystem/IOHIDLib.h>
-#include <IOKit/graphics/IOGraphicsTypes.h>
-
 #include <syslog.h>
 #include "PrivateLib.h"
 #include "AutoWakeScheduler.h"
@@ -112,7 +109,6 @@ static bool             purgePastEvents(PowerEventBehavior *);
 static void             copyScheduledPowerChangeArrays(void);
 static CFDictionaryRef  getEarliestUpcoming(PowerEventBehavior *);
 static kern_return_t    openHIDService(io_connect_t *);
-static void             wakeDozingMachine(void);
 static bool             isRepeating(CFDictionaryRef);
 static CFDateRef        _getScheduledEventDate(CFDictionaryRef);
 static CFArrayRef       copyMergedEventArray(PowerEventBehavior *, 
@@ -138,17 +134,16 @@ void restartTimerExpiredCallout(CFDictionaryRef);
  * user/app requested time. 
  * Requests come via IOKit/pwr_mgt/IOPMLib.h:IOPMSchedulePowerEvent()
  *
- * On pre-2004 machines this is the PMU's responsibility.
- * The SMU has taken over the AutoWake/AutoPower role on some post-2004 machines.
+ * We schedule requests to the responsible kernel driver by calling setProperties on IOPMrootDomain.
  * The IOPMrootDomain kernel entity routes all requests to the appropriate
  * controller.
  *
  * POWER ON
- * Every time we set a power on time in the PMU, start a CFTimer to fire at the same time.
+ * Every time we set a power on time, we also start a software timer to fire at the same time.
  *    (in scheduleShutdownTime())
- * If the CFTimer fires, then the machine was not powered off and we should find the 
+ * If the software timer fires, then the machine was not powered off and we should find the 
  *    next power on date and schedule that. (in handleTimerPowerOnReset())
- * If the machine is powered off, the CFTimer won't fire and the PMU will power the machine.
+ * If the machine is powered off, the software timer won't fire and the timer hardware will power the machine.
  *
  * WAKE
  * Wake is simpler than power on, since we get a notification on the way to sleep.
@@ -332,7 +327,7 @@ handleTimerExpiration(CFRunLoopTimerRef blah, void *info)
  *
  * on wake and/or poweron:
  *   - transmit expected wake/on time to underlying hardware that will wake
- *     the system when appropriate, be it PMU, SMU, SMC, or beyond.
+ *     the system when appropriate.
  *
  */
 
@@ -728,70 +723,7 @@ copyMergedEventArray(
 }
 
 
-/*
- *
- * Find HID service. Only used by wakeDozingMachine
- *
- */
-#if HAVE_HID_SYSTEM
-static kern_return_t openHIDService(io_connect_t *connection)
-{
-    kern_return_t       kr;
-    io_service_t        service;
-    io_connect_t        hid_connect = MACH_PORT_NULL;
-    
-    service = IOServiceGetMatchingService(MACH_PORT_NULL, 
-                                IOServiceMatching(kIOHIDSystemClass));
-    if (MACH_PORT_NULL == service) {
-        return kIOReturnNotFound;
-    }
 
-    kr = IOServiceOpen( service, mach_task_self(), 
-                        kIOHIDParamConnectType, &hid_connect);    
-
-    IOObjectRelease(service);
-
-    if (kr != KERN_SUCCESS) {
-        return kr;
-    }
-    
-    *connection = hid_connect;
-    return kr;
-}
-#endif /* HAVE_HID_SYSTEM */
-
-/*
- *
- * Wakes a dozing machine by posting a NULL HID event
- * Will thus also wake displays on a running machine running
- *
- */
-static void wakeDozingMachine(void)
-{
-#if HAVE_HID_SYSTEM
-    IOGPoint loc;
-    kern_return_t kr;
-    NXEvent nullEvent = {NX_NULLEVENT, {0, 0}, 0, -1, 0};
-    static io_connect_t io_connection = MACH_PORT_NULL;
-
-    // If the HID service has never been opened, do it now
-    if (io_connection == MACH_PORT_NULL) 
-    {
-        kr = openHIDService(&io_connection);
-        if (kr != KERN_SUCCESS) 
-        {
-            io_connection = MACH_PORT_NULL;
-            return;
-        }
-    }
-    
-    // Finally, post a NULL event
-    IOHIDPostEvent( io_connection, NX_NULLEVENT, loc, 
-                    &nullEvent.data, FALSE, 0, FALSE );
-#endif /* HAVE_HID_SYSTEM */
-
-    return;
-}
 
 static bool 
 isRepeating(CFDictionaryRef event)

@@ -50,25 +50,25 @@ typedef struct cssm_module_funcs {
     CSSM_SERVICE_TYPE ServiceType;
     uint32 NumberOfServiceFuncs;
     const CSSM_PROC_ADDR *ServiceFuncs;
-} CSSM_MODULE_FUNCS, *CSSM_MODULE_FUNCS_PTR;
+} CSSM_MODULE_FUNCS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_MODULE_FUNCS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void *(CSSMAPI *CSSM_UPCALLS_MALLOC)
     (CSSM_HANDLE AddInHandle,
-     uint32 size);
+     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void (CSSMAPI *CSSM_UPCALLS_FREE)
     (CSSM_HANDLE AddInHandle,
-     void *memblock);
+     void *memblock) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void *(CSSMAPI *CSSM_UPCALLS_REALLOC)
     (CSSM_HANDLE AddInHandle,
      void *memblock,
-     uint32 size);
+     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef void *(CSSMAPI *CSSM_UPCALLS_CALLOC)
     (CSSM_HANDLE AddInHandle,
      uint32 num,
-     uint32 size);
+     uint32 size) DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 typedef struct cssm_upcalls {
     CSSM_UPCALLS_MALLOC malloc_func;
@@ -89,19 +89,21 @@ typedef struct cssm_upcalls {
          CSSM_API_MEMORY_FUNCS_PTR AttachedMemFuncs,
          CSSM_FUNC_NAME_ADDR_PTR FunctionTable,
          uint32 NumFunctions);
-} CSSM_UPCALLS, *CSSM_UPCALLS_PTR;
+} CSSM_UPCALLS DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER, *CSSM_UPCALLS_PTR DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMSPI
 CSSM_SPI_ModuleLoad (const CSSM_GUID *CssmGuid,
                      const CSSM_GUID *ModuleGuid,
                      CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
-                     void *CssmNotifyCallbackCtx);
+                     void *CssmNotifyCallbackCtx)
+					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMSPI
 CSSM_SPI_ModuleUnload (const CSSM_GUID *CssmGuid,
                        const CSSM_GUID *ModuleGuid,
                        CSSM_SPI_ModuleEventHandler CssmNotifyCallback,
-                       void *CssmNotifyCallbackCtx);
+                       void *CssmNotifyCallbackCtx)
+					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMSPI
 CSSM_SPI_ModuleAttach (const CSSM_GUID *ModuleGuid,
@@ -115,10 +117,12 @@ CSSM_SPI_ModuleAttach (const CSSM_GUID *ModuleGuid,
                        const CSSM_GUID *ModuleManagerGuid,
                        const CSSM_GUID *CallerGuid,
                        const CSSM_UPCALLS *Upcalls,
-                       CSSM_MODULE_FUNCS_PTR *FuncTbl);
+                       CSSM_MODULE_FUNCS_PTR *FuncTbl)
+					DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 CSSM_RETURN CSSMSPI
-CSSM_SPI_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle);
+CSSM_SPI_ModuleDetach (CSSM_MODULE_HANDLE ModuleHandle)
+	DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 
 
 #ifdef __cplusplus

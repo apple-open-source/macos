@@ -73,7 +73,7 @@ static int  vcmp(const void *, const void *);
 #define	UIDLEN	5
 #define	PIDFMT	"d"
 #define	PIDLEN	5
-#define USERLEN 8 /* UT_NAMESIZE from utmp.h */
+#define USERLEN 16
 
 /* PLEASE KEEP THE TABLE BELOW SORTED ALPHABETICALLY!!! */
 static VAR var[] = {
@@ -134,7 +134,7 @@ static VAR var[] = {
 		NULL, USER, rvar, NULL, 4, ROFF(ru_oublock), LONG, "ld"},
 	{"oublock", "", "oublk"},
 	{"p_ru", "P_RU", NULL, 0, pvar, NULL, 6, POFF(p_ru), KPTR, "lx"},
-	{"paddr", "PADDR", NULL, 0, evar, NULL, 8, EOFF(e_paddr), KPTR, "lx"},
+	{"paddr", "PADDR", NULL, 0, evar, NULL, sizeof(void *) * 2, EOFF(e_paddr), KPTR, "lx"},
 	{"pagein", "PAGEIN", NULL, USER, pagein, NULL, 6},
 	{"pcpu", "", "%cpu"},
 	{"pending", "", "sig"},
@@ -195,9 +195,10 @@ static VAR var[] = {
 	{"vsize", "", "vsz"},
 	{"vsz", "VSZ", NULL, 0, vsize, NULL, 8},
 	{"wchan", "WCHAN", NULL, LJUST, wchan, NULL, 6},
-	{"wq", "WQ", NULL, 0, wq, NULL, 2, 0, CHAR, NULL, 0},
-	{"wqb", "WQB", NULL, 0, wq, NULL, 2, 0, CHAR, NULL, 0},
-	{"wqr", "WQR", NULL, 0, wq, NULL, 2, 0, CHAR, NULL, 0},
+	{"wq", "WQ", NULL, 0, wq, NULL, 4, 0, CHAR, NULL, 0},
+	{"wqb", "WQB", NULL, 0, wq, NULL, 4, 0, CHAR, NULL, 0},
+	{"wql", "WQL", NULL, 0, wq, NULL, 3, 0, CHAR, NULL, 0},
+	{"wqr", "WQR", NULL, 0, wq, NULL, 4, 0, CHAR, NULL, 0},
 	{"xstat", "XSTAT", NULL, 0, pvar, NULL, 4, POFF(p_xstat), USHORT, "x"},
 	{""},
 };

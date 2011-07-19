@@ -32,14 +32,26 @@
 #include "CString.h"
 #include "DSUtils.h"
 #include "CLog.h"
-#include "CConfigurePlugin.h"
-#include "CPluginConfig.h"
-#include "CDSLocalPlugin.h"
-#include "CCachePlugin.h"
-#include "CSearchPlugin.h"
-#include "BSDPlugin.h"
 #include "CDSPluginUtils.h"
-#include "CLDAPv3Plugin.h"
+#include "CPluginConfig.h"
+#ifndef DISABLE_CONFIGURE_PLUGIN
+	#include "CConfigurePlugin.h"
+#endif
+#ifndef DISABLE_LOCAL_PLUGIN
+	#endif
+#ifndef DISABLE_CACHE_PLUGIN
+	#include "CCachePlugin.h"
+#endif
+#ifndef DISABLE_SEARCH_PLUGIN
+	#include "CSearchPlugin.h"
+#endif
+#ifndef DISABLE_BSD_PLUGIN
+	#include "BSDPlugin.h"
+#endif
+#ifndef DISABLE_LDAPV3_PLUGIN
+	#include "CLDAPv3Plugin.h"
+#endif
+#include "od_passthru.h"
 
 #include <stdlib.h>	// for rand()
 #include <syslog.h>
@@ -48,7 +60,9 @@
 #include <CoreFoundation/CFString.h>
 #include <CoreFoundation/CFURL.h>
 
+#ifndef DISABLE_CONFIGURE_PLUGIN
 extern CPluginConfig	   *gPluginConfig;
+#endif
 extern dsBool				gDSInstallDaemonMode;
 extern dsBool				gDSLocalOnlyMode;
 extern dsBool				gDSDebugMode;
@@ -148,6 +162,14 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 				
 				// Add the node to the node list
 				gNodeList->AddNode( pNodeName, pNodeList, kDirNodeType, pPluginPtr, inToken );
+				
+				int32_t err = od_passthru_register_node(pNodeName, false);
+				if (err == 0) {
+					DbgLog(kLogPlugin, "Registered Directory Node %s with opendirectoryd", pNodeName);
+				}
+				else {
+					DbgLog(kLogNotice, "Failed to Directory Node %s with opendirectoryd: %s", pNodeName, strerror(err));
+				}
 
 				DbgLog( kLogPlugin, "Registered Directory Node %s", pNodeName );
 				
@@ -156,7 +178,7 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 			}
 			else
 			{
-				siResult = kNodeAlreadyRegistered;
+				siResult = eDSNoErr; // don't return error, just make it think it got registered
 			}
 			bDone = true;
 		}
@@ -172,11 +194,20 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 				
 				// Add the node to the node list
 				gNodeList->AddNode( pNodeName, pNodeList, kLocalHostedType, pPluginPtr, inToken );
+
+				int32_t err = od_passthru_register_node(pNodeName, false);
+				if (err == 0) {
+					DbgLog(kLogPlugin, "Registered Locally Hosted %s with opendirectoryd", pNodeName);
+				}
+				else {
+					DbgLog(kLogNotice, "Failed to register Locally Hosted %s with opendirectoryd: %s", pNodeName, strerror(err));
+				}
+
 				SrvrLog( kLogPlugin, "Registered Locally Hosted Node %s", pNodeName );
 			}
 			else
 			{
-				siResult = kNodeAlreadyRegistered;
+				siResult = eDSNoErr; // don't return error, just make it think it got registered
 			}
 			bDone = true;
 		}
@@ -196,12 +227,12 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 			}
 			else
 			{
-				siResult = kNodeAlreadyRegistered;
+				siResult = eDSNoErr; // don't return error, just make it think it got registered
 			}
 			bDone = true;
 		}
 		
-		if ( !bDone && ( inNodeType & ( kLocalNodeType | kCacheNodeType | kSearchNodeType | kConfigNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kDHCPLDAPv3NodeType | kBSDNodeType ) ) )
+		if ( !bDone && ( inNodeType & ( kLocalNodeType | kCacheNodeType | kSearchNodeType | kConfigNodeType | kContactsSearchNodeType | kNetworkSearchNodeType | kBSDNodeType ) ) )
 		//specific node type added here - don't check for duplicates here
 		//need to always be able to get in here regardless of mutexes ie. don't call IsPresent()
 		{
@@ -216,10 +247,24 @@ SInt32 CServerPlugin::InternalRegisterNode ( const UInt32 inToken, tDataList *in
 				::dsDataListDeallocatePriv( pNodeList );
 				free(pNodeList);
 				pNodeList = nil;
-				siResult = kNodeAlreadyRegistered;
+				siResult = eDSNoErr; // don't return error, just make it think it got registered
 			}
 			else
 			{
+				bool hidden = true;
+				
+				if ((inNodeType & (kDirNodeType | kLocalNodeType | kConfigNodeType | kBSDNodeType | kSearchNodeType | kContactsSearchNodeType)) != 0) {
+					hidden = false;
+				}
+				
+				int32_t err = od_passthru_register_node(pNodeName, hidden);
+				if (err == 0) {
+					DbgLog(kLogPlugin, "Registered node %s with opendirectoryd", pNodeName);
+				}
+				else {
+					DbgLog(kLogNotice, "Failed to register node %s with opendirectoryd: %s", pNodeName, strerror(err));
+				}
+
 				SrvrLog( kLogPlugin, "Registered node %s", pNodeName );
 				siResult = eDSNoErr;
 			}
@@ -626,6 +671,7 @@ SInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 	//	If not #1, we will just load this plugin like normal.  This way legacy plugins and 3rd party
 	//	plugins will behave no differently.
 
+#ifndef DISABLE_CONFIGURE_PLUGIN
 			cfsOKToLoadPluginLazily = (CFStringRef)::CFDictionaryGetValue( plInfo, kPluginOKToLoadLazilyStr );
 			
 			if ( cfsOKToLoadPluginLazily && ::CFGetTypeID( cfsOKToLoadPluginLazily ) == ::CFStringGetTypeID() && CFStringCompare( (CFStringRef)cfsOKToLoadPluginLazily, CFSTR("YES"), kCFCompareCaseInsensitive ) == kCFCompareEqualTo )
@@ -633,10 +679,11 @@ SInt32 CServerPlugin::ProcessURL ( CFURLRef inURLPlugin )
 				
 			if ( !loadPluginLazily )
 				loadPluginLazily = ( gPluginConfig->GetPluginState( pPIName ) == kInactive );	// if not active, load lazily as well
-				
+#else
+			loadPluginLazily = true; // always load lazily, we are now on-demand
+#endif
 			if ( loadPluginLazily )
 			{
-
 				gPlugins->AddPlugIn( pPIName, pPIVersion, pPIConfigAvail, pPIConfigFile, kAppleLoadedPlugin, fccPlugInSignature, cpPlugin, plgThis, cfuuidFactory, ulVers );
 				SrvrLog( kLogApplication, "Plugin \"%s\", Version \"%s\", is set to load lazily.", pPIName, pPIVersion );
 
@@ -944,32 +991,60 @@ SInt32 CServerPlugin::ProcessStaticPlugin ( const char* inPluginName, const char
 	{
         fccPlugInSignature = ::rand();
 
-        DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
-
         //need to decide which static plugin to create here
         if (strcmp(inPluginName,"Cache") == 0)
         {
+#ifndef DISABLE_CACHE_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new CCachePlugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         else if (strcmp(inPluginName,"Configure") == 0)
         {
+#ifndef DISABLE_CONFIGURE_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new CConfigurePlugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         else if (strcmp(inPluginName,"Local") == 0)
         {
+#ifndef DISABLE_LOCAL_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new CDSLocalPlugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         else if (strcmp(inPluginName,"LDAPv3") == 0)
         {
+#ifndef DISABLE_LDAPV3_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new CLDAPv3Plugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         else if (strcmp(inPluginName,"Search") == 0)
         {
+#ifndef DISABLE_SEARCH_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new CSearchPlugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         else if (strcmp(inPluginName,"BSD") == 0)
         {
+#ifndef DISABLE_BSD_PLUGIN
+			DbgLog( kLogApplication, "Processing <%s> plugin.", inPluginName );
             cpPlugin = new BSDPlugin( fccPlugInSignature, inPluginName );
+#else
+			return ePlugInNotFound;
+#endif
         }
         if ( cpPlugin != nil )
         {

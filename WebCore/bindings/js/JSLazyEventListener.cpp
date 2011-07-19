@@ -20,6 +20,7 @@
 #include "config.h"
 #include "JSLazyEventListener.h"
 
+#include "ContentSecurityPolicy.h"
 #include "Frame.h"
 #include "JSNode.h"
 #include <runtime/FunctionConstructor.h>
@@ -74,28 +75,21 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     if (!executionContext)
         return 0;
 
-    Frame* frame = static_cast<Document*>(executionContext)->frame();
-    if (!frame)
+    Document* document = static_cast<Document*>(executionContext);
+
+    if (!document->frame())
         return 0;
 
-    ScriptController* scriptController = frame->script();
-    if (!scriptController->canExecuteScripts(AboutToExecuteScript))
+    if (!document->contentSecurityPolicy()->allowInlineEventHandlers())
+        return 0;
+
+    ScriptController* script = document->frame()->script();
+    if (!script->canExecuteScripts(AboutToExecuteScript) || script->isPaused())
         return 0;
 
     JSDOMGlobalObject* globalObject = toJSDOMGlobalObject(executionContext, isolatedWorld());
     if (!globalObject)
         return 0;
-
-    if (executionContext->isDocument()) {
-        JSDOMWindow* window = static_cast<JSDOMWindow*>(globalObject);
-        Frame* frame = window->impl()->frame();
-        if (!frame)
-            return 0;
-        // FIXME: Is this check needed for non-Document contexts?
-        ScriptController* script = frame->script();
-        if (!script->canExecuteScripts(AboutToExecuteScript) || script->isPaused())
-            return 0;
-    }
 
     ExecState* exec = globalObject->globalExec();
 
@@ -103,7 +97,7 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
     args.append(jsNontrivialString(exec, stringToUString(m_eventParameterName)));
     args.append(jsString(exec, m_code));
 
-    JSObject* jsFunction = constructFunction(exec, args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_lineNumber); // FIXME: is globalExec ok?
+    JSObject* jsFunction = constructFunctionSkippingEvalEnabledCheck(exec, exec->lexicalGlobalObject(), args, Identifier(exec, stringToUString(m_functionName)), stringToUString(m_sourceURL), m_lineNumber); // FIXME: is globalExec ok?
     if (exec->hadException()) {
         exec->clearException();
         return 0;
@@ -115,14 +109,12 @@ JSObject* JSLazyEventListener::initializeJSFunction(ScriptExecutionContext* exec
             // Ensure that 'node' has a JavaScript wrapper to mark the event listener we're creating.
             JSLock lock(SilenceAssertionsOnly);
             // FIXME: Should pass the global object associated with the node
-            setWrapper(asObject(toJS(globalObject->globalExec(), globalObject, m_originalNode)));
+            setWrapper(exec->globalData(), asObject(toJS(exec, globalObject, m_originalNode)));
         }
 
         // Add the event's home element to the scope
         // (and the document, and the form - see JSHTMLElement::eventHandlerScope)
-        ScopeChain scope = listenerAsFunction->scope();
-        static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, scope);
-        listenerAsFunction->setScope(scope);
+        listenerAsFunction->setScope(exec->globalData(), static_cast<JSNode*>(wrapper())->pushEventHandlerScope(exec, listenerAsFunction->scope()));
     }
 
     // Since we only parse once, there's no need to keep data used for parsing around anymore.

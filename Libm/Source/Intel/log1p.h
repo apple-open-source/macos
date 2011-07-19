@@ -207,7 +207,7 @@ ENTRY( log1p )
 4:	// if(absx < 0x1p-54) ...
 	// Note: this handles denormals, 0, and -0 also
 #if FENVON
-	addsd		REL_ADDR(third),	%xmm1	// x + 1/3 to raise inexact (except when x == 0)
+	addsd		REL_ADDR(one),	%xmm1	// x + 1.0 to raise inexact since x is small (except when x == 0)
 #endif
 	// retrun x
 #if defined( __i386__ ) 	// Light cleanup required

@@ -2,6 +2,7 @@
 [moddesc   {SHA-x Message-Digest Algorithm}]
 [copyright {2005, Pat Thoyts <patthoyts@users.sourceforge.net>}]
 [titledesc {SHA1 Message-Digest Algorithm}]
+[category  {Hashes, checksums, and encryption}]
 [require Tcl 8.2]
 [require sha1 [opt 2.0.3]]
 [description]

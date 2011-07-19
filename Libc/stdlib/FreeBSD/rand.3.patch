@@ -1,6 +1,6 @@
---- _SB/Libc/stdlib/FreeBSD/rand.3	2004-11-25 11:38:42.000000000 -0800
-+++ _SB/Libc/stdlib/FreeBSD/rand.3.edit	2006-06-28 16:55:53.000000000 -0700
-@@ -41,22 +41,30 @@
+--- rand.3.bsdnew	2009-11-13 14:11:50.000000000 -0800
++++ rand.3	2009-11-13 14:11:50.000000000 -0800
+@@ -37,22 +37,30 @@
  .Os
  .Sh NAME
  .Nm rand ,
@@ -39,16 +39,16 @@
  .Sh DESCRIPTION
  .Bf -symbolic
  These interfaces are obsoleted by
-@@ -89,7 +97,7 @@
+@@ -85,7 +93,7 @@ seeded with a value of 1.
  .Pp
  The
  .Fn sranddev
 -function initializes a seed using the
 +function initializes a seed, using the
  .Xr random 4
- random number device which returns good random numbers,
- suitable for cryptographic use.
-@@ -100,7 +108,7 @@
+ random number device which returns good random numbers.
+ However, the
+@@ -98,7 +106,7 @@ function
  provides the same functionality as
  .Fn rand .
  A pointer to the context value

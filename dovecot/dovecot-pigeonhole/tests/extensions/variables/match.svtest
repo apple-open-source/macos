@@ -1,0 +1,365 @@
+require "vnd.dovecot.testsuite";
+
+require "variables";
+
+/*
+ * RFC compliance
+ */
+
+# Test acceptance of leading zeroes
+test "RFC - leading zeroes" {
+	if not string :matches "frop:frup:frop" "*:*:*" {
+		test_fail "failed to match";
+	}
+
+	if not string :is "${0000002}" "frup" {
+		test_fail "incorrect match value (0000002): ${0000002}";
+	}
+}
+
+# Test non-greedyness
+test "RFC - not greedy" {
+	if not string :matches "frop.......frop.........frop...." "?*frop*" {
+		test_fail "failed to match";
+	}
+
+	if not string :is "${1}${2}${3}" "frop................frop...." {
+		test_fail "incorrect match values: ${1}${2}${3}";
+	}
+}
+
+# Index out of range
+test "RFC - index out of range" {
+	if not string :matches "test" "*" {
+		test_fail "failed to match (impossible)";
+	}
+
+	if not string :is "${2}" "" {
+		test_fail "incorrect match value: '${2}'";
+	}
+}
+
+# Index 0
+test "RFC - index 0" {
+	if not string :matches "a b c d e f g" "? ? ? ? ? ? ?" {
+		test_fail "failed to match";
+	}
+
+	if not string :is "${0}" "a b c d e f g" {
+        test_fail "incorrect match value: ${0}";
+    }
+}
+
+# Test short-circuit
+test "RFC - test short-circuit" {
+	if not anyof (
+		string :matches "a b c d e f g" "? ?",
+		string :matches "puk pok puk pok" "pu*ok",
+		string :matches "snot kip snot" "snot*snot"
+	) {
+		test_fail "failed to match any";
+	}
+
+	if string :is "${1}" " kip " {
+		test_fail "did not short-circuit test execution or intented test failed.";
+	}
+
+	if not string :is "${1}" "k pok puk p" {
+		test_fail "incorrect match value: ${1}";
+	}
+}
+
+# Test overwriting only on match 
+test "RFC - values overwrite" {
+	set "sentence1" "the cat jumps off the table";
+	set "sentence2" "the dog barks at the cat in the alley";
+
+	if not string :matches "${sentence1}" "the * jumps off the *" {
+		test_fail "failed to match first sentence";
+	} 
+	
+	if not string :is "${1}:${2}" "cat:table" {
+		test_fail "invalid match values";
+	}
+
+	if string :matches "${sentence2}" "the * barks at the * in the store" {
+		test_fail "should not have matched second sentence";
+	}
+
+	if not string :is "${1}:${2}" "cat:table" {
+		test_fail "should have preserved match values";
+	}
+
+	if not string :matches "${sentence2}" "the * barks at the * in the alley" {
+		test_fail "failed to match the second sentence (second time)";
+	}
+
+	if not string :is "${1}:${2}" "dog:cat" {
+		test_fail "should have overwritten match values";
+	}
+}
+
+test "RFC - example" {
+	test_set "message" text:
+Subject: [acme-users] [fwd] version 1.0 is out
+List-Id: Dovecot Mailing List <dovecot@dovecot.example.net>     
+To: coyote@ACME.Example.COM
+Fom: stephan@example.org
+
+Test message.
+.
+;
+	if header :matches "List-ID" "*<*@*" {	
+		if not string "INBOX.lists.${2}" "INBOX.lists.dovecot" {
+			test_fail "incorrect match value: INBOX.lists.${2}";
+		}
+	} else {
+		test_fail "failed to match list header";
+	}
+
+	# Imagine the header
+	# Subject: [acme-users] [fwd] version 1.0 is out
+	if header :matches "Subject" "[*] *" {
+		# ${1} will hold "acme-users",
+		# ${2} will hold "[fwd] version 1.0 is out"
+
+		if anyof (
+			not string "${1}" "acme-users",
+			not string "${2}" "[fwd] version 1.0 is out"
+		) {
+			test_fail "invalid match values: ${1} ${2}";
+		}
+	} else {
+		test_fail "failed to match subject";
+	}
+
+	# Imagine the header
+	# To: coyote@ACME.Example.COM
+	if address :matches ["To", "Cc"] ["coyote@**.com", 
+		"wile@**.com"] {
+		# ${0} is the matching address
+		# ${1} is always the empty string
+		# ${2} is part of the domain name ("ACME.Example")
+
+		if anyof (
+			not string "${0}" "coyote@ACME.Example.COM",
+			not string "${1}" "",
+			not string "${2}" "ACME.Example"
+		) {
+			test_fail "invalid match values: ${0}, ${1}, ${2}";
+		}      
+	} else {
+		# Control wouldn't reach this block if any match was
+		# successful, so no match variables are set at this
+ 		# point.
+
+		test_fail "failed to match to address";
+ 	}
+
+	if anyof (true, address :domain :matches "To" "*.com") {
+		# The second test is never evaluated, so there are
+		# still no match variables set.
+		
+		/* FIXME: not compliant */
+	}
+}
+
+/*
+ * Generic tests
+ */
+
+set "match1" "Test of general stupidity";
+
+test "Begin" {
+	if not string :matches "${match1}" "Test of *" {
+		test_fail "should have matched";
+	} 
+
+	if not string :is "${1}" "general stupidity" {
+		test_fail "match value incorrect";
+	}
+}
+
+test "Begin no match" {
+	if string :matches "${match1}" "of *" {
+		test_fail "should not have matched";
+	}
+}
+
+set "match2" "toptoptop";
+
+test "End" {
+	if not string :matches "${match2}" "*top" {
+		test_fail "should have matched";
+	}
+
+	if not string :is "${1}" "toptop" {
+		test_fail "match value incorrect";
+	}
+}
+
+set "match3" "ik ben een tukker met grote oren en een lelijke broek.";
+
+test "Multiple" {
+	if not string :matches "${match3}" "ik ben * met * en *." {
+		test_fail "should have matched";
+	} 
+
+	set "line" "Hij is ${1} met ${2} en ${3}!";
+
+	if not string :is "${line}"
+		"Hij is een tukker met grote oren en een lelijke broek!" {
+		test_fail "match values incorrect: ${line}";
+	}
+}
+
+set "match4" "beter van niet?";
+
+test "Escape" {
+	if not string :matches "${match4}" "*\\?" {
+		test_fail "should have matched";
+	} 
+
+	if not string :is "${1}" "beter van niet" {
+		test_fail "match value incorrect: ${1}";
+	}
+}
+
+set "match5" "The quick brown fox jumps over the lazy dog.";
+
+test "Alphabet ?" {
+	if not string :matches "${match5}" "T?? ????? ????? ?o? ?u??? o?er ?he ???? ?o?." {
+		test_fail "should have matched";
+	} 
+
+	set "alphabet" "${22}${8}${6}${25}${2}${13}${26}${1}${5}${15}${7}${21}${16}${12}${10}${17}${3}${9}${18}${20}${4}${19}${11}${14}${24}${23}";
+
+	if not string :is "${alphabet}" "abcdefghijklmnopqrstuvwxyz" {
+		test_fail "match values incorrect: ${alphabet}";
+	}
+
+	if string :matches "${match5}" "T?? ????? ?w??? ?o? ?u??? o?er ?he ???? ?o?." {
+		test_fail "should not have matched";
+	}
+}
+
+set "match6" "zero:one:zero|three;one;zero/five";
+
+test "Words sep ?" {
+
+	if not string :matches "${match6}" "*one?zero?five" {
+		test_fail "should have matched";
+	}
+
+	if not string :is "${1}${2}${3}" "zero:one:zero|three;;/" {
+		test_fail "incorrect match values: ${1} ${2} ${3}";
+	}
+}
+
+set "match7" "frop";
+
+test "Letters begin ?" {
+	if not string :matches "${match7}" "??op" {
+		test_fail "should have matched";
+	}
+		
+	set "val" "${0}:${1}:${2}:${3}:";
+	
+	if not string :is "${val}" "frop:f:r::" {
+		test_fail "incorrect match values: ${val}";
+	}
+}
+
+test "Letters end ?" {
+    if not string :matches "${match7}" "fr??" {
+        test_fail "should have matched";
+    }
+
+    set "val" "${0}:${1}:${2}:${3}:";
+
+    if not string :is "${val}" "frop:o:p::" {
+        test_fail "incorrect match values: ${val}";
+    }
+}
+
+set "match8" "klopfropstroptop";
+
+test "Letters words *? - 1" {
+	if not string :matches "${match8}" "*fr??*top" {
+		test_fail "should have matched";
+	}
+
+	set "val" ":${0}:${1}:${2}:${3}:${4}:${5}:";
+	
+	if not string :is "${val}" ":klopfropstroptop:klop:o:p:strop::" {
+		test_fail "incorrect match values: ${val}";
+	}
+}
+
+test "Letters words *? - 2" {
+	if not string :matches "${match8}" "?*fr??*top" {
+		test_fail "should have matched";
+	}
+	
+	set "val" ":${0}:${1}:${2}:${3}:${4}:${5}:${6}:";
+
+	if not string :is "${val}" ":klopfropstroptop:k:lop:o:p:strop::" {
+		test_fail "incorrect match values: ${val}";
+	}
+}
+
+test "Letters words *? backtrack" {
+	if not string :matches "${match8}" "*?op" {
+		test_fail "should have matched";
+	}
+
+	set "val" ":${0}:${1}:${2}:${3}:${4}:";
+	
+	if not string :is "${val}" ":klopfropstroptop:klopfropstrop:t:::" {
+		test_fail "incorrect match values: ${val}";
+	}
+}
+
+test "Letters words *? first" {
+	if not string :matches "${match8}" "*?op*" {
+		test_fail "failed to match";
+	}
+
+	set "val" ":${0}:${1}:${2}:${3}:${4}:";
+
+	if not string :is "${val}" ":klopfropstroptop:k:l:fropstroptop::" {
+		test_fail "incorrect match values: ${val}";
+	}
+}
+
+/*
+ * Specific tests
+ */
+
+test_set "message" text:
+Return-path: <stephan@xi.example.org>
+Envelope-to: stephan@xi.example.org
+Delivery-date: Sun, 01 Feb 2009 11:29:57 +0100
+Received: from stephan by xi.example.org with local (Exim 4.69)
+	(envelope-from <stephan@xi.example.org>)
+	id 1LTZaP-0007h3-2e
+	for stephan@xi.example.org; Sun, 01 Feb 2009 11:29:57 +0100
+From: Dovecot Debian Builder <stephan.example.org@xi.example.org>
+To: stephan@xi.example.org
+Subject: Log for failed build of dovecot_2:1.2.alpha5-0~auto+159 (dist=hardy)
+Message-Id: <E1LTZaP-0007h3-2e@xi.example.org>
+Date: Sun, 01 Feb 2009 11:29:57 +0100
+
+Automatic build of dovecot_1.2.alpha5-0~auto+159 on xi by sbuild/i386 0.57.7
+.
+;
+
+test "Match combined" {
+	if not header :matches "subject" "Log for ?* build of *" {
+		test_fail "failed to match";
+	}
+
+	if not string "${1}${2}" "failed" {
+		test_fail "incorrect match values: ${1}${2}";
+	}
+}

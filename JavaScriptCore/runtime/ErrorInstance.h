@@ -25,12 +25,30 @@
 
 namespace JSC {
 
-    class ErrorInstance : public JSObject {
+    class ErrorInstance : public JSNonFinalObject {
     public:
-        explicit ErrorInstance(NonNullPassRefPtr<Structure>);
+        static const ClassInfo s_info;
 
-        virtual const ClassInfo* classInfo() const { return &info; }
-        static const ClassInfo info;
+        static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+        {
+            return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+        }
+
+        static ErrorInstance* create(JSGlobalData*, Structure*, const UString&);
+        static ErrorInstance* create(ExecState*, Structure*, JSValue message);
+
+
+        bool appendSourceToMessage() { return m_appendSourceToMessage; }
+        void setAppendSourceToMessage() { m_appendSourceToMessage = true; }
+        void clearAppendSourceToMessage() { m_appendSourceToMessage = false; }
+
+        virtual bool isErrorInstance() const { return true; }
+
+    protected:
+        explicit ErrorInstance(JSGlobalData*, Structure*);
+        explicit ErrorInstance(JSGlobalData*, Structure*, const UString&);
+
+        bool m_appendSourceToMessage;
     };
 
 } // namespace JSC

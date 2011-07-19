@@ -1,7 +1,7 @@
-/**
+/*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2007, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -23,10 +23,11 @@
 #include "config.h"
 #include "HTMLMarqueeElement.h"
 
+#include "Attribute.h"
 #include "CSSPropertyNames.h"
 #include "CSSValueKeywords.h"
+#include "ExceptionCode.h"
 #include "HTMLNames.h"
-#include "MappedAttribute.h"
 #include "RenderLayer.h"
 #include "RenderMarquee.h"
 
@@ -37,12 +38,17 @@ using namespace HTMLNames;
 // WinIE uses 60ms as the minimum delay by default.
 const int defaultMinimumDelay = 60;
 
-HTMLMarqueeElement::HTMLMarqueeElement(const QualifiedName& tagName, Document* doc)
-    : HTMLElement(tagName, doc)
-    , ActiveDOMObject(doc, this)
+inline HTMLMarqueeElement::HTMLMarqueeElement(const QualifiedName& tagName, Document* document)
+    : HTMLElement(tagName, document)
+    , ActiveDOMObject(document, this)
     , m_minimumDelay(defaultMinimumDelay)
 {
     ASSERT(hasTagName(marqueeTag));
+}
+
+PassRefPtr<HTMLMarqueeElement> HTMLMarqueeElement::create(const QualifiedName& tagName, Document* document)
+{
+    return adoptRef(new HTMLMarqueeElement(tagName, document));
 }
 
 bool HTMLMarqueeElement::mapToEntry(const QualifiedName& attrName, MappedAttributeEntry& result) const
@@ -64,7 +70,7 @@ bool HTMLMarqueeElement::mapToEntry(const QualifiedName& attrName, MappedAttribu
     return HTMLElement::mapToEntry(attrName, result);
 }
 
-void HTMLMarqueeElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLMarqueeElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == widthAttr) {
         if (!attr->value().isEmpty())
@@ -122,12 +128,57 @@ void HTMLMarqueeElement::stop()
         marqueeRenderer->stop();
 }
 
+int HTMLMarqueeElement::scrollAmount() const
+{
+    bool ok;
+    int scrollAmount = fastGetAttribute(scrollamountAttr).toInt(&ok);
+    return ok && scrollAmount >= 0 ? scrollAmount : RenderStyle::initialMarqueeIncrement().value();
+}
+    
+void HTMLMarqueeElement::setScrollAmount(int scrollAmount, ExceptionCode& ec)
+{
+    if (scrollAmount < 0)
+        ec = INDEX_SIZE_ERR;
+    else
+        setIntegralAttribute(scrollamountAttr, scrollAmount);
+}
+    
+int HTMLMarqueeElement::scrollDelay() const
+{
+    bool ok;
+    int scrollDelay = fastGetAttribute(scrolldelayAttr).toInt(&ok);
+    return ok && scrollDelay >= 0 ? scrollDelay : RenderStyle::initialMarqueeSpeed();
+}
+
+void HTMLMarqueeElement::setScrollDelay(int scrollDelay, ExceptionCode& ec)
+{
+    if (scrollDelay < 0)
+        ec = INDEX_SIZE_ERR;
+    else
+        setIntegralAttribute(scrolldelayAttr, scrollDelay);
+}
+    
+int HTMLMarqueeElement::loop() const
+{
+    bool ok;
+    int loopValue = fastGetAttribute(loopAttr).toInt(&ok);
+    return ok && loopValue > 0 ? loopValue : -1;
+}
+    
+void HTMLMarqueeElement::setLoop(int loop, ExceptionCode& ec)
+{
+    if (loop <= 0 && loop != -1)
+        ec = INDEX_SIZE_ERR;
+    else
+        setIntegralAttribute(loopAttr, loop);
+}
+
 bool HTMLMarqueeElement::canSuspend() const
 {
     return true;
 }
 
-void HTMLMarqueeElement::suspend()
+void HTMLMarqueeElement::suspend(ReasonForSuspension)
 {
     if (RenderMarquee* marqueeRenderer = renderMarquee())
         marqueeRenderer->suspend();

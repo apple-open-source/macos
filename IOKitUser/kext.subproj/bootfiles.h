@@ -32,13 +32,31 @@
 
 #include <paths.h>
 
-/* Boot != Root directories */
+/* Boot != Root directories in Apple_Boot */
 #define kBootDirR "com.apple.boot.R"
 #define kBootDirP "com.apple.boot.P"
 #define kBootDirS "com.apple.boot.S"
 
 /* Boot != Root key for firmware's /chosen  */
-#define kBootRootActiveKey    "bootroot-active"
+#define kBootRootActiveKey      "bootroot-active"
+
+/* Recovery OS directory in Apple_Boot */
+#define kRecoveryBootDir        "com.apple.recovery.boot"
+
+/* Recovery OS NVRAM variables & values */
+// No recovery-boot-mode or Installer automation vars -> generic recovery
+// with all functions available.  boot.efi boots the Recovery OS
+// regardless of the value assigned to recovery-boot-mode.
+#define kRecoveryBootVar        "recovery-boot-mode"
+#define kRecoveryBootModeGuest      "guest"         // guest boot (usu. once)
+#define kRecoveryBootModeLocked     "locked"        // system is FMM-locked
+#define kRcevoeryBootModeRecovery   "recovery"      // OS->booter: generic pls
+
+// Variable indicating that the user had trouble at EFI Login.
+// Indicates to the OS that it should allow Bluetooth pairing, etc
+// For now, this variable is set to "true" by the booter.
+// The OS should unset this variable.
+#define kRecoveryBootEFILoginHelpVar "recovery-boot-efilogin-help"
 
 /* The kernel */
 #define kDefaultKernel        "/mach_kernel"
@@ -47,11 +65,7 @@
 
 /* The system extensions folder */
 #define kSystemExtensionsDir  "/System/Library/Extensions"
-// kSystemExtensionsDir semi-obsolete in light of supporting multiple exts folders
 
-/* The system mkext file */
-#define kDefaultMkext         "/System/Library/Extensions.mkext"
-// kDefaultMkext obsolete, see OSKextPrivate.h
 
 /* The booter configuration file */
 #define kBootConfig           "/Library/Preferences/SystemConfiguration/com.apple.Boot.plist"
@@ -59,7 +73,7 @@
 #define kMKextCacheKey        "MKext Cache"
 #define kKernelNameKey        "Kernel"
 #define kKernelCacheKey       "Kernel Cache"
-#define kRootUUIDKey	      "Root UUID"
-#define kRootMatchKey	      "Root Match"
+#define kRootUUIDKey          "Root UUID"
+#define kRootMatchKey         "Root Match"
 
 #endif __BOOTFILES_H__

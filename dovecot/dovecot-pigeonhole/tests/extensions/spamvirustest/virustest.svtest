@@ -1,0 +1,143 @@
+require "vnd.dovecot.testsuite";
+require "virustest";
+require "relational";
+require "comparator-i;ascii-numeric";
+require "variables";
+
+/*
+ * Text
+ */
+
+test_set "message" text:
+From: legitimate@example.com
+To: victim@dovecot.example.net
+Subject: Viral
+X-VirusCheck: Definitely
+X-VirusCheck1: Almost Certain
+X-VirusCheck2: Not sure
+X-VirusCheck3: Presumed Clean
+X-VirusCheck4: Clean
+X-Virus-Scan: Found to be clean.
+X-Virus-Scan1: Found to be infected.
+X-Virus-Scan2: Found to be harmless.
+
+Test!
+.
+;
+
+test_config_set "sieve_virustest_status_header" "X-VirusCheck";
+test_config_set "sieve_virustest_status_type" "text";
+test_config_set "sieve_virustest_text_value1" "Clean";
+test_config_set "sieve_virustest_text_value2" "Presumed Clean";
+test_config_set "sieve_virustest_text_value3" "Not sure";
+test_config_set "sieve_virustest_text_value4" "Almost Certain";
+test_config_set "sieve_virustest_text_value5" "Definitely";
+test_config_reload :extension "virustest";
+
+test "Text: 5" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "5" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-VirusCheck1";
+test_config_reload :extension "virustest";
+
+test "Text: 4" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "4" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-VirusCheck2";
+test_config_reload :extension "virustest";
+
+test "Text: 3" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "3" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-VirusCheck3";
+test_config_reload :extension "virustest";
+
+test "Text: 2" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "2" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-VirusCheck4";
+test_config_reload :extension "virustest";
+
+test "Text: 1" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "1" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-Virus-Scan:Found to be (.+)\.";
+test_config_set "sieve_virustest_status_type" "text";
+test_config_set "sieve_virustest_text_value1" "clean";
+test_config_set "sieve_virustest_text_value5" "infected";
+test_config_reload :extension "virustest";
+
+test "Text: regex: 1" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "1" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-Virus-Scan1:Found to be (.+)\.";
+test_config_reload :extension "virustest";
+
+test "Text: regex: 5" {
+	if virustest :is "0" {
+		test_fail "virustest not configured or test failed";
+	}
+
+	if not virustest :value "eq" "5" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}
+
+test_config_set "sieve_virustest_status_header" "X-Virus-Scan2:Found to be (.+)\.";
+test_config_reload :extension "virustest";
+
+test "Text: regex: 0" {
+	if not virustest :is "0" {
+		if virustest :matches "*" { }
+		test_fail "wrong virus value produced: ${1}";
+	}
+}

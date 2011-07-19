@@ -4,6 +4,8 @@
 # Microversion (uvn)
 # Kevin Van Vechten <kvv@apple.com>
 # 9/28/2006
+#
+# Modified 07/13/2010 to support multiple archives for mesa
 ###
 
 proc DEBUG {args} {
@@ -112,52 +114,53 @@ namespace eval uvn::state {
 }
 
 
-proc find_distfile {} {
+proc find_distfiles {} {
 	set sources {}
 	foreach suffix {.tar .tar.Z .tar.gz .tar.bz2 .tgz .tbz2} {
 		set files [glob -nocomplain -type f *$suffix]
-		if {[llength $files] > 0} {
-			lappend sources $files
+		foreach f $files {
+			lappend sources [file join [pwd] $f]
 		}
 	}
 	
 	set c [llength $sources]
-	if {$c == 0} {
+	if {[llength $sources] == 0} {
 		return -code error "no source archive"
-	} elseif {$c > 1} {
-		return -code error "too many source archives; please specify one"
 	} else {
-		return [file join [pwd] [lindex $sources 0]]
+		return $sources
 	}
 }
 
-proc extract_sources {path {suffix ""}} {
-	set precmd {}
-	set cmd {tar xf -}
-	switch -glob -- $path {
-		*.tar {}
-		*.tar.Z { set precmd {uncompress - |} }
-		*.tar.gz -
-		*.tgz { set precmd {gzip -cd - |} }
-		*.tar.bz2 -
-		*.tbz2 { set precmd {bzip2 -cd - |} }
-		default { return -code error "unsupported archive format: $path" }
+proc extract_sources {paths {suffix ""}} {
+	file mkdir $uvn::var/extract
+
+	foreach path $paths {
+		set cmd {tar -xf -}
+		switch -glob -- $path {
+			*.tar     { set cmd {tar -xf -} }
+			*.tar.Z   { set cmd {tar -xZf -} }
+			*.tar.gz  { set cmd {tar -xzf -} }
+			*.tgz     { set cmd {tar -xzf -} }
+			*.tar.bz2 { set cmd {tar -xjf -} }
+			*.tbz2    { set cmd {tar -xjf -} }
+			default   { return -code error "unsupported archive format: $path" }
+		}
+
+		PRINT Extracting: [file tail $path]
+		eval DEBUG $cmd -C $uvn::var/extract < $path
+		eval exec -- $cmd -C $uvn::var/extract < $path
 	}
 
 	### Validate temp ###
-
-	file mkdir $uvn::var/extract
-	eval DEBUG $precmd $cmd -C $uvn::var/extract < $path
-	eval exec -- $precmd $cmd -C $uvn::var/extract < $path
 	set files [glob $uvn::var/extract/*]
 	if {[llength $files] == 0} {
-		return -code error "archive is empty: $path"
+		return -code error "archive is empty: $paths"
 	} elseif {[llength $files] > 1} {
-		return -code error "archive does not have root directory: $path"
+		return -code error "archive does not have root directory: $paths"
 	}
 	set dir [lindex $files 0]
 	if {![file isdirectory $dir]} {
-		return -code error "archive does not contain a directory: $path"
+		return -code error "archive does not contain a directory: $paths"
 	}
 
 	### Make temp visible (with optional suffix appended) ###
@@ -172,13 +175,11 @@ proc extract_sources {path {suffix ""}} {
 ##### main #####
 
 proc extract {} {
-	if {![info exists uvn::state(distfile)]} {
-		set uvn::state(distfile) [find_distfile]
+	if {![info exists uvn::state(distfiles)]} {
+		set uvn::state(distfiles) [find_distfiles]
 	}
-	if {![info exists uvn::state(workdir)] ||
-		![file exists $uvn::state(workdir)]} {
-		PRINT Extracting: [file tail $uvn::state(distfile)]
-		set uvn::state(workdir) [extract_sources $uvn::state(distfile)]
+	if {![info exists uvn::state(workdir)] || ![file exists $uvn::state(workdir)]} {
+		set uvn::state(workdir) [extract_sources $uvn::state(distfiles)]
 	}
 }
 

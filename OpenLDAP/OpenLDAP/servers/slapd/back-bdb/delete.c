@@ -1,8 +1,8 @@
 /* delete.c - bdb backend delete routine */
-/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/delete.c,v 1.155.2.8 2008/05/01 21:39:35 quanah Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/back-bdb/delete.c,v 1.155.2.13 2010/04/19 16:53:03 quanah Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 2000-2008 The OpenLDAP Foundation.
+ * Copyright 2000-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,10 +35,9 @@ bdb_delete( Operation *op, SlapReply *rs )
 	AttributeDescription *children = slap_schema.si_ad_children;
 	AttributeDescription *entry = slap_schema.si_ad_entry;
 	DB_TXN		*ltid = NULL, *lt2;
-	struct bdb_op_info opinfo = {0};
+	struct bdb_op_info opinfo = {{{ 0 }}};
 	ID	eid;
 
-	BDB_LOCKER	locker = 0;
 	DB_LOCK		lock, plock;
 
 	int		num_retries = 0;
@@ -102,7 +101,7 @@ txnReturn:
 	/* allocate CSN */
 	if ( BER_BVISNULL( &op->o_csn ) ) {
 		struct berval csn;
-		char csnbuf[LDAP_LUTIL_CSNSTR_BUFSIZE];
+		char csnbuf[LDAP_PVT_CSNSTR_BUFSIZE];
 
 		csn.bv_val = csnbuf;
 		csn.bv_len = sizeof(csnbuf);
@@ -154,8 +153,6 @@ retry:	/* transaction retry */
 		goto return_results;
 	}
 
-	locker = TXN_ID ( ltid );
-
 	opinfo.boi_oe.oe_key = bdb;
 	opinfo.boi_txn = ltid;
 	opinfo.boi_err = 0;
@@ -168,7 +165,7 @@ retry:	/* transaction retry */
 
 	/* get entry */
 	rs->sr_err = bdb_dn2entry( op, ltid, &op->o_req_ndn, &ei, 1,
-		locker, &lock );
+		&lock );
 
 	switch( rs->sr_err ) {
 	case 0:
@@ -217,7 +214,7 @@ retry:	/* transaction retry */
 		goto return_results;
 	}
 
-	rc = bdb_cache_find_id( op, ltid, eip->bei_id, &eip, 0, locker, &plock );
+	rc = bdb_cache_find_id( op, ltid, eip->bei_id, &eip, 0, &plock );
 	switch( rc ) {
 	case DB_LOCK_DEADLOCK:
 	case DB_LOCK_NOTGRANTED:
@@ -527,7 +524,7 @@ retry:	/* transaction retry */
 		BDB_LOG_PRINTF( bdb->bi_dbenv, ltid, "slapd Cache delete %s(%d)",
 			e->e_nname.bv_val, e->e_id );
 
-		rc = bdb_cache_delete( bdb, e, locker, &lock );
+		rc = bdb_cache_delete( bdb, e, ltid, &lock );
 		switch( rc ) {
 		case DB_LOCK_DEADLOCK:
 		case DB_LOCK_NOTGRANTED:

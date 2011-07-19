@@ -1,9 +1,9 @@
 /*
  * "$Id: quotas.c 6947 2007-09-12 21:09:49Z mike $"
  *
- *   Quota routines for the Common UNIX Printing System (CUPS).
+ *   Quota routines for the CUPS scheduler.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2011 by Apple Inc.
  *   Copyright 1997-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -119,19 +119,6 @@ cupsdUpdateQuota(
                   "cupsdUpdateQuota: p=%s username=%s pages=%d k=%d",
                   p->name, username, pages, k);
 
-#if defined(__APPLE__) && defined(HAVE_DLFCN_H)
- /*
-  * Use Apple PrintService quota enforcement if installed (X Server only)
-  */
-
-  if (AppleQuotas && PSQUpdateQuotaProc)
-  { 
-    q->page_count = (*PSQUpdateQuotaProc)(p->name, p->info, username, pages, 0);
-
-    return (q);
-  }
-#endif /* __APPLE__ && HAVE_DLFCN_H */
-
   curtime = time(NULL);
 
   if (curtime < q->next_update)
@@ -159,8 +146,8 @@ cupsdUpdateQuota(
     * We only care about the current printer/class and user...
     */
 
-    if (strcasecmp(job->dest, p->name) != 0 ||
-        strcasecmp(job->username, q->username) != 0)
+    if (_cups_strcasecmp(job->dest, p->name) != 0 ||
+        _cups_strcasecmp(job->username, q->username) != 0)
       continue;
 
    /*
@@ -248,7 +235,7 @@ static int				/* O - Result of comparison */
 compare_quotas(const cupsd_quota_t *q1,	/* I - First quota record */
                const cupsd_quota_t *q2)	/* I - Second quota record */
 {
-  return (strcasecmp(q1->username, q2->username));
+  return (_cups_strcasecmp(q1->username, q2->username));
 }
 
 

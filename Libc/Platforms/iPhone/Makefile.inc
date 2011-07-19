@@ -5,6 +5,9 @@
 # Legacy *64 APIs
 #FEATURE_LEGACY_64_APIS = 1
 
+# Legacy crt1.o environ support
+#FEATURE_LEGACY_CRT1_ENVIRON = 1
+
 # Legacy NX international APIs
 FEATURE_LEGACY_NX_INTERNAT_APIS = 1
 
@@ -21,7 +24,9 @@ FEATURE_LEGACY_NXZONE_APIS = 1
 FEATURE_MEM_THERM_NOTIFICATION_APIS = 1
 
 # Move localtime to /var/db/timezone
+.if $(RC_ProjectName) == $(RC_ProjectName:%_Sim=%)
 FEATURE_MOVE_LOCALTIME = 1
+.endif
 
 # Long doubles are doubles (should match sys/cdefs.h)
 .if (${MACHINE_ARCH} == arm)
@@ -40,9 +45,6 @@ FEATURE_ONLY_64_BIT_INO_T = 1
 # Patch 3333969
 #FEATURE_PATCH_3333969 = 1
 
-# Patch 3375657
-#FEATURE_PATCH_3375657 = 1
-
 # Patch 3417676
 #FEATURE_PATCH_3417676 = 1
 
@@ -53,4 +55,4 @@ FEATURE_PATCH_5243343 = 1
 #FEATURE_PLOCKSTAT = 1
 
 # Timezone change notification
-#FEATURE_TIMEZONE_CHANGE_NOTIFICATION = 1
+FEATURE_TIMEZONE_CHANGE_NOTIFICATION = 1

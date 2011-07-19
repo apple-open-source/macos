@@ -8,11 +8,9 @@ use DateTime;
 
 my $pos = DateTime::Infinite::Future->new;
 my $neg = DateTime::Infinite::Past->new;
-my $posinf = 100 ** 100 ** 100;
-my $neginf = -1 * $posinf;
-# used to use abs() which broke some Win32 platforms but may have
-# fixed others - will wait for bug reports
-my $nan = $posinf - $posinf;
+my $posinf = DateTime::INFINITY;
+my $neginf = DateTime::NEG_INFINITY;
+my $nan_string = DateTime::NAN;
 
 # infinite date math
 {
@@ -56,7 +54,8 @@ my $nan = $posinf - $posinf;
     foreach (@compare)
     {
         # NaN != NaN (but should stringify the same)
-        ok( $deltas{$_} eq $nan, "infinity - infinity = nan ($_)" );
+        is( $deltas{$_} . '', $nan_string,
+            "infinity - infinity = nan ($_)" );
     }
 
     my $new_pos = $pos->clone->add( days => 10 );

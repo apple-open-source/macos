@@ -112,18 +112,6 @@ sym_to_gelf(const Elf32_Sym *src, Elf64_Sym *dst)
 #include <mach-o/nlist.h>
 #include <mach-o/stab.h>
 
-/* Prototype taken from <libiberty/demangle.h> (which won't #include cleanly) */
-extern char *cplus_demangle(const char *, int);
-
-static char 
-*demangleSymbolCString(const char *mangled)
- {
-     if(mangled[0]!='_') return NULL;
-     if(mangled[1]=='_') mangled++; // allow either __Z or _Z prefix
-     if(mangled[1]!='Z') return NULL;
-     return cplus_demangle(mangled, 0);
- }
-
 static Elf64_Sym *
 sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym, const char *base)
 {
@@ -135,9 +123,6 @@ sym_to_gelf_macho(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym, c
 		sym->st_name = 0;
 		return sym;
 	}
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
@@ -185,9 +170,6 @@ sym_to_gelf_macho_64(const ctf_sect_t *sp, const Elf32_Sym *src, Elf64_Sym * sym
 		sym->st_name = 0;
 		return sym;
 	}
-
-	if ((tmp = demangleSymbolCString(name)))
-		name = tmp;
 
 	if ('_' == name[0])
 		name++; // Lop off omnipresent underscore to match DWARF convention
@@ -339,7 +321,12 @@ init_types(ctf_file_t *fp, const ctf_header_t *cth)
 	ulong_t pop[CTF_K_MAX + 1] = { 0 };
 	const ctf_type_t *tp;
 	ctf_hash_t *hp;
+#if !defined(__APPLE__)
 	ushort_t id, dst;
+#else
+	ushort_t dst;
+	ctf_id_t id;
+#endif
 	uint_t *xp;
 
 	/*

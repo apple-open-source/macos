@@ -31,55 +31,235 @@
 #include "config.h"
 #include "ChromiumDataObject.h"
 
+#include "ClipboardMimeTypes.h"
+#include "Pasteboard.h"
+#include "PlatformBridge.h"
+
 namespace WebCore {
 
-void ChromiumDataObject::clear()
+// Per RFC 2483, the line separator for "text/..." MIME types is CR-LF.
+static char const* const textMIMETypeLineSeparator = "\r\n";
+
+void ChromiumDataObject::clearData(const String& type)
+{
+    if (type == mimeTypeTextPlain) {
+        m_plainText = "";
+        return;
+    }
+
+    if (type == mimeTypeURL || type == mimeTypeTextURIList) {
+        m_uriList = "";
+        m_url = KURL();
+        m_urlTitle = "";
+        return;
+    }
+
+    if (type == mimeTypeTextHTML) {
+        m_textHtml = "";
+        m_htmlBaseUrl = KURL();
+        return;
+    }
+
+    if (type == mimeTypeDownloadURL) {
+        m_downloadMetadata = "";
+        return;
+    }
+}
+
+void ChromiumDataObject::clearAll()
 {
     clearAllExceptFiles();
-    filenames.clear();
+    m_filenames.clear();
 }
 
 void ChromiumDataObject::clearAllExceptFiles()
 {
-    url = KURL();
-    urlTitle = "";
-    uriList.clear();
-    downloadMetadata = "";
-    fileExtension = "";
-    plainText = "";
-    textHtml = "";
-    htmlBaseUrl = KURL();
-    fileContentFilename = "";
-    if (fileContent)
-        fileContent->clear();
+    m_urlTitle = "";
+    m_url = KURL();
+    m_uriList = "";
+    m_downloadMetadata = "";
+    m_fileExtension = "";
+    m_plainText = "";
+    m_textHtml = "";
+    m_htmlBaseUrl = KURL();
+    m_fileContentFilename = "";
+    if (m_fileContent)
+        m_fileContent->clear();
 }
 
 bool ChromiumDataObject::hasData() const
 {
-    return !url.isEmpty()
-        || !uriList.isEmpty()
-        || !downloadMetadata.isEmpty()
-        || !fileExtension.isEmpty()
-        || !filenames.isEmpty()
-        || !plainText.isEmpty()
-        || !textHtml.isEmpty()
-        || fileContent;
+    return !m_url.isEmpty()
+        || !m_uriList.isEmpty()
+        || !m_downloadMetadata.isEmpty()
+        || !m_fileExtension.isEmpty()
+        || !m_filenames.isEmpty()
+        || !m_plainText.isEmpty()
+        || !m_textHtml.isEmpty()
+        || m_fileContent;
+}
+
+HashSet<String> ChromiumDataObject::types() const
+{
+    if (m_clipboardType == Clipboard::CopyAndPaste) {
+        bool ignoredContainsFilenames;
+        return PlatformBridge::clipboardReadAvailableTypes(PasteboardPrivate::StandardBuffer,
+                                                           &ignoredContainsFilenames);
+    }
+
+    HashSet<String> results;
+
+    if (!m_plainText.isEmpty()) {
+        results.add(mimeTypeText);
+        results.add(mimeTypeTextPlain);
+    }
+
+    if (m_url.isValid())
+        results.add(mimeTypeURL);
+
+    if (!m_uriList.isEmpty())
+        results.add(mimeTypeTextURIList);
+
+    if (!m_textHtml.isEmpty())
+        results.add(mimeTypeTextHTML);
+
+    return results;
+}
+
+String ChromiumDataObject::getData(const String& type, bool& success)
+{
+    if (type == mimeTypeTextPlain) {
+        if (m_clipboardType == Clipboard::CopyAndPaste) {
+            PasteboardPrivate::ClipboardBuffer buffer =
+                Pasteboard::generalPasteboard()->isSelectionMode() ?
+                PasteboardPrivate::SelectionBuffer :
+                PasteboardPrivate::StandardBuffer;
+            String text = PlatformBridge::clipboardReadPlainText(buffer);
+            success = !text.isEmpty();
+            return text;
+        }
+        success = !m_plainText.isEmpty();
+        return m_plainText;
+    }
+
+    if (type == mimeTypeURL) {
+        success = !m_url.isEmpty();
+        return m_url.string();
+    }
+
+    if (type == mimeTypeTextURIList) {
+        success = !m_uriList.isEmpty();
+        return m_uriList;
+    }
+
+    if (type == mimeTypeTextHTML) {
+        if (m_clipboardType == Clipboard::CopyAndPaste) {
+            PasteboardPrivate::ClipboardBuffer buffer =
+                Pasteboard::generalPasteboard()->isSelectionMode() ?
+                PasteboardPrivate::SelectionBuffer :
+                PasteboardPrivate::StandardBuffer;
+            String htmlText;
+            KURL sourceURL;
+            PlatformBridge::clipboardReadHTML(buffer, &htmlText, &sourceURL);
+            success = !htmlText.isEmpty();
+            return htmlText;
+        }
+        success = !m_textHtml.isEmpty();
+        return m_textHtml;
+    }
+
+    if (type == mimeTypeDownloadURL) {
+        success = !m_downloadMetadata.isEmpty();
+        return m_downloadMetadata;
+    }
+
+    success = false;
+    return String();
+}
+
+bool ChromiumDataObject::setData(const String& type, const String& data)
+{
+    if (type == mimeTypeTextPlain) {
+        m_plainText = data;
+        return true;
+    }
+
+    if (type == mimeTypeURL || type == mimeTypeTextURIList) {
+        m_url = KURL();
+        Vector<String> uriList;
+        // Line separator is \r\n per RFC 2483 - however, for compatibility
+        // reasons we also allow just \n here.
+        data.split('\n', uriList);
+        // Process the input and copy the first valid URL into the url member.
+        // In case no URLs can be found, subsequent calls to getData("URL")
+        // will get an empty string. This is in line with the HTML5 spec (see
+        // "The DragEvent and DataTransfer interfaces").
+        for (size_t i = 0; i < uriList.size(); ++i) {
+            String& line = uriList[i];
+            line = line.stripWhiteSpace();
+            if (line.isEmpty()) {
+                continue;
+            }
+            if (line[0] == '#')
+                continue;
+            KURL url = KURL(ParsedURLString, line);
+            if (url.isValid()) {
+                m_url = url;
+                break;
+            }
+        }
+        m_uriList = data;
+        return true;
+    }
+
+    if (type == mimeTypeTextHTML) {
+        m_textHtml = data;
+        m_htmlBaseUrl = KURL();
+        return true;
+    }
+
+    if (type == mimeTypeDownloadURL) {
+        m_downloadMetadata = data;
+        return true;
+    }
+
+    return false;
+}
+
+bool ChromiumDataObject::containsFilenames() const
+{
+    bool containsFilenames;
+    if (m_clipboardType == Clipboard::CopyAndPaste) {
+        HashSet<String> ignoredResults =
+            PlatformBridge::clipboardReadAvailableTypes(PasteboardPrivate::StandardBuffer,
+                                                        &containsFilenames);
+    } else
+        containsFilenames = !m_filenames.isEmpty();
+    return containsFilenames;
+}
+
+ChromiumDataObject::ChromiumDataObject(Clipboard::ClipboardType clipboardType)
+    : m_clipboardType(clipboardType)
+{
 }
 
 ChromiumDataObject::ChromiumDataObject(const ChromiumDataObject& other)
-    : urlTitle(other.urlTitle)
-    , downloadMetadata(other.downloadMetadata)
-    , fileExtension(other.fileExtension)
-    , filenames(other.filenames)
-    , plainText(other.plainText)
-    , textHtml(other.textHtml)
-    , htmlBaseUrl(other.htmlBaseUrl)
-    , fileContentFilename(other.fileContentFilename)
-    , url(other.url)
-    , uriList(other.uriList)
+    : RefCounted<ChromiumDataObject>()
+    , m_clipboardType(other.m_clipboardType)
+    , m_urlTitle(other.m_urlTitle)
+    , m_downloadMetadata(other.m_downloadMetadata)
+    , m_fileExtension(other.m_fileExtension)
+    , m_filenames(other.m_filenames)
+    , m_plainText(other.m_plainText)
+    , m_textHtml(other.m_textHtml)
+    , m_htmlBaseUrl(other.m_htmlBaseUrl)
+    , m_fileContentFilename(other.m_fileContentFilename)
+    , m_url(other.m_url)
+    , m_uriList(other.m_uriList)
 {
-    if (other.fileContent.get())
-        fileContent = other.fileContent->copy();
+    if (other.m_fileContent.get())
+        m_fileContent = other.m_fileContent->copy();
 }
 
 } // namespace WebCore
+

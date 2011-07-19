@@ -1,0 +1,230 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A979227D076FA9E50006C07C /* FSFormatName.h in Headers */ = {isa = PBXBuildFile; fileRef = A979227C076FA9E50006C07C /* FSFormatName.h */; };
+		A9A1F2DE0754F05E008B2629 /* FSFormatName.c in Sources */ = {isa = PBXBuildFile; fileRef = A9A1F2DC0754F05D008B2629 /* FSFormatName.c */; };
+		A9A1F2DF0754F05E008B2629 /* FSPrivate.h in Headers */ = {isa = PBXBuildFile; fileRef = A9A1F2DD0754F05E008B2629 /* FSPrivate.h */; settings = {ATTRIBUTES = (Private, ); }; };
+		A9DD4A2D076FB7750075BCC0 /* bootsect.h in Headers */ = {isa = PBXBuildFile; fileRef = A9DD4A2C076FB7750075BCC0 /* bootsect.h */; };
+		A9F3306E076FD15200026204 /* bpb.h in Headers */ = {isa = PBXBuildFile; fileRef = A9F3306D076FD15200026204 /* bpb.h */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		A979227C076FA9E50006C07C /* FSFormatName.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = FSFormatName.h; sourceTree = "<group>"; };
+		A9A1F2DC0754F05D008B2629 /* FSFormatName.c */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.c; path = FSFormatName.c; sourceTree = "<group>"; };
+		A9A1F2DD0754F05E008B2629 /* FSPrivate.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = FSPrivate.h; sourceTree = "<group>"; };
+		A9DD4A2C076FB7750075BCC0 /* bootsect.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bootsect.h; sourceTree = "<group>"; };
+		A9F3306D076FD15200026204 /* bpb.h */ = {isa = PBXFileReference; fileEncoding = 30; lastKnownFileType = sourcecode.c.h; path = bpb.h; sourceTree = "<group>"; };
+		D2AAC046055464E500DB518D /* libfs.a */ = {isa = PBXFileReference; explicitFileType = archive.ar; includeInIndex = 0; path = libfs.a; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		D289987405E68DCB004EDB86 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		08FB7794FE84155DC02AAC07 /* libfilesystem */ = {
+			isa = PBXGroup;
+			children = (
+				A9DD4A2E076FB7830075BCC0 /* Headers */,
+				08FB7795FE84155DC02AAC07 /* Source */,
+				C6A0FF2B0290797F04C91782 /* Documentation */,
+				1AB674ADFE9D54B511CA2CBB /* Products */,
+			);
+			name = libfilesystem;
+			sourceTree = "<group>";
+		};
+		08FB7795FE84155DC02AAC07 /* Source */ = {
+			isa = PBXGroup;
+			children = (
+				A9A1F2DC0754F05D008B2629 /* FSFormatName.c */,
+			);
+			name = Source;
+			sourceTree = "<group>";
+		};
+		1AB674ADFE9D54B511CA2CBB /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				D2AAC046055464E500DB518D /* libfs.a */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A9DD4A2E076FB7830075BCC0 /* Headers */ = {
+			isa = PBXGroup;
+			children = (
+				A9F3306D076FD15200026204 /* bpb.h */,
+				A9A1F2DD0754F05E008B2629 /* FSPrivate.h */,
+				A9DD4A2C076FB7750075BCC0 /* bootsect.h */,
+				A979227C076FA9E50006C07C /* FSFormatName.h */,
+			);
+			name = Headers;
+			sourceTree = "<group>";
+		};
+		C6A0FF2B0290797F04C91782 /* Documentation */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			name = Documentation;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		D2AAC043055464E500DB518D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9A1F2DF0754F05E008B2629 /* FSPrivate.h in Headers */,
+				A979227D076FA9E50006C07C /* FSFormatName.h in Headers */,
+				A9DD4A2D076FB7750075BCC0 /* bootsect.h in Headers */,
+				A9F3306E076FD15200026204 /* bpb.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		D2AAC045055464E500DB518D /* libfs */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 4D386FCF12B2A7D60023DA29 /* Build configuration list for PBXNativeTarget "libfs" */;
+			buildPhases = (
+				D2AAC043055464E500DB518D /* Headers */,
+				D2AAC044055464E500DB518D /* Sources */,
+				D289987405E68DCB004EDB86 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = libfs;
+			productName = libfilesystem;
+			productReference = D2AAC046055464E500DB518D /* libfs.a */;
+			productType = "com.apple.product-type.library.static";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		08FB7793FE84155DC02AAC07 /* Project object */ = {
+			isa = PBXProject;
+			buildConfigurationList = 4D386FCE12B2A7D60023DA29 /* Build configuration list for PBXProject "libfs" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 1;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
+			mainGroup = 08FB7794FE84155DC02AAC07 /* libfilesystem */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				D2AAC045055464E500DB518D /* libfs */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D2AAC044055464E500DB518D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9A1F2DE0754F05E008B2629 /* FSFormatName.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		4D386FC812B2A7D60023DA29 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+			};
+			name = Debug;
+		};
+		4D386FC912B2A7D60023DA29 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ARCHS = "$(ARCHS_STANDARD_32_64_BIT)";
+			};
+			name = Release;
+		};
+		4D386FCB12B2A7D60023DA29 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = NO;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = fs;
+				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
+				ZERO_LINK = YES;
+			};
+			name = Debug;
+		};
+		4D386FCC12B2A7D60023DA29 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				COPY_PHASE_STRIP = YES;
+				GCC_ENABLE_FIX_AND_CONTINUE = NO;
+				GCC_GENERATE_DEBUGGING_SYMBOLS = NO;
+				INSTALL_PATH = /usr/local/lib;
+				LIBRARY_STYLE = STATIC;
+				OTHER_CFLAGS = (
+					"-Wall",
+					"-Werror",
+				);
+				PREBINDING = NO;
+				PRODUCT_NAME = fs;
+				WARNING_LDFLAGS = "-Wl,-no_arch_warnings";
+				ZERO_LINK = NO;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		4D386FCE12B2A7D60023DA29 /* Build configuration list for PBXProject "libfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D386FC812B2A7D60023DA29 /* Debug */,
+				4D386FC912B2A7D60023DA29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		4D386FCF12B2A7D60023DA29 /* Build configuration list for PBXNativeTarget "libfs" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D386FCB12B2A7D60023DA29 /* Debug */,
+				4D386FCC12B2A7D60023DA29 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 08FB7793FE84155DC02AAC07 /* Project object */;
+}

@@ -4,7 +4,7 @@
  *           (C) 1998 Waldo Bastian (bastian@kde.org)
  *           (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2004, 2005, 2006, 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2004, 2005, 2006, 2007, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -38,37 +38,25 @@ namespace WebCore {
 
 using namespace HTMLNames;
 
-HTMLTableRowElement::HTMLTableRowElement(const QualifiedName& tagName, Document* doc)
-    : HTMLTablePartElement(tagName, doc)
+HTMLTableRowElement::HTMLTableRowElement(const QualifiedName& tagName, Document* document)
+    : HTMLTablePartElement(tagName, document)
 {
     ASSERT(hasTagName(trTag));
 }
 
-bool HTMLTableRowElement::checkDTD(const Node* newChild)
+PassRefPtr<HTMLTableRowElement> HTMLTableRowElement::create(Document* document)
 {
-    if (newChild->isTextNode())
-        return static_cast<const Text*>(newChild)->containsOnlyWhitespace();
-    return newChild->hasTagName(tdTag) || newChild->hasTagName(thTag) ||
-           newChild->hasTagName(formTag) || newChild->hasTagName(scriptTag);
+    return adoptRef(new HTMLTableRowElement(trTag, document));
 }
 
-ContainerNode* HTMLTableRowElement::addChild(PassRefPtr<Node> child)
+PassRefPtr<HTMLTableRowElement> HTMLTableRowElement::create(const QualifiedName& tagName, Document* document)
 {
-    if (child->hasTagName(formTag)) {
-        // First add the child.
-        HTMLTablePartElement::addChild(child);
-
-        // Now simply return ourselves as the container to insert into.
-        // This has the effect of demoting the form to a leaf and moving it safely out of the way.
-        return this;
-    }
-
-    return HTMLTablePartElement::addChild(child);
+    return adoptRef(new HTMLTableRowElement(tagName, document));
 }
 
 int HTMLTableRowElement::rowIndex() const
 {
-    Node *table = parentNode();
+    ContainerNode* table = parentNode();
     if (!table)
         return -1;
     table = table->parentNode();
@@ -139,18 +127,18 @@ PassRefPtr<HTMLElement> HTMLTableRowElement::insertCell(int index, ExceptionCode
         return 0;
     }
 
-    RefPtr<HTMLTableCellElement> c = new HTMLTableCellElement(tdTag, document());
+    RefPtr<HTMLTableCellElement> cell = HTMLTableCellElement::create(tdTag, document());
     if (index < 0 || index >= numCells)
-        appendChild(c, ec);
+        appendChild(cell, ec);
     else {
         Node* n;
         if (index < 1)
             n = firstChild();
         else
             n = children->item(index);
-        insertBefore(c, n, ec);
+        insertBefore(cell, n, ec);
     }
-    return c.release();
+    return cell.release();
 }
 
 void HTMLTableRowElement::deleteCell(int index, ExceptionCode& ec)
@@ -171,59 +159,9 @@ PassRefPtr<HTMLCollection> HTMLTableRowElement::cells()
     return HTMLCollection::create(this, TRCells);
 }
 
-void HTMLTableRowElement::setCells(HTMLCollection *, ExceptionCode& ec)
+void HTMLTableRowElement::setCells(HTMLCollection*, ExceptionCode& ec)
 {
     ec = NO_MODIFICATION_ALLOWED_ERR;
-}
-
-String HTMLTableRowElement::align() const
-{
-    return getAttribute(alignAttr);
-}
-
-void HTMLTableRowElement::setAlign(const String &value)
-{
-    setAttribute(alignAttr, value);
-}
-
-String HTMLTableRowElement::bgColor() const
-{
-    return getAttribute(bgcolorAttr);
-}
-
-void HTMLTableRowElement::setBgColor(const String &value)
-{
-    setAttribute(bgcolorAttr, value);
-}
-
-String HTMLTableRowElement::ch() const
-{
-    return getAttribute(charAttr);
-}
-
-void HTMLTableRowElement::setCh(const String &value)
-{
-    setAttribute(charAttr, value);
-}
-
-String HTMLTableRowElement::chOff() const
-{
-    return getAttribute(charoffAttr);
-}
-
-void HTMLTableRowElement::setChOff(const String &value)
-{
-    setAttribute(charoffAttr, value);
-}
-
-String HTMLTableRowElement::vAlign() const
-{
-    return getAttribute(valignAttr);
-}
-
-void HTMLTableRowElement::setVAlign(const String &value)
-{
-    setAttribute(valignAttr, value);
 }
 
 }

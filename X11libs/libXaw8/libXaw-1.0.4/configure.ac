@@ -48,6 +48,7 @@ case $host_os in
 	;;
     darwin*)
 	LIBEXT=dylib
+	LDFLAGS="-Wl,-flat_namespace $LDFLAGS"
 	platform_darwin=yes
 	;;
 esac

@@ -12,7 +12,7 @@
 
 #include "autofs.h"
 
-static char usage[] = "usage: %s [-d] [-t timeout] mount_point opts map subdir key";
+static char usage[] = "usage: %s [-d] mount_point opts map subdir key";
 
 static char gKextLoadCommand[] = "/sbin/kextload";
 static char gKextLoadPath[] = "/System/Library/Extensions/autofs.kext";
@@ -23,14 +23,11 @@ int
 main(int argc, char **argv)
 {
 	int ch;
-	char *p;
 	int error;
 	bool retried;
 	struct autofs_args mnt_args;
 	char mount_path[PATH_MAX];
 	char *path;
-	long argval;
-	int32_t timeout = 0;
 	int32_t direct = 0;
 
 	while ((ch = getopt(argc, argv, "dt:")) != EOF) {
@@ -38,18 +35,6 @@ main(int argc, char **argv)
 
 		case 'd':
 			direct = 1;
-			break;
-
-		case 't':
-			errno = 0;
-			argval = strtol(optarg, &p, 10);
-			if (p == NULL || *p != '\0' || errno != 0 ||
-			    argval > INT_MAX) {
-				fprintf(stderr, "%s: timeout \"%s\" not valid.\n", getprogname(), optarg);
-				fprintf(stderr, usage, getprogname());
-				return (EXIT_FAILURE);
-			}
-			timeout = (int32_t)argval;
 			break;
 
 		default:
@@ -66,7 +51,7 @@ main(int argc, char **argv)
 	
 	path = realpath(argv[0], mount_path);
 	if (path == NULL) {
-		err(1, "couldn't resolve mount path", strerror(errno));
+		err(1, "couldn't resolve mount path: %s", strerror(errno));
 		/* NOT REACHED */
 		return 1;
 	};
@@ -77,10 +62,8 @@ main(int argc, char **argv)
 	mnt_args.map = argv[2];
 	mnt_args.subdir = argv[3];
 	mnt_args.key = argv[4];
-	mnt_args.mount_to = timeout;
-	mnt_args.mach_to = 0;	/* XXX */
 	mnt_args.direct = direct;
-	mnt_args.trigger = 0;	/* not a special trigger point submount */
+	mnt_args.mount_type = MOUNT_TYPE_MAP;	/* top-level autofs mount */
 		
 	retried = false;
 	while (true) {

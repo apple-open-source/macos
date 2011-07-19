@@ -46,7 +46,7 @@ static struct st_table *bsInformalProtocolInstanceMethods;      // selector -> s
 
 struct bsFunction *current_function = NULL;
 
-#define MAX_ENCODE_LEN 1024
+#define MAX_ENCODE_LEN 4096
 
 #define CAPITALIZE(x)         \
   do {                        \
@@ -252,6 +252,14 @@ undecorate_encoding(const char *src, char *dest, size_t dest_len, struct bsStruc
     size_t len;
 
     field = field_idx < fields_count ? &fields[field_idx] : NULL;
+    if (field != NULL) {
+      field->name = NULL;
+      field->encoding = NULL;
+    }
+    if (field == NULL && fields != NULL) {
+      // Not enough fields!
+      goto bails;
+    }
 
     // Locate the first field, if any.
     pos = strchr(p_src, '"');
@@ -328,7 +336,7 @@ undecorate_encoding(const char *src, char *dest, size_t dest_len, struct bsStruc
         char buf2[MAX_ENCODE_LEN];
    
         strncpy(buf, p_src, MIN(sizeof buf, i));
-        buf[MIN(sizeof buf, i)] = '\0';        
+        buf[MIN((sizeof buf) - 1, i)] = '\0';        
      
         if (!undecorate_encoding(buf, buf2, sizeof buf2, NULL, 0, NULL)) {
           DLOG("MDLOSX", "Can't un-decode the field encoding '%s'", buf);
@@ -362,10 +370,16 @@ undecorate_encoding(const char *src, char *dest, size_t dest_len, struct bsStruc
   return YES;
 
 bails:
-  // Free what we allocated! 
-  for (i = 0; i < field_idx; i++) {
-    free(fields[i].name);
-    free(fields[i].encoding);
+  // Free what we allocated!
+  if (fields != NULL) {
+    for (i = 0; i < field_idx; i++) {
+      if (fields[i].name != NULL) {
+        free(fields[i].name);
+      }
+      if (fields[i].encoding != NULL) {
+        free(fields[i].encoding);
+      }
+    }
   }
   return NO;
 }
@@ -657,7 +671,7 @@ static void *
 rb_bs_struct_get_field_data(VALUE rcv, char **field_encoding_out)
 {
   struct bsBoxed *bs_struct;
-  char *field;
+  const char *field;
   unsigned field_len;
   unsigned i;
   unsigned offset;
@@ -861,7 +875,7 @@ init_bs_boxed_struct (VALUE mOSX, const char *name, const char *decorated_encodi
 {
   char encoding[MAX_ENCODE_LEN];
   struct bsStructField fields[128];
-  int field_count;
+  int field_count = 0;
   VALUE klass;
   unsigned i;
   struct bsBoxed *bs_boxed;
@@ -958,7 +972,7 @@ func_dispatch_retain_if_necessary(VALUE arg, BOOL is_retval, void *ctx)
 static VALUE
 bridge_support_dispatcher (int argc, VALUE *argv, VALUE rcv)
 {
-  char *func_name;
+  const char *func_name;
   struct bsFunction *func;
   int expected_argc;
   ffi_type **arg_types;
@@ -1064,9 +1078,15 @@ osx_load_bridge_support_dylib (VALUE rcv, VALUE path)
   return Qnil;
 }
 
+#if MAC_OS_X_VERSION_MAX_ALLOWED <= MAC_OS_X_VERSION_10_4
+// DO NOT SUPPORT formal protocols with bridgesupport on 10.4 or earlier.
+// there is no objc runtime-api for gathering all protocols in objective-c 1.0.
+#define reload_protocols()
+#else
+
 static void
 reload_protocols(void) 
-{ 
+{
     Protocol **prots; 
     unsigned int i, prots_count; 
  
@@ -1091,7 +1111,9 @@ reload_protocols(void)
             informal_method->protocol_name = strdup(protocol_getName(p)); \
             st_insert(t, (st_data_t)methods[j].name, (st_data_t)informal_method); \
         } \
-        free(methods); \
+	if (methods != NULL) { \
+	    free(methods); \
+	} \
     } \
     while (0)
  
@@ -1105,9 +1127,13 @@ reload_protocols(void)
         REGISTER_MDESCS(true);
  
 #undef REGISTER_MDESCS 
-    } 
-    free(prots); 
+    }
+    if (prots != NULL) { 
+	free(prots); 
+    }
 } 
+
+#endif
 
 static int
 compare_bs_arg(const void *a, const void *b)
@@ -1301,14 +1327,15 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
             st_insert(bsConstants, (st_data_t)enum_name, (st_data_t)fake_bs_const); 
           }
           else {
-            char *  enum_value;        
+            char *  enum_value = NULL;
             VALUE   value;
 
-            enum_value = get_attribute(reader, "value");
 #if __LP64__
-            if (enum_value == NULL)
-              enum_value = get_attribute(reader, "value64");
+            enum_value = get_attribute(reader, "value64");
 #endif
+            if (enum_value == NULL) {
+              enum_value = get_attribute(reader, "value");
+	    }
 #if BYTE_ORDER == BIG_ENDIAN
             if (enum_value == NULL)
               enum_value = get_attribute(reader, "be_value");
@@ -1316,13 +1343,23 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
             if (enum_value == NULL)
               enum_value = get_attribute(reader, "le_value");
 #endif
-            if (enum_value != NULL) {     
+            if (enum_value != NULL) {
+              /* Because rb_cstr_to_dbl() might warn in case the given float
+               * is out of range. */
+              VALUE old_ruby_verbose = ruby_verbose;    
+              ruby_verbose = Qnil;
+
               value = strchr(enum_value, '.') != NULL
-                ? rb_float_new(rb_cstr_to_dbl(enum_value, 1))
-                : rb_cstr_to_inum(enum_value, 10, 1); 
-            
+                ? rb_float_new(rb_cstr_to_dbl(enum_value, 0))
+                : rb_cstr_to_inum(enum_value, 10, 0); 
+
+              ruby_verbose = old_ruby_verbose;            
+
               CAPITALIZE(enum_name);
-              rb_define_const(mOSX, enum_name, value);
+              ID enum_id = rb_intern(enum_name);
+              if (!rb_const_defined(mOSX, enum_id)) {
+                rb_const_set(mOSX, enum_id, value);
+              }
 
               free (enum_value);
             }
@@ -1778,7 +1815,16 @@ osx_load_bridge_support_file (VALUE mOSX, VALUE path)
           if (atom->val == BS_XML_RETVAL) {
             struct bsRetval *retval;
             retval = call_entry->retval;
-            free(retval->octypestr);
+            if (retval == &default_func_retval) {
+              struct bsRetval *new_retval =
+                (struct bsRetval *)malloc(sizeof(struct bsRetval));
+              ASSERT_ALLOC(new_retval);
+              memcpy(new_retval, retval, sizeof(struct bsRetval));
+              retval = new_retval;
+            }
+            else {
+              free(retval->octypestr);
+            }
             retval->octypestr = (char *)strdup(new_type);
           }
           else {

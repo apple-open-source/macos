@@ -41,16 +41,8 @@ extern "C" {
 	 a dictionary. The kSecClass constant is the key and its value is one
 	 of the constants defined here.
 	 @constant kSecClassAppleSharePassword Specifies AppleShare password items.
-	 @constant kSecClassGenericPassword Specifies generic password items.
-	 @constant kSecClassCertificate Specifies certificate items.
-	 @constant kSecClassKey Specifies key items.
-	 @constant kSecClassIdentity Specifies identity items.
 	 */
 	extern const CFTypeRef kSecClassAppleSharePassword;
-	extern const CFTypeRef kSecClassGenericPassword;
-	extern const CFTypeRef kSecClassCertificate;
-	extern const CFTypeRef kSecClassKey;
-	extern const CFTypeRef kSecClassIdentity;
 	
 	/*!
 	 @enum Attribute Key Constants (Private)
@@ -266,26 +258,6 @@ extern "C" {
 	extern CFTypeRef kSecAttrCanSignRecover;
 	extern CFTypeRef kSecAttrCanVerifyRecover;
 	extern CFTypeRef kSecAttrAccessGroup;
-	
-	/*!
-	 @enum Other Constants (Private)
-	 @discussion Predefined constants used to set values in a dictionary.
-	 @constant kSecUseKeychain Specifies a dictionary key whose value is a
-	 keychain reference. You use this key to specify a value of type
-	 SecKeychainRef that indicates the keychain to which SecItemAdd
-	 will add the provided item(s).
-	 @constant kSecUseKeychainList Specifies a dictionary key whose value is
-	 either an array of keychains to search (CFArrayRef), or a single
-	 keychain (SecKeychainRef). If not provided, the user's default
-	 keychain list is searched. kSecUseKeychainList is ignored if an
-	 explicit kSecUseItemList is also provided.  This key can be used
-	 for the SecItemCopyMatching, SecItemUpdate and SecItemDelete calls.
-	 */
-#if defined(MULTIPLE_KEYCHAINS)
-	extern CFTypeRef kSecUseKeychain;
-	extern CFTypeRef kSecUseKeychainList;
-#endif /* !defined(MULTIPLE_KEYCHAINS) */
-	
 	
 	/*!
 	 @function SecItemCopyDisplayNames

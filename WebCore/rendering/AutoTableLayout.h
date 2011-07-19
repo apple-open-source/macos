@@ -35,49 +35,42 @@ public:
     AutoTableLayout(RenderTable*);
     ~AutoTableLayout();
 
-    virtual void calcPrefWidths(int& minWidth, int& maxWidth);
+    virtual void computePreferredLogicalWidths(int& minWidth, int& maxWidth);
     virtual void layout();
 
-protected:
+private:
     void fullRecalc();
     void recalcColumn(int effCol);
 
-    void calcPercentages() const;
-    int totalPercent() const
-    {
-        if (m_percentagesDirty)
-            calcPercentages();
-        return m_totalPercent;
-    }
-
-    int calcEffectiveWidth();
+    int calcEffectiveLogicalWidth();
 
     void insertSpanCell(RenderTableCell*);
 
     struct Layout {
         Layout()
-            : minWidth(0)
-            , maxWidth(0)
-            , effMinWidth(0)
-            , effMaxWidth(0)
-            , calcWidth(0)
-            , emptyCellsOnly(true) {}
-        Length width;
-        Length effWidth;
-        int minWidth;
-        int maxWidth;
-        int effMinWidth;
-        int effMaxWidth;
-        int calcWidth;
+            : minLogicalWidth(0)
+            , maxLogicalWidth(0)
+            , effectiveMinLogicalWidth(0)
+            , effectiveMaxLogicalWidth(0)
+            , computedLogicalWidth(0)
+            , emptyCellsOnly(true)
+        {
+        }
+
+        Length logicalWidth;
+        Length effectiveLogicalWidth;
+        int minLogicalWidth;
+        int maxLogicalWidth;
+        int effectiveMinLogicalWidth;
+        int effectiveMaxLogicalWidth;
+        int computedLogicalWidth;
         bool emptyCellsOnly;
     };
 
     Vector<Layout, 4> m_layoutStruct;
     Vector<RenderTableCell*, 4> m_spanCells;
     bool m_hasPercent : 1;
-    mutable bool m_percentagesDirty : 1;
-    mutable bool m_effWidthDirty : 1;
-    mutable unsigned short m_totalPercent;
+    mutable bool m_effectiveLogicalWidthDirty : 1;
 };
 
 } // namespace WebCore

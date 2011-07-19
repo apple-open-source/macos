@@ -42,15 +42,14 @@ class DOMDocumentFragment;
 
 namespace WebCore {
 
-    class String;
     class Document;
     
     class PasteboardHelper {
     public:
         virtual ~PasteboardHelper() {}
-        virtual String urlFromPasteboard(const NSPasteboard*, String* title) const = 0;
-        virtual String plainTextFromPasteboard(const NSPasteboard*) const = 0;
-        virtual DOMDocumentFragment* fragmentFromPasteboard(const NSPasteboard*) const = 0;
+        virtual String urlFromPasteboard(NSPasteboard*, String* title) const = 0;
+        virtual String plainTextFromPasteboard(NSPasteboard*) const = 0;
+        virtual DOMDocumentFragment* fragmentFromPasteboard(NSPasteboard*) const = 0;
         virtual NSArray* insertablePasteboardTypes() const = 0;
     };
     

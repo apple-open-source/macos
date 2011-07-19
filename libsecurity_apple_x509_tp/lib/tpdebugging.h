@@ -1,57 +1,67 @@
 /*
- * Copyright (c) 2000-2001 Apple Computer, Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
- * The contents of this file constitute Original Code as defined in and are
- * subject to the Apple Public Source License Version 1.2 (the 'License').
- * You may not use this file except in compliance with the License. Please obtain
- * a copy of the License at http://www.apple.com/publicsource and read it before
- * using this file.
+ * @APPLE_LICENSE_HEADER_START@
  * 
- * This Original Code and all software distributed under the License are
- * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESS
- * OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES, INCLUDING WITHOUT
- * LIMITATION, ANY WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR
- * PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT. Please see the License for the
- * specific language governing rights and limitations under the License.
+ * This file contains Original Code and/or Modifications of Original Code
+ * as defined in and that are subject to the Apple Public Source License
+ * Version 2.0 (the 'License'). You may not use this file except in
+ * compliance with the License. Please obtain a copy of the License at
+ * http://www.opensource.apple.com/apsl/ and read it before using this
+ * file.
+ * 
+ * The Original Code and all software distributed under the License are
+ * distributed on an 'AS IS' basis, WITHOUT WARRANTY OF ANY KIND, EITHER
+ * EXPRESS OR IMPLIED, AND APPLE HEREBY DISCLAIMS ALL SUCH WARRANTIES,
+ * INCLUDING WITHOUT LIMITATION, ANY WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE, QUIET ENJOYMENT OR NON-INFRINGEMENT.
+ * Please see the License for the specific language governing rights and
+ * limitations under the License.
+ * 
+ * @APPLE_LICENSE_HEADER_END@
  */
 
-
-/*
-	File:		tpdebugging.h
-
-	Contains:	Debugging macros.
-
-	Written by:	Doug Mitchell
-
-	Copyright:	(c) 1998 by Apple Computer, Inc., all rights reserved.
-
-	Change History (most recent first):
-
-		06/02/98	dpm		Added DEBUG_THREAD_YIELD.
-		03/10/98	dpm		Created.
-
-*/
-
-#ifndef	_TPDEBUGGING_H_
+#ifndef _TPDEBUGGING_H_
 #define _TPDEBUGGING_H_
 
 #include <security_utilities/debugging.h>
 
+/* If TP_USE_SYSLOG is defined and not 0, use syslog() for debug
+ * logging in addition to invoking the secdebug macro (which, as of
+ * Snow Leopard, emits a static dtrace probe instead of an actual
+ * log message.)
+ */
+#ifndef TP_USE_SYSLOG
+#define TP_USE_SYSLOG	0
+#endif
+
+#if TP_USE_SYSLOG
+#include <syslog.h>
+#define tp_secdebug(scope, format...) \
+{ \
+	syslog(LOG_NOTICE, format); \
+	secdebug(scope, format); \
+}
+#else
+#define tp_secdebug(scope, format...) \
+	secdebug(scope, format)
+#endif
+
 #ifdef	NDEBUG
 /* this actually compiles to nothing */
-#define tpErrorLog(args...)		secdebug("tpError", ## args)
+#define tpErrorLog(args...)		tp_secdebug("tpError", ## args)
 #else
 #define tpErrorLog(args...)		printf(args)
 #endif
 
-#define tpDebug(args...)		secdebug("tpDebug", ## args)
-#define tpDbDebug(args...)		secdebug("tpDbDebug", ## args)
-#define tpCrlDebug(args...)		secdebug("tpCrlDebug", ## args)
-#define tpPolicyError(args...)	secdebug("tpPolicy", ## args)
-#define tpVfyDebug(args...)		secdebug("tpVfyDebug", ## args)
-#define tpAnchorDebug(args...)	secdebug("tpAnchorDebug", ## args)
-#define tpOcspDebug(args...)	secdebug("tpOcsp", ## args)
-#define tpOcspCacheDebug(args...)	secdebug("tpOcspCache", ## args)
-#define tpTrustSettingsDbg(args...)	secdebug("tpTrustSettings", ## args)
+#define tpDebug(args...)		tp_secdebug("tpDebug", ## args)
+#define tpDbDebug(args...)		tp_secdebug("tpDbDebug", ## args)
+#define tpCrlDebug(args...)		tp_secdebug("tpCrlDebug", ## args)
+#define tpPolicyError(args...)	tp_secdebug("tpPolicy", ## args)
+#define tpVfyDebug(args...)		tp_secdebug("tpVfyDebug", ## args)
+#define tpAnchorDebug(args...)	tp_secdebug("tpAnchorDebug", ## args)
+#define tpOcspDebug(args...)	tp_secdebug("tpOcsp", ## args)
+#define tpOcspCacheDebug(args...)	tp_secdebug("tpOcspCache", ## args)
+#define tpTrustSettingsDbg(args...)	tp_secdebug("tpTrustSettings", ## args)
 
 #endif	/* _TPDEBUGGING_H_ */

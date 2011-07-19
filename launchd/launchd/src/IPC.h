@@ -35,4 +35,4 @@
  **/
 void MonitorStartupItem (StartupContext aStartupContext, CFMutableDictionaryRef anItem);
 
-#endif /* _IPC_H_ */
+#endif

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2007 Apple Inc. All rights reserved.
+ * Copyright (C) 2007, 2010 Apple Inc. All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -26,9 +26,14 @@
 #include "config.h"
 #include "CSSFontFaceSrcValue.h"
 #include "CSSStyleSheet.h"
+#include "FontCustomPlatformData.h"
 #include "Node.h"
 
 namespace WebCore {
+
+CSSFontFaceSrcValue::~CSSFontFaceSrcValue()
+{
+}
 
 #if ENABLE(SVG_FONTS)
 bool CSSFontFaceSrcValue::isSVGFontFaceSrc() const
@@ -43,15 +48,12 @@ bool CSSFontFaceSrcValue::isSupportedFormat() const
     // we will also check to see if the URL ends with .eot.  If so, we'll go ahead and assume that we shouldn't load it.
     if (m_format.isEmpty()) {
         // Check for .eot.
-        if (m_resource.endsWith("eot", false))
+        if (!m_resource.startsWith("data:", false) && m_resource.endsWith(".eot", false))
             return false;
         return true;
     }
 
-    return equalIgnoringCase(m_format, "truetype") || equalIgnoringCase(m_format, "opentype")
-#if ENABLE(OPENTYPE_SANITIZER)
-           || equalIgnoringCase(m_format, "woff")
-#endif
+    return FontCustomPlatformData::supportsFormat(m_format)
 #if ENABLE(SVG_FONTS)
            || isSVGFontFaceSrc()
 #endif

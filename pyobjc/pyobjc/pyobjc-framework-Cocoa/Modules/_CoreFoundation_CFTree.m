@@ -1,7 +1,3 @@
-#include <Python.h>
-#include "pyobjc-api.h"
-
-#import <CoreFoundation/CoreFoundation.h>
 
 static const void* 
 mod_CFTreeRetainCallback(const void* info) 
@@ -37,11 +33,11 @@ mod_CFTreeGetContext(
 	PyObject* args)
 {
 	PyObject* py_tree;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFTreeRef tree;
 	CFTreeContext context;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_tree, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_tree, &py_context)) {
 		return NULL;
 	}
 
@@ -87,12 +83,12 @@ mod_CFTreeSetContext(
 	PyObject* args)
 {
 	PyObject* py_tree;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFTreeRef tree;
 	CFTreeContext context;
 	NSObject* info;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_tree, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_tree, &py_context)) {
 		return NULL;
 	}
 
@@ -130,13 +126,13 @@ mod_CFTreeCreate(
 	PyObject* args)
 {
 	PyObject* py_allocator;
-	PyObject* py_context = NULL;
+	PyObject* py_context;
 	CFTreeRef tree;
 	CFTreeContext context;
 	CFAllocatorRef allocator;
 	NSObject* info;
 
-	if (!PyArg_ParseTuple(args, "O|O", &py_allocator, &py_context)) {
+	if (!PyArg_ParseTuple(args, "OO", &py_allocator, &py_context)) {
 		return NULL;
 	}
 	
@@ -202,6 +198,7 @@ mod_CFTreeGetChildren(
 		return NULL;
 	}
 
+	children = NULL;
 	PyObjC_DURING
 		count = CFTreeGetChildCount(tree);
 		children = malloc(count * sizeof(CFTreeRef));
@@ -210,12 +207,19 @@ mod_CFTreeGetChildren(
 		}
 
 	PyObjC_HANDLER
+		count = -1; 
+		if (children != NULL) {
+			free(children);
+			children = NULL;
+		}
 		PyObjCErr_FromObjC(localException);
 
 	PyObjC_ENDHANDLER
 
 	if (children == NULL) {
-		PyErr_NoMemory();
+		if (!PyErr_Occurred()) {
+			PyErr_NoMemory();
+		}
 		return NULL;
 	}
 		
@@ -233,39 +237,28 @@ mod_CFTreeGetChildren(
 }
 
 
-static PyMethodDef mod_methods[] = {
-        {
-		"CFTreeCreate",
-		(PyCFunction)mod_CFTreeCreate,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFTreeGetContext",
-		(PyCFunction)mod_CFTreeGetContext,
-		METH_VARARGS,
-		NULL
-	},
-        {
-		"CFTreeSetContext",
-		(PyCFunction)mod_CFTreeSetContext,
-		METH_VARARGS,
-		NULL
-	},
-	{
-		"CFTreeGetChildren",
-		(PyCFunction)mod_CFTreeGetChildren,
-		METH_VARARGS,
-		NULL,
-	},
-	{ 0, 0, 0, 0 } /* sentinel */
-};
-
-void init_CFTree(void);
-void init_CFTree(void)
-{
-	PyObject* m = Py_InitModule4("_CFTree", mod_methods, "", NULL,
-	PYTHON_API_VERSION);
-
-	PyObjC_ImportAPI(m);
-}
+#define COREFOUNDATION_TREE_METHODS \
+        {	\
+		"CFTreeCreate",	\
+		(PyCFunction)mod_CFTreeCreate,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFTreeGetContext",	\
+		(PyCFunction)mod_CFTreeGetContext,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+        {	\
+		"CFTreeSetContext",	\
+		(PyCFunction)mod_CFTreeSetContext,	\
+		METH_VARARGS,	\
+		NULL	\
+	},	\
+	{	\
+		"CFTreeGetChildren",	\
+		(PyCFunction)mod_CFTreeGetChildren,	\
+		METH_VARARGS,	\
+		NULL,	\
+	},	

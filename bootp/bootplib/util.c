@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2003 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 2003 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -216,7 +216,7 @@ print_data(const uint8_t * data_p, int n_bytes)
 }
 
 __private_extern__ void
-fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
+fprint_bytes_sep(FILE * out_f, u_char * data_p, int n_bytes, char separator)
 {
     int i;
 
@@ -224,20 +224,31 @@ fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
 	out_f = stdout;
     }
     for (i = 0; i < n_bytes; i++) {
-	char * space;
+	char  	sep[3];
 
 	if (i == 0) {
-	    space = "";
-	}
-	else if ((i % 8) == 0) {
-	    space = "  ";
+	    sep[0] = '\0';
 	}
 	else {
-	    space = " ";
+	    if ((i % 8) == 0 && separator == ' ') {
+		sep[0] = sep[1] = ' ';
+		sep[2] = '\0';
+	    }
+	    else {
+		sep[0] = separator;
+		sep[1] = '\0';
+	    }
 	}
-	fprintf(out_f, "%s%02x", space, data_p[i]);
+	fprintf(out_f, "%s%02x", sep, data_p[i]);
     }
     fflush(out_f);
+    return;
+}
+
+__private_extern__ void
+fprint_bytes(FILE * out_f, u_char * data_p, int n_bytes)
+{
+    fprint_bytes_sep(out_f, data_p, n_bytes, ' ');
     return;
 }
 
@@ -245,6 +256,14 @@ __private_extern__ void
 print_bytes(u_char * data, int len)
 {
     fprint_bytes(NULL, data, len);
+    return;
+}
+
+__private_extern__ void
+print_bytes_sep(u_char * data, int len, char separator)
+{
+    fprint_bytes_sep(NULL, data, len, separator);
+    return;
 }
 
 /*
@@ -306,3 +325,39 @@ ether_cmp(struct ether_addr * e1, struct ether_addr * e2)
     }
     return (0);
 }
+
+void
+link_addr_to_string(char * string_buffer, int string_buffer_length,
+		    const uint8_t * hwaddr, int hwaddr_len)
+{
+    int		i;
+	    
+    switch (hwaddr_len) {
+    case 6:
+	snprintf(string_buffer, string_buffer_length,
+		 EA_FORMAT, EA_LIST(hwaddr));
+	break;
+    case 8:
+	snprintf(string_buffer, string_buffer_length,
+		 FWA_FORMAT, FWA_LIST(hwaddr));
+	break;
+    default: 
+	for (i = 0; i < hwaddr_len; i++) {
+	    if (i == 0) {
+		snprintf(string_buffer, string_buffer_length,
+			 "%02x", hwaddr[i]);
+		string_buffer += 2;
+		string_buffer_length -= 2;
+	    }
+	    else {
+		snprintf(string_buffer, string_buffer_length,
+			 ":%02x", hwaddr[i]);
+		string_buffer += 3;
+		string_buffer_length -= 3;
+	    }
+	}
+	break;
+    }
+    return;
+}
+

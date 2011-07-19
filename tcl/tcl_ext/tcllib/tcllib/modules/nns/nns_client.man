@@ -2,6 +2,7 @@
 [copyright {2007-2008 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Name service facility}]
 [titledesc {Name service facility, Client}]
+[category  Networking]
 [require Tcl 8.4]
 [require nameserv [opt 0.4.2]]
 [require comm]

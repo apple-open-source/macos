@@ -1,0 +1,17 @@
+--maximum-line-length=100               # we have widescreen now
+--indent-columns=4
+--continuation-indentation=2
+--no-opening-sub-brace-on-new-line
+--paren-tightness=1
+--square-bracket-tightness=1
+--brace-tightness=1
+--no-space-for-semicolon
+--no-outdent-long-quotes
+--output-line-ending=unix
+--no-outdent-labels
+--no-blanks-before-comments
+--blanks-before-subs
+--blanks-before-blocks
+--maximum-consecutive-blank-lines=2     # Allow two blanks between subroutines
+--nospace-after-keyword="my local our and or eq ne if else elsif until unless while for foreach return switch case given when"
+--want-break-before="% + - * / x != == >= <= =~ !~ < > | & >= < = **= += *= &= <<= &&= -= /= |= >>= ||= .= %= ^= x="

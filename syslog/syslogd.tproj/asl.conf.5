@@ -42,7 +42,7 @@ See the ASLMANAGER PARAMETER SETTINGS section below for details on those paramet
 The file may contain parameter settings, used in place of (and which will override) command-line options,
 and may contain query-action rules that trigger specific actions when
 .Nm syslogd
-recieves messages that match the query pattern.
+receives messages that match the query pattern.
 .Pp
 Parameter setting lines in the configuration file begin with an equal sign ("="), 
 and are generally of the form:
@@ -215,15 +215,20 @@ mode specification of the form "0644" (for an octal number) or DDD for a decimal
 .Pp
 Two other optional parameters may also follow the pathname.
 .Pp
-By default,
+If a separate log message data store file is specified as a parameter, then
 .Nm syslogd
 will open the database, save a matching message, and then close the database.
 If a high volume of messages is expected, specifying the "stayopen" option will improve performance.
 .Pp
-Specifying "exclude_asldb" will cause syslogd to save matching messages in the specificed file,
-but exclude them from the main ASL data store.
+Also, if a separate log message data store file is specified as a parameter,
+matching messages will be excluded from all further processing.
+Adding the "continue" option will cause syslogd to save matching messages in the specified store file
+and then continue processing matching messages in accordance with the actions
+specified in /etc/asl.conf and /etc/syslog.conf.
 .Pp
-Note that if the configuration file contains no matching rules for the ASL data store, then
+Note that if the
+.Nm asl.conf
+configuration file contains no matching rules for the main ASL data store, then
 .Nm syslogd
 will save all messages, subject to filtering in accordance with the log cutoff level.
 .Pp
@@ -232,14 +237,14 @@ Causes matching messages to be stored in a log message data store file in a sepa
 The directory path name must follow as the first parameter.
 The named directory must exist.
 .Nm syslogd
-will not ceate the directory path.
+will not create the directory path.
 .Pp
 Messages saved to a store directory are saved in files that are named "yyyy.mm.dd.asl",
 where "yyyy", "mm", and "dd" are the year, month (01 to 12) and day of the month (01 to 31) associated with
 matching messages.
 This has the effect of saving messages in a separate file for each day.
 .Pp
-The "exclude_asldb", "uid=UUU", "gid=GGG", and "mode=MMMM" options available for the "store" action
+The "uid=UUU", "gid=GGG", "mode=MMMM", and "continue" options available for the "store" action
 may also be specified for a store directory.
 The uid, gid, and mode specification will be used when the individual daily store files are created.
 .Pp

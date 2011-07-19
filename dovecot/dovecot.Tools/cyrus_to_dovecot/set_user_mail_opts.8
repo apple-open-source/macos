@@ -1,0 +1,75 @@
+.\" Copyright (c) 2008-2011 Apple Computer, Inc., all rights reserved.
+.\" Distributed only as part of Mac OS X Server
+.TH set_user_mail_opts "8" "April 23, 2008" "Mac OS X Server"
+.SH NAME
+\fBset_user_mail_opts \fP- set user local email options
+.SH SYNOPSIS
+.nf
+.fam C
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBlist\fP
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBlist-tags\fP
+
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBset-tag\fP \fB--tag\fP \fI<tag>\fP \fB--path\fP \fI<path>\fP
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBreset-tag\fP \fB--tag\fP \fI<tag>\fP
+
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fI<store-tag>\fP \fB--user_id\fP \fI<user-id>\fP
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fI<store-tag>\fP \fB--user_guid\fP \fI<user-guid>\fP
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBreset\fP \fB--user_id\fP \fI<user-id>\fP
+        \fBset_user_mail_opts\fP \fB--alt_store\fP \fBreset\fP \fB--user_guid\fP \fI<user-guid>\fP
+
+        \fBset_user_mail_opts\fP \fB--auto_fwd\fP \fBlist\fP
+        \fBset_user_mail_opts\fP \fB--auto_fwd\fP \fI<email-addr>\fP \fB--user_id\fP \fI<user-id>\fP
+        \fBset_user_mail_opts\fP \fB--auto_fwd\fP \fI<email-addr>\fP \fB--user_guid\fP \fI<user-guid>\fP
+        \fBset_user_mail_opts\fP \fB--auto_fwd\fP \fBreset\fP \fB--user_id\fP \fI<user-id>\fP
+        \fBset_user_mail_opts\fP \fB--auto_fwd\fP \fBreset\fP \fB--user_guid\fP \fI<user-guid>\fP
+
+        \fBset_user_mail_opts\fP \fB-h\fP
+.fam T
+.fi
+.SH DESCRIPTION
+.Nm
+OS X Server tool used to set individual user options for alternate mail store location and enabling/disabling auto-forwarding.  User settings are stored in /var/db/.mailusersettings.plist.  Deleting this file will reset all custom local user settings.
+.SH OPTIONS
+.TP
+\fB-a --alt_store\fP \fBlist\fP
+List all users with alternate mail data stores enabled
+.TP
+\fB-a --alt_store\fP \fBlist-tags\fP
+List all alternate mail data stores and their associated tags
+.TP
+\fB-a --alt_store\fP \fBset-tag\fP \fB-t --tag\fP \fItag\fP \fB-p --path\fP \fIpath\fP
+Add a new or change an existing alternate mail data store with \fItag\fP and \fIpath\fP to the dovecot partitions maps configuraiton file.  It will also set correct ownership and permissions on the existing directory for use as a dovecot mail data store
+.TP
+\fB-a --alt_store\fP \fBreset-tag\fP \fB-t --tag\fP \fItag\fP
+Remove existing tag from the dovecot partitions maps configuraiton file for existing \fItag\fP.  You cannot reset the default location
+.TP
+\fB-a --alt_store\fP \fIstore-tag\fP \fB-u --user_id\fP \fIuser-id\fP
+Set alternate mail store location to the associated store-tag for the user-id
+.TP
+\fB-a --alt_store\fP \fIstore-tag\fP \fB-u --user_guid\fP \fIuser_guid\fP
+Set alternate mail store location to the associated store-tag for the user-guid
+.TP
+\fB-a --alt_store\fP \fBreset\fP \fB-u --user_id\fP \fIuser-id\fP
+Remove alternate mail store location setings for the user-id and reset to the default location
+.TP
+\fB-a --alt_store\fP \fBreset\fP \fB-u --user_guid\fP \fIuser_guid\fP
+Remove alternate mail store location setings for the user-guid and reset to the default location
+.TP
+\fB-f --auto_fwd\fP \fBlist\fP
+List all users with auto-forwarding enabled with their forwarding email address
+.TP
+\fB-f --auto_fwd\fP \fIemail-addr\fP \fB-u --user_id\fP \fIuser-id\fP
+Set email auto-forwarding to email-addr for for the user-id
+.TP
+\fB-f --auto_fwd\fP \fIemail-addr\fP \fB-u --user_guid\fP \fIuser_guid\fP
+Set email auto-forwarding to email-addr for for the user-guid
+.TP
+\fB-f --auto_fwd\fP \fBreset\fP \fB-u --user_id\fP \fIuser-id\fP
+Remove auto-forward email setings for the user-id
+.TP
+\fB-f --auto_fwd\fP \fBreset\fP \fB-u --user_guid\fP \fIuser_guid\fP
+Remove auto-forward email setings for the user-guid
+.SH FILES
+/var/db/.mailusersettings.plist
+
+/etc/dovecot/partition_map.conf

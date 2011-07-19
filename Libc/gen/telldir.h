@@ -29,7 +29,7 @@
  * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
  * SUCH DAMAGE.
  *
- * $FreeBSD: src/lib/libc/gen/telldir.h,v 1.2 2001/01/24 12:59:24 deischen Exp $
+ * $FreeBSD: src/lib/libc/gen/telldir.h,v 1.3 2008/05/05 14:05:23 kib Exp $
  */
 
 #ifndef _TELLDIR_H_
@@ -69,7 +69,7 @@ struct _telldir {
 #if __DARWIN_64_BIT_INO_T
 size_t		__getdirentries64(int fd, void *buf, size_t bufsize, __darwin_off_t *basep);
 #endif /* __DARWIN_64_BIT_INO_T */
-struct dirent	*_readdir_unlocked(DIR *) __DARWIN_INODE64(_readdir_unlocked);
+struct dirent	*_readdir_unlocked(DIR *, int) __DARWIN_INODE64(_readdir_unlocked);
 void 		_reclaim_telldir(DIR *);
 void 		_seekdir(DIR *, long) __DARWIN_ALIAS_I(_seekdir);
 long		telldir(DIR *) __DARWIN_ALIAS_I(telldir);

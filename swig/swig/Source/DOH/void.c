@@ -10,7 +10,7 @@
  * See the file LICENSE for information on usage and redistribution.	
  * ----------------------------------------------------------------------------- */
 
-char cvsroot_void_c[] = "$Header: /cvsroot/swig/SWIG/Source/DOH/void.c,v 1.4 2006/11/01 23:54:50 wsfulton Exp $";
+char cvsroot_void_c[] = "$Id: void.c 9607 2006-12-05 22:11:40Z beazley $";
 
 #include "dohint.h"
 

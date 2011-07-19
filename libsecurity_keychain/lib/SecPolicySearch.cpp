@@ -49,7 +49,13 @@ SecPolicySearchCreate(
 {
     BEGIN_SECAPI
 	Required(searchRef);	// preflight
-	SecPointer<PolicyCursor> cursor(new PolicyCursor(oid, value));
+    PolicyCursor* pc = new PolicyCursor(oid, value);
+    if (pc == NULL)
+    {
+        return errSecPolicyNotFound;
+    }
+    
+	SecPointer<PolicyCursor> cursor(pc);
 	*searchRef = cursor->handle();
 	END_SECAPI
 }

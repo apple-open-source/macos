@@ -1,4 +1,4 @@
-*motion.txt*    For Vim version 7.2.  Last change: 2008 Aug 03
+*motion.txt*    For Vim version 7.3.  Last change: 2010 May 14
 
 
 		  VIM REFERENCE MANUAL    by Bram Moolenaar
@@ -151,6 +151,11 @@ CTRL-V		When used after an operator, before the motion command: Force
 ==============================================================================
 2. Left-right motions					*left-right-motions*
 
+These commands move the cursor to the specified column in the current line.
+They stop at the first column and at the end of the line, except "$", which
+may move to one of the next lines.  See 'whichwrap' option to make some of the
+commands move across line boundaries.
+
 h		or					*h*
 <Left>		or					*<Left>*
 CTRL-H		or					*CTRL-H* *<BS>*
@@ -234,7 +239,7 @@ g$ or g<End>		When lines wrap ('wrap' on): To the last character of
 
 							*bar*
 |			To screen column [count] in the current line.
-			|exclusive| motion.
+			|exclusive| motion.  Ceci n'est pas une pipe.
 
 							*f*
 f{char}			To [count]'th occurrence of {char} to the right.  The
@@ -269,11 +274,6 @@ T{char}			Till after [count]'th occurrence of {char} to the
 							*,*
 ,			Repeat latest f, t, F or T in opposite direction
 			[count] times.
-
-These commands move the cursor to the specified column in the current line.
-They stop at the first column and at the end of the line, except "$", which
-may move to one of the next lines.  See 'whichwrap' option to make some of the
-commands move across line boundaries.
 
 ==============================================================================
 3. Up-down motions					*up-down-motions*
@@ -315,6 +315,7 @@ _  <underscore>		[count] - 1 lines downward, on the first non-blank
 G			Goto line [count], default last line, on the first
 			non-blank character |linewise|.  If 'startofline' not
 			set, keep the same column.
+			G is a one of |jump-motions|.
 
 							*<C-End>*
 <C-End>			Goto line [count], default last line, on the last
@@ -325,9 +326,11 @@ gg			Goto line [count], default first line, on the first
 			non-blank character |linewise|.  If 'startofline' not
 			set, keep the same column.
 
-:[range]		Set the cursor on the specified line number.  If
-			there are several numbers, the last one is used.
-
+:[range]		Set the cursor on the last line number in [range].
+			[range] can also be just one line number, e.g., ":1"
+			or ":'m".
+			In contrast with |G| this command does not modify the
+			|jumplist|.
 							*N%*
 {count}%		Go to {count} percentage in the file, on the first
 			non-blank in the line |linewise|.  To compute the new
@@ -637,7 +640,8 @@ a`							*v_a`* *a`*
 			When the cursor starts on a quote, Vim will figure out
 			which quote pairs form a string by searching from the
 			start of the line.
-			Any trailing or leading white space is included.
+			Any trailing white space is included, unless there is
+			none, then leading white space is included.
 			When used in Visual mode it is made characterwise.
 			Repeating this object in Visual mode another string is
 			included.  A count is currently not used.
@@ -1006,7 +1010,7 @@ unless the line containing that position was changed or deleted.
 							*CTRL-O*
 CTRL-O			Go to [count] Older cursor position in jump list
 			(not a motion command).  {not in Vi}
-			{not available without the +jumplist feature}
+			{not available without the |+jumplist| feature}
 
 <Tab>		or					*CTRL-I* *<Tab>*
 CTRL-I			Go to [count] newer cursor position in jump list
@@ -1014,18 +1018,18 @@ CTRL-I			Go to [count] newer cursor position in jump list
 			In a |quickfix-window| it takes you to the position of
 			the error under the cursor.
 			{not in Vi}
-			{not available without the +jumplist feature}
+			{not available without the |+jumplist| feature}
 
 							*:ju* *:jumps*
 :ju[mps]		Print the jump list (not a motion command).  {not in
-			Vi} {not available without the +jumplist feature}
+			Vi} {not available without the |+jumplist| feature}
 
 							*jumplist*
 Jumps are remembered in a jump list.  With the CTRL-O and CTRL-I command you
 can go to cursor positions before older jumps, and back again.  Thus you can
 move up and down the list.  There is a separate jump list for each window.
 The maximum number of entries is fixed at 100.
-{not available without the +jumplist feature}
+{not available without the |+jumplist| feature}
 
 For example, after three jump commands you have this jump list:
 
@@ -1102,14 +1106,14 @@ g;			Go to [count] older position in change list.
 			If there is no older change an error message is given.
 			(not a motion command)
 			{not in Vi}
-			{not available without the +jumplist feature}
+			{not available without the |+jumplist| feature}
 
 							*g,* *E663*
 g,			Go to [count] newer cursor position in change list.
 			Just like |g;| but in the opposite direction.
 			(not a motion command)
 			{not in Vi}
-			{not available without the +jumplist feature}
+			{not available without the |+jumplist| feature}
 
 When using a count you jump as far back or forward as possible.  Thus you can
 use "999g;" to go to the first change for which the position is still

@@ -24,6 +24,7 @@ int ODCKGetServerChallenge(ODCKSession *session, const char *authMethod, const c
 int ODCKSetServerChallenge(ODCKSession *session, const char *authMethod, const char *userName, const char *serverChallenge, unsigned int serverChallengeLen);
 int ODCKVerifyClientRequest(ODCKSession *session, const char *clientRequest, unsigned int clientRequestLen);
 int ODCKGetServerResponse(ODCKSession *session, char **username, char **serverResponseOut, unsigned int *serverResponseLenOut);
+int ODCKGetUserRealm(char *realm);
 char *ODCKGetError(ODCKSession *session);
 
 #ifdef __cplusplus

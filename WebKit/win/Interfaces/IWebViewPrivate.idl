@@ -234,7 +234,45 @@ interface IWebViewPrivate : IUnknown
 
     HRESULT nextDisplayIsSynchronous();
 
-    HRESULT paintDocumentRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE dc);
+    HRESULT paintScrollViewRectToContextAtPoint([in] RECT rect, [in] POINT pt, [in] OLE_HANDLE dc);
 
     [local] HRESULT reportException([in] JSContextRef context, [in] JSValueRef exception);
+
+    [local] HRESULT elementFromJS([in] JSContextRef context, [in] JSValueRef nodeObject, [out, retval] IDOMElement** element);
+
+
+    /*!
+        @method defaultMinimumTimerInterval
+        @discussion Returns the default minimum interval for DOMTimers on all pages, not
+        just the one associated with this receiver.
+        - (double)interval;
+    */
+    HRESULT defaultMinimumTimerInterval([out, retval] double* interval);
+
+    /*!
+        @method setMinimumTimerInterval
+        @discussion Sets the minimum interval for DOMTimers on the web page associated
+        with the receiver.
+        - (double)interval;
+    */
+    HRESULT setMinimumTimerInterval([in] double interval);
+
+    /*!
+        @method _HTTPPipeliningEnabled
+        @abstract Checks the HTTP pipelining status.
+        @discussion Defaults to NO.
+        @result YES if HTTP pipelining is enabled, NO if not enabled.
+     */
+    HRESULT httpPipeliningEnabled([out, retval] BOOL* enabled);
+
+    /*!
+        @method _setHTTPPipeliningEnabled:
+        @abstract Set the HTTP pipelining status.
+        @discussion Defaults to NO.
+        @param enabled The new HTTP pipelining status.
+     */
+    HRESULT setHTTPPipeliningEnabled([in] BOOL enabled);
+
+    HRESULT setUsesLayeredWindow([in] BOOL usesLayeredWindow);
+    HRESULT usesLayeredWindow([out, retval] BOOL* usesLayeredWindow);
 }

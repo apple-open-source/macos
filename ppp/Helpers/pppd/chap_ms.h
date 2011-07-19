@@ -118,8 +118,8 @@ extern void set_mppe_enc_types(int, int);
 #define MS_CHAP2_AUTHENTICATEE 0
 #define MS_CHAP2_AUTHENTICATOR 1
 
-void ChapMS __P((u_char *, char *, int, MS_ChapResponse *));
-void ChapMS2 __P((u_char *, u_char *, char *, char *, int,
+void ChapMS __P((u_char *, u_char *, int, MS_ChapResponse *));
+void ChapMS2 __P((u_char *, u_char *, char *, u_char *, int,
 		  MS_Chap2Response *, u_char[MS_AUTH_RESPONSE_LENGTH+1], int));
 #ifdef MPPE
 void mppe_set_keys __P((u_char *, u_char[MD4_SIGNATURE_SIZE]));

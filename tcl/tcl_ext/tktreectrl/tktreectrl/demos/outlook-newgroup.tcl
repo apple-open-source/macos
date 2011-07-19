@@ -1,4 +1,4 @@
-# RCS: @(#) $Id: outlook-newgroup.tcl,v 1.20 2006/12/04 00:16:02 treectrl Exp $
+# RCS: @(#) $Id: outlook-newgroup.tcl,v 1.21 2009/04/18 18:44:03 treectrl Exp $
 
 #
 # Demo: Outlook Express newsgroup messages
@@ -171,6 +171,17 @@ proc DemoOutlookNewsgroup {} {
 	    set Message(afterId,item) [%T selection get 0]
 	    set Message(afterId) [after 500 MessageReadDelayed]
 	}
+    }
+
+    # Fix the display when a column is dragged
+    $T notify bind $T <ColumnDrag-receive> {
+	%T column move %C %b
+	DemoOutlookNewgroup_FixItemStyles %T
+    }
+
+    # Fix the display when a column's visibility changes
+    $T notify bind $T <DemoColumnVisibility> {
+	DemoOutlookNewgroup_FixItemStyles %T
     }
 
     return
@@ -419,4 +430,41 @@ proc AnyUnreadDescendants {T I} {
 	}
     }
     return 0
+}
+
+proc DemoOutlookNewgroup_FixItemStyles {T} {
+
+    set columns1 [$T column id "visible tag clip||arrow||watch !tail"]
+    set columns2 [$T column id "visible tag !(clip||arrow||watch) !tail"]
+   
+    foreach C [$T column id "visible !tail"] {
+
+	# The clip/arrow/watch columns only get a style when they are
+	# between the first and last text-containing columns.
+	if {$C in $columns1} {
+	    if {[$T column compare $C > [lindex $columns2 0]] &&
+		[$T column compare $C < [lindex $columns2 end]]} {
+		$T item style set all $C s2.we
+	    } else {
+		$T item style set all $C ""
+	    }
+	    continue
+	}
+
+	# The text-containing columns need their styles set such that the
+	# active outline of the selected item extends from left to right.
+	# Also, the left-most text-containing column is the tree column
+	# and displays the icon.
+	if {$C eq [lindex $columns2 0]} {
+	    $T configure -treecolumn $C
+	    set S s1
+	} elseif {$C eq [lindex $columns2 end]} {
+	    set S s2.w
+	} else {
+	    set S s2.we
+	}
+
+	# Change the style, but keep the text so we don't have to reset it.
+	$T item style map all $C $S {elemTxt elemTxt}
+    }
 }

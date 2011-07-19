@@ -33,27 +33,22 @@
 #include "config.h"
 
 #include "AXObjectCache.h"
-#include "DNS.h"
 #include "CachedResource.h"
 #include "CookieJar.h"
+#include "CookieStorage.h"
 #include "Cursor.h"
+#include "DNS.h"
+#include "FTPDirectoryDocument.h"
+#include "FileSystem.h"
 #include "Font.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "FTPDirectoryDocument.h"
-#include "IntPoint.h"
-#include "Widget.h"
-#include "GraphicsContext.h"
-#include "Cursor.h"
-#include "loader.h"
-#include "FileSystem.h"
 #include "FrameView.h"
 #include "GraphicsContext.h"
 #include "IconLoader.h"
 #include "IntPoint.h"
 #include "KURL.h"
 #include "Language.h"
-#include "loader.h"
 #include "LocalizedStrings.h"
 #include "Node.h"
 #include "NotImplemented.h"
@@ -67,9 +62,10 @@
 #include "SystemTime.h"
 #include "TextBoundaries.h"
 #include "Widget.h"
+
+#include <float.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <float.h>
 #include <wtf/text/CString.h>
 
 using namespace WebCore;
@@ -90,6 +86,19 @@ bool PluginDatabase::isPreferredPluginDirectory(const String& directory)
 {
     notImplemented();
     return false;
+}
+
+void PluginView::privateBrowsingStateChanged(bool)
+{
+}
+
+PassRefPtr<JSC::Bindings::Instance> PluginView::bindingInstance()
+{
+    return 0;
+}
+
+void PluginView::setJavaScriptPaused(bool)
+{
 }
 #endif
 
@@ -113,6 +122,21 @@ float userIdleTime()
     return FLT_MAX; // return an arbitrarily high userIdleTime so that releasing pages from the page cache isn't postponed
 }
 #endif
+
+void setCookieStoragePrivateBrowsingEnabled(bool)
+{
+    notImplemented();
+}
+
+void startObservingCookieChanges()
+{
+    notImplemented();
+}
+
+void stopObservingCookieChanges()
+{
+    notImplemented();
+}
 
 }
 

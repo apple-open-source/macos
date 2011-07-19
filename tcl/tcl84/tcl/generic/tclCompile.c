@@ -307,10 +307,8 @@ static int		SetByteCodeFromAny _ANSI_ARGS_((Tcl_Interp *interp,
 static void		EnterCmdWordData _ANSI_ARGS_((
     			    ExtCmdLoc *eclPtr, int srcOffset, Tcl_Token* tokenPtr,
 			    CONST char* cmd, int len, int numWords, int line,
-			    int** lines));
-
-static void		EnterCmdWordIndex _ANSI_ARGS_((
-    			    ExtCmdLoc *eclPtr, Tcl_Obj* obj, int pc, int word));
+			    int* clNext, int** lines, CompileEnv* envPtr));
+static void             ReleaseCmdWordData _ANSI_ARGS_((ExtCmdLoc* eclPtr));
 #endif
 
 
@@ -370,7 +368,9 @@ TclSetByteCodeFromAny(interp, objPtr, hookProc, clientData)
     register int i;
     int length, nested, result;
     char *string;
-
+#ifdef TCL_TIP280
+    ContLineLoc* clLocPtr;
+#endif
 #ifdef TCL_COMPILE_DEBUG
     if (!traceInitialized) {
         if (Tcl_LinkVar(interp, "tcl_traceCompile",
@@ -399,6 +399,24 @@ TclSetByteCodeFromAny(interp, objPtr, hookProc, clientData)
 
     TclInitCompileEnv(interp, &compEnv, string, length,
 		      iPtr->invokeCmdFramePtr, iPtr->invokeWord);
+    /*
+     * Now we check if we have data about invisible continuation lines for the
+     * script, and make it available to the compile environment, if so.
+     *
+     * It is not clear if the script Tcl_Obj* can be free'd while the compiler
+     * is using it, leading to the release of the associated ContLineLoc
+     * structure as well. To ensure that the latter doesn't happen we set a
+     * lock on it. We release this lock in the function TclFreeCompileEnv (),
+     * found in this file. The "lineCLPtr" hashtable is managed in the file
+     * "tclObj.c".
+     */
+
+    clLocPtr = TclContinuationsGet (objPtr);
+    if (clLocPtr) {
+	compEnv.clLoc  = clLocPtr;
+	compEnv.clNext = &compEnv.clLoc->loc[0];
+	Tcl_Preserve (compEnv.clLoc);
+    }
 #endif
     result = TclCompileScript(interp, string, length, nested, &compEnv);
 
@@ -704,25 +722,8 @@ TclCleanupByteCode(codePtr)
 	Tcl_HashEntry* hePtr = Tcl_FindHashEntry (iPtr->lineBCPtr, (char *) codePtr);
 	if (hePtr) {
 	    ExtCmdLoc* eclPtr = (ExtCmdLoc*) Tcl_GetHashValue (hePtr);
-	    int        i;
 
-	    if (eclPtr->type == TCL_LOCATION_SOURCE) {
-		Tcl_DecrRefCount (eclPtr->path);
-	    }
-	    for (i=0; i< eclPtr->nuloc; i++) {
-		ckfree ((char*) eclPtr->loc[i].line);
-	    }
-
-	    if (eclPtr->loc != NULL) {
-		ckfree ((char*) eclPtr->loc);
-	    }
-
-	    /* Release index of literals as well. */
-	    if (eclPtr->eiloc != NULL) {
-		ckfree((char *) eclPtr->eiloc);
-	    }
-
-	    ckfree ((char*) eclPtr);
+	    ReleaseCmdWordData (eclPtr);
 	    Tcl_DeleteHashEntry (hePtr);
 	}
     }
@@ -731,6 +732,30 @@ TclCleanupByteCode(codePtr)
     TclHandleRelease(codePtr->interpHandle);
     ckfree((char *) codePtr);
 }
+
+#ifdef TCL_TIP280
+static void
+ReleaseCmdWordData (eclPtr)
+     ExtCmdLoc* eclPtr;
+{
+    int        i;
+
+    if (eclPtr->type == TCL_LOCATION_SOURCE) {
+	Tcl_DecrRefCount (eclPtr->path);
+    }
+    for (i=0; i < eclPtr->nuloc; i++) {
+	ckfree ((char*) eclPtr->loc[i].line);
+    }
+
+    if (eclPtr->loc != NULL) {
+	ckfree ((char*) eclPtr->loc);
+    }
+
+    Tcl_DeleteHashTable (&eclPtr->litInfo);
+
+    ckfree ((char*) eclPtr);
+}
+#endif
 
 /*
  *----------------------------------------------------------------------
@@ -773,6 +798,7 @@ TclInitCompileEnv(interp, envPtr, string, numBytes, invoker, word)
     envPtr->source = string;
     envPtr->numSrcBytes = numBytes;
     envPtr->procPtr = iPtr->compiledProcPtr;
+    iPtr->compiledProcPtr = NULL;
     envPtr->numCommands = 0;
     envPtr->exceptDepth = 0;
     envPtr->maxExceptDepth = 0;
@@ -814,9 +840,7 @@ TclInitCompileEnv(interp, envPtr, string, numBytes, invoker, word)
     envPtr->extCmdMapPtr->nloc  = 0;
     envPtr->extCmdMapPtr->nuloc = 0;
     envPtr->extCmdMapPtr->path  = NULL;
-    envPtr->extCmdMapPtr->eiloc = NULL;
-    envPtr->extCmdMapPtr->neiloc = 0;
-    envPtr->extCmdMapPtr->nueiloc = 0;
+    Tcl_InitHashTable(&envPtr->extCmdMapPtr->litInfo, TCL_ONE_WORD_KEYS);
 
     if (invoker == NULL ||
 	(invoker->type == TCL_LOCATION_EVAL_LIST)) {
@@ -879,6 +903,15 @@ TclInitCompileEnv(interp, envPtr, string, numBytes, invoker, word)
 
 	/* ctx going out of scope */
     }
+
+    /*
+     * Initialize the data about invisible continuation lines as empty,
+     * i.e. not used. The caller (TclSetByteCodeFromAny) will set this up, if
+     * such data is available.
+     */
+
+    envPtr->clLoc  = NULL;
+    envPtr->clNext = NULL;
 #endif
 
     envPtr->auxDataArrayPtr = envPtr->staticAuxDataArraySpace;
@@ -928,6 +961,20 @@ TclFreeCompileEnv(envPtr)
     if (envPtr->mallocedAuxDataArray) {
 	ckfree((char *) envPtr->auxDataArrayPtr);
     }
+#ifdef TCL_TIP280
+    /*
+     * If we used data about invisible continuation lines, then now is the
+     * time to release on our hold on it. The lock was set in function
+     * TclSetByteCodeFromAny(), found in this file.
+     */
+
+    if (envPtr->clLoc) {
+	Tcl_Release (envPtr->clLoc);
+    }
+    if (envPtr->extCmdMapPtr) {
+	ReleaseCmdWordData (envPtr->extCmdMapPtr);
+    }
+#endif
 }
 
 #ifdef TCL_TIP280
@@ -1035,8 +1082,9 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 #ifdef TCL_TIP280
     /* TIP #280 */
     ExtCmdLoc* eclPtr = envPtr->extCmdMapPtr;
-    int* wlines;
+    int* wlines = NULL;
     int  wlineat, cmdLine;
+    int* clNext;
 #endif
 
     Tcl_DStringInit(&ds);
@@ -1057,6 +1105,7 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
     gotParse = 0;
 #ifdef TCL_TIP280
     cmdLine = envPtr->line;
+    clNext  = envPtr->clNext;
 #endif
 
     do {
@@ -1176,10 +1225,13 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	     * 'wlines'.
 	     */
 
-	    TclAdvanceLines (&cmdLine, p, parse.commandStart);
+	    TclAdvanceLines         (&cmdLine, p, parse.commandStart);
+	    TclAdvanceContinuations (&cmdLine, &clNext,
+				     parse.commandStart - envPtr->source);
 	    EnterCmdWordData (eclPtr, (parse.commandStart - envPtr->source),
-			      parse.tokenPtr, parse.commandStart, parse.commandSize,
-			      parse.numWords, cmdLine, &wlines);
+			      parse.tokenPtr, parse.commandStart,
+			      parse.commandSize, parse.numWords,
+			      cmdLine, clNext, &wlines, envPtr);
 	    wlineat = eclPtr->nuloc - 1;
 #endif
 
@@ -1187,7 +1239,8 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 		    wordIdx < parse.numWords;
 		    wordIdx++, tokenPtr += (tokenPtr->numComponents + 1)) {
 #ifdef TCL_TIP280
-	        envPtr->line = eclPtr->loc [wlineat].line [wordIdx];
+	        envPtr->line   = eclPtr->loc [wlineat].line [wordIdx];
+		envPtr->clNext = eclPtr->loc [wlineat].next [wordIdx];
 #endif
 		if (tokenPtr->type == TCL_TOKEN_SIMPLE_WORD) {
 		    /*
@@ -1276,11 +1329,10 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 			objIndex = TclRegisterNewLiteral(envPtr,
 				tokenPtr[1].start, tokenPtr[1].size);
 #ifdef TCL_TIP280
-			if (eclPtr->type == TCL_LOCATION_SOURCE) {
-			    EnterCmdWordIndex (eclPtr,
-					       envPtr->literalArrayPtr[objIndex].objPtr,
-					       envPtr->codeNext - envPtr->codeStart,
-					       wordIdx);
+			if (envPtr->clNext) {
+			    TclContinuationsEnterDerived (envPtr->literalArrayPtr[objIndex].objPtr,
+							  tokenPtr[1].start - envPtr->source,
+							  eclPtr->loc [wlineat].next [wordIdx]);
 			}
 #endif
 		    }
@@ -1303,6 +1355,16 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	     */
 	    
 	    if (wordIdx > 0) {
+#ifdef TCL_TIP280
+		/*
+		 * Save PC -> command map for the TclArgumentBC* functions.
+		 */
+
+		int isnew;
+		Tcl_HashEntry* hePtr = Tcl_CreateHashEntry(&eclPtr->litInfo,
+			   (char*) (envPtr->codeNext - envPtr->codeStart), &isnew);
+		Tcl_SetHashValue(hePtr, (char*) wlineat);
+#endif
 		if (wordIdx <= 255) {
 		    TclEmitInstInt1(INST_INVOKE_STK1, wordIdx, envPtr);
 		} else {
@@ -1325,7 +1387,10 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	     * the reduced form now
 	     */
 	    ckfree ((char*) eclPtr->loc [wlineat].line);
+	    ckfree ((char*) eclPtr->loc [wlineat].next);
 	    eclPtr->loc [wlineat].line = wlines;
+	    eclPtr->loc [wlineat].next = NULL;
+	    wlines = NULL;
 #endif
 	} /* end if parse.numWords > 0 */
 
@@ -1338,7 +1403,8 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	p = next;
 #ifdef TCL_TIP280
 	/* TIP #280 : Track lines in the just compiled command */
-	TclAdvanceLines (&cmdLine, parse.commandStart, p);
+	TclAdvanceLines         (&cmdLine, parse.commandStart, p);
+	TclAdvanceContinuations (&cmdLine, &clNext, p - envPtr->source);
 #endif
 	Tcl_FreeParse(&parse);
 	gotParse = 0;
@@ -1398,7 +1464,21 @@ TclCompileScript(interp, script, numBytes, nested, envPtr)
 	commandLength -= 1;
     }
 
-    log:
+ log:
+#ifdef TCL_TIP280
+    /* TIP #280: Free the per-word line data left over from parsing an
+     * erroneous command, if any.
+     */
+    if (wlines) {
+	ckfree ((char*) eclPtr->loc [wlineat].line);
+	ckfree ((char*) eclPtr->loc [wlineat].next);
+	ckfree ((char*) wlines);
+	eclPtr->loc [wlineat].line = NULL;
+	eclPtr->loc [wlineat].next = NULL;
+	wlines = NULL;
+    }
+#endif
+
     LogCompilationInfo(interp, script, parse.commandStart, commandLength);
     if (gotParse) {
 	Tcl_FreeParse(&parse);
@@ -1445,6 +1525,43 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
     int numObjsToConcat, nameBytes, localVarName, localVar;
     int length, i, code;
     unsigned char *entryCodeNext = envPtr->codeNext;
+#ifdef TCL_TIP280
+#define NUM_STATIC_POS 20
+    int isLiteral, maxNumCL, numCL;
+    int* clPosition = NULL;
+
+    /*
+     * For the handling of continuation lines in literals we first check if
+     * this is actually a literal. For if not we can forego the additional
+     * processing. Otherwise we pre-allocate a small table to store the
+     * locations of all continuation lines we find in this literal, if
+     * any. The table is extended if needed.
+     *
+     * Note: Different to the equivalent code in function
+     * 'EvalTokensStandard()' (see file "tclBasic.c") we do not seem to need
+     * the 'adjust' variable. We also do not seem to need code which merges
+     * continuation line information of multiple words which concat'd at
+     * runtime. Either that or I have not managed to find a test case for
+     * these two possibilities yet. It might be a difference between compile-
+     * versus runtime processing.
+     */
+
+    numCL     = 0;
+    maxNumCL  = 0;
+    isLiteral = 1;
+    for (i=0 ; i < count; i++) {
+	if ((tokenPtr[i].type != TCL_TOKEN_TEXT) &&
+	    (tokenPtr[i].type != TCL_TOKEN_BS)) {
+	    isLiteral = 0;
+	    break;
+	}
+    }
+
+    if (isLiteral) {
+	maxNumCL   = NUM_STATIC_POS;
+	clPosition = (int*) ckalloc (maxNumCL*sizeof(int));
+    }
+#endif
 
     Tcl_DStringInit(&textBuffer);
     numObjsToConcat = 0;
@@ -1459,6 +1576,38 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 		length = Tcl_UtfBackslash(tokenPtr->start, (int *) NULL,
 			buffer);
 		Tcl_DStringAppend(&textBuffer, buffer, length);
+
+#ifdef TCL_TIP280
+		/*
+		 * If the backslash sequence we found is in a literal, and
+		 * represented a continuation line, we compute and store its
+		 * location (as char offset to the beginning of the _result_
+		 * script). We may have to extend the table of locations.
+		 *
+		 * Note that the continuation line information is relevant
+		 * even if the word we are processing is not a literal, as it
+		 * can affect nested commands. See the branch for
+		 * TCL_TOKEN_COMMAND below, where the adjustment we are
+		 * tracking here is taken into account. The good thing is that
+		 * we do not need a table of everything, just the number of
+		 * lines we have to add as correction.
+		 */
+
+		if ((length == 1) && (buffer[0] == ' ') &&
+		    (tokenPtr->start[1] == '\n')) {
+		    if (isLiteral) {
+			int clPos = Tcl_DStringLength (&textBuffer);
+
+			if (numCL >= maxNumCL) {
+			    maxNumCL *= 2;
+			    clPosition = (int*) ckrealloc ((char*)clPosition,
+							   maxNumCL*sizeof(int));
+			}
+			clPosition[numCL] = clPos;
+			numCL ++;
+		    }
+		}
+#endif
 		break;
 
 	    case TCL_TOKEN_COMMAND:
@@ -1475,6 +1624,13 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 		    TclEmitPush(literal, envPtr);
 		    numObjsToConcat++;
 		    Tcl_DStringFree(&textBuffer);
+#ifdef TCL_TIP280
+		    if (numCL) {
+			TclContinuationsEnter(envPtr->literalArrayPtr[literal].objPtr,
+					      numCL, clPosition);
+		    }
+		    numCL = 0;
+#endif
 		}
 		
 		code = TclCompileScript(interp, tokenPtr->start+1,
@@ -1599,6 +1755,14 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 	        Tcl_DStringLength(&textBuffer), /*onHeap*/ 0);
 	TclEmitPush(literal, envPtr);
 	numObjsToConcat++;
+
+#ifdef TCL_TIP280
+	if (numCL) {
+	    TclContinuationsEnter(envPtr->literalArrayPtr[literal].objPtr,
+				  numCL, clPosition);
+	}
+	numCL = 0;
+#endif
     }
 
     /*
@@ -1621,11 +1785,20 @@ TclCompileTokens(interp, tokenPtr, count, envPtr)
 	TclEmitPush(TclRegisterLiteral(envPtr, "", 0, /*onHeap*/ 0),
 	        envPtr);
     }
-    Tcl_DStringFree(&textBuffer);
-    return TCL_OK;
+    code = TCL_OK;
 
     error:
     Tcl_DStringFree(&textBuffer);
+#ifdef TCL_TIP280
+    /*
+     * Release the temp table we used to collect the locations of
+     * continuation lines, if any.
+     */
+
+    if (maxNumCL) {
+	ckfree ((char*) clPosition);
+    }
+#endif
     return code;
 }
 
@@ -2431,7 +2604,7 @@ EnterCmdExtentData(envPtr, cmdIndex, numSrcBytes, numCodeBytes)
  */
 
 static void
-EnterCmdWordData(eclPtr, srcOffset, tokenPtr, cmd, len, numWords, line, wlines)
+EnterCmdWordData(eclPtr, srcOffset, tokenPtr, cmd, len, numWords, line, clNext, wlines, envPtr)
     ExtCmdLoc *eclPtr;		/* Points to the map environment
 				 * structure in which to enter command
 				 * location information. */
@@ -2441,12 +2614,15 @@ EnterCmdWordData(eclPtr, srcOffset, tokenPtr, cmd, len, numWords, line, wlines)
     int         len;
     int numWords;
     int line;
+    int* clNext;
     int** wlines;
+    CompileEnv* envPtr;
 {    
     ECL*        ePtr;
     int         wordIdx;
     CONST char* last;
     int         wordLine;
+    int*        wordNext;
     int*        wwlines;
 
     if (eclPtr->nuloc >= eclPtr->nloc) {
@@ -2461,7 +2637,7 @@ EnterCmdWordData(eclPtr, srcOffset, tokenPtr, cmd, len, numWords, line, wlines)
 	size_t currBytes = currElems * sizeof(ECL);
 	size_t newBytes  = newElems  * sizeof(ECL);
 	ECL *  newPtr    = (ECL *) ckalloc((unsigned) newBytes);
-	
+
 	/*
 	 * Copy from old ECL array to new, free old ECL array if
 	 * needed.
@@ -2480,57 +2656,29 @@ EnterCmdWordData(eclPtr, srcOffset, tokenPtr, cmd, len, numWords, line, wlines)
     ePtr            = &eclPtr->loc [eclPtr->nuloc];
     ePtr->srcOffset = srcOffset;
     ePtr->line      = (int*) ckalloc (numWords * sizeof (int));
+    ePtr->next      = (int**) ckalloc (numWords * sizeof (int*));
     ePtr->nline     = numWords;
     wwlines         = (int*) ckalloc (numWords * sizeof (int));
 
     last     = cmd;
     wordLine = line;
+    wordNext = clNext;
     for (wordIdx = 0;
 	 wordIdx < numWords;
 	 wordIdx++, tokenPtr += (tokenPtr->numComponents + 1)) {
-        TclAdvanceLines (&wordLine, last, tokenPtr->start);
+        TclAdvanceLines         (&wordLine, last, tokenPtr->start);
+	TclAdvanceContinuations (&wordLine, &wordNext,
+				 tokenPtr->start - envPtr->source);
 	wwlines    [wordIdx] = (TclWordKnownAtCompileTime (tokenPtr)
 				? wordLine
 				: -1);
 	ePtr->line [wordIdx] = wordLine;
+	ePtr->next [wordIdx] = wordNext;
 	last = tokenPtr->start;
     }
 
     *wlines = wwlines;
     eclPtr->nuloc ++;
-}
-
-static void
-EnterCmdWordIndex (eclPtr, obj, pc, word)
-     ExtCmdLoc *eclPtr;
-     Tcl_Obj*   obj;
-     int        pc;
-     int        word;
-{
-    ExtIndex* eiPtr;
-
-    if (eclPtr->nueiloc >= eclPtr->neiloc) {
-	/*
-	 * Expand the ExtIndex array by allocating more storage from the heap. The
-	 * currently allocated ECL entries are stored from eclPtr->loc[0] up
-	 * to eclPtr->loc[eclPtr->nuloc-1] (inclusive).
-	 */
-
-	size_t currElems = eclPtr->neiloc;
-	size_t newElems = (currElems ? 2*currElems : 1);
-	size_t newBytes = newElems * sizeof(ExtIndex);
-
-	eclPtr->eiloc = (ExtIndex *) ckrealloc((char *)(eclPtr->eiloc), newBytes);
-	eclPtr->neiloc = newElems;
-    }
-
-    eiPtr = &eclPtr->eiloc[eclPtr->nueiloc];
-
-    eiPtr->obj  = obj;
-    eiPtr->pc   = pc;
-    eiPtr->word = word;
-
-    eclPtr->nueiloc ++;
 }
 #endif
 

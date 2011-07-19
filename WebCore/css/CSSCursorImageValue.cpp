@@ -17,19 +17,20 @@
  * along with this library; see the file COPYING.LIB.  If not, write to
  * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
  * Boston, MA 02110-1301, USA.
- */
+ */ 
 
 #include "config.h"
 #include "CSSCursorImageValue.h"
 
-#include "DocLoader.h"
-#include "Document.h"
+#include "CachedResourceLoader.h"
+#include "TreeScope.h"
 #include "PlatformString.h"
 #include <wtf/MathExtras.h>
 #include <wtf/UnusedParam.h>
 
 #if ENABLE(SVG)
 #include "SVGCursorElement.h"
+#include "SVGNames.h"
 #include "SVGURIReference.h"
 #endif
 
@@ -42,9 +43,9 @@ static inline bool isSVGCursorIdentifier(const String& url)
     return kurl.hasFragmentIdentifier();
 }
 
-static inline SVGCursorElement* resourceReferencedByCursorElement(const String& fragmentId, Document* document)
+static inline SVGCursorElement* resourceReferencedByCursorElement(const String& fragmentId, TreeScope* scope)
 {
-    Element* element = document->getElementById(SVGURIReference::getTarget(fragmentId));
+    Element* element = scope->getElementById(SVGURIReference::getTarget(fragmentId));
     if (element && element->hasTagName(SVGNames::cursorTag))
         return static_cast<SVGCursorElement*>(element);
 
@@ -52,9 +53,9 @@ static inline SVGCursorElement* resourceReferencedByCursorElement(const String& 
 }
 #endif
 
-CSSCursorImageValue::CSSCursorImageValue(const String& url, const IntPoint& hotspot)
+CSSCursorImageValue::CSSCursorImageValue(const String& url, const IntPoint& hotSpot)
     : CSSImageValue(url)
-    , m_hotspot(hotspot)
+    , m_hotSpot(hotSpot)
 {
 }
 
@@ -71,7 +72,7 @@ CSSCursorImageValue::~CSSCursorImageValue()
     for (; it != end; ++it) {
         SVGElement* referencedElement = *it;
         referencedElement->cursorImageValueRemoved();
-        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, referencedElement->document()))
+        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, referencedElement->treeScope()))
             cursorElement->removeClient(referencedElement);
     }
 #endif
@@ -89,12 +90,13 @@ bool CSSCursorImageValue::updateIfSVGCursorIsUsed(Element* element)
     if (!isSVGCursorIdentifier(url))
         return false;
 
-    if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, element->document())) {
+    if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, element->treeScope())) {
+        // FIXME: This will override hot spot specified in CSS, which is probably incorrect.
         float x = roundf(cursorElement->x().value(0));
-        m_hotspot.setX(static_cast<int>(x));
+        m_hotSpot.setX(static_cast<int>(x));
 
         float y = roundf(cursorElement->y().value(0));
-        m_hotspot.setY(static_cast<int>(y));
+        m_hotSpot.setY(static_cast<int>(y));
 
         if (cachedImageURL() != element->document()->completeURL(cursorElement->href()))
             clearCachedImage();
@@ -110,13 +112,14 @@ bool CSSCursorImageValue::updateIfSVGCursorIsUsed(Element* element)
     return false;
 }
 
-StyleCachedImage* CSSCursorImageValue::cachedImage(DocLoader* loader)
+StyleCachedImage* CSSCursorImageValue::cachedImage(CachedResourceLoader* loader)
 {
     String url = getStringValue();
 
 #if ENABLE(SVG) 
-    if (isSVGCursorIdentifier(url) && loader && loader->doc()) {
-        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, loader->doc()))
+    if (isSVGCursorIdentifier(url) && loader && loader->document()) {
+        // FIXME: This will fail if the <cursor> element is in a shadow DOM (bug 59827)
+        if (SVGCursorElement* cursorElement = resourceReferencedByCursorElement(url, loader->document()))
             url = cursorElement->href();
     }
 #endif

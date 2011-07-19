@@ -26,46 +26,37 @@
 #include "config.h"
 #include "SinkDocument.h"
 
-#include "Tokenizer.h"
+#include "RawDataDocumentParser.h"
 
 namespace WebCore {
 
-class SinkTokenizer : public Tokenizer {
+class SinkDocumentParser : public RawDataDocumentParser {
 public:
-    SinkTokenizer(Document* document) : m_document(document) { }
-        
+    static PassRefPtr<SinkDocumentParser> create(SinkDocument* document)
+    {
+        return adoptRef(new SinkDocumentParser(document));
+    }
+    
 private:
-    virtual void write(const SegmentedString&, bool) { ASSERT_NOT_REACHED(); }
-    virtual void stopParsing();
-    virtual void finish();
-    virtual bool isWaitingForScripts() const { return false; }
-        
-    virtual bool wantsRawData() const { return true; }
-    virtual bool writeRawData(const char*, int) { return false; }
+    SinkDocumentParser(SinkDocument* document)
+        : RawDataDocumentParser(document)
+    {
+    }
 
-    Document* m_document;
+    // Ignore all data.
+    virtual void appendBytes(DocumentWriter*, const char*, int, bool) { }
 };
 
-void SinkTokenizer::stopParsing()
+SinkDocument::SinkDocument(Frame* frame, const KURL& url)
+    : HTMLDocument(frame, url)
 {
-    Tokenizer::stopParsing();
+    setCompatibilityMode(QuirksMode);
+    lockCompatibilityMode();
 }
 
-void SinkTokenizer::finish()
+PassRefPtr<DocumentParser> SinkDocument::createParser()
 {
-    if (!m_parserStopped) 
-        m_document->finishedParsing();    
-}
-    
-SinkDocument::SinkDocument(Frame* frame)
-    : HTMLDocument(frame)
-{
-    setParseMode(Compat);
-}
-    
-Tokenizer* SinkDocument::createTokenizer()
-{
-    return new SinkTokenizer(this);
+    return SinkDocumentParser::create(this);
 }
 
 } // namespace WebCore

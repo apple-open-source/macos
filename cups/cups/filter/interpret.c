@@ -1,9 +1,9 @@
 /*
  * "$Id: interpret.c 7852 2008-08-21 04:19:45Z mike $"
  *
- *   PPD command interpreter for the Common UNIX Printing System (CUPS).
+ *   PPD command interpreter for CUPS.
  *
- *   Copyright 2007-2008 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 1993-2007 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -40,9 +40,7 @@
  * Include necessary headers...
  */
 
-#include <cups/string.h>
 #include "image-private.h"
-#include <stdlib.h>
 
 
 /*
@@ -265,10 +263,10 @@ cupsRasterInterpretPPD(
   if ((val = cupsGetOption("cupsBorderlessScalingFactor", num_options,
                            options)) != NULL)
   {
-    float sc = atof(val);
+    double sc = atof(val);		/* Scale factor */
 
     if (sc >= 0.1 && sc <= 2.0)
-      h->cupsBorderlessScalingFactor = sc;
+      h->cupsBorderlessScalingFactor = (float)sc;
   }
 
  /*
@@ -303,20 +301,26 @@ cupsRasterInterpretPPD(
     top    = 792.0f;
   }
 
-  h->PageSize[0]           = h->cupsPageSize[0] *
-                             h->cupsBorderlessScalingFactor;
-  h->PageSize[1]           = h->cupsPageSize[1] *
-                             h->cupsBorderlessScalingFactor;
-  h->Margins[0]            = left * h->cupsBorderlessScalingFactor;
-  h->Margins[1]            = bottom * h->cupsBorderlessScalingFactor;
-  h->ImagingBoundingBox[0] = left * h->cupsBorderlessScalingFactor;
-  h->ImagingBoundingBox[1] = bottom * h->cupsBorderlessScalingFactor;
-  h->ImagingBoundingBox[2] = right * h->cupsBorderlessScalingFactor;
-  h->ImagingBoundingBox[3] = top * h->cupsBorderlessScalingFactor;
-  h->cupsImagingBBox[0]    = left;
-  h->cupsImagingBBox[1]    = bottom;
-  h->cupsImagingBBox[2]    = right;
-  h->cupsImagingBBox[3]    = top;
+  h->PageSize[0]           = (unsigned)(h->cupsPageSize[0] *
+                                        h->cupsBorderlessScalingFactor);
+  h->PageSize[1]           = (unsigned)(h->cupsPageSize[1] *
+                                        h->cupsBorderlessScalingFactor);
+  h->Margins[0]            = (unsigned)(left *
+                                        h->cupsBorderlessScalingFactor);
+  h->Margins[1]            = (unsigned)(bottom *
+                                        h->cupsBorderlessScalingFactor);
+  h->ImagingBoundingBox[0] = (unsigned)(left *
+                                        h->cupsBorderlessScalingFactor);
+  h->ImagingBoundingBox[1] = (unsigned)(bottom *
+                                        h->cupsBorderlessScalingFactor);
+  h->ImagingBoundingBox[2] = (unsigned)(right *
+                                        h->cupsBorderlessScalingFactor);
+  h->ImagingBoundingBox[3] = (unsigned)(top *
+                                        h->cupsBorderlessScalingFactor);
+  h->cupsImagingBBox[0]    = (float)left;
+  h->cupsImagingBBox[1]    = (float)bottom;
+  h->cupsImagingBBox[2]    = (float)right;
+  h->cupsImagingBBox[3]    = (float)top;
 
  /*
   * Use the callback to validate the page header...
@@ -360,6 +364,7 @@ cupsRasterInterpretPPD(
     case CUPS_CSPACE_WHITE :
     case CUPS_CSPACE_GOLD :
     case CUPS_CSPACE_SILVER :
+    case CUPS_CSPACE_SW :
         h->cupsNumColors    = 1;
         h->cupsBitsPerPixel = h->cupsBitsPerColor;
 	break;
@@ -420,6 +425,29 @@ cupsRasterInterpretPPD(
 	  h->cupsBitsPerPixel = h->cupsBitsPerColor;
 
         h->cupsNumColors = 4;
+	break;
+
+    case CUPS_CSPACE_DEVICE1 :
+    case CUPS_CSPACE_DEVICE2 :
+    case CUPS_CSPACE_DEVICE3 :
+    case CUPS_CSPACE_DEVICE4 :
+    case CUPS_CSPACE_DEVICE5 :
+    case CUPS_CSPACE_DEVICE6 :
+    case CUPS_CSPACE_DEVICE7 :
+    case CUPS_CSPACE_DEVICE8 :
+    case CUPS_CSPACE_DEVICE9 :
+    case CUPS_CSPACE_DEVICEA :
+    case CUPS_CSPACE_DEVICEB :
+    case CUPS_CSPACE_DEVICEC :
+    case CUPS_CSPACE_DEVICED :
+    case CUPS_CSPACE_DEVICEE :
+    case CUPS_CSPACE_DEVICEF :
+        h->cupsNumColors = h->cupsColorSpace - CUPS_CSPACE_DEVICE1 + 1;
+
+        if (h->cupsColorOrder == CUPS_ORDER_CHUNKED)
+          h->cupsBitsPerPixel = h->cupsBitsPerColor * h->cupsNumColors;
+	else
+	  h->cupsBitsPerPixel = h->cupsBitsPerColor;
 	break;
   }
 
@@ -1456,8 +1484,8 @@ setpagedevice(
       if (obj[1].type == CUPS_PS_NUMBER && obj[2].type == CUPS_PS_NUMBER &&
           obj[3].type == CUPS_PS_END_ARRAY)
       {
-        h->cupsPageSize[0] = obj[1].value.number;
-	h->cupsPageSize[1] = obj[2].value.number;
+        h->cupsPageSize[0] = (float)obj[1].value.number;
+	h->cupsPageSize[1] = (float)obj[2].value.number;
 
         h->PageSize[0] = (unsigned)obj[1].value.number;
 	h->PageSize[1] = (unsigned)obj[2].value.number;
@@ -1494,7 +1522,7 @@ setpagedevice(
       h->cupsRowStep = (unsigned)obj->value.number;
     else if (!strcmp(name, "cupsBorderlessScalingFactor") &&
              obj->type == CUPS_PS_NUMBER)
-      h->cupsBorderlessScalingFactor = obj->value.number;
+      h->cupsBorderlessScalingFactor = (float)obj->value.number;
     else if (!strncmp(name, "cupsInteger", 11) && obj->type == CUPS_PS_NUMBER)
     {
       if ((i = atoi(name + 11)) < 0 || i > 15)
@@ -1507,7 +1535,7 @@ setpagedevice(
       if ((i = atoi(name + 8)) < 0 || i > 15)
         return (-1);
 
-      h->cupsReal[i] = obj->value.number;
+      h->cupsReal[i] = (float)obj->value.number;
     }
     else if (!strncmp(name, "cupsString", 10) && obj->type == CUPS_PS_STRING)
     {

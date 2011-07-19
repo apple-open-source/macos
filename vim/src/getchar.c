@@ -22,7 +22,7 @@
  * These buffers are used for storing:
  * - stuffed characters: A command that is translated into another command.
  * - redo characters: will redo the last change.
- * - recorded chracters: for the "q" command.
+ * - recorded characters: for the "q" command.
  *
  * The bytes are stored like in the typeahead buffer:
  * - K_SPECIAL introduces a special key (two more bytes follow).  A literal
@@ -129,7 +129,7 @@ static void	map_free __ARGS((mapblock_T **));
 static void	validate_maphash __ARGS((void));
 static void	showmap __ARGS((mapblock_T *mp, int local));
 #ifdef FEAT_EVAL
-static char_u	*eval_map_expr __ARGS((char_u *str));
+static char_u	*eval_map_expr __ARGS((char_u *str, int c));
 #endif
 
 /*
@@ -1283,7 +1283,7 @@ free_typebuf()
 	EMSG2(_(e_intern2), "Free typebuf 1");
     else
 	vim_free(typebuf.tb_buf);
-    if (typebuf.tb_buf == noremapbuf_init)
+    if (typebuf.tb_noremap == noremapbuf_init)
 	EMSG2(_(e_intern2), "Free typebuf 2");
     else
 	vim_free(typebuf.tb_noremap);
@@ -1309,6 +1309,9 @@ save_typebuf()
     return OK;
 }
 
+static int old_char = -1;	/* character put back by vungetc() */
+static int old_mod_mask;	/* mod_mask for ungotten character */
+
 #if defined(FEAT_EVAL) || defined(FEAT_EX_EXTRA) || defined(PROTO)
 
 /*
@@ -1322,6 +1325,10 @@ save_typeahead(tp)
     tp->typebuf_valid = (alloc_typebuf() == OK);
     if (!tp->typebuf_valid)
 	typebuf = tp->save_typebuf;
+
+    tp->old_char = old_char;
+    tp->old_mod_mask = old_mod_mask;
+    old_char = -1;
 
     tp->save_stuffbuff = stuffbuff;
     stuffbuff.bh_first.b_next = NULL;
@@ -1343,6 +1350,9 @@ restore_typeahead(tp)
 	free_typebuf();
 	typebuf = tp->save_typebuf;
     }
+
+    old_char = tp->old_char;
+    old_mod_mask = tp->old_mod_mask;
 
     free_buff(&stuffbuff);
     stuffbuff = tp->save_stuffbuff;
@@ -1499,9 +1509,6 @@ updatescript(c)
 #define KL_PART_KEY -1		/* keylen value for incomplete key-code */
 #define KL_PART_MAP -2		/* keylen value for incomplete mapping */
 
-static int old_char = -1;	/* character put back by vungetc() */
-static int old_mod_mask;	/* mod_mask for ungotten character */
-
 /*
  * Get the next input character.
  * Can return a special key or a multi-byte character.
@@ -1509,7 +1516,7 @@ static int old_mod_mask;	/* mod_mask for ungotten character */
  * wanted.
  * This translates escaped K_SPECIAL and CSI bytes to a K_SPECIAL or CSI byte.
  * Collects the bytes of a multibyte character into the whole character.
- * Returns the modifers in the global "mod_mask".
+ * Returns the modifiers in the global "mod_mask".
  */
     int
 vgetc()
@@ -1598,7 +1605,7 @@ vgetc()
 		continue;
 	    }
 #endif
-#if defined(FEAT_GUI) && defined(HAVE_GTK2) && defined(FEAT_MENU)
+#if defined(FEAT_GUI) && defined(FEAT_GUI_GTK) && defined(FEAT_MENU)
 	    /* GTK: <F10> normally selects the menu, but it's passed until
 	     * here to allow mapping it.  Intercept and invoke the GTK
 	     * behavior if it's not mapped. */
@@ -2382,6 +2389,17 @@ vgetorpeek(advance)
 		    /* complete match */
 		    if (keylen >= 0 && keylen <= typebuf.tb_len)
 		    {
+#ifdef FEAT_EVAL
+			int save_m_expr;
+			int save_m_noremap;
+			int save_m_silent;
+			char_u *save_m_keys;
+			char_u *save_m_str;
+#else
+# define save_m_noremap mp->m_noremap
+# define save_m_silent mp->m_silent
+#endif
+
 			/* write chars to script file(s) */
 			if (keylen > typebuf.tb_maplen)
 			    gotchars(typebuf.tb_buf + typebuf.tb_off
@@ -2424,6 +2442,16 @@ vgetorpeek(advance)
 #endif
 
 #ifdef FEAT_EVAL
+			/* Copy the values from *mp that are used, because
+			 * evaluating the expression may invoke a function
+			 * that redefines the mapping, thereby making *mp
+			 * invalid. */
+			save_m_expr = mp->m_expr;
+			save_m_noremap = mp->m_noremap;
+			save_m_silent = mp->m_silent;
+			save_m_keys = NULL;  /* only saved when needed */
+			save_m_str = NULL;  /* only saved when needed */
+
 			/*
 			 * Handle ":map <expr>": evaluate the {rhs} as an
 			 * expression.  Save and restore the typeahead so that
@@ -2439,7 +2467,9 @@ vgetorpeek(advance)
 			    if (tabuf.typebuf_valid)
 			    {
 				vgetc_busy = 0;
-				s = eval_map_expr(mp->m_str);
+				save_m_keys = vim_strsave(mp->m_keys);
+				save_m_str = vim_strsave(mp->m_str);
+				s = eval_map_expr(save_m_str, NUL);
 				vgetc_busy = save_vgetc_busy;
 			    }
 			    else
@@ -2462,18 +2492,33 @@ vgetorpeek(advance)
 			    i = FAIL;
 			else
 			{
-			    i = ins_typebuf(s,
-				    mp->m_noremap != REMAP_YES
-					    ? mp->m_noremap
-					    : STRNCMP(s, mp->m_keys,
-							  (size_t)keylen) != 0
-						     ? REMAP_YES : REMAP_SKIP,
-				0, TRUE, cmd_silent || mp->m_silent);
+			    int noremap;
+
+			    if (save_m_noremap != REMAP_YES)
+				noremap = save_m_noremap;
+			    else if (
 #ifdef FEAT_EVAL
-			    if (mp->m_expr)
+				STRNCMP(s, save_m_keys != NULL
+						   ? save_m_keys : mp->m_keys,
+							 (size_t)keylen)
+#else
+				STRNCMP(s, mp->m_keys, (size_t)keylen)
+#endif
+				   != 0)
+				noremap = REMAP_YES;
+			    else
+				noremap = REMAP_SKIP;
+			    i = ins_typebuf(s, noremap,
+					0, TRUE, cmd_silent || save_m_silent);
+#ifdef FEAT_EVAL
+			    if (save_m_expr)
 				vim_free(s);
 #endif
 			}
+#ifdef FEAT_EVAL
+			vim_free(save_m_keys);
+			vim_free(save_m_str);
+#endif
 			if (i == FAIL)
 			{
 			    c = -1;
@@ -3313,7 +3358,7 @@ do_map(maptype, arg, mode, abbrev)
 			    retval = 1;
 			    goto theend;
 			}
-	    /* An abbrevation cannot contain white space. */
+	    /* An abbreviation cannot contain white space. */
 	    for (n = 0; n < len; ++n)
 		if (vim_iswhite(keys[n]))
 		{
@@ -3701,11 +3746,10 @@ get_map_mode(cmdp, forceit)
  * Clear all mappings or abbreviations.
  * 'abbr' should be FALSE for mappings, TRUE for abbreviations.
  */
-/*ARGSUSED*/
     void
 map_clear(cmdp, arg, forceit, abbr)
     char_u	*cmdp;
-    char_u	*arg;
+    char_u	*arg UNUSED;
     int		forceit;
     int		abbr;
 {
@@ -3734,13 +3778,12 @@ map_clear(cmdp, arg, forceit, abbr)
 /*
  * Clear all mappings in "mode".
  */
-/*ARGSUSED*/
     void
 map_clear_int(buf, mode, local, abbr)
-    buf_T	*buf;	    /* buffer for local mappings */
-    int		mode;	    /* mode in which to delete */
-    int		local;	    /* TRUE for buffer-local mappings */
-    int		abbr;	    /* TRUE for abbreviations */
+    buf_T	*buf UNUSED;	/* buffer for local mappings */
+    int		mode;		/* mode in which to delete */
+    int		local UNUSED;	/* TRUE for buffer-local mappings */
+    int		abbr;		/* TRUE for abbreviations */
 {
     mapblock_T	*mp, **mpp;
     int		hash;
@@ -3816,7 +3859,11 @@ showmap(mp, local)
     int len = 1;
 
     if (msg_didout || msg_silent != 0)
+    {
 	msg_putchar('\n');
+	if (got_int)	    /* 'q' typed at MORE prompt */
+	    return;
+    }
     if ((mp->m_mode & (INSERT + CMDLINE)) == INSERT + CMDLINE)
 	msg_putchar('!');			/* :map! */
     else if (mp->m_mode & INSERT)
@@ -4263,7 +4310,7 @@ check_abbr(c, ptr, col, mincol)
 
     /*
      * Check for word before the cursor: If it ends in a keyword char all
-     * chars before it must be al keyword chars or non-keyword chars, but not
+     * chars before it must be keyword chars or non-keyword chars, but not
      * white space. If it ends in a non-keyword char we accept any characters
      * before it except white space.
      */
@@ -4358,9 +4405,9 @@ check_abbr(c, ptr, col, mincol)
 	     * abbreviation, but is not inserted into the input stream.
 	     */
 	    j = 0;
-					/* special key code, split up */
 	    if (c != Ctrl_RSB)
 	    {
+					/* special key code, split up */
 		if (IS_SPECIAL(c) || c == K_SPECIAL)
 		{
 		    tb[j++] = K_SPECIAL;
@@ -4389,7 +4436,7 @@ check_abbr(c, ptr, col, mincol)
 	    }
 #ifdef FEAT_EVAL
 	    if (mp->m_expr)
-		s = eval_map_expr(mp->m_str);
+		s = eval_map_expr(mp->m_str, c);
 	    else
 #endif
 		s = mp->m_str;
@@ -4425,8 +4472,9 @@ check_abbr(c, ptr, col, mincol)
  * special characters.
  */
     static char_u *
-eval_map_expr(str)
+eval_map_expr(str, c)
     char_u	*str;
+    int		c;	    /* NUL or typed character for abbreviation */
 {
     char_u	*res;
     char_u	*p;
@@ -4443,6 +4491,7 @@ eval_map_expr(str)
 #ifdef FEAT_EX_EXTRA
     ++ex_normal_lock;
 #endif
+    set_vim_var_char(c);  /* set v:char to the typed character */
     save_cursor = curwin->w_cursor;
     p = eval_to_string(str, NULL, FALSE);
     --textlock;
@@ -5038,13 +5087,6 @@ static struct initmap
 #if defined(MSDOS) || defined(MSWIN) || defined(OS2)
 	/* Use the Windows (CUA) keybindings. */
 # ifdef FEAT_GUI
-#  if 0	    /* These are now used to move tab pages */
-	{(char_u *)"<C-PageUp> H", NORMAL+VIS_SEL},
-	{(char_u *)"<C-PageUp> <C-O>H",INSERT},
-	{(char_u *)"<C-PageDown> L$", NORMAL+VIS_SEL},
-	{(char_u *)"<C-PageDown> <C-O>L<C-O>$", INSERT},
-#  endif
-
 	/* paste, copy and cut */
 	{(char_u *)"<S-Insert> \"*P", NORMAL},
 	{(char_u *)"<S-Insert> \"-d\"*P", VIS_SEL},
@@ -5055,12 +5097,6 @@ static struct initmap
 	{(char_u *)"<C-X> \"*d", VIS_SEL},
 	/* Missing: CTRL-C (cancel) and CTRL-V (block selection) */
 # else
-#  if 0	    /* These are now used to move tab pages */
-	{(char_u *)"\316\204 H", NORMAL+VIS_SEL},    /* CTRL-PageUp is "H" */
-	{(char_u *)"\316\204 \017H",INSERT},	    /* CTRL-PageUp is "^OH"*/
-	{(char_u *)"\316v L$", NORMAL+VIS_SEL},	    /* CTRL-PageDown is "L$" */
-	{(char_u *)"\316v \017L\017$", INSERT},	    /* CTRL-PageDown ="^OL^O$"*/
-#  endif
 	{(char_u *)"\316w <C-Home>", NORMAL+VIS_SEL},
 	{(char_u *)"\316w <C-Home>", INSERT+CMDLINE},
 	{(char_u *)"\316u <C-End>", NORMAL+VIS_SEL},
@@ -5070,7 +5106,7 @@ static struct initmap
 #  ifdef FEAT_CLIPBOARD
 #   ifdef DJGPP
 	{(char_u *)"\316\122 \"*P", NORMAL},	    /* SHIFT-Insert is "*P */
-	{(char_u *)"\316\122 \"-d\"*P", VIS_SEL},    /* SHIFT-Insert is "-d"*P */
+	{(char_u *)"\316\122 \"-d\"*P", VIS_SEL},   /* SHIFT-Insert is "-d"*P */
 	{(char_u *)"\316\122 \022\017*", INSERT},  /* SHIFT-Insert is ^R^O* */
 	{(char_u *)"\316\222 \"*y", VIS_SEL},	    /* CTRL-Insert is "*y */
 #    if 0 /* Shift-Del produces the same code as Del */
@@ -5080,7 +5116,7 @@ static struct initmap
 	{(char_u *)"\030 \"-d", VIS_SEL},	    /* CTRL-X is "-d */
 #   else
 	{(char_u *)"\316\324 \"*P", NORMAL},	    /* SHIFT-Insert is "*P */
-	{(char_u *)"\316\324 \"-d\"*P", VIS_SEL},    /* SHIFT-Insert is "-d"*P */
+	{(char_u *)"\316\324 \"-d\"*P", VIS_SEL},   /* SHIFT-Insert is "-d"*P */
 	{(char_u *)"\316\324 \022\017*", INSERT},  /* SHIFT-Insert is ^R^O* */
 	{(char_u *)"\316\325 \"*y", VIS_SEL},	    /* CTRL-Insert is "*y */
 	{(char_u *)"\316\327 \"*d", VIS_SEL},	    /* SHIFT-Del is "*d */

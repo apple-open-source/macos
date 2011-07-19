@@ -74,6 +74,7 @@
 /*	char	*var_par_dom_match;
 /*	char	*var_config_dirs;
 /*
+/*	int	var_inet_windowsize;
 /*	char	*var_import_environ;
 /*	char	*var_export_environ;
 /*	char	*var_debug_peer_list;
@@ -91,6 +92,8 @@
 /*	char   *var_flush_service;
 /*	char   *var_verify_service;
 /*	char   *var_trace_service;
+/*	char   *var_proxymap_service;
+/*	char   *var_proxywrite_service;
 /*	int	var_db_create_buf;
 /*	int	var_db_read_buf;
 /*	int	var_mime_maxdepth;
@@ -111,6 +114,12 @@
 /*	int	var_delay_max_res;
 /*	char	*var_int_filt_classes;
 /*	int	var_cyrus_sasl_authzid;
+/*
+/*	char	*var_multi_conf_dirs;
+/*	char	*var_multi_wrapper;
+/*	char	*var_multi_group;
+/*	char	*var_multi_name;
+/*	bool	var_multi_enable;
 /*
 /*	void	mail_params_init()
 /*
@@ -170,6 +179,7 @@
 #endif
 #include <inet_proto.h>
 #include <vstring_vstream.h>
+#include <iostuff.h>
 
 /* Global library. */
 
@@ -256,6 +266,7 @@ int     var_in_flow_delay;
 char   *var_par_dom_match;
 char   *var_config_dirs;
 
+int     var_inet_windowsize;
 char   *var_import_environ;
 char   *var_export_environ;
 char   *var_debug_peer_list;
@@ -272,6 +283,8 @@ char   *var_error_service;
 char   *var_flush_service;
 char   *var_verify_service;
 char   *var_trace_service;
+char   *var_proxymap_service;
+char   *var_proxywrite_service;
 int     var_db_create_buf;
 int     var_db_read_buf;
 int     var_mime_maxdepth;
@@ -287,13 +300,22 @@ int     var_strict_encoding;
 int     var_verify_neg_cache;
 int     var_oldlog_compat;
 #ifdef __APPLE_OS_X_SERVER__
+int	var_minimum_valid_uid;
 bool	var_enable_server_options;
 bool    var_check_for_od_forward;
 bool	var_use_getpwnam_ext;
+bool	var_use_sacl_cache;
+char   *var_sacl_cache_service;
 #endif /* __APPLE_OS_X_SERVER__ */
 int     var_delay_max_res;
 char   *var_int_filt_classes;
 int     var_cyrus_sasl_authzid;
+
+char   *var_multi_conf_dirs;
+char   *var_multi_wrapper;
+char   *var_multi_group;
+char   *var_multi_name;
+bool    var_multi_enable;
 
 const char null_format_string[1] = "";
 
@@ -506,6 +528,10 @@ void    mail_params_init()
     static const CONFIG_STR_TABLE first_str_defaults[] = {
 	VAR_SYSLOG_FACILITY, DEF_SYSLOG_FACILITY, &var_syslog_facility, 1, 0,
 	VAR_INET_PROTOCOLS, DEF_INET_PROTOCOLS, &var_inet_protocols, 1, 0,
+	VAR_MULTI_CONF_DIRS, DEF_MULTI_CONF_DIRS, &var_multi_conf_dirs, 0, 0,
+	/* multi_instance_wrapper may have dependencies but not dependents. */
+	VAR_MULTI_GROUP, DEF_MULTI_GROUP, &var_multi_group, 0, 0,
+	VAR_MULTI_NAME, DEF_MULTI_NAME, &var_multi_name, 0, 0,
 	0,
     };
     static const CONFIG_STR_FN_TABLE function_str_defaults[] = {
@@ -559,8 +585,15 @@ void    mail_params_init()
 	VAR_ERROR_SERVICE, DEF_ERROR_SERVICE, &var_error_service, 1, 0,
 	VAR_FLUSH_SERVICE, DEF_FLUSH_SERVICE, &var_flush_service, 1, 0,
 	VAR_VERIFY_SERVICE, DEF_VERIFY_SERVICE, &var_verify_service, 1, 0,
+#ifdef __APPLE_OS_X_SERVER__
+	VAR_SACL_CACHE_SERVICE, DEF_SACL_CACHE_SERVICE, &var_sacl_cache_service, 1, 0,
+#endif
 	VAR_TRACE_SERVICE, DEF_TRACE_SERVICE, &var_trace_service, 1, 0,
+	VAR_PROXYMAP_SERVICE, DEF_PROXYMAP_SERVICE, &var_proxymap_service, 1, 0,
+	VAR_PROXYWRITE_SERVICE, DEF_PROXYWRITE_SERVICE, &var_proxywrite_service, 1, 0,
 	VAR_INT_FILT_CLASSES, DEF_INT_FILT_CLASSES, &var_int_filt_classes, 0, 0,
+	/* multi_instance_wrapper may have dependencies but not dependents. */
+	VAR_MULTI_WRAPPER, DEF_MULTI_WRAPPER, &var_multi_wrapper, 0, 0,
 	0,
     };
     static const CONFIG_STR_FN_TABLE function_str_defaults_2[] = {
@@ -584,6 +617,10 @@ void    mail_params_init()
 	VAR_MIME_MAXDEPTH, DEF_MIME_MAXDEPTH, &var_mime_maxdepth, 1, 0,
 	VAR_MIME_BOUND_LEN, DEF_MIME_BOUND_LEN, &var_mime_bound_len, 1, 0,
 	VAR_DELAY_MAX_RES, DEF_DELAY_MAX_RES, &var_delay_max_res, MIN_DELAY_MAX_RES, MAX_DELAY_MAX_RES,
+	VAR_INET_WINDOW, DEF_INET_WINDOW, &var_inet_windowsize, 0, 0,
+#ifdef __APPLE_OS_X_SERVER__
+	VAR_MINIMUM_VALID_UID, DEF_MINIMUM_VALID_UID, &var_minimum_valid_uid, 2, 0,
+#endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
     static const CONFIG_TIME_TABLE time_defaults[] = {
@@ -614,10 +651,12 @@ void    mail_params_init()
 	VAR_OLDLOG_COMPAT, DEF_OLDLOG_COMPAT, &var_oldlog_compat,
 	VAR_HELPFUL_WARNINGS, DEF_HELPFUL_WARNINGS, &var_helpful_warnings,
 	VAR_CYRUS_SASL_AUTHZID, DEF_CYRUS_SASL_AUTHZID, &var_cyrus_sasl_authzid,
+	VAR_MULTI_ENABLE, DEF_MULTI_ENABLE, &var_multi_enable,
 #ifdef __APPLE_OS_X_SERVER__
 	VAR_ENABLE_SERVER_OPTIONS, DEF_ENABLE_SERVER_OPTIONS, &var_enable_server_options,
 	VAR_CHECK_FOR_OD_FORWARD, DEF_CHECK_FOR_OD_FORWARD, &var_check_for_od_forward,
 	VAR_USE_GETPWNAM_EXT, DEF_USE_GETPWNAM_EXT, &var_use_getpwnam_ext,
+	VAR_USE_SACL_CACHE, DEF_USE_SACL_CACHE, &var_use_sacl_cache,
 #endif /* __APPLE_OS_X_SERVER__ */
 	0,
     };
@@ -685,6 +724,7 @@ void    mail_params_init()
 #ifdef HAS_DB
     dict_db_cache_size = var_db_read_buf;
 #endif
+    inet_windowsize = var_inet_windowsize;
 
     /*
      * Variables whose defaults are determined at runtime, after other

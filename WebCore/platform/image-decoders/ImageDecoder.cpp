@@ -31,13 +31,16 @@
 #include "ICOImageDecoder.h"
 #include "JPEGImageDecoder.h"
 #include "PNGImageDecoder.h"
+#include "WEBPImageDecoder.h"
 #include "SharedBuffer.h"
 
 using namespace std;
 
 namespace WebCore {
 
-static unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const SharedBuffer& sharedBuffer, unsigned offset)
+namespace {
+
+unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const SharedBuffer& sharedBuffer, unsigned offset)
 {
     unsigned bytesExtracted = 0;
     const char* moreData;
@@ -52,67 +55,105 @@ static unsigned copyFromSharedBuffer(char* buffer, unsigned bufferLength, const 
     return bytesExtracted;
 }
 
-ImageDecoder* ImageDecoder::create(const SharedBuffer& data)
+bool matchesGIFSignature(char* contents)
 {
-    // We need at least 4 bytes to figure out what kind of image we're dealing
-    // with.
-    static const unsigned maxMarkerLength = 4;
-    char contents[maxMarkerLength];
-    unsigned length = copyFromSharedBuffer(contents, maxMarkerLength, data, 0);
-    if (length < maxMarkerLength)
+    return !memcmp(contents, "GIF8", 4);
+}
+
+bool matchesPNGSignature(char* contents)
+{
+    return !memcmp(contents, "\x89\x50\x4E\x47", 4);
+}
+
+bool matchesJPEGSignature(char* contents)
+{
+    return !memcmp(contents, "\xFF\xD8\xFF", 3);
+}
+
+#if USE(WEBP)
+bool matchesWebPSignature(char* contents)
+{
+    return !memcmp(contents, "RIFF", 4) && !memcmp(contents + 8, "WEBPVP", 6);
+}
+#endif
+
+bool matchesBMPSignature(char* contents)
+{
+    return !memcmp(contents, "BM", 2);
+}
+
+bool matchesICOSignature(char* contents)
+{
+    return !memcmp(contents, "\x00\x00\x01\x00", 4);
+}
+
+bool matchesCURSignature(char* contents)
+{
+    return !memcmp(contents, "\x00\x00\x02\x00", 4);
+}
+
+}
+
+ImageDecoder* ImageDecoder::create(const SharedBuffer& data, ImageSource::AlphaOption alphaOption, ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+{
+    static const unsigned lengthOfLongestSignature = 14; // To wit: "RIFF????WEBPVP"
+    char contents[lengthOfLongestSignature];
+    unsigned length = copyFromSharedBuffer(contents, lengthOfLongestSignature, data, 0);
+    if (length < lengthOfLongestSignature)
         return 0;
 
-    // GIFs begin with GIF8(7 or 9).
-    if (strncmp(contents, "GIF8", 4) == 0)
-        return new GIFImageDecoder();
+    if (matchesGIFSignature(contents))
+        return new GIFImageDecoder(alphaOption, gammaAndColorProfileOption);
 
-    // Test for PNG.
-    if (!memcmp(contents, "\x89\x50\x4E\x47", 4))
-        return new PNGImageDecoder();
+    if (matchesPNGSignature(contents))
+        return new PNGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
-    // JPEG
-    if (!memcmp(contents, "\xFF\xD8\xFF", 3))
-        return new JPEGImageDecoder();
+    if (matchesJPEGSignature(contents))
+        return new JPEGImageDecoder(alphaOption, gammaAndColorProfileOption);
 
-    // BMP
-    if (strncmp(contents, "BM", 2) == 0)
-        return new BMPImageDecoder();
+#if USE(WEBP)
+    if (matchesWebPSignature(contents))
+        return new WEBPImageDecoder(alphaOption, gammaAndColorProfileOption);
+#endif
 
-    // ICOs always begin with a 2-byte 0 followed by a 2-byte 1.
-    // CURs begin with 2-byte 0 followed by 2-byte 2.
-    if (!memcmp(contents, "\x00\x00\x01\x00", 4) || !memcmp(contents, "\x00\x00\x02\x00", 4))
-        return new ICOImageDecoder();
+    if (matchesBMPSignature(contents))
+        return new BMPImageDecoder(alphaOption, gammaAndColorProfileOption);
 
-    // Give up. We don't know what the heck this is.
+    if (matchesICOSignature(contents) || matchesCURSignature(contents))
+        return new ICOImageDecoder(alphaOption, gammaAndColorProfileOption);
+
     return 0;
 }
 
-#if !PLATFORM(SKIA)
+#if !USE(SKIA)
 
-RGBA32Buffer::RGBA32Buffer()
+ImageFrame::ImageFrame()
     : m_hasAlpha(false)
     , m_status(FrameEmpty)
     , m_duration(0)
     , m_disposalMethod(DisposeNotSpecified)
+    , m_premultiplyAlpha(true)
 {
 } 
 
-RGBA32Buffer& RGBA32Buffer::operator=(const RGBA32Buffer& other)
+ImageFrame& ImageFrame::operator=(const ImageFrame& other)
 {
     if (this == &other)
         return *this;
 
-    copyBitmapData(other);
-    setRect(other.rect());
+    copyReferenceToBitmapData(other);
+    setOriginalFrameRect(other.originalFrameRect());
     setStatus(other.status());
     setDuration(other.duration());
     setDisposalMethod(other.disposalMethod());
+    setPremultiplyAlpha(other.premultiplyAlpha());
     return *this;
 }
 
-void RGBA32Buffer::clear()
+void ImageFrame::clearPixelData()
 {
-    m_bytes.clear();
+    m_backingStore.clear();
+    m_bytes = 0;
     m_status = FrameEmpty;
     // NOTE: Do not reset other members here; clearFrameBufferCache() calls this
     // to free the bitmap data, but other functions like initFrameBuffer() and
@@ -120,56 +161,73 @@ void RGBA32Buffer::clear()
     // later.
 }
 
-void RGBA32Buffer::zeroFill()
+void ImageFrame::zeroFillPixelData()
 {
-    m_bytes.fill(0);
+    memset(m_bytes, 0, m_size.width() * m_size.height() * sizeof(PixelData));
     m_hasAlpha = true;
 }
 
-void RGBA32Buffer::copyBitmapData(const RGBA32Buffer& other)
-{
-    if (this == &other)
-        return;
+#if !USE(CG)
 
-    m_bytes = other.m_bytes;
-    m_size = other.m_size;
-    setHasAlpha(other.m_hasAlpha);
+void ImageFrame::copyReferenceToBitmapData(const ImageFrame& other)
+{
+    ASSERT(this != &other);
+    copyBitmapData(other);
 }
 
-bool RGBA32Buffer::setSize(int newWidth, int newHeight)
+bool ImageFrame::copyBitmapData(const ImageFrame& other)
+{
+    if (this == &other)
+        return true;
+
+    m_backingStore = other.m_backingStore;
+    m_bytes = m_backingStore.data();
+    m_size = other.m_size;
+    setHasAlpha(other.m_hasAlpha);
+    return true;
+}
+
+bool ImageFrame::setSize(int newWidth, int newHeight)
 {
     // NOTE: This has no way to check for allocation failure if the requested
     // size was too big...
-    m_bytes.resize(newWidth * newHeight);
+    m_backingStore.resize(newWidth * newHeight);
+    m_bytes = m_backingStore.data();
     m_size = IntSize(newWidth, newHeight);
 
-    // Zero the image.
-    zeroFill();
+    zeroFillPixelData();
 
     return true;
 }
 
-bool RGBA32Buffer::hasAlpha() const
+#endif
+
+bool ImageFrame::hasAlpha() const
 {
     return m_hasAlpha;
 }
 
-void RGBA32Buffer::setHasAlpha(bool alpha)
+void ImageFrame::setHasAlpha(bool alpha)
 {
     m_hasAlpha = alpha;
 }
 
-void RGBA32Buffer::setStatus(FrameStatus status)
+void ImageFrame::setColorProfile(const ColorProfile& colorProfile)
+{
+    m_colorProfile = colorProfile;
+}
+
+void ImageFrame::setStatus(FrameStatus status)
 {
     m_status = status;
 }
 
-int RGBA32Buffer::width() const
+int ImageFrame::width() const
 {
     return m_size.width();
 }
 
-int RGBA32Buffer::height() const
+int ImageFrame::height() const
 {
     return m_size.height();
 }
@@ -219,19 +277,20 @@ template <MatchType type> int getScaledValue(const Vector<int>& scaledValues, in
 
 void ImageDecoder::prepareScaleDataIfNecessary()
 {
+    m_scaled = false;
+    m_scaledColumns.clear();
+    m_scaledRows.clear();
+
     int width = size().width();
     int height = size().height();
     int numPixels = height * width;
-    if (m_maxNumPixels > 0 && numPixels > m_maxNumPixels) {
-        m_scaled = true;
-        double scale = sqrt(m_maxNumPixels / (double)numPixels);
-        fillScaledValues(m_scaledColumns, scale, width);
-        fillScaledValues(m_scaledRows, scale, height);
-    } else if (m_scaled) {
-        m_scaled = false;
-        m_scaledColumns.clear();
-        m_scaledRows.clear();
-    }
+    if (m_maxNumPixels <= 0 || numPixels <= m_maxNumPixels)
+        return;
+
+    m_scaled = true;
+    double scale = sqrt(m_maxNumPixels / (double)numPixels);
+    fillScaledValues(m_scaledColumns, scale, width);
+    fillScaledValues(m_scaledRows, scale, height);
 }
 
 int ImageDecoder::upperBoundScaledX(int origX, int searchStart)

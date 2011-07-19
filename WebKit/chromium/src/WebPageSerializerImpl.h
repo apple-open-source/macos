@@ -31,11 +31,12 @@
 #ifndef WebPageSerializerImpl_h
 #define WebPageSerializerImpl_h
 
-#include "PlatformString.h"
-#include "StringBuilder.h"
-#include "StringHash.h"
+#include <wtf/Forward.h>
 #include <wtf/HashMap.h>
 #include <wtf/Vector.h>
+#include <wtf/text/StringBuilder.h>
+#include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 #include "WebEntities.h"
 #include "WebPageSerializer.h"
@@ -47,7 +48,6 @@ namespace WebCore {
 class Document;
 class Element;
 class Node;
-class String;
 class TextEncoding;
 }
 
@@ -93,12 +93,12 @@ private:
     WebPageSerializerClient* m_client;
     // This hash map is used to map resource URL of original link to its local
     // file path.
-    typedef HashMap<WebCore::String, WebCore::String> LinkLocalPathMap;
+    typedef HashMap<WTF::String, WTF::String> LinkLocalPathMap;
     // local_links_ include all pair of local resource path and corresponding
     // original link.
     LinkLocalPathMap m_localLinks;
     // Data buffer for saving result of serialized DOM data.
-    WebCore::StringBuilder m_dataBuffer;
+    StringBuilder m_dataBuffer;
     // Passing true to recursive_serialization_ indicates we will serialize not
     // only the specified frame but also all sub-frames in the specific frame.
     // Otherwise we only serialize the specified frame excluded all sub-frames.
@@ -107,7 +107,7 @@ private:
     // serialized or not;
     bool m_framesCollected;
     // Local directory name of all local resource files.
-    WebCore::String m_localDirectoryName;
+    WTF::String m_localDirectoryName;
     // Vector for saving all frames which need to be serialized.
     Vector<WebFrameImpl*> m_frames;
 
@@ -116,81 +116,71 @@ private:
     WebEntities m_xmlEntities;
 
     struct SerializeDomParam {
-        // Frame URL of current processing document presented by GURL
-        const WebCore::KURL& currentFrameURL;
-        // Current using text encoding object.
+        const WebCore::KURL& url;
         const WebCore::TextEncoding& textEncoding;
-
-        // Document object of current frame.
-        WebCore::Document* doc;
-        // Local directory name of all local resource files.
-        const WebCore::String& directoryName;
-
-        // Flag indicates current doc is html document or not. It's a cache value
-        // of Document.isHTMLDocument().
-        bool isHTMLDocument;
-        // Flag which indicate whether we have met document type declaration.
-        bool hasDoctype;
-        // Flag which indicate whether will process meta issue.
-        bool hasCheckedMeta;
+        WebCore::Document* document;
+        const WTF::String& directoryName;
+        bool isHTMLDocument; // document.isHTMLDocument()
+        bool haveSeenDocType;
+        bool haveAddedCharsetDeclaration;
         // This meta element need to be skipped when serializing DOM.
         const WebCore::Element* skipMetaElement;
         // Flag indicates we are in script or style tag.
         bool isInScriptOrStyleTag;
-        // Flag indicates whether we have written xml document declaration.
-        // It is only used in xml document
-        bool hasDocDeclaration;
+        bool haveAddedXMLProcessingDirective;
         // Flag indicates whether we have added additional contents before end tag.
         // This flag will be re-assigned in each call of function
         // PostActionAfterSerializeOpenTag and it could be changed in function
         // PreActionBeforeSerializeEndTag if the function adds new contents into
         // serialization stream.
-        bool hasAddedContentsBeforeEnd;
+        bool haveAddedContentsBeforeEnd;
 
-        // Constructor.
-        SerializeDomParam(const WebCore::KURL& currentFrameURL,
-                          const WebCore::TextEncoding& textEncoding,
-                          WebCore::Document* doc,
-                          const WebCore::String& directoryName);
+        SerializeDomParam(const WebCore::KURL&, const WebCore::TextEncoding&, WebCore::Document*, const WTF::String& directoryName);
     };
 
     // Collect all target frames which need to be serialized.
     void collectTargetFrames();
     // Before we begin serializing open tag of a element, we give the target
     // element a chance to do some work prior to add some additional data.
-    WebCore::String preActionBeforeSerializeOpenTag(const WebCore::Element* element,
+    WTF::String preActionBeforeSerializeOpenTag(const WebCore::Element* element,
                                                     SerializeDomParam* param,
                                                     bool* needSkip);
     // After we finish serializing open tag of a element, we give the target
     // element a chance to do some post work to add some additional data.
-    WebCore::String postActionAfterSerializeOpenTag(const WebCore::Element* element,
+    WTF::String postActionAfterSerializeOpenTag(const WebCore::Element* element,
                                                     SerializeDomParam* param);
     // Before we begin serializing end tag of a element, we give the target
     // element a chance to do some work prior to add some additional data.
-    WebCore::String preActionBeforeSerializeEndTag(const WebCore::Element* element,
+    WTF::String preActionBeforeSerializeEndTag(const WebCore::Element* element,
                                                    SerializeDomParam* param,
                                                    bool* needSkip);
     // After we finish serializing end tag of a element, we give the target
     // element a chance to do some post work to add some additional data.
-    WebCore::String postActionAfterSerializeEndTag(const WebCore::Element* element,
+    WTF::String postActionAfterSerializeEndTag(const WebCore::Element* element,
                                                    SerializeDomParam* param);
     // Save generated html content to data buffer.
-    void saveHTMLContentToBuffer(const WebCore::String& content,
+    void saveHTMLContentToBuffer(const WTF::String& content,
                                  SerializeDomParam* param);
+
+    enum FlushOption {
+        ForceFlush,
+        DoNotForceFlush,
+    };
+
     // Flushes the content buffer by encoding and sending the content to the
     // WebPageSerializerClient. Content is not flushed if the buffer is not full
     // unless force is 1.
     void encodeAndFlushBuffer(WebPageSerializerClient::PageSerializationStatus status,
                               SerializeDomParam* param,
-                              bool force);
+                              FlushOption);
     // Serialize open tag of an specified element.
-    void openTagToString(const WebCore::Element* element,
+    void openTagToString(WebCore::Element*,
                          SerializeDomParam* param);
     // Serialize end tag of an specified element.
-    void endTagToString(const WebCore::Element* element,
+    void endTagToString(WebCore::Element*,
                         SerializeDomParam* param);
     // Build content for a specified node
-    void buildContentForNode(const WebCore::Node* node,
+    void buildContentForNode(WebCore::Node*,
                              SerializeDomParam* param);
 };
 

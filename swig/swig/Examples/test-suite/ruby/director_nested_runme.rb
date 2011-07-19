@@ -1,3 +1,14 @@
+#!/usr/bin/env ruby
+#
+# Put description here
+#
+# 
+# 
+# 
+#
+
+require 'swig_assert'
+
 require 'director_nested'
 
 NoProtectedError = Kernel.const_defined?("NoMethodError") ? NoMethodError : NameError

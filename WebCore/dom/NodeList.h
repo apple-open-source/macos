@@ -24,11 +24,11 @@
 #ifndef NodeList_h
 #define NodeList_h
 
+#include <wtf/Forward.h>
 #include <wtf/RefCounted.h>
 
 namespace WebCore {
 
-    class AtomicString;
     class Node;
 
     class NodeList : public RefCounted<NodeList> {
@@ -39,6 +39,9 @@ namespace WebCore {
         virtual unsigned length() const = 0;
         virtual Node* item(unsigned index) const = 0;
         virtual Node* itemWithName(const AtomicString&) const = 0;
+        
+        // Other methods (not part of DOM)
+        virtual bool isDynamicNodeList() const { return false; }
     };
 
 } // namespace WebCore

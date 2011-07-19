@@ -1,22 +1,22 @@
 /*
-    Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
-                  2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
-
-    This library is free software; you can redistribute it and/or
-    modify it under the terms of the GNU Library General Public
-    License as published by the Free Software Foundation; either
-    version 2 of the License, or (at your option) any later version.
-
-    This library is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
-    Library General Public License for more details.
-
-    You should have received a copy of the GNU Library General Public License
-    along with this library; see the file COPYING.LIB.  If not, write to
-    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
-    Boston, MA 02110-1301, USA.
-*/
+ * Copyright (C) 2004, 2005, 2007, 2008 Nikolas Zimmermann <zimmermann@kde.org>
+ * Copyright (C) 2004, 2005, 2006, 2008 Rob Buis <buis@kde.org>
+ *
+ * This library is free software; you can redistribute it and/or
+ * modify it under the terms of the GNU Library General Public
+ * License as published by the Free Software Foundation; either
+ * version 2 of the License, or (at your option) any later version.
+ *
+ * This library is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+ * Library General Public License for more details.
+ *
+ * You should have received a copy of the GNU Library General Public License
+ * along with this library; see the file COPYING.LIB.  If not, write to
+ * the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
+ */
 
 #include "config.h"
 
@@ -24,35 +24,39 @@
 #include "SVGTextElement.h"
 
 #include "AffineTransform.h"
+#include "Attribute.h"
 #include "FloatRect.h"
-#include "MappedAttribute.h"
+#include "RenderSVGResource.h"
 #include "RenderSVGText.h"
-#include "SVGLengthList.h"
+#include "SVGNames.h"
 #include "SVGRenderStyle.h"
 #include "SVGTSpanElement.h"
-#include "SVGTransformList.h"
 
 namespace WebCore {
 
-SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document* doc)
+// Animated property definitions
+DEFINE_ANIMATED_TRANSFORM_LIST(SVGTextElement, SVGNames::transformAttr, Transform, transform)
+
+inline SVGTextElement::SVGTextElement(const QualifiedName& tagName, Document* doc)
     : SVGTextPositioningElement(tagName, doc)
-    , SVGTransformable()
-    , m_transform(SVGTransformList::create(SVGNames::transformAttr))
 {
+    ASSERT(hasTagName(SVGNames::textTag));
 }
 
-SVGTextElement::~SVGTextElement()
+PassRefPtr<SVGTextElement> SVGTextElement::create(const QualifiedName& tagName, Document* document)
 {
+    return adoptRef(new SVGTextElement(tagName, document));
 }
 
-void SVGTextElement::parseMappedAttribute(MappedAttribute* attr)
+void SVGTextElement::parseMappedAttribute(Attribute* attr)
 {
     if (SVGTransformable::isKnownAttribute(attr->name())) {
-        SVGTransformList* localTransforms = transformBaseValue();
-        if (!SVGTransformable::parseTransformAttribute(localTransforms, attr->value())) {
-            ExceptionCode ec = 0;
-            localTransforms->clear(ec);
-        }
+        SVGTransformList newList;
+        if (!SVGTransformable::parseTransformAttribute(newList, attr->value()))
+            newList.clear();
+
+        detachAnimatedTransformListWrappers(newList.size());
+        setTransformBaseValue(newList);
     } else
         SVGTextPositioningElement::parseMappedAttribute(attr);
 }
@@ -84,13 +88,17 @@ AffineTransform SVGTextElement::getScreenCTM(StyleUpdateStrategy styleUpdateStra
 
 AffineTransform SVGTextElement::animatedLocalTransform() const
 {
-    return m_supplementalTransform ? transform()->concatenate().matrix() * *m_supplementalTransform : transform()->concatenate().matrix();
+    AffineTransform matrix;
+    transform().concatenate(matrix);
+    if (m_supplementalTransform)
+        matrix *= *m_supplementalTransform;
+    return matrix;
 }
 
 AffineTransform* SVGTextElement::supplementalTransform()
 {
     if (!m_supplementalTransform)
-        m_supplementalTransform.set(new AffineTransform());
+        m_supplementalTransform = adoptPtr(new AffineTransform);
     return m_supplementalTransform.get();
 }
 
@@ -102,11 +110,15 @@ RenderObject* SVGTextElement::createRenderer(RenderArena* arena, RenderStyle*)
 bool SVGTextElement::childShouldCreateRenderer(Node* child) const
 {
     if (child->isTextNode()
+        || child->hasTagName(SVGNames::aTag)
 #if ENABLE(SVG_FONTS)
         || child->hasTagName(SVGNames::altGlyphTag)
 #endif
-        || child->hasTagName(SVGNames::tspanTag) || child->hasTagName(SVGNames::trefTag) || child->hasTagName(SVGNames::aTag) || child->hasTagName(SVGNames::textPathTag))
+        || child->hasTagName(SVGNames::textPathTag)
+        || child->hasTagName(SVGNames::trefTag)
+        || child->hasTagName(SVGNames::tspanTag))
         return true;
+
     return false;
 }
 
@@ -120,7 +132,7 @@ void SVGTextElement::svgAttributeChanged(const QualifiedName& attrName)
 
     if (SVGTransformable::isKnownAttribute(attrName)) {
         renderer->setNeedsTransformUpdate();
-        renderer->setNeedsLayout(true);
+        RenderSVGResource::markForLayoutAndParentResourceInvalidation(renderer);
     }
 }
 
@@ -132,14 +144,18 @@ void SVGTextElement::synchronizeProperty(const QualifiedName& attrName)
         synchronizeTransform();
 }
 
-void SVGTextElement::childrenChanged(bool changedByParser, Node* beforeChange, Node* afterChange, int childCountDelta)
+AttributeToPropertyTypeMap& SVGTextElement::attributeToPropertyTypeMap()
 {
-    SVGTextPositioningElement::childrenChanged(changedByParser, beforeChange, afterChange, childCountDelta);
+    DEFINE_STATIC_LOCAL(AttributeToPropertyTypeMap, s_attributeToPropertyTypeMap, ());
+    return s_attributeToPropertyTypeMap;
+}
 
-    if (!renderer())
-        return;
+void SVGTextElement::fillAttributeToPropertyTypeMap()
+{
+    AttributeToPropertyTypeMap& attributeToPropertyTypeMap = this->attributeToPropertyTypeMap();
 
-    renderer()->setNeedsLayout(true);
+    SVGTextPositioningElement::fillPassedAttributeToPropertyTypeMap(attributeToPropertyTypeMap);
+    attributeToPropertyTypeMap.set(SVGNames::transformAttr, AnimatedTransformList);
 }
 
 }

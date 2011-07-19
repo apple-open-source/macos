@@ -36,17 +36,28 @@ static void _ewk_view_single_on_del(void *data, Evas *e, Evas_Object *o, void *e
     evas_object_del(clip);
 }
 
-static Evas_Object *_ewk_view_single_smart_backing_store_add(Ewk_View_Smart_Data *sd)
+static void _ewk_view_single_smart_add(Evas_Object *o)
 {
-    Evas_Object *bs = evas_object_image_add(sd->base.evas);
+    Ewk_View_Smart_Data *sd;
+
+    _parent_sc.sc.add(o);
+
+    sd = (Ewk_View_Smart_Data *)evas_object_smart_data_get(o);
+
     Evas_Object *clip = evas_object_rectangle_add(sd->base.evas);
-    evas_object_image_alpha_set(bs, EINA_FALSE);
-    evas_object_image_smooth_scale_set(bs, sd->zoom_weak_smooth_scale);
-    evas_object_clip_set(bs, clip);
+    evas_object_clip_set(sd->backing_store, clip);
+    evas_object_smart_member_add(clip, o);
     evas_object_show(clip);
 
     evas_object_event_callback_add
-        (bs, EVAS_CALLBACK_DEL, _ewk_view_single_on_del, clip);
+        (sd->backing_store, EVAS_CALLBACK_DEL, _ewk_view_single_on_del, clip);
+}
+
+static Evas_Object *_ewk_view_single_smart_backing_store_add(Ewk_View_Smart_Data *sd)
+{
+    Evas_Object *bs = evas_object_image_add(sd->base.evas);
+    evas_object_image_alpha_set(bs, EINA_FALSE);
+    evas_object_image_smooth_scale_set(bs, sd->zoom_weak_smooth_scale);
 
     return bs;
 }
@@ -337,6 +348,8 @@ static Eina_Bool _ewk_view_single_smart_scrolls_process(Ewk_View_Smart_Data *sd)
     for (; sr < sr_end; sr++)
         _ewk_view_single_scroll_process_single(sd, pixels, ow, oh, sr);
 
+    evas_object_image_data_set(sd->backing_store, pixels);
+
     return EINA_TRUE;
 }
 
@@ -345,7 +358,7 @@ static Eina_Bool _ewk_view_single_smart_repaints_process(Ewk_View_Smart_Data *sd
     Ewk_View_Paint_Context *ctxt;
     Evas_Coord ow, oh;
     void *pixels;
-    Eina_Rectangle r = {0, 0, 0, 0};
+    Eina_Rectangle *r;
     const Eina_Rectangle *pr;
     const Eina_Rectangle *pr_end;
     Eina_Tiler *tiler;
@@ -433,8 +446,8 @@ static Eina_Bool _ewk_view_single_smart_repaints_process(Ewk_View_Smart_Data *sd
 
     EINA_ITERATOR_FOREACH(itr, r) {
         Eina_Rectangle scrolled_rect = {
-            r.x + sx, r.y + sy,
-            r.w, r.h
+            r->x + sx, r->y + sy,
+            r->w, r->h
         };
 
         ewk_view_paint_context_save(ctxt);
@@ -447,7 +460,7 @@ static Eina_Bool _ewk_view_single_smart_repaints_process(Ewk_View_Smart_Data *sd
 
         ewk_view_paint_context_restore(ctxt);
         evas_object_image_data_update_add
-            (sd->backing_store, r.x, r.y, r.w, r.h);
+            (sd->backing_store, r->x, r->y, r->w, r->h);
     }
     eina_iterator_free(itr);
 
@@ -538,6 +551,7 @@ Eina_Bool ewk_view_single_smart_set(Ewk_View_Smart_Class *api)
     if (EINA_UNLIKELY(!_parent_sc.sc.add))
         ewk_view_base_smart_set(&_parent_sc);
 
+    api->sc.add = _ewk_view_single_smart_add;
     api->sc.resize = _ewk_view_single_smart_resize;
 
     api->backing_store_add = _ewk_view_single_smart_backing_store_add;

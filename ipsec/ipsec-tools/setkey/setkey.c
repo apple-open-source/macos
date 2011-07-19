@@ -41,11 +41,7 @@
 #include <sys/sysctl.h>
 #include <err.h>
 #include <netinet/in.h>
-#ifdef __APPLE__
 #include <System/net/pfkeyv2.h>
-#else
-#include <net/pfkeyv2.h>
-#endif
 #ifdef HAVE_NETINET6_IPSEC
 #  include <netinet6/ipsec.h>
 #else 

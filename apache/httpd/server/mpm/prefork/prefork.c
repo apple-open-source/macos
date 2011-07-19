@@ -330,6 +330,7 @@ static void just_die(int sig)
 
 static void stop_listening(int sig)
 {
+    mpm_state = AP_MPMQ_STOPPING;
     ap_close_listeners();
 
     /* For a graceful stop, we want the child to exit when done */
@@ -350,6 +351,7 @@ static void sig_term(int sig)
          */
         return;
     }
+    mpm_state = AP_MPMQ_STOPPING;
     shutdown_pending = 1;
     is_graceful = (sig == AP_SIG_GRACEFUL_STOP);
 }
@@ -363,6 +365,7 @@ static void restart(int sig)
         /* Probably not an error - don't bother reporting it */
         return;
     }
+    mpm_state = AP_MPMQ_STOPPING;
     restart_pending = 1;
     is_graceful = (sig == AP_SIG_GRACEFUL);
 }
@@ -458,8 +461,10 @@ static int num_listensocks = 0;
 
 int ap_graceful_stop_signalled(void)
 {
-    /* not ever called anymore... */
-    return 0;
+    /* Return true if the server is stopping for whatever reason; the
+     * function is used to initiate a fast exit from the connection
+     * processing loop. */
+    return mpm_state == AP_MPMQ_STOPPING;
 }
 
 
@@ -1407,14 +1412,42 @@ static const char *set_max_free_servers(cmd_parms *cmd, void *dummy, const char 
     return NULL;
 }
 
+#include <sys/resource.h>
+static int getproclimit(void)
+{
+    struct rlimit rl;
+    memset(&rl, 0, sizeof rl);
+    return getrlimit(RLIMIT_NPROC, &rl) == 0 ? rl.rlim_cur : 0;
+}
+
 static const char *set_max_clients (cmd_parms *cmd, void *dummy, const char *arg)
 {
+    int tmp_daemons_limit;
+
     const char *err = ap_check_cmd_context(cmd, GLOBAL_ONLY);
     if (err != NULL) {
         return err;
     }
 
-    ap_daemons_limit = atoi(arg);
+    tmp_daemons_limit = atoi(arg);
+    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
+	int proclimit = getproclimit();
+	if (proclimit <= 0) {
+	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+			 "WARNING: MaxClients %d%% ignored because "
+			 "RLIMIT_NPROC is unknown", tmp_daemons_limit);
+	    return NULL;
+	}
+	if (tmp_daemons_limit < 1 || tmp_daemons_limit > 100) {
+	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+			 "WARNING: MaxClients %d%% ignored because "
+			 "percentage is out of range 1-100%%",
+			 tmp_daemons_limit);
+	    return NULL;
+	}
+	tmp_daemons_limit = proclimit * tmp_daemons_limit / 100.0 + 0.5;
+    }
+    ap_daemons_limit = tmp_daemons_limit;
     if (ap_daemons_limit > server_limit) {
        ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
                     "WARNING: MaxClients of %d exceeds ServerLimit value "
@@ -1444,6 +1477,23 @@ static const char *set_server_limit (cmd_parms *cmd, void *dummy, const char *ar
     }
 
     tmp_server_limit = atoi(arg);
+    if (strlen(arg) > 0 && arg[strlen(arg) - 1] == '%') {
+	int proclimit = getproclimit();
+	if (proclimit <= 0) {
+	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+			 "WARNING: ServerLimit %d%% ignored because "
+			 "RLIMIT_NPROC is unknown", tmp_server_limit);
+	    return NULL;
+	}
+	if (tmp_server_limit < 1 || tmp_server_limit > 100) {
+	    ap_log_error(APLOG_MARK, APLOG_STARTUP, 0, NULL,
+			 "WARNING: ServerLimit %d%% ignored because "
+			 "percentage is out of range 1-100%%",
+			 tmp_server_limit);
+	    return NULL;
+	}
+	tmp_server_limit = proclimit * tmp_server_limit / 100.0 + 0.5;
+    }
     /* you cannot change ServerLimit across a restart; ignore
      * any such attempts
      */

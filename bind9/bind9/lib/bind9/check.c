@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2004-2008  Internet Systems Consortium, Inc. ("ISC")
+ * Copyright (C) 2004-2010  Internet Systems Consortium, Inc. ("ISC")
  * Copyright (C) 2001-2003  Internet Software Consortium.
  *
  * Permission to use, copy, modify, and/or distribute this software for any
@@ -15,7 +15,7 @@
  * PERFORMANCE OF THIS SOFTWARE.
  */
 
-/* $Id: check.c,v 1.95 2008/11/19 05:38:49 marka Exp $ */
+/* $Id: check.c,v 1.114.4.6 2010-08-11 18:19:57 each Exp $ */
 
 /*! \file */
 
@@ -23,6 +23,7 @@
 
 #include <stdlib.h>
 
+#include <isc/base64.h>
 #include <isc/buffer.h>
 #include <isc/log.h>
 #include <isc/mem.h>
@@ -40,6 +41,8 @@
 #include <dns/rdataclass.h>
 #include <dns/rdatatype.h>
 #include <dns/secalg.h>
+
+#include <dst/dst.h>
 
 #include <isccfg/aclconf.h>
 #include <isccfg/cfg.h>
@@ -100,7 +103,7 @@ check_orderent(const cfg_obj_t *ent, isc_log_t *logctx) {
 		isc_buffer_init(&b, str, strlen(str));
 		isc_buffer_add(&b, strlen(str));
 		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
+					    dns_rootname, 0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "rrset-order: invalid name '%s'", str);
@@ -199,7 +202,7 @@ check_dual_stack(const cfg_obj_t *options, isc_log_t *logctx) {
 		dns_fixedname_init(&fixed);
 		name = dns_fixedname_name(&fixed);
 		tresult = dns_name_fromtext(name, &buffer, dns_rootname,
-					   ISC_FALSE, NULL);
+					    0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "bad name '%s'", str);
@@ -262,7 +265,7 @@ disabled_algorithms(const cfg_obj_t *disabled, isc_log_t *logctx) {
 	str = cfg_obj_asstring(obj);
 	isc_buffer_init(&b, str, strlen(str));
 	isc_buffer_add(&b, strlen(str));
-	tresult = dns_name_fromtext(name, &b, dns_rootname, ISC_FALSE, NULL);
+	tresult = dns_name_fromtext(name, &b, dns_rootname, 0, NULL);
 	if (tresult != ISC_R_SUCCESS) {
 		cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 			    "bad domain name '%s'", str);
@@ -349,7 +352,7 @@ mustbesecure(const cfg_obj_t *secure, isc_symtab_t *symtab, isc_log_t *logctx,
 	str = cfg_obj_asstring(obj);
 	isc_buffer_init(&b, str, strlen(str));
 	isc_buffer_add(&b, strlen(str));
-	result = dns_name_fromtext(name, &b, dns_rootname, ISC_FALSE, NULL);
+	result = dns_name_fromtext(name, &b, dns_rootname, 0, NULL);
 	if (result != ISC_R_SUCCESS) {
 		cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 			    "bad domain name '%s'", str);
@@ -404,7 +407,7 @@ check_viewacls(cfg_aclconfctx_t *actx, const cfg_obj_t *voptions,
 	static const char *acls[] = { "allow-query", "allow-query-on",
 		"allow-query-cache", "allow-query-cache-on",
 		"blackhole", "match-clients", "match-destinations",
-		"sortlist", NULL };
+		"sortlist", "filter-aaaa", NULL };
 
 	while (acls[i] != NULL) {
 		tresult = checkacl(acls[i++], actx, NULL, voptions, config,
@@ -486,6 +489,78 @@ check_recursionacls(cfg_aclconfctx_t *actx, const cfg_obj_t *voptions,
 		if (acl != NULL)
 			dns_acl_detach(&acl);
 	}
+
+	return (result);
+}
+
+static isc_result_t
+check_filteraaaa(cfg_aclconfctx_t *actx, const cfg_obj_t *voptions,
+		 const char *viewname, const cfg_obj_t *config,
+		 isc_log_t *logctx, isc_mem_t *mctx)
+{
+	const cfg_obj_t *options, *aclobj, *obj = NULL;
+	dns_acl_t *acl = NULL;
+	isc_result_t result = ISC_R_SUCCESS, tresult;
+	dns_v4_aaaa_t filter;
+	const char *forview = " for view ";
+
+	if (voptions != NULL)
+		cfg_map_get(voptions, "filter-aaaa-on-v4", &obj);
+	if (obj == NULL && config != NULL) {
+		options = NULL;
+		cfg_map_get(config, "options", &options);
+		if (options != NULL)
+			cfg_map_get(options, "filter-aaaa-on-v4", &obj);
+	}
+
+	if (obj == NULL)
+		filter = dns_v4_aaaa_ok;		/* default */
+	else if (cfg_obj_isboolean(obj))
+		filter = cfg_obj_asboolean(obj) ? dns_v4_aaaa_filter :
+						  dns_v4_aaaa_ok;
+	else
+		filter = dns_v4_aaaa_break_dnssec; 	/* break-dnssec */
+
+	if (viewname == NULL) {
+		viewname = "";
+		forview = "";
+	}
+
+	aclobj = options = NULL;
+	acl = NULL;
+
+	if (voptions != NULL)
+		cfg_map_get(voptions, "filter-aaaa", &aclobj);
+	if (config != NULL && aclobj == NULL) {
+		options = NULL;
+		cfg_map_get(config, "options", &options);
+		if (options != NULL)
+			cfg_map_get(options, "filter-aaaa", &aclobj);
+	}
+	if (aclobj == NULL)
+		return (result);
+
+	tresult = cfg_acl_fromconfig(aclobj, config, logctx,
+				    actx, mctx, 0, &acl);
+
+	if (tresult != ISC_R_SUCCESS) {
+		result = tresult;
+	} else if (filter != dns_v4_aaaa_ok && dns_acl_isnone(acl)) {
+		cfg_obj_log(aclobj, logctx, ISC_LOG_WARNING,
+			    "both \"filter-aaaa-on-v4 %s;\" and "
+			    "\"filter-aaaa\" is 'none;'%s%s",
+			    filter == dns_v4_aaaa_break_dnssec ?
+			    "break-dnssec" : "yes", forview, viewname);
+		result = ISC_R_FAILURE;
+	} else if (filter == dns_v4_aaaa_ok && !dns_acl_isnone(acl)) {
+		cfg_obj_log(aclobj, logctx, ISC_LOG_WARNING,
+			    "both \"filter-aaaa-on-v4 no;\" and "
+			    "\"filter-aaaa\" is set%s%s", forview, viewname);
+		result = ISC_R_FAILURE;
+	}
+
+	if (acl != NULL)
+		dns_acl_detach(&acl);
 
 	return (result);
 }
@@ -617,7 +692,7 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 				isc_buffer_add(&b, strlen(str));
 				tresult = dns_name_fromtext(name, &b,
 							   dns_rootname,
-							   ISC_FALSE, NULL);
+							   0, NULL);
 				if (tresult != ISC_R_SUCCESS) {
 					cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 						    "bad domain name '%s'",
@@ -663,14 +738,24 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 		     element = cfg_list_next(element))
 		{
 			const char *dlv;
+			const cfg_obj_t *anchor;
 
 			obj = cfg_listelt_value(element);
 
 			dlv = cfg_obj_asstring(cfg_tuple_get(obj, "domain"));
+			anchor = cfg_tuple_get(obj, "trust-anchor");
+
+			/*
+			 * If domain is "auto" and trust anchor is missing,
+			 * skip remaining tests
+			 */
+			if (!strcmp(dlv, "auto") && cfg_obj_isvoid(anchor))
+				continue;
+
 			isc_buffer_init(&b, dlv, strlen(dlv));
 			isc_buffer_add(&b, strlen(dlv));
 			tresult = dns_name_fromtext(name, &b, dns_rootname,
-						    ISC_TRUE, NULL);
+						    0, NULL);
 			if (tresult != ISC_R_SUCCESS) {
 				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 					    "bad domain name '%s'", dlv);
@@ -698,19 +783,32 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 				if (result == ISC_R_SUCCESS)
 					result = ISC_R_FAILURE;
 			}
-			dlv = cfg_obj_asstring(cfg_tuple_get(obj,
-					       "trust-anchor"));
-			isc_buffer_init(&b, dlv, strlen(dlv));
-			isc_buffer_add(&b, strlen(dlv));
-			tresult = dns_name_fromtext(name, &b, dns_rootname,
-						    ISC_TRUE, NULL);
-			if (tresult != ISC_R_SUCCESS) {
+
+			if (!cfg_obj_isvoid(anchor)) {
+				dlv = cfg_obj_asstring(anchor);
+				isc_buffer_init(&b, dlv, strlen(dlv));
+				isc_buffer_add(&b, strlen(dlv));
+				tresult = dns_name_fromtext(name, &b,
+							    dns_rootname,
+							    DNS_NAME_DOWNCASE,
+							    NULL);
+				if (tresult != ISC_R_SUCCESS) {
+					cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+						    "bad domain name '%s'",
+						    dlv);
+					if (result == ISC_R_SUCCESS)
+						result = tresult;
+				}
+			} else {
 				cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
-					    "bad domain name '%s'", dlv);
+					"dnssec-lookaside requires "
+					"either 'auto' or a domain and "
+					"trust anchor");
 				if (result == ISC_R_SUCCESS)
-					result = tresult;
+					result = ISC_R_FAILURE;
 			}
 		}
+
 		if (symtab != NULL)
 			isc_symtab_destroy(&symtab);
 	}
@@ -749,7 +847,7 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 		isc_buffer_init(&b, str, strlen(str));
 		isc_buffer_add(&b, strlen(str));
 		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
+					    dns_rootname, 0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "empty-server: invalid name '%s'", str);
@@ -764,7 +862,7 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 		isc_buffer_init(&b, str, strlen(str));
 		isc_buffer_add(&b, strlen(str));
 		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
+					    dns_rootname, 0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "empty-contact: invalid name '%s'", str);
@@ -783,7 +881,7 @@ check_options(const cfg_obj_t *options, isc_log_t *logctx, isc_mem_t *mctx) {
 		isc_buffer_init(&b, str, strlen(str));
 		isc_buffer_add(&b, strlen(str));
 		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
+					    dns_rootname, 0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
 				    "disable-empty-zone: invalid name '%s'",
@@ -909,8 +1007,11 @@ validate_masters(const cfg_obj_t *obj, const cfg_obj_t *config,
 			if (new == NULL)
 				goto cleanup;
 			if (stackcount != 0) {
+				void *ptr;
+
+				DE_CONST(stack, ptr);
 				memcpy(new, stack, oldsize);
-				isc_mem_put(mctx, stack, oldsize);
+				isc_mem_put(mctx, ptr, oldsize);
 			}
 			stack = new;
 			stackcount = newlen;
@@ -923,8 +1024,12 @@ validate_masters(const cfg_obj_t *obj, const cfg_obj_t *config,
 		goto resume;
 	}
  cleanup:
-	if (stack != NULL)
-		isc_mem_put(mctx, stack, stackcount * sizeof(*stack));
+	if (stack != NULL) {
+		void *ptr;
+
+		DE_CONST(stack, ptr);
+		isc_mem_put(mctx, ptr, stackcount * sizeof(*stack));
+	}
 	isc_symtab_destroy(&symtab);
 	*countp = count;
 	return (result);
@@ -940,6 +1045,12 @@ check_update_policy(const cfg_obj_t *policy, isc_log_t *logctx) {
 	const char *str;
 	isc_buffer_t b;
 
+	/* Check for "update-policy local;" */
+	if (cfg_obj_isstring(policy) &&
+	    strcmp("local", cfg_obj_asstring(policy)) == 0)
+		return (ISC_R_SUCCESS);
+
+	/* Now check the grant policy */
 	for (element = cfg_list_first(policy);
 	     element != NULL;
 	     element = cfg_list_next(element))
@@ -955,24 +1066,28 @@ check_update_policy(const cfg_obj_t *policy, isc_log_t *logctx) {
 		isc_buffer_init(&b, str, strlen(str));
 		isc_buffer_add(&b, strlen(str));
 		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
+					    dns_rootname, 0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(identity, logctx, ISC_LOG_ERROR,
 				    "'%s' is not a valid name", str);
 			result = tresult;
 		}
 
-		dns_fixedname_init(&fixed);
-		str = cfg_obj_asstring(dname);
-		isc_buffer_init(&b, str, strlen(str));
-		isc_buffer_add(&b, strlen(str));
-		tresult = dns_name_fromtext(dns_fixedname_name(&fixed), &b,
-					    dns_rootname, ISC_FALSE, NULL);
-		if (tresult != ISC_R_SUCCESS) {
-			cfg_obj_log(dname, logctx, ISC_LOG_ERROR,
-				    "'%s' is not a valid name", str);
-			result = tresult;
+		if (tresult == ISC_R_SUCCESS &&
+		    strcasecmp(cfg_obj_asstring(matchtype), "zonesub") != 0) {
+			dns_fixedname_init(&fixed);
+			str = cfg_obj_asstring(dname);
+			isc_buffer_init(&b, str, strlen(str));
+			isc_buffer_add(&b, strlen(str));
+			tresult = dns_name_fromtext(dns_fixedname_name(&fixed),
+						    &b, dns_rootname, 0, NULL);
+			if (tresult != ISC_R_SUCCESS) {
+				cfg_obj_log(dname, logctx, ISC_LOG_ERROR,
+					    "'%s' is not a valid name", str);
+				result = tresult;
+			}
 		}
+
 		if (tresult == ISC_R_SUCCESS &&
 		    strcasecmp(cfg_obj_asstring(matchtype), "wildcard") == 0 &&
 		    !dns_name_iswildcard(dns_fixedname_name(&fixed))) {
@@ -1043,9 +1158,9 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "notify", MASTERZONE | SLAVEZONE },
 	{ "also-notify", MASTERZONE | SLAVEZONE },
 	{ "dialup", MASTERZONE | SLAVEZONE | STUBZONE },
-	{ "delegation-only", HINTZONE | STUBZONE },
-	{ "forward", MASTERZONE | SLAVEZONE | STUBZONE | FORWARDZONE},
-	{ "forwarders", MASTERZONE | SLAVEZONE | STUBZONE | FORWARDZONE},
+	{ "delegation-only", HINTZONE | STUBZONE | DELEGATIONZONE },
+	{ "forward", MASTERZONE | SLAVEZONE | STUBZONE | FORWARDZONE },
+	{ "forwarders", MASTERZONE | SLAVEZONE | STUBZONE | FORWARDZONE },
 	{ "maintain-ixfr-base", MASTERZONE | SLAVEZONE },
 	{ "max-ixfr-log-size", MASTERZONE | SLAVEZONE },
 	{ "notify-source", MASTERZONE | SLAVEZONE },
@@ -1060,6 +1175,7 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "min-retry-time", SLAVEZONE | STUBZONE },
 	{ "max-refresh-time", SLAVEZONE | STUBZONE },
 	{ "min-refresh-time", SLAVEZONE | STUBZONE },
+	{ "dnssec-secure-to-insecure", MASTERZONE },
 	{ "sig-validity-interval", MASTERZONE },
 	{ "sig-re-signing-interval", MASTERZONE },
 	{ "sig-signing-nodes", MASTERZONE },
@@ -1079,11 +1195,14 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	{ "key-directory", MASTERZONE },
 	{ "check-wildcard", MASTERZONE },
 	{ "check-mx", MASTERZONE },
+	{ "check-dup-records", MASTERZONE },
 	{ "integrity-check", MASTERZONE },
 	{ "check-mx-cname", MASTERZONE },
 	{ "check-srv-cname", MASTERZONE },
 	{ "masterfile-format", MASTERZONE | SLAVEZONE | STUBZONE | HINTZONE },
 	{ "update-check-ksk", MASTERZONE },
+	{ "dnssec-dnskey-kskonly", MASTERZONE },
+	{ "auto-dnssec", MASTERZONE },
 	{ "try-tcp-refresh", SLAVEZONE },
 	};
 
@@ -1150,14 +1269,14 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 
 	/*
 	 * Look for an already existing zone.
-	 * We need to make this cannonical as isc_symtab_define()
+	 * We need to make this canonical as isc_symtab_define()
 	 * deals with strings.
 	 */
 	dns_fixedname_init(&fixedname);
 	isc_buffer_init(&b, zname, strlen(zname));
 	isc_buffer_add(&b, strlen(zname));
 	tresult = dns_name_fromtext(dns_fixedname_name(&fixedname), &b,
-				    dns_rootname, ISC_TRUE, NULL);
+				    dns_rootname, DNS_NAME_DOWNCASE, NULL);
 	if (tresult != ISC_R_SUCCESS) {
 		cfg_obj_log(zconfig, logctx, ISC_LOG_ERROR,
 			    "zone '%s': is not a valid name", zname);
@@ -1241,7 +1360,10 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 	 * Master zones can't have both "allow-update" and "update-policy".
 	 */
 	if (ztype == MASTERZONE) {
-		isc_result_t res1, res2;
+		isc_result_t res1, res2, res3;
+		const char *arg;
+		isc_boolean_t ddns;
+
 		obj = NULL;
 		res1 = cfg_map_get(zoptions, "allow-update", &obj);
 		obj = NULL;
@@ -1255,6 +1377,27 @@ check_zoneconf(const cfg_obj_t *zconfig, const cfg_obj_t *voptions,
 		} else if (res2 == ISC_R_SUCCESS &&
 			   check_update_policy(obj, logctx) != ISC_R_SUCCESS)
 			result = ISC_R_FAILURE;
+		ddns = ISC_TF(res1 == ISC_R_SUCCESS || res2 == ISC_R_SUCCESS);
+
+		obj = NULL;
+		arg = "off";
+		res3 = cfg_map_get(zoptions, "auto-dnssec", &obj);
+		if (res3 == ISC_R_SUCCESS)
+			arg = cfg_obj_asstring(obj);
+		if (strcasecmp(arg, "off") != 0 && !ddns) {
+			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+				    "'auto-dnssec %s;' requires "
+				    "dynamic DNS to be configured in the zone",
+				    arg);
+			result = ISC_R_FAILURE;
+		}
+		if (strcasecmp(arg, "create") == 0) {
+			cfg_obj_log(obj, logctx, ISC_LOG_ERROR,
+				    "'auto-dnssec create;' is not "
+				    "yet implemented");
+			result = ISC_R_FAILURE;
+		}
+
 		obj = NULL;
 		res1 = cfg_map_get(zoptions, "sig-signing-type", &obj);
 		if (res1 == ISC_R_SUCCESS) {
@@ -1364,6 +1507,9 @@ bind9_check_key(const cfg_obj_t *key, isc_log_t *logctx) {
 	const char *algorithm;
 	int i;
 	size_t len = 0;
+	isc_result_t result;
+	isc_buffer_t buf;
+	unsigned char secretbuf[1024];
 	static const algorithmtable algorithms[] = {
 		{ "hmac-md5", 128 },
 		{ "hmac-md5.sig-alg.reg.int", 0 },
@@ -1384,6 +1530,14 @@ bind9_check_key(const cfg_obj_t *key, isc_log_t *logctx) {
 			    "'algorithm' defined",
 			    keyname);
 		return (ISC_R_FAILURE);
+	}
+
+	isc_buffer_init(&buf, secretbuf, sizeof(secretbuf));
+	result = isc_base64_decodestring(cfg_obj_asstring(secretobj), &buf);
+	if (result != ISC_R_SUCCESS) {
+		cfg_obj_log(secretobj, logctx, ISC_LOG_ERROR,
+			    "bad secret '%s'", isc_result_totext(result));
+		return (result);
 	}
 
 	algorithm = cfg_obj_asstring(algobj);
@@ -1470,7 +1624,7 @@ check_keylist(const cfg_obj_t *keys, isc_symtab_t *symtab,
 		isc_buffer_init(&b, keyid, strlen(keyid));
 		isc_buffer_add(&b, strlen(keyid));
 		tresult = dns_name_fromtext(name, &b, dns_rootname,
-					    ISC_FALSE, NULL);
+					    0, NULL);
 		if (tresult != ISC_R_SUCCESS) {
 			cfg_obj_log(key, logctx, ISC_LOG_ERROR,
 				    "key '%s': bad key name", keyid);
@@ -1640,7 +1794,7 @@ check_servers(const cfg_obj_t *config, const cfg_obj_t *voptions,
 			isc_buffer_add(&b, strlen(keyval));
 			keyname = dns_fixedname_name(&fname);
 			tresult = dns_name_fromtext(keyname, &b, dns_rootname,
-						    ISC_FALSE, NULL);
+						    0, NULL);
 			if (tresult != ISC_R_SUCCESS) {
 				cfg_obj_log(keys, logctx, ISC_LOG_ERROR,
 					    "bad key name '%s'", keyval);
@@ -1660,13 +1814,85 @@ check_servers(const cfg_obj_t *config, const cfg_obj_t *voptions,
 }
 
 static isc_result_t
+check_trusted_key(const cfg_obj_t *key, isc_boolean_t managed,
+		  isc_log_t *logctx)
+{
+	const char *keystr, *keynamestr;
+	dns_fixedname_t fkeyname;
+	dns_name_t *keyname;
+	isc_buffer_t keydatabuf;
+	isc_region_t r;
+	isc_result_t result = ISC_R_SUCCESS;
+	isc_result_t tresult;
+	isc_uint32_t flags, proto, alg;
+	unsigned char keydata[4096];
+
+	flags = cfg_obj_asuint32(cfg_tuple_get(key, "flags"));
+	proto = cfg_obj_asuint32(cfg_tuple_get(key, "protocol"));
+	alg = cfg_obj_asuint32(cfg_tuple_get(key, "algorithm"));
+	keyname = dns_fixedname_name(&fkeyname);
+	keynamestr = cfg_obj_asstring(cfg_tuple_get(key, "name"));
+
+	if (flags > 0xffff) {
+		cfg_obj_log(key, logctx, ISC_LOG_WARNING,
+			    "flags too big: %u\n", flags);
+		result = ISC_R_FAILURE;
+	}
+	if (proto > 0xff) {
+		cfg_obj_log(key, logctx, ISC_LOG_WARNING,
+			    "protocol too big: %u\n", proto);
+		result = ISC_R_FAILURE;
+	}
+	if (alg > 0xff) {
+		cfg_obj_log(key, logctx, ISC_LOG_WARNING,
+			    "algorithm too big: %u\n", alg);
+		result = ISC_R_FAILURE;
+	}
+
+	if (managed) {
+		const char *initmethod;
+		initmethod = cfg_obj_asstring(cfg_tuple_get(key, "init"));
+
+		if (strcasecmp(initmethod, "initial-key") != 0) {
+			cfg_obj_log(key, logctx, ISC_LOG_ERROR,
+				    "managed key '%s': "
+				    "invalid initialization method '%s'",
+				    keynamestr, initmethod);
+			result = ISC_R_FAILURE;
+		}
+	}
+
+	isc_buffer_init(&keydatabuf, keydata, sizeof(keydata));
+
+	keystr = cfg_obj_asstring(cfg_tuple_get(key, "key"));
+	tresult = isc_base64_decodestring(keystr, &keydatabuf);
+
+	if (tresult != ISC_R_SUCCESS) {
+		cfg_obj_log(key, logctx, ISC_LOG_ERROR,
+			    "%s", isc_result_totext(tresult));
+		result = ISC_R_FAILURE;
+	} else {
+		isc_buffer_usedregion(&keydatabuf, &r);
+
+		if ((alg == DST_ALG_RSASHA1 || alg == DST_ALG_RSAMD5) &&
+		    r.length > 1 && r.base[0] == 1 && r.base[1] == 3)
+			cfg_obj_log(key, logctx, ISC_LOG_WARNING,
+				    "%s key '%s' has a weak exponent",
+				    managed ? "managed" : "trusted",
+				    keynamestr);
+	}
+
+	return (result);
+}
+
+static isc_result_t
 check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 	       const char *viewname, dns_rdataclass_t vclass,
 	       isc_log_t *logctx, isc_mem_t *mctx)
 {
 	const cfg_obj_t *zones = NULL;
 	const cfg_obj_t *keys = NULL;
-	const cfg_listelt_t *element;
+	const cfg_listelt_t *element, *element2;
 	isc_symtab_t *symtab = NULL;
 	isc_result_t result = ISC_R_SUCCESS;
 	isc_result_t tresult = ISC_R_SUCCESS;
@@ -1807,6 +2033,53 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 		cfg_obj_log(obj, logctx, ISC_LOG_WARNING,
 			    "'dnssec-validation yes;' and 'dnssec-enable no;'");
 
+	/*
+	 * Check trusted-keys and managed-keys.
+	 */
+	keys = NULL;
+	if (voptions != NULL)
+		(void)cfg_map_get(voptions, "trusted-keys", &keys);
+	if (keys == NULL)
+		(void)cfg_map_get(config, "trusted-keys", &keys);
+
+	for (element = cfg_list_first(keys);
+	     element != NULL;
+	     element = cfg_list_next(element))
+	{
+		const cfg_obj_t *keylist = cfg_listelt_value(element);
+		for (element2 = cfg_list_first(keylist);
+		     element2 != NULL;
+		     element2 = cfg_list_next(element2)) {
+			obj = cfg_listelt_value(element2);
+			tresult = check_trusted_key(obj, ISC_FALSE, logctx);
+			if (tresult != ISC_R_SUCCESS)
+				result = tresult;
+		}
+	}
+
+	keys = NULL;
+	if (voptions != NULL)
+		(void)cfg_map_get(voptions, "managed-keys", &keys);
+	if (keys == NULL)
+		(void)cfg_map_get(config, "managed-keys", &keys);
+
+	for (element = cfg_list_first(keys);
+	     element != NULL;
+	     element = cfg_list_next(element))
+	{
+		const cfg_obj_t *keylist = cfg_listelt_value(element);
+		for (element2 = cfg_list_first(keylist);
+		     element2 != NULL;
+		     element2 = cfg_list_next(element2)) {
+			obj = cfg_listelt_value(element2);
+			tresult = check_trusted_key(obj, ISC_TRUE, logctx);
+			if (tresult != ISC_R_SUCCESS)
+				result = tresult;
+		}
+	}
+	/*
+	 * Check options.
+	 */
 	if (voptions != NULL)
 		tresult = check_options(voptions, logctx, mctx);
 	else
@@ -1823,7 +2096,12 @@ check_viewconf(const cfg_obj_t *config, const cfg_obj_t *voptions,
 	if (tresult != ISC_R_SUCCESS)
 		result = tresult;
 
-	cfg_aclconfctx_destroy(&actx);
+	tresult = check_filteraaaa(&actx, voptions, viewname, config,
+				   logctx, mctx);
+	if (tresult != ISC_R_SUCCESS)
+		result = tresult;
+
+	cfg_aclconfctx_clear(&actx);
 
 	return (result);
 }
@@ -2068,7 +2346,7 @@ bind9_check_controls(const cfg_obj_t *config, isc_log_t *logctx,
 				result = tresult;
 		}
 	}
-	cfg_aclconfctx_destroy(&actx);
+	cfg_aclconfctx_clear(&actx);
 	return (result);
 }
 

@@ -29,25 +29,34 @@
 
 #if ENABLE(WORKERS)
 
-#include "AtomicStringHash.h"
-#include "Database.h"
-#include "DatabaseCallback.h"
 #include "EventListener.h"
 #include "EventNames.h"
 #include "EventTarget.h"
 #include "ScriptExecutionContext.h"
 #include "WorkerScriptController.h"
 #include <wtf/Assertions.h>
+#include <wtf/HashMap.h>
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/RefPtr.h>
+#include <wtf/text/AtomicStringHash.h>
 
 namespace WebCore {
 
+    class Blob;
+    class DOMFileSystemSync;
+    class DOMURL;
     class Database;
+    class DatabaseCallback;
+    class DatabaseSync;
+    class EntryCallback;
+    class EntrySync;
+    class ErrorCallback;
+    class FileSystemCallback;
     class NotificationCenter;
     class ScheduledAction;
+    class WorkerInspectorController;
     class WorkerLocation;
     class WorkerNavigator;
     class WorkerThread;
@@ -89,14 +98,13 @@ namespace WebCore {
         WorkerNavigator* navigator() const;
 
         // Timers
-        int setTimeout(ScheduledAction*, int timeout);
+        int setTimeout(PassOwnPtr<ScheduledAction>, int timeout);
         void clearTimeout(int timeoutId);
-        int setInterval(ScheduledAction*, int timeout);
+        int setInterval(PassOwnPtr<ScheduledAction>, int timeout);
         void clearInterval(int timeoutId);
 
         // ScriptExecutionContext
-        virtual void reportException(const String& errorMessage, int lineNumber, const String& sourceURL);
-        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL);
+        virtual void addMessage(MessageSource, MessageType, MessageLevel, const String& message, unsigned lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
 
 #if ENABLE(NOTIFICATIONS)
         NotificationCenter* webkitNotifications() const;
@@ -105,16 +113,35 @@ namespace WebCore {
 #if ENABLE(DATABASE)
         // HTML 5 client-side database
         PassRefPtr<Database> openDatabase(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
+        PassRefPtr<DatabaseSync> openDatabaseSync(const String& name, const String& version, const String& displayName, unsigned long estimatedSize, PassRefPtr<DatabaseCallback> creationCallback, ExceptionCode&);
+
         // Not implemented yet.
-        virtual bool isDatabaseReadOnly() const { return false; }
-        // Not implemented yet.
-        virtual void databaseExceededQuota(const String&) { }
+        virtual bool allowDatabaseAccess() const { return true; }
+        // Not implemented for real yet.
+        virtual void databaseExceededQuota(const String&);
 #endif
         virtual bool isContextThread() const;
-        virtual bool isJSExecutionTerminated() const;
+        virtual bool isJSExecutionForbidden() const;
 
+#if ENABLE(BLOB)
+        DOMURL* webkitURL() const;
+#endif
 
-        // These methods are used for GC marking. See JSWorkerContext::markChildren(MarkStack&) in
+#if ENABLE(FILE_SYSTEM)
+        enum FileSystemType {
+            TEMPORARY,
+            PERSISTENT,
+            EXTERNAL,
+        };
+        void webkitRequestFileSystem(int type, long long size, PassRefPtr<FileSystemCallback> successCallback, PassRefPtr<ErrorCallback>);
+        PassRefPtr<DOMFileSystemSync> webkitRequestFileSystemSync(int type, long long size, ExceptionCode&);
+        void webkitResolveLocalFileSystemURL(const String& url, PassRefPtr<EntryCallback> successCallback, PassRefPtr<ErrorCallback>);
+        PassRefPtr<EntrySync> webkitResolveLocalFileSystemSyncURL(const String& url, ExceptionCode&);
+#endif
+#if ENABLE(INSPECTOR)
+        WorkerInspectorController* workerInspectorController() { return m_workerInspectorController.get(); }
+#endif
+        // These methods are used for GC marking. See JSWorkerContext::visitChildren(SlotVisitor&) in
         // JSWorkerContextCustom.cpp.
         WorkerNavigator* optionalNavigator() const { return m_navigator.get(); }
         WorkerLocation* optionalLocation() const { return m_location.get(); }
@@ -123,6 +150,22 @@ namespace WebCore {
         using RefCounted<WorkerContext>::deref;
 
         bool isClosing() { return m_closing; }
+
+        // An observer interface to be notified when the worker thread is getting stopped.
+        class Observer {
+            WTF_MAKE_NONCOPYABLE(Observer);
+        public:
+            Observer(WorkerContext*);
+            virtual ~Observer();
+            virtual void notifyStop() = 0;
+            void stopObserving();
+        private:
+            WorkerContext* m_context;
+        };
+        friend class Observer;
+        void registerObserver(Observer*);
+        void unregisterObserver(Observer*);
+        void notifyObserversOfStop();
 
     protected:
         WorkerContext(const KURL&, const String&, WorkerThread*);
@@ -139,6 +182,9 @@ namespace WebCore {
         virtual const KURL& virtualURL() const;
         virtual KURL virtualCompleteURL(const String&) const;
 
+        virtual EventTarget* errorEventTarget();
+        virtual void logExceptionToConsole(const String& errorMessage, int lineNumber, const String& sourceURL, PassRefPtr<ScriptCallStack>);
+
         KURL m_url;
         String m_userAgent;
 
@@ -151,9 +197,16 @@ namespace WebCore {
 #if ENABLE_NOTIFICATIONS
         mutable RefPtr<NotificationCenter> m_notifications;
 #endif
+#if ENABLE(BLOB)
+        mutable RefPtr<DOMURL> m_domURL;
+#endif
+#if ENABLE(INSPECTOR)
+        OwnPtr<WorkerInspectorController> m_workerInspectorController;
+#endif
         bool m_closing;
-        bool m_reportingException;
         EventTargetData m_eventTargetData;
+
+        HashSet<Observer*> m_workerObservers;
     };
 
 } // namespace WebCore

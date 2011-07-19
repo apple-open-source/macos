@@ -1,321 +1,117 @@
-/* common definitions for `patch' */
+/*	$OpenBSD: common.h,v 1.26 2006/03/11 19:41:30 otto Exp $	*/
 
-/* $Id: common.h,v 1.1.1.3 2003/05/08 18:38:01 rbraun Exp $ */
+/*
+ * patch - a program to apply diffs to original files
+ * 
+ * Copyright 1986, Larry Wall
+ * 
+ * Redistribution and use in source and binary forms, with or without
+ * modification, are permitted provided that the following condition is met:
+ * 1. Redistributions of source code must retain the above copyright notice,
+ * this condition and the following disclaimer.
+ * 
+ * THIS SOFTWARE IS PROVIDED BY THE AUTHOR AND CONTRIBUTORS ``AS IS'' AND ANY
+ * EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+ * WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+ * DISCLAIMED.  IN NO EVENT SHALL THE AUTHOR OR CONTRIBUTORS BE LIABLE FOR
+ * ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL
+ * DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+ * SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER
+ * CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT
+ * LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY
+ * OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF
+ * SUCH DAMAGE.
+ * 
+ * -C option added in 1998, original code by Marc Espie, based on FreeBSD
+ * behaviour
+ */
 
-/* Copyright (C) 1986, 1988 Larry Wall
-
-   Copyright (C) 1990, 1991, 1992, 1993, 1997, 1998, 1999, 2002 Free
-   Software Foundation, Inc.
-
-   This program is free software; you can redistribute it and/or modify
-   it under the terms of the GNU General Public License as published by
-   the Free Software Foundation; either version 2, or (at your option)
-   any later version.
-
-   This program is distributed in the hope that it will be useful,
-   but WITHOUT ANY WARRANTY; without even the implied warranty of
-   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
-   See the GNU General Public License for more details.
-
-   You should have received a copy of the GNU General Public License
-   along with this program; see the file COPYING.
-   If not, write to the Free Software Foundation,
-   59 Temple Place - Suite 330, Boston, MA 02111-1307, USA.  */
-
-#ifndef DEBUGGING
-#define DEBUGGING 1
-#endif
-
-#include <config.h>
-
-#include <assert.h>
-#include <stdio.h>
 #include <sys/types.h>
-#include <time.h>
 
-#include <sys/stat.h>
-#if ! defined S_ISDIR && defined S_IFDIR
-# define S_ISDIR(m) (((m) & S_IFMT) == S_IFDIR)
-#endif
-#if ! defined S_ISREG && defined S_IFREG
-# define S_ISREG(m) (((m) & S_IFMT) == S_IFREG)
-#endif
-#ifndef S_IXOTH
-#define S_IXOTH 1
-#endif
-#ifndef S_IWOTH
-#define S_IWOTH 2
-#endif
-#ifndef S_IROTH
-#define S_IROTH 4
-#endif
-#ifndef S_IXGRP
-#define S_IXGRP (S_IXOTH << 3)
-#endif
-#ifndef S_IWGRP
-#define S_IWGRP (S_IWOTH << 3)
-#endif
-#ifndef S_IRGRP
-#define S_IRGRP (S_IROTH << 3)
-#endif
-#ifndef S_IXUSR
-#define S_IXUSR (S_IXOTH << 6)
-#endif
-#ifndef S_IWUSR
-#define S_IWUSR (S_IWOTH << 6)
-#endif
-#ifndef S_IRUSR
-#define S_IRUSR (S_IROTH << 6)
-#endif
-#ifdef MKDIR_TAKES_ONE_ARG
-# define mkdir(name, mode) ((mkdir) (name))
-#endif
+#include <stdbool.h>
+#include <stdint.h> // for SIZE_MAX
 
-#if HAVE_LIMITS_H
-# include <limits.h>
-#endif
-#ifndef CHAR_BIT
-#define CHAR_BIT 8
-#endif
-/* The extra casts work around common compiler bugs,
-   e.g. Cray C 5.0.3.0 time_t.  */
-#define TYPE_SIGNED(t) ((t) -1 < (t) 0)
-#define TYPE_MINIMUM(t) ((t) (TYPE_SIGNED (t) \
-			      ? (t) (~ (t) 0 << (sizeof (t) * CHAR_BIT - 1)) \
-			      : (t) 0))
-#define TYPE_MAXIMUM(t) ((t) ((t) ~ (t) 0 - TYPE_MINIMUM (t)))
-#ifndef CHAR_MAX
-#define CHAR_MAX TYPE_MAXIMUM (char)
-#endif
-#ifndef INT_MAX
-#define INT_MAX TYPE_MAXIMUM (int)
-#endif
-#ifndef LONG_MIN
-#define LONG_MIN TYPE_MINIMUM (long)
-#endif
-
-#if HAVE_INTTYPES_H
-# include <inttypes.h>
-#endif
-#ifndef SIZE_MAX
-/* On some nonstandard hosts, size_t is signed,
-   so SIZE_MAX != (size_t) -1.  */
-#define SIZE_MAX TYPE_MAXIMUM (size_t)
-#endif
-
-#include <ctype.h>
-/* CTYPE_DOMAIN (C) is nonzero if the unsigned char C can safely be given
-   as an argument to <ctype.h> macros like `isspace'.  */
-#if STDC_HEADERS
-#define CTYPE_DOMAIN(c) 1
-#else
-#define CTYPE_DOMAIN(c) ((unsigned) (c) <= 0177)
-#endif
-#ifndef ISSPACE
-#define ISSPACE(c) (CTYPE_DOMAIN (c) && isspace (c))
-#endif
-
-#ifndef ISDIGIT
-#define ISDIGIT(c) ((unsigned) (c) - '0' <= 9)
-#endif
-
-
-#ifndef FILESYSTEM_PREFIX_LEN
-#define FILESYSTEM_PREFIX_LEN(f) 0
-#endif
-
-#ifndef ISSLASH
-#define ISSLASH(c) ((c) == '/')
-#endif
-
+#define DEBUGGING
 
 /* constants */
 
-/* AIX predefines these.  */
-#ifdef TRUE
-#undef TRUE
-#endif
-#ifdef FALSE
-#undef FALSE
-#endif
-#define TRUE 1
-#define FALSE 0
+#define MAXHUNKSIZE 100000	/* is this enough lines? */
+#define INITHUNKMAX 125		/* initial dynamic allocation size */
+#define MAXLINELEN 8192
+#define BUFFERSIZE 1024
+
+#define SCCSPREFIX "s."
+#define GET "get -e %s"
+#define SCCSDIFF "get -p %s | diff - %s >/dev/null"
+
+#define RCSSUFFIX ",v"
+#define CHECKOUT "co -l %s"
+#define RCSDIFF "rcsdiff %s > /dev/null"
+
+#define ORIGEXT ".orig"
+#define REJEXT ".rej"
 
 /* handy definitions */
 
+#define strNE(s1,s2) (strcmp(s1, s2))
 #define strEQ(s1,s2) (!strcmp(s1, s2))
+#define strnNE(s1,s2,l) (strncmp(s1, s2, l))
 #define strnEQ(s1,s2,l) (!strncmp(s1, s2, l))
 
 /* typedefs */
 
-typedef int bool;			/* must promote to itself */
-typedef off_t LINENUM;			/* must be signed */
+typedef long    LINENUM;	/* must be signed */
 
 /* globals */
 
-XTERN char *program_name;	/* The name this program was run with. */
+extern mode_t	filemode;
 
-XTERN char *buf;			/* general purpose buffer */
-XTERN size_t bufsize;			/* allocated size of buf */
+extern char	buf[MAXLINELEN];/* general purpose buffer */
 
-XTERN bool using_plan_a;		/* try to keep everything in memory */
+extern bool	using_plan_a;	/* try to keep everything in memory */
+extern bool	out_of_mem;	/* ran out of memory in plan a */
 
-XTERN char *inname;
-XTERN char *outfile;
-XTERN int inerrno;
-XTERN int invc;
-XTERN struct stat instat;
-XTERN bool dry_run;
-XTERN bool posixly_correct;
+#define MAXFILEC 2
 
-XTERN char const *origprae;
-XTERN char const *origbase;
+extern char	*filearg[MAXFILEC];
+extern bool	ok_to_create_file;
+extern char	*outname;
+extern char	*origprae;
 
-XTERN char const * volatile TMPINNAME;
-XTERN char const * volatile TMPOUTNAME;
-XTERN char const * volatile TMPPATNAME;
-
-XTERN int volatile TMPINNAME_needs_removal;
-XTERN int volatile TMPOUTNAME_needs_removal;
-XTERN int volatile TMPPATNAME_needs_removal;
+extern char	*TMPOUTNAME;
+extern char	*TMPINNAME;
+extern char	*TMPREJNAME;
+extern char	*TMPPATNAME;
+extern bool	toutkeep;
+extern bool	trejkeep;
 
 #ifdef DEBUGGING
-XTERN int debug;
-#else
-# define debug 0
-#endif
-XTERN bool force;
-XTERN bool batch;
-XTERN bool noreverse;
-XTERN int reverse;
-XTERN enum { DEFAULT_VERBOSITY, SILENT, VERBOSE } verbosity;
-XTERN bool skip_rest_of_patch;
-XTERN int strippath;
-XTERN bool canonicalize;
-XTERN int patch_get;
-XTERN int set_time;
-XTERN int set_utc;
-
-enum diff
-  {
-    NO_DIFF,
-    CONTEXT_DIFF,
-    NORMAL_DIFF,
-    ED_DIFF,
-    NEW_CONTEXT_DIFF,
-    UNI_DIFF
-  };
-
-XTERN enum diff diff_type;
-
-XTERN char *revision;			/* prerequisite revision, if any */
-
-#if __GNUC__ < 2 || (__GNUC__ == 2 && __GNUC_MINOR__ < 6) || __STRICT_ANSI__
-# define __attribute__(x)
+extern int	debug;
 #endif
 
-void fatal_exit (int) __attribute__ ((noreturn));
+extern bool	force;
+extern bool	batch;
+extern int	verbose;
+extern bool	reverse;
+extern bool	noreverse;
+extern bool	skip_rest_of_patch;
+extern int	strippath;
+extern bool	canonicalize;
+/* TRUE if -C was specified on command line.  */
+extern bool	check_only;
+extern bool	warn_on_invalid_line;
+extern bool	last_line_missing_eol;
 
-#include <errno.h>
-#if !STDC_HEADERS && !defined errno
-extern int errno;
-#endif
 
-#if STDC_HEADERS || HAVE_STRING_H
-# include <string.h>
-#else
-# if !HAVE_MEMCHR
-#  define memcmp(s1, s2, n) bcmp (s1, s2, n)
-#  define memcpy(d, s, n) bcopy (s, d, n)
-void *memchr ();
-# endif
-#endif
+#define CONTEXT_DIFF 1
+#define NORMAL_DIFF 2
+#define ED_DIFF 3
+#define NEW_CONTEXT_DIFF 4
+#define UNI_DIFF 5
 
-#if STDC_HEADERS
-# include <stdlib.h>
-#else
-char *getenv ();
-void *malloc ();
-void *realloc ();
-#endif
+extern int	diff_type;
+extern char	*revision;	/* prerequisite revision, if any */
+extern LINENUM	input_lines;	/* how long is input file in lines */
 
-#if HAVE_UNISTD_H
-# include <unistd.h>
-#else
-# ifndef lseek
-   off_t lseek ();
-# endif
-#endif
-#ifndef SEEK_SET
-#define SEEK_SET 0
-#endif
-#ifndef STDIN_FILENO
-#define STDIN_FILENO 0
-#endif
-#ifndef STDOUT_FILENO
-#define STDOUT_FILENO 1
-#endif
-#ifndef STDERR_FILENO
-#define STDERR_FILENO 2
-#endif
-#if HAVE_FSEEKO
-  typedef off_t file_offset;
-# define file_seek fseeko
-# define file_tell ftello
-#else
-  typedef long file_offset;
-# define file_seek fseek
-# define file_tell ftell
-#endif
-#if ! (HAVE_GETEUID || defined geteuid)
-# if ! (HAVE_GETUID || defined getuid)
-#  define geteuid() (-1)
-# else
-#  define geteuid() getuid ()
-# endif
-#endif
+extern int	posix;
 
-#if HAVE_FCNTL_H
-# include <fcntl.h>
-#endif
-#ifndef O_RDONLY
-#define O_RDONLY 0
-#endif
-#ifndef O_WRONLY
-#define O_WRONLY 1
-#endif
-#ifndef O_RDWR
-#define O_RDWR 2
-#endif
-#ifndef _O_BINARY
-#define _O_BINARY 0
-#endif
-#ifndef O_BINARY
-#define O_BINARY _O_BINARY
-#endif
-#ifndef O_CREAT
-#define O_CREAT 0
-#endif
-#ifndef O_EXCL
-#define O_EXCL 0
-#endif
-#ifndef O_TRUNC
-#define O_TRUNC 0
-#endif
-
-#if HAVE_SETMODE_DOS
-  XTERN int binary_transput;	/* O_BINARY if binary i/o is desired */
-#else
-# define binary_transput 0
-#endif
-
-#ifndef NULL_DEVICE
-#define NULL_DEVICE "/dev/null"
-#endif
-
-#ifndef TTY_DEVICE
-#define TTY_DEVICE "/dev/tty"
-#endif
-
-/* The official name of this program (e.g., no `g' prefix).  */
-#define PROGRAM_NAME "patch"

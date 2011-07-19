@@ -1,3 +1,21 @@
+2009-12-07  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
+
+	*
+	* Released and tagged Tcllib 1.12 ========================
+	* 
+
+2009-11-02  Andreas Kupries  <andreask@activestate.com>
+
+	* stringprep.man: Updated version numbers in the documentation
+	* stringprep_data.man: as well.
+
+2009-11-02  Pat Thoyts  <patthoyts@users.sourceforge.net>
+
+	* stringprep.tcl: Applied patch from Sergei Golovan to fix
+	* stringprep.test: the failing tests.
+	* stringprep_data.tcl:
+	* tools/gen_stringprep_data.tcl:
+
 2008-12-12  Andreas Kupries  <andreas_kupries@users.sourceforge.net>
 
 	*

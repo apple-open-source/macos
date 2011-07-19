@@ -13,10 +13,6 @@
  * 2. Redistributions in binary form must reproduce the above copyright
  *    notice, this list of conditions and the following disclaimer in the
  *    documentation and/or other materials provided with the distribution.
- * 3. All advertising materials mentioning features or use of this software
- *    must display the following acknowledgement:
- *	This product includes software developed by the University of
- *	California, Berkeley and its contributors.
  * 4. Neither the name of the University nor the names of its contributors
  *    may be used to endorse or promote products derived from this software
  *    without specific prior written permission.
@@ -38,7 +34,7 @@
 static char sccsid[] = "@(#)fnmatch.c	8.2 (Berkeley) 4/16/94";
 #endif /* LIBC_SCCS and not lint */
 #include <sys/cdefs.h>
-__FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.16 2004/07/29 03:13:10 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.19 2010/04/16 22:29:24 jilles Exp $");
 
 /*
  * Function fnmatch() as specified in POSIX 1003.2-1992, section B.6.
@@ -71,7 +67,8 @@ __FBSDID("$FreeBSD: src/lib/libc/gen/fnmatch.c,v 1.16 2004/07/29 03:13:10 tjr Ex
 #define RANGE_ERROR     (-1)
 
 static int rangematch(const char *, wchar_t, int, char **, mbstate_t *);
-static int fnmatch1(const char *, const char *, int, mbstate_t, mbstate_t);
+static int fnmatch1(const char *, const char *, const char *, int, mbstate_t,
+		mbstate_t);
 
 int
 fnmatch(pattern, string, flags)
@@ -80,22 +77,21 @@ fnmatch(pattern, string, flags)
 {
 	static const mbstate_t initial;
 
-	return (fnmatch1(pattern, string, flags, initial, initial));
+	return (fnmatch1(pattern, string, string, flags, initial, initial));
 }
 
 static int
-fnmatch1(pattern, string, flags, patmbs, strmbs)
-	const char *pattern, *string;
+fnmatch1(pattern, string, stringstart, flags, patmbs, strmbs)
+	const char *pattern, *string, *stringstart;
 	int flags;
 	mbstate_t patmbs, strmbs;
 {
-	const char *stringstart;
 	char *newp;
 	char c;
 	wchar_t pc, sc;
 	size_t pclen, sclen;
 
-	for (stringstart = string;;) {
+	for (;;) {
 		pclen = mbrtowc(&pc, pattern, MB_LEN_MAX, &patmbs);
 		if (pclen == (size_t)-1 || pclen == (size_t)-2)
 			return (FNM_NOMATCH);
@@ -149,8 +145,8 @@ fnmatch1(pattern, string, flags, patmbs, strmbs)
 
 			/* General case, use recursion. */
 			while (sc != EOS) {
-				if (!fnmatch1(pattern, string,
-				    flags & ~FNM_PERIOD, patmbs, strmbs))
+				if (!fnmatch1(pattern, string, stringstart,
+				    flags, patmbs, strmbs))
 					return (0);
 				sclen = mbrtowc(&sc, string, MB_LEN_MAX,
 				    &strmbs);
@@ -254,7 +250,6 @@ rangematch(pattern, test, flags, newp, patmbs)
 		} else if (*pattern == '\0') {
 			return (RANGE_ERROR);
 		} else if (*pattern == '/' && (flags & FNM_PATHNAME)) {
-			pattern++;
 			return (RANGE_NOMATCH);
 		} else if (*pattern == '\\' && !(flags & FNM_NOESCAPE))
 			pattern++;

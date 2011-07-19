@@ -1,9 +1,9 @@
 //
-// "$Id: ppdi.cxx 1380 2009-04-08 03:20:50Z msweet $"
+// "$Id: ppdi.cxx 3073 2011-03-23 00:21:01Z msweet $"
 //
 //   PPD file import utility for the CUPS PPD Compiler.
 //
-//   Copyright 2007-2008 by Apple Inc.
+//   Copyright 2007-2011 by Apple Inc.
 //   Copyright 2002-2005 by Easy Software Products.
 //
 //   These coded instructions, statements, and computer programs are the
@@ -125,16 +125,18 @@ main(int  argc,				// I - Number of command-line arguments
 static void
 usage(void)
 {
-  _cupsLangPuts(stdout,
-                _("Usage: ppdi [options] filename.ppd [ ... filenameN.ppd ]\n"
-		  "Options:\n"
-		  "  -I include-dir\n"
-		  "  -o filename.drv\n"));
+  _cupsLangPuts(stdout, _("Usage: ppdi [options] filename.ppd [ ... "
+			  "filenameN.ppd ]"));
+  _cupsLangPuts(stdout, _("Options:"));
+  _cupsLangPuts(stdout, _("  -I include-dir          Add include directory to "
+                          "search path."));
+  _cupsLangPuts(stdout, _("  -o filename.drv         Set driver information "
+                          "file (otherwise ppdi.drv)."));
 
   exit(1);
 }
 
 
 //
-// End of "$Id: ppdi.cxx 1380 2009-04-08 03:20:50Z msweet $".
+// End of "$Id: ppdi.cxx 3073 2011-03-23 00:21:01Z msweet $".
 //

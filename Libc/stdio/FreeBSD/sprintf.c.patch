@@ -1,22 +1,30 @@
---- sprintf.c.orig	2003-05-20 15:22:43.000000000 -0700
-+++ sprintf.c	2005-02-23 16:40:52.000000000 -0800
-@@ -40,6 +40,8 @@
+--- sprintf.c.orig	2009-11-30 16:15:30.000000000 -0800
++++ sprintf.c	2009-12-02 16:49:29.000000000 -0800
+@@ -36,6 +36,8 @@ static char sccsid[] = "@(#)sprintf.c	8.
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/stdio/sprintf.c,v 1.14 2002/09/06 11:23:55 tjr Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/stdio/sprintf.c,v 1.16 2008/04/17 22:17:54 jhb Exp $");
  
 +#include "xlocale_private.h"
 +
  #include <stdio.h>
  #include <stdarg.h>
  #include <limits.h>
-@@ -60,7 +62,29 @@
- 	f._extra = &ext;
- 	INITEXTRA(&f);
+@@ -46,17 +48,21 @@ sprintf(char * __restrict str, char cons
+ {
+ 	int ret;
+ 	va_list ap;
+-	FILE f;
+ 
+-	f._file = -1;
+-	f._flags = __SWR | __SSTR;
+-	f._bf._base = f._p = (unsigned char *)str;
+-	f._bf._size = f._w = INT_MAX;
+-	f._orientation = 0;
+-	memset(&f._mbstate, 0, sizeof(mbstate_t));
  	va_start(ap, fmt);
 -	ret = __vfprintf(&f, fmt, ap);
-+	ret = __vfprintf(&f, __current_locale(), fmt, ap);
++	ret = vsprintf_l(str, __current_locale(), fmt, ap);
 +	va_end(ap);
-+	*f._p = 0;
 +	return (ret);
 +}
 +
@@ -25,18 +33,10 @@
 +{
 +	int ret;
 +	va_list ap;
-+	FILE f;
-+	struct __sFILEX ext;
 +
-+	NORMALIZE_LOCALE(loc);
-+	f._file = -1;
-+	f._flags = __SWR | __SSTR;
-+	f._bf._base = f._p = (unsigned char *)str;
-+	f._bf._size = f._w = INT_MAX;
-+	f._extra = &ext;
-+	INITEXTRA(&f);
 +	va_start(ap, fmt);
-+	ret = __vfprintf(&f, loc, fmt, ap);
++	ret = vsprintf_l(str, loc, fmt, ap);
  	va_end(ap);
- 	*f._p = 0;
+-	*f._p = 0;
  	return (ret);
+ }

@@ -39,18 +39,16 @@
 //
 // Construct a Process object.
 //
-Process::Process(Port servicePort, TaskPort taskPort,
-	const ClientSetupInfo *info, const char *identity, const CommonCriteria::AuditToken &audit)
+Process::Process(TaskPort taskPort,	const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
  :  mTaskPort(taskPort), mByteFlipped(false), mPid(audit.pid()), mUid(audit.euid()), mGid(audit.egid())
 {
 	// set parent session
-	parent(Session::find(servicePort));
+	parent(Session::find(audit.sessionId(), true));
 
     // let's take a look at our wannabe client...
 	if (mTaskPort.pid() != mPid) {
-		secdebug("SS", "Task/pid setup mismatch pid=%d task=%d(%d) for %s",
-			mPid, mTaskPort.port(), mTaskPort.pid(),
-			(identity && identity[0]) ? identity : "(unknown)");
+		secdebug("SS", "Task/pid setup mismatch pid=%d task=%d(%d)",
+			mPid, mTaskPort.port(), mTaskPort.pid());
 		CssmError::throwMe(CSSMERR_CSSM_ADDIN_AUTHENTICATE_FAILED);	// you lied!
 	}
 
@@ -76,37 +74,23 @@ Process::Process(Port servicePort, TaskPort taskPort,
 // talked to it in the past. This could either be an exec(2), or the client could just
 // have forgotten all about its securityd client state. Or it could be an attack...
 //
-void Process::reset(Port servicePort, TaskPort taskPort,
-	const ClientSetupInfo *info, const char *identity, const CommonCriteria::AuditToken &audit)
+void Process::reset(TaskPort taskPort, const ClientSetupInfo *info, const CommonCriteria::AuditToken &audit)
 {
-	if (servicePort != session().servicePort() || taskPort != mTaskPort) {
-		secdebug("SS", "Process %p(%d) reset mismatch (sp %d-%d, tp %d-%d) for %s",
-			this, pid(), servicePort.port(), session().servicePort().port(), taskPort.port(), mTaskPort.port(),
-			(identity && identity[0]) ? identity : "(unknown)");
-		Session &newSession = Session::find(servicePort);
-		Syslog::alert("Process reset %p(%d) session %d(0x%x:0x%x)->%d(0x%x:0x%x) for %s",
-			this, pid(),
-			session().servicePort().port(), &session(), session().attributes(),
-			newSession.servicePort().port(), &newSession, newSession.attributes(),
-			(identity && identity[0]) ? identity : "(unknown)");
-		//CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
+	if (taskPort != mTaskPort) {
+		secdebug("SS", "Process %p(%d) reset mismatch (tp %d-%d)",
+			this, pid(), taskPort.port(), mTaskPort.port());
+		//@@@ CssmError::throwMe(CSSM_ERRCODE_VERIFICATION_FAILURE);		// liar
 	}
 	setup(info);
-	CFRef<SecCodeRef> oldCode;  // DO NOT MAKE THE ASSIGNMENT HERE.  If you do, you will invoke the copy constructor, not the assignment operator.  For the CFRef
-								// template, they have very different meanings (assignment retains the CFRef, copy does not).
-	oldCode = processCode();	// This is the right place to do the assignment.
+	CFCopyRef<SecCodeRef> oldCode = processCode();
 
 	ClientIdentification::setup(this->pid());	// re-constructs processCode()
 	if (CFEqual(oldCode, processCode())) {
-		secdebug("SS", "process %p(%d) unchanged; assuming client-side reset", this, mPid);
+		SECURITYD_CLIENT_RESET_AMNESIA(this);
 	} else {
-		secdebug("SS", "process %p(%d) changed; assuming exec with full reset", this, mPid);
+		SECURITYD_CLIENT_RESET_FULL(this);
 		CodeSigningHost::reset();
 	}
-	
-	secdebug("SS", "process %p(%d) has reset; now %sfor %s",
-		this, mPid, mByteFlipped ? "FLIP " : "",
-		(identity && identity[0]) ? identity : "(unknown)");
 }
 
 
@@ -175,6 +159,14 @@ Session& Process::session() const
 }
 
 
+void Process::checkSession(const audit_token_t &auditToken)
+{
+	AuditToken audit(auditToken);
+	if (audit.sessionId() != this->session().sessionId())
+		this->changeSession(audit.sessionId());
+}
+
+
 LocalDatabase &Process::localStore()
 {
 	StLock<Mutex> _(*this);
@@ -194,10 +186,10 @@ Key *Process::makeTemporaryKey(const CssmKey &key, CSSM_KEYATTR_FLAGS moreAttrib
 // Change the session of a process.
 // This is the result of SessionCreate from a known process client.
 //
-void Process::changeSession(Port servicePort)
+void Process::changeSession(Session::SessionId sessionId)
 {
 	// re-parent
-	parent(Session::find(servicePort));
+	parent(Session::find(sessionId, true));
 	SECURITYD_CLIENT_CHANGE_SESSION(this, &this->session());
 }
 

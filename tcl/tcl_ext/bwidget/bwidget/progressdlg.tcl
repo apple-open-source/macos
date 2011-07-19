@@ -1,6 +1,7 @@
 # ----------------------------------------------------------------------------
 #  progressdlg.tcl
 #  This file is part of Unifix BWidget Toolkit
+#  $Id: progressdlg.tcl,v 1.9 2009/09/08 20:59:15 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - ProgressDlg::create
@@ -8,6 +9,15 @@
 
 namespace eval ProgressDlg {
     Widget::define ProgressDlg progressdlg Dialog ProgressBar
+
+    # to do:
+    # if {$::tcl_version >= 8.5} {
+    #     set fontdefault TkTextFont
+    # } elseif {$Widget::_aqua} {
+    #     set fontdefault {helvetica 10}
+    # } else {
+    #     set fontdefault {helvetica 8}
+    # }
 
     Widget::bwinclude ProgressDlg Dialog :cmd \
         remove {

@@ -1,4 +1,3 @@
-;; $Id: sample.emacs,v 1.4 2009-05-19 12:12:22 yangtse Exp $ -*- emacs-lisp -*-
 
 ;; This file was contributed by Mats Lidell
 

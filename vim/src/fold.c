@@ -849,7 +849,7 @@ foldUpdate(wp, top, bot)
     fold_T	*fp;
 
     /* Mark all folds from top to bot as maybe-small. */
-    (void)foldFind(&curwin->w_folds, curwin->w_cursor.lnum, &fp);
+    (void)foldFind(&curwin->w_folds, top, &fp);
     while (fp < (fold_T *)curwin->w_folds.ga_data + curwin->w_folds.ga_len
 	    && fp->fd_top < bot)
     {
@@ -1053,15 +1053,14 @@ find_wl_entry(win, lnum)
 {
     int		i;
 
-    if (win->w_lines_valid > 0)
-	for (i = 0; i < win->w_lines_valid; ++i)
-	    if (win->w_lines[i].wl_valid)
-	    {
-		if (lnum < win->w_lines[i].wl_lnum)
-		    return -1;
-		if (lnum <= win->w_lines[i].wl_lastlnum)
-		    return i;
-	    }
+    for (i = 0; i < win->w_lines_valid; ++i)
+	if (win->w_lines[i].wl_valid)
+	{
+	    if (lnum < win->w_lines[i].wl_lnum)
+		return -1;
+	    if (lnum <= win->w_lines[i].wl_lastlnum)
+		return i;
+	}
     return -1;
 }
 
@@ -1607,11 +1606,11 @@ foldMarkAdjustRecurse(gap, line1, line2, amount, amount_after)
 	    }
 	    else
 	    {
-		/* 2, 3, or 5: need to correct nested folds too */
-		foldMarkAdjustRecurse(&fp->fd_nested, line1 - fp->fd_top,
-				  line2 - fp->fd_top, amount, amount_after);
 		if (fp->fd_top < top)
 		{
+		    /* 2 or 3: need to correct nested folds too */
+		    foldMarkAdjustRecurse(&fp->fd_nested, line1 - fp->fd_top,
+				  line2 - fp->fd_top, amount, amount_after);
 		    if (last <= line2)
 		    {
 			/* 2. fold contains line1, line2 is below fold */
@@ -1628,7 +1627,11 @@ foldMarkAdjustRecurse(gap, line1, line2, amount, amount_after)
 		}
 		else
 		{
-		    /* 5. fold is below line1 and contains line2 */
+		    /* 5. fold is below line1 and contains line2; need to
+		     * correct nested folds too */
+		    foldMarkAdjustRecurse(&fp->fd_nested, line1 - fp->fd_top,
+				  line2 - fp->fd_top, amount,
+				  amount_after + (fp->fd_top - top));
 		    if (amount == MAXLNUM)
 		    {
 			fp->fd_len -= line2 - fp->fd_top + 1;
@@ -1928,7 +1931,7 @@ get_foldtext(wp, lnum, lnume, foldinfo, buf)
 #ifdef FEAT_EVAL
     if (*wp->w_p_fdt != NUL)
     {
-	char_u	dashes[51];
+	char_u	dashes[MAX_LEVEL + 2];
 	win_T	*save_curwin;
 	int	level;
 	char_u	*p;
@@ -1940,8 +1943,8 @@ get_foldtext(wp, lnum, lnume, foldinfo, buf)
 	/* Set "v:folddashes" to a string of "level" dashes. */
 	/* Set "v:foldlevel" to "level". */
 	level = foldinfo->fi_level;
-	if (level > 50)
-	    level = 50;
+	if (level > (int)sizeof(dashes) - 1)
+	    level = (int)sizeof(dashes) - 1;
 	vim_memset(dashes, '-', (size_t)level);
 	dashes[level] = NUL;
 	set_vim_var_string(VV_FOLDDASHES, dashes, -1);
@@ -2249,6 +2252,40 @@ foldUpdateIEMS(wp, top, bot)
 	    getlevel(&fline);
 	    if (fline.lvl >= 0)
 		break;
+	}
+    }
+
+    /*
+     * If folding is defined by the syntax, it is possible that a change in
+     * one line will cause all sub-folds of the current fold to change (e.g.,
+     * closing a C-style comment can cause folds in the subsequent lines to
+     * appear). To take that into account we should adjust the value of "bot"
+     * to point to the end of the current fold:
+     */
+    if (foldlevelSyntax == getlevel)
+    {
+	garray_T *gap = &wp->w_folds;
+	fold_T	 *fpn = NULL;
+	int	  current_fdl = 0;
+	linenr_T  fold_start_lnum = 0;
+	linenr_T  lnum_rel = fline.lnum;
+
+	while (current_fdl < fline.lvl)
+	{
+	    if (!foldFind(gap, lnum_rel, &fpn))
+		break;
+	    ++current_fdl;
+
+	    fold_start_lnum += fpn->fd_top;
+	    gap = &fpn->fd_nested;
+	    lnum_rel -= fpn->fd_top;
+	}
+	if (fpn != NULL && current_fdl == fline.lvl)
+	{
+	    linenr_T fold_end_lnum = fold_start_lnum + fpn->fd_len;
+
+	    if (fold_end_lnum > bot)
+		bot = fold_end_lnum;
 	}
     }
 
@@ -2813,6 +2850,8 @@ foldSplit(gap, i, top, bot)
     fp[1].fd_top = bot + 1;
     fp[1].fd_len = fp->fd_len - (fp[1].fd_top - fp->fd_top);
     fp[1].fd_flags = fp->fd_flags;
+    fp[1].fd_small = MAYBE;
+    fp->fd_small = MAYBE;
 
     /* Move nested folds below bot to new fold.  There can't be
      * any between top and bot, they have been removed by the caller. */
@@ -3199,8 +3238,8 @@ foldlevelMarker(flp)
 		    flp->lvl = n;
 		    flp->lvl_next = n - 1;
 		    /* never start a fold with an end marker */
-		    if (flp->lvl_next > flp->lvl)
-			flp->lvl_next = flp->lvl;
+		    if (flp->lvl_next > start_lvl)
+			flp->lvl_next = start_lvl;
 		}
 	    }
 	    else

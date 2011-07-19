@@ -4,6 +4,153 @@ CHANGES FROM PREVIOUS VERSIONS OF ZSH
 
 Note also the list of incompatibilities in the README file.
 
+Changes between versions 4.3.10 and 4.3.11
+------------------------------------------
+
+When the shell is invoked with the base name of a script, for example as
+`zsh scriptname', previous versions of zsh have used the name directly,
+whereas other shells use the value of $PATH to find the script.  The
+option PATH_SCRIPT has been added to provide the alternative behaviour.
+This is turned on where appropriate in compatibility modes.
+
+Parameters, globbing, etc.
+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+Parameter expansion has been enhanced to provide the ${NAME:OFFSET} and
+${NAME:OFFSET:LENGTH} syntax for substrings and subarrays present in
+several other shells.  OFFSET always uses zero-based indexing.  The only
+clash with existing zsh syntax occurs if OFFSET begins with an
+alphabetic character or `&', which is not likely.
+
+The (D) flag in parameter expansion abbreviates directories in the
+substituted value.  The (q-) flag does minimal shell quotation of arguments
+for maximum human readability of the result.
+
+The (Z) flag in parameter expansion is an enhanced version of the (z)
+flag that takes an argument indicating how the string to be split
+is treated. (Z:c:) parses comments as strings; (Z:C:) parses comments
+and strips them; (Z:n:) treats newlines as ordinary whitespace: (z)
+has always treated unquoted newlines as shell delimiters and turned them
+into semicolons, though this was not previously documented.
+
+Numeric expansion with braces has been extended so that a step may be
+given, as in {3..9..2}.  The step may be negative as may the start and
+end of the range (this is also new).
+
+The glob qualifier P can be used to add a separate word before each
+match.  For example, *(P:-f:) produces the command line
+`-f file1 -f file2 ...'.
+
+Regular expression matches now use the same variables for storing matched
+components as shell pattern matching.  The function system now provides the
+function regexp-replace for replacing text using regular expressions.  The
+zle widget functions replace-string, replace-string-again, if defined with
+regex in the name (e.g. "zle -N replace-regexp replace-string"), perform
+regular expression matches.  In replacement text \& and \1 have the
+standard meaning.
+
+Line editor and completion
+-+-+-+-+-+-+-+-+-+-+-+-+-+
+
+The completion system now has a style path-completion.  Setting this to
+false inhibits completion of paths before the current path component,
+e.g. /u/b/z no longer completes to /usr/bin/zsh.  This is useful on systems
+where this form of completion is pathologically slow due to network
+performance.
+
+With the MULTIBYTE option, the line editor now highlights bytes in the
+input that are not part of a valid character in the current locale in hex
+as <XX> for hex digits X; highlighting is controlled by the "special"
+keyword in the zle_highlight array.  These can be distinguished from
+unprintable Unicode characters which also use "special" highlighting as the
+latter are always two or four bytes long, e.g. <XXXX>, <XXXXXXXX>.
+
+zle_highlight also controls highlighting of a removable completion
+suffix, e.g. the "/" automatically appended to directories.  This uses
+the keyword "suffix".
+
+The line editor now sets the variable ZLE_LINE_ABORTED if there is
+an error when editing the line.  The following code can be used
+to create a bindable editor widget to restore the aborted line:
+  recover-line() { LBUFFER=$ZLE_LINE_ABORTED RBUFFER=; }
+  zle -N recover-line
+and then either bind recover-line to a key sequence or use
+`M-x recover-line <RET>'.
+
+The parameter ZLE_STATE, available in user-defined line editor widgets,
+gives information on the state of the line editor.  Currently this is
+whether the line editor is in insert or overwrite mode.
+
+Miscellaneous options
+-+-+-+-+-+-+-+-+-+-+-
+
+The new shell option HIST_LEX_WORDS causes history lines read in from
+a file to be split in the same way as normal shell lines, instead of
+simply on whitespace.  It's an option as although the result is more
+accurate it can take a long time when the history size is large.
+
+The shell option MONITOR can be set in non-interactive shells, and also in
+subshells (as created by surrounding commands with parentheses), turning on
+job control for that subshell.  The initial behaviour of a subshell is
+still to turn job control off, however if the new POSIX_JOBS option is set
+MONITOR remains active in subshells.
+
+The new shell option POSIX_CD, active in emulations of POSIX-based shells,
+makes the cd builtin POSIX-compatible.
+
+The POSIX_JOBS option already referred to has various other
+compatibility enchancements.
+
+The new shell option POSIX_STRINGS makes a null character in $'...'
+expansion terminate the string, as is already the case in bash.  This is
+not particularly useful behaviour but may become a POSIX requirement.
+
+The new shell option POSIX_TRAPS causes the EXIT trap to behave in the same
+way as in other shells, i.e. it is only run when the shell exits.
+
+The new shell option SOURCE_TRACE causes the shell to report files
+containing shell code that the shell executes directly, i.e. startup files
+or files run with the `source' or `.' builtins.
+
+The shell option SUN_KEYBOARD_HACK has been supplemented by a more general
+mechanism: the KEYBOARD_HACK variable defines the character to be ignored.
+
+Add-on modules and function
+-+-+-+-+-+-+-+-+-+-+-+-+-+-
+
+The module zsh/system has a new "zsystem" builtin whose subcommands perform
+system level tasks.  Currently "zsystem flock" performs advisory file
+locking (for aficionados, this uses the fcntl() system call so works over
+the network on Linux).  This is a particularly convenient way of locking
+files for the length of a subshell.  "zsystem supports flock" provides a
+test for this feature.
+
+There is now a function system for recording and restoring recently
+entered directories in a persistent fashion, with support in completion
+and (if explicitly installed) dynamic directory expansion.  See the
+entry for cdr in the zshcontrib manual page.
+
+
+Changes between versions 4.3.9 and 4.3.10
+-----------------------------------------
+
+The command "emulate <mode> -c ..." evaluates an expression in a given
+emulation.  The emulation is sticky for functions defined within the
+expression.
+
+The variable CORRECT_IGNORE gives a pattern that can be ignored
+in spelling correction.  CORRECT_IGNORE='_*' ignores completion functions.
+
+The option POSIX_ALIASES improves compatibility of aliases with other
+shells.
+
+The variable ZSH_PATCHLEVEL can be used to test for unreleased versions of
+the shell; it is present but less useful in released versions.
+
+The variables ZLE_REMOVE_SUFFIX_CHARS and ZLE_SPACE_SUFFIX_CHARS allow more
+control over the way automatically removed suffixes are treated in
+completion.
+
 Major changes between versions 4.3.6 and 4.3.9
 ----------------------------------------------
 
@@ -385,7 +532,7 @@ Further enhancements to new completion system:
    styles
  - compctl library separated out (frozen but still supported)
  - User-friendly introduction available at zsh website
-   http://sunsite.auc.dk/zsh/
+   http://zsh.sourceforge.net/
 
 Additions to complist listing library (coloured completion and menu
 selection):

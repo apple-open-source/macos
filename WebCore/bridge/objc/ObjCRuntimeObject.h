@@ -35,15 +35,17 @@ class ObjcInstance;
 
 class ObjCRuntimeObject : public RuntimeObject {
 public:
-    ObjCRuntimeObject(ExecState*, PassRefPtr<ObjcInstance>);
+    ObjCRuntimeObject(ExecState*, JSGlobalObject*, PassRefPtr<ObjcInstance>);
     virtual ~ObjCRuntimeObject();
 
     ObjcInstance* getInternalObjCInstance() const;
 
     static const ClassInfo s_info;
 
-private:
-    virtual const ClassInfo* classInfo() const { return &s_info; }
+    static Structure* createStructure(JSGlobalData& globalData, JSValue prototype)
+    {
+        return Structure::create(globalData, prototype, TypeInfo(ObjectType, StructureFlags), AnonymousSlotCount, &s_info);
+    }
 };
 
 }

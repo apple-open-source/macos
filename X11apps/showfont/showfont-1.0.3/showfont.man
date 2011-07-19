@@ -1,0 +1,91 @@
+.TH SHOWFONT __appmansuffix__ __xorgversion__
+.SH NAME
+showfont \- font dumper for X font server
+.SH SYNOPSIS
+.B showfont
+[
+.I \-options
+\&.\|.\|. ]
+.B \-fn
+.I pattern
+.SH DESCRIPTION
+.I Showfont
+displays data about a font that matches the given \fIpattern\fP.
+The information shown includes font information, font properties,
+character metrics, and character bitmaps.
+.PP
+The wildcard character "*" can be used to match any sequence of
+characters (including none) in the font name,
+and "?" can be used to match any single character.
+The "*" and "?" characters must be quoted to prevent them from
+being expanded by the shell.
+If no pattern is given, "*" is assumed.
+.SH "OPTIONS"
+.TP 8
+.B \-server \fIservername\fP
+The X font server to contact.
+.I servername 
+must be specified in one of the formats defined in the
+.I Font Server Names
+section of X(__miscmansuffix__).   If not specified, the server name in the
+.B FONTSERVER
+environment variable is used.
+.TP 8
+.BI \-fn " name"
+The font to display.
+.TP 8
+.B \-lsb
+The bit order of the font should be requested as LSBFirst
+(least significant bit first).
+.TP 8
+.B \-msb
+The bit order of the font should be requested as MSBFirst
+(most significant bit first).
+.TP 8
+.B \-LSB
+The byte order of the font should be requested as LSBFirst
+(least significant byte first).
+.TP 8
+.B \-MSB
+The byte order of the font should be requested as MSBFirst
+(most significant byte first).
+.TP 8
+.B \-ext\fR[\fPents_only\fR]\fP
+Only the character extents should be displayed, but not the bitmaps.
+.TP 8
+.BI \-start " char"
+The start of the range of the characters to display
+(\fIchar\fP is a number).
+.TP 8
+.BI \-end " char"
+The end of the range of the characters to display
+(\fIchar\fP is a number).
+.TP 8
+.BI \-unit " n"
+The scanline unit of the font (8, 16, 32, or 64).
+.TP 8
+.BI \-pad " n"
+The scanpad unit of the font (8, 16, 32, or 64).
+.TP 8
+.BI \-b\fR[\fPitmap_pad\fR]\fP " n"
+The bitmap padding unit of the font (0, 1, or 2,
+where 0 is ImageRectMin, 1 is ImageRectMaxWidth and 2 is ImageRectMax).
+.TP 8
+.B \-noprops
+Do not show the font properties.
+.SH "SEE ALSO"
+xfs(__appmansuffix__), fslsfonts(__appmansuffix__), 
+fstobdf(__appmansuffix__), xlsfonts(__appmansuffix__), X(__miscmansuffix__).
+.SH ENVIRONMENT
+.TP 8
+.B FONTSERVER
+the default X font server to contact.  The server name must
+be specified in one of the formats defined in the
+.I Font Server Names
+section of X(__miscmansuffix__).
+.SH COPYRIGHT
+Copyright 1991, Network Computing Devices, Inc.
+.br
+See \fIX\fP(__miscmansuffix__) for a full statement of rights and permissions.
+.SH AUTHOR
+Dave Lemke, Network Computing Devices, Inc.

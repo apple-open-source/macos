@@ -72,9 +72,9 @@ flag versioninfo;	    /* emit only version info */
 char *user;		    /* the name of the invoking user */
 char *home;		    /* invoking user's home directory */
 char *fmhome;		    /* fetchmail's home directory */
-char *program_name;	    /* the name to prefix error messages with */
+const char *program_name;   /* the name to prefix error messages with */
 flag configdump;	    /* dump control blocks for configurator */
-char *fetchmailhost;	    /* either `localhost' or the host's FQDN */
+const char *fetchmailhost;  /* either `localhost' or the host's FQDN */
 
 static int quitonly;	    /* if we should quit after killing the running daemon */
 
@@ -135,13 +135,18 @@ static RETSIGTYPE donothing(int sig)
 
 static void printcopyright(FILE *fp) {
 	fprintf(fp, GT_("Copyright (C) 2002, 2003 Eric S. Raymond\n"
-		   "Copyright (C) 2004 Matthias Andree, Eric S. Raymond, Robert M. Funk, Graham Wilson\n"
-		   "Copyright (C) 2005 - 2006 Sunil Shetye\n"
-		   "Copyright (C) 2005 - 2009 Matthias Andree\n"
+		   "Copyright (C) 2004 Matthias Andree, Eric S. Raymond,\n"
+		   "                   Robert M. Funk, Graham Wilson\n"
+		   "Copyright (C) 2005 - 2006, 2010 Sunil Shetye\n"
+		   "Copyright (C) 2005 - 2010 Matthias Andree\n"
 		   ));
 	fprintf(fp, GT_("Fetchmail comes with ABSOLUTELY NO WARRANTY. This is free software, and you\n"
 		   "are welcome to redistribute it under certain conditions. For details,\n"
 		   "please see the file COPYING in the source or documentation directory.\n"));
+#ifdef SSL_ENABLE
+	/* Do not translate this */
+	fprintf(fp, "This product includes software developed by the OpenSSL Project\nfor use in the OpenSSL Toolkit. (http://www.openssl.org/)\n");
+#endif
 }
 
 const char *iana_charset;
@@ -445,8 +450,8 @@ int main(int argc, char **argv)
 	}
 	else if (kill(pid, SIGTERM) < 0)
 	{
-	    fprintf(stderr,GT_("fetchmail: error killing %s fetchmail at %d; bailing out.\n"),
-		    bkgd ? GT_("background") : GT_("foreground"), pid);
+	    fprintf(stderr,GT_("fetchmail: error killing %s fetchmail at %ld; bailing out.\n"),
+		    bkgd ? GT_("background") : GT_("foreground"), (long)pid);
 	    exit(PS_EXCLUDE);
 	}
 	else
@@ -454,8 +459,8 @@ int main(int argc, char **argv)
 	    int maxwait;
 
 	    if (outlevel > O_SILENT)
-		fprintf(stderr,GT_("fetchmail: %s fetchmail at %d killed.\n"),
-			bkgd ? GT_("background") : GT_("foreground"), pid);
+		fprintf(stderr,GT_("fetchmail: %s fetchmail at %ld killed.\n"),
+			bkgd ? GT_("background") : GT_("foreground"), (long)pid);
 	    /* We used to nuke the other process's lock here, with
 	     * fm_lock_release(), which is broken. The other process
 	     * needs to clear its lock by itself. */
@@ -483,15 +488,15 @@ int main(int argc, char **argv)
 	else if (!implicitmode)
 	{
 	    fprintf(stderr,
-		 GT_("fetchmail: can't poll specified hosts with another fetchmail running at %d.\n"),
-		 pid);
+		 GT_("fetchmail: can't poll specified hosts with another fetchmail running at %ld.\n"),
+		 (long)pid);
 		return(PS_EXCLUDE);
 	}
 	else if (!bkgd)
 	{
 	    fprintf(stderr,
-		 GT_("fetchmail: another foreground fetchmail is running at %d.\n"),
-		 pid);
+		 GT_("fetchmail: another foreground fetchmail is running at %ld.\n"),
+		 (long)pid);
 		return(PS_EXCLUDE);
 	}
 	else if (getpid() == pid)
@@ -506,8 +511,8 @@ int main(int argc, char **argv)
 	else if (kill(pid, SIGUSR1) == 0)
 	{
 	    fprintf(stderr,
-		    GT_("fetchmail: background fetchmail at %d awakened.\n"),
-		    pid);
+		    GT_("fetchmail: background fetchmail at %ld awakened.\n"),
+		    (long)pid);
 	    return(0);
 	}
 	else
@@ -518,8 +523,8 @@ int main(int argc, char **argv)
 	     * SIGUSR1/SIGHUP transmission.
 	     */
 	    fprintf(stderr,
-		    GT_("fetchmail: elder sibling at %d died mysteriously.\n"),
-		    pid);
+		    GT_("fetchmail: elder sibling at %ld died mysteriously.\n"),
+		    (long)pid);
 	    return(PS_UNDEFINED);
 	}
     }
@@ -583,7 +588,7 @@ int main(int argc, char **argv)
 		exit(rc);
 	    }
 	}
-	report(stdout, GT_("starting fetchmail %s daemon \n"), VERSION);
+	report(stdout, GT_("starting fetchmail %s daemon\n"), VERSION);
 
 	/*
 	 * We'll set up a handler for these when we're sleeping,
@@ -599,9 +604,9 @@ int main(int argc, char **argv)
 	if (run.logfile && !nodetach && access(run.logfile, F_OK) == 0)
     	{
 	    if (!freopen(run.logfile, "a", stdout))
-		    report(stderr, GT_("could not open %s to append logs to \n"), run.logfile);
+		    report(stderr, GT_("could not open %s to append logs to\n"), run.logfile);
 	    if (!freopen(run.logfile, "a", stderr))
-		    report(stdout, GT_("could not open %s to append logs to \n"), run.logfile);
+		    report(stdout, GT_("could not open %s to append logs to\n"), run.logfile);
 	    if (run.use_syslog)
 		report(stdout, GT_("fetchmail: Warning: syslog and logfile are set. Check both for logs!\n"));
     	}
@@ -943,6 +948,7 @@ static void optmerge(struct query *h2, struct query *h1, int force)
     FLAG_MERGE(server.plugin);
     FLAG_MERGE(server.plugout);
     FLAG_MERGE(server.tracepolls);
+    FLAG_MERGE(server.badheader);
 
     FLAG_MERGE(wildcard);
     FLAG_MERGE(remotename);
@@ -979,6 +985,7 @@ static void optmerge(struct query *h2, struct query *h1, int force)
     FLAG_MERGE(sslcert);
     FLAG_MERGE(sslproto);
     FLAG_MERGE(sslcertck);
+    FLAG_MERGE(sslcertfile);
     FLAG_MERGE(sslcertpath);
     FLAG_MERGE(sslcommonname);
     FLAG_MERGE(sslfingerprint);
@@ -1011,6 +1018,7 @@ static int load_params(int argc, char **argv, int optind)
     def_opts.server.protocol = P_AUTO;
     def_opts.server.timeout = CLIENT_TIMEOUT;
     def_opts.server.esmtp_name = user;
+    def_opts.server.badheader = BHREJECT;
     def_opts.warnings = WARNING_INTERVAL;
     def_opts.remotename = user;
     def_opts.listener = SMTP_MODE;
@@ -1029,11 +1037,14 @@ static int load_params(int argc, char **argv, int optind)
     }
 
     /* note the parse time, so we can pick up on modifications */
-    parsetime = 0;	/* foil compiler warnings */
-    if (strcmp(rcfile, "-") == 0 || stat(rcfile, &rcstat) != -1)
-	parsetime = rcstat.st_mtime;
-    else if (errno != ENOENT)
-	report(stderr, GT_("couldn't time-check the run-control file\n"));
+    if (strcmp(rcfile, "-") == 0)
+	parsetime = time(NULL);
+    else {
+	if (stat(rcfile, &rcstat) != -1)
+	    parsetime = rcstat.st_mtime;
+	else if (errno != ENOENT)
+	    report(stderr, GT_("couldn't time-check the run-control file\n"));
+    }
 
     /* this builds the host list */
     if ((st = prc_parse_file(rcfile, !versioninfo)) != 0)
@@ -1088,12 +1099,18 @@ static int load_params(int argc, char **argv, int optind)
 
     /*
      * If there's a defaults record, merge it and lose it.
+     * FIXME: we don't currently free all entries that might be in struct query.
      */ 
     if (querylist && strcmp(querylist->server.pollname, "defaults") == 0)
     {
+	struct query *tmpq;
+
 	for (ctl = querylist->next; ctl; ctl = ctl->next)
 	    optmerge(ctl, querylist, FALSE);
+	tmpq = querylist;
 	querylist = querylist->next;
+	free(tmpq->server.pollname);
+	free(tmpq);
     }
 
     /* don't allow a defaults record after the first */
@@ -1118,17 +1135,17 @@ static int load_params(int argc, char **argv, int optind)
     if (cmd_run.poll_interval >= 0)
 	run.poll_interval = cmd_run.poll_interval;
     if (cmd_run.invisible)
-	run.invisible = cmd_run.invisible;
+	run.invisible = (cmd_run.invisible == FLAG_TRUE);
     if (cmd_run.showdots)
-	run.showdots = cmd_run.showdots;
+	run.showdots = (cmd_run.showdots == FLAG_TRUE);
     if (cmd_run.use_syslog)
 	run.use_syslog = (cmd_run.use_syslog == FLAG_TRUE);
     if (cmd_run.postmaster)
 	run.postmaster = cmd_run.postmaster;
     if (cmd_run.bouncemail)
-	run.bouncemail = cmd_run.bouncemail;
+	run.bouncemail = (cmd_run.bouncemail == FLAG_TRUE);
     if (cmd_run.softbounce)
-	run.softbounce = cmd_run.softbounce;
+	run.softbounce = (cmd_run.softbounce == FLAG_TRUE);
 
     /* check and daemon options are not compatible */
     if (check_only && run.poll_interval)
@@ -1554,7 +1571,7 @@ static void dump_params (struct runctl *runp,
 	printf(GT_("Fetchmail will direct error mail to the sender.\n"));
 
     if (!runp->softbounce)
-	printf(GT_("Fetchmail will treat permanent errors as permanent (drop messsages).\n"));
+	printf(GT_("Fetchmail will treat permanent errors as permanent (drop messages).\n"));
     else if (outlevel >= O_VERBOSE)
 	printf(GT_("Fetchmail will treat permanent errors as temporary (keep messages).\n"));
 
@@ -1631,7 +1648,7 @@ static void dump_params (struct runctl *runp,
 	    printf(GT_("  OTP authentication will be forced.\n"));
 	    break;
 	case A_CRAM_MD5:
-	    printf(GT_("  CRAM-Md5 authentication will be forced.\n"));
+	    printf(GT_("  CRAM-MD5 authentication will be forced.\n"));
 	    break;
 	case A_GSSAPI:
 	    printf(GT_("  GSSAPI authentication will be forced.\n"));
@@ -1655,9 +1672,11 @@ static void dump_params (struct runctl *runp,
 	    printf(GT_("  SSL protocol: %s.\n"), ctl->sslproto);
 	if (ctl->sslcertck) {
 	    printf(GT_("  SSL server certificate checking enabled.\n"));
-	    if (ctl->sslcertpath != NULL)
-		printf(GT_("  SSL trusted certificate directory: %s\n"), ctl->sslcertpath);
 	}
+	if (ctl->sslcertfile != NULL)
+		printf(GT_("  SSL trusted certificate file: %s\n"), ctl->sslcertfile);
+	if (ctl->sslcertpath != NULL)
+		printf(GT_("  SSL trusted certificate directory: %s\n"), ctl->sslcertpath);
 	if (ctl->sslcommonname != NULL)
 		printf(GT_("  SSL server CommonName: %s\n"), ctl->sslcommonname);
 	if (ctl->sslfingerprint != NULL)
@@ -1885,17 +1904,14 @@ static void dump_params (struct runctl *runp,
 
 			if (ctl->server.akalist)
 			{
-			    struct idlist *idp;
-
 			    printf(GT_("  Predeclared mailserver aliases:"));
 			    for (idp = ctl->server.akalist; idp; idp = idp->next)
 				printf(" %s", idp->id);
 			    putchar('\n');
 			}
+
 			if (ctl->server.localdomains)
 			{
-			    struct idlist *idp;
-
 			    printf(GT_("  Local domains:"));
 			    for (idp = ctl->server.localdomains; idp; idp = idp->next)
 				printf(" %s", idp->id);
@@ -1946,7 +1962,17 @@ static void dump_params (struct runctl *runp,
         if (ctl->server.tracepolls)
             printf(GT_("  Poll trace information will be added to the Received header.\n"));
         else if (outlevel >= O_VERBOSE)
-            printf(GT_("  No poll trace information will be added to the Received header.\n.\n"));
+            printf(GT_("  No poll trace information will be added to the Received header.\n"));
+
+	switch (ctl->server.badheader) {
+	    case BHREJECT:
+		if (outlevel >= O_VERBOSE)
+		    printf(GT_("  Messages with bad headers will be rejected.\n"));
+		break;
+	    case BHACCEPT:
+		printf(GT_("  Messages with bad headers will be passed on.\n"));
+		break;
+	}
 
 	if (ctl->properties)
 	    printf(GT_("  Pass-through properties \"%s\".\n"),

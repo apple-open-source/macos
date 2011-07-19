@@ -1,10 +1,10 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin stringprep n 1.0.0]
-[copyright {2007, Sergei Golovan <sgolovan@nes.ru>}]
+[manpage_begin stringprep n 1.0.1]
+[copyright {2007-2009, Sergei Golovan <sgolovan@nes.ru>}]
 [moddesc {Preparation of Internationalized Strings}]
 [titledesc {Implementation of stringprep}]
 [require Tcl 8.3]
-[require stringprep 1.0]
+[require stringprep 1.0.1]
 [description]
 [para]
 

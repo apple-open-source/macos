@@ -1,5 +1,5 @@
 /*
- * "$Id: snmp-supplies.c 3087 2011-03-25 21:08:41Z msweet $"
+ * "$Id: snmp-supplies.c 3277 2011-05-20 07:30:39Z msweet $"
  *
  *   SNMP supplies functions for CUPS.
  *
@@ -40,12 +40,10 @@
 #define CUPS_DEVELOPER_EMPTY		2
 #define CUPS_MARKER_SUPPLY_LOW		4
 #define CUPS_MARKER_SUPPLY_EMPTY	8
-#define CUPS_MARKER_WASTE_ALMOST_FULL	16
-#define CUPS_MARKER_WASTE_FULL		32
-#define CUPS_OPC_NEAR_EOL		64
-#define CUPS_OPC_LIFE_OVER		128
-#define CUPS_TONER_LOW			256
-#define CUPS_TONER_EMPTY		512
+#define CUPS_OPC_NEAR_EOL		16
+#define CUPS_OPC_LIFE_OVER		32
+#define CUPS_TONER_LOW			64
+#define CUPS_TONER_EMPTY		128
 
 
 /*
@@ -172,8 +170,6 @@ static const backend_state_t const supply_states[] =
 			  { CUPS_DEVELOPER_EMPTY, "developer-empty-warning" },
 			  { CUPS_MARKER_SUPPLY_LOW, "marker-supply-low-report" },
 			  { CUPS_MARKER_SUPPLY_EMPTY, "marker-supply-empty-warning" },
-			  { CUPS_MARKER_WASTE_ALMOST_FULL, "marker-waste-almost-full-report" },
-			  { CUPS_MARKER_WASTE_FULL, "marker-waste-full-warning" },
 			  { CUPS_OPC_NEAR_EOL, "opc-near-eol-report" },
 			  { CUPS_OPC_LIFE_OVER, "opc-life-over-warning" },
 			  { CUPS_TONER_LOW, "toner-low-report" },
@@ -233,7 +229,10 @@ backendSNMPSupplies(
 
     for (i = 0, ptr = value; i < num_supplies; i ++, ptr += strlen(ptr))
     {
-      percent = 100 * supplies[i].level / supplies[i].max_capacity;
+      if (supplies[i].max_capacity > 0)
+	percent = 100 * supplies[i].level / supplies[i].max_capacity;
+      else
+        percent = 50;
 
       if (percent <= 10)
       {
@@ -248,10 +247,6 @@ backendSNMPSupplies(
               break;
           case CUPS_TC_wasteToner :
           case CUPS_TC_wasteInk :
-              if (percent <= 1)
-                new_supply_state |= CUPS_MARKER_WASTE_FULL;
-              else
-                new_supply_state |= CUPS_MARKER_WASTE_ALMOST_FULL;
               break;
           case CUPS_TC_ink :
           case CUPS_TC_inkCartridge :
@@ -476,7 +471,7 @@ backend_init_supplies(
 
   if ((ppd = ppdOpenFile(getenv("PPD"))) == NULL ||
       ((ppdattr = ppdFindAttr(ppd, "cupsSNMPSupplies", NULL)) != NULL &&
-       ppdattr->value && strcasecmp(ppdattr->value, "true")))
+       ppdattr->value && _cups_strcasecmp(ppdattr->value, "true")))
   {
     ppdClose(ppd);
     return;
@@ -986,5 +981,5 @@ utf16_to_utf8(
 
 
 /*
- * End of "$Id: snmp-supplies.c 3087 2011-03-25 21:08:41Z msweet $".
+ * End of "$Id: snmp-supplies.c 3277 2011-05-20 07:30:39Z msweet $".
  */

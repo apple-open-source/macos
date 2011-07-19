@@ -178,6 +178,7 @@ public:
 	void registerAs(mach_port_t port, const char *name) const;
     
 	mach_port_t lookup(const char *name) const;
+	mach_port_t lookup2(const char *name) const;
     mach_port_t lookupOptional(const char *name) const;
     
     Bootstrap subset(Port requestor);

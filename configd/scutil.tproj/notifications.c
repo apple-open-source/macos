@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2004, 2008, 2009 Apple Inc. All rights reserved.
+ * Copyright (c) 2000-2004, 2008-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -244,30 +244,31 @@ static void *
 _watcher(void *arg)
 {
 	notifyRl = CFRunLoopGetCurrent();
-	if (!notifyRl) {
+	if (notifyRl == NULL) {
 		SCPrint(TRUE, stdout, CFSTR("  CFRunLoopGetCurrent() failed\n"));
 		return NULL;
 	}
 
-#if	!TARGET_OS_IPHONE
 	if (doDispatch) {
 		if (!SCDynamicStoreSetDispatchQueue(store, dispatch_get_current_queue())) {
 			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+			notifyRl = NULL;
 			return NULL;
 		}
 		notifyRls = (CFRunLoopSourceRef)kCFNull;
-	} else
-#endif	// !TARGET_OS_IPHONE
-	{
+	} else {
 		notifyRls = SCDynamicStoreCreateRunLoopSource(NULL, store, 0);
-		if (!notifyRls) {
+		if (notifyRls == NULL) {
 			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+			notifyRl = NULL;
 			return NULL;
 		}
 		CFRunLoopAddSource(notifyRl, notifyRls, kCFRunLoopDefaultMode);
 	}
 
+	pthread_setname_np("n.watch");
 	CFRunLoopRun();
+	notifyRl = NULL;
 	return NULL;
 }
 
@@ -278,7 +279,8 @@ do_notify_watch(int argc, char **argv)
 	pthread_attr_t	tattr;
 	pthread_t	tid;
 
-	if (notifyRl) {
+	if (notifyRl != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("already active\n"));
 		return;
 	}
 
@@ -325,20 +327,53 @@ notificationWatcherVerbose(SCDynamicStoreRef store, void *arg)
 }
 
 
+static void *
+_callback(void *arg)
+{
+	SCDynamicStoreCallBack_v1	func  = (SCDynamicStoreCallBack_v1)arg;
+
+	notifyRl = CFRunLoopGetCurrent();
+	if (notifyRl == NULL) {
+		SCPrint(TRUE, stdout, CFSTR("  CFRunLoopGetCurrent() failed\n"));
+		return NULL;
+	}
+
+	if (!SCDynamicStoreNotifyCallback(store, notifyRl, func, "Changed detected by callback handler!")) {
+		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+		notifyRl = NULL;
+		return NULL;
+	}
+
+	pthread_setname_np("n.callback");
+	CFRunLoopRun();
+	notifyRl = NULL;
+	return NULL;
+}
+
+
 __private_extern__
 void
 do_notify_callback(int argc, char **argv)
 {
 	SCDynamicStoreCallBack_v1	func  = notificationWatcher;
+	pthread_attr_t			tattr;
+	pthread_t			tid;
+
+	if (notifyRl != NULL) {
+		SCPrint(TRUE, stdout, CFSTR("already active\n"));
+		return;
+	}
 
 	if ((argc == 1) && (strcmp(argv[0], "verbose") == 0)) {
 		func = notificationWatcherVerbose;
 	}
 
-	if (!SCDynamicStoreNotifyCallback(store, CFRunLoopGetCurrent(), func, "Changed detected by callback handler!")) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		return;
-	}
+	pthread_attr_init(&tattr);
+	pthread_attr_setscope(&tattr, PTHREAD_SCOPE_SYSTEM);
+	pthread_attr_setdetachstate(&tattr, PTHREAD_CREATE_DETACHED);
+//      pthread_attr_setstacksize(&tattr, 96 * 1024); // each thread gets a 96K stack
+	pthread_create(&tid, &tattr, _callback, (void *)func);
+	pthread_attr_destroy(&tattr);
 
 	return;
 }
@@ -489,30 +524,26 @@ __private_extern__
 void
 do_notify_cancel(int argc, char **argv)
 {
-	if (notifyRls) {
-#if	!TARGET_OS_IPHONE
+	if (notifyRls != NULL) {
 		if (doDispatch) {
 			if (!SCDynamicStoreSetDispatchQueue(store, NULL)) {
 				SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
 				return;
 			}
-		} else
-#endif	// !TARGET_OS_IPHONE
-		{
+		} else {
 			CFRunLoopSourceInvalidate(notifyRls);
 			CFRelease(notifyRls);
 		}
 		notifyRls = NULL;
+	} else {
+		if (!SCDynamicStoreNotifyCancel(store)) {
+			SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
+			return;
+		}
 	}
 
-	if (notifyRl) {
+	if (notifyRl != NULL) {
 		CFRunLoopStop(notifyRl);
-		notifyRl  = NULL;
-	}
-
-	if (!SCDynamicStoreNotifyCancel(store)) {
-		SCPrint(TRUE, stdout, CFSTR("  %s\n"), SCErrorString(SCError()));
-		return;
 	}
 
 	if (oact != NULL) {

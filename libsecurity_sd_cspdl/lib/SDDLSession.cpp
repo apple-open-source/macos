@@ -466,6 +466,7 @@ SDDLSession::PassThrough(CSSM_DB_HANDLE inDbHandle,
 			if (!outOutputParams)
 				CssmError::throwMe(CSSM_ERRCODE_INVALID_OUTPUT_POINTER);
 			*reinterpret_cast<CSSM_BOOL *>(outOutputParams) = true;
+			break;
 		}
         default:
 			CssmError::throwMe(CSSM_ERRCODE_INVALID_PASSTHROUGH_ID);

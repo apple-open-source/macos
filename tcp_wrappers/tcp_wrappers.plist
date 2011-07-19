@@ -20,6 +20,7 @@
 		<string>Minor man page nits.</string>
 		<string>Compilation fixes in hosts_access.c</string>
 		<string>Build modifications in Makefile.</string>
+		<string>Numerous warning fixes. (7267514)</string>
 	</array>
 	<key>OpenSourceLicense</key>
 	<string>other</string>

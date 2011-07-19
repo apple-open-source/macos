@@ -1,6 +1,6 @@
 /*
  *  Copyright (C) 1999-2000 Harri Porten (porten@kde.org)
- *  Copyright (C) 2003, 2007, 2008 Apple Inc. All rights reserved.
+ *  Copyright (C) 2003, 2007, 2008, 2011 Apple Inc. All rights reserved.
  *  Copyright (C) 2003 Peter Kelly (pmk@post.com)
  *  Copyright (C) 2006 Alexey Proskuryakov (ap@nypop.com)
  *
@@ -26,62 +26,84 @@
 
 #include "ArrayPrototype.h"
 #include "Error.h"
+#include "ExceptionHelpers.h"
 #include "JSArray.h"
 #include "JSFunction.h"
 #include "Lookup.h"
-#include "PrototypeFunction.h"
 
 namespace JSC {
 
-ASSERT_CLASS_FITS_IN_CELL(ArrayConstructor);
-    
-static JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*, JSObject*, JSValue, const ArgList&);
+static EncodedJSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*);
 
-ArrayConstructor::ArrayConstructor(ExecState* exec, NonNullPassRefPtr<Structure> structure, ArrayPrototype* arrayPrototype, Structure* prototypeFunctionStructure)
-    : InternalFunction(&exec->globalData(), structure, Identifier(exec, arrayPrototype->classInfo()->className))
-{
-    // ECMA 15.4.3.1 Array.prototype
-    putDirectWithoutTransition(exec->propertyNames().prototype, arrayPrototype, DontEnum | DontDelete | ReadOnly);
-
-    // no. of arguments for constructor
-    putDirectWithoutTransition(exec->propertyNames().length, jsNumber(exec, 1), ReadOnly | DontEnum | DontDelete);
-
-    // ES5
-    putDirectFunctionWithoutTransition(exec, new (exec) NativeFunctionWrapper(exec, prototypeFunctionStructure, 1, exec->propertyNames().isArray, arrayConstructorIsArray), DontEnum);
 }
+
+#include "ArrayConstructor.lut.h"
+
+namespace JSC {
+
+const ClassInfo ArrayConstructor::s_info = { "Function", &InternalFunction::s_info, 0, ExecState::arrayConstructorTable };
+
+/* Source for ArrayConstructor.lut.h
+@begin arrayConstructorTable
+  isArray   arrayConstructorIsArray     DontEnum|Function 1
+@end
+*/
+
+ASSERT_CLASS_FITS_IN_CELL(ArrayConstructor);
+
+ArrayConstructor::ArrayConstructor(ExecState* exec, JSGlobalObject* globalObject, Structure* structure, ArrayPrototype* arrayPrototype)
+    : InternalFunction(&exec->globalData(), globalObject, structure, Identifier(exec, arrayPrototype->classInfo()->className))
+{
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().prototype, arrayPrototype, DontEnum | DontDelete | ReadOnly);
+    putDirectWithoutTransition(exec->globalData(), exec->propertyNames().length, jsNumber(1), ReadOnly | DontEnum | DontDelete);
+}
+
+bool ArrayConstructor::getOwnPropertySlot(ExecState* exec, const Identifier& propertyName, PropertySlot &slot)
+{
+    return getStaticFunctionSlot<InternalFunction>(exec, ExecState::arrayConstructorTable(exec), this, propertyName, slot);
+}
+
+bool ArrayConstructor::getOwnPropertyDescriptor(ExecState* exec, const Identifier& propertyName, PropertyDescriptor& descriptor)
+{
+    return getStaticFunctionDescriptor<InternalFunction>(exec, ExecState::arrayConstructorTable(exec), this, propertyName, descriptor);
+}
+
+// ------------------------------ Functions ---------------------------
 
 static inline JSObject* constructArrayWithSizeQuirk(ExecState* exec, const ArgList& args)
 {
+    JSGlobalObject* globalObject = asInternalFunction(exec->callee())->globalObject();
+
     // a single numeric argument denotes the array size (!)
     if (args.size() == 1 && args.at(0).isNumber()) {
         uint32_t n = args.at(0).toUInt32(exec);
         if (n != args.at(0).toNumber(exec))
-            return throwError(exec, RangeError, "Array size is not a small enough positive integer.");
-        return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), n);
+            return throwError(exec, createRangeError(exec, "Array size is not a small enough positive integer."));
+        return new (exec) JSArray(exec->globalData(), globalObject->arrayStructure(), n, CreateInitialized);
     }
 
     // otherwise the array is constructed with the arguments in it
-    return new (exec) JSArray(exec->lexicalGlobalObject()->arrayStructure(), args);
+    return new (exec) JSArray(exec->globalData(), globalObject->arrayStructure(), args);
 }
 
-static JSObject* constructWithArrayConstructor(ExecState* exec, JSObject*, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL constructWithArrayConstructor(ExecState* exec)
 {
-    return constructArrayWithSizeQuirk(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructArrayWithSizeQuirk(exec, args));
 }
 
-// ECMA 15.4.2
 ConstructType ArrayConstructor::getConstructData(ConstructData& constructData)
 {
     constructData.native.function = constructWithArrayConstructor;
     return ConstructTypeHost;
 }
 
-static JSValue JSC_HOST_CALL callArrayConstructor(ExecState* exec, JSObject*, JSValue, const ArgList& args)
+static EncodedJSValue JSC_HOST_CALL callArrayConstructor(ExecState* exec)
 {
-    return constructArrayWithSizeQuirk(exec, args);
+    ArgList args(exec);
+    return JSValue::encode(constructArrayWithSizeQuirk(exec, args));
 }
 
-// ECMA 15.6.1
 CallType ArrayConstructor::getCallData(CallData& callData)
 {
     // equivalent to 'new Array(....)'
@@ -89,9 +111,9 @@ CallType ArrayConstructor::getCallData(CallData& callData)
     return CallTypeHost;
 }
 
-JSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState*, JSObject*, JSValue, const ArgList& args)
+EncodedJSValue JSC_HOST_CALL arrayConstructorIsArray(ExecState* exec)
 {
-    return jsBoolean(args.at(0).inherits(&JSArray::info));
+    return JSValue::encode(jsBoolean(exec->argument(0).inherits(&JSArray::s_info)));
 }
 
 } // namespace JSC

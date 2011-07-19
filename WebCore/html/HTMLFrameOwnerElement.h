@@ -28,6 +28,7 @@ namespace WebCore {
 
 class DOMWindow;
 class Frame;
+class RenderPart;
 
 #if ENABLE(SVG)
 class SVGDocument;
@@ -40,6 +41,11 @@ public:
     Frame* contentFrame() const { return m_contentFrame; }
     DOMWindow* contentWindow() const;
     Document* contentDocument() const;
+
+    // Most subclasses use RenderPart (either RenderEmbeddedObject or RenderIFrame)
+    // except for HTMLObjectElement and HTMLEmbedElement which may return any
+    // RenderObject when using fallback content.
+    RenderPart* renderPart() const;
 
 #if ENABLE(SVG)
     SVGDocument* getSVGDocument(ExceptionCode&) const;
@@ -59,9 +65,8 @@ protected:
 private:
     friend class Frame;
 
-    virtual void setName() { }
     virtual bool isFrameOwnerElement() const { return true; }
-    virtual bool isKeyboardFocusable(KeyboardEvent*) const { return m_contentFrame; }
+    virtual bool isKeyboardFocusable(KeyboardEvent*) const;
 
     Frame* m_contentFrame;
     SandboxFlags m_sandboxFlags;

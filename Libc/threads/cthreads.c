@@ -77,9 +77,9 @@ extern void _malloc_fork_prepare(), _malloc_fork_parent();
 extern void _malloc_fork_child();
 extern void fork_mach_init();
 extern void _cproc_fork_child(), _stack_fork_child();
-extern void _lu_fork_child(void);
 extern void _asl_fork_child(void);
 extern void _pthread_fork_child(pthread_t);
+extern void _pthread_fork_child_postinit();
 extern void _notify_fork_child(void);
 
 static pthread_t psaved_self = 0;
@@ -170,7 +170,6 @@ void _cthread_fork_child()
  */
 {
 	pthread_t p = psaved_self;
-	struct pthread_atfork_entry *e;
         
 	_pthread_set_self(p);
         _spin_unlock(&psaved_self_global_lock);   
@@ -178,24 +177,22 @@ void _cthread_fork_child()
 	_malloc_fork_child();
 	p->kernel_thread = mach_thread_self();
 	p->reply_port = mach_reply_port();
-	p->mutexes = NULL;
 	p->__cleanup_stack = NULL;
 	p->death = MACH_PORT_NULL;
 	p->joiner = NULL;
 	p->detached |= _PTHREAD_CREATE_PARENT;
         _spin_unlock(&p->lock);
 
-        fork_mach_init();
 	_pthread_fork_child(p);
+}
 
-	_cproc_fork_child();
-
-	_lu_fork_child();
-	_asl_fork_child();
-	_notify_fork_child();
+void _cthread_fork_child_postinit()
+{
+	struct pthread_atfork_entry *e;
 
 	__is_threaded = 0;
 
+	_pthread_fork_child_postinit();
 	mig_init(1);		/* enable multi-threaded mig interfaces */
 
 	pthread_workqueue_atfork_child();
@@ -204,7 +201,5 @@ void _cthread_fork_child()
 		if (e->child != NULL)
 			e->child();
 	}
-	LOCK_INIT(pthread_atfork_lock);
-	
+	LOCK_INIT(pthread_atfork_lock);	
 }
-

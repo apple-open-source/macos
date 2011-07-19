@@ -64,6 +64,9 @@
 # define _CRT_SECURE_NO_DEPRECATE
 # define _CRT_NONSTDC_NO_DEPRECATE
 #endif
+#if !defined(CYGWIN) && (defined(CYGWIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__))
+# define CYGWIN
+#endif
 
 #include <stdio.h>
 #ifdef VAXC
@@ -77,7 +80,8 @@
 #if !defined(OS2) && defined(__EMX__)
 # define OS2
 #endif
-#if defined(MSDOS) || defined(WIN32) || defined(OS2) || defined(__BORLANDC__)
+#if defined(MSDOS) || defined(WIN32) || defined(OS2) || defined(__BORLANDC__) \
+  || defined(CYGWIN)
 # include <io.h>	/* for setmode() */
 #else
 # ifdef UNIX
@@ -150,9 +154,6 @@ char osver[] = "";
 # endif
 #endif
 
-#if !defined(CYGWIN) && (defined(CYGWIN32) || defined(__CYGWIN__) || defined(__CYGWIN32__))
-# define CYGWIN
-#endif
 #if defined(MSDOS) || defined(WIN32) || defined(OS2)
 # define BIN_READ(yes)  ((yes) ? "rb" : "rt")
 # define BIN_WRITE(yes) ((yes) ? "wb" : "wt")
@@ -230,7 +231,7 @@ char *pname;
   fprintf(stderr, "    or\n       %s -r [-s [-]offset] [-c cols] [-ps] [infile [outfile]]\n", pname);
   fprintf(stderr, "Options:\n");
   fprintf(stderr, "    -a          toggle autoskip: A single '*' replaces nul-lines. Default off.\n");
-  fprintf(stderr, "    -b          binary digit dump (incompatible with -p,-i,-r). Default hex.\n");
+  fprintf(stderr, "    -b          binary digit dump (incompatible with -ps,-i,-r). Default hex.\n");
   fprintf(stderr, "    -c cols     format <cols> octets per line. Default 16 (-i: 12, -ps: 30).\n");
   fprintf(stderr, "    -E          show characters in EBCDIC. Default ASCII.\n");
   fprintf(stderr, "    -g          number of octets per group in normal output. Default 2.\n");
@@ -275,11 +276,11 @@ long base_off;
       if (c == '\r')	/* Doze style input file? */
 	continue;
 
-#if 0	/* this doesn't work when there is normal text after the hex codes in
-	   the last line that looks like hex */
-      if (c == ' ' || c == '\n' || c == '\t')  /* allow multiple spaces */
+      /* Allow multiple spaces.  This doesn't work when there is normal text
+       * after the hex codes in the last line that looks like hex, thus only
+       * use it for PostScript format. */
+      if (hextype == HEX_POSTSCRIPT && (c == ' ' || c == '\n' || c == '\t'))
 	continue;
-#endif
 
       n3 = n2;
       n2 = n1;

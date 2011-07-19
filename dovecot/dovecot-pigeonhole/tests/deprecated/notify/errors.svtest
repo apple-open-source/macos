@@ -1,0 +1,13 @@
+require "vnd.dovecot.testsuite";
+require "comparator-i;ascii-numeric";
+require "relational";
+
+test "Invalid :options argument (FIXME: count only)" {
+	if test_script_compile "errors/options.sieve" {
+		test_fail "compile should have failed";
+	}
+
+	if not test_error :count "eq" :comparator "i;ascii-numeric" "3" {
+		test_fail "wrong number of errors reported";
+	}
+}

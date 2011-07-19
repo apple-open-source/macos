@@ -38,36 +38,42 @@
 #include "GraphicsContext.h"
 #include "GraphicsLayerChromium.h"
 #include "PlatformString.h"
-#include "StringHash.h"
+#include "ProgramBinding.h"
+#include "RenderSurfaceChromium.h"
+#include "ShaderChromium.h"
 #include "TransformationMatrix.h"
+
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
 #include <wtf/Vector.h>
-
-
-namespace skia {
-class PlatformCanvas;
-}
+#include <wtf/text/StringHash.h>
+#include <wtf/text/WTFString.h>
 
 namespace WebCore {
 
+class CCLayerImpl;
+class GraphicsContext3D;
+class LayerRendererChromium;
+
+// Base class for composited layers. Special layer types are derived from
+// this class.
 class LayerChromium : public RefCounted<LayerChromium> {
+    friend class LayerTilerChromium;
 public:
-    enum LayerType { Layer, TransformLayer };
-    enum FilterType { Linear, Nearest, Trilinear, Lanczos };
-    enum ContentsGravityType { Center, Top, Bottom, Left, Right, TopLeft, TopRight,
-                               BottomLeft, BottomRight, Resize, ResizeAspect, ResizeAspectFill };
+    static PassRefPtr<LayerChromium> create(GraphicsLayerChromium* owner = 0);
 
-    static PassRefPtr<LayerChromium> create(LayerType, GraphicsLayerChromium* owner = 0);
+    virtual ~LayerChromium();
 
-    ~LayerChromium();
-
-    void display(PlatformGraphicsContext*);
-
-    void addSublayer(PassRefPtr<LayerChromium>);
-    void insertSublayer(PassRefPtr<LayerChromium>, size_t index);
-    void removeFromSuperlayer();
+    const LayerChromium* rootLayer() const;
+    LayerChromium* parent() const;
+    void addChild(PassRefPtr<LayerChromium>);
+    void insertChild(PassRefPtr<LayerChromium>, size_t index);
+    void replaceChild(LayerChromium* reference, PassRefPtr<LayerChromium> newLayer);
+    void removeFromParent();
+    void removeAllChildren();
+    void setChildren(const Vector<RefPtr<LayerChromium> >&);
+    const Vector<RefPtr<LayerChromium> >& children() const { return m_children; }
 
     void setAnchorPoint(const FloatPoint& anchorPoint) { m_anchorPoint = anchorPoint; setNeedsCommit(); }
     FloatPoint anchorPoint() const { return m_anchorPoint; }
@@ -78,26 +84,11 @@ public:
     void setBackgroundColor(const Color& color) { m_backgroundColor = color; setNeedsCommit(); }
     Color backgroundColor() const { return m_backgroundColor; }
 
-    void setBorderColor(const Color& color) { m_borderColor = color; setNeedsCommit(); }
-    Color borderColor() const { return m_borderColor; }
-
-    void setBorderWidth(float width) { m_borderWidth = width; setNeedsCommit(); }
-    float borderWidth() const { return m_borderWidth; }
-
     void setBounds(const IntSize&);
-    IntSize bounds() const { return m_bounds; }
+    const IntSize& bounds() const { return m_bounds; }
 
     void setClearsContext(bool clears) { m_clearsContext = clears; setNeedsCommit(); }
     bool clearsContext() const { return m_clearsContext; }
-
-    void setContentsGravity(ContentsGravityType gravityType) { m_contentsGravity = gravityType; setNeedsCommit(); }
-    ContentsGravityType contentsGravity() const { return m_contentsGravity; }
-
-    void setDoubleSided(bool doubleSided) { m_doubleSided = doubleSided; setNeedsCommit(); }
-    bool doubleSided() const { return m_doubleSided; }
-
-    void setEdgeAntialiasingMask(uint32_t mask) { m_edgeAntialiasingMask = mask; setNeedsCommit(); }
-    uint32_t edgeAntialiasingMask() const { return m_edgeAntialiasingMask; }
 
     void setFrame(const FloatRect&);
     FloatRect frame() const { return m_frame; }
@@ -108,11 +99,18 @@ public:
     void setMasksToBounds(bool masksToBounds) { m_masksToBounds = masksToBounds; }
     bool masksToBounds() const { return m_masksToBounds; }
 
-    void setName(const String& name) { m_name = name; }
-    String name() const { return m_name; }
+    void setName(const String&);
+    const String& name() const { return m_name; }
+
+    void setMaskLayer(LayerChromium* maskLayer) { m_maskLayer = maskLayer; }
+    CCLayerImpl* maskDrawLayer() const { return m_maskLayer ? m_maskLayer->ccLayerImpl() : 0; }
+    LayerChromium* maskLayer() const { return m_maskLayer.get(); }
 
     void setNeedsDisplay(const FloatRect& dirtyRect);
     void setNeedsDisplay();
+    virtual void invalidateRect(const FloatRect& dirtyRect) {}
+    const FloatRect& dirtyRect() const { return m_dirtyRect; }
+    void resetNeedsDisplay();
 
     void setNeedsDisplayOnBoundsChange(bool needsDisplay) { m_needsDisplayOnBoundsChange = needsDisplay; }
 
@@ -123,105 +121,161 @@ public:
     bool opaque() const { return m_opaque; }
 
     void setPosition(const FloatPoint& position) { m_position = position;  setNeedsCommit(); }
-
     FloatPoint position() const { return m_position; }
 
     void setZPosition(float zPosition) { m_zPosition = zPosition; setNeedsCommit(); }
     float zPosition() const {  return m_zPosition; }
 
-    const LayerChromium* rootLayer() const;
-
-    void removeAllSublayers();
-
-    void setSublayers(const Vector<RefPtr<LayerChromium> >&);
-
-    const Vector<RefPtr<LayerChromium> >& getSublayers() const { return m_sublayers; }
-
     void setSublayerTransform(const TransformationMatrix& transform) { m_sublayerTransform = transform; setNeedsCommit(); }
     const TransformationMatrix& sublayerTransform() const { return m_sublayerTransform; }
-
-    void setSuperlayer(LayerChromium* superlayer);
-    LayerChromium* superlayer() const;
-
 
     void setTransform(const TransformationMatrix& transform) { m_transform = transform; setNeedsCommit(); }
     const TransformationMatrix& transform() const { return m_transform; }
 
+    bool doubleSided() const { return m_doubleSided; }
+    void setDoubleSided(bool doubleSided) { m_doubleSided = doubleSided; setNeedsCommit(); }
+
+    // FIXME: This setting is currently ignored.
     void setGeometryFlipped(bool flipped) { m_geometryFlipped = flipped; setNeedsCommit(); }
     bool geometryFlipped() const { return m_geometryFlipped; }
 
-    void updateContents();
+    bool preserves3D() { return m_owner && m_owner->preserves3D(); }
 
-    skia::PlatformCanvas* platformCanvas() { return m_canvas.get(); }
-    GraphicsContext* graphicsContext() { return m_graphicsContext.get(); }
+    // Derived types must override this method if they need to react to a change
+    // in the LayerRendererChromium.
+    virtual void setLayerRenderer(LayerRendererChromium*);
 
-    void setBackingStoreRect(const IntSize&);
+    void setOwner(GraphicsLayerChromium* owner) { m_owner = owner; }
+
+    void setReplicaLayer(LayerChromium* layer) { m_replicaLayer = layer; }
+    LayerChromium* replicaLayer() { return m_replicaLayer; }
+
+    // These methods typically need to be overwritten by derived classes.
+    virtual bool drawsContent() const { return false; }
+    virtual void paintContentsIfDirty(const IntRect&) { }
+    virtual void paintContentsIfDirty() { }
+    virtual void updateCompositorResources() { }
+    virtual void setIsMask(bool) {}
+    virtual void unreserveContentsTexture() { }
+    virtual void bindContentsTexture() { }
+    virtual void draw(const IntRect&) { }
+
+    // These exists just for debugging (via drawDebugBorder()).
+    void setBorderColor(const Color&);
 
     void drawDebugBorder();
+    String layerTreeAsText() const;
+
+    void setBorderWidth(float);
+
+    // Everything from here down in the public section will move to CCLayerImpl.
+    CCLayerImpl* ccLayerImpl();
+
+    static void drawTexturedQuad(GraphicsContext3D*, const TransformationMatrix& projectionMatrix, const TransformationMatrix& layerMatrix,
+                                 float width, float height, float opacity,
+                                 int matrixLocation, int alphaLocation);
+
+    virtual void pushPropertiesTo(CCLayerImpl*);
+
+    // Begin calls that forward to the CCLayerImpl.
+    LayerRendererChromium* layerRenderer() const;
+    // End calls that forward to the CCLayerImpl.
+
+    typedef ProgramBinding<VertexShaderPos, FragmentShaderColor> BorderProgram;
+
+    int id() const { return m_layerId; }
+
+protected:
+    GraphicsLayerChromium* m_owner;
+    explicit LayerChromium(GraphicsLayerChromium* owner);
+
+    // This is called to clean up resources being held in the same context as
+    // layerRendererContext(). Subclasses should override this method if they
+    // hold context-dependent resources such as textures.
+    virtual void cleanupResources();
+
+    GraphicsContext3D* layerRendererContext() const;
+
+    static void toGLMatrix(float*, const TransformationMatrix&);
+
+    void dumpLayer(TextStream&, int indent) const;
+
+    virtual const char* layerTypeAsString() const { return "LayerChromium"; }
+    virtual void dumpLayerProperties(TextStream&, int indent) const;
+
+    FloatRect m_dirtyRect;
+    bool m_contentsDirty;
+
+    RefPtr<LayerChromium> m_maskLayer;
+
+    // All layer shaders share the same attribute locations for the vertex positions
+    // and texture coordinates. This allows switching shaders without rebinding attribute
+    // arrays.
+    static const unsigned s_positionAttribLocation;
+    static const unsigned s_texCoordAttribLocation;
+
+    friend class TreeSynchronizer;
+    // Constructs a CCLayerImpl of the correct runtime type for this LayerChromium type.
+    virtual PassRefPtr<CCLayerImpl> createCCLayerImpl();
+    // FIXME: Remove when https://bugs.webkit.org/show_bug.cgi?id=58830 is fixed.
+    void setCCLayerImpl(CCLayerImpl* impl) { m_ccLayerImpl = impl; }
+    int m_layerId;
 
 private:
-    LayerChromium(LayerType, GraphicsLayerChromium* owner);
-
     void setNeedsCommit();
 
-    void paintMe();
+    void setParent(LayerChromium* parent) { m_parent = parent; }
 
-    size_t numSublayers() const
+    size_t numChildren() const
     {
-        return m_sublayers.size();
+        return m_children.size();
     }
 
-    // Returns the index of the sublayer or -1 if not found.
-    int indexOfSublayer(const LayerChromium*);
+    // Returns the index of the child or -1 if not found.
+    int indexOfChild(const LayerChromium*);
 
-    // This should only be called from removeFromSuperlayer.
-    void removeSublayer(LayerChromium*);
+    // This should only be called from removeFromParent.
+    void removeChild(LayerChromium*);
 
-    // Re-create the canvas and graphics context. This method
-    // must be called every time the layer is resized.
-    void updateGraphicsContext(const IntSize&);
+    Vector<RefPtr<LayerChromium> > m_children;
+    LayerChromium* m_parent;
 
-    Vector<RefPtr<LayerChromium> > m_sublayers;
-    LayerChromium* m_superlayer;
+    RefPtr<LayerRendererChromium> m_layerRenderer;
 
-    GraphicsLayerChromium* m_owner;
-    OwnPtr<skia::PlatformCanvas> m_canvas;
-    OwnPtr<PlatformContextSkia> m_skiaContext;
-    OwnPtr<GraphicsContext> m_graphicsContext;
+    // Temporary forward weak pointer to the CCLayerImpl associated with this layer.
+    // FIXME: Remove when https://bugs.webkit.org/show_bug.cgi?id=58830 is fixed.
+    CCLayerImpl* m_ccLayerImpl;
 
-    LayerType m_layerType;
-
+    // Layer properties.
     IntSize m_bounds;
-    IntSize m_backingStoreRect;
     FloatPoint m_position;
     FloatPoint m_anchorPoint;
     Color m_backgroundColor;
-    Color m_borderColor;
-
-    FloatRect m_frame;
-    TransformationMatrix m_transform;
-    TransformationMatrix m_sublayerTransform;
-
-    uint32_t m_edgeAntialiasingMask;
+    Color m_debugBorderColor;
+    float m_debugBorderWidth;
     float m_opacity;
     float m_zPosition;
     float m_anchorPointZ;
-    float m_borderWidth;
-
     bool m_clearsContext;
-    bool m_doubleSided;
     bool m_hidden;
     bool m_masksToBounds;
     bool m_opaque;
     bool m_geometryFlipped;
     bool m_needsDisplayOnBoundsChange;
+    bool m_doubleSided;
 
-    ContentsGravityType m_contentsGravity;
+    TransformationMatrix m_transform;
+    TransformationMatrix m_sublayerTransform;
+
+    FloatRect m_frame;
+
+    // Replica layer used for reflections.
+    LayerChromium* m_replicaLayer;
+
     String m_name;
 };
 
 }
-
 #endif // USE(ACCELERATED_COMPOSITING)
 
 #endif

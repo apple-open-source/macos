@@ -91,6 +91,7 @@ static const char *eofstr;
 static int count, insingle, indouble, oflag, pflag, tflag, Rflag, rval, zflag;
 static int cnt, Iflag, jfound, Lflag, wasquoted, xflag;
 static int curprocs, maxprocs;
+static size_t pad9314053;
 
 static volatile int childerr;
 
@@ -128,11 +129,13 @@ main(int argc, char *argv[])
 	nargs = 5000;
 	if ((arg_max = sysconf(_SC_ARG_MAX)) == -1)
 		errx(1, "sysconf(_SC_ARG_MAX) failed");
-	nline = arg_max - 4 * 1024;
+	nline = arg_max - MAXPATHLEN; /* for argv[0] from execvp() */
+	pad9314053 = sizeof(char *); /* reserve for string area rounding */
 	while (*ep != NULL) {
 		/* 1 byte for each '\0' */
 		nline -= strlen(*ep++) + 1 + sizeof(*ep);
 	}
+	nline -= pad9314053;
 	maxprocs = 1;
 	while ((ch = getopt(argc, argv, "0E:I:J:L:n:oP:pR:s:tx")) != -1)
 		switch(ch) {
@@ -182,6 +185,7 @@ main(int argc, char *argv[])
 			break;
 		case 's':
 			nline = atoi(optarg);
+			pad9314053 = 0; /* assume the -s value is valid */
 			break;
 		case 't':
 			tflag = 1;
@@ -225,7 +229,7 @@ main(int argc, char *argv[])
 	 * arguments.
 	 */
 	if (*argv == NULL)
-		cnt = strlen(*bxp++ = echo);
+		cnt = strlen(*bxp++ = echo) + pad9314053;
 	else {
 		do {
 			if (Jflag && strcmp(*argv, replstr) == 0) {
@@ -233,10 +237,10 @@ main(int argc, char *argv[])
 				jfound = 1;
 				argv++;
 				for (avj = argv; *avj; avj++)
-					cnt += strlen(*avj) + 1;
+					cnt += strlen(*avj) + 1 + pad9314053;
 				break;
 			}
-			cnt += strlen(*bxp++ = *argv) + 1;
+			cnt += strlen(*bxp++ = *argv) + 1 + pad9314053;
 		} while (*++argv != NULL);
 	}
 
@@ -382,9 +386,9 @@ arg2:
 		 * of input lines, as specified by -L is the same as
 		 * maxing out on arguments.
 		 */
-		if (xp == endxp || p > ebp || ch == EOF ||
+		if (xp == endxp || p + (count * pad9314053) > ebp || ch == EOF ||
 		    (Lflag <= count && xflag) || foundeof) {
-			if (xflag && xp != endxp && p > ebp)
+			if (xflag && xp != endxp && p + (count * pad9314053) > ebp)
 				errx(1, "insufficient space for arguments");
 			if (jfound) {
 				for (avj = argv; *avj; avj++)

@@ -80,7 +80,7 @@ extern char    *lbp;
 extern char	searchar;		/* ex search character */
 
 extern int	cicmp __P((char *));
-extern void	getline __P((void));
+extern void	ct_getline __P((void));
 extern void	pfnote __P((char *, int));
 extern int	skip_key __P((int));
 extern void	put_entries __P((NODE *));

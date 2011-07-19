@@ -1,0 +1,282 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$62|$server_netmasks = array("gatwood.net" => "68.165.1.188/29");
+$54|/*! This is a global variable containing an array. */
+$0|$6763|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 0
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 1
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/PHP_global_3.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/PHP_global_3.test
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => 0
+$parserState->{categoryClass} => 
+$parserState->{classtype} => 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 0
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 1
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => php
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 2
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => server_netmasks
+$parserState->{preTemplateSymbol} => 
+$parserState->{returntype} =>  $server_netmasks = array(
+"gatwood.net" => "68.165.1.188/29"
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => variable
+$parserState->{sodname} => server_netmasks
+$parserState->{sodtype} => 
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{sublang} => php
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} =>  array("gatwood.net" => "68.165.1.188/29")
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 1
+typelist: variable
+namelist: server_netmasks
+posstypes: constant
+value: array("gatwood.net" => "68.165.1.188/29")
+returntype: 
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 0
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---$
++---server_netmasks
++--- 
++---=
++--- 
++---array
++---(
+|   +---"
+|   |   +---gatwood
+|   |   +---.
+|   |   +---net
+|   |   +---"
+|   +--- 
+|   +---=
+|   +--->
+|   +--- 
+|   +---"
+|   |   +---68
+|   |   +---.
+|   |   +---165
+|   |   +---.
+|   |   +---1
+|   |   +---.
+|   |   +---188
+|   |   +---/
+|   |   +---29
+|   |   +---"
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: PHP global 3
+APIUID: //test_ref/doc/header/PHP_global_3.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS PROPERTY: 0
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::Var
+    NAME: server_netmasks
+    APIUID: //test_ref/php/data/server_netmasks
+    ABSTRACT: ""
+    DISCUSSION: "<p>This is a global variable containing an array. "
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "array("gatwood.net" => "68.165.1.188/29")"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::Var"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: 
+    LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: server_netmasks (HeaderDoc::Var)
++---$
++---server_netmasks
++--- 
++---=
++--- 
++---array
++---(
+|   +---"
+|   |   +---gatwood
+|   |   +---.
+|   |   +---net
+|   |   +---"
+|   +--- 
+|   +---=
+|   +--->
+|   +--- 
+|   +---"
+|   |   +---68
+|   |   +---.
+|   |   +---165
+|   |   +---.
+|   |   +---1
+|   |   +---.
+|   |   +---188
+|   |   +---/
+|   |   +---29
+|   |   +---"
+|   +---)
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: server_netmasks (HeaderDoc::Var)
+	$<!-- a logicalPath="//test_ref/php/econst/server_netmasks //test_ref/php/data/server_netmasks //test_ref/php/clconst/server_netmasks " machineGenerated="true" --><span class="var">server_netmasks</span><!-- /a --> = <!-- a logicalPath="//test_ref/php/instm/array //test_ref/php/clm/array //test_ref/php/intfcm/array //test_ref/php/intfm/array //test_ref/php/func/array //test_ref/php/ftmplt/array //test_ref/php/defn/array //test_ref/php/macro/array //test_ref/doc/anysymbol/array" machineGenerated="true" --><span class="function">array</span><!-- /a -->(
+	    "<span class="string">gatwood</span>.<span class="string">net</span>" =&gt; "<span class="string">68</span>.<span class="string">165</span>.<span class="string">1</span>.<span class="string">188</span>/<span class="string">29</span>");  
+END OF OBJECT
+
+
+
+_$45|This should not generate any parse warnings.
+$94|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/PHP_global_3.test$3|php$12|PHP global 3$3|php$6|parser

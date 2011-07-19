@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2000-2008, International Business Machines
+*   Copyright (C) 2000-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   Date        Name        Description
@@ -78,12 +78,6 @@ TransliteratorRoundTripTest::runIndexedTest(int32_t index, UBool exec,
         default: name = ""; break;
     }
 }
-
-//--------------------------------------------------------------------
-// Time bomb - allows temporary behavior that expires at a given
-//             release
-//--------------------------------------------------------------------
-static const UVersionInfo ICU_39 = {4,0,0,1};
 
 
 //--------------------------------------------------------------------
@@ -480,7 +474,7 @@ void RTTest::test(const UnicodeString& sourceRangeVal,
     UnicodeSet okAnyway("[^[:Letter:]]", status);
 
     if (U_FAILURE(status)) {
-        parent->errln("FAIL: Initializing UnicodeSet with [:Other:] or [^[:Letter:]]");
+        parent->dataerrln("FAIL: Initializing UnicodeSet with [:Other:] or [^[:Letter:]] - Error: %s", u_errorName(status));
         return;
     }
 
@@ -961,12 +955,15 @@ void RTTest::logRoundTripFailure(const UnicodeString& from,
 30FF          ; 3.2 #       KATAKANA DIGRAPH KOTO
 31F0..31FF    ; 3.2 #  [16] KATAKANA LETTER SMALL KU..KATAKANA LETTER SMALL RO
 
+    Unicode 5.2 added another Hiragana character:
+1F200         ; 5.2 #       SQUARE HIRAGANA HOKA
+
     We will not add them to the rules until they are more supported (e.g. in fonts on Windows)
     A bug has been filed to remind us to do this: #1979.
     */
-    
-static const char KATAKANA[] = "[[[:katakana:][\\u30A1-\\u30FA\\u30FC]]-[\\u30FF\\u31F0-\\u31FF]]";
-static const char HIRAGANA[] = "[[[:hiragana:][\\u3040-\\u3094]]-[\\u3095-\\u3096\\u309F-\\u30A0]]";
+
+static const char KATAKANA[] = "[[[:katakana:][\\u30A1-\\u30FA\\u30FC]]-[\\u30FF\\u31F0-\\u31FF]-[:^age=5.2:]]";
+static const char HIRAGANA[] = "[[[:hiragana:][\\u3040-\\u3094]]-[\\u3095-\\u3096\\u309F-\\u30A0\\U0001F200-\\U0001F2FF]-[:^age=5.2:]]";
 static const char LENGTH[] = "[\\u30FC]";
 static const char HALFWIDTH_KATAKANA[] = "[\\uFF65-\\uFF9D]";
 static const char KATAKANA_ITERATION[] = "[\\u30FD\\u30FE]";
@@ -1033,7 +1030,7 @@ void TransliteratorRoundTripTest::TestHangul() {
 
 
 #define ASSERT_SUCCESS(status) {if (U_FAILURE(status)) { \
-     errln("error at file %s, line %d, status = %s", __FILE__, __LINE__, \
+     errcheckln(status, "error at file %s, line %d, status = %s", __FILE__, __LINE__, \
          u_errorName(status)); \
          return;}}
     
@@ -1055,25 +1052,16 @@ static void writeStringInU8(FILE *out, const UnicodeString &s) {
 
 void TransliteratorRoundTripTest::TestHan() {
     UErrorCode  status = U_ZERO_ERROR;
-
-    // TODO:  getExemplars() exists only as a C API, taking a USet.
-    //        The set API we need to use exists only on UnicodeSet, not on USet.
-    //        Do a hacky cast, knowing that a USet is really a UnicodeSet in
-    //        the implementation.  Once USet gets the missing API, switch back
-    //        to using that.
-    USet       *USetExemplars = NULL;
-    ULocaleData *uld = ulocdata_open("zh",&status);
-    USetExemplars = uset_open(0, 0);
-    USetExemplars = ulocdata_getExemplarSet(uld, USetExemplars, 0, ULOCDATA_ES_STANDARD, &status);
+    LocalULocaleDataPointer uld(ulocdata_open("zh",&status));
+    LocalUSetPointer USetExemplars(ulocdata_getExemplarSet(uld.getAlias(), uset_openEmpty(), 0, ULOCDATA_ES_STANDARD, &status));
     ASSERT_SUCCESS(status);
-    ulocdata_close(uld);
 
     UnicodeString source;
     UChar32       c;
     int           i;
     for (i=0; ;i++) {
         // Add all of the Chinese exemplar chars to the string "source".
-        c = uset_charAt(USetExemplars, i);
+        c = uset_charAt(USetExemplars.getAlias(), i);
         if (c == (UChar32)-1) {
             break;
         }
@@ -1134,20 +1122,22 @@ void TransliteratorRoundTripTest::TestHan() {
     delete pn;
     delete nfd;
     delete np;
-    uset_close(USetExemplars);
 }
 
 
 void TransliteratorRoundTripTest::TestGreek() {
 
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
-        return;
-    } else {
-        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+    
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
+//    }
     
     RTTest test("Latin-Greek");
     LegalGreek *legal = new LegalGreek(TRUE);
@@ -1172,14 +1162,17 @@ void TransliteratorRoundTripTest::TestGreek() {
 
 void TransliteratorRoundTripTest::TestGreekUNGEGN() {
 
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
-        return;
-    } else {
-        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
+//    }
 
     RTTest test("Latin-Greek/UNGEGN");
     LegalGreek *legal = new LegalGreek(FALSE);
@@ -1201,14 +1194,17 @@ void TransliteratorRoundTripTest::TestGreekUNGEGN() {
 
 void TransliteratorRoundTripTest::Testel() {
     
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
-        return;
-    } else {
-        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestGreek needs to be updated to remove delete the [:Age=4.0:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestGreek needs to be updated to remove delete the section marked [:Age=4.0:] filter");
+//    }
 
     RTTest test("Latin-el");
     LegalGreek *legal = new LegalGreek(FALSE);
@@ -1269,19 +1265,21 @@ UBool LegalHebrew::is(const UnicodeString& sourceString)const{
     return TRUE;
 }
 void TransliteratorRoundTripTest::TestHebrew() {
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestHebrew needs to be updated to remove delete the [:Age=4.0:] filter ");
-        return;
-    } else {
-        logln("Warning: TestHebrew needs to be updated to remove delete the section marked [:Age=4.0:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestHebrew needs to be updated to remove delete the [:Age=4.0:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestHebrew needs to be updated to remove delete the section marked [:Age=4.0:] filter");
+//    }
     //long start = System.currentTimeMillis();
     UErrorCode error = U_ZERO_ERROR;
     LegalHebrew* legal = new LegalHebrew(error);
     if(U_FAILURE(error)){
-        errln("Could not construct LegalHebrew object. Error: %s", u_errorName(error));
+        dataerrln("Could not construct LegalHebrew object. Error: %s", u_errorName(error));
         return;
     }
     RTTest test("Latin-Hebrew");
@@ -1386,20 +1384,22 @@ void TransliteratorRoundTripTest::TestDevanagariLatin() {
                 errln("FAIL: could not create the Inverse:-( \n");
             }
         }else {
-            errln("FAIL: could not create the transliterator. Error: %s\n", u_errorName(status));
+            dataerrln("FAIL: could not create the transliterator. Error: %s\n", u_errorName(status));
         }
 
     }
     RTTest test("Latin-Devanagari");
     Legal *legal = new LegalIndic();
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestDevanagariLatin needs to be updated to remove delete the [:Age=4.1:] filter ");
-        return;
-    } else {
-        logln("Warning: TestDevanagariLatin needs to be updated to remove delete the section marked [:Age=4.1:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestDevanagariLatin needs to be updated to remove delete the [:Age=4.1:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestDevanagariLatin needs to be updated to remove delete the section marked [:Age=4.1:] filter");
+//    }
     test.test(UnicodeString(latinForIndic, ""), 
         UnicodeString("[[[:Devanagari:][\\u094d][\\u0964\\u0965]]&[:Age=4.1:]]", ""), "[\\u0965\\u0904]", this, quick, 
             legal, 50);
@@ -1667,14 +1667,16 @@ void TransliteratorRoundTripTest::TestInterIndic() {
         logln("Testing only 5 of %i. Skipping rest (use -e for exhaustive)",num);
         num = 5;
     }
-    if (isICUVersionAtLeast(ICU_39)) {
-        // We temporarily filter against Unicode 4.1, but we only do this
-        // before version 3.4.
-        errln("FAIL: TestInterIndic needs to be updated to remove delete the [:Age=4.1:] filter ");
-        return;
-    } else {
-        logln("Warning: TestInterIndic needs to be updated to remove delete the section marked [:Age=4.1:] filter");
-    }
+    // CLDR bug #1911: This test should be moved into CLDR.
+    // It is left in its current state as a regression test.
+//    if (isICUVersionAtLeast(ICU_39)) {
+//        // We temporarily filter against Unicode 4.1, but we only do this
+//        // before version 3.4.
+//        errln("FAIL: TestInterIndic needs to be updated to remove delete the [:Age=4.1:] filter ");
+//        return;
+//    } else {
+//        logln("Warning: TestInterIndic needs to be updated to remove delete the section marked [:Age=4.1:] filter");
+//    }
     for(int i = 0; i < num;i++){
         RTTest test(interIndicArray[i*INTER_INDIC_ARRAY_WIDTH + 0]);
         Legal *legal = new LegalIndic();

@@ -1,8 +1,8 @@
 /* passwd-shell.c - passwd(5) shell-based backend for slapd(8) */
-/* $OpenLDAP: pkg/ldap/servers/slapd/shell-backends/passwd-shell.c,v 1.14.2.4 2008/02/11 23:26:49 kurt Exp $ */
+/* $OpenLDAP: pkg/ldap/servers/slapd/shell-backends/passwd-shell.c,v 1.14.2.6 2010/04/13 20:23:49 kurt Exp $ */
 /* This work is part of OpenLDAP Software <http://www.openldap.org/>.
  *
- * Copyright 1998-2008 The OpenLDAP Foundation.
+ * Copyright 1998-2010 The OpenLDAP Foundation.
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without

@@ -16,81 +16,107 @@
 
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetData.h"
-#include "llvm/Target/TargetFrameInfo.h"
 #include "ARMInstrInfo.h"
 #include "ARMFrameInfo.h"
 #include "ARMJITInfo.h"
 #include "ARMSubtarget.h"
 #include "ARMISelLowering.h"
+#include "ARMSelectionDAGInfo.h"
+#include "Thumb1InstrInfo.h"
+#include "Thumb2InstrInfo.h"
+#include "llvm/ADT/OwningPtr.h"
 
 namespace llvm {
 
-class Module;
-
-class ARMTargetMachine : public LLVMTargetMachine {
-  ARMSubtarget      Subtarget;
-  const TargetData  DataLayout;       // Calculates type size & alignment
-  ARMInstrInfo      InstrInfo;
-  ARMFrameInfo      FrameInfo;
-  ARMJITInfo        JITInfo;
-  ARMTargetLowering TLInfo;
-  Reloc::Model      DefRelocModel;    // Reloc model before it's overridden.
-
+class ARMBaseTargetMachine : public LLVMTargetMachine {
 protected:
-  // To avoid having target depend on the asmprinter stuff libraries, asmprinter
-  // set this functions to ctor pointer at startup time if they are linked in.
-  typedef FunctionPass *(*AsmPrinterCtorFn)(raw_ostream &o,
-                                            ARMTargetMachine &tm,
-                                            CodeGenOpt::Level OptLevel,
-                                            bool verbose);
-  static AsmPrinterCtorFn AsmPrinterCtor;
+  ARMSubtarget        Subtarget;
+
+private:
+  ARMFrameInfo        FrameInfo;
+  ARMJITInfo          JITInfo;
+  InstrItineraryData  InstrItins;
+  Reloc::Model        DefRelocModel;    // Reloc model before it's overridden.
 
 public:
-  ARMTargetMachine(const Module &M, const std::string &FS, bool isThumb = false);
+  ARMBaseTargetMachine(const Target &T, const std::string &TT,
+                       const std::string &FS, bool isThumb);
 
-  virtual const ARMInstrInfo     *getInstrInfo() const { return &InstrInfo; }
   virtual const ARMFrameInfo     *getFrameInfo() const { return &FrameInfo; }
   virtual       ARMJITInfo       *getJITInfo()         { return &JITInfo; }
-  virtual const ARMRegisterInfo  *getRegisterInfo() const {
-    return &InstrInfo.getRegisterInfo();
-  }
-  virtual const TargetData       *getTargetData() const { return &DataLayout; }
   virtual const ARMSubtarget  *getSubtargetImpl() const { return &Subtarget; }
-  virtual       ARMTargetLowering *getTargetLowering() const {
-    return const_cast<ARMTargetLowering*>(&TLInfo);
+  virtual const InstrItineraryData getInstrItineraryData() const {
+    return InstrItins;
   }
-
-  static void registerAsmPrinter(AsmPrinterCtorFn F) {
-    AsmPrinterCtor = F;
-  }
-
-  static unsigned getModuleMatchQuality(const Module &M);
-  static unsigned getJITMatchQuality();
-
-  virtual const TargetAsmInfo *createTargetAsmInfo() const;
 
   // Pass Pipeline Configuration
   virtual bool addInstSelector(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual bool addPreRegAlloc(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
+  virtual bool addPreSched2(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
   virtual bool addPreEmitPass(PassManagerBase &PM, CodeGenOpt::Level OptLevel);
-  virtual bool addAssemblyEmitter(PassManagerBase &PM,
-                                  CodeGenOpt::Level OptLevel,
-                                  bool Verbose, raw_ostream &Out);
   virtual bool addCodeEmitter(PassManagerBase &PM, CodeGenOpt::Level OptLevel,
-                              bool DumpAsm, MachineCodeEmitter &MCE);
-  virtual bool addSimpleCodeEmitter(PassManagerBase &PM,
-                                    CodeGenOpt::Level OptLevel,
-                                    bool DumpAsm,
-                                    MachineCodeEmitter &MCE);
+                              JITCodeEmitter &MCE);
+};
+
+/// ARMTargetMachine - ARM target machine.
+///
+class ARMTargetMachine : public ARMBaseTargetMachine {
+  ARMInstrInfo        InstrInfo;
+  const TargetData    DataLayout;       // Calculates type size & alignment
+  ARMTargetLowering   TLInfo;
+  ARMSelectionDAGInfo TSInfo;
+public:
+  ARMTargetMachine(const Target &T, const std::string &TT,
+                   const std::string &FS);
+
+  virtual const ARMRegisterInfo  *getRegisterInfo() const {
+    return &InstrInfo.getRegisterInfo();
+  }
+
+  virtual const ARMTargetLowering *getTargetLowering() const {
+    return &TLInfo;
+  }
+
+  virtual const ARMSelectionDAGInfo* getSelectionDAGInfo() const {
+    return &TSInfo;
+  }
+
+  virtual const ARMInstrInfo     *getInstrInfo() const { return &InstrInfo; }
+  virtual const TargetData       *getTargetData() const { return &DataLayout; }
 };
 
 /// ThumbTargetMachine - Thumb target machine.
+/// Due to the way architectures are handled, this represents both
+///   Thumb-1 and Thumb-2.
 ///
-class ThumbTargetMachine : public ARMTargetMachine {
+class ThumbTargetMachine : public ARMBaseTargetMachine {
+  // Either Thumb1InstrInfo or Thumb2InstrInfo.
+  OwningPtr<ARMBaseInstrInfo> InstrInfo;
+  const TargetData    DataLayout;   // Calculates type size & alignment
+  ARMTargetLowering   TLInfo;
+  ARMSelectionDAGInfo TSInfo;
 public:
-  ThumbTargetMachine(const Module &M, const std::string &FS);
+  ThumbTargetMachine(const Target &T, const std::string &TT,
+                     const std::string &FS);
 
-  static unsigned getJITMatchQuality();
-  static unsigned getModuleMatchQuality(const Module &M);
+  /// returns either Thumb1RegisterInfo or Thumb2RegisterInfo
+  virtual const ARMBaseRegisterInfo *getRegisterInfo() const {
+    return &InstrInfo->getRegisterInfo();
+  }
+
+  virtual const ARMTargetLowering *getTargetLowering() const {
+    return &TLInfo;
+  }
+
+  virtual const ARMSelectionDAGInfo *getSelectionDAGInfo() const {
+    return &TSInfo;
+  }
+
+  /// returns either Thumb1InstrInfo or Thumb2InstrInfo
+  virtual const ARMBaseInstrInfo *getInstrInfo() const {
+    return InstrInfo.get();
+  }
+  virtual const TargetData       *getTargetData() const { return &DataLayout; }
 };
 
 } // end namespace llvm

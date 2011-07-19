@@ -108,7 +108,9 @@ If the port is not specified, then port 80 is used when the scheme is "http://" 
 port 443 is used when the scheme is "https://".
 If the path is not specified, then the path "/" is used.
 .It Ar node
-Path to mount point.
+Path to mount point. Note: The mount point directory must be created or exist before issuing the
+.Nm
+command.
 .El
 .\"
 .\" ********************************************************************
@@ -120,6 +122,11 @@ directory
 .Pa http://idisk.mac.com/membername/
 at the mount point
 .Pa /Volumes/mntpnt/ .
+Note: The mountpoint directory
+.Pa /Volumes/mntpnt/
+must be created before issuing the
+.Nm
+command.
 .Bd -literal -offset indent
 mount_webdav http://idisk.mac.com/membername/ /Volumes/mntpnt/
 .Ed

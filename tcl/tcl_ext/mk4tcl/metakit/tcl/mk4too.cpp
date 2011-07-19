@@ -1,11 +1,15 @@
 // mk4too.cpp -- Tcl object command interface to Metakit
-// $Id: mk4too.cpp 1230 2007-03-09 15:58:53Z jcw $
+// $Id: mk4too.cpp 4452 2008-12-10 22:57:54Z patthoyts $
 // This is part of Metakit, see http://www.equi4.com/metakit.html
 // Copyright (C) 2000-2004 by Matt Newman and Jean-Claude Wippler.
 
 #include "mk4tcl.h"
 #include <stdio.h>
 #include <string.h>
+
+#if 10 * TCL_MAJOR_VERSION + TCL_MINOR_VERSION < 86
+#define Tcl_GetErrorLine(interp) (interp)->errorLine
+#endif
 
 ///////////////////////////////////////////////////////////////////////////////
 // Defined in this file:
@@ -612,7 +616,7 @@ int MkView::LoopCmd() {
           _error = TCL_OK;
         else if (_error == TCL_ERROR) {
           char msg[100];
-          sprintf(msg, "\n  (\"mk::loop\" body line %d)", interp->errorLine);
+          sprintf(msg, "\n  (\"mk::loop\" body line %d)", Tcl_GetErrorLine(interp));
           Tcl_AddObjErrorInfo(interp, msg,  - 1);
         }
         break;

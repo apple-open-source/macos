@@ -1,10 +1,5 @@
 /*
- *  KerberosHelper.c
- *  KerberosHelper
- */
-
-/*
- * Copyright (c) 2006-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2006-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  *
@@ -26,18 +21,23 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
+#include "NetworkAuthenticationHelper.h"
 #include "KerberosHelper.h"
-
 #include "KerberosHelperContext.h"
 
-#include <Kerberos/KerberosLogin.h>
-#include <Kerberos/pkinit_cert_store.h>
+#include <Heimdal/locate_plugin.h>
+
+#include <GSS/gssapi.h>
+#include <GSS/gssapi_spnego.h>
+#include <GSS/spnego_asn1.h>
 
 #include "LKDCHelper.h"
 
 #include <Carbon/Carbon.h>
 #include <Security/Security.h>
+#include <Security/SecCertificateOIDs.h>
 #include <Security/SecCertificatePriv.h>
+#include <CommonCrypto/CommonDigest.h>
 #include <unistd.h>
 #include <sys/socket.h>
 #include <arpa/inet.h>
@@ -50,8 +50,8 @@
 static krb5_error_code
 _k5_check_err(krb5_error_code error, const char *function, const char *file, int line)
 {
-    if (error)
-        asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "    %s: krb5 call got %d (%s) on %s:%d", function, error, error_message(error), file, line);
+    //    if (error)
+    //        asl_log(NULL, NULL, ASL_LEVEL_DEBUG, "    %s: krb5 call got %d (%s) on %s:%d", function, error, error_message(error), file, line);
     return error;
 }
 
@@ -66,12 +66,15 @@ static const char lkdc_prefix[] = "LKDC:";
  *
  */
 
+static const char wellknown_lkdc[] = "WELLKNOWN:COM.APPLE.LKDC";
+
 static int
 is_lkdc_realm(const char *realm)
 {
-	if (realm == NULL)
-		return 0;
-	return strncmp(realm, lkdc_prefix, sizeof(lkdc_prefix)-1) == 0;
+    if (realm == NULL)
+	return 0;
+    return strncmp(realm, lkdc_prefix, sizeof(lkdc_prefix)-1) == 0 ||
+	strncmp(realm, wellknown_lkdc, sizeof(wellknown_lkdc) - 1) == 0;
 }
 
 /* If realms a and b have a common subrealm, returns the number of
@@ -114,48 +117,48 @@ principal_realm(const char *princ)
 static void
 add_mapping(KRBHelperContextRef hCtx, const char *hostname, const char *realm, int islkdc)
 {
-	struct realm_mappings *p;
+    struct realm_mappings *p;
 
-	p = realloc(hCtx->realms.data, sizeof(hCtx->realms.data[0]) * (hCtx->realms.len + 1));
-	if (p == NULL)
-		return;
-	hCtx->realms.data = p;
+    p = realloc(hCtx->realms.data, sizeof(hCtx->realms.data[0]) * (hCtx->realms.len + 1));
+    if (p == NULL)
+	return;
+    hCtx->realms.data = p;
 
-	hCtx->realms.data[hCtx->realms.len].lkdc = islkdc;
-	hCtx->realms.data[hCtx->realms.len].hostname = strdup(hostname);
-	if (hCtx->realms.data[hCtx->realms.len].hostname == NULL)
-		return;
+    hCtx->realms.data[hCtx->realms.len].lkdc = islkdc;
+    hCtx->realms.data[hCtx->realms.len].hostname = strdup(hostname);
+    if (hCtx->realms.data[hCtx->realms.len].hostname == NULL)
+	return;
 
-	hCtx->realms.data[hCtx->realms.len].realm = strdup(realm);
-	if (hCtx->realms.data[hCtx->realms.len].realm == NULL) {
-		free(hCtx->realms.data[hCtx->realms.len].hostname);
-		return;
-	}
-	hCtx->realms.len++;
+    hCtx->realms.data[hCtx->realms.len].realm = strdup(realm);
+    if (hCtx->realms.data[hCtx->realms.len].realm == NULL) {
+	free(hCtx->realms.data[hCtx->realms.len].hostname);
+	return;
+    }
+    hCtx->realms.len++;
 }
 
 static void
 find_mapping(KRBHelperContextRef hCtx, const char *hostname, int lkdcp)
 {
-	krb5_error_code ret;
+    krb5_error_code ret;
     char **realmlist = NULL;
-	char *realm;
-	size_t i;
+    char *realm;
+    size_t i;
 	
-	for (i = 0; i < hCtx->realms.len; i++)
-		if (strcasecmp(hCtx->realms.data[i].hostname, hostname) == 0)
-			return;
+    for (i = 0; i < hCtx->realms.len; i++)
+	if (strcasecmp(hCtx->realms.data[i].hostname, hostname) == 0)
+	    return;
 	
     ret = krb5_get_host_realm(hCtx->krb5_ctx, hostname, &realmlist);
-	if (ret == 0) {
-		for (i = 0; realmlist && realmlist[i] && *(realmlist[i]); i++)
-			add_mapping(hCtx, hostname, realmlist[i], 0);
-		if (i == 0)
+    if (ret == 0) {
+	for (i = 0; realmlist && realmlist[i] && *(realmlist[i]); i++)
+	    add_mapping(hCtx, hostname, realmlist[i], is_lkdc_realm(realmlist[i]));
+	if (i == 0)
             KHLog ("    %s: krb5_get_host_realm returned unusable realm!", __func__);
     }
     if (lkdcp && LKDCDiscoverRealm(hostname, &realm) == 0) {
-		add_mapping(hCtx, hostname, realm, 1);
-		free(realm);
+	add_mapping(hCtx, hostname, realm, is_lkdc_realm(realm));
+	free(realm);
     }
 
     if (realmlist)
@@ -163,36 +166,30 @@ find_mapping(KRBHelperContextRef hCtx, const char *hostname, int lkdcp)
 }
 
 static int
-parse_principal_name(__unused krb5_context ctx, const char *princname, char **namep, char **instancep, char **realmp)
+parse_principal_name(krb5_context ctx, const char *princname, char **namep, char **instancep, char **realmp)
 {
-    KLPrincipal principal = NULL;
-    char *name = NULL, *instance = NULL, *realm = NULL;
+    krb5_principal principal = NULL;
     int err = 0;
+    int len;
 
     KHLog ("[[[ %s () decomposing %s", __func__, princname);
     *namep = *instancep = *realmp = NULL;
-    if (klNoErr != KLCreatePrincipalFromString (princname, kerberosVersion_V5, &principal)) {
+
+    if (krb5_parse_name(ctx, princname, &principal)) {
         err = -1;
         goto fin;
     }
-    if (klNoErr != KLGetTripletFromPrincipal (principal, &name, &instance, &realm)) {
-        err = -2;
-        goto fin;
-    }
-    if (NULL == (*namep = strdup(name)) || NULL == (*instancep = strdup(instance)) || NULL == (*realmp = strdup(realm))) {
-        err = -3;
-        goto fin;
-    }
-
+    
+    len = krb5_principal_get_num_comp(ctx, principal);
+    if (len > 0)
+	*namep = strdup(krb5_principal_get_comp_string(ctx, principal, 0));
+    if (len > 1)
+	*instancep = strdup(krb5_principal_get_comp_string(ctx, principal, 1));
+    *realmp = strdup(krb5_principal_get_realm(ctx, principal));
+    
  fin:
     if (NULL != principal)
-        KLDisposePrincipal (principal);
-    if (NULL != name)
-        KLDisposeString (name);
-    if (NULL != instance)
-        KLDisposeString (instance);
-    if (NULL != realm)
-        KLDisposeString (realm);
+        krb5_free_principal(ctx, principal);
     KHLog ("]]] %s () - %d", __func__, err);
     return err;
 }
@@ -200,196 +197,205 @@ parse_principal_name(__unused krb5_context ctx, const char *princname, char **na
 static int
 lookup_by_kdc(KRBhelperContext *hCtx, const char *name, char **realm)
 {
-	krb5_error_code ret;
-	krb5_cccol_cursor cursor;
-	krb5_data data;
-	krb5_ccache id;
-	krb5_creds mcred, *creds;
+    krb5_error_code ret;
+    krb5_cccol_cursor cursor;
+    krb5_data data;
+    krb5_ccache id;
+    krb5_creds mcred, *creds;
 
-	memset(&mcred, 0, sizeof(mcred));
-	*realm = NULL;
+    memset(&mcred, 0, sizeof(mcred));
+    *realm = NULL;
 
     ret = krb5_build_principal(hCtx->krb5_ctx, &mcred.server,
-							   0, "", 
-							   "host", name, NULL); /* XXX propper service name */
+			       0, "", 
+			       "host", name, NULL); /* XXX propper service name */
 
-	ret = krb5_cccol_cursor_new(hCtx->krb5_ctx, &cursor);
-	if (ret)
-		return ret;
+    ret = krb5_cccol_cursor_new(hCtx->krb5_ctx, &cursor);
+    if (ret)
+	return ret;
 
-	while ((ret = krb5_cccol_cursor_next(hCtx->krb5_ctx, cursor, &id)) == 0) {
-		const char *errmsg = NULL;
-		char *clientname;
+    while ((ret = krb5_cccol_cursor_next(hCtx->krb5_ctx, cursor, &id)) == 0) {
+	const char *errmsg = NULL;
+	char *clientname;
 
-		if (id == NULL) {
-			ret = memFullErr; /* XXX */
-			break;
-		}
-
-		ret = krb5_cc_get_principal(hCtx->krb5_ctx, id, &mcred.client);
-		if (ret)
-			goto next;
-
-		ret = krb5_unparse_name(hCtx->krb5_ctx, mcred.client, &clientname);
-		if (ret) {
-			krb5_free_principal(hCtx->krb5_ctx, mcred.client);
-			KHLog ("Failed to unparse name %s () - %d", __func__, ret);
-			goto next;
-		}
-
-		ret = krb5_cc_get_config(hCtx->krb5_ctx, id, NULL, "windows", &data);
-		KHLog ("%s is %sa windows principal %s () - %d", 
-			   clientname,  (ret == 0) ? "" : "not ", __func__, ret);
-		if (ret) {
-			free(clientname);
-			krb5_free_principal(hCtx->krb5_ctx, mcred.client);
-			goto next;
-		}
-		krb5_free_data_contents(hCtx->krb5_ctx, &data);
-		
-		/* XXX check not expired */
-
-		ret = krb5_set_principal_realm(hCtx->krb5_ctx, mcred.server, 
-									   mcred.client->realm.data);
-		if (ret) {
-			free(clientname);
-			krb5_free_principal(hCtx->krb5_ctx, mcred.client);
-			goto next;
-		}
-
-		ret = krb5_get_credentials(hCtx->krb5_ctx, 0, id, &mcred, &creds);
-		krb5_free_principal(hCtx->krb5_ctx, mcred.client);
-		if (ret)
-			errmsg = krb5_get_error_message(hCtx->krb5_ctx, ret);
-		KHLog ("krb5_get_credentials(%s): referrals %s () - %s (%d)",
-			   clientname, __func__, errmsg ? errmsg : "success", ret);
-		if (errmsg)
-			krb5_free_error_message(hCtx->krb5_ctx, errmsg);
-		free(clientname);
-		if (ret == 0) {
-			*realm = strdup(creds->server->realm.data);
-			krb5_free_creds(hCtx->krb5_ctx, creds);
-			krb5_cc_close(hCtx->krb5_ctx, id);
-			break;
-		}
-	  next:
-		krb5_cc_close(hCtx->krb5_ctx, id);
+	if (id == NULL) {
+	    ret = memFullErr; /* XXX */
+	    break;
 	}
 
-	krb5_free_principal(hCtx->krb5_ctx, mcred.server);
-	krb5_cccol_cursor_free(hCtx->krb5_ctx, &cursor);
+	ret = krb5_cc_get_principal(hCtx->krb5_ctx, id, &mcred.client);
+	if (ret)
+	    goto next;
 
-	return ret;
+	ret = krb5_unparse_name(hCtx->krb5_ctx, mcred.client, &clientname);
+	if (ret) {
+	    krb5_free_principal(hCtx->krb5_ctx, mcred.client);
+	    KHLog ("Failed to unparse name %s () - %d", __func__, ret);
+	    goto next;
+	}
+
+	ret = krb5_cc_get_config(hCtx->krb5_ctx, id, NULL, "windows", &data);
+	KHLog ("%s is %sa windows principal %s () - %d", 
+	       clientname,  (ret == 0) ? "" : "not ", __func__, ret);
+	if (ret) {
+	    free(clientname);
+	    krb5_free_principal(hCtx->krb5_ctx, mcred.client);
+	    goto next;
+	}
+	krb5_data_free(&data);
+		
+	/* XXX check not expired */
+
+	ret = krb5_principal_set_realm(hCtx->krb5_ctx, mcred.server, mcred.client->realm);
+	if (ret) {
+	    free(clientname);
+	    krb5_free_principal(hCtx->krb5_ctx, mcred.client);
+	    goto next;
+	}
+
+	ret = krb5_get_credentials(hCtx->krb5_ctx, 0, id, &mcred, &creds);
+	krb5_free_principal(hCtx->krb5_ctx, mcred.client);
+	if (ret)
+	    errmsg = krb5_get_error_message(hCtx->krb5_ctx, ret);
+	KHLog ("krb5_get_credentials(%s): referrals %s () - %s (%d)",
+	       clientname, __func__, errmsg ? errmsg : "success", ret);
+	if (errmsg)
+	    krb5_free_error_message(hCtx->krb5_ctx, errmsg);
+	free(clientname);
+	if (ret == 0) {
+	    *realm = strdup(creds->server->realm);
+	    krb5_free_creds(hCtx->krb5_ctx, creds);
+	    krb5_cc_close(hCtx->krb5_ctx, id);
+	    break;
+	}
+    next:
+	krb5_cc_close(hCtx->krb5_ctx, id);
+    }
+
+    krb5_free_principal(hCtx->krb5_ctx, mcred.server);
+    krb5_cccol_cursor_free(hCtx->krb5_ctx, &cursor);
+
+    return ret;
 }
 
 static int
 strcmp_trailer(const char *f, const char *p)
 {
-	size_t flen = strlen(f), plen = strlen(p);
+    size_t flen = strlen(f), plen = strlen(p);
 	
-	if (f[flen - 1] == '.')
-		flen--;
+    if (f[flen - 1] == '.')
+	flen--;
 	
-	if (flen > plen)
-		return flen - plen;
-	return strcasecmp(&f[flen - plen], p);
+    if (flen > plen)
+	return flen - plen;
+    return strcasecmp(&f[flen - plen], p);
 }
 
 static int
 is_local_hostname(const char *host)
 {
-	if (strcmp_trailer(host, ".local") == 0)
-		return 1;
-	if (strcmp_trailer(host, ".members.mac.com") == 0)
-		return 1;
-	if (strcmp_trailer(host, ".members.me.com") == 0)
-		return 1;
-	if (strchr(host, '.'))
-		return 1;
-	return 0;
+    if (strcmp_trailer(host, ".local") == 0)
+	return 1;
+    if (strcmp_trailer(host, ".members.mac.com") == 0)
+	return 1;
+    if (strcmp_trailer(host, ".members.me.com") == 0)
+	return 1;
+    if (strchr(host, '.'))
+	return 1;
+    return 0;
 }
+
+/*
+ *
+ */
 
 OSStatus
 KRBCreateSession(CFStringRef inHostName, CFStringRef inAdvertisedPrincipal,
                  void **outKerberosSession)
 {
-	KRBHelperContextRef session = NULL;
-	CFMutableDictionaryRef inInfo;
-	OSStatus error;
+    KRBHelperContextRef session = NULL;
+    CFMutableDictionaryRef inInfo;
+    OSStatus error;
 
-	*outKerberosSession = NULL;
+    *outKerberosSession = NULL;
 
-	inInfo = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (inInfo == NULL)
-		return memFullErr;
+    inInfo = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (inInfo == NULL)
+	return memFullErr;
 
-	if (inHostName)
-		CFDictionarySetValue (inInfo, kKRBHostnameKey, inHostName);
-	if (inAdvertisedPrincipal)
-		CFDictionarySetValue (inInfo, kKRBAdvertisedPrincipalKey, inAdvertisedPrincipal);
+    if (inHostName)
+	CFDictionarySetValue (inInfo, kKRBHostnameKey, inHostName);
+    if (inAdvertisedPrincipal)
+	CFDictionarySetValue (inInfo, kKRBAdvertisedPrincipalKey, inAdvertisedPrincipal);
 
-	error = KRBCreateSessionInfo(inInfo, &session);
-	CFRelease(inInfo);
-	if (error == noErr)
-		*outKerberosSession = session;
+    error = KRBCreateSessionInfo(inInfo, &session);
+    CFRelease(inInfo);
+    if (error == noErr)
+	*outKerberosSession = session;
 
-	return error;
+    return error;
 }
 
 
 OSStatus
 KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSession)
 {
-	CFStringRef inHostName, inAdvertisedPrincipal, noLocalKDC;
-	char hbuf[NI_MAXHOST];
-	struct addrinfo hints, *res = NULL, *aip = NULL;
-	KRBhelperContext *hCtx = NULL;
-	char *tmp = NULL;
-	char *hintname = NULL, *hinthost = NULL, *hintrealm = NULL;
-	char *localname = NULL, *hostname = NULL;
-	struct realm_mappings *selected_mapping = NULL;
-	OSStatus err = noErr;
-	int avoidDNSCanonicalizationBug = 0;
-	int lkdcp = 0;
-	size_t i;
+    CFStringRef inHostName, inAdvertisedPrincipal, noLocalKDC;
+    char hbuf[NI_MAXHOST];
+    struct addrinfo hints, *aip = NULL;
+    KRBhelperContext *hCtx = NULL;
+    char *tmp = NULL;
+    char *hintname = NULL, *hinthost = NULL, *hintrealm = NULL;
+    char *localname = NULL, *hostname = NULL;
+    struct realm_mappings *selected_mapping = NULL;
+    OSStatus err = noErr;
+    int avoidDNSCanonicalizationBug = 0;
+    int lkdcp = 0;
+    size_t i;
 
-	if (NULL == outKerberosSession) {
-		err = paramErr;
-		goto out;
+    if (NULL == outKerberosSession) {
+	err = paramErr;
+	goto out;
+    }
+
+    *outKerberosSession = NULL;
+
+    inHostName = CFDictionaryGetValue(inDict, kKRBHostnameKey);
+    inAdvertisedPrincipal = CFDictionaryGetValue(inDict, kKRBAdvertisedPrincipalKey);
+    noLocalKDC = CFDictionaryGetValue(inDict, kKRBNoLKDCKey);
+
+    KHLog ("[[[ %s () - required parameters okay: %s %s %s", __func__,
+	   inHostName ? "iHN" : "-",
+	   inAdvertisedPrincipal ? "iAP" : "-",
+	   noLocalKDC ? "nLK" : "-");
+
+    /*
+     * Create the context that we will return on success.
+     * We almost always require a Kerberos context and the default
+     * realm, so populate those up front.
+     */
+    if (NULL == (hCtx = calloc(1, sizeof(*hCtx)))) {
+	err = memFullErr;
+	goto out;
+    }
+
+    if (0 != k5_ok( krb5_init_context (&hCtx->krb5_ctx) )) {
+	err = memFullErr;
+	goto out;
+    }
+
+    if (0 != hx509_context_init(&hCtx->hx_ctx)) {
+	err = memFullErr;
+	goto out;
+    }
+
+    if (0 == k5_ok( krb5_get_default_realm (hCtx->krb5_ctx, &tmp) ) && NULL != tmp) {
+	if (NULL == (hCtx->defaultRealm = strdup (tmp))) {
+	    err = memFullErr;
+	    goto out;
 	}
-
-	*outKerberosSession = NULL;
-
-	inHostName = CFDictionaryGetValue(inDict, kKRBHostnameKey);
-	inAdvertisedPrincipal = CFDictionaryGetValue(inDict, kKRBAdvertisedPrincipalKey);
-	noLocalKDC = CFDictionaryGetValue(inDict, kKRBNoLKDCKey);
-
-	KHLog ("[[[ %s () - required parameters okay: %s %s %s", __func__,
-		   inHostName ? "iHN" : "-",
-		   inAdvertisedPrincipal ? "iAP" : "-",
-		   noLocalKDC ? "nLK" : "-");
-
-	/*
-	 * Create the context that we will return on success.
-	 * We almost always require a Kerberos context and the default
-	 * realm, so populate those up front.
-	 */
-	if (NULL == (hCtx = calloc(1, sizeof(*hCtx)))) {
-		err = memFullErr;
-		goto out;
-	}
-
-	if (0 != k5_ok( krb5_init_context (&hCtx->krb5_ctx) )) {
-		err = memFullErr;
-		goto out;
-	}
-	if (0 == k5_ok( krb5_get_default_realm (hCtx->krb5_ctx, &tmp) ) && NULL != tmp) {
-		if (NULL == (hCtx->defaultRealm = strdup (tmp))) {
-			err = memFullErr;
-			goto out;
-		}
-		krb5_free_default_realm (hCtx->krb5_ctx, tmp);
-	}
+	krb5_xfree(tmp);
+    }
 
     /* If no host name was given, then the caller is inquiring
      * about the Local KDC realm.  Our work here is done.
@@ -423,227 +429,227 @@ KRBCreateSessionInfo (CFDictionaryRef inDict, KRBHelperContextRef *outKerberosSe
     else
         avoidDNSCanonicalizationBug = 1;
 
-	/* remove trailing dot */
-	i = strlen(hostname);
-	if (hostname[i - 1] == '.') {
-		hostname[i - 1] = '\0';
+    /* remove trailing dot */
+    i = strlen(hostname);
+    if (hostname[i - 1] == '.') {
+	hostname[i - 1] = '\0';
 
-		/* Stuff it back into context */
-		hCtx->inHostName = CFStringCreateWithCString (NULL, hostname, kCFStringEncodingUTF8);
-		if (hCtx->inHostName == NULL) {
-			err = memFullErr;
-			goto out;
-		}
-	} else {
-		hCtx->inHostName = CFRetain (inHostName);
+	/* Stuff it back into context */
+	hCtx->inHostName = CFStringCreateWithCString (NULL, hostname, kCFStringEncodingUTF8);
+	if (hCtx->inHostName == NULL) {
+	    err = memFullErr;
+	    goto out;
 	}
+    } else {
+	hCtx->inHostName = CFRetain (inHostName);
+    }
 
     KHLog ("    %s: processed host name = %s", __func__, hostname);
 
-	/* 
-	 * Try find name by asking the KDC first
-	 */
+    /* 
+     * Try find name by asking the KDC first
+     */
 
-	if (lookup_by_kdc(hCtx, hostname, &tmp) == 0) {
-		add_mapping(hCtx, hostname, tmp, 0);
-		free(tmp);
-		err = noErr;
-		hCtx->noGuessing = 1;
-		goto done;
-	}
+    if (lookup_by_kdc(hCtx, hostname, &tmp) == 0) {
+	add_mapping(hCtx, hostname, tmp, 0);
+	free(tmp);
+	err = noErr;
+	hCtx->noGuessing = 1;
+	goto done;
+    }
 
 
     /*
-	 * If the given name is a bare name (i.e. no dots), we may need
+     * If the given name is a bare name (i.e. no dots), we may need
      * to attempt to look it up as `<name>.local' later.
      */
     if (NULL == strchr(hostname, '.') &&
-        (0 > asprintf(&localname, "%s.local", hostname) || NULL == localname)) {
-        err = memFullErr;
-        goto out;
+	(0 > asprintf(&localname, "%s.local", hostname) || NULL == localname)) {
+	err = memFullErr;
+	goto out;
     }
 
-	/*
-	 * If the service didn't announce a realm, or it a annouced a LKDC
-	 * realm, lets consider it when looking up hosts/realm mappings.
-	 */
+    /*
+     * If the service didn't announce a realm, or it a annouced a LKDC
+     * realm, lets consider it when looking up hosts/realm mappings.
+     */
 
-	if ((hintrealm == NULL || is_lkdc_realm(hintrealm)) && noLocalKDC == 0)
-		lkdcp = 1;
+    if ((hintrealm == NULL || is_lkdc_realm(hintrealm)) && noLocalKDC == 0)
+	lkdcp = 1;
 
-	/*
-	 * Before we canonlize the hostname, lets find the realm.
-	 */
+    /*
+     * Before we canonlize the hostname, lets find the realm.
+     */
 
-	find_mapping(hCtx, hostname, lkdcp);
+    find_mapping(hCtx, hostname, lkdcp);
 
     /* Normalize the given host name using getaddrinfo AI_CANONNAME if
      * possible. Track the resulting host name (normalized or not) as
      * `hostname'.
-	 *
-	 * Avoid canonicalization if possible because of
-	 * <rdar://problem/5517187> getaddrinfo with hints.ai_flags =
-	 * AI_CANONNAME mangles quoted DNS Names.
-	 */
+     *
+     * Avoid canonicalization if possible because of
+     * <rdar://problem/5517187> getaddrinfo with hints.ai_flags =
+     * AI_CANONNAME mangles quoted DNS Names.
+     */
     {
         memset (&hints, 0, sizeof(hints));
         hints.ai_flags = AI_CANONNAME;
-        err = getaddrinfo (hostname, NULL, &hints, &res);
+        err = getaddrinfo (hostname, NULL, &hints, &hCtx->addr);
         KHLog ("    %s: getaddrinfo = %s (%d)", __func__, 0 == err ? "success" : gai_strerror (err), (int)err);
-        if (0 == err && avoidDNSCanonicalizationBug == 0 && res->ai_canonname) {
-			if ((tmp = strdup(res->ai_canonname)) != NULL) {
-				free(hostname);
-				hostname = tmp;
-			}
+        if (0 == err && avoidDNSCanonicalizationBug == 0 && hCtx->addr->ai_canonname) {
+	    if ((tmp = strdup(hCtx->addr->ai_canonname)) != NULL) {
+		free(hostname);
+		hostname = tmp;
+	    }
             KHLog ("    %s: canonical host name = %s", __func__, hostname);
         }
     }
 
-	/*
-	 * Try adding the mapping for the canonlical name if we got one
-	 */
+    /*
+     * Try adding the mapping for the canonlical name if we got one
+     */
 
-	find_mapping(hCtx, hostname, lkdcp);
+    find_mapping(hCtx, hostname, lkdcp);
 
-	/*
-	 * If we have a hintrealm and there our initial guessing is right,
-	 * lets skip the reverse lookup since that is potentially very
-	 * expensive.
-	 */
+    /*
+     * If we have a hintrealm and there our initial guessing is right,
+     * lets skip the reverse lookup since that is potentially very
+     * expensive.
+     */
 
-	if (hintrealm) {
-		for (i = 0; i < hCtx->realms.len; i++)
-			if (strcmp(hintrealm, hCtx->realms.data[i].realm) == 0)
-				goto done;
-	}
+    if (hintrealm) {
+	for (i = 0; i < hCtx->realms.len; i++)
+	    if (strcmp(hintrealm, hCtx->realms.data[i].realm) == 0)
+		goto done;
+    }
 
-	/*
-	 * Try to find all name for this address, and the check if we can
-	 * find a mapping.
-	 */
+    /*
+     * Try to find all name for this address, and the check if we can
+     * find a mapping.
+     */
 
-    for (aip = res; NULL != aip; aip = aip->ai_next) {
-		char ipbuf[NI_MAXHOST];
+    for (aip = hCtx->addr; NULL != aip; aip = aip->ai_next) {
+	char ipbuf[NI_MAXHOST];
 		
-		/* pretty print name first for logging */
-		err = getnameinfo(aip->ai_addr, aip->ai_addrlen,
-						  ipbuf, sizeof(ipbuf),
-						  NULL, 0, NI_NUMERICHOST);
-		if (err)
-			snprintf(ipbuf, sizeof(ipbuf), "getnameinfo-%d", (int)err);
+	/* pretty print name first for logging */
+	err = getnameinfo(aip->ai_addr, aip->ai_addrlen,
+			  ipbuf, sizeof(ipbuf),
+			  NULL, 0, NI_NUMERICHOST);
+	if (err)
+	    snprintf(ipbuf, sizeof(ipbuf), "getnameinfo-%d", (int)err);
 
         err = getnameinfo (aip->ai_addr, aip->ai_addr->sa_len, hbuf,
-						   sizeof(hbuf), NULL, 0, NI_NAMEREQD);
+			   sizeof(hbuf), NULL, 0, NI_NAMEREQD);
         KHLog("    %s: getnameinfo(%s) -> %s result %d %s",
-			  __func__, ipbuf, hbuf, (int)err, 0 == err ? "success" : gai_strerror (err));
+	      __func__, ipbuf, hbuf, (int)err, 0 == err ? "success" : gai_strerror (err));
         if (err) {
-			/* This is not a fatal error.  We'll keep looking for candidate host names. */
+	    /* This is not a fatal error.  We'll keep looking for candidate host names. */
             err = noErr;
             continue;
         }
-		find_mapping(hCtx, hbuf, lkdcp);
+	find_mapping(hCtx, hbuf, lkdcp);
     }
 
     /* Reset err */
     err = noErr;
 
-	/*
-	 * Also, add localname (bare name) that we turned into a .local
-	 * name if we had one.
-	 */
+    /*
+     * Also, add localname (bare name) that we turned into a .local
+     * name if we had one.
+     */
 
-	if (localname)
-		find_mapping(hCtx, localname, lkdcp);
+    if (localname)
+	find_mapping(hCtx, localname, lkdcp);
 
-done:
-	/*
-	 * Done fetching all data, will no try to find a mapping
-	 */ 
+ done:
+    /*
+     * Done fetching all data, will no try to find a mapping
+     */ 
 
-	for (i = 0; i < hCtx->realms.len; i++) {
-		KHLog ("    %s: available mappings: %s -> %s (%s)", __func__,
-			   hCtx->realms.data[i].hostname,
-			   hCtx->realms.data[i].realm,
-			   hCtx->realms.data[i].lkdc ? "LKDC" : "managed");
-	}
+    for (i = 0; i < hCtx->realms.len; i++) {
+	KHLog ("    %s: available mappings: %s -> %s (%s)", __func__,
+	       hCtx->realms.data[i].hostname,
+	       hCtx->realms.data[i].realm,
+	       hCtx->realms.data[i].lkdc ? "LKDC" : "managed");
+    }
 	
-	/*
-	 * If we have noGuessing mapping, lets pick the first guess then.
-	 */
+    /*
+     * If we have noGuessing mapping, lets pick the first guess then.
+     */
 
-	if (!selected_mapping && hCtx->noGuessing && hCtx->realms.len)
-		selected_mapping = &hCtx->realms.data[0];
+    if (!selected_mapping && hCtx->noGuessing && hCtx->realms.len)
+	selected_mapping = &hCtx->realms.data[0];
 
-	/*
-	 * If we have "local" hostname, lets consider LKDC more aggressively.
-	 */
+    /*
+     * If we have "local" hostname, lets consider LKDC more aggressively.
+     */
 
-	if (noLocalKDC == 0 && is_local_hostname(hostname)) {
+    if (noLocalKDC == 0 && is_local_hostname(hostname)) {
 
-		if (hintrealm) {
-			/*
-			 * Search for localKDC mapping when we have a hint realm.
-			 */
-			for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
-				if (strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
-					selected_mapping = &hCtx->realms.data[i];
-		} else {				
-			/*
-			 * If we are using have no hintrealm, just pick any LKDC realm.
-			 */
-			for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
-				if (hCtx->realms.data[i].lkdc)
-					selected_mapping = &hCtx->realms.data[i];
-		}
-	}
-	/*
-	 * Search for managed realm, the make us prefer manged realms for
-	 * no local hostnames.
-	 */
-	for (i = 0; i < hCtx->realms.len && !selected_mapping; i++) {
+	if (hintrealm) {
+	    /*
+	     * Search for localKDC mapping when we have a hint realm.
+	     */
+	    for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
+		if (strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
+		    selected_mapping = &hCtx->realms.data[i];
+	} else {				
+	    /*
+	     * If we are using have no hintrealm, just pick any LKDC realm.
+	     */
+	    for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
 		if (hCtx->realms.data[i].lkdc)
-			continue;
-		if (hintrealm == NULL || strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
-			selected_mapping = &hCtx->realms.data[i];
+		    selected_mapping = &hCtx->realms.data[i];
 	}
+    }
+    /*
+     * Search for managed realm, the make us prefer manged realms for
+     * no local hostnames.
+     */
+    for (i = 0; i < hCtx->realms.len && !selected_mapping; i++) {
+	if (hCtx->realms.data[i].lkdc)
+	    continue;
+	if (hintrealm == NULL || strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
+	    selected_mapping = &hCtx->realms.data[i];
+    }
 
-	/*
-	 * Search for LKDC again if no managed realm was found 
-	 */
-	for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
-		if (hintrealm == NULL || strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
-			selected_mapping = &hCtx->realms.data[i];
+    /*
+     * Search for LKDC again if no managed realm was found 
+     */
+    for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
+	if (hintrealm == NULL || strcasecmp(hintrealm, hCtx->realms.data[i].realm) == 0)
+	    selected_mapping = &hCtx->realms.data[i];
 
-	/*
-	 * If we still failed to find a mapping, just pick the first.
-	 */
-	for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
-		selected_mapping = &hCtx->realms.data[i];
+    /*
+     * If we still failed to find a mapping, just pick the first.
+     */
+    for (i = 0; i < hCtx->realms.len && !selected_mapping; i++)
+	selected_mapping = &hCtx->realms.data[i];
 
-	if (selected_mapping == NULL) {
-		KHLog ("    %s: No mapping for host name = %s found", __func__, hostname);
-		err = memFullErr;
-		goto out;
-	}
-	KHLog ("    %s: Using host name = %s, realm = %s (%s)", __func__,
-		   selected_mapping->hostname,
-		   selected_mapping->realm, selected_mapping->lkdc ? "LKDC" : "managed");
+    if (selected_mapping == NULL) {
+	KHLog ("    %s: No mapping for host name = %s found", __func__, hostname);
+	err = memFullErr;
+	goto out;
+    }
+    KHLog ("    %s: Using host name = %s, realm = %s (%s)", __func__,
+	   selected_mapping->hostname,
+	   selected_mapping->realm, selected_mapping->lkdc ? "LKDC" : "managed");
 
-	hCtx->realm = CFStringCreateWithCString (kCFAllocatorDefault, selected_mapping->realm, kCFStringEncodingASCII);
-	if (hCtx->realm == NULL) {
-		err = memFullErr;
-		goto out;
-	}
+    hCtx->realm = CFStringCreateWithCString (kCFAllocatorDefault, selected_mapping->realm, kCFStringEncodingASCII);
+    if (hCtx->realm == NULL) {
+	err = memFullErr;
+	goto out;
+    }
 
-	/* If its a LKDC realm, the hostname is the LKDC realm */
-	if (selected_mapping->lkdc)
-		hCtx->hostname = CFRetain(hCtx->realm);
-	else
-		hCtx->hostname = CFStringCreateWithCString(kCFAllocatorDefault, selected_mapping->hostname, kCFStringEncodingASCII);
-	if (hCtx->hostname == NULL) {
-		err = memFullErr;
-		goto out;
-	}
+    /* If its a LKDC realm, the hostname is the LKDC realm */
+    if (selected_mapping->lkdc)
+	hCtx->hostname = CFRetain(hCtx->realm);
+    else
+	hCtx->hostname = CFStringCreateWithCString(kCFAllocatorDefault, selected_mapping->hostname, kCFStringEncodingASCII);
+    if (hCtx->hostname == NULL) {
+	err = memFullErr;
+	goto out;
+    }
 	
  out:
     free (hintname);
@@ -651,18 +657,16 @@ done:
     free (hintrealm);
     free (hostname);
     free (localname);
-    if (res)
-        freeaddrinfo (res);
 
     /* 
-	 * On error, free all members of the context and the context itself.
+     * On error, free all members of the context and the context itself.
      */
     if (noErr != err) {
-		for (i = 0; i < hCtx->realms.len; i++) {
-			free(hCtx->realms.data[i].hostname);
-			free(hCtx->realms.data[i].realm);
-		}
-		free(hCtx->realms.data);
+	for (i = 0; i < hCtx->realms.len; i++) {
+	    free(hCtx->realms.data[i].hostname);
+	    free(hCtx->realms.data[i].realm);
+	}
+	free(hCtx->realms.data);
         free (hCtx->defaultRealm);
         if (NULL != hCtx->realm)
             CFRelease (hCtx->realm);
@@ -674,6 +678,11 @@ done:
             CFRelease (hCtx->inHostName);
         if (NULL != hCtx->krb5_ctx)
             krb5_free_context (hCtx->krb5_ctx);
+	if (NULL != hCtx->hx_ctx)
+	    hx509_context_free(&hCtx->hx_ctx);
+	if (NULL != hCtx->addr)
+	    freeaddrinfo(hCtx->addr);
+
         free (hCtx);
     } else
         *outKerberosSession = hCtx;
@@ -785,31 +794,31 @@ OSStatus KRBCopyKeychainLookupInfo (KRBHelperContextRef inKerberosSession, CFStr
 */
 OSStatus KRBCopyServicePrincipal (KRBHelperContextRef inKerberosSession, CFStringRef inServiceName, CFStringRef *outServicePrincipal)
 {
-	CFDictionaryRef outDict = NULL;
-	CFStringRef outSPN;
+    CFDictionaryRef outDict = NULL;
+    CFStringRef outSPN;
     OSStatus            err;
 
     KHLog ("%s", "KRBCopyServicePrincipal () - enter");
 
     if (NULL == inKerberosSession || NULL == outServicePrincipal)
-		return paramErr;
+	return paramErr;
 
     *outServicePrincipal = NULL;
 
-	err = KRBCopyServicePrincipalInfo(inKerberosSession,
-									  inServiceName,
-									  &outDict);
-	if (err)
-		return err;
+    err = KRBCopyServicePrincipalInfo(inKerberosSession,
+				      inServiceName,
+				      &outDict);
+    if (err)
+	return err;
 
-	outSPN = CFDictionaryGetValue(outDict, kKRBServicePrincipalKey);
+    outSPN = CFDictionaryGetValue(outDict, kKRBServicePrincipalKey);
 
-	*outServicePrincipal = CFRetain(outSPN);
-	CFRelease(outDict);
+    *outServicePrincipal = CFRetain(outSPN);
+    CFRelease(outDict);
 
     KHLog ("%s", "KRBCopyServicePrincipal () - return");
 
-	return noErr;
+    return noErr;
 }
 
 
@@ -818,48 +827,96 @@ KRBCopyServicePrincipalInfo (KRBHelperContextRef inKerberosSession, CFStringRef 
 {
     KRBhelperContext    *hCtx = (KRBhelperContext *)inKerberosSession;
     CFMutableDictionaryRef outInfo = NULL;
-	CFStringRef outString = NULL;
+    CFStringRef outString = NULL;
     OSStatus            err = noErr;
         
     if (NULL == hCtx || NULL == outServiceInfo || NULL == inServiceName)
-		return paramErr;
+	return paramErr;
 
     *outServiceInfo = NULL;
 
     KHLog ("%s", "[[[ KRBCopyServicePrincipalInfo () - required parameters okay");
 
-	outString = CFStringCreateWithFormat (NULL, NULL, CFSTR("%@/%@@%@"), inServiceName, hCtx->hostname, hCtx->realm);
-	if (outString == NULL) {
-		err = memFullErr;
-		goto out;
-	}
+    outString = CFStringCreateWithFormat (NULL, NULL, CFSTR("%@/%@@%@"), inServiceName, hCtx->hostname, hCtx->realm);
+    if (outString == NULL) {
+	err = memFullErr;
+	goto out;
+    }
 
-	outInfo = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
-	if (outInfo == NULL) {
-		err = memFullErr;
-		goto out;
-	}
+    outInfo = CFDictionaryCreateMutable (kCFAllocatorDefault, 2, &kCFCopyStringDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (outInfo == NULL) {
+	err = memFullErr;
+	goto out;
+    }
 	
-	CFDictionarySetValue (outInfo, kKRBServicePrincipalKey, outString);
-	if (hCtx->noGuessing)
-		CFDictionarySetValue (outInfo, kKRBNoCanonKey, CFSTR("nodns"));
+    CFDictionarySetValue (outInfo, kKRBServicePrincipalKey, outString);
+    if (hCtx->noGuessing)
+	CFDictionarySetValue (outInfo, kKRBNoCanonKey, CFSTR("nodns"));
 	
 
-	{
-		char *spn;
-		__KRBCreateUTF8StringFromCFString (outString, &spn);
-		KHLog ("    KRBCopyServicePrincipalInfo: principal = \"%s\"", spn);
-		__KRBReleaseUTF8String (spn);
-	}
+    {
+	char *spn;
+	__KRBCreateUTF8StringFromCFString (outString, &spn);
+	KHLog ("    KRBCopyServicePrincipalInfo: principal = \"%s\"", spn);
+	__KRBReleaseUTF8String (spn);
+    }
 
-	*outServiceInfo = outInfo;
+    *outServiceInfo = outInfo;
     
  out:
-	if (outString) CFRelease(outString);
+    if (outString) CFRelease(outString);
 
     KHLog ("]]] KRBCopyServicePrincipalInfo () = %d", (int)err);
 
     return err;
+}
+
+/* 
+ * Obtain a mallocd C-string representation of a certificate's SHA1 digest. 
+ * Only error is a NULL return indicating memory failure. 
+ * Caller must free the returned string.
+ */
+static char *pkinit_cert_hash_str(const krb5_data *cert)
+{
+    CC_SHA1_CTX ctx;
+    char *outstr;
+    char *cpOut;
+    unsigned char digest[CC_SHA1_DIGEST_LENGTH];
+    unsigned dex;
+    
+    assert(cert != NULL);
+    CC_SHA1_Init(&ctx);
+    CC_SHA1_Update(&ctx, cert->data, cert->length);
+    CC_SHA1_Final(digest, &ctx);
+    
+    outstr = (char *)malloc((2 * CC_SHA1_DIGEST_LENGTH) + 1);
+    if(outstr == NULL) {
+	return NULL;
+    }
+    cpOut = outstr;
+    for(dex=0; dex<CC_SHA1_DIGEST_LENGTH; dex++) {
+	sprintf(cpOut, "%02X", (unsigned)(digest[dex]));
+	cpOut += 2;
+    }
+    *cpOut = '\0';
+    return outstr;
+}
+
+static CFTypeRef
+search_array(CFArrayRef array, CFTypeRef key)
+{
+    CFDictionaryRef dict;
+    CFIndex n;
+
+    for (n = 0 ; n < CFArrayGetCount(array); n++) {
+	dict = CFArrayGetValueAtIndex(array, n);
+	if (CFGetTypeID(dict) != CFDictionaryGetTypeID())
+	    continue;
+	CFTypeRef dictkey = CFDictionaryGetValue(dict, kSecPropertyKeyLabel);
+	if (CFEqual(dictkey, key))
+	    return CFDictionaryGetValue(dict, kSecPropertyKeyValue);
+    }
+    return NULL;
 }
 
 /*
@@ -925,21 +982,19 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
     }
     
     if (NULL != certRef && SecCertificateGetTypeID() == CFGetTypeID (certRef)) {
-        CSSM_DATA certData;
         krb5_data kcert;
-        CFStringRef description = NULL;
-		const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
-		const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
+	const CFStringRef dotmac = CFSTR(".Mac Sharing Certificate");
+	const CFStringRef mobileMe = CFSTR("MobileMe Sharing Certificate");
         
         /* get the cert data */
-        err = SecCertificateGetData(certRef, &certData);
-        if (0 != err) { goto Error; }
+	CFDataRef certData = SecCertificateCopyData(certRef);
+        if (NULL == certData) { goto Error; }
         
-        kcert.magic = 0;
-        kcert.length = certData.Length;
-        kcert.data = (char *)certData.Data;
+        kcert.length = CFDataGetLength(certData);
+        kcert.data = (void *)CFDataGetBytePtr(certData);
 
-        cert_hash = krb5_pkinit_cert_hash_str(&kcert);
+        cert_hash = pkinit_cert_hash_str(&kcert);
+	CFRelease(certData);
         if (NULL == cert_hash) { goto Error; }
 
         useClientName = CFStringCreateWithCString (NULL, cert_hash, kCFStringEncodingASCII);
@@ -949,29 +1004,44 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
             certificateHash = CFRetain (useClientName);
         }
         
-        SecCertificateCopySubjectComponent (certRef, &CSSMOID_Description, &description);
+	void *values[4] = { (void *)kSecOIDDescription, (void *)kSecOIDCommonName, (void *)kSecOIDOrganizationalUnitName, (void *)kSecOIDX509V1SubjectName };
+	CFArrayRef attrs = CFArrayCreate(NULL, (const void **)values, sizeof(values) / sizeof(values[0]), &kCFTypeArrayCallBacks);
+	if (NULL == attrs) { goto Error; }
 
-        if (NULL != description &&
-			(kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
+	CFDictionaryRef certval = SecCertificateCopyValues(certRef, attrs, NULL);
+	CFRelease(attrs);
+	if (NULL == certval) { goto Error; }
+
+	err = 0;
+
+	CFDictionaryRef subject = CFDictionaryGetValue(certval, kSecOIDX509V1SubjectName);
+	if (NULL != subject) {
+
+	    CFArrayRef val = CFDictionaryGetValue(subject, kSecPropertyKeyValue);
+
+	    if (NULL != val) {
+
+		CFStringRef description = search_array(val, kSecOIDDescription);
+
+		if (NULL != description &&
+		    (kCFCompareEqualTo == CFStringCompare(description, dotmac, 0) || kCFCompareEqualTo == CFStringCompare(description, mobileMe, 0)))
 		{
-            CFStringRef commonName = NULL, organizationalUnit = NULL;
-            
-            SecCertificateCopyCommonName (certRef, &commonName);
-            SecCertificateCopySubjectComponent (certRef, &CSSMOID_OrganizationalUnitName, &organizationalUnit);
+		    CFStringRef commonName = search_array(val, kSecOIDCommonName);
+		    CFStringRef organizationalUnit = search_array(val, kSecOIDOrganizationalUnitName);
 
-            if (NULL != commonName && NULL != organizationalUnit) {
-                inferredLabel = CFStringCreateWithFormat (NULL, NULL, CFSTR("%@@%@"), commonName, organizationalUnit);
-            }
-                
-            if (NULL != commonName) { CFRelease (commonName); }
-            if (NULL != organizationalUnit) { CFRelease (organizationalUnit); }
-        } else {
-            err = SecCertificateInferLabel (certRef, &inferredLabel);
-        }
+		    if (NULL != commonName && NULL != organizationalUnit) {
+			inferredLabel = CFStringCreateWithFormat (NULL, NULL, CFSTR("%@@%@"), commonName, organizationalUnit);
+		    }
+		}
+	    }
+	}
+    
+	CFRelease(certval);
 
-        if (NULL != description) { CFRelease (description); }
-            
-        if (0 != err) { goto Error; }
+	if (NULL == inferredLabel)
+	    err = SecCertificateInferLabel (certRef, &inferredLabel);
+
+        if (0 != err) { goto Error; }            
 
     } else if (NULL != inOptions) {
         CFDictionaryGetValueIfPresent (inOptions, kKRBUsernameKey, (const void **)&useClientName);
@@ -1026,42 +1096,31 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
      * case a password is needed (the ticket may have expired).
      */
     if (NULL != clientPrincipalString) {
-        krb5_context kcontext;
         krb5_error_code krb_err = 0;
-        cc_context_t cc_context = NULL;
-        cc_ccache_iterator_t iterator = NULL;
+	krb5_cccol_cursor cursor;
         const char *alternateRealm = NULL;
         const char *clientRealm = principal_realm(clientPrincipalString);
         char        *alternateClientPrincipal = NULL;
         char        *bestClientPrincipal = NULL;
         int commonSubrealms = 1, tmp, found;
 
-        krb_err = k5_ok (krb5_init_context(&kcontext));
+	found = 0;
 
-        if (!krb_err) {
-            krb_err = k5_ok (cc_initialize (&cc_context, ccapi_version_4, NULL, NULL));
-        }
-        if (!krb_err) {
-            krb_err = k5_ok (cc_context_new_ccache_iterator (cc_context, &iterator));
-        }
+	krb_err = krb5_cccol_cursor_new (hCtx->krb5_ctx, &cursor);
+	if (0 != krb_err) {
+	    krb_err = memFullErr;
+	}
 
-		found = 0;
-        /* We exit if we find more than one match */
+	/* We exit if we find more than one match */
         while (!krb_err && !found) {
-            cc_ccache_t   cc_ccache = NULL;
-            cc_string_t   ccacheName = NULL;
             krb5_ccache ccache = NULL;
             krb5_principal ccachePrinc = NULL;
             
-            krb_err = k5_ok (cc_ccache_iterator_next (iterator, &cc_ccache));
+	    if (krb5_cccol_cursor_next (hCtx->krb5_ctx, cursor, &ccache) != 0 || ccache == NULL)
+		krb_err = ENOENT;
 
-            if (!krb_err) { krb_err = k5_ok (cc_ccache_get_name (cc_ccache, &ccacheName)); }
-
-            if (!krb_err) { krb_err = k5_ok (krb5_cc_resolve (kcontext, ccacheName->data, &ccache)); }
-
-            if (!krb_err) { krb_err = k5_ok (krb5_cc_get_principal (kcontext, ccache, &ccachePrinc)); }
-
-            if (!krb_err) { krb_err = k5_ok (krb5_unparse_name (kcontext, ccachePrinc, &alternateClientPrincipal)); }
+            if (!krb_err) { krb_err = k5_ok (krb5_cc_get_principal (hCtx->krb5_ctx, ccache, &ccachePrinc)); }
+            if (!krb_err) { krb_err = k5_ok (krb5_unparse_name (hCtx->krb5_ctx, ccachePrinc, &alternateClientPrincipal)); }
 
             if (!krb_err) { alternateRealm = principal_realm(alternateClientPrincipal); }
 
@@ -1093,17 +1152,15 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
             }
 
             if (NULL != alternateClientPrincipal) {
-                krb5_free_unparsed_name(kcontext, alternateClientPrincipal);
+                krb5_xfree(alternateClientPrincipal);
                 alternateClientPrincipal = NULL;
             }
-            if (NULL != ccache)      { krb5_cc_close (kcontext, ccache); }
-            if (NULL != ccacheName)  { cc_string_release (ccacheName); }
-            if (NULL != cc_ccache)   { cc_ccache_release (cc_ccache); }
-            if (NULL != ccachePrinc) { krb5_free_principal (kcontext, ccachePrinc); }
+            if (NULL != ccache)      { krb5_cc_close (hCtx->krb5_ctx, ccache); }
+            if (NULL != ccachePrinc) { krb5_free_principal (hCtx->krb5_ctx, ccachePrinc); }
         }
 
-        if (NULL != iterator)    { cc_ccache_iterator_release (iterator); }
-        if (NULL != cc_context)  { cc_context_release (cc_context); }
+        if (NULL != cursor)   { krb5_cccol_cursor_free(hCtx->krb5_ctx, &cursor);
+	}
 
         if (NULL != bestClientPrincipal) {
             KHLog ("    KRBCopyClientPrincipalInfo: ccache principal match = \"%s\"", bestClientPrincipal);
@@ -1160,8 +1217,7 @@ OSStatus KRBCopyClientPrincipalInfo (KRBHelperContextRef inKerberosSession,  CFD
         }
 
         if (NULL != bestClientPrincipal)      { free (bestClientPrincipal); }
-        if (NULL != alternateClientPrincipal) { krb5_free_unparsed_name (kcontext, alternateClientPrincipal); }
-        if (NULL != kcontext)                 { krb5_free_context (kcontext); }
+        if (NULL != alternateClientPrincipal) { krb5_xfree(alternateClientPrincipal); }
     }
     
     KHLog ("    KRBCopyClientPrincipalInfo: using principal = \"%s\"", clientPrincipalString);
@@ -1226,38 +1282,31 @@ OSStatus KRBTestForExistingTicket (KRBHelperContextRef inKerberosSession, CFDict
     CFDictionaryGetValueIfPresent (inClientPrincipalInfo, kKRBClientPrincipalKey, (const void **)&clientPrincipal);
 
     if (NULL != clientPrincipal) {
-        KLStatus    krb_err = klNoErr;
-        KLLoginOptions  loginOptions = NULL;
-        KLPrincipal klPrincipal = NULL;
-        KLBoolean   outFoundValidTickets = FALSE;
-        KLPrincipal outPrincipal = NULL;
-        char        *ccacheName = NULL;
+        krb5_error_code    krb_err = 0;
+        krb5_principal principal = NULL;
+	krb5_ccache ccache = NULL;
+	time_t lifetime;
+
+	err = ENOENT;
 
         __KRBCreateUTF8StringFromCFString (clientPrincipal, &principalString);
         KHLog ("    KRBTestForExistingTicket: principal = \"%s\"", principalString);
 
-        krb_err = KLCreateLoginOptions (&loginOptions);
+	krb_err = krb5_parse_name(hCtx->krb5_ctx, principalString, &principal);
+	if (0 == krb_err) {
+	    krb_err = krb5_cc_cache_match(hCtx->krb5_ctx, principal, &ccache);
+	    if (krb_err == 0) {
+		krb_err = krb5_cc_get_lifetime(hCtx->krb5_ctx, ccache, &lifetime);
+		if (krb_err == 0 && lifetime > 60) {
+		    KHLog ("    KRBTestForExistingTicket: Valid Ticket, ccacheName = \"%s\"", krb5_cc_get_name(hCtx->krb5_ctx, ccache));
+		    err = 0;
+		}
+	    }
+	}
 
-        KLCreatePrincipalFromString (principalString, kerberosVersion_V5, &klPrincipal);
-
-        krb_err = KLCacheHasValidTickets (klPrincipal, kerberosVersion_V5, &outFoundValidTickets, &outPrincipal, &ccacheName);
-
-        if (TRUE == outFoundValidTickets) {
-            KHLog ("    KRBTestForExistingTicket: Valid Ticket, ccacheName = \"%s\"", ccacheName);
-            err = 0;
-        } else {
-            err = krb_err;
-			if (err == 0)
-				err = ENOENT;
-        }
-
-        if (NULL != loginOptions)  { KLDisposeLoginOptions (loginOptions); }
-        if (NULL != principalString) { __KRBReleaseUTF8String (principalString); }
-
-        if (NULL != klPrincipal)  { KLDisposePrincipal (klPrincipal); }
-        if (NULL != outPrincipal) { KLDisposePrincipal (outPrincipal); }
-
-        if (NULL != ccacheName) { free (ccacheName); }
+	if (NULL != ccache) { krb5_cc_close(hCtx->krb5_ctx, ccache); }
+	if (NULL != principalString) { __KRBReleaseUTF8String (principalString); }
+        if (NULL != principal)  { krb5_free_principal(hCtx->krb5_ctx, principal); }
     }
     
  Done:
@@ -1275,115 +1324,190 @@ OSStatus KRBAcquireTicket(KRBHelperContextRef inKerberosSession, CFDictionaryRef
 {
     OSStatus            err = noErr;
     KRBhelperContext    *hCtx = (KRBhelperContext *)inKerberosSession;
-    KLStatus            krb_err = klNoErr;
-    KLLoginOptions      loginOptions = NULL;
-    KLPrincipal         clientPrincipal = NULL;
-    char                *ccacheName = NULL;
+    krb5_error_code            krb_err = 0;
+    krb5_principal      clientPrincipal = NULL;
     CFStringRef         principal = NULL, password = NULL;
     char                *principalString = NULL, *passwordString = NULL;
-    SecCertificateRef   usingCertificate = NULL;
-	CFStringRef		    inferredLabel = NULL;
-
+    SecIdentityRef      usingCertificate = NULL;
+    CFStringRef		    inferredLabel = NULL;
+    krb5_get_init_creds_opt *opt;
+    krb5_ccache id = NULL;
+    krb5_creds cred;
+    int destroy_cache = 0;
+    krb5_init_creds_context icc = NULL;
     
+    memset(&cred, 0, sizeof(cred));
+
     if (NULL == hCtx) {
-		KHLog ("%s", "[[[ KRBAcquireTicket () - no context will raise() in the future");
-		err = paramErr; goto Error;
-	}
+	KHLog ("%s", "[[[ KRBAcquireTicket () - no context will raise() in the future");
+	err = paramErr; goto Error;
+    }
 
     KHLog ("%s", "[[[ KRBAcquireTicket () - required parameters okay");
-
-    krb_err = KLCreateLoginOptions (&loginOptions);
 
     principal = CFDictionaryGetValue (inClientPrincipalInfo, kKRBClientPrincipalKey);
     if (NULL == principal) { err = paramErr; goto Error; }
     __KRBCreateUTF8StringFromCFString (principal, &principalString);
     
-    KLCreatePrincipalFromString (principalString, kerberosVersion_V5, &clientPrincipal);
-    /* XXX check memory allocation failure ^^^ */
+    krb_err = krb5_parse_name(hCtx->krb5_ctx, principalString, &clientPrincipal);
+    if (krb_err) {
+	err = paramErr; goto Error;
+    }
     
     CFDictionaryGetValueIfPresent (inClientPrincipalInfo, kKRBUsingCertificateKey, (const void **)&usingCertificate);
     
-    if (NULL != usingCertificate) {
-        krb_err = k5_ok(krb5_pkinit_set_client_cert(principalString, (krb5_pkinit_cert_t)usingCertificate));
-        if (0 == krb_err) {
-			CFStringRef certInferredLabel;
-
-            KHLog ("%s", "    KRBAcquireTicket: Using a certificate");
-            /* KLAcquireInitialTicketsWithPassword requires *some* password.  */
-            passwordString = strdup (" ");
-
-			certInferredLabel = CFDictionaryGetValue (inClientPrincipalInfo, kKRBCertificateInferredLabelKey);
-			if (certInferredLabel)
-				inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)"),
-														 certInferredLabel, hCtx->inHostName);
-
-        } else
-            usingCertificate = NULL;
-		KHLog ("   %s: krb5_pkinit_set_client_cert: %d", __func__, krb_err);
+    krb_err = k5_ok(krb5_get_init_creds_opt_alloc (hCtx->krb5_ctx, &opt));
+    if (krb_err) {
+	err = paramErr; goto Error;
     }
-    if (NULL == usingCertificate) {
-		CFStringRef clientName;
 
-		KHLog ("    %s: Not using certificate", __func__);
+    if (usingCertificate) {
+	krb_err = k5_ok(krb5_get_init_creds_opt_set_pkinit(hCtx->krb5_ctx, opt, clientPrincipal,
+							   NULL, "KEYCHAIN:", 
+							   NULL, NULL, 0,
+							   NULL, NULL, NULL));
+	KHLog ("    KRBAcquireTicket: using a cert, GIC set pkinit returned: %d", krb_err);
+	if (krb_err) {
+	    err = paramErr; goto Error;
+	}
+    }
+
+    krb_err = krb5_init_creds_init(hCtx->krb5_ctx, clientPrincipal, NULL, NULL,
+				   0, opt, &icc);
+    if (krb_err) {
+	err = paramErr; goto Error;
+    }
+
+    if (is_lkdc_realm(krb5_principal_get_realm(hCtx->krb5_ctx, clientPrincipal))) {
+	char *hostname;
+
+	__KRBCreateUTF8StringFromCFString (hCtx->inHostName, &hostname);
+	krb5_init_creds_set_kdc_hostname(hCtx->krb5_ctx, icc, hostname);
+	free(hostname);
+    }
+
+
+    if (NULL != usingCertificate) {
+	CFStringRef certInferredLabel;
+	hx509_cert cert;
+
+	krb_err = hx509_cert_init_SecFramework(hCtx->hx_ctx, usingCertificate, &cert);
+	if (krb_err) {
+	    err = paramErr; goto Error;
+	}
+
+	krb_err = krb5_init_creds_set_pkinit_client_cert(hCtx->krb5_ctx, icc, cert);
+	if (krb_err) {
+	    err = paramErr; goto Error;
+	}
+	
+	passwordString = NULL;
+
+	certInferredLabel = CFDictionaryGetValue (inClientPrincipalInfo, kKRBCertificateInferredLabelKey);
+	if (certInferredLabel)
+	    inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("%@ (%@)"),
+						     certInferredLabel, hCtx->inHostName);
+    } else {
+
+	CFStringRef clientName;
+
+	KHLog ("    %s: Not using certificate", __func__);
 
         password  = CFDictionaryGetValue (inClientPrincipalInfo, kKRBClientPasswordKey);
         if (NULL == password) {
-			KHLog ("    %s: No password, cant get tickets", __func__);
-			err = paramErr; goto Error;
-		}
+	    KHLog ("    %s: No password, cant get tickets", __func__);
+	    err = paramErr; goto Error;
+	}
 
-		clientName = CFDictionaryGetValue(inClientPrincipalInfo, kKRBUsernameKey);
-		if (clientName)
-			inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("LKDC %@@%@"), clientName, hCtx->inHostName);
+	clientName = CFDictionaryGetValue(inClientPrincipalInfo, kKRBUsernameKey);
+	if (clientName)
+	    inferredLabel = CFStringCreateWithFormat(NULL, NULL, CFSTR("LKDC %@@%@"), clientName, hCtx->inHostName);
 
-        __KRBCreateUTF8StringFromCFString (password, &passwordString);
+	__KRBCreateUTF8StringFromCFString (password, &passwordString);
+
+	krb_err = krb5_init_creds_set_password(hCtx->krb5_ctx, icc, passwordString);
+	if (krb_err) {
+	    err = paramErr; goto Error;
+	}
     }
 
-    krb_err = KLAcquireInitialTicketsWithPassword (clientPrincipal, loginOptions, passwordString, &ccacheName);
-	KHLog ("   %s: KLAcquireInitialTicketsWithPassword: %d", __func__, krb_err);
-        
-	if (krb_err == 0)
-		KRBCredAddReference(principal);
+    krb_err = krb5_init_creds_get(hCtx->krb5_ctx, icc);
+    krb5_get_init_creds_opt_free(hCtx->krb5_ctx, opt);
+    KHLog ("   %s: krb5_get_init_creds_password: %d", __func__, krb_err);
+    if (krb_err != 0) {
+	err = paramErr; goto Error;
+    }
 
-	if (krb_err == 0 && inferredLabel) {
-		krb5_error_code r;
-		krb5_ccache id;
-		krb5_data data;
-		char *label = NULL;
+    krb_err = krb5_init_creds_get_creds(hCtx->krb5_ctx, icc, &cred);
+    if (krb_err != 0) {
+	err = paramErr; goto Error;
+    }
 
-		KHLog ("%s", "    KRBAcquireTicket setting friendly name");
-
-		if (__KRBCreateUTF8StringFromCFString (inferredLabel, &label) != noErr)
-			goto out;
-
-		r = krb5_cc_resolve(hCtx->krb5_ctx, ccacheName, &id);
-		if (r) {
-			KHLog ("    KRBAcquireTicket failed getting ccache %s", ccacheName);
-			free(label);
-			goto out;
-		}
-		data.data = label;
-		data.length = strlen(label) + 1;
-
-		krb5_cc_set_config(hCtx->krb5_ctx, id, NULL, "FriendlyName", &data);
-		free(label);
-
-		krb5_cc_close(hCtx->krb5_ctx, id);
+    krb_err = krb5_cc_cache_match(hCtx->krb5_ctx, clientPrincipal, &id);
+    if (krb_err) {
+	krb_err = krb5_cc_new_unique(hCtx->krb5_ctx, NULL, NULL, &id);
+	if (krb_err) {
+	    err = paramErr; goto Error;
 	}
- out:
+	destroy_cache = 1;
+    }
 
-    err = krb_err;
+    krb_err = krb5_cc_initialize(hCtx->krb5_ctx, id, clientPrincipal);
+    if (krb_err) {
+	err = paramErr; goto Error;
+    }
+
+    krb_err = krb5_cc_store_cred(hCtx->krb5_ctx, id, &cred);
+    if (krb_err) {
+	err = paramErr; goto Error;
+    }
+    
+    krb_err = krb5_init_creds_store_config(hCtx->krb5_ctx, icc, id);
+    if (krb_err) {
+	err = paramErr; goto Error;
+    }
+
+    KRBCredAddReference(principal);
+
+    if (inferredLabel) {
+	char *label = NULL;
+
+	KHLog ("%s", "    KRBAcquireTicket setting friendly name");
+
+	if (__KRBCreateUTF8StringFromCFString (inferredLabel, &label) == noErr) {
+	    krb5_data data;
+	    data.data = label;
+	    data.length = strlen(label) + 1;
+	    
+	    krb5_cc_set_config(hCtx->krb5_ctx, id, NULL, "FriendlyName", &data);
+	    free(label);
+	}
+    }
+    {
+	krb5_data data;
+	data.data = "1";
+	data.length = 1;
+	krb5_cc_set_config(hCtx->krb5_ctx, id, NULL, "nah-created", &data);
+    }
+
+    err = noErr;
 
  Error:
-	if (NULL != inferredLabel) { CFRelease(inferredLabel); }
-    if (NULL != loginOptions)  { KLDisposeLoginOptions (loginOptions); }
+    if (icc)
+	krb5_init_creds_free(hCtx->krb5_ctx, icc);
+    if (id) {
+	if (err != noErr && destroy_cache)
+	    krb5_cc_close(hCtx->krb5_ctx, id);
+	else
+	    krb5_cc_close(hCtx->krb5_ctx, id);
+    }
+    krb5_free_cred_contents(hCtx->krb5_ctx, &cred);
+    if (NULL != inferredLabel) { CFRelease(inferredLabel); }
     if (NULL != principalString) { __KRBReleaseUTF8String (principalString); }
     if (NULL != passwordString) {  __KRBReleaseUTF8String (passwordString); }
     
-    if (NULL != clientPrincipal) { KLDisposePrincipal (clientPrincipal); }
+    if (NULL != clientPrincipal) { krb5_free_principal(hCtx->krb5_ctx, clientPrincipal); }
     
-    if (NULL != ccacheName) { free (ccacheName); }
-
     KHLog ("]]] KRBAcquireTicket () = %d", (int)err);
     
     return err;
@@ -1398,25 +1522,27 @@ OSStatus KRBCloseSession(KRBHelperContextRef inKerberosSession)
 {
     OSStatus            err = noErr;
     KRBhelperContext    *hCtx = (KRBhelperContext *)inKerberosSession;
-	size_t i;
+    size_t i;
     
     if (NULL == hCtx) { err = paramErr; goto Error; }
 
     KHLog ("%s", "[[[ KRBCloseSession () - required parameters okay");
 
-	for (i = 0; i < hCtx->realms.len; i++) {
-		free(hCtx->realms.data[i].hostname);
-		free(hCtx->realms.data[i].realm);
-	}
-	free(hCtx->realms.data);
+    for (i = 0; i < hCtx->realms.len; i++) {
+	free(hCtx->realms.data[i].hostname);
+	free(hCtx->realms.data[i].realm);
+    }
+    free(hCtx->realms.data);
    
-	if (NULL != hCtx->inAdvertisedPrincipal) { CFRelease (hCtx->inAdvertisedPrincipal); }
+    if (NULL != hCtx->inAdvertisedPrincipal) { CFRelease (hCtx->inAdvertisedPrincipal); }
     if (NULL != hCtx->hostname)              { CFRelease(hCtx->hostname); }
     if (NULL != hCtx->inHostName)            { CFRelease(hCtx->inHostName); }
     if (NULL != hCtx->realm)                 { CFRelease (hCtx->realm); }
 
-	if (NULL != hCtx->defaultRealm) { free(hCtx->defaultRealm); }
-	if (NULL != hCtx->krb5_ctx)     { krb5_free_context (hCtx->krb5_ctx); }
+    if (NULL != hCtx->defaultRealm) { free(hCtx->defaultRealm); }
+    if (NULL != hCtx->krb5_ctx)     { krb5_free_context (hCtx->krb5_ctx); }
+    if (NULL != hCtx->hx_ctx)	    { hx509_context_free(&hCtx->hx_ctx); }
+    if (NULL != hCtx->addr)         { freeaddrinfo(hCtx->addr); }
     
     free(hCtx);
  Error:
@@ -1428,271 +1554,344 @@ OSStatus KRBCloseSession(KRBHelperContextRef inKerberosSession)
 static OSStatus
 findCred(CFStringRef clientPrincipal, krb5_context context, krb5_ccache *id)
 {
-	krb5_principal client;
-	krb5_error_code kret;
-	char *str;
+    krb5_principal client;
+    krb5_error_code kret;
+    char *str;
 
-	if (__KRBCreateUTF8StringFromCFString (clientPrincipal, &str) != noErr)
-		return memFullErr;
+    if (__KRBCreateUTF8StringFromCFString (clientPrincipal, &str) != noErr)
+	return memFullErr;
 
-	kret = k5_ok(krb5_parse_name(context, str, &client));
-	free(str);
-	if (0 != kret)
-		return memFullErr;
+    kret = k5_ok(krb5_parse_name(context, str, &client));
+    free(str);
+    if (0 != kret)
+	return memFullErr;
 
-	kret = k5_ok(krb5_cc_cache_match(context, client, id));
-	krb5_free_principal(context, client);
-	if (0 != kret)
-		return memFullErr;
+    kret = k5_ok(krb5_cc_cache_match(context, client, id));
+    krb5_free_principal(context, client);
+    if (0 != kret)
+	return memFullErr;
 
-	return noErr;
+    return noErr;
 }
 
-static OSStatus changeRefCount(krb5_context context, krb5_ccache id, int change, int32_t *count)
+OSStatus
+KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change, int excl)
 {
-	OSStatus ret = noErr;
-	krb5_error_code kret;
-	krb5_data data;
-	int32_t ref;
-
-	kret = krb5_cc_get_config(context, id, NULL, "refcount", &data);
-	if (kret && change > 0) {
-		ref = 0;
-	} else if (kret) {
-		return ret;
-	} else if (data.length != sizeof(ref)) {
-		krb5_free_data_contents(context, &data);
-		return paramErr;
-	} else {
-		memcpy(&ref, data.data, data.length);
-		krb5_free_data_contents(context, &data);
-		ref = ntohl(ref);
-
-		if (ref == 0 || ref + change < 0 )
-			return paramErr;
-	}
-
-	ref += change;
-
-	if (ref > 0) {
-		ref = htonl(ref);
-		data.data = (void *)&ref;
-		data.length = sizeof(ref);
-		krb5_cc_set_config(context, id, NULL, "refcount", &data);
-	}
-
-	if (count)
-		*count = ref;
-
-	return noErr;
-}
-
-static OSStatus KRBCredChangeReferenceCount(CFStringRef clientPrincipal, int change)
-{
-	OSStatus ret = 0;
-	krb5_context kcontext = NULL;
-	krb5_ccache id = NULL;
-	krb5_error_code kret;
-	int32_t ref;
+    OSStatus ret = 0;
+    krb5_context kcontext = NULL;
+    krb5_ccache id = NULL;
+    krb5_error_code kret;
 
     KHLog ("[[[ KRBCredChangeReferenceCount: %d", change);
 
-	kret = k5_ok(krb5_init_context(&kcontext));
-	if (0 != kret) {
-		ret = memFullErr;
-		goto out;
-	}
+    kret = k5_ok(krb5_init_context(&kcontext));
+    if (0 != kret) {
+	ret = memFullErr;
+	goto out;
+    }
 
-	ret = findCred(clientPrincipal, kcontext, &id);
-	if (ret != noErr)
-		goto out;
+    ret = findCred(clientPrincipal, kcontext, &id);
+    if (ret != noErr)
+	goto out;
 
-	ret = changeRefCount(kcontext, id, change, &ref);
-	if (ret) {
-		krb5_cc_close(kcontext, id);
-		goto out;
-	}
+    if (change > 0) 
+	ret = krb5_cc_hold(kcontext, id);
+    else
+	ret = krb5_cc_unhold(kcontext, id);
 
-	if (ref <= 0)
-		krb5_cc_destroy(kcontext, id);
-	else
-		krb5_cc_close(kcontext, id);
+    krb5_cc_close(kcontext, id);
 
  out:
     KHLog ("]]] KRBCredChangeReferenceCount: %d", (int)ret);
 
-	if (kcontext)
-		krb5_free_context(kcontext);
+    if (kcontext)
+	krb5_free_context(kcontext);
 
-	return ret;
+    return ret;
 }
 
 OSStatus KRBCredAddReference(CFStringRef clientPrincipal)
 {
-	return KRBCredChangeReferenceCount(clientPrincipal, 1);
+    return KRBCredChangeReferenceCount(clientPrincipal, 1, 0);
 }
 
 OSStatus KRBCredRemoveReference(CFStringRef clientPrincipal)
 {
-	return KRBCredChangeReferenceCount(clientPrincipal, -1);
+    return KRBCredChangeReferenceCount(clientPrincipal, -1, 0);
 }
 
 
 OSStatus KRBCredAddReferenceAndLabel(CFStringRef clientPrincipal,
-									 CFStringRef identifier)
+				     CFStringRef identifier)
 {
-	OSStatus ret = 0;
-	krb5_error_code kret;
-	krb5_context kcontext = NULL;
-	krb5_ccache id = NULL;
-	krb5_data data;
-	char *str = NULL, *label = NULL;
+    OSStatus ret = 0;
+    krb5_error_code kret;
+    krb5_context kcontext = NULL;
+    krb5_ccache id = NULL;
+    krb5_data data;
+    char *str = NULL, *label = NULL;
 
-    KHLog ("%s", "[[[ KRBCredAddReferenceAndLabel");
+    if (__KRBCreateUTF8StringFromCFString (identifier, &str) != noErr) {
+	ret = memFullErr;
+	goto out;
+    }
 
-	kret = k5_ok(krb5_init_context(&kcontext));
-	if (0 != kret) {
-		ret = memFullErr;
-		goto out;
-	}
+    KHLog ("[[[ KRBCredAddReferenceAndLabel: label %s", str);
 
-	ret = findCred(clientPrincipal, kcontext, &id);
-	if (ret != noErr)
-		goto out;
+    kret = k5_ok(krb5_init_context(&kcontext));
+    if (0 != kret) {
+	ret = memFullErr;
+	goto out;
+    }
 
-	/* Skip SSO cred-caches */
-	kret = k5_ok(krb5_cc_get_config(kcontext, id, NULL, "apple-sso", &data));
-	if (kret == 0) {
-		krb5_free_data_contents(kcontext, &data);
-		goto out;
-	}
+    ret = findCred(clientPrincipal, kcontext, &id);
+    if (ret != noErr)
+	goto out;
 
-	data.data = (void*)"1";
-	data.length = 1;
+    /* Skip SSO cred-caches */
+    kret = k5_ok(krb5_cc_get_config(kcontext, id, NULL, "nah-created", &data));
+    if (kret) {
+	kret = 0;
+	goto out;
+    }
+    krb5_data_free(&data);
 
-	if (__KRBCreateUTF8StringFromCFString (identifier, &str) != noErr) {
-		ret = memFullErr;
-		goto out;
-	}
+    data.data = (void *)"1";
+    data.length = 1;
 
-	asprintf(&label, "ref:%s", str);
-	if (label == NULL) {
-		ret = memFullErr;
-		goto out;
-	}
+    asprintf(&label, "ref:%s", str);
+    if (label == NULL) {
+	ret = memFullErr;
+	goto out;
+    }
 
-	kret = krb5_cc_set_config(kcontext, id, NULL, label, &data);
-	if (kret) {
-		ret = memFullErr;
-		goto out;
-	}
+    kret = krb5_cc_set_config(kcontext, id, NULL, label, &data);
+    if (kret) {
+	ret = memFullErr;
+	goto out;
+    }
 
-	ret = changeRefCount(kcontext, id, 1, NULL);
-	if (ret)
-		goto out;
+    ret = krb5_cc_hold(kcontext, id);
+    if (ret)
+	goto out;
 
  out:
     KHLog ("]]] KRBCredAddReferenceAndLabel () = %d", (int)ret);
-	if (id)
-		krb5_cc_close(kcontext, id);
-	if (kcontext)
-		krb5_free_context(kcontext);
-	if (label)
-		free(label);
-	if (str)
-		free(str);
+    if (id)
+	krb5_cc_close(kcontext, id);
+    if (kcontext)
+	krb5_free_context(kcontext);
+    if (label)
+	free(label);
+    if (str)
+	free(str);
 
-	return ret;
+    return ret;
 }
 
-OSStatus KRBCredFindByLabelAndRelease(CFStringRef identifier)
+OSStatus
+KRBCredFindByLabelAndRelease(CFStringRef identifier)
 {
-    krb5_cccol_cursor cursor;
-	krb5_context kcontext = NULL;
-    krb5_error_code kret;
-    krb5_ccache id = NULL;
-	char *str = NULL, *label = NULL;
-	OSStatus ret;
-	
-    KHLog ("%s", "[[[ KRBCredFindByLabelAndRelease");
+    NAHFindByLabelAndRelease(identifier);
+    return noErr;
+}
 
-	if (__KRBCreateUTF8StringFromCFString (identifier, &str) != noErr) {
-		ret = memFullErr;
-		goto out;
-	}
+/*
+ * Parses the initial request from a SMB server and constructs a
+ * resulting CFDictionaryRef.
+ *
+ *
+ */
 
-	asprintf(&label, "ref:%s", str);
-	if (label == NULL) {
-		ret = memFullErr;
-		goto out;
-	}
+CFDictionaryRef
+KRBDecodeNegTokenInit(CFAllocatorRef alloc, CFDataRef data)
+{
+    CFMutableDictionaryRef dict = NULL, mechs = NULL;
+    union {
+	NegotiationToken rfc2478;
+	NegotiationTokenWin win;
+    } u;
+    int win = 0;
+    MechTypeList *mechtypes;
+    char *hintsname = NULL;
+    gss_buffer_desc input_buffer, output_buffer = { 0, NULL };
+    OM_uint32 junk;
+    int ret;
 
-	kret = k5_ok(krb5_init_context(&kcontext));
-	if (0 != kret) {
-		ret = memFullErr;
-		goto out;
-	}
+    input_buffer.value = (void *)CFDataGetBytePtr(data);
+    input_buffer.length = CFDataGetLength(data);
 
-    kret = krb5_cccol_cursor_new (kcontext, &cursor);
-	if (0 != kret) {
-		ret = memFullErr;
-		goto out;
-	}
-	
-    while (krb5_cccol_cursor_next (kcontext, cursor, &id) == 0 && id != NULL) {
-		krb5_data data;
-		int32_t ref;
+    junk = gss_decapsulate_token(&input_buffer, GSS_SPNEGO_MECHANISM, &output_buffer);
+    if (junk)
+	goto out;
 
-		/* Skip SSO cred-caches */
-		kret = krb5_cc_get_config(kcontext, id, NULL, "apple-sso", &data);
-		if (kret == 0) {
-			krb5_free_data_contents(kcontext, &data);
-			krb5_cc_close(kcontext, id);
-			continue;
-		}
+    memset(&u, 0, sizeof(u));
+    ret = decode_NegotiationToken(output_buffer.value, output_buffer.length, &u.rfc2478, NULL);
+    if (ret == 0) {
+	if (u.rfc2478.element != choice_NegotiationToken_negTokenInit)
+	    goto out;
 
-		kret = krb5_cc_get_config(kcontext, id, NULL, label, &data);
-		if (kret) {
-			krb5_cc_close(kcontext, id);
-			continue;
-		}
-		krb5_free_data_contents(kcontext, &data);
+	mechtypes = &u.rfc2478.u.negTokenInit.mechTypes;
+    } else {
+	win = 1;
 
-		krb5_cc_set_config(kcontext, id, NULL, label, NULL);
+	memset(&u, 0, sizeof(u));
 
-		ret = changeRefCount(kcontext, id, -1, &ref);
-		if (ret) {
-			krb5_cc_close(kcontext, id);
-			goto out;
-		}
+	ret = decode_NegotiationTokenWin(output_buffer.value, output_buffer.length, &u.win, NULL);
+	if (ret)
+	    goto out;
 
-		if (ref > 0)
-			krb5_cc_close(kcontext, id);
-		else
-			krb5_cc_destroy(kcontext, id);
+	if (u.win.element != choice_NegotiationTokenWin_negTokenInit)
+	    goto out;
 
-		break;
+	mechtypes = &u.win.u.negTokenInit.mechTypes;
+
+	if (u.win.u.negTokenInit.negHints && u.win.u.negTokenInit.negHints->hintName)
+	    hintsname = *(u.win.u.negTokenInit.negHints->hintName);
     }
-    krb5_cccol_cursor_free(kcontext, &cursor);
+
+    dict = CFDictionaryCreateMutable(alloc, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (dict == NULL)
+	goto out;
+
+    if (mechtypes) {
+	CFDataRef empty;
+	unsigned n;
+
+	mechs = CFDictionaryCreateMutable(alloc, mechtypes->len,
+					  &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+	if (mechs == NULL)
+	    goto out;
+
+	CFDictionaryAddValue(dict, kSPNEGONegTokenInitMechs, mechs);
+	CFRelease(mechs); /* dict have a ref */
+
+	empty = CFDataCreateWithBytesNoCopy(alloc, NULL, 0, kCFAllocatorNull);
+	if (empty == NULL)
+	    goto out;
+
+	for (n = 0; n < mechtypes->len; n++) {
+	    char *str;
+	    ret = der_print_heim_oid(&mechtypes->val[n], '.', &str);
+	    if (ret)
+		continue;
+
+	    CFStringRef s = CFStringCreateWithCString(alloc, str, kCFStringEncodingUTF8);
+	    free(str);
+	    if (s) {
+		CFDictionaryAddValue(mechs, s, empty);
+		CFRelease(s);
+	    } else {
+		CFRelease(empty);
+		CFRelease(dict);
+		dict = NULL;
+		goto out;
+	    }
+	}				     
+	CFRelease(empty);
+    }
+    if (hintsname) {
+	CFStringRef s = CFStringCreateWithCString(alloc, hintsname, kCFStringEncodingUTF8);
+	if (s) {
+	    CFDictionaryAddValue(dict, kSPNEGONegTokenInitHintsHostname, s);
+	    CFRelease(s);
+	} else {
+	    CFRelease(dict);
+	    dict = NULL;
+	    goto out;
+	}
+    }
+    
+    if (mechs) {
+	if (CFDictionaryGetValue(mechs, kGSSAPIMechSupportsAppleLKDC))
+	    CFDictionaryAddValue(dict, KSPNEGOSupportsLKDC, CFSTR("yes"));
+    }
 
  out:
-    KHLog ("]]] KRBCredFindByLabelAndRelease () = %d", (int)ret);
-	if (kcontext)
-		krb5_free_context(kcontext);
-	if (str)
-		free(str);
-	if (label)
-		free(label);
-
-	return noErr;
+    gss_release_buffer(&junk, &output_buffer);
+    if (win)
+	free_NegotiationTokenWin(&u.win);
+    else
+	free_NegotiationToken(&u.rfc2478);
+    
+    return dict;
 }
 
+static CFDictionaryRef
+CreateNegTokenLegacyMech(CFAllocatorRef alloc,
+			 CFStringRef mech,
+			 CFDataRef value,
+			 bool support_wlkdc)
+{
+    CFMutableDictionaryRef dict = NULL;
+    CFMutableDictionaryRef mechs;
+
+    dict = CFDictionaryCreateMutable(alloc, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (dict == NULL)
+	return NULL;
+
+    mechs = CFDictionaryCreateMutable(alloc, 0, &kCFTypeDictionaryKeyCallBacks, &kCFTypeDictionaryValueCallBacks);
+    if (mechs == NULL) {
+	CFRelease(dict);
+	return NULL;
+    }
+
+    CFDictionaryAddValue(dict, kSPNEGONegTokenInitMechs, mechs);
+    CFRelease(mechs);
+
+    CFDictionaryAddValue(mechs, mech, value);
+    if (support_wlkdc)
+	CFDictionaryAddValue(mechs, kGSSAPIMechSupportsAppleLKDC, CFSTR("yes"));
+
+    return dict;
+}
+
+
+/*
+ * Create a NegToken reference that only contains a Kerberos mech
+ */
+
+CFDictionaryRef
+KRBCreateNegTokenLegacyKerberos(CFAllocatorRef alloc)
+{
+    CFDictionaryRef dict;
+    CFDataRef empty;
+
+    empty = CFDataCreateWithBytesNoCopy(alloc, (void *)"", 0, kCFAllocatorNull);
+    if (empty == NULL)
+	return NULL;
+
+    dict = CreateNegTokenLegacyMech(alloc, kGSSAPIMechKerberosOID, empty, false);
+    CFRelease(empty);
+    return dict;
+}
+
+/*
+ * Create a NegToken reference that only contains a NTLM mech, also
+ * hint that this is a raw NTLM (w/o SPNEGO wrappings).
+ */
+
+CFDictionaryRef
+KRBCreateNegTokenLegacyNTLM(CFAllocatorRef alloc)
+{
+    CFDictionaryRef dict;
+    CFDataRef empty;
+
+    empty = CFDataCreateWithBytesNoCopy(alloc, (void *)"raw", 3, kCFAllocatorNull);
+    if (empty == NULL)
+	return NULL;
+
+    dict = CreateNegTokenLegacyMech(alloc, kGSSAPIMechNTLMOID, empty, false);
+    if (empty)
+	CFRelease(empty);
+    return dict;
+}
 
 
 
 /*
   ;; Local Variables: **
-  ;; tab-width: 4 **
+  ;; tab-width: 8 **
   ;; c-basic-offset: 4 **
   ;; End: **
 */

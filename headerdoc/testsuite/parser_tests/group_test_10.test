@@ -1,0 +1,1022 @@
+FrT;@1|>>0|$15|HeaderDoc::Test%22|$4|CODE$7|COMMENT$7|CPPCODE$15|EXPECTED_RESULT$23|EXPECTED_RESULT_ALLDECS$7|FAILMSG$8|FILENAME$4|LANG$4|NAME$7|SUBLANG$4|TYPE$340|class group_test_10 : public OSObject
+{
+/*! @methodgroup CPP Class Group
+    This is a test of groups with descriptions in a C++ class.
+ */
+
+/*! @function setNext
+     @abstract Set'ter for eventChainNext variable.
+     @param next
+         Pointer to another IOEventSource instance.
+*/
+     virtual void setNext(IOEventSource *next);
+
+};
+
+$33|/*!
+     @class group_test_10
+*/
+$0|$15168|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/group_test_10.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/group_test_10.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => group_test_10
+$parserState->{forceClassSuper} =>  public OSObject 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class group_test_10 : public OSObject  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => OSObject
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: class
+namelist: group_test_10
+posstypes:   OSObject 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---group_test_10
++--- 
++---:
++--- 
++---public
++--- 
++---OSObject
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @methodgroup CPP Class Group
+|   |   +---
+This is a test of groups with descriptions in a C++ class.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function setNext
+|   |   +---
+@abstract Set'ter for eventChainNext variable.
+|   |   +---
+@param next
+|   |   +---
+Pointer to another IOEventSource instance.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---     
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +--- 
+|   +---setNext
+|   +---(
+|   |   +---IOEventSource
+|   |   +--- 
+|   |   +---*
+|   |   +---next
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: group test 10
+APIUID: //test_ref/doc/header/group_test_10.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: group_test_10
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/cpp/cl/OSObject //test_ref/cpp/tdef/OSObject //test_ref/cpp/tag/OSObject //test_ref/cpp/struct/OSObject //test_ref/cpp/intf/OSObject //test_ref/cpp/econst/OSObject //test_ref/cpp/data/OSObject //test_ref/cpp/clconst/OSObject //test_ref/cpp/instm/OSObject //test_ref/cpp/clm/OSObject //test_ref/cpp/intfcm/OSObject //test_ref/cpp/intfm/OSObject //test_ref/cpp/func/OSObject //test_ref/cpp/ftmplt/OSObject //test_ref/cpp/defn/OSObject //test_ref/cpp/macro/OSObject //test_ref/doc/com/intfm/OSObject //test_ref/doc/anysymbol/OSObject" machineGenerated="true" -->OSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/group_test_10.test" target="_top" machineGenerated="true">group test 10</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: setNext
+        APIUID: //test_ref/cpp/instm/group_test_10/setNext/void/(IOEventSource*)
+        ABSTRACT: "<p>Set'ter for eventChainNext variable.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "CPP Class Group"
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: next
+            TYPE: IOEventSource *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: next
+            TYPE: 
+            APIUID: //test_ref/doc/functionparam/group_test_10/setNext/next
+            ABSTRACT: ""
+            DISCUSSION: "<p>Pointer to another IOEventSource instance."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: group_test_10 (HeaderDoc::CPPClass)
++---class
++--- 
++---group_test_10
++--- 
++---:
++--- 
++---public
++--- 
++---OSObject
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @methodgroup CPP Class Group
+|   |   +---
+This is a test of groups with descriptions in a C++ class.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function setNext
+|   |   +---
+@abstract Set'ter for eventChainNext variable.
+|   |   +---
+@param next
+|   |   +---
+Pointer to another IOEventSource instance.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---     
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +--- 
+|   +---setNext
+|   +---(
+|   |   +---IOEventSource
+|   |   +--- 
+|   |   +---*
+|   |   +---next
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: setNext (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++--- 
++---setNext
++---(
+|   +---IOEventSource
+|   +--- 
+|   +---*
+|   +---next
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: group_test_10 (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/group_test_10 //test_ref/cpp/tdef/group_test_10 //test_ref/cpp/tag/group_test_10 //test_ref/cpp/struct/group_test_10 //test_ref/cpp/intf/group_test_10 //test_ref/doc/anysymbol/group_test_10" machineGenerated="true" --><span class="type">group_test_10</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/OSObject //test_ref/cpp/tdef/OSObject //test_ref/cpp/tag/OSObject //test_ref/cpp/struct/OSObject //test_ref/cpp/intf/OSObject //test_ref/doc/anysymbol/OSObject" machineGenerated="true" --><span class="type">OSObject</span><!-- /a --> { 
+	    <span class="comment">/*! @methodgroup CPP Class Group
+	This is a test of groups with descriptions in a C++ class.</span>
+	        <span class="comment">*/</span>
+	    <span class="comment">/*! @function setNext
+	@abstract Set'ter for eventChainNext variable.
+	@param next
+	Pointer to another IOEventSource instance.</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/struct/void //test_ref/cpp/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/setNext //test_ref/cpp/clm/setNext //test_ref/cpp/intfcm/setNext //test_ref/cpp/intfm/setNext //test_ref/cpp/func/setNext //test_ref/cpp/ftmplt/setNext //test_ref/cpp/defn/setNext //test_ref/cpp/macro/setNext //test_ref/doc/anysymbol/setNext" machineGenerated="true" --><span class="function">setNext</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/IOEventSource //test_ref/cpp/tdef/IOEventSource //test_ref/cpp/tag/IOEventSource //test_ref/cpp/struct/IOEventSource //test_ref/cpp/intf/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="type">IOEventSource</span><!-- /a --> <span class="type">*</span><span class="param">next</span>);  
+	};  
+END OF OBJECT
+
+
+OBJECT: setNext (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/struct/void //test_ref/cpp/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group_test_10/setNext //test_ref/cpp/clm/group_test_10/setNext //test_ref/cpp/intfcm/group_test_10/setNext //test_ref/cpp/intfm/group_test_10/setNext //test_ref/cpp/func/setNext //test_ref/cpp/ftmplt/group_test_10/setNext //test_ref/cpp/defn/setNext //test_ref/cpp/macro/setNext //test_ref/doc/anysymbol/setNext" machineGenerated="true" --><span class="function">setNext</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/IOEventSource //test_ref/cpp/tdef/IOEventSource //test_ref/cpp/tag/IOEventSource //test_ref/cpp/struct/IOEventSource //test_ref/cpp/intf/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="type">IOEventSource</span><!-- /a --> <span class="type">*</span><span class="param">next</span>); 
+END OF OBJECT
+
+
+
+$15168|-=: TOP LEVEL COMMENT PARSE VALUES :=-
+inHeader: 0
+inClass: 1
+inInterface: 0
+inCPPHeader: 0
+inOCCHeader: 0
+inPerlScript: 0
+inShellScript: 0
+inPHPScript: 0
+inJavaSource: 0
+inFunctionGroup: 0
+inGroup: 0
+inFunction: 0
+inPDefine: 0
+inTypedef: 0
+inUnion: 0
+inStruct: 0
+inConstant: 0
+inVar: 0
+inEnum: 0
+inMethod: 0
+inAvailabilityMacro: 0
+inUnknown: 0
+classType: unknown
+inputCounter: 0
+blockOffset: 0
+fullpath: /test_suite_bogus_path/group_test_10.test
+-=: BLOCKPARSE PARSER STATE KEYS :=-
+$parserState->{FULLPATH} => /test_suite_bogus_path/group_test_10.test
+$parserState->{ISFORWARDDECLARATION} => 0
+$parserState->{NEXTTOKENNOCPP} => 0
+$parserState->{availability} => 
+$parserState->{backslashcount} => 0
+$parserState->{basetype} => 
+$parserState->{bracePending} => 0
+$parserState->{callbackIsTypedef} => 0
+$parserState->{callbackName} => 
+$parserState->{callbackNamePending} => -1
+$parserState->{categoryClass} => 
+$parserState->{classNameFound} => 1
+$parserState->{classtype} => class
+$parserState->{forceClassDone} => 1
+$parserState->{forceClassName} => group_test_10
+$parserState->{forceClassSuper} =>  public OSObject 
+$parserState->{freezeStack} => ARRAY(OBJID)
+$parserState->{freezereturn} => 1
+$parserState->{frozensodname} => 
+$parserState->{functionReturnsCallback} => 0
+$parserState->{hollow} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{inBrackets} => 0
+$parserState->{inChar} => 0
+$parserState->{inClass} => 1
+$parserState->{inComment} => 0
+$parserState->{inInlineComment} => 0
+$parserState->{inMacro} => 0
+$parserState->{inMacroLine} => 0
+$parserState->{inOperator} => 0
+$parserState->{inPrivateParamTypes} => 0
+$parserState->{inString} => 0
+$parserState->{inTemplate} => 0
+$parserState->{initbsCount} => 0
+$parserState->{inputCounter} => 8
+$parserState->{kr_c_function} => 0
+$parserState->{kr_c_name} => 
+$parserState->{lang} => C
+$parserState->{lastTreeNode} => HeaderDoc::ParseTree=HASH(OBJID)
+$parserState->{lastsymbol} => ;
+$parserState->{macroNoTrunc} => 1
+$parserState->{name} => 
+$parserState->{namePending} => 0
+$parserState->{noInsert} => 0
+$parserState->{occmethod} => 0
+$parserState->{occmethodname} => 
+$parserState->{occparmlabelfound} => 4
+$parserState->{onlyComments} => 0
+$parserState->{parsedParamList} => ARRAY(OBJID)
+$parserState->{parsedParamParse} => 1
+$parserState->{posstypes} => 
+$parserState->{posstypesPending} => 0
+$parserState->{pplStack} => ARRAY(OBJID)
+$parserState->{preEqualsSymbol} => 
+$parserState->{preTemplateSymbol} => 
+$parserState->{preclasssodtype} => class
+$parserState->{prekeywordsodname} => 
+$parserState->{prekeywordsodtype} => 
+$parserState->{returntype} => class group_test_10 : public OSObject  
+$parserState->{seenBraces} => 0
+$parserState->{seenMacroPart} => 0
+$parserState->{seenTilde} => 0
+$parserState->{simpleTDcontents} => 
+$parserState->{simpleTypedef} => 0
+$parserState->{sodclass} => class
+$parserState->{sodname} => OSObject
+$parserState->{sodtype} =>  public
+$parserState->{sodtypeclasstoken} => class
+$parserState->{stackFrozen} => 0
+$parserState->{startOfDec} => 1
+$parserState->{storeDec} => 
+$parserState->{sublang} => C
+$parserState->{temponlyComments} => 0
+$parserState->{treePopTwo} => 0
+$parserState->{value} => 
+$parserState->{valuepending} => 0
+-=: BLOCKPARSE RETURN VALUES :=-
+newcount: 8
+typelist: class
+namelist: group_test_10
+posstypes:   OSObject 
+value: 
+returntype: public
+pridec: 
+simpleTDcontents: 
+bpavail: 
+blockOffset: 6
+conformsToList: 
+functionContents: 
+extendsClass: 
+implementsClass: 
+-=: LIST OF PARSED PARAMETERS :=-
+-=: DUMP OF PARSE TREE :=-
++---class
++--- 
++---group_test_10
++--- 
++---:
++--- 
++---public
++--- 
++---OSObject
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @methodgroup CPP Class Group
+|   |   +---
+This is a test of groups with descriptions in a C++ class.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function setNext
+|   |   +---
+@abstract Set'ter for eventChainNext variable.
+|   |   +---
+@param next
+|   |   +---
+Pointer to another IOEventSource instance.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---     
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +--- 
+|   +---setNext
+|   +---(
+|   |   +---IOEventSource
+|   |   +--- 
+|   |   +---*
+|   |   +---next
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+-=: COMPUTED VALUE :=-
+SUCCESS: 0
+VALUE: 0
+-=: CPP CHANGES :=-
+NO CPP CHANGES
+-=: FOUND MATCH :=-
+1
+-=: NAMED OBJECTS :=-
+TREE COUNT: 0
+INDEX GROUP: 
+IS BLOCK: 
+OBJECT TYPE: HeaderDoc::Header
+NAME: group test 10
+APIUID: //test_ref/doc/header/group_test_10.test
+ABSTRACT: ""
+DISCUSSION: "<p></p>"
+UPDATED: ""
+COPYRIGHT: ""
+HTMLMETA: ""
+PRIVATEDECLARATION: ""
+GROUP: ""
+INDEXGROUP: ""
+THROWS: ""
+XMLTHROWS: ""
+UPDATED: ""
+LINKAGESTATE: ""
+ACCESSCONTROL: ""
+AVAILABILITY: ""
+LINKUID: ""
+ORIGCLASS: ""
+ISDEFINE: ""
+ISTEMPLATE: ""
+VALUE: "UNKNOWN"
+RETURNTYPE: ""
+LINENUM: ""
+CLASS: "HeaderDoc::Header"
+MASTERENUM: ""
+APIREFSETUPDONE: "1"
+TPCDONE: ""
+NOREGISTERUID: ""
+SUPPRESSCHILDREN: ""
+NAMELINE_DISCUSSION: ""
+HIDEDOC: ""
+HIDESINGLETONS: ""
+HIDECONTENTS: ""
+MAINOBJECT: ""
+LIST ATTRIBUTES: 
+SHORT ATTRIBUTES: 
+LONG ATTRIBUTES: 
+    TREE COUNT: 1
+    INDEX GROUP: 
+    IS BLOCK: 
+    OBJECT TYPE: HeaderDoc::CPPClass
+    NAME: group_test_10
+    APIUID: 
+    ABSTRACT: ""
+    DISCUSSION: "<p></p>"
+    UPDATED: ""
+    COPYRIGHT: ""
+    HTMLMETA: ""
+    PRIVATEDECLARATION: ""
+    GROUP: ""
+    INDEXGROUP: ""
+    THROWS: ""
+    XMLTHROWS: ""
+    UPDATED: ""
+    LINKAGESTATE: ""
+    ACCESSCONTROL: ""
+    AVAILABILITY: ""
+    LINKUID: ""
+    ORIGCLASS: ""
+    ISDEFINE: ""
+    ISTEMPLATE: ""
+    VALUE: "UNKNOWN"
+    RETURNTYPE: ""
+    LINENUM: ""
+    CLASS: "HeaderDoc::CPPClass"
+    MASTERENUM: ""
+    APIREFSETUPDONE: "1"
+    TPCDONE: ""
+    NOREGISTERUID: ""
+    SUPPRESSCHILDREN: "0"
+    NAMELINE_DISCUSSION: ""
+    HIDEDOC: ""
+    HIDESINGLETONS: ""
+    HIDECONTENTS: ""
+    MAINOBJECT: ""
+    LIST ATTRIBUTES: 
+    SHORT ATTRIBUTES: <p><b>Superclass</b></p>
+
+<p><!-- a logicalPath="//test_ref/cpp/cl/OSObject //test_ref/cpp/tdef/OSObject //test_ref/cpp/tag/OSObject //test_ref/cpp/struct/OSObject //test_ref/cpp/intf/OSObject //test_ref/cpp/econst/OSObject //test_ref/cpp/data/OSObject //test_ref/cpp/clconst/OSObject //test_ref/cpp/instm/OSObject //test_ref/cpp/clm/OSObject //test_ref/cpp/intfcm/OSObject //test_ref/cpp/intfm/OSObject //test_ref/cpp/func/OSObject //test_ref/cpp/ftmplt/OSObject //test_ref/cpp/defn/OSObject //test_ref/cpp/macro/OSObject //test_ref/doc/com/intfm/OSObject //test_ref/doc/anysymbol/OSObject" machineGenerated="true" -->OSObject<!-- /a --></p>
+<p><b>Declared In</b></p><p><a href="../../index.html" logicalPath="//test_ref/doc/header/group_test_10.test" target="_top" machineGenerated="true">group test 10</a></p>
+
+    LONG ATTRIBUTES: 
+        TREE COUNT: 1
+        INDEX GROUP: 
+        IS BLOCK: 
+        OBJECT TYPE: HeaderDoc::Function
+        NAME: setNext
+        APIUID: //test_ref/cpp/instm/group_test_10/setNext/void/(IOEventSource*)
+        ABSTRACT: "<p>Set'ter for eventChainNext variable.
+"
+        DISCUSSION: "<p></p>"
+        UPDATED: ""
+        COPYRIGHT: ""
+        HTMLMETA: ""
+        PRIVATEDECLARATION: ""
+        GROUP: "CPP Class Group"
+        INDEXGROUP: ""
+        THROWS: ""
+        XMLTHROWS: ""
+        UPDATED: ""
+        LINKAGESTATE: ""
+        ACCESSCONTROL: "public"
+        AVAILABILITY: ""
+        LINKUID: ""
+        ORIGCLASS: ""
+        ISDEFINE: ""
+        ISTEMPLATE: ""
+        VALUE: "UNKNOWN"
+        RETURNTYPE: " virtual void"
+        LINENUM: ""
+        CLASS: "HeaderDoc::Function"
+        MASTERENUM: ""
+        APIREFSETUPDONE: "1"
+        TPCDONE: ""
+        NOREGISTERUID: ""
+        SUPPRESSCHILDREN: "0"
+        NAMELINE_DISCUSSION: ""
+        HIDEDOC: ""
+        HIDESINGLETONS: ""
+        HIDECONTENTS: ""
+        MAINOBJECT: ""
+        LIST ATTRIBUTES: 
+        SHORT ATTRIBUTES: 
+        LONG ATTRIBUTES: 
+        PARSED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: next
+            TYPE: IOEventSource *
+            APIUID: 
+            ABSTRACT: ""
+            DISCUSSION: "<p></p>"
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+        TAGGED PARAMETERS:
+            TREE COUNT: 0
+            INDEX GROUP: 
+            IS BLOCK: 
+            OBJECT TYPE: HeaderDoc::MinorAPIElement
+            NAME: next
+            TYPE: 
+            APIUID: //test_ref/doc/functionparam/group_test_10/setNext/next
+            ABSTRACT: ""
+            DISCUSSION: "<p>Pointer to another IOEventSource instance."
+            UPDATED: ""
+            COPYRIGHT: ""
+            HTMLMETA: ""
+            PRIVATEDECLARATION: ""
+            GROUP: ""
+            INDEXGROUP: ""
+            THROWS: ""
+            XMLTHROWS: ""
+            UPDATED: ""
+            LINKAGESTATE: ""
+            ACCESSCONTROL: ""
+            AVAILABILITY: ""
+            LINKUID: ""
+            ORIGCLASS: ""
+            ISDEFINE: ""
+            ISTEMPLATE: ""
+            VALUE: "UNKNOWN"
+            RETURNTYPE: ""
+            LINENUM: ""
+            CLASS: "HeaderDoc::MinorAPIElement"
+            MASTERENUM: ""
+            APIREFSETUPDONE: "1"
+            TPCDONE: ""
+            NOREGISTERUID: ""
+            SUPPRESSCHILDREN: ""
+            NAMELINE_DISCUSSION: ""
+            HIDEDOC: ""
+            HIDESINGLETONS: ""
+            HIDECONTENTS: ""
+            MAINOBJECT: ""
+            LIST ATTRIBUTES: 
+            SHORT ATTRIBUTES: 
+            LONG ATTRIBUTES: 
+-=: NAMED OBJECT PARSE TREES :=-
+OBJECT: group_test_10 (HeaderDoc::CPPClass)
++---class
++--- 
++---group_test_10
++--- 
++---:
++--- 
++---public
++--- 
++---OSObject
++---[ NEWLINE ]
++---{
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @methodgroup CPP Class Group
+|   |   +---
+This is a test of groups with descriptions in a C++ class.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---/*
+|   |   +---!
+|   |   +--- @function setNext
+|   |   +---
+@abstract Set'ter for eventChainNext variable.
+|   |   +---
+@param next
+|   |   +---
+Pointer to another IOEventSource instance.
+|   |   +---[ NEWLINE ]
+|   |   +---*/
+|   +---[ NEWLINE ]
+|   +---     
+|   +-*-virtual (HAS STATE)
+|   +--- 
+|   +---void
+|   +--- 
+|   +---setNext
+|   +---(
+|   |   +---IOEventSource
+|   |   +--- 
+|   |   +---*
+|   |   +---next
+|   |   +---)
+|   +---;
+|   +--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
+|   +---[ NEWLINE ]
+|   +---[ NEWLINE ]
+|   +---}
++---;
++--- 
++---[ NEWLINE ]
+END OF OBJECT
+
+
+OBJECT: setNext (HeaderDoc::Function)
++-*-virtual (HAS STATE)
++--- 
++---void
++--- 
++---setNext
++---(
+|   +---IOEventSource
+|   +--- 
+|   +---*
+|   +---next
+|   +---)
++---;
++--- 
+-=-=-=-=-=-=- EODEC -=-=-=-=-=-=-
++---[ NEWLINE ]
++---[ NEWLINE ]
++---}
+END OF OBJECT
+
+
+
+-=: HTML OUTPUT OF PARSE TREES :=-
+OBJECT: group_test_10 (HeaderDoc::CPPClass)
+	<span class="keyword">class</span> <!-- a logicalPath="//test_ref/cpp/cl/group_test_10 //test_ref/cpp/tdef/group_test_10 //test_ref/cpp/tag/group_test_10 //test_ref/cpp/struct/group_test_10 //test_ref/cpp/intf/group_test_10 //test_ref/doc/anysymbol/group_test_10" machineGenerated="true" --><span class="type">group_test_10</span><!-- /a --> : <span class="keyword">public</span> <!-- a logicalPath="//test_ref/cpp/cl/OSObject //test_ref/cpp/tdef/OSObject //test_ref/cpp/tag/OSObject //test_ref/cpp/struct/OSObject //test_ref/cpp/intf/OSObject //test_ref/doc/anysymbol/OSObject" machineGenerated="true" --><span class="type">OSObject</span><!-- /a --> { 
+	    <span class="comment">/*! @methodgroup CPP Class Group
+	This is a test of groups with descriptions in a C++ class.</span>
+	        <span class="comment">*/</span>
+	    <span class="comment">/*! @function setNext
+	@abstract Set'ter for eventChainNext variable.
+	@param next
+	Pointer to another IOEventSource instance.</span>
+	        <span class="comment">*/</span>
+	    <span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/struct/void //test_ref/cpp/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/setNext //test_ref/cpp/clm/setNext //test_ref/cpp/intfcm/setNext //test_ref/cpp/intfm/setNext //test_ref/cpp/func/setNext //test_ref/cpp/ftmplt/setNext //test_ref/cpp/defn/setNext //test_ref/cpp/macro/setNext //test_ref/doc/anysymbol/setNext" machineGenerated="true" --><span class="function">setNext</span><!-- /a -->(
+	        <!-- a logicalPath="//test_ref/cpp/cl/IOEventSource //test_ref/cpp/tdef/IOEventSource //test_ref/cpp/tag/IOEventSource //test_ref/cpp/struct/IOEventSource //test_ref/cpp/intf/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="type">IOEventSource</span><!-- /a --> <span class="type">*</span><span class="param">next</span>);  
+	};  
+END OF OBJECT
+
+
+OBJECT: setNext (HeaderDoc::Function)
+	<span class="keyword">virtual</span> <!-- a logicalPath="//test_ref/cpp/cl/void //test_ref/cpp/tdef/void //test_ref/cpp/tag/void //test_ref/cpp/struct/void //test_ref/cpp/intf/void //test_ref/doc/anysymbol/void" machineGenerated="true" --><span class="type">void</span><!-- /a --> <!-- a logicalPath="//test_ref/cpp/instm/group_test_10/setNext //test_ref/cpp/clm/group_test_10/setNext //test_ref/cpp/intfcm/group_test_10/setNext //test_ref/cpp/intfm/group_test_10/setNext //test_ref/cpp/func/setNext //test_ref/cpp/ftmplt/group_test_10/setNext //test_ref/cpp/defn/setNext //test_ref/cpp/macro/setNext //test_ref/doc/anysymbol/setNext" machineGenerated="true" --><span class="function">setNext</span><!-- /a -->(
+	    <!-- a logicalPath="//test_ref/cpp/cl/IOEventSource //test_ref/cpp/tdef/IOEventSource //test_ref/cpp/tag/IOEventSource //test_ref/cpp/struct/IOEventSource //test_ref/cpp/intf/IOEventSource //test_ref/doc/anysymbol/IOEventSource" machineGenerated="true" --><span class="type">IOEventSource</span><!-- /a --> <span class="type">*</span><span class="param">next</span>); 
+END OF OBJECT
+
+
+
+$47|Tests groups with descriptions inside a class.
+$95|/Users/dg/headerdoc-techpubs/Modules/HeaderDoc//../../testsuite/parser_tests/group_test_10.test$1|C$13|group test 10$1|C$6|parser

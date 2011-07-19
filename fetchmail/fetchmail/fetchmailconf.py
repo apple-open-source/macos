@@ -5,7 +5,7 @@
 # Matthias Andree <matthias.andree@gmx.de>
 # Requires Python with Tkinter, and the following OS-dependent services:
 #	posix, posixpath, socket
-version = "1.55 $Revision: 5330 $"
+version = "1.57"
 
 from Tkinter import *
 from Dialog import *
@@ -65,6 +65,8 @@ class Configuration:
 	    str = str + ("set properties \"%s\"\n" % (self.properties,));
 	if self.poll_interval > 0:
 	    str = str + "set daemon " + `self.poll_interval` + "\n"
+	if self.invisible:
+	   str = str + ("set invisible\n")
 	for site in self.servers:
 	    str = str + repr(site)
 	return str
@@ -103,6 +105,7 @@ class Server:
 	self.esmtpname = None		# ESMTP 2554 name
 	self.esmtppassword = None	# ESMTP 2554 password
 	self.tracepolls = FALSE		# Add trace-poll info to headers
+	self.badheader = FALSE		# Pass messages with bad headers on?
 	self.users = []			# List of user entries for site
 	Server.typemap = (
 	    ('pollname',  'String'),
@@ -127,7 +130,8 @@ class Server:
 	    ('esmtpname', 'String'),
 	    ('esmtppassword', 'String'),
 	    ('principal', 'String'),
-	    ('tracepolls','Boolean'))
+	    ('tracepolls','Boolean'),
+	    ('badheader', 'Boolean'))
 
     def dump(self, folded):
 	res = ""
@@ -197,6 +201,8 @@ class Server:
 	if self.interface or self.monitor or self.principal or self.plugin or self.plugout:
 	    if folded:
 		res = res + "\n"
+	if self.badheader:
+		res = res + "bad-header accept "
 
 	if res[-1] == " ": res = res[0:-1]
 
@@ -1129,6 +1135,8 @@ class ServerEdit(Frame, MyWidget):
 	    ctlwin = Frame(leftwin, relief=RAISED, bd=5)
 	    Label(ctlwin, text="Run Controls").pack(side=TOP)
 	    Checkbutton(ctlwin, text='Poll ' + host + ' normally?', variable=self.active).pack(side=TOP)
+	    Checkbutton(ctlwin, text='Pass messages with bad headers?',
+		    variable=self.badheader).pack(side=TOP)
 	    LabeledEntry(ctlwin, 'True name of ' + host + ':',
 		      self.via, leftwidth).pack(side=TOP, fill=X)
 	    LabeledEntry(ctlwin, 'Cycles to skip between polls:',
@@ -1689,9 +1697,9 @@ class UserEdit(Frame, MyWidget):
 	    Label(targwin, text="Domains to fetch from (ODMR/ETRN only)").pack(side=TOP)
 	    ListEdit("Domains:",
 		     self.user.fetchdomains, None, None, targwin, None)
-	    LabeledEntry(targwin, 'Append to MAIL FROM line:',
+	    LabeledEntry(targwin, 'Use domain on RCPT TO line:',
 		     self.smtpaddress, '26').pack(side=TOP, fill=X)
-	    LabeledEntry(targwin, 'Set RCPT To address:',
+	    LabeledEntry(targwin, 'Set fixed RCPT TO address:',
 		     self.smtpname, '26').pack(side=TOP, fill=X)
 	    LabeledEntry(targwin, 'Connection setup command:',
 		     self.preconnect, '26').pack(side=TOP, fill=X)

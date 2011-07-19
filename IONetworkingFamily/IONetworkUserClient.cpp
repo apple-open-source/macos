@@ -337,3 +337,11 @@ IONetworkUserClient::setProperties(OSObject * properties)
 {
     return _owner->setProperties(properties);
 }
+
+//---------------------------------------------------------------------------
+// Return our provider. This is called by IOConnectGetService().
+
+IOService * IONetworkUserClient::getService()
+{
+    return _owner;
+}

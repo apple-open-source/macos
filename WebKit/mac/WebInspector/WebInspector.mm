@@ -30,6 +30,7 @@
 
 #import "WebFrameInternal.h"
 #import "WebInspectorPrivate.h"
+#import "WebInspectorFrontend.h"
 
 #include <WebCore/Document.h>
 #include <WebCore/Frame.h>
@@ -47,6 +48,12 @@ using namespace WebCore;
     return self;
 }
 
+- (void)dealloc
+{
+    [_frontend release];
+    [super dealloc];
+}
+
 - (void)webViewClosed
 {
     _webView = nil;
@@ -61,7 +68,7 @@ using namespace WebCore;
 - (void)showConsole:(id)sender
 {
     if (Page* page = core(_webView))
-        page->inspectorController()->showPanel(InspectorController::ConsolePanel);
+        page->inspectorController()->showConsole();
 }
 
 - (void)showTimeline:(id)sender
@@ -89,8 +96,7 @@ using namespace WebCore;
     Page* page = core(_webView);
     if (!page)
         return;
-    page->inspectorController()->showPanel(InspectorController::ScriptsPanel);
-    page->inspectorController()->enableDebugger();
+    page->inspectorController()->showAndEnableDebugger();
 }
 
 - (void)stopDebuggingJavaScript:(id)sender
@@ -126,7 +132,6 @@ using namespace WebCore;
     if (!page)
         return;
     page->inspectorController()->stopUserInitiatedProfiling();
-    page->inspectorController()->showPanel(InspectorController::ProfilesPanel);
 }
 
 - (BOOL)isJavaScriptProfilingEnabled
@@ -151,7 +156,7 @@ using namespace WebCore;
 - (BOOL)isTimelineProfilingEnabled
 {
     if (Page* page = core(_webView))
-        return page->inspectorController()->timelineAgent() ? YES : NO;
+        return page->inspectorController()->timelineProfilerEnabled() ? YES : NO;
     return NO;
 }
 
@@ -175,16 +180,24 @@ using namespace WebCore;
 
 - (void)attach:(id)sender
 {
+    [_frontend attach];
 }
 
 - (void)detach:(id)sender
 {
+    [_frontend detach];
 }
 
 - (void)evaluateInFrontend:(id)sender callId:(long)callId script:(NSString *)script
 {
     if (Page* page = core(_webView))
         page->inspectorController()->evaluateForTestInFrontend(callId, script);
+}
+
+- (void)setFrontend:(WebInspectorFrontend *)frontend
+{
+    [_frontend release];
+    _frontend = [frontend retain];
 }
 @end
 

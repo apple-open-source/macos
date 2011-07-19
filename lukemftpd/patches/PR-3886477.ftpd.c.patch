@@ -1,18 +1,19 @@
---- src/ftpd.c.orig	Mon Aug  9 20:53:35 2004
-+++ src/ftpd.c	Fri Jan  7 22:38:20 2005
-@@ -776,8 +776,14 @@
+--- tnftpd-20091122/src/ftpd.c	2009-11-06 19:26:21.000000000 -0800
++++ tnftpd/src/ftpd.c	2010-01-28 17:03:18.000000000 -0800
+@@ -1024,9 +1024,15 @@
  			goto cleanup_user;
  		}
  		name = "ftp";
 -	} else
 +	} else {
  		pw = sgetpwnam(name);
-+
+ 
 +		/* Get the real username; getpwnam() works with long usernames. */
 +		if (pw != NULL) {
 +			name = pw->pw_name;
 +		}
 +	}
- 
++
  	strlcpy(curname, name, curname_len);
  
+ 			/* check user in /etc/ftpusers, and setup class */

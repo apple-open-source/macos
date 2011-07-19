@@ -1,8 +1,9 @@
 [comment {-*- tcl -*- doctools manpage}]
-[manpage_begin doctools_plugin_apiref n 1.0]
-[copyright {2007 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
+[manpage_begin doctools_plugin_apiref n 1.1]
+[copyright {2007-2010 Andreas Kupries <andreas_kupries@users.sourceforge.net>}]
 [moddesc   {Documentation tools}]
 [titledesc {doctools plugin API reference}]
+[category  {Documentation tools}]
 [description]
 [para]
 
@@ -99,7 +100,12 @@ option is [option -copyright]).
 [call [cmd dt_file]]
 
 Query command. It returns the full path of the file containing the
-input currently processed by the engine.
+input currently processed by the engine. This may be an included file.
+
+[call [cmd dt_mainfile]]
+
+Query command. It returns the full path of the toplevel file containing
+the input currently processed by the engine.
 
 [call [cmd dt_fileid]]
 
@@ -123,6 +129,27 @@ of the documentation for the package [package doctools].
 Query command. It returns the name of the format associated with the
 doctools formatting engine.
 
+[call [cmd dt_imgdata] [arg key] [arg extensions]]
+
+Query command. Access to the image map. Looks for an image recorded
+under the [arg key] and having on the specified [arg extension]. If a
+matching image is found its data is returned as the result of the
+command. Otherwise an empty string is returned.
+
+[call [cmd dt_imgdst]  [arg key] [arg extensions]]
+
+Query command. Access to the image map. Looks for an image recorded
+under the [arg key] and having on the specified [arg extension]. If a
+matching image is found its destination path in the output is returned
+as the result of the command. Otherwise an empty string is returned.
+
+[call [cmd dt_imgsrc]  [arg key] [arg extensions]]
+
+Query command. Access to the image map. Looks for an image recorded
+under the [arg key] and having on the specified [arg extension]. If a
+matching image is found its origin path is returned as the result of
+the command. Otherwise an empty string is returned.
+
 [call [cmd dt_lnesting]]
 
 Query command. It returns the number of lists currently open.
@@ -131,6 +158,15 @@ Query command. It returns the number of lists currently open.
 
 Query command. It returns the name of the module the input currently
 processed belongs to.
+
+[call [cmd dt_read] [arg file]]
+
+Controlled filesystem access. Returns contents of [arg file] for
+whatever use desired by the plugin.
+
+Only files which are either in the same directory as the file
+containing the engine, or below it, can be loaded. Trying to load a
+file outside of this directory causes an error.
 
 [call [cmd dt_source] [arg file]]
 

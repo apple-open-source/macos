@@ -1,7 +1,7 @@
 /*
  * Copyright (C) 1999 Lars Knoll (knoll@kde.org)
  *           (C) 1999 Antti Koivisto (koivisto@kde.org)
- * Copyright (C) 2003, 2009 Apple Inc. All rights reserved.
+ * Copyright (C) 2003, 2009, 2010 Apple Inc. All rights reserved.
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -29,28 +29,18 @@ namespace WebCore {
 
 class HTMLBaseElement : public HTMLElement {
 public:
-    HTMLBaseElement(const QualifiedName&, Document*);
+    static PassRefPtr<HTMLBaseElement> create(const QualifiedName&, Document*);
 
 private:
-    virtual HTMLTagStatus endTagRequirement() const { return TagStatusForbidden; }
-    virtual int tagPriority() const { return 0; }
+    HTMLBaseElement(const QualifiedName&, Document*);
 
-    virtual String target() const { return m_target; }
-
-    virtual void parseMappedAttribute(MappedAttribute*);
+    virtual String target() const;
+    virtual bool isURLAttribute(Attribute*) const;
+    virtual void parseMappedAttribute(Attribute*);
     virtual void insertedIntoDocument();
     virtual void removedFromDocument();
-
-    void process();
-    
-    void setHref(const String&);
-    void setTarget(const String&);
-
-    String m_hrefAttrValue;
-    String m_href;
-    String m_target;
 };
 
-} //namespace
+} // namespace
 
 #endif

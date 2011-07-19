@@ -1,6 +1,6 @@
 /*************************************************************************
  *
- * $Id: triostr.h,v 1.17 2007/11/11 13:21:49 breese Exp $
+ * $Id: triostr.h,v 1.18 2010/01/26 13:02:02 breese Exp $
  *
  * Copyright (C) 2001 Bjorn Reese and Daniel Stenberg.
  *
@@ -206,6 +206,7 @@ enum {
 
 # define TRIO_FUNC_XSTRING_APPEND
 # define TRIO_FUNC_XSTRING_APPEND_CHAR
+# define TRIO_FUNC_XSTRING_APPEND_MAX
 # define TRIO_FUNC_XSTRING_CONTAINS
 # define TRIO_FUNC_XSTRING_COPY
 # define TRIO_FUNC_XSTRING_DUPLICATE
@@ -599,6 +600,12 @@ TRIO_PROTO((trio_string_t *self, TRIO_CONST char *other));
 TRIO_PUBLIC_STRING int
 trio_xstring_append_char
 TRIO_PROTO((trio_string_t *self, char character));
+#endif
+
+#if defined(TRIO_FUNC_XSTRING_APPEND_MAX)
+TRIO_PUBLIC_STRING int
+trio_xstring_append_max
+TRIO_PROTO((trio_string_t *self, TRIO_CONST char *other, size_t max));
 #endif
 
 #if defined(TRIO_FUNC_XSTRING_CONTAINS)

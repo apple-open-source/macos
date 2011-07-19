@@ -53,7 +53,6 @@
 		ACB7466A0D621FE1002F4863 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 5C596BD800BF099A05CE15C0 /* CoreFoundation.framework */; };
 		ACB7466B0D621FE1002F4863 /* SystemConfiguration.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = AC0458CD04D75866007FCDBB /* SystemConfiguration.framework */; };
 		ACB7466C0D621FE1002F4863 /* libutil.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = AC21C0C40B376BBD00301821 /* libutil.dylib */; };
-		ACB7467C0D621FE1002F4863 /* cddafs.util in CopyFiles */ = {isa = PBXBuildFile; fileRef = ACB746720D621FE1002F4863 /* cddafs.util */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -88,16 +87,6 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXCopyFilesBuildPhase section */
-		ACB746490D621FE1002F4863 /* CopyFiles */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 12;
-			dstPath = "";
-			dstSubfolderSpec = 7;
-			files = (
-				ACB7467C0D621FE1002F4863 /* cddafs.util in CopyFiles */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		ACB7464B0D621FE1002F4863 /* CopyFiles */ = {
 			isa = PBXCopyFilesBuildPhase;
 			buildActionMask = 8;
@@ -380,7 +369,6 @@
 			buildPhases = (
 				ACB746450D621FE1002F4863 /* Headers */,
 				ACB746460D621FE1002F4863 /* Resources */,
-				ACB746490D621FE1002F4863 /* CopyFiles */,
 				ACB7464B0D621FE1002F4863 /* CopyFiles */,
 				ACB7464C0D621FE1002F4863 /* CopyFiles */,
 				ACB7464D0D621FE1002F4863 /* Sources */,
@@ -424,7 +412,11 @@
 			isa = PBXProject;
 			buildConfigurationList = AC21C0890B37668600301821 /* Build configuration list for PBXProject "cddafs" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 018938C1FFE55C3511CE15BF /* AppleCDDAFileSystemProj */;
 			productRefGroup = 018938FAFFE55C3511CE15BF /* Products */;
 			projectDirPath = "";
@@ -987,6 +979,7 @@
 				GCC_OPTIMIZATION_LEVEL = 0;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/cddafs.fs/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1012,6 +1005,7 @@
 				GCC_ENABLE_FIX_AND_CONTINUE = NO;
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/cddafs.fs/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -1035,6 +1029,7 @@
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
 				HEADER_SEARCH_PATHS = "";
+				INSTALL_PATH = "$(SYSTEM_LIBRARY_DIR)/Filesystems/cddafs.fs/Contents/Resources";
 				LIBRARY_SEARCH_PATHS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";

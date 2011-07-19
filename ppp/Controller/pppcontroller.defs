@@ -62,6 +62,7 @@ routine pppcontroller_attach (	server		: mach_port_t;
 					name_data	: xmlData;
 					bootstrap	: bootstrap_t;
 					notify		: mach_port_move_send_t;
+					au_session	: mach_port_t;		
 				 out	session		: mach_port_move_send_t;
 				 out	result		: int);
 
@@ -100,10 +101,7 @@ routine pppcontroller_notification (	session		: mach_port_t;
 					enable	: int;
 				 out	result		: int);
 
-
-skip;
-skip;
-skip;
+				 
 skip;
 skip;
 
@@ -120,6 +118,8 @@ routine pppcontroller_copyprivoptions (	session		: mach_port_t;
 				 out	options_data	: xmlDataOut, dealloc;
 				 out	result		: int;
 				 AuditToken audit_token: audit_token_t);
+				 
 routine pppcontroller_iscontrolled (	session		: mach_port_t;
 				 out	result		: int;
 				 AuditToken audit_token: audit_token_t);
+

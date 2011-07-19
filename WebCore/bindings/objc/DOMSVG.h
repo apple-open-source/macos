@@ -38,8 +38,6 @@
 #import <WebCore/DOMSVGAnimatedLengthList.h>
 #import <WebCore/DOMSVGAnimatedNumber.h>
 #import <WebCore/DOMSVGAnimatedNumberList.h>
-#import <WebCore/DOMSVGAnimatedPathData.h>
-#import <WebCore/DOMSVGAnimatedPoints.h>
 #import <WebCore/DOMSVGAnimatedPreserveAspectRatio.h>
 #import <WebCore/DOMSVGAnimatedRect.h>
 #import <WebCore/DOMSVGAnimatedString.h>
@@ -63,9 +61,11 @@
 #import <WebCore/DOMSVGFEColorMatrixElement.h>
 #import <WebCore/DOMSVGFEComponentTransferElement.h>
 #import <WebCore/DOMSVGFECompositeElement.h>
+#import <WebCore/DOMSVGFEConvolveMatrixElement.h>
 #import <WebCore/DOMSVGFEDiffuseLightingElement.h>
 #import <WebCore/DOMSVGFEDisplacementMapElement.h>
 #import <WebCore/DOMSVGFEDistantLightElement.h>
+#import <WebCore/DOMSVGFEDropShadowElement.h>
 #import <WebCore/DOMSVGFEFloodElement.h>
 #import <WebCore/DOMSVGFEFuncAElement.h>
 #import <WebCore/DOMSVGFEFuncBElement.h>

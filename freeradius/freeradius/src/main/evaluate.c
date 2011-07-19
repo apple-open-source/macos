@@ -47,7 +47,6 @@ RCSID("$Id$")
 #endif
 #endif
 
-
 #ifdef WITH_UNLANG
 
 static int all_digits(const char *string)
@@ -163,7 +162,7 @@ static FR_TOKEN getregex(const char **ptr, char *buffer, size_t buflen,
 
 			default:
 				if ((p[1] >= '0') && (p[1] <= '9') &&
-				    (sscanf(p, "%3o", &x) == 1)) {
+				    (sscanf(p + 1, "%3o", &x) == 1)) {
 					*q++ = x;
 					p += 2;
 				} else {
@@ -200,8 +199,7 @@ static const FR_NAME_NUMBER modreturn_table[] = {
 };
 
 
-static int radius_get_vp(REQUEST *request, const char *name, VALUE_PAIR **vp_p)
-			
+int radius_get_vp(REQUEST *request, const char *name, VALUE_PAIR **vp_p)
 {
 	const char *vp_name = name;
 	REQUEST *myrequest = request;
@@ -245,6 +243,42 @@ static int radius_get_vp(REQUEST *request, const char *name, VALUE_PAIR **vp_p)
 		vp_name += 8;
 		vps = myrequest->config_items;
 
+#ifdef WITH_COA
+	} else if (strncmp(vp_name, "coa:", 4) == 0) {
+		vp_name += 4;
+
+		if (myrequest->coa &&
+		    (myrequest->coa->proxy->code == PW_COA_REQUEST)) {
+			vps = myrequest->coa->proxy->vps;
+		}
+
+	} else if (strncmp(vp_name, "coa-reply:", 10) == 0) {
+		vp_name += 10;
+
+		if (myrequest->coa && /* match reply with request */
+		    (myrequest->coa->proxy->code == PW_COA_REQUEST) &&
+		    (myrequest->coa->proxy_reply)) {
+			vps = myrequest->coa->proxy_reply->vps;
+		}
+
+	} else if (strncmp(vp_name, "disconnect:", 11) == 0) {
+		vp_name += 11;
+
+		if (myrequest->coa &&
+		    (myrequest->coa->proxy->code == PW_DISCONNECT_REQUEST)) {
+			vps = myrequest->coa->proxy->vps;
+		}
+
+	} else if (strncmp(vp_name, "disconnect-reply:", 17) == 0) {
+		vp_name += 17;
+
+		if (myrequest->coa && /* match reply with request */
+		    (myrequest->coa->proxy->code == PW_DISCONNECT_REQUEST) &&
+		    (myrequest->coa->proxy_reply)) {
+			vps = myrequest->coa->proxy_reply->vps;
+		}
+#endif
+
 	} else {
 		vps = myrequest->packet->vps;
 	}
@@ -269,7 +303,7 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 			 int cflags, int modreturn)
 {
 	int result;
-	int lint, rint;
+	uint32_t lint, rint;
 	VALUE_PAIR *vp = NULL;
 #ifdef HAVE_REGEX_H
 	char buffer[1024];
@@ -324,14 +358,16 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 				if (da && radius_find_compare(da->attr)) {
 					VALUE_PAIR *check = pairmake(pleft, pright, token);
 					*presult = (radius_callback_compare(request, NULL, check, NULL, NULL) == 0);
+					RDEBUG3("  Callback returns %d",
+						*presult);
 					pairfree(&check);
-					if (*presult)  return TRUE;
-					return FALSE;
+					return TRUE;
 				}
 				
 				RDEBUG2("    (Attribute %s was not found)",
 				       pleft);
-				return FALSE;
+				*presult = 0;
+				return TRUE;
 			}
 
 #ifdef HAVE_REGEX_H
@@ -356,6 +392,7 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 
 			myvp.operator = token;
 			*presult = paircmp(&myvp, vp);
+			RDEBUG3("  paircmp -> %d", *presult);
 			return TRUE;
 		} /* else it's not a VP in a list */
 	}
@@ -372,12 +409,12 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 			RDEBUG2("    (Right field is not a number at: %s)", pright);
 			return FALSE;
 		}
-		rint = atoi(pright);
+		rint = strtoul(pright, NULL, 0);
 		if (!all_digits(pleft)) {
 			RDEBUG2("    (Left field is not a number at: %s)", pleft);
 			return FALSE;
 		}
-		lint = atoi(pleft);
+		lint = strtoul(pleft, NULL, 0);
 		break;
 		
 	default:
@@ -391,7 +428,7 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 		 *	Check for truth or falsehood.
 		 */
 		if (all_digits(pleft)) {
-			lint = atoi(pleft);
+			lint = strtoul(pleft, NULL, 0);
 			result = (lint != 0);
 			
 		} else {
@@ -519,6 +556,7 @@ static int radius_do_cmp(REQUEST *request, int *presult,
 	return TRUE;
 }
 
+
 int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 			      const char **ptr, int evaluate_it, int *presult)
 {
@@ -539,27 +577,41 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 		return FALSE;
 	}
 
+	/*
+	 *	Horrible parser.
+	 */
 	p =  *ptr;
 	while (*p) {
 		while ((*p == ' ') || (*p == '\t')) p++;
 
-		if (*p == '!') {
-			RDEBUG4(">>> INVERT");
-			invert = TRUE;
+		/*
+		 *	! EXPR
+		 */
+		if (!found_condition && (*p == '!')) {
+			/*
+			 *	Don't change the results if we're not
+			 *	evaluating the condition.
+			 */
+			if (evaluate_next_condition) {
+				RDEBUG4(">>> INVERT");
+				invert = TRUE;
+			}
 			p++;
+
+			while ((*p == ' ') || (*p == '\t')) p++;
 		}
 
 		/*
-		 *	It's a subcondition.
+		 *	( EXPR ) 
 		 */
-		if (*p == '(') {
+		if (!found_condition && (*p == '(')) {
 			const char *end = p + 1;
 
 			/*
 			 *	Evaluate the condition, bailing out on
 			 *	parse error.
 			 */
-			RDEBUG4(">>> CALLING EVALUATE %s", end);
+			RDEBUG4(">>> RECURSING WITH ... %s", end);
 			if (!radius_evaluate_condition(request, modreturn,
 						       depth + 1, &end,
 						       evaluate_next_condition,
@@ -567,14 +619,14 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 				return FALSE;
 			}
 
-			if (invert && evaluate_next_condition) {
-				RDEBUG2("%.*s Converting !%s -> %s",
-				       depth, filler,
-				       (result != FALSE) ? "TRUE" : "FALSE",
-				       (result == FALSE) ? "TRUE" : "FALSE");
-
-				       
-				result = (result == FALSE);
+			if (invert) {
+				if (evaluate_next_condition) {
+					RDEBUG2("%.*s Converting !%s -> %s",
+						depth, filler,
+						(result != FALSE) ? "TRUE" : "FALSE",
+						(result == FALSE) ? "TRUE" : "FALSE");
+					result = (result == FALSE);
+				}
 				invert = FALSE;
 			}
 
@@ -583,74 +635,69 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 			 *	condition
 			 */
 			p = end;
-			RDEBUG4(">>> EVALUATE RETURNED ::%s::", end);
-			
-			if (!((*p == ')') || (*p == '!') ||
-			      ((p[0] == '&') && (p[1] == '&')) ||
-			      ((p[0] == '|') && (p[1] == '|')))) {
+			RDEBUG4(">>> AFTER RECURSION ... %s", end);
 
-				radlog(L_ERR, "Parse error in condition at: %s", p);
-				return FALSE;
-			}
-			if (*p == ')') p++;	/* skip it */
-			found_condition = TRUE;
-			
 			while ((*p == ' ') || (*p == '\t')) p++;
 
-			/*
-			 *	EOL.  It's OK.
-			 */
 			if (!*p) {
-				RDEBUG4(">>> AT EOL");
-				*ptr = p;
-				*presult = result;
-				return TRUE;
-				
-				/*
-				 *	(A && B) means "evaluate B
-				 *	only if A was true"
-				 */
-			} else if ((p[0] == '&') && (p[1] == '&')) {
-				if (result == TRUE) {
-					evaluate_next_condition = evaluate_it;
-				} else {
-					evaluate_next_condition = FALSE;
-				}
-				p += 2;
-				
-				/*
-				 *	(A || B) means "evaluate B
-				 *	only if A was false"
-				 */
-			} else if ((p[0] == '|') && (p[1] == '|')) {
-				if (result == FALSE) {
-					evaluate_next_condition = evaluate_it;
-				} else {
-					evaluate_next_condition = FALSE;
-				}
-				p += 2;
-
-			} else if (*p == ')') {
-				RDEBUG4(">>> CLOSING BRACE");
-				*ptr = p;
-				*presult = result;
-				return TRUE;
-
-			} else {
-				/*
-				 *	Parse error
-				 */
-				radlog(L_ERR, "Unexpected trailing text at: %s", p);
+				radlog(L_ERR, "No closing brace");
 				return FALSE;
 			}
-		} /* else it wasn't an opening brace */
 
-		while ((*p == ' ') || (*p == '\t')) p++;
+			if (*p == ')') p++; /* eat closing brace */
+			found_condition = TRUE;
+
+			while ((*p == ' ') || (*p == '\t')) p++;
+		}
 
 		/*
-		 *	More conditions, keep going.
+		 *	At EOL or closing brace, update && return.
 		 */
-		if ((*p == '(') || (p[0] == '!')) continue;
+		if (found_condition && (!*p || (*p == ')'))) break;
+
+		/*
+		 *	Now it's either:
+		 *
+		 *	WORD
+		 *	WORD1 op WORD2
+		 *	&& EXPR
+		 *	|| EXPR
+		 */
+		if (found_condition) {
+			/*
+			 *	(A && B) means "evaluate B
+			 *	only if A was true"
+			 */
+			if ((p[0] == '&') && (p[1] == '&')) {
+				if (!result) evaluate_next_condition = FALSE;
+				p += 2;
+				found_condition = FALSE;
+				continue; /* go back to the start */
+			}
+
+			/*
+			 *	(A || B) means "evaluate B
+			 *	only if A was false"
+			 */
+			if ((p[0] == '|') && (p[1] == '|')) {
+				if (result) evaluate_next_condition = FALSE;
+				p += 2;
+				found_condition = FALSE;
+				continue;
+			}
+
+			/*
+			 *	It must be:
+			 *
+			 *	WORD
+			 *	WORD1 op WORD2
+			 */
+		}
+
+		if (found_condition) {
+			radlog(L_ERR, "Consecutive conditions at %s", p);
+			return FALSE;
+		}
 
 		RDEBUG4(">>> LOOKING AT %s", p);
 		start = p;
@@ -664,7 +711,7 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 		}
 
 		/*
-		 *	Look for word == value
+		 *	Look for WORD1 op WORD2
 		 */
 		lt = gettoken(&p, left, sizeof(left));
 		if ((lt != T_BARE_WORD) &&
@@ -687,23 +734,34 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 		}
 
 		/*
-		 *	Peek ahead.  Maybe it's just a check for
-		 *	existence.  If so, there shouldn't be anything
-		 *	else.
+		 *	Peek ahead, to see if it's:
+		 *
+		 *	WORD
+		 *
+		 *	or something else, such as
+		 *
+		 *	WORD1 op WORD2
+		 *	WORD )
+		 *	WORD && EXPR
+		 *	WORD || EXPR
 		 */
 		q = p;
 		while ((*q == ' ') || (*q == '\t')) q++;
 
 		/*
-		 *	End of condition, 
+		 *	If the next thing is:
+		 *
+		 *	EOL
+		 *	end of condition
+		 *      &&
+		 *	||
+		 *
+		 *	Then WORD is just a test for existence.
+		 *	Remember that and skip ahead.
 		 */
 		if (!*q || (*q == ')') ||
-		    ((*q == '!') && (q[1] != '=') && (q[1] != '~')) ||
 		    ((q[0] == '&') && (q[1] == '&')) ||
 		    ((q[0] == '|') && (q[1] == '|'))) {
-			/*
-			 *	Simplify the code.
-			 */
 			token = T_OP_CMP_TRUE;
 			rt = T_OP_INVALID;
 			pright = NULL;
@@ -711,12 +769,13 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 		}
 
 		/*
-		 *	Else it's a full "foo == bar" thingy.
+		 *	Otherwise, it's:
+		 *
+		 *	WORD1 op WORD2
 		 */
 		token = gettoken(&p, comp, sizeof(comp));
 		if ((token < T_OP_NE) || (token > T_OP_CMP_EQ) ||
-		    (token == T_OP_CMP_TRUE) ||
-		    (token == T_OP_CMP_FALSE)) {
+		    (token == T_OP_CMP_TRUE)) {
 			radlog(L_ERR, "Expected comparison at: %s", comp);
 			return FALSE;
 		}
@@ -775,12 +834,19 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 					   rt, pright, cflags, modreturn)) {
 				return FALSE;
 			}
+			RDEBUG4(">>> Comparison returned %d", result);
+
+			if (invert) {
+				RDEBUG4(">>> INVERTING result");
+				result = (result == FALSE);
+			}
 
 			RDEBUG2("%.*s Evaluating %s(%.*s) -> %s",
 			       depth, filler,
 			       invert ? "!" : "", p - start, start,
 			       (result != FALSE) ? "TRUE" : "FALSE");
 
+			invert = FALSE;
 			RDEBUG4(">>> GOT result %d", result);
 
 			/*
@@ -793,37 +859,17 @@ int radius_evaluate_condition(REQUEST *request, int modreturn, int depth,
 			       invert ? "!" : "", p - start, start);
 		}
 
-		if (invert) {
-			RDEBUG4(">>> INVERTING result");
-			result = (result == FALSE);
-			invert = FALSE;
-		}
-
-		/*
-		 *	Don't evaluate it.
-		 */
-		RDEBUG4(">>> EVALUATE %d ::%s::",
-			evaluate_next_condition, p);
-
-		while ((*p == ' ') || (*p == '\t')) p++;
-
-		/*
-		 *	Closing brace or EOL, return.
-		 */
-		if (!*p || (*p == ')') ||
-		    ((*p == '!') && (p[1] != '=') && (p[1] != '~')) ||
-		    ((p[0] == '&') && (p[1] == '&')) ||
-		    ((p[0] == '|') && (p[1] == '|'))) {
-			RDEBUG4(">>> AT EOL2a");
-			*ptr = p;
-			if (evaluate_next_condition) *presult = result;
-			return TRUE;
-		}
+		found_condition = TRUE;
 	} /* loop over the input condition */
 
-	RDEBUG4(">>> AT EOL2b");
+	if (!found_condition) {
+		radlog(L_ERR, "Syntax error.  Expected condition at %s", p);
+		return FALSE;
+	}
+
+	RDEBUG4(">>> AT EOL -> %d", result);
 	*ptr = p;
-	if (evaluate_next_condition) *presult = result;
+	if (evaluate_it) *presult = result;
 	return TRUE;
 }
 #endif
@@ -848,6 +894,7 @@ static void fix_up(REQUEST *request)
 		}
 	}
 }
+
 
 /*
  *	The pairmove() function in src/lib/valuepair.c does all sorts of
@@ -933,7 +980,7 @@ void radius_pairmove(REQUEST *request, VALUE_PAIR **to, VALUE_PAIR *from)
 
 		found = FALSE;
 		for (j = 0; j < to_count; j++) {
-			if (edited[j]) continue;
+			if (edited[j] || !to_list[j] || !from_list[i]) continue;
 
 			/*
 			 *	Attributes aren't the same, skip them.
@@ -972,6 +1019,14 @@ void radius_pairmove(REQUEST *request, VALUE_PAIR **to, VALUE_PAIR *from)
 			if (from_list[i]->operator == T_OP_EQ) {
 				found = TRUE;
 				break;
+			}
+
+			/*
+			 *	Delete every attribute, independent
+			 *	of its value.
+			 */
+			if (from_list[i]->operator == T_OP_CMP_FALSE) {
+				goto delete;
 			}
 
 			/*
@@ -1108,6 +1163,9 @@ void radius_pairmove(REQUEST *request, VALUE_PAIR **to, VALUE_PAIR *from)
 		last = &(*last)->next;
 	}
 
+	rad_assert(request != NULL);
+	rad_assert(request->packet != NULL);
+
 	/*
 	 *	Fix dumb cache issues
 	 */
@@ -1158,7 +1216,7 @@ int radius_update_attrlist(REQUEST *request, CONF_SECTION *cs,
 	CONF_ITEM *ci;
 	VALUE_PAIR *newlist, *vp;
 	VALUE_PAIR **output_vps = NULL;
-	REQUEST *request_vps = request;
+	REQUEST *myrequest = request;
 
 	if (!request || !cs) return RLM_MODULE_INVALID;
 
@@ -1169,29 +1227,67 @@ int radius_update_attrlist(REQUEST *request, CONF_SECTION *cs,
 	if (strncmp(name, "outer.", 6) == 0) {
 		if (!request->parent) return RLM_MODULE_NOOP;
 
-		request_vps = request->parent;
+		myrequest = request->parent;
 		name += 6;
 	}
 
 	if (strcmp(name, "request") == 0) {
-		output_vps = &request_vps->packet->vps;
+		output_vps = &myrequest->packet->vps;
 
 	} else if (strcmp(name, "reply") == 0) {
-		output_vps = &request_vps->reply->vps;
+		output_vps = &myrequest->reply->vps;
 
 #ifdef WITH_PROXY
 	} else if (strcmp(name, "proxy-request") == 0) {
-		if (request->proxy) output_vps = &request_vps->proxy->vps;
+		if (request->proxy) output_vps = &myrequest->proxy->vps;
 
 	} else if (strcmp(name, "proxy-reply") == 0) {
 		if (request->proxy_reply) output_vps = &request->proxy_reply->vps;
 #endif
 
 	} else if (strcmp(name, "config") == 0) {
-		output_vps = &request_vps->config_items;
+		output_vps = &myrequest->config_items;
 
 	} else if (strcmp(name, "control") == 0) {
-		output_vps = &request_vps->config_items;
+		output_vps = &myrequest->config_items;
+
+#ifdef WITH_COA
+	} else if (strcmp(name, "coa") == 0) {
+		if (!myrequest->coa) {
+			request_alloc_coa(myrequest);
+			myrequest->coa->proxy->code = PW_COA_REQUEST;
+		}
+		  
+		if (myrequest->coa &&
+		    (myrequest->coa->proxy->code == PW_COA_REQUEST)) {
+			output_vps = &myrequest->coa->proxy->vps;
+		}
+
+	} else if (strcmp(name, "coa-reply") == 0) {
+		if (myrequest->coa && /* match reply with request */
+		    (myrequest->coa->proxy->code == PW_COA_REQUEST) &&
+		     (myrequest->coa->proxy_reply)) {
+		      output_vps = &myrequest->coa->proxy_reply->vps;
+		}
+
+	} else if (strcmp(name, "disconnect") == 0) {
+		if (!myrequest->coa) {
+			request_alloc_coa(myrequest);
+			if (myrequest->coa) myrequest->coa->proxy->code = PW_DISCONNECT_REQUEST;
+		}
+
+		if (myrequest->coa &&
+		    (myrequest->coa->proxy->code == PW_DISCONNECT_REQUEST)) {
+			output_vps = &myrequest->coa->proxy->vps;
+		}
+
+	} else if (strcmp(name, "disconnect-reply") == 0) {
+		if (myrequest->coa && /* match reply with request */
+		    (myrequest->coa->proxy->code == PW_DISCONNECT_REQUEST) &&
+		    (myrequest->coa->proxy_reply)) {
+			output_vps = &myrequest->coa->proxy_reply->vps;
+		}
+#endif
 
 	} else {
 		return RLM_MODULE_INVALID;
@@ -1220,6 +1316,12 @@ int radius_update_attrlist(REQUEST *request, CONF_SECTION *cs,
 		}
 
 		cp = cf_itemtopair(ci);
+
+#ifndef NDEBUG
+		if (debug_flag && radius_find_compare(vp->attribute)) {
+			DEBUG("WARNING: You are modifying the value of virtual attribute %s.  This is not supported.", vp->name);
+		}
+#endif
 
 		/*
 		 *	The VP && CF lists should be in sync.  If they're

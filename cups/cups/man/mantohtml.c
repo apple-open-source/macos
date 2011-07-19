@@ -3,7 +3,7 @@
  *
  *   Man page to HTML conversion program.
  *
- *   Copyright 2007-2009 by Apple Inc.
+ *   Copyright 2007-2010 by Apple Inc.
  *   Copyright 2004-2006 by Easy Software Products.
  *
  *   These coded instructions, statements, and computer programs are the
@@ -23,8 +23,7 @@
  * Include necessary headers.
  */
 
-#include <cups/string.h>
-#include <stdlib.h>
+#include <cups/string-private.h>
 #include <unistd.h>
 
 
@@ -282,7 +281,7 @@ main(int  argc,				/* I - Number of command-line args */
         * Grab line break...
 	*/
 
-        if (list == 1)
+	if (list == 1)
 	{
 	  fputs("</dt>\n<dd>", outfile);
 	  list = 2;
@@ -403,7 +402,7 @@ main(int  argc,				/* I - Number of command-line args */
         * Process the text as if it was in-line...
 	*/
 
-        post = "\n<br />\n<br />";
+        post = "\n<br>\n<br>";
         goto process_text;
       }
       else if (!strncmp(line, ".\\}", 3))
@@ -636,6 +635,12 @@ process_text:
       {
         fputs(post, outfile);
 	post = NULL;
+      }
+
+      if (list == 1)
+      {
+	fputs("</dt>\n<dd>", outfile);
+	list = 2;
       }
     }
   }

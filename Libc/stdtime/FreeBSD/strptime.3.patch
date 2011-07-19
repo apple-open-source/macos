@@ -1,5 +1,5 @@
---- strptime.3.orig	2007-04-03 12:19:24.000000000 -0700
-+++ strptime.3	2007-04-03 12:54:12.000000000 -0700
+--- strptime.3.bsdnew	2009-11-14 13:55:44.000000000 -0800
++++ strptime.3	2009-11-14 14:00:22.000000000 -0800
 @@ -29,7 +29,8 @@
  .Dt STRPTIME 3
  .Os
@@ -44,7 +44,7 @@
  The resulting values will be relative to the local time zone.
  Thus, it can be considered the reverse operation of
  .Xr strftime 3 .
-@@ -78,7 +88,7 @@
+@@ -78,7 +88,7 @@ string does not contain enough conversio
  specify the resulting
  .Vt struct tm ,
  the unspecified members of
@@ -53,7 +53,7 @@
  are left untouched.
  For example, if
  .Fa format
-@@ -91,9 +101,17 @@
+@@ -91,9 +101,17 @@ and
  .Va tm_min
  will be modified.
  If time relative to today is desired, initialize the
@@ -72,7 +72,7 @@
  .Sh RETURN VALUES
  Upon successful completion,
  .Fn strptime
-@@ -104,10 +122,16 @@
+@@ -104,10 +122,16 @@ that has not been required to satisfy th
  It returns
  .Dv NULL
  if one of the conversions failed.
@@ -87,6 +87,6 @@
 -.Xr strftime 3
 +.Xr strftime 3 ,
 +.Xr xlocale 3
- .Sh AUTHORS
+ .Sh HISTORY
  The
  .Fn strptime

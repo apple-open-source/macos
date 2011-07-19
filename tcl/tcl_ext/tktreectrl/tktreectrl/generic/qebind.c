@@ -3,9 +3,9 @@
  *
  *	This module implements quasi-events.
  *
- * Copyright (c) 2002-2008 Tim Baker
+ * Copyright (c) 2002-2009 Tim Baker
  *
- * RCS: @(#) $Id: qebind.c,v 1.20 2008/02/22 20:02:25 hobbs2 Exp $
+ * RCS: @(#) $Id: qebind.c,v 1.22 2010/03/08 17:04:58 treectrl Exp $
  */
 
 /*
@@ -34,7 +34,7 @@
 #include "qebind.h"
 
 #define dbwin TreeCtrl_dbwin
-extern void dbwin(char *fmt, ...);
+MODULE_SCOPE void dbwin(char *fmt, ...);
 
 /*
  * The macro below is used to modify a "char" value (e.g. by casting
@@ -1944,7 +1944,8 @@ static void Percents_Command(QE_ExpandArgs *args)
 
 #if ALLOW_INSTALL
 
-int QE_InstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_InstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2074,7 +2075,8 @@ int QE_InstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	return TCL_OK;
 }
 
-int QE_InstallCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_InstallCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2195,7 +2197,8 @@ int QE_InstallCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
 	return TCL_OK;
 }
 
-int QE_InstallCmd(QE_BindingTable bindingTable, int objOffset, int objc,
+int
+QE_InstallCmd(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2217,7 +2220,8 @@ int QE_InstallCmd(QE_BindingTable bindingTable, int objOffset, int objc,
 	return QE_InstallCmd_New(bindingTable, objOffset, objc, objv);
 }
 
-int QE_UninstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_UninstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2259,7 +2263,8 @@ int QE_UninstallCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	return QE_UninstallEvent(bindingTable, eiPtr->type);
 }
 
-int QE_UninstallCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_UninstallCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2394,7 +2399,8 @@ int QE_UninstallCmd(QE_BindingTable bindingTable, int objOffset, int objc,
 	return QE_UninstallCmd_New(bindingTable, objOffset, objc, objv);
 }
 
-int QE_LinkageCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_LinkageCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;
@@ -2427,7 +2433,8 @@ int QE_LinkageCmd_New(QE_BindingTable bindingTable, int objOffset, int objc,
 	return TCL_OK;
 }
 
-int QE_LinkageCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
+static int
+QE_LinkageCmd_Old(QE_BindingTable bindingTable, int objOffset, int objc,
 	Tcl_Obj *CONST objv[])
 {
 	int objC = objc - objOffset;

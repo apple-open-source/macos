@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2000-2008 Apple Inc. All Rights Reserved.
+ * Copyright (c) 2000-2010 Apple Inc. All Rights Reserved.
  * 
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -163,6 +163,27 @@ typedef struct
 } SecKeyImportExportParameters;
 
 
+typedef struct 
+{
+	/* for import and export */
+	uint32_t				version;		/* SEC_KEY_IMPORT_EXPORT_PARAMS_VERSION */
+	SecKeyImportExportFlags flags;			/* SecKeyImportExportFlags bits */
+	CFTypeRef				passphrase;		/* kSecFormatPKCS12, kSecFormatWrapped*
+											 *    formats only. Legal types are
+											 *    CFStringRef and CFDataRef. */
+	CFStringRef				alertTitle;		/* title of s ecure passphrase alert panel */
+	CFStringRef				alertPrompt;	/* prompt in secure passphrase alert panel */
+	
+	/* for import only */
+	SecAccessRef			accessRef;		/* specifies the initial ACL of imported 
+											 *    key(s) */
+	CFArrayRef				keyUsage;		/* 	An Array containing item from SecItem.h i.e 
+												kSecAttrCanEncrypt;, kSecAttrCanDecrypt, kSecAttrCanDerive, etc
+											*/
+											
+	CFArrayRef				keyAttributes;	/* CSSM_KEYATTR_PERMANENT, etc. */
+} SecItemImportExportKeyParameters;
+
 /*
  * SecKeychainItemExport()
  *
@@ -210,16 +231,72 @@ typedef struct
  * converted as appropriate. 
  *
  * If no key items are being exported, the keyParams argument may be NULL.
+ * @discussion This API has been deprecated. Please us the SecItemExport API instead.
  */
 OSStatus SecKeychainItemExport(
 	CFTypeRef							keychainItemOrArray,
 	SecExternalFormat					outputFormat,	
 	SecItemImportExportFlags			flags,				/* kSecItemPemArmor, etc. */
 	const SecKeyImportExportParameters  *keyParams,			/* optional */
-	CFDataRef							*exportedData);		/* external representation 
-															 *    returned here */
+	CFDataRef							*exportedData)		/* external representation returned here */
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
 													
-
+/*
+ * SecItemExport()
+ *
+ * This function takes one or more SecItemRefs and creates an 
+ * external representation of the item(s) in the form of a CFDataRef. 
+ * Caller specifies the format of the external representation via a 
+ * SecExternalFormat enum. Caller may specify kSecFormatUnknown for 
+ * the format, in which case a the default format for the item 
+ * being exported is used (as described in the SecExternalFormat enums).
+ * PEM armouring is optional and is specified by the kSecItemPemArmour 
+ * flag in importFlags. 
+ *
+ * If exactly one item is to be exported, the keychainItemOrArray argument 
+ * can be a SecKeychainItem. Otherwise this argument is a CFArrayRef 
+ * containing a number of SecKeychainItems.
+ *
+ * The following SecKeychainItems may be exported:
+ *
+ *   SecCertificateRef
+ *   SecKeyRef
+ *   SecIdentityRef
+ *
+ *
+ * Key-related SecItemExport fields
+ * -----------------------------------------------
+ *
+ * When exporting SecKeyRefs in one of the wrapped formats 
+ * (kSecFormatWrappedOpenSSL, kSecFormatWrappedSSH, 
+ * kSecFormatWrappedPKCS8), or in PKCS12 format, caller must 
+ * either explicitly specify the passphrase field or set 
+ * the kSecKeySecurePassphrase bit in SecKeyImportExportFlags.
+ *
+ * If kSecKeySecurePassphrase is selected, caller can optionally
+ * specify strings for the passphrase panel's title bar and for 
+ * the prompt which appears in the panel via the alertTitle and 
+ * alertPrompt fields in SecItemImportExportKeyParameters.
+ *
+ * If an explicit passphrase is specified, note that PKCS12
+ * explicitly requires that passphrases are in Unicode format;
+ * passing in a CFStringRef as the passphrase is the safest way
+ * to ensure that this requirement is met (and that the result 
+ * will be compatible with other implementations). If a CFDataRef
+ * is supplied as the passphrase for a PKCS12 export operation, 
+ * the referent data is assumed to be in UTF8 form and will be
+ * converted as appropriate. 
+ *
+ * If no key items are being exported, the keyParams argument may be NULL.
+ * 
+ */
+OSStatus SecItemExport(
+	CFTypeRef							secItemOrArray,
+	SecExternalFormat					outputFormat,	
+	SecItemImportExportFlags			flags,				/* kSecItemPemArmor, etc. */
+	const SecItemImportExportKeyParameters  *keyParams,			/* optional */
+	CFDataRef							*exportedData)		/* external representation returned here */
+		__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 /*
  * SecKeychainItemImport()
  *
@@ -365,6 +442,8 @@ OSStatus SecKeychainItemExport(
  *
  * The SecItemImportExportFlags argument is currently unused; caller should pass
  * in 0.
+ *
+ * @discussion  This API has been deprecated.  Please use the SecItemImport API instead.
  */
 OSStatus SecKeychainItemImport(
 	CFDataRef							importedData,
@@ -374,19 +453,180 @@ OSStatus SecKeychainItemImport(
 	SecItemImportExportFlags			flags, 
 	const SecKeyImportExportParameters  *keyParams,				/* optional */
 	SecKeychainRef						importKeychain,			/* optional */
-	CFArrayRef							*outItems);				/* optional */
+	CFArrayRef							*outItems)							/* optional */
+		DEPRECATED_IN_MAC_OS_X_VERSION_10_7_AND_LATER;
+					
+/*
+ * SecItemImport()
+ *
+ * This function takes a CFDataRef containing the external representation 
+ * of one or more objects and creates SecKeychainItems corresponding to 
+ * those objects and optionally imports those SecKeychainItems into a 
+ * specified keychain. The format of the incoming representation is 
+ * specified by one or more of the following:
+ *
+ * -- A SecExternalFormat. This optional in/out argument is used when 
+ *    the caller knows exactly what format the external representation 
+ *    is in. It's also used to return to the caller the format which the 
+ *    function actually determines the external representation to be in. 
+ *    A value of kSecFormatUnknown is specified on entry when the caller
+ *    wishes to know the inferred format on return. 
+ *
+ * -- A SecExternalItemType - optional, in/out. Used to specify what kind
+ *    of item is in the incoming representation, if known by the caller.
+ *    It's also used to return to the caller the item type which the 
+ *    function actually determines the external representation to contain. 
+ *    A value of kSecItemTypeUnknown is specified on entry when the caller
+ *    wishes to know the inferred item type on return.
+ *
+ * -- fileNameOrExtension, a CFStringRef. This optional argument contains 
+ *    the name of the file from which the external representation was 
+ *    obtained; it can also be simply an extension like CFSTR(".p7r"). 
+ *    This is a convenience for apps like KeychainAccess which can import a 
+ *    number of different formats. 
+ *
+ * The SecItemImport() call does its best to figure out what is 
+ * in an incoming external item given the info provided by the above three
+ * arguments. In most cases, SecItemImport() can even figure out
+ * what's in an external item if none of these are specified, but it would
+ * be unwise for an application to count on that ability. 
+ *
+ * PEM formatting is determined internally via inspection of the incoming 
+ * data, so the kSecItemPemArmuor in the flags field is ignored. 
+ *
+ * Zero, one, or both of the following occurs upon successful completion 
+ * of this function:
+ *
+ * -- The imported item(s) is (are) imported to the specified importKeychain. 
+ *    If importKeychain is NULL, this step does not occur.
+ * 
+ * -- The imported item(s) is (are) returned to the caller via the 
+ *    CRArrayRef *outItems argument. If outItems is NULL, this step
+ *    does not occur. If outItems is NON-NULL, then *outItems will be
+ *    a CFArrayRef containing a number of SecKeychainItems upon return.
+ *    Caller must CFRelease the result.
+ * 
+ * The possible types of returned SecKeychainItems are:
+ *
+ *   SecCertificateRef
+ *   SecKeyRef
+ *   SecIdentityRef
+ *
+ * Note that when importing a PKCS12 blob, typically one SecIdentityRef 
+ * and zero or more additional SecCertificateRefs are returned in 
+ * outItems. No SecKeyRefs will appear there unless a key 
+ * is found in the incoming blob with does not have a matching 
+ * certificate.
+ *
+ * A typical case in which an app specifies the outItems 
+ * argument and a NULL for importKeychain is when the app wishes to 
+ * perform some user interaction, perhaps on a per-item basis, before 
+ * committing to actually import the item(s). In this case, if the app 
+ * does wish to proceed with the import, the standard import calls 
+ * (SecCertificateAddToKeychain(), SecKeyAddToKeychain (implementation 
+ * TBD)) would be used.
+ *
+ * Passing in NULL for both outItems and importKeychain
+ * is a perfectly acceptable way of using this function to determine,
+ * in a non-intrusive way, what is inside a given data blob. No effect
+ * other than returning inputFormat and/or itemType occurs in this 
+ * case. 
+ 
+ *
+ * Key-related SecItemImportExportKeyParameters fields
+ * -----------------------------------------------
+ *
+ * If importKeychain is NULL, the kSecKeyImportOnlyOne bit in the flags
+ * argument is ignored. Otherwise, if the kSecKeyImportOnlyOne bit is set, and
+ * there is more than one key in the incoming external representation, no 
+ * items will be imported to the specified keychain and errSecMultipleKeys will
+ * be returned. 
+ * 
+ * The accessRef field allows the caller to specify the initial SecAccessRef
+ * for imported private keys. If more than one private key is being imported, 
+ * all private keys get the same initial SecAccessRef. If this field is NULL 
+ * when private keys are being imported, then the ACL attached to imported 
+ * private keys depends on the kSecKeyNoAccessControl bit in the specified 
+ * keyParams->flags. If this bit is 0, or keyParams is NULL, the default ACL
+ * will be used. If this bit is 1, no ACL will be attached to imported 
+ * private keys.
+ *
+ * keyUsage and keyAttributes specify the low-level usage and attribute flags
+ * of imported keys. Each is a word of bits. The default value for keyUsage
+ * (used when keyParams is NULL or if keyParams->keyUsage is zero) is 
+ * CSSM_KEYUSE_ANY. The default value for keyAttributes defaults is
+ * CSSM_KEYATTR_SENSITIVE | CSSM_KEYATTR_EXTRACTABLE; the CSSM_KEYATTR_PERMANENT 
+ * bit is also added to the default if a non-NULL importKeychain is provided. 
+ *
+ * The following are valid bits in keyAttributes:
+ *
+ *   CSSM_KEYATTR_PERMANENT
+ *   CSSM_KEYATTR_SENSITIVE
+ *   CSSM_KEYATTR_EXTRACTABLE
+ *
+ * If the CSSM_KEYATTR_PERMANENT is set then the importKeychain argument must
+ * be valid or errSecInvalidKeychain will be returned if in fact any keys are found
+ * in the external representation. 
+ *
+ * Note that if the caller does not set the CSSM_KEYATTR_EXTRACTABLE, this key
+ * will never be able to be extracted from the keychain in any form, not even
+ * in wrapped form. The CSSM_KEYATTR_SENSITIVE indicates that the key can only 
+ * be extracted in wrapped form. 
+ *
+ * The CSSM_KEYATTR_RETURN_xxx bits are always forced to 
+ * CSSM_KEYATTR_RETURN_REF regardless of the specified keyAttributes
+ * field. 
+ *
+ * When importing SecKeyRefs in one of the wrapped formats 
+ * (kSecFormatWrappedOpenSSL, kSecFormatWrappedSSH, 
+ * kSecFormatWrappedPKCS8), or in PKCS12 format, caller must 
+ * either explicitly specify the passphrase field or set 
+ * the kSecKeySecurePassphrase bit in SecKeyImportExportFlags.
+ *
+ * If kSecKeySecurePassphrase is selected, caller can optionally
+ * specify strings for the passphrase panel's title bar and for 
+ * the prompt which appears in the panel via the alertTitle and 
+ * alertPrompt fields in SecItemImportExportKeyParameters.
+ *
+ * If an explicit passphrase is specified, note that PKCS12
+ * explicitly requires that passphrases are in Unicode format;
+ * passing in a CFStringRef as the passphrase is the safest way
+ * to ensure that this requirement is met (and that the result 
+ * will be compatible with other implementations). If a CFDataRef
+ * is supplied as the passphrase for a PKCS12 export operation, 
+ * the referent data is assumed to be in UTF8 form and will be
+ * converted as appropriate. 
 
+ * If no key items are being imported, the keyParams argument may be NULL.
+ *
+ * The SecItemImportExportFlags argument is currently unused; caller should pass
+ * in 0.
+ */	
+				
+OSStatus SecItemImport(
+	CFDataRef							importedData,
+	CFStringRef							fileNameOrExtension,	/* optional */
+	SecExternalFormat					*inputFormat,			/* optional, IN/OUT */
+	SecExternalItemType					*itemType,				/* optional, IN/OUT */
+	SecItemImportExportFlags			flags, 
+	const SecItemImportExportKeyParameters  *keyParams,				/* optional */
+	SecKeychainRef						importKeychain,			/* optional */
+	CFArrayRef							*outItems)				/* optional */
+		__OSX_AVAILABLE_STARTING(__MAC_10_7, __IPHONE_NA);
 /*!
     @enum Import/Export options
     @discussion Predefined key constants used when passing dictionary-based arguments to import/export functions.
     @constant kSecImportExportPassphrase Specifies a passphrase represented by a CFStringRef to be used when exporting to (or importing from) PKCS#12 format.
+	@constant kSecImportExportKeychain Specifies a keychain represented by a SecKeychainRef to be used as the target when importing from PKCS#12 format.
+	@constant kSecImportExportAccess Specifies an access represented by a SecAccessRef for the initial access (ACL) of a key imported from PKCS#12 format.
 */
 extern CFStringRef kSecImportExportPassphrase;
+extern CFStringRef kSecImportExportKeychain;
+extern CFStringRef kSecImportExportAccess;
 
 /*!
     @enum Import/Export item description
     @discussion Predefined key constants used by functions which return a CFArray with a CFDictionary per item.
-
     @constant kSecImportItemLabel A CFStringRef representing the item label. This implementation specific identifier cannot be expected to have any format.
     @constant kSecImportItemKeyID A CFDataRef representing the key id. Typically this is the SHA-1 digest of the public key.
     @constant kSecImportItemIdentity A SecIdentityRef representing the identity.

@@ -128,6 +128,8 @@ is zero and
 is not 
 .Dv NULL ,
 a new, minimum sized object is allocated and the original object is freed.
+When extending a region allocated with calloc(3), realloc(3) does not guarantee 
+that the additional memory is also zero-filled.
 .Pp
 The
 .Fn reallocf

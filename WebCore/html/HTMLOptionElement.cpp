@@ -26,12 +26,12 @@
 #include "config.h"
 #include "HTMLOptionElement.h"
 
+#include "Attribute.h"
 #include "CSSStyleSelector.h"
 #include "Document.h"
 #include "ExceptionCode.h"
 #include "HTMLNames.h"
 #include "HTMLSelectElement.h"
-#include "MappedAttribute.h"
 #include "NodeRenderStyle.h"
 #include "RenderMenuList.h"
 #include "Text.h"
@@ -44,15 +44,24 @@ using namespace HTMLNames;
 
 HTMLOptionElement::HTMLOptionElement(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
     : HTMLFormControlElement(tagName, document, form)
-    , m_style(0)
 {
     ASSERT(hasTagName(optionTag));
+}
+
+PassRefPtr<HTMLOptionElement> HTMLOptionElement::create(Document* document, HTMLFormElement* form)
+{
+    return adoptRef(new HTMLOptionElement(optionTag, document, form));
+}
+
+PassRefPtr<HTMLOptionElement> HTMLOptionElement::create(const QualifiedName& tagName, Document* document, HTMLFormElement* form)
+{
+    return adoptRef(new HTMLOptionElement(tagName, document, form));
 }
 
 PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document* document, const String& data, const String& value,
         bool defaultSelected, bool selected, ExceptionCode& ec)
 {
-    RefPtr<HTMLOptionElement> element = new HTMLOptionElement(optionTag, document);
+    RefPtr<HTMLOptionElement> element = adoptRef(new HTMLOptionElement(optionTag, document));
 
     RefPtr<Text> text = Text::create(document, data.isNull() ? "" : data);
 
@@ -67,11 +76,6 @@ PassRefPtr<HTMLOptionElement> HTMLOptionElement::createForJSConstructor(Document
     element->setSelected(selected);
 
     return element.release();
-}
-
-bool HTMLOptionElement::checkDTD(const Node* newChild)
-{
-    return newChild->isTextNode() || newChild->hasTagName(scriptTag);
 }
 
 void HTMLOptionElement::attach()
@@ -134,7 +138,7 @@ int HTMLOptionElement::index() const
     return OptionElement::optionIndex(ownerSelectElement(), this);
 }
 
-void HTMLOptionElement::parseMappedAttribute(MappedAttribute *attr)
+void HTMLOptionElement::parseMappedAttribute(Attribute* attr)
 {
     if (attr->name() == selectedAttr)
         m_data.setSelected(!attr->isNull());
@@ -189,8 +193,8 @@ void HTMLOptionElement::childrenChanged(bool changedByParser, Node* beforeChange
 
 HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 {
-    Node* select = parentNode();
-    while (select && !(select->hasTagName(selectTag) || select->hasTagName(keygenTag)))
+    ContainerNode* select = parentNode();
+    while (select && !select->hasTagName(selectTag))
         select = select->parentNode();
 
     if (!select)
@@ -201,7 +205,7 @@ HTMLSelectElement* HTMLOptionElement::ownerSelectElement() const
 
 bool HTMLOptionElement::defaultSelected() const
 {
-    return !getAttribute(selectedAttr).isNull();
+    return fastHasAttribute(selectedAttr);
 }
 
 void HTMLOptionElement::setDefaultSelected(bool b)
@@ -214,14 +218,12 @@ String HTMLOptionElement::label() const
     return m_data.label();
 }
 
-void HTMLOptionElement::setLabel(const String& value)
-{
-    setAttribute(labelAttr, value);
-}
-
 void HTMLOptionElement::setRenderStyle(PassRefPtr<RenderStyle> newStyle)
 {
     m_style = newStyle;
+    if (HTMLSelectElement* select = ownerSelectElement())
+        if (RenderObject* renderer = select->renderer())
+            renderer->repaint();
 }
 
 RenderStyle* HTMLOptionElement::nonRendererRenderStyle() const

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2002-2007 Apple Inc. All rights reserved.
+ * Copyright (c) 2002-2007, 2010, 2011 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -39,9 +39,11 @@
 #include <net/if_vlan_var.h>
 #include <net/if_media.h>
 #include <net/if_types.h>
+#include <netinet/in.h>
+#include <netinet/ip6.h>			// for IPV6_MMTU
 
 #include <SystemConfiguration/SystemConfiguration.h>
-#include <SystemConfiguration/SCPrivate.h>			// for SCLog()
+#include <SystemConfiguration/SCPrivate.h>	// for SCLog()
 #include "SCNetworkConfigurationInternal.h"	// for __SCNetworkInterfaceCreatePrivate
 #include <SystemConfiguration/SCValidation.h>
 
@@ -49,6 +51,313 @@
 #include <IOKit/network/IONetworkInterface.h>
 #include <IOKit/network/IONetworkController.h>
 #include "dy_framework.h"
+
+
+#pragma mark -
+#pragma mark Capabilities
+
+
+// the following table needs to keep the capabilitiy names and values
+// between the <SystemConfiguration/SCSchemaDefinitionsPrivate.h> and
+// <net/if.h> headers in sync.
+static const struct {
+	const CFStringRef	*name;
+	Boolean			readwrite;
+	int			val;
+} capabilityMappings[] = {
+#ifdef	SIOCGIFCAP
+	{ &kSCPropNetEthernetCapabilityRXCSUM,		TRUE,	IFCAP_RXCSUM		},	// can offload checksum on RX
+	{ &kSCPropNetEthernetCapabilityTXCSUM,		TRUE,	IFCAP_TXCSUM		},	// can offload checksum on TX
+	{ &kSCPropNetEthernetCapabilityVLAN_MTU,	FALSE,	IFCAP_VLAN_MTU		},	// VLAN-compatible MTU
+	{ &kSCPropNetEthernetCapabilityVLAN_HWTAGGING,	FALSE,	IFCAP_VLAN_HWTAGGING	},	// hardware VLAN tag support
+	{ &kSCPropNetEthernetCapabilityJUMBO_MTU,	FALSE,	IFCAP_JUMBO_MTU		},	// 9000 byte MTU supported
+	{ &kSCPropNetEthernetCapabilityTSO,		TRUE,	IFCAP_TSO		},	// can do TCP/TCP6 Segmentation Offload
+	{ &kSCPropNetEthernetCapabilityTSO4,		FALSE,	IFCAP_TSO4		},	// can do TCP Segmentation Offload
+	{ &kSCPropNetEthernetCapabilityTSO6,		FALSE,	IFCAP_TSO6		},	// can do TCP6 Segmentation Offload
+	{ &kSCPropNetEthernetCapabilityLRO,		TRUE,	IFCAP_LRO		},	// can do Large Receive Offload
+	{ &kSCPropNetEthernetCapabilityAV,		TRUE,	IFCAP_AV		},	// can do 802.1 AV Bridging
+#endif	// SIOCGIFCAP
+};
+
+
+static CFIndex
+findCapability(CFStringRef capability)
+{
+	CFIndex		i;
+
+	for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+		if (CFEqual(capability, *capabilityMappings[i].name)) {
+			return i;
+		}
+	}
+
+	return kCFNotFound;
+}
+
+
+static Boolean
+__getCapabilities(CFStringRef	interfaceName,
+		  int		*current,
+		  int		*available)
+{
+#ifdef	SIOCGIFCAP
+	struct ifreq	ifr;
+	Boolean		ok		= FALSE;
+	int		sock		= -1;
+
+	bzero((void *)&ifr, sizeof(ifr));
+	if (_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
+		SCLog(TRUE, LOG_ERR, CFSTR("could not convert interface name"));
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	sock = socket(AF_INET, SOCK_DGRAM, 0);
+	if (sock == -1) {
+		_SCErrorSet(errno);
+		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
+		return FALSE;
+	}
+
+	if (ioctl(sock, SIOCGIFCAP, (caddr_t)&ifr) == -1) {
+		_SCErrorSet(errno);
+		SCLog(TRUE, LOG_ERR, CFSTR("ioctl(SIOCGIFCAP) failed: %s"), strerror(errno));
+		goto done;
+	}
+
+	if (current   != NULL)	*current   = ifr.ifr_curcap;
+	if (available != NULL)	*available = ifr.ifr_reqcap;
+
+	ok = TRUE;
+
+    done :
+
+	(void)close(sock);
+	return ok;
+#else	// SIOCGIFCAP
+	if (current != NULL)	*current = 0;
+	if (available != NULL)	*available = 0;
+	return TRUE;
+#endif	// SIOCGIFCAP
+}
+
+
+int
+__SCNetworkInterfaceCreateCapabilities(SCNetworkInterfaceRef	interface,
+				       int			capability_base,
+				       CFDictionaryRef		capability_options)
+{
+	int		cap_available	= 0;
+	int		cap_current	= capability_base;
+	CFIndex		i;
+	CFStringRef	interfaceName;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		goto done;
+	}
+
+	if (!__getCapabilities(interfaceName,
+			       (capability_base == -1) ? &cap_current : NULL,
+			       &cap_available)) {
+		goto done;
+	}
+
+	if (cap_available == 0) {
+		goto done;
+	}
+
+	if (capability_options == NULL) {
+		goto done;
+	}
+
+	for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+		int		cap_val;
+		CFTypeRef	val;
+
+		if (((cap_available & capabilityMappings[i].val) != 0) &&
+		    capabilityMappings[i].readwrite &&
+		    CFDictionaryGetValueIfPresent(capability_options,
+						  *capabilityMappings[i].name,
+						  &val) &&
+		    isA_CFNumber(val) &&
+		    CFNumberGetValue(val, kCFNumberIntType, &cap_val)) {
+			// update capability
+			if (cap_val != 0) {
+				cap_current |= (cap_available & capabilityMappings[i].val);
+			} else {
+				cap_current &= ~capabilityMappings[i].val;
+			}
+
+			// don't process again
+			cap_available &= ~capabilityMappings[i].val;
+		}
+	}
+
+    done :
+
+	return cap_current;
+}
+
+
+CFTypeRef
+SCNetworkInterfaceCopyCapability(SCNetworkInterfaceRef	interface,
+				 CFStringRef		capability)
+{
+	int		cap_current	= 0;
+	int		cap_available	= 0;
+	int		cap_val;
+	CFIndex		i;
+	CFStringRef	interfaceName;
+	CFTypeRef	val		= NULL;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return NULL;
+	}
+
+	if (!__getCapabilities(interfaceName, &cap_current, &cap_available)) {
+		return NULL;
+	}
+
+	if (capability == NULL) {
+		CFMutableDictionaryRef	all	= NULL;
+
+		// if ALL capabilities requested
+		for (i = 0; i < sizeof(capabilityMappings) / sizeof(capabilityMappings[0]); i++) {
+			if ((cap_available & capabilityMappings[i].val) == capabilityMappings[i].val) {
+				if (all == NULL) {
+					all = CFDictionaryCreateMutable(NULL,
+									0,
+									&kCFTypeDictionaryKeyCallBacks,
+									&kCFTypeDictionaryValueCallBacks);
+				}
+				cap_val = ((cap_current & capabilityMappings[i].val) == capabilityMappings[i].val) ? 1 : 0;
+				val = CFNumberCreate(NULL, kCFNumberIntType, &cap_val);
+				CFDictionarySetValue(all, *capabilityMappings[i].name, val);
+				CFRelease(val);
+				cap_available &= ~capabilityMappings[i].val;
+			}
+		}
+
+		val = all;
+	} else {
+		i = findCapability(capability);
+		if (i == kCFNotFound) {
+			// if unknown capability
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
+
+		if ((cap_available & capabilityMappings[i].val) != capabilityMappings[i].val) {
+			// if capability not available
+			_SCErrorSet(kSCStatusInvalidArgument);
+			return NULL;
+		}
+
+		cap_val = ((cap_current & capabilityMappings[i].val) == capabilityMappings[i].val) ? 1 : 0;
+		val = CFNumberCreate(NULL, kCFNumberIntType, &cap_val);
+	}
+
+	return val;
+}
+
+
+Boolean
+SCNetworkInterfaceSetCapability(SCNetworkInterfaceRef	interface,
+				CFStringRef		capability,
+				CFTypeRef		newValue)
+{
+	int			cap_available		= 0;
+	CFDictionaryRef		configuration;
+	CFIndex			i;
+	CFStringRef		interfaceName;
+	CFMutableDictionaryRef	newConfiguration	= NULL;
+	Boolean			ok			= FALSE;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		// if no interface name
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	i = findCapability(capability);
+	if (i == kCFNotFound) {
+		// if unknown capability
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!capabilityMappings[i].readwrite) {
+		// if not read-write
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if ((newValue != NULL) && !isA_CFNumber(newValue)) {
+		// all values must (for now) be CFNumber[0 or 1]'s
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	if (!__getCapabilities(interfaceName, NULL, &cap_available)) {
+		return FALSE;
+	}
+
+	if ((cap_available & capabilityMappings[i].val) == 0) {
+		// if capability not available
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	configuration = SCNetworkInterfaceGetConfiguration(interface);
+	if (configuration == NULL) {
+		newConfiguration = CFDictionaryCreateMutable(NULL,
+							     0,
+							     &kCFTypeDictionaryKeyCallBacks,
+							     &kCFTypeDictionaryValueCallBacks);
+	} else {
+		newConfiguration = CFDictionaryCreateMutableCopy(NULL, 0, configuration);
+		CFDictionaryRemoveValue(newConfiguration, kSCResvInactive);
+	}
+
+	if ((newValue != NULL)) {
+		CFDictionarySetValue(newConfiguration, capability, newValue);
+	} else {
+		CFDictionaryRemoveValue(newConfiguration, capability);
+		if (CFDictionaryGetCount(newConfiguration) == 0) {
+			CFRelease(newConfiguration);
+			newConfiguration = NULL;
+		}
+	}
+
+	ok = SCNetworkInterfaceSetConfiguration(interface, newConfiguration);
+	if (newConfiguration != NULL) CFRelease(newConfiguration);
+
+	return ok;
+}
+
+
+#pragma mark -
+#pragma mark Media Options
 
 
 static const struct ifmedia_description ifm_subtype_shared_descriptions[] =
@@ -193,33 +502,29 @@ __createMediaDictionary(int media_options, Boolean filter)
 
 	options = CFArrayCreateMutable(NULL, 0, &kCFTypeArrayCallBacks);
 
-	while (IFM_OPTIONS(media_options) != 0) {
-		val = NULL;
-		for (i = 0; !val && ifm_shared_option_descriptions[i].ifmt_string; i++) {
-			if (IFM_OPTIONS(media_options) & ifm_shared_option_descriptions[i].ifmt_word) {
-				val = CFStringCreateWithCString(NULL,
-								ifm_shared_option_descriptions[i].ifmt_string,
-								kCFStringEncodingASCII);
-				media_options &= ~ifm_shared_option_descriptions[i].ifmt_word;
-				break;
-			}
-		}
-
-		if (option_descriptions != NULL) {
-			for (i = 0; !val && option_descriptions[i].ifmt_string; i++) {
-				if (IFM_OPTIONS(media_options) & option_descriptions[i].ifmt_word) {
-					val = CFStringCreateWithCString(NULL,
-									option_descriptions[i].ifmt_string,
-									kCFStringEncodingASCII);
-					media_options &= ~option_descriptions[i].ifmt_word;
-					break;
-				}
-			}
-		}
-
-		if (val) {
+	for (i = 0; (IFM_OPTIONS(media_options) != 0) && (ifm_shared_option_descriptions[i].ifmt_string != NULL); i++) {
+		if ((media_options & ifm_shared_option_descriptions[i].ifmt_word) != 0) {
+			val = CFStringCreateWithCString(NULL,
+							ifm_shared_option_descriptions[i].ifmt_string,
+							kCFStringEncodingASCII);
 			CFArrayAppendValue(options, val);
 			CFRelease(val);
+
+			media_options &= ~ifm_shared_option_descriptions[i].ifmt_word;
+		}
+	}
+
+	if (option_descriptions != NULL) {
+		for (i = 0; (IFM_OPTIONS(media_options) != 0) && (option_descriptions[i].ifmt_string != NULL); i++) {
+			if ((media_options & option_descriptions[i].ifmt_word) != 0) {
+				val = CFStringCreateWithCString(NULL,
+								option_descriptions[i].ifmt_string,
+								kCFStringEncodingASCII);
+				CFArrayAppendValue(options, val);
+				CFRelease(val);
+
+				media_options &= ~option_descriptions[i].ifmt_word;
+			}
 		}
 	}
 
@@ -231,11 +536,12 @@ __createMediaDictionary(int media_options, Boolean filter)
 
 
 int
-__createMediaOptions(CFStringRef interfaceName, CFDictionaryRef media_options)
+__SCNetworkInterfaceCreateMediaOptions(SCNetworkInterfaceRef interface, CFDictionaryRef media_options)
 {
 	CFIndex					i;
 	struct ifmediareq			*ifm;
 	int					ifm_new	= -1;
+	CFStringRef				interfaceName;
 	Boolean					match;
 	CFIndex					n;
 	const struct ifmedia_description	*option_descriptions	= NULL;
@@ -243,6 +549,17 @@ __createMediaOptions(CFStringRef interfaceName, CFDictionaryRef media_options)
 	char					*str;
 	const struct ifmedia_description	*subtype_descriptions	= NULL;
 	CFStringRef				val;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return -1;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return -1;
+	}
 
 	/* set type */
 
@@ -377,7 +694,6 @@ SCNetworkInterfaceCopyMediaOptions(SCNetworkInterfaceRef	interface,
 
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("no interface name"));
 		_SCErrorSet(kSCStatusInvalidArgument);
 		return FALSE;
 	}
@@ -530,6 +846,49 @@ SCNetworkInterfaceCopyMediaSubTypeOptions(CFArrayRef	available,
 }
 
 
+Boolean
+_SCNetworkInterfaceIsPhysicalEthernet(SCNetworkInterfaceRef interface)
+{
+	int			i;
+	struct ifmediareq	*ifm;
+	CFStringRef		interfaceName;
+	Boolean			realEthernet = FALSE;
+
+	if (!isA_SCNetworkInterface(interface)) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	interfaceName = SCNetworkInterfaceGetBSDName(interface);
+	if (interfaceName == NULL) {
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
+	}
+
+	ifm = __copyMediaList(interfaceName);
+	if (ifm == NULL) {
+		return FALSE;
+	}
+	_SCErrorSet(kSCStatusOK);
+	if (IFM_TYPE(ifm->ifm_current) != IFM_ETHER) {
+		goto done;
+	}
+	if (ifm->ifm_count == 1
+	    && IFM_SUBTYPE(ifm->ifm_ulist[0]) == IFM_AUTO) {
+		/* only support autoselect, not really ethernet */
+		goto done;
+	}
+	for (i = 0; i < ifm->ifm_count; i++) {
+		if ((ifm->ifm_ulist[i] & IFM_FDX) != 0) {
+			realEthernet = TRUE;
+			break;
+		}
+	}
+ done:
+	__freeMediaList(ifm);
+	return (realEthernet);
+}
+
 static Boolean
 __getMTULimits(char	ifr_name[IFNAMSIZ],
 	       int	*mtu_min,
@@ -639,22 +998,22 @@ SCNetworkInterfaceCopyMTU(SCNetworkInterfaceRef	interface,
 
 	interfaceName = SCNetworkInterfaceGetBSDName(interface);
 	if (interfaceName == NULL) {
-		SCLog(TRUE, LOG_ERR, CFSTR("no interface name"));
-		goto done;
+		_SCErrorSet(kSCStatusInvalidArgument);
+		return FALSE;
 	}
 
 	bzero((void *)&ifr, sizeof(ifr));
 	if (_SC_cfstring_to_cstring(interfaceName, ifr.ifr_name, sizeof(ifr.ifr_name), kCFStringEncodingASCII) == NULL) {
 		SCLog(TRUE, LOG_ERR, CFSTR("could not convert interface name"));
 		_SCErrorSet(kSCStatusInvalidArgument);
-		goto done;
+		return FALSE;
 	}
 
 	sock = socket(AF_INET, SOCK_DGRAM, 0);
 	if (sock == -1) {
 		_SCErrorSet(errno);
 		SCLog(TRUE, LOG_ERR, CFSTR("socket() failed: %s"), strerror(errno));
-		goto done;
+		return FALSE;
 	}
 
 	if (ioctl(sock, SIOCGIFMTU, (caddr_t)&ifr) == -1) {
@@ -684,14 +1043,37 @@ SCNetworkInterfaceCopyMTU(SCNetworkInterfaceRef	interface,
 		} else {
 			(void)__getMTULimits(ifr.ifr_name, mtu_min, mtu_max);
 		}
+
+		if (mtu_min != NULL) {
+#if	IP_MSS > IPV6_MMTU
+			if (*mtu_min < IP_MSS) {
+				/* bump up the minimum MTU */
+				*mtu_min = IP_MSS/*576*/;
+			}
+#else	// IP_MSS > IPV6_MMTU
+			if (*mtu_min < IPV6_MMTU) {
+				/* bump up the minimum MTU */
+				*mtu_min = IPV6_MMTU;
+			}
+#endif	// IP_MSS > IPV6_MMTU
+
+			if ((mtu_cur != NULL) && (*mtu_min > *mtu_cur)) {
+				/* min must be <= cur */
+				*mtu_min = *mtu_cur;
+			}
+
+			if ((mtu_max != NULL) && (*mtu_min > *mtu_max)) {
+				/* min must be <= max */
+				*mtu_min = *mtu_max;
+			}
+		}
 	}
 
 	ok = TRUE;
 
     done :
 
-	if (sock != -1)	(void)close(sock);
-
+	(void)close(sock);
 	return ok;
 }
 

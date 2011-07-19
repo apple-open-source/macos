@@ -1,0 +1,21 @@
+#!/bin/sh
+# Copyright 2009 Apple.  All rights reserved.
+
+#echo "source package path: $1"
+#echo "package destination: $2"
+#echo "mount point of dest: $3"
+#echo "installer framework: $4"
+
+dstdir=${3:-/}
+tmpdir=${INSTALLER_TEMP:-/tmp}
+cookie="$tmpdir/mail-services-cookie"
+serveradmin=/usr/sbin/serveradmin
+
+if [ "$dstdir" = "/" -a -x $serveradmin -a -e "$cookie" ]
+then
+	logger -p install.info "Restarting mail services after upgrade."
+	rm -f "$cookie"
+	$serveradmin start mail
+fi
+
+exit 0

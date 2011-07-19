@@ -87,24 +87,26 @@
 #define si_call_str1_is_buffer(A) \
 ((A==SI_CALL_HOST_BYADDR)||(A==SI_CALL_NAMEINFO))
 
-#define CATEGORY_USER       0
-#define CATEGORY_GROUP      1
-#define CATEGORY_GROUPLIST  2
-#define CATEGORY_NETGROUP   3
-#define CATEGORY_ALIAS      4
-#define CATEGORY_HOST_IPV4  5
-#define CATEGORY_HOST_IPV6  6
-#define CATEGORY_NETWORK    7
-#define CATEGORY_SERVICE    8
-#define CATEGORY_PROTOCOL   9
-#define CATEGORY_RPC       10
-#define CATEGORY_FS        11
-#define CATEGORY_MAC       12
-#define CATEGORY_NAMEINFO  13
-#define CATEGORY_ADDRINFO  14
-#define CATEGORY_DNSPACKET 15
-#define CATEGORY_SRV       16
-#define CATEGORY_COUNT     17
+#define CATEGORY_INVALID  (-1)
+#define CATEGORY_DEFAULT    0
+#define CATEGORY_USER       1
+#define CATEGORY_GROUP      2
+#define CATEGORY_GROUPLIST  3
+#define CATEGORY_NETGROUP   4
+#define CATEGORY_ALIAS      5
+#define CATEGORY_HOST_IPV4  6
+#define CATEGORY_HOST_IPV6  7
+#define CATEGORY_NETWORK    8
+#define CATEGORY_SERVICE    9
+#define CATEGORY_PROTOCOL  10
+#define CATEGORY_RPC       11
+#define CATEGORY_FS        12
+#define CATEGORY_MAC       13
+#define CATEGORY_NAMEINFO  14
+#define CATEGORY_ADDRINFO  15
+#define CATEGORY_DNSPACKET 16
+#define CATEGORY_SRV       17
+#define CATEGORY_COUNT     18
 
 /* convenience */
 #define CATEGORY_HOST CATEGORY_HOST_IPV4
@@ -199,15 +201,10 @@ typedef struct si_srv_s
 	char *target;
 } si_srv_t;
 
-typedef struct si_mod_s
+struct si_mod_s;
+
+struct si_mod_vtable_s
 {
-	char *name;
-	uint32_t vers;
-	int32_t refcount;
-
-	void *bundle;
-	void *private;
-
 	void (*sim_close)(struct si_mod_s *si);
 
 	int (*sim_is_valid)(struct si_mod_s *si, si_item_t *item);
@@ -269,86 +266,102 @@ typedef struct si_mod_s
 	mach_port_t (*sim_async_call)(struct si_mod_s *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
 	void (*sim_async_cancel)(mach_port_t p);
 	void (*sim_async_handle_reply)(mach_msg_header_t *msg);
+};
+
+#define SI_MOD_FLAG_STATIC 0x00000001
+
+typedef struct si_mod_s
+{
+	char *name;
+	uint32_t vers;
+	int32_t refcount;
+	uint32_t flags;
+
+	void *bundle;
+	void *private;
+	
+	const struct si_mod_vtable_s *vtable;
 } si_mod_t;
 
 si_mod_t *si_module_with_name(const char *name);
-__private_extern__ si_mod_t *si_module_with_path(const char *path, const char *name);
-__private_extern__ si_mod_t *si_module_retain(si_mod_t *si);
+si_mod_t *si_module_retain(si_mod_t *si);
 void si_module_release(si_mod_t *si);
-__private_extern__ const char *si_module_name(si_mod_t *si);
-__private_extern__ int si_module_vers(si_mod_t *si);
+const char *si_module_name(si_mod_t *si);
+int si_module_vers(si_mod_t *si);
 
 si_mod_t *si_search(void);
 
-__private_extern__ int si_item_match(si_item_t *item, int cat, const void *name, uint32_t num, int which);
-__private_extern__ int si_item_is_valid(si_item_t *item);
+int si_item_match(si_item_t *item, int cat, const void *name, uint32_t num, int which);
+int si_item_is_valid(si_item_t *item);
 
-__private_extern__ si_item_t *si_user_byname(si_mod_t *si, const char *name);
-__private_extern__ si_item_t *si_user_byuid(si_mod_t *si, uid_t uid);
-__private_extern__ si_list_t *si_user_all(si_mod_t *si);
+si_item_t *si_user_byname(si_mod_t *si, const char *name);
+si_item_t *si_user_byuid(si_mod_t *si, uid_t uid);
+si_list_t *si_user_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_group_byname(si_mod_t *si, const char *name);
-__private_extern__ si_item_t *si_group_bygid(si_mod_t *si, gid_t gid);
-__private_extern__ si_list_t *si_group_all(si_mod_t *si);
+si_item_t *si_group_byname(si_mod_t *si, const char *name);
+si_item_t *si_group_bygid(si_mod_t *si, gid_t gid);
+si_list_t *si_group_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_grouplist(si_mod_t *si, const char *name);
+si_item_t *si_grouplist(si_mod_t *si, const char *name);
 
-__private_extern__ int si_in_netgroup(struct si_mod_s *si, const char *name, const char *host, const char *user, const char *domain);
-__private_extern__ si_list_t *si_netgroup_byname(struct si_mod_s *si, const char *name);
+int si_in_netgroup(struct si_mod_s *si, const char *name, const char *host, const char *user, const char *domain);
+si_list_t *si_netgroup_byname(struct si_mod_s *si, const char *name);
 
-__private_extern__ si_item_t *si_alias_byname(struct si_mod_s *si, const char *name);
-__private_extern__ si_list_t *si_alias_all(struct si_mod_s *si);
+si_item_t *si_alias_byname(struct si_mod_s *si, const char *name);
+si_list_t *si_alias_all(struct si_mod_s *si);
 
-__private_extern__ si_item_t *si_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err);
-__private_extern__ si_item_t *si_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err);
-__private_extern__ si_list_t *si_host_all(si_mod_t *si);
+si_item_t *si_host_byname(si_mod_t *si, const char *name, int af, const char *interface, uint32_t *err);
+si_item_t *si_host_byaddr(si_mod_t *si, const void *addr, int af, const char *interface, uint32_t *err);
+si_list_t *si_host_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_mac_byname(struct si_mod_s *si, const char *name);
-__private_extern__ si_item_t *si_mac_bymac(struct si_mod_s *si, const char *mac);
-__private_extern__ si_list_t *si_mac_all(struct si_mod_s *si);
+si_item_t *si_mac_byname(struct si_mod_s *si, const char *name);
+si_item_t *si_mac_bymac(struct si_mod_s *si, const char *mac);
+si_list_t *si_mac_all(struct si_mod_s *si);
 
-__private_extern__ si_item_t *si_network_byname(si_mod_t *si, const char *name);
-__private_extern__ si_item_t *si_network_byaddr(si_mod_t *si, uint32_t addr);
-__private_extern__ si_list_t *si_network_all(si_mod_t *si);
+si_item_t *si_network_byname(si_mod_t *si, const char *name);
+si_item_t *si_network_byaddr(si_mod_t *si, uint32_t addr);
+si_list_t *si_network_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_service_byname(si_mod_t *si, const char *name, const char *proto);
-__private_extern__ si_item_t *si_service_byport(si_mod_t *si, int port, const char *proto);
-__private_extern__ si_list_t *si_service_all(si_mod_t *si);
+si_item_t *si_service_byname(si_mod_t *si, const char *name, const char *proto);
+si_item_t *si_service_byport(si_mod_t *si, int port, const char *proto);
+si_list_t *si_service_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_protocol_byname(si_mod_t *si, const char *name);
-__private_extern__ si_item_t *si_protocol_bynumber(si_mod_t *si, uint32_t number);
-__private_extern__ si_list_t *si_protocol_all(si_mod_t *si);
+si_item_t *si_protocol_byname(si_mod_t *si, const char *name);
+si_item_t *si_protocol_bynumber(si_mod_t *si, uint32_t number);
+si_list_t *si_protocol_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_rpc_byname(si_mod_t *si, const char *name);
-__private_extern__ si_item_t *si_rpc_bynumber(si_mod_t *si, int number);
-__private_extern__ si_list_t *si_rpc_all(si_mod_t *si);
+si_item_t *si_rpc_byname(si_mod_t *si, const char *name);
+si_item_t *si_rpc_bynumber(si_mod_t *si, int number);
+si_list_t *si_rpc_all(si_mod_t *si);
 
-__private_extern__ si_item_t *si_fs_byspec(si_mod_t *si, const char *spec);
-__private_extern__ si_item_t *si_fs_byfile(si_mod_t *si, const char *file);
-__private_extern__ si_list_t *si_fs_all(si_mod_t *si);
+si_item_t *si_fs_byspec(si_mod_t *si, const char *spec);
+si_item_t *si_fs_byfile(si_mod_t *si, const char *file);
+si_list_t *si_fs_all(si_mod_t *si);
 
-__private_extern__ int si_wants_addrinfo(si_mod_t *s);
-__private_extern__ si_list_t *si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, const char *interface, uint32_t *err);
+int si_wants_addrinfo(si_mod_t *s);
+si_list_t *si_addrinfo(si_mod_t *si, const char *node, const char *serv, uint32_t family, uint32_t socktype, uint32_t protocol, uint32_t flags, const char *interface, uint32_t *err);
 
-__private_extern__ si_item_t *si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err);
-__private_extern__ si_item_t *si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err);
+si_item_t *si_nameinfo(si_mod_t *si, const struct sockaddr *sa, int flags, const char *interface, uint32_t *err);
+si_item_t *si_ipnode_byname(si_mod_t *si, const char *name, int family, int flags, const char *interface, uint32_t *err);
 
-__private_extern__ si_list_t *si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err);
+si_list_t *si_srv_byname(si_mod_t *si, const char *qname, const char *interface, uint32_t *err);
 
-__private_extern__ si_item_t *si_item_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err);
-__private_extern__ si_list_t *si_list_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
+si_item_t *si_item_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t *err);
+si_list_t *si_list_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, uint32_t *err);
 
 extern mach_port_t si_async_call(si_mod_t *si, int call, const char *str1, const char *str2, const char *str3, uint32_t num1, uint32_t num2, uint32_t num3, uint32_t num4, void *callback, void *context);
 extern void si_async_cancel(mach_port_t p);
 extern void si_async_handle_reply(mach_msg_header_t *msg);
 
-char *si_canonical_mac_address(const char *addr);
+char *si_standardize_mac_address(const char *addr);
 si_item_t *si_addrinfo_v4(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname);
 si_item_t *si_addrinfo_v6(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in6_addr *addr, uint16_t iface, const char *cname);
-si_list_t *si_addrinfo_list(si_mod_t *si, int socktype, int proto, struct in_addr *a4, struct in6_addr *a6, int port, int scopeid, const char *cname4, const char *cname6);
-si_list_t *si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6);
+si_item_t *si_addrinfo_v4_mapped(si_mod_t *si, int32_t flags, int32_t sock, int32_t proto, uint16_t port, struct in_addr *addr, uint16_t iface, const char *cname);
+si_list_t *si_addrinfo_list(si_mod_t *si, uint32_t flags, int socktype, int proto, struct in_addr *a4, struct in6_addr *a6, int port, int scopeid, const char *cname4, const char *cname6);
+si_list_t *si_addrinfo_list_from_hostent(si_mod_t *si, uint32_t flags, uint32_t socktype, uint32_t proto, uint16_t port, uint16_t scope, const struct hostent *h4, const struct hostent *h6);
 
 int _gai_serv_to_port(const char *serv, uint32_t proto, uint16_t *port);
 si_list_t *_gai_simple(si_mod_t *si, const void *nodeptr, const void *servptr, uint32_t family, uint32_t socktype, uint32_t proto, uint32_t flags, const char *interface, uint32_t *err);
+int si_inet_config(uint32_t *inet4, uint32_t *inet6);
 
 #endif /* ! __SI_MODULE_H__ */

@@ -1,9 +1,9 @@
 RC_OS = macos
 export USE_APPLE_PB_SUPPORT = all
-OFLAG = -O
+OFLAG = -Os
 LEGACY = -D_MACH_I386_THREAD_STATUS_FPSTATE_LEGACY_FIELD_NAMES_ \
 	 -D_ARCHITECTURE_I386_FPU_FPSTATE_LEGACY_FIELD_NAMES_
-X_CFLAGS = -fno-builtin-round
+X_CFLAGS =
 
 ifeq "macos" "$(RC_OS)"
   STATIC := $(shell if [ "$(RC_RELEASE)" = "Beaker"    ] || \
@@ -31,11 +31,17 @@ ifeq "$(EFITOOLS)" "efitools"
 	EFI_SUPPORT = -DEFI_SUPPORT
 endif
 
-ifeq "mwccppc" "$(notdir $(CC))"
-  CFLAGS = $(OFLAG) -g -I$(SRCROOT)/../include -I$(SRCROOT) $(LEGACY)
+ifneq "" "$(SDKROOT)"
+  SDK = -isysroot $(SDKROOT)
+  CC = $(shell xcrun -find -sdk $(SDKROOT) cc)
+endif
+
+ifeq "clang" "$(notdir $(CC))"
+  CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include \
+	   -I$(SRCROOT) $(LEGACY) $(EFI_SUPPORT) $(SDK)
 else
   CFLAGS = $(STATIC) $(OFLAG) -g -Wall -I$(SRCROOT)/../include \
-	   -I$(SRCROOT) $(X_CFLAGS) $(LEGACY) $(EFI_SUPPORT)
+	   -I$(SRCROOT) $(X_CFLAGS) $(LEGACY) $(EFI_SUPPORT) $(SDK)
 endif
 
 USE_DEPENDENCY_FILE := $(shell if [ "$(notdir $(CC))" != "mwccppc" ] && \
@@ -107,9 +113,9 @@ PRODUCT = otool
 all: $(OFILE_DIR) $(SYMROOT) $(PRODUCT).NEW
 
 $(PRODUCT).NEW:	$(OFILE_DIR) $(SYMROOT) $(OBJS)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -nostdlib -r -o $(OBJROOT)/private.o \
+	$(CC) $(RC_CFLAGS) -nostdlib -r -o $(OBJROOT)/private.o \
 		$(OBJS) $(LIBSTUFF)
-	$(CC) $(CFLAGS) $(RC_CFLAGS) -o $(SYMROOT)/$@ $(OBJROOT)/private.o \
+	$(CC) $(RC_CFLAGS) $(SDK) -o $(SYMROOT)/$@ $(OBJROOT)/private.o \
 		$(LIBSTUFF) $(LIBS)
 
 vers.c:

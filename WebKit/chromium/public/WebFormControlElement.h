@@ -51,11 +51,14 @@ public:
         WebElement::assign(e);
         return *this;
     }
-    WEBKIT_API void assign(const WebFormControlElement& e) { WebElement::assign(e); }
+    void assign(const WebFormControlElement& e) { WebElement::assign(e); }
 
     WEBKIT_API bool isEnabled() const;
+    WEBKIT_API bool isReadOnly() const;
     WEBKIT_API WebString formControlName() const;
     WEBKIT_API WebString formControlType() const;
+
+    WEBKIT_API void dispatchFormControlChangeEvent();
 
     // Returns the name that should be used for the specified |element| when
     // storing autofill data.  This is either the field name or its id, an empty

@@ -32,8 +32,12 @@
 
 namespace WebCore {
 
+    class ResourceResponse;
+
     class WorkerScriptLoaderClient {
     public:
+        virtual void didReceiveResponse(const ResourceResponse&) { }
+
         // FIXME: notifyFinished() is not currently guaranteed to be invoked if used from worker context and the worker shuts down in the middle of an operation.
         // This will cause leaks when we support nested workers.
         virtual void notifyFinished() { }

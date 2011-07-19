@@ -13,7 +13,7 @@
 
 // CONSTANTS
 
-#define JABBER_DB_PATH_DEFAULT @"/private/var/jabberd/sqlite/jabberd2.db"
+#define JABBER_DB_PATH_DEFAULT @"/Library/Server/iChat/Data/sqlite/jabberd2.db"
 #define JABBER_DB_FILENAME_DEFAULT @"jabberd2.db"
 #define SRVRMGR_JABBER_PREFS_PATH @"/Library/Preferences/com.apple.ichatserver.plist"
 #define SMJ_SETTINGSKEY_JABBERD_DB_PATH @"jabberdDatabasePath"

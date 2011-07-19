@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 1999-2010 Apple Computer, Inc. All rights reserved.
+ * Copyright (c) 1999-2010 Apple Inc. All rights reserved.
  *
  * @APPLE_LICENSE_HEADER_START@
  * 
@@ -21,12 +21,12 @@
  * @APPLE_LICENSE_HEADER_END@
  */
 
-#ifndef _S_ARP_H
-#define _S_ARP_H
-
 /*
  * arp.h
  */
+
+#ifndef _S_ARP_H
+#define _S_ARP_H
 
 /*
  * Modification History:
@@ -53,7 +53,7 @@ typedef struct {
 int		arp_get(int s, route_msg * msg_p, struct in_addr iaddr,
 			int if_index);
 int 		arp_delete(int s, struct in_addr iaddr, int if_index);
-int		arp_flush(int s, int all);
+int		arp_flush(int s, int all, int if_index);
 int		arp_open_routing_socket(void);
 int		arp_get_next_seq(void);
 

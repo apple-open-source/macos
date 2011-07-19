@@ -3,15 +3,15 @@
 	<key>OpenSourceProject</key>
 	<string>zlib</string>
 	<key>OpenSourceVersion</key>
-	<string>1.2.3</string>
+	<string>1.2.5</string>
 	<key>OpenSourceWebsiteURL</key>
 	<string>http://www.zlib.net/</string>
 	<key>OpenSourceURL</key>
-	<string>http://www.zlib.net/zlib-1.2.3.tar.bz2</string>
+	<string>http://zlib.net/zlib-1.2.5.tar.bz2</string>
 	<key>OpenSourceMD5</key>
-	<string>dee233bf288ee795ac96a98cc2e369b6</string>
+	<string>be1e89810e66150f5b0327984d8625a0</string>
 	<key>OpenSourceImportDate</key>
-	<string>2004-12-28</string>
+	<string>2011-02-24</string>
 	<key>OpenSourceModifications</key>
 	<array>
 		<string>Minor changes to configure script.</string>

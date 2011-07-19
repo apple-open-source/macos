@@ -1,0 +1,62 @@
+.TH XEYES 1 __xorgversion__
+.SH NAME
+xeyes \- a follow the mouse X demo
+.SH SYNOPSIS
+.B xeyes
+[-option ...]
+.SH DESCRIPTION
+.I Xeyes
+watches what you do and reports to the Boss.
+.SH OPTIONS
+.TP 8
+.B \-fg \fIforeground color\fB
+choose a different color for the pupil of the eyes.
+.TP 8
+.B \-bg \fIbackground color\fB
+choose a different color for the background.
+.TP 8
+.B \-outline \fIoutline color\fB
+choose a different color for the outline of the eyes.
+.TP 8
+.B \-center \fIcenter color\fB
+choose a different color for the center of the eyes.
+.TP 8
+.B \-backing \fI{ WhenMapped Always NotUseful }\fB
+selects an appropriate level of backing store.
+.TP 8
+.B \-geometry \fIgeometry\fB
+define the initial window geometry; see \fIX(__miscmansuffix__)\fP.
+.TP 8
+.B \-display \fIdisplay\fB
+specify the display to use; see \fIX(__miscmansuffix__)\fP.
+.TP 8
+.B \-bd \fIborder color\fB
+choose a different color for the window border.
+.TP 8
+.B \-bw \fIborder width\fB
+choose a different width for the window border.
+.TP 8
+.B \-shape
+uses the SHAPE extension to shape the window.  This is the default.
+.TP 8
+.B \+shape
+disables use of the SHAPE extension to shape the window.
+.TP 8
+.B \-render
+uses Xrender to draw anti-aliased eyes.
+This is the default if \fIxeyes\fP has been compiled with Xrender support.
+.TP 8
+.B \+render
+disables Xrender and draws traditional eyes.
+.TP 8
+.B \-distance
+uses an alternative mapping, as if the eyes were set back from the screen, thus following the mouse more precisely.
+.SH "SEE ALSO"
+X(__miscmansuffix__), X Toolkit documentation
+.br
+See \fIX(__miscmansuffix__)\fP for a full statement of rights and permissions.
+.SH AUTHOR
+Keith Packard, MIT X Consortium
+.br
+Copied from the NeWS version written (apparently) by Jeremy Huxtable as seen
+at SIGGRAPH '88

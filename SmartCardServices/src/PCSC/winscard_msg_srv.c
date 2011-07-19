@@ -6,7 +6,7 @@
  *  Damien Sauveron <damien.sauveron@labri.fr>
  *  Ludoic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: winscard_msg_srv.c 2961 2008-05-16 09:12:53Z rousseau $
+ * $Id: winscard_msg_srv.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**

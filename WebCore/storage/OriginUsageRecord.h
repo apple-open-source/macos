@@ -31,16 +31,16 @@
 #if ENABLE(DATABASE)
 
 #include "PlatformString.h"
-#include "StringHash.h"
-
 #include <wtf/HashMap.h>
-#include <wtf/HashSet.h>
+#include <wtf/HashSet.h> 
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
 // Objects of this class can be used from multiple threads with external synchronization.
 // String arguments are also supposed to be deeply copied by the caller when necessary.
-class OriginUsageRecord : public Noncopyable {
+class OriginUsageRecord {
+    WTF_MAKE_NONCOPYABLE(OriginUsageRecord); WTF_MAKE_FAST_ALLOCATED;
 public:
     OriginUsageRecord();
 

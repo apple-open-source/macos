@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2008, Google Inc. All rights reserved.
+ * Copyright (c) 2008, 2011 Google Inc. All rights reserved.
  * 
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions are
@@ -33,36 +33,46 @@
 
 #include "JSDOMBinding.h"
 #include "PlatformString.h"
+#include "SerializedScriptValue.h"
 #include "ScriptState.h"
+#include <heap/Strong.h>
 #include <runtime/JSValue.h>
-#include <runtime/Protect.h>
 #include <wtf/PassRefPtr.h>
 
 namespace WebCore {
 
+class InspectorValue;
 class SerializedScriptValue;
 
 class ScriptValue {
 public:
-    ScriptValue(JSC::JSValue value = JSC::JSValue()) : m_value(value) {}
+    ScriptValue() { }
+    ScriptValue(JSC::JSGlobalData& globalData, JSC::JSValue value) : m_value(globalData, value) {}
     virtual ~ScriptValue() {}
 
     JSC::JSValue jsValue() const { return m_value.get(); }
     bool getString(ScriptState*, String& result) const;
-    String toString(ScriptState* scriptState) const { return ustringToString(m_value.get().toString(scriptState)); }
+    String toString(ScriptState*) const;
     bool isEqual(ScriptState*, const ScriptValue&) const;
     bool isNull() const;
     bool isUndefined() const;
     bool isObject() const;
-    bool hasNoValue() const { return m_value == JSC::JSValue(); }
+    bool isFunction() const;
+    bool hasNoValue() const { return !m_value; }
 
-    PassRefPtr<SerializedScriptValue> serialize(ScriptState*);
-    static ScriptValue deserialize(ScriptState*, SerializedScriptValue*);
+    bool operator==(const ScriptValue& other) const { return m_value == other.m_value; }
 
-    static ScriptValue undefined() { return ScriptValue(JSC::jsUndefined()); }
+    PassRefPtr<SerializedScriptValue> serialize(ScriptState*, SerializationErrorMode = Throwing);
+    static ScriptValue deserialize(ScriptState*, SerializedScriptValue*, SerializationErrorMode = Throwing);
+
+    static ScriptValue undefined();
+
+#if ENABLE(INSPECTOR)
+    PassRefPtr<InspectorValue> toInspectorValue(ScriptState*) const;
+#endif
 
 private:
-    JSC::ProtectedJSValue m_value;
+    JSC::Strong<JSC::Unknown> m_value;
 };
 
 } // namespace WebCore

@@ -1,11 +1,9 @@
 package DBIx::Class::Schema::Loader::DBI::Writing;
 use strict;
 
-our $VERSION = '0.04005';
+our $VERSION = '0.05003';
 
 # Empty. POD only.
-
-1;
 
 =head1 NAME                                                                     
                                                                                 
@@ -40,6 +38,16 @@ DBIx::Class::Schema::Loader::DBI::Writing - Loader subclass writing guide for DB
       # concatenated if you wish.
   }
 
+  sub _table_comment {
+      my ( $self, $table ) = @_;
+      return 'Comment';
+  }
+
+  sub _column_comment {
+      my ( $self, $table, $column_number ) = @_;
+      return 'Col. comment';
+  }
+
   1;
 
 =head1 DETAILS
@@ -54,6 +62,18 @@ override one or more of the other methods.  The other methods one might
 likely want to override are: C<_table_pk_info>, C<_table_fk_info>,
 C<_tables_list> and C<_extra_column_info>.  See the included DBD drivers
 for examples of these.
+
+=head1 AUTHOR
+
+See L<DBIx::Class::Schema::Loader/AUTHOR> and L<DBIx::Class::Schema::Loader/CONTRIBUTORS>.
+
+=head1 LICENSE
+
+This library is free software; you can redistribute it and/or modify it under
+the same terms as Perl itself.
+
+To import comments from database you need to implement C<_table_comment>,
+C<_column_comment>
 
 =cut
 

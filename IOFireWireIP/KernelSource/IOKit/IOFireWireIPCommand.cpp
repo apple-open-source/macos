@@ -362,7 +362,7 @@ IOReturn IOFWIPAsyncWriteCommand::createUnFragmentedDescriptors()
 	
 	fIndex = 0;
 	
-	if (mbuf_flags(m) & M_PKTHDR)
+	if (mbuf_flags(m) & MBUF_PKTHDR)
 	{
 		pktLen = mbuf_pkthdr_len(m);
 		offset = fOffset;

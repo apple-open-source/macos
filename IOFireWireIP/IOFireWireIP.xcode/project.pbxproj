@@ -327,7 +327,11 @@
 			isa = PBXProject;
 			buildConfigurationList = 14220D5208AC38B300347178 /* Build configuration list for PBXProject "IOFireWireIP" */;
 			compatibilityVersion = "Xcode 2.4";
+			developmentRegion = English;
 			hasScannedForEncodings = 1;
+			knownRegions = (
+				en,
+			);
 			mainGroup = 089C166AFE841209C02AAC07 /* IOFireWireIP */;
 			projectDirPath = "";
 			projectRoot = "";
@@ -457,6 +461,10 @@
 		14220D4E08AC38B300347178 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				GCC_DYNAMIC_NO_PIC = NO;
 				GCC_ENABLE_FIX_AND_CONTINUE = YES;
@@ -481,8 +489,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
-					ppc64,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
@@ -504,6 +510,10 @@
 		14220D5008AC38B300347178 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				GCC_OPTIMIZATION_LEVEL = 0;
 				OTHER_CFLAGS = "";
@@ -522,6 +532,10 @@
 		14220D5108AC38B300347178 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				OTHER_CFLAGS = "";
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
@@ -590,6 +604,10 @@
 		30038664094E4EA100762E56 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -606,7 +624,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -626,7 +644,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
@@ -641,7 +658,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRIVATE_HEADERS_FOLDER_PATH = "$(KEXT_FRAMEWORK)/Versions/A/PrivateHeaders/IOKit/$(KEXT_FAMILY_NAME)";
@@ -662,6 +679,10 @@
 		30038666094E4EA100762E56 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -674,7 +695,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -691,6 +712,10 @@
 		30038667094E4EA100762E56 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
@@ -701,7 +726,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIP;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIP;
@@ -718,6 +743,10 @@
 		30038682094E4EB300762E56 /* Development */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_DYNAMIC_NO_PIC = NO;
@@ -733,7 +762,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -753,7 +782,6 @@
 			buildSettings = {
 				ARCHS = (
 					i386,
-					ppc,
 					x86_64,
 				);
 				COPY_PHASE_STRIP = YES;
@@ -768,7 +796,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -787,6 +815,10 @@
 		30038684094E4EB300762E56 /* FireLog */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				COPY_PHASE_STRIP = NO;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_OPTIMIZATION_LEVEL = 0;
@@ -799,7 +831,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;
@@ -816,6 +848,10 @@
 		30038685094E4EB300762E56 /* Default */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ARCHS = (
+					i386,
+					x86_64,
+				);
 				FRAMEWORK_SEARCH_PATHS = "";
 				GCC_PREPROCESSOR_DEFINITIONS = __MBUF_TRANSITION_;
 				HEADER_SEARCH_PATHS = "";
@@ -826,7 +862,7 @@
 				LIBRARY_SEARCH_PATHS = "";
 				MODULE_IOKIT = YES;
 				MODULE_NAME = com.apple.iokit.IOFireWireIPPrivate;
-				MODULE_VERSION = 2.0.3;
+				MODULE_VERSION = 2.2.3;
 				OTHER_LDFLAGS = "";
 				OTHER_REZFLAGS = "";
 				PRODUCT_NAME = IOFireWireIPPrivate;

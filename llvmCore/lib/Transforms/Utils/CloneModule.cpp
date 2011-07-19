@@ -17,7 +17,7 @@
 #include "llvm/DerivedTypes.h"
 #include "llvm/TypeSymbolTable.h"
 #include "llvm/Constant.h"
-#include "llvm/Transforms/Utils/ValueMapper.h"
+#include "ValueMapper.h"
 using namespace llvm;
 
 /// CloneModule - Return an exact copy of the specified module.  This is not as
@@ -35,7 +35,7 @@ Module *llvm::CloneModule(const Module *M) {
 Module *llvm::CloneModule(const Module *M,
                           DenseMap<const Value*, Value*> &ValueMap) {
   // First off, we need to create the new module...
-  Module *New = new Module(M->getModuleIdentifier());
+  Module *New = new Module(M->getModuleIdentifier(), M->getContext());
   New->setDataLayout(M->getDataLayout());
   New->setTargetTriple(M->getTargetTriple());
   New->setModuleInlineAsm(M->getModuleInlineAsm());
@@ -56,10 +56,11 @@ Module *llvm::CloneModule(const Module *M,
   //
   for (Module::const_global_iterator I = M->global_begin(), E = M->global_end();
        I != E; ++I) {
-    GlobalVariable *GV = new GlobalVariable(I->getType()->getElementType(),
+    GlobalVariable *GV = new GlobalVariable(*New, 
+                                            I->getType()->getElementType(),
                                             false,
                                             GlobalValue::ExternalLinkage, 0,
-                                            I->getName(), New);
+                                            I->getName());
     GV->setAlignment(I->getAlignment());
     ValueMap[I] = GV;
   }
@@ -106,7 +107,7 @@ Module *llvm::CloneModule(const Module *M,
         ValueMap[J] = DestI++;
       }
 
-      std::vector<ReturnInst*> Returns;  // Ignore returns cloned...
+      SmallVector<ReturnInst*, 8> Returns;  // Ignore returns cloned.
       CloneFunctionInto(F, I, ValueMap, Returns);
     }
 

@@ -1,7 +1,7 @@
 /*
 *******************************************************************************
 *
-*   Copyright (C) 2001-2007, International Business Machines
+*   Copyright (C) 2001-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 *
 *******************************************************************************
@@ -21,19 +21,10 @@
 
 #if !UCONFIG_NO_NORMALIZATION
 
-#ifdef XP_CPLUSPLUS
-#include "unicode/uniset.h"
-#endif
-
-#include "unicode/uiter.h"
-#include "unicode/unorm.h"
-#include "unicode/uset.h"
-#include "utrie.h"
-#include "ustr_imp.h"
 #include "udataswp.h"
 
 /*
- * This new implementation of the normalization code loads its data from
+ * The 2001-2010 implementation of the normalization code loads its data from
  * unorm.icu, which is generated with the gennorm tool.
  * The format of that file is described at the end of this file.
  */
@@ -163,294 +154,13 @@ enum {
     _NORM_DECOMP_LENGTH_MASK=0x7f
 };
 
-#endif /* #if !UCONFIG_NO_NORMALIZATION */
-
-/* Korean Hangul and Jamo constants */
-enum {
-    JAMO_L_BASE=0x1100,     /* "lead" jamo */
-    JAMO_V_BASE=0x1161,     /* "vowel" jamo */
-    JAMO_T_BASE=0x11a7,     /* "trail" jamo */
-
-    HANGUL_BASE=0xac00,
-
-    JAMO_L_COUNT=19,
-    JAMO_V_COUNT=21,
-    JAMO_T_COUNT=28,
-
-    HANGUL_COUNT=JAMO_L_COUNT*JAMO_V_COUNT*JAMO_T_COUNT
-};
-
-#if !UCONFIG_NO_NORMALIZATION
-
 /* Constants for options flags for normalization. @draft ICU 2.6 */
 enum {
     /** Options bit 0, do not decompose Hangul syllables. @draft ICU 2.6 */
     UNORM_NX_HANGUL=1,
     /** Options bit 1, do not decompose CJK compatibility characters. @draft ICU 2.6 */
-    UNORM_NX_CJK_COMPAT=2,
-    /**
-     * Options bit 8, use buggy recomposition described in
-     * Unicode Public Review Issue #29
-     * at http://www.unicode.org/review/resolved-pri.html#pri29
-     *
-     * Used in IDNA implementation according to strict interpretation
-     * of IDNA definition based on Unicode 3.2 which predates PRI #29.
-     */
-    UNORM_BEFORE_PRI_29=0x100
+    UNORM_NX_CJK_COMPAT=2
 };
-
-/**
- * Is the normalizer data loaded?
- * This is used internally before other internal normalizer functions
- * are called.
- * It saves this check in each of many normalization calls that
- * are made for, e.g., collation.
- *
- * @param pErrorCode as usual
- * @return boolean value for whether the normalization data is loaded
- *
- * @internal
- */
-U_CAPI UBool U_EXPORT2
-unorm_haveData(UErrorCode *pErrorCode);
-
-/**
- * Internal API for normalizing.
- * Does not check for bad input.
- * @internal
- */
-U_CAPI int32_t U_EXPORT2
-unorm_internalNormalize(UChar *dest, int32_t destCapacity,
-                        const UChar *src, int32_t srcLength,
-                        UNormalizationMode mode, int32_t options,
-                        UErrorCode *pErrorCode);
-
-#ifdef XP_CPLUSPLUS
-
-/**
- * Internal API for normalizing.
- * Does not check for bad input.
- * Requires _haveData() to be true.
- * @internal
- */
-U_CFUNC int32_t
-unorm_internalNormalizeWithNX(UChar *dest, int32_t destCapacity,
-                              const UChar *src, int32_t srcLength,
-                              UNormalizationMode mode, int32_t options, const U_NAMESPACE_QUALIFIER UnicodeSet *nx,
-                              UErrorCode *pErrorCode);
-
-#endif
-
-/**
- * internal API, used by normlzr.cpp
- * @internal
- */
-U_CAPI int32_t U_EXPORT2
-unorm_decompose(UChar *dest, int32_t destCapacity,
-                const UChar *src, int32_t srcLength,
-                UBool compat, int32_t options,
-                UErrorCode *pErrorCode);
-
-/**
- * internal API, used by normlzr.cpp
- * @internal
- */
-U_CAPI int32_t U_EXPORT2
-unorm_compose(UChar *dest, int32_t destCapacity,
-              const UChar *src, int32_t srcLength,
-              UBool compat, int32_t options,
-              UErrorCode *pErrorCode);
-
-#ifdef XP_CPLUSPLUS
-
-/**
- * internal API, used by unormcmp.cpp
- * @internal
- */
-U_CFUNC UNormalizationCheckResult
-unorm_internalQuickCheck(const UChar *src,
-                         int32_t srcLength,
-                         UNormalizationMode mode,
-                         UBool allowMaybe,
-                         const U_NAMESPACE_QUALIFIER UnicodeSet *nx,
-                         UErrorCode *pErrorCode);
-
-#endif
-
-#endif /* #if !UCONFIG_NO_NORMALIZATION */
-
-/**
- * Internal option for unorm_cmpEquivFold() for decomposing.
- * If not set, just do strcasecmp().
- * @internal
- */
-#define _COMPARE_EQUIV 0x80000
-
-#ifndef U_COMPARE_IGNORE_CASE
-/* see also unorm.h */
-/**
- * Option bit for unorm_compare:
- * Perform case-insensitive comparison.
- * @draft ICU 2.2
- */
-#define U_COMPARE_IGNORE_CASE       0x10000
-#endif
-
-/**
- * Internal option for unorm_cmpEquivFold() for strncmp style.
- * If set, checks for both string length and terminating NUL.
- * @internal
- */
-#define _STRNCMP_STYLE 0x1000
-
-#if !UCONFIG_NO_NORMALIZATION
-
-/**
- * Internal API to get the 16-bit FCD value (lccc + tccc) for c,
- * for u_getIntPropertyValue().
- * @internal
- */
-U_CFUNC uint16_t U_EXPORT2
-unorm_getFCD16FromCodePoint(UChar32 c);
-
-/**
- * Internal API, used by collation code.
- * Get access to the internal FCD trie table to be able to perform
- * incremental, per-code unit, FCD checks in collation.
- * One pointer is sufficient because the trie index values are offset
- * by the index size, so that the same pointer is used to access the trie data.
- * @internal
- */
-U_CAPI const uint16_t * U_EXPORT2
-unorm_getFCDTrie(UErrorCode *pErrorCode);
-
-#ifdef XP_CPLUSPLUS
-
-/**
- * Internal API, used by collation code.
- * Get the FCD value for a code unit, with
- * bits 15..8   lead combining class
- * bits  7..0   trail combining class
- *
- * If c is a lead surrogate and the value is not 0,
- * then instead of combining classes the value
- * is used in unorm_getFCD16FromSurrogatePair() to get the real value
- * of the supplementary code point.
- *
- * @internal
- */
-static inline uint16_t
-unorm_getFCD16(const uint16_t *fcdTrieIndex, UChar c) {
-    return
-        fcdTrieIndex[
-            (fcdTrieIndex[
-                c>>UTRIE_SHIFT
-            ]<<UTRIE_INDEX_SHIFT)+
-            (c&UTRIE_MASK)
-        ];
-}
-
-/**
- * Internal API, used by collation code.
- * Get the FCD value for a supplementary code point, with
- * bits 15..8   lead combining class
- * bits  7..0   trail combining class
- *
- * @param fcd16  The FCD value for the lead surrogate, not 0.
- * @param c2     The trail surrogate code unit.
- *
- * @internal
- */
-static inline uint16_t
-unorm_getFCD16FromSurrogatePair(const uint16_t *fcdTrieIndex, uint16_t fcd16, UChar c2) {
-    return
-        fcdTrieIndex[
-            (fcdTrieIndex[
-                (int32_t)fcd16+((c2&0x3ff)>>UTRIE_SHIFT)
-            ]<<UTRIE_INDEX_SHIFT)+
-            (c2&UTRIE_MASK)
-        ];
-}
-
-
-#endif
-
-/**
- * internal API, used by StringPrep
- * @internal
- */
-U_CAPI void U_EXPORT2
-unorm_getUnicodeVersion(UVersionInfo *versionInfo, UErrorCode *pErrorCode);
-
-/**
- * Get the canonical decomposition for one code point.
- * Requires unorm_haveData() and buffer!=NULL and pLength!=NULL.
- * @param c code point
- * @param buffer out-only buffer for algorithmic decompositions of Hangul
- * @param length out-only, takes the length of the decomposition, if any
- * @return pointer to decomposition, or 0 if none
- * @internal
- */
-U_CFUNC const UChar *
-unorm_getCanonicalDecomposition(UChar32 c, UChar buffer[4], int32_t *pLength);
-
-/**
- * internal API, used by the canonical iterator
- * TODO Consider using signature similar to unorm_getCanonicalDecomposition()
- * for more efficiency
- * @internal
- */
-U_CAPI int32_t U_EXPORT2
-unorm_getDecomposition(UChar32 c, UBool compat,
-                       UChar *dest, int32_t destCapacity);
-
-/**
- * internal API, used by uprops.cpp
- * @internal
- */
-U_CFUNC UBool U_EXPORT2
-unorm_internalIsFullCompositionExclusion(UChar32 c);
-
-/**
- * Internal API, used by enumeration of canonically equivalent strings
- * @internal
- */
-U_CFUNC UBool U_EXPORT2
-unorm_isCanonSafeStart(UChar32 c);
-
-/**
- * Internal API, used by enumeration of canonically equivalent strings
- * @internal
- */
-U_CAPI UBool U_EXPORT2
-unorm_getCanonStartSet(UChar32 c, USerializedSet *fillSet);
-
-/**
- * Is c an NF<mode>-skippable code point? See unormimp.h.
- * @internal
- */
-U_CAPI UBool U_EXPORT2
-unorm_isNFSkippable(UChar32 c, UNormalizationMode mode);
-
-#ifdef XP_CPLUSPLUS
-
-/**
- * Get normalization exclusion set for the options.
- * Requires unorm_haveData().
- * @internal
- */
-U_CFUNC const U_NAMESPACE_QUALIFIER UnicodeSet *
-unorm_getNX(int32_t options, UErrorCode *pErrorCode);
-
-#endif
-
-/**
- * Enumerate each normalization data trie and add the
- * start of each range of same properties to the set.
- * @internal
- */
-U_CAPI void U_EXPORT2
-unorm_addPropertyStarts(const USetAdder *sa, UErrorCode *pErrorCode);
 
 /**
  * Swap unorm.icu. See udataswp.h.
@@ -460,13 +170,6 @@ U_CAPI int32_t U_EXPORT2
 unorm_swap(const UDataSwapper *ds,
            const void *inData, int32_t length, void *outData,
            UErrorCode *pErrorCode);
-
-/**
- * Get the NF*_QC property for a code point, for u_getIntPropertyValue().
- * @internal
- */
-U_CFUNC UNormalizationCheckResult U_EXPORT2
-unorm_getQuickCheck(UChar32 c, UNormalizationMode mode);
 
 /**
  * Description of the format of unorm.icu version 2.3.

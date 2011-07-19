@@ -34,14 +34,17 @@ namespace WebCore {
 
 class SQLValue;
 
-class SQLiteStatement : public Noncopyable {
+class SQLiteStatement {
+    WTF_MAKE_NONCOPYABLE(SQLiteStatement); WTF_MAKE_FAST_ALLOCATED;
 public:
     SQLiteStatement(SQLiteDatabase&, const String&);
     ~SQLiteStatement();
     
     int prepare();
     int bindBlob(int index, const void* blob, int size);
+    int bindBlob(int index, const String&);
     int bindText(int index, const String&);
+    int bindInt(int index, int);
     int bindInt64(int index, int64_t);
     int bindDouble(int index, double);
     int bindNull(int index);
@@ -70,6 +73,7 @@ public:
     // returned in the last step()
     int columnCount();
     
+    bool isColumnNull(int col);
     String getColumnName(int col);
     SQLValue getColumnValue(int col);
     String getColumnText(int col);
@@ -77,6 +81,7 @@ public:
     int getColumnInt(int col);
     int64_t getColumnInt64(int col);
     const void* getColumnBlob(int col, int& size);
+    String getColumnBlobAsString(int col);
     void getColumnBlobAsVector(int col, Vector<char>&);
 
     bool returnTextResults(int col, Vector<String>&);

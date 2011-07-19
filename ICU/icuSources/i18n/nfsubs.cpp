@@ -1,6 +1,6 @@
 /*
 ******************************************************************************
-*   Copyright (C) 1997-2007, International Business Machines
+*   Copyright (C) 1997-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 ******************************************************************************
 *   file name:  nfsubs.cpp
@@ -13,10 +13,11 @@
 * 10/11/2001  Doug      Ported from ICU4J
 */
 
+#include <stdio.h>
+#include <typeinfo>  // for 'typeid' to work
+
 #include "nfsubs.h"
 #include "digitlst.h"
-
-#include <stdio.h>
 
 #if U_HAVE_RBNF
 
@@ -525,7 +526,7 @@ NFSubstitution::operator==(const NFSubstitution& rhs) const
   // compare class and all of the fields all substitutions have
   // in common
   // this should be called by subclasses before their own equality tests
-  return getDynamicClassID() == rhs.getDynamicClassID()
+  return typeid(*this) == typeid(rhs)
   && pos == rhs.pos
   && (ruleSet == NULL) == (rhs.ruleSet == NULL)
   // && ruleSet == rhs.ruleSet causes circularity, other checks to make instead?
@@ -613,10 +614,12 @@ NFSubstitution::doSubstitution(double number, UnicodeString& toInsertInto, int32
     // perform a transformation on the number being formatted that
     // is dependent on the type of substitution this is
     double numberToFormat = transformNumber(number);
+    DigitList digits;
+    digits.set(numberToFormat);
 
     // if the result is an integer, from here on out we work in integer
     // space (saving time and memory and preserving accuracy)
-    if (numberToFormat == uprv_floor(numberToFormat) && ruleSet != NULL) {
+    if (numberToFormat == uprv_floor(numberToFormat) && ruleSet != NULL && (!digits.isInfinite())) {
         ruleSet->format(util64_fromDouble(numberToFormat), toInsertInto, _pos + this->pos);
 
         // if the result isn't an integer, then call either our rule set's
@@ -766,6 +769,22 @@ NFSubstitution::isNullSubstitution() const {
 UBool
 NFSubstitution::isModulusSubstitution() const {
     return FALSE;
+}
+
+    /**
+     * @return true if this is a decimal format-only substitution
+     */
+UBool
+NFSubstitution::isDecimalFormatSubstitutionOnly() const {
+    return (ruleSet == NULL && getNumberFormat() != NULL);
+}
+
+    /**
+     * @return true if this substitution uses another ruleSet
+     */
+UBool
+NFSubstitution::isRuleSetSubstitutionOnly() const {
+    return (getNumberFormat() == NULL && ruleSet != NULL);
 }
 
 //===================================================================
@@ -1041,25 +1060,22 @@ FractionalPartSubstitution::doSubstitution(double number, UnicodeString& toInser
     //          }
 
     DigitList dl;
-    dl.set(number, 20, TRUE);
+    dl.set(number);
+    dl.roundFixedPoint(20);     // round to 20 fraction digits.
+    dl.reduce();                // Removes any trailing zeros.
     
     UBool pad = FALSE;
-    while (dl.fCount > (dl.fDecimalAt <= 0 ? 0 : dl.fDecimalAt)) {
+    for (int32_t didx = dl.getCount()-1; didx>=dl.getDecimalAt(); didx--) {
+      // Loop iterates over fraction digits, starting with the LSD.
+      //   include both real digits from the number, and zeros
+      //   to the left of the MSD but to the right of the decimal point.
       if (pad && useSpaces) {
         toInsertInto.insert(_pos + getPos(), gSpace);
       } else {
         pad = TRUE;
       }
-      getRuleSet()->format((int64_t)(dl.fDigits[--dl.fCount] - '0'), toInsertInto, _pos + getPos());
-    }
-    while (dl.fDecimalAt < 0) {
-      if (pad && useSpaces) {
-        toInsertInto.insert(_pos + getPos(), gSpace);
-      } else {
-        pad = TRUE;
-      }
-      getRuleSet()->format((int64_t)0, toInsertInto, _pos + getPos());
-      ++dl.fDecimalAt;
+      int64_t digit = didx>=0 ? dl.getDigit(didx) - '0' : 0;
+      getRuleSet()->format(digit, toInsertInto, _pos + getPos());
     }
 
     if (!pad) {
@@ -1156,7 +1172,7 @@ FractionalPartSubstitution::doParse(const UnicodeString& text,
         }
         delete fmt;
 
-        result = dl.fCount == 0 ? 0 : dl.getDouble();
+        result = dl.getCount() == 0 ? 0 : dl.getDouble();
         result = composeRuleValue(result, baseValue);
         resVal.setDouble(result);
         return TRUE;

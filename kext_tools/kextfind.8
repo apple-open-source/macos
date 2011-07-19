@@ -1,4 +1,4 @@
-.Dd March 6, 2009 
+.Dd March 26, 2010
 .Os Darwin
 .Dt KEXTFIND 8
 .Sh NAME
@@ -132,6 +132,9 @@ True if the kext's bundle identifier matches
 .Ar identifier .
 This is equivalent to
 .Fl property Cm CFBundleIdentifier Ar identifier Ns Li .
+.It Fl dup
+.It Fl duplicate-id
+True if any other kext has the same bundle identifier as the current kext.
 .It Fl B Oo Fl i Ns Li | Ns Fl case-insensitive Oc Oo Fl s Ns Li | Ns Fl substring Oc Ar name
 .It Fl bundle-name Oo Fl i Ns Li | Ns Fl case-insensitive Oc Oo Fl s Ns Li | Ns Fl substring Oc Ar name
 True if the kext's bundle name matches
@@ -588,8 +591,8 @@ the named architectures (and no others),
 otherwise.
 .It Fl a , Fl authentic
 .It Fl debug
-.It Fl dsym Ar symbol , Fl defines-symbol Ar symbol
 .It Fl d , Fl dependencies-met
+.It Fl dup, Fl duplicate-identifier
 .It Fl x , Fl executable
 .It Fl has-plugins
 .It Fl kernel-resource

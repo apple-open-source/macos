@@ -62,6 +62,7 @@
 #import <IOKit/IODeviceTreeSupport.h>
 #import <IOKit/IOMessage.h>
 #import <IOKit/IOTimerEventSource.h>
+#import <IOKit/IOKitKeysPrivate.h>
 
 // bsd
 #include <sys/sysctl.h>
@@ -4136,6 +4137,17 @@ IOService *IOFireWireController::findKeyswitchDevice( void )
 //
 void IOFireWireController::initSecurity( void )
 {
+    #ifdef kIOConsoleSecurityInterest
+	{
+        const OSSymbol * console_security_interest 	= OSSymbol::withCStringNoCopy( kIOConsoleSecurityInterest );
+		fConsoleLockNotifier = IOService::getServiceRoot()->registerInterest( console_security_interest, &IOFireWireController::consoleLockInterestHandler, this, NULL );
+		if( fConsoleLockNotifier == NULL )
+		{
+			fConsoleLockNotifier->enable(true);
+		}
+	}
+    #endif
+    
 	bool	waitForKeyswitch	= false;
 	
 	if( findKeyswitchDevice() )
@@ -4146,7 +4158,29 @@ void IOFireWireController::initSecurity( void )
 	//
 				
 	IOFWSecurityMode mode = kIOFWSecurityModeNormal;
-				
+
+    #ifdef kIOConsoleSecurityInterest
+	{
+        IORegistryEntry * root = IORegistryEntry::getRegistryRoot();
+        OSObject * console_lock_property = NULL;
+        if( root )
+        {
+            console_lock_property = root->getProperty( kIOConsoleLockedKey );
+        }
+        
+        OSBoolean * console_locked = NULL;
+        if( console_lock_property )
+        {
+            console_locked = OSDynamicCast( OSBoolean, console_lock_property );
+        }
+        
+        if( console_locked && console_locked->isTrue() )
+		{
+			mode = kIOFWSecurityModeSecure;		
+		}
+	}
+    #endif
+    
 	//
 	// check OpenFirmware security mode
 	//
@@ -4177,7 +4211,7 @@ void IOFireWireController::initSecurity( void )
 	}
 	
 	//
-	// handle secruity keyswitch
+	// handle security keyswitch
 	//
 	
 	if( mode != kIOFWSecurityModeSecurePermanent )
@@ -4254,12 +4288,53 @@ void IOFireWireController::initSecurity( void )
 void IOFireWireController::freeSecurity( void )
 {
 	// remove notification
-										  
+
+	if( fConsoleLockNotifier )
+	{
+		fConsoleLockNotifier->remove();
+		fConsoleLockNotifier = NULL;
+	}
+											  
 	if( fKeyswitchNotifier != NULL )
 	{
 		fKeyswitchNotifier->remove();
 		fKeyswitchNotifier = NULL;
 	}
+}
+
+IOReturn IOFireWireController::consoleLockInterestHandler( void * target, void * refCon,
+                                         UInt32 messageType, IOService * provider,
+                                         void * messageArgument, vm_size_t argSize )
+{
+	IOFireWireController * me = OSDynamicCast( IOFireWireController, (OSObject *)target );
+	
+    IORegistryEntry * root = IORegistryEntry::getRegistryRoot();
+    OSObject * console_lock_property = NULL;
+    if( root )
+    {
+        console_lock_property = root->getProperty( kIOConsoleLockedKey );
+    }
+    
+    OSBoolean * console_locked = NULL;
+    if( console_lock_property )
+    {
+        console_locked = OSDynamicCast( OSBoolean, console_lock_property );
+	}
+     
+	if( console_locked && console_locked->isTrue() )
+	{
+		// Key is locked, set security mode to secure
+    //    IOLog( "IOFireWireController::consoleLockInterestHandler lock: value true\n" );
+		me->setSecurityMode( kIOFWSecurityModeSecure );
+	}
+	else
+	{
+		// Key is unlocked, set security mode to normal
+     //   IOLog( "IOFireWireController::consoleLockInterestHandler lock: value false\n" );		
+		me->setSecurityMode( kIOFWSecurityModeNormal );
+	}
+	
+	return kIOReturnSuccess;
 }
 
 // serverKeyswitchCallback

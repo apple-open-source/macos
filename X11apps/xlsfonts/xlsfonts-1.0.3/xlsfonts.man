@@ -1,0 +1,88 @@
+.\" -*- coding: us-ascii -*-
+.TH xlsfonts __appmansuffix__ __xorgversion__
+.SH NAME
+xlsfonts \- server font list displayer for X
+.SH SYNOPSIS
+.ad l
+\fBxlsfonts\fR
+[\fB\-display \fBhost:dpy\fR\fR] [\fB\-l\fR] [\fB\-ll\fR] [\fB\-lll\fR] [\fB\-m\fR] [\fB\-C\fR] [\fB\-1\fR] [\fB\-w \fBwidth\fR\fR] [\fB\-n \fBcolumns\fR\fR] [\fB\-u\fR] [\fB\-o\fR] [\fB\-fn \fBpattern\fR\fR]
+.SH DESCRIPTION
+xlsfonts lists the fonts that match the given pattern.
+The wildcard character "*" may be used to match any sequence of characters
+(including none), and "?" to match any single character.
+If no pattern is given, "*" is assumed.
+.PP
+The "*" and "?" characters must be quoted to prevent them from being expanded by the shell.
+.SH OPTIONS
+.TP 
+\fB\-display \fIhost:dpy\fB\fR 
+This option specifies the X server to contact.
+.TP 
+\fB\-d \fIhost:dpy\fB\fR 
+Same as \fB\-display \fIhost:dpy\fB\fR.
+.TP 
+\fB\-l\fR 
+Lists some attributes of the font on one line in addition
+to its name.
+.TP 
+\fB\-ll\fR 
+Lists font properties in addition to \fB\-l\fR output.
+.TP 
+\fB\-lll\fR 
+Lists character metrics in addition to \fB\-ll\fR output.
+.TP 
+\fB\-m\fR 
+This option indicates that long listings should also print
+the minimum and maximum bounds of each font.
+.TP 
+\fB\-C\fR 
+This option indicates that listings should use multiple columns.
+This is the same as \fB\-n 0\fR.
+.TP 
+\fB\-1\fR 
+This option indicates that listings should use a single column.
+This is the same as \fB\-n 1\fR.
+.TP 
+\fB\-w \fIwidth\fB\fR 
+This option specifies the width in characters that should be
+used in figuring out how many columns to print.
+The default is 79.
+.TP 
+\fB\-n \fIcolumns\fB\fR 
+This option specifies the number of columns to use in
+displaying the output. By default, it will attempt to
+fit as many columns of font names into the number of
+character specified by \fB\-w\fR width.
+.TP 
+\fB\-u\fR 
+This option indicates that the output should be left unsorted.
+.TP 
+\fB\-o\fR 
+This option indicates that xlsfonts should do an OpenFont
+(and QueryFont, if appropriate) rather than a ListFonts.
+This is useful if ListFonts or ListFontsWithInfo fail to
+list a known font (as is the case with some scaled font
+systems).
+.TP 
+\fB\-fn \fIpattern\fB\fR 
+This option specifies the font name pattern to match.
+.SH "SEE ALSO"
+\fBX\fR(__miscmansuffix__), \fBXserver\fR(__appmansuffix__), \fBxset\fR(__appmansuffix__), \fBxfd\fR(__appmansuffix__), X Logical Font Description Conventions
+.SH ENVIRONMENT
+.TP 
+\fBDISPLAY\fR 
+\fBDISPLAY\fR must be set to get the default host and display to use.
+.SH BUGS
+Doing ``xlsfonts -l'' can tie up your server for a very long time. 
+This is really a bug with single-threaded
+non-preemptable servers, not with this program.
+.SH AUTHOR
+
+Mark Lillibridge
+.PP
+Jim Fulton
+.PP
+Phil Karlton
+.PP
+Roland Mainz
+

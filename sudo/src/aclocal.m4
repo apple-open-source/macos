@@ -1,113 +1,81 @@
 dnl Local m4 macros for autoconf (used by sudo)
 dnl
-dnl Copyright (c) 1994-1996,1998-2004 Todd C. Miller <Todd.Miller@courtesan.com>
+dnl Copyright (c) 1994-1996, 1998-2005, 2007-2009
+dnl	Todd C. Miller <Todd.Miller@courtesan.com>
 dnl
 dnl XXX - should cache values in all cases!!!
 dnl
 dnl checks for programs
 
 dnl
-dnl check for sendmail
+dnl check for sendmail in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_SENDMAIL, [AC_MSG_CHECKING(for sendmail)
-if test -f "/usr/sbin/sendmail"; then
-    AC_MSG_RESULT(/usr/sbin/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/sbin/sendmail")
-elif test -f "/usr/lib/sendmail"; then
-    AC_MSG_RESULT(/usr/lib/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/lib/sendmail")
-elif test -f "/usr/etc/sendmail"; then
-    AC_MSG_RESULT(/usr/etc/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/etc/sendmail")
-elif test -f "/usr/ucblib/sendmail"; then
-    AC_MSG_RESULT(/usr/ucblib/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/ucblib/sendmail")
-elif test -f "/usr/local/lib/sendmail"; then
-    AC_MSG_RESULT(/usr/local/lib/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/local/lib/sendmail")
-elif test -f "/usr/local/bin/sendmail"; then
-    AC_MSG_RESULT(/usr/local/bin/sendmail)
-    SUDO_DEFINE(_PATH_SUDO_SENDMAIL, "/usr/local/bin/sendmail")
-else
-    AC_MSG_RESULT(not found)
+AC_DEFUN(SUDO_PROG_SENDMAIL, [AC_MSG_CHECKING([for sendmail])
+found=no
+for p in "/usr/sbin/sendmail" "/usr/lib/sendmail" "/usr/etc/sendmail" "/usr/ucblib/sendmail" "/usr/local/lib/sendmail" "/usr/local/bin/sendmail"; do
+    if test -f "$p"; then
+	found=yes
+	AC_MSG_RESULT([$p])
+	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_SENDMAIL, "$p")
+	break
+    fi
+done
+if test X"$found" != X"yes"; then
+    AC_MSG_RESULT([not found])
 fi
 ])dnl
 
 dnl
-dnl check for vi
+dnl check for vi in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_VI, [AC_MSG_CHECKING(for vi)
-if test -f "/usr/bin/vi"; then
-    AC_MSG_RESULT(/usr/bin/vi)
-    SUDO_DEFINE(_PATH_VI, "/usr/bin/vi")
-elif test -f "/usr/ucb/vi"; then
-    AC_MSG_RESULT(/usr/ucb/vi)
-    SUDO_DEFINE(_PATH_VI, "/usr/ucb/vi")
-elif test -f "/usr/bsd/vi"; then
-    AC_MSG_RESULT(/usr/bsd/vi)
-    SUDO_DEFINE(_PATH_VI, "/usr/bsd/vi")
-elif test -f "/bin/vi"; then
-    AC_MSG_RESULT(/bin/vi)
-    SUDO_DEFINE(_PATH_VI, "/bin/vi")
-elif test -f "/usr/local/bin/vi"; then
-    AC_MSG_RESULT(/usr/local/bin/vi)
-    SUDO_DEFINE(_PATH_VI, "/usr/local/bin/vi")
-else
-    AC_MSG_RESULT(not found)
+AC_DEFUN(SUDO_PROG_VI, [AC_MSG_CHECKING([for vi])
+found=no
+for editor in "/usr/bin/vi" "/bin/vi" "/usr/ucb/vi" "/usr/bsd/vi" "/usr/local/bin/vi"; do
+    if test -f "$editor"; then
+	found=yes
+	AC_MSG_RESULT([$editor])
+	SUDO_DEFINE_UNQUOTED(_PATH_VI, "$editor")
+	break
+    fi
+done
+if test X"$found" != X"yes"; then
+    AC_MSG_RESULT([not found])
 fi
 ])dnl
 
 dnl
-dnl check for mv
+dnl check for mv in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_MV, [AC_MSG_CHECKING(for mv)
-if test -f "/usr/bin/mv"; then
-    AC_MSG_RESULT(/usr/bin/mv)
-    SUDO_DEFINE(_PATH_MV, "/usr/bin/mv")
-elif test -f "/bin/mv"; then
-    AC_MSG_RESULT(/bin/mv)
-    SUDO_DEFINE(_PATH_MV, "/bin/mv")
-elif test -f "/usr/ucb/mv"; then
-    AC_MSG_RESULT(/usr/ucb/mv)
-    SUDO_DEFINE(_PATH_MV, "/usr/ucb/mv")
-elif test -f "/usr/sbin/mv"; then
-    AC_MSG_RESULT(/usr/sbin/mv)
-    SUDO_DEFINE(_PATH_MV, "/usr/sbin/mv")
-else
-    AC_MSG_RESULT(not found)
+AC_DEFUN(SUDO_PROG_MV, [AC_MSG_CHECKING([for mv])
+found=no
+for p in "/usr/bin/mv" "/bin/mv" "/usr/ucb/mv" "/usr/sbin/mv"; do
+    if test -f "$p"; then
+	found=yes
+	AC_MSG_RESULT([$p])
+	SUDO_DEFINE_UNQUOTED(_PATH_MV, "$p")
+	break
+    fi
+done
+if test X"$found" != X"yes"; then
+    AC_MSG_RESULT([not found])
 fi
 ])dnl
 
 dnl
-dnl check for bourne shell
+dnl check for bourne shell in well-known locations
 dnl
-AC_DEFUN(SUDO_PROG_BSHELL, [AC_MSG_CHECKING(for bourne shell)
-if test -f "/bin/sh"; then
-    AC_MSG_RESULT(/bin/sh)
-    SUDO_DEFINE(_PATH_BSHELL, "/bin/sh")
-elif test -f "/usr/bin/sh"; then
-    AC_MSG_RESULT(/usr/bin/sh)
-    SUDO_DEFINE(_PATH_BSHELL, "/usr/bin/sh")
-elif test -f "/sbin/sh"; then
-    AC_MSG_RESULT(/sbin/sh)
-    SUDO_DEFINE(_PATH_BSHELL, "/sbin/sh")
-elif test -f "/usr/sbin/sh"; then
-    AC_MSG_RESULT(/usr/sbin/sh)
-    SUDO_DEFINE(_PATH_BSHELL, "/usr/sbin/sh")
-elif test -f "/bin/ksh"; then
-    AC_MSG_RESULT(/bin/ksh)
-    SUDO_DEFINE(_PATH_BSHELL, "/bin/ksh")
-elif test -f "/usr/bin/ksh"; then
-    AC_MSG_RESULT(/usr/bin/ksh)
-    SUDO_DEFINE(_PATH_BSHELL, "/usr/bin/ksh")
-elif test -f "/bin/bash"; then
-    AC_MSG_RESULT(/bin/bash)
-    SUDO_DEFINE(_PATH_BSHELL, "/bin/bash")
-elif test -f "/usr/bin/bash"; then
-    AC_MSG_RESULT(/usr/bin/bash)
-    SUDO_DEFINE(_PATH_BSHELL, "/usr/bin/bash")
-else
-    AC_MSG_RESULT(not found)
+AC_DEFUN(SUDO_PROG_BSHELL, [AC_MSG_CHECKING([for bourne shell])
+found=no
+for p in "/bin/sh" "/usr/bin/sh" "/sbin/sh" "/usr/sbin/sh" "/bin/ksh" "/usr/bin/ksh" "/bin/bash" "/usr/bin/bash"; do
+    if test -f "$p"; then
+	found=yes
+	AC_MSG_RESULT([$p])
+	SUDO_DEFINE_UNQUOTED(_PATH_BSHELL, "$p")
+	break
+    fi
+done
+if test X"$found" != X"yes"; then
+    AC_MSG_RESULT([not found])
 fi
 ])dnl
 
@@ -133,26 +101,41 @@ fi
 ])dnl
 
 dnl
-dnl Where the log file goes, use /var/log if it exists, else /{var,usr}/adm
+dnl Where the timestamp files go.
 dnl
 AC_DEFUN(SUDO_TIMEDIR, [AC_MSG_CHECKING(for timestamp file location)
-if test -n "$with_timedir"; then
-    AC_MSG_RESULT($with_timedir)
-    SUDO_DEFINE_UNQUOTED(_PATH_SUDO_TIMEDIR, "$with_timedir")
-    timedir="$with_timedir"
-elif test -d "/var/run"; then
-    AC_MSG_RESULT(/var/run/sudo)
-    SUDO_DEFINE(_PATH_SUDO_TIMEDIR, "/var/run/sudo")
-    timedir="/var/run/sudo"
-elif test -d "/var/adm"; then
-    AC_MSG_RESULT(/var/adm/sudo)
-    SUDO_DEFINE(_PATH_SUDO_TIMEDIR, "/var/adm/sudo")
-    timedir="/var/adm/sudo"
-else
-    AC_MSG_RESULT(/usr/adm/sudo)
-    SUDO_DEFINE(_PATH_SUDO_TIMEDIR, "/usr/adm/sudo")
-    timedir="/usr/adm/sudo"
+timedir="$with_timedir"
+if test -z "$timedir"; then
+    for d in /var/db /var/lib /var/adm /usr/adm; do
+	if test -d "$d"; then
+	    timedir="$d/sudo"
+	    break
+	fi
+    done
 fi
+AC_MSG_RESULT([$timedir])
+SUDO_DEFINE_UNQUOTED(_PATH_SUDO_TIMEDIR, "$timedir")
+])dnl
+
+dnl
+dnl Where the I/O log files go, use /var/log/sudo-io if
+dnl /var/log exists, else /{var,usr}/adm/sudo-io
+dnl
+AC_DEFUN(SUDO_IO_LOGDIR, [
+    AC_MSG_CHECKING(for I/O log dir location)
+    if test "${with_iologdir-yes}" != "yes"; then
+	:
+    elif test -d "/var/log"; then
+	with_iologdir="/var/log/sudo-io"
+    elif test -d "/var/adm"; then
+	with_iologdir="/var/adm/sudo-io"
+    else
+	with_iologdir="/usr/adm/sudo-io"
+    fi
+    if test "${with_iologdir-yes}" != "no"; then
+	SUDO_DEFINE_UNQUOTED(_PATH_SUDO_IO_LOGDIR, "$with_iologdir")
+    fi
+    AC_MSG_RESULT($with_iologdir)
 ])dnl
 
 dnl
@@ -219,7 +202,7 @@ dnl
 dnl check for isblank(3)
 dnl
 AC_DEFUN([SUDO_FUNC_ISBLANK],
-  [AC_CACHE_CHECK([for isblank], sudo_cv_func_isblank,
+  [AC_CACHE_CHECK([for isblank], [sudo_cv_func_isblank],
     [AC_TRY_LINK([#include <ctype.h>], [return (isblank('a'));],
     sudo_cv_func_isblank=yes, sudo_cv_func_isblank=no)])
 ] [
@@ -231,26 +214,53 @@ AC_DEFUN([SUDO_FUNC_ISBLANK],
 ])
 
 dnl
-dnl check for sa_len field in struct sockaddr
+dnl check unsetenv() return value
 dnl
-AC_DEFUN(SUDO_SOCK_SA_LEN,
-[AC_MSG_CHECKING(for sa_len field in struct sockaddr)
-AC_CACHE_VAL(sudo_cv_sock_sa_len,
-[AC_TRY_RUN([#include <sys/types.h>
-#include <sys/socket.h>
-main() {
-struct sockaddr s;
-s.sa_len = 0;
-exit(0);
-}], sudo_cv_sock_sa_len=yes, sudo_cv_sock_sa_len=no,
-  sudo_cv_sock_sa_len=no)
-rm -f core core.* *.core])dnl
-AC_MSG_RESULT($sudo_cv_sock_sa_len)
-if test $sudo_cv_sock_sa_len = yes; then
-  AC_DEFINE(HAVE_SA_LEN, 1, [Define if your struct sockadr has an sa_len field.])
-fi
+AC_DEFUN([SUDO_FUNC_UNSETENV_VOID],
+  [AC_CACHE_CHECK([whether unsetenv returns void], [sudo_cv_func_unsetenv_void],
+    [AC_RUN_IFELSE([AC_LANG_PROGRAM(
+      [AC_INCLUDES_DEFAULT
+        int unsetenv();
+      ], [
+        [return unsetenv("FOO") != 0;]
+      ])
+    ],
+    [sudo_cv_func_unsetenv_void=no],
+    [sudo_cv_func_unsetenv_void=yes],
+    [sudo_cv_func_unsetenv_void=no])])
+    if test $sudo_cv_func_unsetenv_void = yes; then
+      AC_DEFINE(UNSETENV_VOID, 1,
+        [Define to 1 if the `unsetenv' function returns void instead of `int'.])
+    fi
+  ])
+
+dnl
+dnl check putenv() argument for const
+dnl
+AC_DEFUN([SUDO_FUNC_PUTENV_CONST],
+[AC_CACHE_CHECK([whether putenv has a const argument],
+sudo_cv_func_putenv_const,
+[AC_COMPILE_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+int putenv(const char *string) {return 0;}], [])],
+    [sudo_cv_func_putenv_const=yes],
+    [sudo_cv_func_putenv_const=no])
+  ])
+  if test $sudo_cv_func_putenv_const = yes; then
+    AC_DEFINE(PUTENV_CONST, 1, [Define to 1 if the `putenv' has a const argument.])
+  fi
 ])
 
+dnl
+dnl check for sa_len field in struct sockaddr
+dnl
+AC_DEFUN(SUDO_SOCK_SA_LEN, [
+    AC_CHECK_MEMBER([struct sockaddr.sa_len], 
+	[AC_DEFINE(HAVE_SA_LEN, 1, [Define if your struct sockadr has an sa_len field.])],    
+	[],
+	[ #include <sys/types.h>
+	  #include <sys/socket.h>] 
+    )]
+)
 dnl
 dnl check for max length of uid_t in string representation.
 dnl we can't really trust UID_MAX or MAXUID since they may exist
@@ -279,7 +289,7 @@ main() {
   (void) fprintf(f, "%d\n", strlen(b));
   (void) fclose(f);
   exit(0);
-}], sudo_cv_uid_t_len=`cat conftestdata`, sudo_cv_uid_t_len=10)
+}], sudo_cv_uid_t_len=`cat conftestdata`, sudo_cv_uid_t_len=10, sudo_cv_uid_t_len=10)
 ])
 rm -f conftestdata
 AC_MSG_RESULT($sudo_cv_uid_t_len)
@@ -287,37 +297,55 @@ AC_DEFINE_UNQUOTED(MAX_UID_T_LEN, $sudo_cv_uid_t_len, [Define to the max length 
 ])
 
 dnl
-dnl Check for presence of long long and for sizeof(long long) == sizeof(long)
-dnl
-AC_DEFUN(SUDO_TYPE_LONG_LONG,
-[AC_CHECK_TYPES(long long, [AC_DEFINE(HAVE_LONG_LONG, 1, [Define if your compiler supports the "long long" type.])]
-[AC_MSG_CHECKING(for long and long long equivalence)
-AC_CACHE_VAL(sudo_cv_type_long_is_quad,
-[AC_TRY_RUN([
-main() {
-if (sizeof(long long) == sizeof(long)) exit(0);
-else exit(1);
-}], [sudo_cv_type_long_is_quad=yes],
-[sudo_cv_type_long_is_quad=no], [sudo_cv_type_long_is_quad=no])
-rm -f core core.* *.core])dnl
-AC_MSG_RESULT($sudo_cv_type_long_is_quad)
-if test $sudo_cv_type_long_is_quad = yes; then
-  AC_DEFINE(LONG_IS_QUAD, 1, [Define if sizeof(long) == sizeof(long long).])
-fi
-])])
-
-dnl
 dnl append a libpath to an LDFLAGS style variable
 dnl
 AC_DEFUN(SUDO_APPEND_LIBPATH, [
     if test X"$with_rpath" = X"yes"; then
-	$1="${$1} -L$2 -R$2"
+	case "$host" in
+	    *-*-hpux*)	$1="${$1} -L$2 -Wl,+b,$2"
+			;;
+	    *)		$1="${$1} -L$2 -Wl,-R$2"
+			;;
+	esac
     else
 	$1="${$1} -L$2"
     fi
     if test X"$blibpath" != X"" -a "$1" = "SUDO_LDFLAGS"; then
 	blibpath_add="${blibpath_add}:$2"
     fi
+])
+
+dnl
+dnl Determine the mail spool location
+dnl NOTE: must be run *after* check for paths.h
+dnl
+AC_DEFUN(SUDO_MAILDIR, [
+maildir=no
+if test X"$ac_cv_header_paths_h" = X"yes"; then
+AC_COMPILE_IFELSE([AC_LANG_PROGRAM([AC_INCLUDES_DEFAULT
+#include <paths.h>
+int main() {char *p = _PATH_MAILDIR;}], [])], [maildir=yes], [])
+fi
+if test $maildir = no; then
+    # Solaris has maillock.h which defines MAILDIR
+    AC_CHECK_HEADERS(maillock.h, [
+	SUDO_DEFINE(_PATH_MAILDIR, MAILDIR)
+	maildir=yes
+    ])
+    if test $maildir = no; then
+	for d in /var/mail /var/spool/mail /usr/spool/mail; do
+	    if test -d "$d"; then
+		maildir=yes
+		SUDO_DEFINE_UNQUOTED(_PATH_MAILDIR, "$d")
+		break
+	    fi
+	done
+	if test $maildir = no; then
+	    # unable to find mail dir, hope for the best
+	    SUDO_DEFINE_UNQUOTED(_PATH_MAILDIR, "/var/mail")
+	fi
+    fi
+fi
 ])
 
 dnl
@@ -336,3 +364,12 @@ m4_define([SUDO_DEFINE_UNQUOTED],
 [@%:@define] $1 m4_if($#, 2, [$2], $#, 3, [$2], 1)
 EOF
 ])
+
+dnl
+dnl Pull in libtool macros
+dnl
+m4_include([libtool.m4])
+m4_include([ltoptions.m4])
+m4_include([ltsugar.m4])
+m4_include([ltversion.m4])
+m4_include([lt~obsolete.m4])

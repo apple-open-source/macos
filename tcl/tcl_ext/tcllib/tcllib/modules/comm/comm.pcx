@@ -82,16 +82,17 @@ proc comm::checkCommSwitches {t i} {
     # socket, serial, encoding are read-only, hence the check that
     # they are used only without an argument.
     return [checkSwitches 1 {
-	{-port     checkWholeNum}
-	{-local    checkBoolean}
-	{-listen   checkBoolean}
-	{-socket   {checkSimpleArgs 0 0 {}}}
-	{-chan     {checkSimpleArgs 0 0 {}}}
-	{-serial   {checkSimpleArgs 0 0 {}}}
-	{-encoding checkWord}
-	{-silent   checkBoolean}
-	{-interp   checkWord}
-	{-events   {checkListValues 0 -1 {comm::checkCommHook}}}
+	{-chan      {checkSimpleArgs 0 0 {}}}
+	{-encoding  checkWord}
+	{-events    {checkListValues 0 -1 {comm::checkCommHook}}}
+	{-interp    checkWord}
+	{-listen    checkBoolean}
+	{-local     checkBoolean}
+	{-port      checkWholeNum}
+	{-serial    {checkSimpleArgs 0 0 {}}}
+	{-silent    checkBoolean}
+	{-socket    {checkSimpleArgs 0 0 {}}}
+	{-socketcmd checkWord}
     } {} $t $i]
 }
 

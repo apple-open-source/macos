@@ -42,6 +42,38 @@ sub short_name_for_datetime { $_[0]->name }
 
 sub category { undef }
 
+
+sub STORABLE_freeze
+{
+    my $self = shift;
+
+    return $self->name;
+}
+
+sub STORABLE_thaw
+{
+    my $self = shift;
+    my $cloning = shift;
+    my $serialized = shift;
+
+    my $class = ref $self || $self;
+
+    my $obj;
+    if ( $class->isa(__PACKAGE__) )
+    {
+        $obj = __PACKAGE__->new( offset => $serialized );
+    }
+    else
+    {
+        $obj = $class->new( offset => $serialized );
+    }
+
+    %$self = %$obj;
+
+    return $self;
+}
+
+
 1;
 
 __END__
@@ -66,23 +98,34 @@ the date.
 This class has the same methods as a real time zone object, but the
 C<category()> method returns undef.
 
-=over 4
-
-=item * new ( offset => $offset )
+=head2 DateTime::TimeZone::OffsetOnly->new ( offset => $offset )
 
 The value given to the offset parameter must be a string such as
 "+0300".  Strings will be converted into numbers by the
 C<DateTime::TimeZone::offset_as_seconds()> function.
 
-=item * offset_for_datetime( $datetime )
+=head2 $tz->offset_for_datetime( $datetime )
 
 No matter what date is given, the offset provided to the constructor
 is always used.
 
-=item * name(), short_name_for_datetime()
+=head2 $tz->name()
+
+=head2 $tz->short_name_for_datetime()
 
 Both of these methods return the offset in string form.
 
-=back
+=head1 AUTHOR
+
+Dave Rolsky, <autarch@urth.org>
+
+=head1 COPYRIGHT & LICENSE
+
+Copyright (c) 2003-2008 David Rolsky.  All rights reserved.  This
+program is free software; you can redistribute it and/or modify it
+under the same terms as Perl itself.
+
+The full text of the license can be found in the LICENSE file included
+with this module.
 
 =cut

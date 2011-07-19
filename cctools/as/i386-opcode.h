@@ -563,7 +563,7 @@ static const template i386_optab[] =
 /* i386sl, i486sl, later 486, and Pentium.  */
 {"rsm",	   0, 0x0faa, X, Cpu386, NoSuf,			{ 0, 0, 0} },
 
-{"bound",  2,	0x62, X, Cpu186|CpuNo64, wl_Suf|Modrm,		{ WordReg, WordMem, 0} },
+{"bound",  2,	0x62, X, Cpu186|CpuNo64, wl_Suf|Modrm,		{ WordMem, WordReg, 0} },
 
 {"hlt",	   0,	0xf4, X, 0,	 NoSuf,			{ 0, 0, 0} },
 
@@ -1360,6 +1360,10 @@ static const template i386_optab[] =
 {"vmwrite",   2, 0x0f79,    X, CpuVMX|Cpu64, q_Suf|Modrm|NoRex64,{ Reg64|LLongMem, Reg64, 0} },
 {"vmxoff",    0, 0x0f01, 0xc4, CpuVMX, NoSuf|ImmExt,	{ 0, 0, 0} },
 {"vmxon",     1, 0xf30fc7,  6, CpuVMX, NoSuf|IgnoreSize|Modrm|NoRex64,	{ LLongMem, 0, 0} },
+{"invvpid",   2, 0x660f3881,    X, CpuMNI|CpuNo64, NoSuf|Modrm,{ LongMem, Reg32, 0} },
+{"invvpid",   2, 0x660f3881,    X, CpuMNI|Cpu64, NoSuf|Modrm,{ LLongMem, Reg64, 0} },
+{"invept",   2, 0x660f3880,    X, CpuMNI|CpuNo64, NoSuf|Modrm,{ LongMem, Reg32, 0} },
+{"invept",   2, 0x660f3880,    X, CpuMNI|Cpu64, NoSuf|Modrm,{ LLongMem, Reg64, 0} },
 
 #ifdef NeXT_MOD
 /* Merom New Instructions. */
@@ -1523,6 +1527,14 @@ static const template i386_optab[] =
 {"popcnt", 2, 0xf30fb8, X, 0, NoSuf|Size32|Modrm, { Reg32|LongMem, Reg32, 0 } },
 {"popcnt", 2, 0xf30fb8, X, Cpu64, NoSuf|Size64|Modrm, { Reg64|LLongMem, Reg64, 0 } },
 
+/* ASE instructions */
+{"aesimc",      2, 0x660f38db, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
+{"aesenc",      2, 0x660f38dc, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
+{"aesenclast",  2, 0x660f38dd, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
+{"aesdec",      2, 0x660f38de, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
+{"aesdeclast",  2, 0x660f38df, X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ RegXMM|LLongMem, RegXMM, 0 } },
+{"aeskeygenassist",   3, 0x660f3adf,  X, CpuSSE4, NoSuf|IgnoreSize|Modrm,	{ Imm8, RegXMM|LLongMem, RegXMM } },
+
 /* sentinel */
 {NULL, 0, 0, 0, 0, 0, { 0, 0, 0} }
 };
@@ -1656,6 +1668,42 @@ static const reg_entry i386_regtab[] =
   {"cr13", Control, RegRex, 5},
   {"cr14", Control, RegRex, 6},
   {"cr15", Control, RegRex, 7},
+  /* Control register names used by llvm-mc. */
+#ifdef ARCH64
+  {"rcr0", Control, 0, 0},
+  {"rcr1", Control, 0, 1},
+  {"rcr2", Control, 0, 2},
+  {"rcr3", Control, 0, 3},
+  {"rcr4", Control, 0, 4},
+  {"rcr5", Control, 0, 5},
+  {"rcr6", Control, 0, 6},
+  {"rcr7", Control, 0, 7},
+  {"rcr8", Control, RegRex, 0},
+  {"rcr9", Control, RegRex, 1},
+  {"rcr10", Control, RegRex, 2},
+  {"rcr11", Control, RegRex, 3},
+  {"rcr12", Control, RegRex, 4},
+  {"rcr13", Control, RegRex, 5},
+  {"rcr14", Control, RegRex, 6},
+  {"rcr15", Control, RegRex, 7},
+#else
+  {"ecr0", Control, 0, 0},
+  {"ecr1", Control, 0, 1},
+  {"ecr2", Control, 0, 2},
+  {"ecr3", Control, 0, 3},
+  {"ecr4", Control, 0, 4},
+  {"ecr5", Control, 0, 5},
+  {"ecr6", Control, 0, 6},
+  {"ecr7", Control, 0, 7},
+  {"ecr8", Control, RegRex, 0},
+  {"ecr9", Control, RegRex, 1},
+  {"ecr10", Control, RegRex, 2},
+  {"ecr11", Control, RegRex, 3},
+  {"ecr12", Control, RegRex, 4},
+  {"ecr13", Control, RegRex, 5},
+  {"ecr14", Control, RegRex, 6},
+  {"ecr15", Control, RegRex, 7},
+#endif
   /* Debug registers.  */
   {"db0", Debug, 0, 0},
   {"db1", Debug, 0, 1},

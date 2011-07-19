@@ -32,15 +32,12 @@
 __RCSID("$NetBSD: wcsncat.c,v 1.1 2000/12/23 23:14:36 itojun Exp $");
 #endif /* LIBC_SCCS and not lint */
 #endif
-__FBSDID("$FreeBSD: src/lib/libc/string/wcsncat.c,v 1.7 2002/09/21 00:29:23 tjr Exp $");
+__FBSDID("$FreeBSD: src/lib/libc/string/wcsncat.c,v 1.8 2009/02/03 17:58:20 danger Exp $");
 
 #include <wchar.h>
 
 wchar_t *
-wcsncat(s1, s2, n)
-	wchar_t * __restrict s1;
-	const wchar_t * __restrict s2;
-	size_t n;
+wcsncat(wchar_t * __restrict s1, const wchar_t * __restrict s2, size_t n)
 {
 	wchar_t *p;
 	wchar_t *q;

@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2006, 2007, 2008 Apple Inc. All rights reserved.
+ * Copyright (C) 2010 Nokia Corporation and/or its subsidiary(-ies).
  *
  * Redistribution and use in source and binary forms, with or without
  * modification, are permitted provided that the following conditions
@@ -31,34 +32,37 @@
 #include "DOMCoreClasses.h"
 #include "WebElementPropertyBag.h"
 #include "WebFrame.h"
-#include "WebGeolocationPolicyListener.h"
 #include "WebHistory.h"
 #include "WebMutableURLRequest.h"
 #include "WebDesktopNotificationsDelegate.h"
 #include "WebSecurityOrigin.h"
 #include "WebView.h"
-#pragma warning(push, 0)
 #include <WebCore/BString.h>
 #include <WebCore/Console.h>
 #include <WebCore/ContextMenu.h>
 #include <WebCore/Cursor.h>
 #include <WebCore/FileChooser.h>
 #include <WebCore/FloatRect.h>
+#include <WebCore/Frame.h>
 #include <WebCore/FrameLoadRequest.h>
 #include <WebCore/FrameView.h>
-#include <WebCore/Geolocation.h>
+#include <WebCore/FullScreenController.h>
+#include <WebCore/HTMLNames.h>
+#include <WebCore/Icon.h>
+#include <WebCore/LocalWindowsContext.h>
+#include <WebCore/LocalizedStrings.h>
+#include <WebCore/NavigationAction.h>
+#include <WebCore/NotImplemented.h>
+#include <WebCore/Page.h>
+#include <WebCore/SecurityOrigin.h>
+#include <WebCore/PopupMenuWin.h>
+#include <WebCore/SearchPopupMenuWin.h>
+#include <WebCore/WindowFeatures.h>
+#include <wchar.h>
+
 #if USE(ACCELERATED_COMPOSITING)
 #include <WebCore/GraphicsLayer.h>
 #endif
-#include <WebCore/HTMLNames.h>
-#include <WebCore/Icon.h>
-#include <WebCore/LocalizedStrings.h>
-#include <WebCore/NotImplemented.h>
-#include <WebCore/Page.h>
-#include <WebCore/WindowFeatures.h>
-#pragma warning(pop)
-
-#include <tchar.h>
 
 using namespace WebCore;
 
@@ -168,6 +172,10 @@ void WebChromeClient::focusedNodeChanged(Node*)
 {
 }
 
+void WebChromeClient::focusedFrameChanged(Frame*)
+{
+}
+
 static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures& features)
 {
     HashMap<String, COMVariant> map;
@@ -190,13 +198,14 @@ static COMPtr<IPropertyBag> createWindowFeaturesPropertyBag(const WindowFeatures
     return COMPtr<IPropertyBag>(AdoptCOM, COMPropertyBag<COMVariant>::adopt(map));
 }
 
-Page* WebChromeClient::createWindow(Frame*, const FrameLoadRequest& frameLoadRequest, const WindowFeatures& features)
+Page* WebChromeClient::createWindow(Frame*, const FrameLoadRequest&, const WindowFeatures& features, const NavigationAction&)
 {
     COMPtr<IWebUIDelegate> delegate = uiDelegate();
     if (!delegate)
         return 0;
 
-    COMPtr<IWebMutableURLRequest> request(AdoptCOM, WebMutableURLRequest::createInstance(frameLoadRequest.resourceRequest()));
+    // Just create a blank request because createWindow() is only required to create window but not to load URL.
+    COMPtr<IWebMutableURLRequest> request(AdoptCOM, WebMutableURLRequest::createInstance());
 
     COMPtr<IWebUIDelegatePrivate2> delegatePrivate(Query, delegate);
     if (delegatePrivate) {
@@ -441,14 +450,14 @@ bool WebChromeClient::shouldInterruptJavaScript()
     return false;
 }
 
-bool WebChromeClient::tabsToLinks() const
+KeyboardUIMode WebChromeClient::keyboardUIMode()
 {
     BOOL enabled = FALSE;
     IWebPreferences* preferences;
     if (SUCCEEDED(m_webView->preferences(&preferences)))
         preferences->tabsToLinks(&enabled);
 
-    return !!enabled;
+    return enabled ? KeyboardAccessTabsToLinks : KeyboardAccessDefault;
 }
 
 IntRect WebChromeClient::windowResizerRect() const
@@ -584,11 +593,11 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
             uiDelegatePrivate->exceededDatabaseQuota(m_webView, kit(frame), origin.get(), BString(databaseIdentifier));
         else {
             // FIXME: remove this workaround once shipping Safari has the necessary delegate implemented.
-            TCHAR path[MAX_PATH];
-            HMODULE safariHandle = GetModuleHandle(TEXT("Safari.exe"));
+            WCHAR path[MAX_PATH];
+            HMODULE safariHandle = GetModuleHandleW(L"Safari.exe");
             if (!safariHandle)
                 return;
-            GetModuleFileName(safariHandle, path, ARRAYSIZE(path));
+            GetModuleFileName(safariHandle, path, WTF_ARRAY_LENGTH(path));
             DWORD handle;
             DWORD versionSize = GetFileVersionInfoSize(path, &handle);
             if (!versionSize)
@@ -599,9 +608,9 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 
             LPCTSTR productVersion;
             UINT productVersionLength;
-            if (!VerQueryValue(data.data(), TEXT("\\StringFileInfo\\040904b0\\ProductVersion"), (void**)&productVersion, &productVersionLength))
+            if (!VerQueryValueW(data.data(), L"\\StringFileInfo\\040904b0\\ProductVersion", (void**)&productVersion, &productVersionLength))
                 return;
-            if (_tcsncmp(TEXT("3.1"), productVersion, productVersionLength) > 0) {
+            if (wcsncmp(L"3.1", productVersion, productVersionLength) > 0) {
                 const unsigned long long defaultQuota = 5 * 1024 * 1024; // 5 megabytes should hopefully be enough to test storage support.
                 origin->setQuota(defaultQuota);
             }
@@ -615,6 +624,11 @@ void WebChromeClient::exceededDatabaseQuota(Frame* frame, const String& database
 void WebChromeClient::reachedMaxAppCacheSize(int64_t spaceNeeded)
 {
     // FIXME: Free some space.
+    notImplemented();
+}
+
+void WebChromeClient::reachedApplicationCacheOriginQuota(SecurityOrigin*)
+{
     notImplemented();
 }
 #endif
@@ -696,10 +710,9 @@ bool WebChromeClient::paintCustomScrollbar(GraphicsContext* context, const Float
         webState |= WebPressedScrollbarState;
     
     RECT webRect = enclosingIntRect(rect);
-    HDC hDC = context->getWindowsContext(webRect);
-    HRESULT hr = delegate->paintCustomScrollbar(m_webView, hDC, webRect, webSize, webState, webPressedPart, 
+    LocalWindowsContext windowsContext(context, webRect);
+    HRESULT hr = delegate->paintCustomScrollbar(m_webView, windowsContext.hdc(), webRect, webSize, webState, webPressedPart, 
                                                           vertical, value, proportion, webParts);
-    context->releaseWindowsContext(hDC, webRect);
     return SUCCEEDED(hr);
 }
 
@@ -713,9 +726,8 @@ bool WebChromeClient::paintCustomScrollCorner(GraphicsContext* context, const Fl
         return false;
 
     RECT webRect = enclosingIntRect(rect);
-    HDC hDC = context->getWindowsContext(webRect);
-    HRESULT hr = delegate->paintCustomScrollCorner(m_webView, hDC, webRect);
-    context->releaseWindowsContext(hDC, webRect);
+    LocalWindowsContext windowsContext(context, webRect);
+    HRESULT hr = delegate->paintCustomScrollCorner(m_webView, windowsContext.hdc(), webRect);
     return SUCCEEDED(hr);
 }
 
@@ -728,7 +740,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
         return;
 
     bool multiFile = fileChooser->allowsMultipleFiles();
-    Vector<TCHAR> fileBuf(multiFile ? maxFilePathsListSize : MAX_PATH);
+    Vector<WCHAR> fileBuf(multiFile ? maxFilePathsListSize : MAX_PATH);
 
     OPENFILENAME ofn;
 
@@ -740,7 +752,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = viewWindow;
     String allFiles = allFilesText();
-    allFiles.append(TEXT("\0*.*\0\0"), 6);
+    allFiles.append(L"\0*.*\0\0", 6);
     ofn.lpstrFilter = allFiles.charactersWithNullTermination();
     ofn.lpstrFile = fileBuf.data();
     ofn.nMaxFile = fileBuf.size();
@@ -751,7 +763,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
         ofn.Flags = ofn.Flags | OFN_ALLOWMULTISELECT;
 
     if (GetOpenFileName(&ofn)) {
-        TCHAR* files = fileBuf.data();
+        WCHAR* files = fileBuf.data();
         Vector<String> fileList;
         String file(files);
         if (multiFile) {
@@ -759,7 +771,7 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
                 // When using the OFN_EXPLORER flag, the file list is null delimited.
                 // When you create a String from a ptr to this list, it will use strlen to look for the null character.
                 // Then we find the next file path string by using the length of the string we just created.
-                TCHAR* nextFilePtr = files + file.length() + 1;
+                WCHAR* nextFilePtr = files + file.length() + 1;
                 String nextFile(nextFilePtr);
                 // If multiple files are selected, there will be a directory name first, which we don't want to add to the vector.
                 // We know a single file was selected if there is only one filename in the list.  
@@ -777,60 +789,46 @@ void WebChromeClient::runOpenPanel(Frame*, PassRefPtr<FileChooser> prpFileChoose
     // FIXME: Show some sort of error if too many files are selected and the buffer is too small.  For now, this will fail silently.
 }
 
-void WebChromeClient::chooseIconForFiles(const Vector<WebCore::String>& filenames, WebCore::FileChooser* chooser)
+void WebChromeClient::chooseIconForFiles(const Vector<WTF::String>& filenames, WebCore::FileChooser* chooser)
 {
     chooser->iconLoaded(Icon::createIconForFiles(filenames));
 }
 
-bool WebChromeClient::setCursor(PlatformCursorHandle cursor)
+void WebChromeClient::setCursor(const Cursor& cursor)
 {
-    if (!cursor)
-        return false;
+    HCURSOR platformCursor = cursor.platformCursor()->nativeCursor();
+    if (!platformCursor)
+        return;
 
+    bool shouldSetCursor = true;
     if (COMPtr<IWebUIDelegate> delegate = uiDelegate()) {
         COMPtr<IWebUIDelegatePrivate> delegatePrivate(Query, delegate);
         if (delegatePrivate) {
-            if (SUCCEEDED(delegatePrivate->webViewSetCursor(m_webView, reinterpret_cast<OLE_HANDLE>(cursor))))
-                return true;
+            if (SUCCEEDED(delegatePrivate->webViewSetCursor(m_webView, reinterpret_cast<OLE_HANDLE>(platformCursor))))
+                shouldSetCursor = false;
         }
     }
 
-    ::SetCursor(cursor);
-    return true;
+    if (shouldSetCursor)
+        ::SetCursor(platformCursor);
+
+    setLastSetCursorToCurrentCursor();
 }
 
-void WebChromeClient::requestGeolocationPermissionForFrame(Frame* frame, Geolocation* geolocation)
+void WebChromeClient::setLastSetCursorToCurrentCursor()
 {
-    COMPtr<IWebUIDelegate> uiDelegate;
-    if (FAILED(m_webView->uiDelegate(&uiDelegate))) {
-        geolocation->setIsAllowed(false);
-        return;
-    }
-
-    COMPtr<IWebUIDelegatePrivate2> uiDelegatePrivate2(Query, uiDelegate);
-    if (!uiDelegatePrivate2) {
-        geolocation->setIsAllowed(false);
-        return;
-    }
-
-    COMPtr<WebSecurityOrigin> origin(AdoptCOM, WebSecurityOrigin::createInstance(frame->document()->securityOrigin()));
-    COMPtr<WebGeolocationPolicyListener> listener = WebGeolocationPolicyListener::createInstance(geolocation);
-    HRESULT hr = uiDelegatePrivate2->decidePolicyForGeolocationRequest(m_webView, kit(frame), origin.get(), listener.get());
-    if (hr != E_NOTIMPL)
-        return;
-
-    geolocation->setIsAllowed(false);
+    m_webView->setLastCursor(::GetCursor());
 }
 
 #if USE(ACCELERATED_COMPOSITING)
 void WebChromeClient::attachRootGraphicsLayer(Frame* frame, GraphicsLayer* graphicsLayer)
 {
-    m_webView->setRootChildLayer(graphicsLayer ? static_cast<WKCACFLayer*>(graphicsLayer->platformLayer()) : 0);
+    m_webView->setRootChildLayer(graphicsLayer);
 }
 
 void WebChromeClient::scheduleCompositingLayerSync()
 {
-    m_webView->setRootLayerNeedsDisplay();
+    m_webView->flushPendingGraphicsLayerChangesSoon();
 }
 
 #endif
@@ -861,3 +859,68 @@ void WebChromeClient::exitFullscreenForNode(Node*)
 
 #endif
 
+bool WebChromeClient::selectItemWritingDirectionIsNatural()
+{
+    return true;
+}
+
+bool WebChromeClient::selectItemAlignmentFollowsMenuWritingDirection()
+{
+    return false;
+}
+
+PassRefPtr<PopupMenu> WebChromeClient::createPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new PopupMenuWin(client));
+}
+
+PassRefPtr<SearchPopupMenu> WebChromeClient::createSearchPopupMenu(PopupMenuClient* client) const
+{
+    return adoptRef(new SearchPopupMenuWin(client));
+}
+
+#if ENABLE(FULLSCREEN_API)
+bool WebChromeClient::supportsFullScreenForElement(const Element* element, bool requestingKeyboardAccess)
+{
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
+        COMPtr<IWebUIDelegatePrivate4> uiDelegatePrivate4(Query, uiDelegate);
+        BOOL supports = FALSE;
+        COMPtr<IDOMElement> domElement(AdoptCOM, DOMElement::createInstance(const_cast<Element*>(element)));
+
+        if (uiDelegatePrivate4 && SUCCEEDED(uiDelegatePrivate4->supportsFullScreenForElement(domElement.get(), requestingKeyboardAccess, &supports)))
+            return supports;
+    }
+
+    return m_webView->supportsFullScreenForElement(element, requestingKeyboardAccess);
+}
+
+void WebChromeClient::enterFullScreenForElement(Element* element)
+{
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
+        COMPtr<IWebUIDelegatePrivate4> uiDelegatePrivate4(Query, uiDelegate);
+        COMPtr<IDOMElement> domElement(AdoptCOM, DOMElement::createInstance(element));
+        if (uiDelegatePrivate4 && SUCCEEDED(uiDelegatePrivate4->enterFullScreenForElement(domElement.get())))
+            return;
+    } 
+
+    m_webView->setFullScreenElement(element);
+    m_webView->fullScreenController()->enterFullScreen();
+}
+
+void WebChromeClient::exitFullScreenForElement(Element* element)
+{
+    COMPtr<IWebUIDelegate> uiDelegate;
+    if (SUCCEEDED(m_webView->uiDelegate(&uiDelegate))) {
+        COMPtr<IWebUIDelegatePrivate4> uiDelegatePrivate4(Query, uiDelegate);
+        COMPtr<IDOMElement> domElement(AdoptCOM, DOMElement::createInstance(element));
+        if (uiDelegatePrivate4 && SUCCEEDED(uiDelegatePrivate4->exitFullScreenForElement(domElement.get())))
+            return;
+    }
+
+    ASSERT(element == m_webView->fullScreenElement());
+    m_webView->fullScreenController()->exitFullScreen();
+}
+
+#endif

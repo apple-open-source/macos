@@ -1,6 +1,6 @@
 /*
 **********************************************************************
-*   Copyright (C) 2002-2008, International Business Machines
+*   Copyright (C) 2002-2010, International Business Machines
 *   Corporation and others.  All Rights Reserved.
 **********************************************************************
 *   file name:  iotest.cpp
@@ -45,6 +45,14 @@ public:
         buffer[3999] = 0; /* NULL terminate */
         log_err(buffer);
     }
+
+    virtual void logln( const UnicodeString &message ) {
+        char buffer[4000];
+        message.extract(0, message.length(), buffer, sizeof(buffer));
+        buffer[3999] = 0; /* NULL terminate */
+        log_info(buffer);
+    }
+
     virtual void dataerrln( const UnicodeString &message ) {
         char buffer[4000];
         message.extract(0, message.length(), buffer, sizeof(buffer));
@@ -107,7 +115,7 @@ public:
                     fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
                 }
                 else {
-                    fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
+                    fgDataDir = ".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING".."U_FILE_SEP_STRING "data" U_FILE_SEP_STRING;
                 }
             }
         }
@@ -184,7 +192,7 @@ uto64(const UChar     *buffer)
 U_CDECL_BEGIN
 static void U_CALLCONV DataDrivenPrintf(void)
 {
-#if !UCONFIG_NO_FORMATTING
+#if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_FILE_IO
     UErrorCode errorCode;
     TestDataModule *dataModule;
     TestData *testData;
@@ -208,7 +216,7 @@ static void U_CALLCONV DataDrivenPrintf(void)
 
     const char *fileLocale = "en_US_POSIX";
     int32_t uFileBufferLenReturned;
-    UFILE *testFile;
+    LocalUFILEPointer testFile;
 
     errorCode=U_ZERO_ERROR;
     dataModule=TestDataModule::getTestDataModule("icuio", logger, errorCode);
@@ -222,8 +230,8 @@ static void U_CALLCONV DataDrivenPrintf(void)
                     errorCode=U_ZERO_ERROR;
                     continue;
                 }
-                testFile = u_fopen(STANDARD_TEST_FILE, "w", fileLocale, "UTF-8");
-                if (!testFile) {
+                testFile.adoptInstead(u_fopen(STANDARD_TEST_FILE, "w", fileLocale, "UTF-8"));
+                if (testFile.isNull()) {
                     log_err("Can't open test file - %s\n",
                             STANDARD_TEST_FILE);
                     continue;
@@ -248,36 +256,36 @@ static void U_CALLCONV DataDrivenPrintf(void)
                 case 0x64:  // 'd' double
                     dbl = atof(u_austrcpy(cBuffer, argument));
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, dbl);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, dbl);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, dbl);
                     break;
                 case 0x31:  // '1' int8_t
                     i8 = (int8_t)uto64(argument);
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, i8);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, i8);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, i8);
                     break;
                 case 0x32:  // '2' int16_t
                     i16 = (int16_t)uto64(argument);
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, i16);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, i16);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, i16);
                     break;
                 case 0x34:  // '4' int32_t
                     i32 = (int32_t)uto64(argument);
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, i32);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, i32);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, i32);
                     break;
                 case 0x38:  // '8' int64_t
                     i64 = uto64(argument);
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, i64);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, i64);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, i64);
                     break;
                 case 0x73:  // 's' char *
                     u_austrncpy(cBuffer, argument, sizeof(cBuffer));
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, cBuffer);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, cBuffer);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, cBuffer);
                     break;
                 case 0x53:  // 'S' UChar *
                     uBufferLenReturned = u_sprintf_u(uBuffer, format, argument);
-                    uFileBufferLenReturned = u_fprintf_u(testFile, format, argument);
+                    uFileBufferLenReturned = u_fprintf_u(testFile.getAlias(), format, argument);
                     break;
                 default:
                     uBufferLenReturned = 0;
@@ -306,14 +314,13 @@ static void U_CALLCONV DataDrivenPrintf(void)
                     log_err("FAILURE test case %d - \"%s\" wrong amount of characters was written. Got %d.\n",
                             i, cBuffer, uBufferLenReturned);
                 }
-                u_fclose(testFile);
-                testFile = u_fopen(STANDARD_TEST_FILE, "r", fileLocale, "UTF-8");
-                if (!testFile) {
+                testFile.adoptInstead(u_fopen(STANDARD_TEST_FILE, "r", fileLocale, "UTF-8"));
+                if (testFile.isNull()) {
                     log_err("Can't open test file - %s\n",
                             STANDARD_TEST_FILE);
                 }
                 uBuffer[0]=0;
-                u_fgets(uBuffer, sizeof(uBuffer)/sizeof(uBuffer[0]), testFile);
+                u_fgets(uBuffer, sizeof(uBuffer)/sizeof(uBuffer[0]), testFile.getAlias());
                 if (u_strcmp(uBuffer, expectedResult) != 0) {
                     u_austrncpy(cBuffer, uBuffer, sizeof(cBuffer));
                     u_austrncpy(cFormat, format, sizeof(cFormat));
@@ -336,7 +343,6 @@ static void U_CALLCONV DataDrivenPrintf(void)
                     errorCode=U_ZERO_ERROR;
                     continue;
                 }
-                u_fclose(testFile);
             }
             delete testData;
         }
@@ -352,7 +358,7 @@ U_CDECL_END
 U_CDECL_BEGIN
 static void U_CALLCONV DataDrivenScanf(void)
 {
-#if !UCONFIG_NO_FORMATTING
+#if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_FILE_IO
     UErrorCode errorCode;
     TestDataModule *dataModule;
     TestData *testData;
@@ -554,7 +560,7 @@ U_CDECL_END
 U_CDECL_BEGIN
 static void U_CALLCONV DataDrivenPrintfPrecision(void)
 {
-#if !UCONFIG_NO_FORMATTING
+#if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_FILE_IO
     UErrorCode errorCode;
     TestDataModule *dataModule;
     TestData *testData;
@@ -683,12 +689,14 @@ static void addAllTests(TestNode** root) {
     addStringTest(root);
     addTranslitTest(root);
 
-#if !UCONFIG_NO_FORMATTING
+#if !UCONFIG_NO_FORMATTING && !UCONFIG_NO_LEGACY_CONVERSION
     addTest(root, &DataDrivenPrintf, "datadriv/DataDrivenPrintf");
     addTest(root, &DataDrivenPrintfPrecision, "datadriv/DataDrivenPrintfPrecision");
     addTest(root, &DataDrivenScanf, "datadriv/DataDrivenScanf");
 #endif
+#if U_IOSTREAM_SOURCE
     addStreamTests(root);
+#endif
 }
 
 /* returns the path to icu/source/data/out */
@@ -804,7 +812,7 @@ int main(int argc, char* argv[])
     UDate startTime, endTime;
     int32_t diffTime;
 
-    startTime = uprv_getUTCtime();
+    startTime = uprv_getRawUTCtime();
 
     /* Check whether ICU will initialize without forcing the build data directory into
     *  the ICU_DATA path.  Success here means either the data dll contains data, or that
@@ -831,7 +839,7 @@ int main(int argc, char* argv[])
     u_init(&errorCode);
     if (U_FAILURE(errorCode)) {
         fprintf(stderr,
-            "#### ERROR! %s: u_init() failed with status = \"%s\".\n" 
+            "#### ERROR! %s: u_init() failed with status = \"%s\".\n"
             "*** Check the ICU_DATA environment variable and \n"
             "*** check that the data files are present.\n", argv[0], u_errorName(errorCode));
         return 1;
@@ -848,6 +856,7 @@ int main(int argc, char* argv[])
         /* This should delete any temporary files. */
         if (fileToRemove) {
             fclose(fileToRemove);
+            log_verbose("Deleting: %s\n", STANDARD_TEST_FILE);
             if (remove(STANDARD_TEST_FILE) != 0) {
                 /* Maybe someone didn't close the file correctly. */
                 fprintf(stderr, "FAIL: Could not delete %s\n", STANDARD_TEST_FILE);
@@ -861,7 +870,7 @@ int main(int argc, char* argv[])
     DataDrivenLogger::cleanUp();
     u_cleanup();
 
-    endTime = uprv_getUTCtime();
+    endTime = uprv_getRawUTCtime();
     diffTime = (int32_t)(endTime - startTime);
     printf("Elapsed Time: %02d:%02d:%02d.%03d\n",
         (int)((diffTime%U_MILLIS_PER_DAY)/U_MILLIS_PER_HOUR),

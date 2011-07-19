@@ -94,7 +94,6 @@ eapgtc_request(EAPClientPluginDataRef plugin,
 	out_pkt_p->type_data[offset++] = '\0';
 	memcpy(out_pkt_p->type_data + offset,
 	       plugin->password, plugin->password_length);
-	offset += plugin->password_length;
     }
     else {
 	memcpy(out_pkt_p->type_data, plugin->password, plugin->password_length);

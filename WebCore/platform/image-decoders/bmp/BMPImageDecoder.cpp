@@ -32,6 +32,7 @@
 #include "BMPImageDecoder.h"
 
 #include "BMPImageReader.h"
+#include <wtf/PassOwnPtr.h>
 
 namespace WebCore {
 
@@ -40,8 +41,10 @@ namespace WebCore {
 // don't pack).
 static const size_t sizeOfFileHeader = 14;
 
-BMPImageDecoder::BMPImageDecoder()
-    : m_decodedOffset(0)
+BMPImageDecoder::BMPImageDecoder(ImageSource::AlphaOption alphaOption,
+                                 ImageSource::GammaAndColorProfileOption gammaAndColorProfileOption)
+    : ImageDecoder(alphaOption, gammaAndColorProfileOption)
+    , m_decodedOffset(0)
 {
 }
 
@@ -63,18 +66,26 @@ bool BMPImageDecoder::isSizeAvailable()
     return ImageDecoder::isSizeAvailable();
 }
 
-RGBA32Buffer* BMPImageDecoder::frameBufferAtIndex(size_t index)
+ImageFrame* BMPImageDecoder::frameBufferAtIndex(size_t index)
 {
     if (index)
         return 0;
 
-    if (m_frameBufferCache.isEmpty())
+    if (m_frameBufferCache.isEmpty()) {
         m_frameBufferCache.resize(1);
+        m_frameBufferCache.first().setPremultiplyAlpha(m_premultiplyAlpha);
+    }
 
-    RGBA32Buffer* buffer = &m_frameBufferCache.first();
-    if (buffer->status() != RGBA32Buffer::FrameComplete)
+    ImageFrame* buffer = &m_frameBufferCache.first();
+    if (buffer->status() != ImageFrame::FrameComplete)
         decode(false);
     return buffer;
+}
+
+bool BMPImageDecoder::setFailed()
+{
+    m_reader.clear();
+    return ImageDecoder::setFailed();
 }
 
 void BMPImageDecoder::decode(bool onlySize)
@@ -86,6 +97,10 @@ void BMPImageDecoder::decode(bool onlySize)
     // has failed.
     if (!decodeHelper(onlySize) && isAllDataReceived())
         setFailed();
+    // If we're done decoding the image, we don't need the BMPImageReader
+    // anymore.  (If we failed, |m_reader| has already been cleared.)
+    else if (!m_frameBufferCache.isEmpty() && (m_frameBufferCache.first().status() == ImageFrame::FrameComplete))
+        m_reader.clear();
 }
 
 bool BMPImageDecoder::decodeHelper(bool onlySize)
@@ -95,7 +110,7 @@ bool BMPImageDecoder::decodeHelper(bool onlySize)
         return false;
 
     if (!m_reader) {
-        m_reader.set(new BMPImageReader(this, m_decodedOffset, imgDataOffset, false));
+        m_reader = adoptPtr(new BMPImageReader(this, m_decodedOffset, imgDataOffset, false));
         m_reader->setData(m_data.get());
     }
 

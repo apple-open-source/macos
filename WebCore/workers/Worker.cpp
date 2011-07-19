@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2008 Apple Inc. All Rights Reserved.
+ * Copyright (C) 2008, 2010 Apple Inc. All Rights Reserved.
  * Copyright (C) 2009 Google Inc. All Rights Reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,7 +32,7 @@
 #include "Worker.h"
 
 #include "DOMWindow.h"
-#include "DocLoader.h"
+#include "CachedResourceLoader.h"
 #include "Document.h"
 #include "EventException.h"
 #include "EventListener.h"
@@ -40,7 +40,7 @@
 #include "ExceptionCode.h"
 #include "Frame.h"
 #include "FrameLoader.h"
-#include "InspectorController.h"
+#include "InspectorInstrumentation.h"
 #include "MessageEvent.h"
 #include "TextEncoding.h"
 #include "WorkerContextProxy.h"
@@ -50,21 +50,29 @@
 
 namespace WebCore {
 
-Worker::Worker(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+inline Worker::Worker(ScriptExecutionContext* context)
     : AbstractWorker(context)
     , m_contextProxy(WorkerContextProxy::create(this))
 {
-    KURL scriptURL = resolveURL(url, ec);
-    if (ec)
-        return;
+}
 
-    m_scriptLoader = new WorkerScriptLoader(ResourceRequestBase::TargetIsWorker);
-    m_scriptLoader->loadAsynchronously(scriptExecutionContext(), scriptURL, DenyCrossOriginRequests, this);
-    setPendingActivity(this);  // The worker context does not exist while loading, so we must ensure that the worker object is not collected, as well as its event listeners.
-#if ENABLE(INSPECTOR)
-    if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-        inspector->didCreateWorker(asID(), scriptURL.string(), false);
-#endif
+PassRefPtr<Worker> Worker::create(const String& url, ScriptExecutionContext* context, ExceptionCode& ec)
+{
+    RefPtr<Worker> worker = adoptRef(new Worker(context));
+
+    KURL scriptURL = worker->resolveURL(url, ec);
+    if (scriptURL.isEmpty())
+        return 0;
+
+    worker->m_scriptLoader = adoptPtr(new WorkerScriptLoader(ResourceRequestBase::TargetIsWorker));
+    worker->m_scriptLoader->loadAsynchronously(context, scriptURL, DenyCrossOriginRequests, worker.get());
+
+    // The worker context does not exist while loading, so we must ensure that the worker object is not collected, nor are its event listeners.
+    worker->setPendingActivity(worker.get());
+
+    InspectorInstrumentation::didCreateWorker(context, worker->asID(), scriptURL.string(), false);
+
+    return worker.release();
 }
 
 Worker::~Worker()
@@ -123,13 +131,12 @@ void Worker::notifyFinished()
     if (m_scriptLoader->failed())
         dispatchEvent(Event::create(eventNames().errorEvent, false, true));
     else {
+        bool shouldStartPaused = InspectorInstrumentation::willStartWorkerContext(scriptExecutionContext(), m_contextProxy);
         m_contextProxy->startWorkerContext(m_scriptLoader->url(), scriptExecutionContext()->userAgent(m_scriptLoader->url()), m_scriptLoader->script());
-#if ENABLE(INSPECTOR)
-        if (InspectorController* inspector = scriptExecutionContext()->inspectorController())
-            inspector->scriptImported(m_scriptLoader->identifier(), m_scriptLoader->script());
-#endif
+        InspectorInstrumentation::didStartWorkerContext(scriptExecutionContext(), m_contextProxy, shouldStartPaused);
+        InspectorInstrumentation::scriptImported(scriptExecutionContext(), m_scriptLoader->identifier(), m_scriptLoader->script());
     }
-    m_scriptLoader = 0;
+    m_scriptLoader = nullptr;
 
     unsetPendingActivity(this);
 }

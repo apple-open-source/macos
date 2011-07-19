@@ -38,13 +38,10 @@
 #import <AppKit/AppKit.h>
 #import <wtf/StdLibExtras.h>
 
-#ifdef BUILDING_ON_TIGER
-typedef int NSInteger;
-#endif
 
 namespace WebCore {
 
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_LEOPARD)
 static void fontCacheRegisteredFontsChangedNotificationCallback(CFNotificationCenterRef, void* observer, CFStringRef name, const void *, CFDictionaryRef)
 {
     ASSERT_UNUSED(observer, observer == fontCache());
@@ -61,7 +58,7 @@ static void fontCacheATSNotificationCallback(ATSFontNotificationInfoRef, void*)
 void FontCache::platformInit()
 {
     wkSetUpFontCache();
-#if !defined(BUILDING_ON_TIGER) && !defined(BUILDING_ON_LEOPARD)
+#if !defined(BUILDING_ON_LEOPARD)
     CFNotificationCenterAddObserver(CFNotificationCenterGetLocalCenter(), this, fontCacheRegisteredFontsChangedNotificationCallback, kCTFontManagerRegisteredFontsChangedNotification, 0, CFNotificationSuspensionBehaviorDeliverImmediately);
 #else
     // kCTFontManagerRegisteredFontsChangedNotification does not exist on Leopard and earlier.
@@ -140,10 +137,12 @@ const SimpleFontData* FontCache::getFontDataForCharacters(const Font& font, cons
     NSFontTraitMask substituteFontTraits = [fontManager traitsOfFont:substituteFont];
     NSInteger substituteFontWeight = [fontManager weightOfFont:substituteFont];
 
-    FontPlatformData alternateFont(substituteFont, 
+    FontPlatformData alternateFont(substituteFont, platformData.size(),
         !font.isPlatformFont() && isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(substituteFontWeight),
-        !font.isPlatformFont() && (traits & NSFontItalicTrait) && !(substituteFontTraits & NSFontItalicTrait));
-    return getCachedFontData(&alternateFont);
+        !font.isPlatformFont() && (traits & NSFontItalicTrait) && !(substituteFontTraits & NSFontItalicTrait),
+        platformData.m_orientation);
+
+    return getCachedFontData(&alternateFont, DoNotRetain);
 }
 
 SimpleFontData* FontCache::getSimilarFontPlatformData(const Font& font)
@@ -210,7 +209,7 @@ FontPlatformData* FontCache::createFontPlatformData(const FontDescription& fontD
     bool syntheticBold = isAppKitFontWeightBold(weight) && !isAppKitFontWeightBold(actualWeight);
     bool syntheticOblique = (traits & NSFontItalicTrait) && !(actualTraits & NSFontItalicTrait);
 
-    return new FontPlatformData(platformFont, syntheticBold, syntheticOblique);
+    return new FontPlatformData(platformFont, size, syntheticBold, syntheticOblique, fontDescription.orientation(), fontDescription.textOrientation(), fontDescription.widthVariant());
 }
 
 } // namespace WebCore

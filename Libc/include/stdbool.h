@@ -38,8 +38,8 @@
 typedef	int	_Bool;
 #endif
 
-#define	false	(bool)0
-#define	true	(bool)1
+#define	false	0
+#define	true	1
 
 #endif /* !__cplusplus */
 

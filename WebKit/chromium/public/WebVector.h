@@ -115,8 +115,25 @@ public:
     size_t size() const { return m_size; }
     bool isEmpty() const { return !m_size; }
 
-    T& operator[](size_t i) { return m_ptr[i]; }
-    const T& operator[](size_t i) const { return m_ptr[i]; }
+    T& operator[](size_t i)
+    {
+        WEBKIT_ASSERT(i < m_size);
+        return m_ptr[i];
+    }
+    const T& operator[](size_t i) const
+    {
+        WEBKIT_ASSERT(i < m_size);
+        return m_ptr[i];
+    }
+    
+    bool contains(const T& value) const
+    {
+        for (size_t i = 0; i < m_size; i++) {
+            if (m_ptr[i] == value)
+                return true;
+        }
+        return false;
+    }
 
     T* data() { return m_ptr; }
     const T* data() const { return m_ptr; }
@@ -164,6 +181,6 @@ private:
     size_t m_size;
 };
 
-}  // namespace WebKit
+} // namespace WebKit
 
 #endif

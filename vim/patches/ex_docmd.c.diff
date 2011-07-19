@@ -1,0 +1,53 @@
+Index: src/ex_docmd.c
+===================================================================
+--- src/ex_docmd.c	(revision 57762)
++++ src/ex_docmd.c	(working copy)
+@@ -652,6 +652,7 @@
+     MSG(_("Entering Ex mode.  Type \"visual\" to go to Normal mode."));
+     while (exmode_active)
+     {
++	global_last_cmd = 0;
+ #ifdef FEAT_EX_EXTRA
+ 	/* Check for a ":normal" command and no more characters left. */
+ 	if (ex_normal_busy > 0 && typebuf.tb_len == 0)
+@@ -682,7 +683,7 @@
+ 	if ((prev_line != curwin->w_cursor.lnum
+ 		    || changedtick != curbuf->b_changedtick) && !ex_no_reprint)
+ 	{
+-	    if (curbuf->b_ml.ml_flags & ML_EMPTY)
++	    if ((curbuf->b_ml.ml_flags & ML_EMPTY) && !Unix2003_compat)
+ 		EMSG(_(e_emptybuf));
+ 	    else
+ 	    {
+@@ -695,8 +696,13 @@
+ 			msg_row--;
+ 		}
+ 		msg_col = 0;
+-		print_line_no_prefix(curwin->w_cursor.lnum, FALSE, FALSE);
+-		msg_clr_eos();
++		if (p_ap) {	/* only if  autoprint is on */
++		    if (!(Unix2003_compat && global_last_cmd)) {
++			 /* not if :global or :v ex_08 test 478 */
++			print_line_no_prefix(curwin->w_cursor.lnum, FALSE, FALSE);
++			msg_clr_eos();
++		    }
++		}
+ 	    }
+ 	}
+ 	else if (ex_pressedreturn && !ex_no_reprint)	/* must be at EOF */
+@@ -8079,7 +8085,15 @@
+ ex_equal(eap)
+     exarg_T	*eap;
+ {
++    int save_silent=silent_mode;
++    int save_info_message=info_message;
++    if (Unix2003_compat) {
++	silent_mode = FALSE;	/* = command output is not silenced */
++	info_message = TRUE;
++    }
+     smsg((char_u *)"%ld", (long)eap->line2);
++    silent_mode = save_silent;
++    info_message = save_info_message;
+     ex_may_print(eap);
+ }
+ 

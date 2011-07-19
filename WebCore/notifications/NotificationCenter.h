@@ -33,7 +33,7 @@
 
 #include "Notification.h"
 #include "NotificationContents.h"
-#include "WorkerThread.h"
+#include "ScriptExecutionContext.h"
 #include <wtf/OwnPtr.h>
 #include <wtf/PassRefPtr.h>
 #include <wtf/RefCounted.h>
@@ -42,14 +42,15 @@
 #if ENABLE(NOTIFICATIONS)
 
 namespace WebCore {
-
-    class ScriptExecutionContext;
+    
+    class NotificationPresenter;
+    class VoidCallback;
 
     class NotificationCenter : public RefCounted<NotificationCenter>, public ActiveDOMObject { 
     public:
         static PassRefPtr<NotificationCenter> create(ScriptExecutionContext* context, NotificationPresenter* presenter) { return adoptRef(new NotificationCenter(context, presenter)); }
 
-        Notification* createHTMLNotification(const String& URI, ExceptionCode& ec)
+        PassRefPtr<Notification> createHTMLNotification(const String& URI, ExceptionCode& ec)
         {
             if (!presenter()) {
                 ec = INVALID_STATE_ERR;
@@ -59,31 +60,29 @@ namespace WebCore {
                 ec = SYNTAX_ERR;
                 return 0;
             }
-            return Notification::create(m_scriptExecutionContext->completeURL(URI), context(), ec, presenter());
+            return Notification::create(scriptExecutionContext()->completeURL(URI), scriptExecutionContext(), ec, this);
         }
 
-        Notification* createNotification(const String& iconURI, const String& title, const String& body, ExceptionCode& ec)
+        PassRefPtr<Notification> createNotification(const String& iconURI, const String& title, const String& body, ExceptionCode& ec)
         {
             if (!presenter()) {
                 ec = INVALID_STATE_ERR;
                 return 0;
             }
-            NotificationContents contents(iconURI.isEmpty() ? KURL() : m_scriptExecutionContext->completeURL(iconURI), title, body);
-            return Notification::create(contents, context(), ec, presenter());
+            NotificationContents contents(iconURI.isEmpty() ? KURL() : scriptExecutionContext()->completeURL(iconURI), title, body);
+            return Notification::create(contents, scriptExecutionContext(), ec, this);
         }
 
-        ScriptExecutionContext* context() const { return m_scriptExecutionContext; }
         NotificationPresenter* presenter() const { return m_notificationPresenter; }
 
         int checkPermission();
         void requestPermission(PassRefPtr<VoidCallback> callback);
 
-        void disconnectFrame() { m_notificationPresenter = 0; }
+        void disconnectFrame();
 
     private:
         NotificationCenter(ScriptExecutionContext*, NotificationPresenter*);
 
-        ScriptExecutionContext* m_scriptExecutionContext;
         NotificationPresenter* m_notificationPresenter;
     };
 

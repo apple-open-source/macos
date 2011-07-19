@@ -21,13 +21,15 @@
 #ifndef TableLayout_h
 #define TableLayout_h
 
+#include <wtf/FastAllocBase.h>
 #include <wtf/Noncopyable.h>
 
 namespace WebCore {
 
 class RenderTable;
 
-class TableLayout : public Noncopyable {
+class TableLayout {
+    WTF_MAKE_NONCOPYABLE(TableLayout); WTF_MAKE_FAST_ALLOCATED;
 public:
     TableLayout(RenderTable* table)
         : m_table(table)
@@ -36,7 +38,7 @@ public:
 
     virtual ~TableLayout() { }
 
-    virtual void calcPrefWidths(int& minWidth, int& maxWidth) = 0;
+    virtual void computePreferredLogicalWidths(int& minWidth, int& maxWidth) = 0;
     virtual void layout() = 0;
 
 protected:

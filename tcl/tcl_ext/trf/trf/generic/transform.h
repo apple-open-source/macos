@@ -4,7 +4,7 @@
  *
  * transform.h - externally visible facilities of data transformers
  *
- * Distributed at DEC-06-2008.
+ * Distributed at MAY-06-2009.
  *
  * Copyright (c) 1995 Andreas Kupries (a.kupries@westend.com)
  * All rights reserved.
@@ -26,7 +26,7 @@
  * I HAVE NO OBLIGATION TO PROVIDE MAINTENANCE, SUPPORT, UPDATES,
  * ENHANCEMENTS, OR MODIFICATIONS.
  *
- * CVS: $Id: transform.h,v 1.22 2008/12/05 21:36:11 andreas_kupries Exp $
+ * CVS: $Id: transform.h,v 1.23 2009/05/07 05:30:35 andreas_kupries Exp $
  */
 
 #ifdef __cplusplus

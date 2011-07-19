@@ -57,7 +57,7 @@ private:
   /// to be used on emitPrologue and processFunctionBeforeFrameFinalized.
   MipsFIHolder GPHolder;
 
-  /// On LowerFORMAL_ARGUMENTS the stack size is unknown, so the Stack 
+  /// On LowerFormalArguments the stack size is unknown, so the Stack
   /// Pointer Offset calculation of "not in register arguments" must be 
   /// postponed to emitPrologue. 
   SmallVector<MipsFIHolder, 16> FnLoadArgs;
@@ -65,7 +65,7 @@ private:
 
   // When VarArgs, we must write registers back to caller stack, preserving 
   // on register arguments. Since the stack size is unknown on 
-  // LowerFORMAL_ARGUMENTS, the Stack Pointer Offset calculation must be
+  // LowerFormalArguments, the Stack Pointer Offset calculation must be
   // postponed to emitPrologue. 
   SmallVector<MipsFIHolder, 4> FnStoreVarArgs;
   bool HasStoreVarArgs;
@@ -75,11 +75,20 @@ private:
   /// holds the virtual register into which the sret argument is passed.
   unsigned SRetReturnReg;
 
+  /// GlobalBaseReg - keeps track of the virtual register initialized for
+  /// use as the global base register. This is used for PIC in some PIC
+  /// relocation models.
+  unsigned GlobalBaseReg;
+
+  /// VarArgsFrameIndex - FrameIndex for start of varargs area.
+  int VarArgsFrameIndex;
+
 public:
   MipsFunctionInfo(MachineFunction& MF) 
   : FPStackOffset(0), RAStackOffset(0), CPUTopSavedRegOff(0), 
     FPUTopSavedRegOff(0), GPHolder(-1,-1), HasLoadArgs(false), 
-    HasStoreVarArgs(false), SRetReturnReg(0)
+    HasStoreVarArgs(false), SRetReturnReg(0), GlobalBaseReg(0),
+    VarArgsFrameIndex(0)
   {}
 
   int getFPStackOffset() const { return FPStackOffset; }
@@ -98,6 +107,7 @@ public:
   int getGPFI() const { return GPHolder.FI; }
   void setGPStackOffset(int Off) { GPHolder.SPOffset = Off; }
   void setGPFI(int FI) { GPHolder.FI = FI; }
+  bool needGPSaveRestore() const { return GPHolder.SPOffset != -1; }
 
   bool hasLoadArgs() const { return HasLoadArgs; }
   bool hasStoreVarArgs() const { return HasStoreVarArgs; } 
@@ -124,6 +134,12 @@ public:
 
   unsigned getSRetReturnReg() const { return SRetReturnReg; }
   void setSRetReturnReg(unsigned Reg) { SRetReturnReg = Reg; }
+
+  unsigned getGlobalBaseReg() const { return GlobalBaseReg; }
+  void setGlobalBaseReg(unsigned Reg) { GlobalBaseReg = Reg; }
+
+  int getVarArgsFrameIndex() const { return VarArgsFrameIndex; }
+  void setVarArgsFrameIndex(int Index) { VarArgsFrameIndex = Index; }
 };
 
 } // end of namespace llvm

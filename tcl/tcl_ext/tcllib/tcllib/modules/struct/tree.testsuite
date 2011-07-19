@@ -8,7 +8,7 @@
 # Copyright (c) 2000-2008 by Andreas Kupries
 # All rights reserved.
 #
-# RCS: @(#) $Id: tree.testsuite,v 1.7 2008/09/04 02:09:30 andreas_kupries Exp $
+# RCS: @(#) $Id: tree.testsuite,v 1.9 2009/09/24 22:22:28 andreas_kupries Exp $
 
 ::tcltest::testConstraint tree_critcl [string equal $impl critcl]
 
@@ -63,10 +63,12 @@ test tree-${impl}-1.7 {create} {
 } 1
 test tree-${impl}-1.8 {create} {
     set name [tree]
-    set result [list $name [string equal [info commands $name] "$name"]]
+    set result [list \
+		    [regexp {^::tree\d+$} $name] \
+		    [string equal [info commands $name] "$name"]]
     $name destroy
     set result
-} {::tree1 1}
+} {1 1}
 
 test tree-${impl}-1.9 {destroy} {
     tree mytree
@@ -1883,6 +1885,27 @@ test tree-${impl}-3.14.8 {swap swaps node relationships correctly} {
 	leave 0.1   \
 	leave root  \
 	]
+
+test tree-${impl}-3.14.9 {swap keeps attributes with their nodes} {
+    tree mytree
+    mytree insert root end 0 1 2 3
+    mytree set 0 attr a
+    mytree set 1 attr b
+    mytree set 2 attr c
+    mytree set 3 attr d
+
+    mytree swap 0 3
+
+    set res [list \
+		 [mytree children root] \
+		 [mytree get 0 attr] \
+		 [mytree get 1 attr] \
+		 [mytree get 2 attr] \
+		 [mytree get 3 attr]]
+
+    mytree destroy
+    set res
+} {{3 1 2 0} a b c d}
 
 ############################################################
 

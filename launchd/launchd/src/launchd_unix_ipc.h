@@ -25,6 +25,7 @@
 #include "launchd_runtime.h"
 #include "launchd_core_logic.h"
 #include "launch_priv.h"
+#include "launch_internal.h"
 
 struct conncb {
 	kq_callback kqconn_callback;

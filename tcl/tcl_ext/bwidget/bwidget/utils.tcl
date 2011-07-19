@@ -1,7 +1,7 @@
 # ----------------------------------------------------------------------------
 #  utils.tcl
 #  This file is part of Unifix BWidget Toolkit
-#  $Id: utils.tcl,v 1.14 2006/12/21 00:00:43 dev_null42a Exp $
+#  $Id: utils.tcl,v 1.18 2009/10/25 20:55:36 oberdorfer Exp $
 # ----------------------------------------------------------------------------
 #  Index of commands:
 #     - GlobalVar::exists
@@ -14,6 +14,9 @@
 #     - BWidget::place
 #     - BWidget::grab
 #     - BWidget::focus
+#     - BWidget::bindMiddleMouseMovement
+#     - BWidget::getSystemFontProperties
+#     - BWidget::createSystemFonts
 # ----------------------------------------------------------------------------
 
 namespace eval GlobalVar {
@@ -176,6 +179,8 @@ proc BWidget::parsetext { text } {
 #  Command BWidget::get3dcolor
 # ----------------------------------------------------------------------------
 proc BWidget::get3dcolor { path bgcolor } {
+    set fmt "#%04x%04x%04x"
+
     foreach val [winfo rgb $path $bgcolor] {
         lappend dark [expr {60*$val/100}]
         set tmp1 [expr {14*$val/10}]
@@ -185,7 +190,7 @@ proc BWidget::get3dcolor { path bgcolor } {
         set tmp2 [expr {(65535+$val)/2}]
         lappend light [expr {($tmp1 > $tmp2) ? $tmp1:$tmp2}]
     }
-    return [list [eval format "#%04x%04x%04x" $dark] [eval format "#%04x%04x%04x" $light]]
+    return [list [eval format $fmt $dark] [eval format $fmt $light]]
 }
 
 
@@ -225,7 +230,6 @@ proc BWidget::XLFDfont { cmd args } {
 }
 
 
-
 # ----------------------------------------------------------------------------
 #  Command BWidget::place
 # ----------------------------------------------------------------------------
@@ -246,10 +250,30 @@ proc BWidget::place { path w h args } {
     variable _top
 
     update idletasks
-    set reqw [winfo reqwidth  $path]
-    set reqh [winfo reqheight $path]
-    if { $w == 0 } {set w $reqw}
-    if { $h == 0 } {set h $reqh}
+
+    # If the window is not mapped, it may have any current size.
+    # Then use required size, but bound it to the screen width.
+    # This is mostly inexact, because any toolbars will still be removed
+    # which may reduce size.
+    if { $w == 0 && [winfo ismapped $path] } {
+        set w [winfo width $path]
+    } else {
+        if { $w == 0 } {
+            set w [winfo reqwidth $path]
+        }
+        set vsw [winfo vrootwidth  $path]
+        if { $w > $vsw } { set w $vsw }
+    }
+
+    if { $h == 0 && [winfo ismapped $path] } {
+        set h [winfo height $path]
+    } else {
+        if { $h == 0 } {
+            set h [winfo reqheight $path]
+        }
+        set vsh [winfo vrootheight $path]
+        if { $h > $vsh } { set h $vsh }
+    }
 
     set arglen [llength $args]
     if { $arglen > 3 } {
@@ -306,8 +330,8 @@ proc BWidget::place { path w h args } {
                     set y0 [expr {[winfo rooty $widget] + ([winfo height $widget] - $h)/2}]
                 } else {
                     # center to screen
-                    set x0 [expr {([winfo screenwidth  $path] - $w)/2 - [winfo vrootx $path]}]
-                    set y0 [expr {([winfo screenheight $path] - $h)/2 - [winfo vrooty $path]}]
+                    set x0 [expr {($sw - $w)/2 - [winfo vrootx $path]}]
+                    set y0 [expr {($sh - $h)/2 - [winfo vrooty $path]}]
                 }
                 set x "+$x0"
                 set y "+$y0"
@@ -331,7 +355,7 @@ proc BWidget::place { path w h args } {
                     if { $idx == 2 } {
                         # try left, then right if out, then 0 if out
                         if { $x0 >= $w } {
-                            set x [expr {$x0-$sw}]
+                            set x [expr {$x0-$w}]
                         } elseif { $x1+$w <= $sw } {
                             set x "+$x1"
                         } else {
@@ -342,7 +366,7 @@ proc BWidget::place { path w h args } {
                         if { $x1+$w <= $sw } {
                             set x "+$x1"
                         } elseif { $x0 >= $w } {
-                            set x [expr {$x0-$sw}]
+                            set x [expr {$x0-$w}]
                         } else {
                             set x "-0"
                         }
@@ -356,7 +380,7 @@ proc BWidget::place { path w h args } {
                     if { $idx == 4 } {
                         # try top, then bottom, then 0
                         if { $h <= $y0 } {
-                            set y [expr {$y0-$sh}]
+                            set y [expr {$y0-$h}]
                         } elseif { $y1+$h <= $sh } {
                             set y "+$y1"
                         } else {
@@ -367,7 +391,7 @@ proc BWidget::place { path w h args } {
                         if { $y1+$h <= $sh } {
                             set y "+$y1"
                         } elseif { $h <= $y0 } {
-                            set y [expr {$y0-$sh}]
+                            set y [expr {$y0-$h}]
                         } else {
                             set y "-0"
                         }
@@ -656,3 +680,127 @@ proc BWidget::bindMouseWheel { widget } {
 	bind $widget <Button-5> {event generate %W <MouseWheel> -delta -120}
     }
 }
+
+
+# ----------------------------------------------------------------------------
+# support for middle mouse button movement
+# ----------------------------------------------------------------------------
+
+proc BWidget::bindMiddleMouseMovement { widget } {
+  variable __private
+
+  bind $widget <2> {
+     set BWidget::__private(x) %x
+     set BWidget::__private(y) %y
+     %W configure -cursor fleur
+  }
+  bind $widget <B2-ButtonRelease> {
+     %W configure -cursor ""
+  }
+
+  bind $widget <B2-Motion> {
+      set scrollspeed 2
+      set xdir 1
+      set ydir 1
+      if { %x > $BWidget::__private(x) } {set xdir -1}
+      if { %y > $BWidget::__private(y) } {set ydir -1}
+      catch {%W xview scroll [expr $xdir * $scrollspeed] units}
+      catch {%W yview scroll [expr $ydir * $scrollspeed] units}
+  }
+}
+
+
+# ----------------------------------------------------------------------------
+# utility function for font support
+# ----------------------------------------------------------------------------
+
+proc ::BWidget::getSystemFontProperties {} {
+
+    array set fp {
+        family   "Courier New"
+        stdsize  12
+        headingsize 10
+	captionsize 12
+        tooltipsize 10
+        wheading normal
+        wcaption normal
+    }
+
+    if {$::tcl_version >= 8.4} {
+             set plat [tk windowingsystem]
+    } else { set plat $::tcl_platform(platform) }
+
+
+    switch -exact -- [string tolower $plat] {
+        "win32" - "windows" {
+            if {$::tcl_platform(osVersion) >= 5.0} {
+                     set fp(family) "Tahoma"
+            } else { set fp(family) "MS Sans Serif" }
+            set fp(stdsize) 8
+	    set fp(headingsize) 8
+	    set fp(captionsize) 8
+	    set fp(tooltipsize) 8
+            set fp(wcaption) bold
+	}
+        "classic" - "aqua" {
+            set fp(family) "Lucida Grande"
+            set fp(stdsize) 13
+	    set fp(headingsize) 11
+	    set fp(captionsize) 13
+            set fp(tooltipsize) 12
+	    set fp(wcaption) bold
+        }
+        "x11" {
+            if { ![catch {tk::pkgconfig get fontsystem} fs] &&
+                  [string equal $fs "xft"] } {
+                     set fp(family) "sans-serif"
+            } else { set fp(family) "Helvetica" }
+            set fp(stdsize) -12
+            set fp(headingsize) -12
+            set fp(captionsize) -14
+            set fp(tooltipsize) -10
+	    set fp(wheading) bold
+            set fp(wcaption) bold
+        }
+    }
+    return [array get fp]
+}
+
+
+# under tk >= 8.5 / tile 0.8,
+# the following predefined fonts are available:
+#    TkCaptionFont TkDefaultFont TkFixedFont TkHeadingFont
+#    TkIconFont TkMenuFont TkSmallCaptionFont TkTextFont TkTooltipFont
+# to be compatible with older versions and to make sure,
+# those fonts are available at runtime, we need to ensure that they exist:
+
+proc ::BWidget::createSystemFonts {} {
+  variable vars
+
+    array set fp [getSystemFontProperties]
+    set fnames [font names]
+
+    foreach fname { TkCaptionFont TkDefaultFont TkFixedFont TkHeadingFont
+                    TkIconFont TkMenuFont TkSmallCaptionFont TkTextFont
+		    TkTooltipFont } {
+
+        if {[lsearch $fnames $fname] == -1} {
+            font create $fname -family $fp(family) -size $fp(stdsize)
+	  
+	    switch -- $fname {
+	      TkCaptionFont {
+	          font configure $fname \
+	              -size $fp(captionsize) -weight $fp(wcaption)
+	      }
+	      TkHeadingFont {
+	          font configure $fname \
+	              -size $fp(headingsize) -weight $fp(wheading)
+	      }
+	      TkTooltipFont {
+	          font configure $fname -size $fp(tooltipsize)
+	      }	      
+	    }
+        }
+    }
+}
+

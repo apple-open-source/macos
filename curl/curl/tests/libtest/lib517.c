@@ -5,7 +5,6 @@
  *                            | (__| |_| |  _ <| |___
  *                             \___|\___/|_| \_\_____|
  *
- * $Id: lib517.c,v 1.8 2009-08-27 18:15:39 bagder Exp $
  */
 
 #include "test.h"
@@ -98,6 +97,8 @@ static const char *dates[]={
   "Thu, 999999999999-Aug-2007 20:49:07 GMT",
   "Thu, 12-Aug-2007 20:61:99999999999 GMT",
   "IAintNoDateFool",
+  "Thu Apr 18 22:50 2007 GMT", /* without seconds */
+
   NULL
 };
 

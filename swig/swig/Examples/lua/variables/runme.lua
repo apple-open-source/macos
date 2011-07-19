@@ -1,7 +1,7 @@
 ---- importing ----
 if string.sub(_VERSION,1,7)=='Lua 5.0' then
 	-- lua5.0 doesnt have a nice way to do this
-	lib=loadlib('example.dll','Example_Init') or loadlib('example.so','Example_Init')
+	lib=loadlib('example.dll','luaopen_example') or loadlib('example.so','luaopen_example')
 	assert(lib)()
 else
 	-- lua 5.1 does
@@ -55,15 +55,20 @@ example.print_vars()
 print "\nNow I'm going to try and modify some read only variables";
 
 print "     Tring to set 'path' to 'Whoa!'";
-example.path = "Whoa!"
-print "     This request was silently ignored by Lua. "
-print "     But the data has not been changed"
-print("path      =", example.path)
+if pcall(function() example.path = "Whoa!" end)==true then
+	print "     Thats funny, it didn't give an error!"
+else
+	print "     It gave an error, as it should"
+end
+print("     Just checking the value: path      =", example.path)
 
 print "     Trying to set 'status' to '0'";
-    example.status = 0
-print "     Again silently ignored"
-print("status    =", example.status)
+if pcall(function() example.status = 0 end)==true then
+	print "     Thats funny, it didn't give an error!"
+else
+	print "     It gave an error, as it should"
+end
+print("     Just checking the value: status    =", example.status)
 
 
 print "\nI'm going to try and update a structure variable.\n"

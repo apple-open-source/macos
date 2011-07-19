@@ -37,19 +37,22 @@
 #include "DocumentLoader.h"
 #include "Frame.h"
 #include "FrameLoaderClient.h"
-#include "InspectorTimelineAgent.h"
 #include "Page.h"
 #include "PageGroup.h"
-#include "ScriptController.h"
+#include "RuntimeEnabledFeatures.h"
+#include "ScriptCallStack.h"
+#include "ScriptCallStackFactory.h"
+#include "ScriptProfiler.h"
+#include "SecurityOrigin.h"
 #include "StorageNamespace.h"
 #include "V8Binding.h"
 #include "V8BindingState.h"
 #include "V8Collection.h"
-#include "V8ConsoleMessage.h"
 #include "V8DOMMap.h"
 #include "V8DOMWindow.h"
 #include "V8Document.h"
 #include "V8GCForContextDispose.h"
+#include "V8HTMLDocument.h"
 #include "V8HiddenPropertyName.h"
 #include "V8History.h"
 #include "V8Location.h"
@@ -61,6 +64,11 @@
 #include <utility>
 #include <v8-debug.h>
 #include <v8.h>
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+#include <v8/src/extensions/experimental/i18n-extension.h>
+#endif
+
 #include <wtf/Assertions.h>
 #include <wtf/OwnArrayPtr.h>
 #include <wtf/StdLibExtras.h>
@@ -82,8 +90,36 @@ static void reportFatalErrorInV8(const char* location, const char* message)
     // V8 is shutdown, we cannot use V8 api.
     // The only thing we can do is to disable JavaScript.
     // FIXME: clean up V8Proxy and disable JavaScript.
-    printf("V8 error: %s (%s)\n", message, location);
+    int memoryUsageMB = -1;
+#if PLATFORM(CHROMIUM)
+    memoryUsageMB = PlatformBridge::actualMemoryUsageMB();
+#endif
+    printf("V8 error: %s (%s).  Current memory usage: %d MB\n", message, location, memoryUsageMB);
     handleFatalErrorInV8();
+}
+
+static void v8UncaughtExceptionHandler(v8::Handle<v8::Message> message, v8::Handle<v8::Value> data)
+{
+    // Use the frame where JavaScript is called from.
+    Frame* frame = V8Proxy::retrieveFrameForEnteredContext();
+    if (!frame)
+        return;
+
+    v8::Handle<v8::String> errorMessageString = message->Get();
+    ASSERT(!errorMessageString.IsEmpty());
+    String errorMessage = toWebCoreString(errorMessageString);
+
+    v8::Handle<v8::StackTrace> stackTrace = message->GetStackTrace();
+    RefPtr<ScriptCallStack> callStack;
+    // Currently stack trace is only collected when inspector is open.
+    if (!stackTrace.IsEmpty() && stackTrace->GetFrameCount() > 0)
+        callStack = createScriptCallStack(stackTrace, ScriptCallStack::maxCallStackSizeToCapture);
+
+    v8::Handle<v8::Value> resourceName = message->GetScriptResourceName();
+    bool useURL = resourceName.IsEmpty() || !resourceName->IsString();
+    Document* document = frame->document();
+    String resourceNameString = useURL ? document->url() : toWebCoreString(resourceName);
+    document->reportException(errorMessage, message->GetLineNumber(), resourceNameString, callStack);
 }
 
 // Returns the owner frame pointer of a DOM wrapper object. It only works for
@@ -113,7 +149,7 @@ static void reportUnsafeJavaScriptAccess(v8::Local<v8::Object> host, v8::AccessT
 {
     Frame* target = getTargetFrame(host, data);
     if (target)
-        V8Proxy::reportUnsafeAccessTo(target, V8Proxy::ReportLater);
+        V8Proxy::reportUnsafeAccessTo(target);
 }
 
 PassRefPtr<V8DOMWindowShell> V8DOMWindowShell::create(Frame* frame)
@@ -237,11 +273,11 @@ void V8DOMWindowShell::clearForNavigation()
 // the frame. However, a new inner window is created for the new page.
 // If there are JS code holds a closure to the old inner window,
 // it won't be able to reach the outer window via its global object.
-void V8DOMWindowShell::initContextIfNeeded()
+bool V8DOMWindowShell::initContextIfNeeded()
 {
     // Bail out if the context has already been initialized.
     if (!m_context.IsEmpty())
-        return;
+        return false;
 
     // Create a handle scope for all local handles.
     v8::HandleScope handleScope;
@@ -258,17 +294,19 @@ void V8DOMWindowShell::initContextIfNeeded()
         v8::V8::SetGlobalGCPrologueCallback(&V8GCController::gcPrologue);
         v8::V8::SetGlobalGCEpilogueCallback(&V8GCController::gcEpilogue);
 
-        v8::V8::AddMessageListener(&V8ConsoleMessage::handler);
+        v8::V8::AddMessageListener(&v8UncaughtExceptionHandler);
 
         v8::V8::SetFailedAccessCheckCallbackFunction(reportUnsafeJavaScriptAccess);
 
+        ScriptProfiler::initialize();
+        
         isV8Initialized = true;
     }
 
 
     m_context = createNewContext(m_global, 0);
     if (m_context.IsEmpty())
-        return;
+        return false;
 
     v8::Local<v8::Context> v8Context = v8::Local<v8::Context>::New(m_context);
     v8::Context::Scope contextScope(v8Context);
@@ -279,7 +317,7 @@ void V8DOMWindowShell::initContextIfNeeded()
         // Bail out if allocation of the first global objects fails.
         if (m_global.IsEmpty()) {
             disposeContextHandles();
-            return;
+            return false;
         }
 #ifndef NDEBUG
         V8GCController::registerGlobalHandle(PROXY, this, m_global);
@@ -288,12 +326,12 @@ void V8DOMWindowShell::initContextIfNeeded()
 
     if (!installHiddenObjectPrototype(v8Context)) {
         disposeContextHandles();
-        return;
+        return false;
     }
 
     if (!installDOMWindow(v8Context, m_frame->domWindow())) {
         disposeContextHandles();
-        return;
+        return false;
     }
 
     updateDocument();
@@ -305,6 +343,8 @@ void V8DOMWindowShell::initContextIfNeeded()
     // FIXME: This is wrong. We should actually do this for the proper world once
     // we do isolated worlds the WebCore way.
     m_frame->loader()->dispatchDidClearWindowObjectInWorld(0);
+
+    return true;
 }
 
 v8::Persistent<v8::Context> V8DOMWindowShell::createNewContext(v8::Handle<v8::Object> global, int extensionGroup)
@@ -323,23 +363,25 @@ v8::Persistent<v8::Context> V8DOMWindowShell::createNewContext(v8::Handle<v8::Ob
 
     // Used to avoid sleep calls in unload handlers.
     if (!V8Proxy::registeredExtensionWithV8(DateExtension::get()))
-        V8Proxy::registerExtension(DateExtension::get(), String());
+        V8Proxy::registerExtension(DateExtension::get());
+
+#if ENABLE(JAVASCRIPT_I18N_API)
+    // Enables experimental i18n API in V8.
+    if (RuntimeEnabledFeatures::javaScriptI18NAPIEnabled() && !V8Proxy::registeredExtensionWithV8(v8::internal::I18NExtension::get()))
+        V8Proxy::registerExtension(v8::internal::I18NExtension::get());
+#endif
 
     // Dynamically tell v8 about our extensions now.
     const V8Extensions& extensions = V8Proxy::extensions();
-    OwnArrayPtr<const char*> extensionNames(new const char*[extensions.size()]);
+    OwnArrayPtr<const char*> extensionNames = adoptArrayPtr(new const char*[extensions.size()]);
     int index = 0;
     for (size_t i = 0; i < extensions.size(); ++i) {
-        if (extensions[i].group && extensions[i].group != extensionGroup)
+        // Ensure our date extension is always allowed.
+        if (extensions[i] != DateExtension::get()
+            && !m_frame->loader()->client()->allowScriptExtension(extensions[i]->name(), extensionGroup))
             continue;
 
-        // Note: we check the loader URL here instead of the document URL
-        // because we might be currently loading an URL into a blank page.
-        // See http://code.google.com/p/chromium/issues/detail?id=10924
-        if (extensions[i].scheme.length() > 0 && (extensions[i].scheme != m_frame->loader()->activeDocumentLoader()->url().protocol()))
-            continue;
-
-        extensionNames[index++] = extensions[i].extension->name();
+        extensionNames[index++] = extensions[i]->name();
     }
     v8::ExtensionConfiguration extensionConfiguration(index, extensionNames.get());
     result = v8::Context::New(&extensionConfiguration, globalTemplate, global);
@@ -402,6 +444,12 @@ void V8DOMWindowShell::clearDocumentWrapper()
     }
 }
 
+static void checkDocumentWrapper(v8::Handle<v8::Object> wrapper, Document* document)
+{
+    ASSERT(V8Document::toNative(wrapper) == document);
+    ASSERT(!document->isHTMLDocument() || (V8Document::toNative(v8::Handle<v8::Object>::Cast(wrapper->GetPrototype())) == document));
+}
+
 void V8DOMWindowShell::updateDocumentWrapperCache()
 {
     v8::HandleScope handleScope;
@@ -420,6 +468,10 @@ void V8DOMWindowShell::updateDocumentWrapperCache()
     }
 
     v8::Handle<v8::Value> documentWrapper = toV8(m_frame->document());
+    ASSERT(documentWrapper == m_document || m_document.IsEmpty());
+    if (m_document.IsEmpty())
+        updateDocumentWrapper(v8::Handle<v8::Object>::Cast(documentWrapper));
+    checkDocumentWrapper(m_document, m_frame->document());
 
     // If instantiation of the document wrapper fails, clear the cache
     // and let the DOMWindow accessor handle access to the document.
@@ -497,6 +549,37 @@ void V8DOMWindowShell::updateDocument()
     updateSecurityOrigin();
 }
 
+v8::Handle<v8::Value> getter(v8::Local<v8::String> property, const v8::AccessorInfo& info)
+{
+    // FIXME(antonm): consider passing AtomicStringImpl directly.
+    AtomicString name = v8StringToAtomicWebCoreString(property);
+    HTMLDocument* htmlDocument = V8HTMLDocument::toNative(info.Holder());
+    ASSERT(htmlDocument);
+    v8::Handle<v8::Value> result = V8HTMLDocument::GetNamedProperty(htmlDocument, name);
+    if (!result.IsEmpty())
+        return result;
+    v8::Handle<v8::Value> prototype = info.Holder()->GetPrototype();
+    if (prototype->IsObject())
+        return prototype.As<v8::Object>()->Get(property);
+    return v8::Undefined();
+}
+
+void V8DOMWindowShell::namedItemAdded(HTMLDocument* doc, const AtomicString& name)
+{
+    initContextIfNeeded();
+
+    v8::HandleScope handleScope;
+    v8::Context::Scope contextScope(m_context);
+
+    ASSERT(!m_document.IsEmpty());
+    checkDocumentWrapper(m_document, doc);
+    m_document->SetAccessor(v8String(name), getter);
+}
+
+void V8DOMWindowShell::namedItemRemoved(HTMLDocument* doc, const AtomicString& name)
+{
+}
+
 void V8DOMWindowShell::updateSecurityOrigin()
 {
     v8::HandleScope scope;
@@ -545,20 +628,10 @@ v8::Local<v8::Object> V8DOMWindowShell::createWrapperFromCacheSlowCase(WrapperTy
     return notHandledByInterceptor();
 }
 
-void V8DOMWindowShell::setLocation(DOMWindow* window, const String& relativeURL)
+void V8DOMWindowShell::setLocation(DOMWindow* window, const String& locationString)
 {
-    Frame* frame = window->frame();
-    if (!frame)
-        return;
-
-    KURL url = completeURL(relativeURL);
-    if (url.isNull())
-        return;
-
-    if (!shouldAllowNavigation(frame))
-        return;
-
-    navigateIfAllowed(frame, url, false, false);
+    State<V8Binding>* state = V8BindingState::Only();
+    window->setLocation(locationString, state->activeWindow(), state->firstWindow());
 }
 
 } // WebCore

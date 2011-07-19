@@ -1,8 +1,8 @@
---- localeconv.c.orig	2008-10-09 11:37:42.000000000 -0700
-+++ localeconv.c	2008-10-10 01:37:33.000000000 -0700
-@@ -38,11 +38,71 @@ static char sccsid[] = "@(#)localeconv.c
+--- localeconv.c.orig	2009-11-09 15:05:25.000000000 -0800
++++ localeconv.c	2009-11-09 15:05:26.000000000 -0800
+@@ -34,11 +34,71 @@ static char sccsid[] = "@(#)localeconv.c
  #include <sys/cdefs.h>
- __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.13 2003/06/26 10:46:16 phantom Exp $");
+ __FBSDID("$FreeBSD: src/lib/libc/locale/localeconv.c,v 1.14 2007/12/12 07:43:23 phantom Exp $");
  
 +#include "xlocale_private.h"
 +
@@ -72,7 +72,7 @@
  /* 
   * The localeconv() function constructs a struct lconv from the current
   * monetary and numeric locales.
-@@ -52,25 +112,28 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
+@@ -48,25 +108,28 @@ __FBSDID("$FreeBSD: src/lib/libc/locale/
   * lconv structure are computed only when the monetary or numeric 
   * locale has been changed.
   */
@@ -109,7 +109,7 @@
  	M_ASSIGN_STR(int_curr_symbol);
  	M_ASSIGN_STR(currency_symbol);
  	M_ASSIGN_STR(mon_decimal_point);
-@@ -92,21 +155,45 @@ localeconv()
+@@ -88,21 +151,45 @@ localeconv()
  	M_ASSIGN_CHAR(int_n_sep_by_space);
  	M_ASSIGN_CHAR(int_p_sign_posn);
  	M_ASSIGN_CHAR(int_n_sign_posn);

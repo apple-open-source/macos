@@ -409,6 +409,8 @@ Tcl_ThreadQueueEvent(threadId, evPtr, position)
 
     if (tsdPtr) {
 	QueueEvent(tsdPtr, evPtr, position);
+    } else {
+	ckfree((char *) evPtr);
     }
     Tcl_MutexUnlock(&listLock);
 }

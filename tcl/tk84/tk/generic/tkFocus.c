@@ -886,6 +886,18 @@ TkFocusDeadWindow(winPtr)
 	}
     }
 
+    /*
+     * Occasionally, things can become unsynchronized. Move them back into
+     * synch now. [Bug 2496114]
+     */
+
+    if (displayFocusPtr->focusWinPtr == winPtr) {
+	if (dispPtr->focusDebug) {
+	    printf("focus cleared after %s died\n", winPtr->pathName);
+	}
+	displayFocusPtr->focusWinPtr = NULL;
+    }
+
     if (displayFocusPtr->focusOnMapPtr == winPtr) {
 	displayFocusPtr->focusOnMapPtr = NULL;
     }

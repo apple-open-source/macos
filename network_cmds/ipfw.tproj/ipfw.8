@@ -7,6 +7,7 @@
 .Sh NAME
 .Nm ipfw
 .Nd IP firewall and traffic shaper control program
+(DEPRECATED)
 .Sh SYNOPSIS
 .Nm
 .Op Fl cq
@@ -63,14 +64,19 @@
 .Oc
 .Ar pathname
 .Sh DESCRIPTION
+Note that use of this utility is
+.Cm DEPRECATED.
+Please use
+.Xr pfctl 8
+instead.
+.Pp
 The
 .Nm
 utility is the user interface for controlling the
 .Xr ipfw 4
 firewall and the
 .Xr dummynet 4
-traffic shaper in
-.Fx .
+traffic shaper. 
 .Pp
 An
 .Nm
@@ -1560,31 +1566,10 @@ to circumvent firewalls.
 When logging is enabled, these packets are
 reported as being dropped by rule -1.
 .It
-If you are logged in over a network, loading the
-.Xr kld 4
-version of
-.Nm
-is probably not as straightforward as you would think.
-I recommend the following command line:
-.Bd -literal -offset indent
-kldload ipfw && \e
-ipfw add 32000 allow ip from any to any
-.Ed
-.Pp
-Along the same lines, doing an
-.Bd -literal -offset indent
-ipfw flush
-.Ed
-.Pp
-in similar surroundings is also a bad idea.
-.It
 The
 .Nm
 filter list may not be modified if the system security level
-is set to 3 or higher
-(see
-.Xr init 8
-for information on system security levels).
+is set to 3 or higher.
 .El
 .Sh PACKET DIVERSION
 A
@@ -2058,15 +2043,12 @@ the sleep terminates thus restoring the previous situation.
 .Sh SEE ALSO
 .Xr cpp 1 ,
 .Xr m4 1 ,
-.Xr bridge 4 ,
 .Xr divert 4 ,
 .Xr dummynet 4 ,
 .Xr ip 4 ,
 .Xr ipfirewall 4 ,
 .Xr protocols 5 ,
 .Xr services 5 ,
-.Xr init 8 ,
-.Xr kldload 8 ,
 .Xr reboot 8 ,
 .Xr sysctl 8 ,
 .Xr syslogd 8

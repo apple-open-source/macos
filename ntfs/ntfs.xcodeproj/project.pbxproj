@@ -416,7 +416,14 @@
 			isa = PBXProject;
 			buildConfigurationList = 72E40F84091CC03000674539 /* Build configuration list for PBXProject "ntfs" */;
 			compatibilityVersion = "Xcode 3.0";
+			developmentRegion = English;
 			hasScannedForEncodings = 0;
+			knownRegions = (
+				English,
+				Japanese,
+				French,
+				German,
+			);
 			mainGroup = 72E40F81091CC03000674539;
 			productRefGroup = 72E40FE8091CC3A900674539 /* Products */;
 			projectDirPath = "";
@@ -652,7 +659,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.4;
+				MODULE_VERSION = 3.8;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -677,7 +684,7 @@
 				MODULE_NAME = com.apple.filesystems.ntfs;
 				MODULE_START = ntfs_module_start;
 				MODULE_STOP = ntfs_module_stop;
-				MODULE_VERSION = 3.4;
+				MODULE_VERSION = 3.8;
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs;
 				STRIP_INSTALLED_PRODUCT = YES;
@@ -701,6 +708,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;
@@ -721,6 +729,7 @@
 				OTHER_LDFLAGS = "";
 				PREBINDING = NO;
 				PRODUCT_NAME = ntfs.util;
+				SKIP_INSTALL = YES;
 				STRIP_INSTALLED_PRODUCT = YES;
 				WARNING_CFLAGS = "-Wall";
 				ZERO_LINK = NO;

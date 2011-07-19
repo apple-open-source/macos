@@ -40,16 +40,24 @@
 #include "PlatformKeyboardEvent.h"
 #include "PlatformString.h"
 #include "RenderObject.h"
+#include "SpellChecker.h"
 
 #include "DOMUtilitiesPrivate.h"
+#include "WebAutoFillClient.h"
 #include "WebEditingAction.h"
+#include "WebElement.h"
+#include "WebFrameClient.h"
 #include "WebFrameImpl.h"
 #include "WebKit.h"
 #include "WebInputElement.h"
+#include "WebInputEventConversion.h"
 #include "WebNode.h"
 #include "WebPasswordAutocompleteListener.h"
+#include "WebPermissionClient.h"
 #include "WebRange.h"
+#include "WebSpellCheckClient.h"
 #include "WebTextAffinity.h"
+#include "WebTextCheckingCompletionImpl.h"
 #include "WebViewClient.h"
 #include "WebViewImpl.h"
 
@@ -90,7 +98,7 @@ bool EditorClientImpl::shouldShowDeleteInterface(HTMLElement* elem)
     // Normally, we don't care to show WebCore's deletion UI, so we only enable
     // it if in testing mode and the test specifically requests it by using this
     // magic class name.
-    return WebKit::layoutTestMode()
+    return layoutTestMode()
            && elem->getAttribute(HTMLNames::classAttr) == "needsDeletionUI";
 }
 
@@ -122,7 +130,7 @@ bool EditorClientImpl::shouldSpellcheckByDefault()
     const Editor* editor = frame->editor();
     if (!editor)
         return false;
-    if (editor->spellCheckingEnabledInFocusedNode())
+    if (editor->isSpellCheckingEnabledInFocusedNode())
         return true;
     const Document* document = frame->document();
     if (!document)
@@ -174,11 +182,6 @@ int EditorClientImpl::spellCheckerDocumentTag()
 {
     ASSERT_NOT_REACHED();
     return 0;
-}
-
-bool EditorClientImpl::isEditable()
-{
-    return false;
 }
 
 bool EditorClientImpl::shouldBeginEditing(Range* range)
@@ -311,6 +314,20 @@ void EditorClientImpl::clearUndoRedoOperations()
 {
     m_undoStack.clear();
     m_redoStack.clear();
+}
+
+bool EditorClientImpl::canCopyCut(Frame* frame, bool defaultValue) const
+{
+    if (!m_webView->permissionClient())
+        return defaultValue;
+    return m_webView->permissionClient()->allowWriteToClipboard(WebFrameImpl::fromFrame(frame), defaultValue);
+}
+
+bool EditorClientImpl::canPaste(Frame* frame, bool defaultValue) const
+{
+    if (!m_webView->permissionClient())
+        return defaultValue;
+    return m_webView->permissionClient()->allowReadFromClipboard(WebFrameImpl::fromFrame(frame), defaultValue);
 }
 
 bool EditorClientImpl::canUndo() const
@@ -644,12 +661,19 @@ void EditorClientImpl::handleInputMethodKeydown(KeyboardEvent* keyEvent)
     // We handle IME within chrome.
 }
 
-void EditorClientImpl::textFieldDidBeginEditing(Element*)
+void EditorClientImpl::textFieldDidBeginEditing(Element* element)
 {
+    HTMLInputElement* inputElement = toHTMLInputElement(element);
+    if (m_webView->autoFillClient() && inputElement)
+        m_webView->autoFillClient()->textFieldDidBeginEditing(WebInputElement(inputElement));
 }
 
 void EditorClientImpl::textFieldDidEndEditing(Element* element)
 {
+    HTMLInputElement* inputElement = toHTMLInputElement(element);
+    if (m_webView->autoFillClient() && inputElement)
+        m_webView->autoFillClient()->textFieldDidEndEditing(WebInputElement(inputElement));
+
     // Notification that focus was lost.  Be careful with this, it's also sent
     // when the page is being closed.
 
@@ -658,13 +682,12 @@ void EditorClientImpl::textFieldDidEndEditing(Element* element)
     m_autofillTimer.stop();
 
     // Hide any showing popup.
-    m_webView->hideSuggestionsPopup();
+    m_webView->hideAutoFillPopup();
 
     if (!m_webView->client())
         return; // The page is getting closed, don't fill the password.
 
     // Notify any password-listener of the focus change.
-    HTMLInputElement* inputElement = WebKit::toHTMLInputElement(element);
     if (!inputElement)
         return;
 
@@ -682,15 +705,18 @@ void EditorClientImpl::textFieldDidEndEditing(Element* element)
 void EditorClientImpl::textDidChangeInTextField(Element* element)
 {
     ASSERT(element->hasLocalName(HTMLNames::inputTag));
+    HTMLInputElement* inputElement = static_cast<HTMLInputElement*>(element);
+    if (m_webView->autoFillClient())
+        m_webView->autoFillClient()->textFieldDidChange(WebInputElement(inputElement));
+
     // Note that we only show the autofill popup in this case if the caret is at
     // the end.  This matches FireFox and Safari but not IE.
-    autofill(static_cast<HTMLInputElement*>(element), false, false,
-             true);
+    autofill(inputElement, false, false, true);
 }
 
 bool EditorClientImpl::showFormAutofillForNode(Node* node)
 {
-    HTMLInputElement* inputElement = WebKit::toHTMLInputElement(node);
+    HTMLInputElement* inputElement = toHTMLInputElement(node);
     if (inputElement)
         return autofill(inputElement, true, true, false);
     return false;
@@ -705,6 +731,7 @@ bool EditorClientImpl::autofill(HTMLInputElement* inputElement,
     m_autofillArgs.clear();
     m_autofillTimer.stop();
 
+    // FIXME: Remove the extraneous isEnabledFormControl call below.
     // Let's try to trigger autofill for that field, if applicable.
     if (!inputElement->isEnabledFormControl() || !inputElement->isTextField()
         || inputElement->isPasswordField() || !inputElement->autoComplete()
@@ -720,7 +747,7 @@ bool EditorClientImpl::autofill(HTMLInputElement* inputElement,
     if (inputElement->value().length() > maximumTextSizeForAutofill)
         return false;
 
-    m_autofillArgs = new AutofillArgs();
+    m_autofillArgs = adoptPtr(new AutofillArgs);
     m_autofillArgs->inputElement = inputElement;
     m_autofillArgs->autofillFormOnly = autofillFormOnly;
     m_autofillArgs->autofillOnEmptyValue = autofillOnEmptyValue;
@@ -753,7 +780,7 @@ void EditorClientImpl::doAutofill(Timer<EditorClientImpl>* timer)
                        && inputElement->selectionEnd() == static_cast<int>(value.length());
 
     if ((!args->autofillOnEmptyValue && value.isEmpty()) || !isCaretAtEnd) {
-        m_webView->hideSuggestionsPopup();
+        m_webView->hideAutoFillPopup();
         return;
     }
 
@@ -773,14 +800,6 @@ void EditorClientImpl::doAutofill(Timer<EditorClientImpl>* timer)
                                             true);
         return;
     }
-
-    // Then trigger form autofill.
-    WebString name = WebInputElement(inputElement).nameForAutofill();
-    ASSERT(static_cast<int>(name.length()) > 0);
-
-    if (m_webView->client())
-        m_webView->client()->queryAutofillSuggestions(WebNode(inputElement),
-                                                      name, WebString(value));
 }
 
 void EditorClientImpl::cancelPendingAutofill()
@@ -789,22 +808,15 @@ void EditorClientImpl::cancelPendingAutofill()
     m_autofillTimer.stop();
 }
 
-void EditorClientImpl::onAutocompleteSuggestionAccepted(HTMLInputElement* textField)
-{
-    WebFrameImpl* webframe = WebFrameImpl::fromFrame(textField->document()->frame());
-    if (!webframe)
-        return;
-
-    WebPasswordAutocompleteListener* listener = webframe->getPasswordListener(textField);
-    // Password listeners need to autocomplete other fields that depend on the
-    // input element with autofill suggestions.
-    if (listener)
-        listener->performInlineAutocomplete(textField->value(), false, false);
-}
-
 bool EditorClientImpl::doTextFieldCommandFromEvent(Element* element,
                                                    KeyboardEvent* event)
 {
+    HTMLInputElement* inputElement = toHTMLInputElement(element);
+    if (m_webView->autoFillClient() && inputElement) {
+        m_webView->autoFillClient()->textFieldDidReceiveKeyDown(WebInputElement(inputElement),
+                                                                WebKeyboardEventBuilder(*event));
+    }
+
     // Remember if backspace was pressed for the autofill.  It is not clear how to
     // find if backspace was pressed from textFieldDidBeginEditing and
     // textDidChangeInTextField as when these methods are called the value of the
@@ -845,8 +857,8 @@ void EditorClientImpl::checkSpellingOfString(const UChar* text, int length,
     int spellLength = 0;
 
     // Check to see if the provided text is spelled correctly.
-    if (isContinuousSpellCheckingEnabled() && m_webView->client())
-        m_webView->client()->spellCheck(WebString(text, length), spellLocation, spellLength);
+    if (isContinuousSpellCheckingEnabled() && m_webView->spellCheckClient())
+        m_webView->spellCheckClient()->spellCheck(WebString(text, length), spellLocation, spellLength, 0);
     else {
         spellLocation = 0;
         spellLength = 0;
@@ -858,6 +870,12 @@ void EditorClientImpl::checkSpellingOfString(const UChar* text, int length,
         *misspellingLocation = spellLocation;
     if (misspellingLength)
         *misspellingLength = spellLength;
+}
+
+void EditorClientImpl::requestCheckingOfString(SpellChecker* sender, int identifier, TextCheckingTypeMask, const String& text)
+{
+    if (m_webView->spellCheckClient())
+        m_webView->spellCheckClient()->requestCheckingOfText(text, new WebTextCheckingCompletionImpl(identifier, sender));
 }
 
 String EditorClientImpl::getAutoCorrectSuggestionForMisspelledWord(const String& misspelledWord)
@@ -872,7 +890,9 @@ String EditorClientImpl::getAutoCorrectSuggestionForMisspelledWord(const String&
             return String();
     }
 
-    return m_webView->client()->autoCorrectWord(WebString(misspelledWord));
+    if (m_webView->spellCheckClient())
+        return m_webView->spellCheckClient()->autoCorrectWord(WebString(misspelledWord));
+    return String();
 }
 
 void EditorClientImpl::checkGrammarOfString(const UChar*, int length,
@@ -895,33 +915,38 @@ void EditorClientImpl::updateSpellingUIWithGrammarString(const String&,
 
 void EditorClientImpl::updateSpellingUIWithMisspelledWord(const String& misspelledWord)
 {
-    if (m_webView->client())
-        m_webView->client()->updateSpellingUIWithMisspelledWord(WebString(misspelledWord));
+    if (m_webView->spellCheckClient())
+        m_webView->spellCheckClient()->updateSpellingUIWithMisspelledWord(WebString(misspelledWord));
 }
 
 void EditorClientImpl::showSpellingUI(bool show)
 {
-    if (m_webView->client())
-        m_webView->client()->showSpellingUI(show);
+    if (m_webView->spellCheckClient())
+        m_webView->spellCheckClient()->showSpellingUI(show);
 }
 
 bool EditorClientImpl::spellingUIIsShowing()
 {
-    if (m_webView->client())
-        return m_webView->client()->isShowingSpellingUI();
+    if (m_webView->spellCheckClient())
+        return m_webView->spellCheckClient()->isShowingSpellingUI();
     return false;
 }
 
-void EditorClientImpl::getGuessesForWord(const String&,
+void EditorClientImpl::getGuessesForWord(const String& word,
+                                         const String& context,
                                          WTF::Vector<String>& guesses)
 {
     notImplemented();
 }
 
-void EditorClientImpl::setInputMethodState(bool enabled)
+void EditorClientImpl::willSetInputMethodState()
 {
     if (m_webView->client())
-        m_webView->client()->setInputMethodEnabled(enabled);
+        m_webView->client()->resetInputMethod();
+}
+
+void EditorClientImpl::setInputMethodState(bool)
+{
 }
 
 } // namesace WebKit

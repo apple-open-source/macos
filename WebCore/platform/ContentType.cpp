@@ -41,15 +41,21 @@ String ContentType::parameter(const String& parameterName) const
     String strippedType = m_type.stripWhiteSpace();
 
     // a MIME type can have one or more "param=value" after a semi-colon, and separated from each other by semi-colons
-    int semi = strippedType.find(';');
-    if (semi != -1) {
-        int start = strippedType.find(parameterName, semi + 1, false);
-        if (start != -1) {
-            start = strippedType.find('=', start + 6);
-            if (start != -1) {
-                int end = strippedType.find(';', start + 6);
-                if (end == -1)
-                    end = strippedType.length();
+    size_t semi = strippedType.find(';');
+    if (semi != notFound) {
+        size_t start = strippedType.find(parameterName, semi + 1, false);
+        if (start != notFound) {
+            start = strippedType.find('=', start + parameterName.length());
+            if (start != notFound) {
+                size_t quote = strippedType.find('\"', start + 1);
+                size_t end = strippedType.find('\"', start + 2);
+                if (quote != notFound && end != notFound)
+                    start = quote;
+                else {
+                    end = strippedType.find(';', start + 1);
+                    if (end == notFound)
+                        end = strippedType.length();
+                }
                 parameterValue = strippedType.substring(start + 1, end - (start + 1)).stripWhiteSpace();
             }
         }
@@ -63,8 +69,8 @@ String ContentType::type() const
     String strippedType = m_type.stripWhiteSpace();
 
     // "type" can have parameters after a semi-colon, strip them
-    int semi = strippedType.find(';');
-    if (semi != -1)
+    size_t semi = strippedType.find(';');
+    if (semi != notFound)
         strippedType = strippedType.left(semi).stripWhiteSpace();
 
     return strippedType;

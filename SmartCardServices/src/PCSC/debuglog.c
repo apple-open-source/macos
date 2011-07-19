@@ -34,7 +34,7 @@
  * Copyright (C) 1999-2005
  *  Ludovic Rousseau <ludovic.rousseau@free.fr>
  *
- * $Id: debuglog.c 2302 2007-01-06 17:57:58Z rousseau $
+ * $Id: debuglog.c 123 2010-03-27 10:50:42Z ludovic.rousseau@gmail.com $
  */
 
 /**
@@ -43,8 +43,7 @@
  */
 
 #include "config.h"
-
-#ifndef WIN32
+#ifdef HAVE_SYSLOG_H
 #include <syslog.h>
 #endif
 #include <unistd.h>
@@ -87,18 +86,9 @@ void log_msg(const int priority, const char *fmt, ...)
 		return;
 
 	va_start(argptr, fmt);
-#ifndef WIN32
 	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-#if HAVE_VSNPRINTF
-	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-	vsprintf(DebugBuffer, fmt, argptr);
-#endif
-#endif
 	va_end(argptr);
 
-#ifndef WIN32
 	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
 		syslog(LOG_INFO, "%s", DebugBuffer);
 	else
@@ -131,9 +121,6 @@ void log_msg(const int priority, const char *fmt, ...)
 		else
 			fprintf(stderr, "%s\n", DebugBuffer);
 	}
-#else
-	fprintf(stderr, "%s\n", DebugBuffer);
-#endif
 } /* log_msg */
 
 void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
@@ -164,11 +151,9 @@ void log_xxd(const int priority, const char *msg, const unsigned char *buffer,
 	if ((c >= debug_buf_end) && (i < len))
 		c[-3] = c[-2] = c[-1] = '.';
 
-#ifndef WIN32
 	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
 		syslog(LOG_INFO, "%s", DebugBuffer);
 	else
-#endif
 		fprintf(stderr, "%s\n", DebugBuffer);
 } /* log_xxd */
 
@@ -194,8 +179,6 @@ void DebugLogSetLogType(const int dbgtype)
 			LogMsgType = DEBUGLOG_STDERR_DEBUG;
 	}
 
-	/* no color under Windows */
-#ifndef WIN32
 	/* log to stderr and stderr is a tty? */
 	if (DEBUGLOG_STDERR_DEBUG == LogMsgType && isatty(fileno(stderr)))
 	{
@@ -219,7 +202,6 @@ void DebugLogSetLogType(const int dbgtype)
 			}
 		}
 	}
-#endif
 }
 
 void DebugLogSetLevel(const int level)
@@ -247,7 +229,7 @@ void DebugLogSetLevel(const int level)
 	}
 }
 
-INTERNAL int DebugLogSetCategory(const int dbginfo)
+int DebugLogSetCategory(const int dbginfo)
 {
 #define DEBUG_INFO_LENGTH 80
 	char text[DEBUG_INFO_LENGTH];
@@ -271,7 +253,7 @@ INTERNAL int DebugLogSetCategory(const int dbginfo)
 	return LogCategory;
 }
 
-INTERNAL void DebugLogCategory(const int category, const unsigned char *buffer,
+void DebugLogCategory(const int category, const unsigned char *buffer,
 	const int len)
 {
 	if ((category & DEBUG_CATEGORY_APDU)
@@ -288,6 +270,7 @@ INTERNAL void DebugLogCategory(const int category, const unsigned char *buffer,
  * defined only for pcscd
  */
 #ifdef PCSCD
+void debug_msg(const char *fmt, ...);
 void debug_msg(const char *fmt, ...)
 {
 	char DebugBuffer[DEBUG_BUF_SIZE];
@@ -298,155 +281,19 @@ void debug_msg(const char *fmt, ...)
 		return;
 
 	va_start(argptr, fmt);
-#ifndef WIN32
 	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-#if HAVE_VSNPRINTF
-	vsnprintf(DebugBuffer, DEBUG_BUF_SIZE, fmt, argptr);
-#else
-	vsprintf(DebugBuffer, fmt, argptr);
-#endif
-#endif
 	va_end(argptr);
 
-#ifndef WIN32
 	if (DEBUGLOG_SYSLOG_DEBUG == LogMsgType)
 		syslog(LOG_INFO, "%s", DebugBuffer);
 	else
-#endif
 		fprintf(stderr, "%s\n", DebugBuffer);
 } /* debug_msg */
 
+void debug_xxd(const char *msg, const unsigned char *buffer, const int len);
 void debug_xxd(const char *msg, const unsigned char *buffer, const int len)
 {
 	log_xxd(PCSC_LOG_ERROR, msg, buffer, len);
 } /* debug_xxd */
 #endif
-
-char *pcsc_stringify_error(const int32_t Error)
-{
-
-	static char strError[75];
-
-	switch (Error)
-	{
-	case SCARD_S_SUCCESS:
-		strcpy(strError, "Command successful.");
-		break;
-	case SCARD_E_CANCELLED:
-		strcpy(strError, "Command cancelled.");
-		break;
-	case SCARD_E_CANT_DISPOSE:
-		strcpy(strError, "Cannot dispose handle.");
-		break;
-	case SCARD_E_INSUFFICIENT_BUFFER:
-		strcpy(strError, "Insufficient buffer.");
-		break;
-	case SCARD_E_INVALID_ATR:
-		strcpy(strError, "Invalid ATR.");
-		break;
-	case SCARD_E_INVALID_HANDLE:
-		strcpy(strError, "Invalid handle.");
-		break;
-	case SCARD_E_INVALID_PARAMETER:
-		strcpy(strError, "Invalid parameter given.");
-		break;
-	case SCARD_E_INVALID_TARGET:
-		strcpy(strError, "Invalid target given.");
-		break;
-	case SCARD_E_INVALID_VALUE:
-		strcpy(strError, "Invalid value given.");
-		break;
-	case SCARD_E_NO_MEMORY:
-		strcpy(strError, "Not enough memory.");
-		break;
-	case SCARD_F_COMM_ERROR:
-		strcpy(strError, "RPC transport error.");
-		break;
-	case SCARD_F_INTERNAL_ERROR:
-		strcpy(strError, "Unknown internal error.");
-		break;
-	case SCARD_F_UNKNOWN_ERROR:
-		strcpy(strError, "Unknown internal error.");
-		break;
-	case SCARD_F_WAITED_TOO_LONG:
-		strcpy(strError, "Waited too long.");
-		break;
-	case SCARD_E_UNKNOWN_READER:
-		strcpy(strError, "Unknown reader specified.");
-		break;
-	case SCARD_E_TIMEOUT:
-		strcpy(strError, "Command timeout.");
-		break;
-	case SCARD_E_SHARING_VIOLATION:
-		strcpy(strError, "Sharing violation.");
-		break;
-	case SCARD_E_NO_SMARTCARD:
-		strcpy(strError, "No smartcard inserted.");
-		break;
-	case SCARD_E_UNKNOWN_CARD:
-		strcpy(strError, "Unknown card.");
-		break;
-	case SCARD_E_PROTO_MISMATCH:
-		strcpy(strError, "Card protocol mismatch.");
-		break;
-	case SCARD_E_NOT_READY:
-		strcpy(strError, "Subsystem not ready.");
-		break;
-	case SCARD_E_SYSTEM_CANCELLED:
-		strcpy(strError, "System cancelled.");
-		break;
-	case SCARD_E_NOT_TRANSACTED:
-		strcpy(strError, "Transaction failed.");
-		break;
-	case SCARD_E_READER_UNAVAILABLE:
-		strcpy(strError, "Reader/s is unavailable.");
-		break;
-	case SCARD_W_UNSUPPORTED_CARD:
-		strcpy(strError, "Card is not supported.");
-		break;
-	case SCARD_W_UNRESPONSIVE_CARD:
-		strcpy(strError, "Card is unresponsive.");
-		break;
-	case SCARD_W_UNPOWERED_CARD:
-		strcpy(strError, "Card is unpowered.");
-		break;
-	case SCARD_W_RESET_CARD:
-		strcpy(strError, "Card was reset.");
-		break;
-	case SCARD_W_REMOVED_CARD:
-		strcpy(strError, "Card was removed.");
-		break;
-	case SCARD_W_INSERTED_CARD:
-		strcpy(strError, "Card was inserted.");
-		break;
-	case SCARD_E_UNSUPPORTED_FEATURE:
-		strcpy(strError, "Feature not supported.");
-		break;
-	case SCARD_E_PCI_TOO_SMALL:
-		strcpy(strError, "PCI struct too small.");
-		break;
-	case SCARD_E_READER_UNSUPPORTED:
-		strcpy(strError, "Reader is unsupported.");
-		break;
-	case SCARD_E_DUPLICATE_READER:
-		strcpy(strError, "Reader already exists.");
-		break;
-	case SCARD_E_CARD_UNSUPPORTED:
-		strcpy(strError, "Card is unsupported.");
-		break;
-	case SCARD_E_NO_SERVICE:
-		strcpy(strError, "Service not available.");
-		break;
-	case SCARD_E_SERVICE_STOPPED:
-		strcpy(strError, "Service was stopped.");
-		break;
-	default:
-		sprintf(strError, "Unknown PCSC error: %d [0x%08X]", Error, Error);
-		break;
-
-	};
-
-	return strError;
-}
 

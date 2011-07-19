@@ -3,8 +3,8 @@ cwd  := $(shell pwd)
 all:
 	xcodebuild
 	# make install - to quickly install in root without using the installer package
-	# make pkg     - to make build/AppleVerizonInstaller.pkg
-	# make clean   - to delete build and /tmp/AppleVerizon.dst
+	# make pkg     - to make build/USB-CDC-Drivers.pkg
+	# make clean   - to delete build and /tmp/AppleUSBCDC.dst
 
 install:
 	xcodebuild

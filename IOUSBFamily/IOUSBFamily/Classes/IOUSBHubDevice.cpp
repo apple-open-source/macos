@@ -670,27 +670,37 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 	OSNumber *		extraPowerProp = NULL;
 	OSObject *		propertyObject = NULL;
 	OSBoolean *		booleanObj = NULL;
+	UInt32			deviceInfo = 0;
+	bool			useNewMethodToAddRequestFromParent = false;;
 	
-	USBLog(5, "IOUSBHubDevice[%p]::InitializeExtraPower - maxPortCurrent = %d, totalExtraCurrent: %d, maxPortCurrentInSleep: %d, totalExtraCurrentInSleep: %d", this, (uint32_t)maxPortCurrent, (uint32_t) totalExtraCurrent, (uint32_t)maxPortCurrentInSleep, (uint32_t)totalExtraCurrentInSleep);
+	(void) GetDeviceInformation(&deviceInfo);
+	
+	USBLog(5, "IOUSBHubDevice[%p]::InitializeExtraPower - maxPortCurrent = %d, totalExtraCurrent: %d, maxPortCurrentInSleep: %d, totalExtraCurrentInSleep: %d, deviceInfo: 0x%x", this, (uint32_t)maxPortCurrent, (uint32_t) totalExtraCurrent, (uint32_t)maxPortCurrentInSleep, (uint32_t)totalExtraCurrentInSleep, (uint32_t)deviceInfo);
 	
 	_MAXPORTCURRENT = maxPortCurrent;
 	_TOTALEXTRACURRENT = totalExtraCurrent;
 	_MAXPORTSLEEPCURRENT = maxPortCurrentInSleep;
 	_TOTALEXTRASLEEPCURRENT = totalExtraCurrentInSleep;
 	
-	// If we have a "GetExtraPowerPropertiesFromParent" property, then use those to set the _REQUESTFROMPARENT and _CANREQUESTEXTRAPOWER
-	// (Used for the keyboards to get extra current from their parent hub)
-	
-	propertyObject = getProperty("RequestExtraCurrentFromParent");
-	booleanObj = OSDynamicCast(OSBoolean, propertyObject);
-	if (booleanObj && booleanObj->isTrue() && DoLocationOverrideAndModelMatch())
+	if ( _controller )
 	{
-		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found RequestExtraCurrentFromParent property, setting _REQUESTFROMPARENT to true", this );
+		booleanObj = OSDynamicCast(OSBoolean, _controller->getProperty("UpdatedSleepPropertiesExists"));
+		if (booleanObj && booleanObj->isTrue())
+		{
+			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found UpdatedSleepPropertiesExists with true value", this);
+			useNewMethodToAddRequestFromParent = true;
+		}
+	}
+	// If we have a hub that is (1) internal, (2) attached to the RootHub, then we will tell it to request power from its parent
+	// Limit this only to machines that have the internal hubs and later.  We check that by llooking to see if the controller has the property that indicates
+	// that the new sleep extra current properties existed in EFI.  This is an indication that the machine has a verified ACPI table and we can trust the PortInfo
+	if ( useNewMethodToAddRequestFromParent && (deviceInfo & kUSBInformationDeviceIsInternalMask) && (deviceInfo & kUSBInformationDeviceIsAttachedToRootHubMask) && (deviceInfo & kUSBInformationDeviceIsCaptiveMask) )
+	{
+		USBLog(1, "IOUSBHubDevice[%p]::InitializeExtraPower  found hub (0x%x, 0x%x), that is internal, attached to root hub, captive, and on a recent machine", this, GetVendorID(), GetProductID());
 		_REQUESTFROMPARENT = true;
-		
 		if (_USBPLANE_PARENT != NULL)
 		{
-			extraPowerProp = OSDynamicCast(OSNumber, _USBPLANE_PARENT->getProperty(kAppleCurrentAvailable));
+			extraPowerProp = OSDynamicCast(OSNumber, _USBPLANE_PARENT->getProperty(kAppleMaxPortCurrent));
 			if ( extraPowerProp )
 			{
 				_MAXPORTCURRENT = extraPowerProp->unsigned32BitValue();
@@ -698,28 +708,51 @@ IOUSBHubDevice::InitializeExtraPower(UInt32 maxPortCurrent, UInt32 totalExtraCur
 			}
 		}
 	}
-	else
+	else 
 	{
-		propertyObject = copyProperty("ExtraPowerRequest");
-		extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
-		if ( extraPowerProp )
-		{
-			_CANREQUESTEXTRAPOWER = extraPowerProp->unsigned32BitValue();
-			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerRequest of %d", this, (uint32_t) _CANREQUESTEXTRAPOWER );
-		}
-		if ( propertyObject)
-			propertyObject->release();
+		// If we have an "RequestExtraCurrentFromParent" property, this means that the hub needs to ask its parent for the extra power.  This is used for internal hubs where the MLB provides
+		// the extra current.  If a hub had a unique vid/pid (like a display hub), then it could just add the required properties and not set the "RequestExtraCurrentFromParent" one.
 		
-		propertyObject = copyProperty("ExtraPowerForPorts");
-		extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
-		if ( extraPowerProp )
+		propertyObject = getProperty("RequestExtraCurrentFromParent");
+		booleanObj = OSDynamicCast(OSBoolean, propertyObject);
+		if (booleanObj && booleanObj->isTrue() && DoLocationOverrideAndModelMatch())
 		{
-			_EXTRAPOWERFORPORTS = extraPowerProp->unsigned32BitValue();
-			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerForPorts of %d", this, (uint32_t) _EXTRAPOWERFORPORTS );
+			USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  found RequestExtraCurrentFromParent property, setting _REQUESTFROMPARENT to true", this);
+			_REQUESTFROMPARENT = true;
+			
+			if (_USBPLANE_PARENT != NULL)
+			{
+				extraPowerProp = OSDynamicCast(OSNumber, _USBPLANE_PARENT->getProperty(kAppleMaxPortCurrent));
+				if ( extraPowerProp )
+				{
+					_MAXPORTCURRENT = extraPowerProp->unsigned32BitValue();
+					USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  setting _MAXPORTCURRENT to %d", this, (uint32_t) _MAXPORTCURRENT );
+				}
+			}
 		}
-		if ( propertyObject)
-			propertyObject->release();
 	}
+	
+	
+	// Now set some parameters (for keyboards) that also request from the parent
+	propertyObject = copyProperty("ExtraPowerRequest");
+	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+	if ( extraPowerProp )
+	{
+		_CANREQUESTEXTRAPOWER = extraPowerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerRequest of %d", this, (uint32_t) _CANREQUESTEXTRAPOWER );
+	}
+	if ( propertyObject)
+		propertyObject->release();
+	
+	propertyObject = copyProperty("ExtraPowerForPorts");
+	extraPowerProp = OSDynamicCast(OSNumber, propertyObject);
+	if ( extraPowerProp )
+	{
+		_EXTRAPOWERFORPORTS = extraPowerProp->unsigned32BitValue();
+		USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  got ExtraPowerForPorts of %d", this, (uint32_t) _EXTRAPOWERFORPORTS );
+	}
+	if ( propertyObject)
+		propertyObject->release();
 	
 	USBLog(6, "IOUSBHubDevice[%p]::InitializeExtraPower  USB Plane Parent is %p (%s)", this, _USBPLANE_PARENT, _USBPLANE_PARENT == NULL ? "" : _USBPLANE_PARENT->getName());
 	

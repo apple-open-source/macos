@@ -15,7 +15,7 @@
 #include  "socket.h"
 
 #include  "i18n.h"
-#include "md5.h"
+#include "fm_md5.h"
 
 #ifdef OPIE_ENABLE
 #ifdef __cplusplus
@@ -26,7 +26,7 @@ extern "C" {
 }
 #endif
 
-int do_otp(int sock, char *command, struct query *ctl)
+int do_otp(int sock, const char *command, struct query *ctl)
 {
     int i, rval;
     char buffer[128];

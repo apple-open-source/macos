@@ -36,26 +36,29 @@ namespace WebCore {
 class ResourceRequest : public ResourceRequestBase {
 public:
     ResourceRequest(const String& url)
-        : ResourceRequestBase(KURL(ParsedURLString, url), UseProtocolCachePolicy), m_userGesture(true) { }
+        : ResourceRequestBase(KURL(ParsedURLString, url), UseProtocolCachePolicy) { }
 
-    ResourceRequest(const KURL& url) : ResourceRequestBase(url, UseProtocolCachePolicy) , m_userGesture(true) { }
+    ResourceRequest(const KURL& url) : ResourceRequestBase(url, UseProtocolCachePolicy) { }
 
     ResourceRequest(const KURL& url, const String& referrer, ResourceRequestCachePolicy policy = UseProtocolCachePolicy)
-        : ResourceRequestBase(url, policy) , m_userGesture(true)
+        : ResourceRequestBase(url, policy)
     {
         setHTTPReferrer(referrer);
     }
 
-    ResourceRequest() : ResourceRequestBase(KURL(), UseProtocolCachePolicy), m_userGesture(true) { }
+    ResourceRequest() : ResourceRequestBase(KURL(), UseProtocolCachePolicy) { }
 
     void doUpdatePlatformRequest() { }
     void doUpdateResourceRequest() { }
-    void setUserGesture(bool userGesture) { m_userGesture = userGesture; }
-    bool getUserGesture() const { return m_userGesture; }
 
 private:
     friend class ResourceRequestBase;
-    bool m_userGesture;
+
+    PassOwnPtr<CrossThreadResourceRequestData> doPlatformCopyData(PassOwnPtr<CrossThreadResourceRequestData> data) const { return data; }
+    void doPlatformAdopt(PassOwnPtr<CrossThreadResourceRequestData>) { }
+};
+
+struct CrossThreadResourceRequestData : public CrossThreadResourceRequestDataBase {
 };
 
 } // namespace WebCore

@@ -9,7 +9,7 @@
 //
 // This file implements the VirtRegMap class.
 //
-// It also contains implementations of the the Spiller interface, which, given a
+// It also contains implementations of the Spiller interface, which, given a
 // virtual register map and a machine function, eliminates all virtual
 // references by replacing them with physical register references - adding spill
 // code as necessary.
@@ -30,6 +30,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
+#include "llvm/Support/raw_ostream.h"
 #include "llvm/ADT/BitVector.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DepthFirstIterator.h"
@@ -51,10 +52,11 @@ static RegisterPass<VirtRegMap>
 X("virtregmap", "Virtual Register Map");
 
 bool VirtRegMap::runOnMachineFunction(MachineFunction &mf) {
+  MRI = &mf.getRegInfo();
   TII = mf.getTarget().getInstrInfo();
   TRI = mf.getTarget().getRegisterInfo();
   MF = &mf;
-  
+
   ReMatId = MAX_STACK_SLOT+1;
   LowSpillSlot = HighSpillSlot = NO_STACK_SLOT;
   
@@ -98,13 +100,25 @@ void VirtRegMap::grow() {
   ImplicitDefed.resize(LastVirtReg-TargetRegisterInfo::FirstVirtualRegister+1);
 }
 
+unsigned VirtRegMap::getRegAllocPref(unsigned virtReg) {
+  std::pair<unsigned, unsigned> Hint = MRI->getRegAllocationHint(virtReg);
+  unsigned physReg = Hint.second;
+  if (physReg &&
+      TargetRegisterInfo::isVirtualRegister(physReg) && hasPhys(physReg))
+    physReg = getPhys(physReg);
+  if (Hint.first == 0)
+    return (physReg && TargetRegisterInfo::isPhysicalRegister(physReg))
+      ? physReg : 0;
+  return TRI->ResolveRegAllocHint(Hint.first, physReg, *MF);
+}
+
 int VirtRegMap::assignVirt2StackSlot(unsigned virtReg) {
   assert(TargetRegisterInfo::isVirtualRegister(virtReg));
   assert(Virt2StackSlotMap[virtReg] == NO_STACK_SLOT &&
          "attempt to assign stack slot to already spilled register");
   const TargetRegisterClass* RC = MF->getRegInfo().getRegClass(virtReg);
-  int SS = MF->getFrameInfo()->CreateStackObject(RC->getSize(),
-                                                RC->getAlignment());
+  int SS = MF->getFrameInfo()->CreateSpillStackObject(RC->getSize(),
+                                                 RC->getAlignment());
   if (LowSpillSlot == NO_STACK_SLOT)
     LowSpillSlot = SS;
   if (HighSpillSlot == NO_STACK_SLOT || SS > HighSpillSlot)
@@ -147,8 +161,8 @@ int VirtRegMap::getEmergencySpillSlot(const TargetRegisterClass *RC) {
     EmergencySpillSlots.find(RC);
   if (I != EmergencySpillSlots.end())
     return I->second;
-  int SS = MF->getFrameInfo()->CreateStackObject(RC->getSize(),
-                                                RC->getAlignment());
+  int SS = MF->getFrameInfo()->CreateSpillStackObject(RC->getSize(),
+                                                 RC->getAlignment());
   if (LowSpillSlot == NO_STACK_SLOT)
     LowSpillSlot = SS;
   if (HighSpillSlot == NO_STACK_SLOT || SS > HighSpillSlot)
@@ -213,8 +227,7 @@ void VirtRegMap::RemoveMachineInstrFromMaps(MachineInstr *MI) {
 
 /// FindUnusedRegisters - Gather a list of allocatable registers that
 /// have not been allocated to any virtual register.
-bool VirtRegMap::FindUnusedRegisters(const TargetRegisterInfo *TRI,
-                                     LiveIntervals* LIs) {
+bool VirtRegMap::FindUnusedRegisters(LiveIntervals* LIs) {
   unsigned NumRegs = TRI->getNumRegs();
   UnusedRegs.reset();
   UnusedRegs.resize(NumRegs);
@@ -246,24 +259,26 @@ bool VirtRegMap::FindUnusedRegisters(const TargetRegisterInfo *TRI,
   return AnyUnused;
 }
 
-void VirtRegMap::print(std::ostream &OS, const Module* M) const {
+void VirtRegMap::print(raw_ostream &OS, const Module* M) const {
   const TargetRegisterInfo* TRI = MF->getTarget().getRegisterInfo();
+  const MachineRegisterInfo &MRI = MF->getRegInfo();
 
   OS << "********** REGISTER MAP **********\n";
   for (unsigned i = TargetRegisterInfo::FirstVirtualRegister,
          e = MF->getRegInfo().getLastVirtReg(); i <= e; ++i) {
     if (Virt2PhysMap[i] != (unsigned)VirtRegMap::NO_PHYS_REG)
       OS << "[reg" << i << " -> " << TRI->getName(Virt2PhysMap[i])
-         << "]\n";
+         << "] " << MRI.getRegClass(i)->getName() << "\n";
   }
 
   for (unsigned i = TargetRegisterInfo::FirstVirtualRegister,
          e = MF->getRegInfo().getLastVirtReg(); i <= e; ++i)
     if (Virt2StackSlotMap[i] != VirtRegMap::NO_STACK_SLOT)
-      OS << "[reg" << i << " -> fi#" << Virt2StackSlotMap[i] << "]\n";
+      OS << "[reg" << i << " -> fi#" << Virt2StackSlotMap[i]
+         << "] " << MRI.getRegClass(i)->getName() << "\n";
   OS << '\n';
 }
 
 void VirtRegMap::dump() const {
-  print(cerr);
+  print(dbgs());
 }

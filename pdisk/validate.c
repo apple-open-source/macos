@@ -300,7 +300,9 @@ print_range_list(range_list *list)
 {
     range_list *cur;
     int printed;
-    char *s = NULL;
+    const char *s;
+
+    s = NULL;		/* XXXGCC -Wuninitialized [powerpc] */
     
     if (list == 0) {
 	printf("Empty range list\n");
@@ -323,7 +325,7 @@ print_range_list(range_list *list)
 		break;
 	    }
 	    printed = 1;
-	    printf("\t%lu:%lu %s\n", cur->start, cur->end, s);
+	    printf("\t%u:%u %s\n", cur->start, cur->end, s);
 	} else {
 	    switch (cur->state) {
 	    case kUnallocated:
@@ -338,7 +340,7 @@ print_range_list(range_list *list)
 		break;
 	    }
 	    printed = 1;
-	    printf("\t%lu:%lu out of range, but %s\n", cur->start, cur->end, s);
+	    printf("\t%u:%u out of range, but %s\n", cur->start, cur->end, s);
 	}
     }
     if (printed == 0) {
@@ -352,7 +354,7 @@ validate_map(partition_map_header *map)
 {
     range_list *list;
     char *name;
-    int i;
+    unsigned int i;
     u32 limit;
     int printed;
     
@@ -421,12 +423,15 @@ check_map:
 
     // for each entry
     for (i = 1; ; i++) {
+#if 0
 	if (limit < 0) {
 	    /* XXX what to use for end of list? */
 	    if (i > 5) {
 	    	break;
 	    }
-	} else if (i > limit) {
+	} else
+#endif
+	if (i > limit) {
 	    break;
 	}
 
@@ -450,18 +455,21 @@ check_map:
 	    printf("\treserved word is 0x%x, should be 0\n", mb->dpme_reserved_1);
 	}
 	// entry count matches
+#if 0
 	if (limit < 0) {
 	    printed = 1;
 	    printf("\tentry count is 0x%lx, real value unknown\n", mb->dpme_map_entries);
-	} else if (mb->dpme_map_entries != limit) {
+	} else
+#endif
+	if (mb->dpme_map_entries != limit) {
 	    printed = 1;
-	    printf("\tentry count is 0x%lx, should be %ld\n", mb->dpme_map_entries, limit);
+	    printf("\tentry count is 0x%x, should be %d\n", mb->dpme_map_entries, limit);
 	}
 	// lblocks contained within physical
 	if (mb->dpme_lblock_start >= mb->dpme_pblocks
 		|| mb->dpme_lblocks > mb->dpme_pblocks - mb->dpme_lblock_start) {
 	    printed = 1;
-	    printf("\tlogical blocks (%ld for %ld) not within physical size (%ld)\n",
+	    printf("\tlogical blocks (%d for %d) not within physical size (%d)\n",
 		    mb->dpme_lblock_start, mb->dpme_lblocks, mb->dpme_pblocks);
 	}
 	// remember stuff for post processing

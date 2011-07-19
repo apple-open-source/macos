@@ -57,7 +57,6 @@ Declarations
 void l2tp_init();
 int l2tp_ctloutput(struct socket *so, struct sockopt *sopt);
 int l2tp_usrreq();
-void l2tp_fasttimo();
 void l2tp_slowtimo();
 
 int l2tp_attach(struct socket *, int, struct proc *);
@@ -129,7 +128,6 @@ int l2tp_add(struct domain *domain)
     l2tp.pr_flags		= PR_ATOMIC | PR_ADDR | PR_PROTOLOCK;
     l2tp.pr_ctloutput 	= l2tp_ctloutput;
     l2tp.pr_init		= l2tp_init;
-    l2tp.pr_fasttimo  	= l2tp_fasttimo;
     l2tp.pr_slowtimo  	= l2tp_slowtimo;
     l2tp.pr_usrreqs 	= &l2tp_usr;
 
@@ -308,16 +306,6 @@ int l2tp_ctloutput(struct socket *so, struct sockopt *sopt)
             break;
     }
     return error;
-}
-
-/* -----------------------------------------------------------------------------
-fast timer function, called every 200ms
------------------------------------------------------------------------------ */
-void l2tp_fasttimo()
-{
-	lck_mtx_lock(ppp_domain_mutex);
-    l2tp_rfc_fasttimer();
-	lck_mtx_unlock(ppp_domain_mutex);
 }
 
 /* -----------------------------------------------------------------------------

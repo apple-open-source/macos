@@ -48,5 +48,5 @@
 #include "def.h"
 #include "glob.h"
 
-#endif RCV_H
+#endif /* RCV_H */
 

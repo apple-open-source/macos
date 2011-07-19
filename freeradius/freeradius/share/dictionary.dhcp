@@ -46,6 +46,8 @@ ATTRIBUTE	DHCP-Client-Hardware-Address		267	ether	  # 16 octets
 ATTRIBUTE	DHCP-Server-Host-Name			268	string	  # 64 octets
 ATTRIBUTE	DHCP-Boot-Filename			269	string	  # 128 octets
 
+ATTRIBUTE	DHCP-Relay-To-IP-Address		270	ipaddr
+
 VALUE	DHCP-Flags			Broadcast		0x8000
 
 
@@ -197,7 +199,31 @@ ATTRIBUTE	DHCP-Rapid-Commit			80	octets
 # Fully Qualified Domain Name
 ATTRIBUTE	DHCP-Client-FQDN			81	string
 # Relay Agent Information
-ATTRIBUTE	DHCP-Relay-Agent-Information		82	octets # tlv
+ATTRIBUTE	DHCP-Relay-Agent-Information		82	tlv
+
+BEGIN-TLV	DHCP-Relay-Agent-Information
+
+ATTRIBUTE	DHCP-Agent-Circuit-Id			1	octets
+ATTRIBUTE	DHCP-Agent-Remote-Id			2	octets
+
+ATTRIBUTE	DHCP-Relay-Circuit-Id			1	octets
+ATTRIBUTE	DHCP-Relay-Remote-Id			2	octets
+
+# 3 is reserved and shouldn't be used for anything
+ATTRIBUTE	DHCP-Docsis-Device-Class		4	integer
+ATTRIBUTE	DHCP-Relay-Link-Selection		5	ipaddr	
+ATTRIBUTE	DHCP-Subscriber-Id			6	string
+
+# AGH!  RADIUS inside of DHCP!
+ATTRIBUTE	DHCP-RADIUS-Attributes			7	octets
+
+# Horribly complicated
+ATTRIBUTE	DHCP-Authentication-Information		8	octets
+ATTRIBUTE	DHCP-Vendor-Specific-Information	9	octets
+ATTRIBUTE	DHCP-Relay-Agent-Flags			10	byte
+ATTRIBUTE	DHCP-Server-Identifier-Override		11	ipaddr
+END-TLV		DHCP-Relay-Agent-Information
+
 # Internet Storage Name Service
 ATTRIBUTE	DHCP-iSNS				83	octets
 # Novell Directory Services
@@ -408,12 +434,5 @@ VALUE	DHCP-Parameter-Request-List	DHCP-IEEE-802.1P-VLAN-ID 132
 VALUE	DHCP-Parameter-Request-List	DHCP-IEEE-802.1Q-L2-Priority 133
 VALUE	DHCP-Parameter-Request-List	DHCP-Diffserv-Code-Point 134
 VALUE	DHCP-Parameter-Request-List	DHCP-HTTP-Proxy		135
-
-#
-#  Don't pay too much attention to these values.  They will be fixed
-#  in a future release.
-#
-ATTRIBUTE DHCP-Agent-Circuit-Id		0x0152			octets
-ATTRIBUTE DHCP-Agent-Remote-Id		0x0252			octets
 
 END-VENDOR	DHCP

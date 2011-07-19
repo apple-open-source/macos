@@ -1,4 +1,4 @@
-.\" Copyright (c) 2005-2007 Apple Inc
+.\" Copyright (c) 2005-2010 Apple Inc
 .\" All rights reserved.
 .\"
 .\" Redistribution and use in source and binary forms, with or without
@@ -26,7 +26,7 @@
 .\" SUCH DAMAGE.
 .\"
 .\"
-.Dd February 3, 2005
+.Dd August 25, 2010
 .Dt MBR_UID_TO_UUID 3
 .Os "Mac OS X"
 .Sh NAME
@@ -48,6 +48,10 @@
 .Fn mbr_sid_to_uuid "const nt_sid_t *sid" "uuid_t uu"
 .Ft int
 .Fn mbr_uuid_to_sid "const uuid_t uu" "nt_sid_t *sid"
+.Ft int
+.Fn mbr_sid_to_string "const nt_sid_t *sid" "char *string"
+.Ft int
+.Fn mbr_string_to_sid "const char *string" "nt_sid_t *sid"
 .Sh DESCRIPTION
 Users and groups can be referred to in multiple ways.
 In addition to the traditional uid and gid, 
@@ -88,13 +92,22 @@ or
 .Pp
 .Fn mbr_sid_to_uuid
 takes a sid and returns the associated uuid.
-Like
-.Fn mbr_uuid_to_id ,
-.Fn mbr_sid_to_uuid
-always returns a uuid for the sid, even if the sid can not be found.
 .Pp
 .Fn mbr_uuid_to_sid
 returns a sid for the associated uuid.
+.Pp
+Two additional utility functions are available to convert between sids and a string representation.
+String representations may be required, for example, when text files or XML files are used to save sid values.
+.Pp
+.Fn mbr_sid_to_string
+converts a sid into a string representation.
+The 
+.Fa string
+parameter must be a buffer of at least 194 characters.
+The converted string is terminated with a nul character.
+.Pp
+.Fn mbr_string_to_sid
+converts an external string representation into a sid.
 .Sh RETURN VALUES
 These functions return 0 on success, or EIO if communications with the
 .Xr DirectoryService 8
@@ -105,6 +118,12 @@ ENOENT is returned if the mapping can not be performed.
 and
 .Fn mbr_uid_to_uuid
 return 0 (success), even if the user/group does not exist.
+.Pp
+The 
+.Fn mbr_sid_to_string
+and 
+.Fn mbr_string_to_sid
+functions return 0 on success, or an errno value on failure.
 .Sh SEE ALSO
 .Xr getpwuid 3 ,
 .Xr getgrgid 3 ,

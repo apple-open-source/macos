@@ -26,11 +26,11 @@
 #ifndef LinkHash_h
 #define LinkHash_h
 
-#include "StringHash.h"
+#include <wtf/Forward.h>
+#include <wtf/text/StringHash.h>
 
 namespace WebCore {
 
-class AtomicString;
 class KURL;
 
 typedef uint64_t LinkHash;

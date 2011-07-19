@@ -1,6 +1,6 @@
---- getenv.c.orig	2006-08-29 00:12:28.000000000 -0700
-+++ getenv.c	2006-08-29 00:13:31.000000000 -0700
-@@ -40,8 +40,9 @@
+--- getenv.c.bsdnew	2009-11-13 15:14:36.000000000 -0800
++++ getenv.c	2009-11-13 15:14:50.000000000 -0800
+@@ -36,8 +36,9 @@ __FBSDID("$FreeBSD: src/lib/libc/stdlib/
  #include <stdlib.h>
  #include <stddef.h>
  #include <string.h>
@@ -11,7 +11,7 @@
  
  /*
   * __findenv --
-@@ -52,12 +53,12 @@
+@@ -48,12 +49,12 @@ inline char *__findenv(const char *, int
   *
   *	This routine *should* be a static; don't use it.
   */
@@ -27,7 +27,7 @@
  	int len, i;
  	const char *np;
  	char **p, *cp;
-@@ -80,6 +81,19 @@
+@@ -76,6 +77,19 @@ __findenv(name, offset)
  }
  
  /*
@@ -47,7 +47,7 @@
   * getenv --
   *	Returns ptr to value associated with name, if any, else NULL.
   */
-@@ -89,5 +103,5 @@
+@@ -85,5 +99,5 @@ getenv(name)
  {
  	int offset;
  

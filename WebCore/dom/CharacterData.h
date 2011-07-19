@@ -42,6 +42,10 @@ public:
 
     StringImpl* dataImpl() { return m_data.get(); }
 
+    // Like appendData, but optimized for the parser (e.g., no mutation events).
+    // Returns how much could be added before length limit was met.
+    unsigned parserAppendData(const UChar*, unsigned dataLength, unsigned lengthLimit);
+
 protected:
     CharacterData(Document* document, const String& text, ConstructionType type)
         : Node(document, type)
@@ -61,7 +65,8 @@ private:
     virtual bool isCharacterDataNode() const { return true; }
     virtual int maxCharacterOffset() const;
     virtual bool offsetInCharacters() const;
-
+    void setDataAndUpdate(PassRefPtr<StringImpl>, unsigned offsetOfReplacedData, unsigned oldLength, unsigned newLength);
+    void updateRenderer(unsigned offsetOfReplacedData, unsigned lengthOfReplacedData);
     void checkCharDataOperation(unsigned offset, ExceptionCode&);
 
     RefPtr<StringImpl> m_data;
